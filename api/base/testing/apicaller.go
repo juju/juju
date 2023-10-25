@@ -211,7 +211,7 @@ type StubFacadeCaller struct {
 }
 
 // FacadeCall implements api/base.FacadeCaller.
-func (s *StubFacadeCaller) FacadeCall(request string, params, response interface{}) error {
+func (s *StubFacadeCaller) FacadeCall(ctx context.Context, request string, params, response interface{}) error {
 	s.Stub.AddCall("FacadeCall", request, params, response)
 	if err := s.Stub.NextErr(); err != nil {
 		return errors.Trace(err)

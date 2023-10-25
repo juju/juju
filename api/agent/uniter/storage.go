@@ -4,6 +4,8 @@
 package uniter
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -30,7 +32,7 @@ func (sa *StorageAccessor) UnitStorageAttachments(unitTag names.UnitTag) ([]para
 		Entities: []params.Entity{{Tag: unitTag.String()}},
 	}
 	var results params.StorageAttachmentIdsResults
-	err := sa.facade.FacadeCall("UnitStorageAttachments", args, &results)
+	err := sa.facade.FacadeCall(context.TODO(), "UnitStorageAttachments", args, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -51,7 +53,7 @@ func (sa *StorageAccessor) DestroyUnitStorageAttachments(unitTag names.UnitTag) 
 		Entities: []params.Entity{{Tag: unitTag.String()}},
 	}
 	var results params.ErrorResults
-	err := sa.facade.FacadeCall("DestroyUnitStorageAttachments", args, &results)
+	err := sa.facade.FacadeCall(context.TODO(), "DestroyUnitStorageAttachments", args, &results)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -73,7 +75,7 @@ func (sa *StorageAccessor) WatchUnitStorageAttachments(unitTag names.UnitTag) (w
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: unitTag.String()}},
 	}
-	err := sa.facade.FacadeCall("WatchUnitStorageAttachments", args, &results)
+	err := sa.facade.FacadeCall(context.TODO(), "WatchUnitStorageAttachments", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -98,7 +100,7 @@ func (sa *StorageAccessor) StorageAttachment(storageTag names.StorageTag, unitTa
 		}},
 	}
 	var results params.StorageAttachmentResults
-	err := sa.facade.FacadeCall("StorageAttachments", args, &results)
+	err := sa.facade.FacadeCall(context.TODO(), "StorageAttachments", args, &results)
 	if err != nil {
 		return params.StorageAttachment{}, errors.Trace(err)
 	}
@@ -117,7 +119,7 @@ func (sa *StorageAccessor) StorageAttachment(storageTag names.StorageTag, unitTa
 func (sa *StorageAccessor) StorageAttachmentLife(ids []params.StorageAttachmentId) ([]params.LifeResult, error) {
 	args := params.StorageAttachmentIds{ids}
 	var results params.LifeResults
-	err := sa.facade.FacadeCall("StorageAttachmentLife", args, &results)
+	err := sa.facade.FacadeCall(context.TODO(), "StorageAttachmentLife", args, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -137,7 +139,7 @@ func (sa *StorageAccessor) WatchStorageAttachment(storageTag names.StorageTag, u
 			UnitTag:    unitTag.String(),
 		}},
 	}
-	err := sa.facade.FacadeCall("WatchStorageAttachments", args, &results)
+	err := sa.facade.FacadeCall(context.TODO(), "WatchStorageAttachments", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -163,7 +165,7 @@ func (sa *StorageAccessor) RemoveStorageAttachment(storageTag names.StorageTag, 
 			UnitTag:    unitTag.String(),
 		}},
 	}
-	err := sa.facade.FacadeCall("RemoveStorageAttachments", args, &results)
+	err := sa.facade.FacadeCall(context.TODO(), "RemoveStorageAttachments", args, &results)
 	if err != nil {
 		return err
 	}

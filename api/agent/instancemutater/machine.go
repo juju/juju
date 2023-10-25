@@ -4,6 +4,7 @@
 package instancemutater
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/errors"
@@ -77,7 +78,7 @@ type Machine struct {
 func (m *Machine) ContainerType() (instance.ContainerType, error) {
 	var result params.ContainerTypeResult
 	args := params.Entity{Tag: m.tag.String()}
-	err := m.facade.FacadeCall("ContainerType", args, &result)
+	err := m.facade.FacadeCall(context.TODO(), "ContainerType", args, &result)
 	if err != nil {
 		return "", err
 	}
@@ -93,7 +94,7 @@ func (m *Machine) InstanceId() (string, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: m.tag.String()}},
 	}
-	err := m.facade.FacadeCall("InstanceId", args, &results)
+	err := m.facade.FacadeCall(context.TODO(), "InstanceId", args, &results)
 	if err != nil {
 		return "", err
 	}
@@ -118,7 +119,7 @@ func (m *Machine) SetCharmProfiles(profiles []string) error {
 			},
 		},
 	}
-	err := m.facade.FacadeCall("SetCharmProfiles", args, &results)
+	err := m.facade.FacadeCall(context.TODO(), "SetCharmProfiles", args, &results)
 	if err != nil {
 		return err
 	}
@@ -158,7 +159,7 @@ func (m *Machine) WatchUnits() (watcher.StringsWatcher, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: m.tag.String()}},
 	}
-	err := m.facade.FacadeCall("WatchUnits", args, &results)
+	err := m.facade.FacadeCall(context.TODO(), "WatchUnits", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -179,7 +180,7 @@ func (m *Machine) WatchLXDProfileVerificationNeeded() (watcher.NotifyWatcher, er
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: m.tag.String()}},
 	}
-	err := m.facade.FacadeCall("WatchLXDProfileVerificationNeeded", args, &results)
+	err := m.facade.FacadeCall(context.TODO(), "WatchLXDProfileVerificationNeeded", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -200,7 +201,7 @@ func (m *Machine) WatchLXDProfileVerificationNeeded() (watcher.NotifyWatcher, er
 func (m *Machine) WatchContainers() (watcher.StringsWatcher, error) {
 	var result params.StringsWatchResult
 	arg := params.Entity{Tag: m.tag.String()}
-	err := m.facade.FacadeCall("WatchContainers", arg, &result)
+	err := m.facade.FacadeCall(context.TODO(), "WatchContainers", arg, &result)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -231,7 +232,7 @@ type UnitProfileChanges struct {
 func (m *Machine) CharmProfilingInfo() (*UnitProfileInfo, error) {
 	var result params.CharmProfilingInfoResult
 	args := params.Entity{Tag: m.tag.String()}
-	err := m.facade.FacadeCall("CharmProfilingInfo", args, &result)
+	err := m.facade.FacadeCall(context.TODO(), "CharmProfilingInfo", args, &result)
 	if err != nil {
 		return nil, err
 	}
@@ -274,7 +275,7 @@ func (m *Machine) SetModificationStatus(status status.Status, info string, data 
 			{Tag: m.tag.String(), Status: status.String(), Info: info, Data: data},
 		},
 	}
-	err := m.facade.FacadeCall("SetModificationStatus", args, &result)
+	err := m.facade.FacadeCall(context.TODO(), "SetModificationStatus", args, &result)
 	if err != nil {
 		return err
 	}

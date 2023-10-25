@@ -105,7 +105,7 @@ func (s *actionSuite) TestApplicationCharmActions(c *gc.C) {
 			facadeReturn = errors.New(t.patchErr)
 		}
 		mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-		mockFacadeCaller.EXPECT().FacadeCall("ApplicationsCharmsActions", args, res).SetArg(2, ress).Return(facadeReturn)
+		mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ApplicationsCharmsActions", args, res).SetArg(3, ress).Return(facadeReturn)
 		client := action.NewClientFromCaller(mockFacadeCaller)
 
 		result, err := client.ApplicationCharmActions("foo")
@@ -135,7 +135,7 @@ func (s *actionSuite) TestWatchActionProgress(c *gc.C) {
 	}
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("WatchActionsProgress", args, res).SetArg(2, ress).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "WatchActionsProgress", args, res).SetArg(3, ress).Return(nil)
 	client := action.NewClientFromCaller(mockFacadeCaller)
 
 	w, err := client.WatchActionProgress("666")
@@ -162,7 +162,7 @@ func (s *actionSuite) TestWatchActionProgressArity(c *gc.C) {
 	}
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("WatchActionsProgress", args, res).SetArg(2, ress).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "WatchActionsProgress", args, res).SetArg(3, ress).Return(nil)
 	client := action.NewClientFromCaller(mockFacadeCaller)
 
 	_, err := client.WatchActionProgress("666")
@@ -199,7 +199,7 @@ func (s *actionSuite) TestListOperations(c *gc.C) {
 	}
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("ListOperations", args, res).SetArg(2, ress).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ListOperations", args, res).SetArg(3, ress).Return(nil)
 	client := action.NewClientFromCaller(mockFacadeCaller)
 
 	result, err := client.ListOperations(action.OperationQueryArgs{
@@ -244,7 +244,7 @@ func (s *actionSuite) TestOperation(c *gc.C) {
 	}
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("Operations", args, res).SetArg(2, ress).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "Operations", args, res).SetArg(3, ress).Return(nil)
 	client := action.NewClientFromCaller(mockFacadeCaller)
 
 	result, err := client.Operation("666")
@@ -288,7 +288,7 @@ func (s *actionSuite) TestEnqueueOperation(c *gc.C) {
 	}
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("EnqueueOperation", fArgs, res).SetArg(2, ress).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "EnqueueOperation", fArgs, res).SetArg(3, ress).Return(nil)
 	client := action.NewClientFromCaller(mockFacadeCaller)
 
 	result, err := client.EnqueueOperation(args)

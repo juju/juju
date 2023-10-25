@@ -4,6 +4,8 @@
 package uniter
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -31,7 +33,7 @@ func (c PayloadFacadeClient) Track(payloads ...payloads.Payload) ([]payloads.Res
 	args := payloads2TrackArgs(payloads)
 
 	var rs params.PayloadResults
-	if err := c.FacadeCall("Track", &args, &rs); err != nil {
+	if err := c.FacadeCall(context.TODO(), "Track", &args, &rs); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -51,7 +53,7 @@ func (c PayloadFacadeClient) List(fullIDs ...string) ([]payloads.Result, error) 
 	args := ids2Args(ids)
 
 	var rs params.PayloadResults
-	if err := c.FacadeCall("List", &args, &rs); err != nil {
+	if err := c.FacadeCall(context.TODO(), "List", &args, &rs); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -67,7 +69,7 @@ func (c PayloadFacadeClient) LookUp(fullIDs ...string) ([]payloads.Result, error
 	args := fullIDs2LookUpArgs(fullIDs)
 
 	var rs params.PayloadResults
-	if err := c.FacadeCall("LookUp", &args, &rs); err != nil {
+	if err := c.FacadeCall(context.TODO(), "LookUp", &args, &rs); err != nil {
 		return nil, err
 	}
 
@@ -83,7 +85,7 @@ func (c PayloadFacadeClient) SetStatus(status string, fullIDs ...string) ([]payl
 	args := ids2SetStatusArgs(ids, status)
 
 	var rs params.PayloadResults
-	if err := c.FacadeCall("SetStatus", &args, &rs); err != nil {
+	if err := c.FacadeCall(context.TODO(), "SetStatus", &args, &rs); err != nil {
 		return nil, err
 	}
 
@@ -99,7 +101,7 @@ func (c PayloadFacadeClient) Untrack(fullIDs ...string) ([]payloads.Result, erro
 	args := ids2Args(ids)
 
 	var rs params.PayloadResults
-	if err := c.FacadeCall("Untrack", &args, &rs); err != nil {
+	if err := c.FacadeCall(context.TODO(), "Untrack", &args, &rs); err != nil {
 		return nil, err
 	}
 

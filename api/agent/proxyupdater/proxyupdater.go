@@ -4,6 +4,7 @@
 package proxyupdater
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/errors"
@@ -16,6 +17,13 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
+// Option is a function that can be used to configure a Client.
+type Option = base.Option
+
+// WithTracer returns an Option that configures the Client to use the
+// supplied tracer.
+var WithTracer = base.WithTracer
+
 const proxyUpdaterFacade = "ProxyUpdater"
 
 // API provides access to the ProxyUpdater API facade.
@@ -25,7 +33,7 @@ type API struct {
 }
 
 // NewAPI returns a new api client facade instance.
-func NewAPI(caller base.APICaller, tag names.Tag) (*API, error) {
+func NewAPI(caller base.APICaller, tag names.Tag, options ...Option) (*API, error) {
 	if caller == nil {
 		return nil, fmt.Errorf("caller is nil")
 	}
@@ -35,7 +43,7 @@ func NewAPI(caller base.APICaller, tag names.Tag) (*API, error) {
 	}
 
 	return &API{
-		facade: base.NewFacadeCaller(caller, proxyUpdaterFacade),
+		facade: base.NewFacadeCaller(caller, proxyUpdaterFacade, options...),
 		tag:    tag,
 	}, nil
 }
@@ -47,7 +55,7 @@ func (api *API) WatchForProxyConfigAndAPIHostPortChanges() (watcher.NotifyWatche
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: api.tag.String()}},
 	}
-	err := api.facade.FacadeCall("WatchForProxyConfigAndAPIHostPortChanges", args, &results)
+	err := api.facade.FacadeCall(context.TODO(), "WatchForProxyConfigAndAPIHostPortChanges", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -95,7 +103,7 @@ func (api *API) ProxyConfig() (ProxyConfiguration, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: api.tag.String()}},
 	}
-	err := api.facade.FacadeCall("ProxyConfig", args, &results)
+	err := api.facade.FacadeCall(context.TODO(), "ProxyConfig", args, &results)
 	if err != nil {
 		return empty, err
 	}

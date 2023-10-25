@@ -4,6 +4,7 @@
 package deployer
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/names/v4"
@@ -27,7 +28,7 @@ func (m *Machine) WatchUnits() (watcher.StringsWatcher, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: m.tag.String()}},
 	}
-	err := m.client.facade.FacadeCall("WatchUnits", args, &results)
+	err := m.client.facade.FacadeCall(context.TODO(), "WatchUnits", args, &results)
 	if err != nil {
 		return nil, err
 	}

@@ -4,6 +4,7 @@
 package secretbackends
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/errors"
@@ -13,6 +14,13 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
+// Option is a function that can be used to configure a Client.
+type Option = base.Option
+
+// WithTracer returns an Option that configures the Client to use the
+// supplied tracer.
+var WithTracer = base.WithTracer
+
 // Client is the api client for the SecretBackends facade.
 type Client struct {
 	base.ClientFacade
@@ -20,8 +28,8 @@ type Client struct {
 }
 
 // NewClient creates a secret backends api client.
-func NewClient(caller base.APICallCloser) *Client {
-	frontend, backend := base.NewClientFacade(caller, "SecretBackends")
+func NewClient(caller base.APICallCloser, options ...Option) *Client {
+	frontend, backend := base.NewClientFacade(caller, "SecretBackends", options...)
 	return &Client{ClientFacade: frontend, facade: backend}
 }
 
@@ -47,7 +55,7 @@ func (api *Client) ListSecretBackends(names []string, reveal bool) ([]SecretBack
 	}
 
 	var response params.ListSecretBackendsResults
-	err := api.facade.FacadeCall("ListSecretBackends", params.ListSecretBackendsArgs{Names: names, Reveal: reveal}, &response)
+	err := api.facade.FacadeCall(context.TODO(), "ListSecretBackends", params.ListSecretBackendsArgs{Names: names, Reveal: reveal}, &response)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -100,7 +108,7 @@ func (api *Client) AddSecretBackend(backend CreateSecretBackend) error {
 			},
 		}},
 	}
-	err := api.facade.FacadeCall("AddSecretBackends", args, &results)
+	err := api.facade.FacadeCall(context.TODO(), "AddSecretBackends", args, &results)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -133,7 +141,7 @@ func (api *Client) UpdateSecretBackend(arg UpdateSecretBackend, force bool) erro
 			Force:               force,
 		}},
 	}
-	err := api.facade.FacadeCall("UpdateSecretBackends", args, &results)
+	err := api.facade.FacadeCall(context.TODO(), "UpdateSecretBackends", args, &results)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -153,7 +161,7 @@ func (api *Client) RemoveSecretBackend(name string, force bool) error {
 			Force: force,
 		}},
 	}
-	err := api.facade.FacadeCall("RemoveSecretBackends", args, &results)
+	err := api.facade.FacadeCall(context.TODO(), "RemoveSecretBackends", args, &results)
 	if err != nil {
 		return errors.Trace(err)
 	}

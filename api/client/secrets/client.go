@@ -4,12 +4,21 @@
 package secrets
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/rpc/params"
 )
+
+// Option is a function that can be used to configure a Client.
+type Option = base.Option
+
+// WithTracer returns an Option that configures the Client to use the
+// supplied tracer.
+var WithTracer = base.WithTracer
 
 // Client is the api client for the Secrets facade.
 type Client struct {
@@ -18,8 +27,8 @@ type Client struct {
 }
 
 // NewClient creates a secrets api client.
-func NewClient(caller base.APICallCloser) *Client {
-	frontend, backend := base.NewClientFacade(caller, "Secrets")
+func NewClient(caller base.APICallCloser, options ...Option) *Client {
+	frontend, backend := base.NewClientFacade(caller, "Secrets", options...)
 	return &Client{ClientFacade: frontend, facade: backend}
 }
 
@@ -45,7 +54,7 @@ func (api *Client) ListSecrets(reveal bool, filter secrets.Filter) ([]SecretDeta
 		arg.Filter.URI = &uri
 	}
 	var response params.ListSecretResults
-	err := api.facade.FacadeCall("ListSecrets", arg, &response)
+	err := api.facade.FacadeCall(context.TODO(), "ListSecrets", arg, &response)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -112,7 +121,7 @@ func (c *Client) CreateSecret(label, description string, data map[string]string)
 		arg.Description = &description
 	}
 
-	err := c.facade.FacadeCall("CreateSecrets", params.CreateSecretArgs{Args: []params.CreateSecretArg{arg}}, &results)
+	err := c.facade.FacadeCall(context.TODO(), "CreateSecrets", params.CreateSecretArgs{Args: []params.CreateSecretArg{arg}}, &results)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -148,7 +157,7 @@ func (c *Client) UpdateSecret(
 	if description != "" {
 		arg.UpsertSecretArg.Description = &description
 	}
-	err := c.facade.FacadeCall("UpdateSecrets", params.UpdateUserSecretArgs{Args: []params.UpdateUserSecretArg{arg}}, &results)
+	err := c.facade.FacadeCall(context.TODO(), "UpdateSecrets", params.UpdateUserSecretArgs{Args: []params.UpdateUserSecretArg{arg}}, &results)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -174,7 +183,7 @@ func (c *Client) RemoveSecret(uri *secrets.URI, revision *int) error {
 	}
 
 	var results params.ErrorResults
-	err := c.facade.FacadeCall("RemoveSecrets", params.DeleteSecretArgs{Args: []params.DeleteSecretArg{arg}}, &results)
+	err := c.facade.FacadeCall(context.TODO(), "RemoveSecrets", params.DeleteSecretArgs{Args: []params.DeleteSecretArg{arg}}, &results)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -198,7 +207,7 @@ func (c *Client) GrantSecret(uri *secrets.URI, apps []string) ([]error, error) {
 	}
 
 	var results params.ErrorResults
-	err := c.facade.FacadeCall("GrantSecret", arg, &results)
+	err := c.facade.FacadeCall(context.TODO(), "GrantSecret", arg, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -230,7 +239,7 @@ func (c *Client) RevokeSecret(uri *secrets.URI, apps []string) ([]error, error) 
 	}
 
 	var results params.ErrorResults
-	err := c.facade.FacadeCall("RevokeSecret", arg, &results)
+	err := c.facade.FacadeCall(context.TODO(), "RevokeSecret", arg, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

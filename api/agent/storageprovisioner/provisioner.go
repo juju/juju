@@ -4,6 +4,8 @@
 package storageprovisioner
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -13,6 +15,13 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
+// Option is a function that can be used to configure a Client.
+type Option = base.Option
+
+// WithTracer returns an Option that configures the Client to use the
+// supplied tracer.
+var WithTracer = base.WithTracer
+
 const storageProvisionerFacade = "StorageProvisioner"
 
 // Client provides access to a storageprovisioner facade client.
@@ -21,8 +30,8 @@ type Client struct {
 }
 
 // NewClient creates a new client-side StorageProvisioner facade.
-func NewClient(caller base.APICaller) (*Client, error) {
-	facadeCaller := base.NewFacadeCaller(caller, storageProvisionerFacade)
+func NewClient(caller base.APICaller, options ...Option) (*Client, error) {
+	facadeCaller := base.NewFacadeCaller(caller, storageProvisionerFacade, options...)
 	return &Client{facadeCaller}, nil
 }
 
@@ -30,7 +39,7 @@ func NewClient(caller base.APICaller) (*Client, error) {
 // changes to the lifecycles of CAAS applications in the current model.
 func (st *Client) WatchApplications() (watcher.StringsWatcher, error) {
 	var result params.StringsWatchResult
-	if err := st.facade.FacadeCall("WatchApplications", nil, &result); err != nil {
+	if err := st.facade.FacadeCall(context.TODO(), "WatchApplications", nil, &result); err != nil {
 		return nil, err
 	}
 	if err := result.Error; err != nil {
@@ -46,7 +55,7 @@ func (st *Client) WatchBlockDevices(m names.MachineTag) (watcher.NotifyWatcher, 
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: m.String()}},
 	}
-	err := st.facade.FacadeCall("WatchBlockDevices", args, &results)
+	err := st.facade.FacadeCall(context.TODO(), "WatchBlockDevices", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -67,7 +76,7 @@ func (st *Client) WatchMachine(m names.MachineTag) (watcher.NotifyWatcher, error
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: m.String()}},
 	}
-	err := st.facade.FacadeCall("WatchMachines", args, &results)
+	err := st.facade.FacadeCall(context.TODO(), "WatchMachines", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -99,7 +108,7 @@ func (st *Client) watchStorageEntities(method string, scope names.Tag) (watcher.
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: scope.String()}},
 	}
-	err := st.facade.FacadeCall(method, args, &results)
+	err := st.facade.FacadeCall(context.TODO(), method, args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -141,7 +150,7 @@ func (st *Client) watchAttachments(
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: scope.String()}},
 	}
-	err := st.facade.FacadeCall(method, args, &results)
+	err := st.facade.FacadeCall(context.TODO(), method, args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -165,7 +174,7 @@ func (st *Client) Volumes(tags []names.VolumeTag) ([]params.VolumeResult, error)
 		args.Entities[i].Tag = tag.String()
 	}
 	var results params.VolumeResults
-	err := st.facade.FacadeCall("Volumes", args, &results)
+	err := st.facade.FacadeCall(context.TODO(), "Volumes", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -184,7 +193,7 @@ func (st *Client) Filesystems(tags []names.FilesystemTag) ([]params.FilesystemRe
 		args.Entities[i].Tag = tag.String()
 	}
 	var results params.FilesystemResults
-	err := st.facade.FacadeCall("Filesystems", args, &results)
+	err := st.facade.FacadeCall(context.TODO(), "Filesystems", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -197,7 +206,7 @@ func (st *Client) Filesystems(tags []names.FilesystemTag) ([]params.FilesystemRe
 func (st *Client) VolumeAttachmentPlans(ids []params.MachineStorageId) ([]params.VolumeAttachmentPlanResult, error) {
 	args := params.MachineStorageIds{ids}
 	var results params.VolumeAttachmentPlanResults
-	err := st.facade.FacadeCall("VolumeAttachmentPlans", args, &results)
+	err := st.facade.FacadeCall(context.TODO(), "VolumeAttachmentPlans", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -212,7 +221,7 @@ func (st *Client) RemoveVolumeAttachmentPlan(ids []params.MachineStorageId) ([]p
 	args := params.MachineStorageIds{
 		Ids: ids,
 	}
-	if err := st.facade.FacadeCall("RemoveVolumeAttachmentPlan", args, &results); err != nil {
+	if err := st.facade.FacadeCall(context.TODO(), "RemoveVolumeAttachmentPlan", args, &results); err != nil {
 		return nil, err
 	}
 	return results.Results, nil
@@ -222,7 +231,7 @@ func (st *Client) RemoveVolumeAttachmentPlan(ids []params.MachineStorageId) ([]p
 func (st *Client) VolumeAttachments(ids []params.MachineStorageId) ([]params.VolumeAttachmentResult, error) {
 	args := params.MachineStorageIds{ids}
 	var results params.VolumeAttachmentResults
-	err := st.facade.FacadeCall("VolumeAttachments", args, &results)
+	err := st.facade.FacadeCall(context.TODO(), "VolumeAttachments", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -237,7 +246,7 @@ func (st *Client) VolumeAttachments(ids []params.MachineStorageId) ([]params.Vol
 func (st *Client) VolumeBlockDevices(ids []params.MachineStorageId) ([]params.BlockDeviceResult, error) {
 	args := params.MachineStorageIds{ids}
 	var results params.BlockDeviceResults
-	err := st.facade.FacadeCall("VolumeBlockDevices", args, &results)
+	err := st.facade.FacadeCall(context.TODO(), "VolumeBlockDevices", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -251,7 +260,7 @@ func (st *Client) VolumeBlockDevices(ids []params.MachineStorageId) ([]params.Bl
 func (st *Client) FilesystemAttachments(ids []params.MachineStorageId) ([]params.FilesystemAttachmentResult, error) {
 	args := params.MachineStorageIds{ids}
 	var results params.FilesystemAttachmentResults
-	err := st.facade.FacadeCall("FilesystemAttachments", args, &results)
+	err := st.facade.FacadeCall(context.TODO(), "FilesystemAttachments", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -271,7 +280,7 @@ func (st *Client) VolumeParams(tags []names.VolumeTag) ([]params.VolumeParamsRes
 		args.Entities[i].Tag = tag.String()
 	}
 	var results params.VolumeParamsResults
-	err := st.facade.FacadeCall("VolumeParams", args, &results)
+	err := st.facade.FacadeCall(context.TODO(), "VolumeParams", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -291,7 +300,7 @@ func (st *Client) RemoveVolumeParams(tags []names.VolumeTag) ([]params.RemoveVol
 		args.Entities[i].Tag = tag.String()
 	}
 	var results params.RemoveVolumeParamsResults
-	err := st.facade.FacadeCall("RemoveVolumeParams", args, &results)
+	err := st.facade.FacadeCall(context.TODO(), "RemoveVolumeParams", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -311,7 +320,7 @@ func (st *Client) FilesystemParams(tags []names.FilesystemTag) ([]params.Filesys
 		args.Entities[i].Tag = tag.String()
 	}
 	var results params.FilesystemParamsResults
-	err := st.facade.FacadeCall("FilesystemParams", args, &results)
+	err := st.facade.FacadeCall(context.TODO(), "FilesystemParams", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -331,7 +340,7 @@ func (st *Client) RemoveFilesystemParams(tags []names.FilesystemTag) ([]params.R
 		args.Entities[i].Tag = tag.String()
 	}
 	var results params.RemoveFilesystemParamsResults
-	err := st.facade.FacadeCall("RemoveFilesystemParams", args, &results)
+	err := st.facade.FacadeCall(context.TODO(), "RemoveFilesystemParams", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -346,7 +355,7 @@ func (st *Client) RemoveFilesystemParams(tags []names.FilesystemTag) ([]params.R
 func (st *Client) VolumeAttachmentParams(ids []params.MachineStorageId) ([]params.VolumeAttachmentParamsResult, error) {
 	args := params.MachineStorageIds{ids}
 	var results params.VolumeAttachmentParamsResults
-	err := st.facade.FacadeCall("VolumeAttachmentParams", args, &results)
+	err := st.facade.FacadeCall(context.TODO(), "VolumeAttachmentParams", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -361,7 +370,7 @@ func (st *Client) VolumeAttachmentParams(ids []params.MachineStorageId) ([]param
 func (st *Client) FilesystemAttachmentParams(ids []params.MachineStorageId) ([]params.FilesystemAttachmentParamsResult, error) {
 	args := params.MachineStorageIds{ids}
 	var results params.FilesystemAttachmentParamsResults
-	err := st.facade.FacadeCall("FilesystemAttachmentParams", args, &results)
+	err := st.facade.FacadeCall(context.TODO(), "FilesystemAttachmentParams", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -375,7 +384,7 @@ func (st *Client) FilesystemAttachmentParams(ids []params.MachineStorageId) ([]p
 func (st *Client) SetVolumeInfo(volumes []params.Volume) ([]params.ErrorResult, error) {
 	args := params.Volumes{Volumes: volumes}
 	var results params.ErrorResults
-	err := st.facade.FacadeCall("SetVolumeInfo", args, &results)
+	err := st.facade.FacadeCall(context.TODO(), "SetVolumeInfo", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -389,7 +398,7 @@ func (st *Client) SetVolumeInfo(volumes []params.Volume) ([]params.ErrorResult, 
 func (st *Client) SetFilesystemInfo(filesystems []params.Filesystem) ([]params.ErrorResult, error) {
 	args := params.Filesystems{Filesystems: filesystems}
 	var results params.ErrorResults
-	err := st.facade.FacadeCall("SetFilesystemInfo", args, &results)
+	err := st.facade.FacadeCall(context.TODO(), "SetFilesystemInfo", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -402,7 +411,7 @@ func (st *Client) SetFilesystemInfo(filesystems []params.Filesystem) ([]params.E
 func (st *Client) CreateVolumeAttachmentPlans(volumeAttachmentPlans []params.VolumeAttachmentPlan) ([]params.ErrorResult, error) {
 	args := params.VolumeAttachmentPlans{VolumeAttachmentPlans: volumeAttachmentPlans}
 	var results params.ErrorResults
-	err := st.facade.FacadeCall("CreateVolumeAttachmentPlans", args, &results)
+	err := st.facade.FacadeCall(context.TODO(), "CreateVolumeAttachmentPlans", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -415,7 +424,7 @@ func (st *Client) CreateVolumeAttachmentPlans(volumeAttachmentPlans []params.Vol
 func (st *Client) SetVolumeAttachmentPlanBlockInfo(volumeAttachmentPlans []params.VolumeAttachmentPlan) ([]params.ErrorResult, error) {
 	args := params.VolumeAttachmentPlans{VolumeAttachmentPlans: volumeAttachmentPlans}
 	var results params.ErrorResults
-	err := st.facade.FacadeCall("SetVolumeAttachmentPlanBlockInfo", args, &results)
+	err := st.facade.FacadeCall(context.TODO(), "SetVolumeAttachmentPlanBlockInfo", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -429,7 +438,7 @@ func (st *Client) SetVolumeAttachmentPlanBlockInfo(volumeAttachmentPlans []param
 func (st *Client) SetVolumeAttachmentInfo(volumeAttachments []params.VolumeAttachment) ([]params.ErrorResult, error) {
 	args := params.VolumeAttachments{VolumeAttachments: volumeAttachments}
 	var results params.ErrorResults
-	err := st.facade.FacadeCall("SetVolumeAttachmentInfo", args, &results)
+	err := st.facade.FacadeCall(context.TODO(), "SetVolumeAttachmentInfo", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -443,7 +452,7 @@ func (st *Client) SetVolumeAttachmentInfo(volumeAttachments []params.VolumeAttac
 func (st *Client) SetFilesystemAttachmentInfo(filesystemAttachments []params.FilesystemAttachment) ([]params.ErrorResult, error) {
 	args := params.FilesystemAttachments{FilesystemAttachments: filesystemAttachments}
 	var results params.ErrorResults
-	err := st.facade.FacadeCall("SetFilesystemAttachmentInfo", args, &results)
+	err := st.facade.FacadeCall(context.TODO(), "SetFilesystemAttachmentInfo", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -462,7 +471,7 @@ func (st *Client) Life(tags []names.Tag) ([]params.LifeResult, error) {
 	for i, tag := range tags {
 		args.Entities[i].Tag = tag.String()
 	}
-	if err := st.facade.FacadeCall("Life", args, &results); err != nil {
+	if err := st.facade.FacadeCall(context.TODO(), "Life", args, &results); err != nil {
 		return nil, err
 	}
 	if len(results.Results) != len(tags) {
@@ -475,7 +484,7 @@ func (st *Client) Life(tags []names.Tag) ([]params.LifeResult, error) {
 func (st *Client) AttachmentLife(ids []params.MachineStorageId) ([]params.LifeResult, error) {
 	var results params.LifeResults
 	args := params.MachineStorageIds{ids}
-	if err := st.facade.FacadeCall("AttachmentLife", args, &results); err != nil {
+	if err := st.facade.FacadeCall(context.TODO(), "AttachmentLife", args, &results); err != nil {
 		return nil, err
 	}
 	if len(results.Results) != len(ids) {
@@ -494,7 +503,7 @@ func (st *Client) EnsureDead(tags []names.Tag) ([]params.ErrorResult, error) {
 	for i, tag := range tags {
 		args.Entities[i].Tag = tag.String()
 	}
-	if err := st.facade.FacadeCall("EnsureDead", args, &results); err != nil {
+	if err := st.facade.FacadeCall(context.TODO(), "EnsureDead", args, &results); err != nil {
 		return nil, err
 	}
 	if len(results.Results) != len(tags) {
@@ -512,7 +521,7 @@ func (st *Client) Remove(tags []names.Tag) ([]params.ErrorResult, error) {
 	for i, tag := range tags {
 		args.Entities[i].Tag = tag.String()
 	}
-	if err := st.facade.FacadeCall("Remove", args, &results); err != nil {
+	if err := st.facade.FacadeCall(context.TODO(), "Remove", args, &results); err != nil {
 		return nil, err
 	}
 	if len(results.Results) != len(tags) {
@@ -525,7 +534,7 @@ func (st *Client) Remove(tags []names.Tag) ([]params.ErrorResult, error) {
 func (st *Client) RemoveAttachments(ids []params.MachineStorageId) ([]params.ErrorResult, error) {
 	var results params.ErrorResults
 	args := params.MachineStorageIds{ids}
-	if err := st.facade.FacadeCall("RemoveAttachment", args, &results); err != nil {
+	if err := st.facade.FacadeCall(context.TODO(), "RemoveAttachment", args, &results); err != nil {
 		return nil, err
 	}
 	if len(results.Results) != len(ids) {
@@ -544,7 +553,7 @@ func (st *Client) InstanceIds(tags []names.MachineTag) ([]params.StringResult, e
 	for i, tag := range tags {
 		args.Entities[i].Tag = tag.String()
 	}
-	err := st.facade.FacadeCall("InstanceId", args, &results)
+	err := st.facade.FacadeCall(context.TODO(), "InstanceId", args, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -557,7 +566,7 @@ func (st *Client) InstanceIds(tags []names.MachineTag) ([]params.StringResult, e
 // SetStatus sets the status of storage entities.
 func (st *Client) SetStatus(args []params.EntityStatusArgs) error {
 	var result params.ErrorResults
-	err := st.facade.FacadeCall("SetStatus", params.SetStatus{args}, &result)
+	err := st.facade.FacadeCall(context.TODO(), "SetStatus", params.SetStatus{args}, &result)
 	if err != nil {
 		return err
 	}

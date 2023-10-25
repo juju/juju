@@ -4,6 +4,7 @@
 package action
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/errors"
@@ -15,6 +16,13 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
+// Option is a function that can be used to configure a Client.
+type Option = base.Option
+
+// WithTracer returns an Option that configures the Client to use the
+// supplied tracer.
+var WithTracer = base.WithTracer
+
 // Client provides access to the action facade.
 type Client struct {
 	base.ClientFacade
@@ -22,8 +30,8 @@ type Client struct {
 }
 
 // NewClient returns a new actions client.
-func NewClient(st base.APICallCloser) *Client {
-	frontend, backend := base.NewClientFacade(st, "Action")
+func NewClient(st base.APICallCloser, options ...Option) *Client {
+	frontend, backend := base.NewClientFacade(st, "Action", options...)
 	return &Client{ClientFacade: frontend, facade: backend}
 }
 
@@ -35,7 +43,7 @@ func (c *Client) Actions(actionIDs []string) ([]ActionResult, error) {
 		arg.Entities[i].Tag = names.NewActionTag(ID).String()
 	}
 	results := params.ActionResults{}
-	err := c.facade.FacadeCall("Actions", arg, &results)
+	err := c.facade.FacadeCall(context.TODO(), "Actions", arg, &results)
 	return unmarshallActionResults(results.Results), err
 }
 
@@ -51,7 +59,7 @@ func (c *Client) ListOperations(arg OperationQueryArgs) (Operations, error) {
 		Limit:        arg.Limit,
 	}
 	results := params.OperationResults{}
-	err := c.facade.FacadeCall("ListOperations", args, &results)
+	err := c.facade.FacadeCall(context.TODO(), "ListOperations", args, &results)
 	if params.ErrCode(err) == params.CodeNotFound {
 		err = nil
 	}
@@ -64,7 +72,7 @@ func (c *Client) Operation(ID string) (Operation, error) {
 		Entities: []params.Entity{{names.NewOperationTag(ID).String()}},
 	}
 	var results params.OperationResults
-	err := c.facade.FacadeCall("Operations", arg, &results)
+	err := c.facade.FacadeCall(context.TODO(), "Operations", arg, &results)
 	if err != nil {
 		return Operation{}, err
 	}
@@ -100,7 +108,7 @@ func (c *Client) EnqueueOperation(actions []Action) (EnqueuedActions, error) {
 		}
 	}
 	results := params.EnqueuedActions{}
-	err := c.facade.FacadeCall("EnqueueOperation", arg, &results)
+	err := c.facade.FacadeCall(context.TODO(), "EnqueueOperation", arg, &results)
 	if err != nil {
 		return EnqueuedActions{}, errors.Trace(err)
 	}
@@ -114,7 +122,7 @@ func (c *Client) Cancel(actionIDs []string) ([]ActionResult, error) {
 		arg.Entities[i].Tag = names.NewActionTag(ID).String()
 	}
 	results := params.ActionResults{}
-	err := c.facade.FacadeCall("Cancel", arg, &results)
+	err := c.facade.FacadeCall(context.TODO(), "Cancel", arg, &results)
 	return unmarshallActionResults(results.Results), err
 }
 
@@ -122,7 +130,7 @@ func (c *Client) Cancel(actionIDs []string) ([]ActionResult, error) {
 // of applications by Entity.
 func (c *Client) applicationsCharmActions(arg params.Entities) (params.ApplicationsCharmActionsResults, error) {
 	results := params.ApplicationsCharmActionsResults{}
-	err := c.facade.FacadeCall("ApplicationsCharmsActions", arg, &results)
+	err := c.facade.FacadeCall(context.TODO(), "ApplicationsCharmsActions", arg, &results)
 	return results, err
 }
 
@@ -157,7 +165,7 @@ func (c *Client) WatchActionProgress(actionId string) (watcher.StringsWatcher, e
 			{Tag: names.NewActionTag(actionId).String()},
 		},
 	}
-	err := c.facade.FacadeCall("WatchActionsProgress", args, &results)
+	err := c.facade.FacadeCall(context.TODO(), "WatchActionsProgress", args, &results)
 	if err != nil {
 		return nil, err
 	}

@@ -98,7 +98,7 @@ func (s *upgradeStepsSuite) setupMocks(c *gc.C) *gomock.Controller {
 func (s *upgradeStepsSuite) expectResetKVMMachineModificationStatusIdleSuccess(resetArg params.Entity) {
 	fExp := s.fCaller.EXPECT()
 	resultSource := params.ErrorResult{}
-	fExp.FacadeCall("ResetKVMMachineModificationStatusIdle", resetArg, gomock.Any()).SetArg(2, resultSource)
+	fExp.FacadeCall(gomock.Any(), "ResetKVMMachineModificationStatusIdle", resetArg, gomock.Any()).SetArg(3, resultSource)
 }
 
 func (s *upgradeStepsSuite) expectResetKVMMachineModificationStatusIdleError(resetArg params.Entity) {
@@ -109,13 +109,13 @@ func (s *upgradeStepsSuite) expectResetKVMMachineModificationStatusIdleError(res
 			Message: "did not find",
 		},
 	}
-	fExp.FacadeCall("ResetKVMMachineModificationStatusIdle", resetArg, gomock.Any()).SetArg(2, resultSource)
+	fExp.FacadeCall(gomock.Any(), "ResetKVMMachineModificationStatusIdle", resetArg, gomock.Any()).SetArg(3, resultSource)
 }
 
 func (s *upgradeStepsSuite) expectWriteAgentStateSuccess(c *gc.C, args params.SetUnitStateArgs) {
 	fExp := s.fCaller.EXPECT()
 	resultSource := params.ErrorResults{}
-	fExp.FacadeCall("WriteAgentState", unitStateMatcher{c, args}, gomock.Any()).SetArg(2, resultSource)
+	fExp.FacadeCall(gomock.Any(), "WriteAgentState", unitStateMatcher{c, args}, gomock.Any()).SetArg(3, resultSource)
 }
 
 func (s *upgradeStepsSuite) expectWriteAgentStateError(c *gc.C, args params.SetUnitStateArgs) {
@@ -126,7 +126,7 @@ func (s *upgradeStepsSuite) expectWriteAgentStateError(c *gc.C, args params.SetU
 			Message: "did not find",
 		},
 	}}}
-	fExp.FacadeCall("WriteAgentState", unitStateMatcher{c, args}, gomock.Any()).SetArg(2, resultSource)
+	fExp.FacadeCall(gomock.Any(), "WriteAgentState", unitStateMatcher{c, args}, gomock.Any()).SetArg(3, resultSource)
 }
 
 type unitStateMatcher struct {

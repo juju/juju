@@ -4,6 +4,7 @@
 package modelupgrader
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -18,6 +19,13 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
+// Option is a function that can be used to configure a Client.
+type Option = base.Option
+
+// WithTracer returns an Option that configures the Client to use the
+// supplied tracer.
+var WithTracer = base.WithTracer
+
 // Client provides methods that the Juju client command uses to upgrade models.
 type Client struct {
 	base.ClientFacade
@@ -28,8 +36,8 @@ type Client struct {
 
 // NewClient creates a new `Client` based on an existing authenticated API
 // connection.
-func NewClient(st base.APICallCloser) *Client {
-	frontend, backend := base.NewClientFacade(st, "ModelUpgrader")
+func NewClient(st base.APICallCloser, options ...Option) *Client {
+	frontend, backend := base.NewClientFacade(st, "ModelUpgrader", options...)
 	return &Client{
 		ClientFacade: frontend,
 		facade:       backend,
@@ -43,7 +51,7 @@ func (c *Client) AbortModelUpgrade(modelUUID string) error {
 	args := params.ModelParam{
 		ModelTag: names.NewModelTag(modelUUID).String(),
 	}
-	return c.facade.FacadeCall("AbortModelUpgrade", args, nil)
+	return c.facade.FacadeCall(context.TODO(), "AbortModelUpgrade", args, nil)
 }
 
 // UpgradeModel upgrades the model to the provided agent version.
@@ -61,7 +69,7 @@ func (c *Client) UpgradeModel(
 		DryRun:              druRun,
 	}
 	var result params.UpgradeModelResult
-	err := c.facade.FacadeCall("UpgradeModel", args, &result)
+	err := c.facade.FacadeCall(context.TODO(), "UpgradeModel", args, &result)
 	if err != nil {
 		return result.ChosenVersion, errors.Trace(err)
 	}

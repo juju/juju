@@ -4,6 +4,8 @@
 package unitassigner
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -13,6 +15,13 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
+// Option is a function that can be used to configure a Client.
+type Option = base.Option
+
+// WithTracer returns an Option that configures the Client to use the
+// supplied tracer.
+var WithTracer = base.WithTracer
+
 const uaFacade = "UnitAssigner"
 
 // API provides access to the UnitAssigner API facade.
@@ -21,8 +30,8 @@ type API struct {
 }
 
 // New creates a new client-side UnitAssigner facade.
-func New(caller base.APICaller) API {
-	fc := base.NewFacadeCaller(caller, uaFacade)
+func New(caller base.APICaller, options ...Option) API {
+	fc := base.NewFacadeCaller(caller, uaFacade, options...)
 	return API{facade: fc}
 }
 
@@ -36,7 +45,7 @@ func (a API) AssignUnits(tags []names.UnitTag) ([]error, error) {
 	}
 	args := params.Entities{Entities: entities}
 	var result params.ErrorResults
-	if err := a.facade.FacadeCall("AssignUnits", args, &result); err != nil {
+	if err := a.facade.FacadeCall(context.TODO(), "AssignUnits", args, &result); err != nil {
 		return nil, err
 	}
 
@@ -61,7 +70,7 @@ func convertNotFound(err error) error {
 // created.
 func (a API) WatchUnitAssignments() (watcher.StringsWatcher, error) {
 	var result params.StringsWatchResult
-	err := a.facade.FacadeCall("WatchUnitAssignments", nil, &result)
+	err := a.facade.FacadeCall(context.TODO(), "WatchUnitAssignments", nil, &result)
 	if err != nil {
 		return nil, err
 	}
@@ -75,7 +84,7 @@ func (a API) WatchUnitAssignments() (watcher.StringsWatcher, error) {
 // SetAgentStatus sets the status of the unit agents.
 func (a API) SetAgentStatus(args params.SetStatus) error {
 	var result params.ErrorResults
-	err := a.facade.FacadeCall("SetAgentStatus", args, &result)
+	err := a.facade.FacadeCall(context.TODO(), "SetAgentStatus", args, &result)
 	if err != nil {
 		return err
 	}

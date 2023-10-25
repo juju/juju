@@ -4,6 +4,8 @@
 package charmdownloader
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -13,14 +15,21 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
+// Option is a function that can be used to configure a Client.
+type Option = base.Option
+
+// WithTracer returns an Option that configures the Client to use the
+// supplied tracer.
+var WithTracer = base.WithTracer
+
 // Client allows access to the charmdownloader API.
 type Client struct {
 	facade base.FacadeCaller
 }
 
 // NewClient creates a new client for accessing the charmdownloader API.
-func NewClient(caller base.APICaller) *Client {
-	facadeCaller := base.NewFacadeCaller(caller, "CharmDownloader")
+func NewClient(caller base.APICaller, options ...Option) *Client {
+	facadeCaller := base.NewFacadeCaller(caller, "CharmDownloader", options...)
 	return &Client{facade: facadeCaller}
 }
 
@@ -28,7 +37,7 @@ func NewClient(caller base.APICaller) *Client {
 // reference a charm that is pending to be downloaded.
 func (c *Client) WatchApplicationsWithPendingCharms() (watcher.StringsWatcher, error) {
 	var result params.StringsWatchResult
-	err := c.facade.FacadeCall("WatchApplicationsWithPendingCharms", nil, &result)
+	err := c.facade.FacadeCall(context.TODO(), "WatchApplicationsWithPendingCharms", nil, &result)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -51,7 +60,7 @@ func (c *Client) DownloadApplicationCharms(applications []names.ApplicationTag) 
 	}
 
 	var res params.ErrorResults
-	err := c.facade.FacadeCall("DownloadApplicationCharms", args, &res)
+	err := c.facade.FacadeCall(context.TODO(), "DownloadApplicationCharms", args, &res)
 	if err != nil {
 		return errors.Trace(err)
 	}

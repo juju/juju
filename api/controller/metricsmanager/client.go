@@ -4,12 +4,21 @@
 package metricsmanager
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/rpc/params"
 )
+
+// Option is a function that can be used to configure a Client.
+type Option = base.Option
+
+// WithTracer returns an Option that configures the Client to use the
+// supplied tracer.
+var WithTracer = base.WithTracer
 
 // Client provides access to the metrics manager api
 type Client struct {
@@ -26,13 +35,13 @@ type MetricsManagerClient interface {
 var _ MetricsManagerClient = (*Client)(nil)
 
 // NewClient creates a new client for accessing the metricsmanager api
-func NewClient(apiCaller base.APICaller) (*Client, error) {
+func NewClient(apiCaller base.APICaller, options ...Option) (*Client, error) {
 	modelTag, ok := apiCaller.ModelTag()
 	if !ok {
 		return nil, errors.New("metricsmanager client is not appropriate for controller-only API")
 
 	}
-	facade := base.NewFacadeCaller(apiCaller, "MetricsManager")
+	facade := base.NewFacadeCaller(apiCaller, "MetricsManager", options...)
 	return &Client{
 		modelTag: modelTag,
 		facade:   facade,
@@ -46,7 +55,7 @@ func (c *Client) CleanupOldMetrics() error {
 		{c.modelTag.String()},
 	}}
 	var results params.ErrorResults
-	err := c.facade.FacadeCall("CleanupOldMetrics", p, &results)
+	err := c.facade.FacadeCall(context.TODO(), "CleanupOldMetrics", p, &results)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -59,7 +68,7 @@ func (c *Client) SendMetrics() error {
 		{c.modelTag.String()},
 	}}
 	var results params.ErrorResults
-	err := c.facade.FacadeCall("SendMetrics", p, &results)
+	err := c.facade.FacadeCall(context.TODO(), "SendMetrics", p, &results)
 	if err != nil {
 		return errors.Trace(err)
 	}

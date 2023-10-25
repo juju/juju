@@ -134,3 +134,7 @@ func (f *fakeAPIConn) APICall(ctx context.Context, objType string, version int, 
 func (*fakeAPIConn) BestFacadeVersion(facade string) int {
 	return 42
 }
+
+func (*fakeAPIConn) Context() context.Context {
+	return context.Background()
+}

@@ -4,11 +4,20 @@
 package block
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/rpc/params"
 )
+
+// Option is a function that can be used to configure a Client.
+type Option = base.Option
+
+// WithTracer returns an Option that configures the Client to use the
+// supplied tracer.
+var WithTracer = base.WithTracer
 
 // Client allows access to the block API end point.
 type Client struct {
@@ -17,15 +26,15 @@ type Client struct {
 }
 
 // NewClient creates a new client for accessing the block API.
-func NewClient(st base.APICallCloser) *Client {
-	frontend, backend := base.NewClientFacade(st, "Block")
+func NewClient(st base.APICallCloser, options ...Option) *Client {
+	frontend, backend := base.NewClientFacade(st, "Block", options...)
 	return &Client{ClientFacade: frontend, facade: backend}
 }
 
 // List returns blocks that are switched on for current model.
 func (c *Client) List() ([]params.Block, error) {
 	var blocks params.BlockResults
-	if err := c.facade.FacadeCall("List", nil, &blocks); err != nil {
+	if err := c.facade.FacadeCall(context.TODO(), "List", nil, &blocks); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -49,7 +58,7 @@ func (c *Client) SwitchBlockOn(blockType, msg string) error {
 		Message: msg,
 	}
 	var result params.ErrorResult
-	if err := c.facade.FacadeCall("SwitchBlockOn", args, &result); err != nil {
+	if err := c.facade.FacadeCall(context.TODO(), "SwitchBlockOn", args, &result); err != nil {
 		return errors.Trace(err)
 	}
 	if result.Error != nil {
@@ -66,7 +75,7 @@ func (c *Client) SwitchBlockOff(blockType string) error {
 		Type: blockType,
 	}
 	var result params.ErrorResult
-	if err := c.facade.FacadeCall("SwitchBlockOff", args, &result); err != nil {
+	if err := c.facade.FacadeCall(context.TODO(), "SwitchBlockOff", args, &result); err != nil {
 		return errors.Trace(err)
 	}
 	if result.Error != nil {

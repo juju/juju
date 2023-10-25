@@ -4,6 +4,7 @@
 package upgrader
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/version/v2"
@@ -15,6 +16,13 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
+// Option is a function that can be used to configure a Client.
+type Option = base.Option
+
+// WithTracer returns an Option that configures the Client to use the
+// supplied tracer.
+var WithTracer = base.WithTracer
+
 // Client provides access to an upgrader worker's view of the state.
 type Client struct {
 	facade base.FacadeCaller
@@ -22,8 +30,8 @@ type Client struct {
 
 // NewClient returns a version of the api client that provides functionality
 // required by the upgrader worker.
-func NewClient(caller base.APICaller) *Client {
-	return &Client{base.NewFacadeCaller(caller, "Upgrader")}
+func NewClient(caller base.APICaller, options ...Option) *Client {
+	return &Client{base.NewFacadeCaller(caller, "Upgrader", options...)}
 }
 
 // SetVersion sets the tools version associated with the entity with
@@ -37,7 +45,7 @@ func (st *Client) SetVersion(tag string, v version.Binary) error {
 			Tools: &params.Version{Version: v},
 		}},
 	}
-	err := st.facade.FacadeCall("SetTools", args, &results)
+	err := st.facade.FacadeCall(context.TODO(), "SetTools", args, &results)
 	if err != nil {
 		return err
 	}
@@ -49,7 +57,7 @@ func (st *Client) DesiredVersion(tag string) (version.Number, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: tag}},
 	}
-	err := st.facade.FacadeCall("DesiredVersion", args, &results)
+	err := st.facade.FacadeCall(context.TODO(), "DesiredVersion", args, &results)
 	if err != nil {
 		return version.Number{}, err
 	}
@@ -73,7 +81,7 @@ func (st *Client) Tools(tag string) (tools.List, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: tag}},
 	}
-	err := st.facade.FacadeCall("Tools", args, &results)
+	err := st.facade.FacadeCall(context.TODO(), "Tools", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -92,7 +100,7 @@ func (st *Client) WatchAPIVersion(agentTag string) (watcher.NotifyWatcher, error
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: agentTag}},
 	}
-	err := st.facade.FacadeCall("WatchAPIVersion", args, &results)
+	err := st.facade.FacadeCall(context.TODO(), "WatchAPIVersion", args, &results)
 	if err != nil {
 		return nil, err
 	}

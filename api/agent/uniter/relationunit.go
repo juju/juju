@@ -4,6 +4,8 @@
 package uniter
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -64,7 +66,7 @@ func (ru *RelationUnit) EnterScope() error {
 			Unit:     ru.unitTag.String(),
 		}},
 	}
-	err := ru.client.facade.FacadeCall("EnterScope", args, &result)
+	err := ru.client.facade.FacadeCall(context.TODO(), "EnterScope", args, &result)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -84,7 +86,7 @@ func (ru *RelationUnit) LeaveScope() error {
 			Unit:     ru.unitTag.String(),
 		}},
 	}
-	err := ru.client.facade.FacadeCall("LeaveScope", args, &result)
+	err := ru.client.facade.FacadeCall(context.TODO(), "LeaveScope", args, &result)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -101,7 +103,7 @@ func (ru *RelationUnit) Settings() (*Settings, error) {
 			Unit:     ru.unitTag.String(),
 		}},
 	}
-	err := ru.client.facade.FacadeCall("ReadSettings", args, &results)
+	err := ru.client.facade.FacadeCall(context.TODO(), "ReadSettings", args, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -124,7 +126,7 @@ func (ru *RelationUnit) ApplicationSettings() (*Settings, error) {
 		Relation: ru.relation.tag.String(),
 		Unit:     ru.unitTag.String(),
 	}
-	if err := ru.client.facade.FacadeCall("ReadLocalApplicationSettings", arg, &result); err != nil {
+	if err := ru.client.facade.FacadeCall(context.TODO(), "ReadLocalApplicationSettings", arg, &result); err != nil {
 		return nil, errors.Trace(err)
 	} else if result.Error != nil {
 		return nil, errors.Trace(result.Error)
@@ -156,7 +158,7 @@ func (ru *RelationUnit) ReadSettings(name string) (params.Settings, error) {
 			RemoteUnit: tag.String(),
 		}},
 	}
-	err := ru.client.facade.FacadeCall("ReadRemoteSettings", args, &results)
+	err := ru.client.facade.FacadeCall(context.TODO(), "ReadRemoteSettings", args, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

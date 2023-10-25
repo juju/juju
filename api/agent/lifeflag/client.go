@@ -12,6 +12,13 @@ import (
 	"github.com/juju/juju/core/watcher"
 )
 
+// Option is a function that can be used to configure a Client.
+type Option = base.Option
+
+// WithTracer returns an Option that configures the Client to use the
+// supplied tracer.
+var WithTracer = base.WithTracer
+
 // Client is the client used for connecting to the life flag facade.
 type Client interface {
 	Life(names.Tag) (life.Value, error)
@@ -19,6 +26,6 @@ type Client interface {
 }
 
 // NewClient creates a new life flag client.
-func NewClient(caller base.APICaller) Client {
-	return lifeflag.NewClient(caller, "AgentLifeFlag")
+func NewClient(caller base.APICaller, options ...Option) Client {
+	return lifeflag.NewClient(caller, "AgentLifeFlag", options...)
 }

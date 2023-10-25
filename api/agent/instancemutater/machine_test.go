@@ -155,7 +155,7 @@ func (s *instanceMutaterMachineSuite) TestCharmProfilingInfoSuccessChanges(c *gc
 	}
 
 	fExp := s.fCaller.EXPECT()
-	fExp.FacadeCall("CharmProfilingInfo", args, gomock.Any()).SetArg(2, results).Return(nil)
+	fExp.FacadeCall(gomock.Any(), "CharmProfilingInfo", args, gomock.Any()).SetArg(3, results).Return(nil)
 
 	info, err := s.setupMachine().CharmProfilingInfo()
 	c.Assert(err, jc.ErrorIsNil)
@@ -180,7 +180,7 @@ func (s *instanceMutaterMachineSuite) TestCharmProfilingInfoSuccessChangesWithNo
 	}
 
 	fExp := s.fCaller.EXPECT()
-	fExp.FacadeCall("CharmProfilingInfo", args, gomock.Any()).SetArg(2, results).Return(nil)
+	fExp.FacadeCall(gomock.Any(), "CharmProfilingInfo", args, gomock.Any()).SetArg(3, results).Return(nil)
 
 	info, err := s.setupMachine().CharmProfilingInfo()
 	c.Assert(err, jc.ErrorIsNil)
@@ -249,7 +249,7 @@ func (s *instanceMutaterMachineSuite) expectSetCharmProfilesFacadeCall() {
 	args := s.setUpSetCharmProfilesArgs()
 
 	fExp := s.fCaller.EXPECT()
-	fExp.FacadeCall("SetCharmProfiles", args, gomock.Any()).SetArg(2, results).Return(nil)
+	fExp.FacadeCall(gomock.Any(), "SetCharmProfiles", args, gomock.Any()).SetArg(3, results).Return(nil)
 }
 
 func (s *instanceMutaterMachineSuite) expectSetCharmProfilesFacadeCallReturnsError(err error) func() {
@@ -262,7 +262,7 @@ func (s *instanceMutaterMachineSuite) expectSetCharmProfilesFacadeCallReturnsErr
 		args := s.setUpSetCharmProfilesArgs()
 
 		fExp := s.fCaller.EXPECT()
-		fExp.FacadeCall("SetCharmProfiles", args, gomock.Any()).SetArg(2, results).Return(nil)
+		fExp.FacadeCall(gomock.Any(), "SetCharmProfiles", args, gomock.Any()).SetArg(3, results).Return(nil)
 	}
 }
 
@@ -280,7 +280,7 @@ func (s *instanceMutaterMachineSuite) expectSetModificationFacadeCall(status sta
 		}
 
 		fExp := s.fCaller.EXPECT()
-		fExp.FacadeCall("SetModificationStatus", args, gomock.Any()).SetArg(2, results).Return(nil)
+		fExp.FacadeCall(gomock.Any(), "SetModificationStatus", args, gomock.Any()).SetArg(3, results).Return(nil)
 	}
 }
 
@@ -302,7 +302,7 @@ func (s *instanceMutaterMachineSuite) expectSetModificationFacadeCallReturnsErro
 		}
 
 		fExp := s.fCaller.EXPECT()
-		fExp.FacadeCall("SetModificationStatus", args, gomock.Any()).SetArg(2, results).Return(nil)
+		fExp.FacadeCall(gomock.Any(), "SetModificationStatus", args, gomock.Any()).SetArg(3, results).Return(nil)
 	}
 }
 
@@ -320,7 +320,7 @@ func (s *instanceMutaterMachineSuite) expectWatchLXDProfileVerificationNeeded() 
 		},
 	}
 	fExp := s.fCaller.EXPECT()
-	fExp.FacadeCall("WatchLXDProfileVerificationNeeded", args, gomock.Any()).SetArg(2, results).Return(nil)
+	fExp.FacadeCall(gomock.Any(), "WatchLXDProfileVerificationNeeded", args, gomock.Any()).SetArg(3, results).Return(nil)
 	fExp.RawAPICaller().Return(s.apiCaller)
 }
 
@@ -342,7 +342,7 @@ func (s *instanceMutaterMachineSuite) expectWatchLXDProfileVerificationNeededWit
 			},
 		}
 		aExp := s.fCaller.EXPECT()
-		aExp.FacadeCall("WatchLXDProfileVerificationNeeded", args, gomock.Any()).SetArg(2, results).Return(nil)
+		aExp.FacadeCall(gomock.Any(), "WatchLXDProfileVerificationNeeded", args, gomock.Any()).SetArg(3, results).Return(nil)
 	}
 }
 
@@ -353,7 +353,7 @@ func (s *instanceMutaterMachineSuite) expectWatchContainers() {
 		Changes:          []string{"0/lxd/0"},
 	}
 	fExp := s.fCaller.EXPECT()
-	fExp.FacadeCall("WatchContainers", arg, gomock.Any()).SetArg(2, result).Return(nil)
+	fExp.FacadeCall(gomock.Any(), "WatchContainers", arg, gomock.Any()).SetArg(3, result).Return(nil)
 	fExp.RawAPICaller().Return(s.apiCaller)
 }
 
@@ -366,7 +366,7 @@ func (s *instanceMutaterMachineSuite) expectWatchContainersWithErrors(err error)
 			},
 		}
 		aExp := s.fCaller.EXPECT()
-		aExp.FacadeCall("WatchContainers", arg, gomock.Any()).SetArg(2, result).Return(nil)
+		aExp.FacadeCall(gomock.Any(), "WatchContainers", arg, gomock.Any()).SetArg(3, result).Return(nil)
 	}
 }
 

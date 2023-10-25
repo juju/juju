@@ -1281,6 +1281,10 @@ func (f *fakeDeployAPI) APICall(ctx context.Context, objType string, version int
 	return jujutesting.TypeAssertError(results[0])
 }
 
+func (f *fakeDeployAPI) Context() context.Context {
+	return context.Background()
+}
+
 func (f *fakeDeployAPI) Client() *apiclient.Client {
 	results := f.MethodCall(f, "Client")
 	return results[0].(*apiclient.Client)

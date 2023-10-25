@@ -4,12 +4,21 @@
 package payloads
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/core/payloads"
 	"github.com/juju/juju/rpc/params"
 )
+
+// Option is a function that can be used to configure a Client.
+type Option = base.Option
+
+// WithTracer returns an Option that configures the Client to use the
+// supplied tracer.
+var WithTracer = base.WithTracer
 
 // Client provides methods for interacting with Juju's public
 // RPC API, relative to payloads.
@@ -19,8 +28,8 @@ type Client struct {
 }
 
 // NewClient returns a new Client for the given raw API caller.
-func NewClient(apiCaller base.APICallCloser) *Client {
-	frontend, backend := base.NewClientFacade(apiCaller, "Payloads")
+func NewClient(apiCaller base.APICallCloser, options ...Option) *Client {
+	frontend, backend := base.NewClientFacade(apiCaller, "Payloads", options...)
 
 	return &Client{
 		ClientFacade: frontend,
@@ -35,7 +44,7 @@ func (c Client) ListFull(patterns ...string) ([]payloads.FullPayloadInfo, error)
 	args := params.PayloadListArgs{
 		Patterns: patterns,
 	}
-	if err := c.facade.FacadeCall("List", &args, &result); err != nil {
+	if err := c.facade.FacadeCall(context.TODO(), "List", &args, &result); err != nil {
 		return nil, errors.Trace(err)
 	}
 

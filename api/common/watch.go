@@ -4,6 +4,7 @@
 package common
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/names/v4"
@@ -20,7 +21,7 @@ func Watch(facade base.FacadeCaller, method string, tag names.Tag) (watcher.Noti
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: tag.String()}},
 	}
-	err := facade.FacadeCall(method, args, &results)
+	err := facade.FacadeCall(context.TODO(), method, args, &results)
 	if err != nil {
 		return nil, err
 	}

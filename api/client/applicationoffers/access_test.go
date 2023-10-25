@@ -60,7 +60,7 @@ func (s *accessSuite) readOnlyUser(c *gc.C, action params.OfferAction) {
 	res := new(params.ErrorResults)
 	ress := params.ErrorResults{Results: []params.ErrorResult{{Error: nil}}}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("ModifyOfferAccess", args, res).SetArg(2, ress).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ModifyOfferAccess", args, res).SetArg(3, ress).Return(nil)
 
 	client := applicationoffers.NewClientFromCaller(mockFacadeCaller)
 
@@ -94,7 +94,7 @@ func (s *accessSuite) adminUser(c *gc.C, action params.OfferAction) {
 	res := new(params.ErrorResults)
 	ress := params.ErrorResults{Results: []params.ErrorResult{{Error: nil}}}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("ModifyOfferAccess", args, res).SetArg(2, ress).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ModifyOfferAccess", args, res).SetArg(3, ress).Return(nil)
 
 	client := applicationoffers.NewClientFromCaller(mockFacadeCaller)
 	err := accessCall(client, action, "bob", "consume", someOffer)
@@ -139,7 +139,7 @@ func (s *accessSuite) threeOffers(c *gc.C, action params.OfferAction) {
 	res := new(params.ErrorResults)
 	ress := params.ErrorResults{Results: []params.ErrorResult{{Error: nil}, {Error: nil}, {Error: nil}}}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("ModifyOfferAccess", args, res).SetArg(2, ress).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ModifyOfferAccess", args, res).SetArg(3, ress).Return(nil)
 
 	client := applicationoffers.NewClientFromCaller(mockFacadeCaller)
 	err := accessCall(client, action, "carol", "read", someOffer, someOffer, someOffer)
@@ -173,7 +173,7 @@ func (s *accessSuite) errorResult(c *gc.C, action params.OfferAction) {
 	ress := params.ErrorResults{Results: []params.ErrorResult{{Error: &params.Error{Message: "unfortunate mishap"}}}}
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("ModifyOfferAccess", args, res).SetArg(2, ress).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ModifyOfferAccess", args, res).SetArg(3, ress).Return(nil)
 	client := applicationoffers.NewClientFromCaller(mockFacadeCaller)
 
 	err := accessCall(client, action, "aaa", "consume", someOffer)
@@ -204,7 +204,7 @@ func (s *accessSuite) TestInvalidResultCount(c *gc.C) {
 	res := new(params.ErrorResults)
 	ress := params.ErrorResults{Results: nil}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("ModifyOfferAccess", args, res).SetArg(2, ress).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ModifyOfferAccess", args, res).SetArg(3, ress).Return(nil)
 	client := applicationoffers.NewClientFromCaller(mockFacadeCaller)
 
 	err := client.GrantOffer("bob", "consume", someOffer, someOffer)

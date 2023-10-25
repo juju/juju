@@ -53,6 +53,24 @@ func WithTracer(ctx context.Context, tracer Tracer) context.Context {
 	return context.WithValue(ctx, traceContextKey, tracer)
 }
 
+// InjectTracerIfRequired returns a new context with the given tracer if one
+// isn't already set on the context.
+func InjectTracerIfRequired(ctx context.Context, tracer Tracer) context.Context {
+	// If the tracer is nil, we'll just pass back the context, as that will
+	// either have a tracer or it won't. Using nil tracer could invalidate the
+	// parent one, so just send it back.
+	if tracer == nil {
+		return ctx
+	}
+
+	// If the parent tracer is parent tracer is not nil, then use that one.
+	if value := ctx.Value(traceContextKey); value != nil {
+		return ctx
+	}
+	// If the tracer isn't already found, then inject the new one.
+	return context.WithValue(ctx, traceContextKey, tracer)
+}
+
 // WithSpan returns a new context with the given span.
 func WithSpan(ctx context.Context, span Span) context.Context {
 	if span == nil {

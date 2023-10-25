@@ -5,6 +5,7 @@ package charms
 
 import (
 	"archive/zip"
+	"context"
 	"io"
 	"net/http"
 	"net/url"
@@ -29,6 +30,13 @@ import (
 	jujuversion "github.com/juju/juju/version"
 )
 
+// Option is a function that can be used to configure a Client.
+type Option = base.Option
+
+// WithTracer returns an Option that configures the Client to use the
+// supplied tracer.
+var WithTracer = base.WithTracer
+
 // Client allows access to the charms API end point.
 type Client struct {
 	base.ClientFacade
@@ -37,8 +45,8 @@ type Client struct {
 }
 
 // NewClient creates a new client for accessing the charms API.
-func NewClient(st base.APICallCloser) *Client {
-	frontend, backend := base.NewClientFacade(st, "Charms")
+func NewClient(st base.APICallCloser, options ...Option) *Client {
+	frontend, backend := base.NewClientFacade(st, "Charms", options...)
 	commonClient := commoncharms.NewCharmInfoClient(backend)
 	return &Client{ClientFacade: frontend, CharmInfoClient: commonClient, facade: backend}
 }
@@ -73,14 +81,14 @@ func (c *Client) ResolveCharms(charms []CharmToResolve) ([]ResolvedCharm, error)
 	}
 	if c.BestAPIVersion() < 7 {
 		var result params.ResolveCharmWithChannelResultsV6
-		if err := c.facade.FacadeCall("ResolveCharms", args, &result); err != nil {
+		if err := c.facade.FacadeCall(context.TODO(), "ResolveCharms", args, &result); err != nil {
 			return nil, errors.Trace(apiservererrors.RestoreError(err))
 		}
 		return transform.Slice(result.Results, c.resolveCharmV6), nil
 	}
 
 	var result params.ResolveCharmWithChannelResults
-	if err := c.facade.FacadeCall("ResolveCharms", args, &result); err != nil {
+	if err := c.facade.FacadeCall(context.TODO(), "ResolveCharms", args, &result); err != nil {
 		return nil, errors.Trace(apiservererrors.RestoreError(err))
 	}
 	return transform.Slice(result.Results, c.resolveCharm), nil
@@ -153,7 +161,7 @@ func (c *Client) GetDownloadInfo(curl *charm.URL, origin apicharm.Origin) (Downl
 		}},
 	}
 	var results params.DownloadInfoResults
-	if err := c.facade.FacadeCall("GetDownloadInfos", args, &results); err != nil {
+	if err := c.facade.FacadeCall(context.TODO(), "GetDownloadInfos", args, &results); err != nil {
 		return DownloadInfo{}, errors.Trace(err)
 	}
 	if num := len(results.Results); num != 1 {
@@ -184,7 +192,7 @@ func (c *Client) AddCharm(curl *charm.URL, origin apicharm.Origin, force bool) (
 		Force:  force,
 	}
 	var result params.CharmOriginResult
-	if err := c.facade.FacadeCall("AddCharm", args, &result); err != nil {
+	if err := c.facade.FacadeCall(context.TODO(), "AddCharm", args, &result); err != nil {
 		return apicharm.Origin{}, errors.Trace(err)
 	}
 	return apicharm.APICharmOrigin(result.Origin)
@@ -366,7 +374,7 @@ func (c *Client) CheckCharmPlacement(applicationName string, curl *charm.URL) er
 		}},
 	}
 	var result params.ErrorResults
-	if err := c.facade.FacadeCall("CheckCharmPlacement", args, &result); err != nil {
+	if err := c.facade.FacadeCall(context.TODO(), "CheckCharmPlacement", args, &result); err != nil {
 		return errors.Trace(err)
 	}
 	return result.OneError()
@@ -381,7 +389,7 @@ func (c *Client) ListCharmResources(curl *charm.URL, origin apicharm.Origin) ([]
 		}},
 	}
 	var results params.CharmResourcesResults
-	if err := c.facade.FacadeCall("ListCharmResources", args, &results); err != nil {
+	if err := c.facade.FacadeCall(context.TODO(), "ListCharmResources", args, &results); err != nil {
 		return nil, errors.Trace(err)
 	}
 

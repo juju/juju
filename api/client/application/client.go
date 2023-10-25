@@ -4,6 +4,7 @@
 package application
 
 import (
+	"context"
 	stderrors "errors"
 	"fmt"
 	"strings"
@@ -26,6 +27,13 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
+// Option is a function that can be used to configure a Client.
+type Option = base.Option
+
+// WithTracer returns an Option that configures the Client to use the
+// supplied tracer.
+var WithTracer = base.WithTracer
+
 var logger = loggo.GetLogger("juju.api.application")
 
 // Client allows access to the application API end point.
@@ -36,8 +44,8 @@ type Client struct {
 }
 
 // NewClient creates a new client for accessing the application api.
-func NewClient(st base.APICallCloser) *Client {
-	frontend, backend := base.NewClientFacade(st, "Application")
+func NewClient(st base.APICallCloser, options ...Option) *Client {
+	frontend, backend := base.NewClientFacade(st, "Application", options...)
 	return &Client{ClientFacade: frontend, st: st, facade: backend}
 }
 
@@ -111,7 +119,7 @@ func (c *Client) Leader(app string) (string, error) {
 	var result params.StringResult
 	p := params.Entity{Tag: names.NewApplicationTag(app).String()}
 
-	if err := c.facade.FacadeCall("Leader", p, &result); err != nil {
+	if err := c.facade.FacadeCall(context.TODO(), "Leader", p, &result); err != nil {
 		return "", errors.Trace(err)
 	}
 	if result.Error != nil {
@@ -158,7 +166,7 @@ func (c *Client) Deploy(args DeployArgs) error {
 	}
 	var results params.ErrorResults
 	var err error
-	err = c.facade.FacadeCall("Deploy", deployArgs, &results)
+	err = c.facade.FacadeCall(context.TODO(), "Deploy", deployArgs, &results)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -189,7 +197,7 @@ func (c *Client) GetCharmURLOrigin(branchName, applicationName string) (*charm.U
 	}
 
 	var result params.CharmURLOriginResult
-	err := c.facade.FacadeCall("GetCharmURLOrigin", args, &result)
+	err := c.facade.FacadeCall(context.TODO(), "GetCharmURLOrigin", args, &result)
 	if err != nil {
 		return nil, apicharm.Origin{}, errors.Trace(err)
 	}
@@ -214,7 +222,7 @@ func (c *Client) GetConfig(branchName string, appNames ...string) ([]map[string]
 	}
 
 	var results params.ApplicationGetConfigResults
-	err := c.facade.FacadeCall("CharmConfig", arg, &results)
+	err := c.facade.FacadeCall(context.TODO(), "CharmConfig", arg, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -332,7 +340,7 @@ func (c *Client) SetCharm(branchName string, cfg SetCharmConfig) error {
 		EndpointBindings:   cfg.EndpointBindings,
 		Generation:         branchName,
 	}
-	return c.facade.FacadeCall("SetCharm", args, nil)
+	return c.facade.FacadeCall(context.TODO(), "SetCharm", args, nil)
 }
 
 // UpdateApplicationBase updates the application base in the db.
@@ -345,7 +353,7 @@ func (c *Client) UpdateApplicationBase(appName string, base corebase.Base, force
 		}},
 	}
 	results := new(params.ErrorResults)
-	if err := c.facade.FacadeCall("UpdateApplicationBase", args, results); err != nil {
+	if err := c.facade.FacadeCall(context.TODO(), "UpdateApplicationBase", args, results); err != nil {
 		return errors.Trace(err)
 	}
 	return results.OneError()
@@ -390,7 +398,7 @@ func (c *Client) AddUnits(args AddUnitsParams) ([]string, error) {
 		attachStorage[i] = names.NewStorageTag(id).String()
 	}
 	results := new(params.AddApplicationUnitsResults)
-	err := c.facade.FacadeCall("AddUnits", params.AddApplicationUnits{
+	err := c.facade.FacadeCall(context.TODO(), "AddUnits", params.AddApplicationUnits{
 		ApplicationName: args.ApplicationName,
 		NumUnits:        args.NumUnits,
 		Placement:       args.Placement,
@@ -452,7 +460,7 @@ func (c *Client) DestroyUnits(in DestroyUnitsParams) ([]params.DestroyUnitResult
 	}
 
 	var result params.DestroyUnitResults
-	if err := c.facade.FacadeCall("DestroyUnit", args, &result); err != nil {
+	if err := c.facade.FacadeCall(context.TODO(), "DestroyUnit", args, &result); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if n := len(result.Results); n != len(args.Units) {
@@ -516,7 +524,7 @@ func (c *Client) DestroyApplications(in DestroyApplicationsParams) ([]params.Des
 	}
 
 	var result params.DestroyApplicationResults
-	if err := c.facade.FacadeCall("DestroyApplication", args, &result); err != nil {
+	if err := c.facade.FacadeCall(context.TODO(), "DestroyApplication", args, &result); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if n := len(result.Results); n != len(args.Applications) {
@@ -572,7 +580,7 @@ func (c *Client) DestroyConsumedApplication(in DestroyConsumedApplicationParams)
 	}
 
 	var result params.ErrorResults
-	if err := c.facade.FacadeCall("DestroyConsumedApplications", args, &result); err != nil {
+	if err := c.facade.FacadeCall(context.TODO(), "DestroyConsumedApplications", args, &result); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if n := len(result.Results); n != len(args.Applications) {
@@ -619,7 +627,7 @@ func (c *Client) ScaleApplication(in ScaleApplicationParams) (params.ScaleApplic
 		}},
 	}
 	var results params.ScaleApplicationResults
-	if err := c.facade.FacadeCall("ScaleApplications", args, &results); err != nil {
+	if err := c.facade.FacadeCall(context.TODO(), "ScaleApplications", args, &results); err != nil {
 		return params.ScaleApplicationResult{}, errors.Trace(err)
 	}
 	if n := len(results.Results); n != 1 {
@@ -643,7 +651,7 @@ func (c *Client) GetConstraints(applications ...string) ([]constraints.Value, er
 		args.Entities = append(args.Entities,
 			params.Entity{Tag: names.NewApplicationTag(application).String()})
 	}
-	err := c.facade.FacadeCall("GetConstraints", args, &results)
+	err := c.facade.FacadeCall(context.TODO(), "GetConstraints", args, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -662,7 +670,7 @@ func (c *Client) SetConstraints(application string, constraints constraints.Valu
 		ApplicationName: application,
 		Constraints:     constraints,
 	}
-	return c.facade.FacadeCall("SetConstraints", args, nil)
+	return c.facade.FacadeCall(context.TODO(), "SetConstraints", args, nil)
 }
 
 // Expose changes the juju-managed firewall to expose any ports that
@@ -679,7 +687,7 @@ func (c *Client) Expose(application string, exposedEndpoints map[string]params.E
 		ApplicationName:  application,
 		ExposedEndpoints: exposedEndpoints,
 	}
-	return c.facade.FacadeCall("Expose", args, nil)
+	return c.facade.FacadeCall(context.TODO(), "Expose", args, nil)
 }
 
 // Unexpose changes the juju-managed firewall to unexpose any ports that
@@ -689,7 +697,7 @@ func (c *Client) Unexpose(application string, endpoints []string) error {
 		ApplicationName:  application,
 		ExposedEndpoints: endpoints,
 	}
-	return c.facade.FacadeCall("Unexpose", args, nil)
+	return c.facade.FacadeCall(context.TODO(), "Unexpose", args, nil)
 }
 
 // Get returns the configuration for the named application.
@@ -699,7 +707,7 @@ func (c *Client) Get(branchName, application string) (*params.ApplicationGetResu
 		ApplicationName: application,
 		BranchName:      branchName,
 	}
-	err := c.facade.FacadeCall("Get", args, &results)
+	err := c.facade.FacadeCall(context.TODO(), "Get", args, &results)
 	return &results, err
 }
 
@@ -707,7 +715,7 @@ func (c *Client) Get(branchName, application string) (*params.ApplicationGetResu
 func (c *Client) CharmRelations(application string) ([]string, error) {
 	var results params.ApplicationCharmRelationsResults
 	args := params.ApplicationCharmRelations{ApplicationName: application}
-	err := c.facade.FacadeCall("CharmRelations", args, &results)
+	err := c.facade.FacadeCall(context.TODO(), "CharmRelations", args, &results)
 	return results.CharmRelations, err
 }
 
@@ -715,7 +723,7 @@ func (c *Client) CharmRelations(application string) ([]string, error) {
 func (c *Client) AddRelation(endpoints, viaCIDRs []string) (*params.AddRelationResults, error) {
 	var addRelRes params.AddRelationResults
 	args := params.AddRelation{Endpoints: endpoints, ViaCIDRs: viaCIDRs}
-	err := c.facade.FacadeCall("AddRelation", args, &addRelRes)
+	err := c.facade.FacadeCall(context.TODO(), "AddRelation", args, &addRelRes)
 	return &addRelRes, err
 }
 
@@ -726,7 +734,7 @@ func (c *Client) DestroyRelation(force *bool, maxWait *time.Duration, endpoints 
 		Force:     force,
 		MaxWait:   maxWait,
 	}
-	return c.facade.FacadeCall("DestroyRelation", args, nil)
+	return c.facade.FacadeCall(context.TODO(), "DestroyRelation", args, nil)
 }
 
 // DestroyRelationId removes the relation with the specified id.
@@ -736,7 +744,7 @@ func (c *Client) DestroyRelationId(relationId int, force *bool, maxWait *time.Du
 		Force:      force,
 		MaxWait:    maxWait,
 	}
-	return c.facade.FacadeCall("DestroyRelation", args, nil)
+	return c.facade.FacadeCall(context.TODO(), "DestroyRelation", args, nil)
 }
 
 // SetRelationSuspended updates the suspended status of the relation with the specified id.
@@ -750,7 +758,7 @@ func (c *Client) SetRelationSuspended(relationIds []int, suspended bool, message
 		})
 	}
 	var results params.ErrorResults
-	if err := c.facade.FacadeCall("SetRelationsSuspended", args, &results); err != nil {
+	if err := c.facade.FacadeCall(context.TODO(), "SetRelationsSuspended", args, &results); err != nil {
 		return errors.Trace(err)
 	}
 	if len(results.Results) != len(args.Args) {
@@ -790,7 +798,7 @@ func (c *Client) Consume(arg crossmodel.ConsumeApplicationArgs) (string, error) 
 			CACert:        arg.ControllerInfo.CACert,
 		}
 	}
-	err := c.facade.FacadeCall("Consume", args, &consumeRes)
+	err := c.facade.FacadeCall(context.TODO(), "Consume", args, &consumeRes)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -818,7 +826,7 @@ func (c *Client) SetConfig(branchName, application, configYAML string, config ma
 		}},
 	}
 	var results params.ErrorResults
-	err := c.facade.FacadeCall("SetConfigs", args, &results)
+	err := c.facade.FacadeCall(context.TODO(), "SetConfigs", args, &results)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -835,7 +843,7 @@ func (c *Client) UnsetApplicationConfig(branchName, application string, options 
 		}},
 	}
 	var results params.ErrorResults
-	err := c.facade.FacadeCall("UnsetApplicationsConfig", args, &results)
+	err := c.facade.FacadeCall(context.TODO(), "UnsetApplicationsConfig", args, &results)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -867,7 +875,7 @@ func (c *Client) ResolveUnitErrors(units []string, all, retry bool) error {
 	}
 
 	results := new(params.ErrorResults)
-	err := c.facade.FacadeCall("ResolveUnitErrors", args, results)
+	err := c.facade.FacadeCall(context.TODO(), "ResolveUnitErrors", args, results)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -891,7 +899,7 @@ func (c *Client) ApplicationsInfo(applications []names.ApplicationTag) ([]params
 	}
 	in := params.Entities{Entities: all}
 	var out params.ApplicationInfoResults
-	err := c.facade.FacadeCall("ApplicationsInfo", in, &out)
+	err := c.facade.FacadeCall(context.TODO(), "ApplicationsInfo", in, &out)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -905,7 +913,7 @@ func (c *Client) ApplicationsInfo(applications []names.ApplicationTag) ([]params
 // application bindings.
 func (c *Client) MergeBindings(req params.ApplicationMergeBindingsArgs) error {
 	var results params.ErrorResults
-	err := c.facade.FacadeCall("MergeBindings", req, &results)
+	err := c.facade.FacadeCall(context.TODO(), "MergeBindings", req, &results)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -955,7 +963,7 @@ func (c *Client) UnitsInfo(units []names.UnitTag) ([]UnitInfo, error) {
 	}
 	in := params.Entities{Entities: all}
 	var out params.UnitInfoResults
-	err := c.facade.FacadeCall("UnitsInfo", in, &out)
+	err := c.facade.FacadeCall(context.TODO(), "UnitsInfo", in, &out)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1114,7 +1122,7 @@ func (c *Client) DeployFromRepository(arg DeployFromRepositoryArg) (DeployInfo, 
 	args := params.DeployFromRepositoryArgs{
 		Args: []params.DeployFromRepositoryArg{paramsFromDeployFromRepositoryArg(arg)},
 	}
-	err := c.facade.FacadeCall("DeployFromRepository", args, &result)
+	err := c.facade.FacadeCall(context.TODO(), "DeployFromRepository", args, &result)
 	if err != nil {
 		return DeployInfo{}, nil, []error{err}
 	}

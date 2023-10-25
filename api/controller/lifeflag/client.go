@@ -12,6 +12,13 @@ import (
 	"github.com/juju/juju/core/watcher"
 )
 
+// Option is a function that can be used to configure a Client.
+type Option = base.Option
+
+// WithTracer returns an Option that configures the Client to use the
+// supplied tracer.
+var WithTracer = base.WithTracer
+
 const (
 	// ErrEntityNotFound is a convenience define of the
 	// lifeflag.ErrEntityNotFound error. This define makes it so users are not
@@ -26,6 +33,6 @@ type Client interface {
 }
 
 // NewClient creates a new life flag client.
-func NewClient(caller base.APICaller) Client {
-	return lifeflag.NewClient(caller, "LifeFlag")
+func NewClient(caller base.APICaller, options ...Option) Client {
+	return lifeflag.NewClient(caller, "LifeFlag", options...)
 }

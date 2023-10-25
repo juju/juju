@@ -104,7 +104,7 @@ func (s *PatchedManifoldSuite) SetUpTest(c *gc.C) {
 
 	s.stub = &testing.Stub{}
 	s.msClient = &stubMeterStatusClient{stub: s.stub, changes: make(chan struct{})}
-	newMSClient := func(_ base.APICaller, _ names.UnitTag) msapi.MeterStatusClient {
+	newMSClient := func(_ base.APICaller, _ names.UnitTag, _ ...base.Option) msapi.MeterStatusClient {
 		return s.msClient
 	}
 	newHookRunner := func(_ meterstatus.HookRunnerConfig) meterstatus.HookRunner {

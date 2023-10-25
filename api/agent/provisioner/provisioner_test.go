@@ -4,6 +4,8 @@
 package provisioner_test
 
 import (
+	"context"
+
 	"github.com/juju/names/v4"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -35,6 +37,7 @@ func (s *provisionerSuite) SetUpTest(c *gc.C) {
 func (s *provisionerSuite) setupCaller(ctrl *gomock.Controller) *mocks.MockAPICaller {
 	caller := mocks.NewMockAPICaller(ctrl)
 	caller.EXPECT().BestFacadeVersion("Provisioner").Return(666)
+	caller.EXPECT().Context().Return(context.Background()).AnyTimes()
 	return caller
 }
 
@@ -710,6 +713,7 @@ func (s *provisionerContainerSuite) SetUpTest(_ *gc.C) {
 func (s *provisionerContainerSuite) setupCaller(ctrl *gomock.Controller) *mocks.MockAPICaller {
 	caller := mocks.NewMockAPICaller(ctrl)
 	caller.EXPECT().BestFacadeVersion("Provisioner").Return(666)
+	caller.EXPECT().Context().Return(context.Background()).AnyTimes()
 	return caller
 }
 

@@ -39,7 +39,7 @@ func (s *LeadershipSuite) TestPinnedLeadership(c *gc.C) {
 
 	pinned := map[string][]string{"redis": {"machine-0", "machine-1"}}
 	resultSource := params.PinnedLeadershipResult{Result: pinned}
-	s.facade.EXPECT().FacadeCall("PinnedLeadership", nil, gomock.Any()).SetArg(2, resultSource)
+	s.facade.EXPECT().FacadeCall(gomock.Any(), "PinnedLeadership", nil, gomock.Any()).SetArg(3, resultSource)
 
 	res, err := s.client.PinnedLeadership()
 	c.Assert(err, jc.ErrorIsNil)
@@ -50,7 +50,7 @@ func (s *LeadershipSuite) TestPinnedLeadershipError(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	resultSource := params.PinnedLeadershipResult{Error: apiservererrors.ServerError(errors.New("splat"))}
-	s.facade.EXPECT().FacadeCall("PinnedLeadership", nil, gomock.Any()).SetArg(2, resultSource)
+	s.facade.EXPECT().FacadeCall(gomock.Any(), "PinnedLeadership", nil, gomock.Any()).SetArg(3, resultSource)
 
 	_, err := s.client.PinnedLeadership()
 	c.Assert(err, gc.ErrorMatches, "splat")
@@ -60,7 +60,7 @@ func (s *LeadershipSuite) TestPinMachineApplicationsSuccess(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	resultSource := params.PinApplicationsResults{Results: s.pinApplicationsServerSuccessResults()}
-	s.facade.EXPECT().FacadeCall("PinMachineApplications", nil, gomock.Any()).SetArg(2, resultSource)
+	s.facade.EXPECT().FacadeCall(gomock.Any(), "PinMachineApplications", nil, gomock.Any()).SetArg(3, resultSource)
 
 	res, err := s.client.PinMachineApplications()
 	c.Assert(err, jc.ErrorIsNil)
@@ -74,7 +74,7 @@ func (s *LeadershipSuite) TestPinMachineApplicationsPartialError(c *gc.C) {
 	results := s.pinApplicationsServerSuccessResults()
 	results[2].Error = errorRes
 	resultSource := params.PinApplicationsResults{Results: results}
-	s.facade.EXPECT().FacadeCall("PinMachineApplications", nil, gomock.Any()).SetArg(2, resultSource)
+	s.facade.EXPECT().FacadeCall(gomock.Any(), "PinMachineApplications", nil, gomock.Any()).SetArg(3, resultSource)
 
 	res, err := s.client.PinMachineApplications()
 	c.Assert(err, jc.ErrorIsNil)
@@ -88,7 +88,7 @@ func (s *LeadershipSuite) TestUnpinMachineApplicationsSuccess(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	resultSource := params.PinApplicationsResults{Results: s.pinApplicationsServerSuccessResults()}
-	s.facade.EXPECT().FacadeCall("UnpinMachineApplications", nil, gomock.Any()).SetArg(2, resultSource)
+	s.facade.EXPECT().FacadeCall(gomock.Any(), "UnpinMachineApplications", nil, gomock.Any()).SetArg(3, resultSource)
 
 	res, err := s.client.UnpinMachineApplications()
 	c.Assert(err, jc.ErrorIsNil)
@@ -111,7 +111,7 @@ func (s *LeadershipSuite) TestUnpinMachineApplicationsPartialError(c *gc.C) {
 	results := s.pinApplicationsServerSuccessResults()
 	results[1].Error = errorRes
 	resultSource := params.PinApplicationsResults{Results: results}
-	s.facade.EXPECT().FacadeCall("UnpinMachineApplications", nil, gomock.Any()).SetArg(2, resultSource)
+	s.facade.EXPECT().FacadeCall(gomock.Any(), "UnpinMachineApplications", nil, gomock.Any()).SetArg(3, resultSource)
 
 	res, err := s.client.UnpinMachineApplications()
 	c.Assert(err, jc.ErrorIsNil)

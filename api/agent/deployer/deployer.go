@@ -4,6 +4,8 @@
 package deployer
 
 import (
+	"context"
+
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/api/base"
@@ -11,6 +13,13 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/rpc/params"
 )
+
+// Option is a function that can be used to configure a Client.
+type Option = base.Option
+
+// WithTracer returns an Option that configures the Client to use the
+// supplied tracer.
+var WithTracer = base.WithTracer
 
 const deployerFacade = "Deployer"
 
@@ -21,8 +30,8 @@ type Client struct {
 
 // NewClient creates a new Client instance that makes API calls
 // through the given caller.
-func NewClient(caller base.APICaller) *Client {
-	facadeCaller := base.NewFacadeCaller(caller, deployerFacade)
+func NewClient(caller base.APICaller, options ...Option) *Client {
+	facadeCaller := base.NewFacadeCaller(caller, deployerFacade, options...)
 	return &Client{facade: facadeCaller}
 
 }
@@ -57,6 +66,6 @@ func (c *Client) Machine(tag names.MachineTag) (*Machine, error) {
 // ConnectionInfo returns all the address information that the deployer task
 // needs in one call.
 func (c *Client) ConnectionInfo() (result params.DeployerConnectionValues, err error) {
-	err = c.facade.FacadeCall("ConnectionInfo", nil, &result)
+	err = c.facade.FacadeCall(context.TODO(), "ConnectionInfo", nil, &result)
 	return result, err
 }

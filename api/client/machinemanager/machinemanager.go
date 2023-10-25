@@ -4,6 +4,7 @@
 package machinemanager
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/errors"
@@ -16,6 +17,13 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
 )
+
+// Option is a function that can be used to configure a Client.
+type Option = base.Option
+
+// WithTracer returns an Option that configures the Client to use the
+// supplied tracer.
+var WithTracer = base.WithTracer
 
 const machineManagerFacade = "MachineManager"
 
@@ -31,8 +39,8 @@ func ConstructClient(clientFacade base.ClientFacade, facadeCaller base.FacadeCal
 }
 
 // NewClient returns a new machinemanager client.
-func NewClient(st base.APICallCloser) *Client {
-	frontend, backend := base.NewClientFacade(st, machineManagerFacade)
+func NewClient(st base.APICallCloser, options ...Option) *Client {
+	frontend, backend := base.NewClientFacade(st, machineManagerFacade, options...)
 	return ConstructClient(frontend, backend)
 }
 
@@ -49,7 +57,7 @@ func (client *Client) AddMachines(machineParams []params.AddMachineParams) ([]pa
 	}
 	results := new(params.AddMachinesResults)
 
-	err := client.facade.FacadeCall("AddMachines", args, results)
+	err := client.facade.FacadeCall(context.TODO(), "AddMachines", args, results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -85,7 +93,7 @@ func (client *Client) DestroyMachinesWithParams(force, keep, dryRun bool, maxWai
 	}
 	if len(args.MachineTags) > 0 {
 		var result params.DestroyMachineResults
-		if err := client.facade.FacadeCall("DestroyMachineWithParams", args, &result); err != nil {
+		if err := client.facade.FacadeCall(context.TODO(), "DestroyMachineWithParams", args, &result); err != nil {
 			return nil, errors.Trace(err)
 		}
 		if n := len(result.Results); n != len(args.MachineTags) {
@@ -102,7 +110,7 @@ func (client *Client) DestroyMachinesWithParams(force, keep, dryRun bool, maxWai
 // provisions a machine agent on the machine executing the script.
 func (c *Client) ProvisioningScript(args params.ProvisioningScriptParams) (script string, err error) {
 	var result params.ProvisioningScriptResult
-	if err = c.facade.FacadeCall("ProvisioningScript", args, &result); err != nil {
+	if err = c.facade.FacadeCall(context.TODO(), "ProvisioningScript", args, &result); err != nil {
 		return "", err
 	}
 	return result.Script, nil
@@ -119,7 +127,7 @@ func (c *Client) RetryProvisioning(all bool, machines ...names.MachineTag) ([]pa
 		p.Machines[i] = machine.String()
 	}
 	var results params.ErrorResults
-	err := c.facade.FacadeCall("RetryProvisioning", p, &results)
+	err := c.facade.FacadeCall(context.TODO(), "RetryProvisioning", p, &results)
 	return results.Results, err
 }
 
@@ -139,7 +147,7 @@ func (client *Client) UpgradeSeriesPrepare(machineName, series string, force boo
 		Force:   force,
 	}
 	var result params.ErrorResult
-	if err := client.facade.FacadeCall("UpgradeSeriesPrepare", args, &result); err != nil {
+	if err := client.facade.FacadeCall(context.TODO(), "UpgradeSeriesPrepare", args, &result); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -156,7 +164,7 @@ func (client *Client) UpgradeSeriesComplete(machineName string) error {
 		Entity: params.Entity{Tag: names.NewMachineTag(machineName).String()},
 	}
 	result := new(params.ErrorResult)
-	err := client.facade.FacadeCall("UpgradeSeriesComplete", args, result)
+	err := client.facade.FacadeCall(context.TODO(), "UpgradeSeriesComplete", args, result)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -181,7 +189,7 @@ func (client *Client) UpgradeSeriesValidate(machineName, series string) ([]strin
 		},
 	}
 	results := new(params.UpgradeSeriesUnitsResults)
-	err = client.facade.FacadeCall("UpgradeSeriesValidate", args, results)
+	err = client.facade.FacadeCall(context.TODO(), "UpgradeSeriesValidate", args, results)
 	if err != nil {
 		return nil, err
 	}
@@ -201,7 +209,7 @@ func (client *Client) WatchUpgradeSeriesNotifications(machineName string) (watch
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: names.NewMachineTag(machineName).String()}},
 	}
-	err := client.facade.FacadeCall("WatchUpgradeSeriesNotifications", args, &results)
+	err := client.facade.FacadeCall(context.TODO(), "WatchUpgradeSeriesNotifications", args, &results)
 	if err != nil {
 		return nil, "", errors.Trace(err)
 	}
@@ -228,7 +236,7 @@ func (client *Client) GetUpgradeSeriesMessages(machineName, watcherId string) ([
 			},
 		},
 	}
-	err := client.facade.FacadeCall("GetUpgradeSeriesMessages", args, &results)
+	err := client.facade.FacadeCall(context.TODO(), "GetUpgradeSeriesMessages", args, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

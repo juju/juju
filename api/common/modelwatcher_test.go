@@ -39,7 +39,7 @@ func (s *modelwatcherTests) TestModelConfig(c *gc.C) {
 	result := params.ModelConfigResult{
 		Config: params.ModelConfig(attrs),
 	}
-	facade.EXPECT().FacadeCall("ModelConfig", nil, gomock.Any()).SetArg(2, result).Return(nil)
+	facade.EXPECT().FacadeCall(gomock.Any(), "ModelConfig", nil, gomock.Any()).SetArg(3, result).Return(nil)
 
 	client := common.NewModelWatcher(facade)
 	cfg, err := client.ModelConfig(context.Background())
@@ -57,7 +57,7 @@ func (s *modelwatcherTests) TestWatchForModelConfigChanges(c *gc.C) {
 	caller.EXPECT().APICall(gomock.Any(), "NotifyWatcher", 666, "", "Stop", nil, gomock.Any()).Return(nil).AnyTimes()
 
 	result := params.NotifyWatchResult{}
-	facade.EXPECT().FacadeCall("WatchForModelConfigChanges", nil, gomock.Any()).SetArg(2, result).Return(nil)
+	facade.EXPECT().FacadeCall(gomock.Any(), "WatchForModelConfigChanges", nil, gomock.Any()).SetArg(3, result).Return(nil)
 	facade.EXPECT().RawAPICaller().Return(caller)
 
 	client := common.NewModelWatcher(facade)

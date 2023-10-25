@@ -4,6 +4,8 @@
 package caasoperatorupgrader
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/version/v2"
 
@@ -11,14 +13,21 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
+// Option is a function that can be used to configure a Client.
+type Option = base.Option
+
+// WithTracer returns an Option that configures the Client to use the
+// supplied tracer.
+var WithTracer = base.WithTracer
+
 // Client allows access to the CAAS operator upgrader API endpoint.
 type Client struct {
 	facade base.FacadeCaller
 }
 
 // NewClient returns a client used to access the CAAS Operator Upgrader API.
-func NewClient(caller base.APICaller) *Client {
-	facadeCaller := base.NewFacadeCaller(caller, "CAASOperatorUpgrader")
+func NewClient(caller base.APICaller, options ...Option) *Client {
+	facadeCaller := base.NewFacadeCaller(caller, "CAASOperatorUpgrader", options...)
 	return &Client{
 		facade: facadeCaller,
 	}
@@ -31,7 +40,7 @@ func (c *Client) Upgrade(agentTag string, v version.Number) error {
 		AgentTag: agentTag,
 		Version:  v,
 	}
-	if err := c.facade.FacadeCall("UpgradeOperator", arg, &result); err != nil {
+	if err := c.facade.FacadeCall(context.TODO(), "UpgradeOperator", arg, &result); err != nil {
 		return errors.Trace(err)
 	}
 	if result.Error != nil {

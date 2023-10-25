@@ -4,6 +4,8 @@
 package caasunitprovisioner
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -14,15 +16,22 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
+// Option is a function that can be used to configure a Client.
+type Option = base.Option
+
+// WithTracer returns an Option that configures the Client to use the
+// supplied tracer.
+var WithTracer = base.WithTracer
+
 // Client allows access to the CAAS unit provisioner API endpoint.
 type Client struct {
 	facade base.FacadeCaller
 }
 
 // NewClient returns a client used to access the CAAS unit provisioner API.
-func NewClient(caller base.APICaller) *Client {
+func NewClient(caller base.APICaller, options ...Option) *Client {
 	return &Client{
-		facade: base.NewFacadeCaller(caller, "CAASUnitProvisioner"),
+		facade: base.NewFacadeCaller(caller, "CAASUnitProvisioner", options...),
 	}
 }
 
@@ -47,7 +56,7 @@ func entities(tags ...names.Tag) params.Entities {
 // changes to the lifecycles of CAAS applications in the current model.
 func (c *Client) WatchApplications() (watcher.StringsWatcher, error) {
 	var result params.StringsWatchResult
-	if err := c.facade.FacadeCall("WatchApplications", nil, &result); err != nil {
+	if err := c.facade.FacadeCall(context.TODO(), "WatchApplications", nil, &result); err != nil {
 		return nil, err
 	}
 	if err := result.Error; err != nil {
@@ -78,7 +87,7 @@ func (c *Client) WatchApplicationScale(application string) (watcher.NotifyWatche
 	args := entities(applicationTag)
 
 	var results params.NotifyWatchResults
-	if err := c.facade.FacadeCall("WatchApplicationsScale", args, &results); err != nil {
+	if err := c.facade.FacadeCall(context.TODO(), "WatchApplicationsScale", args, &results); err != nil {
 		return nil, err
 	}
 	if n := len(results.Results); n != 1 {
@@ -97,7 +106,7 @@ func (c *Client) ApplicationScale(applicationName string) (int, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: names.NewApplicationTag(applicationName).String()}},
 	}
-	err := c.facade.FacadeCall("ApplicationsScale", args, &results)
+	err := c.facade.FacadeCall(context.TODO(), "ApplicationsScale", args, &results)
 	if err != nil {
 		return 0, errors.Trace(err)
 	}
@@ -113,7 +122,7 @@ func (c *Client) ApplicationTrust(applicationName string) (bool, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: names.NewApplicationTag(applicationName).String()}},
 	}
-	err := c.facade.FacadeCall("ApplicationsTrust", args, &results)
+	err := c.facade.FacadeCall(context.TODO(), "ApplicationsTrust", args, &results)
 	if err != nil {
 		return false, errors.Trace(err)
 	}
@@ -133,7 +142,7 @@ func (c *Client) WatchApplicationTrustHash(application string) (watcher.StringsW
 	args := entities(applicationTag)
 
 	var results params.StringsWatchResults
-	if err := c.facade.FacadeCall("WatchApplicationsTrustHash", args, &results); err != nil {
+	if err := c.facade.FacadeCall(context.TODO(), "WatchApplicationsTrustHash", args, &results); err != nil {
 		return nil, err
 	}
 	if n := len(results.Results); n != 1 {
@@ -160,7 +169,7 @@ func maybeNotFound(err *params.Error) error {
 func (c *Client) UpdateApplicationService(arg params.UpdateApplicationServiceArg) error {
 	var result params.ErrorResults
 	args := params.UpdateApplicationServiceArgs{Args: []params.UpdateApplicationServiceArg{arg}}
-	if err := c.facade.FacadeCall("UpdateApplicationsService", args, &result); err != nil {
+	if err := c.facade.FacadeCall(context.TODO(), "UpdateApplicationsService", args, &result); err != nil {
 		return errors.Trace(err)
 	}
 	if len(result.Results) != len(args.Args) {

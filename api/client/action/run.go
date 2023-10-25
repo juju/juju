@@ -4,6 +4,7 @@
 package action
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/errors"
@@ -16,7 +17,7 @@ import (
 func (c *Client) RunOnAllMachines(commands string, timeout time.Duration) (EnqueuedActions, error) {
 	var results params.EnqueuedActions
 	args := params.RunParams{Commands: commands, Timeout: timeout}
-	err := c.facade.FacadeCall("RunOnAllMachines", args, &results)
+	err := c.facade.FacadeCall(context.TODO(), "RunOnAllMachines", args, &results)
 	if err != nil {
 		return EnqueuedActions{}, errors.Trace(err)
 	}
@@ -35,7 +36,7 @@ func (c *Client) Run(run RunParams) (EnqueuedActions, error) {
 		WorkloadContext: run.WorkloadContext,
 	}
 	var results params.EnqueuedActions
-	err := c.facade.FacadeCall("Run", args, &results)
+	err := c.facade.FacadeCall(context.TODO(), "Run", args, &results)
 	if err != nil {
 		return EnqueuedActions{}, errors.Trace(err)
 	}

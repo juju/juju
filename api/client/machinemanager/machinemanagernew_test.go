@@ -62,7 +62,7 @@ func (s *NewMachineManagerSuite) TestUpgradeSeriesValidate(c *gc.C) {
 		UnitNames: []string{"ubuntu/0", "ubuntu/1"},
 	}
 	results := params.UpgradeSeriesUnitsResults{Results: []params.UpgradeSeriesUnitsResult{result}}
-	s.facade.EXPECT().FacadeCall("UpgradeSeriesValidate", args, gomock.Any()).SetArg(2, results)
+	s.facade.EXPECT().FacadeCall(gomock.Any(), "UpgradeSeriesValidate", args, gomock.Any()).SetArg(3, results)
 
 	unitNames, err := s.client.UpgradeSeriesValidate(s.tag.String(), "xenial")
 	c.Assert(err, jc.ErrorIsNil)
@@ -83,7 +83,7 @@ func (s *NewMachineManagerSuite) TestUpgradeSeriesPrepareAlreadyInProgress(c *gc
 			Code:    params.CodeAlreadyExists,
 		},
 	}
-	s.facade.EXPECT().FacadeCall("UpgradeSeriesPrepare", arg, gomock.Any()).SetArg(2, resultSource)
+	s.facade.EXPECT().FacadeCall(gomock.Any(), "UpgradeSeriesPrepare", arg, gomock.Any()).SetArg(3, resultSource)
 
 	err := s.client.UpgradeSeriesPrepare(s.tag.Id(), "xenial", true)
 	c.Assert(err, jc.ErrorIs, errors.AlreadyExists)

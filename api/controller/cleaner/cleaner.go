@@ -4,11 +4,20 @@
 package cleaner
 
 import (
+	"context"
+
 	"github.com/juju/juju/api/base"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
 )
+
+// Option is a function that can be used to configure a Client.
+type Option = base.Option
+
+// WithTracer returns an Option that configures the Client to use the
+// supplied tracer.
+var WithTracer = base.WithTracer
 
 const cleanerFacade = "Cleaner"
 
@@ -18,20 +27,20 @@ type API struct {
 }
 
 // NewAPI creates a new client-side Cleaner facade.
-func NewAPI(caller base.APICaller) *API {
-	facadeCaller := base.NewFacadeCaller(caller, cleanerFacade)
+func NewAPI(caller base.APICaller, options ...Option) *API {
+	facadeCaller := base.NewFacadeCaller(caller, cleanerFacade, options...)
 	return &API{facade: facadeCaller}
 }
 
 // Cleanup calls the server-side Cleanup method.
 func (api *API) Cleanup() error {
-	return api.facade.FacadeCall("Cleanup", nil, nil)
+	return api.facade.FacadeCall(context.TODO(), "Cleanup", nil, nil)
 }
 
 // WatchCleanups calls the server-side WatchCleanups method.
 func (api *API) WatchCleanups() (watcher.NotifyWatcher, error) {
 	var result params.NotifyWatchResult
-	err := api.facade.FacadeCall("WatchCleanups", nil, &result)
+	err := api.facade.FacadeCall(context.TODO(), "WatchCleanups", nil, &result)
 	if err != nil {
 		return nil, err
 	}

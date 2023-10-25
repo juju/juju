@@ -4,6 +4,7 @@
 package action
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/juju/api/base"
@@ -31,5 +32,5 @@ func (s *Facade) Prune(maxHistoryTime time.Duration, maxHistoryMB int) error {
 		MaxHistoryTime: maxHistoryTime,
 		MaxHistoryMB:   maxHistoryMB,
 	}
-	return s.facade.FacadeCall("Prune", p, nil)
+	return s.facade.FacadeCall(context.TODO(), "Prune", p, nil)
 }

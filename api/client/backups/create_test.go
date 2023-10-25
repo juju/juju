@@ -29,7 +29,7 @@ func (s *createSuite) TestCreate(c *gc.C) {
 	result := params.CreateResult(meta, "test-filename")
 	result.Notes = arg.Notes
 
-	s.facade.EXPECT().FacadeCall("Create", arg, gomock.Any()).SetArg(2, result)
+	s.facade.EXPECT().FacadeCall(gomock.Any(), "Create", arg, gomock.Any()).SetArg(3, result)
 
 	client := s.newClient()
 	got, err := client.Create("important", true)

@@ -4,6 +4,8 @@
 package uniter_test
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -30,7 +32,7 @@ var mockWatcher = struct{ watcher.NotifyWatcher }{}
 func (s *leadershipSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.ls = uniter.NewLeadershipSettings(
-		func(request string, params, response interface{}) error {
+		func(ctx context.Context, request string, params, response interface{}) error {
 			s.stub.AddCall("FacadeCall", request, params)
 			s.nextResponse(response)
 			return s.stub.NextErr()

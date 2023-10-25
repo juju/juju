@@ -3,6 +3,10 @@
 
 package base
 
+import (
+	coretrace "github.com/juju/juju/core/trace"
+)
+
 // APICallCloser is the same as APICaller, but also provides a Close() method
 // for when we are done with this connection.
 type APICallCloser interface {
@@ -40,13 +44,24 @@ var _ ClientFacade = (*clientFacade)(nil)
 // NewClientFacade prepares a client-facing facade for work against the API.
 // It is expected that most client-facing facades will embed a ClientFacade and
 // will use a FacadeCaller so this function returns both.
-func NewClientFacade(caller APICallCloser, facadeName string) (ClientFacade, FacadeCaller) {
+func NewClientFacade(caller APICallCloser, facadeName string, options ...Option) (ClientFacade, FacadeCaller) {
+	// Derive the context from the API caller context if it's available. The
+	// default will be a noop tracer if none is found.
+	tracer, _ := coretrace.TracerFromContext(caller.Context())
+
+	fc := facadeCaller{
+		facadeName:  facadeName,
+		bestVersion: caller.BestFacadeVersion(facadeName),
+		caller:      caller,
+		tracer:      tracer,
+	}
+	for _, option := range options {
+		fc = option(fc)
+	}
+
 	clientFacade := clientFacade{
-		facadeCaller: facadeCaller{
-			facadeName:  facadeName,
-			bestVersion: caller.BestFacadeVersion(facadeName),
-			caller:      caller,
-		}, closer: caller,
+		facadeCaller: fc,
+		closer:       caller,
 	}
 	return clientFacade, clientFacade
 }

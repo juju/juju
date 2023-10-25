@@ -35,7 +35,7 @@ func (s *apiaddresserSuite) TestAPIAddresses(c *gc.C) {
 	result := params.StringsResult{
 		Result: []string{"0.1.2.3:1234"},
 	}
-	facade.EXPECT().FacadeCall("APIAddresses", nil, gomock.Any()).SetArg(2, result).Return(nil)
+	facade.EXPECT().FacadeCall(gomock.Any(), "APIAddresses", nil, gomock.Any()).SetArg(3, result).Return(nil)
 
 	client := common.NewAPIAddresser(facade)
 	addresses, err := client.APIAddresses()
@@ -69,7 +69,7 @@ func (s *apiaddresserSuite) TestAPIHostPorts(c *gc.C) {
 		Servers: params.FromHostsPorts(hps),
 	}
 
-	facade.EXPECT().FacadeCall("APIHostPorts", nil, gomock.Any()).SetArg(2, result).Return(nil)
+	facade.EXPECT().FacadeCall(gomock.Any(), "APIHostPorts", nil, gomock.Any()).SetArg(3, result).Return(nil)
 
 	client := common.NewAPIAddresser(facade)
 
@@ -96,7 +96,7 @@ func (s *apiaddresserSuite) TestWatchAPIHostPorts(c *gc.C) {
 	caller.EXPECT().APICall(gomock.Any(), "NotifyWatcher", 666, "", "Stop", nil, gomock.Any()).Return(nil).AnyTimes()
 
 	result := params.NotifyWatchResult{}
-	facade.EXPECT().FacadeCall("WatchAPIHostPorts", nil, gomock.Any()).SetArg(2, result).Return(nil)
+	facade.EXPECT().FacadeCall(gomock.Any(), "WatchAPIHostPorts", nil, gomock.Any()).SetArg(3, result).Return(nil)
 	facade.EXPECT().RawAPICaller().Return(caller)
 
 	client := common.NewAPIAddresser(facade)

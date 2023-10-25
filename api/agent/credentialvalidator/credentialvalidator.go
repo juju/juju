@@ -4,6 +4,8 @@
 package credentialvalidator
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -14,6 +16,13 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
+// Option is a function that can be used to configure a Client.
+type Option = base.Option
+
+// WithTracer returns an Option that configures the Client to use the
+// supplied tracer.
+var WithTracer = base.WithTracer
+
 // Facade provides methods that the Juju client command uses to interact
 // with the Juju backend.
 type Facade struct {
@@ -22,8 +31,8 @@ type Facade struct {
 
 // NewFacade creates a new `Facade` based on an existing authenticated API
 // connection.
-func NewFacade(caller base.APICaller) *Facade {
-	return &Facade{base.NewFacadeCaller(caller, "CredentialValidator")}
+func NewFacade(caller base.APICaller, options ...Option) *Facade {
+	return &Facade{base.NewFacadeCaller(caller, "CredentialValidator", options...)}
 }
 
 // ModelCredential gets the cloud credential that a given model uses, including
@@ -34,7 +43,7 @@ func NewFacade(caller base.APICaller) *Facade {
 func (c *Facade) ModelCredential() (base.StoredCredential, bool, error) {
 	out := params.ModelCredential{}
 	emptyResult := base.StoredCredential{}
-	if err := c.facade.FacadeCall("ModelCredential", nil, &out); err != nil {
+	if err := c.facade.FacadeCall(context.TODO(), "ModelCredential", nil, &out); err != nil {
 		return emptyResult, false, errors.Trace(err)
 	}
 
@@ -62,7 +71,7 @@ func (c *Facade) WatchCredential(credentialID string) (watcher.NotifyWatcher, er
 	}
 	in := names.NewCloudCredentialTag(credentialID).String()
 	var result params.NotifyWatchResult
-	err := c.facade.FacadeCall("WatchCredential", params.Entity{in}, &result)
+	err := c.facade.FacadeCall(context.TODO(), "WatchCredential", params.Entity{in}, &result)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -78,7 +87,7 @@ func (c *Facade) WatchCredential(credentialID string) (watcher.NotifyWatcher, er
 func (c *Facade) InvalidateModelCredential(reason string) error {
 	in := params.InvalidateCredentialArg{reason}
 	var result params.ErrorResult
-	err := c.facade.FacadeCall("InvalidateModelCredential", in, &result)
+	err := c.facade.FacadeCall(context.TODO(), "InvalidateModelCredential", in, &result)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -93,7 +102,7 @@ func (c *Facade) InvalidateModelCredential(reason string) error {
 // to a given cloud credential.
 func (c *Facade) WatchModelCredential() (watcher.NotifyWatcher, error) {
 	var result params.NotifyWatchResult
-	err := c.facade.FacadeCall("WatchModelCredential", nil, &result)
+	err := c.facade.FacadeCall(context.TODO(), "WatchModelCredential", nil, &result)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

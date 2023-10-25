@@ -10,18 +10,25 @@ import (
 	"github.com/juju/juju/api/common"
 )
 
+// Option is a function that can be used to configure a Client.
+type Option = base.Option
+
+// WithTracer returns an Option that configures the Client to use the
+// supplied tracer.
+var WithTracer = base.WithTracer
+
 // Client provides access to controller config
 type Client struct {
 	facade base.FacadeCaller
 	*common.ControllerConfigAPI
 }
 
-func NewClient(caller base.APICaller) (*Client, error) {
+func NewClient(caller base.APICaller, options ...Option) (*Client, error) {
 	_, isModel := caller.ModelTag()
 	if !isModel {
 		return nil, errors.New("expected model specific API connection")
 	}
-	facadeCaller := base.NewFacadeCaller(caller, "CAASAdmission")
+	facadeCaller := base.NewFacadeCaller(caller, "CAASAdmission", options...)
 	return &Client{
 		facade:              facadeCaller,
 		ControllerConfigAPI: common.NewControllerConfig(facadeCaller),

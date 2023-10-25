@@ -4,6 +4,7 @@
 package provisioner
 
 import (
+	"context"
 	"errors"
 	"sync"
 
@@ -94,6 +95,7 @@ func (s *containerSetupSuite) TestContainerManagerConfigError(c *gc.C) {
 		gomock.Any(),
 		"Provisioner", 666, "", "ContainerManagerConfig", params.ContainerManagerConfigParams{Type: "lxd"}, gomock.Any()).Return(
 		errors.New("boom"))
+	s.caller.EXPECT().Context().Return(context.Background()).AnyTimes()
 
 	cs := s.setUpContainerSetup(c, instance.LXD)
 	abort := make(chan struct{})
@@ -164,6 +166,7 @@ func (s *containerSetupSuite) expectContainerManagerConfig(cType instance.Contai
 		gomock.Any(),
 		"Provisioner", 666, "", "ContainerManagerConfig", params.ContainerManagerConfigParams{Type: cType}, gomock.Any(),
 	).SetArg(6, resultSource).MinTimes(1)
+	s.caller.EXPECT().Context().Return(context.Background()).AnyTimes()
 }
 
 type credentialAPIForTest struct{}

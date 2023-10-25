@@ -4,6 +4,8 @@
 package common
 
 import (
+	"context"
+
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -35,7 +37,7 @@ func (c *ModelStatusAPI) ModelStatus(tags ...names.ModelTag) ([]base.ModelStatus
 	req := params.Entities{
 		Entities: models,
 	}
-	if err := c.facade.FacadeCall("ModelStatus", req, &result); err != nil {
+	if err := c.facade.FacadeCall(context.TODO(), "ModelStatus", req, &result); err != nil {
 		return nil, err
 	}
 	if len(result.Results) != len(tags) {

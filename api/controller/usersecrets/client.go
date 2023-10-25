@@ -4,6 +4,8 @@
 package usersecrets
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/api/base"
@@ -13,15 +15,22 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
+// Option is a function that can be used to configure a Client.
+type Option = base.Option
+
+// WithTracer returns an Option that configures the Client to use the
+// supplied tracer.
+var WithTracer = base.WithTracer
+
 // Client is the api client for the UserSecretsManager facade.
 type Client struct {
 	facade base.FacadeCaller
 }
 
 // NewClient creates a secret backends manager api client.
-func NewClient(caller base.APICaller) *Client {
+func NewClient(caller base.APICaller, options ...Option) *Client {
 	return &Client{
-		facade: base.NewFacadeCaller(caller, "UserSecretsManager"),
+		facade: base.NewFacadeCaller(caller, "UserSecretsManager", options...),
 	}
 }
 
@@ -29,7 +38,7 @@ func NewClient(caller base.APICaller) *Client {
 // obsolete revision changes.
 func (c *Client) WatchRevisionsToPrune() (watcher.StringsWatcher, error) {
 	var result params.StringsWatchResult
-	err := c.facade.FacadeCall("WatchRevisionsToPrune", nil, &result)
+	err := c.facade.FacadeCall(context.TODO(), "WatchRevisionsToPrune", nil, &result)
 	if err != nil {
 		return nil, err
 	}
@@ -54,7 +63,7 @@ func (c *Client) DeleteRevisions(uri *secrets.URI, revisions ...int) error {
 	}
 
 	var results params.ErrorResults
-	err := c.facade.FacadeCall("DeleteRevisions", params.DeleteSecretArgs{Args: []params.DeleteSecretArg{arg}}, &results)
+	err := c.facade.FacadeCall(context.TODO(), "DeleteRevisions", params.DeleteSecretArgs{Args: []params.DeleteSecretArg{arg}}, &results)
 	if err != nil {
 		return errors.Trace(err)
 	}

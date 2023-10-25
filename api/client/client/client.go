@@ -24,6 +24,13 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
+// Option is a function that can be used to configure a Client.
+type Option = base.Option
+
+// WithTracer returns an Option that configures the Client to use the
+// supplied tracer.
+var WithTracer = base.WithTracer
+
 // Logger is the interface used by the client to log errors.
 type Logger interface {
 	Errorf(string, ...interface{})
@@ -39,8 +46,8 @@ type Client struct {
 
 // NewClient returns an object that can be used to access client-specific
 // functionality.
-func NewClient(c api.Connection, logger Logger) *Client {
-	frontend, backend := base.NewClientFacade(c, "Client")
+func NewClient(c api.Connection, logger Logger, options ...Option) *Client {
+	frontend, backend := base.NewClientFacade(c, "Client", options...)
 	return &Client{
 		ClientFacade: frontend,
 		facade:       backend,
@@ -68,7 +75,7 @@ func (c *Client) Status(args *StatusArgs) (*params.FullStatus, error) {
 	}
 	var result params.FullStatus
 	p := params.StatusParams{Patterns: args.Patterns, IncludeStorage: args.IncludeStorage}
-	if err := c.facade.FacadeCall("FullStatus", p, &result); err != nil {
+	if err := c.facade.FacadeCall(context.TODO(), "FullStatus", p, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil
@@ -77,7 +84,7 @@ func (c *Client) Status(args *StatusArgs) (*params.FullStatus, error) {
 func (c *Client) statusV6(patterns []string, includeStorage bool) (*params.FullStatus, error) {
 	var result params.FullStatus
 	p := params.StatusParams{Patterns: patterns}
-	if err := c.facade.FacadeCall("FullStatus", p, &result); err != nil {
+	if err := c.facade.FacadeCall(context.TODO(), "FullStatus", p, &result); err != nil {
 		return nil, err
 	}
 	// Older servers don't fill out model type, but
@@ -136,7 +143,7 @@ func (c *Client) StatusHistory(kind status.HistoryKind, tag names.Tag, filter st
 		Tag: tag.String(),
 	}
 	bulkArgs := params.StatusHistoryRequests{Requests: []params.StatusHistoryRequest{args}}
-	err := c.facade.FacadeCall("StatusHistory", bulkArgs, &results)
+	err := c.facade.FacadeCall(context.TODO(), "StatusHistory", bulkArgs, &results)
 	if err != nil {
 		return status.History{}, errors.Trace(err)
 	}
@@ -170,7 +177,7 @@ func (c *Client) StatusHistory(kind status.HistoryKind, tag names.Tag, filter st
 // collection of Deltas.
 func (c *Client) WatchAll() (*api.AllWatcher, error) {
 	var info params.AllWatcherId
-	if err := c.facade.FacadeCall("WatchAll", nil, &info); err != nil {
+	if err := c.facade.FacadeCall(context.TODO(), "WatchAll", nil, &info); err != nil {
 		return nil, err
 	}
 	return api.NewAllWatcher(c.conn, &info.AllWatcherId), nil
@@ -192,13 +199,13 @@ func (c *Client) SetModelAgentVersion(version version.Number, stream string, ign
 		AgentStream:         stream,
 		IgnoreAgentVersions: ignoreAgentVersions,
 	}
-	return c.facade.FacadeCall("SetModelAgentVersion", args, nil)
+	return c.facade.FacadeCall(context.TODO(), "SetModelAgentVersion", args, nil)
 }
 
 // AbortCurrentUpgrade aborts and archives the current upgrade
 // synchronisation record, if any.
 func (c *Client) AbortCurrentUpgrade() error {
-	return c.facade.FacadeCall("AbortCurrentUpgrade", nil, nil)
+	return c.facade.FacadeCall(context.TODO(), "AbortCurrentUpgrade", nil, nil)
 }
 
 // UploadTools uploads tools at the specified location to the API server over HTTPS.

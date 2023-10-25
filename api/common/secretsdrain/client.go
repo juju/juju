@@ -4,6 +4,8 @@
 package secretsdrain
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/api/base"
@@ -44,7 +46,7 @@ func processListSecretResult(info params.ListSecretResult) (out coresecrets.Secr
 // GetSecretsToDrain returns metadata for the secrets that need to be drained.
 func (c *Client) GetSecretsToDrain() ([]coresecrets.SecretMetadataForDrain, error) {
 	var results params.ListSecretResults
-	err := c.facade.FacadeCall("GetSecretsToDrain", nil, &results)
+	err := c.facade.FacadeCall(context.TODO(), "GetSecretsToDrain", nil, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -118,7 +120,7 @@ func (c *Client) ChangeSecretBackend(metaRevisions []ChangeSecretBackendArg) (Ch
 		}
 		args.Args[i] = arg
 	}
-	err := c.facade.FacadeCall("ChangeSecretBackend", args, &results)
+	err := c.facade.FacadeCall(context.TODO(), "ChangeSecretBackend", args, &results)
 	if err != nil {
 		return out, errors.Trace(err)
 	}
@@ -134,7 +136,7 @@ func (c *Client) ChangeSecretBackend(metaRevisions []ChangeSecretBackendArg) (Ch
 // WatchSecretBackendChanged sets up a watcher to notify of changes to the secret backend.
 func (c *Client) WatchSecretBackendChanged() (watcher.NotifyWatcher, error) {
 	var result params.NotifyWatchResult
-	if err := c.facade.FacadeCall("WatchSecretBackendChanged", nil, &result); err != nil {
+	if err := c.facade.FacadeCall(context.TODO(), "WatchSecretBackendChanged", nil, &result); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if result.Error != nil {

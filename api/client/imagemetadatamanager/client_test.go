@@ -68,7 +68,7 @@ func (s *imagemetadataSuite) TestList(c *gc.C) {
 		Result: instances,
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("List", args, res).SetArg(2, ress).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "List", args, res).SetArg(3, ress).Return(nil)
 	client := imagemetadatamanager.NewClientFromCaller(mockFacadeCaller)
 	found, err := client.List(
 		stream, region,
@@ -94,7 +94,7 @@ func (s *imagemetadataSuite) TestListFacadeCallError(c *gc.C) {
 	}
 	res := new(params.ListCloudImageMetadataResult)
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("List", args, res).Return(errors.New(msg))
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "List", args, res).Return(errors.New(msg))
 	client := imagemetadatamanager.NewClientFromCaller(mockFacadeCaller)
 	found, err := client.List("", "", nil, nil, "", "")
 	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
@@ -116,7 +116,7 @@ func (s *imagemetadataSuite) TestSave(c *gc.C) {
 		Results: []params.ErrorResult{{}},
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("Save", args, res).SetArg(2, ress).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "Save", args, res).SetArg(3, ress).Return(nil)
 	client := imagemetadatamanager.NewClientFromCaller(mockFacadeCaller)
 
 	err := client.Save([]params.CloudImageMetadata{m, m})
@@ -136,7 +136,7 @@ func (s *imagemetadataSuite) TestSaveFacadeCallError(c *gc.C) {
 	}
 	res := new(params.ErrorResults)
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("Save", args, res).Return(errors.New(msg))
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "Save", args, res).Return(errors.New(msg))
 	client := imagemetadatamanager.NewClientFromCaller(mockFacadeCaller)
 
 	err := client.Save(m)
@@ -161,7 +161,7 @@ func (s *imagemetadataSuite) TestSaveFacadeCallErrorResult(c *gc.C) {
 		},
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("Save", args, res).SetArg(2, ress).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "Save", args, res).SetArg(3, ress).Return(nil)
 	client := imagemetadatamanager.NewClientFromCaller(mockFacadeCaller)
 
 	err := client.Save(m)
@@ -181,7 +181,7 @@ func (s *imagemetadataSuite) TestDelete(c *gc.C) {
 		Results: []params.ErrorResult{{}},
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("Delete", args, res).SetArg(2, ress).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "Delete", args, res).SetArg(3, ress).Return(nil)
 	client := imagemetadatamanager.NewClientFromCaller(mockFacadeCaller)
 
 	err := client.Delete(imageId)
@@ -201,7 +201,7 @@ func (s *imagemetadataSuite) TestDeleteMultipleResult(c *gc.C) {
 		Results: []params.ErrorResult{{}, {}},
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("Delete", args, res).SetArg(2, ress).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "Delete", args, res).SetArg(3, ress).Return(nil)
 	client := imagemetadatamanager.NewClientFromCaller(mockFacadeCaller)
 
 	err := client.Delete(imageId)
@@ -221,7 +221,7 @@ func (s *imagemetadataSuite) TestDeleteFailure(c *gc.C) {
 		Results: []params.ErrorResult{{&params.Error{Message: msg}}},
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("Delete", args, res).SetArg(2, ress).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "Delete", args, res).SetArg(3, ress).Return(nil)
 	client := imagemetadatamanager.NewClientFromCaller(mockFacadeCaller)
 
 	err := client.Delete("tst12345")
@@ -238,7 +238,7 @@ func (s *imagemetadataSuite) TestDeleteFacadeCallError(c *gc.C) {
 	}
 	res := new(params.ErrorResults)
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("Delete", args, res).Return(errors.New(msg))
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "Delete", args, res).Return(errors.New(msg))
 	client := imagemetadatamanager.NewClientFromCaller(mockFacadeCaller)
 
 	err := client.Delete("tst12345")

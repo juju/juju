@@ -4,6 +4,8 @@
 package externalcontrollerupdater
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -15,6 +17,13 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
+// Option is a function that can be used to configure a Client.
+type Option = base.Option
+
+// WithTracer returns an Option that configures the Client to use the
+// supplied tracer.
+var WithTracer = base.WithTracer
+
 const Facade = "ExternalControllerUpdater"
 
 // Client provides access to the ExternalControllerUpdater API facade.
@@ -23,15 +32,15 @@ type Client struct {
 }
 
 // New creates a new client-side ExternalControllerUpdater facade.
-func New(caller base.APICaller) *Client {
-	return &Client{base.NewFacadeCaller(caller, Facade)}
+func New(caller base.APICaller, options ...Option) *Client {
+	return &Client{base.NewFacadeCaller(caller, Facade, options...)}
 }
 
 // WatchExternalControllers watches for the addition and removal of external
 // controllers.
 func (c *Client) WatchExternalControllers() (watcher.StringsWatcher, error) {
 	var results params.StringsWatchResults
-	err := c.facade.FacadeCall("WatchExternalControllers", nil, &results)
+	err := c.facade.FacadeCall(context.TODO(), "WatchExternalControllers", nil, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -57,7 +66,7 @@ func (c *Client) ExternalControllerInfo(controllerUUID string) (*crossmodel.Cont
 		Tag: controllerTag.String(),
 	}}}
 	var results params.ExternalControllerInfoResults
-	err := c.facade.FacadeCall("ExternalControllerInfo", args, &results)
+	err := c.facade.FacadeCall(context.TODO(), "ExternalControllerInfo", args, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -90,7 +99,7 @@ func (c *Client) SetExternalControllerInfo(info crossmodel.ControllerInfo) error
 			},
 		}},
 	}
-	err := c.facade.FacadeCall("SetExternalControllerInfo", args, &results)
+	err := c.facade.FacadeCall(context.TODO(), "SetExternalControllerInfo", args, &results)
 	if err != nil {
 		return errors.Trace(err)
 	}

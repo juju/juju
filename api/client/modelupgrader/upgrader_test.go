@@ -34,16 +34,15 @@ func (s *UpgradeModelSuite) TestAbortModelUpgrade(c *gc.C) {
 	defer ctrl.Finish()
 	apiCaller := mocks.NewMockAPICallCloser(ctrl)
 
-	gomock.InOrder(
-		apiCaller.EXPECT().BestFacadeVersion("ModelUpgrader").Return(1),
-		apiCaller.EXPECT().APICall(
-			gomock.Any(),
-			"ModelUpgrader", 1, "", "AbortModelUpgrade",
-			params.ModelParam{
-				ModelTag: coretesting.ModelTag.String(),
-			}, nil,
-		).Return(nil),
-	)
+	apiCaller.EXPECT().BestFacadeVersion("ModelUpgrader").Return(1)
+	apiCaller.EXPECT().Context().Return(context.Background()).AnyTimes()
+	apiCaller.EXPECT().APICall(
+		gomock.Any(),
+		"ModelUpgrader", 1, "", "AbortModelUpgrade",
+		params.ModelParam{
+			ModelTag: coretesting.ModelTag.String(),
+		}, nil,
+	).Return(nil)
 
 	client := modelupgrader.NewClient(apiCaller)
 	err := client.AbortModelUpgrade(coretesting.ModelTag.Id())
@@ -55,23 +54,22 @@ func (s *UpgradeModelSuite) TestUpgradeModel(c *gc.C) {
 	defer ctrl.Finish()
 	apiCaller := mocks.NewMockAPICallCloser(ctrl)
 
-	gomock.InOrder(
-		apiCaller.EXPECT().BestFacadeVersion("ModelUpgrader").Return(1),
-		apiCaller.EXPECT().APICall(
-			gomock.Any(),
-			"ModelUpgrader", 1, "", "UpgradeModel",
-			params.UpgradeModelParams{
-				ModelTag:            coretesting.ModelTag.String(),
-				TargetVersion:       version.MustParse("2.9.1"),
-				IgnoreAgentVersions: true,
-				DryRun:              true,
-			}, &params.UpgradeModelResult{},
-		).DoAndReturn(func(ctx context.Context, objType string, facadeVersion int, id, request string, args, result interface{}) error {
-			out := result.(*params.UpgradeModelResult)
-			out.ChosenVersion = version.MustParse("2.9.99")
-			return nil
-		}),
-	)
+	apiCaller.EXPECT().BestFacadeVersion("ModelUpgrader").Return(1)
+	apiCaller.EXPECT().Context().Return(context.Background()).AnyTimes()
+	apiCaller.EXPECT().APICall(
+		gomock.Any(),
+		"ModelUpgrader", 1, "", "UpgradeModel",
+		params.UpgradeModelParams{
+			ModelTag:            coretesting.ModelTag.String(),
+			TargetVersion:       version.MustParse("2.9.1"),
+			IgnoreAgentVersions: true,
+			DryRun:              true,
+		}, &params.UpgradeModelResult{},
+	).DoAndReturn(func(ctx context.Context, objType string, facadeVersion int, id, request string, args, result interface{}) error {
+		out := result.(*params.UpgradeModelResult)
+		out.ChosenVersion = version.MustParse("2.9.99")
+		return nil
+	})
 
 	client := modelupgrader.NewClient(apiCaller)
 	chosenVersion, err := client.UpgradeModel(
@@ -88,7 +86,7 @@ func (s *UpgradeModelSuite) TestUploadTools(c *gc.C) {
 	defer ctrl.Finish()
 	apiCaller := mocks.NewMockAPICallCloser(ctrl)
 	doer := mocks.NewMockDoer(ctrl)
-	ctx := mocks.NewMockContext(ctrl)
+	ctx := context.Background()
 
 	req, err := http.NewRequest(
 		"POST",
@@ -109,12 +107,10 @@ func (s *UpgradeModelSuite) TestUploadTools(c *gc.C) {
 	}
 	resp.Header.Set("Content-Type", "application/json")
 
-	gomock.InOrder(
-		apiCaller.EXPECT().BestFacadeVersion("ModelUpgrader").Return(1),
-		apiCaller.EXPECT().HTTPClient().Return(&httprequest.Client{Doer: doer}, nil),
-		apiCaller.EXPECT().Context().Return(ctx),
-		doer.EXPECT().Do(req).Return(resp, nil),
-	)
+	apiCaller.EXPECT().BestFacadeVersion("ModelUpgrader").Return(1)
+	apiCaller.EXPECT().HTTPClient().Return(&httprequest.Client{Doer: doer}, nil)
+	apiCaller.EXPECT().Context().Return(ctx).AnyTimes()
+	doer.EXPECT().Do(req).Return(resp, nil)
 
 	client := modelupgrader.NewClient(apiCaller)
 

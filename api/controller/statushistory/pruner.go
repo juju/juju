@@ -4,12 +4,20 @@
 package statushistory
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/rpc/params"
 )
+
+// Option is a function that can be used to configure a Client.
+type Option = base.Option
+
+// WithTracer returns an Option that configures the Client to use the
+// supplied tracer.
+var WithTracer = base.WithTracer
 
 const apiName = "StatusHistory"
 
@@ -20,8 +28,8 @@ type Client struct {
 }
 
 // NewClient returns a status "StatusHistory" Client.
-func NewClient(caller base.APICaller) *Client {
-	facadeCaller := base.NewFacadeCaller(caller, apiName)
+func NewClient(caller base.APICaller, options ...Option) *Client {
+	facadeCaller := base.NewFacadeCaller(caller, apiName, options...)
 	return &Client{facade: facadeCaller, ModelWatcher: common.NewModelWatcher(facadeCaller)}
 }
 
@@ -31,5 +39,5 @@ func (s *Client) Prune(maxHistoryTime time.Duration, maxHistoryMB int) error {
 		MaxHistoryTime: maxHistoryTime,
 		MaxHistoryMB:   maxHistoryMB,
 	}
-	return s.facade.FacadeCall("Prune", p, nil)
+	return s.facade.FacadeCall(context.TODO(), "Prune", p, nil)
 }

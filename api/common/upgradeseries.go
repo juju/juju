@@ -4,6 +4,8 @@
 package common
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -35,7 +37,7 @@ func (u *UpgradeSeriesAPI) WatchUpgradeSeriesNotifications() (watcher.NotifyWatc
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag.String()}},
 	}
-	err := u.facade.FacadeCall("WatchUpgradeSeriesNotifications", args, &results)
+	err := u.facade.FacadeCall(context.TODO(), "WatchUpgradeSeriesNotifications", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -58,7 +60,7 @@ func (u *UpgradeSeriesAPI) UpgradeSeriesUnitStatus() (model.UpgradeSeriesStatus,
 		Entities: []params.Entity{{Tag: u.tag.String()}},
 	}
 
-	err := u.facade.FacadeCall("UpgradeSeriesUnitStatus", args, &results)
+	err := u.facade.FacadeCall(context.TODO(), "UpgradeSeriesUnitStatus", args, &results)
 	if err != nil {
 		return "", "", err
 	}
@@ -92,7 +94,7 @@ func (u *UpgradeSeriesAPI) SetUpgradeSeriesUnitStatus(status model.UpgradeSeries
 			Message: reason,
 		}},
 	}
-	err := u.facade.FacadeCall("SetUpgradeSeriesUnitStatus", args, &results)
+	err := u.facade.FacadeCall(context.TODO(), "SetUpgradeSeriesUnitStatus", args, &results)
 	if err != nil {
 		return err
 	}

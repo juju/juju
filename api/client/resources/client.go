@@ -4,6 +4,7 @@
 package resources
 
 import (
+	"context"
 	"io"
 	"strings"
 
@@ -20,6 +21,13 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
+// Option is a function that can be used to configure a Client.
+type Option = base.Option
+
+// WithTracer returns an Option that configures the Client to use the
+// supplied tracer.
+var WithTracer = base.WithTracer
+
 // Client is the public client for the resources API facade.
 type Client struct {
 	base.ClientFacade
@@ -29,8 +37,8 @@ type Client struct {
 }
 
 // NewClient returns a new Client for the given raw API caller.
-func NewClient(apiCaller base.APICallCloser) (*Client, error) {
-	frontend, backend := base.NewClientFacade(apiCaller, "Resources")
+func NewClient(apiCaller base.APICallCloser, options ...Option) (*Client, error) {
+	frontend, backend := base.NewClientFacade(apiCaller, "Resources", options...)
 
 	httpClient, err := apiCaller.HTTPClient()
 	if err != nil {
@@ -52,7 +60,7 @@ func (c Client) ListResources(applications []string) ([]resources.ApplicationRes
 	}
 
 	var apiResults params.ResourcesResults
-	if err := c.facade.FacadeCall("ListResources", &args, &apiResults); err != nil {
+	if err := c.facade.FacadeCall(context.TODO(), "ListResources", &args, &apiResults); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -159,7 +167,7 @@ func (c Client) AddPendingResources(args AddPendingResourcesArgs) ([]string, err
 	}
 
 	var result params.AddPendingResourcesResult
-	if err := c.facade.FacadeCall("AddPendingResources", &apiArgs, &result); err != nil {
+	if err := c.facade.FacadeCall(context.TODO(), "AddPendingResources", &apiArgs, &result); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if result.Error != nil {

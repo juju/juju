@@ -4,6 +4,8 @@
 package undertaker
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -14,6 +16,13 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
 )
+
+// Option is a function that can be used to configure a Client.
+type Option = base.Option
+
+// WithTracer returns an Option that configures the Client to use the
+// supplied tracer.
+var WithTracer = base.WithTracer
 
 // NewWatcherFunc exists to let us test Watch properly.
 type NewWatcherFunc func(base.APICaller, params.NotifyWatchResult) watcher.NotifyWatcher
@@ -28,12 +37,12 @@ type Client struct {
 }
 
 // NewClient creates a new client for accessing the undertaker API.
-func NewClient(caller base.APICaller, newWatcher NewWatcherFunc) (*Client, error) {
+func NewClient(caller base.APICaller, newWatcher NewWatcherFunc, options ...Option) (*Client, error) {
 	modelTag, ok := caller.ModelTag()
 	if !ok {
 		return nil, errors.New("undertaker client is not appropriate for controller-only API")
 	}
-	facadeCaller := base.NewFacadeCaller(caller, "Undertaker")
+	facadeCaller := base.NewFacadeCaller(caller, "Undertaker", options...)
 	return &Client{
 		modelTag:     modelTag,
 		caller:       facadeCaller,
@@ -69,7 +78,7 @@ func (c *Client) SetStatus(status status.Status, message string, data map[string
 		},
 	}
 	var results params.ErrorResults
-	if err := c.caller.FacadeCall("SetStatus", args, &results); err != nil {
+	if err := c.caller.FacadeCall(context.TODO(), "SetStatus", args, &results); err != nil {
 		return errors.Trace(err)
 	}
 	if len(results.Results) != 1 {
@@ -85,7 +94,7 @@ func (c *Client) entityFacadeCall(name string, results interface{}) error {
 	args := params.Entities{
 		Entities: []params.Entity{{c.modelTag.String()}},
 	}
-	return c.caller.FacadeCall(name, args, results)
+	return c.caller.FacadeCall(context.TODO(), name, args, results)
 }
 
 // WatchModelResources starts a watcher for changes to the model's

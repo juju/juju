@@ -36,7 +36,7 @@ func (s *ListResourcesSuite) TestListResources(c *gc.C) {
 	}
 
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("ListResources", args, result).SetArg(2, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ListResources", args, result).SetArg(3, results).Return(nil)
 	client := resources.NewClientFromCaller(mockFacadeCaller)
 
 	res, err := client.ListResources([]string{"a-application", "other-application"})
@@ -71,7 +71,7 @@ func (s *ListResourcesSuite) TestEmptyResources(c *gc.C) {
 		Results: []params.ResourcesResult{{}, {}},
 	}
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("ListResources", args, result).SetArg(2, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ListResources", args, result).SetArg(3, results).Return(nil)
 	client := resources.NewClientFromCaller(mockFacadeCaller)
 
 	res, err := client.ListResources([]string{"a-application", "other-application"})
@@ -91,7 +91,7 @@ func (s *ListResourcesSuite) TestServerError(c *gc.C) {
 		Results: []params.ResourcesResult{{}},
 	}
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("ListResources", args, result).SetArg(2, results).Return(errors.New("boom"))
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ListResources", args, result).SetArg(3, results).Return(errors.New("boom"))
 	client := resources.NewClientFromCaller(mockFacadeCaller)
 
 	_, err := client.ListResources([]string{"a-application"})
@@ -112,7 +112,7 @@ func (s *ListResourcesSuite) TestArity(c *gc.C) {
 		Results: []params.ResourcesResult{{}},
 	}
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("ListResources", args, result).SetArg(2, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ListResources", args, result).SetArg(3, results).Return(nil)
 	client := resources.NewClientFromCaller(mockFacadeCaller)
 
 	_, err := client.ListResources([]string{"a-application", "other-application"})
@@ -133,7 +133,7 @@ func (s *ListResourcesSuite) TestConversionFailed(c *gc.C) {
 		}},
 	}
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("ListResources", args, result).SetArg(2, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ListResources", args, result).SetArg(3, results).Return(nil)
 	client := resources.NewClientFromCaller(mockFacadeCaller)
 
 	_, err := client.ListResources([]string{"a-application"})

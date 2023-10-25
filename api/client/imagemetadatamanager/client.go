@@ -4,12 +4,21 @@
 package imagemetadatamanager
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/api/base"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/rpc/params"
 )
+
+// Option is a function that can be used to configure a Client.
+type Option = base.Option
+
+// WithTracer returns an Option that configures the Client to use the
+// supplied tracer.
+var WithTracer = base.WithTracer
 
 // Client provides access to cloud image metadata.
 // It is used to find, save and update image metadata.
@@ -19,8 +28,8 @@ type Client struct {
 }
 
 // NewClient returns a new metadata client.
-func NewClient(st base.APICallCloser) *Client {
-	frontend, backend := base.NewClientFacade(st, "ImageMetadataManager")
+func NewClient(st base.APICallCloser, options ...Option) *Client {
+	frontend, backend := base.NewClientFacade(st, "ImageMetadataManager", options...)
 	return &Client{ClientFacade: frontend, facade: backend}
 }
 
@@ -44,7 +53,7 @@ func (c *Client) List(
 		RootStorageType: rootStorageType,
 	}
 	out := params.ListCloudImageMetadataResult{}
-	err := c.facade.FacadeCall("List", in, &out)
+	err := c.facade.FacadeCall(context.TODO(), "List", in, &out)
 	return out.Result, err
 }
 
@@ -55,7 +64,7 @@ func (c *Client) Save(metadata []params.CloudImageMetadata) error {
 		Metadata: []params.CloudImageMetadataList{{metadata}},
 	}
 	out := params.ErrorResults{}
-	err := c.facade.FacadeCall("Save", in, &out)
+	err := c.facade.FacadeCall(context.TODO(), "Save", in, &out)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -72,7 +81,7 @@ func (c *Client) Save(metadata []params.CloudImageMetadata) error {
 func (c *Client) Delete(imageId string) error {
 	in := params.MetadataImageIds{[]string{imageId}}
 	out := params.ErrorResults{}
-	err := c.facade.FacadeCall("Delete", in, &out)
+	err := c.facade.FacadeCall(context.TODO(), "Delete", in, &out)
 	if err != nil {
 		return errors.Trace(err)
 	}

@@ -4,6 +4,8 @@
 package sshclient
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -14,9 +16,16 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
+// Option is a function that can be used to configure a Client.
+type Option = base.Option
+
+// WithTracer returns an Option that configures the Client to use the
+// supplied tracer.
+var WithTracer = base.WithTracer
+
 // NewFacade returns a new Facade based on an existing API connection.
-func NewFacade(callCloser base.APICallCloser) *Facade {
-	clientFacade, caller := base.NewClientFacade(callCloser, "SSHClient")
+func NewFacade(callCloser base.APICallCloser, options ...Option) *Facade {
+	clientFacade, caller := base.NewClientFacade(callCloser, "SSHClient", options...)
 	return &Facade{
 		ClientFacade: clientFacade,
 		caller:       caller,
@@ -50,7 +59,7 @@ func (facade *Facade) AllAddresses(target string) ([]string, error) {
 		return nil, errors.Trace(err)
 	}
 	var out params.SSHAddressesResults
-	err = facade.caller.FacadeCall("AllAddresses", entities, &out)
+	err = facade.caller.FacadeCall(context.TODO(), "AllAddresses", entities, &out)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -69,7 +78,7 @@ func (facade *Facade) addressCall(callName, target string) (string, error) {
 		return "", errors.Trace(err)
 	}
 	var out params.SSHAddressResults
-	err = facade.caller.FacadeCall(callName, entities, &out)
+	err = facade.caller.FacadeCall(context.TODO(), callName, entities, &out)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -90,7 +99,7 @@ func (facade *Facade) PublicKeys(target string) ([]string, error) {
 		return nil, errors.Trace(err)
 	}
 	var out params.SSHPublicKeysResults
-	err = facade.caller.FacadeCall("PublicKeys", entities, &out)
+	err = facade.caller.FacadeCall(context.TODO(), "PublicKeys", entities, &out)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -107,7 +116,7 @@ func (facade *Facade) PublicKeys(target string) ([]string, error) {
 // controller hosts for the associated model.
 func (facade *Facade) Proxy() (bool, error) {
 	var out params.SSHProxyResult
-	err := facade.caller.FacadeCall("Proxy", nil, &out)
+	err := facade.caller.FacadeCall(context.TODO(), "Proxy", nil, &out)
 	if err != nil {
 		return false, errors.Trace(err)
 	}
@@ -145,7 +154,7 @@ func countError(count int) error {
 func (facade *Facade) ModelCredentialForSSH() (cloudspec.CloudSpec, error) {
 	var result params.CloudSpecResult
 
-	err := facade.caller.FacadeCall("ModelCredentialForSSH", nil, &result)
+	err := facade.caller.FacadeCall(context.TODO(), "ModelCredentialForSSH", nil, &result)
 	if err != nil {
 		return cloudspec.CloudSpec{}, err
 	}

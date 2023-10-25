@@ -1437,6 +1437,10 @@ func (c *stubConnection) APICall(ctx context.Context, objType string, _ int, _, 
 	return errors.New("unexpected API call")
 }
 
+func (c *stubConnection) Context() context.Context {
+	return context.Background()
+}
+
 func (c *stubConnection) Client() *apiclient.Client {
 	// This is kinda crappy but the *Client doesn't have to be
 	// functional...

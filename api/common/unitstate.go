@@ -4,6 +4,8 @@
 package common
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -31,7 +33,7 @@ func (u *UnitStateAPI) State() (params.UnitStateResult, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag.String()}},
 	}
-	err := u.facade.FacadeCall("State", args, &results)
+	err := u.facade.FacadeCall(context.TODO(), "State", args, &results)
 	if err != nil {
 		return params.UnitStateResult{}, err
 	}
@@ -53,7 +55,7 @@ func (u *UnitStateAPI) SetState(unitState params.SetUnitStateArg) error {
 	args := params.SetUnitStateArgs{
 		Args: []params.SetUnitStateArg{unitState},
 	}
-	err := u.facade.FacadeCall("SetState", args, &results)
+	err := u.facade.FacadeCall(context.TODO(), "SetState", args, &results)
 	if err != nil {
 		return errors.Trace(err)
 	}

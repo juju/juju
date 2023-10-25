@@ -39,7 +39,7 @@ func (s *clientSuite) TestAbortCurrentUpgrade(c *gc.C) {
 
 	someErr := errors.New("random")
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("AbortCurrentUpgrade", nil, nil).Return(someErr)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "AbortCurrentUpgrade", nil, nil).Return(someErr)
 	cl := client.NewClientFromFacadeCaller(mockFacadeCaller)
 
 	err := cl.AbortCurrentUpgrade()

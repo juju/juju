@@ -4,6 +4,8 @@
 package meterstatus
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -12,6 +14,13 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
 )
+
+// Option is a function that can be used to configure a Client.
+type Option = base.Option
+
+// WithTracer returns an Option that configures the Client to use the
+// supplied tracer.
+var WithTracer = base.WithTracer
 
 // MeterStatusClient defines the methods on the MeterStatus API end point.
 type MeterStatusClient interface {
@@ -24,9 +33,9 @@ type MeterStatusClient interface {
 }
 
 // NewClient creates a new client for accessing the MeterStatus API.
-func NewClient(caller base.APICaller, tag names.UnitTag) MeterStatusClient {
+func NewClient(caller base.APICaller, tag names.UnitTag, options ...Option) MeterStatusClient {
 	return &Client{
-		facade: base.NewFacadeCaller(caller, "MeterStatus"),
+		facade: base.NewFacadeCaller(caller, "MeterStatus", options...),
 		tag:    tag,
 	}
 }
@@ -45,7 +54,7 @@ func (c *Client) MeterStatus() (statusCode, statusInfo string, rErr error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: c.tag.String()}},
 	}
-	err := c.facade.FacadeCall("GetMeterStatus", args, &results)
+	err := c.facade.FacadeCall(context.TODO(), "GetMeterStatus", args, &results)
 	if err != nil {
 		return "", "", errors.Trace(err)
 	}
@@ -65,7 +74,7 @@ func (c *Client) WatchMeterStatus() (watcher.NotifyWatcher, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: c.tag.String()}},
 	}
-	err := c.facade.FacadeCall("WatchMeterStatus", args, &results)
+	err := c.facade.FacadeCall(context.TODO(), "WatchMeterStatus", args, &results)
 	if err != nil {
 		return nil, err
 	}

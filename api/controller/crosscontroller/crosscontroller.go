@@ -4,6 +4,8 @@
 package crosscontroller
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/api/base"
@@ -12,6 +14,13 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
+// Option is a function that can be used to configure a Client.
+type Option = base.Option
+
+// WithTracer returns an Option that configures the Client to use the
+// supplied tracer.
+var WithTracer = base.WithTracer
+
 // Client provides access to the CrossController API facade.
 type Client struct {
 	base.ClientFacade
@@ -19,8 +28,8 @@ type Client struct {
 }
 
 // NewClient creates a new client-side CrossModelRelations facade.
-func NewClient(caller base.APICallCloser) *Client {
-	frontend, backend := base.NewClientFacade(caller, "CrossController")
+func NewClient(caller base.APICallCloser, options ...Option) *Client {
+	frontend, backend := base.NewClientFacade(caller, "CrossController", options...)
 	return &Client{
 		ClientFacade: frontend,
 		facade:       backend,
@@ -37,7 +46,7 @@ type ControllerInfo struct {
 // ControllerInfo returns the remote controller's API information.
 func (c *Client) ControllerInfo() (*ControllerInfo, error) {
 	var results params.ControllerAPIInfoResults
-	if err := c.facade.FacadeCall("ControllerInfo", nil, &results); err != nil {
+	if err := c.facade.FacadeCall(context.TODO(), "ControllerInfo", nil, &results); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if len(results.Results) != 1 {
@@ -57,7 +66,7 @@ func (c *Client) ControllerInfo() (*ControllerInfo, error) {
 // controller's API information changes.
 func (c *Client) WatchControllerInfo() (watcher.NotifyWatcher, error) {
 	var results params.NotifyWatchResults
-	if err := c.facade.FacadeCall("WatchControllerInfo", nil, &results); err != nil {
+	if err := c.facade.FacadeCall(context.TODO(), "WatchControllerInfo", nil, &results); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if len(results.Results) != 1 {

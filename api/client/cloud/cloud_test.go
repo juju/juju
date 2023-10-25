@@ -49,7 +49,7 @@ func (s *cloudSuite) TestCloud(c *gc.C) {
 		},
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("Cloud", args, res).SetArg(2, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "Cloud", args, res).SetArg(3, results).Return(nil)
 	client := cloudapi.NewClientFromCaller(mockFacadeCaller)
 
 	result, err := client.Cloud(names.NewCloudTag("foo"))
@@ -107,7 +107,7 @@ func (s *cloudSuite) TestCloudInfo(c *gc.C) {
 	}
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("CloudInfo", args, res).SetArg(2, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "CloudInfo", args, res).SetArg(3, results).Return(nil)
 	client := cloudapi.NewClientFromCaller(mockFacadeCaller)
 
 	result, err := client.CloudInfo([]names.CloudTag{
@@ -165,7 +165,7 @@ func (s *cloudSuite) TestClouds(c *gc.C) {
 			},
 		}}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("Clouds", nil, res).SetArg(2, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "Clouds", nil, res).SetArg(3, results).Return(nil)
 	client := cloudapi.NewClientFromCaller(mockFacadeCaller)
 
 	clouds, err := client.Clouds()
@@ -202,7 +202,7 @@ func (s *cloudSuite) TestUserCredentials(c *gc.C) {
 		}},
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("UserCredentials", args, res).SetArg(2, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "UserCredentials", args, res).SetArg(3, results).Return(nil)
 	client := cloudapi.NewClientFromCaller(mockFacadeCaller)
 
 	result, err := client.UserCredentials(names.NewUserTag("bob"), names.NewCloudTag("foo"))
@@ -233,7 +233,7 @@ func (s *cloudSuite) TestUpdateCredential(c *gc.C) {
 		Results: []params.UpdateCredentialResult{{}},
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("UpdateCredentialsCheckModels", args, res).SetArg(2, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "UpdateCredentialsCheckModels", args, res).SetArg(3, results).Return(nil)
 	client := cloudapi.NewClientFromCaller(mockFacadeCaller)
 
 	result, err := client.UpdateCredentialsCheckModels(testCredentialTag, testCredential)
@@ -266,7 +266,7 @@ func (s *cloudSuite) TestUpdateCredentialError(c *gc.C) {
 		},
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("UpdateCredentialsCheckModels", args, res).SetArg(2, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "UpdateCredentialsCheckModels", args, res).SetArg(3, results).Return(nil)
 	client := cloudapi.NewClientFromCaller(mockFacadeCaller)
 
 	errs, err := client.UpdateCredentialsCheckModels(testCredentialTag, testCredential)
@@ -296,7 +296,7 @@ func (s *cloudSuite) TestUpdateCredentialManyResults(c *gc.C) {
 			{},
 		}}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("UpdateCredentialsCheckModels", args, res).SetArg(2, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "UpdateCredentialsCheckModels", args, res).SetArg(3, results).Return(nil)
 	client := cloudapi.NewClientFromCaller(mockFacadeCaller)
 
 	result, err := client.UpdateCredentialsCheckModels(testCredentialTag, testCredential)
@@ -337,7 +337,7 @@ func (s *cloudSuite) TestUpdateCredentialModelErrors(c *gc.C) {
 			},
 		}}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("UpdateCredentialsCheckModels", args, res).SetArg(2, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "UpdateCredentialsCheckModels", args, res).SetArg(3, results).Return(nil)
 	client := cloudapi.NewClientFromCaller(mockFacadeCaller)
 
 	errs, err := client.UpdateCredentialsCheckModels(testCredentialTag, testCredential)
@@ -376,7 +376,7 @@ func (s *cloudSuite) TestRevokeCredential(c *gc.C) {
 		Results: []params.ErrorResult{{}},
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("RevokeCredentialsCheckModels", args, res).SetArg(2, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "RevokeCredentialsCheckModels", args, res).SetArg(3, results).Return(nil)
 	client := cloudapi.NewClientFromCaller(mockFacadeCaller)
 
 	tag := names.NewCloudCredentialTag("foo/bob/bar")
@@ -410,7 +410,7 @@ func (s *cloudSuite) TestCredentials(c *gc.C) {
 		},
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("Credential", args, res).SetArg(2, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "Credential", args, res).SetArg(3, results).Return(nil)
 	client := cloudapi.NewClientFromCaller(mockFacadeCaller)
 
 	tag := names.NewCloudCredentialTag("foo/bob/bar")
@@ -452,7 +452,7 @@ func (s *cloudSuite) TestAddCloudForce(c *gc.C) {
 	}
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("AddCloud", args, nil).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "AddCloud", args, nil).Return(nil)
 	client := cloudapi.NewClientFromCaller(mockFacadeCaller)
 
 	err := client.AddCloud(testCloud, force)
@@ -511,7 +511,7 @@ func (s *cloudSuite) TestCredentialContentsAll(c *gc.C) {
 		Results: expectedResults,
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("CredentialContents", args, res).SetArg(2, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "CredentialContents", args, res).SetArg(3, results).Return(nil)
 	client := cloudapi.NewClientFromCaller(mockFacadeCaller)
 
 	ress, err := client.CredentialContents("", "", true)
@@ -536,7 +536,7 @@ func (s *cloudSuite) TestCredentialContentsOne(c *gc.C) {
 		},
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("CredentialContents", args, res).SetArg(2, ress).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "CredentialContents", args, res).SetArg(3, ress).Return(nil)
 	client := cloudapi.NewClientFromCaller(mockFacadeCaller)
 
 	results, err := client.CredentialContents("cloud-name", "credential-name", true)
@@ -562,7 +562,7 @@ func (s *cloudSuite) TestCredentialContentsGotMoreThanBargainedFor(c *gc.C) {
 		},
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("CredentialContents", args, res).SetArg(2, ress).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "CredentialContents", args, res).SetArg(3, ress).Return(nil)
 	client := cloudapi.NewClientFromCaller(mockFacadeCaller)
 
 	results, err := client.CredentialContents("cloud-name", "credential-name", true)
@@ -579,7 +579,7 @@ func (s *cloudSuite) TestCredentialContentsServerError(c *gc.C) {
 	}
 	res := new(params.CredentialContentResults)
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("CredentialContents", args, res).Return(errors.New("boom"))
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "CredentialContents", args, res).Return(errors.New("boom"))
 	client := cloudapi.NewClientFromCaller(mockFacadeCaller)
 
 	results, err := client.CredentialContents("", "", true)
@@ -601,7 +601,7 @@ func (s *cloudSuite) TestRemoveCloud(c *gc.C) {
 		}},
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("RemoveClouds", args, res).SetArg(2, ress).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "RemoveClouds", args, res).SetArg(3, ress).Return(nil)
 	client := cloudapi.NewClientFromCaller(mockFacadeCaller)
 
 	err := client.RemoveCloud("foo")
@@ -625,7 +625,7 @@ func (s *cloudSuite) TestRemoveCloudErrorMapping(c *gc.C) {
 		},
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("RemoveClouds", args, res).SetArg(2, ress).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "RemoveClouds", args, res).SetArg(3, ress).Return(nil)
 	client := cloudapi.NewClientFromCaller(mockFacadeCaller)
 
 	err := client.RemoveCloud("foo")
@@ -648,7 +648,7 @@ func (s *cloudSuite) TestGrantCloud(c *gc.C) {
 		},
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("ModifyCloudAccess", args, res).SetArg(2, ress).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ModifyCloudAccess", args, res).SetArg(3, ress).Return(nil)
 	client := cloudapi.NewClientFromCaller(mockFacadeCaller)
 
 	err := client.GrantCloud("fred", "admin", "fluffy")
@@ -671,7 +671,7 @@ func (s *cloudSuite) TestRevokeCloud(c *gc.C) {
 		},
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("ModifyCloudAccess", args, res).SetArg(2, ress).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ModifyCloudAccess", args, res).SetArg(3, ress).Return(nil)
 	client := cloudapi.NewClientFromCaller(mockFacadeCaller)
 
 	err := client.RevokeCloud("fred", "admin", "fluffy")
@@ -706,7 +706,7 @@ func (s *cloudSuite) TestUpdateCloud(c *gc.C) {
 		Results: []params.ErrorResult{{}},
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("UpdateCloud", args, res).SetArg(2, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "UpdateCloud", args, res).SetArg(3, results).Return(nil)
 	client := cloudapi.NewClientFromCaller(mockFacadeCaller)
 
 	err := client.UpdateCloud(updatedCloud)
@@ -735,7 +735,7 @@ func (s *cloudSuite) TestUpdateCloudsCredentials(c *gc.C) {
 		Results: []params.UpdateCredentialResult{{}},
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("UpdateCredentialsCheckModels", args, res).SetArg(2, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "UpdateCredentialsCheckModels", args, res).SetArg(3, results).Return(nil)
 	client := cloudapi.NewClientFromCaller(mockFacadeCaller)
 
 	result, err := client.UpdateCloudsCredentials(createCredentials(1), true)
@@ -768,7 +768,7 @@ func (s *cloudSuite) TestUpdateCloudsCredentialsError(c *gc.C) {
 		},
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("UpdateCredentialsCheckModels", args, res).SetArg(2, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "UpdateCredentialsCheckModels", args, res).SetArg(3, results).Return(nil)
 	client := cloudapi.NewClientFromCaller(mockFacadeCaller)
 
 	errs, err := client.UpdateCloudsCredentials(createCredentials(1), false)
@@ -801,7 +801,7 @@ func (s *cloudSuite) TestUpdateCloudsCredentialsManyResults(c *gc.C) {
 			{},
 		}}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("UpdateCredentialsCheckModels", args, res).SetArg(2, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "UpdateCredentialsCheckModels", args, res).SetArg(3, results).Return(nil)
 	client := cloudapi.NewClientFromCaller(mockFacadeCaller)
 
 	result, err := client.UpdateCloudsCredentials(createCredentials(1), false)
@@ -834,7 +834,7 @@ func (s *cloudSuite) TestUpdateCloudsCredentialsManyMatchingResults(c *gc.C) {
 			{},
 		}}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("UpdateCredentialsCheckModels", cloudCredentialMatcher{args}, res).SetArg(2, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "UpdateCredentialsCheckModels", cloudCredentialMatcher{args}, res).SetArg(3, results).Return(nil)
 	client := cloudapi.NewClientFromCaller(mockFacadeCaller)
 
 	result, err := client.UpdateCloudsCredentials(createCredentials(count), false)
@@ -876,7 +876,7 @@ func (s *cloudSuite) TestUpdateCloudsCredentialsModelErrors(c *gc.C) {
 			},
 		}}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("UpdateCredentialsCheckModels", args, res).SetArg(2, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "UpdateCredentialsCheckModels", args, res).SetArg(3, results).Return(nil)
 	client := cloudapi.NewClientFromCaller(mockFacadeCaller)
 
 	errs, err := client.UpdateCloudsCredentials(createCredentials(1), false)
@@ -916,7 +916,7 @@ func (s *cloudSuite) TestAddCloudsCredentials(c *gc.C) {
 		Results: []params.UpdateCredentialResult{{}},
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("UpdateCredentialsCheckModels", args, res).SetArg(2, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "UpdateCredentialsCheckModels", args, res).SetArg(3, results).Return(nil)
 	client := cloudapi.NewClientFromCaller(mockFacadeCaller)
 
 	result, err := client.AddCloudsCredentials(createCredentials(1))

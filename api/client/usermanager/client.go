@@ -4,6 +4,7 @@
 package usermanager
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -14,6 +15,13 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/rpc/params"
 )
+
+// Option is a function that can be used to configure a Client.
+type Option = base.Option
+
+// WithTracer returns an Option that configures the Client to use the
+// supplied tracer.
+var WithTracer = base.WithTracer
 
 var logger = loggo.GetLogger("juju.api.usermanager")
 
@@ -26,8 +34,8 @@ type Client struct {
 
 // NewClient creates a new `Client` based on an existing authenticated API
 // connection.
-func NewClient(st base.APICallCloser) *Client {
-	frontend, backend := base.NewClientFacade(st, "UserManager")
+func NewClient(st base.APICallCloser, options ...Option) *Client {
+	frontend, backend := base.NewClientFacade(st, "UserManager", options...)
 	return &Client{ClientFacade: frontend, facade: backend}
 }
 
@@ -47,7 +55,7 @@ func (c *Client) AddUser(
 		}},
 	}
 	var results params.AddUserResults
-	err := c.facade.FacadeCall("AddUser", userArgs, &results)
+	err := c.facade.FacadeCall(context.TODO(), "AddUser", userArgs, &results)
 	if err != nil {
 		return names.UserTag{}, nil, errors.Trace(err)
 	}
@@ -76,7 +84,7 @@ func (c *Client) userCall(username string, methodCall string) error {
 	args := params.Entities{
 		[]params.Entity{{tag.String()}},
 	}
-	err := c.facade.FacadeCall(methodCall, args, &results)
+	err := c.facade.FacadeCall(context.TODO(), methodCall, args, &results)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -130,7 +138,7 @@ func (c *Client) UserInfo(usernames []string, all IncludeDisabled) ([]params.Use
 		Entities:        entities,
 		IncludeDisabled: bool(all),
 	}
-	err := c.facade.FacadeCall("UserInfo", args, &results)
+	err := c.facade.FacadeCall(context.TODO(), "UserInfo", args, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -170,7 +178,7 @@ func (c *Client) ModelUserInfo(modelUUID string) ([]params.ModelUserInfo, error)
 			Tag: names.NewModelTag(modelUUID).String(),
 		}},
 	}
-	err := c.facade.FacadeCall("ModelUserInfo", args, &results)
+	err := c.facade.FacadeCall(context.TODO(), "ModelUserInfo", args, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -197,7 +205,7 @@ func (c *Client) SetPassword(username, password string) error {
 			Password: password}},
 	}
 	var results params.ErrorResults
-	err := c.facade.FacadeCall("SetPassword", args, &results)
+	err := c.facade.FacadeCall(context.TODO(), "SetPassword", args, &results)
 	if err != nil {
 		return err
 	}
@@ -216,7 +224,7 @@ func (c *Client) ResetPassword(username string) ([]byte, error) {
 		}},
 	}
 	var out params.AddUserResults
-	err := c.facade.FacadeCall("ResetPassword", in, &out)
+	err := c.facade.FacadeCall(context.TODO(), "ResetPassword", in, &out)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

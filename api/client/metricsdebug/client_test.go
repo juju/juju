@@ -42,7 +42,7 @@ func (s *metricsdebugSuiteMock) TestGetMetrics(c *gc.C) {
 		}},
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("GetMetrics", args, res).SetArg(2, ress).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "GetMetrics", args, res).SetArg(3, ress).Return(nil)
 	client := metricsdebug.NewClientFromCaller(mockFacadeCaller)
 
 	metrics, err := client.GetMetrics("unit-wordpress/0")
@@ -69,7 +69,7 @@ func (s *metricsdebugSuiteMock) TestGetMetricsFails(c *gc.C) {
 		}},
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("GetMetrics", args, res).SetArg(2, ress).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "GetMetrics", args, res).SetArg(3, ress).Return(nil)
 	client := metricsdebug.NewClientFromCaller(mockFacadeCaller)
 
 	metrics, err := client.GetMetrics("unit-wordpress/0")
@@ -86,7 +86,7 @@ func (s *metricsdebugSuiteMock) TestGetMetricsFacadeCallError(c *gc.C) {
 	}
 	res := new(params.MetricResults)
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("GetMetrics", args, res).Return(errors.New("an error"))
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "GetMetrics", args, res).Return(errors.New("an error"))
 	client := metricsdebug.NewClientFromCaller(mockFacadeCaller)
 
 	metrics, err := client.GetMetrics("unit-wordpress/0")
@@ -114,7 +114,7 @@ func (s *metricsdebugSuiteMock) TestGetMetricsForModel(c *gc.C) {
 		}},
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("GetMetrics", args, res).SetArg(2, ress).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "GetMetrics", args, res).SetArg(3, ress).Return(nil)
 	client := metricsdebug.NewClientFromCaller(mockFacadeCaller)
 
 	metrics, err := client.GetMetrics()
@@ -135,7 +135,7 @@ func (s *metricsdebugSuiteMock) TestGetMetricsForModelFails(c *gc.C) {
 	res := new(params.MetricResults)
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("GetMetrics", args, res).Return(errors.New("an error"))
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "GetMetrics", args, res).Return(errors.New("an error"))
 	client := metricsdebug.NewClientFromCaller(mockFacadeCaller)
 	metrics, err := client.GetMetrics()
 	c.Assert(metrics, gc.IsNil)
@@ -160,7 +160,7 @@ func (s *metricsdebugSuiteMock) TestSetMeterStatus(c *gc.C) {
 		}},
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("SetMeterStatus", args, res).SetArg(2, ress).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "SetMeterStatus", args, res).SetArg(3, ress).Return(nil)
 	client := metricsdebug.NewClientFromCaller(mockFacadeCaller)
 	err := client.SetMeterStatus("unit-metered/0", "RED", "test")
 	c.Assert(err, jc.ErrorIsNil)
@@ -184,7 +184,7 @@ func (s *metricsdebugSuiteMock) TestSetMeterStatusAPIServerError(c *gc.C) {
 		}},
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("SetMeterStatus", args, res).SetArg(2, ress).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "SetMeterStatus", args, res).SetArg(3, ress).Return(nil)
 	client := metricsdebug.NewClientFromCaller(mockFacadeCaller)
 	err := client.SetMeterStatus("unit-metered/0", "RED", "test")
 	c.Assert(err, gc.ErrorMatches, "an error")
@@ -203,7 +203,7 @@ func (s *metricsdebugSuiteMock) TestSetMeterStatusFacadeCallError(c *gc.C) {
 	}
 	res := new(params.ErrorResults)
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("SetMeterStatus", args, res).Return(errors.New("an error"))
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "SetMeterStatus", args, res).Return(errors.New("an error"))
 	client := metricsdebug.NewClientFromCaller(mockFacadeCaller)
 	err := client.SetMeterStatus("unit-metered/0", "RED", "test")
 	c.Assert(err, gc.ErrorMatches, "an error")

@@ -4,6 +4,7 @@
 package cloud
 
 import (
+	"context"
 	"strings"
 
 	"github.com/juju/errors"
@@ -15,6 +16,13 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/rpc/params"
 )
+
+// Option is a function that can be used to configure a Client.
+type Option = base.Option
+
+// WithTracer returns an Option that configures the Client to use the
+// supplied tracer.
+var WithTracer = base.WithTracer
 
 var logger = loggo.GetLogger("juju.api.cloud")
 
@@ -39,15 +47,15 @@ type Client struct {
 
 // NewClient creates a new `Client` based on an existing authenticated API
 // connection.
-func NewClient(st base.APICallCloser) *Client {
-	frontend, backend := base.NewClientFacade(st, "Cloud")
+func NewClient(st base.APICallCloser, options ...Option) *Client {
+	frontend, backend := base.NewClientFacade(st, "Cloud", options...)
 	return &Client{ClientFacade: frontend, facade: backend}
 }
 
 // Clouds returns the details of all clouds supported by the controller.
 func (c *Client) Clouds() (map[names.CloudTag]jujucloud.Cloud, error) {
 	var result params.CloudsResult
-	if err := c.facade.FacadeCall("Clouds", nil, &result); err != nil {
+	if err := c.facade.FacadeCall(context.TODO(), "Clouds", nil, &result); err != nil {
 		return nil, errors.Trace(err)
 	}
 	clouds := make(map[names.CloudTag]jujucloud.Cloud)
@@ -65,7 +73,7 @@ func (c *Client) Clouds() (map[names.CloudTag]jujucloud.Cloud, error) {
 func (c *Client) Cloud(tag names.CloudTag) (jujucloud.Cloud, error) {
 	var results params.CloudResults
 	args := params.Entities{Entities: []params.Entity{{Tag: tag.String()}}}
-	if err := c.facade.FacadeCall("Cloud", args, &results); err != nil {
+	if err := c.facade.FacadeCall(context.TODO(), "Cloud", args, &results); err != nil {
 		return jujucloud.Cloud{}, errors.Trace(err)
 	}
 	if len(results.Results) != 1 {
@@ -89,7 +97,7 @@ func (c *Client) CloudInfo(tags []names.CloudTag) ([]CloudInfo, error) {
 	for i, tag := range tags {
 		args.Entities[i] = params.Entity{Tag: tag.String()}
 	}
-	if err := c.facade.FacadeCall("CloudInfo", args, &results); err != nil {
+	if err := c.facade.FacadeCall(context.TODO(), "CloudInfo", args, &results); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if len(results.Results) != len(tags) {
@@ -125,7 +133,7 @@ func (c *Client) UserCredentials(user names.UserTag, cloud names.CloudTag) ([]na
 	args := params.UserClouds{UserClouds: []params.UserCloud{
 		{UserTag: user.String(), CloudTag: cloud.String()},
 	}}
-	if err := c.facade.FacadeCall("UserCredentials", args, &results); err != nil {
+	if err := c.facade.FacadeCall(context.TODO(), "UserCredentials", args, &results); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if len(results.Results) != 1 {
@@ -178,7 +186,7 @@ func (c *Client) internalUpdateCloudsCredentials(in params.UpdateCredentialArgs,
 		return errors.Errorf("expected %d result%v got %d when updating credentials", count, plural, got)
 	}
 	var out params.UpdateCredentialResults
-	if err := c.facade.FacadeCall("UpdateCredentialsCheckModels", in, &out); err != nil {
+	if err := c.facade.FacadeCall(context.TODO(), "UpdateCredentialsCheckModels", in, &out); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if len(out.Results) != count {
@@ -222,7 +230,7 @@ func (c *Client) RevokeCredential(tag names.CloudCredentialTag, force bool) erro
 			{Tag: tag.String(), Force: force},
 		},
 	}
-	if err := c.facade.FacadeCall("RevokeCredentialsCheckModels", args, &results); err != nil {
+	if err := c.facade.FacadeCall(context.TODO(), "RevokeCredentialsCheckModels", args, &results); err != nil {
 		return errors.Trace(err)
 	}
 	return results.OneError()
@@ -241,7 +249,7 @@ func (c *Client) Credentials(tags ...names.CloudCredentialTag) ([]params.CloudCr
 	for i, tag := range tags {
 		args.Entities[i].Tag = tag.String()
 	}
-	if err := c.facade.FacadeCall("Credential", args, &results); err != nil {
+	if err := c.facade.FacadeCall(context.TODO(), "Credential", args, &results); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return results.Results, nil
@@ -261,7 +269,7 @@ func (c *Client) AddCredential(tag string, credential jujucloud.Credential) erro
 			Credential: cloudCredential,
 		},
 		}}
-	if err := c.facade.FacadeCall("AddCredentials", args, &results); err != nil {
+	if err := c.facade.FacadeCall(context.TODO(), "AddCredentials", args, &results); err != nil {
 		return errors.Trace(err)
 	}
 	return results.OneError()
@@ -273,7 +281,7 @@ func (c *Client) AddCloud(cloud jujucloud.Cloud, force bool) error {
 	if force {
 		args.Force = &force
 	}
-	err := c.facade.FacadeCall("AddCloud", args, nil)
+	err := c.facade.FacadeCall(context.TODO(), "AddCloud", args, nil)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -289,7 +297,7 @@ func (c *Client) UpdateCloud(cloud jujucloud.Cloud) error {
 		}},
 	}
 	var results params.ErrorResults
-	if err := c.facade.FacadeCall("UpdateCloud", args, &results); err != nil {
+	if err := c.facade.FacadeCall(context.TODO(), "UpdateCloud", args, &results); err != nil {
 		return errors.Trace(err)
 	}
 	return results.OneError()
@@ -299,7 +307,7 @@ func (c *Client) UpdateCloud(cloud jujucloud.Cloud) error {
 func (c *Client) RemoveCloud(cloud string) error {
 	args := params.Entities{Entities: []params.Entity{{Tag: names.NewCloudTag(cloud).String()}}}
 	var result params.ErrorResults
-	err := c.facade.FacadeCall("RemoveClouds", args, &result)
+	err := c.facade.FacadeCall(context.TODO(), "RemoveClouds", args, &result)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -340,7 +348,7 @@ func (c *Client) CredentialContents(cloud, credential string, withSecrets bool) 
 	if !oneCredential.IsEmpty() {
 		in.Credentials = []params.CloudCredentialArg{oneCredential}
 	}
-	err := c.facade.FacadeCall("CredentialContents", in, &out)
+	err := c.facade.FacadeCall(context.TODO(), "CredentialContents", in, &out)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -386,7 +394,7 @@ func (c *Client) modifyCloudUser(action params.CloudAction, user, access string,
 	}
 
 	var result params.ErrorResults
-	err := c.facade.FacadeCall("ModifyCloudAccess", args, &result)
+	err := c.facade.FacadeCall(context.TODO(), "ModifyCloudAccess", args, &result)
 	if err != nil {
 		return errors.Trace(err)
 	}

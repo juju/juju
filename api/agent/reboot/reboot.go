@@ -5,6 +5,8 @@
 package reboot
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -14,6 +16,13 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
 )
+
+// Option is a function that can be used to configure a Client.
+type Option = base.Option
+
+// WithTracer returns an Option that configures the Client to use the
+// supplied tracer.
+var WithTracer = base.WithTracer
 
 // Client provides access to an reboot worker's client facade.
 type Client interface {
@@ -41,9 +50,9 @@ type client struct {
 
 // NewClient returns a version of the client that provides functionality
 // required by the reboot worker.
-func NewClient(caller base.APICaller, machineTag names.MachineTag) Client {
+func NewClient(caller base.APICaller, machineTag names.MachineTag, options ...Option) Client {
 	return &client{
-		facade:     base.NewFacadeCaller(caller, "Reboot"),
+		facade:     base.NewFacadeCaller(caller, "Reboot", options...),
 		machineTag: machineTag,
 	}
 }
@@ -62,7 +71,7 @@ func NewFromConnection(c api.Connection) (Client, error) {
 func (c *client) WatchForRebootEvent() (watcher.NotifyWatcher, error) {
 	var result params.NotifyWatchResult
 
-	if err := c.facade.FacadeCall("WatchForRebootEvent", nil, &result); err != nil {
+	if err := c.facade.FacadeCall(context.TODO(), "WatchForRebootEvent", nil, &result); err != nil {
 		return nil, err
 	}
 	if result.Error != nil {
@@ -80,7 +89,7 @@ func (c *client) RequestReboot() error {
 		Entities: []params.Entity{{Tag: c.machineTag.String()}},
 	}
 
-	err := c.facade.FacadeCall("RequestReboot", args, &results)
+	err := c.facade.FacadeCall(context.TODO(), "RequestReboot", args, &results)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -101,7 +110,7 @@ func (c *client) ClearReboot() error {
 		Entities: []params.Entity{{Tag: c.machineTag.String()}},
 	}
 
-	err := c.facade.FacadeCall("ClearReboot", args, &results)
+	err := c.facade.FacadeCall(context.TODO(), "ClearReboot", args, &results)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -124,7 +133,7 @@ func (c *client) GetRebootAction() (params.RebootAction, error) {
 		Entities: []params.Entity{{Tag: c.machineTag.String()}},
 	}
 
-	err := c.facade.FacadeCall("GetRebootAction", args, &results)
+	err := c.facade.FacadeCall(context.TODO(), "GetRebootAction", args, &results)
 	if err != nil {
 		return params.ShouldDoNothing, err
 	}

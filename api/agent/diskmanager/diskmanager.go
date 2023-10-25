@@ -4,12 +4,21 @@
 package diskmanager
 
 import (
+	"context"
+
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/rpc/params"
 )
+
+// Option is a function that can be used to configure a Client.
+type Option = base.Option
+
+// WithTracer returns an Option that configures the Client to use the
+// supplied tracer.
+var WithTracer = base.WithTracer
 
 const diskManagerFacade = "DiskManager"
 
@@ -20,9 +29,9 @@ type State struct {
 }
 
 // NewState creates a new client-side DiskManager facade.
-func NewState(caller base.APICaller, authTag names.MachineTag) *State {
+func NewState(caller base.APICaller, authTag names.MachineTag, options ...Option) *State {
 	return &State{
-		base.NewFacadeCaller(caller, diskManagerFacade),
+		base.NewFacadeCaller(caller, diskManagerFacade, options...),
 		authTag,
 	}
 }
@@ -37,7 +46,7 @@ func (st *State) SetMachineBlockDevices(devices []storage.BlockDevice) error {
 		}},
 	}
 	var results params.ErrorResults
-	err := st.facade.FacadeCall("SetMachineBlockDevices", args, &results)
+	err := st.facade.FacadeCall(context.TODO(), "SetMachineBlockDevices", args, &results)
 	if err != nil {
 		return err
 	}

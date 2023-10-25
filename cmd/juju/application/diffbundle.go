@@ -4,6 +4,7 @@
 package application
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -240,7 +241,7 @@ func (c *diffBundleCommand) Run(ctx *cmd.Context) error {
 	}
 
 	// Extract the information from the current model.
-	model, err := c.readModel(apiRoot)
+	model, err := c.readModel(ctx, apiRoot)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -379,8 +380,8 @@ func (c *diffBundleCommand) charmAdaptor(apiRoot base.APICallCloser, curl *charm
 	return store.NewCharmAdaptor(apicharms.NewClient(apiRoot), downloadClient), nil
 }
 
-func (c *diffBundleCommand) readModel(apiRoot base.APICallCloser) (*bundlechanges.Model, error) {
-	status, err := c.getStatus(apiRoot)
+func (c *diffBundleCommand) readModel(ctx context.Context, apiRoot base.APICallCloser) (*bundlechanges.Model, error) {
+	status, err := c.getStatus(ctx, apiRoot)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting model status")
 	}
@@ -388,12 +389,12 @@ func (c *diffBundleCommand) readModel(apiRoot base.APICallCloser) (*bundlechange
 	return model, errors.Trace(err)
 }
 
-func (c *diffBundleCommand) getStatus(apiRoot base.APICallCloser) (*params.FullStatus, error) {
+func (c *diffBundleCommand) getStatus(ctx context.Context, apiRoot base.APICallCloser) (*params.FullStatus, error) {
 	// Ported from api.Client which is nigh impossible to test without
 	// a real api.Connection.
 	_, facade := base.NewClientFacade(apiRoot, "Client")
 	var result params.FullStatus
-	if err := facade.FacadeCall("FullStatus", params.StatusParams{}, &result); err != nil {
+	if err := facade.FacadeCall(ctx, "FullStatus", params.StatusParams{}, &result); err != nil {
 		return nil, errors.Trace(err)
 	}
 	// We don't care about model type.

@@ -4,6 +4,7 @@
 package leadership
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/errors"
@@ -14,18 +15,24 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
+// Option is a function that can be used to configure a Client.
+type Option = base.Option
+
+// WithTracer returns an Option that configures the Client to use the
+// supplied tracer.
+var WithTracer = base.WithTracer
+
 type client struct {
 	base.FacadeCaller
 }
 
 // NewClient returns a new leadership.Claimer backed by the supplied api caller.
-func NewClient(caller base.APICaller) leadership.Claimer {
-	return &client{base.NewFacadeCaller(caller, "LeadershipService")}
+func NewClient(caller base.APICaller, options ...Option) leadership.Claimer {
+	return &client{base.NewFacadeCaller(caller, "LeadershipService", options...)}
 }
 
 // ClaimLeadership is part of the leadership.Claimer interface.
 func (c *client) ClaimLeadership(appId, unitId string, duration time.Duration) error {
-
 	results, err := c.bulkClaimLeadership(c.prepareClaimLeadership(appId, unitId, duration))
 	if err != nil {
 		return err
@@ -50,7 +57,7 @@ func (c *client) BlockUntilLeadershipReleased(appId string, cancel <-chan struct
 	// TODO(axw) make it possible to plumb a context.Context
 	// through the API/RPC client, so we can cancel or abandon
 	// requests.
-	err := c.FacadeCall("BlockUntilLeadershipReleased", names.NewApplicationTag(appId), &result)
+	err := c.FacadeCall(context.TODO(), "BlockUntilLeadershipReleased", names.NewApplicationTag(appId), &result)
 	if err != nil {
 		return errors.Annotate(err, friendlyErrMsg)
 	} else if result.Error != nil {
@@ -85,7 +92,7 @@ func (c *client) bulkClaimLeadership(args ...params.ClaimLeadershipParams) (*par
 
 	bulkParams := params.ClaimLeadershipBulkParams{args}
 	var results params.ClaimLeadershipBulkResults
-	if err := c.FacadeCall("ClaimLeadership", bulkParams, &results); err != nil {
+	if err := c.FacadeCall(context.TODO(), "ClaimLeadership", bulkParams, &results); err != nil {
 		return nil, errors.Annotate(err, "error making a leadership claim")
 	}
 	return &results, nil

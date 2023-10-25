@@ -33,7 +33,7 @@ func NewModelWatcher(facade base.FacadeCaller) *ModelWatcher {
 // model configuration to change.
 func (e *ModelWatcher) WatchForModelConfigChanges() (watcher.NotifyWatcher, error) {
 	var result params.NotifyWatchResult
-	err := e.facade.FacadeCall("WatchForModelConfigChanges", nil, &result)
+	err := e.facade.FacadeCall(context.TODO(), "WatchForModelConfigChanges", nil, &result)
 	if err != nil {
 		return nil, err
 	}
@@ -43,7 +43,7 @@ func (e *ModelWatcher) WatchForModelConfigChanges() (watcher.NotifyWatcher, erro
 // ModelConfig returns the current model configuration.
 func (e *ModelWatcher) ModelConfig(ctx context.Context) (*config.Config, error) {
 	var result params.ModelConfigResult
-	err := e.facade.FacadeCall("ModelConfig", nil, &result)
+	err := e.facade.FacadeCall(context.TODO(), "ModelConfig", nil, &result)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

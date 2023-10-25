@@ -4,6 +4,8 @@
 package caasapplicationprovisioner_test
 
 import (
+	"context"
+
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -111,6 +113,10 @@ type mockAPICaller struct {
 
 func (*mockAPICaller) BestFacadeVersion(facade string) int {
 	return 1
+}
+
+func (*mockAPICaller) Context() context.Context {
+	return context.Background()
 }
 
 func (*mockAPICaller) ModelTag() (names.ModelTag, bool) {

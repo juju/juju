@@ -4,11 +4,20 @@
 package annotations
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/rpc/params"
 )
+
+// Option is a function that can be used to configure a Client.
+type Option = base.Option
+
+// WithTracer returns an Option that configures the Client to use the
+// supplied tracer.
+var WithTracer = base.WithTracer
 
 // Client allows access to the annotations API end point.
 type Client struct {
@@ -17,15 +26,15 @@ type Client struct {
 }
 
 // NewClient creates a new client for accessing the annotations API.
-func NewClient(st base.APICallCloser) *Client {
-	frontend, backend := base.NewClientFacade(st, "Annotations")
+func NewClient(st base.APICallCloser, options ...Option) *Client {
+	frontend, backend := base.NewClientFacade(st, "Annotations", options...)
 	return &Client{ClientFacade: frontend, facade: backend}
 }
 
 // Get returns annotations that have been set on the given entities.
 func (c *Client) Get(tags []string) ([]params.AnnotationsGetResult, error) {
 	annotations := params.AnnotationsGetResults{}
-	if err := c.facade.FacadeCall("Get", entitiesFromTags(tags), &annotations); err != nil {
+	if err := c.facade.FacadeCall(context.TODO(), "Get", entitiesFromTags(tags), &annotations); err != nil {
 		return annotations.Results, errors.Trace(err)
 	}
 	return annotations.Results, nil
@@ -35,7 +44,7 @@ func (c *Client) Get(tags []string) ([]params.AnnotationsGetResult, error) {
 func (c *Client) Set(annotations map[string]map[string]string) ([]params.ErrorResult, error) {
 	args := params.AnnotationsSet{entitiesAnnotations(annotations)}
 	results := new(params.ErrorResults)
-	if err := c.facade.FacadeCall("Set", args, results); err != nil {
+	if err := c.facade.FacadeCall(context.TODO(), "Set", args, results); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return results.Results, nil

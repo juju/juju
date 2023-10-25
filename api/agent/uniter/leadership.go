@@ -4,6 +4,8 @@
 package uniter
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -19,7 +21,7 @@ func NewLeadershipSettings(
 	return &LeadershipSettings{caller, newWatcher}
 }
 
-type FacadeCallFn func(request string, params, response interface{}) error
+type FacadeCallFn func(ctx context.Context, request string, params, response interface{}) error
 type NewNotifyWatcherFn func(params.NotifyWatchResult) watcher.NotifyWatcher
 
 // LeadershipSettings provides a type that can make RPC calls
@@ -67,6 +69,7 @@ func (ls *LeadershipSettings) Read(appId string) (map[string]string, error) {
 func (ls *LeadershipSettings) WatchLeadershipSettings(appId string) (watcher.NotifyWatcher, error) {
 	var results params.NotifyWatchResults
 	if err := ls.facadeCaller(
+		context.TODO(),
 		"WatchLeadershipSettings",
 		params.Entities{[]params.Entity{{names.NewApplicationTag(appId).String()}}},
 		&results,
@@ -110,7 +113,7 @@ func (ls *LeadershipSettings) bulkMerge(args ...params.MergeLeadershipSettingsPa
 
 	bulkArgs := params.MergeLeadershipSettingsBulkParams{Params: args}
 	var results params.ErrorResults
-	return &results, ls.facadeCaller("Merge", bulkArgs, &results)
+	return &results, ls.facadeCaller(context.TODO(), "Merge", bulkArgs, &results)
 }
 
 func (ls *LeadershipSettings) bulkRead(args ...params.Entity) (*params.GetLeadershipSettingsBulkResults, error) {
@@ -122,5 +125,5 @@ func (ls *LeadershipSettings) bulkRead(args ...params.Entity) (*params.GetLeader
 
 	bulkArgs := params.Entities{Entities: args}
 	var results params.GetLeadershipSettingsBulkResults
-	return &results, ls.facadeCaller("Read", bulkArgs, &results)
+	return &results, ls.facadeCaller(context.TODO(), "Read", bulkArgs, &results)
 }

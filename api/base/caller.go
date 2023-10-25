@@ -112,7 +112,7 @@ type FacadeCaller interface {
 	// FacadeCall will place a request against the API using the requested
 	// Facade and the best version that the API server supports that is
 	// also known to the client.
-	FacadeCall(request string, params, response interface{}) error
+	FacadeCall(ctx context.Context, request string, params, response interface{}) error
 
 	// Name returns the facade name.
 	Name() string
@@ -145,11 +145,15 @@ func NewFacadeCaller(caller APICaller, facadeName string, options ...Option) Fac
 // NewFacadeCallerForVersion wraps an APICaller for a given facade
 // name and version.
 func NewFacadeCallerForVersion(caller APICaller, facadeName string, version int, options ...Option) FacadeCaller {
+	// Derive the context from the API caller context if it's available. The
+	// default will be a noop tracer if none is found.
+	tracer, _ := coretrace.TracerFromContext(caller.Context())
+
 	fc := facadeCaller{
 		facadeName:  facadeName,
 		bestVersion: version,
 		caller:      caller,
-		tracer:      coretrace.NoopTracer{},
+		tracer:      tracer,
 	}
 
 	for _, option := range options {
@@ -162,11 +166,10 @@ func NewFacadeCallerForVersion(caller APICaller, facadeName string, version int,
 // FacadeCall will place a request against the API using the requested
 // Facade and the best version that the API server supports that is
 // also known to the client. (id is always passed as the empty string.)
-func (fc facadeCaller) FacadeCall(request string, params, response interface{}) (err error) {
-	// context.TODO() is used here because the context isn't currently passed
-	// in via the FacadeCall. Once that's done, we can use the context that's
-	// passed in.
-	ctx := coretrace.WithTracer(context.TODO(), fc.tracer)
+func (fc facadeCaller) FacadeCall(ctx context.Context, request string, params, response interface{}) (err error) {
+	// If the context doesn't already have a tracer, then inject the one
+	// associated with the facade caller.
+	ctx = coretrace.InjectTracerIfRequired(ctx, fc.tracer)
 
 	// The following trace is used to track the call to the facade.
 	ctx, span := coretrace.Start(ctx, coretrace.NameFromFunc(), coretrace.WithAttributes(

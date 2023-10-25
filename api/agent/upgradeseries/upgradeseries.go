@@ -4,6 +4,7 @@
 package upgradeseries
 
 import (
+	"context"
 	"strings"
 
 	"github.com/juju/errors"
@@ -16,6 +17,13 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/rpc/params"
 )
+
+// Option is a function that can be used to configure a Client.
+type Option = base.Option
+
+// WithTracer returns an Option that configures the Client to use the
+// supplied tracer.
+var WithTracer = base.WithTracer
 
 const upgradeSeriesFacade = "UpgradeSeries"
 
@@ -30,10 +38,11 @@ type Client struct {
 }
 
 // NewClient Constructs an API caller.
-func NewClient(caller base.APICaller, authTag names.Tag) *Client {
+func NewClient(caller base.APICaller, authTag names.Tag, options ...Option) *Client {
 	facadeCaller := base.NewFacadeCaller(
 		caller,
 		upgradeSeriesFacade,
+		options...,
 	)
 	return &Client{
 		facade:               facadeCaller,
@@ -50,7 +59,7 @@ func (s *Client) MachineStatus() (model.UpgradeSeriesStatus, error) {
 		Entities: []params.Entity{{Tag: s.authTag.String()}},
 	}
 
-	err := s.facade.FacadeCall("MachineStatus", args, &results)
+	err := s.facade.FacadeCall(context.TODO(), "MachineStatus", args, &results)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -91,7 +100,7 @@ func (s *Client) series(methodName string) (string, error) {
 		Entities: []params.Entity{{Tag: s.authTag.String()}},
 	}
 
-	err := s.facade.FacadeCall(methodName, args, &results)
+	err := s.facade.FacadeCall(context.TODO(), methodName, args, &results)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -131,7 +140,7 @@ func (s *Client) unitsInState(facadeMethod string) ([]names.UnitTag, error) {
 		Entities: []params.Entity{{Tag: s.authTag.String()}},
 	}
 
-	err := s.facade.FacadeCall(facadeMethod, args, &results)
+	err := s.facade.FacadeCall(context.TODO(), facadeMethod, args, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -169,7 +178,7 @@ func (s *Client) SetMachineStatus(status model.UpgradeSeriesStatus, reason strin
 		}},
 	}
 
-	err := s.facade.FacadeCall("SetMachineStatus", args, &results)
+	err := s.facade.FacadeCall(context.TODO(), "SetMachineStatus", args, &results)
 	if err != nil {
 		return err
 	}
@@ -192,7 +201,7 @@ func (s *Client) StartUnitCompletion(reason string) error {
 		Message:  reason,
 	}
 
-	err := s.facade.FacadeCall("StartUnitCompletion", args, &results)
+	err := s.facade.FacadeCall(context.TODO(), "StartUnitCompletion", args, &results)
 	if err != nil {
 		return err
 	}
@@ -222,7 +231,7 @@ func (s *Client) FinishUpgradeSeries(hostSeries string) error {
 		Channel: base.Channel.Track,
 	}}}
 
-	err = s.facade.FacadeCall("FinishUpgradeSeries", args, &results)
+	err = s.facade.FacadeCall(context.TODO(), "FinishUpgradeSeries", args, &results)
 	if err != nil {
 		return err
 	}
@@ -248,7 +257,7 @@ func (s *Client) SetInstanceStatus(sts model.UpgradeSeriesStatus, msg string) er
 		}},
 	}
 
-	err := s.facade.FacadeCall("SetInstanceStatus", args, &results)
+	err := s.facade.FacadeCall(context.TODO(), "SetInstanceStatus", args, &results)
 	if err != nil {
 		return err
 	}
