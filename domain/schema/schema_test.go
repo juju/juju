@@ -108,6 +108,10 @@ func (s *schemaSuite) TestModelDDLApply(c *gc.C) {
 
 		// Model config
 		"model_config",
+
+		// Spaces
+		"spaces",
+		"provider_spaces",
 	)
 	c.Assert(readTableNames(c, s.DB()), jc.SameContents, expected.Union(internalTableNames).SortedValues())
 }
