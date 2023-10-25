@@ -856,10 +856,11 @@ func (s *Suite) TestMinionWaitMigrationIdChanged(c *gc.C) {
 		"unexpected migration id in minion reports, got blah, expected model-uuid:2")
 }
 
-func (s *Suite) TestAPIConnectWithMacaroon(c *gc.C) {
+func (s *Suite) assertAPIConnectWithMacaroon(c *gc.C, authUser names.UserTag) {
 	// Use ABORT because it involves an API connection to the target
 	// and is convenient.
 	status := s.makeStatus(coremigration.ABORT)
+	status.TargetInfo.AuthTag = authUser
 
 	// Set up macaroon based auth to the target.
 	mac, err := macaroon.New([]byte("secret"), []byte("id"), "location", macaroon.LatestVersion)
@@ -871,6 +872,10 @@ func (s *Suite) TestAPIConnectWithMacaroon(c *gc.C) {
 	s.facade.queueStatus(status)
 
 	s.checkWorkerReturns(c, migrationmaster.ErrInactive)
+	var apiUser names.Tag
+	if authUser.IsLocal() {
+		apiUser = authUser
+	}
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
 		[]jujutesting.StubCall{
@@ -881,7 +886,7 @@ func (s *Suite) TestAPIConnectWithMacaroon(c *gc.C) {
 					&api.Info{
 						Addrs:     []string{"1.2.3.4:5"},
 						CACert:    "cert",
-						Tag:       names.NewUserTag("admin"),
+						Tag:       apiUser,
 						Macaroons: macs, // <---
 					},
 					migration.ControllerDialOpts(),
@@ -892,6 +897,14 @@ func (s *Suite) TestAPIConnectWithMacaroon(c *gc.C) {
 			{"facade.SetPhase", []interface{}{coremigration.ABORTDONE}},
 		},
 	))
+}
+
+func (s *Suite) TestAPIConnectWithMacaroonLocalUser(c *gc.C) {
+	s.assertAPIConnectWithMacaroon(c, names.NewUserTag("admin"))
+}
+
+func (s *Suite) TestAPIConnectWithMacaroonExternalUser(c *gc.C) {
+	s.assertAPIConnectWithMacaroon(c, names.NewUserTag("fred@external"))
 }
 
 func (s *Suite) TestLogTransferErrorOpeningTargetAPI(c *gc.C) {
