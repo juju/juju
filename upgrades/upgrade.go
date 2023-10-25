@@ -90,35 +90,20 @@ func (e *upgradeError) Error() string {
 	return fmt.Sprintf("%s: %v", e.description, e.err)
 }
 
-// PerformUpgrade runs the business logic needed to upgrade the current "from"
-// version to this version of Juju on the "target" type of machine.
-func PerformUpgrade(from version.Number, targets []Target, context Context) error {
-	if hasStateTarget(targets) {
-		if err := PerformStateUpgrade(from, targets, context); err != nil {
-			return errors.Trace(err)
-		}
-	}
+// UpgradeStepsFunc is the function type of Upgrade. This may be
+// used to provide an alternative to Upgrade to the upgrade steps
+// worker.
+type UpgradeStepsFunc func(from version.Number, targets []Target, context Context) error
+
+// PerformUpgradeSteps runs the business logic needed to upgrade the current
+// "from" version to this version of Juju on the "target" type of machine.
+func PerformUpgradeSteps(from version.Number, targets []Target, context Context) error {
 	ops := newUpgradeOpsIterator(from)
 	if err := runUpgradeSteps(ops, targets, context.APIContext()); err != nil {
 		return errors.Trace(err)
 	}
 	logger.Infof("All upgrade steps completed successfully")
 	return nil
-}
-
-// PerformStateUpgrade runs the upgrades steps
-// that target Controller or DatabaseMaster.
-func PerformStateUpgrade(from version.Number, targets []Target, context Context) error {
-	return errors.Trace(runUpgradeSteps(newStateUpgradeOpsIterator(from), targets, context.StateContext()))
-}
-
-func hasStateTarget(targets []Target) bool {
-	for _, target := range targets {
-		if target == Controller || target == DatabaseMaster {
-			return true
-		}
-	}
-	return false
 }
 
 // runUpgradeSteps finds all the upgrade operations relevant to

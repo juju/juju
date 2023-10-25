@@ -17,7 +17,9 @@ import (
 	"github.com/juju/juju/agent/agenttest"
 	"github.com/juju/juju/cmd/jujud/agent/machine"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
+	"github.com/juju/juju/upgrades"
 	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/apicaller"
 	"github.com/juju/juju/worker/gate"
@@ -35,13 +37,15 @@ func (s *ManifoldsSuite) SetUpTest(c *gc.C) {
 
 func (s *ManifoldsSuite) TestStartFuncsIAAS(c *gc.C) {
 	s.assertStartFuncs(c, machine.IAASManifolds(machine.ManifoldsConfig{
-		Agent: &mockAgent{},
+		Agent:           &mockAgent{},
+		PreUpgradeSteps: preUpgradeSteps,
 	}))
 }
 
 func (s *ManifoldsSuite) TestStartFuncsCAAS(c *gc.C) {
 	s.assertStartFuncs(c, machine.CAASManifolds(machine.ManifoldsConfig{
-		Agent: &mockAgent{},
+		Agent:           &mockAgent{},
+		PreUpgradeSteps: preUpgradeSteps,
 	}))
 }
 
@@ -55,7 +59,8 @@ func (*ManifoldsSuite) assertStartFuncs(c *gc.C, manifolds dependency.Manifolds)
 func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *gc.C) {
 	s.assertManifoldNames(c,
 		machine.IAASManifolds(machine.ManifoldsConfig{
-			Agent: &mockAgent{},
+			Agent:           &mockAgent{},
+			PreUpgradeSteps: preUpgradeSteps,
 		}),
 		[]string{
 			"agent-config-updater",
@@ -139,7 +144,8 @@ func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *gc.C) {
 func (s *ManifoldsSuite) TestManifoldNamesCAAS(c *gc.C) {
 	s.assertManifoldNames(c,
 		machine.CAASManifolds(machine.ManifoldsConfig{
-			Agent: &mockAgent{},
+			Agent:           &mockAgent{},
+			PreUpgradeSteps: preUpgradeSteps,
 		}),
 		[]string{
 			"agent-config-updater",
@@ -212,7 +218,8 @@ func (*ManifoldsSuite) assertManifoldNames(c *gc.C, manifolds dependency.Manifol
 
 func (*ManifoldsSuite) TestUpgradesBlockMigration(c *gc.C) {
 	manifolds := machine.IAASManifolds(machine.ManifoldsConfig{
-		Agent: &mockAgent{},
+		Agent:           &mockAgent{},
+		PreUpgradeSteps: preUpgradeSteps,
 	})
 	manifold, ok := manifolds["migration-fortress"]
 	c.Assert(ok, jc.IsTrue)
@@ -280,7 +287,8 @@ func (s *ManifoldsSuite) TestMigrationGuardsUsed(c *gc.C) {
 		"valid-credential-flag",
 	)
 	manifolds := machine.IAASManifolds(machine.ManifoldsConfig{
-		Agent: &mockAgent{},
+		Agent:           &mockAgent{},
+		PreUpgradeSteps: preUpgradeSteps,
 	})
 	for name, manifold := range manifolds {
 		c.Logf(name)
@@ -293,7 +301,8 @@ func (s *ManifoldsSuite) TestMigrationGuardsUsed(c *gc.C) {
 
 func (*ManifoldsSuite) TestSingularGuardsUsed(c *gc.C) {
 	manifolds := machine.IAASManifolds(machine.ManifoldsConfig{
-		Agent: &mockAgent{},
+		Agent:           &mockAgent{},
+		PreUpgradeSteps: preUpgradeSteps,
 	})
 
 	// Explicitly guarded by ifController.
@@ -356,7 +365,8 @@ func (*ManifoldsSuite) TestAPICallerNonRecoverableErrorHandling(c *gc.C) {
 		},
 	}
 	manifolds := machine.IAASManifolds(machine.ManifoldsConfig{
-		Agent: ag,
+		Agent:           ag,
+		PreUpgradeSteps: preUpgradeSteps,
 	})
 
 	c.Assert(manifolds["api-caller"], gc.Not(gc.IsNil))
@@ -390,6 +400,7 @@ func (*ManifoldsSuite) TestUpgradeGates(c *gc.C) {
 	upgradeCheckLock := gate.NewLock()
 	manifolds := machine.IAASManifolds(machine.ManifoldsConfig{
 		Agent:            &mockAgent{},
+		PreUpgradeSteps:  preUpgradeSteps,
 		UpgradeStepsLock: upgradeStepsLock,
 		UpgradeCheckLock: upgradeCheckLock,
 	})
@@ -424,7 +435,8 @@ func assertGate(c *gc.C, manifold dependency.Manifold, unlocker gate.Unlocker) {
 func (s *ManifoldsSuite) TestManifoldsDependenciesIAAS(c *gc.C) {
 	agenttest.AssertManifoldsDependencies(c,
 		machine.IAASManifolds(machine.ManifoldsConfig{
-			Agent: &mockAgent{},
+			Agent:           &mockAgent{},
+			PreUpgradeSteps: preUpgradeSteps,
 		}),
 		expectedMachineManifoldsWithDependenciesIAAS,
 	)
@@ -433,7 +445,8 @@ func (s *ManifoldsSuite) TestManifoldsDependenciesIAAS(c *gc.C) {
 func (s *ManifoldsSuite) TestManifoldsDependenciesCAAS(c *gc.C) {
 	agenttest.AssertManifoldsDependencies(c,
 		machine.CAASManifolds(machine.ManifoldsConfig{
-			Agent: &mockAgent{},
+			Agent:           &mockAgent{},
+			PreUpgradeSteps: preUpgradeSteps,
 		}),
 		expectedMachineManifoldsWithDependenciesCAAS,
 	)
@@ -1112,6 +1125,13 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"agent",
 		"api-caller",
 		"api-config-watcher",
+		"change-stream",
+		"db-accessor",
+		"file-notify-watcher",
+		"is-controller-flag",
+		"query-logger",
+		"service-factory",
+		"state-config-watcher",
 		"upgrade-steps-gate",
 	},
 
@@ -1565,6 +1585,13 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"agent",
 		"api-caller",
 		"api-config-watcher",
+		"change-stream",
+		"db-accessor",
+		"file-notify-watcher",
+		"is-controller-flag",
+		"query-logger",
+		"service-factory",
+		"state-config-watcher",
 		"upgrade-steps-gate",
 	},
 
@@ -1640,3 +1667,5 @@ func (mc *mockConfig) DataDir() string {
 	}
 	return "data-dir"
 }
+
+func preUpgradeSteps(state.ModelType) upgrades.PreUpgradeStepsFunc { return nil }

@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/juju/clock"
-	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/utils/v3/voyeur"
@@ -24,10 +23,8 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/observability/probe"
 	proxy "github.com/juju/juju/internal/proxy/config"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/upgrades"
 	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/agent"
@@ -53,7 +50,7 @@ import (
 	"github.com/juju/juju/worker/secretsdrainworker"
 	"github.com/juju/juju/worker/simplesignalhandler"
 	"github.com/juju/juju/worker/uniter"
-	"github.com/juju/juju/worker/upgradesteps"
+	"github.com/juju/juju/worker/upgradestepsmachine"
 )
 
 // manifoldsConfig allows specialisation of the result of Manifolds.
@@ -90,6 +87,11 @@ type manifoldsConfig struct {
 	// worker to ensure that conditions are OK for an upgrade to
 	// proceed.
 	PreUpgradeSteps upgrades.PreUpgradeStepsFunc
+
+	// UpgradeSteps is a function that is used by the upgradesteps
+	// worker to run any upgrade steps required to upgrade to the
+	// running jujud version.
+	UpgradeSteps upgrades.UpgradeStepsFunc
 
 	// PrometheusRegisterer is a prometheus.Registerer that may be used
 	// by workers to register Prometheus metric collectors.
@@ -249,18 +251,14 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 		// starts and runs any steps required to upgrade to the
 		// running jujud version. Once upgrade steps have run, the
 		// upgradesteps gate is unlocked and the worker exits.
-		upgradeStepsName: ifNotDead(upgradesteps.Manifold(upgradesteps.ManifoldConfig{
+		upgradeStepsName: ifNotDead(upgradestepsmachine.Manifold(upgradestepsmachine.ManifoldConfig{
 			AgentName:            agentName,
 			APICallerName:        apiCallerName,
 			UpgradeStepsGateName: upgradeStepsGateName,
-			// Realistically,  operators should not open state for any reason.
-			OpenStateForUpgrade: func() (*state.StatePool, upgradesteps.SystemState, error) {
-				return nil, nil, errors.New("operator cannot open state")
-			},
-			PreUpgradeSteps: config.PreUpgradeSteps,
-			NewAgentStatusSetter: func(apiConn api.Connection) (upgradesteps.StatusSetter, error) {
-				return &noopStatusSetter{}, nil
-			},
+			PreUpgradeSteps:      config.PreUpgradeSteps,
+			UpgradeSteps:         config.UpgradeSteps,
+			Logger:               loggo.GetLogger("juju.worker.upgradestepsmachine"),
+			Clock:                config.Clock,
 		})),
 
 		// The migration workers collaborate to run migrations;
@@ -480,10 +478,3 @@ const (
 	deadFlagName    = "dead-flag"
 	notDeadFlagName = "not-dead-flag"
 )
-
-type noopStatusSetter struct{}
-
-// SetStatus implements upgradesteps.StatusSetter
-func (a *noopStatusSetter) SetStatus(setableStatus status.Status, info string, data map[string]interface{}) error {
-	return nil
-}

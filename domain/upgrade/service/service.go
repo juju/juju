@@ -110,7 +110,8 @@ func (s *Service) SetDBUpgradeCompleted(ctx context.Context, upgradeUUID domainu
 	return domain.CoerceError(err)
 }
 
-// SetDBUpgradeFailed marks the upgrade as completed in the database
+// SetDBUpgradeFailed marks the upgrade as failed in the database.
+// Manual intervention will be required if this has been invoked.
 func (s *Service) SetDBUpgradeFailed(ctx context.Context, upgradeUUID domainupgrade.UUID) error {
 	if err := upgradeUUID.Validate(); err != nil {
 		return errors.Trace(err)

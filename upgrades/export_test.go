@@ -6,8 +6,7 @@ package upgrades
 import "github.com/juju/juju/environs"
 
 var (
-	UpgradeOperations      = &upgradeOperations
-	StateUpgradeOperations = &stateUpgradeOperations
+	UpgradeOperations = &upgradeOperations
 )
 
 type ModelConfigUpdater environConfigUpdater

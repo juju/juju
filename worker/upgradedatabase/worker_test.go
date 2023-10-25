@@ -243,6 +243,7 @@ func (s *workerSuite) TestWatchUpgradeCompletedErrorSetControllerReadyError(c *g
 
 	w, err := NewUpgradeDatabaseWorker(cfg)
 	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.DirtyKill(c, w)
 
 	// Dispatch the initial event.
 	s.dispatchChange(c, chCompleted)
@@ -284,6 +285,7 @@ func (s *workerSuite) TestWatchUpgradeCompletedNotFound(c *gc.C) {
 
 	w, err := NewUpgradeDatabaseWorker(cfg)
 	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.DirtyKill(c, w)
 
 	select {
 	case <-done:
@@ -321,6 +323,7 @@ func (s *workerSuite) TestWatchUpgradeCompletedInErrorState(c *gc.C) {
 
 	w, err := NewUpgradeDatabaseWorker(cfg)
 	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.DirtyKill(c, w)
 
 	select {
 	case <-done:
@@ -373,6 +376,7 @@ func (s *workerSuite) TestWatchUpgradeFailed(c *gc.C) {
 
 	w, err := NewUpgradeDatabaseWorker(cfg)
 	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.DirtyKill(c, w)
 
 	// Dispatch the initial event.
 	s.dispatchChange(c, chCompleted)
@@ -416,6 +420,7 @@ func (s *workerSuite) TestWatchUpgradeError(c *gc.C) {
 
 	w, err := NewUpgradeDatabaseWorker(cfg)
 	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.DirtyKill(c, w)
 
 	err = workertest.CheckKill(c, w)
 	c.Check(err, jc.ErrorIs, dependency.ErrBounce)
@@ -432,7 +437,7 @@ func (s *workerSuite) TestUpgradeController(c *gc.C) {
 	ch := make(chan struct{})
 
 	watcher := watchertest.NewMockNotifyWatcher(ch)
-	defer workertest.CheckKill(c, watcher)
+	defer workertest.DirtyKill(c, watcher)
 
 	// Walk through the upgrade process:
 	//  - Create Upgrade.
@@ -457,7 +462,7 @@ func (s *workerSuite) TestUpgradeController(c *gc.C) {
 
 	w, err := NewUpgradeDatabaseWorker(cfg)
 	c.Assert(err, jc.ErrorIsNil)
-	defer workertest.CheckKill(c, w)
+	defer workertest.DirtyKill(c, w)
 
 	// Dispatch the initial event.
 	s.dispatchChange(c, ch)
@@ -468,6 +473,9 @@ func (s *workerSuite) TestUpgradeController(c *gc.C) {
 	case <-time.After(testing.LongWait):
 		c.Fatalf("timed out waiting for unlock")
 	}
+
+	err = workertest.CheckKill(c, w)
+	c.Check(err, jc.ErrorIs, dependency.ErrUninstall)
 }
 
 func (s *workerSuite) TestUpgradeControllerThatIsAlreadyUpgraded(c *gc.C) {
@@ -481,7 +489,7 @@ func (s *workerSuite) TestUpgradeControllerThatIsAlreadyUpgraded(c *gc.C) {
 	ch := make(chan struct{})
 
 	watcher := watchertest.NewMockNotifyWatcher(ch)
-	defer workertest.CheckKill(c, watcher)
+	defer workertest.DirtyKill(c, watcher)
 
 	// Walk through the upgrade process:
 	//  - Create Upgrade.
@@ -513,7 +521,7 @@ func (s *workerSuite) TestUpgradeControllerThatIsAlreadyUpgraded(c *gc.C) {
 
 	w, err := NewUpgradeDatabaseWorker(cfg)
 	c.Assert(err, jc.ErrorIsNil)
-	defer workertest.CheckKill(c, w)
+	defer workertest.DirtyKill(c, w)
 
 	// Dispatch the initial event.
 	s.dispatchChange(c, ch)
@@ -524,6 +532,9 @@ func (s *workerSuite) TestUpgradeControllerThatIsAlreadyUpgraded(c *gc.C) {
 	case <-time.After(testing.LongWait):
 		c.Fatalf("timed out waiting for unlock")
 	}
+
+	err = workertest.CheckKill(c, w)
+	c.Check(err, jc.ErrorIs, dependency.ErrUninstall)
 }
 
 func (s *workerSuite) TestUpgradeModels(c *gc.C) {
@@ -537,7 +548,7 @@ func (s *workerSuite) TestUpgradeModels(c *gc.C) {
 	ch := make(chan struct{})
 
 	watcher := watchertest.NewMockNotifyWatcher(ch)
-	defer workertest.CheckKill(c, watcher)
+	defer workertest.DirtyKill(c, watcher)
 
 	// Walk through the upgrade process:
 	//  - Create Upgrade.
@@ -565,7 +576,7 @@ func (s *workerSuite) TestUpgradeModels(c *gc.C) {
 
 	w, err := NewUpgradeDatabaseWorker(cfg)
 	c.Assert(err, jc.ErrorIsNil)
-	defer workertest.CheckKill(c, w)
+	defer workertest.DirtyKill(c, w)
 
 	// Dispatch the initial event.
 	s.dispatchChange(c, ch)
@@ -576,6 +587,9 @@ func (s *workerSuite) TestUpgradeModels(c *gc.C) {
 	case <-time.After(testing.LongWait):
 		c.Fatalf("timed out waiting for unlock")
 	}
+
+	err = workertest.CheckKill(c, w)
+	c.Check(err, jc.ErrorIs, dependency.ErrUninstall)
 }
 
 func (s *workerSuite) TestUpgradeModelsThatIsAlreadyUpgraded(c *gc.C) {
@@ -623,7 +637,7 @@ func (s *workerSuite) TestUpgradeModelsThatIsAlreadyUpgraded(c *gc.C) {
 
 	w, err := NewUpgradeDatabaseWorker(cfg)
 	c.Assert(err, jc.ErrorIsNil)
-	defer workertest.CheckKill(c, w)
+	defer workertest.DirtyKill(c, w)
 
 	// Dispatch the initial event.
 	s.dispatchChange(c, ch)
@@ -634,6 +648,70 @@ func (s *workerSuite) TestUpgradeModelsThatIsAlreadyUpgraded(c *gc.C) {
 	case <-time.After(testing.LongWait):
 		c.Fatalf("timed out waiting for unlock")
 	}
+
+	err = workertest.CheckKill(c, w)
+	c.Check(err, jc.ErrorIs, dependency.ErrUninstall)
+}
+
+func (s *workerSuite) TestUpgradeFailsWhenKilled(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Ensure that the update hasn't already happened.
+	s.lock.EXPECT().IsUnlocked().Return(false)
+
+	cfg := s.getConfig()
+
+	ch := make(chan struct{})
+
+	watcher := watchertest.NewMockNotifyWatcher(ch)
+	defer workertest.CheckKill(c, watcher)
+
+	// Walk through the upgrade process:
+	//  - Create Upgrade.
+	//  - Watch for the upgrade ready
+	//  - Dispatch the initial event.
+	//  - Set the controller ready, but kill the worker at the same time.
+	//  - Ensure that kill the worker also sets the upgrade to failed.
+
+	done := make(chan struct{})
+	kill := make(chan worker.Worker)
+
+	srv := s.upgradeService.EXPECT()
+	srv.CreateUpgrade(gomock.Any(), cfg.FromVersion, cfg.ToVersion).Return(s.upgradeUUID, nil)
+	srv.WatchForUpgradeReady(gomock.Any(), s.upgradeUUID).Return(watcher, nil)
+	srv.SetControllerReady(gomock.Any(), s.upgradeUUID, "0").DoAndReturn(func(ctx context.Context, uuid domainupgrade.UUID, controllerID string) error {
+		select {
+		case w := <-kill:
+			defer close(done)
+			w.Kill()
+		case <-time.After(testing.LongWait):
+			c.Fatalf("timed out waiting for kill")
+		}
+		return nil
+	})
+	srv.SetDBUpgradeFailed(gomock.Any(), s.upgradeUUID).Return(nil)
+
+	w, err := NewUpgradeDatabaseWorker(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.DirtyKill(c, w)
+
+	// Dispatch the initial event.
+	s.dispatchChange(c, ch)
+
+	select {
+	case kill <- w:
+	case <-time.After(testing.LongWait):
+		c.Fatalf("timed out waiting for kill")
+	}
+
+	select {
+	case <-done:
+	case <-time.After(testing.LongWait):
+		c.Fatalf("timed out waiting for done")
+	}
+
+	err = workertest.CheckKill(c, w)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *workerSuite) getConfig() Config {

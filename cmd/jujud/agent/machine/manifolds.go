@@ -103,6 +103,7 @@ import (
 	"github.com/juju/juju/worker/upgrader"
 	"github.com/juju/juju/worker/upgradeseries"
 	"github.com/juju/juju/worker/upgradesteps"
+	"github.com/juju/juju/worker/upgradestepsmachine"
 )
 
 // ManifoldsConfig allows specialisation of the result of Manifolds.
@@ -153,10 +154,6 @@ type ManifoldsConfig struct {
 	// *state.StatePool.
 	OpenStatePool func(stdcontext.Context, coreagent.Config, servicefactory.ControllerServiceFactory) (*state.StatePool, error)
 
-	// OpenStateForUpgrade is a function the upgradesteps worker can
-	// use to establish a connection to state.
-	OpenStateForUpgrade func() (*state.StatePool, upgradesteps.SystemState, error)
-
 	// MachineStartup is passed to the machine manifold. It does
 	// machine setup work which relies on an API connection.
 	MachineStartup func(api.Connection, Logger) error
@@ -164,7 +161,11 @@ type ManifoldsConfig struct {
 	// PreUpgradeSteps is a function that is used by the upgradesteps
 	// worker to ensure that conditions are OK for an upgrade to
 	// proceed.
-	PreUpgradeSteps upgrades.PreUpgradeStepsFunc
+	PreUpgradeSteps func(state.ModelType) upgrades.PreUpgradeStepsFunc
+
+	// UpgradeSteps is a function that is used by the upgradesteps
+	// worker to perform the upgrade steps.
+	UpgradeSteps upgrades.UpgradeStepsFunc
 
 	// LogSource defines the channel type used to send log message
 	// structs within the machine agent.
@@ -206,7 +207,7 @@ type ManifoldsConfig struct {
 	UpdateLoggerConfig func(string) error
 
 	// NewAgentStatusSetter provides upgradesteps.StatusSetter.
-	NewAgentStatusSetter func(apiConn api.Connection) (upgradesteps.StatusSetter, error)
+	NewAgentStatusSetter func(base.APICaller) (upgradesteps.StatusSetter, error)
 
 	// ControllerLeaseDuration defines for how long this agent will ask
 	// for controller administration rights.
@@ -486,19 +487,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		upgradeCheckFlagName: gate.FlagManifold(gate.FlagManifoldConfig{
 			GateName:  upgradeCheckGateName,
 			NewWorker: gate.NewFlagWorker,
-		}),
-
-		// The upgradesteps worker runs soon after the machine agent
-		// starts and runs any steps required to upgrade to the
-		// running jujud version. Once upgrade steps have run, the
-		// upgradesteps gate is unlocked and the worker exits.
-		upgradeStepsName: upgradesteps.Manifold(upgradesteps.ManifoldConfig{
-			AgentName:            agentName,
-			APICallerName:        apiCallerName,
-			UpgradeStepsGateName: upgradeStepsGateName,
-			OpenStateForUpgrade:  config.OpenStateForUpgrade,
-			PreUpgradeSteps:      config.PreUpgradeSteps,
-			NewAgentStatusSetter: config.NewAgentStatusSetter,
 		}),
 
 		// The migration workers collaborate to run migrations;
@@ -916,6 +904,24 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:     upgradeseries.NewWorker,
 		})),
 
+		// The upgradesteps worker runs soon after the machine agent
+		// starts and runs any steps required to upgrade to the
+		// running jujud version. Once upgrade steps have run, the
+		// upgradesteps gate is unlocked and the worker exits.
+		upgradeStepsName: upgradesteps.Manifold(upgradesteps.ManifoldConfig{
+			AgentName:            agentName,
+			APICallerName:        apiCallerName,
+			ServiceFactoryName:   serviceFactoryName,
+			UpgradeStepsGateName: upgradeStepsGateName,
+			PreUpgradeSteps:      config.PreUpgradeSteps(state.ModelTypeIAAS),
+			UpgradeSteps:         config.UpgradeSteps,
+			NewAgentStatusSetter: config.NewAgentStatusSetter,
+			NewMachineWorker:     upgradestepsmachine.NewMachineWorker,
+			NewControllerWorker:  upgradesteps.NewControllerWorker,
+			Logger:               loggo.GetLogger("juju.worker.upgradesteps"),
+			Clock:                config.Clock,
+		}),
+
 		// The deployer worker is primarily for deploying and recalling unit
 		// agents, according to changes in a set of state units; and for the
 		// final removal of its agents' units from state when they are no
@@ -1017,6 +1023,24 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			UpgradeStepsGateName: upgradeStepsGateName,
 			UpgradeCheckGateName: upgradeCheckGateName,
 			PreviousAgentVersion: config.PreviousAgentVersion,
+		}),
+
+		// The upgradesteps worker runs soon after the machine agent
+		// starts and runs any steps required to upgrade to the
+		// running jujud version. Once upgrade steps have run, the
+		// upgradesteps gate is unlocked and the worker exits.
+		upgradeStepsName: upgradesteps.Manifold(upgradesteps.ManifoldConfig{
+			AgentName:            agentName,
+			APICallerName:        apiCallerName,
+			ServiceFactoryName:   serviceFactoryName,
+			UpgradeStepsGateName: upgradeStepsGateName,
+			PreUpgradeSteps:      config.PreUpgradeSteps(state.ModelTypeCAAS),
+			UpgradeSteps:         config.UpgradeSteps,
+			NewAgentStatusSetter: config.NewAgentStatusSetter,
+			NewMachineWorker:     upgradestepsmachine.NewMachineWorker,
+			NewControllerWorker:  upgradesteps.NewControllerWorker,
+			Logger:               loggo.GetLogger("juju.worker.upgradesteps"),
+			Clock:                config.Clock,
 		}),
 
 		syslogName: syslogger.Manifold(syslogger.ManifoldConfig{

@@ -77,31 +77,3 @@ func (mr *MockContextMockRecorder) AgentConfig() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AgentConfig", reflect.TypeOf((*MockContext)(nil).AgentConfig))
 }
-
-// State mocks base method.
-func (m *MockContext) State() upgrades.StateBackend {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "State")
-	ret0, _ := ret[0].(upgrades.StateBackend)
-	return ret0
-}
-
-// State indicates an expected call of State.
-func (mr *MockContextMockRecorder) State() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "State", reflect.TypeOf((*MockContext)(nil).State))
-}
-
-// StateContext mocks base method.
-func (m *MockContext) StateContext() upgrades.Context {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "StateContext")
-	ret0, _ := ret[0].(upgrades.Context)
-	return ret0
-}
-
-// StateContext indicates an expected call of StateContext.
-func (mr *MockContextMockRecorder) StateContext() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StateContext", reflect.TypeOf((*MockContext)(nil).StateContext))
-}

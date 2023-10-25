@@ -49,6 +49,7 @@ import (
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/upgrades"
 	jujuversion "github.com/juju/juju/version"
 	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/authenticationworker"
@@ -222,7 +223,12 @@ func NewTestMachineAgentFactory(
 	rootDir string,
 	cmdRunner CommandRunner,
 ) machineAgentFactoryFnType {
-	preUpgradeSteps := func(_ agent.Config, isController, isCaas bool) error {
+	preUpgradeSteps := func(state.ModelType) upgrades.PreUpgradeStepsFunc {
+		return func(agent.Config, bool) error {
+			return nil
+		}
+	}
+	upgradeSteps := func(from version.Number, targets []upgrades.Target, context upgrades.Context) error {
 		return nil
 	}
 
@@ -250,6 +256,7 @@ func NewTestMachineAgentFactory(
 			mongoTxnCollector:           mongometrics.NewTxnCollector(),
 			mongoDialCollector:          mongometrics.NewDialCollector(),
 			preUpgradeSteps:             preUpgradeSteps,
+			upgradeSteps:                upgradeSteps,
 			isCaasAgent:                 isCAAS,
 			cmdRunner:                   cmdRunner,
 		}
