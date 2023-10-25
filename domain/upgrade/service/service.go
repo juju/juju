@@ -173,3 +173,18 @@ func (s *Service) UpgradeInfo(ctx context.Context, upgradeUUID domainupgrade.UUI
 	}
 	return upgradeInfo, domain.CoerceError(err)
 }
+
+// IsUpgrading returns true if there is an upgrade in progress.
+// This essentially asks is there any upgrades that are not in the terminal
+// states (completed or failed)
+func (s *Service) IsUpgrading(ctx context.Context) (bool, error) {
+	_, err := s.ActiveUpgrade(ctx)
+	if err == nil {
+		return true, nil
+	}
+	if errors.Is(err, errors.NotFound) {
+		return false, nil
+	}
+
+	return false, errors.Trace(err)
+}

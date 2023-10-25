@@ -175,3 +175,33 @@ func (s *serviceSuite) TestWatchForUpgradeState(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(watcher, gc.NotNil)
 }
+
+func (s *serviceSuite) TestIsUpgrade(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().ActiveUpgrade(gomock.Any()).Return(s.upgradeUUID, nil)
+
+	upgrading, err := s.srv.IsUpgrading(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(upgrading, jc.IsTrue)
+}
+
+func (s *serviceSuite) TestIsUpgradeNoUpgrade(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().ActiveUpgrade(gomock.Any()).Return(s.upgradeUUID, errors.Trace(sql.ErrNoRows))
+
+	upgrading, err := s.srv.IsUpgrading(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(upgrading, jc.IsFalse)
+}
+
+func (s *serviceSuite) TestIsUpgradeError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().ActiveUpgrade(gomock.Any()).Return(s.upgradeUUID, errors.New("boom"))
+
+	upgrading, err := s.srv.IsUpgrading(context.Background())
+	c.Assert(err, gc.ErrorMatches, `boom`)
+	c.Assert(upgrading, jc.IsFalse)
+}
