@@ -41,7 +41,6 @@ import (
 	"github.com/juju/juju/worker/lifeflag"
 	wlogger "github.com/juju/juju/worker/logger"
 	"github.com/juju/juju/worker/logsender"
-	"github.com/juju/juju/worker/machineupgradesteps"
 	"github.com/juju/juju/worker/migrationflag"
 	"github.com/juju/juju/worker/migrationminion"
 	"github.com/juju/juju/worker/muxhttpserver"
@@ -51,6 +50,7 @@ import (
 	"github.com/juju/juju/worker/secretsdrainworker"
 	"github.com/juju/juju/worker/simplesignalhandler"
 	"github.com/juju/juju/worker/uniter"
+	"github.com/juju/juju/worker/upgradestepsmachine"
 )
 
 // manifoldsConfig allows specialisation of the result of Manifolds.
@@ -251,13 +251,13 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 		// starts and runs any steps required to upgrade to the
 		// running jujud version. Once upgrade steps have run, the
 		// upgradesteps gate is unlocked and the worker exits.
-		upgradeStepsName: ifNotDead(machineupgradesteps.Manifold(machineupgradesteps.ManifoldConfig{
+		upgradeStepsName: ifNotDead(upgradestepsmachine.Manifold(upgradestepsmachine.ManifoldConfig{
 			AgentName:            agentName,
 			APICallerName:        apiCallerName,
 			UpgradeStepsGateName: upgradeStepsGateName,
 			PreUpgradeSteps:      config.PreUpgradeSteps,
 			UpgradeSteps:         config.UpgradeSteps,
-			Logger:               loggo.GetLogger("juju.worker.machineupgradesteps"),
+			Logger:               loggo.GetLogger("juju.worker.upgradestepsmachine"),
 			Clock:                config.Clock,
 		})),
 
