@@ -12,36 +12,10 @@ import (
 	"github.com/juju/juju/state/storage"
 )
 
-type baseObjectStore struct {
-	tomb tomb.Tomb
-
+type stateObjectStore struct {
+	tomb      tomb.Tomb
 	namespace string
 	logger    Logger
-}
-
-func newBaseObjectStore(loop func() error, namespace string, logger Logger) *baseObjectStore {
-	w := &baseObjectStore{
-		namespace: namespace,
-		logger:    logger,
-	}
-
-	w.tomb.Go(loop)
-
-	return w
-}
-
-// Kill implements the worker.Worker interface.
-func (s *baseObjectStore) Kill() {
-	s.tomb.Kill(nil)
-}
-
-// Wait implements the worker.Worker interface.
-func (s *baseObjectStore) Wait() error {
-	return s.tomb.Wait()
-}
-
-type stateObjectStore struct {
-	*baseObjectStore
 
 	session MongoSession
 }
@@ -50,10 +24,12 @@ type stateObjectStore struct {
 // storage.
 func NewStateObjectStore(ctx context.Context, namespace string, mongoSession MongoSession, logger Logger) (TrackedObjectStore, error) {
 	s := &stateObjectStore{
-		session: mongoSession,
+		namespace: namespace,
+		session:   mongoSession,
+		logger:    logger,
 	}
 
-	s.baseObjectStore = newBaseObjectStore(s.loop, namespace, logger)
+	s.tomb.Go(s.loop)
 
 	return s, nil
 }
@@ -78,6 +54,16 @@ func (t *stateObjectStore) Remove(ctx context.Context, path string) error {
 	session := t.session.MongoSession()
 	store := storage.NewStorage(t.namespace, session)
 	return store.Remove(path)
+}
+
+// Kill implements the worker.Worker interface.
+func (s *stateObjectStore) Kill() {
+	s.tomb.Kill(nil)
+}
+
+// Wait implements the worker.Worker interface.
+func (s *stateObjectStore) Wait() error {
+	return s.tomb.Wait()
 }
 
 func (t *stateObjectStore) loop() error {

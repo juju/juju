@@ -297,7 +297,7 @@ func (s *caasProvisionerSuite) TestFilesystemLife(c *gc.C) {
 	})
 }
 
-func (s caasProvisionerSuite) TestFilesystemAttachmentLife(c *gc.C) {
+func (s *caasProvisionerSuite) TestFilesystemAttachmentLife(c *gc.C) {
 	s.setupFilesystems(c)
 
 	results, err := s.api.AttachmentLife(context.Background(), params.MachineStorageIds{
