@@ -917,10 +917,14 @@ func (w *Worker) openAPIConnForModel(targetInfo coremigration.TargetInfo, modelU
 	apiInfo := &api.Info{
 		Addrs:     targetInfo.Addrs,
 		CACert:    targetInfo.CACert,
-		Tag:       targetInfo.AuthTag,
 		Password:  targetInfo.Password,
 		ModelTag:  names.NewModelTag(modelUUID),
 		Macaroons: targetInfo.Macaroons,
+	}
+	// Only local users must be added to the api info.
+	// For external users, the tag needs to be left empty.
+	if targetInfo.AuthTag.IsLocal() {
+		apiInfo.Tag = targetInfo.AuthTag
 	}
 	return w.config.APIOpen(apiInfo, migration.ControllerDialOpts())
 }
