@@ -19,11 +19,6 @@ import (
 	"github.com/juju/juju/worker/gate"
 )
 
-type (
-	PreUpgradeStepsFunc = upgrades.PreUpgradeStepsFunc
-	UpgradeStepsFunc    = upgrades.UpgradeStepsFunc
-)
-
 // Logger defines the logging methods used by the worker.
 type Logger interface {
 	Errorf(string, ...any)

@@ -90,6 +90,9 @@ func BootstrapControllerInitConcern(bootstrapInit BootstrapInit, ops ...Bootstra
 	return bootstrapDBConcern(coredatabase.ControllerNS, schema.ControllerDDL(), bootstrapInit, ops...)
 }
 
+// controllerBootstrapInit is used to initialise the controller database with
+// a controller node ID. The controller node ID is required to be present in
+// the controller_node table as this is used for referential integrity.
 func controllerBootstrapInit(ctx context.Context, runner coredatabase.TxnRunner, dqlite *app.App) error {
 	if err := InsertControllerNodeID(ctx, runner, dqlite.ID()); err != nil {
 		// If the controller node ID already exists, we assume that
@@ -104,7 +107,7 @@ func controllerBootstrapInit(ctx context.Context, runner coredatabase.TxnRunner,
 }
 
 // EmptyInit is a BootstrapInit type that does nothing.
-func EmptyInit(ctx context.Context, runner coredatabase.TxnRunner, dqlite *app.App) error {
+func EmptyInit(context.Context, coredatabase.TxnRunner, *app.App) error {
 	return nil
 }
 
