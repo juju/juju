@@ -15,6 +15,7 @@ test_secrets_k8s() {
 
 	test_secrets
 	test_secret_drain
+	test_user_secrets
 
 	# Takes too long to tear down, so forcibly destroy it
 	export KILL_CONTROLLER=true

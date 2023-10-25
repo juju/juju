@@ -54,6 +54,7 @@ func (s *TargetInfoSuite) TestValidation(c *gc.C) {
 		"AuthTag",
 		func(info *migration.TargetInfo) {
 			info.AuthTag = names.UserTag{}
+			info.Macaroons = nil
 		},
 		"empty AuthTag not valid",
 	}, {
@@ -79,6 +80,12 @@ func (s *TargetInfoSuite) TestValidation(c *gc.C) {
 		"Success - empty Macaroons",
 		func(info *migration.TargetInfo) {
 			info.Macaroons = nil
+		},
+		"",
+	}, {
+		"Success - empty AuthTag with macaroons",
+		func(info *migration.TargetInfo) {
+			info.AuthTag = names.UserTag{}
 		},
 		"",
 	}, {

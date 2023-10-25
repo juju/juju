@@ -209,7 +209,13 @@ func (a authenticator) Authenticate(
 // authenticatorForTag returns the authenticator appropriate
 // to use for a login with the given possibly-nil tag.
 func (a authenticator) authenticatorForTag(ctx context.Context, tag names.Tag) (authentication.EntityAuthenticator, error) {
-	if tag == nil {
+	if tag == nil || tag.Kind() == names.UserTagKind {
+		// Poorly written older controllers pass in an external user
+		// when doing api calls to the target controller during migration,
+		// so we need to check the user type.
+		if tag != nil && tag.(names.UserTag).IsLocal() {
+			return a.localUserAuth(), nil
+		}
 		auth, err := a.ctxt.externalMacaroonAuth(ctx, nil)
 		if errors.Cause(err) == errMacaroonAuthNotConfigured {
 			err = errors.Trace(apiservererrors.ErrNoCreds)
@@ -223,9 +229,6 @@ func (a authenticator) authenticatorForTag(ctx context.Context, tag names.Tag) (
 		if tag.Kind() == agentKind {
 			return &a.ctxt.agentAuth, nil
 		}
-	}
-	if tag.Kind() == names.UserTagKind {
-		return a.localUserAuth(), nil
 	}
 	return nil, errors.Annotatef(apiservererrors.ErrBadRequest, "unexpected login entity tag")
 }

@@ -1221,17 +1221,6 @@ type NetworkInfoResults struct {
 	Results map[string]NetworkInfoResult `json:"results"`
 }
 
-// NetworkInfoResultV6 holds either and error or a list of NetworkInfos for given binding.
-type NetworkInfoResultV6 struct {
-	Error *Error        `json:"error,omitempty" yaml:"error,omitempty"`
-	Info  []NetworkInfo `json:"network-info" yaml:"info"`
-}
-
-// NetworkInfoResultsV6 holds a mapping from binding name to NetworkInfoResultV6.
-type NetworkInfoResultsV6 struct {
-	Results map[string]NetworkInfoResultV6 `json:"results"`
-}
-
 // NetworkInfoParams holds a name of the unit and list of bindings for which we want to get NetworkInfos.
 type NetworkInfoParams struct {
 	Unit       string `json:"unit"`
