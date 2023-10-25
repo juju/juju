@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/core/upgrade"
 	"github.com/juju/juju/rpc/params"
 	stateerrors "github.com/juju/juju/state/errors"
 )
@@ -182,7 +183,7 @@ func ServerError(err error) *params.Error {
 	case errors.Is(err, errors.NotProvisioned):
 		code = params.CodeNotProvisioned
 	case errors.Is(err, params.UpgradeInProgressError),
-		errors.Is(err, stateerrors.ErrUpgradeInProgress):
+		errors.Is(err, upgrade.ErrUpgradeInProgress):
 		code = params.CodeUpgradeInProgress
 	case errors.Is(err, stateerrors.HasAttachmentsError):
 		code = params.CodeMachineHasAttachedStorage

@@ -44,6 +44,7 @@ import (
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/upgrade"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/internal/mongo/mongotest"
@@ -51,7 +52,6 @@ import (
 	"github.com/juju/juju/internal/storage/poolmanager"
 	"github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/state"
-	stateerrors "github.com/juju/juju/state/errors"
 	"github.com/juju/juju/state/mocks"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testing"
@@ -4457,7 +4457,7 @@ func (s *StateSuite) TestSetModelAgentVersionFailsIfUpgrading(c *gc.C) {
 	s.expectIsUpgrade(true)
 
 	err = s.State.SetModelAgentVersion(nextVersion, nil, false, s.upgrader)
-	c.Assert(err, jc.ErrorIs, stateerrors.ErrUpgradeInProgress)
+	c.Assert(err, jc.ErrorIs, upgrade.ErrUpgradeInProgress)
 }
 
 func (s *StateSuite) TestSetModelAgentVersionFailsReportsCorrectError(c *gc.C) {

@@ -34,10 +34,10 @@ import (
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/upgrade"
 	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/state/cloudimagemetadata"
-	stateerrors "github.com/juju/juju/state/errors"
 	"github.com/juju/juju/state/watcher"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -671,7 +671,7 @@ func (st *State) SetModelAgentVersion(newVersion version.Number, stream *string,
 		if upgrading, err := upgrader.IsUpgrading(); err != nil {
 			return nil, errors.Annotate(err, "cannot set agent version")
 		} else if upgrading {
-			return nil, errors.Trace(stateerrors.ErrUpgradeInProgress)
+			return nil, errors.Trace(upgrade.ErrUpgradeInProgress)
 		}
 
 		ops := []txn.Op{
@@ -697,7 +697,7 @@ func (st *State) SetModelAgentVersion(newVersion version.Number, stream *string,
 		if upgrading, err := upgrader.IsUpgrading(); err != nil {
 			return errors.Annotate(err, "cannot set agent version")
 		} else if upgrading {
-			return errors.Trace(stateerrors.ErrUpgradeInProgress)
+			return errors.Trace(upgrade.ErrUpgradeInProgress)
 		}
 	}
 	return errors.Trace(err)

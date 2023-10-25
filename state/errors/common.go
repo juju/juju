@@ -33,8 +33,6 @@ const (
 
 	ErrDead = errors.ConstError("not found or dead")
 
-	ErrUpgradeInProgress = errors.ConstError("upgrade in progress")
-
 	// IncompatibleBaseError indicates the base selected is not supported by
 	// the charm.
 	IncompatibleBaseError = errors.ConstError("incompatible base for charm")
