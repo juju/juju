@@ -43,9 +43,19 @@ func newSecretsAPI(context facade.Context) (*SecretsAPI, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	backendConfigGetter := func() (*provider.ModelBackendConfigInfo, error) {
+	leadershipChecker, err := context.LeadershipChecker()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	adminBackendConfigGetter := func() (*provider.ModelBackendConfigInfo, error) {
 		return secrets.AdminBackendConfigInfo(secrets.SecretsModel(model))
 	}
+	backendConfigGetterForUserSecretsWrite := func(backendID string) (*provider.ModelBackendConfigInfo, error) {
+		// User secrets are owned by the model.
+		authTag := model.ModelTag()
+		return secrets.BackendConfigInfo(secrets.SecretsModel(model), []string{backendID}, false, authTag, leadershipChecker)
+	}
+
 	backendGetter := func(cfg *provider.ModelBackendConfig) (provider.SecretsBackend, error) {
 		p, err := provider.Provider(cfg.BackendType)
 		if err != nil {
@@ -54,15 +64,16 @@ func newSecretsAPI(context facade.Context) (*SecretsAPI, error) {
 		return p.NewBackend(cfg)
 	}
 	return &SecretsAPI{
-		authorizer:          context.Auth(),
-		authTag:             context.Auth().GetAuthTag(),
-		controllerUUID:      context.State().ControllerUUID(),
-		modelUUID:           context.State().ModelUUID(),
-		modelName:           model.Name(),
-		secretsState:        state.NewSecrets(context.State()),
-		secretsConsumer:     context.State(),
-		backends:            make(map[string]provider.SecretsBackend),
-		backendConfigGetter: backendConfigGetter,
-		backendGetter:       backendGetter,
+		authorizer:                             context.Auth(),
+		authTag:                                context.Auth().GetAuthTag(),
+		controllerUUID:                         context.State().ControllerUUID(),
+		modelUUID:                              context.State().ModelUUID(),
+		modelName:                              model.Name(),
+		secretsState:                           state.NewSecrets(context.State()),
+		secretsConsumer:                        context.State(),
+		backends:                               make(map[string]provider.SecretsBackend),
+		adminBackendConfigGetter:               adminBackendConfigGetter,
+		backendConfigGetterForUserSecretsWrite: backendConfigGetterForUserSecretsWrite,
+		backendGetter:                          backendGetter,
 	}, nil
 }
