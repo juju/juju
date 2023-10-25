@@ -92,18 +92,12 @@ type legacyStateImporter interface {
 	Import(description.Model, controller.Config) (*state.Model, *state.State, error)
 }
 
-// ControllerConfigGetter describes the method needed to get the
-// controller config.
-type ControllerConfigGetter interface {
-	ControllerConfig(context.Context) (controller.Config, error)
-}
-
 // ModelImporter represents a model migration that implements Import.
 type ModelImporter struct {
 	// TODO(nvinuesa): This is being deprecated, only needed until the
 	// migration to dqlite is complete.
-	legacyStateImporter    legacyStateImporter
-	controllerConfigGetter ControllerConfigGetter
+	legacyStateImporter     legacyStateImporter
+	controllerConfigService ControllerConfigService
 
 	scope modelmigration.Scope
 }
@@ -112,12 +106,12 @@ type ModelImporter struct {
 func NewModelImporter(
 	stateImporter legacyStateImporter,
 	scope modelmigration.Scope,
-	controllerConfigGetter ControllerConfigGetter,
+	controllerConfigService ControllerConfigService,
 ) *ModelImporter {
 	return &ModelImporter{
-		legacyStateImporter:    stateImporter,
-		scope:                  scope,
-		controllerConfigGetter: controllerConfigGetter,
+		legacyStateImporter:     stateImporter,
+		scope:                   scope,
+		controllerConfigService: controllerConfigService,
 	}
 }
 
@@ -130,7 +124,7 @@ func (i *ModelImporter) ImportModel(ctx context.Context, bytes []byte) (*state.M
 		return nil, nil, errors.Trace(err)
 	}
 
-	ctrlConfig, err := i.controllerConfigGetter.ControllerConfig(ctx)
+	ctrlConfig, err := i.controllerConfigService.ControllerConfig(ctx)
 	if err != nil {
 		return nil, nil, errors.Annotatef(err, "unable to get controller config")
 	}
