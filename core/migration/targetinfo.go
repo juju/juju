@@ -62,7 +62,7 @@ func (info *TargetInfo) Validate() error {
 		}
 	}
 
-	if info.AuthTag.Id() == "" {
+	if info.AuthTag.Id() == "" && len(info.Macaroons) == 0 {
 		return errors.NotValidf("empty AuthTag")
 	}
 

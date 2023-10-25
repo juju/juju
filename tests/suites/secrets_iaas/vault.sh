@@ -8,6 +8,7 @@ run_secrets_vault() {
 	add_model "$model_name" --config secret-backend=myvault
 
 	check_secrets
+	run_user_secrets "$model_name"
 
 	destroy_model "model-secrets-vault"
 	destroy_model "model-vault-provider"

@@ -424,11 +424,15 @@ func (c *configCommand) verifyKnownKeys(client configCommandAPI, keys []string) 
 	if err != nil {
 		return errors.Trace(err)
 	}
+	// AuthorizedKeys is a valid key, though you aren't allowed to set it.
+	// This will be denied with a server error, but we don't want to warn
+	// about an unknown key.
+	known[envconfig.AuthorizedKeysKey] = ""
 
 	allKeys := keys[:]
 	for _, key := range allKeys {
-		// check if the key exists in the known config
-		// and warn the user if the key is not defined
+		// Check if the key exists in the known config
+		// and warn the user if the key is not defined.
 		if _, exists := known[key]; !exists {
 			logger.Warningf(
 				"key %q is not defined in the current model configuration: possible misspelling", key)

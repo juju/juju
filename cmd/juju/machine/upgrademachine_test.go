@@ -83,8 +83,8 @@ const (
 	machineArg   = "1"
 	containerArg = "2/lxd/0"
 
-	seriesArg = "focal"
-	baseArg   = "ubuntu@20.04"
+	channelArg = "20.04/stable"
+	baseArg    = "ubuntu@20.04"
 )
 
 func (s *UpgradeMachineSuite) runUpgradeMachineCommand(c *gc.C, args ...string) error {
@@ -117,7 +117,7 @@ func (s *UpgradeMachineSuite) runUpgradeMachineCommandWithConfirmation(
 
 	uExp := mockUpgradeMachineAPI.EXPECT()
 	prep := s.prepareExpectation
-	uExp.UpgradeSeriesPrepare(prep.machineArg, prep.baseArg, prep.force).AnyTimes()
+	uExp.UpgradeSeriesPrepare(prep.machineArg, prep.channelArg, prep.force).AnyTimes()
 	uExp.UpgradeSeriesComplete(s.completeExpectation.machineNumber).AnyTimes()
 
 	mockStatusAPI.EXPECT().Status(gomock.Nil()).AnyTimes().Return(s.statusExpectation.status, nil)
@@ -136,13 +136,13 @@ func (s *UpgradeMachineSuite) runUpgradeMachineCommandWithConfirmation(
 }
 
 func (s *UpgradeMachineSuite) TestPrepareCommandMachines(c *gc.C) {
-	s.prepareExpectation = &upgradeMachinePrepareExpectation{machineArg, seriesArg, gomock.Eq(false)}
+	s.prepareExpectation = &upgradeMachinePrepareExpectation{machineArg, channelArg, gomock.Eq(false)}
 	err := s.runUpgradeMachineCommand(c, machineArg, machine.PrepareCommand, baseArg)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *UpgradeMachineSuite) TestPrepareCommandContainers(c *gc.C) {
-	s.prepareExpectation = &upgradeMachinePrepareExpectation{containerArg, seriesArg, gomock.Eq(false)}
+	s.prepareExpectation = &upgradeMachinePrepareExpectation{containerArg, channelArg, gomock.Eq(false)}
 	err := s.runUpgradeMachineCommand(c, containerArg, machine.PrepareCommand, baseArg)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -153,7 +153,7 @@ func (s *UpgradeMachineSuite) TestTooFewArgs(c *gc.C) {
 }
 
 func (s *UpgradeMachineSuite) TestPrepareCommandShouldAcceptForceOption(c *gc.C) {
-	s.prepareExpectation = &upgradeMachinePrepareExpectation{machineArg, seriesArg, gomock.Eq(true)}
+	s.prepareExpectation = &upgradeMachinePrepareExpectation{machineArg, channelArg, gomock.Eq(true)}
 	err := s.runUpgradeMachineCommand(c, machineArg, machine.PrepareCommand, baseArg, "--force")
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -243,7 +243,7 @@ type statusExpectation struct {
 }
 
 type upgradeMachinePrepareExpectation struct {
-	machineArg, baseArg, force interface{}
+	machineArg, channelArg, force interface{}
 }
 
 type upgradeMachineCompleteExpectation struct {

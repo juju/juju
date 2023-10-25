@@ -308,11 +308,6 @@ func (c *upgradeMachineCommand) UpgradePrepare(ctx *cmd.Context) (err error) {
 		return errors.NotFoundf("units for machine %q", c.machineNumber)
 	}
 
-	s, err := corebase.GetSeriesFromBase(base)
-	if err != nil {
-		return errors.Annotatef(err, "invalid series to base conversion")
-	}
-
 	if err := c.promptConfirmation(ctx, base, units); err != nil {
 		return errors.Trace(err)
 	}
@@ -320,7 +315,7 @@ func (c *upgradeMachineCommand) UpgradePrepare(ctx *cmd.Context) (err error) {
 	close := c.trapInterrupt(ctx)
 	defer close()
 
-	if err = c.upgradeMachineClient.UpgradeSeriesPrepare(c.machineNumber, s, c.force); err != nil {
+	if err = c.upgradeMachineClient.UpgradeSeriesPrepare(c.machineNumber, base.Channel.String(), c.force); err != nil {
 		return c.displayProgressFromError(ctx, err)
 	}
 

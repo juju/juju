@@ -95,11 +95,3 @@ func (j JujuConfigProvider) Validate() error {
 	}
 	return nil
 }
-
-// Config returns a new ociCommon.ConfigurationProvider instance
-func (j JujuConfigProvider) Config() (ociCommon.ConfigurationProvider, error) {
-	if err := j.Validate(); err != nil {
-		return nil, err
-	}
-	return &j, nil
-}

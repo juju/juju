@@ -483,13 +483,15 @@ func (s *RefreshSuite) TestLocalRevisionUnchanged(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.charmAdder.CheckCallNames(c, "AddLocalCharm")
 	s.charmAPIClient.CheckCallNames(c, "GetCharmURLOrigin", "Get", "SetCharm")
+	rev := 7
 	s.charmAPIClient.CheckCall(c, 2, "SetCharm", model.GenerationMaster, application.SetCharmConfig{
 		ApplicationName: "riak",
 		CharmID: application.CharmID{
 			URL: charm.MustParseURL("local:bionic/riak-7"),
 			Origin: commoncharm.Origin{
-				Base:   s.charmAPIClient.charmOrigin.Base,
-				Source: "local",
+				Base:     s.charmAPIClient.charmOrigin.Base,
+				Source:   "local",
+				Revision: &rev,
 			},
 		},
 		ConfigSettings:   map[string]string{},
@@ -671,7 +673,8 @@ func (s *RefreshSuite) TestRespectsLocalRevisionWhenPossible(c *gc.C) {
 	myriakPath := testcharms.RepoWithSeries("bionic").ClonedDirPath(c.MkDir(), "riak")
 	dir, err := charm.ReadCharmDir(myriakPath)
 	c.Assert(err, jc.ErrorIsNil)
-	err = dir.SetDiskRevision(42)
+	rev := 42
+	err = dir.SetDiskRevision(rev)
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = s.runRefresh(c, "riak", "--path", myriakPath)
@@ -683,8 +686,9 @@ func (s *RefreshSuite) TestRespectsLocalRevisionWhenPossible(c *gc.C) {
 		CharmID: application.CharmID{
 			URL: charm.MustParseURL("local:bionic/riak-42"),
 			Origin: commoncharm.Origin{
-				Base:   s.charmAPIClient.charmOrigin.Base,
-				Source: "local",
+				Base:     s.charmAPIClient.charmOrigin.Base,
+				Source:   "local",
+				Revision: &rev,
 			},
 		},
 		ConfigSettings:   map[string]string{},
@@ -724,16 +728,16 @@ func (s *RefreshSuite) TestForcedSeriesUpgrade(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.charmAPIClient.CheckCallNames(c, "GetCharmURLOrigin", "Get", "SetCharm")
+	rev := 1
 	s.charmAPIClient.CheckCall(c, 2, "SetCharm", model.GenerationMaster, application.SetCharmConfig{
 		ApplicationName: "multi-series",
 		CharmID: application.CharmID{
 			URL: charm.MustParseURL("local:bionic/multi-series-1"),
 			Origin: commoncharm.Origin{
-				ID:           "testing",
 				Base:         s.charmAPIClient.charmOrigin.Base,
 				Source:       "local",
-				Risk:         "stable",
 				Architecture: arch.DefaultArchitecture,
+				Revision:     &rev,
 			},
 		},
 		ForceBase:        true,
@@ -751,13 +755,15 @@ func (s *RefreshSuite) TestForcedUnitsUpgrade(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.charmAdder.CheckCallNames(c, "AddLocalCharm")
 	s.charmAPIClient.CheckCallNames(c, "GetCharmURLOrigin", "Get", "SetCharm")
+	rev := 7
 	s.charmAPIClient.CheckCall(c, 2, "SetCharm", model.GenerationMaster, application.SetCharmConfig{
 		ApplicationName: "riak",
 		CharmID: application.CharmID{
 			URL: charm.MustParseURL("local:bionic/riak-7"),
 			Origin: commoncharm.Origin{
-				Base:   s.charmAPIClient.charmOrigin.Base,
-				Source: "local",
+				Base:     s.charmAPIClient.charmOrigin.Base,
+				Source:   "local",
+				Revision: &rev,
 			},
 		},
 		ForceUnits:       true,
@@ -792,13 +798,15 @@ func (s *RefreshSuite) TestCharmPathNoRevUpgrade(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.charmAdder.CheckCallNames(c, "AddLocalCharm")
 	s.charmAPIClient.CheckCallNames(c, "GetCharmURLOrigin", "Get", "SetCharm")
+	rev := 7
 	s.charmAPIClient.CheckCall(c, 2, "SetCharm", model.GenerationMaster, application.SetCharmConfig{
 		ApplicationName: "riak",
 		CharmID: application.CharmID{
 			URL: charm.MustParseURL("local:bionic/riak-7"),
 			Origin: commoncharm.Origin{
-				Base:   s.charmAPIClient.charmOrigin.Base,
-				Source: "local",
+				Base:     s.charmAPIClient.charmOrigin.Base,
+				Source:   "local",
+				Revision: &rev,
 			},
 		},
 		ConfigSettings:   map[string]string{},
@@ -855,16 +863,16 @@ devices: {}
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.charmAPIClient.CheckCallNames(c, "GetCharmURLOrigin", "Get", "SetCharm")
+	rev := 0
 	s.charmAPIClient.CheckCall(c, 2, "SetCharm", model.GenerationMaster, application.SetCharmConfig{
 		ApplicationName: "lxd-profile-alt",
 		CharmID: application.CharmID{
 			URL: charm.MustParseURL("local:bionic/lxd-profile-alt-0"),
 			Origin: commoncharm.Origin{
-				ID:           "testing",
 				Base:         s.charmAPIClient.charmOrigin.Base,
 				Source:       "local",
-				Risk:         "stable",
 				Architecture: arch.DefaultArchitecture,
+				Revision:     &rev,
 			},
 		},
 		ConfigSettings:   map[string]string{},

@@ -169,6 +169,9 @@ func (c *ModelConfigAPI) ModelSet(ctx context.Context, args params.ModelSet) err
 	// Make sure the secret backend exists.
 	checkSecretBackend := c.checkSecretBackend()
 
+	// Make sure the passed config does not set authorized-keys.
+	checkAuthorizedKeys := c.checkAuthorizedKeys()
+
 	// Replace any deprecated attributes with their new values.
 	return c.backend.UpdateModelConfig(args.Config,
 		nil,
@@ -177,7 +180,19 @@ func (c *ModelConfigAPI) ModelSet(ctx context.Context, args params.ModelSet) err
 		checkDefaultSpace,
 		checkCharmhubURL,
 		checkSecretBackend,
+		checkAuthorizedKeys,
 	)
+}
+
+// checkAuthorizedKeys checks that the passed config attributes does not
+// contain authorized-keys.
+func (c *ModelConfigAPI) checkAuthorizedKeys() state.ValidateConfigFunc {
+	return func(updateAttrs map[string]interface{}, removeAttrs []string, oldConfig *config.Config) error {
+		if _, found := updateAttrs[config.AuthorizedKeysKey]; found {
+			return errors.New("authorized-keys cannot be set")
+		}
+		return nil
+	}
 }
 
 func (c *ModelConfigAPI) checkLogTrace() state.ValidateConfigFunc {
