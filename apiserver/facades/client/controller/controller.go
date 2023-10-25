@@ -44,8 +44,17 @@ import (
 
 // ControllerConfigService is the interface that wraps the ControllerConfig method.
 type ControllerConfigService interface {
+	// ControllerConfig returns a controller.Config
 	ControllerConfig(context.Context) (corecontroller.Config, error)
+	// UpdateControllerConfig updates the controller config and has an optional
+	// list of config keys to remove.
 	UpdateControllerConfig(context.Context, corecontroller.Config, []string) error
+}
+
+// UpgradeService provides a subset of the upgrade domain service methods.
+type UpgradeService interface {
+	// IsUpgrading returns whether the controller is currently upgrading.
+	IsUpgrading(context.Context) (bool, error)
 }
 
 // ControllerAPI provides the Controller API.
@@ -63,6 +72,7 @@ type ControllerAPI struct {
 	hub                     facade.Hub
 	cloudService            common.CloudService
 	credentialService       common.CredentialService
+	upgradeService          UpgradeService
 	controllerConfigService ControllerConfigService
 
 	multiwatcherFactory multiwatcher.Factory
@@ -88,6 +98,7 @@ func NewControllerAPI(
 	externalControllerService common.ExternalControllerService,
 	cloudService common.CloudService,
 	credentialService common.CredentialService,
+	upgradeService UpgradeService,
 ) (*ControllerAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, errors.Trace(apiservererrors.ErrPerm)
@@ -131,6 +142,7 @@ func NewControllerAPI(
 		logger:                  logger,
 		controllerConfigService: controllerConfigService,
 		credentialService:       credentialService,
+		upgradeService:          upgradeService,
 		cloudService:            cloudService,
 	}, nil
 }
@@ -686,6 +698,7 @@ func (c *ControllerAPI) initiateOneMigration(ctx context.Context, spec params.Mi
 		c.controllerConfigService,
 		c.cloudService,
 		c.credentialService,
+		c.upgradeService,
 	); err != nil {
 		return "", errors.Trace(err)
 	}
@@ -825,6 +838,7 @@ var runMigrationPrechecks = func(
 	controllerConfigService ControllerConfigService,
 	cloudService common.CloudService,
 	credentialService common.CredentialService,
+	upgradeService UpgradeService,
 ) error {
 	// Check model and source controller.
 	backend, err := migration.PrecheckShim(st, ctlrSt)
@@ -840,6 +854,7 @@ var runMigrationPrechecks = func(
 		modelPresence, controllerPresence,
 		cloudspec.MakeCloudSpecGetterForModel(st, cloudService, credentialService),
 		credentialService,
+		upgradeService,
 	); err != nil {
 		return errors.Annotate(err, "source prechecks failed")
 	}

@@ -76,7 +76,8 @@ func newFacade(ctx facade.Context) (*API, error) {
 		}, nil
 	}
 
-	credentialService := ctx.ServiceFactory().Credential()
+	serviceFactory := ctx.ServiceFactory()
+	credentialService := serviceFactory.Credential()
 	// TODO(wallyworld) - service factory in tests returns a nil service.
 	if credentialService != nil {
 		credentialService = credentialService.WithValidationContextGetter(credentialCallContextGetter)
@@ -84,9 +85,10 @@ func newFacade(ctx facade.Context) (*API, error) {
 	return NewAPI(
 		ctx,
 		auth,
-		ctx.ServiceFactory().ControllerConfig(),
-		ctx.ServiceFactory().ExternalController(),
-		ctx.ServiceFactory().Cloud(),
+		serviceFactory.ControllerConfig(),
+		serviceFactory.ExternalController(),
+		serviceFactory.Upgrade(),
+		serviceFactory.Cloud(),
 		credentialService,
 		service.NewCredentialValidator(),
 		credentialCallContextGetter,

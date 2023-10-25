@@ -42,5 +42,6 @@ func newControllerAPIv11(ctx facade.Context) (*ControllerAPI, error) {
 		serviceFactory.ExternalController(),
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
+		serviceFactory.Upgrade(),
 	)
 }
