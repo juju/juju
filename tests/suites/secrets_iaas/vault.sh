@@ -5,7 +5,8 @@ run_secrets_vault() {
 
 	model_name='model-secrets-vault'
 	juju add-secret-backend myvault vault endpoint="$VAULT_ADDR" token="$VAULT_TOKEN"
-	add_model "$model_name" --config secret-backend=myvault
+	add_model "$model_name"
+	juju --show-log model-config secret-backend=myvault -m "$model_name"
 
 	check_secrets
 	run_user_secrets "$model_name"
@@ -68,6 +69,73 @@ run_secret_drain() {
 	destroy_model "model-vault-provider"
 }
 
+run_user_secret_drain() {
+	echo
+
+	prepare_vault
+
+	vault_backend_name='myvault'
+	juju add-secret-backend "$vault_backend_name" vault endpoint="$VAULT_ADDR" token="$VAULT_TOKEN"
+
+	model_name='model-user-secrets-drain'
+	add_model "$model_name"
+	juju --show-log model-config secret-backend="$vault_backend_name" -m "$model_name"
+	model_uuid=$(juju show-model $model_name --format json | jq -r ".[\"${model_name}\"][\"model-uuid\"]")
+
+	juju --show-log deploy easyrsa
+	wait_for "active" '.applications["easyrsa"] | ."application-status".current'
+	wait_for "easyrsa" "$(idle_condition "easyrsa" 0 0)"
+
+	secret_uri=$(juju --show-log add-secret owned-by="$model_name-1" --info "this is a user secret")
+	secret_short_uri=${secret_uri##*:}
+
+	juju show-secret --reveal "$secret_uri"
+	check_contains "$(vault kv list -format json "${model_name}-${model_uuid: -6}" | jq length)" 1
+
+	juju --show-log grant-secret "$secret_uri" easyrsa
+	check_contains "$(juju exec --unit easyrsa/0 -- secret-get $secret_short_uri)" "owned-by: $model_name-1"
+
+	# change the secret backend to internal.
+	juju model-config secret-backend=auto
+
+	another_secret_uri=$(juju --show-log add-secret owned-by="$model_name-2" --info "this is another user secret")
+	juju show-secret --reveal "$another_secret_uri"
+
+	# ensure the user secrets are all in internal backend, no secret in vault.
+	attempt=0
+	until [[ $(vault kv list -format json "${model_name}-${model_uuid: -6}" | jq length) -eq 0 ]]; do
+		if [[ ${attempt} -ge 30 ]]; then
+			echo "Failed: expected all secrets get drained back to juju controller."
+			exit 1
+		fi
+		sleep 2
+		attempt=$((attempt + 1))
+	done
+
+	# change the secret backend to vault.
+	juju model-config secret-backend="$vault_backend_name"
+
+	# ensure the user secrets are in the vault backend.
+	attempt=0
+	until [[ $(vault kv list -format json "${model_name}-${model_uuid: -6}" | jq length) -eq 2 ]]; do
+		if [[ ${attempt} -ge 30 ]]; then
+			echo "Failed: expected all secrets get drained to vault."
+			exit 1
+		fi
+		sleep 2
+		attempt=$((attempt + 1))
+	done
+
+	# ensure the application can still read the user secret.
+	check_contains "$(juju exec --unit easyrsa/0 -- secret-get $secret_short_uri)" "owned-by: $model_name-1"
+
+	juju show-secret --reveal "$secret_uri"
+	juju show-secret --reveal "$another_secret_uri"
+
+	destroy_model "$model_name"
+	destroy_model "model-vault-provider"
+}
+
 prepare_vault() {
 	add_model "model-vault-provider"
 
@@ -112,6 +180,21 @@ test_secret_drain() {
 		cd .. || exit
 
 		run "run_secret_drain"
+	)
+}
+
+test_user_secret_drain() {
+	if [ "$(skip 'test_user_secret_drain')" ]; then
+		echo "==> TEST SKIPPED: test_user_secret_drain"
+		return
+	fi
+
+	(
+		set_verbosity
+
+		cd .. || exit
+
+		run "run_user_secret_drain"
 	)
 }
 

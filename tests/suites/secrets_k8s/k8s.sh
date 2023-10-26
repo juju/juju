@@ -361,4 +361,3 @@ test_user_secret_drain() {
 		run "run_user_secret_drain"
 	)
 }
-
