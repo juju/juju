@@ -18,6 +18,7 @@ func ModelDDL() *schema.Schema {
 		changeLogModelNamespace,
 		modelConfig,
 		changeLogTriggersForTable("model_config", "key", tableModelConfig),
+		spacesSchema,
 	}
 
 	schema := schema.New()
@@ -42,5 +43,27 @@ CREATE TABLE model_config (
     key TEXT PRIMARY KEY,
     value TEXT NOT NULL
 );
+`)
+}
+
+func spacesSchema() schema.Patch {
+	return schema.MakePatch(`
+CREATE TABLE provider_spaces (
+    uuid            TEXT PRIMARY KEY,
+    name            TEXT
+);
+
+CREATE TABLE spaces (
+    uuid            TEXT PRIMARY KEY,
+    name            TEXT NOT NULL,
+    is_public       BOOLEAN,
+    provider_uuid   TEXT,
+    CONSTRAINT      fk_lease_pin_lease
+        FOREIGN KEY     (provider_uuid)
+        REFERENCES      provider_spaces(uuid)
+);
+
+CREATE UNIQUE INDEX idx_spaces_uuid_name
+ON spaces (uuid, name);
 `)
 }
