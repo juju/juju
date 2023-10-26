@@ -4,7 +4,6 @@
 package main
 
 import (
-	"encoding/json"
 	"flag"
 	"fmt"
 	"go/ast"
@@ -27,6 +26,7 @@ import (
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/watcher/registry"
+	schemagenformat "github.com/juju/juju/generate/schemagen/format"
 	"github.com/juju/juju/generate/schemagen/gen"
 	"github.com/juju/juju/state"
 )
@@ -52,6 +52,7 @@ func main() {
 	var (
 		facadeGroups Strings
 		adminFacades = flag.Bool("admin-facades", false, "add the admin facades when generating the schema")
+		output       = flag.String("output", "grpc", "output format (json, grpc)")
 	)
 
 	flag.Var(&facadeGroups, "facade-group", "facade group to export (latest, all, client, jimm)")
@@ -60,6 +61,15 @@ func main() {
 
 	if len(facadeGroups) == 0 {
 		facadeGroups = Strings([]string{"latest"})
+	}
+
+	format := strings.ToLower(*output)
+	switch format {
+	case "json", "grpc":
+	case "":
+		format = "json"
+	default:
+		fmt.Fprintf(os.Stderr, "Unknown output format %q\n", format)
 	}
 
 	// the first argument here will be the name of the binary, so we ignore
@@ -101,12 +111,15 @@ func main() {
 		log.Fatalln(err)
 	}
 
-	jsonSchema, err := json.MarshalIndent(result, "", "    ")
+	contents, err := schemagenformat.Format(format, result)
 	if err != nil {
 		log.Fatalln(err)
 	}
 
-	err = os.WriteFile(args[0], jsonSchema, 0644)
+	fmt.Println(string(contents))
+	return
+
+	err = os.WriteFile(args[0], contents, 0644)
 	if err != nil {
 		log.Fatalln(err)
 	}
