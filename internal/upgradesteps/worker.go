@@ -6,6 +6,7 @@ package upgradesteps
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -19,6 +20,28 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/upgrades"
 	"github.com/juju/juju/worker/gate"
+)
+
+const (
+	// ErrUpgradeStepsInvalidState is returned when the upgrade state is
+	// invalid. We expect it to be in the db completed state, if that's not the
+	// case, we can't proceed.
+	ErrUpgradeStepsInvalidState = errors.ConstError("invalid upgrade state")
+
+	// ErrFailedUpgradeSteps is returned when either controller fails to
+	// complete its upgrade steps.
+	ErrFailedUpgradeSteps = errors.ConstError("failed upgrade steps")
+
+	// ErrUpgradeTimeout is returned when the upgrade steps fail to complete
+	// within the timeout.
+	ErrUpgradeTimeout = errors.ConstError("upgrade timeout")
+
+	// defaultUpgradeTimeout is the default timeout for the upgrade to complete.
+	// 10 minutes should be enough for the upgrade steps to complete.
+	DefaultUpgradeTimeout = 10 * time.Minute
+
+	DefaultRetryDelay    = 2 * time.Minute
+	DefaultRetryAttempts = 5
 )
 
 type (

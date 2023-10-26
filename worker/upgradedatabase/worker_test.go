@@ -32,9 +32,6 @@ import (
 	jujuversion "github.com/juju/juju/version"
 )
 
-// baseSuite is embedded in both the worker and manifold tests.
-// Tests should not go on this suite directly.
-
 type workerSuite struct {
 	baseSuite
 	databasetesting.DqliteSuite
@@ -43,20 +40,6 @@ type workerSuite struct {
 }
 
 var _ = gc.Suite(&workerSuite{})
-
-func (s *workerSuite) TestNewLockSameVersionUnlocked(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.agentConfig.EXPECT().UpgradedToVersion().Return(jujuversion.Current)
-	c.Assert(NewLock(s.agentConfig).IsUnlocked(), jc.IsTrue)
-}
-
-func (s *workerSuite) TestNewLockOldVersionLocked(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.agentConfig.EXPECT().UpgradedToVersion().Return(version.Number{})
-	c.Assert(NewLock(s.agentConfig).IsUnlocked(), jc.IsFalse)
-}
 
 func (s *workerSuite) TestLockAlreadyUnlocked(c *gc.C) {
 	defer s.setupMocks(c).Finish()

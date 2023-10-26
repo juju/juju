@@ -27,7 +27,7 @@ import (
 	"github.com/juju/juju/cmd/internal/agent/agentconf"
 	"github.com/juju/juju/cmd/jujud/agent/modeloperator"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
-	"github.com/juju/juju/internal/upgradesteps"
+	"github.com/juju/juju/internal/upgrade"
 	jujuversion "github.com/juju/juju/version"
 	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/gate"
@@ -43,7 +43,7 @@ type ModelCommand struct {
 	errReason        error
 	ModelUUID        string
 	runner           *worker.Runner
-	upgradeComplete  gate.Lock
+	upgradeStepsLock gate.Lock
 	bufferedLogger   *logsender.BufferedLogWriter
 }
 
@@ -121,7 +121,7 @@ func (m *ModelCommand) Run(ctx *cmd.Context) error {
 		return errors.Annotate(err, "creating agent config from template")
 	}
 
-	m.upgradeComplete = upgradesteps.NewLock(m.CurrentConfig(), jujuversion.Current)
+	m.upgradeStepsLock = upgrade.NewLock(m.CurrentConfig(), jujuversion.Current)
 
 	_ = m.runner.StartWorker("modeloperator", m.Workers)
 	return cmdutil.AgentDone(logger, m.runner.Wait())
@@ -181,7 +181,7 @@ func (m *ModelCommand) Workers() (worker.Worker, error) {
 		ServiceNamespace:       svcNamespace,
 		UpdateLoggerConfig:     updateAgentConfLogging,
 		PreviousAgentVersion:   m.CurrentConfig().UpgradedToVersion(),
-		UpgradeStepsLock:       m.upgradeComplete,
+		UpgradeStepsLock:       m.upgradeStepsLock,
 	})
 
 	// TODO (stickupkid): There is no prometheus registry at this level, we
