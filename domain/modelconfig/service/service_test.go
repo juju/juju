@@ -9,9 +9,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	statetesting "github.com/juju/juju/domain/modelconfig/state/testing"
+	"github.com/juju/juju/domain/modelconfig/service/testing"
 	"github.com/juju/juju/domain/modeldefaults"
 	"github.com/juju/juju/environs/config"
+	jujutesting "github.com/juju/juju/testing"
 )
 
 type ModelDefaultsProviderFunc func(context.Context) (modeldefaults.Defaults, error)
@@ -28,6 +29,7 @@ func (f ModelDefaultsProviderFunc) ModelDefaults(
 }
 
 func (s *serviceSuite) TestSetModelConfig(c *gc.C) {
+	ctx, _ := jujutesting.LongWaitContext()
 	var defaults ModelDefaultsProviderFunc = func(_ context.Context) (modeldefaults.Defaults, error) {
 		return modeldefaults.Defaults{
 			"foo": modeldefaults.DefaultAttributeValue{
@@ -43,13 +45,25 @@ func (s *serviceSuite) TestSetModelConfig(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	st := statetesting.NewState()
-	svc := NewService(defaults, st)
+	st := testing.NewState()
+	defer st.Close()
 
-	err = svc.SetModelConfig(context.Background(), cfg)
+	svc := NewService(defaults, st, st)
+
+	watcher, err := svc.Watch()
+	c.Assert(err, jc.ErrorIsNil)
+	var changes []string
+	select {
+	case changes = <-watcher.Changes():
+	case <-ctx.Done():
+		c.Fatal(ctx.Err())
+	}
+	c.Assert(len(changes), gc.Equals, 0)
+
+	err = svc.SetModelConfig(ctx, cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
-	cfg, err = svc.ModelConfig(context.Background())
+	cfg, err = svc.ModelConfig(ctx)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(cfg.AllAttrs(), jc.DeepEquals, map[string]any{
@@ -59,5 +73,14 @@ func (s *serviceSuite) TestSetModelConfig(c *gc.C) {
 		"foo":            "bar",
 		"secret-backend": "auto",
 		"logging-config": "<root>=INFO",
+	})
+
+	select {
+	case changes = <-watcher.Changes():
+	case <-ctx.Done():
+		c.Fatal(ctx.Err())
+	}
+	c.Assert(changes, jc.SameContents, []string{
+		"name", "uuid", "type", "foo", "secret-backend", "logging-config",
 	})
 }
