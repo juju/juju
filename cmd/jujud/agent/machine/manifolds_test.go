@@ -349,8 +349,9 @@ func (*ManifoldsSuite) TestSingularGuardsUsed(c *gc.C) {
 			checkNotContains(c, manifold.Inputs, "is-controller-flag")
 			checkContains(c, manifold.Inputs, "is-primary-controller-flag")
 		case dbUpgradedWorkers.Contains(name):
-			checkContains(c, manifold.Inputs, "is-controller-flag")
+			checkNotContains(c, manifold.Inputs, "is-controller-flag")
 			checkNotContains(c, manifold.Inputs, "is-primary-controller-flag")
+			checkContains(c, manifold.Inputs, "upgrade-database-flag")
 		default:
 			checkNotContains(c, manifold.Inputs, "is-controller-flag")
 			checkNotContains(c, manifold.Inputs, "is-primary-controller-flag")
@@ -506,6 +507,8 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"state",
 		"syslog",
 		"trace",
+		"upgrade-database-flag",
+		"upgrade-database-gate",
 		"upgrade-steps-gate",
 	},
 
@@ -700,6 +703,8 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"state",
 		"syslog",
 		"trace",
+		"upgrade-database-flag",
+		"upgrade-database-gate",
 		"upgrade-steps-gate",
 	},
 
@@ -901,6 +906,8 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"service-factory",
 		"state",
 		"state-config-watcher",
+		"upgrade-database-flag",
+		"upgrade-database-gate",
 	},
 
 	"peer-grouper": {
@@ -1192,6 +1199,8 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"state",
 		"syslog",
 		"trace",
+		"upgrade-database-flag",
+		"upgrade-database-gate",
 		"upgrade-steps-gate",
 	},
 
@@ -1311,6 +1320,8 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"state",
 		"syslog",
 		"trace",
+		"upgrade-database-flag",
+		"upgrade-database-gate",
 		"upgrade-steps-gate",
 	},
 
@@ -1436,6 +1447,8 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"service-factory",
 		"state",
 		"state-config-watcher",
+		"upgrade-database-flag",
+		"upgrade-database-gate",
 	},
 
 	"peer-grouper": {
