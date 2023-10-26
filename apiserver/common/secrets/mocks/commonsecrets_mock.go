@@ -360,10 +360,10 @@ func (mr *MockSecretsRemoveStateMockRecorder) GetSecretRevision(arg0, arg1 inter
 }
 
 // ListSecretRevisions mocks base method.
-func (m *MockSecretsRemoveState) ListSecretRevisions(arg0 *secrets0.URI) ([]*secrets0.SecretRevisionMetadata, error) {
+func (m *MockSecretsRemoveState) ListSecretRevisions(arg0 *secrets.URI) ([]*secrets.SecretRevisionMetadata, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ListSecretRevisions", arg0)
-	ret0, _ := ret[0].([]*secrets0.SecretRevisionMetadata)
+	ret0, _ := ret[0].([]*secrets.SecretRevisionMetadata)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
