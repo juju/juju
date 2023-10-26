@@ -56,6 +56,12 @@ type ControllerConfigService interface {
 	ControllerConfig(context.Context) (controller.Config, error)
 }
 
+// UpgradeService provides a subset of the upgrade domain service methods.
+type UpgradeService interface {
+	// IsUpgrading returns whether the controller is currently upgrading.
+	IsUpgrading(context.Context) (bool, error)
+}
+
 // API implements the API required for the model migration
 // master worker when communicating with the target controller.
 type API struct {
@@ -63,6 +69,7 @@ type API struct {
 	modelImporter               ModelImporter
 	externalControllerService   ExternalControllerService
 	cloudService                common.CloudService
+	upgradeService              UpgradeService
 	credentialService           credentialcommon.CredentialService
 	credentialValidator         credentialservice.CredentialValidator
 	credentialCallContextGetter credentialservice.ValidationContextGetter
@@ -86,6 +93,7 @@ func NewAPI(
 	authorizer facade.Authorizer,
 	controllerConfigService ControllerConfigService,
 	externalControllerService ExternalControllerService,
+	upgradeService UpgradeService,
 	cloudService common.CloudService,
 	credentialService credentialcommon.CredentialService,
 	validator credentialservice.CredentialValidator,
@@ -109,6 +117,7 @@ func NewAPI(
 		pool:                        pool,
 		externalControllerService:   externalControllerService,
 		cloudService:                cloudService,
+		upgradeService:              upgradeService,
 		credentialService:           credentialService,
 		credentialValidator:         validator,
 		credentialCallContextGetter: credentialCallContextGetter,
@@ -159,6 +168,7 @@ func (api *API) Prechecks(ctx context.Context, model params.MigrationModelInfo) 
 			ControllerAgentVersion: model.ControllerAgentVersion,
 		},
 		api.presence.ModelPresence(controllerState.ModelUUID()),
+		api.upgradeService,
 	)
 }
 

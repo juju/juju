@@ -43,6 +43,7 @@ type Suite struct {
 	backend           *mocks.MockBackend
 	modelExporter     *mocks.MockModelExporter
 	credentialService *commonmocks.MockCredentialService
+	upgradeService    *mocks.MockUpgradeService
 
 	precheckBackend *mocks.MockPrecheckBackend
 
@@ -589,6 +590,7 @@ func (s *Suite) setupMocks(c *gc.C) *gomock.Controller {
 	s.precheckBackend = mocks.NewMockPrecheckBackend(ctrl)
 	s.modelExporter = mocks.NewMockModelExporter(ctrl)
 	s.credentialService = commonmocks.NewMockCredentialService(ctrl)
+	s.upgradeService = mocks.NewMockUpgradeService(ctrl)
 	return ctrl
 }
 
@@ -611,6 +613,7 @@ func (s *Suite) makeAPI() (*migrationmaster.API, error) {
 		func(names.ModelTag) (environscloudspec.CloudSpec, error) { return s.cloudSpec, nil },
 		stubLeadership{},
 		s.credentialService,
+		s.upgradeService,
 	)
 }
 

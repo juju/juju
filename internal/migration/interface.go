@@ -11,6 +11,7 @@ import (
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/credential"
@@ -26,7 +27,6 @@ type PrecheckBackend interface {
 	NeedsCleanup() (bool, error)
 	Model() (PrecheckModel, error)
 	AllModelUUIDs() ([]string, error)
-	IsUpgrading() (bool, error)
 	IsMigrationActive(string) (bool, error)
 	AllMachines() ([]PrecheckMachine, error)
 	AllApplications() ([]PrecheckApplication, error)
@@ -41,6 +41,17 @@ type PrecheckBackend interface {
 // CredentialService provides access to credentials.
 type CredentialService interface {
 	CloudCredential(ctx context.Context, id credential.ID) (cloud.Credential, error)
+}
+
+// UpgradeService provides access to upgrade information.
+type UpgradeService interface {
+	IsUpgrading(context.Context) (bool, error)
+}
+
+// ControllerConfigService describes the method needed to get the
+// controller config.
+type ControllerConfigService interface {
+	ControllerConfig(context.Context) (controller.Config, error)
 }
 
 // Pool defines the interface to a StatePool used by the migration

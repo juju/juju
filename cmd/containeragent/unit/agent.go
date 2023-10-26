@@ -39,7 +39,7 @@ import (
 	"github.com/juju/juju/cmd/internal/agent/agentconf"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/paths"
-	"github.com/juju/juju/internal/upgradesteps"
+	"github.com/juju/juju/internal/upgrade"
 	jnames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/upgrades"
 	jujuversion "github.com/juju/juju/version"
@@ -262,7 +262,7 @@ func (c *containerUnitAgent) workers(sigTermCh chan os.Signal) (worker.Worker, e
 		Agent:                   agent.APIHostPortsSetter{Agent: c},
 		LogSource:               c.bufferedLogger.Logs(),
 		LeadershipGuarantee:     30 * time.Second,
-		UpgradeStepsLock:        upgradesteps.NewLock(agentConfig, jujuversion.Current),
+		UpgradeStepsLock:        upgrade.NewLock(agentConfig, jujuversion.Current),
 		PreUpgradeSteps:         upgrades.PreUpgradeSteps,
 		UpgradeSteps:            upgrades.PerformUpgradeSteps,
 		AgentConfigChanged:      c.configChangedVal,

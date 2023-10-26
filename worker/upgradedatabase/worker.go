@@ -24,14 +24,7 @@ import (
 	"github.com/juju/juju/domain/schema"
 	domainupgrade "github.com/juju/juju/domain/upgrade"
 	upgradeerrors "github.com/juju/juju/domain/upgrade/errors"
-	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/gate"
-)
-
-const (
-	// ErrWatcherClosedAbruptly is returned when the watcher is closed
-	// before the first event is received, but didn't return an error.
-	ErrWatcherClosedAbruptly = errors.ConstError("watcher closed abruptly")
 )
 
 const (
@@ -74,21 +67,6 @@ type ModelManagerService interface {
 	// This only includes active models from the perspective of dqlite. These
 	// are not the same as alive models.
 	ModelList(context.Context) ([]model.UUID, error)
-}
-
-// NewLock returns a new gate.Lock that is unlocked if the agent has not the same version as juju
-func NewLock(agentConfig agent.Config) gate.Lock {
-	lock := gate.NewLock()
-
-	// Build numbers are irrelevant to upgrade steps.
-	upgradedToVersion := agentConfig.UpgradedToVersion().ToPatch()
-	currentVersion := jujuversion.Current.ToPatch()
-
-	if upgradedToVersion == currentVersion {
-		lock.Unlock()
-	}
-
-	return lock
 }
 
 // Config holds the configuration for the worker.

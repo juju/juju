@@ -172,21 +172,6 @@ func (mr *MockPrecheckBackendMockRecorder) IsMigrationActive(arg0 interface{}) *
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsMigrationActive", reflect.TypeOf((*MockPrecheckBackend)(nil).IsMigrationActive), arg0)
 }
 
-// IsUpgrading mocks base method.
-func (m *MockPrecheckBackend) IsUpgrading() (bool, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "IsUpgrading")
-	ret0, _ := ret[0].(bool)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// IsUpgrading indicates an expected call of IsUpgrading.
-func (mr *MockPrecheckBackendMockRecorder) IsUpgrading() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsUpgrading", reflect.TypeOf((*MockPrecheckBackend)(nil).IsUpgrading))
-}
-
 // MachineCountForBase mocks base method.
 func (m *MockPrecheckBackend) MachineCountForBase(arg0 ...state.Base) (map[string]int, error) {
 	m.ctrl.T.Helper()

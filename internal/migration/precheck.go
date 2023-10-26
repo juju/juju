@@ -29,8 +29,9 @@ func SourcePrecheck(
 	modelPresence ModelPresence, controllerPresence ModelPresence,
 	environscloudspecGetter environsCloudSpecGetter,
 	credentialService CredentialService,
+	upgradeService UpgradeService,
 ) error {
-	c := newPrecheckSource(backend, modelPresence, environscloudspecGetter, credentialService)
+	c := newPrecheckSource(backend, modelPresence, environscloudspecGetter, credentialService, upgradeService)
 	if err := c.checkModel(ctx); err != nil {
 		return errors.Trace(err)
 	}
@@ -59,7 +60,7 @@ func SourcePrecheck(
 	if err != nil {
 		return errors.Trace(err)
 	}
-	controllerCtx := newPrecheckTarget(controllerBackend, controllerPresence, environscloudspecGetter)
+	controllerCtx := newPrecheckTarget(controllerBackend, controllerPresence, upgradeService)
 	if err := controllerCtx.checkController(ctx); err != nil {
 		return errors.Annotate(err, "controller")
 	}
@@ -69,7 +70,13 @@ func SourcePrecheck(
 // TargetPrecheck checks the state of the target controller to make
 // sure that the preconditions for model migration are met. The
 // backend provided must be for the target controller.
-func TargetPrecheck(ctx context.Context, backend PrecheckBackend, pool Pool, modelInfo coremigration.ModelInfo, presence ModelPresence) error {
+func TargetPrecheck(ctx context.Context,
+	backend PrecheckBackend,
+	pool Pool,
+	modelInfo coremigration.ModelInfo,
+	presence ModelPresence,
+	upgradeService UpgradeService,
+) error {
 	if err := modelInfo.Validate(); err != nil {
 		return errors.Trace(err)
 	}
@@ -102,7 +109,7 @@ func TargetPrecheck(ctx context.Context, backend PrecheckBackend, pool Pool, mod
 			modelInfo.ControllerAgentVersion, controllerVersion)
 	}
 
-	controllerCtx := newPrecheckTarget(backend, presence, nil)
+	controllerCtx := newPrecheckTarget(backend, presence, upgradeService)
 	if err := controllerCtx.checkController(ctx); err != nil {
 		return errors.Trace(err)
 	}
@@ -137,21 +144,24 @@ type precheckTarget struct {
 	precheckContext
 }
 
-func newPrecheckTarget(backend PrecheckBackend, presence ModelPresence, environscloudspecGetter environsCloudSpecGetter) *precheckTarget {
+func newPrecheckTarget(
+	backend PrecheckBackend,
+	presence ModelPresence,
+	upgradeService UpgradeService,
+) *precheckTarget {
 	return &precheckTarget{
 		precheckContext: precheckContext{
-			backend:                 backend,
-			presence:                presence,
-			environscloudspecGetter: environscloudspecGetter,
+			backend:        backend,
+			presence:       presence,
+			upgradeService: upgradeService,
 		},
 	}
 }
 
 type precheckContext struct {
-	backend                 PrecheckBackend
-	presence                ModelPresence
-	environscloudspecGetter environsCloudSpecGetter
-	credentialService       CredentialService
+	backend        PrecheckBackend
+	presence       ModelPresence
+	upgradeService UpgradeService
 }
 
 func (c *precheckContext) checkController(ctx context.Context) error {
@@ -163,7 +173,7 @@ func (c *precheckContext) checkController(ctx context.Context) error {
 		return errors.Errorf("model is %s", model.Life())
 	}
 
-	if upgrading, err := c.backend.IsUpgrading(); err != nil {
+	if upgrading, err := c.upgradeService.IsUpgrading(ctx); err != nil {
 		return errors.Annotate(err, "checking for upgrades")
 	} else if upgrading {
 		return errors.New("upgrade in progress")
@@ -355,19 +365,23 @@ func (c *precheckContext) checkRelations(appUnits map[string][]PrecheckUnit) err
 
 type precheckSource struct {
 	precheckContext
+	environscloudspecGetter environsCloudSpecGetter
+	credentialService       CredentialService
 }
 
 func newPrecheckSource(
 	backend PrecheckBackend, presence ModelPresence, environscloudspecGetter environsCloudSpecGetter,
 	credentialService CredentialService,
+	upgradeService UpgradeService,
 ) *precheckSource {
 	return &precheckSource{
 		precheckContext: precheckContext{
-			backend:                 backend,
-			presence:                presence,
-			environscloudspecGetter: environscloudspecGetter,
-			credentialService:       credentialService,
+			backend:        backend,
+			presence:       presence,
+			upgradeService: upgradeService,
 		},
+		environscloudspecGetter: environscloudspecGetter,
+		credentialService:       credentialService,
 	}
 }
 

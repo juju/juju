@@ -403,7 +403,8 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 		// The multiwatcher manifold watches all the changes in the database
 		// through the AllWatcherBacking and manages notifying the multiwatchers.
-		multiwatcherName: ifController(multiwatcher.Manifold(multiwatcher.ManifoldConfig{
+		// Note: ifDatabaseUpgradeComplete implies running on a controller.
+		multiwatcherName: ifDatabaseUpgradeComplete(multiwatcher.Manifold(multiwatcher.ManifoldConfig{
 			StateName:            stateName,
 			Clock:                config.Clock,
 			Logger:               loggo.GetLogger("juju.worker.multiwatcher"),
@@ -1111,6 +1112,12 @@ var ifNotController = engine.Housing{
 var ifCredentialValid = engine.Housing{
 	Flags: []string{
 		validCredentialFlagName,
+	},
+}.Decorate
+
+var ifDatabaseUpgradeComplete = engine.Housing{
+	Flags: []string{
+		upgradeDatabaseFlagName,
 	},
 }.Decorate
 

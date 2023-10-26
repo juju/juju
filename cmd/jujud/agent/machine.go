@@ -74,7 +74,7 @@ import (
 	"github.com/juju/juju/internal/service"
 	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/internal/storage/looputil"
-	internalupgradesteps "github.com/juju/juju/internal/upgradesteps"
+	internalupgrade "github.com/juju/juju/internal/upgrade"
 	"github.com/juju/juju/internal/wrench"
 	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/rpc/params"
@@ -409,9 +409,9 @@ type MachineAgent struct {
 	rootDir          string
 	bufferedLogger   *logsender.BufferedLogWriter
 	configChangedVal *voyeur.Value
-	upgradeComplete  gate.Lock
-	workersStarted   chan struct{}
-	machineLock      machinelock.Lock
+
+	workersStarted chan struct{}
+	machineLock    machinelock.Lock
 
 	newDBWorkerFunc dbaccessor.NewDBWorkerFunc
 
@@ -433,6 +433,9 @@ type MachineAgent struct {
 	// need to override these.
 	preUpgradeSteps PreUpgradeStepsFunc
 	upgradeSteps    UpgradeStepsFunc
+
+	upgradeDBLock    gate.Lock
+	upgradeStepsLock gate.Lock
 
 	centralHub    *pubsub.StructuredHub
 	pubsubMetrics *centralhub.PubsubMetrics
@@ -554,7 +557,9 @@ func (a *MachineAgent) Run(ctx *cmd.Context) (err error) {
 		return errors.Trace(err)
 	}
 	a.machineLock = machineLock
-	a.upgradeComplete = internalupgradesteps.NewLock(agentConfig, jujuversion.Current)
+
+	a.upgradeDBLock = internalupgrade.NewLock(agentConfig, jujuversion.Current)
+	a.upgradeStepsLock = internalupgrade.NewLock(agentConfig, jujuversion.Current)
 
 	createEngine := a.makeEngineCreator(agentName, agentConfig.UpgradedToVersion())
 	if err := a.createJujudSymlinks(agentConfig.DataDir()); err != nil {
@@ -620,7 +625,8 @@ func (a *MachineAgent) makeEngineCreator(
 			Agent:                agent.APIHostPortsSetter{Agent: a},
 			RootDir:              a.rootDir,
 			AgentConfigChanged:   a.configChangedVal,
-			UpgradeStepsLock:     a.upgradeComplete,
+			UpgradeDBLock:        a.upgradeDBLock,
+			UpgradeStepsLock:     a.upgradeStepsLock,
 			UpgradeCheckLock:     a.initialUpgradeCheckComplete,
 			NewDBWorkerFunc:      a.newDBWorkerFunc,
 			OpenStatePool:        a.initState,

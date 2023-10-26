@@ -45,7 +45,8 @@ func newMigrationMasterFacade(ctx facade.Context) (*API, error) {
 
 	backend := newBacked(modelState)
 
-	credentialService := ctx.ServiceFactory().Credential()
+	serviceFactory := ctx.ServiceFactory()
+	credentialService := serviceFactory.Credential()
 	return NewAPI(
 		controllerState,
 		backend,
@@ -58,8 +59,9 @@ func newMigrationMasterFacade(ctx facade.Context) (*API, error) {
 		ctx.Resources(),
 		ctx.Auth(),
 		ctx.Presence(),
-		cloudspec.MakeCloudSpecGetter(pool, ctx.ServiceFactory().Cloud(), credentialService),
+		cloudspec.MakeCloudSpecGetter(pool, serviceFactory.Cloud(), credentialService),
 		leadership,
 		credentialService,
+		serviceFactory.Upgrade(),
 	)
 }

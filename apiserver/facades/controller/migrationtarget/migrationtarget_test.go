@@ -50,6 +50,7 @@ type Suite struct {
 
 	controllerConfigService   *MockControllerConfigService
 	externalControllerService *MockExternalControllerService
+	upgradeService            *MockUpgradeService
 	cloudService              *commonmocks.MockCloudService
 	credentialService         *credentialcommon.MockCredentialService
 	credentialValidator       *MockCredentialValidator
@@ -93,8 +94,19 @@ func (s *Suite) importModel(c *gc.C, api *migrationtarget.API) names.ModelTag {
 	return names.NewModelTag(uuid)
 }
 
+func (s *Suite) TestCACert(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	api := s.mustNewAPI(c)
+	r, err := api.CACert(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(string(r.Result), gc.Equals, jujutesting.CACert)
+}
+
 func (s *Suite) TestPrechecks(c *gc.C) {
 	defer s.setupMocks(c).Finish()
+
+	s.upgradeService.EXPECT().IsUpgrading(gomock.Any()).Return(false, nil)
 
 	api := s.mustNewAPI(c)
 	args := params.MigrationModelInfo{
@@ -108,13 +120,21 @@ func (s *Suite) TestPrechecks(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *Suite) TestCACert(c *gc.C) {
+func (s *Suite) TestPrechecksIsUpgrading(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
+	s.upgradeService.EXPECT().IsUpgrading(gomock.Any()).Return(true, nil)
+
 	api := s.mustNewAPI(c)
-	r, err := api.CACert(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(r.Result), gc.Equals, jujutesting.CACert)
+	args := params.MigrationModelInfo{
+		UUID:                   "uuid",
+		Name:                   "some-model",
+		OwnerTag:               names.NewUserTag("someone").String(),
+		AgentVersion:           s.controllerVersion(c),
+		ControllerAgentVersion: s.controllerVersion(c),
+	}
+	err := api.Prechecks(context.Background(), args)
+	c.Assert(err, gc.ErrorMatches, `upgrade in progress`)
 }
 
 func (s *Suite) TestPrechecksFail(c *gc.C) {
@@ -507,6 +527,7 @@ func (s *Suite) setupMocks(c *gc.C) *gomock.Controller {
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(jujutesting.FakeControllerConfig(), nil).AnyTimes()
 
 	s.externalControllerService = NewMockExternalControllerService(ctrl)
+	s.upgradeService = NewMockUpgradeService(ctrl)
 	s.cloudService = commonmocks.NewMockCloudService(ctrl)
 	s.cloudService.EXPECT().Get(gomock.Any(), "dummy").Return(&cloud.Cloud{
 		Name:      "dummy",
@@ -539,6 +560,7 @@ func (s *Suite) newAPI(environFunc stateenvirons.NewEnvironFunc, brokerFunc stat
 		s.authorizer,
 		s.controllerConfigService,
 		s.externalControllerService,
+		s.upgradeService,
 		s.cloudService,
 		s.credentialService,
 		s.credentialValidator,

@@ -26,8 +26,15 @@ import (
 	"github.com/juju/juju/state/watcher"
 )
 
+// ModelExporter exports a model to a description.Model.
 type ModelExporter interface {
 	ExportModel(ctx context.Context, leaders map[string]string) (description.Model, error)
+}
+
+// UpgradeService provides a subset of the upgrade domain service methods.
+type UpgradeService interface {
+	// IsUpgrading returns whether the controller is currently upgrading.
+	IsUpgrading(context.Context) (bool, error)
 }
 
 // API implements the API required for the model migration
@@ -44,6 +51,7 @@ type API struct {
 	environscloudspecGetter func(names.ModelTag) (environscloudspec.CloudSpec, error)
 	leadership              leadership.Reader
 	credentialService       common.CredentialService
+	upgradeService          UpgradeService
 }
 
 // NewAPI creates a new API server endpoint for the model migration
@@ -60,6 +68,7 @@ func NewAPI(
 	environscloudspecGetter func(names.ModelTag) (environscloudspec.CloudSpec, error),
 	leadership leadership.Reader,
 	credentialService common.CredentialService,
+	upgradeService UpgradeService,
 ) (*API, error) {
 	if !authorizer.AuthController() {
 		return nil, apiservererrors.ErrPerm
@@ -77,6 +86,7 @@ func NewAPI(
 		environscloudspecGetter: environscloudspecGetter,
 		leadership:              leadership,
 		credentialService:       credentialService,
+		upgradeService:          upgradeService,
 	}, nil
 }
 
@@ -238,6 +248,7 @@ func (api *API) Prechecks(ctx context.Context, arg params.PrechecksArgs) error {
 		api.presence.ModelPresence(controllerModel.UUID()),
 		api.environscloudspecGetter,
 		api.credentialService,
+		api.upgradeService,
 	)
 }
 
