@@ -22,25 +22,28 @@ func TestPackage(t *testing.T) {
 }
 
 func NewTestAPI(
+	authTag names.Tag,
+	authorizer facade.Authorizer,
 	secretsState SecretsState,
 	secretsConsumer SecretsConsumer,
-	backendConfigGetter func() (*provider.ModelBackendConfigInfo, error),
+	adminBackendConfigGetter func() (*provider.ModelBackendConfigInfo, error),
+	backendConfigGetterForUserSecretsWrite func(backendID string) (*provider.ModelBackendConfigInfo, error),
 	backendGetter func(*provider.ModelBackendConfig) (provider.SecretsBackend, error),
-	authorizer facade.Authorizer, authTag names.Tag,
 ) (*SecretsAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm
 	}
 
 	return &SecretsAPI{
-		authTag:             authTag,
-		authorizer:          authorizer,
-		controllerUUID:      coretesting.ControllerTag.Id(),
-		modelUUID:           coretesting.ModelTag.Id(),
-		secretsState:        secretsState,
-		secretsConsumer:     secretsConsumer,
-		backends:            make(map[string]provider.SecretsBackend),
-		backendConfigGetter: backendConfigGetter,
-		backendGetter:       backendGetter,
+		authTag:                                authTag,
+		authorizer:                             authorizer,
+		controllerUUID:                         coretesting.ControllerTag.Id(),
+		modelUUID:                              coretesting.ModelTag.Id(),
+		secretsState:                           secretsState,
+		secretsConsumer:                        secretsConsumer,
+		backends:                               make(map[string]provider.SecretsBackend),
+		adminBackendConfigGetter:               adminBackendConfigGetter,
+		backendConfigGetterForUserSecretsWrite: backendConfigGetterForUserSecretsWrite,
+		backendGetter:                          backendGetter,
 	}, nil
 }

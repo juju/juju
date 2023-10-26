@@ -54,7 +54,6 @@ type SecretsState interface {
 type SecretsMetaState interface {
 	ListSecrets(state.SecretsFilter) ([]*secrets.SecretMetadata, error)
 	ListSecretRevisions(uri *secrets.URI) ([]*secrets.SecretRevisionMetadata, error)
-
 	ChangeSecretBackend(state.ChangeSecretBackendParams) error
 }
 
@@ -63,6 +62,7 @@ type SecretsRemoveState interface {
 	DeleteSecret(*secrets.URI, ...int) ([]secrets.ValueRef, error)
 	GetSecret(*secrets.URI) (*secrets.SecretMetadata, error)
 	GetSecretRevision(uri *secrets.URI, revision int) (*secrets.SecretRevisionMetadata, error)
+	ListSecretRevisions(uri *secrets.URI) ([]*secrets.SecretRevisionMetadata, error)
 }
 
 // Credential represents a cloud credential.
