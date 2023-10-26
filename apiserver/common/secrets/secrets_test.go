@@ -739,7 +739,7 @@ func (s *secretsSuite) TestGetSecretMetadata(c *gc.C) {
 	})
 }
 
-func (s *secretsSuite) TestRemoveSecretsForSecretOwners(c *gc.C) {
+func (s *secretsSuite) TestRemoveSecretsForSecretOwnersWithRevisions(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -793,7 +793,65 @@ func (s *secretsSuite) TestRemoveSecretsForSecretOwners(c *gc.C) {
 	})
 }
 
-func (s *secretsSuite) TestRemoveSecretsForModelAdmin(c *gc.C) {
+func (s *secretsSuite) TestRemoveSecretsForSecretOwners(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	uri := coresecrets.NewURI()
+	expectURI := *uri
+	removeState := mocks.NewMockSecretsRemoveState(ctrl)
+	mockprovider := mocks.NewMockSecretBackendProvider(ctrl)
+	s.PatchValue(&secrets.GetProvider, func(string) (provider.SecretBackendProvider, error) { return mockprovider, nil })
+
+	removeState.EXPECT().GetSecret(&expectURI).Return(&coresecrets.SecretMetadata{}, nil)
+	removeState.EXPECT().ListSecretRevisions(&expectURI).Return(
+		[]*coresecrets.SecretRevisionMetadata{
+			{
+				Revision: 666,
+				ValueRef: &coresecrets.ValueRef{BackendID: "backend-id", RevisionID: "rev-666"},
+			},
+		},
+		nil,
+	)
+	removeState.EXPECT().DeleteSecret(&expectURI, []int{}).Return([]coresecrets.ValueRef{{
+		BackendID:  "backend-id",
+		RevisionID: "rev-666",
+	}}, nil)
+
+	adminConfigGetter := func() (*provider.ModelBackendConfigInfo, error) {
+		return &provider.ModelBackendConfigInfo{
+			ActiveID: "backend-id",
+			Configs: map[string]provider.ModelBackendConfig{
+				"backend-id": {
+					ControllerUUID: coretesting.ControllerTag.Id(),
+					ModelUUID:      coretesting.ModelTag.Id(),
+					ModelName:      "fred",
+					BackendConfig: provider.BackendConfig{
+						BackendType: "some-backend",
+						Config:      map[string]interface{}{"foo": "admin"},
+					},
+				},
+			},
+		}, nil
+	}
+
+	results, err := secrets.RemoveSecretsForAgent(
+		removeState, adminConfigGetter,
+		names.NewUnitTag("mariadb/0"),
+		params.DeleteSecretArgs{
+			Args: []params.DeleteSecretArg{{
+				URI: expectURI.String(),
+			}},
+		},
+		func(*coresecrets.URI) error { return nil },
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{{}},
+	})
+}
+
+func (s *secretsSuite) TestRemoveSecretsForModelAdminWithRevisions(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -854,6 +912,81 @@ func (s *secretsSuite) TestRemoveSecretsForModelAdmin(c *gc.C) {
 			Args: []params.DeleteSecretArg{{
 				URI:       expectURI.String(),
 				Revisions: []int{666},
+			}},
+		},
+		func(*coresecrets.URI) error { return nil },
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{{}},
+	})
+}
+
+func (s *secretsSuite) TestRemoveSecretsForModelAdmin(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	uri := coresecrets.NewURI()
+	expectURI := *uri
+	removeState := mocks.NewMockSecretsRemoveState(ctrl)
+	mockprovider := mocks.NewMockSecretBackendProvider(ctrl)
+	backend := mocks.NewMockSecretsBackend(ctrl)
+	s.PatchValue(&secrets.GetProvider, func(string) (provider.SecretBackendProvider, error) { return mockprovider, nil })
+
+	removeState.EXPECT().GetSecret(&expectURI).Return(&coresecrets.SecretMetadata{}, nil)
+	removeState.EXPECT().ListSecretRevisions(&expectURI).Return(
+		[]*coresecrets.SecretRevisionMetadata{
+			{
+				Revision: 666,
+				ValueRef: &coresecrets.ValueRef{BackendID: "backend-id", RevisionID: "rev-666"},
+			},
+		},
+		nil,
+	)
+	removeState.EXPECT().DeleteSecret(&expectURI, []int{}).Return([]coresecrets.ValueRef{{
+		BackendID:  "backend-id",
+		RevisionID: "rev-666",
+	}}, nil)
+
+	cfg := &provider.ModelBackendConfig{
+		ControllerUUID: coretesting.ControllerTag.Id(),
+		ModelUUID:      coretesting.ModelTag.Id(),
+		ModelName:      "fred",
+		BackendConfig: provider.BackendConfig{
+			BackendType: "some-backend",
+			Config:      map[string]interface{}{"foo": "admin"},
+		},
+	}
+	mockprovider.EXPECT().NewBackend(cfg).Return(backend, nil)
+	backend.EXPECT().DeleteContent(gomock.Any(), "rev-666").Return(nil)
+	mockprovider.EXPECT().CleanupSecrets(
+		cfg, names.NewUserTag("foo"),
+		provider.SecretRevisions{uri.ID: set.NewStrings("rev-666")},
+	).Return(nil)
+
+	adminConfigGetter := func() (*provider.ModelBackendConfigInfo, error) {
+		return &provider.ModelBackendConfigInfo{
+			ActiveID: "backend-id",
+			Configs: map[string]provider.ModelBackendConfig{
+				"backend-id": {
+					ControllerUUID: coretesting.ControllerTag.Id(),
+					ModelUUID:      coretesting.ModelTag.Id(),
+					ModelName:      "fred",
+					BackendConfig: provider.BackendConfig{
+						BackendType: "some-backend",
+						Config:      map[string]interface{}{"foo": "admin"},
+					},
+				},
+			},
+		}, nil
+	}
+
+	results, err := secrets.RemoveUserSecrets(
+		removeState, adminConfigGetter,
+		names.NewUserTag("foo"),
+		params.DeleteSecretArgs{
+			Args: []params.DeleteSecretArg{{
+				URI: expectURI.String(),
 			}},
 		},
 		func(*coresecrets.URI) error { return nil },

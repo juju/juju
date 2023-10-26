@@ -27,7 +27,7 @@ type SecretsDrainAPI struct {
 	backendConfigGetter commonsecrets.BackendConfigGetter
 }
 
-// GetSecretBackendConfigs gets the config needed to create a client to secret backends.
+// GetSecretBackendConfigs gets the config needed to create a client to secret backends for the drain worker.
 func (s *SecretsDrainAPI) GetSecretBackendConfigs(arg params.SecretBackendArgs) (params.SecretBackendConfigResults, error) {
 	if len(arg.BackendIDs) > 1 {
 		return params.SecretBackendConfigResults{}, errors.Errorf("Maximumly only one backend ID can be specified for drain")
