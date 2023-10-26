@@ -40,8 +40,9 @@ type SecretsAPI struct {
 	secretsState    SecretsState
 	secretsConsumer SecretsConsumer
 
-	backendConfigGetter func() (*provider.ModelBackendConfigInfo, error)
-	backendGetter       func(*provider.ModelBackendConfig) (provider.SecretsBackend, error)
+	adminBackendConfigGetter               func() (*provider.ModelBackendConfigInfo, error)
+	backendConfigGetterForUserSecretsWrite func(backendID string) (*provider.ModelBackendConfigInfo, error)
+	backendGetter                          func(*provider.ModelBackendConfig) (provider.SecretsBackend, error)
 }
 
 // SecretsAPIV1 is the backend for the Secrets facade v1.
@@ -168,7 +169,7 @@ func (s *SecretsAPI) ListSecrets(arg params.ListSecretsArgs) (params.ListSecretR
 }
 
 func (s *SecretsAPI) getBackendInfo() error {
-	info, err := s.backendConfigGetter()
+	info, err := s.adminBackendConfigGetter()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -223,20 +224,22 @@ func (s *SecretsAPI) secretContentFromBackend(uri *coresecrets.URI, rev int) (co
 	}
 }
 
-func (s *SecretsAPI) getBackend(id *string) (provider.SecretsBackend, error) {
+func (s *SecretsAPI) getBackendForUserSecretsWrite() (provider.SecretsBackend, error) {
 	if s.activeBackendID == "" {
 		if err := s.getBackendInfo(); err != nil {
 			return nil, errors.Trace(err)
 		}
 	}
-	if id == nil {
-		id = &s.activeBackendID
+	cfgInfo, err := s.backendConfigGetterForUserSecretsWrite(s.activeBackendID)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
-	backend, ok := s.backends[*id]
+	cfg, ok := cfgInfo.Configs[s.activeBackendID]
 	if !ok {
-		return nil, errors.NotFoundf("external secret backend %q", s.activeBackendID)
+		// This should never happen.
+		return nil, errors.NotFoundf("secret backend %q", s.activeBackendID)
 	}
-	return backend, nil
+	return s.backendGetter(&cfg)
 }
 
 // CreateSecrets isn't on the v1 API.
@@ -250,7 +253,7 @@ func (s *SecretsAPI) CreateSecrets(args params.CreateSecretArgs) (params.StringR
 	if err := s.checkCanAdmin(); err != nil {
 		return result, errors.Trace(err)
 	}
-	backend, err := s.getBackend(nil)
+	backend, err := s.getBackendForUserSecretsWrite()
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -373,7 +376,7 @@ func (s *SecretsAPI) UpdateSecrets(args params.UpdateUserSecretArgs) (params.Err
 	if err := s.checkCanAdmin(); err != nil {
 		return result, errors.Trace(err)
 	}
-	backend, err := s.getBackend(nil)
+	backend, err := s.getBackendForUserSecretsWrite()
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -466,7 +469,7 @@ func (s *SecretsAPIV1) RemoveSecrets(_ struct{}) {}
 func (s *SecretsAPI) RemoveSecrets(args params.DeleteSecretArgs) (params.ErrorResults, error) {
 	// TODO(secrets): JUJU-4719.
 	return commonsecrets.RemoveUserSecrets(
-		s.secretsState, s.backendConfigGetter,
+		s.secretsState, s.adminBackendConfigGetter,
 		s.authTag, args,
 		func(uri *coresecrets.URI) error {
 			// Only admin can delete user secrets.

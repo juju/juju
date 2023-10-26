@@ -52726,7 +52726,7 @@
                             "$ref": "#/definitions/SecretBackendConfigResults"
                         }
                     },
-                    "description": "GetSecretBackendConfigs gets the config needed to create a client to secret backends."
+                    "description": "GetSecretBackendConfigs gets the config needed to create a client to secret backends for the drain worker."
                 },
                 "GetSecretContentInfo": {
                     "type": "object",
