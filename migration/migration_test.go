@@ -246,11 +246,10 @@ type fakeDownloader struct {
 	resources []string
 }
 
-func (d *fakeDownloader) OpenCharm(curl *charm.URL) (io.ReadCloser, error) {
-	urlStr := curl.String()
-	d.charms = append(d.charms, urlStr)
+func (d *fakeDownloader) OpenCharm(curl string) (io.ReadCloser, error) {
+	d.charms = append(d.charms, curl)
 	// Return the charm URL string as the fake charm content
-	return io.NopCloser(bytes.NewReader([]byte(urlStr + " content"))), nil
+	return io.NopCloser(bytes.NewReader([]byte(curl + " content"))), nil
 }
 
 func (d *fakeDownloader) OpenURI(uri string, query url.Values) (io.ReadCloser, error) {
