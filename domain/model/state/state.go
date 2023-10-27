@@ -351,9 +351,7 @@ AND cloud_credential.name = ?
 UPDATE model_metadata
 SET cloud_credential_uuid = ?
 WHERE model_uuid = ?
-AND cloud_region_uuid IN (SELECT uuid
-                          FROM cloud_region
-                          WHERE cloud_uuid = ?)
+AND cloud_uuid = ?
 `
 
 	var cloudCredUUID, cloudUUID string

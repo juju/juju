@@ -226,6 +226,60 @@ func (m *modelSuite) TestUpdateCredentialForDifferentCloud(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
+// We are trying to test here that we can set a cloud credential on the model
+// for the same cloud as the model when no cloud region has been set. This is a
+// regression test discovered during DQlite development where we messed up the
+// logic assuming that a cloud region was always set for a model.
+func (m *modelSuite) TestSetModelCloudCredentialWithoutRegion(c *gc.C) {
+	cloudSt := dbcloud.NewState(m.TxnRunnerFactory())
+	err := cloudSt.UpsertCloud(context.Background(), cloud.Cloud{
+		Name:      "minikube",
+		Type:      "kubernetes",
+		AuthTypes: cloud.AuthTypes{cloud.UserPassAuthType},
+		Regions:   []cloud.Region{},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	cred := credential.CloudCredentialInfo{
+		Label:    "foobar",
+		AuthType: string(cloud.UserPassAuthType),
+		Attributes: map[string]string{
+			"username": "myuser",
+			"password": "secret",
+		},
+	}
+
+	credSt := credentialstate.NewState(m.TxnRunnerFactory())
+	_, err = credSt.UpsertCloudCredential(
+		context.Background(), credential.ID{
+			Cloud: "minikube",
+			Owner: "admin",
+			Name:  "foobar",
+		},
+		cred,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	m.uuid = modeltesting.GenModelUUID(c)
+	modelSt := NewState(m.TxnRunnerFactory())
+	err = modelSt.Create(
+		context.Background(),
+		m.uuid,
+		model.ModelCreationArgs{
+			Cloud: "minikube",
+			Credential: credential.ID{
+				Cloud: "minikube",
+				Owner: "admin",
+				Name:  "foobar",
+			},
+			Name:  "controller",
+			Owner: "admin",
+			Type:  model.TypeCAAS,
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (m *modelSuite) TestDeleteModel(c *gc.C) {
 	modelSt := NewState(m.TxnRunnerFactory())
 	err := modelSt.Delete(
