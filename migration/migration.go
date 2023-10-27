@@ -96,7 +96,7 @@ func ImportModel(importer StateImporter, getClaimer ClaimerFunc, bytes []byte) (
 // CharmDownloader defines a single method that is used to download a
 // charm from the source controller in a migration.
 type CharmDownloader interface {
-	OpenCharm(*charm.URL) (io.ReadCloser, error)
+	OpenCharm(string) (io.ReadCloser, error)
 }
 
 // CharmUploader defines a single method that is used to upload a
@@ -225,13 +225,7 @@ func uploadCharms(config UploadBinariesConfig) error {
 
 	for _, charmURL := range config.Charms {
 		logger.Debugf("sending charm %s to target", charmURL)
-
-		curl, err := charm.ParseURL(charmURL)
-		if err != nil {
-			return errors.Annotate(err, "bad charm URL")
-		}
-
-		reader, err := config.CharmDownloader.OpenCharm(curl)
+		reader, err := config.CharmDownloader.OpenCharm(charmURL)
 		if err != nil {
 			return errors.Annotate(err, "cannot open charm")
 		}
@@ -243,6 +237,10 @@ func uploadCharms(config UploadBinariesConfig) error {
 		}
 		defer cleanup()
 
+		curl, err := charm.ParseURL(charmURL)
+		if err != nil {
+			return errors.Annotate(err, "bad charm URL")
+		}
 		if usedCurl, err := config.CharmUploader.UploadCharm(curl, content); err != nil {
 			return errors.Annotate(err, "cannot upload charm")
 		} else if usedCurl.String() != curl.String() {
