@@ -4,132 +4,154 @@
   <img alt="Juju logo next to the text Canonical Juju" src="doc/juju-logo.png?raw=true" width="30%">
 </picture>
 
-[Juju is a model-driven **Operator Lifecycle Manager**
-(OLM)](https://juju.is/about). Juju greatly improves the experience of
-running Kubernetes operators, especially in projects that integrate many
-operators from different publishers.
+Juju is an open source application orchestration engine that enables any application operation (deployment, integration, lifecycle management) on any infrastructure (Kubernetes or otherwise) at any scale (development or production) in the same easy way (typically, one line of code), through special operators called ‘charms’.
 
-## Why Juju
 
-A Kubernetes operator is [a container that drives the config and operation
-of a workload](https://charmhub.io/about). By encapsulating ops code as a
-reusable container, the operator pattern moves beyond traditional config
-management to allow much more agile operations for complex cloud workloads.
+||||
+|-|-|- |
+|:point_right: | [Juju](https://juju.is/docs/juju) | Learn how to quickly deploy, integrate, and manage charms on any cloud with Juju. <br>  _It's as simple as `juju deploy foo`, `juju integrate foo bar`, ..., on any cloud._ |
+||||
+|| [Charmhub](https://charmhub.io/) | Sample our existing charms on Charmhub. <br> _A charm can be a cluster ([OpenStack](https://charmhub.io/openstack-base), [Kubernetes](https://charmhub.io/charmed-kubernetes)), a data platform ([PostgreSQL](https://charmhub.io/postgresql-k8s), [MongoDB](https://charmhub.io/mongodb), etc.), an observability stack ([Canonical Observability Stack](https://charmhub.io/cos-lite)), an MLOps solution ([Kubeflow](https://charmhub.io/kubeflow)), and so much more._ |
+||||
+|| [Charm SDK](https://juju.is/docs/sdk) | Write your own charm! <br> _Juju is written in Go, but our SDK supports easy charm development in Python._  |
 
-Shared, open source operators **take infrastructure as code to the next level**
-with community-driven ops and integration code. Reuse of ops code improves
-quality and encourages wider [community engagement and contribution](
-https://juju.is/about#collaboration). Operators also improve security through
-consistent automation. Juju operators are a [community-driven
-devsecops](https://juju.is/about#automate-everything) approach to open source
-operations.
 
-Juju implements the Kubernetes operator pattern, but is also a **universal
-OLM** that extends the operator pattern to traditional applications (without
-Kubernetes) on Linux and Windows. Such machine operators can work on bare
-metal, virtual machines or cloud instances, enabling [multi cloud and hybrid
-cloud operations](https://juju.is/multi-cloud-operations). Juju allows you
-to embrace the operator pattern on [both container and legacy
-estate](https://juju.is/universal-operators). An operator for machine-based
-environments can share 95% of its code with a Kubernetes operator for the
-same app.
+## Give it a try!
 
-**Juju excels at application integration**. Instead of simply focusing on
-lifecycle management, the Juju OLM provides a [rich application graph
-model](https://juju.is/about#integration-simplicity) that tells operators how to
-integrate with one another. This dramatically simplifies the operations of
-large deployments.
+Let's use Juju to deploy, configure, and integrate some Kubernetes charms:
 
-A key focus for Juju is to **simplify operator design, development and
-usage**.  Instead of making very complex operators for specific scenarios,
-Juju encourages devops to make composable operators, each of which drives a
-single Docker image, and which can be reused in different settings.
-[Composable operators](https://juju.is/about#integration-simplicity) enable
-very rich scenarios to be constructed out of simpler **operators that do one
-thing and do it well**.
 
-The OLM provides a central mechanism for operator instantiation,
-configuration, upgrades, integration and administration. The OLM provides a
-range of [operator lifecycle services](https://juju.is/docs/sdk/events)
-including leader election and persistent state. Instead of manually
-deploying and configuring operators, the OLM manages all the operators in a
-model at the direction of the administrator.
+### Set up
 
-## Open Operator Collection
+You will need a cloud and Juju. The quickest way is to use a Multipass VM launched with the `charm-dev` blueprint. 
 
-The world's [largest collection of operators](https://charmhub.io/) all use
-Juju as their OLM. The Charmhub community emphasizes quality, collaboration
-and consistency. Publish your own operator and share integration code for
-other operators to connect to your application.
+Install Multipass: [Linux](https://multipass.run/docs/installing-on-linux) | [macOS](https://multipass.run/docs/installing-on-macos) | [Windows](https://multipass.run/docs/installing-on-windows). On Linux:
 
-The [Open Operator Manifesto](https://charmhub.io/manifesto) outlines the
-values of the community and describe the ideal behaviour of operators, to
-shape contributions and discussions.
+```
+sudo snap install multipass
+```
 
-## Multi cloud and hybrid operations across ARM and x86 infrastructure
+Use Multipass to launch an Ubuntu VM with the `charm-dev` blueprint: 
 
-The Juju OLM supports AWS, Azure, Google, Oracle, OpenStack, VMware and bare
-metal machines, as well as any conformant Kubernetes cluster. Integrate
-operators across clouds, and across machines and containers, just as easily.
-A single scenario can include applications on Kubernetes, as well as
-applications on a range of clouds and bare metal instances, all integrated
-automatically.
+```
+multipass launch --cpus 4 --memory 8G --disk 30G --name tutorial-vm charm-dev 
+```
 
-Juju operators support multiple CPU architectures. Connect applications on
-ARM with applications on x86 and take advantage of silicon-specific
-optimisations. It is good practice for operators to adapt to their
-environment and accelerate workloads accordingly.
+Open a shell into the VM:
 
-## Pure Python operators
+```
+multipass shell tutorial-vm
+```
 
-The [Python Operator Framework](https://pythonoperatorframework.io/) makes
-it easy to write an operator. The framework handles all the details of
-communication between integrated operators, so you can focus on your own
-[application lifecycle management](https://juju.is/docs/olm).
+Verify that you have Juju and two localhost clouds:
 
-Code sharing between operator publishers is simplified making it much faster
-to collaborate on distributed systems involving components from many
-different publishers and upstreams. Your operator is a Python event handler.
-Lifecycle management, configuration and integration are all events delivered
-to your charm by the framework.
+```
+juju clouds
+```
 
-## Architecture
+Bootstrap a Juju controller into the MicroK8s cloud:
 
-The Juju client, server and agent are all written in Golang. The standard Juju
-packaging includes an embedded database for centralised logging and persistence,
-but there is no need to manage that database separately.
+```
+juju bootstrap microk8s tutorial-controller
+```
 
-Operators can be written in any language but we do encourage new authors to
-use the Python Operator Framework for ease of contribution, support and
-community participation.
+Add a workspace, or 'model':
 
-## Production grade
+```
+juju add-model tutorial-model
+```
 
-The Juju server has built-in support for [high
-availability](https://juju.is/docs/olm/high-availability) when scaled
-out to three instances. It can monitor itself and grow additional instances
-in the event of failure, within predetermined limits. Juju supports backup,
-restore, and rolling upgrade operations appropriate for large-scale
-centralised enterprise grade management and operations systems.
+### Deploy, configure, and integrate a few things
 
-## Get started
+Deploy Mattermost:
 
-Our community hangs out at the [Charmhub discourse](https://discourse.juju.is/)
-which serves as a combination mailing list and web forum. Keep up with the news
-and get a feel for operator engineering and usage there. Get  the Juju CLI on
-Windows, macOS or Linux with the
-[install instructions](https://juju.is/docs/installing) and
-[try the tutorials](https://juju.is/docs/olm/tutorials). All you need is a small
-K8s cluster, or an Ubuntu machine or VM to run MicroK8s.
+```
+juju deploy mattermost-k8s
+```
+> See more: [Charmhub | `mattermost-k8s`](https://charmhub.io/mattermost-k8s) 
 
-Read the [documentation](https://juju.is/docs) for a comprehensive reference
-of commands and usage.
+Deploy PostgreSQL:
 
-## Contributing
+```
+juju deploy postgresql-k8s --channel 14/stable --trust
+```
 
-Check the [developer instructions](https://juju.is/docs/dev/how-to) to get
-started and follow our [code and contribution guidelines](CONTRIBUTING.md) to
-learn how to make code changes. File bugs in
-[Launchpad](https://bugs.launchpad.net/juju/+filebug) or ask questions on
-our [Freenode IRC channel](https://webchat.freenode.net/#juju), and
-[Mattermost](https://chat.charmhub.io/).
+> See more: [Charmhub | `postgresql-k8s`](https://charmhub.io/postgresql-k8s)
+
+Enable security in your PostgreSQL deployment:
+
+```
+juju deploy tls-certificates-operator
+juju config tls-certificates-operator generate-self-signed-certificates="true" ca-common-name="Test CA"
+juju integrate postgresql-k8s tls-certificates-operator
+```
+
+Integrate Mattermost with PostgreSQL:
+
+```
+juju integrate mattermost-k8s postgresql-k8s:db
+```
+
+Watch your deployment come to life:
+
+```
+juju status --watch 1s
+```
+
+(Press `Ctrl-C` to quit. Drop the `--watch 1s` flag to get the status statically. Use the `--relations` flag to view more information about your integrations.)
+
+### Test your deployment
+
+When everything is in `active` or `idle` status, note the IP address and port of Mattermost and pass them to `curl`:
+
+```
+curl <IP address>:<port>/api/v4/system/ping
+```
+
+You should see the output below:
+
+```
+{"AndroidLatestVersion":"","AndroidMinVersion":"","IosLatestVersion":"","IosMinVersion":"","status":"OK"}
+```
+### Congratulations!
+
+You now have a Kubernetes deployment consisting of a Mattermost backed by PosgreSQL with TLS-encrypted traffic!
+
+### Clean up
+
+Delete your Multipass VM:
+
+```
+multipass delete --purge tutorial-vm
+```
+
+Uninstall Multipass: [Linux](https://multipass.run/docs/installing-on-linux) | [macOS](https://multipass.run/docs/installing-on-macos) | [Windows](https://multipass.run/docs/installing-on-windows). On Linux:
+
+```
+snap remove multipass
+```
+
+## Next steps
+
+### Learn more
+
+- Read our [user docs](https://juju.is/docs/juju)
+- Read our [developer docs](https://juju.is/docs/dev)
+
+### Chat with us
+
+Read our [Code of conduct](https://ubuntu.com/community/code-of-conduct) and:
+
+- Join our chat: [Mattermost](https://chat.charmhub.io/charmhub/channels/juju), [Freenode IRC](https://webchat.freenode.net/#juju)
+- Join our forum: [Discourse](https://discourse.charmhub.io/)
+
+
+### File an issue
+
+- Report a Juju bug on [Launchpad](https://bugs.launchpad.net/juju/+filebug)
+- Raise a general https://juju.is/docs documentation issue on [Github | juju/docs ](https://github.com/juju/docs)
+
+### Make your mark
+
+- Read our [documentation contributor guidelines](https://discourse.charmhub.io/t/documentation-guidelines-for-contributors/1245) and help improve a doc 
+- Read our [codebase contributor guidelines](https://github.com/juju/juju/blob/3.3/CONTRIBUTING.md) and help improve the codebase

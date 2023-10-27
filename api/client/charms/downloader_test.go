@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/juju/charm/v11"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -54,8 +53,7 @@ func (s *charmDownloaderSuite) TestCharmOpener(c *gc.C) {
 
 	opener, err := charms.NewCharmOpener(mockCaller)
 	c.Assert(err, jc.ErrorIsNil)
-	curl := charm.MustParseURL("ch:mycharm")
-	reader, err := opener.OpenCharm(curl)
+	reader, err := opener.OpenCharm("ch:mycharm")
 
 	defer reader.Close()
 	c.Assert(err, jc.ErrorIsNil)

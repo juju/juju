@@ -8,7 +8,6 @@ import (
 	"io"
 	"net/url"
 
-	"github.com/juju/charm/v11"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/api/base"
@@ -17,7 +16,7 @@ import (
 
 // CharmOpener provides the OpenCharm method.
 type CharmOpener interface {
-	OpenCharm(curl *charm.URL) (io.ReadCloser, error)
+	OpenCharm(curl string) (io.ReadCloser, error)
 }
 
 type charmOpener struct {
@@ -25,7 +24,7 @@ type charmOpener struct {
 	httpClient http.HTTPDoer
 }
 
-func (s *charmOpener) OpenCharm(curl *charm.URL) (io.ReadCloser, error) {
+func (s *charmOpener) OpenCharm(curl string) (io.ReadCloser, error) {
 	uri, query := openCharmArgs(curl)
 	return http.OpenURI(s.ctx, s.httpClient, uri, query)
 }
@@ -42,9 +41,9 @@ func NewCharmOpener(apiConn base.APICaller) (CharmOpener, error) {
 	}, nil
 }
 
-func openCharmArgs(curl *charm.URL) (string, url.Values) {
+func openCharmArgs(curl string) (string, url.Values) {
 	query := make(url.Values)
-	query.Add("url", curl.String())
+	query.Add("url", curl)
 	query.Add("file", "*")
 	return "/charms", query
 }

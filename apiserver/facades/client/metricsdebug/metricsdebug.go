@@ -180,15 +180,12 @@ func (api *MetricsDebugAPI) setEntityMeterStatus(entity names.Tag, status state.
 		if err != nil {
 			return errors.Trace(err)
 		}
-		chURLStr := unit.CharmURL()
-		if chURLStr == nil {
-			return errors.New("no charm url")
-		}
-		chURL, err := charm.ParseURL(*chURLStr)
+		app, err := unit.Application()
 		if err != nil {
 			return errors.Trace(err)
 		}
-		if !charm.Local.Matches(chURL.Schema) {
+		source := app.CharmOrigin().Source
+		if !charm.Local.Matches(source) {
 			return errors.New("not a local charm")
 		}
 		err = unit.SetMeterStatus(status.Code.String(), status.Info)
@@ -200,12 +197,8 @@ func (api *MetricsDebugAPI) setEntityMeterStatus(entity names.Tag, status state.
 		if err != nil {
 			return errors.Trace(err)
 		}
-		cURL, _ := application.CharmURL()
-		curl, err := charm.ParseURL(*cURL)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if !charm.Local.Matches(curl.Schema) {
+		source := application.CharmOrigin().Source
+		if !charm.Local.Matches(source) {
 			return errors.New("not a local charm")
 		}
 		units, err := application.AllUnits()
