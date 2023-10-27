@@ -120,10 +120,6 @@ func (s *schemaSuite) TestModelDDLApply(c *gc.C) {
 		// Model config
 		"model_config",
 
-		// Spaces
-		"spaces",
-		"provider_spaces",
-
 		// Object store metadata
 		"object_store_metadata",
 		"object_store_metadata_path",
@@ -135,6 +131,18 @@ func (s *schemaSuite) TestModelDDLApply(c *gc.C) {
 		"cloud_service",
 		"cloud_container",
 		"unit",
+
+		// Spaces
+		"space",
+		"provider_space",
+
+		// Subnets
+		"subnet",
+		"provider_subnet",
+		"provider_network",
+		"availability_zone",
+		"availability_zone_subnet",
+		"fan_network",
 	)
 	c.Assert(readTableNames(c, s.DB()), jc.SameContents, expected.Union(internalTableNames).SortedValues())
 }
