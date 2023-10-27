@@ -213,6 +213,11 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 	if err := args.Unmarshal(bootstrapParamsData); err != nil {
 		return errors.Trace(err)
 	}
+	// We need to set IsControllerCloud on the controller cloud from params.
+	// This is so caas environs work correctly for the moment. This SHOULD be
+	// removed with Mongo in time.
+	// Fixes: lp2040947
+	args.ControllerCloud.IsControllerCloud = true
 
 	isCAAS := args.ControllerCloud.Type == k8sconstants.CAASProviderType
 
