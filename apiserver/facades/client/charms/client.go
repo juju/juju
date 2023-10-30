@@ -138,11 +138,8 @@ func (a *API) List(args params.CharmsList) (params.CharmsListResult, error) {
 	charmURLs := []string{}
 	for _, aCharm := range charms {
 		if checkName {
-			charmURL, err := charm.ParseURL(aCharm.URL())
-			if err != nil {
-				return params.CharmsListResult{}, errors.Trace(err)
-			}
-			if !charmNames.Contains(charmURL.Name) {
+			name := aCharm.Meta().Name
+			if !charmNames.Contains(name) {
 				continue
 			}
 		}

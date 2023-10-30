@@ -2400,11 +2400,12 @@ func (a *Application) addUnitOps(
 		// has the special juju- prefix to its name, then bypass the machineID
 		// empty check.
 		if args.machineID != "" && a.st.IsController() {
-			curl, err := charm.ParseURL(*a.doc.CharmURL)
+			ch, _, err := a.Charm()
 			if err != nil {
 				return "", nil, errors.Trace(err)
 			}
-			if !strings.HasPrefix(curl.Name, "juju-") {
+			name := ch.Meta().Name
+			if !strings.HasPrefix(name, "juju-") {
 				return "", nil, errors.NotSupportedf("non-empty machineID")
 			}
 		} else if args.machineID != "" {
