@@ -6,6 +6,8 @@ package agent
 import (
 	"fmt"
 	"os"
+	"os/exec"
+	"strings"
 
 	"github.com/juju/clock"
 	"github.com/juju/cmd/v3"
@@ -116,10 +118,18 @@ func (a *safeModeAgentCommand) Init(args []string) error {
 
 // Run instantiates a MachineAgent and runs it.
 func (a *safeModeAgentCommand) Run(c *cmd.Context) error {
+	if err := ensuringJujudNotRunning(a.agentTag); err != nil {
+		if errors.Is(err, errors.AlreadyExists) {
+			fmt.Fprint(os.Stderr, safeModeJujudWarning)
+			return nil
+		}
+		return err
+	}
+
 	// Force the writing of the safemode header to os.Stderr, so it can't be
 	// bypassed with a flag (obviously, this is not a security measure, but
 	// it's better than nothing).
-	fmt.Fprintln(os.Stderr, safeModeWarningHeader)
+	fmt.Fprint(os.Stderr, safeModeWarningHeader)
 
 	machineAgent, err := a.safeModeMachineAgentFactory(a.agentTag, a.isCaas)
 	if err != nil {
@@ -157,6 +167,10 @@ This will only stand up the minimum set of services required to allow
 you to connect to the database and perform recovery operations.
 
 Use at your own risk.
+`
+	safeModeJujudWarning = `
+Running in safe mode while jujud is running is dangerous. Please stop jujud
+before running in safe mode.
 `
 )
 
@@ -225,7 +239,6 @@ func NewSafeModeMachineAgent(
 type SafeModeMachineAgent struct {
 	agentconfig.AgentConfigWriter
 
-	ctx              *cmd.Context
 	dead             chan struct{}
 	errReason        error
 	agentTag         names.Tag
@@ -265,7 +278,6 @@ func (a *SafeModeMachineAgent) Done(err error) {
 // Run runs a safe mode machine agent.
 func (a *SafeModeMachineAgent) Run(ctx *cmd.Context) (err error) {
 	defer a.Done(err)
-	a.ctx = ctx
 
 	if err := a.ReadConfig(a.Tag().String()); err != nil {
 		return errors.Errorf("cannot read agent configuration: %v", err)
@@ -358,4 +370,21 @@ func (a *SafeModeMachineAgent) executeRebootOrShutdown(action params.RebootActio
 	// We return ErrRebootMachine so the agent will simply exit without error
 	// pending reboot/shutdown.
 	return jworker.ErrRebootMachine
+}
+
+func ensuringJujudNotRunning(tag names.Tag) error {
+	cmd := exec.Command("systemctl", "check", fmt.Sprintf("jujud-machine-%s.service", tag.Id()))
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		// Exit code of 3 is ESRCH, which means no such process.
+		// See: https://man7.org/linux/man-pages/man3/errno.3.html
+		if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 3 {
+			return nil
+		}
+		return errors.Annotatef(err, "systemctrl check failed")
+	}
+	if strings.TrimSpace(string(output)) != "active" {
+		return nil
+	}
+	return errors.AlreadyExistsf("jujud is running")
 }
