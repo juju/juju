@@ -186,7 +186,7 @@ func populateStoreControllerCharm(st *state.State, charmPath string, channel cha
 	// error response.
 	//
 	// The controller charm doesn't have any series specific code.
-	curl, origin, _, err = charmRepo.ResolveWithPreferredChannel(curl, origin)
+	curl, origin, _, err = charmRepo.ResolveWithPreferredChannel(curl.Name, origin)
 	if err != nil {
 		return nil, nil, errors.Annotatef(err, "resolving %q", controllerCharmURL)
 	}

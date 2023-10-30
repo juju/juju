@@ -16,18 +16,18 @@ type Repository interface {
 	// GetDownloadURL returns a url from which a charm can be downloaded
 	// based on the given charm url and charm origin.  A charm origin
 	// updated with the ID and hash for the download is also returned.
-	GetDownloadURL(*charm.URL, Origin) (*url.URL, Origin, error)
+	GetDownloadURL(string, Origin) (*url.URL, Origin, error)
 
 	// DownloadCharm retrieves specified charm from the store and saves its
 	// contents to the specified path.
-	DownloadCharm(charmURL *charm.URL, requestedOrigin Origin, archivePath string) (CharmArchive, Origin, error)
+	DownloadCharm(charmName string, requestedOrigin Origin, archivePath string) (CharmArchive, Origin, error)
 
 	// ResolveWithPreferredChannel verified that the charm with the requested
 	// channel exists.  If no channel is specified, the latests, most stable is
 	// used. It returns a charm URL which includes the most current revision,
 	// if none was provided, a charm origin, and a slice of series supported by
 	// this charm.
-	ResolveWithPreferredChannel(*charm.URL, Origin) (*charm.URL, Origin, []Platform, error)
+	ResolveWithPreferredChannel(string, Origin) (*charm.URL, Origin, []Platform, error)
 
 	// GetEssentialMetadata resolves each provided MetadataRequest and
 	// returns back a slice with the results. The results include the
@@ -35,7 +35,7 @@ type Repository interface {
 	GetEssentialMetadata(...MetadataRequest) ([]EssentialMetadata, error)
 
 	// ListResources returns a list of resources associated with a given charm.
-	ListResources(*charm.URL, Origin) ([]charmresource.Resource, error)
+	ListResources(string, Origin) ([]charmresource.Resource, error)
 
 	// ResolveResources looks at the provided repository and backend (already
 	// downloaded) resources to determine which to use. Provided (uploaded) take
@@ -64,8 +64,8 @@ type CharmArchive interface {
 // MetadataRequest encapsulates the arguments for a charm essential metadata
 // resolution request.
 type MetadataRequest struct {
-	CharmURL *charm.URL
-	Origin   Origin
+	CharmName string
+	Origin    Origin
 }
 
 // EssentialMetadata encapsulates the essential metadata required for deploying
