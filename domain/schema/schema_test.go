@@ -140,6 +140,7 @@ func (s *schemaSuite) TestModelDDLApply(c *gc.C) {
 		"subnet",
 		"provider_subnet",
 		"provider_network",
+		"provider_network_subnet",
 		"availability_zone",
 		"availability_zone_subnet",
 		"fan_network",
