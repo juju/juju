@@ -86,7 +86,7 @@ func (s *charmHubRepositorySuite) testResolve(c *gc.C, id string) {
 		origin.InstanceKey = "instance-key"
 	}
 
-	obtainedCurl, obtainedOrigin, obtainedBases, err := s.newClient().ResolveWithPreferredChannel(context.Background(), curl, origin)
+	obtainedCurl, obtainedOrigin, obtainedBases, err := s.newClient().ResolveWithPreferredChannel(context.Background(), "wordpress", origin)
 	c.Assert(err, jc.ErrorIsNil)
 
 	curl.Revision = rev
@@ -122,7 +122,7 @@ func (s *charmHubRepositorySuite) TestResolveWithChannel(c *gc.C) {
 		},
 	}
 
-	obtainedCurl, obtainedOrigin, obtainedBases, err := s.newClient().ResolveWithPreferredChannel(context.Background(), curl, origin)
+	obtainedCurl, obtainedOrigin, obtainedBases, err := s.newClient().ResolveWithPreferredChannel(context.Background(), "wordpress", origin)
 	c.Assert(err, jc.ErrorIsNil)
 
 	curl.Revision = 16
@@ -156,7 +156,7 @@ func (s *charmHubRepositorySuite) TestResolveWithoutBase(c *gc.C) {
 		},
 	}
 
-	obtainedCurl, obtainedOrigin, obtainedBases, err := s.newClient().ResolveWithPreferredChannel(context.Background(), curl, origin)
+	obtainedCurl, obtainedOrigin, obtainedBases, err := s.newClient().ResolveWithPreferredChannel(context.Background(), "wordpress", origin)
 	c.Assert(err, jc.ErrorIsNil)
 
 	curl.Revision = 16
@@ -263,7 +263,7 @@ func (s *charmHubRepositorySuite) TestResolveWithBundles(c *gc.C) {
 		},
 	}
 
-	obtainedCurl, obtainedOrigin, obtainedBases, err := s.newClient().ResolveWithPreferredChannel(context.Background(), curl, origin)
+	obtainedCurl, obtainedOrigin, obtainedBases, err := s.newClient().ResolveWithPreferredChannel(context.Background(), "core-kubernetes", origin)
 	c.Assert(err, jc.ErrorIsNil)
 
 	curl.Revision = 17
@@ -296,7 +296,7 @@ func (s *charmHubRepositorySuite) TestResolveInvalidPlatformError(c *gc.C) {
 		},
 	}
 
-	obtainedCurl, obtainedOrigin, obtainedBases, err := s.newClient().ResolveWithPreferredChannel(context.Background(), curl, origin)
+	obtainedCurl, obtainedOrigin, obtainedBases, err := s.newClient().ResolveWithPreferredChannel(context.Background(), "wordpress", origin)
 	c.Assert(err, jc.ErrorIsNil)
 
 	curl.Revision = 16
@@ -322,7 +322,6 @@ func (s *charmHubRepositorySuite) TestResolveRevisionNotFoundErrorWithNoSeries(c
 	defer s.setupMocks(c).Finish()
 	s.expectedRefreshRevisionNotFoundError(c)
 
-	curl := charm.MustParseURL("ch:wordpress")
 	origin := corecharm.Origin{
 		Source: "charm-hub",
 		Platform: corecharm.Platform{
@@ -330,7 +329,7 @@ func (s *charmHubRepositorySuite) TestResolveRevisionNotFoundErrorWithNoSeries(c
 		},
 	}
 
-	_, _, _, err := s.newClient().ResolveWithPreferredChannel(context.Background(), curl, origin)
+	_, _, _, err := s.newClient().ResolveWithPreferredChannel(context.Background(), "wordpress", origin)
 	c.Assert(err, gc.ErrorMatches,
 		`(?m)selecting releases: charm or bundle not found for channel "", platform "amd64"
 available releases are:
@@ -352,7 +351,7 @@ func (s *charmHubRepositorySuite) TestResolveRevisionNotFoundError(c *gc.C) {
 		},
 	}
 
-	obtainedCurl, obtainedOrigin, obtainedBases, err := s.newClient().ResolveWithPreferredChannel(context.Background(), curl, origin)
+	obtainedCurl, obtainedOrigin, obtainedBases, err := s.newClient().ResolveWithPreferredChannel(context.Background(), "wordpress", origin)
 	c.Assert(err, jc.ErrorIsNil)
 
 	curl.Revision = 16
@@ -377,7 +376,6 @@ func (s *charmHubRepositorySuite) TestResolveRevisionNotFoundError(c *gc.C) {
 func (s *charmHubRepositorySuite) TestDownloadCharm(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	curl := charm.MustParseURL("ch:wordpress")
 	requestedOrigin := corecharm.Origin{
 		Source: "charm-hub",
 		Platform: corecharm.Platform{
@@ -412,7 +410,7 @@ func (s *charmHubRepositorySuite) TestDownloadCharm(c *gc.C) {
 	s.expectCharmRefreshInstallOneFromChannel(c)
 	s.client.EXPECT().DownloadAndRead(gomock.Any(), resolvedURL, "/tmp/foo").Return(resolvedArchive, nil)
 
-	gotArchive, gotOrigin, err := s.newClient().DownloadCharm(context.Background(), curl, requestedOrigin, "/tmp/foo")
+	gotArchive, gotOrigin, err := s.newClient().DownloadCharm(context.Background(), "wordpress", requestedOrigin, "/tmp/foo")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotArchive, gc.Equals, resolvedArchive) // note: we are using gc.Equals to check the pointers here.
 	c.Assert(gotOrigin, gc.DeepEquals, resolvedOrigin)
@@ -421,7 +419,6 @@ func (s *charmHubRepositorySuite) TestDownloadCharm(c *gc.C) {
 func (s *charmHubRepositorySuite) TestGetDownloadURL(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	curl := charm.MustParseURL("ch:wordpress")
 	requestedOrigin := corecharm.Origin{
 		Source: "charm-hub",
 		Platform: corecharm.Platform{
@@ -454,7 +451,7 @@ func (s *charmHubRepositorySuite) TestGetDownloadURL(c *gc.C) {
 
 	s.expectCharmRefreshInstallOneFromChannel(c)
 
-	gotURL, gotOrigin, err := s.newClient().GetDownloadURL(context.Background(), curl, requestedOrigin)
+	gotURL, gotOrigin, err := s.newClient().GetDownloadURL(context.Background(), "wordpress", requestedOrigin)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotURL, gc.DeepEquals, resolvedURL)
 	c.Assert(gotOrigin, gc.DeepEquals, resolvedOrigin)
@@ -463,7 +460,6 @@ func (s *charmHubRepositorySuite) TestGetDownloadURL(c *gc.C) {
 func (s *charmHubRepositorySuite) TestGetEssentialMetadata(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	curl := charm.MustParseURL("ch:wordpress")
 	requestedOrigin := corecharm.Origin{
 		Source: "charm-hub",
 		Platform: corecharm.Platform{
@@ -481,8 +477,8 @@ func (s *charmHubRepositorySuite) TestGetEssentialMetadata(c *gc.C) {
 	s.expectCharmRefreshInstallOneFromChannel(c) // refresh and get metadata
 
 	got, err := s.newClient().GetEssentialMetadata(context.Background(), corecharm.MetadataRequest{
-		CharmURL: curl,
-		Origin:   requestedOrigin,
+		CharmName: "wordpress",
+		Origin:    requestedOrigin,
 	})
 
 	c.Assert(err, jc.ErrorIsNil)
@@ -974,7 +970,7 @@ type refreshConfigSuite struct {
 var _ = gc.Suite(&refreshConfigSuite{})
 
 func (refreshConfigSuite) TestRefreshByChannel(c *gc.C) {
-	curl := charm.MustParseURL("ch:wordpress")
+	name := "wordpress"
 	platform := corecharm.MustParsePlatform("amd64/ubuntu/focal")
 	channel := corecharm.MustParseChannel("latest/stable").Normalize()
 	origin := corecharm.Origin{
@@ -982,7 +978,7 @@ func (refreshConfigSuite) TestRefreshByChannel(c *gc.C) {
 		Channel:  &channel,
 	}
 
-	cfg, err := refreshConfig(curl, origin)
+	cfg, err := refreshConfig(name, origin)
 	c.Assert(err, jc.ErrorIsNil)
 
 	ch := channel.String()
@@ -994,7 +990,7 @@ func (refreshConfigSuite) TestRefreshByChannel(c *gc.C) {
 		Actions: []transport.RefreshRequestAction{{
 			Action:      "install",
 			InstanceKey: instanceKey,
-			Name:        &curl.Name,
+			Name:        &name,
 			Channel:     &ch,
 			Base: &transport.Base{
 				Name:         "ubuntu",
@@ -1008,7 +1004,7 @@ func (refreshConfigSuite) TestRefreshByChannel(c *gc.C) {
 }
 
 func (refreshConfigSuite) TestRefreshByChannelVersion(c *gc.C) {
-	curl := charm.MustParseURL("ch:wordpress")
+	name := "wordpress"
 	platform := corecharm.MustParsePlatform("amd64/ubuntu/20.10/latest")
 	channel := corecharm.MustParseChannel("latest/stable").Normalize()
 	origin := corecharm.Origin{
@@ -1016,7 +1012,7 @@ func (refreshConfigSuite) TestRefreshByChannelVersion(c *gc.C) {
 		Channel:  &channel,
 	}
 
-	cfg, err := refreshConfig(curl, origin)
+	cfg, err := refreshConfig(name, origin)
 	c.Assert(err, jc.ErrorIsNil)
 
 	ch := channel.String()
@@ -1028,7 +1024,7 @@ func (refreshConfigSuite) TestRefreshByChannelVersion(c *gc.C) {
 		Actions: []transport.RefreshRequestAction{{
 			Action:      "install",
 			InstanceKey: instanceKey,
-			Name:        &curl.Name,
+			Name:        &name,
 			Channel:     &ch,
 			Base: &transport.Base{
 				Name:         "ubuntu",
@@ -1043,14 +1039,14 @@ func (refreshConfigSuite) TestRefreshByChannelVersion(c *gc.C) {
 
 func (refreshConfigSuite) TestRefreshByRevision(c *gc.C) {
 	revision := 1
-	curl := charm.MustParseURL("ch:wordpress")
+	name := "wordpress"
 	platform := corecharm.MustParsePlatform("amd64/ubuntu/focal")
 	origin := corecharm.Origin{
 		Platform: platform,
 		Revision: &revision,
 	}
 
-	cfg, err := refreshConfig(curl, origin)
+	cfg, err := refreshConfig(name, origin)
 	c.Assert(err, jc.ErrorIsNil)
 
 	instanceKey := charmhub.ExtractConfigInstanceKey(cfg)
@@ -1061,7 +1057,7 @@ func (refreshConfigSuite) TestRefreshByRevision(c *gc.C) {
 		Actions: []transport.RefreshRequestAction{{
 			Action:      "install",
 			InstanceKey: instanceKey,
-			Name:        &curl.Name,
+			Name:        &name,
 			Revision:    &revision,
 		}},
 		Context: []transport.RefreshRequestContext{},
@@ -1072,7 +1068,6 @@ func (refreshConfigSuite) TestRefreshByRevision(c *gc.C) {
 func (refreshConfigSuite) TestRefreshByID(c *gc.C) {
 	id := "aaabbbccc"
 	revision := 1
-	curl := charm.MustParseURL("ch:wordpress")
 	platform := corecharm.MustParsePlatform("amd64/ubuntu/focal")
 	channel := corecharm.MustParseChannel("stable")
 	origin := corecharm.Origin{
@@ -1084,7 +1079,7 @@ func (refreshConfigSuite) TestRefreshByID(c *gc.C) {
 		InstanceKey: "instance-key",
 	}
 
-	cfg, err := refreshConfig(curl, origin)
+	cfg, err := refreshConfig("wordpress", origin)
 	c.Assert(err, jc.ErrorIsNil)
 
 	instanceKey := charmhub.ExtractConfigInstanceKey(cfg)

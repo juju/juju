@@ -38,7 +38,7 @@ func (m *MockCharmRepository) EXPECT() *MockCharmRepositoryMockRecorder {
 }
 
 // DownloadCharm mocks base method.
-func (m *MockCharmRepository) DownloadCharm(arg0 context.Context, arg1 *charm.URL, arg2 charm0.Origin, arg3 string) (charm0.CharmArchive, charm0.Origin, error) {
+func (m *MockCharmRepository) DownloadCharm(arg0 context.Context, arg1 string, arg2 charm0.Origin, arg3 string) (charm0.CharmArchive, charm0.Origin, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DownloadCharm", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(charm0.CharmArchive)
@@ -54,7 +54,7 @@ func (mr *MockCharmRepositoryMockRecorder) DownloadCharm(arg0, arg1, arg2, arg3 
 }
 
 // GetDownloadURL mocks base method.
-func (m *MockCharmRepository) GetDownloadURL(arg0 context.Context, arg1 *charm.URL, arg2 charm0.Origin) (*url.URL, charm0.Origin, error) {
+func (m *MockCharmRepository) GetDownloadURL(arg0 context.Context, arg1 string, arg2 charm0.Origin) (*url.URL, charm0.Origin, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetDownloadURL", arg0, arg1, arg2)
 	ret0, _ := ret[0].(*url.URL)
@@ -70,7 +70,7 @@ func (mr *MockCharmRepositoryMockRecorder) GetDownloadURL(arg0, arg1, arg2 inter
 }
 
 // ResolveWithPreferredChannel mocks base method.
-func (m *MockCharmRepository) ResolveWithPreferredChannel(arg0 context.Context, arg1 *charm.URL, arg2 charm0.Origin) (*charm.URL, charm0.Origin, []charm0.Platform, error) {
+func (m *MockCharmRepository) ResolveWithPreferredChannel(arg0 context.Context, arg1 string, arg2 charm0.Origin) (*charm.URL, charm0.Origin, []charm0.Platform, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ResolveWithPreferredChannel", arg0, arg1, arg2)
 	ret0, _ := ret[0].(*charm.URL)

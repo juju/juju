@@ -42,17 +42,17 @@ func NewCharmHubRepository(logger Logger, chClient CharmHubClient) *CharmHubRepo
 	}
 }
 
-// ResolveWithPreferredChannel defines a way using the given charm URL and
+// ResolveWithPreferredChannel defines a way using the given charm name and
 // charm origin (platform and channel) to locate a matching charm against the
 // Charmhub API.
-func (c *CharmHubRepository) ResolveWithPreferredChannel(ctx context.Context, charmURL *charm.URL, argOrigin corecharm.Origin) (*charm.URL, corecharm.Origin, []corecharm.Platform, error) {
-	c.logger.Tracef("Resolving CharmHub charm %q with origin %+v", charmURL, argOrigin)
+func (c *CharmHubRepository) ResolveWithPreferredChannel(ctx context.Context, charmName string, argOrigin corecharm.Origin) (*charm.URL, corecharm.Origin, []corecharm.Platform, error) {
+	c.logger.Tracef("Resolving CharmHub charm %q with origin %+v", charmName, argOrigin)
 
 	requestedOrigin, err := c.validateOrigin(argOrigin)
 	if err != nil {
 		return nil, corecharm.Origin{}, nil, err
 	}
-	resCurl, outputOrigin, resolvedBases, _, err := c.resolveWithPreferredChannel(ctx, charmURL, requestedOrigin)
+	resCurl, outputOrigin, resolvedBases, _, err := c.resolveWithPreferredChannel(ctx, charmName, requestedOrigin)
 	return resCurl, outputOrigin, resolvedBases, err
 }
 
@@ -62,12 +62,12 @@ func (c *CharmHubRepository) ResolveWithPreferredChannel(ctx context.Context, ch
 func (c *CharmHubRepository) ResolveForDeploy(ctx context.Context, arg corecharm.CharmID) (corecharm.ResolvedDataForDeploy, error) {
 	c.logger.Tracef("Resolving CharmHub charm %q with origin %+v", arg.URL, arg.Origin)
 
-	resultURL, resolvedOrigin, _, resp, resolveErr := c.resolveWithPreferredChannel(ctx, arg.URL, arg.Origin)
+	resultURL, resolvedOrigin, _, resp, resolveErr := c.resolveWithPreferredChannel(ctx, arg.URL.Name, arg.Origin)
 	if resolveErr != nil {
 		return corecharm.ResolvedDataForDeploy{}, errors.Trace(resolveErr)
 	}
 
-	essMeta, err := transformRefreshResult(resultURL, resp)
+	essMeta, err := transformRefreshResult(resultURL.Name, resp)
 	if err != nil {
 		return corecharm.ResolvedDataForDeploy{}, errors.Trace(err)
 	}
@@ -109,9 +109,9 @@ func (c *CharmHubRepository) ResolveForDeploy(ctx context.Context, arg corecharm
 //  3. In theory we could just return most of this information without the
 //     re-request, but we end up with missing data and potential incorrect
 //     charm downloads later.
-func (c *CharmHubRepository) resolveWithPreferredChannel(ctx context.Context, charmURL *charm.URL, requestedOrigin corecharm.Origin) (*charm.URL, corecharm.Origin, []corecharm.Platform, transport.RefreshResponse, error) {
+func (c *CharmHubRepository) resolveWithPreferredChannel(ctx context.Context, charmName string, requestedOrigin corecharm.Origin) (*charm.URL, corecharm.Origin, []corecharm.Platform, transport.RefreshResponse, error) {
 	// First attempt to find the charm based on the only input provided.
-	response, err := c.refreshOne(ctx, charmURL, requestedOrigin)
+	response, err := c.refreshOne(ctx, charmName, requestedOrigin)
 	if err != nil {
 		return nil, corecharm.Origin{}, nil, transport.RefreshResponse{}, errors.Annotatef(err, "resolving with preferred channel")
 	}
@@ -129,7 +129,7 @@ func (c *CharmHubRepository) resolveWithPreferredChannel(ctx context.Context, ch
 	)
 	switch {
 	case response.Error != nil:
-		retryResult, err := c.retryResolveWithPreferredChannel(ctx, charmURL, requestedOrigin, response.Error)
+		retryResult, err := c.retryResolveWithPreferredChannel(ctx, charmName, requestedOrigin, response.Error)
 		if err != nil {
 			return nil, corecharm.Origin{}, nil, transport.RefreshResponse{}, errors.Trace(err)
 		}
@@ -174,21 +174,25 @@ func (c *CharmHubRepository) resolveWithPreferredChannel(ctx context.Context, ch
 	// account for the closed tracks in a given channel.
 	channel, err := charm.ParseChannelNormalize(effectiveChannel)
 	if err != nil {
-		return nil, corecharm.Origin{}, nil, transport.RefreshResponse{}, errors.Annotatef(err, "invalid channel for %q", charmURL)
+		return nil, corecharm.Origin{}, nil, transport.RefreshResponse{}, errors.Annotatef(err, "invalid channel for %q", charmName)
 	}
 
 	// Ensure we send the updated charmURL back, with all the correct segments.
 	revision := response.Entity.Revision
-	resCurl := charmURL.
-		WithArchitecture(chSuggestedOrigin.Platform.Architecture).
-		WithRevision(revision)
 	// TODO(wallyworld) - does charm url still need a series?
+	var series string
 	if chSuggestedOrigin.Platform.Channel != "" {
-		series, err := corebase.GetSeriesFromChannel(chSuggestedOrigin.Platform.OS, chSuggestedOrigin.Platform.Channel)
+		series, err = corebase.GetSeriesFromChannel(chSuggestedOrigin.Platform.OS, chSuggestedOrigin.Platform.Channel)
 		if err != nil {
 			return nil, corecharm.Origin{}, nil, transport.RefreshResponse{}, errors.Trace(err)
 		}
-		resCurl = resCurl.WithSeries(series)
+	}
+	resCurl := &charm.URL{
+		Schema:       "ch",
+		Name:         charmName,
+		Revision:     revision,
+		Series:       series,
+		Architecture: chSuggestedOrigin.Platform.Architecture,
 	}
 
 	// Create a resolved origin.  Keep the original values for ID and Hash, if
@@ -261,21 +265,21 @@ type retryResolveResult struct {
 // retryResolveWithPreferredChannel will attempt to inspect the transport
 // APIError and determine if a retry is possible with the information gathered
 // from the error.
-func (c *CharmHubRepository) retryResolveWithPreferredChannel(ctx context.Context, charmURL *charm.URL, origin corecharm.Origin, resErr *transport.APIError) (*retryResolveResult, error) {
+func (c *CharmHubRepository) retryResolveWithPreferredChannel(ctx context.Context, charmName string, origin corecharm.Origin, resErr *transport.APIError) (*retryResolveResult, error) {
 	var (
 		err   error
 		bases []corecharm.Platform
 	)
 	switch resErr.Code {
 	case transport.ErrorCodeInvalidCharmPlatform, transport.ErrorCodeInvalidCharmBase:
-		c.logger.Tracef("Invalid charm platform %q %v - Default Base: %v", charmURL, origin, resErr.Extra.DefaultBases)
+		c.logger.Tracef("Invalid charm platform %q %v - Default Base: %v", charmName, origin, resErr.Extra.DefaultBases)
 
 		if bases, err = c.selectNextBases(resErr.Extra.DefaultBases, origin); err != nil {
 			return nil, errors.Annotatef(err, "selecting next bases")
 		}
 
 	case transport.ErrorCodeRevisionNotFound:
-		c.logger.Tracef("Revision not found %q %v - Releases: %v", charmURL, origin, resErr.Extra.Releases)
+		c.logger.Tracef("Revision not found %q %v - Releases: %v", charmName, origin, resErr.Extra.Releases)
 
 		if bases, err = c.selectNextBasesFromReleases(resErr.Extra.Releases, origin); err != nil {
 			return nil, errors.Annotatef(err, "selecting releases")
@@ -298,11 +302,11 @@ func (c *CharmHubRepository) retryResolveWithPreferredChannel(ctx context.Contex
 	origin.Platform.Channel = base.Channel
 
 	if origin.Platform.Channel == "" {
-		return nil, errors.NotValidf("channel for %s", charmURL.Name)
+		return nil, errors.NotValidf("channel for %s", charmName)
 	}
 
-	c.logger.Tracef("Refresh again with %q %v", charmURL, origin)
-	res, err := c.refreshOne(ctx, charmURL, origin)
+	c.logger.Tracef("Refresh again with %q %v", charmName, origin)
+	res, err := c.refreshOne(ctx, charmName, origin)
 	if err != nil {
 		return nil, errors.Annotatef(err, "retrying")
 	}
@@ -316,13 +320,13 @@ func (c *CharmHubRepository) retryResolveWithPreferredChannel(ctx context.Contex
 	}, nil
 }
 
-func transformRefreshResult(curl *charm.URL, refreshResult transport.RefreshResponse) (corecharm.EssentialMetadata, error) {
+func transformRefreshResult(charmName string, refreshResult transport.RefreshResponse) (corecharm.EssentialMetadata, error) {
 	if refreshResult.Entity.MetadataYAML == "" {
-		return corecharm.EssentialMetadata{}, errors.NotValidf("charmhub refresh response for %q does not include the contents of metadata.yaml", curl)
+		return corecharm.EssentialMetadata{}, errors.NotValidf("charmhub refresh response for %q does not include the contents of metadata.yaml", charmName)
 	}
 	chMeta, err := charm.ReadMeta(strings.NewReader(refreshResult.Entity.MetadataYAML))
 	if err != nil {
-		return corecharm.EssentialMetadata{}, errors.Annotatef(err, "parsing metadata.yaml for %q", curl)
+		return corecharm.EssentialMetadata{}, errors.Annotatef(err, "parsing metadata.yaml for %q", charmName)
 	}
 
 	configYAML := refreshResult.Entity.ConfigYAML
@@ -336,7 +340,7 @@ func transformRefreshResult(curl *charm.URL, refreshResult transport.RefreshResp
 	} else {
 		chConfig, err = charm.ReadConfig(strings.NewReader(configYAML))
 		if err != nil {
-			return corecharm.EssentialMetadata{}, errors.Annotatef(err, "parsing config.yaml for %q", curl)
+			return corecharm.EssentialMetadata{}, errors.Annotatef(err, "parsing config.yaml for %q", charmName)
 		}
 	}
 
@@ -344,7 +348,7 @@ func transformRefreshResult(curl *charm.URL, refreshResult transport.RefreshResp
 	for _, base := range refreshResult.Entity.Bases {
 		baseCh, err := charm.ParseChannelNormalize(base.Channel)
 		if err != nil {
-			return corecharm.EssentialMetadata{}, errors.Annotatef(err, "parsing base channel for %q", curl)
+			return corecharm.EssentialMetadata{}, errors.Annotatef(err, "parsing base channel for %q", charmName)
 		}
 
 		chManifest.Bases = append(chManifest.Bases, charm.Base{
@@ -358,12 +362,12 @@ func transformRefreshResult(curl *charm.URL, refreshResult transport.RefreshResp
 
 // DownloadCharm retrieves specified charm from the store and saves its
 // contents to the specified path.
-func (c *CharmHubRepository) DownloadCharm(ctx context.Context, charmURL *charm.URL, requestedOrigin corecharm.Origin, archivePath string) (corecharm.CharmArchive, corecharm.Origin, error) {
-	c.logger.Tracef("DownloadCharm %q, origin: %q", charmURL, requestedOrigin)
+func (c *CharmHubRepository) DownloadCharm(ctx context.Context, charmName string, requestedOrigin corecharm.Origin, archivePath string) (corecharm.CharmArchive, corecharm.Origin, error) {
+	c.logger.Tracef("DownloadCharm %q, origin: %q", charmName, requestedOrigin)
 
 	// Resolve charm URL to a link to the charm blob and keep track of the
 	// actual resolved origin which may be different from the requested one.
-	resURL, actualOrigin, err := c.GetDownloadURL(ctx, charmURL, requestedOrigin)
+	resURL, actualOrigin, err := c.GetDownloadURL(ctx, charmName, requestedOrigin)
 	if err != nil {
 		return nil, corecharm.Origin{}, errors.Trace(err)
 	}
@@ -377,14 +381,14 @@ func (c *CharmHubRepository) DownloadCharm(ctx context.Context, charmURL *charm.
 }
 
 // GetDownloadURL returns the url from which to download the CharmHub charm/bundle
-// defined by the provided curl and charm origin.  An updated charm origin is
+// defined by the provided charm name and origin.  An updated charm origin is
 // also returned with the ID and hash for the charm to be downloaded.  If the
 // provided charm origin has no ID, it is assumed that the charm is being
 // installed, not refreshed.
-func (c *CharmHubRepository) GetDownloadURL(ctx context.Context, charmURL *charm.URL, requestedOrigin corecharm.Origin) (*url.URL, corecharm.Origin, error) {
-	c.logger.Tracef("GetDownloadURL %q, origin: %q", charmURL, requestedOrigin)
+func (c *CharmHubRepository) GetDownloadURL(ctx context.Context, charmName string, requestedOrigin corecharm.Origin) (*url.URL, corecharm.Origin, error) {
+	c.logger.Tracef("GetDownloadURL %q, origin: %q", charmName, requestedOrigin)
 
-	refreshRes, err := c.refreshOne(ctx, charmURL, requestedOrigin)
+	refreshRes, err := c.refreshOne(ctx, charmName, requestedOrigin)
 	if err != nil {
 		return nil, corecharm.Origin{}, errors.Trace(err)
 	}
@@ -409,16 +413,16 @@ func (c *CharmHubRepository) GetDownloadURL(ctx context.Context, charmURL *charm
 }
 
 // ListResources returns the resources for a given charm and origin.
-func (c *CharmHubRepository) ListResources(ctx context.Context, charmURL *charm.URL, origin corecharm.Origin) ([]charmresource.Resource, error) {
-	c.logger.Tracef("ListResources %q", charmURL)
+func (c *CharmHubRepository) ListResources(ctx context.Context, charmName string, origin corecharm.Origin) ([]charmresource.Resource, error) {
+	c.logger.Tracef("ListResources %q", charmName)
 
-	resCurl, resOrigin, _, err := c.ResolveWithPreferredChannel(ctx, charmURL, origin)
+	resCurl, resOrigin, _, err := c.ResolveWithPreferredChannel(ctx, charmName, origin)
 	if isErrSelection(err) {
 		var channel string
 		if origin.Channel != nil {
 			channel = origin.Channel.String()
 		}
-		return nil, errors.Errorf("unable to locate charm %q with matching channel %q", charmURL.Name, channel)
+		return nil, errors.Errorf("unable to locate charm %q with matching channel %q", charmName, channel)
 	} else if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -429,7 +433,7 @@ func (c *CharmHubRepository) ListResources(ctx context.Context, charmURL *charm.
 	// specified.  ListResources is used by the "charm-resources" cli cmd,
 	// therefore specific charm revisions are less important.
 	resOrigin.Revision = nil
-	resp, err := c.refreshOne(ctx, resCurl, resOrigin)
+	resp, err := c.refreshOne(ctx, resCurl.Name, resOrigin)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -453,7 +457,7 @@ func (c *CharmHubRepository) ListResources(ctx context.Context, charmURL *charm.
 // downloaded) resources to determine which to use. Provided (uploaded) take
 // precedence. If charmhub has a newer resource than the back end, use that.
 func (c *CharmHubRepository) ResolveResources(ctx context.Context, resources []charmresource.Resource, id corecharm.CharmID) ([]charmresource.Resource, error) {
-	revisionResources, err := c.listResourcesIfRevisions(resources, id.URL)
+	revisionResources, err := c.listResourcesIfRevisions(resources, id.URL.Name)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -475,7 +479,7 @@ func (c *CharmHubRepository) ResolveResources(ctx context.Context, resources []c
 	return resolved, nil
 }
 
-func (c *CharmHubRepository) listResourcesIfRevisions(resources []charmresource.Resource, curl *charm.URL) (map[string]charmresource.Resource, error) {
+func (c *CharmHubRepository) listResourcesIfRevisions(resources []charmresource.Resource, charmName string) (map[string]charmresource.Resource, error) {
 	results := make(map[string]charmresource.Resource, 0)
 	for _, resource := range resources {
 		// If not revision is specified, or the resource has already been
@@ -483,9 +487,9 @@ func (c *CharmHubRepository) listResourcesIfRevisions(resources []charmresource.
 		if resource.Revision == -1 || resource.Origin == charmresource.OriginUpload {
 			continue
 		}
-		refreshResp, err := c.client.ListResourceRevisions(context.TODO(), curl.Name, resource.Name)
+		refreshResp, err := c.client.ListResourceRevisions(context.TODO(), charmName, resource.Name)
 		if err != nil {
-			return nil, errors.Annotatef(err, "refreshing charm %q", curl.String())
+			return nil, errors.Annotatef(err, "refreshing charm %q", charmName)
 		}
 		if len(refreshResp) == 0 {
 			return nil, errors.Errorf("no download refresh responses received")
@@ -768,12 +772,12 @@ func (c *CharmHubRepository) GetEssentialMetadata(ctx context.Context, reqs ...c
 	for reqIdx, req := range reqs {
 		// TODO(achilleasa): We should add support for resolving origin
 		// batches and move this outside the loop.
-		_, resolvedOrigin, _, err := c.ResolveWithPreferredChannel(ctx, req.CharmURL, req.Origin)
+		_, resolvedOrigin, _, err := c.ResolveWithPreferredChannel(ctx, req.CharmName, req.Origin)
 		if err != nil {
-			return nil, errors.Annotatef(err, "resolving origin for %q", req.CharmURL)
+			return nil, errors.Annotatef(err, "resolving origin for %q", req.CharmName)
 		}
 
-		refreshCfg, err := refreshConfig(req.CharmURL, resolvedOrigin)
+		refreshCfg, err := refreshConfig(req.CharmName, resolvedOrigin)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -789,7 +793,7 @@ func (c *CharmHubRepository) GetEssentialMetadata(ctx context.Context, reqs ...c
 
 	var metaRes = make([]corecharm.EssentialMetadata, len(reqs))
 	for resIdx, refreshResult := range refreshResults {
-		essMeta, err := transformRefreshResult(reqs[resIdx].CharmURL, refreshResult)
+		essMeta, err := transformRefreshResult(reqs[resIdx].CharmName, refreshResult)
 		if err != nil {
 			return nil, err
 		}
@@ -800,8 +804,8 @@ func (c *CharmHubRepository) GetEssentialMetadata(ctx context.Context, reqs ...c
 	return metaRes, nil
 }
 
-func (c *CharmHubRepository) refreshOne(ctx context.Context, charmURL *charm.URL, origin corecharm.Origin) (transport.RefreshResponse, error) {
-	cfg, err := refreshConfig(charmURL, origin)
+func (c *CharmHubRepository) refreshOne(ctx context.Context, charmName string, origin corecharm.Origin) (transport.RefreshResponse, error) {
+	cfg, err := refreshConfig(charmName, origin)
 	if err != nil {
 		return transport.RefreshResponse{}, errors.Trace(err)
 	}
@@ -923,7 +927,7 @@ const (
 // origin have a revision number in them when called by GetDownloadURL
 // to install a charm. Potentially causing an unexpected install by revision.
 // This is okay as all of the data is ready and correct in the origin.
-func refreshConfig(charmURL *charm.URL, origin corecharm.Origin) (charmhub.RefreshConfig, error) {
+func refreshConfig(charmName string, origin corecharm.Origin) (charmhub.RefreshConfig, error) {
 	// Work out the correct install method.
 	rev := -1
 	var method Method
@@ -972,11 +976,11 @@ func refreshConfig(charmURL *charm.URL, origin corecharm.Origin) (charmhub.Refre
 		// Install from just the name and the channel. If there is no origin ID,
 		// we haven't downloaded this charm before.
 		// Try channel first.
-		cfg, err = charmhub.InstallOneFromChannel(charmURL.Name, channel, base)
+		cfg, err = charmhub.InstallOneFromChannel(charmName, channel, base)
 	case MethodRevision:
 		// If there is a revision, install it using that. If there is no origin
 		// ID, we haven't downloaded this charm before.
-		cfg, err = charmhub.InstallOneFromRevision(charmURL.Name, rev)
+		cfg, err = charmhub.InstallOneFromRevision(charmName, rev)
 	case MethodID:
 		// This must be a charm upgrade if we have an ID.  Use the refresh
 		// action for metric keeping on the CharmHub side.
