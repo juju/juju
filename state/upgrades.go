@@ -10,6 +10,7 @@ import (
 	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v4"
 
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/mongo"
@@ -255,7 +256,30 @@ func EnsureInitalRefCountForExternalSecretBackends(pool *StatePool) error {
 	return nil
 }
 
-func EnsureApplicationCharmOriginsHaveRevisions(pool *StatePool) error {
+// EnsureApplicationCharmOriginsNormalised fixes application charm origins which may
+// have been broken
+//
+// Previous versions of the Juju server and clients have treated applications charm
+// origins very loosely, particularly during `refresh -- switch`s. The server performed
+// no validation on origins received from the client, and client often mutated them
+// incorrectly. For instance, when switching from a ch charm to local, pylibjuju simply
+// send back a copy of the ch charm origin, whereas the CLI only set the source to local.
+// Both resulted in incorrect/invalidate origins.
+//
+// Calculate the origin Source and Revision from the charm url. Ensure ID, Hash and Channel
+// are dropped from local charm. Keep ID, Hash and Channel (for ch charms) and Platform (always)
+// we get from the origin. We can trust these since supported clients cannot break these
+//
+// This was fixed in pylibjuju 3.2.3.0 and juju 3.3.0. As of writing, no versions of the
+// server validate new charm origins on calls to SetCharm. Ideally, the client shouldn't
+// handle charm origins at all, being an implementation detail. But this will probably have
+// to wait until the api re-write
+//
+// https://bugs.launchpad.net/juju/+bug/2039267
+// https://github.com/juju/python-libjuju/issues/962
+//
+// TODO: Drop this step once we have confidence in our application charm origins
+func EnsureApplicationCharmOriginsNormalised(pool *StatePool) error {
 	return errors.Trace(runForAllModelStates(pool, func(st *State) error {
 		allApps, err := st.AllApplications()
 		if err != nil {
@@ -265,12 +289,9 @@ func EnsureApplicationCharmOriginsHaveRevisions(pool *StatePool) error {
 		var ops []txn.Op
 
 		for _, app := range allApps {
-			// We only need to fill in the revision if it's nil/
-			// There is an edge case though where a previous migration
-			// has incorrectly filled in the revision to 0 or -1
-			rev := app.CharmOrigin().Revision
-			if rev != nil && *rev > 0 {
-				continue
+			origin := app.CharmOrigin()
+			if origin == nil {
+				return errors.Errorf("application %q has no origin", app.Name())
 			}
 			curlStr, _ := app.CharmURL()
 			if curlStr == nil {
@@ -283,10 +304,25 @@ func EnsureApplicationCharmOriginsHaveRevisions(pool *StatePool) error {
 			if curl.Revision == -1 {
 				return errors.Errorf("charm url %q has no revision", curl.String())
 			}
+
+			if charm.Local.Matches(curl.Schema) {
+				origin.Source = corecharm.Local.String()
+				origin.Channel = nil
+				origin.Hash = ""
+				origin.ID = ""
+				origin.Revision = &curl.Revision
+			} else if charm.CharmHub.Matches(curl.Schema) {
+				origin.Source = corecharm.CharmHub.String()
+				origin.Revision = &curl.Revision
+			} else {
+				return errors.Errorf("Unrecognised schema charm url schema %q", curl.Schema)
+			}
+
 			ops = append(ops, txn.Op{
 				C:      applicationsC,
 				Id:     app.doc.DocID,
-				Update: bson.D{{"$set", bson.D{{"charm-origin.revision", curl.Revision}}}},
+				Assert: txn.DocExists,
+				Update: bson.D{{"$set", bson.D{{"charm-origin", origin}}}},
 			})
 		}
 		if len(ops) > 0 {

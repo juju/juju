@@ -13,7 +13,7 @@ func stateStepsFor317() []Step {
 			description: "ensure application charm origins have revisions",
 			targets:     []Target{DatabaseMaster},
 			run: func(context Context) error {
-				return context.State().EnsureApplicationCharmOriginsHaveRevisions()
+				return context.State().EnsureApplicationCharmOriginsNormalised()
 			},
 		},
 	}
