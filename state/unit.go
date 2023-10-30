@@ -269,7 +269,7 @@ func (u *Unit) AgentTools() (*tools.Tools, error) {
 // SetAgentVersion sets the version of juju that the agent is
 // currently running.
 func (u *Unit) SetAgentVersion(v version.Binary) (err error) {
-	defer errors.DeferredAnnotatef(&err, "cannot set agent version for unit %q", u)
+	defer errors.DeferredAnnotatef(&err, "setting agent version for unit %q", u)
 	if err = checkVersionValidity(v); err != nil {
 		return err
 	}

@@ -669,7 +669,7 @@ func (st *State) SetModelAgentVersion(newVersion version.Number, stream *string,
 		}
 
 		if upgrading, err := upgrader.IsUpgrading(); err != nil {
-			return nil, errors.Annotate(err, "cannot set agent version")
+			return nil, errors.Annotate(err, "setting agent version")
 		} else if upgrading {
 			return nil, errors.Trace(upgrade.ErrUpgradeInProgress)
 		}
@@ -695,7 +695,7 @@ func (st *State) SetModelAgentVersion(newVersion version.Number, stream *string,
 		// return a more helpful error message in the case of an
 		// active upgradeInfo document being in place.
 		if upgrading, err := upgrader.IsUpgrading(); err != nil {
-			return errors.Annotate(err, "cannot set agent version")
+			return errors.Annotate(err, "setting agent version")
 		} else if upgrading {
 			return errors.Trace(upgrade.ErrUpgradeInProgress)
 		}

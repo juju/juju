@@ -524,7 +524,7 @@ func checkVersionValidity(v version.Binary) error {
 // SetAgentVersion sets the version of juju that the agent is
 // currently running.
 func (m *Machine) SetAgentVersion(v version.Binary) (err error) {
-	defer errors.DeferredAnnotatef(&err, "cannot set agent version for machine %v", m)
+	defer errors.DeferredAnnotatef(&err, "setting agent version for machine %v", m)
 	ops, tools, err := m.setAgentVersionOps(v)
 	if err != nil {
 		return errors.Trace(err)
@@ -2312,7 +2312,7 @@ func (op *UpdateMachineOperation) Build(attempt int) ([]txn.Op, error) {
 	if op.AgentVersion != nil {
 		ops, _, err := op.m.setAgentVersionOps(*op.AgentVersion)
 		if err != nil {
-			return nil, errors.Annotate(err, "cannot set agent version")
+			return nil, errors.Annotate(err, "setting agent version")
 		}
 		allOps = append(allOps, ops...)
 	}

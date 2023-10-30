@@ -233,7 +233,7 @@ func (a *Application) AgentTools() (*tools.Tools, error) {
 
 // SetAgentVersion sets the Tools value in applicationDoc.
 func (a *Application) SetAgentVersion(v version.Binary) (err error) {
-	defer errors.DeferredAnnotatef(&err, "cannot set agent version for application %q", a)
+	defer errors.DeferredAnnotatef(&err, "setting agent version for application %q", a)
 	if err = checkVersionValidity(v); err != nil {
 		return errors.Trace(err)
 	}
