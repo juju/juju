@@ -26,6 +26,7 @@ import (
 	modelstate "github.com/juju/juju/domain/model/state"
 	modeltesting "github.com/juju/juju/domain/model/testing"
 	"github.com/juju/juju/internal/changestream/testing"
+	jujudb "github.com/juju/juju/internal/database"
 	jujutesting "github.com/juju/juju/testing"
 )
 
@@ -725,4 +726,14 @@ func (s *stateSuite) TestWatchCloud(c *gc.C) {
 	wc.AssertOneChange()
 
 	workertest.CleanKill(c, w)
+}
+
+// TestNullCloudType is a regression test to make sure that we don't allow null
+// cloud types.
+func (s *stateSuite) TestNullCloudType(c *gc.C) {
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, "INSERT INTO cloud_type (id, type) VALUES (99, NULL)")
+		return err
+	})
+	c.Assert(jujudb.IsErrConstraintNotNull(err), jc.IsTrue)
 }

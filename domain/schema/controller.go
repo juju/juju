@@ -129,7 +129,7 @@ func cloudSchema() schema.Patch {
 	return schema.MakePatch(`
 CREATE TABLE cloud_type (
     id   INT PRIMARY KEY,
-    type TEXT
+    type TEXT NOT NULL
 );
 
 CREATE UNIQUE INDEX idx_cloud_type_type
