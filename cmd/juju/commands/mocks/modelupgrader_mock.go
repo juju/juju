@@ -36,20 +36,6 @@ func (m *MockModelUpgraderAPI) EXPECT() *MockModelUpgraderAPIMockRecorder {
 	return m.recorder
 }
 
-// AbortModelUpgrade mocks base method.
-func (m *MockModelUpgraderAPI) AbortModelUpgrade(arg0 string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AbortModelUpgrade", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// AbortModelUpgrade indicates an expected call of AbortModelUpgrade.
-func (mr *MockModelUpgraderAPIMockRecorder) AbortModelUpgrade(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AbortModelUpgrade", reflect.TypeOf((*MockModelUpgraderAPI)(nil).AbortModelUpgrade), arg0)
-}
-
 // Close mocks base method.
 func (m *MockModelUpgraderAPI) Close() error {
 	m.ctrl.T.Helper()

@@ -4,13 +4,11 @@
 package commands
 
 import (
-	"bufio"
 	stderrors "errors"
 	"fmt"
 	"io"
 	"os"
 	"path"
-	"strings"
 	"time"
 
 	"github.com/juju/cmd/v3"
@@ -522,26 +520,4 @@ func (c *upgradeJujuCommand) notifyControllerUpgrade(
 		return chosenVersion, block.ProcessBlockedError(err, block.BlockChange)
 	}
 	return chosenVersion, nil
-}
-
-const resetPreviousUpgradeMessage = `
-WARNING! using --reset-previous-upgrade when an upgrade is in progress
-will cause the upgrade to fail. Only use this option to clear an
-incomplete upgrade where the root cause has been resolved.
-
-Continue [y/N]? `
-
-func (c *baseUpgradeCommand) confirmResetPreviousUpgrade(ctx *cmd.Context) (bool, error) {
-	if c.AssumeYes {
-		return true, nil
-	}
-	fmt.Fprint(ctx.Stdout, resetPreviousUpgradeMessage)
-	scanner := bufio.NewScanner(ctx.Stdin)
-	scanner.Scan()
-	err := scanner.Err()
-	if err != nil && err != io.EOF {
-		return false, err
-	}
-	answer := strings.ToLower(scanner.Text())
-	return answer == "y" || answer == "yes", nil
 }

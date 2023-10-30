@@ -4,7 +4,6 @@
 package commands
 
 import (
-	"bytes"
 	"fmt"
 
 	"github.com/juju/cmd/v3"
@@ -609,88 +608,6 @@ best version:
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
 started upgrade to 3.9.99
 `[1:])
-}
-
-func (s *upgradeNewSuite) assertResetPreviousUpgrade(c *gc.C, answer string, expectUpgrade bool, args ...string) {
-	s.reset(c)
-
-	c.Logf("answer %q, expectUpgrade %v, args %s", answer, expectUpgrade, args)
-
-	ctx := cmdtesting.Context(c)
-	var stdin bytes.Buffer
-	ctx.Stdin = &stdin
-
-	if answer != "" {
-		stdin.WriteString(answer)
-	}
-
-	ctrl, cmd := s.upgradeJujuCommand(c, false)
-	defer ctrl.Finish()
-
-	agentVersion := coretesting.FakeVersionNumber
-	cfg := coretesting.FakeConfig().Merge(coretesting.Attrs{
-		"agent-version": agentVersion.String(),
-	})
-
-	assertions := []*gomock.Call{
-		s.modelConfigAPI.EXPECT().ModelGet().Return(cfg, nil),
-		s.controllerAPI.EXPECT().ModelConfig().Return(cfg, nil),
-	}
-	if expectUpgrade {
-		assertions = append(assertions,
-			s.modelUpgrader.EXPECT().AbortModelUpgrade(coretesting.ModelTag.Id()).Return(nil),
-			s.modelUpgrader.EXPECT().UpgradeModel(
-				coretesting.ModelTag.Id(), version.Zero, "", false, false,
-			).Return(version.MustParse("3.9.99"), nil),
-		)
-	}
-
-	gomock.InOrder(assertions...)
-
-	err := cmdtesting.InitCommand(cmd,
-		append([]string{"--reset-previous-upgrade"}, args...))
-	c.Assert(err, jc.ErrorIsNil)
-	err = cmd.Run(ctx)
-	if expectUpgrade {
-		// ctx, err := cmdtesting.RunCommand(c, cmd)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
-best version:
-    3.9.99
-`[1:])
-		if answer != "" {
-			c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
-WARNING! using --reset-previous-upgrade when an upgrade is in progress
-will cause the upgrade to fail. Only use this option to clear an
-incomplete upgrade where the root cause has been resolved.
-
-Continue [y/N]? started upgrade to 3.9.99
-`)
-		} else {
-			c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
-started upgrade to 3.9.99
-`[1:])
-		}
-
-	} else {
-		c.Assert(err, gc.ErrorMatches, "previous upgrade not reset and no new upgrade triggered")
-	}
-}
-
-func (s *upgradeNewSuite) TestResetPreviousUpgrade(c *gc.C) {
-	s.assertResetPreviousUpgrade(c, "", false)
-
-	s.assertResetPreviousUpgrade(c, "", true, "-y")
-	s.assertResetPreviousUpgrade(c, "", true, "--yes")
-	s.assertResetPreviousUpgrade(c, "y", true)
-	s.assertResetPreviousUpgrade(c, "Y", true)
-	s.assertResetPreviousUpgrade(c, "yes", true)
-	s.assertResetPreviousUpgrade(c, "YES", true)
-
-	s.assertResetPreviousUpgrade(c, "n", false)
-	s.assertResetPreviousUpgrade(c, "N", false)
-	s.assertResetPreviousUpgrade(c, "no", false)
-	s.assertResetPreviousUpgrade(c, "foo", false)
 }
 
 func (s *upgradeNewSuite) TestCheckCanImplicitUploadIAASModel(c *gc.C) {
