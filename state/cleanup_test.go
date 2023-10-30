@@ -5,6 +5,7 @@ package state_test
 
 import (
 	"bytes"
+	"context"
 	"sort"
 	"strconv"
 	"time"
@@ -1185,7 +1186,7 @@ func (s *CleanupSuite) assertCleanupCAASEntityWithStorage(c *gc.C, deleteOp func
 
 	assertCleanups := func(n int) {
 		for i := 0; i < 4; i++ {
-			err := st.Cleanup()
+			err := st.Cleanup(context.Background(), state.NewObjectStore(c, s.State))
 			c.Assert(err, jc.ErrorIsNil)
 		}
 		state.AssertNoCleanups(c, st)
@@ -1711,7 +1712,7 @@ func (s *CleanupSuite) TestForceDestroyRelationIncorrectUnitCount(c *gc.C) {
 }
 
 func (s *CleanupSuite) assertCleanupRuns(c *gc.C) {
-	err := s.State.Cleanup()
+	err := s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 }
 

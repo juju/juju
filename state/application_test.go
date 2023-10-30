@@ -4,6 +4,7 @@
 package state_test
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"strings"
@@ -1982,7 +1983,7 @@ func (s *ApplicationSuite) TestSettingsRefCountWorks(c *gc.C) {
 	// invoke them now and check that the charms are cleaned up
 	// correctly -- and that a storm of cleanups for the same
 	// charm are not a problem.
-	err = s.State.Cleanup()
+	err = s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	err = oldCh.Refresh()
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
@@ -2738,7 +2739,7 @@ func (s *ApplicationSuite) TestAddUnitWhenNotAlive(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `cannot add unit to application "mysql": application is not found or not alive`)
 	c.Assert(u.EnsureDead(), jc.ErrorIsNil)
 	c.Assert(u.Remove(), jc.ErrorIsNil)
-	c.Assert(s.State.Cleanup(), jc.ErrorIsNil)
+	c.Assert(s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State)), jc.ErrorIsNil)
 	_, err = s.mysql.AddUnit(state.AddUnitParams{})
 	c.Assert(err, gc.ErrorMatches, `cannot add unit to application "mysql": application "mysql" not found`)
 }
@@ -2929,7 +2930,7 @@ func (s *ApplicationSuite) TestDestroyStillHasUnits(c *gc.C) {
 	c.Assert(s.mysql.Life(), gc.Equals, state.Dying)
 
 	c.Assert(unit.Remove(), jc.ErrorIsNil)
-	c.Assert(s.State.Cleanup(), jc.ErrorIsNil)
+	c.Assert(s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State)), jc.ErrorIsNil)
 	err = s.mysql.Refresh()
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
@@ -2985,7 +2986,7 @@ func (s *ApplicationSuite) TestDestroyStaleZeroUnitCount(c *gc.C) {
 	c.Assert(s.mysql.Life(), gc.Equals, state.Dying)
 
 	c.Assert(unit.Remove(), jc.ErrorIsNil)
-	c.Assert(s.State.Cleanup(), jc.ErrorIsNil)
+	c.Assert(s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State)), jc.ErrorIsNil)
 	err = s.mysql.Refresh()
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
@@ -3214,7 +3215,7 @@ func (s *ApplicationSuite) assertDestroyWithReferencedRelation(c *gc.C, refresh 
 	// Drop the last reference to the first relation; check the relation and
 	// the application are are both removed.
 	c.Assert(ru.LeaveScope(), jc.ErrorIsNil)
-	c.Assert(s.State.Cleanup(), jc.ErrorIsNil)
+	c.Assert(s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State)), jc.ErrorIsNil)
 	err = s.mysql.Refresh()
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	err = rel0.Refresh()
@@ -3246,7 +3247,7 @@ func (s *ApplicationSuite) TestDestroyQueuesUnitCleanup(c *gc.C) {
 	s.assertNeedsCleanup(c)
 
 	// Run the cleanup and check the units.
-	err = s.State.Cleanup()
+	err = s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	for i, unit := range units {
 		if i%2 != 0 {
@@ -3258,7 +3259,7 @@ func (s *ApplicationSuite) TestDestroyQueuesUnitCleanup(c *gc.C) {
 
 	// Check for queued unit cleanups, and run them.
 	s.assertNeedsCleanup(c)
-	err = s.State.Cleanup()
+	err = s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check we're now clean.
@@ -3276,7 +3277,7 @@ func (s *ApplicationSuite) TestRemoveApplicationMachine(c *gc.C) {
 	assertLife(c, s.mysql, state.Dying)
 
 	// Application.Destroy adds units to cleanup, make it happen now.
-	c.Assert(s.State.Cleanup(), gc.IsNil)
+	c.Assert(s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State)), gc.IsNil)
 
 	c.Assert(unit.Refresh(), jc.ErrorIs, errors.NotFound)
 	assertLife(c, machine, state.Dying)
@@ -3404,7 +3405,7 @@ func (s *ApplicationSuite) TestApplicationCleanupRemovesStorageConstraints(c *gc
 	// These next API calls are normally done by the uniter.
 	c.Assert(u.EnsureDead(), jc.ErrorIsNil)
 	c.Assert(u.Remove(), jc.ErrorIsNil)
-	c.Assert(s.State.Cleanup(), jc.ErrorIsNil)
+	c.Assert(s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State)), jc.ErrorIsNil)
 
 	// Ensure storage constraints and settings are now gone.
 	_, err = state.AppStorageConstraints(app)
@@ -3460,7 +3461,7 @@ func (s *ApplicationSuite) TestRemoveQueuesLocalCharmCleanup(c *gc.C) {
 	s.assertNeedsCleanup(c)
 
 	// Run the cleanup
-	err = s.State.Cleanup()
+	err = s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check charm removed
@@ -3493,7 +3494,7 @@ func (s *ApplicationSuite) TestDestroyQueuesResourcesCleanup(c *gc.C) {
 	c.Assert(state.IsBlobStored(c, s.State, storagePath), jc.IsTrue)
 
 	// Run the cleanup.
-	err = s.State.Cleanup()
+	err = s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check we're now clean.
@@ -3652,7 +3653,7 @@ func (s *ApplicationSuite) TestConstraintsLifecycle(c *gc.C) {
 	// Removed (== Dead, for a application).
 	c.Assert(unit.EnsureDead(), jc.ErrorIsNil)
 	c.Assert(unit.Remove(), jc.ErrorIsNil)
-	c.Assert(s.State.Cleanup(), jc.ErrorIsNil)
+	c.Assert(s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State)), jc.ErrorIsNil)
 	err = s.mysql.SetConstraints(cons1)
 	c.Assert(err, gc.ErrorMatches, `cannot set constraints: application is not found or not alive`)
 	_, err = s.mysql.Constraints()
@@ -5705,7 +5706,7 @@ func (s *CAASApplicationSuite) TestUpsertCAASUnit(c *gc.C) {
 	err = unit.Remove()
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = st.Cleanup()
+	err = st.Cleanup(context.Background(), state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 
 	unit, err = cockroachdb.UpsertCAASUnit(p)

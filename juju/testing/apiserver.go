@@ -60,6 +60,7 @@ import (
 	databasetesting "github.com/juju/juju/internal/database/testing"
 	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/internal/mongo/mongotest"
+	internalobjectstore "github.com/juju/juju/internal/objectstore"
 	"github.com/juju/juju/internal/pubsub/centralhub"
 	"github.com/juju/juju/jujuclient"
 	_ "github.com/juju/juju/provider/dummy"
@@ -69,7 +70,6 @@ import (
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/worker/lease"
 	wmultiwatcher "github.com/juju/juju/worker/multiwatcher"
-	workerobjectstore "github.com/juju/juju/worker/objectstore"
 )
 
 const AdminSecret = "dummy-secret"
@@ -670,7 +670,7 @@ func (s *stubObjectStoreGetter) GetObjectStore(ctx context.Context, namespace st
 		return nil, err
 	}
 
-	return workerobjectstore.NewStateObjectStore(ctx, namespace, state, loggo.GetLogger("juju.worker.objectstore"))
+	return internalobjectstore.NewStateObjectStore(ctx, namespace, state, loggo.GetLogger("juju.worker.objectstore"))
 }
 
 type stubObjectStore struct{}

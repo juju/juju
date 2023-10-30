@@ -14,6 +14,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/trace"
+	internalobjectstore "github.com/juju/juju/internal/objectstore"
 	"github.com/juju/juju/state"
 )
 
@@ -51,7 +52,7 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		TraceName: "trace",
 		Clock:     s.clock,
 		Logger:    s.logger,
-		NewObjectStoreWorker: func(context.Context, string, MongoSession, Logger) (TrackedObjectStore, error) {
+		NewObjectStoreWorker: func(context.Context, string, internalobjectstore.MongoSession, internalobjectstore.Logger) (internalobjectstore.TrackedObjectStore, error) {
 			return nil, nil
 		},
 	}

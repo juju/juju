@@ -4,6 +4,7 @@
 package state
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -30,16 +31,19 @@ import (
 
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/internal/mongo/utils"
+	internalobjectstore "github.com/juju/juju/internal/objectstore"
 	"github.com/juju/juju/state/storage"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testcharms/repo"
+	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 )
 
@@ -1242,4 +1246,11 @@ func (m *Model) AllActionIDsHasActionNotifications() ([]string, error) {
 		actionIDs[i] = doc.ActionID
 	}
 	return actionIDs, nil
+}
+
+func NewObjectStore(c *gc.C, st *State) objectstore.WriteObjectStore {
+	// This will be removed when the worker object store is enabled by default.
+	store, err := internalobjectstore.NewStateObjectStore(context.Background(), st.ModelUUID(), st, coretesting.NewCheckLogger(c))
+	c.Assert(err, jc.ErrorIsNil)
+	return store
 }

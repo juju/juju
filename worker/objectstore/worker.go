@@ -15,6 +15,7 @@ import (
 
 	coreobjectstore "github.com/juju/juju/core/objectstore"
 	coretrace "github.com/juju/juju/core/trace"
+	internalobjectstore "github.com/juju/juju/internal/objectstore"
 	"github.com/juju/juju/worker/trace"
 )
 
@@ -36,7 +37,7 @@ type WorkerConfig struct {
 	TracerGetter         trace.TracerGetter
 	Clock                clock.Clock
 	Logger               Logger
-	NewObjectStoreWorker ObjectStoreWorkerFunc
+	NewObjectStoreWorker internalobjectstore.ObjectStoreWorkerFunc
 
 	// StatePool is only here for backwards compatibility. Once we have
 	// the right abstractions in place, and we have a replacement, we can

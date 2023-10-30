@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	coreobjectstore "github.com/juju/juju/core/objectstore"
+	internalobjectstore "github.com/juju/juju/internal/objectstore"
 	jujustate "github.com/juju/juju/state"
 	"github.com/juju/juju/worker/common"
 	"github.com/juju/juju/worker/state"
@@ -52,10 +53,6 @@ type MongoSession interface {
 	MongoSession() *mgo.Session
 }
 
-// ObjectStoreWorkerFunc is the function signature for creating a new object
-// store worker.
-type ObjectStoreWorkerFunc func(context.Context, string, MongoSession, Logger) (TrackedObjectStore, error)
-
 // ManifoldConfig defines the configuration for the trace manifold.
 type ManifoldConfig struct {
 	AgentName string
@@ -63,7 +60,7 @@ type ManifoldConfig struct {
 
 	Clock                clock.Clock
 	Logger               Logger
-	NewObjectStoreWorker ObjectStoreWorkerFunc
+	NewObjectStoreWorker internalobjectstore.ObjectStoreWorkerFunc
 
 	// StateName is only here for backwards compatibility. Once we have
 	// the right abstractions in place, and we have a replacement, we can

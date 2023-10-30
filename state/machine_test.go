@@ -369,7 +369,7 @@ func (s *MachineSuite) TestLifeJobManageModelWithControllerCharm(c *gc.C) {
 		needsCleanup, err := s.State.NeedsCleanup()
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(needsCleanup, jc.IsTrue)
-		err = s.State.Cleanup()
+		err = s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State))
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	needsCleanup, err := s.State.NeedsCleanup()

@@ -4,6 +4,8 @@
 package state_test
 
 import (
+	"context"
+
 	"github.com/juju/mgo/v3"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -330,7 +332,7 @@ func (s *MinUnitsSuite) TestEnsureMinUnitsApplicationNotAlive(c *gc.C) {
 	c.Assert(s.application.EnsureMinUnits(), gc.ErrorMatches, expectedErr)
 
 	// An error is returned if the application was removed.
-	err = s.State.Cleanup()
+	err = s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.application.EnsureMinUnits(), gc.ErrorMatches, expectedErr)
 }
