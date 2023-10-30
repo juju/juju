@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/controller/crosscontroller"
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/paths"
@@ -330,7 +331,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 		// Each machine agent has a flag manifold/worker which
 		// reports whether or not the agent is a controller.
-		isControllerFlagName: isControllerFlagManifold(true),
+		isControllerFlagName: util.IsControllerFlagManifold(stateConfigWatcherName, true),
 
 		// Controller agent config manifold watches the controller
 		// agent config and bounces if it changes.
@@ -1005,7 +1006,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			ContainerType:                instance.LXD,
 		})),
 		// isNotControllerFlagName is only used for the stateconverter,
-		isNotControllerFlagName: isControllerFlagManifold(false),
+		isNotControllerFlagName: util.IsControllerFlagManifold(stateConfigWatcherName, false),
 		stateConverterName: ifNotController(ifNotMigrating(stateconverter.Manifold(stateconverter.ManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,

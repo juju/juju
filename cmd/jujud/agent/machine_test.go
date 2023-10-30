@@ -145,17 +145,17 @@ func (s *MachineSuite) SetUpTest(c *gc.C) {
 
 func (s *MachineSuite) TestParseNonsense(c *gc.C) {
 	aCfg := agentconf.NewAgentConf(s.DataDir)
-	err := ParseAgentCommand(&machineAgentCmd{agentInitializer: aCfg}, nil)
+	err := ParseAgentCommand(&machineAgentCommand{agentInitializer: aCfg}, nil)
 	c.Assert(err, gc.ErrorMatches, "either machine-id or controller-id must be set")
-	err = ParseAgentCommand(&machineAgentCmd{agentInitializer: aCfg}, []string{"--machine-id", "-4004"})
+	err = ParseAgentCommand(&machineAgentCommand{agentInitializer: aCfg}, []string{"--machine-id", "-4004"})
 	c.Assert(err, gc.ErrorMatches, "--machine-id option must be a non-negative integer")
-	err = ParseAgentCommand(&machineAgentCmd{agentInitializer: aCfg}, []string{"--controller-id", "-4004"})
+	err = ParseAgentCommand(&machineAgentCommand{agentInitializer: aCfg}, []string{"--controller-id", "-4004"})
 	c.Assert(err, gc.ErrorMatches, "--controller-id option must be a non-negative integer")
 }
 
 func (s *MachineSuite) TestParseUnknown(c *gc.C) {
 	aCfg := agentconf.NewAgentConf(s.DataDir)
-	a := &machineAgentCmd{agentInitializer: aCfg}
+	a := &machineAgentCommand{agentInitializer: aCfg}
 	err := ParseAgentCommand(a, []string{"--machine-id", "42", "blistering barnacles"})
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["blistering barnacles"\]`)
 }
@@ -171,7 +171,7 @@ func (s *MachineSuite) TestParseSuccess(c *gc.C) {
 		newDBWorkerFunc := func(stdcontext.Context, dbaccessor.DBApp, string, ...dbaccessor.TrackedDBWorkerOption) (dbaccessor.TrackedDB, error) {
 			return databasetesting.NewTrackedDB(s.TxnRunnerFactory()), nil
 		}
-		a := NewMachineAgentCmd(
+		a := NewMachineAgentCommand(
 			nil,
 			NewTestMachineAgentFactory(c, aCfg, logger, newDBWorkerFunc, c.MkDir(), s.cmdRunner),
 			aCfg,
@@ -180,7 +180,7 @@ func (s *MachineSuite) TestParseSuccess(c *gc.C) {
 		return a, aCfg
 	}
 	a := CheckAgentCommand(c, s.DataDir, create, []string{"--machine-id", "42", "--log-to-stderr", "--data-dir", s.DataDir})
-	c.Assert(a.(*machineAgentCmd).machineId, gc.Equals, "42")
+	c.Assert(a.(*machineAgentCommand).machineId, gc.Equals, "42")
 }
 
 func (s *MachineSuite) TestUseLumberjack(c *gc.C) {
@@ -194,14 +194,14 @@ func (s *MachineSuite) TestUseLumberjack(c *gc.C) {
 	newDBWorkerFunc := func(stdcontext.Context, dbaccessor.DBApp, string, ...dbaccessor.TrackedDBWorkerOption) (dbaccessor.TrackedDB, error) {
 		return databasetesting.NewTrackedDB(s.TxnRunnerFactory()), nil
 	}
-	a := NewMachineAgentCmd(
+	a := NewMachineAgentCommand(
 		ctx,
 		NewTestMachineAgentFactory(c, &agentConf, logger, newDBWorkerFunc, c.MkDir(), s.cmdRunner),
 		agentConf,
 		agentConf,
 	)
 	// little hack to set the data that Init expects to already be set
-	a.(*machineAgentCmd).machineId = "42"
+	a.(*machineAgentCommand).machineId = "42"
 
 	err := a.Init(nil)
 	c.Assert(err, gc.IsNil)
@@ -225,17 +225,17 @@ func (s *MachineSuite) TestDontUseLumberjack(c *gc.C) {
 	newDBWorkerFunc := func(stdcontext.Context, dbaccessor.DBApp, string, ...dbaccessor.TrackedDBWorkerOption) (dbaccessor.TrackedDB, error) {
 		return databasetesting.NewTrackedDB(s.TxnRunnerFactory()), nil
 	}
-	a := NewMachineAgentCmd(
+	a := NewMachineAgentCommand(
 		ctx,
 		NewTestMachineAgentFactory(c, &agentConf, logger, newDBWorkerFunc, c.MkDir(), s.cmdRunner),
 		agentConf,
 		agentConf,
 	)
 	// little hack to set the data that Init expects to already be set
-	a.(*machineAgentCmd).machineId = "42"
+	a.(*machineAgentCommand).machineId = "42"
 
 	// set the value that normally gets set by the flag parsing
-	a.(*machineAgentCmd).logToStdErr = true
+	a.(*machineAgentCommand).logToStdErr = true
 
 	err := a.Init(nil)
 	c.Assert(err, gc.IsNil)
