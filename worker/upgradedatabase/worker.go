@@ -216,7 +216,10 @@ func (w *upgradeDBWorker) loop() error {
 			w.logger.Tracef("upgrade already started, watching upgrade")
 			return w.watchUpgrade(ctx)
 		}
-		return errors.Annotatef(err, "create upgrade from: %v to: %v", w.fromVersion, w.toVersion)
+		w.logger.Errorf("failed to create upgrade: %v\nmanual manual intervention is required", err)
+		// Failed to set the upgrade as failed, we can't do anything
+		// here. It requires a manual intervention to fix the problem.
+		return nil
 	}
 
 	return w.runUpgrade(upgradeUUID)
@@ -237,7 +240,7 @@ func (w *upgradeDBWorker) watchUpgrade(ctx context.Context) error {
 			// we just didn't know about it in time.
 			return dependency.ErrBounce
 		}
-		return errors.Trace(err)
+		return w.abortWithError(ctx, upgradeUUID, err)
 	}
 
 	info, err := w.upgradeService.UpgradeInfo(ctx, upgradeUUID)
@@ -250,7 +253,7 @@ func (w *upgradeDBWorker) watchUpgrade(ctx context.Context) error {
 			// we just didn't know about it in time.
 			return dependency.ErrBounce
 		}
-		return errors.Trace(err)
+		return w.abortWithError(ctx, upgradeUUID, err)
 	}
 
 	if info.State == upgrade.Error {
@@ -263,20 +266,20 @@ func (w *upgradeDBWorker) watchUpgrade(ctx context.Context) error {
 
 	completedWatcher, err := w.upgradeService.WatchForUpgradeState(ctx, upgradeUUID, upgrade.DBCompleted)
 	if err != nil {
-		return errors.Annotate(err, "watch completed upgrade")
+		return w.abortWithError(ctx, upgradeUUID, errors.Annotate(err, "watch completed upgrade"))
 	}
 
 	if err := w.addWatcher(ctx, completedWatcher); err != nil {
-		return errors.Trace(err)
+		return w.abortWithError(ctx, upgradeUUID, err)
 	}
 
 	failedWatcher, err := w.upgradeService.WatchForUpgradeState(ctx, upgradeUUID, upgrade.Error)
 	if err != nil {
-		return errors.Annotate(err, "watch failed upgrade")
+		return w.abortWithError(ctx, upgradeUUID, errors.Annotate(err, "watch failed upgrade"))
 	}
 
 	if err := w.addWatcher(ctx, failedWatcher); err != nil {
-		return errors.Trace(err)
+		return w.abortWithError(ctx, upgradeUUID, err)
 	}
 
 	// Mark this controller as ready to start the upgrade. We do this after
@@ -340,11 +343,11 @@ func (w *upgradeDBWorker) runUpgrade(upgradeUUID domainupgrade.UUID) error {
 	// controllers are sync'd and waiting for the leader to start the upgrade.
 	watcher, err := w.upgradeService.WatchForUpgradeReady(ctx, upgradeUUID)
 	if err != nil {
-		return errors.Trace(err)
+		return w.abortWithError(ctx, upgradeUUID, err)
 	}
 
 	if err := w.addWatcher(ctx, watcher); err != nil {
-		return errors.Trace(err)
+		return w.abortWithError(ctx, upgradeUUID, err)
 	}
 
 	// Ensure we mark this controller as ready to start the upgrade. We do this
@@ -354,7 +357,7 @@ func (w *upgradeDBWorker) runUpgrade(upgradeUUID domainupgrade.UUID) error {
 		// cause the upgrade to be marked as failed, and the next time the agent
 		// restarts, it will try again.
 		w.logger.Errorf("failed to set controller ready: %v", err)
-		return w.abort(ctx, upgradeUUID)
+		return w.abortWithError(ctx, upgradeUUID, err)
 	}
 	w.logger.Infof("marking the controller ready for upgrade")
 
@@ -395,8 +398,12 @@ func (w *upgradeDBWorker) runUpgrade(upgradeUUID domainupgrade.UUID) error {
 	}
 }
 
-// abort marks the upgrade as failed and returns dependency.ErrBounce.
 func (w *upgradeDBWorker) abort(ctx context.Context, upgradeUUID domainupgrade.UUID) error {
+	return w.abortWithError(ctx, upgradeUUID, dependency.ErrBounce)
+}
+
+// abort marks the upgrade as failed and returns dependency.ErrBounce.
+func (w *upgradeDBWorker) abortWithError(ctx context.Context, upgradeUUID domainupgrade.UUID, err error) error {
 	// Set the upgrade as failed, so that the next time the agent
 	// restarts, it will try again.
 	if err := w.upgradeService.SetDBUpgradeFailed(ctx, upgradeUUID); err != nil {
@@ -407,7 +414,7 @@ func (w *upgradeDBWorker) abort(ctx context.Context, upgradeUUID domainupgrade.U
 		return nil
 	}
 
-	return dependency.ErrBounce
+	return errors.Trace(err)
 }
 
 func (w *upgradeDBWorker) performUpgrade(ctx context.Context, upgradeUUID domainupgrade.UUID) error {

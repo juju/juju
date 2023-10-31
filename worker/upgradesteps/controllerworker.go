@@ -144,7 +144,7 @@ func (w *controllerWorker) run() error {
 	// We're not in the right state, so we can't proceed.
 	if info.State != upgrade.DBCompleted {
 		w.logger.Errorf("upgrade %q is not in the db completed state %q", upgradeUUID, info.State.String())
-		return w.abort(ctx, upgradesteps.ErrUpgradeStepsInvalidState, upgradeUUID)
+		return w.abort(ctx, upgradeUUID, upgradesteps.ErrUpgradeStepsInvalidState)
 	}
 
 	// Watch for all the upgrade steps to be completed by all the controllers.
@@ -197,7 +197,7 @@ func (w *controllerWorker) run() error {
 			// One or all of the controllers have failed their upgrade steps,
 			// so we can't proceed with the upgrade.
 			w.logger.Errorf("upgrade steps failed")
-			return w.abort(ctx, upgradesteps.ErrFailedUpgradeSteps, upgradeUUID)
+			return w.abort(ctx, upgradeUUID, upgradesteps.ErrFailedUpgradeSteps)
 
 		case err := <-stepsWorker.Err():
 			// The upgrade steps worker has completed, so we can now proceed
@@ -211,7 +211,7 @@ func (w *controllerWorker) run() error {
 				}
 				// If any of the steps have failed, abort the upgrade steps
 				// and wait for the user to intervene.
-				return w.abort(ctx, err, upgradeUUID)
+				return w.abort(ctx, upgradeUUID, err)
 			}
 
 			// Mark the upgrade as completed for this controller machine.
@@ -219,7 +219,7 @@ func (w *controllerWorker) run() error {
 				// We failed to mark the upgrade as completed, so we can't
 				// proceed. We'll report the error and wait for the user to
 				// intervene.
-				return w.abort(ctx, err, upgradeUUID)
+				return w.abort(ctx, upgradeUUID, err)
 			}
 
 			// We now wait for all the other controllers to complete before
@@ -229,7 +229,7 @@ func (w *controllerWorker) run() error {
 		case <-w.base.Clock.After(upgradesteps.DefaultUpgradeTimeout):
 			// We've timed out waiting for the upgrade steps to complete.
 			w.logger.Errorf("timed out waiting for upgrade steps to complete")
-			return w.abort(ctx, upgradesteps.ErrUpgradeTimeout, upgradeUUID)
+			return w.abort(ctx, upgradeUUID, upgradesteps.ErrUpgradeTimeout)
 		}
 	}
 }
@@ -253,7 +253,7 @@ func (w *controllerWorker) addWatcher(ctx context.Context, watcher eventsource.W
 	return nil
 }
 
-func (w *controllerWorker) abort(ctx context.Context, err error, upgradeUUID domainupgrade.UUID) error {
+func (w *controllerWorker) abort(ctx context.Context, upgradeUUID domainupgrade.UUID, err error) error {
 	// Set the status to error, we can't proceed with the upgrade.
 	// Ignore the error as it's not critical if it fails.
 	_ = w.base.StatusSetter.SetStatus(status.Error, "failed to perform upgrade steps, check logs.", nil)
