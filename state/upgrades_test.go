@@ -6,7 +6,6 @@ package state
 import (
 	"sort"
 
-	"github.com/juju/charm/v11"
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3"
 	"github.com/juju/mgo/v3/bson"
@@ -15,6 +14,7 @@ import (
 	"github.com/kr/pretty"
 	gc "gopkg.in/check.v1"
 
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/storage/provider"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -151,24 +151,24 @@ func (s *upgradesSuite) TestEnsureInitalRefCountForExternalSecretBackends(c *gc.
 	s.assertUpgradedData(c, EnsureInitalRefCountForExternalSecretBackends, expectedData)
 }
 
-func (s *upgradesSuite) TestEnsureApplicationCharmOriginsHaveRevisions(c *gc.C) {
+func (s *upgradesSuite) TestEnsureApplicationCharmOriginsNormaliseLocal(c *gc.C) {
 	ch := AddTestingCharm(c, s.state, "dummy")
 	platform := Platform{OS: "ubuntu", Channel: "20.04"}
+	rev := 6
 	_ = addTestingApplication(c, addTestingApplicationParams{
 		st:   s.state,
 		name: "my-local-app",
 		ch:   ch,
 		origin: &CharmOrigin{
-			Source:   charm.Local.String(),
+			Source:   corecharm.CharmHub.String(),
 			Platform: &platform,
+			Hash:     "some-hash",
+			ID:       "some-id",
+			Revision: &rev,
+			Channel:  &Channel{Track: "20.04", Risk: "stable", Branch: "deadbeef"},
 		},
 		numUnits: 1,
 	})
-
-	apps, err := s.state.AllApplications()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(apps, gc.HasLen, 1)
-	c.Assert(apps[0].CharmOrigin().Revision, gc.IsNil)
 
 	expected := bsonMById{{
 		"_id": s.state.docID("my-local-app"),
@@ -200,5 +200,58 @@ func (s *upgradesSuite) TestEnsureApplicationCharmOriginsHaveRevisions(c *gc.C) 
 	defer closer()
 
 	expectedData := upgradedData(appColl, expected)
-	s.assertUpgradedData(c, EnsureApplicationCharmOriginsHaveRevisions, expectedData)
+	s.assertUpgradedData(c, EnsureApplicationCharmOriginsNormalised, expectedData)
+}
+
+func (s *upgradesSuite) TestEnsureApplicationCharmOriginsNormaliseCH(c *gc.C) {
+	ch := AddTestingCharmhubCharmForSeries(c, s.state, "quantal", "dummy")
+	platform := Platform{OS: "ubuntu", Channel: "20.04"}
+	rev := 6
+	_ = addTestingApplication(c, addTestingApplicationParams{
+		st:   s.state,
+		name: "my-local-app",
+		ch:   ch,
+		origin: &CharmOrigin{
+			Source:   corecharm.Local.String(),
+			Platform: &platform,
+			Hash:     "some-hash",
+			ID:       "some-id",
+			Revision: &rev,
+			Channel:  &Channel{Track: "20.04", Risk: "stable", Branch: "deadbeef"},
+		},
+		numUnits: 1,
+	})
+
+	expected := bsonMById{{
+		"_id": s.state.docID("my-local-app"),
+		"charm-origin": bson.M{
+			"hash":     "some-hash",
+			"id":       "some-id",
+			"platform": bson.M{"os": "ubuntu", "channel": "20.04"},
+			"channel":  bson.M{"track": "20.04", "risk": "stable", "branch": "deadbeef"},
+			"source":   "charm-hub",
+			"revision": 1,
+		},
+		"charmmodifiedversion": 0,
+		"charmurl":             "ch:amd64/quantal/dummy-1",
+		"exposed":              false,
+		"forcecharm":           false,
+		"life":                 0,
+		"metric-credentials":   []uint8{},
+		"minunits":             0,
+		"model-uuid":           s.state.ModelUUID(),
+		"name":                 "my-local-app",
+		"passwordhash":         "",
+		"provisioning-state":   nil,
+		"relationcount":        0,
+		"scale":                0,
+		"subordinate":          false,
+		"unitcount":            1,
+	}}
+
+	appColl, closer := s.state.db().GetRawCollection(applicationsC)
+	defer closer()
+
+	expectedData := upgradedData(appColl, expected)
+	s.assertUpgradedData(c, EnsureApplicationCharmOriginsNormalised, expectedData)
 }
