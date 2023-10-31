@@ -876,7 +876,7 @@ func (s *ApplicationSuite) TestDestroyApplication(c *gc.C) {
 		s.expectUnit(ctrl, "postgresql/0"),
 		s.expectUnit(ctrl, "postgresql/1"),
 	}, nil)
-	app.EXPECT().DestroyOperation().Return(&state.DestroyApplicationOperation{})
+	app.EXPECT().DestroyOperation(gomock.Any()).Return(&state.DestroyApplicationOperation{})
 	s.backend.EXPECT().Application("postgresql").Return(app, nil)
 
 	s.expectDefaultStorageAttachments(ctrl)
@@ -917,7 +917,7 @@ func (s *ApplicationSuite) TestForceDestroyApplication(c *gc.C) {
 		s.expectUnit(ctrl, "postgresql/0"),
 		s.expectUnit(ctrl, "postgresql/1"),
 	}, nil)
-	app.EXPECT().DestroyOperation().Return(&state.DestroyApplicationOperation{})
+	app.EXPECT().DestroyOperation(gomock.Any()).Return(&state.DestroyApplicationOperation{})
 	s.backend.EXPECT().Application("postgresql").Return(app, nil)
 
 	s.expectDefaultStorageAttachments(ctrl)
@@ -948,7 +948,7 @@ func (s *ApplicationSuite) TestDestroyApplicationDestroyStorage(c *gc.C) {
 		s.expectUnit(ctrl, "postgresql/0"),
 		s.expectUnit(ctrl, "postgresql/1"),
 	}, nil)
-	app.EXPECT().DestroyOperation().Return(&state.DestroyApplicationOperation{})
+	app.EXPECT().DestroyOperation(gomock.Any()).Return(&state.DestroyApplicationOperation{})
 	s.backend.EXPECT().Application("postgresql").Return(app, nil)
 
 	s.expectDefaultStorageAttachments(ctrl)

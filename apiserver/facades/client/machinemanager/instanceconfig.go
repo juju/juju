@@ -32,7 +32,7 @@ type InstanceConfigBackend interface {
 // It is exposed for testing purposes.
 // TODO(rog) fix environs/manual tests so they do not need to call this, or move this elsewhere.
 func InstanceConfig(
-	ctx context.Context, controllerConfigGetter ControllerConfigGetter, ctrlSt ControllerBackend, st InstanceConfigBackend,
+	ctx context.Context, controllerConfigService ControllerConfigService, ctrlSt ControllerBackend, st InstanceConfigBackend,
 	cloudService common.CloudService, credentialService common.CredentialService, machineId, nonce, dataDir string,
 ) (*instancecfg.InstanceConfig, error) {
 	model, err := st.Model()
@@ -74,7 +74,7 @@ func InstanceConfig(
 	newEnviron := func(ctx context.Context) (environs.BootstrapEnviron, error) {
 		return environs.GetEnviron(ctx, configGetter, environs.New)
 	}
-	toolsFinder := common.NewToolsFinder(controllerConfigGetter, configGetter, st, urlGetter, newEnviron)
+	toolsFinder := common.NewToolsFinder(controllerConfigService, configGetter, st, urlGetter, newEnviron)
 	toolsList, err := toolsFinder.FindAgents(ctx, common.FindAgentsParams{
 		Number: agentVersion,
 		OSType: machine.Base().OS,

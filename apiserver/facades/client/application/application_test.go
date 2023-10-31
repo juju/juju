@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/storage/poolmanager"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -46,6 +47,8 @@ type applicationSuite struct {
 	application    *state.Application
 	authorizer     *apiservertesting.FakeAuthorizer
 	lastKnownRev   map[string]int
+
+	store objectstore.ObjectStore
 }
 
 var _ = gc.Suite(&applicationSuite{})
@@ -64,6 +67,8 @@ func (s *applicationSuite) SetUpTest(c *gc.C) {
 	}
 	s.applicationAPI = s.makeAPI(c)
 	s.lastKnownRev = make(map[string]int)
+
+	s.store = jujutesting.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State())
 }
 
 func (s *applicationSuite) makeAPI(c *gc.C) *application.APIBase {
@@ -973,7 +978,7 @@ func (s *applicationSuite) TestApplicationUnexpose(c *gc.C) {
 		} else {
 			c.Assert(err, gc.ErrorMatches, t.err)
 		}
-		err = app.Destroy()
+		err = app.Destroy(s.store)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 }
@@ -996,14 +1001,14 @@ func (s *applicationSuite) assertApplicationUnexpose(c *gc.C, app *state.Applica
 	c.Assert(err, jc.ErrorIsNil)
 	app.Refresh()
 	c.Assert(app.IsExposed(), gc.Equals, false)
-	err = app.Destroy()
+	err = app.Destroy(s.store)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *applicationSuite) assertApplicationUnexposeBlocked(c *gc.C, app *state.Application, msg string) {
 	err := s.applicationAPI.Unexpose(context.Background(), params.ApplicationUnexpose{ApplicationName: "dummy-application"})
 	s.AssertBlocked(c, err, msg)
-	err = app.Destroy()
+	err = app.Destroy(s.store)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

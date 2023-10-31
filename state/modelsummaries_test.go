@@ -409,7 +409,7 @@ func (s *ModelSummariesSuite) TestContainsMachineInformation(c *gc.C) {
 		CpuCores: &threecores,
 	}, nil, nil, nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	err = mDying.Destroy()
+	err = mDying.Destroy(state.NewObjectStore(c, shared.State))
 	c.Assert(err, jc.ErrorIsNil)
 	// Instance data, but no core count
 	m4, err := shared.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)

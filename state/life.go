@@ -75,8 +75,12 @@ var valueMap = map[life.Value]Life{
 
 // Living describes state entities with a lifecycle.
 type Living interface {
+	LifeRefresher
+	Destroy(objectstore.ObjectStore) error
+}
+
+type LifeRefresher interface {
 	Life() Life
-	Destroy() error
 	Refresh() error
 }
 

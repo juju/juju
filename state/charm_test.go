@@ -280,7 +280,7 @@ func (s *CharmSuite) TestDestroyUnreferencedCharm(c *gc.C) {
 	app := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Charm: s.charm,
 	})
-	err := app.Destroy()
+	err := app.Destroy(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.charm.Destroy()
@@ -320,7 +320,7 @@ func (s *CharmSuite) TestDestroyFinalUnitReference(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Logf("calling app.Destroy()")
-	c.Assert(app.Destroy(), jc.ErrorIsNil)
+	c.Assert(app.Destroy(state.NewObjectStore(c, s.State)), jc.ErrorIsNil)
 	removeUnit(c, s.State, unit)
 
 	assertCleanupCount(c, s.State, 2)

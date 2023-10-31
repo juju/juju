@@ -1072,7 +1072,7 @@ func (s *allWatcherStateSuite) TestApplicationSettings(c *gc.C) {
 		},
 	})
 	// 2nd scenario part: destroy the application and signal change.
-	err = app.Destroy()
+	err = app.Destroy(NewObjectStore(c, s.state))
 	c.Assert(err, jc.ErrorIsNil)
 	err = b.Changed(all, watcher.Change{
 		C:  "applications",

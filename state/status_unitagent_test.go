@@ -171,7 +171,7 @@ func (s *StatusUnitAgentSuite) checkGetSetStatus(c *gc.C) {
 
 func (s *StatusUnitAgentSuite) TestGetSetStatusDying(c *gc.C) {
 	preventUnitDestroyRemove(c, s.unit)
-	err := s.unit.Destroy()
+	err := s.unit.Destroy(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.checkGetSetStatus(c)
@@ -179,7 +179,7 @@ func (s *StatusUnitAgentSuite) TestGetSetStatusDying(c *gc.C) {
 
 func (s *StatusUnitAgentSuite) TestGetSetStatusDead(c *gc.C) {
 	preventUnitDestroyRemove(c, s.unit)
-	err := s.unit.Destroy()
+	err := s.unit.Destroy(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
@@ -191,7 +191,7 @@ func (s *StatusUnitAgentSuite) TestGetSetStatusDead(c *gc.C) {
 }
 
 func (s *StatusUnitAgentSuite) TestGetSetStatusGone(c *gc.C) {
-	err := s.unit.Destroy()
+	err := s.unit.Destroy(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 
 	now := testing.ZeroTime()

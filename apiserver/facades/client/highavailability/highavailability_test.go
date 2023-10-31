@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -32,6 +33,8 @@ type clientSuite struct {
 	haServer   *highavailability.HighAvailabilityAPI
 
 	commontesting.BlockHelper
+
+	store objectstore.ObjectStore
 }
 
 var _ = gc.Suite(&clientSuite{})
@@ -73,6 +76,8 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 	// create more to replace them.
 	s.BlockHelper = commontesting.NewBlockHelper(s.OpenControllerModelAPI(c))
 	s.AddCleanup(func(*gc.C) { s.BlockHelper.Close() })
+
+	s.store = testing.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State())
 }
 
 func (s *clientSuite) setMachineAddresses(c *gc.C, machineId string) {
@@ -432,7 +437,7 @@ func (s *clientSuite) TestEnableHA0Preserves(c *gc.C) {
 
 	// Now, we keep agent 1 alive, but not agent 2, calling
 	// EnableHA(0) again will cause us to start another machine
-	c.Assert(machines[2].Destroy(), jc.ErrorIsNil)
+	c.Assert(machines[2].Destroy(s.store), jc.ErrorIsNil)
 	c.Assert(machines[2].Refresh(), jc.ErrorIsNil)
 	node, err := st.ControllerNode(machines[2].Id())
 	c.Assert(err, jc.ErrorIsNil)
@@ -476,7 +481,7 @@ func (s *clientSuite) TestEnableHA0Preserves5(c *gc.C) {
 	s.setMachineAddresses(c, "2")
 	s.setMachineAddresses(c, "3")
 	s.setMachineAddresses(c, "4")
-	c.Assert(machines[4].Destroy(), jc.ErrorIsNil)
+	c.Assert(machines[4].Destroy(s.store), jc.ErrorIsNil)
 	c.Assert(machines[4].Refresh(), jc.ErrorIsNil)
 	node, err := st.ControllerNode(machines[4].Id())
 	c.Assert(err, jc.ErrorIsNil)

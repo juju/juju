@@ -22,6 +22,7 @@ import (
 	k8stesting "github.com/juju/juju/caas/kubernetes/provider/testing"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/feature"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
@@ -55,6 +56,8 @@ type uniterSuiteBase struct {
 	mysql             *state.Application
 	mysqlUnit         *state.Unit
 	leadershipChecker *fakeLeadershipChecker
+
+	store objectstore.ObjectStore
 }
 
 func (s *uniterSuiteBase) SetUpTest(c *gc.C) {
@@ -85,6 +88,8 @@ func (s *uniterSuiteBase) SetUpTest(c *gc.C) {
 	s.leadershipChecker = &fakeLeadershipChecker{false}
 	s.uniter = s.newUniterAPI(c, s.ControllerModel(c).State(), s.authorizer)
 	s.PatchValue(&provider.NewK8sClients, k8stesting.NoopFakeK8sClients)
+
+	s.store = testing.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State())
 }
 
 // setupState creates 2 machines, 2 services and adds a unit to each service.
@@ -135,6 +140,7 @@ func (s *uniterSuiteBase) facadeContext(c *gc.C) facadetest.Context {
 		Auth_:              s.authorizer,
 		LeadershipChecker_: s.leadershipChecker,
 		ServiceFactory_:    s.DefaultModelServiceFactory(c),
+		ObjectStore_:       testing.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State()),
 	}
 }
 

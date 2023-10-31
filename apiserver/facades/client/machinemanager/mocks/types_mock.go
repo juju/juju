@@ -15,6 +15,7 @@ import (
 	instance "github.com/juju/juju/core/instance"
 	model "github.com/juju/juju/core/model"
 	network "github.com/juju/juju/core/network"
+	objectstore "github.com/juju/juju/core/objectstore"
 	status "github.com/juju/juju/core/status"
 	config "github.com/juju/juju/environs/config"
 	charmhub "github.com/juju/juju/internal/charmhub"
@@ -596,17 +597,17 @@ func (mr *MockMachineMockRecorder) CreateUpgradeSeriesLock(arg0, arg1 interface{
 }
 
 // Destroy mocks base method.
-func (m *MockMachine) Destroy() error {
+func (m *MockMachine) Destroy(arg0 objectstore.ObjectStore) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Destroy")
+	ret := m.ctrl.Call(m, "Destroy", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Destroy indicates an expected call of Destroy.
-func (mr *MockMachineMockRecorder) Destroy() *gomock.Call {
+func (mr *MockMachineMockRecorder) Destroy(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Destroy", reflect.TypeOf((*MockMachine)(nil).Destroy))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Destroy", reflect.TypeOf((*MockMachine)(nil).Destroy), arg0)
 }
 
 // ForceDestroy mocks base method.

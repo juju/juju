@@ -1152,31 +1152,31 @@ func (mr *MockApplicationMockRecorder) Constraints() *gomock.Call {
 }
 
 // Destroy mocks base method.
-func (m *MockApplication) Destroy() error {
+func (m *MockApplication) Destroy(arg0 objectstore.ObjectStore) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Destroy")
+	ret := m.ctrl.Call(m, "Destroy", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Destroy indicates an expected call of Destroy.
-func (mr *MockApplicationMockRecorder) Destroy() *gomock.Call {
+func (mr *MockApplicationMockRecorder) Destroy(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Destroy", reflect.TypeOf((*MockApplication)(nil).Destroy))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Destroy", reflect.TypeOf((*MockApplication)(nil).Destroy), arg0)
 }
 
 // DestroyOperation mocks base method.
-func (m *MockApplication) DestroyOperation() *state.DestroyApplicationOperation {
+func (m *MockApplication) DestroyOperation(arg0 objectstore.ObjectStore) *state.DestroyApplicationOperation {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DestroyOperation")
+	ret := m.ctrl.Call(m, "DestroyOperation", arg0)
 	ret0, _ := ret[0].(*state.DestroyApplicationOperation)
 	return ret0
 }
 
 // DestroyOperation indicates an expected call of DestroyOperation.
-func (mr *MockApplicationMockRecorder) DestroyOperation() *gomock.Call {
+func (mr *MockApplicationMockRecorder) DestroyOperation(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DestroyOperation", reflect.TypeOf((*MockApplication)(nil).DestroyOperation))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DestroyOperation", reflect.TypeOf((*MockApplication)(nil).DestroyOperation), arg0)
 }
 
 // EndpointBindings mocks base method.
@@ -1802,17 +1802,17 @@ func (mr *MockRelationMockRecorder) ApplicationSettings(arg0 interface{}) *gomoc
 }
 
 // Destroy mocks base method.
-func (m *MockRelation) Destroy() error {
+func (m *MockRelation) Destroy(arg0 objectstore.ObjectStore) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Destroy")
+	ret := m.ctrl.Call(m, "Destroy", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Destroy indicates an expected call of Destroy.
-func (mr *MockRelationMockRecorder) Destroy() *gomock.Call {
+func (mr *MockRelationMockRecorder) Destroy(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Destroy", reflect.TypeOf((*MockRelation)(nil).Destroy))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Destroy", reflect.TypeOf((*MockRelation)(nil).Destroy), arg0)
 }
 
 // DestroyWithForce mocks base method.
@@ -2084,17 +2084,17 @@ func (mr *MockUnitMockRecorder) ContainerInfo() *gomock.Call {
 }
 
 // Destroy mocks base method.
-func (m *MockUnit) Destroy() error {
+func (m *MockUnit) Destroy(arg0 objectstore.ObjectStore) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Destroy")
+	ret := m.ctrl.Call(m, "Destroy", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Destroy indicates an expected call of Destroy.
-func (mr *MockUnitMockRecorder) Destroy() *gomock.Call {
+func (mr *MockUnitMockRecorder) Destroy(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Destroy", reflect.TypeOf((*MockUnit)(nil).Destroy))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Destroy", reflect.TypeOf((*MockUnit)(nil).Destroy), arg0)
 }
 
 // DestroyOperation mocks base method.

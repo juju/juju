@@ -79,7 +79,7 @@ func (s *ModelSuite) TestModelDestroyWithoutVolumes(c *gc.C) {
 }
 
 func (s *ModelSuite) TestSetPassword(c *gc.C) {
-	testSetPassword(c, func() (state.Authenticator, error) {
+	testSetPassword(c, s.State, func() (state.Authenticator, error) {
 		return s.State.Model()
 	})
 }
@@ -536,15 +536,15 @@ func (s *ModelSuite) TestMetrics(c *gc.C) {
 	// Add a machine/unit/application and destroy it, to
 	// ensure we're only counting entities that are alive.
 	m := s.Factory.MakeMachine(c, &factory.MachineParams{})
-	err := m.Destroy()
+	err := m.Destroy(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	one := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Name: "one",
 	})
 	u := s.Factory.MakeUnit(c, &factory.UnitParams{Application: mysql})
-	err = one.Destroy()
+	err = one.Destroy(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
-	err = u.Destroy()
+	err = u.Destroy(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 
 	model, err := s.State.Model()
@@ -1228,7 +1228,7 @@ func (s *ModelSuite) assertDyingModelTransitionDyingToDead(c *gc.C, st *state.St
 		c.Assert(model.Refresh(), jc.ErrorIsNil)
 		c.Assert(model.Life(), gc.Equals, state.Dying)
 
-		err := app.Destroy()
+		err := app.Destroy(state.NewObjectStore(c, s.State))
 		c.Assert(err, jc.ErrorIsNil)
 
 		c.Check(model.UniqueIndexExists(), jc.IsTrue)
@@ -1684,7 +1684,7 @@ func (s *ModelSuite) TestDestroyForceWorksWhenRemoteRelationScopesAreStuck(c *gc
 	c.Assert(err, jc.ErrorIsNil)
 	assertLife(c, remoteApp, state.Dying)
 
-	err = wordpress.Destroy()
+	err = wordpress.Destroy(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = localRelUnit.LeaveScope()

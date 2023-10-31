@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/controller"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
@@ -35,8 +36,8 @@ import (
 
 var ClassifyDetachedStorage = storagecommon.ClassifyDetachedStorage
 
-// ControllerConfigGetter defines a method for getting the controller config.
-type ControllerConfigGetter interface {
+// ControllerConfigService defines a method for getting the controller config.
+type ControllerConfigService interface {
 	ControllerConfig(context.Context) (controller.Config, error)
 }
 
@@ -74,17 +75,18 @@ type CharmhubClient interface {
 
 // MachineManagerAPI provides access to the MachineManager API facade.
 type MachineManagerAPI struct {
-	controllerConfigGetter ControllerConfigGetter
-	st                     Backend
-	cloudService           common.CloudService
-	credentialService      common.CredentialService
-	storageAccess          StorageInterface
-	pool                   Pool
-	authorizer             Authorizer
-	check                  *common.BlockChecker
-	resources              facade.Resources
-	leadership             Leadership
-	upgradeSeriesAPI       UpgradeSeries
+	controllerConfigService ControllerConfigService
+	st                      Backend
+	cloudService            common.CloudService
+	credentialService       common.CredentialService
+	storageAccess           StorageInterface
+	pool                    Pool
+	authorizer              Authorizer
+	check                   *common.BlockChecker
+	resources               facade.Resources
+	leadership              Leadership
+	upgradeSeriesAPI        UpgradeSeries
+	store                   objectstore.ObjectStore
 
 	credentialInvalidatorGetter environscontext.ModelCredentialInvalidatorGetter
 	logger                      loggo.Logger
@@ -143,13 +145,16 @@ func NewFacadeV10(ctx facade.Context) (*MachineManagerAPI, error) {
 		return nil, errors.Trace(err)
 	}
 
-	controllerConfigGetter := ctx.ServiceFactory().ControllerConfig()
+	serviceFactory := ctx.ServiceFactory()
+
+	controllerConfigService := serviceFactory.ControllerConfig()
 
 	return NewMachineManagerAPI(
-		controllerConfigGetter,
+		controllerConfigService,
 		backend,
-		ctx.ServiceFactory().Cloud(),
-		ctx.ServiceFactory().Credential(),
+		serviceFactory.Cloud(),
+		serviceFactory.Credential(),
+		ctx.ObjectStore(),
 		storageAccess,
 		pool,
 		ModelAuthorizer{
@@ -166,10 +171,11 @@ func NewFacadeV10(ctx facade.Context) (*MachineManagerAPI, error) {
 
 // NewMachineManagerAPI creates a new server-side MachineManager API facade.
 func NewMachineManagerAPI(
-	controllerConfigGetter ControllerConfigGetter,
+	controllerConfigService ControllerConfigService,
 	backend Backend,
 	cloudService common.CloudService,
 	credentialService common.CredentialService,
+	store objectstore.ObjectStore,
 	storageAccess StorageInterface,
 	pool Pool,
 	auth Authorizer,
@@ -184,10 +190,11 @@ func NewMachineManagerAPI(
 	}
 
 	api := &MachineManagerAPI{
-		controllerConfigGetter:      controllerConfigGetter,
+		controllerConfigService:     controllerConfigService,
 		st:                          backend,
 		cloudService:                cloudService,
 		credentialService:           credentialService,
+		store:                       store,
 		pool:                        pool,
 		authorizer:                  auth,
 		check:                       common.NewBlockChecker(backend),
@@ -349,7 +356,7 @@ func (mm *MachineManagerAPI) ProvisioningScript(ctx context.Context, args params
 		return result, errors.Trace(err)
 	}
 
-	icfg, err := InstanceConfig(ctx, mm.controllerConfigGetter, st, mm.st, mm.cloudService, mm.credentialService, args.MachineId, args.Nonce, args.DataDir)
+	icfg, err := InstanceConfig(ctx, mm.controllerConfigService, st, mm.st, mm.cloudService, mm.credentialService, args.MachineId, args.Nonce, args.DataDir)
 	if err != nil {
 		return result, apiservererrors.ServerError(errors.Annotate(
 			err, "getting instance config",
@@ -562,7 +569,7 @@ func (mm *MachineManagerAPI) destroyMachine(ctx context.Context, args params.Ent
 				continue
 			}
 		} else {
-			if err := machine.Destroy(); err != nil {
+			if err := machine.Destroy(mm.store); err != nil {
 				fail(err)
 				continue
 			}

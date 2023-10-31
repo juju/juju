@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
@@ -125,7 +126,7 @@ type Relation interface {
 	status.StatusSetter
 	// Destroy ensures that the relation will be removed at some point; if
 	// no units are currently in scope, it will be removed immediately.
-	Destroy() error
+	Destroy(objectstore.ObjectStore) error
 
 	// DestroyWithForce may force the destruction of the relation.
 	// In addition, this function also returns all non-fatal operational errors

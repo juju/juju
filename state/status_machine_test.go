@@ -127,7 +127,7 @@ func (s *MachineStatusSuite) checkGetSetStatus(c *gc.C) {
 }
 
 func (s *MachineStatusSuite) TestGetSetStatusDying(c *gc.C) {
-	err := s.machine.Destroy()
+	err := s.machine.Destroy(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.checkGetSetStatus(c)

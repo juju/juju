@@ -311,8 +311,8 @@ var errRefresh = stderrors.New("state seems inconsistent, refresh and try again"
 // Destroy ensures that the application and all its relations will be removed at
 // some point; if the application has no units, and no relation involving the
 // application has any units in scope, they are all removed immediately.
-func (a *Application) Destroy() (err error) {
-	op := a.DestroyOperation()
+func (a *Application) Destroy(store objectstore.ObjectStore) (err error) {
+	op := a.DestroyOperation(store)
 	defer func() {
 		logger.Tracef("Application(%s).Destroy() => %v", a.doc.Name, err)
 		if err == nil {
@@ -329,9 +329,10 @@ func (a *Application) Destroy() (err error) {
 }
 
 // DestroyOperation returns a model operation that will destroy the application.
-func (a *Application) DestroyOperation() *DestroyApplicationOperation {
+func (a *Application) DestroyOperation(store objectstore.ObjectStore) *DestroyApplicationOperation {
 	return &DestroyApplicationOperation{
-		app: &Application{st: a.st, doc: a.doc},
+		app:   &Application{st: a.st, doc: a.doc},
+		store: store,
 	}
 }
 

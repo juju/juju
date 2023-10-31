@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/crossmodelrelations"
 	"github.com/juju/juju/core/crossmodel"
 	coremacaroon "github.com/juju/juju/core/macaroon"
+	"github.com/juju/juju/core/objectstore"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
@@ -420,7 +421,7 @@ func (r *mockRelation) Tag() names.Tag {
 	return names.NewRelationTag(r.key)
 }
 
-func (r *mockRelation) Destroy() error {
+func (r *mockRelation) Destroy(_ objectstore.ObjectStore) error {
 	r.MethodCall(r, "Destroy")
 	return r.NextErr()
 }

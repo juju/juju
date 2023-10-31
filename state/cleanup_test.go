@@ -50,7 +50,7 @@ func (s *CleanupSuite) SetUpTest(c *gc.C) {
 
 func (s *CleanupSuite) TestCleanupDyingApplicationNoUnits(c *gc.C) {
 	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
-	c.Assert(mysql.Destroy(), jc.ErrorIsNil)
+	c.Assert(mysql.Destroy(state.NewObjectStore(c, s.State)), jc.ErrorIsNil)
 	c.Assert(mysql.Refresh(), jc.ErrorIs, errors.NotFound)
 }
 
@@ -68,7 +68,7 @@ func (s *CleanupSuite) TestCleanupDyingApplicationUnits(c *gc.C) {
 
 	// Destroy the application and check the units are unaffected, but a cleanup
 	// has been scheduled.
-	err := mysql.Destroy()
+	err := mysql.Destroy(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	for _, unit := range units {
 		err := unit.Refresh()
@@ -103,7 +103,7 @@ func (s *CleanupSuite) TestCleanupDyingApplicationCharm(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Destroy the application and check that a cleanup has been scheduled.
-	err = mysql.Destroy()
+	err = mysql.Destroy(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertNeedsCleanup(c)
 
@@ -403,7 +403,7 @@ func (s *CleanupSuite) TestCleanupRelationSettings(c *gc.C) {
 	s.assertDoesNotNeedCleanup(c)
 
 	// Destroy the application, check the relation's still around.
-	err = pr.app.Destroy()
+	err = pr.app.Destroy(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertCleanupCount(c, 2)
 	err = rel.Refresh()
@@ -469,7 +469,7 @@ func (s *CleanupSuite) TestDestroyControllerMachineErrors(c *gc.C) {
 	node.SetHasVote(true)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertDoesNotNeedCleanup(c)
-	err = manager.Destroy()
+	err = manager.Destroy(state.NewObjectStore(c, s.State))
 	c.Assert(err, gc.ErrorMatches, "controller 0 is the only controller")
 	s.assertDoesNotNeedCleanup(c)
 	assertLife(c, manager, state.Alive)
@@ -521,7 +521,7 @@ func (s *CleanupSuite) TestDestroyControllerMachineHAWithControllerCharm(c *gc.C
 	}
 
 	s.assertDoesNotNeedCleanup(c)
-	err = machines[2].Destroy()
+	err = machines[2].Destroy(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.assertNeedsCleanup(c)
@@ -782,7 +782,7 @@ func (s *CleanupSuite) TestRemoveApplicationRemovesAllCleanUps(c *gc.C) {
 	s.State.ScheduleForceCleanup(state.CleanupForceApplication, app.Name(), 1*time.Minute)
 	s.assertNeedsCleanup(c)
 
-	op := app.DestroyOperation()
+	op := app.DestroyOperation(state.NewObjectStore(c, s.State))
 	op.DestroyStorage = false
 	op.Force = true
 	op.MaxWait = 1 * time.Minute
@@ -850,7 +850,7 @@ func (s *CleanupSuite) TestDestroyMachineAssertsNoUpgradeSeriesLock(c *gc.C) {
 
 	// Check that we get an error, but for the transaction assertion failure,
 	// and not for the initial check, which passes.
-	err = machine.Destroy()
+	err = machine.Destroy(state.NewObjectStore(c, s.State))
 	c.Assert(err, gc.NotNil)
 	c.Assert(err, gc.Not(gc.ErrorMatches), `machine 1 is locked for series upgrade`)
 
@@ -896,6 +896,7 @@ func (s *CleanupSuite) TestForceDestroyMachineRemovesLinkLayerDevices(c *gc.C) {
 }
 
 func (s *CleanupSuite) TestCleanupDyingUnit(c *gc.C) {
+	store := state.NewObjectStore(c, s.State)
 	// Create active unit, in a relation.
 	prr := newProReqRelation(c, &s.ConnSuite, charm.ScopeGlobal)
 	preventProReqUnitsDestroyRemove(c, prr)
@@ -903,7 +904,7 @@ func (s *CleanupSuite) TestCleanupDyingUnit(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Destroy provider unit 0; check it's Dying, and a cleanup has been scheduled.
-	err = prr.pu0.Destroy()
+	err = prr.pu0.Destroy(store)
 	c.Assert(err, jc.ErrorIsNil)
 	err = prr.pu0.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
@@ -919,14 +920,14 @@ func (s *CleanupSuite) TestCleanupDyingUnit(c *gc.C) {
 	// Destroy the relation, and check it sticks around...
 	err = prr.rel.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
-	err = prr.rel.Destroy()
+	err = prr.rel.Destroy(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	assertLife(c, prr.rel, state.Dying)
 
 	// ...until the unit is removed, and really leaves scope.
 	err = prr.pu0.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = prr.pu0.Remove(state.NewObjectStore(c, s.State))
+	err = prr.pu0.Remove(store)
 	c.Assert(err, jc.ErrorIsNil)
 	assertNotInScope(c, prr.pru0)
 	assertRemoved(c, s.State, prr.rel)
@@ -940,7 +941,7 @@ func (s *CleanupSuite) TestCleanupDyingUnitAlreadyRemoved(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Destroy provider unit 0; check it's Dying, and a cleanup has been scheduled.
-	err = prr.pu0.Destroy()
+	err = prr.pu0.Destroy(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	err = prr.pu0.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
@@ -952,7 +953,7 @@ func (s *CleanupSuite) TestCleanupDyingUnitAlreadyRemoved(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = prr.pu0.Remove(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
-	err = prr.rel.Destroy()
+	err = prr.rel.Destroy(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	assertRemoved(c, s.State, prr.rel)
 
@@ -984,7 +985,7 @@ func (s *CleanupSuite) TestCleanupActions(c *gc.C) {
 	c.Assert(len(actions), gc.Equals, 2)
 
 	// destroy unit and run cleanups
-	err = dummy.Destroy()
+	err = dummy.Destroy(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertCleanupRuns(c)
 
@@ -1035,7 +1036,7 @@ func (s *CleanupSuite) TestCleanupWithCompletedActions(c *gc.C) {
 		c.Assert(action.Status(), gc.Equals, status)
 
 		// Destroy application and run cleanups.
-		err = dummy.Destroy()
+		err = dummy.Destroy(state.NewObjectStore(c, s.State))
 		c.Assert(err, jc.ErrorIsNil)
 		// First cleanup marks all units of the application as dying.
 		// Second cleanup clear pending actions.
@@ -1065,7 +1066,7 @@ func (s *CleanupSuite) TestCleanupStorageAttachments(c *gc.C) {
 	c.Assert(sa.Life(), gc.Equals, state.Alive)
 
 	// destroy unit and run cleanups; the storage should be detached
-	err = u.Destroy()
+	err = u.Destroy(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertCleanupRuns(c)
 
@@ -1133,10 +1134,10 @@ func (s *CleanupSuite) TestCleanupMachineStorage(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Destroy the application, so we can destroy the machine.
-	err = unit.Destroy()
+	err = unit.Destroy(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertCleanupRuns(c)
-	err = application.Destroy()
+	err = application.Destroy(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertCleanupRuns(c)
 
@@ -1145,7 +1146,7 @@ func (s *CleanupSuite) TestCleanupMachineStorage(c *gc.C) {
 
 	// destroy machine and run cleanups; the volume attachment
 	// should be marked dying.
-	err = machine.Destroy()
+	err = machine.Destroy(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertCleanupRuns(c)
 
@@ -1160,7 +1161,7 @@ func (s *CleanupSuite) TestCleanupMachineStorage(c *gc.C) {
 
 func (s *CleanupSuite) TestCleanupCAASApplicationWithStorage(c *gc.C) {
 	s.assertCleanupCAASEntityWithStorage(c, func(st *state.State, app *state.Application) error {
-		op := app.DestroyOperation()
+		op := app.DestroyOperation(state.NewObjectStore(c, st))
 		op.DestroyStorage = true
 		return st.ApplyOperation(op)
 	})
@@ -1252,7 +1253,7 @@ func (s *CleanupSuite) assertCleanupCAASEntityWithStorage(c *gc.C, deleteOp func
 	c.Assert(application.Refresh(), jc.ErrorIsNil)
 
 	c.Log("destroy app")
-	err = application.Destroy()
+	err = application.Destroy(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 
 	assertCleanups(4)
@@ -1348,7 +1349,7 @@ func (s *CleanupSuite) TestCleanupResourceBlob(c *gc.C) {
 	_, err := resources.SetResource("wp", res.Username, res.Resource, bytes.NewBufferString(data), state.IncrementCharmModifiedVersion)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = app.Destroy()
+	err = app.Destroy(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 
 	path := "application-wp/resources/mug"
@@ -1372,7 +1373,7 @@ func (s *CleanupSuite) TestCleanupResourceBlobHandlesMissing(c *gc.C) {
 	_, err := resources.SetResource("wp", res.Username, res.Resource, bytes.NewBufferString(data), state.IncrementCharmModifiedVersion)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = app.Destroy()
+	err = app.Destroy(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 
 	path := "application-wp/resources/mug"
@@ -1394,7 +1395,7 @@ func (s *CleanupSuite) TestNothingToCleanup(c *gc.C) {
 func (s *CleanupSuite) TestCleanupIDSanity(c *gc.C) {
 	// Cleanup IDs shouldn't be ObjectIdHex("blah")
 	app := s.AddTestingApplication(c, "wp", s.AddTestingCharm(c, "wordpress"))
-	err := app.Destroy()
+	err := app.Destroy(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 
 	coll := s.Session.DB("juju").C("cleanups")
@@ -1631,7 +1632,7 @@ func (s *CleanupSuite) TestForceDestroyApplicationRemovesUnitsThatAreAlreadyDyin
 	preventUnitDestroyRemove(c, unit)
 	s.assertDoesNotNeedCleanup(c)
 
-	err = mysql.Destroy()
+	err = mysql.Destroy(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	err = mysql.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1652,7 +1653,7 @@ func (s *CleanupSuite) TestForceDestroyApplicationRemovesUnitsThatAreAlreadyDyin
 	// Simulate the unit being in error by never coming back and
 	// reporting the unit dead. The user eventually gets tired of
 	// waiting and force-removes the application.
-	op := mysql.DestroyOperation()
+	op := mysql.DestroyOperation(state.NewObjectStore(c, s.State))
 	op.Force = true
 	err = s.State.ApplyOperation(op)
 	c.Assert(err, jc.ErrorIsNil)

@@ -34,7 +34,7 @@ type instanceTypesSuite struct {
 	credService  *commonmocks.MockCredentialService
 	api          *machinemanager.MachineManagerAPI
 
-	controllerConfigGetter *mocks.MockControllerConfigGetter
+	controllerConfigService *mocks.MockControllerConfigService
 }
 
 var _ = gc.Suite(&instanceTypesSuite{})
@@ -50,14 +50,15 @@ func (s *instanceTypesSuite) setup(c *gc.C) *gomock.Controller {
 	s.leadership = mocks.NewMockLeadership(ctrl)
 	s.cloudService = commonmocks.NewMockCloudService(ctrl)
 	s.credService = commonmocks.NewMockCredentialService(ctrl)
-	s.controllerConfigGetter = mocks.NewMockControllerConfigGetter(ctrl)
+	s.controllerConfigService = mocks.NewMockControllerConfigService(ctrl)
 
 	var err error
 	s.api, err = machinemanager.NewMachineManagerAPI(
-		s.controllerConfigGetter,
+		s.controllerConfigService,
 		s.st,
 		s.cloudService,
 		s.credService,
+		nil,
 		nil,
 		nil,
 		machinemanager.ModelAuthorizer{

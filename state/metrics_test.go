@@ -499,7 +499,7 @@ func (s *MetricSuite) TestMetricValidation(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = dyingUnit.SetCharmURL(s.meteredCharm.URL())
 	c.Assert(err, jc.ErrorIsNil)
-	err = dyingUnit.Destroy()
+	err = dyingUnit.Destroy(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	now := s.Clock.Now()
 	tests := []struct {

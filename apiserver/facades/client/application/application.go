@@ -1655,7 +1655,7 @@ func (api *APIBase) DestroyApplication(ctx context.Context, args params.DestroyA
 			return &info, nil
 		}
 
-		op := app.DestroyOperation()
+		op := app.DestroyOperation(api.store)
 		op.DestroyStorage = arg.DestroyStorage
 		op.Force = arg.Force
 		if arg.Force {
@@ -1849,7 +1849,7 @@ func (api *APIBase) AddRelation(ctx context.Context, args params.AddRelation) (_
 	var rel Relation
 	defer func() {
 		if err != nil && rel != nil {
-			if err := rel.Destroy(); err != nil {
+			if err := rel.Destroy(api.store); err != nil {
 				logger.Errorf("cannot destroy aborted relation %q: %v", rel.Tag().Id(), err)
 			}
 		}

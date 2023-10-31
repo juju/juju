@@ -8,6 +8,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/state"
 )
 
@@ -150,6 +151,7 @@ func (s *LifeSuite) prepareFixture(living state.Living, lfix lifeFixture, cached
 }
 
 func (s *LifeSuite) TestLifecycleStateChanges(c *gc.C) {
+	store := state.NewObjectStore(c, s.State)
 	for i, lfix := range []lifeFixture{&unitLife{st: s.State}, &machineLife{st: s.State}} {
 		c.Logf("fixture %d", i)
 		for j, v := range stateChanges {
@@ -158,7 +160,7 @@ func (s *LifeSuite) TestLifecycleStateChanges(c *gc.C) {
 			s.prepareFixture(living, lfix, v.cached, v.dbinitial, c)
 			switch v.desired {
 			case state.Dying:
-				err := living.Destroy()
+				err := living.Destroy(store)
 				c.Assert(err, jc.ErrorIsNil)
 
 				// If we're already in the dead state, we can't transition, so
@@ -178,7 +180,7 @@ func (s *LifeSuite) TestLifecycleStateChanges(c *gc.C) {
 			c.Assert(living.Life(), gc.Equals, v.dbfinal)
 			err = living.EnsureDead()
 			c.Assert(err, jc.ErrorIsNil)
-			err = living.Remove(nil)
+			err = living.Remove(store)
 			c.Assert(err, jc.ErrorIsNil)
 		}
 	}
@@ -208,7 +210,7 @@ const (
 
 type lifer interface {
 	EnsureDead() error
-	Destroy() error
+	Destroy(objectstore.ObjectStore) error
 	Life() state.Life
 }
 
@@ -227,9 +229,9 @@ func runLifeChecks(c *gc.C, obj lifer, expectErr string, checks []func() error) 
 // testWhenDying sets obj to Dying and Dead in turn, and asserts
 // that the errors from the given checks match aliveErr, dyingErr and deadErr
 // in each respective life state.
-func testWhenDying(c *gc.C, obj lifer, dyingErr, deadErr string, checks ...func() error) {
+func testWhenDying(c *gc.C, store objectstore.ObjectStore, obj lifer, dyingErr, deadErr string, checks ...func() error) {
 	c.Logf("checking life of %v (%T)", obj, obj)
-	err := obj.Destroy()
+	err := obj.Destroy(store)
 	c.Assert(err, jc.ErrorIsNil)
 	runLifeChecks(c, obj, dyingErr, checks)
 	err = obj.EnsureDead()

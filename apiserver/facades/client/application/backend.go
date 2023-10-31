@@ -88,8 +88,8 @@ type Application interface {
 	ClearExposed() error
 	CharmConfig(string) (charm.Settings, error)
 	Constraints() (constraints.Value, error)
-	Destroy() error
-	DestroyOperation() *state.DestroyApplicationOperation
+	Destroy(objectstore.ObjectStore) error
+	DestroyOperation(objectstore.ObjectStore) *state.DestroyApplicationOperation
 	EndpointBindings() (Bindings, error)
 	ExposedEndpoints() map[string]state.ExposedEndpoint
 	Endpoints() ([]state.Endpoint, error)
@@ -160,7 +160,7 @@ type Machine interface {
 type Relation interface {
 	status.StatusSetter
 	Tag() names.Tag
-	Destroy() error
+	Destroy(objectstore.ObjectStore) error
 	DestroyWithForce(bool, time.Duration) ([]error, error)
 	Id() int
 	Endpoints() []state.Endpoint
@@ -189,7 +189,7 @@ type Unit interface {
 	Tag() names.Tag
 	UnitTag() names.UnitTag
 	ApplicationName() string
-	Destroy() error
+	Destroy(objectstore.ObjectStore) error
 	DestroyOperation(objectstore.ObjectStore) *state.DestroyUnitOperation
 	IsPrincipal() bool
 	Life() state.Life

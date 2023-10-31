@@ -198,9 +198,9 @@ func (st *State) Cleanup(ctx context.Context, store objectstore.ObjectStore) (er
 		case cleanupCharm:
 			err = st.cleanupCharm(ctx, store, doc.Prefix)
 		case cleanupApplication:
-			err = st.cleanupApplication(doc.Prefix, args)
+			err = st.cleanupApplication(store, doc.Prefix, args)
 		case cleanupForceApplication:
-			err = st.cleanupForceApplication(doc.Prefix, args)
+			err = st.cleanupForceApplication(store, doc.Prefix, args)
 		case cleanupUnitsForDyingApplication:
 			err = st.cleanupUnitsForDyingApplication(store, doc.Prefix, args)
 		case cleanupDyingUnit:
@@ -214,7 +214,7 @@ func (st *State) Cleanup(ctx context.Context, store objectstore.ObjectStore) (er
 		case cleanupRemovedUnit:
 			err = st.cleanupRemovedUnit(doc.Prefix, args)
 		case cleanupApplicationsForDyingModel:
-			err = st.cleanupApplicationsForDyingModel(args)
+			err = st.cleanupApplicationsForDyingModel(store, args)
 		case cleanupDyingMachine:
 			err = st.cleanupDyingMachine(doc.Prefix, args)
 		case cleanupForceDestroyedMachine:
@@ -567,7 +567,7 @@ func (st *State) cleanupBranchesForDyingModel(cleanupArgs []bson.Raw) (err error
 
 // cleanupApplication checks if all references to a dying application have been removed,
 // and if so, removes the application.
-func (st *State) cleanupApplication(applicationname string, cleanupArgs []bson.Raw) (err error) {
+func (st *State) cleanupApplication(store objectstore.ObjectStore, applicationname string, cleanupArgs []bson.Raw) (err error) {
 	app, err := st.Application(applicationname)
 	if err != nil {
 		if errors.Is(err, errors.NotFound) {
@@ -599,7 +599,7 @@ func (st *State) cleanupApplication(applicationname string, cleanupArgs []bson.R
 	if err := cleanupArgs[1].Unmarshal(&force); err != nil {
 		return errors.Annotate(err, "unmarshalling cleanup arg 'force'")
 	}
-	op := app.DestroyOperation()
+	op := app.DestroyOperation(store)
 	op.DestroyStorage = destroyStorage
 	op.Force = force
 	err = st.ApplyOperation(op)
@@ -610,7 +610,7 @@ func (st *State) cleanupApplication(applicationname string, cleanupArgs []bson.R
 }
 
 // cleanupForceApplication forcibly removes the application.
-func (st *State) cleanupForceApplication(applicationName string, cleanupArgs []bson.Raw) (err error) {
+func (st *State) cleanupForceApplication(store objectstore.ObjectStore, applicationName string, cleanupArgs []bson.Raw) (err error) {
 	logger.Debugf("force destroy application: %v", applicationName)
 	app, err := st.Application(applicationName)
 	if err != nil {
@@ -630,7 +630,7 @@ func (st *State) cleanupForceApplication(applicationName string, cleanupArgs []b
 		return errors.Annotate(err, "unmarshalling cleanup arg 'maxWait'")
 	}
 
-	op := app.DestroyOperation()
+	op := app.DestroyOperation(store)
 	op.Force = true
 	op.CleanupIgnoringResources = true
 	op.MaxWait = maxWait
@@ -644,7 +644,7 @@ func (st *State) cleanupForceApplication(applicationName string, cleanupArgs []b
 // cleanupApplicationsForDyingModel sets all applications to Dying, if they are
 // not already Dying or Dead. It's expected to be used when a model is
 // destroyed.
-func (st *State) cleanupApplicationsForDyingModel(cleanupArgs []bson.Raw) (err error) {
+func (st *State) cleanupApplicationsForDyingModel(store objectstore.ObjectStore, cleanupArgs []bson.Raw) (err error) {
 	var args DestroyModelParams
 	switch n := len(cleanupArgs); n {
 	case 0:
@@ -662,10 +662,10 @@ func (st *State) cleanupApplicationsForDyingModel(cleanupArgs []bson.Raw) (err e
 	if err := st.removeRemoteApplicationsForDyingModel(args); err != nil {
 		return err
 	}
-	return st.removeApplicationsForDyingModel(args)
+	return st.removeApplicationsForDyingModel(store, args)
 }
 
-func (st *State) removeApplicationsForDyingModel(args DestroyModelParams) (err error) {
+func (st *State) removeApplicationsForDyingModel(store objectstore.ObjectStore, args DestroyModelParams) (err error) {
 	// This won't miss applications, because a Dying model cannot have
 	// applications added to it. But we do have to remove the applications
 	// themselves via individual transactions, because they could be in any
@@ -685,7 +685,7 @@ func (st *State) removeApplicationsForDyingModel(args DestroyModelParams) (err e
 	iter := applications.Find(sel).Iter()
 	defer closeIter(iter, &err, "reading application document")
 	for iter.Next(&application.doc) {
-		op := application.DestroyOperation()
+		op := application.DestroyOperation(store)
 		op.RemoveOffers = true
 		op.Force = force
 		op.MaxWait = args.MaxWait

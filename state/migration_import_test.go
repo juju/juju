@@ -2420,7 +2420,7 @@ func (s *MigrationImportSuite) TestStorage(c *gc.C) {
 
 func (s *MigrationImportSuite) TestStorageDetached(c *gc.C) {
 	_, u, storageTag := s.makeUnitWithStorage(c)
-	err := u.Destroy()
+	err := u.Destroy(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	sb, err := state.NewStorageBackend(s.State)
 	c.Assert(err, jc.ErrorIsNil)

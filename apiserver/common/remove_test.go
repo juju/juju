@@ -34,7 +34,7 @@ func (r *fakeRemover) EnsureDead() error {
 	return r.errEnsureDead
 }
 
-func (r *fakeRemover) Remove() error {
+func (r *fakeRemover) Remove(objectstore.ObjectStore) error {
 	return r.errRemove
 }
 

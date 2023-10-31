@@ -648,7 +648,7 @@ func (s *ActionSuite) TestAddActionLifecycle(c *gc.C) {
 	preventUnitDestroyRemove(c, unit)
 
 	// make unit state Dying
-	err = unit.Destroy()
+	err = unit.Destroy(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// can add action to a dying unit
@@ -673,7 +673,7 @@ func (s *ActionSuite) TestAddActionFailsOnDeadUnitInTransaction(c *gc.C) {
 
 	killUnit := jujutxn.TestHook{
 		Before: func() {
-			c.Assert(unit.Destroy(), gc.IsNil)
+			c.Assert(unit.Destroy(state.NewObjectStore(c, s.State)), gc.IsNil)
 			c.Assert(unit.EnsureDead(), gc.IsNil)
 		},
 	}

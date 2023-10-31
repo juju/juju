@@ -318,7 +318,7 @@ func (s *MachineSuite) TestMachineIsContainer(c *gc.C) {
 
 func (s *MachineSuite) TestLifeJobController(c *gc.C) {
 	m := s.machine0
-	err := m.Destroy()
+	err := m.Destroy(state.NewObjectStore(c, s.State))
 	c.Assert(err, gc.ErrorMatches, "controller 0 is the only controller")
 	controllerNode, err := s.State.ControllerNode(m.Id())
 	c.Assert(err, jc.ErrorIsNil)
@@ -359,7 +359,7 @@ func (s *MachineSuite) TestLifeJobManageModelWithControllerCharm(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.AssignToMachine(m2)
 	c.Assert(err, jc.ErrorIsNil)
-	err = m2.Destroy()
+	err = m2.Destroy(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(m2.Life(), gc.Equals, state.Alive)
@@ -398,7 +398,7 @@ func (s *MachineSuite) TestLifeMachineWithContainer(c *gc.C) {
 	}, s.machine.Id(), instance.LXD)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.machine.Destroy()
+	err = s.machine.Destroy(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIs, stateerrors.HasContainersError)
 	c.Assert(err, gc.ErrorMatches, `machine 1 is hosting containers "1/lxd/0"`)
 
@@ -413,7 +413,7 @@ func (s *MachineSuite) TestLifeMachineLockedForSeriesUpgrade(c *gc.C) {
 	err := s.machine.CreateUpgradeSeriesLock(nil, state.UbuntuBase("16.04"))
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.machine.Destroy()
+	err = s.machine.Destroy(state.NewObjectStore(c, s.State))
 	c.Assert(err, gc.ErrorMatches, `machine 1 is locked for series upgrade`)
 
 	err = s.machine.EnsureDead()
@@ -428,7 +428,7 @@ func (s *MachineSuite) TestLifeJobHostUnits(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.AssignToMachine(s.machine)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.machine.Destroy()
+	err = s.machine.Destroy(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIs, stateerrors.HasAssignedUnitsError)
 	c.Assert(err, gc.ErrorMatches, `machine 1 has unit "wordpress/0" assigned`)
 
@@ -441,7 +441,7 @@ func (s *MachineSuite) TestLifeJobHostUnits(c *gc.C) {
 	// Once no unit is assigned, lifecycle can advance.
 	err = unit.UnassignFromMachine()
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.machine.Destroy()
+	err = s.machine.Destroy(state.NewObjectStore(c, s.State))
 	c.Assert(s.machine.Life(), gc.Equals, state.Dying)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.machine.EnsureDead()
@@ -451,7 +451,7 @@ func (s *MachineSuite) TestLifeJobHostUnits(c *gc.C) {
 	// A machine that has never had units assigned can advance lifecycle.
 	m, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	err = m.Destroy()
+	err = m.Destroy(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.Life(), gc.Equals, state.Dying)
 	err = m.EnsureDead()
@@ -474,7 +474,7 @@ func (s *MachineSuite) TestDestroyRemovePorts(c *gc.C) {
 
 	err = unit.UnassignFromMachine()
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.machine.Destroy()
+	err = s.machine.Destroy(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.machine.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
@@ -511,9 +511,9 @@ func (s *MachineSuite) TestDestroyOpsForManagerFails(c *gc.C) {
 
 func (s *MachineSuite) TestDestroyAbort(c *gc.C) {
 	defer state.SetBeforeHooks(c, s.State, func() {
-		c.Assert(s.machine.Destroy(), gc.IsNil)
+		c.Assert(s.machine.Destroy(state.NewObjectStore(c, s.State)), gc.IsNil)
 	}).Check()
-	err := s.machine.Destroy()
+	err := s.machine.Destroy(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -525,7 +525,7 @@ func (s *MachineSuite) TestDestroyCancel(c *gc.C) {
 	defer state.SetBeforeHooks(c, s.State, func() {
 		c.Assert(unit.AssignToMachine(s.machine), gc.IsNil)
 	}).Check()
-	err = s.machine.Destroy()
+	err = s.machine.Destroy(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIs, stateerrors.HasAssignedUnitsError)
 }
 
@@ -541,7 +541,7 @@ func (s *MachineSuite) TestDestroyContention(c *gc.C) {
 	state.SetMaxTxnAttempts(c, s.State, 3)
 	defer state.SetTestHooks(c, s.State, perturb, perturb, perturb).Check()
 
-	err = s.machine.Destroy()
+	err = s.machine.Destroy(state.NewObjectStore(c, s.State))
 	c.Assert(err, gc.ErrorMatches, "machine 1 cannot advance lifecycle: state changing too quickly; try again soon")
 }
 
@@ -552,9 +552,9 @@ func (s *MachineSuite) TestDestroyWithApplicationDestroyPending(c *gc.C) {
 	err = unit.AssignToMachine(s.machine)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = app.Destroy()
+	err = app.Destroy(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.machine.Destroy()
+	err = s.machine.Destroy(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	// Machine is still advanced to Dying.
 	life := s.machine.Life()
@@ -568,7 +568,7 @@ func (s *MachineSuite) TestDestroyFailsWhenNewUnitAdded(c *gc.C) {
 	err = unit.AssignToMachine(s.machine)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = app.Destroy()
+	err = app.Destroy(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 
 	defer state.SetBeforeHooks(c, s.State, func() {
@@ -579,7 +579,7 @@ func (s *MachineSuite) TestDestroyFailsWhenNewUnitAdded(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
 
-	err = s.machine.Destroy()
+	err = s.machine.Destroy(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIs, stateerrors.HasAssignedUnitsError)
 	life := s.machine.Life()
 	c.Assert(life, gc.Equals, state.Alive)
@@ -592,9 +592,9 @@ func (s *MachineSuite) TestDestroyWithUnitDestroyPending(c *gc.C) {
 	err = unit.AssignToMachine(s.machine)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = unit.Destroy()
+	err = unit.Destroy(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.machine.Destroy()
+	err = s.machine.Destroy(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	// Machine is still advanced to Dying.
 	life := s.machine.Life()
@@ -608,7 +608,7 @@ func (s *MachineSuite) TestDestroyFailsWhenNewContainerAdded(c *gc.C) {
 	err = unit.AssignToMachine(s.machine)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = app.Destroy()
+	err = app.Destroy(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 
 	defer state.SetBeforeHooks(c, s.State, func() {
@@ -619,7 +619,7 @@ func (s *MachineSuite) TestDestroyFailsWhenNewContainerAdded(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
 
-	err = s.machine.Destroy()
+	err = s.machine.Destroy(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIs, stateerrors.HasAssignedUnitsError)
 	life := s.machine.Life()
 	c.Assert(life, gc.Equals, state.Alive)
@@ -779,7 +779,7 @@ func testSetMongoPassword(
 }
 
 func (s *MachineSuite) TestSetPassword(c *gc.C) {
-	testSetPassword(c, func() (state.Authenticator, error) {
+	testSetPassword(c, s.State, func() (state.Authenticator, error) {
 		return s.State.Machine(s.machine.Id())
 	})
 }
@@ -1074,7 +1074,7 @@ func (s *MachineSuite) TestMachineSetInstanceInfoSuccess(c *gc.C) {
 }
 
 func (s *MachineSuite) TestMachineSetProvisionedWhenNotAlive(c *gc.C) {
-	testWhenDying(c, s.machine, notAliveErr, notAliveErr, func() error {
+	testWhenDying(c, state.NewObjectStore(c, s.State), s.machine, notAliveErr, notAliveErr, func() error {
 		return s.machine.SetProvisioned("umbrella/0", "", "fake_nonce", nil)
 	})
 }
@@ -1152,7 +1152,7 @@ func (s *MachineSuite) TestMachineRefresh(c *gc.C) {
 
 func (s *MachineSuite) TestRefreshWhenNotAlive(c *gc.C) {
 	// Refresh should work regardless of liveness status.
-	testWhenDying(c, s.machine, noErr, noErr, func() error {
+	testWhenDying(c, state.NewObjectStore(c, s.State), s.machine, noErr, noErr, func() error {
 		return s.machine.Refresh()
 	})
 }
@@ -1278,7 +1278,7 @@ func (s *MachineSuite) TestMachineDirtyAfterRemovingUnit(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.Remove(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
-	err = app.Destroy()
+	err = app.Destroy(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.Clean(), jc.IsFalse)
 }
@@ -1304,7 +1304,7 @@ func (s *MachineSuite) TestWatchMachine(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	// TODO(quiescence): these two changes should be one event.
 	wc.AssertOneChange()
-	err = machine.Destroy()
+	err = machine.Destroy(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
@@ -1390,7 +1390,7 @@ func (s *MachineSuite) TestWatchPrincipalUnits(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = mysql1.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
-	err = mysql0.Destroy()
+	err = mysql0.Destroy(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange("mysql/0", "mysql/1")
 	wc.AssertNoChange()
@@ -1443,7 +1443,7 @@ func (s *MachineSuite) TestWatchPrincipalUnits(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Destroy the subordinate; no change.
-	err = logging0.Destroy()
+	err = logging0.Destroy(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
@@ -1510,7 +1510,7 @@ func (s *MachineSuite) TestWatchUnits(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = mysql1.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
-	err = mysql0.Destroy()
+	err = mysql0.Destroy(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange("mysql/0", "mysql/1")
 	wc.AssertNoChange()
@@ -1569,7 +1569,7 @@ func (s *MachineSuite) TestWatchUnits(c *gc.C) {
 
 	// Destroy the subordinate; change detected.
 	c.Logf("destroying subordinate logging/0")
-	err = logging0.Destroy()
+	err = logging0.Destroy(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange("logging/0")
 	wc.AssertNoChange()
@@ -1689,7 +1689,7 @@ func (s *MachineSuite) TestWatchMachineStartTimes(c *gc.C) {
 
 	// Kill the machine, remove it from state and check ensure that we
 	// still get back a change event.
-	err = s.machine.Destroy()
+	err = s.machine.Destroy(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 	err = s.machine.EnsureDead()
@@ -1791,7 +1791,7 @@ func (s *MachineSuite) TestSetUnsupportedConstraintsWarning(c *gc.C) {
 func (s *MachineSuite) TestConstraintsLifecycle(c *gc.C) {
 	cons := constraints.MustParse("mem=1G")
 	cannotSet := `updating machine "1": cannot set constraints: machine is not found or not alive`
-	testWhenDying(c, s.machine, cannotSet, cannotSet, func() error {
+	testWhenDying(c, state.NewObjectStore(c, s.State), s.machine, cannotSet, cannotSet, func() error {
 		err := s.machine.SetConstraints(cons)
 		mcons, err1 := s.machine.Constraints()
 		c.Assert(err1, gc.IsNil)
@@ -2656,7 +2656,7 @@ func (s *MachineSuite) TestSupportsNoContainersSetsAllToError(c *gc.C) {
 func (s *MachineSuite) TestMachineAgentTools(c *gc.C) {
 	m, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	testAgentTools(c, m, "machine "+m.Id())
+	testAgentTools(c, state.NewObjectStore(c, s.State), m, "machine "+m.Id())
 }
 
 func (s *MachineSuite) TestMachineValidActions(c *gc.C) {
@@ -2890,7 +2890,7 @@ func (s *MachineSuite) TestWatchAddresses(c *gc.C) {
 	wc.AssertOneChange()
 
 	// Make it Dying: not reported.
-	err = machine.Destroy()
+	err = machine.Destroy(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 

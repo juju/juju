@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -61,7 +62,8 @@ func (s *machineSuite) TestDestroyMachines(c *gc.C) {
 			"3": {life: state.Dying},
 		},
 	}
-	err := common.MockableDestroyMachines(&st, false, dontWait, "1", "2", "3", "4")
+
+	err := common.MockableDestroyMachines(&st, &mockObjectStore{}, false, dontWait, "1", "2", "3", "4")
 
 	c.Assert(st.machines["1"].Life(), gc.Equals, state.Dying)
 	c.Assert(st.machines["1"].forceDestroyCalled, jc.IsFalse)
@@ -82,7 +84,7 @@ func (s *machineSuite) TestForceDestroyMachines(c *gc.C) {
 			"2": {life: state.Dying},
 		},
 	}
-	err := common.MockableDestroyMachines(&st, true, dontWait, "1", "2")
+	err := common.MockableDestroyMachines(&st, &mockObjectStore{}, true, dontWait, "1", "2")
 
 	c.Assert(st.machines["1"].Life(), gc.Equals, state.Dying)
 	c.Assert(st.machines["1"].forceDestroyCalled, jc.IsTrue)
@@ -394,11 +396,15 @@ func (m *mockMachine) ForceDestroy(time.Duration) error {
 	return nil
 }
 
-func (m *mockMachine) Destroy() error {
+func (m *mockMachine) Destroy(_ objectstore.ObjectStore) error {
 	m.destroyCalled = true
 	if m.destroyErr != nil {
 		return m.destroyErr
 	}
 	m.life = state.Dying
 	return nil
+}
+
+type mockObjectStore struct {
+	objectstore.ObjectStore
 }

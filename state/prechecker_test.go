@@ -216,7 +216,7 @@ func (s *PrecheckerSuite) TestPrecheckAddApplication(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = unit.Destroy()
+	err = unit.Destroy(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	for _, storageTag := range storageTags {
 		err = sb.DetachStorage(storageTag, unit.UnitTag(), false, dontWait)

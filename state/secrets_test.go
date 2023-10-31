@@ -301,7 +301,7 @@ func (s *SecretsSuite) TestCreateDuplicateLabelUnitConsumed(c *gc.C) {
 }
 
 func (s *SecretsSuite) TestCreateDyingOwner(c *gc.C) {
-	err := s.owner.Destroy()
+	err := s.owner.Destroy(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 
 	uri := secrets.NewURI()
@@ -1798,7 +1798,7 @@ func (s *SecretsSuite) TestSecretGrantAccessDyingSubject(c *gc.C) {
 	err = ru.EnterScope(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = wordpress.Destroy()
+	err = wordpress.Destroy(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.State.GrantSecretAccess(uri, state.SecretAccessParams{

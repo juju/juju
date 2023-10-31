@@ -498,8 +498,8 @@ func (op *UpdateUnitOperation) Done(err error) error {
 // life is just set to Dying; but if a principal unit that is not assigned
 // to a provisioned machine is Destroyed, it will be removed from state
 // directly.
-func (u *Unit) Destroy() error {
-	errs, err := u.DestroyWithForce(nil, false, time.Duration(0))
+func (u *Unit) Destroy(store objectstore.ObjectStore) error {
+	errs, err := u.DestroyWithForce(store, false, time.Duration(0))
 	if len(errs) != 0 {
 		logger.Warningf("operational errors destroying unit %v: %v", u.Name(), errs)
 	}

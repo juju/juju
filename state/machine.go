@@ -605,7 +605,7 @@ func (m *Machine) PasswordValid(password string) bool {
 // If the machine has assigned units, Destroy will return
 // a HasAssignedUnitsError.  If the machine has containers, Destroy
 // will return HasContainersError.
-func (m *Machine) Destroy() error {
+func (m *Machine) Destroy(_ objectstore.ObjectStore) error {
 	if m.IsManager() && len(m.doc.Principals) > 0 {
 		return errors.Trace(m.destroyControllerWithPrincipals())
 	}

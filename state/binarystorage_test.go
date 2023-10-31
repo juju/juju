@@ -18,6 +18,7 @@ import (
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/tools"
@@ -32,7 +33,7 @@ type tooler interface {
 	Refresh() error
 }
 
-func testAgentTools(c *gc.C, obj tooler, agent string) {
+func testAgentTools(c *gc.C, store objectstore.ObjectStore, obj tooler, agent string) {
 	// object starts with zero'd tools.
 	t, err := obj.AgentTools()
 	c.Assert(t, gc.IsNil)
@@ -54,7 +55,7 @@ func testAgentTools(c *gc.C, obj tooler, agent string) {
 	c.Assert(t3.Version, gc.DeepEquals, v2)
 
 	if le, ok := obj.(lifer); ok {
-		testWhenDying(c, le, noErr, deadErr, func() error {
+		testWhenDying(c, store, le, noErr, deadErr, func() error {
 			return obj.SetAgentVersion(v2)
 		})
 	}

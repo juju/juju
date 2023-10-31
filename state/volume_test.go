@@ -537,7 +537,7 @@ func (s *VolumeStateSuite) TestRemoveStorageInstanceDestroysAndUnassignsVolume(c
 	volume := s.storageInstanceVolume(c, storageTag)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = u.Destroy()
+	err = u.Destroy(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Provision volume attachment so that detaching the storage
@@ -587,7 +587,7 @@ func (s *VolumeStateSuite) TestReleaseStorageInstanceVolumeReleasing(c *gc.C) {
 	err = s.storageBackend.SetVolumeInfo(volume.VolumeTag(), state.VolumeInfo{VolumeId: "vol-123"})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = u.Destroy()
+	err = u.Destroy(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.storageBackend.ReleaseStorageInstance(storageTag, true, false, dontWait)
 	c.Assert(err, jc.ErrorIsNil)
@@ -610,7 +610,7 @@ func (s *VolumeStateSuite) TestReleaseStorageInstanceVolumeUnreleasable(c *gc.C)
 	err = s.storageBackend.SetVolumeInfo(volume.VolumeTag(), state.VolumeInfo{VolumeId: "vol-123"})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = u.Destroy()
+	err = u.Destroy(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.storageBackend.ReleaseStorageInstance(storageTag, true, false, dontWait)
 	c.Assert(err, gc.ErrorMatches,
@@ -670,7 +670,7 @@ func (s *VolumeStateSuite) TestDestroyVolumeStorageAssigned(c *gc.C) {
 	err = s.storageBackend.DestroyVolume(volume.VolumeTag(), false)
 	c.Assert(err, gc.ErrorMatches, "destroying volume 0: volume is assigned to storage data/0")
 
-	err = u.Destroy()
+	err = u.Destroy(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	removeStorageInstance(c, s.storageBackend, storageTag)
 	err = s.storageBackend.DestroyVolume(volume.VolumeTag(), false)
@@ -940,7 +940,7 @@ func (s *VolumeStateSuite) TestRemoveMachineRemovesVolumes(c *gc.C) {
 	}
 	c.Assert(len(allVolumes), jc.GreaterThan, len(persistentVolumes))
 
-	c.Assert(machine.Destroy(), jc.ErrorIsNil)
+	c.Assert(machine.Destroy(state.NewObjectStore(c, s.State)), jc.ErrorIsNil)
 
 	// Cannot advance to Dead while there are detachable dynamic volumes.
 	err = machine.EnsureDead()
@@ -1027,7 +1027,7 @@ func (s *VolumeStateSuite) TestVolumeMachineScoped(c *gc.C) {
 	c.Assert(volume.Life(), gc.Equals, state.Dead)
 
 	// Remove the machine: this should remove the volume.
-	err = machine.Destroy()
+	err = machine.Destroy(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1047,7 +1047,7 @@ func (s *VolumeStateSuite) TestVolumeBindingStorage(c *gc.C) {
 
 	// The volume should transition to Dying when the storage is removed.
 	// We must destroy the unit before we can remove the storage.
-	err = u.Destroy()
+	err = u.Destroy(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	removeStorageInstance(c, s.storageBackend, storageTag)
 	volume = s.volume(c, volume.VolumeTag())
