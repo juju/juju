@@ -13,7 +13,5 @@ import (
 
 // Downloader defines an API for downloading and storing charms.
 type Downloader interface {
-	// DownloadAndStore downloads the charm at the specified URL and stores it
-	// in the object store.
-	DownloadAndStore(context.Context, *charm.URL, corecharm.Origin, bool) (corecharm.Origin, error)
+	DownloadAndStore(ctx context.Context, charmURL *charm.URL, requestedOrigin corecharm.Origin, force bool) (corecharm.Origin, error)
 }

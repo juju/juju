@@ -9,6 +9,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"net/http"
+	"sort"
 	"strings"
 
 	"github.com/juju/collections/set"
@@ -22,6 +23,7 @@ import (
 	corebase "github.com/juju/juju/core/base"
 	charmmetrics "github.com/juju/juju/core/charm/metrics"
 	corelogger "github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/internal/charmhub/path"
 	"github.com/juju/juju/internal/charmhub/transport"
 	"github.com/juju/juju/version"
@@ -159,7 +161,17 @@ func contextMetrics(metrics map[charmmetrics.MetricKey]map[charmmetrics.MetricKe
 	return m, nil
 }
 
-func (c *refreshClient) refresh(ctx context.Context, ensure func(responses []transport.RefreshResponse) error, req transport.RefreshRequest) ([]transport.RefreshResponse, error) {
+func (c *refreshClient) refresh(ctx context.Context, ensure func(responses []transport.RefreshResponse) error, req transport.RefreshRequest) (_ []transport.RefreshResponse, err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc(), trace.WithAttributes(
+		trace.StringAttr("charmhub.request", "refresh"),
+		trace.StringAttr("charmhub.names", traceNames(req)),
+		trace.StringAttr("charmhub.idents", traceIdents(req)),
+	))
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	httpHeaders := make(http.Header)
 
 	var resp transport.RefreshResponses
@@ -483,4 +495,38 @@ func logAndReturnError(err error) error {
 	err = errors.Trace(err)
 	logger.Errorf(err.Error())
 	return err
+}
+
+func traceNames(req transport.RefreshRequest) string {
+	names := make(map[string]struct{})
+	for _, action := range req.Actions {
+		if action.Name == nil {
+			continue
+		}
+		names[*action.Name] = struct{}{}
+	}
+	return mapToString(names)
+}
+
+func traceIdents(req transport.RefreshRequest) string {
+	idents := make(map[string]struct{})
+	for _, action := range req.Actions {
+		if action.ID == nil {
+			continue
+		}
+		idents[*action.ID] = struct{}{}
+	}
+	for _, context := range req.Context {
+		idents[context.ID] = struct{}{}
+	}
+	return mapToString(idents)
+}
+
+func mapToString(m map[string]struct{}) string {
+	var res []string
+	for k := range m {
+		res = append(res, k)
+	}
+	sort.Strings(res)
+	return strings.Join(res, ",")
 }

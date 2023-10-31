@@ -4,6 +4,8 @@
 package application
 
 import (
+	"context"
+
 	"github.com/juju/charm/v11"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
@@ -35,10 +37,10 @@ func (s *UpdateBaseSuite) TestUpdateBase(c *gc.C) {
 
 	validator := NewMockUpdateBaseValidator(ctrl)
 	coreBase := corebase.MakeDefaultBase("ubuntu", "20.04")
-	validator.EXPECT().ValidateApplication(app, coreBase, false).Return(nil)
+	validator.EXPECT().ValidateApplication(gomock.Any(), app, coreBase, false).Return(nil)
 
 	api := NewUpdateBaseAPI(state, validator)
-	err := api.UpdateBase("application-foo", coreBase, false)
+	err := api.UpdateBase(context.Background(), "application-foo", coreBase, false)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -47,7 +49,7 @@ func (s *UpdateBaseSuite) TestUpdateBaseNoSeries(c *gc.C) {
 	defer ctrl.Finish()
 
 	api := NewUpdateBaseAPI(nil, nil)
-	err := api.UpdateBase("application-foo", corebase.Base{}, false)
+	err := api.UpdateBase(context.Background(), "application-foo", corebase.Base{}, false)
 	c.Assert(err, gc.ErrorMatches, `base missing from args`)
 }
 
@@ -64,7 +66,7 @@ func (s *UpdateBaseSuite) TestUpdateBaseNotPrincipal(c *gc.C) {
 	validator := NewMockUpdateBaseValidator(ctrl)
 
 	api := NewUpdateBaseAPI(state, validator)
-	err := api.UpdateBase("application-foo", corebase.MakeDefaultBase("ubuntu", "20.04"), false)
+	err := api.UpdateBase(context.Background(), "application-foo", corebase.MakeDefaultBase("ubuntu", "20.04"), false)
 	c.Assert(err, gc.ErrorMatches, `"foo" is a subordinate application, update-series not supported`)
 }
 
@@ -79,10 +81,10 @@ func (s *UpdateBaseSuite) TestUpdateBaseNotValid(c *gc.C) {
 	state.EXPECT().Application("foo").Return(app, nil)
 
 	validator := NewMockUpdateBaseValidator(ctrl)
-	validator.EXPECT().ValidateApplication(app, corebase.MakeDefaultBase("ubuntu", "20.04"), false).Return(errors.New("bad"))
+	validator.EXPECT().ValidateApplication(gomock.Any(), app, corebase.MakeDefaultBase("ubuntu", "20.04"), false).Return(errors.New("bad"))
 
 	api := NewUpdateBaseAPI(state, validator)
-	err := api.UpdateBase("application-foo", corebase.MakeDefaultBase("ubuntu", "20.04"), false)
+	err := api.UpdateBase(context.Background(), "application-foo", corebase.MakeDefaultBase("ubuntu", "20.04"), false)
 	c.Assert(err, gc.ErrorMatches, `bad`)
 }
 
@@ -106,7 +108,7 @@ func (s StateValidatorSuite) TestValidateApplication(c *gc.C) {
 	application.EXPECT().Charm().Return(ch, false, nil)
 
 	validator := stateSeriesValidator{}
-	err := validator.ValidateApplication(application, corebase.MakeDefaultBase("ubuntu", "20.04"), false)
+	err := validator.ValidateApplication(context.Background(), application, corebase.MakeDefaultBase("ubuntu", "20.04"), false)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -124,7 +126,7 @@ func (s StateValidatorSuite) TestValidateApplicationWithNoBases(c *gc.C) {
 	application.EXPECT().Charm().Return(ch, false, nil)
 
 	validator := stateSeriesValidator{}
-	err := validator.ValidateApplication(application, corebase.MakeDefaultBase("ubuntu", "20.04"), false)
+	err := validator.ValidateApplication(context.Background(), application, corebase.MakeDefaultBase("ubuntu", "20.04"), false)
 	c.Assert(err, gc.ErrorMatches, `charm "my-charm" does not support any bases. Not valid`)
 }
 
@@ -143,7 +145,7 @@ func (s StateValidatorSuite) TestValidateApplicationWithUnsupportedSeries(c *gc.
 	application.EXPECT().Charm().Return(ch, false, nil)
 
 	validator := stateSeriesValidator{}
-	err := validator.ValidateApplication(application, corebase.MakeDefaultBase("ubuntu", "20.04"), false)
+	err := validator.ValidateApplication(context.Background(), application, corebase.MakeDefaultBase("ubuntu", "20.04"), false)
 	c.Assert(err, gc.ErrorMatches, `base "ubuntu@20.04" not supported by charm "my-charm", supported bases are: ubuntu@16.04, ubuntu@18.04`)
 }
 
@@ -161,7 +163,7 @@ func (s StateValidatorSuite) TestValidateApplicationWithUnsupportedSeriesWithFor
 	application.EXPECT().Charm().Return(ch, false, nil)
 
 	validator := stateSeriesValidator{}
-	err := validator.ValidateApplication(application, corebase.MakeDefaultBase("ubuntu", "20.04"), true)
+	err := validator.ValidateApplication(context.Background(), application, corebase.MakeDefaultBase("ubuntu", "20.04"), true)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -198,7 +200,7 @@ func (s CharmhubValidatorSuite) TestValidateApplication(c *gc.C) {
 	validator := charmhubSeriesValidator{
 		client: client,
 	}
-	err := validator.ValidateApplication(application, corebase.MakeDefaultBase("ubuntu", "20.04"), false)
+	err := validator.ValidateApplication(context.Background(), application, corebase.MakeDefaultBase("ubuntu", "20.04"), false)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -215,7 +217,7 @@ func (s CharmhubValidatorSuite) TestValidateApplicationWithNoRevision(c *gc.C) {
 	validator := charmhubSeriesValidator{
 		client: client,
 	}
-	err := validator.ValidateApplication(application, corebase.MakeDefaultBase("ubuntu", "20.04"), false)
+	err := validator.ValidateApplication(context.Background(), application, corebase.MakeDefaultBase("ubuntu", "20.04"), false)
 	c.Assert(err, gc.ErrorMatches, `no revision found for application "foo"`)
 }
 
@@ -244,7 +246,7 @@ func (s CharmhubValidatorSuite) TestValidateApplicationWithClientRefreshError(c 
 	validator := charmhubSeriesValidator{
 		client: client,
 	}
-	err := validator.ValidateApplication(application, corebase.MakeDefaultBase("ubuntu", "20.04"), false)
+	err := validator.ValidateApplication(context.Background(), application, corebase.MakeDefaultBase("ubuntu", "20.04"), false)
 	c.Assert(err, gc.ErrorMatches, `bad`)
 }
 
@@ -275,7 +277,7 @@ func (s CharmhubValidatorSuite) TestValidateApplicationWithRefreshError(c *gc.C)
 	validator := charmhubSeriesValidator{
 		client: client,
 	}
-	err := validator.ValidateApplication(application, corebase.MakeDefaultBase("ubuntu", "20.04"), false)
+	err := validator.ValidateApplication(context.Background(), application, corebase.MakeDefaultBase("ubuntu", "20.04"), false)
 	c.Assert(err, gc.ErrorMatches, `unable to locate application with base ubuntu@20.04: bad`)
 }
 
@@ -309,6 +311,6 @@ func (s CharmhubValidatorSuite) TestValidateApplicationWithRefreshErrorAndForce(
 	validator := charmhubSeriesValidator{
 		client: client,
 	}
-	err := validator.ValidateApplication(application, corebase.MakeDefaultBase("ubuntu", "20.04"), true)
+	err := validator.ValidateApplication(context.Background(), application, corebase.MakeDefaultBase("ubuntu", "20.04"), true)
 	c.Assert(err, jc.ErrorIsNil)
 }

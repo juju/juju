@@ -157,7 +157,7 @@ func (a *API) GetDownloadInfos(ctx context.Context, args params.CharmURLAndOrigi
 		Results: make([]params.DownloadInfoResult, len(args.Entities)),
 	}
 	for i, arg := range args.Entities {
-		result, err := a.getDownloadInfo(arg)
+		result, err := a.getDownloadInfo(ctx, arg)
 		if err != nil {
 			return params.DownloadInfoResults{}, errors.Trace(err)
 		}
@@ -166,7 +166,7 @@ func (a *API) GetDownloadInfos(ctx context.Context, args params.CharmURLAndOrigi
 	return results, nil
 }
 
-func (a *API) getDownloadInfo(arg params.CharmURLAndOrigin) (params.DownloadInfoResult, error) {
+func (a *API) getDownloadInfo(ctx context.Context, arg params.CharmURLAndOrigin) (params.DownloadInfoResult, error) {
 	if err := a.checkCanRead(); err != nil {
 		return params.DownloadInfoResult{}, apiservererrors.ServerError(err)
 	}
@@ -186,7 +186,7 @@ func (a *API) getDownloadInfo(arg params.CharmURLAndOrigin) (params.DownloadInfo
 		return params.DownloadInfoResult{}, apiservererrors.ServerError(err)
 	}
 
-	repo, err := a.getCharmRepository(corecharm.Source(charmOrigin.Source))
+	repo, err := a.getCharmRepository(ctx, corecharm.Source(charmOrigin.Source))
 	if err != nil {
 		return params.DownloadInfoResult{}, apiservererrors.ServerError(err)
 	}
@@ -195,7 +195,7 @@ func (a *API) getDownloadInfo(arg params.CharmURLAndOrigin) (params.DownloadInfo
 	if err != nil {
 		return params.DownloadInfoResult{}, apiservererrors.ServerError(err)
 	}
-	url, origin, err := repo.GetDownloadURL(curl, requestedOrigin)
+	url, origin, err := repo.GetDownloadURL(ctx, curl, requestedOrigin)
 	if err != nil {
 		return params.DownloadInfoResult{}, apiservererrors.ServerError(err)
 	}
@@ -242,7 +242,7 @@ func normalizeCharmOrigin(origin params.CharmOrigin, fallbackArch string, logger
 // only charm store and charm hub URLs. See also AddLocalCharm().
 func (a *API) AddCharm(ctx context.Context, args params.AddCharmWithOrigin) (params.CharmOriginResult, error) {
 	a.logger.Tracef("AddCharm %+v", args)
-	return a.addCharmWithAuthorization(params.AddCharmWithAuth{
+	return a.addCharmWithAuthorization(ctx, params.AddCharmWithAuth{
 		URL:    args.URL,
 		Origin: args.Origin,
 		Force:  args.Force,
@@ -257,10 +257,10 @@ func (a *API) AddCharm(ctx context.Context, args params.AddCharmWithOrigin) (par
 // AddCharm. We keep it for backwards compatibility in APIv5.
 func (a *APIv5) AddCharmWithAuthorization(ctx context.Context, args params.AddCharmWithAuth) (params.CharmOriginResult, error) {
 	a.logger.Tracef("AddCharmWithAuthorization %+v", args)
-	return a.addCharmWithAuthorization(args)
+	return a.addCharmWithAuthorization(ctx, args)
 }
 
-func (a *API) addCharmWithAuthorization(args params.AddCharmWithAuth) (params.CharmOriginResult, error) {
+func (a *API) addCharmWithAuthorization(ctx context.Context, args params.AddCharmWithAuth) (params.CharmOriginResult, error) {
 	if commoncharm.OriginSource(args.Origin.Source) != commoncharm.OriginCharmHub {
 		return params.CharmOriginResult{}, errors.Errorf("unknown schema for charm URL %q", args.URL)
 	}
@@ -273,7 +273,7 @@ func (a *API) addCharmWithAuthorization(args params.AddCharmWithAuth) (params.Ch
 		return params.CharmOriginResult{}, err
 	}
 
-	actualOrigin, err := a.queueAsyncCharmDownload(args)
+	actualOrigin, err := a.queueAsyncCharmDownload(ctx, args)
 	if err != nil {
 		return params.CharmOriginResult{}, errors.Trace(err)
 	}
@@ -287,7 +287,7 @@ func (a *API) addCharmWithAuthorization(args params.AddCharmWithAuth) (params.Ch
 	}, nil
 }
 
-func (a *API) queueAsyncCharmDownload(args params.AddCharmWithAuth) (corecharm.Origin, error) {
+func (a *API) queueAsyncCharmDownload(ctx context.Context, args params.AddCharmWithAuth) (corecharm.Origin, error) {
 	charmURL, err := charm.ParseURL(args.URL)
 	if err != nil {
 		return corecharm.Origin{}, err
@@ -297,7 +297,7 @@ func (a *API) queueAsyncCharmDownload(args params.AddCharmWithAuth) (corecharm.O
 	if err != nil {
 		return corecharm.Origin{}, errors.Trace(err)
 	}
-	repo, err := a.getCharmRepository(requestedOrigin.Source)
+	repo, err := a.getCharmRepository(ctx, requestedOrigin.Source)
 	if err != nil {
 		return corecharm.Origin{}, errors.Trace(err)
 	}
@@ -312,14 +312,14 @@ func (a *API) queueAsyncCharmDownload(args params.AddCharmWithAuth) (corecharm.O
 	// to ensure that the resolved origin has the ID/Hash fields correctly
 	// populated.
 	if _, err := a.backendState.Charm(args.URL); err == nil {
-		_, resolvedOrigin, err := repo.GetDownloadURL(charmURL, requestedOrigin)
+		_, resolvedOrigin, err := repo.GetDownloadURL(ctx, charmURL, requestedOrigin)
 		return resolvedOrigin, errors.Trace(err)
 	}
 
 	// Fetch the essential metadata that we require to deploy the charm
 	// without downloading the full archive. The remaining metadata will
 	// be populated once the charm gets downloaded.
-	essentialMeta, err := repo.GetEssentialMetadata(corecharm.MetadataRequest{
+	essentialMeta, err := repo.GetEssentialMetadata(ctx, corecharm.MetadataRequest{
 		CharmURL: charmURL,
 		Origin:   requestedOrigin,
 	})
@@ -350,13 +350,13 @@ func (a *API) ResolveCharms(ctx context.Context, args params.ResolveCharmsWithCh
 		Results: make([]params.ResolveCharmWithChannelResult, len(args.Resolve)),
 	}
 	for i, arg := range args.Resolve {
-		result.Results[i] = a.resolveOneCharm(arg)
+		result.Results[i] = a.resolveOneCharm(ctx, arg)
 	}
 
 	return result, nil
 }
 
-func (a *API) resolveOneCharm(arg params.ResolveCharmWithChannel) params.ResolveCharmWithChannelResult {
+func (a *API) resolveOneCharm(ctx context.Context, arg params.ResolveCharmWithChannel) params.ResolveCharmWithChannelResult {
 	result := params.ResolveCharmWithChannelResult{}
 	curl, err := charm.ParseURL(arg.Reference)
 	if err != nil {
@@ -380,13 +380,13 @@ func (a *API) resolveOneCharm(arg params.ResolveCharmWithChannel) params.Resolve
 		return result
 	}
 
-	repo, err := a.getCharmRepository(corecharm.Source(arg.Origin.Source))
+	repo, err := a.getCharmRepository(ctx, corecharm.Source(arg.Origin.Source))
 	if err != nil {
 		result.Error = apiservererrors.ServerError(err)
 		return result
 	}
 
-	resultURL, origin, resolvedBases, err := repo.ResolveWithPreferredChannel(curl, requestedOrigin)
+	resultURL, origin, resolvedBases, err := repo.ResolveWithPreferredChannel(ctx, curl, requestedOrigin)
 	if err != nil {
 		result.Error = apiservererrors.ServerError(err)
 		return result
@@ -489,13 +489,13 @@ func validateOrigin(origin corecharm.Origin, curl *charm.URL, switchCharm bool) 
 	return nil
 }
 
-func (a *API) getCharmRepository(src corecharm.Source) (corecharm.Repository, error) {
+func (a *API) getCharmRepository(ctx context.Context, src corecharm.Source) (corecharm.Repository, error) {
 	// The following is only required for testing, as we generate a new http
 	// client here for production.
 	a.mu.Lock()
 	if a.repoFactory != nil {
 		defer a.mu.Unlock()
-		return a.repoFactory.GetCharmRepository(src)
+		return a.repoFactory.GetCharmRepository(ctx, src)
 	}
 	a.mu.Unlock()
 
@@ -506,7 +506,7 @@ func (a *API) getCharmRepository(src corecharm.Source) (corecharm.Repository, er
 		ModelBackend:       a.backendModel,
 	})
 
-	return repoFactory.GetCharmRepository(src)
+	return repoFactory.GetCharmRepository(ctx, src)
 }
 
 // IsMetered returns whether or not the charm is metered.
@@ -677,7 +677,7 @@ func (a *API) ListCharmResources(ctx context.Context, args params.CharmURLAndOri
 		Results: make([][]params.CharmResourceResult, len(args.Entities)),
 	}
 	for i, arg := range args.Entities {
-		result, err := a.listOneCharmResources(arg)
+		result, err := a.listOneCharmResources(ctx, arg)
 		if err != nil {
 			return params.CharmResourcesResults{}, errors.Trace(err)
 		}
@@ -686,7 +686,7 @@ func (a *API) ListCharmResources(ctx context.Context, args params.CharmURLAndOri
 	return results, nil
 }
 
-func (a *API) listOneCharmResources(arg params.CharmURLAndOrigin) ([]params.CharmResourceResult, error) {
+func (a *API) listOneCharmResources(ctx context.Context, arg params.CharmURLAndOrigin) ([]params.CharmResourceResult, error) {
 	// TODO (stickupkid) - remove api packages from apiserver packages.
 	curl, err := charm.ParseURL(arg.CharmURL)
 	if err != nil {
@@ -705,7 +705,7 @@ func (a *API) listOneCharmResources(arg params.CharmURLAndOrigin) ([]params.Char
 	if err != nil {
 		return nil, apiservererrors.ServerError(err)
 	}
-	repo, err := a.getCharmRepository(corecharm.Source(charmOrigin.Source))
+	repo, err := a.getCharmRepository(ctx, corecharm.Source(charmOrigin.Source))
 	if err != nil {
 		return nil, apiservererrors.ServerError(err)
 	}
@@ -714,7 +714,7 @@ func (a *API) listOneCharmResources(arg params.CharmURLAndOrigin) ([]params.Char
 	if err != nil {
 		return nil, apiservererrors.ServerError(err)
 	}
-	resources, err := repo.ListResources(curl, requestedOrigin)
+	resources, err := repo.ListResources(ctx, curl, requestedOrigin)
 	if err != nil {
 		return nil, apiservererrors.ServerError(err)
 	}

@@ -27,12 +27,12 @@ type UpgradeSeries interface {
 	// valid series upgrade for the target machine.
 	// If they do, a list of the machine's current units is returned for use in
 	// soliciting user confirmation of the command.
-	Validate([]ValidationEntity) ([]ValidationResult, error)
+	Validate(context.Context, []ValidationEntity) ([]ValidationResult, error)
 
 	// Prepare attempts to prepare a machine for a OS series upgrade.
 	// It is expected that a validate call has been performed before the prepare
 	// step.
-	Prepare(string, string, bool) error
+	Prepare(context.Context, string, string, bool) error
 
 	// Complete will complete the upgrade series.
 	Complete(string) error
@@ -59,7 +59,7 @@ type ApplicationValidator interface {
 	//
 	// I do question if you actually need to validate anything if force is
 	// employed here?
-	ValidateApplications(applications []Application, base corebase.Base, force bool) error
+	ValidateApplications(ctx context.Context, applications []Application, base corebase.Base, force bool) error
 }
 
 // UpgradeBaseValidator defines a set of validators for the upgrade series
@@ -120,7 +120,7 @@ type ValidationResult struct {
 // valid series upgrade for the target machine.
 // If they do, a list of the machine's current units is returned for use in
 // soliciting user confirmation of the command.
-func (a *UpgradeSeriesAPI) Validate(entities []ValidationEntity) ([]ValidationResult, error) {
+func (a *UpgradeSeriesAPI) Validate(ctx context.Context, entities []ValidationEntity) ([]ValidationResult, error) {
 	if err := a.authorizer.CanRead(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -143,7 +143,7 @@ func (a *UpgradeSeriesAPI) Validate(entities []ValidationEntity) ([]ValidationRe
 			results[i].Error = errors.Trace(err)
 			continue
 		}
-		if err := a.validateApplication(machine, requestedBase, entity.Force); err != nil {
+		if err := a.validateApplication(ctx, machine, requestedBase, entity.Force); err != nil {
 			results[i].Error = errors.Trace(err)
 			continue
 		}
@@ -170,7 +170,7 @@ func (a *UpgradeSeriesAPI) Validate(entities []ValidationEntity) ([]ValidationRe
 	return results, nil
 }
 
-func (a *UpgradeSeriesAPI) Prepare(tag, channel string, force bool) (retErr error) {
+func (a *UpgradeSeriesAPI) Prepare(ctx context.Context, tag, channel string, force bool) (retErr error) {
 	machine, err := a.state.MachineFromTag(tag)
 	if err != nil {
 		return errors.Trace(err)
@@ -195,7 +195,7 @@ func (a *UpgradeSeriesAPI) Prepare(tag, channel string, force bool) (retErr erro
 	}
 
 	// Validate the machine applications for a given series.
-	if err := a.validateApplication(machine, requestedBase, force); err != nil {
+	if err := a.validateApplication(ctx, machine, requestedBase, force); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -235,7 +235,7 @@ func (a *UpgradeSeriesAPI) Complete(tag string) error {
 	return machine.CompleteUpgradeSeries()
 }
 
-func (a *UpgradeSeriesAPI) validateApplication(machine Machine, requestedBase corebase.Base, force bool) error {
+func (a *UpgradeSeriesAPI) validateApplication(ctx context.Context, machine Machine, requestedBase corebase.Base, force bool) error {
 	base, err := corebase.ParseBase(machine.Base().OS, machine.Base().Channel)
 	if err != nil {
 		return errors.Trace(err)
@@ -252,7 +252,7 @@ func (a *UpgradeSeriesAPI) validateApplication(machine Machine, requestedBase co
 		return errors.Trace(err)
 	}
 
-	if err := a.validator.ValidateApplications(applications, requestedBase, force); err != nil {
+	if err := a.validator.ValidateApplications(ctx, applications, requestedBase, force); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -352,7 +352,7 @@ func (s upgradeSeriesValidator) ValidateBase(requestedBase, machineBase corebase
 
 // ValidateApplications attempts to validate a series of applications for
 // a given series.
-func (s upgradeSeriesValidator) ValidateApplications(applications []Application, base corebase.Base, force bool) error {
+func (s upgradeSeriesValidator) ValidateApplications(ctx context.Context, applications []Application, base corebase.Base, force bool) error {
 	// We do it this way, so we can batch the charmhub charm queries. This is
 	// leaking an implementation detail into the decision logic, but we can't
 	// work around that.
@@ -373,11 +373,11 @@ func (s upgradeSeriesValidator) ValidateApplications(applications []Application,
 		requestApps = append(requestApps, app)
 	}
 
-	if err := s.localValidator.ValidateApplications(stateApps, base, force); err != nil {
+	if err := s.localValidator.ValidateApplications(ctx, stateApps, base, force); err != nil {
 		return errors.Trace(err)
 	}
 
-	return s.remoteValidator.ValidateApplications(requestApps, base, force)
+	return s.remoteValidator.ValidateApplications(ctx, requestApps, base, force)
 }
 
 // ValidateMachine validates a given machine for ensuring it meets a given
@@ -441,7 +441,7 @@ type stateSeriesValidator struct{}
 
 // ValidateApplications attempts to validate a series of applications for
 // a given base.
-func (s stateSeriesValidator) ValidateApplications(applications []Application, base corebase.Base, force bool) error {
+func (s stateSeriesValidator) ValidateApplications(ctx context.Context, applications []Application, base corebase.Base, force bool) error {
 	if len(applications) == 0 {
 		return nil
 	}
@@ -482,7 +482,7 @@ type charmhubSeriesValidator struct {
 
 // ValidateApplications attempts to validate a series of applications for
 // a given base.
-func (s charmhubSeriesValidator) ValidateApplications(applications []Application, base corebase.Base, force bool) error {
+func (s charmhubSeriesValidator) ValidateApplications(ctx context.Context, applications []Application, base corebase.Base, force bool) error {
 	if len(applications) == 0 {
 		return nil
 	}
@@ -503,7 +503,7 @@ func (s charmhubSeriesValidator) ValidateApplications(applications []Application
 		}
 		configs[i] = cfg
 	}
-	refreshResp, err := s.client.Refresh(context.TODO(), charmhub.RefreshMany(configs...))
+	refreshResp, err := s.client.Refresh(ctx, charmhub.RefreshMany(configs...))
 	if err != nil {
 		return errors.Trace(err)
 	}

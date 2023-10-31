@@ -4,6 +4,8 @@
 package downloader
 
 import (
+	"context"
+
 	"github.com/juju/charm/v11"
 
 	corecharm "github.com/juju/juju/core/charm"
@@ -17,6 +19,6 @@ func (d *Downloader) NormalizePlatform(charmURL string, platform corecharm.Platf
 	return d.normalizePlatform(charmURL, platform)
 }
 
-func (d *Downloader) DownloadAndHash(charmURL *charm.URL, requestedOrigin corecharm.Origin, repo CharmRepository, dstPath string) (DownloadedCharm, corecharm.Origin, error) {
-	return d.downloadAndHash(charmURL, requestedOrigin, repo, dstPath)
+func (d *Downloader) DownloadAndHash(ctx context.Context, charmURL *charm.URL, requestedOrigin corecharm.Origin, repo CharmRepository, dstPath string) (DownloadedCharm, corecharm.Origin, error) {
+	return d.downloadAndHash(ctx, charmURL, requestedOrigin, repo, dstPath)
 }

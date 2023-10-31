@@ -5,6 +5,7 @@
 package mocks
 
 import (
+	context "context"
 	reflect "reflect"
 
 	charm "github.com/juju/juju/core/charm"
@@ -36,16 +37,16 @@ func (m *MockRepositoryGetter) EXPECT() *MockRepositoryGetterMockRecorder {
 }
 
 // GetCharmRepository mocks base method.
-func (m *MockRepositoryGetter) GetCharmRepository(arg0 charm.Source) (downloader.CharmRepository, error) {
+func (m *MockRepositoryGetter) GetCharmRepository(arg0 context.Context, arg1 charm.Source) (downloader.CharmRepository, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetCharmRepository", arg0)
+	ret := m.ctrl.Call(m, "GetCharmRepository", arg0, arg1)
 	ret0, _ := ret[0].(downloader.CharmRepository)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetCharmRepository indicates an expected call of GetCharmRepository.
-func (mr *MockRepositoryGetterMockRecorder) GetCharmRepository(arg0 interface{}) *gomock.Call {
+func (mr *MockRepositoryGetterMockRecorder) GetCharmRepository(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCharmRepository", reflect.TypeOf((*MockRepositoryGetter)(nil).GetCharmRepository), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCharmRepository", reflect.TypeOf((*MockRepositoryGetter)(nil).GetCharmRepository), arg0, arg1)
 }

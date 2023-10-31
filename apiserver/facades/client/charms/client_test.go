@@ -364,12 +364,12 @@ func (s *charmsMockSuite) TestAddCharmCharmhub(c *gc.C) {
 	}
 
 	s.state.EXPECT().Charm(curl.String()).Return(nil, errors.NotFoundf("%q", curl))
-	s.repoFactory.EXPECT().GetCharmRepository(gomock.Any()).Return(s.repository, nil)
+	s.repoFactory.EXPECT().GetCharmRepository(gomock.Any(), gomock.Any()).Return(s.repository, nil)
 
 	expMeta := new(charm.Meta)
 	expManifest := new(charm.Manifest)
 	expConfig := new(charm.Config)
-	s.repository.EXPECT().GetEssentialMetadata(corecharm.MetadataRequest{
+	s.repository.EXPECT().GetEssentialMetadata(gomock.Any(), corecharm.MetadataRequest{
 		CharmURL: curl,
 		Origin:   requestedOrigin,
 	}).Return([]corecharm.EssentialMetadata{
@@ -434,8 +434,8 @@ func (s *charmsMockSuite) TestQueueAsyncCharmDownloadResolvesAgainOriginForAlrea
 	}
 
 	s.state.EXPECT().Charm(curl.String()).Return(nil, nil) // a nil error indicates that the charm doc already exists
-	s.repoFactory.EXPECT().GetCharmRepository(gomock.Any()).Return(s.repository, nil)
-	s.repository.EXPECT().GetDownloadURL(curl, gomock.Any()).Return(resURL, resolvedOrigin, nil)
+	s.repoFactory.EXPECT().GetCharmRepository(gomock.Any(), gomock.Any()).Return(s.repository, nil)
+	s.repository.EXPECT().GetDownloadURL(gomock.Any(), curl, gomock.Any()).Return(resURL, resolvedOrigin, nil)
 
 	api := s.api(c)
 
@@ -662,13 +662,14 @@ func (s *charmsMockSuite) setupMocks(c *gc.C) *gomock.Controller {
 }
 
 func (s *charmsMockSuite) expectResolveWithPreferredChannel(times int, err error) {
-	s.repoFactory.EXPECT().GetCharmRepository(gomock.Any()).Return(s.repository, nil).Times(times)
+	s.repoFactory.EXPECT().GetCharmRepository(gomock.Any(), gomock.Any()).Return(s.repository, nil).Times(times)
 	s.repository.EXPECT().ResolveWithPreferredChannel(
+		gomock.Any(),
 		gomock.AssignableToTypeOf(&charm.URL{}),
 		gomock.AssignableToTypeOf(corecharm.Origin{}),
 	).DoAndReturn(
 		// Ensure the same curl that is provided, is returned.
-		func(curl *charm.URL, requestedOrigin corecharm.Origin) (*charm.URL, corecharm.Origin, []corecharm.Platform, error) {
+		func(ctx context.Context, curl *charm.URL, requestedOrigin corecharm.Origin) (*charm.URL, corecharm.Origin, []corecharm.Platform, error) {
 			resolvedOrigin := requestedOrigin
 			resolvedOrigin.Type = "charm"
 
@@ -689,13 +690,14 @@ func (s *charmsMockSuite) expectResolveWithPreferredChannel(times int, err error
 }
 
 func (s *charmsMockSuite) expectResolveWithPreferredChannelNoSeries() {
-	s.repoFactory.EXPECT().GetCharmRepository(gomock.Any()).Return(s.repository, nil)
+	s.repoFactory.EXPECT().GetCharmRepository(gomock.Any(), gomock.Any()).Return(s.repository, nil)
 	s.repository.EXPECT().ResolveWithPreferredChannel(
+		gomock.Any(),
 		gomock.AssignableToTypeOf(&charm.URL{}),
 		gomock.AssignableToTypeOf(corecharm.Origin{}),
 	).DoAndReturn(
 		// Ensure the same curl that is provided, is returned.
-		func(curl *charm.URL, requestedOrigin corecharm.Origin) (*charm.URL, corecharm.Origin, []string, error) {
+		func(ctx context.Context, curl *charm.URL, requestedOrigin corecharm.Origin) (*charm.URL, corecharm.Origin, []string, error) {
 			resolvedOrigin := requestedOrigin
 			resolvedOrigin.Type = "charm"
 

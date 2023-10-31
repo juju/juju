@@ -5,6 +5,7 @@
 package mocks
 
 import (
+	context "context"
 	reflect "reflect"
 
 	machinemanager "github.com/juju/juju/apiserver/facades/client/machinemanager"
@@ -115,32 +116,32 @@ func (mr *MockUpgradeSeriesMockRecorder) Complete(arg0 interface{}) *gomock.Call
 }
 
 // Prepare mocks base method.
-func (m *MockUpgradeSeries) Prepare(arg0, arg1 string, arg2 bool) error {
+func (m *MockUpgradeSeries) Prepare(arg0 context.Context, arg1, arg2 string, arg3 bool) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Prepare", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "Prepare", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Prepare indicates an expected call of Prepare.
-func (mr *MockUpgradeSeriesMockRecorder) Prepare(arg0, arg1, arg2 interface{}) *gomock.Call {
+func (mr *MockUpgradeSeriesMockRecorder) Prepare(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Prepare", reflect.TypeOf((*MockUpgradeSeries)(nil).Prepare), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Prepare", reflect.TypeOf((*MockUpgradeSeries)(nil).Prepare), arg0, arg1, arg2, arg3)
 }
 
 // Validate mocks base method.
-func (m *MockUpgradeSeries) Validate(arg0 []machinemanager.ValidationEntity) ([]machinemanager.ValidationResult, error) {
+func (m *MockUpgradeSeries) Validate(arg0 context.Context, arg1 []machinemanager.ValidationEntity) ([]machinemanager.ValidationResult, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Validate", arg0)
+	ret := m.ctrl.Call(m, "Validate", arg0, arg1)
 	ret0, _ := ret[0].([]machinemanager.ValidationResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Validate indicates an expected call of Validate.
-func (mr *MockUpgradeSeriesMockRecorder) Validate(arg0 interface{}) *gomock.Call {
+func (mr *MockUpgradeSeriesMockRecorder) Validate(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Validate", reflect.TypeOf((*MockUpgradeSeries)(nil).Validate), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Validate", reflect.TypeOf((*MockUpgradeSeries)(nil).Validate), arg0, arg1)
 }
 
 // MockUpgradeSeriesState is a mock of UpgradeSeriesState interface.
@@ -220,17 +221,17 @@ func (m *MockUpgradeBaseValidator) EXPECT() *MockUpgradeBaseValidatorMockRecorde
 }
 
 // ValidateApplications mocks base method.
-func (m *MockUpgradeBaseValidator) ValidateApplications(arg0 []machinemanager.Application, arg1 base.Base, arg2 bool) error {
+func (m *MockUpgradeBaseValidator) ValidateApplications(arg0 context.Context, arg1 []machinemanager.Application, arg2 base.Base, arg3 bool) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ValidateApplications", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "ValidateApplications", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // ValidateApplications indicates an expected call of ValidateApplications.
-func (mr *MockUpgradeBaseValidatorMockRecorder) ValidateApplications(arg0, arg1, arg2 interface{}) *gomock.Call {
+func (mr *MockUpgradeBaseValidatorMockRecorder) ValidateApplications(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidateApplications", reflect.TypeOf((*MockUpgradeBaseValidator)(nil).ValidateApplications), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidateApplications", reflect.TypeOf((*MockUpgradeBaseValidator)(nil).ValidateApplications), arg0, arg1, arg2, arg3)
 }
 
 // ValidateBase mocks base method.

@@ -62,7 +62,7 @@ func (s *AddPendingResourcesSuite) TestWithURLUpToDate(c *gc.C) {
 	res := []charmresource.Resource{
 		res1.Resource,
 	}
-	s.factory.EXPECT().ResolveResources(gomock.Any(), gomock.Any()).Return(res, nil)
+	s.factory.EXPECT().ResolveResources(gomock.Any(), gomock.Any(), gomock.Any()).Return(res, nil)
 	facade := s.newFacade(c)
 
 	result, err := facade.AddPendingResources(context.Background(), params.AddPendingResourcesArgsV2{
@@ -100,7 +100,7 @@ func (s *AddPendingResourcesSuite) TestWithURLMismatchComplete(c *gc.C) {
 		Origin: corecharm.Origin{Channel: &charm.Channel{}},
 	}
 	expected := []charmresource.Resource{res1.Resource}
-	s.factory.EXPECT().ResolveResources(expected, charmID).Return(expected, nil)
+	s.factory.EXPECT().ResolveResources(gomock.Any(), expected, charmID).Return(expected, nil)
 
 	facade := s.newFacade(c)
 	result, err := facade.AddPendingResources(context.Background(), params.AddPendingResourcesArgsV2{
@@ -151,7 +151,7 @@ func (s *AddPendingResourcesSuite) TestWithURLMismatchIncomplete(c *gc.C) {
 		URL:    curl,
 		Origin: corecharm.Origin{Channel: &charm.Channel{}},
 	}
-	s.factory.EXPECT().ResolveResources(res2, charmID).Return(expected, nil)
+	s.factory.EXPECT().ResolveResources(gomock.Any(), res2, charmID).Return(expected, nil)
 
 	facade := s.newFacade(c)
 	result, err := facade.AddPendingResources(context.Background(), params.AddPendingResourcesArgsV2{
@@ -199,7 +199,7 @@ func (s *AddPendingResourcesSuite) TestWithURLNoRevision(c *gc.C) {
 		URL:    curl,
 		Origin: corecharm.Origin{Channel: &charm.Channel{}},
 	}
-	s.factory.EXPECT().ResolveResources(resNoRev, charmID).Return(expected, nil)
+	s.factory.EXPECT().ResolveResources(gomock.Any(), resNoRev, charmID).Return(expected, nil)
 
 	facade := s.newFacade(c)
 	result, err := facade.AddPendingResources(context.Background(), params.AddPendingResourcesArgsV2{
@@ -240,7 +240,7 @@ func (s *AddPendingResourcesSuite) TestWithURLUpload(c *gc.C) {
 		URL:    curl,
 		Origin: corecharm.Origin{Channel: &charm.Channel{}},
 	}
-	s.factory.EXPECT().ResolveResources([]charmresource.Resource{res1.Resource}, charmID).Return(expected, nil)
+	s.factory.EXPECT().ResolveResources(gomock.Any(), []charmresource.Resource{res1.Resource}, charmID).Return(expected, nil)
 
 	facade := s.newFacade(c)
 	result, err := facade.AddPendingResources(context.Background(), params.AddPendingResourcesArgsV2{
@@ -278,7 +278,7 @@ func (s *AddPendingResourcesSuite) TestUnknownResource(c *gc.C) {
 		URL:    curl,
 		Origin: corecharm.Origin{Channel: &charm.Channel{}},
 	}
-	s.factory.EXPECT().ResolveResources(expected, charmID).Return(expected, nil)
+	s.factory.EXPECT().ResolveResources(gomock.Any(), expected, charmID).Return(expected, nil)
 
 	facade := s.newFacade(c)
 	result, err := facade.AddPendingResources(context.Background(), params.AddPendingResourcesArgsV2{

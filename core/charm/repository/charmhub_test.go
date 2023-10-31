@@ -86,7 +86,7 @@ func (s *charmHubRepositorySuite) testResolve(c *gc.C, id string) {
 		origin.InstanceKey = "instance-key"
 	}
 
-	obtainedCurl, obtainedOrigin, obtainedBases, err := s.newClient().ResolveWithPreferredChannel(curl, origin)
+	obtainedCurl, obtainedOrigin, obtainedBases, err := s.newClient().ResolveWithPreferredChannel(context.Background(), curl, origin)
 	c.Assert(err, jc.ErrorIsNil)
 
 	curl.Revision = rev
@@ -122,7 +122,7 @@ func (s *charmHubRepositorySuite) TestResolveWithChannel(c *gc.C) {
 		},
 	}
 
-	obtainedCurl, obtainedOrigin, obtainedBases, err := s.newClient().ResolveWithPreferredChannel(curl, origin)
+	obtainedCurl, obtainedOrigin, obtainedBases, err := s.newClient().ResolveWithPreferredChannel(context.Background(), curl, origin)
 	c.Assert(err, jc.ErrorIsNil)
 
 	curl.Revision = 16
@@ -156,7 +156,7 @@ func (s *charmHubRepositorySuite) TestResolveWithoutBase(c *gc.C) {
 		},
 	}
 
-	obtainedCurl, obtainedOrigin, obtainedBases, err := s.newClient().ResolveWithPreferredChannel(curl, origin)
+	obtainedCurl, obtainedOrigin, obtainedBases, err := s.newClient().ResolveWithPreferredChannel(context.Background(), curl, origin)
 	c.Assert(err, jc.ErrorIsNil)
 
 	curl.Revision = 16
@@ -197,7 +197,7 @@ func (s *charmHubRepositorySuite) TestResolveForDeployWithRevisionSuccess(c *gc.
 	}
 	arg := corecharm.CharmID{URL: curl, Origin: origin}
 
-	obtainedData, err := s.newClient().ResolveForDeploy(arg)
+	obtainedData, err := s.newClient().ResolveForDeploy(context.Background(), arg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	curl.Revision = revision
@@ -230,7 +230,7 @@ func (s *charmHubRepositorySuite) TestResolveForDeploySuccessChooseBase(c *gc.C)
 	}
 	arg := corecharm.CharmID{URL: curl, Origin: origin}
 
-	obtainedData, err := s.newClient().ResolveForDeploy(arg)
+	obtainedData, err := s.newClient().ResolveForDeploy(context.Background(), arg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	curl.Revision = 16
@@ -263,7 +263,7 @@ func (s *charmHubRepositorySuite) TestResolveWithBundles(c *gc.C) {
 		},
 	}
 
-	obtainedCurl, obtainedOrigin, obtainedBases, err := s.newClient().ResolveWithPreferredChannel(curl, origin)
+	obtainedCurl, obtainedOrigin, obtainedBases, err := s.newClient().ResolveWithPreferredChannel(context.Background(), curl, origin)
 	c.Assert(err, jc.ErrorIsNil)
 
 	curl.Revision = 17
@@ -296,7 +296,7 @@ func (s *charmHubRepositorySuite) TestResolveInvalidPlatformError(c *gc.C) {
 		},
 	}
 
-	obtainedCurl, obtainedOrigin, obtainedBases, err := s.newClient().ResolveWithPreferredChannel(curl, origin)
+	obtainedCurl, obtainedOrigin, obtainedBases, err := s.newClient().ResolveWithPreferredChannel(context.Background(), curl, origin)
 	c.Assert(err, jc.ErrorIsNil)
 
 	curl.Revision = 16
@@ -330,7 +330,7 @@ func (s *charmHubRepositorySuite) TestResolveRevisionNotFoundErrorWithNoSeries(c
 		},
 	}
 
-	_, _, _, err := s.newClient().ResolveWithPreferredChannel(curl, origin)
+	_, _, _, err := s.newClient().ResolveWithPreferredChannel(context.Background(), curl, origin)
 	c.Assert(err, gc.ErrorMatches,
 		`(?m)selecting releases: charm or bundle not found for channel "", platform "amd64"
 available releases are:
@@ -352,7 +352,7 @@ func (s *charmHubRepositorySuite) TestResolveRevisionNotFoundError(c *gc.C) {
 		},
 	}
 
-	obtainedCurl, obtainedOrigin, obtainedBases, err := s.newClient().ResolveWithPreferredChannel(curl, origin)
+	obtainedCurl, obtainedOrigin, obtainedBases, err := s.newClient().ResolveWithPreferredChannel(context.Background(), curl, origin)
 	c.Assert(err, jc.ErrorIsNil)
 
 	curl.Revision = 16
@@ -410,9 +410,9 @@ func (s *charmHubRepositorySuite) TestDownloadCharm(c *gc.C) {
 	resolvedArchive := new(charm.CharmArchive)
 
 	s.expectCharmRefreshInstallOneFromChannel(c)
-	s.client.EXPECT().DownloadAndRead(context.TODO(), resolvedURL, "/tmp/foo").Return(resolvedArchive, nil)
+	s.client.EXPECT().DownloadAndRead(gomock.Any(), resolvedURL, "/tmp/foo").Return(resolvedArchive, nil)
 
-	gotArchive, gotOrigin, err := s.newClient().DownloadCharm(curl, requestedOrigin, "/tmp/foo")
+	gotArchive, gotOrigin, err := s.newClient().DownloadCharm(context.Background(), curl, requestedOrigin, "/tmp/foo")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotArchive, gc.Equals, resolvedArchive) // note: we are using gc.Equals to check the pointers here.
 	c.Assert(gotOrigin, gc.DeepEquals, resolvedOrigin)
@@ -454,7 +454,7 @@ func (s *charmHubRepositorySuite) TestGetDownloadURL(c *gc.C) {
 
 	s.expectCharmRefreshInstallOneFromChannel(c)
 
-	gotURL, gotOrigin, err := s.newClient().GetDownloadURL(curl, requestedOrigin)
+	gotURL, gotOrigin, err := s.newClient().GetDownloadURL(context.Background(), curl, requestedOrigin)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotURL, gc.DeepEquals, resolvedURL)
 	c.Assert(gotOrigin, gc.DeepEquals, resolvedOrigin)
@@ -480,7 +480,7 @@ func (s *charmHubRepositorySuite) TestGetEssentialMetadata(c *gc.C) {
 	s.expectCharmRefreshInstallOneFromChannel(c) // resolve the origin
 	s.expectCharmRefreshInstallOneFromChannel(c) // refresh and get metadata
 
-	got, err := s.newClient().GetEssentialMetadata(corecharm.MetadataRequest{
+	got, err := s.newClient().GetEssentialMetadata(context.Background(), corecharm.MetadataRequest{
 		CharmURL: curl,
 		Origin:   requestedOrigin,
 	})
@@ -499,7 +499,7 @@ func (s *charmHubRepositorySuite) TestResolveResources(c *gc.C) {
 	s.expectRefresh(true)
 	s.expectListResourceRevisions(2)
 
-	result, err := s.newClient().ResolveResources([]charmresource.Resource{{
+	result, err := s.newClient().ResolveResources(context.Background(), []charmresource.Resource{{
 		Meta:        charmresource.Meta{Name: "wal-e", Type: 1, Path: "wal-e.snap", Description: "WAL-E Snap Package"},
 		Origin:      charmresource.OriginUpload,
 		Revision:    1,
@@ -535,7 +535,7 @@ func (s *charmHubRepositorySuite) TestResolveResourcesFromStore(c *gc.C) {
 
 	id := charmID()
 	id.Origin.ID = ""
-	result, err := s.newClient().ResolveResources([]charmresource.Resource{{
+	result, err := s.newClient().ResolveResources(context.Background(), []charmresource.Resource{{
 		Meta:     charmresource.Meta{Name: "wal-e", Type: 1, Path: "wal-e.snap", Description: "WAL-E Snap Package"},
 		Origin:   charmresource.OriginStore,
 		Revision: 1,
@@ -555,7 +555,7 @@ func (s *charmHubRepositorySuite) TestResolveResourcesFromStoreNoRevision(c *gc.
 	defer s.setupMocks(c).Finish()
 	s.expectRefreshWithRevision(1, true)
 
-	result, err := s.newClient().ResolveResources([]charmresource.Resource{{
+	result, err := s.newClient().ResolveResources(context.Background(), []charmresource.Resource{{
 		Meta:     charmresource.Meta{Name: "wal-e", Type: 1, Path: "wal-e.snap", Description: "WAL-E Snap Package"},
 		Origin:   charmresource.OriginStore,
 		Revision: -1,
@@ -577,7 +577,7 @@ func (s *charmHubRepositorySuite) TestResolveResourcesNoMatchingRevision(c *gc.C
 	s.expectRefreshWithRevision(99, true)
 	s.expectListResourceRevisions(3)
 
-	_, err := s.newClient().ResolveResources([]charmresource.Resource{{
+	_, err := s.newClient().ResolveResources(context.Background(), []charmresource.Resource{{
 		Meta:     charmresource.Meta{Name: "wal-e", Type: 1, Path: "wal-e.snap", Description: "WAL-E Snap Package"},
 		Origin:   charmresource.OriginStore,
 		Revision: 1,
@@ -592,7 +592,7 @@ func (s *charmHubRepositorySuite) TestResolveResourcesUpload(c *gc.C) {
 
 	id := charmID()
 	id.Origin.ID = ""
-	result, err := s.newClient().ResolveResources([]charmresource.Resource{{
+	result, err := s.newClient().ResolveResources(context.Background(), []charmresource.Resource{{
 		Meta:     charmresource.Meta{Name: "wal-e", Type: 1, Path: "wal-e.snap", Description: "WAL-E Snap Package"},
 		Origin:   charmresource.OriginUpload,
 		Revision: 3,
@@ -630,7 +630,7 @@ func (s *charmHubRepositorySuite) TestResourceInfo(c *gc.C) {
 		},
 	}
 
-	result, err := s.newClient().resourceInfo(curl, origin, "wal-e", 25)
+	result, err := s.newClient().resourceInfo(context.Background(), curl, origin, "wal-e", 25)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, charmresource.Resource{
 		Meta:        charmresource.Meta{Name: "wal-e", Type: 1, Path: "wal-e.snap", Description: "WAL-E Snap Package"},

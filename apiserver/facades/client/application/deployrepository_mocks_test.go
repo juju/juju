@@ -329,18 +329,18 @@ func (m *MockDeployFromRepositoryValidator) EXPECT() *MockDeployFromRepositoryVa
 }
 
 // ValidateArg mocks base method.
-func (m *MockDeployFromRepositoryValidator) ValidateArg(arg0 params.DeployFromRepositoryArg) (deployTemplate, []error) {
+func (m *MockDeployFromRepositoryValidator) ValidateArg(arg0 context.Context, arg1 params.DeployFromRepositoryArg) (deployTemplate, []error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ValidateArg", arg0)
+	ret := m.ctrl.Call(m, "ValidateArg", arg0, arg1)
 	ret0, _ := ret[0].(deployTemplate)
 	ret1, _ := ret[1].([]error)
 	return ret0, ret1
 }
 
 // ValidateArg indicates an expected call of ValidateArg.
-func (mr *MockDeployFromRepositoryValidatorMockRecorder) ValidateArg(arg0 interface{}) *gomock.Call {
+func (mr *MockDeployFromRepositoryValidatorMockRecorder) ValidateArg(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidateArg", reflect.TypeOf((*MockDeployFromRepositoryValidator)(nil).ValidateArg), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidateArg", reflect.TypeOf((*MockDeployFromRepositoryValidator)(nil).ValidateArg), arg0, arg1)
 }
 
 // MockModel is a mock of Model interface.

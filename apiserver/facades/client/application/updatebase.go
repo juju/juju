@@ -30,7 +30,7 @@ type UpdateBase interface {
 
 	// UpdateBase attempts to update an application base for deploying new
 	// units.
-	UpdateBase(string, corebase.Base, bool) error
+	UpdateBase(context.Context, string, corebase.Base, bool) error
 }
 
 // UpdateBaseState defines a common set of functions for retrieving state
@@ -49,7 +49,7 @@ type UpdateBaseValidator interface {
 	//
 	// I do question if you actually need to validate anything if force is
 	// employed here?
-	ValidateApplication(application Application, base corebase.Base, force bool) error
+	ValidateApplication(ctx context.Context, application Application, base corebase.Base, force bool) error
 }
 
 // UpdateBaseAPI provides the update series API facade for any given version.
@@ -71,7 +71,7 @@ func NewUpdateBaseAPI(
 	}
 }
 
-func (a *UpdateBaseAPI) UpdateBase(tag string, base corebase.Base, force bool) error {
+func (a *UpdateBaseAPI) UpdateBase(ctx context.Context, tag string, base corebase.Base, force bool) error {
 	if base.String() == "" {
 		return errors.BadRequestf("base missing from args")
 	}
@@ -90,7 +90,7 @@ func (a *UpdateBaseAPI) UpdateBase(tag string, base corebase.Base, force bool) e
 		}
 	}
 
-	if err := a.validator.ValidateApplication(app, base, force); err != nil {
+	if err := a.validator.ValidateApplication(ctx, app, base, force); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -113,14 +113,14 @@ func makeUpdateSeriesValidator(client CharmhubClient) updateSeriesValidator {
 	}
 }
 
-func (s updateSeriesValidator) ValidateApplication(app Application, base corebase.Base, force bool) error {
+func (s updateSeriesValidator) ValidateApplication(ctx context.Context, app Application, base corebase.Base, force bool) error {
 	// This is not a charmhub charm, so we can fallback to querying state
 	// for the supported series.
 	if origin := app.CharmOrigin(); origin == nil || !corecharm.CharmHub.Matches(origin.Source) {
-		return s.localValidator.ValidateApplication(app, base, force)
+		return s.localValidator.ValidateApplication(ctx, app, base, force)
 	}
 
-	return s.remoteValidator.ValidateApplication(app, base, force)
+	return s.remoteValidator.ValidateApplication(ctx, app, base, force)
 }
 
 // stateSeriesValidator validates an application using the state (database)
@@ -131,7 +131,7 @@ type stateSeriesValidator struct{}
 
 // ValidateApplication attempts to validate an applications for
 // a given base.
-func (s stateSeriesValidator) ValidateApplication(application Application, base corebase.Base, force bool) error {
+func (s stateSeriesValidator) ValidateApplication(ctx context.Context, application Application, base corebase.Base, force bool) error {
 	ch, _, err := application.Charm()
 	if err != nil {
 		return errors.Trace(err)
@@ -159,7 +159,7 @@ type charmhubSeriesValidator struct {
 
 // ValidateApplication attempts to validate an application for
 // a given base.
-func (s charmhubSeriesValidator) ValidateApplication(application Application, base corebase.Base, force bool) error {
+func (s charmhubSeriesValidator) ValidateApplication(ctx context.Context, application Application, base corebase.Base, force bool) error {
 	// We can be assured that the charm origin is not nil, because we
 	// guarded against it before.
 	origin := application.CharmOrigin()
@@ -173,7 +173,7 @@ func (s charmhubSeriesValidator) ValidateApplication(application Application, ba
 		return errors.Trace(err)
 	}
 
-	refreshResp, err := s.client.Refresh(context.TODO(), cfg)
+	refreshResp, err := s.client.Refresh(ctx, cfg)
 	if err != nil {
 		return errors.Trace(err)
 	}
