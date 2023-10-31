@@ -546,11 +546,11 @@ func GetSecretMetadata(
 // the caller must have permission to manage the secret(secret owners remove secrets from the backend on uniter side).
 func RemoveSecretsForAgent(
 	removeState SecretsRemoveState, adminConfigGetter BackendAdminConfigGetter,
-	authTag names.Tag, args params.DeleteSecretArgs,
+	args params.DeleteSecretArgs,
 	canDelete func(*coresecrets.URI) error,
 ) (params.ErrorResults, error) {
 	return removeSecrets(
-		removeState, adminConfigGetter, authTag, args, canDelete,
+		removeState, adminConfigGetter, args, canDelete,
 		func(provider.SecretBackendProvider, provider.ModelBackendConfig, provider.SecretRevisions) error {
 			return nil
 		},
@@ -565,7 +565,7 @@ func RemoveUserSecrets(
 	canDelete func(*coresecrets.URI) error,
 ) (params.ErrorResults, error) {
 	return removeSecrets(
-		removeState, adminConfigGetter, authTag, args, canDelete,
+		removeState, adminConfigGetter, args, canDelete,
 		func(p provider.SecretBackendProvider, cfg provider.ModelBackendConfig, revs provider.SecretRevisions) error {
 			backend, err := p.NewBackend(&cfg)
 			if err != nil {
@@ -584,9 +584,23 @@ func RemoveUserSecrets(
 	)
 }
 
+func getSecretURIForLabel(secretsState ListSecretsState, label string) (*coresecrets.URI, error) {
+	results, err := secretsState.ListSecrets(state.SecretsFilter{Label: &label})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(results) == 0 {
+		return nil, errors.NotFoundf("secret %q", label)
+	}
+	if len(results) > 1 {
+		return nil, errors.NotFoundf("more than 1 secret with label %q", label)
+	}
+	return results[0].URI, nil
+}
+
 func removeSecrets(
 	removeState SecretsRemoveState, adminConfigGetter BackendAdminConfigGetter,
-	authTag names.Tag, args params.DeleteSecretArgs,
+	args params.DeleteSecretArgs,
 	canDelete func(*coresecrets.URI) error,
 	removeFromBackend func(provider.SecretBackendProvider, provider.ModelBackendConfig, provider.SecretRevisions) error,
 ) (params.ErrorResults, error) {
@@ -650,7 +664,20 @@ func removeSecrets(
 	}
 
 	for i, arg := range args.Args {
-		uri, err := coresecrets.ParseURI(arg.URI)
+		if arg.URI == "" && arg.Label == "" {
+			result.Results[i].Error = apiservererrors.ServerError(errors.New("must specify either URI or label"))
+			continue
+		}
+
+		var (
+			uri *coresecrets.URI
+			err error
+		)
+		if arg.URI != "" {
+			uri, err = coresecrets.ParseURI(arg.URI)
+		} else {
+			uri, err = getSecretURIForLabel(removeState, arg.Label)
+		}
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue

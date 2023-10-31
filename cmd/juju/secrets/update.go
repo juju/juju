@@ -23,13 +23,16 @@ type updateSecretCommand struct {
 
 	secretURI *secrets.URI
 	autoPrune common.AutoBoolValue
+
+	name    string
+	newName string
 }
 
 // UpdateSecretsAPI is the secrets client API.
 type UpdateSecretsAPI interface {
 	UpdateSecret(
-		uri *secrets.URI, autoPrune *bool,
-		label, description string, data map[string]string,
+		uri *secrets.URI, name string, autoPrune *bool,
+		newName, description string, data map[string]string,
 	) error
 	Close() error
 }
@@ -65,12 +68,12 @@ automatically removing secret content might result in data loss.
     juju update-secret secret:9m4e2mr0ui3e8a215n4g token=34ae35facd4
     juju update-secret secret:9m4e2mr0ui3e8a215n4g key#base64 AA==
     juju update-secret secret:9m4e2mr0ui3e8a215n4g token=34ae35facd4 --auto-prune
-    juju update-secret secret:9m4e2mr0ui3e8a215n4g --label db-password \
+    juju update-secret secret:9m4e2mr0ui3e8a215n4g --name db-password \
         --info "my database password" \
         data#base64 s3cret== 
-    juju update-secret secret:9m4e2mr0ui3e8a215n4g --label db-password \
+    juju update-secret db-pass --name db-password \
         --info "my database password"
-    juju update-secret secret:9m4e2mr0ui3e8a215n4g --label db-password \
+    juju update-secret secret:9m4e2mr0ui3e8a215n4g --name db-password \
         --info "my database password" \
         --file=/path/to/file
 `
@@ -80,7 +83,7 @@ automatically removing secret content might result in data loss.
 func (c *updateSecretCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:     "update-secret",
-		Args:     "<ID> [key[#base64|#file]=value...]",
+		Args:     "<ID>|<name> [key[#base64|#file]=value...]",
 		Purpose:  "Update an existing secret.",
 		Doc:      updateSecretDoc,
 		Examples: updateSecretExamples,
@@ -94,13 +97,14 @@ func (c *updateSecretCommand) Init(args []string) error {
 	}
 	var err error
 	if c.secretURI, err = secrets.ParseURI(args[0]); err != nil {
-		return errors.Trace(err)
+		c.name = args[0]
 	}
 	return c.SecretUpsertContentCommand.Init(args[1:])
 }
 
 func (c *updateSecretCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.SecretUpsertContentCommand.SetFlags(f)
+	f.StringVar(&c.newName, "name", "", "the new secret name")
 	f.Var(&c.autoPrune, "auto-prune", "used to allow Juju to automatically remove revisions which are no longer being tracked by any observers")
 }
 
@@ -111,5 +115,5 @@ func (c *updateSecretCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 	defer func() { _ = secretsAPI.Close() }()
-	return secretsAPI.UpdateSecret(c.secretURI, c.autoPrune.Get(), c.Label, c.Description, c.Data)
+	return secretsAPI.UpdateSecret(c.secretURI, c.name, c.autoPrune.Get(), c.newName, c.Description, c.Data)
 }

@@ -20,12 +20,13 @@ type removeSecretCommand struct {
 	secretsAPIFunc func() (RemoveSecretsAPI, error)
 
 	secretURI *secrets.URI
+	name      string
 	revision  int
 }
 
 // RemoveSecretsAPI is the secrets client API.
 type RemoveSecretsAPI interface {
-	RemoveSecret(uri *secrets.URI, revision *int) error
+	RemoveSecret(uri *secrets.URI, name string, revision *int) error
 	Close() error
 }
 
@@ -49,6 +50,7 @@ const (
 Remove all the revisions of a secret with the specified URI or remove the provided revision only.
 `
 	removeSecretExamples = `
+    juju remove-secret my-secret
     juju remove-secret secret:9m4e2mr0ui3e8a215n4g
     juju remove-secret secret:9m4e2mr0ui3e8a215n4g --revision 4
 `
@@ -58,7 +60,7 @@ Remove all the revisions of a secret with the specified URI or remove the provid
 func (c *removeSecretCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:     "remove-secret",
-		Args:     "<ID>",
+		Args:     "<ID>|<name>",
 		Purpose:  "Remove a existing secret.",
 		Doc:      removeSecretDoc,
 		Examples: removeSecretExamples,
@@ -77,7 +79,7 @@ func (c *removeSecretCommand) Init(args []string) error {
 	}
 	var err error
 	if c.secretURI, err = secrets.ParseURI(args[0]); err != nil {
-		return errors.Trace(err)
+		c.name = args[0]
 	}
 	return cmd.CheckEmpty(args[1:])
 }
@@ -93,5 +95,5 @@ func (c *removeSecretCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 	defer secretsAPI.Close()
-	return secretsAPI.RemoveSecret(c.secretURI, rev)
+	return secretsAPI.RemoveSecret(c.secretURI, c.name, rev)
 }

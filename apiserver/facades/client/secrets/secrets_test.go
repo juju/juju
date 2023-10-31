@@ -399,13 +399,24 @@ func (s *SecretsSuite) TestCreateSecretsInternalBackend(c *gc.C) {
 	s.assertCreateSecrets(c, true, false)
 }
 
-func (s *SecretsSuite) assertUpdateSecrets(c *gc.C, isInternal bool, finalStepFailed bool) {
+func (s *SecretsSuite) assertUpdateSecrets(c *gc.C, uri *coresecrets.URI, isInternal bool, finalStepFailed bool) {
 	defer s.setup(c).Finish()
 
 	s.expectAuthClient()
 	s.authorizer.EXPECT().HasPermission(permission.WriteAccess, coretesting.ModelTag).Return(nil)
 
-	uri := coresecrets.NewURI()
+	var (
+		uriString, existingLabel string
+	)
+	if uri == nil {
+		existingLabel = "my-secret"
+		uri = coresecrets.NewURI()
+		s.secretsState.EXPECT().ListSecrets(state.SecretsFilter{Label: ptr("my-secret")}).Return([]*coresecrets.SecretMetadata{{
+			URI: uri,
+		}}, nil)
+	} else {
+		uriString = uri.String()
+	}
 	s.secretsState.EXPECT().GetSecret(uri).Return(&coresecrets.SecretMetadata{
 		URI:            uri,
 		LatestRevision: 2,
@@ -488,8 +499,9 @@ func (s *SecretsSuite) assertUpdateSecrets(c *gc.C, isInternal bool, finalStepFa
 	result, err := facade.UpdateSecrets(params.UpdateUserSecretArgs{
 		Args: []params.UpdateUserSecretArg{
 			{
-				AutoPrune: ptr(true),
-				URI:       uri.String(),
+				AutoPrune:     ptr(true),
+				URI:           uriString,
+				ExistingLabel: existingLabel,
 				UpsertSecretArg: params.UpsertSecretArg{
 					Description: ptr("this is a user secret."),
 					Label:       ptr("label"),
@@ -509,15 +521,19 @@ func (s *SecretsSuite) assertUpdateSecrets(c *gc.C, isInternal bool, finalStepFa
 }
 
 func (s *SecretsSuite) TestUpdateSecretsExternalBackend(c *gc.C) {
-	s.assertUpdateSecrets(c, false, false)
+	s.assertUpdateSecrets(c, coresecrets.NewURI(), false, false)
 }
 
 func (s *SecretsSuite) TestUpdateSecretsExternalBackendFailedAndCleanup(c *gc.C) {
-	s.assertUpdateSecrets(c, false, true)
+	s.assertUpdateSecrets(c, coresecrets.NewURI(), false, true)
 }
 
 func (s *SecretsSuite) TestUpdateSecretsInternalBackend(c *gc.C) {
-	s.assertUpdateSecrets(c, true, false)
+	s.assertUpdateSecrets(c, coresecrets.NewURI(), true, false)
+}
+
+func (s *SecretsSuite) TestUpdateSecretsByName(c *gc.C) {
+	s.assertUpdateSecrets(c, nil, true, false)
 }
 
 func (s *SecretsSuite) TestRemoveSecrets(c *gc.C) {
@@ -741,6 +757,53 @@ func (s *SecretsSuite) TestGrantSecret(c *gc.C) {
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult{{Error: nil}, {Error: nil}}})
 }
 
+func (s *SecretsSuite) TestGrantSecretByName(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	s.expectAuthClient()
+	s.authorizer.EXPECT().HasPermission(permission.WriteAccess, coretesting.ModelTag).Return(nil)
+
+	uri := coresecrets.NewURI()
+	s.secretsState.EXPECT().ListSecrets(state.SecretsFilter{Label: ptr("my-secret")}).Return([]*coresecrets.SecretMetadata{{
+		URI: uri,
+	}}, nil)
+	s.secretConsumer.EXPECT().GrantSecretAccess(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(arg *coresecrets.URI, params state.SecretAccessParams) error {
+			c.Assert(arg, gc.DeepEquals, uri)
+			c.Assert(params.Scope, gc.Equals, coretesting.ModelTag)
+			c.Assert(params.Subject, gc.Equals, names.NewApplicationTag("gitlab"))
+			c.Assert(params.Role, gc.Equals, coresecrets.RoleView)
+			return nil
+		},
+	)
+	s.secretConsumer.EXPECT().GrantSecretAccess(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(arg *coresecrets.URI, params state.SecretAccessParams) error {
+			c.Assert(arg, gc.DeepEquals, uri)
+			c.Assert(params.Scope, gc.Equals, coretesting.ModelTag)
+			c.Assert(params.Subject, gc.Equals, names.NewApplicationTag("mysql"))
+			c.Assert(params.Role, gc.Equals, coresecrets.RoleView)
+			return nil
+		},
+	)
+
+	facade, err := apisecrets.NewTestAPI(s.authTag, s.authorizer, s.secretsState, s.secretConsumer,
+		adminBackendConfigGetter, backendConfigGetterForUserSecretsWrite(c),
+		func(cfg *provider.ModelBackendConfig) (provider.SecretsBackend, error) {
+			c.Assert(cfg.Config, jc.DeepEquals, provider.ConfigAttrs{"foo": cfg.BackendType})
+			return s.secretsBackend, nil
+		})
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := facade.GrantSecret(params.GrantRevokeUserSecretArg{
+		Label: "my-secret",
+		Applications: []string{
+			"gitlab", "mysql",
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult{{Error: nil}, {Error: nil}}})
+}
+
 func (s *SecretsSuite) TestGrantSecretPermissionDenied(c *gc.C) {
 	defer s.setup(c).Finish()
 
@@ -752,7 +815,7 @@ func (s *SecretsSuite) TestGrantSecretPermissionDenied(c *gc.C) {
 	facade, err := apisecrets.NewTestAPI(s.authTag, s.authorizer, s.secretsState, s.secretConsumer, nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = facade.GrantSecret(params.GrantRevokeUserSecretArg{})
+	_, err = facade.GrantSecret(params.GrantRevokeUserSecretArg{Label: "my-secret"})
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
@@ -811,6 +874,6 @@ func (s *SecretsSuite) TestRevokeSecretPermissionDenied(c *gc.C) {
 	facade, err := apisecrets.NewTestAPI(s.authTag, s.authorizer, s.secretsState, s.secretConsumer, nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = facade.RevokeSecret(params.GrantRevokeUserSecretArg{})
+	_, err = facade.RevokeSecret(params.GrantRevokeUserSecretArg{Label: "my-secret"})
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }

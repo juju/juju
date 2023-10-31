@@ -17,4 +17,5 @@ type SecretsState interface {
 	WatchRevisionsToPrune(owners []names.Tag) (state.StringsWatcher, error)
 	GetSecretRevision(uri *secrets.URI, revision int) (*secrets.SecretRevisionMetadata, error)
 	ListSecretRevisions(uri *secrets.URI) ([]*secrets.SecretRevisionMetadata, error)
+	ListSecrets(state.SecretsFilter) ([]*secrets.SecretMetadata, error)
 }

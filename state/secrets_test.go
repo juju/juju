@@ -477,6 +477,56 @@ func (s *SecretsSuite) TestListByURI(c *gc.C) {
 	}})
 }
 
+func (s *SecretsSuite) TestListByLabel(c *gc.C) {
+	uri := secrets.NewURI()
+	now := s.Clock.Now().Round(time.Second).UTC()
+	next := now.Add(time.Minute).Round(time.Second).UTC()
+	expire := now.Add(time.Hour).Round(time.Second).UTC()
+	p := state.CreateSecretParams{
+		Version: 1,
+		Owner:   s.owner.Tag(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken:    &fakeToken{},
+			RotatePolicy:   ptr(secrets.RotateDaily),
+			NextRotateTime: ptr(next),
+			Description:    ptr("my secret"),
+			Label:          ptr("foobar"),
+			ExpireTime:     ptr(expire),
+			Params:         nil,
+			Data:           map[string]string{"foo": "bar"},
+		},
+	}
+	_, err := s.store.CreateSecret(uri, p)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Create another secret to ensure it is excluded.
+	uri2 := secrets.NewURI()
+	p.Label = ptr("another")
+	_, err = s.store.CreateSecret(uri2, p)
+	c.Assert(err, jc.ErrorIsNil)
+
+	list, err := s.store.ListSecrets(state.SecretsFilter{
+		Label: ptr("foobar"),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	mc := jc.NewMultiChecker()
+	mc.AddExpr(`_.CreateTime`, jc.Almost, jc.ExpectedValue)
+	mc.AddExpr(`_.UpdateTime`, jc.Almost, jc.ExpectedValue)
+	c.Assert(list, mc, []*secrets.SecretMetadata{{
+		URI:              uri,
+		RotatePolicy:     secrets.RotateDaily,
+		NextRotateTime:   ptr(next),
+		LatestRevision:   1,
+		LatestExpireTime: ptr(expire),
+		Version:          1,
+		OwnerTag:         s.owner.Tag().String(),
+		Description:      "my secret",
+		Label:            "foobar",
+		CreateTime:       now,
+		UpdateTime:       now,
+	}})
+}
+
 func (s *SecretsSuite) TestListByConsumer(c *gc.C) {
 	uri := secrets.NewURI()
 	now := s.Clock.Now().Round(time.Second).UTC()

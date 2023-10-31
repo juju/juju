@@ -44,7 +44,7 @@ func (s *updateSuite) setup(c *gc.C) *gomock.Controller {
 func (s *updateSuite) TestUpdateMissingArg(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	_, err := cmdtesting.RunCommand(c, secrets.NewUpdateCommandForTest(s.store, s.secretsAPI), "--label", "label", "--info", "this is a secret.")
+	_, err := cmdtesting.RunCommand(c, secrets.NewUpdateCommandForTest(s.store, s.secretsAPI), "--name", "new-name", "--info", "this is a secret.")
 	c.Assert(err, gc.ErrorMatches, `missing secret URI`)
 }
 
@@ -52,12 +52,12 @@ func (s *updateSuite) TestUpdateWithoutContent(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	uri := coresecrets.NewURI()
-	s.secretsAPI.EXPECT().UpdateSecret(uri, ptr(true), "label", "this is a secret.", map[string]string{}).Return(nil)
+	s.secretsAPI.EXPECT().UpdateSecret(uri, "", ptr(true), "new-name", "this is a secret.", map[string]string{}).Return(nil)
 	s.secretsAPI.EXPECT().Close().Return(nil)
 
 	_, err := cmdtesting.RunCommand(c, secrets.NewUpdateCommandForTest(
 		s.store, s.secretsAPI), uri.String(),
-		"--auto-prune", "--label", "label", "--info", "this is a secret.",
+		"--auto-prune", "--name", "new-name", "--info", "this is a secret.",
 	)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -66,12 +66,12 @@ func (s *updateSuite) TestUpdateFromArg(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	uri := coresecrets.NewURI()
-	s.secretsAPI.EXPECT().UpdateSecret(uri, ptr(true), "label", "this is a secret.", map[string]string{"foo": "YmFy"}).Return(nil)
+	s.secretsAPI.EXPECT().UpdateSecret(uri, "", ptr(true), "new-name", "this is a secret.", map[string]string{"foo": "YmFy"}).Return(nil)
 	s.secretsAPI.EXPECT().Close().Return(nil)
 
 	_, err := cmdtesting.RunCommand(c, secrets.NewUpdateCommandForTest(
 		s.store, s.secretsAPI), uri.String(), "foo=bar",
-		"--auto-prune", "--label", "label", "--info", "this is a secret.",
+		"--auto-prune", "--name", "new-name", "--info", "this is a secret.",
 	)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -80,7 +80,7 @@ func (s *updateSuite) TestUpdateAutoPruneFalse(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	uri := coresecrets.NewURI()
-	s.secretsAPI.EXPECT().UpdateSecret(uri, ptr(false), "", "", map[string]string{}).Return(nil)
+	s.secretsAPI.EXPECT().UpdateSecret(uri, "", ptr(false), "", "", map[string]string{}).Return(nil)
 	s.secretsAPI.EXPECT().Close().Return(nil)
 
 	_, err := cmdtesting.RunCommand(c, secrets.NewUpdateCommandForTest(
@@ -93,7 +93,7 @@ func (s *updateSuite) TestUpdateAutoPruneNil(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	uri := coresecrets.NewURI()
-	s.secretsAPI.EXPECT().UpdateSecret(uri, nil, "", "this is a secret.", map[string]string{}).Return(nil)
+	s.secretsAPI.EXPECT().UpdateSecret(uri, "", nil, "", "this is a secret.", map[string]string{}).Return(nil)
 	s.secretsAPI.EXPECT().Close().Return(nil)
 
 	_, err := cmdtesting.RunCommand(c, secrets.NewUpdateCommandForTest(
@@ -106,7 +106,7 @@ func (s *updateSuite) TestUpdateFromFile(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	uri := coresecrets.NewURI()
-	s.secretsAPI.EXPECT().UpdateSecret(uri, ptr(true), "label", "this is a secret.", map[string]string{"foo": "YmFy"}).Return(nil)
+	s.secretsAPI.EXPECT().UpdateSecret(uri, "", ptr(true), "new-name", "this is a secret.", map[string]string{"foo": "YmFy"}).Return(nil)
 	s.secretsAPI.EXPECT().Close().Return(nil)
 
 	dir := c.MkDir()
@@ -118,7 +118,7 @@ foo: bar
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = cmdtesting.RunCommand(c, secrets.NewUpdateCommandForTest(
 		s.store, s.secretsAPI), uri.String(), "--file", path,
-		"--auto-prune", "--label", "label", "--info", "this is a secret.",
+		"--auto-prune", "--name", "new-name", "--info", "this is a secret.",
 	)
 	c.Assert(err, jc.ErrorIsNil)
 }

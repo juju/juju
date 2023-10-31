@@ -121,8 +121,13 @@ type UpdateUserSecretArgs struct {
 type UpdateUserSecretArg struct {
 	UpsertSecretArg
 
+	// Either URI or ExistingLabel is required.
+
 	// URI identifies the secret to update.
 	URI string `json:"uri"`
+
+	// ExistingLabel is the label of an existing secret.
+	ExistingLabel string `json:"existing-label"`
 
 	// AutoPrune indicates whether the staled secret revisions should be pruned automatically.
 	AutoPrune *bool `json:"auto-prune,omitempty"`
@@ -132,6 +137,9 @@ type UpdateUserSecretArg struct {
 func (arg UpdateUserSecretArg) Validate() error {
 	if arg.AutoPrune == nil && arg.Description == nil && arg.Label == nil && len(arg.Content.Data) == 0 {
 		return errors.New("at least one attribute to update must be specified")
+	}
+	if arg.URI == "" && arg.ExistingLabel == "" {
+		return errors.New("must specify either URI or label")
 	}
 	return nil
 }
@@ -143,7 +151,10 @@ type DeleteSecretArgs struct {
 
 // DeleteSecretArg holds the args for deleting a secret.
 type DeleteSecretArg struct {
+	// Either URI or Label is required.
+
 	URI       string `json:"uri"`
+	Label     string `json:"label"`
 	Revisions []int  `json:"revisions,omitempty"`
 }
 
@@ -221,6 +232,7 @@ type SecretValueResult struct {
 // SecretsFilter is used when querying secrets.
 type SecretsFilter struct {
 	URI      *string `json:"uri,omitempty"`
+	Label    *string `json:"label,omitempty"`
 	Revision *int    `json:"revision,omitempty"`
 	OwnerTag *string `json:"owner-tag,omitempty"`
 }
@@ -318,8 +330,12 @@ type GrantRevokeSecretArg struct {
 
 // GrantRevokeUserSecretArg holds the args for changing access to a user secret.
 type GrantRevokeUserSecretArg struct {
+	// Either URI or Label is required.
+
 	// URI identifies the secret to grant.
 	URI string `json:"uri"`
+	// Label identifies the secret to grant.
+	Label string `json:"label"`
 
 	Applications []string `json:"applications"`
 }
