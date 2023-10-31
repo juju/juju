@@ -78,6 +78,20 @@ func (mr *MockTrackedObjectStoreMockRecorder) Put(arg0, arg1, arg2, arg3 interfa
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Put", reflect.TypeOf((*MockTrackedObjectStore)(nil).Put), arg0, arg1, arg2, arg3)
 }
 
+// PutAndCheckHash mocks base method.
+func (m *MockTrackedObjectStore) PutAndCheckHash(arg0 context.Context, arg1 string, arg2 io.Reader, arg3 int64, arg4 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "PutAndCheckHash", arg0, arg1, arg2, arg3, arg4)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// PutAndCheckHash indicates an expected call of PutAndCheckHash.
+func (mr *MockTrackedObjectStoreMockRecorder) PutAndCheckHash(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PutAndCheckHash", reflect.TypeOf((*MockTrackedObjectStore)(nil).PutAndCheckHash), arg0, arg1, arg2, arg3, arg4)
+}
+
 // Remove mocks base method.
 func (m *MockTrackedObjectStore) Remove(arg0 context.Context, arg1 string) error {
 	m.ctrl.T.Helper()

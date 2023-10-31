@@ -28,7 +28,6 @@ import (
 	corestorage "github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
-	"github.com/juju/juju/state/storage"
 	"github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testing/factory"
 )
@@ -98,9 +97,9 @@ func (s *CleanupSuite) TestCleanupDyingApplicationCharm(c *gc.C) {
 	mysql := s.AddTestingApplication(c, "mysql", ch)
 
 	// Create a dummy archive blob.
-	stor := storage.NewStorage(s.State.ModelUUID(), s.State.MongoSession())
+	stateStorage := state.NewObjectStore(c, s.State)
 	storagePath := "dummy-path"
-	err := stor.Put(storagePath, bytes.NewReader([]byte("data")), 4)
+	err := stateStorage.Put(context.Background(), storagePath, bytes.NewReader([]byte("data")), 4)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Destroy the application and check that a cleanup has been scheduled.
@@ -110,7 +109,7 @@ func (s *CleanupSuite) TestCleanupDyingApplicationCharm(c *gc.C) {
 
 	// Run the cleanup, and check that the charm is removed.
 	s.assertCleanupRuns(c)
-	_, _, err = stor.Get(storagePath)
+	_, _, err = stateStorage.Get(context.Background(), storagePath)
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
@@ -1345,7 +1344,7 @@ func (s *CleanupSuite) TestCleanupResourceBlob(c *gc.C) {
 	app := s.AddTestingApplication(c, "wp", s.AddTestingCharm(c, "wordpress"))
 	data := "ancient-debris"
 	res := resourcetesting.NewResource(c, nil, "mug", "wp", data).Resource
-	resources := s.State.Resources()
+	resources := s.State.Resources(state.NewObjectStore(c, s.State))
 	_, err := resources.SetResource("wp", res.Username, res.Resource, bytes.NewBufferString(data), state.IncrementCharmModifiedVersion)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1353,15 +1352,15 @@ func (s *CleanupSuite) TestCleanupResourceBlob(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	path := "application-wp/resources/mug"
-	stateStorage := storage.NewStorage(s.State.ModelUUID(), s.State.MongoSession())
-	closer, _, err := stateStorage.Get(path)
+	stateStorage := state.NewObjectStore(c, s.State)
+	closer, _, err := stateStorage.Get(context.Background(), path)
 	c.Assert(err, jc.ErrorIsNil)
 	err = closer.Close()
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.assertCleanupRuns(c)
 
-	_, _, err = stateStorage.Get(path)
+	_, _, err = stateStorage.Get(context.Background(), path)
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
@@ -1369,7 +1368,7 @@ func (s *CleanupSuite) TestCleanupResourceBlobHandlesMissing(c *gc.C) {
 	app := s.AddTestingApplication(c, "wp", s.AddTestingCharm(c, "wordpress"))
 	data := "ancient-debris"
 	res := resourcetesting.NewResource(c, nil, "mug", "wp", data).Resource
-	resources := s.State.Resources()
+	resources := s.State.Resources(state.NewObjectStore(c, s.State))
 	_, err := resources.SetResource("wp", res.Username, res.Resource, bytes.NewBufferString(data), state.IncrementCharmModifiedVersion)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1377,8 +1376,8 @@ func (s *CleanupSuite) TestCleanupResourceBlobHandlesMissing(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	path := "application-wp/resources/mug"
-	stateStorage := storage.NewStorage(s.State.ModelUUID(), s.State.MongoSession())
-	err = stateStorage.Remove(path)
+	stateStorage := state.NewObjectStore(c, s.State)
+	err = stateStorage.Remove(context.Background(), path)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.assertCleanupRuns(c)

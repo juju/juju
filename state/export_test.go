@@ -39,7 +39,6 @@ import (
 	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/internal/mongo/utils"
 	internalobjectstore "github.com/juju/juju/internal/objectstore"
-	"github.com/juju/juju/state/storage"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testcharms/repo"
@@ -391,7 +390,7 @@ func addTestingApplication(c *gc.C, params addTestingApplicationParams) *Applica
 		Storage:          params.storage,
 		Devices:          params.devices,
 		NumUnits:         params.numUnits,
-	})
+	}, NewObjectStore(c, params.st))
 	c.Assert(err, jc.ErrorIsNil)
 	return app
 }
@@ -929,14 +928,14 @@ func GetInternalWorkers(st *State) worker.Worker {
 // ResourceStoragePath returns the path used to store resource content
 // in the managed blob store, given the resource ID.
 func ResourceStoragePath(c *gc.C, st *State, id string) string {
-	p := st.Resources().(*resourcePersistence)
+	p := st.Resources(NewObjectStore(c, st)).(*resourcePersistence)
 	_, storagePath, err := p.getResource(id)
 	c.Assert(err, jc.ErrorIsNil)
 	return storagePath
 }
 
 func StagedResourceForTest(c *gc.C, st *State, res resources.Resource) *StagedResource {
-	persist := st.Resources().(*resourcePersistence)
+	persist := st.Resources(NewObjectStore(c, st)).(*resourcePersistence)
 	storagePath := storagePath(res.Name, res.ApplicationID, res.PendingID)
 	r, err := persist.stageResource(res, storagePath)
 	c.Assert(err, jc.ErrorIsNil)
@@ -946,8 +945,8 @@ func StagedResourceForTest(c *gc.C, st *State, res resources.Resource) *StagedRe
 // IsBlobStored returns true if a given storage path is in used in the
 // managed blob store.
 func IsBlobStored(c *gc.C, st *State, storagePath string) bool {
-	stor := storage.NewStorage(st.ModelUUID(), st.MongoSession())
-	r, _, err := stor.Get(storagePath)
+	stor := NewObjectStore(c, st)
+	r, _, err := stor.Get(context.Background(), storagePath)
 	if err != nil {
 		if errors.Is(err, errors.NotFound) {
 			return false
@@ -1231,7 +1230,7 @@ func (m *Model) AllActionIDsHasActionNotifications() ([]string, error) {
 	return actionIDs, nil
 }
 
-func NewObjectStore(c *gc.C, st *State) objectstore.WriteObjectStore {
+func NewObjectStore(c *gc.C, st *State) objectstore.ObjectStore {
 	// This will be removed when the worker object store is enabled by default.
 	store, err := internalobjectstore.NewStateObjectStore(context.Background(), st.ModelUUID(), st, coretesting.NewCheckLogger(c))
 	c.Assert(err, jc.ErrorIsNil)

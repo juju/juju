@@ -99,7 +99,7 @@ func (s *ApplicationSuite) TestSetCharm(c *gc.C) {
 		Charm:      sch,
 		ForceUnits: true,
 	}
-	err = s.mysql.SetCharm(cfg)
+	err = s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	ch, force, err = s.mysql.Charm()
 	c.Assert(err, jc.ErrorIsNil)
@@ -126,7 +126,7 @@ func (s *ApplicationSuite) TestSetCharmCharmOrigin(c *gc.C) {
 		Charm:       sch,
 		CharmOrigin: origin,
 	}
-	err := s.mysql.SetCharm(cfg)
+	err := s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.mysql.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
@@ -144,12 +144,12 @@ func (s *ApplicationSuite) TestSetCharmUpdateChannelURLNoChange(c *gc.C) {
 		Charm:       sch,
 		CharmOrigin: origin,
 	}
-	err := s.mysql.SetCharm(cfg)
+	err := s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.mysql.CharmOrigin().Channel.Risk, gc.DeepEquals, "stable")
 
 	cfg.CharmOrigin.Channel.Risk = "candidate"
-	err = s.mysql.SetCharm(cfg)
+	err = s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.mysql.CharmOrigin().Channel.Risk, gc.DeepEquals, "candidate")
 }
@@ -167,13 +167,13 @@ func (s *ApplicationSuite) TestSetCharmCharmOriginNoChange(c *gc.C) {
 		CharmOrigin: origin,
 	}
 	origOrigin := s.mysql.CharmOrigin()
-	err := s.mysql.SetCharm(cfg)
+	err := s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	cfg = state.SetCharmConfig{
 		Charm:      sch,
 		ForceUnits: true,
 	}
-	err = s.mysql.SetCharm(cfg)
+	err = s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.mysql.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
@@ -204,7 +204,7 @@ func (s *ApplicationSuite) TestLXDProfileSetCharm(c *gc.C) {
 		Charm:      sch,
 		ForceUnits: true,
 	}
-	err = app.SetCharm(cfg)
+	err = app.SetCharm(cfg, state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	ch, force, err = app.Charm()
 	c.Assert(err, jc.ErrorIsNil)
@@ -238,7 +238,7 @@ func (s *ApplicationSuite) TestLXDProfileFailSetCharm(c *gc.C) {
 		Charm:      sch,
 		ForceUnits: true,
 	}
-	err = app.SetCharm(cfg)
+	err = app.SetCharm(cfg, state.NewObjectStore(c, s.State))
 	c.Assert(err, gc.ErrorMatches, ".*validating lxd profile: invalid lxd-profile\\.yaml.*")
 }
 
@@ -265,7 +265,7 @@ func (s *ApplicationSuite) TestLXDProfileFailWithForceSetCharm(c *gc.C) {
 		Force:      true,
 		ForceUnits: true,
 	}
-	err = app.SetCharm(cfg)
+	err = app.SetCharm(cfg, state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	ch, force, err = app.Charm()
 	c.Assert(err, jc.ErrorIsNil)
@@ -293,7 +293,7 @@ func (s *ApplicationSuite) TestCAASSetCharm(c *gc.C) {
 		Charm:      sch,
 		ForceUnits: true,
 	}
-	err := app.SetCharm(cfg)
+	err := app.SetCharm(cfg, state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	ch, force, err := app.Charm()
 	c.Assert(err, jc.ErrorIsNil)
@@ -333,7 +333,7 @@ deployment:
 		Charm:      newCh,
 		ForceUnits: true,
 	}
-	err := app.SetCharm(cfg)
+	err := app.SetCharm(cfg, state.NewObjectStore(c, s.State))
 	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "gitlab" to charm "local:focal/focal-gitlab-k8s-2": cannot change a charm's deployment info`)
 }
 
@@ -349,7 +349,7 @@ func (s *ApplicationSuite) TestSetCharmWithNewBindings(c *gc.C) {
 			"events": sp.Name(),
 		},
 	}
-	err := s.mysql.SetCharm(cfg)
+	err := s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 
 	expBindings := map[string]string{
@@ -454,7 +454,7 @@ func (s *ApplicationSuite) TestSetCharmWithNewBindingsAssigneToDefaultSpace(c *g
 		Charm:      sch,
 		ForceUnits: true,
 	}
-	err := s.mysql.SetCharm(cfg)
+	err := s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 
 	expBindings := map[string]string{
@@ -516,7 +516,7 @@ func (s *ApplicationSuite) TestSetCharmCharmSettings(c *gc.C) {
 	err := s.mysql.SetCharm(state.SetCharmConfig{
 		Charm:          newCh,
 		ConfigSettings: charm.Settings{"key": "value"},
-	})
+	}, state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 
 	cfg, err := s.mysql.CharmConfig(model.GenerationMaster)
@@ -527,7 +527,7 @@ func (s *ApplicationSuite) TestSetCharmCharmSettings(c *gc.C) {
 	err = s.mysql.SetCharm(state.SetCharmConfig{
 		Charm:          newCh,
 		ConfigSettings: charm.Settings{"other": "one"},
-	})
+	}, state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 
 	cfg, err = s.mysql.CharmConfig(model.GenerationMaster)
@@ -545,7 +545,7 @@ func (s *ApplicationSuite) TestSetCharmCharmSettingsForBranch(c *gc.C) {
 	err := s.mysql.SetCharm(state.SetCharmConfig{
 		Charm:          newCh,
 		ConfigSettings: charm.Settings{"key": "value"},
-	})
+	}, state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 
 	cfg, err := s.mysql.CharmConfig(model.GenerationMaster)
@@ -575,7 +575,7 @@ func (s *ApplicationSuite) TestSetCharmCharmSettingsInvalid(c *gc.C) {
 	err := s.mysql.SetCharm(state.SetCharmConfig{
 		Charm:          newCh,
 		ConfigSettings: charm.Settings{"key": 123.45},
-	})
+	}, state.NewObjectStore(c, s.State))
 	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "mysql" to charm "local:quantal/quantal-mysql-2": validating config settings: option "key" expected string, got 123.45`)
 }
 
@@ -587,7 +587,7 @@ func (s *ApplicationSuite) TestClientApplicationSetCharmUnsupportedSeries(c *gc.
 	cfg := state.SetCharmConfig{
 		Charm: chDifferentSeries,
 	}
-	err := app.SetCharm(cfg)
+	err := app.SetCharm(cfg, state.NewObjectStore(c, s.State))
 	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "application" to charm "ch:multi-series2-8": base "ubuntu@12.04" not supported by charm, the charm supported bases are: ubuntu@14.04, ubuntu@15.10`)
 }
 
@@ -600,7 +600,7 @@ func (s *ApplicationSuite) TestClientApplicationSetCharmUnsupportedSeriesForce(c
 		Charm:     chDifferentSeries,
 		ForceBase: true,
 	}
-	err := app.SetCharm(cfg)
+	err := app.SetCharm(cfg, state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	app, err = s.State.Application("application")
 	c.Assert(err, jc.ErrorIsNil)
@@ -618,14 +618,14 @@ func (s *ApplicationSuite) TestClientApplicationSetCharmWrongOS(c *gc.C) {
 		Charm:     chDifferentSeries,
 		ForceBase: true,
 	}
-	err := app.SetCharm(cfg)
+	err := app.SetCharm(cfg, state.NewObjectStore(c, s.State))
 	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "application" to charm "ch:multi-series-centos-1": OS "ubuntu" not supported by charm.*`)
 }
 
 func (s *ApplicationSuite) TestSetCharmPreconditions(c *gc.C) {
 	logging := s.AddTestingCharm(c, "logging")
 	cfg := state.SetCharmConfig{Charm: logging}
-	err := s.mysql.SetCharm(cfg)
+	err := s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State))
 	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "mysql" to charm "local:quantal/quantal-logging-1": cannot change an application's subordinacy`)
 }
 
@@ -647,12 +647,12 @@ func (s *ApplicationSuite) TestSetCharmUpdatesBindings(c *gc.C) {
 			"":       dbSpace.Id(),
 			"server": dbSpace.Id(),
 			"client": clientSpace.Id(),
-		}})
+		}}, state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 
 	newCharm := s.AddMetaCharm(c, "mysql", metaExtraEndpoints, 43)
 	cfg := state.SetCharmConfig{Charm: newCharm}
-	err = application.SetCharm(cfg)
+	err = application.SetCharm(cfg, state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	updatedBindings, err := application.EndpointBindings()
 	c.Assert(err, jc.ErrorIsNil)
@@ -825,7 +825,7 @@ func (s *ApplicationSuite) TestSetCharmChecksEndpointsWithoutRelations(c *gc.C) 
 	c.Assert(err, jc.ErrorIsNil)
 
 	cfg := state.SetCharmConfig{Charm: ms}
-	err = app.SetCharm(cfg)
+	err = app.SetCharm(cfg, state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 
 	for i, t := range setCharmEndpointsTests {
@@ -833,7 +833,7 @@ func (s *ApplicationSuite) TestSetCharmChecksEndpointsWithoutRelations(c *gc.C) 
 
 		newCh := s.AddMetaCharm(c, "mysql", t.meta, revno+i+1)
 		cfg := state.SetCharmConfig{Charm: newCh}
-		err = app.SetCharm(cfg)
+		err = app.SetCharm(cfg, state.NewObjectStore(c, s.State))
 		if t.err != "" {
 			c.Assert(err, gc.ErrorMatches, t.err)
 		} else {
@@ -851,14 +851,14 @@ func (s *ApplicationSuite) TestSetCharmChecksEndpointsWithRelations(c *gc.C) {
 	providerApp := s.AddTestingApplication(c, "myprovider", providerCharm)
 
 	cfg := state.SetCharmConfig{Charm: providerCharm}
-	err := providerApp.SetCharm(cfg)
+	err := providerApp.SetCharm(cfg, state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 
 	revno++
 	requirerCharm := s.AddMetaCharm(c, "mysql", metaDifferentRequirer, revno)
 	requirerApp := s.AddTestingApplication(c, "myrequirer", requirerCharm)
 	cfg = state.SetCharmConfig{Charm: requirerCharm}
-	err = requirerApp.SetCharm(cfg)
+	err = requirerApp.SetCharm(cfg, state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 
 	eps, err := s.State.InferEndpoints("myprovider:kludge", "myrequirer:kludge")
@@ -869,9 +869,9 @@ func (s *ApplicationSuite) TestSetCharmChecksEndpointsWithRelations(c *gc.C) {
 	revno++
 	baseCharm := s.AddMetaCharm(c, "mysql", metaBase, revno)
 	cfg = state.SetCharmConfig{Charm: baseCharm}
-	err = providerApp.SetCharm(cfg)
+	err = providerApp.SetCharm(cfg, state.NewObjectStore(c, s.State))
 	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "myprovider" to charm "local:quantal/quantal-mysql-4": would break relation "myrequirer:kludge myprovider:kludge"`)
-	err = requirerApp.SetCharm(cfg)
+	err = requirerApp.SetCharm(cfg, state.NewObjectStore(c, s.State))
 	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "myrequirer" to charm "local:quantal/quantal-mysql-4": would break relation "myrequirer:kludge myprovider:kludge"`)
 }
 
@@ -968,7 +968,7 @@ func (s *ApplicationSuite) TestSetCharmConfig(c *gc.C) {
 
 		newCh := charms[t.endconfig]
 		cfg := state.SetCharmConfig{Charm: newCh}
-		err = app.SetCharm(cfg)
+		err = app.SetCharm(cfg, state.NewObjectStore(c, s.State))
 		var expectVals charm.Settings
 		var expectCh *state.Charm
 		if t.err != "" {
@@ -1011,7 +1011,7 @@ func (s *ApplicationSuite) TestSetCharmWithDyingApplication(c *gc.C) {
 		Charm:      sch,
 		ForceUnits: true,
 	}
-	err = s.mysql.SetCharm(cfg)
+	err = s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1149,7 +1149,7 @@ func (s *ApplicationSuite) TestSetCharmWhenDead(c *gc.C) {
 		Charm:      sch,
 		ForceUnits: true,
 	}
-	err := s.mysql.SetCharm(cfg)
+	err := s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIs, stateerrors.ErrDead)
 }
 
@@ -1165,7 +1165,7 @@ func (s *ApplicationSuite) TestSetCharmWithRemovedApplication(c *gc.C) {
 		ForceUnits: true,
 	}
 
-	err = s.mysql.SetCharm(cfg)
+	err = s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
@@ -1182,7 +1182,7 @@ func (s *ApplicationSuite) TestSetCharmWhenRemoved(c *gc.C) {
 		Charm:      sch,
 		ForceUnits: true,
 	}
-	err := s.mysql.SetCharm(cfg)
+	err := s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
@@ -1201,7 +1201,7 @@ func (s *ApplicationSuite) TestSetCharmWhenDyingIsOK(c *gc.C) {
 		Charm:      sch,
 		ForceUnits: true,
 	}
-	err := s.mysql.SetCharm(cfg)
+	err := s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	assertLife(c, s.mysql, state.Dying)
 }
@@ -1218,7 +1218,7 @@ func (s *ApplicationSuite) TestSetCharmRetriesWithSameCharmURL(c *gc.C) {
 				c.Assert(currentCh.URL(), jc.DeepEquals, s.charm.URL())
 
 				cfg := state.SetCharmConfig{Charm: sch}
-				err = s.mysql.SetCharm(cfg)
+				err = s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State))
 				c.Assert(err, jc.ErrorIsNil)
 			},
 			After: func() {
@@ -1247,7 +1247,7 @@ func (s *ApplicationSuite) TestSetCharmRetriesWithSameCharmURL(c *gc.C) {
 		Charm:      sch,
 		ForceUnits: true,
 	}
-	err := s.mysql.SetCharm(cfg)
+	err := s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1256,7 +1256,7 @@ func (s *ApplicationSuite) TestSetCharmRetriesWhenOldSettingsChanged(c *gc.C) {
 	oldCh := s.AddConfigCharm(c, "mysql", stringConfig, revno)
 	newCh := s.AddConfigCharm(c, "mysql", stringConfig, revno+1)
 	cfg := state.SetCharmConfig{Charm: oldCh}
-	err := s.mysql.SetCharm(cfg)
+	err := s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 
 	defer state.SetBeforeHooks(c, s.State,
@@ -1271,7 +1271,7 @@ func (s *ApplicationSuite) TestSetCharmRetriesWhenOldSettingsChanged(c *gc.C) {
 		Charm:      newCh,
 		ForceUnits: true,
 	}
-	err = s.mysql.SetCharm(cfg)
+	err = s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1292,7 +1292,7 @@ func (s *ApplicationSuite) TestSetCharmRetriesWhenBothOldAndNewSettingsChanged(c
 				unit2, err := s.mysql.AddUnit(state.AddUnitParams{})
 				c.Assert(err, jc.ErrorIsNil)
 				cfg := state.SetCharmConfig{Charm: newCh}
-				err = s.mysql.SetCharm(cfg)
+				err = s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State))
 				c.Assert(err, jc.ErrorIsNil)
 				assertSettingsRef(c, s.State, "mysql", newCh, 1)
 				assertNoSettingsRef(c, s.State, "mysql", oldCh)
@@ -1306,7 +1306,7 @@ func (s *ApplicationSuite) TestSetCharmRetriesWhenBothOldAndNewSettingsChanged(c
 				c.Assert(err, jc.ErrorIsNil)
 				cfg = state.SetCharmConfig{Charm: oldCh}
 
-				err = s.mysql.SetCharm(cfg)
+				err = s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State))
 				c.Assert(err, jc.ErrorIsNil)
 				assertSettingsRef(c, s.State, "mysql", newCh, 1)
 				assertSettingsRef(c, s.State, "mysql", oldCh, 1)
@@ -1336,7 +1336,7 @@ func (s *ApplicationSuite) TestSetCharmRetriesWhenBothOldAndNewSettingsChanged(c
 				// attempt.
 				cfg := state.SetCharmConfig{Charm: newCh}
 
-				err := s.mysql.SetCharm(cfg)
+				err := s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State))
 				c.Assert(err, jc.ErrorIsNil)
 				assertSettingsRef(c, s.State, "mysql", newCh, 2)
 				assertSettingsRef(c, s.State, "mysql", oldCh, 1)
@@ -1344,7 +1344,7 @@ func (s *ApplicationSuite) TestSetCharmRetriesWhenBothOldAndNewSettingsChanged(c
 				c.Assert(err, jc.ErrorIsNil)
 
 				cfg = state.SetCharmConfig{Charm: oldCh}
-				err = s.mysql.SetCharm(cfg)
+				err = s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State))
 				c.Assert(err, jc.ErrorIsNil)
 				assertSettingsRef(c, s.State, "mysql", newCh, 1)
 				assertSettingsRef(c, s.State, "mysql", oldCh, 2)
@@ -1383,7 +1383,7 @@ func (s *ApplicationSuite) TestSetCharmRetriesWhenBothOldAndNewSettingsChanged(c
 		Charm:      newCh,
 		ForceUnits: true,
 	}
-	err := s.mysql.SetCharm(cfg)
+	err := s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1394,7 +1394,7 @@ func (s *ApplicationSuite) TestSetCharmRetriesWhenOldBindingsChanged(c *gc.C) {
 	newCharm := s.AddMetaCharm(c, "mysql", metaExtraEndpoints, revno+1)
 
 	cfg := state.SetCharmConfig{Charm: oldCharm}
-	err := s.mysql.SetCharm(cfg)
+	err := s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 
 	oldBindings, err := s.mysql.EndpointBindings()
@@ -1458,7 +1458,7 @@ func (s *ApplicationSuite) TestSetCharmRetriesWhenOldBindingsChanged(c *gc.C) {
 		Charm:      newCharm,
 		ForceUnits: true,
 	}
-	err = s.mysql.SetCharm(cfg)
+	err = s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1500,12 +1500,12 @@ requires:
 	// Try to update wordpress to a new version with max 1 relation for the db endpoint
 	wpCharmWithRelLimit := s.AddMetaCharm(c, "wordpress", wp1Charm, 2)
 	cfg := state.SetCharmConfig{Charm: wpCharmWithRelLimit}
-	err = wpApp.SetCharm(cfg)
+	err = wpApp.SetCharm(cfg, state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIs, errors.QuotaLimitExceeded, gc.Commentf("expected quota limit error due to max relation mismatch"))
 
 	// Try again with --force
 	cfg.Force = true
-	err = wpApp.SetCharm(cfg)
+	err = wpApp.SetCharm(cfg, state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1552,7 +1552,7 @@ func (s *ApplicationSuite) setupSetDownloadedIDAndHash(c *gc.C, origin *state.Ch
 	err = s.mysql.SetCharm(state.SetCharmConfig{
 		Charm:       chOne,
 		CharmOrigin: origin,
-	})
+	}, state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.mysql.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1651,7 +1651,7 @@ func (s *ApplicationSuite) setupCharmForTestUpdateApplicationBase(c *gc.C, name 
 		Charm:       ch,
 		CharmOrigin: origin,
 	}
-	err := app.SetCharm(cfg)
+	err := app.SetCharm(cfg, state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	err = app.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1710,7 +1710,7 @@ func (s *ApplicationSuite) TestUpdateApplicationSeriesCharmURLChangedSeriesFail(
 			Before: func() {
 				v2 := state.AddTestingCharmMultiSeries(c, s.State, "multi-seriesv2")
 				cfg := state.SetCharmConfig{Charm: v2}
-				err := app.SetCharm(cfg)
+				err := app.SetCharm(cfg, state.NewObjectStore(c, s.State))
 				c.Assert(err, jc.ErrorIsNil)
 			},
 		},
@@ -1731,7 +1731,7 @@ func (s *ApplicationSuite) TestUpdateApplicationSeriesCharmURLChangedSeriesPass(
 			Before: func() {
 				v2 := state.AddTestingCharmMultiSeries(c, s.State, "multi-seriesv2")
 				cfg := state.SetCharmConfig{Charm: v2}
-				err := app.SetCharm(cfg)
+				err := app.SetCharm(cfg, state.NewObjectStore(c, s.State))
 				c.Assert(err, jc.ErrorIsNil)
 			},
 		},
@@ -1919,7 +1919,7 @@ func (s *ApplicationSuite) TestSettingsRefCountWorks(c *gc.C) {
 
 	// Changing to the same charm does not change the refcount.
 	cfg := state.SetCharmConfig{Charm: oldCh}
-	err := app.SetCharm(cfg)
+	err := app.SetCharm(cfg, state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	assertSettingsRef(c, s.State, appName, oldCh, 1)
 	assertNoSettingsRef(c, s.State, appName, newCh)
@@ -1929,14 +1929,14 @@ func (s *ApplicationSuite) TestSettingsRefCountWorks(c *gc.C) {
 	// incremented. Consequently, because oldCh's refcount is 0, the
 	// settings doc will be removed.
 	cfg = state.SetCharmConfig{Charm: newCh}
-	err = app.SetCharm(cfg)
+	err = app.SetCharm(cfg, state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	assertNoSettingsRef(c, s.State, appName, oldCh)
 	assertSettingsRef(c, s.State, appName, newCh, 1)
 
 	// The same but newCh swapped with oldCh.
 	cfg = state.SetCharmConfig{Charm: oldCh}
-	err = app.SetCharm(cfg)
+	err = app.SetCharm(cfg, state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	assertSettingsRef(c, s.State, appName, oldCh, 1)
 	assertNoSettingsRef(c, s.State, appName, newCh)
@@ -2007,7 +2007,7 @@ func (s *ApplicationSuite) TestSettingsRefCreateRace(c *gc.C) {
 	// again).
 	dropSettings := func() {
 		cfg := state.SetCharmConfig{Charm: newCh}
-		err = app.SetCharm(cfg)
+		err = app.SetCharm(cfg, state.NewObjectStore(c, s.State))
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	defer state.SetBeforeHooks(c, s.State, dropSettings).Check()
@@ -2034,7 +2034,7 @@ func (s *ApplicationSuite) TestSettingsRefRemoveRace(c *gc.C) {
 	defer state.SetBeforeHooks(c, s.State, grabReference).Check()
 
 	cfg := state.SetCharmConfig{Charm: newCh}
-	err = app.SetCharm(cfg)
+	err = app.SetCharm(cfg, state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// check refs to both settings exist
@@ -2209,12 +2209,12 @@ func (s *ApplicationSuite) TestNewPeerRelationsAddedOnUpgrade(c *gc.C) {
 	s.assertApplicationRelations(c, s.mysql)
 
 	cfg := state.SetCharmConfig{Charm: oldCh}
-	err := s.mysql.SetCharm(cfg)
+	err := s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertApplicationRelations(c, s.mysql, "mysql:cluster")
 
 	cfg = state.SetCharmConfig{Charm: newCh}
-	err = s.mysql.SetCharm(cfg)
+	err = s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	rels := s.assertApplicationRelations(c, s.mysql, "mysql:cluster", "mysql:loadbalancer")
 
@@ -2241,7 +2241,7 @@ func (s *ApplicationSuite) TestStalePeerRelationsRemovedOnUpgrade(c *gc.C) {
 	s.assertApplicationRelations(c, s.mysql)
 
 	cfg := state.SetCharmConfig{Charm: oldCh}
-	err := s.mysql.SetCharm(cfg)
+	err := s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertApplicationRelations(c, s.mysql, "mysql:cluster")
 
@@ -2253,7 +2253,7 @@ func (s *ApplicationSuite) TestStalePeerRelationsRemovedOnUpgrade(c *gc.C) {
 		Charm:      newCh,
 		ForceUnits: true,
 	}
-	err = s.mysql.SetCharm(cfg)
+	err = s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 
 	rels := s.assertApplicationRelations(c, s.mysql, "mysql:minion")
@@ -2471,7 +2471,7 @@ func (s *ApplicationSuite) TestApplicationRefresh(c *gc.C) {
 		ForceUnits: true,
 	}
 
-	err = s.mysql.SetCharm(cfg)
+	err = s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 
 	testch, force, err := s1.Charm()
@@ -3476,7 +3476,7 @@ func (s *ApplicationSuite) TestDestroyQueuesResourcesCleanup(c *gc.C) {
 	s.assertNoCleanup(c)
 
 	// Add a resource to the application, ensuring it is stored.
-	rSt := s.State.Resources()
+	rSt := s.State.Resources(state.NewObjectStore(c, s.State))
 	const content = "abc"
 	res := resourcetesting.NewCharmResource(c, "blob", content)
 	outRes, err := rSt.SetResource(s.mysql.Name(), "user", res, strings.NewReader(content), state.IncrementCharmModifiedVersion)
@@ -3506,7 +3506,7 @@ func (s *ApplicationSuite) TestDestroyWithPlaceholderResources(c *gc.C) {
 	s.assertNoCleanup(c)
 
 	// Add a placeholder resource to the application.
-	rSt := s.State.Resources()
+	rSt := s.State.Resources(state.NewObjectStore(c, s.State))
 	res := resourcetesting.NewPlaceholderResource(c, "blob", s.mysql.Name())
 	outRes, err := rSt.SetResource(s.mysql.Name(), "user", res.Resource, nil, state.IncrementCharmModifiedVersion)
 	c.Assert(err, jc.ErrorIsNil)
@@ -3899,7 +3899,7 @@ func (s *ApplicationSuite) TestWatchApplication(c *gc.C) {
 		Charm:      s.charm,
 		ForceUnits: true,
 	}
-	err = application.SetCharm(cfg)
+	err = application.SetCharm(cfg, state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
@@ -4043,7 +4043,7 @@ func (s *ApplicationSuite) setCharmFromMeta(c *gc.C, oldMeta, newMeta string) er
 	app := s.AddTestingApplication(c, "test", oldCh)
 
 	cfg := state.SetCharmConfig{Charm: newCh}
-	return app.SetCharm(cfg)
+	return app.SetCharm(cfg, state.NewObjectStore(c, s.State))
 }
 
 func (s *ApplicationSuite) TestSetCharmOptionalUnusedStorageRemoved(c *gc.C) {
@@ -4075,7 +4075,7 @@ func (s *ApplicationSuite) TestSetCharmOptionalUsedStorageRemoved(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
 	cfg := state.SetCharmConfig{Charm: newCh}
-	err := app.SetCharm(cfg)
+	err := app.SetCharm(cfg, state.NewObjectStore(c, s.State))
 	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "test" to charm "local:quantal/quantal-mysql-3": in-use storage "data1" removed`)
 }
 
@@ -4095,7 +4095,7 @@ func (s *ApplicationSuite) TestSetCharmRequiredStorageAddedDefaultConstraints(c 
 	c.Assert(err, jc.ErrorIsNil)
 
 	cfg := state.SetCharmConfig{Charm: newCh}
-	err = app.SetCharm(cfg)
+	err = app.SetCharm(cfg, state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that the new required storage was added for the unit.
@@ -4119,7 +4119,7 @@ func (s *ApplicationSuite) TestSetCharmStorageAddedUserSpecifiedConstraints(c *g
 			"data1": {Count: 3},
 		},
 	}
-	err = app.SetCharm(cfg)
+	err = app.SetCharm(cfg, state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that new storage was added for the unit, based on the
@@ -4310,7 +4310,7 @@ func (s *ApplicationSuite) TestSetCharmExtraBindingsUseDefaults(c *gc.C) {
 	newCharm := s.AddMetaCharm(c, "mysql", metaExtraEndpoints, 43)
 
 	cfg := state.SetCharmConfig{Charm: newCharm}
-	err = application.SetCharm(cfg)
+	err = application.SetCharm(cfg, state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	setBindings, err = application.EndpointBindings()
 	c.Assert(err, jc.ErrorIsNil)
@@ -4339,7 +4339,7 @@ func (s *ApplicationSuite) TestSetCharmHandlesMissingBindingsAsDefaults(c *gc.C)
 	newCharm := s.AddMetaCharm(c, "mysql", metaExtraEndpoints, 70)
 
 	cfg := state.SetCharmConfig{Charm: newCharm}
-	err := app.SetCharm(cfg)
+	err := app.SetCharm(cfg, state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	setBindings, err := app.EndpointBindings()
 	c.Assert(err, jc.ErrorIsNil)
@@ -4367,7 +4367,7 @@ peers:
 `
 	originalCharm := s.AddMetaCharm(c, "mysql", originalCharmMeta, 2)
 	cfg := state.SetCharmConfig{Charm: originalCharm}
-	err = s.mysql.SetCharm(cfg)
+	err = s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertApplicationRelations(c, s.mysql, "mysql:replication")
 	deployedV = s.mysql.CharmModifiedVersion()
@@ -4386,7 +4386,7 @@ peers:
 	updatedCharm := s.AddMetaCharm(c, "mysql", updatedCharmMeta, 3)
 
 	cfg = state.SetCharmConfig{Charm: updatedCharm}
-	err = s.mysql.SetCharm(cfg)
+	err = s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State))
 	return
 }
 
@@ -4440,7 +4440,7 @@ func (s *ApplicationSuite) TestWatchCharmConfig(c *gc.C) {
 
 	// Change application's charm; nothing detected.
 	newCharm := s.AddConfigCharm(c, "wordpress", stringConfig, 123)
-	err = app.SetCharm(state.SetCharmConfig{Charm: newCharm})
+	err = app.SetCharm(state.SetCharmConfig{Charm: newCharm}, state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
@@ -5385,7 +5385,7 @@ func (s *ApplicationSuite) TestCharmLegacyNoOSInvalid(c *gc.C) {
 				Channel: "22.04/stable",
 			},
 		},
-	})
+	}, state.NewObjectStore(c, s.State))
 	c.Assert(err, gc.ErrorMatches, `.*charm does not define any bases`)
 }
 
@@ -5473,7 +5473,7 @@ func (s *ApplicationSuite) TestWatchApplicationsWithPendingCharms(c *gc.C) {
 		CharmOrigin: &state.CharmOrigin{
 			Source: "charm-hub",
 		},
-	})
+	}, state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(s.mysql.Name())
 
@@ -5487,7 +5487,7 @@ func (s *ApplicationSuite) TestWatchApplicationsWithPendingCharms(c *gc.C) {
 			Source: "charm-hub",
 			ID:     "charm-hub-id",
 		},
-	})
+	}, state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
@@ -5503,7 +5503,7 @@ func (s *ApplicationSuite) TestWatchApplicationsWithPendingCharms(c *gc.C) {
 				Channel: "22.04/stable",
 			},
 		},
-	})
+	}, state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(appSameCharm.Name())
 	_ = appSameCharm.SetCharm(state.SetCharmConfig{
@@ -5512,7 +5512,7 @@ func (s *ApplicationSuite) TestWatchApplicationsWithPendingCharms(c *gc.C) {
 			Source: "charm-hub",
 			ID:     "charm-hub-id",
 		},
-	})
+	}, state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 }

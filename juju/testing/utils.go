@@ -5,6 +5,7 @@ package testing
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"os"
 	"text/template"
@@ -17,8 +18,9 @@ import (
 
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/internal/objectstore"
 	"github.com/juju/juju/state"
-	statestorage "github.com/juju/juju/state/storage"
+	"github.com/juju/juju/testing"
 )
 
 // PutCharm uploads the given charm to provider storage, and adds a
@@ -78,9 +80,12 @@ func AddCharm(st *state.State, curl string, ch charm.Charm, force bool) (*state.
 		return nil, err
 	}
 
-	stor := statestorage.NewStorage(st.ModelUUID(), st.MongoSession())
+	stor, err := objectstore.NewStateObjectStore(context.Background(), st.ModelUUID(), st, testing.NoopLogger{})
+	if err != nil {
+		return nil, err
+	}
 	storagePath := fmt.Sprintf("/charms/%s-%s", curl, digest)
-	if err := stor.Put(storagePath, f, size); err != nil {
+	if err := stor.Put(context.Background(), storagePath, f, size); err != nil {
 		return nil, fmt.Errorf("cannot put charm: %v", err)
 	}
 	info := state.CharmInfo{

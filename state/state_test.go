@@ -1691,7 +1691,7 @@ func (s *StateSuite) TestAddApplication(c *gc.C) {
 			OS:      "ubuntu",
 			Channel: "22.04/stable",
 		}},
-	})
+	}, state.NewObjectStore(c, s.State))
 	c.Assert(err, gc.ErrorMatches, `cannot add application "haha/borken": invalid name`)
 	_, err = s.State.Application("haha/borken")
 	c.Assert(err, gc.ErrorMatches, `"haha/borken" is not a valid application name`)
@@ -1703,14 +1703,14 @@ func (s *StateSuite) TestAddApplication(c *gc.C) {
 			OS:      "ubuntu",
 			Channel: "22.04/stable",
 		}},
-	})
+	}, state.NewObjectStore(c, s.State))
 	c.Assert(err, gc.ErrorMatches, `cannot add application "umadbro": charm is nil`)
 
 	// set that a nil charm origin is handled correctly
 	_, err = s.State.AddApplication(state.AddApplicationArgs{
 		Name:  "umadbro",
 		Charm: ch,
-	})
+	}, state.NewObjectStore(c, s.State))
 	c.Assert(err, gc.ErrorMatches, `cannot add application "umadbro": charm origin is nil`)
 
 	insettings := charm.Settings{"tuning": "optimized"}
@@ -1731,7 +1731,7 @@ func (s *StateSuite) TestAddApplication(c *gc.C) {
 					Channel: "22.04/stable",
 				},
 			},
-		})
+		}, state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(wordpress.Name(), gc.Equals, "wordpress")
 	c.Assert(state.GetApplicationHasResources(wordpress), jc.IsFalse)
@@ -1760,6 +1760,7 @@ func (s *StateSuite) TestAddApplication(c *gc.C) {
 			Channel: "22.04/stable",
 		}},
 		Constraints: constraints.Value{Arch: &mysqlArch}},
+		state.NewObjectStore(c, s.State),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mysql.Name(), gc.Equals, "mysql")
@@ -1793,7 +1794,7 @@ func (s *StateSuite) TestAddApplicationFailCharmOriginIDOnly(c *gc.C) {
 		Name:        "testme",
 		Charm:       &state.Charm{},
 		CharmOrigin: &state.CharmOrigin{ID: "testing", Platform: &state.Platform{OS: "ubuntu", Channel: "22.04"}},
-	})
+	}, state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIs, errors.BadRequest)
 }
 
@@ -1802,7 +1803,7 @@ func (s *StateSuite) TestAddApplicationFailCharmOriginHashOnly(c *gc.C) {
 		Name:        "testme",
 		Charm:       &state.Charm{},
 		CharmOrigin: &state.CharmOrigin{Hash: "testing", Platform: &state.Platform{OS: "ubuntu", Channel: "22.04"}},
-	})
+	}, state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIs, errors.BadRequest)
 }
 
@@ -1824,7 +1825,7 @@ func (s *StateSuite) TestAddCAASApplication(c *gc.C) {
 				Channel: "22.04/stable",
 			}},
 			CharmConfig: insettings, ApplicationConfig: inconfig, NumUnits: 1,
-		})
+		}, state.NewObjectStore(c, st))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gitlab.Name(), gc.Equals, "gitlab")
 	c.Assert(gitlab.GetScale(), gc.Equals, 1)
@@ -1894,7 +1895,7 @@ resources:
 			OS:      "ubuntu",
 			Channel: "22.04/stable",
 		}},
-	})
+	}, state.NewObjectStore(c, st))
 	c.Assert(err, jc.ErrorIsNil)
 	units, err := cockroach.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1931,7 +1932,7 @@ resources:
 			OS:      "ubuntu",
 			Channel: "22.04/stable",
 		}},
-	})
+	}, state.NewObjectStore(c, st))
 	c.Assert(err, jc.ErrorIsNil)
 	units, err := cockroach.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1954,7 +1955,7 @@ resources:
 			OS:      "ubuntu",
 			Channel: "22.04/stable",
 		}},
-	})
+	}, state.NewObjectStore(c, st))
 	c.Assert(err, jc.ErrorIsNil)
 	units, err = cockroach.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1977,7 +1978,7 @@ func (s *StateSuite) TestAddCAASApplicationPlacementNotAllowed(c *gc.C) {
 				Channel: "22.04/stable",
 			}},
 			Placement: placement,
-		})
+		}, state.NewObjectStore(c, st))
 	c.Assert(err, gc.ErrorMatches, ".*"+regexp.QuoteMeta(`cannot add application "gitlab": placement directives on k8s models not valid`))
 }
 
@@ -1992,6 +1993,7 @@ func (s *StateSuite) TestAddApplicationWithNilCharmConfigValues(c *gc.C) {
 			Channel: "22.04/stable",
 		}},
 		CharmConfig: insettings},
+		state.NewObjectStore(c, s.State),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	outsettings, err := wordpress.CharmConfig(model.GenerationMaster)
@@ -2022,7 +2024,7 @@ func (s *StateSuite) TestAddApplicationModelDying(c *gc.C) {
 			OS:      "ubuntu",
 			Channel: "22.04/stable",
 		}},
-	})
+	}, state.NewObjectStore(c, s.State))
 	c.Assert(err, gc.ErrorMatches, `cannot add application "s1": model "testmodel" is dying`)
 }
 
@@ -2037,7 +2039,7 @@ func (s *StateSuite) TestAddApplicationModelMigrating(c *gc.C) {
 			OS:      "ubuntu",
 			Channel: "22.04/stable",
 		}},
-	})
+	}, state.NewObjectStore(c, s.State))
 	c.Assert(err, gc.ErrorMatches, `cannot add application "s1": model "testmodel" is being migrated`)
 }
 
@@ -2052,7 +2054,7 @@ func (s *StateSuite) TestAddApplicationSameRemoteExists(c *gc.C) {
 			OS:      "ubuntu",
 			Channel: "22.04/stable",
 		}},
-	})
+	}, state.NewObjectStore(c, s.State))
 	c.Assert(err, gc.ErrorMatches, `cannot add application "s1": saas application with same name already exists`)
 }
 
@@ -2072,7 +2074,7 @@ func (s *StateSuite) TestAddApplicationRemoteAddedAfterInitial(c *gc.C) {
 			OS:      "ubuntu",
 			Channel: "22.04/stable",
 		}},
-	})
+	}, state.NewObjectStore(c, s.State))
 	c.Assert(err, gc.ErrorMatches, `cannot add application "s1": saas application with same name already exists`)
 }
 
@@ -2085,7 +2087,7 @@ func (s *StateSuite) TestAddApplicationSameLocalExists(c *gc.C) {
 			OS:      "ubuntu",
 			Channel: "22.04/stable",
 		}},
-	})
+	}, state.NewObjectStore(c, s.State))
 	c.Assert(err, gc.ErrorMatches, `cannot add application "s0": application already exists`)
 }
 
@@ -2103,7 +2105,7 @@ func (s *StateSuite) TestAddApplicationLocalAddedAfterInitial(c *gc.C) {
 			OS:      "ubuntu",
 			Channel: "22.04/stable",
 		}},
-	})
+	}, state.NewObjectStore(c, s.State))
 	c.Assert(err, gc.ErrorMatches, `cannot add application "s1": application already exists`)
 }
 
@@ -2122,7 +2124,7 @@ func (s *StateSuite) TestAddApplicationModelDyingAfterInitial(c *gc.C) {
 			OS:      "ubuntu",
 			Channel: "22.04/stable",
 		}},
-	})
+	}, state.NewObjectStore(c, s.State))
 	c.Assert(err, gc.ErrorMatches, `cannot add application "s1": model "testmodel" is dying`)
 }
 
@@ -2141,7 +2143,7 @@ func (s *StateSuite) TestAddApplicationWithDefaultBindings(c *gc.C) {
 			OS:      "ubuntu",
 			Channel: "22.04/stable",
 		}},
-	})
+	}, state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Read them back to verify defaults and given bindings got merged as
@@ -2183,7 +2185,7 @@ func (s *StateSuite) TestAddApplicationWithSpecifiedBindings(c *gc.C) {
 			"client":  clientSpace.Id(),
 			"cluster": dbSpace.Id(),
 		},
-	})
+	}, state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Read them back to verify defaults and given bindings got merged as
@@ -2252,7 +2254,7 @@ func (s *StateSuite) TestAddApplicationWithInvalidBindings(c *gc.C) {
 				Channel: "22.04/stable",
 			}},
 			EndpointBindings: test.bindings,
-		})
+		}, state.NewObjectStore(c, s.State))
 		c.Check(err, gc.ErrorMatches, `cannot add application "yoursql": `+test.expectedError)
 		c.Check(err, jc.ErrorIs, test.errIs)
 	}
@@ -2272,7 +2274,7 @@ func (s *StateSuite) TestAddApplicationMachinePlacementInvalidSeries(c *gc.C) {
 		Placement: []*instance.Placement{
 			{instance.MachineScope, m.Id()},
 		},
-	})
+	}, state.NewObjectStore(c, s.State))
 	c.Assert(err, gc.ErrorMatches, "cannot add application \"wordpress\": cannot deploy to machine .*: base does not match.*")
 }
 
@@ -2286,7 +2288,7 @@ func (s *StateSuite) TestAddApplicationIncompatibleOSWithSeriesInURL(c *gc.C) {
 			OS:      "centos",
 			Channel: "7/stable",
 		}},
-	})
+	}, state.NewObjectStore(c, s.State))
 	c.Assert(err, gc.ErrorMatches, `cannot add application "wordpress": OS "centos" not supported by charm "dummy", supported OSes are: ubuntu`)
 }
 
@@ -2302,7 +2304,7 @@ func (s *StateSuite) TestAddApplicationCompatibleOSWithSeriesInURL(c *gc.C) {
 			OS:      base.OS,
 			Channel: base.Channel.String(),
 		}},
-	})
+	}, state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -2315,7 +2317,7 @@ func (s *StateSuite) TestAddApplicationCompatibleOSWithNoExplicitSupportedSeries
 			OS:      "ubuntu",
 			Channel: "12.10/stable",
 		}},
-	})
+	}, state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -2329,7 +2331,7 @@ func (s *StateSuite) TestAddApplicationOSIncompatibleWithSupportedSeries(c *gc.C
 			OS:      "centos",
 			Channel: "7/stable",
 		}},
-	})
+	}, state.NewObjectStore(c, s.State))
 	c.Assert(err, gc.ErrorMatches, `cannot add application "wordpress": OS "centos" not supported by charm "multi-series", supported OSes are: ubuntu`)
 }
 
@@ -2346,7 +2348,7 @@ func (s *StateSuite) TestAllApplications(c *gc.C) {
 			OS:      "ubuntu",
 			Channel: "22.04/stable",
 		}},
-	})
+	}, state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	applications, err = s.State.AllApplications()
 	c.Assert(err, jc.ErrorIsNil)
@@ -2358,7 +2360,7 @@ func (s *StateSuite) TestAllApplications(c *gc.C) {
 			OS:      "ubuntu",
 			Channel: "22.04/stable",
 		}},
-	})
+	}, state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	applications, err = s.State.AllApplications()
 	c.Assert(err, jc.ErrorIsNil)
@@ -4194,7 +4196,7 @@ func (s *StateSuite) TestSetModelAgentVersionErrors(c *gc.C) {
 			OS:      "ubuntu",
 			Channel: "22.04/stable",
 		}},
-	})
+	}, state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	unit0, err := application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -4256,7 +4258,7 @@ func (s *StateSuite) prepareAgentVersionTests(c *gc.C, st *state.State) (*config
 			OS:      "ubuntu",
 			Channel: "12.10/stable",
 		}},
-	})
+	}, state.NewObjectStore(c, st))
 	c.Assert(err, jc.ErrorIsNil)
 	unit, err := application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)

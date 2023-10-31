@@ -13,6 +13,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/state"
 )
@@ -22,17 +23,21 @@ import (
 // The caller owns the State provided. It is the caller's
 // responsibility to close it.
 func NewResourceOpener(
-	st *state.State, resourceDownloadLimiterFunc func() ResourceDownloadLock, unitName string,
+	st *state.State, store objectstore.ObjectStore,
+	resourceDownloadLimiterFunc func() ResourceDownloadLock, unitName string,
 ) (opener resources.Opener, err error) {
-	return newInternalResourceOpener(st, resourceDownloadLimiterFunc, unitName, "")
+	return newInternalResourceOpener(st, store, resourceDownloadLimiterFunc, unitName, "")
 }
 
 // NewResourceOpenerForApplication returns a new resource.Opener for the given app.
 //
 // The caller owns the State provided. It is the caller's
 // responsibility to close it.
-func NewResourceOpenerForApplication(st *state.State, applicationName string) (opener resources.Opener, err error) {
-	return newInternalResourceOpener(st, func() ResourceDownloadLock {
+func NewResourceOpenerForApplication(
+	st *state.State, store objectstore.ObjectStore,
+	applicationName string,
+) (opener resources.Opener, err error) {
+	return newInternalResourceOpener(st, store, func() ResourceDownloadLock {
 		return noopDownloadResourceLocker{}
 	}, "", applicationName)
 }
@@ -49,7 +54,9 @@ func (noopDownloadResourceLocker) Acquire(string) {}
 func (noopDownloadResourceLocker) Release(appName string) {}
 
 func newInternalResourceOpener(
-	st *state.State, resourceDownloadLimiterFunc func() ResourceDownloadLock, unitName string, appName string,
+	st *state.State, store objectstore.ObjectStore,
+	resourceDownloadLimiterFunc func() ResourceDownloadLock,
+	unitName string, appName string,
 ) (opener resources.Opener, err error) {
 	var unit *state.Unit
 	if unitName != "" {
@@ -110,7 +117,7 @@ func newInternalResourceOpener(
 	}
 
 	return &ResourceOpener{
-		resourceCache:               st.Resources(),
+		resourceCache:               st.Resources(store),
 		modelUUID:                   st.ModelUUID(),
 		resourceClient:              resourceClient,
 		user:                        userID,

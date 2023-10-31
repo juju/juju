@@ -33,6 +33,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/status"
 	mgoutils "github.com/juju/juju/internal/mongo/utils"
 	"github.com/juju/juju/internal/tools"
@@ -362,10 +363,17 @@ type DestroyApplicationOperation struct {
 
 	// ForcedOperation stores needed information to force this operation.
 	ForcedOperation
+
+	// Store is the object store to use for blob access.
+	store objectstore.ObjectStore
 }
 
 // Build is part of the ModelOperation interface.
 func (op *DestroyApplicationOperation) Build(attempt int) ([]txn.Op, error) {
+	if op.store == nil {
+		return nil, errors.New("object store not set")
+	}
+
 	if attempt > 0 {
 		if err := op.app.Refresh(); errors.Is(err, errors.NotFound) {
 			return nil, jujutxn.ErrNoOperations
@@ -378,7 +386,7 @@ func (op *DestroyApplicationOperation) Build(attempt int) ([]txn.Op, error) {
 	// and may be of interest to the user. Without 'force', these errors are considered fatal.
 	// If 'force' is specified, they are treated as non-fatal - they will not prevent further
 	// processing: we'll still try to remove application.
-	ops, err := op.destroyOps()
+	ops, err := op.destroyOps(op.store)
 	switch errors.Cause(err) {
 	case errRefresh:
 		return nil, jujutxn.ErrTransientFailure
@@ -476,7 +484,7 @@ func (op *DestroyApplicationOperation) deleteSecrets() error {
 //
 // When the 'force' is not set, any operational errors will be considered fatal. All operations
 // constructed up until the error will be discarded and the error will be returned.
-func (op *DestroyApplicationOperation) destroyOps() ([]txn.Op, error) {
+func (op *DestroyApplicationOperation) destroyOps(store objectstore.ObjectStore) ([]txn.Op, error) {
 	rels, err := op.app.Relations()
 	if op.FatalError(err) {
 		return nil, err
@@ -525,7 +533,7 @@ func (op *DestroyApplicationOperation) destroyOps() ([]txn.Op, error) {
 	if !op.Force && failedRels {
 		return nil, op.LastError()
 	}
-	resOps, err := removeResourcesOps(op.app.st, op.app.doc.Name)
+	resOps, err := removeResourcesOps(op.app.st, store, op.app.doc.Name)
 	if op.FatalError(err) {
 		return nil, errors.Trace(err)
 	}
@@ -706,8 +714,8 @@ func (op *DestroyApplicationOperation) unassignBranchOps() ([]txn.Op, error) {
 	return ops, nil
 }
 
-func removeResourcesOps(st *State, applicationID string) ([]txn.Op, error) {
-	resources := st.resources()
+func removeResourcesOps(st *State, store objectstore.ObjectStore, applicationID string) ([]txn.Op, error) {
+	resources := st.resources(store)
 	ops, err := resources.removeResourcesOps(applicationID)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -1589,9 +1597,9 @@ func incCharmModifiedVersionOps(applicationID string) []txn.Op {
 	}}
 }
 
-func (a *Application) resolveResourceOps(pendingResourceIDs map[string]string) ([]txn.Op, error) {
+func (a *Application) resolveResourceOps(pendingResourceIDs map[string]string, store objectstore.ObjectStore) ([]txn.Op, error) {
 	// Collect pending resource resolution operations.
-	resources := a.st.Resources().(*resourcePersistence)
+	resources := a.st.Resources(store).(*resourcePersistence)
 	return resources.resolveApplicationPendingResourcesOps(a.doc.Name, pendingResourceIDs)
 }
 
@@ -1639,7 +1647,7 @@ type SetCharmConfig struct {
 }
 
 // SetCharm changes the charm for the application.
-func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
+func (a *Application) SetCharm(cfg SetCharmConfig, store objectstore.ObjectStore) (err error) {
 	defer errors.DeferredAnnotatef(
 		&err, "cannot upgrade application %q to charm %q", a, cfg.Charm.URL(),
 	)
@@ -1768,7 +1776,7 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 		}
 
 		// Resources can be upgraded independent of a charm upgrade.
-		resourceOps, err := a.resolveResourceOps(cfg.PendingResourceIDs)
+		resourceOps, err := a.resolveResourceOps(cfg.PendingResourceIDs, store)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -2929,7 +2937,7 @@ func (a *Application) insertCAASUnitOps(args UpsertCAASUnitParams) ([]txn.Op, er
 // When 'force' is set, this call will always return some needed operations
 // and accumulate all operational errors encountered in the operation.
 // If the 'force' is not set, any error will be fatal and no operations will be returned.
-func (a *Application) removeUnitOps(u *Unit, asserts bson.D, op *ForcedOperation, destroyStorage bool) ([]txn.Op, error) {
+func (a *Application) removeUnitOps(store objectstore.ObjectStore, u *Unit, asserts bson.D, op *ForcedOperation, destroyStorage bool) ([]txn.Op, error) {
 	hostOps, err := u.destroyHostOps(a, op)
 	if op.FatalError(err) {
 		return nil, errors.Trace(err)
@@ -2942,7 +2950,7 @@ func (a *Application) removeUnitOps(u *Unit, asserts bson.D, op *ForcedOperation
 	if op.FatalError(err) {
 		return nil, errors.Trace(err)
 	}
-	resOps, err := removeUnitResourcesOps(a.st, u.doc.Name)
+	resOps, err := removeUnitResourcesOps(a.st, store, u.doc.Name)
 	if op.FatalError(err) {
 		return nil, errors.Trace(err)
 	}
@@ -3056,8 +3064,8 @@ func (a *Application) removeUnitOps(u *Unit, asserts bson.D, op *ForcedOperation
 	return ops, nil
 }
 
-func removeUnitResourcesOps(st *State, unitID string) ([]txn.Op, error) {
-	resources := st.resources()
+func removeUnitResourcesOps(st *State, store objectstore.ObjectStore, unitID string) ([]txn.Op, error) {
+	resources := st.resources(store)
 	ops, err := resources.removeUnitResourcesOps(unitID)
 	if err != nil {
 		return nil, errors.Trace(err)

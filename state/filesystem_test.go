@@ -52,7 +52,7 @@ func (s *FilesystemStateSuite) TestAddApplicationInvalidPool(c *gc.C) {
 			Channel: "20.04/stable",
 		}},
 		Storage: storage,
-	})
+	}, state.NewObjectStore(c, s.st))
 	c.Assert(err, gc.ErrorMatches, `.* pool "invalid-pool" not found`)
 }
 
@@ -115,7 +115,7 @@ func (s *FilesystemStateSuite) testAddApplicationDefaultPool(c *gc.C, expectedPo
 		Storage:  storage,
 		NumUnits: numUnits,
 	}
-	app, err := s.st.AddApplication(args)
+	app, err := s.st.AddApplication(args, state.NewObjectStore(c, s.st))
 	c.Assert(err, jc.ErrorIsNil)
 	cons, err := app.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
@@ -623,7 +623,7 @@ func (s *FilesystemCAASModelSuite) TestWatchUnitFilesystems(c *gc.C) {
 			Channel: "20.04/stable",
 		}},
 		Storage: storage,
-	})
+	}, state.NewObjectStore(c, s.st))
 	c.Assert(err, jc.ErrorIsNil)
 
 	addUnit := func(app *state.Application) *state.Unit {
@@ -649,7 +649,7 @@ func (s *FilesystemCAASModelSuite) TestWatchUnitFilesystems(c *gc.C) {
 			Channel: "20.04/stable",
 		}},
 		Storage: storage,
-	})
+	}, state.NewObjectStore(c, s.st))
 	c.Assert(err, jc.ErrorIsNil)
 	addUnit(app2)
 	// no change, since we're only interested in the one application.
@@ -695,7 +695,7 @@ func (s *FilesystemCAASModelSuite) TestWatchUnitFilesystemAttachments(c *gc.C) {
 			Channel: "20.04/stable",
 		}},
 		Storage: storage,
-	})
+	}, state.NewObjectStore(c, s.st))
 	c.Assert(err, jc.ErrorIsNil)
 
 	addUnit := func(app *state.Application) *state.Unit {
@@ -722,7 +722,7 @@ func (s *FilesystemCAASModelSuite) TestWatchUnitFilesystemAttachments(c *gc.C) {
 			Channel: "20.04/stable",
 		}},
 		Storage: storage,
-	})
+	}, state.NewObjectStore(c, s.st))
 	c.Assert(err, jc.ErrorIsNil)
 	addUnit(app2)
 	// no change, since we're only interested in the one application.

@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/internal/charmhub"
 	"github.com/juju/juju/state"
@@ -36,7 +37,7 @@ import (
 
 const controllerCharmURL = "ch:juju-controller"
 
-func (c *BootstrapCommand) deployControllerCharm(ctx context.Context, objectStore services.Storage, st *state.State, controllerConfig controller.Config, cons constraints.Value, charmPath string, channel charm.Channel, isCAAS bool, unitPassword string) (resultErr error) {
+func (c *BootstrapCommand) deployControllerCharm(ctx context.Context, objectStore objectstore.ObjectStore, st *state.State, controllerConfig controller.Config, cons constraints.Value, charmPath string, channel charm.Channel, isCAAS bool, unitPassword string) (resultErr error) {
 	arch := corearch.DefaultArchitecture
 	base := jujuversion.DefaultSupportedLTSBase()
 	if cons.HasArch() {
@@ -106,7 +107,7 @@ func (c *BootstrapCommand) deployControllerCharm(ctx context.Context, objectStor
 
 	// Once the charm is added, set up the controller application.
 	controllerUnit, err = addControllerApplication(
-		st, controllerConfig,
+		st, objectStore, controllerConfig,
 		curl, *origin, cons, controllerAddress,
 	)
 	if err != nil {
@@ -302,6 +303,7 @@ func addLocalControllerCharm(ctx context.Context, objectStore services.Storage, 
 // addControllerApplication deploys and configures the controller application.
 func addControllerApplication(
 	st *state.State,
+	store objectstore.ObjectStore,
 	controllerConfig controller.Config,
 	curl *charm.URL,
 	origin corecharm.Origin,
@@ -349,7 +351,7 @@ func addControllerApplication(
 		Constraints:       cons,
 		ApplicationConfig: appCfg,
 		NumUnits:          1,
-	})
+	}, store)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
