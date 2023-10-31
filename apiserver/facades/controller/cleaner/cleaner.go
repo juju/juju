@@ -11,19 +11,21 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state/watcher"
 )
 
 // CleanerAPI implements the API used by the cleaner worker.
 type CleanerAPI struct {
-	st        StateInterface
-	resources facade.Resources
+	st          StateInterface
+	resources   facade.Resources
+	objectStore objectstore.WriteObjectStore
 }
 
 // Cleanup triggers a state cleanup
 func (api *CleanerAPI) Cleanup(ctx context.Context) error {
-	return api.st.Cleanup()
+	return api.st.Cleanup(ctx, api.objectStore)
 }
 
 // WatchCleanups watches for cleanups to be performed in state.

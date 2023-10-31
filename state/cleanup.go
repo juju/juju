@@ -4,6 +4,7 @@
 package state
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"time"
@@ -14,9 +15,9 @@ import (
 	"github.com/juju/names/v4"
 	jujutxn "github.com/juju/txn/v3"
 
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/mongo"
 	stateerrors "github.com/juju/juju/state/errors"
-	statestorage "github.com/juju/juju/state/storage"
 )
 
 type cleanupKind string
@@ -163,7 +164,7 @@ func (st *State) NeedsCleanup() (bool, error) {
 // Cleanup removes all documents that were previously marked for removal, if
 // any such exist. It should be called periodically by at least one element
 // of the system.
-func (st *State) Cleanup() (err error) {
+func (st *State) Cleanup(ctx context.Context, store objectstore.WriteObjectStore) (err error) {
 	var doc cleanupDoc
 	cleanups, closer := st.db().GetCollection(cleanupsC)
 	defer closer()
@@ -195,7 +196,7 @@ func (st *State) Cleanup() (err error) {
 		case cleanupForceDestroyedRelation:
 			err = st.cleanupForceDestroyedRelation(doc.Prefix)
 		case cleanupCharm:
-			err = st.cleanupCharm(doc.Prefix)
+			err = st.cleanupCharm(ctx, store, doc.Prefix)
 		case cleanupApplication:
 			err = st.cleanupApplication(doc.Prefix, args)
 		case cleanupForceApplication:
@@ -233,7 +234,7 @@ func (st *State) Cleanup() (err error) {
 		case cleanupMachinesForDyingModel: // IAAS models only
 			err = st.cleanupMachinesForDyingModel(args)
 		case cleanupResourceBlob:
-			err = st.cleanupResourceBlob(doc.Prefix)
+			err = st.cleanupResourceBlob(ctx, store, doc.Prefix)
 		case cleanupStorageForDyingModel:
 			err = st.cleanupStorageForDyingModel(doc.Prefix, args)
 		case cleanupForceStorage:
@@ -262,14 +263,13 @@ func (st *State) Cleanup() (err error) {
 	return nil
 }
 
-func (st *State) cleanupResourceBlob(storagePath string) error {
+func (st *State) cleanupResourceBlob(ctx context.Context, store objectstore.WriteObjectStore, storagePath string) error {
 	// Ignore attempts to clean up a placeholder resource.
 	if storagePath == "" {
 		return nil
 	}
 
-	storage := statestorage.NewStorage(st.ModelUUID(), st.MongoSession())
-	err := storage.Remove(storagePath)
+	err := store.Remove(ctx, storagePath)
 	if errors.Is(err, errors.NotFound) {
 		return nil
 	}
@@ -820,7 +820,7 @@ func (st *State) cleanupUnitsForDyingApplication(applicationname string, cleanup
 // cleanupCharm is speculative: it can abort without error for many
 // reasons, because it's triggered somewhat over-enthusiastically for
 // simplicity's sake.
-func (st *State) cleanupCharm(charmURL string) error {
+func (st *State) cleanupCharm(ctx context.Context, store objectstore.WriteObjectStore, charmURL string) error {
 	ch, err := st.Charm(charmURL)
 	if errors.Is(err, errors.NotFound) {
 		// Charm already removed.
@@ -843,7 +843,7 @@ func (st *State) cleanupCharm(charmURL string) error {
 	}
 
 	logger.Tracef("cleanup charm(%s): Remove", charmURL)
-	if err := ch.Remove(); err != nil {
+	if err := ch.Remove(ctx, store); err != nil {
 		return errors.Trace(err)
 	}
 	return nil

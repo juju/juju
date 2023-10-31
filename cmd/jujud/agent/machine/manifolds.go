@@ -32,6 +32,7 @@ import (
 	"github.com/juju/juju/core/presence"
 	containerbroker "github.com/juju/juju/internal/container/broker"
 	"github.com/juju/juju/internal/container/lxd"
+	internalobjectstore "github.com/juju/juju/internal/objectstore"
 	proxyconfig "github.com/juju/juju/internal/proxy/config"
 	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/state"
@@ -801,7 +802,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			TraceName:            traceName,
 			Clock:                config.Clock,
 			Logger:               loggo.GetLogger("juju.worker.objectstore"),
-			NewObjectStoreWorker: objectstore.NewStateObjectStore,
+			NewObjectStoreWorker: internalobjectstore.NewStateObjectStore,
 		})),
 	}
 

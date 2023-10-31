@@ -4,6 +4,7 @@
 package state_test
 
 import (
+	"context"
 	"fmt"
 	"sort"
 
@@ -211,7 +212,7 @@ func (s *PayloadsSuite) TestRemoveUnitUntracksPayloads(c *gc.C) {
 
 	err = fix.Unit.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.Cleanup()
+	err = s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	fix.CheckNoPayload(c)
 }

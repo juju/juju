@@ -3,10 +3,15 @@
 
 package cleaner
 
-import "github.com/juju/juju/state"
+import (
+	"context"
+
+	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/state"
+)
 
 type StateInterface interface {
-	Cleanup() error
+	Cleanup(context.Context, objectstore.WriteObjectStore) error
 	WatchCleanups() state.NotifyWatcher
 }
 

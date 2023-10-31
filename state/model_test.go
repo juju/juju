@@ -4,6 +4,7 @@
 package state_test
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"time"
@@ -1810,7 +1811,7 @@ func (s *ModelCloudValidationSuite) initializeState(
 }
 
 func assertCleanupRuns(c *gc.C, st *state.State) {
-	err := st.Cleanup()
+	err := st.Cleanup(context.Background(), state.NewObjectStore(c, st))
 	c.Assert(err, jc.ErrorIsNil)
 }
 

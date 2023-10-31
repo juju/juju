@@ -4,6 +4,7 @@
 package state
 
 import (
+	"context"
 	"fmt"
 	"regexp"
 	"strings"
@@ -19,10 +20,10 @@ import (
 
 	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/mongo"
 	mongoutils "github.com/juju/juju/internal/mongo/utils"
 	stateerrors "github.com/juju/juju/state/errors"
-	"github.com/juju/juju/state/storage"
 	jujuversion "github.com/juju/juju/version"
 )
 
@@ -586,13 +587,12 @@ func (c *Charm) Destroy() error {
 // Remove will delete the charm's stored archive and render the charm
 // inaccessible to future clients. It will fail unless the charm is
 // already Dying (indicating that someone has called Destroy).
-func (c *Charm) Remove() error {
+func (c *Charm) Remove(ctx context.Context, store objectstore.WriteObjectStore) error {
 	if c.doc.Life == Alive {
 		return errors.New("still alive")
 	}
 
-	stor := storage.NewStorage(c.st.ModelUUID(), c.st.MongoSession())
-	err := stor.Remove(c.doc.StoragePath)
+	err := store.Remove(ctx, c.doc.StoragePath)
 	if errors.Is(err, errors.NotFound) {
 		// Not a problem, but we might still need to run the
 		// transaction further down to complete the process.

@@ -5,6 +5,7 @@ package state_test
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -46,7 +47,7 @@ func (s *CharmSuite) destroy(c *gc.C) {
 
 func (s *CharmSuite) remove(c *gc.C) {
 	s.destroy(c)
-	err := s.charm.Remove()
+	err := s.charm.Remove(context.Background(), state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -171,7 +172,7 @@ func (s *CharmSuite) TestRemovedCharmNotListed(c *gc.C) {
 }
 
 func (s *CharmSuite) TestRemoveWithoutDestroy(c *gc.C) {
-	err := s.charm.Remove()
+	err := s.charm.Remove(context.Background(), state.NewObjectStore(c, s.State))
 	c.Assert(err, gc.ErrorMatches, "still alive")
 }
 

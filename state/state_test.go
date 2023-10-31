@@ -513,7 +513,7 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 			},
 			triggerEvent: func(st *state.State) {
 				loggo.GetLogger("juju.state").SetLogLevel(loggo.TRACE)
-				err := st.Cleanup()
+				err := st.Cleanup(context.Background(), state.NewObjectStore(c, st))
 				c.Assert(err, jc.ErrorIsNil)
 				loggo.GetLogger("juju.state").SetLogLevel(loggo.DEBUG)
 			},
@@ -2726,7 +2726,7 @@ func (s *StateSuite) TestWatchApplicationsBulkEvents(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = keepDying.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.State.Cleanup(), jc.ErrorIsNil)
+	c.Assert(s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State)), jc.ErrorIsNil)
 	wc.AssertChange(alive.Name(), dying.Name())
 	wc.AssertNoChange()
 }
@@ -2762,7 +2762,7 @@ func (s *StateSuite) TestWatchApplicationsLifecycle(c *gc.C) {
 	needs, err := s.State.NeedsCleanup()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(needs, jc.IsTrue)
-	c.Assert(s.State.Cleanup(), jc.ErrorIsNil)
+	c.Assert(s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State)), jc.ErrorIsNil)
 	wc.AssertChange("application")
 	wc.AssertNoChange()
 }
@@ -3856,7 +3856,7 @@ func (s *StateSuite) TestWatchCleanups(c *gc.C) {
 	wc.AssertOneChange()
 
 	// Handle that cleanup doc and create another, check one change.
-	err = s.State.Cleanup()
+	err = s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	// TODO(quiescence): these two changes should be one event.
 	wc.AssertOneChange()
@@ -3865,7 +3865,7 @@ func (s *StateSuite) TestWatchCleanups(c *gc.C) {
 	wc.AssertOneChange()
 
 	// Clean up final doc, check change.
-	err = s.State.Cleanup()
+	err = s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
@@ -3910,7 +3910,7 @@ func (s *StateSuite) TestWatchCleanupsBulk(c *gc.C) {
 	wc.AssertOneChange()
 
 	// Clean them both up, check one change.
-	err = s.State.Cleanup()
+	err = s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertAtleastOneChange()
 }
