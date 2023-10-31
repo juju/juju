@@ -46,19 +46,24 @@ func (c *grantSecretCommand) secretsAPI() (GrantRevokeSecretsAPI, error) {
 	return apisecrets.NewClient(root), nil
 }
 
+const (
+	grantSecretDoc = `
+Grant applications access to view the value of a specified secret.
+`
+	grantSecretExamples = `
+    juju grant-secret 9m4e2mr0ui3e8a215n4g ubuntu-k8s
+	juju grant-secret 9m4e2mr0ui3e8a215n4g ubuntu-k8s,prometheus-k8s
+`
+)
+
 // Info implements cmd.Command.
 func (c *grantSecretCommand) Info() *cmd.Info {
-	doc := `
-Grant applications access to view the value of a specified secret.
-
-Examples:
-    grant-secret <secret-uri> <application>[,<application>...]
-`
 	return jujucmd.Info(&cmd.Info{
-		Name:    "grant-secret",
-		Args:    "<secret-uri> <application>[,<application>...]",
-		Purpose: "Grant access to a secret.",
-		Doc:     doc,
+		Name:     "grant-secret",
+		Args:     "<secret-uri> <application>[,<application>...]",
+		Purpose:  "Grant access to a secret.",
+		Doc:      grantSecretDoc,
+		Examples: grantSecretExamples,
 	})
 }
 
@@ -130,19 +135,24 @@ func (c *revokeSecretCommand) secretsAPI() (GrantRevokeSecretsAPI, error) {
 	return apisecrets.NewClient(root), nil
 }
 
+const (
+	revokeSecretDoc = `
+Revoke applications' access to view the value of a specified secret.
+`
+	revokeSecretExamples = `
+    juju revoke-secret 9m4e2mr0ui3e8a215n4g ubuntu-k8s
+	juju revoke-secret 9m4e2mr0ui3e8a215n4g ubuntu-k8s,prometheus-k8s
+`
+)
+
 // Info implements cmd.Command.
 func (c *revokeSecretCommand) Info() *cmd.Info {
-	doc := `
-Revoke applications' access to view the value of a specified secret.
-
-Examples:
-    revoke-secret <secret-uri> <application>[,<application>...]
-`
 	return jujucmd.Info(&cmd.Info{
-		Name:    "revoke-secret",
-		Args:    "<secret-uri> <application>[,<application>...]",
-		Purpose: "Revoke access to a secret.",
-		Doc:     doc,
+		Name:     "revoke-secret",
+		Args:     "<secret-uri> <application>[,<application>...]",
+		Purpose:  "Revoke access to a secret.",
+		Doc:      revokeSecretDoc,
+		Examples: revokeSecretExamples,
 	})
 }
 
