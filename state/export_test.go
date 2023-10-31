@@ -235,7 +235,7 @@ func AddTestingCharmWithSeries(c *gc.C, st *State, name string, series string) *
 }
 
 func getCharmRepo(series string) *repo.CharmRepo {
-	// ALl testing charms for state are under `quantal` except `kubernetes`.
+	// All testing charms for state are under `quantal` except `kubernetes`.
 	if series == "kubernetes" {
 		return testcharms.RepoForSeries(series)
 	}

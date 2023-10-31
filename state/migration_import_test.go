@@ -539,6 +539,8 @@ func (s *MigrationImportSuite) setupSourceApplications(
 			Channel: &state.Channel{
 				Risk: "edge",
 			},
+			Hash:     "some-hash",
+			ID:       "some-id",
 			Platform: platform,
 		},
 		CharmConfig: map[string]interface{}{
@@ -697,25 +699,71 @@ func (s *MigrationImportSuite) TestApplicationsUpdateSeriesNotPlatform(c *gc.C) 
 	c.Assert(obtainedOrigin.Platform.Channel, gc.Equals, "20.04/stable")
 }
 
-func (s *MigrationImportSuite) TestLocalApplicationCharmOriginRevisionFilledIn(c *gc.C) {
+func (s *MigrationImportSuite) TestCharmhubApplicationCharmOriginNormalised(c *gc.C) {
 	platform := &state.Platform{Architecture: corearch.DefaultArchitecture, OS: "ubuntu", Channel: "12.10/stable"}
 	f := factory.NewFactory(s.State, s.StatePool)
 
-	testCharm := f.MakeCharm(c, &factory.CharmParams{Revision: "8"})
+	testCharm := f.MakeCharm(c, &factory.CharmParams{Revision: "8", URL: "ch:mysql-8"})
+	wrongRev := 4
 	_ = f.MakeApplication(c, &factory.ApplicationParams{
 		Charm: testCharm,
 		Name:  "mysql",
 		CharmOrigin: &state.CharmOrigin{
-			Source:   "local",
+			Source:   "charm-hub",
 			Type:     "charm",
 			Platform: platform,
+			Revision: &wrongRev,
+			Channel:  &state.Channel{Track: "20.04", Risk: "stable", Branch: "deadbeef"},
+			Hash:     "some-hash",
+			ID:       "some-id",
 		},
 	})
 
 	_, newSt := s.importModel(c, s.State)
 	newApp, err := newSt.Application("mysql")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(*newApp.CharmOrigin().Revision, gc.Equals, 8)
+	rev := 8
+	c.Assert(newApp.CharmOrigin(), gc.DeepEquals, &state.CharmOrigin{
+		Source:   "charm-hub",
+		Type:     "charm",
+		Platform: platform,
+		Revision: &rev,
+		Channel:  &state.Channel{Track: "20.04", Risk: "stable", Branch: "deadbeef"},
+		Hash:     "some-hash",
+		ID:       "some-id",
+	})
+}
+
+func (s *MigrationImportSuite) TestLocalApplicationCharmOriginNormalised(c *gc.C) {
+	platform := &state.Platform{Architecture: corearch.DefaultArchitecture, OS: "ubuntu", Channel: "12.10/stable"}
+	f := factory.NewFactory(s.State, s.StatePool)
+
+	testCharm := f.MakeCharm(c, &factory.CharmParams{Revision: "8", URL: "local:mysql-8"})
+	wrongRev := 4
+	_ = f.MakeApplication(c, &factory.ApplicationParams{
+		Charm: testCharm,
+		Name:  "mysql",
+		CharmOrigin: &state.CharmOrigin{
+			Source:   "charm-hub",
+			Type:     "charm",
+			Platform: platform,
+			Revision: &wrongRev,
+			Channel:  &state.Channel{Track: "20.04", Risk: "stable", Branch: "deadbeef"},
+			Hash:     "some-hash",
+			ID:       "some-id",
+		},
+	})
+
+	_, newSt := s.importModel(c, s.State)
+	newApp, err := newSt.Application("mysql")
+	c.Assert(err, jc.ErrorIsNil)
+	rev := 8
+	c.Assert(newApp.CharmOrigin(), gc.DeepEquals, &state.CharmOrigin{
+		Source:   "local",
+		Type:     "charm",
+		Platform: platform,
+		Revision: &rev,
+	})
 }
 
 func (s *MigrationImportSuite) TestApplicationStatus(c *gc.C) {
