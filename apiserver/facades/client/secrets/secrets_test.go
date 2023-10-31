@@ -269,9 +269,7 @@ func (s *SecretsSuite) TestCreateSecretsPermissionDenied(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	s.expectAuthClient()
-	s.authorizer.EXPECT().HasPermission(permission.SuperuserAccess, coretesting.ControllerTag).Return(
-		errors.WithType(apiservererrors.ErrPerm, authentication.ErrorEntityMissingPermission))
-	s.authorizer.EXPECT().HasPermission(permission.AdminAccess, coretesting.ModelTag).Return(
+	s.authorizer.EXPECT().HasPermission(permission.WriteAccess, coretesting.ModelTag).Return(
 		errors.WithType(apiservererrors.ErrPerm, authentication.ErrorEntityMissingPermission))
 
 	facade, err := apisecrets.NewTestAPI(s.authTag, s.authorizer, s.secretsState, s.secretConsumer, nil, nil, nil)
@@ -285,9 +283,7 @@ func (s *SecretsSuite) TestCreateSecretsEmptyData(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	s.expectAuthClient()
-	s.authorizer.EXPECT().HasPermission(permission.SuperuserAccess, coretesting.ControllerTag).Return(
-		errors.WithType(apiservererrors.ErrPerm, authentication.ErrorEntityMissingPermission))
-	s.authorizer.EXPECT().HasPermission(permission.AdminAccess, coretesting.ModelTag).Return(nil)
+	s.authorizer.EXPECT().HasPermission(permission.WriteAccess, coretesting.ModelTag).Return(nil)
 
 	uri := coresecrets.NewURI()
 	uriStrPtr := ptr(uri.String())
@@ -316,9 +312,7 @@ func (s *SecretsSuite) assertCreateSecrets(c *gc.C, isInternal bool, finalStepFa
 	defer s.setup(c).Finish()
 
 	s.expectAuthClient()
-	s.authorizer.EXPECT().HasPermission(permission.SuperuserAccess, coretesting.ControllerTag).Return(
-		errors.WithType(apiservererrors.ErrPerm, authentication.ErrorEntityMissingPermission))
-	s.authorizer.EXPECT().HasPermission(permission.AdminAccess, coretesting.ModelTag).Return(nil)
+	s.authorizer.EXPECT().HasPermission(permission.WriteAccess, coretesting.ModelTag).Return(nil)
 
 	uri := coresecrets.NewURI()
 	uriStrPtr := ptr(uri.String())
@@ -409,9 +403,7 @@ func (s *SecretsSuite) assertUpdateSecrets(c *gc.C, isInternal bool, finalStepFa
 	defer s.setup(c).Finish()
 
 	s.expectAuthClient()
-	s.authorizer.EXPECT().HasPermission(permission.SuperuserAccess, coretesting.ControllerTag).Return(
-		errors.WithType(apiservererrors.ErrPerm, authentication.ErrorEntityMissingPermission))
-	s.authorizer.EXPECT().HasPermission(permission.AdminAccess, coretesting.ModelTag).Return(nil)
+	s.authorizer.EXPECT().HasPermission(permission.WriteAccess, coretesting.ModelTag).Return(nil)
 
 	uri := coresecrets.NewURI()
 	s.secretsState.EXPECT().GetSecret(uri).Return(&coresecrets.SecretMetadata{
@@ -455,9 +447,7 @@ func (s *SecretsSuite) assertUpdateSecrets(c *gc.C, isInternal bool, finalStepFa
 	if !finalStepFailed {
 		s.secretsState.EXPECT().ListUnusedSecretRevisions(uri).Return([]int{1, 2}, nil)
 		// Prune the unused revisions.
-		s.authorizer.EXPECT().HasPermission(permission.SuperuserAccess, coretesting.ControllerTag).Return(
-			errors.WithType(apiservererrors.ErrPerm, authentication.ErrorEntityMissingPermission))
-		s.authorizer.EXPECT().HasPermission(permission.AdminAccess, coretesting.ModelTag).Return(nil)
+		s.authorizer.EXPECT().HasPermission(permission.WriteAccess, coretesting.ModelTag).Return(nil)
 		s.secretsState.EXPECT().GetSecret(uri).Return(&coresecrets.SecretMetadata{URI: uri, OwnerTag: coretesting.ModelTag.String()}, nil).Times(2)
 		s.secretsState.EXPECT().GetSecretRevision(uri, 1).Return(&coresecrets.SecretRevisionMetadata{
 			Revision: 1,
@@ -536,9 +526,7 @@ func (s *SecretsSuite) TestRemoveSecrets(c *gc.C) {
 
 	uri := coresecrets.NewURI()
 	expectURI := *uri
-	s.authorizer.EXPECT().HasPermission(permission.SuperuserAccess, coretesting.ControllerTag).Return(
-		errors.WithType(apiservererrors.ErrPerm, authentication.ErrorEntityMissingPermission))
-	s.authorizer.EXPECT().HasPermission(permission.AdminAccess, coretesting.ModelTag).Return(nil)
+	s.authorizer.EXPECT().HasPermission(permission.WriteAccess, coretesting.ModelTag).Return(nil)
 	s.secretsState.EXPECT().GetSecret(&expectURI).Return(&coresecrets.SecretMetadata{URI: uri, OwnerTag: coretesting.ModelTag.String()}, nil).Times(2)
 	s.secretsState.EXPECT().GetSecretRevision(&expectURI, 666).Return(&coresecrets.SecretRevisionMetadata{
 		Revision: 666,
@@ -590,9 +578,7 @@ func (s *SecretsSuite) TestRemoveSecretsFailedNotModelAdmin(c *gc.C) {
 
 	uri := coresecrets.NewURI()
 	expectURI := *uri
-	s.authorizer.EXPECT().HasPermission(permission.SuperuserAccess, coretesting.ControllerTag).Return(
-		errors.WithType(apiservererrors.ErrPerm, authentication.ErrorEntityMissingPermission))
-	s.authorizer.EXPECT().HasPermission(permission.AdminAccess, coretesting.ModelTag).Return(apiservererrors.ErrPerm)
+	s.authorizer.EXPECT().HasPermission(permission.WriteAccess, coretesting.ModelTag).Return(apiservererrors.ErrPerm)
 	s.secretsState.EXPECT().GetSecret(&expectURI).Return(&coresecrets.SecretMetadata{URI: uri, OwnerTag: names.NewModelTag("1cfde5b3-663d-47bf-8799-71b84fa2df3f").String()}, nil).Times(1)
 
 	facade, err := apisecrets.NewTestAPI(s.authTag, s.authorizer, s.secretsState, s.secretConsumer,
@@ -618,9 +604,7 @@ func (s *SecretsSuite) TestRemoveSecretsFailedNotModelOwned(c *gc.C) {
 
 	uri := coresecrets.NewURI()
 	expectURI := *uri
-	s.authorizer.EXPECT().HasPermission(permission.SuperuserAccess, coretesting.ControllerTag).Return(
-		errors.WithType(apiservererrors.ErrPerm, authentication.ErrorEntityMissingPermission))
-	s.authorizer.EXPECT().HasPermission(permission.AdminAccess, coretesting.ModelTag).Return(nil)
+	s.authorizer.EXPECT().HasPermission(permission.WriteAccess, coretesting.ModelTag).Return(nil)
 	s.secretsState.EXPECT().GetSecret(&expectURI).Return(&coresecrets.SecretMetadata{URI: uri, OwnerTag: names.NewModelTag("1cfde5b3-663d-47bf-8799-71b84fa2df3f").String()}, nil).Times(2)
 
 	facade, err := apisecrets.NewTestAPI(s.authTag, s.authorizer, s.secretsState, s.secretConsumer,
@@ -646,9 +630,7 @@ func (s *SecretsSuite) TestRemoveSecretRevision(c *gc.C) {
 
 	uri := coresecrets.NewURI()
 	expectURI := *uri
-	s.authorizer.EXPECT().HasPermission(permission.SuperuserAccess, coretesting.ControllerTag).Return(
-		errors.WithType(apiservererrors.ErrPerm, authentication.ErrorEntityMissingPermission))
-	s.authorizer.EXPECT().HasPermission(permission.AdminAccess, coretesting.ModelTag).Return(nil)
+	s.authorizer.EXPECT().HasPermission(permission.WriteAccess, coretesting.ModelTag).Return(nil)
 	s.secretsState.EXPECT().GetSecret(&expectURI).Return(&coresecrets.SecretMetadata{URI: uri, OwnerTag: coretesting.ModelTag.String()}, nil).Times(2)
 	s.secretsState.EXPECT().GetSecretRevision(&expectURI, 666).Return(&coresecrets.SecretRevisionMetadata{
 		Revision: 666,
