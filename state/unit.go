@@ -499,7 +499,7 @@ func (op *UpdateUnitOperation) Done(err error) error {
 // to a provisioned machine is Destroyed, it will be removed from state
 // directly.
 func (u *Unit) Destroy() error {
-	errs, err := u.DestroyWithForce(false, time.Duration(0))
+	errs, err := u.DestroyWithForce(nil, false, time.Duration(0))
 	if len(errs) != 0 {
 		logger.Warningf("operational errors destroying unit %v: %v", u.Name(), errs)
 	}
@@ -508,14 +508,14 @@ func (u *Unit) Destroy() error {
 
 // DestroyWithForce does the same thing as Destroy() but
 // ignores errors.
-func (u *Unit) DestroyWithForce(force bool, maxWait time.Duration) (errs []error, err error) {
+func (u *Unit) DestroyWithForce(store objectstore.ObjectStore, force bool, maxWait time.Duration) (errs []error, err error) {
 	defer func() {
 		if err == nil {
 			// This is a white lie; the document might actually be removed.
 			u.doc.Life = Dying
 		}
 	}()
-	op := u.DestroyOperation()
+	op := u.DestroyOperation(store)
 	op.Force = force
 	op.MaxWait = maxWait
 	err = u.st.ApplyOperation(op)
@@ -523,9 +523,10 @@ func (u *Unit) DestroyWithForce(force bool, maxWait time.Duration) (errs []error
 }
 
 // DestroyOperation returns a model operation that will destroy the unit.
-func (u *Unit) DestroyOperation() *DestroyUnitOperation {
+func (u *Unit) DestroyOperation(store objectstore.ObjectStore) *DestroyUnitOperation {
 	return &DestroyUnitOperation{
-		unit: &Unit{st: u.st, doc: u.doc, modelType: u.modelType},
+		unit:  &Unit{st: u.st, doc: u.doc, modelType: u.modelType},
+		Store: store,
 	}
 }
 

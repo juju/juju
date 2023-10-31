@@ -18,6 +18,7 @@ import (
 
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/network"
+	coreobjectstore "github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/objectstore"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
@@ -99,6 +100,13 @@ func AddCharm(st *state.State, curl string, ch charm.Charm, force bool) (*state.
 		return nil, errors.Annotatef(err, "cannot add charm")
 	}
 	return sch, nil
+}
+
+func NewObjectStore(c *gc.C, modelUUID string, st *state.State) coreobjectstore.ObjectStore {
+	// This will be removed when the worker object store is enabled by default.
+	store, err := objectstore.NewStateObjectStore(context.Background(), modelUUID, st, testing.NewCheckLogger(c))
+	c.Assert(err, jc.ErrorIsNil)
+	return store
 }
 
 // lxdCharmProfiler massages a charm.Charm into a LXDProfiler inside of the

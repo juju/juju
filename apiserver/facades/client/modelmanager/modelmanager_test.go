@@ -214,6 +214,7 @@ func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 		apiservertesting.ConstCredentialGetter(&cred),
 		&mockModelManagerService{},
 		&mockModelService{},
+		&mockObjectStore{},
 		nil, newBroker, common.NewBlockChecker(s.st),
 		s.authoriser, s.st.model,
 	)
@@ -230,6 +231,7 @@ func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 		apiservertesting.ConstCredentialGetter(&caasCred),
 		&mockModelManagerService{},
 		&mockModelService{},
+		&mockObjectStore{},
 		nil, newBroker, common.NewBlockChecker(s.caasSt),
 		s.authoriser, s.st.model,
 	)
@@ -258,6 +260,7 @@ func (s *modelManagerSuite) setAPIUser(c *gc.C, user names.UserTag) {
 		apiservertesting.ConstCredentialGetter(nil),
 		&mockModelManagerService{},
 		&mockModelService{},
+		&mockObjectStore{},
 		nil, newBroker, common.NewBlockChecker(s.st),
 		s.authoriser, s.st.model,
 	)
@@ -722,6 +725,7 @@ func (s *modelManagerSuite) TestDumpModel(c *gc.C) {
 		apiservertesting.ConstCredentialGetter(nil),
 		&mockModelManagerService{},
 		&mockModelService{},
+		&mockObjectStore{},
 		nil, nil, common.NewBlockChecker(s.st),
 		s.authoriser, s.st.model,
 	)
@@ -730,6 +734,7 @@ func (s *modelManagerSuite) TestDumpModel(c *gc.C) {
 	s.modelExporter.EXPECT().ExportModelPartial(
 		gomock.Any(),
 		state.ExportConfig{IgnoreIncompleteModel: true},
+		gomock.Any(),
 	).Times(1).Return(
 		&fakeModelDescription{UUID: s.st.model.UUID()},
 		nil)
@@ -914,6 +919,7 @@ func (s *modelManagerStateSuite) setAPIUser(c *gc.C, user names.UserTag) {
 		serviceFactory.Credential(),
 		&mockModelManagerService{},
 		&mockModelService{},
+		&mockObjectStore{},
 		toolsFinder,
 		nil,
 		common.NewBlockChecker(st),
@@ -938,6 +944,7 @@ func (s *modelManagerStateSuite) TestNewAPIAcceptsClient(c *gc.C) {
 		serviceFactory.Credential(),
 		&mockModelManagerService{},
 		&mockModelService{},
+		&mockObjectStore{},
 		nil, nil, common.NewBlockChecker(st), anAuthoriser,
 		s.ControllerModel(c),
 	)
@@ -959,6 +966,7 @@ func (s *modelManagerStateSuite) TestNewAPIRefusesNonClient(c *gc.C) {
 		serviceFactory.Credential(),
 		&mockModelManagerService{},
 		&mockModelService{},
+		&mockObjectStore{},
 		nil, nil, common.NewBlockChecker(st), anAuthoriser, s.ControllerModel(c),
 	)
 	c.Assert(endPoint, gc.IsNil)
@@ -1169,6 +1177,7 @@ func (s *modelManagerStateSuite) TestDestroyOwnModel(c *gc.C) {
 		serviceFactory.Credential(),
 		&mockModelManagerService{},
 		&mockModelService{},
+		&mockObjectStore{},
 		nil, nil, common.NewBlockChecker(backend), s.authoriser,
 		s.ControllerModel(c),
 	)
@@ -1224,6 +1233,7 @@ func (s *modelManagerStateSuite) TestAdminDestroysOtherModel(c *gc.C) {
 		serviceFactory.Credential(),
 		&mockModelManagerService{},
 		&mockModelService{},
+		&mockObjectStore{},
 		nil, nil, common.NewBlockChecker(backend), s.authoriser,
 		s.ControllerModel(c),
 	)
@@ -1267,6 +1277,7 @@ func (s *modelManagerStateSuite) TestDestroyModelErrors(c *gc.C) {
 		serviceFactory.Credential(),
 		&mockModelManagerService{},
 		&mockModelService{},
+		&mockObjectStore{},
 		nil, nil, common.NewBlockChecker(backend), s.authoriser, s.ControllerModel(c),
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1744,6 +1755,7 @@ func (s *modelManagerStateSuite) TestModelInfoForMigratedModel(c *gc.C) {
 		serviceFactory.Credential(),
 		&mockModelManagerService{},
 		&mockModelService{},
+		&mockObjectStore{},
 		nil, nil, common.NewBlockChecker(st), anAuthoriser,
 		s.ControllerModel(c),
 	)

@@ -1094,7 +1094,7 @@ func (s *deployRepositorySuite) TestDeployFromRepositoryAPI(c *gc.C) {
 		Resources:        map[string]string{},
 		Storage:          map[string]state.StorageConstraints{},
 	}
-	s.state.EXPECT().AddApplication(addApplicationArgsMatcher{c: c, expectedArgs: addAppArgs}).Return(s.application, nil)
+	s.state.EXPECT().AddApplication(addApplicationArgsMatcher{c: c, expectedArgs: addAppArgs}, gomock.Any()).Return(s.application, nil)
 
 	deployFromRepositoryAPI := s.getDeployFromRepositoryAPI()
 
@@ -1192,7 +1192,7 @@ func (s *deployRepositorySuite) TestAddPendingResourcesForDeployFromRepositoryAP
 
 	s.state.EXPECT().AddCharmMetadata(info).Return(s.charm, nil)
 
-	s.state.EXPECT().AddPendingResource("metadata-name", r).Return("3", nil)
+	s.state.EXPECT().AddPendingResource("metadata-name", r, gomock.Any()).Return("3", nil)
 
 	addAppArgs := state.AddApplicationArgs{
 		Name: "metadata-name",
@@ -1219,7 +1219,7 @@ func (s *deployRepositorySuite) TestAddPendingResourcesForDeployFromRepositoryAP
 		Resources:        map[string]string{"foo-resource": "3"},
 		Storage:          map[string]state.StorageConstraints{},
 	}
-	s.state.EXPECT().AddApplication(addApplicationArgsMatcher{c: c, expectedArgs: addAppArgs}).Return(s.application, nil)
+	s.state.EXPECT().AddApplication(addApplicationArgsMatcher{c: c, expectedArgs: addAppArgs}, gomock.Any()).Return(s.application, nil)
 
 	deployFromRepositoryAPI := s.getDeployFromRepositoryAPI()
 
@@ -1283,7 +1283,7 @@ func (s *deployRepositorySuite) TestRemovePendingResourcesWhenDeployErrors(c *gc
 
 	s.state.EXPECT().AddCharmMetadata(info).Return(s.charm, nil)
 
-	s.state.EXPECT().AddPendingResource("metadata-name", r).Return("3", nil)
+	s.state.EXPECT().AddPendingResource("metadata-name", r, gomock.Any()).Return("3", nil)
 
 	addAppArgs := state.AddApplicationArgs{
 		Name: "metadata-name",
@@ -1311,9 +1311,9 @@ func (s *deployRepositorySuite) TestRemovePendingResourcesWhenDeployErrors(c *gc
 		Storage:          map[string]state.StorageConstraints{},
 	}
 
-	s.state.EXPECT().RemovePendingResources("metadata-name", map[string]string{"foo-resource": "3"})
+	s.state.EXPECT().RemovePendingResources("metadata-name", map[string]string{"foo-resource": "3"}, gomock.Any())
 
-	s.state.EXPECT().AddApplication(addApplicationArgsMatcher{c: c, expectedArgs: addAppArgs}).Return(s.application,
+	s.state.EXPECT().AddApplication(addApplicationArgsMatcher{c: c, expectedArgs: addAppArgs}, gomock.Any()).Return(s.application,
 		errors.New("fail"))
 
 	deployFromRepositoryAPI := s.getDeployFromRepositoryAPI()

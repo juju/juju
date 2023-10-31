@@ -11,6 +11,7 @@ import (
 	charm "github.com/juju/charm/v11"
 	charmrevisionupdater "github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater"
 	metrics "github.com/juju/juju/core/charm/metrics"
+	objectstore "github.com/juju/juju/core/objectstore"
 	config "github.com/juju/juju/environs/config"
 	charmhub "github.com/juju/juju/internal/charmhub"
 	transport "github.com/juju/juju/internal/charmhub/transport"
@@ -385,15 +386,15 @@ func (mr *MockStateMockRecorder) Model() *gomock.Call {
 }
 
 // Resources mocks base method.
-func (m *MockState) Resources() state.Resources {
+func (m *MockState) Resources(arg0 objectstore.ObjectStore) state.Resources {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Resources")
+	ret := m.ctrl.Call(m, "Resources", arg0)
 	ret0, _ := ret[0].(state.Resources)
 	return ret0
 }
 
 // Resources indicates an expected call of Resources.
-func (mr *MockStateMockRecorder) Resources() *gomock.Call {
+func (mr *MockStateMockRecorder) Resources(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Resources", reflect.TypeOf((*MockState)(nil).Resources))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Resources", reflect.TypeOf((*MockState)(nil).Resources), arg0)
 }

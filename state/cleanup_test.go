@@ -1172,7 +1172,7 @@ func (s *CleanupSuite) TestCleanupCAASUnitWithStorage(c *gc.C) {
 		if err != nil {
 			return err
 		}
-		op := units[0].DestroyOperation()
+		op := units[0].DestroyOperation(state.NewObjectStore(c, st))
 		op.DestroyStorage = true
 		return st.ApplyOperation(op)
 	})
@@ -1422,7 +1422,7 @@ func (s *CleanupSuite) TestDyingUnitWithForceSchedulesForceFallback(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	opErrs, err := unit.DestroyWithForce(true, time.Minute)
+	opErrs, err := unit.DestroyWithForce(state.NewObjectStore(c, s.State), true, time.Minute)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(opErrs, gc.IsNil)
 
@@ -1470,7 +1470,7 @@ func (s *CleanupSuite) TestForceDestroyUnitDestroysSubordinates(c *gc.C) {
 	unit := prr.pu0
 	subordinate := prr.ru0
 
-	opErrs, err := unit.DestroyWithForce(true, time.Duration(0))
+	opErrs, err := unit.DestroyWithForce(state.NewObjectStore(c, s.State), true, time.Duration(0))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(opErrs, gc.IsNil)
 
@@ -1527,7 +1527,7 @@ func (s *CleanupSuite) TestForceDestroyUnitLeavesRelations(c *gc.C) {
 	}
 
 	unit := prr.pu0
-	opErrs, err := unit.DestroyWithForce(true, dontWait)
+	opErrs, err := unit.DestroyWithForce(state.NewObjectStore(c, s.State), true, dontWait)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(opErrs, gc.IsNil)
 
@@ -1594,7 +1594,7 @@ func (s *CleanupSuite) TestForceDestroyUnitRemovesStorageAttachments(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// destroy unit and run cleanups
-	opErrs, err := u.DestroyWithForce(true, dontWait)
+	opErrs, err := u.DestroyWithForce(state.NewObjectStore(c, s.State), true, dontWait)
 	c.Assert(opErrs, gc.IsNil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertCleanupRuns(c)

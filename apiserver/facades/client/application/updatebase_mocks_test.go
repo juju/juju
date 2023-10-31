@@ -12,6 +12,7 @@ import (
 	base "github.com/juju/juju/core/base"
 	config "github.com/juju/juju/core/config"
 	constraints "github.com/juju/juju/core/constraints"
+	objectstore "github.com/juju/juju/core/objectstore"
 	charmhub "github.com/juju/juju/internal/charmhub"
 	transport "github.com/juju/juju/internal/charmhub/transport"
 	tools "github.com/juju/juju/internal/tools"
@@ -409,17 +410,17 @@ func (mr *MockApplicationMockRecorder) Relations() *gomock.Call {
 }
 
 // SetCharm mocks base method.
-func (m *MockApplication) SetCharm(arg0 state.SetCharmConfig) error {
+func (m *MockApplication) SetCharm(arg0 state.SetCharmConfig, arg1 objectstore.ObjectStore) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetCharm", arg0)
+	ret := m.ctrl.Call(m, "SetCharm", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SetCharm indicates an expected call of SetCharm.
-func (mr *MockApplicationMockRecorder) SetCharm(arg0 interface{}) *gomock.Call {
+func (mr *MockApplicationMockRecorder) SetCharm(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetCharm", reflect.TypeOf((*MockApplication)(nil).SetCharm), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetCharm", reflect.TypeOf((*MockApplication)(nil).SetCharm), arg0, arg1)
 }
 
 // SetConstraints mocks base method.

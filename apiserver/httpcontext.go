@@ -16,6 +16,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/httpcontext"
 	"github.com/juju/juju/apiserver/stateauthenticator"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -37,6 +38,14 @@ func (ctxt *httpContext) stateForRequestUnauthenticated(r *http.Request) (*state
 		return nil, errors.Trace(err)
 	}
 	return st, nil
+}
+
+// objectStoreForRequest returns an object store instance
+// appropriate for using for the model implicit in the given request
+// without checking any authentication information.
+func (ctxt *httpContext) objectStoreForRequest(r *http.Request) (objectstore.ObjectStore, error) {
+	modelUUID := httpcontext.RequestModelUUID(r)
+	return ctxt.srv.shared.objectStoreGetter.GetObjectStore(r.Context(), modelUUID)
 }
 
 // statePool returns the StatePool for this controller.

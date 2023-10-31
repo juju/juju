@@ -35,6 +35,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
+	jujujujutesting "github.com/juju/juju/juju/testing"
 	_ "github.com/juju/juju/provider/manual"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -594,7 +595,7 @@ func (s *Suite) mustNewAPIWithModel(c *gc.C, env environs.Environ, broker caas.B
 }
 
 func (s *Suite) makeExportedModel(c *gc.C) (string, []byte) {
-	model, err := s.State.Export(s.leaders)
+	model, err := s.State.Export(s.leaders, jujujujutesting.NewObjectStore(c, s.State.ModelUUID(), s.State))
 	c.Assert(err, jc.ErrorIsNil)
 
 	newUUID := utils.MustNewUUID().String()

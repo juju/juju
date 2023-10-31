@@ -4669,7 +4669,7 @@ func (s *CAASApplicationSuite) assertUpdateCAASUnits(c *gc.C, aliveApp bool) {
 	}
 
 	var updateUnits state.UpdateUnitsOperation
-	updateUnits.Deletes = []*state.DestroyUnitOperation{removedUnit.DestroyOperation()}
+	updateUnits.Deletes = []*state.DestroyUnitOperation{removedUnit.DestroyOperation(state.NewObjectStore(c, s.caasSt))}
 	updateUnits.Adds = []*state.AddUnitOperation{
 		s.app.AddOperation(state.UnitUpdateProperties{
 			ProviderId: strPtr("new-unit-uuid"),

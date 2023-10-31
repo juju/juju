@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/controller"
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/bootstrap"
@@ -62,6 +63,7 @@ type API struct {
 	auth      facade.Authorizer
 	resources facade.Resources
 
+	store              objectstore.ObjectStore
 	ctrlSt             CAASApplicationControllerState
 	state              CAASApplicationProvisionerState
 	newResourceOpener  NewResourceOpenerFunc
@@ -104,7 +106,7 @@ func NewStateCAASApplicationProvisionerAPI(ctx facade.Context) (*APIGroup, error
 	}
 
 	newResourceOpener := func(appName string) (resources.Opener, error) {
-		return resource.NewResourceOpenerForApplication(st, appName)
+		return resource.NewResourceOpenerForApplication(st, ctx.ObjectStore(), appName)
 	}
 
 	systemState, err := ctx.StatePool().SystemState()
@@ -120,6 +122,7 @@ func NewStateCAASApplicationProvisionerAPI(ctx facade.Context) (*APIGroup, error
 		sb,
 		pm,
 		registry,
+		ctx.ObjectStore(),
 		clock.WallClock,
 		ctx.Logger().Child("caasapplicationprovisioner"),
 	)
@@ -169,6 +172,7 @@ func NewCAASApplicationProvisionerAPI(
 	sb StorageBackend,
 	storagePoolManager poolmanager.PoolManager,
 	registry storage.ProviderRegistry,
+	store objectstore.ObjectStore,
 	clock clock.Clock,
 	logger loggo.Logger,
 ) (*API, error) {
@@ -183,6 +187,7 @@ func NewCAASApplicationProvisionerAPI(
 		ctrlSt:             ctrlSt,
 		state:              st,
 		storage:            sb,
+		store:              store,
 		storagePoolManager: storagePoolManager,
 		registry:           registry,
 		clock:              clock,
@@ -1327,7 +1332,7 @@ func (a *API) destroyUnit(args params.DestroyUnitParams) (params.DestroyUnitResu
 		return params.DestroyUnitResult{}, fmt.Errorf("fetching unit %q state: %w", unitTag, err)
 	}
 
-	op := unit.DestroyOperation()
+	op := unit.DestroyOperation(a.store)
 	op.DestroyStorage = args.DestroyStorage
 	op.Force = args.Force
 	if args.MaxWait != nil {

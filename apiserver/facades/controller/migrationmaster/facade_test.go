@@ -44,6 +44,7 @@ type Suite struct {
 	modelExporter     *mocks.MockModelExporter
 	credentialService *commonmocks.MockCredentialService
 	upgradeService    *mocks.MockUpgradeService
+	store             *mocks.MockObjectStore
 
 	precheckBackend *mocks.MockPrecheckBackend
 
@@ -383,7 +384,7 @@ func (s *Suite) assertExport(c *gc.C, modelType string) {
 	})
 	unitRev := unitRes.Revision()
 
-	s.modelExporter.EXPECT().ExportModel(gomock.Any(), map[string]string{}).Return(s.model, nil)
+	s.modelExporter.EXPECT().ExportModel(gomock.Any(), map[string]string{}, s.store).Return(s.model, nil)
 
 	serialized, err := s.mustMakeAPI(c).Export(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
@@ -591,6 +592,7 @@ func (s *Suite) setupMocks(c *gc.C) *gomock.Controller {
 	s.modelExporter = mocks.NewMockModelExporter(ctrl)
 	s.credentialService = commonmocks.NewMockCredentialService(ctrl)
 	s.upgradeService = mocks.NewMockUpgradeService(ctrl)
+	s.store = mocks.NewMockObjectStore(ctrl)
 	return ctrl
 }
 
@@ -605,6 +607,7 @@ func (s *Suite) makeAPI() (*migrationmaster.API, error) {
 		s.controllerBackend,
 		s.backend,
 		s.modelExporter,
+		s.store,
 		s.precheckBackend,
 		nil, // pool
 		s.resources,

@@ -9,6 +9,7 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 )
@@ -20,7 +21,7 @@ type State interface {
 	Charm(curl string) (*state.Charm, error)
 	ControllerUUID() string
 	Model() (Model, error)
-	Resources() state.Resources
+	Resources(objectstore.ObjectStore) state.Resources
 	AliveRelationKeys() []string
 }
 

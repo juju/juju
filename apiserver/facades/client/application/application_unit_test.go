@@ -37,6 +37,7 @@ import (
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -72,6 +73,7 @@ type ApplicationSuite struct {
 	storagePoolManager *mocks.MockPoolManager
 	registry           *mocks.MockProviderRegistry
 	caasBroker         *mocks.MockCaasBrokerInterface
+	store              *mocks.MockObjectStore
 
 	blockChecker  *mocks.MockBlockChecker
 	changeAllowed error
@@ -192,6 +194,8 @@ func (s *ApplicationSuite) setup(c *gc.C) *gomock.Controller {
 	s.cloudService = commonmocks.NewMockCloudService(ctrl)
 	s.credService = commonmocks.NewMockCredentialService(ctrl)
 
+	s.store = mocks.NewMockObjectStore(ctrl)
+
 	api, err := application.NewAPIBase(
 		s.backend,
 		s.ecService,
@@ -207,7 +211,7 @@ func (s *ApplicationSuite) setup(c *gc.C) *gomock.Controller {
 		func(application.Charm) *state.Charm {
 			return nil
 		},
-		func(_ context.Context, _ application.ApplicationDeployer, _ application.Model, _ common.CloudService, _ common.CredentialService, p application.DeployApplicationParams) (application.Application, error) {
+		func(_ context.Context, _ application.ApplicationDeployer, _ application.Model, _ common.CloudService, _ common.CredentialService, _ objectstore.ObjectStore, p application.DeployApplicationParams) (application.Application, error) {
 			s.deployParams[p.ApplicationName] = p
 			return nil, nil
 		},
@@ -215,6 +219,7 @@ func (s *ApplicationSuite) setup(c *gc.C) *gomock.Controller {
 		s.registry,
 		common.NewResources(),
 		s.caasBroker,
+		s.store,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api
@@ -306,7 +311,7 @@ func (s *ApplicationSuite) TestSetCharm(c *gc.C) {
 
 	app := s.expectDefaultApplication(ctrl)
 	cfg := state.SetCharmConfig{CharmOrigin: createStateCharmOriginFromURL(curl)}
-	app.EXPECT().SetCharm(setCharmConfigMatcher{c: c, expected: cfg})
+	app.EXPECT().SetCharm(setCharmConfigMatcher{c: c, expected: cfg}, s.store)
 	s.backend.EXPECT().Application("postgresql").Return(app, nil)
 
 	err := s.api.SetCharm(context.Background(), params.ApplicationSetCharm{
@@ -330,7 +335,7 @@ func (s *ApplicationSuite) TestSetCharmEverything(c *gc.C) {
 		CharmOrigin:    createStateCharmOriginFromURL(curl),
 		ConfigSettings: charm.Settings{"stringOption": "foo", "intOption": int64(666)},
 	}
-	app.EXPECT().SetCharm(setCharmConfigMatcher{c: c, expected: cfg})
+	app.EXPECT().SetCharm(setCharmConfigMatcher{c: c, expected: cfg}, s.store)
 
 	schemaFields, defaults, err := application.ConfigSchema()
 	c.Assert(err, jc.ErrorIsNil)
@@ -390,7 +395,7 @@ func (s *ApplicationSuite) TestSetCharmForceUnits(c *gc.C) {
 		CharmOrigin: createStateCharmOriginFromURL(curl),
 		ForceUnits:  true,
 	}
-	app.EXPECT().SetCharm(setCharmConfigMatcher{c: c, expected: cfg})
+	app.EXPECT().SetCharm(setCharmConfigMatcher{c: c, expected: cfg}, s.store)
 
 	s.backend.EXPECT().Application("postgresql").Return(app, nil)
 	err := s.api.SetCharm(context.Background(), params.ApplicationSetCharm{
@@ -441,7 +446,7 @@ func (s *ApplicationSuite) TestSetCharmStorageConstraints(c *gc.C) {
 			"d": {Count: 456},
 		},
 	}
-	app.EXPECT().SetCharm(setCharmConfigMatcher{c: c, expected: cfg})
+	app.EXPECT().SetCharm(setCharmConfigMatcher{c: c, expected: cfg}, s.store)
 
 	s.backend.EXPECT().Application("postgresql").Return(app, nil)
 
@@ -516,7 +521,7 @@ func (s *ApplicationSuite) TestSetCharmConfigSettings(c *gc.C) {
 	app.EXPECT().SetCharm(state.SetCharmConfig{
 		CharmOrigin:    createStateCharmOriginFromURL(curl),
 		ConfigSettings: charm.Settings{"stringOption": "value"},
-	}).Return(nil)
+	}, gomock.Any()).Return(nil)
 	s.backend.EXPECT().Application("postgresql").Return(app, nil)
 
 	err := s.api.SetCharm(context.Background(), params.ApplicationSetCharm{
@@ -560,7 +565,7 @@ func (s *ApplicationSuite) TestSetCharmConfigSettingsYAML(c *gc.C) {
 	app.EXPECT().SetCharm(state.SetCharmConfig{
 		CharmOrigin:    createStateCharmOriginFromURL(curl),
 		ConfigSettings: charm.Settings{"stringOption": "value"},
-	}).Return(nil)
+	}, gomock.Any()).Return(nil)
 	s.backend.EXPECT().Application("postgresql").Return(app, nil)
 
 	err := s.api.SetCharm(context.Background(), params.ApplicationSetCharm{
@@ -597,7 +602,7 @@ func (s *ApplicationSuite) TestLXDProfileSetCharmWithNewerAgentVersion(c *gc.C) 
 	app.EXPECT().SetCharm(state.SetCharmConfig{
 		CharmOrigin:    createStateCharmOriginFromURL(curl),
 		ConfigSettings: charm.Settings{"stringOption": "value"},
-	}).Return(nil)
+	}, gomock.Any()).Return(nil)
 	s.backend.EXPECT().Application("postgresql").Return(app, nil)
 
 	s.model.EXPECT().AgentVersion().Return(version.Number{Major: 2, Minor: 6, Patch: 0}, nil)
@@ -650,7 +655,7 @@ func (s *ApplicationSuite) TestLXDProfileSetCharmWithEmptyProfile(c *gc.C) {
 	app.EXPECT().SetCharm(state.SetCharmConfig{
 		CharmOrigin:    createStateCharmOriginFromURL(curl),
 		ConfigSettings: charm.Settings{"stringOption": "value"},
-	}).Return(nil)
+	}, gomock.Any()).Return(nil)
 	s.backend.EXPECT().Application("postgresql").Return(app, nil)
 
 	s.model.EXPECT().AgentVersion().Return(version.Number{Major: 2, Minor: 6, Patch: 0}, nil)
@@ -734,7 +739,7 @@ func (s *ApplicationSuite) TestSetCharmAssumesNotSatisfiedWithForce(c *gc.C) {
 	s.backend.EXPECT().Charm(curl).Return(ch, nil)
 
 	app := s.expectDefaultApplication(ctrl)
-	app.EXPECT().SetCharm(gomock.Any()).Return(nil)
+	app.EXPECT().SetCharm(gomock.Any(), gomock.Any()).Return(nil)
 	s.backend.EXPECT().Application("postgresql").Return(app, nil)
 
 	// Try to upgrade the charm
@@ -1094,14 +1099,14 @@ func (s *ApplicationSuite) TestDestroyUnit(c *gc.C) {
 	// unit 0 loop
 	unit0 := s.expectUnit(ctrl, "postgresql/0")
 	unit0.EXPECT().IsPrincipal().Return(true)
-	unit0.EXPECT().DestroyOperation().Return(&state.DestroyUnitOperation{})
+	unit0.EXPECT().DestroyOperation(gomock.Any()).Return(&state.DestroyUnitOperation{})
 	s.backend.EXPECT().Unit("postgresql/0").Return(unit0, nil)
 	s.backend.EXPECT().ApplyOperation(&state.DestroyUnitOperation{}).Return(nil)
 
 	// unit 1 loop
 	unit1 := s.expectUnit(ctrl, "postgresql/1")
 	unit1.EXPECT().IsPrincipal().Return(true)
-	unit1.EXPECT().DestroyOperation().Return(&state.DestroyUnitOperation{})
+	unit1.EXPECT().DestroyOperation(gomock.Any()).Return(&state.DestroyUnitOperation{})
 	s.backend.EXPECT().Unit("postgresql/1").Return(unit1, nil)
 	s.backend.EXPECT().ApplyOperation(&state.DestroyUnitOperation{DestroyStorage: true}).Return(nil)
 
@@ -1160,7 +1165,7 @@ func (s *ApplicationSuite) TestForceDestroyUnit(c *gc.C) {
 	// unit 0 loop
 	unit0 := s.expectUnit(ctrl, "postgresql/0")
 	unit0.EXPECT().IsPrincipal().Return(true)
-	unit0.EXPECT().DestroyOperation().Return(&state.DestroyUnitOperation{})
+	unit0.EXPECT().DestroyOperation(gomock.Any()).Return(&state.DestroyUnitOperation{})
 	s.backend.EXPECT().Unit("postgresql/0").Return(unit0, nil)
 
 	zero := time.Duration(0)
@@ -1172,7 +1177,7 @@ func (s *ApplicationSuite) TestForceDestroyUnit(c *gc.C) {
 	// unit 1 loop
 	unit1 := s.expectUnit(ctrl, "postgresql/1")
 	unit1.EXPECT().IsPrincipal().Return(true)
-	unit1.EXPECT().DestroyOperation().Return(&state.DestroyUnitOperation{})
+	unit1.EXPECT().DestroyOperation(gomock.Any()).Return(&state.DestroyUnitOperation{})
 	s.backend.EXPECT().Unit("postgresql/1").Return(unit1, nil)
 	s.backend.EXPECT().ApplyOperation(&state.DestroyUnitOperation{DestroyStorage: true}).Return(nil)
 
@@ -1541,7 +1546,7 @@ func (s *ApplicationSuite) TestApplicationDeploymentRemovesPendingResourcesOnFai
 	resources := map[string]string{"dummy": "pending-id"}
 	resourcesManager := mocks.NewMockResources(ctrl)
 	resourcesManager.EXPECT().RemovePendingAppResources("my-app", resources).Return(nil)
-	s.backend.EXPECT().Resources().Return(resourcesManager)
+	s.backend.EXPECT().Resources(gomock.Any()).Return(resourcesManager)
 
 	rev := 8
 	results, err := s.api.Deploy(context.Background(), params.ApplicationsDeploy{

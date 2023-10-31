@@ -133,7 +133,7 @@ func (st *mockState) WatchCleanups() state.NotifyWatcher {
 	return w
 }
 
-func (st *mockState) Cleanup(context.Context, objectstore.WriteObjectStore) error {
+func (st *mockState) Cleanup(context.Context, objectstore.ObjectStore) error {
 	st.MethodCall(st, "Cleanup")
 	return st.NextErr()
 }

@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/state"
@@ -56,7 +57,7 @@ type DeployApplicationParams struct {
 }
 
 type ApplicationDeployer interface {
-	AddApplication(state.AddApplicationArgs) (Application, error)
+	AddApplication(state.AddApplicationArgs, objectstore.ObjectStore) (Application, error)
 	ControllerConfig() (controller.Config, error)
 }
 
@@ -67,7 +68,9 @@ type UnitAdder interface {
 // DeployApplication takes a charm and various parameters and deploys it.
 func DeployApplication(
 	ctx context.Context, st ApplicationDeployer, model Model, cloudService common.CloudService,
-	credentialService common.CredentialService, args DeployApplicationParams,
+	credentialService common.CredentialService,
+	store objectstore.ObjectStore,
+	args DeployApplicationParams,
 ) (Application, error) {
 	charmConfig, err := args.Charm.Config().ValidateSettings(args.CharmConfig)
 	if err != nil {
@@ -125,7 +128,7 @@ func DeployApplication(
 	if !args.Charm.Meta().Subordinate {
 		asa.Constraints = args.Constraints
 	}
-	return st.AddApplication(asa)
+	return st.AddApplication(asa, store)
 }
 
 // addUnits starts n units of the given application using the specified placement

@@ -11,6 +11,7 @@ import (
 	description "github.com/juju/description/v4"
 	controller "github.com/juju/juju/controller"
 	network "github.com/juju/juju/core/network"
+	objectstore "github.com/juju/juju/core/objectstore"
 	state "github.com/juju/juju/state"
 	names "github.com/juju/names/v4"
 	version "github.com/juju/version/v2"
@@ -86,33 +87,33 @@ func (mr *MockBackendMockRecorder) ControllerConfig() *gomock.Call {
 }
 
 // Export mocks base method.
-func (m *MockBackend) Export(arg0 map[string]string) (description.Model, error) {
+func (m *MockBackend) Export(arg0 map[string]string, arg1 objectstore.ObjectStore) (description.Model, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Export", arg0)
+	ret := m.ctrl.Call(m, "Export", arg0, arg1)
 	ret0, _ := ret[0].(description.Model)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Export indicates an expected call of Export.
-func (mr *MockBackendMockRecorder) Export(arg0 interface{}) *gomock.Call {
+func (mr *MockBackendMockRecorder) Export(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Export", reflect.TypeOf((*MockBackend)(nil).Export), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Export", reflect.TypeOf((*MockBackend)(nil).Export), arg0, arg1)
 }
 
 // ExportPartial mocks base method.
-func (m *MockBackend) ExportPartial(arg0 state.ExportConfig) (description.Model, error) {
+func (m *MockBackend) ExportPartial(arg0 state.ExportConfig, arg1 objectstore.ObjectStore) (description.Model, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ExportPartial", arg0)
+	ret := m.ctrl.Call(m, "ExportPartial", arg0, arg1)
 	ret0, _ := ret[0].(description.Model)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ExportPartial indicates an expected call of ExportPartial.
-func (mr *MockBackendMockRecorder) ExportPartial(arg0 interface{}) *gomock.Call {
+func (mr *MockBackendMockRecorder) ExportPartial(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExportPartial", reflect.TypeOf((*MockBackend)(nil).ExportPartial), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExportPartial", reflect.TypeOf((*MockBackend)(nil).ExportPartial), arg0, arg1)
 }
 
 // LatestMigration mocks base method.
@@ -264,18 +265,18 @@ func (m *MockModelExporter) EXPECT() *MockModelExporterMockRecorder {
 }
 
 // ExportModel mocks base method.
-func (m *MockModelExporter) ExportModel(arg0 context.Context, arg1 map[string]string) (description.Model, error) {
+func (m *MockModelExporter) ExportModel(arg0 context.Context, arg1 map[string]string, arg2 objectstore.ObjectStore) (description.Model, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ExportModel", arg0, arg1)
+	ret := m.ctrl.Call(m, "ExportModel", arg0, arg1, arg2)
 	ret0, _ := ret[0].(description.Model)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ExportModel indicates an expected call of ExportModel.
-func (mr *MockModelExporterMockRecorder) ExportModel(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockModelExporterMockRecorder) ExportModel(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExportModel", reflect.TypeOf((*MockModelExporter)(nil).ExportModel), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExportModel", reflect.TypeOf((*MockModelExporter)(nil).ExportModel), arg0, arg1, arg2)
 }
 
 // MockUpgradeService is a mock of UpgradeService interface.

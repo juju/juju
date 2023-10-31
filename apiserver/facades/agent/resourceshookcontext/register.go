@@ -58,6 +58,6 @@ func newStateFacade(ctx facade.Context) (*UnitFacade, error) {
 		return nil, errors.Errorf("expected names.UnitTag or names.ApplicationTag, got %T", tag)
 	}
 
-	res := st.Resources()
+	res := st.Resources(ctx.ObjectStore())
 	return NewUnitFacade(&resourcesUnitDataStore{res, unit}), nil
 }

@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/apiserver/mocks"
 	apitesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/resources"
+	"github.com/juju/juju/juju/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -166,7 +167,8 @@ func (s *resourcesUploadSuite) TestUpload(c *gc.C) {
 	c.Check(outResp.ID, gc.Not(gc.Equals), "")
 	c.Check(outResp.Timestamp.IsZero(), jc.IsFalse)
 
-	rSt := s.importingState.Resources()
+	store := testing.NewObjectStore(c, s.importingState.ModelUUID(), s.importingState)
+	rSt := s.importingState.Resources(store)
 	res, reader, err := rSt.OpenResource(s.appName, "bin")
 	c.Assert(err, jc.ErrorIsNil)
 	defer reader.Close()
@@ -202,7 +204,8 @@ func (s *resourcesUploadSuite) TestPlaceholder(c *gc.C) {
 	c.Check(outResp.ID, gc.Not(gc.Equals), "")
 	c.Check(outResp.Timestamp.IsZero(), jc.IsTrue)
 
-	rSt := s.importingState.Resources()
+	store := testing.NewObjectStore(c, s.importingState.ModelUUID(), s.importingState)
+	rSt := s.importingState.Resources(store)
 	res, err := rSt.GetResource(s.appName, "bin")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(res.IsPlaceholder(), jc.IsTrue)

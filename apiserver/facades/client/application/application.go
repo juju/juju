@@ -40,6 +40,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
@@ -76,6 +77,7 @@ type APIv19 struct {
 type APIBase struct {
 	backend       Backend
 	storageAccess StorageInterface
+	store         objectstore.ObjectStore
 
 	ecService  ECService
 	authorizer facade.Authorizer
@@ -99,7 +101,7 @@ type APIBase struct {
 	storagePoolManager    poolmanager.PoolManager
 	registry              storage.ProviderRegistry
 	caasBroker            CaasBrokerInterface
-	deployApplicationFunc func(context.Context, ApplicationDeployer, Model, common.CloudService, common.CredentialService, DeployApplicationParams) (Application, error)
+	deployApplicationFunc DeployApplicationFunc
 }
 
 type CaasBrokerInterface interface {
@@ -120,6 +122,7 @@ func newFacadeBase(ctx facade.Context) (*APIBase, error) {
 	}
 	blockChecker := common.NewBlockChecker(ctx.State())
 	stateCharm := CharmToStateCharm
+	serviceFactory := ctx.ServiceFactory()
 
 	var (
 		storagePoolManager poolmanager.PoolManager
@@ -128,7 +131,7 @@ func newFacadeBase(ctx facade.Context) (*APIBase, error) {
 	)
 	modelType := model.Type()
 	if modelType == state.ModelTypeCAAS {
-		caasBroker, err = stateenvirons.GetNewCAASBrokerFunc(caas.New)(model, ctx.ServiceFactory().Cloud(), ctx.ServiceFactory().Credential())
+		caasBroker, err = stateenvirons.GetNewCAASBrokerFunc(caas.New)(model, serviceFactory.Cloud(), serviceFactory.Credential())
 		if err != nil {
 			return nil, errors.Annotate(err, "getting caas client")
 		}
@@ -166,25 +169,25 @@ func newFacadeBase(ctx facade.Context) (*APIBase, error) {
 		charmhubHTTPClient: charmhubHTTPClient,
 		caasBroker:         caasBroker,
 		model:              m,
-		cloudService:       ctx.ServiceFactory().Cloud(),
-		credentialService:  ctx.ServiceFactory().Credential(),
+		cloudService:       serviceFactory.Cloud(),
+		credentialService:  serviceFactory.Credential(),
 		registry:           registry,
 		state:              state,
 		storagePoolManager: storagePoolManager,
 	}
-	repoDeploy := NewDeployFromRepositoryAPI(state, makeDeployFromRepositoryValidator(context.TODO(), validatorCfg))
+	repoDeploy := NewDeployFromRepositoryAPI(state, ctx.ObjectStore(), makeDeployFromRepositoryValidator(context.TODO(), validatorCfg))
 
 	return NewAPIBase(
 		state,
-		ctx.ServiceFactory().ExternalController(),
+		serviceFactory.ExternalController(),
 		storageAccess,
 		ctx.Auth(),
 		updateBase,
 		repoDeploy,
 		blockChecker,
 		model,
-		ctx.ServiceFactory().Cloud(),
-		ctx.ServiceFactory().Credential(),
+		serviceFactory.Cloud(),
+		serviceFactory.Credential(),
 		leadershipReader,
 		stateCharm,
 		DeployApplication,
@@ -192,8 +195,12 @@ func newFacadeBase(ctx facade.Context) (*APIBase, error) {
 		registry,
 		resources,
 		caasBroker,
+		ctx.ObjectStore(),
 	)
 }
+
+// DeployApplicationFunc is a function that deploys an application.
+type DeployApplicationFunc = func(context.Context, ApplicationDeployer, Model, common.CloudService, common.CredentialService, objectstore.ObjectStore, DeployApplicationParams) (Application, error)
 
 // NewAPIBase returns a new application API facade.
 func NewAPIBase(
@@ -209,11 +216,12 @@ func NewAPIBase(
 	credentialService common.CredentialService,
 	leadershipReader leadership.Reader,
 	stateCharm func(Charm) *state.Charm,
-	deployApplication func(context.Context, ApplicationDeployer, Model, common.CloudService, common.CredentialService, DeployApplicationParams) (Application, error),
+	deployApplication DeployApplicationFunc,
 	storagePoolManager poolmanager.PoolManager,
 	registry storage.ProviderRegistry,
 	resources facade.Resources,
 	caasBroker CaasBrokerInterface,
+	store objectstore.ObjectStore,
 ) (*APIBase, error) {
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm
@@ -237,6 +245,7 @@ func NewAPIBase(
 		registry:              registry,
 		resources:             resources,
 		caasBroker:            caasBroker,
+		store:                 store,
 	}, nil
 }
 
@@ -315,6 +324,7 @@ func (api *APIBase) Deploy(ctx context.Context, args params.ApplicationsDeploy) 
 			api.storagePoolManager,
 			api.registry,
 			api.caasBroker,
+			api.store,
 		)
 		result.Results[i].Error = apiservererrors.ServerError(err)
 
@@ -326,7 +336,7 @@ func (api *APIBase) Deploy(ctx context.Context, args params.ApplicationsDeploy) 
 			// TODO(babbageclunk): rework the deploy API so the
 			// resources are created transactionally to avoid needing
 			// to do this.
-			resources := api.backend.Resources()
+			resources := api.backend.Resources(api.store)
 			err = resources.RemovePendingAppResources(arg.ApplicationName, arg.Resources)
 			if err != nil {
 				logger.Errorf("couldn't remove pending resources for %q", arg.ApplicationName)
@@ -509,10 +519,11 @@ func deployApplication(
 	credentialService common.CredentialService,
 	stateCharm func(Charm) *state.Charm,
 	args params.ApplicationDeploy,
-	deployApplicationFunc func(context.Context, ApplicationDeployer, Model, common.CloudService, common.CredentialService, DeployApplicationParams) (Application, error),
+	deployApplicationFunc DeployApplicationFunc,
 	storagePoolManager poolmanager.PoolManager,
 	registry storage.ProviderRegistry,
 	caasBroker CaasBrokerInterface,
+	store objectstore.ObjectStore,
 ) error {
 	curl, err := charm.ParseURL(args.CharmURL)
 	if err != nil {
@@ -579,7 +590,7 @@ func deployApplication(
 	if err != nil {
 		return errors.Trace(err)
 	}
-	_, err = deployApplicationFunc(ctx, backend, model, cloudService, credentialService, DeployApplicationParams{
+	_, err = deployApplicationFunc(ctx, backend, model, cloudService, credentialService, store, DeployApplicationParams{
 		ApplicationName:   args.ApplicationName,
 		Charm:             stateCharm(ch),
 		CharmOrigin:       origin,
@@ -1155,7 +1166,7 @@ func (api *APIBase) applicationSetCharm(
 	}
 
 	// TODO(wallyworld) - do in a single transaction
-	if err := params.Application.SetCharm(cfg); err != nil {
+	if err := params.Application.SetCharm(cfg, api.store); err != nil {
 		return errors.Annotate(err, "updating charm config")
 	}
 	if attr := appConfig.Attributes(); len(attr) > 0 {
@@ -1538,7 +1549,7 @@ func (api *APIBase) DestroyUnit(ctx context.Context, args params.DestroyUnitsPar
 		if arg.DryRun {
 			return &info, nil
 		}
-		op := unit.DestroyOperation()
+		op := unit.DestroyOperation(api.store)
 		op.DestroyStorage = arg.DestroyStorage
 		op.Force = arg.Force
 		if arg.Force {

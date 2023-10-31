@@ -789,7 +789,11 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 			if err != nil {
 				return nil, nil, nil, errors.Trace(err)
 			}
-			rst := st.Resources()
+			store, err := httpCtxt.objectStoreForRequest(req)
+			if err != nil {
+				return nil, nil, nil, errors.Trace(err)
+			}
+			rst := st.Resources(store)
 			return rst, st, entity.Tag(), nil
 		},
 		ChangeAllowedFunc: func(req *http.Request) error {
@@ -810,12 +814,16 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 			if err != nil {
 				return nil, nil, errors.Trace(err)
 			}
+			store, err := httpCtxt.objectStoreForRequest(req)
+			if err != nil {
+				return nil, nil, errors.Trace(err)
+			}
 			tagStr := req.URL.Query().Get(":unit")
 			tag, err := names.ParseUnitTag(tagStr)
 			if err != nil {
 				return nil, nil, errors.Trace(err)
 			}
-			opener, err := resource.NewResourceOpener(st.State, srv.getResourceDownloadLimiter, tag.Id())
+			opener, err := resource.NewResourceOpener(st.State, store, srv.getResourceDownloadLimiter, tag.Id())
 			if err != nil {
 				return nil, nil, errors.Trace(err)
 			}
@@ -844,6 +852,7 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 	resourcesMigrationUploadHandler := &resourcesMigrationUploadHandler{
 		ctxt:          httpCtxt,
 		stateAuthFunc: httpCtxt.stateForMigrationImporting,
+		objectStore:   httpCtxt.objectStoreForRequest,
 	}
 	backupHandler := &backupHandler{ctxt: httpCtxt}
 	registerHandler := &registerUserHandler{ctxt: httpCtxt}
