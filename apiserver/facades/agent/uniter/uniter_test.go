@@ -34,6 +34,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	_ "github.com/juju/juju/internal/secrets/provider/all"
+	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
@@ -2505,7 +2506,7 @@ func (s *uniterSuite) TestReadRemoteSettings(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.mysqlUnit.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.mysqlUnit.Remove()
+	err = s.mysqlUnit.Remove(testing.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State()))
 	c.Assert(err, jc.ErrorIsNil)
 	result, err = s.uniter.ReadRemoteSettings(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)

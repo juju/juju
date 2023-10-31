@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -45,6 +46,7 @@ func NewDeployerAPI(
 	controllerConfigGetter ControllerConfigGetter,
 	authorizer facade.Authorizer,
 	st *state.State,
+	store objectstore.ObjectStore,
 	resources facade.Resources,
 	leadershipRevoker leadership.Revoker,
 	systemState *state.State,
@@ -73,7 +75,7 @@ func NewDeployerAPI(
 	}
 
 	return &DeployerAPI{
-		Remover:                common.NewRemover(st, common.RevokeLeadershipFunc(leadershipRevoker), true, getAuthFunc),
+		Remover:                common.NewRemover(st, store, common.RevokeLeadershipFunc(leadershipRevoker), true, getAuthFunc),
 		PasswordChanger:        common.NewPasswordChanger(st, getAuthFunc),
 		LifeGetter:             common.NewLifeGetter(st, getAuthFunc),
 		APIAddresser:           common.NewAPIAddresser(systemState, resources),

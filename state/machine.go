@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/internal/mongo"
@@ -1217,7 +1218,7 @@ func (m *Machine) removeOps() ([]txn.Op, error) {
 
 // Remove removes the machine from state. It will fail if the machine
 // is not Dead.
-func (m *Machine) Remove() (err error) {
+func (m *Machine) Remove(_ objectstore.ObjectStore) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot remove machine %s", m.doc.Id)
 	logger.Tracef("removing machine %q", m.Id())
 	// Local variable so we can re-get the machine without disrupting

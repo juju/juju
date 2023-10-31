@@ -11,6 +11,7 @@ import (
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/tools"
@@ -53,7 +54,7 @@ type EnsureDeader interface {
 
 // Remover represents entities with a Remove method.
 type Remover interface {
-	Remove() error
+	Remove(objectstore.ObjectStore) error
 }
 
 // Authenticator represents entites capable of handling password

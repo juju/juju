@@ -995,10 +995,11 @@ func (u *Unit) EnsureDead() (err error) {
 }
 
 // RemoveOperation returns a model operation that will remove the unit.
-func (u *Unit) RemoveOperation(force bool) *RemoveUnitOperation {
+func (u *Unit) RemoveOperation(store objectstore.ObjectStore, force bool) *RemoveUnitOperation {
 	return &RemoveUnitOperation{
 		unit:            &Unit{st: u.st, doc: u.doc, modelType: u.modelType},
 		ForcedOperation: ForcedOperation{Force: force},
+		Store:           store,
 	}
 }
 
@@ -1059,8 +1060,8 @@ func (op *RemoveUnitOperation) Done(err error) error {
 // Remove removes the unit from state, and may remove its application as well, if
 // the application is Dying and no other references to it exist. It will fail if
 // the unit is not Dead.
-func (u *Unit) Remove() error {
-	_, err := u.RemoveWithForce(false, time.Duration(0))
+func (u *Unit) Remove(store objectstore.ObjectStore) error {
+	_, err := u.RemoveWithForce(store, false, time.Duration(0))
 	return err
 }
 
@@ -1068,8 +1069,8 @@ func (u *Unit) Remove() error {
 // it ignores errors.
 // In addition, this function also returns all non-fatal operational errors
 // encountered.
-func (u *Unit) RemoveWithForce(force bool, maxWait time.Duration) ([]error, error) {
-	op := u.RemoveOperation(force)
+func (u *Unit) RemoveWithForce(store objectstore.ObjectStore, force bool, maxWait time.Duration) ([]error, error) {
+	op := u.RemoveOperation(store, force)
 	op.MaxWait = maxWait
 	err := u.st.ApplyOperation(op)
 	return op.Errors, err

@@ -145,7 +145,7 @@ func (s *BlockDevicesSuite) TestBlockDevicesMachineRemove(c *gc.C) {
 
 	err = s.machine.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.machine.Remove()
+	err = s.machine.Remove(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	sb, err := state.NewStorageBackend(s.State)

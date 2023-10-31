@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain/credential"
+	"github.com/juju/juju/juju/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -164,14 +165,14 @@ func (s *agentSuite) TestGetEntitiesNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.container.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.container.Remove()
+	err = s.container.Remove(testing.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.machine1.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.machine1.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.machine1.Remove()
+	err = s.machine1.Remove(testing.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	api, err := s.agentAPI(c, s.authorizer, nil)

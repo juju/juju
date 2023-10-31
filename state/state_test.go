@@ -2811,7 +2811,7 @@ func (s *StateSuite) TestWatchMachinesBulkEvents(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = gone.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = gone.Remove()
+	err = gone.Remove(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())
@@ -2827,9 +2827,9 @@ func (s *StateSuite) TestWatchMachinesBulkEvents(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = dying.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = dying.Remove()
+	err = dying.Remove(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
-	err = dead.Remove()
+	err = dead.Remove(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(alive.Id(), dying.Id())
 	wc.AssertNoChange()
@@ -2867,7 +2867,7 @@ func (s *StateSuite) TestWatchMachinesLifecycle(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Remove it: not reported.
-	err = machine.Remove()
+	err = machine.Remove(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 }
@@ -2926,7 +2926,7 @@ func (s *StateSuite) TestWatchMachinesIgnoresContainers(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Remove the container: not reported.
-	err = m.Remove()
+	err = m.Remove(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 }
@@ -3004,7 +3004,7 @@ func (s *StateSuite) TestWatchContainerLifecycle(c *gc.C) {
 
 	err = mchild.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = mchild.Remove()
+	err = mchild.Remove(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Make the container Dying: reported.
@@ -3044,7 +3044,7 @@ func (s *StateSuite) TestWatchContainerLifecycle(c *gc.C) {
 	wcAll.AssertNoChange()
 
 	// Remove the container: not reported.
-	err = m.Remove()
+	err = m.Remove(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 	wcAll.AssertNoChange()
@@ -4224,7 +4224,7 @@ func (s *StateSuite) TestSetModelAgentVersionErrors(c *gc.C) {
 	for _, machine := range []*state.Machine{machine0, machine1, machine2} {
 		err = machine.EnsureDead()
 		c.Assert(err, jc.ErrorIsNil)
-		err = machine.Remove()
+		err = machine.Remove(state.NewObjectStore(c, s.State))
 		c.Assert(err, jc.ErrorIsNil)
 	}
 

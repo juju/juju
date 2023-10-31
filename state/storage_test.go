@@ -359,7 +359,7 @@ func (s *StorageStateSuiteBase) obliterateUnit(c *gc.C, tag names.UnitTag) {
 	s.obliterateUnitStorage(c, tag)
 	err = u.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = u.Remove()
+	err = u.Remove(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -862,7 +862,7 @@ func (s *StorageStateSuite) TestUnitStorageProvisionerError(c *gc.C) {
 			return nil, errors.New("boom")
 		},
 	}
-	err = u.Remove()
+	err = u.Remove(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 }
 

@@ -1337,7 +1337,7 @@ func (s *ModelSuite) TestProcessDyingModelWithVolumeBackedFilesystems(c *gc.C) {
 	err = sb.RemoveVolumeAttachment(machine.MachineTag(), names.NewVolumeTag("0"), false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machine.EnsureDead(), jc.ErrorIsNil)
-	c.Assert(machine.Remove(), jc.ErrorIsNil)
+	c.Assert(machine.Remove(state.NewObjectStore(c, s.State)), jc.ErrorIsNil)
 
 	// The filesystem will be gone, but the volume is persistent and should
 	// not have been removed.
@@ -1385,7 +1385,7 @@ func (s *ModelSuite) TestProcessDyingModelWithVolumes(c *gc.C) {
 	err = sb.RemoveVolumeAttachment(machine.MachineTag(), volumeTag, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machine.EnsureDead(), jc.ErrorIsNil)
-	c.Assert(machine.Remove(), jc.ErrorIsNil)
+	c.Assert(machine.Remove(state.NewObjectStore(c, s.State)), jc.ErrorIsNil)
 
 	// The volume is persistent and should not have been removed along with
 	// the machine it was attached to.
@@ -1691,7 +1691,7 @@ func (s *ModelSuite) TestDestroyForceWorksWhenRemoteRelationScopesAreStuck(c *gc
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = unit.Remove()
+	err = unit.Remove(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Cleanups
@@ -1710,7 +1710,7 @@ func (s *ModelSuite) TestDestroyForceWorksWhenRemoteRelationScopesAreStuck(c *gc
 	c.Assert(err, jc.ErrorIsNil)
 
 	assertCleanupCount(c, ms, 4)
-	assertRemoved(c, wordpress)
+	assertRemoved(c, s.State, wordpress)
 	c.Assert(model.Refresh(), jc.ErrorIsNil)
 	c.Assert(model.Life(), gc.Equals, state.Dying)
 	c.Assert(ms.ProcessDyingModel(), jc.ErrorIsNil)
@@ -1869,6 +1869,6 @@ func assertAllMachinesDeadAndRemove(c *gc.C, st *state.State) {
 		}
 
 		c.Assert(m.Life(), gc.Equals, state.Dead)
-		c.Assert(m.Remove(), jc.ErrorIsNil)
+		c.Assert(m.Remove(state.NewObjectStore(c, st)), jc.ErrorIsNil)
 	}
 }

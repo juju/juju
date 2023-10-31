@@ -2428,7 +2428,7 @@ func (s *MigrationImportSuite) TestStorageDetached(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = u.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = u.Remove()
+	err = u.Remove(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.importModel(c, s.State)

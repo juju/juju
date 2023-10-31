@@ -178,7 +178,7 @@ func (s *LifeSuite) TestLifecycleStateChanges(c *gc.C) {
 			c.Assert(living.Life(), gc.Equals, v.dbfinal)
 			err = living.EnsureDead()
 			c.Assert(err, jc.ErrorIsNil)
-			err = living.Remove()
+			err = living.Remove(nil)
 			c.Assert(err, jc.ErrorIsNil)
 		}
 	}

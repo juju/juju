@@ -407,7 +407,7 @@ func (s *RelationUnitSuite) TestContainerCreateSubordinate(c *gc.C) {
 	// create a new subordinate.
 	err = runit.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = runit.Remove()
+	err = runit.Remove(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	assertSubCount(0)
 	assertNotInScope(c, pru)

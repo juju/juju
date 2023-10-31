@@ -97,7 +97,7 @@ func (s *AnnotationsSuite) TestSetAnnotationsDestroyedEntity(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.testEntity.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.testEntity.Remove()
+	err = s.testEntity.Remove(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.Machine(s.testEntity.Id())
 	c.Assert(err, gc.ErrorMatches, ".*not found.*")

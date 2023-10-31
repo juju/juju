@@ -246,7 +246,7 @@ func (s *CleanupSuite) testCleanupModelMachines(c *gc.C, force bool) {
 		// There are 4 jobs for the destroy and then the model
 		// cleanup task queues another set because force is used.
 		s.assertCleanupCountDirty(c, 4)
-		assertRemoved(c, pr.u0)
+		assertRemoved(c, s.State, pr.u0)
 		// ...and the unit has departed relation scope...
 		assertNotJoined(c, pr.ru0)
 		// ...and the machine has been removed (since model destroy does a
@@ -558,7 +558,7 @@ func (s *CleanupSuite) TestCleanupForceDestroyedMachineUnit(c *gc.C) {
 
 	// Clean up, and check that the unit has been removed...
 	s.assertCleanupCountDirty(c, 2)
-	assertRemoved(c, pr.u0)
+	assertRemoved(c, s.State, pr.u0)
 
 	// ...and the unit has departed relation scope...
 	assertNotJoined(c, pr.ru0)
@@ -671,7 +671,7 @@ func (s *CleanupSuite) TestCleanupForceDestroyMachineCleansStorageAttachments(c 
 	c.Assert(hasOwner, jc.IsFalse)
 
 	// Check that the unit has been removed.
-	assertRemoved(c, u)
+	assertRemoved(c, s.State, u)
 
 	s.Clock.Advance(time.Minute)
 	// Check that the last cleanup to remove the machine runs.
@@ -716,10 +716,10 @@ func (s *CleanupSuite) TestCleanupForceDestroyedMachineWithContainer(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 
 	// ...and so have all the units...
-	assertRemoved(c, prr.pu0)
-	assertRemoved(c, prr.pu1)
-	assertRemoved(c, prr.ru0)
-	assertRemoved(c, prr.ru1)
+	assertRemoved(c, s.State, prr.pu0)
+	assertRemoved(c, s.State, prr.pu1)
+	assertRemoved(c, s.State, prr.ru0)
+	assertRemoved(c, s.State, prr.ru1)
 
 	// ...and none of the units have left relation scopes occupied...
 	assertNotInScope(c, prr.pru0)
@@ -926,10 +926,10 @@ func (s *CleanupSuite) TestCleanupDyingUnit(c *gc.C) {
 	// ...until the unit is removed, and really leaves scope.
 	err = prr.pu0.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = prr.pu0.Remove()
+	err = prr.pu0.Remove(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	assertNotInScope(c, prr.pru0)
-	assertRemoved(c, prr.rel)
+	assertRemoved(c, s.State, prr.rel)
 }
 
 func (s *CleanupSuite) TestCleanupDyingUnitAlreadyRemoved(c *gc.C) {
@@ -950,11 +950,11 @@ func (s *CleanupSuite) TestCleanupDyingUnitAlreadyRemoved(c *gc.C) {
 	// Remove the unit, and the relation.
 	err = prr.pu0.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = prr.pu0.Remove()
+	err = prr.pu0.Remove(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	err = prr.rel.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	assertRemoved(c, prr.rel)
+	assertRemoved(c, s.State, prr.rel)
 
 	// Check the cleanup still runs happily.
 	s.assertCleanupCount(c, 1)
@@ -1277,7 +1277,7 @@ func (s *CleanupSuite) assertCleanupCAASEntityWithStorage(c *gc.C, deleteOp func
 
 	err = unit.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = unit.Remove()
+	err = unit.Remove(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	sas, err = sb.AllStorageInstances()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1685,7 +1685,7 @@ func (s *CleanupSuite) TestForceDestroyApplicationRemovesUnitsThatAreAlreadyDyin
 	// application
 	s.assertNeedsCleanup(c)
 	s.assertCleanupRuns(c)
-	assertRemoved(c, mysql)
+	assertRemoved(c, s.State, mysql)
 }
 
 func (s *CleanupSuite) TestForceDestroyRelationIncorrectUnitCount(c *gc.C) {

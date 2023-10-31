@@ -208,7 +208,7 @@ func (st *State) Cleanup(ctx context.Context, store objectstore.ObjectStore) (er
 		case cleanupForceDestroyedUnit:
 			err = st.cleanupForceDestroyedUnit(store, doc.Prefix, args)
 		case cleanupForceRemoveUnit:
-			err = st.cleanupForceRemoveUnit(doc.Prefix, args)
+			err = st.cleanupForceRemoveUnit(store, doc.Prefix, args)
 		case cleanupDyingUnitResources:
 			err = st.cleanupDyingUnitResources(doc.Prefix, args)
 		case cleanupRemovedUnit:
@@ -220,7 +220,7 @@ func (st *State) Cleanup(ctx context.Context, store objectstore.ObjectStore) (er
 		case cleanupForceDestroyedMachine:
 			err = st.cleanupForceDestroyedMachine(store, doc.Prefix, args)
 		case cleanupForceRemoveMachine:
-			err = st.cleanupForceRemoveMachine(doc.Prefix, args)
+			err = st.cleanupForceRemoveMachine(store, doc.Prefix, args)
 		case cleanupEvacuateMachine:
 			err = st.cleanupEvacuateMachine(store, doc.Prefix, args)
 		case cleanupAttachmentsForDyingStorage:
@@ -1047,7 +1047,7 @@ func (st *State) forceRemoveUnitStorageAttachments(unit *Unit) error {
 	return nil
 }
 
-func (st *State) cleanupForceRemoveUnit(unitId string, cleanupArgs []bson.Raw) error {
+func (st *State) cleanupForceRemoveUnit(store objectstore.ObjectStore, unitId string, cleanupArgs []bson.Raw) error {
 	var maxWait time.Duration
 	if n := len(cleanupArgs); n != 1 {
 		return errors.Errorf("expected 1 argument, got %d", n)
@@ -1062,7 +1062,7 @@ func (st *State) cleanupForceRemoveUnit(unitId string, cleanupArgs []bson.Raw) e
 	} else if err != nil {
 		return errors.Trace(err)
 	}
-	opErrs, err := unit.RemoveWithForce(true, maxWait)
+	opErrs, err := unit.RemoveWithForce(store, true, maxWait)
 	if len(opErrs) != 0 {
 		logger.Warningf("errors encountered force-removing unit %q: %v", unitId, opErrs)
 	}
@@ -1384,7 +1384,7 @@ func (st *State) cleanupForceDestroyedMachineInternal(store objectstore.ObjectSt
 // cleanupForceRemoveMachine is a backstop to remove a force-destroyed
 // machine after a certain amount of time if it hasn't gone away
 // already.
-func (st *State) cleanupForceRemoveMachine(machineId string, cleanupArgs []bson.Raw) error {
+func (st *State) cleanupForceRemoveMachine(store objectstore.ObjectStore, machineId string, cleanupArgs []bson.Raw) error {
 	var maxWait time.Duration
 	// It's valid to have no args: old cleanups have no args, so follow the old behaviour.
 	if n := len(cleanupArgs); n > 0 {
@@ -1436,7 +1436,7 @@ func (st *State) cleanupForceRemoveMachine(machineId string, cleanupArgs []bson.
 	if err := machine.advanceLifecycle(Dead, true, false, maxWait); err != nil {
 		return errors.Trace(err)
 	}
-	return machine.Remove()
+	return machine.Remove(store)
 }
 
 // cleanupEvacuateMachine is initiated by machine.Destroy() to gracefully remove units
@@ -1514,7 +1514,7 @@ func (st *State) cleanupContainers(store objectstore.ObjectStore, machine *Machi
 		} else if err != nil {
 			return err
 		}
-		if err := container.Remove(); err != nil {
+		if err := container.Remove(store); err != nil {
 			return err
 		}
 	}
@@ -1613,7 +1613,7 @@ func (st *State) obliterateUnit(store objectstore.ObjectStore, unitName string, 
 		}
 		opErrs = append(opErrs, err)
 	}
-	errs, err = unit.RemoveWithForce(force, maxWait)
+	errs, err = unit.RemoveWithForce(store, force, maxWait)
 	opErrs = append(opErrs, errs...)
 	return opErrs, err
 }

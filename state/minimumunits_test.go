@@ -316,7 +316,7 @@ func (s *MinUnitsSuite) TestEnsureMinUnits(c *gc.C) {
 		// Clean up the minUnits document and the units.
 		err = application.SetMinUnits(0)
 		c.Assert(err, jc.ErrorIsNil)
-		removeAllUnits(c, application)
+		removeAllUnits(c, s.State, application)
 	}
 }
 

@@ -143,7 +143,7 @@ func NewStateCAASApplicationProvisionerAPI(ctx facade.Context) (*APIGroup, error
 		PasswordChanger:    common.NewPasswordChanger(st, common.AuthFuncForTagKind(names.ApplicationTagKind)),
 		LifeGetter:         common.NewLifeGetter(st, lifeCanRead),
 		AgentEntityWatcher: common.NewAgentEntityWatcher(st, ctx.Resources(), common.AuthFuncForTagKind(names.ApplicationTagKind)),
-		Remover:            common.NewRemover(st, common.RevokeLeadershipFunc(leadershipRevoker), true, common.AuthFuncForTagKind(names.UnitTagKind)),
+		Remover:            common.NewRemover(st, ctx.ObjectStore(), common.RevokeLeadershipFunc(leadershipRevoker), true, common.AuthFuncForTagKind(names.UnitTagKind)),
 		charmInfoAPI:       commonCharmsAPI,
 		appCharmInfoAPI:    appCharmInfoAPI,
 		API:                api,

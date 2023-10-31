@@ -138,7 +138,7 @@ func (s *AssignSuite) TestUnassignUnitFromMachineWithChangingState(c *gc.C) {
 	// Remove the unit for the tests.
 	err = unit.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = unit.Remove()
+	err = unit.Remove(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = unit.UnassignFromMachine()
@@ -230,7 +230,7 @@ func (s *AssignSuite) TestAssignMachineWhenDying(c *gc.C) {
 		if subUnit != nil {
 			err := subUnit.EnsureDead()
 			c.Assert(err, jc.ErrorIsNil)
-			err = subUnit.Remove()
+			err = subUnit.Remove(state.NewObjectStore(c, s.State))
 			c.Assert(err, jc.ErrorIsNil)
 			subUnit = nil
 		}
@@ -297,11 +297,11 @@ func (s *AssignSuite) TestAssignMachinePrincipalsChange(c *gc.C) {
 
 	err = subUnit.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = subUnit.Remove()
+	err = subUnit.Remove(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = unit.Remove()
+	err = unit.Remove(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(checkPrincipals(), gc.DeepEquals, []string{"wordpress/0"})
 }
@@ -449,7 +449,7 @@ func (s *AssignSuite) TestAssignUnitToNewMachineUnitNotAlive(c *gc.C) {
 	// ...and a dead one.
 	err = subUnit.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = subUnit.Remove()
+	err = subUnit.Remove(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
@@ -777,7 +777,7 @@ func (s *assignCleanSuite) TestAssignUnitTwiceFails(c *gc.C) {
 	_, err = s.assignUnit(unit)
 	c.Assert(err, gc.ErrorMatches, s.errorMessage(`cannot assign unit "wordpress/0" to %s machine: unit is already assigned to a machine`))
 	c.Assert(m.EnsureDead(), gc.IsNil)
-	c.Assert(m.Remove(), gc.IsNil)
+	c.Assert(m.Remove(state.NewObjectStore(c, s.State)), gc.IsNil)
 }
 
 const eligibleMachinesInUse = ".*: all eligible machines in use"
@@ -1039,7 +1039,7 @@ func (s *assignCleanSuite) TestAssignUnitWithRemovedApplication(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Fail if application is removed.
-	removeAllUnits(c, s.wordpress)
+	removeAllUnits(c, s.State, s.wordpress)
 	err = s.wordpress.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
@@ -1056,7 +1056,7 @@ func (s *assignCleanSuite) TestAssignUnitToMachineWithRemovedUnit(c *gc.C) {
 	// Fail if unit is removed.
 	err = unit.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = unit.Remove()
+	err = unit.Remove(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)

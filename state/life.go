@@ -8,6 +8,7 @@ import (
 	"github.com/juju/mgo/v3/bson"
 
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/mongo"
 )
 
@@ -84,7 +85,7 @@ type Living interface {
 type AgentLiving interface {
 	Living
 	EnsureDead() error
-	Remove() error
+	Remove(objectstore.ObjectStore) error
 }
 
 func isAlive(mb modelBackend, collName string, id interface{}) (bool, error) {

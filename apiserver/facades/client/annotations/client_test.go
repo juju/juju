@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/client/annotations"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/juju/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -58,7 +59,7 @@ func (s *annotationSuite) TestMachineAnnotations(c *gc.C) {
 	// on machine removal
 	err := machine.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = machine.Remove()
+	err = machine.Remove(testing.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State()))
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertAnnotationsRemoval(c, machine.Tag())
 }
@@ -133,7 +134,7 @@ func (s *annotationSuite) TestUnitAnnotations(c *gc.C) {
 	// on unit removal
 	err := unit.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = unit.Remove()
+	err = unit.Remove(testing.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State()))
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertAnnotationsRemoval(c, wordpress.Tag())
 }

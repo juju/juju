@@ -90,7 +90,7 @@ func (s *MeterStateSuite) TestMeterStatusRemovedWithUnit(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.unit.Remove()
+	err = s.unit.Remove(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	status, err := s.unit.GetMeterStatus()
 	c.Assert(err, gc.ErrorMatches, "cannot retrieve meter status for unit .*: not found")

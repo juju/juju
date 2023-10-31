@@ -1023,7 +1023,7 @@ func (s *ApplicationSuite) TestSequenceUnitIdsAfterDestroy(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.mysql.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	assertRemoved(c, s.mysql)
+	assertRemoved(c, s.State, s.mysql)
 	s.mysql = s.AddTestingApplication(c, "mysql", s.charm)
 	unit, err = s.mysql.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1047,7 +1047,7 @@ func (s *ApplicationSuite) TestAssignUnitsRemovedAfterAppDestroy(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = mariadb.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	assertRemoved(c, mariadb)
+	assertRemoved(c, s.State, mariadb)
 
 	unitAssignments, err = s.State.AllUnitAssignments()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1158,7 +1158,7 @@ func (s *ApplicationSuite) TestSetCharmWithRemovedApplication(c *gc.C) {
 
 	err := s.mysql.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	assertRemoved(c, s.mysql)
+	assertRemoved(c, s.State, s.mysql)
 
 	cfg := state.SetCharmConfig{
 		Charm:      sch,
@@ -1175,7 +1175,7 @@ func (s *ApplicationSuite) TestSetCharmWhenRemoved(c *gc.C) {
 	defer state.SetBeforeHooks(c, s.State, func() {
 		err := s.mysql.Destroy()
 		c.Assert(err, jc.ErrorIsNil)
-		assertRemoved(c, s.mysql)
+		assertRemoved(c, s.State, s.mysql)
 	}).Check()
 
 	cfg := state.SetCharmConfig{
@@ -1967,7 +1967,7 @@ func (s *ApplicationSuite) TestSettingsRefCountWorks(c *gc.C) {
 	assertNoSettingsRef(c, s.State, appName, newCh)
 
 	// Once the unit is removed, refcount is decremented.
-	err = u.Remove()
+	err = u.Remove(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	assertSettingsRef(c, s.State, appName, oldCh, 1)
 	assertNoSettingsRef(c, s.State, appName, newCh)
@@ -2085,7 +2085,7 @@ func (s *ApplicationSuite) TestOffersRefCountWorks(c *gc.C) {
 	// succeeds when that offer has no connections
 	err = s.mysql.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	assertRemoved(c, s.mysql)
+	assertRemoved(c, s.State, s.mysql)
 	assertNoOffersRef(c, s.State, "mysql")
 }
 
@@ -2116,7 +2116,7 @@ func (s *ApplicationSuite) TestDestroyApplicationRemoveOffers(c *gc.C) {
 	op.RemoveOffers = true
 	err = s.State.ApplyOperation(op)
 	c.Assert(err, jc.ErrorIsNil)
-	assertRemoved(c, s.mysql)
+	assertRemoved(c, s.State, s.mysql)
 	assertNoOffersRef(c, s.State, "mysql")
 
 	offers, err := ao.AllApplicationOffers()
@@ -2139,7 +2139,7 @@ func (s *ApplicationSuite) TestOffersRefRace(c *gc.C) {
 
 	err := s.mysql.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	assertRemoved(c, s.mysql)
+	assertRemoved(c, s.State, s.mysql)
 	assertNoOffersRef(c, s.State, "mysql")
 }
 
@@ -2160,7 +2160,7 @@ func (s *ApplicationSuite) TestOffersRefRaceWithForce(c *gc.C) {
 	op.Force = true
 	err := s.State.ApplyOperation(op)
 	c.Assert(err, jc.ErrorIsNil)
-	assertRemoved(c, s.mysql)
+	assertRemoved(c, s.State, s.mysql)
 	assertNoOffersRef(c, s.State, "mysql")
 }
 
@@ -2221,7 +2221,7 @@ func (s *ApplicationSuite) TestNewPeerRelationsAddedOnUpgrade(c *gc.C) {
 	// Check state consistency by attempting to destroy the application.
 	err = s.mysql.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	assertRemoved(c, s.mysql)
+	assertRemoved(c, s.State, s.mysql)
 
 	// Check the peer relations got destroyed as well.
 	for _, rel := range rels {
@@ -2261,7 +2261,7 @@ func (s *ApplicationSuite) TestStalePeerRelationsRemovedOnUpgrade(c *gc.C) {
 	// Check state consistency by attempting to destroy the application.
 	err = s.mysql.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	assertRemoved(c, s.mysql)
+	assertRemoved(c, s.State, s.mysql)
 
 	// Check the peer relations got destroyed as well.
 	for _, rel := range rels {
@@ -2488,7 +2488,7 @@ func (s *ApplicationSuite) TestApplicationRefresh(c *gc.C) {
 
 	err = s.mysql.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	assertRemoved(c, s.mysql)
+	assertRemoved(c, s.State, s.mysql)
 }
 
 func (s *ApplicationSuite) TestSetPassword(c *gc.C) {
@@ -2537,7 +2537,7 @@ func (s *ApplicationSuite) TestApplicationExposed(c *gc.C) {
 	// Remove the application and check that both fail.
 	err = u.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = u.Remove()
+	err = u.Remove(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.mysql.MergeExposeSettings(nil)
 	c.Assert(err, gc.ErrorMatches, notAliveErr)
@@ -2738,7 +2738,7 @@ func (s *ApplicationSuite) TestAddUnitWhenNotAlive(c *gc.C) {
 	_, err = s.mysql.AddUnit(state.AddUnitParams{})
 	c.Assert(err, gc.ErrorMatches, `cannot add unit to application "mysql": application is not found or not alive`)
 	c.Assert(u.EnsureDead(), jc.ErrorIsNil)
-	c.Assert(u.Remove(), jc.ErrorIsNil)
+	c.Assert(u.Remove(state.NewObjectStore(c, s.State)), jc.ErrorIsNil)
 	c.Assert(s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State)), jc.ErrorIsNil)
 	_, err = s.mysql.AddUnit(state.AddUnitParams{})
 	c.Assert(err, gc.ErrorMatches, `cannot add unit to application "mysql": application "mysql" not found`)
@@ -2887,7 +2887,7 @@ func (s *ApplicationSuite) TestReadUnitWhenDying(c *gc.C) {
 	})
 
 	// ...and even, in a very limited way, when the application itself is removed.
-	removeAllUnits(c, s.mysql)
+	removeAllUnits(c, s.State, s.mysql)
 	_, err = s.mysql.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -2929,7 +2929,7 @@ func (s *ApplicationSuite) TestDestroyStillHasUnits(c *gc.C) {
 	c.Assert(s.mysql.Refresh(), jc.ErrorIsNil)
 	c.Assert(s.mysql.Life(), gc.Equals, state.Dying)
 
-	c.Assert(unit.Remove(), jc.ErrorIsNil)
+	c.Assert(unit.Remove(state.NewObjectStore(c, s.State)), jc.ErrorIsNil)
 	c.Assert(s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State)), jc.ErrorIsNil)
 	err = s.mysql.Refresh()
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
@@ -2940,7 +2940,7 @@ func (s *ApplicationSuite) TestDestroyOnceHadUnits(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = unit.Remove()
+	err = unit.Remove(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.mysql.Destroy()
@@ -2957,7 +2957,7 @@ func (s *ApplicationSuite) TestDestroyStaleNonZeroUnitCount(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = unit.Remove()
+	err = unit.Remove(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.mysql.Destroy()
@@ -2985,7 +2985,7 @@ func (s *ApplicationSuite) TestDestroyStaleZeroUnitCount(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.mysql.Life(), gc.Equals, state.Dying)
 
-	c.Assert(unit.Remove(), jc.ErrorIsNil)
+	c.Assert(unit.Remove(state.NewObjectStore(c, s.State)), jc.ErrorIsNil)
 	c.Assert(s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State)), jc.ErrorIsNil)
 	err = s.mysql.Refresh()
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
@@ -3064,7 +3064,7 @@ func (s *ApplicationSuite) TestDestroyWithRemovableApplicationOpenedPortRanges(c
 
 	err = unit1.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = unit1.Remove()
+	err = unit1.Remove(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 
 	appPortRanges, err = app.OpenedPortRanges()
@@ -3074,11 +3074,11 @@ func (s *ApplicationSuite) TestDestroyWithRemovableApplicationOpenedPortRanges(c
 	// Remove all units, all opened ports should be removed.
 	err = unit0.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = unit0.Remove()
+	err = unit0.Remove(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit1.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = unit1.Remove()
+	err = unit1.Remove(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 
 	appPortRanges, err = app.OpenedPortRanges()
@@ -3156,7 +3156,7 @@ func (s *ApplicationSuite) TestOpenedPortRanges(c *gc.C) {
 	// openedApplicationportRanges removed.
 	err = unit.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = unit.Remove()
+	err = unit.Remove(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 
 	appPortRanges, err := app.OpenedPortRanges()
@@ -3253,7 +3253,7 @@ func (s *ApplicationSuite) TestDestroyQueuesUnitCleanup(c *gc.C) {
 		if i%2 != 0 {
 			assertLife(c, unit, state.Dying)
 		} else {
-			assertRemoved(c, unit)
+			assertRemoved(c, s.State, unit)
 		}
 	}
 
@@ -3404,7 +3404,7 @@ func (s *ApplicationSuite) TestApplicationCleanupRemovesStorageConstraints(c *gc
 
 	// These next API calls are normally done by the uniter.
 	c.Assert(u.EnsureDead(), jc.ErrorIsNil)
-	c.Assert(u.Remove(), jc.ErrorIsNil)
+	c.Assert(u.Remove(state.NewObjectStore(c, s.State)), jc.ErrorIsNil)
 	c.Assert(s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State)), jc.ErrorIsNil)
 
 	// Ensure storage constraints and settings are now gone.
@@ -3440,7 +3440,7 @@ func (s *ApplicationSuite) TestApplicationCleanupRemovesAppFromActiveBranches(c 
 
 	// destroy the app
 	c.Assert(app.Destroy(), gc.IsNil)
-	assertRemoved(c, app)
+	assertRemoved(c, s.State, app)
 
 	// Check the branch
 	c.Assert(branch.Refresh(), jc.ErrorIsNil)
@@ -3455,7 +3455,7 @@ func (s *ApplicationSuite) TestRemoveQueuesLocalCharmCleanup(c *gc.C) {
 
 	err := s.mysql.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	assertRemoved(c, s.mysql)
+	assertRemoved(c, s.State, s.mysql)
 
 	// Check a cleanup doc was added.
 	s.assertNeedsCleanup(c)
@@ -3487,7 +3487,7 @@ func (s *ApplicationSuite) TestDestroyQueuesResourcesCleanup(c *gc.C) {
 	// Detroy the application.
 	err = s.mysql.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	assertRemoved(c, s.mysql)
+	assertRemoved(c, s.State, s.mysql)
 
 	// Cleanup should be registered but not yet run.
 	s.assertNeedsCleanup(c)
@@ -3515,7 +3515,7 @@ func (s *ApplicationSuite) TestDestroyWithPlaceholderResources(c *gc.C) {
 	// Detroy the application.
 	err = s.mysql.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	assertRemoved(c, s.mysql)
+	assertRemoved(c, s.State, s.mysql)
 
 	// No cleanup required for placeholder resources.
 	state.AssertNoCleanupsWithKind(c, s.State, "resourceBlob")
@@ -3526,7 +3526,7 @@ func (s *ApplicationSuite) TestReadUnitWithChangingState(c *gc.C) {
 	// fails nicely.
 	err := s.mysql.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	assertRemoved(c, s.mysql)
+	assertRemoved(c, s.State, s.mysql)
 	_, err = s.State.Unit("mysql/0")
 	c.Assert(err, gc.ErrorMatches, `unit "mysql/0" not found`)
 }
@@ -3562,7 +3562,7 @@ func (s *ApplicationSuite) TestConstraints(c *gc.C) {
 	// that the constraints are deleted...
 	err = s.mysql.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	assertRemoved(c, s.mysql)
+	assertRemoved(c, s.State, s.mysql)
 
 	// ...but we can check that old constraints do not affect new applications
 	// with matching names.
@@ -3595,7 +3595,7 @@ func (s *ApplicationSuite) TestArchConstraints(c *gc.C) {
 	// that the constraints are deleted...
 	err = s.mysql.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	assertRemoved(c, s.mysql)
+	assertRemoved(c, s.State, s.mysql)
 
 	// ...but we can check that old constraints do not affect new applications
 	// with matching names.
@@ -3652,7 +3652,7 @@ func (s *ApplicationSuite) TestConstraintsLifecycle(c *gc.C) {
 
 	// Removed (== Dead, for a application).
 	c.Assert(unit.EnsureDead(), jc.ErrorIsNil)
-	c.Assert(unit.Remove(), jc.ErrorIsNil)
+	c.Assert(unit.Remove(state.NewObjectStore(c, s.State)), jc.ErrorIsNil)
 	c.Assert(s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State)), jc.ErrorIsNil)
 	err = s.mysql.SetConstraints(cons1)
 	c.Assert(err, gc.ErrorMatches, `cannot set constraints: application is not found or not alive`)
@@ -3710,9 +3710,9 @@ func (s *ApplicationSuite) TestWatchUnitsBulkEvents(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = dying.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = dying.Remove()
+	err = dying.Remove(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
-	err = dead.Remove()
+	err = dead.Remove(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(alive.Name(), dying.Name())
 	wc.AssertNoChange()
@@ -3761,7 +3761,7 @@ func (s *ApplicationSuite) TestWatchUnitsLifecycle(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Remove unit, final change not detected.
-	err = slow.Remove()
+	err = slow.Remove(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 }
@@ -3863,13 +3863,13 @@ func (s *ApplicationSuite) TestWatchRelations(c *gc.C) {
 	wpxWatcherC.AssertNoChange()
 }
 
-func removeAllUnits(c *gc.C, s *state.Application) {
+func removeAllUnits(c *gc.C, st *state.State, s *state.Application) {
 	us, err := s.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
 	for _, u := range us {
 		err = u.EnsureDead()
 		c.Assert(err, jc.ErrorIsNil)
-		err = u.Remove()
+		err = u.Remove(state.NewObjectStore(c, st))
 		c.Assert(err, jc.ErrorIsNil)
 	}
 }
@@ -4621,7 +4621,7 @@ func (s *ApplicationSuite) TestDestroyApplicationRemovesConfig(c *gc.C) {
 	op.RemoveOffers = true
 	err = s.State.ApplyOperation(op)
 	c.Assert(err, jc.ErrorIsNil)
-	assertRemoved(c, s.mysql)
+	assertRemoved(c, s.State, s.mysql)
 }
 
 type CAASApplicationSuite struct {
@@ -5157,7 +5157,7 @@ func (s *CAASApplicationSuite) TestDestroyStillHasUnits(c *gc.C) {
 	c.Assert(unit.EnsureDead(), jc.ErrorIsNil)
 	assertLife(c, s.app, state.Dying)
 
-	c.Assert(unit.Remove(), jc.ErrorIsNil)
+	c.Assert(unit.Remove(state.NewObjectStore(c, s.State)), jc.ErrorIsNil)
 	assertCleanupCount(c, s.caasSt, 1)
 	// App not removed since cluster resources not cleaned up yet.
 	assertLife(c, s.app, state.Dead)
@@ -5168,7 +5168,7 @@ func (s *CAASApplicationSuite) TestDestroyOnceHadUnits(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = unit.Remove()
+	err = unit.Remove(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.app.Destroy()
@@ -5185,7 +5185,7 @@ func (s *CAASApplicationSuite) TestDestroyStaleNonZeroUnitCount(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = unit.Remove()
+	err = unit.Remove(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.app.Destroy()
@@ -5208,7 +5208,7 @@ func (s *CAASApplicationSuite) TestDestroyStaleZeroUnitCount(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	assertLife(c, s.app, state.Dying)
 
-	c.Assert(unit.Remove(), jc.ErrorIsNil)
+	c.Assert(unit.Remove(state.NewObjectStore(c, s.State)), jc.ErrorIsNil)
 	assertCleanupCount(c, s.caasSt, 1)
 	c.Assert(err, jc.ErrorIsNil)
 	// App not removed since cluster resources not cleaned up yet.
@@ -5326,7 +5326,7 @@ func (s *CAASApplicationSuite) TestDestroyQueuesUnitCleanup(c *gc.C) {
 		if i%2 != 0 {
 			assertLife(c, unit, state.Dying)
 		} else {
-			assertRemoved(c, unit)
+			assertRemoved(c, s.State, unit)
 		}
 	}
 
@@ -5703,7 +5703,7 @@ func (s *CAASApplicationSuite) TestUpsertCAASUnit(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `dead unit "cockroachdb/0" already exists`)
 	c.Assert(unit2, gc.IsNil)
 
-	err = unit.Remove()
+	err = unit.Remove(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = st.Cleanup(context.Background(), state.NewObjectStore(c, s.State))
