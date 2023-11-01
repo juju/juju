@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/cmd/juju/secrets/mocks"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/jujuclient"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type ListSuite struct {
@@ -48,6 +49,7 @@ func (s *ListSuite) TestListTabular(c *gc.C) {
 
 	uri := coresecrets.NewURI()
 	uri2 := coresecrets.NewURI()
+	uri3 := coresecrets.NewURI()
 	s.secretsAPI.EXPECT().ListSecrets(false, coresecrets.Filter{}).Return(
 		[]apisecrets.SecretDetails{{
 			Metadata: coresecrets.SecretMetadata{
@@ -57,6 +59,11 @@ func (s *ListSuite) TestListTabular(c *gc.C) {
 			Metadata: coresecrets.SecretMetadata{
 				URI:            uri2,
 				LatestRevision: 1, OwnerTag: "application-mariadb"},
+		}, {
+			Metadata: coresecrets.SecretMetadata{
+				URI:            uri3,
+				Label:          "my-secret",
+				LatestRevision: 1, OwnerTag: coretesting.ModelTag.String()},
 		}}, nil)
 	s.secretsAPI.EXPECT().Close().Return(nil)
 
@@ -64,10 +71,11 @@ func (s *ListSuite) TestListTabular(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
 	c.Assert(out, gc.Equals, fmt.Sprintf(`
-ID                    Owner    Rotation  Revision  Last updated
-%s  mariadb  never            1  0001-01-01  
-%s  mysql    hourly           2  0001-01-01  
-`[1:], uri2.ID, uri.ID))
+ID                    Name       Owner    Rotation  Revision  Last updated
+%s  my-secret  <model>  never            1  0001-01-01  
+%s  -          mariadb  never            1  0001-01-01  
+%s  -          mysql    hourly           2  0001-01-01  
+`[1:], uri3.ID, uri2.ID, uri.ID))
 }
 
 func (s *ListSuite) TestListYAML(c *gc.C) {
@@ -75,6 +83,7 @@ func (s *ListSuite) TestListYAML(c *gc.C) {
 
 	uri := coresecrets.NewURI()
 	uri2 := coresecrets.NewURI()
+	uri3 := coresecrets.NewURI()
 	s.secretsAPI.EXPECT().ListSecrets(false, coresecrets.Filter{}).Return(
 		[]apisecrets.SecretDetails{{
 			Metadata: coresecrets.SecretMetadata{
@@ -90,6 +99,11 @@ func (s *ListSuite) TestListYAML(c *gc.C) {
 				URI: uri2, Version: 1, LatestRevision: 1, OwnerTag: "application-mariadb",
 			},
 			Error: "boom",
+		}, {
+			Metadata: coresecrets.SecretMetadata{
+				URI: uri3, Version: 1, LatestRevision: 1,
+				Label: "my-secret", OwnerTag: coretesting.ModelTag.String(),
+			},
 		}}, nil)
 	s.secretsAPI.EXPECT().Close().Return(nil)
 
@@ -111,7 +125,13 @@ func (s *ListSuite) TestListYAML(c *gc.C) {
   created: 0001-01-01T00:00:00Z
   updated: 0001-01-01T00:00:00Z
   error: boom
-`[1:], uri.ID, uri2.ID))
+%s:
+  revision: 1
+  owner: <model>
+  name: my-secret
+  created: 0001-01-01T00:00:00Z
+  updated: 0001-01-01T00:00:00Z
+`[1:], uri.ID, uri2.ID, uri3.ID))
 }
 
 func (s *ListSuite) TestListJSON(c *gc.C) {

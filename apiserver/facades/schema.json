@@ -40432,6 +40432,9 @@
                 "DeleteSecretArg": {
                     "type": "object",
                     "properties": {
+                        "label": {
+                            "type": "string"
+                        },
                         "revisions": {
                             "type": "array",
                             "items": {
@@ -40444,7 +40447,8 @@
                     },
                     "additionalProperties": false,
                     "required": [
-                        "uri"
+                        "uri",
+                        "label"
                     ]
                 },
                 "DeleteSecretArgs": {
@@ -40520,6 +40524,9 @@
                                 "type": "string"
                             }
                         },
+                        "label": {
+                            "type": "string"
+                        },
                         "uri": {
                             "type": "string"
                         }
@@ -40527,6 +40534,7 @@
                     "additionalProperties": false,
                     "required": [
                         "uri",
+                        "label",
                         "applications"
                     ]
                 },
@@ -40705,6 +40713,9 @@
                 "SecretsFilter": {
                     "type": "object",
                     "properties": {
+                        "label": {
+                            "type": "string"
+                        },
                         "owner-tag": {
                             "type": "string"
                         },
@@ -40762,6 +40773,9 @@
                         "description": {
                             "type": "string"
                         },
+                        "existing-label": {
+                            "type": "string"
+                        },
                         "expire-time": {
                             "type": "string",
                             "format": "date-time"
@@ -40788,7 +40802,8 @@
                     "additionalProperties": false,
                     "required": [
                         "UpsertSecretArg",
-                        "uri"
+                        "uri",
+                        "existing-label"
                     ]
                 },
                 "UpdateUserSecretArgs": {
@@ -41420,6 +41435,9 @@
                 "DeleteSecretArg": {
                     "type": "object",
                     "properties": {
+                        "label": {
+                            "type": "string"
+                        },
                         "revisions": {
                             "type": "array",
                             "items": {
@@ -41432,7 +41450,8 @@
                     },
                     "additionalProperties": false,
                     "required": [
-                        "uri"
+                        "uri",
+                        "label"
                     ]
                 },
                 "DeleteSecretArgs": {
@@ -48732,6 +48751,9 @@
                 "DeleteSecretArg": {
                     "type": "object",
                     "properties": {
+                        "label": {
+                            "type": "string"
+                        },
                         "revisions": {
                             "type": "array",
                             "items": {
@@ -48744,7 +48766,8 @@
                     },
                     "additionalProperties": false,
                     "required": [
-                        "uri"
+                        "uri",
+                        "label"
                     ]
                 },
                 "DeleteSecretArgs": {
@@ -53247,6 +53270,9 @@
                 "DeleteSecretArg": {
                     "type": "object",
                     "properties": {
+                        "label": {
+                            "type": "string"
+                        },
                         "revisions": {
                             "type": "array",
                             "items": {
@@ -53259,7 +53285,8 @@
                     },
                     "additionalProperties": false,
                     "required": [
-                        "uri"
+                        "uri",
+                        "label"
                     ]
                 },
                 "DeleteSecretArgs": {

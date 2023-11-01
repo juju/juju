@@ -18,12 +18,13 @@ type addSecretCommand struct {
 	modelcmd.ModelCommandBase
 
 	SecretUpsertContentCommand
+	name           string
 	secretsAPIFunc func() (AddSecretsAPI, error)
 }
 
 // AddSecretsAPI is the secrets client API.
 type AddSecretsAPI interface {
-	CreateSecret(label, description string, data map[string]string) (string, error)
+	CreateSecret(name, description string, data map[string]string) (string, error)
 	Close() error
 }
 
@@ -56,13 +57,13 @@ A secret is owned by the model, meaning only the model admin
 can manage it, ie grant/revoke access, update, remove etc.
 `
 	addSecretExamples = `
-    juju add-secret token=34ae35facd4
-    juju add-secret key#base64=AA==
-    juju add-secret key#file=/path/to/file another-key=s3cret
-    juju add-secret --label db-password \
+    juju add-secret my-apitoken token=34ae35facd4
+    juju add-secret my-secret key#base64=AA==
+    juju add-secret my-secret key#file=/path/to/file another-key=s3cret
+    juju add-secret db-password \
         --info "my database password" \
         data#base64=s3cret== 
-    juju add-secret --label db-password \
+    juju add-secret db-password \
         --info "my database password" \
         --file=/path/to/file
 `
@@ -72,7 +73,7 @@ can manage it, ie grant/revoke access, update, remove etc.
 func (c *addSecretCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:     "add-secret",
-		Args:     "[key[#base64|#file]=value...]",
+		Args:     "<name> [key[#base64|#file]=value...]",
 		Purpose:  "Add a new secret.",
 		Doc:      addSecretDoc,
 		Examples: addSecretExamples,
@@ -81,6 +82,11 @@ func (c *addSecretCommand) Info() *cmd.Info {
 
 // Init implements cmd.Command.
 func (c *addSecretCommand) Init(args []string) error {
+	if len(args) < 1 {
+		return errors.New("secret name needs to be supplied as the first argument")
+	}
+	c.name = args[0]
+	args = args[1:]
 	if err := c.SecretUpsertContentCommand.Init(args); err != nil {
 		return err
 	}
@@ -98,7 +104,7 @@ func (c *addSecretCommand) Run(ctx *cmd.Context) error {
 	}
 	defer secretsAPI.Close()
 
-	uri, err := secretsAPI.CreateSecret(c.Label, c.Description, c.Data)
+	uri, err := secretsAPI.CreateSecret(c.name, c.Description, c.Data)
 	if err != nil {
 		return err
 	}

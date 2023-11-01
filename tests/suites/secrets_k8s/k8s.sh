@@ -12,7 +12,7 @@ run_secrets() {
 	juju --show-log trust nginx --scope=cluster
 
 	# create user secrets.
-	juju --show-log add-secret owned-by="$model_name" --label "$model_name" --info "this is a user secret"
+	juju --show-log add-secret mysecret owned-by="$model_name" --label "$model_name" --info "this is a user secret"
 
 	wait_for "active" '.applications["hello"] | ."application-status".current'
 	wait_for "hello" "$(idle_condition "hello" 0)"
@@ -109,7 +109,7 @@ run_user_secrets() {
 	juju --show-log deploy hello-kubecon
 
 	# create user secrets.
-	secret_uri=$(juju --show-log add-secret owned-by="$model_name-1" --info "this is a user secret")
+	secret_uri=$(juju --show-log add-secret mysecret owned-by="$model_name-1" --info "this is a user secret")
 	secret_short_uri=${secret_uri##*:}
 
 	check_contains "$(juju --show-log show-secret "$secret_uri" --revisions | yq ".${secret_short_uri}.description")" 'this is a user secret'
@@ -239,7 +239,7 @@ run_user_secret_drain() {
 	wait_for "active" '.applications["hello"] | ."application-status".current'
 	wait_for "hello" "$(idle_condition "hello" 0)"
 
-	secret_uri=$(juju --show-log add-secret owned-by="$model_name-1" --info "this is a user secret")
+	secret_uri=$(juju --show-log add-secret mysecret owned-by="$model_name-1" --info "this is a user secret")
 	secret_short_uri=${secret_uri##*:}
 
 	juju show-secret --reveal "$secret_uri"

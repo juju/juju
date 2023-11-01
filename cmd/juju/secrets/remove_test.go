@@ -49,7 +49,7 @@ func (s *removeSuite) TestRemoveWithRevision(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	uri := coresecrets.NewURI()
-	s.secretsAPI.EXPECT().RemoveSecret(uri, ptr(4)).Return(nil)
+	s.secretsAPI.EXPECT().RemoveSecret(uri, "", ptr(4)).Return(nil)
 	s.secretsAPI.EXPECT().Close().Return(nil)
 
 	_, err := cmdtesting.RunCommand(c, secrets.NewRemoveCommandForTest(s.store, s.secretsAPI), uri.String(), "--revision", "4")
@@ -60,9 +60,19 @@ func (s *removeSuite) TestRemove(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	uri := coresecrets.NewURI()
-	s.secretsAPI.EXPECT().RemoveSecret(uri, nil).Return(nil)
+	s.secretsAPI.EXPECT().RemoveSecret(uri, "", nil).Return(nil)
 	s.secretsAPI.EXPECT().Close().Return(nil)
 
 	_, err := cmdtesting.RunCommand(c, secrets.NewRemoveCommandForTest(s.store, s.secretsAPI), uri.String())
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *removeSuite) TestRemoveByName(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	s.secretsAPI.EXPECT().RemoveSecret(nil, "my-secret", nil).Return(nil)
+	s.secretsAPI.EXPECT().Close().Return(nil)
+
+	_, err := cmdtesting.RunCommand(c, secrets.NewRemoveCommandForTest(s.store, s.secretsAPI), "my-secret")
 	c.Assert(err, jc.ErrorIsNil)
 }

@@ -223,6 +223,7 @@ type SecretRevisionInfo struct {
 // Filter is used when querying secrets.
 type Filter struct {
 	URI      *URI
+	Label    *string
 	Revision *int
 	OwnerTag *string
 }

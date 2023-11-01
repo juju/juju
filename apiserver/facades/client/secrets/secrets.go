@@ -84,7 +84,8 @@ func (s *SecretsAPI) ListSecrets(arg params.ListSecretsArgs) (params.ListSecretR
 		}
 	}
 	filter := state.SecretsFilter{
-		URI: uri,
+		URI:   uri,
+		Label: arg.Filter.Label,
 	}
 	if arg.Filter.OwnerTag != nil {
 		tag, err := names.ParseTag(*arg.Filter.OwnerTag)
@@ -261,7 +262,7 @@ func (s *SecretsAPI) CreateSecrets(args params.CreateSecretArgs) (params.StringR
 		ID, err := s.createSecret(backend, arg)
 		result.Results[i].Result = ID
 		if errors.Is(err, state.LabelExists) {
-			err = errors.AlreadyExistsf("secret with label %q", *arg.Label)
+			err = errors.AlreadyExistsf("secret with name %q", *arg.Label)
 		}
 		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
@@ -383,7 +384,7 @@ func (s *SecretsAPI) UpdateSecrets(args params.UpdateUserSecretArgs) (params.Err
 	for i, arg := range args.Args {
 		err := s.updateSecret(backend, arg)
 		if errors.Is(err, state.LabelExists) {
-			err = errors.AlreadyExistsf("secret with label %q", *arg.Label)
+			err = errors.AlreadyExistsf("secret with name %q", *arg.Label)
 		}
 		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
@@ -394,7 +395,15 @@ func (s *SecretsAPI) updateSecret(backend provider.SecretsBackend, arg params.Up
 	if err := arg.Validate(); err != nil {
 		return errors.Trace(err)
 	}
-	uri, err := coresecrets.ParseURI(arg.URI)
+	var (
+		uri *coresecrets.URI
+		err error
+	)
+	if arg.URI != "" {
+		uri, err = coresecrets.ParseURI(arg.URI)
+	} else {
+		uri, err = s.getSecretURI(s.modelUUID, arg.ExistingLabel)
+	}
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -470,7 +479,7 @@ func (s *SecretsAPI) RemoveSecrets(args params.DeleteSecretArgs) (params.ErrorRe
 	// TODO(secrets): JUJU-4719.
 	return commonsecrets.RemoveUserSecrets(
 		s.secretsState, s.adminBackendConfigGetter,
-		s.authTag, args,
+		s.authTag, args, s.modelUUID,
 		func(uri *coresecrets.URI) error {
 			if err := s.checkCanWrite(); err != nil {
 				return errors.Trace(err)
@@ -506,19 +515,49 @@ func (s *SecretsAPI) RevokeSecret(arg params.GrantRevokeUserSecretArg) (params.E
 
 type grantRevokeFunc func(*coresecrets.URI, state.SecretAccessParams) error
 
+func (s *SecretsAPI) getSecretURI(modelUUID, label string) (*coresecrets.URI, error) {
+	results, err := s.secretsState.ListSecrets(state.SecretsFilter{
+		Label:     &label,
+		OwnerTags: []names.Tag{names.NewModelTag(modelUUID)},
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(results) == 0 {
+		return nil, errors.NotFoundf("secret %q", label)
+	}
+	if len(results) > 1 {
+		return nil, errors.NotFoundf("more than 1 secret with label %q", label)
+	}
+	return results[0].URI, nil
+}
+
 func (s *SecretsAPI) secretsGrantRevoke(arg params.GrantRevokeUserSecretArg, op grantRevokeFunc) (params.ErrorResults, error) {
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(arg.Applications)),
+	}
+
+	if arg.URI == "" && arg.Label == "" {
+		return results, errors.New("must specify either URI or name")
 	}
 
 	if err := s.checkCanWrite(); err != nil {
 		return results, errors.Trace(err)
 	}
 
-	uri, err := coresecrets.ParseURI(arg.URI)
+	var (
+		uri *coresecrets.URI
+		err error
+	)
+	if arg.URI != "" {
+		uri, err = coresecrets.ParseURI(arg.URI)
+	} else {
+		uri, err = s.getSecretURI(s.modelUUID, arg.Label)
+	}
 	if err != nil {
 		return results, errors.Trace(err)
 	}
+
 	scopeTag := names.NewModelTag(s.modelUUID)
 	one := func(appName string) error {
 		subjectTag := names.NewApplicationTag(appName)

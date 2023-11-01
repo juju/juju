@@ -14,13 +14,11 @@ import (
 type SecretUpsertContentCommand struct {
 	Data        map[string]string
 	Description string
-	Label       string
 	FileName    string
 }
 
 // SetFlags implements cmd.Command.
 func (c *SecretUpsertContentCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.StringVar(&c.Label, "label", "", "a label used to identify the secret in hooks")
 	f.StringVar(&c.Description, "info", "", "the secret description")
 	f.StringVar(&c.FileName, "file", "", "a YAML file containing secret key values")
 }
