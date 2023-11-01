@@ -356,6 +356,7 @@ func (s *SecretsManagerAPI) updateSecret(arg params.UpdateSecretArg) error {
 func (s *SecretsManagerAPI) RemoveSecrets(args params.DeleteSecretArgs) (params.ErrorResults, error) {
 	return commonsecrets.RemoveSecretsForAgent(
 		s.secretsState, s.adminConfigGetter, args,
+		s.modelUUID,
 		func(uri *coresecrets.URI) error {
 			_, err := s.canManage(uri)
 			return errors.Trace(err)

@@ -141,6 +141,9 @@ func (arg UpdateUserSecretArg) Validate() error {
 	if arg.URI == "" && arg.ExistingLabel == "" {
 		return errors.New("must specify either URI or label")
 	}
+	if arg.URI != "" && arg.ExistingLabel != "" {
+		return errors.New("must specify either URI or label but not both")
+	}
 	return nil
 }
 

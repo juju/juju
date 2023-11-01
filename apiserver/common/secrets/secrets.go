@@ -547,10 +547,13 @@ func GetSecretMetadata(
 func RemoveSecretsForAgent(
 	removeState SecretsRemoveState, adminConfigGetter BackendAdminConfigGetter,
 	args params.DeleteSecretArgs,
+	modelUUID string,
 	canDelete func(*coresecrets.URI) error,
 ) (params.ErrorResults, error) {
 	return removeSecrets(
-		removeState, adminConfigGetter, args, canDelete,
+		removeState, adminConfigGetter, args,
+		modelUUID,
+		canDelete,
 		func(provider.SecretBackendProvider, provider.ModelBackendConfig, provider.SecretRevisions) error {
 			return nil
 		},
@@ -562,10 +565,11 @@ func RemoveSecretsForAgent(
 func RemoveUserSecrets(
 	removeState SecretsRemoveState, adminConfigGetter BackendAdminConfigGetter,
 	authTag names.Tag, args params.DeleteSecretArgs,
+	modelUUID string,
 	canDelete func(*coresecrets.URI) error,
 ) (params.ErrorResults, error) {
 	return removeSecrets(
-		removeState, adminConfigGetter, args, canDelete,
+		removeState, adminConfigGetter, args, modelUUID, canDelete,
 		func(p provider.SecretBackendProvider, cfg provider.ModelBackendConfig, revs provider.SecretRevisions) error {
 			backend, err := p.NewBackend(&cfg)
 			if err != nil {
@@ -584,8 +588,11 @@ func RemoveUserSecrets(
 	)
 }
 
-func getSecretURIForLabel(secretsState ListSecretsState, label string) (*coresecrets.URI, error) {
-	results, err := secretsState.ListSecrets(state.SecretsFilter{Label: &label})
+func getSecretURIForLabel(secretsState ListSecretsState, modelUUID string, label string) (*coresecrets.URI, error) {
+	results, err := secretsState.ListSecrets(state.SecretsFilter{
+		Label:     &label,
+		OwnerTags: []names.Tag{names.NewModelTag(modelUUID)},
+	})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -601,6 +608,7 @@ func getSecretURIForLabel(secretsState ListSecretsState, label string) (*coresec
 func removeSecrets(
 	removeState SecretsRemoveState, adminConfigGetter BackendAdminConfigGetter,
 	args params.DeleteSecretArgs,
+	modelUUID string,
 	canDelete func(*coresecrets.URI) error,
 	removeFromBackend func(provider.SecretBackendProvider, provider.ModelBackendConfig, provider.SecretRevisions) error,
 ) (params.ErrorResults, error) {
@@ -676,7 +684,7 @@ func removeSecrets(
 		if arg.URI != "" {
 			uri, err = coresecrets.ParseURI(arg.URI)
 		} else {
-			uri, err = getSecretURIForLabel(removeState, arg.Label)
+			uri, err = getSecretURIForLabel(removeState, modelUUID, arg.Label)
 		}
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)

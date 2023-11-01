@@ -402,7 +402,7 @@ func (s *SecretsAPI) updateSecret(backend provider.SecretsBackend, arg params.Up
 	if arg.URI != "" {
 		uri, err = coresecrets.ParseURI(arg.URI)
 	} else {
-		uri, err = s.getSecretURI(arg.ExistingLabel)
+		uri, err = s.getSecretURI(s.modelUUID, arg.ExistingLabel)
 	}
 	if err != nil {
 		return errors.Trace(err)
@@ -479,7 +479,7 @@ func (s *SecretsAPI) RemoveSecrets(args params.DeleteSecretArgs) (params.ErrorRe
 	// TODO(secrets): JUJU-4719.
 	return commonsecrets.RemoveUserSecrets(
 		s.secretsState, s.adminBackendConfigGetter,
-		s.authTag, args,
+		s.authTag, args, s.modelUUID,
 		func(uri *coresecrets.URI) error {
 			if err := s.checkCanWrite(); err != nil {
 				return errors.Trace(err)
@@ -515,8 +515,11 @@ func (s *SecretsAPI) RevokeSecret(arg params.GrantRevokeUserSecretArg) (params.E
 
 type grantRevokeFunc func(*coresecrets.URI, state.SecretAccessParams) error
 
-func (s *SecretsAPI) getSecretURI(label string) (*coresecrets.URI, error) {
-	results, err := s.secretsState.ListSecrets(state.SecretsFilter{Label: &label})
+func (s *SecretsAPI) getSecretURI(modelUUID, label string) (*coresecrets.URI, error) {
+	results, err := s.secretsState.ListSecrets(state.SecretsFilter{
+		Label:     &label,
+		OwnerTags: []names.Tag{names.NewModelTag(modelUUID)},
+	})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -549,7 +552,7 @@ func (s *SecretsAPI) secretsGrantRevoke(arg params.GrantRevokeUserSecretArg, op 
 	if arg.URI != "" {
 		uri, err = coresecrets.ParseURI(arg.URI)
 	} else {
-		uri, err = s.getSecretURI(arg.Label)
+		uri, err = s.getSecretURI(s.modelUUID, arg.Label)
 	}
 	if err != nil {
 		return results, errors.Trace(err)

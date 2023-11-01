@@ -156,7 +156,7 @@ func gatherSecretInfo(secrets []apisecrets.SecretDetails, reveal, includeRevisio
 		if owner, err := names.ParseTag(m.Metadata.OwnerTag); err == nil {
 			ownerId = owner.Id()
 			if owner.Kind() == names.ModelTagKind {
-				// Model owned (user) secrets have a name, ot a label.
+				// Model owned (user) secrets have a name, not a label.
 				ownerId = "<" + owner.Kind() + ">"
 				name = m.Metadata.Label
 				label = ""

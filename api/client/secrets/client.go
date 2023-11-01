@@ -142,6 +142,12 @@ func (c *Client) UpdateSecret(
 			Content: params.SecretContentParams{Data: data},
 		},
 	}
+	if uri == nil && name == "" {
+		return errors.New("must specify either URI or name")
+	}
+	if uri != nil && name != "" {
+		return errors.New("must specify either URI or name but not both")
+	}
 	if uri != nil {
 		arg.URI = uri.String()
 	}

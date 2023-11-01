@@ -53,7 +53,7 @@ Grant applications access to view the value of a specified secret.
 `
 	grantSecretExamples = `
     juju grant-secret my-secret ubuntu-k8s
-	juju grant-secret 9m4e2mr0ui3e8a215n4g ubuntu-k8s,prometheus-k8s
+    juju grant-secret 9m4e2mr0ui3e8a215n4g ubuntu-k8s,prometheus-k8s
 `
 )
 
@@ -143,7 +143,7 @@ Revoke applications' access to view the value of a specified secret.
 `
 	revokeSecretExamples = `
     juju revoke-secret my-secret ubuntu-k8s
-	juju revoke-secret 9m4e2mr0ui3e8a215n4g ubuntu-k8s,prometheus-k8s
+    juju revoke-secret 9m4e2mr0ui3e8a215n4g ubuntu-k8s,prometheus-k8s
 `
 )
 
