@@ -20,6 +20,7 @@ type showSecretsCommand struct {
 
 	listSecretsAPIFunc func() (ListSecretsAPI, error)
 	uri                *coresecrets.URI
+	name               string
 	revealSecrets      bool
 	revisions          bool
 	revision           int
@@ -36,6 +37,7 @@ Use --revisions to see the metadata for each revision.
 `
 
 const showSecretsExamples = `
+    juju show-secret my-secret
     juju show-secret 9m4e2mr0ui3e8a215n4g
     juju show-secret secret:9m4e2mr0ui3e8a215n4g --revision 2
     juju show-secret 9m4e2mr0ui3e8a215n4g --revision 2 --reveal
@@ -64,7 +66,7 @@ func (c *showSecretsCommand) secretsAPI() (ListSecretsAPI, error) {
 func (c *showSecretsCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:     "show-secret",
-		Args:     "<ID>",
+		Args:     "<ID>|<name>",
 		Purpose:  "Shows details for a specific secret.",
 		Doc:      showSecretsDoc,
 		Examples: showSecretsExamples,
@@ -90,7 +92,7 @@ func (c *showSecretsCommand) Init(args []string) error {
 	}
 	uri, err := coresecrets.ParseURI(args[0])
 	if err != nil {
-		return err
+		c.name = args[0]
 	}
 	c.uri = uri
 	if c.revisions {
@@ -126,13 +128,19 @@ func (c *showSecretsCommand) Run(ctxt *cmd.Context) error {
 	if c.revision > 0 {
 		filter.Revision = &c.revision
 	}
+	if c.name != "" {
+		filter.Label = &c.name
+	}
 	result, err := api.ListSecrets(c.revealSecrets, filter)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	details := gatherSecretInfo(result, c.revealSecrets, c.revisions)
 	if len(details) == 0 {
-		return errors.NotFoundf("secret %q", c.uri.ID)
+		if c.uri != nil {
+			return errors.NotFoundf("secret %q", c.uri.ID)
+		}
+		return errors.NotFoundf("secret %q", c.name)
 	}
 
 	return c.out.Write(ctxt, details)

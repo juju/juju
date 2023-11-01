@@ -373,3 +373,18 @@ func (mr *MockSecretsRemoveStateMockRecorder) ListSecretRevisions(arg0 interface
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListSecretRevisions", reflect.TypeOf((*MockSecretsRemoveState)(nil).ListSecretRevisions), arg0)
 }
+
+// ListSecrets mocks base method.
+func (m *MockSecretsRemoveState) ListSecrets(arg0 state.SecretsFilter) ([]*secrets.SecretMetadata, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListSecrets", arg0)
+	ret0, _ := ret[0].([]*secrets.SecretMetadata)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListSecrets indicates an expected call of ListSecrets.
+func (mr *MockSecretsRemoveStateMockRecorder) ListSecrets(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListSecrets", reflect.TypeOf((*MockSecretsRemoveState)(nil).ListSecrets), arg0)
+}

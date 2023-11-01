@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"reflect"
 	"strconv"
 	"time"
 
@@ -1363,35 +1364,46 @@ func (i *importer) makeApplicationDoc(a description.Application) (*applicationDo
 	return appDoc, nil
 }
 
+// makeCharmOrigin returns the charm origin for an application
+//
+// Previous versions of the Juju server and clients have treated applications charm
+// origins very loosely, particularly during `refresh -- switch`s. The server performed
+// no validation on origins received from the client, and client often mutated them
+// incorrectly. For instance, when switching from a ch charm to local, pylibjuju simply
+// send back a copy of the ch charm origin, whereas the CLI only set the source to local.
+// Both resulted in incorrect/invalidate origins.
+//
+// Calculate the origin Source and Revision from the charm url. Ensure ID, Hash and Channel
+// are dropped from local charm. Keep ID, Hash and Channel (for ch charms) and Platform (always)
+// we get from the origin. We can trust these since supported clients cannot break these
+//
+// This was fixed in pylibjuju 3.2.3.0 and juju 3.3.0. As of writing, no versions of the
+// server validate new charm origins on calls to SetCharm. Ideally, the client shouldn't
+// handle charm origins at all, being an implementation detail. But this will probably have
+// to wait until the api re-write
+//
+// https://bugs.launchpad.net/juju/+bug/2039267
+// https://github.com/juju/python-libjuju/issues/962
+//
+// TODO: Once we have confidence in charm origins, do not parse charm url and simplify
+// into a translation layer
 func (i *importer) makeCharmOrigin(a description.Application) (*CharmOrigin, error) {
-	curlStr := a.CharmURL()
+	sourceOrigin := a.CharmOrigin()
+	curl, err := charm.ParseURL(a.CharmURL())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	// Fix bad datasets from LP 1999060 during migration.
 	// ID and Hash missing from N-1 of N applications'
 	// charm origins when deployed using the same charm.
-	if foundOrigin, ok := i.charmOrigins[curlStr]; ok {
+	if foundOrigin, ok := i.charmOrigins[curl.String()]; ok {
 		return foundOrigin, nil
 	}
 
-	co := a.CharmOrigin()
-	rev := co.Revision()
-	// If revision is empty we export revision -1. In this case
-	// parse the revision from the url
-	// NOTE: We use <= 0 because some old versions of juju default
-	// revision to 0 when it's empty
-	if rev <= 0 {
-		curl, err := charm.ParseURL(a.CharmURL())
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		rev = curl.Revision
-	}
-
 	var channel *Channel
-	// Only charmhub charms will have a channel. Local charms
-	// should not have a channel, so drop even if provided.
-	serialized := co.Channel()
-	if serialized != "" && corecharm.CharmHub.Matches(co.Source()) {
+	serialized := sourceOrigin.Channel()
+	if serialized != "" && charm.CharmHub.Matches(curl.Schema) {
 		c, err := charm.ParseChannelNormalize(serialized)
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -1405,11 +1417,9 @@ func (i *importer) makeCharmOrigin(a description.Application) (*CharmOrigin, err
 			Risk:   string(c.Risk),
 			Branch: c.Branch,
 		}
-	} else if serialized != "" && corecharm.Local.Matches(co.Source()) {
-		i.logger.Warningf("Dropping channel: %q for application %q, should not exist", serialized, a.Name())
 	}
 
-	p, err := corecharm.ParsePlatformNormalize(co.Platform())
+	p, err := corecharm.ParsePlatformNormalize(sourceOrigin.Platform())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1420,16 +1430,33 @@ func (i *importer) makeCharmOrigin(a description.Application) (*CharmOrigin, err
 	}
 
 	// We can hardcode type to charm as we never store bundles in state.
-	origin := &CharmOrigin{
-		Source:   co.Source(),
-		Type:     "charm",
-		ID:       co.ID(),
-		Hash:     co.Hash(),
-		Revision: &rev,
-		Channel:  channel,
-		Platform: platform,
+	var origin *CharmOrigin
+	if charm.Local.Matches(curl.Schema) {
+		origin = &CharmOrigin{
+			Source:   corecharm.Local.String(),
+			Type:     "charm",
+			Revision: &curl.Revision,
+			Platform: platform,
+		}
+	} else if charm.CharmHub.Matches(curl.Schema) {
+		origin = &CharmOrigin{
+			Source:   corecharm.CharmHub.String(),
+			Type:     "charm",
+			Revision: &curl.Revision,
+			ID:       sourceOrigin.ID(),
+			Hash:     sourceOrigin.Hash(),
+			Channel:  channel,
+			Platform: platform,
+		}
+	} else {
+		return nil, errors.Errorf("Unrecognised charm url schema %q", curl.Schema)
 	}
-	i.charmOrigins[curlStr] = origin
+
+	if !reflect.DeepEqual(sourceOrigin, origin) {
+		i.logger.Warningf("Source origin for application %q does not match charm url. Normalising", a.Name())
+	}
+
+	i.charmOrigins[curl.String()] = origin
 	return origin, nil
 }
 
