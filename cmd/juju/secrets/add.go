@@ -42,9 +42,8 @@ func (c *addSecretCommand) secretsAPI() (AddSecretsAPI, error) {
 	return apisecrets.NewClient(root), nil
 }
 
-// Info implements cmd.Command.
-func (c *addSecretCommand) Info() *cmd.Info {
-	doc := `
+const (
+	addSecretDoc = `
 Add a secret with a list of key values.
 
 If a key has the '#base64' suffix, the value is already in base64 format and no
@@ -55,23 +54,28 @@ If a key has the '#file' suffix, the value is read from the corresponding file.
 
 A secret is owned by the model, meaning only the model admin
 can manage it, ie grant/revoke access, update, remove etc.
-
-Examples:
-    add-secret token=34ae35facd4
-    add-secret key#base64=AA==
-    add-secret key#file=/path/to/file another-key=s3cret
-    add-secret --label db-password \
+`
+	addSecretExamples = `
+    juju add-secret token=34ae35facd4
+    juju add-secret key#base64=AA==
+    juju add-secret key#file=/path/to/file another-key=s3cret
+    juju add-secret --label db-password \
         --info "my database password" \
         data#base64=s3cret== 
-    add-secret --label db-password \
+    juju add-secret --label db-password \
         --info "my database password" \
         --file=/path/to/file
 `
+)
+
+// Info implements cmd.Command.
+func (c *addSecretCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "add-secret",
-		Args:    "[key[#base64|#file]=value...]",
-		Purpose: "Add a new secret.",
-		Doc:     doc,
+		Name:     "add-secret",
+		Args:     "[key[#base64|#file]=value...]",
+		Purpose:  "Add a new secret.",
+		Doc:      addSecretDoc,
+		Examples: addSecretExamples,
 	})
 }
 

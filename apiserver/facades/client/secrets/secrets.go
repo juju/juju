@@ -250,7 +250,7 @@ func (s *SecretsAPI) CreateSecrets(args params.CreateSecretArgs) (params.StringR
 	result := params.StringResults{
 		Results: make([]params.StringResult, len(args.Args)),
 	}
-	if err := s.checkCanAdmin(); err != nil {
+	if err := s.checkCanWrite(); err != nil {
 		return result, errors.Trace(err)
 	}
 	backend, err := s.getBackendForUserSecretsWrite()
@@ -373,7 +373,7 @@ func (s *SecretsAPI) UpdateSecrets(args params.UpdateUserSecretArgs) (params.Err
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Args)),
 	}
-	if err := s.checkCanAdmin(); err != nil {
+	if err := s.checkCanWrite(); err != nil {
 		return result, errors.Trace(err)
 	}
 	backend, err := s.getBackendForUserSecretsWrite()
@@ -472,8 +472,7 @@ func (s *SecretsAPI) RemoveSecrets(args params.DeleteSecretArgs) (params.ErrorRe
 		s.secretsState, s.adminBackendConfigGetter,
 		s.authTag, args,
 		func(uri *coresecrets.URI) error {
-			// Only admin can delete user secrets.
-			if err := s.checkCanAdmin(); err != nil {
+			if err := s.checkCanWrite(); err != nil {
 				return errors.Trace(err)
 			}
 			md, err := s.secretsState.GetSecret(uri)

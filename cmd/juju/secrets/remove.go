@@ -44,21 +44,24 @@ func (c *removeSecretCommand) secretsAPI() (RemoveSecretsAPI, error) {
 	return apisecrets.NewClient(root), nil
 }
 
+const (
+	removeSecretDoc = `
+Remove all the revisions of a secret with the specified URI or remove the provided revision only.
+`
+	removeSecretExamples = `
+    juju remove-secret secret:9m4e2mr0ui3e8a215n4g
+    juju remove-secret secret:9m4e2mr0ui3e8a215n4g --revision 4
+`
+)
+
 // Info implements cmd.Command.
 func (c *removeSecretCommand) Info() *cmd.Info {
-	doc := `
-Remove all the revisions of a secret with the specified URI or remove the provided revision only.
-
-Examples:
-    remove-secret secret:9m4e2mr0ui3e8a215n4g
-
-    remove-secret secret:9m4e2mr0ui3e8a215n4g --revision 4
-`
 	return jujucmd.Info(&cmd.Info{
-		Name:    "remove-secret",
-		Args:    "<ID>",
-		Purpose: "Remove a existing secret.",
-		Doc:     doc,
+		Name:     "remove-secret",
+		Args:     "<ID>",
+		Purpose:  "Remove a existing secret.",
+		Doc:      removeSecretDoc,
+		Examples: removeSecretExamples,
 	})
 }
 
