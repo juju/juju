@@ -70,16 +70,15 @@ run_user_secrets() {
 	echo
 
 	model_name=${1}
-	model_uuid=$(juju show-model $model_name --format json | jq -r ".[\"${model_name}\"][\"model-uuid\"]")
 
 	app_name='easyrsa-user-secrets'
 	juju --show-log deploy easyrsa "$app_name"
 
 	# create user secrets.
-	secret_uri=$(juju --show-log add-secret owned-by="$model_name-1" --info "this is a user secret")
+	secret_uri=$(juju --show-log add-secret mysecret owned-by="$model_name-1" --info "this is a user secret")
 	secret_short_uri=${secret_uri##*:}
 
-	check_contains "$(juju --show-log show-secret "$secret_uri" --revisions | yq ".${secret_short_uri}.description")" 'this is a user secret'
+	check_contains "$(juju --show-log show-secret mysecret --revisions | yq ".${secret_short_uri}.description")" 'this is a user secret'
 
 	# create a new revision 2.
 	juju --show-log update-secret "$secret_uri" --info info owned-by="$model_name-2"
@@ -87,14 +86,14 @@ run_user_secrets() {
 
 	# grant secret to the app, and now the application can access the revision 2.
 	check_contains "$(juju exec --unit "$app_name"/0 -- secret-get "$secret_uri" 2>&1)" 'permission denied'
-	juju --show-log grant-secret "$secret_uri" "$app_name"
+	juju --show-log grant-secret mysecret "$app_name"
 	check_contains "$(juju exec --unit "$app_name/0" -- secret-get $secret_short_uri)" "owned-by: $model_name-2"
 
 	# create a new revision 3.
 	juju --show-log update-secret "$secret_uri" owned-by="$model_name-3"
 
 	check_contains "$(juju --show-log show-secret $secret_uri --revisions | yq .${secret_short_uri}.revision)" '3'
-	check_contains "$(juju --show-log show-secret $secret_uri --revisions | yq .${secret_short_uri}.owner)" "$model_uuid"
+	check_contains "$(juju --show-log show-secret $secret_uri --revisions | yq .${secret_short_uri}.owner)" "<model>"
 	check_contains "$(juju --show-log show-secret $secret_uri --revisions | yq .${secret_short_uri}.description)" 'info'
 	check_contains "$(juju --show-log show-secret $secret_uri --revisions | yq ".${secret_short_uri}.revisions | length")" '3'
 
@@ -103,7 +102,7 @@ run_user_secrets() {
 	check_contains "$(juju --show-log show-secret $secret_uri --reveal --revision 3 | yq .${secret_short_uri}.content)" "owned-by: $model_name-3"
 
 	# turn on --auto-prune
-	juju --show-log update-secret "$secret_uri" --auto-prune=true
+	juju --show-log update-secret mysecret --auto-prune=true
 
 	# revision 1 should be pruned.
 	# revision 2 is still been used by the app, so it should not be pruned.
@@ -121,10 +120,10 @@ run_user_secrets() {
 	check_contains "$(juju --show-log show-secret $secret_uri --revisions | yq ".${secret_short_uri}.revisions | length")" '1'
 	check_contains "$(juju --show-log show-secret $secret_uri --reveal --revision 3 | yq .${secret_short_uri}.content)" "owned-by: $model_name-3"
 
-	juju --show-log revoke-secret $secret_uri "$app_name"
+	juju --show-log revoke-secret mysecret "$app_name"
 	check_contains "$(juju exec --unit "$app_name"/0 -- secret-get "$secret_uri" 2>&1)" 'permission denied'
 
-	juju --show-log remove-secret $secret_uri
+	juju --show-log remove-secret mysecret
 	check_contains "$(juju --show-log secrets --format yaml | yq length)" '0'
 }
 

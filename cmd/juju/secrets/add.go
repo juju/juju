@@ -18,12 +18,13 @@ type addSecretCommand struct {
 	modelcmd.ModelCommandBase
 
 	SecretUpsertContentCommand
+	name           string
 	secretsAPIFunc func() (AddSecretsAPI, error)
 }
 
 // AddSecretsAPI is the secrets client API.
 type AddSecretsAPI interface {
-	CreateSecret(label, description string, data map[string]string) (string, error)
+	CreateSecret(name, description string, data map[string]string) (string, error)
 	Close() error
 }
 
@@ -42,9 +43,8 @@ func (c *addSecretCommand) secretsAPI() (AddSecretsAPI, error) {
 	return apisecrets.NewClient(root), nil
 }
 
-// Info implements cmd.Command.
-func (c *addSecretCommand) Info() *cmd.Info {
-	doc := `
+const (
+	addSecretDoc = `
 Add a secret with a list of key values.
 
 If a key has the '#base64' suffix, the value is already in base64 format and no
@@ -55,28 +55,38 @@ If a key has the '#file' suffix, the value is read from the corresponding file.
 
 A secret is owned by the model, meaning only the model admin
 can manage it, ie grant/revoke access, update, remove etc.
-
-Examples:
-    add-secret token=34ae35facd4
-    add-secret key#base64=AA==
-    add-secret key#file=/path/to/file another-key=s3cret
-    add-secret --label db-password \
+`
+	addSecretExamples = `
+    juju add-secret my-apitoken token=34ae35facd4
+    juju add-secret my-secret key#base64=AA==
+    juju add-secret my-secret key#file=/path/to/file another-key=s3cret
+    juju add-secret db-password \
         --info "my database password" \
         data#base64=s3cret== 
-    add-secret --label db-password \
+    juju add-secret db-password \
         --info "my database password" \
         --file=/path/to/file
 `
+)
+
+// Info implements cmd.Command.
+func (c *addSecretCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "add-secret",
-		Args:    "[key[#base64|#file]=value...]",
-		Purpose: "Add a new secret.",
-		Doc:     doc,
+		Name:     "add-secret",
+		Args:     "<name> [key[#base64|#file]=value...]",
+		Purpose:  "Add a new secret.",
+		Doc:      addSecretDoc,
+		Examples: addSecretExamples,
 	})
 }
 
 // Init implements cmd.Command.
 func (c *addSecretCommand) Init(args []string) error {
+	if len(args) < 1 {
+		return errors.New("secret name needs to be supplied as the first argument")
+	}
+	c.name = args[0]
+	args = args[1:]
 	if err := c.SecretUpsertContentCommand.Init(args); err != nil {
 		return err
 	}
@@ -94,7 +104,7 @@ func (c *addSecretCommand) Run(ctx *cmd.Context) error {
 	}
 	defer secretsAPI.Close()
 
-	uri, err := secretsAPI.CreateSecret(c.Label, c.Description, c.Data)
+	uri, err := secretsAPI.CreateSecret(c.name, c.Description, c.Data)
 	if err != nil {
 		return err
 	}

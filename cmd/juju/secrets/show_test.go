@@ -95,6 +95,43 @@ func (s *ShowSuite) TestShow(c *gc.C) {
 `[1:], uri.ID))
 }
 
+func (s *ShowSuite) TestShowByName(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	expire := testing.NonZeroTime().UTC()
+	uri := coresecrets.NewURI()
+	s.secretsAPI.EXPECT().ListSecrets(false, coresecrets.Filter{
+		Label: ptr("my-secret"),
+	}).Return(
+		[]apisecrets.SecretDetails{{
+			Metadata: coresecrets.SecretMetadata{
+				URI: uri, RotatePolicy: coresecrets.RotateHourly,
+				Version: 1, LatestRevision: 2,
+				Description:      "my secret",
+				OwnerTag:         "application-mysql",
+				Label:            "foobar",
+				LatestExpireTime: &expire,
+			},
+			Value: coresecrets.NewSecretValue(map[string]string{"foo": "YmFy"}),
+		}}, nil)
+	s.secretsAPI.EXPECT().Close().Return(nil)
+
+	ctx, err := cmdtesting.RunCommand(c, secrets.NewShowCommandForTest(s.store, s.secretsAPI), "my-secret")
+	c.Assert(err, jc.ErrorIsNil)
+	out := cmdtesting.Stdout(ctx)
+	c.Assert(out, gc.Equals, fmt.Sprintf(`
+%s:
+  revision: 2
+  expires: 1970-01-01T00:00:00.000000001Z
+  rotation: hourly
+  owner: mysql
+  description: my secret
+  label: foobar
+  created: 0001-01-01T00:00:00Z
+  updated: 0001-01-01T00:00:00Z
+`[1:], uri.ID))
+}
+
 func (s *ShowSuite) TestShowReveal(c *gc.C) {
 	defer s.setup(c).Finish()
 

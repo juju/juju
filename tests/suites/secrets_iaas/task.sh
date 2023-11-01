@@ -17,6 +17,7 @@ test_secrets_iaas() {
 	test_secrets_cmr
 	test_secrets_vault
 	test_secret_drain
+	test_user_secret_drain
 
 	# Takes too long to tear down, so forcibly destroy it
 	export KILL_CONTROLLER=true

@@ -154,33 +154,33 @@ func (mr *MockGrantRevokeSecretsAPIMockRecorder) Close() *gomock.Call {
 }
 
 // GrantSecret mocks base method.
-func (m *MockGrantRevokeSecretsAPI) GrantSecret(arg0 *secrets0.URI, arg1 []string) ([]error, error) {
+func (m *MockGrantRevokeSecretsAPI) GrantSecret(arg0 *secrets0.URI, arg1 string, arg2 []string) ([]error, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GrantSecret", arg0, arg1)
+	ret := m.ctrl.Call(m, "GrantSecret", arg0, arg1, arg2)
 	ret0, _ := ret[0].([]error)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GrantSecret indicates an expected call of GrantSecret.
-func (mr *MockGrantRevokeSecretsAPIMockRecorder) GrantSecret(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockGrantRevokeSecretsAPIMockRecorder) GrantSecret(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GrantSecret", reflect.TypeOf((*MockGrantRevokeSecretsAPI)(nil).GrantSecret), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GrantSecret", reflect.TypeOf((*MockGrantRevokeSecretsAPI)(nil).GrantSecret), arg0, arg1, arg2)
 }
 
 // RevokeSecret mocks base method.
-func (m *MockGrantRevokeSecretsAPI) RevokeSecret(arg0 *secrets0.URI, arg1 []string) ([]error, error) {
+func (m *MockGrantRevokeSecretsAPI) RevokeSecret(arg0 *secrets0.URI, arg1 string, arg2 []string) ([]error, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RevokeSecret", arg0, arg1)
+	ret := m.ctrl.Call(m, "RevokeSecret", arg0, arg1, arg2)
 	ret0, _ := ret[0].([]error)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // RevokeSecret indicates an expected call of RevokeSecret.
-func (mr *MockGrantRevokeSecretsAPIMockRecorder) RevokeSecret(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockGrantRevokeSecretsAPIMockRecorder) RevokeSecret(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RevokeSecret", reflect.TypeOf((*MockGrantRevokeSecretsAPI)(nil).RevokeSecret), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RevokeSecret", reflect.TypeOf((*MockGrantRevokeSecretsAPI)(nil).RevokeSecret), arg0, arg1, arg2)
 }
 
 // MockUpdateSecretsAPI is a mock of UpdateSecretsAPI interface.
@@ -221,17 +221,17 @@ func (mr *MockUpdateSecretsAPIMockRecorder) Close() *gomock.Call {
 }
 
 // UpdateSecret mocks base method.
-func (m *MockUpdateSecretsAPI) UpdateSecret(arg0 *secrets0.URI, arg1 *bool, arg2, arg3 string, arg4 map[string]string) error {
+func (m *MockUpdateSecretsAPI) UpdateSecret(arg0 *secrets0.URI, arg1 string, arg2 *bool, arg3, arg4 string, arg5 map[string]string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateSecret", arg0, arg1, arg2, arg3, arg4)
+	ret := m.ctrl.Call(m, "UpdateSecret", arg0, arg1, arg2, arg3, arg4, arg5)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // UpdateSecret indicates an expected call of UpdateSecret.
-func (mr *MockUpdateSecretsAPIMockRecorder) UpdateSecret(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
+func (mr *MockUpdateSecretsAPIMockRecorder) UpdateSecret(arg0, arg1, arg2, arg3, arg4, arg5 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateSecret", reflect.TypeOf((*MockUpdateSecretsAPI)(nil).UpdateSecret), arg0, arg1, arg2, arg3, arg4)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateSecret", reflect.TypeOf((*MockUpdateSecretsAPI)(nil).UpdateSecret), arg0, arg1, arg2, arg3, arg4, arg5)
 }
 
 // MockRemoveSecretsAPI is a mock of RemoveSecretsAPI interface.
@@ -272,15 +272,15 @@ func (mr *MockRemoveSecretsAPIMockRecorder) Close() *gomock.Call {
 }
 
 // RemoveSecret mocks base method.
-func (m *MockRemoveSecretsAPI) RemoveSecret(arg0 *secrets0.URI, arg1 *int) error {
+func (m *MockRemoveSecretsAPI) RemoveSecret(arg0 *secrets0.URI, arg1 string, arg2 *int) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RemoveSecret", arg0, arg1)
+	ret := m.ctrl.Call(m, "RemoveSecret", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // RemoveSecret indicates an expected call of RemoveSecret.
-func (mr *MockRemoveSecretsAPIMockRecorder) RemoveSecret(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockRemoveSecretsAPIMockRecorder) RemoveSecret(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveSecret", reflect.TypeOf((*MockRemoveSecretsAPI)(nil).RemoveSecret), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveSecret", reflect.TypeOf((*MockRemoveSecretsAPI)(nil).RemoveSecret), arg0, arg1, arg2)
 }

@@ -47,6 +47,7 @@ func (api *Client) ListSecrets(reveal bool, filter secrets.Filter) ([]SecretDeta
 		Filter: params.SecretsFilter{
 			OwnerTag: filter.OwnerTag,
 			Revision: filter.Revision,
+			Label:    filter.Label,
 		},
 	}
 	if filter.URI != nil {
@@ -104,7 +105,7 @@ func (api *Client) ListSecrets(reveal bool, filter secrets.Filter) ([]SecretDeta
 	return result, err
 }
 
-func (c *Client) CreateSecret(label, description string, data map[string]string) (string, error) {
+func (c *Client) CreateSecret(name, description string, data map[string]string) (string, error) {
 	if c.BestAPIVersion() < 2 {
 		return "", errors.NotSupportedf("user secrets")
 	}
@@ -114,8 +115,8 @@ func (c *Client) CreateSecret(label, description string, data map[string]string)
 			Content: params.SecretContentParams{Data: data},
 		},
 	}
-	if label != "" {
-		arg.Label = &label
+	if name != "" {
+		arg.Label = &name
 	}
 	if description != "" {
 		arg.Description = &description
@@ -137,22 +138,33 @@ func (c *Client) CreateSecret(label, description string, data map[string]string)
 
 // UpdateSecret updates an existing secret.
 func (c *Client) UpdateSecret(
-	uri *secrets.URI, autoPrune *bool,
-	label, description string, data map[string]string,
+	uri *secrets.URI, name string, autoPrune *bool,
+	newName string, description string, data map[string]string,
 ) error {
 	if c.BestAPIVersion() < 2 {
 		return errors.NotSupportedf("user secrets")
 	}
 	var results params.ErrorResults
 	arg := params.UpdateUserSecretArg{
-		URI:       uri.String(),
 		AutoPrune: autoPrune,
 		UpsertSecretArg: params.UpsertSecretArg{
 			Content: params.SecretContentParams{Data: data},
 		},
 	}
-	if label != "" {
-		arg.UpsertSecretArg.Label = &label
+	if uri == nil && name == "" {
+		return errors.New("must specify either URI or name")
+	}
+	if uri != nil && name != "" {
+		return errors.New("must specify either URI or name but not both")
+	}
+	if uri != nil {
+		arg.URI = uri.String()
+	}
+	if name != "" {
+		arg.ExistingLabel = name
+	}
+	if newName != "" {
+		arg.UpsertSecretArg.Label = &newName
 	}
 	if description != "" {
 		arg.UpsertSecretArg.Description = &description
@@ -171,12 +183,13 @@ func (c *Client) UpdateSecret(
 	return nil
 }
 
-func (c *Client) RemoveSecret(uri *secrets.URI, revision *int) error {
+func (c *Client) RemoveSecret(uri *secrets.URI, name string, revision *int) error {
 	if c.BestAPIVersion() < 2 {
 		return errors.NotSupportedf("user secrets")
 	}
 	arg := params.DeleteSecretArg{
-		URI: uri.String(),
+		URI:   uri.String(),
+		Label: name,
 	}
 	if revision != nil {
 		arg.Revisions = append(arg.Revisions, *revision)
@@ -198,12 +211,18 @@ func (c *Client) RemoveSecret(uri *secrets.URI, revision *int) error {
 }
 
 // GrantSecret grants access to a secret to the specified applications.
-func (c *Client) GrantSecret(uri *secrets.URI, apps []string) ([]error, error) {
+func (c *Client) GrantSecret(uri *secrets.URI, name string, apps []string) ([]error, error) {
 	if c.BestAPIVersion() < 2 {
 		return nil, errors.NotSupportedf("user secrets")
 	}
+	var uriString string
+	if uri != nil {
+		uriString = uri.String()
+	}
 	arg := params.GrantRevokeUserSecretArg{
-		URI: uri.String(), Applications: apps,
+		URI:          uriString,
+		Label:        name,
+		Applications: apps,
 	}
 
 	var results params.ErrorResults
@@ -230,12 +249,19 @@ func processErrors(results params.ErrorResults) []error {
 }
 
 // RevokeSecret revokes access to a secret from the specified applications.
-func (c *Client) RevokeSecret(uri *secrets.URI, apps []string) ([]error, error) {
+func (c *Client) RevokeSecret(uri *secrets.URI, name string, apps []string) ([]error, error) {
 	if c.BestAPIVersion() < 2 {
 		return nil, errors.NotSupportedf("user secrets")
 	}
+
+	var uriString string
+	if uri != nil {
+		uriString = uri.String()
+	}
 	arg := params.GrantRevokeUserSecretArg{
-		URI: uri.String(), Applications: apps,
+		URI:          uriString,
+		Label:        name,
+		Applications: apps,
 	}
 
 	var results params.ErrorResults

@@ -108,6 +108,7 @@ type secretDisplayDetails struct {
 	NextRotateTime   *time.Time              `json:"rotates,omitempty" yaml:"rotates,omitempty"`
 	Owner            string                  `json:"owner,omitempty" yaml:"owner,omitempty"`
 	Description      string                  `json:"description,omitempty" yaml:"description,omitempty"`
+	Name             string                  `json:"name,omitempty" yaml:"name,omitempty"`
 	Label            string                  `json:"label,omitempty" yaml:"label,omitempty"`
 	CreateTime       time.Time               `json:"created" yaml:"created"`
 	UpdateTime       time.Time               `json:"updated" yaml:"updated"`
@@ -150,8 +151,16 @@ func gatherSecretInfo(secrets []apisecrets.SecretDetails, reveal, includeRevisio
 	details := make(secretDetailsByID)
 	for _, m := range secrets {
 		ownerId := ""
+		name := ""
+		label := m.Metadata.Label
 		if owner, err := names.ParseTag(m.Metadata.OwnerTag); err == nil {
 			ownerId = owner.Id()
+			if owner.Kind() == names.ModelTagKind {
+				// Model owned (user) secrets have a name, not a label.
+				ownerId = "<" + owner.Kind() + ">"
+				name = m.Metadata.Label
+				label = ""
+			}
 		}
 		info := secretDisplayDetails{
 			URI:              m.Metadata.URI,
@@ -159,7 +168,8 @@ func gatherSecretInfo(secrets []apisecrets.SecretDetails, reveal, includeRevisio
 			LatestRevision:   m.Metadata.LatestRevision,
 			LatestExpireTime: m.Metadata.LatestExpireTime,
 			Description:      m.Metadata.Description,
-			Label:            m.Metadata.Label,
+			Name:             name,
+			Label:            label,
 			RotatePolicy:     m.Metadata.RotatePolicy,
 			NextRotateTime:   m.Metadata.NextRotateTime,
 			CreateTime:       m.Metadata.CreateTime,
@@ -210,9 +220,9 @@ func formatSecretsTabular(writer io.Writer, value interface{}) error {
 
 	tw := output.TabWriter(writer)
 	w := output.Wrapper{tw}
-	w.SetColumnAlignRight(3)
+	w.SetColumnAlignRight(4)
 
-	w.Println("ID", "Owner", "Rotation", "Revision", "Last updated")
+	w.Println("ID", "Name", "Owner", "Rotation", "Revision", "Last updated")
 	sort.Slice(secrets, func(i, j int) bool {
 		if secrets[i].Owner != secrets[j].Owner {
 			return secrets[i].Owner < secrets[j].Owner
@@ -221,8 +231,12 @@ func formatSecretsTabular(writer io.Writer, value interface{}) error {
 	})
 	now := time.Now()
 	for _, s := range secrets {
+		name := s.Name
+		if name == "" {
+			name = "-"
+		}
 		age := common.UserFriendlyDuration(s.UpdateTime, now)
-		w.Print(s.URI.ID, s.Owner, s.RotatePolicy, s.LatestRevision, age)
+		w.Print(s.URI.ID, name, s.Owner, s.RotatePolicy, s.LatestRevision, age)
 		w.Println()
 	}
 	return tw.Flush()

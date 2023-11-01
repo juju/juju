@@ -12,7 +12,7 @@ run_secrets() {
 	juju --show-log trust nginx --scope=cluster
 
 	# create user secrets.
-	juju --show-log add-secret owned-by="$model_name" --label "$model_name" --info "this is a user secret"
+	juju --show-log add-secret mysecret owned-by="$model_name" --info "this is a user secret"
 
 	wait_for "active" '.applications["hello"] | ."application-status".current'
 	wait_for "hello" "$(idle_condition "hello" 0)"
@@ -109,7 +109,7 @@ run_user_secrets() {
 	juju --show-log deploy hello-kubecon
 
 	# create user secrets.
-	secret_uri=$(juju --show-log add-secret owned-by="$model_name-1" --info "this is a user secret")
+	secret_uri=$(juju --show-log add-secret mysecret owned-by="$model_name-1" --info "this is a user secret")
 	secret_short_uri=${secret_uri##*:}
 
 	check_contains "$(juju --show-log show-secret "$secret_uri" --revisions | yq ".${secret_short_uri}.description")" 'this is a user secret'
@@ -127,7 +127,7 @@ run_user_secrets() {
 	juju --show-log update-secret "$secret_uri" owned-by="$model_name-3"
 
 	check_contains "$(juju --show-log show-secret $secret_uri --revisions | yq .${secret_short_uri}.revision)" '3'
-	check_contains "$(juju --show-log show-secret $secret_uri --revisions | yq .${secret_short_uri}.owner)" "$model_uuid"
+	check_contains "$(juju --show-log show-secret $secret_uri --revisions | yq .${secret_short_uri}.owner)" "<model>"
 	check_contains "$(juju --show-log show-secret $secret_uri --revisions | yq .${secret_short_uri}.description)" 'info'
 	check_contains "$(juju --show-log show-secret $secret_uri --revisions | yq ".${secret_short_uri}.revisions | length")" '3'
 
@@ -226,6 +226,69 @@ run_secret_drain() {
 	destroy_model "$model_name"
 }
 
+run_user_secret_drain() {
+	model_name='model-user-secrets-k8s-drain'
+	juju --show-log add-model "$model_name"
+	model_uuid=$(juju show-model $model_name --format json | jq -r ".[\"${model_name}\"][\"model-uuid\"]")
+
+	prepare_vault
+	vault_backend_name='myvault'
+	juju add-secret-backend "$vault_backend_name" vault endpoint="$VAULT_ADDR" token="$VAULT_TOKEN"
+
+	juju --show-log deploy hello-kubecon hello
+	wait_for "active" '.applications["hello"] | ."application-status".current'
+	wait_for "hello" "$(idle_condition "hello" 0)"
+
+	secret_uri=$(juju --show-log add-secret mysecret owned-by="$model_name-1" --info "this is a user secret")
+	secret_short_uri=${secret_uri##*:}
+
+	juju show-secret --reveal "$secret_uri"
+
+	juju --show-log grant-secret "$secret_uri" hello
+	check_contains "$(juju exec --unit hello/0 -- secret-get $secret_short_uri)" "owned-by: $model_name-1"
+
+	check_contains "$(microk8s kubectl -n "$model_name" get secrets -l "app.juju.is/created-by=$model_uuid" -o jsonpath='{.items[*].metadata.name}')" "${secret_short_uri}-1"
+
+	juju model-config secret-backend="$vault_backend_name"
+
+	# ensure the user secret is removed from k8s backend.
+	attempt=0
+	until [[ $(microk8s kubectl -n "$model_name" get secrets -l "app.juju.is/created-by=$model_uuid" -o json | jq '.items | length') -eq 0 ]]; do
+		if [[ ${attempt} -ge 30 ]]; then
+			echo "Failed: expected all secrets get drained to vault, so k8s has no secrets."
+			exit 1
+		fi
+		sleep 2
+		attempt=$((attempt + 1))
+	done
+
+	model_uuid=$(juju show-model $model_name --format json | jq -r ".[\"${model_name}\"][\"model-uuid\"]")
+	# ensure the user secret is in vault backend.
+	check_contains "$(vault kv list -format json "${model_name}-${model_uuid: -6}" | jq length)" 1
+	# ensure the application can still read the user secret.
+	check_contains "$(juju exec --unit hello/0 -- secret-get $secret_short_uri)" "owned-by: $model_name-1"
+
+	juju model-config secret-backend=auto
+
+	# ensure the user secret is drained back to k8s backend.
+	attempt=0
+	until [[ "$(microk8s kubectl -n $model_name get secrets -l "app.juju.is/created-by=$model_uuid")" =~ ${secret_short_uri}-1 ]]; do
+		if [[ ${attempt} -ge 30 ]]; then
+			echo "Failed: expected secret ${secret_short_uri}-1 gets drained to k8s."
+			exit 1
+		fi
+		sleep 2
+		attempt=$((attempt + 1))
+	done
+
+	# ensure the user secret is removed from vault backend.
+	check_contains "$(vault kv list -format json "${model_name}-${model_uuid: -6}" | jq length)" 0
+	# ensure the application can still read the user secret.
+	check_contains "$(juju exec --unit hello/0 -- secret-get $secret_short_uri)" "owned-by: $model_name-1"
+
+	destroy_model "$model_name"
+}
+
 prepare_vault() {
 	if ! which "vault" >/dev/null 2>&1; then
 		sudo snap install vault
@@ -254,6 +317,21 @@ test_secrets() {
 	)
 }
 
+test_user_secrets() {
+	if [ "$(skip 'test_user_secrets')" ]; then
+		echo "==> TEST SKIPPED: test_user_secrets"
+		return
+	fi
+
+	(
+		set_verbosity
+
+		cd .. || exit
+
+		run "run_user_secrets"
+	)
+}
+
 test_secret_drain() {
 	if [ "$(skip 'test_secret_drain')" ]; then
 		echo "==> TEST SKIPPED: test_secret_drain"
@@ -269,9 +347,9 @@ test_secret_drain() {
 	)
 }
 
-test_user_secrets() {
-	if [ "$(skip 'test_user_secrets')" ]; then
-		echo "==> TEST SKIPPED: test_user_secrets"
+test_user_secret_drain() {
+	if [ "$(skip 'test_user_secret_drain')" ]; then
+		echo "==> TEST SKIPPED: test_user_secret_drain"
 		return
 	fi
 
@@ -280,6 +358,6 @@ test_user_secrets() {
 
 		cd .. || exit
 
-		run "run_user_secrets"
+		run "run_user_secret_drain"
 	)
 }

@@ -19,6 +19,7 @@ type grantSecretCommand struct {
 	modelcmd.ModelCommandBase
 
 	secretURI *secrets.URI
+	name      string
 	apps      []string
 
 	secretsAPIFunc func() (GrantRevokeSecretsAPI, error)
@@ -26,8 +27,8 @@ type grantSecretCommand struct {
 
 // GrantRevokeSecretsAPI is the secrets client API.
 type GrantRevokeSecretsAPI interface {
-	GrantSecret(*secrets.URI, []string) ([]error, error)
-	RevokeSecret(*secrets.URI, []string) ([]error, error)
+	GrantSecret(*secrets.URI, string, []string) ([]error, error)
+	RevokeSecret(*secrets.URI, string, []string) ([]error, error)
 	Close() error
 }
 
@@ -46,19 +47,24 @@ func (c *grantSecretCommand) secretsAPI() (GrantRevokeSecretsAPI, error) {
 	return apisecrets.NewClient(root), nil
 }
 
+const (
+	grantSecretDoc = `
+Grant applications access to view the value of a specified secret.
+`
+	grantSecretExamples = `
+    juju grant-secret my-secret ubuntu-k8s
+    juju grant-secret 9m4e2mr0ui3e8a215n4g ubuntu-k8s,prometheus-k8s
+`
+)
+
 // Info implements cmd.Command.
 func (c *grantSecretCommand) Info() *cmd.Info {
-	doc := `
-Grant applications access to view the value of a specified secret.
-
-Examples:
-    grant-secret <secret-uri> <application>[,<application>...]
-`
 	return jujucmd.Info(&cmd.Info{
-		Name:    "grant-secret",
-		Args:    "<secret-uri> <application>[,<application>...]",
-		Purpose: "Grant access to a secret.",
-		Doc:     doc,
+		Name:     "grant-secret",
+		Args:     "<ID>|<name> <application>[,<application>...]",
+		Purpose:  "Grant access to a secret.",
+		Doc:      grantSecretDoc,
+		Examples: grantSecretExamples,
 	})
 }
 
@@ -70,7 +76,7 @@ func (c *grantSecretCommand) Init(args []string) error {
 
 	var err error
 	if c.secretURI, err = secrets.ParseURI(args[0]); err != nil {
-		return errors.Trace(err)
+		c.name = args[0]
 	}
 	c.apps = strings.Split(args[1], ",")
 	return cmd.CheckEmpty(args[2:])
@@ -83,7 +89,7 @@ func (c *grantSecretCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 	defer secretsAPI.Close()
-	return processGrantRevokeErrors(secretsAPI.GrantSecret(c.secretURI, c.apps))
+	return processGrantRevokeErrors(secretsAPI.GrantSecret(c.secretURI, c.name, c.apps))
 }
 
 func processGrantRevokeErrors(errs []error, err error) error {
@@ -110,6 +116,7 @@ type revokeSecretCommand struct {
 	modelcmd.ModelCommandBase
 
 	secretURI *secrets.URI
+	name      string
 	apps      []string
 
 	secretsAPIFunc func() (GrantRevokeSecretsAPI, error)
@@ -130,19 +137,24 @@ func (c *revokeSecretCommand) secretsAPI() (GrantRevokeSecretsAPI, error) {
 	return apisecrets.NewClient(root), nil
 }
 
+const (
+	revokeSecretDoc = `
+Revoke applications' access to view the value of a specified secret.
+`
+	revokeSecretExamples = `
+    juju revoke-secret my-secret ubuntu-k8s
+    juju revoke-secret 9m4e2mr0ui3e8a215n4g ubuntu-k8s,prometheus-k8s
+`
+)
+
 // Info implements cmd.Command.
 func (c *revokeSecretCommand) Info() *cmd.Info {
-	doc := `
-Revoke applications' access to view the value of a specified secret.
-
-Examples:
-    revoke-secret <secret-uri> <application>[,<application>...]
-`
 	return jujucmd.Info(&cmd.Info{
-		Name:    "revoke-secret",
-		Args:    "<secret-uri> <application>[,<application>...]",
-		Purpose: "Revoke access to a secret.",
-		Doc:     doc,
+		Name:     "revoke-secret",
+		Args:     "<ID>|<name> <application>[,<application>...]",
+		Purpose:  "Revoke access to a secret.",
+		Doc:      revokeSecretDoc,
+		Examples: revokeSecretExamples,
 	})
 }
 
@@ -154,7 +166,7 @@ func (c *revokeSecretCommand) Init(args []string) error {
 
 	var err error
 	if c.secretURI, err = secrets.ParseURI(args[0]); err != nil {
-		return errors.Trace(err)
+		c.name = args[0]
 	}
 	c.apps = strings.Split(args[1], ",")
 	return cmd.CheckEmpty(args[2:])
@@ -167,5 +179,5 @@ func (c *revokeSecretCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 	defer secretsAPI.Close()
-	return processGrantRevokeErrors(secretsAPI.RevokeSecret(c.secretURI, c.apps))
+	return processGrantRevokeErrors(secretsAPI.RevokeSecret(c.secretURI, c.name, c.apps))
 }
