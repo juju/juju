@@ -12,7 +12,7 @@ run_secrets() {
 	juju --show-log trust nginx --scope=cluster
 
 	# create user secrets.
-	juju --show-log add-secret mysecret owned-by="$model_name" --label "$model_name" --info "this is a user secret"
+	juju --show-log add-secret mysecret owned-by="$model_name" --info "this is a user secret"
 
 	wait_for "active" '.applications["hello"] | ."application-status".current'
 	wait_for "hello" "$(idle_condition "hello" 0)"
@@ -127,7 +127,7 @@ run_user_secrets() {
 	juju --show-log update-secret "$secret_uri" owned-by="$model_name-3"
 
 	check_contains "$(juju --show-log show-secret $secret_uri --revisions | yq .${secret_short_uri}.revision)" '3'
-	check_contains "$(juju --show-log show-secret $secret_uri --revisions | yq .${secret_short_uri}.owner)" "$model_uuid"
+	check_contains "$(juju --show-log show-secret $secret_uri --revisions | yq .${secret_short_uri}.owner)" "<model>"
 	check_contains "$(juju --show-log show-secret $secret_uri --revisions | yq .${secret_short_uri}.description)" 'info'
 	check_contains "$(juju --show-log show-secret $secret_uri --revisions | yq ".${secret_short_uri}.revisions | length")" '3'
 
