@@ -70,7 +70,6 @@ run_user_secrets() {
 	echo
 
 	model_name=${1}
-	model_uuid=$(juju show-model $model_name --format json | jq -r ".[\"${model_name}\"][\"model-uuid\"]")
 
 	app_name='easyrsa-user-secrets'
 	juju --show-log deploy easyrsa "$app_name"
@@ -94,7 +93,7 @@ run_user_secrets() {
 	juju --show-log update-secret "$secret_uri" owned-by="$model_name-3"
 
 	check_contains "$(juju --show-log show-secret $secret_uri --revisions | yq .${secret_short_uri}.revision)" '3'
-	check_contains "$(juju --show-log show-secret $secret_uri --revisions | yq .${secret_short_uri}.owner)" "$model_uuid"
+	check_contains "$(juju --show-log show-secret $secret_uri --revisions | yq .${secret_short_uri}.owner)" "<model>"
 	check_contains "$(juju --show-log show-secret $secret_uri --revisions | yq .${secret_short_uri}.description)" 'info'
 	check_contains "$(juju --show-log show-secret $secret_uri --revisions | yq ".${secret_short_uri}.revisions | length")" '3'
 
