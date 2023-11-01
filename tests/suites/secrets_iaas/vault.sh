@@ -86,7 +86,7 @@ run_user_secret_drain() {
 	wait_for "active" '.applications["easyrsa"] | ."application-status".current'
 	wait_for "easyrsa" "$(idle_condition "easyrsa" 0 0)"
 
-	secret_uri=$(juju --show-log add-secret owned-by="$model_name-1" --info "this is a user secret")
+	secret_uri=$(juju --show-log add-secret mysecret owned-by="$model_name-1" --info "this is a user secret")
 	secret_short_uri=${secret_uri##*:}
 
 	juju show-secret --reveal "$secret_uri"
@@ -98,7 +98,7 @@ run_user_secret_drain() {
 	# change the secret backend to internal.
 	juju model-config secret-backend=auto
 
-	another_secret_uri=$(juju --show-log add-secret owned-by="$model_name-2" --info "this is another user secret")
+	another_secret_uri=$(juju --show-log add-secret anothersecret owned-by="$model_name-2" --info "this is another user secret")
 	juju show-secret --reveal "$another_secret_uri"
 
 	# ensure the user secrets are all in internal backend, no secret in vault.
@@ -129,8 +129,8 @@ run_user_secret_drain() {
 	# ensure the application can still read the user secret.
 	check_contains "$(juju exec --unit easyrsa/0 -- secret-get $secret_short_uri)" "owned-by: $model_name-1"
 
-	juju show-secret --reveal "$secret_uri"
-	juju show-secret --reveal "$another_secret_uri"
+	juju show-secret --reveal mysecret
+	juju show-secret --reveal anothersecret
 
 	destroy_model "$model_name"
 	destroy_model "model-vault-provider"
