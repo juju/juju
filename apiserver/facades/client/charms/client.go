@@ -195,7 +195,7 @@ func (a *API) getDownloadInfo(ctx context.Context, arg params.CharmURLAndOrigin)
 	if err != nil {
 		return params.DownloadInfoResult{}, apiservererrors.ServerError(err)
 	}
-	url, origin, err := repo.GetDownloadURL(ctx, curl, requestedOrigin)
+	url, origin, err := repo.GetDownloadURL(ctx, curl.Name, requestedOrigin)
 	if err != nil {
 		return params.DownloadInfoResult{}, apiservererrors.ServerError(err)
 	}
@@ -312,7 +312,7 @@ func (a *API) queueAsyncCharmDownload(ctx context.Context, args params.AddCharmW
 	// to ensure that the resolved origin has the ID/Hash fields correctly
 	// populated.
 	if _, err := a.backendState.Charm(args.URL); err == nil {
-		_, resolvedOrigin, err := repo.GetDownloadURL(ctx, charmURL, requestedOrigin)
+		_, resolvedOrigin, err := repo.GetDownloadURL(ctx, charmURL.Name, requestedOrigin)
 		return resolvedOrigin, errors.Trace(err)
 	}
 
@@ -320,8 +320,8 @@ func (a *API) queueAsyncCharmDownload(ctx context.Context, args params.AddCharmW
 	// without downloading the full archive. The remaining metadata will
 	// be populated once the charm gets downloaded.
 	essentialMeta, err := repo.GetEssentialMetadata(ctx, corecharm.MetadataRequest{
-		CharmURL: charmURL,
-		Origin:   requestedOrigin,
+		CharmName: charmURL.Name,
+		Origin:    requestedOrigin,
 	})
 	if err != nil {
 		return corecharm.Origin{}, errors.Annotatef(err, "retrieving essential metadata for charm %q", charmURL)
@@ -386,7 +386,7 @@ func (a *API) resolveOneCharm(ctx context.Context, arg params.ResolveCharmWithCh
 		return result
 	}
 
-	resultURL, origin, resolvedBases, err := repo.ResolveWithPreferredChannel(ctx, curl, requestedOrigin)
+	resultURL, origin, resolvedBases, err := repo.ResolveWithPreferredChannel(ctx, curl.Name, requestedOrigin)
 	if err != nil {
 		result.Error = apiservererrors.ServerError(err)
 		return result
@@ -714,7 +714,7 @@ func (a *API) listOneCharmResources(ctx context.Context, arg params.CharmURLAndO
 	if err != nil {
 		return nil, apiservererrors.ServerError(err)
 	}
-	resources, err := repo.ListResources(ctx, curl, requestedOrigin)
+	resources, err := repo.ListResources(ctx, curl.Name, requestedOrigin)
 	if err != nil {
 		return nil, apiservererrors.ServerError(err)
 	}

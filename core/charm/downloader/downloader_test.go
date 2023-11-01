@@ -124,16 +124,16 @@ func (s *downloaderSuite) TestDownloadAndHash(c *gc.C) {
 	tmpFile := filepath.Join(c.MkDir(), "ubuntu-lite.zip")
 	c.Assert(os.WriteFile(tmpFile, []byte("meshuggah\n"), 0644), jc.ErrorIsNil)
 
-	curl := charm.MustParseURL("ch:ubuntu-lite")
+	name := "ch:ubuntu-lite"
 	requestedOrigin := corecharm.Origin{Source: corecharm.CharmHub, Channel: mustParseChannel(c, "20.04/edge")}
 	resolvedOrigin := corecharm.Origin{Source: corecharm.CharmHub, Channel: mustParseChannel(c, "20.04/candidate")}
 
-	s.repo.EXPECT().DownloadCharm(gomock.Any(), curl, requestedOrigin, tmpFile).Return(s.charmArchive, resolvedOrigin, nil)
+	s.repo.EXPECT().DownloadCharm(gomock.Any(), name, requestedOrigin, tmpFile).Return(s.charmArchive, resolvedOrigin, nil)
 	s.charmArchive.EXPECT().Version().Return("the-version")
 	s.charmArchive.EXPECT().LXDProfile().Return(nil)
 
 	dl := s.newDownloader()
-	dc, gotOrigin, err := dl.DownloadAndHash(context.Background(), curl, requestedOrigin, repoAdapter{s.repo}, tmpFile)
+	dc, gotOrigin, err := dl.DownloadAndHash(context.Background(), name, requestedOrigin, repoAdapter{s.repo}, tmpFile)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotOrigin, gc.DeepEquals, resolvedOrigin, gc.Commentf("expected to get back the resolved origin"))
 	c.Assert(dc.SHA256, gc.Equals, "4e97ed7423be2ea12939e8fdd592cfb3dcd4d0097d7d193ef998ab6b4db70461")
@@ -152,7 +152,7 @@ func (s downloaderSuite) TestCharmAlreadyStored(c *gc.C) {
 	)
 	s.repoGetter.EXPECT().GetCharmRepository(gomock.Any(), corecharm.CharmHub).Return(repoAdapter{s.repo}, nil)
 	retURL, _ := url.Parse(curl.String())
-	s.repo.EXPECT().GetDownloadURL(gomock.Any(), curl, requestedOrigin).Return(retURL, knownOrigin, nil)
+	s.repo.EXPECT().GetDownloadURL(gomock.Any(), curl.Name, requestedOrigin).Return(retURL, knownOrigin, nil)
 
 	dl := s.newDownloader()
 	gotOrigin, err := dl.DownloadAndStore(context.Background(), curl, requestedOrigin, false)
@@ -177,13 +177,13 @@ func (s downloaderSuite) TestPrepareToStoreCharmError(c *gc.C) {
 }
 
 func (s downloaderSuite) TestNormalizePlatform(c *gc.C) {
-	curl := "ch:ubuntu-lite"
+	name := "ubuntu-lite"
 	requestedPlatform := corecharm.Platform{
 		Channel: "20.04",
 		OS:      "Ubuntu",
 	}
 
-	gotPlatform, err := s.newDownloader().NormalizePlatform(curl, requestedPlatform)
+	gotPlatform, err := s.newDownloader().NormalizePlatform(name, requestedPlatform)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotPlatform, gc.DeepEquals, corecharm.Platform{
 		Architecture: "amd64",
@@ -229,8 +229,8 @@ func (s downloaderSuite) TestDownloadAndStore(c *gc.C) {
 		},
 	)
 	s.repoGetter.EXPECT().GetCharmRepository(gomock.Any(), corecharm.CharmHub).Return(repoAdapter{s.repo}, nil)
-	s.repo.EXPECT().DownloadCharm(gomock.Any(), curl, requestedOriginWithPlatform, gomock.Any()).DoAndReturn(
-		func(_ context.Context, _ *charm.URL, requestedOrigin corecharm.Origin, archivePath string) (downloader.CharmArchive, corecharm.Origin, error) {
+	s.repo.EXPECT().DownloadCharm(gomock.Any(), curl.Name, requestedOriginWithPlatform, gomock.Any()).DoAndReturn(
+		func(_ context.Context, _ string, requestedOrigin corecharm.Origin, archivePath string) (downloader.CharmArchive, corecharm.Origin, error) {
 			c.Assert(os.WriteFile(archivePath, []byte("meshuggah\n"), 0644), jc.ErrorIsNil)
 			return s.charmArchive, resolvedOrigin, nil
 		},
@@ -279,14 +279,14 @@ type repoAdapter struct {
 	repo *mocks.MockCharmRepository
 }
 
-func (r repoAdapter) DownloadCharm(ctx context.Context, charmURL *charm.URL, requestedOrigin corecharm.Origin, archivePath string) (corecharm.CharmArchive, corecharm.Origin, error) {
-	return r.repo.DownloadCharm(ctx, charmURL, requestedOrigin, archivePath)
+func (r repoAdapter) DownloadCharm(ctx context.Context, charmName string, requestedOrigin corecharm.Origin, archivePath string) (corecharm.CharmArchive, corecharm.Origin, error) {
+	return r.repo.DownloadCharm(ctx, charmName, requestedOrigin, archivePath)
 }
 
-func (r repoAdapter) ResolveWithPreferredChannel(ctx context.Context, charmURL *charm.URL, requestedOrigin corecharm.Origin) (*charm.URL, corecharm.Origin, []corecharm.Platform, error) {
-	return r.repo.ResolveWithPreferredChannel(ctx, charmURL, requestedOrigin)
+func (r repoAdapter) ResolveWithPreferredChannel(ctx context.Context, charmName string, requestedOrigin corecharm.Origin) (*charm.URL, corecharm.Origin, []corecharm.Platform, error) {
+	return r.repo.ResolveWithPreferredChannel(ctx, charmName, requestedOrigin)
 }
 
-func (r repoAdapter) GetDownloadURL(ctx context.Context, charmURL *charm.URL, requestedOrigin corecharm.Origin) (*url.URL, corecharm.Origin, error) {
-	return r.repo.GetDownloadURL(ctx, charmURL, requestedOrigin)
+func (r repoAdapter) GetDownloadURL(ctx context.Context, charmName string, requestedOrigin corecharm.Origin) (*url.URL, corecharm.Origin, error) {
+	return r.repo.GetDownloadURL(ctx, charmName, requestedOrigin)
 }

@@ -190,7 +190,7 @@ func populateStoreControllerCharm(ctx context.Context, objectStore services.Stor
 	// error response.
 	//
 	// The controller charm doesn't have any series specific code.
-	curl, origin, _, err = charmRepo.ResolveWithPreferredChannel(context.TODO(), curl, origin)
+	curl, origin, _, err = charmRepo.ResolveWithPreferredChannel(context.TODO(), curl.Name, origin)
 	if err != nil {
 		return nil, nil, errors.Annotatef(err, "resolving %q", controllerCharmURL)
 	}

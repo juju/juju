@@ -34,9 +34,9 @@ type CharmArchive interface {
 
 // CharmRepository provides an API for downloading charms/bundles.
 type CharmRepository interface {
-	GetDownloadURL(context.Context, *charm.URL, corecharm.Origin) (*url.URL, corecharm.Origin, error)
-	ResolveWithPreferredChannel(ctx context.Context, charmURL *charm.URL, requestedOrigin corecharm.Origin) (*charm.URL, corecharm.Origin, []corecharm.Platform, error)
-	DownloadCharm(ctx context.Context, charmURL *charm.URL, requestedOrigin corecharm.Origin, archivePath string) (corecharm.CharmArchive, corecharm.Origin, error)
+	GetDownloadURL(context.Context, string, corecharm.Origin) (*url.URL, corecharm.Origin, error)
+	ResolveWithPreferredChannel(ctx context.Context, charmName string, requestedOrigin corecharm.Origin) (*charm.URL, corecharm.Origin, []corecharm.Platform, error)
+	DownloadCharm(ctx context.Context, charmName string, requestedOrigin corecharm.Origin, archivePath string) (corecharm.CharmArchive, corecharm.Origin, error)
 }
 
 // RepositoryGetter returns a suitable CharmRepository for the specified Source.
@@ -117,7 +117,7 @@ func (d *Downloader) DownloadAndStore(ctx context.Context, charmURL *charm.URL, 
 		err           error
 		channelOrigin = requestedOrigin
 	)
-	channelOrigin.Platform, err = d.normalizePlatform(charmURL.String(), requestedOrigin.Platform)
+	channelOrigin.Platform, err = d.normalizePlatform(charmURL.Name, requestedOrigin.Platform)
 	if err != nil {
 		return corecharm.Origin{}, errors.Trace(err)
 	}
@@ -134,7 +134,7 @@ func (d *Downloader) DownloadAndStore(ctx context.Context, charmURL *charm.URL, 
 			if err != nil {
 				return corecharm.Origin{}, errors.Trace(err)
 			}
-			_, resolvedOrigin, err := repo.GetDownloadURL(ctx, charmURL, requestedOrigin)
+			_, resolvedOrigin, err := repo.GetDownloadURL(ctx, charmURL.Name, requestedOrigin)
 			return resolvedOrigin, errors.Trace(err)
 		}
 
@@ -158,31 +158,31 @@ func (d *Downloader) DownloadAndStore(ctx context.Context, charmURL *charm.URL, 
 		return corecharm.Origin{}, errors.Trace(err)
 	}
 
-	downloadedCharm, actualOrigin, err := d.downloadAndHash(ctx, charmURL, channelOrigin, repo, tmpFile.Name())
+	downloadedCharm, actualOrigin, err := d.downloadAndHash(ctx, charmURL.Name, channelOrigin, repo, tmpFile.Name())
 	if err != nil {
-		return corecharm.Origin{}, errors.Annotatef(err, "downloading charm %q from origin %v", charmURL, requestedOrigin)
+		return corecharm.Origin{}, errors.Annotatef(err, "downloading charm %q from origin %v", charmURL.Name, requestedOrigin)
 	}
 
 	// Validate charm
 	if err := downloadedCharm.verify(actualOrigin, force); err != nil {
-		return corecharm.Origin{}, errors.Annotatef(err, "verifying downloaded charm %q from origin %v", charmURL, requestedOrigin)
+		return corecharm.Origin{}, errors.Annotatef(err, "verifying downloaded charm %q from origin %v", charmURL.Name, requestedOrigin)
 	}
 
 	// Store Charm
-	if err := d.storeCharm(ctx, charmURL, downloadedCharm, tmpFile.Name()); err != nil {
+	if err := d.storeCharm(ctx, charmURL.String(), downloadedCharm, tmpFile.Name()); err != nil {
 		return corecharm.Origin{}, errors.Annotatef(err, "storing charm %q from origin %v", charmURL, requestedOrigin)
 	}
 
 	return actualOrigin, nil
 }
 
-func (d *Downloader) downloadAndHash(ctx context.Context, charmURL *charm.URL, requestedOrigin corecharm.Origin, repo CharmRepository, dstPath string) (DownloadedCharm, corecharm.Origin, error) {
-	d.logger.Debugf("downloading charm %q from requested origin %v", charmURL, requestedOrigin)
-	chArchive, actualOrigin, err := repo.DownloadCharm(ctx, charmURL, requestedOrigin, dstPath)
+func (d *Downloader) downloadAndHash(ctx context.Context, charmName string, requestedOrigin corecharm.Origin, repo CharmRepository, dstPath string) (DownloadedCharm, corecharm.Origin, error) {
+	d.logger.Debugf("downloading charm %q from requested origin %v", charmName, requestedOrigin)
+	chArchive, actualOrigin, err := repo.DownloadCharm(ctx, charmName, requestedOrigin, dstPath)
 	if err != nil {
 		return DownloadedCharm{}, corecharm.Origin{}, errors.Trace(err)
 	}
-	d.logger.Debugf("downloaded charm %q from actual origin %v", charmURL, actualOrigin)
+	d.logger.Debugf("downloaded charm %q from actual origin %v", charmName, actualOrigin)
 
 	// Calculate SHA256 for the downloaded archive
 	f, err := os.Open(dstPath)
@@ -206,7 +206,7 @@ func (d *Downloader) downloadAndHash(ctx context.Context, charmURL *charm.URL, r
 	}, actualOrigin, nil
 }
 
-func (d *Downloader) storeCharm(ctx context.Context, charmURL *charm.URL, dc DownloadedCharm, archivePath string) error {
+func (d *Downloader) storeCharm(ctx context.Context, charmURL string, dc DownloadedCharm, archivePath string) error {
 	charmArchive, err := os.Open(archivePath)
 	if err != nil {
 		return errors.Annotatef(err, "unable to open downloaded charm archive at %q", archivePath)
@@ -214,16 +214,16 @@ func (d *Downloader) storeCharm(ctx context.Context, charmURL *charm.URL, dc Dow
 	defer func() { _ = charmArchive.Close() }()
 
 	dc.CharmData = charmArchive
-	if err := d.storage.Store(ctx, charmURL.String(), dc); err != nil {
+	if err := d.storage.Store(ctx, charmURL, dc); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
 }
 
-func (d *Downloader) normalizePlatform(charmURL string, platform corecharm.Platform) (corecharm.Platform, error) {
+func (d *Downloader) normalizePlatform(charmName string, platform corecharm.Platform) (corecharm.Platform, error) {
 	arc := platform.Architecture
 	if platform.Architecture == "" || platform.Architecture == "all" {
-		d.logger.Warningf("received charm Architecture: %q, changing to %q, for charm %q", platform.Architecture, arch.DefaultArchitecture, charmURL)
+		d.logger.Warningf("received charm Architecture: %q, changing to %q, for charm %q", platform.Architecture, arch.DefaultArchitecture, charmName)
 		arc = arch.DefaultArchitecture
 	}
 
