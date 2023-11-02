@@ -62,17 +62,19 @@ func (s *workerSuite) TestWorker(c *gc.C) {
 	clk.EXPECT().NewTimer(time.Second).Return(timer)
 	store.EXPECT().ExpireLeases(gomock.Any()).Return(nil)
 
-	done := make(chan struct{})
+	done := make(chan time.Duration)
 
 	ch := make(chan time.Time, 1)
 	ch <- time.Now()
 	timer.EXPECT().Chan().Return(ch).MinTimes(1)
 	timer.EXPECT().Reset(gomock.Any()).DoAndReturn(func(t time.Duration) bool {
-		defer close(done)
-
-		// Ensure it's within the expected range.
-		c.Check(t >= time.Second*1, jc.IsTrue)
-		c.Check(t <= time.Second*5, jc.IsTrue)
+		defer func() {
+			select {
+			case done <- t:
+			case <-time.After(jujujujutesting.LongWait):
+				c.Fatalf("timed out sending reset")
+			}
+		}()
 
 		return true
 	})
@@ -88,7 +90,10 @@ func (s *workerSuite) TestWorker(c *gc.C) {
 	defer workertest.DirtyKill(c, w)
 
 	select {
-	case <-done:
+	case t := <-done:
+		// Ensure it's within the expected range.
+		c.Check(t >= time.Second*1, jc.IsTrue)
+		c.Check(t <= time.Second*5, jc.IsTrue)
 	case <-time.After(jujujujutesting.ShortWait):
 		c.Fatalf("timed out waiting for reset")
 	}
