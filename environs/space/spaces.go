@@ -18,23 +18,15 @@ import (
 
 var logger = loggo.GetLogger("juju.environs.space")
 
-// Space represents a space that saved to state.
-type Space interface {
-	Id() string
-	Name() string
-	ProviderId() network.Id
-	Remove() error
-}
-
 // Constraints defines the methods supported by constraints used in the space context.
 type Constraints interface{}
 
 // ReloadSpacesState defines an in situ point of use type for ReloadSpaces
 type ReloadSpacesState interface {
 	// AllSpaces returns all spaces for the model.
-	AllSpaces() ([]Space, error)
+	AllSpaces() ([]network.SpaceInfo, error)
 	// AddSpace creates and returns a new space.
-	AddSpace(string, network.Id, []string, bool) (Space, error)
+	AddSpace(string, network.Id, []string, bool) (network.SpaceInfo, error)
 	// SaveProviderSubnets loads subnets into state.
 	SaveProviderSubnets([]network.SubnetInfo, string) error
 	// ConstraintsBySpaceName returns all Constraints that include a positive
@@ -46,6 +38,9 @@ type ReloadSpacesState interface {
 	// AllEndpointBindingsSpaceNames returns a set of spaces names for all the
 	// endpoint bindings.
 	AllEndpointBindingsSpaceNames() (set.Strings, error)
+	// Remove removes a Dead space. If the space is not Dead or it is already
+	// removed, an error is returned.
+	Remove(spaceID string) error
 }
 
 // ReloadSpaces loads spaces and subnets from provider specified by environ into state.
@@ -96,7 +91,7 @@ func ReloadSpaces(ctx envcontext.ProviderCallContext, state ReloadSpacesState, e
 // in the persistence layer.
 type ProviderSpaces struct {
 	state         ReloadSpacesState
-	modelSpaceMap map[network.Id]Space
+	modelSpaceMap map[network.Id]network.SpaceInfo
 	updatedSpaces network.IDSet
 }
 
@@ -106,7 +101,7 @@ func NewProviderSpaces(st ReloadSpacesState) *ProviderSpaces {
 	return &ProviderSpaces{
 		state: st,
 
-		modelSpaceMap: make(map[network.Id]Space),
+		modelSpaceMap: make(map[network.Id]network.SpaceInfo),
 		updatedSpaces: network.MakeIDSet(),
 	}
 }
@@ -120,8 +115,8 @@ func (s *ProviderSpaces) SaveSpaces(providerSpaces []network.SpaceInfo) error {
 	}
 	spaceNames := set.NewStrings()
 	for _, space := range stateSpaces {
-		s.modelSpaceMap[space.ProviderId()] = space
-		spaceNames.Add(space.Name())
+		s.modelSpaceMap[space.ProviderId] = space
+		spaceNames.Add(string(space.Name))
 	}
 
 	for _, spaceInfo := range providerSpaces {
@@ -130,7 +125,7 @@ func (s *ProviderSpaces) SaveSpaces(providerSpaces []network.SpaceInfo) error {
 		var spaceID string
 		stateSpace, ok := s.modelSpaceMap[spaceInfo.ProviderId]
 		if ok {
-			spaceID = stateSpace.Id()
+			spaceID = stateSpace.ID
 		} else {
 			// The space is new, we need to create a valid name for it in state.
 			// Convert the name into a valid name that is not already in use.
@@ -143,11 +138,11 @@ func (s *ProviderSpaces) SaveSpaces(providerSpaces []network.SpaceInfo) error {
 			}
 
 			spaceNames.Add(spaceName)
-			spaceID = space.Id()
+			spaceID = space.ID
 
 			// To ensure that we can remove spaces, we back-fill the new spaces
 			// onto the modelSpaceMap.
-			s.modelSpaceMap[space.ProviderId()] = space
+			s.modelSpaceMap[space.ProviderId] = space
 		}
 
 		err = s.state.SaveProviderSubnets(spaceInfo.Subnets, spaceID)
@@ -208,31 +203,31 @@ func (s *ProviderSpaces) DeleteSpaces() ([]string, error) {
 		if !ok {
 			// No warning here, the space was just not found.
 			continue
-		} else if space.Name() == network.AlphaSpaceName ||
-			space.Id() == defaultEndpointBinding {
+		} else if space.Name == network.AlphaSpaceName ||
+			space.ID == defaultEndpointBinding {
 
-			warning := fmt.Sprintf("Unable to delete space %q. Space is used as the default space.", space.Name())
+			warning := fmt.Sprintf("Unable to delete space %q. Space is used as the default space.", space.Name)
 			warnings = append(warnings, warning)
 			continue
 		}
 
 		// Check all endpoint bindings found within a model. If they reference
 		// a space name, then ignore then space for removal.
-		if allEndpointBindings.Contains(space.Name()) {
-			warning := fmt.Sprintf("Unable to delete space %q. Space is used as a endpoint binding.", space.Name())
+		if allEndpointBindings.Contains(string(space.Name)) {
+			warning := fmt.Sprintf("Unable to delete space %q. Space is used as a endpoint binding.", space.Name)
 			warnings = append(warnings, warning)
 			continue
 		}
 
 		// Check to see if any space is within any constraints, if they are,
 		// ignore them for now.
-		if constraints, err := s.state.ConstraintsBySpaceName(space.Name()); err != nil || len(constraints) > 0 {
-			warning := fmt.Sprintf("Unable to delete space %q. Space is used in a constraint.", space.Name())
+		if constraints, err := s.state.ConstraintsBySpaceName(string(space.Name)); err != nil || len(constraints) > 0 {
+			warning := fmt.Sprintf("Unable to delete space %q. Space is used in a constraint.", space.Name)
 			warnings = append(warnings, warning)
 			continue
 		}
 
-		if err := space.Remove(); err != nil {
+		if err := s.state.Remove(space.ID); err != nil {
 			return warnings, errors.Trace(err)
 		}
 	}

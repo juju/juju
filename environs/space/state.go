@@ -19,25 +19,41 @@ func NewState(st *state.State) *spaceStateShim {
 	return &spaceStateShim{st}
 }
 
-func (s *spaceStateShim) AllSpaces() ([]Space, error) {
+func (s *spaceStateShim) AllSpaces() ([]network.SpaceInfo, error) {
 	spaces, err := s.State.AllSpaces()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	results := make([]Space, len(spaces))
+	results := make([]network.SpaceInfo, len(spaces))
 	for i, space := range spaces {
-		results[i] = space
+		spaceInfo, err := space.NetworkSpace()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		results[i] = spaceInfo
 	}
 	return results, nil
 }
 
-func (s *spaceStateShim) AddSpace(name string, providerID network.Id, subnetIds []string, public bool) (Space, error) {
+func (s *spaceStateShim) AddSpace(name string, providerID network.Id, subnetIds []string, public bool) (network.SpaceInfo, error) {
 	result, err := s.State.AddSpace(name, providerID, subnetIds, public)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return network.SpaceInfo{}, errors.Trace(err)
 	}
-	return result, nil
+	spaceInfo, err := result.NetworkSpace()
+	if err != nil {
+		return network.SpaceInfo{}, errors.Trace(err)
+	}
+	return spaceInfo, nil
+}
+
+func (s *spaceStateShim) Remove(spaceID string) error {
+	space, err := s.State.Space(spaceID)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return space.Remove()
 }
 
 func (s *spaceStateShim) ConstraintsBySpaceName(name string) ([]Constraints, error) {
