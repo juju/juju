@@ -21,14 +21,6 @@ import (
 	"github.com/juju/juju/core/trace"
 )
 
-const (
-	// rootTraceName is used to define the root trace name for all transaction
-	// traces.
-	// This is purely for optimization purposes, as we can't use the
-	// trace.NameFromFunc for all these micro traces.
-	rootTraceName = "txn.(*RetryingTxnRunner)."
-)
-
 // txn represents a transaction interface that can be used for committing
 // a transaction.
 type txn interface {
@@ -184,7 +176,7 @@ func (t *RetryingTxnRunner) Txn(ctx context.Context, db *sqlair.DB, fn func(cont
 			return errors.Trace(err)
 		}
 
-		return t.commit(ctx, tx)
+		return errors.Trace(t.commit(ctx, tx))
 	})
 }
 
@@ -210,7 +202,7 @@ func (t *RetryingTxnRunner) StdTxn(ctx context.Context, db *sql.DB, fn func(cont
 			return errors.Trace(err)
 		}
 
-		return t.commit(ctx, tx)
+		return errors.Trace(t.commit(ctx, tx))
 	})
 }
 
@@ -321,6 +313,14 @@ func (s noopSemaphore) Acquire(context.Context, int64) error {
 }
 
 func (s noopSemaphore) Release(int64) {}
+
+const (
+	// rootTraceName is used to define the root trace name for all transaction
+	// traces.
+	// This is purely for optimization purposes, as we can't use the
+	// trace.NameFromFunc for all these micro traces.
+	rootTraceName = "txn.(*RetryingTxnRunner)."
+)
 
 func traceName(name string) trace.Name {
 	return trace.Name(rootTraceName + name)
