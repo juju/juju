@@ -4,16 +4,19 @@
 package leaseexpiry
 
 import (
+	"context"
+
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 
 	"github.com/juju/juju/core/database"
-	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/lease"
+	coretrace "github.com/juju/juju/core/trace"
 	"github.com/juju/juju/domain/lease/service"
 	"github.com/juju/juju/domain/lease/state"
+	"github.com/juju/juju/worker/trace"
 )
 
 // Logger represents the methods used by the worker to log details.
@@ -27,11 +30,12 @@ type Logger interface {
 type ManifoldConfig struct {
 	ClockName      string
 	DBAccessorName string
+	TraceName      string
 
 	Logger Logger
 
 	NewWorker func(Config) (worker.Worker, error)
-	NewStore  func(coredatabase.DBGetter, Logger) lease.ExpiryStore
+	NewStore  func(database.DBGetter, Logger) lease.ExpiryStore
 }
 
 // Validate checks that the config has all the required values.
@@ -41,6 +45,9 @@ func (c ManifoldConfig) Validate() error {
 	}
 	if c.DBAccessorName == "" {
 		return errors.NotValidf("empty DBAccessorName")
+	}
+	if c.TraceName == "" {
+		return errors.NotValidf("empty TraceName")
 	}
 	if c.Logger == nil {
 		return errors.NotValidf("nil Logger")
@@ -64,9 +71,19 @@ func (c ManifoldConfig) start(ctx dependency.Context) (worker.Worker, error) {
 		return nil, errors.Trace(err)
 	}
 
-	var dbGetter coredatabase.DBGetter
+	var dbGetter database.DBGetter
 	if err := ctx.Get(c.DBAccessorName, &dbGetter); err != nil {
 		return nil, errors.Trace(err)
+	}
+
+	var tracerGetter trace.TracerGetter
+	if err := ctx.Get(c.TraceName, &tracerGetter); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	tracer, err := tracerGetter.GetTracer(context.TODO(), coretrace.Namespace("leaseexpiry", database.ControllerNS))
+	if err != nil {
+		tracer = coretrace.NoopTracer{}
 	}
 
 	store := c.NewStore(dbGetter, c.Logger)
@@ -75,6 +92,7 @@ func (c ManifoldConfig) start(ctx dependency.Context) (worker.Worker, error) {
 		Clock:  clk,
 		Logger: c.Logger,
 		Store:  store,
+		Tracer: tracer,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -89,13 +107,14 @@ func Manifold(cfg ManifoldConfig) dependency.Manifold {
 		Inputs: []string{
 			cfg.ClockName,
 			cfg.DBAccessorName,
+			cfg.TraceName,
 		},
 		Start: cfg.start,
 	}
 }
 
 // NewStore returns a new lease store based on the input config.
-func NewStore(dbGetter coredatabase.DBGetter, logger Logger) lease.ExpiryStore {
-	factory := database.NewTxnRunnerFactoryForNamespace(dbGetter.GetDB, coredatabase.ControllerNS)
+func NewStore(dbGetter database.DBGetter, logger Logger) lease.ExpiryStore {
+	factory := database.NewTxnRunnerFactoryForNamespace(dbGetter.GetDB, database.ControllerNS)
 	return service.NewService(state.NewState(factory, logger))
 }

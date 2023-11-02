@@ -756,6 +756,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"is-primary-controller-flag",
 		"query-logger",
 		"state-config-watcher",
+		"trace",
 	},
 
 	"lease-manager": {
@@ -765,6 +766,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"is-controller-flag",
 		"query-logger",
 		"state-config-watcher",
+		"trace",
 	},
 
 	"log-sender": {
@@ -1358,6 +1360,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"is-primary-controller-flag",
 		"query-logger",
 		"state-config-watcher",
+		"trace",
 	},
 
 	"lease-manager": {
@@ -1367,6 +1370,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"is-controller-flag",
 		"query-logger",
 		"state-config-watcher",
+		"trace",
 	},
 
 	"log-sender": {

@@ -31,7 +31,10 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 	cfg.ClockName = ""
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
-	cfg.ClockName = ""
+	cfg.DBAccessorName = ""
+	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+
+	cfg.TraceName = ""
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	cfg.Logger = nil
@@ -52,6 +55,7 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		AgentName:      "agent",
 		ClockName:      "clock",
 		DBAccessorName: "dbaccessor",
+		TraceName:      "trace",
 
 		Logger:               s.logger,
 		PrometheusRegisterer: s.prometheusRegisterer,

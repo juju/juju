@@ -4,6 +4,7 @@
 package lease
 
 import (
+	stdcontext "context"
 	"time"
 
 	"github.com/juju/clock"
@@ -14,11 +15,12 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/core/database"
-	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/lease"
+	coretrace "github.com/juju/juju/core/trace"
 	"github.com/juju/juju/domain/lease/service"
 	"github.com/juju/juju/domain/lease/state"
 	"github.com/juju/juju/worker/common"
+	"github.com/juju/juju/worker/trace"
 )
 
 const (
@@ -34,12 +36,13 @@ type ManifoldConfig struct {
 	AgentName      string
 	ClockName      string
 	DBAccessorName string
+	TraceName      string
 
 	Logger               Logger
 	LogDir               string
 	PrometheusRegisterer prometheus.Registerer
 	NewWorker            func(ManagerConfig) (worker.Worker, error)
-	NewStore             func(coredatabase.DBGetter, Logger) lease.Store
+	NewStore             func(database.DBGetter, Logger) lease.Store
 }
 
 // Validate checks that the config has all the required values.
@@ -52,6 +55,9 @@ func (c ManifoldConfig) Validate() error {
 	}
 	if c.DBAccessorName == "" {
 		return errors.NotValidf("empty DBAccessor")
+	}
+	if c.TraceName == "" {
+		return errors.NotValidf("empty TraceName")
 	}
 	if c.Logger == nil {
 		return errors.NotValidf("nil Logger")
@@ -87,9 +93,19 @@ func (s *manifoldState) start(context dependency.Context) (worker.Worker, error)
 		return nil, errors.Trace(err)
 	}
 
-	var dbGetter coredatabase.DBGetter
+	var dbGetter database.DBGetter
 	if err := context.Get(s.config.DBAccessorName, &dbGetter); err != nil {
 		return nil, errors.Trace(err)
+	}
+
+	var tracerGetter trace.TracerGetter
+	if err := context.Get(s.config.TraceName, &tracerGetter); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	tracer, err := tracerGetter.GetTracer(stdcontext.TODO(), coretrace.Namespace("leaseexpiry", database.ControllerNS))
+	if err != nil {
+		tracer = coretrace.NoopTracer{}
 	}
 
 	store := s.config.NewStore(dbGetter, s.config.Logger)
@@ -98,6 +114,7 @@ func (s *manifoldState) start(context dependency.Context) (worker.Worker, error)
 	w, err := s.config.NewWorker(ManagerConfig{
 		Secretary:            SecretaryFinder(controllerUUID),
 		Store:                store,
+		Tracer:               tracer,
 		Clock:                clock,
 		Logger:               s.config.Logger,
 		MaxSleep:             MaxSleep,
@@ -133,6 +150,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.AgentName,
 			config.ClockName,
 			config.DBAccessorName,
+			config.TraceName,
 		},
 		Start:  s.start,
 		Output: s.output,
@@ -145,7 +163,7 @@ func NewWorker(config ManagerConfig) (worker.Worker, error) {
 }
 
 // NewStore returns a new lease store based on the input config.
-func NewStore(dbGetter coredatabase.DBGetter, logger Logger) lease.Store {
-	factory := database.NewTxnRunnerFactoryForNamespace(dbGetter.GetDB, coredatabase.ControllerNS)
+func NewStore(dbGetter database.DBGetter, logger Logger) lease.Store {
+	factory := database.NewTxnRunnerFactoryForNamespace(dbGetter.GetDB, database.ControllerNS)
 	return service.NewService(state.NewState(factory, logger))
 }

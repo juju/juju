@@ -14,6 +14,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	corelease "github.com/juju/juju/core/lease"
+	"github.com/juju/juju/core/trace"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/lease"
 )
@@ -78,6 +79,7 @@ func (fix *Fixture) RunTest(c *gc.C, test func(*lease.Manager, *testclock.Clock)
 		MaxSleep:             defaultMaxSleep,
 		Logger:               loggo.GetLogger("lease_test"),
 		PrometheusRegisterer: noopRegisterer{},
+		Tracer:               trace.NoopTracer{},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	var wg sync.WaitGroup

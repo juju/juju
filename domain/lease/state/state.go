@@ -326,16 +326,37 @@ func (s *State) ExpireLeases(ctx context.Context) error {
 		return errors.Trace(err)
 	}
 
-	q := `
+	// This is split into two queries to avoid a write transaction preventing
+	// other writers from writing to the db, even if there is no writes
+	// occurring.
+	countQuery := `
+SELECT COUNT(*) FROM lease WHERE expiry < datetime('now');
+`
+
+	deleteQuery := `
 DELETE FROM lease WHERE uuid in (
 	SELECT l.uuid 
 	FROM   lease l LEFT JOIN lease_pin p ON l.uuid = p.lease_uuid
 	WHERE  p.uuid IS NULL
 	AND    l.expiry < datetime('now')
-);`[1:]
+);`
 
 	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		res, err := tx.ExecContext(ctx, q)
+		var count int64
+		row := tx.QueryRowContext(ctx, countQuery)
+		if err := row.Scan(&count); err != nil {
+			if txn.IsErrRetryable(err) {
+				return nil
+			}
+			return errors.Trace(err)
+		}
+
+		// Nothing to do here, so return early.
+		if count == 0 {
+			return nil
+		}
+
+		res, err := tx.ExecContext(ctx, deleteQuery)
 		if err != nil {
 			// TODO (manadart 2022-12-15): This incarnation of the worker runs on
 			// all controller nodes. Retryable errors are those that occur due to

@@ -14,6 +14,7 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/trace"
 	jujujujutesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/leaseexpiry"
 )
@@ -33,6 +34,7 @@ func (s *workerSuite) TestConfigValidate(c *gc.C) {
 	validCfg := leaseexpiry.Config{
 		Clock:  clock.WallClock,
 		Logger: jujujujutesting.CheckLogger{Log: c},
+		Tracer: trace.NoopTracer{},
 		Store:  store,
 	}
 
@@ -60,26 +62,38 @@ func (s *workerSuite) TestWorker(c *gc.C) {
 	clk.EXPECT().NewTimer(time.Second).Return(timer)
 	store.EXPECT().ExpireLeases(gomock.Any()).Return(nil)
 
-	done := make(chan struct{})
+	done := make(chan time.Duration)
 
 	ch := make(chan time.Time, 1)
 	ch <- time.Now()
 	timer.EXPECT().Chan().Return(ch).MinTimes(1)
-	timer.EXPECT().Reset(time.Second).Do(func(any) {
-		defer close(done)
+	timer.EXPECT().Reset(gomock.Any()).DoAndReturn(func(t time.Duration) bool {
+		defer func() {
+			select {
+			case done <- t:
+			case <-time.After(jujujujutesting.LongWait):
+				c.Fatalf("timed out sending reset")
+			}
+		}()
+
+		return true
 	})
 	timer.EXPECT().Stop().Return(true)
 
 	w, err := leaseexpiry.NewWorker(leaseexpiry.Config{
 		Clock:  clk,
 		Logger: jujujujutesting.CheckLogger{Log: c},
+		Tracer: trace.NoopTracer{},
 		Store:  store,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
 	select {
-	case <-done:
+	case t := <-done:
+		// Ensure it's within the expected range.
+		c.Check(t >= time.Second*1, jc.IsTrue)
+		c.Check(t <= time.Second*5, jc.IsTrue)
 	case <-time.After(jujujujutesting.ShortWait):
 		c.Fatalf("timed out waiting for reset")
 	}

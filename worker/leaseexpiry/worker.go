@@ -5,6 +5,7 @@ package leaseexpiry
 
 import (
 	"context"
+	"math/rand"
 	"time"
 
 	"github.com/juju/clock"
@@ -13,6 +14,7 @@ import (
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/core/trace"
 )
 
 // Config encapsulates the configuration options for
@@ -21,6 +23,7 @@ type Config struct {
 	Clock  clock.Clock
 	Logger Logger
 	Store  lease.ExpiryStore
+	Tracer trace.Tracer
 }
 
 // Validate checks whether the worker configuration settings are valid.
@@ -34,6 +37,9 @@ func (cfg Config) Validate() error {
 	if cfg.Store == nil {
 		return errors.NotValidf("nil Store")
 	}
+	if cfg.Tracer == nil {
+		return errors.NotValidf("nil Trace")
+	}
 
 	return nil
 }
@@ -44,6 +50,7 @@ type expiryWorker struct {
 	clock  clock.Clock
 	logger Logger
 	store  lease.ExpiryStore
+	tracer trace.Tracer
 }
 
 // NewWorker returns a worker that periodically deletes
@@ -59,6 +66,7 @@ func NewWorker(cfg Config) (worker.Worker, error) {
 		clock:  cfg.Clock,
 		logger: cfg.Logger,
 		store:  cfg.Store,
+		tracer: cfg.Tracer,
 	}
 
 	w.tomb.Go(w.loop)
@@ -74,16 +82,19 @@ func (w *expiryWorker) loop() error {
 	// It is cancelled by killing the tomb, which prevents shutdown
 	// being blocked by such calls.
 	ctx := w.tomb.Context(context.Background())
+	ctx = trace.WithTracer(ctx, w.tracer)
 
 	for {
 		select {
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
 		case <-timer.Chan():
-			if err := w.store.ExpireLeases(ctx); err != nil {
+			if err := w.expireLeases(ctx); err != nil {
 				return errors.Trace(err)
 			}
-			timer.Reset(time.Second)
+			// Random delay between 1 and 5 seconds.
+			delay := time.Second + (time.Duration(rand.Intn(4000)) * time.Millisecond)
+			timer.Reset(delay)
 		}
 	}
 }
@@ -96,4 +107,20 @@ func (w *expiryWorker) Kill() {
 // Wait is part of the worker.Worker interface.
 func (w *expiryWorker) Wait() error {
 	return w.tomb.Wait()
+}
+
+func (w *expiryWorker) expireLeases(ctx context.Context) (err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc(), trace.WithAttributes(
+		trace.StringAttr("namespace.worker", "leaseexpiry"),
+		trace.StringAttr("namespace.action", "expire-leases"),
+	))
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
+	if err := w.store.ExpireLeases(ctx); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
