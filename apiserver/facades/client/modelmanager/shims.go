@@ -10,31 +10,40 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/space"
+	"github.com/juju/juju/state"
 )
 
 type spaceStateShim struct {
 	common.ModelManagerBackend
 }
 
-func (s spaceStateShim) AllSpaces() ([]space.Space, error) {
+func (s spaceStateShim) AllSpaces() ([]network.SpaceInfo, error) {
 	spaces, err := s.ModelManagerBackend.AllSpaces()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	results := make([]space.Space, len(spaces))
+	results := make([]network.SpaceInfo, len(spaces))
 	for i, space := range spaces {
-		results[i] = space
+		spaceInfo, err := space.NetworkSpace()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		results[i] = spaceInfo
 	}
 	return results, nil
 }
 
-func (s spaceStateShim) AddSpace(name string, providerId network.Id, subnetIds []string, public bool) (space.Space, error) {
+func (s spaceStateShim) AddSpace(name string, providerId network.Id, subnetIds []string, public bool) (network.SpaceInfo, error) {
 	result, err := s.ModelManagerBackend.AddSpace(name, providerId, subnetIds, public)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return network.SpaceInfo{}, errors.Trace(err)
 	}
-	return result, nil
+	spaceInfo, err := result.NetworkSpace()
+	if err != nil {
+		return network.SpaceInfo{}, errors.Trace(err)
+	}
+	return spaceInfo, nil
 }
 
 func (s spaceStateShim) ConstraintsBySpaceName(name string) ([]space.Constraints, error) {
@@ -48,6 +57,36 @@ func (s spaceStateShim) ConstraintsBySpaceName(name string) ([]space.Constraints
 		results[i] = constraint
 	}
 	return results, nil
+}
+
+// TODO(nvinuesa): This method is needed temporarily and must be removed when
+// the new spaces domain has been finished and the mongodb state removed.
+func (s spaceStateShim) Life(spaceID string) (state.Life, error) {
+	space, err := s.ModelManagerBackend.Space(spaceID)
+	if err != nil {
+		return state.Dead, errors.Trace(err)
+	}
+	return space.Life(), nil
+}
+
+// TODO(nvinuesa): This method is needed temporarily and must be removed when
+// the new spaces domain has been finished and the mongodb state removed.
+func (s spaceStateShim) EnsureDead(spaceID string) error {
+	space, err := s.ModelManagerBackend.Space(spaceID)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return space.EnsureDead()
+}
+
+// TODO(nvinuesa): This method is needed temporarily and must be removed when
+// the new spaces domain has been finished and the mongodb state removed.
+func (s spaceStateShim) Remove(spaceID string) error {
+	space, err := s.ModelManagerBackend.Space(spaceID)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return space.Remove()
 }
 
 type credentialStateShim struct {
