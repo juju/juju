@@ -49,7 +49,7 @@ run_secrets() {
 	check_contains "$(juju exec --unit hello/0 -- secret-get --label=hello-app)" 'owned-by: hello-app'
 
 	echo "Checking: secret-get by label - metadata"
-	check_contains "$(juju exec --unit hello/0 -- secret-info-get --label=hello_0 --format json | jq \".${unit_owned_short_uri}.label\")" hello_0
+	check_contains "$(juju exec --unit hello/0 -- secret-info-get --label=hello_0 --format json | jq ".${unit_owned_short_uri}.label")" hello_0
 
 	relation_id=$(juju --show-log show-unit hello/0 --format json | jq '."hello/0"."relation-info"[0]."relation-id"')
 	juju exec --unit hello/0 -- secret-grant "$unit_owned_full_uri" -r "$relation_id"
@@ -296,10 +296,12 @@ prepare_vault() {
 
 	ip=$(hostname -I | awk '{print $1}')
 	root_token='root'
-	timeout 45m vault server -dev -dev-listen-address="${ip}:8200" -dev-root-token-id="$root_token" >/dev/null 2>&1 &
+	timeout 45m vault server -dev -dev-listen-address="${ip}:8200" -dev-root-token-id="$root_token" &
 
 	export VAULT_ADDR="http://${ip}:8200"
 	export VAULT_TOKEN="$root_token"
+
+	vault status
 }
 
 test_secrets() {
