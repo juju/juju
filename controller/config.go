@@ -1102,7 +1102,10 @@ func Validate(c Config) error {
 			return errors.NotValidf("negative %s (%d)", AgentRateLimitMax, v)
 		}
 	}
-	if v, ok := c[AgentRateLimitRate].(time.Duration); ok {
+
+	if v, err := parseDuration(c, AgentRateLimitRate); err != nil && !errors.Is(err, errors.NotFound) {
+		return errors.Trace(err)
+	} else if err == nil {
 		if v == 0 {
 			return errors.Errorf("%s cannot be zero", AgentRateLimitRate)
 		}
@@ -1120,7 +1123,9 @@ func Validate(c Config) error {
 		}
 	}
 
-	if v, ok := c[MaxDebugLogDuration].(time.Duration); ok {
+	if v, err := parseDuration(c, MaxDebugLogDuration); err != nil && !errors.Is(err, errors.NotFound) {
+		return errors.Trace(err)
+	} else if err == nil {
 		if v == 0 {
 			return errors.Errorf("%s cannot be zero", MaxDebugLogDuration)
 		}
@@ -1274,9 +1279,11 @@ func Validate(c Config) error {
 		}
 	}
 
-	if d, ok := c[QueryTracingThreshold].(time.Duration); ok {
-		if d < 0 {
-			return errors.Errorf("%s value %q must be a positive duration", QueryTracingThreshold, d)
+	if v, err := parseDuration(c, QueryTracingThreshold); err != nil && !errors.Is(err, errors.NotFound) {
+		return errors.Trace(err)
+	} else if err == nil {
+		if v < 0 {
+			return errors.Errorf("%s value %q must be a positive duration", QueryTracingThreshold, v)
 		}
 	}
 
@@ -1330,4 +1337,22 @@ func (c Config) AsSpaceConstraints(spaces *[]string) *[]string {
 	}
 	ns := newSpaces.SortedValues()
 	return &ns
+}
+
+func parseDuration(c Config, name string) (time.Duration, error) {
+	if _, ok := c[name]; !ok {
+		return 0, errors.NotFoundf("config key %q", name)
+	}
+
+	switch t := c[name].(type) {
+	case string:
+		value, err := time.ParseDuration(t)
+		return value, err
+	case time.Duration:
+		return t, nil
+	case nil:
+		return 0, nil
+	default:
+		return 0, errors.Errorf("unexpected type %T", c[name])
+	}
 }
