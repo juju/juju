@@ -158,6 +158,21 @@ func (mr *MockStatePoolMockRecorder) Get(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockStatePool)(nil).Get), arg0)
 }
 
+// SystemState mocks base method.
+func (m *MockStatePool) SystemState() (MongoSession, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SystemState")
+	ret0, _ := ret[0].(MongoSession)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// SystemState indicates an expected call of SystemState.
+func (mr *MockStatePoolMockRecorder) SystemState() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SystemState", reflect.TypeOf((*MockStatePool)(nil).SystemState))
+}
+
 // MockMongoSession is a mock of MongoSession interface.
 type MockMongoSession struct {
 	ctrl     *gomock.Controller

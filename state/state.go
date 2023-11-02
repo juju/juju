@@ -48,9 +48,6 @@ var logger = loggo.GetLogger("juju.state")
 const (
 	// jujuDB is the name of the main juju database.
 	jujuDB = "juju"
-
-	// blobstoreDB is the name of the blobstore GridFS database.
-	blobstoreDB = "blobstore"
 )
 
 type providerIdDoc struct {

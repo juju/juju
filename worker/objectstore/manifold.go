@@ -45,6 +45,7 @@ type StatePool interface {
 	// if required.
 	// If the State has been marked for removal, an error is returned.
 	Get(string) (MongoSession, error)
+	SystemState() (MongoSession, error)
 }
 
 // MongoSession is the interface that is used to get a mongo session.
@@ -176,4 +177,8 @@ type shimStatePool struct {
 // If the State has been marked for removal, an error is returned.
 func (s shimStatePool) Get(namespace string) (MongoSession, error) {
 	return s.statePool.Get(namespace)
+}
+
+func (s shimStatePool) SystemState() (MongoSession, error) {
+	return s.statePool.SystemState()
 }

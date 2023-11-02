@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/core/assumes"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
@@ -876,6 +877,8 @@ type modelManagerStateSuite struct {
 	authoriser   apiservertesting.FakeAuthorizer
 
 	controllerConfigGetter *mocks.MockControllerConfigGetter
+
+	store objectstore.ObjectStore
 }
 
 var _ = gc.Suite(&modelManagerStateSuite{})
@@ -897,6 +900,8 @@ func (s *modelManagerStateSuite) SetUpTest(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	s.controllerConfigGetter = mocks.NewMockControllerConfigGetter(ctrl)
 
+	s.store = jujutesting.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State())
+
 	loggo.GetLogger("juju.apiserver.modelmanager").SetLogLevel(loggo.TRACE)
 }
 
@@ -912,7 +917,7 @@ func (s *modelManagerStateSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	c.Assert(err, jc.ErrorIsNil)
 	configGetter := stateenvirons.EnvironConfigGetter{Model: s.ControllerModel(c), CloudService: serviceFactory.Cloud(), CredentialService: serviceFactory.Credential()}
 	newEnviron := common.EnvironFuncForModel(model, serviceFactory.Cloud(), serviceFactory.Credential(), configGetter)
-	toolsFinder := common.NewToolsFinder(s.controllerConfigGetter, configGetter, st, urlGetter, newEnviron)
+	toolsFinder := common.NewToolsFinder(s.controllerConfigGetter, configGetter, st, urlGetter, newEnviron, s.store)
 	modelmanager, err := modelmanager.NewModelManagerAPI(
 		mockCredentialShim{st}, nil, ctlrSt,
 		serviceFactory.Cloud(),

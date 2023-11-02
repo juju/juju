@@ -266,7 +266,9 @@ func (bi binariesInfo) Less(i, j int) bool {
 }
 
 func (b *BlobStoreChecker) readAgentBinaries() {
-	toolsStorage, err := b.system.ToolsStorage()
+	store, err := objectstore.NewStateObjectStore(context.Background(), b.system.ModelUUID(), b.system, logger)
+	checkErr(err, "object store")
+	toolsStorage, err := b.system.ToolsStorage(store)
 	checkErr(err, "tools storage")
 	defer func() {
 		err := toolsStorage.Close()

@@ -10,6 +10,7 @@ import (
 	machinemanager "github.com/juju/juju/apiserver/facades/client/machinemanager"
 	controller "github.com/juju/juju/controller"
 	network "github.com/juju/juju/core/network"
+	objectstore "github.com/juju/juju/core/objectstore"
 	binarystorage "github.com/juju/juju/state/binarystorage"
 	names "github.com/juju/names/v4"
 	gomock "go.uber.org/mock/gomock"
@@ -136,16 +137,16 @@ func (mr *MockInstanceConfigBackendMockRecorder) Model() *gomock.Call {
 }
 
 // ToolsStorage mocks base method.
-func (m *MockInstanceConfigBackend) ToolsStorage() (binarystorage.StorageCloser, error) {
+func (m *MockInstanceConfigBackend) ToolsStorage(arg0 objectstore.ObjectStore) (binarystorage.StorageCloser, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ToolsStorage")
+	ret := m.ctrl.Call(m, "ToolsStorage", arg0)
 	ret0, _ := ret[0].(binarystorage.StorageCloser)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ToolsStorage indicates an expected call of ToolsStorage.
-func (mr *MockInstanceConfigBackendMockRecorder) ToolsStorage() *gomock.Call {
+func (mr *MockInstanceConfigBackendMockRecorder) ToolsStorage(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ToolsStorage", reflect.TypeOf((*MockInstanceConfigBackend)(nil).ToolsStorage))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ToolsStorage", reflect.TypeOf((*MockInstanceConfigBackend)(nil).ToolsStorage), arg0)
 }

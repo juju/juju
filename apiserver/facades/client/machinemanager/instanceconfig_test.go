@@ -26,6 +26,7 @@ import (
 type machineConfigSuite struct {
 	ctrlSt       *mocks.MockControllerBackend
 	st           *mocks.MockInstanceConfigBackend
+	store        *mocks.MockObjectStore
 	cloudService *commonmocks.MockCloudService
 	credService  *commonmocks.MockCredentialService
 	model        *mocks.MockModel
@@ -43,6 +44,7 @@ func (s *machineConfigSuite) setup(c *gc.C) *gomock.Controller {
 	s.st = mocks.NewMockInstanceConfigBackend(ctrl)
 	s.cloudService = commonmocks.NewMockCloudService(ctrl)
 	s.credService = commonmocks.NewMockCredentialService(ctrl)
+	s.store = mocks.NewMockObjectStore(ctrl)
 
 	s.model = mocks.NewMockModel(ctrl)
 	s.model.EXPECT().UUID().Return("uuid").AnyTimes()
@@ -76,7 +78,7 @@ func (s *machineConfigSuite) TestMachineConfig(c *gc.C) {
 		Version: "2.6.6-ubuntu-amd64",
 	}}, nil)
 	storageCloser.EXPECT().Close().Return(nil)
-	s.st.EXPECT().ToolsStorage().Return(storageCloser, nil)
+	s.st.EXPECT().ToolsStorage(gomock.Any()).Return(storageCloser, nil)
 
 	s.ctrlSt.EXPECT().APIHostPortsForAgents(gomock.Any()).Return([]network.SpaceHostPorts{{{
 		SpaceAddress: network.NewSpaceAddress("1.2.3.4", network.WithScope(network.ScopeCloudLocal)),
@@ -85,7 +87,7 @@ func (s *machineConfigSuite) TestMachineConfig(c *gc.C) {
 	s.ctrlSt.EXPECT().ControllerConfig().Return(coretesting.FakeControllerConfig(), nil).MinTimes(1)
 	s.ctrlSt.EXPECT().ControllerTag().Return(coretesting.ControllerTag).AnyTimes()
 
-	icfg, err := machinemanager.InstanceConfig(context.Background(), s.controllerConfigService, s.ctrlSt, s.st, s.cloudService, s.credService, "0", "nonce", "")
+	icfg, err := machinemanager.InstanceConfig(context.Background(), s.controllerConfigService, s.ctrlSt, s.st, s.cloudService, s.credService, s.store, "0", "nonce", "")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(icfg.APIInfo.Addrs, gc.DeepEquals, []string{"1.2.3.4:1"})
 	c.Assert(icfg.ToolsList().URLs(), gc.DeepEquals, map[version.Binary][]string{

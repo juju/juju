@@ -43,7 +43,7 @@ type Backend interface {
 	AddOneMachine(template state.MachineTemplate) (*state.Machine, error)
 	AddMachineInsideNewMachine(template, parentTemplate state.MachineTemplate, containerType instance.ContainerType) (*state.Machine, error)
 	AddMachineInsideMachine(template state.MachineTemplate, parentId string, containerType instance.ContainerType) (*state.Machine, error)
-	ToolsStorage() (binarystorage.StorageCloser, error)
+	ToolsStorage(objectstore.ObjectStore) (binarystorage.StorageCloser, error)
 }
 
 type BackendState interface {

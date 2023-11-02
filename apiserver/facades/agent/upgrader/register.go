@@ -55,11 +55,11 @@ func newUpgraderFacade(ctx facade.Context) (Upgrader, error) {
 	credentialService := ctx.ServiceFactory().Credential()
 	switch tag.(type) {
 	case names.MachineTag, names.ControllerAgentTag, names.ApplicationTag, names.ModelTag:
-		return NewUpgraderAPI(controllerConfigGetter, ctrlSt, st, resources, auth, ctx.Logger().Child("upgrader"), cloudService, credentialService)
+		return NewUpgraderAPI(controllerConfigGetter, ctrlSt, st, resources, auth, ctx.Logger().Child("upgrader"), cloudService, credentialService, ctx.ControllerObjectStore())
 	case names.UnitTag:
 		if model.Type() == state.ModelTypeCAAS {
 			// For sidecar applications.
-			return NewUpgraderAPI(controllerConfigGetter, ctrlSt, st, resources, auth, ctx.Logger().Child("upgrader"), cloudService, credentialService)
+			return NewUpgraderAPI(controllerConfigGetter, ctrlSt, st, resources, auth, ctx.Logger().Child("upgrader"), cloudService, credentialService, ctx.ControllerObjectStore())
 		}
 		return NewUnitUpgraderAPI(ctx)
 	}

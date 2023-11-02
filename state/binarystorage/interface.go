@@ -4,6 +4,7 @@
 package binarystorage
 
 import (
+	"context"
 	"io"
 )
 
@@ -18,11 +19,11 @@ type Metadata struct {
 type Storage interface {
 	// Add adds the binary file and metadata into state, replacing existing
 	// metadata if any exists with the specified version.
-	Add(io.Reader, Metadata) error
+	Add(context.Context, io.Reader, Metadata) error
 
 	// Open returns the Metadata and binary file contents for the specified
 	// version if it exists, else an error satisfying errors.IsNotFound.
-	Open(version string) (Metadata, io.ReadCloser, error)
+	Open(ctx context.Context, version string) (Metadata, io.ReadCloser, error)
 
 	// AllMetadata returns metadata for the full list of binary files in the
 	// catalogue.

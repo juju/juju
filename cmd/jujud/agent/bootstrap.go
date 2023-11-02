@@ -5,6 +5,7 @@ package agent
 
 import (
 	"bytes"
+	"context"
 	stdcontext "context"
 	"fmt"
 	"io"
@@ -429,7 +430,7 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 
 	if !isCAAS {
 		// Populate the tools catalogue.
-		if err := c.populateTools(st); err != nil {
+		if err := c.populateTools(ctx, st); err != nil {
 			return errors.Trace(err)
 		}
 		// Add custom image metadata to environment storage.
@@ -572,7 +573,7 @@ func (c *BootstrapCommand) startMongo(ctx stdcontext.Context, isCAAS bool, addrs
 
 // populateTools stores uploaded tools in provider storage
 // and updates the tools metadata.
-func (c *BootstrapCommand) populateTools(st *state.State) error {
+func (c *BootstrapCommand) populateTools(ctx context.Context, st *state.State) error {
 	agentConfig := c.CurrentConfig()
 	dataDir := agentConfig.DataDir()
 
@@ -594,7 +595,12 @@ func (c *BootstrapCommand) populateTools(st *state.State) error {
 		return errors.Trace(err)
 	}
 
-	toolStorage, err := st.ToolsStorage()
+	objectStore, err := objectstore.NewStateObjectStore(ctx, st.ControllerModelUUID(), st, logger)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	toolStorage, err := st.ToolsStorage(objectStore)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -606,7 +612,7 @@ func (c *BootstrapCommand) populateTools(st *state.State) error {
 		SHA256:  agentTools.SHA256,
 	}
 	logger.Debugf("Adding agent binary: %v", agentTools.Version)
-	if err := toolStorage.Add(bytes.NewReader(data), metadata); err != nil {
+	if err := toolStorage.Add(ctx, bytes.NewReader(data), metadata); err != nil {
 		return errors.Trace(err)
 	}
 	return nil

@@ -15,6 +15,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/simplestreams"
 	envtools "github.com/juju/juju/environs/tools"
@@ -49,7 +50,7 @@ type APIHostPortsForAgentsGetter interface {
 // ToolsStorageGetter is an interface providing the ToolsStorage method.
 type ToolsStorageGetter interface {
 	// ToolsStorage returns a binarystorage.StorageCloser.
-	ToolsStorage() (binarystorage.StorageCloser, error)
+	ToolsStorage(objectstore.ObjectStore) (binarystorage.StorageCloser, error)
 }
 
 // AgentTooler is implemented by entities
@@ -247,34 +248,32 @@ type ToolsFinder interface {
 	FindAgents(context.Context, FindAgentsParams) (coretools.List, error)
 }
 
-// ControllerConfigGetter defines a method for getting the controller config.
-type ControllerConfigGetter interface {
-	ControllerConfig(context.Context) (controller.Config, error)
-}
-
 type toolsFinder struct {
-	controllerConfigGetter ControllerConfigGetter
-	configGetter           environs.EnvironConfigGetter
-	toolsStorageGetter     ToolsStorageGetter
-	urlGetter              ToolsURLGetter
-	newEnviron             NewEnvironFunc
+	controllerConfigService ControllerConfigService
+	configGetter            environs.EnvironConfigGetter
+	toolsStorageGetter      ToolsStorageGetter
+	urlGetter               ToolsURLGetter
+	newEnviron              NewEnvironFunc
+	store                   objectstore.ObjectStore
 }
 
 // NewToolsFinder returns a new ToolsFinder, returning tools
 // with their URLs pointing at the API server.
 func NewToolsFinder(
-	controllerConfigGetter ControllerConfigGetter,
+	controllerConfigService ControllerConfigService,
 	configGetter environs.EnvironConfigGetter,
 	toolsStorageGetter ToolsStorageGetter,
 	urlGetter ToolsURLGetter,
 	newEnviron NewEnvironFunc,
+	store objectstore.ObjectStore,
 ) *toolsFinder {
 	return &toolsFinder{
-		controllerConfigGetter: controllerConfigGetter,
-		configGetter:           configGetter,
-		toolsStorageGetter:     toolsStorageGetter,
-		urlGetter:              urlGetter,
-		newEnviron:             newEnviron,
+		controllerConfigService: controllerConfigService,
+		configGetter:            configGetter,
+		toolsStorageGetter:      toolsStorageGetter,
+		urlGetter:               urlGetter,
+		newEnviron:              newEnviron,
+		store:                   store,
 	}
 }
 
@@ -286,7 +285,7 @@ func (f *toolsFinder) FindAgents(ctx context.Context, args FindAgentsParams) (co
 		return nil, err
 	}
 
-	controllerConfig, err := f.controllerConfigGetter.ControllerConfig(ctx)
+	controllerConfig, err := f.controllerConfigService.ControllerConfig(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -369,7 +368,7 @@ func (f *toolsFinder) findMatchingAgents(ctx context.Context, args FindAgentsPar
 // matchingStorageAgent returns a coretools.List, with an entry for each
 // metadata entry in the agent storage that matches the given parameters.
 func (f *toolsFinder) matchingStorageAgent(args FindAgentsParams) (coretools.List, error) {
-	storage, err := f.toolsStorageGetter.ToolsStorage()
+	storage, err := f.toolsStorageGetter.ToolsStorage(f.store)
 	if err != nil {
 		return nil, err
 	}

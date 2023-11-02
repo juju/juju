@@ -102,7 +102,7 @@ func AddCharm(st *state.State, curl string, ch charm.Charm, force bool) (*state.
 	return sch, nil
 }
 
-func NewObjectStore(c *gc.C, modelUUID string, st *state.State) coreobjectstore.ObjectStore {
+func NewObjectStore(c *gc.C, modelUUID string, st objectstore.MongoSession) coreobjectstore.ObjectStore {
 	// This will be removed when the worker object store is enabled by default.
 	store, err := objectstore.NewStateObjectStore(context.Background(), modelUUID, st, testing.NewCheckLogger(c))
 	c.Assert(err, jc.ErrorIsNil)

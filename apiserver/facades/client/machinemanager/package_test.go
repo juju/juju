@@ -18,6 +18,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/state_storage_mock.go github.com/juju/juju/state/binarystorage StorageCloser
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/volume_access_mock.go github.com/juju/juju/apiserver/common/storagecommon VolumeAccess
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/environ_mock.go github.com/juju/juju/environs Environ
+//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/objectstore_mock.go github.com/juju/juju/core/objectstore ObjectStore
 
 func TestPackage(t *testing.T) {
 	// TODO(wallyworld) - needed until instance config tests converted to gomock
