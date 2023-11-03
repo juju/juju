@@ -891,8 +891,8 @@ github.com/juju/rfc/v2 v2.0.0/go.mod h1:fhE7z2y6DFUvYdWy93m40oA3lJIs+P3WrK6barpC
 github.com/juju/romulus v1.0.0 h1:THzHnztB7JgFTkr4bmvcpTa2fK6YQTJyKpQwsNoPKRA=
 github.com/juju/romulus v1.0.0/go.mod h1:NTUb3tUldFPZLWbieglCiV4SpccHuiFUNRY+bsIkohA=
 github.com/juju/schema v1.0.0/go.mod h1:Y+ThzXpUJ0E7NYYocAbuvJ7vTivXfrof/IfRPq/0abI=
-github.com/juju/schema v1.0.1 h1:GBEiwxZQeoQuXI6gOTG58W/ZpdongMwl9pfZq1KcNgM=
-github.com/juju/schema v1.0.1/go.mod h1:Y+ThzXpUJ0E7NYYocAbuvJ7vTivXfrof/IfRPq/0abI=
+github.com/juju/schema v1.2.0 h1:+XywM0pYzuhGebQiK1aR4Bj7Q7nLV5MihcOgq6dLLxs=
+github.com/juju/schema v1.2.0/go.mod h1:VdljuJLc45loM79LYm4yKKmPJwK1bPKRekvMVlfywU0=
 github.com/juju/terms-client/v2 v2.0.0 h1:8DGcK9JW5Q7gmuvTzB2qIXsa/KY70jWM54rtGFAmyak=
 github.com/juju/terms-client/v2 v2.0.0/go.mod h1:ezOEZrFZZ0c9Kc0xeHH7SCmniWPkjuxiAm82wwg+fpE=
 github.com/juju/testing v0.0.0-20180402130637-44801989f0f7/go.mod h1:63prj8cnj0tU0S9OHjGJn+b1h0ZghCndfnbQolrYTwA=
