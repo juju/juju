@@ -297,7 +297,6 @@ ON CONFLICT(region_uuid, key) DO UPDATE
 
 func loadClouds(ctx context.Context, tx *sql.Tx, name string) ([]cloud.Cloud, error) {
 	// First load the basic cloud info and auth types.
-	// TODO: needs controller cloud
 	q := `
 SELECT cloud.uuid, cloud.name, cloud_type_id, 
        cloud.endpoint, cloud.identity_endpoint, 
