@@ -82,7 +82,6 @@ func (s *SpacesSuite) assertSpaceNotFoundForState(c *gc.C, name string, st *stat
 
 func (s *SpacesSuite) assertSpaceNotFoundError(c *gc.C, err error, name string) {
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("space %q not found", name))
-
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 

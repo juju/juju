@@ -259,8 +259,8 @@ func (st *State) Space(id string) (*Space, error) {
 }
 
 // SpaceByName returns a space from state that matches the input name.
-// An error is returned if the space does not exist or if there was a problem
-// accessing its information.
+// An error is returned that satisfied errors.NotFound if the space was not found
+// or an error static any problems fetching the given space.
 func (st *State) SpaceByName(name string) (*Space, error) {
 	spaces, closer := st.db().GetCollection(spacesC)
 	defer closer()
