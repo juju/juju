@@ -186,7 +186,7 @@ endef
 # Compile with debug flags if requested.
 ifeq ($(DEBUG_JUJU), 1)
     COMPILE_FLAGS = -gcflags "all=-N -l"
-    LINK_FLAGS =  "-X $(link_flags_version)"
+    LINK_FLAGS =  "$(link_flags_version)"
 	CGO_LINK_FLAGS = "-linkmode 'external' -extldflags '-static' $(link_flags_version)"
 else
     LINK_FLAGS = "-s -w -extldflags '-static' $(link_flags_version)"
