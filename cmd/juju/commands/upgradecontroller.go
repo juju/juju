@@ -121,9 +121,6 @@ func (c *upgradeControllerCommand) upgradeController(ctx *cmd.Context, controlle
 	if c.IgnoreAgentVersions {
 		args = append(args, "--ignore-agent-versions")
 	}
-	if c.ResetPrevious {
-		args = append(args, "--reset-previous-upgrade")
-	}
 	if c.AssumeYes {
 		args = append(args, "--yes")
 	}

@@ -4,6 +4,7 @@
 package modelupgrader
 
 import (
+	"context"
 	stdcontext "context"
 	"fmt"
 
@@ -28,6 +29,12 @@ import (
 	"github.com/juju/juju/upgrades/upgradevalidation"
 )
 
+// UpgradeService is an interface that allows us to check if the model
+// is currently upgrading.
+type UpgradeService interface {
+	IsUpgrading(context.Context) (bool, error)
+}
+
 // ModelUpgraderAPI implements the model upgrader interface and is
 // the concrete implementation of the api end point.
 type ModelUpgraderAPI struct {
@@ -39,6 +46,7 @@ type ModelUpgraderAPI struct {
 	apiUser                     names.UserTag
 	credentialInvalidatorGetter envcontext.ModelCredentialInvalidatorGetter
 	newEnviron                  common.NewEnvironFunc
+	upgradeService              UpgradeService
 
 	registryAPIFunc         func(repoDetails docker.ImageRepoDetails) (registry.Registry, error)
 	environscloudspecGetter func(names.ModelTag) (environscloudspec.CloudSpec, error)
@@ -57,6 +65,7 @@ func NewModelUpgraderAPI(
 	credentialInvalidatorGetter envcontext.ModelCredentialInvalidatorGetter,
 	registryAPIFunc func(docker.ImageRepoDetails) (registry.Registry, error),
 	environscloudspecGetter func(names.ModelTag) (environscloudspec.CloudSpec, error),
+	upgradeService UpgradeService,
 	logger loggo.Logger,
 ) (*ModelUpgraderAPI, error) {
 	if !authorizer.AuthClient() {
@@ -77,6 +86,7 @@ func NewModelUpgraderAPI(
 		newEnviron:                  newEnviron,
 		registryAPIFunc:             registryAPIFunc,
 		environscloudspecGetter:     environscloudspecGetter,
+		upgradeService:              upgradeService,
 		logger:                      logger,
 	}, nil
 }
@@ -102,26 +112,10 @@ type ConfigSource interface {
 	Config() (*config.Config, error)
 }
 
-// AbortModelUpgrade aborts and archives the model upgrade
-// synchronisation record, if any.
+// AbortModelUpgrade returns not supported, as it's not possible to move
+// back to a prior version.
 func (m *ModelUpgraderAPI) AbortModelUpgrade(ctx stdcontext.Context, arg params.ModelParam) error {
-	modelTag, err := names.ParseModelTag(arg.ModelTag)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if err := m.canUpgrade(modelTag); err != nil {
-		return errors.Trace(err)
-	}
-
-	if err := m.check.ChangeAllowed(ctx); err != nil {
-		return errors.Trace(err)
-	}
-	st, err := m.statePool.Get(modelTag.Id())
-	if err != nil {
-		return errors.Trace(err)
-	}
-	defer st.Release()
-	return st.AbortCurrentUpgrade()
+	return errors.NotSupportedf("abort model upgrade")
 }
 
 // UpgradeModel upgrades a model.
@@ -241,7 +235,10 @@ func (m *ModelUpgraderAPI) UpgradeModel(ctx stdcontext.Context, arg params.Upgra
 	if arg.AgentStream != "" {
 		agentStream = &arg.AgentStream
 	}
-	if err := st.SetModelAgentVersion(targetVersion, agentStream, arg.IgnoreAgentVersions); err != nil {
+	if err := st.SetModelAgentVersion(targetVersion, agentStream, arg.IgnoreAgentVersions, shimUpgrader{
+		upgradeService: m.upgradeService,
+		ctx:            ctx,
+	}); err != nil {
 		return result, errors.Trace(err)
 	}
 	return result, nil
@@ -397,4 +394,16 @@ func (m *ModelUpgraderAPI) validateModelUpgrade(
 		blockers.Join(blockersForModel)
 	}
 	return
+}
+
+// shimUpgrader is shim for the state methods that don't have access to
+// the context.Context. This allows us to pass it in, until we re-write the
+// state layer.
+type shimUpgrader struct {
+	upgradeService UpgradeService
+	ctx            context.Context
+}
+
+func (s shimUpgrader) IsUpgrading() (bool, error) {
+	return s.upgradeService.IsUpgrading(s.ctx)
 }

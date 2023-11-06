@@ -1060,7 +1060,7 @@ func (s *modelManagerStateSuite) TestCreateModelSameAgentVersion(c *gc.C) {
 }
 
 func (s *modelManagerStateSuite) TestCreateModelBadAgentVersion(c *gc.C) {
-	err := s.ControllerModel(c).State().SetModelAgentVersion(coretesting.FakeVersionNumber, nil, false)
+	err := s.ControllerModel(c).State().SetModelAgentVersion(coretesting.FakeVersionNumber, nil, false, stubUpgrader{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	admin := jujutesting.AdminUser
@@ -1909,4 +1909,10 @@ func (*fakeProvider) PrepareForCreateEnvironment(controllerUUID string, cfg *con
 
 func init() {
 	environs.RegisterProvider("fake", &fakeProvider{})
+}
+
+type stubUpgrader struct{}
+
+func (stubUpgrader) IsUpgrading() (bool, error) {
+	return false, nil
 }

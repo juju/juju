@@ -39,7 +39,7 @@ func testAgentTools(c *gc.C, obj tooler, agent string) {
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 
 	err = obj.SetAgentVersion(version.Binary{})
-	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("cannot set agent version for %s: empty series or arch", agent))
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("setting agent version for %s: empty series or arch", agent))
 
 	v2 := version.MustParseBinary("7.8.9-ubuntu-amd64")
 	err = obj.SetAgentVersion(v2)

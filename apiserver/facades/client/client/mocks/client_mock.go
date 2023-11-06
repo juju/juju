@@ -62,20 +62,6 @@ func (mr *MockBackendMockRecorder) APIHostPortsForClients(arg0 interface{}) *gom
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "APIHostPortsForClients", reflect.TypeOf((*MockBackend)(nil).APIHostPortsForClients), arg0)
 }
 
-// AbortCurrentUpgrade mocks base method.
-func (m *MockBackend) AbortCurrentUpgrade() error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AbortCurrentUpgrade")
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// AbortCurrentUpgrade indicates an expected call of AbortCurrentUpgrade.
-func (mr *MockBackendMockRecorder) AbortCurrentUpgrade() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AbortCurrentUpgrade", reflect.TypeOf((*MockBackend)(nil).AbortCurrentUpgrade))
-}
-
 // AddControllerUser mocks base method.
 func (m *MockBackend) AddControllerUser(arg0 state.UserAccessSpec) (permission.UserAccess, error) {
 	m.ctrl.T.Helper()
@@ -682,17 +668,17 @@ func (mr *MockBackendMockRecorder) SetAnnotations(arg0, arg1 interface{}) *gomoc
 }
 
 // SetModelAgentVersion mocks base method.
-func (m *MockBackend) SetModelAgentVersion(arg0 version.Number, arg1 *string, arg2 bool) error {
+func (m *MockBackend) SetModelAgentVersion(arg0 version.Number, arg1 *string, arg2 bool, arg3 state.Upgrader) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetModelAgentVersion", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "SetModelAgentVersion", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SetModelAgentVersion indicates an expected call of SetModelAgentVersion.
-func (mr *MockBackendMockRecorder) SetModelAgentVersion(arg0, arg1, arg2 interface{}) *gomock.Call {
+func (mr *MockBackendMockRecorder) SetModelAgentVersion(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetModelAgentVersion", reflect.TypeOf((*MockBackend)(nil).SetModelAgentVersion), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetModelAgentVersion", reflect.TypeOf((*MockBackend)(nil).SetModelAgentVersion), arg0, arg1, arg2, arg3)
 }
 
 // SetModelConstraints mocks base method.

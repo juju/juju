@@ -131,7 +131,7 @@ func (u *Upgrader) loop() error {
 	// used by the controller in communicating the desired version below).
 	hostOSType := coreos.HostOSTypeName()
 	if err := u.client.SetVersion(u.tag.String(), toBinaryVersion(jujuversion.Current, hostOSType)); err != nil {
-		return errors.Annotatef(err, "cannot set agent version for %q", u.tag.String())
+		return errors.Annotatef(err, "setting agent version for %q", u.tag.String())
 	}
 
 	// We do not commence any actions until the upgrade-steps worker has

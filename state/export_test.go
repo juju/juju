@@ -512,23 +512,6 @@ func WatcherMakeIdFilter(st *State, marker string, receivers ...ActionReceiver) 
 	return makeIdFilter(st, marker, receivers...)
 }
 
-func GetAllUpgradeInfos(st *State) ([]*UpgradeInfo, error) {
-	upgradeInfos, closer := st.db().GetCollection(upgradeInfoC)
-	defer closer()
-
-	var out []*UpgradeInfo
-	var doc upgradeInfoDoc
-	iter := upgradeInfos.Find(nil).Iter()
-	defer iter.Close()
-	for iter.Next(&doc) {
-		out = append(out, &UpgradeInfo{st: st, doc: doc})
-	}
-	if err := iter.Close(); err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 func UserModelNameIndex(username, modelName string) string {
 	return userModelNameIndex(username, modelName)
 }

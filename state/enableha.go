@@ -611,7 +611,7 @@ func (c *controllerNode) AgentTools() (*tools.Tools, error) {
 }
 
 func (c *controllerNode) SetAgentVersion(v version.Binary) (err error) {
-	defer errors.DeferredAnnotatef(&err, "cannot set agent version for controller %s", c.Id())
+	defer errors.DeferredAnnotatef(&err, "setting agent version for controller %s", c.Id())
 	if err := checkVersionValidity(v); err != nil {
 		return err
 	}

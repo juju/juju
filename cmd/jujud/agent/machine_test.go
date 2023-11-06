@@ -257,12 +257,12 @@ func (s *MachineSuite) TestRunStop(c *gc.C) {
 	c.Assert(<-done, jc.ErrorIsNil)
 }
 
-func (s *MachineSuite) testUpgradeRequest(c *gc.C, agent runner, tag string, currentTools *tools.Tools) {
+func (s *MachineSuite) testUpgradeRequest(c *gc.C, agent runner, tag string, currentTools *tools.Tools, upgrader state.Upgrader) {
 	newVers := coretesting.CurrentVersion()
 	newVers.Patch++
 	newTools := envtesting.AssertUploadFakeToolsVersions(
 		c, s.agentStorage, s.Environ.Config().AgentStream(), s.Environ.Config().AgentStream(), newVers)[0]
-	err := s.ControllerModel(c).State().SetModelAgentVersion(newVers.Number, nil, true)
+	err := s.ControllerModel(c).State().SetModelAgentVersion(newVers.Number, nil, true, upgrader)
 	c.Assert(err, jc.ErrorIsNil)
 	err = runWithTimeout(c, agent)
 	envtesting.CheckUpgraderReadyError(c, err, &agenterrors.UpgradeReadyError{
@@ -277,7 +277,7 @@ func (s *MachineSuite) TestUpgradeRequest(c *gc.C) {
 	m, _, currentTools := s.primeAgent(c, state.JobManageModel, state.JobHostUnits)
 	ctrl, a := s.newAgent(c, m)
 	defer ctrl.Finish()
-	s.testUpgradeRequest(c, a, m.Tag().String(), currentTools)
+	s.testUpgradeRequest(c, a, m.Tag().String(), currentTools, stubUpgrader{})
 	c.Assert(a.initialUpgradeCheckComplete.IsUnlocked(), jc.IsFalse)
 }
 
@@ -676,4 +676,12 @@ func (s *MachineSuite) assertAgentSetsToolsVersion(c *gc.C, job state.MachineJob
 			done = true
 		}
 	}
+}
+
+type stubUpgrader struct {
+	upgrading bool
+}
+
+func (s stubUpgrader) IsUpgrading() (bool, error) {
+	return s.upgrading, nil
 }

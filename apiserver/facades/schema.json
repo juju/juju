@@ -29145,7 +29145,7 @@
                             "$ref": "#/definitions/ModelParam"
                         }
                     },
-                    "description": "AbortModelUpgrade aborts and archives the model upgrade\nsynchronisation record, if any."
+                    "description": "AbortModelUpgrade returns not supported, as it's not possible to move\nback to a prior version."
                 },
                 "UpgradeModel": {
                     "type": "object",
