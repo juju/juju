@@ -5,8 +5,6 @@ package waitfor
 
 import (
 	"github.com/juju/cmd/v3"
-
-	_ "github.com/juju/juju/provider/all"
 )
 
 // Logger is the interface used by the wait-for command to log messages.
