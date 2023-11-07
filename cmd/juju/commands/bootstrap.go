@@ -57,6 +57,7 @@ import (
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
+	_ "github.com/juju/juju/provider/all" // Import all the providers for bootstrap.
 	"github.com/juju/juju/provider/lxd/lxdnames"
 	"github.com/juju/juju/state/stateenvirons"
 	jujuversion "github.com/juju/juju/version"
