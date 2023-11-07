@@ -46,6 +46,7 @@ func ControllerDDL() *schema.Schema {
 		changeLogTriggersForTable("upgrade_info", "uuid", tableUpgradeInfo),
 		changeLogTriggersForTable("upgrade_info_controller_node", "upgrade_info_uuid", tableUpgradeInfoControllerNode),
 		autocertCacheSchema,
+		userSchema,
 	}
 
 	schema := schema.New()
@@ -531,4 +532,41 @@ CREATE TABLE autocert_cache_encoding (
 INSERT INTO autocert_cache_encoding VALUES
     (0, 'x509');    -- Only x509 certs encoding supported today.
 `)
+}
+
+func userSchema() schema.Patch {
+	return schema.MakePatch(`
+CREATE TABLE user (
+    name            TEXT PRIMARY KEY,
+    display_name    TEXT,
+    deactivated     BOOLEAN NOT NULL,
+    deleted         BOOLEAN NOT NULL,
+    created_by      TEXT,
+    created_at      TIMESTAMP NOT NULL
+);
+
+CREATE TABLE user_last_login (
+    user_name       TEXT PRIMARY KEY,
+    last_login      TIMESTAMP NOT NULL,
+    CONSTRAINT      fk_user_last_login_user
+        FOREIGN KEY (user_name)
+    REFERENCES      user(name)
+);
+
+CREATE TABLE user_password (
+    user_name       TEXT PRIMARY KEY,
+    password_hash   TEXT NOT NULL,
+    password_salt   TEXT NOT NULL,
+    CONSTRAINT      fk_user_password_user
+        FOREIGN KEY (user_name)
+    REFERENCES      user(name)
+);
+
+CREATE TABLE user_secret_key (
+    user_name       TEXT PRIMARY KEY,
+    secret_key      TEXT NOT NULL,
+    CONSTRAINT      fk_user_secret_key_user
+        FOREIGN KEY (user_name)
+    REFERENCES      user(name)
+);`)
 }

@@ -87,6 +87,12 @@ func (s *schemaSuite) TestControllerDDLApply(c *gc.C) {
 		"upgrade_info",
 		"upgrade_info_controller_node",
 		"upgrade_state_type",
+
+		// Users
+		"user",
+		"user_last_login",
+		"user_password",
+		"user_secret_key",
 	)
 	c.Assert(readTableNames(c, s.DB()), jc.SameContents, expected.Union(internalTableNames).SortedValues())
 }
