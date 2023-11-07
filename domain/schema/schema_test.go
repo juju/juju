@@ -88,16 +88,16 @@ func (s *schemaSuite) TestControllerDDLApply(c *gc.C) {
 		"upgrade_info_controller_node",
 		"upgrade_state_type",
 
+		// Object store metadata
+		"object_store_metadata",
+		"object_store_metadata_path",
+		"object_store_metadata_hash_type",
+
 		// Users
 		"user",
 		"user_authentication",
 		"user_password",
 		"user_activation_key",
-
-		// Object store metadata
-		"object_store_metadata",
-		"object_store_metadata_path",
-		"object_store_metadata_hash_type",
 	)
 	c.Assert(readTableNames(c, s.DB()), jc.SameContents, expected.Union(internalTableNames).SortedValues())
 }
