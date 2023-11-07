@@ -537,36 +537,39 @@ INSERT INTO autocert_cache_encoding VALUES
 func userSchema() schema.Patch {
 	return schema.MakePatch(`
 CREATE TABLE user (
-    name            TEXT PRIMARY KEY,
+    uuid            TEXT PRIMARY KEY,
+    name            TEXT NOT NULL UNIQUE,
     display_name    TEXT,
-    deactivated     BOOLEAN NOT NULL,
     deleted         BOOLEAN NOT NULL,
     created_by      TEXT,
     created_at      TIMESTAMP NOT NULL
 );
 
+CREATE UNIQUE INDEX idx_singleton_active_user ON user ((1)) WHERE deleted == false;
+
 CREATE TABLE user_last_login (
-    user_name       TEXT PRIMARY KEY,
+    user_uuid       TEXT PRIMARY KEY,
     last_login      TIMESTAMP NOT NULL,
     CONSTRAINT      fk_user_last_login_user
-        FOREIGN KEY (user_name)
-    REFERENCES      user(name)
+        FOREIGN KEY (user_uuid)
+    REFERENCES      user(uuid)
 );
 
 CREATE TABLE user_password (
-    user_name       TEXT PRIMARY KEY,
+    user_uuid       TEXT PRIMARY KEY,
     password_hash   TEXT NOT NULL,
     password_salt   TEXT NOT NULL,
+    active          BOOLEAN NOT NULL,
     CONSTRAINT      fk_user_password_user
-        FOREIGN KEY (user_name)
-    REFERENCES      user(name)
+        FOREIGN KEY (user_uuid)
+    REFERENCES      user(uuid)
 );
 
 CREATE TABLE user_activation_key (
-    user_name       TEXT PRIMARY KEY,
+    user_uuid       TEXT PRIMARY KEY,
     activation_key  TEXT NOT NULL,
     CONSTRAINT      fk_user_activation_key_user
-        FOREIGN KEY (user_name)
-    REFERENCES      user(name)
+        FOREIGN KEY (user_uuid)
+    REFERENCES      user(uuid)
 );`)
 }
