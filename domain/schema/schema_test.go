@@ -92,7 +92,7 @@ func (s *schemaSuite) TestControllerDDLApply(c *gc.C) {
 		"user",
 		"user_last_login",
 		"user_password",
-		"user_secret_key",
+		"user_activation_key",
 	)
 	c.Assert(readTableNames(c, s.DB()), jc.SameContents, expected.Union(internalTableNames).SortedValues())
 }

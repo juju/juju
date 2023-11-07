@@ -562,10 +562,10 @@ CREATE TABLE user_password (
     REFERENCES      user(name)
 );
 
-CREATE TABLE user_secret_key (
+CREATE TABLE user_activation_key (
     user_name       TEXT PRIMARY KEY,
-    secret_key      TEXT NOT NULL,
-    CONSTRAINT      fk_user_secret_key_user
+    activation_key  TEXT NOT NULL,
+    CONSTRAINT      fk_user_activation_key_user
         FOREIGN KEY (user_name)
     REFERENCES      user(name)
 );`)
