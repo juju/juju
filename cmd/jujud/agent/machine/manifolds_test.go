@@ -70,6 +70,7 @@ func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *gc.C) {
 			"api-config-watcher",
 			"api-server",
 			"audit-config-updater",
+			"bootstrap",
 			"broker-tracker",
 			"central-hub",
 			"certificate-updater",
@@ -90,6 +91,8 @@ func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *gc.C) {
 			"http-server-args",
 			"http-server",
 			"instance-mutater",
+			"is-bootstrap-flag",
+			"is-bootstrap-gate",
 			"is-controller-flag",
 			"is-not-controller-flag",
 			"is-primary-controller-flag",
@@ -154,6 +157,7 @@ func (s *ManifoldsSuite) TestManifoldNamesCAAS(c *gc.C) {
 			"api-config-watcher",
 			"api-server",
 			"audit-config-updater",
+			"bootstrap",
 			"caas-units-manager",
 			"central-hub",
 			"certificate-watcher",
@@ -168,6 +172,8 @@ func (s *ManifoldsSuite) TestManifoldNamesCAAS(c *gc.C) {
 			"file-notify-watcher",
 			"http-server-args",
 			"http-server",
+			"is-bootstrap-flag",
+			"is-bootstrap-gate",
 			"is-controller-flag",
 			"is-primary-controller-flag",
 			"lease-expiry",
@@ -235,6 +241,7 @@ func (s *ManifoldsSuite) TestMigrationGuardsUsed(c *gc.C) {
 		"api-config-watcher",
 		"api-server",
 		"audit-config-updater",
+		"bootstrap",
 		"certificate-updater",
 		"certificate-watcher",
 		"central-hub",
@@ -250,6 +257,8 @@ func (s *ManifoldsSuite) TestMigrationGuardsUsed(c *gc.C) {
 		"global-clock-updater",
 		"http-server",
 		"http-server-args",
+		"is-bootstrap-flag",
+		"is-bootstrap-gate",
 		"is-controller-flag",
 		"is-not-controller-flag",
 		"is-primary-controller-flag",
@@ -310,21 +319,21 @@ func (*ManifoldsSuite) TestSingularGuardsUsed(c *gc.C) {
 		"audit-config-updater",
 		"certificate-watcher",
 		"change-stream",
+		"change-stream",
+		"control-socket",
 		"controller-agent-config",
 		"db-accessor",
+		"db-accessor",
+		"file-notify-watcher",
 		"file-notify-watcher",
 		"is-primary-controller-flag",
 		"lease-manager",
 		"object-store",
 		"query-logger",
+		"query-logger",
 		"upgrade-database-flag",
 		"upgrade-database-gate",
 		"upgrade-database-runner",
-		"db-accessor",
-		"query-logger",
-		"change-stream",
-		"file-notify-watcher",
-		"control-socket",
 	)
 
 	// Explicitly guarded by ifPrimaryController.
@@ -335,7 +344,15 @@ func (*ManifoldsSuite) TestSingularGuardsUsed(c *gc.C) {
 		"secret-backend-rotate",
 	)
 
+	// Ensure that at least one worker is guarded by ifDatabaseUpgradeComplete
+	// flag. If no worker is guarded then we know that workers are accessing
+	// the database before it has been upgraded.
 	dbUpgradedWorkers := set.NewStrings(
+		"bootstrap",
+	)
+
+	// bootstrapWorkers are workers that are run directly run after bootstrap.
+	bootstrapWorkers := set.NewStrings(
 		"multiwatcher",
 	)
 
@@ -352,6 +369,8 @@ func (*ManifoldsSuite) TestSingularGuardsUsed(c *gc.C) {
 			checkNotContains(c, manifold.Inputs, "is-controller-flag")
 			checkNotContains(c, manifold.Inputs, "is-primary-controller-flag")
 			checkContains(c, manifold.Inputs, "upgrade-database-flag")
+		case bootstrapWorkers.Contains(name):
+			checkContains(c, manifold.Inputs, "is-bootstrap-flag")
 		default:
 			checkNotContains(c, manifold.Inputs, "is-controller-flag")
 			checkNotContains(c, manifold.Inputs, "is-primary-controller-flag")
@@ -497,6 +516,8 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"db-accessor",
 		"file-notify-watcher",
 		"http-server-args",
+		"is-bootstrap-flag",
+		"is-bootstrap-gate",
 		"is-controller-flag",
 		"lease-manager",
 		"multiwatcher",
@@ -507,8 +528,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"state",
 		"syslog",
 		"trace",
-		"upgrade-database-flag",
-		"upgrade-database-gate",
 		"upgrade-steps-gate",
 	},
 
@@ -522,6 +541,23 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"service-factory",
 		"state",
 		"state-config-watcher",
+	},
+
+	"bootstrap": {
+		"agent",
+		"change-stream",
+		"db-accessor",
+		"file-notify-watcher",
+		"is-bootstrap-gate",
+		"is-controller-flag",
+		"object-store",
+		"query-logger",
+		"service-factory",
+		"state",
+		"state-config-watcher",
+		"trace",
+		"upgrade-database-flag",
+		"upgrade-database-gate",
 	},
 
 	"broker-tracker": {
@@ -693,6 +729,8 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"db-accessor",
 		"file-notify-watcher",
 		"http-server-args",
+		"is-bootstrap-flag",
+		"is-bootstrap-gate",
 		"is-controller-flag",
 		"lease-manager",
 		"multiwatcher",
@@ -703,8 +741,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"state",
 		"syslog",
 		"trace",
-		"upgrade-database-flag",
-		"upgrade-database-gate",
 		"upgrade-steps-gate",
 	},
 
@@ -733,6 +769,12 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"upgrade-steps-flag",
 		"upgrade-steps-gate",
 	},
+
+	"is-bootstrap-flag": {
+		"is-bootstrap-gate",
+	},
+
+	"is-bootstrap-gate": {},
 
 	"is-controller-flag": {"agent", "state-config-watcher"},
 
@@ -903,13 +945,13 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"change-stream",
 		"db-accessor",
 		"file-notify-watcher",
+		"is-bootstrap-flag",
+		"is-bootstrap-gate",
 		"is-controller-flag",
 		"query-logger",
 		"service-factory",
 		"state",
 		"state-config-watcher",
-		"upgrade-database-flag",
-		"upgrade-database-gate",
 	},
 
 	"peer-grouper": {
@@ -1191,6 +1233,8 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"db-accessor",
 		"file-notify-watcher",
 		"http-server-args",
+		"is-bootstrap-flag",
+		"is-bootstrap-gate",
 		"is-controller-flag",
 		"lease-manager",
 		"multiwatcher",
@@ -1201,8 +1245,6 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"state",
 		"syslog",
 		"trace",
-		"upgrade-database-flag",
-		"upgrade-database-gate",
 		"upgrade-steps-gate",
 	},
 
@@ -1216,6 +1258,23 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"service-factory",
 		"state",
 		"state-config-watcher",
+	},
+
+	"bootstrap": {
+		"agent",
+		"change-stream",
+		"db-accessor",
+		"file-notify-watcher",
+		"is-bootstrap-gate",
+		"is-controller-flag",
+		"object-store",
+		"query-logger",
+		"service-factory",
+		"state",
+		"state-config-watcher",
+		"trace",
+		"upgrade-database-flag",
+		"upgrade-database-gate",
 	},
 
 	"central-hub": {"agent", "state-config-watcher"},
@@ -1312,6 +1371,8 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"db-accessor",
 		"file-notify-watcher",
 		"http-server-args",
+		"is-bootstrap-flag",
+		"is-bootstrap-gate",
 		"is-controller-flag",
 		"lease-manager",
 		"multiwatcher",
@@ -1322,8 +1383,6 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"state",
 		"syslog",
 		"trace",
-		"upgrade-database-flag",
-		"upgrade-database-gate",
 		"upgrade-steps-gate",
 	},
 
@@ -1339,6 +1398,12 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"state",
 		"state-config-watcher",
 	},
+
+	"is-bootstrap-flag": {
+		"is-bootstrap-gate",
+	},
+
+	"is-bootstrap-gate": {},
 
 	"is-controller-flag": {"agent", "state-config-watcher"},
 
@@ -1446,13 +1511,13 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"change-stream",
 		"db-accessor",
 		"file-notify-watcher",
+		"is-bootstrap-flag",
+		"is-bootstrap-gate",
 		"is-controller-flag",
 		"query-logger",
 		"service-factory",
 		"state",
 		"state-config-watcher",
-		"upgrade-database-flag",
-		"upgrade-database-gate",
 	},
 
 	"peer-grouper": {

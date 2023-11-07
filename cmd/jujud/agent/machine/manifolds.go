@@ -48,6 +48,7 @@ import (
 	"github.com/juju/juju/worker/apiservercertwatcher"
 	"github.com/juju/juju/worker/auditconfigupdater"
 	"github.com/juju/juju/worker/authenticationworker"
+	"github.com/juju/juju/worker/bootstrap"
 	"github.com/juju/juju/worker/caasunitsmanager"
 	"github.com/juju/juju/worker/caasupgrader"
 	"github.com/juju/juju/worker/centralhub"
@@ -133,6 +134,11 @@ type ManifoldsConfig struct {
 	// PreviousAgentVersion passes through the version the machine
 	// agent was running before the current restart.
 	PreviousAgentVersion version.Number
+
+	// BootstrapLock is passed to the bootstrap gate to coordinate
+	// workers that shouldn't do anything until the bootstrap worker
+	// is done.
+	BootstrapLock gate.Lock
 
 	// UpgradeDBLock is passed to the upgrade database gate to
 	// coordinate workers that shouldn't do anything until the
@@ -318,6 +324,23 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// foundation stone on which most other manifolds ultimately depend.
 		agentName: agent.Manifold(config.Agent),
 
+		// The upgrade database gate is used to coordinate workers that should
+		// not do anything until the upgrade-database worker has finished
+		// running any required database upgrade steps.
+		isBootstrapGateName: gate.ManifoldEx(config.BootstrapLock),
+		isBootstrapFlagName: gate.FlagManifold(gate.FlagManifoldConfig{
+			GateName:  isBootstrapGateName,
+			NewWorker: gate.NewFlagWorker,
+		}),
+
+		// Bootstrap worker is responsible for setting up the initial machine.
+		bootstrapName: ifDatabaseUpgradeComplete(bootstrap.Manifold(bootstrap.ManifoldConfig{
+			StateName:         stateName,
+			ObjectStoreName:   objectStoreName,
+			BootstrapGateName: isBootstrapGateName,
+			Logger:            loggo.GetLogger("juju.worker.bootstrap"),
+		})),
+
 		// The termination worker returns ErrTerminateAgent if a
 		// termination signal is received by the process it's running
 		// in. It has no inputs and its only output is the error it
@@ -406,7 +429,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// The multiwatcher manifold watches all the changes in the database
 		// through the AllWatcherBacking and manages notifying the multiwatchers.
 		// Note: ifDatabaseUpgradeComplete implies running on a controller.
-		multiwatcherName: ifDatabaseUpgradeComplete(multiwatcher.Manifold(multiwatcher.ManifoldConfig{
+		multiwatcherName: ifBootstrapComplete(multiwatcher.Manifold(multiwatcher.ManifoldConfig{
 			StateName:            stateName,
 			Clock:                config.Clock,
 			Logger:               loggo.GetLogger("juju.worker.multiwatcher"),
@@ -1083,6 +1106,12 @@ func clockManifold(clock clock.Clock) dependency.Manifold {
 	}
 }
 
+var ifBootstrapComplete = engine.Housing{
+	Flags: []string{
+		isBootstrapFlagName,
+	},
+}.Decorate
+
 var ifFullyUpgraded = engine.Housing{
 	Flags: []string{
 		upgradeStepsFlagName,
@@ -1140,6 +1169,10 @@ const (
 	presenceName           = "presence"
 	pubSubName             = "pubsub-forwarder"
 	clockName              = "clock"
+
+	bootstrapName       = "bootstrap"
+	isBootstrapGateName = "is-bootstrap-gate"
+	isBootstrapFlagName = "is-bootstrap-flag"
 
 	upgradeDatabaseName     = "upgrade-database-runner"
 	upgradeDatabaseGateName = "upgrade-database-gate"
