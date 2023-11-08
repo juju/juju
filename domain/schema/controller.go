@@ -541,10 +541,10 @@ CREATE TABLE user (
     name            TEXT NOT NULL,
     display_name    TEXT,
     deleted         BOOLEAN NOT NULL,
-    created_by      TEXT,
+    created_by_uuid TEXT,
     created_at      TIMESTAMP NOT NULL,
     CONSTRAINT      fk_user_created_by_user
-        FOREIGN KEY (created_by)
+        FOREIGN KEY (created_by_uuid)
     REFERENCES      user(uuid)
 );
 
