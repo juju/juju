@@ -538,14 +538,14 @@ func userSchema() schema.Patch {
 	return schema.MakePatch(`
 CREATE TABLE user (
     uuid            TEXT PRIMARY KEY,
-    name            TEXT NOT NULL UNIQUE,
+    name            TEXT NOT NULL,
     display_name    TEXT,
     deleted         BOOLEAN NOT NULL,
     created_by      TEXT,
     created_at      TIMESTAMP NOT NULL
 );
 
-CREATE UNIQUE INDEX idx_singleton_active_user ON user ((1)) WHERE deleted == false;
+CREATE UNIQUE INDEX idx_singleton_active_user ON user (name) WHERE deleted IS FALSE;
 
 CREATE TABLE user_last_login (
     user_uuid       TEXT PRIMARY KEY,
