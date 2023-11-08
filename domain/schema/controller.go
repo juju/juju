@@ -542,7 +542,10 @@ CREATE TABLE user (
     display_name    TEXT,
     deleted         BOOLEAN NOT NULL,
     created_by      TEXT,
-    created_at      TIMESTAMP NOT NULL
+    created_at      TIMESTAMP NOT NULL,
+    CONSTRAINT      fk_user_created_by_user
+        FOREIGN KEY (created_by)
+    REFERENCES      user(uuid)
 );
 
 CREATE UNIQUE INDEX idx_singleton_active_user ON user (name) WHERE deleted IS FALSE;
