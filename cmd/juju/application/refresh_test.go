@@ -639,7 +639,7 @@ func (s *RefreshSuite) TestUpgradeWithChannel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.charmAdder.CheckCallNames(c, "AddCharm")
-	origin, _ := utils.DeduceOrigin(s.resolvedCharmURL, charm.Channel{Risk: charm.Beta}, corecharm.Platform{
+	origin, _ := utils.MakeOrigin(charm.Schema(s.resolvedCharmURL.Schema), s.resolvedCharmURL.Revision, charm.Channel{Risk: charm.Beta}, corecharm.Platform{
 		Architecture: arch.DefaultArchitecture,
 	})
 	origin.ID = "testing"
@@ -698,7 +698,7 @@ func (s *RefreshSuite) TestRefreshShouldRespectDeployedChannelByDefault(c *gc.C)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.charmAdder.CheckCallNames(c, "AddCharm")
-	origin, _ := utils.DeduceOrigin(s.resolvedCharmURL, charm.Channel{Risk: charm.Beta}, s.testPlatform)
+	origin, _ := utils.MakeOrigin(charm.Schema(s.resolvedCharmURL.Schema), s.resolvedCharmURL.Revision, charm.Channel{Risk: charm.Beta}, s.testPlatform)
 	origin.ID = "testing"
 	origin.Revision = (*int)(nil)
 	s.charmAdder.CheckCall(c, 0, "AddCharm", s.resolvedCharmURL, origin, false)
@@ -736,7 +736,7 @@ func (s *RefreshSuite) TestSwitch(c *gc.C) {
 	s.charmClient.CheckCallNames(c, "CharmInfo", "CharmInfo")
 	s.charmClient.CheckCall(c, 0, "CharmInfo", s.resolvedCharmURL.String())
 	s.charmAdder.CheckCallNames(c, "CheckCharmPlacement", "AddCharm")
-	origin, _ := utils.DeduceOrigin(s.resolvedCharmURL, charm.Channel{Risk: charm.Stable}, s.testPlatform)
+	origin, _ := utils.MakeOrigin(charm.Schema(s.resolvedCharmURL.Schema), s.resolvedCharmURL.Revision, charm.Channel{Risk: charm.Stable}, s.testPlatform)
 
 	parsedSwitchUrl, err := charm.ParseURL("ch:trusty/anotherriak")
 	c.Assert(err, jc.ErrorIsNil)
