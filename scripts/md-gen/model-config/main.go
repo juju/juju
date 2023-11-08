@@ -109,9 +109,9 @@ func render(filepath string, data map[string]*keyInfo) {
 	}
 
 	err := os.WriteFile(filepath, []byte(fmt.Sprintf(`
-> <small> [Configuration](/t/6659) > List of controller configuration keys</small>
+> <small> [Configuration > Model configuration](/t/1155#heading--configure-a-model) > List of model configuration keys</small>
 >
-> See also: [Controller](/t/5455),  [How to manage configuration values for a controller](/t/1111#heading--manage-configuration-values-for-a-controller)
+> See also: [Model](/t/5456), [How to configure a model](/t/1155#heading--configure-a-model)
 
 %s
 
