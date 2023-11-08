@@ -5,6 +5,7 @@ package common
 
 import (
 	"bytes"
+	"strings"
 
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
@@ -167,5 +168,12 @@ func FormatConfigSchema(values interface{}) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return out.String(), nil
+	output := out.String()
+
+	// Indent every line by 4 spaces
+	var indented string
+	for _, line := range strings.Split(output, "\n") {
+		indented += "    " + line + "\n"
+	}
+	return indented, nil
 }
