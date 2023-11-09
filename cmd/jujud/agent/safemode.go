@@ -1,4 +1,4 @@
-// Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2023 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package agent
@@ -37,7 +37,7 @@ import (
 	"github.com/juju/juju/worker/logsender"
 )
 
-// NewSafeModeAgentCommand creates a Command which handles parsing
+// NewSafeModeAgentCommand creates a Command that handles parsing
 // command-line arguments and instantiating and running a
 // MachineAgent.
 func NewSafeModeAgentCommand(
@@ -70,16 +70,11 @@ type safeModeAgentCommand struct {
 	machineId string
 	// TODO(controlleragent) - this will be in a new controller agent command
 	controllerId string
-
-	dangerous bool
 }
 
 // Init is called by the cmd system to initialize the structure for
 // running.
 func (a *safeModeAgentCommand) Init(args []string) error {
-	if !a.dangerous {
-		return errors.New("safe mode is a dangerous operation, use --dangerous to enable")
-	}
 	if a.machineId == "" && a.controllerId == "" {
 		return errors.New("either machine-id or controller-id must be set")
 	}
@@ -143,7 +138,6 @@ func (a *safeModeAgentCommand) SetFlags(f *gnuflag.FlagSet) {
 	a.agentInitializer.AddFlags(f)
 	f.StringVar(&a.machineId, "machine-id", "", "id of the machine to run")
 	f.StringVar(&a.controllerId, "controller-id", "", "id of the controller to run")
-	f.BoolVar(&a.dangerous, "dangerous", false, "set to true to allow running in safe mode")
 }
 
 // Info returns usage information for the command.

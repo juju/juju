@@ -161,7 +161,7 @@ type ModelMetrics interface {
 	ForModel(model names.ModelTag) dependency.Metrics
 }
 
-// NewMachineAgentCommand creates a Command which handles parsing
+// NewMachineAgentCommand creates a Command that handles parsing
 // command-line arguments and instantiating and running a
 // MachineAgent.
 func NewMachineAgentCommand(
