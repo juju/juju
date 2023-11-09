@@ -53,6 +53,15 @@ CREATE TABLE model_config (
 
 func spaceSchema() schema.Patch {
 	return schema.MakePatch(`
+CREATE TABLE space (
+    uuid            TEXT PRIMARY KEY,
+    name            TEXT NOT NULL,
+    is_public       BOOLEAN
+);
+
+CREATE UNIQUE INDEX idx_spaces_uuid_name
+ON space (name);
+
 CREATE TABLE provider_space (
     provider_id     TEXT PRIMARY KEY,
     space_uuid      TEXT NOT NULL,
@@ -63,20 +72,26 @@ CREATE TABLE provider_space (
 
 CREATE UNIQUE INDEX idx_provider_space_space_uuid
 ON provider_space (space_uuid);
-
-CREATE TABLE space (
-    uuid            TEXT PRIMARY KEY,
-    name            TEXT NOT NULL,
-    is_public       BOOLEAN
-);
-
-CREATE UNIQUE INDEX idx_spaces_uuid_name
-ON space (name);
 `)
 }
 
 func subnetSchema() schema.Patch {
 	return schema.MakePatch(`
+CREATE TABLE subnet (
+    uuid                         TEXT PRIMARY KEY,
+    cidr                         TEXT NOT NULL,
+    vlan_tag                     INT,
+    is_public                    BOOLEAN,
+    space_uuid                   TEXT,
+    fan_uuid                     TEXT,
+    CONSTRAINT                   fk_subnets_spaces
+        FOREIGN KEY                  (space_uuid)
+        REFERENCES                   space(uuid)
+    CONSTRAINT                   fk_subnets_fan_networks
+        FOREIGN KEY                  (fan_uuid)
+        REFERENCES                   fan_network(uuid)
+);
+
 CREATE TABLE provider_subnet (
     provider_id     TEXT PRIMARY KEY,
     subnet_uuid     TEXT NOT NULL,
@@ -94,8 +109,7 @@ CREATE TABLE provider_network (
 );
 
 CREATE TABLE provider_network_subnet (
-    uuid                  TEXT PRIMARY KEY,
-    provider_network_uuid TEXT NOT NULL,
+    provider_network_uuid TEXT PRIMARY KEY,
     subnet_uuid           TEXT NOT NULL,
     CONSTRAINT            fk_provider_network_subnet_provider_network_uuid
         FOREIGN KEY           (provider_network_uuid)
@@ -137,20 +151,6 @@ CREATE TABLE fan_network (
     overlay_cidr        TEXT NOT NULL
 );
 
-CREATE TABLE subnet (
-    uuid                         TEXT PRIMARY KEY,
-    cidr                         TEXT NOT NULL,
-    vlan_tag                     INT,
-    is_public                    BOOLEAN,
-    space_uuid                   TEXT,
-    fan_uuid                     TEXT,
-    CONSTRAINT                   fk_subnets_spaces
-        FOREIGN KEY                  (space_uuid)
-        REFERENCES                   spaces(uuid)
-    CONSTRAINT                   fk_subnets_fan_networks
-        FOREIGN KEY                  (fan_uuid)
-        REFERENCES                   fan_network(uuid)
-);
 `)
 }
 
