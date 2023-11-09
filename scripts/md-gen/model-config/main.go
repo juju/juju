@@ -15,6 +15,7 @@ import (
 	"strings"
 
 	"github.com/juju/collections/set"
+	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/config"
@@ -56,6 +57,9 @@ type keyInfo struct {
 	// Several ways of getting the default value
 	Default  string `yaml:"default,omitempty"`  // from instantiating NewConfig
 	Default2 string `yaml:"default2,omitempty"` // from reflection on Config type
+
+	SetByJuju   bool
+	ValidValues []string
 }
 
 // render turns the input data into a Markdown document
@@ -88,6 +92,10 @@ func render(filepath string, data map[string]*keyInfo) {
 		}
 		mainDoc += "\n"
 
+		if info.SetByJuju {
+			mainDoc += "*Note: This value is set by Juju.*\n\n"
+		}
+
 		if info.Doc != "" {
 			// Ensure doc has fullstop/newlines at end
 			mainDoc += strings.TrimRight(info.Doc, ".\n") + ".\n\n"
@@ -98,12 +106,12 @@ func render(filepath string, data map[string]*keyInfo) {
 		if defaultVal, ok := firstNonzero(info.Default, info.Default2); ok {
 			mainDoc += "**Default value:** " + defaultVal + "\n\n"
 		}
+		if len(info.ValidValues) > 0 {
+			mainDoc += "**Valid values:** " + strings.Join(info.ValidValues, ", ") + "\n\n"
+		}
 
-		mainDoc += "**Can be changed after model creation:** "
-		if info.Mutable {
-			mainDoc += "yes"
-		} else {
-			mainDoc += "no"
+		if !info.Mutable {
+			mainDoc += "*Note: This value cannot be changed after model creation.* "
 		}
 		mainDoc += "\n\n\n"
 	}
@@ -128,14 +136,17 @@ func fillFromSchema(data map[string]*keyInfo) {
 	for key, attr := range schema {
 		ensureDefined(data, key)
 
-		// TODO: attr.Group can be EnvironGroup or JujuGroup
-		//   should we skip JujuGroup ?
+		if attr.Group == environschema.JujuGroup {
+			data[key].SetByJuju = true
+		}
 
 		data[key].Doc = attr.Description
 		data[key].Type = string(attr.Type)
 		data[key].Mutable = !attr.Immutable
 
-		// TODO: consider attr.Values, attr.Mandatory
+		for _, val := range attr.Values {
+			data[key].ValidValues = append(data[key].ValidValues, fmt.Sprint(val))
+		}
 	}
 }
 
