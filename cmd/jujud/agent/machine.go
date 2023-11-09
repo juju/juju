@@ -161,16 +161,16 @@ type ModelMetrics interface {
 	ForModel(model names.ModelTag) dependency.Metrics
 }
 
-// NewMachineAgentCmd creates a Command which handles parsing
+// NewMachineAgentCommand creates a Command that handles parsing
 // command-line arguments and instantiating and running a
 // MachineAgent.
-func NewMachineAgentCmd(
+func NewMachineAgentCommand(
 	ctx *cmd.Context,
 	machineAgentFactory machineAgentFactoryFnType,
 	agentInitializer AgentInitializer,
 	configFetcher agentconfig.AgentConfigWriter,
 ) cmd.Command {
-	return &machineAgentCmd{
+	return &machineAgentCommand{
 		ctx:                 ctx,
 		machineAgentFactory: machineAgentFactory,
 		agentInitializer:    agentInitializer,
@@ -178,7 +178,7 @@ func NewMachineAgentCmd(
 	}
 }
 
-type machineAgentCmd struct {
+type machineAgentCommand struct {
 	cmd.CommandBase
 
 	// This group of arguments is required.
@@ -201,7 +201,7 @@ type machineAgentCmd struct {
 
 // Init is called by the cmd system to initialize the structure for
 // running.
-func (a *machineAgentCmd) Init(args []string) error {
+func (a *machineAgentCommand) Init(args []string) error {
 
 	if a.machineId == "" && a.controllerId == "" {
 		return errors.New("either machine-id or controller-id must be set")
@@ -253,7 +253,7 @@ func (a *machineAgentCmd) Init(args []string) error {
 }
 
 // Run instantiates a MachineAgent and runs it.
-func (a *machineAgentCmd) Run(c *cmd.Context) error {
+func (a *machineAgentCommand) Run(c *cmd.Context) error {
 	machineAgent, err := a.machineAgentFactory(a.agentTag, a.isCaas)
 	if err != nil {
 		return errors.Trace(err)
@@ -262,7 +262,7 @@ func (a *machineAgentCmd) Run(c *cmd.Context) error {
 }
 
 // SetFlags adds the requisite flags to run this command.
-func (a *machineAgentCmd) SetFlags(f *gnuflag.FlagSet) {
+func (a *machineAgentCommand) SetFlags(f *gnuflag.FlagSet) {
 	a.agentInitializer.AddFlags(f)
 	f.StringVar(&a.machineId, "machine-id", "", "id of the machine to run")
 	f.StringVar(&a.controllerId, "controller-id", "", "id of the controller to run")
@@ -270,7 +270,7 @@ func (a *machineAgentCmd) SetFlags(f *gnuflag.FlagSet) {
 }
 
 // Info returns usage information for the command.
-func (a *machineAgentCmd) Info() *cmd.Info {
+func (a *machineAgentCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "machine",
 		Purpose: "run a juju machine agent",
