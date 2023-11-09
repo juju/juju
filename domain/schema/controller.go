@@ -540,17 +540,24 @@ CREATE TABLE user (
     uuid            TEXT PRIMARY KEY,
     name            TEXT NOT NULL,
     display_name    TEXT,
-    disabled        BOOLEAN NOT NULL,
     removed         BOOLEAN NOT NULL,
     created_by_uuid TEXT,
     created_at      TIMESTAMP NOT NULL,
-    last_login      TIMESTAMP NOT NULL,
     CONSTRAINT      fk_user_created_by_user
         FOREIGN KEY (created_by_uuid)
     REFERENCES      user(uuid)
 );
 
-CREATE UNIQUE INDEX idx_singleton_active_user ON user (name) WHERE deleted IS FALSE;
+CREATE UNIQUE INDEX idx_singleton_active_user ON user (name) WHERE removed IS FALSE;
+
+CREATE TABLE user_authentication (
+    user_uuid      TEXT PRIMARY KEY,
+    last_login     TIMESTAMP NOT NULL,
+    disabled       BOOLEAN NOT NULL,
+    CONSTRAINT     fk_user_authentication_user
+        FOREIGN KEY (user_uuid)
+    REFERENCES     user(uuid)
+);
 
 CREATE TABLE user_password (
     user_uuid       TEXT PRIMARY KEY,
@@ -558,7 +565,7 @@ CREATE TABLE user_password (
     password_salt   TEXT NOT NULL,
     CONSTRAINT      fk_user_password_user
         FOREIGN KEY (user_uuid)
-    REFERENCES      user(uuid)
+    REFERENCES      user_authentication(user_uuid)
 );
 
 CREATE TABLE user_activation_key (
@@ -566,6 +573,6 @@ CREATE TABLE user_activation_key (
     activation_key  TEXT NOT NULL,
     CONSTRAINT      fk_user_activation_key_user
         FOREIGN KEY (user_uuid)
-    REFERENCES      user(uuid)
+    REFERENCES      user_authentication(user_uuid)
 );`)
 }

@@ -90,6 +90,7 @@ func (s *schemaSuite) TestControllerDDLApply(c *gc.C) {
 
 		// Users
 		"user",
+		"user_authentication",
 		"user_password",
 		"user_activation_key",
 	)
