@@ -540,7 +540,7 @@ CREATE TABLE user (
     uuid            TEXT PRIMARY KEY,
     name            TEXT NOT NULL,
     display_name    TEXT,
-    deleted         BOOLEAN NOT NULL,
+    removed         BOOLEAN NOT NULL,
     created_by_uuid TEXT,
     created_at      TIMESTAMP NOT NULL,
     CONSTRAINT      fk_user_created_by_user
@@ -562,7 +562,7 @@ CREATE TABLE user_password (
     user_uuid       TEXT PRIMARY KEY,
     password_hash   TEXT NOT NULL,
     password_salt   TEXT NOT NULL,
-    active          BOOLEAN NOT NULL,
+    disabled        BOOLEAN NOT NULL,
     CONSTRAINT      fk_user_password_user
         FOREIGN KEY (user_uuid)
     REFERENCES      user(uuid)
