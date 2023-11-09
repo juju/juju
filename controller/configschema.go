@@ -62,6 +62,7 @@ var configChecker = schema.FieldMap(schema.Fields{
 	OpenTelemetryEndpoint:            schema.String(),
 	OpenTelemetryInsecure:            schema.Bool(),
 	OpenTelemetryStackTraces:         schema.Bool(),
+	ObjectStoreType:                  schema.String(),
 }, schema.Defaults{
 	AgentRateLimitMax:                schema.Omit,
 	AgentRateLimitRate:               schema.Omit,
@@ -113,6 +114,7 @@ var configChecker = schema.FieldMap(schema.Fields{
 	OpenTelemetryEndpoint:            schema.Omit,
 	OpenTelemetryInsecure:            DefaultOpenTelemetryInsecure,
 	OpenTelemetryStackTraces:         DefaultOpenTelemetryStackTraces,
+	ObjectStoreType:                  schema.Omit,
 })
 
 // ConfigSchema holds information on all the fields defined by
@@ -325,5 +327,9 @@ will be output if tracing is enabled.`,
 	OpenTelemetryStackTraces: {
 		Type:        environschema.Tbool,
 		Description: `Allows stack traces open telemetry tracing per span`,
+	},
+	ObjectStoreType: {
+		Type:        environschema.Tstring,
+		Description: `The type of object store backend to use for storing blobs`,
 	},
 }

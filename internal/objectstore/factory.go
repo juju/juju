@@ -62,33 +62,23 @@ func newOptions() *options {
 
 // ObjectStoreWorkerFunc is the function signature for creating a new object
 // store worker.
-type ObjectStoreWorkerFunc func(context.Context, BackendType, string, ...Option) (TrackedObjectStore, error)
-
-// BackendType is the type to identify the backend to use for the object store.
-type BackendType string
-
-const (
-	// StateBackend is the backend type for the state object store.
-	StateBackend BackendType = "state"
-	// FileBackend is the backend type for the file object store.
-	FileBackend BackendType = "file"
-)
+type ObjectStoreWorkerFunc func(context.Context, objectstore.BackendType, string, ...Option) (TrackedObjectStore, error)
 
 // ObjectStoreFactory is the function to create a new object store based on
 // the backend type.
-func ObjectStoreFactory(ctx context.Context, backendType BackendType, namespace string, options ...Option) (TrackedObjectStore, error) {
+func ObjectStoreFactory(ctx context.Context, backendType objectstore.BackendType, namespace string, options ...Option) (TrackedObjectStore, error) {
 	opts := newOptions()
 	for _, option := range options {
 		option(opts)
 	}
 	switch backendType {
-	case StateBackend:
+	case objectstore.StateBackend:
 		return NewStateObjectStore(ctx, namespace, opts.mongoSession, opts.logger)
 	default:
 		return nil, errors.NotValidf("backend type %q", backendType)
 	}
 }
 
-func DefaultBackendType() BackendType {
-	return StateBackend
+func DefaultBackendType() objectstore.BackendType {
+	return objectstore.StateBackend
 }

@@ -19,6 +19,7 @@ import (
 	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/yaml.v2"
 
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/pki"
 )
 
@@ -281,6 +282,11 @@ const (
 	// OpenTelemetryStackTraces return whether stack traces should be added per
 	// span.
 	OpenTelemetryStackTraces = "open-telemetry-stack-traces"
+
+	// ObjectStoreType is the type of object store to use for storing blobs.
+	// This isn't currently allowed to be changed dynamically, that will come
+	// when we support multiple object store types (not including state).
+	ObjectStoreType = "object-store-type"
 )
 
 // Attribute Defaults
@@ -481,6 +487,7 @@ var (
 		OpenTelemetryEndpoint,
 		OpenTelemetryInsecure,
 		OpenTelemetryStackTraces,
+		ObjectStoreType,
 	}
 
 	// For backwards compatibility, we must include "anything", "juju-apiserver"
@@ -1040,6 +1047,11 @@ func (c Config) OpenTelemetryStackTraces() bool {
 	return c.boolOrDefault(OpenTelemetryStackTraces, DefaultOpenTelemetryStackTraces)
 }
 
+// ObjectStoreType returns the type of object store to use for storing blobs.
+func (c Config) ObjectStoreType() objectstore.BackendType {
+	return objectstore.BackendType(c.asString(ObjectStoreType))
+}
+
 // Validate ensures that config is a valid configuration.
 func Validate(c Config) error {
 	if v, ok := c[IdentityPublicKey].(string); ok {
@@ -1284,6 +1296,15 @@ func Validate(c Config) error {
 	} else if err == nil {
 		if v < 0 {
 			return errors.Errorf("%s value %q must be a positive duration", QueryTracingThreshold, v)
+		}
+	}
+
+	if v, ok := c[ObjectStoreType].(string); ok {
+		if v == "" {
+			return errors.NotValidf("empty object store type")
+		}
+		if _, err := objectstore.ParseObjectStoreType(v); err != nil {
+			return errors.NotValidf("invalid object store type %q", v)
 		}
 	}
 

@@ -12,6 +12,7 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/objectstore"
 	jujutesting "github.com/juju/juju/testing"
 )
 
@@ -39,7 +40,7 @@ func (s *ObjectStoreFactorySuite) TestNewObjectStoreInvalidBackend(c *gc.C) {
 	// As file backed object stores are not supported, ensure we get an error
 	// when trying to create one.
 
-	_, err := ObjectStoreFactory(context.Background(), FileBackend, "inferi", WithMongoSession(s.session), WithLogger(jujutesting.NewCheckLogger(c)))
+	_, err := ObjectStoreFactory(context.Background(), objectstore.FileBackend, "inferi", WithMongoSession(s.session), WithLogger(jujutesting.NewCheckLogger(c)))
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 

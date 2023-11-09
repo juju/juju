@@ -17,6 +17,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/internal/docker/registry"
 	"github.com/juju/juju/internal/docker/registry/mocks"
@@ -380,6 +381,18 @@ var newConfigTests = []struct {
 		controller.OpenTelemetryStackTraces: "invalid",
 	},
 	expectError: `open-telemetry-stack-traces: expected bool, got string\("invalid"\)`,
+}, {
+	about: "invalid object store type value",
+	config: controller.Config{
+		controller.ObjectStoreType: "invalid",
+	},
+	expectError: `invalid object store type "invalid" not valid`,
+}, {
+	about: "invalid object store type type",
+	config: controller.Config{
+		controller.ObjectStoreType: 1,
+	},
+	expectError: `object-store-type: expected string, got int\(1\)`,
 }}
 
 func (s *ConfigSuite) TestNewConfig(c *gc.C) {
@@ -966,4 +979,17 @@ func (s *ConfigSuite) TestOpenTelemetryEndpointSettingValue(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.OpenTelemetryEndpoint(), gc.Equals, mURL)
+}
+
+func (s *ConfigSuite) TestObjectStoreType(c *gc.C) {
+	backendType := "state"
+	cfg, err := controller.NewConfig(
+		testing.ControllerTag.Id(),
+		testing.CACert,
+		map[string]interface{}{
+			controller.ObjectStoreType: backendType,
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cfg.ObjectStoreType(), gc.Equals, objectstore.StateBackend)
 }
