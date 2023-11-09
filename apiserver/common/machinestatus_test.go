@@ -20,13 +20,13 @@ import (
 type MachineStatusSuite struct {
 	testing.IsolationSuite
 	ctx     common.ModelPresenceContext
-	machine *mockMachine
+	machine *fakeMachine
 }
 
 var _ = gc.Suite(&MachineStatusSuite{})
 
 func (s *MachineStatusSuite) SetUpTest(c *gc.C) {
-	s.machine = &mockMachine{
+	s.machine = &fakeMachine{
 		id:     "666",
 		status: status.Started,
 	}

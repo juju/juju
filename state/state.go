@@ -32,6 +32,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/upgrade"
@@ -1147,7 +1148,7 @@ type AddApplicationArgs struct {
 // AddApplication creates a new application, running the supplied charm, with the
 // supplied name (which must be unique). If the charm defines peer relations,
 // they will be created automatically.
-func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err error) {
+func (st *State) AddApplication(args AddApplicationArgs, store objectstore.ObjectStore) (_ *Application, err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot add application %q", args.Name)
 
 	// Sanity checks.
@@ -1401,7 +1402,7 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 
 		if len(args.Resources) > 0 {
 			// Collect pending resource resolution operations.
-			resources := st.resources()
+			resources := st.resources(store)
 			resOps, err := resources.resolveApplicationPendingResourcesOps(args.Name, args.Resources)
 			if err != nil {
 				return nil, errors.Trace(err)

@@ -34,6 +34,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	_ "github.com/juju/juju/internal/secrets/provider/all"
+	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
@@ -220,7 +221,7 @@ func (s *uniterSuite) TestLife(c *gc.C) {
 	c.Assert(extraUnit, gc.NotNil)
 
 	// Make the wordpress service dying.
-	err = s.wordpress.Destroy()
+	err = s.wordpress.Destroy(s.store)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.wordpress.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1225,7 +1226,7 @@ func (s *uniterSuite) TestWatchSubordinateUnitRelations(c *gc.C) {
 	// wordpress one.
 	err = mysqlRel.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
-	err = mysqlRel.Destroy()
+	err = mysqlRel.Destroy(s.store)
 	c.Assert(err, jc.ErrorIsNil)
 
 	wc.AssertChange(mysqlRel.Tag().Id())
@@ -1233,7 +1234,7 @@ func (s *uniterSuite) TestWatchSubordinateUnitRelations(c *gc.C) {
 
 	err = wpRel.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
-	err = wpRel.Destroy()
+	err = wpRel.Destroy(s.store)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 }
@@ -1366,7 +1367,7 @@ func (s *uniterSuite) TestWatchUnitRelationsWithSubSubRelation(c *gc.C) {
 	wc.AssertChange(rel.Tag().Id())
 	wc.AssertNoChange()
 
-	err = rel.Destroy()
+	err = rel.Destroy(s.store)
 	c.Assert(err, jc.ErrorIsNil)
 
 	wc.AssertChange(rel.Tag().Id())
@@ -2501,11 +2502,11 @@ func (s *uniterSuite) TestReadRemoteSettings(c *gc.C) {
 	c.Assert(result, gc.DeepEquals, expect)
 
 	// Now destroy the remote unit, and check its settings can still be read.
-	err = s.mysqlUnit.Destroy()
+	err = s.mysqlUnit.Destroy(s.store)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.mysqlUnit.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.mysqlUnit.Remove()
+	err = s.mysqlUnit.Remove(testing.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State()))
 	c.Assert(err, jc.ErrorIsNil)
 	result, err = s.uniter.ReadRemoteSettings(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)

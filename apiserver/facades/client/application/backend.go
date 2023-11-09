@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/tools"
@@ -37,9 +38,9 @@ type Backend interface {
 	Application(string) (Application, error)
 	ApplicationOfferForUUID(offerUUID string) (*crossmodel.ApplicationOffer, error)
 	ApplyOperation(state.ModelOperation) error
-	AddApplication(state.AddApplicationArgs) (Application, error)
-	AddPendingResource(string, resource.Resource) (string, error)
-	RemovePendingResources(applicationID string, pendingIDs map[string]string) error
+	AddApplication(state.AddApplicationArgs, objectstore.ObjectStore) (Application, error)
+	AddPendingResource(string, resource.Resource, objectstore.ObjectStore) (string, error)
+	RemovePendingResources(applicationID string, pendingIDs map[string]string, store objectstore.ObjectStore) error
 	AddCharmMetadata(info state.CharmInfo) (Charm, error)
 	RemoteApplication(string) (RemoteApplication, error)
 	AddRemoteApplication(state.AddRemoteApplicationParams) (RemoteApplication, error)
@@ -54,7 +55,7 @@ type Backend interface {
 	UnitsInError() ([]Unit, error)
 	ControllerTag() names.ControllerTag
 	ControllerConfig() (controller.Config, error)
-	Resources() Resources
+	Resources(objectstore.ObjectStore) Resources
 	OfferConnectionForRelation(string) (OfferConnection, error)
 	SaveEgressNetworks(relationKey string, cidrs []string) (state.RelationNetworks, error)
 	Branch(string) (Generation, error)
@@ -87,8 +88,8 @@ type Application interface {
 	ClearExposed() error
 	CharmConfig(string) (charm.Settings, error)
 	Constraints() (constraints.Value, error)
-	Destroy() error
-	DestroyOperation() *state.DestroyApplicationOperation
+	Destroy(objectstore.ObjectStore) error
+	DestroyOperation(objectstore.ObjectStore) *state.DestroyApplicationOperation
 	EndpointBindings() (Bindings, error)
 	ExposedEndpoints() map[string]state.ExposedEndpoint
 	Endpoints() ([]state.Endpoint, error)
@@ -96,7 +97,7 @@ type Application interface {
 	IsPrincipal() bool
 	IsRemote() bool
 	Life() state.Life
-	SetCharm(state.SetCharmConfig) error
+	SetCharm(state.SetCharmConfig, objectstore.ObjectStore) error
 	SetConstraints(constraints.Value) error
 	MergeExposeSettings(map[string]state.ExposedEndpoint) error
 	UnsetExposeSettings([]string) error
@@ -159,7 +160,7 @@ type Machine interface {
 type Relation interface {
 	status.StatusSetter
 	Tag() names.Tag
-	Destroy() error
+	Destroy(objectstore.ObjectStore) error
 	DestroyWithForce(bool, time.Duration) ([]error, error)
 	Id() int
 	Endpoints() []state.Endpoint
@@ -188,8 +189,8 @@ type Unit interface {
 	Tag() names.Tag
 	UnitTag() names.UnitTag
 	ApplicationName() string
-	Destroy() error
-	DestroyOperation() *state.DestroyUnitOperation
+	Destroy(objectstore.ObjectStore) error
+	DestroyOperation(objectstore.ObjectStore) *state.DestroyUnitOperation
 	IsPrincipal() bool
 	Life() state.Life
 	Resolve(retryHooks bool) error
@@ -306,8 +307,8 @@ func (s stateShim) Application(name string) (Application, error) {
 	return stateApplicationShim{a, s.State}, nil
 }
 
-func (s stateShim) AddApplication(args state.AddApplicationArgs) (Application, error) {
-	a, err := s.State.AddApplication(args)
+func (s stateShim) AddApplication(args state.AddApplicationArgs, store objectstore.ObjectStore) (Application, error) {
+	a, err := s.State.AddApplication(args, store)
 	if err != nil {
 		return nil, err
 	}
@@ -316,14 +317,14 @@ func (s stateShim) AddApplication(args state.AddApplicationArgs) (Application, e
 
 // Note that the usedID is only used in some of the implementations of the
 // AddPendingResource
-func (s stateShim) AddPendingResource(appName string, chRes resource.Resource) (string, error) {
-	return s.State.Resources().AddPendingResource(appName, "", chRes)
+func (s stateShim) AddPendingResource(appName string, chRes resource.Resource, store objectstore.ObjectStore) (string, error) {
+	return s.State.Resources(store).AddPendingResource(appName, "", chRes)
 }
 
 // RemovePendingResources removes any pending resources for the named application
 // Mainly used as a cleanup if an error is raised during the deployment
-func (s stateShim) RemovePendingResources(applicationID string, pendingIDs map[string]string) error {
-	return s.State.Resources().RemovePendingAppResources(applicationID, pendingIDs)
+func (s stateShim) RemovePendingResources(applicationID string, pendingIDs map[string]string, store objectstore.ObjectStore) error {
+	return s.State.Resources(store).RemovePendingAppResources(applicationID, pendingIDs)
 }
 
 func (s stateShim) AddCharmMetadata(info state.CharmInfo) (Charm, error) {
@@ -450,8 +451,8 @@ func (s stateShim) UnitsInError() ([]Unit, error) {
 	return result, nil
 }
 
-func (s stateShim) Resources() Resources {
-	return s.State.Resources()
+func (s stateShim) Resources(store objectstore.ObjectStore) Resources {
+	return s.State.Resources(store)
 }
 
 type OfferConnection interface {

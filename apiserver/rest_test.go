@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	apitesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/juju/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -128,7 +129,7 @@ func (s *restSuite) TestGetRemoteApplicationIcon(c *gc.C) {
 		Name:        "mysql",
 		Charm:       mysqlCh,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{OS: "ubuntu", Channel: "22.04/stable"}},
-	})
+	}, testing.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Add an offer for the application.
@@ -150,7 +151,7 @@ func (s *restSuite) TestGetRemoteApplicationIcon(c *gc.C) {
 		Name:        "dummy",
 		Charm:       dummyCh,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{OS: "ubuntu", Channel: "22.04/stable"}},
-	})
+	}, testing.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State()))
 	c.Assert(err, jc.ErrorIsNil)
 	offer2, err := offers.AddOffer(crossmodel.AddApplicationOfferArgs{
 		OfferName:       "notfound-remote-app-offer",

@@ -105,14 +105,14 @@ func (s *ApplicationStatusSuite) checkGetSetStatus(c *gc.C) {
 func (s *ApplicationStatusSuite) TestGetSetStatusDying(c *gc.C) {
 	_, err := s.application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.application.Destroy()
+	err = s.application.Destroy(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.checkGetSetStatus(c)
 }
 
 func (s *ApplicationStatusSuite) TestGetSetStatusGone(c *gc.C) {
-	err := s.application.Destroy()
+	err := s.application.Destroy(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 
 	now := testing.ZeroTime()

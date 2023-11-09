@@ -135,5 +135,6 @@ func newUniterAPIWithServices(
 		cloudSpecer:             cloudSpec,
 		StorageAPI:              storageAPI,
 		logger:                  logger,
+		store:                   context.ObjectStore(),
 	}, nil
 }

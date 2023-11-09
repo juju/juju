@@ -8,6 +8,7 @@ import (
 	"github.com/juju/mgo/v3/bson"
 
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/mongo"
 )
 
@@ -74,8 +75,12 @@ var valueMap = map[life.Value]Life{
 
 // Living describes state entities with a lifecycle.
 type Living interface {
+	LifeRefresher
+	Destroy(objectstore.ObjectStore) error
+}
+
+type LifeRefresher interface {
 	Life() Life
-	Destroy() error
 	Refresh() error
 }
 
@@ -84,7 +89,7 @@ type Living interface {
 type AgentLiving interface {
 	Living
 	EnsureDead() error
-	Remove() error
+	Remove(objectstore.ObjectStore) error
 }
 
 func isAlive(mb modelBackend, collName string, id interface{}) (bool, error) {

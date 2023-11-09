@@ -36,7 +36,7 @@ func (s *storageAddSuite) setupMultipleStoragesForAdd(c *gc.C) *state.Unit {
 			OS:      "ubuntu",
 			Channel: "22.04/stable",
 		}},
-	})
+	}, state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	u, err := application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -209,7 +209,7 @@ func (s *storageAddSuite) TestAddStorageToDyingUnitFails(c *gc.C) {
 	defer state.SetBeforeHooks(c, s.State, func() {
 		u, err := s.State.Unit(s.unitTag.Id())
 		c.Assert(err, jc.ErrorIsNil)
-		err = u.Destroy()
+		err = u.Destroy(state.NewObjectStore(c, s.State))
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
 

@@ -1146,7 +1146,7 @@ func (s *remoteApplicationSuite) TestAddApplicationSameLocalExists(c *gc.C) {
 			OS:      "ubuntu",
 			Channel: "20.04/stable",
 		}},
-	})
+	}, state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name: "s1", SourceModel: s.Model.ModelTag()})
@@ -1165,7 +1165,7 @@ func (s *remoteApplicationSuite) TestAddApplicationLocalAddedAfterInitial(c *gc.
 				OS:      "ubuntu",
 				Channel: "20.04/stable",
 			}},
-		})
+		}, state.NewObjectStore(c, s.State))
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
 	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{

@@ -5,6 +5,7 @@ package apiserver_test
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -24,10 +25,10 @@ import (
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/common"
 	apitesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/juju/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/storage"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing/factory"
 )
@@ -241,8 +242,8 @@ func (s *charmsSuite) TestUploadRespectsLocalRevision(c *gc.C) {
 	c.Assert(sch.IsUploaded(), jc.IsTrue)
 	c.Assert(sch.BundleSha256(), gc.Equals, expectedSHA256)
 
-	storage := storage.NewStorage(s.ControllerModelUUID(), s.ControllerModel(c).State().MongoSession())
-	reader, _, err := storage.Get(sch.StoragePath())
+	store := testing.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State())
+	reader, _, err := store.Get(context.Background(), sch.StoragePath())
 	c.Assert(err, jc.ErrorIsNil)
 	defer reader.Close()
 	downloadedSHA256, _, err := utils.ReadSHA256(reader)
@@ -322,8 +323,8 @@ func (s *charmsSuite) TestUploadRepackagesNestedArchives(c *gc.C) {
 	// Get it from the storage and try to read it as a bundle - it
 	// should succeed, because it was repackaged during upload to
 	// strip nested dirs.
-	storage := storage.NewStorage(s.ControllerModelUUID(), s.ControllerModel(c).State().MongoSession())
-	reader, _, err := storage.Get(sch.StoragePath())
+	store := testing.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State())
+	reader, _, err := store.Get(context.Background(), sch.StoragePath())
 	c.Assert(err, jc.ErrorIsNil)
 	defer reader.Close()
 

@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
@@ -68,8 +69,8 @@ type ModelManagerBackend interface {
 	AllVolumes() ([]state.Volume, error)
 	ControllerUUID() string
 	ControllerTag() names.ControllerTag
-	Export(leaders map[string]string) (description.Model, error)
-	ExportPartial(state.ExportConfig) (description.Model, error)
+	Export(leaders map[string]string, store objectstore.ObjectStore) (description.Model, error)
+	ExportPartial(state.ExportConfig, objectstore.ObjectStore) (description.Model, error)
 	SetUserAccess(subject names.UserTag, target names.Tag, access permission.Access) (permission.UserAccess, error)
 	SetModelMeterStatus(string, string) error
 	AllSpaces() ([]*state.Space, error)

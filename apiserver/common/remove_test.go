@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -33,7 +34,7 @@ func (r *fakeRemover) EnsureDead() error {
 	return r.errEnsureDead
 }
 
-func (r *fakeRemover) Remove() error {
+func (r *fakeRemover) Remove(objectstore.ObjectStore) error {
 	return r.errRemove
 }
 
@@ -70,7 +71,7 @@ func (*removeSuite) TestRemove(c *gc.C) {
 		afterDeadCalled = true
 	}
 
-	r := common.NewRemover(st, afterDead, true, getCanModify)
+	r := common.NewRemover(st, &fakeObjectStore{}, afterDead, true, getCanModify)
 	entities := params.Entities{Entities: []params.Entity{
 		{Tag: "unit-x-0"}, {Tag: "unit-x-1"}, {Tag: "unit-x-2"}, {Tag: "unit-x-3"}, {Tag: "unit-x-4"}, {Tag: "unit-x-5"}, {Tag: "unit-x-6"},
 	}}
@@ -92,7 +93,7 @@ func (*removeSuite) TestRemove(c *gc.C) {
 	// Make sure when callEnsureDead is false EnsureDead() doesn't
 	// get called.
 	afterDeadCalled = false
-	r = common.NewRemover(st, afterDead, false, getCanModify)
+	r = common.NewRemover(st, &fakeObjectStore{}, afterDead, false, getCanModify)
 	entities = params.Entities{Entities: []params.Entity{{Tag: "unit-x-0"}, {Tag: "unit-x-1"}}}
 	result, err = r.Remove(context.Background(), entities)
 	c.Assert(err, jc.ErrorIsNil)
@@ -109,7 +110,7 @@ func (*removeSuite) TestRemoveError(c *gc.C) {
 	getCanModify := func() (common.AuthFunc, error) {
 		return nil, fmt.Errorf("pow")
 	}
-	r := common.NewRemover(&fakeState{}, nil, true, getCanModify)
+	r := common.NewRemover(&fakeState{}, &fakeObjectStore{}, nil, true, getCanModify)
 	_, err := r.Remove(context.Background(), params.Entities{Entities: []params.Entity{{Tag: "x0"}}})
 	c.Assert(err, gc.ErrorMatches, "pow")
 }
@@ -118,8 +119,12 @@ func (*removeSuite) TestRemoveNoArgsNoError(c *gc.C) {
 	getCanModify := func() (common.AuthFunc, error) {
 		return nil, fmt.Errorf("pow")
 	}
-	r := common.NewRemover(&fakeState{}, nil, true, getCanModify)
+	r := common.NewRemover(&fakeState{}, &fakeObjectStore{}, nil, true, getCanModify)
 	result, err := r.Remove(context.Background(), params.Entities{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 0)
+}
+
+type fakeObjectStore struct {
+	objectstore.ObjectStore
 }

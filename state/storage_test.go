@@ -354,12 +354,12 @@ func (s *StorageStateSuiteBase) storageInstanceFilesystem(c *gc.C, tag names.Sto
 func (s *StorageStateSuiteBase) obliterateUnit(c *gc.C, tag names.UnitTag) {
 	u, err := s.st.Unit(tag.Id())
 	c.Assert(err, jc.ErrorIsNil)
-	err = u.Destroy()
+	err = u.Destroy(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	s.obliterateUnitStorage(c, tag)
 	err = u.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = u.Remove()
+	err = u.Remove(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -476,7 +476,7 @@ func (s *StorageStateSuite) TestBlockStorageNotSupportedOnCAAS(c *gc.C) {
 			OS:      "ubuntu",
 			Channel: "20.04/stable",
 		}},
-	})
+	}, state.NewObjectStore(c, st))
 	c.Assert(err, gc.ErrorMatches, `cannot add application "storage-block": block storage on a container model not supported`)
 }
 
@@ -488,7 +488,7 @@ func (s *StorageStateSuite) TestAddApplicationStorageConstraintsDefault(c *gc.C)
 			OS:      "ubuntu",
 			Channel: "22.04/stable",
 		}},
-	})
+	}, state.NewObjectStore(c, s.st))
 	c.Assert(err, jc.ErrorIsNil)
 	constraints, err := storageBlock.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
@@ -512,7 +512,7 @@ func (s *StorageStateSuite) TestAddApplicationStorageConstraintsDefault(c *gc.C)
 			OS:      "ubuntu",
 			Channel: "22.04/stable",
 		}},
-	})
+	}, state.NewObjectStore(c, s.st))
 	c.Assert(err, jc.ErrorIsNil)
 	constraints, err = storageFilesystem.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
@@ -539,7 +539,7 @@ func (s *StorageStateSuite) TestAddApplicationStorageConstraintsValidation(c *gc
 				Channel: "22.04/stable",
 			}},
 			Storage: storage,
-		})
+		}, state.NewObjectStore(c, s.st))
 	}
 	assertErr := func(storage map[string]state.StorageConstraints, expect string) {
 		_, err := addApplication(storage)
@@ -578,7 +578,7 @@ func (s *StorageStateSuite) assertAddApplicationStorageConstraintsDefaults(c *gc
 			Channel: "22.04/stable",
 		}},
 		Storage: cons,
-	})
+	}, state.NewObjectStore(c, s.st))
 	c.Assert(err, jc.ErrorIsNil)
 	savedCons, err := app.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
@@ -657,7 +657,7 @@ func (s *StorageStateSuite) TestAddApplicationStorageConstraintsDefaultSizeFromC
 			Channel: "22.04/stable",
 		}},
 		Storage: storageCons,
-	})
+	}, state.NewObjectStore(c, s.st))
 	c.Assert(err, jc.ErrorIsNil)
 	savedCons, err := app.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
@@ -674,7 +674,7 @@ func (s *StorageStateSuite) TestProviderFallbackToType(c *gc.C) {
 				Channel: "22.04/stable",
 			}},
 			Storage: storage,
-		})
+		}, state.NewObjectStore(c, s.st))
 	}
 	storageCons := map[string]state.StorageConstraints{
 		"data": makeStorageCons("loop", 1024, 1),
@@ -808,7 +808,7 @@ func (s *StorageStateSuite) TestUnitEnsureDead(c *gc.C) {
 
 	// destroying a unit with storage attachments is fine; this is what
 	// will trigger the death and removal of storage attachments.
-	err := u.Destroy()
+	err := u.Destroy(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	// until all storage attachments are removed, the unit cannot be
 	// marked as being dead.
@@ -836,7 +836,7 @@ func (s *StorageStateSuite) TestUnitStorageProvisionerError(c *gc.C) {
 	_, u, storageTag := s.setupSingleStorage(c, "block", "loop-pool")
 	s.provisionStorageVolume(c, u, storageTag)
 
-	err := u.Destroy()
+	err := u.Destroy(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	// until all storage attachments are removed, the unit cannot be
 	// marked as being dead.
@@ -862,7 +862,7 @@ func (s *StorageStateSuite) TestUnitStorageProvisionerError(c *gc.C) {
 			return nil, errors.New("boom")
 		},
 	}
-	err = u.Remove()
+	err = u.Remove(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -874,7 +874,7 @@ func (s *StorageStateSuite) TestRemoveStorageAttachmentsRemovesDyingInstance(c *
 
 	// Mark the storage instance as Dying, so that it will be removed
 	// when the last attachment is removed.
-	err := u.Destroy()
+	err := u.Destroy(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.storageBackend.DestroyStorageInstance(storageTag, true, false, dontWait)
 	c.Assert(err, jc.ErrorIsNil)
@@ -911,7 +911,7 @@ func (s *StorageStateSuite) TestRemoveStorageAttachmentsDisownsUnitOwnedInstance
 
 	// Detaching the storage from the unit will leave the storage
 	// behind, but will clear the ownership.
-	err = u.Destroy()
+	err = u.Destroy(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.storageBackend.DetachStorage(storageTag, u.UnitTag(), false, dontWait)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1096,7 +1096,7 @@ func (s *StorageStateSuite) TestAddApplicationAttachStorage(c *gc.C) {
 		},
 		AttachStorage: []names.StorageTag{storageTag},
 		NumUnits:      1,
-	})
+	}, state.NewObjectStore(c, s.st))
 	c.Assert(err, jc.ErrorIsNil)
 	app2Units, err := app2.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1125,7 +1125,7 @@ func (s *StorageStateSuite) TestAddApplicationAttachStorageMultipleUnits(c *gc.C
 		Charm:         ch,
 		AttachStorage: []names.StorageTag{storageTag},
 		NumUnits:      2,
-	})
+	}, state.NewObjectStore(c, s.st))
 	c.Assert(err, gc.ErrorMatches, `cannot add application "secondwind": AttachStorage is non-empty but NumUnits is 2, must be 1`)
 }
 
@@ -1165,7 +1165,7 @@ func (s *StorageStateSuite) TestAddApplicationAttachStorageTooMany(c *gc.C) {
 		},
 		AttachStorage: storageTags,
 		NumUnits:      1,
-	})
+	}, state.NewObjectStore(c, s.st))
 	c.Assert(err, gc.ErrorMatches,
 		`cannot add application "secondwind": `+
 			`attaching 3 storage instances brings the total to 3, exceeding the maximum of 2`)
@@ -1197,7 +1197,7 @@ func (s *StorageStateSuite) TestConcurrentDestroyStorageInstanceRemoveStorageAtt
 		c.Skip("volumes on containers not supported")
 	}
 	_, u, storageTag := s.setupSingleStorage(c, "block", "loop-pool")
-	err := u.Destroy()
+	err := u.Destroy(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 
 	defer state.SetBeforeHooks(c, s.st, func() {
@@ -1222,7 +1222,7 @@ func (s *StorageStateSuite) TestConcurrentRemoveStorageAttachment(c *gc.C) {
 	_, u, storageTag := s.setupSingleStorage(c, "block", "loop-pool")
 	s.provisionStorageVolume(c, u, storageTag)
 
-	err := u.Destroy()
+	err := u.Destroy(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.storageBackend.DestroyStorageInstance(storageTag, true, false, dontWait)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1263,7 +1263,7 @@ func (s *StorageStateSuite) TestConcurrentDestroyInstanceRemoveStorageAttachment
 		c.Skip("volumes on containers not supported")
 	}
 	_, u, storageTag := s.setupSingleStorage(c, "block", "loop-pool")
-	err := u.Destroy()
+	err := u.Destroy(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 
 	defer state.SetBeforeHooks(c, s.st, func() {
@@ -1288,7 +1288,7 @@ func (s *StorageStateSuite) TestConcurrentDestroyStorageInstance(c *gc.C) {
 		c.Skip("volumes on containers not supported")
 	}
 	_, u, storageTag := s.setupSingleStorage(c, "block", "loop-pool")
-	err := u.Destroy()
+	err := u.Destroy(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 
 	defer state.SetBeforeHooks(c, s.st, func() {
@@ -1362,7 +1362,7 @@ func (s *StorageStateSuite) TestWatchStorageAttachment(c *gc.C) {
 	wc := testing.NewNotifyWatcherC(c, w)
 	wc.AssertOneChange()
 
-	err := u.Destroy()
+	err := u.Destroy(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.storageBackend.DetachStorage(storageTag, u.UnitTag(), false, dontWait)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1377,7 +1377,7 @@ func (s *StorageStateSuite) TestDestroyUnitStorageAttachments(c *gc.C) {
 	app := s.setupMixedScopeStorageApplication(c, "block")
 	u, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	err = u.Destroy()
+	err = u.Destroy(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 
 	defer state.SetBeforeHooks(c, s.st, func() {
@@ -1592,7 +1592,7 @@ func (s *StorageStateSuiteCaas) TestDeployWrongStorageType(c *gc.C) {
 			"data": {Pool: "loop"},
 		},
 	}
-	_, err := s.st.AddApplication(args)
+	_, err := s.st.AddApplication(args, state.NewObjectStore(c, s.st))
 	c.Assert(err, gc.ErrorMatches, `cannot add application "foo": invalid storage config: storage provider type "loop" not valid`)
 }
 

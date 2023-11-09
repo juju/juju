@@ -30,6 +30,7 @@ type bundleSuite struct {
 	auth     *apiservertesting.FakeAuthorizer
 	facade   *bundle.APIv8
 	st       *mockState
+	store    *mockObjectStore
 	modelTag names.ModelTag
 }
 
@@ -49,6 +50,7 @@ func (s *bundleSuite) SetUpTest(c *gc.C) {
 func (s *bundleSuite) makeAPI(c *gc.C) *bundle.APIv8 {
 	api, err := bundle.NewBundleAPI(
 		s.st,
+		s.store,
 		s.auth,
 		s.modelTag,
 	)

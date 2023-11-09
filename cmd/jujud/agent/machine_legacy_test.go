@@ -547,7 +547,7 @@ func (s *MachineLegacySuite) TestManageModelRunsCleaner(c *gc.C) {
 		})
 		unit, err := app.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
-		err = app.Destroy()
+		err = app.Destroy(testing.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State()))
 		c.Assert(err, jc.ErrorIsNil)
 
 		// Check the unit was not yet removed.

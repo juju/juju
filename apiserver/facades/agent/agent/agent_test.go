@@ -21,8 +21,10 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain/credential"
+	"github.com/juju/juju/juju/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -39,6 +41,8 @@ type agentSuite struct {
 	machine0  *state.Machine
 	machine1  *state.Machine
 	container *state.Machine
+
+	store objectstore.ObjectStore
 }
 
 var _ = gc.Suite(&agentSuite{})
@@ -69,6 +73,8 @@ func (s *agentSuite) SetUpTest(c *gc.C) {
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag: s.machine1.Tag(),
 	}
+
+	s.store = testing.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State())
 }
 
 func (s *agentSuite) agentAPI(c *gc.C, auth facade.Authorizer, credentialService common.CredentialService) (*agent.AgentAPI, error) {
@@ -101,7 +107,7 @@ func (s *agentSuite) TestAgentSucceedsWithUnitAgent(c *gc.C) {
 }
 
 func (s *agentSuite) TestGetEntities(c *gc.C) {
-	err := s.container.Destroy()
+	err := s.container.Destroy(s.store)
 	c.Assert(err, jc.ErrorIsNil)
 	args := params.Entities{
 		Entities: []params.Entity{
@@ -130,7 +136,7 @@ func (s *agentSuite) TestGetEntities(c *gc.C) {
 func (s *agentSuite) TestGetEntitiesContainer(c *gc.C) {
 	auth := s.authorizer
 	auth.Tag = s.container.Tag()
-	err := s.container.Destroy()
+	err := s.container.Destroy(s.store)
 	c.Assert(err, jc.ErrorIsNil)
 
 	api, err := s.agentAPI(c, auth, nil)
@@ -160,18 +166,18 @@ func (s *agentSuite) TestGetEntitiesContainer(c *gc.C) {
 
 func (s *agentSuite) TestGetEntitiesNotFound(c *gc.C) {
 	// Destroy the container first, so we can destroy its parent.
-	err := s.container.Destroy()
+	err := s.container.Destroy(s.store)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.container.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.container.Remove()
+	err = s.container.Remove(testing.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State()))
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.machine1.Destroy()
+	err = s.machine1.Destroy(s.store)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.machine1.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.machine1.Remove()
+	err = s.machine1.Remove(testing.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	api, err := s.agentAPI(c, s.authorizer, nil)

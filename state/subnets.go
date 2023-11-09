@@ -14,6 +14,7 @@ import (
 	jujutxn "github.com/juju/txn/v3"
 
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/mongo"
 )
 
@@ -104,7 +105,7 @@ func (s *Subnet) EnsureDead() (err error) {
 // Remove removes a Dead subnet. If the subnet is not Dead or it is already
 // removed, an error is returned. On success, all IP addresses added to the
 // subnet are also removed.
-func (s *Subnet) Remove() (err error) {
+func (s *Subnet) Remove(objectstore.ObjectStore) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot remove subnet %q", s)
 
 	if s.doc.Life != Dead {

@@ -29,7 +29,7 @@ func (s *StagedResourceSuite) assertActivate(c *gc.C, inc state.IncrementCharmMo
 		Charm: ch,
 	})
 
-	res := s.State.Resources()
+	res := s.State.Resources(state.NewObjectStore(c, s.State))
 	spam := newResourceFromCharm(ch, "store-resource")
 
 	data := "spamspamspam"

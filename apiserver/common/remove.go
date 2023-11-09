@@ -12,6 +12,7 @@ import (
 	"github.com/juju/names/v4"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -19,6 +20,7 @@ import (
 // Remover implements a common Remove method for use by various facades.
 type Remover struct {
 	st             state.EntityFinder
+	store          objectstore.ObjectStore
 	afterDead      func(tag names.Tag)
 	callEnsureDead bool
 	getCanModify   GetAuthFunc
@@ -28,9 +30,10 @@ type Remover struct {
 // whether EnsureDead should be called on an entity before
 // removing. The GetAuthFunc will be used on each invocation of Remove
 // to determine current permissions.
-func NewRemover(st state.EntityFinder, afterDead func(tag names.Tag), callEnsureDead bool, getCanModify GetAuthFunc) *Remover {
+func NewRemover(st state.EntityFinder, store objectstore.ObjectStore, afterDead func(tag names.Tag), callEnsureDead bool, getCanModify GetAuthFunc) *Remover {
 	return &Remover{
 		st:             st,
+		store:          store,
 		afterDead:      afterDead,
 		callEnsureDead: callEnsureDead,
 		getCanModify:   getCanModify,
@@ -63,7 +66,7 @@ func (r *Remover) removeEntity(tag names.Tag) error {
 		}
 	}
 	// TODO (anastasiamac) this needs to work with force if needed
-	return remover.Remove()
+	return remover.Remove(r.store)
 }
 
 // Remove removes every given entity from state, calling EnsureDead

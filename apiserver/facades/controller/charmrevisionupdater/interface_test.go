@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater"
 	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater/mocks"
 	charmmetrics "github.com/juju/juju/core/charm/metrics"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/charmhub"
 	"github.com/juju/juju/state"
 )
@@ -187,4 +188,8 @@ func (s facadeContextShim) State() *state.State {
 
 func (s facadeContextShim) Logger() loggo.Logger {
 	return s.logger
+}
+
+func (s facadeContextShim) ObjectStore() objectstore.ObjectStore {
+	return nil
 }

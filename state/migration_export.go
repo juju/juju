@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/core/container"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/payloads"
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/secrets"
@@ -80,16 +81,16 @@ type ExportConfig struct {
 
 // ExportPartial the current model for the State optionally skipping
 // aspects as defined by the ExportConfig.
-func (st *State) ExportPartial(cfg ExportConfig) (description.Model, error) {
-	return st.exportImpl(cfg, map[string]string{})
+func (st *State) ExportPartial(cfg ExportConfig, store objectstore.ObjectStore) (description.Model, error) {
+	return st.exportImpl(cfg, map[string]string{}, store)
 }
 
 // Export the current model for the State.
-func (st *State) Export(leaders map[string]string) (description.Model, error) {
-	return st.exportImpl(ExportConfig{}, leaders)
+func (st *State) Export(leaders map[string]string, store objectstore.ObjectStore) (description.Model, error) {
+	return st.exportImpl(ExportConfig{}, leaders, store)
 }
 
-func (st *State) exportImpl(cfg ExportConfig, leaders map[string]string) (description.Model, error) {
+func (st *State) exportImpl(cfg ExportConfig, leaders map[string]string, store objectstore.ObjectStore) (description.Model, error) {
 	dbModel, err := st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -98,6 +99,7 @@ func (st *State) exportImpl(cfg ExportConfig, leaders map[string]string) (descri
 		st:      st,
 		cfg:     cfg,
 		dbModel: dbModel,
+		store:   store,
 		logger:  loggo.GetLogger("juju.state.export-model"),
 	}
 	if err := export.readAllStatuses(); err != nil {
@@ -281,6 +283,7 @@ type exporter struct {
 	st      *State
 	dbModel *Model
 	model   description.Model
+	store   objectstore.ObjectStore
 	logger  loggo.Logger
 
 	annotations             map[string]annotatorDoc
@@ -706,7 +709,7 @@ func (e *exporter) applications(leaders map[string]string) error {
 		return errors.Trace(err)
 	}
 
-	resourcesSt := e.st.Resources()
+	resourcesSt := e.st.Resources(e.store)
 
 	appOfferMap, err := e.groupOffersByApplicationName()
 	if err != nil {

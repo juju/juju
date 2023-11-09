@@ -53,19 +53,21 @@ func newFacadeV10(ctx facade.Context) (*ModelManagerAPI, error) {
 		return nil, errors.Trace(err)
 	}
 
+	serviceFactory := ctx.ServiceFactory()
+
 	configGetter := stateenvirons.EnvironConfigGetter{
 		Model:             model,
-		CloudService:      ctx.ServiceFactory().Cloud(),
-		CredentialService: ctx.ServiceFactory().Credential(),
+		CloudService:      serviceFactory.Cloud(),
+		CredentialService: serviceFactory.Credential(),
 	}
-	newEnviron := common.EnvironFuncForModel(model, ctx.ServiceFactory().Cloud(), ctx.ServiceFactory().Credential(), configGetter)
+	newEnviron := common.EnvironFuncForModel(model, serviceFactory.Cloud(), serviceFactory.Credential(), configGetter)
 
 	ctrlModel, err := ctlrSt.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	controllerConfigGetter := ctx.ServiceFactory().ControllerConfig()
+	controllerConfigGetter := serviceFactory.ControllerConfig()
 
 	urlGetter := common.NewToolsURLGetter(modelUUID, systemState)
 	toolsFinder := common.NewToolsFinder(controllerConfigGetter, configGetter, st, urlGetter, newEnviron)
@@ -80,10 +82,11 @@ func newFacadeV10(ctx facade.Context) (*ModelManagerAPI, error) {
 			modelmigration.NewScope(changestream.NewTxnRunnerFactory(ctx.ControllerDB), nil),
 		),
 		common.NewModelManagerBackend(ctrlModel, pool),
-		ctx.ServiceFactory().Cloud(),
-		ctx.ServiceFactory().Credential(),
-		ctx.ServiceFactory().ModelManager(),
-		ctx.ServiceFactory().Model(),
+		serviceFactory.Cloud(),
+		serviceFactory.Credential(),
+		serviceFactory.ModelManager(),
+		serviceFactory.Model(),
+		ctx.ObjectStore(),
 		toolsFinder,
 		caas.New,
 		common.NewBlockChecker(backend),

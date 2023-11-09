@@ -79,7 +79,7 @@ func (s *BlockDevicesSuite) TestSetMachineBlockDevicesUpdates(c *gc.C) {
 }
 
 func (s *BlockDevicesSuite) TestSetMachineBlockDevicesMachineDying(c *gc.C) {
-	err := s.machine.Destroy()
+	err := s.machine.Destroy(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 
 	sda := state.BlockDeviceInfo{DeviceName: "sda"}
@@ -145,7 +145,7 @@ func (s *BlockDevicesSuite) TestBlockDevicesMachineRemove(c *gc.C) {
 
 	err = s.machine.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.machine.Remove()
+	err = s.machine.Remove(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	sb, err := state.NewStorageBackend(s.State)

@@ -117,11 +117,8 @@ type Application interface {
 type Unit interface {
 	status.StatusHistoryGetter
 	Life() state.Life
-	Destroy() (err error)
 	IsPrincipal() bool
 	PublicAddress() (network.SpaceAddress, error)
-	PrivateAddress() (network.SpaceAddress, error)
-	Resolve(retryHooks bool) error
 	AgentHistory() status.StatusHistoryGetter
 }
 

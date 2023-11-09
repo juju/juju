@@ -110,7 +110,7 @@ func (s *UserSuite) TestUpdateLastLogin(c *gc.C) {
 
 func (s *UserSuite) TestSetPassword(c *gc.C) {
 	user := s.Factory.MakeUser(c, nil)
-	testSetPassword(c, func() (state.Authenticator, error) {
+	testSetPassword(c, s.State, func() (state.Authenticator, error) {
 		return s.State.User(user.UserTag())
 	})
 }

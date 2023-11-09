@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/environs/bootstrap"
 	environsconfig "github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/storage"
@@ -53,9 +54,9 @@ type DeployFromRepository interface {
 // DeployFromRepositoryState defines a common set of functions for retrieving state
 // objects.
 type DeployFromRepositoryState interface {
-	AddApplication(state.AddApplicationArgs) (Application, error)
-	AddPendingResource(string, resource.Resource) (string, error)
-	RemovePendingResources(applicationID string, pendingIDs map[string]string) error
+	AddApplication(state.AddApplicationArgs, objectstore.ObjectStore) (Application, error)
+	AddPendingResource(string, resource.Resource, objectstore.ObjectStore) (string, error)
+	RemovePendingResources(applicationID string, pendingIDs map[string]string, store objectstore.ObjectStore) error
 	AddCharmMetadata(info state.CharmInfo) (Charm, error)
 	Charm(string) (Charm, error)
 	ControllerConfig() (controller.Config, error)
@@ -74,14 +75,16 @@ type DeployFromRepositoryState interface {
 // parameter changes should be performed before entering the API.
 type DeployFromRepositoryAPI struct {
 	state      DeployFromRepositoryState
+	store      objectstore.ObjectStore
 	validator  DeployFromRepositoryValidator
 	stateCharm func(Charm) *state.Charm
 }
 
 // NewDeployFromRepositoryAPI creates a new DeployFromRepositoryAPI.
-func NewDeployFromRepositoryAPI(state DeployFromRepositoryState, validator DeployFromRepositoryValidator) DeployFromRepository {
+func NewDeployFromRepositoryAPI(state DeployFromRepositoryState, store objectstore.ObjectStore, validator DeployFromRepositoryValidator) DeployFromRepository {
 	return &DeployFromRepositoryAPI{
 		state:      state,
+		store:      store,
 		validator:  validator,
 		stateCharm: CharmToStateCharm,
 	}
@@ -143,13 +146,13 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(ctx context.Context, ar
 		Placement:         dt.placement,
 		Resources:         pendingIDs,
 		Storage:           stateStorageConstraints(dt.storage),
-	})
+	}, api.store)
 
 	if addApplicationErr != nil {
 		// Check the pending resources that are added before the AddApplication is called
 		if pendingIDs != nil && len(pendingIDs) != 0 {
 			// Remove if there's any pending resources before raising addApplicationErr
-			removeResourcesErr := api.state.RemovePendingResources(dt.applicationName, pendingIDs)
+			removeResourcesErr := api.state.RemovePendingResources(dt.applicationName, pendingIDs, api.store)
 			if removeResourcesErr != nil {
 				deployRepoLogger.Errorf("unable to remove pending resources for %q", dt.applicationName)
 			}
@@ -220,7 +223,7 @@ func (api *DeployFromRepositoryAPI) addPendingResources(appName string, resource
 	pendingIDs := make(map[string]string)
 
 	for _, r := range resources {
-		pID, err := api.state.AddPendingResource(appName, r)
+		pID, err := api.state.AddPendingResource(appName, r, api.store)
 		if err != nil {
 			deployRepoLogger.Errorf("Unable to add pending resource %v for application %v: %v", r.Name, appName, err)
 			errs = append(errs, err)

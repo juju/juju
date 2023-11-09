@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/juju/apiserver/facades/client/bundle"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/state"
 )
 
@@ -31,7 +32,7 @@ type mockState struct {
 	Spaces map[string]string
 }
 
-func (m *mockState) ExportPartial(config state.ExportConfig) (description.Model, error) {
+func (m *mockState) ExportPartial(config state.ExportConfig, store objectstore.ObjectStore) (description.Model, error) {
 	m.MethodCall(m, "ExportPartial", config)
 	if err := m.NextErr(); err != nil {
 		return nil, err
@@ -76,4 +77,8 @@ func newMockState() *mockState {
 	}
 	st.Spaces = make(map[string]string)
 	return st
+}
+
+type mockObjectStore struct {
+	objectstore.ObjectStore
 }

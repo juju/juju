@@ -1,7 +1,7 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package storage_test
+package state_test
 
 import (
 	"io"
@@ -13,7 +13,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/state/storage"
+	"github.com/juju/juju/internal/objectstore/state"
 	"github.com/juju/juju/testing"
 )
 
@@ -23,7 +23,7 @@ type StorageSuite struct {
 	mgotesting.MgoSuite
 	testing.BaseSuite
 	managedStorage blobstore.ManagedStorage
-	storage        storage.Storage
+	storage        state.Storage
 }
 
 var _ = gc.Suite(&StorageSuite{})
@@ -45,7 +45,7 @@ func (s *StorageSuite) SetUpTest(c *gc.C) {
 	rs := blobstore.NewGridFS("blobstore", "blobstore", s.Session)
 	db := s.Session.DB("juju")
 	s.managedStorage = blobstore.NewManagedStorage(db, rs)
-	s.storage = storage.NewStorage(testUUID, s.Session)
+	s.storage = state.NewStorage(testUUID, s.Session)
 }
 
 func (s *StorageSuite) TearDownTest(c *gc.C) {

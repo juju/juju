@@ -49,12 +49,12 @@ import (
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/mongo"
+	"github.com/juju/juju/internal/objectstore"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/binarystorage"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/state/stateenvirons"
-	"github.com/juju/juju/state/storage"
 	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/peergrouper"
 )
@@ -440,8 +440,9 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 
-	objectStore := objectStorage{
-		store: storage.NewStorage(model.UUID(), st.MongoSession()),
+	objectStore, err := objectstore.NewStateObjectStore(ctx, st.ModelUUID(), st, logger)
+	if err != nil {
+		return errors.Trace(err)
 	}
 	// Deploy and set up the controller charm and application.
 	if err := c.deployControllerCharm(ctx, objectStore, st, args.ControllerConfig, args.BootstrapMachineConstraints, args.ControllerCharmPath, args.ControllerCharmChannel, isCAAS, controllerUnitPassword); err != nil {
@@ -454,22 +455,6 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 	return node.SetHasVote(true)
-}
-
-type objectStorage struct {
-	store storage.Storage
-}
-
-func (o objectStorage) Get(ctx stdcontext.Context, path string) (io.ReadCloser, int64, error) {
-	return o.store.Get(path)
-}
-
-func (o objectStorage) Put(ctx stdcontext.Context, path string, r io.Reader, size int64) error {
-	return o.store.Put(path, r, size)
-}
-
-func (o objectStorage) Remove(ctx stdcontext.Context, path string) error {
-	return o.store.Remove(path)
 }
 
 func getAddressesForMongo(

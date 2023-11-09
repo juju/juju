@@ -15,6 +15,7 @@ import (
 	coreconfig "github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
@@ -28,7 +29,7 @@ type CAASApplicationProvisionerState interface {
 	Model() (Model, error)
 	Application(string) (Application, error)
 	ResolveConstraints(cons constraints.Value) (constraints.Value, error)
-	Resources() Resources
+	Resources(objectstore.ObjectStore) Resources
 	Unit(string) (Unit, error)
 	WatchApplications() state.StringsWatcher
 	IsController() bool
@@ -82,7 +83,7 @@ type Charm interface {
 
 type Unit interface {
 	Tag() names.Tag
-	DestroyOperation() *state.DestroyUnitOperation
+	DestroyOperation(objectstore.ObjectStore) *state.DestroyUnitOperation
 	EnsureDead() error
 	ContainerInfo() (state.CloudContainer, error)
 	UpdateOperation(props state.UnitUpdateProperties) *state.UpdateUnitOperation
@@ -113,8 +114,8 @@ func (s stateShim) Application(name string) (Application, error) {
 	return &applicationShim{app}, nil
 }
 
-func (s stateShim) Resources() Resources {
-	return s.State.Resources()
+func (s stateShim) Resources(store objectstore.ObjectStore) Resources {
+	return s.State.Resources(store)
 }
 
 func (s stateShim) Unit(unitTag string) (Unit, error) {

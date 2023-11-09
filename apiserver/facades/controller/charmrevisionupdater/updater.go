@@ -19,6 +19,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	corebase "github.com/juju/juju/core/base"
 	charmmetrics "github.com/juju/juju/core/charm/metrics"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charmhub"
 	"github.com/juju/juju/rpc/params"
@@ -34,6 +35,7 @@ type CharmRevisionUpdater interface {
 // implementation of the api end point.
 type CharmRevisionUpdaterAPI struct {
 	state State
+	store objectstore.ObjectStore
 	clock clock.Clock
 
 	newCharmhubClient newCharmhubClientFunc
@@ -48,12 +50,14 @@ var _ CharmRevisionUpdater = (*CharmRevisionUpdaterAPI)(nil)
 // with a State interface directly (mainly for use in tests).
 func NewCharmRevisionUpdaterAPIState(
 	state State,
+	store objectstore.ObjectStore,
 	clock clock.Clock,
 	newCharmhubClient newCharmhubClientFunc,
 	logger loggo.Logger,
 ) (*CharmRevisionUpdaterAPI, error) {
 	return &CharmRevisionUpdaterAPI{
 		state:             state,
+		store:             store,
 		clock:             clock,
 		newCharmhubClient: newCharmhubClient,
 		logger:            logger,
@@ -78,7 +82,7 @@ func (api *CharmRevisionUpdaterAPI) updateLatestRevisions() error {
 	}
 
 	// Process the resulting info for each charm.
-	resources := api.state.Resources()
+	resources := api.state.Resources(api.store)
 	for _, info := range latest {
 		// First, add a charm placeholder to the model for each.
 		if err := api.state.AddCharmPlaceholder(info.url); err != nil {

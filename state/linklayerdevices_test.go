@@ -80,7 +80,7 @@ func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesWhenMachineNotAliveO
 	}
 	_ = s.assertSetLinkLayerDevicesFailsForArgs(c, args, `machine "0" not alive`)
 
-	err = s.machine.Remove()
+	err = s.machine.Remove(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	_ = s.assertSetLinkLayerDevicesFailsForArgs(c, args, `machine "0" not alive`)
@@ -306,7 +306,7 @@ func (s *linkLayerDevicesStateSuite) TestMachineMethodReturnsNotFoundErrorWhenMi
 
 	err := s.machine.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.machine.Remove()
+	err = s.machine.Remove(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := device.Machine()
@@ -1096,7 +1096,7 @@ func (s *linkLayerDevicesStateSuite) TestMachineRemoveAlsoRemoveAllLinkLayerDevi
 
 	err := s.machine.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.machine.Remove()
+	err = s.machine.Remove(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.assertNoDevicesOnMachine(c, s.machine)

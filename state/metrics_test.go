@@ -44,9 +44,9 @@ func (s *MetricSuite) TestAddNoMetrics(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "cannot add a batch of 0 metrics")
 }
 
-func removeUnit(c *gc.C, unit *state.Unit) {
+func removeUnit(c *gc.C, st *state.State, unit *state.Unit) {
 	ensureUnitDead(c, unit)
-	err := unit.Remove()
+	err := unit.Remove(state.NewObjectStore(c, st))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -200,7 +200,7 @@ func (s *MetricSuite) TestAddModelMetricMetric(c *gc.C) {
 }
 
 func (s *MetricSuite) TestAddMetricNonExistentUnit(c *gc.C) {
-	removeUnit(c, s.unit)
+	removeUnit(c, s.State, s.unit)
 	now := state.NowToTheSecond(s.State)
 	m := state.Metric{Key: "pings", Value: "5", Time: now}
 	unitTag := names.NewUnitTag("test/0")
@@ -499,7 +499,7 @@ func (s *MetricSuite) TestMetricValidation(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = dyingUnit.SetCharmURL(s.meteredCharm.URL())
 	c.Assert(err, jc.ErrorIsNil)
-	err = dyingUnit.Destroy()
+	err = dyingUnit.Destroy(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	now := s.Clock.Now()
 	tests := []struct {

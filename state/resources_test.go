@@ -66,7 +66,7 @@ func (s *ResourcesSuite) TestListResources(c *gc.C) {
 	ch := s.AddTestingCharm(c, "wordpress")
 	s.AddTestingApplication(c, "wordpress", ch)
 
-	res := s.State.Resources()
+	res := s.State.Resources(state.NewObjectStore(c, s.State))
 	data := "spamspamspam"
 	spam := newResource(c, "store-resource", data)
 	file := bytes.NewBufferString(data)
@@ -83,7 +83,7 @@ func (s *ResourcesSuite) TestListResources(c *gc.C) {
 }
 
 func (s *ResourcesSuite) TestListResourcesNoResources(c *gc.C) {
-	res := s.State.Resources()
+	res := s.State.Resources(state.NewObjectStore(c, s.State))
 	resultRes, err := res.ListResources("wordpress")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(resultRes.Resources, gc.HasLen, 0)
@@ -93,7 +93,7 @@ func (s *ResourcesSuite) TestListResourcesIgnorePending(c *gc.C) {
 	ch := s.AddTestingCharm(c, "wordpress")
 	s.AddTestingApplication(c, "wordpress", ch)
 
-	res := s.State.Resources()
+	res := s.State.Resources(state.NewObjectStore(c, s.State))
 	data := "spamspamspam"
 	spam := newResource(c, "store-resource", data)
 	file := bytes.NewBufferString(data)
@@ -121,7 +121,7 @@ func (s *ResourcesSuite) TestListPendingResources(c *gc.C) {
 	ch := s.AddTestingCharm(c, "wordpress")
 	s.AddTestingApplication(c, "wordpress", ch)
 
-	res := s.State.Resources()
+	res := s.State.Resources(state.NewObjectStore(c, s.State))
 	data := "spamspamspam"
 	spam := newResource(c, "store-resource", data)
 	file := bytes.NewBufferString(data)
@@ -146,7 +146,7 @@ func (s *ResourcesSuite) TestUpdatePending(c *gc.C) {
 	ch := s.AddTestingCharm(c, "wordpress")
 	s.AddTestingApplication(c, "wordpress", ch)
 
-	res := s.State.Resources()
+	res := s.State.Resources(state.NewObjectStore(c, s.State))
 
 	ham := newResource(c, "install-resource", "install-resource")
 	pendingID, err := res.AddPendingResource("wordpress", ham.Username, ham.Resource)
@@ -172,7 +172,7 @@ func (s *ResourcesSuite) TestGetResource(c *gc.C) {
 	ch := s.AddTestingCharm(c, "wordpress")
 	s.AddTestingApplication(c, "wordpress", ch)
 
-	res := s.State.Resources()
+	res := s.State.Resources(state.NewObjectStore(c, s.State))
 	_, err := res.GetResource("wordpress", "store-resource")
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 
@@ -192,7 +192,7 @@ func (s *ResourcesSuite) TestGetPendingResource(c *gc.C) {
 	ch := s.AddTestingCharm(c, "wordpress")
 	s.AddTestingApplication(c, "wordpress", ch)
 
-	res := s.State.Resources()
+	res := s.State.Resources(state.NewObjectStore(c, s.State))
 	ham := newResource(c, "install-resource", "install-resource")
 	pendingID, err := res.AddPendingResource("wordpress", ham.Username, ham.Resource)
 	c.Assert(err, jc.ErrorIsNil)
@@ -213,7 +213,7 @@ func (s *ResourcesSuite) TestSetResource(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(app.CharmModifiedVersion(), gc.Equals, 0)
 
-	res := s.State.Resources()
+	res := s.State.Resources(state.NewObjectStore(c, s.State))
 
 	data := "spamspamspam"
 	spam := newResource(c, "store-resource", data)
@@ -237,7 +237,7 @@ func (s *ResourcesSuite) TestSetResource(c *gc.C) {
 }
 
 func (s *ResourcesSuite) TestSetCharmStoreResources(c *gc.C) {
-	res := s.State.Resources()
+	res := s.State.Resources(state.NewObjectStore(c, s.State))
 	updatedRes := newResourceFromCharm(s.ch, "store-resource")
 	updatedRes.Revision = 666
 	csResources := []charmresource.Resource{updatedRes.Resource}
@@ -273,7 +273,7 @@ func (s *ResourcesSuite) TestUnitResource(c *gc.C) {
 	ch := s.AddTestingCharm(c, "wordpress")
 	s.AddTestingApplication(c, "wordpress", ch)
 
-	res := s.State.Resources()
+	res := s.State.Resources(state.NewObjectStore(c, s.State))
 	data := "spamspamspam"
 	spam := newResource(c, "store-resource", data)
 	_, err := res.SetUnitResource("wordpress/0", spam.Username, spam.Resource)
@@ -307,7 +307,7 @@ func (s *ResourcesSuite) TestOpenResource(c *gc.C) {
 	s.Factory.MakeUnit(c, &factory.UnitParams{
 		Application: app,
 	})
-	res := s.State.Resources()
+	res := s.State.Resources(state.NewObjectStore(c, s.State))
 
 	_, _, err = res.OpenResource("starsay", "install-resource")
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
@@ -379,7 +379,7 @@ func (s *ResourcesSuite) TestOpenResourceForUniter(c *gc.C) {
 	s.Factory.MakeUnit(c, &factory.UnitParams{
 		Application: app,
 	})
-	res := s.State.Resources()
+	res := s.State.Resources(state.NewObjectStore(c, s.State))
 
 	spam := newResourceFromCharm(s.ch, "install-resource")
 	data := "spamspamspam"
@@ -422,7 +422,7 @@ func (s *ResourcesSuite) TestRemovePendingAppResources(c *gc.C) {
 	ch := s.AddTestingCharm(c, "wordpress")
 	s.AddTestingApplication(c, "wordpress", ch)
 
-	res := s.State.Resources()
+	res := s.State.Resources(state.NewObjectStore(c, s.State))
 
 	spam := newResource(c, "install-resource", "install-resource")
 	pendingID, err := res.AddPendingResource("wordpress", spam.Username, spam.Resource)

@@ -26,6 +26,7 @@ import (
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller/modelmanager"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/domain/credential"
 	"github.com/juju/juju/domain/model"
@@ -62,7 +63,7 @@ type ModelService interface {
 }
 
 type ModelExporter interface {
-	ExportModelPartial(ctx context.Context, cfg state.ExportConfig) (description.Model, error)
+	ExportModelPartial(ctx context.Context, cfg state.ExportConfig, store objectstore.ObjectStore) (description.Model, error)
 }
 
 // CloudService provides access to clouds.
@@ -94,6 +95,7 @@ type ModelManagerAPI struct {
 	ctlrState           common.ModelManagerBackend
 	cloudService        CloudService
 	credentialService   CredentialService
+	store               objectstore.ObjectStore
 	check               common.BlockCheckerInterface
 	authorizer          facade.Authorizer
 	toolsFinder         common.ToolsFinder
@@ -113,6 +115,7 @@ func NewModelManagerAPI(
 	credentialService CredentialService,
 	modelManagerService ModelManagerService,
 	modelService ModelService,
+	store objectstore.ObjectStore,
 	toolsFinder common.ToolsFinder,
 	getBroker newCaasBrokerFunc,
 	blockChecker common.BlockCheckerInterface,
@@ -141,6 +144,7 @@ func NewModelManagerAPI(
 		cloudService:        cloudService,
 		credentialService:   credentialService,
 		modelManagerService: modelManagerService,
+		store:               store,
 		getBroker:           getBroker,
 		check:               blockChecker,
 		authorizer:          authorizer,
@@ -595,7 +599,7 @@ func (m *ModelManagerAPI) dumpModel(ctx context.Context, args params.Entity, sim
 		exportConfig.SkipLinkLayerDevices = true
 	}
 
-	model, err := m.modelExporter.ExportModelPartial(ctx, exportConfig)
+	model, err := m.modelExporter.ExportModelPartial(ctx, exportConfig, m.store)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

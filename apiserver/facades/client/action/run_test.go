@@ -117,7 +117,7 @@ func (s *runSuite) TestRunMachineAndApplication(c *gc.C) {
 	magic, err := s.ControllerModel(c).State().AddApplication(state.AddApplicationArgs{
 		Name: "magic", Charm: charm,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{OS: "ubuntu", Channel: "20.04/stable"}},
-	})
+	}, jujutesting.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State()))
 	c.Assert(err, jc.ErrorIsNil)
 	s.addUnit(c, magic)
 	s.addUnit(c, magic)
@@ -171,7 +171,7 @@ func (s *runSuite) TestRunApplicationWorkload(c *gc.C) {
 	magic, err := s.ControllerModel(c).State().AddApplication(state.AddApplicationArgs{
 		Name: "magic", Charm: charm,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{OS: "ubuntu", Channel: "20.04/stable"}},
-	})
+	}, jujutesting.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State()))
 	c.Assert(err, jc.ErrorIsNil)
 	s.addUnit(c, magic)
 	s.addUnit(c, magic)

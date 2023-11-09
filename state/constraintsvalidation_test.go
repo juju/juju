@@ -292,7 +292,7 @@ func (s *applicationConstraintsSuite) TestAddApplicationInvalidConstraints(c *gc
 		}},
 		Charm:       s.testCharm,
 		Constraints: cons,
-	})
+	}, state.NewObjectStore(c, s.State))
 	c.Assert(errors.Cause(err), gc.ErrorMatches, regexp.QuoteMeta("invalid constraint value: virt-type=blah\nvalid values are: [kvm]"))
 }
 
@@ -306,7 +306,7 @@ func (s *applicationConstraintsSuite) TestAddApplicationValidConstraints(c *gc.C
 		}},
 		Charm:       s.testCharm,
 		Constraints: cons,
-	})
+	}, state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(application, gc.NotNil)
 }
@@ -321,7 +321,7 @@ func (s *applicationConstraintsSuite) TestConstraintsRetrieval(c *gc.C) {
 		}},
 		Charm:       s.testCharm,
 		Constraints: posCons,
-	})
+	}, state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(application, gc.NotNil)
 
@@ -334,7 +334,7 @@ func (s *applicationConstraintsSuite) TestConstraintsRetrieval(c *gc.C) {
 		}},
 		Charm:       s.testCharm,
 		Constraints: negCons,
-	})
+	}, state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(negApplication, gc.NotNil)
 
@@ -371,7 +371,7 @@ func (s *applicationConstraintsSuite) TestConstraintsSpaceNameChangeOps(c *gc.C)
 		}},
 		Charm:       s.testCharm,
 		Constraints: posCons,
-	})
+	}, state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(application, gc.NotNil)
 

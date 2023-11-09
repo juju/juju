@@ -12,6 +12,7 @@ import (
 	charmresource "github.com/juju/charm/v11/resource"
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -21,6 +22,7 @@ import (
 type resourcesMigrationUploadHandler struct {
 	ctxt          httpContext
 	stateAuthFunc func(*http.Request) (*state.PooledState, error)
+	objectStore   func(*http.Request) (objectstore.ObjectStore, error)
 }
 
 func (h *resourcesMigrationUploadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -35,9 +37,17 @@ func (h *resourcesMigrationUploadHandler) ServeHTTP(w http.ResponseWriter, r *ht
 	}
 	defer st.Release()
 
+	store, err := h.objectStore(r)
+	if err != nil {
+		if err := sendError(w, err); err != nil {
+			logger.Errorf("%v", err)
+		}
+		return
+	}
+
 	switch r.Method {
 	case "POST":
-		res, err := h.processPost(r, st.State)
+		res, err := h.processPost(r, st.State, store)
 		if err != nil {
 			if err := sendError(w, err); err != nil {
 				logger.Errorf("%v", err)
@@ -59,7 +69,7 @@ func (h *resourcesMigrationUploadHandler) ServeHTTP(w http.ResponseWriter, r *ht
 
 // processPost handles resources upload POST request after
 // authentication.
-func (h *resourcesMigrationUploadHandler) processPost(r *http.Request, st *state.State) (resources.Resource, error) {
+func (h *resourcesMigrationUploadHandler) processPost(r *http.Request, st *state.State, store objectstore.ObjectStore) (resources.Resource, error) {
 	var empty resources.Resource
 	query := r.URL.Query()
 
@@ -73,7 +83,7 @@ func (h *resourcesMigrationUploadHandler) processPost(r *http.Request, st *state
 	if err != nil {
 		return empty, errors.Trace(err)
 	}
-	rSt := st.Resources()
+	rSt := st.Resources(store)
 
 	reader := r.Body
 

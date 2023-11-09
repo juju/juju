@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/uniter"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
@@ -67,6 +68,8 @@ func (s *uniterGoalStateSuite) SetUpTest(c *gc.C) {
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
 	s.uniter = s.newUniterAPI(c, s.ControllerModel(c).State(), s.authorizer)
+
+	s.store = testing.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State())
 }
 
 var (
@@ -200,7 +203,7 @@ func (s *uniterGoalStateSuite) TestGoalStatesDeadUnitsExcluded(c *gc.C) {
 		},
 	})
 
-	err = newMysqlUnit.Destroy()
+	err = newMysqlUnit.Destroy(s.store)
 	c.Assert(err, jc.ErrorIsNil)
 
 	testGoalStates(c, s.uniter, args, params.GoalStateResults{
@@ -277,7 +280,7 @@ func (s *uniterGoalStateSuite) TestGoalStatesSingleRelationDyingUnits(c *gc.C) {
 		},
 	})
 	preventUnitDestroyRemove(c, mysqlUnit)
-	err = mysqlUnit.Destroy()
+	err = mysqlUnit.Destroy(s.store)
 	c.Assert(err, jc.ErrorIsNil)
 
 	testGoalStates(c, s.uniter, args, params.GoalStateResults{
