@@ -805,7 +805,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			TraceName:            traceName,
 			Clock:                config.Clock,
 			Logger:               loggo.GetLogger("juju.worker.objectstore"),
-			NewObjectStoreWorker: internalobjectstore.NewStateObjectStore,
+			NewObjectStoreWorker: internalobjectstore.ObjectStoreFactory,
 		})),
 	}
 

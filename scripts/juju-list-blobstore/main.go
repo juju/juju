@@ -266,7 +266,13 @@ func (bi binariesInfo) Less(i, j int) bool {
 }
 
 func (b *BlobStoreChecker) readAgentBinaries() {
-	store, err := objectstore.NewStateObjectStore(context.Background(), b.system.ModelUUID(), b.system, logger)
+	store, err := objectstore.ObjectStoreFactory(
+		context.Background(),
+		objectstore.DefaultBackendType(),
+		b.system.ModelUUID(),
+		objectstore.WithMongoSession(b.system),
+		objectstore.WithLogger(logger),
+	)
 	checkErr(err, "object store")
 	toolsStorage, err := b.system.ToolsStorage(store)
 	checkErr(err, "tools storage")
@@ -616,8 +622,14 @@ func resourceDocID(modelUUID, resourceID string) string {
 // readApplicationsAndUnits figures out what CharmURLs are referenced by apps and units
 func (checker *ModelChecker) readApplicationsAndUnits() {
 	st := checker.model.State()
-	store, err := objectstore.NewStateObjectStore(context.TODO(), st.ModelUUID(), st, loggo.GetLogger("objectstore"))
-	checkErr(err, "NewStateObjectStore")
+	store, err := objectstore.ObjectStoreFactory(
+		context.Background(),
+		objectstore.DefaultBackendType(),
+		st.ModelUUID(),
+		objectstore.WithMongoSession(st),
+		objectstore.WithLogger(logger),
+	)
+	checkErr(err, "objectstore")
 
 	resourcesCollection := checker.session.DB("juju").C(resourcesC)
 	charmResources := st.Resources(store)

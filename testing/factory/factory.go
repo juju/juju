@@ -887,8 +887,13 @@ func (factory *Factory) currentCfg(c *gc.C) *config.Config {
 }
 
 func NewObjectStore(c *gc.C, st *state.State) objectstore.ObjectStore {
-	// This will be removed when the worker object store is enabled by default.
-	store, err := internalobjectstore.NewStateObjectStore(context.Background(), st.ModelUUID(), st, testing.NewCheckLogger(c))
+	store, err := internalobjectstore.ObjectStoreFactory(
+		context.Background(),
+		internalobjectstore.DefaultBackendType(),
+		st.ModelUUID(),
+		internalobjectstore.WithMongoSession(st),
+		internalobjectstore.WithLogger(testing.NewCheckLogger(c)),
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	return store
 }

@@ -441,7 +441,12 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 
-	objectStore, err := objectstore.NewStateObjectStore(ctx, st.ModelUUID(), st, logger)
+	objectStore, err := objectstore.ObjectStoreFactory(ctx,
+		objectstore.DefaultBackendType(),
+		st.ModelUUID(),
+		objectstore.WithMongoSession(st),
+		objectstore.WithLogger(logger),
+	)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -595,7 +600,12 @@ func (c *BootstrapCommand) populateTools(ctx context.Context, st *state.State) e
 		return errors.Trace(err)
 	}
 
-	objectStore, err := objectstore.NewStateObjectStore(ctx, st.ControllerModelUUID(), st, logger)
+	objectStore, err := objectstore.ObjectStoreFactory(ctx,
+		objectstore.DefaultBackendType(),
+		st.ControllerModelUUID(),
+		objectstore.WithMongoSession(st),
+		objectstore.WithLogger(logger),
+	)
 	if err != nil {
 		return errors.Trace(err)
 	}

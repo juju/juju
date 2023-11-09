@@ -52,7 +52,7 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		TraceName: "trace",
 		Clock:     s.clock,
 		Logger:    s.logger,
-		NewObjectStoreWorker: func(context.Context, string, internalobjectstore.MongoSession, internalobjectstore.Logger) (internalobjectstore.TrackedObjectStore, error) {
+		NewObjectStoreWorker: func(context.Context, internalobjectstore.BackendType, string, ...internalobjectstore.Option) (internalobjectstore.TrackedObjectStore, error) {
 			return nil, nil
 		},
 	}

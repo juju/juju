@@ -260,9 +260,10 @@ func (w *objectStoreWorker) initObjectStore(namespace string) error {
 
 		objectStore, err := w.cfg.NewObjectStoreWorker(
 			ctx,
+			internalobjectstore.DefaultBackendType(),
 			namespace,
-			state,
-			w.cfg.Logger,
+			internalobjectstore.WithMongoSession(state),
+			internalobjectstore.WithLogger(w.cfg.Logger),
 		)
 		if err != nil {
 			return nil, errors.Trace(err)
