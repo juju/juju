@@ -90,12 +90,12 @@ func (s *resolveSuite) TestResolveBundle(c *gc.C) {
 
 	curl, err := charm.ParseURL("ch:testme")
 	c.Assert(err, jc.ErrorIsNil)
-	s.expectCharmResolutionCall(curl, "edge", nil)
+	s.expectBundleResolutionCall(curl, "edge", nil)
 
-	curl.Series = "bundle"
 	origin := commoncharm.Origin{
 		Source: commoncharm.OriginCharmHub,
 		Risk:   "edge",
+		Type:   "bundle",
 	}
 	charmAdapter := store.NewCharmAdaptor(s.charmsAPI, func() (store.DownloadBundleClient, error) {
 		return s.downloadClient, nil
@@ -154,10 +154,28 @@ func (s *resolveSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
+func (s *resolveSuite) expectBundleResolutionCall(curl *charm.URL, out string, err error) {
+	origin := commoncharm.Origin{
+		Source: commoncharm.OriginCharmHub,
+		Risk:   out,
+		Type:   "bundle",
+	}
+	retVal := []apicharm.ResolvedCharm{{
+		URL:    curl,
+		Origin: origin,
+		SupportedBases: []base.Base{
+			base.MustParseBaseFromString("ubuntu@18.04"),
+			base.MustParseBaseFromString("ubuntu@20.04"),
+		},
+	}}
+	s.charmsAPI.EXPECT().ResolveCharms(gomock.Any()).Return(retVal, err)
+}
+
 func (s *resolveSuite) expectCharmResolutionCall(curl *charm.URL, out string, err error) {
 	origin := commoncharm.Origin{
 		Source: commoncharm.OriginCharmHub,
 		Risk:   out,
+		Type:   "charm",
 	}
 	retVal := []apicharm.ResolvedCharm{{
 		URL:    curl,
@@ -174,6 +192,7 @@ func (s *resolveSuite) expectCharmResolutionCallWithAPIError(curl *charm.URL, ou
 	origin := commoncharm.Origin{
 		Source: commoncharm.OriginCharmHub,
 		Risk:   out,
+		Type:   "charm",
 	}
 	retVal := []apicharm.ResolvedCharm{{
 		URL:    curl,
