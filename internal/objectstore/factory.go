@@ -79,6 +79,17 @@ func ObjectStoreFactory(ctx context.Context, backendType objectstore.BackendType
 	}
 }
 
+// BackendTypeOrDefault returns the default backend type for the given object
+// store type or falls back to the default backend type.
+func BackendTypeOrDefault(objectStoreType objectstore.BackendType) objectstore.BackendType {
+	if s, err := objectstore.ParseObjectStoreType(objectStoreType.String()); err == nil {
+		return s
+	}
+	return DefaultBackendType()
+}
+
+// DefaultBackendType returns the default backend type for the given object
+// store type or falls back to the default backend type.
 func DefaultBackendType() objectstore.BackendType {
 	return objectstore.StateBackend
 }

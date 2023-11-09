@@ -15,6 +15,10 @@ const (
 	FileBackend BackendType = "file"
 )
 
+func (b BackendType) String() string {
+	return string(b)
+}
+
 // ParseObjectStoreType parses the given string into a BackendType.
 func ParseObjectStoreType(s string) (BackendType, error) {
 	switch s {

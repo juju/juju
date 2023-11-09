@@ -430,7 +430,7 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 
 	if !isCAAS {
 		// Populate the tools catalogue.
-		if err := c.populateTools(ctx, st); err != nil {
+		if err := c.populateTools(ctx, st, args.ControllerConfig); err != nil {
 			return errors.Trace(err)
 		}
 		// Add custom image metadata to environment storage.
@@ -442,7 +442,7 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 	}
 
 	objectStore, err := objectstore.ObjectStoreFactory(ctx,
-		objectstore.DefaultBackendType(),
+		objectstore.BackendTypeOrDefault(args.ControllerConfig.ObjectStoreType()),
 		st.ModelUUID(),
 		objectstore.WithMongoSession(st),
 		objectstore.WithLogger(logger),
@@ -578,7 +578,7 @@ func (c *BootstrapCommand) startMongo(ctx stdcontext.Context, isCAAS bool, addrs
 
 // populateTools stores uploaded tools in provider storage
 // and updates the tools metadata.
-func (c *BootstrapCommand) populateTools(ctx context.Context, st *state.State) error {
+func (c *BootstrapCommand) populateTools(ctx context.Context, st *state.State, controllerConfig controller.Config) error {
 	agentConfig := c.CurrentConfig()
 	dataDir := agentConfig.DataDir()
 
@@ -601,7 +601,7 @@ func (c *BootstrapCommand) populateTools(ctx context.Context, st *state.State) e
 	}
 
 	objectStore, err := objectstore.ObjectStoreFactory(ctx,
-		objectstore.DefaultBackendType(),
+		objectstore.BackendTypeOrDefault(controllerConfig.ObjectStoreType()),
 		st.ControllerModelUUID(),
 		objectstore.WithMongoSession(st),
 		objectstore.WithLogger(logger),
