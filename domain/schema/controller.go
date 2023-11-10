@@ -46,6 +46,7 @@ func ControllerDDL() *schema.Schema {
 		changeLogTriggersForTable("upgrade_info", "uuid", tableUpgradeInfo),
 		changeLogTriggersForTable("upgrade_info_controller_node", "upgrade_info_uuid", tableUpgradeInfoControllerNode),
 		autocertCacheSchema,
+		objectStoreMetadataSchema,
 	}
 
 	schema := schema.New()

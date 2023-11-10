@@ -19,6 +19,7 @@ func ModelDDL() *schema.Schema {
 		modelConfig,
 		changeLogTriggersForTable("model_config", "key", tableModelConfig),
 		spacesSchema,
+		objectStoreMetadataSchema,
 	}
 
 	schema := schema.New()
