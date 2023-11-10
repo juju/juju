@@ -209,7 +209,7 @@ func (w *tracer) scopedContext(ctx context.Context) (context.Context, context.Ca
 
 // buildRequestContext returns a context that may contain a remote span context.
 func (t *tracer) buildRequestContext(ctx context.Context) context.Context {
-	traceID, spanID := coretrace.ScopeFromContext(ctx)
+	traceID, spanID, flags := coretrace.ScopeFromContext(ctx)
 	if traceID == "" || spanID == "" {
 		return ctx
 	}
@@ -218,27 +218,30 @@ func (t *tracer) buildRequestContext(ctx context.Context) context.Context {
 		// There is clearly something wrong with the trace ID, so we
 		// should remove it from all future requests. That way we don't attempt
 		// to parse it again.
-		return coretrace.WithTraceScope(ctx, "", "")
+		return coretrace.WithTraceScope(ctx, "", "", 0)
 	}
 	spanHex, err := trace.SpanIDFromHex(spanID)
 	if err != nil {
 		// There is clearly something wrong with the span ID, so we
 		// should remove it from all future requests. That way we don't attempt
 		// to parse it again.
-		return coretrace.WithTraceScope(ctx, "", "")
+		return coretrace.WithTraceScope(ctx, "", "", 0)
 	}
+
+	var traceFlags trace.TraceFlags
+	traceFlags = traceFlags.WithSampled((flags & 1) == 1)
 
 	// It might be wise to encode more additional information into the context.
 	sc := trace.NewSpanContext(trace.SpanContextConfig{
 		TraceID:    traceHex,
 		SpanID:     spanHex,
-		TraceFlags: trace.FlagsSampled,
+		TraceFlags: traceFlags,
 	})
 
 	// We have a remote span context, so we should use it. We should then remove
 	// the traceID and spanID from the context so that we don't attempt to parse
 	// them again.
-	ctx = coretrace.WithTraceScope(ctx, "", "")
+	ctx = coretrace.WithTraceScope(ctx, "", "", 0)
 	return trace.ContextWithRemoteSpanContext(ctx, sc)
 }
 
@@ -332,6 +335,11 @@ func (s managedScope) TraceID() string {
 // SpanID returns the span ID of the span.
 func (s managedScope) SpanID() string {
 	return s.span.SpanContext().SpanID().String()
+}
+
+// TraceFlags returns the trace flags of the span.
+func (s managedScope) TraceFlags() int {
+	return int(s.span.SpanContext().TraceFlags())
 }
 
 // limitedSpan prevents you shooting yourself in the foot by ending a span that

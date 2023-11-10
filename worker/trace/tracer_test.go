@@ -138,9 +138,10 @@ func (s *tracerSuite) TestBuildRequestContextWithBackgroundContext(c *gc.C) {
 	ctx := w.(*tracer).buildRequestContext(context.Background())
 	c.Check(ctx, gc.NotNil)
 
-	traceID, spanID := coretrace.ScopeFromContext(ctx)
+	traceID, spanID, flags := coretrace.ScopeFromContext(ctx)
 	c.Check(traceID, gc.Equals, "")
 	c.Check(spanID, gc.Equals, "")
+	c.Check(flags, gc.Equals, 0)
 }
 
 func (s *tracerSuite) TestBuildRequestContextWithBrokenTraceID(c *gc.C) {
@@ -151,14 +152,15 @@ func (s *tracerSuite) TestBuildRequestContextWithBrokenTraceID(c *gc.C) {
 	w := s.newTracer(c)
 	defer workertest.CleanKill(c, w)
 
-	ctx := coretrace.WithTraceScope(context.Background(), "foo", "bar")
+	ctx := coretrace.WithTraceScope(context.Background(), "foo", "bar", 0)
 
 	ctx = w.(*tracer).buildRequestContext(ctx)
 	c.Check(ctx, gc.NotNil)
 
-	traceID, spanID := coretrace.ScopeFromContext(ctx)
+	traceID, spanID, flags := coretrace.ScopeFromContext(ctx)
 	c.Check(traceID, gc.Equals, "")
 	c.Check(spanID, gc.Equals, "")
+	c.Check(flags, gc.Equals, 0)
 }
 
 func (s *tracerSuite) TestBuildRequestContextWithBrokenSpanID(c *gc.C) {
@@ -169,14 +171,15 @@ func (s *tracerSuite) TestBuildRequestContextWithBrokenSpanID(c *gc.C) {
 	w := s.newTracer(c)
 	defer workertest.CleanKill(c, w)
 
-	ctx := coretrace.WithTraceScope(context.Background(), "80f198ee56343ba864fe8b2a57d3eff7", "bar")
+	ctx := coretrace.WithTraceScope(context.Background(), "80f198ee56343ba864fe8b2a57d3eff7", "bar", 0)
 
 	ctx = w.(*tracer).buildRequestContext(ctx)
 	c.Check(ctx, gc.NotNil)
 
-	traceID, spanID := coretrace.ScopeFromContext(ctx)
+	traceID, spanID, flags := coretrace.ScopeFromContext(ctx)
 	c.Check(traceID, gc.Equals, "")
 	c.Check(spanID, gc.Equals, "")
+	c.Check(flags, gc.Equals, 0)
 }
 
 func (s *tracerSuite) TestBuildRequestContext(c *gc.C) {
@@ -187,14 +190,15 @@ func (s *tracerSuite) TestBuildRequestContext(c *gc.C) {
 	w := s.newTracer(c)
 	defer workertest.CleanKill(c, w)
 
-	ctx := coretrace.WithTraceScope(context.Background(), "80f198ee56343ba864fe8b2a57d3eff7", "ff00000000000000")
+	ctx := coretrace.WithTraceScope(context.Background(), "80f198ee56343ba864fe8b2a57d3eff7", "ff00000000000000", 1)
 
 	ctx = w.(*tracer).buildRequestContext(ctx)
 	c.Check(ctx, gc.NotNil)
 
-	traceID, spanID := coretrace.ScopeFromContext(ctx)
+	traceID, spanID, flags := coretrace.ScopeFromContext(ctx)
 	c.Check(traceID, gc.Equals, "")
 	c.Check(spanID, gc.Equals, "")
+	c.Check(flags, gc.Equals, 1)
 
 	span := trace.SpanContextFromContext(ctx)
 	c.Check(span.IsRemote(), jc.IsTrue)

@@ -513,7 +513,7 @@ func (root *Root) testCall(c *gc.C, args testCallParams) {
 	root.returnErr = args.testErr
 	c.Logf("test call %s", args.request().Action)
 	var response stringVal
-	err := args.client.Call(rpc.WithTracing(context.Background(), "foobar", "baz"), args.request(), stringVal{"arg"}, &response)
+	err := args.client.Call(rpc.WithTracing(context.Background(), "foobar", "baz", 0), args.request(), stringVal{"arg"}, &response)
 	switch {
 	case args.retErr && args.testErr:
 		c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
@@ -978,7 +978,7 @@ func testBadCall(
 	requestKnown bool,
 ) {
 	serverNotifier.reset()
-	err := client.Call(rpc.WithTracing(context.Background(), "foobar", "baz"), req, nil, nil)
+	err := client.Call(rpc.WithTracing(context.Background(), "foobar", "baz", 1), req, nil, nil)
 	msg := expectedErr
 	if expectedErrCode != "" {
 		msg += " (" + expectedErrCode + ")"
@@ -994,11 +994,12 @@ func testBadCall(
 	}
 	c.Assert(serverNotifier.serverRequests[0], gc.DeepEquals, requestEvent{
 		hdr: rpc.Header{
-			RequestId: client.ClientRequestID(),
-			Request:   req,
-			Version:   1,
-			TraceID:   "foobar",
-			SpanID:    "baz",
+			RequestId:  client.ClientRequestID(),
+			Request:    req,
+			Version:    1,
+			TraceID:    "foobar",
+			SpanID:     "baz",
+			TraceFlags: 1,
 		},
 		body: expectBody,
 	})

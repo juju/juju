@@ -117,6 +117,8 @@ type Scope interface {
 	TraceID() string
 	// SpanID returns the span ID of the span.
 	SpanID() string
+	// TraceFlags returns the trace flags of the span.
+	TraceFlags() int
 }
 
 // Name is the name of the span.

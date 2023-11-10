@@ -88,6 +88,11 @@ type Header struct {
 	// SpanID holds the span id of the request. This is used for sending
 	// and receiving trace information.
 	SpanID string
+
+	// TraceFlags holds the trace flags of the request. This is used for
+	// sending and receiving trace information.
+	// Currently it indicates if a trace is sampled.
+	TraceFlags int
 }
 
 // Request represents an RPC to be performed, absent its parameters.
@@ -520,10 +525,11 @@ func (conn *Conn) writeErrorResponse(reqHdr *Header, err error, recorder Recorde
 	conn.sending.Lock()
 	defer conn.sending.Unlock()
 	hdr := &Header{
-		RequestId: reqHdr.RequestId,
-		Version:   reqHdr.Version,
-		TraceID:   reqHdr.TraceID,
-		SpanID:    reqHdr.SpanID,
+		RequestId:  reqHdr.RequestId,
+		Version:    reqHdr.Version,
+		TraceID:    reqHdr.TraceID,
+		SpanID:     reqHdr.SpanID,
+		TraceFlags: reqHdr.TraceFlags,
 	}
 	if err, ok := err.(ErrorCoder); ok {
 		hdr.ErrorCode = err.ErrorCode()
@@ -607,7 +613,7 @@ func (conn *Conn) runRequest(
 	// If the request is a client request, then we need to
 	// record the traceID and spanID from the request. If it's empty, we
 	// don't care, a new one will be curated for us.
-	ctx = trace.WithTraceScope(ctx, req.hdr.TraceID, req.hdr.SpanID)
+	ctx = trace.WithTraceScope(ctx, req.hdr.TraceID, req.hdr.SpanID, req.hdr.TraceFlags)
 
 	ctx, span := conn.root.StartTrace(ctx)
 	defer span.End(
@@ -624,10 +630,11 @@ func (conn *Conn) runRequest(
 		err = conn.writeErrorResponse(&req.hdr, req.transformErrors(err), recorder)
 	} else {
 		hdr := &Header{
-			RequestId: req.hdr.RequestId,
-			Version:   version,
-			TraceID:   req.hdr.TraceID,
-			SpanID:    req.hdr.SpanID,
+			RequestId:  req.hdr.RequestId,
+			Version:    version,
+			TraceID:    req.hdr.TraceID,
+			SpanID:     req.hdr.SpanID,
+			TraceFlags: req.hdr.TraceFlags,
 		}
 		var rvi interface{}
 		if rv.IsValid() {
