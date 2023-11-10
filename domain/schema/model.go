@@ -106,7 +106,7 @@ INSERT INTO subnet_type VALUES
 
 CREATE TABLE subnet_role_definition (
     uuid                         TEXT PRIMARY KEY,
-    name                         TEXT NOT NULL,
+    name                         TEXT NOT NULL
 );
 
 INSERT INTO subnet_role_definition VALUES

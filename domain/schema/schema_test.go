@@ -138,12 +138,14 @@ func (s *schemaSuite) TestModelDDLApply(c *gc.C) {
 
 		// Subnets
 		"subnet",
+		"subnet_role_definition",
+		"subnet_type",
+		"subnet_type_role_mapping",
 		"provider_subnet",
 		"provider_network",
 		"provider_network_subnet",
 		"availability_zone",
 		"availability_zone_subnet",
-		"fan_network",
 	)
 	c.Assert(readTableNames(c, s.DB()), jc.SameContents, expected.Union(internalTableNames).SortedValues())
 }
