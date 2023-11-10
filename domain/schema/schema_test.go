@@ -122,6 +122,13 @@ func (s *schemaSuite) TestModelDDLApply(c *gc.C) {
 		"object_store_metadata",
 		"object_store_metadata_path",
 		"object_store_metadata_hash_type",
+
+		"application",
+		"machine",
+		"net_node",
+		"cloud_service",
+		"cloud_container",
+		"unit",
 	)
 	c.Assert(readTableNames(c, s.DB()), jc.SameContents, expected.Union(internalTableNames).SortedValues())
 }
