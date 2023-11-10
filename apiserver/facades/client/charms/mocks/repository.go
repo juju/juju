@@ -38,7 +38,7 @@ func (m *MockRepository) EXPECT() *MockRepositoryMockRecorder {
 }
 
 // DownloadCharm mocks base method.
-func (m *MockRepository) DownloadCharm(arg0 *charm.URL, arg1 charm0.Origin, arg2 string) (charm0.CharmArchive, charm0.Origin, error) {
+func (m *MockRepository) DownloadCharm(arg0 string, arg1 charm0.Origin, arg2 string) (charm0.CharmArchive, charm0.Origin, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DownloadCharm", arg0, arg1, arg2)
 	ret0, _ := ret[0].(charm0.CharmArchive)
@@ -54,7 +54,7 @@ func (mr *MockRepositoryMockRecorder) DownloadCharm(arg0, arg1, arg2 interface{}
 }
 
 // GetDownloadURL mocks base method.
-func (m *MockRepository) GetDownloadURL(arg0 *charm.URL, arg1 charm0.Origin) (*url.URL, charm0.Origin, error) {
+func (m *MockRepository) GetDownloadURL(arg0 string, arg1 charm0.Origin) (*url.URL, charm0.Origin, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetDownloadURL", arg0, arg1)
 	ret0, _ := ret[0].(*url.URL)
@@ -89,7 +89,7 @@ func (mr *MockRepositoryMockRecorder) GetEssentialMetadata(arg0 ...interface{}) 
 }
 
 // ListResources mocks base method.
-func (m *MockRepository) ListResources(arg0 *charm.URL, arg1 charm0.Origin) ([]resource.Resource, error) {
+func (m *MockRepository) ListResources(arg0 string, arg1 charm0.Origin) ([]resource.Resource, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ListResources", arg0, arg1)
 	ret0, _ := ret[0].([]resource.Resource)
@@ -134,7 +134,7 @@ func (mr *MockRepositoryMockRecorder) ResolveResources(arg0, arg1 interface{}) *
 }
 
 // ResolveWithPreferredChannel mocks base method.
-func (m *MockRepository) ResolveWithPreferredChannel(arg0 *charm.URL, arg1 charm0.Origin) (*charm.URL, charm0.Origin, []charm0.Platform, error) {
+func (m *MockRepository) ResolveWithPreferredChannel(arg0 string, arg1 charm0.Origin) (*charm.URL, charm0.Origin, []charm0.Platform, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ResolveWithPreferredChannel", arg0, arg1)
 	ret0, _ := ret[0].(*charm.URL)
