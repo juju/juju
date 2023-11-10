@@ -5,61 +5,77 @@ package service
 
 import (
 	"context"
+	"crypto/rand"
 	"fmt"
 	"regexp"
 
 	"github.com/juju/juju/core/user"
 	usererrors "github.com/juju/juju/domain/user/errors"
+	"github.com/juju/juju/internal/auth"
 )
 
-// State describes retrieval and persistence methods for upgrade info.
+// State describes retrieval and persistence methods for user identify and
+// authentication.
 type State interface {
 	// AddUser will add a new user to the database. If the user already exists
 	// an error that satisfies usererrors.AlreadyExists will be returned.
 	AddUser(context.Context, string, string, string, string) error
 
 	// GetUser will retrieve the user specified by name from the database where
-	// the user is active and has not been deleted. If the user does not exist
+	// the user is active and has not been removed. If the user does not exist
 	// or is deleted an error that satisfies usererrors.NotFound will be
 	// returned.
 	GetUser(context.Context, string) (user.User, error)
-	// RemoveUser marks the user as deleted. This obviates the ability of a user
+
+	// RemoveUser marks the user as removed. This obviates the ability of a user
 	// to function, but keeps the user retaining provenance, i.e. auditing.
+	// RemoveUser will also remove any credentials and activation codes for the
+	// user. If no user exists for the given name then a error that satisfies
+	// usererrors.NotFound will be returned.
 	RemoveUser(context.Context, string) error
-	// SetPassword removes any active activation keys and sets the user password
-	SetPassword(context.Context, string, user.UserPassword) error
-	// GenerateUserActivationKey makes a new activation key for the given user.
-	// It replaces any existing key for the user.
-	GenerateUserActivationKey(context.Context, string) error
-	// RemoveUserActivationKey removes any activation key ass the given user
-	RemoveUserActivationKey(context.Context, string) error
+
+	// SetActivationKey removes any active passwords for the user and sets the
+	// activation key. If no user is found for the supplied name a error
+	// is returned that satisfies usererrors.NotFound.
+	SetActivationKey(context.Context, string, []byte) error
+
+	// SetPasswordHash removes any active activation keys and sets the user
+	// password hash and salt. If no user is found for the supplied name a error
+	// is returned that satisfies usererrors.NotFound.
+	SetPasswordHash(ctx context.Context, username string, passwordHash string, salt []byte) error
 }
 
-// Service provides the API for working with upgrade info
+// Service provides the API for working with users.
 type Service struct {
 	st State
 }
 
 const (
+	// activationKeyLength is the number of bytes contained with an activation
+	// key.
+	activationKeyLength = 32
+
 	// usernameValidationRegex is the regex used to validate that user names are
 	// valid for consumption by Juju. Usernames must be 1 or more runes long,
-	// can contain any unicode rune from the letter class and may contain zero
-	// or more of .,+ or - runes as long as they are don't appear at the start
-	// or end of the username.
-	usernameValidationRegex = "^([\\pL\\pN]|[\\pL\\pN][\\pL\\pN.+-]{0,254}[\\pL\\pN])$"
+	// can contain any unicode rune from the letter/number class and may contain
+	// zero or more of .,+ or - runes as long as they don't appear at the
+	// start or end of the username. Usernames can be a maximum of 255
+	// characters long.
+	usernameValidationRegex = "^([\\pL\\pN]|[\\pL\\pN][\\pL\\pN.+-]{0,253}[\\pL\\pN])$"
 )
 
-// NewService returns a new Service for interacting with the underlying state.
+// NewService returns a new Service for interacting with the underlying user
+// state.
 func NewService(st State) *Service {
 	return &Service{st: st}
 }
 
 // GetUser will find and return the user associated with name. If there is no
-// user for the user name then an error that satisfies usererrors.NotFound will
+// user for the user name then a error that satisfies usererrors.NotFound will
 // be returned. If supplied with a invalid user name then a error that satisfies
-// usererrors.
+// usererrors.UsernameNotValid will be returned.
 //
-// GetUser will not return users that have been previously deleted or removed.
+// GetUser will not return users that have been previously removed.
 func (s *Service) GetUser(
 	ctx context.Context,
 	name string,
@@ -81,9 +97,10 @@ func (s *Service) GetUser(
 // name is not valid a error is returned that satisfies
 // usererrors.UsernameNotValid.
 //
-// Usernames must be 1 or more runes long, can contain any unicode rune from the
-// letter class and may contain zero or more of .,+ or - runes as long as they
-// are don't appear at the start or end of the username.
+// Usernames must be one or more runes long, can contain any unicode rune from
+// the letter or number class and may contain zero or more of .,+ or - runes as
+// long as they don't appear at the start or end of the username. Usernames can
+// be a maximum length of 255 characters.
 func ValidateUsername(name string) error {
 	regex, err := regexp.Compile(usernameValidationRegex)
 	if err != nil {
@@ -112,8 +129,13 @@ func (s *Service) AddUser(ctx context.Context, name, displayName, password, crea
 	return nil
 }
 
-// RemoveUser marks the user as deleted. This obviates the ability of a user
-// to function, but keeps the userDoc retaining provenance, i.e. auditing.
+// RemoveUser marks the user as removed and removes any credentials or
+// activation codes for the current users. Once a user is removed they are no
+// longer usable in Juju and should never be un removed.
+//
+// The following error types are possible from this function:
+// - usererrors.UsernameNotValid: When the username supplied is not valid.
+// - usererrors.NotFound: If no user by the given name exists.
 func (s *Service) RemoveUser(ctx context.Context, name string) error {
 	if err := ValidateUsername(name); err != nil {
 		return fmt.Errorf("username %q: %w", name, err)
@@ -125,33 +147,70 @@ func (s *Service) RemoveUser(ctx context.Context, name string) error {
 	return nil
 }
 
-// SetPassword removes any active activation keys and sets the user password
-func (s *Service) SetPassword(ctx context.Context, name string,
-	password user.UserPassword) error {
-	if err := validateUserName(name); err != nil {
+// SetPassword changes the users password to the new value and removes any
+// active activation keys for the users. The password passed to this function
+// will have it's Destroy() function called every time.
+//
+// The following error types are possible from this function:
+// - usererrors.UsernameNotValid: When the username supplied is not valid.
+// - usererrors.NotFound: If no user by the given name exists.
+// - internal/auth.ErrPasswordDestroyed: If the supplied password has already
+// been destroyed.
+// - internal/auth.ErrPasswordNotValid: If the password supplied is not valid.
+func (s *Service) SetPassword(
+	ctx context.Context,
+	name string,
+	password auth.Password,
+) error {
+	defer password.Destroy()
+	if err := ValidateUsername(name); err != nil {
 		return fmt.Errorf("username %q: %w", name, err)
 	}
-	lowercaseName := strings.ToLower(name)
-	if err := s.st.RemoveUserActivationKey(ctx, lowercaseName); err != nil {
-		return err
-	}
-	err := s.st.SetPassword(ctx, lowercaseName, password)
+
+	salt, err := auth.NewSalt()
 	if err != nil {
-		return fmt.Errorf("unable to set password for user %q: %w", name, err)
+		return fmt.Errorf("setting password for user %q, generating password salt: %w", name, err)
+	}
+
+	pwHash, err := auth.HashPassword(password, salt)
+	if err != nil {
+		return fmt.Errorf("setting password for user %q, hashing password: %w", name, err)
+	}
+
+	err = s.st.SetPasswordHash(ctx, name, pwHash, salt)
+	if err != nil {
+		return fmt.Errorf("setting password for user %q: %w", name, err)
 	}
 	return nil
 }
 
-// GenerateUserActivationKey makes a new activation key for the given user.
-// It replaces any existing key for the user.
-func (s *Service) GenerateUserActivationKey(ctx context.Context, name string) error {
-	if err := validateUserName(name); err != nil {
-		return fmt.Errorf("username %q: %w", name, err)
+// ResetPassword will remove any active passwords for a user and generate a new
+// activation key for the user to use to set a new password.
+// The following error types are possible from this function:
+// - usererrors.UsernameNotValid: When the username supplied is not valid.
+// - usererrors.NotFound: If no user by the given name exists.
+func (s *Service) ResetPassword(ctx context.Context, name string) ([]byte, error) {
+	if err := ValidateUsername(name); err != nil {
+		return nil, fmt.Errorf("username %q: %w", name, err)
 	}
-	lowercaseName := strings.ToLower(name)
-	err := s.st.GenerateUserActivationKey(ctx, lowercaseName)
+
+	activationKey, err := generateActivationKey()
 	if err != nil {
-		return fmt.Errorf("unable to generate activation key for user %q: %w", lowercaseName, err)
+		return nil, fmt.Errorf("generating activation key for user %q: %w", name, err)
 	}
-	return nil
+
+	if err = s.st.SetActivationKey(ctx, name, activationKey); err != nil {
+		return nil, fmt.Errorf("setting activation key for user %q: %w", name, err)
+	}
+	return activationKey, nil
+}
+
+// generateActivationKey is responsible for generating a new activation key that
+// can be used for supplying to a user.
+func generateActivationKey() ([]byte, error) {
+	var activationKey [activationKeyLength]byte
+	if _, err := rand.Read(activationKey[:]); err != nil {
+		return nil, err
+	}
+	return activationKey[:], nil
 }

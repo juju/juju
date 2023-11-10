@@ -119,19 +119,24 @@ func (p Password) Destroy() {
 	}
 }
 
-// Validate will check the wrapped password to make sure that it meets our
-// validation requirements. Passwords must not be empty and less then 1KB in
-// size. All validation errors will satisfy ErrPasswordNotValid.
-// If the password has been destroyed a error of type ErrPasswordDestroyed
-// will be returned.
-func (p Password) Validate() error {
+// IsDestroyed reports if the password has been destroyed or not.
+func (p Password) IsDestroyed() bool {
 	destroyed := len(p.password) > 0
 	for _, b := range p.password {
 		if b != byte(0) && destroyed {
 			destroyed = false
 		}
 	}
-	if destroyed {
+	return destroyed
+}
+
+// Validate will check the wrapped password to make sure that it meets our
+// validation requirements. Passwords must not be empty and less then 1KB in
+// size. All validation errors will satisfy ErrPasswordNotValid.
+// If the password has been destroyed a error of type ErrPasswordDestroyed
+// will be returned.
+func (p Password) Validate() error {
+	if p.IsDestroyed() {
 		return ErrPasswordDestroyed
 	}
 

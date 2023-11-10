@@ -73,6 +73,7 @@ func (_ *passwordSuite) TestPasswordValidation(c *gc.C) {
 func (_ *passwordSuite) TestPasswordValidationDestroyed(c *gc.C) {
 	p := NewPassword("topsecret")
 	p.Destroy()
+	c.Assert(p.IsDestroyed(), jc.IsTrue)
 	err := p.Validate()
 	c.Assert(err, jc.ErrorIs, ErrPasswordDestroyed)
 }
@@ -137,6 +138,7 @@ func (_ *passwordSuite) TestPasswordHashing(c *gc.C) {
 func (_ *passwordSuite) TestPasswordHashingDestroyed(c *gc.C) {
 	p := NewPassword("topsecret")
 	p.Destroy()
+	c.Assert(p.IsDestroyed(), jc.IsTrue)
 	_, err := HashPassword(p, []byte("secretsauce"))
 	c.Assert(err, jc.ErrorIs, ErrPasswordDestroyed)
 }
@@ -184,6 +186,7 @@ func (_ *passwordSuite) TestDestroyPasswordMultiple(c *gc.C) {
 	p.Destroy()
 	p.Destroy()
 	p.Destroy()
+	c.Assert(p.IsDestroyed(), jc.IsTrue)
 }
 
 // FuzzPasswordHashing is a fuzz test to both try and break our password hashing

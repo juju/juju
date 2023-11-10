@@ -49,20 +49,6 @@ func (mr *MockStateMockRecorder) AddUser(arg0, arg1, arg2, arg3, arg4 interface{
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddUser", reflect.TypeOf((*MockState)(nil).AddUser), arg0, arg1, arg2, arg3, arg4)
 }
 
-// GenerateUserActivationKey mocks base method.
-func (m *MockState) GenerateUserActivationKey(arg0 context.Context, arg1 string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GenerateUserActivationKey", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// GenerateUserActivationKey indicates an expected call of GenerateUserActivationKey.
-func (mr *MockStateMockRecorder) GenerateUserActivationKey(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GenerateUserActivationKey", reflect.TypeOf((*MockState)(nil).GenerateUserActivationKey), arg0, arg1)
-}
-
 // GetUser mocks base method.
 func (m *MockState) GetUser(arg0 context.Context, arg1 string) (user.User, error) {
 	m.ctrl.T.Helper()
@@ -92,30 +78,30 @@ func (mr *MockStateMockRecorder) RemoveUser(arg0, arg1 interface{}) *gomock.Call
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveUser", reflect.TypeOf((*MockState)(nil).RemoveUser), arg0, arg1)
 }
 
-// RemoveUserActivationKey mocks base method.
-func (m *MockState) RemoveUserActivationKey(arg0 context.Context, arg1 string) error {
+// SetActivationKey mocks base method.
+func (m *MockState) SetActivationKey(arg0 context.Context, arg1 string, arg2 []byte) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RemoveUserActivationKey", arg0, arg1)
+	ret := m.ctrl.Call(m, "SetActivationKey", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// RemoveUserActivationKey indicates an expected call of RemoveUserActivationKey.
-func (mr *MockStateMockRecorder) RemoveUserActivationKey(arg0, arg1 interface{}) *gomock.Call {
+// SetActivationKey indicates an expected call of SetActivationKey.
+func (mr *MockStateMockRecorder) SetActivationKey(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveUserActivationKey", reflect.TypeOf((*MockState)(nil).RemoveUserActivationKey), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetActivationKey", reflect.TypeOf((*MockState)(nil).SetActivationKey), arg0, arg1, arg2)
 }
 
-// SetPassword mocks base method.
-func (m *MockState) SetPassword(arg0 context.Context, arg1 string, arg2 user.UserPassword) error {
+// SetPasswordHash mocks base method.
+func (m *MockState) SetPasswordHash(arg0 context.Context, arg1, arg2 string, arg3 []byte) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetPassword", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "SetPasswordHash", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// SetPassword indicates an expected call of SetPassword.
-func (mr *MockStateMockRecorder) SetPassword(arg0, arg1, arg2 interface{}) *gomock.Call {
+// SetPasswordHash indicates an expected call of SetPasswordHash.
+func (mr *MockStateMockRecorder) SetPasswordHash(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetPassword", reflect.TypeOf((*MockState)(nil).SetPassword), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetPasswordHash", reflect.TypeOf((*MockState)(nil).SetPasswordHash), arg0, arg1, arg2, arg3)
 }

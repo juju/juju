@@ -8,10 +8,16 @@ import (
 	"time"
 )
 
+// User describes a user within Juju.
 type User struct {
-	CreatedAt   time.Time
+	// CreatedAt is the time that the user was created at.
+	CreatedAt time.Time
+
+	// DisplayName is a user friendly name represent the user as.
 	DisplayName string
-	Name        string
+
+	// Name is the username of the user.
+	Name string
 }
 
 // UserPassword type attempts to protect it against printouts
