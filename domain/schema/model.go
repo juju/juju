@@ -83,13 +83,44 @@ CREATE TABLE subnet (
     vlan_tag                     INT,
     is_public                    BOOLEAN,
     space_uuid                   TEXT,
-    fan_uuid                     TEXT,
+    subnet_type_uuid             TEXT,
     CONSTRAINT                   fk_subnets_spaces
         FOREIGN KEY                  (space_uuid)
         REFERENCES                   space(uuid)
-    CONSTRAINT                   fk_subnets_fan_networks
-        FOREIGN KEY                  (fan_uuid)
-        REFERENCES                   fan_network(uuid)
+    CONSTRAINT                   fk_subnet_types
+        FOREIGN KEY                  (subnet_type_uuid)
+        REFERENCES                   subnet_type(uuid)
+);
+
+CREATE TABLE subnet_type (
+    uuid                         TEXT PRIMARY KEY,
+    name                         TEXT NOT NULL,
+    is_usable                    BOOLEAN,
+    is_space_settable            BOOLEAN
+);
+
+INSERT INTO subnet_type VALUES
+    (0, 'base', true, true),    -- The base (or standard) subnet type. If another subnet is an overlay of a base subnet in fan bridging, then the base subnet is the underlay in fan terminology.
+    (1, 'overlay', false, false),    
+    (2, 'overlay_segment', true, true);
+
+CREATE TABLE subnet_role_definition (
+    uuid                         TEXT PRIMARY KEY,
+    name                         TEXT NOT NULL,
+);
+
+INSERT INTO subnet_role_definition VALUES
+    (0, 'overlay_of');    -- The subnet is an overlay of other (an underlay) subnet.
+
+CREATE TABLE subnet_type_role_mapping (
+    subnet_type_uuid           TEXT PRIMARY KEY,
+    subnet_role_uuid           TEXT NOT NULL,
+    CONSTRAINT                 fk_subnet_type_uuid
+        FOREIGN KEY                (subnet_type_uuid)
+        REFERENCES                 subnet_type(uuid)
+    CONSTRAINT                 fk_subnet_role_uuid
+        FOREIGN KEY                (subnet_role_uuid)
+        REFERENCES                 subnet_role_definition(uuid)
 );
 
 CREATE TABLE provider_subnet (
@@ -144,13 +175,6 @@ ON availability_zone_subnet (uuid);
 
 CREATE INDEX idx_availability_zone_subnet_subnet_uuid
 ON availability_zone_subnet (subnet_uuid);
-
-CREATE TABLE fan_network (
-    uuid                TEXT PRIMARY KEY,
-    local_underlay_cidr TEXT NOT NULL,
-    overlay_cidr        TEXT NOT NULL
-);
-
 `)
 }
 
