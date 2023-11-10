@@ -199,42 +199,6 @@ func (s *Server) AliveContainers(prefix string) ([]Container, error) {
 // FilterContainers retrieves the list of containers from the server and filters
 // them based on the input namespace prefix and any supplied statuses.
 func (s *Server) FilterContainers(prefix string, statuses ...string) ([]Container, error) {
-	// The retry here is required here because when creating a virtual machine
-	// container type, it does not always appear in the list of containers.
-	// There doesn't seem to be a status that's available to us that indicates
-	// that the machine is being created, but not yet quite alive.
-	//
-	// As we're trying to not have any logic that differentiates between
-	// containers and virtual machines, at a higher level, we retry here to
-	// prevent leaking the difference.
-	var containers []Container
-	err := retry.Call(retry.CallArgs{
-		Func: func() error {
-			var err error
-			containers, err = s.filterContainers(prefix, statuses)
-			return err
-		},
-		IsFatalError: func(err error) bool {
-			return !errors.Is(err, errors.NotFound)
-		},
-		NotifyFunc: func(err error, attempt int) {
-			logger.Debugf("failed to retrieve containers from LXD, attempt %d: %v", attempt, err)
-		},
-		Attempts:    10,
-		Delay:       1 * time.Second,
-		MaxDelay:    5 * time.Second,
-		MaxDuration: 30 * time.Second,
-		Clock:       s.clock,
-		BackoffFunc: retry.ExpBackoff(1*time.Second, 10*time.Second, 2.0, true),
-	})
-	if err != nil && !errors.Is(err, errors.NotFound) {
-		// No containers found is not an error.
-		return nil, errors.Trace(err)
-	}
-	return containers, nil
-}
-
-func (s *Server) filterContainers(prefix string, statuses []string) ([]Container, error) {
 	instances, err := s.GetInstances(api.InstanceTypeAny)
 	if err != nil {
 		return nil, errors.Trace(err)
