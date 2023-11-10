@@ -66,5 +66,7 @@
 // │                   │
 // └───────────────────┘
 //     LXD PROFILE
+//
+// Also see the provisioner worker.
 
 package instancemutater
