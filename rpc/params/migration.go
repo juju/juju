@@ -78,7 +78,8 @@ type SetMigrationStatusMessageArgs struct {
 // PrechecksArgs provides the target controller version
 // to the migrationmaster.Prechecks API method.
 type PrechecksArgs struct {
-	TargetControllerVersion version.Number `json:"target-controller-version"`
+	TargetControllerVersion version.Number   `json:"target-controller-version"`
+	FacadeVersions          map[string][]int `json:"facade-versions"`
 }
 
 // SerializedModel wraps a buffer contain a serialised Juju model. It

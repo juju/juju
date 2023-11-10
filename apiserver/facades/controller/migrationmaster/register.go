@@ -10,19 +10,22 @@ import (
 
 	"github.com/juju/juju/apiserver/common/cloudspec"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/core/facades"
 	"github.com/juju/juju/migration"
 )
 
 // Register is called to expose a package of facades onto a given registry.
-func Register(registry facade.FacadeRegistry) {
-	registry.MustRegister("MigrationMaster", 3, func(ctx facade.Context) (facade.Facade, error) {
-		return newMigrationMasterFacade(ctx) // Adds MinionReportTimeout.
-	}, reflect.TypeOf((*API)(nil)))
+func Register(requiredMigrationFacadeVersions facades.FacadeVersions) func(registry facade.FacadeRegistry) {
+	return func(registry facade.FacadeRegistry) {
+		registry.MustRegister("MigrationMaster", 3, func(ctx facade.Context) (facade.Facade, error) {
+			return newMigrationMasterFacade(ctx, requiredMigrationFacadeVersions) // Adds MinionReportTimeout.
+		}, reflect.TypeOf((*API)(nil)))
+	}
 }
 
 // newMigrationMasterFacade exists to provide the required signature for API
 // registration, converting st to backend.
-func newMigrationMasterFacade(ctx facade.Context) (*API, error) {
+func newMigrationMasterFacade(ctx facade.Context, requiredMigrationFacadeVersions facades.FacadeVersions) (*API, error) {
 	pool := ctx.StatePool()
 	modelState := ctx.State()
 
@@ -51,5 +54,6 @@ func newMigrationMasterFacade(ctx facade.Context) (*API, error) {
 		ctx.Presence(),
 		cloudspec.MakeCloudSpecGetter(pool),
 		leadership,
+		requiredMigrationFacadeVersions,
 	)
 }

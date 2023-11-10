@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/agent/meterstatus"
 	"github.com/juju/juju/apiserver/facades/agent/secretsmanager"
+	"github.com/juju/juju/core/facades"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -25,6 +26,14 @@ func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("Uniter", 19, func(ctx facade.Context) (facade.Facade, error) {
 		return newUniterAPI(ctx)
 	}, reflect.TypeOf((*UniterAPI)(nil)))
+}
+
+// FacadesVersions returns the versions of the facades that this package
+// implements.
+func FacadesVersions() facades.FacadeVersions {
+	return facades.FacadeVersions{
+		"Uniter": []int{18, 19},
+	}
 }
 
 func newUniterAPIv18(context facade.Context) (*UniterAPIv18, error) {

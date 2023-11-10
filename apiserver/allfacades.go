@@ -45,6 +45,8 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/action"
 	"github.com/juju/juju/apiserver/facades/client/annotations" // ModelUser Write
 	"github.com/juju/juju/apiserver/facades/client/application"
+	"github.com/juju/juju/core/facades"
+
 	// ModelUser Write
 	"github.com/juju/juju/apiserver/facades/client/applicationoffers"
 	"github.com/juju/juju/apiserver/facades/client/backups" // ModelUser Write
@@ -108,6 +110,13 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/statushistory"
 	"github.com/juju/juju/apiserver/facades/controller/undertaker"
 )
+
+func requiredMigrationFacadeVersions() facades.FacadeVersions {
+	return facades.FacadeVersions{}.Merge(
+		machine.FacadesVersions(),
+		uniter.FacadesVersions(),
+	)
+}
 
 // AllFacades returns a registry containing all known API facades.
 //
@@ -182,7 +191,7 @@ func AllFacades() *facade.Registry {
 	metricsdebug.Register(registry)
 	metricsmanager.Register(registry)
 	migrationflag.Register(registry)
-	migrationmaster.Register(registry)
+	migrationmaster.Register(requiredMigrationFacadeVersions())(registry)
 	migrationminion.Register(registry)
 	migrationtarget.Register(registry)
 	modelconfig.Register(registry)

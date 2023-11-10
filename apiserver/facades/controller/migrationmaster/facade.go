@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/core/facades"
 	"github.com/juju/juju/core/leadership"
 	coremigration "github.com/juju/juju/core/migration"
 	coremodel "github.com/juju/juju/core/model"
@@ -28,15 +29,16 @@ import (
 // API implements the API required for the model migration
 // master worker.
 type API struct {
-	controllerState         ControllerState
-	backend                 Backend
-	precheckBackend         migration.PrecheckBackend
-	pool                    migration.Pool
-	authorizer              facade.Authorizer
-	resources               facade.Resources
-	presence                facade.Presence
-	environscloudspecGetter func(names.ModelTag) (environscloudspec.CloudSpec, error)
-	leadership              leadership.Reader
+	controllerState                 ControllerState
+	backend                         Backend
+	precheckBackend                 migration.PrecheckBackend
+	pool                            migration.Pool
+	authorizer                      facade.Authorizer
+	resources                       facade.Resources
+	presence                        facade.Presence
+	environscloudspecGetter         func(names.ModelTag) (environscloudspec.CloudSpec, error)
+	leadership                      leadership.Reader
+	requiredMigrationFacadeVersions facades.FacadeVersions
 }
 
 // NewAPI creates a new API server endpoint for the model migration
@@ -51,20 +53,22 @@ func NewAPI(
 	presence facade.Presence,
 	environscloudspecGetter func(names.ModelTag) (environscloudspec.CloudSpec, error),
 	leadership leadership.Reader,
+	requiredMigrationFacadeVersions facades.FacadeVersions,
 ) (*API, error) {
 	if !authorizer.AuthController() {
 		return nil, apiservererrors.ErrPerm
 	}
 	return &API{
-		controllerState:         controllerState,
-		backend:                 backend,
-		precheckBackend:         precheckBackend,
-		pool:                    pool,
-		authorizer:              authorizer,
-		resources:               resources,
-		presence:                presence,
-		environscloudspecGetter: environscloudspecGetter,
-		leadership:              leadership,
+		controllerState:                 controllerState,
+		backend:                         backend,
+		precheckBackend:                 precheckBackend,
+		pool:                            pool,
+		authorizer:                      authorizer,
+		resources:                       resources,
+		presence:                        presence,
+		environscloudspecGetter:         environscloudspecGetter,
+		leadership:                      leadership,
+		requiredMigrationFacadeVersions: requiredMigrationFacadeVersions,
 	}, nil
 }
 

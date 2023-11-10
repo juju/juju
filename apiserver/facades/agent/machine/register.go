@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/core/facades"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -16,6 +17,14 @@ func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("Machiner", 5, func(ctx facade.Context) (facade.Facade, error) {
 		return newMachinerAPI(ctx) // Adds RecordAgentHostAndStartTime.
 	}, reflect.TypeOf((*MachinerAPI)(nil)))
+}
+
+// FacadesVersions returns the versions of the facades that this package
+// implements.
+func FacadesVersions() facades.FacadeVersions {
+	return facades.FacadeVersions{
+		"Machiner": []int{5},
+	}
 }
 
 // newMachinerAPI creates a new instance of the Machiner API.

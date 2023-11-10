@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver"
+	"github.com/juju/juju/core/facades"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -24,7 +25,7 @@ func (s *facadeVersionSuite) TestFacadeVersionsMatchServerVersions(c *gc.C) {
 	// code just to list out what versions are available. However, we do
 	// want to make sure that the two sides are kept in sync.
 	clientFacadeNames := set.NewStrings()
-	for name, versions := range *api.FacadeVersions {
+	for name, versions := range api.SupportedFacadeVersions() {
 		clientFacadeNames.Add(name)
 		// All versions should now be non-zero.
 		c.Check(set.NewInts(versions...).Contains(0), jc.IsFalse)
@@ -40,11 +41,11 @@ func (s *facadeVersionSuite) TestFacadeVersionsMatchServerVersions(c *gc.C) {
 	c.Check(serverFacadeNames.Difference(clientFacadeNames).SortedValues(), gc.HasLen, 0)
 	c.Check(clientFacadeNames.Difference(serverFacadeNames).SortedValues(), gc.HasLen, 0)
 	// Next check that the best versions match
-	c.Check(*api.FacadeVersions, jc.DeepEquals, serverFacadeBestVersions)
+	c.Check(api.SupportedFacadeVersions(), jc.DeepEquals, serverFacadeBestVersions)
 }
 
 func checkBestVersion(c *gc.C, desiredVersion, versions []int, expectedVersion int) {
-	resultVersion := api.BestVersion(desiredVersion, versions)
+	resultVersion := facades.BestVersion(desiredVersion, versions)
 	c.Check(resultVersion, gc.Equals, expectedVersion)
 }
 
@@ -78,7 +79,7 @@ func (*facadeVersionSuite) TestBestVersionNotSorted(c *gc.C) {
 }
 
 func (s *facadeVersionSuite) TestBestFacadeVersionExactMatch(c *gc.C) {
-	s.PatchValue(api.FacadeVersions, map[string][]int{"Client": {1}})
+	s.PatchValue(api.SupportedFacadeVersions(), map[string][]int{"Client": {1}})
 	st := api.NewTestingState(api.TestingStateParams{
 		FacadeVersions: map[string][]int{
 			"Client": {0, 1},
@@ -87,7 +88,7 @@ func (s *facadeVersionSuite) TestBestFacadeVersionExactMatch(c *gc.C) {
 }
 
 func (s *facadeVersionSuite) TestBestFacadeVersionNewerServer(c *gc.C) {
-	s.PatchValue(api.FacadeVersions, map[string][]int{"Client": {1}})
+	s.PatchValue(api.SupportedFacadeVersions(), map[string][]int{"Client": {1}})
 	st := api.NewTestingState(api.TestingStateParams{
 		FacadeVersions: map[string][]int{
 			"Client": {0, 1, 2},
@@ -96,7 +97,7 @@ func (s *facadeVersionSuite) TestBestFacadeVersionNewerServer(c *gc.C) {
 }
 
 func (s *facadeVersionSuite) TestBestFacadeVersionNewerClient(c *gc.C) {
-	s.PatchValue(api.FacadeVersions, map[string][]int{"Client": {1, 2}})
+	s.PatchValue(api.SupportedFacadeVersions(), map[string][]int{"Client": {1, 2}})
 	st := api.NewTestingState(api.TestingStateParams{
 		FacadeVersions: map[string][]int{
 			"Client": {0, 1},
@@ -105,7 +106,7 @@ func (s *facadeVersionSuite) TestBestFacadeVersionNewerClient(c *gc.C) {
 }
 
 func (s *facadeVersionSuite) TestBestFacadeVersionServerUnknown(c *gc.C) {
-	s.PatchValue(api.FacadeVersions, map[string][]int{"TestingAPI": {1, 2}})
+	s.PatchValue(api.SupportedFacadeVersions(), map[string][]int{"TestingAPI": {1, 2}})
 	st := api.NewTestingState(api.TestingStateParams{
 		FacadeVersions: map[string][]int{
 			"Client": {0, 1},
