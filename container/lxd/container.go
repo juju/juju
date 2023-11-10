@@ -214,9 +214,6 @@ func (s *Server) FilterContainers(prefix string, statuses ...string) ([]Containe
 		}
 		results = append(results, Container{c})
 	}
-	if len(results) == 0 {
-		return nil, errors.NotFoundf("containers with prefix %q", prefix)
-	}
 	return results, nil
 }
 
