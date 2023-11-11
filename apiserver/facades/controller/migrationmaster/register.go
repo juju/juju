@@ -54,6 +54,7 @@ func newMigrationMasterFacade(ctx facade.Context) (*API, error) {
 			backend,
 			modelmigration.NewScope(changestream.NewTxnRunnerFactory(ctx.ControllerDB), nil),
 		),
+		ctx.ObjectStore(),
 		preCheckBackend,
 		migration.PoolShim(pool),
 		ctx.Resources(),

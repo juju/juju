@@ -5,6 +5,7 @@ package state
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"path"
@@ -22,9 +23,9 @@ import (
 	"github.com/juju/utils/v3"
 	"github.com/kr/pretty"
 
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/internal/docker"
-	"github.com/juju/juju/state/storage"
 )
 
 // Resources describes the state functionality for resources.
@@ -74,15 +75,15 @@ type Resources interface {
 }
 
 // Resources returns the resources functionality for the current state.
-func (st *State) Resources() Resources {
-	return st.resources()
+func (st *State) Resources(storage objectstore.ObjectStore) Resources {
+	return st.resources(storage)
 }
 
 // Resources returns the resources functionality for the current state.
-func (st *State) resources() *resourcePersistence {
+func (st *State) resources(storage objectstore.ObjectStore) *resourcePersistence {
 	return &resourcePersistence{
 		st:                    st,
-		storage:               storage.NewStorage(st.ModelUUID(), st.MongoSession()),
+		storage:               storage,
 		dockerMetadataStorage: NewDockerMetadataStorage(st),
 	}
 }
@@ -352,7 +353,7 @@ func storagePath(name, applicationID, pendingID string) string {
 // functionality for resources.
 type resourcePersistence struct {
 	st                    *State
-	storage               storage.Storage
+	storage               objectstore.ObjectStore
 	dockerMetadataStorage DockerMetadataStorage
 }
 
@@ -603,7 +604,7 @@ func (p *resourcePersistence) SetResource(
 ) (resources.Resource, error) {
 	rLogger.Tracef("adding resource %q for application %q", chRes.Name, applicationID)
 	pendingID := ""
-	res, err := p.setResource(pendingID, applicationID, userID, chRes, r, incrementCharmModifiedVersion)
+	res, err := p.setResource(context.TODO(), pendingID, applicationID, userID, chRes, r, incrementCharmModifiedVersion)
 	if err != nil {
 		return res, errors.Trace(err)
 	}
@@ -701,7 +702,7 @@ func (st resourcePersistence) AddPendingResource(applicationID, userID string, c
 	}
 	rLogger.Debugf("adding pending resource %q for application %q (ID: %s)", chRes.Name, applicationID, pendingID)
 
-	if _, err := st.setResource(pendingID, applicationID, userID, chRes, nil, IncrementCharmModifiedVersion); err != nil {
+	if _, err := st.setResource(context.TODO(), pendingID, applicationID, userID, chRes, nil, IncrementCharmModifiedVersion); err != nil {
 		return "", errors.Trace(err)
 	}
 
@@ -711,7 +712,7 @@ func (st resourcePersistence) AddPendingResource(applicationID, userID string, c
 // UpdatePendingResource stores the resource in the Juju model.
 func (st resourcePersistence) UpdatePendingResource(applicationID, pendingID, userID string, chRes charmresource.Resource, r io.Reader) (resources.Resource, error) {
 	rLogger.Tracef("updating pending resource %q (%s) for application %q", chRes.Name, pendingID, applicationID)
-	res, err := st.setResource(pendingID, applicationID, userID, chRes, r, IncrementCharmModifiedVersion)
+	res, err := st.setResource(context.TODO(), pendingID, applicationID, userID, chRes, r, IncrementCharmModifiedVersion)
 	if err != nil {
 		return res, errors.Trace(err)
 	}
@@ -741,7 +742,7 @@ func (p *resourcePersistence) OpenResource(applicationID, name string) (resource
 	case charmresource.TypeContainerImage:
 		resourceReader, resSize, err = p.dockerMetadataStorage.Get(resourceInfo.ID)
 	case charmresource.TypeFile:
-		resourceReader, resSize, err = p.storage.Get(storagePath)
+		resourceReader, resSize, err = p.storage.Get(context.TODO(), storagePath)
 	default:
 		return resources.Resource{}, nil, errors.New("unknown resource type")
 	}
@@ -872,6 +873,7 @@ func (p *resourcePersistence) stageResource(res resources.Resource, storagePath 
 }
 
 func (p *resourcePersistence) setResource(
+	ctx context.Context,
 	pendingID, applicationID, userID string,
 	chRes charmresource.Resource, r io.Reader,
 	incrementCharmModifiedVersion IncrementCharmModifiedVersionType,
@@ -899,7 +901,7 @@ func (p *resourcePersistence) setResource(
 			return res, errors.Trace(err)
 		}
 	} else {
-		if err := p.storeResource(res, r, incrementCharmModifiedVersion); err != nil {
+		if err := p.storeResource(ctx, res, r, incrementCharmModifiedVersion); err != nil {
 			return res, errors.Trace(err)
 		}
 	}
@@ -965,7 +967,7 @@ func (p *resourcePersistence) storeResourceInfo(res resources.Resource) error {
 	return nil
 }
 
-func (p *resourcePersistence) storeResource(res resources.Resource, r io.Reader, incrementCharmModifiedVersion IncrementCharmModifiedVersionType) (err error) {
+func (p *resourcePersistence) storeResource(ctx context.Context, res resources.Resource, r io.Reader, incrementCharmModifiedVersion IncrementCharmModifiedVersionType) (err error) {
 	// We use a staging approach for adding the resource metadata
 	// to the model. This is necessary because the resource data
 	// is stored separately and adding to both should be an atomic
@@ -987,7 +989,7 @@ func (p *resourcePersistence) storeResource(res resources.Resource, r io.Reader,
 	hash := res.Fingerprint.String()
 	switch res.Type {
 	case charmresource.TypeFile:
-		if err = p.storage.PutAndCheckHash(storagePath, r, res.Size, hash); err != nil {
+		if err = p.storage.PutAndCheckHash(ctx, storagePath, r, res.Size, hash); err != nil {
 			return errors.Trace(err)
 		}
 	case charmresource.TypeContainerImage:
@@ -1029,7 +1031,7 @@ func (p *resourcePersistence) storeResource(res resources.Resource, r io.Reader,
 	}
 
 	if err = staged.Activate(incrementCharmModifiedVersion); err != nil {
-		if e := p.storage.Remove(storagePath); e != nil {
+		if e := p.storage.Remove(ctx, storagePath); e != nil {
 			rLogger.Errorf("could not remove resource %q (application %q) from storage: %v", res.Name, res.ApplicationID, e)
 		}
 		return errors.Trace(err)

@@ -21,8 +21,7 @@ run_upgrade_base_relation() {
 	reboot_machine 0
 	echo "Upgrading machine..."
 	echo "See ${TEST_DIR}/do-release-upgrade.log for progress."
-	# TODO: remove -d flag once Ubuntu 22.04.1 is released
-	juju ssh 0 'sudo do-release-upgrade -d -f DistUpgradeViewNonInteractive' &>"${TEST_DIR}/do-release-upgrade.log" || true
+	juju ssh 0 'sudo do-release-upgrade -f DistUpgradeViewNonInteractive' &>"${TEST_DIR}/do-release-upgrade.log" || true
 	reboot_machine 0
 	juju upgrade-machine 0 complete
 

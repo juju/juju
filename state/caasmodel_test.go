@@ -177,7 +177,7 @@ func (s *CAASModelSuite) TestDestroyModelDestroyStorage(c *gc.C) {
 	err = unit.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
 	// The deployer or the caasapplicationprovisioner would call this once the unit is Dead.
-	err = unit.Remove()
+	err = unit.Remove(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 
 	assertNeedsCleanup(c, st)
@@ -291,7 +291,7 @@ func (s *CAASModelSuite) TestDestroyControllerAndHostedCAASModelsWithResources(c
 		}},
 		Charm: ch,
 	}
-	application2, err := otherSt.AddApplication(args)
+	application2, err := otherSt.AddApplication(args, state.NewObjectStore(c, otherSt))
 	c.Assert(err, jc.ErrorIsNil)
 
 	controllerModel, err := s.State.Model()

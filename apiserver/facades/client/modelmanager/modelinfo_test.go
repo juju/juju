@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
@@ -178,6 +179,7 @@ func (s *modelInfoSuite) SetUpTest(c *gc.C) {
 		apiservertesting.ConstCredentialGetter(&cred),
 		&mockModelManagerService{},
 		&mockModelService{},
+		&mockObjectStore{},
 		nil, nil, common.NewBlockChecker(s.st),
 		&s.authorizer, s.st.model,
 	)
@@ -204,6 +206,7 @@ func (s *modelInfoSuite) setAPIUser(c *gc.C, user names.UserTag) {
 		apiservertesting.ConstCredentialGetter(&cred),
 		&mockModelManagerService{},
 		&mockModelService{},
+		&mockObjectStore{},
 		nil, nil,
 		common.NewBlockChecker(s.st), s.authorizer, s.st.model,
 	)
@@ -689,12 +692,12 @@ func (st *mockState) ControllerModelTag() names.ModelTag {
 	return st.controllerModel.tag
 }
 
-func (st *mockState) Export(leaders map[string]string) (description.Model, error) {
+func (st *mockState) Export(leaders map[string]string, store objectstore.ObjectStore) (description.Model, error) {
 	st.MethodCall(st, "Export", leaders)
 	return &fakeModelDescription{UUID: st.model.UUID()}, nil
 }
 
-func (st *mockState) ExportPartial(cfg state.ExportConfig) (description.Model, error) {
+func (st *mockState) ExportPartial(cfg state.ExportConfig, store objectstore.ObjectStore) (description.Model, error) {
 	st.MethodCall(st, "ExportPartial", cfg)
 	if !cfg.IgnoreIncompleteModel {
 		return nil, errors.New("expected IgnoreIncompleteModel=true")
@@ -1365,4 +1368,8 @@ type mockCredentialShim struct {
 
 func (s mockCredentialShim) InvalidateModelCredential(reason string) error {
 	return nil
+}
+
+type mockObjectStore struct {
+	objectstore.ObjectStore
 }

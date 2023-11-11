@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/core/leadership"
 	coremigration "github.com/juju/juju/core/migration"
 	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/objectstore"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/internal/migration"
 	"github.com/juju/juju/rpc/params"
@@ -28,7 +29,7 @@ import (
 
 // ModelExporter exports a model to a description.Model.
 type ModelExporter interface {
-	ExportModel(ctx context.Context, leaders map[string]string) (description.Model, error)
+	ExportModel(ctx context.Context, leaders map[string]string, store objectstore.ObjectStore) (description.Model, error)
 }
 
 // UpgradeService provides a subset of the upgrade domain service methods.
@@ -52,6 +53,7 @@ type API struct {
 	leadership              leadership.Reader
 	credentialService       common.CredentialService
 	upgradeService          UpgradeService
+	store                   objectstore.ObjectStore
 }
 
 // NewAPI creates a new API server endpoint for the model migration
@@ -60,6 +62,7 @@ func NewAPI(
 	controllerState ControllerState,
 	backend Backend,
 	modelExporter ModelExporter,
+	store objectstore.ObjectStore,
 	precheckBackend migration.PrecheckBackend,
 	pool migration.Pool,
 	resources facade.Resources,
@@ -78,6 +81,7 @@ func NewAPI(
 		controllerState:         controllerState,
 		backend:                 backend,
 		modelExporter:           modelExporter,
+		store:                   store,
 		precheckBackend:         precheckBackend,
 		pool:                    pool,
 		authorizer:              authorizer,
@@ -273,7 +277,7 @@ func (api *API) Export(ctx context.Context) (params.SerializedModel, error) {
 		return serialized, err
 	}
 
-	model, err := api.modelExporter.ExportModel(ctx, leaders)
+	model, err := api.modelExporter.ExportModel(ctx, leaders, api.store)
 	if err != nil {
 		return serialized, err
 	}

@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs/config"
 	bundlechanges "github.com/juju/juju/internal/bundle/changes"
@@ -49,6 +50,7 @@ type APIv8 struct {
 // of the API end point.
 type BundleAPI struct {
 	backend    Backend
+	store      objectstore.ObjectStore
 	authorizer facade.Authorizer
 	modelTag   names.ModelTag
 }
@@ -60,6 +62,7 @@ func newFacade(ctx facade.Context) (*BundleAPI, error) {
 
 	return NewBundleAPI(
 		NewStateShim(st),
+		ctx.ObjectStore(),
 		authorizer,
 		names.NewModelTag(st.ModelUUID()),
 	)
@@ -68,6 +71,7 @@ func newFacade(ctx facade.Context) (*BundleAPI, error) {
 // NewBundleAPI returns the new Bundle API facade.
 func NewBundleAPI(
 	st Backend,
+	store objectstore.ObjectStore,
 	auth facade.Authorizer,
 	tag names.ModelTag,
 ) (*BundleAPI, error) {
@@ -77,6 +81,7 @@ func NewBundleAPI(
 
 	return &BundleAPI{
 		backend:    st,
+		store:      store,
 		authorizer: auth,
 		modelTag:   tag,
 	}, nil
@@ -195,7 +200,7 @@ func (b *BundleAPI) ExportBundle(ctx context.Context, arg params.ExportBundlePar
 	}
 
 	exportConfig := b.backend.GetExportConfig()
-	model, err := b.backend.ExportPartial(exportConfig)
+	model, err := b.backend.ExportPartial(exportConfig, b.store)
 	if err != nil {
 		return fail(err)
 	}

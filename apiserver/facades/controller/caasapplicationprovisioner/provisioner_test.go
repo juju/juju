@@ -44,6 +44,7 @@ type CAASApplicationProvisionerSuite struct {
 	storage            *mockStorage
 	storagePoolManager *mockStoragePoolManager
 	registry           *mockStorageRegistry
+	store              *mockObjectStore
 }
 
 func (s *CAASApplicationProvisionerSuite) SetUpTest(c *gc.C) {
@@ -58,6 +59,7 @@ func (s *CAASApplicationProvisionerSuite) SetUpTest(c *gc.C) {
 		Controller: true,
 	}
 
+	s.store = &mockObjectStore{}
 	s.clock = testclock.NewClock(time.Now())
 	s.st = newMockState()
 	s.storage = &mockStorage{
@@ -72,7 +74,7 @@ func (s *CAASApplicationProvisionerSuite) SetUpTest(c *gc.C) {
 		return &mockResourceOpener{appName: appName, resources: s.st.resource}, nil
 	}
 	api, err := caasapplicationprovisioner.NewCAASApplicationProvisionerAPI(
-		s.st, s.st, s.resources, newResourceOpener, s.authorizer, s.storage, s.storagePoolManager, s.registry, s.clock, loggo.GetLogger("juju.apiserver.caasapplicationprovisioner"))
+		s.st, s.st, s.resources, newResourceOpener, s.authorizer, s.storage, s.storagePoolManager, s.registry, s.store, s.clock, loggo.GetLogger("juju.apiserver.caasapplicationprovisioner"))
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api
 }
@@ -82,7 +84,7 @@ func (s *CAASApplicationProvisionerSuite) TestPermission(c *gc.C) {
 		Tag: names.NewMachineTag("0"),
 	}
 	_, err := caasapplicationprovisioner.NewCAASApplicationProvisionerAPI(
-		s.st, s.st, s.resources, nil, s.authorizer, s.storage, s.storagePoolManager, s.registry, s.clock, loggo.GetLogger("juju.apiserver.caasapplicationprovisioner"))
+		s.st, s.st, s.resources, nil, s.authorizer, s.storage, s.storagePoolManager, s.registry, s.store, s.clock, loggo.GetLogger("juju.apiserver.caasapplicationprovisioner"))
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 

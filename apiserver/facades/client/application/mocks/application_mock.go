@@ -20,6 +20,7 @@ import (
 	crossmodel "github.com/juju/juju/core/crossmodel"
 	instance "github.com/juju/juju/core/instance"
 	network "github.com/juju/juju/core/network"
+	objectstore "github.com/juju/juju/core/objectstore"
 	status "github.com/juju/juju/core/status"
 	config0 "github.com/juju/juju/environs/config"
 	tools "github.com/juju/juju/internal/tools"
@@ -55,18 +56,18 @@ func (m *MockBackend) EXPECT() *MockBackendMockRecorder {
 }
 
 // AddApplication mocks base method.
-func (m *MockBackend) AddApplication(arg0 state.AddApplicationArgs) (application.Application, error) {
+func (m *MockBackend) AddApplication(arg0 state.AddApplicationArgs, arg1 objectstore.ObjectStore) (application.Application, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddApplication", arg0)
+	ret := m.ctrl.Call(m, "AddApplication", arg0, arg1)
 	ret0, _ := ret[0].(application.Application)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // AddApplication indicates an expected call of AddApplication.
-func (mr *MockBackendMockRecorder) AddApplication(arg0 interface{}) *gomock.Call {
+func (mr *MockBackendMockRecorder) AddApplication(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddApplication", reflect.TypeOf((*MockBackend)(nil).AddApplication), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddApplication", reflect.TypeOf((*MockBackend)(nil).AddApplication), arg0, arg1)
 }
 
 // AddCharmMetadata mocks base method.
@@ -85,18 +86,18 @@ func (mr *MockBackendMockRecorder) AddCharmMetadata(arg0 interface{}) *gomock.Ca
 }
 
 // AddPendingResource mocks base method.
-func (m *MockBackend) AddPendingResource(arg0 string, arg1 resource.Resource) (string, error) {
+func (m *MockBackend) AddPendingResource(arg0 string, arg1 resource.Resource, arg2 objectstore.ObjectStore) (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddPendingResource", arg0, arg1)
+	ret := m.ctrl.Call(m, "AddPendingResource", arg0, arg1, arg2)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // AddPendingResource indicates an expected call of AddPendingResource.
-func (mr *MockBackendMockRecorder) AddPendingResource(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockBackendMockRecorder) AddPendingResource(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddPendingResource", reflect.TypeOf((*MockBackend)(nil).AddPendingResource), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddPendingResource", reflect.TypeOf((*MockBackend)(nil).AddPendingResource), arg0, arg1, arg2)
 }
 
 // AddRelation mocks base method.
@@ -439,31 +440,31 @@ func (mr *MockBackendMockRecorder) RemoteApplication(arg0 interface{}) *gomock.C
 }
 
 // RemovePendingResources mocks base method.
-func (m *MockBackend) RemovePendingResources(arg0 string, arg1 map[string]string) error {
+func (m *MockBackend) RemovePendingResources(arg0 string, arg1 map[string]string, arg2 objectstore.ObjectStore) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RemovePendingResources", arg0, arg1)
+	ret := m.ctrl.Call(m, "RemovePendingResources", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // RemovePendingResources indicates an expected call of RemovePendingResources.
-func (mr *MockBackendMockRecorder) RemovePendingResources(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockBackendMockRecorder) RemovePendingResources(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemovePendingResources", reflect.TypeOf((*MockBackend)(nil).RemovePendingResources), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemovePendingResources", reflect.TypeOf((*MockBackend)(nil).RemovePendingResources), arg0, arg1, arg2)
 }
 
 // Resources mocks base method.
-func (m *MockBackend) Resources() application.Resources {
+func (m *MockBackend) Resources(arg0 objectstore.ObjectStore) application.Resources {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Resources")
+	ret := m.ctrl.Call(m, "Resources", arg0)
 	ret0, _ := ret[0].(application.Resources)
 	return ret0
 }
 
 // Resources indicates an expected call of Resources.
-func (mr *MockBackendMockRecorder) Resources() *gomock.Call {
+func (mr *MockBackendMockRecorder) Resources(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Resources", reflect.TypeOf((*MockBackend)(nil).Resources))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Resources", reflect.TypeOf((*MockBackend)(nil).Resources), arg0)
 }
 
 // SaveEgressNetworks mocks base method.
@@ -1151,31 +1152,31 @@ func (mr *MockApplicationMockRecorder) Constraints() *gomock.Call {
 }
 
 // Destroy mocks base method.
-func (m *MockApplication) Destroy() error {
+func (m *MockApplication) Destroy(arg0 objectstore.ObjectStore) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Destroy")
+	ret := m.ctrl.Call(m, "Destroy", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Destroy indicates an expected call of Destroy.
-func (mr *MockApplicationMockRecorder) Destroy() *gomock.Call {
+func (mr *MockApplicationMockRecorder) Destroy(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Destroy", reflect.TypeOf((*MockApplication)(nil).Destroy))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Destroy", reflect.TypeOf((*MockApplication)(nil).Destroy), arg0)
 }
 
 // DestroyOperation mocks base method.
-func (m *MockApplication) DestroyOperation() *state.DestroyApplicationOperation {
+func (m *MockApplication) DestroyOperation(arg0 objectstore.ObjectStore) *state.DestroyApplicationOperation {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DestroyOperation")
+	ret := m.ctrl.Call(m, "DestroyOperation", arg0)
 	ret0, _ := ret[0].(*state.DestroyApplicationOperation)
 	return ret0
 }
 
 // DestroyOperation indicates an expected call of DestroyOperation.
-func (mr *MockApplicationMockRecorder) DestroyOperation() *gomock.Call {
+func (mr *MockApplicationMockRecorder) DestroyOperation(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DestroyOperation", reflect.TypeOf((*MockApplication)(nil).DestroyOperation))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DestroyOperation", reflect.TypeOf((*MockApplication)(nil).DestroyOperation), arg0)
 }
 
 // EndpointBindings mocks base method.
@@ -1336,17 +1337,17 @@ func (mr *MockApplicationMockRecorder) Relations() *gomock.Call {
 }
 
 // SetCharm mocks base method.
-func (m *MockApplication) SetCharm(arg0 state.SetCharmConfig) error {
+func (m *MockApplication) SetCharm(arg0 state.SetCharmConfig, arg1 objectstore.ObjectStore) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetCharm", arg0)
+	ret := m.ctrl.Call(m, "SetCharm", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SetCharm indicates an expected call of SetCharm.
-func (mr *MockApplicationMockRecorder) SetCharm(arg0 interface{}) *gomock.Call {
+func (mr *MockApplicationMockRecorder) SetCharm(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetCharm", reflect.TypeOf((*MockApplication)(nil).SetCharm), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetCharm", reflect.TypeOf((*MockApplication)(nil).SetCharm), arg0, arg1)
 }
 
 // SetConstraints mocks base method.
@@ -1801,17 +1802,17 @@ func (mr *MockRelationMockRecorder) ApplicationSettings(arg0 interface{}) *gomoc
 }
 
 // Destroy mocks base method.
-func (m *MockRelation) Destroy() error {
+func (m *MockRelation) Destroy(arg0 objectstore.ObjectStore) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Destroy")
+	ret := m.ctrl.Call(m, "Destroy", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Destroy indicates an expected call of Destroy.
-func (mr *MockRelationMockRecorder) Destroy() *gomock.Call {
+func (mr *MockRelationMockRecorder) Destroy(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Destroy", reflect.TypeOf((*MockRelation)(nil).Destroy))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Destroy", reflect.TypeOf((*MockRelation)(nil).Destroy), arg0)
 }
 
 // DestroyWithForce mocks base method.
@@ -2083,31 +2084,31 @@ func (mr *MockUnitMockRecorder) ContainerInfo() *gomock.Call {
 }
 
 // Destroy mocks base method.
-func (m *MockUnit) Destroy() error {
+func (m *MockUnit) Destroy(arg0 objectstore.ObjectStore) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Destroy")
+	ret := m.ctrl.Call(m, "Destroy", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Destroy indicates an expected call of Destroy.
-func (mr *MockUnitMockRecorder) Destroy() *gomock.Call {
+func (mr *MockUnitMockRecorder) Destroy(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Destroy", reflect.TypeOf((*MockUnit)(nil).Destroy))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Destroy", reflect.TypeOf((*MockUnit)(nil).Destroy), arg0)
 }
 
 // DestroyOperation mocks base method.
-func (m *MockUnit) DestroyOperation() *state.DestroyUnitOperation {
+func (m *MockUnit) DestroyOperation(arg0 objectstore.ObjectStore) *state.DestroyUnitOperation {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DestroyOperation")
+	ret := m.ctrl.Call(m, "DestroyOperation", arg0)
 	ret0, _ := ret[0].(*state.DestroyUnitOperation)
 	return ret0
 }
 
 // DestroyOperation indicates an expected call of DestroyOperation.
-func (mr *MockUnitMockRecorder) DestroyOperation() *gomock.Call {
+func (mr *MockUnitMockRecorder) DestroyOperation(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DestroyOperation", reflect.TypeOf((*MockUnit)(nil).DestroyOperation))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DestroyOperation", reflect.TypeOf((*MockUnit)(nil).DestroyOperation), arg0)
 }
 
 // IsPrincipal mocks base method.

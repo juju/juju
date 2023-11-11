@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -55,13 +56,14 @@ const (
 
 func (s *machineSuite) TestDestroyMachines(c *gc.C) {
 	st := mockState{
-		machines: map[string]*mockMachine{
+		machines: map[string]*fakeMachine{
 			"1": {},
 			"2": {destroyErr: errors.New("unit exists error")},
 			"3": {life: state.Dying},
 		},
 	}
-	err := common.MockableDestroyMachines(&st, false, dontWait, "1", "2", "3", "4")
+
+	err := common.MockableDestroyMachines(&st, &fakeObjectStore{}, false, dontWait, "1", "2", "3", "4")
 
 	c.Assert(st.machines["1"].Life(), gc.Equals, state.Dying)
 	c.Assert(st.machines["1"].forceDestroyCalled, jc.IsFalse)
@@ -77,12 +79,12 @@ func (s *machineSuite) TestDestroyMachines(c *gc.C) {
 
 func (s *machineSuite) TestForceDestroyMachines(c *gc.C) {
 	st := mockState{
-		machines: map[string]*mockMachine{
+		machines: map[string]*fakeMachine{
 			"1": {},
 			"2": {life: state.Dying},
 		},
 	}
-	err := common.MockableDestroyMachines(&st, true, dontWait, "1", "2")
+	err := common.MockableDestroyMachines(&st, &fakeObjectStore{}, true, dontWait, "1", "2")
 
 	c.Assert(st.machines["1"].Life(), gc.Equals, state.Dying)
 	c.Assert(st.machines["1"].forceDestroyCalled, jc.IsTrue)
@@ -96,7 +98,7 @@ func (s *machineSuite) TestMachineHardwareInfo(c *gc.C) {
 	amd64 := "amd64"
 	gig := uint64(1024)
 	st := mockState{
-		machines: map[string]*mockMachine{
+		machines: map[string]*fakeMachine{
 			"1": {id: "1", life: state.Alive, containerType: instance.NONE,
 				hw: &instance.HardwareCharacteristics{
 					Arch:     &amd64,
@@ -129,7 +131,7 @@ func (s *machineSuite) TestMachineHardwareInfo(c *gc.C) {
 
 func (s *machineSuite) TestMachineInstanceInfo(c *gc.C) {
 	st := mockState{
-		machines: map[string]*mockMachine{
+		machines: map[string]*fakeMachine{
 			"1": {
 				id:     "1",
 				instId: "123",
@@ -178,7 +180,7 @@ func (s *machineSuite) TestMachineInstanceInfo(c *gc.C) {
 
 func (s *machineSuite) TestMachineInstanceInfoWithEmptyDisplayName(c *gc.C) {
 	st := mockState{
-		machines: map[string]*mockMachine{
+		machines: map[string]*fakeMachine{
 			"1": {
 				id:          "1",
 				instId:      "123",
@@ -210,7 +212,7 @@ func (s *machineSuite) TestMachineInstanceInfoWithEmptyDisplayName(c *gc.C) {
 
 func (s *machineSuite) TestMachineInstanceInfoWithSetDisplayName(c *gc.C) {
 	st := mockState{
-		machines: map[string]*mockMachine{
+		machines: map[string]*fakeMachine{
 			"1": {
 				id:          "1",
 				instId:      "123",
@@ -242,7 +244,7 @@ func (s *machineSuite) TestMachineInstanceInfoWithSetDisplayName(c *gc.C) {
 
 func (s *machineSuite) TestMachineInstanceInfoWithHAPrimary(c *gc.C) {
 	st := mockState{
-		machines: map[string]*mockMachine{
+		machines: map[string]*fakeMachine{
 			"1": {
 				id:          "1",
 				instId:      "123",
@@ -284,7 +286,7 @@ func (s *machineSuite) TestMachineInstanceInfoWithHAPrimary(c *gc.C) {
 
 type mockState struct {
 	common.ModelManagerBackend
-	machines          map[string]*mockMachine
+	machines          map[string]*fakeMachine
 	controllerNodes   map[string]*mockControllerNode
 	haPrimaryMachineF func() (names.MachineTag, error)
 }
@@ -342,7 +344,7 @@ func (m *mockControllerNode) HasVote() bool {
 	return m.hasVote
 }
 
-type mockMachine struct {
+type fakeMachine struct {
 	state.Machine
 	id                 string
 	life               state.Life
@@ -358,34 +360,34 @@ type mockMachine struct {
 	destroyCalled      bool
 }
 
-func (m *mockMachine) Id() string {
+func (m *fakeMachine) Id() string {
 	return m.id
 }
 
-func (m *mockMachine) Life() state.Life {
+func (m *fakeMachine) Life() state.Life {
 	return m.life
 }
 
-func (m *mockMachine) InstanceId() (instance.Id, error) {
+func (m *fakeMachine) InstanceId() (instance.Id, error) {
 	return m.instId, nil
 }
 
-func (m *mockMachine) InstanceNames() (instance.Id, string, error) {
+func (m *fakeMachine) InstanceNames() (instance.Id, string, error) {
 	instId, err := m.InstanceId()
 	return instId, m.displayName, err
 }
 
-func (m *mockMachine) Status() (status.StatusInfo, error) {
+func (m *fakeMachine) Status() (status.StatusInfo, error) {
 	return status.StatusInfo{
 		Status: m.status,
 	}, m.statusErr
 }
 
-func (m *mockMachine) HardwareCharacteristics() (*instance.HardwareCharacteristics, error) {
+func (m *fakeMachine) HardwareCharacteristics() (*instance.HardwareCharacteristics, error) {
 	return m.hw, nil
 }
 
-func (m *mockMachine) ForceDestroy(time.Duration) error {
+func (m *fakeMachine) ForceDestroy(time.Duration) error {
 	m.forceDestroyCalled = true
 	if m.forceDestroyErr != nil {
 		return m.forceDestroyErr
@@ -394,7 +396,7 @@ func (m *mockMachine) ForceDestroy(time.Duration) error {
 	return nil
 }
 
-func (m *mockMachine) Destroy() error {
+func (m *fakeMachine) Destroy(_ objectstore.ObjectStore) error {
 	m.destroyCalled = true
 	if m.destroyErr != nil {
 		return m.destroyErr

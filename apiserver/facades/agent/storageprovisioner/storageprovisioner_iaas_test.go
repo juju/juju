@@ -20,10 +20,12 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/poolmanager"
+	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
@@ -34,6 +36,8 @@ import (
 
 type iaasProvisionerSuite struct {
 	provisionerSuite
+
+	store objectstore.ObjectStore
 }
 
 var _ = gc.Suite(&iaasProvisionerSuite{})
@@ -73,6 +77,8 @@ func (s *iaasProvisionerSuite) SetUpTest(c *gc.C) {
 		loggo.GetLogger("juju.apiserver.storageprovisioner"),
 	)
 	c.Assert(err, jc.ErrorIsNil)
+
+	s.store = jujutesting.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State())
 }
 
 func (s *iaasProvisionerSuite) setupVolumes(c *gc.C) {
@@ -464,7 +470,7 @@ func (s *iaasProvisionerSuite) TestRemoveVolumeParams(c *gc.C) {
 	}
 
 	// Make the "data" storage volume Dead, releasing.
-	err = unit.Destroy()
+	err = unit.Destroy(s.store)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.storageBackend.ReleaseStorageInstance(testStorage[0].StorageTag(), true, false, dontWait)
 	c.Assert(err, jc.ErrorIsNil)
@@ -590,7 +596,7 @@ func (s *iaasProvisionerSuite) TestRemoveFilesystemParams(c *gc.C) {
 	}
 
 	// Make the "data" storage filesystem Dead, releasing.
-	err = unit.Destroy()
+	err = unit.Destroy(s.store)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.storageBackend.ReleaseStorageInstance(testStorage[0].StorageTag(), true, false, dontWait)
 	c.Assert(err, jc.ErrorIsNil)

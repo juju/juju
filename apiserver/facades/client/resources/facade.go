@@ -54,7 +54,7 @@ func NewFacade(ctx facade.Context) (*API, error) {
 	}
 
 	st := ctx.State()
-	rst := st.Resources()
+	rst := st.Resources(ctx.ObjectStore())
 
 	m, err := st.Model()
 	if err != nil {

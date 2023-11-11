@@ -232,7 +232,7 @@ func (s *SubnetSuite) TestEnsureDeadSetsLifeToDeadWhenNotAlive(c *gc.C) {
 func (s *SubnetSuite) TestRemoveFailsIfStillAlive(c *gc.C) {
 	subnet := s.addAliveSubnet(c, "192.168.0.1/24")
 
-	err := subnet.Remove()
+	err := subnet.Remove(nil)
 	c.Assert(err, gc.ErrorMatches, `cannot remove subnet "192.168.0.1/24": subnet is not dead`)
 	s.refreshAndAssertSubnetLifeIs(c, subnet, state.Alive)
 }
@@ -245,7 +245,7 @@ func (s *SubnetSuite) TestRemoveSucceedsWhenSubnetIsNotAlive(c *gc.C) {
 }
 
 func (s *SubnetSuite) removeSubnetAndAssertNotFound(c *gc.C, subnet *state.Subnet) {
-	err := subnet.Remove()
+	err := subnet.Remove(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertSubnetWithCIDRNotFound(c, subnet.CIDR())
 }
@@ -265,7 +265,7 @@ func (s *SubnetSuite) TestRemoveSucceedsWhenCalledTwice(c *gc.C) {
 	s.ensureDeadAndAssertLifeIsDead(c, subnet)
 	s.removeSubnetAndAssertNotFound(c, subnet)
 
-	err := subnet.Remove()
+	err := subnet.Remove(nil)
 	c.Assert(err, gc.ErrorMatches, `cannot remove subnet "192.168.0.1/24": not found or not dead`)
 }
 

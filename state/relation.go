@@ -19,6 +19,7 @@ import (
 	jujutxn "github.com/juju/txn/v3"
 
 	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/status"
 )
 
@@ -268,7 +269,7 @@ func (r *Relation) DestroyWithForce(force bool, maxWait time.Duration) ([]error,
 
 // Destroy ensures that the relation will be removed at some point; if no units
 // are currently in scope, it will be removed immediately.
-func (r *Relation) Destroy() error {
+func (r *Relation) Destroy(_ objectstore.ObjectStore) error {
 	errs, err := r.DestroyWithForce(false, time.Duration(0))
 	if len(errs) != 0 {
 		logger.Warningf("operational errors removing relation %v: %v", r.Id(), errs)

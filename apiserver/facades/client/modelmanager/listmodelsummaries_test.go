@@ -70,6 +70,7 @@ func (s *ListModelsWithInfoSuite) SetUpTest(c *gc.C) {
 		apiservertesting.ConstCredentialGetter(&s.cred),
 		&mockModelManagerService{},
 		&mockModelService{},
+		&mockObjectStore{},
 		nil, nil,
 		common.NewBlockChecker(s.st), s.authoriser, s.st.model,
 	)
@@ -99,6 +100,7 @@ func (s *ListModelsWithInfoSuite) setAPIUser(c *gc.C, user names.UserTag) {
 		apiservertesting.ConstCredentialGetter(&s.cred),
 		&mockModelManagerService{},
 		&mockModelService{},
+		&mockObjectStore{},
 		nil, nil,
 		common.NewBlockChecker(s.st), s.authoriser, s.st.model,
 	)

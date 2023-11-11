@@ -96,7 +96,7 @@ func (s *uniterNetworkInfoSuite) SetUpTest(c *gc.C) {
 			"foo-bar":   "layertwo",   // extra-binding to L2
 			"":          "wp-default", // explicitly specified default space
 		},
-	})
+	}, testing.NewObjectStore(c, s.st.ModelUUID(), s.st))
 	c.Assert(err, jc.ErrorIsNil)
 	s.wordpressUnit = f.MakeUnit(c, &factory.UnitParams{
 		Application: s.wordpress,

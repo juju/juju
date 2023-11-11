@@ -277,7 +277,17 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 		upgrades.PerformUpgradeSteps,
 		"",
 	)
-	jujud.Register(agentcmd.NewMachineAgentCmd(ctx, machineAgentFactory, agentConf, agentConf))
+	jujud.Register(agentcmd.NewMachineAgentCommand(ctx, machineAgentFactory, agentConf, agentConf))
+
+	safeModeMachineAgentFactory := agentcmd.SafeModeMachineAgentFactoryFn(
+		agentConf,
+		bufferedLogger,
+		dbaccessor.NewTrackedDBWorker,
+		addons.DefaultIntrospectionSocketName,
+		"",
+	)
+
+	jujud.Register(agentcmd.NewSafeModeAgentCommand(ctx, safeModeMachineAgentFactory, agentConf, agentConf))
 	jujud.Register(agentcmd.NewCheckConnectionCommand(agentConf, agentcmd.ConnectAsAgent))
 
 	code = cmd.Main(jujud, ctx, args[1:])

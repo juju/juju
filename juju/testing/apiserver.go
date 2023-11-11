@@ -684,6 +684,10 @@ func (s *stubObjectStore) Put(ctx context.Context, path string, r io.Reader, len
 	return nil
 }
 
+func (s *stubObjectStore) PutAndCheckHash(ctx context.Context, path string, r io.Reader, size int64, hash string) error {
+	return nil
+}
+
 func (s *stubObjectStore) Remove(ctx context.Context, path string) error {
 	return nil
 }

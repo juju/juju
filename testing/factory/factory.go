@@ -26,9 +26,11 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
+	internalobjectstore "github.com/juju/juju/internal/objectstore"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/state"
@@ -526,7 +528,7 @@ func (factory *Factory) MakeApplicationReturningPassword(c *gc.C, params *Applic
 			}}
 	}
 
-	rSt := factory.st.Resources()
+	rSt := factory.st.Resources(NewObjectStore(c, factory.st))
 
 	resourceMap := make(map[string]string)
 	for name, res := range params.Charm.Meta().Resources {
@@ -551,7 +553,7 @@ func (factory *Factory) MakeApplicationReturningPassword(c *gc.C, params *Applic
 		Resources:         resourceMap,
 		EndpointBindings:  params.EndpointBindings,
 		Placement:         params.Placement,
-	})
+	}, NewObjectStore(c, factory.st))
 	c.Assert(err, jc.ErrorIsNil)
 	err = application.SetPassword(params.Password)
 	c.Assert(err, jc.ErrorIsNil)
@@ -882,4 +884,11 @@ func (factory *Factory) currentCfg(c *gc.C) *config.Config {
 	c.Assert(err, jc.ErrorIsNil)
 
 	return currentCfg
+}
+
+func NewObjectStore(c *gc.C, st *state.State) objectstore.ObjectStore {
+	// This will be removed when the worker object store is enabled by default.
+	store, err := internalobjectstore.NewStateObjectStore(context.Background(), st.ModelUUID(), st, testing.NewCheckLogger(c))
+	c.Assert(err, jc.ErrorIsNil)
+	return store
 }

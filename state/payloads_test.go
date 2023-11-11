@@ -210,7 +210,7 @@ func (s *PayloadsSuite) TestRemoveUnitUntracksPayloads(c *gc.C) {
 	err := fix.UnitPayloads.Track(additional)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = fix.Unit.Destroy()
+	err = fix.Unit.Destroy(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
@@ -222,7 +222,7 @@ func (s *PayloadsSuite) TestTrackRaceDyingUnit(c *gc.C) {
 	preventUnitDestroyRemove(c, fix.Unit)
 
 	defer state.SetBeforeHooks(c, s.State, func() {
-		err := fix.Unit.Destroy()
+		err := fix.Unit.Destroy(state.NewObjectStore(c, s.State))
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
 
@@ -237,7 +237,7 @@ func (s *PayloadsSuite) TestTrackRaceDeadUnit(c *gc.C) {
 	preventUnitDestroyRemove(c, fix.Unit)
 
 	defer state.SetBeforeHooks(c, s.State, func() {
-		err := fix.Unit.Destroy()
+		err := fix.Unit.Destroy(state.NewObjectStore(c, s.State))
 		c.Assert(err, jc.ErrorIsNil)
 		err = fix.Unit.EnsureDead()
 		c.Assert(err, jc.ErrorIsNil)
@@ -253,7 +253,7 @@ func (s *PayloadsSuite) TestTrackRaceRemovedUnit(c *gc.C) {
 	fix := s.newFixture(c)
 
 	defer state.SetBeforeHooks(c, s.State, func() {
-		err := fix.Unit.Destroy()
+		err := fix.Unit.Destroy(state.NewObjectStore(c, s.State))
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
 

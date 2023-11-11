@@ -93,6 +93,11 @@ func (s *schemaSuite) TestControllerDDLApply(c *gc.C) {
 		"user_authentication",
 		"user_password",
 		"user_activation_key",
+
+    // Object store metadata
+		"object_store_metadata",
+		"object_store_metadata_path",
+		"object_store_metadata_hash_type",
 	)
 	c.Assert(readTableNames(c, s.DB()), jc.SameContents, expected.Union(internalTableNames).SortedValues())
 }
@@ -118,6 +123,18 @@ func (s *schemaSuite) TestModelDDLApply(c *gc.C) {
 		// Spaces
 		"spaces",
 		"provider_spaces",
+
+		// Object store metadata
+		"object_store_metadata",
+		"object_store_metadata_path",
+		"object_store_metadata_hash_type",
+
+		"application",
+		"machine",
+		"net_node",
+		"cloud_service",
+		"cloud_container",
+		"unit",
 	)
 	c.Assert(readTableNames(c, s.DB()), jc.SameContents, expected.Union(internalTableNames).SortedValues())
 }

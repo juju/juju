@@ -9,6 +9,7 @@ import (
 	reflect "reflect"
 
 	description "github.com/juju/description/v4"
+	objectstore "github.com/juju/juju/core/objectstore"
 	state "github.com/juju/juju/state"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -37,16 +38,16 @@ func (m *MockModelExporter) EXPECT() *MockModelExporterMockRecorder {
 }
 
 // ExportModelPartial mocks base method.
-func (m *MockModelExporter) ExportModelPartial(arg0 context.Context, arg1 state.ExportConfig) (description.Model, error) {
+func (m *MockModelExporter) ExportModelPartial(arg0 context.Context, arg1 state.ExportConfig, arg2 objectstore.ObjectStore) (description.Model, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ExportModelPartial", arg0, arg1)
+	ret := m.ctrl.Call(m, "ExportModelPartial", arg0, arg1, arg2)
 	ret0, _ := ret[0].(description.Model)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ExportModelPartial indicates an expected call of ExportModelPartial.
-func (mr *MockModelExporterMockRecorder) ExportModelPartial(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockModelExporterMockRecorder) ExportModelPartial(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExportModelPartial", reflect.TypeOf((*MockModelExporter)(nil).ExportModelPartial), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExportModelPartial", reflect.TypeOf((*MockModelExporter)(nil).ExportModelPartial), arg0, arg1, arg2)
 }

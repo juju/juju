@@ -20,7 +20,7 @@ import (
 type CleanerAPI struct {
 	st          StateInterface
 	resources   facade.Resources
-	objectStore objectstore.WriteObjectStore
+	objectStore objectstore.ObjectStore
 }
 
 // Cleanup triggers a state cleanup

@@ -11,6 +11,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -72,16 +73,16 @@ type Machine interface {
 	HardwareCharacteristics() (*instance.HardwareCharacteristics, error)
 	Life() state.Life
 	ForceDestroy(time.Duration) error
-	Destroy() error
+	Destroy(objectstore.ObjectStore) error
 	IsManager() bool
 	IsLockedForSeriesUpgrade() (bool, error)
 }
 
-func DestroyMachines(st origStateInterface, force bool, maxWait time.Duration, ids ...string) error {
-	return destroyMachines(&stateShim{st}, force, maxWait, ids...)
+func DestroyMachines(st origStateInterface, store objectstore.ObjectStore, force bool, maxWait time.Duration, ids ...string) error {
+	return destroyMachines(&stateShim{st}, store, force, maxWait, ids...)
 }
 
-func destroyMachines(st stateInterface, force bool, maxWait time.Duration, ids ...string) error {
+func destroyMachines(st stateInterface, store objectstore.ObjectStore, force bool, maxWait time.Duration, ids ...string) error {
 	var errs []error
 	for _, id := range ids {
 		machine, err := st.Machine(id)
@@ -94,7 +95,7 @@ func destroyMachines(st stateInterface, force bool, maxWait time.Duration, ids .
 		case machine.Life() != state.Alive:
 			continue
 		default:
-			err = machine.Destroy()
+			err = machine.Destroy(store)
 		}
 		if err != nil {
 			errs = append(errs, err)

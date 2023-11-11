@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/credential"
@@ -87,6 +88,7 @@ type UniterAPI struct {
 	accessMachine           common.GetAuthFunc
 	containerBrokerFunc     caas.NewContainerBrokerFunc
 	*StorageAPI
+	store objectstore.ObjectStore
 
 	// A cloud spec can only be accessed for the model of the unit or
 	// application that is authorised for this API facade.
@@ -460,7 +462,7 @@ func (u *UniterAPI) Destroy(ctx context.Context, args params.Entities) (params.E
 			var unit *state.Unit
 			unit, err = u.getUnit(tag)
 			if err == nil {
-				err = unit.Destroy()
+				err = unit.Destroy(u.store)
 			}
 		}
 		result.Results[i].Error = apiservererrors.ServerError(err)
@@ -1727,7 +1729,7 @@ func (u *UniterAPI) destroySubordinates(principal *state.Unit) error {
 		if err != nil {
 			return err
 		}
-		if err = unit.Destroy(); err != nil {
+		if err = unit.Destroy(u.store); err != nil {
 			return err
 		}
 	}

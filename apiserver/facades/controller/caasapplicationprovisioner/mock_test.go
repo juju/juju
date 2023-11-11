@@ -24,6 +24,7 @@ import (
 	coreconfig "github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
@@ -119,7 +120,7 @@ func (st *mockState) ResolveConstraints(cons constraints.Value) (constraints.Val
 	return cons, nil
 }
 
-func (st *mockState) Resources() caasapplicationprovisioner.Resources {
+func (st *mockState) Resources(objectstore.ObjectStore) caasapplicationprovisioner.Resources {
 	st.MethodCall(st, "Resources")
 	return st.resource
 }
@@ -448,7 +449,7 @@ func (u *mockUnit) Tag() names.Tag {
 	return u.tag
 }
 
-func (u *mockUnit) DestroyOperation() *state.DestroyUnitOperation {
+func (u *mockUnit) DestroyOperation(objectstore.ObjectStore) *state.DestroyUnitOperation {
 	u.MethodCall(u, "DestroyOperation")
 	return u.destroyOp
 }
@@ -681,4 +682,8 @@ func (ro *mockResourceOpener) OpenResource(name string) (resources.Opened, error
 		return resources.Opened{}, err
 	}
 	return resources.Opened{Resource: r, ReadCloser: rio}, nil
+}
+
+type mockObjectStore struct {
+	objectstore.ObjectStore
 }

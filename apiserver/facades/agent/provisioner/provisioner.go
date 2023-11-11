@@ -168,7 +168,7 @@ func NewProvisionerAPI(ctx facade.Context) (*ProvisionerAPI, error) {
 
 	resources := ctx.Resources()
 	api := &ProvisionerAPI{
-		Remover:              common.NewRemover(st, nil, false, getAuthFunc),
+		Remover:              common.NewRemover(st, ctx.ObjectStore(), nil, false, getAuthFunc),
 		StatusSetter:         common.NewStatusSetter(st, getAuthFunc),
 		StatusGetter:         common.NewStatusGetter(st, getAuthFunc),
 		DeadEnsurer:          common.NewDeadEnsurer(st, nil, getAuthFunc),

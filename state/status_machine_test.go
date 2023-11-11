@@ -127,7 +127,7 @@ func (s *MachineStatusSuite) checkGetSetStatus(c *gc.C) {
 }
 
 func (s *MachineStatusSuite) TestGetSetStatusDying(c *gc.C) {
-	err := s.machine.Destroy()
+	err := s.machine.Destroy(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.checkGetSetStatus(c)
@@ -146,7 +146,7 @@ func (s *MachineStatusSuite) TestGetSetStatusDead(c *gc.C) {
 func (s *MachineStatusSuite) TestGetSetStatusGone(c *gc.C) {
 	err := s.machine.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.machine.Remove()
+	err = s.machine.Remove(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 
 	now := testing.ZeroTime()

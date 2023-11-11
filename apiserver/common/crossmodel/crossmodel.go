@@ -76,7 +76,7 @@ func PublishRelationChange(auth authoriser, backend Backend, relationTag, applic
 			// If we are forcing cleanup, we can exit early here.
 			return errors.Trace(err)
 		}
-		if err := rel.Destroy(); err != nil {
+		if err := rel.Destroy(nil); err != nil {
 			return errors.Trace(err)
 		}
 	}

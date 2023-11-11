@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
@@ -78,7 +79,7 @@ type Machine interface {
 	Tag() names.Tag
 	SetPassword(string) error
 	HardwareCharacteristics() (*instance.HardwareCharacteristics, error)
-	Destroy() error
+	Destroy(objectstore.ObjectStore) error
 	ForceDestroy(time.Duration) error
 	Base() state.Base
 	Containers() ([]string, error)

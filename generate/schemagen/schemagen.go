@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/watcher/registry"
 	"github.com/juju/juju/generate/schemagen/gen"
@@ -253,6 +254,10 @@ func (c context) ControllerDB() (changestream.WatchableDB, error) {
 }
 
 func (c context) DBDeleter() coredatabase.DBDeleter {
+	return nil
+}
+
+func (c context) ObjectStore() objectstore.ObjectStore {
 	return nil
 }
 

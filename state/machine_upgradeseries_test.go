@@ -70,7 +70,7 @@ func (s *MachineSuite) TestDoesNotCreateUpgradeSeriesLockOnDyingMachine(c *gc.C)
 	mach, err := s.State.AddMachine(state.UbuntuBase("12.04"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = mach.Destroy()
+	err = mach.Destroy(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = mach.CreateUpgradeSeriesLock([]string{""}, state.UbuntuBase("16.04"))

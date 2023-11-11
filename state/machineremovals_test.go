@@ -65,7 +65,7 @@ func (s *MachineRemovalSuite) TestMarkForRemovalRequiresDeadness(c *gc.C) {
 func (s *MachineRemovalSuite) TestMarkForRemovalAssertsMachineStillExists(c *gc.C) {
 	m := s.makeMachine(c, true)
 	defer state.SetBeforeHooks(c, s.State, func() {
-		c.Assert(m.Remove(), gc.IsNil)
+		c.Assert(m.Remove(state.NewObjectStore(c, s.State)), gc.IsNil)
 	}).Check()
 	err := m.MarkForRemoval()
 	c.Assert(err, gc.ErrorMatches, "cannot remove machine 0: machine 0 not found")

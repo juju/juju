@@ -4,6 +4,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path"
@@ -24,6 +25,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/internal/mongo"
+	"github.com/juju/juju/internal/objectstore"
 	"github.com/juju/juju/state"
 )
 
@@ -611,14 +613,18 @@ func resourceDocID(modelUUID, resourceID string) string {
 
 // readApplicationsAndUnits figures out what CharmURLs are referenced by apps and units
 func (checker *ModelChecker) readApplicationsAndUnits() {
+	st := checker.model.State()
+	store, err := objectstore.NewStateObjectStore(context.TODO(), st.ModelUUID(), st, loggo.GetLogger("objectstore"))
+	checkErr(err, "NewStateObjectStore")
+
 	resourcesCollection := checker.session.DB("juju").C(resourcesC)
-	charmResources := checker.model.State().Resources()
+	charmResources := st.Resources(store)
 	agentVersion, err := checker.model.AgentVersion()
 	checkErr(err, "model AgentVersion")
 	// Models track the desired version.Number, but Units track version.Binary
 	// because they run a specific Release+Arch
 	checker.agentVersions.Add(agentVersion.String(), checker.model.Tag().String())
-	apps, err := checker.model.State().AllApplications()
+	apps, err := st.AllApplications()
 	checkErr(err, "AllApplications")
 	for _, app := range apps {
 		charmURL, _ := app.CharmURL()

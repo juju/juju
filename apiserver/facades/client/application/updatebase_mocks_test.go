@@ -12,6 +12,7 @@ import (
 	base "github.com/juju/juju/core/base"
 	config "github.com/juju/juju/core/config"
 	constraints "github.com/juju/juju/core/constraints"
+	objectstore "github.com/juju/juju/core/objectstore"
 	charmhub "github.com/juju/juju/internal/charmhub"
 	transport "github.com/juju/juju/internal/charmhub/transport"
 	tools "github.com/juju/juju/internal/tools"
@@ -224,31 +225,31 @@ func (mr *MockApplicationMockRecorder) Constraints() *gomock.Call {
 }
 
 // Destroy mocks base method.
-func (m *MockApplication) Destroy() error {
+func (m *MockApplication) Destroy(arg0 objectstore.ObjectStore) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Destroy")
+	ret := m.ctrl.Call(m, "Destroy", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Destroy indicates an expected call of Destroy.
-func (mr *MockApplicationMockRecorder) Destroy() *gomock.Call {
+func (mr *MockApplicationMockRecorder) Destroy(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Destroy", reflect.TypeOf((*MockApplication)(nil).Destroy))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Destroy", reflect.TypeOf((*MockApplication)(nil).Destroy), arg0)
 }
 
 // DestroyOperation mocks base method.
-func (m *MockApplication) DestroyOperation() *state.DestroyApplicationOperation {
+func (m *MockApplication) DestroyOperation(arg0 objectstore.ObjectStore) *state.DestroyApplicationOperation {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DestroyOperation")
+	ret := m.ctrl.Call(m, "DestroyOperation", arg0)
 	ret0, _ := ret[0].(*state.DestroyApplicationOperation)
 	return ret0
 }
 
 // DestroyOperation indicates an expected call of DestroyOperation.
-func (mr *MockApplicationMockRecorder) DestroyOperation() *gomock.Call {
+func (mr *MockApplicationMockRecorder) DestroyOperation(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DestroyOperation", reflect.TypeOf((*MockApplication)(nil).DestroyOperation))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DestroyOperation", reflect.TypeOf((*MockApplication)(nil).DestroyOperation), arg0)
 }
 
 // EndpointBindings mocks base method.
@@ -409,17 +410,17 @@ func (mr *MockApplicationMockRecorder) Relations() *gomock.Call {
 }
 
 // SetCharm mocks base method.
-func (m *MockApplication) SetCharm(arg0 state.SetCharmConfig) error {
+func (m *MockApplication) SetCharm(arg0 state.SetCharmConfig, arg1 objectstore.ObjectStore) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetCharm", arg0)
+	ret := m.ctrl.Call(m, "SetCharm", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SetCharm indicates an expected call of SetCharm.
-func (mr *MockApplicationMockRecorder) SetCharm(arg0 interface{}) *gomock.Call {
+func (mr *MockApplicationMockRecorder) SetCharm(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetCharm", reflect.TypeOf((*MockApplication)(nil).SetCharm), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetCharm", reflect.TypeOf((*MockApplication)(nil).SetCharm), arg0, arg1)
 }
 
 // SetConstraints mocks base method.

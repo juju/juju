@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/modelmigration"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/resources"
 	migrations "github.com/juju/juju/domain/modelmigration"
 	"github.com/juju/juju/internal/tools"
@@ -32,10 +33,10 @@ var logger = loggo.GetLogger("juju.migration")
 // Note: This is being deprecated.
 type LegacyStateExporter interface {
 	// Export generates an abstract representation of a model.
-	Export(leaders map[string]string) (description.Model, error)
+	Export(leaders map[string]string, store objectstore.ObjectStore) (description.Model, error)
 	// ExportPartial produces a partial export based based on the input
 	// config.
-	ExportPartial(cfg state.ExportConfig) (description.Model, error)
+	ExportPartial(cfg state.ExportConfig, store objectstore.ObjectStore) (description.Model, error)
 }
 
 // ModelExporter facilitates partial and full export of a model.
@@ -54,8 +55,8 @@ func NewModelExporter(legacyStateExporter LegacyStateExporter, scope modelmigrat
 // ExportModelPartial partially serializes a model description from the
 // database (legacy mongodb plus dqlite) contents, optionally skipping aspects
 // as defined by the ExportConfig.
-func (e *ModelExporter) ExportModelPartial(ctx context.Context, cfg state.ExportConfig) (description.Model, error) {
-	model, err := e.legacyStateExporter.ExportPartial(cfg)
+func (e *ModelExporter) ExportModelPartial(ctx context.Context, cfg state.ExportConfig, store objectstore.ObjectStore) (description.Model, error) {
+	model, err := e.legacyStateExporter.ExportPartial(cfg, store)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -65,8 +66,8 @@ func (e *ModelExporter) ExportModelPartial(ctx context.Context, cfg state.Export
 
 // ExportModel serializes a model description from the database (legacy mongodb
 // plus dqlite) contents.
-func (e *ModelExporter) ExportModel(ctx context.Context, leaders map[string]string) (description.Model, error) {
-	model, err := e.legacyStateExporter.Export(leaders)
+func (e *ModelExporter) ExportModel(ctx context.Context, leaders map[string]string, store objectstore.ObjectStore) (description.Model, error) {
+	model, err := e.legacyStateExporter.Export(leaders, store)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

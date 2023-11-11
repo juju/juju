@@ -84,7 +84,7 @@ func (s *RelationSuite) TestAddRelationErrors(c *gc.C) {
 	// Check that a relation can't be added to a Dying application.
 	_, err = wordpress.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	err = wordpress.Destroy()
+	err = wordpress.Destroy(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddRelation(mysqlEP, wordpressEP)
 	c.Assert(err, gc.ErrorMatches, `cannot add relation "wordpress:db mysql:server": application "wordpress" is not alive`)
@@ -322,7 +322,7 @@ func (s *RelationSuite) TestDestroyRelation(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Test that the relation can be destroyed.
-	err = rel.Destroy()
+	err = rel.Destroy(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = rel.Refresh()
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
@@ -330,7 +330,7 @@ func (s *RelationSuite) TestDestroyRelation(c *gc.C) {
 	assertNoRelations(c, mysql)
 
 	// Check that a second destroy is a no-op.
-	err = rel.Destroy()
+	err = rel.Destroy(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Create a new relation and check that refreshing the old does not find
@@ -348,12 +348,12 @@ func (s *RelationSuite) TestDestroyPeerRelation(c *gc.C) {
 	riakEP, err := riak.Endpoint("ring")
 	c.Assert(err, jc.ErrorIsNil)
 	rel := assertOneRelation(c, riak, 0, riakEP)
-	err = rel.Destroy()
+	err = rel.Destroy(nil)
 	c.Assert(err, gc.ErrorMatches, `cannot destroy relation "riak:ring": is a peer relation`)
 	assertOneRelation(c, riak, 0, riakEP)
 
 	// Check that it is destroyed when the application is destroyed.
-	err = riak.Destroy()
+	err = riak.Destroy(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	assertNoRelations(c, riak)
 	err = rel.Refresh()
@@ -431,7 +431,7 @@ func (s *RelationSuite) assertDestroyCrossModelRelation(c *gc.C, appStatus *stat
 
 	err = rel.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
-	err = rel.Destroy()
+	err = rel.Destroy(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = rel.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
@@ -784,7 +784,7 @@ func (s *RelationSuite) TestWatchLifeSuspendedStatus(c *gc.C) {
 
 	err = rel.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
-	err = rel.Destroy()
+	err = rel.Destroy(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(rel.Tag().Id())
 	wc.AssertNoChange()
@@ -804,7 +804,7 @@ func (s *RelationSuite) TestWatchLifeSuspendedStatusDead(c *gc.C) {
 	wc := testing.NewStringsWatcherC(c, w)
 	wc.AssertChange(rel.Tag().Id())
 
-	err = rel.Destroy()
+	err = rel.Destroy(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(rel.Tag().Id())
 	wc.AssertNoChange()
@@ -1114,7 +1114,7 @@ func (s *RelationSuite) TestDestroyForceSchedulesCleanupForStuckUnits(c *gc.C) {
 	// retrieving it.
 	unit, err := s.State.Unit("mysql/0")
 	c.Assert(err, jc.ErrorIsNil)
-	err = unit.Destroy()
+	err = unit.Destroy(state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.Refresh()
 	c.Assert(err, jc.ErrorIs, errors.NotFound)

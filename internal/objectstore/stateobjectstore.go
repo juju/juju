@@ -12,7 +12,7 @@ import (
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/objectstore"
-	"github.com/juju/juju/state/storage"
+	"github.com/juju/juju/internal/objectstore/state"
 )
 
 // Logger represents the logging methods called.
@@ -65,21 +65,29 @@ func NewStateObjectStore(ctx context.Context, namespace string, mongoSession Mon
 // model.
 func (t *stateObjectStore) Get(ctx context.Context, path string) (io.ReadCloser, int64, error) {
 	session := t.session.MongoSession()
-	store := storage.NewStorage(t.namespace, session)
+	store := state.NewStorage(t.namespace, session)
 	return store.Get(path)
 }
 
 // Put stores data from reader at path, namespaced to the model.
 func (t *stateObjectStore) Put(ctx context.Context, path string, r io.Reader, size int64) error {
 	session := t.session.MongoSession()
-	store := storage.NewStorage(t.namespace, session)
+	store := state.NewStorage(t.namespace, session)
 	return store.Put(path, r, size)
+}
+
+// Put stores data from reader at path, namespaced to the model.
+// It also ensures the stored data has the correct hash.
+func (t *stateObjectStore) PutAndCheckHash(ctx context.Context, path string, r io.Reader, size int64, hash string) error {
+	session := t.session.MongoSession()
+	store := state.NewStorage(t.namespace, session)
+	return store.PutAndCheckHash(path, r, size, hash)
 }
 
 // Remove removes data at path, namespaced to the model.
 func (t *stateObjectStore) Remove(ctx context.Context, path string) error {
 	session := t.session.MongoSession()
-	store := storage.NewStorage(t.namespace, session)
+	store := state.NewStorage(t.namespace, session)
 	return store.Remove(path)
 }
 

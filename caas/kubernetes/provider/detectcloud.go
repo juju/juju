@@ -18,7 +18,7 @@ func (p kubernetesEnvironProvider) DetectClouds() ([]cloud.Cloud, error) {
 
 	localKubeConfigClouds, err := localKubeConfigClouds()
 	if err != nil {
-		return clouds, errors.Annotate(err, "detecing local kube config clouds")
+		return clouds, errors.Annotate(err, "detecting local kube config clouds")
 	}
 	clouds = append(clouds, localKubeConfigClouds...)
 
@@ -62,7 +62,7 @@ func (p kubernetesEnvironProvider) DetectCloud(name string) (cloud.Cloud, error)
 
 	localKubeConfigClouds, err := localKubeConfigClouds()
 	if err != nil {
-		return cloud.Cloud{}, errors.Annotatef(err, "detecing local kube config clouds for %s", name)
+		return cloud.Cloud{}, errors.Annotatef(err, "detecting local kube config clouds for %s", name)
 	}
 
 	for _, cloud := range localKubeConfigClouds {
