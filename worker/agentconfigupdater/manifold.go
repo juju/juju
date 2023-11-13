@@ -147,6 +147,10 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			configOpenTelemetryStackTraces := controllerConfig.OpenTelemetryStackTraces()
 			openTelemetryStackTracesChanged := agentsOpenTelemetryStackTraces != configOpenTelemetryStackTraces
 
+			agentsOpenTelemetrySampleRatio := currentConfig.OpenTelemetrySampleRatio()
+			configOpenTelemetrySampleRatio := controllerConfig.OpenTelemetrySampleRatio()
+			openTelemetrySampleRatioChanged := agentsOpenTelemetrySampleRatio != configOpenTelemetrySampleRatio
+
 			info, err := apiState.StateServingInfo()
 			if err != nil {
 				return nil, errors.Annotate(err, "getting state serving info")
@@ -197,6 +201,10 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 					logger.Debugf("setting open telemetry stack trace: %t => %t", agentsOpenTelemetryStackTraces, configOpenTelemetryStackTraces)
 					config.SetOpenTelemetryStackTraces(configOpenTelemetryStackTraces)
 				}
+				if openTelemetrySampleRatioChanged {
+					logger.Debugf("setting open telemetry sample ratio: %f => %f", agentsOpenTelemetrySampleRatio, configOpenTelemetrySampleRatio)
+					config.SetOpenTelemetrySampleRatio(configOpenTelemetrySampleRatio)
+				}
 
 				return nil
 			})
@@ -229,6 +237,9 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			} else if openTelemetryStackTracesChanged {
 				logger.Infof("restarting agent for new open telemetry stack traces")
 				return nil, jworker.ErrRestartAgent
+			} else if openTelemetrySampleRatioChanged {
+				logger.Infof("restarting agent for new open telemetry sample ratio")
+				return nil, jworker.ErrRestartAgent
 			}
 
 			// Only get the hub if we are a controller and we haven't updated
@@ -250,6 +261,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				OpenTelemetryEndpoint:    configOpenTelemetryEndpoint,
 				OpenTelemetryInsecure:    configOpenTelemetryInsecure,
 				OpenTelemetryStackTraces: configOpenTelemetryStackTraces,
+				OpenTelemetrySampleRatio: configOpenTelemetrySampleRatio,
 				Logger:                   config.Logger,
 			})
 		},

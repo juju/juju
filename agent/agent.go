@@ -311,6 +311,10 @@ type Config interface {
 	// for each span.
 	OpenTelemetryStackTraces() bool
 
+	// OpenTelemetrySampleRatio returns the sample ratio to use for open
+	// telemetry collection.
+	OpenTelemetrySampleRatio() float64
+
 	// DqlitePort returns the port that should be used by Dqlite. This should
 	// only be set during testing.
 	DqlitePort() (int, bool)
@@ -382,6 +386,10 @@ type configSetterOnly interface {
 	// SetOpenTelemetryStackTraces sets the debug stack traces should be
 	// enabled for each span.
 	SetOpenTelemetryStackTraces(bool)
+
+	// SetOpenTelemetrySampleRatio sets the sample ratio to use for open
+	// telemetry collection.
+	SetOpenTelemetrySampleRatio(float64)
 }
 
 // LogFileName returns the filename for the Agent's log file.
@@ -463,6 +471,7 @@ type configInternal struct {
 	openTelemetryEndpoint    string
 	openTelemetryInsecure    bool
 	openTelemetryStackTraces bool
+	openTelemetrySampleRatio float64
 	dqlitePort               int
 }
 
@@ -490,6 +499,7 @@ type AgentConfigParams struct {
 	OpenTelemetryEndpoint    string
 	OpenTelemetryInsecure    bool
 	OpenTelemetryStackTraces bool
+	OpenTelemetrySampleRatio float64
 	DqlitePort               int
 }
 
@@ -560,6 +570,7 @@ func NewAgentConfig(configParams AgentConfigParams) (ConfigSetterWriter, error) 
 		openTelemetryEndpoint:    configParams.OpenTelemetryEndpoint,
 		openTelemetryInsecure:    configParams.OpenTelemetryInsecure,
 		openTelemetryStackTraces: configParams.OpenTelemetryStackTraces,
+		openTelemetrySampleRatio: configParams.OpenTelemetrySampleRatio,
 		dqlitePort:               configParams.DqlitePort,
 	}
 	if len(configParams.APIAddresses) > 0 {
@@ -938,9 +949,19 @@ func (c *configInternal) OpenTelemetryStackTraces() bool {
 	return c.openTelemetryStackTraces
 }
 
-// SetopenTelemetryStackTraces implements configSetterOnly.
+// SetOpenTelemetryStackTraces implements configSetterOnly.
 func (c *configInternal) SetOpenTelemetryStackTraces(v bool) {
 	c.openTelemetryStackTraces = v
+}
+
+// OpenTelemetrySampleRatio implements Config.
+func (c *configInternal) OpenTelemetrySampleRatio() float64 {
+	return c.openTelemetrySampleRatio
+}
+
+// SetOpenTelemetryStackTraces implements configSetterOnly.
+func (c *configInternal) SetOpenTelemetrySampleRatio(v float64) {
+	c.openTelemetrySampleRatio = v
 }
 
 var validAddr = regexp.MustCompile("^.+:[0-9]+$")

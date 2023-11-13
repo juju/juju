@@ -88,7 +88,9 @@ func WithTraceScope(ctx context.Context, traceID, spanID string, flags int) cont
 	return context.WithValue(ctx, traceIDContextKey, traceID)
 }
 
-// ScopeFromContext returns the traceID and spanID from the context.
+// ScopeFromContext returns the traceID, spanID and the flags from the context.
+// Both traceID and spanID can be in the form of a hex string or a raw
+// string.
 func ScopeFromContext(ctx context.Context) (string, string, int) {
 	traceID, _ := ctx.Value(traceIDContextKey).(string)
 	spanID, _ := ctx.Value(spanIDContextKey).(string)
@@ -150,4 +152,9 @@ func (NoopScope) SpanID() string {
 // TraceFlags returns the trace flags of the span.
 func (NoopScope) TraceFlags() int {
 	return 0
+}
+
+// IsSampled returns if the span is sampled.
+func (NoopScope) IsSampled() bool {
+	return false
 }

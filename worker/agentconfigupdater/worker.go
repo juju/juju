@@ -30,6 +30,7 @@ type WorkerConfig struct {
 	OpenTelemetryEndpoint    string
 	OpenTelemetryInsecure    bool
 	OpenTelemetryStackTraces bool
+	OpenTelemetrySampleRatio float64
 	Logger                   Logger
 }
 
@@ -59,6 +60,7 @@ type agentConfigUpdater struct {
 	openTelemetryEndpoint    string
 	openTelemetryInsecure    bool
 	openTelemetryStackTraces bool
+	openTelemetrySampleRatio float64
 }
 
 // NewWorker creates a new agent config updater worker.
@@ -78,6 +80,7 @@ func NewWorker(config WorkerConfig) (worker.Worker, error) {
 		openTelemetryEndpoint:    config.OpenTelemetryEndpoint,
 		openTelemetryInsecure:    config.OpenTelemetryInsecure,
 		openTelemetryStackTraces: config.OpenTelemetryStackTraces,
+		openTelemetrySampleRatio: config.OpenTelemetrySampleRatio,
 	}
 	w.tomb.Go(func() error {
 		return w.loop(started)
@@ -135,6 +138,9 @@ func (w *agentConfigUpdater) onConfigChanged(topic string, data controllermsg.Co
 	openTelemetryStackTraces := data.Config.OpenTelemetryStackTraces()
 	openTelemetryStackTracesChanged := openTelemetryStackTraces != w.openTelemetryStackTraces
 
+	openTelemetrySampleRatio := data.Config.OpenTelemetrySampleRatio()
+	openTelemetrySampleRatioChanged := openTelemetrySampleRatio != w.openTelemetrySampleRatio
+
 	changeDetected := mongoProfileChanged ||
 		jujuDBSnapChannelChanged ||
 		queryTracingEnabledChanged ||
@@ -142,8 +148,8 @@ func (w *agentConfigUpdater) onConfigChanged(topic string, data controllermsg.Co
 		openTelemetryEnabledChanged ||
 		openTelemetryEndpointChanged ||
 		openTelemetryInsecureChanged ||
-		openTelemetryStackTracesChanged
-
+		openTelemetryStackTracesChanged ||
+		openTelemetrySampleRatioChanged
 	if !changeDetected {
 		// Nothing to do, all good.
 		return
@@ -181,6 +187,10 @@ func (w *agentConfigUpdater) onConfigChanged(topic string, data controllermsg.Co
 		if openTelemetryStackTracesChanged {
 			w.config.Logger.Debugf("setting agent config open telemetry stack traces: %v => %v", w.openTelemetryStackTraces, openTelemetryStackTraces)
 			setter.SetOpenTelemetryStackTraces(openTelemetryStackTraces)
+		}
+		if openTelemetrySampleRatioChanged {
+			w.config.Logger.Debugf("setting agent config open telemetry sample ratio: %v => %v", w.openTelemetrySampleRatio, openTelemetrySampleRatio)
+			setter.SetOpenTelemetrySampleRatio(openTelemetrySampleRatio)
 		}
 		return nil
 	})

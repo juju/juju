@@ -62,6 +62,7 @@ var configChecker = schema.FieldMap(schema.Fields{
 	OpenTelemetryEndpoint:            schema.String(),
 	OpenTelemetryInsecure:            schema.Bool(),
 	OpenTelemetryStackTraces:         schema.Bool(),
+	OpenTelemetrySampleRatio:         schema.String(),
 	ObjectStoreType:                  schema.String(),
 }, schema.Defaults{
 	AgentRateLimitMax:                schema.Omit,
@@ -114,6 +115,7 @@ var configChecker = schema.FieldMap(schema.Fields{
 	OpenTelemetryEndpoint:            schema.Omit,
 	OpenTelemetryInsecure:            DefaultOpenTelemetryInsecure,
 	OpenTelemetryStackTraces:         DefaultOpenTelemetryStackTraces,
+	OpenTelemetrySampleRatio:         fmt.Sprintf("%.02f", DefaultOpenTelemetrySampleRatio),
 	ObjectStoreType:                  schema.Omit,
 })
 
@@ -327,6 +329,10 @@ will be output if tracing is enabled.`,
 	OpenTelemetryStackTraces: {
 		Type:        environschema.Tbool,
 		Description: `Allows stack traces open telemetry tracing per span`,
+	},
+	OpenTelemetrySampleRatio: {
+		Type:        environschema.Tstring,
+		Description: `Allows defining a sample ratio open telemetry tracing`,
 	},
 	ObjectStoreType: {
 		Type:        environschema.Tstring,

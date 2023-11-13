@@ -194,6 +194,7 @@ func (s *AgentSuite) PrimeAgentVersion(c *gc.C, tag names.Tag, password string, 
 			OpenTelemetryEndpoint:    "",
 			OpenTelemetryInsecure:    controller.DefaultOpenTelemetryInsecure,
 			OpenTelemetryStackTraces: controller.DefaultOpenTelemetryStackTraces,
+			OpenTelemetrySampleRatio: controller.DefaultOpenTelemetrySampleRatio,
 
 			DqlitePort: dqlitePort,
 		},
@@ -275,6 +276,7 @@ func (s *AgentSuite) WriteStateAgentConfig(
 			OpenTelemetryEndpoint:    "",
 			OpenTelemetryInsecure:    controller.DefaultOpenTelemetryInsecure,
 			OpenTelemetryStackTraces: controller.DefaultOpenTelemetryStackTraces,
+			OpenTelemetrySampleRatio: controller.DefaultOpenTelemetrySampleRatio,
 
 			DqlitePort: dqlitePort,
 		},

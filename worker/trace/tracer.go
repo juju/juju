@@ -66,7 +66,7 @@ type ClientTracerProvider interface {
 }
 
 // NewClientFunc is the function signature for creating a new client.
-type NewClientFunc func(context.Context, coretrace.TaggedTracerNamespace, string, bool) (Client, ClientTracerProvider, ClientTracer, error)
+type NewClientFunc func(context.Context, coretrace.TaggedTracerNamespace, string, bool, float64) (Client, ClientTracerProvider, ClientTracer, error)
 
 type tracer struct {
 	tomb tomb.Tomb
@@ -86,10 +86,11 @@ func NewTracerWorker(
 	endpoint string,
 	insecureSkipVerify bool,
 	stackTracesEnabled bool,
+	sampleRatio float64,
 	logger Logger,
 	newClient NewClientFunc,
 ) (TrackedTracer, error) {
-	client, clientProvider, clientTracer, err := newClient(ctx, namespace, endpoint, insecureSkipVerify)
+	client, clientProvider, clientTracer, err := newClient(ctx, namespace, endpoint, insecureSkipVerify, sampleRatio)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -146,10 +147,8 @@ func (t *tracer) Start(ctx context.Context, name string, opts ...coretrace.Optio
 
 	ctx, span = t.clientTracer.Start(ctx, name, trace.WithAttributes(attrs...))
 
-	if t.logger.IsTraceEnabled() {
-		spanContext := span.SpanContext()
-		t.logger.Tracef("SpanContext: span-id %s, trace-id %s", spanContext.SpanID(), spanContext.TraceID())
-	}
+	spanContext := span.SpanContext()
+	t.logger.Debugf("SpanContext: trace-id %s, span-id %s, sampled: %t", spanContext.TraceID(), spanContext.SpanID(), spanContext.IsSampled())
 
 	managed := &managedSpan{
 		span:               span,
@@ -209,18 +208,18 @@ func (w *tracer) scopedContext(ctx context.Context) (context.Context, context.Ca
 
 // buildRequestContext returns a context that may contain a remote span context.
 func (t *tracer) buildRequestContext(ctx context.Context) context.Context {
-	traceID, spanID, flags := coretrace.ScopeFromContext(ctx)
-	if traceID == "" || spanID == "" {
+	traceHex, spanHex, flags := coretrace.ScopeFromContext(ctx)
+	if traceHex == "" || spanHex == "" {
 		return ctx
 	}
-	traceHex, err := trace.TraceIDFromHex(traceID)
+	traceID, err := trace.TraceIDFromHex(traceHex)
 	if err != nil {
 		// There is clearly something wrong with the trace ID, so we
 		// should remove it from all future requests. That way we don't attempt
 		// to parse it again.
 		return coretrace.WithTraceScope(ctx, "", "", 0)
 	}
-	spanHex, err := trace.SpanIDFromHex(spanID)
+	spanID, err := trace.SpanIDFromHex(spanHex)
 	if err != nil {
 		// There is clearly something wrong with the span ID, so we
 		// should remove it from all future requests. That way we don't attempt
@@ -233,8 +232,8 @@ func (t *tracer) buildRequestContext(ctx context.Context) context.Context {
 
 	// It might be wise to encode more additional information into the context.
 	sc := trace.NewSpanContext(trace.SpanContextConfig{
-		TraceID:    traceHex,
-		SpanID:     spanHex,
+		TraceID:    traceID,
+		SpanID:     spanID,
 		TraceFlags: traceFlags,
 	})
 
@@ -246,7 +245,7 @@ func (t *tracer) buildRequestContext(ctx context.Context) context.Context {
 }
 
 // NewClient returns a new tracing client.
-func NewClient(ctx context.Context, namespace coretrace.TaggedTracerNamespace, endpoint string, insecureSkipVerify bool) (Client, ClientTracerProvider, ClientTracer, error) {
+func NewClient(ctx context.Context, namespace coretrace.TaggedTracerNamespace, endpoint string, insecureSkipVerify bool, sampleRatio float64) (Client, ClientTracerProvider, ClientTracer, error) {
 	options := []otlptracegrpc.Option{
 		otlptracegrpc.WithEndpoint(endpoint),
 	}
@@ -261,10 +260,10 @@ func NewClient(ctx context.Context, namespace coretrace.TaggedTracerNamespace, e
 	}
 
 	tp := sdktrace.NewTracerProvider(
+		sdktrace.WithSampler(sdktrace.TraceIDRatioBased(sampleRatio)),
 		sdktrace.WithBatcher(exporter),
 		sdktrace.WithResource(newResource(namespace.ServiceName())),
 	)
-
 	return client, tp, tp.Tracer(namespace.String()), nil
 }
 
@@ -340,6 +339,11 @@ func (s managedScope) SpanID() string {
 // TraceFlags returns the trace flags of the span.
 func (s managedScope) TraceFlags() int {
 	return int(s.span.SpanContext().TraceFlags())
+}
+
+// IsSampled returns if the span is sampled.
+func (s managedScope) IsSampled() bool {
+	return s.span.SpanContext().IsSampled()
 }
 
 // limitedSpan prevents you shooting yourself in the foot by ending a span that

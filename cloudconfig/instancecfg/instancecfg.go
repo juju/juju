@@ -504,6 +504,7 @@ func (cfg *InstanceConfig) AgentConfig(
 		configParams.OpenTelemetryEndpoint = cfg.ControllerConfig.OpenTelemetryEndpoint()
 		configParams.OpenTelemetryInsecure = cfg.ControllerConfig.OpenTelemetryInsecure()
 		configParams.OpenTelemetryStackTraces = cfg.ControllerConfig.OpenTelemetryStackTraces()
+		configParams.OpenTelemetrySampleRatio = cfg.ControllerConfig.OpenTelemetrySampleRatio()
 	}
 	if cfg.Bootstrap == nil {
 		return agent.NewAgentConfig(configParams)

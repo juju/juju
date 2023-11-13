@@ -206,10 +206,10 @@ func (s *tracerSuite) TestBuildRequestContext(c *gc.C) {
 
 func (s *tracerSuite) newTracer(c *gc.C) TrackedTracer {
 	ns := coretrace.Namespace("agent", "controller").WithTag(names.NewMachineTag("0"))
-	newClient := func(context.Context, coretrace.TaggedTracerNamespace, string, bool) (Client, ClientTracerProvider, ClientTracer, error) {
+	newClient := func(context.Context, coretrace.TaggedTracerNamespace, string, bool, float64) (Client, ClientTracerProvider, ClientTracer, error) {
 		return s.client, s.clientTracerProvider, s.clientTracer, nil
 	}
-	tracer, err := NewTracerWorker(context.Background(), ns, "http://meshuggah.com", false, false, s.logger, newClient)
+	tracer, err := NewTracerWorker(context.Background(), ns, "http://meshuggah.com", false, false, 0.42, s.logger, newClient)
 	c.Assert(err, jc.ErrorIsNil)
 	return tracer
 }

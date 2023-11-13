@@ -45,6 +45,7 @@ type WorkerConfig struct {
 	Endpoint           string
 	InsecureSkipVerify bool
 	StackTracesEnabled bool
+	SampleRatio        float64
 }
 
 // Validate ensures that the config values are valid.
@@ -257,6 +258,7 @@ func (w *tracerWorker) initTracer(namespace coretrace.TaggedTracerNamespace) err
 			w.cfg.Endpoint,
 			w.cfg.InsecureSkipVerify,
 			w.cfg.StackTracesEnabled,
+			w.cfg.SampleRatio,
 			w.cfg.Logger,
 			NewClient,
 		)

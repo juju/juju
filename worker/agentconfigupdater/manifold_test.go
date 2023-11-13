@@ -153,6 +153,7 @@ func (s *AgentConfigUpdaterSuite) TestCentralHubMissing(c *gc.C) {
 						controller.OpenTelemetryEnabled:     controller.DefaultOpenTelemetryEnabled,
 						controller.OpenTelemetryInsecure:    controller.DefaultOpenTelemetryInsecure,
 						controller.OpenTelemetryStackTraces: controller.DefaultOpenTelemetryStackTraces,
+						controller.OpenTelemetrySampleRatio: controller.DefaultOpenTelemetrySampleRatio,
 					},
 				}
 			default:
@@ -245,6 +246,7 @@ func (s *AgentConfigUpdaterSuite) startManifold(c *gc.C, a agent.Agent, mockAPIP
 						controller.OpenTelemetryEnabled:     controller.DefaultOpenTelemetryEnabled,
 						controller.OpenTelemetryInsecure:    controller.DefaultOpenTelemetryInsecure,
 						controller.OpenTelemetryStackTraces: controller.DefaultOpenTelemetryStackTraces,
+						controller.OpenTelemetrySampleRatio: controller.DefaultOpenTelemetrySampleRatio,
 					},
 				}
 			default:
@@ -393,6 +395,9 @@ type mockConfig struct {
 
 	openTelemetryStackTraces    bool
 	openTelemetryStackTracesSet bool
+
+	openTelemetrySampleRatio    float64
+	openTelemetrySampleRatioSet bool
 }
 
 func (mc *mockConfig) Tag() names.Tag {
@@ -494,6 +499,15 @@ func (mc *mockConfig) OpenTelemetryStackTraces() bool {
 func (mc *mockConfig) SetOpenTelemetryStackTraces(enabled bool) {
 	mc.openTelemetryStackTraces = enabled
 	mc.openTelemetryStackTracesSet = true
+}
+
+func (mc *mockConfig) OpenTelemetrySampleRatio() float64 {
+	return mc.openTelemetrySampleRatio
+}
+
+func (mc *mockConfig) SetOpenTelemetrySampleRatio(enabled float64) {
+	mc.openTelemetrySampleRatio = enabled
+	mc.openTelemetrySampleRatioSet = true
 }
 
 func (mc *mockConfig) LogDir() string {

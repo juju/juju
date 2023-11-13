@@ -49,7 +49,7 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		AgentName: "agent",
 		Clock:     s.clock,
 		Logger:    s.logger,
-		NewTracerWorker: func(context.Context, coretrace.TaggedTracerNamespace, string, bool, bool, Logger, NewClientFunc) (TrackedTracer, error) {
+		NewTracerWorker: func(context.Context, coretrace.TaggedTracerNamespace, string, bool, bool, float64, Logger, NewClientFunc) (TrackedTracer, error) {
 			return nil, nil
 		},
 	}

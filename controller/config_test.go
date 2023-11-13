@@ -382,6 +382,12 @@ var newConfigTests = []struct {
 	},
 	expectError: `open-telemetry-stack-traces: expected bool, got string\("invalid"\)`,
 }, {
+	about: "invalid open telemetry tracing sample ratio value",
+	config: controller.Config{
+		controller.OpenTelemetrySampleRatio: "invalid",
+	},
+	expectError: `open-telemetry-sample-ratio: strconv.ParseFloat: parsing "invalid": invalid syntax`,
+}, {
 	about: "invalid object store type value",
 	config: controller.Config{
 		controller.ObjectStoreType: "invalid",
@@ -979,6 +985,18 @@ func (s *ConfigSuite) TestOpenTelemetryEndpointSettingValue(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.OpenTelemetryEndpoint(), gc.Equals, mURL)
+}
+
+func (s *ConfigSuite) TestOpenTelemetrySampleRatio(c *gc.C) {
+	cfg, err := controller.NewConfig(
+		testing.ControllerTag.Id(),
+		testing.CACert, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(cfg.OpenTelemetrySampleRatio(), gc.Equals, controller.DefaultOpenTelemetrySampleRatio)
+
+	cfg[controller.OpenTelemetrySampleRatio] = 0.42
+	c.Assert(cfg.OpenTelemetrySampleRatio(), gc.Equals, 0.42)
 }
 
 func (s *ConfigSuite) TestObjectStoreType(c *gc.C) {
