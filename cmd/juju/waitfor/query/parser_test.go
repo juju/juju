@@ -370,8 +370,9 @@ func (p *parserSuite) TestParserInfixLambda(c *gc.C) {
 	})
 }
 
-func Fuzz(f *testing.F) {
+func FuzzLexerParser(f *testing.F) {
 	readCorpus(f)
+
 	f.Fuzz(func(t *testing.T, value string) {
 		lex := NewLexer(value)
 		parser := NewParser(lex)
@@ -380,6 +381,8 @@ func Fuzz(f *testing.F) {
 }
 
 func readCorpus(f *testing.F) {
+	f.Helper()
+
 	file, err := os.Open("./testfiles/success")
 	if err != nil {
 		f.Fatalf("unable to read file")
