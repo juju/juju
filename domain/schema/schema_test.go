@@ -88,6 +88,12 @@ func (s *schemaSuite) TestControllerDDLApply(c *gc.C) {
 		"upgrade_info_controller_node",
 		"upgrade_state_type",
 
+		// Users
+		"user",
+		"user_authentication",
+		"user_password",
+		"user_activation_key",
+
 		// Object store metadata
 		"object_store_metadata",
 		"object_store_metadata_path",

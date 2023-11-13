@@ -46,6 +46,7 @@ func ControllerDDL() *schema.Schema {
 		changeLogTriggersForTable("upgrade_info", "uuid", tableUpgradeInfo),
 		changeLogTriggersForTable("upgrade_info_controller_node", "upgrade_info_uuid", tableUpgradeInfoControllerNode),
 		autocertCacheSchema,
+		userSchema,
 		objectStoreMetadataSchema,
 	}
 
@@ -532,4 +533,47 @@ CREATE TABLE autocert_cache_encoding (
 INSERT INTO autocert_cache_encoding VALUES
     (0, 'x509');    -- Only x509 certs encoding supported today.
 `)
+}
+
+func userSchema() schema.Patch {
+	return schema.MakePatch(`
+CREATE TABLE user (
+    uuid            TEXT PRIMARY KEY,
+    name            TEXT NOT NULL,
+    display_name    TEXT,
+    removed         BOOLEAN NOT NULL,
+    created_by_uuid TEXT,
+    created_at      TIMESTAMP NOT NULL,
+    CONSTRAINT      fk_user_created_by_user
+        FOREIGN KEY (created_by_uuid)
+    REFERENCES      user(uuid)
+);
+
+CREATE UNIQUE INDEX idx_singleton_active_user ON user (name) WHERE removed IS FALSE;
+
+CREATE TABLE user_authentication (
+    user_uuid      TEXT PRIMARY KEY,
+    last_login     TIMESTAMP NOT NULL,
+    disabled       BOOLEAN NOT NULL,
+    CONSTRAINT     fk_user_authentication_user
+        FOREIGN KEY (user_uuid)
+    REFERENCES     user(uuid)
+);
+
+CREATE TABLE user_password (
+    user_uuid       TEXT PRIMARY KEY,
+    password_hash   TEXT NOT NULL,
+    password_salt   TEXT NOT NULL,
+    CONSTRAINT      fk_user_password_user
+        FOREIGN KEY (user_uuid)
+    REFERENCES      user_authentication(user_uuid)
+);
+
+CREATE TABLE user_activation_key (
+    user_uuid       TEXT PRIMARY KEY,
+    activation_key  TEXT NOT NULL,
+    CONSTRAINT      fk_user_activation_key_user
+        FOREIGN KEY (user_uuid)
+    REFERENCES      user_authentication(user_uuid)
+);`)
 }
