@@ -24,7 +24,6 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/migrationmaster/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/facades"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/presence"
@@ -598,7 +597,6 @@ func (s *Suite) makeAPI() (*migrationmaster.API, error) {
 		&stubPresence{},
 		func(names.ModelTag) (environscloudspec.CloudSpec, error) { return s.cloudSpec, nil },
 		stubLeadership{},
-		facades.FacadeVersions{},
 	)
 }
 

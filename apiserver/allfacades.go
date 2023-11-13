@@ -45,12 +45,9 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/action"
 	"github.com/juju/juju/apiserver/facades/client/annotations" // ModelUser Write
 	"github.com/juju/juju/apiserver/facades/client/application"
-	"github.com/juju/juju/core/facades"
-
-	// ModelUser Write
-	"github.com/juju/juju/apiserver/facades/client/applicationoffers"
-	"github.com/juju/juju/apiserver/facades/client/backups" // ModelUser Write
-	"github.com/juju/juju/apiserver/facades/client/block"   // ModelUser Write
+	"github.com/juju/juju/apiserver/facades/client/applicationoffers" // ModelUser Write
+	"github.com/juju/juju/apiserver/facades/client/backups"           // ModelUser Write
+	"github.com/juju/juju/apiserver/facades/client/block"             // ModelUser Write
 	"github.com/juju/juju/apiserver/facades/client/bundle"
 	"github.com/juju/juju/apiserver/facades/client/charms"     // ModelUser Write
 	"github.com/juju/juju/apiserver/facades/client/client"     // ModelUser Write
@@ -109,6 +106,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/singular"
 	"github.com/juju/juju/apiserver/facades/controller/statushistory"
 	"github.com/juju/juju/apiserver/facades/controller/undertaker"
+	"github.com/juju/juju/core/facades"
 )
 
 // requiredMigrationFacadeVersions returns the facade versions that
@@ -119,56 +117,60 @@ import (
 // A lot of the agent facades aren't actually required, but they are
 // included here to keep the agent alive during migration.
 func requiredMigrationFacadeVersions() facades.FacadeVersions {
-	return facades.FacadeVersions{}.Add(
-		// Client and modelmanager facades are required for the migration
-		// master to function correctly. Missing a model manager causes the
-		// status to error out.
-		client.FacadesVersions(),
-		modelmanager.FacadesVersions(),
+	registry := new(facade.Registry)
 
-		// The following are required to keep the agent alive during
-		// migration.
-		agent.FacadesVersions(),
-		caasadmission.FacadesVersions(),
-		caasagent.FacadesVersions(),
-		caasapplication.FacadesVersions(),
-		caasoperator.FacadesVersions(),
-		credentialvalidator.FacadesVersions(),
-		deployer.FacadesVersions(),
-		diskmanager.FacadesVersions(),
-		fanconfigurer.FacadesVersions(),
-		hostkeyreporter.FacadesVersions(),
-		instancemutater.FacadesVersions(),
-		keyupdater.FacadesVersions(),
-		leadership.FacadesVersions(),
-		agentlifeflag.FacadesVersions(),
-		loggerapi.FacadesVersions(),
-		machine.FacadesVersions(),
-		machineactions.FacadesVersions(),
-		meterstatus.FacadesVersions(),
-		metricsadder.FacadesVersions(),
-		migrationflag.FacadesVersions(),
-		migrationminion.FacadesVersions(),
-		payloadshookcontext.FacadesVersions(),
-		provisioner.FacadesVersions(),
-		proxyupdater.FacadesVersions(),
-		reboot.FacadesVersions(),
-		resourceshookcontext.FacadesVersions(),
-		retrystrategy.FacadesVersions(),
-		secretsdrain.FacadesVersions(),
-		secretsmanager.FacadesVersions(),
-		storageprovisioner.FacadesVersions(),
-		unitassigner.FacadesVersions(),
-		uniter.FacadesVersions(),
-		upgrader.FacadesVersions(),
-		upgradeseries.FacadesVersions(),
-		upgradesteps.FacadesVersions(),
+	// Client and modelmanager facades are required for the migration
+	// master to function correctly. Missing a model manager causes the
+	// status to error out.
+	client.Register(registry)
+	modelmanager.Register(registry)
 
-		facades.NamedFacadeVersion{
-			Name:     "Pinger",
-			Versions: facades.FacadeVersion{1},
-		},
-	)
+	// The following are required to keep the agent alive during
+	// migration.
+	agent.Register(registry)
+	caasadmission.Register(registry)
+	caasagent.Register(registry)
+	caasapplication.Register(registry)
+	caasoperator.Register(registry)
+	credentialvalidator.Register(registry)
+	deployer.Register(registry)
+	diskmanager.Register(registry)
+	fanconfigurer.Register(registry)
+	hostkeyreporter.Register(registry)
+	instancemutater.Register(registry)
+	keyupdater.Register(registry)
+	leadership.Register(registry)
+	agentlifeflag.Register(registry)
+	loggerapi.Register(registry)
+	machine.Register(registry)
+	machineactions.Register(registry)
+	meterstatus.Register(registry)
+	metricsadder.Register(registry)
+	migrationflag.Register(registry)
+	migrationminion.Register(registry)
+	payloadshookcontext.Register(registry)
+	provisioner.Register(registry)
+	proxyupdater.Register(registry)
+	reboot.Register(registry)
+	resourceshookcontext.Register(registry)
+	retrystrategy.Register(registry)
+	secretsdrain.Register(registry)
+	secretsmanager.Register(registry)
+	storageprovisioner.Register(registry)
+	unitassigner.Register(registry)
+	uniter.Register(registry)
+	upgrader.Register(registry)
+	upgradeseries.Register(registry)
+	upgradesteps.Register(registry)
+
+	registerWatchers(registry)
+
+	list := registry.List()
+	versions := make(facades.FacadeVersions, len(list))
+	for _, details := range list {
+		versions[details.Name] = details.Versions
+	}
+	return versions
 }
 
 // AllFacades returns a registry containing all known API facades.
@@ -244,9 +246,9 @@ func AllFacades() *facade.Registry {
 	metricsdebug.Register(registry)
 	metricsmanager.Register(registry)
 	migrationflag.Register(registry)
-	migrationmaster.Register(requiredMigrationFacadeVersions())(registry)
+	migrationmaster.Register(registry)
 	migrationminion.Register(registry)
-	migrationtarget.Register(registry)
+	migrationtarget.Register(requiredMigrationFacadeVersions())(registry)
 	modelconfig.Register(registry)
 	modelgeneration.Register(registry)
 	modelmanager.Register(registry)
@@ -281,6 +283,35 @@ func AllFacades() *facade.Registry {
 	upgradesteps.Register(registry)
 	usermanager.Register(registry)
 
+	registerWatchers(registry)
+
+	return registry
+}
+
+// adminAPIFactories holds methods used to create
+// admin APIs with specific versions.
+var adminAPIFactories = map[int]adminAPIFactory{
+	3: newAdminAPIV3,
+}
+
+// AdminFacadeDetails returns information on the Admin facade provided
+// at login time. The Facade field of the returned slice elements will
+// be nil.
+func AdminFacadeDetails() []facade.Details {
+	var fs []facade.Details
+	for v, f := range adminAPIFactories {
+		api := f(nil, nil, nil)
+		t := reflect.TypeOf(api)
+		fs = append(fs, facade.Details{
+			Name:    "Admin",
+			Version: v,
+			Type:    t,
+		})
+	}
+	return fs
+}
+
+func registerWatchers(registry *facade.Registry) {
 	// TODO (stickupkid): The following should be moved into a package.
 	registry.MustRegister("Pinger", 1, func(ctx facade.Context) (facade.Facade, error) {
 		return NewPinger(ctx)
@@ -307,29 +338,4 @@ func AllFacades() *facade.Registry {
 	registry.MustRegister("SecretsTriggerWatcher", 1, newSecretsTriggerWatcher, reflect.TypeOf((*srvSecretTriggerWatcher)(nil)))
 	registry.MustRegister("SecretBackendsRotateWatcher", 1, newSecretBackendsRotateWatcher, reflect.TypeOf((*srvSecretBackendsRotateWatcher)(nil)))
 	registry.MustRegister("SecretsRevisionWatcher", 1, newSecretsRevisionWatcher, reflect.TypeOf((*srvSecretsRevisionWatcher)(nil)))
-
-	return registry
-}
-
-// adminAPIFactories holds methods used to create
-// admin APIs with specific versions.
-var adminAPIFactories = map[int]adminAPIFactory{
-	3: newAdminAPIV3,
-}
-
-// AdminFacadeDetails returns information on the Admin facade provided
-// at login time. The Facade field of the returned slice elements will
-// be nil.
-func AdminFacadeDetails() []facade.Details {
-	var fs []facade.Details
-	for v, f := range adminAPIFactories {
-		api := f(nil, nil, nil)
-		t := reflect.TypeOf(api)
-		fs = append(fs, facade.Details{
-			Name:    "Admin",
-			Version: v,
-			Type:    t,
-		})
-	}
-	return fs
 }

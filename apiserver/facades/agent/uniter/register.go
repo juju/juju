@@ -15,17 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/agent/meterstatus"
 	"github.com/juju/juju/apiserver/facades/agent/secretsmanager"
-	"github.com/juju/juju/core/facades"
 )
-
-// FacadesVersions returns the versions of the facades that this package
-// implements.
-func FacadesVersions() facades.NamedFacadeVersion {
-	return facades.NamedFacadeVersion{
-		Name:     "Uniter",
-		Versions: facades.FacadeVersion{18, 19},
-	}
-}
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {

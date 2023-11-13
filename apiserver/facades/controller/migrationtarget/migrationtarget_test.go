@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/core/facades"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/environs"
@@ -104,11 +105,11 @@ func (s *Suite) TestNotControllerAdmin(c *gc.C) {
 	c.Assert(errors.Cause(err), gc.Equals, apiservererrors.ErrPerm)
 }
 
-func (s *Suite) importModel(c *gc.C, api *migrationtarget.API) names.ModelTag {
-	uuid, bytes := s.makeExportedModel(c)
-	err := api.Import(params.SerializedModel{Bytes: bytes})
+func (s *Suite) TestCACert(c *gc.C) {
+	api := s.mustNewAPI(c)
+	r, err := api.CACert()
 	c.Assert(err, jc.ErrorIsNil)
-	return names.NewModelTag(uuid)
+	c.Assert(string(r.Result), gc.Equals, jujutesting.CACert)
 }
 
 func (s *Suite) TestPrechecks(c *gc.C) {
@@ -124,13 +125,6 @@ func (s *Suite) TestPrechecks(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *Suite) TestCACert(c *gc.C) {
-	api := s.mustNewAPI(c)
-	r, err := api.CACert()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(r.Result), gc.Equals, jujutesting.CACert)
-}
-
 func (s *Suite) TestPrechecksFail(c *gc.C) {
 	controllerVersion := s.controllerVersion(c)
 
@@ -144,6 +138,41 @@ func (s *Suite) TestPrechecksFail(c *gc.C) {
 	}
 	err := api.Prechecks(args)
 	c.Assert(err, gc.NotNil)
+}
+
+func (s *Suite) TestPrechecksFacadeVersionsFail(c *gc.C) {
+	controllerVersion := s.controllerVersion(c)
+
+	api := s.mustNewAPIWithFacadeVersions(c, facades.FacadeVersions{
+		"MigrationTarget": []int{1},
+	})
+	args := params.MigrationModelInfo{
+		AgentVersion:           controllerVersion,
+		ControllerAgentVersion: controllerVersion,
+	}
+	err := api.Prechecks(args)
+	c.Assert(err, gc.ErrorMatches, `
+Source controller does not support required facades for performing migration.
+Upgrade the controller to a newer version of .* and try again.
+`[1:])
+}
+
+func (s *Suite) TestPrechecksFacadeVersionsWithPatchFail(c *gc.C) {
+	controllerVersion := s.controllerVersion(c)
+	controllerVersion.Patch++
+
+	api := s.mustNewAPIWithFacadeVersions(c, facades.FacadeVersions{
+		"MigrationTarget": []int{1},
+	})
+	args := params.MigrationModelInfo{
+		AgentVersion:           controllerVersion,
+		ControllerAgentVersion: controllerVersion,
+	}
+	err := api.Prechecks(args)
+	c.Assert(err, gc.ErrorMatches, `
+Source controller does not support required facades for performing migration.
+Upgrade the controller to a newer version of .* and try again.
+`[1:])
 }
 
 func (s *Suite) TestImport(c *gc.C) {
@@ -490,12 +519,23 @@ func (s *Suite) TestCheckMachinesManualCloud(c *gc.C) {
 }
 
 func (s *Suite) newAPI(environFunc stateenvirons.NewEnvironFunc, brokerFunc stateenvirons.NewCAASBrokerFunc) (*migrationtarget.API, error) {
-	api, err := migrationtarget.NewAPI(&s.facadeContext, environFunc, brokerFunc)
+	api, err := migrationtarget.NewAPI(&s.facadeContext, environFunc, brokerFunc, facades.FacadeVersions{})
 	return api, err
 }
 
 func (s *Suite) mustNewAPI(c *gc.C) *migrationtarget.API {
 	api, err := s.newAPI(nil, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	return api
+}
+
+func (s *Suite) newAPIWithFacadeVersions(environFunc stateenvirons.NewEnvironFunc, brokerFunc stateenvirons.NewCAASBrokerFunc, versions facades.FacadeVersions) (*migrationtarget.API, error) {
+	api, err := migrationtarget.NewAPI(&s.facadeContext, environFunc, brokerFunc, versions)
+	return api, err
+}
+
+func (s *Suite) mustNewAPIWithFacadeVersions(c *gc.C, versions facades.FacadeVersions) *migrationtarget.API {
+	api, err := s.newAPIWithFacadeVersions(nil, nil, versions)
 	c.Assert(err, jc.ErrorIsNil)
 	return api
 }
@@ -531,6 +571,13 @@ func (s *Suite) controllerVersion(c *gc.C) version.Number {
 	vers, ok := cfg.AgentVersion()
 	c.Assert(ok, jc.IsTrue)
 	return vers
+}
+
+func (s *Suite) importModel(c *gc.C, api *migrationtarget.API) names.ModelTag {
+	uuid, bytes := s.makeExportedModel(c)
+	err := api.Import(params.SerializedModel{Bytes: bytes})
+	c.Assert(err, jc.ErrorIsNil)
+	return names.NewModelTag(uuid)
 }
 
 type mockEnv struct {

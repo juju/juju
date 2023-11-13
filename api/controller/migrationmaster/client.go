@@ -18,7 +18,6 @@ import (
 	"gopkg.in/httprequest.v1"
 	"gopkg.in/macaroon.v2"
 
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/core/migration"
@@ -175,19 +174,7 @@ func (c *Client) SourceControllerInfo() (migration.SourceControllerInfo, []strin
 // Prechecks verifies that the source controller and model are healthy
 // and able to participate in a migration.
 func (c *Client) Prechecks() error {
-	// Pass all the known facade versions to the controller so that it
-	// can check that the target controller supports them. Passing all of them
-	// ensures that we don't have to update this code when new facades are
-	// added, or if the controller wants to change the logic service side.
-	supported := api.SupportedFacadeVersions()
-	versions := make(map[string][]int, len(supported))
-	for name, version := range supported {
-		versions[name] = version
-	}
-
-	return c.caller.FacadeCall("Prechecks", params.PrechecksArgs{
-		FacadeVersions: versions,
-	}, nil)
+	return c.caller.FacadeCall("Prechecks", params.PrechecksArgs{}, nil)
 }
 
 // Export returns a serialized representation of the model associated

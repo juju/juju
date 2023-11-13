@@ -3,7 +3,9 @@
 
 package facades
 
-import "github.com/juju/collections/set"
+import (
+	"github.com/juju/collections/set"
+)
 
 // FacadeVersion is a list of version numbers for a single facade.
 type FacadeVersion []int
@@ -42,6 +44,8 @@ func BestVersion(desired FacadeVersion, versions FacadeVersion) int {
 // CompleteIntersection returns true if the src and dest facades have a
 // complete intersection. This means that the dest facades support all of
 // the src facades.
+// src is the facades that are required, dest is the full set of facades
+// that are supported.
 func CompleteIntersection(src, dest FacadeVersions) bool {
 	for name, versions := range src {
 		if _, ok := dest[name]; !ok {
