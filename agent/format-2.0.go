@@ -218,7 +218,6 @@ func (formatter_2_0) marshal(config *configInternal) ([]byte, error) {
 		OpenTelemetryEnabled:     config.openTelemetryEnabled,
 		OpenTelemetryInsecure:    config.openTelemetryInsecure,
 		OpenTelemetryStackTraces: config.openTelemetryStackTraces,
-		OpenTelemetrySampleRatio: fmt.Sprintf("%.04f", config.openTelemetrySampleRatio),
 
 		DqlitePort: config.dqlitePort,
 	}
@@ -245,6 +244,9 @@ func (formatter_2_0) marshal(config *configInternal) ([]byte, error) {
 	}
 	if config.openTelemetryEndpoint != "" {
 		format.OpenTelemetryEndpoint = config.openTelemetryEndpoint
+	}
+	if config.openTelemetrySampleRatio != 0 {
+		format.OpenTelemetrySampleRatio = fmt.Sprintf("%.04f", config.openTelemetrySampleRatio)
 	}
 	return goyaml.Marshal(format)
 }

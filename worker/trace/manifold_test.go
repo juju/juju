@@ -95,4 +95,5 @@ func (s *manifoldSuite) expectOpenTelemetry() {
 	s.config.EXPECT().OpenTelemetryEndpoint().Return("blah")
 	s.config.EXPECT().OpenTelemetryInsecure().Return(false)
 	s.config.EXPECT().OpenTelemetryStackTraces().Return(true)
+	s.config.EXPECT().OpenTelemetrySampleRatio().Return(0.5)
 }

@@ -198,7 +198,7 @@ func (s *tracerSuite) TestBuildRequestContext(c *gc.C) {
 	traceID, spanID, flags := coretrace.ScopeFromContext(ctx)
 	c.Check(traceID, gc.Equals, "")
 	c.Check(spanID, gc.Equals, "")
-	c.Check(flags, gc.Equals, 1)
+	c.Check(flags, gc.Equals, 0)
 
 	span := trace.SpanContextFromContext(ctx)
 	c.Check(span.IsRemote(), jc.IsTrue)

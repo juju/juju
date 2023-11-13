@@ -513,7 +513,7 @@ func (root *Root) testCall(c *gc.C, args testCallParams) {
 	root.returnErr = args.testErr
 	c.Logf("test call %s", args.request().Action)
 	var response stringVal
-	err := args.client.Call(rpc.WithTracing(context.Background(), "foobar", "baz", 0), args.request(), stringVal{"arg"}, &response)
+	err := args.client.Call(rpc.WithTracing(context.Background(), "foobar", "baz", 1), args.request(), stringVal{"arg"}, &response)
 	switch {
 	case args.retErr && args.testErr:
 		c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
@@ -556,11 +556,12 @@ func (root *Root) assertServerNotified(c *gc.C, p testCallParams, requestId uint
 	c.Assert(p.serverNotifier.serverRequests, gc.HasLen, 1)
 	serverReq := p.serverNotifier.serverRequests[0]
 	c.Assert(serverReq.hdr, gc.DeepEquals, rpc.Header{
-		RequestId: requestId,
-		Request:   p.request(),
-		Version:   1,
-		TraceID:   "foobar",
-		SpanID:    "baz",
+		RequestId:  requestId,
+		Request:    p.request(),
+		Version:    1,
+		TraceID:    "foobar",
+		SpanID:     "baz",
+		TraceFlags: 1,
 	})
 	if p.narg > 0 {
 		c.Assert(serverReq.body, gc.Equals, stringVal{"arg"})
@@ -579,18 +580,20 @@ func (root *Root) assertServerNotified(c *gc.C, p testCallParams, requestId uint
 	}
 	if p.retErr && p.testErr {
 		c.Assert(serverReply.hdr, jc.DeepEquals, rpc.Header{
-			RequestId: requestId,
-			Error:     p.errorMessage(),
-			Version:   1,
-			TraceID:   "foobar",
-			SpanID:    "baz",
+			RequestId:  requestId,
+			Error:      p.errorMessage(),
+			Version:    1,
+			TraceID:    "foobar",
+			SpanID:     "baz",
+			TraceFlags: 1,
 		})
 	} else {
 		c.Assert(serverReply.hdr, jc.DeepEquals, rpc.Header{
-			RequestId: requestId,
-			Version:   1,
-			TraceID:   "foobar",
-			SpanID:    "baz",
+			RequestId:  requestId,
+			Version:    1,
+			TraceID:    "foobar",
+			SpanID:     "baz",
+			TraceFlags: 1,
 		})
 	}
 }
@@ -1009,12 +1012,13 @@ func testBadCall(
 	serverReply := serverNotifier.serverReplies[0]
 	c.Assert(serverReply, gc.DeepEquals, replyEvent{
 		hdr: rpc.Header{
-			RequestId: client.ClientRequestID(),
-			Error:     expectedErr,
-			ErrorCode: expectedErrCode,
-			Version:   1,
-			TraceID:   "foobar",
-			SpanID:    "baz",
+			RequestId:  client.ClientRequestID(),
+			Error:      expectedErr,
+			ErrorCode:  expectedErrCode,
+			Version:    1,
+			TraceID:    "foobar",
+			SpanID:     "baz",
+			TraceFlags: 1,
 		},
 		req:  req,
 		body: struct{}{},

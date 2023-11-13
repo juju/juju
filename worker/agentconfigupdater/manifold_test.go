@@ -502,11 +502,14 @@ func (mc *mockConfig) SetOpenTelemetryStackTraces(enabled bool) {
 }
 
 func (mc *mockConfig) OpenTelemetrySampleRatio() float64 {
+	if mc.openTelemetrySampleRatio == 0 {
+		return controller.DefaultOpenTelemetrySampleRatio
+	}
 	return mc.openTelemetrySampleRatio
 }
 
-func (mc *mockConfig) SetOpenTelemetrySampleRatio(enabled float64) {
-	mc.openTelemetrySampleRatio = enabled
+func (mc *mockConfig) SetOpenTelemetrySampleRatio(ratio float64) {
+	mc.openTelemetrySampleRatio = ratio
 	mc.openTelemetrySampleRatioSet = true
 }
 

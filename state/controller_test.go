@@ -67,6 +67,7 @@ func (s *ControllerSuite) TestControllerAndModelConfigInitialisation(c *gc.C) {
 		controller.OpenTelemetryEnabled,
 		controller.OpenTelemetryEndpoint,
 		controller.OpenTelemetryInsecure,
+		controller.OpenTelemetrySampleRatio,
 		controller.OpenTelemetryStackTraces,
 		controller.PruneTxnQueryCount,
 		controller.PruneTxnSleepTime,

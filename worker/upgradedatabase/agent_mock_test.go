@@ -406,6 +406,20 @@ func (mr *MockConfigMockRecorder) OpenTelemetryInsecure() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OpenTelemetryInsecure", reflect.TypeOf((*MockConfig)(nil).OpenTelemetryInsecure))
 }
 
+// OpenTelemetrySampleRatio mocks base method.
+func (m *MockConfig) OpenTelemetrySampleRatio() float64 {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "OpenTelemetrySampleRatio")
+	ret0, _ := ret[0].(float64)
+	return ret0
+}
+
+// OpenTelemetrySampleRatio indicates an expected call of OpenTelemetrySampleRatio.
+func (mr *MockConfigMockRecorder) OpenTelemetrySampleRatio() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OpenTelemetrySampleRatio", reflect.TypeOf((*MockConfig)(nil).OpenTelemetrySampleRatio))
+}
+
 // OpenTelemetryStackTraces mocks base method.
 func (m *MockConfig) OpenTelemetryStackTraces() bool {
 	m.ctrl.T.Helper()
@@ -897,6 +911,20 @@ func (mr *MockConfigSetterMockRecorder) OpenTelemetryInsecure() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OpenTelemetryInsecure", reflect.TypeOf((*MockConfigSetter)(nil).OpenTelemetryInsecure))
 }
 
+// OpenTelemetrySampleRatio mocks base method.
+func (m *MockConfigSetter) OpenTelemetrySampleRatio() float64 {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "OpenTelemetrySampleRatio")
+	ret0, _ := ret[0].(float64)
+	return ret0
+}
+
+// OpenTelemetrySampleRatio indicates an expected call of OpenTelemetrySampleRatio.
+func (mr *MockConfigSetterMockRecorder) OpenTelemetrySampleRatio() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OpenTelemetrySampleRatio", reflect.TypeOf((*MockConfigSetter)(nil).OpenTelemetrySampleRatio))
+}
+
 // OpenTelemetryStackTraces mocks base method.
 func (m *MockConfigSetter) OpenTelemetryStackTraces() bool {
 	m.ctrl.T.Helper()
@@ -1059,6 +1087,18 @@ func (m *MockConfigSetter) SetOpenTelemetryInsecure(arg0 bool) {
 func (mr *MockConfigSetterMockRecorder) SetOpenTelemetryInsecure(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetOpenTelemetryInsecure", reflect.TypeOf((*MockConfigSetter)(nil).SetOpenTelemetryInsecure), arg0)
+}
+
+// SetOpenTelemetrySampleRatio mocks base method.
+func (m *MockConfigSetter) SetOpenTelemetrySampleRatio(arg0 float64) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetOpenTelemetrySampleRatio", arg0)
+}
+
+// SetOpenTelemetrySampleRatio indicates an expected call of SetOpenTelemetrySampleRatio.
+func (mr *MockConfigSetterMockRecorder) SetOpenTelemetrySampleRatio(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetOpenTelemetrySampleRatio", reflect.TypeOf((*MockConfigSetter)(nil).SetOpenTelemetrySampleRatio), arg0)
 }
 
 // SetOpenTelemetryStackTraces mocks base method.
