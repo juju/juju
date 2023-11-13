@@ -4,6 +4,10 @@
 package query
 
 import (
+	"bufio"
+	"os"
+	"testing"
+
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 )
@@ -364,4 +368,36 @@ func (p *parserSuite) TestParserInfixLambda(c *gc.C) {
 			},
 		},
 	})
+}
+
+func FuzzLexerParser(f *testing.F) {
+	readCorpus(f)
+
+	f.Fuzz(func(t *testing.T, value string) {
+		lex := NewLexer(value)
+		parser := NewParser(lex)
+		_, _ = parser.Run()
+	})
+}
+
+func readCorpus(f *testing.F) {
+	f.Helper()
+
+	file, err := os.Open("./testfiles/success")
+	if err != nil {
+		f.Fatalf("unable to read file")
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		t := scanner.Text()
+		if t == "" {
+			continue
+		}
+		f.Add(t)
+	}
+	if err := scanner.Err(); err != nil {
+		f.Fatal(err)
+	}
 }

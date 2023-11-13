@@ -175,6 +175,12 @@ ifeq ($(COVERAGE_CHECK), 1)
 	TEST_ARGS += -coverprofile=coverage.txt -covermode=atomic
 endif
 
+ifeq ($(FUZZ_CHECK), 1)
+	TEST_ARGS += -fuzzminimizetime=30s
+else
+	TEST_ARGS += -fuzzminimizetime=0
+endif
+
 # Enable verbose testing for reporting.
 ifeq ($(VERBOSE_CHECK), 1)
 	CHECK_ARGS = -v
