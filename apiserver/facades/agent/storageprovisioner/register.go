@@ -10,11 +10,21 @@ import (
 
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/core/facades"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/storage/poolmanager"
 )
+
+// FacadesVersions returns the versions of the facades that this package
+// implements.
+func FacadesVersions() facades.NamedFacadeVersion {
+	return facades.NamedFacadeVersion{
+		Name:     "StorageProvisioner",
+		Versions: facades.FacadeVersion{4},
+	}
+}
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {

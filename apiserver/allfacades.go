@@ -111,10 +111,63 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/undertaker"
 )
 
+// requiredMigrationFacadeVersions returns the facade versions that
+// must be available for the migration master to function.
+// This is a separate function so that it can be used in the
+// migrationmaster facade registration as a dependency.
+//
+// A lot of the agent facades aren't actually required, but they are
+// included here to keep the agent alive during migration.
 func requiredMigrationFacadeVersions() facades.FacadeVersions {
-	return facades.FacadeVersions{}.Merge(
+	return facades.FacadeVersions{}.Add(
+		// Client and modelmanager facades are required for the migration
+		// master to function correctly. Missing a model manager causes the
+		// status to error out.
+		client.FacadesVersions(),
+		modelmanager.FacadesVersions(),
+
+		// The following are required to keep the agent alive during
+		// migration.
+		agent.FacadesVersions(),
+		caasadmission.FacadesVersions(),
+		caasagent.FacadesVersions(),
+		caasapplication.FacadesVersions(),
+		caasoperator.FacadesVersions(),
+		credentialvalidator.FacadesVersions(),
+		deployer.FacadesVersions(),
+		diskmanager.FacadesVersions(),
+		fanconfigurer.FacadesVersions(),
+		hostkeyreporter.FacadesVersions(),
+		instancemutater.FacadesVersions(),
+		keyupdater.FacadesVersions(),
+		leadership.FacadesVersions(),
+		agentlifeflag.FacadesVersions(),
+		loggerapi.FacadesVersions(),
 		machine.FacadesVersions(),
+		machineactions.FacadesVersions(),
+		meterstatus.FacadesVersions(),
+		metricsadder.FacadesVersions(),
+		migrationflag.FacadesVersions(),
+		migrationminion.FacadesVersions(),
+		payloadshookcontext.FacadesVersions(),
+		provisioner.FacadesVersions(),
+		proxyupdater.FacadesVersions(),
+		reboot.FacadesVersions(),
+		resourceshookcontext.FacadesVersions(),
+		retrystrategy.FacadesVersions(),
+		secretsdrain.FacadesVersions(),
+		secretsmanager.FacadesVersions(),
+		storageprovisioner.FacadesVersions(),
+		unitassigner.FacadesVersions(),
 		uniter.FacadesVersions(),
+		upgrader.FacadesVersions(),
+		upgradeseries.FacadesVersions(),
+		upgradesteps.FacadesVersions(),
+
+		facades.NamedFacadeVersion{
+			Name:     "Pinger",
+			Versions: facades.FacadeVersion{1},
+		},
 	)
 }
 

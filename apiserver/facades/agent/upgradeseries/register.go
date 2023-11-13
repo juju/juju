@@ -10,7 +10,17 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/core/facades"
 )
+
+// FacadesVersions returns the versions of the facades that this package
+// implements.
+func FacadesVersions() facades.NamedFacadeVersion {
+	return facades.NamedFacadeVersion{
+		Name:     "UpgradeSeries",
+		Versions: facades.FacadeVersion{3},
+	}
+}
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {

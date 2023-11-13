@@ -17,24 +17,24 @@ var _ = gc.Suite(&FacadeSuite{})
 
 func (s *FacadeSuite) TestBestVersion(c *gc.C) {
 	tests := []struct {
-		versions []int
-		desired  []int
+		versions FacadeVersion
+		desired  FacadeVersion
 		expected int
 	}{{
-		versions: []int{1, 2, 3},
-		desired:  []int{1},
+		versions: FacadeVersion{1, 2, 3},
+		desired:  FacadeVersion{1},
 		expected: 1,
 	}, {
-		versions: []int{1, 2, 3},
-		desired:  []int{1, 2},
+		versions: FacadeVersion{1, 2, 3},
+		desired:  FacadeVersion{1, 2},
 		expected: 2,
 	}, {
-		versions: []int{1, 2, 3},
-		desired:  []int{1, 2, 3},
+		versions: FacadeVersion{1, 2, 3},
+		desired:  FacadeVersion{1, 2, 3},
 		expected: 3,
 	}, {
-		versions: []int{},
-		desired:  []int{0, 1, 2},
+		versions: FacadeVersion{},
+		desired:  FacadeVersion{0, 1, 2},
 		expected: 0,
 	}}
 	for i, test := range tests {
@@ -50,52 +50,52 @@ func (s *FacadeSuite) TestCompleteIntersection(c *gc.C) {
 		expected bool
 	}{{
 		src: FacadeVersions{
-			"foo": []int{1, 2, 3},
+			"foo": FacadeVersion{1, 2, 3},
 		},
 		dst: FacadeVersions{
-			"foo": []int{1, 2, 3},
+			"foo": FacadeVersion{1, 2, 3},
 		},
 		expected: true,
 	}, {
 		src: FacadeVersions{
-			"bar": []int{1, 2, 3},
+			"bar": FacadeVersion{1, 2, 3},
 		},
 		dst: FacadeVersions{
-			"foo": []int{1, 2, 3},
+			"foo": FacadeVersion{1, 2, 3},
 		},
 		expected: false,
 	}, {
 		src: FacadeVersions{
-			"foo": []int{3, 4, 5},
+			"foo": FacadeVersion{3, 4, 5},
 		},
 		dst: FacadeVersions{
-			"foo": []int{1, 2, 3},
+			"foo": FacadeVersion{1, 2, 3},
 		},
 		expected: true,
 	}, {
 		src: FacadeVersions{
-			"foo": []int{4, 5},
+			"foo": FacadeVersion{4, 5},
 		},
 		dst: FacadeVersions{
-			"foo": []int{1, 2, 3},
+			"foo": FacadeVersion{1, 2, 3},
 		},
 		expected: false,
 	}, {
 		src: FacadeVersions{
-			"foo": []int{2, 3, 4},
+			"foo": FacadeVersion{2, 3, 4},
 		},
 		dst: FacadeVersions{
-			"foo": []int{1},
+			"foo": FacadeVersion{1},
 		},
 		expected: false,
 	}, {
 		src: FacadeVersions{
-			"foo": []int{1, 2, 3},
-			"bar": []int{3},
+			"foo": FacadeVersion{1, 2, 3},
+			"bar": FacadeVersion{3},
 		},
 		dst: FacadeVersions{
-			"foo": []int{1, 2, 3},
-			"bar": []int{1, 3},
+			"foo": FacadeVersion{1, 2, 3},
+			"bar": FacadeVersion{1, 3},
 		},
 		expected: true,
 	}}

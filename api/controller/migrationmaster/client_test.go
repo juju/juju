@@ -59,7 +59,7 @@ func (s *ClientSuite) TestWatch(c *gc.C) {
 	w, err := client.Watch()
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(w, gc.Equals, expectWatch)
-	stub.CheckCalls(c, []jujutesting.StubCall{{"MigrationMaster.Watch", []interface{}{"", nil}}})
+	stub.CheckCalls(c, []jujutesting.StubCall{{FuncName: "MigrationMaster.Watch", Args: []interface{}{"", nil}}})
 }
 
 func (s *ClientSuite) TestWatchCallError(c *gc.C) {
@@ -136,7 +136,7 @@ func (s *ClientSuite) TestSetPhase(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	expectedArg := params.SetMigrationPhaseArgs{Phase: "QUIESCE"}
 	stub.CheckCalls(c, []jujutesting.StubCall{
-		{"MigrationMaster.SetPhase", []interface{}{"", expectedArg}},
+		{FuncName: "MigrationMaster.SetPhase", Args: []interface{}{"", expectedArg}},
 	})
 }
 
@@ -160,7 +160,7 @@ func (s *ClientSuite) TestSetStatusMessage(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	expectedArg := params.SetMigrationStatusMessageArgs{Message: "foo"}
 	stub.CheckCalls(c, []jujutesting.StubCall{
-		{"MigrationMaster.SetStatusMessage", []interface{}{"", expectedArg}},
+		{FuncName: "MigrationMaster.SetStatusMessage", Args: []interface{}{"", expectedArg}},
 	})
 }
 
@@ -190,7 +190,7 @@ func (s *ClientSuite) TestModelInfo(c *gc.C) {
 	client := migrationmaster.NewClient(apiCaller, nil)
 	model, err := client.ModelInfo()
 	stub.CheckCalls(c, []jujutesting.StubCall{
-		{"MigrationMaster.ModelInfo", []interface{}{"", nil}},
+		{FuncName: "MigrationMaster.ModelInfo", Args: []interface{}{"", nil}},
 	})
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(model, jc.DeepEquals, migration.ModelInfo{
@@ -218,7 +218,7 @@ func (s *ClientSuite) TestSourceControllerInfo(c *gc.C) {
 	client := migrationmaster.NewClient(apiCaller, nil)
 	info, relatedModels, err := client.SourceControllerInfo()
 	stub.CheckCalls(c, []jujutesting.StubCall{
-		{"MigrationMaster.SourceControllerInfo", []interface{}{"", nil}},
+		{FuncName: "MigrationMaster.SourceControllerInfo", Args: []interface{}{"", nil}},
 	})
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(info, jc.DeepEquals, migration.SourceControllerInfo{
@@ -241,7 +241,7 @@ func (s *ClientSuite) TestPrechecks(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, "blam")
 	expectedArg := params.PrechecksArgs{}
 	stub.CheckCalls(c, []jujutesting.StubCall{
-		{"MigrationMaster.Prechecks", []interface{}{"", expectedArg}},
+		{FuncName: "MigrationMaster.Prechecks", Args: []interface{}{"", expectedArg}},
 	})
 }
 
@@ -332,7 +332,7 @@ func (s *ClientSuite) TestExport(c *gc.C) {
 	out, err := client.Export()
 	c.Assert(err, jc.ErrorIsNil)
 	stub.CheckCalls(c, []jujutesting.StubCall{
-		{"MigrationMaster.Export", []interface{}{"", nil}},
+		{FuncName: "MigrationMaster.Export", Args: []interface{}{"", nil}},
 	})
 	c.Assert(out, gc.DeepEquals, migration.SerializedModel{
 		Bytes:  []byte("foo"),
@@ -441,7 +441,7 @@ func (s *ClientSuite) TestReap(c *gc.C) {
 	err := client.Reap()
 	c.Check(err, jc.ErrorIsNil)
 	stub.CheckCalls(c, []jujutesting.StubCall{
-		{"MigrationMaster.Reap", []interface{}{"", nil}},
+		{FuncName: "MigrationMaster.Reap", Args: []interface{}{"", nil}},
 	})
 }
 
@@ -474,7 +474,7 @@ func (s *ClientSuite) TestWatchMinionReports(c *gc.C) {
 	w, err := client.WatchMinionReports()
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(w, gc.Equals, expectWatch)
-	stub.CheckCalls(c, []jujutesting.StubCall{{"MigrationMaster.WatchMinionReports", []interface{}{"", nil}}})
+	stub.CheckCalls(c, []jujutesting.StubCall{{FuncName: "MigrationMaster.WatchMinionReports", Args: []interface{}{"", nil}}})
 }
 
 func (s *ClientSuite) TestWatchMinionReportsError(c *gc.C) {
@@ -515,7 +515,7 @@ func (s *ClientSuite) TestMinionReports(c *gc.C) {
 	out, err := client.MinionReports()
 	c.Assert(err, jc.ErrorIsNil)
 	stub.CheckCalls(c, []jujutesting.StubCall{
-		{"MigrationMaster.MinionReports", []interface{}{"", nil}},
+		{FuncName: "MigrationMaster.MinionReports", Args: []interface{}{"", nil}},
 	})
 	c.Assert(out, gc.DeepEquals, migration.MinionReports{
 		MigrationId:             "id",
