@@ -19,7 +19,17 @@ import (
 type State interface {
 	// AddUser will add a new user to the database. If the user already exists
 	// an error that satisfies usererrors.AlreadyExists will be returned.
-	AddUser(context.Context, string, string, string, string) error
+	AddUser(context.Context, user.User) error
+
+	// AddUserWithPassword will add a new user to the database with a password.
+	//If the user already exists
+	// an error that satisfies usererrors.AlreadyExists will be returned.
+	AddUserWithPassword(context.Context, user.User, auth.Password) error
+
+	// AddUserWithActivationKey will add a new user to the database with an activation key.
+	// If the user already exists an error that satisfies usererrors.AlreadyExists
+	// will be returned.
+	AddUserWithActivationKey(context.Context, user.User) error
 
 	// GetUser will retrieve the user specified by name from the database where
 	// the user is active and has not been removed. If the user does not exist
@@ -114,17 +124,56 @@ func ValidateUsername(name string) error {
 	return nil
 }
 
-// AddUser will add a new user to the database. If the user already exists an
-// error that satisfies usererrors.AlreadyExists will be returned.
-func (s *Service) AddUser(ctx context.Context, name, displayName, password, creator string) error {
-	err := ValidateUsername(name)
+// AddUser will add a new user to the database.
+//
+// The following error types are possible from this function:
+// - usererrors.UsernameNotValid: When the username supplied is not valid.
+// - usererrors.AlreadyExists: If a user with the supplied name already exists.
+func (s *Service) AddUser(ctx context.Context, user user.User) error {
+	err := ValidateUsername(user.Name)
 	if err != nil {
-		return fmt.Errorf("username %q: %w", name, err)
+		return fmt.Errorf("username %q: %w", user.Name, err)
 	}
 
-	err = s.st.AddUser(ctx, name, displayName, password, creator)
+	err = s.st.AddUser(ctx, user)
 	if err != nil {
-		return fmt.Errorf("adding user %q: %w", name, err)
+		return fmt.Errorf("adding user %q: %w", user.Name, err)
+	}
+	return nil
+}
+
+// AddUserWithPassword will add a new user to the database with a password.
+//
+// The following error types are possible from this function:
+// - usererrors.UsernameNotValid: When the username supplied is not valid.
+// - usererrors.AlreadyExists: If a user with the supplied name already exists.
+func (s *Service) AddUserWithPassword(ctx context.Context, user user.User, password auth.Password) error {
+	err := ValidateUsername(user.Name)
+	if err != nil {
+		return fmt.Errorf("username %q with password: %w", user.Name, err)
+	}
+
+	err = s.st.AddUserWithPassword(ctx, user, password)
+	if err != nil {
+		return fmt.Errorf("adding user %q with password: %w", user.Name, err)
+	}
+	return nil
+}
+
+// AddUserWithActivationKey will add a new user to the database with an activation key.
+//
+// The following error types are possible from this function:
+// - usererrors.UsernameNotValid: When the username supplied is not valid.
+// - usererrors.AlreadyExists: If a user with the supplied name already exists.
+func (s *Service) AddUserWithActivationKey(ctx context.Context, user user.User) error {
+	err := ValidateUsername(user.Name)
+	if err != nil {
+		return fmt.Errorf("username %q with activation key: %w", user.Name, err)
+	}
+
+	err = s.st.AddUserWithActivationKey(ctx, user)
+	if err != nil {
+		return fmt.Errorf("adding user %q with activation key: %w", user.Name, err)
 	}
 	return nil
 }

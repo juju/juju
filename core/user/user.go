@@ -18,6 +18,9 @@ type User struct {
 
 	// Name is the username of the user.
 	Name string
+
+	// Creator is the username of the user that created this user.
+	Creator string
 }
 
 // UserPassword type attempts to protect it against printouts

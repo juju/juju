@@ -162,14 +162,50 @@ func (s *serviceSuite) setMockState(c *gc.C) map[string]stateUser {
 func (s *serviceSuite) TestAddUser(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	name := "f00-Bar.ram77"
-	displayName := "Display"
-	password := "password"
-	creator := "admin"
+	fakeuser := user.User{
+		Name:        "f00-Bar.ram77",
+		DisplayName: "Display",
+		CreatedAt:   time.Now(),
+		Creator:     "admin",
+	}
 
-	s.state.EXPECT().AddUser(gomock.Any(), name, displayName, password, creator).Return(nil)
+	s.state.EXPECT().AddUser(gomock.Any(), fakeuser).Return(nil)
 
-	err := s.service().AddUser(context.Background(), name, displayName, password, creator)
+	err := s.service().AddUser(context.Background(), fakeuser)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *serviceSuite) TestAddUserWithPassword(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	fakeuser := user.User{
+		Name:        "f00-Bar.ram77",
+		DisplayName: "Display",
+		CreatedAt:   time.Now(),
+		Creator:     "admin",
+	}
+
+	fakepassword := auth.Password{}
+
+	s.state.EXPECT().AddUserWithPassword(gomock.Any(), fakeuser, fakepassword).Return(nil)
+
+	err := s.service().AddUserWithPassword(context.Background(), fakeuser, fakepassword)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *serviceSuite) TestAddUserWithActivationKey(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	fakeuser := user.User{
+		Name:        "f00-Bar.ram77",
+		DisplayName: "Display",
+		CreatedAt:   time.Now(),
+		Creator:     "admin",
+	}
+
+	s.state.EXPECT().AddUserWithActivationKey(gomock.Any(), fakeuser).Return(nil)
+
+	err := s.service().AddUserWithActivationKey(context.Background(), fakeuser)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
