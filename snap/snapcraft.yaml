@@ -42,7 +42,7 @@ apps:
       - ssh-keys
       - lxd
       # Needed so that juju can still use the real ~/.local/share/juju.
-      - dot-local-share-juju
+      - dot-local
       # Needed to read lxd config.
       - config-lxd
       # Needed to read ~/.kube, ~/.novarc, ~/.aws etc.
@@ -490,10 +490,10 @@ plugs:
     content: microk8s
     target: $SNAP_DATA/microk8s
 
-  dot-local-share-juju:
+  dot-local:
     interface: personal-files
     write:
-      - $HOME/.local/share/juju
+      - $HOME/.local
 
   config-lxd:
     interface: personal-files
