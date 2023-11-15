@@ -14,6 +14,23 @@ run_deploy_charm() {
 	destroy_model "test-deploy-charm"
 }
 
+run_deploy_charm_unsupported_series() {
+	# Test trying to deploy a charmhub charm to an operating system
+	# never supported in the specified channel. It should fail.
+	echo
+
+	testname="test-deploy-charm-unsupported-series"
+	file="${TEST_DIR}/${testname}.log"
+
+	ensure "${testname}" "${file}"
+
+	# The charm in 3.0/stable only supports jammy and only
+	# one charm has been released to that channel.
+	juju deploy juju-qa-test --channel 3.0/stable --series focal | grep -q 'charm or bundle not found for channel' || true
+
+	destroy_model "${testname}"
+}
+
 run_deploy_specific_series() {
 	echo
 
@@ -283,6 +300,7 @@ test_deploy_charms() {
 		run "run_deploy_charm"
 		run "run_deploy_specific_series"
 		run "run_resolve_charm"
+		run "run_deploy_charm_unsupported_series"
 
 		case "${BOOTSTRAP_PROVIDER:-}" in
 		"lxd" | "localhost")
