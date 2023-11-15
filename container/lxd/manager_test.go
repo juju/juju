@@ -5,7 +5,6 @@ package lxd_test
 
 import (
 	"errors"
-	stdtesting "testing"
 
 	lxdclient "github.com/canonical/lxd/client"
 	"github.com/canonical/lxd/shared"
@@ -32,10 +31,6 @@ import (
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 )
-
-func Test(t *stdtesting.T) {
-	gc.TestingT(t)
-}
 
 type managerSuite struct {
 	lxdtesting.BaseSuite

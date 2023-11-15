@@ -214,9 +214,15 @@ func withDefaultControllerConstraints(cons constraints.Value) constraints.Value 
 		// A default of 3.5GiB will result in machines with up to 4GiB of memory, eg
 		// - 3.75GiB on AWS, Google
 		// - 3.5GiB on Azure
-		// - 4GiB on Rackspace etc
 		var mem uint64 = 3.5 * 1024
 		cons.Mem = &mem
+	}
+	// If we're bootstrapping a controller on a lxd virtual machine, we want to
+	// ensure that it has at least 2 cores. Less than 2 cores can cause the
+	// controller to become unresponsive when installing.
+	if !cons.HasCpuCores() && cons.HasVirtType() && *cons.VirtType == "virtual-machine" {
+		var cores = uint64(2)
+		cons.CpuCores = &cores
 	}
 	return cons
 }
@@ -445,7 +451,7 @@ func bootstrapIAAS(
 	// The follow is used to determine if we should apply the default
 	// constraints when we bootstrap. Generally speaking this should always be
 	// applied, but there are exceptions to the rule e.g. local LXD
-	if checker, ok := environ.(environs.DefaultConstraintsChecker); !ok || checker.ShouldApplyControllerConstraints() {
+	if checker, ok := environ.(environs.DefaultConstraintsChecker); !ok || checker.ShouldApplyControllerConstraints(bootstrapConstraints) {
 		bootstrapConstraints = withDefaultControllerConstraints(bootstrapConstraints)
 	}
 	bootstrapParams.BootstrapConstraints = bootstrapConstraints
