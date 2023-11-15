@@ -261,7 +261,7 @@ func (c *CharmHubRepository) retryResolveWithPreferredChannel(charmURL *charm.UR
 	)
 	switch resErr.Code {
 	case transport.ErrorCodeInvalidCharmPlatform, transport.ErrorCodeInvalidCharmBase:
-		c.logger.Tracef("Invalid charm platform %q %v - Default Base: %v", charmURL, origin, resErr.Extra.DefaultBases)
+		c.logger.Tracef("Invalid charm base %q %v - Default Base: %v", charmURL, origin, resErr.Extra.DefaultBases)
 
 		if bases, err = c.selectNextBases(resErr.Extra.DefaultBases, origin); err != nil {
 			return nil, errors.Annotatef(err, "selecting next bases")
@@ -270,9 +270,7 @@ func (c *CharmHubRepository) retryResolveWithPreferredChannel(charmURL *charm.UR
 	case transport.ErrorCodeRevisionNotFound:
 		c.logger.Tracef("Revision not found %q %v - Releases: %v", charmURL, origin, resErr.Extra.Releases)
 
-		if bases, err = c.selectNextBasesFromReleases(resErr.Extra.Releases, origin); err != nil {
-			return nil, errors.Annotatef(err, "selecting releases")
-		}
+		return nil, errors.Annotatef(c.handleRevisionNotFound(resErr.Extra.Releases, origin), "selecting releases")
 
 	default:
 		return nil, errors.Errorf("resolving error: %s", resErr.Message)
@@ -572,36 +570,30 @@ func (c *CharmHubRepository) selectNextBases(bases []transport.Base, origin core
 	return results, nil
 }
 
-func (c *CharmHubRepository) selectNextBasesFromReleases(releases []transport.Release, origin corecharm.Origin) ([]corecharm.Platform, error) {
+func (c *CharmHubRepository) handleRevisionNotFound(releases []transport.Release, origin corecharm.Origin) error {
 	if len(releases) == 0 {
-		return nil, errors.Errorf("no releases available")
+		return errors.Errorf("no releases available")
 	}
-	if origin.Platform.Channel == "" {
-		// If the user passed in a branch, but not enough information about the
-		// arch and channel, then we can help by giving a better error message.
-		if origin.Channel != nil && origin.Channel.Branch != "" {
-			return nil, errors.Errorf("ambiguous arch and series with channel %q, specify both arch and series along with channel", origin.Channel.String())
-		}
-		// If the origin is empty, then we want to help the user out
-		// by display a series of suggestions to try.
-		suggestions := c.composeSuggestions(releases, origin)
-		var s string
-		if len(suggestions) > 0 {
-			s = fmt.Sprintf("\navailable releases are:\n  %v", strings.Join(suggestions, "\n  "))
-		}
-		var channelName string
-		if origin.Channel != nil {
-			channelName = origin.Channel.String()
-		}
-		return nil, errSelection{
-			err: errors.Errorf(
-				"charm or bundle not found for channel %q, platform %q%s",
-				channelName, origin.Platform.String(), s),
-		}
+	// If the user passed in a branch, but not enough information about the
+	// arch and channel, then we can help by giving a better error message.
+	if origin.Channel != nil && origin.Channel.Branch != "" {
+		return errors.Errorf("ambiguous arch and series with channel %q, specify both arch and series along with channel", origin.Channel.String())
 	}
-
-	// From the suggestion list, go look up a release that we can retry.
-	return selectReleaseByArchAndChannel(releases, origin)
+	// Help the user out by creating a list of channel/base suggestions to try.
+	suggestions := c.composeSuggestions(releases, origin)
+	var s string
+	if len(suggestions) > 0 {
+		s = fmt.Sprintf("\navailable releases are:\n  %v", strings.Join(suggestions, "\n  "))
+	}
+	var channelName string
+	if origin.Channel != nil {
+		channelName = origin.Channel.String()
+	}
+	return errSelection{
+		err: errors.Errorf(
+			"charm or bundle not found for channel %q, base %q%s",
+			channelName, origin.Platform.String(), s),
+	}
 }
 
 type errSelection struct {
@@ -753,35 +745,6 @@ func (c *CharmHubRepository) composeSuggestions(releases []transport.Release, or
 		suggestions = append(suggestions, fmt.Sprintf("channel %q: available series are: %s", channel, strings.Join(values, ", ")))
 	}
 	return suggestions
-}
-
-func selectReleaseByArchAndChannel(releases []transport.Release, origin corecharm.Origin) ([]corecharm.Platform, error) {
-	var (
-		empty   = origin.Channel == nil
-		channel charm.Channel
-	)
-	if !empty {
-		channel = origin.Channel.Normalize()
-	}
-	var results []corecharm.Platform
-	for _, release := range releases {
-		base := release.Base
-
-		arch, os := base.Architecture, base.Name
-		track, err := corecharm.ChannelTrack(base.Channel)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		platform := corecharm.NormalisePlatformSeries(corecharm.Platform{
-			Architecture: origin.Platform.Architecture,
-			OS:           os,
-			Channel:      track,
-		})
-		if (empty || channel.String() == release.Channel) && (arch == "all" || arch == origin.Platform.Architecture) {
-			results = append(results, platform)
-		}
-	}
-	return results, nil
 }
 
 // TODO (stickupkid) - Find a common place for this as it's duplicated from

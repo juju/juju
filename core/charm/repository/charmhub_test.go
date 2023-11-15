@@ -279,7 +279,7 @@ func (s *charmHubRepositorySuite) TestResolveRevisionNotFoundErrorWithNoSeries(c
 	repo := NewCharmHubRepository(s.logger, s.client)
 	_, _, _, err := repo.ResolveWithPreferredChannel(curl, origin, nil)
 	c.Assert(err, gc.ErrorMatches,
-		`(?m)selecting releases: charm or bundle not found for channel "", platform "amd64"
+		`(?m)selecting releases: charm or bundle not found for channel "", base "amd64"
 available releases are:
   channel "stable": available series are: focal`)
 }
@@ -287,7 +287,6 @@ available releases are:
 func (s *charmHubRepositorySuite) TestResolveRevisionNotFoundError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectedRefreshRevisionNotFoundError(c)
-	s.expectCharmRefreshInstallOneFromChannel(c)
 
 	curl := charm.MustParseURL("ch:wordpress")
 	origin := corecharm.Origin{
@@ -299,26 +298,11 @@ func (s *charmHubRepositorySuite) TestResolveRevisionNotFoundError(c *gc.C) {
 	}
 
 	repo := NewCharmHubRepository(s.logger, s.client)
-	obtainedCurl, obtainedOrigin, obtainedSeries, err := repo.ResolveWithPreferredChannel(curl, origin, nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	curl.Revision = 16
-
-	origin.Type = "charm"
-	origin.Revision = &curl.Revision
-	origin.Channel = &charm.Channel{
-		Track: "latest",
-		Risk:  "stable",
-	}
-	origin.Platform.Architecture = arch.DefaultArchitecture
-	origin.Platform.OS = "ubuntu"
-	origin.Platform.Channel = "20.04"
-
-	expected := s.expectedCURL(curl, 16, arch.DefaultArchitecture, "focal")
-
-	c.Assert(obtainedCurl, jc.DeepEquals, expected)
-	c.Assert(obtainedOrigin, jc.DeepEquals, origin)
-	c.Assert(obtainedSeries, jc.SameContents, []string{"focal"})
+	_, _, _, err := repo.ResolveWithPreferredChannel(curl, origin, nil)
+	c.Assert(err, gc.ErrorMatches,
+		`(?m)selecting releases: charm or bundle not found for channel "", base "amd64/ubuntu/18.04"
+available releases are:
+  channel "stable": available series are: focal`)
 }
 
 func (s *charmHubRepositorySuite) TestDownloadCharm(c *gc.C) {
@@ -832,7 +816,7 @@ func (*selectNextBaseSuite) TestSelectNextBaseWithCentosBase(c *gc.C) {
 func (*selectNextBaseSuite) TestSelectNextBasesFromReleasesNoReleasesError(c *gc.C) {
 	channel := corecharm.MustParseChannel("stable/foo")
 	repo := new(CharmHubRepository)
-	_, err := repo.selectNextBasesFromReleases([]transport.Release{}, corecharm.Origin{
+	err := repo.handleRevisionNotFound([]transport.Release{}, corecharm.Origin{
 		Channel: &channel,
 	})
 	c.Assert(err, gc.ErrorMatches, `no releases available`)
@@ -841,7 +825,7 @@ func (*selectNextBaseSuite) TestSelectNextBasesFromReleasesNoReleasesError(c *gc
 func (*selectNextBaseSuite) TestSelectNextBasesFromReleasesAmbiguousMatchError(c *gc.C) {
 	channel := corecharm.MustParseChannel("stable/foo")
 	repo := new(CharmHubRepository)
-	_, err := repo.selectNextBasesFromReleases([]transport.Release{
+	err := repo.handleRevisionNotFound([]transport.Release{
 		{},
 	}, corecharm.Origin{
 		Channel: &channel,
@@ -854,7 +838,7 @@ func (s *selectNextBaseSuite) TestSelectNextBasesFromReleasesSuggestionError(c *
 	repo := NewCharmHubRepository(s.logger, nil)
 
 	channel := corecharm.MustParseChannel("stable")
-	_, err := repo.selectNextBasesFromReleases([]transport.Release{{
+	err := repo.handleRevisionNotFound([]transport.Release{{
 		Base: transport.Base{
 			Name:         "os",
 			Channel:      "series",
@@ -864,14 +848,13 @@ func (s *selectNextBaseSuite) TestSelectNextBasesFromReleasesSuggestionError(c *
 	}}, corecharm.Origin{
 		Channel: &channel,
 	})
-	c.Assert(err, gc.ErrorMatches, `charm or bundle not found for channel "stable", platform ""`)
+	c.Assert(err, gc.ErrorMatches, `charm or bundle not found for channel "stable", base ""`)
 }
 
 func (s *selectNextBaseSuite) TestSelectNextBasesFromReleasesSuggestion(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	repo := NewCharmHubRepository(s.logger, nil)
-
-	_, err := repo.selectNextBasesFromReleases([]transport.Release{{
+	err := repo.handleRevisionNotFound([]transport.Release{{
 		Base: transport.Base{
 			Name:         "os",
 			Channel:      "20.04",
@@ -884,7 +867,7 @@ func (s *selectNextBaseSuite) TestSelectNextBasesFromReleasesSuggestion(c *gc.C)
 		},
 	})
 	c.Assert(err, gc.ErrorMatches,
-		`charm or bundle not found for channel "", platform "arch"
+		`charm or bundle not found for channel "", base "arch"
 available releases are:
   channel "stable": available series are: focal`)
 }
@@ -1033,177 +1016,4 @@ func (s *composeSuggestionsSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.logger.EXPECT().Errorf(gomock.Any(), gomock.Any()).AnyTimes()
 	s.logger.EXPECT().Tracef(gomock.Any(), gomock.Any()).AnyTimes()
 	return ctrl
-}
-
-type selectReleaseByChannelSuite struct {
-	testing.IsolationSuite
-}
-
-var _ = gc.Suite(&selectReleaseByChannelSuite{})
-
-func (selectReleaseByChannelSuite) TestNoReleases(c *gc.C) {
-	release, err := selectReleaseByArchAndChannel([]transport.Release{}, corecharm.Origin{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(release, gc.DeepEquals, []corecharm.Platform(nil))
-}
-
-func (selectReleaseByChannelSuite) TestSelection(c *gc.C) {
-	release, err := selectReleaseByArchAndChannel([]transport.Release{{
-		Base: transport.Base{
-			Name:         "os",
-			Channel:      "20.04",
-			Architecture: "arch",
-		},
-		Channel: "stable",
-	}}, corecharm.Origin{
-		Platform: corecharm.Platform{
-			Architecture: "arch",
-		},
-		Channel: &charm.Channel{
-			Risk: "stable",
-		},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(release, gc.DeepEquals, []corecharm.Platform{{
-		Architecture: "arch",
-		OS:           "os",
-		Channel:      "20.04",
-	}})
-}
-
-func (selectReleaseByChannelSuite) TestSelectionWithCentos(c *gc.C) {
-	release, err := selectReleaseByArchAndChannel([]transport.Release{{
-		Base: transport.Base{
-			Name:         "centos",
-			Channel:      "7",
-			Architecture: "arch",
-		},
-		Channel: "stable",
-	}}, corecharm.Origin{
-		Platform: corecharm.Platform{
-			Architecture: "arch",
-		},
-		Channel: &charm.Channel{
-			Risk: "stable",
-		},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(release, gc.DeepEquals, []corecharm.Platform{{
-		Architecture: "arch",
-		OS:           "centos",
-		Channel:      "centos7",
-	}})
-}
-
-func (selectReleaseByChannelSuite) TestAllSelection(c *gc.C) {
-	release, err := selectReleaseByArchAndChannel([]transport.Release{{
-		Base: transport.Base{
-			Name:         "os",
-			Channel:      "16.04",
-			Architecture: "all",
-		},
-		Channel: "stable",
-	}}, corecharm.Origin{
-		Platform: corecharm.Platform{
-			Architecture: "arch",
-		},
-		Channel: &charm.Channel{
-			Risk: "stable",
-		},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(release, gc.DeepEquals, []corecharm.Platform{{
-		Architecture: "arch",
-		OS:           "os",
-		Channel:      "16.04",
-	}})
-}
-
-func (selectReleaseByChannelSuite) TestMultipleSelectionMultipleReturned(c *gc.C) {
-	release, err := selectReleaseByArchAndChannel([]transport.Release{{
-		Base: transport.Base{
-			Name:         "a",
-			Channel:      "14.04",
-			Architecture: "c",
-		},
-		Channel: "1.0/edge",
-	}, {
-		Base: transport.Base{
-			Name:         "d",
-			Channel:      "16.04",
-			Architecture: "all",
-		},
-		Channel: "2.0/stable",
-	}, {
-		Base: transport.Base{
-			Name:         "f",
-			Channel:      "18.04",
-			Architecture: "h",
-		},
-		Channel: "3.0/stable",
-	}, {
-		Base: transport.Base{
-			Name:         "g",
-			Channel:      "20.04",
-			Architecture: "h",
-		},
-		Channel: "3.0/stable",
-	}}, corecharm.Origin{
-		Platform: corecharm.Platform{
-			Architecture: "h",
-		},
-		Channel: &charm.Channel{
-			Track: "3.0",
-			Risk:  "stable",
-		},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(release, gc.DeepEquals, []corecharm.Platform{{
-		Architecture: "h",
-		OS:           "f",
-		Channel:      "18.04",
-	}, {
-		Architecture: "h",
-		OS:           "g",
-		Channel:      "20.04",
-	}})
-}
-
-func (selectReleaseByChannelSuite) TestMultipleSelection(c *gc.C) {
-	release, err := selectReleaseByArchAndChannel([]transport.Release{{
-		Base: transport.Base{
-			Name:         "a",
-			Channel:      "14.04",
-			Architecture: "c",
-		},
-		Channel: "1.0/edge",
-	}, {
-		Base: transport.Base{
-			Name:         "d",
-			Channel:      "16.04",
-			Architecture: "all",
-		},
-		Channel: "2.0/stable",
-	}, {
-		Base: transport.Base{
-			Name:         "f",
-			Channel:      "18.04",
-			Architecture: "h",
-		},
-		Channel: "3.0/stable",
-	}}, corecharm.Origin{
-		Platform: corecharm.Platform{
-			Architecture: "h",
-		},
-		Channel: &charm.Channel{
-			Track: "3.0",
-			Risk:  "stable",
-		},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(release, gc.DeepEquals, []corecharm.Platform{{
-		Architecture: "h",
-		OS:           "f",
-		Channel:      "18.04",
-	}})
 }
