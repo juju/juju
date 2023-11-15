@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/charm/v8"
 	charmresource "github.com/juju/charm/v8/resource"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"gopkg.in/macaroon.v2"
 
@@ -700,6 +701,10 @@ func refreshConfig(charmURL *charm.URL, origin corecharm.Origin) (charmhub.Refre
 }
 
 func (c *CharmHubRepository) composeSuggestions(releases []transport.Release, origin corecharm.Origin) []string {
+	charmRisks := set.NewStrings()
+	for _, v := range charm.Risks {
+		charmRisks.Add(string(v))
+	}
 	channelSeries := make(map[string][]string)
 	for _, release := range releases {
 		base := corecharm.NormalisePlatformSeries(corecharm.Platform{
@@ -727,20 +732,20 @@ func (c *CharmHubRepository) composeSuggestions(releases []transport.Release, or
 		if arch != origin.Platform.Architecture {
 			continue
 		}
-		channelSeries[release.Channel] = append(channelSeries[release.Channel], series)
+		// Now that we have default tracks other than latest:
+		// If a channel is risk only, add latest as the track
+		// to be more clear for the user facing error message.
+		// At this point, we do not know the default channel,
+		// or if the charm has one, therefore risk only output
+		// is ambiguous.
+		charmChannel := release.Channel
+		if charmRisks.Contains(charmChannel) {
+			charmChannel = "latest/" + charmChannel
+		}
+		channelSeries[charmChannel] = append(channelSeries[charmChannel], series)
 	}
 
 	var suggestions []string
-	// Sort for latest channels to be suggested first.
-	// Assumes that releases have normalized channels.
-	for _, r := range charm.Risks {
-		risk := string(r)
-		if values, ok := channelSeries[risk]; ok {
-			suggestions = append(suggestions, fmt.Sprintf("channel %q: available series are: %s", risk, strings.Join(values, ", ")))
-			delete(channelSeries, risk)
-		}
-	}
-
 	for channel, values := range channelSeries {
 		suggestions = append(suggestions, fmt.Sprintf("channel %q: available series are: %s", channel, strings.Join(values, ", ")))
 	}

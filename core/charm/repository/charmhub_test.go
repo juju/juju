@@ -281,7 +281,7 @@ func (s *charmHubRepositorySuite) TestResolveRevisionNotFoundErrorWithNoSeries(c
 	c.Assert(err, gc.ErrorMatches,
 		`(?m)selecting releases: charm or bundle not found for channel "", base "amd64"
 available releases are:
-  channel "stable": available series are: focal`)
+  channel "latest/stable": available series are: focal`)
 }
 
 func (s *charmHubRepositorySuite) TestResolveRevisionNotFoundError(c *gc.C) {
@@ -302,7 +302,7 @@ func (s *charmHubRepositorySuite) TestResolveRevisionNotFoundError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches,
 		`(?m)selecting releases: charm or bundle not found for channel "", base "amd64/ubuntu/18.04"
 available releases are:
-  channel "stable": available series are: focal`)
+  channel "latest/stable": available series are: focal`)
 }
 
 func (s *charmHubRepositorySuite) TestDownloadCharm(c *gc.C) {
@@ -869,7 +869,7 @@ func (s *selectNextBaseSuite) TestSelectNextBasesFromReleasesSuggestion(c *gc.C)
 	c.Assert(err, gc.ErrorMatches,
 		`charm or bundle not found for channel "", base "arch"
 available releases are:
-  channel "stable": available series are: focal`)
+  channel "latest/stable": available series are: focal`)
 }
 
 func (s *selectNextBaseSuite) setupMocks(c *gc.C) *gomock.Controller {
@@ -924,7 +924,7 @@ func (s *composeSuggestionsSuite) TestSuggestion(c *gc.C) {
 		},
 	})
 	c.Assert(suggestions, gc.DeepEquals, []string{
-		`channel "stable": available series are: focal`,
+		`channel "latest/stable": available series are: focal`,
 	})
 }
 
@@ -944,7 +944,7 @@ func (s *composeSuggestionsSuite) TestSuggestionWithRisk(c *gc.C) {
 		},
 	})
 	c.Assert(suggestions, gc.DeepEquals, []string{
-		`channel "stable": available series are: focal`,
+		`channel "latest/stable": available series are: focal`,
 	})
 }
 
@@ -985,7 +985,7 @@ func (s *composeSuggestionsSuite) TestMultipleSuggestion(c *gc.C) {
 		},
 	})
 	c.Assert(suggestions, gc.DeepEquals, []string{
-		`channel "stable": available series are: focal, bionic`,
+		`channel "latest/stable": available series are: focal, bionic`,
 		`channel "2.0/stable": available series are: bionic`,
 	})
 }
@@ -1006,7 +1006,7 @@ func (s *composeSuggestionsSuite) TestCentosSuggestion(c *gc.C) {
 		},
 	})
 	c.Assert(suggestions, gc.DeepEquals, []string{
-		`channel "stable": available series are: centos7`,
+		`channel "latest/stable": available series are: centos7`,
 	})
 }
 
