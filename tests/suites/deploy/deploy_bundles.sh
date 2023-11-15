@@ -322,11 +322,12 @@ test_deploy_bundles() {
 		case "${BOOTSTRAP_PROVIDER:-}" in
 		"lxd" | "localhost")
 			run "run_deploy_lxd_profile_bundle_openstack"
-			run "run_deploy_lxd_profile_bundle"
+			echo "==> TEST SKIPPED: deploy_lxd_profile_bundle - tests for non LXD only"
 			;;
 		*)
 			echo "==> TEST SKIPPED: deploy_lxd_profile_bundle_openstack - tests for LXD only"
-			echo "==> TEST SKIPPED: deploy_lxd_profile_bundle - tests for LXD only"
+			run "run_deploy_lxd_profile_bundle"
+
 			;;
 		esac
 

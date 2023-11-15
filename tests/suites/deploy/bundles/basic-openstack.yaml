@@ -41,7 +41,7 @@ relations:
     - mysql:shared-db
   - - nova-cloud-controller:neutron-api
     - neutron-api:neutron-api
-series: xenial
+series: focal
 applications:
   glance:
     annotations:
@@ -50,7 +50,7 @@ applications:
     charm: cs:glance
     num_units: 1
     options:
-      openstack-origin: cloud:xenial-queens
+      openstack-origin: cloud:focal-yoga
       worker-multiplier: 0.25
   keystone:
     annotations:
@@ -60,7 +60,7 @@ applications:
     num_units: 1
     options:
       admin-password: openstack
-      openstack-origin: cloud:xenial-queens
+      openstack-origin: cloud:focal-yoga
       worker-multiplier: 0.25
   mysql:
     annotations:
@@ -80,7 +80,7 @@ applications:
     options:
       neutron-security-groups: true
       overlay-network-type: "gre vxlan"
-      openstack-origin: cloud:xenial-queens
+      openstack-origin: cloud:focal-yoga
       flat-network-providers: physnet1
   neutron-gateway:
     annotations:
@@ -89,7 +89,7 @@ applications:
     charm: cs:neutron-gateway
     num_units: 1
     options:
-      openstack-origin: cloud:xenial-queens
+      openstack-origin: cloud:focal-yoga
       worker-multiplier: 0.25
       dns-servers: 10.101.0.1
   neutron-openvswitch:
@@ -106,7 +106,7 @@ applications:
     num_units: 1
     options:
       network-manager: Neutron
-      openstack-origin: cloud:xenial-queens
+      openstack-origin: cloud:focal-yoga
       worker-multiplier: 0.25
   nova-compute:
     annotations:
@@ -117,7 +117,7 @@ applications:
     options:
       enable-live-migration: False
       enable-resize: False
-      openstack-origin: cloud:xenial-queens
+      openstack-origin: cloud:focal-yoga
   rabbitmq-server:
     annotations:
       gui-x: '500'

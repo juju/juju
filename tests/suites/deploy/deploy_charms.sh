@@ -45,7 +45,10 @@ run_deploy_lxd_profile_charm() {
 
 	ensure "test-deploy-lxd-profile" "${file}"
 
-	juju deploy juju-qa-lxd-profile-without-devices
+	# This charm deploys to Xenial by default, which doesn't
+	# always result in a machine which becomes fully deployed
+	# with the lxd provider.
+	juju deploy juju-qa-lxd-profile-without-devices --series jammy
 	wait_for "lxd-profile-without-devices" "$(idle_condition "lxd-profile-without-devices")"
 
 	juju status --format=json | jq '.machines | .["0"] | .["lxd-profiles"] | keys[0]' | check "juju-test-deploy-lxd-profile-lxd-profile"
@@ -60,7 +63,10 @@ run_deploy_lxd_profile_charm_container() {
 
 	ensure "test-deploy-lxd-profile-container" "${file}"
 
-	juju deploy juju-qa-lxd-profile-without-devices --to lxd
+	# This charm deploys to Xenial by default, which doesn't
+	# always result in a machine which becomes fully deployed
+	# with the lxd provider.
+	juju deploy juju-qa-lxd-profile-without-devices --to lxd --series jammy
 	wait_for "lxd-profile-without-devices" "$(idle_condition "lxd-profile-without-devices")"
 
 	juju status --format=json | jq '.machines | .["0"] | .containers | .["0/lxd/0"] | .["lxd-profiles"] | keys[0]' |
@@ -269,8 +275,6 @@ test_deploy_charms() {
 
 		run "run_deploy_charm"
 		run "run_deploy_specific_series"
-		run "run_deploy_lxd_to_container"
-		run "run_deploy_lxd_profile_charm_container"
 		run "run_resolve_charm"
 
 		case "${BOOTSTRAP_PROVIDER:-}" in
@@ -278,11 +282,15 @@ test_deploy_charms() {
 			run "run_deploy_lxd_to_machine"
 			run "run_deploy_lxd_profile_charm"
 			run "run_deploy_local_lxd_profile_charm"
+			echo "==> TEST SKIPPED: deploy_lxd_to_container - tests for non LXD only"
+			echo "==> TEST SKIPPED: deploy_lxd_profile_charm_container - tests for non LXD only"
 			;;
 		*)
 			echo "==> TEST SKIPPED: deploy_lxd_to_machine - tests for LXD only"
 			echo "==> TEST SKIPPED: deploy_lxd_profile_charm - tests for LXD only"
 			echo "==> TEST SKIPPED: deploy_local_lxd_profile_charm - tests for LXD only"
+			run "run_deploy_lxd_to_container"
+			run "run_deploy_lxd_profile_charm_container"
 			;;
 		esac
 	)
