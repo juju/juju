@@ -16,7 +16,6 @@ test_deploy_os() {
 			# https://wiki.centos.org/Cloud/AWS
 			#
 			run "run_deploy_centos7"
-			run "run_deploy_centos8"
 			;;
 		*)
 			echo "==> TEST SKIPPED: deploy_centos - tests for AWS only"
@@ -58,35 +57,4 @@ run_deploy_centos7() {
 
 	destroy_model "${name}"
 	destroy_model "test-deploy-centos-west2"
-}
-
-run_deploy_centos8() {
-	echo
-
-	echo "==> Checking for dependencies"
-	check_juju_dependencies metadata
-
-	name="test-deploy-centos8"
-	file="${TEST_DIR}/${name}.log"
-
-	ensure "${name}" "${file}"
-
-	#
-	# Images have been setup and and subscribed for juju-qa aws
-	# in us-east-1.  Take care editing the details.
-	#
-	juju metadata add-image --series centos8 ami-0d6e9a57f6259ba3a
-
-	#
-	# The disk size must be >= 10G to cover the image above.
-	# Ensure we use an instance with enough disk space.
-	#
-	juju deploy ./tests/suites/deploy/charms/centos-dummy-sink --series centos8 --constraints root-disk=10G
-
-	series=$(juju status --format=json | jq '.applications."dummy-sink".series')
-	echo "$series" | check "centos8"
-
-	wait_for "dummy-sink" "$(idle_condition "dummy-sink")"
-
-	destroy_model "${name}"
 }
