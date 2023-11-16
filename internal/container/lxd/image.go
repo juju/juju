@@ -60,7 +60,7 @@ func (s *Server) FindImage(
 		// We already have an image with the given alias, so just use that.
 		target = entry.Target
 		image, _, err := s.GetImage(target)
-		if isCompatibleVirtType(virtType, image.Type) && err == nil {
+		if err == nil && isCompatibleVirtType(virtType, image.Type) {
 			logger.Debugf("Found image locally - %q %q", image.Filename, target)
 			return SourcedImage{
 				Image:     image,

@@ -75,7 +75,7 @@ Used without arguments, bootstrap will step you through the process of
 initializing a Juju cloud environment. Initialization consists of creating
 a 'controller' model and provisioning a machine to act as controller.
 
-We recommend you call your controller ‘username-region’ e.g. ‘fred-us-east-1’
+We recommend you call your controller ‘username-region’ e.g. ‘fred-us-east-1’.
 See --clouds for a list of clouds and credentials.
 See --regions <cloud> for a list of available regions for a given cloud.
 
@@ -103,13 +103,13 @@ used with the MAAS provider ('--to <host>.maas').
 You can change the default timeout and retry delays used during the
 bootstrap by changing the following settings in your configuration
 (all values represent number of seconds):
+
     # How long to wait for a connection to the controller
-    bootstrap-timeout: 1200 # default: 20 minutes
-    # How long to wait between connection attempts to a controller
-address.
-    bootstrap-retry-delay: 5 # default: 5 seconds
+    bootstrap-timeout: 1200  # default: 20 minutes
+    # How long to wait between connection attempts to a controller address.
+    bootstrap-retry-delay: 5  # default: 5 seconds
     # How often to refresh controller addresses from the API server.
-    bootstrap-addresses-delay: 10 # default: 10 seconds
+    bootstrap-addresses-delay: 10  # default: 10 seconds
 
 It is possible to override the base e.g. ubuntu@22.04, Juju attempts 
 to bootstrap on to, by supplying a base argument to '--bootstrap-base'.
@@ -117,9 +117,9 @@ to bootstrap on to, by supplying a base argument to '--bootstrap-base'.
 An error is emitted if the determined base is not supported. Using the
 '--force' option to override this check:
 
-	juju bootstrap --bootstrap-base=ubuntu@22.04 --force
+    juju bootstrap --bootstrap-base=ubuntu@22.04 --force
 
-The '--bootstrap-series' can be still used, but is deprecated in favour
+The '--bootstrap-series' flag can be still used, but is deprecated in favour
 of '--bootstrap-base'.
 
 Private clouds may need to specify their own custom image metadata and
@@ -137,9 +137,9 @@ The agent version can be specified a simple numeric version, e.g. 2.2.4.
 
 For example, at the time when 2.3.0, 2.3.1 and 2.3.2 are released and your
 agent stream is 'released' (default), then a 2.3.1 client can bootstrap:
-    * 2.3.0 controller by running '... bootstrap --agent-version=2.3.0 ...';
-    * 2.3.1 controller by running '... bootstrap ...';
-    * 2.3.2 controller by running 'bootstrap --auto-upgrade'.
+   * 2.3.0 controller by running '... bootstrap --agent-version=2.3.0 ...';
+   * 2.3.1 controller by running '... bootstrap ...';
+   * 2.3.2 controller by running 'bootstrap --auto-upgrade'.
 However, if this client has a copy of codebase, then a local copy of Juju
 will be built and bootstrapped - 2.3.1.1.
 

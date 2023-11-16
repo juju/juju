@@ -1365,17 +1365,17 @@ func (m *MockDefaultConstraintsChecker) EXPECT() *MockDefaultConstraintsCheckerM
 }
 
 // ShouldApplyControllerConstraints mocks base method.
-func (m *MockDefaultConstraintsChecker) ShouldApplyControllerConstraints() bool {
+func (m *MockDefaultConstraintsChecker) ShouldApplyControllerConstraints(arg0 constraints.Value) bool {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ShouldApplyControllerConstraints")
+	ret := m.ctrl.Call(m, "ShouldApplyControllerConstraints", arg0)
 	ret0, _ := ret[0].(bool)
 	return ret0
 }
 
 // ShouldApplyControllerConstraints indicates an expected call of ShouldApplyControllerConstraints.
-func (mr *MockDefaultConstraintsCheckerMockRecorder) ShouldApplyControllerConstraints() *gomock.Call {
+func (mr *MockDefaultConstraintsCheckerMockRecorder) ShouldApplyControllerConstraints(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ShouldApplyControllerConstraints", reflect.TypeOf((*MockDefaultConstraintsChecker)(nil).ShouldApplyControllerConstraints))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ShouldApplyControllerConstraints", reflect.TypeOf((*MockDefaultConstraintsChecker)(nil).ShouldApplyControllerConstraints), arg0)
 }
 
 // MockProviderCredentialsRegister is a mock of ProviderCredentialsRegister interface.
