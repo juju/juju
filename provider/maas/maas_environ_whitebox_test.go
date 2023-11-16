@@ -2027,20 +2027,6 @@ func (suite *maasEnvironSuite) TestAllocateContainerAddressesLinkSubnetError(c *
 	c.Assert(maasArgs, jc.DeepEquals, expected)
 }
 
-func (suite *maasEnvironSuite) TestStorageReturnsStorage(c *gc.C) {
-	controller := newFakeController()
-	env := suite.makeEnviron(c, controller)
-	stor := env.Storage()
-	c.Check(stor, gc.NotNil)
-
-	// The Storage object is really a maasStorage.
-	specificStorage := stor.(*maasStorage)
-
-	// Its environment pointer refers back to its environment.
-	c.Check(specificStorage.environ, gc.Equals, env)
-	c.Check(specificStorage.maasController, gc.Equals, controller)
-}
-
 func (suite *maasEnvironSuite) TestAllocateContainerReuseExistingDevice(c *gc.C) {
 	stub := &testing.Stub{}
 	vlan1 := fakeVLAN{

@@ -35,7 +35,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/tools"
@@ -79,8 +78,7 @@ type maasEnviron struct {
 	// ecfgMutex protects the *Unlocked fields below.
 	ecfgMutex sync.Mutex
 
-	ecfgUnlocked    *maasModelConfig
-	storageUnlocked storage.Storage
+	ecfgUnlocked *maasModelConfig
 
 	// maasController provides access to the MAAS 2.0 API.
 	maasController gomaasapi.Controller
@@ -268,7 +266,6 @@ func (env *maasEnviron) SetCloudSpec(_ stdcontext.Context, spec environscloudspe
 
 	env.maasController = controller
 	env.apiVersion = apiVersion
-	env.storageUnlocked = NewStorage(env)
 
 	return nil
 }
@@ -1009,8 +1006,7 @@ func (env *maasEnviron) StopInstances(ctx context.ProviderCallContext, ids ...in
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return common.RemoveStateInstances(env.Storage(), ids...)
-
+	return nil
 }
 
 // Instances returns the instances.Instance objects corresponding to the given
@@ -1269,18 +1265,9 @@ func (env *maasEnviron) AllRunningInstances(ctx context.ProviderCallContext) ([]
 	return env.AllInstances(ctx)
 }
 
-// Storage is defined by the Environ interface.
-func (env *maasEnviron) Storage() storage.Storage {
-	env.ecfgMutex.Lock()
-	defer env.ecfgMutex.Unlock()
-	return env.storageUnlocked
-}
-
 func (env *maasEnviron) Destroy(ctx context.ProviderCallContext) error {
-	if err := common.Destroy(env, ctx); err != nil {
-		return errors.Trace(err)
-	}
-	return env.Storage().RemoveAll()
+	err := common.Destroy(env, ctx)
+	return errors.Trace(err)
 }
 
 // DestroyController implements the Environ interface.
