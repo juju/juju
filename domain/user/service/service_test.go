@@ -103,6 +103,52 @@ func (s *serviceSuite) setMockState(c *gc.C) map[string]stateUser {
 		}, nil
 	}).AnyTimes()
 
+	s.state.EXPECT().AddUser(
+		gomock.Any(), gomock.Any(),
+	).DoAndReturn(func(
+		_ context.Context,
+		user user.User) error {
+		usr, exists := mockState[user.Name]
+		if exists && !usr.removed {
+			return usererrors.AlreadyExists
+		}
+		mockState[user.Name] = stateUser{
+			createdAt:   user.CreatedAt,
+			displayName: user.DisplayName,
+		}
+		return nil
+	}).AnyTimes()
+
+	s.state.EXPECT().AddUserWithPassword(
+		gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
+	).DoAndReturn(func(
+		_ context.Context,
+		user user.User,
+		hash string,
+		salt []byte) error {
+		mockState[user.Name] = stateUser{
+			createdAt:    user.CreatedAt,
+			displayName:  user.DisplayName,
+			passwordHash: hash,
+			passwordSalt: salt,
+		}
+		return nil
+	}).AnyTimes()
+
+	s.state.EXPECT().AddUserWithActivationKey(
+		gomock.Any(), gomock.Any(), gomock.Any(),
+	).DoAndReturn(func(
+		_ context.Context,
+		user user.User,
+		key []byte) ([]byte, error) {
+		mockState[user.Name] = stateUser{
+			createdAt:     user.CreatedAt,
+			displayName:   user.DisplayName,
+			activationKey: key,
+		}
+		return key, nil
+	}).AnyTimes()
+
 	s.state.EXPECT().RemoveUser(
 		gomock.Any(), gomock.Any(),
 	).DoAndReturn(func(
@@ -159,28 +205,10 @@ func (s *serviceSuite) setMockState(c *gc.C) map[string]stateUser {
 	return mockState
 }
 
+// TestAddUser is testing the happy path for adding a user.
 func (s *serviceSuite) TestAddUser(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	//mockState := s.setMockState(c)
-
-	fakeuser := user.User{
-		Name:        "f00-Bar.ram77",
-		DisplayName: "Display",
-		CreatedAt:   time.Now(),
-		Creator:     "admin",
-	}
-
-	s.state.EXPECT().AddUser(gomock.Any(), fakeuser).Return(nil)
-
-	err := s.service().AddUser(context.Background(), fakeuser)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *serviceSuite) TestAddUserWithPassword(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-	mockState := s.setMockState(c)
-
-	mockState["f00-Bar.ram77"] = stateUser{}
 
 	fakeUser := user.User{
 		Name:        "f00-Bar.ram77",
@@ -189,28 +217,41 @@ func (s *serviceSuite) TestAddUserWithPassword(c *gc.C) {
 		Creator:     "admin",
 	}
 
-	salt, err := auth.NewSalt()
+	s.state.EXPECT().AddUser(gomock.Any(), fakeUser).Return(nil)
+
+	err := s.service().AddUser(context.Background(), fakeUser)
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+// TestAddUserInvalidName is testing that if we supply add user with password.
+func (s *serviceSuite) TestAddUserWithPassword(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	mockState := s.setMockState(c)
+
+	fakeUser := user.User{
+		Name:        "f00-Bar.ram77",
+		DisplayName: "Display",
+		CreatedAt:   time.Now(),
+		Creator:     "admin",
+	}
 
 	fakePassword := auth.NewPassword("password")
 
-	passwordHash, err := auth.HashPassword(fakePassword, salt)
+	err := s.service().AddUserWithPassword(context.Background(), fakeUser, fakePassword)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.state.EXPECT().AddUserWithPassword(gomock.Any(), fakeUser, passwordHash, salt).Return(nil)
-
-	err = s.service().AddUserWithPassword(context.Background(), fakeUser, fakePassword)
-
-	userState := mockState[name]
+	userState := mockState[fakeUser.Name]
 	c.Assert(fakePassword.IsDestroyed(), jc.IsTrue)
 	c.Assert(userState.passwordHash == "", jc.IsFalse)
 	c.Assert(len(userState.passwordSalt) == 0, jc.IsFalse)
 	c.Assert(userState.activationKey, gc.IsNil)
 }
 
+// TestAddUserWithPasswordInvalidUsername is testing that if we supply
+// add user with activation key.
 func (s *serviceSuite) TestAddUserWithActivationKey(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	//mockState := s.setMockState(c)
+	mockState := s.setMockState(c)
 
 	fakeUser := user.User{
 		Name:        "f00-Bar.ram77",
@@ -219,13 +260,11 @@ func (s *serviceSuite) TestAddUserWithActivationKey(c *gc.C) {
 		Creator:     "admin",
 	}
 
-	fakeActivationKey := []byte{0x1, 0x2, 0x3}
-
-	s.state.EXPECT().AddUserWithActivationKey(gomock.Any(), fakeUser, fakeActivationKey).Return(fakeActivationKey, nil)
-
 	activationKey, err := s.service().AddUserWithActivationKey(context.Background(), fakeUser)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(activationKey, gc.DeepEquals, fakeActivationKey)
+
+	userState := mockState[fakeUser.Name]
+	c.Assert(userState.activationKey, gc.DeepEquals, activationKey)
 }
 
 // TestRemoveUser is testing the happy path for removing a user.

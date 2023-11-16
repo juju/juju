@@ -130,13 +130,11 @@ func ValidateUsername(name string) error {
 // - usererrors.UsernameNotValid: When the username supplied is not valid.
 // - usererrors.AlreadyExists: If a user with the supplied name already exists.
 func (s *Service) AddUser(ctx context.Context, user user.User) error {
-	err := ValidateUsername(user.Name)
-	if err != nil {
+	if err := ValidateUsername(user.Name); err != nil {
 		return fmt.Errorf("username %q: %w", user.Name, err)
 	}
 
-	err = s.st.AddUser(ctx, user)
-	if err != nil {
+	if err := s.st.AddUser(ctx, user); err != nil {
 		return fmt.Errorf("adding user %q: %w", user.Name, err)
 	}
 	return nil
@@ -148,8 +146,7 @@ func (s *Service) AddUser(ctx context.Context, user user.User) error {
 // - usererrors.UsernameNotValid: When the username supplied is not valid.
 // - usererrors.AlreadyExists: If a user with the supplied name already exists.
 func (s *Service) AddUserWithPassword(ctx context.Context, user user.User, password auth.Password) error {
-	err := ValidateUsername(user.Name)
-	if err != nil {
+	if err := ValidateUsername(user.Name); err != nil {
 		return fmt.Errorf("username %q with password: %w", user.Name, err)
 	}
 
@@ -163,10 +160,11 @@ func (s *Service) AddUserWithPassword(ctx context.Context, user user.User, passw
 		return fmt.Errorf("setting password for user %q, hashing password: %w", user.Name, err)
 	}
 
-	err = s.st.AddUserWithPassword(ctx, user, pwHash, salt)
-	if err != nil {
+	if err = s.st.AddUserWithPassword(ctx, user, pwHash, salt); err != nil {
 		return fmt.Errorf("adding user %q with password: %w", user.Name, err)
 	}
+	// Destroy the password before return.
+	password.Destroy()
 	return nil
 }
 

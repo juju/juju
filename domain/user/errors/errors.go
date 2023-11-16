@@ -17,4 +17,8 @@ const (
 	// Examples of this include illegal characters or usernames that are not of
 	// sufficient length.
 	UsernameNotValid = errors.ConstError("username not valid")
+
+	// AlreadyExists describes an error that occurs when the user being
+	// created already exists.
+	AlreadyExists = errors.ConstError("user already exists")
 )
