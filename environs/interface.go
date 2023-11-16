@@ -627,7 +627,7 @@ type PrecheckJujuUpgradeStep interface {
 type DefaultConstraintsChecker interface {
 	// ShouldApplyControllerConstraints returns if bootstrapping logic should
 	// use default constraints
-	ShouldApplyControllerConstraints() bool
+	ShouldApplyControllerConstraints(constraints.Value) bool
 }
 
 // HardwareCharacteristicsDetector is implemented by environments that can
