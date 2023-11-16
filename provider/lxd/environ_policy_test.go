@@ -263,6 +263,33 @@ func (s *environPolicySuite) TestSupportNetworks(c *gc.C) {
 	c.Check(isSupported, jc.IsFalse)
 }
 
+func (s *environPolicySuite) TestShouldApplyControllerConstraints(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	cons := constraints.MustParse("")
+
+	ok := s.env.(environs.DefaultConstraintsChecker).ShouldApplyControllerConstraints(cons)
+	c.Assert(ok, jc.IsFalse)
+}
+
+func (s *environPolicySuite) TestShouldApplyControllerConstraintsInvalid(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	cons := constraints.MustParse("virt-type=invalid")
+
+	ok := s.env.(environs.DefaultConstraintsChecker).ShouldApplyControllerConstraints(cons)
+	c.Assert(ok, jc.IsFalse)
+}
+
+func (s *environPolicySuite) TestShouldApplyControllerConstraintsForVirtualMachine(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	cons := constraints.MustParse("virt-type=virtual-machine")
+
+	ok := s.env.(environs.DefaultConstraintsChecker).ShouldApplyControllerConstraints(cons)
+	c.Assert(ok, jc.IsTrue)
+}
+
 func (s *environPolicySuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 

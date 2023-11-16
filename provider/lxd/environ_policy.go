@@ -48,7 +48,10 @@ func (env *environ) ConstraintsValidator(ctx envcontext.ProviderCallContext) (co
 
 // ShouldApplyControllerConstraints returns if bootstrapping logic should use
 // default constraints
-func (env *environ) ShouldApplyControllerConstraints() bool {
+func (env *environ) ShouldApplyControllerConstraints(cons constraints.Value) bool {
+	if cons.HasVirtType() && *cons.VirtType == "virtual-machine" {
+		return true
+	}
 	return false
 }
 
