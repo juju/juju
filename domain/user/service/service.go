@@ -21,14 +21,14 @@ type State interface {
 	// an error that satisfies usererrors.AlreadyExists will be returned.
 	AddUser(context.Context, user.User) error
 
-	// AddUserWithPassword will add a new user to the database with a password.
-	//If the user already exists
-	// an error that satisfies usererrors.AlreadyExists will be returned.
-	AddUserWithPassword(context.Context, user.User, string, []byte) error
+	// AddUserWithPasswordHash will add a new user to the database with the
+	// provided password hash and salt. If the user already exists an error that
+	// satisfies usererrors.AlreadyExists will be returned.
+	AddUserWithPasswordHash(context.Context, user.User, string, []byte) error
 
-	// AddUserWithActivationKey will add a new user to the database with an activation key.
-	// If the user already exists an error that satisfies usererrors.AlreadyExists
-	// will be returned.
+	// AddUserWithActivationKey will add a new user to the database with the
+	// provided activation key. If the user already exists an error that
+	// satisfies usererrors.AlreadyExists will be returned.
 	AddUserWithActivationKey(context.Context, user.User, []byte) error
 
 	// GetUser will retrieve the user specified by name from the database where
@@ -139,31 +139,35 @@ func (s *Service) AddUser(ctx context.Context, user user.User) error {
 	return nil
 }
 
-// AddUserWithPassword will add a new user to the database with a password.
+// AddUserWithPassword will add a new user to the database with a password. The
+// password passed to this function will have it's Destroy() function called
+// every time.
 //
 // The following error types are possible from this function:
 // - usererrors.UsernameNotValid: When the username supplied is not valid.
 // - usererrors.AlreadyExists: If a user with the supplied name already exists.
+// - internal/auth.ErrPasswordDestroyed: If the supplied password has already
+// been destroyed.
+// - internal/auth.ErrPasswordNotValid: If the password supplied is not valid.
 func (s *Service) AddUserWithPassword(ctx context.Context, user user.User, password auth.Password) error {
+	defer password.Destroy()
 	if err := ValidateUsername(user.Name); err != nil {
-		return fmt.Errorf("username %q with password: %w", user.Name, err)
+		return fmt.Errorf("username %q: %w", user.Name, err)
 	}
 
 	salt, err := auth.NewSalt()
 	if err != nil {
-		return fmt.Errorf("setting password for user %q, generating password salt: %w", user.Name, err)
+		return fmt.Errorf("adding user %q, generating password salt: %w", user.Name, err)
 	}
 
 	pwHash, err := auth.HashPassword(password, salt)
 	if err != nil {
-		return fmt.Errorf("setting password for user %q, hashing password: %w", user.Name, err)
+		return fmt.Errorf("adding user %q, hashing password: %w", user.Name, err)
 	}
 
-	if err = s.st.AddUserWithPassword(ctx, user, pwHash, salt); err != nil {
+	if err = s.st.AddUserWithPasswordHash(ctx, user, pwHash, salt); err != nil {
 		return fmt.Errorf("adding user %q with password: %w", user.Name, err)
 	}
-	// Destroy the password before return.
-	password.Destroy()
 	return nil
 }
 

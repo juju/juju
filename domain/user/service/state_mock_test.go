@@ -63,18 +63,18 @@ func (mr *MockStateMockRecorder) AddUserWithActivationKey(arg0, arg1, arg2 inter
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddUserWithActivationKey", reflect.TypeOf((*MockState)(nil).AddUserWithActivationKey), arg0, arg1, arg2)
 }
 
-// AddUserWithPassword mocks base method.
-func (m *MockState) AddUserWithPassword(arg0 context.Context, arg1 user.User, arg2 string, arg3 []byte) error {
+// AddUserWithPasswordHash mocks base method.
+func (m *MockState) AddUserWithPasswordHash(arg0 context.Context, arg1 user.User, arg2 string, arg3 []byte) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddUserWithPassword", arg0, arg1, arg2, arg3)
+	ret := m.ctrl.Call(m, "AddUserWithPasswordHash", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// AddUserWithPassword indicates an expected call of AddUserWithPassword.
-func (mr *MockStateMockRecorder) AddUserWithPassword(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+// AddUserWithPasswordHash indicates an expected call of AddUserWithPasswordHash.
+func (mr *MockStateMockRecorder) AddUserWithPasswordHash(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddUserWithPassword", reflect.TypeOf((*MockState)(nil).AddUserWithPassword), arg0, arg1, arg2, arg3)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddUserWithPasswordHash", reflect.TypeOf((*MockState)(nil).AddUserWithPasswordHash), arg0, arg1, arg2, arg3)
 }
 
 // GetUser mocks base method.

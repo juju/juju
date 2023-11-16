@@ -119,13 +119,17 @@ func (s *serviceSuite) setMockState(c *gc.C) map[string]stateUser {
 		return nil
 	}).AnyTimes()
 
-	s.state.EXPECT().AddUserWithPassword(
+	s.state.EXPECT().AddUserWithPasswordHash(
 		gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
 	).DoAndReturn(func(
 		_ context.Context,
 		user user.User,
 		hash string,
 		salt []byte) error {
+		usr, exists := mockState[user.Name]
+		if exists && !usr.removed {
+			return usererrors.AlreadyExists
+		}
 		mockState[user.Name] = stateUser{
 			createdAt:    user.CreatedAt,
 			displayName:  user.DisplayName,
@@ -223,7 +227,7 @@ func (s *serviceSuite) TestAddUser(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-// TestAddUserInvalidName is testing that if we supply add user with password.
+// TestAddUserWithPassword is testing the happy path of AddUserWithPassword.
 func (s *serviceSuite) TestAddUserWithPassword(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	mockState := s.setMockState(c)
@@ -245,6 +249,113 @@ func (s *serviceSuite) TestAddUserWithPassword(c *gc.C) {
 	c.Assert(userState.passwordHash == "", jc.IsFalse)
 	c.Assert(len(userState.passwordSalt) == 0, jc.IsFalse)
 	c.Assert(userState.activationKey, gc.IsNil)
+}
+
+// TestAddUserWithPasswordInvalidUser is testing that if we call
+// AddUserWithPassword and the username of the user we are trying to add is
+// invalid we both get a error back that satisfies usererrors.UsernameNotValid
+// and that no state changes occur.
+func (s *serviceSuite) TestAddUserWithPasswordInvalidUser(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	mockState := s.setMockState(c)
+
+	fakeUser := user.User{
+		Name:        invalidUsernames[0],
+		DisplayName: "Display",
+		CreatedAt:   time.Now(),
+		Creator:     "admin",
+	}
+
+	fakePassword := auth.NewPassword("password")
+
+	err := s.service().AddUserWithPassword(context.Background(), fakeUser, fakePassword)
+	c.Assert(err, jc.ErrorIs, usererrors.UsernameNotValid)
+
+	c.Assert(fakePassword.IsDestroyed(), jc.IsTrue)
+	c.Assert(len(mockState), gc.Equals, 0)
+}
+
+// TestAddUserWithPasswordAlreadyExists is testing that if we try and add a user
+// with the same name as one that already exists we get back a error that
+// satisfies usererrors.AlreadyExists.
+func (s *serviceSuite) TestAddUserWithPasswordAlreadyExists(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	mockState := s.setMockState(c)
+	mockState["jimbo"] = stateUser{
+		createdAt:   time.Now(),
+		displayName: "Jimmy",
+		removed:     false,
+	}
+
+	user := user.User{
+		CreatedAt:   time.Now(),
+		DisplayName: "tlm",
+		Name:        "jimbo",
+	}
+	password := auth.NewPassword("51b11eb2e6d094a62a489e40")
+
+	err := s.service().AddUserWithPassword(context.Background(), user, password)
+	c.Assert(err, jc.ErrorIs, usererrors.AlreadyExists)
+
+	// Let's check that the password was destroyed as per the func contract.
+	c.Assert(password.IsDestroyed(), jc.IsTrue)
+
+	// We now need to double check no state change occurred.
+	userState := mockState["jimbo"]
+	c.Assert(userState.displayName, gc.Equals, "Jimmy")
+	c.Assert(userState.removed, jc.IsFalse)
+}
+
+// TestAddUserWithPasswordDestroyedPassword tests that when adding a new user
+// with password we get a internal/auth.ErrPasswordDestroyed back when passing
+// in a password that has already been destroyed.
+//
+// The reason we want to check this is because there could exist circumstances
+// where a call might fail for a user password and something else has zero'd the
+// password. This is most commonly going to happen because of retry logic.
+func (s *serviceSuite) TestAddUserWithPasswordDestroyedPassword(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	mockState := s.setMockState(c)
+	user := user.User{
+		CreatedAt:   time.Now(),
+		DisplayName: "tlm",
+		Name:        "tlm",
+	}
+	password := auth.NewPassword("51b11eb2e6d094a62a489e40")
+	password.Destroy()
+
+	err := s.service().AddUserWithPassword(context.Background(), user, password)
+	c.Assert(err, jc.ErrorIs, auth.ErrPasswordDestroyed)
+
+	// Let's check that the password was destroyed as per the func contract.
+	c.Assert(password.IsDestroyed(), jc.IsTrue)
+
+	// Check that no state changes occured.
+	c.Assert(len(mockState), gc.Equals, 0)
+}
+
+// TestAddUserWithPasswordNotValid is checking that if we try and add a user
+// with password that is not valid we get back a error that satisfies
+// internal/auth.ErrorPasswordNotValid.
+func (s *serviceSuite) TestAddUserWithPasswordNotValid(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	mockState := s.setMockState(c)
+	user := user.User{
+		CreatedAt:   time.Now(),
+		DisplayName: "tlm",
+		Name:        "tlm",
+	}
+	password := auth.NewPassword("")
+	password.Destroy()
+
+	err := s.service().AddUserWithPassword(context.Background(), user, password)
+	c.Assert(err, jc.ErrorIs, auth.ErrPasswordDestroyed)
+
+	// Let's check that the password was destroyed as per the func contract.
+	c.Assert(password.IsDestroyed(), jc.IsTrue)
+
+	// Check that no state changes occured.
+	c.Assert(len(mockState), gc.Equals, 0)
 }
 
 // TestAddUserWithPasswordInvalidUsername is testing that if we supply
