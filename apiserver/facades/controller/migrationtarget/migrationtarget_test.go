@@ -81,7 +81,7 @@ func (s *Suite) SetUpTest(c *gc.C) {
 }
 
 func (s *Suite) TestFacadeRegistered(c *gc.C) {
-	aFactory, err := apiserver.AllFacades().GetFactory("MigrationTarget", 2)
+	aFactory, err := apiserver.AllFacades().GetFactory("MigrationTarget", 3)
 	c.Assert(err, jc.ErrorIsNil)
 
 	api, err := aFactory(&facadetest.Context{
@@ -91,6 +91,19 @@ func (s *Suite) TestFacadeRegistered(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(api, gc.FitsTypeOf, new(migrationtarget.API))
+}
+
+func (s *Suite) TestFacadeRegisteredV2(c *gc.C) {
+	aFactory, err := apiserver.AllFacades().GetFactory("MigrationTarget", 2)
+	c.Assert(err, jc.ErrorIsNil)
+
+	api, err := aFactory(&facadetest.Context{
+		State_:     s.State,
+		Resources_: s.resources,
+		Auth_:      s.authorizer,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(api, gc.FitsTypeOf, new(migrationtarget.APIV2))
 }
 
 func (s *Suite) TestNotUser(c *gc.C) {

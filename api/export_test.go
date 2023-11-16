@@ -21,6 +21,7 @@ import (
 var (
 	CertDir             = &certDir
 	SlideAddressToFront = slideAddressToFront
+	FacadeVersions      = &facadeVersions
 )
 
 func DialAPI(info *Info, opts DialOpts) (jsoncodec.JSONConn, string, error) {
