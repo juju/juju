@@ -279,7 +279,7 @@ func (s *charmHubRepositorySuite) TestResolveRevisionNotFoundErrorWithNoSeries(c
 	repo := NewCharmHubRepository(s.logger, s.client)
 	_, _, _, err := repo.ResolveWithPreferredChannel(curl, origin, nil)
 	c.Assert(err, gc.ErrorMatches,
-		`(?m)selecting releases: charm or bundle not found for channel "", base "amd64"
+		`(?m)selecting releases: charm or bundle not found in the charm's default channel, base "amd64"
 available releases are:
   channel "latest/stable": available series are: focal`)
 }
@@ -300,7 +300,7 @@ func (s *charmHubRepositorySuite) TestResolveRevisionNotFoundError(c *gc.C) {
 	repo := NewCharmHubRepository(s.logger, s.client)
 	_, _, _, err := repo.ResolveWithPreferredChannel(curl, origin, nil)
 	c.Assert(err, gc.ErrorMatches,
-		`(?m)selecting releases: charm or bundle not found for channel "", base "amd64/ubuntu/18.04"
+		`(?m)selecting releases: charm or bundle not found in the charm's default channel, base "amd64/ubuntu/18.04"
 available releases are:
   channel "latest/stable": available series are: focal`)
 }
@@ -867,7 +867,7 @@ func (s *selectNextBaseSuite) TestSelectNextBasesFromReleasesSuggestion(c *gc.C)
 		},
 	})
 	c.Assert(err, gc.ErrorMatches,
-		`charm or bundle not found for channel "", base "arch"
+		`charm or bundle not found in the charm's default channel, base "arch"
 available releases are:
   channel "latest/stable": available series are: focal`)
 }

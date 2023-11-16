@@ -586,14 +586,21 @@ func (c *CharmHubRepository) handleRevisionNotFound(releases []transport.Release
 	if len(suggestions) > 0 {
 		s = fmt.Sprintf("\navailable releases are:\n  %v", strings.Join(suggestions, "\n  "))
 	}
-	var channelName string
+	// If the origin's channel is nil, one wasn't specified by the user,
+	// so we requested "stable", which indicates the charm's default channel.
+	// However, at the time we're writing this message, we do not know what
+	// the charm's default channel is.
+	var channelString string
 	if origin.Channel != nil {
-		channelName = origin.Channel.String()
+		channelString = fmt.Sprintf("for channel %q", origin.Channel.String())
+	} else {
+		channelString = "in the charm's default channel"
 	}
+
 	return errSelection{
 		err: errors.Errorf(
-			"charm or bundle not found for channel %q, base %q%s",
-			channelName, origin.Platform.String(), s),
+			"charm or bundle not found %s, base %q%s",
+			channelString, origin.Platform.String(), s),
 	}
 }
 
