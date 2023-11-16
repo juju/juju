@@ -24,12 +24,12 @@ type State interface {
 	// AddUserWithPassword will add a new user to the database with a password.
 	//If the user already exists
 	// an error that satisfies usererrors.AlreadyExists will be returned.
-	AddUserWithPassword(context.Context, user.User, auth.Password) error
+	AddUserWithPassword(context.Context, user.User, string, []byte) error
 
 	// AddUserWithActivationKey will add a new user to the database with an activation key.
 	// If the user already exists an error that satisfies usererrors.AlreadyExists
 	// will be returned.
-	AddUserWithActivationKey(context.Context, user.User) error
+	AddUserWithActivationKey(context.Context, user.User, []byte) error
 
 	// GetUser will retrieve the user specified by name from the database where
 	// the user is active and has not been removed. If the user does not exist
@@ -153,7 +153,17 @@ func (s *Service) AddUserWithPassword(ctx context.Context, user user.User, passw
 		return fmt.Errorf("username %q with password: %w", user.Name, err)
 	}
 
-	err = s.st.AddUserWithPassword(ctx, user, password)
+	salt, err := auth.NewSalt()
+	if err != nil {
+		return fmt.Errorf("setting password for user %q, generating password salt: %w", user.Name, err)
+	}
+
+	pwHash, err := auth.HashPassword(password, salt)
+	if err != nil {
+		return fmt.Errorf("setting password for user %q, hashing password: %w", user.Name, err)
+	}
+
+	err = s.st.AddUserWithPassword(ctx, user, pwHash, salt)
 	if err != nil {
 		return fmt.Errorf("adding user %q with password: %w", user.Name, err)
 	}
@@ -165,17 +175,22 @@ func (s *Service) AddUserWithPassword(ctx context.Context, user user.User, passw
 // The following error types are possible from this function:
 // - usererrors.UsernameNotValid: When the username supplied is not valid.
 // - usererrors.AlreadyExists: If a user with the supplied name already exists.
-func (s *Service) AddUserWithActivationKey(ctx context.Context, user user.User) error {
+func (s *Service) AddUserWithActivationKey(ctx context.Context, user user.User) ([]byte, error) {
 	err := ValidateUsername(user.Name)
 	if err != nil {
-		return fmt.Errorf("username %q with activation key: %w", user.Name, err)
+		return nil, fmt.Errorf("username %q with activation key: %w", user.Name, err)
 	}
 
-	err = s.st.AddUserWithActivationKey(ctx, user)
+	activationKey, err := generateActivationKey()
 	if err != nil {
-		return fmt.Errorf("adding user %q with activation key: %w", user.Name, err)
+		return nil, fmt.Errorf("generating activation key for user %q: %w", user.Name, err)
 	}
-	return nil
+
+	err = s.st.AddUserWithActivationKey(ctx, user, activationKey)
+	if err != nil {
+		return nil, fmt.Errorf("adding user %q with activation key: %w", user.Name, err)
+	}
+	return activationKey, nil
 }
 
 // RemoveUser marks the user as removed and removes any credentials or
