@@ -74,6 +74,11 @@ const (
 	usernameValidationRegex = "^([\\pL\\pN]|[\\pL\\pN][\\pL\\pN.+-]{0,253}[\\pL\\pN])$"
 )
 
+var (
+	// validUserName is a compiled regex that is used to validate that a user
+	validUserName = regexp.MustCompile(usernameValidationRegex)
+)
+
 // NewService returns a new Service for interacting with the underlying user
 // state.
 func NewService(st State) *Service {
@@ -112,13 +117,7 @@ func (s *Service) GetUser(
 // long as they don't appear at the start or end of the username. Usernames can
 // be a maximum length of 255 characters.
 func ValidateUsername(name string) error {
-	regex, err := regexp.Compile(usernameValidationRegex)
-	if err != nil {
-		return fmt.Errorf("compiling user name validation regex %q: %w",
-			usernameValidationRegex, err,
-		)
-	}
-	if !regex.MatchString(name) {
+	if !validUserName.MatchString(name) {
 		return fmt.Errorf("%w %q", usererrors.UsernameNotValid, name)
 	}
 	return nil
