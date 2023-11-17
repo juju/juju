@@ -270,7 +270,7 @@ func (r baseRefresher) ResolveCharm() (*charm.URL, commoncharm.Origin, error) {
 		return nil, commoncharm.Origin{}, errors.Trace(err)
 	}
 	_, baseSupportedErr := corecharm.BaseForCharm(deployedBase, supportedBases)
-	if !r.forceBase && !deployedBase.Empty() && newURL.Series == "" && baseSupportedErr != nil {
+	if !r.forceBase && !deployedBase.Empty() && baseSupportedErr != nil {
 		bases := []string{"no bases"}
 		if len(supportedBases) > 0 {
 			bases = transform.Slice(supportedBases, func(in corebase.Base) string { return in.DisplayString() })
