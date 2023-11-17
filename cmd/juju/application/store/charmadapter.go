@@ -85,14 +85,10 @@ func (c *CharmAdaptor) ResolveBundleURL(maybeBundle *charm.URL, preferredOrigin 
 		return nil, commoncharm.Origin{}, errors.Trace(err)
 	}
 	// We're a bundle so return out before handling the invalid flow.
-	if transport.BundleType.Matches(origin.Type) || storeCharmOrBundleURL.Series == "bundle" {
+	if transport.BundleType.Matches(origin.Type) {
 		return storeCharmOrBundleURL, origin, nil
 	}
 
-	logger.Debugf(
-		`cannot interpret as charmstore bundle: %v (series) != "bundle"`,
-		storeCharmOrBundleURL.Series,
-	)
 	return nil, commoncharm.Origin{}, errors.NotValidf("charmstore bundle %q", maybeBundle)
 }
 
