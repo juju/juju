@@ -368,7 +368,7 @@ func (h *bundleHandler) resolveCharmsAndEndpoints() error {
 		}
 
 		h.ctx.Infof(formatLocatedText(ch, origin))
-		if url.Series == "bundle" || origin.Type == "bundle" {
+		if origin.Type == "bundle" {
 			return errors.Errorf("expected charm, got bundle %q", ch.Name)
 		}
 
@@ -648,7 +648,7 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 	if err != nil {
 		return errors.Annotatef(err, "cannot resolve %q", ch.Name)
 	}
-	if url.Series == "bundle" || resolvedOrigin.Type == "bundle" {
+	if resolvedOrigin.Type == "bundle" {
 		return errors.Errorf("expected charm, got bundle %q %v", ch.Name, resolvedOrigin)
 	}
 	workloadBases, err := SupportedJujuBases(jujuclock.WallClock.Now(), base, h.modelConfig.ImageStream())
