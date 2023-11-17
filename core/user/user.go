@@ -7,17 +7,16 @@ import (
 	"time"
 )
 
-// User describes a user within Juju.
 type User struct {
 	// CreatedAt is the time that the user was created at.
 	CreatedAt time.Time
 
-	// DisplayName is a user friendly name represent the user as.
+	// DisplayName is a user-friendly name represent the user as.
 	DisplayName string
 
 	// Name is the username of the user.
 	Name string
 
-	// Creator is the username of the user that created this user.
-	Creator string
+	// CreatorUUID is the associated user that created this user.
+	CreatorUUID string
 }
