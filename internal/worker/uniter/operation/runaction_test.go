@@ -4,6 +4,7 @@
 package operation_test
 
 import (
+	stdcontext "context"
 	"time"
 
 	"github.com/juju/charm/v12/hooks"
@@ -66,7 +67,7 @@ func (s *RunActionSuite) TestPrepareErrorBadActionAndFailSucceeds(c *gc.C) {
 	op, err := factory.NewAction(someActionId)
 	c.Assert(err, jc.ErrorIsNil)
 
-	newState, err := op.Prepare(operation.State{})
+	newState, err := op.Prepare(stdcontext.Background(), operation.State{})
 	c.Assert(newState, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "squelch")
 	c.Assert(*runnerFactory.MockNewActionRunner.gotActionId, gc.Equals, someActionId)
@@ -87,7 +88,7 @@ func (s *RunActionSuite) TestPrepareErrorBadActionAndFailErrors(c *gc.C) {
 	op, err := factory.NewAction(someActionId)
 	c.Assert(err, jc.ErrorIsNil)
 
-	newState, err := op.Prepare(operation.State{})
+	newState, err := op.Prepare(stdcontext.Background(), operation.State{})
 	c.Assert(newState, gc.IsNil)
 	c.Assert(err, gc.Equals, operation.ErrSkipExecute)
 	c.Assert(*runnerFactory.MockNewActionRunner.gotActionId, gc.Equals, someActionId)
@@ -104,7 +105,7 @@ func (s *RunActionSuite) TestPrepareErrorActionNotAvailable(c *gc.C) {
 	op, err := factory.NewAction(someActionId)
 	c.Assert(err, jc.ErrorIsNil)
 
-	newState, err := op.Prepare(operation.State{})
+	newState, err := op.Prepare(stdcontext.Background(), operation.State{})
 	c.Assert(newState, gc.IsNil)
 	c.Assert(err, gc.Equals, operation.ErrSkipExecute)
 	c.Assert(*runnerFactory.MockNewActionRunner.gotActionId, gc.Equals, someActionId)
@@ -119,7 +120,7 @@ func (s *RunActionSuite) TestPrepareErrorOther(c *gc.C) {
 	op, err := factory.NewAction(someActionId)
 	c.Assert(err, jc.ErrorIsNil)
 
-	newState, err := op.Prepare(operation.State{})
+	newState, err := op.Prepare(stdcontext.Background(), operation.State{})
 	c.Assert(newState, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, `cannot create runner for action ".*": foop`)
 	c.Assert(*runnerFactory.MockNewActionRunner.gotActionId, gc.Equals, someActionId)
@@ -139,7 +140,7 @@ func (s *RunActionSuite) TestPrepareCtxCalled(c *gc.C) {
 	op, err := factory.NewAction(someActionId)
 	c.Assert(err, jc.ErrorIsNil)
 
-	newState, err := op.Prepare(operation.State{})
+	newState, err := op.Prepare(stdcontext.Background(), operation.State{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(newState, gc.NotNil)
 	ctx.CheckCall(c, 0, "Prepare")
@@ -159,7 +160,7 @@ func (s *RunActionSuite) TestPrepareCtxError(c *gc.C) {
 	op, err := factory.NewAction(someActionId)
 	c.Assert(err, jc.ErrorIsNil)
 
-	newState, err := op.Prepare(operation.State{})
+	newState, err := op.Prepare(stdcontext.Background(), operation.State{})
 	c.Assert(err, gc.ErrorMatches, `ctx prepare error`)
 	c.Assert(newState, gc.IsNil)
 	ctx.CheckCall(c, 0, "Prepare")
@@ -171,7 +172,7 @@ func (s *RunActionSuite) TestPrepareSuccessCleanState(c *gc.C) {
 	op, err := factory.NewAction(someActionId)
 	c.Assert(err, jc.ErrorIsNil)
 
-	newState, err := op.Prepare(operation.State{})
+	newState, err := op.Prepare(stdcontext.Background(), operation.State{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(newState, jc.DeepEquals, &operation.State{
 		Kind:     operation.RunAction,
@@ -188,7 +189,7 @@ func (s *RunActionSuite) TestPrepareSuccessDirtyState(c *gc.C) {
 	op, err := factory.NewAction(someActionId)
 	c.Assert(err, jc.ErrorIsNil)
 
-	newState, err := op.Prepare(overwriteState)
+	newState, err := op.Prepare(stdcontext.Background(), overwriteState)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(newState, jc.DeepEquals, &operation.State{
 		Kind:     operation.RunAction,
@@ -232,11 +233,11 @@ func (s *RunActionSuite) TestExecuteSuccess(c *gc.C) {
 		factory := newOpFactory(runnerFactory, callbacks)
 		op, err := factory.NewAction(someActionId)
 		c.Assert(err, jc.ErrorIsNil)
-		midState, err := op.Prepare(test.before)
+		midState, err := op.Prepare(stdcontext.Background(), test.before)
 		c.Assert(midState, gc.NotNil)
 		c.Assert(err, jc.ErrorIsNil)
 
-		newState, err := op.Execute(*midState)
+		newState, err := op.Execute(stdcontext.Background(), *midState)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(newState, jc.DeepEquals, &test.after)
 		c.Assert(callbacks.executingMessage, gc.Equals, "running action some-action-name")
@@ -255,14 +256,14 @@ func (s *RunActionSuite) TestExecuteCancel(c *gc.C) {
 	factory := newOpFactory(runnerFactory, callbacks)
 	op, err := factory.NewAction(someActionId)
 	c.Assert(err, jc.ErrorIsNil)
-	midState, err := op.Prepare(operation.State{})
+	midState, err := op.Prepare(stdcontext.Background(), operation.State{})
 	c.Assert(midState, gc.NotNil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	abortedErr := errors.Errorf("aborted")
 	wait := make(chan struct{})
 	go func() {
-		newState, err := op.Execute(*midState)
+		newState, err := op.Execute(stdcontext.Background(), *midState)
 		c.Assert(errors.Cause(err), gc.Equals, abortedErr)
 		c.Assert(newState, gc.IsNil)
 		c.Assert(runnerFactory.MockNewActionWaitRunner.runner.actionName, gc.Equals, "some-action-name")
@@ -353,7 +354,7 @@ func (s *RunActionSuite) TestCommit(c *gc.C) {
 		op, err := factory.NewAction(someActionId)
 		c.Assert(err, jc.ErrorIsNil)
 
-		newState, err := op.Commit(test.before)
+		newState, err := op.Commit(stdcontext.Background(), test.before)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(newState, jc.DeepEquals, &test.after)
 	}

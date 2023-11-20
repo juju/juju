@@ -110,17 +110,17 @@ func (s *runcommandsSuite) TestRunCommandsCallbacks(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(op.String(), gc.Equals, "run commands (0)")
 
-	_, err = op.Prepare(operation.State{})
+	_, err = op.Prepare(context.Background(), operation.State{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(run, gc.HasLen, 0)
 	c.Assert(completed, gc.HasLen, 0)
 
-	_, err = op.Execute(operation.State{})
+	_, err = op.Execute(context.Background(), operation.State{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(run, jc.DeepEquals, []string{"echo foxtrot"})
 	c.Assert(completed, gc.HasLen, 0)
 
-	_, err = op.Commit(operation.State{})
+	_, err = op.Commit(context.Background(), operation.State{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(completed, jc.DeepEquals, []string{id})
 }
@@ -158,15 +158,15 @@ func (s *runcommandsSuite) TestRunCommandsCommitErrorNoCompletedCallback(c *gc.C
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(op.String(), gc.Equals, "run commands (0)")
 
-	_, err = op.Prepare(operation.State{})
+	_, err = op.Prepare(context.Background(), operation.State{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = op.Execute(operation.State{})
+	_, err = op.Execute(context.Background(), operation.State{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(run, jc.DeepEquals, []string{"echo foxtrot"})
 	c.Assert(completed, gc.HasLen, 0)
 
-	_, err = op.Commit(operation.State{})
+	_, err = op.Commit(context.Background(), operation.State{})
 	c.Assert(err, gc.ErrorMatches, "Commit failed")
 	// commandCompleted is not called if Commit fails
 	c.Assert(completed, gc.HasLen, 0)
@@ -198,10 +198,10 @@ func (s *runcommandsSuite) TestRunCommandsError(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(op.String(), gc.Equals, "run commands (0)")
 
-	_, err = op.Prepare(operation.State{})
+	_, err = op.Prepare(context.Background(), operation.State{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = op.Execute(operation.State{})
+	_, err = op.Execute(context.Background(), operation.State{})
 	c.Assert(err, gc.NotNil)
 	c.Assert(execErr, gc.ErrorMatches, "executing commands: echo foxtrot")
 }
@@ -232,10 +232,10 @@ func (s *runcommandsSuite) TestRunCommandsErrorConsumed(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(op.String(), gc.Equals, "run commands (0)")
 
-	_, err = op.Prepare(operation.State{})
+	_, err = op.Prepare(context.Background(), operation.State{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = op.Execute(operation.State{})
+	_, err = op.Execute(context.Background(), operation.State{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(execErr, gc.ErrorMatches, "executing commands: echo foxtrot")
 }
@@ -259,12 +259,12 @@ func (s *runcommandsSuite) TestRunCommandsStatus(c *gc.C) {
 	c.Assert(op.String(), gc.Equals, "run commands (0)")
 	s.callbacks.CheckCalls(c, nil /* no calls */)
 
-	_, err = op.Prepare(operation.State{})
+	_, err = op.Prepare(context.Background(), operation.State{})
 	c.Assert(err, jc.ErrorIsNil)
 	s.callbacks.CheckCalls(c, nil /* no calls */)
 
 	s.callbacks.SetErrors(errors.New("cannot set status"))
-	_, err = op.Execute(operation.State{})
+	_, err = op.Execute(context.Background(), operation.State{})
 	c.Assert(err, gc.ErrorMatches, "cannot set status")
 	s.callbacks.CheckCallNames(c, "SetExecutingStatus")
 	s.callbacks.CheckCall(c, 0, "SetExecutingStatus", "running commands")
@@ -277,7 +277,7 @@ type commitErrorOpFactory struct {
 func (f commitErrorOpFactory) NewCommands(args operation.CommandArgs, sendResponse operation.CommandResponseFunc) (operation.Operation, error) {
 	op, err := f.Factory.NewCommands(args, sendResponse)
 	if err == nil {
-		op = commitErrorOperation{op}
+		op = commitErrorOperation{Operation: op}
 	}
 	return op, err
 }
@@ -286,6 +286,6 @@ type commitErrorOperation struct {
 	operation.Operation
 }
 
-func (commitErrorOperation) Commit(operation.State) (*operation.State, error) {
+func (commitErrorOperation) Commit(context.Context, operation.State) (*operation.State, error) {
 	return nil, errors.New("Commit failed")
 }

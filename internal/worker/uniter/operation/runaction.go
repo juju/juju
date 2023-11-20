@@ -4,6 +4,7 @@
 package operation
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/errors"
@@ -48,7 +49,7 @@ func (ra *runAction) ExecutionGroup() string {
 // will return ErrSkipExecute. It preserves any hook recorded in the supplied
 // state.
 // Prepare is part of the Operation interface.
-func (ra *runAction) Prepare(state State) (*State, error) {
+func (ra *runAction) Prepare(ctx context.Context, state State) (*State, error) {
 	ra.changed = make(chan struct{}, 1)
 	ra.cancel = make(chan struct{})
 	actionID := ra.action.ID()
@@ -84,7 +85,7 @@ func (ra *runAction) Prepare(state State) (*State, error) {
 
 // Execute runs the action, and preserves any hook recorded in the supplied state.
 // Execute is part of the Operation interface.
-func (ra *runAction) Execute(state State) (*State, error) {
+func (ra *runAction) Execute(ctx context.Context, state State) (*State, error) {
 	message := fmt.Sprintf("running action %s", ra.name)
 	if err := ra.callbacks.SetExecutingStatus(message); err != nil {
 		return nil, err
@@ -133,7 +134,7 @@ func (ra *runAction) Execute(state State) (*State, error) {
 
 // Commit preserves the recorded hook, and returns a neutral state.
 // Commit is part of the Operation interface.
-func (ra *runAction) Commit(state State) (*State, error) {
+func (ra *runAction) Commit(ctx context.Context, state State) (*State, error) {
 	return stateChange{
 		Kind: continuationKind(state),
 		Step: Pending,

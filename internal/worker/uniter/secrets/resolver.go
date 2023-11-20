@@ -168,7 +168,7 @@ func (s *secretsResolver) expireOp(
 	opCompleted := func() {
 		s.expiredRevisions(revSpec)
 	}
-	return &secretCompleter{op, opCompleted}, nil
+	return &secretCompleter{Operation: op, secretCompleted: opCompleted}, nil
 }
 
 type secretCompleter struct {
@@ -176,8 +176,8 @@ type secretCompleter struct {
 	secretCompleted func()
 }
 
-func (c *secretCompleter) Commit(st operation.State) (*operation.State, error) {
-	result, err := c.Operation.Commit(st)
+func (c *secretCompleter) Commit(ctx context.Context, st operation.State) (*operation.State, error) {
+	result, err := c.Operation.Commit(ctx, st)
 	if err == nil {
 		c.secretCompleted()
 	}
