@@ -4,6 +4,8 @@
 package container
 
 import (
+	"context"
+
 	"github.com/juju/juju/internal/worker/uniter/operation"
 	"github.com/juju/juju/internal/worker/uniter/remotestate"
 	"github.com/juju/juju/internal/worker/uniter/resolver"
@@ -19,6 +21,7 @@ func NewRemoteContainerInitResolver() resolver.Resolver {
 
 // NextOp implements the resolver.Resolver interface.
 func (r *remoteContainerInitResolver) NextOp(
+	ctx context.Context,
 	localState resolver.LocalState,
 	remoteState remotestate.Snapshot,
 	opFactory operation.Factory,

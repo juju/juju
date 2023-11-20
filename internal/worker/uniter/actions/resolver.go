@@ -4,6 +4,8 @@
 package actions
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/internal/worker/common/charmrunner"
@@ -49,6 +51,7 @@ func nextAction(pendingActions []string, completedActions map[string]struct{}) (
 
 // NextOp implements the resolver.Resolver interface.
 func (r *actionsResolver) NextOp(
+	ctx context.Context,
 	localState resolver.LocalState,
 	remoteState remotestate.Snapshot,
 	opFactory operation.Factory,

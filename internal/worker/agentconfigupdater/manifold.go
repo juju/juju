@@ -15,7 +15,6 @@ import (
 	apiagent "github.com/juju/juju/api/agent/agent"
 	"github.com/juju/juju/api/base"
 	coreagent "github.com/juju/juju/core/agent"
-	"github.com/juju/juju/core/database"
 	coretrace "github.com/juju/juju/core/trace"
 	"github.com/juju/juju/internal/mongo"
 	jworker "github.com/juju/juju/internal/worker"
@@ -60,8 +59,13 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, err
 			}
 
+			var (
+				logger        = config.Logger
+				currentConfig = agent.CurrentConfig()
+			)
+
 			// Grab the tag and ensure that it's for a controller.
-			tag := agent.CurrentConfig().Tag()
+			tag := currentConfig.Tag()
 			if !coreagent.IsAllowedControllerTag(tag.Kind()) {
 				return nil, errors.New("agent's tag is not a machine or controller agent tag")
 			}
@@ -86,7 +90,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 
-			tracer, err := tracerGetter.GetTracer(stdcontext.TODO(), coretrace.Namespace("agentconfigupdater", database.ControllerNS))
+			tracer, err := tracerGetter.GetTracer(stdcontext.TODO(), coretrace.Namespace("agentconfigupdater", currentConfig.Model().Id()))
 			if err != nil {
 				tracer = coretrace.NoopTracer{}
 			}
@@ -105,11 +109,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			if err != nil {
 				return nil, errors.Annotate(err, "getting controller config")
 			}
-
-			var (
-				logger        = config.Logger
-				currentConfig = agent.CurrentConfig()
-			)
 
 			// If the mongo memory profile from the controller config
 			// is different from the one in the agent config we need to

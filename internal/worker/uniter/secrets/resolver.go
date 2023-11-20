@@ -4,6 +4,7 @@
 package secrets
 
 import (
+	"context"
 	"strconv"
 	"strings"
 
@@ -46,6 +47,7 @@ func NewSecretsResolver(logger Logger, secretsTracker SecretStateTracker,
 
 // NextOp is part of the resolver.Resolver interface.
 func (s *secretsResolver) NextOp(
+	ctx context.Context,
 	localState resolver.LocalState,
 	remoteState remotestate.Snapshot,
 	opFactory operation.Factory,

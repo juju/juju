@@ -4,6 +4,8 @@
 package relation
 
 import (
+	"context"
+
 	"github.com/juju/charm/v12/hooks"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -51,7 +53,7 @@ type relationsResolver struct {
 }
 
 // NextOp implements resolver.Resolver.
-func (r *relationsResolver) NextOp(localState resolver.LocalState, remoteState remotestate.Snapshot, opFactory operation.Factory) (_ operation.Operation, err error) {
+func (r *relationsResolver) NextOp(ctx context.Context, localState resolver.LocalState, remoteState remotestate.Snapshot, opFactory operation.Factory) (_ operation.Operation, err error) {
 	if r.logger.IsTraceEnabled() {
 		r.logger.Tracef("relation resolver next op for new remote relations %# v", pretty.Formatter(remoteState.Relations))
 		defer func() {
@@ -336,6 +338,7 @@ type createdRelationsResolver struct {
 
 // NextOp implements resolver.Resolver.
 func (r *createdRelationsResolver) NextOp(
+	ctx context.Context,
 	localState resolver.LocalState,
 	remoteState remotestate.Snapshot,
 	opFactory operation.Factory,

@@ -4,6 +4,8 @@
 package uniter_test
 
 import (
+	"context"
+
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/core/secrets"
@@ -36,6 +38,6 @@ func (*dummySecretsAccessor) GetConsumerSecretsRevisionInfo(string, []string) (m
 
 type nopResolver struct{}
 
-func (nopResolver) NextOp(resolver.LocalState, remotestate.Snapshot, operation.Factory) (operation.Operation, error) {
+func (nopResolver) NextOp(context.Context, resolver.LocalState, remotestate.Snapshot, operation.Factory) (operation.Operation, error) {
 	return nil, resolver.ErrNoOperation
 }

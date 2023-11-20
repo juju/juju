@@ -4,6 +4,8 @@
 package secrets_test
 
 import (
+	"context"
+
 	"github.com/juju/charm/v12/hooks"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
@@ -84,7 +86,7 @@ func (s *triggerSecretsSuite) TestNextOpNotInstalled(c *gc.C) {
 		},
 	}
 	s.remoteState.SecretRotations = []string{"secret:9m4e2mr0ui3e8a215n4g"}
-	_, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
+	_, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, s.opFactory)
 	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
 }
 
@@ -97,7 +99,7 @@ func (s *triggerSecretsSuite) TestNextOpNotAlive(c *gc.C) {
 	}
 	s.remoteState.Life = life.Dying
 	s.remoteState.SecretRotations = []string{"secret:9m4e2mr0ui3e8a215n4g"}
-	_, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
+	_, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, s.opFactory)
 	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
 }
 
@@ -109,7 +111,7 @@ func (s *triggerSecretsSuite) TestNextOpNotReady(c *gc.C) {
 		},
 	}
 	s.remoteState.SecretRotations = []string{"secret:9m4e2mr0ui3e8a215n4g"}
-	_, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
+	_, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, s.opFactory)
 	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
 }
 
@@ -124,7 +126,7 @@ func (s *triggerSecretsSuite) TestNextOpRotate(c *gc.C) {
 		},
 	}
 	s.remoteState.SecretRotations = []string{"secret:9m4e2mr0ui3e8a215n4g"}
-	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
+	op, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, s.opFactory)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(op.String(), gc.Equals, "run secret-rotate (secret:9m4e2mr0ui3e8a215n4g) hook")
 }
@@ -145,7 +147,7 @@ func (s *triggerSecretsSuite) TestRotateCommit(c *gc.C) {
 	s.rotatedSecret = func(uri string) {
 		rotatedURI = uri
 	}
-	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
+	op, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, s.opFactory)
 	c.Assert(err, jc.ErrorIsNil)
 
 	hi := hook.Info{
@@ -183,7 +185,7 @@ func (s *triggerSecretsSuite) TestNextOpExpire(c *gc.C) {
 		},
 	}
 	s.remoteState.ExpiredSecretRevisions = []string{"secret:9m4e2mr0ui3e8a215n4g/666"}
-	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
+	op, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, s.opFactory)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(op.String(), gc.Equals, "run secret-expired (secret:9m4e2mr0ui3e8a215n4g/666) hook")
 }
@@ -204,7 +206,7 @@ func (s *triggerSecretsSuite) TestExpireCommit(c *gc.C) {
 	s.expiredRevision = func(rev string) {
 		expiredRevision = rev
 	}
-	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
+	op, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, s.opFactory)
 	c.Assert(err, jc.ErrorIsNil)
 
 	hi := hook.Info{
@@ -261,7 +263,7 @@ func (s *changeSecretsSuite) TestNextOpNotInstalled(c *gc.C) {
 	s.remoteState.ConsumedSecretInfo = map[string]coresecrets.SecretRevisionInfo{
 		"secret:9m4e2mr0ui3e8a215n4g": {Revision: 666},
 	}
-	_, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
+	_, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, s.opFactory)
 	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
 }
 
@@ -280,7 +282,7 @@ func (s *changeSecretsSuite) TestNextOpNoneExisting(c *gc.C) {
 	s.remoteState.ConsumedSecretInfo = map[string]coresecrets.SecretRevisionInfo{
 		"secret:9m4e2mr0ui3e8a215n4g": {Revision: 666},
 	}
-	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
+	op, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, s.opFactory)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(op.String(), gc.Equals, "run secret-changed (secret:9m4e2mr0ui3e8a215n4g) hook")
 }
@@ -300,7 +302,7 @@ func (s *changeSecretsSuite) TestNextOpUpdatedRevision(c *gc.C) {
 	s.remoteState.ConsumedSecretInfo = map[string]coresecrets.SecretRevisionInfo{
 		"secret:9m4e2mr0ui3e8a215n4g": {Revision: 666},
 	}
-	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
+	op, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, s.opFactory)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(op.String(), gc.Equals, "run secret-changed (secret:9m4e2mr0ui3e8a215n4g) hook")
 }
@@ -320,7 +322,7 @@ func (s *changeSecretsSuite) TestNextOpNone(c *gc.C) {
 	s.remoteState.ConsumedSecretInfo = map[string]coresecrets.SecretRevisionInfo{
 		"secret:9m4e2mr0ui3e8a215n4g": {Revision: 666},
 	}
-	_, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
+	_, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, s.opFactory)
 	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
 }
 
@@ -359,7 +361,7 @@ func (s *removeSecretSuite) TestNextOpNotInstalled(c *gc.C) {
 	s.remoteState.ObsoleteSecretRevisions = map[string][]int{
 		"secret:9m4e2mr0ui3e8a215n4g": {666, 668},
 	}
-	_, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
+	_, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, s.opFactory)
 	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
 }
 
@@ -378,7 +380,7 @@ func (s *removeSecretSuite) TestNextOpNoneExisting(c *gc.C) {
 	s.remoteState.ObsoleteSecretRevisions = map[string][]int{
 		"secret:9m4e2mr0ui3e8a215n4g": {666, 668},
 	}
-	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
+	op, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, s.opFactory)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(op.String(), gc.Equals, "run secret-remove (secret:9m4e2mr0ui3e8a215n4g/666) hook")
 }
@@ -398,7 +400,7 @@ func (s *removeSecretSuite) TestNextOpNextRevision(c *gc.C) {
 	s.remoteState.ObsoleteSecretRevisions = map[string][]int{
 		"secret:9m4e2mr0ui3e8a215n4g": {666, 668},
 	}
-	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
+	op, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, s.opFactory)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(op.String(), gc.Equals, "run secret-remove (secret:9m4e2mr0ui3e8a215n4g/668) hook")
 }
@@ -418,7 +420,7 @@ func (s *removeSecretSuite) TestNextOpNone(c *gc.C) {
 	s.remoteState.ObsoleteSecretRevisions = map[string][]int{
 		"secret:9m4e2mr0ui3e8a215n4g": {666, 668},
 	}
-	_, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
+	_, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, s.opFactory)
 	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
 }
 
@@ -463,7 +465,7 @@ func (s *secretDeletedSuite) TestNextOpNotInstalled(c *gc.C) {
 	}
 	s.remoteState.DeletedSecrets = []string{"secret:9m4e2mr0ui3e8a215n4g"}
 
-	_, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
+	_, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, s.opFactory)
 	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
 }
 
@@ -478,7 +480,7 @@ func (s *secretDeletedSuite) TestNextOp(c *gc.C) {
 		},
 	}
 	s.remoteState.DeletedSecrets = []string{"secret:9m4e2mr0ui3e8a215n4g"}
-	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
+	op, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, s.opFactory)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(op.String(), gc.Equals, "process removed secrets: [secret:9m4e2mr0ui3e8a215n4g]")
 }
@@ -494,7 +496,7 @@ func (s *secretDeletedSuite) TestCommit(c *gc.C) {
 		},
 	}
 	s.remoteState.DeletedSecrets = []string{"secret:9m4e2mr0ui3e8a215n4g"}
-	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
+	op, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, s.opFactory)
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = op.Prepare(operation.State{})

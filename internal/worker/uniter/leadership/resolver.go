@@ -4,6 +4,8 @@
 package leadership
 
 import (
+	"context"
+
 	"github.com/juju/charm/v12/hooks"
 
 	"github.com/juju/juju/core/life"
@@ -35,6 +37,7 @@ func NewResolver(logger Logger) resolver.Resolver {
 
 // NextOp is defined on the Resolver interface.
 func (l *leadershipResolver) NextOp(
+	ctx context.Context,
 	localState resolver.LocalState,
 	remoteState remotestate.Snapshot,
 	opFactory operation.Factory,

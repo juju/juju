@@ -4,6 +4,8 @@
 package verifycharmprofile_test
 
 import (
+	"context"
+
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -25,7 +27,7 @@ func (s *verifySuite) TestNextOpNotInstallNorUpgrade(c *gc.C) {
 	remote := remotestate.Snapshot{}
 	res := newVerifyCharmProfileResolver()
 
-	op, err := res.NextOp(local, remote, nil)
+	op, err := res.NextOp(context.Background(), local, remote, nil)
 	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
 	c.Assert(op, gc.IsNil)
 }
@@ -39,7 +41,7 @@ func (s *verifySuite) TestNextOpInstallProfileNotRequired(c *gc.C) {
 	}
 	res := newVerifyCharmProfileResolver()
 
-	op, err := res.NextOp(local, remote, nil)
+	op, err := res.NextOp(context.Background(), local, remote, nil)
 	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
 	c.Assert(op, gc.IsNil)
 }
@@ -53,7 +55,7 @@ func (s *verifySuite) TestNextOpInstallProfileRequiredEmptyName(c *gc.C) {
 	}
 	res := newVerifyCharmProfileResolver()
 
-	op, err := res.NextOp(local, remote, nil)
+	op, err := res.NextOp(context.Background(), local, remote, nil)
 	c.Assert(err, gc.Equals, resolver.ErrDoNotProceed)
 	c.Assert(op, gc.IsNil)
 }
@@ -69,7 +71,7 @@ func (s *verifySuite) TestNextOpMisMatchCharmRevisions(c *gc.C) {
 	}
 	res := newVerifyCharmProfileResolver()
 
-	op, err := res.NextOp(local, remote, nil)
+	op, err := res.NextOp(context.Background(), local, remote, nil)
 	c.Assert(err, gc.Equals, resolver.ErrDoNotProceed)
 	c.Assert(op, gc.IsNil)
 }
@@ -85,14 +87,14 @@ func (s *verifySuite) TestNextOpMatchingCharmRevisions(c *gc.C) {
 	}
 	res := newVerifyCharmProfileResolver()
 
-	op, err := res.NextOp(local, remote, nil)
+	op, err := res.NextOp(context.Background(), local, remote, nil)
 	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
 	c.Assert(op, gc.IsNil)
 }
 
 func (s *verifySuite) TestNewResolverCAAS(c *gc.C) {
 	r := verifycharmprofile.NewResolver(&fakelogger{}, model.CAAS)
-	op, err := r.NextOp(resolver.LocalState{}, remotestate.Snapshot{}, nil)
+	op, err := r.NextOp(context.Background(), resolver.LocalState{}, remotestate.Snapshot{}, nil)
 	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
 	c.Assert(op, jc.ErrorIsNil)
 }

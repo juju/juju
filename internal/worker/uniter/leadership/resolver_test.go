@@ -4,6 +4,8 @@
 package leadership_test
 
 import (
+	"context"
+
 	"github.com/juju/charm/v12/hooks"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
@@ -34,7 +36,7 @@ func (s *resolverSuite) TestNextOpNotInstalled(c *gc.C) {
 	logger := loggo.GetLogger("test")
 
 	r := leadership.NewResolver(logger)
-	_, err := r.NextOp(resolver.LocalState{}, remotestate.Snapshot{}, f)
+	_, err := r.NextOp(context.Background(), resolver.LocalState{}, remotestate.Snapshot{}, f)
 	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
 }
 
@@ -49,7 +51,7 @@ func (s *resolverSuite) TestNextOpAcceptLeader(c *gc.C) {
 	f.EXPECT().NewAcceptLeadership().Return(op, nil)
 
 	r := leadership.NewResolver(logger)
-	result, err := r.NextOp(resolver.LocalState{
+	result, err := r.NextOp(context.Background(), resolver.LocalState{
 		State: operation.State{Installed: true, Kind: operation.Continue},
 	}, remotestate.Snapshot{
 		Leader: true,
@@ -69,7 +71,7 @@ func (s *resolverSuite) TestNextOpResignLeader(c *gc.C) {
 	f.EXPECT().NewResignLeadership().Return(op, nil)
 
 	r := leadership.NewResolver(logger)
-	result, err := r.NextOp(resolver.LocalState{
+	result, err := r.NextOp(context.Background(), resolver.LocalState{
 		State: operation.State{Installed: true, Leader: true, Kind: operation.Continue},
 	}, remotestate.Snapshot{}, f)
 	c.Assert(err, jc.ErrorIsNil)
@@ -87,7 +89,7 @@ func (s *resolverSuite) TestNextOpResignLeaderDying(c *gc.C) {
 	f.EXPECT().NewResignLeadership().Return(op, nil)
 
 	r := leadership.NewResolver(logger)
-	result, err := r.NextOp(resolver.LocalState{
+	result, err := r.NextOp(context.Background(), resolver.LocalState{
 		State: operation.State{Installed: true, Leader: true, Kind: operation.Continue},
 	}, remotestate.Snapshot{
 		Leader: true, Life: life.Dying,
@@ -107,7 +109,7 @@ func (s *resolverSuite) TestNextOpLeaderSettings(c *gc.C) {
 	f.EXPECT().NewRunHook(hook.Info{Kind: hooks.LeaderSettingsChanged}).Return(op, nil)
 
 	r := leadership.NewResolver(logger)
-	result, err := r.NextOp(resolver.LocalState{
+	result, err := r.NextOp(context.Background(), resolver.LocalState{
 		State:                 operation.State{Installed: true, Kind: operation.Continue},
 		LeaderSettingsVersion: 1,
 	}, remotestate.Snapshot{LeaderSettingsVersion: 2}, f)
@@ -123,7 +125,7 @@ func (s *resolverSuite) TestNextOpNoLeaderSettingsWhenDying(c *gc.C) {
 	logger := loggo.GetLogger("test")
 
 	r := leadership.NewResolver(logger)
-	_, err := r.NextOp(resolver.LocalState{
+	_, err := r.NextOp(context.Background(), resolver.LocalState{
 		State:                 operation.State{Installed: true, Kind: operation.Continue},
 		LeaderSettingsVersion: 1,
 	}, remotestate.Snapshot{Life: life.Dying, LeaderSettingsVersion: 2}, f)
