@@ -4,6 +4,8 @@
 package operation_test
 
 import (
+	stdcontext "context"
+
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -30,7 +32,7 @@ func (s *RunCommandsSuite) TestPrepareError(c *gc.C) {
 	op, err := factory.NewCommands(someCommandArgs, sendResponse)
 	c.Assert(err, jc.ErrorIsNil)
 
-	newState, err := op.Prepare(operation.State{})
+	newState, err := op.Prepare(stdcontext.Background(), operation.State{})
 	c.Assert(err, gc.ErrorMatches, "blooey")
 	c.Assert(newState, gc.IsNil)
 	c.Assert(*runnerFactory.MockNewCommandRunner.gotInfo, gc.Equals, context.CommandInfo{
@@ -54,7 +56,7 @@ func (s *RunCommandsSuite) TestPrepareSuccess(c *gc.C) {
 	op, err := factory.NewCommands(someCommandArgs, sendResponse)
 	c.Assert(err, jc.ErrorIsNil)
 
-	newState, err := op.Prepare(operation.State{})
+	newState, err := op.Prepare(stdcontext.Background(), operation.State{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(newState, gc.IsNil)
 	c.Assert(*runnerFactory.MockNewCommandRunner.gotInfo, gc.Equals, context.CommandInfo{
@@ -80,7 +82,7 @@ func (s *RunCommandsSuite) TestPrepareCtxError(c *gc.C) {
 	op, err := factory.NewCommands(someCommandArgs, sendResponse)
 	c.Assert(err, jc.ErrorIsNil)
 
-	newState, err := op.Prepare(operation.State{})
+	newState, err := op.Prepare(stdcontext.Background(), operation.State{})
 	c.Assert(err, gc.ErrorMatches, "ctx prepare error")
 	c.Assert(newState, gc.IsNil)
 	ctx.CheckCall(c, 0, "Prepare")
@@ -96,10 +98,10 @@ func (s *RunCommandsSuite) TestExecuteRebootErrors(c *gc.C) {
 		sendResponse := &MockSendResponse{}
 		op, err := factory.NewCommands(someCommandArgs, sendResponse.Call)
 		c.Assert(err, jc.ErrorIsNil)
-		_, err = op.Prepare(operation.State{})
+		_, err = op.Prepare(stdcontext.Background(), operation.State{})
 		c.Assert(err, jc.ErrorIsNil)
 
-		newState, err := op.Execute(operation.State{})
+		newState, err := op.Execute(stdcontext.Background(), operation.State{})
 		c.Assert(newState, gc.IsNil)
 		c.Assert(err, gc.Equals, operation.ErrNeedsReboot)
 		c.Assert(*runnerFactory.MockNewCommandRunner.runner.MockRunCommands.gotCommands, gc.Equals, "do something")
@@ -118,10 +120,10 @@ func (s *RunCommandsSuite) TestExecuteOtherError(c *gc.C) {
 	sendResponse := &MockSendResponse{}
 	op, err := factory.NewCommands(someCommandArgs, sendResponse.Call)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = op.Prepare(operation.State{})
+	_, err = op.Prepare(stdcontext.Background(), operation.State{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	newState, err := op.Execute(operation.State{})
+	newState, err := op.Execute(stdcontext.Background(), operation.State{})
 	c.Assert(newState, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "sneh")
 	c.Assert(*runnerFactory.MockNewCommandRunner.runner.MockRunCommands.gotCommands, gc.Equals, "do something")
@@ -141,10 +143,10 @@ func (s *RunCommandsSuite) TestExecuteConsumeOtherError(c *gc.C) {
 	}
 	op, err := factory.NewCommands(someCommandArgs, sendResponse.Call)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = op.Prepare(operation.State{})
+	_, err = op.Prepare(stdcontext.Background(), operation.State{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	newState, err := op.Execute(operation.State{})
+	newState, err := op.Execute(stdcontext.Background(), operation.State{})
 	c.Assert(newState, gc.IsNil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(*runnerFactory.MockNewCommandRunner.runner.MockRunCommands.gotCommands, gc.Equals, "do something")
@@ -162,10 +164,10 @@ func (s *RunCommandsSuite) TestExecuteSuccess(c *gc.C) {
 	sendResponse := &MockSendResponse{}
 	op, err := factory.NewCommands(someCommandArgs, sendResponse.Call)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = op.Prepare(operation.State{})
+	_, err = op.Prepare(stdcontext.Background(), operation.State{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	newState, err := op.Execute(operation.State{})
+	newState, err := op.Execute(stdcontext.Background(), operation.State{})
 	c.Assert(newState, gc.IsNil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(*runnerFactory.MockNewCommandRunner.runner.MockRunCommands.gotCommands, gc.Equals, "do something")
@@ -185,10 +187,10 @@ func (s *RunCommandsSuite) TestExecuteSuccessOperator(c *gc.C) {
 	commandArgs.RunLocation = runner.Operator
 	op, err := factory.NewCommands(commandArgs, sendResponse.Call)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = op.Prepare(operation.State{})
+	_, err = op.Prepare(stdcontext.Background(), operation.State{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	newState, err := op.Execute(operation.State{})
+	newState, err := op.Execute(stdcontext.Background(), operation.State{})
 	c.Assert(newState, gc.IsNil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(*runnerFactory.MockNewCommandRunner.runner.MockRunCommands.gotCommands, gc.Equals, "do something")
@@ -202,7 +204,7 @@ func (s *RunCommandsSuite) TestCommit(c *gc.C) {
 	sendResponse := func(*utilexec.ExecResponse, error) bool { panic("not expected") }
 	op, err := factory.NewCommands(someCommandArgs, sendResponse)
 	c.Assert(err, jc.ErrorIsNil)
-	newState, err := op.Commit(operation.State{})
+	newState, err := op.Commit(stdcontext.Background(), operation.State{})
 	c.Assert(newState, gc.IsNil)
 	c.Assert(err, jc.ErrorIsNil)
 }

@@ -4,6 +4,8 @@
 package operation
 
 import (
+	"context"
+
 	"github.com/juju/juju/worker/uniter/remotestate"
 )
 
@@ -29,7 +31,7 @@ func (remoteInit) ExecutionGroup() string {
 }
 
 // Prepare is part of the Operation interface.
-func (op *remoteInit) Prepare(state State) (*State, error) {
+func (op *remoteInit) Prepare(ctx context.Context, state State) (*State, error) {
 	return stateChange{
 		Kind: RemoteInit,
 		Step: Pending,
@@ -38,7 +40,7 @@ func (op *remoteInit) Prepare(state State) (*State, error) {
 }
 
 // Execute is part of the Operation interface.
-func (op *remoteInit) Execute(state State) (*State, error) {
+func (op *remoteInit) Execute(ctx context.Context, state State) (*State, error) {
 	if err := op.callbacks.RemoteInit(op.runningStatus, op.abort); err != nil {
 		return nil, err
 	}
@@ -51,7 +53,7 @@ func (op *remoteInit) Execute(state State) (*State, error) {
 
 // Commit preserves the recorded hook, and returns a neutral state.
 // Commit is part of the Operation interface.
-func (op *remoteInit) Commit(state State) (*State, error) {
+func (op *remoteInit) Commit(ctx context.Context, state State) (*State, error) {
 	return stateChange{
 		Kind: continuationKind(state),
 		Step: Pending,
@@ -84,18 +86,18 @@ func (skipRemoteInit) ExecutionGroup() string {
 }
 
 // Prepare is part of the Operation interface.
-func (op *skipRemoteInit) Prepare(state State) (*State, error) {
+func (op *skipRemoteInit) Prepare(ctx context.Context, state State) (*State, error) {
 	return nil, ErrSkipExecute
 }
 
 // Execute is part of the Operation interface.
-func (op *skipRemoteInit) Execute(state State) (*State, error) {
+func (op *skipRemoteInit) Execute(ctx context.Context, state State) (*State, error) {
 	return nil, ErrSkipExecute
 }
 
 // Commit preserves the recorded hook, and returns a neutral state.
 // Commit is part of the Operation interface.
-func (op *skipRemoteInit) Commit(state State) (*State, error) {
+func (op *skipRemoteInit) Commit(ctx context.Context, state State) (*State, error) {
 	kind := continuationKind(state)
 	if op.retry {
 		kind = RemoteInit

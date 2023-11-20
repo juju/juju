@@ -4,6 +4,7 @@
 package operation
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/charm/v11/hooks"
@@ -47,7 +48,7 @@ func (d *deploy) String() string {
 // that the unit will be using it. If the supplied state indicates that a
 // hook was pending, that hook is recorded in the returned state.
 // Prepare is part of the Operation interface.
-func (d *deploy) Prepare(state State) (*State, error) {
+func (d *deploy) Prepare(ctx context.Context, state State) (*State, error) {
 	if err := d.checkAlreadyDone(state); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -74,7 +75,7 @@ func (d *deploy) Prepare(state State) (*State, error) {
 // Execute installs or upgrades the prepared charm, and preserves any hook
 // recorded in the supplied state.
 // Execute is part of the Operation interface.
-func (d *deploy) Execute(state State) (*State, error) {
+func (d *deploy) Execute(ctx context.Context, state State) (*State, error) {
 	if err := d.deployer.Deploy(); err == charm.ErrConflict {
 		return nil, NewDeployConflictError(d.charmURL)
 	} else if err != nil {
@@ -85,7 +86,7 @@ func (d *deploy) Execute(state State) (*State, error) {
 
 // Commit restores state for any interrupted hook, or queues an install or
 // upgrade-charm hook if no hook was interrupted.
-func (d *deploy) Commit(state State) (*State, error) {
+func (d *deploy) Commit(ctx context.Context, state State) (*State, error) {
 	change := &stateChange{
 		Kind: RunHook,
 	}

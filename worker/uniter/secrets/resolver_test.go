@@ -163,13 +163,13 @@ func (s *triggerSecretsSuite) TestRotateCommit(c *gc.C) {
 			LatestRevision: 666,
 		},
 	}, nil)
-	_, err = op.Prepare(operation.State{})
+	_, err = op.Prepare(context.Background(), operation.State{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.mockCallbacks.EXPECT().CommitHook(hi).Return(nil)
 	s.mockCallbacks.EXPECT().SetSecretRotated(uri.String(), 666).Return(nil)
 
-	_, err = op.Commit(operation.State{})
+	_, err = op.Commit(context.Background(), operation.State{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rotatedURI, gc.Equals, uri.String())
 }
@@ -218,12 +218,12 @@ func (s *triggerSecretsSuite) TestExpireCommit(c *gc.C) {
 	s.mockFactory.EXPECT().NewHookRunner(hi).Return(s.mockRunner, nil)
 	s.mockRunner.EXPECT().Context().Return(s.mockContext).AnyTimes()
 	s.mockContext.EXPECT().Prepare().Return(nil)
-	_, err = op.Prepare(operation.State{})
+	_, err = op.Prepare(context.Background(), operation.State{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.mockCallbacks.EXPECT().CommitHook(hi).Return(nil)
 
-	_, err = op.Commit(operation.State{})
+	_, err = op.Commit(context.Background(), operation.State{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(expiredRevision, gc.Equals, uri.String()+"/666")
 }
@@ -499,14 +499,14 @@ func (s *secretDeletedSuite) TestCommit(c *gc.C) {
 	op, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, s.opFactory)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = op.Prepare(operation.State{})
+	_, err = op.Prepare(context.Background(), operation.State{})
 	c.Assert(err, gc.Equals, operation.ErrSkipExecute)
-	_, err = op.Execute(operation.State{})
+	_, err = op.Execute(context.Background(), operation.State{})
 	c.Assert(err, gc.Equals, operation.ErrSkipExecute)
 
 	s.mockCallbacks.EXPECT().SecretsRemoved([]string{"secret:9m4e2mr0ui3e8a215n4g"}).Return(nil)
 
-	_, err = op.Commit(operation.State{})
+	_, err = op.Commit(context.Background(), operation.State{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.deleted, jc.DeepEquals, []string{"secret:9m4e2mr0ui3e8a215n4g"})
 }

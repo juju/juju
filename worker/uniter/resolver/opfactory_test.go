@@ -4,6 +4,7 @@
 package resolver_test
 
 import (
+	"context"
 	"errors"
 
 	"github.com/juju/charm/v11/hooks"
@@ -51,7 +52,7 @@ func (s *ResolverOpFactorySuite) testUpdateStatusChanged(
 	c.Assert(err, jc.ErrorIsNil)
 	f.RemoteState.UpdateStatusVersion = 2
 
-	_, err = op.Commit(operation.State{})
+	_, err = op.Commit(context.Background(), operation.State{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Local state's UpdateStatusVersion should be set to what
@@ -75,13 +76,13 @@ func (s *ResolverOpFactorySuite) TestUpgradeSeriesStatusChanged(c *gc.C) {
 	op, err := f.NewRunHook(hook.Info{Kind: hooks.PreSeriesUpgrade})
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = op.Prepare(operation.State{})
+	_, err = op.Prepare(context.Background(), operation.State{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(f.LocalState.UpgradeMachineStatus, gc.Equals, model.UpgradeSeriesPrepareStarted)
 	f.RemoteState.UpgradeMachineStatus = model.UpgradeSeriesPrepareCompleted
 
-	_, err = op.Commit(operation.State{})
+	_, err = op.Commit(context.Background(), operation.State{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(f.LocalState.UpgradeMachineStatus, gc.Equals, model.UpgradeSeriesPrepareCompleted)
@@ -115,7 +116,7 @@ func (s *ResolverOpFactorySuite) testConfigChanged(
 	f.RemoteState.AddressesHash = "differenthash"
 	f.RemoteState.UpdateStatusVersion = 4
 
-	resultState, err := op.Commit(operation.State{})
+	resultState, err := op.Commit(context.Background(), operation.State{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(resultState, gc.NotNil)
 
@@ -147,7 +148,7 @@ func (s *ResolverOpFactorySuite) testLeaderSettingsChanged(
 	f.RemoteState.LeaderSettingsVersion = 2
 	f.RemoteState.UpdateStatusVersion = 4
 
-	_, err = op.Commit(operation.State{})
+	_, err = op.Commit(context.Background(), operation.State{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Local state's LeaderSettingsVersion should be set to what
@@ -171,7 +172,7 @@ func (s *ResolverOpFactorySuite) testUpgrade(
 	curl := "ch:trusty/mysql"
 	op, err := meth(f, curl)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = op.Commit(operation.State{})
+	_, err = op.Commit(context.Background(), operation.State{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(f.LocalState.CharmURL, jc.DeepEquals, curl)
 	c.Assert(f.LocalState.Conflicted, jc.IsFalse)
@@ -182,7 +183,7 @@ func (s *ResolverOpFactorySuite) TestRemoteInit(c *gc.C) {
 	f.LocalState.OutdatedRemoteCharm = true
 	op, err := f.NewRemoteInit(remotestate.ContainerRunningStatus{})
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = op.Commit(operation.State{})
+	_, err = op.Commit(context.Background(), operation.State{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(f.LocalState.OutdatedRemoteCharm, jc.IsFalse)
 }
@@ -192,7 +193,7 @@ func (s *ResolverOpFactorySuite) TestSkipRemoteInit(c *gc.C) {
 	f.LocalState.OutdatedRemoteCharm = true
 	op, err := f.NewSkipRemoteInit(false)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = op.Commit(operation.State{})
+	_, err = op.Commit(context.Background(), operation.State{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(f.LocalState.OutdatedRemoteCharm, jc.IsTrue)
 }
@@ -221,7 +222,7 @@ func (s *ResolverOpFactorySuite) TestCommitError(c *gc.C) {
 	}
 	op, err := f.NewUpgrade("ch:trusty/mysql")
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = op.Commit(operation.State{})
+	_, err = op.Commit(context.Background(), operation.State{})
 	c.Assert(err, gc.ErrorMatches, "commit fails")
 	// Local state should not have been updated. We use the same code
 	// internally for all operations, so it suffices to test just the
@@ -235,7 +236,7 @@ func (s *ResolverOpFactorySuite) TestActionsCommit(c *gc.C) {
 	f.LocalState.CompletedActions = map[string]struct{}{}
 	op, err := f.NewAction("action 1")
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = op.Commit(operation.State{})
+	_, err = op.Commit(context.Background(), operation.State{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(f.LocalState.CompletedActions, gc.DeepEquals, map[string]struct{}{
 		"action 1": {},
@@ -252,7 +253,7 @@ func (s *ResolverOpFactorySuite) TestActionsTrimming(c *gc.C) {
 	}
 	op, err := f.NewAction("d")
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = op.Commit(operation.State{})
+	_, err = op.Commit(context.Background(), operation.State{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(f.LocalState.CompletedActions, gc.DeepEquals, map[string]struct{}{
 		"c": {},

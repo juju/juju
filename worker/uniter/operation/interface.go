@@ -55,16 +55,16 @@ type Operation interface {
 	// If it returns a non-nil state, that state will be validated and recorded.
 	// If it returns ErrSkipExecute, it indicates that the operation can be
 	// committed directly.
-	Prepare(state State) (*State, error)
+	Prepare(ctx stdcontext.Context, state State) (*State, error)
 
 	// Execute carries out the operation. It must not be called without having
 	// called Prepare first. If it returns a non-nil state, that state will be
 	// validated and recorded.
-	Execute(state State) (*State, error)
+	Execute(ctx stdcontext.Context, state State) (*State, error)
 
 	// Commit ensures that the operation's completion is recorded. If it returns
 	// a non-nil state, that state will be validated and recorded.
-	Commit(state State) (*State, error)
+	Commit(ctx stdcontext.Context, state State) (*State, error)
 
 	// RemoteStateChanged is called when the remote state changed during execution
 	// of the operation.

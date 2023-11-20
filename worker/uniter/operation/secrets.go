@@ -4,6 +4,7 @@
 package operation
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/errors"
@@ -21,7 +22,7 @@ func (op *noOpSecretsRemoved) String() string {
 }
 
 // Commit is part of the Operation interface.
-func (op *noOpSecretsRemoved) Commit(state State) (*State, error) {
+func (op *noOpSecretsRemoved) Commit(ctx context.Context, state State) (*State, error) {
 	if err := op.callbacks.SecretsRemoved(op.uris); err != nil {
 		return nil, errors.Trace(err)
 	}

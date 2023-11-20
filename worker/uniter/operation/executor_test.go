@@ -264,7 +264,7 @@ func (s *ExecutorSuite) TestSucceedWithRemoteStateChanges(c *gc.C) {
 
 	remoteStateUpdated := make(chan struct{}, 1)
 	prepare := newStep(nil, nil)
-	execute := mockStepFunc(func(state operation.State) (*operation.State, error) {
+	execute := mockStepFunc(func(ctx context.Context, state operation.State) (*operation.State, error) {
 		select {
 		case <-remoteStateUpdated:
 			return nil, nil
@@ -628,13 +628,13 @@ func (mock *mockLockFunc) newSucceedingLock() func(string, string) (func(), erro
 }
 
 type mockStepInterface interface {
-	Run(state operation.State) (*operation.State, error)
+	Run(ctx context.Context, state operation.State) (*operation.State, error)
 }
 
-type mockStepFunc func(state operation.State) (*operation.State, error)
+type mockStepFunc func(ctx context.Context, state operation.State) (*operation.State, error)
 
-func (m mockStepFunc) Run(state operation.State) (*operation.State, error) {
-	return m(state)
+func (m mockStepFunc) Run(ctx context.Context, state operation.State) (*operation.State, error) {
+	return m(ctx, state)
 }
 
 type mockStep struct {
@@ -648,7 +648,7 @@ func newStep(newState *operation.State, err error) *mockStep {
 	return &mockStep{newState: newState, err: err}
 }
 
-func (step *mockStep) Run(state operation.State) (*operation.State, error) {
+func (step *mockStep) Run(ctx context.Context, state operation.State) (*operation.State, error) {
 	step.called = true
 	step.gotState = state
 	return step.newState, step.err
@@ -674,16 +674,16 @@ func (m *mockOperation) ExecutionGroup() string {
 	return ""
 }
 
-func (op *mockOperation) Prepare(state operation.State) (*operation.State, error) {
-	return op.prepare.Run(state)
+func (op *mockOperation) Prepare(ctx context.Context, state operation.State) (*operation.State, error) {
+	return op.prepare.Run(ctx, state)
 }
 
-func (op *mockOperation) Execute(state operation.State) (*operation.State, error) {
-	return op.execute.Run(state)
+func (op *mockOperation) Execute(ctx context.Context, state operation.State) (*operation.State, error) {
+	return op.execute.Run(ctx, state)
 }
 
-func (op *mockOperation) Commit(state operation.State) (*operation.State, error) {
-	return op.commit.Run(state)
+func (op *mockOperation) Commit(ctx context.Context, state operation.State) (*operation.State, error) {
+	return op.commit.Run(ctx, state)
 }
 
 func (op *mockOperation) RemoteStateChanged(snapshot remotestate.Snapshot) {

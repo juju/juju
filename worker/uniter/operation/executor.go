@@ -15,7 +15,7 @@ import (
 
 type executorStep struct {
 	verb string
-	run  func(op Operation, state State) (*State, error)
+	run  func(op Operation, ctx context.Context, state State) (*State, error)
 }
 
 func (step executorStep) message(op Operation, unitName string) string {
@@ -107,7 +107,7 @@ func (x *executor) Run(ctx context.Context, op Operation, remoteStateChange <-ch
 		x.logger.Debugf("no machine lock needed for %s", x.unitName)
 	}
 
-	switch err := x.do(op, stepPrepare); errors.Cause(err) {
+	switch err := x.do(ctx, op, stepPrepare); errors.Cause(err) {
 	case ErrSkipExecute:
 	case nil:
 		done := make(chan struct{})
@@ -124,7 +124,7 @@ func (x *executor) Run(ctx context.Context, op Operation, remoteStateChange <-ch
 				}
 			}
 		}()
-		if err := x.do(op, stepExecute); err != nil {
+		if err := x.do(ctx, op, stepExecute); err != nil {
 			close(done)
 			return err
 		}
@@ -132,7 +132,7 @@ func (x *executor) Run(ctx context.Context, op Operation, remoteStateChange <-ch
 	default:
 		return err
 	}
-	return x.do(op, stepCommit)
+	return x.do(ctx, op, stepCommit)
 }
 
 // Skip is part of the Executor interface.
@@ -147,13 +147,13 @@ func (x *executor) Skip(ctx context.Context, op Operation) (err error) {
 	}()
 
 	x.logger.Debugf("skipping operation %v for %s", op, x.unitName)
-	return x.do(op, stepCommit)
+	return x.do(ctx, op, stepCommit)
 }
 
-func (x *executor) do(op Operation, step executorStep) (err error) {
+func (x *executor) do(ctx context.Context, op Operation, step executorStep) (err error) {
 	message := step.message(op, x.unitName)
 	x.logger.Debugf(message)
-	newState, firstErr := step.run(op, *x.state)
+	newState, firstErr := step.run(op, ctx, *x.state)
 	if newState != nil {
 		writeErr := x.writeState(*newState)
 		if firstErr == nil {

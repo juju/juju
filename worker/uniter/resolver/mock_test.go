@@ -105,14 +105,14 @@ type mockOp struct {
 	prepare func(operation.State) (*operation.State, error)
 }
 
-func (op mockOp) Prepare(st operation.State) (*operation.State, error) {
+func (op mockOp) Prepare(ctx context.Context, st operation.State) (*operation.State, error) {
 	if op.prepare != nil {
 		return op.prepare(st)
 	}
 	return &st, nil
 }
 
-func (op mockOp) Commit(st operation.State) (*operation.State, error) {
+func (op mockOp) Commit(ctx context.Context, st operation.State) (*operation.State, error) {
 	if op.commit != nil {
 		return op.commit(st)
 	}

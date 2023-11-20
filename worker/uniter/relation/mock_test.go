@@ -4,6 +4,7 @@
 package relation_test
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/charm/v11/hooks"
@@ -47,15 +48,15 @@ func (m *mockOperation) ExecutionGroup() string {
 	return ""
 }
 
-func (m *mockOperation) Prepare(state operation.State) (*operation.State, error) {
+func (m *mockOperation) Prepare(ctx context.Context, state operation.State) (*operation.State, error) {
 	return &state, nil
 }
 
-func (m *mockOperation) Execute(state operation.State) (*operation.State, error) {
+func (m *mockOperation) Execute(ctx context.Context, state operation.State) (*operation.State, error) {
 	return &state, nil
 }
 
-func (m *mockOperation) Commit(state operation.State) (*operation.State, error) {
+func (m *mockOperation) Commit(ctx context.Context, state operation.State) (*operation.State, error) {
 	return &state, nil
 }
 
