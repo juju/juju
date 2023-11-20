@@ -309,7 +309,7 @@ func (r baseRefresher) ResolveCharm() (*charm.URL, commoncharm.Origin, error) {
 // stdOriginResolver attempts to resolve the origin required to resolve a
 // charm.
 func stdOriginResolver(curl *charm.URL, origin corecharm.Origin, channel charm.Channel) (commoncharm.Origin, error) {
-	result, err := utils.DeduceOrigin(curl, channel, origin.Platform)
+	result, err := utils.MakeOrigin(charm.Schema(curl.Schema), curl.Revision, channel, origin.Platform)
 	if err != nil {
 		return commoncharm.Origin{}, errors.Trace(err)
 	}

@@ -248,7 +248,7 @@ func (d *predeployedLocalCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI Dep
 	}
 
 	platform := utils.MakePlatform(d.constraints, base, d.modelConstraints)
-	origin, err := utils.DeduceOrigin(userCharmURL, charm.Channel{}, platform)
+	origin, err := utils.MakeOrigin(charm.Local, userCharmURL.Revision, charm.Channel{}, platform)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -293,7 +293,7 @@ func (l *localCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, _
 	}
 
 	platform := utils.MakePlatform(l.constraints, base, l.modelConstraints)
-	origin, err := utils.DeduceOrigin(curl, charm.Channel{}, platform)
+	origin, err := utils.MakeOrigin(charm.Local, curl.Revision, charm.Channel{}, platform)
 	if err != nil {
 		return errors.Trace(err)
 	}

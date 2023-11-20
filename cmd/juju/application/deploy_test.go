@@ -1627,7 +1627,7 @@ func (s *FakeStoreStateSuite) setupCharmMaybeAddForce(c *gc.C, url, name, aserie
 					OS:           base.OS,
 					Channel:      base.Channel.Track,
 				}
-				origin, err := apputils.DeduceOrigin(url, charm.Channel{}, platform)
+				origin, err := apputils.MakeOrigin(charm.Schema(url.Schema), url.Revision, charm.Channel{}, platform)
 				c.Assert(err, jc.ErrorIsNil)
 
 				abase, err := corebase.GetBaseFromSeries(aseries)
@@ -1675,7 +1675,7 @@ func (s *FakeStoreStateSuite) setupBundle(c *gc.C, url, name string, allSeries .
 			base, err = corebase.GetBaseFromSeries(serie)
 			c.Assert(err, jc.ErrorIsNil)
 		}
-		origin, err := apputils.DeduceOrigin(bundleResolveURL, charm.Channel{}, corecharm.Platform{
+		origin, err := apputils.MakeOrigin(charm.Schema(bundleResolveURL.Schema), bundleResolveURL.Revision, charm.Channel{}, corecharm.Platform{
 			OS: base.OS, Channel: base.Channel.Track})
 		c.Assert(err, jc.ErrorIsNil)
 		s.fakeAPI.Call("ResolveBundleURL", &baseURL, origin).Returns(
@@ -2559,7 +2559,7 @@ func withCharmDeployableWithDevicesAndStorage(
 	}
 	fallbackCons := constraints.MustParse("arch=amd64")
 	platform := apputils.MakePlatform(constraints.Value{}, base, fallbackCons)
-	origin, _ := apputils.DeduceOrigin(url, charm.Channel{}, platform)
+	origin, _ := apputils.MakeOrigin(charm.Schema(url.Schema), url.Revision, charm.Channel{}, platform)
 	fakeAPI.Call("AddCharm", &deployURL, origin, force).Returns(origin, error(nil))
 	fakeAPI.Call("CharmInfo", deployURL.String()).Returns(
 		&apicommoncharms.CharmInfo{

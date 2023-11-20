@@ -24,15 +24,6 @@ var (
 	}
 )
 
-// MakeRiskOnlyChannel creates a charm channel that is backwards compatible with
-// old style charm store channels. This creates a risk aware channel only.
-// No validation is performed on the risk and is just accepted as is.
-func MakeRiskOnlyChannel(risk string) charm.Channel {
-	return charm.Channel{
-		Risk: charm.Risk(risk),
-	}
-}
-
 // MustParseChannel parses a given string or returns a panic.
 func MustParseChannel(s string) charm.Channel {
 	c, err := charm.ParseChannelNormalize(s)

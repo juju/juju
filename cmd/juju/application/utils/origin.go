@@ -14,17 +14,13 @@ import (
 	"github.com/juju/juju/core/constraints"
 )
 
-// DeduceOrigin attempts to deduce the origin from a channel and a platform.
-// Depending on what the charm URL schema is, will then construct the correct
+// MakeOrigin creates an origin from a schema, revision, channel and a platform.
+// Depending on what the schema is, will then construct the correct
 // origin for that application.
-func DeduceOrigin(url *charm.URL, channel charm.Channel, platform corecharm.Platform) (commoncharm.Origin, error) {
-	if url == nil {
-		return commoncharm.Origin{}, errors.NotValidf("charm url")
-	}
-
+func MakeOrigin(schema charm.Schema, revision int, channel charm.Channel, platform corecharm.Platform) (commoncharm.Origin, error) {
 	// Arch is ultimately determined for non-local cases in the API call
 	// to `ResolveCharm`. To ensure we always have an architecture, even if
-	// somehow the DeducePlatform doesn't find one fill one in.
+	// somehow the MakePlatform doesn't find one fill one in.
 	// Additionally, `ResolveCharm` is not called for local charms, which are
 	// simply uploaded and deployed. We satisfy the requirement for
 	// non-empty platform architecture by making our best guess here.
@@ -40,13 +36,13 @@ func DeduceOrigin(url *charm.URL, channel charm.Channel, platform corecharm.Plat
 		platform.OS = b.OS
 		platform.Channel = b.Channel.Track
 	}
-	switch url.Schema {
-	case "local":
+	switch schema {
+	case charm.Local:
 		origin = commoncharm.Origin{
 			Source:       commoncharm.OriginLocal,
 			Architecture: architecture,
 		}
-	default:
+	case charm.CharmHub:
 		var track *string
 		if channel.Track != "" {
 			track = &channel.Track
@@ -62,9 +58,11 @@ func DeduceOrigin(url *charm.URL, channel charm.Channel, platform corecharm.Plat
 			Branch:       branch,
 			Architecture: architecture,
 		}
+	default:
+		return commoncharm.Origin{}, errors.NotSupportedf("charm source %q", schema)
 	}
-	if url.Revision != -1 {
-		origin.Revision = &url.Revision
+	if revision >= 0 {
+		origin.Revision = &revision
 	}
 	if platform.OS != "" && platform.Channel != "" {
 		base, err := corebase.ParseBase(platform.OS, platform.Channel)
