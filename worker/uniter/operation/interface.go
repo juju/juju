@@ -4,6 +4,8 @@
 package operation
 
 import (
+	stdcontext "context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	utilexec "github.com/juju/utils/v3/exec"
@@ -99,11 +101,11 @@ type Executor interface {
 	// error, the run will be aborted and an error will be returned.
 	// On remote state change, the executor will fire the operation's
 	// RemoteStateChanged method.
-	Run(Operation, <-chan remotestate.Snapshot) error
+	Run(stdcontext.Context, Operation, <-chan remotestate.Snapshot) error
 
 	// Skip will Commit the supplied operation, and write any state change
 	// indicated. If Commit returns an error, so will Skip.
-	Skip(Operation) error
+	Skip(stdcontext.Context, Operation) error
 }
 
 // Factory creates operations.

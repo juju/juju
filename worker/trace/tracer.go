@@ -5,6 +5,7 @@ package trace
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/juju/errors"
@@ -141,7 +142,7 @@ func (t *tracer) Start(ctx context.Context, name string, opts ...coretrace.Optio
 		attribute.String("namespace", t.namespace.Namespace),
 		attribute.String("namespace.short", t.namespace.ShortNamespace()),
 		attribute.String("namespace.tag", t.namespace.Tag.String()),
-		attribute.String("namespace.worker", t.namespace.Worker),
+		attribute.String("namespace.kind", string(t.namespace.Kind)),
 	)
 
 	ctx, span = t.clientTracer.Start(ctx, name, trace.WithAttributes(attrs...))
@@ -257,19 +258,21 @@ func NewClient(ctx context.Context, namespace coretrace.TaggedTracerNamespace, e
 		return nil, nil, nil, errors.Trace(err)
 	}
 
+	serviceName := fmt.Sprintf("juju-%s", namespace.Kind)
 	tp := sdktrace.NewTracerProvider(
 		sdktrace.WithBatcher(exporter),
-		sdktrace.WithResource(newResource(namespace.ServiceName())),
+		sdktrace.WithResource(newResource(serviceName, namespace.Namespace)),
 	)
 
 	return client, tp, tp.Tracer(namespace.String()), nil
 }
 
-func newResource(serviceName string) *resource.Resource {
+func newResource(serviceName, serviceID string) *resource.Resource {
 	return resource.NewWithAttributes(
 		semconv.SchemaURL,
 		semconv.ServiceName(serviceName),
 		semconv.ServiceVersion(version.Current.String()),
+		semconv.ServiceInstanceID(serviceID),
 	)
 }
 

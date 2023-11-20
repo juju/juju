@@ -201,7 +201,7 @@ func (s *tracerSuite) TestBuildRequestContext(c *gc.C) {
 }
 
 func (s *tracerSuite) newTracer(c *gc.C) TrackedTracer {
-	ns := coretrace.Namespace("agent", "controller").WithTag(names.NewMachineTag("0"))
+	ns := coretrace.Namespace("agent", "controller").WithTagAndKind(names.NewMachineTag("0"), coretrace.ControllerKind)
 	newClient := func(context.Context, coretrace.TaggedTracerNamespace, string, bool) (Client, ClientTracerProvider, ClientTracer, error) {
 		return s.client, s.clientTracerProvider, s.clientTracer, nil
 	}

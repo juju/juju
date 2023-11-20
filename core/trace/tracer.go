@@ -184,26 +184,34 @@ func (ns TracerNamespace) String() string {
 	return fmt.Sprintf("%s:%s", ns.Worker, ns.Namespace)
 }
 
-// WithTag returns a new TaggedTracerNamespace.
-func (ns TracerNamespace) WithTag(tag names.Tag) TaggedTracerNamespace {
+// WithTagAndKind returns a new TaggedTracerNamespace.
+func (ns TracerNamespace) WithTagAndKind(tag names.Tag, kind Kind) TaggedTracerNamespace {
 	return TaggedTracerNamespace{
 		TracerNamespace: ns,
 		Tag:             tag,
+		Kind:            kind,
 	}
 }
 
 // TaggedTracerNamespace is a TracerNamespace with a tag.
 type TaggedTracerNamespace struct {
 	TracerNamespace
-	Tag names.Tag
-}
-
-func (ns TaggedTracerNamespace) ServiceName() string {
-	// TODO (stickupkid): This won't always be jujud, work out the right
-	// agent binary.
-	return fmt.Sprintf("jujud-%s", ns.ShortNamespace())
+	Tag  names.Tag
+	Kind Kind
 }
 
 func (ns TaggedTracerNamespace) String() string {
-	return fmt.Sprintf("%s:%s:%s", ns.Tag.String(), ns.Worker, ns.Namespace)
+	return fmt.Sprintf("%s:%s", ns.Kind, ns.ShortNamespace())
 }
+
+// Kind represents the source of the trace. Either the trace will come
+// from a controller, unit or client.
+// We can expand on these later, for example we can add machine or worker kinds,
+// but for now this is enough.
+type Kind string
+
+const (
+	ControllerKind Kind = "controller"
+	UnitKind       Kind = "unit"
+	ClientKind     Kind = "client"
+)

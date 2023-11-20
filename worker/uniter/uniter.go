@@ -301,6 +301,10 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 	ctx, cancel := u.scopedContext()
 	defer cancel()
 
+	// Ensure that we pass in the tracer to the context, so that it can be
+	// used by the resolver.
+	ctx = coretrace.WithTracer(ctx, u.tracer)
+
 	defer func() {
 		// If this is a CAAS unit, then dead errors are fairly normal ways to exit
 		// the uniter main loop, but the parent operator agent needs to keep running.
@@ -361,7 +365,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 		}
 	}
 
-	canApplyCharmProfile, charmURL, charmModifiedVersion, err := u.charmState()
+	canApplyCharmProfile, charmURL, charmModifiedVersion, err := u.charmState(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -654,7 +658,7 @@ func (u *Uniter) verifyCharmProfile(url string) error {
 // charmState returns data for the local state setup.
 // While gathering the data, look for interrupted Install or pending
 // charm upgrade, execute if found.
-func (u *Uniter) charmState() (bool, string, int, error) {
+func (u *Uniter) charmState(ctx stdcontext.Context) (bool, string, int, error) {
 	// Install is a special case, as it must run before there
 	// is any remote state, and before the remote state watcher
 	// is started.
@@ -680,7 +684,7 @@ func (u *Uniter) charmState() (bool, string, int, error) {
 		if err != nil {
 			return canApplyCharmProfile, charmURL, charmModifiedVersion, errors.Trace(err)
 		}
-		if err := u.operationExecutor.Run(op, nil); err != nil {
+		if err := u.operationExecutor.Run(ctx, op, nil); err != nil {
 			return canApplyCharmProfile, charmURL, charmModifiedVersion, errors.Trace(err)
 		}
 		charmURL = opState.CharmURL

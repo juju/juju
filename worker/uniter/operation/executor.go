@@ -4,10 +4,12 @@
 package operation
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/worker/uniter/remotestate"
 )
 
@@ -81,7 +83,16 @@ func (x *executor) State() State {
 }
 
 // Run is part of the Executor interface.
-func (x *executor) Run(op Operation, remoteStateChange <-chan remotestate.Snapshot) error {
+func (x *executor) Run(ctx context.Context, op Operation, remoteStateChange <-chan remotestate.Snapshot) (err error) {
+	_, span := trace.Start(ctx, trace.NameFromFunc(), trace.WithAttributes(
+		trace.StringAttr("executor.state", op.String()),
+		trace.StringAttr("executor.unit", x.unitName),
+	))
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	x.logger.Debugf("running operation %v for %s", op, x.unitName)
 
 	if op.NeedsGlobalMachineLock() {
@@ -125,7 +136,16 @@ func (x *executor) Run(op Operation, remoteStateChange <-chan remotestate.Snapsh
 }
 
 // Skip is part of the Executor interface.
-func (x *executor) Skip(op Operation) error {
+func (x *executor) Skip(ctx context.Context, op Operation) (err error) {
+	_, span := trace.Start(ctx, trace.NameFromFunc(), trace.WithAttributes(
+		trace.StringAttr("executor.state", op.String()),
+		trace.StringAttr("executor.unit", x.unitName),
+	))
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	x.logger.Debugf("skipping operation %v for %s", op, x.unitName)
 	return x.do(op, stepCommit)
 }

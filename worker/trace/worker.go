@@ -40,7 +40,8 @@ type WorkerConfig struct {
 	Logger          Logger
 	NewTracerWorker TracerWorkerFunc
 
-	Tag names.Tag
+	Tag  names.Tag
+	Kind coretrace.Kind
 
 	Endpoint           string
 	InsecureSkipVerify bool
@@ -60,6 +61,9 @@ func (c *WorkerConfig) Validate() error {
 	}
 	if c.Tag == nil {
 		return errors.NotValidf("nil Tag")
+	}
+	if c.Kind == "" {
+		return errors.NotValidf("nil Kind")
 	}
 	// If we are enabled, then we require an endpoint.
 	if c.Endpoint == "" {
@@ -172,7 +176,7 @@ func (w *tracerWorker) Wait() error {
 
 // GetTracer returns a tracer for the given namespace.
 func (w *tracerWorker) GetTracer(ctx context.Context, namespace coretrace.TracerNamespace) (coretrace.Tracer, error) {
-	ns := namespace.WithTag(w.cfg.Tag)
+	ns := namespace.WithTagAndKind(w.cfg.Tag, w.cfg.Kind)
 	// First check if we've already got the tracer worker already running. If
 	// we have, then return out quickly. The tracerRunner is the cache, so there
 	// is no need to have a in-memory cache here.

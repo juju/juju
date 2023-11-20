@@ -84,7 +84,7 @@ func Loop(ctx context.Context, cfg LoopConfig, localState *LocalState) error {
 
 	// If we're restarting the loop, ensure any pending charm upgrade is run
 	// before continuing.
-	err = checkCharmInstallUpgrade(cfg.Logger, cfg.CharmDir, cfg.Watcher.Snapshot(), rf, cfg.Executor)
+	err = checkCharmInstallUpgrade(ctx, cfg.Logger, cfg.CharmDir, cfg.Watcher.Snapshot(), rf, cfg.Executor)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -131,7 +131,7 @@ func Loop(ctx context.Context, cfg LoopConfig, localState *LocalState) error {
 			}()
 
 			cfg.Logger.Tracef("running op: %v", op)
-			if err := cfg.Executor.Run(op, remoteStateChanged); err != nil {
+			if err := cfg.Executor.Run(ctx, op, remoteStateChanged); err != nil {
 				close(done)
 
 				if errors.Cause(err) == mutex.ErrCancelled {
@@ -249,7 +249,7 @@ func updateCharmDir(opState operation.State, guard fortress.Guard, abort fortres
 	}
 }
 
-func checkCharmInstallUpgrade(logger Logger, charmDir string, remote remotestate.Snapshot, rf *resolverOpFactory, ex operation.Executor) error {
+func checkCharmInstallUpgrade(ctx context.Context, logger Logger, charmDir string, remote remotestate.Snapshot, rf *resolverOpFactory, ex operation.Executor) error {
 	// If we restarted due to error with a pending charm upgrade available,
 	// do the upgrade now.  There are cases (lp:1895040) where the error was
 	// caused because not all units were upgraded before relation-created
@@ -312,7 +312,7 @@ func checkCharmInstallUpgrade(logger Logger, charmDir string, remote remotestate
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if err = ex.Run(op, nil); err != nil {
+	if err = ex.Run(ctx, op, nil); err != nil {
 		return errors.Trace(err)
 	}
 	if local.Restart {

@@ -20,6 +20,7 @@ import (
 	commonapi "github.com/juju/juju/api/common"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/model"
+	coretrace "github.com/juju/juju/core/trace"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/agent"
 	"github.com/juju/juju/worker/apiaddressupdater"
@@ -250,6 +251,7 @@ func UnitManifolds(config UnitManifoldsConfig) dependency.Manifolds {
 			Clock:           config.Clock,
 			Logger:          loggo.GetLogger("juju.worker.trace"),
 			NewTracerWorker: trace.NewTracerWorker,
+			Kind:            coretrace.UnitKind,
 		}),
 
 		// TODO (mattyw) should be added to machine agent.

@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/model"
+	coretrace "github.com/juju/juju/core/trace"
 	"github.com/juju/juju/internal/observability/probe"
 	proxy "github.com/juju/juju/internal/proxy/config"
 	"github.com/juju/juju/upgrades"
@@ -393,6 +394,7 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 			Clock:           config.Clock,
 			Logger:          loggo.GetLogger("juju.worker.trace"),
 			NewTracerWorker: trace.NewTracerWorker,
+			Kind:            coretrace.UnitKind,
 		}),
 
 		// The CAAS unit termination worker handles SIGTERM from the container runtime.

@@ -4,6 +4,8 @@
 package resolver_test
 
 import (
+	"context"
+
 	"github.com/juju/testing"
 
 	"github.com/juju/juju/worker/fortress"
@@ -89,7 +91,7 @@ func (e *mockOpExecutor) State() operation.State {
 	return e.st
 }
 
-func (e *mockOpExecutor) Run(op operation.Operation, rs <-chan remotestate.Snapshot) error {
+func (e *mockOpExecutor) Run(ctx context.Context, op operation.Operation, rs <-chan remotestate.Snapshot) error {
 	e.MethodCall(e, "Run", op, rs)
 	if e.run != nil {
 		return e.run(op, rs)
