@@ -4,6 +4,8 @@
 package runcommands_test
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
@@ -74,7 +76,7 @@ func (s *runcommandsSuite) TestRunCommands(c *gc.C) {
 		RunLocation: runner.Operator,
 	}, func(*exec.ExecResponse, error) bool { return false })
 	s.remoteState.Commands = []string{id}
-	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
+	op, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, s.opFactory)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(op.String(), gc.Equals, "run commands (0)")
 }
@@ -104,7 +106,7 @@ func (s *runcommandsSuite) TestRunCommandsCallbacks(c *gc.C) {
 	}, func(*exec.ExecResponse, error) bool { return false })
 	s.remoteState.Commands = []string{id}
 
-	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
+	op, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, s.opFactory)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(op.String(), gc.Equals, "run commands (0)")
 
@@ -152,7 +154,7 @@ func (s *runcommandsSuite) TestRunCommandsCommitErrorNoCompletedCallback(c *gc.C
 	}, func(*exec.ExecResponse, error) bool { return false })
 	s.remoteState.Commands = []string{id}
 
-	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
+	op, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, s.opFactory)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(op.String(), gc.Equals, "run commands (0)")
 
@@ -192,7 +194,7 @@ func (s *runcommandsSuite) TestRunCommandsError(c *gc.C) {
 	})
 	s.remoteState.Commands = []string{id}
 
-	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
+	op, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, s.opFactory)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(op.String(), gc.Equals, "run commands (0)")
 
@@ -226,7 +228,7 @@ func (s *runcommandsSuite) TestRunCommandsErrorConsumed(c *gc.C) {
 	})
 	s.remoteState.Commands = []string{id}
 
-	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
+	op, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, s.opFactory)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(op.String(), gc.Equals, "run commands (0)")
 
@@ -252,7 +254,7 @@ func (s *runcommandsSuite) TestRunCommandsStatus(c *gc.C) {
 	}, func(*exec.ExecResponse, error) bool { return false })
 	s.remoteState.Commands = []string{id}
 
-	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
+	op, err := s.resolver.NextOp(context.Background(), localState, s.remoteState, s.opFactory)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(op.String(), gc.Equals, "run commands (0)")
 	s.callbacks.CheckCalls(c, nil /* no calls */)

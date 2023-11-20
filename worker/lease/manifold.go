@@ -103,14 +103,16 @@ func (s *manifoldState) start(context dependency.Context) (worker.Worker, error)
 		return nil, errors.Trace(err)
 	}
 
-	tracer, err := tracerGetter.GetTracer(stdcontext.TODO(), coretrace.Namespace("leaseexpiry", database.ControllerNS))
+	currentConfig := agent.CurrentConfig()
+
+	tracer, err := tracerGetter.GetTracer(stdcontext.TODO(), coretrace.Namespace("leaseexpiry", currentConfig.Model().Id()))
 	if err != nil {
 		tracer = coretrace.NoopTracer{}
 	}
 
 	store := s.config.NewStore(dbGetter, s.config.Logger)
 
-	controllerUUID := agent.CurrentConfig().Controller().Id()
+	controllerUUID := currentConfig.Controller().Id()
 	w, err := s.config.NewWorker(ManagerConfig{
 		Secretary:            SecretaryFinder(controllerUUID),
 		Store:                store,

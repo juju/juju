@@ -4,6 +4,7 @@
 package container
 
 import (
+	"context"
 	"strconv"
 	"sync"
 
@@ -145,6 +146,7 @@ func NewWorkloadHookResolver(logger Logger, events WorkloadEvents, eventComplete
 
 // NextOp implements the resolver.Resolver interface.
 func (r *workloadHookResolver) NextOp(
+	ctx context.Context,
 	localState resolver.LocalState,
 	remoteState remotestate.Snapshot,
 	opFactory operation.Factory,

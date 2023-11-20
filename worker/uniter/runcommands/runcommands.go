@@ -4,6 +4,7 @@
 package runcommands
 
 import (
+	"context"
 	"fmt"
 	"sync"
 
@@ -88,6 +89,7 @@ func NewCommandsResolver(commands Commands, commandCompleted func(string)) resol
 
 // NextOp is part of the resolver.Resolver interface.
 func (s *commandsResolver) NextOp(
+	ctx context.Context,
 	localState resolver.LocalState,
 	remoteState remotestate.Snapshot,
 	opFactory operation.Factory,

@@ -4,6 +4,7 @@
 package resolver
 
 import (
+	"context"
 	"time"
 
 	jujucharm "github.com/juju/charm/v11"
@@ -72,7 +73,7 @@ type LoopConfig struct {
 //     state has changed again
 //   - if the resolver, onIdle, or executor return some other
 //     error, the loop will exit immediately
-func Loop(cfg LoopConfig, localState *LocalState) error {
+func Loop(ctx context.Context, cfg LoopConfig, localState *LocalState) error {
 	rf := &resolverOpFactory{Factory: cfg.Factory, LocalState: localState}
 
 	// Initialize charmdir availability before entering the loop in case we're recovering from a restart.
@@ -103,7 +104,7 @@ func Loop(cfg LoopConfig, localState *LocalState) error {
 			}
 		}
 
-		op, err := cfg.Resolver.NextOp(*rf.LocalState, rf.RemoteState, rf)
+		op, err := cfg.Resolver.NextOp(ctx, *rf.LocalState, rf.RemoteState, rf)
 		for err == nil {
 			// Send remote state changes to running operations.
 			remoteStateChanged := make(chan remotestate.Snapshot)
@@ -159,7 +160,7 @@ func Loop(cfg LoopConfig, localState *LocalState) error {
 				return errors.Trace(err)
 			}
 
-			op, err = cfg.Resolver.NextOp(*rf.LocalState, rf.RemoteState, rf)
+			op, err = cfg.Resolver.NextOp(ctx, *rf.LocalState, rf.RemoteState, rf)
 		}
 
 		switch errors.Cause(err) {

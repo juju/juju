@@ -64,6 +64,7 @@ func (s *ManifoldsSuite) TestManifoldNames(c *gc.C) {
 		"uniter",
 		"upgrader",
 		"secret-drain-worker",
+		"trace",
 	}
 	keys := make([]string, 0, len(manifolds))
 	for k := range manifolds {
@@ -85,6 +86,7 @@ func (s *ManifoldsSuite) TestMigrationGuards(c *gc.C) {
 		"migration-fortress",
 		"migration-minion",
 		"migration-inactive-flag",
+		"trace",
 	)
 	manifolds := deployer.UnitManifolds(s.config)
 	for name, manifold := range manifolds {
@@ -226,6 +228,7 @@ var expectedUnitManifoldsWithDependencies = map[string][]string{
 		"leadership-tracker",
 		"migration-fortress",
 		"migration-inactive-flag",
+		"trace",
 	},
 
 	"upgrader": {
@@ -239,5 +242,8 @@ var expectedUnitManifoldsWithDependencies = map[string][]string{
 		"api-config-watcher",
 		"migration-fortress",
 		"migration-inactive-flag",
+	},
+	"trace": {
+		"agent",
 	},
 }

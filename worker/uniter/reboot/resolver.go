@@ -4,6 +4,8 @@
 package reboot
 
 import (
+	"context"
+
 	"github.com/juju/charm/v11/hooks"
 	"github.com/juju/errors"
 
@@ -35,7 +37,7 @@ func NewResolver(logger Logger, rebootDetected bool) resolver.Resolver {
 type nopResolver struct {
 }
 
-func (nopResolver) NextOp(_ resolver.LocalState, _ remotestate.Snapshot, _ operation.Factory) (operation.Operation, error) {
+func (nopResolver) NextOp(_ context.Context, _ resolver.LocalState, _ remotestate.Snapshot, _ operation.Factory) (operation.Operation, error) {
 	return nil, resolver.ErrNoOperation
 }
 
@@ -44,7 +46,7 @@ type rebootResolver struct {
 	logger         Logger
 }
 
-func (r *rebootResolver) NextOp(localState resolver.LocalState, remoteState remotestate.Snapshot, opfactory operation.Factory) (operation.Operation, error) {
+func (r *rebootResolver) NextOp(ctx context.Context, localState resolver.LocalState, remoteState remotestate.Snapshot, opfactory operation.Factory) (operation.Operation, error) {
 	// Have we already notified that a reboot occurred?
 	if !r.rebootDetected {
 		return nil, resolver.ErrNoOperation
