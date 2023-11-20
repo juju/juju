@@ -5,6 +5,7 @@ package trace
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/juju/errors"
 	"go.opentelemetry.io/otel/attribute"
@@ -128,17 +129,18 @@ func NewClient(ctx context.Context, namespace coretrace.TaggedTracerNamespace, e
 		return nil, nil, nil, errors.Trace(err)
 	}
 
+	serviceName := fmt.Sprintf("juju-%s", namespace.Kind)
 	tp := sdktrace.NewTracerProvider(
 		sdktrace.WithSampler(sdktrace.TraceIDRatioBased(sampleRatio)),
 		sdktrace.WithBatcher(exporter),
-		sdktrace.WithResource(newResource(namespace.ServiceName())),
+		sdktrace.WithResource(newResource(serviceName, namespace.Namespace)),
 	)
-	return client, tp, clientSpanShim{tp.Tracer(namespace.String())}, nil
+	return client, tp, clientTracerShim{tracer: tp.Tracer(namespace.String())}, nil
 }
 
-// clientSpanShim exists to mask out the embedded interface within the
+// clientTracerShim exists to mask out the embedded interface within the
 // trace.Span
-type clientSpanShim struct {
+type clientTracerShim struct {
 	tracer trace.Tracer
 }
 
@@ -155,14 +157,15 @@ type clientSpanShim struct {
 //
 // Any Span that is created MUST also be ended. This is the responsibility of the user.
 // Implementations of this API may leak memory or other resources if Spans are not ended.
-func (s clientSpanShim) Start(ctx context.Context, spanName string, opts ...trace.SpanStartOption) (context.Context, ClientSpan) {
+func (s clientTracerShim) Start(ctx context.Context, spanName string, opts ...trace.SpanStartOption) (context.Context, ClientSpan) {
 	return s.tracer.Start(ctx, spanName, opts...)
 }
 
-func newResource(serviceName string) *resource.Resource {
+func newResource(serviceName, serviceID string) *resource.Resource {
 	return resource.NewWithAttributes(
 		semconv.SchemaURL,
 		semconv.ServiceName(serviceName),
 		semconv.ServiceVersion(version.Current.String()),
+		semconv.ServiceInstanceID(serviceID),
 	)
 }

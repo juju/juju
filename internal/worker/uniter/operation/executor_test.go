@@ -4,6 +4,7 @@
 package operation_test
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/charm/v12/hooks"
@@ -218,7 +219,7 @@ func (s *ExecutorSuite) TestSucceedNoStateChanges(c *gc.C) {
 		commit:  commit,
 	}
 
-	err := executor.Run(op, nil)
+	err := executor.Run(context.Background(), op, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(prepare.gotState, gc.DeepEquals, initialState)
@@ -246,7 +247,7 @@ func (s *ExecutorSuite) TestSucceedWithStateChanges(c *gc.C) {
 		commit:  commit,
 	}
 
-	err := executor.Run(op, nil)
+	err := executor.Run(context.Background(), op, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(prepare.gotState, gc.DeepEquals, initialState)
@@ -289,7 +290,7 @@ func (s *ExecutorSuite) TestSucceedWithRemoteStateChanges(c *gc.C) {
 	rs <- remotestate.Snapshot{
 		ConfigHash: "test",
 	}
-	err := executor.Run(op, rs)
+	err := executor.Run(context.Background(), op, rs)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -309,7 +310,7 @@ func (s *ExecutorSuite) TestErrSkipExecute(c *gc.C) {
 		commit:  commit,
 	}
 
-	err := executor.Run(op, nil)
+	err := executor.Run(context.Background(), op, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(prepare.gotState, gc.DeepEquals, initialState)
@@ -331,7 +332,7 @@ func (s *ExecutorSuite) TestValidateStateChange(c *gc.C) {
 		prepare: prepare,
 	}
 
-	err := executor.Run(op, nil)
+	err := executor.Run(context.Background(), op, nil)
 	c.Assert(err, gc.ErrorMatches, `preparing operation "mock operation" for test: invalid operation state: missing hook info with Kind RunHook`)
 	c.Assert(errors.Cause(err), gc.ErrorMatches, "missing hook info with Kind RunHook")
 	c.Assert(executor.State(), gc.DeepEquals, initialState)
@@ -348,7 +349,7 @@ func (s *ExecutorSuite) TestFailPrepareNoStateChange(c *gc.C) {
 		prepare: prepare,
 	}
 
-	err := executor.Run(op, nil)
+	err := executor.Run(context.Background(), op, nil)
 	c.Assert(err, gc.ErrorMatches, `preparing operation "mock operation" for test: pow`)
 	c.Assert(errors.Cause(err), gc.ErrorMatches, "pow")
 
@@ -368,7 +369,7 @@ func (s *ExecutorSuite) TestFailPrepareWithStateChange(c *gc.C) {
 		prepare: prepare,
 	}
 
-	err := executor.Run(op, nil)
+	err := executor.Run(context.Background(), op, nil)
 	c.Assert(err, gc.ErrorMatches, `preparing operation "mock operation" for test: blam`)
 	c.Assert(errors.Cause(err), gc.ErrorMatches, "blam")
 
@@ -389,7 +390,7 @@ func (s *ExecutorSuite) TestFailExecuteNoStateChange(c *gc.C) {
 		execute: execute,
 	}
 
-	err := executor.Run(op, nil)
+	err := executor.Run(context.Background(), op, nil)
 	c.Assert(err, gc.ErrorMatches, `executing operation "mock operation" for test: splat`)
 	c.Assert(errors.Cause(err), gc.ErrorMatches, "splat")
 
@@ -411,7 +412,7 @@ func (s *ExecutorSuite) TestFailExecuteWithStateChange(c *gc.C) {
 		execute: execute,
 	}
 
-	err := executor.Run(op, nil)
+	err := executor.Run(context.Background(), op, nil)
 	c.Assert(err, gc.ErrorMatches, `executing operation "mock operation" for test: kerblooie`)
 	c.Assert(errors.Cause(err), gc.ErrorMatches, "kerblooie")
 
@@ -434,7 +435,7 @@ func (s *ExecutorSuite) TestFailCommitNoStateChange(c *gc.C) {
 		commit:  commit,
 	}
 
-	err := executor.Run(op, nil)
+	err := executor.Run(context.Background(), op, nil)
 	c.Assert(err, gc.ErrorMatches, `committing operation "mock operation" for test: whack`)
 	c.Assert(errors.Cause(err), gc.ErrorMatches, "whack")
 
@@ -458,7 +459,7 @@ func (s *ExecutorSuite) TestFailCommitWithStateChange(c *gc.C) {
 		commit:  commit,
 	}
 
-	err := executor.Run(op, nil)
+	err := executor.Run(context.Background(), op, nil)
 	c.Assert(err, gc.ErrorMatches, `committing operation "mock operation" for test: take that you bandit`)
 	c.Assert(errors.Cause(err), gc.ErrorMatches, "take that you bandit")
 
@@ -494,7 +495,7 @@ func (s *ExecutorSuite) TestLockSucceedsStepsCalled(c *gc.C) {
 	lockFunc := mockLock.newSucceedingLock()
 	executor := s.initLockTest(c, lockFunc)
 
-	err := executor.Run(op, nil)
+	err := executor.Run(context.Background(), op, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(mockLock.calledLock, jc.IsTrue)
@@ -520,7 +521,7 @@ func (s *ExecutorSuite) TestLockFailsOpsStepsNotCalled(c *gc.C) {
 	lockFunc := mockLock.newFailingLock()
 	executor := s.initLockTest(c, lockFunc)
 
-	err := executor.Run(op, nil)
+	err := executor.Run(context.Background(), op, nil)
 	c.Assert(err, gc.ErrorMatches, "could not acquire lock: wat")
 
 	c.Assert(mockLock.calledLock, jc.IsFalse)
@@ -537,7 +538,7 @@ func (s *ExecutorSuite) testLockUnlocksOnError(c *gc.C, op *mockOperation) (erro
 	lockFunc := mockLock.newSucceedingLock()
 	executor := s.initLockTest(c, lockFunc)
 
-	err := executor.Run(op, nil)
+	err := executor.Run(context.Background(), op, nil)
 
 	c.Assert(mockLock.calledLock, jc.IsTrue)
 	c.Assert(mockLock.calledUnlock, jc.IsTrue)
