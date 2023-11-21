@@ -115,7 +115,7 @@ func (ra *runAction) Execute(ctx context.Context, state State) (*State, error) {
 		}
 	}()
 
-	handlerType, err := ra.runner.RunAction(ra.name)
+	handlerType, err := ra.runner.RunAction(ctx, ra.name)
 	close(done)
 	<-wait
 

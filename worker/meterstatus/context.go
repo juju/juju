@@ -4,6 +4,7 @@
 package meterstatus
 
 import (
+	stdcontext "context"
 	"fmt"
 	"math/rand"
 	"path"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/model"
+	coretrace "github.com/juju/juju/core/trace"
 	"github.com/juju/juju/worker/uniter/runner/context"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
@@ -41,6 +43,7 @@ func newLimitedContext(config hookConfig) *limitedContext {
 
 // HookVars implements runner.Context.
 func (ctx *limitedContext) HookVars(
+	c stdcontext.Context,
 	paths context.Paths,
 	remote bool,
 	envVars context.Environmenter,
@@ -60,6 +63,12 @@ func (ctx *limitedContext) HookVars(
 	}
 	for key, val := range ctx.env {
 		vars = append(vars, fmt.Sprintf("%s=%s", key, val))
+	}
+	if traceID, spanID := coretrace.ScopeFromContext(c); traceID != "" {
+		vars = append(vars,
+			"JUJU_TRACE_ID="+traceID,
+			"JUJU_SPAN_ID="+spanID,
+		)
 	}
 	return append(vars, context.OSDependentEnvVars(paths, envVars)...), nil
 }

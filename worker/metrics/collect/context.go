@@ -4,6 +4,7 @@
 package collect
 
 import (
+	stdcontext "context"
 	"fmt"
 	"math/rand"
 	"path"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/model"
+	coretrace "github.com/juju/juju/core/trace"
 	"github.com/juju/juju/worker/metrics/spool"
 	"github.com/juju/juju/worker/uniter/runner/context"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
@@ -41,6 +43,7 @@ func newHookContext(config hookConfig) *hookContext {
 
 // HookVars implements runner.Context.
 func (ctx *hookContext) HookVars(
+	c stdcontext.Context,
 	paths context.Paths,
 	remote bool,
 	envVars context.Environmenter,
@@ -56,6 +59,12 @@ func (ctx *hookContext) HookVars(
 	if remote {
 		vars = append(vars,
 			"JUJU_AGENT_CA_CERT="+path.Join(paths.GetBaseDir(), caas.CACertFile),
+		)
+	}
+	if traceID, spanID := coretrace.ScopeFromContext(c); traceID != "" {
+		vars = append(vars,
+			"JUJU_TRACE_ID="+traceID,
+			"JUJU_SPAN_ID="+spanID,
 		)
 	}
 	return append(vars, context.OSDependentEnvVars(paths, envVars)...), nil

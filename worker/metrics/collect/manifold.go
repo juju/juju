@@ -4,6 +4,7 @@
 package collect
 
 import (
+	stdcontext "context"
 	"path"
 	"sync"
 	"time"
@@ -299,7 +300,7 @@ func (h *hookRunner) do(recorder spool.MetricRecorder) error {
 	}
 
 	r := runner.NewRunner(ctx, h.paths, nil)
-	handlerType, err := r.RunHook(string(hooks.CollectMetrics))
+	handlerType, err := r.RunHook(stdcontext.Background(), string(hooks.CollectMetrics))
 	switch {
 	case charmrunner.IsMissingHookError(errors.Cause(err)):
 		fallthrough

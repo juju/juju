@@ -4,6 +4,7 @@
 package operation_test
 
 import (
+	"context"
 	"sync"
 
 	"github.com/juju/charm/v11/hooks"
@@ -448,15 +449,15 @@ func (r *MockRunner) Context() runnercontext.Context {
 	return r.context
 }
 
-func (r *MockRunner) RunAction(actionName string) (runner.HookHandlerType, error) {
+func (r *MockRunner) RunAction(ctx context.Context, actionName string) (runner.HookHandlerType, error) {
 	return runner.ExplicitHookHandler, r.MockRunAction.Call(actionName)
 }
 
-func (r *MockRunner) RunCommands(commands string, runLocation runner.RunLocation) (*utilexec.ExecResponse, error) {
+func (r *MockRunner) RunCommands(ctx context.Context, commands string, runLocation runner.RunLocation) (*utilexec.ExecResponse, error) {
 	return r.MockRunCommands.Call(commands, runLocation)
 }
 
-func (r *MockRunner) RunHook(hookName string) (runner.HookHandlerType, error) {
+func (r *MockRunner) RunHook(ctx context.Context, hookName string) (runner.HookHandlerType, error) {
 	r.Context().(*MockContext).setStatusCalled = r.MockRunHook.setStatusCalled
 	return runner.ExplicitHookHandler, r.MockRunHook.Call(hookName)
 }
@@ -474,7 +475,7 @@ func (r *MockActionWaitRunner) Context() runnercontext.Context {
 	return r.context
 }
 
-func (r *MockActionWaitRunner) RunAction(actionName string) (runner.HookHandlerType, error) {
+func (r *MockActionWaitRunner) RunAction(ctx context.Context, actionName string) (runner.HookHandlerType, error) {
 	r.actionName = actionName
 	return runner.ExplicitHookHandler, <-r.actionChan
 }

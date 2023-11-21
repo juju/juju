@@ -4,9 +4,12 @@
 package operation
 
 import (
+	stdcontext "context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
+	coretrace "github.com/juju/juju/core/trace"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/worker/common/charmrunner"
 	"github.com/juju/juju/worker/uniter/charm"
@@ -48,7 +51,7 @@ func (f *factory) newDeploy(kind Kind, charmURL string, revert, resolved bool) (
 	} else if kind != Install && kind != Upgrade {
 		return nil, errors.Errorf("unknown deploy kind: %s", kind)
 	}
-	var op Operation = &deploy{
+	return &tracedOperation{Operation: &deploy{
 		kind:      kind,
 		charmURL:  charmURL,
 		revert:    revert,
@@ -56,8 +59,7 @@ func (f *factory) newDeploy(kind Kind, charmURL string, revert, resolved bool) (
 		callbacks: f.config.Callbacks,
 		deployer:  f.config.Deployer,
 		abort:     f.config.Abort,
-	}
-	return op, nil
+	}}, nil
 }
 
 // NewInstall is part of the Factory interface.
@@ -72,19 +74,19 @@ func (f *factory) NewUpgrade(charmURL string) (Operation, error) {
 
 // NewRemoteInit is part of the Factory interface.
 func (f *factory) NewRemoteInit(runningStatus remotestate.ContainerRunningStatus) (Operation, error) {
-	return &remoteInit{
+	return &tracedOperation{Operation: &remoteInit{
 		callbacks:     f.config.Callbacks,
 		abort:         f.config.Abort,
 		runningStatus: runningStatus,
-	}, nil
+	}}, nil
 }
 
 func (f *factory) NewSkipRemoteInit(retry bool) (Operation, error) {
-	return &skipRemoteInit{retry}, nil
+	return &tracedOperation{Operation: &skipRemoteInit{retry: retry}}, nil
 }
 
 func (f *factory) NewNoOpFinishUpgradeSeries() (Operation, error) {
-	return &noOpFinishUpgradeSeries{&skipOperation{}}, nil
+	return &tracedOperation{Operation: &noOpFinishUpgradeSeries{Operation: &skipOperation{}}}, nil
 }
 
 // NewRevertUpgrade is part of the Factory interface.
@@ -102,12 +104,12 @@ func (f *factory) NewRunHook(hookInfo hook.Info) (Operation, error) {
 	if err := hookInfo.Validate(); err != nil {
 		return nil, err
 	}
-	return &runHook{
+	return &tracedOperation{Operation: &runHook{
 		info:          hookInfo,
 		callbacks:     f.config.Callbacks,
 		runnerFactory: f.config.RunnerFactory,
 		logger:        f.config.Logger,
-	}, nil
+	}}, nil
 }
 
 // NewSkipHook is part of the Factory interface.
@@ -116,15 +118,17 @@ func (f *factory) NewSkipHook(hookInfo hook.Info) (Operation, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &skipOperation{hookOp}, nil
+	return &tracedOperation{Operation: &skipOperation{
+		Operation: hookOp,
+	}}, nil
 }
 
 // NewNoOpSecretsRemoved is part of the Factory interface.
 func (f *factory) NewNoOpSecretsRemoved(uris []string) (Operation, error) {
-	return &noOpSecretsRemoved{
+	return &tracedOperation{Operation: &noOpSecretsRemoved{
 		Operation: &skipOperation{}, uris: uris,
 		callbacks: f.config.Callbacks,
-	}, nil
+	}}, nil
 }
 
 // NewAction is part of the Factory interface.
@@ -143,12 +147,12 @@ func (f *factory) NewAction(actionId string) (Operation, error) {
 		return nil, errors.Trace(err)
 	}
 
-	return &runAction{
+	return &tracedOperation{Operation: &runAction{
 		action:        action,
 		callbacks:     f.config.Callbacks,
 		runnerFactory: f.config.RunnerFactory,
 		logger:        f.config.Logger,
-	}, nil
+	}}, nil
 }
 
 // NewFailAction is part of the factory interface.
@@ -156,10 +160,10 @@ func (f *factory) NewFailAction(actionId string) (Operation, error) {
 	if !names.IsValidAction(actionId) {
 		return nil, errors.Errorf("invalid action id %q", actionId)
 	}
-	return &failAction{
+	return &tracedOperation{Operation: &failAction{
 		actionId:  actionId,
 		callbacks: f.config.Callbacks,
-	}, nil
+	}}, nil
 }
 
 // NewCommands is part of the Factory interface.
@@ -169,21 +173,64 @@ func (f *factory) NewCommands(args CommandArgs, sendResponse CommandResponseFunc
 	} else if sendResponse == nil {
 		return nil, errors.New("response sender required")
 	}
-	return &runCommands{
+	return &tracedOperation{Operation: &runCommands{
 		args:          args,
 		sendResponse:  sendResponse,
 		callbacks:     f.config.Callbacks,
 		runnerFactory: f.config.RunnerFactory,
 		logger:        f.config.Logger,
-	}, nil
+	}}, nil
 }
 
 // NewResignLeadership is part of the Factory interface.
 func (f *factory) NewResignLeadership() (Operation, error) {
-	return &resignLeadership{logger: f.config.Logger}, nil
+	return &tracedOperation{Operation: &resignLeadership{logger: f.config.Logger}}, nil
 }
 
 // NewAcceptLeadership is part of the Factory interface.
 func (f *factory) NewAcceptLeadership() (Operation, error) {
-	return &acceptLeadership{}, nil
+	return &tracedOperation{Operation: &acceptLeadership{}}, nil
+}
+
+type tracedOperation struct {
+	Operation
+}
+
+// Prepare ensures that the operation is valid and ready to be executed.
+// If it returns a non-nil state, that state will be validated and recorded.
+// If it returns ErrSkipExecute, it indicates that the operation can be
+// committed directly.
+func (o *tracedOperation) Prepare(ctx stdcontext.Context, state State) (_ *State, err error) {
+	ctx, span := coretrace.Start(ctx, coretrace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
+	return o.Operation.Prepare(ctx, state)
+}
+
+// Execute carries out the operation. It must not be called without having
+// called Prepare first. If it returns a non-nil state, that state will be
+// validated and recorded.
+func (o *tracedOperation) Execute(ctx stdcontext.Context, state State) (_ *State, err error) {
+	ctx, span := coretrace.Start(ctx, coretrace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
+	return o.Operation.Execute(ctx, state)
+}
+
+// Commit ensures that the operation's completion is recorded. If it returns
+// a non-nil state, that state will be validated and recorded.
+func (o *tracedOperation) Commit(ctx stdcontext.Context, state State) (_ *State, err error) {
+	ctx, span := coretrace.Start(ctx, coretrace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
+	return o.Operation.Commit(ctx, state)
 }

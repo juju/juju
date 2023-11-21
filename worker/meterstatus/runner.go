@@ -4,6 +4,8 @@
 package meterstatus
 
 import (
+	stdcontext "context"
+
 	"github.com/juju/charm/v11/hooks"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -82,7 +84,7 @@ func (w *hookRunner) RunHook(code, info string, interrupt <-chan struct{}) {
 		return
 	}
 	defer releaser()
-	handlerType, err := r.RunHook(string(hooks.MeterStatusChanged))
+	handlerType, err := r.RunHook(stdcontext.Background(), string(hooks.MeterStatusChanged))
 	cause := errors.Cause(err)
 	switch {
 	case charmrunner.IsMissingHookError(cause):

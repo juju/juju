@@ -152,7 +152,7 @@ func (rh *runHook) Execute(ctx stdcontext.Context, state State) (*State, error) 
 	rh.hookFound = true
 	step := Done
 
-	handlerType, err := rh.runner.RunHook(rh.name)
+	handlerType, err := rh.runner.RunHook(ctx, rh.name)
 	cause := errors.Cause(err)
 	switch {
 	case charmrunner.IsMissingHookError(cause):

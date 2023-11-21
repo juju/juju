@@ -4,6 +4,7 @@
 package context
 
 import (
+	"context"
 	"fmt"
 	"path"
 	"strconv"
@@ -27,6 +28,7 @@ import (
 	"github.com/juju/juju/core/quota"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
+	coretrace "github.com/juju/juju/core/trace"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/rpc/params"
@@ -49,6 +51,7 @@ type Context interface {
 	jujuc.Context
 	Id() string
 	HookVars(
+		ctx context.Context,
 		paths Paths,
 		remote bool,
 		env Environmenter) ([]string, error)
@@ -1205,6 +1208,7 @@ func (ctx *HookContext) ActionData() (*ActionData, error) {
 // into context.
 // Implements runner.Context.
 func (ctx *HookContext) HookVars(
+	c context.Context,
 	paths Paths,
 	remote bool,
 	env Environmenter,
@@ -1315,6 +1319,14 @@ func (ctx *HookContext) HookVars(
 		)
 	} else if !errors.Is(err, errors.NotFound) && !errors.Is(err, errors.NotProvisioned) {
 		return nil, errors.Trace(err)
+	}
+
+	span := coretrace.SpanFromContext(c)
+	if scope := span.Scope(); scope.TraceID() != "" {
+		vars = append(vars,
+			"JUJU_TRACE_ID="+scope.TraceID(),
+			"JUJU_SPAN_ID="+scope.SpanID(),
+		)
 	}
 
 	return append(vars, OSDependentEnvVars(paths, env)...), nil

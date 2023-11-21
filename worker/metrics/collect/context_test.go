@@ -4,6 +4,7 @@
 package collect_test
 
 import (
+	stdcontext "context"
 	"time"
 
 	jujucharm "github.com/juju/charm/v11"
@@ -66,7 +67,7 @@ func (*dummyPaths) ComponentDir(name string) string { return "/dummy/" + name }
 func (s *ContextSuite) TestHookContextEnv(c *gc.C) {
 	ctx := collect.NewHookContext("u/0", s.recorder)
 	paths := &dummyPaths{}
-	vars, err := ctx.HookVars(paths, false, context.NewRemoteEnvironmenter(
+	vars, err := ctx.HookVars(stdcontext.Background(), paths, false, context.NewRemoteEnvironmenter(
 		func() []string { return []string{} },
 		func(k string) string {
 			switch k {

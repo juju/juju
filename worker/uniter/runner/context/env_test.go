@@ -4,6 +4,7 @@
 package context_test
 
 import (
+	stdcontext "context"
 	"sort"
 
 	"github.com/juju/names/v4"
@@ -223,14 +224,14 @@ func (s *EnvSuite) TestEnvUbuntu(c *gc.C) {
 
 	ctx, contextVars := s.getContext(false, state, unit)
 	paths, pathsVars := s.getPaths()
-	actualVars, err := ctx.HookVars(paths, false, environmenter)
+	actualVars, err := ctx.HookVars(stdcontext.Background(), paths, false, environmenter)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertVars(c, actualVars, contextVars, pathsVars, ubuntuVars)
 
 	relationVars := s.setDepartingRelation(ctx)
 	secretVars := s.setSecret(ctx)
 	storageVars := s.setStorage(ctx)
-	actualVars, err = ctx.HookVars(paths, false, environmenter)
+	actualVars, err = ctx.HookVars(stdcontext.Background(), paths, false, environmenter)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertVars(c, actualVars, contextVars, pathsVars, ubuntuVars, relationVars, secretVars, storageVars)
 }
@@ -284,13 +285,13 @@ func (s *EnvSuite) TestEnvCentos(c *gc.C) {
 
 		ctx, contextVars := s.getContext(false, state, unit)
 		paths, pathsVars := s.getPaths()
-		actualVars, err := ctx.HookVars(paths, false, environmenter)
+		actualVars, err := ctx.HookVars(stdcontext.Background(), paths, false, environmenter)
 		c.Assert(err, jc.ErrorIsNil)
 		s.assertVars(c, actualVars, contextVars, pathsVars, centosVars)
 
 		relationVars := s.setRelation(ctx)
 		secretVars := s.setSecret(ctx)
-		actualVars, err = ctx.HookVars(paths, false, environmenter)
+		actualVars, err = ctx.HookVars(stdcontext.Background(), paths, false, environmenter)
 		c.Assert(err, jc.ErrorIsNil)
 		s.assertVars(c, actualVars, contextVars, pathsVars, centosVars, relationVars, secretVars)
 	}
@@ -337,13 +338,13 @@ func (s *EnvSuite) TestEnvGenericLinux(c *gc.C) {
 
 	ctx, contextVars := s.getContext(false, state, unit)
 	paths, pathsVars := s.getPaths()
-	actualVars, err := ctx.HookVars(paths, false, environmenter)
+	actualVars, err := ctx.HookVars(stdcontext.Background(), paths, false, environmenter)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertVars(c, actualVars, contextVars, pathsVars, genericLinuxVars)
 
 	relationVars := s.setRelation(ctx)
 	secretVars := s.setSecret(ctx)
-	actualVars, err = ctx.HookVars(paths, false, environmenter)
+	actualVars, err = ctx.HookVars(stdcontext.Background(), paths, false, environmenter)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertVars(c, actualVars, contextVars, pathsVars, genericLinuxVars, relationVars, secretVars)
 }
@@ -391,13 +392,13 @@ func (s *EnvSuite) TestHostEnv(c *gc.C) {
 
 	ctx, contextVars := s.getContext(false, state, unit)
 	paths, pathsVars := s.getPaths()
-	actualVars, err := ctx.HookVars(paths, false, environmenter)
+	actualVars, err := ctx.HookVars(stdcontext.Background(), paths, false, environmenter)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertVars(c, actualVars, contextVars, pathsVars, genericLinuxVars, []string{"KUBERNETES_SERVICE=test"})
 
 	relationVars := s.setRelation(ctx)
 	secretVars := s.setSecret(ctx)
-	actualVars, err = ctx.HookVars(paths, false, environmenter)
+	actualVars, err = ctx.HookVars(stdcontext.Background(), paths, false, environmenter)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertVars(c, actualVars, contextVars, pathsVars, genericLinuxVars, relationVars, secretVars, []string{"KUBERNETES_SERVICE=test"})
 }

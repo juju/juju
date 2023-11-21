@@ -4,6 +4,8 @@
 package runcommands_test
 
 import (
+	"context"
+
 	"github.com/juju/testing"
 	"github.com/juju/utils/v3/exec"
 
@@ -30,7 +32,7 @@ func (r *mockRunner) Context() runnercontext.Context {
 	return &mockRunnerContext{}
 }
 
-func (r *mockRunner) RunCommands(commands string, runLocation runner.RunLocation) (*exec.ExecResponse, error) {
+func (r *mockRunner) RunCommands(ctx context.Context, commands string, runLocation runner.RunLocation) (*exec.ExecResponse, error) {
 	return r.runCommands(commands, runLocation)
 }
 
