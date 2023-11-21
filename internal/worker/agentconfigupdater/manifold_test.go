@@ -407,6 +407,10 @@ func (mc *mockConfig) Tag() names.Tag {
 	return mc.tag
 }
 
+func (mc *mockConfig) Model() names.ModelTag {
+	return testing.ModelTag
+}
+
 func (mc *mockConfig) Controller() names.ControllerTag {
 	return testing.ControllerTag
 }

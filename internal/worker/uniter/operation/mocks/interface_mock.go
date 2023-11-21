@@ -10,6 +10,7 @@
 package mocks
 
 import (
+	context "context"
 	reflect "reflect"
 
 	model "github.com/juju/juju/core/model"
@@ -17,7 +18,7 @@ import (
 	hook "github.com/juju/juju/internal/worker/uniter/hook"
 	operation "github.com/juju/juju/internal/worker/uniter/operation"
 	remotestate "github.com/juju/juju/internal/worker/uniter/remotestate"
-	context "github.com/juju/juju/internal/worker/uniter/runner/context"
+	context0 "github.com/juju/juju/internal/worker/uniter/runner/context"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -45,33 +46,33 @@ func (m *MockOperation) EXPECT() *MockOperationMockRecorder {
 }
 
 // Commit mocks base method.
-func (m *MockOperation) Commit(arg0 operation.State) (*operation.State, error) {
+func (m *MockOperation) Commit(arg0 context.Context, arg1 operation.State) (*operation.State, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Commit", arg0)
+	ret := m.ctrl.Call(m, "Commit", arg0, arg1)
 	ret0, _ := ret[0].(*operation.State)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Commit indicates an expected call of Commit.
-func (mr *MockOperationMockRecorder) Commit(arg0 any) *gomock.Call {
+func (mr *MockOperationMockRecorder) Commit(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Commit", reflect.TypeOf((*MockOperation)(nil).Commit), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Commit", reflect.TypeOf((*MockOperation)(nil).Commit), arg0, arg1)
 }
 
 // Execute mocks base method.
-func (m *MockOperation) Execute(arg0 operation.State) (*operation.State, error) {
+func (m *MockOperation) Execute(arg0 context.Context, arg1 operation.State) (*operation.State, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Execute", arg0)
+	ret := m.ctrl.Call(m, "Execute", arg0, arg1)
 	ret0, _ := ret[0].(*operation.State)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Execute indicates an expected call of Execute.
-func (mr *MockOperationMockRecorder) Execute(arg0 any) *gomock.Call {
+func (mr *MockOperationMockRecorder) Execute(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Execute", reflect.TypeOf((*MockOperation)(nil).Execute), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Execute", reflect.TypeOf((*MockOperation)(nil).Execute), arg0, arg1)
 }
 
 // ExecutionGroup mocks base method.
@@ -103,18 +104,18 @@ func (mr *MockOperationMockRecorder) NeedsGlobalMachineLock() *gomock.Call {
 }
 
 // Prepare mocks base method.
-func (m *MockOperation) Prepare(arg0 operation.State) (*operation.State, error) {
+func (m *MockOperation) Prepare(arg0 context.Context, arg1 operation.State) (*operation.State, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Prepare", arg0)
+	ret := m.ctrl.Call(m, "Prepare", arg0, arg1)
 	ret0, _ := ret[0].(*operation.State)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Prepare indicates an expected call of Prepare.
-func (mr *MockOperationMockRecorder) Prepare(arg0 any) *gomock.Call {
+func (mr *MockOperationMockRecorder) Prepare(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Prepare", reflect.TypeOf((*MockOperation)(nil).Prepare), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Prepare", reflect.TypeOf((*MockOperation)(nil).Prepare), arg0, arg1)
 }
 
 // RemoteStateChanged mocks base method.
@@ -473,7 +474,7 @@ func (mr *MockCallbacksMockRecorder) GetArchiveInfo(arg0 any) *gomock.Call {
 }
 
 // NotifyHookCompleted mocks base method.
-func (m *MockCallbacks) NotifyHookCompleted(arg0 string, arg1 context.Context) {
+func (m *MockCallbacks) NotifyHookCompleted(arg0 string, arg1 context0.Context) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "NotifyHookCompleted", arg0, arg1)
 }
@@ -485,7 +486,7 @@ func (mr *MockCallbacksMockRecorder) NotifyHookCompleted(arg0, arg1 any) *gomock
 }
 
 // NotifyHookFailed mocks base method.
-func (m *MockCallbacks) NotifyHookFailed(arg0 string, arg1 context.Context) {
+func (m *MockCallbacks) NotifyHookFailed(arg0 string, arg1 context0.Context) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "NotifyHookFailed", arg0, arg1)
 }
