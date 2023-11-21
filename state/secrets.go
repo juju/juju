@@ -1232,18 +1232,28 @@ func (st *State) uniqueSecretConsumerLabelOps(consumerTag names.Tag, label strin
 	return append(ops, ops2...), nil
 }
 
+// uniqueSecretLabelBaseOps is used when creating or updating a secret with an owner label, or
+// when saving a secret consumer record. It checks that the label is not used twice:
+// - a unit of the same application consuming an application owned secret cannot use the same label
+// as is used in the secret metadata of any application owned secret.
+// The check is done when creating a new application owned secret, or saving a consumer record.
 func (st *State) uniqueSecretLabelBaseOps(tag names.Tag, label string) (ops []txn.Op, _ error) {
 	col, close := st.db().GetCollection(refcountsC)
 	defer close()
 
-	var keyPattern string
+	var (
+		keyPattern string
+		errorMsg   string
+	)
+
 	switch tag := tag.(type) {
 	case names.ApplicationTag:
-		// Ensure no units use this label for both owner and consumer label..
+		// Ensure no units use this label for both owner and consumer label.
 		keyPattern = fmt.Sprintf(
 			"^%s:(%s|%s)#unit-%s-[0-9]+#%s$",
 			st.ModelUUID(), secretOwnerLabelKeyPrefix, secretConsumerLabelKeyPrefix, tag.Name, label,
 		)
+		errorMsg = fmt.Sprintf("secret label %q for a unit of application %q already exists", label, tag.Name)
 	case names.UnitTag:
 		// Ensure no application owned secret uses this label.
 		applicationName, _ := names.UnitApplication(tag.Id())
@@ -1253,6 +1263,7 @@ func (st *State) uniqueSecretLabelBaseOps(tag names.Tag, label string) (ops []tx
 			"^%s:(%s|%s)#%s#%s$",
 			st.ModelUUID(), secretOwnerLabelKeyPrefix, secretConsumerLabelKeyPrefix, appTag.String(), label,
 		)
+		errorMsg = fmt.Sprintf("secret label %q for application %q already exists", label, applicationName)
 	default:
 		return nil, errors.NotSupportedf("tag type %T", tag)
 	}
@@ -1262,7 +1273,7 @@ func (st *State) uniqueSecretLabelBaseOps(tag names.Tag, label string) (ops []tx
 		return nil, errors.Trace(err)
 	}
 	if count > 0 {
-		return nil, errors.WithType(errors.Errorf("secret label %q for %q already exists", label, tag), LabelExists)
+		return nil, errors.WithType(errors.New(errorMsg), LabelExists)
 	}
 
 	return []txn.Op{
