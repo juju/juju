@@ -16,8 +16,6 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/context_mock.go github.com/juju/juju/apiserver/facade Authorizer,Context,Resources
-
 // ControllerConfigService provides required controller config watcher for the Facade.
 type ControllerConfigService interface {
 	Watch() (watcher.StringsWatcher, error)
