@@ -541,8 +541,8 @@ CREATE TABLE user (
     uuid            TEXT PRIMARY KEY,
     name            TEXT NOT NULL,
     display_name    TEXT,
-    removed         BOOLEAN NOT NULL,
-    created_by_uuid TEXT,
+    removed         BOOLEAN NOT NULL DEFAULT FALSE,
+    created_by_uuid TEXT NOT NULL,
     created_at      TIMESTAMP NOT NULL,
     CONSTRAINT      fk_user_created_by_user
         FOREIGN KEY (created_by_uuid)
@@ -553,7 +553,7 @@ CREATE UNIQUE INDEX idx_singleton_active_user ON user (name) WHERE removed IS FA
 
 CREATE TABLE user_authentication (
     user_uuid      TEXT PRIMARY KEY,
-    last_login     TIMESTAMP NOT NULL,
+    last_login     TIMESTAMP,
     disabled       BOOLEAN NOT NULL,
     CONSTRAINT     fk_user_authentication_user
         FOREIGN KEY (user_uuid)

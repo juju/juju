@@ -12,9 +12,9 @@ const (
 	// not exist.
 	NotFound = errors.ConstError("user not found")
 
-	// UserCreatorUuidNotFound describes an error that occurs when a user's creator UUID,
+	// UserCreatorUUIDNotFound describes an error that occurs when a user's creator UUID,
 	// the user that created the user in question, does not exist.
-	UserCreatorUuidNotFound = errors.ConstError("user creator UUID not found")
+	UserCreatorUUIDNotFound = errors.ConstError("user creator UUID not found")
 
 	// UsernameNotValid describes an error that occurs when a supplied username
 	// is not valid.
