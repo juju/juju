@@ -64,7 +64,7 @@ type SecretsManagerAPIV1 struct {
 	*SecretsManagerAPI
 }
 
-func (s *SecretsManagerAPI) canRead(uri *coresecrets.URI, entity names.Tag) bool {
+func (s *SecretsManagerAPI) canRead(uri *coresecrets.URI, entity names.Tag) (bool, error) {
 	return commonsecrets.CanRead(s.secretsConsumer, s.authTag, uri, entity)
 }
 
@@ -335,10 +335,6 @@ func (s *SecretsManagerAPI) updateSecret(arg params.UpdateSecretArg) error {
 		arg.Label == nil && len(arg.Params) == 0 && len(arg.Content.Data) == 0 && arg.Content.ValueRef == nil {
 		return errors.New("at least one attribute to update must be specified")
 	}
-	if _, err := s.secretsState.GetSecret(uri); err != nil {
-		// Check if the uri exists or not.
-		return errors.Trace(err)
-	}
 
 	token, err := s.canManage(uri)
 	if err != nil {
@@ -456,8 +452,14 @@ func (s *SecretsManagerAPI) getSecretConsumerInfo(consumerTag names.Tag, uriStr 
 	}
 	// We only check read permissions for local secrets.
 	// For CMR secrets, the remote model manages the permissions.
-	if uri.IsLocal(s.modelUUID) && !s.canRead(uri, consumerTag) {
-		return nil, apiservererrors.ErrPerm
+	if uri.IsLocal(s.modelUUID) {
+		canRead, err := s.canRead(uri, consumerTag)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if !canRead {
+			return nil, apiservererrors.ErrPerm
+		}
 	}
 	consumer, err := s.secretsConsumer.GetSecretConsumer(uri, consumerTag)
 	if err != nil {
@@ -466,7 +468,7 @@ func (s *SecretsManagerAPI) getSecretConsumerInfo(consumerTag names.Tag, uriStr 
 	if consumer.Label != "" {
 		return consumer, nil
 	}
-	md, err := s.getAppOwnedOrUnitOwnedSecretMetadata(uri, "", false, false)
+	md, err := s.getAppOwnedOrUnitOwnedSecretMetadata(uri, "")
 	if errors.Is(err, errors.NotFound) {
 		// The secret is owned by a different application.
 		return consumer, nil
@@ -645,74 +647,43 @@ func (s *SecretsManagerAPI) GetSecretRevisionContentInfo(arg params.SecretRevisi
 	return result, nil
 }
 
-// For the application owned secret, if the caller is a peer unit, we create a fake consumer doc for triggering events to notify the uniters.
-// The peer units should get the secret using owner label but should not set a consumer label.
-func (s *SecretsManagerAPI) ensureConsumerMetadataForAppOwnedSecretsForPeerUnits(md *coresecrets.SecretMetadata) (*coresecrets.SecretMetadata, error) {
-	consumer, err := s.secretsConsumer.GetSecretConsumer(md.URI, s.authTag)
-	if err != nil && !errors.Is(err, errors.NotFound) {
-		return nil, errors.Trace(err)
-	}
-
-	if consumer == nil {
-		// Create a fake consumer doc for triggering secret-changed event for uniter.
-		consumer = &coresecrets.SecretConsumerMetadata{}
-	}
-	logger.Debugf("saving consumer doc for application owned secret %q for peer units %q", md.URI, s.authTag)
-	if err := s.secretsConsumer.SaveSecretConsumer(md.URI, s.authTag, consumer); err != nil {
-		return nil, errors.Trace(err)
-	}
-	return md, nil
-}
-
-func (s *SecretsManagerAPI) updateLabelForAppOwnedOrUnitOwnedSecret(uri *coresecrets.URI, label string, md *coresecrets.SecretMetadata) error {
+func (s *SecretsManagerAPI) updateLabelForAppOwnedOrUnitOwnedSecret(uri *coresecrets.URI, label string, owner string) error {
 	if uri == nil || label == "" {
 		// We have done this check before, but it doesn't hurt to do it again.
 		return nil
 	}
 
-	ownerTag, err := names.ParseTag(md.OwnerTag)
+	ownerTag, err := names.ParseTag(owner)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	isLeaderUnit, err := commonsecrets.IsLeaderUnit(s.authTag, s.leadershipChecker)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if ownerTag == s.authTag || commonsecrets.IsSameApplication(ownerTag, s.authTag) && isLeaderUnit {
-		// The secret is owned by the caller or the caller is the leader unit of the application owning the secret.
-		token, err := commonsecrets.LeadershipToken(s.authTag, s.leadershipChecker)
+	if ownerTag != s.authTag {
+		isLeaderUnit, err := commonsecrets.IsLeaderUnit(s.authTag, s.leadershipChecker)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		// Update the label.
-		_, err = s.secretsState.UpdateSecret(uri, state.UpdateSecretParams{
-			LeaderToken: token,
-			Label:       &label,
-		})
+		if !isLeaderUnit {
+			return errors.New("only unit leaders can update an application owned secret label")
+		}
+	}
+
+	token, err := commonsecrets.OwnerToken(s.authTag, ownerTag, s.leadershipChecker)
+	if err != nil {
 		return errors.Trace(err)
 	}
-	return nil
+	// Update the label.
+	_, err = s.secretsState.UpdateSecret(uri, state.UpdateSecretParams{
+		LeaderToken: token,
+		Label:       &label,
+	})
+	return errors.Trace(err)
 }
 
-func (s *SecretsManagerAPI) getAppOwnedOrUnitOwnedSecretMetadata(uri *coresecrets.URI, label string, ensureConsumerMetaData, updateLabel bool) (md *coresecrets.SecretMetadata, err error) {
+func (s *SecretsManagerAPI) getAppOwnedOrUnitOwnedSecretMetadata(uri *coresecrets.URI, label string) (*coresecrets.SecretMetadata, error) {
 	notFoundErr := errors.NotFoundf("secret %q", uri)
 	if label != "" {
 		notFoundErr = errors.NotFoundf("secret with label %q", label)
 	}
-	defer func() {
-		if md == nil {
-			return
-		}
-		if updateLabel {
-			if err = s.updateLabelForAppOwnedOrUnitOwnedSecret(uri, label, md); err != nil {
-				return
-			}
-		}
-		if md.OwnerTag == s.authTag.String() || !ensureConsumerMetaData {
-			return
-		}
-		md, err = s.ensureConsumerMetadataForAppOwnedSecretsForPeerUnits(md)
-	}()
 
 	filter := state.SecretsFilter{
 		OwnerTags: []names.Tag{s.authTag},
@@ -761,27 +732,29 @@ func (s *SecretsManagerAPI) getSecretContent(arg params.GetSecretContentArg) (
 
 	// arg.Label could be the consumer label for consumers or the owner label for owners.
 	possibleUpdateLabel := arg.Label != "" && uri != nil
+	labelToUpdate := arg.Label
 
 	// For local secrets, check those which may be owned by the caller.
 	if uri == nil || uri.IsLocal(s.modelUUID) {
-		// Owner units should always have the URI because we resolved the label to URI on uniter side already.
-		md, err := s.getAppOwnedOrUnitOwnedSecretMetadata(uri, arg.Label, true, possibleUpdateLabel)
+		md, err := s.getAppOwnedOrUnitOwnedSecretMetadata(uri, arg.Label)
 		if err != nil && !errors.Is(err, errors.NotFound) {
 			return nil, nil, false, errors.Trace(err)
 		}
 		if md != nil {
+			// If the label has is to be changed by the secret owner, update the secret metadata.
+			// TODO(wallyworld) - the label staying the same should be asserted in a txn.
+			possibleUpdateLabel = possibleUpdateLabel && labelToUpdate != md.Label
+			if possibleUpdateLabel {
+				if err = s.updateLabelForAppOwnedOrUnitOwnedSecret(uri, labelToUpdate, md.OwnerTag); err != nil {
+					return nil, nil, false, errors.Trace(err)
+				}
+			}
 			// 1. secrets can be accessed by the owner;
 			// 2. application owned secrets can be accessed by all the units of the application using owner label or URI.
-			val, valueRef, err := s.secretsState.GetSecretValue(md.URI, md.LatestRevision)
-			if err != nil {
-				return nil, nil, false, errors.Trace(err)
-			}
-			content := &secrets.ContentParams{SecretValue: val, ValueRef: valueRef}
-			if err != nil || content.ValueRef == nil {
-				return content, nil, false, errors.Trace(err)
-			}
-			backend, draining, err := s.getBackend(content.ValueRef.BackendID)
-			return content, backend, draining, errors.Trace(err)
+			uri = md.URI
+			// We don't update the consumer label in this case since the label comes
+			// from the owner metadata and we don't want to violate uniqueness checks.
+			labelToUpdate = ""
 		}
 	}
 
@@ -801,16 +774,16 @@ func (s *SecretsManagerAPI) getSecretContent(arg params.GetSecretContentArg) (
 		return s.getRemoteSecretContent(uri, arg.Refresh, arg.Peek, arg.Label, possibleUpdateLabel)
 	}
 
-	if _, err := s.secretsState.GetSecret(uri); err != nil {
-		// Check if the uri exists or not.
+	canRead, err := s.canRead(uri, s.authTag)
+	if err != nil {
 		return nil, nil, false, errors.Trace(err)
 	}
-	if !s.canRead(uri, s.authTag) {
+	if !canRead {
 		return nil, nil, false, apiservererrors.ErrPerm
 	}
 
-	// arg.Label is the consumer label for consumers.
-	consumedRevision, err := s.getConsumedRevision(uri, arg.Refresh, arg.Peek, arg.Label, possibleUpdateLabel)
+	// labelToUpdate is the consumer label for consumers.
+	consumedRevision, err := s.getConsumedRevision(uri, arg.Refresh, arg.Peek, labelToUpdate, possibleUpdateLabel)
 	if err != nil {
 		return nil, nil, false, errors.Annotate(err, "getting latest secret revision")
 	}

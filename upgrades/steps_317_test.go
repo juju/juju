@@ -24,3 +24,8 @@ func (s *steps317Suite) TestEnsureApplicationCharmOriginsHaveRevisions(c *gc.C) 
 	step := findStateStep(c, v317, "ensure application charm origins have revisions")
 	c.Assert(step.Targets(), jc.DeepEquals, []upgrades.Target{upgrades.DatabaseMaster})
 }
+
+func (s *steps317Suite) TestFixOwnerConsumedSecretInfo(c *gc.C) {
+	step := findStateStep(c, v317, "fix owner consumed secret info")
+	c.Assert(step.Targets(), jc.DeepEquals, []upgrades.Target{upgrades.DatabaseMaster})
+}

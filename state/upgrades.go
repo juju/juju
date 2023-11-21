@@ -331,3 +331,46 @@ func EnsureApplicationCharmOriginsNormalised(pool *StatePool) error {
 		return nil
 	}))
 }
+
+// FixOwnerConsumedSecretInfo updates consuming info for app owned secrets
+// where the tracked revision is 0, setting it to the latest revision number.
+func FixOwnerConsumedSecretInfo(pool *StatePool) error {
+	return errors.Trace(runForAllModelStates(pool, func(st *State) error {
+		secretConsumers, closer := st.db().GetCollection(secretConsumersC)
+		defer closer()
+		docs := []secretConsumerDoc{}
+		if err := secretConsumers.Find(bson.D{{"current-revision", 0}}).All(&docs); err != nil {
+			return errors.Trace(err)
+		}
+
+		secretState := NewSecrets(st)
+
+		var ops []txn.Op
+		for _, doc := range docs {
+			uriStr, _ := splitSecretConsumerKey(st.localID(doc.DocID))
+			uri, err := secrets.ParseURI(uriStr)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			md, err := secretState.GetSecret(uri)
+			if err != nil {
+				return errors.Trace(err)
+			}
+
+			ops = append(ops, txn.Op{
+				C:  secretConsumersC,
+				Id: doc.DocID,
+				Update: bson.D{
+					{Name: "$set", Value: bson.D{
+						{Name: "current-revision", Value: md.LatestRevision},
+						{Name: "latest-revision", Value: md.LatestRevision},
+					}},
+				},
+			})
+		}
+		if len(ops) > 0 {
+			return errors.Trace(st.runRawTransaction(ops))
+		}
+		return nil
+	}))
+}

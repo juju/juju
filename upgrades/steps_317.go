@@ -15,6 +15,12 @@ func stateStepsFor317() []Step {
 			run: func(context Context) error {
 				return context.State().EnsureApplicationCharmOriginsNormalised()
 			},
+		}, &upgradeStep{
+			description: "fix owner consumed secret info",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return context.State().FixOwnerConsumedSecretInfo()
+			},
 		},
 	}
 }

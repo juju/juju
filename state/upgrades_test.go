@@ -15,6 +15,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/storage/provider"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -475,4 +476,78 @@ func (s *upgradesSuite) TestEnsureApplicationCharmOriginsNormaliseCH(c *gc.C) {
 
 	expectedData := upgradedData(appColl, expected)
 	s.assertUpgradedData(c, EnsureApplicationCharmOriginsNormalised, expectedData)
+}
+
+// fakeToken implements leadership.Token.
+type fakeToken struct {
+}
+
+func (t *fakeToken) Check() error {
+	return nil
+}
+
+func (s *upgradesSuite) TestFixOwnerConsumedSecretInfo(c *gc.C) {
+	consumerColl, closer := s.state.db().GetRawCollection(secretConsumersC)
+	defer closer()
+
+	model1 := s.makeModel(c, "model-1", coretesting.Attrs{})
+	model2 := s.makeModel(c, "model-2", coretesting.Attrs{})
+	model3 := s.makeModel(c, "model-3", coretesting.Attrs{})
+	defer func() {
+		_ = model1.Close()
+		_ = model2.Close()
+		_ = model3.Close()
+	}()
+
+	var expected bsonMById
+
+	for i, st := range []*State{model1, model2, model3} {
+		app := AddTestingApplication(c, st, "mysql", AddTestingCharm(c, st, "mysql"))
+		secretState := NewSecrets(st)
+		uri := secrets.NewURI()
+		p := CreateSecretParams{
+			Version: 1,
+			Owner:   app.Tag(),
+			UpdateSecretParams: UpdateSecretParams{
+				LeaderToken: &fakeToken{},
+				Data:        map[string]string{"foo": "bar"},
+			},
+		}
+
+		_, err := secretState.CreateSecret(uri, p)
+		c.Assert(err, jc.ErrorIsNil)
+
+		insertRev := 0
+		expectRev := 1
+		if i == 2 {
+			_, err = secretState.UpdateSecret(
+				uri, UpdateSecretParams{
+					LeaderToken: &fakeToken{},
+					Data:        map[string]string{"foo": "bar2"}})
+			c.Assert(err, jc.ErrorIsNil)
+			insertRev = 2
+			expectRev = 2
+		}
+
+		docID := ensureModelUUID(st.ModelUUID(), s.state.secretConsumerKey(uri, "application-wordpress"))
+		err = consumerColl.Insert(bson.M{
+			"_id":              docID,
+			"model-uuid":       st.ModelUUID(),
+			"consumer-tag":     "application-wordpress",
+			"current-revision": insertRev,
+			"latest-revision":  insertRev,
+		})
+		c.Assert(err, jc.ErrorIsNil)
+		expected = append(expected, bson.M{
+			"_id":              docID,
+			"model-uuid":       st.ModelUUID(),
+			"consumer-tag":     "application-wordpress",
+			"current-revision": expectRev,
+			"latest-revision":  expectRev,
+		})
+	}
+
+	sort.Sort(expected)
+	expectedData := upgradedData(consumerColl, expected)
+	s.assertUpgradedData(c, FixOwnerConsumedSecretInfo, expectedData)
 }
