@@ -238,8 +238,7 @@ func checkForCharmStoreCharms(_ string, _ StatePool, st State, _ Model) (*Blocke
 		// TODO 6-dec-2022
 		// Update check once charm's ValidateSchema rejects charm store charms.
 		if !charm.CharmHub.Matches(curl.Schema) && !charm.Local.Matches(curl.Schema) {
-			c := curl.WithSeries("").WithArchitecture("")
-			result.Add(c.String())
+			result.Add(curl.Name)
 		}
 	}
 	if !result.IsEmpty() {
