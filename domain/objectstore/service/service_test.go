@@ -14,8 +14,9 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/changestream"
-	"github.com/juju/juju/core/objectstore"
+	coreobjectstore "github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/watcher/watchertest"
+	"github.com/juju/juju/domain/objectstore"
 )
 
 type serviceSuite struct {
@@ -30,62 +31,43 @@ var _ = gc.Suite(&serviceSuite{})
 func (s *serviceSuite) TestGetMetadata(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	key := utils.MustNewUUID().String()
 	path := utils.MustNewUUID().String()
 
-	metadata := objectstore.Metadata{
-		UUID: utils.MustNewUUID().String(),
-		Key:  key,
+	metadata := coreobjectstore.Metadata{
 		Path: path,
 		Hash: utils.MustNewUUID().String(),
 		Size: 666,
 	}
 
-	s.state.EXPECT().GetMetadata(gomock.Any(), key).Return(metadata, nil)
+	s.state.EXPECT().GetMetadata(gomock.Any(), path).Return(objectstore.Metadata{
+		Path: metadata.Path,
+		Size: metadata.Size,
+		Hash: metadata.Hash,
+	}, nil)
 
-	p, err := NewService(s.state, nil).GetMetadata(context.Background(), key)
+	p, err := NewService(s.state, nil).GetMetadata(context.Background(), path)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(p, gc.DeepEquals, metadata)
-}
-
-func (s *serviceSuite) TestGetAllMetadata(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	key := utils.MustNewUUID().String()
-	path := utils.MustNewUUID().String()
-	metadatas := map[string]objectstore.Metadata{
-		key: {
-			UUID: utils.MustNewUUID().String(),
-			Key:  key,
-			Path: path,
-			Hash: utils.MustNewUUID().String(),
-			Size: 666,
-		},
-	}
-
-	s.state.EXPECT().GetAllMetadata(gomock.Any()).Return(metadatas, nil)
-
-	p, err := NewService(s.state, nil).GetAllMetadata(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(p, gc.DeepEquals, metadatas)
 }
 
 func (s *serviceSuite) TestPutMetadata(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	key := utils.MustNewUUID().String()
 	path := utils.MustNewUUID().String()
-	metadata := objectstore.Metadata{
-		UUID: utils.MustNewUUID().String(),
-		Key:  key,
+	metadata := coreobjectstore.Metadata{
 		Path: path,
 		Hash: utils.MustNewUUID().String(),
 		Size: 666,
 	}
 
-	s.state.EXPECT().PutMetadata(gomock.Any(), key, metadata).Return(nil)
+	s.state.EXPECT().PutMetadata(gomock.Any(), gomock.AssignableToTypeOf(objectstore.Metadata{})).DoAndReturn(func(ctx context.Context, data objectstore.Metadata) error {
+		c.Assert(data.Path, gc.Equals, metadata.Path)
+		c.Assert(data.Size, gc.Equals, metadata.Size)
+		c.Assert(data.Hash, gc.Equals, metadata.Hash)
+		return nil
+	})
 
-	err := NewService(s.state, nil).PutMetadata(context.Background(), key, metadata)
+	err := NewService(s.state, nil).PutMetadata(context.Background(), metadata)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

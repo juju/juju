@@ -8,20 +8,21 @@ import (
 	"fmt"
 
 	"github.com/juju/juju/core/changestream"
-	"github.com/juju/juju/core/objectstore"
+	coreobjectstore "github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/domain"
+	"github.com/juju/juju/domain/objectstore"
+	"github.com/juju/utils/v3"
 )
 
-// State describes retrieval and persistence methods for the objectstore.
+// State describes retrieval and persistence methods for the coreobjectstore.
 type State interface {
-	// GetMetadata returns the persistence metadata for the specified key.
+	// GetMetadata returns the persistence metadata for the specified path.
 	GetMetadata(ctx context.Context, path string) (objectstore.Metadata, error)
-	// GetAllMetadata returns the list of persistence metadata.
-	GetAllMetadata(ctx context.Context) (map[string]objectstore.Metadata, error)
-	// PutMetadata adds a new specified key for the persistence metadata.
-	PutMetadata(ctx context.Context, key string, metadata objectstore.Metadata) error
-	// RemoveMetadata removes the specified key for the persistence path.
-	RemoveMetadata(ctx context.Context, key string) error
+	// PutMetadata adds a new specified path for the persistence metadata.
+	PutMetadata(ctx context.Context, metadata objectstore.Metadata) error
+	// RemoveMetadata removes the specified path for the persistence metadata.
+	RemoveMetadata(ctx context.Context, path string) error
 	// InitialWatchStatement returns the initial watch statement for the
 	// persistence path.
 	InitialWatchStatement() string
@@ -34,7 +35,7 @@ type WatcherFactory interface {
 	NewNamespaceWatcher(string, changestream.ChangeType, string) (watcher.StringsWatcher, error)
 }
 
-// Service provides the API for working with the objectstore.
+// Service provides the API for working with the coreobjectstore.
 type Service struct {
 	st             State
 	watcherFactory WatcherFactory
@@ -48,43 +49,48 @@ func NewService(st State, watcherFactory WatcherFactory) *Service {
 	}
 }
 
-// GetMetadata returns the persistence metadata for the specified key.
-func (s *Service) GetMetadata(ctx context.Context, key string) (objectstore.Metadata, error) {
-	metadata, err := s.st.GetMetadata(ctx, key)
+// GetMetadata returns the persistence metadata for the specified path.
+func (s *Service) GetMetadata(ctx context.Context, path string) (coreobjectstore.Metadata, error) {
+	metadata, err := s.st.GetMetadata(ctx, path)
 	if err != nil {
-		return objectstore.Metadata{}, fmt.Errorf("retrieving metadata %s: %w", key, err)
+		return coreobjectstore.Metadata{}, fmt.Errorf("retrieving metadata %s: %w", path, domain.CoerceError(err))
 	}
-	return metadata, nil
+	return coreobjectstore.Metadata{
+		Path: metadata.Path,
+		Hash: metadata.Hash,
+		Size: metadata.Size,
+	}, nil
 }
 
-// GetAllMetadata returns the list of persistence metadata.
-func (s *Service) GetAllMetadata(ctx context.Context) (map[string]objectstore.Metadata, error) {
-	p, err := s.st.GetAllMetadata(ctx)
+// PutMetadata adds a new specified path for the persistence metadata.
+func (s *Service) PutMetadata(ctx context.Context, metadata coreobjectstore.Metadata) error {
+	uuid, err := utils.NewUUID()
 	if err != nil {
-		return nil, fmt.Errorf("getting all metadata: %w", err)
+		return err
 	}
-	return p, nil
-}
 
-// PutMetadata adds a new specified key for the persistence metadata.
-func (s *Service) PutMetadata(ctx context.Context, key string, metadata objectstore.Metadata) error {
-	err := s.st.PutMetadata(ctx, key, metadata)
+	err = s.st.PutMetadata(ctx, objectstore.Metadata{
+		UUID: uuid.String(),
+		Hash: metadata.Hash,
+		Path: metadata.Path,
+		Size: metadata.Size,
+	})
 	if err != nil {
-		return fmt.Errorf("adding path %s: %w", key, err)
-	}
-	return nil
-}
-
-// RemoveMetadata removes the specified key for the persistence metadata.
-func (s *Service) RemoveMetadata(ctx context.Context, key string) error {
-	err := s.st.RemoveMetadata(ctx, key)
-	if err != nil {
-		return fmt.Errorf("removing path %s: %w", key, err)
+		return fmt.Errorf("adding path %s: %w", metadata.Path, err)
 	}
 	return nil
 }
 
-// Watch returns a watcher that emits the key changes that either have been
+// RemoveMetadata removes the specified path for the persistence metadata.
+func (s *Service) RemoveMetadata(ctx context.Context, path string) error {
+	err := s.st.RemoveMetadata(ctx, path)
+	if err != nil {
+		return fmt.Errorf("removing path %s: %w", path, err)
+	}
+	return nil
+}
+
+// Watch returns a watcher that emits the path changes that either have been
 // added or removed.
 func (s *Service) Watch() (watcher.StringsWatcher, error) {
 	return s.watcherFactory.NewNamespaceWatcher(

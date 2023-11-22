@@ -5,6 +5,8 @@ package objectstore
 
 // Metadata represents the metadata for an object.
 type Metadata struct {
+	// UUID is the uuid for the metadata.
+	UUID string
 	// Hash is the hash of the object.
 	Hash string
 	// Path is the path to the object.

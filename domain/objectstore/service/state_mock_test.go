@@ -9,8 +9,8 @@ import (
 	reflect "reflect"
 
 	changestream "github.com/juju/juju/core/changestream"
-	objectstore "github.com/juju/juju/core/objectstore"
 	watcher "github.com/juju/juju/core/watcher"
+	objectstore "github.com/juju/juju/domain/objectstore"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -35,21 +35,6 @@ func NewMockState(ctrl *gomock.Controller) *MockState {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockState) EXPECT() *MockStateMockRecorder {
 	return m.recorder
-}
-
-// GetAllMetadata mocks base method.
-func (m *MockState) GetAllMetadata(arg0 context.Context) (map[string]objectstore.Metadata, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetAllMetadata", arg0)
-	ret0, _ := ret[0].(map[string]objectstore.Metadata)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetAllMetadata indicates an expected call of GetAllMetadata.
-func (mr *MockStateMockRecorder) GetAllMetadata(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllMetadata", reflect.TypeOf((*MockState)(nil).GetAllMetadata), arg0)
 }
 
 // GetMetadata mocks base method.
@@ -82,17 +67,17 @@ func (mr *MockStateMockRecorder) InitialWatchStatement() *gomock.Call {
 }
 
 // PutMetadata mocks base method.
-func (m *MockState) PutMetadata(arg0 context.Context, arg1 string, arg2 objectstore.Metadata) error {
+func (m *MockState) PutMetadata(arg0 context.Context, arg1 objectstore.Metadata) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "PutMetadata", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "PutMetadata", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // PutMetadata indicates an expected call of PutMetadata.
-func (mr *MockStateMockRecorder) PutMetadata(arg0, arg1, arg2 interface{}) *gomock.Call {
+func (mr *MockStateMockRecorder) PutMetadata(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PutMetadata", reflect.TypeOf((*MockState)(nil).PutMetadata), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PutMetadata", reflect.TypeOf((*MockState)(nil).PutMetadata), arg0, arg1)
 }
 
 // RemoveMetadata mocks base method.
