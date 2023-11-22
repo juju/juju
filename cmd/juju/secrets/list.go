@@ -115,6 +115,26 @@ type secretDisplayDetails struct {
 	Error            string                  `json:"error,omitempty" yaml:"error,omitempty"`
 	Value            *secretValueDetails     `json:"content,omitempty" yaml:"content,omitempty"`
 	Revisions        []secretRevisionDetails `json:"revisions,omitempty" yaml:"revisions,omitempty"`
+	Grants           []GrantInfo             `yaml:"grants,omitempty" json:"grants,omitempty"`
+}
+
+// GrantInfo holds info about a secret grant.
+type GrantInfo struct {
+	Target string             `json:"target"`
+	Scope  string             `json:"scope"`
+	Role   secrets.SecretRole `json:"role"`
+}
+
+func toGrantInfo(grants []secrets.GrantInfo) []GrantInfo {
+	result := make([]GrantInfo, len(grants))
+	for i, grant := range grants {
+		result[i] = GrantInfo{
+			Target: grant.Target,
+			Scope:  grant.Scope,
+			Role:   grant.Role,
+		}
+	}
+	return result
 }
 
 // Run implements cmd.Run.
@@ -143,11 +163,13 @@ func (c *listSecretsCommand) Run(ctxt *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	details := gatherSecretInfo(result, c.revealSecrets, false)
+	details := gatherSecretInfo(result, c.revealSecrets, false, false)
 	return c.out.Write(ctxt, details)
 }
 
-func gatherSecretInfo(secrets []apisecrets.SecretDetails, reveal, includeRevisions bool) map[string]secretDisplayDetails {
+func gatherSecretInfo(
+	secrets []apisecrets.SecretDetails, reveal, includeRevisions, includeGrants bool,
+) map[string]secretDisplayDetails {
 	details := make(secretDetailsByID)
 	for _, m := range secrets {
 		ownerId := ""
@@ -175,6 +197,9 @@ func gatherSecretInfo(secrets []apisecrets.SecretDetails, reveal, includeRevisio
 			CreateTime:       m.Metadata.CreateTime,
 			UpdateTime:       m.Metadata.UpdateTime,
 			Error:            m.Error,
+		}
+		if includeGrants {
+			info.Grants = toGrantInfo(m.Grants)
 		}
 		if includeRevisions {
 			info.Revisions = make([]secretRevisionDetails, len(m.Revisions))

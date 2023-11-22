@@ -319,29 +319,6 @@ type SecretRotatedArg struct {
 	Skip             bool   `json:"skip"`
 }
 
-// SecretGrantInfoArgs holds args for getting secret grant information.
-type SecretGrantInfoArgs struct {
-	Args []SecretGrantInfoArg `json:"args"`
-}
-
-// SecretGrantInfoArg holds the args for getting secret grant information.
-type SecretGrantInfoArg struct {
-	// URI identifies the secret.
-	URI string `json:"uri"`
-}
-
-// SecretGrantInfoResult holds the result of an API call to retrieve secret grant info.
-type SecretGrantInfoResult struct {
-	URI         string   `json:"uri"`
-	SubjectTags []string `json:"subject-tags"`
-	Error       *Error   `json:"error,omitempty"`
-}
-
-// SecretGrantInfoResults holds the result of an API call to retrieve details of multiple secret grant info.
-type SecretGrantInfoResults struct {
-	Results []SecretGrantInfoResult `json:"results,omitempty"`
-}
-
 // GrantRevokeSecretArgs holds args for changing access to secrets.
 type GrantRevokeSecretArgs struct {
 	Args []GrantRevokeSecretArg `json:"args"`

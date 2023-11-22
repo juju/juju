@@ -336,21 +336,6 @@ func (mr *MockContextMockRecorder) GetSecret(arg0, arg1, arg2, arg3 interface{})
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecret", reflect.TypeOf((*MockContext)(nil).GetSecret), arg0, arg1, arg2, arg3)
 }
 
-// GetSecretGrant mocks base method.
-func (m *MockContext) GetSecretGrant(arg0 *secrets.URI) ([]secrets.GrantInfo, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetSecretGrant", arg0)
-	ret0, _ := ret[0].([]secrets.GrantInfo)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetSecretGrant indicates an expected call of GetSecretGrant.
-func (mr *MockContextMockRecorder) GetSecretGrant(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecretGrant", reflect.TypeOf((*MockContext)(nil).GetSecretGrant), arg0)
-}
-
 // GoalState mocks base method.
 func (m *MockContext) GoalState() (*application.GoalState, error) {
 	m.ctrl.T.Helper()

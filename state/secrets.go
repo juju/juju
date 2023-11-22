@@ -888,7 +888,7 @@ func (s *secretsStore) SecretGrants(uri *secrets.URI) ([]secrets.GrantInfo, erro
 		},
 	).All(&docs)
 	if err != nil {
-		return nil, errors.Annotatef(err, "cannnot retrieve secret permissions for %s", uri.String())
+		return nil, errors.Annotatef(err, "cannot retrieve secret permissions for %s", uri.String())
 	}
 	var results []secrets.GrantInfo
 	for _, doc := range docs {
