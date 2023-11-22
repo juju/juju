@@ -14,6 +14,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/watcher/watchertest"
 )
 
@@ -26,53 +27,76 @@ type serviceSuite struct {
 
 var _ = gc.Suite(&serviceSuite{})
 
-func (s *serviceSuite) TestGetPath(c *gc.C) {
+func (s *serviceSuite) TestGetMetadata(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	key := utils.MustNewUUID().String()
 	path := utils.MustNewUUID().String()
 
-	s.state.EXPECT().GetPath(gomock.Any(), key).Return(path, nil)
+	metadata := objectstore.Metadata{
+		UUID: utils.MustNewUUID().String(),
+		Key:  key,
+		Path: path,
+		Hash: utils.MustNewUUID().String(),
+		Size: 666,
+	}
 
-	p, err := NewService(s.state, nil).GetPath(context.Background(), key)
+	s.state.EXPECT().GetMetadata(gomock.Any(), key).Return(metadata, nil)
+
+	p, err := NewService(s.state, nil).GetMetadata(context.Background(), key)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(p, gc.Equals, path)
+	c.Assert(p, gc.DeepEquals, metadata)
 }
 
-func (s *serviceSuite) TestListPaths(c *gc.C) {
+func (s *serviceSuite) TestGetAllMetadata(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	key := utils.MustNewUUID().String()
 	path := utils.MustNewUUID().String()
-	paths := map[string]string{key: path}
+	metadatas := map[string]objectstore.Metadata{
+		key: {
+			UUID: utils.MustNewUUID().String(),
+			Key:  key,
+			Path: path,
+			Hash: utils.MustNewUUID().String(),
+			Size: 666,
+		},
+	}
 
-	s.state.EXPECT().ListPaths(gomock.Any()).Return(paths, nil)
+	s.state.EXPECT().GetAllMetadata(gomock.Any()).Return(metadatas, nil)
 
-	p, err := NewService(s.state, nil).ListPaths(context.Background())
+	p, err := NewService(s.state, nil).GetAllMetadata(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(p, gc.DeepEquals, paths)
+	c.Assert(p, gc.DeepEquals, metadatas)
 }
 
-func (s *serviceSuite) TestPutPath(c *gc.C) {
+func (s *serviceSuite) TestPutMetadata(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	key := utils.MustNewUUID().String()
 	path := utils.MustNewUUID().String()
+	metadata := objectstore.Metadata{
+		UUID: utils.MustNewUUID().String(),
+		Key:  key,
+		Path: path,
+		Hash: utils.MustNewUUID().String(),
+		Size: 666,
+	}
 
-	s.state.EXPECT().PutPath(gomock.Any(), key, path).Return(nil)
+	s.state.EXPECT().PutMetadata(gomock.Any(), key, metadata).Return(nil)
 
-	err := NewService(s.state, nil).PutPath(context.Background(), key, path)
+	err := NewService(s.state, nil).PutMetadata(context.Background(), key, metadata)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestRemovePath(c *gc.C) {
+func (s *serviceSuite) TestRemoveMetadata(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	key := utils.MustNewUUID().String()
 
-	s.state.EXPECT().RemovePath(gomock.Any(), key).Return(nil)
+	s.state.EXPECT().RemoveMetadata(gomock.Any(), key).Return(nil)
 
-	err := NewService(s.state, nil).RemovePath(context.Background(), key)
+	err := NewService(s.state, nil).RemoveMetadata(context.Background(), key)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

@@ -9,6 +9,7 @@ import (
 	reflect "reflect"
 
 	changestream "github.com/juju/juju/core/changestream"
+	objectstore "github.com/juju/juju/core/objectstore"
 	watcher "github.com/juju/juju/core/watcher"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -36,19 +37,34 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 	return m.recorder
 }
 
-// GetPath mocks base method.
-func (m *MockState) GetPath(arg0 context.Context, arg1 string) (string, error) {
+// GetAllMetadata mocks base method.
+func (m *MockState) GetAllMetadata(arg0 context.Context) (map[string]objectstore.Metadata, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetPath", arg0, arg1)
-	ret0, _ := ret[0].(string)
+	ret := m.ctrl.Call(m, "GetAllMetadata", arg0)
+	ret0, _ := ret[0].(map[string]objectstore.Metadata)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetPath indicates an expected call of GetPath.
-func (mr *MockStateMockRecorder) GetPath(arg0, arg1 interface{}) *gomock.Call {
+// GetAllMetadata indicates an expected call of GetAllMetadata.
+func (mr *MockStateMockRecorder) GetAllMetadata(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPath", reflect.TypeOf((*MockState)(nil).GetPath), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllMetadata", reflect.TypeOf((*MockState)(nil).GetAllMetadata), arg0)
+}
+
+// GetMetadata mocks base method.
+func (m *MockState) GetMetadata(arg0 context.Context, arg1 string) (objectstore.Metadata, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetMetadata", arg0, arg1)
+	ret0, _ := ret[0].(objectstore.Metadata)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetMetadata indicates an expected call of GetMetadata.
+func (mr *MockStateMockRecorder) GetMetadata(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMetadata", reflect.TypeOf((*MockState)(nil).GetMetadata), arg0, arg1)
 }
 
 // InitialWatchStatement mocks base method.
@@ -65,47 +81,32 @@ func (mr *MockStateMockRecorder) InitialWatchStatement() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InitialWatchStatement", reflect.TypeOf((*MockState)(nil).InitialWatchStatement))
 }
 
-// ListPaths mocks base method.
-func (m *MockState) ListPaths(arg0 context.Context) (map[string]string, error) {
+// PutMetadata mocks base method.
+func (m *MockState) PutMetadata(arg0 context.Context, arg1 string, arg2 objectstore.Metadata) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ListPaths", arg0)
-	ret0, _ := ret[0].(map[string]string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ListPaths indicates an expected call of ListPaths.
-func (mr *MockStateMockRecorder) ListPaths(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListPaths", reflect.TypeOf((*MockState)(nil).ListPaths), arg0)
-}
-
-// PutPath mocks base method.
-func (m *MockState) PutPath(arg0 context.Context, arg1, arg2 string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "PutPath", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "PutMetadata", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// PutPath indicates an expected call of PutPath.
-func (mr *MockStateMockRecorder) PutPath(arg0, arg1, arg2 interface{}) *gomock.Call {
+// PutMetadata indicates an expected call of PutMetadata.
+func (mr *MockStateMockRecorder) PutMetadata(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PutPath", reflect.TypeOf((*MockState)(nil).PutPath), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PutMetadata", reflect.TypeOf((*MockState)(nil).PutMetadata), arg0, arg1, arg2)
 }
 
-// RemovePath mocks base method.
-func (m *MockState) RemovePath(arg0 context.Context, arg1 string) error {
+// RemoveMetadata mocks base method.
+func (m *MockState) RemoveMetadata(arg0 context.Context, arg1 string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RemovePath", arg0, arg1)
+	ret := m.ctrl.Call(m, "RemoveMetadata", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// RemovePath indicates an expected call of RemovePath.
-func (mr *MockStateMockRecorder) RemovePath(arg0, arg1 interface{}) *gomock.Call {
+// RemoveMetadata indicates an expected call of RemoveMetadata.
+func (mr *MockStateMockRecorder) RemoveMetadata(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemovePath", reflect.TypeOf((*MockState)(nil).RemovePath), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveMetadata", reflect.TypeOf((*MockState)(nil).RemoveMetadata), arg0, arg1)
 }
 
 // MockWatcherFactory is a mock of WatcherFactory interface.
