@@ -1046,6 +1046,13 @@ func (ctx *HookContext) SecretMetadata() (map[string]jujuc.SecretMetadata, error
 		}
 		result[id] = v
 	}
+	for k, v := range result {
+		uri := &coresecrets.URI{ID: k}
+		var err error
+		if v.Grants, err = ctx.secretChanges.secretGrantInfo(uri, v.Grants...); err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
 	return result, nil
 }
 
@@ -1607,12 +1614,16 @@ func (ctx *HookContext) doFlush(process string) error {
 		}
 	}
 
-	for _, g := range ctx.secretChanges.pendingGrants {
-		pendingGrants = append(pendingGrants, g)
+	for _, grants := range ctx.secretChanges.pendingGrants {
+		for _, g := range grants {
+			pendingGrants = append(pendingGrants, g)
+		}
 	}
 
-	for _, r := range ctx.secretChanges.pendingRevokes {
-		pendingRevokes = append(pendingRevokes, r)
+	for _, revokes := range ctx.secretChanges.pendingRevokes {
+		for _, r := range revokes {
+			pendingRevokes = append(pendingRevokes, r)
+		}
 	}
 
 	for uri := range ctx.secretChanges.pendingTrackLatest {

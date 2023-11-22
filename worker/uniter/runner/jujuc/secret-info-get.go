@@ -82,6 +82,26 @@ type metadataDisplay struct {
 	RotatePolicy     secrets.RotatePolicy `yaml:"rotation,omitempty" json:"rotation,omitempty"`
 	LatestExpireTime *time.Time           `yaml:"expiry,omitempty" json:"expiry,omitempty"`
 	NextRotateTime   *time.Time           `yaml:"rotates,omitempty" json:"rotates,omitempty"`
+	Grants           []GrantInfo          `yaml:"grants,omitempty" json:"grants,omitempty"`
+}
+
+// GrantInfo holds info about a secret grant.
+type GrantInfo struct {
+	Target string             `json:"target"`
+	Scope  string             `json:"scope"`
+	Role   secrets.SecretRole `json:"role"`
+}
+
+func toGrantInfo(grants []secrets.GrantInfo) []GrantInfo {
+	result := make([]GrantInfo, len(grants))
+	for i, grant := range grants {
+		result[i] = GrantInfo{
+			Target: grant.Target,
+			Scope:  grant.Scope,
+			Role:   grant.Role,
+		}
+	}
+	return result
 }
 
 // Run implements cmd.Command.
@@ -100,6 +120,7 @@ func (c *secretInfoGetCommand) Run(ctx *cmd.Context) error {
 				RotatePolicy:     md.RotatePolicy,
 				LatestExpireTime: md.LatestExpireTime,
 				NextRotateTime:   md.NextRotateTime,
+				Grants:           toGrantInfo(md.Grants),
 			}})
 	}
 	var want string

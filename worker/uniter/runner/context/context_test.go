@@ -563,6 +563,13 @@ func (s *InterfaceSuite) TestSecretMetadata(c *gc.C) {
 			Owner:        names.NewApplicationTag("mariadb"),
 			Description:  "description",
 			RotatePolicy: coresecrets.RotateHourly,
+			Grants: []coresecrets.GrantInfo{
+				{
+					Target: "unit-gitlab-0",
+					Scope:  "mariadb:db gitlab:db",
+					Role:   coresecrets.RoleView,
+				},
+			},
 		},
 		uri2.ID: {
 			Owner:       names.NewApplicationTag("mariadb"),
@@ -578,6 +585,13 @@ func (s *InterfaceSuite) TestSecretMetadata(c *gc.C) {
 			Owner:        names.NewApplicationTag("mariadb"),
 			Description:  "description",
 			RotatePolicy: coresecrets.RotateHourly,
+			Grants: []coresecrets.GrantInfo{
+				{
+					Target: "unit-gitlab-0",
+					Scope:  "mariadb:db gitlab:db",
+					Role:   coresecrets.RoleView,
+				},
+			},
 		},
 		uri2.ID: {
 			Owner:       names.NewApplicationTag("mariadb"),
@@ -595,6 +609,11 @@ func (s *InterfaceSuite) TestSecretMetadata(c *gc.C) {
 		Description: ptr("another"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
+	ctx.GrantSecret(uri, &jujuc.SecretGrantRevokeArgs{
+		UnitName:    ptr("gitlab/1"),
+		RelationKey: ptr("mariadb:db gitlab:db"),
+		Role:        ptr(coresecrets.RoleView),
+	})
 
 	err = ctx.RemoveSecret(uri2, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -606,6 +625,9 @@ func (s *InterfaceSuite) TestSecretMetadata(c *gc.C) {
 			Owner:        names.NewApplicationTag("mariadb"),
 			Description:  "another",
 			RotatePolicy: coresecrets.RotateHourly,
+			Grants: []coresecrets.GrantInfo{
+				{Target: "unit-gitlab-0", Scope: "mariadb:db gitlab:db", Role: "view"},
+			},
 		},
 		uri3.ID: {
 			Owner:          names.NewApplicationTag("foo"),
@@ -1624,18 +1646,22 @@ func (s *mockHookContextSuite) TestSecretGrant(c *gc.C) {
 		RelationKey:     &relationKey,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(hookContext.PendingSecretGrants(), jc.DeepEquals, map[string]uniter.SecretGrantRevokeArgs{
+	c.Assert(hookContext.PendingSecretGrants(), jc.DeepEquals, map[string]map[string]uniter.SecretGrantRevokeArgs{
 		uri.ID: {
-			URI:             uri,
-			ApplicationName: &app,
-			RelationKey:     &relationKey,
-			Role:            coresecrets.RoleView,
+			relationKey: {
+				URI:             uri,
+				ApplicationName: &app,
+				RelationKey:     &relationKey,
+				Role:            coresecrets.RoleView,
+			},
 		},
 		uri2.ID: {
-			URI:             uri2,
-			ApplicationName: &app,
-			RelationKey:     &relationKey,
-			Role:            coresecrets.RoleView,
+			relationKey: {
+				URI:             uri2,
+				ApplicationName: &app,
+				RelationKey:     &relationKey,
+				Role:            coresecrets.RoleView,
+			},
 		}})
 }
 

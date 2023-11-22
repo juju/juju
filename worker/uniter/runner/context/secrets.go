@@ -19,8 +19,8 @@ type secretsChangeRecorder struct {
 	pendingCreates     map[string]uniter.SecretCreateArg
 	pendingUpdates     map[string]uniter.SecretUpdateArg
 	pendingDeletes     map[string]uniter.SecretDeleteArg
-	pendingGrants      map[string]uniter.SecretGrantRevokeArgs
-	pendingRevokes     map[string]uniter.SecretGrantRevokeArgs
+	pendingGrants      map[string]map[string]uniter.SecretGrantRevokeArgs
+	pendingRevokes     map[string]map[string]uniter.SecretGrantRevokeArgs
 	pendingTrackLatest map[string]bool
 }
 
@@ -30,8 +30,8 @@ func newSecretsChangeRecorder(logger loggo.Logger) *secretsChangeRecorder {
 		pendingCreates:     make(map[string]uniter.SecretCreateArg),
 		pendingUpdates:     make(map[string]uniter.SecretUpdateArg),
 		pendingDeletes:     make(map[string]uniter.SecretDeleteArg),
-		pendingGrants:      make(map[string]uniter.SecretGrantRevokeArgs),
-		pendingRevokes:     make(map[string]uniter.SecretGrantRevokeArgs),
+		pendingGrants:      make(map[string]map[string]uniter.SecretGrantRevokeArgs),
+		pendingRevokes:     make(map[string]map[string]uniter.SecretGrantRevokeArgs),
 		pendingTrackLatest: make(map[string]bool),
 	}
 }
@@ -86,9 +86,60 @@ func (s *secretsChangeRecorder) remove(uri *secrets.URI, revision *int) {
 }
 
 func (s *secretsChangeRecorder) grant(arg uniter.SecretGrantRevokeArgs) {
-	s.pendingGrants[arg.URI.ID] = arg
+	if _, ok := s.pendingGrants[arg.URI.ID]; !ok {
+		s.pendingGrants[arg.URI.ID] = make(map[string]uniter.SecretGrantRevokeArgs)
+	}
+	s.pendingGrants[arg.URI.ID][*arg.RelationKey] = arg
 }
 
 func (s *secretsChangeRecorder) revoke(arg uniter.SecretGrantRevokeArgs) {
-	s.pendingRevokes[arg.URI.ID] = arg
+	if _, ok := s.pendingRevokes[arg.URI.ID]; !ok {
+		s.pendingRevokes[arg.URI.ID] = make(map[string]uniter.SecretGrantRevokeArgs)
+	}
+	s.pendingRevokes[arg.URI.ID][*arg.RelationKey] = arg
+}
+
+func (s *secretsChangeRecorder) secretGrantInfo(uri *secrets.URI, applied ...secrets.GrantInfo) ([]secrets.GrantInfo, error) {
+	mergePendingGrants := func() {
+		grants, ok := s.pendingGrants[uri.ID]
+		if !ok {
+			return
+		}
+		for _, grant := range grants {
+			params := grant.ToParams()
+			if len(params.SubjectTags) == 0 {
+				// This should never happen.
+				s.logger.Warningf("missing SubjectTags: %+v", params)
+				continue
+			}
+			applied = append(applied, secrets.GrantInfo{
+				Target: params.SubjectTags[0],
+				Scope:  params.ScopeTag,
+				Role:   secrets.SecretRole(params.Role),
+			})
+		}
+	}
+	excludeRevokedGrants := func() {
+		revokes, ok := s.pendingRevokes[uri.ID]
+		if !ok {
+			return
+		}
+		for relationKey, revoke := range revokes {
+			params := revoke.ToParams()
+			if len(params.SubjectTags) == 0 {
+				// This should never happen.
+				s.logger.Warningf("missing SubjectTags: %+v", params)
+				continue
+			}
+			for j, grant := range applied {
+				if grant.Target == params.SubjectTags[0] && grant.Scope == relationKey {
+					applied = append(applied[:j], applied[j+1:]...)
+					break
+				}
+			}
+		}
+	}
+	mergePendingGrants()
+	excludeRevokedGrants()
+	return applied, nil
 }
