@@ -377,6 +377,13 @@ func (s *secretsStore) UpdateSecret(uri *secrets.URI, p UpdateSecretParams) (*se
 		if p.Label != nil && *p.Label != metadataDoc.Label {
 			// OwnerTag has already been validated.
 			owner, _ := names.ParseTag(metadataDoc.OwnerTag)
+			if metadataDoc.Label != "" {
+				removeOldLabelOps, err := s.st.removeOwnerSecretLabelOps(owner, metadataDoc.Label)
+				if err != nil {
+					return nil, errors.Trace(err)
+				}
+				ops = append(ops, removeOldLabelOps...)
+			}
 			uniqueLabelOps, err := s.st.uniqueSecretOwnerLabelOps(owner, *p.Label)
 			if err != nil {
 				return nil, errors.Trace(err)
@@ -1308,11 +1315,34 @@ func (st *State) uniqueSecretLabelOpsRaw(tag names.Tag, label, role string, keyG
 	return []txn.Op{countOp, incOp}, nil
 }
 
-func (st *State) removeOwnerSecretLabelOps(ownerTag names.Tag) ([]txn.Op, error) {
+func (st *State) removeOwnerSecretLabelOps(ownerTag names.Tag, label string) ([]txn.Op, error) {
+	refCountCollection, ccloser := st.db().GetCollection(refcountsC)
+	defer ccloser()
+
+	key := secretOwnerLabelKey(ownerTag, label)
+	countOp, count, err := nsRefcounts.CurrentOp(refCountCollection, key)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if count == 0 {
+		return []txn.Op{countOp}, nil
+	}
+
+	return []txn.Op{
+		{
+			C:      refcountsC,
+			Id:     secretOwnerLabelKey(ownerTag, label),
+			Assert: txn.DocExists,
+			Remove: true,
+		},
+	}, nil
+}
+
+func (st *State) removeOwnerSecretLabelsOps(ownerTag names.Tag) ([]txn.Op, error) {
 	return st.removeSecretLabelOps(ownerTag, secretOwnerLabelKey)
 }
 
-func (st *State) removeConsumerSecretLabelOps(consumerTag names.Tag) ([]txn.Op, error) {
+func (st *State) removeConsumerSecretLabelsOps(consumerTag names.Tag) ([]txn.Op, error) {
 	return st.removeSecretLabelOps(consumerTag, secretConsumerLabelKey)
 }
 
