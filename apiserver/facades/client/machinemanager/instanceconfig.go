@@ -28,17 +28,23 @@ type InstanceConfigBackend interface {
 	ToolsStorage(objectstore.ObjectStore) (binarystorage.StorageCloser, error)
 }
 
+// InstanceConfigServices holds the services needed to configure instances.
+type InstanceConfigServices struct {
+	ControllerConfigService ControllerConfigService
+	CloudService            common.CloudService
+	CredentialService       common.CredentialService
+	ObjectStore             objectstore.ObjectStore
+}
+
 // InstanceConfig returns information from the model config that
 // is needed for configuring manual machines.
 // It is exposed for testing purposes.
 // TODO(rog) fix environs/manual tests so they do not need to call this, or move this elsewhere.
 func InstanceConfig(
 	ctx context.Context,
-	controllerConfigService ControllerConfigService,
 	ctrlSt ControllerBackend,
 	st InstanceConfigBackend,
-	cloudService common.CloudService, credentialService common.CredentialService,
-	store objectstore.ObjectStore,
+	services InstanceConfigServices,
 	machineId, nonce, dataDir string,
 ) (*instancecfg.InstanceConfig, error) {
 	model, err := st.Model()
@@ -76,11 +82,14 @@ func InstanceConfig(
 	}
 	urlGetter := common.NewToolsURLGetter(model.UUID(), ctrlSt)
 	configGetter := stateenvirons.EnvironConfigGetter{
-		Model: model, CloudService: cloudService, CredentialService: credentialService}
+		Model:             model,
+		CloudService:      services.CloudService,
+		CredentialService: services.CredentialService,
+	}
 	newEnviron := func(ctx context.Context) (environs.BootstrapEnviron, error) {
 		return environs.GetEnviron(ctx, configGetter, environs.New)
 	}
-	toolsFinder := common.NewToolsFinder(controllerConfigService, configGetter, st, urlGetter, newEnviron, store)
+	toolsFinder := common.NewToolsFinder(services.ControllerConfigService, configGetter, st, urlGetter, newEnviron, services.ObjectStore)
 	toolsList, err := toolsFinder.FindAgents(ctx, common.FindAgentsParams{
 		Number: agentVersion,
 		OSType: machine.Base().OS,

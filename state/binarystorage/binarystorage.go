@@ -23,19 +23,16 @@ var logger = loggo.GetLogger("juju.state.binarystorage")
 // ManagedStorage instances persist data for a bucket, for a user, or globally.
 // (Only bucket storage is currently implemented).
 type ManagedStorage interface {
-	// GetForBucket returns a reader for data at path, namespaced to the bucket.
+	// Get returns a reader for data at path, namespaced to the bucket.
 	// If the data is still being uploaded and is not fully written yet,
-	// an ErrUploadPending error is returned. This means the path is valid but the caller
-	// should try again to retrieve the data.
+	// an ErrUploadPending error is returned. This means the path is valid but
+	// the caller should try again to retrieve the data.
 	Get(ctx context.Context, path string) (r io.ReadCloser, length int64, err error)
 
-	// PutForBucket stores data from reader at path, namespaced to the bucket.
-	//
-	// PutForBucket is equivalent to PutForBucketAndCheckHash with an empty
-	// hash string.
+	// Put stores data from reader at path, namespaced to the bucket.
 	Put(ctx context.Context, path string, r io.Reader, length int64) error
 
-	// RemoveForBucket deletes data at path, namespaced to the bucket.
+	// Remove deletes data at path, namespaced to the bucket.
 	Remove(ctx context.Context, path string) error
 }
 

@@ -87,7 +87,14 @@ func (s *machineConfigSuite) TestMachineConfig(c *gc.C) {
 	s.ctrlSt.EXPECT().ControllerConfig().Return(coretesting.FakeControllerConfig(), nil).MinTimes(1)
 	s.ctrlSt.EXPECT().ControllerTag().Return(coretesting.ControllerTag).AnyTimes()
 
-	icfg, err := machinemanager.InstanceConfig(context.Background(), s.controllerConfigService, s.ctrlSt, s.st, s.cloudService, s.credService, s.store, "0", "nonce", "")
+	services := machinemanager.InstanceConfigServices{
+		ControllerConfigService: s.controllerConfigService,
+		CloudService:            s.cloudService,
+		CredentialService:       s.credService,
+		ObjectStore:             s.store,
+	}
+
+	icfg, err := machinemanager.InstanceConfig(context.Background(), s.ctrlSt, s.st, services, "0", "nonce", "")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(icfg.APIInfo.Addrs, gc.DeepEquals, []string{"1.2.3.4:1"})
 	c.Assert(icfg.ToolsList().URLs(), gc.DeepEquals, map[version.Binary][]string{

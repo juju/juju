@@ -359,7 +359,14 @@ func (mm *MachineManagerAPI) ProvisioningScript(ctx context.Context, args params
 		return result, errors.Trace(err)
 	}
 
-	icfg, err := InstanceConfig(ctx, mm.controllerConfigService, st, mm.st, mm.cloudService, mm.credentialService, mm.controllerStore, args.MachineId, args.Nonce, args.DataDir)
+	services := InstanceConfigServices{
+		CloudService:            mm.cloudService,
+		CredentialService:       mm.credentialService,
+		ControllerConfigService: mm.controllerConfigService,
+		ObjectStore:             mm.controllerStore,
+	}
+
+	icfg, err := InstanceConfig(ctx, st, mm.st, services, args.MachineId, args.Nonce, args.DataDir)
 	if err != nil {
 		return result, apiservererrors.ServerError(errors.Annotate(
 			err, "getting instance config",
