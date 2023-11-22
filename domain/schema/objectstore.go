@@ -23,6 +23,7 @@ INSERT INTO object_store_metadata_hash_type VALUES
 
 CREATE TABLE object_store_metadata (
     uuid            TEXT PRIMARY KEY,
+    key             TEXT NOT NULL,
     hash_type_id    INT NOT NULL,
     hash            TEXT,
     CONSTRAINT      fk_object_store_metadata_hash_type
@@ -30,6 +31,9 @@ CREATE TABLE object_store_metadata (
         REFERENCES  object_store_metadata_hash_type(id)
 );
 
+-- Until we proliferate juju with uuids everywhere, we need to allow for
+-- accessing the metadata by key.
+CREATE UNIQUE INDEX idx_object_store_metadata_key ON object_store_metadata (key);
 CREATE UNIQUE INDEX idx_object_store_metadata_hash ON object_store_metadata (hash);
 
 CREATE TABLE object_store_metadata_path (
@@ -43,6 +47,5 @@ CREATE TABLE object_store_metadata_path (
 );
 
 CREATE UNIQUE INDEX idx_object_store_metadata_path ON object_store_metadata_path (path);
-
 `)
 }
