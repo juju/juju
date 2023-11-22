@@ -388,7 +388,7 @@ func (s *stateSuite) TestControllersForModels(c *gc.C) {
 			ModelUUIDs:    []string{"model2", "model3"},
 		},
 	}
-	// Sort the returning controlelrs which are not order-guaranteed before
+	// Sort the returning controllers which are not order-guaranteed before
 	// deep equals assert
 	sort.Slice(controllers, func(i, j int) bool { return controllers[i].ControllerTag.Id() < controllers[j].ControllerTag.Id() })
 	// Also sort addresses.
@@ -396,13 +396,6 @@ func (s *stateSuite) TestControllersForModels(c *gc.C) {
 	// Also sort models.
 	sort.Slice(controllers[1].ModelUUIDs, func(i, j int) bool { return controllers[1].ModelUUIDs[i] < controllers[1].ModelUUIDs[j] })
 	c.Assert(controllers, gc.DeepEquals, expectedControllers)
-	// c.Assert(controllers, jc.SameContents, expectedControllers)
-	// c.Assert(controllers, jc.Contains, expectedControllers[0])
-	// c.Assert(controllers, jc.Contains, expectedControllers[1])
-	// c.Assert(controllers[0].Addrs, jc.SameContents, []string{"192.168.1.1", "10.0.0.1", "10.0.0.2"})
-	// c.Assert(controllers[0].ModelUUIDs, jc.SameContents, []string{"model1"})
-	// c.Assert(controllers[1].Addrs, jc.SameContents, []string{"10.0.0.1"})
-	// c.Assert(controllers[1].ModelUUIDs, jc.SameContents, []string{"model2", "model3"})
 }
 
 func (s *stateSuite) TestControllersForModelsOneSingleModel(c *gc.C) {
@@ -436,4 +429,36 @@ func (s *stateSuite) TestControllersForModelsOneSingleModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(controllers[0].Addrs, jc.SameContents, []string{"192.168.1.1", "10.0.0.1", "10.0.0.2"})
 	c.Assert(controllers[0].ModelUUIDs, jc.SameContents, []string{"model1", "model2", "model3"})
+}
+
+func (s *stateSuite) TestControllersForModelsWithoutModelUUIDs(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	db := s.DB()
+
+	// Insert an external controller with one model.
+	_, err := db.Exec(`INSERT INTO external_controller VALUES
+("ctrl1", NULL, "test-cert1")`)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = db.Exec(`INSERT INTO external_controller_address VALUES
+("addr1", "ctrl1", "192.168.1.1")`)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = db.Exec(`INSERT INTO external_controller_address VALUES
+("addr2", "ctrl1", "10.0.0.1")`)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = db.Exec(`INSERT INTO external_controller_address VALUES
+("addr3", "ctrl1", "10.0.0.2")`)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = db.Exec(`INSERT INTO external_model VALUES
+("model1", "ctrl1")`)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = db.Exec(`INSERT INTO external_model VALUES
+("model2", "ctrl1")`)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = db.Exec(`INSERT INTO external_model VALUES
+("model3", "ctrl1")`)
+	c.Assert(err, jc.ErrorIsNil)
+
+	controllers, err := st.ControllersForModels(ctx.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(controllers, gc.HasLen, 0)
 }
