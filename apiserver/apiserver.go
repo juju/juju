@@ -990,16 +990,6 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		// for discharge required errors to be handled correctly.
 		unauthenticated: true,
 	}, {
-		// GET /charms has no authorizer
-		pattern: "/charms",
-		methods: []string{"GET"},
-		handler: modelCharmsHTTPHandler,
-	}, {
-		pattern:    "/charms",
-		methods:    []string{"POST"},
-		handler:    modelCharmsHTTPHandler,
-		authorizer: modelCharmsUploadAuthorizer,
-	}, {
 		pattern: charmsObjectsRoutePrefix,
 		methods: []string{"GET"},
 		handler: modelObjectsCharmsHTTPHandler,
