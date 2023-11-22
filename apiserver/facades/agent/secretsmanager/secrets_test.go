@@ -1928,3 +1928,20 @@ func (s *SecretsManagerSuite) TestSecretsRevoke(c *gc.C) {
 		},
 	})
 }
+
+func (s *SecretsManagerSuite) TestUpdateTrackedRevisions(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	uri := coresecrets.NewURI()
+	s.secretsState.EXPECT().GetSecret(uri).Return(&coresecrets.SecretMetadata{
+		LatestRevision: 668,
+	}, nil).AnyTimes()
+	s.secretsConsumer.EXPECT().GetSecretConsumer(uri, s.authTag).
+		Return(nil, errors.NotFoundf("secret consumer"))
+	s.secretsConsumer.EXPECT().SaveSecretConsumer(
+		uri, s.authTag, &coresecrets.SecretConsumerMetadata{LatestRevision: 668, CurrentRevision: 668}).Return(nil)
+
+	result, err := s.facade.UpdateTrackedRevisions([]string{uri.ID})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult{{}}})
+}
