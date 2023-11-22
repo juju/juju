@@ -688,6 +688,13 @@ func (s *secretsSuite) TestGetSecretMetadata(c *gc.C) {
 		LatestExpireTime: &now,
 		NextRotateTime:   &now,
 	}}, nil)
+	secretsMetaState.EXPECT().SecretGrants(uri).Return([]coresecrets.GrantInfo{
+		{
+			Target: "application-gitlab",
+			Scope:  "relation-key",
+			Role:   coresecrets.RoleView,
+		},
+	}, nil)
 	secretsMetaState.EXPECT().ListSecretRevisions(uri).Return([]*coresecrets.SecretRevisionMetadata{{
 		Revision: 666,
 		ValueRef: &coresecrets.ValueRef{
@@ -719,6 +726,9 @@ func (s *secretsSuite) TestGetSecretMetadata(c *gc.C) {
 			}, {
 				Revision: 667,
 			}},
+			Grants: []params.GrantInfo{
+				{Target: "application-gitlab", Scope: "relation-key", Role: "view"},
+			},
 		}},
 	})
 }

@@ -40537,6 +40537,26 @@
                         "results"
                     ]
                 },
+                "GrantInfo": {
+                    "type": "object",
+                    "properties": {
+                        "role": {
+                            "type": "string"
+                        },
+                        "scope": {
+                            "type": "string"
+                        },
+                        "target": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "target",
+                        "scope",
+                        "role"
+                    ]
+                },
                 "GrantRevokeUserSecretArg": {
                     "type": "object",
                     "properties": {
@@ -40569,6 +40589,12 @@
                         },
                         "description": {
                             "type": "string"
+                        },
+                        "grants": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/GrantInfo"
+                            }
                         },
                         "label": {
                             "type": "string"
@@ -41005,6 +41031,26 @@
                         "results"
                     ]
                 },
+                "GrantInfo": {
+                    "type": "object",
+                    "properties": {
+                        "role": {
+                            "type": "string"
+                        },
+                        "scope": {
+                            "type": "string"
+                        },
+                        "target": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "target",
+                        "scope",
+                        "role"
+                    ]
+                },
                 "ListSecretResult": {
                     "type": "object",
                     "properties": {
@@ -41014,6 +41060,12 @@
                         },
                         "description": {
                             "type": "string"
+                        },
+                        "grants": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/GrantInfo"
+                            }
                         },
                         "label": {
                             "type": "string"
@@ -41622,6 +41674,26 @@
                         "args"
                     ]
                 },
+                "GrantInfo": {
+                    "type": "object",
+                    "properties": {
+                        "role": {
+                            "type": "string"
+                        },
+                        "scope": {
+                            "type": "string"
+                        },
+                        "target": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "target",
+                        "scope",
+                        "role"
+                    ]
+                },
                 "GrantRevokeSecretArg": {
                     "type": "object",
                     "properties": {
@@ -41673,6 +41745,12 @@
                         },
                         "description": {
                             "type": "string"
+                        },
+                        "grants": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/GrantInfo"
+                            }
                         },
                         "label": {
                             "type": "string"
@@ -49210,6 +49288,26 @@
                         "since"
                     ]
                 },
+                "GrantInfo": {
+                    "type": "object",
+                    "properties": {
+                        "role": {
+                            "type": "string"
+                        },
+                        "scope": {
+                            "type": "string"
+                        },
+                        "target": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "target",
+                        "scope",
+                        "role"
+                    ]
+                },
                 "GrantRevokeSecretArg": {
                     "type": "object",
                     "properties": {
@@ -49384,6 +49482,12 @@
                         },
                         "description": {
                             "type": "string"
+                        },
+                        "grants": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/GrantInfo"
+                            }
                         },
                         "label": {
                             "type": "string"
@@ -52942,6 +53046,26 @@
                         "args"
                     ]
                 },
+                "GrantInfo": {
+                    "type": "object",
+                    "properties": {
+                        "role": {
+                            "type": "string"
+                        },
+                        "scope": {
+                            "type": "string"
+                        },
+                        "target": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "target",
+                        "scope",
+                        "role"
+                    ]
+                },
                 "ListSecretResult": {
                     "type": "object",
                     "properties": {
@@ -52951,6 +53075,12 @@
                         },
                         "description": {
                             "type": "string"
+                        },
+                        "grants": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/GrantInfo"
+                            }
                         },
                         "label": {
                             "type": "string"

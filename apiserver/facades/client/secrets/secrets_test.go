@@ -176,6 +176,13 @@ func (s *SecretsSuite) assertListSecrets(c *gc.C, reveal, withBackend bool) {
 	s.secretsState.EXPECT().ListSecrets(state.SecretsFilter{}).Return(
 		metadata, nil,
 	)
+	s.secretsState.EXPECT().SecretGrants(uri).Return([]coresecrets.GrantInfo{
+		{
+			Target: "application-gitlab",
+			Scope:  "relation-key",
+			Role:   coresecrets.RoleView,
+		},
+	}, nil)
 	s.secretsState.EXPECT().ListSecretRevisions(uri).Return(
 		revisions, nil,
 	)
@@ -231,6 +238,9 @@ func (s *SecretsSuite) assertListSecrets(c *gc.C, reveal, withBackend bool) {
 				UpdateTime:  now.Add(2 * time.Second),
 				ExpireTime:  ptr(now.Add(2 * time.Hour)),
 			}},
+			Grants: []params.GrantInfo{
+				{Target: "application-gitlab", Scope: "relation-key", Role: "view"},
+			},
 		}},
 	})
 }

@@ -513,9 +513,19 @@ func GetSecretMetadata(
 			CreateTime:       md.CreateTime,
 			UpdateTime:       md.UpdateTime,
 		}
+		grants, err := secretsState.SecretGrants(md.URI)
+		if err != nil {
+			return result, errors.Trace(err)
+		}
+		for _, g := range grants {
+			secretResult.Grants = append(secretResult.Grants, params.GrantInfo{
+				Target: g.Target, Scope: g.Scope, Role: g.Role,
+			})
+		}
+
 		revs, err := secretsState.ListSecretRevisions(md.URI)
 		if err != nil {
-			return params.ListSecretResults{}, errors.Trace(err)
+			return result, errors.Trace(err)
 		}
 		for _, r := range revs {
 			if filter != nil && !filter(md, r) {

@@ -283,6 +283,14 @@ type ListSecretResult struct {
 	UpdateTime       time.Time          `json:"update-time"`
 	Revisions        []SecretRevision   `json:"revisions"`
 	Value            *SecretValueResult `json:"value,omitempty"`
+	Grants           []GrantInfo        `json:"grants,omitempty"`
+}
+
+// GrantInfo holds info about a secret grant.
+type GrantInfo struct {
+	Target string             `json:"target"`
+	Scope  string             `json:"scope"`
+	Role   secrets.SecretRole `json:"role"`
 }
 
 // SecretTriggerChange describes a change to a secret trigger.
@@ -311,6 +319,29 @@ type SecretRotatedArg struct {
 	Skip             bool   `json:"skip"`
 }
 
+// SecretGrantInfoArgs holds args for getting secret grant information.
+type SecretGrantInfoArgs struct {
+	Args []SecretGrantInfoArg `json:"args"`
+}
+
+// SecretGrantInfoArg holds the args for getting secret grant information.
+type SecretGrantInfoArg struct {
+	// URI identifies the secret.
+	URI string `json:"uri"`
+}
+
+// SecretGrantInfoResult holds the result of an API call to retrieve secret grant info.
+type SecretGrantInfoResult struct {
+	URI         string   `json:"uri"`
+	SubjectTags []string `json:"subject-tags"`
+	Error       *Error   `json:"error,omitempty"`
+}
+
+// SecretGrantInfoResults holds the result of an API call to retrieve details of multiple secret grant info.
+type SecretGrantInfoResults struct {
+	Results []SecretGrantInfoResult `json:"results,omitempty"`
+}
+
 // GrantRevokeSecretArgs holds args for changing access to secrets.
 type GrantRevokeSecretArgs struct {
 	Args []GrantRevokeSecretArg `json:"args"`
@@ -324,7 +355,8 @@ type GrantRevokeSecretArg struct {
 	// ScopeTag is defines the entity to which the access is scoped.
 	ScopeTag string `json:"scope-tag"`
 
-	// OwnerTag is the owner of the secret.
+	// SubjectTags are the target tag of the secret grant/revoke request.
+	// TODO: rename this field to TargetTags and bump facade version.
 	SubjectTags []string `json:"subject-tags"`
 
 	// Role is the role being granted.

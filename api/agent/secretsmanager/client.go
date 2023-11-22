@@ -162,6 +162,11 @@ func (c *Client) SecretMetadata() ([]coresecrets.SecretOwnerMetadata, error) {
 			LatestExpireTime: info.LatestExpireTime,
 			NextRotateTime:   info.NextRotateTime,
 		}
+		for _, g := range info.Grants {
+			md.Grants = append(md.Grants, coresecrets.GrantInfo{
+				Target: g.Target, Scope: g.Scope, Role: g.Role,
+			})
+		}
 		revisions := make([]int, len(info.Revisions))
 		for i, r := range info.Revisions {
 			revisions[i] = r.Revision

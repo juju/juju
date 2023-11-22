@@ -177,6 +177,16 @@ type SecretMetadata struct {
 
 	// AutoPrune is true if the secret revisions should be pruned when it's not been used.
 	AutoPrune bool
+
+	// Grants is a list of grant information for this secret.
+	Grants []GrantInfo
+}
+
+// GrantInfo holds info about a secret grant.
+type GrantInfo struct {
+	Target string
+	Scope  string
+	Role   SecretRole
 }
 
 // SecretRevisionMetadata holds metadata about a secret revision.

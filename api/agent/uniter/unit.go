@@ -1067,7 +1067,7 @@ func (b *CommitHookParamsBuilder) AddSecretGrants(grants []SecretGrantRevokeArgs
 	}
 	b.arg.SecretGrants = make([]params.GrantRevokeSecretArg, len(grants))
 	for i, g := range grants {
-		b.arg.SecretGrants[i] = grantRevokeArgsToParams(&g)
+		b.arg.SecretGrants[i] = g.ToParams()
 	}
 }
 
@@ -1078,28 +1078,29 @@ func (b *CommitHookParamsBuilder) AddSecretRevokes(revokes []SecretGrantRevokeAr
 	}
 	b.arg.SecretRevokes = make([]params.GrantRevokeSecretArg, len(revokes))
 	for i, g := range revokes {
-		b.arg.SecretRevokes[i] = grantRevokeArgsToParams(&g)
+		b.arg.SecretRevokes[i] = g.ToParams()
 	}
 }
 
-func grantRevokeArgsToParams(p *SecretGrantRevokeArgs) params.GrantRevokeSecretArg {
+// ToParams converts a SecretGrantRevokeArgs to a params.GrantRevokeSecretArg.
+func (arg SecretGrantRevokeArgs) ToParams() params.GrantRevokeSecretArg {
 	var subjectTag, scopeTag string
-	if p.ApplicationName != nil {
-		subjectTag = names.NewApplicationTag(*p.ApplicationName).String()
+	if arg.ApplicationName != nil {
+		subjectTag = names.NewApplicationTag(*arg.ApplicationName).String()
 	}
-	if p.UnitName != nil {
-		subjectTag = names.NewUnitTag(*p.UnitName).String()
+	if arg.UnitName != nil {
+		subjectTag = names.NewUnitTag(*arg.UnitName).String()
 	}
-	if p.RelationKey != nil {
-		scopeTag = names.NewRelationTag(*p.RelationKey).String()
+	if arg.RelationKey != nil {
+		scopeTag = names.NewRelationTag(*arg.RelationKey).String()
 	} else {
 		scopeTag = subjectTag
 	}
 	return params.GrantRevokeSecretArg{
-		URI:         p.URI.String(),
+		URI:         arg.URI.String(),
 		ScopeTag:    scopeTag,
 		SubjectTags: []string{subjectTag},
-		Role:        string(p.Role),
+		Role:        string(arg.Role),
 	}
 }
 

@@ -129,6 +129,15 @@ func (s *SecretsAPI) ListSecrets(arg params.ListSecretsArgs) (params.ListSecretR
 			CreateTime:       m.CreateTime,
 			UpdateTime:       m.UpdateTime,
 		}
+		grants, err := s.secretsState.SecretGrants(m.URI)
+		if err != nil {
+			return result, errors.Trace(err)
+		}
+		for _, g := range grants {
+			secretResult.Grants = append(secretResult.Grants, params.GrantInfo{
+				Target: g.Target, Scope: g.Scope, Role: g.Role,
+			})
+		}
 		for _, r := range revisionMetadata[m.URI.ID] {
 			backendName := r.BackendName
 			if backendName == nil {

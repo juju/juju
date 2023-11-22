@@ -94,6 +94,7 @@ type SecretsStore interface {
 	WatchObsolete(owners []names.Tag) (StringsWatcher, error)
 	WatchRevisionsToPrune(ownerTags []names.Tag) (StringsWatcher, error)
 	ChangeSecretBackend(ChangeSecretBackendParams) error
+	SecretGrants(uri *secrets.URI) ([]secrets.GrantInfo, error)
 }
 
 // NewSecrets creates a new mongo backed secrets store.
@@ -865,6 +866,39 @@ func (s *secretsStore) ChangeSecretBackend(arg ChangeSecretBackendParams) error 
 	}
 	err = s.st.db().Run(buildTxnWithLeadership(buildTxn, arg.Token))
 	return errors.Trace(err)
+}
+
+// SecretGrants returns the list of grant information of the secret.
+func (s *secretsStore) SecretGrants(uri *secrets.URI) ([]secrets.GrantInfo, error) {
+	secretPermissionsCollection, closer := s.st.db().GetCollection(secretPermissionsC)
+	defer closer()
+
+	if err := s.st.checkExists(uri); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var docs []secretPermissionDoc
+	err := secretPermissionsCollection.Find(
+		bson.M{
+			"_id": bson.M{
+				"$regex": fmt.Sprintf("%s#.*", uri.ID),
+			},
+			// We just want the manually granted record but not the auto-granted for owners.
+			"role": secrets.RoleView,
+		},
+	).All(&docs)
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannnot retrieve secret permissions for %s", uri.String())
+	}
+	var results []secrets.GrantInfo
+	for _, doc := range docs {
+		results = append(results, secrets.GrantInfo{
+			Target: doc.Subject,
+			Scope:  doc.Scope,
+			Role:   secrets.SecretRole(doc.Role),
+		})
+	}
+	return results, nil
 }
 
 // GetSecret gets the secret metadata for the specified URL.

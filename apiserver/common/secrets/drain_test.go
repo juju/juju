@@ -140,6 +140,7 @@ func (s *secretsDrainSuite) assertGetSecretsToDrain(
 		LatestExpireTime: &now,
 		NextRotateTime:   &now,
 	}}, nil)
+	s.secretsMetaState.EXPECT().SecretGrants(uri).Return([]coresecrets.GrantInfo{}, nil)
 	s.secretsMetaState.EXPECT().ListSecretRevisions(uri).Return([]*coresecrets.SecretRevisionMetadata{
 		{
 			// External backend.
