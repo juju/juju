@@ -127,6 +127,8 @@ func requiredMigrationFacadeVersions() facades.FacadeVersions {
 
 	// The following are required to keep the agent alive during
 	// migration.
+	// This list is extremely conservative, and should be trimmed down
+	// once we have a better idea of what is actually required.
 	agent.Register(registry)
 	caasadmission.Register(registry)
 	caasagent.Register(registry)

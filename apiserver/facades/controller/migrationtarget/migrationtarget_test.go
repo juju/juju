@@ -166,7 +166,9 @@ func (s *Suite) TestPrechecksFacadeVersionsFail(c *gc.C) {
 	err := api.Prechecks(args)
 	c.Assert(err, gc.ErrorMatches, `
 Source controller does not support required facades for performing migration.
-Upgrade the controller to a newer version of .* and try again.
+Upgrade the controller to a newer version of .* or migrate to a controller
+with an earlier version of the target controller and try again.
+
 `[1:])
 }
 
@@ -184,7 +186,9 @@ func (s *Suite) TestPrechecksFacadeVersionsWithPatchFail(c *gc.C) {
 	err := api.Prechecks(args)
 	c.Assert(err, gc.ErrorMatches, `
 Source controller does not support required facades for performing migration.
-Upgrade the controller to a newer version of .* and try again.
+Upgrade the controller to a newer version of .* or migrate to a controller
+with an earlier version of the target controller and try again.
+
 `[1:])
 }
 

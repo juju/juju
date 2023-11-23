@@ -116,7 +116,9 @@ func (api *API) Prechecks(model params.MigrationModelInfo) error {
 
 			return errors.Errorf(`
 Source controller does not support required facades for performing migration.
-Upgrade the controller to a newer version of %s%s and try again.
+Upgrade the controller to a newer version of %s%s or migrate to a controller
+with an earlier version of the target controller and try again.
+
 `[1:], majorMinor, patchMessage)
 		}
 	}
