@@ -1057,9 +1057,16 @@ func (ctx *HookContext) SecretMetadata() (map[string]jujuc.SecretMetadata, error
 }
 
 // GrantSecret grants access to a specified secret.
-func (ctx *HookContext) GrantSecret(uri *coresecrets.URI, args *jujuc.SecretGrantRevokeArgs) error {
-	md, ok := ctx.secretMetadata[uri.ID]
-	if ok && md.Owner.Kind() == names.ApplicationTagKind {
+func (ctx *HookContext) GrantSecret(uri *coresecrets.URI, arg *jujuc.SecretGrantRevokeArgs) error {
+	secretMetadata, err := ctx.SecretMetadata()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	md, ok := secretMetadata[uri.ID]
+	if !ok {
+		return errors.NotFoundf("secret %q", uri.ID)
+	}
+	if md.Owner.Kind() == names.ApplicationTagKind {
 		isLeader, err := ctx.IsLeader()
 		if err != nil {
 			return errors.Annotatef(err, "cannot determine leadership")
@@ -1068,13 +1075,42 @@ func (ctx *HookContext) GrantSecret(uri *coresecrets.URI, args *jujuc.SecretGran
 			return ErrIsNotLeader
 		}
 	}
-	ctx.secretChanges.grant(uniter.SecretGrantRevokeArgs{
+	uniterArg := uniter.SecretGrantRevokeArgs{
 		URI:             uri,
-		ApplicationName: args.ApplicationName,
-		UnitName:        args.UnitName,
-		RelationKey:     args.RelationKey,
+		ApplicationName: arg.ApplicationName,
+		UnitName:        arg.UnitName,
+		RelationKey:     arg.RelationKey,
 		Role:            coresecrets.RoleView,
-	})
+	}
+	params := uniterArg.ToParams()
+	if len(params.SubjectTags) != 1 {
+		return errors.NotValidf("subject tags")
+	}
+	subjectTag, err := names.ParseTag(params.SubjectTags[0])
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, g := range md.Grants {
+		if params.ScopeTag != g.Scope || params.Role != string(g.Role) {
+			continue
+		}
+		existingTargetTag, err := names.ParseTag(g.Target)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if existingTargetTag.String() == subjectTag.String() {
+			// No ops.
+			return nil
+		}
+		if existingTargetTag.Kind() == names.ApplicationTagKind {
+			// We haven already grant in application level, so no ops for any unit level grant.
+			return nil
+		}
+		if subjectTag.Kind() == names.ApplicationTagKind {
+			return errors.NewNotValid(nil, "to grant in application level, all unit level grants should be revoked first")
+		}
+	}
+	ctx.secretChanges.grant(uniterArg)
 	return nil
 }
 

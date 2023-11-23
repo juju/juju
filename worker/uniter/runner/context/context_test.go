@@ -566,7 +566,7 @@ func (s *InterfaceSuite) TestSecretMetadata(c *gc.C) {
 			Grants: []coresecrets.GrantInfo{
 				{
 					Target: "unit-gitlab-0",
-					Scope:  "mariadb:db gitlab:db",
+					Scope:  "relation-mariadb.db#gitlab.db",
 					Role:   coresecrets.RoleView,
 				},
 			},
@@ -588,7 +588,7 @@ func (s *InterfaceSuite) TestSecretMetadata(c *gc.C) {
 			Grants: []coresecrets.GrantInfo{
 				{
 					Target: "unit-gitlab-0",
-					Scope:  "mariadb:db gitlab:db",
+					Scope:  "relation-mariadb.db#gitlab.db",
 					Role:   coresecrets.RoleView,
 				},
 			},
@@ -626,7 +626,7 @@ func (s *InterfaceSuite) TestSecretMetadata(c *gc.C) {
 			Description:  "another",
 			RotatePolicy: coresecrets.RotateHourly,
 			Grants: []coresecrets.GrantInfo{
-				{Target: "unit-gitlab-0", Scope: "mariadb:db gitlab:db", Role: "view"},
+				{Target: "unit-gitlab-0", Scope: "relation-mariadb.db#gitlab.db", Role: "view"},
 			},
 		},
 		uri3.ID: {
@@ -1663,6 +1663,167 @@ func (s *mockHookContextSuite) TestSecretGrant(c *gc.C) {
 				Role:            coresecrets.RoleView,
 			},
 		}})
+}
+
+func (s *mockHookContextSuite) TestSecretGrantSecretNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	hookContext := context.NewMockUnitHookContext(s.mockUnit, model.IAAS, s.mockLeadership)
+
+	uri := coresecrets.NewURI()
+	app := "mariadb"
+	relationKey := "wordpress:db mysql:server"
+	err := hookContext.GrantSecret(uri, &jujuc.SecretGrantRevokeArgs{
+		ApplicationName: &app,
+		RelationKey:     &relationKey,
+	})
+	c.Assert(errors.Is(err, errors.NotFound), jc.IsTrue)
+}
+
+func (s *mockHookContextSuite) TestSecretGrantNotLeader(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	uri := coresecrets.NewURI()
+	hookContext := context.NewMockUnitHookContext(s.mockUnit, model.IAAS, s.mockLeadership)
+	context.SetEnvironmentHookContextSecret(hookContext, uri.String(), map[string]jujuc.SecretMetadata{
+		uri.ID: {Description: "a secret", LatestRevision: 666, Owner: names.NewApplicationTag("mariadb")},
+	}, nil, nil)
+	s.mockLeadership.EXPECT().IsLeader().Return(false, nil)
+
+	app := "mariadb"
+	relationKey := "wordpress:db mysql:server"
+	err := hookContext.GrantSecret(uri, &jujuc.SecretGrantRevokeArgs{
+		ApplicationName: &app,
+		RelationKey:     &relationKey,
+	})
+	c.Assert(errors.Is(err, context.ErrIsNotLeader), jc.IsTrue)
+}
+
+func (s *mockHookContextSuite) TestSecretGrantNoOPSBecauseofExactSameApp(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	uri := coresecrets.NewURI()
+	hookContext := context.NewMockUnitHookContext(s.mockUnit, model.IAAS, s.mockLeadership)
+	context.SetEnvironmentHookContextSecret(hookContext, uri.String(), map[string]jujuc.SecretMetadata{
+		uri.ID: {
+			Description:    "a secret",
+			LatestRevision: 666,
+			Owner:          names.NewApplicationTag("mariadb"),
+			Grants: []coresecrets.GrantInfo{
+				{
+					Target: "application-gitlab",
+					Role:   coresecrets.RoleView,
+					Scope:  "relation-mariadb.db#gitlab.db",
+				},
+			},
+		},
+	}, nil, nil)
+	s.mockLeadership.EXPECT().IsLeader().Return(true, nil)
+	c.Assert(hookContext.PendingSecretGrants(), jc.DeepEquals, map[string]map[string]uniter.SecretGrantRevokeArgs{})
+	app := "gitlab"
+	relationKey := "mariadb:db gitlab:db"
+	err := hookContext.GrantSecret(uri, &jujuc.SecretGrantRevokeArgs{
+		ApplicationName: &app,
+		RelationKey:     &relationKey,
+		Role:            ptr(coresecrets.RoleView),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(hookContext.PendingSecretGrants(), jc.DeepEquals, map[string]map[string]uniter.SecretGrantRevokeArgs{})
+}
+
+func (s *mockHookContextSuite) TestSecretGrantNoOPSBecauseofExactSameUnit(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	uri := coresecrets.NewURI()
+	hookContext := context.NewMockUnitHookContext(s.mockUnit, model.IAAS, s.mockLeadership)
+	context.SetEnvironmentHookContextSecret(hookContext, uri.String(), map[string]jujuc.SecretMetadata{
+		uri.ID: {
+			Description:    "a secret",
+			LatestRevision: 666,
+			Owner:          names.NewApplicationTag("mariadb"),
+			Grants: []coresecrets.GrantInfo{
+				{
+					Target: "unit-gitlab-0",
+					Role:   coresecrets.RoleView,
+					Scope:  "relation-mariadb.db#gitlab.db",
+				},
+			},
+		},
+	}, nil, nil)
+	s.mockLeadership.EXPECT().IsLeader().Return(true, nil)
+	c.Assert(hookContext.PendingSecretGrants(), jc.DeepEquals, map[string]map[string]uniter.SecretGrantRevokeArgs{})
+	unit := "gitlab/0"
+	relationKey := "mariadb:db gitlab:db"
+	err := hookContext.GrantSecret(uri, &jujuc.SecretGrantRevokeArgs{
+		UnitName:    &unit,
+		RelationKey: &relationKey,
+		Role:        ptr(coresecrets.RoleView),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(hookContext.PendingSecretGrants(), jc.DeepEquals, map[string]map[string]uniter.SecretGrantRevokeArgs{})
+}
+
+func (s *mockHookContextSuite) TestSecretGrantNoOPSBecauseApplicationLevelGrantedAlready(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	uri := coresecrets.NewURI()
+	hookContext := context.NewMockUnitHookContext(s.mockUnit, model.IAAS, s.mockLeadership)
+	context.SetEnvironmentHookContextSecret(hookContext, uri.String(), map[string]jujuc.SecretMetadata{
+		uri.ID: {
+			Description:    "a secret",
+			LatestRevision: 666,
+			Owner:          names.NewApplicationTag("mariadb"),
+			Grants: []coresecrets.GrantInfo{
+				{
+					Target: "application-gitlab",
+					Role:   coresecrets.RoleView,
+					Scope:  "relation-mariadb.db#gitlab.db",
+				},
+			},
+		},
+	}, nil, nil)
+	s.mockLeadership.EXPECT().IsLeader().Return(true, nil)
+	c.Assert(hookContext.PendingSecretGrants(), jc.DeepEquals, map[string]map[string]uniter.SecretGrantRevokeArgs{})
+	unit := "gitlab/0"
+	relationKey := "mariadb:db gitlab:db"
+	err := hookContext.GrantSecret(uri, &jujuc.SecretGrantRevokeArgs{
+		UnitName:    &unit,
+		RelationKey: &relationKey,
+		Role:        ptr(coresecrets.RoleView),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(hookContext.PendingSecretGrants(), jc.DeepEquals, map[string]map[string]uniter.SecretGrantRevokeArgs{})
+}
+
+func (s *mockHookContextSuite) TestSecretGrantFailedRevokeExistingRecordRequired(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	uri := coresecrets.NewURI()
+	hookContext := context.NewMockUnitHookContext(s.mockUnit, model.IAAS, s.mockLeadership)
+	context.SetEnvironmentHookContextSecret(hookContext, uri.String(), map[string]jujuc.SecretMetadata{
+		uri.ID: {
+			Description:    "a secret",
+			LatestRevision: 666,
+			Owner:          names.NewApplicationTag("mariadb"),
+			Grants: []coresecrets.GrantInfo{
+				{
+					Target: "unit-gitlab-0",
+					Role:   coresecrets.RoleView,
+					Scope:  "relation-mariadb.db#gitlab.db",
+				},
+			},
+		},
+	}, nil, nil)
+	s.mockLeadership.EXPECT().IsLeader().Return(true, nil)
+	c.Assert(hookContext.PendingSecretGrants(), jc.DeepEquals, map[string]map[string]uniter.SecretGrantRevokeArgs{})
+	app := "gitlab"
+	relationKey := "mariadb:db gitlab:db"
+	err := hookContext.GrantSecret(uri, &jujuc.SecretGrantRevokeArgs{
+		ApplicationName: &app,
+		RelationKey:     &relationKey,
+		Role:            ptr(coresecrets.RoleView),
+	})
+	c.Assert(err, gc.ErrorMatches, `to grant in application level, all unit level grants should be revoked first`)
 }
 
 func (s *mockHookContextSuite) TestSecretRevoke(c *gc.C) {
