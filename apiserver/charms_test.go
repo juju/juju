@@ -258,17 +258,6 @@ func (s *charmsSuite) TestUploadWithMultiSeriesCharm(c *gc.C) {
 	s.assertUploadResponse(c, resp, expectedURL)
 }
 
-func (s *charmsSuite) TestUploadAllowsTopLevelPath(c *gc.C) {
-	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
-	// Backwards compatibility check, that we can upload charms to
-	// https://host:port/charms
-	url := s.charmsURL("series=quantal")
-	url.Path = "/charms"
-	resp := s.uploadRequest(c, url.String(), "application/zip", &fileReader{path: ch.Path})
-	expectedURL := "local:quantal/dummy-1"
-	s.assertUploadResponse(c, resp, expectedURL)
-}
-
 func (s *charmsSuite) TestUploadAllowsModelUUIDPath(c *gc.C) {
 	// Check that we can upload charms to https://host:port/ModelUUID/charms
 	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
@@ -747,17 +736,6 @@ func (s *charmsSuite) TestGetStarReturnsArchiveBytes(c *gc.C) {
 	uri := s.charmsURI("?url=local:quantal/dummy-1&file=*")
 	resp := sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "GET", URL: uri})
 	s.assertGetFileResponse(c, resp, string(data), "application/zip")
-}
-
-func (s *charmsSuite) TestGetAllowsTopLevelPath(c *gc.C) {
-	// Backwards compatibility check, that we can GET from charms at
-	// https://host:port/charms
-	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
-	s.uploadRequest(c, s.charmsURI("?series=quantal"), "application/zip", &fileReader{path: ch.Path})
-	url := s.charmsURL("url=local:quantal/dummy-1&file=revision")
-	url.Path = "/charms"
-	resp := sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "GET", URL: url.String()})
-	s.assertGetFileResponse(c, resp, "1", "text/plain; charset=utf-8")
 }
 
 func (s *charmsSuite) TestGetAllowsModelUUIDPath(c *gc.C) {
