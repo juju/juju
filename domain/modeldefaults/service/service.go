@@ -11,9 +11,14 @@ import (
 	"github.com/juju/schema"
 
 	"github.com/juju/juju/domain/model"
+	_ "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/domain/modeldefaults"
 	"github.com/juju/juju/environs/config"
 )
+
+// applyStrategyFunc is a utility type that implements the
+// [modeldefaults.ApplyStrategy] interface as a func type.
+type applyStrategyFunc func(any, any) any
 
 // ModelDefaultsProvider represents a provider that will provide model defaults
 // values for a single model. Interfaces of this type are expected to be
@@ -25,7 +30,7 @@ type ModelDefaultsProvider interface {
 	ModelDefaults(context.Context) (modeldefaults.Defaults, error)
 }
 
-// ModelDefaultsProviderFunc is a func type that implements ModelDefaultsProvider.
+// ModelDefaultsProviderFunc is a func type that implements [ModelDefaultsProvider].
 type ModelDefaultsProviderFunc func(context.Context) (modeldefaults.Defaults, error)
 
 // State is the model config state required by this service.
@@ -51,6 +56,11 @@ type Service struct {
 	st State
 }
 
+// Apply implements [modeldefaults.ApplyStrategy] for [applyStrategyFunc]
+func (f applyStrategyFunc) Apply(d, s any) any {
+	return f(d, s)
+}
+
 // ModelDefaults implements ModelDefaultsProvider
 func (f ModelDefaultsProviderFunc) ModelDefaults(
 	ctx context.Context,
@@ -59,7 +69,8 @@ func (f ModelDefaultsProviderFunc) ModelDefaults(
 }
 
 // ModelDefaults will return the default config values to be used for a model
-// and it's config.
+// and it's config. If no model for uuid is found then a error satisfying
+// [github.com/juju/juju/domain/model/errors.NotFound] will be returned.
 func (s *Service) ModelDefaults(
 	ctx context.Context,
 	uuid model.UUID,
@@ -72,7 +83,11 @@ func (s *Service) ModelDefaults(
 
 	jujuDefaults := s.st.ConfigDefaults(ctx)
 	for k, v := range jujuDefaults {
-		defaults[k] = modeldefaults.DefaultAttributeValue{Default: v}
+		defaults[k] = modeldefaults.DefaultAttributeValue{
+			Strategy: preferSetStrategy(),
+			Source:   config.JujuDefaultSource,
+			V:        v,
+		}
 	}
 
 	schemaSource, err := s.st.ModelProviderConfigSchema(ctx, uuid)
@@ -86,7 +101,11 @@ func (s *Service) ModelDefaults(
 		}
 
 		for k, v := range coercedAttrs.(map[string]interface{}) {
-			defaults[k] = modeldefaults.DefaultAttributeValue{Default: v}
+			defaults[k] = modeldefaults.DefaultAttributeValue{
+				Strategy: preferSetStrategy(),
+				Source:   config.JujuDefaultSource,
+				V:        v,
+			}
 		}
 	}
 
@@ -96,9 +115,11 @@ func (s *Service) ModelDefaults(
 	}
 
 	for k, v := range cloudDefaults {
-		attr := defaults[k]
-		attr.Controller = v
-		defaults[k] = attr
+		defaults[k] = modeldefaults.DefaultAttributeValue{
+			Strategy: preferSetStrategy(),
+			Source:   config.JujuControllerSource,
+			V:        v,
+		}
 	}
 
 	cloudRegionDefaults, err := s.st.ModelCloudRegionDefaults(ctx, uuid)
@@ -107,16 +128,22 @@ func (s *Service) ModelDefaults(
 	}
 
 	for k, v := range cloudRegionDefaults {
-		attr := defaults[k]
-		attr.Region = v
-		defaults[k] = attr
+		defaults[k] = modeldefaults.DefaultAttributeValue{
+			Strategy: preferSetStrategy(),
+			Source:   config.JujuRegionSource,
+			V:        v,
+		}
 	}
 
 	return defaults, nil
 }
 
-// ModelDefaultsProvider provides a ModelDefaultsProviderFunc scoped to the
-// supplied model. This can be used in the construction of modelconfig services.
+// ModelDefaultsProvider provides a [ModelDefaultsProviderFunc] scoped to the
+// supplied model. This can be used in the construction of
+// [github.com/juju/juju/domain/modelconfig/service.Service]. If no model exists
+// for the specified UUID then the [ModelDefaultsProviderFunc] will return a
+// error that satisfies
+// [github.com/juju/juju/domain/model/errors.NotFound].
 func (s *Service) ModelDefaultsProvider(
 	uuid model.UUID,
 ) ModelDefaultsProviderFunc {
@@ -129,5 +156,17 @@ func (s *Service) ModelDefaultsProvider(
 func NewService(st State) *Service {
 	return &Service{
 		st: st,
+	}
+}
+
+// preferSetStrategy is a [modeldefaults.ApplyStrategy] that will always prefer
+// using the set value in model config over that of the default value. The
+// default value will only ever be chosen when the set value is nil.
+func preferSetStrategy() applyStrategyFunc {
+	return func(defaultVal, setVal any) any {
+		if setVal != nil {
+			return setVal
+		}
+		return defaultVal
 	}
 }
