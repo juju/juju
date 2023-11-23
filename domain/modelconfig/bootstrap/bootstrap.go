@@ -29,8 +29,9 @@ func SetModelConfig(
 		}
 
 		for k, v := range defaults {
-			if _, exists := attrs[k]; !exists && v.Value() != nil {
-				attrs[k] = v.Value()
+			attrVal := v.ApplyStrategy(attrs[k])
+			if attrVal != nil {
+				attrs[k] = attrVal
 			}
 		}
 

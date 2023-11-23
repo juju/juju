@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/juju/domain/modeldefaults"
 	"github.com/juju/juju/domain/modeldefaults/service"
+	"github.com/juju/juju/environs/config"
 )
 
 // ModelDefaultsProvider is a bootstrap helper that wraps the raw config values
@@ -22,21 +23,24 @@ func ModelDefaultsProvider(
 		defaults := modeldefaults.Defaults{}
 
 		for k, v := range configDefaults {
-			attr := defaults[k]
-			attr.Default = v
-			defaults[k] = attr
+			defaults[k] = modeldefaults.DefaultAttributeValue{
+				Source: config.JujuDefaultSource,
+				V:      v,
+			}
 		}
 
 		for k, v := range controllerConfig {
-			attr := defaults[k]
-			attr.Controller = v
-			defaults[k] = attr
+			defaults[k] = modeldefaults.DefaultAttributeValue{
+				Source: config.JujuControllerSource,
+				V:      v,
+			}
 		}
 
 		for k, v := range cloudRegionConfig {
-			attr := defaults[k]
-			attr.Region = v
-			defaults[k] = attr
+			defaults[k] = modeldefaults.DefaultAttributeValue{
+				Source: config.JujuRegionSource,
+				V:      v,
+			}
 		}
 
 		return defaults, nil

@@ -8,8 +8,6 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-
-	"github.com/juju/juju/domain/modeldefaults"
 )
 
 type bootstrapSuite struct{}
@@ -34,20 +32,12 @@ func (_ *bootstrapSuite) TestBootstrapModelDefaults(c *gc.C) {
 
 	defaults, err := provider.ModelDefaults(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(defaults, jc.DeepEquals, modeldefaults.Defaults{
-		"foo": modeldefaults.DefaultAttributeValue{
-			Default:    "default",
-			Controller: "controller",
-			Region:     "region",
-		},
-		"default": modeldefaults.DefaultAttributeValue{
-			Default: "some value",
-		},
-		"controller": modeldefaults.DefaultAttributeValue{
-			Controller: "some value",
-		},
-		"region": modeldefaults.DefaultAttributeValue{
-			Region: "some value",
-		},
-	})
+	c.Assert(defaults["foo"].V, gc.Equals, "region")
+	c.Assert(defaults["foo"].Source, gc.Equals, "region")
+	c.Assert(defaults["default"].V, gc.Equals, "some value")
+	c.Assert(defaults["default"].Source, gc.Equals, "default")
+	c.Assert(defaults["controller"].V, gc.Equals, "some value")
+	c.Assert(defaults["controller"].Source, gc.Equals, "controller")
+	c.Assert(defaults["region"].V, gc.Equals, "some value")
+	c.Assert(defaults["region"].Source, gc.Equals, "region")
 }
