@@ -60,6 +60,7 @@ func (*importSuite) TestImports(c *gc.C) {
 		"core/migration",
 		"core/model",
 		"core/network",
+		"core/objectstore",
 		"core/os",
 		"core/output",
 		"core/paths",

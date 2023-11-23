@@ -15,7 +15,9 @@ import (
 
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/trace"
+	controllerconfigservice "github.com/juju/juju/domain/controllerconfig/service"
 	internalobjectstore "github.com/juju/juju/internal/objectstore"
+	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/state"
 )
 
@@ -34,6 +36,15 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 	cfg.AgentName = ""
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
+	cfg.StateName = ""
+	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+
+	cfg.TraceName = ""
+	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+
+	cfg.ServiceFactoryName = ""
+	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+
 	cfg.Clock = nil
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
@@ -48,27 +59,32 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 
 func (s *manifoldSuite) getConfig() ManifoldConfig {
 	return ManifoldConfig{
-		AgentName: "agent",
-		StateName: "state",
-		TraceName: "trace",
-		Clock:     s.clock,
-		Logger:    s.logger,
+		AgentName:          "agent",
+		StateName:          "state",
+		TraceName:          "trace",
+		ServiceFactoryName: "service-factory",
+		Clock:              s.clock,
+		Logger:             s.logger,
 		NewObjectStoreWorker: func(context.Context, objectstore.BackendType, string, ...internalobjectstore.Option) (internalobjectstore.TrackedObjectStore, error) {
 			return nil, nil
+		},
+		GetObjectStoreType: func(ControllerConfigService) (objectstore.BackendType, error) {
+			return objectstore.StateBackend, nil
 		},
 	}
 }
 
 func (s *manifoldSuite) getContext() dependency.Context {
 	resources := map[string]any{
-		"agent": s.agent,
-		"trace": &stubTracerGetter{},
-		"state": s.stateTracker,
+		"agent":           s.agent,
+		"trace":           &stubTracerGetter{},
+		"state":           s.stateTracker,
+		"service-factory": &stubServiceFactory{},
 	}
 	return dependencytesting.StubContext(nil, resources)
 }
 
-var expectedInputs = []string{"agent", "state", "trace"}
+var expectedInputs = []string{"agent", "state", "trace", "service-factory"}
 
 func (s *manifoldSuite) TestInputs(c *gc.C) {
 	c.Assert(Manifold(s.getConfig()).Inputs, jc.SameContents, expectedInputs)
@@ -93,4 +109,12 @@ type stubTracerGetter struct{}
 
 func (s *stubTracerGetter) GetTracer(ctx context.Context, namespace trace.TracerNamespace) (trace.Tracer, error) {
 	return trace.NoopTracer{}, nil
+}
+
+type stubServiceFactory struct {
+	servicefactory.ControllerServiceFactory
+}
+
+func (s *stubServiceFactory) ControllerConfig() *controllerconfigservice.Service {
+	return nil
 }
