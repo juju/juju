@@ -797,6 +797,24 @@ func (s *SecretsManagerAPI) getSecretContent(arg params.GetSecretContentArg) (
 	return content, backend, draining, errors.Trace(err)
 }
 
+// UpdateTrackedRevisions updates the consumer info to track the latest
+// revisions for the specified secrets.
+func (s *SecretsManagerAPI) UpdateTrackedRevisions(uris []string) (params.ErrorResults, error) {
+	result := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(uris)),
+	}
+	for i, uriStr := range uris {
+		uri, err := coresecrets.ParseURI(uriStr)
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		_, err = s.getConsumedRevision(uri, true, false, "", false)
+		result.Results[i].Error = apiservererrors.ServerError(err)
+	}
+	return result, nil
+}
+
 func (s *SecretsManagerAPI) getConsumedRevision(uri *coresecrets.URI, refresh, peek bool, label string, possibleUpdateLabel bool) (int, error) {
 	consumerInfo, err := s.secretsConsumer.GetSecretConsumer(uri, s.authTag)
 	if err != nil && !errors.Is(err, errors.NotFound) {

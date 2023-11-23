@@ -762,6 +762,33 @@ func (s *SecretsSuite) TestUpdateDataSetsLatestConsumerRevision(c *gc.C) {
 	})
 }
 
+func (s *SecretsSuite) TestUpdateOwnerLabel(c *gc.C) {
+	uri := secrets.NewURI()
+	now := s.Clock.Now().Round(time.Second).UTC()
+	next := now.Add(time.Minute).Round(time.Second).UTC()
+	cp := state.CreateSecretParams{
+		Version: 1,
+		Owner:   s.owner.Tag(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken:    &fakeToken{},
+			RotatePolicy:   ptr(secrets.RotateDaily),
+			NextRotateTime: ptr(next),
+			Data:           map[string]string{"foo": "bar"},
+		},
+	}
+	md, err := s.store.CreateSecret(uri, cp)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertUpdatedSecret(c, md, 1, state.UpdateSecretParams{
+		LeaderToken: &fakeToken{},
+		Label:       ptr("foobar2"),
+	})
+	// Ensure it can be reset back to an older value.
+	s.assertUpdatedSecret(c, md, 1, state.UpdateSecretParams{
+		LeaderToken: &fakeToken{},
+		Label:       ptr("foobar"),
+	})
+}
+
 func (s *SecretsSuite) TestUpdateDataSetsLatestConsumerRevisionConcurrentAdd(c *gc.C) {
 	uri := secrets.NewURI()
 	now := s.Clock.Now().Round(time.Second).UTC()

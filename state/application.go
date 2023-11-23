@@ -767,13 +767,13 @@ func (a *Application) removeOps(asserts bson.D, op *ForcedOperation) ([]txn.Op, 
 		return nil, errors.Trace(err)
 	}
 	ops = append(ops, secretConsumerPermissionsOps...)
-	secretLabelOps, err := a.st.removeOwnerSecretLabelOps(a.ApplicationTag())
+	secretLabelOps, err := a.st.removeOwnerSecretLabelsOps(a.ApplicationTag())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	ops = append(ops, secretLabelOps...)
 
-	secretLabelOps, err = a.st.removeConsumerSecretLabelOps(a.ApplicationTag())
+	secretLabelOps, err = a.st.removeConsumerSecretLabelsOps(a.ApplicationTag())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -3035,11 +3035,11 @@ func (a *Application) removeUnitOps(u *Unit, asserts bson.D, op *ForcedOperation
 	if op.FatalError(err) {
 		return nil, errors.Trace(err)
 	}
-	secretOwnerLabelOps, err := a.st.removeOwnerSecretLabelOps(u.Tag())
+	secretOwnerLabelOps, err := a.st.removeOwnerSecretLabelsOps(u.Tag())
 	if op.FatalError(err) {
 		return nil, errors.Trace(err)
 	}
-	secretConsumerLabelOps, err := a.st.removeConsumerSecretLabelOps(u.Tag())
+	secretConsumerLabelOps, err := a.st.removeConsumerSecretLabelsOps(u.Tag())
 	if op.FatalError(err) {
 		return nil, errors.Trace(err)
 	}

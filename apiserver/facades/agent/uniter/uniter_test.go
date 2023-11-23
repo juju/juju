@@ -4731,7 +4731,11 @@ func (s *uniterSuite) TestCommitHookChangesWithSecrets(c *gc.C) {
 		Description:  ptr("a secret"),
 		Label:        ptr("foobar"),
 		Value:        secrets.NewSecretValue(map[string]string{"foo": "bar2"}),
+	}, {
+		URI:   uri3,
+		Value: secrets.NewSecretValue(map[string]string{"foo3": "bar3"}),
 	}})
+	b.AddTrackLatest([]string{uri3.ID})
 	b.AddSecretDeletes([]apiuniter.SecretDeleteArg{{URI: uri3, Revision: ptr(1)}})
 	b.AddSecretGrants([]apiuniter.SecretGrantRevokeArgs{{
 		URI:             uri,
@@ -4757,7 +4761,7 @@ func (s *uniterSuite) TestCommitHookChangesWithSecrets(c *gc.C) {
 	})
 
 	// Verify state
-	_, err = store.GetSecret(uri3)
+	_, _, err = store.GetSecretValue(uri3, 1)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	md, err := store.GetSecret(uri)
 	c.Assert(err, jc.ErrorIsNil)
@@ -4773,6 +4777,11 @@ func (s *uniterSuite) TestCommitHookChangesWithSecrets(c *gc.C) {
 	access, err = s.State.SecretAccess(uri2, s.mysql.Tag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(access, gc.Equals, secrets.RoleNone)
+
+	info, err := s.State.GetSecretConsumer(uri3, s.wordpressUnit.Tag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info.CurrentRevision, gc.Equals, 2)
+	c.Assert(info.LatestRevision, gc.Equals, 2)
 }
 
 func (s *uniterSuite) TestCommitHookChangesWithStorage(c *gc.C) {
