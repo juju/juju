@@ -16,10 +16,6 @@ import (
 	"github.com/juju/juju/environs/config"
 )
 
-// applyStrategyFunc is a utility type that implements the
-// [modeldefaults.ApplyStrategy] interface as a func type.
-type applyStrategyFunc func(any, any) any
-
 // ModelDefaultsProvider represents a provider that will provide model defaults
 // values for a single model. Interfaces of this type are expected to be
 // scoped to a predetermined model already.
@@ -56,11 +52,6 @@ type Service struct {
 	st State
 }
 
-// Apply implements [modeldefaults.ApplyStrategy] for [applyStrategyFunc]
-func (f applyStrategyFunc) Apply(d, s any) any {
-	return f(d, s)
-}
-
 // ModelDefaults implements ModelDefaultsProvider
 func (f ModelDefaultsProviderFunc) ModelDefaults(
 	ctx context.Context,
@@ -84,9 +75,8 @@ func (s *Service) ModelDefaults(
 	jujuDefaults := s.st.ConfigDefaults(ctx)
 	for k, v := range jujuDefaults {
 		defaults[k] = modeldefaults.DefaultAttributeValue{
-			Strategy: preferSetStrategy(),
-			Source:   config.JujuDefaultSource,
-			V:        v,
+			Source: config.JujuDefaultSource,
+			V:      v,
 		}
 	}
 
@@ -102,9 +92,8 @@ func (s *Service) ModelDefaults(
 
 		for k, v := range coercedAttrs.(map[string]interface{}) {
 			defaults[k] = modeldefaults.DefaultAttributeValue{
-				Strategy: preferSetStrategy(),
-				Source:   config.JujuDefaultSource,
-				V:        v,
+				Source: config.JujuDefaultSource,
+				V:      v,
 			}
 		}
 	}
@@ -116,9 +105,8 @@ func (s *Service) ModelDefaults(
 
 	for k, v := range cloudDefaults {
 		defaults[k] = modeldefaults.DefaultAttributeValue{
-			Strategy: preferSetStrategy(),
-			Source:   config.JujuControllerSource,
-			V:        v,
+			Source: config.JujuControllerSource,
+			V:      v,
 		}
 	}
 
@@ -129,9 +117,8 @@ func (s *Service) ModelDefaults(
 
 	for k, v := range cloudRegionDefaults {
 		defaults[k] = modeldefaults.DefaultAttributeValue{
-			Strategy: preferSetStrategy(),
-			Source:   config.JujuRegionSource,
-			V:        v,
+			Source: config.JujuRegionSource,
+			V:      v,
 		}
 	}
 
@@ -156,17 +143,5 @@ func (s *Service) ModelDefaultsProvider(
 func NewService(st State) *Service {
 	return &Service{
 		st: st,
-	}
-}
-
-// preferSetStrategy is a [modeldefaults.ApplyStrategy] that will always prefer
-// using the set value in model config over that of the default value. The
-// default value will only ever be chosen when the set value is nil.
-func preferSetStrategy() applyStrategyFunc {
-	return func(defaultVal, setVal any) any {
-		if setVal != nil {
-			return setVal
-		}
-		return defaultVal
 	}
 }

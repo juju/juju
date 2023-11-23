@@ -30,7 +30,8 @@ type DefaultAttributeValue struct {
 	Source string
 
 	// Strategy is the ApplyStrategy that should be used when deciding how to
-	// integrate this default value.
+	// integrate this default value. If Strategy is the zero value then consult
+	// [DefaultAttributeValue.ApplyStrategy] for expected behaviour.
 	Strategy ApplyStrategy
 
 	// V is the default value.
@@ -42,13 +43,24 @@ type DefaultAttributeValue struct {
 // consider for it's config.
 type Defaults map[string]DefaultAttributeValue
 
+// PreferSetApplyStrategy is a [ApplyStrategy] implementation that will
+// implements an apply strategy that will always prefer the value set in model
+// config before the value being offered by the model default. If the set value
+// for model config is nil then the default value will be returned. If both
+// values are nil then nil will be returned.
+//
+// The zero value of this type is safe to use as an [ApplyStrategy].
+type PreferSetApplyStrategy struct{}
+
 // ApplyStrategy runs the ApplyStrategy attached to this default value. The
 // returned value is the result of what the ApplyStrategy has deemed is the
 // value that should be set on the model config. If this DefaultAttributeValue
-// has no ApplyStrategy set then the setVal passed to this function is returned.
+// has no ApplyStrategy set then by default we pass the decision to
+// [PreferSetApplyStrategy].
 func (d DefaultAttributeValue) ApplyStrategy(setVal any) any {
 	if d.Strategy == nil {
-		return setVal
+		strat := PreferSetApplyStrategy{}
+		return strat.Apply(d.V, setVal)
 	}
 	return d.Strategy.Apply(d.V, setVal)
 }
@@ -83,4 +95,12 @@ func (d DefaultAttributeValue) Has(val any) (bool, string) {
 		return true, d.Source
 	}
 	return false, ""
+}
+
+// Apply implements [ApplyStrategy] interface for [PreferSetApplyStrategy].
+func (*PreferSetApplyStrategy) Apply(defaultVal, setVal any) any {
+	if setVal != nil {
+		return setVal
+	}
+	return defaultVal
 }
