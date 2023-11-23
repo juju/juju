@@ -4,6 +4,7 @@
 package migrationtarget
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/juju/errors"
@@ -13,6 +14,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/core/facades"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
@@ -27,14 +29,15 @@ import (
 // API implements the API required for the model migration
 // master worker when communicating with the target controller.
 type API struct {
-	state         *state.State
-	pool          *state.StatePool
-	authorizer    facade.Authorizer
-	resources     facade.Resources
-	presence      facade.Presence
-	getClaimer    migration.ClaimerFunc
-	getEnviron    stateenvirons.NewEnvironFunc
-	getCAASBroker stateenvirons.NewCAASBrokerFunc
+	state                           *state.State
+	pool                            *state.StatePool
+	authorizer                      facade.Authorizer
+	resources                       facade.Resources
+	presence                        facade.Presence
+	getClaimer                      migration.ClaimerFunc
+	getEnviron                      stateenvirons.NewEnvironFunc
+	getCAASBroker                   stateenvirons.NewCAASBrokerFunc
+	requiredMigrationFacadeVersions facades.FacadeVersions
 }
 
 // APIV1 implements the V1 version of the API facade.
@@ -42,23 +45,34 @@ type APIV1 struct {
 	*API
 }
 
+// APIV2 implements the V2 version of the API facade.
+type APIV2 struct {
+	*APIV1
+}
+
 // NewAPI returns a new APIV1. Accepts a NewEnvironFunc and context.ProviderCallContext
 // for testing purposes.
-func NewAPI(ctx facade.Context, getEnviron stateenvirons.NewEnvironFunc, getCAASBroker stateenvirons.NewCAASBrokerFunc) (*API, error) {
+func NewAPI(
+	ctx facade.Context,
+	getEnviron stateenvirons.NewEnvironFunc,
+	getCAASBroker stateenvirons.NewCAASBrokerFunc,
+	requiredMigrationFacadeVersions facades.FacadeVersions,
+) (*API, error) {
 	auth := ctx.Auth()
 	st := ctx.State()
 	if err := checkAuth(auth, st); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return &API{
-		state:         st,
-		pool:          ctx.StatePool(),
-		authorizer:    auth,
-		resources:     ctx.Resources(),
-		presence:      ctx.Presence(),
-		getClaimer:    ctx.LeadershipClaimer,
-		getEnviron:    getEnviron,
-		getCAASBroker: getCAASBroker,
+		state:                           st,
+		pool:                            ctx.StatePool(),
+		authorizer:                      auth,
+		resources:                       ctx.Resources(),
+		presence:                        ctx.Presence(),
+		getClaimer:                      ctx.LeadershipClaimer,
+		getEnviron:                      getEnviron,
+		getCAASBroker:                   getCAASBroker,
+		requiredMigrationFacadeVersions: requiredMigrationFacadeVersions,
 	}, nil
 }
 
@@ -79,6 +93,36 @@ func checkAuth(authorizer facade.Authorizer, st *state.State) error {
 // Prechecks ensure that the target controller is ready to accept a
 // model migration.
 func (api *API) Prechecks(model params.MigrationModelInfo) error {
+	// If there are no required migration facade versions, then we
+	// don't need to check anything.
+	if len(api.requiredMigrationFacadeVersions) > 0 {
+		// Ensure that when attempting to migrate a model, the source
+		// controller has the required facades for the migration.
+		sourceFacadeVersions := facades.FacadeVersions{}
+		for name, versions := range model.FacadeVersions {
+			sourceFacadeVersions[name] = versions
+		}
+		if !facades.CompleteIntersection(api.requiredMigrationFacadeVersions, sourceFacadeVersions) {
+			majorMinor := fmt.Sprintf("%d.%d",
+				model.ControllerAgentVersion.Major,
+				model.ControllerAgentVersion.Minor,
+			)
+
+			// If the patch is zero, then we don't need to mention it.
+			var patchMessage string
+			if model.ControllerAgentVersion.Patch > 0 {
+				patchMessage = fmt.Sprintf(", that is greater than %s.%d", majorMinor, model.ControllerAgentVersion.Patch)
+			}
+
+			return errors.Errorf(`
+Source controller does not support required facades for performing migration.
+Upgrade the controller to a newer version of %s%s or migrate to a controller
+with an earlier version of the target controller and try again.
+
+`[1:], majorMinor, patchMessage)
+		}
+	}
+
 	ownerTag, err := names.ParseUserTag(model.OwnerTag)
 	if err != nil {
 		return errors.Trace(err)

@@ -35,6 +35,7 @@ import (
 	"gopkg.in/retry.v1"
 
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/core/facades"
 	coremacaroon "github.com/juju/juju/core/macaroon"
 	"github.com/juju/juju/core/network"
 	jujuproxy "github.com/juju/juju/proxy"
@@ -1380,7 +1381,7 @@ func (s *state) PublicDNSName() string {
 // Facade we will want to use. It needs to line up the versions that the server
 // reports to us, with the versions that our client knows how to use.
 func (s *state) BestFacadeVersion(facade string) int {
-	return bestVersion(facadeVersions[facade], s.facadeVersions[facade])
+	return facades.BestVersion(facadeVersions[facade], s.facadeVersions[facade])
 }
 
 // serverRoot returns the cached API server address and port used

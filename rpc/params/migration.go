@@ -163,11 +163,12 @@ type MasterMigrationStatus struct {
 // MigrationModelInfo is used to report basic model information to the
 // migrationmaster worker.
 type MigrationModelInfo struct {
-	UUID                   string         `json:"uuid"`
-	Name                   string         `json:"name"`
-	OwnerTag               string         `json:"owner-tag"`
-	AgentVersion           version.Number `json:"agent-version"`
-	ControllerAgentVersion version.Number `json:"controller-agent-version"`
+	UUID                   string           `json:"uuid"`
+	Name                   string           `json:"name"`
+	OwnerTag               string           `json:"owner-tag"`
+	AgentVersion           version.Number   `json:"agent-version"`
+	ControllerAgentVersion version.Number   `json:"controller-agent-version"`
+	FacadeVersions         map[string][]int `json:"facade-versions,omitempty"`
 }
 
 // MigrationStatus reports the current status of a model migration.
