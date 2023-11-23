@@ -33,7 +33,8 @@ func (s *serviceSuite) TestSetModelConfig(c *gc.C) {
 	var defaults ModelDefaultsProviderFunc = func(_ context.Context) (modeldefaults.Defaults, error) {
 		return modeldefaults.Defaults{
 			"foo": modeldefaults.DefaultAttributeValue{
-				Controller: "bar",
+				Source: config.JujuControllerSource,
+				V:      "bar",
 			},
 		}, nil
 	}
