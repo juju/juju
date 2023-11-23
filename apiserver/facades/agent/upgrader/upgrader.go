@@ -15,6 +15,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -57,6 +58,7 @@ func NewUpgraderAPI(
 	logger loggo.Logger,
 	cloudService common.CloudService,
 	credentialService common.CredentialService,
+	controllerStore objectstore.ObjectStore,
 ) (*UpgraderAPI, error) {
 	if !authorizer.AuthMachineAgent() && !authorizer.AuthApplicationAgent() && !authorizer.AuthModelAgent() && !authorizer.AuthUnitAgent() {
 		return nil, apiservererrors.ErrPerm
@@ -72,7 +74,7 @@ func NewUpgraderAPI(
 	configGetter := stateenvirons.EnvironConfigGetter{
 		Model: model, CloudService: cloudService, CredentialService: credentialService}
 	newEnviron := common.EnvironFuncForModel(model, cloudService, credentialService, configGetter)
-	toolsFinder := common.NewToolsFinder(controllerConfigGetter, configGetter, st, urlGetter, newEnviron)
+	toolsFinder := common.NewToolsFinder(controllerConfigGetter, configGetter, st, urlGetter, newEnviron, controllerStore)
 	return &UpgraderAPI{
 		ToolsGetter: common.NewToolsGetter(st, configGetter, st, urlGetter, toolsFinder, getCanReadWrite),
 		ToolsSetter: common.NewToolsSetter(st, getCanReadWrite),

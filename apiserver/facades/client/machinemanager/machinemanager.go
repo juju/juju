@@ -87,6 +87,7 @@ type MachineManagerAPI struct {
 	leadership              Leadership
 	upgradeSeriesAPI        UpgradeSeries
 	store                   objectstore.ObjectStore
+	controllerStore         objectstore.ObjectStore
 
 	credentialInvalidatorGetter environscontext.ModelCredentialInvalidatorGetter
 	logger                      loggo.Logger
@@ -155,6 +156,7 @@ func NewFacadeV10(ctx facade.Context) (*MachineManagerAPI, error) {
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
 		ctx.ObjectStore(),
+		ctx.ControllerObjectStore(),
 		storageAccess,
 		pool,
 		ModelAuthorizer{
@@ -175,7 +177,7 @@ func NewMachineManagerAPI(
 	backend Backend,
 	cloudService common.CloudService,
 	credentialService common.CredentialService,
-	store objectstore.ObjectStore,
+	store, controllerStore objectstore.ObjectStore,
 	storageAccess StorageInterface,
 	pool Pool,
 	auth Authorizer,
@@ -195,6 +197,7 @@ func NewMachineManagerAPI(
 		cloudService:                cloudService,
 		credentialService:           credentialService,
 		store:                       store,
+		controllerStore:             controllerStore,
 		pool:                        pool,
 		authorizer:                  auth,
 		check:                       common.NewBlockChecker(backend),
@@ -356,7 +359,14 @@ func (mm *MachineManagerAPI) ProvisioningScript(ctx context.Context, args params
 		return result, errors.Trace(err)
 	}
 
-	icfg, err := InstanceConfig(ctx, mm.controllerConfigService, st, mm.st, mm.cloudService, mm.credentialService, args.MachineId, args.Nonce, args.DataDir)
+	services := InstanceConfigServices{
+		CloudService:            mm.cloudService,
+		CredentialService:       mm.credentialService,
+		ControllerConfigService: mm.controllerConfigService,
+		ObjectStore:             mm.controllerStore,
+	}
+
+	icfg, err := InstanceConfig(ctx, st, mm.st, services, args.MachineId, args.Nonce, args.DataDir)
 	if err != nil {
 		return result, apiservererrors.ServerError(errors.Annotate(
 			err, "getting instance config",

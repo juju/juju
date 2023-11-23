@@ -13,6 +13,7 @@ import (
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/catacomb"
 
+	"github.com/juju/juju/core/database"
 	coreobjectstore "github.com/juju/juju/core/objectstore"
 	coretrace "github.com/juju/juju/core/trace"
 	internalobjectstore "github.com/juju/juju/internal/objectstore"
@@ -246,9 +247,15 @@ func (w *objectStoreWorker) initObjectStore(namespace string) error {
 		}
 
 		// This is only here until we have a better backing store.
-		state, err := w.cfg.StatePool.Get(namespace)
-		if err != nil {
-			return nil, errors.Trace(err)
+		var state MongoSession
+		if namespace == database.ControllerNS {
+			if state, err = w.cfg.StatePool.SystemState(); err != nil {
+				return nil, errors.Trace(err)
+			}
+		} else {
+			if state, err = w.cfg.StatePool.Get(namespace); err != nil {
+				return nil, errors.Trace(err)
+			}
 		}
 
 		objectStore, err := w.cfg.NewObjectStoreWorker(

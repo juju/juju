@@ -30,6 +30,7 @@ type instanceTypesSuite struct {
 	authorizer   *apiservertesting.FakeAuthorizer
 	st           *mocks.MockBackend
 	leadership   *mocks.MockLeadership
+	store        *mocks.MockObjectStore
 	cloudService *commonmocks.MockCloudService
 	credService  *commonmocks.MockCredentialService
 	api          *machinemanager.MachineManagerAPI
@@ -51,6 +52,7 @@ func (s *instanceTypesSuite) setup(c *gc.C) *gomock.Controller {
 	s.cloudService = commonmocks.NewMockCloudService(ctrl)
 	s.credService = commonmocks.NewMockCredentialService(ctrl)
 	s.controllerConfigService = mocks.NewMockControllerConfigService(ctrl)
+	s.store = mocks.NewMockObjectStore(ctrl)
 
 	var err error
 	s.api, err = machinemanager.NewMachineManagerAPI(
@@ -58,6 +60,7 @@ func (s *instanceTypesSuite) setup(c *gc.C) *gomock.Controller {
 		s.st,
 		s.cloudService,
 		s.credService,
+		s.store,
 		nil,
 		nil,
 		nil,

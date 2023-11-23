@@ -36,6 +36,7 @@ type getToolsSuite struct {
 	entityFinder *mocks.MockToolsFindEntity
 	configGetter *mocks.MockEnvironConfigGetter
 	toolsFinder  *mocks.MockToolsFinder
+	store        *mocks.MockObjectStore
 
 	machine0 *mocks.MockAgentTooler
 }
@@ -48,6 +49,7 @@ func (s *getToolsSuite) setup(c *gc.C) *gomock.Controller {
 	s.entityFinder = mocks.NewMockToolsFindEntity(ctrl)
 	s.configGetter = mocks.NewMockEnvironConfigGetter(ctrl)
 	s.toolsFinder = mocks.NewMockToolsFinder(ctrl)
+	s.store = mocks.NewMockObjectStore(ctrl)
 
 	s.machine0 = mocks.NewMockAgentTooler(ctrl)
 
@@ -276,6 +278,7 @@ type findToolsSuite struct {
 	toolsStorageGetter *mocks.MockToolsStorageGetter
 	urlGetter          *mocks.MockToolsURLGetter
 	storage            *mocks.MockStorageCloser
+	store              *mocks.MockObjectStore
 
 	bootstrapEnviron *mocks.MockBootstrapEnviron
 	newEnviron       func(context.Context) (environs.BootstrapEnviron, error)
@@ -301,11 +304,12 @@ func (s *findToolsSuite) setup(c *gc.C) *gomock.Controller {
 	s.newEnviron = func(_ context.Context) (environs.BootstrapEnviron, error) {
 		return s.bootstrapEnviron, nil
 	}
+	s.store = mocks.NewMockObjectStore(ctrl)
 	return ctrl
 }
 
 func (s *findToolsSuite) expectMatchingStorageTools(storageMetadata []binarystorage.Metadata, err error) {
-	s.toolsStorageGetter.EXPECT().ToolsStorage().Return(s.storage, nil)
+	s.toolsStorageGetter.EXPECT().ToolsStorage(gomock.Any()).Return(s.storage, nil)
 	s.storage.EXPECT().AllMetadata().Return(storageMetadata, err)
 	s.storage.EXPECT().Close().Return(nil)
 }
@@ -360,8 +364,9 @@ func (s *findToolsSuite) TestFindToolsMatchMajor(c *gc.C) {
 	s.expectBootstrapEnvironConfig(c)
 
 	toolsFinder := common.NewToolsFinder(
-		controllerConfigGetter{},
+		controllerConfigService{},
 		nil, s.toolsStorageGetter, s.urlGetter, s.newEnviron,
+		s.store,
 	)
 
 	result, err := toolsFinder.FindAgents(context.Background(), common.FindAgentsParams{
@@ -417,8 +422,9 @@ func (s *findToolsSuite) TestFindToolsRequestAgentStream(c *gc.C) {
 	s.expectBootstrapEnvironConfig(c)
 
 	toolsFinder := common.NewToolsFinder(
-		controllerConfigGetter{},
+		controllerConfigService{},
 		nil, s.toolsStorageGetter, s.urlGetter, s.newEnviron,
+		s.store,
 	)
 	result, err := toolsFinder.FindAgents(context.Background(), common.FindAgentsParams{
 		MajorVersion: 123,
@@ -453,8 +459,9 @@ func (s *findToolsSuite) TestFindToolsNotFound(c *gc.C) {
 	s.expectBootstrapEnvironConfig(c)
 
 	toolsFinder := common.NewToolsFinder(
-		controllerConfigGetter{},
+		controllerConfigService{},
 		nil, s.toolsStorageGetter, nil, s.newEnviron,
+		s.store,
 	)
 	_, err := toolsFinder.FindAgents(context.Background(), common.FindAgentsParams{})
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
@@ -509,8 +516,9 @@ func (s *findToolsSuite) testFindToolsExact(c *gc.C, inStorage bool, develVersio
 		return nil, errors.NotFoundf("tools")
 	})
 	toolsFinder := common.NewToolsFinder(
-		controllerConfigGetter{},
+		controllerConfigService{},
 		nil, s.toolsStorageGetter, s.urlGetter, s.newEnviron,
+		s.store,
 	)
 	_, err := toolsFinder.FindAgents(context.Background(), common.FindAgentsParams{
 		Number: jujuversion.Current,
@@ -538,8 +546,9 @@ func (s *findToolsSuite) TestFindToolsToolsStorageError(c *gc.C) {
 	s.expectMatchingStorageTools(nil, errors.New("AllMetadata failed"))
 
 	toolsFinder := common.NewToolsFinder(
-		controllerConfigGetter{},
+		controllerConfigService{},
 		nil, s.toolsStorageGetter, s.urlGetter, s.newEnviron,
+		s.store,
 	)
 	_, err := toolsFinder.FindAgents(context.Background(), common.FindAgentsParams{})
 	// ToolsStorage errors always cause FindAgents to bail. Only
@@ -600,8 +609,8 @@ func (s *getUrlSuite) TestToolsURLGetter(c *gc.C) {
 	})
 }
 
-type controllerConfigGetter struct{}
+type controllerConfigService struct{}
 
-func (controllerConfigGetter) ControllerConfig(context.Context) (controller.Config, error) {
+func (controllerConfigService) ControllerConfig(context.Context) (controller.Config, error) {
 	return coretesting.FakeControllerConfig(), nil
 }

@@ -1125,15 +1125,24 @@ func (srv *Server) serveConn(
 
 	tracer, err := srv.shared.tracerGetter.GetTracer(
 		ctx,
-		coretrace.Namespace("apiserver", resolvedModelUUID),
+		coretrace.Namespace("apiserver", modelUUID),
 	)
 	if err != nil {
-		logger.Infof("failed to get tracer for model %q: %v", resolvedModelUUID, err)
+		logger.Infof("failed to get tracer for model %q: %v", modelUUID, err)
 		tracer = coretrace.NoopTracer{}
 	}
+
+	// Grab the object store for the model.
 	objectStore, err := srv.shared.objectStoreGetter.GetObjectStore(ctx, resolvedModelUUID)
 	if err != nil {
 		return errors.Annotatef(err, "getting object store for model %q", resolvedModelUUID)
+	}
+
+	// Grab the object store for the controller, this is primarily used for
+	// the agent tools.
+	controllerObjectStore, err := srv.shared.objectStoreGetter.GetObjectStore(ctx, database.ControllerNS)
+	if err != nil {
+		return errors.Annotatef(err, "getting controller object store")
 	}
 
 	serviceFactory := srv.shared.serviceFactoryGetter.FactoryForModel(resolvedModelUUID)
@@ -1142,7 +1151,7 @@ func (srv *Server) serveConn(
 	st, err := statePool.Get(resolvedModelUUID)
 	if err == nil {
 		defer st.Release()
-		handler, err = newAPIHandler(srv, st.State, conn, serviceFactory, tracer, objectStore, modelUUID, connectionID, host)
+		handler, err = newAPIHandler(srv, st.State, conn, serviceFactory, tracer, objectStore, controllerObjectStore, modelUUID, connectionID, host)
 	}
 	if errors.Is(err, errors.NotFound) {
 		err = fmt.Errorf("%w: %q", apiservererrors.UnknownModelError, resolvedModelUUID)
@@ -1176,13 +1185,13 @@ func (srv *Server) publicDNSName() string {
 	return srv.publicDNSName_
 }
 
-func serverError(err error) error {
-	return apiservererrors.ServerError(err)
-}
-
 // GetAuditConfig returns a copy of the current audit logging
 // configuration.
 func (srv *Server) GetAuditConfig() auditlog.Config {
 	// Delegates to the getter passed in.
 	return srv.getAuditConfig()
+}
+
+func serverError(err error) error {
+	return apiservererrors.ServerError(err)
 }

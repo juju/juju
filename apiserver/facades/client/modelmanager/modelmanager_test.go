@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/core/assumes"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
@@ -875,7 +876,9 @@ type modelManagerStateSuite struct {
 	modelmanager *modelmanager.ModelManagerAPI
 	authoriser   apiservertesting.FakeAuthorizer
 
-	controllerConfigGetter *mocks.MockControllerConfigGetter
+	controllerConfigService *mocks.MockControllerConfigService
+
+	store objectstore.ObjectStore
 }
 
 var _ = gc.Suite(&modelManagerStateSuite{})
@@ -894,10 +897,17 @@ func (s *modelManagerStateSuite) SetUpTest(c *gc.C) {
 		Tag: jujutesting.AdminUser,
 	}
 
-	ctrl := gomock.NewController(c)
-	s.controllerConfigGetter = mocks.NewMockControllerConfigGetter(ctrl)
+	s.store = jujutesting.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State())
 
 	loggo.GetLogger("juju.apiserver.modelmanager").SetLogLevel(loggo.TRACE)
+}
+
+func (s *modelManagerStateSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
+	s.controllerConfigService = mocks.NewMockControllerConfigService(ctrl)
+
+	return ctrl
 }
 
 func (s *modelManagerStateSuite) setAPIUser(c *gc.C, user names.UserTag) {
@@ -912,7 +922,7 @@ func (s *modelManagerStateSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	c.Assert(err, jc.ErrorIsNil)
 	configGetter := stateenvirons.EnvironConfigGetter{Model: s.ControllerModel(c), CloudService: serviceFactory.Cloud(), CredentialService: serviceFactory.Credential()}
 	newEnviron := common.EnvironFuncForModel(model, serviceFactory.Cloud(), serviceFactory.Credential(), configGetter)
-	toolsFinder := common.NewToolsFinder(s.controllerConfigGetter, configGetter, st, urlGetter, newEnviron)
+	toolsFinder := common.NewToolsFinder(s.controllerConfigService, configGetter, st, urlGetter, newEnviron, s.store)
 	modelmanager, err := modelmanager.NewModelManagerAPI(
 		mockCredentialShim{st}, nil, ctlrSt,
 		serviceFactory.Cloud(),
@@ -980,6 +990,8 @@ func (s *modelManagerStateSuite) createArgsForVersion(c *gc.C, owner names.UserT
 }
 
 func (s *modelManagerStateSuite) TestUserCanCreateModel(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	owner := names.NewUserTag("admin")
 	s.setAPIUser(c, owner)
 	model, err := s.modelmanager.CreateModel(stdcontext.Background(), createArgs(owner))
@@ -990,6 +1002,8 @@ func (s *modelManagerStateSuite) TestUserCanCreateModel(c *gc.C) {
 }
 
 func (s *modelManagerStateSuite) TestAdminCanCreateModelForSomeoneElse(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	s.setAPIUser(c, jujutesting.AdminUser)
 	owner := names.NewUserTag("external@remote")
 
@@ -1012,6 +1026,8 @@ func (s *modelManagerStateSuite) TestAdminCanCreateModelForSomeoneElse(c *gc.C) 
 }
 
 func (s *modelManagerStateSuite) TestNonAdminCannotCreateModelForSomeoneElse(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	s.setAPIUser(c, names.NewUserTag("non-admin@remote"))
 	owner := names.NewUserTag("external@remote")
 	_, err := s.modelmanager.CreateModel(stdcontext.Background(), createArgs(owner))
@@ -1019,6 +1035,8 @@ func (s *modelManagerStateSuite) TestNonAdminCannotCreateModelForSomeoneElse(c *
 }
 
 func (s *modelManagerStateSuite) TestNonAdminCannotCreateModelForSelf(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	owner := names.NewUserTag("non-admin@remote")
 	s.setAPIUser(c, owner)
 	_, err := s.modelmanager.CreateModel(stdcontext.Background(), createArgs(owner))
@@ -1026,6 +1044,8 @@ func (s *modelManagerStateSuite) TestNonAdminCannotCreateModelForSelf(c *gc.C) {
 }
 
 func (s *modelManagerStateSuite) TestCreateModelValidatesConfig(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	admin := jujutesting.AdminUser
 	s.setAPIUser(c, admin)
 	args := createArgs(admin)
@@ -1037,6 +1057,8 @@ func (s *modelManagerStateSuite) TestCreateModelValidatesConfig(c *gc.C) {
 }
 
 func (s *modelManagerStateSuite) TestCreateModelBadConfig(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	owner := names.NewUserTag("admin")
 	s.setAPIUser(c, owner)
 	for i, test := range []struct {
@@ -1060,6 +1082,8 @@ func (s *modelManagerStateSuite) TestCreateModelBadConfig(c *gc.C) {
 }
 
 func (s *modelManagerStateSuite) TestCreateModelSameAgentVersion(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	admin := jujutesting.AdminUser
 	s.setAPIUser(c, admin)
 	args := s.createArgsForVersion(c, admin, jujuversion.Current.String())
@@ -1068,6 +1092,8 @@ func (s *modelManagerStateSuite) TestCreateModelSameAgentVersion(c *gc.C) {
 }
 
 func (s *modelManagerStateSuite) TestCreateModelBadAgentVersion(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	err := s.ControllerModel(c).State().SetModelAgentVersion(coretesting.FakeVersionNumber, nil, false, stubUpgrader{})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1105,13 +1131,9 @@ func (s *modelManagerStateSuite) TestCreateModelBadAgentVersion(c *gc.C) {
 	}
 }
 
-func (s *modelManagerStateSuite) checkModelMatches(c *gc.C, model params.Model, expected *state.Model) {
-	c.Check(model.Name, gc.Equals, expected.Name())
-	c.Check(model.UUID, gc.Equals, expected.UUID())
-	c.Check(model.OwnerTag, gc.Equals, expected.Owner().String())
-}
-
 func (s *modelManagerStateSuite) TestListModelsAdminSelf(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	user := jujutesting.AdminUser
 	s.setAPIUser(c, user)
 	result, err := s.modelmanager.ListModels(stdcontext.Background(), params.Entity{Tag: user.String()})
@@ -1123,6 +1145,8 @@ func (s *modelManagerStateSuite) TestListModelsAdminSelf(c *gc.C) {
 }
 
 func (s *modelManagerStateSuite) TestListModelsAdminListsOther(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	user := jujutesting.AdminUser
 	s.setAPIUser(c, user)
 	other := names.NewUserTag("admin")
@@ -1132,6 +1156,8 @@ func (s *modelManagerStateSuite) TestListModelsAdminListsOther(c *gc.C) {
 }
 
 func (s *modelManagerStateSuite) TestListModelsDenied(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	user := names.NewUserTag("external@remote")
 	s.setAPIUser(c, user)
 	other := names.NewUserTag("other@remote")
@@ -1140,18 +1166,24 @@ func (s *modelManagerStateSuite) TestListModelsDenied(c *gc.C) {
 }
 
 func (s *modelManagerStateSuite) TestAdminModelManager(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	user := jujutesting.AdminUser
 	s.setAPIUser(c, user)
 	c.Assert(modelmanager.AuthCheck(c, s.modelmanager, user), jc.IsTrue)
 }
 
 func (s *modelManagerStateSuite) TestNonAdminModelManager(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	user := names.NewUserTag("external@remote")
 	s.setAPIUser(c, user)
 	c.Assert(modelmanager.AuthCheck(c, s.modelmanager, user), jc.IsFalse)
 }
 
 func (s *modelManagerStateSuite) TestDestroyOwnModel(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	// TODO(perrito666) this test is not valid until we have
 	// proper controller permission since the only users that
 	// can create models are controller admins.
@@ -1207,6 +1239,8 @@ func (s *modelManagerStateSuite) TestDestroyOwnModel(c *gc.C) {
 }
 
 func (s *modelManagerStateSuite) TestAdminDestroysOtherModel(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	// TODO(perrito666) Both users are admins in this case, this tesst is of dubious
 	// usefulness until proper controller permissions are in place.
 	owner := names.NewUserTag("admin")
@@ -1255,6 +1289,8 @@ func (s *modelManagerStateSuite) TestAdminDestroysOtherModel(c *gc.C) {
 }
 
 func (s *modelManagerStateSuite) TestDestroyModelErrors(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	owner := names.NewUserTag("admin")
 	s.setAPIUser(c, owner)
 	m, err := s.modelmanager.CreateModel(stdcontext.Background(), createArgs(owner))
@@ -1316,31 +1352,9 @@ func (s *modelManagerStateSuite) TestDestroyModelErrors(c *gc.C) {
 	c.Assert(model.Life(), gc.Equals, state.Alive)
 }
 
-func (s *modelManagerStateSuite) modifyAccess(c *gc.C, user names.UserTag, action params.ModelAction, access params.UserAccessPermission, model names.ModelTag) error {
-	args := params.ModifyModelAccessRequest{
-		Changes: []params.ModifyModelAccess{{
-			UserTag:  user.String(),
-			Action:   action,
-			Access:   access,
-			ModelTag: model.String(),
-		}}}
-
-	result, err := s.modelmanager.ModifyModelAccess(stdcontext.Background(), args)
-	if err != nil {
-		return err
-	}
-	return result.OneError()
-}
-
-func (s *modelManagerStateSuite) grant(c *gc.C, user names.UserTag, access params.UserAccessPermission, model names.ModelTag) error {
-	return s.modifyAccess(c, user, params.GrantModelAccess, access, model)
-}
-
-func (s *modelManagerStateSuite) revoke(c *gc.C, user names.UserTag, access params.UserAccessPermission, model names.ModelTag) error {
-	return s.modifyAccess(c, user, params.RevokeModelAccess, access, model)
-}
-
 func (s *modelManagerStateSuite) TestGrantMissingUserFails(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	s.setAPIUser(c, jujutesting.AdminUser)
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
@@ -1358,6 +1372,8 @@ func (s *modelManagerStateSuite) TestGrantMissingUserFails(c *gc.C) {
 }
 
 func (s *modelManagerStateSuite) TestGrantMissingModelFails(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	s.setAPIUser(c, jujutesting.AdminUser)
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
@@ -1370,6 +1386,8 @@ func (s *modelManagerStateSuite) TestGrantMissingModelFails(c *gc.C) {
 }
 
 func (s *modelManagerStateSuite) TestRevokeAdminLeavesReadAccess(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	s.setAPIUser(c, jujutesting.AdminUser)
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
@@ -1384,6 +1402,8 @@ func (s *modelManagerStateSuite) TestRevokeAdminLeavesReadAccess(c *gc.C) {
 }
 
 func (s *modelManagerStateSuite) TestRevokeReadRemovesModelUser(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	s.setAPIUser(c, jujutesting.AdminUser)
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
@@ -1397,6 +1417,8 @@ func (s *modelManagerStateSuite) TestRevokeReadRemovesModelUser(c *gc.C) {
 }
 
 func (s *modelManagerStateSuite) TestRevokeModelMissingUser(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	s.setAPIUser(c, jujutesting.AdminUser)
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
@@ -1416,6 +1438,8 @@ func (s *modelManagerStateSuite) TestRevokeModelMissingUser(c *gc.C) {
 }
 
 func (s *modelManagerStateSuite) TestGrantOnlyGreaterAccess(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 
@@ -1434,24 +1458,9 @@ func (s *modelManagerStateSuite) TestGrantOnlyGreaterAccess(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `user already has "read" access or greater`)
 }
 
-func (s *modelManagerStateSuite) assertNewUser(c *gc.C, modelUser permission.UserAccess, userTag, creatorTag names.UserTag) {
-	c.Assert(modelUser.UserTag, gc.Equals, userTag)
-	c.Assert(modelUser.CreatedBy, gc.Equals, creatorTag)
-	_, err := s.ControllerModel(c).LastModelConnection(modelUser.UserTag)
-	c.Assert(err, jc.Satisfies, state.IsNeverConnectedError)
-}
-
-func (s *modelManagerStateSuite) assertModelAccess(c *gc.C, st *state.State) {
-	m, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
-
-	result, err := s.modelmanager.ModelInfo(stdcontext.Background(), params.Entities{Entities: []params.Entity{{Tag: m.ModelTag().String()}}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0].Error, gc.IsNil)
-}
-
 func (s *modelManagerStateSuite) TestGrantModelAddLocalUser(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 
@@ -1476,6 +1485,8 @@ func (s *modelManagerStateSuite) TestGrantModelAddLocalUser(c *gc.C) {
 }
 
 func (s *modelManagerStateSuite) TestGrantModelAddRemoteUser(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	userTag := names.NewUserTag("foobar@ubuntuone")
 	apiUser := jujutesting.AdminUser
 	s.setAPIUser(c, apiUser)
@@ -1501,6 +1512,8 @@ func (s *modelManagerStateSuite) TestGrantModelAddRemoteUser(c *gc.C) {
 }
 
 func (s *modelManagerStateSuite) TestGrantModelAddAdminUser(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 
@@ -1525,6 +1538,8 @@ func (s *modelManagerStateSuite) TestGrantModelAddAdminUser(c *gc.C) {
 }
 
 func (s *modelManagerStateSuite) TestGrantModelIncreaseAccess(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	s.setAPIUser(c, jujutesting.AdminUser)
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
@@ -1546,6 +1561,8 @@ func (s *modelManagerStateSuite) TestGrantModelIncreaseAccess(c *gc.C) {
 }
 
 func (s *modelManagerStateSuite) TestGrantToModelNoAccess(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	s.setAPIUser(c, jujutesting.AdminUser)
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
@@ -1565,6 +1582,8 @@ func (s *modelManagerStateSuite) TestGrantToModelNoAccess(c *gc.C) {
 }
 
 func (s *modelManagerStateSuite) TestGrantToModelReadAccess(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	s.setAPIUser(c, jujutesting.AdminUser)
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
@@ -1588,6 +1607,8 @@ func (s *modelManagerStateSuite) TestGrantToModelReadAccess(c *gc.C) {
 }
 
 func (s *modelManagerStateSuite) TestGrantToModelWriteAccess(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	s.setAPIUser(c, jujutesting.AdminUser)
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
@@ -1615,6 +1636,8 @@ func (s *modelManagerStateSuite) TestGrantToModelWriteAccess(c *gc.C) {
 }
 
 func (s *modelManagerStateSuite) TestGrantModelInvalidUserTag(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	s.setAPIUser(c, jujutesting.AdminUser)
 	for _, testParam := range []struct {
 		tag      string
@@ -1683,6 +1706,8 @@ func (s *modelManagerStateSuite) TestGrantModelInvalidUserTag(c *gc.C) {
 }
 
 func (s *modelManagerStateSuite) TestModifyModelAccessEmptyArgs(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	s.setAPIUser(c, jujutesting.AdminUser)
 	args := params.ModifyModelAccessRequest{Changes: []params.ModifyModelAccess{{}}}
 
@@ -1905,6 +1930,53 @@ func (s *modelManagerSuite) TestChangeModelCredentialNotUpdated(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].Error, gc.ErrorMatches, `model deadbeef-0bad-400d-8000-4b1d0d06f00d already uses credential foo/bob/bar`)
+}
+
+func (s *modelManagerStateSuite) checkModelMatches(c *gc.C, model params.Model, expected *state.Model) {
+	c.Check(model.Name, gc.Equals, expected.Name())
+	c.Check(model.UUID, gc.Equals, expected.UUID())
+	c.Check(model.OwnerTag, gc.Equals, expected.Owner().String())
+}
+
+func (s *modelManagerStateSuite) modifyAccess(c *gc.C, user names.UserTag, action params.ModelAction, access params.UserAccessPermission, model names.ModelTag) error {
+	args := params.ModifyModelAccessRequest{
+		Changes: []params.ModifyModelAccess{{
+			UserTag:  user.String(),
+			Action:   action,
+			Access:   access,
+			ModelTag: model.String(),
+		}}}
+
+	result, err := s.modelmanager.ModifyModelAccess(stdcontext.Background(), args)
+	if err != nil {
+		return err
+	}
+	return result.OneError()
+}
+
+func (s *modelManagerStateSuite) grant(c *gc.C, user names.UserTag, access params.UserAccessPermission, model names.ModelTag) error {
+	return s.modifyAccess(c, user, params.GrantModelAccess, access, model)
+}
+
+func (s *modelManagerStateSuite) revoke(c *gc.C, user names.UserTag, access params.UserAccessPermission, model names.ModelTag) error {
+	return s.modifyAccess(c, user, params.RevokeModelAccess, access, model)
+}
+
+func (s *modelManagerStateSuite) assertNewUser(c *gc.C, modelUser permission.UserAccess, userTag, creatorTag names.UserTag) {
+	c.Assert(modelUser.UserTag, gc.Equals, userTag)
+	c.Assert(modelUser.CreatedBy, gc.Equals, creatorTag)
+	_, err := s.ControllerModel(c).LastModelConnection(modelUser.UserTag)
+	c.Assert(err, jc.Satisfies, state.IsNeverConnectedError)
+}
+
+func (s *modelManagerStateSuite) assertModelAccess(c *gc.C, st *state.State) {
+	m, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := s.modelmanager.ModelInfo(stdcontext.Background(), params.Entities{Entities: []params.Entity{{Tag: m.ModelTag().String()}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0].Error, gc.IsNil)
 }
 
 type fakeProvider struct {

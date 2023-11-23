@@ -87,6 +87,20 @@ func (mr *MockContextMockRecorder) ControllerDB() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerDB", reflect.TypeOf((*MockContext)(nil).ControllerDB))
 }
 
+// ControllerObjectStore mocks base method.
+func (m *MockContext) ControllerObjectStore() objectstore.ObjectStore {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ControllerObjectStore")
+	ret0, _ := ret[0].(objectstore.ObjectStore)
+	return ret0
+}
+
+// ControllerObjectStore indicates an expected call of ControllerObjectStore.
+func (mr *MockContextMockRecorder) ControllerObjectStore() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerObjectStore", reflect.TypeOf((*MockContext)(nil).ControllerObjectStore))
+}
+
 // DataDir mocks base method.
 func (m *MockContext) DataDir() string {
 	m.ctrl.T.Helper()

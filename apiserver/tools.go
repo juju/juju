@@ -21,6 +21,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/httpcontext"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/simplestreams"
 	envtools "github.com/juju/juju/environs/tools"
@@ -149,7 +150,12 @@ func (h *toolsDownloadHandler) getToolsForRequest(r *http.Request, st *state.Sta
 	}
 	logger.Debugf("request for agent binaries: %s", vers)
 
-	storage, err := st.ToolsStorage()
+	store, err := h.ctxt.controllerObjectStoreForRequest(r)
+	if err != nil {
+		return nil, 0, errors.Trace(err)
+	}
+
+	storage, err := st.ToolsStorage(store)
 	if err != nil {
 		return nil, 0, errors.Annotate(err, "error getting storage for agent binaries")
 	}
@@ -163,17 +169,17 @@ func (h *toolsDownloadHandler) getToolsForRequest(r *http.Request, st *state.Sta
 	locker.Lock()
 	defer locker.Unlock()
 
-	md, reader, err := storage.Open(vers.String())
+	md, reader, err := storage.Open(r.Context(), vers.String())
 	if errors.Is(err, errors.NotFound) {
 		// Tools could not be found in tools storage,
 		// so look for them in simplestreams,
 		// fetch them and cache in tools storage.
 		logger.Infof("%v agent binaries not found locally, fetching", vers)
-		err = h.fetchAndCacheTools(vers, st, storage)
+		err = h.fetchAndCacheTools(r.Context(), vers, st, storage, store)
 		if err != nil {
 			err = errors.Annotate(err, "error fetching agent binaries")
 		} else {
-			md, reader, err = storage.Open(vers.String())
+			md, reader, err = storage.Open(r.Context(), vers.String())
 		}
 	}
 	if err != nil {
@@ -187,9 +193,11 @@ func (h *toolsDownloadHandler) getToolsForRequest(r *http.Request, st *state.Sta
 // in simplestreams and GETting it, caching the result in tools storage before returning
 // to the caller.
 func (h *toolsDownloadHandler) fetchAndCacheTools(
+	ctx context.Context,
 	v version.Binary,
 	st *state.State,
 	modelStorage binarystorage.Storage,
+	store objectstore.ObjectStore,
 ) error {
 	systemState, err := h.ctxt.statePool().SystemState()
 	if err != nil {
@@ -213,9 +221,10 @@ func (h *toolsDownloadHandler) fetchAndCacheTools(
 		}
 		storage = modelStorage
 	case state.ModelTypeIAAS:
+
 		// Cache the tools against the controller when the controller is IAAS.
 		model = controllerModel
-		controllerStorage, err := systemState.ToolsStorage()
+		controllerStorage, err := systemState.ToolsStorage(store)
 		if err != nil {
 			return err
 		}
@@ -271,7 +280,7 @@ func (h *toolsDownloadHandler) fetchAndCacheTools(
 		Size:    exactTools.Size,
 		SHA256:  exactTools.SHA256,
 	}
-	if err := storage.Add(data, md); err != nil {
+	if err := storage.Add(ctx, data, md); err != nil {
 		return errors.Annotate(err, "error caching agent binaries")
 	}
 
@@ -314,7 +323,13 @@ func (h *toolsUploadHandler) processPost(r *http.Request, st *state.State) (*too
 	logger.Debugf("request to upload agent binaries: %s", toolsVersion)
 	toolsVersions := []version.Binary{toolsVersion}
 	serverRoot := h.getServerRoot(r, query, st)
-	return h.handleUpload(r.Context(), r.Body, toolsVersions, serverRoot, st)
+
+	store, err := h.ctxt.controllerObjectStoreForRequest(r)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return h.handleUpload(r.Context(), r.Body, toolsVersions, serverRoot, st, store)
 }
 
 func (h *toolsUploadHandler) getServerRoot(r *http.Request, query url.Values, st *state.State) string {
@@ -323,13 +338,13 @@ func (h *toolsUploadHandler) getServerRoot(r *http.Request, query url.Values, st
 }
 
 // handleUpload uploads the tools data from the reader to env storage as the specified version.
-func (h *toolsUploadHandler) handleUpload(ctx context.Context, r io.Reader, toolsVersions []version.Binary, serverRoot string, st *state.State) (*tools.Tools, error) {
+func (h *toolsUploadHandler) handleUpload(ctx context.Context, r io.Reader, toolsVersions []version.Binary, serverRoot string, st *state.State, store objectstore.ObjectStore) (*tools.Tools, error) {
 	// Check if changes are allowed and the command may proceed.
 	blockChecker := common.NewBlockChecker(st)
 	if err := blockChecker.ChangeAllowed(ctx); err != nil {
 		return nil, errors.Trace(err)
 	}
-	storage, err := st.ToolsStorage()
+	storage, err := st.ToolsStorage(store)
 	if err != nil {
 		return nil, err
 	}
@@ -356,7 +371,7 @@ func (h *toolsUploadHandler) handleUpload(ctx context.Context, r io.Reader, tool
 			SHA256:  sha256,
 		}
 		logger.Debugf("uploading agent binaries %+v to storage", metadata)
-		if err := storage.Add(data, metadata); err != nil {
+		if err := storage.Add(ctx, data, metadata); err != nil {
 			return nil, err
 		}
 	}

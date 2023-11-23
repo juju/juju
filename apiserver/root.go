@@ -46,14 +46,15 @@ type objectKey struct {
 // after it has logged in. It contains an rpc.Root which it
 // uses to dispatch API calls appropriately.
 type apiHandler struct {
-	state           *state.State
-	model           *state.Model
-	rpcConn         *rpc.Conn
-	serviceFactory  servicefactory.ServiceFactory
-	tracer          trace.Tracer
-	objectStore     objectstore.ObjectStore
-	watcherRegistry facade.WatcherRegistry
-	shared          *sharedServerContext
+	state                 *state.State
+	model                 *state.Model
+	rpcConn               *rpc.Conn
+	serviceFactory        servicefactory.ServiceFactory
+	tracer                trace.Tracer
+	objectStore           objectstore.ObjectStore
+	controllerObjectStore objectstore.ObjectStore
+	watcherRegistry       facade.WatcherRegistry
+	shared                *sharedServerContext
 
 	// authInfo represents the authentication info established with this client
 	// connection.
@@ -95,6 +96,7 @@ func newAPIHandler(
 	serviceFactory servicefactory.ServiceFactory,
 	tracer trace.Tracer,
 	objectStore objectstore.ObjectStore,
+	controllerObjectStore objectstore.ObjectStore,
 	modelUUID string,
 	connectionID uint64,
 	serverHost string,
@@ -120,18 +122,19 @@ func newAPIHandler(
 	}
 
 	r := &apiHandler{
-		state:           st,
-		serviceFactory:  serviceFactory,
-		tracer:          tracer,
-		objectStore:     objectStore,
-		model:           m,
-		resources:       common.NewResources(),
-		watcherRegistry: registry,
-		shared:          srv.shared,
-		rpcConn:         rpcConn,
-		modelUUID:       modelUUID,
-		connectionID:    connectionID,
-		serverHost:      serverHost,
+		state:                 st,
+		serviceFactory:        serviceFactory,
+		tracer:                tracer,
+		objectStore:           objectStore,
+		controllerObjectStore: controllerObjectStore,
+		model:                 m,
+		resources:             common.NewResources(),
+		watcherRegistry:       registry,
+		shared:                srv.shared,
+		rpcConn:               rpcConn,
+		modelUUID:             modelUUID,
+		connectionID:          connectionID,
+		serverHost:            serverHost,
 	}
 
 	// Facades involved with managing application offers need the auth context
@@ -181,6 +184,12 @@ func (r *apiHandler) Tracer() trace.Tracer {
 // ObjectStore returns the object store.
 func (r *apiHandler) ObjectStore() objectstore.ObjectStore {
 	return r.objectStore
+}
+
+// ControllerObjectStore returns the controller object store. The primary
+// use case for this is agent tools.
+func (r *apiHandler) ControllerObjectStore() objectstore.ObjectStore {
+	return r.controllerObjectStore
 }
 
 // SharedContext returns the server shared context.
@@ -353,6 +362,9 @@ type apiRootHandler interface {
 	Tracer() trace.Tracer
 	// ObjectStore returns the object store.
 	ObjectStore() objectstore.ObjectStore
+	// ControllerObjectStore returns the controller object store. The primary
+	// use case for this is agent tools.
+	ControllerObjectStore() objectstore.ObjectStore
 	// SharedContext returns the server shared context.
 	SharedContext() *sharedServerContext
 	// Resources returns the common resources.
@@ -368,18 +380,19 @@ type apiRootHandler interface {
 // apiRoot implements basic method dispatching to the facade registry.
 type apiRoot struct {
 	rpc.Killer
-	clock           clock.Clock
-	state           *state.State
-	serviceFactory  servicefactory.ServiceFactory
-	tracer          trace.Tracer
-	objectStore     objectstore.ObjectStore
-	shared          *sharedServerContext
-	facades         *facade.Registry
-	watcherRegistry facade.WatcherRegistry
-	authorizer      facade.Authorizer
-	objectMutex     sync.RWMutex
-	objectCache     map[objectKey]reflect.Value
-	requestRecorder facade.RequestRecorder
+	clock                 clock.Clock
+	state                 *state.State
+	serviceFactory        servicefactory.ServiceFactory
+	tracer                trace.Tracer
+	objectStore           objectstore.ObjectStore
+	controllerObjectStore objectstore.ObjectStore
+	shared                *sharedServerContext
+	facades               *facade.Registry
+	watcherRegistry       facade.WatcherRegistry
+	authorizer            facade.Authorizer
+	objectMutex           sync.RWMutex
+	objectCache           map[objectKey]reflect.Value
+	requestRecorder       facade.RequestRecorder
 
 	// Deprecated: Resources are deprecated. Use WatcherRegistry instead.
 	resources *common.Resources
@@ -393,19 +406,20 @@ func newAPIRoot(
 	clock clock.Clock,
 ) (*apiRoot, error) {
 	return &apiRoot{
-		Killer:          root,
-		clock:           clock,
-		state:           root.State(),
-		serviceFactory:  root.ServiceFactory(),
-		tracer:          root.Tracer(),
-		objectStore:     root.ObjectStore(),
-		shared:          root.SharedContext(),
-		facades:         facades,
-		resources:       root.Resources(),
-		watcherRegistry: root.WatcherRegistry(),
-		authorizer:      root.Authorizer(),
-		objectCache:     make(map[objectKey]reflect.Value),
-		requestRecorder: requestRecorder,
+		Killer:                root,
+		clock:                 clock,
+		state:                 root.State(),
+		serviceFactory:        root.ServiceFactory(),
+		tracer:                root.Tracer(),
+		objectStore:           root.ObjectStore(),
+		controllerObjectStore: root.ControllerObjectStore(),
+		shared:                root.SharedContext(),
+		facades:               facades,
+		resources:             root.Resources(),
+		watcherRegistry:       root.WatcherRegistry(),
+		authorizer:            root.Authorizer(),
+		objectCache:           make(map[objectKey]reflect.Value),
+		requestRecorder:       requestRecorder,
 	}, nil
 }
 
@@ -808,6 +822,12 @@ func (ctx *facadeContext) Tracer() trace.Tracer {
 // ObjectStore returns the object store for the current model.
 func (ctx *facadeContext) ObjectStore() objectstore.ObjectStore {
 	return ctx.r.objectStore
+}
+
+// ControllerObjectStore returns the object store for the controller. The
+// primary use case for this is agent tools.
+func (ctx *facadeContext) ControllerObjectStore() objectstore.ObjectStore {
+	return ctx.r.controllerObjectStore
 }
 
 // MachineTag returns the current machine tag.

@@ -186,18 +186,18 @@ func (mr *MockBackendMockRecorder) Model() *gomock.Call {
 }
 
 // ToolsStorage mocks base method.
-func (m *MockBackend) ToolsStorage() (binarystorage.StorageCloser, error) {
+func (m *MockBackend) ToolsStorage(arg0 objectstore.ObjectStore) (binarystorage.StorageCloser, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ToolsStorage")
+	ret := m.ctrl.Call(m, "ToolsStorage", arg0)
 	ret0, _ := ret[0].(binarystorage.StorageCloser)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ToolsStorage indicates an expected call of ToolsStorage.
-func (mr *MockBackendMockRecorder) ToolsStorage() *gomock.Call {
+func (mr *MockBackendMockRecorder) ToolsStorage(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ToolsStorage", reflect.TypeOf((*MockBackend)(nil).ToolsStorage))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ToolsStorage", reflect.TypeOf((*MockBackend)(nil).ToolsStorage), arg0)
 }
 
 // Unit mocks base method.

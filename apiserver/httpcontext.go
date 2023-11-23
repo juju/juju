@@ -33,7 +33,7 @@ type httpContext struct {
 // without checking any authentication information.
 func (ctxt *httpContext) stateForRequestUnauthenticated(r *http.Request) (*state.PooledState, error) {
 	modelUUID := httpcontext.RequestModelUUID(r)
-	st, err := ctxt.srv.shared.statePool.Get(modelUUID)
+	st, err := ctxt.statePool().Get(modelUUID)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -46,6 +46,14 @@ func (ctxt *httpContext) stateForRequestUnauthenticated(r *http.Request) (*state
 func (ctxt *httpContext) objectStoreForRequest(r *http.Request) (objectstore.ObjectStore, error) {
 	modelUUID := httpcontext.RequestModelUUID(r)
 	return ctxt.srv.shared.objectStoreGetter.GetObjectStore(r.Context(), modelUUID)
+}
+
+func (ctxt *httpContext) controllerObjectStoreForRequest(r *http.Request) (objectstore.ObjectStore, error) {
+	st, err := ctxt.statePool().SystemState()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return ctxt.srv.shared.objectStoreGetter.GetObjectStore(r.Context(), st.ControllerModelUUID())
 }
 
 // statePool returns the StatePool for this controller.

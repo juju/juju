@@ -5,6 +5,7 @@
 package mocks
 
 import (
+	context "context"
 	io "io"
 	reflect "reflect"
 
@@ -36,17 +37,17 @@ func (m *MockStorageCloser) EXPECT() *MockStorageCloserMockRecorder {
 }
 
 // Add mocks base method.
-func (m *MockStorageCloser) Add(arg0 io.Reader, arg1 binarystorage.Metadata) error {
+func (m *MockStorageCloser) Add(arg0 context.Context, arg1 io.Reader, arg2 binarystorage.Metadata) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Add", arg0, arg1)
+	ret := m.ctrl.Call(m, "Add", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Add indicates an expected call of Add.
-func (mr *MockStorageCloserMockRecorder) Add(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockStorageCloserMockRecorder) Add(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Add", reflect.TypeOf((*MockStorageCloser)(nil).Add), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Add", reflect.TypeOf((*MockStorageCloser)(nil).Add), arg0, arg1, arg2)
 }
 
 // AllMetadata mocks base method.
@@ -94,9 +95,9 @@ func (mr *MockStorageCloserMockRecorder) Metadata(arg0 interface{}) *gomock.Call
 }
 
 // Open mocks base method.
-func (m *MockStorageCloser) Open(arg0 string) (binarystorage.Metadata, io.ReadCloser, error) {
+func (m *MockStorageCloser) Open(arg0 context.Context, arg1 string) (binarystorage.Metadata, io.ReadCloser, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Open", arg0)
+	ret := m.ctrl.Call(m, "Open", arg0, arg1)
 	ret0, _ := ret[0].(binarystorage.Metadata)
 	ret1, _ := ret[1].(io.ReadCloser)
 	ret2, _ := ret[2].(error)
@@ -104,7 +105,7 @@ func (m *MockStorageCloser) Open(arg0 string) (binarystorage.Metadata, io.ReadCl
 }
 
 // Open indicates an expected call of Open.
-func (mr *MockStorageCloserMockRecorder) Open(arg0 interface{}) *gomock.Call {
+func (mr *MockStorageCloserMockRecorder) Open(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Open", reflect.TypeOf((*MockStorageCloser)(nil).Open), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Open", reflect.TypeOf((*MockStorageCloser)(nil).Open), arg0, arg1)
 }

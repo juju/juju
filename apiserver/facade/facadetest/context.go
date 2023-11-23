@@ -31,17 +31,18 @@ type Context struct {
 	RequestRecorder_     facade.RequestRecorder
 	Cancel_              <-chan struct{}
 
-	LeadershipClaimer_  leadership.Claimer
-	LeadershipRevoker_  leadership.Revoker
-	LeadershipChecker_  leadership.Checker
-	LeadershipPinner_   leadership.Pinner
-	LeadershipReader_   leadership.Reader
-	SingularClaimer_    lease.Claimer
-	CharmhubHTTPClient_ facade.HTTPClient
-	ServiceFactory_     servicefactory.ServiceFactory
-	ControllerDB_       changestream.WatchableDB
-	ObjectStore_        objectstore.ObjectStore
-	Logger_             loggo.Logger
+	LeadershipClaimer_     leadership.Claimer
+	LeadershipRevoker_     leadership.Revoker
+	LeadershipChecker_     leadership.Checker
+	LeadershipPinner_      leadership.Pinner
+	LeadershipReader_      leadership.Reader
+	SingularClaimer_       lease.Claimer
+	CharmhubHTTPClient_    facade.HTTPClient
+	ServiceFactory_        servicefactory.ServiceFactory
+	ControllerDB_          changestream.WatchableDB
+	ObjectStore_           objectstore.ObjectStore
+	ControllerObjectStore_ objectstore.ObjectStore
+	Logger_                loggo.Logger
 
 	MachineTag_ names.Tag
 	DataDir_    string
@@ -94,6 +95,12 @@ func (context Context) WatcherRegistry() facade.WatcherRegistry {
 // It returns the object store for this context.
 func (context Context) ObjectStore() objectstore.ObjectStore {
 	return context.ObjectStore_
+}
+
+// ControllerObjectStore is part of the facade.Context interface.
+// It returns the object store for this context.
+func (context Context) ControllerObjectStore() objectstore.ObjectStore {
+	return context.ControllerObjectStore_
 }
 
 // State is part of the facade.Context interface.

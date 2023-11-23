@@ -5,6 +5,7 @@ package apiserver_test
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
@@ -24,6 +25,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	apitesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
@@ -41,6 +43,8 @@ import (
 
 type baseToolsSuite struct {
 	jujutesting.ApiServerSuite
+
+	store objectstore.ObjectStore
 }
 
 func (s *baseToolsSuite) toolsURL(query string) *url.URL {
@@ -106,10 +110,10 @@ func (s *baseToolsSuite) assertResponse(c *gc.C, resp *http.Response, expStatus 
 }
 
 func (s *baseToolsSuite) storeFakeTools(c *gc.C, st *state.State, content string, metadata binarystorage.Metadata) *coretools.Tools {
-	storage, err := st.ToolsStorage()
+	storage, err := st.ToolsStorage(s.store)
 	c.Assert(err, jc.ErrorIsNil)
 	defer storage.Close()
-	err = storage.Add(strings.NewReader(content), metadata)
+	err = storage.Add(context.Background(), strings.NewReader(content), metadata)
 	c.Assert(err, jc.ErrorIsNil)
 	return &coretools.Tools{
 		Version: version.MustParseBinary(metadata.Version),
@@ -119,10 +123,10 @@ func (s *baseToolsSuite) storeFakeTools(c *gc.C, st *state.State, content string
 }
 
 func (s *baseToolsSuite) getToolsFromStorage(c *gc.C, st *state.State, vers string) (binarystorage.Metadata, []byte) {
-	storage, err := st.ToolsStorage()
+	storage, err := st.ToolsStorage(s.store)
 	c.Assert(err, jc.ErrorIsNil)
 	defer storage.Close()
-	metadata, r, err := storage.Open(vers)
+	metadata, r, err := storage.Open(context.Background(), vers)
 	c.Assert(err, jc.ErrorIsNil)
 	data, err := io.ReadAll(r)
 	r.Close()
@@ -131,7 +135,7 @@ func (s *baseToolsSuite) getToolsFromStorage(c *gc.C, st *state.State, vers stri
 }
 
 func (s *baseToolsSuite) getToolsMetadataFromStorage(c *gc.C, st *state.State) []binarystorage.Metadata {
-	storage, err := st.ToolsStorage()
+	storage, err := st.ToolsStorage(s.store)
 	c.Assert(err, jc.ErrorIsNil)
 	defer storage.Close()
 	metadata, err := storage.AllMetadata()
@@ -157,6 +161,12 @@ type toolsSuite struct {
 }
 
 var _ = gc.Suite(&toolsSuite{})
+
+func (s *toolsSuite) SetUpTest(c *gc.C) {
+	s.baseToolsSuite.SetUpTest(c)
+
+	s.store = jujutesting.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State())
+}
 
 func (s *toolsSuite) TestToolsUploadedSecurely(c *gc.C) {
 	url := s.toolsURL("")
@@ -365,10 +375,10 @@ func (s *toolsSuite) TestBlockUpload(c *gc.C) {
 	})
 
 	// Check the contents.
-	storage, err := s.ControllerModel(c).State().ToolsStorage()
+	storage, err := s.ControllerModel(c).State().ToolsStorage(s.store)
 	c.Assert(err, jc.ErrorIsNil)
 	defer storage.Close()
-	_, _, err = storage.Open(vers)
+	_, _, err = storage.Open(context.Background(), vers)
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
@@ -533,7 +543,22 @@ func (s *caasToolsSuite) TestToolDownloadNotSharedCAASController(c *gc.C) {
 			s.testDownload(c, tools[0], states[i].ModelUUID())
 		}()
 	}
-	wg.Wait()
 
-	c.Assert(resolutions, gc.Equals, n)
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		wg.Wait()
+	}()
+	select {
+	case <-done:
+	case <-time.After(testing.LongWait):
+		c.Fatalf("timed out waiting for downloads")
+	}
+
+	// We should only ever request 1 metadata source now that we have a global
+	// object store. There isn't a layered binary storage anymore, so it returns
+	// the same one.
+	// This should mean everything is more compact for tools, but we have to
+	// be careful around locking at the file level.
+	c.Assert(resolutions, gc.Equals, 1)
 }

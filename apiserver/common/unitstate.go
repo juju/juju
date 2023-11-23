@@ -53,9 +53,9 @@ func (s UnitStateState) ControllerConfig() (controller.Config, error) {
 }
 
 type UnitStateAPI struct {
-	controllerConfigGetter ControllerConfigGetter
-	backend                UnitStateBackend
-	resources              facade.Resources
+	controllerConfigService ControllerConfigService
+	backend                 UnitStateBackend
+	resources               facade.Resources
 
 	logger loggo.Logger
 
@@ -65,20 +65,20 @@ type UnitStateAPI struct {
 
 // NewExternalUnitStateAPI can be used for API registration.
 func NewExternalUnitStateAPI(
-	controllerConfigGetter ControllerConfigGetter,
+	controllerConfigService ControllerConfigService,
 	st *state.State,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 	accessUnit GetAuthFunc,
 	logger loggo.Logger,
 ) *UnitStateAPI {
-	return NewUnitStateAPI(controllerConfigGetter, UnitStateState{St: st}, resources, authorizer, accessUnit, logger)
+	return NewUnitStateAPI(controllerConfigService, UnitStateState{St: st}, resources, authorizer, accessUnit, logger)
 }
 
 // NewUnitStateAPI returns a new UnitStateAPI. Currently both
 // GetAuthFuncs can used to determine current permissions.
 func NewUnitStateAPI(
-	controllerConfigGetter ControllerConfigGetter,
+	controllerConfigService ControllerConfigService,
 	backend UnitStateBackend,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
@@ -86,11 +86,11 @@ func NewUnitStateAPI(
 	logger loggo.Logger,
 ) *UnitStateAPI {
 	return &UnitStateAPI{
-		controllerConfigGetter: controllerConfigGetter,
-		backend:                backend,
-		resources:              resources,
-		accessUnit:             accessUnit,
-		logger:                 logger,
+		controllerConfigService: controllerConfigService,
+		backend:                 backend,
+		resources:               resources,
+		accessUnit:              accessUnit,
+		logger:                  logger,
 	}
 }
 
@@ -145,7 +145,7 @@ func (u *UnitStateAPI) SetState(ctx context.Context, args params.SetUnitStateArg
 		return params.ErrorResults{}, errors.Trace(err)
 	}
 
-	ctrlCfg, err := u.controllerConfigGetter.ControllerConfig(ctx)
+	ctrlCfg, err := u.controllerConfigService.ControllerConfig(ctx)
 	if err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}

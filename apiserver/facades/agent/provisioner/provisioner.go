@@ -206,7 +206,7 @@ func NewProvisionerAPI(ctx facade.Context) (*ProvisionerAPI, error) {
 	}
 
 	api.InstanceIdGetter = common.NewInstanceIdGetter(st, getAuthFunc)
-	api.toolsFinder = common.NewToolsFinder(serviceFactory.ControllerConfig(), configGetter, st, urlGetter, newEnviron)
+	api.toolsFinder = common.NewToolsFinder(serviceFactory.ControllerConfig(), configGetter, st, urlGetter, newEnviron, ctx.ControllerObjectStore())
 	api.ToolsGetter = common.NewToolsGetter(st, configGetter, st, urlGetter, api.toolsFinder, getAuthOwner)
 	return api, nil
 }

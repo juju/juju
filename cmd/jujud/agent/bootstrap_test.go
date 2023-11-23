@@ -706,7 +706,7 @@ func (s *BootstrapSuite) testToolsMetadata(c *gc.C) {
 	st, closer := s.getSystemState(c)
 	defer closer()
 
-	storage, err := st.ToolsStorage()
+	storage, err := st.ToolsStorage(jujutesting.NewObjectStore(c, st.ControllerModelUUID(), st))
 	c.Assert(err, jc.ErrorIsNil)
 	defer storage.Close()
 	metadata, err := storage.AllMetadata()

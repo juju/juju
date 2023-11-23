@@ -65,6 +65,10 @@ func (testingAPIRootHandler) ObjectStore() coreobjectstore.ObjectStore {
 	return nil
 }
 
+func (testingAPIRootHandler) ControllerObjectStore() coreobjectstore.ObjectStore {
+	return nil
+}
+
 func (testingAPIRootHandler) SharedContext() *sharedServerContext {
 	return nil
 }
@@ -115,7 +119,7 @@ func TestingAPIHandler(c *gc.C, pool *state.StatePool, st *state.State, configGe
 		},
 		tag: names.NewMachineTag("0"),
 	}
-	h, err := newAPIHandler(srv, st, nil, nil, coretrace.NoopTracer{}, nil, st.ModelUUID(), 6543, "testing.invalid:1234")
+	h, err := newAPIHandler(srv, st, nil, nil, coretrace.NoopTracer{}, nil, nil, st.ModelUUID(), 6543, "testing.invalid:1234")
 	c.Assert(err, jc.ErrorIsNil)
 	return h, h.Resources()
 }

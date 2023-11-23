@@ -4,11 +4,10 @@
 package state_test
 
 import (
+	"context"
 	"fmt"
-	"io"
 	"strings"
 
-	"github.com/juju/blobstore/v3"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -67,6 +66,7 @@ type binaryStorageSuite struct {
 	controllerModelUUID string
 	modelUUID           string
 	st                  *state.State
+	store               objectstore.ObjectStore
 }
 
 var _ = gc.Suite(&binaryStorageSuite{})
@@ -95,20 +95,22 @@ func (s *binaryStorageSuite) SetUpTest(c *gc.C) {
 	s.AddCleanup(func(*gc.C) {
 		s.st.Close()
 	})
+
+	s.store = state.NewObjectStore(c, s.st)
 }
 
-type storageOpener func() (binarystorage.StorageCloser, error)
+type storageOpener func(objectstore.ObjectStore) (binarystorage.StorageCloser, error)
 
 func (s *binaryStorageSuite) TestToolsStorage(c *gc.C) {
 	s.testStorage(c, "toolsmetadata", s.State.ToolsStorage)
 }
 
 func (s *binaryStorageSuite) TestToolsStorageParamsControllerModel(c *gc.C) {
-	s.testStorageParams(c, "toolsmetadata", []string{s.State.ModelUUID()}, s.State.ToolsStorage)
+	s.testStorageParams(c, "toolsmetadata", s.State.ToolsStorage)
 }
 
 func (s *binaryStorageSuite) TestToolsStorageParamsHostedModel(c *gc.C) {
-	s.testStorageParams(c, "toolsmetadata", []string{s.modelUUID, s.State.ModelUUID()}, s.st.ToolsStorage)
+	s.testStorageParams(c, "toolsmetadata", s.st.ToolsStorage)
 }
 
 func (s *binaryStorageSuite) testStorage(c *gc.C, collName string, openStorage storageOpener) {
@@ -121,14 +123,14 @@ func (s *binaryStorageSuite) testStorage(c *gc.C, collName string, openStorage s
 	nameSet := set.NewStrings(collectionNames...)
 	c.Assert(nameSet.Contains(collName), jc.IsFalse)
 
-	storage, err := openStorage()
+	storage, err := openStorage(s.store)
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() {
 		err := storage.Close()
 		c.Assert(err, jc.ErrorIsNil)
 	}()
 
-	err = storage.Add(strings.NewReader(""), binarystorage.Metadata{})
+	err = storage.Add(context.Background(), strings.NewReader(""), binarystorage.Metadata{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	collectionNames, err = session.DB("juju").CollectionNames()
@@ -137,59 +139,19 @@ func (s *binaryStorageSuite) testStorage(c *gc.C, collName string, openStorage s
 	c.Assert(nameSet.Contains(collName), jc.IsTrue)
 }
 
-func (s *binaryStorageSuite) testStorageParams(c *gc.C, collName string, uuids []string, openStorage storageOpener) {
-	var uuidArgs []string
+func (s *binaryStorageSuite) testStorageParams(c *gc.C, collName string, openStorage storageOpener) {
 	s.PatchValue(state.BinarystorageNew, func(
-		modelUUID string,
-		managedStorage blobstore.ManagedStorage,
+		managedStorage binarystorage.ManagedStorage,
 		metadataCollection mongo.Collection,
 		runner jujutxn.Runner,
 	) binarystorage.Storage {
-		uuidArgs = append(uuidArgs, modelUUID)
 		c.Assert(managedStorage, gc.NotNil)
 		c.Assert(metadataCollection.Name(), gc.Equals, collName)
 		c.Assert(runner, gc.NotNil)
 		return nil
 	})
 
-	storage, err := openStorage()
+	storage, err := openStorage(s.store)
 	c.Assert(err, jc.ErrorIsNil)
 	storage.Close()
-	c.Assert(uuidArgs, jc.DeepEquals, uuids)
-}
-
-func (s *binaryStorageSuite) TestToolsStorageLayered(c *gc.C) {
-	modelTools, err := s.st.ToolsStorage()
-	c.Assert(err, jc.ErrorIsNil)
-	defer modelTools.Close()
-
-	controllerTools, err := s.State.ToolsStorage()
-	c.Assert(err, jc.ErrorIsNil)
-	defer controllerTools.Close()
-
-	err = modelTools.Add(strings.NewReader("abc"), binarystorage.Metadata{Version: "1.0", Size: 3})
-	c.Assert(err, jc.ErrorIsNil)
-	err = controllerTools.Add(strings.NewReader("defg"), binarystorage.Metadata{Version: "1.0", Size: 4})
-	c.Assert(err, jc.ErrorIsNil)
-	err = controllerTools.Add(strings.NewReader("def"), binarystorage.Metadata{Version: "2.0", Size: 3})
-	c.Assert(err, jc.ErrorIsNil)
-
-	all, err := modelTools.AllMetadata()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(all, jc.DeepEquals, []binarystorage.Metadata{
-		{Version: "1.0", Size: 3},
-		{Version: "2.0", Size: 3},
-	})
-
-	assertContents := func(v, contents string) {
-		_, rc, err := modelTools.Open(v)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(rc, gc.NotNil)
-		defer rc.Close()
-		data, err := io.ReadAll(rc)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(string(data), gc.Equals, contents)
-	}
-	assertContents("1.0", "abc")
-	assertContents("2.0", "def")
 }

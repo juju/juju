@@ -11,6 +11,7 @@ import (
 	common "github.com/juju/juju/apiserver/common"
 	controller "github.com/juju/juju/controller"
 	network "github.com/juju/juju/core/network"
+	objectstore "github.com/juju/juju/core/objectstore"
 	tools "github.com/juju/juju/internal/tools"
 	state "github.com/juju/juju/state"
 	binarystorage "github.com/juju/juju/state/binarystorage"
@@ -195,18 +196,18 @@ func (m *MockToolsStorageGetter) EXPECT() *MockToolsStorageGetterMockRecorder {
 }
 
 // ToolsStorage mocks base method.
-func (m *MockToolsStorageGetter) ToolsStorage() (binarystorage.StorageCloser, error) {
+func (m *MockToolsStorageGetter) ToolsStorage(arg0 objectstore.ObjectStore) (binarystorage.StorageCloser, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ToolsStorage")
+	ret := m.ctrl.Call(m, "ToolsStorage", arg0)
 	ret0, _ := ret[0].(binarystorage.StorageCloser)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ToolsStorage indicates an expected call of ToolsStorage.
-func (mr *MockToolsStorageGetterMockRecorder) ToolsStorage() *gomock.Call {
+func (mr *MockToolsStorageGetterMockRecorder) ToolsStorage(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ToolsStorage", reflect.TypeOf((*MockToolsStorageGetter)(nil).ToolsStorage))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ToolsStorage", reflect.TypeOf((*MockToolsStorageGetter)(nil).ToolsStorage), arg0)
 }
 
 // MockAgentTooler is a mock of AgentTooler interface.

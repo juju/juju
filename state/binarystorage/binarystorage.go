@@ -4,10 +4,10 @@
 package binarystorage
 
 import (
+	"context"
 	"fmt"
 	"io"
 
-	"github.com/juju/blobstore/v3"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/mgo/v3"
@@ -20,9 +20,24 @@ import (
 
 var logger = loggo.GetLogger("juju.state.binarystorage")
 
+// ManagedStorage instances persist data for a bucket, for a user, or globally.
+// (Only bucket storage is currently implemented).
+type ManagedStorage interface {
+	// Get returns a reader for data at path, namespaced to the bucket.
+	// If the data is still being uploaded and is not fully written yet,
+	// an ErrUploadPending error is returned. This means the path is valid but
+	// the caller should try again to retrieve the data.
+	Get(ctx context.Context, path string) (r io.ReadCloser, length int64, err error)
+
+	// Put stores data from reader at path, namespaced to the bucket.
+	Put(ctx context.Context, path string, r io.Reader, length int64) error
+
+	// Remove deletes data at path, namespaced to the bucket.
+	Remove(ctx context.Context, path string) error
+}
+
 type binaryStorage struct {
-	modelUUID          string
-	managedStorage     blobstore.ManagedStorage
+	managedStorage     ManagedStorage
 	metadataCollection mongo.Collection
 	txnRunner          jujutxn.Runner
 }
@@ -33,13 +48,11 @@ var _ Storage = (*binaryStorage)(nil)
 // ManagedStorage, and metadata in the provided collection using the provided
 // transaction runner.
 func New(
-	modelUUID string,
-	managedStorage blobstore.ManagedStorage,
+	managedStorage ManagedStorage,
 	metadataCollection mongo.Collection,
 	runner jujutxn.Runner,
 ) Storage {
 	return &binaryStorage{
-		modelUUID:          modelUUID,
 		managedStorage:     managedStorage,
 		metadataCollection: metadataCollection,
 		txnRunner:          runner,
@@ -47,17 +60,17 @@ func New(
 }
 
 // Add implements Storage.Add.
-func (s *binaryStorage) Add(r io.Reader, metadata Metadata) (resultErr error) {
+func (s *binaryStorage) Add(ctx context.Context, r io.Reader, metadata Metadata) (resultErr error) {
 	// Add the binary file to storage.
 	path := fmt.Sprintf("tools/%s-%s", metadata.Version, metadata.SHA256)
-	if err := s.managedStorage.PutForBucket(s.modelUUID, path, r, metadata.Size); err != nil {
+	if err := s.managedStorage.Put(context.TODO(), path, r, metadata.Size); err != nil {
 		return errors.Annotate(err, "cannot store binary file")
 	}
 	defer func() {
 		if resultErr == nil {
 			return
 		}
-		err := s.managedStorage.RemoveForBucket(s.modelUUID, path)
+		err := s.managedStorage.Remove(context.TODO(), path)
 		if err != nil {
 			logger.Errorf("failed to remove binary blob: %v", err)
 		}
@@ -113,7 +126,7 @@ func (s *binaryStorage) Add(r io.Reader, metadata Metadata) (resultErr error) {
 
 	if oldPath != "" && oldPath != path {
 		// Attempt to remove the old path. Failure is non-fatal.
-		err := s.managedStorage.RemoveForBucket(s.modelUUID, oldPath)
+		err := s.managedStorage.Remove(ctx, oldPath)
 		if err != nil {
 			logger.Errorf("failed to remove old binary blob: %v", err)
 		} else {
@@ -123,12 +136,12 @@ func (s *binaryStorage) Add(r io.Reader, metadata Metadata) (resultErr error) {
 	return nil
 }
 
-func (s *binaryStorage) Open(version string) (Metadata, io.ReadCloser, error) {
+func (s *binaryStorage) Open(ctx context.Context, version string) (Metadata, io.ReadCloser, error) {
 	metadataDoc, err := s.findMetadata(version)
 	if err != nil {
 		return Metadata{}, nil, err
 	}
-	r, _, err := s.managedStorage.GetForBucket(s.modelUUID, metadataDoc.Path)
+	r, _, err := s.managedStorage.Get(ctx, metadataDoc.Path)
 	if err != nil {
 		return Metadata{}, nil, err
 	}

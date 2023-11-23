@@ -174,6 +174,9 @@ type ServiceFactory interface {
 type ObjectStoreFactory interface {
 	// ObjectStore returns the object store for the current model.
 	ObjectStore() objectstore.ObjectStore
+
+	// ControllerObjectStore returns the object store for the controller.
+	ControllerObjectStore() objectstore.ObjectStore
 }
 
 // Logger defines an interface for getting the apiserver logger instance.
