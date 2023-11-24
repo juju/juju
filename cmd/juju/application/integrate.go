@@ -176,7 +176,7 @@ See also:
     consume
     find-offers
     set-firewall-rule
-    suspend-integration
+    suspend-relation
 `
 
 var localEndpointRegEx = regexp.MustCompile("^" + names.RelationSnippet + "$")
