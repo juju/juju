@@ -4,7 +4,7 @@
 package objectstore
 
 import (
-	"context"
+	stdcontext "context"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -13,8 +13,10 @@ import (
 	"github.com/juju/worker/v3/dependency"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/controller"
 	coreobjectstore "github.com/juju/juju/core/objectstore"
 	internalobjectstore "github.com/juju/juju/internal/objectstore"
+	"github.com/juju/juju/internal/servicefactory"
 	jujustate "github.com/juju/juju/state"
 	"github.com/juju/juju/worker/common"
 	"github.com/juju/juju/worker/state"
@@ -35,7 +37,7 @@ type Logger interface {
 // ObjectStoreGetter is the interface that is used to get a object store.
 type ObjectStoreGetter interface {
 	// GetObjectStore returns a object store for the given namespace.
-	GetObjectStore(context.Context, string) (coreobjectstore.ObjectStore, error)
+	GetObjectStore(stdcontext.Context, string) (coreobjectstore.ObjectStore, error)
 }
 
 // StatePool is the interface to retrieve the mongo session from.
@@ -56,12 +58,14 @@ type MongoSession interface {
 
 // ManifoldConfig defines the configuration for the trace manifold.
 type ManifoldConfig struct {
-	AgentName string
-	TraceName string
+	AgentName          string
+	TraceName          string
+	ServiceFactoryName string
 
 	Clock                clock.Clock
 	Logger               Logger
 	NewObjectStoreWorker internalobjectstore.ObjectStoreWorkerFunc
+	GetObjectStoreType   func(ControllerConfigService) (coreobjectstore.BackendType, error)
 
 	// StateName is only here for backwards compatibility. Once we have
 	// the right abstractions in place, and we have a replacement, we can
@@ -76,6 +80,9 @@ func (cfg ManifoldConfig) Validate() error {
 	}
 	if cfg.TraceName == "" {
 		return errors.NotValidf("empty TraceName")
+	}
+	if cfg.ServiceFactoryName == "" {
+		return errors.NotValidf("empty ServiceFactoryName")
 	}
 	if cfg.Clock == nil {
 		return errors.NotValidf("nil Clock")
@@ -96,6 +103,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.AgentName,
 			config.TraceName,
 			config.StateName,
+			config.ServiceFactoryName,
 		},
 		Output: output,
 		Start: func(context dependency.Context) (worker.Worker, error) {
@@ -110,6 +118,16 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 
 			var tracerGetter trace.TracerGetter
 			if err := context.Get(config.TraceName, &tracerGetter); err != nil {
+				return nil, errors.Trace(err)
+			}
+
+			var controllerFactory servicefactory.ControllerServiceFactory
+			if err := context.Get(config.ServiceFactoryName, &controllerFactory); err != nil {
+				return nil, errors.Trace(err)
+			}
+
+			objectStoreType, err := config.GetObjectStoreType(controllerFactory.ControllerConfig())
+			if err != nil {
 				return nil, errors.Trace(err)
 			}
 
@@ -130,6 +148,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				Clock:                config.Clock,
 				Logger:               config.Logger,
 				NewObjectStoreWorker: config.NewObjectStoreWorker,
+				ObjectStoreType:      objectStoreType,
 
 				// StatePool is only here for backwards compatibility. Once we
 				// have the right abstractions in place, and we have a
@@ -147,6 +166,25 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}), nil
 		},
 	}
+}
+
+// ControllerConfigService is the interface that is used to get the controller
+// config.
+type ControllerConfigService interface {
+	ControllerConfig(stdcontext.Context) (controller.Config, error)
+}
+
+// GetObjectStoreType returns the object store type from the controller config
+// service.
+// In reality this is a work around from the fact that we're dealing with
+// a real concrete controller config service, and not an interface.
+func GetObjectStoreType(controllerConfigService ControllerConfigService) (coreobjectstore.BackendType, error) {
+	controllerConfig, err := controllerConfigService.ControllerConfig(stdcontext.TODO())
+	if err != nil {
+		return coreobjectstore.BackendType(""), errors.Trace(err)
+	}
+
+	return controllerConfig.ObjectStoreType(), nil
 }
 
 func output(in worker.Worker, out any) error {

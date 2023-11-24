@@ -81,7 +81,12 @@ func AddCharm(st *state.State, curl string, ch charm.Charm, force bool) (*state.
 		return nil, err
 	}
 
-	stor, err := objectstore.NewStateObjectStore(context.Background(), st.ModelUUID(), st, testing.NoopLogger{})
+	stor, err := objectstore.ObjectStoreFactory(
+		context.Background(),
+		objectstore.DefaultBackendType(),
+		st.ModelUUID(),
+		objectstore.WithMongoSession(st),
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -104,7 +109,13 @@ func AddCharm(st *state.State, curl string, ch charm.Charm, force bool) (*state.
 
 func NewObjectStore(c *gc.C, modelUUID string, st objectstore.MongoSession) coreobjectstore.ObjectStore {
 	// This will be removed when the worker object store is enabled by default.
-	store, err := objectstore.NewStateObjectStore(context.Background(), modelUUID, st, testing.NewCheckLogger(c))
+	store, err := objectstore.ObjectStoreFactory(
+		context.Background(),
+		objectstore.DefaultBackendType(),
+		modelUUID,
+		objectstore.WithMongoSession(st),
+		objectstore.WithLogger(testing.NewCheckLogger(c)),
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	return store
 }

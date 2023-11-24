@@ -39,6 +39,7 @@ type WorkerConfig struct {
 	Clock                clock.Clock
 	Logger               Logger
 	NewObjectStoreWorker internalobjectstore.ObjectStoreWorkerFunc
+	ObjectStoreType      coreobjectstore.BackendType
 
 	// StatePool is only here for backwards compatibility. Once we have
 	// the right abstractions in place, and we have a replacement, we can
@@ -260,9 +261,10 @@ func (w *objectStoreWorker) initObjectStore(namespace string) error {
 
 		objectStore, err := w.cfg.NewObjectStoreWorker(
 			ctx,
+			internalobjectstore.BackendTypeOrDefault(w.cfg.ObjectStoreType),
 			namespace,
-			state,
-			w.cfg.Logger,
+			internalobjectstore.WithMongoSession(state),
+			internalobjectstore.WithLogger(w.cfg.Logger),
 		)
 		if err != nil {
 			return nil, errors.Trace(err)

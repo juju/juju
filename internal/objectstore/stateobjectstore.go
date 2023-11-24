@@ -8,35 +8,15 @@ import (
 	"io"
 
 	"github.com/juju/mgo/v3"
-	"github.com/juju/worker/v3"
 	"gopkg.in/tomb.v2"
 
-	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/objectstore/state"
 )
-
-// Logger represents the logging methods called.
-type Logger interface {
-	Errorf(message string, args ...any)
-	Warningf(message string, args ...any)
-	Infof(message string, args ...any)
-	Debugf(message string, args ...any)
-	Tracef(message string, args ...any)
-
-	IsTraceEnabled() bool
-}
 
 // MongoSession is the interface that is used to get a mongo session.
 // Deprecated: is only here for backwards compatibility.
 type MongoSession interface {
 	MongoSession() *mgo.Session
-}
-
-// TrackedObjectStore is a ObjectStore that is also a worker, to ensure the
-// lifecycle of the objectStore is managed.
-type TrackedObjectStore interface {
-	worker.Worker
-	objectstore.ObjectStore
 }
 
 type stateObjectStore struct {

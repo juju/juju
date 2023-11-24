@@ -671,7 +671,7 @@ func (s *stubObjectStoreGetter) GetObjectStore(ctx context.Context, namespace st
 		return nil, err
 	}
 
-	return internalobjectstore.NewStateObjectStore(ctx, namespace, state, loggo.GetLogger("juju.worker.objectstore"))
+	return internalobjectstore.ObjectStoreFactory(ctx, internalobjectstore.DefaultBackendType(), namespace, internalobjectstore.WithMongoSession(state))
 }
 
 type stubObjectStore struct{}

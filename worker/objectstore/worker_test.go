@@ -16,6 +16,7 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/objectstore"
 	coreobjectstore "github.com/juju/juju/core/objectstore"
 	internalobjectstore "github.com/juju/juju/internal/objectstore"
 	"github.com/juju/juju/testing"
@@ -189,7 +190,7 @@ func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
 		Logger:       s.logger,
 		TracerGetter: &stubTracerGetter{},
 		StatePool:    s.statePool,
-		NewObjectStoreWorker: func(context.Context, string, internalobjectstore.MongoSession, internalobjectstore.Logger) (internalobjectstore.TrackedObjectStore, error) {
+		NewObjectStoreWorker: func(context.Context, objectstore.BackendType, string, ...internalobjectstore.Option) (internalobjectstore.TrackedObjectStore, error) {
 			atomic.AddInt64(&s.called, 1)
 			return s.trackedObjectStore, nil
 		},
