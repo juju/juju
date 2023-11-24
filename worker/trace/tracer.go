@@ -147,8 +147,9 @@ func (t *tracer) Start(ctx context.Context, name string, opts ...coretrace.Optio
 
 	ctx, span = t.clientTracer.Start(ctx, name, trace.WithAttributes(attrs...))
 
-	spanContext := span.SpanContext()
-	t.logger.Debugf("SpanContext: trace-id %s, span-id %s, sampled: %t", spanContext.TraceID(), spanContext.SpanID(), spanContext.IsSampled())
+	if spanContext := span.SpanContext(); spanContext.IsSampled() {
+		t.logger.Debugf("SpanContext: trace-id %s, span-id %s", spanContext.TraceID(), spanContext.SpanID())
+	}
 
 	managed := &managedSpan{
 		span:               span,

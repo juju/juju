@@ -27,7 +27,7 @@ const (
 // Option are options that can be passed to the Tracer.Start() method.
 type Option func(*TracerOption)
 
-// TraceOption is an option that can be passed to the Tracer.Start() method.
+// TracerOption is an option that can be passed to the Tracer.Start() method.
 type TracerOption struct {
 	attributes []Attribute
 	stackTrace bool
