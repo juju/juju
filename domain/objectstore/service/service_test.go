@@ -89,9 +89,10 @@ func (s *serviceSuite) TestWatch(c *gc.C) {
 	watcher := watchertest.NewMockStringsWatcher(nil)
 	defer workertest.DirtyKill(c, watcher)
 
+	table := "objectstore"
 	stmt := "SELECT key FROM objectstore"
-	s.state.EXPECT().InitialWatchStatement().Return(stmt)
-	s.watcherFactory.EXPECT().NewNamespaceWatcher("objectstore", changestream.All, stmt).Return(watcher, nil)
+	s.state.EXPECT().InitialWatchStatement().Return(table, stmt)
+	s.watcherFactory.EXPECT().NewNamespaceWatcher(table, changestream.All, stmt).Return(watcher, nil)
 
 	w, err := NewService(s.state, s.watcherFactory).Watch()
 	c.Assert(err, jc.ErrorIsNil)

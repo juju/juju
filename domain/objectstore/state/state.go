@@ -141,6 +141,6 @@ func (s *State) RemoveMetadata(ctx context.Context, path string) error {
 
 // InitialWatchStatement returns the initial watch statement for the
 // persistence path.
-func (s *State) InitialWatchStatement() string {
-	return ""
+func (s *State) InitialWatchStatement() (string, string) {
+	return "object_store_metadata_path", "SELECT path FROM object_store_metadata_path"
 }

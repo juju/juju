@@ -23,9 +23,9 @@ type State interface {
 	PutMetadata(ctx context.Context, metadata objectstore.Metadata) error
 	// RemoveMetadata removes the specified path for the persistence metadata.
 	RemoveMetadata(ctx context.Context, path string) error
-	// InitialWatchStatement returns the initial watch statement for the
-	// persistence path.
-	InitialWatchStatement() string
+	// InitialWatchStatement returns the table and the initial watch statement
+	// for the persistence metadata.
+	InitialWatchStatement() (string, string)
 }
 
 // WatcherFactory describes methods for creating watchers.
@@ -93,9 +93,10 @@ func (s *Service) RemoveMetadata(ctx context.Context, path string) error {
 // Watch returns a watcher that emits the path changes that either have been
 // added or removed.
 func (s *Service) Watch() (watcher.StringsWatcher, error) {
+	table, stmt := s.st.InitialWatchStatement()
 	return s.watcherFactory.NewNamespaceWatcher(
-		"objectstore",
+		table,
 		changestream.All,
-		s.st.InitialWatchStatement(),
+		stmt,
 	)
 }

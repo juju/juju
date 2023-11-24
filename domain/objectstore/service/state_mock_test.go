@@ -53,11 +53,12 @@ func (mr *MockStateMockRecorder) GetMetadata(arg0, arg1 interface{}) *gomock.Cal
 }
 
 // InitialWatchStatement mocks base method.
-func (m *MockState) InitialWatchStatement() string {
+func (m *MockState) InitialWatchStatement() (string, string) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "InitialWatchStatement")
 	ret0, _ := ret[0].(string)
-	return ret0
+	ret1, _ := ret[1].(string)
+	return ret0, ret1
 }
 
 // InitialWatchStatement indicates an expected call of InitialWatchStatement.

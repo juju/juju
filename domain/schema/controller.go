@@ -20,6 +20,7 @@ const (
 	tableCloudCredential
 	tableAutocertCache
 	tableUpgradeInfoControllerNode
+	tableObjectStoreMetadata
 )
 
 // ControllerDDL is used to create the controller database schema at bootstrap.
@@ -47,6 +48,7 @@ func ControllerDDL() *schema.Schema {
 		changeLogTriggersForTable("upgrade_info_controller_node", "upgrade_info_uuid", tableUpgradeInfoControllerNode),
 		autocertCacheSchema,
 		objectStoreMetadataSchema,
+		changeLogTriggersForTable("object_store_metadata_path", "path", tableObjectStoreMetadata),
 		userSchema,
 		modelConfigDefaults,
 	}
@@ -124,7 +126,8 @@ INSERT INTO change_log_namespace VALUES
     (7, 'cloud', 'cloud changes based on the UUID'),
     (8, 'cloud_credential', 'cloud credential changes based on the UUID'),
     (9, 'autocert_cache', 'autocert cache changes based on the UUID'),
-    (10, 'upgrade_info_controller_node', 'upgrade info controller node changes based on the UUID')
+    (10, 'upgrade_info_controller_node', 'upgrade info controller node changes based on the upgrade info UUID'),
+    (11, 'object_store_metadata_path', 'object store metadata path changes based on the path')
 `)
 }
 
