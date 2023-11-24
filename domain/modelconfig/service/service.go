@@ -106,7 +106,7 @@ func (s *Service) ModelConfigValues(
 	if len(allAtrs) == 0 {
 		allAtrs = map[string]any{}
 		for k, v := range defaults {
-			allAtrs[k] = v.Value()
+			allAtrs[k] = v.Value
 		}
 	}
 
@@ -135,7 +135,7 @@ func (s *Service) buildUpdatedModelConfig(
 ) (*config.Config, *config.Config, error) {
 	current, err := s.ModelConfig(ctx)
 	if err != nil {
-		return nil, current, errors.Trace(err)
+		return nil, current, err
 	}
 
 	newConf, err := current.Remove(removeAttrs)
@@ -174,7 +174,7 @@ func (s *Service) reconcileRemovedAttributes(
 	}
 
 	for _, attr := range hasAttrs {
-		if val := defaults[attr].Value(); val != nil {
+		if val := defaults[attr].Value; val != nil {
 			updates[attr] = val
 		}
 	}
@@ -196,8 +196,9 @@ func (s *Service) SetModelConfig(
 	}
 
 	for k, v := range defaults {
-		if _, exists := attrs[k]; !exists && v.Value() != nil {
-			attrs[k] = v.Value()
+		applyVal := v.ApplyStrategy(attrs[k])
+		if applyVal != nil {
+			attrs[k] = applyVal
 		}
 	}
 

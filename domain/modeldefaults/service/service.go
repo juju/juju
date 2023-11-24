@@ -11,6 +11,7 @@ import (
 	"github.com/juju/schema"
 
 	"github.com/juju/juju/domain/model"
+	_ "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/domain/modeldefaults"
 	"github.com/juju/juju/environs/config"
 )
@@ -25,7 +26,7 @@ type ModelDefaultsProvider interface {
 	ModelDefaults(context.Context) (modeldefaults.Defaults, error)
 }
 
-// ModelDefaultsProviderFunc is a func type that implements ModelDefaultsProvider.
+// ModelDefaultsProviderFunc is a func type that implements [ModelDefaultsProvider].
 type ModelDefaultsProviderFunc func(context.Context) (modeldefaults.Defaults, error)
 
 // State is the model config state required by this service.
@@ -59,7 +60,8 @@ func (f ModelDefaultsProviderFunc) ModelDefaults(
 }
 
 // ModelDefaults will return the default config values to be used for a model
-// and it's config.
+// and it's config. If no model for uuid is found then a error satisfying
+// [github.com/juju/juju/domain/model/errors.NotFound] will be returned.
 func (s *Service) ModelDefaults(
 	ctx context.Context,
 	uuid model.UUID,
@@ -72,7 +74,10 @@ func (s *Service) ModelDefaults(
 
 	jujuDefaults := s.st.ConfigDefaults(ctx)
 	for k, v := range jujuDefaults {
-		defaults[k] = modeldefaults.DefaultAttributeValue{Default: v}
+		defaults[k] = modeldefaults.DefaultAttributeValue{
+			Source: config.JujuDefaultSource,
+			Value:  v,
+		}
 	}
 
 	schemaSource, err := s.st.ModelProviderConfigSchema(ctx, uuid)
@@ -86,7 +91,10 @@ func (s *Service) ModelDefaults(
 		}
 
 		for k, v := range coercedAttrs.(map[string]interface{}) {
-			defaults[k] = modeldefaults.DefaultAttributeValue{Default: v}
+			defaults[k] = modeldefaults.DefaultAttributeValue{
+				Source: config.JujuDefaultSource,
+				Value:  v,
+			}
 		}
 	}
 
@@ -96,9 +104,10 @@ func (s *Service) ModelDefaults(
 	}
 
 	for k, v := range cloudDefaults {
-		attr := defaults[k]
-		attr.Controller = v
-		defaults[k] = attr
+		defaults[k] = modeldefaults.DefaultAttributeValue{
+			Source: config.JujuControllerSource,
+			Value:  v,
+		}
 	}
 
 	cloudRegionDefaults, err := s.st.ModelCloudRegionDefaults(ctx, uuid)
@@ -107,16 +116,21 @@ func (s *Service) ModelDefaults(
 	}
 
 	for k, v := range cloudRegionDefaults {
-		attr := defaults[k]
-		attr.Region = v
-		defaults[k] = attr
+		defaults[k] = modeldefaults.DefaultAttributeValue{
+			Source: config.JujuRegionSource,
+			Value:  v,
+		}
 	}
 
 	return defaults, nil
 }
 
-// ModelDefaultsProvider provides a ModelDefaultsProviderFunc scoped to the
-// supplied model. This can be used in the construction of modelconfig services.
+// ModelDefaultsProvider provides a [ModelDefaultsProviderFunc] scoped to the
+// supplied model. This can be used in the construction of
+// [github.com/juju/juju/domain/modelconfig/service.Service]. If no model exists
+// for the specified UUID then the [ModelDefaultsProviderFunc] will return a
+// error that satisfies
+// [github.com/juju/juju/domain/model/errors.NotFound].
 func (s *Service) ModelDefaultsProvider(
 	uuid model.UUID,
 ) ModelDefaultsProviderFunc {

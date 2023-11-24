@@ -12,7 +12,6 @@ import (
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	modeltesting "github.com/juju/juju/domain/model/testing"
-	"github.com/juju/juju/domain/modeldefaults"
 	"github.com/juju/juju/domain/modeldefaults/service/testing"
 )
 
@@ -20,6 +19,9 @@ type serviceSuite struct{}
 
 var _ = gc.Suite(&serviceSuite{})
 
+// TestModelDefaultsForNonExistentModel is here to establish that when we ask
+// for model defaults for a model that does not exist we get back a error that
+// satisfies [modelerrors.NotFound].
 func (_ *serviceSuite) TestModelDefaultsForNonExistentModel(c *gc.C) {
 	uuid := modeltesting.GenModelUUID(c)
 	svc := NewService(&testing.State{})
@@ -33,6 +35,11 @@ func (_ *serviceSuite) TestModelDefaultsForNonExistentModel(c *gc.C) {
 	c.Assert(len(defaults), gc.Equals, 0)
 }
 
+// TestModelDefaultsProviderNotFound is testing the fact that if we can not find
+// provider defaults for the models cloud that we handle the error gracefully
+// internally and the service still returns defaults but just without any
+// provider defaults. i.e we want a NotFound error from the provider to be
+// transparent.
 func (_ *serviceSuite) TestModelDefaultsProviderNotFound(c *gc.C) {
 	uuid := modeltesting.GenModelUUID(c)
 	svc := NewService(&testing.State{
@@ -48,25 +55,17 @@ func (_ *serviceSuite) TestModelDefaultsProviderNotFound(c *gc.C) {
 
 	defaults, err := svc.ModelDefaults(context.Background(), uuid)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(defaults, jc.DeepEquals, modeldefaults.Defaults{
-		"wallyworld": modeldefaults.DefaultAttributeValue{
-			Default: "peachy",
-		},
-		"foo": modeldefaults.DefaultAttributeValue{
-			Controller: "bar",
-		},
-	})
+	c.Check(defaults["wallyworld"].Value, gc.Equals, "peachy")
+	c.Check(defaults["wallyworld"].Source, gc.Equals, "default")
+	c.Check(defaults["foo"].Value, gc.Equals, "bar")
+	c.Check(defaults["foo"].Source, gc.Equals, "controller")
 
 	defaults, err = svc.ModelDefaultsProvider(uuid)(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(defaults, jc.DeepEquals, modeldefaults.Defaults{
-		"wallyworld": modeldefaults.DefaultAttributeValue{
-			Default: "peachy",
-		},
-		"foo": modeldefaults.DefaultAttributeValue{
-			Controller: "bar",
-		},
-	})
+	c.Check(defaults["wallyworld"].Value, gc.Equals, "peachy")
+	c.Check(defaults["wallyworld"].Source, gc.Equals, "default")
+	c.Check(defaults["foo"].Value, gc.Equals, "bar")
+	c.Check(defaults["foo"].Source, gc.Equals, "controller")
 }
 
 func (_ *serviceSuite) TestModelDefaults(c *gc.C) {
@@ -89,29 +88,19 @@ func (_ *serviceSuite) TestModelDefaults(c *gc.C) {
 
 	defaults, err := svc.ModelDefaults(context.Background(), uuid)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(defaults, jc.DeepEquals, modeldefaults.Defaults{
-		"wallyworld": modeldefaults.DefaultAttributeValue{
-			Default: "peachy",
-		},
-		"foo": modeldefaults.DefaultAttributeValue{
-			Controller: "bar",
-		},
-		"bar": modeldefaults.DefaultAttributeValue{
-			Region: "foo",
-		},
-	})
+	c.Check(defaults["wallyworld"].Value, gc.Equals, "peachy")
+	c.Check(defaults["wallyworld"].Source, gc.Equals, "default")
+	c.Check(defaults["foo"].Value, gc.Equals, "bar")
+	c.Check(defaults["foo"].Source, gc.Equals, "controller")
+	c.Check(defaults["bar"].Value, gc.Equals, "foo")
+	c.Check(defaults["bar"].Source, gc.Equals, "region")
 
 	defaults, err = svc.ModelDefaultsProvider(uuid)(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(defaults, jc.DeepEquals, modeldefaults.Defaults{
-		"wallyworld": modeldefaults.DefaultAttributeValue{
-			Default: "peachy",
-		},
-		"foo": modeldefaults.DefaultAttributeValue{
-			Controller: "bar",
-		},
-		"bar": modeldefaults.DefaultAttributeValue{
-			Region: "foo",
-		},
-	})
+	c.Check(defaults["wallyworld"].Value, gc.Equals, "peachy")
+	c.Check(defaults["wallyworld"].Source, gc.Equals, "default")
+	c.Check(defaults["foo"].Value, gc.Equals, "bar")
+	c.Check(defaults["foo"].Source, gc.Equals, "controller")
+	c.Check(defaults["bar"].Value, gc.Equals, "foo")
+	c.Check(defaults["bar"].Source, gc.Equals, "region")
 }
