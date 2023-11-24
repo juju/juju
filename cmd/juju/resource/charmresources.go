@@ -228,10 +228,6 @@ func resolveCharm(raw string) (*charm.URL, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
-	if charmURL.Series == "bundle" {
-		return nil, errors.NotSupportedf("charm bundles")
-	}
 	if !charm.CharmHub.Matches(charmURL.Schema) {
 		return nil, errors.BadRequestf("only supported with charmhub charms")
 	}

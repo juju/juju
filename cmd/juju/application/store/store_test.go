@@ -31,7 +31,7 @@ func (s *storeSuite) TestAddCharmFromURLAddCharmSuccess(c *gc.C) {
 
 	curl, err := charm.ParseURL("ch:testme")
 	c.Assert(err, jc.ErrorIsNil)
-	origin, err := utils.DeduceOrigin(curl, charm.Channel{Risk: charm.Beta}, corecharm.Platform{Architecture: arch.DefaultArchitecture})
+	origin, err := utils.MakeOrigin(charm.CharmHub, -1, charm.Channel{Risk: charm.Beta}, corecharm.Platform{Architecture: arch.DefaultArchitecture})
 	c.Assert(err, jc.ErrorIsNil)
 
 	obtainedCurl, _, err := store.AddCharmFromURL(
@@ -49,7 +49,7 @@ func (s *storeSuite) TestAddCharmFromURLFailAddCharmFail(c *gc.C) {
 	s.expectAddCharm(errors.NotFoundf("testing"))
 	curl, err := charm.ParseURL("ch:testme")
 	c.Assert(err, jc.ErrorIsNil)
-	origin, err := utils.DeduceOrigin(curl, charm.Channel{Risk: charm.Beta}, corecharm.Platform{Architecture: arch.DefaultArchitecture})
+	origin, err := utils.MakeOrigin(charm.CharmHub, -1, charm.Channel{Risk: charm.Beta}, corecharm.Platform{Architecture: arch.DefaultArchitecture})
 	c.Assert(err, jc.ErrorIsNil)
 
 	obtainedCurl, _, err := store.AddCharmFromURL(
@@ -70,7 +70,7 @@ func (s *storeSuite) TestAddCharmFromURLFailAddCharmFailUnauthorized(c *gc.C) {
 	})
 	curl, err := charm.ParseURL("ch:testme")
 	c.Assert(err, jc.ErrorIsNil)
-	origin, err := utils.DeduceOrigin(curl, charm.Channel{Risk: charm.Beta}, corecharm.Platform{Architecture: arch.DefaultArchitecture})
+	origin, err := utils.MakeOrigin(charm.CharmHub, -1, charm.Channel{Risk: charm.Beta}, corecharm.Platform{Architecture: arch.DefaultArchitecture})
 	c.Assert(err, jc.ErrorIsNil)
 
 	obtainedCurl, _, err := store.AddCharmFromURL(

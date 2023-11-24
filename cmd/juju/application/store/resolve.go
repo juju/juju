@@ -6,10 +6,7 @@ package store
 import (
 	"github.com/juju/charm/v11"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 )
-
-var logger = loggo.GetLogger("juju.cmd.juju.application.store")
 
 // ResolvedBundle decorates a charm.Bundle instance with a type that implements
 // the charm.BundleDataSource interface.
