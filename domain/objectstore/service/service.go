@@ -7,12 +7,13 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/juju/utils/v3"
+
 	"github.com/juju/juju/core/changestream"
 	coreobjectstore "github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/objectstore"
-	"github.com/juju/utils/v3"
 )
 
 // State describes retrieval and persistence methods for the coreobjectstore.
