@@ -25,6 +25,8 @@ import (
 	modeldefaultsstate "github.com/juju/juju/domain/modeldefaults/state"
 	modelmanagerservice "github.com/juju/juju/domain/modelmanager/service"
 	modelmanagerstate "github.com/juju/juju/domain/modelmanager/state"
+	objectstoreservice "github.com/juju/juju/domain/objectstore/service"
+	objectstorestate "github.com/juju/juju/domain/objectstore/state"
 	upgradeservice "github.com/juju/juju/domain/upgrade/service"
 	upgradestate "github.com/juju/juju/domain/upgrade/state"
 )
@@ -140,12 +142,24 @@ func (s *ControllerFactory) AutocertCache() *autocertcacheservice.Service {
 	)
 }
 
+// Upgrade returns the upgrade service.
 func (s *ControllerFactory) Upgrade() *upgradeservice.Service {
 	return upgradeservice.NewService(
 		upgradestate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
 		domain.NewWatcherFactory(
 			s.controllerDB,
 			s.logger.Child("upgrade"),
+		),
+	)
+}
+
+// AgentObjectStore returns the object store service.
+func (s *ControllerFactory) AgentObjectStore() *objectstoreservice.Service {
+	return objectstoreservice.NewService(
+		objectstorestate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
+		domain.NewWatcherFactory(
+			s.controllerDB,
+			s.logger.Child("objectstore"),
 		),
 	)
 }

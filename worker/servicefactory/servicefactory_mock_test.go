@@ -17,7 +17,8 @@ import (
 	service6 "github.com/juju/juju/domain/modelconfig/service"
 	service7 "github.com/juju/juju/domain/modeldefaults/service"
 	service8 "github.com/juju/juju/domain/modelmanager/service"
-	service9 "github.com/juju/juju/domain/upgrade/service"
+	service9 "github.com/juju/juju/domain/objectstore/service"
+	service10 "github.com/juju/juju/domain/upgrade/service"
 	servicefactory "github.com/juju/juju/internal/servicefactory"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -43,6 +44,20 @@ func NewMockControllerServiceFactory(ctrl *gomock.Controller) *MockControllerSer
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockControllerServiceFactory) EXPECT() *MockControllerServiceFactoryMockRecorder {
 	return m.recorder
+}
+
+// AgentObjectStore mocks base method.
+func (m *MockControllerServiceFactory) AgentObjectStore() *service9.Service {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AgentObjectStore")
+	ret0, _ := ret[0].(*service9.Service)
+	return ret0
+}
+
+// AgentObjectStore indicates an expected call of AgentObjectStore.
+func (mr *MockControllerServiceFactoryMockRecorder) AgentObjectStore() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AgentObjectStore", reflect.TypeOf((*MockControllerServiceFactory)(nil).AgentObjectStore))
 }
 
 // AutocertCache mocks base method.
@@ -172,10 +187,10 @@ func (mr *MockControllerServiceFactoryMockRecorder) ModelManager() *gomock.Call 
 }
 
 // Upgrade mocks base method.
-func (m *MockControllerServiceFactory) Upgrade() *service9.Service {
+func (m *MockControllerServiceFactory) Upgrade() *service10.Service {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Upgrade")
-	ret0, _ := ret[0].(*service9.Service)
+	ret0, _ := ret[0].(*service10.Service)
 	return ret0
 }
 
@@ -222,6 +237,20 @@ func (mr *MockModelServiceFactoryMockRecorder) Config(arg0 interface{}) *gomock.
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Config", reflect.TypeOf((*MockModelServiceFactory)(nil).Config), arg0)
 }
 
+// ObjectStore mocks base method.
+func (m *MockModelServiceFactory) ObjectStore() *service9.Service {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ObjectStore")
+	ret0, _ := ret[0].(*service9.Service)
+	return ret0
+}
+
+// ObjectStore indicates an expected call of ObjectStore.
+func (mr *MockModelServiceFactoryMockRecorder) ObjectStore() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ObjectStore", reflect.TypeOf((*MockModelServiceFactory)(nil).ObjectStore))
+}
+
 // MockServiceFactory is a mock of ServiceFactory interface.
 type MockServiceFactory struct {
 	ctrl     *gomock.Controller
@@ -243,6 +272,20 @@ func NewMockServiceFactory(ctrl *gomock.Controller) *MockServiceFactory {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockServiceFactory) EXPECT() *MockServiceFactoryMockRecorder {
 	return m.recorder
+}
+
+// AgentObjectStore mocks base method.
+func (m *MockServiceFactory) AgentObjectStore() *service9.Service {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AgentObjectStore")
+	ret0, _ := ret[0].(*service9.Service)
+	return ret0
+}
+
+// AgentObjectStore indicates an expected call of AgentObjectStore.
+func (mr *MockServiceFactoryMockRecorder) AgentObjectStore() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AgentObjectStore", reflect.TypeOf((*MockServiceFactory)(nil).AgentObjectStore))
 }
 
 // AutocertCache mocks base method.
@@ -385,11 +428,25 @@ func (mr *MockServiceFactoryMockRecorder) ModelManager() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelManager", reflect.TypeOf((*MockServiceFactory)(nil).ModelManager))
 }
 
+// ObjectStore mocks base method.
+func (m *MockServiceFactory) ObjectStore() *service9.Service {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ObjectStore")
+	ret0, _ := ret[0].(*service9.Service)
+	return ret0
+}
+
+// ObjectStore indicates an expected call of ObjectStore.
+func (mr *MockServiceFactoryMockRecorder) ObjectStore() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ObjectStore", reflect.TypeOf((*MockServiceFactory)(nil).ObjectStore))
+}
+
 // Upgrade mocks base method.
-func (m *MockServiceFactory) Upgrade() *service9.Service {
+func (m *MockServiceFactory) Upgrade() *service10.Service {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Upgrade")
-	ret0, _ := ret[0].(*service9.Service)
+	ret0, _ := ret[0].(*service10.Service)
 	return ret0
 }
 
