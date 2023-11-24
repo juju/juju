@@ -77,6 +77,36 @@ ON provider_space (space_uuid);
 
 func subnetSchema() schema.Patch {
 	return schema.MakePatch(`
+--  subnet                                    subnet_type
+-- +-----------------------+                 +-------------------------+
+-- |*uuid              text|                 |*uuid                text|
+-- |cidr               text|1               1|name                 text|
+-- |vlan_tag            int+-----------------+is_usable         boolean|
+-- |is_public       boolean|                 |is_space_settable boolean|
+-- |space_uuid         text|                 +------------+------------+
+-- |subnet_type_uuid   text|                              |1
+-- +---------+-------------+                              |
+--           |1                                           |
+--           |                                            |
+--           |                                            |
+--           |                                            |
+--           |n                                           |n
+--  subnet_association                        subject_subnet_type_uuid
+-- +---------------------------+             +--------------------------------+
+-- |*subject_subnet_uuid   text|             |*subject_subnet_type_uuid   text|
+-- |associated_subnet_uuid text|             |associated_subnet_type_uuid text|
+-- |association_type_uuid  text|             |association_type_uuid       text|
+-- +---------+-----------------+             +------------+-------------------+
+--           |1                                           |1
+--           |                                            |
+--           |                                            |
+--           |                                            |
+--           |1                                           |
+--  subnet_association_type                               |
+-- +-----------------------+                              |
+-- |*uuid              text+------------------------------+
+-- |name               text|1
+-- +-----------------------+
 CREATE TABLE subnet (
     uuid                         TEXT PRIMARY KEY,
     cidr                         TEXT NOT NULL,
