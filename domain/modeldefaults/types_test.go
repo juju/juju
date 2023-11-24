@@ -136,8 +136,8 @@ func (s *typesSuite) TestApplyStrategy(c *gc.C) {
 // [PreferSetApplyStrategy] (the happy path).
 func (s *typesSuite) TestPreferSetApplyStrategy(c *gc.C) {
 	strategy := PreferSetApplyStrategy{}
-	c.Assert(strategy.Apply(nil, "test"), gc.Equals, "test")
-	c.Assert(strategy.Apply("default", nil), gc.Equals, "default")
-	c.Assert(strategy.Apply("default", "set"), gc.Equals, "set")
-	c.Assert(strategy.Apply(nil, nil), gc.IsNil)
+	c.Check(strategy.Apply(nil, "test"), gc.Equals, "test")
+	c.Check(strategy.Apply("default", nil), gc.Equals, "default")
+	c.Check(strategy.Apply("default", "set"), gc.Equals, "set")
+	c.Check(strategy.Apply(nil, nil), gc.IsNil)
 }
