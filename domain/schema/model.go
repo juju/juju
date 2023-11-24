@@ -115,13 +115,20 @@ INSERT INTO subnet_association_type VALUES
 CREATE TABLE subnet_type_association_type (
     subject_subnet_type_uuid       TEXT PRIMARY KEY,
     associated_subnet_type_uuid    TEXT NOT NULL,
+    association_type_uuid          TEXT NOT NULL,
     CONSTRAINT                     fk_subject_subnet_type_uuid
         FOREIGN KEY                    (subject_subnet_type_uuid)
         REFERENCES                     subnet_type(uuid),
     CONSTRAINT                     fk_associated_subnet_type_uuid
         FOREIGN KEY                    (associated_subnet_type_uuid)
+        REFERENCES                     subnet_association_type(uuid),
+    CONSTRAINT                     fk_association_type_uuid
+        FOREIGN KEY                    (association_type_uuid)
         REFERENCES                     subnet_association_type(uuid)
 );
+
+INSERT INTO subnet_type_association_type VALUES
+    (1, 0, 0);    -- This reference "allowable" association means that a 'fan_overlay' subnet can only be an overlay of a 'base' subnet.
 
 CREATE TABLE subnet_association (
     subject_subnet_uuid            TEXT PRIMARY KEY,
