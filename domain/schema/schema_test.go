@@ -98,6 +98,9 @@ func (s *schemaSuite) TestControllerDDLApply(c *gc.C) {
 		"user_authentication",
 		"user_password",
 		"user_activation_key",
+
+		// Model Config Defaults
+		"model_config_defaults",
 	)
 	c.Assert(readTableNames(c, s.DB()), jc.SameContents, expected.Union(internalTableNames).SortedValues())
 }
