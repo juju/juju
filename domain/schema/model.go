@@ -86,7 +86,7 @@ CREATE TABLE subnet (
     subnet_type_uuid             TEXT,
     CONSTRAINT                   fk_subnets_spaces
         FOREIGN KEY                  (space_uuid)
-        REFERENCES                   space(uuid)
+        REFERENCES                   space(uuid),
     CONSTRAINT                   fk_subnet_types
         FOREIGN KEY                  (subnet_type_uuid)
         REFERENCES                   subnet_type(uuid)
@@ -101,27 +101,45 @@ CREATE TABLE subnet_type (
 
 INSERT INTO subnet_type VALUES
     (0, 'base', true, true),    -- The base (or standard) subnet type. If another subnet is an overlay of a base subnet in fan bridging, then the base subnet is the underlay in fan terminology.
-    (1, 'overlay', false, false),    
-    (2, 'overlay_segment', true, true);
+    (1, 'fan_overlay', false, false),    
+    (2, 'fan_overlay_segment', true, true);
 
-CREATE TABLE subnet_role_definition (
+CREATE TABLE subnet_association_type (
     uuid                         TEXT PRIMARY KEY,
     name                         TEXT NOT NULL
 );
 
-INSERT INTO subnet_role_definition VALUES
+INSERT INTO subnet_association_type VALUES
     (0, 'overlay_of');    -- The subnet is an overlay of other (an underlay) subnet.
 
-CREATE TABLE subnet_type_role_mapping (
-    subnet_type_uuid           TEXT PRIMARY KEY,
-    subnet_role_uuid           TEXT NOT NULL,
-    CONSTRAINT                 fk_subnet_type_uuid
-        FOREIGN KEY                (subnet_type_uuid)
-        REFERENCES                 subnet_type(uuid)
-    CONSTRAINT                 fk_subnet_role_uuid
-        FOREIGN KEY                (subnet_role_uuid)
-        REFERENCES                 subnet_role_definition(uuid)
+CREATE TABLE subnet_type_association_type (
+    subject_subnet_type_uuid       TEXT PRIMARY KEY,
+    associated_subnet_type_uuid    TEXT NOT NULL,
+    CONSTRAINT                     fk_subject_subnet_type_uuid
+        FOREIGN KEY                    (subject_subnet_type_uuid)
+        REFERENCES                     subnet_type(uuid),
+    CONSTRAINT                     fk_associated_subnet_type_uuid
+        FOREIGN KEY                    (associated_subnet_type_uuid)
+        REFERENCES                     subnet_association_type(uuid)
 );
+
+CREATE TABLE subnet_association (
+    subject_subnet_uuid            TEXT PRIMARY KEY,
+    associated_subnet_uuid         TEXT NOT NULL,
+    association_type_uuid          TEXT NOT NULL,
+    CONSTRAINT                     fk_subject_subnet_uuid
+        FOREIGN KEY                    (subject_subnet_uuid)
+        REFERENCES                     subnet(uuid),
+    CONSTRAINT                     fk_associated_subnet_uuid
+        FOREIGN KEY                    (associated_subnet_uuid)
+        REFERENCES                     subnet(uuid),
+    CONSTRAINT                     fk_association_type_uuid
+        FOREIGN KEY                    (association_type_uuid)
+        REFERENCES                     subnet_association_type(uuid)
+);
+
+CREATE UNIQUE INDEX idx_subnet_association
+ON subnet_association (subject_subnet_uuid, associated_subnet_uuid);
 
 CREATE TABLE provider_subnet (
     provider_id     TEXT PRIMARY KEY,
@@ -144,7 +162,7 @@ CREATE TABLE provider_network_subnet (
     subnet_uuid           TEXT NOT NULL,
     CONSTRAINT            fk_provider_network_subnet_provider_network_uuid
         FOREIGN KEY           (provider_network_uuid)
-        REFERENCES            provider_network_uuid(uuid)
+        REFERENCES            provider_network(uuid),
     CONSTRAINT            fk_provider_network_subnet_uuid
         FOREIGN KEY           (subnet_uuid)
         REFERENCES            subnet(uuid)
@@ -164,7 +182,7 @@ CREATE TABLE availability_zone_subnet (
     subnet_uuid            TEXT NOT NULL,
     CONSTRAINT             fk_availability_zone_availability_zone_uuid
         FOREIGN KEY            (availability_zone_uuid)
-        REFERENCES             availability_zone(uuid)
+        REFERENCES             availability_zone(uuid),
     CONSTRAINT             fk_availability_zone_subnet_uuid
         FOREIGN KEY            (subnet_uuid)
         REFERENCES             subnet(uuid)

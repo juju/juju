@@ -138,9 +138,10 @@ func (s *schemaSuite) TestModelDDLApply(c *gc.C) {
 
 		// Subnets
 		"subnet",
-		"subnet_role_definition",
+		"subnet_association_type",
 		"subnet_type",
-		"subnet_type_role_mapping",
+		"subnet_type_association_type",
+		"subnet_association",
 		"provider_subnet",
 		"provider_network",
 		"provider_network_subnet",
