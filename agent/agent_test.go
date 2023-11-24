@@ -773,3 +773,15 @@ func (*suite) TestSetOpenTelemetryStackTraces(c *gc.C) {
 	queryTracingStackTraces = conf.OpenTelemetryStackTraces()
 	c.Assert(queryTracingStackTraces, gc.Equals, true, gc.Commentf("open telemetry stack traces setting not updated"))
 }
+
+func (*suite) TestSetOpenTelemetrySampleRatio(c *gc.C) {
+	conf, err := agent.NewAgentConfig(attributeParams)
+	c.Assert(err, jc.ErrorIsNil)
+
+	queryTracingSampleRatio := conf.OpenTelemetrySampleRatio()
+	c.Assert(queryTracingSampleRatio, gc.Equals, attributeParams.OpenTelemetrySampleRatio)
+
+	conf.SetOpenTelemetrySampleRatio(.42)
+	queryTracingSampleRatio = conf.OpenTelemetrySampleRatio()
+	c.Assert(queryTracingSampleRatio, gc.Equals, .42, gc.Commentf("open telemetry sample ratio setting not updated"))
+}

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -283,6 +284,9 @@ const (
 	// span.
 	OpenTelemetryStackTraces = "open-telemetry-stack-traces"
 
+	// OpenTelemetrySampleRatio returns the sample ratio for open telemetry.
+	OpenTelemetrySampleRatio = "open-telemetry-sample-ratio"
+
 	// ObjectStoreType is the type of object store to use for storing blobs.
 	// This isn't currently allowed to be changed dynamically, that will come
 	// when we support multiple object store types (not including state).
@@ -429,6 +433,11 @@ const (
 	// DefaultOpenTelemetryStackTraces is the default value for it the open
 	// telemetry tracing has stack traces or not.
 	DefaultOpenTelemetryStackTraces = false
+
+	// DefaultOpenTelemetrySampleRatio is the default value for the sample
+	// ratio for open telemetry.
+	// By default we only want to trace 10% of the requests.
+	DefaultOpenTelemetrySampleRatio = 0.1
 )
 
 var (
@@ -487,6 +496,7 @@ var (
 		OpenTelemetryEndpoint,
 		OpenTelemetryInsecure,
 		OpenTelemetryStackTraces,
+		OpenTelemetrySampleRatio,
 		ObjectStoreType,
 	}
 
@@ -537,6 +547,7 @@ var (
 		OpenTelemetryEndpoint,
 		OpenTelemetryInsecure,
 		OpenTelemetryStackTraces,
+		OpenTelemetrySampleRatio,
 		PruneTxnQueryCount,
 		PruneTxnSleepTime,
 		PublicDNSAddress,
@@ -1047,6 +1058,16 @@ func (c Config) OpenTelemetryStackTraces() bool {
 	return c.boolOrDefault(OpenTelemetryStackTraces, DefaultOpenTelemetryStackTraces)
 }
 
+// OpenTelemetrySampleRatio returns whether open telemetry tracing spans
+// requires to have stack traces.
+func (c Config) OpenTelemetrySampleRatio() float64 {
+	f, err := parseRatio(c, OpenTelemetrySampleRatio)
+	if err == nil {
+		return f
+	}
+	return DefaultOpenTelemetrySampleRatio
+}
+
 // ObjectStoreType returns the type of object store to use for storing blobs.
 func (c Config) ObjectStoreType() objectstore.BackendType {
 	return objectstore.BackendType(c.asString(ObjectStoreType))
@@ -1299,6 +1320,14 @@ func Validate(c Config) error {
 		}
 	}
 
+	if v, err := parseRatio(c, OpenTelemetrySampleRatio); err != nil && !errors.Is(err, errors.NotFound) {
+		return errors.Annotatef(err, "%s", OpenTelemetrySampleRatio)
+	} else if err == nil {
+		if v < 0 || v > 1 {
+			return errors.Errorf("%s value %f must be a ratio between 0 and 1", OpenTelemetrySampleRatio, v)
+		}
+	}
+
 	if v, ok := c[ObjectStoreType].(string); ok {
 		if v == "" {
 			return errors.NotValidf("empty object store type")
@@ -1371,6 +1400,26 @@ func parseDuration(c Config, name string) (time.Duration, error) {
 		return value, err
 	case time.Duration:
 		return t, nil
+	case nil:
+		return 0, nil
+	default:
+		return 0, errors.Errorf("unexpected type %T", c[name])
+	}
+}
+
+func parseRatio(c Config, name string) (float64, error) {
+	if _, ok := c[name]; !ok {
+		return 0, errors.NotFoundf("config key %q", name)
+	}
+
+	switch t := c[name].(type) {
+	case float64:
+		return t, nil
+	case float32:
+		return float64(t), nil
+	case string:
+		value, err := strconv.ParseFloat(t, 64)
+		return value, err
 	case nil:
 		return 0, nil
 	default:

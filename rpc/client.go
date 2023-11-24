@@ -24,12 +24,13 @@ func IsShutdownErr(err error) bool {
 // Call represents an active RPC.
 type Call struct {
 	Request
-	Params   interface{}
-	Response interface{}
-	Error    error
-	Done     chan *Call
-	TraceID  string
-	SpanID   string
+	Params     interface{}
+	Response   interface{}
+	Error      error
+	Done       chan *Call
+	TraceID    string
+	SpanID     string
+	TraceFlags int
 }
 
 // RequestError represents an error returned from an RPC request.
@@ -99,11 +100,12 @@ func (conn *Conn) send(call *Call) {
 
 	// Encode and send the request.
 	hdr := &Header{
-		RequestId: reqId,
-		Request:   call.Request,
-		Version:   1,
-		TraceID:   call.TraceID,
-		SpanID:    call.SpanID,
+		RequestId:  reqId,
+		Request:    call.Request,
+		Version:    1,
+		TraceID:    call.TraceID,
+		SpanID:     call.SpanID,
+		TraceFlags: call.TraceFlags,
 	}
 	params := call.Params
 	if params == nil {
@@ -177,14 +179,15 @@ func (call *Call) done() {
 // The params value may be nil if no parameters are provided; the response value
 // may be nil to indicate that any result should be discarded.
 func (conn *Conn) Call(ctx context.Context, req Request, params, response interface{}) error {
-	traceID, spanID := TracingFromContext(ctx)
+	traceID, spanID, traceFlags := TracingFromContext(ctx)
 	call := &Call{
-		Request:  req,
-		Params:   params,
-		Response: response,
-		Done:     make(chan *Call, 1),
-		TraceID:  traceID,
-		SpanID:   spanID,
+		Request:    req,
+		Params:     params,
+		Response:   response,
+		Done:       make(chan *Call, 1),
+		TraceID:    traceID,
+		SpanID:     spanID,
+		TraceFlags: traceFlags,
 	}
 	conn.send(call)
 	result := <-call.Done

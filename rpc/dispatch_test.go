@@ -108,8 +108,8 @@ func (s *dispatchSuite) TestWSWithParamsV1(c *gc.C) {
 }
 
 func (s *dispatchSuite) TestWSWithParamsV1Tracing(c *gc.C) {
-	resp := s.requestV1(c, `{"request-id":2,"type": "DispatchDummy","id": "with","request":"DoSomething", "params": {}, "trace-id": "foobar", "span-id": "baz"}`)
-	s.assertResponse(c, resp, `{"request-id":2,"response":{},"trace-id":"foobar","span-id":"baz"}`)
+	resp := s.requestV1(c, `{"request-id":2,"type": "DispatchDummy","id": "with","request":"DoSomething", "params": {}, "trace-id": "foobar", "span-id": "baz", "trace-flags": 1}`)
+	s.assertResponse(c, resp, `{"request-id":2,"response":{},"trace-id":"foobar","span-id":"baz","trace-flags":1}`)
 }
 
 func (s *dispatchSuite) assertResponse(c *gc.C, obtained, expected string) {

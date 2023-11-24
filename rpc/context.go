@@ -12,24 +12,25 @@ const (
 )
 
 // WithTracing returns a context with the given traceID and spanID.
-func WithTracing(ctx context.Context, traceID, spanID string) context.Context {
+func WithTracing(ctx context.Context, traceID, spanID string, flags int) context.Context {
 	return context.WithValue(ctx, tracingKey, &distributedTrace{
 		traceID: traceID,
 		spanID:  spanID,
+		flags:   flags,
 	})
 }
 
 // TracingFromContext returns the traceID and spanID from the context.
-func TracingFromContext(ctx context.Context) (string, string) {
+func TracingFromContext(ctx context.Context) (string, string, int) {
 	val := ctx.Value(tracingKey)
 	if val == nil {
-		return "", ""
+		return "", "", 0
 	}
 	t, ok := val.(*distributedTrace)
 	if !ok {
-		return "", ""
+		return "", "", 0
 	}
-	return t.traceID, t.spanID
+	return t.traceID, t.spanID, t.flags
 }
 
 // distributedTrace represents a distributed trace, that contains both
@@ -38,4 +39,5 @@ func TracingFromContext(ctx context.Context) (string, string) {
 type distributedTrace struct {
 	traceID string
 	spanID  string
+	flags   int
 }

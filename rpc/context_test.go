@@ -19,8 +19,9 @@ type contextSuite struct {
 var _ = gc.Suite(&contextSuite{})
 
 func (s *contextSuite) TestWithTracing(c *gc.C) {
-	ctx := rpc.WithTracing(context.Background(), "trace", "span")
-	traceID, spanID := rpc.TracingFromContext(ctx)
+	ctx := rpc.WithTracing(context.Background(), "trace", "span", 1)
+	traceID, spanID, flags := rpc.TracingFromContext(ctx)
 	c.Assert(traceID, gc.Equals, "trace")
 	c.Assert(spanID, gc.Equals, "span")
+	c.Assert(flags, gc.Equals, 1)
 }

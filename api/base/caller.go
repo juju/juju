@@ -182,10 +182,12 @@ func (fc facadeCaller) FacadeCall(ctx context.Context, request string, params, r
 		span.End()
 	}()
 
-	scope := span.Scope()
+	if scope := span.Scope(); scope.TraceID() != "" && scope.SpanID() != "" {
+		ctx = rpc.WithTracing(ctx, scope.TraceID(), scope.SpanID(), scope.TraceFlags())
+	}
 
 	return fc.caller.APICall(
-		rpc.WithTracing(ctx, scope.TraceID(), scope.SpanID()),
+		ctx,
 		fc.facadeName, fc.bestVersion, "",
 		request, params, response,
 	)

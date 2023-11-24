@@ -13,8 +13,9 @@ const (
 	traceContextKey contextKey = "trace"
 	spanContextKey  contextKey = "span"
 
-	traceIDContextKey contextKey = "traceID"
-	spanIDContextKey  contextKey = "spanID"
+	traceIDContextKey    contextKey = "traceID"
+	spanIDContextKey     contextKey = "spanID"
+	traceFlagsContextKey contextKey = "traceFlags"
 )
 
 // TracerFromContext returns a tracer from the context. If no tracer is found,
@@ -81,16 +82,20 @@ func WithSpan(ctx context.Context, span Span) context.Context {
 
 // WithTraceScope returns a new context with the given trace scope (traceID and
 // spanID).
-func WithTraceScope(ctx context.Context, traceID, spanID string) context.Context {
+func WithTraceScope(ctx context.Context, traceID, spanID string, flags int) context.Context {
+	ctx = context.WithValue(ctx, traceFlagsContextKey, flags)
 	ctx = context.WithValue(ctx, spanIDContextKey, spanID)
 	return context.WithValue(ctx, traceIDContextKey, traceID)
 }
 
-// ScopeFromContext returns the traceID and spanID from the context.
-func ScopeFromContext(ctx context.Context) (string, string) {
+// ScopeFromContext returns the traceID, spanID and the flags from the context.
+// Both traceID and spanID can be in the form of a hex string or a raw
+// string.
+func ScopeFromContext(ctx context.Context) (string, string, int) {
 	traceID, _ := ctx.Value(traceIDContextKey).(string)
 	spanID, _ := ctx.Value(spanIDContextKey).(string)
-	return traceID, spanID
+	flags, _ := ctx.Value(traceFlagsContextKey).(int)
+	return traceID, spanID, flags
 }
 
 // NoopTracer is a tracer that does nothing.
@@ -142,4 +147,14 @@ func (NoopScope) TraceID() string {
 // SpanID returns the span ID of the span.
 func (NoopScope) SpanID() string {
 	return ""
+}
+
+// TraceFlags returns the trace flags of the span.
+func (NoopScope) TraceFlags() int {
+	return 0
+}
+
+// IsSampled returns if the span is sampled.
+func (NoopScope) IsSampled() bool {
+	return false
 }

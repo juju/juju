@@ -27,7 +27,7 @@ const (
 // Option are options that can be passed to the Tracer.Start() method.
 type Option func(*TracerOption)
 
-// TraceOption is an option that can be passed to the Tracer.Start() method.
+// TracerOption is an option that can be passed to the Tracer.Start() method.
 type TracerOption struct {
 	attributes []Attribute
 	stackTrace bool
@@ -117,6 +117,10 @@ type Scope interface {
 	TraceID() string
 	// SpanID returns the span ID of the span.
 	SpanID() string
+	// TraceFlags returns the trace flags of the span.
+	TraceFlags() int
+	// IsSampled returns if the span is sampled.
+	IsSampled() bool
 }
 
 // Name is the name of the span.

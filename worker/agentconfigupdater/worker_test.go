@@ -48,6 +48,7 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 			openTelemetryEndpoint:    "",
 			openTelemetryInsecure:    controller.DefaultOpenTelemetryInsecure,
 			openTelemetryStackTraces: controller.DefaultOpenTelemetryStackTraces,
+			openTelemetrySampleRatio: controller.DefaultOpenTelemetrySampleRatio,
 		},
 	}
 	s.config = agentconfigupdater.WorkerConfig{
@@ -61,6 +62,7 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 		OpenTelemetryEndpoint:    "",
 		OpenTelemetryInsecure:    controller.DefaultOpenTelemetryInsecure,
 		OpenTelemetryStackTraces: controller.DefaultOpenTelemetryStackTraces,
+		OpenTelemetrySampleRatio: controller.DefaultOpenTelemetrySampleRatio,
 		Logger:                   s.logger,
 	}
 	s.initialConfigMsg = controllermsg.ConfigChangedMessage{
@@ -73,6 +75,7 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 			controller.OpenTelemetryEndpoint:    "",
 			controller.OpenTelemetryInsecure:    controller.DefaultOpenTelemetryInsecure,
 			controller.OpenTelemetryStackTraces: controller.DefaultOpenTelemetryStackTraces,
+			controller.OpenTelemetrySampleRatio: controller.DefaultOpenTelemetrySampleRatio,
 		},
 	}
 }
@@ -375,6 +378,37 @@ func (s *WorkerSuite) TestUpdateOpenTelemetryStackTraces(c *gc.C) {
 	workertest.CheckAlive(c, w)
 
 	newConfig.Config[controller.OpenTelemetryStackTraces] = true
+	handled, err = s.hub.Publish(controllermsg.ConfigChanged, newConfig)
+	c.Assert(err, jc.ErrorIsNil)
+	select {
+	case <-pubsub.Wait(handled):
+	case <-time.After(testing.LongWait):
+		c.Fatalf("event not handled")
+	}
+
+	err = workertest.CheckKilled(c, w)
+
+	c.Assert(err, gc.Equals, jworker.ErrRestartAgent)
+}
+
+func (s *WorkerSuite) TestUpdateOpenTelemetrySampleRatio(c *gc.C) {
+	w, err := agentconfigupdater.NewWorker(s.config)
+	c.Assert(w, gc.NotNil)
+	c.Check(err, jc.ErrorIsNil)
+
+	newConfig := s.initialConfigMsg
+	handled, err := s.hub.Publish(controllermsg.ConfigChanged, newConfig)
+	c.Assert(err, jc.ErrorIsNil)
+	select {
+	case <-pubsub.Wait(handled):
+	case <-time.After(testing.LongWait):
+		c.Fatalf("event not handled")
+	}
+
+	// Query tracing enabled is the same, worker still alive.
+	workertest.CheckAlive(c, w)
+
+	newConfig.Config[controller.OpenTelemetrySampleRatio] = 0.42
 	handled, err = s.hub.Publish(controllermsg.ConfigChanged, newConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	select {

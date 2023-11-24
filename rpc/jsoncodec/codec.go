@@ -50,33 +50,35 @@ func New(conn JSONConn) *Codec {
 // in a RawMessage.
 
 type inMsgV1 struct {
-	RequestId uint64                 `json:"request-id"`
-	Type      string                 `json:"type"`
-	Version   int                    `json:"version"`
-	Id        string                 `json:"id"`
-	Request   string                 `json:"request"`
-	Params    json.RawMessage        `json:"params"`
-	Error     string                 `json:"error"`
-	ErrorCode string                 `json:"error-code"`
-	ErrorInfo map[string]interface{} `json:"error-info"`
-	Response  json.RawMessage        `json:"response"`
-	TraceID   string                 `json:"trace-id"`
-	SpanID    string                 `json:"span-id"`
+	RequestId  uint64                 `json:"request-id"`
+	Type       string                 `json:"type"`
+	Version    int                    `json:"version"`
+	Id         string                 `json:"id"`
+	Request    string                 `json:"request"`
+	Params     json.RawMessage        `json:"params"`
+	Error      string                 `json:"error"`
+	ErrorCode  string                 `json:"error-code"`
+	ErrorInfo  map[string]interface{} `json:"error-info"`
+	Response   json.RawMessage        `json:"response"`
+	TraceID    string                 `json:"trace-id"`
+	SpanID     string                 `json:"span-id"`
+	TraceFlags int                    `json:"trace-flags"`
 }
 
 type outMsgV1 struct {
-	RequestId uint64                 `json:"request-id,omitempty"`
-	Type      string                 `json:"type,omitempty"`
-	Version   int                    `json:"version,omitempty"`
-	Id        string                 `json:"id,omitempty"`
-	Request   string                 `json:"request,omitempty"`
-	Params    interface{}            `json:"params,omitempty"`
-	Error     string                 `json:"error,omitempty"`
-	ErrorCode string                 `json:"error-code,omitempty"`
-	ErrorInfo map[string]interface{} `json:"error-info,omitempty"`
-	Response  interface{}            `json:"response,omitempty"`
-	TraceID   string                 `json:"trace-id,omitempty"`
-	SpanID    string                 `json:"span-id,omitempty"`
+	RequestId  uint64                 `json:"request-id,omitempty"`
+	Type       string                 `json:"type,omitempty"`
+	Version    int                    `json:"version,omitempty"`
+	Id         string                 `json:"id,omitempty"`
+	Request    string                 `json:"request,omitempty"`
+	Params     interface{}            `json:"params,omitempty"`
+	Error      string                 `json:"error,omitempty"`
+	ErrorCode  string                 `json:"error-code,omitempty"`
+	ErrorInfo  map[string]interface{} `json:"error-info,omitempty"`
+	Response   interface{}            `json:"response,omitempty"`
+	TraceID    string                 `json:"trace-id,omitempty"`
+	SpanID     string                 `json:"span-id,omitempty"`
+	TraceFlags int                    `json:"trace-flags,omitempty"`
 }
 
 // Close closes the underlying connection and sets the codec to
@@ -127,6 +129,7 @@ func (c *Codec) ReadHeader(hdr *rpc.Header) error {
 	hdr.ErrorInfo = c.msg.ErrorInfo
 	hdr.TraceID = c.msg.TraceID
 	hdr.SpanID = c.msg.SpanID
+	hdr.TraceFlags = c.msg.TraceFlags
 	hdr.Version = 1
 	return nil
 }
@@ -213,16 +216,17 @@ func response(hdr *rpc.Header, body interface{}) (interface{}, error) {
 // reflect, but no.
 func newOutMsgV1(hdr *rpc.Header, body interface{}) outMsgV1 {
 	result := outMsgV1{
-		RequestId: hdr.RequestId,
-		Type:      hdr.Request.Type,
-		Version:   hdr.Request.Version,
-		Id:        hdr.Request.Id,
-		Request:   hdr.Request.Action,
-		Error:     hdr.Error,
-		ErrorCode: hdr.ErrorCode,
-		ErrorInfo: hdr.ErrorInfo,
-		TraceID:   hdr.TraceID,
-		SpanID:    hdr.SpanID,
+		RequestId:  hdr.RequestId,
+		Type:       hdr.Request.Type,
+		Version:    hdr.Request.Version,
+		Id:         hdr.Request.Id,
+		Request:    hdr.Request.Action,
+		Error:      hdr.Error,
+		ErrorCode:  hdr.ErrorCode,
+		ErrorInfo:  hdr.ErrorInfo,
+		TraceID:    hdr.TraceID,
+		SpanID:     hdr.SpanID,
+		TraceFlags: hdr.TraceFlags,
 	}
 	if hdr.IsRequest() {
 		result.Params = body

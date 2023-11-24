@@ -170,7 +170,7 @@ func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
 		Clock:    s.clock,
 		Logger:   s.logger,
 		Endpoint: "https://meshuggah.com",
-		NewTracerWorker: func(context.Context, coretrace.TaggedTracerNamespace, string, bool, bool, Logger, NewClientFunc) (TrackedTracer, error) {
+		NewTracerWorker: func(context.Context, coretrace.TaggedTracerNamespace, string, bool, bool, float64, Logger, NewClientFunc) (TrackedTracer, error) {
 			atomic.AddInt64(&s.called, 1)
 			return s.trackedTracer, nil
 		},

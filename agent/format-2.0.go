@@ -4,6 +4,7 @@
 package agent
 
 import (
+	"fmt"
 	"net"
 	"strconv"
 	"time"
@@ -71,6 +72,7 @@ type format_2_0Serialization struct {
 	OpenTelemetryEndpoint    string `yaml:"opentelemetryendpoint,omitempty"`
 	OpenTelemetryInsecure    bool   `yaml:"opentelemetryinsecure,omitempty"`
 	OpenTelemetryStackTraces bool   `yaml:"opentelemetrystacktraces,omitempty"`
+	OpenTelemetrySampleRatio string `yaml:"opentelemetrysampleratio,omitempty"`
 
 	DqlitePort int `yaml:"dqlite-port,omitempty"`
 }
@@ -178,6 +180,13 @@ func (formatter_2_0) unmarshal(data []byte) (*configInternal, error) {
 	if format.OpenTelemetryEndpoint != "" {
 		config.openTelemetryEndpoint = format.OpenTelemetryEndpoint
 	}
+	if format.OpenTelemetrySampleRatio != "" {
+		sampleRatio, err := strconv.ParseFloat(format.OpenTelemetrySampleRatio, 64)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		config.openTelemetrySampleRatio = sampleRatio
+	}
 	return config, nil
 }
 
@@ -235,6 +244,9 @@ func (formatter_2_0) marshal(config *configInternal) ([]byte, error) {
 	}
 	if config.openTelemetryEndpoint != "" {
 		format.OpenTelemetryEndpoint = config.openTelemetryEndpoint
+	}
+	if config.openTelemetrySampleRatio != 0 {
+		format.OpenTelemetrySampleRatio = fmt.Sprintf("%.04f", config.openTelemetrySampleRatio)
 	}
 	return goyaml.Marshal(format)
 }
