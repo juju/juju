@@ -4,8 +4,8 @@
 package broker
 
 import (
-	"github.com/juju/juju/cloudconfig"
 	corebase "github.com/juju/juju/core/base"
+	"github.com/juju/juju/internal/cloudconfig"
 )
 
 var (

@@ -10,9 +10,9 @@ import (
 	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v2"
 
-	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/paths"
+	"github.com/juju/juju/internal/cloudconfig/cloudinit"
 )
 
 type utilSuite struct{}

@@ -21,9 +21,6 @@ import (
 	"github.com/juju/retry"
 	"github.com/juju/version/v2"
 
-	"github.com/juju/juju/cloudconfig/cloudinit"
-	"github.com/juju/juju/cloudconfig/instancecfg"
-	"github.com/juju/juju/cloudconfig/providerinit"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
@@ -37,6 +34,9 @@ import (
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/environs/tags"
+	"github.com/juju/juju/internal/cloudconfig/cloudinit"
+	"github.com/juju/juju/internal/cloudconfig/instancecfg"
+	"github.com/juju/juju/internal/cloudconfig/providerinit"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/provider/common"
 )

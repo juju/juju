@@ -9,10 +9,10 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/cloudconfig/podcfg"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/cloudconfig/podcfg"
 	"github.com/juju/juju/testing"
 )
 

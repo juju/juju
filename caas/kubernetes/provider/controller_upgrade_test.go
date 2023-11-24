@@ -19,7 +19,7 @@ import (
 
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/caas/kubernetes/provider/utils"
-	"github.com/juju/juju/cloudconfig/podcfg"
+	"github.com/juju/juju/internal/cloudconfig/podcfg"
 )
 
 // DummyUpgradeCAASController implements UpgradeCAASControllerBroker for the

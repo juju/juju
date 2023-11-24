@@ -29,8 +29,6 @@ import (
 	"github.com/kr/pretty"
 
 	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/cloudconfig/instancecfg"
-	"github.com/juju/juju/cloudconfig/providerinit"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/arch"
 	corebase "github.com/juju/juju/core/base"
@@ -49,6 +47,8 @@ import (
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/tags"
+	"github.com/juju/juju/internal/cloudconfig/instancecfg"
+	"github.com/juju/juju/internal/cloudconfig/providerinit"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/provider/common"
 )

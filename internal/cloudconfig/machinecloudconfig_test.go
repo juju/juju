@@ -10,9 +10,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cloudconfig"
 	corebase "github.com/juju/juju/core/base"
 	coreos "github.com/juju/juju/core/os"
+	"github.com/juju/juju/internal/cloudconfig"
 	"github.com/juju/juju/testing"
 )
 

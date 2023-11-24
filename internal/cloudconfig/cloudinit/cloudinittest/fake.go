@@ -6,7 +6,7 @@ package cloudinittest
 import (
 	"github.com/juju/testing"
 
-	"github.com/juju/juju/cloudconfig/cloudinit"
+	"github.com/juju/juju/internal/cloudconfig/cloudinit"
 )
 
 type CloudConfig struct {

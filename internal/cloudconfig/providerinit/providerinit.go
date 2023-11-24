@@ -8,11 +8,11 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
-	"github.com/juju/juju/cloudconfig"
-	"github.com/juju/juju/cloudconfig/cloudinit"
-	"github.com/juju/juju/cloudconfig/instancecfg"
-	"github.com/juju/juju/cloudconfig/providerinit/renderers"
 	"github.com/juju/juju/core/os"
+	"github.com/juju/juju/internal/cloudconfig"
+	"github.com/juju/juju/internal/cloudconfig/cloudinit"
+	"github.com/juju/juju/internal/cloudconfig/instancecfg"
+	"github.com/juju/juju/internal/cloudconfig/providerinit/renderers"
 )
 
 var logger = loggo.GetLogger("juju.cloudconfig.providerinit")

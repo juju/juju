@@ -4,13 +4,13 @@
 package container
 
 import (
-	"github.com/juju/juju/cloudconfig/instancecfg"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/instances"
+	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 )
 
 const (

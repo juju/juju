@@ -14,7 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/controller/caasmodeloperator"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/cloudconfig/podcfg"
+	"github.com/juju/juju/internal/cloudconfig/podcfg"
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 )

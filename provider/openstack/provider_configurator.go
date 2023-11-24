@@ -8,8 +8,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/schema"
 
-	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/internal/cloudconfig/cloudinit"
 )
 
 // This interface is added to allow to customize OpenStack provider behaviour.

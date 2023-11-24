@@ -13,9 +13,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/internal/cloudconfig/cloudinit"
 	"github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 )

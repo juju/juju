@@ -6,7 +6,7 @@ package testing
 import (
 	reflect "reflect"
 
-	instancecfg "github.com/juju/juju/cloudconfig/instancecfg"
+	instancecfg "github.com/juju/juju/internal/cloudconfig/instancecfg"
 	base "github.com/juju/juju/core/base"
 	constraints "github.com/juju/juju/core/constraints"
 	instance "github.com/juju/juju/core/instance"

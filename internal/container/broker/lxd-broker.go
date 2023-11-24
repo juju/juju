@@ -11,12 +11,12 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
+	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/container"
 )
 
