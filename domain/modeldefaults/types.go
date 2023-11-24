@@ -19,12 +19,11 @@ type ApplyStrategy interface {
 // DefaultAttributeValue represents a model config default attribute value and
 // the hierarchical nature of where defaults can come from within Juju.
 //
-// Because model defaults and the respective sources from which defaults come
-// from all have their own opinions on how the default will get applied to model
-// config and the ultimate say in what the value is DefaultAttributeValue
-// provides the mechanism for sources to place their opinions in one place and
-// for the consuming side (model config) to have a one size fits all approach
-// for taking on the defaults.
+// Because model defaults and the respective sources which defaults come from
+// all have their own opinions on how the default will get applied.
+// DefaultAttributeValue provides the mechanism for sources to place their
+// opinions in one place and for the consuming side (model config) to use the
+// default sources opinion.
 type DefaultAttributeValue struct {
 	// Source describes the source of the default value.
 	Source string
@@ -34,20 +33,19 @@ type DefaultAttributeValue struct {
 	// [DefaultAttributeValue.ApplyStrategy] for expected behaviour.
 	Strategy ApplyStrategy
 
-	// V is the default value.
-	V any
+	// Value is the default value.
+	Value any
 }
 
 // Defaults represents a set of default values for a given attribute. Defaults
 // should be used to describe the full set of defaults that a model should
-// consider for it's config.
+// consider for its config.
 type Defaults map[string]DefaultAttributeValue
 
-// PreferSetApplyStrategy is a [ApplyStrategy] implementation that will
-// implements an apply strategy that will always prefer the value set in model
-// config before the value being offered by the model default. If the set value
-// for model config is nil then the default value will be returned. If both
-// values are nil then nil will be returned.
+// PreferSetApplyStrategy is an [ApplyStrategy] implementation that will always
+// prefer the value set in model config before the value being offered by the
+// model default. If the set value for model config is nil then the default
+// value will be returned. If both values are nil then nil will be returned.
 //
 // The zero value of this type is safe to use as an [ApplyStrategy].
 type PreferSetApplyStrategy struct{}
@@ -60,26 +58,26 @@ type PreferSetApplyStrategy struct{}
 func (d DefaultAttributeValue) ApplyStrategy(setVal any) any {
 	if d.Strategy == nil {
 		strat := PreferSetApplyStrategy{}
-		return strat.Apply(d.V, setVal)
+		return strat.Apply(d.Value, setVal)
 	}
-	return d.Strategy.Apply(d.V, setVal)
+	return d.Strategy.Apply(d.Value, setVal)
 }
 
-// Has reports if the current V of this default attribute is equal to the
+// Has reports if the current [DefaultAttributeValue.Value] is equal to the
 // value passed in. The source of the default value is also returned when the
-// values are equal. If the current value of V or val is nil then false and
-// empty string is returned.
+// values are equal. If the current value of [DefaultAttributeValue.Value] or
+// val is nil then false and empty string for source is returned.
 //
-// For legacy reasons in Juju's life we have have worked with types of "any" for
-// model config values and trying to apply comparison logic over these types is
-// hard to get right. For this purpose this function only considers values to be
-// equal if their types are comparable via == and or the type of V is []any then
-// we will defer to the reflect package for DeepEqual.
+// For legacy reasons we have worked with types of "any" for model config values
+// and trying to apply comparison logic over these types is hard to get right.
+// For this reason this function only considers values to be equal if their
+// types are comparable via == and or the type of Value is of []any, in which
+// case we will defer to the reflect package for DeepEqual.
 //
 // This is carry over logic from legacy Juju. Over time we can look at removing
 // the use of any for more concrete types.
 func (d DefaultAttributeValue) Has(val any) (bool, string) {
-	setVal := d.V
+	setVal := d.Value
 	if setVal == nil || val == nil {
 		return false, ""
 	}

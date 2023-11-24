@@ -106,7 +106,7 @@ func (s *Service) ModelConfigValues(
 	if len(allAtrs) == 0 {
 		allAtrs = map[string]any{}
 		for k, v := range defaults {
-			allAtrs[k] = v.V
+			allAtrs[k] = v.Value
 		}
 	}
 
@@ -174,7 +174,7 @@ func (s *Service) reconcileRemovedAttributes(
 	}
 
 	for _, attr := range hasAttrs {
-		if val := defaults[attr].V; val != nil {
+		if val := defaults[attr].Value; val != nil {
 			updates[attr] = val
 		}
 	}

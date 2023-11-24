@@ -32,12 +32,12 @@ func (_ *bootstrapSuite) TestBootstrapModelDefaults(c *gc.C) {
 
 	defaults, err := provider.ModelDefaults(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(defaults["foo"].V, gc.Equals, "region")
+	c.Assert(defaults["foo"].Value, gc.Equals, "region")
 	c.Assert(defaults["foo"].Source, gc.Equals, "region")
-	c.Assert(defaults["default"].V, gc.Equals, "some value")
+	c.Assert(defaults["default"].Value, gc.Equals, "some value")
 	c.Assert(defaults["default"].Source, gc.Equals, "default")
-	c.Assert(defaults["controller"].V, gc.Equals, "some value")
+	c.Assert(defaults["controller"].Value, gc.Equals, "some value")
 	c.Assert(defaults["controller"].Source, gc.Equals, "controller")
-	c.Assert(defaults["region"].V, gc.Equals, "some value")
+	c.Assert(defaults["region"].Value, gc.Equals, "some value")
 	c.Assert(defaults["region"].Source, gc.Equals, "region")
 }

@@ -25,21 +25,21 @@ func ModelDefaultsProvider(
 		for k, v := range configDefaults {
 			defaults[k] = modeldefaults.DefaultAttributeValue{
 				Source: config.JujuDefaultSource,
-				V:      v,
+				Value:  v,
 			}
 		}
 
 		for k, v := range controllerConfig {
 			defaults[k] = modeldefaults.DefaultAttributeValue{
 				Source: config.JujuControllerSource,
-				V:      v,
+				Value:  v,
 			}
 		}
 
 		for k, v := range cloudRegionConfig {
 			defaults[k] = modeldefaults.DefaultAttributeValue{
 				Source: config.JujuRegionSource,
-				V:      v,
+				Value:  v,
 			}
 		}
 

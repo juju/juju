@@ -55,16 +55,16 @@ func (_ *serviceSuite) TestModelDefaultsProviderNotFound(c *gc.C) {
 
 	defaults, err := svc.ModelDefaults(context.Background(), uuid)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(defaults["wallyworld"].V, gc.Equals, "peachy")
+	c.Check(defaults["wallyworld"].Value, gc.Equals, "peachy")
 	c.Check(defaults["wallyworld"].Source, gc.Equals, "default")
-	c.Check(defaults["foo"].V, gc.Equals, "bar")
+	c.Check(defaults["foo"].Value, gc.Equals, "bar")
 	c.Check(defaults["foo"].Source, gc.Equals, "controller")
 
 	defaults, err = svc.ModelDefaultsProvider(uuid)(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(defaults["wallyworld"].V, gc.Equals, "peachy")
+	c.Check(defaults["wallyworld"].Value, gc.Equals, "peachy")
 	c.Check(defaults["wallyworld"].Source, gc.Equals, "default")
-	c.Check(defaults["foo"].V, gc.Equals, "bar")
+	c.Check(defaults["foo"].Value, gc.Equals, "bar")
 	c.Check(defaults["foo"].Source, gc.Equals, "controller")
 }
 
@@ -88,19 +88,19 @@ func (_ *serviceSuite) TestModelDefaults(c *gc.C) {
 
 	defaults, err := svc.ModelDefaults(context.Background(), uuid)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(defaults["wallyworld"].V, gc.Equals, "peachy")
+	c.Check(defaults["wallyworld"].Value, gc.Equals, "peachy")
 	c.Check(defaults["wallyworld"].Source, gc.Equals, "default")
-	c.Check(defaults["foo"].V, gc.Equals, "bar")
+	c.Check(defaults["foo"].Value, gc.Equals, "bar")
 	c.Check(defaults["foo"].Source, gc.Equals, "controller")
-	c.Check(defaults["bar"].V, gc.Equals, "foo")
+	c.Check(defaults["bar"].Value, gc.Equals, "foo")
 	c.Check(defaults["bar"].Source, gc.Equals, "region")
 
 	defaults, err = svc.ModelDefaultsProvider(uuid)(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(defaults["wallyworld"].V, gc.Equals, "peachy")
+	c.Check(defaults["wallyworld"].Value, gc.Equals, "peachy")
 	c.Check(defaults["wallyworld"].Source, gc.Equals, "default")
-	c.Check(defaults["foo"].V, gc.Equals, "bar")
+	c.Check(defaults["foo"].Value, gc.Equals, "bar")
 	c.Check(defaults["foo"].Source, gc.Equals, "controller")
-	c.Check(defaults["bar"].V, gc.Equals, "foo")
+	c.Check(defaults["bar"].Value, gc.Equals, "foo")
 	c.Check(defaults["bar"].Source, gc.Equals, "region")
 }

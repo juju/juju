@@ -34,7 +34,7 @@ func (s *serviceSuite) TestSetModelConfig(c *gc.C) {
 		return modeldefaults.Defaults{
 			"foo": modeldefaults.DefaultAttributeValue{
 				Source: config.JujuControllerSource,
-				V:      "bar",
+				Value:  "bar",
 			},
 		}, nil
 	}
