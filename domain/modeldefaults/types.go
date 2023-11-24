@@ -57,8 +57,8 @@ type PreferSetApplyStrategy struct{}
 // [PreferSetApplyStrategy].
 func (d DefaultAttributeValue) ApplyStrategy(setVal any) any {
 	if d.Strategy == nil {
-		strat := PreferSetApplyStrategy{}
-		return strat.Apply(d.Value, setVal)
+		strategy := PreferSetApplyStrategy{}
+		return strategy.Apply(d.Value, setVal)
 	}
 	return d.Strategy.Apply(d.Value, setVal)
 }
