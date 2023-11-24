@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/envcontext"
-	"github.com/juju/juju/state"
 )
 
 var logger = loggo.GetLogger("juju.environs.space")
@@ -24,8 +23,6 @@ type Space interface {
 	Id() string
 	Name() string
 	ProviderId() network.Id
-	Life() state.Life
-	EnsureDead() error
 	Remove() error
 }
 
@@ -235,22 +232,6 @@ func (s *ProviderSpaces) DeleteSpaces() ([]string, error) {
 			continue
 		}
 
-		// Check to see if the space is still alive. If the space is still alive
-		// we should ensure it is dead before we remove the space.
-		// Note: we currently don't test for Life in any space usage, so that
-		// means that we have to be very careful in the usage of this. Currently
-		// MAAS is the only usage of this, but when others follow we should take
-		// a long hard look at this.
-		// The real fix for this is to call ensure dead, but not remove the
-		// space until all remnants of the topology of that space are
-		// terminated.
-		if space.Life() == state.Alive {
-			if err := space.EnsureDead(); err != nil {
-				return warnings, errors.Trace(err)
-			}
-		}
-
-		// Finally remove the space.
 		if err := space.Remove(); err != nil {
 			return warnings, errors.Trace(err)
 		}

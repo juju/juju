@@ -9,7 +9,6 @@ import (
 
 	set "github.com/juju/collections/set"
 	network "github.com/juju/juju/core/network"
-	state "github.com/juju/juju/state"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -148,20 +147,6 @@ func (m *MockSpace) EXPECT() *MockSpaceMockRecorder {
 	return m.recorder
 }
 
-// EnsureDead mocks base method.
-func (m *MockSpace) EnsureDead() error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "EnsureDead")
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// EnsureDead indicates an expected call of EnsureDead.
-func (mr *MockSpaceMockRecorder) EnsureDead() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsureDead", reflect.TypeOf((*MockSpace)(nil).EnsureDead))
-}
-
 // Id mocks base method.
 func (m *MockSpace) Id() string {
 	m.ctrl.T.Helper()
@@ -174,20 +159,6 @@ func (m *MockSpace) Id() string {
 func (mr *MockSpaceMockRecorder) Id() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Id", reflect.TypeOf((*MockSpace)(nil).Id))
-}
-
-// Life mocks base method.
-func (m *MockSpace) Life() state.Life {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Life")
-	ret0, _ := ret[0].(state.Life)
-	return ret0
-}
-
-// Life indicates an expected call of Life.
-func (mr *MockSpaceMockRecorder) Life() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Life", reflect.TypeOf((*MockSpace)(nil).Life))
 }
 
 // Name mocks base method.
