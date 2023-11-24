@@ -120,7 +120,7 @@ func (s *BundleDeploySuite) setupCharmMaybeForce(c *gc.C, url, name string, abas
 					OS:           b.OS,
 					Channel:      b.Channel.Track,
 				}
-				origin, err := apputils.DeduceOrigin(url, charm.Channel{}, platform)
+				origin, err := apputils.MakeOrigin(charm.Schema(url.Schema), url.Revision, charm.Channel{}, platform)
 				c.Assert(err, jc.ErrorIsNil)
 
 				s.fakeAPI.Call("ResolveCharm", url, origin, false).Returns(
@@ -171,7 +171,7 @@ func (s *BundleDeploySuite) setupBundle(c *gc.C, url, name string, allSeries ...
 			b, err = base.GetBaseFromSeries(serie)
 			c.Assert(err, jc.ErrorIsNil)
 		}
-		origin, err := apputils.DeduceOrigin(bundleResolveURL, charm.Channel{}, corecharm.Platform{
+		origin, err := apputils.MakeOrigin(charm.Schema(bundleResolveURL.Schema), bundleResolveURL.Revision, charm.Channel{}, corecharm.Platform{
 			OS: b.OS, Channel: b.Channel.Track})
 		c.Assert(err, jc.ErrorIsNil)
 		origin.Revision = nil

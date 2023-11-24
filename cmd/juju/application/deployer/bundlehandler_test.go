@@ -2575,14 +2575,13 @@ func (s *BundleHandlerOriginSuite) TestConstructChannelAndOrigin(c *gc.C) {
 	handler := &bundleHandler{}
 
 	arch := "arm64"
-	curl := charm.MustParseURL("ch:mysql")
 	base := corebase.MustParseBaseFromString("ubuntu@20.04")
 	channel := "stable"
 	cons := constraints.Value{
 		Arch: &arch,
 	}
 
-	resultChannel, resultOrigin, err := handler.constructChannelAndOrigin(curl, base, channel, cons)
+	resultChannel, resultOrigin, err := handler.constructChannelAndOrigin(charm.CharmHub, -1, base, channel, cons)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(resultChannel, gc.DeepEquals, corecharm.MustParseChannel("stable"))
 	c.Assert(resultOrigin, gc.DeepEquals, commoncharm.Origin{
@@ -2596,12 +2595,11 @@ func (s *BundleHandlerOriginSuite) TestConstructChannelAndOrigin(c *gc.C) {
 func (s *BundleHandlerOriginSuite) TestConstructChannelAndOriginUsingArchFallback(c *gc.C) {
 	handler := &bundleHandler{}
 
-	curl := charm.MustParseURL("ch:mysql")
 	base := corebase.MustParseBaseFromString("ubuntu@20.04")
 	channel := "stable"
 	cons := constraints.Value{}
 
-	resultChannel, resultOrigin, err := handler.constructChannelAndOrigin(curl, base, channel, cons)
+	resultChannel, resultOrigin, err := handler.constructChannelAndOrigin(charm.CharmHub, -1, base, channel, cons)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(resultChannel, gc.DeepEquals, corecharm.MustParseChannel("stable"))
 	c.Assert(resultOrigin, gc.DeepEquals, commoncharm.Origin{
@@ -2616,14 +2614,13 @@ func (s *BundleHandlerOriginSuite) TestConstructChannelAndOriginEmptyChannel(c *
 	handler := &bundleHandler{}
 
 	arch := "arm64"
-	curl := charm.MustParseURL("ch:mysql")
 	base := corebase.MustParseBaseFromString("ubuntu@20.04")
 	channel := ""
 	cons := constraints.Value{
 		Arch: &arch,
 	}
 
-	resultChannel, resultOrigin, err := handler.constructChannelAndOrigin(curl, base, channel, cons)
+	resultChannel, resultOrigin, err := handler.constructChannelAndOrigin(charm.CharmHub, -1, base, channel, cons)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(resultChannel, gc.DeepEquals, charm.Channel{})
 	c.Assert(resultOrigin, gc.DeepEquals, commoncharm.Origin{
