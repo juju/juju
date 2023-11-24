@@ -6,6 +6,9 @@
 
 Juju is an open source application orchestration engine that enables any application operation (deployment, integration, lifecycle management) on any infrastructure (Kubernetes or otherwise) at any scale (development or production) in the same easy way (typically, one line of code), through special operators called ‘charms’.
 
+[![juju](https://snapcraft.io/juju/badge.svg)](https://snapcraft.io/juju)
+[![snap](https://github.com/juju/juju/actions/workflows/snap.yml/badge.svg)](https://github.com/juju/juju/actions/workflows/snap.yml)
+[![build](https://github.com/juju/juju/actions/workflows/build.yml/badge.svg)](https://github.com/juju/juju/actions/workflows/build.yml)
 
 ||||
 |-|-|- |
