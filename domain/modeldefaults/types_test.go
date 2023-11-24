@@ -35,7 +35,7 @@ func (s *typesSuite) TestZeroDefaultsValue(c *gc.C) {
 func (s *typesSuite) TestHasSupportForNil(c *gc.C) {
 	val := DefaultAttributeValue{
 		Source: "testsource",
-		V:      "someval",
+		Value:  "someval",
 	}
 
 	has, source := val.Has(nil)
@@ -44,7 +44,7 @@ func (s *typesSuite) TestHasSupportForNil(c *gc.C) {
 
 	val = DefaultAttributeValue{
 		Source: "testsource",
-		V:      nil,
+		Value:  nil,
 	}
 
 	has, source = val.Has("myval")
@@ -58,7 +58,7 @@ func (s *typesSuite) TestHasSupportForNil(c *gc.C) {
 func (s *typesSuite) TestHasSupport(c *gc.C) {
 	val := DefaultAttributeValue{
 		Source: "testsource",
-		V:      "someval",
+		Value:  "someval",
 	}
 
 	has, source := val.Has("someval")
@@ -68,7 +68,7 @@ func (s *typesSuite) TestHasSupport(c *gc.C) {
 	i := int32(10)
 	val = DefaultAttributeValue{
 		Source: "testsource",
-		V:      &i,
+		Value:  &i,
 	}
 
 	has, source = val.Has(&i)
@@ -77,7 +77,7 @@ func (s *typesSuite) TestHasSupport(c *gc.C) {
 
 	val = DefaultAttributeValue{
 		Source: "testsource",
-		V: []any{
+		Value: []any{
 			"one",
 			"two",
 			"three",
@@ -93,7 +93,7 @@ func (s *typesSuite) TestHasSupport(c *gc.C) {
 	structVal := struct{ name string }{"test"}
 	val = DefaultAttributeValue{
 		Source: "testsource",
-		V:      &structVal,
+		Value:  &structVal,
 	}
 
 	has, source = val.Has(&struct{ name string }{"test"})
@@ -104,28 +104,40 @@ func (s *typesSuite) TestHasSupport(c *gc.C) {
 // testApplyStrategy is a test implementation of ApplyStrategy that is here to
 // just indicate that the Apply method of the strategy has been called.
 type testApplyStrategy struct {
-	// Called indicates that the Apply func of this struct has been called.
-	Called bool
+	// called indicates that the Apply func of this struct has been called.
+	called bool
 }
 
 // Apply implements the ApplyStrategy interface.
 func (t *testApplyStrategy) Apply(d, s any) any {
-	t.Called = true
+	t.called = true
 	return s
 }
 
 // TestApplyStrategy is checking to make sure that if we set an apply strategy
-// on the DefaultAttributeValue. This test isn't concerned about testing the
-// logic of strategies just that the strategy is asked to make a decision.
+// on the [DefaultAttributeValue.Strategy] that the strategy gets called by
+// [DefaultAttributeValue.ApplyStrategy]. This test isn't concerned about
+// testing the logic of strategies just that the strategy is asked to make a
+// decision.
 func (s *typesSuite) TestApplyStrategy(c *gc.C) {
 	strategy := &testApplyStrategy{}
 	val := DefaultAttributeValue{
 		Source:   "source",
 		Strategy: strategy,
-		V:        "someval",
+		Value:    "someval",
 	}
 
 	out := val.ApplyStrategy("someval1")
-	c.Check(strategy.Called, jc.IsTrue)
+	c.Check(strategy.called, jc.IsTrue)
 	c.Check(out, gc.Equals, "someval1")
+}
+
+// TestPreferSetApplyStrategy is testing the contract offered by
+// [PreferSetApplyStrategy] (the happy path).
+func (s *typesSuite) TestPreferSetApplyStrategy(c *gc.C) {
+	strategy := PreferSetApplyStrategy{}
+	c.Assert(strategy.Apply(nil, "test"), gc.Equals, "test")
+	c.Assert(strategy.Apply("default", nil), gc.Equals, "default")
+	c.Assert(strategy.Apply("default", "set"), gc.Equals, "set")
+	c.Assert(strategy.Apply(nil, nil), gc.IsNil)
 }
