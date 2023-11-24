@@ -6,6 +6,7 @@ package context
 import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/core/secrets"
@@ -20,7 +21,7 @@ type secretsChangeRecorder struct {
 	pendingUpdates     map[string]uniter.SecretUpdateArg
 	pendingDeletes     map[string]uniter.SecretDeleteArg
 	pendingGrants      map[string]map[string]uniter.SecretGrantRevokeArgs
-	pendingRevokes     map[string]map[string]uniter.SecretGrantRevokeArgs
+	pendingRevokes     map[string][]uniter.SecretGrantRevokeArgs
 	pendingTrackLatest map[string]bool
 }
 
@@ -31,7 +32,7 @@ func newSecretsChangeRecorder(logger loggo.Logger) *secretsChangeRecorder {
 		pendingUpdates:     make(map[string]uniter.SecretUpdateArg),
 		pendingDeletes:     make(map[string]uniter.SecretDeleteArg),
 		pendingGrants:      make(map[string]map[string]uniter.SecretGrantRevokeArgs),
-		pendingRevokes:     make(map[string]map[string]uniter.SecretGrantRevokeArgs),
+		pendingRevokes:     make(map[string][]uniter.SecretGrantRevokeArgs),
 		pendingTrackLatest: make(map[string]bool),
 	}
 }
@@ -93,10 +94,23 @@ func (s *secretsChangeRecorder) grant(arg uniter.SecretGrantRevokeArgs) {
 }
 
 func (s *secretsChangeRecorder) revoke(arg uniter.SecretGrantRevokeArgs) {
-	if _, ok := s.pendingRevokes[arg.URI.ID]; !ok {
-		s.pendingRevokes[arg.URI.ID] = make(map[string]uniter.SecretGrantRevokeArgs)
+	for _, revoke := range s.pendingRevokes[arg.URI.ID] {
+		if revoke.Equal(arg) {
+			return
+		}
+		if revoke.Role != arg.Role || revoke.URI.ID != arg.URI.ID {
+			continue
+		}
+		if revoke.ApplicationName != nil && arg.UnitName != nil {
+			unitApp, _ := names.UnitApplication(*arg.UnitName)
+			if unitApp == *revoke.ApplicationName {
+				// No need to revoke a unit grant if the application grant has been revoked.
+				return
+			}
+		}
 	}
-	s.pendingRevokes[arg.URI.ID][*arg.RelationKey] = arg
+
+	s.pendingRevokes[arg.URI.ID] = append(s.pendingRevokes[arg.URI.ID], arg)
 }
 
 func (s *secretsChangeRecorder) secretGrantInfo(uri *secrets.URI, applied ...secrets.GrantInfo) ([]secrets.GrantInfo, error) {
@@ -124,7 +138,7 @@ func (s *secretsChangeRecorder) secretGrantInfo(uri *secrets.URI, applied ...sec
 		if !ok {
 			return
 		}
-		for relationKey, revoke := range revokes {
+		for _, revoke := range revokes {
 			params := revoke.ToParams()
 			if len(params.SubjectTags) == 0 {
 				// This should never happen.
@@ -132,7 +146,7 @@ func (s *secretsChangeRecorder) secretGrantInfo(uri *secrets.URI, applied ...sec
 				continue
 			}
 			for j, grant := range applied {
-				if grant.Target == params.SubjectTags[0] && grant.Scope == relationKey {
+				if grant.Target == params.SubjectTags[0] && grant.Role == secrets.SecretRole(params.Role) {
 					applied = append(applied[:j], applied[j+1:]...)
 					break
 				}

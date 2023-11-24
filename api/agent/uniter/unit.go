@@ -1060,6 +1060,18 @@ type SecretGrantRevokeArgs struct {
 	Role            secrets.SecretRole
 }
 
+// Equal returns true if the two SecretGrantRevokeArgs are equal.
+func (arg SecretGrantRevokeArgs) Equal(other SecretGrantRevokeArgs) bool {
+	return arg.URI.ID == other.URI.ID &&
+		arg.Role == other.Role &&
+		((arg.ApplicationName == nil && other.ApplicationName == nil) ||
+			(arg.ApplicationName != nil && other.ApplicationName != nil && *arg.ApplicationName == *other.ApplicationName)) &&
+		((arg.UnitName == nil && other.UnitName == nil) ||
+			(arg.UnitName != nil && other.UnitName != nil && *arg.UnitName == *other.UnitName)) &&
+		((arg.RelationKey == nil && other.RelationKey == nil) ||
+			(arg.RelationKey != nil && other.RelationKey != nil && *arg.RelationKey == *other.RelationKey))
+}
+
 // AddSecretGrants records requests to grant secret access.
 func (b *CommitHookParamsBuilder) AddSecretGrants(grants []SecretGrantRevokeArgs) {
 	if len(grants) == 0 {

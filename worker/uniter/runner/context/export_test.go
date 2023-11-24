@@ -353,7 +353,7 @@ func (ctx *HookContext) PendingSecretGrants() map[string]map[string]uniter.Secre
 	return ctx.secretChanges.pendingGrants
 }
 
-func (ctx *HookContext) PendingSecretRevokes() map[string]map[string]uniter.SecretGrantRevokeArgs {
+func (ctx *HookContext) PendingSecretRevokes() map[string][]uniter.SecretGrantRevokeArgs {
 	return ctx.secretChanges.pendingRevokes
 }
 

@@ -1831,13 +1831,14 @@ func (s *mockHookContextSuite) TestSecretRevoke(c *gc.C) {
 
 	uri := coresecrets.NewURI()
 	uri2 := coresecrets.NewURI()
-	s.mockLeadership.EXPECT().IsLeader().Return(true, nil)
+	s.mockLeadership.EXPECT().IsLeader().Return(true, nil).AnyTimes()
 	hookContext := context.NewMockUnitHookContext(s.mockUnit, model.IAAS, s.mockLeadership)
 	context.SetEnvironmentHookContextSecret(hookContext, uri.String(), map[string]jujuc.SecretMetadata{
 		uri.ID:  {Description: "a secret", LatestRevision: 666, Owner: names.NewApplicationTag("mariadb")},
 		uri2.ID: {Description: "another secret", LatestRevision: 667, Owner: names.NewUnitTag("mariadb/666")},
 	}, nil, nil)
 	app := "mariadb"
+	unit0 := "mariadb/0"
 	relationKey := "wordpress:db mysql:server"
 	err := hookContext.RevokeSecret(uri, &jujuc.SecretGrantRevokeArgs{
 		ApplicationName: &app,
@@ -1849,17 +1850,75 @@ func (s *mockHookContextSuite) TestSecretRevoke(c *gc.C) {
 		RelationKey:     &relationKey,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(hookContext.PendingSecretRevokes(), jc.DeepEquals, map[string]uniter.SecretGrantRevokeArgs{
-		uri.ID: {
-			URI:             uri,
-			ApplicationName: &app,
-			RelationKey:     &relationKey,
+	c.Assert(hookContext.PendingSecretRevokes(), jc.DeepEquals,
+		map[string][]uniter.SecretGrantRevokeArgs{
+			uri.ID: {
+				{
+					URI:             uri,
+					ApplicationName: &app,
+					RelationKey:     &relationKey,
+				},
+			},
+			uri2.ID: {
+				{
+					URI:             uri2,
+					ApplicationName: &app,
+					RelationKey:     &relationKey,
+				},
+			},
 		},
-		uri2.ID: {
-			URI:             uri2,
-			ApplicationName: &app,
-			RelationKey:     &relationKey,
-		}})
+	)
+
+	// No OPS for duplicated revoke.
+	err = hookContext.RevokeSecret(uri, &jujuc.SecretGrantRevokeArgs{
+		ApplicationName: &app,
+		RelationKey:     &relationKey,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(hookContext.PendingSecretRevokes(), jc.DeepEquals,
+		map[string][]uniter.SecretGrantRevokeArgs{
+			uri.ID: {
+				{
+					URI:             uri,
+					ApplicationName: &app,
+					RelationKey:     &relationKey,
+				},
+			},
+			uri2.ID: {
+				{
+					URI:             uri2,
+					ApplicationName: &app,
+					RelationKey:     &relationKey,
+				},
+			},
+		},
+	)
+
+	// No OPS for unit level revoke because application level revoke exists already.
+	err = hookContext.RevokeSecret(uri, &jujuc.SecretGrantRevokeArgs{
+		UnitName:    &unit0,
+		RelationKey: &relationKey,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(hookContext.PendingSecretRevokes(), jc.DeepEquals,
+		map[string][]uniter.SecretGrantRevokeArgs{
+			uri.ID: {
+				{
+					URI:             uri,
+					ApplicationName: &app,
+					RelationKey:     &relationKey,
+				},
+			},
+			uri2.ID: {
+				{
+					URI:             uri2,
+					ApplicationName: &app,
+					RelationKey:     &relationKey,
+				},
+			},
+		},
+	)
+
 }
 
 func (s *mockHookContextSuite) TestHookStorage(c *gc.C) {

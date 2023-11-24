@@ -1657,9 +1657,7 @@ func (ctx *HookContext) doFlush(process string) error {
 	}
 
 	for _, revokes := range ctx.secretChanges.pendingRevokes {
-		for _, r := range revokes {
-			pendingRevokes = append(pendingRevokes, r)
-		}
+		pendingRevokes = append(pendingRevokes, revokes...)
 	}
 
 	for uri := range ctx.secretChanges.pendingTrackLatest {
