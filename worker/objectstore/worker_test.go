@@ -17,7 +17,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/objectstore"
-	coreobjectstore "github.com/juju/juju/core/objectstore"
 	internalobjectstore "github.com/juju/juju/internal/objectstore"
 	"github.com/juju/juju/testing"
 )
@@ -44,7 +43,7 @@ func (s *workerSuite) TestKilledGetObjectStoreErrDying(c *gc.C) {
 
 	worker := w.(*objectStoreWorker)
 	_, err := worker.GetObjectStore(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIs, coreobjectstore.ErrObjectStoreDying)
+	c.Assert(err, jc.ErrorIs, objectstore.ErrObjectStoreDying)
 }
 
 func (s *workerSuite) TestGetObjectStore(c *gc.C) {

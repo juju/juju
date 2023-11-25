@@ -56,6 +56,11 @@ type MongoSession interface {
 	MongoSession() *mgo.Session
 }
 
+// MetadataService is the interface that is used to get a object store.
+type MetadataService interface {
+	ObjectStore() coreobjectstore.ObjectStoreMetadata
+}
+
 // ManifoldConfig defines the configuration for the trace manifold.
 type ManifoldConfig struct {
 	AgentName          string
@@ -121,12 +126,12 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 
-			var controllerFactory servicefactory.ControllerServiceFactory
-			if err := context.Get(config.ServiceFactoryName, &controllerFactory); err != nil {
+			var serviceFactory servicefactory.ServiceFactory
+			if err := context.Get(config.ServiceFactoryName, &serviceFactory); err != nil {
 				return nil, errors.Trace(err)
 			}
 
-			objectStoreType, err := config.GetObjectStoreType(controllerFactory.ControllerConfig())
+			objectStoreType, err := config.GetObjectStoreType(serviceFactory.ControllerConfig())
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -144,11 +149,14 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 
 			w, err := NewWorker(WorkerConfig{
-				TracerGetter:         tracerGetter,
-				Clock:                config.Clock,
-				Logger:               config.Logger,
-				NewObjectStoreWorker: config.NewObjectStoreWorker,
-				ObjectStoreType:      objectStoreType,
+				TracerGetter:              tracerGetter,
+				RootDir:                   a.CurrentConfig().DataDir(),
+				Clock:                     config.Clock,
+				Logger:                    config.Logger,
+				NewObjectStoreWorker:      config.NewObjectStoreWorker,
+				ObjectStoreType:           objectStoreType,
+				ControllerMetadataService: controllerMetadataService{factory: serviceFactory},
+				ModelMetadataService:      modelMetadataService{factory: serviceFactory},
 
 				// StatePool is only here for backwards compatibility. Once we
 				// have the right abstractions in place, and we have a
@@ -219,4 +227,20 @@ func (s shimStatePool) Get(namespace string) (MongoSession, error) {
 
 func (s shimStatePool) SystemState() (MongoSession, error) {
 	return s.statePool.SystemState()
+}
+
+type controllerMetadataService struct {
+	factory servicefactory.ServiceFactory
+}
+
+func (s controllerMetadataService) ObjectStore() coreobjectstore.ObjectStoreMetadata {
+	return s.factory.AgentObjectStore()
+}
+
+type modelMetadataService struct {
+	factory servicefactory.ServiceFactory
+}
+
+func (s modelMetadataService) ObjectStore() coreobjectstore.ObjectStoreMetadata {
+	return s.factory.ObjectStore()
 }

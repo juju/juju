@@ -24,6 +24,11 @@ type Logger interface {
 	IsTraceEnabled() bool
 }
 
+// MetadataService is the interface that is used to get a object store.
+type MetadataService interface {
+	ObjectStore() objectstore.ObjectStoreMetadata
+}
+
 // TrackedObjectStore is a ObjectStore that is also a worker, to ensure the
 // lifecycle of the objectStore is managed.
 type TrackedObjectStore interface {
@@ -35,10 +40,24 @@ type TrackedObjectStore interface {
 // store.
 type Option func(*options)
 
+// WithRootDir is the option to set the root directory to use.
+func WithRootDir(rootDir string) Option {
+	return func(o *options) {
+		o.rootDir = rootDir
+	}
+}
+
 // WithMongoSession is the option to set the mongo session to use.
 func WithMongoSession(session MongoSession) Option {
 	return func(o *options) {
 		o.mongoSession = session
+	}
+}
+
+// WithMetadataService is the option to set the metadata service to use.
+func WithMetadataService(metadataService MetadataService) Option {
+	return func(o *options) {
+		o.metadataService = metadataService
 	}
 }
 
@@ -50,8 +69,10 @@ func WithLogger(logger Logger) Option {
 }
 
 type options struct {
-	mongoSession MongoSession
-	logger       Logger
+	rootDir         string
+	mongoSession    MongoSession
+	metadataService MetadataService
+	logger          Logger
 }
 
 func newOptions() *options {
@@ -74,6 +95,8 @@ func ObjectStoreFactory(ctx context.Context, backendType objectstore.BackendType
 	switch backendType {
 	case objectstore.StateBackend:
 		return NewStateObjectStore(ctx, namespace, opts.mongoSession, opts.logger)
+	case objectstore.FileBackend:
+		return NewFileObjectStore(ctx, namespace, opts.rootDir, opts.metadataService.ObjectStore(), opts.logger)
 	default:
 		return nil, errors.NotValidf("backend type %q", backendType)
 	}

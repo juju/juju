@@ -5,13 +5,12 @@ package migration
 
 import (
 	"github.com/juju/collections/set"
+	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
-
-	coretesting "github.com/juju/juju/testing"
 )
 
 type PhaseInternalSuite struct {
-	coretesting.BaseSuite
+	testing.IsolationSuite
 }
 
 var _ = gc.Suite(new(PhaseInternalSuite))
