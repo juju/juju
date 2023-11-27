@@ -6,7 +6,7 @@ A container-based V2 metadata charm to use in testing juju.
 
 ## Usage
 
-Basic deploy: 
+Basic deploy:
 `juju deploy juju-qa-test`
 
 Set the unit status to the first line of the resource, if available, one time:
@@ -19,11 +19,12 @@ Get your fortune
 ## Version, Channel, Series and History
 | Version    | Revision | Channel          | Series                               |
 | ---------- | -------- | ---------------- | ------------------------------------ |
-| 1.1-stable | 19       | latest/stable    | focal, bionic, xenial                |
+| 1.1-stable | 26       | latest/stable    | focal, bionic, xenial                |
 | 1.4-cand   | 20       | latest/candidate | jammy, focal, bionic, xenial         |
 | 2.0-edge   | 21       | latest/edge      | groovy, jammy, focal, bionic, xenial |
 | 2.0-stable | 22       | 2.0/stable       | disco, bionic, xenial, trusty        |
 | 2.0-edge   | 23       | 2.0/edge         | disco, bionic, xenial, trusty        |
+| 3.0-stable | 27       | 2.3/stable       | jammy                                |
 
 To publish new versions of stable/candidate/edge see the files in the
 subdirectories 'stable', 'candidate', 'edge' respectively. You should be able
