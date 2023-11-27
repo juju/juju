@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/envcontext"
-	"github.com/juju/juju/state"
 )
 
 type spacesSuite struct {
@@ -200,10 +199,8 @@ func (s *providerSpacesSuite) TestDeleteSpaces(c *gc.C) {
 	mockSpace := NewMockSpace(ctrl)
 	mockSpace.EXPECT().Name().Return("1").MinTimes(1)
 	mockSpace.EXPECT().Id().Return("1").MinTimes(1)
-	mockSpace.EXPECT().Life().Return(state.Alive)
 
 	// These are the important calls to check for.
-	mockSpace.EXPECT().EnsureDead().Return(nil)
 	mockSpace.EXPECT().Remove().Return(nil)
 
 	mockState := NewMockReloadSpacesState(ctrl)
@@ -325,8 +322,6 @@ func (s *providerSpacesSuite) TestProviderSpacesRun(c *gc.C) {
 	mockSpace.EXPECT().ProviderId().Return(network.Id("1")).MinTimes(1)
 	mockSpace.EXPECT().Name().Return("1").MinTimes(1)
 	mockSpace.EXPECT().Id().Return("1").MinTimes(1)
-	mockSpace.EXPECT().Life().Return(state.Alive)
-	mockSpace.EXPECT().EnsureDead().Return(nil)
 	mockSpace.EXPECT().Remove().Return(nil)
 
 	newMockSpace := NewMockSpace(ctrl)

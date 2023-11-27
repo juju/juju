@@ -41,11 +41,6 @@ func (s *Space) Id() string {
 	return s.doc.Id
 }
 
-// Life returns whether the space is Alive, Dying or Dead.
-func (s *Space) Life() Life {
-	return s.doc.Life
-}
-
 // String implements fmt.Stringer.
 func (s *Space) String() string {
 	return s.doc.Name
@@ -352,7 +347,7 @@ func (s *Space) Remove() (err error) {
 		C:      spacesC,
 		Id:     s.doc.Id,
 		Remove: true,
-		Assert: isDeadDoc,
+		Assert: txn.DocExists,
 	}}
 	if s.ProviderId() != "" {
 		ops = append(ops, s.st.networkEntityGlobalKeyRemoveOp("space", s.ProviderId()))
@@ -362,7 +357,7 @@ func (s *Space) Remove() (err error) {
 	if txnErr == nil {
 		return nil
 	}
-	return onAbort(txnErr, errors.New("not found or not dead"))
+	return onAbort(txnErr, errors.New("not found"))
 }
 
 // Refresh refreshes the contents of the Space from the underlying state. It
