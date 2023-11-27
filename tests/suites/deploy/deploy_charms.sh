@@ -176,8 +176,8 @@ run_deploy_lxd_to_machine() {
 }
 
 run_deploy_lxd_to_container() {
-  # Ensure profiles get applied correctly to containers
-  # and 1 gets added if a subordinate is added.
+	# Ensure profiles get applied correctly to containers
+	# and 1 gets added if a subordinate is added.
 	echo
 
 	model_name="test-deploy-lxd-container"
