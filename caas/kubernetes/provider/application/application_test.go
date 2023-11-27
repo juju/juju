@@ -1475,6 +1475,10 @@ func getDefaultSvc() *corev1.Service {
 			Selector: map[string]string{"app.kubernetes.io/name": "gitlab"},
 
 			Type: corev1.ServiceTypeClusterIP,
+			Ports: []corev1.ServicePort{{
+				Name: "placeholder",
+				Port: 65535,
+			}},
 		},
 	}
 }
