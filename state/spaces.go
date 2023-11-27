@@ -352,7 +352,7 @@ func (s *Space) Remove() (err error) {
 		C:      spacesC,
 		Id:     s.doc.Id,
 		Remove: true,
-		Assert: isDeadDoc,
+		Assert: txn.DocExists,
 	}}
 	if s.ProviderId() != "" {
 		ops = append(ops, s.st.networkEntityGlobalKeyRemoveOp("space", s.ProviderId()))
@@ -362,7 +362,7 @@ func (s *Space) Remove() (err error) {
 	if txnErr == nil {
 		return nil
 	}
-	return onAbort(txnErr, errors.New("not found or not dead"))
+	return onAbort(txnErr, errors.New("not found"))
 }
 
 // Refresh refreshes the contents of the Space from the underlying state. It

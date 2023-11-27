@@ -540,7 +540,7 @@ func (s *SpacesSuite) TestRemoveSucceedsWhenCalledTwice(c *gc.C) {
 	s.removeSpaceAndAssertNotFound(c, space)
 
 	err := space.Remove()
-	c.Assert(err, gc.ErrorMatches, `cannot remove space "twice-deleted": not found or not dead`)
+	c.Assert(err, gc.ErrorMatches, `cannot remove space "twice-deleted": not found`)
 }
 
 func (s *SpacesSuite) TestRefreshUpdatesStaleDocData(c *gc.C) {
