@@ -289,7 +289,7 @@ func (s *transportSuite) TestChallengeTransportTokenRefresh(c *gc.C) {
 				return &http.Response{
 					Request:    req,
 					StatusCode: http.StatusUnauthorized,
-					Body:       ioutil.NopCloser(nil),
+					Body:       io.NopCloser(nil),
 					Header: http.Header{
 						http.CanonicalHeaderKey("WWW-Authenticate"): []string{
 							`Bearer realm="https://auth.example.com/token",service="registry.example.com",scope="repository:jujuqa/jujud-operator:pull"`,
@@ -306,7 +306,7 @@ func (s *transportSuite) TestChallengeTransportTokenRefresh(c *gc.C) {
 				return &http.Response{
 					Request:    req,
 					StatusCode: http.StatusOK,
-					Body:       ioutil.NopCloser(strings.NewReader(`{"token": "OAuth-jwt-token", "access_token": "OAuth-jwt-token","expires_in": 300}`)),
+					Body:       io.NopCloser(strings.NewReader(`{"token": "OAuth-jwt-token", "access_token": "OAuth-jwt-token","expires_in": 300}`)),
 				}, nil
 			},
 		),
@@ -315,7 +315,7 @@ func (s *transportSuite) TestChallengeTransportTokenRefresh(c *gc.C) {
 			func(req *http.Request) (*http.Response, error) {
 				c.Assert(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Bearer " + `OAuth-jwt-token`}})
 				c.Assert(req.URL.String(), gc.Equals, `https://example.com`)
-				return &http.Response{StatusCode: http.StatusOK, Body: ioutil.NopCloser(nil)}, nil
+				return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(nil)}, nil
 			},
 		),
 	)
@@ -344,7 +344,7 @@ func (s *transportSuite) TestChallengeTransportBasic(c *gc.C) {
 				return &http.Response{
 					Request:    req,
 					StatusCode: http.StatusUnauthorized,
-					Body:       ioutil.NopCloser(nil),
+					Body:       io.NopCloser(nil),
 					Header: http.Header{
 						http.CanonicalHeaderKey("WWW-Authenticate"): []string{
 							`Basic realm="my realm"`,
@@ -358,7 +358,7 @@ func (s *transportSuite) TestChallengeTransportBasic(c *gc.C) {
 			func(req *http.Request) (*http.Response, error) {
 				c.Assert(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Basic " + `dXNlcm5hbWU6cHdkMQ==`}})
 				c.Assert(req.URL.String(), gc.Equals, `https://example.com`)
-				return &http.Response{StatusCode: http.StatusOK, Body: ioutil.NopCloser(nil)}, nil
+				return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(nil)}, nil
 			},
 		),
 	)
@@ -387,7 +387,7 @@ func (s *transportSuite) TestChallengeTransportMulti(c *gc.C) {
 				return &http.Response{
 					Request:    req,
 					StatusCode: http.StatusUnauthorized,
-					Body:       ioutil.NopCloser(nil),
+					Body:       io.NopCloser(nil),
 					Header: http.Header{
 						http.CanonicalHeaderKey("WWW-Authenticate"): []string{
 							`Basic realm="my realm"`,
@@ -402,7 +402,7 @@ func (s *transportSuite) TestChallengeTransportMulti(c *gc.C) {
 			func(req *http.Request) (*http.Response, error) {
 				c.Assert(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Basic " + `dXNlcm5hbWU6cHdkMQ==`}})
 				c.Assert(req.URL.String(), gc.Equals, `https://example.com`)
-				return &http.Response{StatusCode: http.StatusUnauthorized, Body: ioutil.NopCloser(nil)}, nil
+				return &http.Response{StatusCode: http.StatusUnauthorized, Body: io.NopCloser(nil)}, nil
 			},
 		),
 		// Refresh OAuth Token.
@@ -413,7 +413,7 @@ func (s *transportSuite) TestChallengeTransportMulti(c *gc.C) {
 				return &http.Response{
 					Request:    req,
 					StatusCode: http.StatusOK,
-					Body:       ioutil.NopCloser(strings.NewReader(`{"token": "OAuth-jwt-token", "access_token": "OAuth-jwt-token","expires_in": 300}`)),
+					Body:       io.NopCloser(strings.NewReader(`{"token": "OAuth-jwt-token", "access_token": "OAuth-jwt-token","expires_in": 300}`)),
 				}, nil
 			},
 		),
@@ -422,7 +422,7 @@ func (s *transportSuite) TestChallengeTransportMulti(c *gc.C) {
 			func(req *http.Request) (*http.Response, error) {
 				c.Assert(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Bearer " + `OAuth-jwt-token`}})
 				c.Assert(req.URL.String(), gc.Equals, `https://example.com`)
-				return &http.Response{StatusCode: http.StatusOK, Body: ioutil.NopCloser(nil)}, nil
+				return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(nil)}, nil
 			},
 		),
 
@@ -434,7 +434,7 @@ func (s *transportSuite) TestChallengeTransportMulti(c *gc.C) {
 				return &http.Response{
 					Request:    req,
 					StatusCode: http.StatusUnauthorized,
-					Body:       ioutil.NopCloser(nil),
+					Body:       io.NopCloser(nil),
 					Header: http.Header{
 						http.CanonicalHeaderKey("WWW-Authenticate"): []string{
 							`Basic realm="my realm"`,
@@ -452,7 +452,7 @@ func (s *transportSuite) TestChallengeTransportMulti(c *gc.C) {
 				return &http.Response{
 					Request:    req,
 					StatusCode: http.StatusOK,
-					Body:       ioutil.NopCloser(strings.NewReader(`{"token": "OAuth-jwt-token", "access_token": "OAuth-jwt-token","expires_in": 300}`)),
+					Body:       io.NopCloser(strings.NewReader(`{"token": "OAuth-jwt-token", "access_token": "OAuth-jwt-token","expires_in": 300}`)),
 				}, nil
 			},
 		),
@@ -461,7 +461,7 @@ func (s *transportSuite) TestChallengeTransportMulti(c *gc.C) {
 			func(req *http.Request) (*http.Response, error) {
 				c.Assert(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Bearer " + `OAuth-jwt-token`}})
 				c.Assert(req.URL.String(), gc.Equals, `https://example.com`)
-				return &http.Response{StatusCode: http.StatusOK, Body: ioutil.NopCloser(nil)}, nil
+				return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(nil)}, nil
 			},
 		),
 
@@ -473,7 +473,7 @@ func (s *transportSuite) TestChallengeTransportMulti(c *gc.C) {
 				return &http.Response{
 					Request:    req,
 					StatusCode: http.StatusUnauthorized,
-					Body:       ioutil.NopCloser(nil),
+					Body:       io.NopCloser(nil),
 					Header: http.Header{
 						http.CanonicalHeaderKey("WWW-Authenticate"): []string{
 							`Basic realm="my realm"`,
@@ -491,7 +491,7 @@ func (s *transportSuite) TestChallengeTransportMulti(c *gc.C) {
 				return &http.Response{
 					Request:    req,
 					StatusCode: http.StatusOK,
-					Body:       ioutil.NopCloser(strings.NewReader(`{"token": "OAuth-jwt-token", "access_token": "OAuth-jwt-token","expires_in": 300}`)),
+					Body:       io.NopCloser(strings.NewReader(`{"token": "OAuth-jwt-token", "access_token": "OAuth-jwt-token","expires_in": 300}`)),
 				}, nil
 			},
 		),
@@ -503,7 +503,7 @@ func (s *transportSuite) TestChallengeTransportMulti(c *gc.C) {
 				return &http.Response{
 					Request:    req,
 					StatusCode: http.StatusUnauthorized,
-					Body:       ioutil.NopCloser(nil),
+					Body:       io.NopCloser(nil),
 					Header: http.Header{
 						http.CanonicalHeaderKey("WWW-Authenticate"): []string{
 							`Basic realm="my realm"`,
@@ -518,7 +518,7 @@ func (s *transportSuite) TestChallengeTransportMulti(c *gc.C) {
 			func(req *http.Request) (*http.Response, error) {
 				c.Assert(req.Header, jc.DeepEquals, http.Header{"Authorization": []string{"Basic " + `dXNlcm5hbWU6cHdkMQ==`}})
 				c.Assert(req.URL.String(), gc.Equals, `https://example.com`)
-				return &http.Response{StatusCode: http.StatusOK, Body: ioutil.NopCloser(nil)}, nil
+				return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(nil)}, nil
 			},
 		),
 	)
