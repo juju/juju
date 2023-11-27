@@ -283,11 +283,11 @@ type ListSecretResult struct {
 	UpdateTime       time.Time          `json:"update-time"`
 	Revisions        []SecretRevision   `json:"revisions"`
 	Value            *SecretValueResult `json:"value,omitempty"`
-	Grants           []GrantInfo        `json:"grants,omitempty"`
+	Access           []AccessInfo       `json:"access,omitempty"`
 }
 
-// GrantInfo holds info about a secret grant.
-type GrantInfo struct {
+// AccessInfo holds info about a secret access information.
+type AccessInfo struct {
 	Target string             `json:"target"`
 	Scope  string             `json:"scope"`
 	Role   secrets.SecretRole `json:"role"`

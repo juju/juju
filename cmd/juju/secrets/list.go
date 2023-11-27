@@ -115,20 +115,20 @@ type secretDisplayDetails struct {
 	Error            string                  `json:"error,omitempty" yaml:"error,omitempty"`
 	Value            *secretValueDetails     `json:"content,omitempty" yaml:"content,omitempty"`
 	Revisions        []secretRevisionDetails `json:"revisions,omitempty" yaml:"revisions,omitempty"`
-	Grants           []GrantInfo             `yaml:"grants,omitempty" json:"grants,omitempty"`
+	Access           []AccessInfo            `yaml:"access,omitempty" json:"access,omitempty"`
 }
 
-// GrantInfo holds info about a secret grant.
-type GrantInfo struct {
-	Target string             `json:"target"`
+// AccessInfo holds info about a secret access information.
+type AccessInfo struct {
+	Target string             `json:"target" yaml:"target"`
 	Scope  string             `json:"scope"`
 	Role   secrets.SecretRole `json:"role"`
 }
 
-func toGrantInfo(grants []secrets.GrantInfo) []GrantInfo {
-	result := make([]GrantInfo, len(grants))
+func toGrantInfo(grants []secrets.AccessInfo) []AccessInfo {
+	result := make([]AccessInfo, len(grants))
 	for i, grant := range grants {
-		result[i] = GrantInfo{
+		result[i] = AccessInfo{
 			Target: grant.Target,
 			Scope:  grant.Scope,
 			Role:   grant.Role,
@@ -199,7 +199,7 @@ func gatherSecretInfo(
 			Error:            m.Error,
 		}
 		if includeGrants {
-			info.Grants = toGrantInfo(m.Grants)
+			info.Access = toGrantInfo(m.Access)
 		}
 		if includeRevisions {
 			info.Revisions = make([]secretRevisionDetails, len(m.Revisions))

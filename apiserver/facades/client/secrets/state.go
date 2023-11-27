@@ -21,7 +21,7 @@ type SecretsState interface {
 	ListSecrets(state.SecretsFilter) ([]*secrets.SecretMetadata, error)
 	ListSecretRevisions(uri *secrets.URI) ([]*secrets.SecretRevisionMetadata, error)
 	ListUnusedSecretRevisions(uri *secrets.URI) ([]int, error)
-	SecretGrants(uri *secrets.URI) ([]secrets.GrantInfo, error)
+	SecretGrants(uri *secrets.URI) ([]secrets.AccessInfo, error)
 }
 
 // SecretsConsumer instances provide secret consumer apis.

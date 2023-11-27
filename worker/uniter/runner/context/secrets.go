@@ -113,7 +113,7 @@ func (s *secretsChangeRecorder) revoke(arg uniter.SecretGrantRevokeArgs) {
 	s.pendingRevokes[arg.URI.ID] = append(s.pendingRevokes[arg.URI.ID], arg)
 }
 
-func (s *secretsChangeRecorder) secretGrantInfo(uri *secrets.URI, applied ...secrets.GrantInfo) ([]secrets.GrantInfo, error) {
+func (s *secretsChangeRecorder) secretGrantInfo(uri *secrets.URI, applied ...secrets.AccessInfo) ([]secrets.AccessInfo, error) {
 	mergePendingGrants := func() {
 		grants, ok := s.pendingGrants[uri.ID]
 		if !ok {
@@ -126,7 +126,7 @@ func (s *secretsChangeRecorder) secretGrantInfo(uri *secrets.URI, applied ...sec
 				s.logger.Warningf("missing SubjectTags: %+v", params)
 				continue
 			}
-			applied = append(applied, secrets.GrantInfo{
+			applied = append(applied, secrets.AccessInfo{
 				Target: params.SubjectTags[0],
 				Scope:  params.ScopeTag,
 				Role:   secrets.SecretRole(params.Role),

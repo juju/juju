@@ -340,10 +340,10 @@ func (mr *MockSecretsMetaStateMockRecorder) ListSecrets(arg0 interface{}) *gomoc
 }
 
 // SecretGrants mocks base method.
-func (m *MockSecretsMetaState) SecretGrants(arg0 *secrets0.URI) ([]secrets0.GrantInfo, error) {
+func (m *MockSecretsMetaState) SecretGrants(arg0 *secrets0.URI) ([]secrets0.AccessInfo, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SecretGrants", arg0)
-	ret0, _ := ret[0].([]secrets0.GrantInfo)
+	ret0, _ := ret[0].([]secrets0.AccessInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

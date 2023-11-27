@@ -163,10 +163,10 @@ func (mr *MockSecretsStateMockRecorder) ListUnusedSecretRevisions(arg0 interface
 }
 
 // SecretGrants mocks base method.
-func (m *MockSecretsState) SecretGrants(arg0 *secrets.URI) ([]secrets.GrantInfo, error) {
+func (m *MockSecretsState) SecretGrants(arg0 *secrets.URI) ([]secrets.AccessInfo, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SecretGrants", arg0)
-	ret0, _ := ret[0].([]secrets.GrantInfo)
+	ret0, _ := ret[0].([]secrets.AccessInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

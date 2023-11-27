@@ -40392,6 +40392,26 @@
                 }
             },
             "definitions": {
+                "AccessInfo": {
+                    "type": "object",
+                    "properties": {
+                        "role": {
+                            "type": "string"
+                        },
+                        "scope": {
+                            "type": "string"
+                        },
+                        "target": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "target",
+                        "scope",
+                        "role"
+                    ]
+                },
                 "CreateSecretArg": {
                     "type": "object",
                     "properties": {
@@ -40537,26 +40557,6 @@
                         "results"
                     ]
                 },
-                "GrantInfo": {
-                    "type": "object",
-                    "properties": {
-                        "role": {
-                            "type": "string"
-                        },
-                        "scope": {
-                            "type": "string"
-                        },
-                        "target": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "target",
-                        "scope",
-                        "role"
-                    ]
-                },
                 "GrantRevokeUserSecretArg": {
                     "type": "object",
                     "properties": {
@@ -40583,18 +40583,18 @@
                 "ListSecretResult": {
                     "type": "object",
                     "properties": {
+                        "access": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/AccessInfo"
+                            }
+                        },
                         "create-time": {
                             "type": "string",
                             "format": "date-time"
                         },
                         "description": {
                             "type": "string"
-                        },
-                        "grants": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/GrantInfo"
-                            }
                         },
                         "label": {
                             "type": "string"
@@ -40948,6 +40948,26 @@
                 }
             },
             "definitions": {
+                "AccessInfo": {
+                    "type": "object",
+                    "properties": {
+                        "role": {
+                            "type": "string"
+                        },
+                        "scope": {
+                            "type": "string"
+                        },
+                        "target": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "target",
+                        "scope",
+                        "role"
+                    ]
+                },
                 "ChangeSecretBackendArg": {
                     "type": "object",
                     "properties": {
@@ -41031,41 +41051,21 @@
                         "results"
                     ]
                 },
-                "GrantInfo": {
-                    "type": "object",
-                    "properties": {
-                        "role": {
-                            "type": "string"
-                        },
-                        "scope": {
-                            "type": "string"
-                        },
-                        "target": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "target",
-                        "scope",
-                        "role"
-                    ]
-                },
                 "ListSecretResult": {
                     "type": "object",
                     "properties": {
+                        "access": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/AccessInfo"
+                            }
+                        },
                         "create-time": {
                             "type": "string",
                             "format": "date-time"
                         },
                         "description": {
                             "type": "string"
-                        },
-                        "grants": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/GrantInfo"
-                            }
                         },
                         "label": {
                             "type": "string"
@@ -41435,6 +41435,26 @@
                 }
             },
             "definitions": {
+                "AccessInfo": {
+                    "type": "object",
+                    "properties": {
+                        "role": {
+                            "type": "string"
+                        },
+                        "scope": {
+                            "type": "string"
+                        },
+                        "target": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "target",
+                        "scope",
+                        "role"
+                    ]
+                },
                 "CreateSecretArg": {
                     "type": "object",
                     "properties": {
@@ -41674,26 +41694,6 @@
                         "args"
                     ]
                 },
-                "GrantInfo": {
-                    "type": "object",
-                    "properties": {
-                        "role": {
-                            "type": "string"
-                        },
-                        "scope": {
-                            "type": "string"
-                        },
-                        "target": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "target",
-                        "scope",
-                        "role"
-                    ]
-                },
                 "GrantRevokeSecretArg": {
                     "type": "object",
                     "properties": {
@@ -41739,18 +41739,18 @@
                 "ListSecretResult": {
                     "type": "object",
                     "properties": {
+                        "access": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/AccessInfo"
+                            }
+                        },
                         "create-time": {
                             "type": "string",
                             "format": "date-time"
                         },
                         "description": {
                             "type": "string"
-                        },
-                        "grants": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/GrantInfo"
-                            }
                         },
                         "label": {
                             "type": "string"
@@ -48239,6 +48239,26 @@
                         "servers"
                     ]
                 },
+                "AccessInfo": {
+                    "type": "object",
+                    "properties": {
+                        "role": {
+                            "type": "string"
+                        },
+                        "scope": {
+                            "type": "string"
+                        },
+                        "target": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "target",
+                        "scope",
+                        "role"
+                    ]
+                },
                 "Action": {
                     "type": "object",
                     "properties": {
@@ -49288,26 +49308,6 @@
                         "since"
                     ]
                 },
-                "GrantInfo": {
-                    "type": "object",
-                    "properties": {
-                        "role": {
-                            "type": "string"
-                        },
-                        "scope": {
-                            "type": "string"
-                        },
-                        "target": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "target",
-                        "scope",
-                        "role"
-                    ]
-                },
                 "GrantRevokeSecretArg": {
                     "type": "object",
                     "properties": {
@@ -49476,18 +49476,18 @@
                 "ListSecretResult": {
                     "type": "object",
                     "properties": {
+                        "access": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/AccessInfo"
+                            }
+                        },
                         "create-time": {
                             "type": "string",
                             "format": "date-time"
                         },
                         "description": {
                             "type": "string"
-                        },
-                        "grants": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/GrantInfo"
-                            }
                         },
                         "label": {
                             "type": "string"
@@ -52927,6 +52927,26 @@
                 }
             },
             "definitions": {
+                "AccessInfo": {
+                    "type": "object",
+                    "properties": {
+                        "role": {
+                            "type": "string"
+                        },
+                        "scope": {
+                            "type": "string"
+                        },
+                        "target": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "target",
+                        "scope",
+                        "role"
+                    ]
+                },
                 "ChangeSecretBackendArg": {
                     "type": "object",
                     "properties": {
@@ -53046,41 +53066,21 @@
                         "args"
                     ]
                 },
-                "GrantInfo": {
-                    "type": "object",
-                    "properties": {
-                        "role": {
-                            "type": "string"
-                        },
-                        "scope": {
-                            "type": "string"
-                        },
-                        "target": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "target",
-                        "scope",
-                        "role"
-                    ]
-                },
                 "ListSecretResult": {
                     "type": "object",
                     "properties": {
+                        "access": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/AccessInfo"
+                            }
+                        },
                         "create-time": {
                             "type": "string",
                             "format": "date-time"
                         },
                         "description": {
                             "type": "string"
-                        },
-                        "grants": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/GrantInfo"
-                            }
                         },
                         "label": {
                             "type": "string"

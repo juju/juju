@@ -94,7 +94,7 @@ type SecretsStore interface {
 	WatchObsolete(owners []names.Tag) (StringsWatcher, error)
 	WatchRevisionsToPrune(ownerTags []names.Tag) (StringsWatcher, error)
 	ChangeSecretBackend(ChangeSecretBackendParams) error
-	SecretGrants(uri *secrets.URI) ([]secrets.GrantInfo, error)
+	SecretGrants(uri *secrets.URI) ([]secrets.AccessInfo, error)
 }
 
 // NewSecrets creates a new mongo backed secrets store.
@@ -868,8 +868,8 @@ func (s *secretsStore) ChangeSecretBackend(arg ChangeSecretBackendParams) error 
 	return errors.Trace(err)
 }
 
-// SecretGrants returns the list of grant information of the secret.
-func (s *secretsStore) SecretGrants(uri *secrets.URI) ([]secrets.GrantInfo, error) {
+// SecretGrants returns the list of access information of the secret.
+func (s *secretsStore) SecretGrants(uri *secrets.URI) ([]secrets.AccessInfo, error) {
 	secretPermissionsCollection, closer := s.st.db().GetCollection(secretPermissionsC)
 	defer closer()
 
@@ -890,9 +890,9 @@ func (s *secretsStore) SecretGrants(uri *secrets.URI) ([]secrets.GrantInfo, erro
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot retrieve secret permissions for %s", uri.String())
 	}
-	var results []secrets.GrantInfo
+	var results []secrets.AccessInfo
 	for _, doc := range docs {
-		results = append(results, secrets.GrantInfo{
+		results = append(results, secrets.AccessInfo{
 			Target: doc.Subject,
 			Scope:  doc.Scope,
 			Role:   secrets.SecretRole(doc.Role),

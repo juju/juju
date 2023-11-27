@@ -134,7 +134,7 @@ func (s *SecretsAPI) ListSecrets(arg params.ListSecretsArgs) (params.ListSecretR
 			return result, errors.Trace(err)
 		}
 		for _, g := range grants {
-			secretResult.Grants = append(secretResult.Grants, params.GrantInfo{
+			secretResult.Access = append(secretResult.Access, params.AccessInfo{
 				Target: g.Target, Scope: g.Scope, Role: g.Role,
 			})
 		}

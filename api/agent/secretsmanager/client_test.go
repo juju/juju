@@ -407,7 +407,7 @@ func (s *SecretsSuite) TestSecretMetadata(c *gc.C) {
 				}, {
 					Revision: 667,
 				}},
-				Grants: []params.GrantInfo{
+				Access: []params.AccessInfo{
 					{
 						Target: "application-gitlab",
 						Scope:  coretesting.ModelTag.Id(),
@@ -430,7 +430,7 @@ func (s *SecretsSuite) TestSecretMetadata(c *gc.C) {
 		c.Assert(info.Metadata.LatestExpireTime, gc.Equals, &now)
 		c.Assert(info.Metadata.NextRotateTime, gc.Equals, &now)
 		c.Assert(info.Revisions, jc.DeepEquals, []int{666, 667})
-		c.Assert(info.Metadata.Grants, jc.DeepEquals, []coresecrets.GrantInfo{
+		c.Assert(info.Metadata.Access, jc.DeepEquals, []coresecrets.AccessInfo{
 			{
 				Target: "application-gitlab",
 				Scope:  coretesting.ModelTag.Id(),

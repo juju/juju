@@ -1049,7 +1049,7 @@ func (ctx *HookContext) SecretMetadata() (map[string]jujuc.SecretMetadata, error
 	for k, v := range result {
 		uri := &coresecrets.URI{ID: k}
 		var err error
-		if v.Grants, err = ctx.secretChanges.secretGrantInfo(uri, v.Grants...); err != nil {
+		if v.Access, err = ctx.secretChanges.secretGrantInfo(uri, v.Access...); err != nil {
 			return nil, errors.Trace(err)
 		}
 	}
@@ -1090,7 +1090,7 @@ func (ctx *HookContext) GrantSecret(uri *coresecrets.URI, arg *jujuc.SecretGrant
 	if err != nil {
 		return errors.Trace(err)
 	}
-	for _, g := range md.Grants {
+	for _, g := range md.Access {
 		if params.ScopeTag != g.Scope || params.Role != string(g.Role) {
 			continue
 		}

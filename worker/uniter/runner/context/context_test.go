@@ -563,7 +563,7 @@ func (s *InterfaceSuite) TestSecretMetadata(c *gc.C) {
 			Owner:        names.NewApplicationTag("mariadb"),
 			Description:  "description",
 			RotatePolicy: coresecrets.RotateHourly,
-			Grants: []coresecrets.GrantInfo{
+			Access: []coresecrets.AccessInfo{
 				{
 					Target: "unit-gitlab-0",
 					Scope:  "relation-mariadb.db#gitlab.db",
@@ -585,7 +585,7 @@ func (s *InterfaceSuite) TestSecretMetadata(c *gc.C) {
 			Owner:        names.NewApplicationTag("mariadb"),
 			Description:  "description",
 			RotatePolicy: coresecrets.RotateHourly,
-			Grants: []coresecrets.GrantInfo{
+			Access: []coresecrets.AccessInfo{
 				{
 					Target: "unit-gitlab-0",
 					Scope:  "relation-mariadb.db#gitlab.db",
@@ -625,7 +625,7 @@ func (s *InterfaceSuite) TestSecretMetadata(c *gc.C) {
 			Owner:        names.NewApplicationTag("mariadb"),
 			Description:  "another",
 			RotatePolicy: coresecrets.RotateHourly,
-			Grants: []coresecrets.GrantInfo{
+			Access: []coresecrets.AccessInfo{
 				{Target: "unit-gitlab-0", Scope: "relation-mariadb.db#gitlab.db", Role: "view"},
 			},
 		},
@@ -1709,7 +1709,7 @@ func (s *mockHookContextSuite) TestSecretGrantNoOPSBecauseofExactSameApp(c *gc.C
 			Description:    "a secret",
 			LatestRevision: 666,
 			Owner:          names.NewApplicationTag("mariadb"),
-			Grants: []coresecrets.GrantInfo{
+			Access: []coresecrets.AccessInfo{
 				{
 					Target: "application-gitlab",
 					Role:   coresecrets.RoleView,
@@ -1741,7 +1741,7 @@ func (s *mockHookContextSuite) TestSecretGrantNoOPSBecauseofExactSameUnit(c *gc.
 			Description:    "a secret",
 			LatestRevision: 666,
 			Owner:          names.NewApplicationTag("mariadb"),
-			Grants: []coresecrets.GrantInfo{
+			Access: []coresecrets.AccessInfo{
 				{
 					Target: "unit-gitlab-0",
 					Role:   coresecrets.RoleView,
@@ -1773,7 +1773,7 @@ func (s *mockHookContextSuite) TestSecretGrantNoOPSBecauseApplicationLevelGrante
 			Description:    "a secret",
 			LatestRevision: 666,
 			Owner:          names.NewApplicationTag("mariadb"),
-			Grants: []coresecrets.GrantInfo{
+			Access: []coresecrets.AccessInfo{
 				{
 					Target: "application-gitlab",
 					Role:   coresecrets.RoleView,
@@ -1805,7 +1805,7 @@ func (s *mockHookContextSuite) TestSecretGrantFailedRevokeExistingRecordRequired
 			Description:    "a secret",
 			LatestRevision: 666,
 			Owner:          names.NewApplicationTag("mariadb"),
-			Grants: []coresecrets.GrantInfo{
+			Access: []coresecrets.AccessInfo{
 				{
 					Target: "unit-gitlab-0",
 					Role:   coresecrets.RoleView,
