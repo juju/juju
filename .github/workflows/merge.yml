@@ -1,7 +1,7 @@
 name: Merge
 on:
   push:
-    branches: ['2.9', '3.1', '3.2', '3.3']
+    branches: ['2.9', '3.1', '3.3', '3.4']
 
 jobs:
   check-merge:
@@ -10,9 +10,9 @@ jobs:
     env:
       MERGE_TARGETS: |
         2.9: 3.1
-        3.1: 3.2
-        3.2: 3.3
-        3.3: main
+        3.1: 3.3
+        3.3: 3.4
+        3.4: main
 
     steps:
       - name: Determine source/target branches
@@ -54,7 +54,7 @@ jobs:
           # Need to set Git username/email to do the merge (yawn)
           git config user.name 'jujubot'
           git config user.email 'fake@address.me'
-          
+
           set +e
           git switch "$TARGET_BRANCH"
           git merge "$SOURCE_BRANCH"
