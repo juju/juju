@@ -41,11 +41,6 @@ func (s *Space) Id() string {
 	return s.doc.Id
 }
 
-// Life returns whether the space is Alive, Dying or Dead.
-func (s *Space) Life() Life {
-	return s.doc.Life
-}
-
 // String implements fmt.Stringer.
 func (s *Space) String() string {
 	return s.doc.Name

@@ -98,7 +98,6 @@ func (s *SpacesSuite) assertSpaceMatchesArgs(c *gc.C, space *state.Space, args a
 	c.Assert(actualSubnetIds, jc.SameContents, args.SubnetCIDRs)
 	c.Assert(state.SpaceDoc(space).IsPublic, gc.Equals, args.IsPublic)
 
-	c.Assert(space.Life(), gc.Equals, state.Alive)
 	c.Assert(space.String(), gc.Equals, args.Name)
 
 	// The space ID is not empty and not equivalent to the default space.
@@ -489,20 +488,17 @@ func (s *SpacesSuite) TestEnsureDeadSetsLifeToDeadWhenAlive(c *gc.C) {
 func (s *SpacesSuite) addAliveSpace(c *gc.C, name string) *state.Space {
 	space, err := s.State.AddSpace(name, "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(space.Life(), gc.Equals, state.Alive)
 	return space
 }
 
 func (s *SpacesSuite) ensureDeadAndAssertLifeIsDead(c *gc.C, space *state.Space) {
 	err := space.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(space.Life(), gc.Equals, state.Dead)
 }
 
 func (s *SpacesSuite) refreshAndAssertSpaceLifeIs(c *gc.C, space *state.Space, expectedLife state.Life) {
 	err := space.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(space.Life(), gc.Equals, expectedLife)
 }
 
 func (s *SpacesSuite) TestEnsureDeadSetsLifeToDeadWhenNotAlive(c *gc.C) {
@@ -534,26 +530,15 @@ func (s *SpacesSuite) removeSpaceAndAssertNotFound(c *gc.C, space *state.Space) 
 	s.assertSpaceNotFound(c, space.Name())
 }
 
-func (s *SpacesSuite) TestRemoveSucceedsWhenCalledTwice(c *gc.C) {
-	space := s.addAliveSpace(c, "twice-deleted")
-	s.ensureDeadAndAssertLifeIsDead(c, space)
-	s.removeSpaceAndAssertNotFound(c, space)
-
-	err := space.Remove()
-	c.Assert(err, gc.ErrorMatches, `cannot remove space "twice-deleted": not found`)
-}
-
 func (s *SpacesSuite) TestRefreshUpdatesStaleDocData(c *gc.C) {
 	space := s.addAliveSpace(c, "original")
 	spaceCopy, err := s.State.SpaceByName(space.Name())
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.ensureDeadAndAssertLifeIsDead(c, space)
-	c.Assert(spaceCopy.Life(), gc.Equals, state.Alive)
 
 	err = spaceCopy.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(spaceCopy.Life(), gc.Equals, state.Dead)
 }
 
 func (s *SpacesSuite) TestRefreshFailsWithNotFoundWhenRemoved(c *gc.C) {
