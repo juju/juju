@@ -253,7 +253,7 @@ type retryResolveResult struct {
 }
 
 // retryResolveWithPreferredChannel will attempt to inspect the transport
-// APIError and deterimine if a retry is possible with the information gathered
+// APIError and determine if a retry is possible with the information gathered
 // from the error.
 func (c *CharmHubRepository) retryResolveWithPreferredChannel(charmURL *charm.URL, origin corecharm.Origin, macaroons macaroon.Slice, resErr *transport.APIError) (*retryResolveResult, error) {
 	var (
