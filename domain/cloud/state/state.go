@@ -17,6 +17,7 @@ import (
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain"
+	clouderrors "github.com/juju/juju/domain/cloud/errors"
 	"github.com/juju/juju/domain/model"
 	"github.com/juju/juju/internal/database"
 )
@@ -53,36 +54,71 @@ func (st *State) ListClouds(ctx context.Context, name string) ([]cloud.Cloud, er
 // cloud has no defaults or the cloud does not exist a nil error is returned
 // with an empty defaults map.
 func (st *State) CloudDefaults(ctx context.Context, cloudName string) (map[string]string, error) {
-	defaults := map[string]string{}
-
 	db, err := st.DB()
 	if err != nil {
-		return defaults, errors.Trace(err)
+		return nil, fmt.Errorf("getting database for setting cloud %q defaults: %w", cloudName, err)
 	}
 
+	// This might look like an odd way to query for cloud defaults but by doing
+	// a left join onto the cloud table we are always guaranteed at least one
+	// row to be returned. This lets us confirm that a cloud actually exists
+	// for the name.
+	// The reason for going to so much effort for seeing if the cloud exists is
+	// so we can return an error if a cloud has been asked for that doesn't
+	// exist. This is important as it will let us potentially identify bad logic
+	// problems in Juju early where we have logic that might go off the rails
+	// with bad values that make their way down to state.
 	stmt := `
-SELECT  key, value
-FROM    cloud_defaults
-        INNER JOIN cloud
-            ON cloud_defaults.cloud_uuid = cloud.uuid
-WHERE   cloud.name = ?
+SELECT cloud_defaults.key,
+       cloud_defaults.value,
+	   cloud.uuid
+FROM cloud
+LEFT JOIN cloud_defaults ON cloud.uuid = cloud_defaults.cloud_uuid
+WHERE cloud.name = ?
 `
 
-	return defaults, db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+	rval := make(map[string]string)
+	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		rows, err := tx.QueryContext(ctx, stmt, cloudName)
-		if err != nil {
-			return fmt.Errorf("fetching cloud %q defaults: %w", cloudName, err)
+		if errors.Is(err, sql.ErrNoRows) {
+			return fmt.Errorf("%w %q", clouderrors.NotFound, cloudName)
+		} else if err != nil {
+			return fmt.Errorf("getting cloud %q defaults: %w", cloudName, err)
+		}
+		defer func() { _ = rows.Close() }()
+
+		var (
+			cloudUUID  string
+			key, value sql.NullString
+		)
+		for rows.Next() {
+			if err := rows.Scan(&key, &value, &cloudUUID); err != nil {
+				return fmt.Errorf("reading cloud %q default: %w", cloudName, err)
+			}
+			if !key.Valid {
+				// If the key is null it means there is no defaults set for the
+				// cloud. We can safely just continue because the next iteration
+				// of rows will return done.
+				continue
+			}
+			rval[key.String] = value.String
 		}
 
-		var key, value string
-		for rows.Next() {
-			if err := rows.Scan(&key, &value); err != nil {
-				return fmt.Errorf("compiling cloud %q defaults: %w", cloudName, stderrors.Join(err, rows.Close()))
-			}
-			defaults[key] = value
+		if err := rows.Err(); err != nil {
+			return fmt.Errorf("reading cloud %q defaults: %w", cloudName, err)
 		}
+		// If cloudUUID is the zero value it means no cloud exists for cloudName.
+		if cloudUUID == "" {
+			return fmt.Errorf("%w %q", clouderrors.NotFound, cloudName)
+		}
+
 		return nil
 	})
+
+	if err != nil {
+		return nil, err
+	}
+	return rval, nil
 }
 
 // UpdateCloudDefaults is responsible for updating default config values for a
@@ -815,4 +851,54 @@ func (st *State) WatchCloud(
 	}
 	result, err := getWatcher("cloud", uuid, changestream.All)
 	return result, errors.Annotatef(err, "watching cloud")
+}
+
+// SetCloudDefaults is responsible for removing any previously set cloud
+// default values and setting the new cloud defaults to use. If no defaults are
+// supplied to this function then the currently set cloud default values will be
+// removed and no further operations will be be
+// performed. If no cloud exists for the cloud name then an error satisfying
+// [clouderrors.NotFound] is returned.
+func SetCloudDefaults(
+	ctx context.Context,
+	tx *sql.Tx,
+	cloudName string,
+	defaults map[string]string,
+) error {
+	cloudUUIDStmt := "SELECT uuid FROM cloud WHERE name = ?"
+
+	var cloudUUID string
+	row := tx.QueryRowContext(ctx, cloudUUIDStmt, cloudName)
+	err := row.Scan(&cloudUUID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return fmt.Errorf("%w %q", clouderrors.NotFound, cloudName)
+	} else if err != nil {
+		return fmt.Errorf("getting cloud %q uuid to set cloud model defaults: %w", cloudName, err)
+	}
+
+	deleteStmt := "DELETE FROM cloud_defaults WHERE cloud_defaults.cloud_uuid = ?"
+	_, err = tx.ExecContext(ctx, deleteStmt, cloudUUID)
+	if err != nil {
+		return fmt.Errorf("removing previously set cloud %q model defaults: %w", cloudName, err)
+	}
+
+	if len(defaults) == 0 {
+		return nil
+	}
+
+	bindStr, args := database.MapToMultiPlaceholderTransform(defaults, func(k, v string) []any {
+		return []any{cloudUUID, k, v}
+	})
+
+	insertStmt := fmt.Sprintf(
+		"INSERT INTO cloud_defaults (cloud_uuid, key, value) VALUES %s",
+		bindStr,
+	)
+
+	_, err = tx.ExecContext(ctx, insertStmt, args...)
+	if err != nil {
+		return fmt.Errorf("setting cloud %q model defaults: %w", cloudName, err)
+	}
+
+	return nil
 }
