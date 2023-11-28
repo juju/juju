@@ -846,7 +846,7 @@ func (s *applicationSuite) TestAddCharm(c *gc.C) {
 		return &recordingStorage{Storage: storage, blobs: &blobs}
 	})
 
-	client := client.NewClient(s.APIState)
+	client := client.NewClient(s.APIState, testing.NoopLogger{})
 	// First test the sanity checks.
 	err := client.AddCharm(&charm.URL{Name: "nonsense"}, csparams.StableChannel, false)
 	c.Assert(err, gc.ErrorMatches, `cannot parse charm or bundle URL: ":nonsense-0"`)
@@ -896,7 +896,7 @@ func (s *applicationSuite) TestAddCharmConcurrently(c *gc.C) {
 		return &recordingStorage{Storage: storage, blobs: &blobs, putBarrier: &putBarrier}
 	})
 
-	client := client.NewClient(s.APIState)
+	client := client.NewClient(s.APIState, testing.NoopLogger{})
 	curl, _ := s.UploadCharm(c, "trusty/wordpress-3", "wordpress")
 
 	// Try adding the same charm concurrently from multiple goroutines
@@ -951,7 +951,7 @@ func (s *applicationSuite) assertUploaded(c *gc.C, storage statestorage.Storage,
 }
 
 func (s *applicationSuite) TestAddCharmOverwritesPlaceholders(c *gc.C) {
-	client := client.NewClient(s.APIState)
+	client := client.NewClient(s.APIState, testing.NoopLogger{})
 	curl, _ := s.UploadCharm(c, "cs:trusty/wordpress-42", "wordpress")
 
 	// Add a placeholder with the same charm URL.

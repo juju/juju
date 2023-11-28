@@ -268,7 +268,7 @@ func newDeployCommand() *DeployCommand {
 		}
 		return &deployAPIAdapter{
 			Connection:            apiRoot,
-			legacyClient:          &apiClient{Client: apiclient.NewClient(apiRoot)},
+			legacyClient:          &apiClient{Client: apiclient.NewClient(apiRoot, logger)},
 			charmsClient:          &charmsClient{Client: apicharms.NewClient(apiRoot)},
 			charmsAPIVersion:      apiRoot.BestFacadeVersion("Charms"),
 			applicationClient:     &applicationClient{Client: application.NewClient(apiRoot)},

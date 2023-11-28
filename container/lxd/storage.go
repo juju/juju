@@ -4,8 +4,8 @@
 package lxd
 
 import (
+	"github.com/canonical/lxd/shared/api"
 	"github.com/juju/errors"
-	"github.com/lxc/lxd/shared/api"
 )
 
 func (s *Server) StorageSupported() bool {

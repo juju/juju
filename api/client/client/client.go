@@ -15,7 +15,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/version/v2"
-	"github.com/lxc/lxd/shared/logger"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
@@ -29,18 +28,29 @@ import (
 	"github.com/juju/juju/tools"
 )
 
+// Logger is the interface used by the client to log errors.
+type Logger interface {
+	Errorf(string, ...interface{})
+}
+
 // Client represents the client-accessible part of the state.
 type Client struct {
 	base.ClientFacade
 	facade base.FacadeCaller
 	conn   api.Connection
+	logger Logger
 }
 
 // NewClient returns an object that can be used to access client-specific
 // functionality.
-func NewClient(c api.Connection) *Client {
+func NewClient(c api.Connection, logger Logger) *Client {
 	frontend, backend := base.NewClientFacade(c, "Client")
-	return &Client{ClientFacade: frontend, facade: backend, conn: c}
+	return &Client{
+		ClientFacade: frontend,
+		facade:       backend,
+		conn:         c,
+		logger:       logger,
+	}
 }
 
 // Status returns the status of the juju model.
@@ -108,7 +118,7 @@ func (c *Client) StatusHistory(kind status.HistoryKind, tag names.Tag, filter st
 		}
 		// TODO(perrito666) https://launchpad.net/bugs/1577589
 		if !history[i].Kind.Valid() {
-			logger.Errorf("history returned an unknown status kind %q", h.Kind)
+			c.logger.Errorf("history returned an unknown status kind %q", h.Kind)
 		}
 	}
 	return history, nil

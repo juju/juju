@@ -156,7 +156,7 @@ func (env *environ) getImageSources() ([]lxd.ServerSpec, error) {
 		// image-metadata-url is an "https://" URL, so that Users get a
 		// "your configuration is wrong" error, rather than silently
 		// changing it and having them get confused.
-		// https://github.com/lxc/lxd/issues/1763
+		// https://github.com/canonical/lxd/issues/1763
 		remotes = append(remotes, lxd.MakeSimpleStreamsServerSpec(source.Description(), url))
 	}
 	// Required for CentOS images.

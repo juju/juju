@@ -5,6 +5,7 @@
 package mocks
 
 import (
+	context "context"
 	reflect "reflect"
 
 	gomock "go.uber.org/mock/gomock"
@@ -46,4 +47,18 @@ func (m *MockExecutor) Stream(arg0 remotecommand.StreamOptions) error {
 func (mr *MockExecutorMockRecorder) Stream(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stream", reflect.TypeOf((*MockExecutor)(nil).Stream), arg0)
+}
+
+// StreamWithContext mocks base method.
+func (m *MockExecutor) StreamWithContext(arg0 context.Context, arg1 remotecommand.StreamOptions) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "StreamWithContext", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// StreamWithContext indicates an expected call of StreamWithContext.
+func (mr *MockExecutorMockRecorder) StreamWithContext(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StreamWithContext", reflect.TypeOf((*MockExecutor)(nil).StreamWithContext), arg0, arg1)
 }

@@ -95,12 +95,12 @@ func (s *MinimalStatusSuite) TestGoodCallWithStorage(c *gc.C) {
 Model  Controller  Cloud/Region  Version
 test   test        foo           
 
-Storage Unit  Storage ID    Type        Pool      Mountpoint  Size    Status    Message
-              persistent/1  filesystem                                detached  
-postgresql/0  db-dir/1100   block                             3.0MiB  attached  
-transcode/0   db-dir/1000   block                                     pending   creating volume
-transcode/0   shared-fs/0   filesystem  radiance  /mnt/doom   1.0GiB  attached  
-transcode/1   shared-fs/0   filesystem  radiance  /mnt/huang  1.0GiB  attached  
+Storage Unit  Storage ID    Type        Pool      Mountpoint  Size     Status    Message
+              persistent/1  filesystem                                 detached  
+postgresql/0  db-dir/1100   block                             3.0 MiB  attached  
+transcode/0   db-dir/1000   block                                      pending   creating volume
+transcode/0   shared-fs/0   filesystem  radiance  /mnt/doom   1.0 GiB  attached  
+transcode/1   shared-fs/0   filesystem  radiance  /mnt/huang  1.0 GiB  attached  
 
 `[1:])
 }

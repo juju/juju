@@ -18,11 +18,11 @@ import (
 
 // Recognized AWS instance states.
 var (
-	Pending      = types.InstanceState{aws.Int32(0), "pending"}
-	Running      = types.InstanceState{aws.Int32(16), "running"}
-	ShuttingDown = types.InstanceState{aws.Int32(32), "shutting-down"}
-	Terminated   = types.InstanceState{aws.Int32(16), "terminated"}
-	Stopped      = types.InstanceState{aws.Int32(16), "stopped"}
+	Pending      = types.InstanceState{Code: aws.Int32(0), Name: "pending"}
+	Running      = types.InstanceState{Code: aws.Int32(16), Name: "running"}
+	ShuttingDown = types.InstanceState{Code: aws.Int32(32), Name: "shutting-down"}
+	Terminated   = types.InstanceState{Code: aws.Int32(16), Name: "terminated"}
+	Stopped      = types.InstanceState{Code: aws.Int32(16), Name: "stopped"}
 )
 
 // Instance holds a fake ec2 instance

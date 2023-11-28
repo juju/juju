@@ -658,7 +658,7 @@ func (s *ebsSuite) TestListVolumesIgnoresRootDisks(c *gc.C) {
 	_, err := s.srv.ec2srv.CreateTags(s.cloudCallCtx, &awsec2.CreateTagsInput{
 		Resources: []string{"vol-0"},
 		Tags: []types.Tag{
-			{aws.String(tags.JujuModel), aws.String(s.modelConfig.UUID())},
+			{Key: aws.String(tags.JujuModel), Value: aws.String(s.modelConfig.UUID())},
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)

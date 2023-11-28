@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type permSuite struct {
@@ -210,8 +211,8 @@ func opClientDestroyRelation(c *gc.C, st api.Connection, mst *state.State) (func
 	return func() {}, err
 }
 
-func opClientStatus(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
-	status, err := apiclient.NewClient(st).Status(nil)
+func opClientStatus(c *gc.C, st api.Connection, _ *state.State) (func(), error) {
+	status, err := apiclient.NewClient(st, coretesting.NoopLogger{}).Status(nil)
 	if err != nil {
 		c.Check(status, gc.IsNil)
 		return func() {}, err
@@ -272,7 +273,7 @@ func opClientServiceUnexpose(c *gc.C, st api.Connection, mst *state.State) (func
 }
 
 func opClientResolved(c *gc.C, st api.Connection, _ *state.State) (func(), error) {
-	err := apiclient.NewClient(st).Resolved("wordpress/1", false)
+	err := apiclient.NewClient(st, coretesting.NoopLogger{}).Resolved("wordpress/1", false)
 	// There are several scenarios in which this test is called, one is
 	// that the user is not authorized.  In that case we want to exit now,
 	// letting the error percolate out so the caller knows that the
@@ -391,7 +392,7 @@ func opClientSetServiceConstraints(c *gc.C, st api.Connection, mst *state.State)
 
 func opClientSetEnvironmentConstraints(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
 	nullConstraints := constraints.Value{}
-	err := apiclient.NewClient(st).SetModelConstraints(nullConstraints)
+	err := apiclient.NewClient(st, coretesting.NoopLogger{}).SetModelConstraints(nullConstraints)
 	if err != nil {
 		return func() {}, err
 	}
@@ -424,7 +425,7 @@ func opClientSetModelAgentVersion(c *gc.C, st api.Connection, mst *state.State) 
 		return func() {}, err
 	}
 	ver := version.Number{Major: 2, Minor: 0, Patch: 0}
-	err = apiclient.NewClient(st).SetModelAgentVersion(ver, "released", false)
+	err = apiclient.NewClient(st, coretesting.NoopLogger{}).SetModelAgentVersion(ver, "released", false)
 	if err != nil {
 		return func() {}, err
 	}
@@ -433,13 +434,13 @@ func opClientSetModelAgentVersion(c *gc.C, st api.Connection, mst *state.State) 
 		oldAgentVersion, found := attrs["agent-version"]
 		if found {
 			versionString := oldAgentVersion.(string)
-			apiclient.NewClient(st).SetModelAgentVersion(version.MustParse(versionString), "released", false)
+			apiclient.NewClient(st, coretesting.NoopLogger{}).SetModelAgentVersion(version.MustParse(versionString), "released", false)
 		}
 	}, nil
 }
 
 func opClientWatchAll(c *gc.C, st api.Connection, mst *state.State) (func(), error) {
-	watcher, err := apiclient.NewClient(st).WatchAll()
+	watcher, err := apiclient.NewClient(st, coretesting.NoopLogger{}).WatchAll()
 	if err == nil {
 		watcher.Stop()
 	}

@@ -455,7 +455,7 @@ func (c *sshMachine) initAPIClient(mc ModelCommand) error {
 
 	c.apiClient = sshclient.NewFacade(conn)
 	c.apiAddr = conn.Addr()
-	c.statusClient = apiclient.NewClient(conn)
+	c.statusClient = apiclient.NewClient(conn, logger)
 	return nil
 }
 

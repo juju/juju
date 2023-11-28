@@ -89,13 +89,13 @@ func (s *ListSuite) TestFilesystemListWithErrorResults(c *gc.C) {
 }
 
 var expectedFilesystemListTabular = `
-Machine  Unit         Storage ID   ID   Volume  Provider ID                       Mountpoint  Size    State      Message
-0        abc/0        db-dir/1001  0/0  0/1     provider-supplied-filesystem-0-0  /mnt/fuji   512MiB  attached   
-0        transcode/0  shared-fs/0  4            provider-supplied-filesystem-4    /mnt/doom   1.0GiB  attached   
-0                                  1            provider-supplied-filesystem-1                2.0GiB  attaching  failed to attach, will retry
-1        transcode/1  shared-fs/0  4            provider-supplied-filesystem-4    /mnt/huang  1.0GiB  attached   
-1                                  2            provider-supplied-filesystem-2    /mnt/zion   3.0MiB  attached   
-1                                  3                                                          42MiB   pending    
+Machine  Unit         Storage ID   ID   Volume  Provider ID                       Mountpoint  Size     State      Message
+0        abc/0        db-dir/1001  0/0  0/1     provider-supplied-filesystem-0-0  /mnt/fuji   512 MiB  attached   
+0        transcode/0  shared-fs/0  4            provider-supplied-filesystem-4    /mnt/doom   1.0 GiB  attached   
+0                                  1            provider-supplied-filesystem-1                2.0 GiB  attaching  failed to attach, will retry
+1        transcode/1  shared-fs/0  4            provider-supplied-filesystem-4    /mnt/huang  1.0 GiB  attached   
+1                                  2            provider-supplied-filesystem-2    /mnt/zion   3.0 MiB  attached   
+1                                  3                                                          42 MiB   pending    
 
 `[1:]
 
@@ -116,8 +116,8 @@ func (s *ListSuite) TestFilesystemListTabular(c *gc.C) {
 }
 
 var expectedCAASFilesystemListTabular = `
-Unit     Storage ID   ID   Provider ID                       Mountpoint  Size    State     Message
-mysql/0  db-dir/1001  0/0  provider-supplied-filesystem-0-0  /mnt/fuji   512MiB  attached  
+Unit     Storage ID   ID   Provider ID                       Mountpoint  Size     State     Message
+mysql/0  db-dir/1001  0/0  provider-supplied-filesystem-0-0  /mnt/fuji   512 MiB  attached  
 
 `[1:]
 

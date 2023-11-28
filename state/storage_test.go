@@ -519,7 +519,7 @@ func (s *StorageStateSuite) TestAddApplicationStorageConstraintsValidation(c *gc
 	}
 	assertErr(storageCons, `cannot add application "storage-block2": charm "storage-block2" store "multi2up": 2 instances required, 1 specified`)
 	storageCons["multi2up"] = makeStorageCons("loop-pool", 1024, 2)
-	assertErr(storageCons, `cannot add application "storage-block2": charm "storage-block2" store "multi2up": minimum storage size is 2.0GB, 1.0GB specified`)
+	assertErr(storageCons, `cannot add application "storage-block2": charm "storage-block2" store "multi2up": minimum storage size is 2.0 GB, 1.0 GB specified`)
 	storageCons["multi2up"] = makeStorageCons("loop-pool", 2048, 2)
 	storageCons["multi1to10"] = makeStorageCons("loop-pool", 1024, 11)
 	assertErr(storageCons, `cannot add application "storage-block2": charm "storage-block2" store "multi1to10": at most 10 instances supported, 11 specified`)

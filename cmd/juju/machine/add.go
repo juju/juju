@@ -307,7 +307,7 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		manualClientAPI = &manualAPIAdaptor{apiclient.NewClient(root)}
+		manualClientAPI = &manualAPIAdaptor{apiclient.NewClient(root, logger)}
 	}
 
 	if len(c.Disks) > 0 && machineManager.BestAPIVersion() < 1 {

@@ -6,8 +6,8 @@ package lxd
 import (
 	"errors"
 
+	lxdclient "github.com/canonical/lxd/client"
 	"github.com/juju/clock"
-	lxdclient "github.com/lxc/lxd/client"
 
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/core/network"

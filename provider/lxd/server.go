@@ -15,13 +15,13 @@ import (
 	"syscall"
 	"time"
 
+	lxdclient "github.com/canonical/lxd/client"
+	lxdapi "github.com/canonical/lxd/shared/api"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/retry"
 	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
-	lxdclient "github.com/lxc/lxd/client"
-	lxdapi "github.com/lxc/lxd/shared/api"
 
 	"github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/core/network"

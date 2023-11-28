@@ -88,7 +88,7 @@ func (c *retryProvisioningCommand) getAPI() (RetryProvisioningAPI, error) {
 	if c.all {
 		return nil, errors.New("this version of Juju does not support --all")
 	}
-	return apiclient.NewClient(root), nil
+	return apiclient.NewClient(root, logger), nil
 }
 
 func (c *retryProvisioningCommand) Run(context *cmd.Context) error {

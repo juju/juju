@@ -7,8 +7,8 @@ import (
 	"bytes"
 	"fmt"
 
+	lxdLogger "github.com/canonical/lxd/shared/logger"
 	"github.com/juju/loggo"
-	lxdLogger "github.com/lxc/lxd/shared/logger"
 )
 
 // lxdLogProxy proxies LXD's log calls through the juju logger.

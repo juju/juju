@@ -304,7 +304,7 @@ func (s *storageAddSuite) TestAddStorageLessMinSize(c *gc.C) {
 	s.assignUnit(c, u)
 
 	_, err := s.storageBackend.AddStorageForUnit(s.unitTag, "multi2up", state.StorageConstraints{Size: 2, Count: 1})
-	c.Assert(err, gc.ErrorMatches, `.*charm "storage-block2" store "multi2up": minimum storage size is 2.0GB, 2.0MB specified.*`)
+	c.Assert(err, gc.ErrorMatches, `.*charm "storage-block2" store "multi2up": minimum storage size is 2.0 GB, 2.0 MB specified.*`)
 	s.assertStorageCount(c, s.originalStorageCount)
 	s.assertVolumeCount(c, s.originalVolumeCount)
 	s.assertFileSystemCount(c, s.originalFilesystemCount)

@@ -656,7 +656,7 @@ func newCharmAdder(
 	conn api.Connection,
 ) store.CharmAdder {
 	adder := &charmAdderShim{
-		api:         &apiClient{Client: apiclient.NewClient(conn)},
+		api:         &apiClient{Client: apiclient.NewClient(conn, logger)},
 		modelconfig: &modelConfigClient{Client: modelconfig.NewClient(conn)},
 	}
 	adder.charmuploader = &charmsClient{Client: apicharms.NewClient(conn)}

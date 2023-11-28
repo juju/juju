@@ -114,7 +114,7 @@ func NewDiffBundleCommand() cmd.Command {
 		if client.BestAPIVersion() > 2 {
 			return client, nil
 		}
-		return apiclient.NewClient(root), nil
+		return apiclient.NewClient(root, logger), nil
 	}
 	return modelcmd.Wrap(cmd)
 }
