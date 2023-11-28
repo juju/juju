@@ -91,11 +91,11 @@ func UpgradeK8sMutatingWebhookSpecV1Beta1(spec admissionregistrationv1beta1.Muta
 				},
 			}
 			if rule.Scope != nil {
-				scope := admissionregistrationv1.ScopeType(*rule.Scope)
+				scope := *rule.Scope
 				newRule.Scope = &scope
 			}
 			for _, op := range rule.Operations {
-				newRule.Operations = append(newRule.Operations, admissionregistrationv1.OperationType(op))
+				newRule.Operations = append(newRule.Operations, op)
 			}
 			hook.Rules = append(hook.Rules, newRule)
 		}
@@ -213,11 +213,11 @@ func UpgradeK8sValidatingWebhookSpecV1Beta1(spec admissionregistrationv1beta1.Va
 				},
 			}
 			if rule.Scope != nil {
-				scope := admissionregistrationv1.ScopeType(*rule.Scope)
+				scope := *rule.Scope
 				newRule.Scope = &scope
 			}
 			for _, op := range rule.Operations {
-				newRule.Operations = append(newRule.Operations, admissionregistrationv1.OperationType(op))
+				newRule.Operations = append(newRule.Operations, op)
 			}
 			hook.Rules = append(hook.Rules, newRule)
 		}
