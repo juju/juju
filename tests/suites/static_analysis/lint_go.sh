@@ -1,3 +1,16 @@
+run_api_client() {
+	allowed=$(cat .github/api-client-allowed-list.txt)
+	for dir in ./api/client/*; do
+		if [[ ! -d $dir ]]; then
+			continue
+		fi
+
+		got=$(go run ./scripts/import-inspector "$dir" 2>/dev/null | jq -r ".[]")
+		echo "Checking $dir"
+		python3 tests/suites/static_analysis/lint_go.py -a "${allowed}" -g "${got}" || (echo "Error: API Client import failure in $dir" && exit 1)
+	done
+}
+
 run_go() {
 	VER=$(golangci-lint --version | tr -s ' ' | cut -d ' ' -f 4 | cut -d '.' -f 1,2)
 	if [[ ${VER} != "1.54" ]] && [[ ${VER} != "v1.54" ]]; then
@@ -38,6 +51,7 @@ test_static_analysis_go() {
 
 		cd .. || exit
 
+		run_linter "run_api_client"
 		run_linter "run_go"
 		run_linter "run_go_tidy"
 	)
