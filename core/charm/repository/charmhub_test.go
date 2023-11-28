@@ -1007,7 +1007,7 @@ func (s *composeSuggestionsSuite) TestMultipleSuggestion(c *gc.C) {
 			Architecture: "c",
 		},
 	})
-	c.Assert(suggestions, gc.DeepEquals, []string{
+	c.Assert(suggestions, jc.SameContents, []string{
 		`channel "latest/stable": available series are: focal, bionic`,
 		`channel "2.0/stable": available series are: bionic`,
 	})
