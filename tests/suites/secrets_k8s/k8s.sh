@@ -169,6 +169,17 @@ prepare_vault() {
 
 	export VAULT_ADDR="http://${ip}:8200"
 	export VAULT_TOKEN="$root_token"
+
+	# wait for vault server to be ready.
+	attempt=0
+	until [[ $(vault status -format yaml 2>/dev/null | yq .initialized | grep -i 'true') ]]; do
+		if [[ ${attempt} -ge 30 ]]; then
+			echo "Failed: vault server was not able to be ready."
+			exit 1
+		fi
+		sleep 2
+		attempt=$((attempt + 1))
+	done
 }
 
 test_secrets() {
