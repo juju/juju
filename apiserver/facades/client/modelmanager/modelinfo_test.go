@@ -995,6 +995,11 @@ func (st *mockState) DefaultEndpointBindingSpace() (string, error) {
 	return "alpha", nil
 }
 
+func (st *mockState) Space(id string) (*state.Space, error) {
+	st.MethodCall(st, "Space", id)
+	return nil, st.NextErr()
+}
+
 func (st *mockState) AllSpaces() ([]*state.Space, error) {
 	st.MethodCall(st, "AllSpaces")
 	return nil, st.NextErr()

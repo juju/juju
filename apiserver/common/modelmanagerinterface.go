@@ -78,6 +78,10 @@ type ModelManagerBackend interface {
 	AllEndpointBindingsSpaceNames() (set.Strings, error)
 	ConstraintsBySpaceName(string) ([]*state.Constraints, error)
 	DefaultEndpointBindingSpace() (string, error)
+	// TODO(nvinuesa): This method is necessary only until the spaces
+	// migration to dqlite is finished:
+	Space(id string) (*state.Space, error)
+
 	SaveProviderSubnets([]network.SubnetInfo, string) error
 	LatestMigration() (state.ModelMigration, error)
 	DumpAll() (map[string]interface{}, error)

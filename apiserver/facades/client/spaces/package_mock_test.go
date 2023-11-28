@@ -1146,10 +1146,10 @@ func (m *MockReloadSpacesState) EXPECT() *MockReloadSpacesStateMockRecorder {
 }
 
 // AddSpace mocks base method.
-func (m *MockReloadSpacesState) AddSpace(arg0 string, arg1 network.Id, arg2 []string, arg3 bool) (space.Space, error) {
+func (m *MockReloadSpacesState) AddSpace(arg0 string, arg1 network.Id, arg2 []string, arg3 bool) (network.SpaceInfo, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AddSpace", arg0, arg1, arg2, arg3)
-	ret0, _ := ret[0].(space.Space)
+	ret0, _ := ret[0].(network.SpaceInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -1176,10 +1176,10 @@ func (mr *MockReloadSpacesStateMockRecorder) AllEndpointBindingsSpaceNames() *go
 }
 
 // AllSpaces mocks base method.
-func (m *MockReloadSpacesState) AllSpaces() ([]space.Space, error) {
+func (m *MockReloadSpacesState) AllSpaces() ([]network.SpaceInfo, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AllSpaces")
-	ret0, _ := ret[0].([]space.Space)
+	ret0, _ := ret[0].([]network.SpaceInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -1218,6 +1218,20 @@ func (m *MockReloadSpacesState) DefaultEndpointBindingSpace() (string, error) {
 func (mr *MockReloadSpacesStateMockRecorder) DefaultEndpointBindingSpace() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DefaultEndpointBindingSpace", reflect.TypeOf((*MockReloadSpacesState)(nil).DefaultEndpointBindingSpace))
+}
+
+// Remove mocks base method.
+func (m *MockReloadSpacesState) Remove(arg0 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Remove", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Remove indicates an expected call of Remove.
+func (mr *MockReloadSpacesStateMockRecorder) Remove(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Remove", reflect.TypeOf((*MockReloadSpacesState)(nil).Remove), arg0)
 }
 
 // SaveProviderSubnets mocks base method.
