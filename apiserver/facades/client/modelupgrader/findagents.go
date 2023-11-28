@@ -11,10 +11,10 @@ import (
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/cloudconfig/podcfg"
 	"github.com/juju/juju/controller"
 	coreos "github.com/juju/juju/core/os"
 	envtools "github.com/juju/juju/environs/tools"
+	"github.com/juju/juju/internal/cloudconfig/podcfg"
 	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/internal/feature"
 	coretools "github.com/juju/juju/internal/tools"

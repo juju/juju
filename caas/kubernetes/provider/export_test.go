@@ -16,8 +16,8 @@ import (
 
 	"github.com/juju/juju/caas"
 	jujucloud "github.com/juju/juju/cloud"
-	"github.com/juju/juju/cloudconfig/podcfg"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/internal/cloudconfig/podcfg"
 	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/internal/storage"
 )

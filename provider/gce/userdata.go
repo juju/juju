@@ -8,9 +8,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/v3"
 
-	"github.com/juju/juju/cloudconfig/cloudinit"
-	"github.com/juju/juju/cloudconfig/providerinit/renderers"
 	jujuos "github.com/juju/juju/core/os"
+	"github.com/juju/juju/internal/cloudconfig/cloudinit"
+	"github.com/juju/juju/internal/cloudconfig/providerinit/renderers"
 )
 
 type GCERenderer struct{}

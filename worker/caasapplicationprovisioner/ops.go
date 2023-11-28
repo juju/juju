@@ -17,9 +17,9 @@ import (
 	"github.com/juju/retry"
 
 	"github.com/juju/juju/caas"
-	"github.com/juju/juju/cloudconfig/podcfg"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/internal/cloudconfig/podcfg"
 	"github.com/juju/juju/rpc/params"
 )
 

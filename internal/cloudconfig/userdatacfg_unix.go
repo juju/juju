@@ -23,10 +23,10 @@ import (
 	"github.com/juju/utils/v3"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/core/os"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/simplestreams"
+	"github.com/juju/juju/internal/cloudconfig/cloudinit"
 	"github.com/juju/juju/juju/osenv"
 )
 

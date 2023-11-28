@@ -10,10 +10,10 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	coretools "github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/testing"
 )

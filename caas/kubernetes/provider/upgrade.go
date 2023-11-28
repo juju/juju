@@ -18,9 +18,9 @@ import (
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider/utils"
-	"github.com/juju/juju/cloudconfig/podcfg"
 	k8sannotations "github.com/juju/juju/core/annotations"
 	"github.com/juju/juju/core/paths"
+	"github.com/juju/juju/internal/cloudconfig/podcfg"
 )
 
 func (k *kubernetesClient) Upgrade(agentTag string, vers version.Number) error {

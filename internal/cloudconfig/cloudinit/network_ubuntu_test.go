@@ -17,8 +17,8 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/yaml.v2"
 
-	"github.com/juju/juju/cloudconfig/cloudinit"
 	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/internal/cloudconfig/cloudinit"
 	"github.com/juju/juju/internal/container"
 	"github.com/juju/juju/testing"
 )
