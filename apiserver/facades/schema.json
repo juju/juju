@@ -30501,6 +30501,17 @@
                         "controller-agent-version": {
                             "$ref": "#/definitions/Number"
                         },
+                        "facade-versions": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "integer"
+                                    }
+                                }
+                            }
+                        },
                         "name": {
                             "type": "string"
                         },
@@ -31053,7 +31064,7 @@
     {
         "Name": "MigrationTarget",
         "Description": "API implements the API required for the model migration\nmaster worker when communicating with the target controller.",
-        "Version": 2,
+        "Version": 3,
         "AvailableTo": [
             "controller-user"
         ],
@@ -31266,6 +31277,17 @@
                         },
                         "controller-agent-version": {
                             "$ref": "#/definitions/Number"
+                        },
+                        "facade-versions": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "integer"
+                                    }
+                                }
+                            }
                         },
                         "name": {
                             "type": "string"
@@ -48599,6 +48621,12 @@
                             "type": "array",
                             "items": {
                                 "$ref": "#/definitions/GrantRevokeSecretArg"
+                            }
+                        },
+                        "secret-track-latest": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
                             }
                         },
                         "secret-updates": {
