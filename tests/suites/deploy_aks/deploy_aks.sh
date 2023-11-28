@@ -21,6 +21,11 @@ run_deploy_aks_charms() {
 
 	echo "Destroy model"
 	juju destroy-model "test-deploy-aks-charms" --destroy-storage -y
+
+	# Because of issues with scaling `dummy-source` and `dummy-sink` we need to remove it with `--force` flag
+	echo "Remove applications with --force flag"
+	juju remove-application dummy-source --force --no-wait
+	juju remove-application dummy-sink --force --no-wait
 }
 
 test_deploy_aks_charms() {
