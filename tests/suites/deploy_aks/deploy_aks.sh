@@ -21,14 +21,6 @@ run_deploy_aks_charms() {
 
 	echo "Destroy model"
 	juju destroy-model "test-deploy-aks-charms" --destroy-storage -y
-
-	# TODO(anvial - 2023.11.28): We need to drop this hack when possible.
-	# The problem is that on AKS (possibly on other K8s substrates)
-	# we have issues with scaling `dummy-source` and `dummy-sink` apps to zero.
-	# The current workaround is to remove these apps with `--force` flag
-	echo "Remove applications with --force flag"
-	juju remove-application dummy-source --force --no-wait
-	juju remove-application dummy-sink --force --no-wait
 }
 
 test_deploy_aks_charms() {
