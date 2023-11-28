@@ -97,6 +97,7 @@ Machine  Unit         Storage ID   Volume ID  Provider ID                   Devi
 1        transcode/1  shared-fs/0  4          provider-supplied-volume-4    xvdf3   1.0 GiB  attached   
 1                                  2          provider-supplied-volume-2    xvdf1   3.0 MiB  attached   
 1                                  3                                                42 MiB   pending    
+
 `[1:]
 
 func (s *ListSuite) TestVolumeListTabular(c *gc.C) {
@@ -119,6 +120,7 @@ func (s *ListSuite) TestVolumeListTabular(c *gc.C) {
 var expectedCAASVolumeListTabular = `
 Unit     Storage ID   Volume ID  Provider ID                 Size     State     Message
 mysql/0  db-dir/1001  0          provider-supplied-volume-0  512 MiB  attached  
+
 `[1:]
 
 func (s *ListSuite) TestCAASVolumeListTabular(c *gc.C) {

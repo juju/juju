@@ -96,6 +96,7 @@ Machine  Unit         Storage ID   ID   Volume  Provider ID                     
 1        transcode/1  shared-fs/0  4            provider-supplied-filesystem-4    /mnt/huang  1.0 GiB  attached   
 1                                  2            provider-supplied-filesystem-2    /mnt/zion   3.0 MiB  attached   
 1                                  3                                                          42 MiB   pending    
+
 `[1:]
 
 func (s *ListSuite) TestFilesystemListTabular(c *gc.C) {
@@ -117,6 +118,7 @@ func (s *ListSuite) TestFilesystemListTabular(c *gc.C) {
 var expectedCAASFilesystemListTabular = `
 Unit     Storage ID   ID   Provider ID                       Mountpoint  Size     State     Message
 mysql/0  db-dir/1001  0/0  provider-supplied-filesystem-0-0  /mnt/fuji   512 MiB  attached  
+
 `[1:]
 
 func (s *ListSuite) TestCAASFilesystemListTabular(c *gc.C) {

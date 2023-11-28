@@ -169,7 +169,7 @@ func (s *storageSuite) TestDescribeVolumes(c *gc.C) {
 	result, err := vs.DescribeVolumes(&context.CloudCallContext{}, []string{"vol-id"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, []storage.DescribeVolumesResult{{
-		VolumeInfo: &storage.VolumeInfo{VolumeId: "vol-id", Size: 68, Persistent: true},
+		VolumeInfo: &storage.VolumeInfo{VolumeId: "vol-id", Size: 66, Persistent: true},
 	}})
 }
 

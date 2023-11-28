@@ -245,7 +245,7 @@ func (t *Tunnel) waitForPodReady(ctx context.Context, podName string) error {
 	defer close(stopChan)
 	defer close(eventChan)
 
-	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err := informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			objPod, valid := obj.(*corev1.Pod)
 			if !valid {
@@ -280,6 +280,9 @@ func (t *Tunnel) waitForPodReady(ctx context.Context, podName string) error {
 			}
 		},
 	})
+	if err != nil {
+		return errors.Trace(err)
+	}
 
 	go informer.Run(stopChan)
 

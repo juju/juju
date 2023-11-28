@@ -7,10 +7,12 @@ package mocks
 import (
 	reflect "reflect"
 
-	openapi_v2 "github.com/googleapis/gnostic/openapiv2"
+	openapi_v2 "github.com/google/gnostic-models/openapiv2"
 	gomock "go.uber.org/mock/gomock"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	version "k8s.io/apimachinery/pkg/version"
+	discovery "k8s.io/client-go/discovery"
+	openapi "k8s.io/client-go/openapi"
 	rest "k8s.io/client-go/rest"
 )
 
@@ -50,6 +52,20 @@ func (m *MockDiscoveryInterface) OpenAPISchema() (*openapi_v2.Document, error) {
 func (mr *MockDiscoveryInterfaceMockRecorder) OpenAPISchema() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OpenAPISchema", reflect.TypeOf((*MockDiscoveryInterface)(nil).OpenAPISchema))
+}
+
+// OpenAPIV3 mocks base method.
+func (m *MockDiscoveryInterface) OpenAPIV3() openapi.Client {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "OpenAPIV3")
+	ret0, _ := ret[0].(openapi.Client)
+	return ret0
+}
+
+// OpenAPIV3 indicates an expected call of OpenAPIV3.
+func (mr *MockDiscoveryInterfaceMockRecorder) OpenAPIV3() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OpenAPIV3", reflect.TypeOf((*MockDiscoveryInterface)(nil).OpenAPIV3))
 }
 
 // RESTClient mocks base method.
@@ -127,21 +143,6 @@ func (mr *MockDiscoveryInterfaceMockRecorder) ServerPreferredResources() *gomock
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ServerPreferredResources", reflect.TypeOf((*MockDiscoveryInterface)(nil).ServerPreferredResources))
 }
 
-// ServerResources mocks base method.
-func (m *MockDiscoveryInterface) ServerResources() ([]*v1.APIResourceList, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ServerResources")
-	ret0, _ := ret[0].([]*v1.APIResourceList)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ServerResources indicates an expected call of ServerResources.
-func (mr *MockDiscoveryInterfaceMockRecorder) ServerResources() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ServerResources", reflect.TypeOf((*MockDiscoveryInterface)(nil).ServerResources))
-}
-
 // ServerResourcesForGroupVersion mocks base method.
 func (m *MockDiscoveryInterface) ServerResourcesForGroupVersion(arg0 string) (*v1.APIResourceList, error) {
 	m.ctrl.T.Helper()
@@ -170,4 +171,18 @@ func (m *MockDiscoveryInterface) ServerVersion() (*version.Info, error) {
 func (mr *MockDiscoveryInterfaceMockRecorder) ServerVersion() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ServerVersion", reflect.TypeOf((*MockDiscoveryInterface)(nil).ServerVersion))
+}
+
+// WithLegacy mocks base method.
+func (m *MockDiscoveryInterface) WithLegacy() discovery.DiscoveryInterface {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WithLegacy")
+	ret0, _ := ret[0].(discovery.DiscoveryInterface)
+	return ret0
+}
+
+// WithLegacy indicates an expected call of WithLegacy.
+func (mr *MockDiscoveryInterfaceMockRecorder) WithLegacy() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WithLegacy", reflect.TypeOf((*MockDiscoveryInterface)(nil).WithLegacy))
 }

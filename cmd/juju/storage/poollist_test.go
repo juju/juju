@@ -89,6 +89,7 @@ abc        testType  key=value one=1 two=2
 testName0  a         key=value one=1 two=2
 testName1  b         key=value one=1 two=2
 xyz        testType  key=value one=1 two=2
+
 `[1:])
 }
 
@@ -105,6 +106,7 @@ Name  Provider  Attributes
 abc   testType  a=true b=maybe c=well
 myaw  testType  a=true b=maybe c=well
 xyz   testType  a=true b=maybe c=well
+
 `[1:])
 }
 

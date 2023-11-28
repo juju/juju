@@ -7,6 +7,7 @@ import (
 	"time"
 
 	jujuclock "github.com/juju/clock"
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/worker/v3/catacomb"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -87,13 +88,16 @@ func (w *kubernetesNotifyWatcher) loop() error {
 		}
 	}
 
-	w.informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err := w.informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    fireFn("add"),
 		DeleteFunc: fireFn("delete"),
 		UpdateFunc: func(_, obj interface{}) {
 			fireFn("update")(obj)
 		},
 	})
+	if err != nil {
+		return errors.Trace(err)
+	}
 
 	// Set out now so that initial event is sent.
 	out := w.out
@@ -207,13 +211,16 @@ func (w *kubernetesStringsWatcher) loop() error {
 		}
 	}
 
-	w.informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err := w.informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    fireFn(WatchEventAdd),
 		DeleteFunc: fireFn(WatchEventDelete),
 		UpdateFunc: func(_, obj interface{}) {
 			fireFn(WatchEventUpdate)(obj)
 		},
 	})
+	if err != nil {
+		return errors.Trace(err)
+	}
 
 	// Set out now so that initial event is sent.
 	var out chan []string
