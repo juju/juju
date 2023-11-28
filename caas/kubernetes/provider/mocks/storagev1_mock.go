@@ -69,6 +69,20 @@ func (mr *MockStorageV1InterfaceMockRecorder) CSINodes() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CSINodes", reflect.TypeOf((*MockStorageV1Interface)(nil).CSINodes))
 }
 
+// CSIStorageCapacities mocks base method.
+func (m *MockStorageV1Interface) CSIStorageCapacities(arg0 string) v12.CSIStorageCapacityInterface {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CSIStorageCapacities", arg0)
+	ret0, _ := ret[0].(v12.CSIStorageCapacityInterface)
+	return ret0
+}
+
+// CSIStorageCapacities indicates an expected call of CSIStorageCapacities.
+func (mr *MockStorageV1InterfaceMockRecorder) CSIStorageCapacities(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CSIStorageCapacities", reflect.TypeOf((*MockStorageV1Interface)(nil).CSIStorageCapacities), arg0)
+}
+
 // RESTClient mocks base method.
 func (m *MockStorageV1Interface) RESTClient() rest.Interface {
 	m.ctrl.T.Helper()
