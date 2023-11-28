@@ -90,14 +90,13 @@ func (s *ListSuite) TestVolumeListWithErrorResults(c *gc.C) {
 }
 
 var expectedVolumeListTabular = `
-Machine  Unit         Storage ID   Volume ID  Provider ID                   Device  Size    State      Message
-0        abc/0        db-dir/1001  0/0        provider-supplied-volume-0-0  loop0   512MiB  attached   
-0        transcode/0  shared-fs/0  4          provider-supplied-volume-4    xvdf2   1.0GiB  attached   
-0                                  1          provider-supplied-volume-1            2.0GiB  attaching  failed to attach, will retry
-1        transcode/1  shared-fs/0  4          provider-supplied-volume-4    xvdf3   1.0GiB  attached   
-1                                  2          provider-supplied-volume-2    xvdf1   3.0MiB  attached   
-1                                  3                                                42MiB   pending    
-
+Machine  Unit         Storage ID   Volume ID  Provider ID                   Device  Size     State      Message
+0        abc/0        db-dir/1001  0/0        provider-supplied-volume-0-0  loop0   512 MiB  attached   
+0        transcode/0  shared-fs/0  4          provider-supplied-volume-4    xvdf2   1.0 GiB  attached   
+0                                  1          provider-supplied-volume-1            2.0 GiB  attaching  failed to attach, will retry
+1        transcode/1  shared-fs/0  4          provider-supplied-volume-4    xvdf3   1.0 GiB  attached   
+1                                  2          provider-supplied-volume-2    xvdf1   3.0 MiB  attached   
+1                                  3                                                42 MiB   pending    
 `[1:]
 
 func (s *ListSuite) TestVolumeListTabular(c *gc.C) {
@@ -118,9 +117,8 @@ func (s *ListSuite) TestVolumeListTabular(c *gc.C) {
 }
 
 var expectedCAASVolumeListTabular = `
-Unit     Storage ID   Volume ID  Provider ID                 Size    State     Message
-mysql/0  db-dir/1001  0          provider-supplied-volume-0  512MiB  attached  
-
+Unit     Storage ID   Volume ID  Provider ID                 Size     State     Message
+mysql/0  db-dir/1001  0          provider-supplied-volume-0  512 MiB  attached  
 `[1:]
 
 func (s *ListSuite) TestCAASVolumeListTabular(c *gc.C) {

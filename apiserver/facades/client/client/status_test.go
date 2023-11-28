@@ -58,7 +58,7 @@ func (s *statusSuite) TestFullStatus(c *gc.C) {
 	machine := s.addMachine(c)
 	c.Assert(s.State.SetSLA("essential", "test-user", []byte("")), jc.ErrorIsNil)
 	c.Assert(s.State.SetModelMeterStatus("GREEN", "goo"), jc.ErrorIsNil)
-	client := apiclient.NewClient(s.APIState)
+	client := apiclient.NewClient(s.APIState, coretesting.NoopLogger{})
 	status, err := client.Status(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(status.Model.Name, gc.Equals, "controller")
@@ -87,7 +87,7 @@ func (s *statusSuite) TestUnsupportedNoModelMeterStatus(c *gc.C) {
 	s.addMachine(c)
 	c.Assert(s.State.SetSLA("unsupported", "test-user", []byte("")), jc.ErrorIsNil)
 	c.Assert(s.State.SetModelMeterStatus("RED", "nope"), jc.ErrorIsNil)
-	client := apiclient.NewClient(s.APIState)
+	client := apiclient.NewClient(s.APIState, coretesting.NoopLogger{})
 	status, err := client.Status(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(status.Model.SLA, gc.Equals, "unsupported")
@@ -101,7 +101,7 @@ func (s *statusSuite) TestFullStatusUnitLeadership(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = claimer.Claim(u.ApplicationName(), u.Name(), time.Minute)
 	c.Assert(err, jc.ErrorIsNil)
-	client := apiclient.NewClient(s.APIState)
+	client := apiclient.NewClient(s.APIState, coretesting.NoopLogger{})
 	status, err := client.Status(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	app, ok := status.Applications[u.ApplicationName()]
@@ -118,7 +118,7 @@ func (s *statusSuite) TestFullStatusUnitScaling(c *gc.C) {
 	})
 	tracker := s.State.TrackQueries("FullStatus")
 
-	client := apiclient.NewClient(s.APIState)
+	client := apiclient.NewClient(s.APIState, coretesting.NoopLogger{})
 	_, err := client.Status(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -153,7 +153,7 @@ func (s *statusSuite) TestFullStatusMachineScaling(c *gc.C) {
 	s.Factory.MakeMachine(c, nil)
 	tracker := s.State.TrackQueries("FullStatus")
 
-	client := apiclient.NewClient(s.APIState)
+	client := apiclient.NewClient(s.APIState, coretesting.NoopLogger{})
 	_, err := client.Status(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -182,7 +182,7 @@ func (s *statusSuite) TestFullStatusInterfaceScaling(c *gc.C) {
 	s.createSpaceAndSubnetWithProviderID(c, "dmz", "10.30.0.0/24", "prov-abcd")
 	tracker := s.State.TrackQueries("FullStatus")
 
-	client := apiclient.NewClient(s.APIState)
+	client := apiclient.NewClient(s.APIState, coretesting.NoopLogger{})
 	_, err := client.Status(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -265,7 +265,7 @@ func (s *statusUnitTestSuite) TestProcessMachinesWithOneMachineAndOneContainer(c
 	host := s.Factory.MakeMachine(c, &factory.MachineParams{InstanceId: instance.Id("0")})
 	container := s.Factory.MakeMachineNested(c, host.Id(), nil)
 
-	client := apiclient.NewClient(s.APIState)
+	client := apiclient.NewClient(s.APIState, coretesting.NoopLogger{})
 	status, err := client.Status(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -284,7 +284,7 @@ func (s *statusUnitTestSuite) TestProcessMachinesWithEmbeddedContainers(c *gc.C)
 	lxdHost := s.Factory.MakeMachineNested(c, host.Id(), nil)
 	s.Factory.MakeMachineNested(c, lxdHost.Id(), nil)
 
-	client := apiclient.NewClient(s.APIState)
+	client := apiclient.NewClient(s.APIState, coretesting.NoopLogger{})
 	status, err := client.Status(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -322,7 +322,7 @@ func (s *statusUnitTestSuite) TestModelMeterStatus(c *gc.C) {
 	c.Assert(s.State.SetSLA("advanced", "test-user", nil), jc.ErrorIsNil)
 	c.Assert(s.State.SetModelMeterStatus("RED", "thing"), jc.ErrorIsNil)
 
-	client := apiclient.NewClient(s.APIState)
+	client := apiclient.NewClient(s.APIState, coretesting.NoopLogger{})
 	status, err := client.Status(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, gc.NotNil)
@@ -349,7 +349,7 @@ func (s *statusUnitTestSuite) TestMeterStatus(c *gc.C) {
 		}
 	}
 
-	client := apiclient.NewClient(s.APIState)
+	client := apiclient.NewClient(s.APIState, coretesting.NoopLogger{})
 	status, err := client.Status(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, gc.NotNil)
@@ -386,7 +386,7 @@ func (s *statusUnitTestSuite) TestNoMeterStatusWhenNotRequired(c *gc.C) {
 		}
 	}
 
-	client := apiclient.NewClient(s.APIState)
+	client := apiclient.NewClient(s.APIState, coretesting.NoopLogger{})
 	status, err := client.Status(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, gc.NotNil)
@@ -414,7 +414,7 @@ func (s *statusUnitTestSuite) TestMeterStatusWithCredentials(c *gc.C) {
 		}
 	}
 
-	client := apiclient.NewClient(s.APIState)
+	client := apiclient.NewClient(s.APIState, coretesting.NoopLogger{})
 	status, err := client.Status(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, gc.NotNil)
@@ -445,7 +445,7 @@ func (s *statusUnitTestSuite) TestApplicationWithExposedEndpoints(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	client := apiclient.NewClient(s.APIState)
+	client := apiclient.NewClient(s.APIState, coretesting.NoopLogger{})
 	status, err := client.Status(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, gc.NotNil)
@@ -468,7 +468,7 @@ func (s *statusUnitTestSuite) TestPrincipalUpgradingFrom(c *gc.C) {
 		Application: app,
 		SetCharmURL: true,
 	})
-	client := apiclient.NewClient(s.APIState)
+	client := apiclient.NewClient(s.APIState, coretesting.NoopLogger{})
 	status, err := client.Status(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, gc.NotNil)
@@ -520,7 +520,7 @@ func (s *statusUnitTestSuite) TestSubordinateUpgradingFrom(c *gc.C) {
 	err = subordUnit.SetCharmURL(subordCharm.URL())
 	c.Assert(err, jc.ErrorIsNil)
 
-	client := apiclient.NewClient(s.APIState)
+	client := apiclient.NewClient(s.APIState, coretesting.NoopLogger{})
 	status, err := client.Status(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, gc.NotNil)
@@ -556,7 +556,7 @@ func addUnitWithVersion(c *gc.C, application *state.Application, version string)
 
 func (s *statusUnitTestSuite) checkAppVersion(c *gc.C, application *state.Application,
 	expectedVersion string) params.ApplicationStatus {
-	client := apiclient.NewClient(s.APIState)
+	client := apiclient.NewClient(s.APIState, coretesting.NoopLogger{})
 	status, err := client.Status(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	appStatus, found := status.Applications[application.Name()]
@@ -635,7 +635,7 @@ func (s *statusUnitTestSuite) TestMigrationInProgress(c *gc.C) {
 
 	conn, err := api.Open(apiInfo, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
-	client := apiclient.NewClient(conn)
+	client := apiclient.NewClient(conn, coretesting.NoopLogger{})
 
 	checkMigStatus := func(expected string) {
 		status, err := client.Status(nil)
@@ -718,7 +718,7 @@ func (s *statusUnitTestSuite) TestRelationFiltered(c *gc.C) {
 	c.Assert(r13, gc.NotNil)
 
 	// Test status filtering with application 1: should get both relations
-	client := apiclient.NewClient(s.APIState)
+	client := apiclient.NewClient(s.APIState, coretesting.NoopLogger{})
 	status, err := client.Status([]string{a1.Name()})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, gc.NotNil)
@@ -767,7 +767,7 @@ func (s *statusUnitTestSuite) TestApplicationFilterIndependentOfAlphabeticUnitOr
 		Machine:     machine,
 	})
 
-	client := apiclient.NewClient(s.APIState)
+	client := apiclient.NewClient(s.APIState, coretesting.NoopLogger{})
 	for i := 0; i < 20; i++ {
 		c.Logf("run %d", i)
 		status, err := client.Status([]string{applicationA.Name()})
@@ -835,7 +835,7 @@ func (s *statusUnitTestSuite) TestFilterOutRelationsForRelatedApplicationsThatDo
 	// Filtering status on application A should get:
 	// * no relations;
 	// * two applications.
-	client := apiclient.NewClient(s.APIState)
+	client := apiclient.NewClient(s.APIState, coretesting.NoopLogger{})
 	status, err := client.Status([]string{applicationA.Name()})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, gc.NotNil)
@@ -848,7 +848,7 @@ func (s *statusUnitTestSuite) TestMachineWithNoDisplayNameHasItsEmptyDisplayName
 		InstanceId: instance.Id("i-123"),
 	})
 
-	client := apiclient.NewClient(s.APIState)
+	client := apiclient.NewClient(s.APIState, coretesting.NoopLogger{})
 	status, err := client.Status(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status.Machines, gc.HasLen, 1)
@@ -861,7 +861,7 @@ func (s *statusUnitTestSuite) TestMachineWithDisplayNameHasItsDisplayNameSent(c 
 		DisplayName: "snowflake",
 	})
 
-	client := apiclient.NewClient(s.APIState)
+	client := apiclient.NewClient(s.APIState, coretesting.NoopLogger{})
 	status, err := client.Status(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status.Machines, gc.HasLen, 1)
@@ -932,7 +932,7 @@ func (s *statusUpgradeUnitSuite) TearDownTest(c *gc.C) {
 func (s *statusUpgradeUnitSuite) TestUpdateRevisionsCharmstore(c *gc.C) {
 	s.AddMachine(c, "0", state.JobManageModel)
 	s.SetupScenario(c)
-	client := apiclient.NewClient(s.APIState)
+	client := apiclient.NewClient(s.APIState, coretesting.NoopLogger{})
 	status, _ := client.Status(nil)
 
 	appStatus, ok := status.Applications["mysql"]
@@ -958,7 +958,7 @@ func (s *statusUpgradeUnitSuite) TestUpdateRevisionsCharmhub(c *gc.C) {
 	s.AddApplication(c, "charmhubby", "charmhubby")
 	s.AddUnit(c, "charmhubby", "1")
 
-	client := apiclient.NewClient(s.APIState)
+	client := apiclient.NewClient(s.APIState, coretesting.NoopLogger{})
 	status, _ := client.Status(nil)
 
 	appStatus, ok := status.Applications["charmhubby"]
@@ -1028,7 +1028,7 @@ func (s *CAASStatusSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *CAASStatusSuite) TestStatusOperatorNotReady(c *gc.C) {
-	client := apiclient.NewClient(s.APIState)
+	client := apiclient.NewClient(s.APIState, coretesting.NoopLogger{})
 
 	status, err := client.Status(nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1038,7 +1038,7 @@ func (s *CAASStatusSuite) TestStatusOperatorNotReady(c *gc.C) {
 }
 
 func (s *CAASStatusSuite) TestStatusPodSpecNotSet(c *gc.C) {
-	client := apiclient.NewClient(s.APIState)
+	client := apiclient.NewClient(s.APIState, coretesting.NoopLogger{})
 	err := s.app.SetOperatorStatus(status.StatusInfo{Status: status.Active})
 	c.Assert(err, jc.ErrorIsNil)
 	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
@@ -1051,7 +1051,7 @@ func (s *CAASStatusSuite) TestStatusPodSpecNotSet(c *gc.C) {
 }
 
 func (s *CAASStatusSuite) TestStatusPodSpecSet(c *gc.C) {
-	client := apiclient.NewClient(s.APIState)
+	client := apiclient.NewClient(s.APIState, coretesting.NoopLogger{})
 	err := s.app.SetOperatorStatus(status.StatusInfo{Status: status.Active})
 	c.Assert(err, jc.ErrorIsNil)
 	cm, err := s.Model.CAASModel()
@@ -1075,7 +1075,7 @@ containers:
 
 func (s *CAASStatusSuite) TestStatusCloudContainerSet(c *gc.C) {
 	loggo.GetLogger("juju.state.allwatcher").SetLogLevel(loggo.TRACE)
-	client := apiclient.NewClient(s.APIState)
+	client := apiclient.NewClient(s.APIState, coretesting.NoopLogger{})
 	err := s.app.SetOperatorStatus(status.StatusInfo{Status: status.Active})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1135,7 +1135,7 @@ func (s *CAASStatusSuite) assertUnitStatus(c *gc.C, appStatus params.Application
 
 func (s *CAASStatusSuite) TestStatusWorkloadVersionSetByCharm(c *gc.C) {
 	loggo.GetLogger("juju.state.allwatcher").SetLogLevel(loggo.TRACE)
-	client := apiclient.NewClient(s.APIState)
+	client := apiclient.NewClient(s.APIState, coretesting.NoopLogger{})
 	err := s.app.SetOperatorStatus(status.StatusInfo{Status: status.Active})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.app.SetScale(1, 1, true)

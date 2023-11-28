@@ -87,7 +87,7 @@ func (c *listCommand) getModelUsersAPI() (modelUsersAPI, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return apiclient.NewClient(conn), nil
+	return apiclient.NewClient(conn, logger), nil
 }
 
 // Info implements Command.Info.

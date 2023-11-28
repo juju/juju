@@ -600,7 +600,7 @@ func (s *clientSuite) TestClientStatus(c *gc.C) {
 	loggo.GetLogger("juju.core.cache").SetLogLevel(loggo.TRACE)
 	loggo.GetLogger("juju.state.allwatcher").SetLogLevel(loggo.TRACE)
 	s.setUpScenario(c)
-	status, err := apiclient.NewClient(s.APIState).Status(nil)
+	status, err := apiclient.NewClient(s.APIState, coretesting.NoopLogger{}).Status(nil)
 	clearSinceTimes(status)
 	clearContollerTimestamp(status)
 	c.Assert(err, jc.ErrorIsNil)
@@ -609,7 +609,7 @@ func (s *clientSuite) TestClientStatus(c *gc.C) {
 
 func (s *clientSuite) TestClientStatusControllerTimestamp(c *gc.C) {
 	s.setUpScenario(c)
-	status, err := apiclient.NewClient(s.APIState).Status(nil)
+	status, err := apiclient.NewClient(s.APIState, coretesting.NoopLogger{}).Status(nil)
 	clearSinceTimes(status)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status.ControllerTimestamp, gc.NotNil)
@@ -629,7 +629,7 @@ func (s *clientSuite) testClientUnitResolved(c *gc.C, retry bool, expectedResolv
 	err = u.SetAgentStatus(sInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	// Code under test:
-	err = apiclient.NewClient(s.APIState).Resolved("wordpress/0", retry)
+	err = apiclient.NewClient(s.APIState, coretesting.NoopLogger{}).Resolved("wordpress/0", retry)
 	c.Assert(err, jc.ErrorIsNil)
 	// Freshen the unit's state.
 	err = u.Refresh()
@@ -664,7 +664,7 @@ func (s *clientSuite) setupResolved(c *gc.C) *state.Unit {
 }
 
 func (s *clientSuite) assertResolved(c *gc.C, u *state.Unit) {
-	err := apiclient.NewClient(s.APIState).Resolved("wordpress/0", true)
+	err := apiclient.NewClient(s.APIState, coretesting.NoopLogger{}).Resolved("wordpress/0", true)
 	c.Assert(err, jc.ErrorIsNil)
 	// Freshen the unit's state.
 	err = u.Refresh()
@@ -676,7 +676,7 @@ func (s *clientSuite) assertResolved(c *gc.C, u *state.Unit) {
 }
 
 func (s *clientSuite) assertResolvedBlocked(c *gc.C, u *state.Unit, msg string) {
-	err := apiclient.NewClient(s.APIState).Resolved("wordpress/0", false)
+	err := apiclient.NewClient(s.APIState, coretesting.NoopLogger{}).Resolved("wordpress/0", false)
 	s.AssertBlocked(c, err, msg)
 }
 
@@ -774,7 +774,7 @@ func (s *clientSuite) TestClientWatchAllReadPermission(c *gc.C) {
 		Password: "ro-password",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	roClient := apiclient.NewClient(s.OpenAPIAs(c, user.UserTag(), "ro-password"))
+	roClient := apiclient.NewClient(s.OpenAPIAs(c, user.UserTag(), "ro-password"), coretesting.NoopLogger{})
 	defer roClient.Close()
 
 	watcher, err := roClient.WatchAll()
@@ -874,7 +874,7 @@ func (s *clientSuite) TestClientWatchAllAdminPermission(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	watcher, err := apiclient.NewClient(s.APIState).WatchAll()
+	watcher, err := apiclient.NewClient(s.APIState, coretesting.NoopLogger{}).WatchAll()
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() {
 		err := watcher.Stop()

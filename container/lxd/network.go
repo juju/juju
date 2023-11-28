@@ -11,8 +11,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/canonical/lxd/shared/api"
 	"github.com/juju/errors"
-	"github.com/lxc/lxd/shared/api"
 
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/network"

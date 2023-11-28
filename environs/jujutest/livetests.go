@@ -683,7 +683,7 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that the API connection is working.
-	status, err := apiclient.NewClient(apiState).Status(nil)
+	status, err := apiclient.NewClient(apiState, coretesting.NoopLogger{}).Status(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status.Machines["0"].InstanceId, gc.Equals, string(instId0))
 

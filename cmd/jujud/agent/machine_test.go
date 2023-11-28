@@ -659,7 +659,7 @@ func (s *MachineSuite) TestManageModelAuditsAPI(c *gc.C) {
 			st, err := api.Open(apiInfo, fastDialOpts)
 			c.Assert(err, jc.ErrorIsNil)
 			defer st.Close()
-			doRequest(apiclient.NewClient(st))
+			doRequest(apiclient.NewClient(st, coretesting.NoopLogger{}))
 		}
 
 		// Make requests in separate API connections so they're separate conversations.

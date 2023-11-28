@@ -10,13 +10,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/canonical/lxd/shared/api"
+	"github.com/canonical/lxd/shared/units"
+	"github.com/canonical/lxd/shared/version"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/retry"
 	"github.com/juju/utils/v3/arch"
-	"github.com/lxc/lxd/shared/api"
-	"github.com/lxc/lxd/shared/units"
-	"github.com/lxc/lxd/shared/version"
 
 	"github.com/juju/juju/core/constraints"
 	corenetwork "github.com/juju/juju/core/network"

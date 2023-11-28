@@ -112,7 +112,7 @@ func (c *modelGetConstraintsCommand) getAPI() (ConstraintsAPI, error) {
 	if client.BestAPIVersion() > 2 {
 		return client, nil
 	}
-	return apiclient.NewClient(root), nil
+	return apiclient.NewClient(root, logger), nil
 }
 
 func formatConstraints(writer io.Writer, value interface{}) error {
@@ -181,7 +181,7 @@ func (c *modelSetConstraintsCommand) getAPI() (ConstraintsAPI, error) {
 	if client.BestAPIVersion() > 2 {
 		return client, nil
 	}
-	return apiclient.NewClient(root), nil
+	return apiclient.NewClient(root, logger), nil
 }
 
 func (c *modelSetConstraintsCommand) Run(_ *cmd.Context) (err error) {

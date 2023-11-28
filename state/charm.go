@@ -162,7 +162,7 @@ type charmDoc struct {
 	LXDProfile *LXDProfile     `bson:"lxd-profile"`
 }
 
-// LXDProfile is the same as ProfilePut defined in github.com/lxc/lxd/shared/api/profile.go
+// LXDProfile is the same as ProfilePut defined in github.com/canonical/lxd/shared/api/profile.go
 type LXDProfile struct {
 	Config      map[string]string            `bson:"config"`
 	Description string                       `bson:"description"`
