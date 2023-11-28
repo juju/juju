@@ -9,6 +9,7 @@ import (
 
 const (
 	tableModelConfig tableNamespaceID = iota + 1
+	tableModelObjectStoreMetadata
 )
 
 // ModelDDL is used to create model databases.
@@ -19,6 +20,7 @@ func ModelDDL() *schema.Schema {
 		modelConfig,
 		changeLogTriggersForTable("model_config", "key", tableModelConfig),
 		objectStoreMetadataSchema,
+		changeLogTriggersForTable("object_store_metadata_path", "path", tableModelObjectStoreMetadata),
 		applicationSchema,
 		nodeSchema,
 		unitSchema,
@@ -38,7 +40,8 @@ func changeLogModelNamespace() schema.Patch {
 	// constants above.
 	return schema.MakePatch(`
 INSERT INTO change_log_namespace VALUES
-    (1, 'model_config', 'model config changes based on config key')
+    (1, 'model_config', 'model config changes based on config key'),
+    (2, 'object_store_metadata_path', 'object store metadata path changes based on the path')
 `)
 }
 

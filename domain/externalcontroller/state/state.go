@@ -13,21 +13,24 @@ import (
 	"github.com/juju/utils/v3"
 
 	"github.com/juju/juju/core/crossmodel"
-	coreDB "github.com/juju/juju/core/database"
+	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/internal/database"
 )
 
+// State implements the domain external controller state.
 type State struct {
 	*domain.StateBase
 }
 
-func NewState(factory coreDB.TxnRunnerFactory) *State {
+// NewState returns a new State instance.
+func NewState(factory coredatabase.TxnRunnerFactory) *State {
 	return &State{
 		StateBase: domain.NewStateBase(factory),
 	}
 }
 
+// Controller returns the external controller with the given UUID.
 func (st *State) Controller(
 	ctx context.Context,
 	controllerUUID string,
@@ -68,6 +71,8 @@ WHERE  ctrl.uuid = $M.id`
 	return &rows.ToControllerInfo()[0], nil
 }
 
+// ControllersForModels returns the external controllers for the given model
+// UUIDs. If no model UUIDs are provided, then no controllers are returned.
 func (st *State) ControllersForModels(ctx context.Context, modelUUIDs ...string) ([]crossmodel.ControllerInfo, error) {
 	db, err := st.DB()
 	if err != nil {
@@ -119,6 +124,7 @@ WHERE  ctrl.uuid = (
 	return resultControllerInfos.ToControllerInfo(), nil
 }
 
+// UpdateExternalController updates the external controller information.
 func (st *State) UpdateExternalController(
 	ctx context.Context,
 	ci crossmodel.ControllerInfo,
@@ -214,6 +220,8 @@ VALUES (?, ?)
 	return nil
 }
 
+// ModelsForController returns the model UUIDs associated with the given
+// controller UUID.
 func (st *State) ModelsForController(
 	ctx context.Context,
 	controllerUUID string,
