@@ -34,9 +34,9 @@ func (s *State) GetMetadata(ctx context.Context, path string) (objectstore.Metad
 	}
 
 	query := `
-SELECT path, metadata_uuid,  object_store_metadata.size, object_store_metadata.hash
-FROM object_store_metadata_path
-LEFT JOIN object_store_metadata ON object_store_metadata_path.metadata_uuid = object_store_metadata.uuid
+SELECT p.path, p.metadata_uuid, m.size, m.hash
+FROM object_store_metadata_path p
+LEFT JOIN object_store_metadata m ON p.metadata_uuid = m.uuid
 WHERE path = ?`
 
 	var metadata objectstore.Metadata

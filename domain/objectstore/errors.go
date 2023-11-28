@@ -8,4 +8,4 @@ import "github.com/juju/errors"
 // ErrHashAndSizeAlreadyExists is returned when a hash already exists, but
 // the associated size is different. This should never happen, it means that
 // there is a collision in the hash function.
-const ErrHashAndSizeAlreadyExists = errors.ConstError("hash and size already exists")
+const ErrHashAndSizeAlreadyExists = errors.ConstError("hash exists for different file size")
