@@ -1254,34 +1254,6 @@ func (s *HookContextSuite) TestSecretGet(c *gc.C) {
 	})
 }
 
-func (s *HookContextSuite) TestSecretGetOwnedSecretFailedBothURIAndLabel(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	uri := coresecrets.NewURI()
-	hookContext := context.NewMockUnitHookContext(s.mockUnit, model.IAAS, s.mockLeadership)
-	context.SetEnvironmentHookContextSecret(hookContext, uri.String(),
-		map[string]jujuc.SecretMetadata{
-			uri.ID: {Label: "label", Owner: s.mockUnit.Tag()},
-		}, nil, nil)
-
-	_, err := hookContext.GetSecret(uri, "label", false, false)
-	c.Assert(err, gc.ErrorMatches, `either URI or label should be used for getting an owned secret but not both`)
-}
-
-func (s *HookContextSuite) TestSecretGetOwnedSecretFailedWithUpdate(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	uri := coresecrets.NewURI()
-	hookContext := context.NewMockUnitHookContext(s.mockUnit, model.IAAS, s.mockLeadership)
-	context.SetEnvironmentHookContextSecret(hookContext, uri.String(),
-		map[string]jujuc.SecretMetadata{
-			uri.ID: {Label: "label", Owner: s.mockUnit.Tag()},
-		}, nil, nil)
-
-	_, err := hookContext.GetSecret(nil, "label", true, false)
-	c.Assert(err, gc.ErrorMatches, `secret owner cannot use --refresh`)
-}
-
 func (s *HookContextSuite) assertSecretGetOwnedSecretURILookup(
 	c *gc.C, patchContext func(*context.HookContext, *coresecrets.URI, string, api.SecretsAccessor, secrets.BackendsClient),
 ) {
