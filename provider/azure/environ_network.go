@@ -163,11 +163,6 @@ func (env *azureEnviron) ReleaseContainerAddresses(envcontext.ProviderCallContex
 	return errors.NotSupportedf("container addresses")
 }
 
-// AreSpacesRoutable implements environs.NetworkingEnviron.
-func (*azureEnviron) AreSpacesRoutable(_ envcontext.ProviderCallContext, _, _ *environs.ProviderSpaceInfo) (bool, error) {
-	return false, nil
-}
-
 // NetworkInterfaces implements environs.NetworkingEnviron. It returns back
 // a slice where the i_th element contains the list of network interfaces
 // for the i_th provided instance ID.

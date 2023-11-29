@@ -232,12 +232,6 @@ func (e *environ) AllocateContainerAddresses(envcontext.ProviderCallContext, ins
 	return nil, errors.NotSupportedf("container address allocation")
 }
 
-// AreSpacesRoutable returns whether the communication between the
-// two spaces can use cloud-local addaddresses.
-func (*environ) AreSpacesRoutable(envcontext.ProviderCallContext, *environs.ProviderSpaceInfo, *environs.ProviderSpaceInfo) (bool, error) {
-	return false, errors.NotSupportedf("spaces")
-}
-
 // ProviderSpaceInfo returns the details of the space requested as
 // a ProviderSpaceInfo.
 func (*environ) ProviderSpaceInfo(envcontext.ProviderCallContext, *network.SpaceInfo) (*environs.ProviderSpaceInfo, error) {

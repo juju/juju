@@ -78,10 +78,6 @@ type Networking interface {
 	// the passed-in space info in the ProviderSpaceInfo returned.
 	ProviderSpaceInfo(ctx envcontext.ProviderCallContext, space *network.SpaceInfo) (*ProviderSpaceInfo, error)
 
-	// AreSpacesRoutable returns whether the communication between the
-	// two spaces can use cloud-local addresses.
-	AreSpacesRoutable(ctx envcontext.ProviderCallContext, space1, space2 *ProviderSpaceInfo) (bool, error)
-
 	// SupportsContainerAddresses returns true if the current environment is
 	// able to allocate addresses for containers. If returning false, we also
 	// return an IsNotSupported error.

@@ -418,12 +418,6 @@ func (e *environ) SupportsSpaces(envcontext.ProviderCallContext) (bool, error) {
 	return e.server().HasExtension("network"), nil
 }
 
-// AreSpacesRoutable returns whether the communication between the
-// two spaces can use cloud-local addresses.
-func (*environ) AreSpacesRoutable(envcontext.ProviderCallContext, *environs.ProviderSpaceInfo, *environs.ProviderSpaceInfo) (bool, error) {
-	return false, errors.NotSupportedf("spaces")
-}
-
 // SupportsContainerAddresses returns true if the current environment is
 // able to allocate addresses for containers.
 func (*environ) SupportsContainerAddresses(envcontext.ProviderCallContext) (bool, error) {

@@ -340,11 +340,6 @@ func (e *environ) ReleaseContainerAddresses(envcontext.ProviderCallContext, []co
 	return errors.NotSupportedf("container addresses")
 }
 
-// AreSpacesRoutable implements environs.NetworkingEnviron.
-func (*environ) AreSpacesRoutable(ctx envcontext.ProviderCallContext, space1, space2 *environs.ProviderSpaceInfo) (bool, error) {
-	return false, nil
-}
-
 // SuperSubnets implements environs.SuperSubnets
 func (e *environ) SuperSubnets(ctx envcontext.ProviderCallContext) ([]string, error) {
 	subnets, err := e.Subnets(ctx, "", nil)

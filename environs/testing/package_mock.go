@@ -1535,21 +1535,6 @@ func (mr *MockNetworkingEnvironMockRecorder) AllocateContainerAddresses(arg0, ar
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllocateContainerAddresses", reflect.TypeOf((*MockNetworkingEnviron)(nil).AllocateContainerAddresses), arg0, arg1, arg2, arg3)
 }
 
-// AreSpacesRoutable mocks base method.
-func (m *MockNetworkingEnviron) AreSpacesRoutable(arg0 envcontext.ProviderCallContext, arg1, arg2 *environs.ProviderSpaceInfo) (bool, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AreSpacesRoutable", arg0, arg1, arg2)
-	ret0, _ := ret[0].(bool)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// AreSpacesRoutable indicates an expected call of AreSpacesRoutable.
-func (mr *MockNetworkingEnvironMockRecorder) AreSpacesRoutable(arg0, arg1, arg2 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AreSpacesRoutable", reflect.TypeOf((*MockNetworkingEnviron)(nil).AreSpacesRoutable), arg0, arg1, arg2)
-}
-
 // Bootstrap mocks base method.
 func (m *MockNetworkingEnviron) Bootstrap(arg0 environs.BootstrapContext, arg1 envcontext.ProviderCallContext, arg2 environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	m.ctrl.T.Helper()
