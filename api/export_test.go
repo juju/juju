@@ -21,7 +21,6 @@ import (
 var (
 	CertDir             = &certDir
 	SlideAddressToFront = slideAddressToFront
-	BestVersion         = bestVersion
 	FacadeVersions      = &facadeVersions
 )
 

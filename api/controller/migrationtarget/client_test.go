@@ -74,9 +74,14 @@ func (s *ClientSuite) TestPrechecks(c *gc.C) {
 		AgentVersion:           vers,
 		ControllerAgentVersion: controllerVers,
 	}
-	stub.CheckCalls(c, []jujutesting.StubCall{
-		{FuncName: "MigrationTarget.Prechecks", Args: []interface{}{"", expectedArg}},
-	})
+	stub.CheckCallNames(c, "MigrationTarget.Prechecks")
+
+	arg := stub.Calls()[0].Args[1].(params.MigrationModelInfo)
+
+	mc := jc.NewMultiChecker()
+	mc.AddExpr("_.FacadeVersions", gc.Not(gc.HasLen), 0)
+
+	c.Assert(arg, mc, expectedArg)
 }
 
 func (s *ClientSuite) TestImport(c *gc.C) {

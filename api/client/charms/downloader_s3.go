@@ -12,15 +12,21 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/downloader"
-	"github.com/juju/juju/worker/s3caller"
 )
+
+// ObjectGetter defines a way to get objects from a bucket.
+type ObjectGetter interface {
+	// GetObject returns an io.ReadCloser for the specified object within the
+	// specified bucket.
+	GetObject(ctx context.Context, bucketName, objectName string) (io.ReadCloser, error)
+}
 
 // NewS3CharmDownloader returns a new charm downloader that wraps a s3Caller
 // client for the provided endpoint.
-func NewS3CharmDownloader(s3Session s3caller.Session, apiCaller base.APICaller) *downloader.Downloader {
+func NewS3CharmDownloader(objectGetter ObjectGetter, apiCaller base.APICaller) *downloader.Downloader {
 	dlr := &downloader.Downloader{
 		OpenBlob: func(req downloader.Request) (io.ReadCloser, error) {
-			streamer := NewS3CharmOpener(s3Session, apiCaller)
+			streamer := NewS3CharmOpener(objectGetter, apiCaller)
 			reader, err := streamer.OpenCharm(req)
 			if err != nil {
 				return nil, errors.Trace(err)
@@ -37,9 +43,9 @@ type S3CharmOpener interface {
 }
 
 type s3charmOpener struct {
-	ctx       context.Context
-	s3Session s3caller.Session
-	apiCaller base.APICaller
+	ctx          context.Context
+	objectGetter ObjectGetter
+	apiCaller    base.APICaller
 }
 
 func (s *s3charmOpener) OpenCharm(req downloader.Request) (io.ReadCloser, error) {
@@ -60,14 +66,14 @@ func (s *s3charmOpener) OpenCharm(req downloader.Request) (io.ReadCloser, error)
 	bucket := "model-" + modelTag.Id()
 
 	object := "charms/" + curl.Name + "-" + shortSha256
-	return s.s3Session.GetObject(s.ctx, bucket, object)
+	return s.objectGetter.GetObject(s.ctx, bucket, object)
 }
 
 // NewS3CharmOpener returns a charm opener for the specified s3Caller.
-func NewS3CharmOpener(s3Session s3caller.Session, apiCaller base.APICaller) S3CharmOpener {
+func NewS3CharmOpener(objectGetter ObjectGetter, apiCaller base.APICaller) S3CharmOpener {
 	return &s3charmOpener{
-		ctx:       context.Background(),
-		s3Session: s3Session,
-		apiCaller: apiCaller,
+		ctx:          context.Background(),
+		objectGetter: objectGetter,
+		apiCaller:    apiCaller,
 	}
 }

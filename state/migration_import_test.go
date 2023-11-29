@@ -3290,6 +3290,51 @@ func (s *MigrationImportSuite) TestSecrets(c *gc.C) {
 	c.Assert(backendRefCount, gc.Equals, 2)
 }
 
+func (s *MigrationImportSuite) TestSecretsEnsureConsumerRevisionInfo(c *gc.C) {
+	store := state.NewSecrets(s.State)
+	owner := s.Factory.MakeApplication(c, nil)
+	uri := secrets.NewURI()
+	p := state.CreateSecretParams{
+		Version: 1,
+		Owner:   owner.Tag(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken:  &fakeToken{},
+			RotatePolicy: ptr(secrets.RotateNever),
+			Data:         map[string]string{"foo": "bar"},
+		},
+	}
+	md, err := store.CreateSecret(uri, p)
+	c.Assert(err, jc.ErrorIsNil)
+
+	consumer := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{
+			Name: "wordpress",
+		}),
+	})
+	err = s.State.SaveSecretConsumer(uri, consumer.Tag(), &secrets.SecretConsumerMetadata{
+		Label:           "consumer label",
+		CurrentRevision: 0,
+		LatestRevision:  0,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, newSt := s.importModel(c, s.State)
+
+	store = state.NewSecrets(newSt)
+	all, err := store.ListSecrets(state.SecretsFilter{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(all, gc.HasLen, 1)
+	c.Assert(all[0], jc.DeepEquals, md)
+
+	info, err := newSt.GetSecretConsumer(uri, consumer.Tag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info, jc.DeepEquals, &secrets.SecretConsumerMetadata{
+		Label:           "consumer label",
+		CurrentRevision: 1,
+		LatestRevision:  1,
+	})
+}
+
 func (s *MigrationImportSuite) TestSecretsMissingBackend(c *gc.C) {
 	store := state.NewSecrets(s.State)
 	owner := s.Factory.MakeApplication(c, nil)
