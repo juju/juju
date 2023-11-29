@@ -110,5 +110,6 @@ func newFacade(ctx facade.Context, facadeVersions facades.FacadeVersions) (*API,
 		credentialcommon.CredentialInvalidatorGetter(ctx),
 		stateenvirons.GetNewEnvironFunc(environs.New),
 		stateenvirons.GetNewCAASBrokerFunc(caas.New),
-		facadeVersions)
+		facadeVersions,
+	)
 }

@@ -28,6 +28,7 @@ func (*ImportSuite) TestImports(c *gc.C) {
 		"api/base",
 		"api/watcher",
 		"core/arch",
+		"core/backups",
 		"core/base",
 		"core/constraints",
 		"core/database",

@@ -81,8 +81,9 @@ func (s *Suite) TestFacadeRegistered(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	api, err := aFactory(&facadetest.Context{
-		State_: s.State,
-		Auth_:  s.authorizer,
+		State_:          s.State,
+		Auth_:           s.authorizer,
+		ServiceFactory_: servicefactorytesting.NewTestingServiceFactory(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(api, gc.FitsTypeOf, new(migrationtarget.API))
