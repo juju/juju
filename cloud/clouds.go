@@ -259,7 +259,7 @@ func (r Region) IsEmpty() bool {
 // unmarshalling.
 type cloudSet struct {
 	// Clouds is a map of cloud definitions, keyed on cloud name.
-	Clouds map[string]*cloud `yaml:"clouds"`
+	Clouds map[string]cloud `yaml:"clouds"`
 }
 
 // cloud is equivalent to Cloud, for marshalling and unmarshalling.
@@ -408,7 +408,7 @@ func PublicCloudMetadata(searchPath ...string) (result map[string]Cloud, fallbac
 
 // ParseOneCloud parses the given yaml bytes into a single Cloud metadata.
 func ParseOneCloud(data []byte) (Cloud, error) {
-	c := &cloud{}
+	var c cloud
 	if err := yaml.Unmarshal(data, &c); err != nil {
 		return Cloud{}, errors.Annotate(err, "cannot unmarshal yaml cloud metadata")
 	}
@@ -464,7 +464,7 @@ func ParseCloudMetadata(data []byte) (map[string]Cloud, error) {
 		}
 	} else {
 		// Unable to coerce cloudSet, try to unmarshal into a map[string]*cloud
-		cloudMap := make(map[string]*cloud)
+		cloudMap := make(map[string]cloud)
 		if errCloudMap := yaml.Unmarshal(data, &cloudMap); errCloudMap != nil {
 			return nil, errors.Errorf("Invalid cloud metadata %s", yamlMap)
 		}
@@ -535,7 +535,7 @@ func IsSameCloudMetadata(meta1, meta2 map[string]Cloud) (bool, error) {
 
 // marshalCloudMetadata marshals the given clouds to YAML.
 func marshalCloudMetadata(cloudsMap map[string]Cloud) ([]byte, error) {
-	clouds := cloudSet{make(map[string]*cloud)}
+	clouds := cloudSet{make(map[string]cloud)}
 	for name, metadata := range cloudsMap {
 		clouds.Clouds[name] = cloudToInternal(metadata, false)
 	}
@@ -557,10 +557,10 @@ func UnmarshalCloud(in []byte) (Cloud, error) {
 	if err := yaml.Unmarshal(in, &internal); err != nil {
 		return Cloud{}, errors.Annotate(err, "cannot unmarshal yaml cloud metadata")
 	}
-	return cloudFromInternal(&internal), nil
+	return cloudFromInternal(internal), nil
 }
 
-func cloudToInternal(in Cloud, withName bool) *cloud {
+func cloudToInternal(in Cloud, withName bool) cloud {
 	var regions regions
 	for _, r := range in.Regions {
 		regions.Slice = append(regions.Slice, yaml.MapItem{
@@ -576,7 +576,7 @@ func cloudToInternal(in Cloud, withName bool) *cloud {
 	if !withName {
 		name = ""
 	}
-	return &cloud{
+	return cloud{
 		Name:              name,
 		Type:              in.Type,
 		HostCloudRegion:   in.HostCloudRegion,
@@ -593,7 +593,7 @@ func cloudToInternal(in Cloud, withName bool) *cloud {
 	}
 }
 
-func cloudFromInternal(in *cloud) Cloud {
+func cloudFromInternal(in cloud) Cloud {
 	var regions []Region
 	if len(in.Regions.Map) > 0 {
 		for _, item := range in.Regions.Slice {

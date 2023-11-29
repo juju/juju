@@ -314,6 +314,7 @@ type CommitHookChangesArg struct {
 	SetUnitState         *SetUnitStateArg       `json:"unit-state,omitempty"`
 	AddStorage           []StorageAddParams     `json:"add-storage,omitempty"`
 	SecretCreates        []CreateSecretArg      `json:"secret-creates,omitempty"`
+	TrackLatest          []string               `json:"secret-track-latest,omitempty"`
 	SecretUpdates        []UpdateSecretArg      `json:"secret-updates,omitempty"`
 	SecretGrants         []GrantRevokeSecretArg `json:"secret-grants,omitempty"`
 	SecretRevokes        []GrantRevokeSecretArg `json:"secret-revokes,omitempty"`

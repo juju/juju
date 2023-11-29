@@ -2595,15 +2595,6 @@ func (u *UniterAPI) commitHookChangesForOneUnit(ctx context.Context, unitTag nam
 	}
 
 	// TODO - do in txn once we have support for that
-	if len(changes.SecretDeletes) > 0 {
-		result, err := u.SecretsManagerAPI.RemoveSecrets(context.Background(), params.DeleteSecretArgs{Args: changes.SecretDeletes})
-		if err == nil {
-			err = result.Combine()
-		}
-		if err != nil {
-			return errors.Annotate(err, "removing secrets")
-		}
-	}
 	if len(changes.SecretCreates) > 0 {
 		result, err := u.SecretsManagerAPI.CreateSecrets(context.Background(), params.CreateSecretArgs{Args: changes.SecretCreates})
 		if err == nil {
@@ -2630,6 +2621,15 @@ func (u *UniterAPI) commitHookChangesForOneUnit(ctx context.Context, unitTag nam
 			return errors.Annotate(err, "updating secrets")
 		}
 	}
+	if len(changes.TrackLatest) > 0 {
+		result, err := u.SecretsManagerAPI.UpdateTrackedRevisions(changes.TrackLatest)
+		if err == nil {
+			err = result.Combine()
+		}
+		if err != nil {
+			return errors.Annotate(err, "updating secret tracked revisions")
+		}
+	}
 	if len(changes.SecretGrants) > 0 {
 		result, err := u.SecretsManagerAPI.SecretsGrant(context.Background(), params.GrantRevokeSecretArgs{Args: changes.SecretGrants})
 		if err == nil {
@@ -2646,6 +2646,15 @@ func (u *UniterAPI) commitHookChangesForOneUnit(ctx context.Context, unitTag nam
 		}
 		if err != nil {
 			return errors.Annotate(err, "revoking secrets access")
+		}
+	}
+	if len(changes.SecretDeletes) > 0 {
+		result, err := u.SecretsManagerAPI.RemoveSecrets(context.Background(), params.DeleteSecretArgs{Args: changes.SecretDeletes})
+		if err == nil {
+			err = result.Combine()
+		}
+		if err != nil {
+			return errors.Annotate(err, "removing secrets")
 		}
 	}
 

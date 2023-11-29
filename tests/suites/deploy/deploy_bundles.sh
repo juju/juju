@@ -378,11 +378,20 @@ test_deploy_bundles() {
 		run "run_deploy_charmhub_bundle"
 		run "run_deploy_multi_app_single_charm_bundle"
 
+		# LXD specific profile tests.
 		case "${BOOTSTRAP_PROVIDER:-}" in
 		"lxd" | "localhost")
 			run "run_deploy_lxd_profile_bundle_openstack"
+			echo "==> TEST SKIPPED: deploy_lxd_profile_bundle - tests for non LXD only"
+			;;
+		*)
+			echo "==> TEST SKIPPED: deploy_lxd_profile_bundle_openstack - tests for LXD only"
 			run "run_deploy_lxd_profile_bundle"
 			;;
+		esac
+
+		# AWS specific image id tests.
+		case "${BOOTSTRAP_PROVIDER:-}" in
 		"ec2" | "aws")
 			check_dependencies aws
 			add_clean_func "run_cleanup_ami"
@@ -394,8 +403,6 @@ test_deploy_bundles() {
 			run "run_deploy_bundle_overlay_with_image_id_no_base"
 			;;
 		*)
-			echo "==> TEST SKIPPED: deploy_lxd_profile_bundle_openstack - tests for LXD only"
-			echo "==> TEST SKIPPED: deploy_lxd_profile_bundle - tests for LXD only"
 			echo "==> TEST SKIPPED: deploy_bundle_with_image_id - tests for AWS only"
 			echo "==> TEST SKIPPED: deploy_bundle_with_image_id_on_base_bundle - tests for AWS only"
 			echo "==> TEST SKIPPED: deploy_bundle_with_image_id_no_base - tests for AWS only"

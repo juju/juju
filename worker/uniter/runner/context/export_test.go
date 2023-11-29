@@ -347,3 +347,7 @@ func (ctx *HookContext) PendingSecretGrants() map[string]uniter.SecretGrantRevok
 func (ctx *HookContext) PendingSecretRevokes() map[string]uniter.SecretGrantRevokeArgs {
 	return ctx.secretChanges.pendingRevokes
 }
+
+func (ctx *HookContext) PendingSecretTrackLatest() map[string]bool {
+	return ctx.secretChanges.pendingTrackLatest
+}

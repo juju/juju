@@ -11,7 +11,7 @@ import (
 	"github.com/go-logr/logr"
 	jujutesting "github.com/juju/testing"
 	"go.opentelemetry.io/otel"
-	trace "go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 

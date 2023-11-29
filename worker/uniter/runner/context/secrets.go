@@ -16,21 +16,23 @@ import (
 type secretsChangeRecorder struct {
 	logger loggo.Logger
 
-	pendingCreates map[string]uniter.SecretCreateArg
-	pendingUpdates map[string]uniter.SecretUpdateArg
-	pendingDeletes map[string]uniter.SecretDeleteArg
-	pendingGrants  map[string]uniter.SecretGrantRevokeArgs
-	pendingRevokes map[string]uniter.SecretGrantRevokeArgs
+	pendingCreates     map[string]uniter.SecretCreateArg
+	pendingUpdates     map[string]uniter.SecretUpdateArg
+	pendingDeletes     map[string]uniter.SecretDeleteArg
+	pendingGrants      map[string]uniter.SecretGrantRevokeArgs
+	pendingRevokes     map[string]uniter.SecretGrantRevokeArgs
+	pendingTrackLatest map[string]bool
 }
 
 func newSecretsChangeRecorder(logger loggo.Logger) *secretsChangeRecorder {
 	return &secretsChangeRecorder{
-		logger:         logger,
-		pendingCreates: make(map[string]uniter.SecretCreateArg),
-		pendingUpdates: make(map[string]uniter.SecretUpdateArg),
-		pendingDeletes: make(map[string]uniter.SecretDeleteArg),
-		pendingGrants:  make(map[string]uniter.SecretGrantRevokeArgs),
-		pendingRevokes: make(map[string]uniter.SecretGrantRevokeArgs),
+		logger:             logger,
+		pendingCreates:     make(map[string]uniter.SecretCreateArg),
+		pendingUpdates:     make(map[string]uniter.SecretUpdateArg),
+		pendingDeletes:     make(map[string]uniter.SecretDeleteArg),
+		pendingGrants:      make(map[string]uniter.SecretGrantRevokeArgs),
+		pendingRevokes:     make(map[string]uniter.SecretGrantRevokeArgs),
+		pendingTrackLatest: make(map[string]bool),
 	}
 }
 
@@ -79,6 +81,7 @@ func (s *secretsChangeRecorder) remove(uri *secrets.URI, revision *int) {
 	delete(s.pendingUpdates, uri.ID)
 	delete(s.pendingGrants, uri.ID)
 	delete(s.pendingRevokes, uri.ID)
+	delete(s.pendingTrackLatest, uri.ID)
 	s.pendingDeletes[uri.ID] = uniter.SecretDeleteArg{URI: uri, Revision: revision}
 }
 

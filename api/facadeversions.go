@@ -3,7 +3,12 @@
 
 package api
 
-import "github.com/juju/collections/set"
+import "github.com/juju/juju/core/facades"
+
+// SupportedFacadeVersions returns the list of facades that the api supports.
+func SupportedFacadeVersions() facades.FacadeVersions {
+	return facadeVersions
+}
 
 // facadeVersions lists the best version of facades that we want to support. This
 // will be used to pick out a default version for communication, given the list
@@ -15,7 +20,7 @@ import "github.com/juju/collections/set"
 // FullStatus (client facade) and Migration (controller facade) is needed.
 // New facades should start at 1.
 // We no longer support facade versions at 0.
-var FacadeVersions = map[string][]int{
+var facadeVersions = facades.FacadeVersions{
 	"Action":                       {7},
 	"ActionPruner":                 {1},
 	"Agent":                        {3},
@@ -83,7 +88,7 @@ var FacadeVersions = map[string][]int{
 	"MigrationMaster":              {3},
 	"MigrationMinion":              {1},
 	"MigrationStatusWatcher":       {1},
-	"MigrationTarget":              {1, 2},
+	"MigrationTarget":              {1, 2, 3},
 	"ModelConfig":                  {3},
 	"ModelGeneration":              {4},
 	"ModelManager":                 {9, 10},
@@ -131,15 +136,4 @@ var FacadeVersions = map[string][]int{
 	"UserManager":                  {3},
 	"VolumeAttachmentsWatcher":     {2},
 	"VolumeAttachmentPlansWatcher": {1},
-}
-
-// bestVersion tries to find the newest version in the version list that we can
-// use.
-func bestVersion(desired []int, versions []int) int {
-	intersection := set.NewInts(desired...).Intersection(set.NewInts(versions...))
-	if intersection.Size() == 0 {
-		return 0
-	}
-	sorted := intersection.SortedValues()
-	return sorted[len(sorted)-1]
 }

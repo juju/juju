@@ -102,8 +102,10 @@ func helpLineError(input string, pos query.Position) string {
 	if leading+offset > len(input) {
 		offset = leading - len(input)
 	}
-	builder.WriteString(strings.Repeat("^", offset))
-	builder.WriteString("\n")
+	if offset > 0 {
+		builder.WriteString(strings.Repeat("^", offset))
+		builder.WriteString("\n")
+	}
 
 	return builder.String()
 }

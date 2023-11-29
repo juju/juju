@@ -120,8 +120,8 @@ func transportCommon(transport http.RoundTripper, repoDetails *docker.ImageRepoD
 			),
 		)
 	}
-	return newTokenTransport(
-		transport, repoDetails.Username, repoDetails.Password, repoDetails.Auth.Content(), "", false,
+	return newChallengeTransport(
+		transport, repoDetails.Username, repoDetails.Password, repoDetails.Auth.Content(),
 	), nil
 }
 

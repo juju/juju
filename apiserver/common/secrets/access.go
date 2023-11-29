@@ -29,11 +29,6 @@ func IsSameApplication(authTag names.Tag, tag names.Tag) bool {
 	return AuthTagApp(authTag) == AuthTagApp(tag)
 }
 
-func hasRole(api SecretsConsumer, uri *coresecrets.URI, entity names.Tag, role coresecrets.SecretRole) bool {
-	hasRole, err := api.SecretAccess(uri, entity)
-	return err == nil && hasRole.Allowed(role)
-}
-
 // CanManage checks that the authenticated caller can manage the secret, and returns a
 // token to ensure leadership if that is required; ie if the request is for a secret
 // owned by an application, the entity must be the unit leader.
@@ -46,16 +41,31 @@ func CanManage(
 
 	switch authTag.(type) {
 	case names.UnitTag:
-		if hasRole(api, uri, authTag, coresecrets.RoleManage) {
+		hasRole, err := api.SecretAccess(uri, authTag)
+		if err != nil {
+			// Typically not found error.
+			return nil, errors.Trace(err)
+		}
+		if hasRole.Allowed(coresecrets.RoleManage) {
 			// owner unit.
 			return successfulToken{}, nil
 		}
-		if hasRole(api, uri, appTag, coresecrets.RoleManage) {
+		hasRole, err = api.SecretAccess(uri, appTag)
+		if err != nil {
+			// Typically not found error.
+			return nil, errors.Trace(err)
+		}
+		if hasRole.Allowed(coresecrets.RoleManage) {
 			// leader unit can manage app owned secret.
 			return LeadershipToken(authTag, leadershipChecker)
 		}
 	case names.ModelTag:
-		if hasRole(api, uri, authTag, coresecrets.RoleManage) {
+		hasRole, err := api.SecretAccess(uri, authTag)
+		if err != nil {
+			// Typically not found error.
+			return nil, errors.Trace(err)
+		}
+		if hasRole.Allowed(coresecrets.RoleManage) {
 			return successfulToken{}, nil
 		}
 	}
@@ -63,17 +73,25 @@ func CanManage(
 }
 
 // CanRead returns true if the specified entity can read the secret.
-func CanRead(api SecretsConsumer, authTag names.Tag, uri *coresecrets.URI, entity names.Tag) bool {
+func CanRead(api SecretsConsumer, authTag names.Tag, uri *coresecrets.URI, entity names.Tag) (bool, error) {
 	// First try looking up unit access.
-	hasRole, _ := api.SecretAccess(uri, entity)
+	hasRole, err := api.SecretAccess(uri, entity)
+	if err != nil {
+		// Typically not found error.
+		return false, errors.Trace(err)
+	}
 	if hasRole.Allowed(coresecrets.RoleView) {
-		return true
+		return true, nil
 	}
 
 	// All units can read secrets owned by application.
 	appName := AuthTagApp(authTag)
-	hasRole, _ = api.SecretAccess(uri, names.NewApplicationTag(appName))
-	return hasRole.Allowed(coresecrets.RoleView)
+	hasRole, err = api.SecretAccess(uri, names.NewApplicationTag(appName))
+	if err != nil {
+		// Typically not found error.
+		return false, errors.Trace(err)
+	}
+	return hasRole.Allowed(coresecrets.RoleView), nil
 }
 
 // OwnerToken returns a token used to determine if the specified entity

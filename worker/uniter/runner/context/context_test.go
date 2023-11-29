@@ -1117,6 +1117,7 @@ func (s *HookContextSuite) TestMissingAction(c *gc.C) {
 }
 
 func (s *HookContextSuite) assertSecretGetFromPendingChanges(c *gc.C,
+	refresh, peek bool,
 	setPendingSecretChanges func(hc *context.HookContext, uri *coresecrets.URI, label string, value map[string]string),
 ) {
 	defer s.setupMocks(c).Finish()
@@ -1126,16 +1127,19 @@ func (s *HookContextSuite) assertSecretGetFromPendingChanges(c *gc.C,
 	uri := coresecrets.NewURI()
 	label := "label"
 	data := map[string]string{"foo": "bar"}
+	if !refresh && !peek {
+		data["foo"] = "existing"
+	}
 	setPendingSecretChanges(hookContext, uri, label, data)
-	context.SetEnvironmentHookContextSecret(hookContext, uri.String(), nil, nil, nil)
+	context.SetEnvironmentHookContextSecret(hookContext, uri.String(), nil, nil, mockBackendClient{})
 
-	value, err := hookContext.GetSecret(nil, label, false, false)
+	value, err := hookContext.GetSecret(nil, label, refresh, peek)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(value.EncodedValues(), jc.DeepEquals, data)
 }
 
 func (s *HookContextSuite) TestSecretGetFromPendingCreateChanges(c *gc.C) {
-	s.assertSecretGetFromPendingChanges(c,
+	s.assertSecretGetFromPendingChanges(c, false, false,
 		func(hc *context.HookContext, uri *coresecrets.URI, label string, value map[string]string) {
 			arg := apiuniter.SecretCreateArg{OwnerTag: s.mockUnit.Tag()}
 			arg.URI = uri
@@ -1148,7 +1152,7 @@ func (s *HookContextSuite) TestSecretGetFromPendingCreateChanges(c *gc.C) {
 }
 
 func (s *HookContextSuite) TestAppSecretGetFromPendingCreateChanges(c *gc.C) {
-	s.assertSecretGetFromPendingChanges(c,
+	s.assertSecretGetFromPendingChanges(c, false, true,
 		func(hc *context.HookContext, uri *coresecrets.URI, label string, value map[string]string) {
 			arg := uniter.SecretCreateArg{OwnerTag: names.NewApplicationTag(s.mockUnit.ApplicationName())}
 			arg.URI = uri
@@ -1161,7 +1165,7 @@ func (s *HookContextSuite) TestAppSecretGetFromPendingCreateChanges(c *gc.C) {
 }
 
 func (s *HookContextSuite) TestSecretGetFromPendingUpdateChanges(c *gc.C) {
-	s.assertSecretGetFromPendingChanges(c,
+	s.assertSecretGetFromPendingChanges(c, false, true,
 		func(hc *context.HookContext, uri *coresecrets.URI, label string, value map[string]string) {
 			arg := apiuniter.SecretUpdateArg{}
 			arg.URI = uri
@@ -1182,6 +1186,14 @@ func (mockBackend) GetContent(_ stdcontext.Context, revisionId string) (coresecr
 		return nil, errors.NotFoundf("revision %q", revisionId)
 	}
 	return coresecrets.NewSecretValue(map[string]string{"foo": "bar"}), nil
+}
+
+type mockBackendClient struct {
+	secrets.BackendsClient
+}
+
+func (mockBackendClient) GetContent(uri *coresecrets.URI, label string, refresh, peek bool) (coresecrets.SecretValue, error) {
+	return coresecrets.NewSecretValue(map[string]string{"foo": "existing"}), nil
 }
 
 func (s *HookContextSuite) TestSecretGet(c *gc.C) {
@@ -1338,6 +1350,54 @@ func (s *HookContextSuite) TestSecretGetOwnedSecretURILookupFromPendingCreate(c 
 	)
 }
 
+func (s *HookContextSuite) TestSecretGetOwnedSecretLabelLookupFromPendingCreates(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	hookContext := context.NewMockUnitHookContext(s.mockUnit, model.IAAS, s.mockLeadership)
+	uri := coresecrets.NewURI()
+	label := "label-" + uri.String()
+	context.SetEnvironmentHookContextSecret(hookContext, uri.String(), nil, nil, nil)
+
+	arg := uniter.SecretCreateArg{OwnerTag: s.mockUnit.Tag()}
+	arg.URI = uri
+	arg.Label = ptr(label)
+	arg.Value = coresecrets.NewSecretValue(map[string]string{"foo": "bar"})
+	hookContext.SetPendingSecretCreates(
+		map[string]uniter.SecretCreateArg{uri.ID: arg})
+
+	value, err := hookContext.GetSecret(nil, label, false, false)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(value.EncodedValues(), jc.DeepEquals, map[string]string{
+		"foo": "bar",
+	})
+}
+
+func (s *HookContextSuite) TestSecretGetOwnedSecretUpdatePendingCreateLabel(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	hookContext := context.NewMockUnitHookContext(s.mockUnit, model.IAAS, s.mockLeadership)
+	uri := coresecrets.NewURI()
+	label := "label-" + uri.String()
+	context.SetEnvironmentHookContextSecret(hookContext, uri.String(), nil, nil, nil)
+
+	arg := uniter.SecretCreateArg{OwnerTag: s.mockUnit.Tag()}
+	arg.URI = uri
+	arg.Label = ptr(label)
+	arg.Value = coresecrets.NewSecretValue(map[string]string{"foo": "bar"})
+	hookContext.SetPendingSecretCreates(
+		map[string]uniter.SecretCreateArg{uri.ID: arg})
+
+	value, err := hookContext.GetSecret(uri, "foobar", false, true)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(value.EncodedValues(), jc.DeepEquals, map[string]string{
+		"foo": "bar",
+	})
+	arg.Label = ptr("foobar")
+	c.Assert(hookContext.PendingSecretCreates(), jc.DeepEquals, map[string]uniter.SecretCreateArg{
+		uri.ID: arg,
+	})
+}
+
 func (s *HookContextSuite) TestSecretGetOwnedSecretURILookupFromPendingUpdate(c *gc.C) {
 	s.assertSecretGetOwnedSecretURILookup(c,
 		func(ctx *context.HookContext, uri *coresecrets.URI, label string, client api.SecretsAccessor, backend secrets.BackendsClient) {
@@ -1349,6 +1409,78 @@ func (s *HookContextSuite) TestSecretGetOwnedSecretURILookupFromPendingUpdate(c 
 				map[string]uniter.SecretUpdateArg{uri.ID: arg})
 		},
 	)
+}
+
+func (s *HookContextSuite) TestSecretGetOwnedSecretLabelLookupFromPendingUpdatesPeek(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	hookContext := context.NewMockUnitHookContext(s.mockUnit, model.IAAS, s.mockLeadership)
+	uri := coresecrets.NewURI()
+	label := "label-" + uri.String()
+	context.SetEnvironmentHookContextSecret(hookContext, uri.String(), nil, nil, nil)
+
+	arg := uniter.SecretUpdateArg{}
+	arg.URI = uri
+	arg.Label = ptr(label)
+	arg.Value = coresecrets.NewSecretValue(map[string]string{"foo": "bar"})
+	hookContext.SetPendingSecretUpdates(
+		map[string]uniter.SecretUpdateArg{uri.ID: arg})
+
+	value, err := hookContext.GetSecret(nil, label, false, true)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(value.EncodedValues(), jc.DeepEquals, map[string]string{
+		"foo": "bar",
+	})
+	c.Assert(hookContext.PendingSecretTrackLatest(), gc.HasLen, 0)
+}
+
+func (s *HookContextSuite) TestSecretGetOwnedSecretLabelLookupFromPendingUpdatesRefresh(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	hookContext := context.NewMockUnitHookContext(s.mockUnit, model.IAAS, s.mockLeadership)
+	uri := coresecrets.NewURI()
+	label := "label-" + uri.String()
+	context.SetEnvironmentHookContextSecret(hookContext, uri.String(), nil, nil, nil)
+
+	arg := uniter.SecretUpdateArg{}
+	arg.URI = uri
+	arg.Label = ptr(label)
+	arg.Value = coresecrets.NewSecretValue(map[string]string{"foo": "bar"})
+	hookContext.SetPendingSecretUpdates(
+		map[string]uniter.SecretUpdateArg{uri.ID: arg})
+
+	value, err := hookContext.GetSecret(nil, label, true, false)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(value.EncodedValues(), jc.DeepEquals, map[string]string{
+		"foo": "bar",
+	})
+	c.Assert(hookContext.PendingSecretTrackLatest(), jc.DeepEquals, map[string]bool{uri.ID: true})
+}
+
+func (s *HookContextSuite) TestSecretGetOwnedSecretUpdatePendingLabel(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	hookContext := context.NewMockUnitHookContext(s.mockUnit, model.IAAS, s.mockLeadership)
+	uri := coresecrets.NewURI()
+	label := "label-" + uri.String()
+	context.SetEnvironmentHookContextSecret(hookContext, uri.String(), nil, nil, nil)
+
+	arg := uniter.SecretUpdateArg{}
+	arg.URI = uri
+	arg.Label = ptr(label)
+	arg.Value = coresecrets.NewSecretValue(map[string]string{"foo": "bar"})
+	hookContext.SetPendingSecretUpdates(
+		map[string]uniter.SecretUpdateArg{uri.ID: arg})
+
+	value, err := hookContext.GetSecret(uri, "foobar", false, true)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(value.EncodedValues(), jc.DeepEquals, map[string]string{
+		"foo": "bar",
+	})
+	arg.Label = ptr("foobar")
+	c.Assert(hookContext.PendingSecretUpdates(), jc.DeepEquals, map[string]uniter.SecretUpdateArg{
+		uri.ID: arg,
+	})
 }
 
 func ptr[T any](v T) *T {

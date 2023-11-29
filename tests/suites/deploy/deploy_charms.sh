@@ -14,6 +14,23 @@ run_deploy_charm() {
 	destroy_model "test-deploy-charm"
 }
 
+run_deploy_charm_unsupported_series() {
+	# Test trying to deploy a charmhub charm to an operating system
+	# never supported in the specified channel. It should fail.
+	echo
+
+	testname="test-deploy-charm-unsupported-series"
+	file="${TEST_DIR}/${testname}.log"
+
+	ensure "${testname}" "${file}"
+
+	# The charm in 3.0/stable only supports jammy and only
+	# one charm has been released to that channel.
+	juju deploy juju-qa-test --channel 3.0/stable --series focal | grep -q 'charm or bundle not found for channel' || true
+
+	destroy_model "${testname}"
+}
+
 run_deploy_specific_series() {
 	echo
 
@@ -47,7 +64,10 @@ run_deploy_lxd_profile_charm() {
 
 	ensure "test-deploy-lxd-profile" "${file}"
 
-	juju deploy juju-qa-lxd-profile-without-devices
+	# This charm deploys to Xenial by default, which doesn't
+	# always result in a machine which becomes fully deployed
+	# with the lxd provider.
+	juju deploy juju-qa-lxd-profile-without-devices --series jammy
 	wait_for "lxd-profile-without-devices" "$(idle_condition "lxd-profile-without-devices")"
 
 	juju status --format=json | jq '.machines | .["0"] | .["lxd-profiles"] | keys[0]' | check "juju-test-deploy-lxd-profile-lxd-profile"
@@ -62,7 +82,10 @@ run_deploy_lxd_profile_charm_container() {
 
 	ensure "test-deploy-lxd-profile-container" "${file}"
 
-	juju deploy juju-qa-lxd-profile-without-devices --to lxd
+	# This charm deploys to Xenial by default, which doesn't
+	# always result in a machine which becomes fully deployed
+	# with the lxd provider.
+	juju deploy juju-qa-lxd-profile-without-devices --to lxd --series jammy
 	wait_for "lxd-profile-without-devices" "$(idle_condition "lxd-profile-without-devices")"
 
 	juju status --format=json | jq '.machines | .["0"] | .containers | .["0/lxd/0"] | .["lxd-profiles"] | keys[0]' |
@@ -120,14 +143,6 @@ run_deploy_local_lxd_profile_charm() {
 
 	juju status --format=json | jq "${machine_1}" | check "${lxd_profile_name}"
 	juju status --format=json | jq "${machine_1}" | check "${lxd_profile_sub_name}"
-
-	juju add-unit "lxd-profile" --to lxd
-
-	machine_2="$(machine_container_path 2 2/lxd/0)"
-	wait_for "${lxd_profile_sub_name}" "${machine_2}"
-
-	juju status --format=json | jq "${machine_2}" | check "${lxd_profile_name}"
-	juju status --format=json | jq "${machine_2}" | check "${lxd_profile_sub_name}"
 
 	destroy_model "test-deploy-local-lxd-profile"
 }
@@ -198,6 +213,8 @@ run_deploy_lxd_to_machine() {
 }
 
 run_deploy_lxd_to_container() {
+	# Ensure profiles get applied correctly to containers
+	# and 1 gets added if a subordinate is added.
 	echo
 
 	model_name="test-deploy-lxd-container"
@@ -208,7 +225,20 @@ run_deploy_lxd_to_container() {
 	charm=./tests/suites/deploy/charms/lxd-profile-alt
 	juju deploy "${charm}" --to lxd
 
+	juju deploy ./testcharms/charms/lxd-profile-subordinate
+	juju add-relation lxd-profile-subordinate lxd-profile-alt
+
 	wait_for "lxd-profile-alt" "$(idle_condition "lxd-profile-alt")"
+	wait_for "lxd-profile-subordinate" ".applications | keys[1]"
+
+	machine_0="$(machine_container_path 0 0/lxd/0)"
+	wait_for "lxd-profile-subordinate" "${machine_0}"
+
+	lxd_profile_name="juju-test-deploy-lxd-container-lxd-profile-alt"
+	lxd_profile_sub_name="juju-test-deploy-lxd-container-lxd-profile-subordinate"
+
+	juju status --format=json | jq "${machine_0}" | check "${lxd_profile_name}"
+	juju status --format=json | jq "${machine_0}" | check "${lxd_profile_sub_name}"
 
 	OUT=$(juju exec --machine 0 -- sh -c 'sudo lxc profile show "juju-test-deploy-lxd-container-lxd-profile-alt-0"')
 	echo "${OUT}" | grep -E "linux.kernel_modules: ([a-zA-Z0-9\_,]+)?ip_tables,ip6_tables([a-zA-Z0-9\_,]+)?"
@@ -289,9 +319,8 @@ test_deploy_charms() {
 
 		run "run_deploy_charm"
 		run "run_deploy_specific_series"
-		run "run_deploy_lxd_to_container"
-		run "run_deploy_lxd_profile_charm_container"
 		run "run_resolve_charm"
+		run "run_deploy_charm_unsupported_series"
 
 		case "${BOOTSTRAP_PROVIDER:-}" in
 		"lxd" | "localhost")
@@ -299,11 +328,15 @@ test_deploy_charms() {
 			run "run_deploy_lxd_profile_charm"
 			run "run_deploy_local_predeployed_charm"
 			run "run_deploy_local_lxd_profile_charm"
+			echo "==> TEST SKIPPED: deploy_lxd_to_container - tests for non LXD only"
+			echo "==> TEST SKIPPED: deploy_lxd_profile_charm_container - tests for non LXD only"
 			;;
 		*)
 			echo "==> TEST SKIPPED: deploy_lxd_to_machine - tests for LXD only"
 			echo "==> TEST SKIPPED: deploy_lxd_profile_charm - tests for LXD only"
 			echo "==> TEST SKIPPED: deploy_local_lxd_profile_charm - tests for LXD only"
+			run "run_deploy_lxd_to_container"
+			run "run_deploy_lxd_profile_charm_container"
 			;;
 		esac
 	)

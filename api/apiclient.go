@@ -35,6 +35,7 @@ import (
 	"gopkg.in/retry.v1"
 
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/core/facades"
 	coremacaroon "github.com/juju/juju/core/macaroon"
 	"github.com/juju/juju/core/network"
 	jujuproxy "github.com/juju/juju/internal/proxy"
@@ -247,7 +248,7 @@ func Open(info *Info, opts DialOpts) (Connection, error) {
 		host = dialResult.addr
 	}
 
-	pingerFacadeVersions := FacadeVersions["Pinger"]
+	pingerFacadeVersions := facadeVersions["Pinger"]
 	if len(pingerFacadeVersions) == 0 {
 		return nil, errors.Errorf("pinger facade version is required")
 	}
@@ -1365,7 +1366,7 @@ func (c *conn) PublicDNSName() string {
 // Facade we will want to use. It needs to line up the versions that the server
 // reports to us, with the versions that our client knows how to use.
 func (c *conn) BestFacadeVersion(facade string) int {
-	return bestVersion(FacadeVersions[facade], c.facadeVersions[facade])
+	return facades.BestVersion(facadeVersions[facade], c.facadeVersions[facade])
 }
 
 // serverRoot returns the cached API server address and port used

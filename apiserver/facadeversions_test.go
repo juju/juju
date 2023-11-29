@@ -24,7 +24,7 @@ func (s *facadeVersionSuite) TestFacadeVersionsMatchServerVersions(c *gc.C) {
 	// code just to list out what versions are available. However, we do
 	// want to make sure that the two sides are kept in sync.
 	clientFacadeNames := set.NewStrings()
-	for name, versions := range api.FacadeVersions {
+	for name, versions := range api.SupportedFacadeVersions() {
 		clientFacadeNames.Add(name)
 		// All versions should now be non-zero.
 		c.Check(set.NewInts(versions...).Contains(0), jc.IsFalse)
@@ -43,7 +43,7 @@ func (s *facadeVersionSuite) TestFacadeVersionsMatchServerVersions(c *gc.C) {
 	// Next check that the latest version of each facade is the same
 	// on both sides.
 	apiFacadeVersions := make(map[string]int)
-	for name, versions := range api.FacadeVersions {
+	for name, versions := range api.SupportedFacadeVersions() {
 		// Sort the versions so that we can easily pick the latest, without
 		// a requirement that the versions are listed in order.
 		sorted := set.NewInts(versions...).SortedValues()
@@ -74,7 +74,7 @@ func (s *facadeVersionSuite) TestClient3xSupport(c *gc.C) {
 	}
 	for _, test := range tests {
 		c.Logf(test.summary)
-		c.Check(api.FacadeVersions[test.facadeName], Contains, test.apiClientVersion)
+		c.Check(api.SupportedFacadeVersions()[test.facadeName], Contains, test.apiClientVersion)
 	}
 }
 

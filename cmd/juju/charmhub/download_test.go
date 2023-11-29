@@ -218,6 +218,69 @@ func (s *downloadSuite) TestRunWithInvalidStdout(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `expected a charm or bundle name, followed by hyphen to pipe to stdout`)
 }
 
+func (s *downloadSuite) TestRunWithRevision(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+
+	url := "http://example.org/"
+
+	s.expectRefresh(url)
+	s.expectDownload(c, url)
+	s.expectFilesystem(c)
+
+	command := &downloadCommand{
+		charmHubCommand: s.newCharmHubCommand(),
+	}
+	command.SetFilesystem(s.filesystem)
+	err := cmdtesting.InitCommand(command, []string{"test", "--revision=123"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	ctx := commandContextForTest(c)
+	err = command.Run(ctx)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cmdtesting.Stderr(ctx), gc.Matches, "(?s)"+`
+Fetching charm "test" revision 123
+Install the "test" charm with:
+    juju deploy ./test_r123\.charm
+`[1:])
+}
+
+func (s *downloadSuite) TestRunWithRevisionNotFound(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+
+	s.expectRefreshUnsupportedBase()
+
+	command := &downloadCommand{
+		charmHubCommand: s.newCharmHubCommand(),
+	}
+	command.SetFilesystem(s.filesystem)
+	err := cmdtesting.InitCommand(command, []string{"test", "--revision=99"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	ctx := commandContextForTest(c)
+	err = command.Run(ctx)
+	c.Assert(err, gc.ErrorMatches, `unable to locate test revison 99: No revision was found in the Store.`)
+}
+
+func (s *downloadSuite) TestRunWithRevisionAndOtherArgs(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+
+	command := &downloadCommand{
+		charmHubCommand: s.newCharmHubCommand(),
+	}
+
+	err := cmdtesting.InitCommand(command, []string{"test", "--arch=amd64", "--revision=99"})
+	c.Check(err, gc.ErrorMatches, `--revision cannot be specified together with --arch, --base, --channel or --series`)
+
+	err = cmdtesting.InitCommand(command, []string{"test", "--base=ubuntu@22.04", "--revision=99"})
+	c.Check(err, gc.ErrorMatches, `--revision cannot be specified together with --arch, --base, --channel or --series`)
+
+	err = cmdtesting.InitCommand(command, []string{"test", "--channel=edge", "--revision=99"})
+	c.Check(err, gc.ErrorMatches, `--revision cannot be specified together with --arch, --base, --channel or --series`)
+
+	err = cmdtesting.InitCommand(command, []string{"test", "--series=jammy", "--revision=99"})
+	c.Check(err, gc.ErrorMatches, `--revision cannot be specified together with --arch, --base, --channel or --series`)
+}
+
 func (s *downloadSuite) newCharmHubCommand() *charmHubCommand {
 	return &charmHubCommand{
 		arches: arch.AllArches(),
