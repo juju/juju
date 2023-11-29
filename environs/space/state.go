@@ -36,7 +36,7 @@ func (s *spaceStateShim) AllSpaces() ([]network.SpaceInfo, error) {
 	return results, nil
 }
 
-func (s *spaceStateShim) AddSpace(name string, providerID network.Id, subnetIds []string, public bool) (network.SpaceInfo, error) {
+func (s *spaceStateShim) AddSpace(name string, providerID network.Id, subnetIds []string) (network.SpaceInfo, error) {
 	result, err := s.State.AddSpace(name, providerID, subnetIds)
 	if err != nil {
 		return network.SpaceInfo{}, errors.Trace(err)

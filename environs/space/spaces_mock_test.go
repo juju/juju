@@ -36,18 +36,18 @@ func (m *MockReloadSpacesState) EXPECT() *MockReloadSpacesStateMockRecorder {
 }
 
 // AddSpace mocks base method.
-func (m *MockReloadSpacesState) AddSpace(arg0 string, arg1 network.Id, arg2 []string, arg3 bool) (network.SpaceInfo, error) {
+func (m *MockReloadSpacesState) AddSpace(arg0 string, arg1 network.Id, arg2 []string) (network.SpaceInfo, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddSpace", arg0, arg1, arg2, arg3)
+	ret := m.ctrl.Call(m, "AddSpace", arg0, arg1, arg2)
 	ret0, _ := ret[0].(network.SpaceInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // AddSpace indicates an expected call of AddSpace.
-func (mr *MockReloadSpacesStateMockRecorder) AddSpace(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+func (mr *MockReloadSpacesStateMockRecorder) AddSpace(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddSpace", reflect.TypeOf((*MockReloadSpacesState)(nil).AddSpace), arg0, arg1, arg2, arg3)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddSpace", reflect.TypeOf((*MockReloadSpacesState)(nil).AddSpace), arg0, arg1, arg2)
 }
 
 // AllEndpointBindingsSpaceNames mocks base method.

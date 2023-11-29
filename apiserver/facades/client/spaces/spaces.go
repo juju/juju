@@ -116,7 +116,7 @@ func (api *API) createOneSpace(args params.CreateSpaceParams) error {
 	}
 
 	// Add the validated space.
-	_, err = api.backing.AddSpace(spaceTag.Id(), network.Id(args.ProviderId), subnetIDs, args.Public)
+	_, err = api.backing.AddSpace(spaceTag.Id(), network.Id(args.ProviderId), subnetIDs)
 	if err != nil {
 		return errors.Trace(err)
 	}
