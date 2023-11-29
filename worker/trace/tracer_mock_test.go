@@ -9,7 +9,7 @@ import (
 	reflect "reflect"
 
 	trace "github.com/juju/juju/core/trace"
-	trace0 "go.opentelemetry.io/otel/trace"
+	trace1 "go.opentelemetry.io/otel/trace"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -171,7 +171,7 @@ func (m *MockClientTracer) EXPECT() *MockClientTracerMockRecorder {
 }
 
 // Start mocks base method.
-func (m *MockClientTracer) Start(arg0 context.Context, arg1 string, arg2 ...trace0.SpanStartOption) (context.Context, trace0.Span) {
+func (m *MockClientTracer) Start(arg0 context.Context, arg1 string, arg2 ...trace1.SpanStartOption) (context.Context, ClientSpan) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1}
 	for _, a := range arg2 {
@@ -179,7 +179,7 @@ func (m *MockClientTracer) Start(arg0 context.Context, arg1 string, arg2 ...trac
 	}
 	ret := m.ctrl.Call(m, "Start", varargs...)
 	ret0, _ := ret[0].(context.Context)
-	ret1, _ := ret[1].(trace0.Span)
+	ret1, _ := ret[1].(ClientSpan)
 	return ret0, ret1
 }
 
