@@ -58,8 +58,7 @@ func spaceSchema() schema.Patch {
 	return schema.MakePatch(`
 CREATE TABLE space (
     uuid            TEXT PRIMARY KEY,
-    name            TEXT NOT NULL,
-    is_public       BOOLEAN
+    name            TEXT NOT NULL
 );
 
 CREATE UNIQUE INDEX idx_spaces_uuid_name
