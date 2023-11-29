@@ -5,31 +5,52 @@ package bootstrap
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"gopkg.in/tomb.v2"
 
+	"github.com/juju/juju/agent"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/gate"
+)
+
+const (
+	// States which report the state of the worker.
+	stateStarted = "started"
 )
 
 // WorkerConfig encapsulates the configuration options for the
 // bootstrap worker.
 type WorkerConfig struct {
+	Agent             agent.Agent
 	ObjectStore       objectstore.ObjectStore
 	BootstrapUnlocker gate.Unlocker
-	Logger            Logger
+	AgentBinarySeeder AgentBinaryBootstrapFunc
+
+	// Deprecated: This is only here, until we can remove the state layer.
+	State *state.State
+
+	Logger Logger
 }
 
 // Validate ensures that the config values are valid.
 func (c *WorkerConfig) Validate() error {
+	if c.Agent == nil {
+		return errors.NotValidf("nil Agent")
+	}
 	if c.ObjectStore == nil {
 		return errors.NotValidf("nil ObjectStore")
 	}
 	if c.BootstrapUnlocker == nil {
 		return errors.NotValidf("nil BootstrapUnlocker")
 	}
+	if c.AgentBinarySeeder == nil {
+		return errors.NotValidf("nil AgentBinarySeeder")
+	}
 	if c.Logger == nil {
 		return errors.NotValidf("nil Logger")
+	}
+	if c.State == nil {
+		return errors.NotValidf("nil State")
 	}
 	return nil
 }
@@ -71,8 +92,22 @@ func (w *bootstrapWorker) Wait() error {
 }
 
 func (w *bootstrapWorker) loop() error {
-	loggo.GetLogger("***").Criticalf("bootstrapWorker loop")
-	// TODO (stickupkid): Upload the charm.
+	// Report the initial started state.
+	w.reportInternalState(stateStarted)
+
+	// Perform the bootstrap.
+	//  1. Read bootstrap-params
+	//  2. Access the object store
+	//  3. Populate tools
+	//  4. Deploy the controller charm using state
 	w.cfg.BootstrapUnlocker.Unlock()
-	return tomb.ErrDying
+	return nil
+}
+
+func (w *bootstrapWorker) reportInternalState(state string) {
+	select {
+	case <-w.tomb.Dying():
+	case w.internalStates <- state:
+	default:
+	}
 }

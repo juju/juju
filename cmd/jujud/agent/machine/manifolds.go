@@ -333,14 +333,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker: gate.NewFlagWorker,
 		}),
 
-		// Bootstrap worker is responsible for setting up the initial machine.
-		bootstrapName: ifDatabaseUpgradeComplete(bootstrap.Manifold(bootstrap.ManifoldConfig{
-			StateName:         stateName,
-			ObjectStoreName:   objectStoreName,
-			BootstrapGateName: isBootstrapGateName,
-			Logger:            loggo.GetLogger("juju.worker.bootstrap"),
-		})),
-
 		// The termination worker returns ErrTerminateAgent if a
 		// termination signal is received by the process it's running
 		// in. It has no inputs and its only output is the error it
@@ -841,6 +833,17 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 // various responsibilities of a IAAS machine agent.
 func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 	manifolds := dependency.Manifolds{
+		// Bootstrap worker is responsible for setting up the initial machine.
+		bootstrapName: ifDatabaseUpgradeComplete(bootstrap.Manifold(bootstrap.ManifoldConfig{
+			AgentName:         agentName,
+			StateName:         stateName,
+			ObjectStoreName:   objectStoreName,
+			BootstrapGateName: isBootstrapGateName,
+			AgentBinarySeeder: bootstrap.IAASAgentBinarySeeder,
+			RequiresBootstrap: bootstrap.RequiresBootstrap,
+			Logger:            loggo.GetLogger("juju.worker.bootstrap"),
+		})),
+
 		toolsVersionCheckerName: ifNotMigrating(toolsversionchecker.Manifold(toolsversionchecker.ManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
@@ -1046,6 +1049,17 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 // various responsibilities of a CAAS machine agent.
 func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 	return mergeManifolds(config, dependency.Manifolds{
+		// Bootstrap worker is responsible for setting up the initial machine.
+		bootstrapName: ifDatabaseUpgradeComplete(bootstrap.Manifold(bootstrap.ManifoldConfig{
+			AgentName:         agentName,
+			StateName:         stateName,
+			ObjectStoreName:   objectStoreName,
+			BootstrapGateName: isBootstrapGateName,
+			AgentBinarySeeder: bootstrap.CAASAgentBinarySeeder,
+			RequiresBootstrap: bootstrap.RequiresBootstrap,
+			Logger:            loggo.GetLogger("juju.worker.bootstrap"),
+		})),
+
 		// TODO(caas) - when we support HA, only want this on primary
 		upgraderName: caasupgrader.Manifold(caasupgrader.ManifoldConfig{
 			AgentName:            agentName,
