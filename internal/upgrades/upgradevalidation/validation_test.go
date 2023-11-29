@@ -19,8 +19,8 @@ import (
 	"github.com/juju/juju/provider/lxd"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/upgrades/upgradevalidation"
-	"github.com/juju/juju/upgrades/upgradevalidation/mocks"
+	"github.com/juju/juju/internal/upgrades/upgradevalidation"
+	"github.com/juju/juju/internal/upgrades/upgradevalidation/mocks"
 )
 
 var _ = gc.Suite(&upgradeValidationSuite{})

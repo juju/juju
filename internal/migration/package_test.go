@@ -10,8 +10,8 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	upgradevalidationmocks "github.com/juju/juju/internal/upgrades/upgradevalidation/mocks"
 	"github.com/juju/juju/testing"
-	upgradevalidationmocks "github.com/juju/juju/upgrades/upgradevalidation/mocks"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -package migration_test -destination migration_mock_test.go github.com/juju/juju/internal/migration ControllerConfigService,UpgradeService

@@ -9,7 +9,7 @@ import (
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/upgrades/upgradevalidation"
+	"github.com/juju/juju/internal/upgrades/upgradevalidation"
 )
 
 type versionSuite struct {
