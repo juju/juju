@@ -261,7 +261,11 @@ func allCollections() CollectionSchema {
 
 		// This collection contains incrementing integers, subdivided by name,
 		// to ensure various IDs aren't reused.
-		sequenceC: {},
+		sequenceC: {
+			indexes: []mgo.Index{{
+				Key: []string{"model-uuid"},
+			}},
+		},
 
 		// -----
 
@@ -300,7 +304,11 @@ func allCollections() CollectionSchema {
 		assignUnitC: {},
 
 		// meterStatusC is the collection used to store meter status information.
-		meterStatusC: {},
+		meterStatusC: {
+			indexes: []mgo.Index{{
+				Key: []string{"model-uuid"},
+			}},
+		},
 
 		// These collections hold reference counts which are used
 		// by the nsRefcounts struct.
@@ -311,9 +319,7 @@ func allCollections() CollectionSchema {
 
 		relationsC: {
 			indexes: []mgo.Index{{
-				Key: []string{"model-uuid", "endpoints.relationname"},
-			}, {
-				Key: []string{"model-uuid", "endpoints.applicationname"},
+				Key: []string{"model-uuid", "endpoints.applicationname", "endpoints.relation.name"},
 			}},
 		},
 		relationScopesC: {
@@ -328,7 +334,11 @@ func allCollections() CollectionSchema {
 		// -----
 
 		// These collections hold information associated with machines.
-		containerRefsC: {},
+		containerRefsC: {
+			indexes: []mgo.Index{{
+				Key: []string{"model-uuid"},
+			}},
+		},
 		instanceDataC: {
 			indexes: []mgo.Index{{
 				Key: []string{"model-uuid", "machineid"},
@@ -341,12 +351,20 @@ func allCollections() CollectionSchema {
 				Key: []string{"model-uuid", "machineid"},
 			}},
 		},
-		rebootC:      {},
+		rebootC: {
+			indexes: []mgo.Index{{
+				Key: []string{"model-uuid", "machineid"},
+			}},
+		},
 		sshHostKeysC: {},
 
 		// This collection contains information from removed machines
 		// that needs to be cleaned up in the provider.
-		machineRemovalsC: {},
+		machineRemovalsC: {
+			indexes: []mgo.Index{{
+				Key: []string{"model-uuid"},
+			}},
+		},
 
 		// this collection contains machine update locks whose existence indicates
 		// that a particular machine in the process of performing a series upgrade.
@@ -398,18 +416,30 @@ func allCollections() CollectionSchema {
 				Key: []string{"model-uuid", "volumeid"},
 			}},
 		},
-		volumeAttachmentPlanC: {},
+		volumeAttachmentPlanC: {
+			indexes: []mgo.Index{{
+				Key: []string{"model-uuid"},
+			}},
+		},
 
 		// -----
 
-		providerIDsC: {},
+		providerIDsC: {
+			indexes: []mgo.Index{{
+				Key: []string{"model-uuid"},
+			}},
+		},
 		spacesC: {
 			indexes: []mgo.Index{
 				{Key: []string{"model-uuid", "spaceid"}},
 				{Key: []string{"model-uuid", "name"}},
 			},
 		},
-		subnetsC: {},
+		subnetsC: {
+			indexes: []mgo.Index{{
+				Key: []string{"model-uuid"},
+			}},
+		},
 		linkLayerDevicesC: {
 			indexes: []mgo.Index{{
 				Key: []string{"model-uuid", "machine-id"},
@@ -482,12 +512,20 @@ func allCollections() CollectionSchema {
 
 		// This collection holds user annotations for various entities. They
 		// shouldn't be written or interpreted by juju.
-		annotationsC: {},
+		annotationsC: {
+			indexes: []mgo.Index{{
+				Key: []string{"model-uuid"},
+			}},
+		},
 
 		// This collection in particular holds an astounding number of
 		// different sorts of data: application config settings by charm version,
 		// unit relation settings, model config, etc etc etc.
-		settingsC: {},
+		settingsC: {
+			indexes: []mgo.Index{{
+				Key: []string{"model-uuid"},
+			}},
+		},
 
 		// The generations collection holds data about
 		// active and completed "next" model generations.
@@ -502,8 +540,12 @@ func allCollections() CollectionSchema {
 				Key: []string{"model-uuid"},
 			}},
 		},
-		storageConstraintsC: {},
-		deviceConstraintsC:  {},
+		storageConstraintsC: {
+			indexes: []mgo.Index{{
+				Key: []string{"model-uuid"},
+			}},
+		},
+		deviceConstraintsC: {},
 		statusesC: {
 			indexes: []mgo.Index{{
 				Key: []string{"model-uuid", "_id"},
@@ -538,9 +580,14 @@ func allCollections() CollectionSchema {
 		offerConnectionsC: {
 			indexes: []mgo.Index{
 				{Key: []string{"model-uuid", "offer-uuid"}},
+				{Key: []string{"model-uuid", "username"}},
 			},
 		},
-		remoteApplicationsC: {},
+		remoteApplicationsC: {
+			indexes: []mgo.Index{{
+				Key: []string{"model-uuid"},
+			}},
+		},
 		// remoteEntitiesC holds information about entities involved in
 		// cross-model relations.
 		remoteEntitiesC: {
@@ -554,7 +601,11 @@ func allCollections() CollectionSchema {
 			global: true,
 		},
 		// relationNetworksC holds required ingress or egress cidrs for remote relations.
-		relationNetworksC: {},
+		relationNetworksC: {
+			indexes: []mgo.Index{{
+				Key: []string{"model-uuid"},
+			}},
+		},
 
 		// firewallRulesC holds firewall rules for defined service types.
 		firewallRulesC: {
@@ -565,15 +616,27 @@ func allCollections() CollectionSchema {
 
 		// podSpecsC holds the CAAS pod specifications,
 		// for applications.
-		podSpecsC: {},
+		podSpecsC: {
+			indexes: []mgo.Index{{
+				Key: []string{"model-uuid"},
+			}},
+		},
 
 		// cloudContainersC holds the CAAS container (pod) information
 		// for units, eg address, ports.
-		cloudContainersC: {},
+		cloudContainersC: {
+			indexes: []mgo.Index{{
+				Key: []string{"model-uuid", "provider-id"},
+			}},
+		},
 
 		// cloudServicesC holds the CAAS service information
 		// eg addresses.
-		cloudServicesC: {},
+		cloudServicesC: {
+			indexes: []mgo.Index{{
+				Key: []string{"model-uuid"},
+			}},
+		},
 
 		// Raw-access collections
 		// ======================
