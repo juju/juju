@@ -13,6 +13,7 @@ encoding
 errors
 fmt
 github.com/canonical/lxd/shared/api
+github.com/distribution/reference
 github.com/docker/distribution
 github.com/go-macaroon-bakery/macaroon-bakery/v3
 github.com/go-macaroon-bakery/macaroonpb
