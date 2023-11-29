@@ -1,23 +1,15 @@
 run_api_imports() {
 	allowed=$(cat .github/api-client-allowed-list.txt)
-	for dir in ./api/client/*; do
+	for dir in ./api/client/* ./api/base/*; do
 		if [[ ! -d $dir ]]; then
+			continue
+		fi
+		if [[ $dir =~ "api/base/testing" ]]; then
 			continue
 		fi
 
 		got=$(go run ./scripts/import-inspector "$dir" 2>/dev/null | jq -r ".[]")
 		python3 tests/suites/static_analysis/lint_go.py -a "${allowed}" -g "${got}" || (echo "Error: API Client import failure in $dir" && exit 1)
-	done
-	for dir in ./api/base/*; do
-		if [[ ! -d $dir ]]; then
-			continue
-		fi
-		if [[ "$dir" =~ "api/base/testing" ]]; then
-			continue
-		fi
-
-		got=$(go run ./scripts/import-inspector "$dir" 2>/dev/null | jq -r ".[]")
-		python3 tests/suites/static_analysis/lint_go.py -a "${allowed}" -g "${got}" || (echo "Error: API Base import failure in $dir" && exit 1)
 	done
 }
 
