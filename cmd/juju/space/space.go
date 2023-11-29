@@ -279,9 +279,6 @@ type SubnetInfo struct {
 	// It may be empty if this is not a fan subnet,
 	// or if this subnet information comes from a provider.
 	FanInfo *network.FanCIDRs `json:"fan-info,omitempty" yaml:"fan-info,omitempty"`
-
-	// IsPublic describes whether a subnet is public or not.
-	IsPublic bool `json:"is-public,omitempty" yaml:"is-public,omitempty"`
 }
 
 // SpaceInfo defines a network space.

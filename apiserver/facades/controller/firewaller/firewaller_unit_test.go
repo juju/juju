@@ -343,7 +343,6 @@ func (s *FirewallerSuite) TestAllSpaceInfos(c *gc.C) {
 						FanLocalUnderlay: "192.168.0.0/16",
 						FanOverlay:       "1.0.0.0/8",
 					},
-					IsPublic: true,
 				},
 			}},
 		{ID: "99", Name: "special", Subnets: []network.SubnetInfo{

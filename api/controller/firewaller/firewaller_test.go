@@ -264,7 +264,6 @@ func (s *firewallerSuite) TestAllSpaceInfos(c *gc.C) {
 						FanLocalUnderlay: "192.168.0.0/16",
 						FanOverlay:       "1.0.0.0/8",
 					},
-					IsPublic: true,
 				},
 			},
 		},

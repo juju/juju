@@ -568,7 +568,7 @@ func (s *ModelSuite) TestMetrics(c *gc.C) {
 
 func (s *ModelSuite) TestAllEndpointBindings(c *gc.C) {
 	oneSpace := s.Factory.MakeSpace(c, &factory.SpaceParams{
-		Name: "one", ProviderID: network.Id("provider"), IsPublic: true})
+		Name: "one", ProviderID: network.Id("provider")})
 	app := state.AddTestingApplicationWithBindings(
 		c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"),
 		map[string]string{"db": oneSpace.Id()})
@@ -596,7 +596,7 @@ func (s *ModelSuite) TestAllEndpointBindings(c *gc.C) {
 
 func (s *ModelSuite) TestAllEndpointBindingsSpaceNames(c *gc.C) {
 	oneSpace := s.Factory.MakeSpace(c, &factory.SpaceParams{
-		Name: "one", ProviderID: network.Id("provider"), IsPublic: true})
+		Name: "one", ProviderID: network.Id("provider")})
 	state.AddTestingApplicationWithBindings(
 		c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"),
 		map[string]string{"db": oneSpace.Id()})

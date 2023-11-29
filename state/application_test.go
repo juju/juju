@@ -407,7 +407,7 @@ func (s *ApplicationSuite) TestMergeBindingsWithForce(c *gc.C) {
 
 	sn, err := s.State.AddSubnet(network.SubnetInfo{CIDR: "10.99.99.0/24"})
 	c.Assert(err, gc.IsNil)
-	_, err = s.State.AddSpace("far", "", []string{sn.ID()}, false)
+	_, err = s.State.AddSpace("far", "", []string{sn.ID()})
 	c.Assert(err, gc.IsNil)
 
 	expBindings := map[string]string{
@@ -474,7 +474,7 @@ func (s *ApplicationSuite) assignUnitOnMachineWithSpaceToApplication(c *gc.C, a 
 	sn1, err := s.State.AddSubnet(network.SubnetInfo{CIDR: "10.0.254.0/24"})
 	c.Assert(err, gc.IsNil)
 
-	sp, err := s.State.AddSpace(spaceName, "", []string{sn1.ID()}, false)
+	sp, err := s.State.AddSpace(spaceName, "", []string{sn1.ID()})
 	c.Assert(err, gc.IsNil)
 
 	m1, err := s.State.AddOneMachine(state.MachineTemplate{
@@ -630,9 +630,9 @@ func (s *ApplicationSuite) TestSetCharmPreconditions(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestSetCharmUpdatesBindings(c *gc.C) {
-	dbSpace, err := s.State.AddSpace("db", "", nil, false)
+	dbSpace, err := s.State.AddSpace("db", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	clientSpace, err := s.State.AddSpace("client", "", nil, true)
+	clientSpace, err := s.State.AddSpace("client", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	oldCharm := s.AddMetaCharm(c, "mysql", metaBase, 44)
 
@@ -1405,9 +1405,9 @@ func (s *ApplicationSuite) TestSetCharmRetriesWhenOldBindingsChanged(c *gc.C) {
 		"kludge":  network.AlphaSpaceId,
 		"cluster": network.AlphaSpaceId,
 	})
-	dbSpace, err := s.State.AddSpace("db", "", nil, true)
+	dbSpace, err := s.State.AddSpace("db", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	adminSpace, err := s.State.AddSpace("admin", "", nil, false)
+	adminSpace, err := s.State.AddSpace("admin", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	updateBindings := func(updatesMap bson.M) {
@@ -4265,9 +4265,9 @@ func (s *ApplicationSuite) TestEndpointBindingsJustDefaults(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestEndpointBindingsWithExplictOverrides(c *gc.C) {
-	dbSpace, err := s.State.AddSpace("db", "", nil, true)
+	dbSpace, err := s.State.AddSpace("db", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	haSpace, err := s.State.AddSpace("ha", "", nil, false)
+	haSpace, err := s.State.AddSpace("ha", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	bindings := map[string]string{
@@ -4290,7 +4290,7 @@ func (s *ApplicationSuite) TestEndpointBindingsWithExplictOverrides(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestSetCharmExtraBindingsUseDefaults(c *gc.C) {
-	dbSpace, err := s.State.AddSpace("db", "", nil, true)
+	dbSpace, err := s.State.AddSpace("db", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	oldCharm := s.AddMetaCharm(c, "mysql", metaDifferentProvider, 42)

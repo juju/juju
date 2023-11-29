@@ -605,7 +605,6 @@ func (s *MigrationSuite) TestSpaceDocFields(c *gc.C) {
 	migrated := set.NewStrings(
 		"Id",
 		"Name",
-		"IsPublic",
 		"ProviderId",
 	)
 	s.AssertExportedFields(c, spaceDoc{}, migrated.Union(ignored))
@@ -662,7 +661,6 @@ func (s *MigrationSuite) TestSubnetDocFields(c *gc.C) {
 		"ProviderNetworkId",
 		"FanLocalUnderlay",
 		"FanOverlay",
-		"IsPublic",
 	)
 	s.AssertExportedFields(c, subnetDoc{}, migrated.Union(ignored))
 }

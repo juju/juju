@@ -94,13 +94,13 @@ peers:
 	// it should be always allowed.
 
 	var err error
-	s.clientSpace, err = s.State.AddSpace("client", "", nil, true)
+	s.clientSpace, err = s.State.AddSpace("client", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	s.appsSpace, err = s.State.AddSpace("apps", "", nil, true)
+	s.appsSpace, err = s.State.AddSpace("apps", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	s.dbSpace, err = s.State.AddSpace("db", "", nil, true)
+	s.dbSpace, err = s.State.AddSpace("db", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	s.barbSpace, err = s.State.AddSpace("barb3", "", nil, true)
+	s.barbSpace, err = s.State.AddSpace("barb3", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
