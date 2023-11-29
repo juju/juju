@@ -29,9 +29,7 @@ type recordAuthHeaderPolicy struct {
 
 func (p *recordAuthHeaderPolicy) Do(req *policy.Request) (*http.Response, error) {
 	resp, err := req.Next()
-	if err == nil {
-		p.authHeader = resp.Header.Get(authenticateHeaderKey)
-	}
+	p.authHeader = resp.Header.Get(authenticateHeaderKey)
 	return resp, err
 }
 

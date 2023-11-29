@@ -726,6 +726,14 @@ func (ImportSecrets) Execute(src SecretsInput, runner TransactionRunner, knownSe
 				return errors.Annotatef(err, "invalid consumer for secret %q", secret.Id())
 			}
 			key := src.SecretConsumerKey(uri, consumer.String())
+			currentRev := info.CurrentRevision()
+			latestRev := info.LatestRevision()
+			// Older models may have set the consumed rev info to 0 (assuming the latest revision always).
+			// So set the latest values explicitly.
+			if currentRev == 0 {
+				currentRev = secret.LatestRevision()
+				latestRev = secret.LatestRevision()
+			}
 			ops = append(ops, txn.Op{
 				C:      secretConsumersC,
 				Id:     key,
@@ -734,8 +742,8 @@ func (ImportSecrets) Execute(src SecretsInput, runner TransactionRunner, knownSe
 					DocID:           key,
 					ConsumerTag:     consumer.String(),
 					Label:           info.Label(),
-					CurrentRevision: info.CurrentRevision(),
-					LatestRevision:  info.LatestRevision(),
+					CurrentRevision: currentRev,
+					LatestRevision:  latestRev,
 				},
 			})
 		}

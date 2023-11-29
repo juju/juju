@@ -658,6 +658,11 @@ func (a *app) configureHeadlessService(name string, annotation annotations.Annot
 	return svc.Apply(context.Background(), a.client)
 }
 
+const (
+	placeholderPortName = "placeholder"
+	placeholderPort     = 65535
+)
+
 // configureDefaultService configures the default service for the application.
 // It's only configured once when the application was deployed in the first time.
 func (a *app) configureDefaultService(annotation annotations.Annotation) (err error) {
@@ -670,8 +675,8 @@ func (a *app) configureDefaultService(annotation annotations.Annotation) (err er
 			Selector: a.selectorLabels(),
 			Type:     corev1.ServiceTypeClusterIP,
 			Ports: []corev1.ServicePort{{
-				Name: "placeholder",
-				Port: 65535,
+				Name: placeholderPortName,
+				Port: placeholderPort,
 			}},
 		},
 	})
@@ -749,10 +754,16 @@ func (a *app) UpdatePorts(ports []caas.ServicePort, updateContainerPorts bool) e
 
 	var expectedPorts []corev1.ServicePort
 	for _, p := range svc.Service.Spec.Ports {
-		if !strings.HasPrefix(p.Name, portNamePrefix) {
-			// The ports are not mamanged by Juju should be kept.
-			expectedPorts = append(expectedPorts, p)
+		if p.Name == placeholderPortName && len(ports) > 0 {
+			// Ignore placeholder port if there are ports supplied by the charm.
+			continue
 		}
+		if strings.HasPrefix(p.Name, portNamePrefix) {
+			// Port managed by Juju - will be replaced,
+			continue
+		}
+		// The ports that are not managed by Juju should be kept.
+		expectedPorts = append(expectedPorts, p)
 	}
 	for _, port := range ports {
 		sp, err := convertServicePort(port)

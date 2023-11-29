@@ -849,26 +849,27 @@ func (ctx *HookContext) GetSecret(uri *coresecrets.URI, label string, refresh, p
 	if uri == nil && label == "" {
 		return nil, errors.NotValidf("empty URI and label")
 	}
+	if uri != nil {
+		if v, got := ctx.getPendingSecretValue(uri, label, refresh, peek); got {
+			return v, nil
+		}
+	}
 	if label != "" {
+		if v, got := ctx.getPendingSecretValue(nil, label, refresh, peek); got {
+			return v, nil
+		}
+	}
+	if uri == nil && label != "" {
 		// try to resolve label to URI by looking up owned secrets.
 		ownedSecretURI, err := ctx.lookupOwnedSecretURIByLabel(label)
 		if err != nil && !errors.Is(err, errors.NotFound) {
 			return nil, err
 		}
 		if ownedSecretURI != nil {
-			if uri != nil {
-				return nil, errors.NewNotValid(nil, "either URI or label should be used for getting an owned secret but not both")
-			}
-			if refresh {
-				return nil, errors.NewNotValid(nil, "secret owner cannot use --refresh")
-			}
 			// Found owned secret, no need label anymore.
 			uri = ownedSecretURI
 			label = ""
 		}
-	}
-	if v, got := ctx.getPendingSecretValue(uri); got {
-		return v, nil
 	}
 	backend, err := ctx.getSecretsBackend()
 	if err != nil {
@@ -881,18 +882,46 @@ func (ctx *HookContext) GetSecret(uri *coresecrets.URI, label string, refresh, p
 	return v, nil
 }
 
-func (ctx *HookContext) getPendingSecretValue(uri *coresecrets.URI) (coresecrets.SecretValue, bool) {
-	if uri == nil {
+func (ctx *HookContext) getPendingSecretValue(uri *coresecrets.URI, label string, refresh, peek bool) (coresecrets.SecretValue, bool) {
+	if uri == nil && label == "" {
 		return nil, false
 	}
-	for _, v := range ctx.secretChanges.pendingCreates {
-		if v.URI != nil && v.URI.ID == uri.ID {
+	for i, v := range ctx.secretChanges.pendingCreates {
+		if uri != nil && v.URI != nil && v.URI.ID == uri.ID {
+			if label != "" {
+				pending := ctx.secretChanges.pendingCreates[i]
+				pending.Label = &label
+				ctx.secretChanges.pendingCreates[i] = pending
+			}
+			// The initial value of the secret is not stored in the database yet.
+			return v.Value, true
+		}
+		if label != "" && v.Label != nil && label == *v.Label {
 			// The initial value of the secret is not stored in the database yet.
 			return v.Value, true
 		}
 	}
-	for _, v := range ctx.secretChanges.pendingUpdates {
-		if v.URI != nil && v.URI.ID == uri.ID {
+	if !refresh && !peek {
+		return nil, false
+	}
+
+	for i, v := range ctx.secretChanges.pendingUpdates {
+		if uri != nil && v.URI != nil && v.URI.ID == uri.ID {
+			if label != "" {
+				pending := ctx.secretChanges.pendingUpdates[i]
+				pending.Label = &label
+				ctx.secretChanges.pendingUpdates[i] = pending
+			}
+			if refresh {
+				ctx.secretChanges.pendingTrackLatest[v.URI.ID] = true
+			}
+			// The new value of the secret is going to be updated to the database.
+			return v.Value, v.Value != nil && !v.Value.IsEmpty()
+		}
+		if label != "" && v.Label != nil && label == *v.Label {
+			if refresh {
+				ctx.secretChanges.pendingTrackLatest[v.URI.ID] = true
+			}
 			// The new value of the secret is going to be updated to the database.
 			return v.Value, v.Value != nil && !v.Value.IsEmpty()
 		}
@@ -1512,12 +1541,13 @@ func (ctx *HookContext) doFlush(process string) error {
 	}
 
 	var (
-		cleanups       []coresecrets.ValueRef
-		pendingCreates []uniter.SecretCreateArg
-		pendingUpdates []uniter.SecretUpsertArg
-		pendingDeletes []uniter.SecretDeleteArg
-		pendingGrants  []uniter.SecretGrantRevokeArgs
-		pendingRevokes []uniter.SecretGrantRevokeArgs
+		cleanups           []coresecrets.ValueRef
+		pendingCreates     []uniter.SecretCreateArg
+		pendingUpdates     []uniter.SecretUpsertArg
+		pendingDeletes     []uniter.SecretDeleteArg
+		pendingGrants      []uniter.SecretGrantRevokeArgs
+		pendingRevokes     []uniter.SecretGrantRevokeArgs
+		pendingTrackLatest []string
 	)
 	for _, c := range ctx.secretChanges.pendingCreates {
 		ref, err := secretsBackend.SaveContent(c.URI, 1, c.Value)
@@ -1585,11 +1615,16 @@ func (ctx *HookContext) doFlush(process string) error {
 		pendingRevokes = append(pendingRevokes, r)
 	}
 
+	for uri := range ctx.secretChanges.pendingTrackLatest {
+		pendingTrackLatest = append(pendingTrackLatest, uri)
+	}
+
 	b.AddSecretCreates(pendingCreates)
 	b.AddSecretUpdates(pendingUpdates)
 	b.AddSecretDeletes(pendingDeletes)
 	b.AddSecretGrants(pendingGrants)
 	b.AddSecretRevokes(pendingRevokes)
+	b.AddTrackLatest(pendingTrackLatest)
 
 	if ctx.modelType == model.CAAS {
 		if err := ctx.addCommitHookChangesForCAAS(b, process); err != nil {
