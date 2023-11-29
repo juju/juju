@@ -40398,17 +40398,17 @@
                         "role": {
                             "type": "string"
                         },
-                        "scope": {
+                        "scope-tag": {
                             "type": "string"
                         },
-                        "target": {
+                        "target-tag": {
                             "type": "string"
                         }
                     },
                     "additionalProperties": false,
                     "required": [
-                        "target",
-                        "scope",
+                        "target-tag",
+                        "scope-tag",
                         "role"
                     ]
                 },
@@ -40954,17 +40954,17 @@
                         "role": {
                             "type": "string"
                         },
-                        "scope": {
+                        "scope-tag": {
                             "type": "string"
                         },
-                        "target": {
+                        "target-tag": {
                             "type": "string"
                         }
                     },
                     "additionalProperties": false,
                     "required": [
-                        "target",
-                        "scope",
+                        "target-tag",
+                        "scope-tag",
                         "role"
                     ]
                 },
@@ -41441,17 +41441,17 @@
                         "role": {
                             "type": "string"
                         },
-                        "scope": {
+                        "scope-tag": {
                             "type": "string"
                         },
-                        "target": {
+                        "target-tag": {
                             "type": "string"
                         }
                     },
                     "additionalProperties": false,
                     "required": [
-                        "target",
-                        "scope",
+                        "target-tag",
+                        "scope-tag",
                         "role"
                     ]
                 },
@@ -48245,17 +48245,17 @@
                         "role": {
                             "type": "string"
                         },
-                        "scope": {
+                        "scope-tag": {
                             "type": "string"
                         },
-                        "target": {
+                        "target-tag": {
                             "type": "string"
                         }
                     },
                     "additionalProperties": false,
                     "required": [
-                        "target",
-                        "scope",
+                        "target-tag",
+                        "scope-tag",
                         "role"
                     ]
                 },
@@ -52933,17 +52933,17 @@
                         "role": {
                             "type": "string"
                         },
-                        "scope": {
+                        "scope-tag": {
                             "type": "string"
                         },
-                        "target": {
+                        "target-tag": {
                             "type": "string"
                         }
                     },
                     "additionalProperties": false,
                     "required": [
-                        "target",
-                        "scope",
+                        "target-tag",
+                        "scope-tag",
                         "role"
                     ]
                 },
