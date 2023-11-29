@@ -17,10 +17,14 @@ import (
 type secretsChangeRecorder struct {
 	logger loggo.Logger
 
-	pendingCreates     map[string]uniter.SecretCreateArg
-	pendingUpdates     map[string]uniter.SecretUpdateArg
-	pendingDeletes     map[string]uniter.SecretDeleteArg
-	pendingGrants      map[string]map[string]uniter.SecretGrantRevokeArgs
+	pendingCreates map[string]uniter.SecretCreateArg
+	pendingUpdates map[string]uniter.SecretUpdateArg
+	pendingDeletes map[string]uniter.SecretDeleteArg
+	// pendingGrants maps secret URI to a map of relation key to grant args.
+	// Because we need to track the grant args per relation key per secret URI.
+	pendingGrants map[string]map[string]uniter.SecretGrantRevokeArgs
+	// pendingRevokes maps secret URI to a list of revoke args.
+	// For revoke, we only need to know the target URI and target entity(unit/application).
 	pendingRevokes     map[string][]uniter.SecretGrantRevokeArgs
 	pendingTrackLatest map[string]bool
 }

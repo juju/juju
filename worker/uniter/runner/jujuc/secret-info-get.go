@@ -82,20 +82,20 @@ type metadataDisplay struct {
 	RotatePolicy     secrets.RotatePolicy `yaml:"rotation,omitempty" json:"rotation,omitempty"`
 	LatestExpireTime *time.Time           `yaml:"expiry,omitempty" json:"expiry,omitempty"`
 	NextRotateTime   *time.Time           `yaml:"rotates,omitempty" json:"rotates,omitempty"`
-	Access           []AccessInfo         `yaml:"access,omitempty" json:"access,omitempty"`
+	Access           []accessInfo         `yaml:"access,omitempty" json:"access,omitempty"`
 }
 
-// AccessInfo holds info about a secret access information.
-type AccessInfo struct {
-	Target string             `json:"target"`
-	Scope  string             `json:"scope"`
-	Role   secrets.SecretRole `json:"role"`
+// accessInfo holds info about a secret access information.
+type accessInfo struct {
+	Target string             `yaml:"target" json:"target"`
+	Scope  string             `yaml:"scope" json:"scope"`
+	Role   secrets.SecretRole `yaml:"role" json:"role"`
 }
 
-func toAccessInfo(grants []secrets.AccessInfo) []AccessInfo {
-	result := make([]AccessInfo, len(grants))
+func toAccessInfo(grants []secrets.AccessInfo) []accessInfo {
+	result := make([]accessInfo, len(grants))
 	for i, grant := range grants {
-		result[i] = AccessInfo{
+		result[i] = accessInfo{
 			Target: grant.Target,
 			Scope:  grant.Scope,
 			Role:   grant.Role,

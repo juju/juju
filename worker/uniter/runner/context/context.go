@@ -1084,7 +1084,7 @@ func (ctx *HookContext) GrantSecret(uri *coresecrets.URI, arg *jujuc.SecretGrant
 	}
 	params := uniterArg.ToParams()
 	if len(params.SubjectTags) != 1 {
-		return errors.NotValidf("subject tags")
+		return errors.NotValidf("subject tags %v", params.SubjectTags)
 	}
 	subjectTag, err := names.ParseTag(params.SubjectTags[0])
 	if err != nil {
