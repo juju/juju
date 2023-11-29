@@ -194,9 +194,9 @@ func (s *DeployLocalSuite) TestDeployWithSomeSpecifiedBindings(c *gc.C) {
 
 	wordpressCharm := s.addWordpressCharm(c)
 	st := s.ControllerModel(c).State()
-	dbSpace, err := st.AddSpace("db", "", nil, false)
+	dbSpace, err := st.AddSpace("db", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	publicSpace, err := st.AddSpace("public", "", nil, false)
+	publicSpace, err := st.AddSpace("public", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	model, err := st.Model()
@@ -242,11 +242,11 @@ func (s *DeployLocalSuite) TestDeployWithBoundRelationNamesAndExtraBindingsNames
 
 	wordpressCharm := s.addWordpressCharmWithExtraBindings(c)
 	st := s.ControllerModel(c).State()
-	dbSpace, err := st.AddSpace("db", "", nil, false)
+	dbSpace, err := st.AddSpace("db", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	publicSpace, err := st.AddSpace("public", "", nil, false)
+	publicSpace, err := st.AddSpace("public", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	internalSpace, err := st.AddSpace("internal", "", nil, false)
+	internalSpace, err := st.AddSpace("internal", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	model, err := st.Model()
@@ -293,9 +293,9 @@ func (s *DeployLocalSuite) TestDeployWithInvalidSpace(c *gc.C) {
 
 	wordpressCharm := s.addWordpressCharm(c)
 	st := s.ControllerModel(c).State()
-	_, err := st.AddSpace("db", "", nil, false)
+	_, err := st.AddSpace("db", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	publicSpace, err := st.AddSpace("public", "", nil, false)
+	publicSpace, err := st.AddSpace("public", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	model, err := st.Model()

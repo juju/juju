@@ -65,7 +65,7 @@ func (s *uniterNetworkInfoSuite) SetUpTest(c *gc.C) {
 
 	s.st = s.ControllerModel(c).State()
 	for spaceName, cidrs := range net {
-		space, err := s.st.AddSpace(spaceName, "", nil, false)
+		space, err := s.st.AddSpace(spaceName, "", nil)
 		c.Assert(err, jc.ErrorIsNil)
 
 		for _, cidr := range cidrs {

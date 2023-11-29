@@ -2167,9 +2167,9 @@ func (s *StateSuite) TestAddApplicationWithDefaultBindings(c *gc.C) {
 
 func (s *StateSuite) TestAddApplicationWithSpecifiedBindings(c *gc.C) {
 	// Add extra spaces to use in bindings.
-	dbSpace, err := s.State.AddSpace("db", "", nil, false)
+	dbSpace, err := s.State.AddSpace("db", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	clientSpace, err := s.State.AddSpace("client", "", nil, true)
+	clientSpace, err := s.State.AddSpace("client", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Specify some bindings, but not all when adding the application.
@@ -2203,9 +2203,9 @@ func (s *StateSuite) TestAddApplicationWithSpecifiedBindings(c *gc.C) {
 func (s *StateSuite) TestAddApplicationWithInvalidBindings(c *gc.C) {
 	charm := s.AddMetaCharm(c, "mysql", metaBase, 44)
 	// Add extra spaces to use in bindings.
-	dbSpace, err := s.State.AddSpace("db", "", nil, false)
+	dbSpace, err := s.State.AddSpace("db", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	clientSpace, err := s.State.AddSpace("client", "", nil, true)
+	clientSpace, err := s.State.AddSpace("client", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	for i, test := range []struct {
@@ -4673,7 +4673,7 @@ func (s *StateSuite) TestSetAPIHostPortsNoMgmtSpaceConcurrentSame(c *gc.C) {
 }
 
 func (s *StateSuite) TestSetAPIHostPortsWithMgmtSpace(c *gc.C) {
-	sp, err := s.State.AddSpace("mgmt01", "", nil, false)
+	sp, err := s.State.AddSpace("mgmt01", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	cfg := testing.FakeControllerConfig()

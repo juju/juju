@@ -1481,7 +1481,6 @@ func (e *exporter) spaces() error {
 		e.model.AddSpace(description.SpaceArgs{
 			Id:         space.Id(),
 			Name:       space.Name(),
-			Public:     space.IsPublic(),
 			ProviderID: string(space.ProviderId()),
 		})
 	}
@@ -1532,7 +1531,6 @@ func (e *exporter) subnets() error {
 			AvailabilityZones: subnet.AvailabilityZones(),
 			FanLocalUnderlay:  subnet.FanLocalUnderlay(),
 			FanOverlay:        subnet.FanOverlay(),
-			IsPublic:          subnet.IsPublic(),
 		}
 		e.model.AddSubnet(args)
 	}

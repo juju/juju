@@ -156,7 +156,6 @@ type SpaceParams struct {
 	Name       string
 	ProviderID network.Id
 	SubnetIDs  []string
-	IsPublic   bool
 }
 
 // RandomSuffix adds a random 5 character suffix to the presented string.
@@ -871,7 +870,7 @@ func (factory *Factory) MakeSpace(c *gc.C, params *SpaceParams) *state.Space {
 	if params.Name == "" {
 		params.Name = uniqueString("space-")
 	}
-	space, err := factory.st.AddSpace(params.Name, params.ProviderID, params.SubnetIDs, params.IsPublic)
+	space, err := factory.st.AddSpace(params.Name, params.ProviderID, params.SubnetIDs)
 	c.Assert(err, jc.ErrorIsNil)
 	return space
 }

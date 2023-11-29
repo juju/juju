@@ -59,7 +59,6 @@ type addSpaceArgs struct {
 	Name        string
 	ProviderId  network.Id
 	SubnetCIDRs []string
-	IsPublic    bool
 	ForState    *state.State
 }
 
@@ -68,7 +67,7 @@ func (s *SpacesSuite) addSpaceWithSubnets(c *gc.C, args addSpaceArgs) (*state.Sp
 		args.ForState = s.State
 	}
 	subnetIDs := s.addSubnetsForState(c, args.SubnetCIDRs, args.ForState)
-	return args.ForState.AddSpace(args.Name, args.ProviderId, subnetIDs, args.IsPublic)
+	return args.ForState.AddSpace(args.Name, args.ProviderId, subnetIDs)
 }
 
 func (s *SpacesSuite) assertSpaceNotFound(c *gc.C, name string) {
@@ -96,7 +95,6 @@ func (s *SpacesSuite) assertSpaceMatchesArgs(c *gc.C, space *state.Space, args a
 		actualSubnetIds[i] = subnet.CIDR
 	}
 	c.Assert(actualSubnetIds, jc.SameContents, args.SubnetCIDRs)
-	c.Assert(state.SpaceDoc(space).IsPublic, gc.Equals, args.IsPublic)
 
 	c.Assert(space.String(), gc.Equals, args.Name)
 
@@ -390,9 +388,8 @@ func (s *SpacesSuite) TestAddTwoSpacesWithSameNamesAndProviderIdsSuccedsInDiffer
 func (s *SpacesSuite) TestAddSpaceWhenSubnetNotFound(c *gc.C) {
 	name := "my-space"
 	subnets := []string{"1.1.1.0/24"}
-	isPublic := false
 
-	_, err := s.State.AddSpace(name, "", subnets, isPublic)
+	_, err := s.State.AddSpace(name, "", subnets)
 	c.Assert(err, gc.ErrorMatches, `adding space "my-space": subnet "1.1.1.0/24" not found`)
 	s.assertSpaceNotFound(c, name)
 }
@@ -453,14 +450,13 @@ func (s *SpacesSuite) TestAllSpaces(c *gc.C) {
 	c.Assert(spaces, jc.DeepEquals, []*state.Space{alphaSpace})
 
 	subnets := []string{"1.1.1.0/24", "2.1.1.0/24", "3.1.1.0/24"}
-	isPublic := false
 	subnetIDs := s.addSubnets(c, subnets)
 
-	first, err := s.State.AddSpace("first", "", []string{subnetIDs[0]}, isPublic)
+	first, err := s.State.AddSpace("first", "", []string{subnetIDs[0]})
 	c.Assert(err, jc.ErrorIsNil)
-	second, err := s.State.AddSpace("second", "", []string{subnetIDs[1]}, isPublic)
+	second, err := s.State.AddSpace("second", "", []string{subnetIDs[1]})
 	c.Assert(err, jc.ErrorIsNil)
-	third, err := s.State.AddSpace("third", "", []string{subnetIDs[2]}, isPublic)
+	third, err := s.State.AddSpace("third", "", []string{subnetIDs[2]})
 	c.Assert(err, jc.ErrorIsNil)
 
 	actual, err := s.State.AllSpaces()
@@ -486,7 +482,7 @@ func (s *SpacesSuite) TestEnsureDeadSetsLifeToDeadWhenAlive(c *gc.C) {
 }
 
 func (s *SpacesSuite) addAliveSpace(c *gc.C, name string) *state.Space {
-	space, err := s.State.AddSpace(name, "", nil, false)
+	space, err := s.State.AddSpace(name, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	return space
 }

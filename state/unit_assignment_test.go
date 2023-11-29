@@ -113,7 +113,7 @@ func (s *UnitAssignmentSuite) TestAssignUnitWithPlacementMakesContainerInNewMach
 }
 
 func (s *UnitAssignmentSuite) TestAssignUnitWithPlacementNewMachinesHaveBindingsAsConstraints(c *gc.C) {
-	specialSpace, err := s.State.AddSpace("special-space", "", nil, false)
+	specialSpace, err := s.State.AddSpace("special-space", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	charm := s.AddTestingCharm(c, "dummy")
@@ -159,10 +159,10 @@ func (s *UnitAssignmentSuite) TestAssignUnitWithPlacementNewMachinesHaveBindings
 }
 
 func (s *UnitAssignmentSuite) TestAssignUnitWithPlacementNewMachinesHaveBindingsAsConstraintsMerged(c *gc.C) {
-	boundSpace, err := s.State.AddSpace("bound-space", "", nil, false)
+	boundSpace, err := s.State.AddSpace("bound-space", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	constrainedSpace, err := s.State.AddSpace("constrained-space", "", nil, false)
+	constrainedSpace, err := s.State.AddSpace("constrained-space", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	charm := s.AddTestingCharm(c, "dummy")

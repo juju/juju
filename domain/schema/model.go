@@ -85,10 +85,9 @@ func subnetSchema() schema.Patch {
 -- |*uuid              text|                 |*uuid                text|
 -- |cidr               text|1               1|name                 text|
 -- |vlan_tag            int+-----------------+is_usable         boolean|
--- |is_public       boolean|                 |is_space_settable boolean|
--- |space_uuid         text|                 +------------+------------+
--- |subnet_type_uuid   text|                              |1
--- +---------+-------------+                              |
+-- |space_uuid         text|                 |is_space_settable boolean|
+-- |subnet_type_uuid   text|                 +------------+------------+
+-- +---------+-------------+                              |1
 --           |1                                           |
 --           |                                            |
 --           |                                            |
@@ -114,7 +113,6 @@ CREATE TABLE subnet (
     uuid                         TEXT PRIMARY KEY,
     cidr                         TEXT NOT NULL,
     vlan_tag                     INT,
-    is_public                    BOOLEAN,
     space_uuid                   TEXT,
     subnet_type_id               INT,
     CONSTRAINT                   fk_subnets_spaces

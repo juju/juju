@@ -524,7 +524,7 @@ func (s *MigrationImportSuite) setupSourceApplications(
 	// Add a application with charm settings, app config, and leadership settings.
 	f := factory.NewFactory(st, s.StatePool)
 
-	serverSpace, err := s.State.AddSpace("server", "", nil, true)
+	serverSpace, err := s.State.AddSpace("server", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	exposedSpaceIDs := []string{serverSpace.Id()}
 
@@ -918,7 +918,7 @@ func (s *MigrationImportSuite) TestCAASApplicationStatus(c *gc.C) {
 func (s *MigrationImportSuite) TestApplicationsWithExposedOffers(c *gc.C) {
 	_ = s.Factory.MakeUser(c, &factory.UserParams{Name: "admin"})
 	fooUser := s.Factory.MakeUser(c, &factory.UserParams{Name: "foo"})
-	serverSpace, err := s.State.AddSpace("server", "", nil, true)
+	serverSpace, err := s.State.AddSpace("server", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
@@ -1493,7 +1493,7 @@ func (s *MigrationImportSuite) TestRelationsMissingStatusNoUnits(c *gc.C) {
 func (s *MigrationImportSuite) TestEndpointBindings(c *gc.C) {
 	// Endpoint bindings need both valid charms, applications, and spaces.
 	space := s.Factory.MakeSpace(c, &factory.SpaceParams{
-		Name: "one", ProviderID: "provider", IsPublic: true})
+		Name: "one", ProviderID: "provider"})
 	state.AddTestingApplicationWithBindings(
 		c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"),
 		map[string]string{"db": space.Id()})
@@ -1515,7 +1515,7 @@ func (s *MigrationImportSuite) TestIncompleteEndpointBindings(c *gc.C) {
 	// Ensure we handle the case coming from an early 2.7 controller
 	// where the default binding is missing.
 	space := s.Factory.MakeSpace(c, &factory.SpaceParams{
-		Name: "one", ProviderID: "provider", IsPublic: true})
+		Name: "one", ProviderID: "provider"})
 	state.AddTestingApplicationWithBindings(
 		c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"),
 		map[string]string{"db": space.Id()})
@@ -1588,10 +1588,10 @@ func (s *MigrationImportSuite) TestUnitsOpenPorts(c *gc.C) {
 
 func (s *MigrationImportSuite) TestSpaces(c *gc.C) {
 	space := s.Factory.MakeSpace(c, &factory.SpaceParams{
-		Name: "one", ProviderID: network.Id("provider"), IsPublic: true})
+		Name: "one", ProviderID: network.Id("provider")})
 
 	spaceNoID := s.Factory.MakeSpace(c, &factory.SpaceParams{
-		Name: "no-id", ProviderID: network.Id("provider2"), IsPublic: true})
+		Name: "no-id", ProviderID: network.Id("provider2")})
 
 	// Blank the ID from the second space to check that import creates it.
 	_, newSt := s.importModel(c, s.State, func(desc map[string]interface{}) {
@@ -1610,7 +1610,6 @@ func (s *MigrationImportSuite) TestSpaces(c *gc.C) {
 	c.Check(imported.Id(), gc.Equals, space.Id())
 	c.Check(imported.Name(), gc.Equals, space.Name())
 	c.Check(imported.ProviderId(), gc.Equals, space.ProviderId())
-	c.Check(imported.IsPublic(), gc.Equals, space.IsPublic())
 
 	imported, err = newSt.SpaceByName(spaceNoID.Name())
 	c.Assert(err, jc.ErrorIsNil)
@@ -1748,7 +1747,7 @@ func (s *MigrationImportSuite) TestLinkLayerDeviceMigratesReferences(c *gc.C) {
 }
 
 func (s *MigrationImportSuite) TestSubnets(c *gc.C) {
-	sp, err := s.State.AddSpace("bam", "", nil, true)
+	sp, err := s.State.AddSpace("bam", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	original, err := s.State.AddSubnet(network.SubnetInfo{
 		CIDR:              "10.0.0.0/24",
@@ -1757,7 +1756,6 @@ func (s *MigrationImportSuite) TestSubnets(c *gc.C) {
 		VLANTag:           64,
 		SpaceID:           sp.Id(),
 		AvailabilityZones: []string{"bar"},
-		IsPublic:          true,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	originalNoID, err := s.State.AddSubnet(network.SubnetInfo{
@@ -1798,7 +1796,6 @@ func (s *MigrationImportSuite) TestSubnets(c *gc.C) {
 	c.Assert(subnet.SpaceID(), gc.Equals, sp.Id())
 	c.Assert(subnet.FanLocalUnderlay(), gc.Equals, "")
 	c.Assert(subnet.FanOverlay(), gc.Equals, "")
-	c.Assert(subnet.IsPublic(), gc.Equals, true)
 
 	imported, err := newSt.SubnetByCIDR(originalNoID.CIDR())
 	c.Assert(err, jc.ErrorIsNil)
@@ -1810,7 +1807,7 @@ func (s *MigrationImportSuite) TestSubnetsWithFan(c *gc.C) {
 		CIDR: "100.2.0.0/16",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	sp, err := s.State.AddSpace("bam", "", []string{subnet.ID()}, true)
+	sp, err := s.State.AddSpace("bam", "", []string{subnet.ID()})
 	c.Assert(err, jc.ErrorIsNil)
 
 	sn := network.SubnetInfo{
@@ -1844,7 +1841,7 @@ func (s *MigrationImportSuite) TestIPAddress(c *gc.C) {
 	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
 		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
 	})
-	space, err := s.State.AddSpace("testme", "", nil, true)
+	space, err := s.State.AddSpace("testme", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddSubnet(network.SubnetInfo{CIDR: "0.1.2.0/24", SpaceID: space.Id()})
 	c.Assert(err, jc.ErrorIsNil)
