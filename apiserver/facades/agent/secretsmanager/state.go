@@ -42,7 +42,7 @@ type SecretsState interface {
 	ListSecretRevisions(uri *secrets.URI) ([]*secrets.SecretRevisionMetadata, error)
 	WatchObsolete(owners []names.Tag) (state.StringsWatcher, error)
 	ChangeSecretBackend(state.ChangeSecretBackendParams) error
-	SecretGrants(uri *secrets.URI) ([]secrets.AccessInfo, error)
+	SecretGrants(uri *secrets.URI, role secrets.SecretRole) ([]secrets.AccessInfo, error)
 }
 
 type CrossModelState interface {

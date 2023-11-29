@@ -513,7 +513,7 @@ func GetSecretMetadata(
 			CreateTime:       md.CreateTime,
 			UpdateTime:       md.UpdateTime,
 		}
-		grants, err := secretsState.SecretGrants(md.URI)
+		grants, err := secretsState.SecretGrants(md.URI, coresecrets.RoleView)
 		if err != nil {
 			return result, errors.Trace(err)
 		}

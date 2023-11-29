@@ -121,8 +121,8 @@ type secretDisplayDetails struct {
 // AccessInfo holds info about a secret access information.
 type AccessInfo struct {
 	Target string             `json:"target" yaml:"target"`
-	Scope  string             `json:"scope"`
-	Role   secrets.SecretRole `json:"role"`
+	Scope  string             `json:"scope" yaml:"scope"`
+	Role   secrets.SecretRole `json:"role" yaml:"role"`
 }
 
 func toGrantInfo(grants []secrets.AccessInfo) []AccessInfo {

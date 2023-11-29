@@ -288,8 +288,8 @@ type ListSecretResult struct {
 
 // AccessInfo holds info about a secret access information.
 type AccessInfo struct {
-	Target string             `json:"target"`
-	Scope  string             `json:"scope"`
+	Target string             `json:"target-tag"`
+	Scope  string             `json:"scope-tag"`
 	Role   secrets.SecretRole `json:"role"`
 }
 

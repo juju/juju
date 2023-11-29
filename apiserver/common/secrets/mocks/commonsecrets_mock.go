@@ -340,18 +340,18 @@ func (mr *MockSecretsMetaStateMockRecorder) ListSecrets(arg0 interface{}) *gomoc
 }
 
 // SecretGrants mocks base method.
-func (m *MockSecretsMetaState) SecretGrants(arg0 *secrets0.URI) ([]secrets0.AccessInfo, error) {
+func (m *MockSecretsMetaState) SecretGrants(arg0 *secrets0.URI, arg1 secrets0.SecretRole) ([]secrets0.AccessInfo, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SecretGrants", arg0)
+	ret := m.ctrl.Call(m, "SecretGrants", arg0, arg1)
 	ret0, _ := ret[0].([]secrets0.AccessInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // SecretGrants indicates an expected call of SecretGrants.
-func (mr *MockSecretsMetaStateMockRecorder) SecretGrants(arg0 interface{}) *gomock.Call {
+func (mr *MockSecretsMetaStateMockRecorder) SecretGrants(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SecretGrants", reflect.TypeOf((*MockSecretsMetaState)(nil).SecretGrants), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SecretGrants", reflect.TypeOf((*MockSecretsMetaState)(nil).SecretGrants), arg0, arg1)
 }
 
 // MockSecretsRemoveState is a mock of SecretsRemoveState interface.

@@ -688,7 +688,7 @@ func (s *secretsSuite) TestGetSecretMetadata(c *gc.C) {
 		LatestExpireTime: &now,
 		NextRotateTime:   &now,
 	}}, nil)
-	secretsMetaState.EXPECT().SecretGrants(uri).Return([]coresecrets.AccessInfo{
+	secretsMetaState.EXPECT().SecretGrants(uri, coresecrets.RoleView).Return([]coresecrets.AccessInfo{
 		{
 			Target: "application-gitlab",
 			Scope:  "relation-key",

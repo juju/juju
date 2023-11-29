@@ -94,7 +94,7 @@ type SecretsStore interface {
 	WatchObsolete(owners []names.Tag) (StringsWatcher, error)
 	WatchRevisionsToPrune(ownerTags []names.Tag) (StringsWatcher, error)
 	ChangeSecretBackend(ChangeSecretBackendParams) error
-	SecretGrants(uri *secrets.URI) ([]secrets.AccessInfo, error)
+	SecretGrants(uri *secrets.URI, role secrets.SecretRole) ([]secrets.AccessInfo, error)
 }
 
 // NewSecrets creates a new mongo backed secrets store.
@@ -869,7 +869,7 @@ func (s *secretsStore) ChangeSecretBackend(arg ChangeSecretBackendParams) error 
 }
 
 // SecretGrants returns the list of access information of the secret.
-func (s *secretsStore) SecretGrants(uri *secrets.URI) ([]secrets.AccessInfo, error) {
+func (s *secretsStore) SecretGrants(uri *secrets.URI, role secrets.SecretRole) ([]secrets.AccessInfo, error) {
 	secretPermissionsCollection, closer := s.st.db().GetCollection(secretPermissionsC)
 	defer closer()
 
@@ -883,8 +883,7 @@ func (s *secretsStore) SecretGrants(uri *secrets.URI) ([]secrets.AccessInfo, err
 			"_id": bson.M{
 				"$regex": fmt.Sprintf("%s#.*", uri.ID),
 			},
-			// We just want the manually granted record but not the auto-granted for owners.
-			"role": secrets.RoleView,
+			"role": role,
 		},
 	).All(&docs)
 	if err != nil {

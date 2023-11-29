@@ -129,7 +129,7 @@ func (s *SecretsAPI) ListSecrets(arg params.ListSecretsArgs) (params.ListSecretR
 			CreateTime:       m.CreateTime,
 			UpdateTime:       m.UpdateTime,
 		}
-		grants, err := s.secretsState.SecretGrants(m.URI)
+		grants, err := s.secretsState.SecretGrants(m.URI, coresecrets.RoleView)
 		if err != nil {
 			return result, errors.Trace(err)
 		}
