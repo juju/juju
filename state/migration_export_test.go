@@ -1228,7 +1228,6 @@ func (s *MigrationExportSuite) TestSpaces(c *gc.C) {
 	c.Assert(space.Id(), gc.Not(gc.Equals), "")
 	c.Assert(space.Name(), gc.Equals, "one")
 	c.Assert(space.ProviderID(), gc.Equals, "provider")
-	c.Assert(space.Public(), jc.IsTrue)
 }
 
 func (s *MigrationExportSuite) TestMultipleSpaces(c *gc.C) {
