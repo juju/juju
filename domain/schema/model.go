@@ -116,17 +116,17 @@ CREATE TABLE subnet (
     vlan_tag                     INT,
     is_public                    BOOLEAN,
     space_uuid                   TEXT,
-    subnet_type_uuid             TEXT,
+    subnet_type_id               INT,
     CONSTRAINT                   fk_subnets_spaces
         FOREIGN KEY                  (space_uuid)
         REFERENCES                   space(uuid),
     CONSTRAINT                   fk_subnet_types
-        FOREIGN KEY                  (subnet_type_uuid)
-        REFERENCES                   subnet_type(uuid)
+        FOREIGN KEY                  (subnet_type_id)
+        REFERENCES                   subnet_type(id)
 );
 
 CREATE TABLE subnet_type (
-    uuid                         TEXT PRIMARY KEY,
+    id                           INT PRIMARY KEY,
     name                         TEXT NOT NULL,
     is_usable                    BOOLEAN,
     is_space_settable            BOOLEAN
@@ -138,7 +138,7 @@ INSERT INTO subnet_type VALUES
     (2, 'fan_overlay_segment', true, true);
 
 CREATE TABLE subnet_association_type (
-    uuid                         TEXT PRIMARY KEY,
+    id                           INT PRIMARY KEY,
     name                         TEXT NOT NULL
 );
 
@@ -146,18 +146,18 @@ INSERT INTO subnet_association_type VALUES
     (0, 'overlay_of');    -- The subnet is an overlay of other (an underlay) subnet.
 
 CREATE TABLE subnet_type_association_type (
-    subject_subnet_type_uuid       TEXT PRIMARY KEY,
-    associated_subnet_type_uuid    TEXT NOT NULL,
-    association_type_uuid          TEXT NOT NULL,
-    CONSTRAINT                     fk_subject_subnet_type_uuid
-        FOREIGN KEY                    (subject_subnet_type_uuid)
-        REFERENCES                     subnet_type(uuid),
-    CONSTRAINT                     fk_associated_subnet_type_uuid
-        FOREIGN KEY                    (associated_subnet_type_uuid)
-        REFERENCES                     subnet_association_type(uuid),
-    CONSTRAINT                     fk_association_type_uuid
-        FOREIGN KEY                    (association_type_uuid)
-        REFERENCES                     subnet_association_type(uuid)
+    subject_subnet_type_id         INT PRIMARY KEY,
+    associated_subnet_type_id      INT NOT NULL,
+    association_type_id            INT NOT NULL,
+    CONSTRAINT                     fk_subject_subnet_type_id
+        FOREIGN KEY                    (subject_subnet_type_id)
+        REFERENCES                     subnet_type(id),
+    CONSTRAINT                     fk_associated_subnet_type_id
+        FOREIGN KEY                    (associated_subnet_type_id)
+        REFERENCES                     subnet_association_type(id),
+    CONSTRAINT                     fk_association_type_id
+        FOREIGN KEY                    (association_type_id)
+        REFERENCES                     subnet_association_type(id)
 );
 
 INSERT INTO subnet_type_association_type VALUES
@@ -166,16 +166,16 @@ INSERT INTO subnet_type_association_type VALUES
 CREATE TABLE subnet_association (
     subject_subnet_uuid            TEXT PRIMARY KEY,
     associated_subnet_uuid         TEXT NOT NULL,
-    association_type_uuid          TEXT NOT NULL,
+    association_type_id            INT NOT NULL,
     CONSTRAINT                     fk_subject_subnet_uuid
         FOREIGN KEY                    (subject_subnet_uuid)
         REFERENCES                     subnet(uuid),
     CONSTRAINT                     fk_associated_subnet_uuid
         FOREIGN KEY                    (associated_subnet_uuid)
         REFERENCES                     subnet(uuid),
-    CONSTRAINT                     fk_association_type_uuid
-        FOREIGN KEY                    (association_type_uuid)
-        REFERENCES                     subnet_association_type(uuid)
+    CONSTRAINT                     fk_association_type_id
+        FOREIGN KEY                    (association_type_id)
+        REFERENCES                     subnet_association_type(id)
 );
 
 CREATE UNIQUE INDEX idx_subnet_association
