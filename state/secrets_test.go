@@ -134,7 +134,7 @@ func (s *SecretsSuite) TestCreateUserSecret(c *gc.C) {
 
 	uri2 := secrets.NewURI()
 	_, err = s.store.CreateSecret(uri2, p)
-	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(`secret label "label-1" for %q already exists`, s.Model.Tag().String()))
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(`user secret label "label-1" already exists`))
 }
 
 func (s *SecretsSuite) TestCreateBackendRef(c *gc.C) {
@@ -872,6 +872,33 @@ func (s *SecretsSuite) TestUpdateDataSetsLatestConsumerRevision(c *gc.C) {
 		Label:           "foobar",
 		CurrentRevision: 1,
 		LatestRevision:  2,
+	})
+}
+
+func (s *SecretsSuite) TestUpdateOwnerLabel(c *gc.C) {
+	uri := secrets.NewURI()
+	now := s.Clock.Now().Round(time.Second).UTC()
+	next := now.Add(time.Minute).Round(time.Second).UTC()
+	cp := state.CreateSecretParams{
+		Version: 1,
+		Owner:   s.owner.Tag(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken:    &fakeToken{},
+			RotatePolicy:   ptr(secrets.RotateDaily),
+			NextRotateTime: ptr(next),
+			Data:           map[string]string{"foo": "bar"},
+		},
+	}
+	md, err := s.store.CreateSecret(uri, cp)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertUpdatedSecret(c, md, 1, state.UpdateSecretParams{
+		LeaderToken: &fakeToken{},
+		Label:       ptr("foobar2"),
+	})
+	// Ensure it can be reset back to an older value.
+	s.assertUpdatedSecret(c, md, 1, state.UpdateSecretParams{
+		LeaderToken: &fakeToken{},
+		Label:       ptr("foobar"),
 	})
 }
 

@@ -6,14 +6,7 @@ bases:
         architectures: ["amd64", "arm64"]
     run-on:
       - name: "ubuntu"
-        channel: "16.04"
-        architectures:
-          - amd64
-          - aarch64
-          - arm64
-          - s390x
-      - name: "ubuntu"
-        channel: "18.04"
+        channel: "22.04"
         architectures:
           - amd64
           - aarch64
@@ -27,7 +20,14 @@ bases:
           - arm64
           - s390x
       - name: "ubuntu"
-        channel: "22.04"
+        channel: "16.04"
+        architectures:
+          - amd64
+          - aarch64
+          - arm64
+          - s390x
+      - name: "ubuntu"
+        channel: "18.04"
         architectures:
           - amd64
           - aarch64

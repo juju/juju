@@ -110,13 +110,16 @@ func NewMapper(logger Logger, informer core.ServiceAccountInformer) (*DefaultMap
 		workQueue:    workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
 	}
 
-	dm.saInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err := dm.saInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    dm.enqueueServiceAccount,
 		DeleteFunc: dm.enqueueServiceAccount,
 		UpdateFunc: func(_, newObj interface{}) {
 			dm.enqueueServiceAccount(newObj)
 		},
 	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	if err := catacomb.Invoke(catacomb.Plan{
 		Site: &dm.catacomb,

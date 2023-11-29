@@ -397,6 +397,13 @@ func (s *secretsStore) UpdateSecret(uri *secrets.URI, p UpdateSecretParams) (*se
 		if p.Label != nil && *p.Label != metadataDoc.Label {
 			// OwnerTag has already been validated.
 			owner, _ := names.ParseTag(metadataDoc.OwnerTag)
+			if metadataDoc.Label != "" {
+				removeOldLabelOps, err := s.st.removeOwnerSecretLabelOps(owner, metadataDoc.Label)
+				if err != nil {
+					return nil, errors.Trace(err)
+				}
+				ops = append(ops, removeOldLabelOps...)
+			}
 			uniqueLabelOps, err := s.st.uniqueSecretOwnerLabelOps(owner, *p.Label)
 			if err != nil {
 				return nil, errors.Trace(err)
@@ -1279,18 +1286,28 @@ func (st *State) uniqueSecretConsumerLabelOps(consumerTag names.Tag, label strin
 	return append(ops, ops2...), nil
 }
 
+// uniqueSecretLabelBaseOps is used when creating or updating a secret with an owner label, or
+// when saving a secret consumer record. It checks that the label is not used twice:
+// - a unit of the same application consuming an application owned secret cannot use the same label
+// as is used in the secret metadata of any application owned secret.
+// The check is done when creating a new application owned secret, or saving a consumer record.
 func (st *State) uniqueSecretLabelBaseOps(tag names.Tag, label string) (ops []txn.Op, _ error) {
 	col, close := st.db().GetCollection(refcountsC)
 	defer close()
 
-	var keyPattern string
+	var (
+		keyPattern string
+		errorMsg   string
+	)
+
 	switch tag := tag.(type) {
 	case names.ApplicationTag:
-		// Ensure no units use this label for both owner and consumer label..
+		// Ensure no units use this label for both owner and consumer label.
 		keyPattern = fmt.Sprintf(
 			"^%s:(%s|%s)#unit-%s-[0-9]+#%s$",
 			st.ModelUUID(), secretOwnerLabelKeyPrefix, secretConsumerLabelKeyPrefix, tag.Name, label,
 		)
+		errorMsg = fmt.Sprintf("secret label %q for a unit of application %q already exists", label, tag.Name)
 	case names.UnitTag:
 		// Ensure no application owned secret uses this label.
 		applicationName, _ := names.UnitApplication(tag.Id())
@@ -1300,8 +1317,10 @@ func (st *State) uniqueSecretLabelBaseOps(tag names.Tag, label string) (ops []tx
 			"^%s:(%s|%s)#%s#%s$",
 			st.ModelUUID(), secretOwnerLabelKeyPrefix, secretConsumerLabelKeyPrefix, appTag.String(), label,
 		)
+		errorMsg = fmt.Sprintf("secret label %q for application %q already exists", label, applicationName)
 	case names.ModelTag:
 		keyPattern = fmt.Sprintf("^%s:%s#%s#%s$", st.ModelUUID(), secretOwnerLabelKeyPrefix, tag.String(), label)
+		errorMsg = fmt.Sprintf("user secret label %q already exists", label)
 	default:
 		return nil, errors.NotSupportedf("tag type %T", tag)
 	}
@@ -1311,7 +1330,7 @@ func (st *State) uniqueSecretLabelBaseOps(tag names.Tag, label string) (ops []tx
 		return nil, errors.Trace(err)
 	}
 	if count > 0 {
-		return nil, errors.WithType(errors.Errorf("secret label %q for %q already exists", label, tag), LabelExists)
+		return nil, errors.WithType(errors.New(errorMsg), LabelExists)
 	}
 
 	return []txn.Op{
@@ -1346,11 +1365,34 @@ func (st *State) uniqueSecretLabelOpsRaw(tag names.Tag, label, role string, keyG
 	return []txn.Op{countOp, incOp}, nil
 }
 
-func (st *State) removeOwnerSecretLabelOps(ownerTag names.Tag) ([]txn.Op, error) {
+func (st *State) removeOwnerSecretLabelOps(ownerTag names.Tag, label string) ([]txn.Op, error) {
+	refCountCollection, ccloser := st.db().GetCollection(refcountsC)
+	defer ccloser()
+
+	key := secretOwnerLabelKey(ownerTag, label)
+	countOp, count, err := nsRefcounts.CurrentOp(refCountCollection, key)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if count == 0 {
+		return []txn.Op{countOp}, nil
+	}
+
+	return []txn.Op{
+		{
+			C:      refcountsC,
+			Id:     secretOwnerLabelKey(ownerTag, label),
+			Assert: txn.DocExists,
+			Remove: true,
+		},
+	}, nil
+}
+
+func (st *State) removeOwnerSecretLabelsOps(ownerTag names.Tag) ([]txn.Op, error) {
 	return st.removeSecretLabelOps(ownerTag, secretOwnerLabelKey)
 }
 
-func (st *State) removeConsumerSecretLabelOps(consumerTag names.Tag) ([]txn.Op, error) {
+func (st *State) removeConsumerSecretLabelsOps(consumerTag names.Tag) ([]txn.Op, error) {
 	return st.removeSecretLabelOps(consumerTag, secretConsumerLabelKey)
 }
 
