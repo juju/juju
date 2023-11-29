@@ -94,6 +94,7 @@ func (s *manifoldSuite) TestStart(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectStateTracker()
+	s.expectAgentConfig(c)
 
 	w, err := Manifold(s.getConfig()).Start(s.getContext())
 	c.Assert(err, jc.ErrorIsNil)
@@ -105,6 +106,11 @@ func (s *manifoldSuite) expectStateTracker() {
 	s.stateTracker.EXPECT().Done()
 }
 
+func (s *manifoldSuite) expectAgentConfig(c *gc.C) {
+	s.agentConfig.EXPECT().DataDir().Return(c.MkDir())
+	s.agent.EXPECT().CurrentConfig().Return(s.agentConfig)
+}
+
 type stubTracerGetter struct{}
 
 func (s *stubTracerGetter) GetTracer(ctx context.Context, namespace trace.TracerNamespace) (trace.Tracer, error) {
@@ -112,7 +118,7 @@ func (s *stubTracerGetter) GetTracer(ctx context.Context, namespace trace.Tracer
 }
 
 type stubServiceFactory struct {
-	servicefactory.ControllerServiceFactory
+	servicefactory.ServiceFactory
 }
 
 func (s *stubServiceFactory) ControllerConfig() *controllerconfigservice.Service {
