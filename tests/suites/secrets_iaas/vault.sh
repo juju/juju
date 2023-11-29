@@ -5,7 +5,8 @@ run_secrets_vault() {
 
 	model_name='model-secrets-vault'
 	juju add-secret-backend myvault vault endpoint="$VAULT_ADDR" token="$VAULT_TOKEN"
-	add_model "$model_name" --config secret-backend=myvault
+	add_model "$model_name"
+	juju --show-log model-config secret-backend=myvault -m "$model_name"
 
 	check_secrets
 
