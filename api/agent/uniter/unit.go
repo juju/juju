@@ -1027,6 +1027,15 @@ func (b *CommitHookParamsBuilder) AddSecretUpdates(updates []SecretUpsertArg) {
 	}
 }
 
+// AddTrackLatest records the URIs for which the latest revision should be tracked.
+func (b *CommitHookParamsBuilder) AddTrackLatest(trackLatest []string) {
+	if len(trackLatest) == 0 {
+		return
+	}
+	b.arg.TrackLatest = make([]string, len(trackLatest))
+	copy(b.arg.TrackLatest, trackLatest)
+}
+
 // SecretGrantRevokeArgs holds parameters for updating a secret's access.
 type SecretGrantRevokeArgs struct {
 	URI             *secrets.URI

@@ -167,3 +167,15 @@ func (mr *MockSpanMockRecorder) TracerProvider() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TracerProvider", reflect.TypeOf((*MockSpan)(nil).TracerProvider))
 }
+
+// span mocks base method.
+func (m *MockSpan) span() {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "span")
+}
+
+// span indicates an expected call of span.
+func (mr *MockSpanMockRecorder) span() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "span", reflect.TypeOf((*MockSpan)(nil).span))
+}

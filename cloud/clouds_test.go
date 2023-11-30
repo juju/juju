@@ -276,6 +276,19 @@ clouds:
 	s.assertCompareClouds(c, metadata, false)
 }
 
+func (s *cloudSuite) TestMalformedYAMLNoPanic(_ *gc.C) {
+	// Note the bad indentation. This case was reported under LP:2039322.
+	metadata := `
+clouds:
+manual-cloud:
+    type: manual
+    endpoint: ubuntu@some-host-fqdn
+`[1:]
+
+	// We don't care about the result, just that there is no panic.
+	_, _ = cloud.ParseCloudMetadata([]byte(metadata))
+}
+
 func (s *cloudSuite) TestRegionNames(c *gc.C) {
 	regions := []cloud.Region{
 		{Name: "mars"},

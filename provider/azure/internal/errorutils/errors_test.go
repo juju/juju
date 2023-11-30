@@ -79,6 +79,8 @@ func (s *ErrorSuite) TestAuthRelatedStatusCodes(c *gc.C) {
 	for t := range common.AuthorisationFailureStatusCodes {
 		called = false
 		s.azureError.StatusCode = t
+		s.azureError.ErrorCode = "some error code"
+		s.azureError.RawResponse = &http.Response{}
 		errorutils.HandleCredentialError(s.azureError, ctx)
 		c.Assert(called, jc.IsTrue)
 	}

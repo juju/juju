@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"strings"
 	"time"
 
 	"github.com/docker/distribution/reference"
@@ -174,6 +175,7 @@ func (rid ImageRepoDetails) SecretData() ([]byte, error) {
 	if rid.BasicAuthConfig.Empty() && rid.TokenAuthConfig.Empty() {
 		return nil, nil
 	}
+	repo := strings.Split(rid.Repository, "/")[0]
 	rid.Repository = ""
 	if !rid.BasicAuthConfig.Empty() && rid.BasicAuthConfig.Auth.Empty() {
 		rid.BasicAuthConfig.Auth = NewToken(
@@ -181,7 +183,7 @@ func (rid ImageRepoDetails) SecretData() ([]byte, error) {
 	}
 	o := dockerConfigData{
 		Auths: map[string]ImageRepoDetails{
-			rid.ServerAddress: rid,
+			repo: rid,
 		},
 	}
 	return json.Marshal(o)

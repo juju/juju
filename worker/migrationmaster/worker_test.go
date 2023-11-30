@@ -228,7 +228,7 @@ func (s *Suite) TestSuccessfulMigration(c *gc.C) {
 	// Observe that the migration was seen, the model exported, an API
 	// connection to the target controller was made, the model was
 	// imported and then the migration completed.
-	s.stub.CheckCalls(c, joinCalls(
+	assertExpectedCallArgs(c, s.stub, joinCalls(
 		// Wait for migration to start.
 		watchStatusLockdownCalls,
 		[]jujutesting.StubCall{
@@ -457,7 +457,8 @@ func (s *Suite) TestQUIESCEFailedAgent(c *gc.C) {
 	})
 
 	s.checkWorkerReturns(c, migrationmaster.ErrInactive)
-	s.stub.CheckCalls(c, joinCalls(
+
+	expectedCalls := joinCalls(
 		watchStatusLockdownCalls,
 		[]jujutesting.StubCall{
 			{"facade.MinionReportTimeout", nil},
@@ -468,7 +469,9 @@ func (s *Suite) TestQUIESCEFailedAgent(c *gc.C) {
 			{"facade.MinionReports", nil},
 		},
 		abortCalls,
-	))
+	)
+
+	assertExpectedCallArgs(c, s.stub, expectedCalls)
 }
 
 func (s *Suite) TestQUIESCEWrongController(c *gc.C) {
@@ -525,7 +528,7 @@ func (s *Suite) TestQUIESCETargetChecksFail(c *gc.C) {
 	s.connection.prechecksErr = errors.New("boom")
 
 	s.checkWorkerReturns(c, migrationmaster.ErrInactive)
-	s.stub.CheckCalls(c, joinCalls(
+	assertExpectedCallArgs(c, s.stub, joinCalls(
 		watchStatusLockdownCalls,
 		[]jujutesting.StubCall{
 			{"facade.MinionReportTimeout", nil},
@@ -1141,6 +1144,27 @@ func (s *Suite) checkMinionWaitGetError(c *gc.C, phase coremigration.Phase) {
 	s.checkWorkerErr(c, "boom")
 }
 
+// assertExpectedCallArgs checks that the stub has been called with the
+// expected arguments. It ignores the facade versions map on the Prechecks
+// call because that's an implementation detail of the api facade, not the
+// worker. As long as it's non-zero, otherwise we don't care.
+func assertExpectedCallArgs(c *gc.C, stub *jujutesting.Stub, expectedCalls []jujutesting.StubCall) {
+	stub.CheckCallNames(c, callNames(expectedCalls)...)
+	for i, call := range expectedCalls {
+		stubCall := stub.Calls()[i]
+
+		if call.FuncName == "MigrationTarget.Prechecks" {
+			mc := jc.NewMultiChecker()
+			mc.AddExpr("_.FacadeVersions", gc.Not(gc.HasLen), 0)
+
+			c.Assert(stubCall.Args, mc, call.Args, gc.Commentf("call %s", call.FuncName))
+			continue
+		}
+
+		c.Assert(stubCall, jc.DeepEquals, call, gc.Commentf("call %s", call.FuncName))
+	}
+}
+
 func stubCallNames(stub *jujutesting.Stub) []string {
 	var out []string
 	for _, call := range stub.Calls() {
@@ -1507,6 +1531,14 @@ func joinCalls(allCalls ...[]jujutesting.StubCall) (out []jujutesting.StubCall) 
 		out = append(out, calls...)
 	}
 	return
+}
+
+func callNames(calls []jujutesting.StubCall) []string {
+	var out []string
+	for _, call := range calls {
+		out = append(out, call.FuncName)
+	}
+	return out
 }
 
 func makeMinionReports(p coremigration.Phase) coremigration.MinionReports {

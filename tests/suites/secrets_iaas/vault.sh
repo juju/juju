@@ -143,15 +143,11 @@ prepare_vault() {
 		sudo snap install vault
 	fi
 
+	# If no databases are related, vault will be auto configured to
+	# use its embedded raft storage backend for storage and HA.
 	juju --show-log deploy vault
-	juju --show-log deploy -n 3 mysql-innodb-cluster
-	juju --show-log deploy mysql-router
-	juju --show-log integrate mysql-router:db-router mysql-innodb-cluster:db-router
-	juju --show-log integrate mysql-router:shared-db vault:shared-db
 	juju --show-log expose vault
 
-	wait_for "active" '.applications["mysql-innodb-cluster"] | ."application-status".current' 1200
-	wait_for "active" '.applications["mysql-router"] | ."application-status".current' 1200
 	wait_for "blocked" "$(workload_status vault 0).current"
 	vault_public_addr=$(juju status --format json | jq -r '.applications.vault.units."vault/0"."public-address"')
 	export VAULT_ADDR="http://${vault_public_addr}:8200"
@@ -166,6 +162,17 @@ prepare_vault() {
 	vault operator unseal "$unseal_key0"
 	vault operator unseal "$unseal_key1"
 	vault operator unseal "$unseal_key2"
+
+	# wait for vault server to be ready.
+	attempt=0
+	until [[ $(vault status -format yaml 2>/dev/null | yq .initialized | grep -i 'true') ]]; do
+		if [[ ${attempt} -ge 30 ]]; then
+			echo "Failed: vault server was not able to be ready."
+			exit 1
+		fi
+		sleep 2
+		attempt=$((attempt + 1))
+	done
 }
 
 test_secret_drain() {

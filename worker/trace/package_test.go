@@ -11,7 +11,7 @@ import (
 	"github.com/go-logr/logr"
 	jujutesting "github.com/juju/testing"
 	"go.opentelemetry.io/otel"
-	trace "go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
@@ -76,7 +76,7 @@ func (s *baseSuite) expectClient() {
 	s.client.EXPECT().Start(gomock.Any()).AnyTimes()
 	s.client.EXPECT().Stop(gomock.Any()).AnyTimes()
 
-	s.clientTracer.EXPECT().Start(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, name string, opts ...trace.SpanStartOption) (context.Context, trace.Span) {
+	s.clientTracer.EXPECT().Start(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, name string, opts ...trace.SpanStartOption) (context.Context, ClientSpan) {
 		return ctx, s.span
 	}).AnyTimes()
 

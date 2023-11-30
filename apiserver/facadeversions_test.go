@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver"
+	"github.com/juju/juju/core/facades"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -24,7 +25,7 @@ func (s *facadeVersionSuite) TestFacadeVersionsMatchServerVersions(c *gc.C) {
 	// code just to list out what versions are available. However, we do
 	// want to make sure that the two sides are kept in sync.
 	clientFacadeNames := set.NewStrings()
-	for name, versions := range api.FacadeVersions {
+	for name, versions := range api.SupportedFacadeVersions() {
 		clientFacadeNames.Add(name)
 		// All versions should now be non-zero.
 		c.Check(set.NewInts(versions...).Contains(0), jc.IsFalse)
@@ -43,7 +44,7 @@ func (s *facadeVersionSuite) TestFacadeVersionsMatchServerVersions(c *gc.C) {
 	// Next check that the latest version of each facade is the same
 	// on both sides.
 	apiFacadeVersions := make(map[string]int)
-	for name, versions := range api.FacadeVersions {
+	for name, versions := range api.SupportedFacadeVersions() {
 		// Sort the versions so that we can easily pick the latest, without
 		// a requirement that the versions are listed in order.
 		sorted := set.NewInts(versions...).SortedValues()
@@ -52,29 +53,29 @@ func (s *facadeVersionSuite) TestFacadeVersionsMatchServerVersions(c *gc.C) {
 	c.Check(apiFacadeVersions, jc.DeepEquals, serverFacadeBestVersions)
 }
 
-// TestClient3xSupport checks that the client facade supports the 3.x for
-// certain tasks. You must be very careful when removing support for facades
+// TestClientSupport checks that the client facade supports the 3.x and 4.x
+// for certain tasks. You must be very careful when removing support for facades
 // as it can break model migrations, upgrades, and state reports.
-func (s *facadeVersionSuite) TestClient3xSupport(c *gc.C) {
+func (s *facadeVersionSuite) TestClientSupport(c *gc.C) {
 	tests := []struct {
 		facadeName       string
 		summary          string
-		apiClientVersion int
+		apiClientVersion facades.FacadeVersion
 	}{
 		{
 			facadeName:       "Client",
 			summary:          "Ensure that the Client facade supports 3.x for status requests",
-			apiClientVersion: 6,
+			apiClientVersion: []int{6},
 		},
 		{
 			facadeName:       "ModelManager",
 			summary:          "Ensure that the ModelManager facade supports 3.x for model migration and status requests",
-			apiClientVersion: 9,
+			apiClientVersion: []int{9},
 		},
 	}
 	for _, test := range tests {
 		c.Logf(test.summary)
-		c.Check(api.FacadeVersions[test.facadeName], Contains, test.apiClientVersion)
+		c.Check(api.SupportedFacadeVersions()[test.facadeName], Contains, test.apiClientVersion)
 	}
 }
 
@@ -88,18 +89,17 @@ var Contains gc.Checker = &containsChecker{
 }
 
 func (checker *containsChecker) Check(params []interface{}, names []string) (result bool, err string) {
-	expected, ok := params[1].(int)
+	expected, ok := params[1].(facades.FacadeVersion)
 	if !ok {
-		return false, "expected must be a string"
+		return false, "expected must be a int"
 	}
 
-	obtained, ok := params[0].([]int)
+	obtained, ok := params[0].(facades.FacadeVersion)
 	if ok {
-		for _, v := range obtained {
-			if v == expected {
-				return true, ""
-			}
+		if set.NewInts(expected...).Intersection(set.NewInts(obtained...)).Size() > 0 {
+			return true, ""
 		}
+
 		return false, ""
 	}
 

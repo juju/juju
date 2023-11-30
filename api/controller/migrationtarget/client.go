@@ -18,6 +18,7 @@ import (
 	"github.com/juju/version/v2"
 	"gopkg.in/httprequest.v1"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/resources"
@@ -55,13 +56,26 @@ func (c *Client) BestFacadeVersion() int {
 	return c.caller.BestAPIVersion()
 }
 
+// Prechecks checks that the target controller is able to accept the
+// model being migrated.
 func (c *Client) Prechecks(model coremigration.ModelInfo) error {
+	// Pass all the known facade versions to the controller so that it
+	// can check that the target controller supports them. Passing all of them
+	// ensures that we don't have to update this code when new facades are
+	// added, or if the controller wants to change the logic service side.
+	supported := api.SupportedFacadeVersions()
+	versions := make(map[string][]int, len(supported))
+	for name, version := range supported {
+		versions[name] = version
+	}
+
 	args := params.MigrationModelInfo{
 		UUID:                   model.UUID,
 		Name:                   model.Name,
 		OwnerTag:               model.Owner.String(),
 		AgentVersion:           model.AgentVersion,
 		ControllerAgentVersion: model.ControllerAgentVersion,
+		FacadeVersions:         versions,
 	}
 	return errors.Trace(c.caller.FacadeCall(context.TODO(), "Prechecks", args, nil))
 }

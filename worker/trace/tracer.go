@@ -10,60 +10,11 @@ import (
 	"github.com/juju/errors"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
-	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
-	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
-	"go.opentelemetry.io/otel/sdk/resource"
-	sdktrace "go.opentelemetry.io/otel/sdk/trace"
-	semconv "go.opentelemetry.io/otel/semconv/v1.20.0"
 	"go.opentelemetry.io/otel/trace"
 	"gopkg.in/tomb.v2"
 
 	coretrace "github.com/juju/juju/core/trace"
-	"github.com/juju/juju/version"
 )
-
-// Client manages connections to the collector, handles the
-// transformation of data into wire format, and the transmission of that
-// data to the collector.
-type Client interface {
-	// Start should establish connection(s) to endpoint(s). It is
-	// called just once by the exporter, so the implementation
-	// does not need to worry about idempotence and locking.
-	Start(ctx context.Context) error
-
-	// Stop should close the connections. The function is called
-	// only once by the exporter, so the implementation does not
-	// need to worry about idempotence, but it may be called
-	// concurrently with UploadTraces, so proper
-	// locking is required. The function serves as a
-	// synchronization point - after the function returns, the
-	// process of closing connections is assumed to be finished.
-	Stop(ctx context.Context) error
-}
-
-// Tracer is the creator of Spans.
-type ClientTracer interface {
-	// Start creates a span and a context.Context containing the newly-created span.
-	//
-	// If the context.Context provided in `ctx` contains a Span then the newly-created
-	// Span will be a child of that span, otherwise it will be a root span. This behavior
-	// can be overridden by providing `WithNewRoot()` as a SpanOption, causing the
-	// newly-created Span to be a root span even if `ctx` contains a Span.
-	//
-	// When creating a Span it is recommended to provide all known span attributes using
-	// the `WithAttributes()` SpanOption as samplers will only have access to the
-	// attributes provided when a Span is created.
-	//
-	// Any Span that is created MUST also be ended. This is the responsibility of the user.
-	// Implementations of this API may leak memory or other resources if Spans are not ended.
-	Start(ctx context.Context, spanName string, opts ...trace.SpanStartOption) (context.Context, trace.Span)
-}
-
-// ClientTracerProvider is the interface for a tracer provider.
-type ClientTracerProvider interface {
-	ForceFlush(ctx context.Context) error
-	Shutdown(ctx context.Context) error
-}
 
 // NewClientFunc is the function signature for creating a new client.
 type NewClientFunc func(context.Context, coretrace.TaggedTracerNamespace, string, bool, float64) (Client, ClientTracerProvider, ClientTracer, error)
@@ -131,7 +82,7 @@ func (t *tracer) Start(ctx context.Context, name string, opts ...coretrace.Optio
 	// they also die at the same time as the worker.
 	var (
 		cancel context.CancelFunc
-		span   trace.Span
+		span   ClientSpan
 	)
 	ctx = t.buildRequestContext(ctx)
 	ctx, cancel = t.scopedContext(ctx)
@@ -245,39 +196,8 @@ func (t *tracer) buildRequestContext(ctx context.Context) context.Context {
 	return trace.ContextWithRemoteSpanContext(ctx, sc)
 }
 
-// NewClient returns a new tracing client.
-func NewClient(ctx context.Context, namespace coretrace.TaggedTracerNamespace, endpoint string, insecureSkipVerify bool, sampleRatio float64) (Client, ClientTracerProvider, ClientTracer, error) {
-	options := []otlptracegrpc.Option{
-		otlptracegrpc.WithEndpoint(endpoint),
-	}
-	if insecureSkipVerify {
-		options = append(options, otlptracegrpc.WithInsecure())
-	}
-
-	client := otlptracegrpc.NewClient(options...)
-	exporter, err := otlptrace.New(ctx, client)
-	if err != nil {
-		return nil, nil, nil, errors.Trace(err)
-	}
-
-	tp := sdktrace.NewTracerProvider(
-		sdktrace.WithSampler(sdktrace.TraceIDRatioBased(sampleRatio)),
-		sdktrace.WithBatcher(exporter),
-		sdktrace.WithResource(newResource(namespace.ServiceName())),
-	)
-	return client, tp, tp.Tracer(namespace.String()), nil
-}
-
-func newResource(serviceName string) *resource.Resource {
-	return resource.NewWithAttributes(
-		semconv.SchemaURL,
-		semconv.ServiceName(serviceName),
-		semconv.ServiceVersion(version.Current.String()),
-	)
-}
-
 type managedSpan struct {
-	span               trace.Span
+	span               ClientSpan
 	cancel             context.CancelFunc
 	scope              coretrace.Scope
 	stackTracesEnabled bool
@@ -324,7 +244,7 @@ func (s *managedSpan) End(attrs ...coretrace.Attribute) {
 }
 
 type managedScope struct {
-	span trace.Span
+	span ClientSpan
 }
 
 // TraceID returns the trace ID of the span.

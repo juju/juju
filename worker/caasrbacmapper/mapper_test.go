@@ -57,7 +57,7 @@ func (m *MapperSuite) TestMapperAdditionSync(c *gc.C) {
 		DoAndReturn(func(h cache.ResourceEventHandlerFuncs) {
 			eventHandlers = h
 			waitGroup.Done()
-		})
+		}).Return(m.mockSharedIndexInformer, nil)
 
 	mapper, err := caasrbacmapper.NewMapper(loggo.Logger{}, m.mockSAInformer)
 	c.Assert(err, jc.ErrorIsNil)
@@ -85,7 +85,7 @@ func (m *MapperSuite) TestMapperAdditionSync(c *gc.C) {
 			return sa, nil
 		})
 
-	eventHandlers.OnAdd(sa)
+	eventHandlers.OnAdd(sa, false)
 	waitGroup.Wait()
 
 	mapper.Kill()
@@ -112,7 +112,7 @@ func (m *MapperSuite) TestRBACMapperUpdateSync(c *gc.C) {
 		DoAndReturn(func(h cache.ResourceEventHandlerFuncs) {
 			eventHandlers = h
 			waitGroup.Done()
-		})
+		}).Return(m.mockSharedIndexInformer, nil)
 
 	mapper, err := caasrbacmapper.NewMapper(loggo.Logger{}, m.mockSAInformer)
 	c.Assert(err, jc.ErrorIsNil)
@@ -140,7 +140,7 @@ func (m *MapperSuite) TestRBACMapperUpdateSync(c *gc.C) {
 			return sa, nil
 		})
 
-	eventHandlers.OnAdd(sa)
+	eventHandlers.OnAdd(sa, false)
 	waitGroup.Wait()
 
 	for a := coretesting.LongAttempt.Start(); a.Next(); {
@@ -193,7 +193,7 @@ func (m *MapperSuite) TestRBACMapperDeleteSync(c *gc.C) {
 		DoAndReturn(func(h cache.ResourceEventHandlerFuncs) {
 			eventHandlers = h
 			waitGroup.Done()
-		})
+		}).Return(m.mockSharedIndexInformer, nil)
 
 	mapper, err := caasrbacmapper.NewMapper(loggo.Logger{}, m.mockSAInformer)
 	c.Assert(err, jc.ErrorIsNil)
@@ -215,7 +215,7 @@ func (m *MapperSuite) TestRBACMapperDeleteSync(c *gc.C) {
 	m.mockSALister.EXPECT().ServiceAccounts(gomock.Eq(namespace)).
 		Return(m.mockSANamespaceLister).AnyTimes()
 	m.mockSANamespaceLister.EXPECT().Get(gomock.Eq(name)).Return(sa, nil)
-	eventHandlers.OnAdd(sa)
+	eventHandlers.OnAdd(sa, false)
 
 	for a := coretesting.LongAttempt.Start(); a.Next(); {
 		rAppName, err := mapper.AppNameForServiceAccount(uid)

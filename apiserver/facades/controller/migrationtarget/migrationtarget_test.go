@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/core/facades"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/domain/credential"
 	"github.com/juju/juju/domain/credential/service"
@@ -76,7 +77,7 @@ func (s *Suite) SetUpTest(c *gc.C) {
 func (s *Suite) TestFacadeRegistered(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	aFactory, err := apiserver.AllFacades().GetFactory("MigrationTarget", 2)
+	aFactory, err := apiserver.AllFacades().GetFactory("MigrationTarget", 3)
 	c.Assert(err, jc.ErrorIsNil)
 
 	api, err := aFactory(&facadetest.Context{
@@ -86,6 +87,21 @@ func (s *Suite) TestFacadeRegistered(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(api, gc.FitsTypeOf, new(migrationtarget.API))
+}
+
+func (s *Suite) TestFacadeRegisteredV2(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	aFactory, err := apiserver.AllFacades().GetFactory("MigrationTarget", 2)
+	c.Assert(err, jc.ErrorIsNil)
+
+	api, err := aFactory(&facadetest.Context{
+		State_:          s.State,
+		Auth_:           s.authorizer,
+		ServiceFactory_: servicefactorytesting.NewTestingServiceFactory(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(api, gc.FitsTypeOf, new(migrationtarget.APIV2))
 }
 
 func (s *Suite) importModel(c *gc.C, api *migrationtarget.API) names.ModelTag {
@@ -153,6 +169,45 @@ func (s *Suite) TestPrechecksFail(c *gc.C) {
 	}
 	err := api.Prechecks(context.Background(), args)
 	c.Assert(err, gc.NotNil)
+}
+
+func (s *Suite) TestPrechecksFacadeVersionsFail(c *gc.C) {
+	controllerVersion := s.controllerVersion(c)
+
+	api := s.mustNewAPIWithFacadeVersions(c, facades.FacadeVersions{
+		"MigrationTarget": []int{1},
+	})
+	args := params.MigrationModelInfo{
+		AgentVersion:           controllerVersion,
+		ControllerAgentVersion: controllerVersion,
+	}
+	err := api.Prechecks(context.Background(), args)
+	c.Assert(err, gc.ErrorMatches, `
+Source controller does not support required facades for performing migration.
+Upgrade the controller to a newer version of .* or migrate to a controller
+with an earlier version of the target controller and try again.
+
+`[1:])
+}
+
+func (s *Suite) TestPrechecksFacadeVersionsWithPatchFail(c *gc.C) {
+	controllerVersion := s.controllerVersion(c)
+	controllerVersion.Patch++
+
+	api := s.mustNewAPIWithFacadeVersions(c, facades.FacadeVersions{
+		"MigrationTarget": []int{1},
+	})
+	args := params.MigrationModelInfo{
+		AgentVersion:           controllerVersion,
+		ControllerAgentVersion: controllerVersion,
+	}
+	err := api.Prechecks(context.Background(), args)
+	c.Assert(err, gc.ErrorMatches, `
+Source controller does not support required facades for performing migration.
+Upgrade the controller to a newer version of .* or migrate to a controller
+with an earlier version of the target controller and try again.
+
+`[1:])
 }
 
 func (s *Suite) TestImport(c *gc.C) {
@@ -336,7 +391,7 @@ func (s *Suite) TestAdoptIAASResources(c *gc.C) {
 		return &env, nil
 	}, func(model stateenvirons.Model, _ stateenvirons.CloudService, _ stateenvirons.CredentialService) (caas.Broker, error) {
 		return nil, errors.New("should not be called")
-	})
+	}, facades.FacadeVersions{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	m, err := st.Model()
@@ -367,7 +422,7 @@ func (s *Suite) TestAdoptCAASResources(c *gc.C) {
 	}, func(model stateenvirons.Model, _ stateenvirons.CloudService, _ stateenvirons.CredentialService) (caas.Broker, error) {
 		c.Assert(model.ModelTag().Id(), gc.Equals, st.ModelUUID())
 		return &broker, nil
-	})
+	}, facades.FacadeVersions{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	m, err := st.Model()
@@ -555,7 +610,7 @@ func (s *Suite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *Suite) newAPI(environFunc stateenvirons.NewEnvironFunc, brokerFunc stateenvirons.NewCAASBrokerFunc) (*migrationtarget.API, error) {
+func (s *Suite) newAPI(environFunc stateenvirons.NewEnvironFunc, brokerFunc stateenvirons.NewCAASBrokerFunc, versions facades.FacadeVersions) (*migrationtarget.API, error) {
 	return migrationtarget.NewAPI(
 		&s.facadeContext,
 		s.authorizer,
@@ -575,11 +630,23 @@ func (s *Suite) newAPI(environFunc stateenvirons.NewEnvironFunc, brokerFunc stat
 		},
 		environFunc,
 		brokerFunc,
+		versions,
 	)
 }
 
 func (s *Suite) mustNewAPI(c *gc.C) *migrationtarget.API {
-	api, err := s.newAPI(nil, nil)
+	api, err := s.newAPI(nil, nil, facades.FacadeVersions{})
+	c.Assert(err, jc.ErrorIsNil)
+	return api
+}
+
+func (s *Suite) newAPIWithFacadeVersions(environFunc stateenvirons.NewEnvironFunc, brokerFunc stateenvirons.NewCAASBrokerFunc, versions facades.FacadeVersions) (*migrationtarget.API, error) {
+	api, err := s.newAPI(environFunc, brokerFunc, versions)
+	return api, err
+}
+
+func (s *Suite) mustNewAPIWithFacadeVersions(c *gc.C, versions facades.FacadeVersions) *migrationtarget.API {
+	api, err := s.newAPIWithFacadeVersions(nil, nil, versions)
 	c.Assert(err, jc.ErrorIsNil)
 	return api
 }
@@ -589,7 +656,7 @@ func (s *Suite) mustNewAPIWithModel(c *gc.C, env environs.Environ, broker caas.B
 		return env, nil
 	}, func(stateenvirons.Model, stateenvirons.CloudService, stateenvirons.CredentialService) (caas.Broker, error) {
 		return broker, nil
-	})
+	}, facades.FacadeVersions{})
 	c.Assert(err, jc.ErrorIsNil)
 	return api
 }
