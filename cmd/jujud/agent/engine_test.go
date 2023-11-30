@@ -22,7 +22,6 @@ var (
 		"agent",
 		"api-caller",
 		"api-config-watcher",
-		"bootstrap",
 		"clock",
 		"environ-upgrade-gate",
 		"environ-upgraded-flag",
