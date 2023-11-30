@@ -41,7 +41,7 @@ manual_deploy() {
 	juju switch controller
 
 	juju add-machine ssh:ubuntu@"${addr_m1}" 2>&1 | tee "${TEST_DIR}/add-machine-1.log"
-	juju add-machine ssh:ubuntu@"${addr_m2}" 2>&1 | tee "${TEST_DIR}/add-machine-2.log"
+	juju add-machine --known-hosts "${TEST_DIR}/known_hosts" ssh:ubuntu@"${addr_m2}" 2>&1 | tee "${TEST_DIR}/add-machine-2.log"
 
 	juju enable-ha --to "1,2" 2>&1 | tee "${TEST_DIR}/enable-ha.log"
 	wait_for "controller" "$(active_condition "controller" 0)"
@@ -50,6 +50,13 @@ manual_deploy() {
 
 	if [[ -z ${machine_base} ]]; then
 		echo "machine 0 has invalid base"
+		exit 1
+	fi
+
+	if [-f "${TEST_DIR}/known_hosts" ]; then
+		echo "specified known_hosts file used sucessfully"
+	else
+		echo "Could not use specfied known_hosts file"
 		exit 1
 	fi
 
