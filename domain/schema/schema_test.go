@@ -150,6 +150,12 @@ func (s *schemaSuite) TestModelDDLApply(c *gc.C) {
 		"provider_network_subnet",
 		"availability_zone",
 		"availability_zone_subnet",
+
+		// Block device
+		"block_device",
+		"filesystem_type",
+		"block_device_link_device",
+		"block_device_machine",
 	)
 	c.Assert(readTableNames(c, s.DB()), jc.SameContents, expected.Union(internalTableNames).SortedValues())
 }
