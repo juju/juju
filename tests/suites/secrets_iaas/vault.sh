@@ -94,11 +94,23 @@ prepare_vault() {
 	vault operator unseal "$unseal_key1"
 	vault operator unseal "$unseal_key2"
 
+	sleep 60
+
 	# wait for vault server to be ready.
 	attempt=0
 	until [[ $(vault status -format yaml 2>/dev/null | yq .initialized | grep -i 'true') ]]; do
 		if [[ ${attempt} -ge 30 ]]; then
-			echo "Failed: vault server was not able to be ready."
+			echo "Failed: vault server was not initialized."
+			exit 1
+		fi
+		sleep 2
+		attempt=$((attempt + 1))
+	done
+
+	attempt=0
+	until [[ $(vault status -format yaml 2>/dev/null | yq .ha_enabled | grep -i 'true') ]]; do
+		if [[ ${attempt} -ge 30 ]]; then
+			echo "Failed: vault server was not HA enabled."
 			exit 1
 		fi
 		sleep 2
