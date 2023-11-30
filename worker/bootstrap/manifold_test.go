@@ -4,12 +4,16 @@
 package bootstrap
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3/dependency"
 	dependencytesting "github.com/juju/worker/v3/dependency/testing"
 	gc "gopkg.in/check.v1"
 
+	controller "github.com/juju/juju/controller"
+	"github.com/juju/juju/core/objectstore"
 	state "github.com/juju/juju/state"
 )
 
@@ -43,7 +47,9 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		StateName:         "state",
 		BootstrapGateName: "bootstrap-gate",
 		Logger:            s.logger,
-		AgentBinarySeeder: func() error { return nil },
+		AgentBinarySeeder: func(context.Context, string, BinaryAgentStorageService, objectstore.ObjectStore, controller.Config, Logger) error {
+			return nil
+		},
 		RequiresBootstrap: func(appService ApplicationService) (bool, error) { return false, nil },
 	}
 }

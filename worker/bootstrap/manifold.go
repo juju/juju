@@ -4,14 +4,21 @@
 package bootstrap
 
 import (
+	"context"
+	"io"
+
 	"github.com/juju/errors"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/internal/bootstrap"
+	"github.com/juju/juju/internal/servicefactory"
 	st "github.com/juju/juju/state"
+	"github.com/juju/juju/state/binarystorage"
 	"github.com/juju/juju/worker/common"
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/state"
@@ -25,8 +32,22 @@ type Logger interface {
 	Debugf(message string, args ...any)
 }
 
+// BinaryAgentStorageService is the interface that is used to get the storage
+// for the agent binary.
+type BinaryAgentStorageService interface {
+	AgentBinaryStorage(objectstore.ObjectStore) (BinaryAgentStorage, error)
+}
+
+// BinaryAgentStorage is the interface that is used to store the agent binary.
+type BinaryAgentStorage interface {
+	// Add adds the agent binary to the storage.
+	Add(context.Context, io.Reader, binarystorage.Metadata) error
+	// Close closes the storage.
+	Close() error
+}
+
 // AgentBinaryBootstrapFunc is the function that is used to populate the tools.
-type AgentBinaryBootstrapFunc func() error
+type AgentBinaryBootstrapFunc func(context.Context, string, BinaryAgentStorageService, objectstore.ObjectStore, controller.Config, Logger) error
 
 // RequiresBootstrapFunc is the function that is used to check if the controller
 // application exists.
@@ -34,10 +55,11 @@ type RequiresBootstrapFunc func(appService ApplicationService) (bool, error)
 
 // ManifoldConfig defines the configuration for the trace manifold.
 type ManifoldConfig struct {
-	AgentName         string
-	StateName         string
-	ObjectStoreName   string
-	BootstrapGateName string
+	AgentName          string
+	StateName          string
+	ObjectStoreName    string
+	BootstrapGateName  string
+	ServiceFactoryName string
 
 	Logger            Logger
 	AgentBinarySeeder AgentBinaryBootstrapFunc
@@ -58,6 +80,9 @@ func (cfg ManifoldConfig) Validate() error {
 	if cfg.BootstrapGateName == "" {
 		return errors.NotValidf("empty BootstrapGateName")
 	}
+	if cfg.ServiceFactoryName == "" {
+		return errors.NotValidf("empty ServiceFactoryName")
+	}
 	if cfg.Logger == nil {
 		return errors.NotValidf("nil Logger")
 	}
@@ -75,6 +100,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.StateName,
 			config.ObjectStoreName,
 			config.BootstrapGateName,
+			config.ServiceFactoryName,
 		},
 		Start: func(context dependency.Context) (worker.Worker, error) {
 			if err := config.Validate(); err != nil {
@@ -120,13 +146,20 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 
+			var controllerServiceFactory servicefactory.ControllerServiceFactory
+			if err := context.Get(config.ServiceFactoryName, &controllerServiceFactory); err != nil {
+				_ = stTracker.Done()
+				return nil, errors.Trace(err)
+			}
+
 			w, err := NewWorker(WorkerConfig{
-				Agent:             a,
-				ObjectStore:       objectStore,
-				State:             st,
-				BootstrapUnlocker: bootstrapUnlocker,
-				AgentBinarySeeder: config.AgentBinarySeeder,
-				Logger:            config.Logger,
+				Agent:                   a,
+				ObjectStore:             objectStore,
+				ControllerConfigService: controllerServiceFactory.ControllerConfig(),
+				State:                   st,
+				BootstrapUnlocker:       bootstrapUnlocker,
+				AgentBinarySeeder:       config.AgentBinarySeeder,
+				Logger:                  config.Logger,
 			})
 			if err != nil {
 				_ = stTracker.Done()
@@ -142,14 +175,21 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 
 // CAASAgentBinarySeeder is the function that is used to populate the tools
 // for CAAS.
-func CAASAgentBinarySeeder() error {
+func CAASAgentBinarySeeder(context.Context, string, BinaryAgentStorageService, objectstore.ObjectStore, controller.Config, Logger) error {
+	// CAAS doesn't need to populate the tools.
 	return nil
 }
 
 // IAASAgentBinarySeeder is the function that is used to populate the tools
 // for IAAS.
-func IAASAgentBinarySeeder() error {
-	return nil
+func IAASAgentBinarySeeder(ctx context.Context, dataDir string, storageService BinaryAgentStorageService, objectStore objectstore.ObjectStore, controllerConfig controller.Config, logger Logger) error {
+	storage, err := storageService.AgentBinaryStorage(objectStore)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer storage.Close()
+
+	return bootstrap.PopulateAgentBinary(ctx, dataDir, storage, controllerConfig, logger)
 }
 
 // ApplicationService is the interface that is used to check if an application

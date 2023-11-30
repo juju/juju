@@ -4,6 +4,7 @@
 package bootstrap
 
 import (
+	"context"
 	time "time"
 
 	jc "github.com/juju/testing/checkers"
@@ -12,6 +13,8 @@ import (
 	gomock "go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	controller "github.com/juju/juju/controller"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 )
@@ -42,8 +45,10 @@ func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
 		Agent:             s.agent,
 		ObjectStore:       s.objectStore,
 		BootstrapUnlocker: s.bootstrapUnlocker,
-		AgentBinarySeeder: func() error { return nil },
-		State:             &state.State{},
+		AgentBinarySeeder: func(context.Context, string, BinaryAgentStorageService, objectstore.ObjectStore, controller.Config, Logger) error {
+			return nil
+		},
+		State: &state.State{},
 	}, s.states)
 	c.Assert(err, jc.ErrorIsNil)
 	return w
