@@ -697,7 +697,9 @@ func ensureScale(appName string, app caas.Application, appLife life.Value,
 	if ps.ScaleTarget >= len(units) {
 		logger.Infof("scaling application %q to desired scale %d", appName, ps.ScaleTarget)
 		err = app.Scale(ps.ScaleTarget)
-		if err != nil {
+		if appLife != life.Alive && errors.Is(err, errors.NotFound) {
+			logger.Infof("dying application %q is already removed", appName)
+		} else if err != nil {
 			return err
 		}
 		return updateProvisioningState(appName, false, 0, facade)
