@@ -35,7 +35,9 @@ var _ environs.EnvironProvider = (*ManualProvider)(nil)
 var initUbuntuUser = sshprovisioner.InitUbuntuUser
 
 func ensureBootstrapUbuntuUser(ctx environs.BootstrapContext, host, user string, cfg *environConfig) error {
-	err := initUbuntuUser(host, user, cfg.AuthorizedKeys(), "", ctx.GetStdin(), ctx.GetStdout())
+	// esse argumento ""                                        ↓↓ aqui
+	// faz sentido usar a string vazia ou estender o ctx???     ↓↓
+	err := initUbuntuUser(host, user, cfg.AuthorizedKeys(), "", "", ctx.GetStdin(), ctx.GetStdout())
 	if err != nil {
 		logger.Errorf("initializing ubuntu user: %v", err)
 		return err
