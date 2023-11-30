@@ -53,6 +53,7 @@ type SecretsState interface {
 type SecretsMetaState interface {
 	ListSecrets(state.SecretsFilter) ([]*secrets.SecretMetadata, error)
 	ListSecretRevisions(uri *secrets.URI) ([]*secrets.SecretRevisionMetadata, error)
+	SecretGrants(uri *secrets.URI, role secrets.SecretRole) ([]secrets.AccessInfo, error)
 	ChangeSecretBackend(state.ChangeSecretBackendParams) error
 }
 

@@ -135,7 +135,7 @@ func (c *showSecretsCommand) Run(ctxt *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	details := gatherSecretInfo(result, c.revealSecrets, c.revisions)
+	details := gatherSecretInfo(result, c.revealSecrets, c.revisions, true)
 	if len(details) == 0 {
 		if c.uri != nil {
 			return errors.NotFoundf("secret %q", c.uri.ID)

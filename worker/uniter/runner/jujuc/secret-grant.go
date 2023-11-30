@@ -48,7 +48,7 @@ By default, all units of the related application are granted access.
 Optionally specify a unit name to limit access to just that unit.
 
 Examples:
-    secret-grant secret:9m4e2mr0ui3e8a215n4g --unit mediawiki/6 
+    secret-grant secret:9m4e2mr0ui3e8a215n4g -r 0 --unit mediawiki/6
     secret-grant secret:9m4e2mr0ui3e8a215n4g --relation db:2
 `
 	return jujucmd.Info(&cmd.Info{

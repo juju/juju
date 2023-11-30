@@ -444,6 +444,7 @@ func (f *contextFactory) updateContext(ctx *HookContext) (err error) {
 			LatestExpireTime: md.LatestExpireTime,
 			NextRotateTime:   md.NextRotateTime,
 			Revisions:        v.Revisions,
+			Access:           md.Access,
 		}
 	}
 

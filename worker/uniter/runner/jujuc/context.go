@@ -205,6 +205,7 @@ type SecretMetadata struct {
 	LatestExpireTime *time.Time
 	NextRotateTime   *time.Time
 	Revisions        []int
+	Access           []secrets.AccessInfo
 }
 
 // ContextSecrets is the part of a hook context related to secrets.
