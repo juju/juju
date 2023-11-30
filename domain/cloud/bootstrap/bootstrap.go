@@ -6,6 +6,7 @@ package bootstrap
 import (
 	"context"
 	"database/sql"
+	"fmt"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/v3"
@@ -13,6 +14,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/domain/cloud/state"
+	modelconfigservice "github.com/juju/juju/domain/modelconfig/service"
 )
 
 // InsertCloud inserts the initial cloud during bootstrap.
@@ -28,5 +30,31 @@ func InsertCloud(cloud cloud.Cloud) func(context.Context, database.TxnRunner) er
 			}
 			return nil
 		}))
+	}
+}
+
+// SetCloudDefaults is responsible for setting a previously inserted cloud's
+// default config values that will be used as part of the default values
+// supplied to a models config. If no cloud exists for the specified name an
+// error satisfying [github.com/juju/juju/domain/cloud/errors.NotFound] will be
+// returned.
+func SetCloudDefaults(
+	cloudName string,
+	defaults map[string]any,
+) func(context.Context, database.TxnRunner) error {
+	return func(ctx context.Context, db database.TxnRunner) error {
+		strDefaults, err := modelconfigservice.CoerceConfigForStorage(defaults)
+		if err != nil {
+			return fmt.Errorf("coercing cloud %q default values for storage: %w", cloudName, err)
+		}
+
+		err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+			return state.SetCloudDefaults(ctx, tx, cloudName, strDefaults)
+		})
+
+		if err != nil {
+			return fmt.Errorf("setting cloud %q bootstrap defaults: %w", cloudName, err)
+		}
+		return nil
 	}
 }
