@@ -22,10 +22,11 @@ var (
 		"agent",
 		"api-caller",
 		"api-config-watcher",
+		"bootstrap",
 		"clock",
-		"is-responsible-flag",
 		"environ-upgrade-gate",
 		"environ-upgraded-flag",
+		"is-responsible-flag",
 		"not-alive-flag",
 		"not-dead-flag",
 		"valid-credential-flag",
@@ -37,6 +38,7 @@ var (
 		"charm-revision-updater", // tertiary dependency: will be inactive because migration workers will be inactive
 		"compute-provisioner",
 		"environ-tracker",
+		"environ-upgrader",
 		"firewaller",
 		"instance-mutater",
 		"instance-poller",
@@ -46,14 +48,13 @@ var (
 		"migration-fortress",      // secondary dependency: will be inactive because depends on environ-upgrader
 		"migration-inactive-flag", // secondary dependency: will be inactive because depends on environ-upgrader
 		"migration-master",        // secondary dependency: will be inactive because depends on environ-upgrader
-		"environ-upgrader",
-		"remote-relations",      // tertiary dependency: will be inactive because migration workers will be inactive
+		"remote-relations",        // tertiary dependency: will be inactive because migration workers will be inactive
+		"secrets-pruner",
 		"state-cleaner",         // tertiary dependency: will be inactive because migration workers will be inactive
 		"status-history-pruner", // tertiary dependency: will be inactive because migration workers will be inactive
 		"storage-provisioner",   // tertiary dependency: will be inactive because migration workers will be inactive
 		"undertaker",
 		"unit-assigner", // tertiary dependency: will be inactive because migration workers will be inactive
-		"secrets-pruner",
 		"user-secrets-drain-worker",
 	}
 	aliveModelWorkers = []string{
@@ -74,21 +75,21 @@ var (
 		"migration-inactive-flag",
 		"migration-master",
 		"remote-relations",
+		"secrets-pruner",
 		"state-cleaner",
 		"status-history-pruner",
 		"storage-provisioner",
 		"unit-assigner",
-		"secrets-pruner",
 		"user-secrets-drain-worker",
 	}
 	migratingModelWorkers = []string{
 		"environ-tracker",
-		"migration-fortress",
-		"migration-inactive-flag",
-		"migration-master",
 		"environ-upgrade-gate",
 		"environ-upgraded-flag",
 		"log-forwarder",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"migration-master",
 	}
 	// ReallyLongTimeout should be long enough for the model-tracker
 	// tests that depend on a hosted model; its backing state is not
@@ -124,15 +125,15 @@ var (
 		"deployer",
 		"disk-manager",
 		"fan-configurer",
+		"is-bootstrap-flag",
+		"is-bootstrap-gate",
 		"is-controller-flag",
 		"is-not-controller-flag",
-		// "host-key-reporter", not stable, exits when done
+		"kvm-container-provisioner",
 		"log-sender",
 		"logging-config-updater",
 		"lxd-container-provisioner",
-		"kvm-container-provisioner",
 		"machine-action-runner",
-		//"machine-setup", exits when done
 		"machiner",
 		"proxy-config-updater",
 		"reboot-executor",
