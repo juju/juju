@@ -23,7 +23,9 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/environschema.v1"
 
+	corearch "github.com/juju/juju/core/arch"
 	corebase "github.com/juju/juju/core/base"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
@@ -94,8 +96,9 @@ func (s *ApplicationSuite) TestSetCharm(c *gc.C) {
 	sch := s.AddMetaCharm(c, "mysql", metaBase, 2)
 
 	cfg := state.SetCharmConfig{
-		Charm:      sch,
-		ForceUnits: true,
+		Charm:       sch,
+		CharmOrigin: defaultCharmOrigin(sch.URL()),
+		ForceUnits:  true,
 	}
 	err = s.mysql.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
@@ -115,6 +118,7 @@ func (s *ApplicationSuite) TestSetCharmCharmOrigin(c *gc.C) {
 	origin := &state.CharmOrigin{
 		Source:   "charm-hub",
 		Revision: &rev,
+		Channel:  &state.Channel{Risk: "stable"},
 		Platform: &state.Platform{
 			OS:      "ubuntu",
 			Channel: "22.04/stable",
@@ -135,49 +139,28 @@ func (s *ApplicationSuite) TestSetCharmCharmOrigin(c *gc.C) {
 func (s *ApplicationSuite) TestSetCharmUpdateChannelURLNoChange(c *gc.C) {
 	sch := s.AddMetaCharm(c, "mysql", metaBase, 2)
 
-	origin := s.mysql.CharmOrigin()
-	origin.Channel = &state.Channel{Risk: "stable"}
-
+	origin := defaultCharmOrigin(sch.URL())
+	// This is a workaround, AddCharm creates a local
+	// charm, which cannot have a channel in the CharmOrigin.
+	// However, we need to test changing the channel only.
+	origin.Source = "charm-hub"
+	origin.Channel = &state.Channel{
+		Risk: "stable",
+	}
 	cfg := state.SetCharmConfig{
 		Charm:       sch,
 		CharmOrigin: origin,
 	}
 	err := s.mysql.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.mysql.CharmOrigin().Channel.Risk, gc.DeepEquals, "stable")
+	mOrigin := s.mysql.CharmOrigin()
+	c.Assert(mOrigin.Channel, gc.NotNil)
+	c.Assert(mOrigin.Channel.Risk, gc.DeepEquals, "stable")
 
 	cfg.CharmOrigin.Channel.Risk = "candidate"
 	err = s.mysql.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.mysql.CharmOrigin().Channel.Risk, gc.DeepEquals, "candidate")
-}
-
-func (s *ApplicationSuite) TestSetCharmCharmOriginNoChange(c *gc.C) {
-	// Add a compatible charm.
-	sch := s.AddMetaCharm(c, "mysql", metaBase, 2)
-	rev := sch.Revision()
-	origin := &state.CharmOrigin{
-		Source:   "charm-hub",
-		Revision: &rev,
-	}
-	cfg := state.SetCharmConfig{
-		Charm:       sch,
-		CharmOrigin: origin,
-	}
-	origOrigin := s.mysql.CharmOrigin()
-	err := s.mysql.SetCharm(cfg)
-	c.Assert(err, jc.ErrorIsNil)
-	cfg = state.SetCharmConfig{
-		Charm:      sch,
-		ForceUnits: true,
-	}
-	err = s.mysql.SetCharm(cfg)
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.mysql.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-	obtainedOrigin := s.mysql.CharmOrigin()
-	origin.Platform = origOrigin.Platform
-	c.Assert(obtainedOrigin, gc.DeepEquals, origin)
 }
 
 func (s *ApplicationSuite) TestLXDProfileSetCharm(c *gc.C) {
@@ -199,8 +182,9 @@ func (s *ApplicationSuite) TestLXDProfileSetCharm(c *gc.C) {
 	sch := s.AddMetaCharm(c, "lxd-profile", lxdProfileMetaBase, 2)
 
 	cfg := state.SetCharmConfig{
-		Charm:      sch,
-		ForceUnits: true,
+		Charm:       sch,
+		CharmOrigin: defaultCharmOrigin(ch.URL()),
+		ForceUnits:  true,
 	}
 	err = app.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
@@ -233,8 +217,9 @@ func (s *ApplicationSuite) TestLXDProfileFailSetCharm(c *gc.C) {
 	sch := s.AddMetaCharm(c, "lxd-profile-fail", lxdProfileMetaBase, 2)
 
 	cfg := state.SetCharmConfig{
-		Charm:      sch,
-		ForceUnits: true,
+		Charm:       sch,
+		CharmOrigin: defaultCharmOrigin(ch.URL()),
+		ForceUnits:  true,
 	}
 	err = app.SetCharm(cfg)
 	c.Assert(err, gc.ErrorMatches, ".*validating lxd profile: invalid lxd-profile\\.yaml.*")
@@ -259,9 +244,10 @@ func (s *ApplicationSuite) TestLXDProfileFailWithForceSetCharm(c *gc.C) {
 	sch := s.AddMetaCharm(c, "lxd-profile-fail", lxdProfileMetaBase, 2)
 
 	cfg := state.SetCharmConfig{
-		Charm:      sch,
-		Force:      true,
-		ForceUnits: true,
+		Charm:       sch,
+		CharmOrigin: defaultCharmOrigin(ch.URL()),
+		Force:       true,
+		ForceUnits:  true,
 	}
 	err = app.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
@@ -289,8 +275,9 @@ func (s *ApplicationSuite) TestCAASSetCharm(c *gc.C) {
 	sch := state.AddCustomCharm(c, st, "mysql", "metadata.yaml", metaBaseCAAS, "kubernetes", 2)
 
 	cfg := state.SetCharmConfig{
-		Charm:      sch,
-		ForceUnits: true,
+		Charm:       sch,
+		CharmOrigin: defaultCharmOrigin(ch.URL()),
+		ForceUnits:  true,
 	}
 	err := app.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
@@ -315,6 +302,7 @@ func (s *ApplicationSuite) TestCAASSetCharmRequireNoUnits(c *gc.C) {
 
 	cfg := state.SetCharmConfig{
 		Charm:          sch,
+		CharmOrigin:    defaultCharmOrigin(ch.URL()),
 		ForceUnits:     true,
 		RequireNoUnits: true,
 	}
@@ -351,8 +339,9 @@ deployment:
 `[1:]
 	newCh := state.AddCustomCharm(c, st, "gitlab", "metadata.yaml", metaYaml, "kubernetes", 2)
 	cfg := state.SetCharmConfig{
-		Charm:      newCh,
-		ForceUnits: true,
+		Charm:       newCh,
+		CharmOrigin: defaultCharmOrigin(newCh.URL()),
+		ForceUnits:  true,
 	}
 	err := app.SetCharm(cfg)
 	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "gitlab" to charm "local:kubernetes/kubernetes-gitlab-2": cannot change a charm's deployment info`)
@@ -387,8 +376,9 @@ deployment:
 `[1:]
 	newCh := state.AddCustomCharm(c, st, "elastic-operator", "metadata.yaml", metaYaml, "kubernetes", 2)
 	cfg := state.SetCharmConfig{
-		Charm:      newCh,
-		ForceUnits: true,
+		Charm:       newCh,
+		CharmOrigin: defaultCharmOrigin(newCh.URL()),
+		ForceUnits:  true,
 	}
 	err := app.SetCharm(cfg)
 	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "elastic-operator" to charm "local:kubernetes/kubernetes-elastic-operator-2": cannot change a charm's deployment type`)
@@ -422,8 +412,9 @@ deployment:
 `[1:]
 	newCh := state.AddCustomCharm(c, st, "elastic-operator", "metadata.yaml", metaYaml, "kubernetes", 2)
 	cfg := state.SetCharmConfig{
-		Charm:      newCh,
-		ForceUnits: true,
+		Charm:       newCh,
+		CharmOrigin: defaultCharmOrigin(newCh.URL()),
+		ForceUnits:  true,
 	}
 	err := app.SetCharm(cfg)
 	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "elastic-operator" to charm "local:kubernetes/kubernetes-elastic-operator-2": cannot change a charm's deployment mode`)
@@ -435,8 +426,9 @@ func (s *ApplicationSuite) TestSetCharmWithNewBindings(c *gc.C) {
 
 	// Assign new charm endpoint to "isolated" space
 	cfg := state.SetCharmConfig{
-		Charm:      sch,
-		ForceUnits: true,
+		Charm:       sch,
+		CharmOrigin: defaultCharmOrigin(sch.URL()),
+		ForceUnits:  true,
 		EndpointBindings: map[string]string{
 			"events": sp.Name(),
 		},
@@ -543,8 +535,9 @@ func (s *ApplicationSuite) TestSetCharmWithNewBindingsAssigneToDefaultSpace(c *g
 	// New charm endpoint should be auto-assigned to default space if not
 	// explicitly bound by the operator.
 	cfg := state.SetCharmConfig{
-		Charm:      sch,
-		ForceUnits: true,
+		Charm:       sch,
+		CharmOrigin: defaultCharmOrigin(sch.URL()),
+		ForceUnits:  true,
 	}
 	err := s.mysql.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
@@ -607,6 +600,7 @@ func (s *ApplicationSuite) TestSetCharmCharmSettings(c *gc.C) {
 	newCh := s.AddConfigCharm(c, "mysql", stringConfig, 2)
 	err := s.mysql.SetCharm(state.SetCharmConfig{
 		Charm:          newCh,
+		CharmOrigin:    defaultCharmOrigin(newCh.URL()),
 		ConfigSettings: charm.Settings{"key": "value"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -618,6 +612,7 @@ func (s *ApplicationSuite) TestSetCharmCharmSettings(c *gc.C) {
 	newCh = s.AddConfigCharm(c, "mysql", newStringConfig, 3)
 	err = s.mysql.SetCharm(state.SetCharmConfig{
 		Charm:          newCh,
+		CharmOrigin:    defaultCharmOrigin(newCh.URL()),
 		ConfigSettings: charm.Settings{"other": "one"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -636,6 +631,7 @@ func (s *ApplicationSuite) TestSetCharmCharmSettingsForBranch(c *gc.C) {
 	newCh := s.AddConfigCharm(c, "mysql", stringConfig, 2)
 	err := s.mysql.SetCharm(state.SetCharmConfig{
 		Charm:          newCh,
+		CharmOrigin:    defaultCharmOrigin(newCh.URL()),
 		ConfigSettings: charm.Settings{"key": "value"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -666,6 +662,7 @@ func (s *ApplicationSuite) TestSetCharmCharmSettingsInvalid(c *gc.C) {
 	newCh := s.AddConfigCharm(c, "mysql", stringConfig, 2)
 	err := s.mysql.SetCharm(state.SetCharmConfig{
 		Charm:          newCh,
+		CharmOrigin:    defaultCharmOrigin(newCh.URL()),
 		ConfigSettings: charm.Settings{"key": 123.45},
 	})
 	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "mysql" to charm "local:quantal/quantal-mysql-2": validating config settings: option "key" expected string, got 123.45`)
@@ -675,8 +672,9 @@ func (s *ApplicationSuite) TestSetCharmLegacy(c *gc.C) {
 	chDifferentSeries := state.AddTestingCharmForSeries(c, s.State, "precise", "mysql")
 
 	cfg := state.SetCharmConfig{
-		Charm:     chDifferentSeries,
-		ForceBase: true,
+		Charm:       chDifferentSeries,
+		CharmOrigin: defaultCharmOrigin(chDifferentSeries.URL()),
+		ForceBase:   true,
 	}
 	err := s.mysql.SetCharm(cfg)
 	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "mysql" to charm "local:precise/precise-mysql-1": cannot change an application's series`)
@@ -688,7 +686,8 @@ func (s *ApplicationSuite) TestClientApplicationSetCharmUnsupportedSeries(c *gc.
 
 	chDifferentSeries := state.AddTestingCharmMultiSeries(c, s.State, "multi-series2")
 	cfg := state.SetCharmConfig{
-		Charm: chDifferentSeries,
+		Charm:       chDifferentSeries,
+		CharmOrigin: defaultCharmOrigin(chDifferentSeries.URL()),
 	}
 	err := app.SetCharm(cfg)
 	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "application" to charm "ch:multi-series2-8": only these series are supported: trusty, wily`)
@@ -700,8 +699,9 @@ func (s *ApplicationSuite) TestClientApplicationSetCharmUnsupportedSeriesForce(c
 
 	chDifferentSeries := state.AddTestingCharmMultiSeries(c, s.State, "multi-series2")
 	cfg := state.SetCharmConfig{
-		Charm:     chDifferentSeries,
-		ForceBase: true,
+		Charm:       chDifferentSeries,
+		CharmOrigin: defaultCharmOrigin(chDifferentSeries.URL()),
+		ForceBase:   true,
 	}
 	err := app.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
@@ -718,8 +718,9 @@ func (s *ApplicationSuite) TestClientApplicationSetCharmWrongOS(c *gc.C) {
 
 	chDifferentSeries := state.AddTestingCharmMultiSeries(c, s.State, "multi-series-centos")
 	cfg := state.SetCharmConfig{
-		Charm:     chDifferentSeries,
-		ForceBase: true,
+		Charm:       chDifferentSeries,
+		CharmOrigin: defaultCharmOrigin(chDifferentSeries.URL()),
+		ForceBase:   true,
 	}
 	err := app.SetCharm(cfg)
 	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "application" to charm "ch:multi-series-centos-1": OS "Ubuntu" not supported by charm`)
@@ -727,12 +728,18 @@ func (s *ApplicationSuite) TestClientApplicationSetCharmWrongOS(c *gc.C) {
 
 func (s *ApplicationSuite) TestSetCharmPreconditions(c *gc.C) {
 	logging := s.AddTestingCharm(c, "logging")
-	cfg := state.SetCharmConfig{Charm: logging}
+	cfg := state.SetCharmConfig{
+		Charm:       logging,
+		CharmOrigin: defaultCharmOrigin(logging.URL()),
+	}
 	err := s.mysql.SetCharm(cfg)
 	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "mysql" to charm "local:quantal/quantal-logging-1": cannot change an application's subordinacy`)
 
 	othermysql := s.AddSeriesCharm(c, "mysql", "bionic")
-	cfg2 := state.SetCharmConfig{Charm: othermysql}
+	cfg2 := state.SetCharmConfig{
+		Charm:       othermysql,
+		CharmOrigin: defaultCharmOrigin(othermysql.URL()),
+	}
 	err = s.mysql.SetCharm(cfg2)
 	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "mysql" to charm "local:bionic/bionic-mysql-1": cannot change an application's series`)
 }
@@ -759,7 +766,10 @@ func (s *ApplicationSuite) TestSetCharmUpdatesBindings(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	newCharm := s.AddMetaCharm(c, "mysql", metaExtraEndpoints, 43)
-	cfg := state.SetCharmConfig{Charm: newCharm}
+	cfg := state.SetCharmConfig{
+		Charm:       newCharm,
+		CharmOrigin: defaultCharmOrigin(newCharm.URL()),
+	}
 	err = application.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	updatedBindings, err := application.EndpointBindings()
@@ -934,7 +944,10 @@ func (s *ApplicationSuite) TestSetCharmChecksEndpointsWithoutRelations(c *gc.C) 
 	_, err = s.State.AddRelation(appServerEP, otherServerEP)
 	c.Assert(err, jc.ErrorIsNil)
 
-	cfg := state.SetCharmConfig{Charm: ms}
+	cfg := state.SetCharmConfig{
+		Charm:       ms,
+		CharmOrigin: defaultCharmOrigin(ms.URL()),
+	}
 	err = app.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -942,7 +955,10 @@ func (s *ApplicationSuite) TestSetCharmChecksEndpointsWithoutRelations(c *gc.C) 
 		c.Logf("test %d: %s", i, t.summary)
 
 		newCh := s.AddMetaCharm(c, "mysql", t.meta, revno+i+1)
-		cfg := state.SetCharmConfig{Charm: newCh}
+		cfg := state.SetCharmConfig{
+			Charm:       newCh,
+			CharmOrigin: defaultCharmOrigin(newCh.URL()),
+		}
 		err = app.SetCharm(cfg)
 		if t.err != "" {
 			c.Assert(err, gc.ErrorMatches, t.err)
@@ -960,14 +976,17 @@ func (s *ApplicationSuite) TestSetCharmChecksEndpointsWithRelations(c *gc.C) {
 	providerCharm := s.AddMetaCharm(c, "mysql", metaDifferentProvider, revno)
 	providerApp := s.AddTestingApplication(c, "myprovider", providerCharm)
 
-	cfg := state.SetCharmConfig{Charm: providerCharm}
+	cfg := state.SetCharmConfig{
+		Charm:       providerCharm,
+		CharmOrigin: defaultCharmOrigin(providerCharm.URL()),
+	}
 	err := providerApp.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	revno++
 	requirerCharm := s.AddMetaCharm(c, "mysql", metaDifferentRequirer, revno)
 	requirerApp := s.AddTestingApplication(c, "myrequirer", requirerCharm)
-	cfg = state.SetCharmConfig{Charm: requirerCharm}
+	cfg = state.SetCharmConfig{Charm: requirerCharm, CharmOrigin: defaultCharmOrigin(requirerCharm.URL())}
 	err = requirerApp.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -978,7 +997,10 @@ func (s *ApplicationSuite) TestSetCharmChecksEndpointsWithRelations(c *gc.C) {
 
 	revno++
 	baseCharm := s.AddMetaCharm(c, "mysql", metaBase, revno)
-	cfg = state.SetCharmConfig{Charm: baseCharm}
+	cfg = state.SetCharmConfig{
+		Charm:       baseCharm,
+		CharmOrigin: defaultCharmOrigin(baseCharm.URL()),
+	}
 	err = providerApp.SetCharm(cfg)
 	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "myprovider" to charm "local:quantal/quantal-mysql-4": would break relation "myrequirer:kludge myprovider:kludge"`)
 	err = requirerApp.SetCharm(cfg)
@@ -1077,7 +1099,10 @@ func (s *ApplicationSuite) TestSetCharmConfig(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 
 		newCh := charms[t.endconfig]
-		cfg := state.SetCharmConfig{Charm: newCh}
+		cfg := state.SetCharmConfig{
+			Charm:       newCh,
+			CharmOrigin: defaultCharmOrigin(newCh.URL()),
+		}
 		err = app.SetCharm(cfg)
 		var expectVals charm.Settings
 		var expectCh *state.Charm
@@ -1118,8 +1143,9 @@ func (s *ApplicationSuite) TestSetCharmWithDyingApplication(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	assertLife(c, s.mysql, state.Dying)
 	cfg := state.SetCharmConfig{
-		Charm:      sch,
-		ForceUnits: true,
+		Charm:       sch,
+		CharmOrigin: defaultCharmOrigin(sch.URL()),
+		ForceUnits:  true,
 	}
 	err = s.mysql.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1256,8 +1282,9 @@ func (s *ApplicationSuite) TestSetCharmWhenDead(c *gc.C) {
 	}).Check()
 
 	cfg := state.SetCharmConfig{
-		Charm:      sch,
-		ForceUnits: true,
+		Charm:       sch,
+		CharmOrigin: defaultCharmOrigin(sch.URL()),
+		ForceUnits:  true,
 	}
 	err := s.mysql.SetCharm(cfg)
 	c.Assert(errors.Cause(err), gc.Equals, stateerrors.ErrDead)
@@ -1271,8 +1298,9 @@ func (s *ApplicationSuite) TestSetCharmWithRemovedApplication(c *gc.C) {
 	assertRemoved(c, s.mysql)
 
 	cfg := state.SetCharmConfig{
-		Charm:      sch,
-		ForceUnits: true,
+		Charm:       sch,
+		CharmOrigin: defaultCharmOrigin(sch.URL()),
+		ForceUnits:  true,
 	}
 
 	err = s.mysql.SetCharm(cfg)
@@ -1289,8 +1317,9 @@ func (s *ApplicationSuite) TestSetCharmWhenRemoved(c *gc.C) {
 	}).Check()
 
 	cfg := state.SetCharmConfig{
-		Charm:      sch,
-		ForceUnits: true,
+		Charm:       sch,
+		CharmOrigin: defaultCharmOrigin(sch.URL()),
+		ForceUnits:  true,
 	}
 	err := s.mysql.SetCharm(cfg)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
@@ -1308,8 +1337,9 @@ func (s *ApplicationSuite) TestSetCharmWhenDyingIsOK(c *gc.C) {
 	}).Check()
 
 	cfg := state.SetCharmConfig{
-		Charm:      sch,
-		ForceUnits: true,
+		Charm:       sch,
+		CharmOrigin: defaultCharmOrigin(sch.URL()),
+		ForceUnits:  true,
 	}
 	err := s.mysql.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1327,7 +1357,10 @@ func (s *ApplicationSuite) TestSetCharmRetriesWithSameCharmURL(c *gc.C) {
 				c.Assert(force, jc.IsFalse)
 				c.Assert(currentCh.URL(), jc.DeepEquals, s.charm.URL())
 
-				cfg := state.SetCharmConfig{Charm: sch}
+				cfg := state.SetCharmConfig{
+					Charm:       sch,
+					CharmOrigin: defaultCharmOrigin(sch.URL()),
+				}
 				err = s.mysql.SetCharm(cfg)
 				c.Assert(err, jc.ErrorIsNil)
 			},
@@ -1354,8 +1387,9 @@ func (s *ApplicationSuite) TestSetCharmRetriesWithSameCharmURL(c *gc.C) {
 	).Check()
 
 	cfg := state.SetCharmConfig{
-		Charm:      sch,
-		ForceUnits: true,
+		Charm:       sch,
+		CharmOrigin: defaultCharmOrigin(sch.URL()),
+		ForceUnits:  true,
 	}
 	err := s.mysql.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1365,7 +1399,10 @@ func (s *ApplicationSuite) TestSetCharmRetriesWhenOldSettingsChanged(c *gc.C) {
 	revno := 2 // revno 1 is used by SetUpSuite
 	oldCh := s.AddConfigCharm(c, "mysql", stringConfig, revno)
 	newCh := s.AddConfigCharm(c, "mysql", stringConfig, revno+1)
-	cfg := state.SetCharmConfig{Charm: oldCh}
+	cfg := state.SetCharmConfig{
+		Charm:       oldCh,
+		CharmOrigin: defaultCharmOrigin(oldCh.URL()),
+	}
 	err := s.mysql.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1378,8 +1415,9 @@ func (s *ApplicationSuite) TestSetCharmRetriesWhenOldSettingsChanged(c *gc.C) {
 	).Check()
 
 	cfg = state.SetCharmConfig{
-		Charm:      newCh,
-		ForceUnits: true,
+		Charm:       newCh,
+		CharmOrigin: defaultCharmOrigin(newCh.URL()),
+		ForceUnits:  true,
 	}
 	err = s.mysql.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1401,7 +1439,10 @@ func (s *ApplicationSuite) TestSetCharmRetriesWhenBothOldAndNewSettingsChanged(c
 				c.Assert(err, jc.ErrorIsNil)
 				unit2, err := s.mysql.AddUnit(state.AddUnitParams{})
 				c.Assert(err, jc.ErrorIsNil)
-				cfg := state.SetCharmConfig{Charm: newCh}
+				cfg := state.SetCharmConfig{
+					Charm:       newCh,
+					CharmOrigin: defaultCharmOrigin(newCh.URL()),
+				}
 				err = s.mysql.SetCharm(cfg)
 				c.Assert(err, jc.ErrorIsNil)
 				assertSettingsRef(c, s.State, "mysql", newCh, 1)
@@ -1414,7 +1455,10 @@ func (s *ApplicationSuite) TestSetCharmRetriesWhenBothOldAndNewSettingsChanged(c
 				// settings as well.
 				err = s.mysql.UpdateCharmConfig(model.GenerationMaster, charm.Settings{"key": "value1"})
 				c.Assert(err, jc.ErrorIsNil)
-				cfg = state.SetCharmConfig{Charm: oldCh}
+				cfg = state.SetCharmConfig{
+					Charm:       oldCh,
+					CharmOrigin: defaultCharmOrigin(oldCh.URL()),
+				}
 
 				err = s.mysql.SetCharm(cfg)
 				c.Assert(err, jc.ErrorIsNil)
@@ -1444,7 +1488,10 @@ func (s *ApplicationSuite) TestSetCharmRetriesWhenBothOldAndNewSettingsChanged(c
 				// SetCharm has refreshed its cached settings for oldCh
 				// and newCh. Change them again to trigger another
 				// attempt.
-				cfg := state.SetCharmConfig{Charm: newCh}
+				cfg := state.SetCharmConfig{
+					Charm:       newCh,
+					CharmOrigin: defaultCharmOrigin(newCh.URL()),
+				}
 
 				err := s.mysql.SetCharm(cfg)
 				c.Assert(err, jc.ErrorIsNil)
@@ -1453,7 +1500,10 @@ func (s *ApplicationSuite) TestSetCharmRetriesWhenBothOldAndNewSettingsChanged(c
 				err = s.mysql.UpdateCharmConfig(model.GenerationMaster, charm.Settings{"key": "value3"})
 				c.Assert(err, jc.ErrorIsNil)
 
-				cfg = state.SetCharmConfig{Charm: oldCh}
+				cfg = state.SetCharmConfig{
+					Charm:       oldCh,
+					CharmOrigin: defaultCharmOrigin(oldCh.URL()),
+				}
 				err = s.mysql.SetCharm(cfg)
 				c.Assert(err, jc.ErrorIsNil)
 				assertSettingsRef(c, s.State, "mysql", newCh, 1)
@@ -1490,8 +1540,9 @@ func (s *ApplicationSuite) TestSetCharmRetriesWhenBothOldAndNewSettingsChanged(c
 	).Check()
 
 	cfg := state.SetCharmConfig{
-		Charm:      newCh,
-		ForceUnits: true,
+		Charm:       newCh,
+		CharmOrigin: defaultCharmOrigin(newCh.URL()),
+		ForceUnits:  true,
 	}
 	err := s.mysql.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1503,7 +1554,10 @@ func (s *ApplicationSuite) TestSetCharmRetriesWhenOldBindingsChanged(c *gc.C) {
 	oldCharm := s.AddMetaCharm(c, "mysql", metaDifferentRequirer, revno)
 	newCharm := s.AddMetaCharm(c, "mysql", metaExtraEndpoints, revno+1)
 
-	cfg := state.SetCharmConfig{Charm: oldCharm}
+	cfg := state.SetCharmConfig{
+		Charm:       oldCharm,
+		CharmOrigin: defaultCharmOrigin(oldCharm.URL()),
+	}
 	err := s.mysql.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1565,8 +1619,9 @@ func (s *ApplicationSuite) TestSetCharmRetriesWhenOldBindingsChanged(c *gc.C) {
 	).Check()
 
 	cfg = state.SetCharmConfig{
-		Charm:      newCharm,
-		ForceUnits: true,
+		Charm:       newCharm,
+		CharmOrigin: defaultCharmOrigin(newCharm.URL()),
+		ForceUnits:  true,
 	}
 	err = s.mysql.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1609,7 +1664,10 @@ requires:
 
 	// Try to update wordpress to a new version with max 1 relation for the db endpoint
 	wpCharmWithRelLimit := s.AddMetaCharm(c, "wordpress", wp1Charm, 2)
-	cfg := state.SetCharmConfig{Charm: wpCharmWithRelLimit}
+	cfg := state.SetCharmConfig{
+		Charm:       wpCharmWithRelLimit,
+		CharmOrigin: defaultCharmOrigin(wpCharmWithRelLimit.URL()),
+	}
 	err = wpApp.SetCharm(cfg)
 	c.Assert(err, jc.Satisfies, errors.IsQuotaLimitExceeded, gc.Commentf("expected quota limit error due to max relation mismatch"))
 
@@ -1636,9 +1694,10 @@ func (s *ApplicationSuite) TestSetDownloadedIDAndHashFailEmptyStrings(c *gc.C) {
 
 func (s *ApplicationSuite) TestSetDownloadedIDAndHashFailChangeID(c *gc.C) {
 	s.setupSetDownloadedIDAndHash(c, &state.CharmOrigin{
-		Source: "charm-hub",
-		ID:     "testing-ID",
-		Hash:   "testing-hash",
+		Source:   "charm-hub",
+		ID:       "testing-ID",
+		Hash:     "testing-hash",
+		Platform: &state.Platform{},
 	})
 	err := s.mysql.SetDownloadedIDAndHash("change-ID", "testing-hash")
 	c.Assert(err, jc.Satisfies, errors.IsBadRequest)
@@ -1656,6 +1715,7 @@ func (s *ApplicationSuite) TestSetDownloadedIDAndHashReplaceHash(c *gc.C) {
 }
 
 func (s *ApplicationSuite) setupSetDownloadedIDAndHash(c *gc.C, origin *state.CharmOrigin) {
+	origin.Platform = &state.Platform{}
 	chInfoOne := s.dummyCharm(c, "ch:testing-3")
 	chOne, err := s.State.AddCharm(chInfoOne)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1819,7 +1879,10 @@ func (s *ApplicationSuite) TestUpdateApplicationSeriesCharmURLChangedSeriesFail(
 		jujutxn.TestHook{
 			Before: func() {
 				v2 := state.AddTestingCharmMultiSeries(c, s.State, "multi-seriesv2")
-				cfg := state.SetCharmConfig{Charm: v2}
+				cfg := state.SetCharmConfig{
+					Charm:       v2,
+					CharmOrigin: defaultCharmOrigin(v2.URL()),
+				}
 				err := app.SetCharm(cfg)
 				c.Assert(err, jc.ErrorIsNil)
 			},
@@ -1840,7 +1903,12 @@ func (s *ApplicationSuite) TestUpdateApplicationSeriesCharmURLChangedSeriesPass(
 		jujutxn.TestHook{
 			Before: func() {
 				v2 := state.AddTestingCharmMultiSeries(c, s.State, "multi-seriesv2")
-				cfg := state.SetCharmConfig{Charm: v2}
+				curl := v2.URL().WithSeries("bionic")
+				origin := defaultCharmOrigin(curl)
+				cfg := state.SetCharmConfig{
+					Charm:       v2,
+					CharmOrigin: origin,
+				}
 				err := app.SetCharm(cfg)
 				c.Assert(err, jc.ErrorIsNil)
 			},
@@ -2028,7 +2096,10 @@ func (s *ApplicationSuite) TestSettingsRefCountWorks(c *gc.C) {
 	assertNoSettingsRef(c, s.State, appName, newCh)
 
 	// Changing to the same charm does not change the refcount.
-	cfg := state.SetCharmConfig{Charm: oldCh}
+	cfg := state.SetCharmConfig{
+		Charm:       oldCh,
+		CharmOrigin: defaultCharmOrigin(oldCh.URL()),
+	}
 	err := app.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	assertSettingsRef(c, s.State, appName, oldCh, 1)
@@ -2038,14 +2109,20 @@ func (s *ApplicationSuite) TestSettingsRefCountWorks(c *gc.C) {
 	// settings to be decremented, while newCh's settings is
 	// incremented. Consequently, because oldCh's refcount is 0, the
 	// settings doc will be removed.
-	cfg = state.SetCharmConfig{Charm: newCh}
+	cfg = state.SetCharmConfig{
+		Charm:       newCh,
+		CharmOrigin: defaultCharmOrigin(newCh.URL()),
+	}
 	err = app.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	assertNoSettingsRef(c, s.State, appName, oldCh)
 	assertSettingsRef(c, s.State, appName, newCh, 1)
 
 	// The same but newCh swapped with oldCh.
-	cfg = state.SetCharmConfig{Charm: oldCh}
+	cfg = state.SetCharmConfig{
+		Charm:       oldCh,
+		CharmOrigin: defaultCharmOrigin(oldCh.URL()),
+	}
 	err = app.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	assertSettingsRef(c, s.State, appName, oldCh, 1)
@@ -2118,7 +2195,10 @@ func (s *ApplicationSuite) TestSettingsRefCreateRace(c *gc.C) {
 	// fail out and handle the new charm when it comes back up
 	// again).
 	dropSettings := func() {
-		cfg := state.SetCharmConfig{Charm: newCh}
+		cfg := state.SetCharmConfig{
+			Charm:       newCh,
+			CharmOrigin: defaultCharmOrigin(newCh.URL()),
+		}
 		err = app.SetCharm(cfg)
 		c.Assert(err, jc.ErrorIsNil)
 	}
@@ -2145,7 +2225,10 @@ func (s *ApplicationSuite) TestSettingsRefRemoveRace(c *gc.C) {
 	}
 	defer state.SetBeforeHooks(c, s.State, grabReference).Check()
 
-	cfg := state.SetCharmConfig{Charm: newCh}
+	cfg := state.SetCharmConfig{
+		Charm:       newCh,
+		CharmOrigin: defaultCharmOrigin(newCh.URL()),
+	}
 	err = app.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -2320,12 +2403,12 @@ func (s *ApplicationSuite) TestNewPeerRelationsAddedOnUpgrade(c *gc.C) {
 	// No relations joined yet.
 	s.assertApplicationRelations(c, s.mysql)
 
-	cfg := state.SetCharmConfig{Charm: oldCh}
+	cfg := state.SetCharmConfig{Charm: oldCh, CharmOrigin: defaultCharmOrigin(oldCh.URL())}
 	err := s.mysql.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertApplicationRelations(c, s.mysql, "mysql:cluster")
 
-	cfg = state.SetCharmConfig{Charm: newCh}
+	cfg = state.SetCharmConfig{Charm: newCh, CharmOrigin: defaultCharmOrigin(newCh.URL())}
 	err = s.mysql.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	rels := s.assertApplicationRelations(c, s.mysql, "mysql:cluster", "mysql:loadbalancer")
@@ -2352,7 +2435,7 @@ func (s *ApplicationSuite) TestStalePeerRelationsRemovedOnUpgrade(c *gc.C) {
 	// No relations joined yet.
 	s.assertApplicationRelations(c, s.mysql)
 
-	cfg := state.SetCharmConfig{Charm: oldCh}
+	cfg := state.SetCharmConfig{Charm: oldCh, CharmOrigin: defaultCharmOrigin(oldCh.URL())}
 	err := s.mysql.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertApplicationRelations(c, s.mysql, "mysql:cluster")
@@ -2362,8 +2445,9 @@ func (s *ApplicationSuite) TestStalePeerRelationsRemovedOnUpgrade(c *gc.C) {
 	// peer relations that are not referenced by the new charm metadata
 	// to be dropped and any new peer relations to be created.
 	cfg = state.SetCharmConfig{
-		Charm:      newCh,
-		ForceUnits: true,
+		Charm:       newCh,
+		CharmOrigin: defaultCharmOrigin(newCh.URL()),
+		ForceUnits:  true,
 	}
 	err = s.mysql.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2579,8 +2663,9 @@ func (s *ApplicationSuite) TestApplicationRefresh(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	cfg := state.SetCharmConfig{
-		Charm:      s.charm,
-		ForceUnits: true,
+		Charm:       s.charm,
+		CharmOrigin: defaultCharmOrigin(s.charm.URL()),
+		ForceUnits:  true,
 	}
 
 	err = s.mysql.SetCharm(cfg)
@@ -4008,8 +4093,9 @@ func (s *ApplicationSuite) TestWatchApplication(c *gc.C) {
 	wc.AssertOneChange()
 
 	cfg := state.SetCharmConfig{
-		Charm:      s.charm,
-		ForceUnits: true,
+		Charm:       s.charm,
+		CharmOrigin: defaultCharmOrigin(s.charm.URL()),
+		ForceUnits:  true,
 	}
 	err = application.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
@@ -4154,7 +4240,10 @@ func (s *ApplicationSuite) setCharmFromMeta(c *gc.C, oldMeta, newMeta string) er
 	newCh := s.AddMetaCharm(c, "mysql", newMeta, 3)
 	app := s.AddTestingApplication(c, "test", oldCh)
 
-	cfg := state.SetCharmConfig{Charm: newCh}
+	cfg := state.SetCharmConfig{
+		Charm:       newCh,
+		CharmOrigin: defaultCharmOrigin(newCh.URL()),
+	}
 	return app.SetCharm(cfg)
 }
 
@@ -4186,7 +4275,10 @@ func (s *ApplicationSuite) TestSetCharmOptionalUsedStorageRemoved(c *gc.C) {
 		_, err := app.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
-	cfg := state.SetCharmConfig{Charm: newCh}
+	cfg := state.SetCharmConfig{
+		Charm:       newCh,
+		CharmOrigin: defaultCharmOrigin(newCh.URL()),
+	}
 	err := app.SetCharm(cfg)
 	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "test" to charm "local:quantal/quantal-mysql-3": in-use storage "data1" removed`)
 }
@@ -4206,7 +4298,10 @@ func (s *ApplicationSuite) TestSetCharmRequiredStorageAddedDefaultConstraints(c 
 	u, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	cfg := state.SetCharmConfig{Charm: newCh}
+	cfg := state.SetCharmConfig{
+		Charm:       newCh,
+		CharmOrigin: defaultCharmOrigin(newCh.URL()),
+	}
 	err = app.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -4226,7 +4321,8 @@ func (s *ApplicationSuite) TestSetCharmStorageAddedUserSpecifiedConstraints(c *g
 	c.Assert(err, jc.ErrorIsNil)
 
 	cfg := state.SetCharmConfig{
-		Charm: newCh,
+		Charm:       newCh,
+		CharmOrigin: defaultCharmOrigin(newCh.URL()),
 		StorageConstraints: map[string]state.StorageConstraints{
 			"data1": {Count: 3},
 		},
@@ -4421,7 +4517,10 @@ func (s *ApplicationSuite) TestSetCharmExtraBindingsUseDefaults(c *gc.C) {
 
 	newCharm := s.AddMetaCharm(c, "mysql", metaExtraEndpoints, 43)
 
-	cfg := state.SetCharmConfig{Charm: newCharm}
+	cfg := state.SetCharmConfig{
+		Charm:       newCharm,
+		CharmOrigin: defaultCharmOrigin(newCharm.URL()),
+	}
 	err = application.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	setBindings, err = application.EndpointBindings()
@@ -4450,7 +4549,10 @@ func (s *ApplicationSuite) TestSetCharmHandlesMissingBindingsAsDefaults(c *gc.C)
 
 	newCharm := s.AddMetaCharm(c, "mysql", metaExtraEndpoints, 70)
 
-	cfg := state.SetCharmConfig{Charm: newCharm}
+	cfg := state.SetCharmConfig{
+		Charm:       newCharm,
+		CharmOrigin: defaultCharmOrigin(newCharm.URL()),
+	}
 	err := app.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	setBindings, err := app.EndpointBindings()
@@ -4478,7 +4580,7 @@ peers:
     interface: pgreplication
 `
 	originalCharm := s.AddMetaCharm(c, "mysql", originalCharmMeta, 2)
-	cfg := state.SetCharmConfig{Charm: originalCharm}
+	cfg := state.SetCharmConfig{Charm: originalCharm, CharmOrigin: defaultCharmOrigin(originalCharm.URL())}
 	err = s.mysql.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertApplicationRelations(c, s.mysql, "mysql:replication")
@@ -4497,7 +4599,7 @@ peers:
 `
 	updatedCharm := s.AddMetaCharm(c, "mysql", updatedCharmMeta, 3)
 
-	cfg = state.SetCharmConfig{Charm: updatedCharm}
+	cfg = state.SetCharmConfig{Charm: updatedCharm, CharmOrigin: defaultCharmOrigin(updatedCharm.URL())}
 	err = s.mysql.SetCharm(cfg)
 	return
 }
@@ -4552,7 +4654,7 @@ func (s *ApplicationSuite) TestWatchCharmConfig(c *gc.C) {
 
 	// Change application's charm; nothing detected.
 	newCharm := s.AddConfigCharm(c, "wordpress", stringConfig, 123)
-	err = app.SetCharm(state.SetCharmConfig{Charm: newCharm})
+	err = app.SetCharm(state.SetCharmConfig{Charm: newCharm, CharmOrigin: defaultCharmOrigin(newCharm.URL())})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
@@ -5591,11 +5693,10 @@ func (s *ApplicationSuite) TestWatchApplicationsWithPendingCharms(c *gc.C) {
 	dummy2.StoragePath = "" // indicates that we don't have the data in the blobstore yet.
 	ch2, err := s.State.AddCharmMetadata(dummy2)
 	c.Assert(err, jc.ErrorIsNil)
+	twoOrigin := defaultCharmOrigin(ch2.URL().WithSeries("jammy"))
 	err = s.mysql.SetCharm(state.SetCharmConfig{
-		Charm: ch2,
-		CharmOrigin: &state.CharmOrigin{
-			Source: "charm-hub",
-		},
+		Charm:       ch2,
+		CharmOrigin: twoOrigin,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(s.mysql.Name())
@@ -5604,37 +5705,36 @@ func (s *ApplicationSuite) TestWatchApplicationsWithPendingCharms(c *gc.C) {
 	dummy3 := s.dummyCharm(c, "ch:dummy-2")
 	ch3, err := s.State.AddCharm(dummy3)
 	c.Assert(err, jc.ErrorIsNil)
+	threeOrigin := defaultCharmOrigin(ch3.URL().WithSeries("jammy"))
+	threeOrigin.ID = "charm-hub-id"
+	threeOrigin.Hash = "charm-hub-hash"
 	err = s.mysql.SetCharm(state.SetCharmConfig{
-		Charm: ch3,
-		CharmOrigin: &state.CharmOrigin{
-			Source: "charm-hub",
-			ID:     "charm-hub-id",
-		},
+		Charm:       ch3,
+		CharmOrigin: threeOrigin,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
-
+	origin := &state.CharmOrigin{
+		Source: "charm-hub",
+		Platform: &state.Platform{
+			OS:      "ubuntu",
+			Channel: "22.04/stable",
+		},
+	}
 	// Simulate a bundle deploying multiple applications from a single
 	// charm. The watcher needs to notify on the secondary applications.
 	appSameCharm, err := s.State.AddApplication(state.AddApplicationArgs{
-		Name:  "mysql-testing",
-		Charm: ch3,
-		CharmOrigin: &state.CharmOrigin{
-			Source: "charm-hub",
-			Platform: &state.Platform{
-				OS:      "ubuntu",
-				Channel: "22.04/stable",
-			},
-		},
+		Name:        "mysql-testing",
+		Charm:       ch3,
+		CharmOrigin: origin,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(appSameCharm.Name())
+	origin.ID = "charm-hub-id"
+	origin.Hash = "charm-hub-hash"
 	_ = appSameCharm.SetCharm(state.SetCharmConfig{
-		Charm: ch3,
-		CharmOrigin: &state.CharmOrigin{
-			Source: "charm-hub",
-			ID:     "charm-hub-id",
-		},
+		Charm:       ch3,
+		CharmOrigin: origin,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
@@ -5654,7 +5754,7 @@ func (s *ApplicationSuite) dummyCharm(c *gc.C, curlOverride string) state.CharmI
 			fmt.Sprintf("local:quantal/%s-%d", info.Charm.Meta().Name, info.Charm.Revision()),
 		)
 	}
-	info.Charm.Meta().Series = []string{"quantal"}
+	info.Charm.Meta().Series = []string{"quantal", "jammy"}
 	return info
 }
 
@@ -5844,4 +5944,37 @@ func (s *CAASApplicationSuite) TestUpsertCAASUnit(c *gc.C) {
 	c.Assert(containerInfo.ProviderId(), gc.Equals, "cockroachdb-0")
 	c.Assert(containerInfo.Ports(), jc.SameContents, []string{"80", "443"})
 	c.Assert(containerInfo.Address().Value, gc.Equals, "1.2.3.4")
+}
+
+func intPtr(val int) *int {
+	return &val
+}
+
+func defaultCharmOrigin(curl *charm.URL) *state.CharmOrigin {
+	var source string
+	var channel *state.Channel
+	if charm.CharmHub.Matches(curl.Schema) {
+		source = corecharm.CharmHub.String()
+		channel = &state.Channel{
+			Risk: "stable",
+		}
+	} else if charm.Local.Matches(curl.Schema) {
+		source = corecharm.Local.String()
+	}
+
+	base, _ := corebase.GetBaseFromSeries(curl.Series)
+
+	platform := &state.Platform{
+		Architecture: corearch.DefaultArchitecture,
+		OS:           base.OS,
+		Channel:      base.Channel.String(),
+	}
+
+	return &state.CharmOrigin{
+		Source:   source,
+		Type:     "charm",
+		Revision: intPtr(curl.Revision),
+		Channel:  channel,
+		Platform: platform,
+	}
 }
