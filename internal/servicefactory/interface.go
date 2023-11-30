@@ -42,7 +42,7 @@ type ControllerServiceFactory interface {
 	// Upgrade returns the upgrade service.
 	Upgrade() *upgradeservice.Service
 	// AgentObjectStore returns the object store service.
-	// Preliminary used for agent blob store. Although can be used for other
+	// Primarily used for agent blob store. Although can be used for other
 	// blob related operations.
 	AgentObjectStore() *objectstoreservice.Service
 }

@@ -24,11 +24,12 @@ import (
 type workerSuite struct {
 	baseSuite
 
-	states                    chan string
-	trackedObjectStore        *MockTrackedObjectStore
-	controllerMetadataService *MockMetadataService
-	modelMetadataService      *MockMetadataService
-	called                    int64
+	states                     chan string
+	trackedObjectStore         *MockTrackedObjectStore
+	controllerMetadataService  *MockMetadataService
+	modelMetadataServiceGetter *MockMetadataServiceGetter
+	modelMetadataService       *MockMetadataService
+	called                     int64
 }
 
 var _ = gc.Suite(&workerSuite{})
@@ -195,9 +196,9 @@ func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
 			atomic.AddInt64(&s.called, 1)
 			return s.trackedObjectStore, nil
 		},
-		ControllerMetadataService: s.controllerMetadataService,
-		ModelMetadataService:      s.modelMetadataService,
-		RootDir:                   c.MkDir(),
+		ControllerMetadataService:  s.controllerMetadataService,
+		ModelMetadataServiceGetter: s.modelMetadataServiceGetter,
+		RootDir:                    c.MkDir(),
 	}, s.states)
 	c.Assert(err, jc.ErrorIsNil)
 	return w
@@ -214,6 +215,9 @@ func (s *workerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.trackedObjectStore = NewMockTrackedObjectStore(ctrl)
 	s.controllerMetadataService = NewMockMetadataService(ctrl)
 	s.modelMetadataService = NewMockMetadataService(ctrl)
+
+	s.modelMetadataServiceGetter = NewMockMetadataServiceGetter(ctrl)
+	s.modelMetadataServiceGetter.EXPECT().ForModelUUID(gomock.Any()).Return(s.modelMetadataService).AnyTimes()
 
 	return ctrl
 }

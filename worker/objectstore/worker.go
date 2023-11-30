@@ -35,14 +35,14 @@ type TrackedObjectStore interface {
 // WorkerConfig encapsulates the configuration options for the
 // objectStore worker.
 type WorkerConfig struct {
-	TracerGetter              trace.TracerGetter
-	RootDir                   string
-	Clock                     clock.Clock
-	Logger                    Logger
-	NewObjectStoreWorker      internalobjectstore.ObjectStoreWorkerFunc
-	ObjectStoreType           coreobjectstore.BackendType
-	ControllerMetadataService MetadataService
-	ModelMetadataService      MetadataService
+	TracerGetter               trace.TracerGetter
+	RootDir                    string
+	Clock                      clock.Clock
+	Logger                     Logger
+	NewObjectStoreWorker       internalobjectstore.ObjectStoreWorkerFunc
+	ObjectStoreType            coreobjectstore.BackendType
+	ControllerMetadataService  MetadataService
+	ModelMetadataServiceGetter MetadataServiceGetter
 
 	// StatePool is only here for backwards compatibility. Once we have
 	// the right abstractions in place, and we have a replacement, we can
@@ -70,8 +70,8 @@ func (c *WorkerConfig) Validate() error {
 	if c.ControllerMetadataService == nil {
 		return errors.NotValidf("nil ControllerMetadataService")
 	}
-	if c.ModelMetadataService == nil {
-		return errors.NotValidf("nil ModelMetadataService")
+	if c.ModelMetadataServiceGetter == nil {
+		return errors.NotValidf("nil ModelMetadataServiceGetter")
 	}
 	if c.StatePool == nil {
 		return errors.NotValidf("nil StatePool")
@@ -270,7 +270,7 @@ func (w *objectStoreWorker) initObjectStore(namespace string) error {
 				return nil, errors.Trace(err)
 			}
 		} else {
-			metadataService = w.cfg.ModelMetadataService
+			metadataService = w.cfg.ModelMetadataServiceGetter.ForModelUUID(namespace)
 
 			if state, err = w.cfg.StatePool.Get(namespace); err != nil {
 				return nil, errors.Trace(err)
