@@ -37,11 +37,11 @@ func ProvisionMachine(args manual.ProvisionMachineArgs) (machineId string, err e
 	// user's ~/.ssh directory. The authenticationworker will later update the
 	// ubuntu user's authorized_keys.
 	if err = InitUbuntuUser(args.Host, args.User,
-		args.AuthorizedKeys, args.PrivateKey, args.Stdin, args.Stdout); err != nil {
+		args.AuthorizedKeys, args.PrivateKey, args.KnownHosts, args.Stdin, args.Stdout); err != nil {
 		return "", err
 	}
 
-	machineParams, err := gatherMachineParams(args.Host)
+	machineParams, err := gatherMachineParams(args.Host, args.KnownHosts)
 	if err != nil {
 		return "", err
 	}
@@ -64,7 +64,7 @@ func ProvisionMachine(args manual.ProvisionMachineArgs) (machineId string, err e
 	}
 
 	// Finally, provision the machine agent.
-	err = runProvisionScript(provisioningScript, args.Host, args.Stderr)
+	err = runProvisionScript(provisioningScript, args.Host, args.KnownHosts, args.Stderr)
 	if err != nil {
 		return machineId, err
 	}

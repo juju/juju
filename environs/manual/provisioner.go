@@ -53,6 +53,10 @@ type ProvisionMachineArgs struct {
 	// machine.
 	PrivateKey string
 
+	// KnownHosts contains the path of an SSH known hosts file to be used during
+	// the ssh connection.
+	KnownHosts string
+
 	*params.UpdateBehavior
 }
 
