@@ -697,7 +697,7 @@ func (s *SecretsManagerSuite) TestGetSecretMetadata(c *gc.C) {
 				Revision: 667,
 			}},
 			Access: []params.AccessInfo{
-				{Target: "application-gitlab", Scope: "relation-key", Role: "view"},
+				{TargetTag: "application-gitlab", ScopeTag: "relation-key", Role: "view"},
 			},
 		}},
 	})

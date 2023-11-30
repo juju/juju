@@ -36,8 +36,8 @@ func toGrantInfo(grants []params.AccessInfo) []secrets.AccessInfo {
 	result := make([]secrets.AccessInfo, len(grants))
 	for i, g := range grants {
 		result[i] = secrets.AccessInfo{
-			Target: g.Target,
-			Scope:  g.Scope,
+			Target: g.TargetTag,
+			Scope:  g.ScopeTag,
 			Role:   g.Role,
 		}
 	}

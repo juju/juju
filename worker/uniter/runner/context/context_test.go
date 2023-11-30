@@ -1823,7 +1823,7 @@ func (s *mockHookContextSuite) TestSecretGrantFailedRevokeExistingRecordRequired
 		RelationKey:     &relationKey,
 		Role:            ptr(coresecrets.RoleView),
 	})
-	c.Assert(err, gc.ErrorMatches, `to grant in application level, all unit level grants should be revoked first`)
+	c.Assert(err, gc.ErrorMatches, `any unit level grants need to be revoked before granting access to the corresponding application`)
 }
 
 func (s *mockHookContextSuite) TestSecretRevoke(c *gc.C) {

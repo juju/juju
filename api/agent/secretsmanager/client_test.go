@@ -409,9 +409,9 @@ func (s *SecretsSuite) TestSecretMetadata(c *gc.C) {
 				}},
 				Access: []params.AccessInfo{
 					{
-						Target: "application-gitlab",
-						Scope:  coretesting.ModelTag.Id(),
-						Role:   coresecrets.RoleView,
+						TargetTag: "application-gitlab",
+						ScopeTag:  coretesting.ModelTag.Id(),
+						Role:      coresecrets.RoleView,
 					},
 				},
 			}},

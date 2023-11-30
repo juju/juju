@@ -80,9 +80,9 @@ func (s *SecretsSuite) TestListSecrets(c *gc.C) {
 				Value: &params.SecretValueResult{Data: data},
 				Access: []params.AccessInfo{
 					{
-						Target: "application-gitlab",
-						Scope:  "relation-key",
-						Role:   "view",
+						TargetTag: "application-gitlab",
+						ScopeTag:  "relation-key",
+						Role:      "view",
 					},
 				},
 			}},

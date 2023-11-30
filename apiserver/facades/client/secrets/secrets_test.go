@@ -239,7 +239,7 @@ func (s *SecretsSuite) assertListSecrets(c *gc.C, reveal, withBackend bool) {
 				ExpireTime:  ptr(now.Add(2 * time.Hour)),
 			}},
 			Access: []params.AccessInfo{
-				{Target: "application-gitlab", Scope: "relation-key", Role: "view"},
+				{TargetTag: "application-gitlab", ScopeTag: "relation-key", Role: "view"},
 			},
 		}},
 	})

@@ -1084,7 +1084,7 @@ func (ctx *HookContext) GrantSecret(uri *coresecrets.URI, arg *jujuc.SecretGrant
 	}
 	params := uniterArg.ToParams()
 	if len(params.SubjectTags) != 1 {
-		return errors.NotValidf("subject tags %v", params.SubjectTags)
+		return errors.NewNotValid(nil, fmt.Sprintf("expected only 1 subject, got %d", len(params.SubjectTags)))
 	}
 	subjectTag, err := names.ParseTag(params.SubjectTags[0])
 	if err != nil {
@@ -1107,7 +1107,7 @@ func (ctx *HookContext) GrantSecret(uri *coresecrets.URI, arg *jujuc.SecretGrant
 			return nil
 		}
 		if subjectTag.Kind() == names.ApplicationTagKind {
-			return errors.NewNotValid(nil, "to grant in application level, all unit level grants should be revoked first")
+			return errors.NewNotValid(nil, "any unit level grants need to be revoked before granting access to the corresponding application")
 		}
 	}
 	ctx.secretChanges.grant(uniterArg)

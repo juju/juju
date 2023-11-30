@@ -164,7 +164,7 @@ func (c *Client) SecretMetadata() ([]coresecrets.SecretOwnerMetadata, error) {
 		}
 		for _, g := range info.Access {
 			md.Access = append(md.Access, coresecrets.AccessInfo{
-				Target: g.Target, Scope: g.Scope, Role: g.Role,
+				Target: g.TargetTag, Scope: g.ScopeTag, Role: g.Role,
 			})
 		}
 		revisions := make([]int, len(info.Revisions))

@@ -868,7 +868,7 @@ func (s *secretsStore) ChangeSecretBackend(arg ChangeSecretBackendParams) error 
 	return errors.Trace(err)
 }
 
-// SecretGrants returns the list of access information of the secret.
+// SecretGrants returns the list of access information of the secret for the specified role.
 func (s *secretsStore) SecretGrants(uri *secrets.URI, role secrets.SecretRole) ([]secrets.AccessInfo, error) {
 	secretPermissionsCollection, closer := s.st.db().GetCollection(secretPermissionsC)
 	defer closer()

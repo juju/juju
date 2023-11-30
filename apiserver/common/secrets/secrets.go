@@ -519,7 +519,7 @@ func GetSecretMetadata(
 		}
 		for _, g := range grants {
 			secretResult.Access = append(secretResult.Access, params.AccessInfo{
-				Target: g.Target, Scope: g.Scope, Role: g.Role,
+				TargetTag: g.Target, ScopeTag: g.Scope, Role: g.Role,
 			})
 		}
 

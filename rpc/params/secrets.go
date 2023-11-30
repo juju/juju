@@ -288,9 +288,9 @@ type ListSecretResult struct {
 
 // AccessInfo holds info about a secret access information.
 type AccessInfo struct {
-	Target string             `json:"target-tag"`
-	Scope  string             `json:"scope-tag"`
-	Role   secrets.SecretRole `json:"role"`
+	TargetTag string             `json:"target-tag"`
+	ScopeTag  string             `json:"scope-tag"`
+	Role      secrets.SecretRole `json:"role"`
 }
 
 // SecretTriggerChange describes a change to a secret trigger.
