@@ -14,21 +14,23 @@ type User struct {
 	// UUID is the unique identifier for the user.
 	UUID UUID
 
-	// CreatedAt is the time that the user was created at.
-	CreatedAt time.Time
+	// Name is the username of the user.
+	Name string
 
 	// DisplayName is a user-friendly name represent the user as.
 	DisplayName string
 
-	// Name is the username of the user.
-	Name string
-
 	// CreatorUUID is the associated user that created this user.
 	CreatorUUID UUID
+
+	// CreatedAt is the time that the user was created at.
+	CreatedAt time.Time
 }
 
+// UUID is a unique identifier for a user.
 type UUID string
 
+// NewUUID returns a new UUID.
 func NewUUID() (UUID, error) {
 	uuid, err := utils.NewUUID()
 	if err != nil {
@@ -37,6 +39,7 @@ func NewUUID() (UUID, error) {
 	return UUID(uuid.String()), nil
 }
 
+// Validate returns an error if the UUID is invalid.
 func (u UUID) Validate() error {
 	if u == "" {
 		return fmt.Errorf("empty uuid")
@@ -47,6 +50,7 @@ func (u UUID) Validate() error {
 	return nil
 }
 
+// String returns the UUID as a string.
 func (u UUID) String() string {
 	return string(u)
 }

@@ -223,7 +223,7 @@ func (s *stateSuite) TestAddUserWhichCreatorDoesNotExist(c *gc.C) {
 
 	// Try and add admin user with a creator that does not exist.
 	err = st.AddUser(context.Background(), userUUID, adminUser, userCreatorUuid)
-	c.Assert(err, gc.ErrorMatches, "user creator UUID not found")
+	c.Assert(err, jc.ErrorIs, usererrors.UserCreatorUUIDNotFound)
 }
 
 // TestGetUser asserts that we can get a user from the database.

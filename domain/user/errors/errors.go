@@ -25,4 +25,8 @@ const (
 	// AlreadyExists describes an error that occurs when the user being
 	// created already exists.
 	AlreadyExists = errors.ConstError("user already exists")
+
+	// UserAuthenticationDisabled describes an error that occurs when the users
+	// authentication mechanisms are disabled.
+	UserAuthenticationDisabled = errors.ConstError("user authentication disabled")
 )
