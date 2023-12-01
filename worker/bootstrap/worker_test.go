@@ -13,6 +13,7 @@ import (
 	gomock "go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	agent "github.com/juju/juju/agent"
 	controller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/state"
@@ -30,11 +31,16 @@ var _ = gc.Suite(&workerSuite{})
 func (s *workerSuite) TestKilled(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
+	s.expectGateUnlock()
+	s.expectControllerConfig()
+	s.expectAgentConfig(c)
+	s.expectObjectStoreGetter()
+
 	w := s.newWorker(c)
 	defer workertest.DirtyKill(c, w)
 
-	s.expectGateUnlock()
 	s.ensureStartup(c)
+	s.ensureFinished(c)
 
 	workertest.CleanKill(c, w)
 }
@@ -43,12 +49,14 @@ func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
 	w, err := newWorker(WorkerConfig{
 		Logger:            s.logger,
 		Agent:             s.agent,
-		ObjectStore:       s.objectStore,
+		ObjectStoreGetter: s.objectStoreGetter,
 		BootstrapUnlocker: s.bootstrapUnlocker,
-		AgentBinarySeeder: func(context.Context, string, BinaryAgentStorageService, objectstore.ObjectStore, controller.Config, Logger) error {
+		AgentBinaryUploader: func(context.Context, string, BinaryAgentStorageService, objectstore.ObjectStore, Logger) error {
 			return nil
 		},
-		State: &state.State{},
+		CompletesBootstrap:      func(agent.Config) error { return nil },
+		State:                   &state.State{},
+		ControllerConfigService: s.controllerConfigService,
 	}, s.states)
 	c.Assert(err, jc.ErrorIsNil)
 	return w
@@ -65,10 +73,26 @@ func (s *workerSuite) setupMocks(c *gc.C) *gomock.Controller {
 }
 
 func (s *workerSuite) ensureStartup(c *gc.C) {
+	s.ensureState(c, stateStarted)
+}
+
+func (s *workerSuite) ensureFinished(c *gc.C) {
+	s.ensureState(c, stateCompleted)
+}
+
+func (s *workerSuite) ensureState(c *gc.C, st string) {
 	select {
 	case state := <-s.states:
-		c.Assert(state, gc.Equals, stateStarted)
+		c.Assert(state, gc.Equals, st)
 	case <-time.After(testing.ShortWait * 10):
-		c.Fatalf("timed out waiting for startup")
+		c.Fatalf("timed out waiting for %s", st)
 	}
+}
+
+func (s *workerSuite) expectControllerConfig() {
+	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(controller.Config{}, nil).AnyTimes()
+}
+
+func (s *workerSuite) expectObjectStoreGetter() {
+	s.objectStoreGetter.EXPECT().GetObjectStore(gomock.Any(), gomock.Any()).Return(s.objectStore, nil)
 }

@@ -6,21 +6,22 @@ package bootstrap
 import (
 	"context"
 	"io"
+	"os"
+	"path/filepath"
 
 	"github.com/juju/errors"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/bootstrap"
+	"github.com/juju/juju/internal/cloudconfig"
 	"github.com/juju/juju/internal/servicefactory"
-	st "github.com/juju/juju/state"
 	"github.com/juju/juju/state/binarystorage"
 	"github.com/juju/juju/worker/common"
 	"github.com/juju/juju/worker/gate"
+	workerobjectstore "github.com/juju/juju/worker/objectstore"
 	"github.com/juju/juju/worker/state"
 )
 
@@ -47,11 +48,15 @@ type BinaryAgentStorage interface {
 }
 
 // AgentBinaryBootstrapFunc is the function that is used to populate the tools.
-type AgentBinaryBootstrapFunc func(context.Context, string, BinaryAgentStorageService, objectstore.ObjectStore, controller.Config, Logger) error
+type AgentBinaryBootstrapFunc func(context.Context, string, BinaryAgentStorageService, objectstore.ObjectStore, Logger) error
 
-// RequiresBootstrapFunc is the function that is used to check if the controller
-// application exists.
-type RequiresBootstrapFunc func(appService ApplicationService) (bool, error)
+// RequiresBootstrapFunc is the function that is used to check if the bootstrap
+// process is required.
+type RequiresBootstrapFunc func(agent.Config) (bool, error)
+
+// CompletesBootstrapFunc is the function that is used to complete the bootstrap
+// process.
+type CompletesBootstrapFunc func(agent.Config) error
 
 // ManifoldConfig defines the configuration for the trace manifold.
 type ManifoldConfig struct {
@@ -61,9 +66,10 @@ type ManifoldConfig struct {
 	BootstrapGateName  string
 	ServiceFactoryName string
 
-	Logger            Logger
-	AgentBinarySeeder AgentBinaryBootstrapFunc
-	RequiresBootstrap RequiresBootstrapFunc
+	Logger              Logger
+	AgentBinaryUploader AgentBinaryBootstrapFunc
+	RequiresBootstrap   RequiresBootstrapFunc
+	CompletesBootstrap  CompletesBootstrapFunc
 }
 
 // Validate validates the manifold configuration.
@@ -86,8 +92,14 @@ func (cfg ManifoldConfig) Validate() error {
 	if cfg.Logger == nil {
 		return errors.NotValidf("nil Logger")
 	}
-	if cfg.AgentBinarySeeder == nil {
-		return errors.NotValidf("nil AgentBinarySeeder")
+	if cfg.AgentBinaryUploader == nil {
+		return errors.NotValidf("nil AgentBinaryUploader")
+	}
+	if cfg.RequiresBootstrap == nil {
+		return errors.NotValidf("nil RequiresBootstrap")
+	}
+	if cfg.CompletesBootstrap == nil {
+		return errors.NotValidf("nil CompletesBootstrap")
 	}
 	return nil
 }
@@ -107,13 +119,33 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 
+			var bootstrapUnlocker gate.Unlocker
+			if err := context.Get(config.BootstrapGateName, &bootstrapUnlocker); err != nil {
+				return nil, errors.Trace(err)
+			}
+
 			var a agent.Agent
 			if err := context.Get(config.AgentName, &a); err != nil {
 				return nil, err
 			}
 
-			var bootstrapUnlocker gate.Unlocker
-			if err := context.Get(config.BootstrapGateName, &bootstrapUnlocker); err != nil {
+			// If the controller application exists, then we don't need to
+			// bootstrap. Uninstall the worker, as we don't need it running
+			// anymore.
+			if ok, err := config.RequiresBootstrap(a.CurrentConfig()); err != nil {
+				return nil, errors.Trace(err)
+			} else if !ok {
+				bootstrapUnlocker.Unlock()
+				return nil, dependency.ErrUninstall
+			}
+
+			var objectStoreGetter workerobjectstore.ObjectStoreGetter
+			if err := context.Get(config.ObjectStoreName, &objectStoreGetter); err != nil {
+				return nil, errors.Trace(err)
+			}
+
+			var controllerServiceFactory servicefactory.ControllerServiceFactory
+			if err := context.Get(config.ServiceFactoryName, &controllerServiceFactory); err != nil {
 				return nil, errors.Trace(err)
 			}
 
@@ -124,41 +156,25 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 
 			// Get the state pool after grabbing dependencies so we don't need
 			// to remember to call Done on it if they're not running yet.
-			_, st, err := stTracker.Use()
+			statePool, _, err := stTracker.Use()
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
 
-			// If the controller application exists, then we don't need to
-			// bootstrap. Uninstall the worker, as we don't need it running
-			// anymore.
-			if ok, err := config.RequiresBootstrap(&applicationStateService{st: st}); err != nil {
-				return nil, errors.Trace(err)
-			} else if !ok {
-				_ = stTracker.Done()
-				bootstrapUnlocker.Unlock()
-				return nil, dependency.ErrUninstall
-			}
-
-			var objectStore objectstore.ObjectStore
-			if err := context.Get(config.ObjectStoreName, &objectStore); err != nil {
-				_ = stTracker.Done()
-				return nil, errors.Trace(err)
-			}
-
-			var controllerServiceFactory servicefactory.ControllerServiceFactory
-			if err := context.Get(config.ServiceFactoryName, &controllerServiceFactory); err != nil {
+			systemState, err := statePool.SystemState()
+			if err != nil {
 				_ = stTracker.Done()
 				return nil, errors.Trace(err)
 			}
 
 			w, err := NewWorker(WorkerConfig{
 				Agent:                   a,
-				ObjectStore:             objectStore,
+				ObjectStoreGetter:       objectStoreGetter,
 				ControllerConfigService: controllerServiceFactory.ControllerConfig(),
-				State:                   st,
+				State:                   systemState,
 				BootstrapUnlocker:       bootstrapUnlocker,
-				AgentBinarySeeder:       config.AgentBinarySeeder,
+				AgentBinaryUploader:     config.AgentBinaryUploader,
+				CompletesBootstrap:      config.CompletesBootstrap,
 				Logger:                  config.Logger,
 			})
 			if err != nil {
@@ -173,51 +189,38 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	}
 }
 
-// CAASAgentBinarySeeder is the function that is used to populate the tools
+// CAASAgentBinaryUploader is the function that is used to populate the tools
 // for CAAS.
-func CAASAgentBinarySeeder(context.Context, string, BinaryAgentStorageService, objectstore.ObjectStore, controller.Config, Logger) error {
+func CAASAgentBinaryUploader(context.Context, string, BinaryAgentStorageService, objectstore.ObjectStore, Logger) error {
 	// CAAS doesn't need to populate the tools.
 	return nil
 }
 
-// IAASAgentBinarySeeder is the function that is used to populate the tools
+// IAASAgentBinaryUploader is the function that is used to populate the tools
 // for IAAS.
-func IAASAgentBinarySeeder(ctx context.Context, dataDir string, storageService BinaryAgentStorageService, objectStore objectstore.ObjectStore, controllerConfig controller.Config, logger Logger) error {
+func IAASAgentBinaryUploader(ctx context.Context, dataDir string, storageService BinaryAgentStorageService, objectStore objectstore.ObjectStore, logger Logger) error {
 	storage, err := storageService.AgentBinaryStorage(objectStore)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	defer storage.Close()
 
-	return bootstrap.PopulateAgentBinary(ctx, dataDir, storage, controllerConfig, logger)
+	return bootstrap.PopulateAgentBinary(ctx, dataDir, storage, logger)
 }
 
-// ApplicationService is the interface that is used to check if an application
-// exists.
-type ApplicationService interface {
-	ApplicationExists(name string) (bool, error)
-}
-
-// RequiresBootstrap returns true if the controller application does not exist.
-func RequiresBootstrap(appService ApplicationService) (bool, error) {
-	ok, err := appService.ApplicationExists(application.ControllerApplicationName)
-	if err != nil {
+// RequiresBootstrap returns true if the bootstrap params file exists.
+// It is expected at the end of bootstrap that the file is removed.
+func RequiresBootstrap(config agent.Config) (bool, error) {
+	_, err := os.Stat(filepath.Join(config.DataDir(), cloudconfig.FileNameBootstrapParams))
+	if err != nil && !os.IsNotExist(err) {
 		return false, errors.Trace(err)
 	}
-	return !ok, nil
+	return !os.IsNotExist(err), nil
 }
 
-type applicationStateService struct {
-	st *st.State
-}
-
-func (s *applicationStateService) ApplicationExists(name string) (bool, error) {
-	_, err := s.st.Application(name)
-	if err == nil {
-		return true, nil
-	}
-	if errors.Is(err, errors.NotFound) {
-		return false, nil
-	}
-	return false, errors.Annotatef(err, "application exists")
+// CompletesBootstrap removes the bootstrap params file, completing the
+// bootstrap process.
+func CompletesBootstrap(config agent.Config) error {
+	// Remove the bootstrap params file.
+	return os.Remove(filepath.Join(config.DataDir(), cloudconfig.FileNameBootstrapParams))
 }

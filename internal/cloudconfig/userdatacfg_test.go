@@ -349,7 +349,6 @@ echo '.*' > '/var/lib/juju/bootstrap-params'
 echo 'Installing Juju machine agent'.*
 /var/lib/juju/tools/1\.2\.3-ubuntu-amd64/jujud bootstrap-state --timeout 10m0s --data-dir '/var/lib/juju' --debug
 /sbin/remove-juju-services
-rm \$bin/tools\.tar\.gz && rm \$bin/juju1\.2\.3-ubuntu-amd64\.sha256
 `,
 	},
 
@@ -384,7 +383,6 @@ install -D -m 600 /dev/null '/var/lib/juju/bootstrap-params'
 echo '.*' > '/var/lib/juju/bootstrap-params'
 echo 'Installing Juju machine agent'.*
 /var/lib/juju/tools/1\.2\.3\.123-ubuntu-amd64/jujud bootstrap-state --timeout 10m0s --data-dir '/var/lib/juju' --debug
-rm \$bin/tools\.tar\.gz && rm \$bin/juju1\.2\.3\.123-ubuntu-amd64\.sha256
 `,
 	},
 
@@ -414,7 +412,6 @@ echo -n '{"version":"1\.2\.3-ubuntu-amd64","url":"https://state-addr\.testing\.i
 mkdir -p '/var/lib/juju/agents/machine-99'
 cat > '/var/lib/juju/agents/machine-99/agent\.conf' << 'EOF'\\n.*\\nEOF
 chmod 0600 '/var/lib/juju/agents/machine-99/agent\.conf'
-rm \$bin/tools\.tar\.gz && rm \$bin/juju1\.2\.3-ubuntu-amd64\.sha256
 `,
 	},
 
@@ -735,13 +732,12 @@ func (s *cloudinitSuite) TestCloudInitConfigCloudInitUserData(c *gc.C) {
 		`set -xe`, // first line of juju specified cmds
 	}
 	ending := []string{
-		`rm $bin/tools.tar.gz && rm $bin/juju2.3.4-ubuntu-amd64.sha256`, // last line of juju specified cmds
 		`mkdir /tmp/postruncmd`,
 		`mkdir "/tmp/postruncmd 2"`,
 	}
 	c.Assert(len(cmds), jc.GreaterThan, 6)
 	c.Assert(cmds[:3], gc.DeepEquals, beginning)
-	c.Assert(cmds[len(cmds)-3:], gc.DeepEquals, ending)
+	c.Assert(cmds[len(cmds)-2:], gc.DeepEquals, ending)
 
 	c.Assert(cloudcfg.SystemUpgrade(), gc.Equals, false)
 

@@ -25,7 +25,6 @@ import (
 	jtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
-	"github.com/juju/version/v2"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
@@ -636,50 +635,6 @@ func (s *BootstrapSuite) TestSystemIdentityWritten(c *gc.C) {
 	data, err := os.ReadFile(filepath.Join(s.dataDir, agent.SystemIdentity))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(data), gc.Equals, "private-key")
-}
-
-func (s *BootstrapSuite) TestDownloadedToolsMetadata(c *gc.C) {
-	// Tools downloaded by cloud-init script.
-	s.testToolsMetadata(c)
-}
-
-func (s *BootstrapSuite) TestUploadedToolsMetadata(c *gc.C) {
-	// Tools uploaded over ssh.
-	s.writeDownloadedTools(c, &tools.Tools{
-		Version: testing.CurrentVersion(),
-		URL:     "file:///does/not/matter",
-	})
-	s.testToolsMetadata(c)
-}
-
-func (s *BootstrapSuite) testToolsMetadata(c *gc.C) {
-	envtesting.RemoveFakeToolsMetadata(c, s.toolsStorage)
-
-	_, cmd, err := s.initBootstrapCommand(c, nil)
-
-	c.Assert(err, jc.ErrorIsNil)
-	err = cmd.Run(cmdtesting.Context(c))
-	c.Assert(err, jc.ErrorIsNil)
-
-	// We don't write metadata at bootstrap anymore.
-	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
-	simplestreamsMetadata, err := envtools.ReadMetadata(ss, s.toolsStorage, "released")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(simplestreamsMetadata, gc.HasLen, 0)
-
-	// The tools should have been added to tools storage.
-	st, closer := s.getSystemState(c)
-	defer closer()
-
-	storage, err := st.ToolsStorage(jujutesting.NewObjectStore(c, st.ControllerModelUUID(), st))
-	c.Assert(err, jc.ErrorIsNil)
-	defer storage.Close()
-	metadata, err := storage.AllMetadata()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(metadata, gc.HasLen, 1)
-	m := metadata[0]
-	v := version.MustParseBinary(m.Version)
-	c.Assert(v.Release, gc.Equals, coreos.HostOSTypeName())
 }
 
 func createImageMetadata() []*imagemetadata.ImageMetadata {

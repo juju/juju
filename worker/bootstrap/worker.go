@@ -19,7 +19,8 @@ import (
 
 const (
 	// States which report the state of the worker.
-	stateStarted = "started"
+	stateStarted   = "started"
+	stateCompleted = "completed"
 )
 
 // ControllerConfigService is the interface that is used to get the
@@ -28,14 +29,21 @@ type ControllerConfigService interface {
 	ControllerConfig(context.Context) (controller.Config, error)
 }
 
+// ObjectStoreGetter is the interface that is used to get a object store.
+type ObjectStoreGetter interface {
+	// GetObjectStore returns a object store for the given namespace.
+	GetObjectStore(context.Context, string) (objectstore.ObjectStore, error)
+}
+
 // WorkerConfig encapsulates the configuration options for the
 // bootstrap worker.
 type WorkerConfig struct {
 	Agent                   agent.Agent
-	ObjectStore             objectstore.ObjectStore
+	ObjectStoreGetter       ObjectStoreGetter
 	ControllerConfigService ControllerConfigService
 	BootstrapUnlocker       gate.Unlocker
-	AgentBinarySeeder       AgentBinaryBootstrapFunc
+	AgentBinaryUploader     AgentBinaryBootstrapFunc
+	CompletesBootstrap      CompletesBootstrapFunc
 
 	// Deprecated: This is only here, until we can remove the state layer.
 	State *state.State
@@ -48,8 +56,8 @@ func (c *WorkerConfig) Validate() error {
 	if c.Agent == nil {
 		return errors.NotValidf("nil Agent")
 	}
-	if c.ObjectStore == nil {
-		return errors.NotValidf("nil ObjectStore")
+	if c.ObjectStoreGetter == nil {
+		return errors.NotValidf("nil ObjectStoreGetter")
 	}
 	if c.ControllerConfigService == nil {
 		return errors.NotValidf("nil ControllerConfigService")
@@ -57,8 +65,11 @@ func (c *WorkerConfig) Validate() error {
 	if c.BootstrapUnlocker == nil {
 		return errors.NotValidf("nil BootstrapUnlocker")
 	}
-	if c.AgentBinarySeeder == nil {
-		return errors.NotValidf("nil AgentBinarySeeder")
+	if c.AgentBinaryUploader == nil {
+		return errors.NotValidf("nil AgentBinaryUploader")
+	}
+	if c.CompletesBootstrap == nil {
+		return errors.NotValidf("nil CompletesBootstrap")
 	}
 	if c.Logger == nil {
 		return errors.NotValidf("nil Logger")
@@ -115,16 +126,24 @@ func (w *bootstrapWorker) loop() error {
 	agentConfig := w.cfg.Agent.CurrentConfig()
 	dataDir := agentConfig.DataDir()
 
-	controllerConfig, err := w.cfg.ControllerConfigService.ControllerConfig(ctx)
+	objectStore, err := w.cfg.ObjectStoreGetter.GetObjectStore(ctx, agentConfig.Controller().Id())
 	if err != nil {
-		return fmt.Errorf("failed to get controller config: %v", err)
+		return fmt.Errorf("failed to get object store: %v", err)
 	}
 
 	// Agent binary seeder will populate the tools for the agent.
 	agentStorage := agentStorageShim{State: w.cfg.State}
-	if err := w.cfg.AgentBinarySeeder(ctx, dataDir, agentStorage, w.cfg.ObjectStore, controllerConfig, w.cfg.Logger); err != nil {
+	if err := w.cfg.AgentBinaryUploader(ctx, dataDir, agentStorage, objectStore, w.cfg.Logger); err != nil {
 		return errors.Trace(err)
 	}
+
+	// Complete the bootstrap, only after this is complete do we unlock the
+	// bootstrap gate.
+	if err := w.cfg.CompletesBootstrap(agentConfig); err != nil {
+		return errors.Trace(err)
+	}
+
+	w.reportInternalState(stateCompleted)
 
 	w.cfg.BootstrapUnlocker.Unlock()
 	return nil

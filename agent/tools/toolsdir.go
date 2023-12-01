@@ -162,11 +162,11 @@ func ReadTools(dataDir string, vers version.Binary) (*coretools.Tools, error) {
 	dir := SharedToolsDir(dataDir, vers)
 	toolsData, err := os.ReadFile(path.Join(dir, toolsFile))
 	if err != nil {
-		return nil, fmt.Errorf("cannot read agent metadata in directory %v: %v", dir, err)
+		return nil, fmt.Errorf("cannot read agent metadata in directory %v: %w", dir, err)
 	}
 	var tools coretools.Tools
 	if err := json.Unmarshal(toolsData, &tools); err != nil {
-		return nil, fmt.Errorf("invalid agent metadata in directory %q: %v", dir, err)
+		return nil, fmt.Errorf("invalid agent metadata in directory %q: %w", dir, err)
 	}
 	return &tools, nil
 }

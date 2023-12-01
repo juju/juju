@@ -15,7 +15,6 @@ import (
 	"github.com/juju/version/v2"
 
 	agenttools "github.com/juju/juju/agent/tools"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/arch"
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/state/binarystorage"
@@ -43,7 +42,7 @@ type AgentBinaryStorage interface {
 
 // PopulateAgentBinary is the function that is used to populate the agent
 // binary at bootstrap.
-func PopulateAgentBinary(ctx context.Context, dataDir string, storage AgentBinaryStorage, cfg controller.Config, logger Logger) error {
+func PopulateAgentBinary(ctx context.Context, dataDir string, storage AgentBinaryStorage, logger Logger) error {
 	current := version.Binary{
 		Number:  jujuversion.Current,
 		Arch:    arch.HostArch(),
@@ -52,13 +51,13 @@ func PopulateAgentBinary(ctx context.Context, dataDir string, storage AgentBinar
 
 	agentTools, err := agenttools.ReadTools(dataDir, current)
 	if err != nil {
-		return fmt.Errorf("cannot read tools: %w", err)
+		return fmt.Errorf("cannot read agent binary: %w", err)
 	}
 
-	data, err := os.ReadFile(filepath.Join(
-		agenttools.SharedToolsDir(dataDir, current),
-		AgentCompressedBinaryName,
-	))
+	rootPath := agenttools.SharedToolsDir(dataDir, current)
+	binaryPath := filepath.Join(rootPath, AgentCompressedBinaryName)
+
+	data, err := os.ReadFile(binaryPath)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -72,6 +71,16 @@ func PopulateAgentBinary(ctx context.Context, dataDir string, storage AgentBinar
 	logger.Debugf("Adding agent binary: %v", agentTools.Version)
 	if err := storage.Add(ctx, bytes.NewReader(data), metadata); err != nil {
 		return errors.Trace(err)
+	}
+
+	// Ensure that we remove the agent binary from disk.
+	if err := os.Remove(binaryPath); err != nil {
+		logger.Warningf("failed to remove agent binary: %v", err)
+	}
+	// Remove the sha which validates the agent binary file.
+	shaFilePath := filepath.Join(rootPath, fmt.Sprintf("juju%s.sha256", current.String()))
+	if err := os.Remove(shaFilePath); err != nil {
+		logger.Warningf("failed to remove agent binary sha: %v", err)
 	}
 
 	return nil

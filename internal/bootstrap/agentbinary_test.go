@@ -1,0 +1,166 @@
+// Copyright 2023 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
+package bootstrap
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
+
+	jc "github.com/juju/testing/checkers"
+	"github.com/juju/version/v2"
+	gomock "go.uber.org/mock/gomock"
+	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/core/arch"
+	coreos "github.com/juju/juju/core/os"
+	"github.com/juju/juju/state/binarystorage"
+	jujuversion "github.com/juju/juju/version"
+)
+
+type agentBinarySuite struct {
+	baseSuite
+}
+
+var _ = gc.Suite(&agentBinarySuite{})
+
+func (s *agentBinarySuite) TestPopulateAgentBinary(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	current := version.Binary{
+		Number:  jujuversion.Current,
+		Arch:    arch.HostArch(),
+		Release: coreos.HostOSTypeName(),
+	}
+
+	dir, toolsPath := s.ensureDirs(c, current)
+	size := int64(4)
+
+	s.writeDownloadTools(c, toolsPath, downloadTools{
+		Version: current.String(),
+		URL:     filepath.Join(dir, "tools", fmt.Sprintf("%s.tgz", current.String())),
+		SHA256:  "sha256",
+		Size:    size,
+	})
+
+	s.writeAgentBinary(c, toolsPath, current)
+
+	s.storage.EXPECT().Add(gomock.Any(), gomock.Any(), binarystorage.Metadata{
+		Version: current.String(),
+		Size:    size,
+		SHA256:  "sha256",
+	}).Return(nil)
+
+	err := PopulateAgentBinary(context.Background(), dir, s.storage, s.logger)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *agentBinarySuite) TestPopulateAgentBinaryAddError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	current := version.Binary{
+		Number:  jujuversion.Current,
+		Arch:    arch.HostArch(),
+		Release: coreos.HostOSTypeName(),
+	}
+
+	dir, toolsPath := s.ensureDirs(c, current)
+	size := int64(4)
+
+	s.writeDownloadTools(c, toolsPath, downloadTools{
+		Version: current.String(),
+		URL:     filepath.Join(dir, "tools", fmt.Sprintf("%s.tgz", current.String())),
+		SHA256:  "sha256",
+		Size:    size,
+	})
+
+	s.writeAgentBinary(c, toolsPath, current)
+
+	s.storage.EXPECT().Add(gomock.Any(), gomock.Any(), binarystorage.Metadata{
+		Version: current.String(),
+		Size:    size,
+		SHA256:  "sha256",
+	}).Return(errors.New("boom"))
+
+	err := PopulateAgentBinary(context.Background(), dir, s.storage, s.logger)
+	c.Assert(err, gc.ErrorMatches, "boom")
+}
+
+func (s *agentBinarySuite) TestPopulateAgentBinaryNoDownloadedToolsFile(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	current := version.Binary{
+		Number:  jujuversion.Current,
+		Arch:    arch.HostArch(),
+		Release: coreos.HostOSTypeName(),
+	}
+
+	dir, _ := s.ensureDirs(c, current)
+
+	err := PopulateAgentBinary(context.Background(), dir, s.storage, s.logger)
+	c.Assert(err, jc.ErrorIs, os.ErrNotExist)
+}
+
+func (s *agentBinarySuite) TestPopulateAgentBinaryNoBinaryFile(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	current := version.Binary{
+		Number:  jujuversion.Current,
+		Arch:    arch.HostArch(),
+		Release: coreos.HostOSTypeName(),
+	}
+
+	dir, toolsPath := s.ensureDirs(c, current)
+	size := int64(4)
+
+	s.writeDownloadTools(c, toolsPath, downloadTools{
+		Version: current.String(),
+		URL:     filepath.Join(dir, "tools", fmt.Sprintf("%s.tgz", current.String())),
+		SHA256:  "sha256",
+		Size:    size,
+	})
+
+	err := PopulateAgentBinary(context.Background(), dir, s.storage, s.logger)
+	c.Assert(err, jc.ErrorIs, os.ErrNotExist)
+}
+
+func (s *agentBinarySuite) ensureDirs(c *gc.C, current version.Binary) (string, string) {
+	dir := c.MkDir()
+
+	path := filepath.Join(dir, "tools", current.String())
+
+	err := os.MkdirAll(path, 0755)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = os.Stat(path)
+	c.Assert(err, jc.ErrorIsNil)
+
+	return dir, path
+}
+
+func (s *agentBinarySuite) writeDownloadTools(c *gc.C, dir string, tools downloadTools) {
+	b, err := json.Marshal(tools)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = os.WriteFile(filepath.Join(dir, "downloaded-tools.txt"), b, 0644)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (S *agentBinarySuite) writeAgentBinary(c *gc.C, dir string, current version.Binary) {
+	err := os.WriteFile(filepath.Join(dir, "tools.tar.gz"), []byte("data"), 0644)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = os.WriteFile(filepath.Join(dir, fmt.Sprintf("%s.sha256", current.String())), []byte("sha256"), 0644)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+type downloadTools struct {
+	Version string `json:"version"`
+	URL     string `json:"url"`
+	SHA256  string `json:"sha256"`
+	Size    int64  `json:"size"`
+}
