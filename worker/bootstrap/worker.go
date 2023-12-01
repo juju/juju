@@ -126,7 +126,7 @@ func (w *bootstrapWorker) loop() error {
 	agentConfig := w.cfg.Agent.CurrentConfig()
 	dataDir := agentConfig.DataDir()
 
-	objectStore, err := w.cfg.ObjectStoreGetter.GetObjectStore(ctx, agentConfig.Controller().Id())
+	objectStore, err := w.cfg.ObjectStoreGetter.GetObjectStore(ctx, w.cfg.State.ControllerModelUUID())
 	if err != nil {
 		return fmt.Errorf("failed to get object store: %v", err)
 	}
