@@ -34,6 +34,9 @@ import (
 	"github.com/juju/juju/api/agent/secretsmanager"
 	apiuniter "github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/api/client/charms"
+	corearch "github.com/juju/juju/core/arch"
+	corebase "github.com/juju/juju/core/base"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/leadership"
 	corelease "github.com/juju/juju/core/lease"
@@ -1025,13 +1028,47 @@ func (s upgradeCharm) step(c *gc.C, ctx *testContext) {
 	sch, err := ctx.st.Charm(curl)
 	c.Assert(err, jc.ErrorIsNil)
 	cfg := state.SetCharmConfig{
-		Charm:      sch,
-		ForceUnits: s.forced,
+		Charm:       sch,
+		ForceUnits:  s.forced,
+		CharmOrigin: defaultCharmOrigin(curl),
 	}
 	// Make sure we upload the charm before changing it in the DB.
 	serveCharm{}.step(c, ctx)
 	err = ctx.application.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func defaultCharmOrigin(curl *jujucharm.URL) *state.CharmOrigin {
+	var source string
+	var channel *state.Channel
+	if jujucharm.CharmHub.Matches(curl.Schema) {
+		source = corecharm.CharmHub.String()
+		channel = &state.Channel{
+			Risk: "stable",
+		}
+	} else if jujucharm.Local.Matches(curl.Schema) {
+		source = corecharm.Local.String()
+	}
+
+	b, _ := corebase.GetBaseFromSeries(curl.Series)
+
+	platform := &state.Platform{
+		Architecture: corearch.DefaultArchitecture,
+		OS:           b.OS,
+		Channel:      b.Channel.String(),
+	}
+
+	return &state.CharmOrigin{
+		Source:   source,
+		Type:     "charm",
+		Revision: intPtr(curl.Revision),
+		Channel:  channel,
+		Platform: platform,
+	}
+}
+
+func intPtr(i int) *int {
+	return &i
 }
 
 type verifyCharm struct {
