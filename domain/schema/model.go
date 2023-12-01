@@ -415,17 +415,16 @@ func storageSchema() schema.Patch {
 CREATE TABLE storage_pool (
     uuid TEXT PRIMARY KEY,
     name TEXT NOT NULL,
-    -- TODO (manadart 2023-11-29): Storage pools in Mongo were stored as settings.
-    -- The types are sourced from the provider.
-    -- We can:
-    --   1. Leave it as text on the basis that we don't know up front what types the provider offers.
-    --   2. Make a lookup with all the known types, which would need maintenance over the long run.
-    --   3. Populate a lookup at model creation with the provider's known types.
-    -- Option 1 preserves the status quo.
+    -- Types are provider sourced, so we do not use a lookup with ID.
+    -- This constitutes "repeating data" and would tend to indicate 
+    -- bad relational design. However we choose that here over the
+    -- burden of:
+    --   - Knowing every possible type up front to populate a look-up or;
+    --   - Sourcing the lookup from the provider and keeping it updated. 
     type TEXT NOT NULL
 );
 
-CREATE TABLE storage_pool_attributes (
+CREATE TABLE storage_pool_attribute (
     storage_pool_uuid TEXT NOT NULL,
     key               TEXT,
     value             TEXT,
@@ -435,7 +434,7 @@ CREATE TABLE storage_pool_attributes (
 );
 
 CREATE UNIQUE INDEX idx_storage_pool_attribute
-ON storage_pool_attributes (storage_pool_uuid, key);
+ON storage_pool_attribute (storage_pool_uuid, key);
 
 CREATE TABLE storage_kind (
     id   INT PRIMARY KEY,
@@ -445,7 +444,7 @@ CREATE TABLE storage_kind (
 CREATE UNIQUE INDEX idx_storage_kind
 ON storage_kind (kind);
 
-INSERT INTO storage_type VALUES
+INSERT INTO storage_kind VALUES
     (0, 'block'), 
     (1, 'filesystem');
 
@@ -500,7 +499,33 @@ CREATE TABLE storage_attachment (
         REFERENCES   unit(uuid)
 );
 
--- Does an instance always have constraints?
+CREATE TABLE storage_constraint_type (
+    id   INT PRIMARY KEY,
+    name TEXT NOT NULL 
+);
 
+CREATE UNIQUE INDEX idx_storage_constraint_type
+ON storage_constraint_type (name);
+
+INSERT INTO storage_constraint_type VALUES
+    (0, 'pool'), 
+    (1, 'size'), -- MiB.
+    (2, 'count'); 
+
+CREATE TABLE storage_instance_constraint (
+    uuid                  TEXT PRIMARY KEY,
+    storage_instance_uuid TEXT NOT NULL,
+    constraint_type_id    INT NOT NULL,
+    value                 TEXT NOT NULL,
+    CONSTRAINT       fk_storage_instance_constraint_instance
+        FOREIGN KEY  (storage_instance_uuid)
+        REFERENCES   storage_instance(uuid),
+    CONSTRAINT       fk_storage_instance_constraint_type
+        FOREIGN KEY  (constraint_type_id)
+        REFERENCES   storage_constraint_type(id)
+);
+
+CREATE UNIQUE INDEX idx_storage_instance_constraint
+ON storage_instance_constraint (storage_instance_uuid, constraint_type_id);
 `)
 }
