@@ -320,6 +320,8 @@ func allCollections() CollectionSchema {
 		relationsC: {
 			indexes: []mgo.Index{{
 				Key: []string{"model-uuid", "endpoints.applicationname", "endpoints.relation.name"},
+			}, {
+				Key: []string{"model-uuid", "id"}, // id here is the relation id not the doc _id
 			}},
 		},
 		relationScopesC: {
