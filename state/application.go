@@ -1658,11 +1658,7 @@ func (a *Application) validateSetCharmConfig(cfg SetCharmConfig) error {
 		return errors.BadRequestf("programming error, SetCharm, neither CharmOrigin ID nor Hash can be set before a charm is downloaded. See CharmHubRepository GetDownloadURL.")
 	}
 
-	curl, err := charm.ParseURL(*a.doc.CharmURL)
-	if err != nil {
-		return errors.Annotate(err, "parsing charm url")
-	}
-	currentCharm, err := a.st.Charm(curl)
+	currentCharm, err := a.st.Charm(*a.doc.CharmURL)
 	if err != nil {
 		return errors.Trace(err)
 	}
