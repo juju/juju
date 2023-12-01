@@ -8,12 +8,26 @@ import (
 	"github.com/juju/juju/domain"
 	modelconfigservice "github.com/juju/juju/domain/modelconfig/service"
 	modelconfigstate "github.com/juju/juju/domain/modelconfig/state"
+	objectstoreservice "github.com/juju/juju/domain/objectstore/service"
+	objectstorestate "github.com/juju/juju/domain/objectstore/state"
 )
 
 // ModelFactory provides access to the services required by the apiserver.
 type ModelFactory struct {
 	logger  Logger
 	modelDB changestream.WatchableDBFactory
+}
+
+// NewModelFactory returns a new registry which uses the provided modelDB
+// function to obtain a model database.
+func NewModelFactory(
+	modelDB changestream.WatchableDBFactory,
+	logger Logger,
+) *ModelFactory {
+	return &ModelFactory{
+		logger:  logger,
+		modelDB: modelDB,
+	}
 }
 
 // Config returns the model's configuration service. A ModelDefaultsProvider
@@ -29,14 +43,13 @@ func (s *ModelFactory) Config(
 	)
 }
 
-// NewModelFactory returns a new registry which uses the provided modelDB
-// function to obtain a model database.
-func NewModelFactory(
-	modelDB changestream.WatchableDBFactory,
-	logger Logger,
-) *ModelFactory {
-	return &ModelFactory{
-		logger:  logger,
-		modelDB: modelDB,
-	}
+// ObjectStore returns the model's object store service.
+func (s *ModelFactory) ObjectStore() *objectstoreservice.Service {
+	return objectstoreservice.NewService(
+		objectstorestate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
+		domain.NewWatcherFactory(
+			s.modelDB,
+			s.logger.Child("objectstore"),
+		),
+	)
 }

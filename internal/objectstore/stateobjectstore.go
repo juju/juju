@@ -27,7 +27,7 @@ type stateObjectStore struct {
 	session MongoSession
 }
 
-// NewObjectStoreWorker returns a new object store worker based on the state
+// NewStateObjectStore returns a new object store worker based on the state
 // storage.
 func NewStateObjectStore(ctx context.Context, namespace string, mongoSession MongoSession, logger Logger) (TrackedObjectStore, error) {
 	s := &stateObjectStore{

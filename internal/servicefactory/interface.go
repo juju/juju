@@ -14,6 +14,7 @@ import (
 	modelconfigservice "github.com/juju/juju/domain/modelconfig/service"
 	modeldefaultsservice "github.com/juju/juju/domain/modeldefaults/service"
 	modelmanagerservice "github.com/juju/juju/domain/modelmanager/service"
+	objectstoreservice "github.com/juju/juju/domain/objectstore/service"
 	upgradeservice "github.com/juju/juju/domain/upgrade/service"
 )
 
@@ -40,6 +41,10 @@ type ControllerServiceFactory interface {
 	Cloud() *cloudservice.Service
 	// Upgrade returns the upgrade service.
 	Upgrade() *upgradeservice.Service
+	// AgentObjectStore returns the object store service.
+	// Primarily used for agent blob store. Although can be used for other
+	// blob related operations.
+	AgentObjectStore() *objectstoreservice.Service
 }
 
 // ModelServiceFactory provides access to the services required by the
@@ -47,6 +52,8 @@ type ControllerServiceFactory interface {
 type ModelServiceFactory interface {
 	// Config returns the modelconfig service.
 	Config(modelconfigservice.ModelDefaultsProvider) *modelconfigservice.Service
+	// ObjectStore returns the object store service.
+	ObjectStore() *objectstoreservice.Service
 }
 
 // ServiceFactory provides access to the services required by the apiserver.

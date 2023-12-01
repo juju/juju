@@ -14,6 +14,7 @@ import (
 	modelconfigservice "github.com/juju/juju/domain/modelconfig/service"
 	modeldefaultsservice "github.com/juju/juju/domain/modeldefaults/service"
 	modelmanagerservice "github.com/juju/juju/domain/modelmanager/service"
+	objectstoreservice "github.com/juju/juju/domain/objectstore/service"
 	upgradeservice "github.com/juju/juju/domain/upgrade/service"
 )
 
@@ -81,7 +82,12 @@ func (s *TestingServiceFactory) Upgrade() *upgradeservice.Service {
 	return nil
 }
 
-// TODO we need a method here because if we don't have a type here, then
-// anything satisfies the ModelFactory. Once we have model methods here, we
-// can remove this method.
-func (s *TestingServiceFactory) TODO() {}
+// AgentObjectStore returns the agent object store service.
+func (s *TestingServiceFactory) AgentObjectStore() *objectstoreservice.Service {
+	return nil
+}
+
+// ObjectStore returns the object store service.
+func (s *TestingServiceFactory) ObjectStore() *objectstoreservice.Service {
+	return nil
+}

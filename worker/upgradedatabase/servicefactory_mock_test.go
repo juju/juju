@@ -16,7 +16,8 @@ import (
 	service5 "github.com/juju/juju/domain/model/service"
 	service6 "github.com/juju/juju/domain/modeldefaults/service"
 	service7 "github.com/juju/juju/domain/modelmanager/service"
-	service8 "github.com/juju/juju/domain/upgrade/service"
+	service8 "github.com/juju/juju/domain/objectstore/service"
+	service9 "github.com/juju/juju/domain/upgrade/service"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -41,6 +42,20 @@ func NewMockControllerServiceFactory(ctrl *gomock.Controller) *MockControllerSer
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockControllerServiceFactory) EXPECT() *MockControllerServiceFactoryMockRecorder {
 	return m.recorder
+}
+
+// AgentObjectStore mocks base method.
+func (m *MockControllerServiceFactory) AgentObjectStore() *service8.Service {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AgentObjectStore")
+	ret0, _ := ret[0].(*service8.Service)
+	return ret0
+}
+
+// AgentObjectStore indicates an expected call of AgentObjectStore.
+func (mr *MockControllerServiceFactoryMockRecorder) AgentObjectStore() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AgentObjectStore", reflect.TypeOf((*MockControllerServiceFactory)(nil).AgentObjectStore))
 }
 
 // AutocertCache mocks base method.
@@ -170,10 +185,10 @@ func (mr *MockControllerServiceFactoryMockRecorder) ModelManager() *gomock.Call 
 }
 
 // Upgrade mocks base method.
-func (m *MockControllerServiceFactory) Upgrade() *service8.Service {
+func (m *MockControllerServiceFactory) Upgrade() *service9.Service {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Upgrade")
-	ret0, _ := ret[0].(*service8.Service)
+	ret0, _ := ret[0].(*service9.Service)
 	return ret0
 }
 

@@ -79,7 +79,7 @@ func (s *manifoldSuite) getContext() dependency.Context {
 		"agent":           s.agent,
 		"trace":           &stubTracerGetter{},
 		"state":           s.stateTracker,
-		"service-factory": &stubServiceFactory{},
+		"service-factory": &stubServiceFactoryGetter{},
 	}
 	return dependencytesting.StubContext(nil, resources)
 }
@@ -94,6 +94,7 @@ func (s *manifoldSuite) TestStart(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectStateTracker()
+	s.expectAgentConfig(c)
 
 	w, err := Manifold(s.getConfig()).Start(s.getContext())
 	c.Assert(err, jc.ErrorIsNil)
@@ -105,14 +106,34 @@ func (s *manifoldSuite) expectStateTracker() {
 	s.stateTracker.EXPECT().Done()
 }
 
+func (s *manifoldSuite) expectAgentConfig(c *gc.C) {
+	s.agentConfig.EXPECT().DataDir().Return(c.MkDir())
+	s.agent.EXPECT().CurrentConfig().Return(s.agentConfig)
+}
+
 type stubTracerGetter struct{}
 
 func (s *stubTracerGetter) GetTracer(ctx context.Context, namespace trace.TracerNamespace) (trace.Tracer, error) {
 	return trace.NoopTracer{}, nil
 }
 
+// Note: This replicates the ability to get a controller service factory and
+// a model service factory from the service factory getter.
+type stubServiceFactoryGetter struct {
+	servicefactory.ServiceFactory
+	servicefactory.ServiceFactoryGetter
+}
+
+func (s *stubServiceFactoryGetter) FactoryForModel(modelUUID string) servicefactory.ServiceFactory {
+	return &stubServiceFactory{}
+}
+
+func (s *stubServiceFactoryGetter) ControllerConfig() *controllerconfigservice.Service {
+	return nil
+}
+
 type stubServiceFactory struct {
-	servicefactory.ControllerServiceFactory
+	servicefactory.ServiceFactory
 }
 
 func (s *stubServiceFactory) ControllerConfig() *controllerconfigservice.Service {

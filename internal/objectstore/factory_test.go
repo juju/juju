@@ -37,10 +37,7 @@ func (s *ObjectStoreFactorySuite) TestNewObjectStore(c *gc.C) {
 func (s *ObjectStoreFactorySuite) TestNewObjectStoreInvalidBackend(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	// As file backed object stores are not supported, ensure we get an error
-	// when trying to create one.
-
-	_, err := ObjectStoreFactory(context.Background(), objectstore.FileBackend, "inferi", WithMongoSession(s.session), WithLogger(jujutesting.NewCheckLogger(c)))
+	_, err := ObjectStoreFactory(context.Background(), objectstore.BackendType("blah"), "inferi", WithMongoSession(s.session), WithLogger(jujutesting.NewCheckLogger(c)))
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 

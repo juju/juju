@@ -56,6 +56,18 @@ type MongoSession interface {
 	MongoSession() *mgo.Session
 }
 
+// MetadataServiceGetter is the interface that is used to get the
+// MetadataService for a given model UUID.
+type MetadataServiceGetter interface {
+	// For returns the MetadataService for the given model UUID.
+	ForModelUUID(string) MetadataService
+}
+
+// MetadataService is the interface that is used to get a object store.
+type MetadataService interface {
+	ObjectStore() coreobjectstore.ObjectStoreMetadata
+}
+
 // ManifoldConfig defines the configuration for the trace manifold.
 type ManifoldConfig struct {
 	AgentName          string
@@ -121,13 +133,18 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 
-			var controllerFactory servicefactory.ControllerServiceFactory
-			if err := context.Get(config.ServiceFactoryName, &controllerFactory); err != nil {
+			// Ensure we can support the object store type, before continuing.
+			var controllerServiceFactory servicefactory.ControllerServiceFactory
+			if err := context.Get(config.ServiceFactoryName, &controllerServiceFactory); err != nil {
+				return nil, errors.Trace(err)
+			}
+			objectStoreType, err := config.GetObjectStoreType(controllerServiceFactory.ControllerConfig())
+			if err != nil {
 				return nil, errors.Trace(err)
 			}
 
-			objectStoreType, err := config.GetObjectStoreType(controllerFactory.ControllerConfig())
-			if err != nil {
+			var modelServiceFactoryGetter servicefactory.ServiceFactoryGetter
+			if err := context.Get(config.ServiceFactoryName, &modelServiceFactoryGetter); err != nil {
 				return nil, errors.Trace(err)
 			}
 
@@ -144,11 +161,14 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 
 			w, err := NewWorker(WorkerConfig{
-				TracerGetter:         tracerGetter,
-				Clock:                config.Clock,
-				Logger:               config.Logger,
-				NewObjectStoreWorker: config.NewObjectStoreWorker,
-				ObjectStoreType:      objectStoreType,
+				TracerGetter:               tracerGetter,
+				RootDir:                    a.CurrentConfig().DataDir(),
+				Clock:                      config.Clock,
+				Logger:                     config.Logger,
+				NewObjectStoreWorker:       config.NewObjectStoreWorker,
+				ObjectStoreType:            objectStoreType,
+				ControllerMetadataService:  controllerMetadataService{factory: controllerServiceFactory},
+				ModelMetadataServiceGetter: modelMetadataServiceGetter{factoryGetter: modelServiceFactoryGetter},
 
 				// StatePool is only here for backwards compatibility. Once we
 				// have the right abstractions in place, and we have a
@@ -219,4 +239,32 @@ func (s shimStatePool) Get(namespace string) (MongoSession, error) {
 
 func (s shimStatePool) SystemState() (MongoSession, error) {
 	return s.statePool.SystemState()
+}
+
+type controllerMetadataService struct {
+	factory servicefactory.ControllerServiceFactory
+}
+
+// ObjectStore returns the object store metadata for the controller model.
+// This is the global object store.
+func (s controllerMetadataService) ObjectStore() coreobjectstore.ObjectStoreMetadata {
+	return s.factory.AgentObjectStore()
+}
+
+type modelMetadataServiceGetter struct {
+	factoryGetter servicefactory.ServiceFactoryGetter
+}
+
+// ForModelUUID returns the MetadataService for the given model UUID.
+func (s modelMetadataServiceGetter) ForModelUUID(modelUUID string) MetadataService {
+	return modelMetadataService{factory: s.factoryGetter.FactoryForModel(modelUUID)}
+}
+
+type modelMetadataService struct {
+	factory servicefactory.ServiceFactory
+}
+
+// ObjectStore returns the object store metadata for the given model UUID
+func (s modelMetadataService) ObjectStore() coreobjectstore.ObjectStoreMetadata {
+	return s.factory.ObjectStore()
 }

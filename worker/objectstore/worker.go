@@ -25,8 +25,8 @@ const (
 	stateStarted = "started"
 )
 
-// TrackedObjectStore is a ObjectStore that is also a worker, to ensure the l
-// ifecycle of the objectStore is managed.
+// TrackedObjectStore is a ObjectStore that is also a worker, to ensure the
+// lifecycle of the objectStore is managed.
 type TrackedObjectStore interface {
 	worker.Worker
 	coreobjectstore.ObjectStore
@@ -35,11 +35,14 @@ type TrackedObjectStore interface {
 // WorkerConfig encapsulates the configuration options for the
 // objectStore worker.
 type WorkerConfig struct {
-	TracerGetter         trace.TracerGetter
-	Clock                clock.Clock
-	Logger               Logger
-	NewObjectStoreWorker internalobjectstore.ObjectStoreWorkerFunc
-	ObjectStoreType      coreobjectstore.BackendType
+	TracerGetter               trace.TracerGetter
+	RootDir                    string
+	Clock                      clock.Clock
+	Logger                     Logger
+	NewObjectStoreWorker       internalobjectstore.ObjectStoreWorkerFunc
+	ObjectStoreType            coreobjectstore.BackendType
+	ControllerMetadataService  MetadataService
+	ModelMetadataServiceGetter MetadataServiceGetter
 
 	// StatePool is only here for backwards compatibility. Once we have
 	// the right abstractions in place, and we have a replacement, we can
@@ -52,6 +55,9 @@ func (c *WorkerConfig) Validate() error {
 	if c.TracerGetter == nil {
 		return errors.NotValidf("nil TracerGetter")
 	}
+	if c.RootDir == "" {
+		return errors.NotValidf("empty RootDir")
+	}
 	if c.Clock == nil {
 		return errors.NotValidf("nil Clock")
 	}
@@ -60,6 +66,12 @@ func (c *WorkerConfig) Validate() error {
 	}
 	if c.NewObjectStoreWorker == nil {
 		return errors.NotValidf("nil NewObjectStoreWorker")
+	}
+	if c.ControllerMetadataService == nil {
+		return errors.NotValidf("nil ControllerMetadataService")
+	}
+	if c.ModelMetadataServiceGetter == nil {
+		return errors.NotValidf("nil ModelMetadataServiceGetter")
 	}
 	if c.StatePool == nil {
 		return errors.NotValidf("nil StatePool")
@@ -247,13 +259,19 @@ func (w *objectStoreWorker) initObjectStore(namespace string) error {
 			return nil, errors.Trace(err)
 		}
 
-		// This is only here until we have a better backing store.
+		// We can remove the MongoSession once we have the file storage
+		// as the default storage.
 		var state MongoSession
+		var metadataService MetadataService
 		if namespace == database.ControllerNS {
+			metadataService = w.cfg.ControllerMetadataService
+
 			if state, err = w.cfg.StatePool.SystemState(); err != nil {
 				return nil, errors.Trace(err)
 			}
 		} else {
+			metadataService = w.cfg.ModelMetadataServiceGetter.ForModelUUID(namespace)
+
 			if state, err = w.cfg.StatePool.Get(namespace); err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -265,6 +283,8 @@ func (w *objectStoreWorker) initObjectStore(namespace string) error {
 			namespace,
 			internalobjectstore.WithMongoSession(state),
 			internalobjectstore.WithLogger(w.cfg.Logger),
+			internalobjectstore.WithMetadataService(metadataService),
+			internalobjectstore.WithRootDir(w.cfg.RootDir),
 		)
 		if err != nil {
 			return nil, errors.Trace(err)
