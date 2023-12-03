@@ -126,7 +126,7 @@ func (s *statementSuite) TestMapToMultiPlaceholder(c *gc.C) {
 }
 
 func ExampleMapToMultiPlaceholderTransform() {
-	myMap := map[string]string{"one": "two", "three": "four"}
+	myMap := map[string]string{"one": "two"}
 	bindStmt, args := MapToMultiPlaceholderTransform(myMap, func(k, v string) []any {
 		return []any{"staticvalue", k, v}
 	})
@@ -134,8 +134,8 @@ func ExampleMapToMultiPlaceholderTransform() {
 	fmt.Println(bindStmt)
 	fmt.Println(args)
 	// Output:
-	// (?,?,?),(?,?,?)
-	// [staticvalue one two staticvalue three four]
+	// (?,?,?)
+	// [staticvalue one two]
 }
 
 // TestMapToMultiPlaceholderTransformNoVals is testing that if the transform
