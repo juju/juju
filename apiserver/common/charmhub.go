@@ -34,9 +34,9 @@ func CharmhubClient(mg ModelGetter, httpClient charmhub.HTTPClient, logger loggo
 	url, _ := modelConfig.CharmHubURL()
 
 	client, err := charmhub.NewClient(charmhub.Config{
-		URL:        url,
-		HTTPClient: httpClient,
-		Logger:     logger,
+		URL:           url,
+		HTTPClient:    httpClient,
+		LoggerFactory: charmhub.LoggoLoggerFactory(logger),
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

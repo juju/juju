@@ -43,7 +43,7 @@ func NewCharmDownloader(cfg CharmDownloaderConfig) (*charmdownloader.Downloader,
 
 	repoFactory := repoFactoryShim{
 		factory: NewCharmRepoFactory(CharmRepoFactoryConfig{
-			Logger:             cfg.Logger.Child("charmrepofactory"),
+			LoggerFactory:      LoggoLoggerFactory(cfg.Logger.Child("charmrepofactory")),
 			CharmhubHTTPClient: cfg.CharmhubHTTPClient,
 			StateBackend:       cfg.StateBackend,
 			ModelBackend:       cfg.ModelBackend,
@@ -67,4 +67,26 @@ func (s repoFactoryShim) GetCharmRepository(ctx context.Context, src corecharm.S
 	}
 
 	return repo, err
+}
+
+type loggoLoggerFactory struct {
+	Logger loggo.Logger
+}
+
+// LoggoLoggerFactory is a LoggerFactory that creates loggers using
+// the loggo package.
+func LoggoLoggerFactory(logger loggo.Logger) LoggerFactory {
+	return loggoLoggerFactory{Logger: logger}
+}
+
+func (s loggoLoggerFactory) Namespace(name string) charmhub.LoggerFactory {
+	return LoggoLoggerFactory(s.Logger.Child(name))
+}
+
+func (s loggoLoggerFactory) Child(name string) charmhub.Logger {
+	return s.Logger.Child(name)
+}
+
+func (s loggoLoggerFactory) ChildWithLabels(name string, labels ...string) charmhub.Logger {
+	return s.Logger.ChildWithLabels(name, labels...)
 }

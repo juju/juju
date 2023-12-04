@@ -6,12 +6,14 @@ package bootstrap
 import (
 	"context"
 	"io"
+	"net/http"
 
 	"github.com/juju/errors"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/core/flags"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/bootstrap"
 	"github.com/juju/juju/internal/servicefactory"
@@ -20,12 +22,6 @@ import (
 	"github.com/juju/juju/worker/gate"
 	workerobjectstore "github.com/juju/juju/worker/objectstore"
 	"github.com/juju/juju/worker/state"
-)
-
-const (
-	// BootstrapFlag is the name of the flag that is used to check if the
-	// bootstrap process has completed.
-	BootstrapFlag = "bootstrapped"
 )
 
 // Logger represents the logging methods called.
@@ -53,17 +49,28 @@ type BinaryAgentStorage interface {
 // AgentBinaryBootstrapFunc is the function that is used to populate the tools.
 type AgentBinaryBootstrapFunc func(context.Context, string, BinaryAgentStorageService, objectstore.ObjectStore, Logger) error
 
+// ControllerCharmUploaderFunc is the function that is used to upload the
+// controller charm.
+type ControllerCharmUploaderFunc func(context.Context, string, objectstore.ObjectStore, Logger) error
+
+// HTTPClient is the interface that is used to make HTTP requests.
+type HTTPClient interface {
+	Do(*http.Request) (*http.Response, error)
+}
+
 // ManifoldConfig defines the configuration for the trace manifold.
 type ManifoldConfig struct {
-	AgentName          string
-	StateName          string
-	ObjectStoreName    string
-	BootstrapGateName  string
-	ServiceFactoryName string
+	AgentName              string
+	StateName              string
+	ObjectStoreName        string
+	BootstrapGateName      string
+	ServiceFactoryName     string
+	CharmhubHTTPClientName string
 
-	Logger              Logger
-	AgentBinaryUploader AgentBinaryBootstrapFunc
-	RequiresBootstrap   func(context.Context, FlagService) (bool, error)
+	AgentBinaryUploader     AgentBinaryBootstrapFunc
+	ControllerCharmUploader ControllerCharmUploaderFunc
+	RequiresBootstrap       func(context.Context, FlagService) (bool, error)
+	Logger                  Logger
 }
 
 // Validate validates the manifold configuration.
@@ -83,11 +90,17 @@ func (cfg ManifoldConfig) Validate() error {
 	if cfg.ServiceFactoryName == "" {
 		return errors.NotValidf("empty ServiceFactoryName")
 	}
+	if cfg.CharmhubHTTPClientName == "" {
+		return errors.NotValidf("empty CharmhubHTTPClientName")
+	}
 	if cfg.Logger == nil {
 		return errors.NotValidf("nil Logger")
 	}
 	if cfg.AgentBinaryUploader == nil {
 		return errors.NotValidf("nil AgentBinaryUploader")
+	}
+	if cfg.ControllerCharmUploader == nil {
+		return errors.NotValidf("nil ControllerCharmUploader")
 	}
 	if cfg.RequiresBootstrap == nil {
 		return errors.NotValidf("nil RequiresBootstrap")
@@ -104,6 +117,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.ObjectStoreName,
 			config.BootstrapGateName,
 			config.ServiceFactoryName,
+			config.CharmhubHTTPClientName,
 		},
 		Start: func(ctx dependency.Context) (worker.Worker, error) {
 			if err := config.Validate(); err != nil {
@@ -141,6 +155,11 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 
+			var charmhubHTTPClient HTTPClient
+			if err := ctx.Get(config.CharmhubHTTPClientName, &charmhubHTTPClient); err != nil {
+				return nil, errors.Trace(err)
+			}
+
 			var stTracker state.StateTracker
 			if err := ctx.Get(config.StateName, &stTracker); err != nil {
 				return nil, errors.Trace(err)
@@ -167,6 +186,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				State:                   systemState,
 				BootstrapUnlocker:       bootstrapUnlocker,
 				AgentBinaryUploader:     config.AgentBinaryUploader,
+				ControllerCharmUploader: config.ControllerCharmUploader,
 				Logger:                  config.Logger,
 			})
 			if err != nil {
@@ -203,7 +223,7 @@ func IAASAgentBinaryUploader(ctx context.Context, dataDir string, storageService
 // RequiresBootstrap is the function that is used to check if the bootstrap
 // process has completed.
 func RequiresBootstrap(ctx context.Context, flagService FlagService) (bool, error) {
-	bootstrapped, err := flagService.GetFlag(ctx, BootstrapFlag)
+	bootstrapped, err := flagService.GetFlag(ctx, flags.BootstrapFlag)
 	if err != nil {
 		return false, errors.Trace(err)
 	}

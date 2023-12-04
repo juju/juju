@@ -76,9 +76,9 @@ func (s *repoFactoryTestSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.modelBackend = mocks.NewMockModelBackend(ctrl)
 
 	s.repoFactory = services.NewCharmRepoFactory(services.CharmRepoFactoryConfig{
-		Logger:       loggo.GetLogger("test"),
-		StateBackend: s.stateBackend,
-		ModelBackend: s.modelBackend,
+		LoggerFactory: services.LoggoLoggerFactory(loggo.GetLogger("test")),
+		StateBackend:  s.stateBackend,
+		ModelBackend:  s.modelBackend,
 	})
 	return ctrl
 }

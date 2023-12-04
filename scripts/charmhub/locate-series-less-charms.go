@@ -18,7 +18,7 @@ import (
 // These charms will not have a series or a map of containers.
 func main() {
 	client, err := charmhub.NewClient(charmhub.Config{
-		Logger: loggo.GetLogger("series"),
+		LoggerFactory: charmhub.LoggoLoggerFactory(loggo.GetLogger("series")),
 	})
 	if err != nil {
 		log.Fatal(err)
