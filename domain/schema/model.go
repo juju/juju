@@ -486,8 +486,6 @@ CREATE TABLE storage_unit_owner (
         REFERENCES   unit(uuid)
 );
 
--- Should owner just be a boolean on this table,
--- or can a unit be an owner without being attached?
 CREATE TABLE storage_attachment (
     storage_instance_uuid TEXT PRIMARY KEY,
     unit_uuid             TEXT NOT NULL,
