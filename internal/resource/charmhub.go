@@ -51,8 +51,8 @@ func newCharmHubClient(st chClientState) (ResourceGetter, error) {
 
 	chURL, _ := modelCfg.CharmHubURL()
 	chClient, err := charmhub.NewClient(charmhub.Config{
-		URL:    chURL,
-		Logger: logger,
+		URL:           chURL,
+		LoggerFactory: charmhub.LoggoLoggerFactory(logger),
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

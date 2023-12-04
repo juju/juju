@@ -10,7 +10,6 @@ import (
 	"net/http/httptest"
 
 	"github.com/juju/errors"
-	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -20,7 +19,7 @@ import (
 )
 
 type InfoSuite struct {
-	testing.IsolationSuite
+	baseSuite
 }
 
 var _ = gc.Suite(&InfoSuite{})
@@ -37,7 +36,7 @@ func (s *InfoSuite) TestInfoCharm(c *gc.C) {
 	restClient := NewMockRESTClient(ctrl)
 	s.expectCharmGet(c, restClient, path, name)
 
-	client := newInfoClient(path, restClient, &FakeLogger{})
+	client := newInfoClient(path, restClient, s.logger)
 	response, err := client.Info(context.Background(), name)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(response.Name, gc.Equals, name)
@@ -56,7 +55,7 @@ func (s *InfoSuite) TestInfoBundle(c *gc.C) {
 	restClient := NewMockRESTClient(ctrl)
 	s.expectBundleGet(c, restClient, path, name)
 
-	client := newInfoClient(path, restClient, &FakeLogger{})
+	client := newInfoClient(path, restClient, s.logger)
 	response, err := client.Info(context.Background(), name)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(response.Name, gc.Equals, name)
@@ -75,7 +74,7 @@ func (s *InfoSuite) TestInfoFailure(c *gc.C) {
 	restClient := NewMockRESTClient(ctrl)
 	s.expectGetFailure(restClient)
 
-	client := newInfoClient(path, restClient, &FakeLogger{})
+	client := newInfoClient(path, restClient, s.logger)
 	_, err := client.Info(context.Background(), name)
 	c.Assert(err, gc.Not(jc.ErrorIsNil))
 }
@@ -92,7 +91,7 @@ func (s *InfoSuite) TestInfoError(c *gc.C) {
 	restClient := NewMockRESTClient(ctrl)
 	s.expectGetError(c, restClient, path, name)
 
-	client := newInfoClient(path, restClient, &FakeLogger{})
+	client := newInfoClient(path, restClient, s.logger)
 	_, err := client.Info(context.Background(), name)
 	c.Assert(err, gc.Not(jc.ErrorIsNil))
 }
@@ -249,10 +248,10 @@ func (s *InfoSuite) TestInfoRequestPayload(c *gc.C) {
 	infoPath, err := basePath.Join("info")
 	c.Assert(err, jc.ErrorIsNil)
 
-	apiRequester := newAPIRequester(DefaultHTTPClient(&FakeLogger{}), &FakeLogger{})
+	apiRequester := newAPIRequester(DefaultHTTPClient(s.loggerFactory), s.logger)
 	restClient := newHTTPRESTClient(apiRequester)
 
-	client := newInfoClient(infoPath, restClient, &FakeLogger{})
+	client := newInfoClient(infoPath, restClient, s.logger)
 	response, err := client.Info(context.Background(), "wordpress")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(response, gc.DeepEquals, infoResponse)

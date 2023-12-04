@@ -21,6 +21,9 @@ type Base struct {
 	Channel Channel
 }
 
+// Empty is an empty base.
+var Empty = Base{}
+
 // ParseBase constructs a Base from the os and channel string.
 func ParseBase(os string, channel string) (Base, error) {
 	if os == "" && channel == "" {
