@@ -114,6 +114,8 @@ func (s *schemaSuite) TestModelDDLApply(c *gc.C) {
 
 	// Ensure that each table is present.
 	expected := set.NewStrings(
+		"life",
+
 		// Change log
 		"change_log",
 		"change_log_edit_type",
@@ -156,6 +158,17 @@ func (s *schemaSuite) TestModelDDLApply(c *gc.C) {
 		"filesystem_type",
 		"block_device_link_device",
 		"block_device_machine",
+
+		// Storage
+		"storage_pool",
+		"storage_pool_attribute",
+		"storage_kind",
+		"storage_instance",
+		"storage_instance_pool",
+		"storage_unit_owner",
+		"storage_attachment",
+		"storage_constraint_type",
+		"storage_instance_constraint",
 	)
 	c.Assert(readTableNames(c, s.DB()), jc.SameContents, expected.Union(internalTableNames).SortedValues())
 }

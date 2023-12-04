@@ -15,6 +15,7 @@ const (
 // ModelDDL is used to create model databases.
 func ModelDDL() *schema.Schema {
 	patches := []func() schema.Patch{
+		lifeSchema,
 		changeLogSchema,
 		changeLogModelNamespace,
 		modelConfig,
@@ -27,6 +28,7 @@ func ModelDDL() *schema.Schema {
 		spaceSchema,
 		subnetSchema,
 		blockDeviceSchema,
+		storageSchema,
 	}
 
 	schema := schema.New()
@@ -36,13 +38,27 @@ func ModelDDL() *schema.Schema {
 	return schema
 }
 
+func lifeSchema() schema.Patch {
+	return schema.MakePatch(`
+CREATE TABLE life (
+    id    INT PRIMARY KEY,
+    value TEXT NOT NULL
+);
+
+INSERT INTO life VALUES
+    (0, 'alive'), 
+    (1, 'dying'),
+    (2, 'dead');
+`)
+}
+
 func changeLogModelNamespace() schema.Patch {
 	// Note: These should match exactly the values of the tableNamespaceID
 	// constants above.
 	return schema.MakePatch(`
 INSERT INTO change_log_namespace VALUES
     (1, 'model_config', 'model config changes based on config key'),
-    (2, 'object_store_metadata_path', 'object store metadata path changes based on the path')
+    (2, 'object_store_metadata_path', 'object store metadata path changes based on the path');
 `)
 }
 
@@ -388,5 +404,121 @@ CREATE TABLE block_device_machine (
 
 CREATE INDEX idx_block_device_machine
 ON block_device_machine (machine_uuid);
+`)
+}
+
+func storageSchema() schema.Patch {
+	return schema.MakePatch(`
+CREATE TABLE storage_pool (
+    uuid TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    -- Types are provider sourced, so we do not use a lookup with ID.
+    -- This constitutes "repeating data" and would tend to indicate 
+    -- bad relational design. However we choose that here over the
+    -- burden of:
+    --   - Knowing every possible type up front to populate a look-up or;
+    --   - Sourcing the lookup from the provider and keeping it updated. 
+    type TEXT NOT NULL
+);
+
+CREATE TABLE storage_pool_attribute (
+    storage_pool_uuid TEXT NOT NULL,
+    key               TEXT NOT NULL,
+    value             TEXT NOT NULL,
+    CONSTRAINT       fk_storage_pool_attribute_pool
+        FOREIGN KEY  (storage_pool_uuid)
+        REFERENCES   storage_pool(uuid),
+    PRIMARY KEY (storage_pool_uuid, key)
+);
+
+CREATE TABLE storage_kind (
+    id   INT PRIMARY KEY,
+    kind TEXT
+);
+
+CREATE UNIQUE INDEX idx_storage_kind
+ON storage_kind (kind);
+
+INSERT INTO storage_kind VALUES
+    (0, 'block'), 
+    (1, 'filesystem');
+
+CREATE TABLE storage_instance (
+    uuid            TEXT PRIMARY KEY,
+    storage_kind_id INT NOT NULL,
+    name            TEXT NOT NULL,
+    life_id         INT NOT NULL,
+    CONSTRAINT       fk_storage_instance_kind
+        FOREIGN KEY  (storage_kind_id)
+        REFERENCES   storage_kind(id),
+    CONSTRAINT       fk_storage_instance_life
+        FOREIGN KEY  (life_id)
+        REFERENCES   life(id)
+);
+
+CREATE TABLE storage_instance_pool (
+    storage_instance_uuid TEXT PRIMARY KEY,
+    storage_pool_uuid     TEXT NOT NULL,
+    CONSTRAINT       fk_storage_instance_pool_instance
+        FOREIGN KEY  (storage_instance_uuid)
+        REFERENCES   storage_instance(uuid),
+    CONSTRAINT       fk_storage_instance_pool_pool
+        FOREIGN KEY  (storage_pool_uuid)
+        REFERENCES   storage_pool(uuid)
+);
+
+-- storage_unit_owner is used to indicate when
+-- a unit is the owner of a storage instance.
+-- This is different to a storage attachment.
+CREATE TABLE storage_unit_owner (
+    storage_instance_uuid TEXT PRIMARY KEY,
+    unit_uuid             TEXT NOT NULL,
+    CONSTRAINT       fk_storage_owner_storage
+        FOREIGN KEY  (storage_instance_uuid)
+        REFERENCES   storage_instance(uuid),
+    CONSTRAINT       fk_storage_owner_unit
+        FOREIGN KEY  (unit_uuid)
+        REFERENCES   unit(uuid)
+);
+
+CREATE TABLE storage_attachment (
+    storage_instance_uuid TEXT PRIMARY KEY,
+    unit_uuid             TEXT NOT NULL,
+    CONSTRAINT       fk_storage_owner_storage
+        FOREIGN KEY  (storage_instance_uuid)
+        REFERENCES   storage_instance(uuid),
+    CONSTRAINT       fk_storage_owner_unit
+        FOREIGN KEY  (unit_uuid)
+        REFERENCES   unit(uuid)
+);
+
+CREATE TABLE storage_constraint_type (
+    id   INT PRIMARY KEY,
+    name TEXT NOT NULL 
+);
+
+CREATE UNIQUE INDEX idx_storage_constraint_type
+ON storage_constraint_type (name);
+
+INSERT INTO storage_constraint_type VALUES
+    (0, 'pool'), 
+    (1, 'size'), -- MiB.
+    (2, 'count'); 
+
+CREATE TABLE storage_instance_constraint (
+    uuid                  TEXT PRIMARY KEY,
+    storage_instance_uuid TEXT NOT NULL,
+    constraint_type_id    INT NOT NULL,
+    value                 TEXT NOT NULL,
+    CONSTRAINT       fk_storage_instance_constraint_instance
+        FOREIGN KEY  (storage_instance_uuid)
+        REFERENCES   storage_instance(uuid),
+    CONSTRAINT       fk_storage_instance_constraint_type
+        FOREIGN KEY  (constraint_type_id)
+        REFERENCES   storage_constraint_type(id)
+);
+
+CREATE UNIQUE INDEX idx_storage_instance_constraint
+ON storage_instance_constraint (storage_instance_uuid, constraint_type_id);
 `)
 }
