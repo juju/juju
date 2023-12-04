@@ -835,15 +835,15 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 	manifolds := dependency.Manifolds{
 		// Bootstrap worker is responsible for setting up the initial machine.
 		bootstrapName: ifDatabaseUpgradeComplete(bootstrap.Manifold(bootstrap.ManifoldConfig{
-			AgentName:           agentName,
-			StateName:           stateName,
-			ObjectStoreName:     objectStoreName,
-			ServiceFactoryName:  serviceFactoryName,
-			BootstrapGateName:   isBootstrapGateName,
-			AgentBinaryUploader: bootstrap.IAASAgentBinaryUploader,
-			RequiresBootstrap:   bootstrap.RequiresBootstrap,
-			CompletesBootstrap:  bootstrap.CompletesBootstrap,
-			Logger:              loggo.GetLogger("juju.worker.bootstrap"),
+			AgentName:                 agentName,
+			StateName:                 stateName,
+			ObjectStoreName:           objectStoreName,
+			ServiceFactoryName:        serviceFactoryName,
+			BootstrapGateName:         isBootstrapGateName,
+			AgentBinaryUploader:       bootstrap.IAASAgentBinaryUploader,
+			BootstrapParamsFileExists: bootstrap.BootstrapParamsFileExists,
+			RemoveBootstrapParamsFile: bootstrap.RemoveBootstrapParamsFile,
+			Logger:                    loggo.GetLogger("juju.worker.bootstrap"),
 		})),
 
 		toolsVersionCheckerName: ifNotMigrating(toolsversionchecker.Manifold(toolsversionchecker.ManifoldConfig{
@@ -1053,14 +1053,14 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 	return mergeManifolds(config, dependency.Manifolds{
 		// Bootstrap worker is responsible for setting up the initial machine.
 		bootstrapName: ifDatabaseUpgradeComplete(bootstrap.Manifold(bootstrap.ManifoldConfig{
-			AgentName:           agentName,
-			StateName:           stateName,
-			ObjectStoreName:     objectStoreName,
-			ServiceFactoryName:  serviceFactoryName,
-			BootstrapGateName:   isBootstrapGateName,
-			AgentBinaryUploader: bootstrap.CAASAgentBinaryUploader,
-			RequiresBootstrap:   bootstrap.RequiresBootstrap,
-			Logger:              loggo.GetLogger("juju.worker.bootstrap"),
+			AgentName:                 agentName,
+			StateName:                 stateName,
+			ObjectStoreName:           objectStoreName,
+			ServiceFactoryName:        serviceFactoryName,
+			BootstrapGateName:         isBootstrapGateName,
+			AgentBinaryUploader:       bootstrap.CAASAgentBinaryUploader,
+			BootstrapParamsFileExists: bootstrap.BootstrapParamsFileExists,
+			Logger:                    loggo.GetLogger("juju.worker.bootstrap"),
 		})),
 
 		// TODO(caas) - when we support HA, only want this on primary

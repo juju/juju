@@ -5,6 +5,8 @@ package bootstrap
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -15,6 +17,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/domain/servicefactory/testing"
+	"github.com/juju/juju/internal/cloudconfig"
 )
 
 type manifoldSuite struct {
@@ -49,11 +52,11 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
-	cfg.RequiresBootstrap = nil
+	cfg.BootstrapParamsFileExists = nil
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
-	cfg.CompletesBootstrap = nil
+	cfg.RemoveBootstrapParamsFile = nil
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 }
 
@@ -68,8 +71,8 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		AgentBinaryUploader: func(context.Context, string, BinaryAgentStorageService, objectstore.ObjectStore, Logger) error {
 			return nil
 		},
-		RequiresBootstrap:  func(agent.Config) (bool, error) { return false, nil },
-		CompletesBootstrap: func(agent.Config) error { return nil },
+		BootstrapParamsFileExists: func(agent.Config) (bool, error) { return false, nil },
+		RemoveBootstrapParamsFile: func(agent.Config) error { return nil },
 	}
 }
 
@@ -98,4 +101,47 @@ func (s *manifoldSuite) TestStartAlreadyBootstrapped(c *gc.C) {
 
 	_, err := Manifold(s.getConfig()).Start(s.getContext())
 	c.Assert(err, jc.ErrorIs, dependency.ErrUninstall)
+}
+
+func (s *manifoldSuite) TestBootstrapParamsFileExists(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	tests := []struct {
+		name  string
+		ok    bool
+		err   error
+		setup func(*gc.C, string)
+	}{{
+		name: "file exists",
+		ok:   true,
+		err:  nil,
+		setup: func(c *gc.C, dir string) {
+			path := filepath.Join(dir, cloudconfig.FileNameBootstrapParams)
+			err := os.WriteFile(path, []byte("test"), 0644)
+			c.Assert(err, jc.ErrorIsNil)
+		},
+	}, {
+		name:  "file does not exist",
+		ok:    false,
+		err:   nil,
+		setup: func(c *gc.C, dir string) {},
+	}}
+
+	for _, test := range tests {
+		c.Logf("test %q", test.name)
+
+		dir := c.MkDir()
+		s.agentConfig.EXPECT().DataDir().Return(dir)
+
+		test.setup(c, dir)
+
+		ok, err := BootstrapParamsFileExists(s.agentConfig)
+		if test.err != nil {
+			c.Assert(err, gc.ErrorMatches, test.err.Error())
+			continue
+		}
+
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(ok, gc.Equals, test.ok)
+	}
 }

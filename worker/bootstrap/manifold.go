@@ -50,13 +50,14 @@ type BinaryAgentStorage interface {
 // AgentBinaryBootstrapFunc is the function that is used to populate the tools.
 type AgentBinaryBootstrapFunc func(context.Context, string, BinaryAgentStorageService, objectstore.ObjectStore, Logger) error
 
-// RequiresBootstrapFunc is the function that is used to check if the bootstrap
-// process is required.
-type RequiresBootstrapFunc func(agent.Config) (bool, error)
+// BootstrapParamsFileExistsFunc is the function that is used to check if the
+// bootstrap param file exists. We expect that the file exists for only the
+// bootstrap controller node.
+type BootstrapParamsFileExistsFunc func(agent.Config) (bool, error)
 
-// CompletesBootstrapFunc is the function that is used to complete the bootstrap
+// RemoveBootstrapParamsFileFunc is the function that is used to complete the bootstrap
 // process.
-type CompletesBootstrapFunc func(agent.Config) error
+type RemoveBootstrapParamsFileFunc func(agent.Config) error
 
 // ManifoldConfig defines the configuration for the trace manifold.
 type ManifoldConfig struct {
@@ -66,10 +67,10 @@ type ManifoldConfig struct {
 	BootstrapGateName  string
 	ServiceFactoryName string
 
-	Logger              Logger
-	AgentBinaryUploader AgentBinaryBootstrapFunc
-	RequiresBootstrap   RequiresBootstrapFunc
-	CompletesBootstrap  CompletesBootstrapFunc
+	Logger                    Logger
+	AgentBinaryUploader       AgentBinaryBootstrapFunc
+	BootstrapParamsFileExists BootstrapParamsFileExistsFunc
+	RemoveBootstrapParamsFile RemoveBootstrapParamsFileFunc
 }
 
 // Validate validates the manifold configuration.
@@ -95,11 +96,11 @@ func (cfg ManifoldConfig) Validate() error {
 	if cfg.AgentBinaryUploader == nil {
 		return errors.NotValidf("nil AgentBinaryUploader")
 	}
-	if cfg.RequiresBootstrap == nil {
-		return errors.NotValidf("nil RequiresBootstrap")
+	if cfg.BootstrapParamsFileExists == nil {
+		return errors.NotValidf("nil BootstrapParamsFileExists")
 	}
-	if cfg.CompletesBootstrap == nil {
-		return errors.NotValidf("nil CompletesBootstrap")
+	if cfg.RemoveBootstrapParamsFile == nil {
+		return errors.NotValidf("nil RemoveBootstrapParamsFile")
 	}
 	return nil
 }
@@ -132,7 +133,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			// If the controller application exists, then we don't need to
 			// bootstrap. Uninstall the worker, as we don't need it running
 			// anymore.
-			if ok, err := config.RequiresBootstrap(a.CurrentConfig()); err != nil {
+			if ok, err := config.BootstrapParamsFileExists(a.CurrentConfig()); err != nil {
 				return nil, errors.Trace(err)
 			} else if !ok {
 				bootstrapUnlocker.Unlock()
@@ -168,14 +169,14 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 
 			w, err := NewWorker(WorkerConfig{
-				Agent:                   a,
-				ObjectStoreGetter:       objectStoreGetter,
-				ControllerConfigService: controllerServiceFactory.ControllerConfig(),
-				State:                   systemState,
-				BootstrapUnlocker:       bootstrapUnlocker,
-				AgentBinaryUploader:     config.AgentBinaryUploader,
-				CompletesBootstrap:      config.CompletesBootstrap,
-				Logger:                  config.Logger,
+				Agent:                     a,
+				ObjectStoreGetter:         objectStoreGetter,
+				ControllerConfigService:   controllerServiceFactory.ControllerConfig(),
+				State:                     systemState,
+				BootstrapUnlocker:         bootstrapUnlocker,
+				AgentBinaryUploader:       config.AgentBinaryUploader,
+				RemoveBootstrapParamsFile: config.RemoveBootstrapParamsFile,
+				Logger:                    config.Logger,
 			})
 			if err != nil {
 				_ = stTracker.Done()
@@ -208,19 +209,22 @@ func IAASAgentBinaryUploader(ctx context.Context, dataDir string, storageService
 	return bootstrap.PopulateAgentBinary(ctx, dataDir, storage, logger)
 }
 
-// RequiresBootstrap returns true if the bootstrap params file exists.
+// BootstrapParamsFileExists returns true if the bootstrap params file exists.
 // It is expected at the end of bootstrap that the file is removed.
-func RequiresBootstrap(config agent.Config) (bool, error) {
+func BootstrapParamsFileExists(config agent.Config) (bool, error) {
 	_, err := os.Stat(filepath.Join(config.DataDir(), cloudconfig.FileNameBootstrapParams))
-	if err != nil && !os.IsNotExist(err) {
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
 		return false, errors.Trace(err)
 	}
-	return !os.IsNotExist(err), nil
+	return true, nil
 }
 
-// CompletesBootstrap removes the bootstrap params file, completing the
+// RemoveBootstrapParamsFile removes the bootstrap params file, completing the
 // bootstrap process.
-func CompletesBootstrap(config agent.Config) error {
+func RemoveBootstrapParamsFile(config agent.Config) error {
 	// Remove the bootstrap params file.
 	return os.Remove(filepath.Join(config.DataDir(), cloudconfig.FileNameBootstrapParams))
 }

@@ -52,12 +52,12 @@ type LegacyState interface {
 // WorkerConfig encapsulates the configuration options for the
 // bootstrap worker.
 type WorkerConfig struct {
-	Agent                   agent.Agent
-	ObjectStoreGetter       ObjectStoreGetter
-	ControllerConfigService ControllerConfigService
-	BootstrapUnlocker       gate.Unlocker
-	AgentBinaryUploader     AgentBinaryBootstrapFunc
-	CompletesBootstrap      CompletesBootstrapFunc
+	Agent                     agent.Agent
+	ObjectStoreGetter         ObjectStoreGetter
+	ControllerConfigService   ControllerConfigService
+	BootstrapUnlocker         gate.Unlocker
+	AgentBinaryUploader       AgentBinaryBootstrapFunc
+	RemoveBootstrapParamsFile RemoveBootstrapParamsFileFunc
 
 	// Deprecated: This is only here, until we can remove the state layer.
 	State LegacyState
@@ -82,8 +82,8 @@ func (c *WorkerConfig) Validate() error {
 	if c.AgentBinaryUploader == nil {
 		return errors.NotValidf("nil AgentBinaryUploader")
 	}
-	if c.CompletesBootstrap == nil {
-		return errors.NotValidf("nil CompletesBootstrap")
+	if c.RemoveBootstrapParamsFile == nil {
+		return errors.NotValidf("nil RemoveBootstrapParamsFile")
 	}
 	if c.Logger == nil {
 		return errors.NotValidf("nil Logger")
@@ -147,7 +147,7 @@ func (w *bootstrapWorker) loop() error {
 
 	// Complete the bootstrap, only after this is complete do we unlock the
 	// bootstrap gate.
-	if err := w.cfg.CompletesBootstrap(agentConfig); err != nil {
+	if err := w.cfg.RemoveBootstrapParamsFile(agentConfig); err != nil {
 		return errors.Trace(err)
 	}
 

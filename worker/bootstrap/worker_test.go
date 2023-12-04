@@ -85,9 +85,9 @@ func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
 		AgentBinaryUploader: func(context.Context, string, BinaryAgentStorageService, objectstore.ObjectStore, Logger) error {
 			return nil
 		},
-		CompletesBootstrap:      func(agent.Config) error { return nil },
-		State:                   &state.State{},
-		ControllerConfigService: s.controllerConfigService,
+		RemoveBootstrapParamsFile: func(agent.Config) error { return nil },
+		State:                     &state.State{},
+		ControllerConfigService:   s.controllerConfigService,
 	}, s.states)
 	c.Assert(err, jc.ErrorIsNil)
 	return w

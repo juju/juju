@@ -77,7 +77,7 @@ func PopulateAgentBinary(ctx context.Context, dataDir string, storage AgentBinar
 	if err := os.Remove(binaryPath); err != nil {
 		logger.Warningf("failed to remove agent binary: %v", err)
 	}
-	// Remove the sha which validates the agent binary file.
+	// Remove the sha that validates the agent binary file.
 	shaFilePath := filepath.Join(rootPath, fmt.Sprintf("juju%s.sha256", current.String()))
 	if err := os.Remove(shaFilePath); err != nil {
 		logger.Warningf("failed to remove agent binary sha: %v", err)
