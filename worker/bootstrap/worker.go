@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/objectstore"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/binarystorage"
 	"github.com/juju/juju/worker/gate"
 )
 
@@ -35,6 +35,20 @@ type ObjectStoreGetter interface {
 	GetObjectStore(context.Context, string) (objectstore.ObjectStore, error)
 }
 
+// LegacyState is the interface that is used to get the legacy state (mongo).
+type LegacyState interface {
+	// ControllerModelUUID returns the UUID of the model that was
+	// bootstrapped.  This is the only model that can have controller
+	// machines.  The owner of this model is also considered "special", in
+	// that they are the only user that is able to create other users
+	// (until we have more fine grained permissions), and they cannot be
+	// disabled.
+	ControllerModelUUID() string
+	// ToolsStorage returns a new binarystorage.StorageCloser that stores tools
+	// metadata in the "juju" database "toolsmetadata" collection.
+	ToolsStorage(store objectstore.ObjectStore) (binarystorage.StorageCloser, error)
+}
+
 // WorkerConfig encapsulates the configuration options for the
 // bootstrap worker.
 type WorkerConfig struct {
@@ -46,7 +60,7 @@ type WorkerConfig struct {
 	CompletesBootstrap      CompletesBootstrapFunc
 
 	// Deprecated: This is only here, until we can remove the state layer.
-	State *state.State
+	State LegacyState
 
 	Logger Logger
 }
@@ -126,14 +140,8 @@ func (w *bootstrapWorker) loop() error {
 	agentConfig := w.cfg.Agent.CurrentConfig()
 	dataDir := agentConfig.DataDir()
 
-	objectStore, err := w.cfg.ObjectStoreGetter.GetObjectStore(ctx, w.cfg.State.ControllerModelUUID())
-	if err != nil {
-		return fmt.Errorf("failed to get object store: %v", err)
-	}
-
-	// Agent binary seeder will populate the tools for the agent.
-	agentStorage := agentStorageShim{State: w.cfg.State}
-	if err := w.cfg.AgentBinaryUploader(ctx, dataDir, agentStorage, objectStore, w.cfg.Logger); err != nil {
+	// Seed the agent binary to the object store.
+	if err := w.seedAgentBinary(ctx, dataDir); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -165,8 +173,23 @@ func (w *bootstrapWorker) scopedContext() (context.Context, context.CancelFunc) 
 	return w.tomb.Context(ctx), cancel
 }
 
+func (w *bootstrapWorker) seedAgentBinary(ctx context.Context, dataDir string) error {
+	objectStore, err := w.cfg.ObjectStoreGetter.GetObjectStore(ctx, w.cfg.State.ControllerModelUUID())
+	if err != nil {
+		return fmt.Errorf("failed to get object store: %v", err)
+	}
+
+	// Agent binary seeder will populate the tools for the agent.
+	agentStorage := agentStorageShim{State: w.cfg.State}
+	if err := w.cfg.AgentBinaryUploader(ctx, dataDir, agentStorage, objectStore, w.cfg.Logger); err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
+}
+
 type agentStorageShim struct {
-	State *state.State
+	State LegacyState
 }
 
 // AgentBinaryStorage returns the interface for the BinaryAgentStorage.

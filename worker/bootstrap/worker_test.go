@@ -8,6 +8,7 @@ import (
 	time "time"
 
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/v3"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/workertest"
 	gomock "go.uber.org/mock/gomock"
@@ -43,6 +44,36 @@ func (s *workerSuite) TestKilled(c *gc.C) {
 	s.ensureFinished(c)
 
 	workertest.CleanKill(c, w)
+}
+
+func (s *workerSuite) TestSeedAgentBinary(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Ensure that the ControllerModelUUID is used for the namespace for the
+	// object store. If it's not the controller model uuid, then the agent
+	// binary will not be found.
+
+	uuid := utils.MustNewUUID().String()
+
+	s.state.EXPECT().ControllerModelUUID().Return(uuid)
+	s.objectStoreGetter.EXPECT().GetObjectStore(gomock.Any(), uuid).Return(s.objectStore, nil)
+
+	var called bool
+	w := &bootstrapWorker{
+		internalStates: s.states,
+		cfg: WorkerConfig{
+			ObjectStoreGetter: s.objectStoreGetter,
+			AgentBinaryUploader: func(context.Context, string, BinaryAgentStorageService, objectstore.ObjectStore, Logger) error {
+				called = true
+				return nil
+			},
+			State:  s.state,
+			Logger: s.logger,
+		},
+	}
+	err := w.seedAgentBinary(context.Background(), c.MkDir())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(called, jc.IsTrue)
 }
 
 func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
