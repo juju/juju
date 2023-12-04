@@ -1120,6 +1120,15 @@ func clockManifold(clock clock.Clock) dependency.Manifold {
 	}
 }
 
+// ifBootstrapComplete gates against the bootstrap worker completing.
+// This ensures that all blobs (agent binaries and controller charm) are
+// available before the machine agent starts.
+// We currently use this to provide a happier experience for the user
+// when bootstrapping a controller, before immediately going into HA. If the
+// underlying object store storage is slow, then retrying for the agent binary
+// against the controller can lead to slower HA deployment. It might be worth
+// revisiting this in the future, so we release the gate as soon as the binaries
+// are being uploaded.
 var ifBootstrapComplete = engine.Housing{
 	Flags: []string{
 		isBootstrapFlagName,
