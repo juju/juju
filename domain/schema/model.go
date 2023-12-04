@@ -426,15 +426,13 @@ CREATE TABLE storage_pool (
 
 CREATE TABLE storage_pool_attribute (
     storage_pool_uuid TEXT NOT NULL,
-    key               TEXT,
-    value             TEXT,
+    key               TEXT NOT NULL,
+    value             TEXT NOT NULL,
     CONSTRAINT       fk_storage_pool_attribute_pool
         FOREIGN KEY  (storage_pool_uuid)
-        REFERENCES   storage_pool(uuid)
+        REFERENCES   storage_pool(uuid),
+    PRIMARY KEY (storage_pool_uuid, key)
 );
-
-CREATE UNIQUE INDEX idx_storage_pool_attribute
-ON storage_pool_attribute (storage_pool_uuid, key);
 
 CREATE TABLE storage_kind (
     id   INT PRIMARY KEY,
