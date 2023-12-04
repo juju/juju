@@ -74,8 +74,7 @@ type BootstrapSuite struct {
 	testing.BaseSuite
 	mgotesting.MgoSuite
 
-	bootstrapParamsFile string
-	bootstrapParams     instancecfg.StateInitializationParams
+	bootstrapParams instancecfg.StateInitializationParams
 
 	dataDir          string
 	logDir           string
@@ -122,7 +121,6 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 	s.MgoSuite.SetUpTest(c)
 	s.dataDir = c.MkDir()
 	s.logDir = c.MkDir()
-	s.bootstrapParamsFile = filepath.Join(s.dataDir, "bootstrap-params")
 	s.mongoOplogSize = "1234"
 	s.fakeEnsureMongo = agenttest.InstallFakeEnsureMongo(s, s.dataDir)
 	s.PatchValue(&initiateMongoServer, s.fakeEnsureMongo.InitiateMongo)
@@ -383,9 +381,6 @@ func (s *BootstrapSuite) initBootstrapCommand(c *gc.C, jobs []model.MachineJob, 
 	err = machineConf.Write()
 	c.Assert(err, jc.ErrorIsNil)
 
-	if len(args) == 0 {
-		args = []string{s.bootstrapParamsFile}
-	}
 	cmd = NewBootstrapCommand()
 	cmd.BootstrapAgent = s.bootstrapAgentFunc
 	cmd.DqliteInitializer = s.dqliteInitializerFunc
@@ -593,36 +588,6 @@ func (s *BootstrapSuite) TestInitialPassword(c *gc.C) {
 	c.Assert(node.HasVote(), jc.IsTrue)
 }
 
-var bootstrapArgTests = []struct {
-	input                       []string
-	err                         string
-	expectedBootstrapParamsFile string
-}{
-	{
-		err:   "bootstrap-params file must be specified",
-		input: []string{"--data-dir", "/tmp/juju/data/dir"},
-	}, {
-		input:                       []string{"/some/where"},
-		expectedBootstrapParamsFile: "/some/where",
-	},
-}
-
-func (s *BootstrapSuite) TestBootstrapArgs(c *gc.C) {
-	for i, t := range bootstrapArgTests {
-		c.Logf("test %d", i)
-		var args []string
-		args = append(args, t.input...)
-		_, cmd, err := s.initBootstrapCommand(c, nil, args...)
-		if t.err == "" {
-			c.Assert(cmd, gc.NotNil)
-			c.Assert(err, jc.ErrorIsNil)
-			c.Assert(cmd.BootstrapParamsFile, gc.Equals, t.expectedBootstrapParamsFile)
-		} else {
-			c.Assert(err, gc.ErrorMatches, t.err)
-		}
-	}
-}
-
 func (s *BootstrapSuite) TestInitializeStateArgs(c *gc.C) {
 	var called int
 	s.bootstrapAgentFunc = func(args agentbootstrap.AgentBootstrapArgs) (*agentbootstrap.AgentBootstrap, error) {
@@ -637,7 +602,7 @@ func (s *BootstrapSuite) TestInitializeStateArgs(c *gc.C) {
 		return nil, errors.New("failed to initialize state")
 	}
 
-	_, cmd, err := s.initBootstrapCommand(c, nil, "--timeout", "123s", s.bootstrapParamsFile)
+	_, cmd, err := s.initBootstrapCommand(c, nil, "--timeout", "123s")
 	c.Assert(err, jc.ErrorIsNil)
 	err = cmd.Run(cmdtesting.Context(c))
 	c.Assert(err, gc.ErrorMatches, "failed to initialize state")
@@ -652,7 +617,7 @@ func (s *BootstrapSuite) TestInitializeStateMinSocketTimeout(c *gc.C) {
 		c.Assert(args.MongoDialOpts.SocketTimeout, gc.Equals, 1*time.Minute)
 		return nil, errors.New("failed to initialize state")
 	}
-	_, cmd, err := s.initBootstrapCommand(c, nil, "--timeout", "13s", s.bootstrapParamsFile)
+	_, cmd, err := s.initBootstrapCommand(c, nil, "--timeout", "13s")
 	c.Assert(err, jc.ErrorIsNil)
 	err = cmd.Run(cmdtesting.Context(c))
 	c.Assert(err, gc.ErrorMatches, "failed to initialize state")
@@ -835,7 +800,7 @@ func (s *BootstrapSuite) makeTestModel(c *gc.C) {
 func (s *BootstrapSuite) writeBootstrapParamsFile(c *gc.C) {
 	data, err := s.bootstrapParams.Marshal()
 	c.Assert(err, jc.ErrorIsNil)
-	err = os.WriteFile(s.bootstrapParamsFile, data, 0600)
+	err = os.WriteFile(filepath.Join(s.dataDir, "bootstrap-params"), data, 0600)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

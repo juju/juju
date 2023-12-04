@@ -474,7 +474,6 @@ func (w *unixConfigure) configureBootstrap() error {
 		"--timeout", w.icfg.Bootstrap.Timeout.String(),
 		"--data-dir", shquote(w.icfg.DataDir),
 		loggingOption,
-		shquote(bootstrapParamsFile),
 	}
 	w.conf.AddRunCmd(cloudinit.LogProgressCmd("Installing Juju machine agent"))
 	w.conf.AddScripts(strings.Join(bootstrapAgentArgs, " "))

@@ -434,6 +434,7 @@ type MachineAgent struct {
 	preUpgradeSteps PreUpgradeStepsFunc
 	upgradeSteps    UpgradeStepsFunc
 
+	bootstrapLock    gate.Lock
 	upgradeDBLock    gate.Lock
 	upgradeStepsLock gate.Lock
 
@@ -558,6 +559,7 @@ func (a *MachineAgent) Run(ctx *cmd.Context) (err error) {
 	}
 	a.machineLock = machineLock
 
+	a.bootstrapLock = gate.NewLock()
 	a.upgradeDBLock = internalupgrade.NewLock(agentConfig, jujuversion.Current)
 	a.upgradeStepsLock = internalupgrade.NewLock(agentConfig, jujuversion.Current)
 
@@ -625,6 +627,7 @@ func (a *MachineAgent) makeEngineCreator(
 			Agent:                agent.APIHostPortsSetter{Agent: a},
 			RootDir:              a.rootDir,
 			AgentConfigChanged:   a.configChangedVal,
+			BootstrapLock:        a.bootstrapLock,
 			UpgradeDBLock:        a.upgradeDBLock,
 			UpgradeStepsLock:     a.upgradeStepsLock,
 			UpgradeCheckLock:     a.initialUpgradeCheckComplete,

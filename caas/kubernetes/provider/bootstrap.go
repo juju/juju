@@ -1574,9 +1574,8 @@ func (c *controllerStack) buildContainerSpecForController() (*core.PodSpec, erro
 	if c.pcfg.ControllerId == agent.BootstrapControllerId {
 		// only do bootstrap-state on the bootstrap controller - controller-0.
 		bootstrapStateCmd := fmt.Sprintf(
-			"%s bootstrap-state %s --data-dir $JUJU_DATA_DIR %s --timeout %s",
+			"%s bootstrap-state --data-dir $JUJU_DATA_DIR %s --timeout %s",
 			c.pathJoin("$JUJU_TOOLS_DIR", "jujud"),
-			c.pathJoin("$JUJU_DATA_DIR", cloudconfig.FileNameBootstrapParams),
 			loggingOption,
 			c.timeout.String(),
 		)

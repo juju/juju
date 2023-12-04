@@ -11,6 +11,7 @@ import (
 	"io"
 	"net"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"time"
@@ -47,6 +48,7 @@ import (
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
 	envtools "github.com/juju/juju/environs/tools"
+	"github.com/juju/juju/internal/cloudconfig"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/mongo"
@@ -74,10 +76,9 @@ const adminUserName = "admin"
 type BootstrapCommand struct {
 	cmd.CommandBase
 	agentconf.AgentConf
-	BootstrapParamsFile string
-	Timeout             time.Duration
-	BootstrapAgent      BootstrapAgentFunc
-	DqliteInitializer   agentbootstrap.DqliteInitializerFunc
+	Timeout           time.Duration
+	BootstrapAgent    BootstrapAgentFunc
+	DqliteInitializer agentbootstrap.DqliteInitializerFunc
 }
 
 // NewBootstrapCommand returns a new BootstrapCommand that has been initialized.
@@ -106,14 +107,10 @@ func (c *BootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // Init initializes the command for running.
 func (c *BootstrapCommand) Init(args []string) error {
-	if len(args) == 0 {
-		return errors.New("bootstrap-params file must be specified")
-	}
-	if err := cmd.CheckEmpty(args[1:]); err != nil {
+	if err := cmd.CheckEmpty(args); err != nil {
 		return err
 	}
-	c.BootstrapParamsFile = args[0]
-	return c.AgentConf.CheckArgs(args[1:])
+	return c.AgentConf.CheckArgs(args)
 }
 
 func copyFile(dest, source string) error {
@@ -206,7 +203,7 @@ func (c cloudGetter) Get(_ stdcontext.Context, name string) (*jujucloud.Cloud, e
 
 // Run initializes state for an environment.
 func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
-	bootstrapParamsData, err := os.ReadFile(c.BootstrapParamsFile)
+	bootstrapParamsData, err := os.ReadFile(path.Join(c.DataDir(), cloudconfig.FileNameBootstrapParams))
 	if err != nil {
 		return errors.Annotate(err, "reading bootstrap params file")
 	}

@@ -48,6 +48,7 @@ import (
 	"github.com/juju/juju/worker/apiservercertwatcher"
 	"github.com/juju/juju/worker/auditconfigupdater"
 	"github.com/juju/juju/worker/authenticationworker"
+	"github.com/juju/juju/worker/bootstrap"
 	"github.com/juju/juju/worker/caasunitsmanager"
 	"github.com/juju/juju/worker/caasupgrader"
 	"github.com/juju/juju/worker/centralhub"
@@ -133,6 +134,11 @@ type ManifoldsConfig struct {
 	// PreviousAgentVersion passes through the version the machine
 	// agent was running before the current restart.
 	PreviousAgentVersion version.Number
+
+	// BootstrapLock is passed to the bootstrap gate to coordinate
+	// workers that shouldn't do anything until the bootstrap worker
+	// is done.
+	BootstrapLock gate.Lock
 
 	// UpgradeDBLock is passed to the upgrade database gate to
 	// coordinate workers that shouldn't do anything until the
@@ -318,6 +324,15 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// foundation stone on which most other manifolds ultimately depend.
 		agentName: agent.Manifold(config.Agent),
 
+		// The upgrade database gate is used to coordinate workers that should
+		// not do anything until the upgrade-database worker has finished
+		// running any required database upgrade steps.
+		isBootstrapGateName: gate.ManifoldEx(config.BootstrapLock),
+		isBootstrapFlagName: gate.FlagManifold(gate.FlagManifoldConfig{
+			GateName:  isBootstrapGateName,
+			NewWorker: gate.NewFlagWorker,
+		}),
+
 		// The termination worker returns ErrTerminateAgent if a
 		// termination signal is received by the process it's running
 		// in. It has no inputs and its only output is the error it
@@ -406,7 +421,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// The multiwatcher manifold watches all the changes in the database
 		// through the AllWatcherBacking and manages notifying the multiwatchers.
 		// Note: ifDatabaseUpgradeComplete implies running on a controller.
-		multiwatcherName: ifDatabaseUpgradeComplete(multiwatcher.Manifold(multiwatcher.ManifoldConfig{
+		multiwatcherName: ifBootstrapComplete(multiwatcher.Manifold(multiwatcher.ManifoldConfig{
 			StateName:            stateName,
 			Clock:                config.Clock,
 			Logger:               loggo.GetLogger("juju.worker.multiwatcher"),
@@ -818,6 +833,17 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 // various responsibilities of a IAAS machine agent.
 func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 	manifolds := dependency.Manifolds{
+		// Bootstrap worker is responsible for setting up the initial machine.
+		bootstrapName: ifDatabaseUpgradeComplete(bootstrap.Manifold(bootstrap.ManifoldConfig{
+			AgentName:         agentName,
+			StateName:         stateName,
+			ObjectStoreName:   objectStoreName,
+			BootstrapGateName: isBootstrapGateName,
+			AgentBinarySeeder: bootstrap.IAASAgentBinarySeeder,
+			RequiresBootstrap: bootstrap.RequiresBootstrap,
+			Logger:            loggo.GetLogger("juju.worker.bootstrap"),
+		})),
+
 		toolsVersionCheckerName: ifNotMigrating(toolsversionchecker.Manifold(toolsversionchecker.ManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
@@ -1023,6 +1049,17 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 // various responsibilities of a CAAS machine agent.
 func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 	return mergeManifolds(config, dependency.Manifolds{
+		// Bootstrap worker is responsible for setting up the initial machine.
+		bootstrapName: ifDatabaseUpgradeComplete(bootstrap.Manifold(bootstrap.ManifoldConfig{
+			AgentName:         agentName,
+			StateName:         stateName,
+			ObjectStoreName:   objectStoreName,
+			BootstrapGateName: isBootstrapGateName,
+			AgentBinarySeeder: bootstrap.CAASAgentBinarySeeder,
+			RequiresBootstrap: bootstrap.RequiresBootstrap,
+			Logger:            loggo.GetLogger("juju.worker.bootstrap"),
+		})),
+
 		// TODO(caas) - when we support HA, only want this on primary
 		upgraderName: caasupgrader.Manifold(caasupgrader.ManifoldConfig{
 			AgentName:            agentName,
@@ -1083,6 +1120,21 @@ func clockManifold(clock clock.Clock) dependency.Manifold {
 	}
 }
 
+// ifBootstrapComplete gates against the bootstrap worker completing.
+// This ensures that all blobs (agent binaries and controller charm) are
+// available before the machine agent starts.
+// We currently use this to provide a happier experience for the user
+// when bootstrapping a controller, before immediately going into HA. If the
+// underlying object store storage is slow, then retrying for the agent binary
+// against the controller can lead to slower HA deployment. It might be worth
+// revisiting this in the future, so we release the gate as soon as the binaries
+// are being uploaded.
+var ifBootstrapComplete = engine.Housing{
+	Flags: []string{
+		isBootstrapFlagName,
+	},
+}.Decorate
+
 var ifFullyUpgraded = engine.Housing{
 	Flags: []string{
 		upgradeStepsFlagName,
@@ -1140,6 +1192,10 @@ const (
 	presenceName           = "presence"
 	pubSubName             = "pubsub-forwarder"
 	clockName              = "clock"
+
+	bootstrapName       = "bootstrap"
+	isBootstrapGateName = "is-bootstrap-gate"
+	isBootstrapFlagName = "is-bootstrap-flag"
 
 	upgradeDatabaseName     = "upgrade-database-runner"
 	upgradeDatabaseGateName = "upgrade-database-gate"
