@@ -8,7 +8,6 @@ import (
 	"sync"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 
 	corecharm "github.com/juju/juju/core/charm"
 	charmrepo "github.com/juju/juju/core/charm/repository"
@@ -16,11 +15,16 @@ import (
 	"github.com/juju/juju/internal/charmhub"
 )
 
+type LoggerFactory interface {
+	charmhub.LoggerFactory
+	Namespace(string) charmhub.LoggerFactory
+}
+
 // CharmRepoFactoryConfig encapsulates the information required for creating a
 // new CharmRepoFactory instance.
 type CharmRepoFactoryConfig struct {
 	// The logger to use.
-	Logger loggo.Logger
+	LoggerFactory LoggerFactory
 
 	// An HTTP client that is injected when making Charmhub API calls.
 	CharmhubHTTPClient charmhub.HTTPClient
@@ -33,7 +37,8 @@ type CharmRepoFactoryConfig struct {
 // repositories allowing them to be reused by subsequent GetCharmRepository
 // calls.
 type CharmRepoFactory struct {
-	logger             loggo.Logger
+	loggerFactory      LoggerFactory
+	logger             charmhub.Logger
 	charmhubHTTPClient charmhub.HTTPClient
 	stateBackend       StateBackend
 	modelBackend       ModelBackend
@@ -45,7 +50,7 @@ type CharmRepoFactory struct {
 // NewCharmRepoFactory returns a new factory instance with the provided configuration.
 func NewCharmRepoFactory(cfg CharmRepoFactoryConfig) *CharmRepoFactory {
 	return &CharmRepoFactory{
-		logger:             cfg.Logger,
+		loggerFactory:      cfg.LoggerFactory,
 		charmhubHTTPClient: cfg.CharmhubHTTPClient,
 		stateBackend:       cfg.StateBackend,
 		modelBackend:       cfg.ModelBackend,
@@ -73,16 +78,16 @@ func (f *CharmRepoFactory) GetCharmRepository(ctx context.Context, src corecharm
 		}
 		chURL, _ := cfg.CharmHubURL()
 		chClient, err := charmhub.NewClient(charmhub.Config{
-			URL:        chURL,
-			HTTPClient: f.charmhubHTTPClient,
-			Logger:     f.logger.Child("charmhubrepo"),
+			URL:           chURL,
+			HTTPClient:    f.charmhubHTTPClient,
+			LoggerFactory: f.loggerFactory.Namespace("charmhub"),
 		})
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 
 		repo = charmrepo.NewCharmHubRepository(
-			f.logger.ChildWithLabels("charmhubrepo", corelogger.CHARMHUB),
+			f.loggerFactory.ChildWithLabels("charmhubrepo", corelogger.CHARMHUB),
 			chClient,
 		)
 	default:

@@ -879,7 +879,7 @@ func (v *deployFromRepositoryValidator) getCharmRepository(ctx context.Context, 
 	v.mu.Unlock()
 
 	repoFactory := v.newRepoFactory(services.CharmRepoFactoryConfig{
-		Logger:             deployRepoLogger,
+		LoggerFactory:      services.LoggoLoggerFactory(deployRepoLogger),
 		CharmhubHTTPClient: v.charmhubHTTPClient,
 		StateBackend:       v.state,
 		ModelBackend:       v.model,

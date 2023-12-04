@@ -22,7 +22,7 @@ import (
 )
 
 type APIRequesterSuite struct {
-	testing.IsolationSuite
+	baseSuite
 }
 
 var _ = gc.Suite(&APIRequesterSuite{})
@@ -36,7 +36,7 @@ func (s *APIRequesterSuite) TestDo(c *gc.C) {
 	mockHTTPClient := NewMockHTTPClient(ctrl)
 	mockHTTPClient.EXPECT().Do(req).Return(emptyResponse(), nil)
 
-	requester := newAPIRequester(mockHTTPClient, &FakeLogger{})
+	requester := newAPIRequester(mockHTTPClient, s.logger)
 	resp, err := requester.Do(req)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(resp.StatusCode, gc.Equals, http.StatusOK)
@@ -51,7 +51,7 @@ func (s *APIRequesterSuite) TestDoWithFailure(c *gc.C) {
 	mockHTTPClient := NewMockHTTPClient(ctrl)
 	mockHTTPClient.EXPECT().Do(req).Return(emptyResponse(), errors.Errorf("boom"))
 
-	requester := newAPIRequester(mockHTTPClient, &FakeLogger{})
+	requester := newAPIRequester(mockHTTPClient, s.logger)
 	_, err := requester.Do(req)
 	c.Assert(err, gc.Not(jc.ErrorIsNil))
 }
@@ -65,7 +65,7 @@ func (s *APIRequesterSuite) TestDoWithInvalidContentType(c *gc.C) {
 	mockHTTPClient := NewMockHTTPClient(ctrl)
 	mockHTTPClient.EXPECT().Do(req).Return(invalidContentTypeResponse(), nil)
 
-	requester := newAPIRequester(mockHTTPClient, &FakeLogger{})
+	requester := newAPIRequester(mockHTTPClient, s.logger)
 	_, err := requester.Do(req)
 	c.Assert(err, gc.Not(jc.ErrorIsNil))
 }
@@ -79,7 +79,7 @@ func (s *APIRequesterSuite) TestDoWithNotFoundResponse(c *gc.C) {
 	mockHTTPClient := NewMockHTTPClient(ctrl)
 	mockHTTPClient.EXPECT().Do(req).Return(notFoundResponse(), nil)
 
-	requester := newAPIRequester(mockHTTPClient, &FakeLogger{})
+	requester := newAPIRequester(mockHTTPClient, s.logger)
 	resp, err := requester.Do(req)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(resp.StatusCode, gc.Equals, http.StatusNotFound)
@@ -95,7 +95,7 @@ func (s *APIRequesterSuite) TestDoRetrySuccess(c *gc.C) {
 	mockHTTPClient.EXPECT().Do(req).Return(nil, io.EOF)
 	mockHTTPClient.EXPECT().Do(req).Return(emptyResponse(), nil)
 
-	requester := newAPIRequester(mockHTTPClient, &FakeLogger{})
+	requester := newAPIRequester(mockHTTPClient, s.logger)
 	requester.retryDelay = time.Microsecond
 	resp, err := requester.Do(req)
 	c.Assert(err, jc.ErrorIsNil)
@@ -123,7 +123,7 @@ func (s *APIRequesterSuite) TestDoRetrySuccessBody(c *gc.C) {
 		return emptyResponse(), nil
 	})
 
-	requester := newAPIRequester(mockHTTPClient, &FakeLogger{})
+	requester := newAPIRequester(mockHTTPClient, s.logger)
 	requester.retryDelay = time.Microsecond
 	resp, err := requester.Do(req)
 	c.Assert(err, jc.ErrorIsNil)
@@ -141,7 +141,7 @@ func (s *APIRequesterSuite) TestDoRetryMaxAttempts(c *gc.C) {
 	mockHTTPClient.EXPECT().Do(req).Return(nil, io.EOF)
 
 	start := time.Now()
-	requester := newAPIRequester(mockHTTPClient, &FakeLogger{})
+	requester := newAPIRequester(mockHTTPClient, s.logger)
 	requester.retryDelay = time.Microsecond
 	_, err := requester.Do(req)
 	c.Assert(err, gc.ErrorMatches, `attempt count exceeded: EOF`)
@@ -162,7 +162,7 @@ func (s *APIRequesterSuite) TestDoRetryContextCanceled(c *gc.C) {
 	mockHTTPClient.EXPECT().Do(req).Return(nil, io.EOF)
 
 	start := time.Now()
-	requester := newAPIRequester(mockHTTPClient, &FakeLogger{})
+	requester := newAPIRequester(mockHTTPClient, s.logger)
 	requester.retryDelay = time.Second
 	_, err = requester.Do(req)
 	c.Assert(err, gc.ErrorMatches, `retry stopped`)
@@ -171,7 +171,7 @@ func (s *APIRequesterSuite) TestDoRetryContextCanceled(c *gc.C) {
 }
 
 type RESTSuite struct {
-	testing.IsolationSuite
+	baseSuite
 }
 
 var _ = gc.Suite(&RESTSuite{})
@@ -239,7 +239,7 @@ func (s *RESTSuite) TestGetWithFailureRetry(c *gc.C) {
 		Attempts: 3,
 		Delay:    testing.ShortWait,
 		MaxDelay: testing.LongWait,
-	})(&FakeLogger{})
+	})(s.loggerFactory)
 	client := newHTTPRESTClient(httpClient)
 
 	base := MustMakePath(c, server.URL)
@@ -262,7 +262,7 @@ func (s *RESTSuite) TestGetWithFailureWithoutRetry(c *gc.C) {
 		Attempts: 3,
 		Delay:    testing.ShortWait,
 		MaxDelay: testing.LongWait,
-	})(&FakeLogger{})
+	})(s.loggerFactory)
 	client := newHTTPRESTClient(httpClient)
 
 	base := MustMakePath(c, server.URL)
@@ -287,7 +287,7 @@ func (s *RESTSuite) TestGetWithNoRetry(c *gc.C) {
 		Attempts: 3,
 		Delay:    testing.ShortWait,
 		MaxDelay: testing.LongWait,
-	})(&FakeLogger{})
+	})(s.loggerFactory)
 	client := newHTTPRESTClient(httpClient)
 
 	base := MustMakePath(c, server.URL)

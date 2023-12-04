@@ -138,9 +138,9 @@ func NewFacadeV10(ctx facade.Context) (*MachineManagerAPI, error) {
 	logger := ctx.Logger().Child("machinemanager")
 	chURL, _ := modelCfg.CharmHubURL()
 	chClient, err := charmhub.NewClient(charmhub.Config{
-		URL:        chURL,
-		HTTPClient: ctx.HTTPClient(facade.CharmhubHTTPClient),
-		Logger:     logger,
+		URL:           chURL,
+		HTTPClient:    ctx.HTTPClient(facade.CharmhubHTTPClient),
+		LoggerFactory: charmhub.LoggoLoggerFactory(logger),
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
