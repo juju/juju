@@ -66,6 +66,7 @@ type WorkerConfig struct {
 	FlagService             FlagService
 	BootstrapUnlocker       gate.Unlocker
 	AgentBinaryUploader     AgentBinaryBootstrapFunc
+	ControllerCharmUploader ControllerCharmUploaderFunc
 
 	// Deprecated: This is only here, until we can remove the state layer.
 	State LegacyState
@@ -92,6 +93,9 @@ func (c *WorkerConfig) Validate() error {
 	}
 	if c.FlagService == nil {
 		return errors.NotValidf("nil FlagService")
+	}
+	if c.ControllerCharmUploader == nil {
+		return errors.NotValidf("nil ControllerCharmUploader")
 	}
 	if c.Logger == nil {
 		return errors.NotValidf("nil Logger")
@@ -154,6 +158,11 @@ func (w *bootstrapWorker) loop() error {
 		return errors.Trace(err)
 	}
 
+	// Seed the controller charm to the object store.
+	if err := w.seedControllerCharm(ctx, dataDir); err != nil {
+		return errors.Trace(err)
+	}
+
 	// Set the bootstrap flag, to indicate that the bootstrap has completed.
 	if err := w.cfg.FlagService.SetFlag(ctx, flags.BootstrapFlag, true, flags.BootstrapFlagDescription); err != nil {
 		return errors.Trace(err)
@@ -199,6 +208,20 @@ func (w *bootstrapWorker) seedAgentBinary(ctx context.Context, dataDir string) (
 	}
 
 	return cleanup, nil
+}
+
+func (w *bootstrapWorker) seedControllerCharm(ctx context.Context, dataDir string) error {
+	objectStore, err := w.cfg.ObjectStoreGetter.GetObjectStore(ctx, w.cfg.State.ControllerModelUUID())
+	if err != nil {
+		return fmt.Errorf("failed to get object store: %v", err)
+	}
+
+	// Controller charm seeder will populate the charm for the controller.
+	if err := w.cfg.ControllerCharmUploader(ctx, dataDir, objectStore, w.cfg.Logger); err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
 }
 
 type agentStorageShim struct {
