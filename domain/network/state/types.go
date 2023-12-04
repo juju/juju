@@ -49,6 +49,7 @@ type Space struct {
 	SubnetUnderlayCIDR sql.NullString `db:"subnet_underlay_cidr"`
 }
 
+// Alias type to a slice of Space('s).
 type Spaces []Space
 
 // ToSpaceInfos converts Spaces to a slice of network.SpaceInfo structs.
@@ -163,6 +164,7 @@ type Subnet struct {
 	UnderlayCIDR sql.NullString `db:"underlay_cidr"`
 }
 
+// Alias type to a slice of Subnet('s).
 type Subnets []Subnet
 
 // ToSubnetInfos converts Subnets to a slice of network.SubnetInfo structs.

@@ -161,13 +161,9 @@ func (st *State) GetAllSpaces(
 		return nil, errors.Trace(err)
 	}
 
-	// Append the close the q stament since we are retrieving all
-	// spaces.
-	q := retrieveSpacesStmt + ";"
-
-	s, err := sqlair.Prepare(q, Space{})
+	s, err := sqlair.Prepare(retrieveSpacesStmt, Space{})
 	if err != nil {
-		return nil, errors.Annotatef(err, "preparing %q", q)
+		return nil, errors.Annotatef(err, "preparing %q", retrieveSpacesStmt)
 	}
 
 	var rows Spaces
@@ -196,7 +192,6 @@ UPDATE space
 SET    name = ?
 WHERE  uuid = ?;`
 	return db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-
 		if _, err := tx.ExecContext(ctx, q, name, uuid); err != nil {
 			return errors.Trace(err)
 		}

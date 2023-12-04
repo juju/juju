@@ -39,6 +39,16 @@ func (st *State) AddSubnet(
 		return errors.Trace(err)
 	}
 
+	var subnetType subnetType
+	if fanInfo != nil {
+		subnetType = fanOverlaySegment
+	}
+	var spaceUUIDValue any
+	spaceUUIDValue = spaceUUID
+	if spaceUUID == "" {
+		spaceUUIDValue = nil
+	}
+
 	insertSubnetStmt := `
 INSERT INTO subnet (uuid, cidr, vlan_tag, space_uuid, subnet_type_id)
 VALUES (?, ?, ?, ?, ?)`
@@ -65,16 +75,7 @@ VALUES (?, ?)`
 INSERT INTO availability_zone_subnet (availability_zone_uuid, subnet_uuid)
 VALUES (?, ?)`
 	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		var subnetType subnetType
-		if fanInfo != nil {
-			subnetType = fanOverlaySegment
-		}
 		// Add the subnet entity.
-		var spaceUUIDValue any
-		spaceUUIDValue = spaceUUID
-		if spaceUUID == "" {
-			spaceUUIDValue = nil
-		}
 		if _, err := tx.ExecContext(
 			ctx,
 			insertSubnetStmt,
@@ -88,10 +89,9 @@ VALUES (?, ?)`
 		}
 
 		if subnetType == fanOverlaySegment {
-			fanLocalUnderlayCIDR := fanInfo.FanLocalUnderlay
 			// Retrieve the underlay subnet uuid.
 			var underlaySubnetUUID string
-			row := tx.QueryRowContext(ctx, retrieveUnderlaySubnetUUIDStmt, fanLocalUnderlayCIDR)
+			row := tx.QueryRowContext(ctx, retrieveUnderlaySubnetUUIDStmt, fanInfo.FanLocalUnderlay)
 			if err := row.Scan(&underlaySubnetUUID); err != nil {
 				return errors.Trace(err)
 			}
@@ -301,7 +301,6 @@ func (st *State) UpdateSubnet(
 	}
 
 	return db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-
 		return updateSubnetSpaceIDTx(ctx, tx, uuid, spaceID)
 	})
 }
