@@ -137,7 +137,7 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Add a space and an address on the space.
-	space, err := st.AddSpace("test-space", "provider-space", nil, true)
+	space, err := st.AddSpace("test-space", "provider-space", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	providerAddr := network.NewSpaceAddress("example.com")
 	providerAddr.SpaceID = space.Id()

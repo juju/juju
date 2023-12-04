@@ -130,7 +130,7 @@ func (s *providerSpacesSuite) TestSaveSpacesWithoutProviderId(c *gc.C) {
 		ID:         "2",
 		ProviderId: network.Id("2"),
 	}
-	mockState.EXPECT().AddSpace("empty", network.Id("2"), []string{}, false).Return(addedSpace, nil)
+	mockState.EXPECT().AddSpace("empty", network.Id("2"), []string{}).Return(addedSpace, nil)
 
 	mockState.EXPECT().SaveProviderSubnets([]network.SubnetInfo{{CIDR: "10.0.0.1/12"}}, "2")
 
@@ -174,7 +174,7 @@ func (s *providerSpacesSuite) TestSaveSpacesDeltaSpacesAfterNotUpdated(c *gc.C) 
 		ID:         "2",
 		ProviderId: network.Id("2"),
 	}
-	mockState.EXPECT().AddSpace("empty", network.Id("2"), []string{}, false).Return(addedSpace, nil)
+	mockState.EXPECT().AddSpace("empty", network.Id("2"), []string{}).Return(addedSpace, nil)
 
 	mockState.EXPECT().SaveProviderSubnets([]network.SubnetInfo{{CIDR: "10.0.0.1/12"}}, "2")
 
@@ -334,7 +334,7 @@ func (s *providerSpacesSuite) TestProviderSpacesRun(c *gc.C) {
 		ID:         "2",
 		ProviderId: network.Id("2"),
 	}
-	mockState.EXPECT().AddSpace("empty", network.Id("2"), []string{}, false).Return(addedSpace, nil)
+	mockState.EXPECT().AddSpace("empty", network.Id("2"), []string{}).Return(addedSpace, nil)
 	mockState.EXPECT().Remove("1").Return(nil)
 
 	mockState.EXPECT().SaveProviderSubnets([]network.SubnetInfo{{CIDR: "10.0.0.1/12"}}, "2")

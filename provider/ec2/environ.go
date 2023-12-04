@@ -2715,11 +2715,6 @@ func (e *environ) hasDefaultVPC(ctx envcontext.ProviderCallContext) (bool, error
 	return e.defaultVPC != nil, nil
 }
 
-// AreSpacesRoutable implements NetworkingEnviron.
-func (*environ) AreSpacesRoutable(ctx envcontext.ProviderCallContext, space1, space2 *environs.ProviderSpaceInfo) (bool, error) {
-	return false, nil
-}
-
 // SuperSubnets implements NetworkingEnviron.SuperSubnets
 func (e *environ) SuperSubnets(ctx envcontext.ProviderCallContext) ([]string, error) {
 	vpcId := e.ecfg().vpcID()

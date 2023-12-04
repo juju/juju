@@ -24,7 +24,7 @@ type SubnetSuite struct {
 var _ = gc.Suite(&SubnetSuite{})
 
 func (s *SubnetSuite) TestAddSubnetSucceedsWithFullyPopulatedInfo(c *gc.C) {
-	space, err := s.State.AddSpace("foo", "4", nil, true)
+	space, err := s.State.AddSpace("foo", "4", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	fanOverlaySubnetInfo := network.SubnetInfo{
@@ -41,7 +41,6 @@ func (s *SubnetSuite) TestAddSubnetSucceedsWithFullyPopulatedInfo(c *gc.C) {
 		VLANTag:           79,
 		AvailabilityZones: []string{"Timbuktu"},
 		ProviderNetworkId: "wildbirds",
-		IsPublic:          true,
 	}
 	subnetInfo.SetFan("10.0.0.0/8", "172.16.0.0/16")
 
@@ -75,7 +74,6 @@ func (s *SubnetSuite) assertSubnetMatchesInfo(c *gc.C, subnet *state.Subnet, inf
 	c.Assert(subnet.ProviderNetworkId(), gc.Equals, info.ProviderNetworkId)
 	c.Assert(subnet.FanLocalUnderlay(), gc.Equals, info.FanLocalUnderlay())
 	c.Assert(subnet.FanOverlay(), gc.Equals, info.FanOverlay())
-	c.Assert(subnet.IsPublic(), gc.Equals, info.IsPublic)
 }
 
 func (s *SubnetSuite) TestAddSubnetFailsWithEmptyCIDR(c *gc.C) {
@@ -292,9 +290,9 @@ func (s *SubnetSuite) TestRefreshFailsWithNotFoundWhenRemoved(c *gc.C) {
 }
 
 func (s *SubnetSuite) TestAllSubnets(c *gc.C) {
-	space1, err := s.State.AddSpace("bar", "4", nil, true)
+	space1, err := s.State.AddSpace("bar", "4", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	space2, err := s.State.AddSpace("notreally", "5", nil, true)
+	space2, err := s.State.AddSpace("notreally", "5", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	subnetInfos := []network.SubnetInfo{
 		{CIDR: "192.168.1.0/24"},
@@ -332,7 +330,7 @@ func (s *SubnetSuite) TestAllSubnets(c *gc.C) {
 }
 
 func (s *SubnetSuite) TestAllSubnetInfosPopulatesOverlaySpace(c *gc.C) {
-	space1, err := s.State.AddSpace("bar", "4", nil, true)
+	space1, err := s.State.AddSpace("bar", "4", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	subnetInfos := []network.SubnetInfo{
@@ -361,11 +359,11 @@ func (s *SubnetSuite) TestUpdateMAASUndefinedSpace(c *gc.C) {
 	subnetInfo := network.SubnetInfo{CIDR: "8.8.8.0/24"}
 	subnet, err := s.State.AddSubnet(subnetInfo)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddSpace(names.NewSpaceTag("undefined").Id(), "-1", []string{subnet.ID()}, false)
+	_, err = s.State.AddSpace(names.NewSpaceTag("undefined").Id(), "-1", []string{subnet.ID()})
 	c.Assert(err, jc.ErrorIsNil)
 
 	subnetInfo.SpaceName = "testme"
-	_, err = s.State.AddSpace(names.NewSpaceTag(subnetInfo.SpaceName).Id(), "2", []string{}, false)
+	_, err = s.State.AddSpace(names.NewSpaceTag(subnetInfo.SpaceName).Id(), "2", []string{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = subnet.Update(subnetInfo)
@@ -384,7 +382,7 @@ func (s *SubnetSuite) TestUpdateEmpty(c *gc.C) {
 	subnetInfo.VLANTag = 76
 	subnetInfo.AvailabilityZones = []string{"testme-az"}
 	subnetInfo.SpaceName = "testme"
-	_, err = s.State.AddSpace(names.NewSpaceTag(subnetInfo.SpaceName).Id(), "2", []string{}, false)
+	_, err = s.State.AddSpace(names.NewSpaceTag(subnetInfo.SpaceName).Id(), "2", []string{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = subnet.Update(subnetInfo)
@@ -403,7 +401,7 @@ func (s *SubnetSuite) TestUpdateNonEmpty(c *gc.C) {
 	subnet, err := s.State.AddSubnet(expectedSubnetInfo)
 	c.Assert(err, jc.ErrorIsNil)
 
-	expectedSpace, err := s.State.AddSpace("changeme", "2", []string{subnet.ID()}, false)
+	expectedSpace, err := s.State.AddSpace("changeme", "2", []string{subnet.ID()})
 	c.Assert(err, jc.ErrorIsNil)
 
 	newSubnetInfo := network.SubnetInfo{
@@ -412,7 +410,7 @@ func (s *SubnetSuite) TestUpdateNonEmpty(c *gc.C) {
 		VLANTag:           76,
 		AvailabilityZones: []string{"testme-az"},
 	}
-	_, err = s.State.AddSpace(names.NewSpaceTag(newSubnetInfo.SpaceName).Id(), "7", []string{}, false)
+	_, err = s.State.AddSpace(names.NewSpaceTag(newSubnetInfo.SpaceName).Id(), "7", []string{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = subnet.Update(newSubnetInfo)
@@ -453,7 +451,7 @@ func (s *SubnetSuite) TestUniqueAdditionAndRetrievalByCIDR(c *gc.C) {
 }
 
 func (s *SubnetSuite) TestUpdateSubnetSpaceOps(c *gc.C) {
-	space, err := s.State.AddSpace("space-0", "0", []string{}, false)
+	space, err := s.State.AddSpace("space-0", "0", []string{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	arg := network.SubnetInfo{

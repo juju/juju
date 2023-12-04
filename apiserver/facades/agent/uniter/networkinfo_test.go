@@ -882,7 +882,7 @@ func (s *networkInfoSuite) TestMachineNetworkInfosAlphaNoSubnets(c *gc.C) {
 
 func (s *networkInfoSuite) setupSpace(c *gc.C, spaceName, cidr string) string {
 	st := s.ControllerModel(c).State()
-	space, err := st.AddSpace(spaceName, network.Id(spaceName), nil, true)
+	space, err := st.AddSpace(spaceName, network.Id(spaceName), nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = st.AddSubnet(network.SubnetInfo{

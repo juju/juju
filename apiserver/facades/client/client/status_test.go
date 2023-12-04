@@ -237,7 +237,7 @@ func (s *statusSuite) TestFullStatusInterfaceScaling(c *gc.C) {
 
 func (s *statusSuite) createSpaceAndSubnetWithProviderID(c *gc.C, spaceName, CIDR, providerSubnetID string) {
 	st := s.ControllerModel(c).State()
-	space, err := st.AddSpace(spaceName, network.Id(spaceName), nil, true)
+	space, err := st.AddSpace(spaceName, network.Id(spaceName), nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = st.AddSubnet(network.SubnetInfo{

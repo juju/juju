@@ -724,13 +724,11 @@ type checkAddSpacesParams struct {
 	Subnets    []string
 	Error      string
 	MakesCall  bool
-	Public     bool
 	ProviderId string
 }
 
 func (s *LegacySuite) checkAddSpaces(c *gc.C, p checkAddSpacesParams) {
 	arg := params.CreateSpaceParams{
-		Public:     p.Public,
 		ProviderId: p.ProviderId,
 	}
 	if p.Name != "" {
@@ -783,7 +781,7 @@ func (s *LegacySuite) checkAddSpaces(c *gc.C, p checkAddSpacesParams) {
 	// Only add the call to AddSpace() if there are no errors
 	// which have continued to this point.
 	if p.Error == "" {
-		allCalls = append(allCalls, jtesting.StubCall{FuncName: "AddSpace", Args: []any{p.Name, network.Id(p.ProviderId), subnetIDs, p.Public}})
+		allCalls = append(allCalls, jtesting.StubCall{FuncName: "AddSpace", Args: []any{p.Name, network.Id(p.ProviderId), subnetIDs}})
 	}
 	if len(allCalls) == 0 {
 		return
@@ -842,15 +840,6 @@ func (s *LegacySuite) TestAddSpacesCreateInvalidCIDR(c *gc.C) {
 		Name:    "foo",
 		Subnets: []string{"bar"},
 		Error:   `"bar" is not a valid CIDR`,
-	}
-	s.checkAddSpaces(c, p)
-}
-
-func (s *LegacySuite) TestAddSpacesPublic(c *gc.C) {
-	p := checkAddSpacesParams{
-		Name:    "foo",
-		Subnets: []string{"10.10.0.0/24"},
-		Public:  true,
 	}
 	s.checkAddSpaces(c, p)
 }

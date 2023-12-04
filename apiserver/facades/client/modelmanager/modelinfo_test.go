@@ -980,8 +980,8 @@ func (st *mockState) HAPrimaryMachine() (names.MachineTag, error) {
 	return names.MachineTag{}, nil
 }
 
-func (st *mockState) AddSpace(name string, provider network.Id, subnetIds []string, public bool) (*state.Space, error) {
-	st.MethodCall(st, "AddSpace", name, provider, subnetIds, public)
+func (st *mockState) AddSpace(name string, provider network.Id, subnetIds []string) (*state.Space, error) {
+	st.MethodCall(st, "AddSpace", name, provider, subnetIds)
 	return nil, st.NextErr()
 }
 

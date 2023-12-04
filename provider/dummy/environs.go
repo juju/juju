@@ -1117,11 +1117,6 @@ func (*environ) ProviderSpaceInfo(envcontext.ProviderCallContext, *network.Space
 	return nil, errors.NotSupportedf("provider space info")
 }
 
-// AreSpacesRoutable implements NetworkingEnviron.
-func (*environ) AreSpacesRoutable(_ envcontext.ProviderCallContext, _, _ *environs.ProviderSpaceInfo) (bool, error) {
-	return false, nil
-}
-
 // MaybeWriteLXDProfile implements environs.LXDProfiler.
 func (*environ) MaybeWriteLXDProfile(string, lxdprofile.Profile) error {
 	return nil

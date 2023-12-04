@@ -210,7 +210,7 @@ func (s *ControllerAddressesSuite) TestSetAPIHostPortsNoMgmtSpaceConcurrentDiffe
 }
 
 func (s *ControllerAddressesSuite) TestSetAPIHostPortsWithMgmtSpace(c *gc.C) {
-	sp, err := s.State.AddSpace("mgmt01", "", nil, false)
+	sp, err := s.State.AddSpace("mgmt01", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	cfg := testing.FakeControllerConfig()
@@ -336,7 +336,7 @@ func (s *ControllerAddressesSuite) TestWatchAPIHostPortsForClients(c *gc.C) {
 }
 
 func (s *ControllerAddressesSuite) TestWatchAPIHostPortsForAgents(c *gc.C) {
-	sp, err := s.State.AddSpace("mgmt01", "", nil, false)
+	sp, err := s.State.AddSpace("mgmt01", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	w := s.State.WatchAPIHostPortsForAgents()

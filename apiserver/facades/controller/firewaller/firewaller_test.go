@@ -287,7 +287,7 @@ func (s *firewallerSuite) TestWatchSubnets(c *gc.C) {
 
 	// Set up a spaces with two subnets
 	st := s.ControllerModel(c).State()
-	sp, err := st.AddSpace("outer-space", network.Id("outer-1"), nil, true)
+	sp, err := st.AddSpace("outer-space", network.Id("outer-1"), nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = st.AddSubnet(network.SubnetInfo{

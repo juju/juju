@@ -360,7 +360,7 @@ func resetSubnet(c *gc.C, st *state.State, subnetInfo network.SubnetInfo) {
 
 func (s *ipAddressesStateSuite) TestAllSpacesOneSpace(c *gc.C) {
 	s.addTwoDevicesWithTwoAddressesEach(c)
-	space, err := s.State.AddSpace("default", "default", nil, true)
+	space, err := s.State.AddSpace("default", "default", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	resetSubnet(c, s.State, network.SubnetInfo{
 		CIDR:    "10.20.0.0/16",
@@ -379,14 +379,14 @@ func (s *ipAddressesStateSuite) TestAllSpacesOneSpace(c *gc.C) {
 
 func (s *ipAddressesStateSuite) TestAllSpacesMultiSpace(c *gc.C) {
 	s.addTwoDevicesWithTwoAddressesEach(c)
-	space1, err := s.State.AddSpace("default", "default", nil, true)
+	space1, err := s.State.AddSpace("default", "default", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	resetSubnet(c, s.State, network.SubnetInfo{
 		CIDR:    "10.20.0.0/16",
 		SpaceID: space1.Id(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	space2, err := s.State.AddSpace("dmz-ipv6", "not-default", nil, true)
+	space2, err := s.State.AddSpace("dmz-ipv6", "not-default", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	resetSubnet(c, s.State, network.SubnetInfo{
 		CIDR:    "fc00::/64",

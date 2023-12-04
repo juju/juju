@@ -1299,9 +1299,8 @@ func FromNetworkSpaceInfos(allInfos network.SpaceInfos) SpaceInfos {
 			}
 
 			mappedSubnets[j] = SubnetV3{
-				SpaceID:  subnetInfo.SpaceID,
-				FanInfo:  mappedFanInfo,
-				IsPublic: subnetInfo.IsPublic,
+				SpaceID: subnetInfo.SpaceID,
+				FanInfo: mappedFanInfo,
 
 				SubnetV2: SubnetV2{
 					ID: string(subnetInfo.ID),
@@ -1348,7 +1347,6 @@ func ToNetworkSpaceInfos(allInfos SpaceInfos) network.SpaceInfos {
 				VLANTag:           subnetInfo.VLANTag,
 				AvailabilityZones: subnetInfo.Zones,
 				SpaceID:           subnetInfo.SpaceID,
-				IsPublic:          subnetInfo.IsPublic,
 				SpaceName:         si.Name,
 			}
 

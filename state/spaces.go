@@ -32,7 +32,6 @@ type spaceDoc struct {
 	Id         string `bson:"spaceid"`
 	Life       Life   `bson:"life"`
 	Name       string `bson:"name"`
-	IsPublic   bool   `bson:"is-public"`
 	ProviderId string `bson:"providerid,omitempty"`
 }
 
@@ -49,11 +48,6 @@ func (s *Space) String() string {
 // Name returns the name of the Space.
 func (s *Space) Name() string {
 	return s.doc.Name
-}
-
-// IsPublic returns whether the space is public or not.
-func (s *Space) IsPublic() bool {
-	return s.doc.IsPublic
 }
 
 // ProviderId returns the provider id of the space. This will be the empty
@@ -130,7 +124,7 @@ func (s *Space) RenameSpaceOps(toName string) []txn.Op {
 
 // AddSpace creates and returns a new space.
 func (st *State) AddSpace(
-	name string, providerId network.Id, subnetIDs []string, isPublic bool) (newSpace *Space, err error,
+	name string, providerId network.Id, subnetIDs []string) (newSpace *Space, err error,
 ) {
 	defer errors.DeferredAnnotatef(&err, "adding space %q", name)
 	if !names.IsValidSpace(name) {
@@ -169,7 +163,7 @@ func (st *State) AddSpace(
 			}
 		}
 
-		ops, err := st.addSpaceWithSubnetsTxnOps(name, providerId, subnetIDs, isPublic)
+		ops, err := st.addSpaceWithSubnetsTxnOps(name, providerId, subnetIDs)
 		return ops, errors.Trace(err)
 	}
 
@@ -185,7 +179,7 @@ func (st *State) AddSpace(
 }
 
 func (st *State) addSpaceWithSubnetsTxnOps(
-	name string, providerId network.Id, subnetIDs []string, isPublic bool,
+	name string, providerId network.Id, subnetIDs []string,
 ) ([]txn.Op, error) {
 	// Space with ID zero is the default space; start at 1.
 	seq, err := sequenceWithMin(st, "space", 1)
@@ -194,7 +188,7 @@ func (st *State) addSpaceWithSubnetsTxnOps(
 	}
 	id := strconv.Itoa(seq)
 
-	ops := st.addSpaceTxnOps(id, name, providerId, isPublic)
+	ops := st.addSpaceTxnOps(id, name, providerId)
 
 	for _, subnetID := range subnetIDs {
 		// TODO:(mfoord) once we have refcounting for subnets we should
@@ -211,13 +205,12 @@ func (st *State) addSpaceWithSubnetsTxnOps(
 	return ops, nil
 }
 
-func (st *State) addSpaceTxnOps(id, name string, providerId network.Id, isPublic bool) []txn.Op {
+func (st *State) addSpaceTxnOps(id, name string, providerId network.Id) []txn.Op {
 	doc := spaceDoc{
 		DocId:      st.docID(id),
 		Id:         id,
 		Life:       Alive,
 		Name:       name,
-		IsPublic:   isPublic,
 		ProviderId: string(providerId),
 	}
 
@@ -386,10 +379,9 @@ func (st *State) createDefaultSpaceOp() txn.Op {
 		Id:     st.docID(network.AlphaSpaceId),
 		Assert: txn.DocMissing,
 		Insert: spaceDoc{
-			Id:       network.AlphaSpaceId,
-			Life:     Alive,
-			Name:     network.AlphaSpaceName,
-			IsPublic: true,
+			Id:   network.AlphaSpaceId,
+			Life: Alive,
+			Name: network.AlphaSpaceName,
 		},
 	}
 }

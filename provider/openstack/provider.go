@@ -2439,11 +2439,6 @@ func (e *Environ) ReleaseContainerAddresses(ctx envcontext.ProviderCallContext, 
 	return errors.NotSupportedf("release container address")
 }
 
-// AreSpacesRoutable is specified on environs.NetworkingEnviron.
-func (*Environ) AreSpacesRoutable(ctx envcontext.ProviderCallContext, space1, space2 *environs.ProviderSpaceInfo) (bool, error) {
-	return false, nil
-}
-
 // SupportsRulesWithIPV6CIDRs returns true if the environment supports ingress
 // rules containing IPV6 CIDRs. It is part of the FirewallFeatureQuerier
 // interface.

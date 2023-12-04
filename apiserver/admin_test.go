@@ -63,7 +63,7 @@ func (s *baseLoginSuite) SetUpTest(c *gc.C) {
 	loggo.GetLogger("juju.apiserver").SetLogLevel(loggo.TRACE)
 
 	var err error
-	s.mgmtSpace, err = s.ControllerModel(c).State().AddSpace("mgmt01", "", nil, false)
+	s.mgmtSpace, err = s.ControllerModel(c).State().AddSpace("mgmt01", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.ControllerModel(c).State().UpdateControllerConfig(map[string]interface{}{corecontroller.JujuManagementSpace: "mgmt01"}, nil)
@@ -215,7 +215,7 @@ func (s *loginSuite) TestLoginAsDeletedUser(c *gc.C) {
 }
 
 func (s *loginSuite) setupManagementSpace(c *gc.C) *state.Space {
-	mgmtSpace, err := s.ControllerModel(c).State().AddSpace("mgmt01", "", nil, false)
+	mgmtSpace, err := s.ControllerModel(c).State().AddSpace("mgmt01", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.ControllerModel(c).State().UpdateControllerConfig(map[string]interface{}{corecontroller.JujuManagementSpace: "mgmt01"}, nil)

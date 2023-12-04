@@ -26,7 +26,7 @@ type ReloadSpacesState interface {
 	// AllSpaces returns all spaces for the model.
 	AllSpaces() ([]network.SpaceInfo, error)
 	// AddSpace creates and returns a new space.
-	AddSpace(string, network.Id, []string, bool) (network.SpaceInfo, error)
+	AddSpace(string, network.Id, []string) (network.SpaceInfo, error)
 	// SaveProviderSubnets loads subnets into state.
 	SaveProviderSubnets([]network.SubnetInfo, string) error
 	// ConstraintsBySpaceName returns all Constraints that include a positive
@@ -132,7 +132,7 @@ func (s *ProviderSpaces) SaveSpaces(providerSpaces []network.SpaceInfo) error {
 			spaceName := network.ConvertSpaceName(string(spaceInfo.Name), spaceNames)
 
 			logger.Debugf("Adding space %s from provider %s", spaceName, string(spaceInfo.ProviderId))
-			space, err := s.state.AddSpace(spaceName, spaceInfo.ProviderId, []string{}, false)
+			space, err := s.state.AddSpace(spaceName, spaceInfo.ProviderId, []string{})
 			if err != nil {
 				return errors.Trace(err)
 			}

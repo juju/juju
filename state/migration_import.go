@@ -1816,14 +1816,14 @@ func (i *importer) spaces() error {
 		}
 
 		if s.Id() == "" {
-			if _, err := i.st.AddSpace(s.Name(), network.Id(s.ProviderID()), nil, s.Public()); err != nil {
+			if _, err := i.st.AddSpace(s.Name(), network.Id(s.ProviderID()), nil); err != nil {
 				i.logger.Errorf("error importing space %s: %s", s.Name(), err)
 				return errors.Annotate(err, s.Name())
 			}
 			continue
 		}
 
-		ops := i.st.addSpaceTxnOps(s.Id(), s.Name(), network.Id(s.ProviderID()), s.Public())
+		ops := i.st.addSpaceTxnOps(s.Id(), s.Name(), network.Id(s.ProviderID()))
 		if err := i.st.db().RunTransaction(ops); err != nil {
 			i.logger.Errorf("error importing space %s: %s", s.Name(), err)
 			return errors.Annotate(err, s.Name())
@@ -1891,7 +1891,6 @@ func (i *importer) subnets() error {
 			ProviderNetworkId: network.Id(subnet.ProviderNetworkId()),
 			VLANTag:           subnet.VLANTag(),
 			AvailabilityZones: subnet.AvailabilityZones(),
-			IsPublic:          subnet.IsPublic(),
 			SpaceID:           subnet.SpaceID(),
 
 			// SpaceName will only be present when migrating from pre-2.7

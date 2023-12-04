@@ -74,7 +74,7 @@ type ModelManagerBackend interface {
 	SetUserAccess(subject names.UserTag, target names.Tag, access permission.Access) (permission.UserAccess, error)
 	SetModelMeterStatus(string, string) error
 	AllSpaces() ([]*state.Space, error)
-	AddSpace(string, network.Id, []string, bool) (*state.Space, error)
+	AddSpace(string, network.Id, []string) (*state.Space, error)
 	AllEndpointBindingsSpaceNames() (set.Strings, error)
 	ConstraintsBySpaceName(string) ([]*state.Constraints, error)
 	DefaultEndpointBindingSpace() (string, error)

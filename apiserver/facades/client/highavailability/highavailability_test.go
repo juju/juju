@@ -369,7 +369,7 @@ func (s *clientSuite) TestEnableHAPlacementTo(c *gc.C) {
 
 func (s *clientSuite) TestEnableHAPlacementToWithAddressInSpace(c *gc.C) {
 	st := s.ControllerModel(c).State()
-	sp, err := st.AddSpace("ha-space", "", nil, true)
+	sp, err := st.AddSpace("ha-space", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	controllerSettings, _ := st.ReadSettings("controllers", "controllerSettings")
@@ -401,7 +401,7 @@ func (s *clientSuite) TestEnableHAPlacementToWithAddressInSpace(c *gc.C) {
 
 func (s *clientSuite) TestEnableHAPlacementToErrorForInaccessibleSpace(c *gc.C) {
 	st := s.ControllerModel(c).State()
-	_, err := st.AddSpace("ha-space", "", nil, true)
+	_, err := st.AddSpace("ha-space", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	controllerSettings, _ := st.ReadSettings("controllers", "controllerSettings")

@@ -418,9 +418,9 @@ func (s *withoutControllerSuite) TestConflictingNegativeConstraintWithBindingErr
 func (s *withoutControllerSuite) addSpacesAndSubnets(c *gc.C) {
 	st := s.ControllerModel(c).State()
 	// Add a couple of spaces.
-	space1, err := st.AddSpace("space1", "first space id", nil, true)
+	space1, err := st.AddSpace("space1", "first space id", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	space2, err := st.AddSpace("space2", "", nil, false) // no provider ID
+	space2, err := st.AddSpace("space2", "", nil) // no provider ID
 	c.Assert(err, jc.ErrorIsNil)
 	// Add 1 subnet into space1, and 2 into space2.
 	// Each subnet is in a matching zone (e.g "subnet-#" in "zone#").
@@ -436,7 +436,7 @@ func (s *withoutControllerSuite) addSpacesAndSubnets(c *gc.C) {
 func (s *withoutControllerSuite) TestProvisioningInfoWithUnsuitableSpacesConstraints(c *gc.C) {
 	st := s.ControllerModel(c).State()
 	// Add an empty space.
-	_, err := st.AddSpace("empty", "", nil, true)
+	_, err := st.AddSpace("empty", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	consEmptySpace := constraints.MustParse("cores=123 mem=8G spaces=empty")

@@ -143,7 +143,6 @@ type FakeSpace struct {
 	SpaceId   string
 	SpaceName string
 	SubnetIds []string
-	Public    bool
 	NextErr   errReturner
 }
 
@@ -570,12 +569,12 @@ func (sb *StubBacking) AddSubnet(subnetInfo networkingcommon.BackingSubnetInfo) 
 	return fs, nil
 }
 
-func (sb *StubBacking) AddSpace(name string, providerId network.Id, subnets []string, public bool) (networkingcommon.BackingSpace, error) {
-	sb.MethodCall(sb, "AddSpace", name, providerId, subnets, public)
+func (sb *StubBacking) AddSpace(name string, providerId network.Id, subnets []string) (networkingcommon.BackingSpace, error) {
+	sb.MethodCall(sb, "AddSpace", name, providerId, subnets)
 	if err := sb.NextErr(); err != nil {
 		return nil, err
 	}
-	fs := &FakeSpace{SpaceName: name, SubnetIds: subnets, Public: public}
+	fs := &FakeSpace{SpaceName: name, SubnetIds: subnets}
 	sb.Spaces = append(sb.Spaces, fs)
 	return fs, nil
 }

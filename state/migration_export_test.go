@@ -663,7 +663,7 @@ func (s *MigrationExportSuite) TestMultipleApplications(c *gc.C) {
 }
 
 func (s *MigrationExportSuite) TestApplicationExposeParameters(c *gc.C) {
-	serverSpace, err := s.State.AddSpace("server", "", nil, true)
+	serverSpace, err := s.State.AddSpace("server", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	app := s.AddTestingApplicationWithBindings(c, "mysql",
@@ -697,9 +697,9 @@ func (s *MigrationExportSuite) TestApplicationExposeParameters(c *gc.C) {
 func (s *MigrationExportSuite) TestApplicationExposingOffers(c *gc.C) {
 	_ = s.Factory.MakeUser(c, &factory.UserParams{Name: "admin"})
 	fooUser := s.Factory.MakeUser(c, &factory.UserParams{Name: "foo"})
-	serverSpace, err := s.State.AddSpace("server", "", nil, true)
+	serverSpace, err := s.State.AddSpace("server", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	adminSpace, err := s.State.AddSpace("server-admin", "", nil, true)
+	adminSpace, err := s.State.AddSpace("server-admin", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	app := s.AddTestingApplicationWithBindings(c, "mysql",
@@ -1008,7 +1008,7 @@ func (s *MigrationExportSuite) TestUnitOpenPortRanges(c *gc.C) {
 
 func (s *MigrationExportSuite) TestEndpointBindings(c *gc.C) {
 	oneSpace := s.Factory.MakeSpace(c, &factory.SpaceParams{
-		Name: "one", ProviderID: network.Id("provider"), IsPublic: true})
+		Name: "one", ProviderID: network.Id("provider")})
 	state.AddTestingApplicationWithBindings(
 		c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"),
 		map[string]string{"db": oneSpace.Id()})
@@ -1215,7 +1215,7 @@ func (s *MigrationExportSuite) TestSubordinateRelations(c *gc.C) {
 
 func (s *MigrationExportSuite) TestSpaces(c *gc.C) {
 	s.Factory.MakeSpace(c, &factory.SpaceParams{
-		Name: "one", ProviderID: network.Id("provider"), IsPublic: true})
+		Name: "one", ProviderID: network.Id("provider")})
 
 	model, err := s.State.Export(map[string]string{}, state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
@@ -1228,7 +1228,6 @@ func (s *MigrationExportSuite) TestSpaces(c *gc.C) {
 	c.Assert(space.Id(), gc.Not(gc.Equals), "")
 	c.Assert(space.Name(), gc.Equals, "one")
 	c.Assert(space.ProviderID(), gc.Equals, "provider")
-	c.Assert(space.Public(), jc.IsTrue)
 }
 
 func (s *MigrationExportSuite) TestMultipleSpaces(c *gc.C) {
@@ -1423,7 +1422,7 @@ func (s *MigrationBaseSuite) TestMissingRelationScopeIgnored(c *gc.C) {
 }
 
 func (s *MigrationExportSuite) TestSubnets(c *gc.C) {
-	sp, err := s.State.AddSpace("bam", "", nil, true)
+	sp, err := s.State.AddSpace("bam", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	sn := network.SubnetInfo{
 		CIDR:              "10.0.0.0/24",
@@ -1432,7 +1431,6 @@ func (s *MigrationExportSuite) TestSubnets(c *gc.C) {
 		VLANTag:           64,
 		AvailabilityZones: []string{"bar"},
 		SpaceID:           sp.Id(),
-		IsPublic:          true,
 	}
 	sn.SetFan("100.2.0.0/16", "253.0.0.0/8")
 
@@ -1454,14 +1452,13 @@ func (s *MigrationExportSuite) TestSubnets(c *gc.C) {
 	c.Assert(subnet.SpaceID(), gc.Equals, sp.Id())
 	c.Assert(subnet.FanLocalUnderlay(), gc.Equals, "100.2.0.0/16")
 	c.Assert(subnet.FanOverlay(), gc.Equals, "253.0.0.0/8")
-	c.Assert(subnet.IsPublic(), gc.Equals, sn.IsPublic)
 }
 
 func (s *MigrationExportSuite) TestIPAddresses(c *gc.C) {
 	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
 		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
 	})
-	space, err := s.State.AddSpace("testme", "", nil, true)
+	space, err := s.State.AddSpace("testme", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddSubnet(network.SubnetInfo{CIDR: "0.1.2.0/24", SpaceID: space.Id()})
 	c.Assert(err, jc.ErrorIsNil)

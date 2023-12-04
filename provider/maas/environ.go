@@ -1422,11 +1422,6 @@ func (*maasEnviron) ProviderSpaceInfo(
 	return nil, errors.NotSupportedf("provider space info")
 }
 
-// AreSpacesRoutable implements environs.NetworkingEnviron.
-func (*maasEnviron) AreSpacesRoutable(ctx envcontext.ProviderCallContext, space1, space2 *environs.ProviderSpaceInfo) (bool, error) {
-	return false, nil
-}
-
 // SuperSubnets implements environs.SuperSubnets
 func (*maasEnviron) SuperSubnets(ctx envcontext.ProviderCallContext) ([]string, error) {
 	return nil, errors.NotSupportedf("super subnets")

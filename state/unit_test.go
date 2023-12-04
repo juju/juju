@@ -2869,9 +2869,9 @@ func (s *UnitSuite) TestWatchMachineAndEndpointAddressesHash(c *gc.C) {
 	sn2, err := s.State.AddSubnet(network.SubnetInfo{CIDR: "10.0.254.0/24"})
 	c.Assert(err, gc.IsNil)
 
-	_, err = s.State.AddSpace("public", "", []string{sn1.ID()}, false)
+	_, err = s.State.AddSpace("public", "", []string{sn1.ID()})
 	c.Assert(err, gc.IsNil)
-	_, err = s.State.AddSpace("private", "", []string{sn2.ID()}, false)
+	_, err = s.State.AddSpace("private", "", []string{sn2.ID()})
 	c.Assert(err, gc.IsNil)
 
 	// Create machine with 2 interfaces on the above spaces
