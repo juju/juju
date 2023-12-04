@@ -43,7 +43,7 @@ func NewCharmDownloader(cfg CharmDownloaderConfig) (*charmdownloader.Downloader,
 
 	repoFactory := repoFactoryShim{
 		factory: NewCharmRepoFactory(CharmRepoFactoryConfig{
-			LoggerFactory:      cfg.LoggerFactory.Namespace("charmrepofactory"),
+			LoggerFactory:      LoggoLoggerFactory(cfg.Logger.Child("charmrepofactory")),
 			CharmhubHTTPClient: cfg.CharmhubHTTPClient,
 			StateBackend:       cfg.StateBackend,
 			ModelBackend:       cfg.ModelBackend,
@@ -79,7 +79,7 @@ func LoggoLoggerFactory(logger loggo.Logger) LoggerFactory {
 	return loggoLoggerFactory{Logger: logger}
 }
 
-func (s loggoLoggerFactory) Namespace(name string) LoggerFactory {
+func (s loggoLoggerFactory) Namespace(name string) charmhub.LoggerFactory {
 	return LoggoLoggerFactory(s.Logger.Child(name))
 }
 
