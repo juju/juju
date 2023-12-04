@@ -566,12 +566,7 @@ func printPlainOutput(writer io.Writer, forceColor bool, value interface{}) erro
 		w.SetColorCapable(forceColor)
 	}
 
-	// actionOutput contains the action-set data of each action result.
-	// If there's only one action result, just that data is printed.
-	var actionOutput = make(map[string]string)
-
-	// actionInfo contains the id and stdout of each action result.
-	// It will be printed if there's more than one action result.
+	// actionInfo contains relevant information for each action result.
 	var actionInfo = make(map[string]map[string]interface{})
 
 	/*
@@ -591,6 +586,7 @@ func printPlainOutput(writer io.Writer, forceColor bool, value interface{}) erro
 			return errors.Errorf("expected value of type %T, got %T", resultMetadata, info[k])
 		}
 		resultData, ok := resultMetadata["results"].(map[string]interface{})
+		var output string
 		if ok {
 			resultDataCopy := make(map[string]interface{})
 			for k, v := range resultData {
@@ -608,9 +604,9 @@ func printPlainOutput(writer io.Writer, forceColor bool, value interface{}) erro
 			if len(resultDataCopy) > 0 {
 				data, err := yaml.Marshal(resultDataCopy)
 				if err == nil {
-					actionOutput[k] = string(data)
+					output = string(data)
 				} else {
-					actionOutput[k] = fmt.Sprintf("%v", resultDataCopy)
+					output = fmt.Sprintf("%v", resultDataCopy)
 				}
 			}
 		} else {
@@ -618,18 +614,27 @@ func printPlainOutput(writer io.Writer, forceColor bool, value interface{}) erro
 			if !ok {
 				status = "has unknown status"
 			}
-			actionOutput[k] = fmt.Sprintf("Task %v %v\n", resultMetadata["id"], status)
+			output = fmt.Sprintf("Task %v %v\n", resultMetadata["id"], status)
 		}
 		actionInfo[k] = map[string]interface{}{
 			"id":     resultMetadata["id"],
-			"output": actionOutput[k],
+			"output": output,
+			"status": resultMetadata["status"],
+		}
+		if msg, ok := resultMetadata["message"]; ok {
+			actionInfo[k]["message"] = msg
 		}
 	}
-	if len(actionOutput) > 1 {
+	if len(actionInfo) > 1 {
 		return cmd.FormatYaml(writer, actionInfo)
 	}
-	for _, msg := range actionOutput {
-		w.Println(output.GoodHighlight, msg)
+	for _, info := range actionInfo {
+		if info["status"] == params.ActionFailed {
+			w.Printf(output.ErrorHighlight, "Action id %v failed: %v\n", info["id"], info["message"])
+			w.Println(output.ErrorHighlight, info["output"])
+		} else {
+			w.Println(output.GoodHighlight, info["output"])
+		}
 	}
 	if stdout != "" {
 		fmt.Fprintln(writer, strings.Trim(stdout, "\n"))
