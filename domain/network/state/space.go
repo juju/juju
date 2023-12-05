@@ -214,7 +214,7 @@ func (st *State) DeleteSpace(
 
 	deleteSpaceStmt := "DELETE FROM space WHERE uuid = ?;"
 	deleteProviderSpaceStmt := "DELETE FROM provider_space WHERE space_uuid = ?;"
-	updateSubnetSpaceUUIDStmt := "UPDATE subnet SET space_uuid = NULL WHERE space_uuid = ?;"
+	updateSubnetSpaceUUIDStmt := "UPDATE subnet SET space_uuid = ? WHERE space_uuid = ?;"
 
 	return db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		delProviderSpaceResult, err := tx.ExecContext(ctx, deleteProviderSpaceStmt, uuid)
@@ -229,7 +229,7 @@ func (st *State) DeleteSpace(
 			return fmt.Errorf("provider space id for space %s not found", uuid)
 		}
 
-		if _, err := tx.ExecContext(ctx, updateSubnetSpaceUUIDStmt, uuid); err != nil {
+		if _, err := tx.ExecContext(ctx, updateSubnetSpaceUUIDStmt, network.AlphaSpaceId, uuid); err != nil {
 			return errors.Trace(err)
 		}
 
