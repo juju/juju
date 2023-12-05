@@ -340,12 +340,6 @@ func (w *unixConfigure) ConfigureJuju() error {
 		return errors.Trace(err)
 	}
 
-	// Don't remove tools tarball until after bootstrap agent
-	// runs, so it has a chance to add it to its catalogue.
-	defer w.conf.AddRunCmd(
-		fmt.Sprintf("rm $bin/tools.tar.gz && rm $bin/juju%s.sha256", w.icfg.AgentVersion()),
-	)
-
 	// We add the machine agent's configuration info
 	// before running bootstrap-state so that bootstrap-state
 	// has a chance to rewrite it to change the password.

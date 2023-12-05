@@ -10,6 +10,7 @@ import (
 	controllernodeservice "github.com/juju/juju/domain/controllernode/service"
 	credentialservice "github.com/juju/juju/domain/credential/service"
 	externalcontrollerservice "github.com/juju/juju/domain/externalcontroller/service"
+	flagservice "github.com/juju/juju/domain/flag/service"
 	modelservice "github.com/juju/juju/domain/model/service"
 	modelconfigservice "github.com/juju/juju/domain/modelconfig/service"
 	modeldefaultsservice "github.com/juju/juju/domain/modeldefaults/service"
@@ -45,6 +46,8 @@ type ControllerServiceFactory interface {
 	// Primarily used for agent blob store. Although can be used for other
 	// blob related operations.
 	AgentObjectStore() *objectstoreservice.Service
+	// Flag returns the flag service.
+	Flag() *flagservice.Service
 }
 
 // ModelServiceFactory provides access to the services required by the

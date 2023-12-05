@@ -83,6 +83,9 @@ WHERE name = ?;
 	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		row := tx.QueryRowContext(ctx, query, flag)
 		if err := row.Scan(&value); err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return errors.NotFoundf("flag %q", flag)
+			}
 			return errors.Trace(err)
 		}
 		return nil

@@ -4,8 +4,6 @@
 package agent
 
 import (
-	"bytes"
-	"context"
 	stdcontext "context"
 	"fmt"
 	"io"
@@ -22,12 +20,10 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/utils/v3/ssh"
-	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/agentbootstrap"
 	agentconfig "github.com/juju/juju/agent/config"
-	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/caas"
 	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
@@ -55,7 +51,6 @@ import (
 	"github.com/juju/juju/internal/objectstore"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/binarystorage"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/state/stateenvirons"
 	jujuversion "github.com/juju/juju/version"
@@ -427,10 +422,6 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 	}
 
 	if !isCAAS {
-		// Populate the tools catalogue.
-		if err := c.populateTools(ctx, st, args.ControllerConfig); err != nil {
-			return errors.Trace(err)
-		}
 		// Add custom image metadata to environment storage.
 		if len(args.CustomImageMetadata) > 0 {
 			if err := c.saveCustomImageMetadata(st, env, args.CustomImageMetadata); err != nil {
@@ -571,58 +562,6 @@ func (c *BootstrapCommand) startMongo(ctx stdcontext.Context, isCAAS bool, addrs
 		return err
 	}
 	logger.Infof("started mongo")
-	return nil
-}
-
-// populateTools stores uploaded tools in provider storage
-// and updates the tools metadata.
-func (c *BootstrapCommand) populateTools(ctx context.Context, st *state.State, controllerConfig controller.Config) error {
-	agentConfig := c.CurrentConfig()
-	dataDir := agentConfig.DataDir()
-
-	current := version.Binary{
-		Number:  jujuversion.Current,
-		Arch:    arch.HostArch(),
-		Release: coreos.HostOSTypeName(),
-	}
-	agentTools, err := agenttools.ReadTools(dataDir, current)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	data, err := os.ReadFile(filepath.Join(
-		agenttools.SharedToolsDir(dataDir, current),
-		"tools.tar.gz",
-	))
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	objectStore, err := objectstore.ObjectStoreFactory(ctx,
-		objectstore.BackendTypeOrDefault(controllerConfig.ObjectStoreType()),
-		st.ControllerModelUUID(),
-		objectstore.WithMongoSession(st),
-		objectstore.WithLogger(logger),
-	)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	toolStorage, err := st.ToolsStorage(objectStore)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	defer func() { _ = toolStorage.Close() }()
-
-	metadata := binarystorage.Metadata{
-		Version: agentTools.Version.String(),
-		Size:    agentTools.Size,
-		SHA256:  agentTools.SHA256,
-	}
-	logger.Debugf("Adding agent binary: %v", agentTools.Version)
-	if err := toolStorage.Add(ctx, bytes.NewReader(data), metadata); err != nil {
-		return errors.Trace(err)
-	}
 	return nil
 }
 

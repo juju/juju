@@ -4,13 +4,16 @@
 package bootstrap
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3/dependency"
 	dependencytesting "github.com/juju/worker/v3/dependency/testing"
 	gc "gopkg.in/check.v1"
 
-	state "github.com/juju/juju/state"
+	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/domain/servicefactory/testing"
 )
 
 type manifoldSuite struct {
@@ -31,34 +34,53 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 	cfg.StateName = ""
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
+	cfg.ObjectStoreName = ""
+	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+
+	cfg.ServiceFactoryName = ""
+	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+
+	cfg.BootstrapGateName = ""
+	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+
 	cfg = s.getConfig()
 	cfg.Logger = nil
+	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig()
+	cfg.RequiresBootstrap = nil
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 }
 
 func (s *manifoldSuite) getConfig() ManifoldConfig {
 	return ManifoldConfig{
-		AgentName:         "agent",
-		ObjectStoreName:   "object-store",
-		StateName:         "state",
-		BootstrapGateName: "bootstrap-gate",
-		Logger:            s.logger,
-		AgentBinarySeeder: func() error { return nil },
-		RequiresBootstrap: func(appService ApplicationService) (bool, error) { return false, nil },
+		AgentName:          "agent",
+		ObjectStoreName:    "object-store",
+		StateName:          "state",
+		BootstrapGateName:  "bootstrap-gate",
+		ServiceFactoryName: "service-factory",
+		Logger:             s.logger,
+		AgentBinaryUploader: func(context.Context, string, BinaryAgentStorageService, objectstore.ObjectStore, Logger) error {
+			return nil
+		},
+		RequiresBootstrap: func(context.Context, FlagService) (bool, error) {
+			return false, nil
+		},
 	}
 }
 
 func (s *manifoldSuite) getContext() dependency.Context {
 	resources := map[string]any{
-		"agent":          s.agent,
-		"state":          s.stateTracker,
-		"object-store":   s.objectStore,
-		"bootstrap-gate": s.bootstrapUnlocker,
+		"agent":           s.agent,
+		"state":           s.stateTracker,
+		"object-store":    s.objectStore,
+		"bootstrap-gate":  s.bootstrapUnlocker,
+		"service-factory": testing.NewTestingServiceFactory(),
 	}
 	return dependencytesting.StubContext(nil, resources)
 }
 
-var expectedInputs = []string{"agent", "state", "object-store", "bootstrap-gate"}
+var expectedInputs = []string{"agent", "state", "object-store", "bootstrap-gate", "service-factory"}
 
 func (s *manifoldSuite) TestInputs(c *gc.C) {
 	c.Assert(Manifold(s.getConfig()).Inputs, jc.SameContents, expectedInputs)
@@ -67,14 +89,9 @@ func (s *manifoldSuite) TestInputs(c *gc.C) {
 func (s *manifoldSuite) TestStartAlreadyBootstrapped(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectStateTracker()
 	s.expectGateUnlock()
+	s.expectAgentConfig(c)
 
 	_, err := Manifold(s.getConfig()).Start(s.getContext())
 	c.Assert(err, jc.ErrorIs, dependency.ErrUninstall)
-}
-
-func (s *manifoldSuite) expectStateTracker() {
-	s.stateTracker.EXPECT().Use().Return(&state.StatePool{}, &state.State{}, nil)
-	s.stateTracker.EXPECT().Done()
 }

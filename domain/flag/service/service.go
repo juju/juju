@@ -5,6 +5,8 @@ package service
 
 import (
 	"context"
+
+	"github.com/juju/errors"
 )
 
 // State describes retrieval and persistence methods for storage.
@@ -32,5 +34,9 @@ func (s *Service) SetFlag(ctx context.Context, flag string, value bool) error {
 
 // GetFlag returns the value of a flag.
 func (s *Service) GetFlag(ctx context.Context, flag string) (bool, error) {
-	return s.st.GetFlag(ctx, flag)
+	value, err := s.st.GetFlag(ctx, flag)
+	if err != nil && !errors.Is(err, errors.NotFound) {
+		return false, err
+	}
+	return value, nil
 }

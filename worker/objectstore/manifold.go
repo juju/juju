@@ -221,7 +221,7 @@ func output(in worker.Worker, out any) error {
 		var target ObjectStoreGetter = w
 		*out = target
 	default:
-		return errors.Errorf("expected output of Tracer, got %T", out)
+		return errors.Errorf("expected output of ObjectStore, got %T", out)
 	}
 	return nil
 }

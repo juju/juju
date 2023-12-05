@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 
+	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gomock "go.uber.org/mock/gomock"
@@ -39,6 +40,17 @@ func (s *serviceSuite) TestGetFlag(c *gc.C) {
 	value, err := service.GetFlag(context.Background(), "foo")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(value, jc.IsTrue)
+}
+
+func (s *serviceSuite) TestGetFlagNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().GetFlag(gomock.Any(), "foo").Return(false, errors.NotFoundf("flag"))
+
+	service := NewService(s.state)
+	value, err := service.GetFlag(context.Background(), "foo")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(value, jc.IsFalse)
 }
 
 func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
