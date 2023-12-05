@@ -1060,6 +1060,7 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			BootstrapGateName:         isBootstrapGateName,
 			AgentBinaryUploader:       bootstrap.CAASAgentBinaryUploader,
 			BootstrapParamsFileExists: bootstrap.BootstrapParamsFileExists,
+			RemoveBootstrapParamsFile: bootstrap.RemoveBootstrapParamsFile,
 			Logger:                    loggo.GetLogger("juju.worker.bootstrap"),
 		})),
 
