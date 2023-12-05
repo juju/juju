@@ -101,6 +101,9 @@ func (s *schemaSuite) TestControllerDDLApply(c *gc.C) {
 
 		// Model Config Defaults
 		"model_config_defaults",
+
+		// Flags
+		"flag",
 	)
 	c.Assert(readTableNames(c, s.DB()), jc.SameContents, expected.Union(internalTableNames).SortedValues())
 }
