@@ -769,11 +769,11 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 	modelCharmsUploadAuthorizer := tagKindAuthorizer{names.UserTagKind}
 
 	modelObjectsCharmsHandler := &objectsCharmHandler{
-		ctxt: httpCtxt,
+		ctxt:              httpCtxt,
+		objectStoreGetter: srv.shared.objectStoreGetter,
 	}
 	modelObjectsCharmsHTTPHandler := &objectsCharmHTTPHandler{
-		GetHandler:          modelObjectsCharmsHandler.ServeGet,
-		LegacyCharmsHandler: modelCharmsHTTPHandler,
+		GetHandler: modelObjectsCharmsHandler.ServeGet,
 	}
 
 	modelToolsUploadHandler := &toolsUploadHandler{
