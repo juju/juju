@@ -12,8 +12,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/juju/charm/v11"
-	charmresource "github.com/juju/charm/v11/resource"
+	"github.com/juju/charm/v12"
+	charmresource "github.com/juju/charm/v12/resource"
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/version/v2"

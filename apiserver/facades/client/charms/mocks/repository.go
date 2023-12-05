@@ -8,8 +8,8 @@ import (
 	url "net/url"
 	reflect "reflect"
 
-	charm "github.com/juju/charm/v11"
-	resource "github.com/juju/charm/v11/resource"
+	charm "github.com/juju/charm/v12"
+	resource "github.com/juju/charm/v12/resource"
 	charm0 "github.com/juju/juju/core/charm"
 	gomock "go.uber.org/mock/gomock"
 )

@@ -6,7 +6,7 @@ package caasoperatorprovisioner
 import (
 	"fmt"
 
-	"github.com/juju/charm/v11"
+	"github.com/juju/charm/v12"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"

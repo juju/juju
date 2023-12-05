@@ -15,7 +15,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/api_mock.go github.com/juju/juju/api AllWatch
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/modelcmd_mock.go github.com/juju/juju/cmd/modelcmd Filesystem
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/write_mock.go io Writer
-//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/charm_mock.go github.com/juju/charm/v11 Charm
+//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/charm_mock.go github.com/juju/charm/v12 Charm
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)

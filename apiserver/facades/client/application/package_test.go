@@ -13,7 +13,7 @@ func TestAll(t *stdtesting.T) {
 	testing.MgoTestPackage(t)
 }
 
-//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/lxdprofile_mock.go github.com/juju/charm/v11 LXDProfiler
+//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/lxdprofile_mock.go github.com/juju/charm/v12 LXDProfiler
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/state_mock.go github.com/juju/juju/state StorageAttachment,StorageInstance,MachinePortRanges,UnitPortRanges,CloudContainer
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/state_storage_mock.go github.com/juju/juju/state/storage Storage
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/storage_mock.go github.com/juju/juju/storage ProviderRegistry
