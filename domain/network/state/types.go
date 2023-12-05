@@ -22,7 +22,7 @@ type Space struct {
 	Name string `db:"name"`
 
 	// ProviderID is the space provider id.
-	ProviderID string `db:"provider_id"`
+	ProviderID sql.NullString `db:"provider_id"`
 
 	// SubnetUUID is one of the space's subnet id.
 	SubnetUUID string `db:"subnet_uuid"`
@@ -65,24 +65,26 @@ func (sp Spaces) ToSpaceInfos() network.SpaceInfos {
 	uniqueSpaces := make(map[string]network.SpaceInfo)
 
 	for _, space := range sp {
-		uniqueSpaces[space.UUID] = network.SpaceInfo{
-			ID:         space.UUID,
-			Name:       network.SpaceName(space.Name),
-			ProviderId: network.Id(space.ProviderID),
+		spInfo := network.SpaceInfo{
+			ID:   space.UUID,
+			Name: network.SpaceName(space.Name),
 		}
 
 		if _, ok := uniqueSubnets[space.UUID]; !ok {
 			uniqueSubnets[space.UUID] = make(map[string]network.SubnetInfo)
 		}
-		sInfo := network.SubnetInfo{
+		snInfo := network.SubnetInfo{
 			ID:                network.Id(space.SubnetUUID),
 			CIDR:              space.CIDR,
 			ProviderId:        network.Id(space.SubnetProviderID),
-			ProviderSpaceId:   network.Id(space.ProviderID),
 			ProviderNetworkId: network.Id(space.SubnetProviderNetworkID),
 			VLANTag:           space.VLANTag,
 			SpaceID:           space.UUID,
 			SpaceName:         space.Name,
+		}
+		if space.ProviderID.Valid {
+			spInfo.ProviderId = network.Id(space.ProviderID.String)
+			snInfo.ProviderSpaceId = network.Id(space.ProviderID.String)
 		}
 		if space.SubnetOverlayCIDR.Valid || space.SubnetUnderlayCIDR.Valid {
 			underlay := ""
@@ -93,9 +95,11 @@ func (sp Spaces) ToSpaceInfos() network.SpaceInfos {
 			if space.SubnetOverlayCIDR.Valid {
 				overlay = space.SubnetOverlayCIDR.String
 			}
-			sInfo.SetFan(underlay, overlay)
+			snInfo.SetFan(underlay, overlay)
 		}
-		uniqueSubnets[space.UUID][space.SubnetUUID] = sInfo
+
+		uniqueSpaces[space.UUID] = spInfo
+		uniqueSubnets[space.UUID][space.SubnetUUID] = snInfo
 
 		if _, ok := uniqueAZs[space.UUID]; !ok {
 			uniqueAZs[space.UUID] = make(map[string]map[string]string)

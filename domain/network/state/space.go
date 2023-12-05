@@ -63,8 +63,11 @@ WHERE  subnet.uuid = ?`
 		if _, err := tx.ExecContext(ctx, insertSpaceStmt, uuid.String(), name); err != nil {
 			return errors.Trace(err)
 		}
-		if _, err := tx.ExecContext(ctx, insertProviderStmt, providerID, uuid.String()); err != nil {
-			return errors.Trace(err)
+		if providerID != "" {
+
+			if _, err := tx.ExecContext(ctx, insertProviderStmt, providerID, uuid.String()); err != nil {
+				return errors.Trace(err)
+			}
 		}
 		for _, subnetID := range subnetIDs {
 			// Check if the subnet is a fan overlay, in that case
@@ -104,7 +107,7 @@ SELECT
     provider_network.provider_network_id AS &Space.subnet_provider_network_id,
     availability_zone.name               AS &Space.subnet_az
 FROM space 
-    JOIN provider_space
+    LEFT JOIN provider_space
     ON space.uuid = provider_space.space_uuid
     LEFT JOIN subnet   
     ON space.uuid = subnet.space_uuid

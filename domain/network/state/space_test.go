@@ -120,6 +120,46 @@ func (s *stateSuite) TestAddSpaceFailDuplicateName(c *gc.C) {
 	// Fails when trying to add a new space with the same name.
 	err = st.AddSpace(ctx.Background(), uuid, "space0", "bar", subnets)
 	c.Assert(err, gc.ErrorMatches, "UNIQUE constraint failed.*")
+
+}
+
+func (s *stateSuite) TestAddSpaceEmptyProviderID(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	db := s.DB()
+
+	uuid, err := utils.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Add a subnet of type base.
+	subnetUUID, err := utils.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	err = st.AddSubnet(
+		ctx.Background(),
+		subnetUUID,
+		"192.168.0.0/12",
+		"",
+		"provider-network-id-0",
+		0,
+		[]string{"az0", "az1"},
+		"",
+		nil,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	subnets := []string{subnetUUID.String()}
+	err = st.AddSpace(ctx.Background(), uuid, "space0", "", subnets)
+	c.Assert(err, jc.ErrorIsNil)
+
+	sp, err := st.GetSpace(ctx.Background(), uuid.String())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(sp.ProviderId.String(), gc.Equals, "")
+
+	// Check that no provider space id was added.
+	row := db.QueryRow("SELECT provider_id FROM provider_space WHERE space_uuid = ?", uuid.String())
+	c.Assert(row.Err(), jc.ErrorIsNil)
+	var spaceProviderID string
+	err = row.Scan(&spaceProviderID)
+	c.Assert(err, gc.ErrorMatches, "sql: no rows in result set")
 }
 
 func (s *stateSuite) TestAddSpaceFailFanOverlay(c *gc.C) {

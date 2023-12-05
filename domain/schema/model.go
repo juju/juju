@@ -123,9 +123,6 @@ CREATE TABLE subnet (
         REFERENCES                   subnet_type(id)
 );
 
-CREATE UNIQUE INDEX idx_subnet_cidr
-ON subnet (cidr);
-
 CREATE TABLE subnet_type (
     id                           INT PRIMARY KEY,
     name                         TEXT NOT NULL,
