@@ -84,7 +84,7 @@ WHERE  name = $M.name`
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		return errors.Trace(tx.Query(ctx, s, sqlair.M{"name": name}).Get(&row))
 	}); err != nil {
-		if err.Error() == sql.ErrNoRows.Error() {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, errors.Annotatef(errors.NotFound, "autocert %s", name)
 		}
 		return nil, errors.Annotate(err, "querying autocert cache")

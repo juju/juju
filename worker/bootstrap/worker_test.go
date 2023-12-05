@@ -14,7 +14,6 @@ import (
 	gomock "go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	agent "github.com/juju/juju/agent"
 	controller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/state"
@@ -36,6 +35,7 @@ func (s *workerSuite) TestKilled(c *gc.C) {
 	s.expectControllerConfig()
 	s.expectAgentConfig(c)
 	s.expectObjectStoreGetter()
+	s.expectBootstrapFlagSet()
 
 	w := s.newWorker(c)
 	defer workertest.DirtyKill(c, w)
@@ -85,9 +85,9 @@ func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
 		AgentBinaryUploader: func(context.Context, string, BinaryAgentStorageService, objectstore.ObjectStore, Logger) error {
 			return nil
 		},
-		RemoveBootstrapParamsFile: func(agent.Config) error { return nil },
-		State:                     &state.State{},
-		ControllerConfigService:   s.controllerConfigService,
+		State:                   &state.State{},
+		ControllerConfigService: s.controllerConfigService,
+		FlagService:             s.flagService,
 	}, s.states)
 	c.Assert(err, jc.ErrorIsNil)
 	return w
@@ -126,4 +126,8 @@ func (s *workerSuite) expectControllerConfig() {
 
 func (s *workerSuite) expectObjectStoreGetter() {
 	s.objectStoreGetter.EXPECT().GetObjectStore(gomock.Any(), gomock.Any()).Return(s.objectStore, nil)
+}
+
+func (s *workerSuite) expectBootstrapFlagSet() {
+	s.flagService.EXPECT().SetFlag(gomock.Any(), BootstrapFlag, true).Return(nil)
 }

@@ -29,6 +29,13 @@ type ControllerConfigService interface {
 	ControllerConfig(context.Context) (controller.Config, error)
 }
 
+// FlagService is the interface that is used to set the value of a
+// flag.
+type FlagService interface {
+	GetFlag(context.Context, string) (bool, error)
+	SetFlag(context.Context, string, bool) error
+}
+
 // ObjectStoreGetter is the interface that is used to get a object store.
 type ObjectStoreGetter interface {
 	// GetObjectStore returns a object store for the given namespace.
@@ -52,12 +59,12 @@ type LegacyState interface {
 // WorkerConfig encapsulates the configuration options for the
 // bootstrap worker.
 type WorkerConfig struct {
-	Agent                     agent.Agent
-	ObjectStoreGetter         ObjectStoreGetter
-	ControllerConfigService   ControllerConfigService
-	BootstrapUnlocker         gate.Unlocker
-	AgentBinaryUploader       AgentBinaryBootstrapFunc
-	RemoveBootstrapParamsFile RemoveBootstrapParamsFileFunc
+	Agent                   agent.Agent
+	ObjectStoreGetter       ObjectStoreGetter
+	ControllerConfigService ControllerConfigService
+	FlagService             FlagService
+	BootstrapUnlocker       gate.Unlocker
+	AgentBinaryUploader     AgentBinaryBootstrapFunc
 
 	// Deprecated: This is only here, until we can remove the state layer.
 	State LegacyState
@@ -82,8 +89,8 @@ func (c *WorkerConfig) Validate() error {
 	if c.AgentBinaryUploader == nil {
 		return errors.NotValidf("nil AgentBinaryUploader")
 	}
-	if c.RemoveBootstrapParamsFile == nil {
-		return errors.NotValidf("nil RemoveBootstrapParamsFile")
+	if c.FlagService == nil {
+		return errors.NotValidf("nil FlagService")
 	}
 	if c.Logger == nil {
 		return errors.NotValidf("nil Logger")
@@ -145,9 +152,8 @@ func (w *bootstrapWorker) loop() error {
 		return errors.Trace(err)
 	}
 
-	// Complete the bootstrap, only after this is complete do we unlock the
-	// bootstrap gate.
-	if err := w.cfg.RemoveBootstrapParamsFile(agentConfig); err != nil {
+	// Set the bootstrap flag, to indicate that the bootstrap has completed.
+	if err := w.cfg.FlagService.SetFlag(ctx, BootstrapFlag, true); err != nil {
 		return errors.Trace(err)
 	}
 

@@ -5,8 +5,8 @@ package state
 
 import (
 	"context"
-	"database/sql"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -30,7 +30,7 @@ func (s *stateSuite) SetUpTest(c *gc.C) {
 
 func (s *stateSuite) TestGetFlagNotFound(c *gc.C) {
 	value, err := s.state.GetFlag(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIs, sql.ErrNoRows)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	c.Assert(value, jc.IsFalse)
 }
 
