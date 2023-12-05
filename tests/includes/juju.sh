@@ -121,7 +121,7 @@ bootstrap() {
 			bootstrapped_name="${BOOTSTRAP_REUSE_LOCAL}"
 			export BOOTSTRAP_REUSE="true"
 		else
-			# No bootstrapped juju found, unset the the variable.
+			# No bootstrapped juju found, unset the variable.
 			echo "====> Unable to reuse bootstrapped juju"
 			export BOOTSTRAP_REUSE="false"
 		fi

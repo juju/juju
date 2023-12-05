@@ -53,8 +53,8 @@ manual_deploy() {
 		exit 1
 	fi
 
-	if [-f "${TEST_DIR}/known_hosts" ]; then
-		echo "specified known_hosts file used sucessfully"
+	if [ -f "${TEST_DIR}/known_hosts" ]; then
+		echo "Specified known_hosts file used sucessfully"
 	else
 		echo "Could not use specfied known_hosts file"
 		exit 1
