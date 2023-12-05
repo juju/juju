@@ -7,7 +7,7 @@ package api
 import (
 	reflect "reflect"
 
-	charm "github.com/juju/charm/v11"
+	charm "github.com/juju/charm/v12"
 	uniter "github.com/juju/juju/api/agent/uniter"
 	life "github.com/juju/juju/core/life"
 	model "github.com/juju/juju/core/model"

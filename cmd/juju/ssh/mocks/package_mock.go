@@ -9,7 +9,7 @@ import (
 	os "os"
 	reflect "reflect"
 
-	charm "github.com/juju/charm/v11"
+	charm "github.com/juju/charm/v12"
 	api "github.com/juju/juju/api"
 	application "github.com/juju/juju/api/client/application"
 	client "github.com/juju/juju/api/client/client"

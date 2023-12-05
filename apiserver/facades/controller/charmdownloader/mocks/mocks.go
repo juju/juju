@@ -8,7 +8,7 @@ import (
 	context "context"
 	reflect "reflect"
 
-	charm "github.com/juju/charm/v11"
+	charm "github.com/juju/charm/v12"
 	services "github.com/juju/juju/apiserver/facades/client/charms/services"
 	charmdownloader "github.com/juju/juju/apiserver/facades/controller/charmdownloader"
 	controller "github.com/juju/juju/controller"

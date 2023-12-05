@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"sync"
 
-	jujucharm "github.com/juju/charm/v11"
+	jujucharm "github.com/juju/charm/v12"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"

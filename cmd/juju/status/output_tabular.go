@@ -13,8 +13,8 @@ import (
 
 	"github.com/docker/distribution/reference"
 	"github.com/juju/ansiterm"
-	"github.com/juju/charm/v11"
-	"github.com/juju/charm/v11/hooks"
+	"github.com/juju/charm/v12"
+	"github.com/juju/charm/v12/hooks"
 	"github.com/juju/errors"
 	"github.com/juju/naturalsort"
 	"github.com/juju/version/v2"
