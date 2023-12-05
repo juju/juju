@@ -9,7 +9,7 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/juju/charm/v11"
+	"github.com/juju/charm/v12"
 	"github.com/juju/clock"
 	"github.com/juju/names/v4"
 	"github.com/juju/retry"

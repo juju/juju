@@ -7,7 +7,7 @@ package actions
 import (
 	"strings"
 
-	"github.com/juju/charm/v11"
+	"github.com/juju/charm/v12"
 )
 
 // JujuExecActionName defines the action name used by juju-exec.

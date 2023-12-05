@@ -8,7 +8,7 @@ import (
 	reflect "reflect"
 	time "time"
 
-	charm "github.com/juju/charm/v11"
+	charm "github.com/juju/charm/v12"
 	client "github.com/juju/juju/apiserver/facades/client/client"
 	controller "github.com/juju/juju/controller"
 	constraints "github.com/juju/juju/core/constraints"

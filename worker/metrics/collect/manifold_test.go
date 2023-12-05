@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"time"
 
-	corecharm "github.com/juju/charm/v11"
+	corecharm "github.com/juju/charm/v12"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"

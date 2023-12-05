@@ -16,7 +16,7 @@ import (
 	"time"
 
 	pebbleclient "github.com/canonical/pebble/client"
-	jujucharm "github.com/juju/charm/v11"
+	jujucharm "github.com/juju/charm/v12"
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
