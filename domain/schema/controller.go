@@ -51,6 +51,7 @@ func ControllerDDL() *schema.Schema {
 		changeLogTriggersForTable("object_store_metadata_path", "path", tableObjectStoreMetadata),
 		userSchema,
 		modelConfigDefaults,
+		flagSchema,
 	}
 
 	schema := schema.New()
@@ -596,5 +597,14 @@ CREATE TABLE model_config_defaults (
     key TEXT PRIMARY KEY,
     value TEXT
 )
+`)
+}
+
+func flagSchema() schema.Patch {
+	return schema.MakePatch(`
+CREATE TABLE flag (
+    name TEXT PRIMARY KEY,
+    value BOOLEAN DEFAULT 0
+);
 `)
 }

@@ -19,6 +19,8 @@ import (
 	credentialstate "github.com/juju/juju/domain/credential/state"
 	externalcontrollerservice "github.com/juju/juju/domain/externalcontroller/service"
 	externalcontrollerstate "github.com/juju/juju/domain/externalcontroller/state"
+	flagservice "github.com/juju/juju/domain/flag/service"
+	flagstate "github.com/juju/juju/domain/flag/state"
 	modelservice "github.com/juju/juju/domain/model/service"
 	modelstate "github.com/juju/juju/domain/model/state"
 	modeldefaultsservice "github.com/juju/juju/domain/modeldefaults/service"
@@ -161,5 +163,12 @@ func (s *ControllerFactory) AgentObjectStore() *objectstoreservice.Service {
 			s.controllerDB,
 			s.logger.Child("objectstore"),
 		),
+	)
+}
+
+// Flag returns the flag service.
+func (s *ControllerFactory) Flag() *flagservice.Service {
+	return flagservice.NewService(
+		flagstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB), s.logger.Child("flag")),
 	)
 }

@@ -10,6 +10,7 @@ import (
 	controllernodeservice "github.com/juju/juju/domain/controllernode/service"
 	credentialservice "github.com/juju/juju/domain/credential/service"
 	externalcontrollerservice "github.com/juju/juju/domain/externalcontroller/service"
+	flagservice "github.com/juju/juju/domain/flag/service"
 	modelservice "github.com/juju/juju/domain/model/service"
 	modelconfigservice "github.com/juju/juju/domain/modelconfig/service"
 	modeldefaultsservice "github.com/juju/juju/domain/modeldefaults/service"
@@ -89,5 +90,10 @@ func (s *TestingServiceFactory) AgentObjectStore() *objectstoreservice.Service {
 
 // ObjectStore returns the object store service.
 func (s *TestingServiceFactory) ObjectStore() *objectstoreservice.Service {
+	return nil
+}
+
+// Flag returns the flag service.
+func (s *TestingServiceFactory) Flag() *flagservice.Service {
 	return nil
 }
