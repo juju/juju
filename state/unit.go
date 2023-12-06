@@ -62,6 +62,23 @@ const (
 // are resolved.
 type ResolvedMode string
 
+// MachineRef is a reference to a machine, without being a full machine.
+// This exists to allow us to use state functions without requiring a
+// state.Machine, without having to require a real machine.
+type MachineRef interface {
+	DocID() string
+	Id() string
+	MachineTag() names.MachineTag
+	Life() Life
+	Clean() bool
+	ContainerType() instance.ContainerType
+	Base() Base
+	Jobs() []MachineJob
+	Principals() []string
+	AddPrincipal(string)
+	FileSystems() []string
+}
+
 // These are available ResolvedMode values.
 const (
 	ResolvedNone       ResolvedMode = ""
@@ -1672,7 +1689,7 @@ var (
 )
 
 // assignToMachine is the internal version of AssignToMachine.
-func (u *Unit) assignToMachine(m *Machine, unused bool) (err error) {
+func (u *Unit) assignToMachine(m MachineRef, unused bool) (err error) {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		u, m := u, m // don't change outer vars
 		if attempt > 0 {
@@ -1691,10 +1708,8 @@ func (u *Unit) assignToMachine(m *Machine, unused bool) (err error) {
 	if err := u.st.db().Run(buildTxn); err != nil {
 		return errors.Trace(err)
 	}
-	u.doc.MachineId = m.doc.Id
-	m.doc.Clean = false
-	m.doc.Principals = append(m.doc.Principals, u.doc.Name)
-	sort.Strings(m.doc.Principals)
+	u.doc.MachineId = m.Id()
+	m.AddPrincipal(u.doc.Name)
 	return nil
 }
 
@@ -1704,7 +1719,7 @@ func (u *Unit) assignToMachine(m *Machine, unused bool) (err error) {
 // - unitNotAliveErr when the unit is not alive.
 // - alreadyAssignedErr when the unit has already been assigned
 // - inUseErr when the machine already has a unit assigned (if unused is true)
-func (u *Unit) assignToMachineOps(m *Machine, unused bool) ([]txn.Op, error) {
+func (u *Unit) assignToMachineOps(m MachineRef, unused bool) ([]txn.Op, error) {
 	if u.Life() != Alive {
 		return nil, unitNotAliveErr
 	}
@@ -1714,7 +1729,7 @@ func (u *Unit) assignToMachineOps(m *Machine, unused bool) ([]txn.Op, error) {
 		}
 		return nil, jujutxn.ErrNoOperations
 	}
-	if unused && !m.doc.Clean {
+	if unused && !m.Clean() {
 		return nil, inUseErr
 	}
 	storageParams, err := u.storageParams()
@@ -1730,11 +1745,11 @@ func (u *Unit) assignToMachineOps(m *Machine, unused bool) ([]txn.Op, error) {
 		return nil, errors.Trace(err)
 	}
 	if err := validateUnitMachineAssignment(
-		m, u.doc.Base, u.doc.Principal != "", storagePools,
+		u.st, m, u.doc.Base, u.doc.Principal != "", storagePools,
 	); err != nil {
 		return nil, errors.Trace(err)
 	}
-	storageOps, volumesAttached, filesystemsAttached, err := sb.hostStorageOps(m.doc.Id, storageParams)
+	storageOps, volumesAttached, filesystemsAttached, err := sb.hostStorageOps(m.Id(), storageParams)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1742,7 +1757,7 @@ func (u *Unit) assignToMachineOps(m *Machine, unused bool) ([]txn.Op, error) {
 	// that no filesystems were concurrently added to the machine if
 	// any of the filesystems being attached specify a location.
 	attachmentOps, err := addMachineStorageAttachmentsOps(
-		m, volumesAttached, filesystemsAttached,
+		u.st, m, volumesAttached, filesystemsAttached,
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -1771,10 +1786,10 @@ func (u *Unit) assignToMachineOps(m *Machine, unused bool) ([]txn.Op, error) {
 		C:      unitsC,
 		Id:     u.doc.DocID,
 		Assert: assert,
-		Update: bson.D{{"$set", bson.D{{"machineid", m.doc.Id}}}},
+		Update: bson.D{{"$set", bson.D{{"machineid", m.Id()}}}},
 	}, {
 		C:      machinesC,
-		Id:     m.doc.DocID,
+		Id:     m.DocID(),
 		Assert: massert,
 		Update: bson.D{{"$addToSet", bson.D{{"principals", u.doc.Name}}}, {"$set", bson.D{{"clean", false}}}},
 	},
@@ -1787,7 +1802,8 @@ func (u *Unit) assignToMachineOps(m *Machine, unused bool) ([]txn.Op, error) {
 // validateUnitMachineAssignment validates the parameters for assigning a unit
 // to a specified machine.
 func validateUnitMachineAssignment(
-	m *Machine,
+	st *State,
+	m MachineRef,
 	base Base,
 	isSubordinate bool,
 	storagePools set.Strings,
@@ -1798,11 +1814,11 @@ func validateUnitMachineAssignment(
 	if isSubordinate {
 		return fmt.Errorf("unit is a subordinate")
 	}
-	if !base.compatibleWith(m.doc.Base) {
-		return fmt.Errorf("base does not match: unit has %q, machine has %q", base.DisplayString(), m.doc.Base.DisplayString())
+	if !base.compatibleWith(m.Base()) {
+		return fmt.Errorf("base does not match: unit has %q, machine has %q", base.DisplayString(), m.Base().DisplayString())
 	}
 	canHost := false
-	for _, j := range m.doc.Jobs {
+	for _, j := range m.Jobs() {
 		if j == JobHostUnits {
 			canHost = true
 			break
@@ -1811,7 +1827,7 @@ func validateUnitMachineAssignment(
 	if !canHost {
 		return fmt.Errorf("machine %q cannot host units", m)
 	}
-	sb, err := NewStorageBackend(m.st)
+	sb, err := NewStorageBackend(st)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1918,7 +1934,7 @@ func storagePools(sb *storageBackend, params *storageParams) (set.Strings, error
 // validateDynamicMachineStoragePools validates that all of the specified
 // storage pools support dynamic storage provisioning. If any provider doesn't
 // support dynamic storage, then an IsNotSupported error is returned.
-func validateDynamicMachineStoragePools(sb *storageBackend, m *Machine, pools set.Strings) error {
+func validateDynamicMachineStoragePools(sb *storageBackend, m MachineRef, pools set.Strings) error {
 	if pools.IsEmpty() {
 		return nil
 	}
@@ -1966,6 +1982,15 @@ func assignContextf(err *error, unitName string, target string) {
 
 // AssignToMachine assigns this unit to a given machine.
 func (u *Unit) AssignToMachine(m *Machine) (err error) {
+	defer assignContextf(&err, u.Name(), fmt.Sprintf("machine %s", m))
+	if u.doc.Principal != "" {
+		return fmt.Errorf("unit is a subordinate")
+	}
+	return u.assignToMachine(m, false)
+}
+
+// AssignToMachine assigns this unit to a given machine.
+func (u *Unit) AssignToMachineRef(m MachineRef) (err error) {
 	defer assignContextf(&err, u.Name(), fmt.Sprintf("machine %s", m))
 	if u.doc.Principal != "" {
 		return fmt.Errorf("unit is a subordinate")
