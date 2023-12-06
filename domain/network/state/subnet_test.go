@@ -20,7 +20,7 @@ func (s *stateSuite) TestAddSubnet(c *gc.C) {
 
 	spUUID, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
-	err = st.AddSpace(ctx.Background(), spUUID, "alpha", "foo", []string{})
+	err = st.AddSpace(ctx.Background(), spUUID, "space0", "foo", []string{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	uuid, err := utils.NewUUID()
@@ -98,7 +98,7 @@ func (s *stateSuite) TestFailAddTwoSubnetsSameNetworkID(c *gc.C) {
 
 	spUUID, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
-	err = st.AddSpace(ctx.Background(), spUUID, "alpha", "foo", []string{})
+	err = st.AddSpace(ctx.Background(), spUUID, "space0", "foo", []string{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	subnetUUID0, err := utils.NewUUID()
@@ -136,7 +136,7 @@ func (s *stateSuite) TestFailAddTwoSubnetsSameProviderID(c *gc.C) {
 
 	spUUID, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
-	err = st.AddSpace(ctx.Background(), spUUID, "alpha", "foo", []string{})
+	err = st.AddSpace(ctx.Background(), spUUID, "space0", "foo", []string{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	subnetUUID0, err := utils.NewUUID()
@@ -238,6 +238,58 @@ func (s *stateSuite) TestRetrieveSubnetByUUID(c *gc.C) {
 	c.Check(sn1.AvailabilityZones, jc.SameContents, []string{"az2", "az3"})
 }
 
+// func (s *stateSuite) TestRetrieveSubnetsByCIDRFailsNonUnique(c *gc.C) {
+// 	st := NewState(s.TxnRunnerFactory())
+
+// 	subnetUUID0, err := utils.NewUUID()
+// 	c.Assert(err, jc.ErrorIsNil)
+// 	err = st.AddSubnet(
+// 		ctx.Background(),
+// 		subnetUUID0,
+// 		"192.168.0.0/20",
+// 		"provider-id-0",
+// 		"provider-network-id-0",
+// 		0,
+// 		[]string{"az0", "az1"},
+// 		"",
+// 		nil,
+// 	)
+// 	c.Assert(err, jc.ErrorIsNil)
+
+// 	subnetUUID1, err := utils.NewUUID()
+// 	c.Assert(err, jc.ErrorIsNil)
+// 	err = st.AddSubnet(
+// 		ctx.Background(),
+// 		subnetUUID1,
+// 		"192.168.0.0/20",
+// 		"provider-id-1",
+// 		"provider-network-id-0",
+// 		0,
+// 		[]string{"az2", "az3"},
+// 		"",
+// 		nil,
+// 	)
+// 	c.Assert(err, jc.ErrorIsNil)
+
+// 	subnetUUID2, err := utils.NewUUID()
+// 	c.Assert(err, jc.ErrorIsNil)
+// 	err = st.AddSubnet(
+// 		ctx.Background(),
+// 		subnetUUID2,
+// 		"10.0.0.0/24",
+// 		"provider-id-2",
+// 		"provider-network-id-2",
+// 		0,
+// 		[]string{"az2", "az3"},
+// 		"",
+// 		nil,
+// 	)
+// 	c.Assert(err, jc.ErrorIsNil)
+
+// 	_, err = st.GetSubnetsByCIDR(ctx.Background(), "192.168.0.0/20", "10.0.0.0/24")
+// 	c.Assert(err, jc.ErrorIsNil)
+// }
+
 func (s *stateSuite) TestRetrieveAllSubnets(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
@@ -296,7 +348,7 @@ func (s *stateSuite) TestUpdateSubnet(c *gc.C) {
 
 	spUUID, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
-	err = st.AddSpace(ctx.Background(), spUUID, "alpha", "foo", []string{})
+	err = st.AddSpace(ctx.Background(), spUUID, "space0", "foo", []string{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	uuid, err := utils.NewUUID()
@@ -316,7 +368,7 @@ func (s *stateSuite) TestUpdateSubnet(c *gc.C) {
 
 	newSpIUUID, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
-	err = st.AddSpace(ctx.Background(), newSpIUUID, "space0", "bar", []string{})
+	err = st.AddSpace(ctx.Background(), newSpIUUID, "space1", "bar", []string{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = st.UpdateSubnet(ctx.Background(), uuid.String(), newSpIUUID.String())

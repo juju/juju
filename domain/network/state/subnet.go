@@ -263,6 +263,57 @@ func (st *State) GetSubnet(
 	return &rows.ToSubnetInfos()[0], nil
 }
 
+// GetSubnetsByCIDR returns the subnets by CIDR.
+func (st *State) GetSubnetsByCIDR(
+	ctx context.Context,
+	cidrs ...string,
+) (network.SubnetInfos, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// Append the where clause to the query.
+	q := retrieveSubnetsStmt + " WHERE subnet.cidr = $M.cidr;"
+
+	s, err := sqlair.Prepare(q, Subnet{}, sqlair.M{})
+	if err != nil {
+		return nil, errors.Annotatef(err, "preparing %q", q)
+	}
+
+	var resultSubnets Subnets
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		for _, cidr := range cidrs {
+			var rows Subnets
+			if err := tx.Query(ctx, s, sqlair.M{"cidrs": cidr}).GetAll(&rows); err != nil {
+				return errors.Trace(err)
+			}
+			resultSubnets = append(resultSubnets, rows...)
+		}
+		return nil
+	}); err != nil {
+		return nil, errors.Annotate(err, "querying subnets")
+	}
+
+	// Make sure that the combination CIDR + ProviderNetworkID is
+	// unique among subnets.
+	uniqueSubnets := make(map[string]map[string]any)
+	for _, subnet := range resultSubnets {
+		uniqueSubnetsByCIDR, ok := uniqueSubnets[subnet.CIDR]
+		if !ok {
+			uniqueSubnets[subnet.CIDR] = make(map[string]any)
+		}
+		_, ok = uniqueSubnetsByCIDR[subnet.ProviderNetworkID]
+		// Fail if duplicated subnets are returned.
+		if ok {
+			return nil, errors.Errorf("multiple subnets matching cidr %q and providerNetworkID %q", subnet.CIDR, subnet.ProviderNetworkID)
+		}
+		uniqueSubnetsByCIDR[subnet.ProviderNetworkID] = struct{}{}
+	}
+
+	return resultSubnets.ToSubnetInfos(), nil
+}
+
 func updateSubnetSpaceIDTx(
 	ctx context.Context,
 	tx *sql.Tx,

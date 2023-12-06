@@ -29,6 +29,100 @@ func (s *stateSuite) TestInvalidNameAddSpace(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "invalid space name.*")
 }
 
+func (s *stateSuite) TestCheckFanSubnet(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	// Add a subnet of type base.
+	subnetUUID0, err := utils.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	err = st.AddSubnet(
+		ctx.Background(),
+		subnetUUID0,
+		"192.168.0.0/12",
+		"provider-id-0",
+		"provider-network-id-0",
+		0,
+		[]string{"az0", "az1"},
+		"",
+		nil,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	// Add another subnet of type base.
+	subnetUUID1, err := utils.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	err = st.AddSubnet(
+		ctx.Background(),
+		subnetUUID1,
+		"192.176.0.0/12",
+		"provider-id-2",
+		"provider-network-id-2",
+		0,
+		[]string{"az0", "az1"},
+		"",
+		nil,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	// Add a subnet of type fan.
+	subnetFanUUID0, err := utils.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	err = st.AddSubnet(
+		ctx.Background(),
+		subnetFanUUID0,
+		"10.0.0.0/20",
+		"provider-id-1",
+		"provider-network-id-1",
+		0,
+		[]string{"az2", "az3"},
+		"",
+		&network.FanCIDRs{
+			FanLocalUnderlay: "192.168.0.0/12",
+			FanOverlay:       "10.0.0.0/8",
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	// Add another subnet of type fan.
+	subnetFanUUID1, err := utils.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	err = st.AddSubnet(
+		ctx.Background(),
+		subnetFanUUID1,
+		"10.100.0.0/24",
+		"provider-id-3",
+		"provider-network-id-3",
+		0,
+		[]string{"az2", "az3"},
+		"",
+		&network.FanCIDRs{
+			FanLocalUnderlay: "192.168.0.0/12",
+			FanOverlay:       "10.0.0.0/8",
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = st.CheckFanSubnets(
+		ctx.Background(),
+		[]string{subnetUUID0.String(), subnetUUID1.String()},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Should fail because subnetFanUUID1 corresponds to a fan subnet.
+	err = st.CheckFanSubnets(
+		ctx.Background(),
+		[]string{subnetUUID0.String(), subnetUUID1.String(), subnetFanUUID1.String()},
+	)
+	c.Check(err, gc.ErrorMatches, "subnet with cidr \"10.100.0.0/24\" is of type FAN")
+
+	// Should fail because the two subnets are fan.
+	err = st.CheckFanSubnets(
+		ctx.Background(),
+		[]string{subnetFanUUID0.String()},
+	)
+	// We don't verify that the error contains the cidr because we can't
+	// ensure the order of the returned rows, and we only fail on the first
+	// one returned.
+	c.Check(err, gc.ErrorMatches, "subnet with cidr (.*) is of type FAN")
+}
+
 func (s *stateSuite) TestAddSpace(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	db := s.DB()
@@ -119,7 +213,7 @@ func (s *stateSuite) TestAddSpaceFailDuplicateName(c *gc.C) {
 	c.Check(name, gc.Equals, "space0")
 	// Fails when trying to add a new space with the same name.
 	err = st.AddSpace(ctx.Background(), uuid, "space0", "bar", subnets)
-	c.Assert(err, gc.ErrorMatches, "UNIQUE constraint failed.*")
+	c.Assert(err, gc.ErrorMatches, "inserting space (.*) into space table: UNIQUE constraint failed: space.name")
 
 }
 
@@ -160,54 +254,6 @@ func (s *stateSuite) TestAddSpaceEmptyProviderID(c *gc.C) {
 	var spaceProviderID string
 	err = row.Scan(&spaceProviderID)
 	c.Assert(err, gc.ErrorMatches, "sql: no rows in result set")
-}
-
-func (s *stateSuite) TestAddSpaceFailFanOverlay(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
-
-	uuid, err := utils.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Add a subnet of type base.
-	subnetUUID, err := utils.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
-	err = st.AddSubnet(
-		ctx.Background(),
-		subnetUUID,
-		"192.168.0.0/12",
-		"provider-id-0",
-		"provider-network-id-0",
-		0,
-		[]string{"az0", "az1"},
-		"",
-		nil,
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	// Add a subnet of type fan.
-	subnetFanUUID, err := utils.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
-	err = st.AddSubnet(
-		ctx.Background(),
-		subnetFanUUID,
-		"10.0.0.0/24",
-		"provider-id-1",
-		"provider-network-id-1",
-		0,
-		[]string{"az0", "az1"},
-		"",
-		&network.FanCIDRs{
-			FanLocalUnderlay: "192.168.0.0/12",
-			FanOverlay:       "252.0.0.0/8",
-		},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-
-	subnets := []string{subnetUUID.String(), subnetFanUUID.String()}
-	err = st.AddSpace(ctx.Background(), uuid, "space0", "foo", subnets)
-
-	// Should fail with error indicating we cannot set the space for a
-	// FAN subnet.
-	c.Assert(err, gc.ErrorMatches, "cannot set space for FAN subnet \"10.0.0.0/24\" - it is always inherited from underlay")
 }
 
 func (s *stateSuite) TestRetrieveSpaceByUUID(c *gc.C) {
@@ -274,6 +320,28 @@ func (s *stateSuite) TestRetrieveSpaceByUUID(c *gc.C) {
 	c.Check(sp.Name, gc.Equals, network.SpaceName("space0"))
 	// Only 2 subnets should be retrieved
 	c.Assert(sp.Subnets, gc.HasLen, 2)
+}
+
+func (s *stateSuite) TestRetrieveSpaceByName(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	spaceUUID0, err := utils.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	err = st.AddSpace(ctx.Background(), spaceUUID0, "space0", "provider0", []string{})
+	c.Assert(err, jc.ErrorIsNil)
+	spaceUUID1, err := utils.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	err = st.AddSpace(ctx.Background(), spaceUUID1, "space1", "provider1", []string{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	sp0, err := st.GetSpaceByName(ctx.Background(), "space0")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(sp0.ID, gc.Equals, spaceUUID0.String())
+	c.Check(sp0.Name, gc.Equals, network.SpaceName("space0"))
+	sp1, err := st.GetSpaceByName(ctx.Background(), "space1")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(sp1.ID, gc.Equals, spaceUUID1.String())
+	c.Check(sp1.Name, gc.Equals, network.SpaceName("space1"))
 }
 
 func (s *stateSuite) TestRetrieveSpaceByUUIDWithoutSubnet(c *gc.C) {
@@ -356,7 +424,7 @@ func (s *stateSuite) TestRetrieveAllSpaces(c *gc.C) {
 
 	sp, err := st.GetAllSpaces(ctx.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(sp, gc.HasLen, 3)
+	c.Check(sp, gc.HasLen, 4)
 }
 
 func (s *stateSuite) TestUpdateSpace(c *gc.C) {
@@ -421,5 +489,5 @@ func (s *stateSuite) TestDeleteSpace(c *gc.C) {
 	// Check that the subnet is not linked to the deleted space.
 	subnet, err = st.GetSubnet(ctx.Background(), subnetUUID0)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(subnet.SpaceID, gc.Equals, "")
+	c.Check(subnet.SpaceID, gc.Equals, network.AlphaSpaceId)
 }
