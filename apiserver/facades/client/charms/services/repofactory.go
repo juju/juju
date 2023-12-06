@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/internal/charmhub"
 )
 
+// LoggerFactory is the interface that is used to create loggers.
 type LoggerFactory interface {
 	charmhub.LoggerFactory
 
