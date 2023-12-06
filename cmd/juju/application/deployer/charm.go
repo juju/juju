@@ -314,6 +314,9 @@ func (l *localCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, _
 	if err := l.validateCharmFlags(); err != nil {
 		return errors.Trace(err)
 	}
+	if l.ch.Manifest() == nil {
+		ctx.Warningf("Deploying charms without a manifest.yaml is deprecated. Support will be dropped in 4.0")
+	}
 
 	curl, err := deployAPI.AddLocalCharm(l.curl, l.ch, l.force)
 	if err != nil {
