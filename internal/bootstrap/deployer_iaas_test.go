@@ -4,10 +4,14 @@
 package bootstrap
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gomock "go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/agent"
 )
 
 type deployerIAASSuite struct {
@@ -44,4 +48,21 @@ func (s *deployerIAASSuite) newConfig() IAASDeployerConfig {
 		BaseDeployerConfig: s.baseSuite.newConfig(),
 		MachineGetter:      s.machineGetter,
 	}
+}
+
+func (s *deployerIAASSuite) TestControllerAddress(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.machineGetter.EXPECT().Machine(agent.BootstrapControllerId).Return(s.machine, nil)
+
+	deployer := s.newDeployer(c)
+	address, err := deployer.ControllerAddress(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(address, gc.Equals, "")
+}
+
+func (s *deployerIAASSuite) newDeployer(c *gc.C) *IAASDeployer {
+	deployer, err := NewIAASDeployer(s.newConfig())
+	c.Assert(err, gc.IsNil)
+	return deployer
 }

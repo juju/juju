@@ -47,9 +47,11 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.deployer = NewMockControllerCharmDeployer(ctrl)
 	s.controllerUnit = NewMockControllerUnit(ctrl)
 	s.httpClient = NewMockHTTPClient(ctrl)
-	s.loggerFactory = NewMockLoggerFactory(ctrl)
 
 	s.logger = jujujujutesting.NewCheckLogger(c)
+
+	s.loggerFactory = NewMockLoggerFactory(ctrl)
+	s.loggerFactory.EXPECT().Child(gomock.Any()).Return(s.logger).AnyTimes()
 
 	return ctrl
 }
@@ -71,4 +73,8 @@ func (s *baseSuite) newConfig() BaseDeployerConfig {
 		Channel:            charm.Channel{},
 		LoggerFactory:      s.loggerFactory,
 	}
+}
+
+func ptr[T any](v T) *T {
+	return &v
 }

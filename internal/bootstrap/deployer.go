@@ -27,6 +27,7 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/state"
@@ -79,10 +80,20 @@ type ControllerUnit interface {
 	SetPassword(string) error
 }
 
+// Machine is the interface that is used to get information about a machine.
+type Machine interface {
+	// PublicAddress returns a public address for the machine. If no address is
+	// available it returns an error that satisfies network.IsNoAddressError().
+	PublicAddress() (network.SpaceAddress, error)
+
+	// Base returns the underlying base of the machine.
+	Base() state.Base
+}
+
 // MachineGetter is the interface that is used to get information about a
 // machine.
 type MachineGetter interface {
-	Machine(string) (*state.Machine, error)
+	Machine(string) (Machine, error)
 }
 
 // HTTPClient is the interface that is used to make HTTP requests.
