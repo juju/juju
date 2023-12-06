@@ -4,16 +4,25 @@
 package apiserver
 
 import (
+	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 
 	"github.com/juju/errors"
+
+	"github.com/juju/juju/core/objectstore"
 )
 
+// ObjectStoreGetter is an interface for getting an object store.
+type ObjectStoreGetter interface {
+	// GetObjectStore returns the object store for the given namespace.
+	GetObjectStore(context.Context, string) (objectstore.ObjectStore, error)
+}
+
 type objectsCharmHTTPHandler struct {
-	GetHandler          FailableHandlerFunc
-	LegacyCharmsHandler http.Handler
+	GetHandler FailableHandlerFunc
 }
 
 func (h *objectsCharmHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -21,10 +30,6 @@ func (h *objectsCharmHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Reque
 	switch r.Method {
 	case "GET":
 		err = errors.Annotate(h.GetHandler(w, r), "cannot retrieve charm")
-		if err == nil {
-			// Chain call to legacy (REST API) charms handler
-			h.LegacyCharmsHandler.ServeHTTP(w, r)
-		}
 	default:
 		http.Error(w, fmt.Sprintf("http method %s not implemented", r.Method), http.StatusNotImplemented)
 		return
@@ -41,7 +46,8 @@ func (h *objectsCharmHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Reque
 // objectsCharmHandler handles charm upload through S3-compatible HTTPS in the
 // API server.
 type objectsCharmHandler struct {
-	ctxt httpContext
+	ctxt              httpContext
+	objectStoreGetter ObjectStoreGetter
 }
 
 // ServeGet serves the GET method for the S3 API. This is the equivalent of the
@@ -72,9 +78,30 @@ func (h *objectsCharmHandler) ServeGet(w http.ResponseWriter, r *http.Request) e
 		return errors.Annotate(err, "cannot get charm from state")
 	}
 
-	query.Add("url", ch.URL())
-	query.Add("file", "*")
-	r.URL.RawQuery = query.Encode()
+	// Check if the charm is still pending to be downloaded and return back
+	// a suitable error.
+	if !ch.IsUploaded() {
+		return errors.NewNotYetAvailable(nil, ch.URL())
+	}
+
+	// Get the underlying object store for the model UUID, which we can then
+	// retrieve the blob from.
+	store, err := h.objectStoreGetter.GetObjectStore(r.Context(), st.ModelUUID())
+	if err != nil {
+		return errors.Annotate(err, "cannot get object store")
+	}
+
+	// Use the storage to retrieve the charm archive.
+	reader, _, err := store.Get(r.Context(), ch.StoragePath())
+	if err != nil {
+		return errors.Annotate(err, "cannot get charm from model storage")
+	}
+	defer reader.Close()
+
+	_, err = io.Copy(w, reader)
+	if err != nil {
+		return errors.Annotate(err, "error processing charm archive download")
+	}
 
 	return nil
 }

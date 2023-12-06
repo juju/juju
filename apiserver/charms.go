@@ -27,7 +27,6 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facades/client/charms/services"
 	"github.com/juju/juju/core/charm/downloader"
-	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -84,12 +83,6 @@ func (h *CharmsHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 type Logger interface {
 	Tracef(string, ...interface{})
 	IsTraceEnabled() bool
-}
-
-// ObjectStoreGetter is an interface for getting an object store.
-type ObjectStoreGetter interface {
-	// GetObjectStore returns the object store for the given namespace.
-	GetObjectStore(context.Context, string) (objectstore.ObjectStore, error)
 }
 
 // charmsHandler handles charm upload through HTTPS in the API server.
