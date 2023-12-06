@@ -253,8 +253,12 @@ ON availability_zone_subnet (subnet_uuid);
 func applicationSchema() schema.Patch {
 	return schema.MakePatch(`
 CREATE TABLE application (
-    uuid TEXT PRIMARY KEY,
-    name TEXT NOT NULL
+    uuid    TEXT PRIMARY KEY,
+    name    TEXT NOT NULL,
+    life_id INT NOT NULL,
+    CONSTRAINT      fk_application_life
+        FOREIGN KEY (life_id)
+        REFERENCES  life(id)
 );
 
 CREATE UNIQUE INDEX idx_application_name
@@ -272,9 +276,13 @@ CREATE TABLE machine (
     uuid            TEXT PRIMARY KEY,
     machine_id      TEXT NOT NULL,
     net_node_uuid   TEXT NOT NULL,
+    life_id         INT NOT NULL,
     CONSTRAINT      fk_machine_net_node
         FOREIGN KEY (net_node_uuid)
-        REFERENCES  net_node(uuid)
+        REFERENCES  net_node(uuid),
+    CONSTRAINT      fk_machine_life
+        FOREIGN KEY (life_id)
+        REFERENCES  life(id)
 );
 
 CREATE UNIQUE INDEX idx_machine_id
@@ -321,12 +329,16 @@ CREATE TABLE unit (
     unit_id          TEXT NOT NULL,
     application_uuid TEXT NOT NULL,
     net_node_uuid    TEXT NOT NULL,
+    life_id          INT NOT NULL,
     CONSTRAINT       fk_unit_application
         FOREIGN KEY  (application_uuid)
         REFERENCES   application(uuid),
     CONSTRAINT       fk_unit_net_node
         FOREIGN KEY  (net_node_uuid)
-        REFERENCES   net_node(uuid)
+        REFERENCES   net_node(uuid),
+    CONSTRAINT       fk_unit_life
+        FOREIGN KEY  (life_id)
+        REFERENCES   life(id)
 );
 
 CREATE UNIQUE INDEX idx_unit_id
