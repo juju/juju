@@ -163,6 +163,11 @@ func (w *bootstrapWorker) loop() error {
 		return errors.Trace(err)
 	}
 
+	// Seed the controller charm to the object store.
+	if err := w.seedControllerCharm(ctx, dataDir); err != nil {
+		return errors.Trace(err)
+	}
+
 	// Set the bootstrap flag, to indicate that the bootstrap has completed.
 	if err := w.cfg.FlagService.SetFlag(ctx, flags.BootstrapFlag, true, flags.BootstrapFlagDescription); err != nil {
 		return errors.Trace(err)

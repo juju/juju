@@ -56,6 +56,7 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.deployer = NewMockControllerCharmDeployer(ctrl)
 	s.httpClient = NewMockHTTPClient(ctrl)
 	s.objectStore = NewMockObjectStore(ctrl)
+	s.loggerFactory = NewMockLoggerFactory(ctrl)
 
 	s.unit = NewMockUnit(ctrl)
 	s.model = NewMockModel(ctrl)

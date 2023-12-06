@@ -58,6 +58,15 @@ type HTTPClient interface {
 	Do(*http.Request) (*http.Response, error)
 }
 
+// ControllerCharmUploaderFunc is the function that is used to upload the
+// controller charm.
+type ControllerCharmUploaderFunc func(context.Context, string, objectstore.ObjectStore, Logger) error
+
+// HTTPClient is the interface that is used to make HTTP requests.
+type HTTPClient interface {
+	Do(*http.Request) (*http.Response, error)
+}
+
 // ManifoldConfig defines the configuration for the trace manifold.
 type ManifoldConfig struct {
 	AgentName              string
