@@ -91,11 +91,55 @@ type HTTPClient interface {
 }
 
 // CharmRepoFunc is the function that is used to create a charm repository.
-type CharmRepoFunc func(cfg services.CharmRepoFactoryConfig) (corecharm.Repository, error)
+type CharmRepoFunc func(services.CharmRepoFactoryConfig) (corecharm.Repository, error)
 
 // CharmDownloaderFunc is the function that is used to create a charm
 // downloader.
-type CharmDownloaderFunc func(cfg services.CharmDownloaderConfig) (interfaces.Downloader, error)
+type CharmDownloaderFunc func(services.CharmDownloaderConfig) (interfaces.Downloader, error)
+
+// BaseDeployerConfig holds the configuration for a baseDeployer.
+type BaseDeployerConfig struct {
+	DataDir            string
+	State              *state.State
+	ObjectStore        objectstore.ObjectStore
+	Constraints        constraints.Value
+	ControllerConfig   controller.Config
+	NewCharmRepo       CharmRepoFunc
+	NewCharmDownloader CharmDownloaderFunc
+	CharmhubHTTPClient HTTPClient
+	CharmhubURL        string
+	Channel            charm.Channel
+	LoggerFactory      LoggerFactory
+}
+
+// Validate validates the configuration.
+func (c BaseDeployerConfig) Validate() error {
+	if c.DataDir == "" {
+		return errors.NotValidf("DataDir")
+	}
+	if c.State == nil {
+		return errors.NotValidf("State")
+	}
+	if c.ObjectStore == nil {
+		return errors.NotValidf("ObjectStore")
+	}
+	if c.ControllerConfig == nil {
+		return errors.NotValidf("ControllerConfig")
+	}
+	if c.NewCharmRepo == nil {
+		return errors.NotValidf("NewCharmRepo")
+	}
+	if c.NewCharmDownloader == nil {
+		return errors.NotValidf("NewCharmDownloader")
+	}
+	if c.CharmhubHTTPClient == nil {
+		return errors.NotValidf("CharmhubHTTPClient")
+	}
+	if c.LoggerFactory == nil {
+		return errors.NotValidf("LoggerFactory")
+	}
+	return nil
+}
 
 type baseDeployer struct {
 	dataDir            string
@@ -110,6 +154,23 @@ type baseDeployer struct {
 	channel            charm.Channel
 	loggerFactory      LoggerFactory
 	logger             Logger
+}
+
+func makeBaseDeployer(config BaseDeployerConfig) baseDeployer {
+	return baseDeployer{
+		dataDir:            config.DataDir,
+		state:              config.State,
+		objectStore:        config.ObjectStore,
+		constraints:        config.Constraints,
+		controllerConfig:   config.ControllerConfig,
+		newCharmRepo:       config.NewCharmRepo,
+		newCharmDownloader: config.NewCharmDownloader,
+		charmhubHTTPClient: config.CharmhubHTTPClient,
+		charmhubURL:        config.CharmhubURL,
+		channel:            config.Channel,
+		loggerFactory:      config.LoggerFactory,
+		logger:             config.LoggerFactory.Child("deployer"),
+	}
 }
 
 // ControllerCharmArch returns the architecture used for deploying the
