@@ -19,7 +19,7 @@ import (
 // new CharmDownloader instance.
 type CharmDownloaderConfig struct {
 	// The logger to use.
-	Logger loggo.Logger
+	LoggerFactory LoggerFactory
 
 	// An HTTP client that is injected when making Charmhub API calls.
 	CharmhubHTTPClient charmhub.HTTPClient
@@ -36,21 +36,21 @@ type CharmDownloaderConfig struct {
 // charmdownloader.Downloader instance.
 func NewCharmDownloader(cfg CharmDownloaderConfig) (*charmdownloader.Downloader, error) {
 	storage := NewCharmStorage(CharmStorageConfig{
-		Logger:       cfg.Logger.Child("charmstorage"),
+		Logger:       cfg.LoggerFactory.Child("charmstorage"),
 		StateBackend: cfg.StateBackend,
 		ObjectStore:  cfg.ObjectStore,
 	})
 
 	repoFactory := repoFactoryShim{
 		factory: NewCharmRepoFactory(CharmRepoFactoryConfig{
-			LoggerFactory:      LoggoLoggerFactory(cfg.Logger.Child("charmrepofactory")),
+			LoggerFactory:      cfg.LoggerFactory.Namespace("charmrepofactory"),
 			CharmhubHTTPClient: cfg.CharmhubHTTPClient,
 			StateBackend:       cfg.StateBackend,
 			ModelBackend:       cfg.ModelBackend,
 		}),
 	}
 
-	return charmdownloader.NewDownloader(cfg.Logger.ChildWithLabels("charmdownloader", corelogger.CHARMHUB), storage, repoFactory), nil
+	return charmdownloader.NewDownloader(cfg.LoggerFactory.ChildWithLabels("charmdownloader", corelogger.CHARMHUB), storage, repoFactory), nil
 }
 
 // repoFactoryShim wraps a CharmRepoFactory and is compatible with the
@@ -79,7 +79,7 @@ func LoggoLoggerFactory(logger loggo.Logger) LoggerFactory {
 	return loggoLoggerFactory{Logger: logger}
 }
 
-func (s loggoLoggerFactory) Namespace(name string) charmhub.LoggerFactory {
+func (s loggoLoggerFactory) Namespace(name string) LoggerFactory {
 	return LoggoLoggerFactory(s.Logger.Child(name))
 }
 
