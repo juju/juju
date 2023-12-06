@@ -17,7 +17,7 @@ import (
 // for IAAS workloads.
 type IAASDeployer struct {
 	baseDeployer
-	MachineGetter MachineGetter
+	machineGetter MachineGetter
 }
 
 // NewIAASDeployer returns a new ControllerCharmDeployer for IAAS workloads.
@@ -28,7 +28,7 @@ func NewIAASDeployer() *IAASDeployer {
 // ControllerAddress returns the address of the controller that should be
 // used.
 func (d *IAASDeployer) ControllerAddress(context.Context) (string, error) {
-	m, err := d.MachineGetter.Machine(agent.BootstrapControllerId)
+	m, err := d.machineGetter.Machine(agent.BootstrapControllerId)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -48,7 +48,7 @@ func (d *IAASDeployer) ControllerAddress(context.Context) (string, error) {
 // ControllerCharmBase returns the base used for deploying the controller
 // charm.
 func (d *IAASDeployer) ControllerCharmBase() (corebase.Base, error) {
-	m, err := d.MachineGetter.Machine(agent.BootstrapControllerId)
+	m, err := d.machineGetter.Machine(agent.BootstrapControllerId)
 	if err != nil {
 		return corebase.Empty, errors.Trace(err)
 	}
@@ -59,7 +59,7 @@ func (d *IAASDeployer) ControllerCharmBase() (corebase.Base, error) {
 
 // CompleteProcess is called when the bootstrap process is complete.
 func (d *IAASDeployer) CompleteProcess(ctx context.Context, controllerUnit ControllerUnit) error {
-	m, err := d.MachineGetter.Machine(agent.BootstrapControllerId)
+	m, err := d.machineGetter.Machine(agent.BootstrapControllerId)
 	if err != nil {
 		return errors.Trace(err)
 	}

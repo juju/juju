@@ -15,9 +15,16 @@ import (
 	"github.com/juju/juju/internal/charmhub"
 )
 
+// LoggerFactory is the interface that is used to create loggers.
 type LoggerFactory interface {
 	charmhub.LoggerFactory
-	Namespace(string) charmhub.LoggerFactory
+	Namespace(string) LoggerFactory
+}
+
+// Logger is the interface that is used to log messages.
+type Logger interface {
+	Errorf(message string, args ...any)
+	Tracef(message string, args ...any)
 }
 
 // CharmRepoFactoryConfig encapsulates the information required for creating a

@@ -156,7 +156,7 @@ func (a *CharmDownloaderAPI) getDownloader() (Downloader, error) {
 	}
 
 	downloader, err := a.newDownloader(services.CharmDownloaderConfig{
-		Logger:             a.logger,
+		LoggerFactory:      services.LoggoLoggerFactory(a.logger),
 		CharmhubHTTPClient: a.charmhubHTTPClient,
 		ObjectStore:        a.objectStore,
 		StateBackend:       a.stateBackend,

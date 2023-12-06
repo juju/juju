@@ -409,30 +409,34 @@ type downloadLoggerFactory struct {
 
 func (d downloadLoggerFactory) Child(name string) charmhub.Logger {
 	return downloadLogger{
-		Context: d.Context,
+		factory: d,
 	}
 }
 
 func (d downloadLoggerFactory) ChildWithLabels(name string, labels ...string) charmhub.Logger {
 	return downloadLogger{
-		Context: d.Context,
+		factory: d,
 	}
 }
 
 type downloadLogger struct {
-	Context *cmd.Context
+	factory downloadLoggerFactory
 }
 
 func (d downloadLogger) IsTraceEnabled() bool {
-	return !d.Context.Quiet()
+	return !d.factory.Context.Quiet()
 }
 
 func (d downloadLogger) Errorf(msg string, args ...interface{}) {
-	d.Context.Verbosef(msg, args...)
+	d.factory.Context.Verbosef(msg, args...)
+}
+
+func (d downloadLogger) Warningf(msg string, args ...interface{}) {
+	d.factory.Context.Verbosef(msg, args...)
 }
 
 func (d downloadLogger) Debugf(msg string, args ...interface{}) {
-	d.Context.Verbosef(msg, args...)
+	d.factory.Context.Verbosef(msg, args...)
 }
 
 func (d downloadLogger) Tracef(msg string, args ...interface{}) {}

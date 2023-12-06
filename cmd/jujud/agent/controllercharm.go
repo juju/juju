@@ -198,7 +198,7 @@ func populateStoreControllerCharm(ctx context.Context, objectStore services.Stor
 	}
 
 	charmDownloader, err := newCharmDownloader(services.CharmDownloaderConfig{
-		Logger:             logger,
+		LoggerFactory:      services.LoggoLoggerFactory(logger),
 		CharmhubHTTPClient: charmhubHTTPClient,
 		ObjectStore:        objectStore,
 		StateBackend:       stateBackend,
