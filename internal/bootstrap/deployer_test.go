@@ -5,6 +5,7 @@ package bootstrap
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/juju/core/constraints"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 )
@@ -56,4 +57,27 @@ func (s *deployerSuite) TestValidate(c *gc.C) {
 	cfg.LoggerFactory = nil
 	err = cfg.Validate()
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
+}
+
+func (s *deployerSuite) TestControllerCharmArchWithDefaultArch(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	cfg := s.newConfig()
+	deployer := makeBaseDeployer(cfg)
+
+	arch := deployer.ControllerCharmArch()
+	c.Assert(arch, gc.Equals, "amd64")
+}
+
+func (s *deployerSuite) TestControllerCharmArch(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	cfg := s.newConfig()
+	cfg.Constraints = constraints.Value{
+		Arch: ptr("arm64"),
+	}
+	deployer := makeBaseDeployer(cfg)
+
+	arch := deployer.ControllerCharmArch()
+	c.Assert(arch, gc.Equals, "arm64")
 }
