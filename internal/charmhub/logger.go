@@ -16,6 +16,8 @@ type Logger interface {
 	IsTraceEnabled() bool
 
 	Errorf(string, ...interface{})
+	Warningf(string, ...interface{})
+	Debugf(string, ...interface{})
 	Tracef(string, ...interface{})
 }
 
