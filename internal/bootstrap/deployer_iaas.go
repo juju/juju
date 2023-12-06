@@ -13,6 +13,23 @@ import (
 	"github.com/juju/juju/core/network"
 )
 
+// IAASDeployerConfig holds the configuration for a IAASDeployer.
+type IAASDeployerConfig struct {
+	BaseDeployerConfig
+	MachineGetter MachineGetter
+}
+
+// Validate validates the configuration.
+func (c IAASDeployerConfig) Validate() error {
+	if err := c.BaseDeployerConfig.Validate(); err != nil {
+		return errors.Trace(err)
+	}
+	if c.MachineGetter == nil {
+		return errors.NotValidf("MachineGetter")
+	}
+	return nil
+}
+
 // IAASDeployer is the interface that is used to deploy the controller charm
 // for IAAS workloads.
 type IAASDeployer struct {
@@ -21,8 +38,14 @@ type IAASDeployer struct {
 }
 
 // NewIAASDeployer returns a new ControllerCharmDeployer for IAAS workloads.
-func NewIAASDeployer() *IAASDeployer {
-	return &IAASDeployer{}
+func NewIAASDeployer(config IAASDeployerConfig) (*IAASDeployer, error) {
+	if err := config.Validate(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &IAASDeployer{
+		baseDeployer:  makeBaseDeployer(config.BaseDeployerConfig),
+		machineGetter: config.MachineGetter,
+	}, nil
 }
 
 // ControllerAddress returns the address of the controller that should be

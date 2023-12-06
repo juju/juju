@@ -32,6 +32,28 @@ type OperationApplier interface {
 	ApplyOperation(*state.UpdateUnitOperation) error
 }
 
+// CAASDeployerConfig holds the configuration for a CAASDeployer.
+type CAASDeployerConfig struct {
+	BaseDeployerConfig
+	CloudServiceGetter CloudServiceGetter
+	OperationApplier   OperationApplier
+	UnitPassword       string
+}
+
+// Validate validates the configuration.
+func (c CAASDeployerConfig) Validate() error {
+	if err := c.BaseDeployerConfig.Validate(); err != nil {
+		return errors.Trace(err)
+	}
+	if c.CloudServiceGetter == nil {
+		return errors.NotValidf("CloudServiceGetter")
+	}
+	if c.OperationApplier == nil {
+		return errors.NotValidf("OperationApplier")
+	}
+	return nil
+}
+
 // CAASDeployer is the interface that is used to deploy the controller charm
 // for CAAS workloads.
 type CAASDeployer struct {
@@ -42,8 +64,16 @@ type CAASDeployer struct {
 }
 
 // NewCAASDeployer returns a new ControllerCharmDeployer for CAAS workloads.
-func NewCAASDeployer() *CAASDeployer {
-	return &CAASDeployer{}
+func NewCAASDeployer(config CAASDeployerConfig) (*CAASDeployer, error) {
+	if err := config.Validate(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &CAASDeployer{
+		baseDeployer:       makeBaseDeployer(config.BaseDeployerConfig),
+		cloudServiceGetter: config.CloudServiceGetter,
+		operationApplier:   config.OperationApplier,
+		unitPassword:       config.UnitPassword,
+	}, nil
 }
 
 // ControllerAddress returns the address of the controller that should be
