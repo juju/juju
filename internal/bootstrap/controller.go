@@ -25,6 +25,9 @@ func PopulateControllerCharm(ctx context.Context, deployer ControllerCharmDeploy
 		return errors.Annotatef(err, "getting controller charm base")
 	}
 
+	// When deploying a local charm, it is expected that the charm is located
+	// in a certain location. If the charm is not located there, we'll get an
+	// error indicating that the charm is not found.
 	curl, origin, err := deployer.DeployLocalCharm(ctx, arch, base)
 	if err != nil && !errors.Is(err, errors.NotFound) {
 		return errors.Annotatef(err, "deploying local controller charm")
@@ -34,7 +37,7 @@ func PopulateControllerCharm(ctx context.Context, deployer ControllerCharmDeploy
 	if errors.Is(err, errors.NotFound) {
 		curl, origin, err = deployer.DeployCharmhubCharm(ctx, arch, base)
 		if err != nil {
-			return errors.Annotatef(err, "deploying charm hub controller charm")
+			return errors.Annotatef(err, "deploying charmhub controller charm")
 		}
 	}
 

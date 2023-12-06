@@ -13,7 +13,7 @@ import (
 	jujujujutesting "github.com/juju/juju/testing"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -package bootstrap -destination bootstrap_mock_test.go github.com/juju/juju/internal/bootstrap AgentBinaryStorage
+//go:generate go run go.uber.org/mock/mockgen -package bootstrap -destination bootstrap_mock_test.go github.com/juju/juju/internal/bootstrap AgentBinaryStorage,ControllerCharmDeployer,ControllerUnit
 
 func Test(t *testing.T) {
 	gc.TestingT(t)
@@ -22,7 +22,9 @@ func Test(t *testing.T) {
 type baseSuite struct {
 	jujutesting.IsolationSuite
 
-	storage *MockAgentBinaryStorage
+	storage        *MockAgentBinaryStorage
+	deployer       *MockControllerCharmDeployer
+	controllerUnit *MockControllerUnit
 
 	logger Logger
 }
@@ -31,6 +33,8 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.storage = NewMockAgentBinaryStorage(ctrl)
+	s.deployer = NewMockControllerCharmDeployer(ctrl)
+	s.controllerUnit = NewMockControllerUnit(ctrl)
 
 	s.logger = jujujujutesting.NewCheckLogger(c)
 
