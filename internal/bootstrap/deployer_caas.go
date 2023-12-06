@@ -36,9 +36,9 @@ type OperationApplier interface {
 // for CAAS workloads.
 type CAASDeployer struct {
 	baseDeployer
-	CloudServiceGetter CloudServiceGetter
-	OperationApplier   OperationApplier
-	UnitPassword       string
+	cloudServiceGetter CloudServiceGetter
+	operationApplier   OperationApplier
+	unitPassword       string
 }
 
 // NewCAASDeployer returns a new ControllerCharmDeployer for CAAS workloads.
@@ -49,7 +49,7 @@ func NewCAASDeployer() *CAASDeployer {
 // ControllerAddress returns the address of the controller that should be
 // used.
 func (d *CAASDeployer) ControllerAddress(context.Context) (string, error) {
-	s, err := d.CloudServiceGetter.CloudService(d.controllerConfig.ControllerUUID())
+	s, err := d.cloudServiceGetter.CloudService(d.controllerConfig.ControllerUUID())
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -77,11 +77,11 @@ func (d *CAASDeployer) CompleteProcess(ctx context.Context, controllerUnit Contr
 		ProviderId: &providerID,
 	})
 
-	if err := d.OperationApplier.ApplyOperation(op); err != nil {
+	if err := d.operationApplier.ApplyOperation(op); err != nil {
 		return errors.Annotate(err, "cannot update controller unit")
 	}
 
-	if err := controllerUnit.SetPassword(d.UnitPassword); err != nil {
+	if err := controllerUnit.SetPassword(d.unitPassword); err != nil {
 		return errors.Annotate(err, "cannot set password for controller unit")
 	}
 
