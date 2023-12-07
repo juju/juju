@@ -1881,8 +1881,9 @@ func (s *ApplicationSuite) TestUpdateApplicationSeriesCharmURLChangedSeriesPass(
 		jujutxn.TestHook{
 			Before: func() {
 				v2 := state.AddTestingCharmMultiSeries(c, s.State, "multi-seriesv2")
-				curl := v2.URL().WithSeries("bionic")
-				origin := defaultCharmOrigin(curl)
+				origin := defaultCharmOrigin(v2.URL())
+				origin.Platform.OS = "ubuntu"
+				origin.Platform.Channel = "18.04/stable"
 				cfg := state.SetCharmConfig{
 					Charm:       v2,
 					CharmOrigin: origin,
@@ -5685,7 +5686,9 @@ func (s *ApplicationSuite) TestWatchApplicationsWithPendingCharms(c *gc.C) {
 	dummy2.StoragePath = "" // indicates that we don't have the data in the blobstore yet.
 	ch2, err := s.State.AddCharmMetadata(dummy2)
 	c.Assert(err, jc.ErrorIsNil)
-	twoOrigin := defaultCharmOrigin(ch2.URL().WithSeries("jammy"))
+	twoOrigin := defaultCharmOrigin(ch2.URL())
+	twoOrigin.Platform.OS = "ubuntu"
+	twoOrigin.Platform.Channel = "22.04/stable"
 	err = s.mysql.SetCharm(state.SetCharmConfig{
 		Charm:       ch2,
 		CharmOrigin: twoOrigin,
@@ -5697,7 +5700,9 @@ func (s *ApplicationSuite) TestWatchApplicationsWithPendingCharms(c *gc.C) {
 	dummy3 := s.dummyCharm(c, "ch:dummy-2")
 	ch3, err := s.State.AddCharm(dummy3)
 	c.Assert(err, jc.ErrorIsNil)
-	threeOrigin := defaultCharmOrigin(ch3.URL().WithSeries("jammy"))
+	threeOrigin := defaultCharmOrigin(ch3.URL())
+	threeOrigin.Platform.OS = "ubuntu"
+	threeOrigin.Platform.Channel = "22.04/stable"
 	threeOrigin.ID = "charm-hub-id"
 	threeOrigin.Hash = "charm-hub-hash"
 	err = s.mysql.SetCharm(state.SetCharmConfig{
@@ -5940,7 +5945,10 @@ func intPtr(val int) *int {
 	return &val
 }
 
-func defaultCharmOrigin(curl *charm.URL) *state.CharmOrigin {
+func defaultCharmOrigin(curlStr string) *state.CharmOrigin {
+	// Use ParseURL here in test until either the charm and/or application
+	// can easily provide the same data.
+	curl, _ := charm.ParseURL(curlStr)
 	var source string
 	var channel *state.Channel
 	if charm.CharmHub.Matches(curl.Schema) {

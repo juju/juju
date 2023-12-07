@@ -35,7 +35,6 @@ import (
 	apiuniter "github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/api/client/charms"
 	corearch "github.com/juju/juju/core/arch"
-	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/leadership"
@@ -1030,7 +1029,7 @@ func (s upgradeCharm) step(c *gc.C, ctx *testContext) {
 	cfg := state.SetCharmConfig{
 		Charm:       sch,
 		ForceUnits:  s.forced,
-		CharmOrigin: defaultCharmOrigin(curl),
+		CharmOrigin: defaultCharmOrigin(s.revision),
 	}
 	// Make sure we upload the charm before changing it in the DB.
 	serveCharm{}.step(c, ctx)
@@ -1038,30 +1037,24 @@ func (s upgradeCharm) step(c *gc.C, ctx *testContext) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func defaultCharmOrigin(curl *jujucharm.URL) *state.CharmOrigin {
-	var source string
-	var channel *state.Channel
-	if jujucharm.CharmHub.Matches(curl.Schema) {
-		source = corecharm.CharmHub.String()
-		channel = &state.Channel{
-			Risk: "stable",
-		}
-	} else if jujucharm.Local.Matches(curl.Schema) {
-		source = corecharm.Local.String()
+func defaultCharmOrigin(revision int) *state.CharmOrigin {
+	// This functionality is highly depending on the local
+	// curl function. Any changes must be made in both locations.
+	source := corecharm.CharmHub.String()
+	channel := &state.Channel{
+		Risk: "stable",
 	}
-
-	b, _ := corebase.GetBaseFromSeries(curl.Series)
 
 	platform := &state.Platform{
 		Architecture: corearch.DefaultArchitecture,
-		OS:           b.OS,
-		Channel:      b.Channel.String(),
+		OS:           "ubuntu",
+		Channel:      "12.10",
 	}
 
 	return &state.CharmOrigin{
 		Source:   source,
 		Type:     "charm",
-		Revision: intPtr(curl.Revision),
+		Revision: intPtr(revision),
 		Channel:  channel,
 		Platform: platform,
 	}
@@ -1417,6 +1410,9 @@ var subordinateDying = custom{func(c *gc.C, ctx *testContext) {
 }}
 
 func curl(revision int) string {
+	// This functionality is highly depended on by the local
+	// defaultCharmOrigin function. Any changes must be made
+	// in both locations.
 	return jujucharm.MustParseURL("ch:quantal/wordpress").WithRevision(revision).String()
 }
 

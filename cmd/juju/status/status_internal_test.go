@@ -4418,7 +4418,10 @@ func (ssc setApplicationCharm) step(c *gc.C, ctx *context) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func defaultCharmOrigin(curl *charm.URL) *state.CharmOrigin {
+func defaultCharmOrigin(curlStr string) *state.CharmOrigin {
+	// Use ParseURL here in test until either the charm and/or application
+	// can easily provide the same data.
+	curl, _ := charm.ParseURL(curlStr)
 	var source string
 	var channel *state.Channel
 	if charm.CharmHub.Matches(curl.Schema) {
