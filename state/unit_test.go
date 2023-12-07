@@ -550,7 +550,7 @@ func (s *UnitSuite) TestConfigSettingsReflectCharm(c *gc.C) {
 	err := s.unit.SetCharmURL(s.charm.URL())
 	c.Assert(err, jc.ErrorIsNil)
 	newCharm := s.AddConfigCharm(c, "wordpress", "options: {}", 123)
-	cfg := state.SetCharmConfig{Charm: newCharm}
+	cfg := state.SetCharmConfig{Charm: newCharm, CharmOrigin: defaultCharmOrigin(newCharm.URL())}
 	err = s.application.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -601,7 +601,7 @@ func (s *UnitSuite) TestWatchConfigSettings(c *gc.C) {
 
 	// Change application's charm; nothing detected.
 	newCharm := s.AddConfigCharm(c, "wordpress", floatConfig, 123)
-	cfg := state.SetCharmConfig{Charm: newCharm}
+	cfg := state.SetCharmConfig{Charm: newCharm, CharmOrigin: defaultCharmOrigin(newCharm.URL())}
 	err = s.application.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
@@ -621,7 +621,7 @@ func (s *UnitSuite) TestWatchConfigSettings(c *gc.C) {
 
 func (s *UnitSuite) TestWatchConfigSettingsHash(c *gc.C) {
 	newCharm := s.AddConfigCharm(c, "wordpress", sortableConfig, 123)
-	cfg := state.SetCharmConfig{Charm: newCharm}
+	cfg := state.SetCharmConfig{Charm: newCharm, CharmOrigin: defaultCharmOrigin(newCharm.URL())}
 	err := s.application.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.SetCharmURL(newCharm.URL())
@@ -675,7 +675,7 @@ func (s *UnitSuite) TestWatchConfigSettingsHash(c *gc.C) {
 
 	// Change application's charm; nothing detected.
 	newCharm = s.AddConfigCharm(c, "wordpress", floatConfig, 125)
-	cfg = state.SetCharmConfig{Charm: newCharm}
+	cfg = state.SetCharmConfig{Charm: newCharm, CharmOrigin: defaultCharmOrigin(newCharm.URL())}
 	err = s.application.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
@@ -714,7 +714,7 @@ func (s *UnitSuite) TestConfigHashesDifferentForDifferentCharms(c *gc.C) {
 	wc1.AssertChange("2e1f49c3e8b53892b822558401af33589522094681276a98458595114e04c0c1")
 
 	newCharm := s.AddConfigCharm(c, "wordpress", wordpressConfig, 125)
-	cfg := state.SetCharmConfig{Charm: newCharm}
+	cfg := state.SetCharmConfig{Charm: newCharm, CharmOrigin: defaultCharmOrigin(newCharm.URL())}
 	err = s.application.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1339,7 +1339,7 @@ func (s *UnitSuite) TestSetCharmURLRetriesWithDifferentURL(c *gc.C) {
 				// Set a different charm to force a retry: first on
 				// the application, so the settings are created, then on
 				// the unit.
-				cfg := state.SetCharmConfig{Charm: sch}
+				cfg := state.SetCharmConfig{Charm: sch, CharmOrigin: defaultCharmOrigin(sch.URL())}
 				err := s.application.SetCharm(cfg)
 				c.Assert(err, jc.ErrorIsNil)
 				err = s.unit.SetCharmURL(sch.URL())
@@ -1348,7 +1348,7 @@ func (s *UnitSuite) TestSetCharmURLRetriesWithDifferentURL(c *gc.C) {
 			After: func() {
 				// Set back the same charm on the application, so the
 				// settings refcount is correct..
-				cfg := state.SetCharmConfig{Charm: s.charm}
+				cfg := state.SetCharmConfig{Charm: s.charm, CharmOrigin: defaultCharmOrigin(s.charm.URL())}
 				err := s.application.SetCharm(cfg)
 				c.Assert(err, jc.ErrorIsNil)
 			},
@@ -1406,7 +1406,7 @@ func (s *UnitSuite) TestDestroyChangeCharmRetry(c *gc.C) {
 	err := s.unit.SetCharmURL(s.charm.URL())
 	c.Assert(err, jc.ErrorIsNil)
 	newCharm := s.AddConfigCharm(c, "mysql", "options: {}", 99)
-	cfg := state.SetCharmConfig{Charm: newCharm}
+	cfg := state.SetCharmConfig{Charm: newCharm, CharmOrigin: defaultCharmOrigin(newCharm.URL())}
 	err = s.application.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -2908,8 +2908,9 @@ func (s *UnitSuite) TestWatchMachineAndEndpointAddressesHash(c *gc.C) {
 	// Changing the application bindings after an upgrade should trigger a change
 	sch := s.AddMetaCharm(c, "mysql", metaExtraEndpoints, 2)
 	cfg := state.SetCharmConfig{
-		Charm:      sch,
-		ForceUnits: true,
+		Charm:       sch,
+		CharmOrigin: defaultCharmOrigin(sch.URL()),
+		ForceUnits:  true,
 		EndpointBindings: map[string]string{
 			"server": "private",
 		},

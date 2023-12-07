@@ -6,6 +6,7 @@ package client_test
 import (
 	"time"
 
+	"github.com/juju/charm/v11"
 	"github.com/juju/clock"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -26,6 +27,9 @@ import (
 	"github.com/juju/juju/caas/kubernetes/provider"
 	k8stesting "github.com/juju/juju/caas/kubernetes/provider/testing"
 	"github.com/juju/juju/charmhub/transport"
+	corearch "github.com/juju/juju/core/arch"
+	"github.com/juju/juju/core/base"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/network"
@@ -475,7 +479,8 @@ func (s *statusUnitTestSuite) TestPrincipalUpgradingFrom(c *gc.C) {
 	c.Assert(unitStatus.Charm, gc.Equals, "")
 
 	err = app.SetCharm(state.SetCharmConfig{
-		Charm: meteredCharmNew,
+		Charm:       meteredCharmNew,
+		CharmOrigin: defaultCharmOrigin(meteredCharmNew.URL()),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -485,6 +490,42 @@ func (s *statusUnitTestSuite) TestPrincipalUpgradingFrom(c *gc.C) {
 	unitStatus, ok = status.Applications[app.Name()].Units[u.Name()]
 	c.Assert(ok, gc.Equals, true)
 	c.Assert(unitStatus.Charm, gc.Equals, "ch:amd64/quantal/metered-3")
+}
+
+func defaultCharmOrigin(curlStr string) *state.CharmOrigin {
+	// Use ParseURL here in test until either the charm and/or application
+	// can easily provide the same data.
+	curl, _ := charm.ParseURL(curlStr)
+	var source string
+	var channel *state.Channel
+	if charm.CharmHub.Matches(curl.Schema) {
+		source = corecharm.CharmHub.String()
+		channel = &state.Channel{
+			Risk: "stable",
+		}
+	} else if charm.Local.Matches(curl.Schema) {
+		source = corecharm.Local.String()
+	}
+
+	b, _ := base.GetBaseFromSeries(curl.Series)
+
+	platform := &state.Platform{
+		Architecture: corearch.DefaultArchitecture,
+		OS:           b.OS,
+		Channel:      b.Channel.String(),
+	}
+
+	return &state.CharmOrigin{
+		Source:   source,
+		Type:     "charm",
+		Revision: intPtr(curl.Revision),
+		Channel:  channel,
+		Platform: platform,
+	}
+}
+
+func intPtr(i int) *int {
+	return &i
 }
 
 func (s *statusUnitTestSuite) TestSubordinateUpgradingFrom(c *gc.C) {
@@ -527,7 +568,8 @@ func (s *statusUnitTestSuite) TestSubordinateUpgradingFrom(c *gc.C) {
 	c.Assert(unitStatus.Charm, gc.Equals, "")
 
 	err = subordApp.SetCharm(state.SetCharmConfig{
-		Charm: subordCharmNew,
+		Charm:       subordCharmNew,
+		CharmOrigin: defaultCharmOrigin(subordCharmNew.URL()),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
