@@ -34,6 +34,15 @@ func (s *schemaSuite) TestControllerDDLApply(c *gc.C) {
 
 	// Ensure that each table is present.
 	expected := set.NewStrings(
+		// Annotations
+		"annotation_application",
+		"annotation_machine",
+		"annotation_unit",
+		"annotation_model",
+		// "annotation_charm",
+		// "annotation_storage_filesystem",
+		// "annotation_storage_volume",
+
 		// Autocert cache
 		"autocert_cache",
 		"autocert_cache_encoding",
