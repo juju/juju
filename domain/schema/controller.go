@@ -50,7 +50,6 @@ func ControllerDDL() *schema.Schema {
 		objectStoreMetadataSchema,
 		changeLogTriggersForTable("object_store_metadata_path", "path", tableObjectStoreMetadata),
 		userSchema,
-		modelConfigDefaults,
 		flagSchema,
 	}
 
@@ -581,23 +580,6 @@ CREATE TABLE user_activation_key (
         FOREIGN KEY (user_uuid)
     REFERENCES      user_authentication(user_uuid)
 );`)
-}
-
-// modelConfigDefaults is responsible for making a model config defaults table.
-// The purpose of this table is to offer model defaults to all newly created
-// models in Juju regardless of what cloud or cloud region the model is attached
-// to.
-//
-// Previously Juju has been solving this problem by using the controller model
-// config as this source of information. We want to stop special casing the
-// controller's model and using it as a defaults source for other models.
-func modelConfigDefaults() schema.Patch {
-	return schema.MakePatch(`
-CREATE TABLE model_config_defaults (
-    key TEXT PRIMARY KEY,
-    value TEXT
-)
-`)
 }
 
 func flagSchema() schema.Patch {
