@@ -48,6 +48,10 @@ func (st *State) AddSubnet(
 	if spaceUUID == "" {
 		spaceUUIDValue = nil
 	}
+	pnUUID, err := utils.NewUUID()
+	if err != nil {
+		return errors.Trace(err)
+	}
 
 	insertSubnetStmt := `
 INSERT INTO subnet (uuid, cidr, vlan_tag, space_uuid, subnet_type_id)
@@ -117,10 +121,6 @@ VALUES (?, ?)`
 		}
 		// Add the subnet and provider network uuids to the
 		// provider_network_subnet table.
-		pnUUID, err := utils.NewUUID()
-		if err != nil {
-			return errors.Trace(err)
-		}
 		if _, err := tx.ExecContext(
 			ctx,
 			insertSubnetProviderNetworkIDStmt,
@@ -183,6 +183,7 @@ SELECT
     subnet.cidr                          AS &Subnet.cidr,
     subnet.vlan_tag                      AS &Subnet.vlan_tag,
     subnet.space_uuid                    AS &Subnet.space_uuid,
+    space.name                           AS &Subnet.space_name,
     provider_subnet.provider_id          AS &Subnet.provider_id,
     provider_network.provider_network_id AS &Subnet.provider_network_id,
     fan_subnet.cidr                      AS &Subnet.underlay_cidr,
@@ -191,6 +192,8 @@ SELECT
 FROM subnet 
     LEFT JOIN fan_subnet 
     ON subnet.uuid = fan_subnet.subject_subnet_uuid
+    LEFT JOIN space
+    ON subnet.space_uuid = space.uuid
     JOIN provider_subnet
     ON subnet.uuid = provider_subnet.subnet_uuid
     JOIN provider_network_subnet
@@ -244,14 +247,14 @@ func (st *State) GetSubnet(
 	// Append the space uuid condition to the query only if it's passed to the function.
 	q := retrieveSubnetsStmt + " WHERE subnet.uuid = $M.id;"
 
-	s, err := sqlair.Prepare(q, Subnet{}, sqlair.M{})
+	stmt, err := sqlair.Prepare(q, Subnet{}, sqlair.M{})
 	if err != nil {
 		return nil, errors.Annotatef(err, "preparing %q", q)
 	}
 
 	var rows Subnets
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		return errors.Trace(tx.Query(ctx, s, sqlair.M{"id": uuid.String()}).GetAll(&rows))
+		return errors.Trace(tx.Query(ctx, stmt, sqlair.M{"id": uuid.String()}).GetAll(&rows))
 	}); err != nil {
 		return nil, errors.Annotate(err, "querying subnets")
 	}
@@ -264,6 +267,8 @@ func (st *State) GetSubnet(
 }
 
 // GetSubnetsByCIDR returns the subnets by CIDR.
+// Deprecated, this method should be removed when we re-work the API for moving
+// subnets.
 func (st *State) GetSubnetsByCIDR(
 	ctx context.Context,
 	cidrs ...string,
@@ -293,22 +298,6 @@ func (st *State) GetSubnetsByCIDR(
 		return nil
 	}); err != nil {
 		return nil, errors.Annotate(err, "querying subnets")
-	}
-
-	// Make sure that the combination CIDR + ProviderNetworkID is
-	// unique among subnets.
-	uniqueSubnets := make(map[string]map[string]any)
-	for _, subnet := range resultSubnets {
-		uniqueSubnetsByCIDR, ok := uniqueSubnets[subnet.CIDR]
-		if !ok {
-			uniqueSubnets[subnet.CIDR] = make(map[string]any)
-		}
-		_, ok = uniqueSubnetsByCIDR[subnet.ProviderNetworkID]
-		// Fail if duplicated subnets are returned.
-		if ok {
-			return nil, errors.Errorf("multiple subnets matching cidr %q and providerNetworkID %q", subnet.CIDR, subnet.ProviderNetworkID)
-		}
-		uniqueSubnetsByCIDR[subnet.ProviderNetworkID] = struct{}{}
 	}
 
 	return resultSubnets.ToSubnetInfos(), nil
@@ -394,11 +383,9 @@ func (st *State) DeleteSubnet(
 		if err != nil {
 			return errors.Trace(err)
 		}
-		delProviderNetworkSubnetAffected, err := delProviderNetworkSubnetResult.RowsAffected()
-		if err != nil {
+		if delProviderNetworkSubnetAffected, err := delProviderNetworkSubnetResult.RowsAffected(); err != nil {
 			return errors.Trace(err)
-		}
-		if delProviderNetworkSubnetAffected != 1 {
+		} else if delProviderNetworkSubnetAffected != 1 {
 			return fmt.Errorf("provider network subnets for subnet %s not found", uuid)
 		}
 
@@ -406,11 +393,9 @@ func (st *State) DeleteSubnet(
 		if err != nil {
 			return errors.Trace(err)
 		}
-		delProviderNetworkAffected, err := delProviderNetworkResult.RowsAffected()
-		if err != nil {
+		if delProviderNetworkAffected, err := delProviderNetworkResult.RowsAffected(); err != nil {
 			return errors.Trace(err)
-		}
-		if delProviderNetworkAffected != 1 {
+		} else if delProviderNetworkAffected != 1 {
 			return fmt.Errorf("provider network for subnet %s not found", uuid)
 		}
 
@@ -422,11 +407,9 @@ func (st *State) DeleteSubnet(
 		if err != nil {
 			return errors.Trace(err)
 		}
-		delProviderSubnetAffected, err := delProviderSubnetResult.RowsAffected()
-		if err != nil {
+		if delProviderSubnetAffected, err := delProviderSubnetResult.RowsAffected(); err != nil {
 			return errors.Trace(err)
-		}
-		if delProviderSubnetAffected != 1 {
+		} else if delProviderSubnetAffected != 1 {
 			return fmt.Errorf("provider subnet for subnet %s not found", uuid)
 		}
 
@@ -434,11 +417,9 @@ func (st *State) DeleteSubnet(
 		if err != nil {
 			return errors.Trace(err)
 		}
-		delSubnetAffected, err := delSubnetResult.RowsAffected()
-		if err != nil {
+		if delSubnetAffected, err := delSubnetResult.RowsAffected(); err != nil {
 			return errors.Trace(err)
-		}
-		if delSubnetAffected != 1 {
+		} else if delSubnetAffected != 1 {
 			return fmt.Errorf("subnet %s not found", uuid)
 		}
 

@@ -10,7 +10,6 @@ import (
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
 	"github.com/juju/utils/v3"
 
 	coreDB "github.com/juju/juju/core/database"
@@ -31,37 +30,6 @@ func NewState(factory coreDB.TxnRunnerFactory) *State {
 	}
 }
 
-// CheckFanSubnets checks if the subnet is a fan overlay.
-// This method should be called to validate before creating a new space, and if
-// some of the provided subnet IDs correspond to a fan subnet the  space cannot
-// be created: it must be inherited from the underlay subnet.
-func (st *State) CheckFanSubnets(ctx context.Context, subnetIDs []string) error {
-	db, err := st.DB()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	binds, vals := database.SliceToPlaceholder(subnetIDs)
-	checkSubnetFanLocalUnderlay := fmt.Sprintf(`
-SELECT subnet.cidr
-FROM   subnet
-WHERE  subnet.uuid IN (%s) AND subnet.subnet_type_id != 0`, binds)
-
-	return db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		var cidr string
-		// We only retrieve the first row, which means an error
-		// should be returned.
-		row := tx.QueryRowContext(ctx, checkSubnetFanLocalUnderlay, vals...)
-		if err := row.Scan(&cidr); err != nil && !errors.Is(err, sql.ErrNoRows) {
-			return errors.Trace(err)
-		} else if errors.Is(err, sql.ErrNoRows) {
-			// No fan subnets retrieved.
-			return nil
-		}
-		return errors.Errorf("subnet with cidr %q is of type FAN", cidr)
-	})
-}
-
 // AddSpace creates and returns a new space.
 func (st *State) AddSpace(
 	ctx context.Context,
@@ -70,10 +38,6 @@ func (st *State) AddSpace(
 	providerID network.Id,
 	subnetIDs []string,
 ) error {
-	if !names.IsValidSpace(name) {
-		return errors.NewNotValid(nil, fmt.Sprintf("invalid space name '%s'", name))
-	}
-
 	db, err := st.DB()
 	if err != nil {
 		return errors.Trace(err)
@@ -85,6 +49,18 @@ VALUES (?, ?)`
 	insertProviderStmt := `
 INSERT INTO provider_space (provider_id, space_uuid)
 VALUES (?, ?)`
+	checkSubnetFanLocalUnderlay := `
+SELECT subnet.cidr,subnet_type.is_space_settable
+FROM   subnet_type
+JOIN   subnet
+ON     subnet.subnet_type_id = subnet_type.id
+WHERE  subnet.uuid = ?`
+	findFanSubnetsBinds, findFanSubnetsVals := database.SliceToPlaceholder(subnetIDs)
+	findFanSubnetsStmt := fmt.Sprintf(`
+SELECT subject_subnet_uuid
+FROM   subnet_association
+WHERE  associated_subnet_uuid IN (%s)`, findFanSubnetsBinds)
+
 	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		if _, err := tx.ExecContext(ctx, insertSpaceStmt, uuid.String(), name); err != nil {
 			return errors.Annotatef(err, "inserting space uuid %q into space table", uuid.String())
@@ -94,7 +70,51 @@ VALUES (?, ?)`
 				return errors.Annotatef(err, "inserting provider id %q into provider_space table", providerID)
 			}
 		}
-		// Update all subnets to include the space uuid.
+		// We must first check on the provided subnet ids to validate
+		// that none of them is a fan subnet.
+		for _, subnetID := range subnetIDs {
+			// Check if the subnet is a fan overlay, in that case
+			// the space cannot be created on this subnet: it must
+			// be inherited from the underlay.
+			var (
+				cidr            string
+				isSpaceSettable bool
+			)
+			row := tx.QueryRowContext(ctx, checkSubnetFanLocalUnderlay, subnetID)
+			if err := row.Scan(&cidr, &isSpaceSettable); err != nil {
+				return errors.Trace(err)
+			}
+			if !isSpaceSettable {
+				return errors.Errorf(
+					"cannot set space for FAN subnet %q - it is always inherited from underlay", cidr)
+			}
+		}
+
+		// Retrieve the fan overlays (if any) of the passed subnet ids.
+		rows, err := tx.QueryContext(ctx, findFanSubnetsStmt, findFanSubnetsVals...)
+		if err != nil && err != sql.ErrNoRows {
+			return errors.Annotatef(err, "retrieving the fan subnets for space %q", uuid.String())
+		}
+		defer func() { _ = rows.Close() }()
+		// Append the fan subnet (unique) ids (if any) to the provided
+		// subnet ids.
+		uniqueFanSubnetIDs := make(map[string]string)
+		for rows.Next() {
+			var fanSubnetID string
+			err = rows.Scan(&fanSubnetID)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			if _, ok := uniqueFanSubnetIDs[fanSubnetID]; !ok {
+				uniqueFanSubnetIDs[fanSubnetID] = fanSubnetID
+			}
+		}
+		for _, fanSubnetID := range uniqueFanSubnetIDs {
+			subnetIDs = append(subnetIDs, fanSubnetID)
+		}
+
+		// Update all subnets (including their fan overlays) to include
+		// the space uuid.
 		for _, subnetID := range subnetIDs {
 			if err := updateSubnetSpaceIDTx(ctx, tx, subnetID, uuid.String()); err != nil {
 				return errors.Annotatef(err, "updating subnet %q using space uuid %q", subnetID, uuid.String())
@@ -145,23 +165,31 @@ func (st *State) GetSpace(
 	// Append the space uuid condition to the query only if it's passed to the function.
 	q := retrieveSpacesStmt + " WHERE space.uuid = $M.id;"
 
-	s, err := sqlair.Prepare(q, Space{}, sqlair.M{})
+	spacesStmt, err := sqlair.Prepare(q, Space{}, sqlair.M{})
 	if err != nil {
 		return nil, errors.Annotatef(err, "preparing %q", q)
 	}
 
-	var rows Spaces
+	var spaceRows Spaces
+	var subnetRows Subnets
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		return errors.Trace(tx.Query(ctx, s, sqlair.M{"id": uuid}).GetAll(&rows))
+		err := tx.Query(ctx, spacesStmt, sqlair.M{"id": uuid}).GetAll(&spaceRows)
+		if err != nil {
+			return errors.Annotatef(err, "retrieving space %q", uuid)
+		}
+
+		return nil
 	}); err != nil {
 		return nil, errors.Annotate(err, "querying spaces")
 	}
 
-	if len(rows) == 0 {
+	if len(spaceRows) == 0 {
 		return nil, errors.NotFoundf("space %q", uuid)
 	}
+	spaceInfo := &spaceRows.ToSpaceInfos()[0]
+	spaceInfo.Subnets = append(spaceInfo.Subnets, subnetRows.ToSubnetInfos()...)
 
-	return &rows.ToSpaceInfos()[0], nil
+	return spaceInfo, nil
 }
 
 // GetSpace returns the space by name.
@@ -187,10 +215,6 @@ func (st *State) GetSpaceByName(
 		return errors.Trace(tx.Query(ctx, s, sqlair.M{"name": name}).GetAll(&rows))
 	}); err != nil {
 		return nil, errors.Annotate(err, "querying spaces by name")
-	}
-
-	if len(rows) == 0 {
-		return nil, errors.NotFoundf("space name %q", name)
 	}
 
 	return &rows.ToSpaceInfos()[0], nil
@@ -237,9 +261,18 @@ UPDATE space
 SET    name = ?
 WHERE  uuid = ?;`
 	return db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		if _, err := tx.ExecContext(ctx, q, name, uuid); err != nil {
+		res, err := tx.ExecContext(ctx, q, name, uuid)
+		if err != nil {
 			return errors.Trace(err)
 		}
+		affected, err := res.RowsAffected()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if affected == 0 {
+			return errors.NotFoundf("space %q", uuid)
+		}
+
 		return nil
 	})
 }

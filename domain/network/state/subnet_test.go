@@ -182,7 +182,7 @@ func (s *stateSuite) TestRetrieveSubnetByUUID(c *gc.C) {
 		"provider-id-0",
 		"provider-network-id-0",
 		0,
-		[]string{"az0", "az1"},
+		[]string{"az0"},
 		"",
 		nil,
 	)
@@ -197,7 +197,7 @@ func (s *stateSuite) TestRetrieveSubnetByUUID(c *gc.C) {
 		"provider-id-1",
 		"provider-network-id-1",
 		0,
-		[]string{"az2", "az3"},
+		[]string{"az1"},
 		"",
 		&network.FanCIDRs{
 			FanLocalUnderlay: "192.168.0.0/20",
@@ -211,84 +211,39 @@ func (s *stateSuite) TestRetrieveSubnetByUUID(c *gc.C) {
 	err = st.AddSpace(ctx.Background(), spUUID, "space0", "provider-space-id", []string{subnetUUID0.String()})
 	c.Assert(err, jc.ErrorIsNil)
 
+	expected := &network.SubnetInfo{
+		ID:                network.Id(subnetUUID0.String()),
+		CIDR:              "192.168.0.0/20",
+		ProviderId:        "provider-id-0",
+		ProviderSpaceId:   "provider-space-id",
+		ProviderNetworkId: "provider-network-id-0",
+		VLANTag:           0,
+		AvailabilityZones: []string{"az0"},
+		SpaceID:           spUUID.String(),
+		SpaceName:         "space0",
+	}
 	sn0, err := st.GetSubnet(ctx.Background(), subnetUUID0)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(sn0.ID, gc.Equals, network.Id(subnetUUID0.String()))
-	c.Check(sn0.FanInfo, gc.IsNil)
-	c.Check(sn0.CIDR, gc.Equals, "192.168.0.0/20")
-	c.Check(sn0.ProviderId.String(), gc.Equals, "provider-id-0")
-	c.Check(sn0.ProviderNetworkId.String(), gc.Equals, "provider-network-id-0")
-	c.Check(sn0.ProviderSpaceId.String(), gc.Equals, "provider-space-id")
-	c.Check(sn0.SpaceID, gc.Equals, spUUID.String())
-	c.Check(sn0.SpaceName, gc.Equals, "")
-	c.Check(sn0.AvailabilityZones, gc.HasLen, 2)
-	c.Check(sn0.AvailabilityZones, jc.SameContents, []string{"az0", "az1"})
+	c.Check(sn0, gc.DeepEquals, expected)
 
 	sn1, err := st.GetSubnet(ctx.Background(), subnetUUID1)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(sn1.ID, gc.Equals, network.Id(subnetUUID1.String()))
-	c.Check(sn1.FanInfo, gc.NotNil)
-	c.Check(sn1.FanInfo.FanLocalUnderlay, gc.Equals, "192.168.0.0/20")
-	c.Check(sn1.CIDR, gc.Equals, "10.0.0.0/12")
-	c.Check(sn1.ProviderId.String(), gc.Equals, "provider-id-1")
-	c.Check(sn1.ProviderNetworkId.String(), gc.Equals, "provider-network-id-1")
-	c.Check(sn1.SpaceID, gc.Equals, "")
-	c.Check(sn1.SpaceName, gc.Equals, "")
-	c.Check(sn1.AvailabilityZones, gc.HasLen, 2)
-	c.Check(sn1.AvailabilityZones, jc.SameContents, []string{"az2", "az3"})
+	expected = &network.SubnetInfo{
+		ID:                network.Id(subnetUUID1.String()),
+		CIDR:              "10.0.0.0/12",
+		ProviderId:        "provider-id-1",
+		ProviderSpaceId:   "provider-space-id",
+		ProviderNetworkId: "provider-network-id-1",
+		VLANTag:           0,
+		AvailabilityZones: []string{"az1"},
+		SpaceID:           spUUID.String(),
+		SpaceName:         "space0",
+		FanInfo: &network.FanCIDRs{
+			FanLocalUnderlay: "192.168.0.0/20",
+		},
+	}
+	c.Check(sn1, gc.DeepEquals, expected)
 }
-
-// func (s *stateSuite) TestRetrieveSubnetsByCIDRFailsNonUnique(c *gc.C) {
-// 	st := NewState(s.TxnRunnerFactory())
-
-// 	subnetUUID0, err := utils.NewUUID()
-// 	c.Assert(err, jc.ErrorIsNil)
-// 	err = st.AddSubnet(
-// 		ctx.Background(),
-// 		subnetUUID0,
-// 		"192.168.0.0/20",
-// 		"provider-id-0",
-// 		"provider-network-id-0",
-// 		0,
-// 		[]string{"az0", "az1"},
-// 		"",
-// 		nil,
-// 	)
-// 	c.Assert(err, jc.ErrorIsNil)
-
-// 	subnetUUID1, err := utils.NewUUID()
-// 	c.Assert(err, jc.ErrorIsNil)
-// 	err = st.AddSubnet(
-// 		ctx.Background(),
-// 		subnetUUID1,
-// 		"192.168.0.0/20",
-// 		"provider-id-1",
-// 		"provider-network-id-0",
-// 		0,
-// 		[]string{"az2", "az3"},
-// 		"",
-// 		nil,
-// 	)
-// 	c.Assert(err, jc.ErrorIsNil)
-
-// 	subnetUUID2, err := utils.NewUUID()
-// 	c.Assert(err, jc.ErrorIsNil)
-// 	err = st.AddSubnet(
-// 		ctx.Background(),
-// 		subnetUUID2,
-// 		"10.0.0.0/24",
-// 		"provider-id-2",
-// 		"provider-network-id-2",
-// 		0,
-// 		[]string{"az2", "az3"},
-// 		"",
-// 		nil,
-// 	)
-// 	c.Assert(err, jc.ErrorIsNil)
-
-// 	_, err = st.GetSubnetsByCIDR(ctx.Background(), "192.168.0.0/20", "10.0.0.0/24")
-// 	c.Assert(err, jc.ErrorIsNil)
-// }
 
 func (s *stateSuite) TestRetrieveAllSubnets(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())

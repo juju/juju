@@ -158,6 +158,9 @@ type Subnet struct {
 	// SpaceUUID is the space uuid.
 	SpaceUUID sql.NullString `db:"space_uuid"`
 
+	// SpaceName is the name of the space the subnet is associated with.
+	SpaceName sql.NullString `db:"space_name"`
+
 	// AZ is the availability zones on the subnet.
 	AZ string `db:"az"`
 
@@ -206,6 +209,9 @@ func (sn Subnets) ToSubnetInfos() network.SubnetInfos {
 		}
 		if subnet.SpaceUUID.Valid {
 			sInfo.SpaceID = subnet.SpaceUUID.String
+		}
+		if subnet.SpaceName.Valid {
+			sInfo.SpaceName = subnet.SpaceName.String
 		}
 		uniqueSubnets[subnet.UUID] = sInfo
 
