@@ -1700,7 +1700,7 @@ func (a *Application) validateSetCharmConfig(cfg SetCharmConfig) error {
 // SetCharm changes the charm for the application.
 func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 	defer errors.DeferredAnnotatef(
-		&err, "cannot upgrade application %q to charm %q", a, cfg.Charm,
+		&err, "cannot upgrade application %q to charm %q", a, cfg.Charm.URL(),
 	)
 
 	// Validate the input. ValidateSettings validates and transforms
