@@ -171,7 +171,6 @@ func (st *State) GetSpace(
 	}
 
 	var spaceRows Spaces
-	var subnetRows Subnets
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, spacesStmt, sqlair.M{"id": uuid}).GetAll(&spaceRows)
 		if err != nil {
@@ -187,7 +186,6 @@ func (st *State) GetSpace(
 		return nil, errors.NotFoundf("space %q", uuid)
 	}
 	spaceInfo := &spaceRows.ToSpaceInfos()[0]
-	spaceInfo.Subnets = append(spaceInfo.Subnets, subnetRows.ToSubnetInfos()...)
 
 	return spaceInfo, nil
 }
