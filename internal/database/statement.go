@@ -63,6 +63,38 @@ func MapToMultiPlaceholder[K comparable, V any](m map[K]V) (string, []any) {
 	return strings.Join(binds, ","), vals
 }
 
+// MapToMultiPlaceholderTransform returns a string of bind args for map key
+// value inserts. A transform function is supplied so that for each key value
+// pair in the map a slice of values to be inserted can be returned to build bind
+// arguments from. The number bind arguments for each bind set will based on the
+// number of values in the returned slice.
+//
+// Example usage:
+//
+//	myMap := map[string]string{"one": "two", "three": "four"}
+//	MapToMultiPlaceholderTransform(myMap, func(k, v string) []any {
+//		return []any{"staticval", k, v}
+//	})
+func MapToMultiPlaceholderTransform[K comparable, V any](m map[K]V, trans func(K, V) []any) (string, []any) {
+	binds := make([]string, 0, len(m))
+	vals := make([]any, 0, len(m)*2)
+	for k, v := range m {
+		tupleVals := trans(k, v)
+		if len(tupleVals) == 0 {
+			continue
+		}
+
+		tupleBinds := make([]string, len(tupleVals))
+		for i := range tupleBinds {
+			tupleBinds[i] = "?"
+		}
+		binds = append(binds, fmt.Sprintf("(%s)", strings.Join(tupleBinds, ",")))
+		vals = append(vals, tupleVals...)
+	}
+
+	return strings.Join(binds, ","), vals
+}
+
 // SqlairClauseAnd creates a sqlair query condition where each
 // of the non-empty map values becomes an AND operator.
 func SqlairClauseAnd(columnValues map[string]any) (string, sqlair.M) {

@@ -4,6 +4,8 @@
 package database
 
 import (
+	"fmt"
+
 	"github.com/canonical/sqlair"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -121,4 +123,53 @@ func (s *statementSuite) TestMapToMultiPlaceholder(c *gc.C) {
 		}
 	}
 	c.Assert(count, gc.Equals, 9)
+}
+
+func ExampleMapToMultiPlaceholderTransform() {
+	myMap := map[string]string{"one": "two"}
+	bindStmt, args := MapToMultiPlaceholderTransform(myMap, func(k, v string) []any {
+		return []any{"staticvalue", k, v}
+	})
+
+	fmt.Println(bindStmt)
+	fmt.Println(args)
+	// Output:
+	// (?,?,?)
+	// [staticvalue one two]
+}
+
+// TestMapToMultiPlaceholderTransformNoVals is testing that if the transform
+// func returns no values that an empty string and no arg values are being
+// returned.
+func (s *statementSuite) TestMapToMultiPlaceholderTransformNoVals(c *gc.C) {
+	bind, args := MapToMultiPlaceholderTransform(
+		map[string]string{"test": "test"},
+		func(k, v string) []any { return nil },
+	)
+	c.Check(bind, gc.Equals, "")
+	c.Check(len(args), gc.Equals, 0)
+}
+
+// TestMapToMultiPlaceholderTransform is testing the happy path.
+func (s *statementSuite) TestMapToMultiPlaceholderTransform(c *gc.C) {
+	bind, args := MapToMultiPlaceholderTransform(
+		map[string]string{"test": "foobar"},
+		func(k, v string) []any { return []any{k, v} },
+	)
+	c.Check(bind, gc.Equals, "(?,?)")
+	c.Check(args, jc.DeepEquals, []any{"test", "foobar"})
+
+	bind, args = MapToMultiPlaceholderTransform(
+		map[string]string{"test": "foobar", "ipv6": "isgreat"},
+		func(k, v string) []any { return []any{k, v} },
+	)
+	c.Check(bind, gc.Equals, "(?,?),(?,?)")
+	c.Check(len(args), gc.Equals, 4)
+
+	bind, args = MapToMultiPlaceholderTransform(
+		map[string]string{"test": "foobar", "ipv6": "isgreat"},
+		func(k, v string) []any { return []any{k, v, "staticval"} },
+	)
+	c.Check(bind, gc.Equals, "(?,?,?),(?,?,?)")
+	c.Check(len(args), gc.Equals, 6)
 }
