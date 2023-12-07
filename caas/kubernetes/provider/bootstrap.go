@@ -1660,7 +1660,7 @@ func (c *controllerStack) buildContainerSpecForCommands(setupCmd, machineCmd str
 		ExistingContainers:   []string{apiServerContainerName},
 		// TODO(wallyworld) - use storage so the volumes don't need to be manually set up
 		//Filesystems: nil,
-		Rootless: true,
+		CharmUser: caas.RunAsNonRoot,
 	}
 	spec, err := controllerApp.ApplicationPodSpec(cfg)
 	if err != nil {

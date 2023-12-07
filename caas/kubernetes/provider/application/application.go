@@ -1345,28 +1345,26 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 			SubPath:   "containeragent/pebble",
 		},
 	}
-	if config.Rootless {
-		charmContainerExtraVolumeMounts = append(charmContainerExtraVolumeMounts, corev1.VolumeMount{
-			Name:      constants.CharmVolumeName,
-			MountPath: "/var/log/juju",
-			SubPath:   "containeragent/var/log/juju",
-		}, corev1.VolumeMount{
-			Name:      constants.CharmVolumeName,
-			MountPath: "/etc/profile.d/juju-introspection.sh",
-			SubPath:   "containeragent/etc/profile.d/juju-introspection.sh",
-			ReadOnly:  true,
-		}, corev1.VolumeMount{
-			Name:      constants.CharmVolumeName,
-			MountPath: paths.JujuIntrospect(paths.OSUnixLike),
-			SubPath:   "charm/bin/containeragent",
-			ReadOnly:  true,
-		}, corev1.VolumeMount{
-			Name:      constants.CharmVolumeName,
-			MountPath: paths.JujuExec(paths.OSUnixLike),
-			SubPath:   "charm/bin/containeragent",
-			ReadOnly:  true,
-		})
-	}
+	charmContainerExtraVolumeMounts = append(charmContainerExtraVolumeMounts, corev1.VolumeMount{
+		Name:      constants.CharmVolumeName,
+		MountPath: "/var/log/juju",
+		SubPath:   "containeragent/var/log/juju",
+	}, corev1.VolumeMount{
+		Name:      constants.CharmVolumeName,
+		MountPath: "/etc/profile.d/juju-introspection.sh",
+		SubPath:   "containeragent/etc/profile.d/juju-introspection.sh",
+		ReadOnly:  true,
+	}, corev1.VolumeMount{
+		Name:      constants.CharmVolumeName,
+		MountPath: paths.JujuIntrospect(paths.OSUnixLike),
+		SubPath:   "charm/bin/containeragent",
+		ReadOnly:  true,
+	}, corev1.VolumeMount{
+		Name:      constants.CharmVolumeName,
+		MountPath: paths.JujuExec(paths.OSUnixLike),
+		SubPath:   "charm/bin/containeragent",
+		ReadOnly:  true,
+	})
 
 	// (tlm) lp1997253. If the agent version is less than
 	// containerAgentPebbleVersion we need to keep still using the old args
@@ -1461,7 +1459,18 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 			},
 		}, charmContainerExtraVolumeMounts...),
 	}
-	if config.Rootless {
+	switch config.CharmUser {
+	case caas.RunAsRoot:
+		charmContainer.SecurityContext = &corev1.SecurityContext{
+			RunAsUser:  pointer.Int64(0),
+			RunAsGroup: pointer.Int64(0),
+		}
+	case caas.RunAsSudoer:
+		charmContainer.SecurityContext = &corev1.SecurityContext{
+			RunAsUser:  pointer.Int64(constants.JujuSudoUserID),
+			RunAsGroup: pointer.Int64(constants.JujuSudoGroupID),
+		}
+	case caas.RunAsNonRoot:
 		charmContainer.SecurityContext = &corev1.SecurityContext{
 			RunAsUser:  pointer.Int64(constants.JujuUserID),
 			RunAsGroup: pointer.Int64(constants.JujuGroupID),
@@ -1505,10 +1514,9 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 				SuccessThreshold:    containerProbeSuccess,
 				FailureThreshold:    containerProbeFailure,
 			},
-			// Run Pebble as root (because it's a service manager).
 			SecurityContext: &corev1.SecurityContext{
-				RunAsUser:  pointer.Int64(0),
-				RunAsGroup: pointer.Int64(0),
+				RunAsUser:  pointer.Int64(int64(v.Uid)),
+				RunAsGroup: pointer.Int64(int64(v.Gid)),
 			},
 			VolumeMounts: []corev1.VolumeMount{
 				{
@@ -1523,12 +1531,6 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 					SubPath:   fmt.Sprintf("charm/containers/%s", v.Name),
 				},
 			},
-		}
-		if config.Rootless {
-			container.SecurityContext = &corev1.SecurityContext{
-				RunAsUser:  pointer.Int64(constants.JujuUserID),
-				RunAsGroup: pointer.Int64(constants.JujuGroupID),
-			}
 		}
 		if v.Image.Password != "" {
 			imagePullSecrets = append(imagePullSecrets, corev1.LocalObjectReference{Name: a.imagePullSecretName(v.Name)})
@@ -1561,14 +1563,12 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 		}
 	}
 
-	if config.Rootless {
-		containerAgentArgs = append(containerAgentArgs, "--profile-dir", "/containeragent/etc/profile.d")
-		charmInitAdditionalMounts = append(charmInitAdditionalMounts, corev1.VolumeMount{
-			Name:      constants.CharmVolumeName,
-			MountPath: "/containeragent/etc/profile.d",
-			SubPath:   "containeragent/etc/profile.d",
-		})
-	}
+	containerAgentArgs = append(containerAgentArgs, "--profile-dir", "/containeragent/etc/profile.d")
+	charmInitAdditionalMounts = append(charmInitAdditionalMounts, corev1.VolumeMount{
+		Name:      constants.CharmVolumeName,
+		MountPath: "/containeragent/etc/profile.d",
+		SubPath:   "containeragent/etc/profile.d",
+	})
 
 	appSecret := a.secretName()
 	charmInitContainer := corev1.Container{
@@ -1628,11 +1628,21 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 			},
 		}, charmInitAdditionalMounts...),
 	}
-	if config.Rootless {
+	switch config.CharmUser {
+	case caas.RunAsRoot:
 		charmInitContainer.SecurityContext = &corev1.SecurityContext{
-			RunAsUser:              pointer.Int64(constants.JujuUserID),
-			RunAsGroup:             pointer.Int64(constants.JujuGroupID),
-			ReadOnlyRootFilesystem: pointer.Bool(true),
+			RunAsUser:  pointer.Int64(0),
+			RunAsGroup: pointer.Int64(0),
+		}
+	case caas.RunAsSudoer:
+		charmInitContainer.SecurityContext = &corev1.SecurityContext{
+			RunAsUser:  pointer.Int64(constants.JujuSudoUserID),
+			RunAsGroup: pointer.Int64(constants.JujuSudoGroupID),
+		}
+	case caas.RunAsNonRoot:
+		charmInitContainer.SecurityContext = &corev1.SecurityContext{
+			RunAsUser:  pointer.Int64(constants.JujuUserID),
+			RunAsGroup: pointer.Int64(constants.JujuGroupID),
 		}
 	}
 
@@ -1657,11 +1667,9 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 	if err != nil {
 		return nil, errors.Annotate(err, "processing constraints")
 	}
-	if config.Rootless {
-		spec.SecurityContext = &corev1.PodSecurityContext{
-			FSGroup:            pointer.Int64(constants.JujuFSGroupID),
-			SupplementalGroups: []int64{constants.JujuFSGroupID},
-		}
+	spec.SecurityContext = &corev1.PodSecurityContext{
+		FSGroup:            pointer.Int64(constants.JujuFSGroupID),
+		SupplementalGroups: []int64{constants.JujuFSGroupID},
 	}
 	return spec, nil
 }
