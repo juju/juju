@@ -71,7 +71,7 @@ func (st *State) CloudDefaults(ctx context.Context, cloudName string) (map[strin
 	stmt := `
 SELECT cloud_defaults.key,
        cloud_defaults.value,
-	   cloud.uuid
+       cloud.uuid
 FROM cloud
 LEFT JOIN cloud_defaults ON cloud.uuid = cloud_defaults.cloud_uuid
 WHERE cloud.name = ?
