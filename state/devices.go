@@ -6,7 +6,7 @@ package state
 import (
 	"context"
 
-	"github.com/juju/charm/v11"
+	"github.com/juju/charm/v12"
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3"
 	"github.com/juju/mgo/v3/txn"

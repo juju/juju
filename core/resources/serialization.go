@@ -4,7 +4,7 @@
 package resources
 
 import (
-	"github.com/juju/charm/v11/resource"
+	"github.com/juju/charm/v12/resource"
 	"github.com/juju/errors"
 )
 

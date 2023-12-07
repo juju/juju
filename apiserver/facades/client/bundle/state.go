@@ -4,7 +4,7 @@
 package bundle
 
 import (
-	"github.com/juju/charm/v11"
+	"github.com/juju/charm/v12"
 	"github.com/juju/description/v4"
 
 	"github.com/juju/juju/core/objectstore"

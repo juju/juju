@@ -11,8 +11,8 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/juju/charm/v11"
-	charmresource "github.com/juju/charm/v11/resource"
+	"github.com/juju/charm/v12"
+	charmresource "github.com/juju/charm/v12/resource"
 	"github.com/juju/description/v4"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"

@@ -8,7 +8,7 @@ import (
 	context "context"
 	reflect "reflect"
 
-	charm "github.com/juju/charm/v11"
+	charm "github.com/juju/charm/v12"
 	base "github.com/juju/juju/core/base"
 	config "github.com/juju/juju/core/config"
 	constraints "github.com/juju/juju/core/constraints"

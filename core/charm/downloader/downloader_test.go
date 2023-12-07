@@ -11,7 +11,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/juju/charm/v11"
+	"github.com/juju/charm/v12"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"

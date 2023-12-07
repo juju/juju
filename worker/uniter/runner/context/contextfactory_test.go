@@ -6,7 +6,7 @@ package context_test
 import (
 	"time"
 
-	"github.com/juju/charm/v11/hooks"
+	"github.com/juju/charm/v12/hooks"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"

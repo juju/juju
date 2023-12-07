@@ -7,7 +7,7 @@ import (
 	"io"
 	"strings"
 
-	charmresource "github.com/juju/charm/v11/resource"
+	charmresource "github.com/juju/charm/v12/resource"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
