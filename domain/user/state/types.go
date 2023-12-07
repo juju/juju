@@ -29,3 +29,14 @@ type User struct {
 	// CreatedAt is the time that the user was created at.
 	CreatedAt time.Time `db:"created_at"`
 }
+
+// toCoreUser converts the state user to a core user.
+func (u User) toCoreUser() user.User {
+	return user.User{
+		UUID:        u.UUID,
+		Name:        u.Name,
+		DisplayName: u.DisplayName,
+		CreatorUUID: u.CreatorUUID,
+		CreatedAt:   u.CreatedAt,
+	}
+}

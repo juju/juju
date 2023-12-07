@@ -47,7 +47,7 @@ func (st *State) AddUser(ctx context.Context, uuid user.UUID, user user.User, cr
 
 // AddUserWithPasswordHash will add a new user to the database with the
 // provided password hash and salt. If the user already exists an error that
-// satisfies usererrors.AlreadyExists will be returned. if the  creator does
+// satisfies usererrors.AlreadyExists will be returned. if the creator does
 // not exist that satisfies usererrors.UserCreatorUUIDNotFound will be returned.
 func (st *State) AddUserWithPasswordHash(
 	ctx context.Context,
@@ -110,7 +110,7 @@ func (st *State) GetUser(ctx context.Context, uuid user.UUID) (user.User, error)
 	var usr user.User
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		getUserQuery := `
-SELECT (uuid, name, display_name, created_by_uuid, created_at) AS &User.*
+SELECT &User.*
 FROM user
 WHERE uuid = $M.uuid
 `
@@ -127,13 +127,7 @@ WHERE uuid = $M.uuid
 			return errors.Annotatef(err, "getting user with uuid %q", uuid)
 		}
 
-		usr = user.User{
-			UUID:        result.UUID,
-			Name:        result.Name,
-			DisplayName: result.DisplayName,
-			CreatorUUID: result.CreatorUUID,
-			CreatedAt:   result.CreatedAt,
-		}
+		usr = result.toCoreUser()
 
 		return nil
 	})
@@ -157,7 +151,7 @@ func (st *State) GetUserByName(ctx context.Context, name string) (user.User, err
 	var usr user.User
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		getUserByNameQuery := `
-SELECT (uuid, name, display_name, created_by_uuid, created_at) AS &User.*
+SELECT &User.*
 FROM user
 WHERE name = $M.name AND removed = false
 `
@@ -175,13 +169,8 @@ WHERE name = $M.name AND removed = false
 			return errors.Annotatef(err, "getting user %q", name)
 		}
 
-		usr = user.User{
-			UUID:        result.UUID,
-			Name:        result.Name,
-			DisplayName: result.DisplayName,
-			CreatorUUID: result.CreatorUUID,
-			CreatedAt:   result.CreatedAt,
-		}
+		usr = result.toCoreUser()
+
 		return nil
 	})
 	if err != nil {
@@ -272,6 +261,10 @@ func (st *State) SetPasswordHash(ctx context.Context, uuid user.UUID, passwordHa
 	})
 }
 
+// addUser adds a new user to the database. If the user already exists an error
+// that satisfies usererrors.AlreadyExists will be returned. If the creator does
+// not exist an error that satisfies usererrors.UserCreatorUUIDNotFound will be
+// returned.
 func addUser(ctx context.Context, tx *sqlair.TX, uuid user.UUID, usr user.User, creatorUuid user.UUID) error {
 	addUserQuery := `
 INSERT INTO user (uuid, name, display_name, created_by_uuid, created_at) 
@@ -295,7 +288,7 @@ VALUES ($M.uuid, $M.name, $M.display_name, $M.created_by_uuid, $M.created_at)
 	} else if databaseutils.IsErrConstraintForeignKey(err) {
 		return errors.Annotatef(usererrors.UserCreatorUUIDNotFound, "adding user %q", usr.Name)
 	} else if err != nil {
-		return errors.Annotatef(err, "adiing user %q", usr.Name)
+		return errors.Annotatef(err, "adding user %q", usr.Name)
 	}
 
 	return nil
@@ -347,6 +340,9 @@ WHERE disabled = false
 	return nil
 }
 
+// setPasswordHash sets the password hash and salt for the user with the
+// supplied uuid. If the user does not exist an error that satisfies
+// usererrors.NotFound will be returned.
 func setPasswordHash(ctx context.Context, tx *sqlair.TX, uuid user.UUID, passwordHash string, salt []byte) error {
 	err := ensureUserAuthentication(ctx, tx, uuid)
 	if err != nil {
@@ -376,6 +372,9 @@ ON CONFLICT(user_uuid) DO NOTHING
 	return nil
 }
 
+// removePasswordHash removes the password hash and salt for the user with the
+// supplied uuid. If the user does not exist an error that satisfies
+// usererrors.NotFound will be returned.
 func removePasswordHash(ctx context.Context, tx *sqlair.TX, uuid user.UUID) error {
 	removePasswordHashQuery := `
 DELETE FROM user_password
@@ -395,6 +394,9 @@ WHERE user_uuid = $M.uuid
 	return nil
 }
 
+// setActivationKey sets the activation key for the user with the supplied uuid.
+// If the user does not exist an error that satisfies usererrors.NotFound will
+// be returned.
 func setActivationKey(ctx context.Context, tx *sqlair.TX, uuid user.UUID, activationKey string) error {
 	err := ensureUserAuthentication(ctx, tx, uuid)
 	if err != nil {
@@ -420,6 +422,9 @@ ON CONFLICT(user_uuid) DO UPDATE SET activation_key = excluded.activation_key
 	return nil
 }
 
+// removeActivationKey removes the activation key for the user with the
+// supplied uuid. If the user does not exist an error that satisfies
+// usererrors.NotFound will be returned.
 func removeActivationKey(ctx context.Context, tx *sqlair.TX, uuid user.UUID) error {
 	removeActivationKeyQuery := `
 DELETE FROM user_activation_key
@@ -457,7 +462,7 @@ WHERE uuid = $M.uuid
 	var resultMap = sqlair.M{}
 	err = tx.Query(ctx, selectIsRemovedStmt, sqlair.M{"uuid": uuid.String()}).Get(&resultMap)
 	if err != nil && errors.Is(err, sql.ErrNoRows) {
-		return false, usererrors.NotFound
+		return false, errors.Annotatef(usererrors.NotFound, "%q", uuid)
 	} else if err != nil {
 		return false, errors.Annotatef(err, "getting user with uuid %q", uuid)
 	}

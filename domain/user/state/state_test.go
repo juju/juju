@@ -86,79 +86,30 @@ func (s *stateSuite) TestSingletonActiveUser(c *gc.C) {
 	c.Assert(database.IsErrConstraintUnique(err), jc.IsTrue)
 }
 
-// TestAddJujuSystemUser asserts that we can add a juju-system user to the
-// database.
-func (s *stateSuite) TestAddJujuSystemUser(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
-
-	// Add juju-system user.
-	jujuSystemUuid, err := user.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
-	jujuSystemCreatorUuid := jujuSystemUuid
-	jujuSystemUser := user.User{
-		Name:        "juju-system",
-		DisplayName: "juju-system",
-	}
-	err = st.AddUser(context.Background(), jujuSystemUuid, jujuSystemUser, jujuSystemCreatorUuid)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Check that the user was added correctly.
-	db := s.DB()
-
-	row := db.QueryRow(`
-SELECT uuid, name, display_name, removed, created_by_uuid, created_at 
-FROM user 
-WHERE uuid = ?
-	`, jujuSystemUuid)
-	c.Assert(row.Err(), jc.ErrorIsNil)
-
-	var uuid, name, displayName string
-	var creatorUUID user.UUID
-	var removed bool
-	var createdAt time.Time
-	err = row.Scan(&uuid, &name, &displayName, &removed, &creatorUUID, &createdAt)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(name, gc.Equals, jujuSystemUser.Name)
-	c.Check(removed, gc.Equals, false)
-	c.Check(displayName, gc.Equals, jujuSystemUser.DisplayName)
-	c.Check(creatorUUID, gc.Equals, jujuSystemCreatorUuid)
-	c.Check(createdAt, gc.NotNil)
-}
-
-// TestAddAdminUser asserts that we can add an admin user owned by juju-system user to the database.
+// TestAddAdminUser asserts that we can add an admin (fist user while bootstrap)
+// user to the database .
 func (s *stateSuite) TestAddAdminUser(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
-	// Add juju-system user.
-	jujuSystemUuid, err := user.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
-	jujuSystemCreatorUuid := jujuSystemUuid
-	jujuSystemUser := user.User{
-		Name:        "juju-system",
-		DisplayName: "juju-system",
-	}
-	err = st.AddUser(context.Background(), jujuSystemUuid, jujuSystemUser, jujuSystemCreatorUuid)
-	c.Assert(err, jc.ErrorIsNil)
-
 	// Add admin user.
-	adminUserUUID, err := user.NewUUID()
+	adminUUID, err := user.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
-	adminuserCreatorUuid := jujuSystemUuid
 	adminUser := user.User{
 		Name:        "admin",
 		DisplayName: "admin",
 	}
-	err = st.AddUser(context.Background(), adminUserUUID, adminUser, adminuserCreatorUuid)
+	err = st.AddUser(context.Background(), adminUUID, adminUser, adminUUID)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that the user was added correctly.
 	db := s.DB()
 
 	row := db.QueryRow(`
-SELECT uuid, name, display_name, removed, created_by_uuid, created_at 
-FROM user 
+SELECT uuid, name, display_name, removed, created_by_uuid, created_at
+FROM user
 WHERE uuid = ?
-	`, adminUserUUID)
+	`, adminUUID)
+
 	c.Assert(row.Err(), jc.ErrorIsNil)
 
 	var uuid, name, displayName string
@@ -170,7 +121,7 @@ WHERE uuid = ?
 	c.Check(name, gc.Equals, adminUser.Name)
 	c.Check(removed, gc.Equals, false)
 	c.Check(displayName, gc.Equals, adminUser.DisplayName)
-	c.Check(creatorUUID, gc.Equals, adminuserCreatorUuid)
+	c.Check(creatorUUID, gc.Equals, adminUUID)
 	c.Check(createdAt, gc.NotNil)
 }
 
@@ -179,42 +130,30 @@ WHERE uuid = ?
 func (s *stateSuite) TestAddUserAlreadyExists(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
-	// Add juju-system user.
-	jujuSystemUuid, err := user.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
-	jujuSystemCreatorUuid := jujuSystemUuid
-	jujuSystemUser := user.User{
-		Name:        "juju-system",
-		DisplayName: "juju-system",
-	}
-	err = st.AddUser(context.Background(), jujuSystemUuid, jujuSystemUser, jujuSystemCreatorUuid)
-	c.Assert(err, jc.ErrorIsNil)
-
 	// Add admin user.
-	userUUID, err := user.NewUUID()
+	adminUUID, err := user.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
-	userCreatorUuid := jujuSystemUuid
 	adminUser := user.User{
 		Name:        "admin",
 		DisplayName: "admin",
 	}
-	err = st.AddUser(context.Background(), userUUID, adminUser, userCreatorUuid)
+	err = st.AddUser(context.Background(), adminUUID, adminUser, adminUUID)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Try and add admin user again.
-	err = st.AddUser(context.Background(), userUUID, adminUser, userCreatorUuid)
+	adminCloneUUID, err := user.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	err = st.AddUser(context.Background(), adminCloneUUID, adminUser, adminCloneUUID)
 	c.Assert(err, jc.ErrorIs, usererrors.AlreadyExists)
 }
 
-// TestAddUserWhichCreatorDoesNotExist asserts that we get an error when we try
+// TestAddUserCreatorNotFound asserts that we get an error when we try
 // to add a user that has a creator that does not exist.
-func (s *stateSuite) TestAddUserWhichCreatorDoesNotExist(c *gc.C) {
+func (s *stateSuite) TestAddUserCreatorNotFound(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	// Add admin user.
-	userUUID, err := user.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
-	userCreatorUuid, err := user.NewUUID()
+	adminUUID, err := user.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	adminUser := user.User{
 		Name:        "admin",
@@ -222,7 +161,9 @@ func (s *stateSuite) TestAddUserWhichCreatorDoesNotExist(c *gc.C) {
 	}
 
 	// Try and add admin user with a creator that does not exist.
-	err = st.AddUser(context.Background(), userUUID, adminUser, userCreatorUuid)
+	nonExistingUUID, err := user.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	err = st.AddUser(context.Background(), adminUUID, adminUser, nonExistingUUID)
 	c.Assert(err, jc.ErrorIs, usererrors.UserCreatorUUIDNotFound)
 }
 
@@ -230,35 +171,61 @@ func (s *stateSuite) TestAddUserWhichCreatorDoesNotExist(c *gc.C) {
 func (s *stateSuite) TestGetUser(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
-	// Add juju-system user.
-	jujuSystemUuid, err := user.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
-	jujuSystemCreatorUuid := jujuSystemUuid
-	jujuSystemUser := user.User{
-		Name:        "juju-system",
-		DisplayName: "juju-system",
-	}
-	err = st.AddUser(context.Background(), jujuSystemUuid, jujuSystemUser, jujuSystemCreatorUuid)
-	c.Assert(err, jc.ErrorIsNil)
-
 	// Add admin user.
-	userUUID, err := user.NewUUID()
+	adminUUID, err := user.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
-	userCreatorUuid := jujuSystemUuid
 	adminUser := user.User{
 		Name:        "admin",
 		DisplayName: "admin",
 	}
-	err = st.AddUser(context.Background(), userUUID, adminUser, userCreatorUuid)
+	err = st.AddUser(context.Background(), adminUUID, adminUser, adminUUID)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Get the user.
-	u, err := st.GetUser(context.Background(), userUUID)
+	u, err := st.GetUser(context.Background(), adminUUID)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(u.Name, gc.Equals, adminUser.Name)
 	c.Check(u.DisplayName, gc.Equals, adminUser.DisplayName)
-	c.Check(u.CreatorUUID, gc.Equals, userCreatorUuid)
+	c.Check(u.CreatorUUID, gc.Equals, adminUUID)
+	c.Check(u.CreatedAt, gc.NotNil)
+}
+
+// TestGetRemovedUser asserts that we can get a removed user from the database.
+func (s *stateSuite) TestGetRemovedUser(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	// Add admin user.
+	adminUUID, err := user.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	adminUser := user.User{
+		Name:        "admin",
+		DisplayName: "admin",
+	}
+	err = st.AddUser(context.Background(), adminUUID, adminUser, adminUUID)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Add userToRemove.
+	userToRemoveUUID, err := user.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	userToRemove := user.User{
+		Name:        "userToRemove",
+		DisplayName: "userToRemove",
+	}
+	err = st.AddUser(context.Background(), userToRemoveUUID, userToRemove, adminUUID)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Remove userToRemove.
+	err = st.RemoveUser(context.Background(), userToRemoveUUID)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Get the user.
+	u, err := st.GetUser(context.Background(), userToRemoveUUID)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(u.Name, gc.Equals, userToRemove.Name)
+	c.Check(u.DisplayName, gc.Equals, userToRemove.DisplayName)
+	c.Check(u.CreatorUUID, gc.Equals, adminUUID)
 	c.Check(u.CreatedAt, gc.NotNil)
 }
 
@@ -280,26 +247,14 @@ func (s *stateSuite) TestGetUserNotFound(c *gc.C) {
 func (s *stateSuite) TestGetUserByName(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
-	// Add juju-system user.
-	jujuSystemUUID, err := user.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
-	jujuSystemCreatorUUID := jujuSystemUUID
-	jujuSystemUser := user.User{
-		Name:        "juju-system",
-		DisplayName: "juju-system",
-	}
-	err = st.AddUser(context.Background(), jujuSystemUUID, jujuSystemUser, jujuSystemCreatorUUID)
-	c.Assert(err, jc.ErrorIsNil)
-
 	// Add admin user.
 	adminUUID, err := user.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
-	adminCreatorUUID := jujuSystemUUID
 	adminUser := user.User{
 		Name:        "admin",
 		DisplayName: "admin",
 	}
-	err = st.AddUser(context.Background(), adminUUID, adminUser, adminCreatorUUID)
+	err = st.AddUser(context.Background(), adminUUID, adminUser, adminUUID)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Get the user.
@@ -308,7 +263,79 @@ func (s *stateSuite) TestGetUserByName(c *gc.C) {
 
 	c.Check(u.Name, gc.Equals, adminUser.Name)
 	c.Check(u.DisplayName, gc.Equals, adminUser.DisplayName)
-	c.Check(u.CreatorUUID, gc.Equals, adminCreatorUUID)
+	c.Check(u.CreatorUUID, gc.Equals, adminUUID)
+	c.Check(u.CreatedAt, gc.NotNil)
+}
+
+// TestGetRemovedUserByName asserts that we can get only non-removed user by name.
+func (s *stateSuite) TestGetRemovedUserByName(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	// Add admin user.
+	adminUUID, err := user.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	adminUser := user.User{
+		Name:        "admin",
+		DisplayName: "admin",
+	}
+	err = st.AddUser(context.Background(), adminUUID, adminUser, adminUUID)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Add userToRemove.
+	userToRemoveUUID, err := user.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	userToRemove := user.User{
+		Name:        "userToRemove",
+		DisplayName: "userToRemove",
+	}
+	err = st.AddUser(context.Background(), userToRemoveUUID, userToRemove, adminUUID)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Remove userToRemove.
+	err = st.RemoveUser(context.Background(), userToRemoveUUID)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Get the user.
+	_, err = st.GetUserByName(context.Background(), userToRemove.Name)
+	c.Assert(err, jc.ErrorIs, usererrors.NotFound)
+}
+
+// TestGetUserByNameMultipleUsers asserts that we get a non-removed user when we try to
+// get a user by name that has multiple users with the same name.
+func (s *stateSuite) TestGetUserByNameMultipleUsers(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	// Add admin user.
+	adminUUID, err := user.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	adminUser := user.User{
+		Name:        "admin",
+		DisplayName: "admin",
+	}
+	err = st.AddUser(context.Background(), adminUUID, adminUser, adminUUID)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Remove admin user.
+	err = st.RemoveUser(context.Background(), adminUUID)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Add admin2 user.
+	admin2UUID, err := user.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	admin2User := user.User{
+		Name:        "admin",
+		DisplayName: "admin2",
+	}
+	err = st.AddUser(context.Background(), admin2UUID, admin2User, admin2UUID)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Get the user.
+	u, err := st.GetUserByName(context.Background(), "admin")
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(u.Name, gc.Equals, adminUser.Name)
+	c.Check(u.DisplayName, gc.Equals, admin2User.DisplayName)
+	c.Check(u.CreatorUUID, gc.Equals, admin2UUID)
 	c.Check(u.CreatedAt, gc.NotNil)
 }
 
@@ -326,26 +353,14 @@ func (s *stateSuite) TestGetUserByNameNotFound(c *gc.C) {
 func (s *stateSuite) TestRemoveUser(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
-	// Add juju-system user.
-	jujuSystemUuid, err := user.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
-	jujuSystemCreatorUuid := jujuSystemUuid
-	jujuSystemUser := user.User{
-		Name:        "juju-system",
-		DisplayName: "juju-system",
-	}
-	err = st.AddUser(context.Background(), jujuSystemUuid, jujuSystemUser, jujuSystemCreatorUuid)
-	c.Assert(err, jc.ErrorIsNil)
-
 	// Add admin user.
-	userUUID, err := user.NewUUID()
+	adminUUID, err := user.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
-	userCreatorUuid := jujuSystemUuid
 	adminUser := user.User{
 		Name:        "admin",
 		DisplayName: "admin",
 	}
-	err = st.AddUser(context.Background(), userUUID, adminUser, userCreatorUuid)
+	err = st.AddUser(context.Background(), adminUUID, adminUser, adminUUID)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Add userToRemove.
@@ -355,7 +370,7 @@ func (s *stateSuite) TestRemoveUser(c *gc.C) {
 		Name:        "userToRemove",
 		DisplayName: "userToRemove",
 	}
-	err = st.AddUser(context.Background(), userToRemoveUUID, userToRemove, userUUID)
+	err = st.AddUser(context.Background(), userToRemoveUUID, userToRemove, adminUUID)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Remove userToRemove.
@@ -379,36 +394,25 @@ WHERE uuid = ?
 	c.Check(removed, gc.Equals, true)
 }
 
+// TestSetPasswordHash asserts that we can set a password hash for a user.
 func (s *stateSuite) TestSetPasswordHash(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
-	// Add juju-system user.
-	jujuSystemUuid, err := user.NewUUID()
+	// Add admin user with activation key.
+	adminUUID, err := user.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
-	jujuSystemCreatorUuid := jujuSystemUuid
-	jujuSystemUser := user.User{
-		Name:        "juju-system",
-		DisplayName: "juju-system",
-	}
-	err = st.AddUser(context.Background(), jujuSystemUuid, jujuSystemUser, jujuSystemCreatorUuid)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Add admin user.
-	userUUID, err := user.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
-	userCreatorUuid := jujuSystemUuid
 	adminUser := user.User{
 		Name:        "admin",
 		DisplayName: "admin",
 	}
-	err = st.AddUser(context.Background(), userUUID, adminUser, userCreatorUuid)
+	err = st.AddUserWithActivationKey(context.Background(), adminUUID, adminUser, adminUUID, "activationKey")
 	c.Assert(err, jc.ErrorIsNil)
 
 	salt, err := auth.NewSalt()
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Set password hash.
-	err = st.SetPasswordHash(context.Background(), userUUID, "passwordHash", salt)
+	err = st.SetPasswordHash(context.Background(), adminUUID, "passwordHash", salt)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that the password hash was set correctly.
@@ -418,7 +422,7 @@ func (s *stateSuite) TestSetPasswordHash(c *gc.C) {
 SELECT disabled
 FROM user_authentication
 WHERE user_uuid = ?
-	`, userUUID)
+	`, adminUUID)
 	c.Assert(rowAuth.Err(), jc.ErrorIsNil)
 
 	var disabled bool
@@ -431,7 +435,7 @@ WHERE user_uuid = ?
 SELECT password_hash
 FROM user_password
 WHERE user_uuid = ?
-	`, userUUID)
+	`, adminUUID)
 	c.Assert(row.Err(), jc.ErrorIsNil)
 
 	var passwordHash string
@@ -444,7 +448,7 @@ WHERE user_uuid = ?
 SELECT activation_key
 FROM user_activation_key
 WHERE user_uuid = ?
-	`, userUUID)
+	`, adminUUID)
 	c.Assert(row.Err(), jc.ErrorIsNil)
 
 	var activationKey string
@@ -452,24 +456,14 @@ WHERE user_uuid = ?
 	c.Assert(err, jc.ErrorIs, sql.ErrNoRows)
 }
 
+// TestAddUserWithPasswordHash asserts that we can add a user with a password
+// hash.
 func (s *stateSuite) TestAddUserWithPasswordHash(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
-	// Add juju-system user.
-	jujuSystemUuid, err := user.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
-	jujuSystemCreatorUuid := jujuSystemUuid
-	jujuSystemUser := user.User{
-		Name:        "juju-system",
-		DisplayName: "juju-system",
-	}
-	err = st.AddUser(context.Background(), jujuSystemUuid, jujuSystemUser, jujuSystemCreatorUuid)
-	c.Assert(err, jc.ErrorIsNil)
-
 	// Add admin user.
-	userUUID, err := user.NewUUID()
+	adminUUID, err := user.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
-	userCreatorUuid := jujuSystemUuid
 	adminUser := user.User{
 		Name:        "admin",
 		DisplayName: "admin",
@@ -479,7 +473,7 @@ func (s *stateSuite) TestAddUserWithPasswordHash(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Add user with password hash.
-	err = st.AddUserWithPasswordHash(context.Background(), userUUID, adminUser, userCreatorUuid, "passwordHash", salt)
+	err = st.AddUserWithPasswordHash(context.Background(), adminUUID, adminUser, adminUUID, "passwordHash", salt)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that the password hash was set correctly.
@@ -489,7 +483,7 @@ func (s *stateSuite) TestAddUserWithPasswordHash(c *gc.C) {
 SELECT password_hash
 FROM user_password
 WHERE user_uuid = ?
-	`, userUUID)
+	`, adminUUID)
 	c.Assert(row.Err(), jc.ErrorIsNil)
 
 	var passwordHash string
@@ -506,9 +500,9 @@ func (s *stateSuite) TestAddUserWithPasswordWhichCreatorDoesNotExist(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	// Add admin user.
-	userUUID, err := user.NewUUID()
+	adminUUID, err := user.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
-	userCreatorUuid, err := user.NewUUID()
+	nonExistedCreatorUuid, err := user.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	adminUser := user.User{
 		Name:        "admin",
@@ -519,33 +513,23 @@ func (s *stateSuite) TestAddUserWithPasswordWhichCreatorDoesNotExist(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Try and add admin user with a creator that does not exist.
-	err = st.AddUserWithPasswordHash(context.Background(), userUUID, adminUser, userCreatorUuid, "passwordHash", salt)
+	err = st.AddUserWithPasswordHash(context.Background(), adminUUID, adminUser, nonExistedCreatorUuid, "passwordHash", salt)
 	c.Assert(err, jc.ErrorIs, usererrors.UserCreatorUUIDNotFound)
 }
 
+// TestAddUserWithActivationKey asserts that we can add a user with an
+// activation key.
 func (s *stateSuite) TestAddUserWithActivationKey(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
-	// Add juju-system user.
-	jujuSystemUuid, err := user.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
-	jujuSystemCreatorUuid := jujuSystemUuid
-	jujuSystemUser := user.User{
-		Name:        "juju-system",
-		DisplayName: "juju-system",
-	}
-	err = st.AddUser(context.Background(), jujuSystemUuid, jujuSystemUser, jujuSystemCreatorUuid)
-	c.Assert(err, jc.ErrorIsNil)
-
 	// Add admin user with activation key.
-	userUUID, err := user.NewUUID()
+	adminUUID, err := user.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
-	userCreatorUuid := jujuSystemUuid
 	adminUser := user.User{
 		Name:        "admin",
 		DisplayName: "admin",
 	}
-	err = st.AddUserWithActivationKey(context.Background(), userUUID, adminUser, userCreatorUuid, "activationKey")
+	err = st.AddUserWithActivationKey(context.Background(), adminUUID, adminUser, adminUUID, "activationKey")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that the activation key was set correctly.
@@ -555,7 +539,7 @@ func (s *stateSuite) TestAddUserWithActivationKey(c *gc.C) {
 SELECT activation_key
 FROM user_activation_key
 WHERE user_uuid = ?
-	`, userUUID)
+	`, adminUUID)
 	c.Assert(row.Err(), jc.ErrorIsNil)
 
 	var activationKey string
@@ -572,9 +556,9 @@ func (s *stateSuite) TestAddUserWithActivationKeyWhichCreatorDoesNotExist(c *gc.
 	st := NewState(s.TxnRunnerFactory())
 
 	// Add admin user with activation key.
-	userUUID, err := user.NewUUID()
+	adminUUID, err := user.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
-	userCreatorUuid, err := user.NewUUID()
+	nonExistedCreatorUuid, err := user.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	adminUser := user.User{
 		Name:        "admin",
@@ -582,28 +566,17 @@ func (s *stateSuite) TestAddUserWithActivationKeyWhichCreatorDoesNotExist(c *gc.
 	}
 
 	// Try and add admin user with an activation key with a creator that does not exist.
-	err = st.AddUserWithActivationKey(context.Background(), userUUID, adminUser, userCreatorUuid, "activationKey")
+	err = st.AddUserWithActivationKey(context.Background(), adminUUID, adminUser, nonExistedCreatorUuid, "activationKey")
 	c.Assert(err, jc.ErrorIs, usererrors.UserCreatorUUIDNotFound)
 }
 
+// TestSetActivationKey asserts that we can set an activation key for a user.
 func (s *stateSuite) TestSetActivationKey(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
-	// Add juju-system user.
-	jujuSystemUuid, err := user.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
-	jujuSystemCreatorUuid := jujuSystemUuid
-	jujuSystemUser := user.User{
-		Name:        "juju-system",
-		DisplayName: "juju-system",
-	}
-	err = st.AddUser(context.Background(), jujuSystemUuid, jujuSystemUser, jujuSystemCreatorUuid)
-	c.Assert(err, jc.ErrorIsNil)
-
 	// Add admin user.
-	userUUID, err := user.NewUUID()
+	adminUUID, err := user.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
-	userCreatorUuid := jujuSystemUuid
 	adminUser := user.User{
 		Name:        "admin",
 		DisplayName: "admin",
@@ -613,11 +586,11 @@ func (s *stateSuite) TestSetActivationKey(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Add user with password hash.
-	err = st.AddUserWithPasswordHash(context.Background(), userUUID, adminUser, userCreatorUuid, "passwordHash", salt)
+	err = st.AddUserWithPasswordHash(context.Background(), adminUUID, adminUser, adminUUID, "passwordHash", salt)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Set activation key.
-	err = st.SetActivationKey(context.Background(), userUUID, "activationKey")
+	err = st.SetActivationKey(context.Background(), adminUUID, "activationKey")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that the activation key was set correctly, and the password hash was removed.
@@ -627,7 +600,7 @@ func (s *stateSuite) TestSetActivationKey(c *gc.C) {
 SELECT activation_key
 FROM user_activation_key
 WHERE user_uuid = ?
-	`, userUUID)
+	`, adminUUID)
 	c.Assert(row.Err(), jc.ErrorIsNil)
 
 	var activationKey string
@@ -640,7 +613,7 @@ WHERE user_uuid = ?
 SELECT password_hash, password_salt
 FROM user_password
 WHERE user_uuid = ?
-	`, userUUID)
+	`, adminUUID)
 	c.Assert(row.Err(), jc.ErrorIsNil)
 
 	var passwordHash, passwordSalt string
