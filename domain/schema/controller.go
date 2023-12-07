@@ -26,6 +26,7 @@ const (
 // ControllerDDL is used to create the controller database schema at bootstrap.
 func ControllerDDL() *schema.Schema {
 	patches := []func() schema.Patch{
+		annotationsSchema,
 		leaseSchema,
 		changeLogSchema,
 		changeLogControllerNamespaces,
@@ -59,6 +60,74 @@ func ControllerDDL() *schema.Schema {
 	}
 
 	return schema
+}
+
+func annotationsSchema() schema.Patch {
+	return schema.MakePatch(`
+CREATE TABLE annotation_application (
+    application_uuid    TEXT NOT NULL,
+    key                 TEXT NOT NULL,
+    value               TEXT NOT NULL,
+    PRIMARY KEY         (application_uuid, key)
+    CONSTRAINT          fk_annotation_application
+        FOREIGN KEY     (application_uuid)
+        REFERENCES      application(uuid)
+);
+
+CREATE TABLE annotation_machine (
+    machine_uuid    TEXT NOT NULL,
+    key             TEXT NOT NULL,
+    value           TEXT NOT NULL,
+    PRIMARY KEY     (machine_uuid, key)
+    CONSTRAINT          fk_annotation_machine
+        FOREIGN KEY     (machine_uuid)
+        REFERENCES      machine(uuid)
+);
+
+CREATE TABLE annotation_unit (
+    unit_uuid       TEXT NOT NULL,
+    key             TEXT NOT NULL,
+    value           TEXT NOT NULL,
+    PRIMARY KEY     (unit_uuid, key)
+    CONSTRAINT          fk_annotation_unit
+        FOREIGN KEY     (unit_uuid)
+        REFERENCES      unit(uuid)
+);
+
+CREATE TABLE annotation_model (
+    model_uuid      TEXT NOT NULL,
+    key             TEXT NOT NULL,
+    value           TEXT NOT NULL,
+    PRIMARY KEY     (model_uuid, key)
+    CONSTRAINT          fk_annotation_model
+        FOREIGN KEY     (model_uuid)
+        REFERENCES      model_list(uuid)
+);
+
+-- Following needs to be added later when their schema are added
+/*
+CREATE TABLE annotation_charm (
+    charm_uuid      TEXT NOT NULL,
+    key             TEXT NOT NULL,
+    value           TEXT NOT NULL,
+    PRIMARY KEY     (charm_uuid, key)
+);
+
+CREATE TABLE annotation_storage_filesystem (
+    filesystem_uuid     TEXT NOT NULL,
+    key                 TEXT NOT NULL,
+    value               TEXT NOT NULL,
+    PRIMARY KEY         (filesystem_uuid, key)
+);
+
+CREATE TABLE annotation_storage_volume (
+    unit_uuid       TEXT NOT NULL,
+    key             TEXT NOT NULL,
+    value           TEXT NOT NULL,
+    PRIMARY KEY     (volume_uuid, key)
+);
+*/
+`)
 }
 
 func leaseSchema() schema.Patch {
