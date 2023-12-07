@@ -52,9 +52,6 @@ type objectsCharmHandler struct {
 
 // ServeGet serves the GET method for the S3 API. This is the equivalent of the
 // `GetObject` method in the AWS S3 API.
-// Since juju's objects (S3) API only acts as a shim, this method will only
-// rewrite the http request for it to be correctly processed by the legacy
-// '/charms' handler.
 func (h *objectsCharmHandler) ServeGet(w http.ResponseWriter, r *http.Request) error {
 	st, _, err := h.ctxt.stateForRequestAuthenticated(r)
 	if err != nil {
