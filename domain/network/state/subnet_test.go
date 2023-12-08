@@ -43,7 +43,7 @@ func (s *stateSuite) TestAddSubnet(c *gc.C) {
 	c.Assert(row.Err(), jc.ErrorIsNil)
 	var (
 		cidr, spaceUUID string
-		subnetType      subnetType
+		subnetType      int
 		VLANTag         int
 	)
 	err = row.Scan(&cidr, &VLANTag, &spaceUUID, &subnetType)
@@ -51,7 +51,7 @@ func (s *stateSuite) TestAddSubnet(c *gc.C) {
 	c.Check(cidr, gc.Equals, "10.0.0.0/24")
 	c.Check(VLANTag, gc.Equals, 0)
 	c.Check(spaceUUID, gc.Equals, spUUID.String())
-	c.Check(subnetType, gc.Equals, base)
+	c.Check(subnetType, gc.Equals, subnetTypeBase)
 
 	// Check the provider network entity.
 	row = db.QueryRow("SELECT uuid,provider_network_id FROM provider_network WHERE provider_network_id = ?", "provider-network-id")

@@ -46,20 +46,24 @@ func (st *State) AddSpace(
 	insertSpaceStmt := `
 INSERT INTO space (uuid, name)
 VALUES (?, ?)`
+
 	insertProviderStmt := `
 INSERT INTO provider_space (provider_id, space_uuid)
 VALUES (?, ?)`
+
 	checkSubnetFanLocalUnderlay := `
 SELECT subnet.cidr,subnet_type.is_space_settable
 FROM   subnet_type
 JOIN   subnet
 ON     subnet.subnet_type_id = subnet_type.id
 WHERE  subnet.uuid = ?`
+
 	findFanSubnetsBinds, findFanSubnetsVals := database.SliceToPlaceholder(subnetIDs)
+
 	findFanSubnetsStmt := fmt.Sprintf(`
 SELECT subject_subnet_uuid
 FROM   subnet_association
-WHERE  associated_subnet_uuid IN (%s)`, findFanSubnetsBinds)
+WHERE  association_type_id = 0 AND associated_subnet_uuid IN (%s)`, findFanSubnetsBinds)
 
 	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		if _, err := tx.ExecContext(ctx, insertSpaceStmt, uuid.String(), name); err != nil {
@@ -181,16 +185,14 @@ func (st *State) GetSpace(
 	}); err != nil {
 		return nil, errors.Annotate(err, "querying spaces")
 	}
-
 	if len(spaceRows) == 0 {
 		return nil, errors.NotFoundf("space %q", uuid)
 	}
-	spaceInfo := &spaceRows.ToSpaceInfos()[0]
 
-	return spaceInfo, nil
+	return &spaceRows.ToSpaceInfos()[0], nil
 }
 
-// GetSpace returns the space by name.
+// GetSpaceByName returns the space by name.
 func (st *State) GetSpaceByName(
 	ctx context.Context,
 	name string,
@@ -213,6 +215,9 @@ func (st *State) GetSpaceByName(
 		return errors.Trace(tx.Query(ctx, s, sqlair.M{"name": name}).GetAll(&rows))
 	}); err != nil {
 		return nil, errors.Annotate(err, "querying spaces by name")
+	}
+	if len(rows) == 0 {
+		return nil, errors.NotFoundf("space with name %q", name)
 	}
 
 	return &rows.ToSpaceInfos()[0], nil

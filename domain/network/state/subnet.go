@@ -15,11 +15,9 @@ import (
 	"github.com/juju/juju/core/network"
 )
 
-type subnetType int
-
 const (
-	base subnetType = iota
-	fanOverlaySegment
+	subnetTypeBase              = 0
+	subnetTypeFanOverlaySegment = 1
 )
 
 // AddSubnet creates a subnet.
@@ -39,9 +37,9 @@ func (st *State) AddSubnet(
 		return errors.Trace(err)
 	}
 
-	var subnetType subnetType
+	var subnetType int
 	if fanInfo != nil {
-		subnetType = fanOverlaySegment
+		subnetType = subnetTypeFanOverlaySegment
 	}
 	var spaceUUIDValue any
 	spaceUUIDValue = spaceUUID
@@ -92,7 +90,7 @@ VALUES (?, ?)`
 			return errors.Trace(err)
 		}
 
-		if subnetType == fanOverlaySegment {
+		if subnetType == subnetTypeFanOverlaySegment {
 			// Retrieve the underlay subnet uuid.
 			var underlaySubnetUUID string
 			row := tx.QueryRowContext(ctx, retrieveUnderlaySubnetUUIDStmt, fanInfo.FanLocalUnderlay)

@@ -220,20 +220,16 @@ CREATE TABLE availability_zone (
 );
 
 CREATE TABLE availability_zone_subnet (
-    uuid                   TEXT PRIMARY KEY,
     availability_zone_uuid TEXT NOT NULL,
     subnet_uuid            TEXT NOT NULL,
+    PRIMARY KEY            (availability_zone_uuid, subnet_uuid),
     CONSTRAINT             fk_availability_zone_availability_zone_uuid
         FOREIGN KEY            (availability_zone_uuid)
         REFERENCES             availability_zone(uuid),
     CONSTRAINT             fk_availability_zone_subnet_uuid
         FOREIGN KEY            (subnet_uuid)
         REFERENCES             subnet(uuid)
-);
-
-CREATE INDEX idx_availability_zone_subnet_subnet_uuid
-ON availability_zone_subnet (subnet_uuid);
-`)
+);`)
 }
 
 func applicationSchema() schema.Patch {

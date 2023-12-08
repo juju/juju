@@ -304,6 +304,13 @@ func (s *stateSuite) TestRetrieveSpaceByUUID(c *gc.C) {
 	c.Check(sp.Subnets, jc.SameContents, expected)
 }
 
+func (s *stateSuite) TestRetrieveSpaceByUUIDNotFound(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	_, err := st.GetSpace(ctx.Background(), "unknown0")
+	c.Assert(err, gc.ErrorMatches, "space \"unknown0\" not found")
+}
+
 func (s *stateSuite) TestRetrieveSpaceByName(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
@@ -324,6 +331,13 @@ func (s *stateSuite) TestRetrieveSpaceByName(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(sp1.ID, gc.Equals, spaceUUID1.String())
 	c.Check(sp1.Name, gc.Equals, network.SpaceName("space1"))
+}
+
+func (s *stateSuite) TestRetrieveSpaceByNameNotFound(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	_, err := st.GetSpaceByName(ctx.Background(), "unknown0")
+	c.Assert(err, gc.ErrorMatches, "space with name \"unknown0\" not found")
 }
 
 func (s *stateSuite) TestRetrieveSpaceByUUIDWithoutSubnet(c *gc.C) {
