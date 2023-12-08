@@ -99,9 +99,6 @@ func (s *schemaSuite) TestControllerDDLApply(c *gc.C) {
 		"user_password",
 		"user_activation_key",
 
-		// Model Config Defaults
-		"model_config_defaults",
-
 		// Flags
 		"flag",
 	)
