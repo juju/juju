@@ -4,7 +4,9 @@
 package state
 
 import (
+	"crypto/rand"
 	"database/sql"
+	"github.com/juju/errors"
 	"time"
 
 	jc "github.com/juju/testing/checkers"
@@ -84,6 +86,14 @@ func (s *stateSuite) TestSingletonActiveUser(c *gc.C) {
 		return err
 	})
 	c.Assert(database.IsErrConstraintUnique(err), jc.IsTrue)
+}
+
+func generateActivationKey() ([]byte, error) {
+	var activationKey [32]byte
+	if _, err := rand.Read(activationKey[:]); err != nil {
+		return nil, errors.Annotate(err, "generating activation key")
+	}
+	return activationKey[:], nil
 }
 
 // TestAddAdminUser asserts that we can add an admin (fist user while bootstrap)
@@ -405,7 +415,9 @@ func (s *stateSuite) TestSetPasswordHash(c *gc.C) {
 		Name:        "admin",
 		DisplayName: "admin",
 	}
-	err = st.AddUserWithActivationKey(context.Background(), adminUUID, adminUser, adminUUID, "activationKey")
+	newActivationKey, err := generateActivationKey()
+	c.Assert(err, jc.ErrorIsNil)
+	err = st.AddUserWithActivationKey(context.Background(), adminUUID, adminUser, adminUUID, newActivationKey)
 	c.Assert(err, jc.ErrorIsNil)
 
 	salt, err := auth.NewSalt()
@@ -529,7 +541,8 @@ func (s *stateSuite) TestAddUserWithActivationKey(c *gc.C) {
 		Name:        "admin",
 		DisplayName: "admin",
 	}
-	err = st.AddUserWithActivationKey(context.Background(), adminUUID, adminUser, adminUUID, "activationKey")
+	adminActivationKey, err := generateActivationKey()
+	err = st.AddUserWithActivationKey(context.Background(), adminUUID, adminUser, adminUUID, adminActivationKey)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that the activation key was set correctly.
@@ -546,7 +559,7 @@ WHERE user_uuid = ?
 	err = row.Scan(&activationKey)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(activationKey, gc.Equals, "activationKey")
+	c.Check(activationKey, gc.Equals, string(adminActivationKey))
 }
 
 // TestAddUserWithActivationKeyWhichCreatorDoesNotExist asserts that we get an
@@ -566,7 +579,8 @@ func (s *stateSuite) TestAddUserWithActivationKeyWhichCreatorDoesNotExist(c *gc.
 	}
 
 	// Try and add admin user with an activation key with a creator that does not exist.
-	err = st.AddUserWithActivationKey(context.Background(), adminUUID, adminUser, nonExistedCreatorUuid, "activationKey")
+	newActivationKey, err := generateActivationKey()
+	err = st.AddUserWithActivationKey(context.Background(), adminUUID, adminUser, nonExistedCreatorUuid, newActivationKey)
 	c.Assert(err, jc.ErrorIs, usererrors.UserCreatorUUIDNotFound)
 }
 
@@ -590,7 +604,8 @@ func (s *stateSuite) TestSetActivationKey(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Set activation key.
-	err = st.SetActivationKey(context.Background(), adminUUID, "activationKey")
+	adminActivationKey, err := generateActivationKey()
+	err = st.SetActivationKey(context.Background(), adminUUID, adminActivationKey)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that the activation key was set correctly, and the password hash was removed.
@@ -607,7 +622,7 @@ WHERE user_uuid = ?
 	err = row.Scan(&activationKey)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(activationKey, gc.Equals, "activationKey")
+	c.Check(activationKey, gc.Equals, string(adminActivationKey))
 
 	row = db.QueryRow(`
 SELECT password_hash, password_salt

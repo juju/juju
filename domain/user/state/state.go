@@ -82,7 +82,7 @@ func (st *State) AddUserWithActivationKey(
 	uuid user.UUID,
 	user user.User,
 	creatorUUID user.UUID,
-	activationKey string,
+	activationKey []byte,
 ) error {
 	db, err := st.DB()
 	if err != nil {
@@ -210,7 +210,7 @@ func (st *State) RemoveUser(ctx context.Context, uuid user.UUID) error {
 // SetActivationKey removes any active passwords for the user and sets the
 // activation key. If no user is found for the supplied UUID an error
 // is returned that satisfies usererrors.NotFound.
-func (st *State) SetActivationKey(ctx context.Context, uuid user.UUID, activationKey string) error {
+func (st *State) SetActivationKey(ctx context.Context, uuid user.UUID, activationKey []byte) error {
 	db, err := st.DB()
 	if err != nil {
 		return errors.Annotate(err, "getting DB access")
@@ -397,7 +397,7 @@ WHERE user_uuid = $M.uuid
 // setActivationKey sets the activation key for the user with the supplied uuid.
 // If the user does not exist an error that satisfies usererrors.NotFound will
 // be returned.
-func setActivationKey(ctx context.Context, tx *sqlair.TX, uuid user.UUID, activationKey string) error {
+func setActivationKey(ctx context.Context, tx *sqlair.TX, uuid user.UUID, activationKey []byte) error {
 	err := ensureUserAuthentication(ctx, tx, uuid)
 	if err != nil {
 		return errors.Annotatef(err, "setting activation key for user with uuid %q", uuid)
