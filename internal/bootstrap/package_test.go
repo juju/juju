@@ -57,11 +57,11 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *baseSuite) newConfig() BaseDeployerConfig {
+func (s *baseSuite) newConfig(c *gc.C) BaseDeployerConfig {
 	controllerUUID := utils.MustNewUUID()
 
 	return BaseDeployerConfig{
-		DataDir:     "/var/lib/juju",
+		DataDir:     c.MkDir(),
 		State:       &state.State{},
 		ObjectStore: s.objectStore,
 		Constraints: constraints.Value{},

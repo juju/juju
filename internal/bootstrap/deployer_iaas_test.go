@@ -29,11 +29,11 @@ var _ = gc.Suite(&deployerIAASSuite{})
 func (s *deployerIAASSuite) TestValidate(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	cfg := s.newConfig()
+	cfg := s.newConfig(c)
 	err := cfg.Validate()
 	c.Assert(err, gc.IsNil)
 
-	cfg = s.newConfig()
+	cfg = s.newConfig(c)
 	cfg.MachineGetter = nil
 	err = cfg.Validate()
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
@@ -96,7 +96,7 @@ func (s *deployerIAASSuite) TestCompleteProcess(c *gc.C) {
 }
 
 func (s *deployerIAASSuite) newDeployer(c *gc.C) *IAASDeployer {
-	deployer, err := NewIAASDeployer(s.newConfig())
+	deployer, err := NewIAASDeployer(s.newConfig(c))
 	c.Assert(err, gc.IsNil)
 	return deployer
 }
@@ -112,9 +112,9 @@ func (s *deployerIAASSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *deployerIAASSuite) newConfig() IAASDeployerConfig {
+func (s *deployerIAASSuite) newConfig(c *gc.C) IAASDeployerConfig {
 	return IAASDeployerConfig{
-		BaseDeployerConfig: s.baseSuite.newConfig(),
+		BaseDeployerConfig: s.baseSuite.newConfig(c),
 		MachineGetter:      s.machineGetter,
 	}
 }
