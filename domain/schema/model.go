@@ -482,6 +482,8 @@ CREATE TABLE storage_instance_pool (
 -- storage_unit_owner is used to indicate when
 -- a unit is the owner of a storage instance.
 -- This is different to a storage attachment.
+-- The owner should be *either* an application
+-- or a unit; not both.
 CREATE TABLE storage_unit_owner (
     storage_instance_uuid TEXT PRIMARY KEY,
     unit_uuid             TEXT NOT NULL,
@@ -493,15 +495,32 @@ CREATE TABLE storage_unit_owner (
         REFERENCES   unit(uuid)
 );
 
+-- storage_application_owner is used to indicate when
+-- an application is the owner of a storage instance.
+CREATE TABLE storage_application_owner (
+    storage_instance_uuid TEXT PRIMARY KEY,
+    application_uuid      TEXT NOT NULL,
+    CONSTRAINT       fk_storage_owner_storage
+        FOREIGN KEY  (storage_instance_uuid)
+        REFERENCES   storage_instance(uuid),
+    CONSTRAINT       fk_storage_owner_application
+        FOREIGN KEY  (application_uuid)
+        REFERENCES   application(uuid)
+);
+
 CREATE TABLE storage_attachment (
     storage_instance_uuid TEXT PRIMARY KEY,
     unit_uuid             TEXT NOT NULL,
+    life_id               INT NOT NULL,  
     CONSTRAINT       fk_storage_owner_storage
         FOREIGN KEY  (storage_instance_uuid)
         REFERENCES   storage_instance(uuid),
     CONSTRAINT       fk_storage_owner_unit
         FOREIGN KEY  (unit_uuid)
-        REFERENCES   unit(uuid)
+        REFERENCES   unit(uuid),
+    CONSTRAINT      fk_storage_attachment_life
+        FOREIGN KEY (life_id)
+        REFERENCES  life(id)
 );
 
 CREATE TABLE storage_constraint_type (
@@ -532,5 +551,90 @@ CREATE TABLE storage_instance_constraint (
 
 CREATE UNIQUE INDEX idx_storage_instance_constraint
 ON storage_instance_constraint (storage_instance_uuid, constraint_type_id);
+
+CREATE TABLE storage_volume (
+    uuid    TEXT PRIMARY KEY,
+    life_id INT NOT NULL,
+    name    TEXT NOT NULL,
+    -- TODO (manadart 2023-12-11) info and params.
+    CONSTRAINT      fk_storage_instance_life
+        FOREIGN KEY (life_id)
+        REFERENCES  life(id)
+);
+
+-- An instance can have at most one volume.
+-- A volume can have at most one instance.
+CREATE TABLE storage_instance_volume (
+    storage_instance_uuid TEXT PRIMARY KEY,
+    storage_volume_uuid   TEXT NOT NULL,
+    CONSTRAINT       fk_storage_instance_volume_instance
+        FOREIGN KEY  (storage_instance_uuid)
+        REFERENCES   storage_instance(uuid),
+    CONSTRAINT       fk_storage_instance_volume_volume
+        FOREIGN KEY  (storage_volume_uuid)
+        REFERENCES   storage_volume(uuid)
+);
+
+CREATE UNIQUE INDEX idx_storage_instance_volume
+ON storage_instance_volume (storage_volume_uuid);
+
+CREATE TABLE storage_volume_attachment (
+    uuid                TEXT PRIMARY KEY,
+    storage_volume_uuid TEXT NOT NULL,
+    net_node_uuid       TEXT NOT NULL,
+    life_id             INT NOT NULL,
+    -- TODO (manadart 2023-12-11) info, params and plans.
+    CONSTRAINT       fk_storage_volume_attachment_vol
+        FOREIGN KEY  (storage_volume_uuid)
+        REFERENCES   storage_volume(uuid),
+    CONSTRAINT       fk_storage_volume_attachment_node
+        FOREIGN KEY  (net_node_uuid)
+        REFERENCES   net_node(uuid),
+    CONSTRAINT       fk_storage_volume_attachment_life
+        FOREIGN KEY  (life_id)
+        REFERENCES   life(id)
+);
+
+CREATE TABLE storage_filesystem (
+    uuid    TEXT PRIMARY KEY,
+    life_id INT NOT NULL,
+    -- TODO (manadart 2023-12-11) info and params.
+    CONSTRAINT      fk_storage_instance_life
+        FOREIGN KEY (life_id)
+        REFERENCES  life(id)
+);
+
+-- An instance can have at most one filesystem.
+-- A filesystem can have at most one instance.
+CREATE TABLE storage_instance_filesystem (
+    storage_instance_uuid   TEXT PRIMARY KEY,
+    storage_filesystem_uuid TEXT NOT NULL,
+    CONSTRAINT       fk_storage_instance_filesystem_instance
+        FOREIGN KEY  (storage_instance_uuid)
+        REFERENCES   storage_instance(uuid),
+    CONSTRAINT       fk_storage_instance_filesystem_fs
+        FOREIGN KEY  (storage_filesystem_uuid)
+        REFERENCES   storage_filesystem(uuid)
+);
+
+CREATE UNIQUE INDEX idx_storage_instance_filesystem
+ON storage_instance_filesystem (storage_filesystem_uuid);
+
+CREATE TABLE storage_filesystem_attachment (
+    uuid                    TEXT PRIMARY KEY,
+    storage_filesystem_uuid TEXT NOT NULL,
+    net_node_uuid           TEXT NOT NULL,
+    life_id                 INT NOT NULL,
+    -- TODO (manadart 2023-12-11) info and params.
+    CONSTRAINT       fk_storage_filesystem_attachment_fs
+        FOREIGN KEY  (storage_filesystem_uuid)
+        REFERENCES   storage_filesystem(uuid),
+    CONSTRAINT       fk_storage_filesystem_attachment_node
+        FOREIGN KEY  (net_node_uuid)
+        REFERENCES   net_node(uuid),
+    CONSTRAINT       fk_storage_filesystem_attachment_life
+        FOREIGN KEY  (life_id)
+        REFERENCES   life(id)
+);
 `)
 }
