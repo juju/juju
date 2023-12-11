@@ -87,7 +87,7 @@ func (d *IAASDeployer) CompleteProcess(ctx context.Context, controllerUnit Contr
 		return errors.Trace(err)
 	}
 
-	if err := controllerUnit.AssignToMachine(m); err != nil {
+	if err := controllerUnit.AssignToMachineRef(m); err != nil {
 		return errors.Annotate(err, "cannot assign controller unit to machine")
 	}
 	return nil

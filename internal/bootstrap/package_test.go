@@ -6,8 +6,9 @@ package bootstrap
 import (
 	"testing"
 
-	"github.com/juju/charm/v11"
+	"github.com/juju/charm/v12"
 	jujutesting "github.com/juju/testing"
+	"github.com/juju/utils/v3"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
@@ -20,7 +21,7 @@ import (
 	jujujujutesting "github.com/juju/juju/testing"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -package bootstrap -destination bootstrap_mock_test.go github.com/juju/juju/internal/bootstrap AgentBinaryStorage,ControllerCharmDeployer,ControllerUnit,HTTPClient,LoggerFactory,CloudServiceGetter,OperationApplier,MachineGetter
+//go:generate go run go.uber.org/mock/mockgen -package bootstrap -destination bootstrap_mock_test.go github.com/juju/juju/internal/bootstrap AgentBinaryStorage,ControllerCharmDeployer,ControllerUnit,HTTPClient,LoggerFactory,CloudService,CloudServiceGetter,OperationApplier,MachineGetter,Machine
 //go:generate go run go.uber.org/mock/mockgen -package bootstrap -destination objectstore_mock_test.go github.com/juju/juju/core/objectstore ObjectStore
 
 func Test(t *testing.T) {
@@ -57,12 +58,16 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 }
 
 func (s *baseSuite) newConfig() BaseDeployerConfig {
+	controllerUUID := utils.MustNewUUID()
+
 	return BaseDeployerConfig{
-		DataDir:          "/var/lib/juju",
-		State:            &state.State{},
-		ObjectStore:      s.objectStore,
-		Constraints:      constraints.Value{},
-		ControllerConfig: controller.Config{},
+		DataDir:     "/var/lib/juju",
+		State:       &state.State{},
+		ObjectStore: s.objectStore,
+		Constraints: constraints.Value{},
+		ControllerConfig: controller.Config{
+			controller.ControllerUUIDKey: controllerUUID.String(),
+		},
 		NewCharmRepo: func(services.CharmRepoFactoryConfig) (corecharm.Repository, error) {
 			return nil, nil
 		},
