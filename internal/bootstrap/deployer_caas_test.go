@@ -30,16 +30,16 @@ var _ = gc.Suite(&deployerCAASSuite{})
 func (s *deployerCAASSuite) TestValidate(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	cfg := s.newConfig()
+	cfg := s.newConfig(c)
 	err := cfg.Validate()
 	c.Assert(err, gc.IsNil)
 
-	cfg = s.newConfig()
+	cfg = s.newConfig(c)
 	cfg.CloudServiceGetter = nil
 	err = cfg.Validate()
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
 
-	cfg = s.newConfig()
+	cfg = s.newConfig(c)
 	cfg.OperationApplier = nil
 	err = cfg.Validate()
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
@@ -48,7 +48,7 @@ func (s *deployerCAASSuite) TestValidate(c *gc.C) {
 func (s *deployerCAASSuite) TestControllerAddress(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	cfg := s.newConfig()
+	cfg := s.newConfig(c)
 
 	s.cloudService.EXPECT().Addresses().Return(network.NewSpaceAddresses("10.0.0.1"))
 	s.cloudServiceGetter.EXPECT().CloudService(cfg.ControllerConfig.ControllerUUID()).Return(s.cloudService, nil)
@@ -64,7 +64,7 @@ func (s *deployerCAASSuite) TestControllerAddressMultipleAddresses(c *gc.C) {
 
 	// Ensure that the test picks the first address.
 
-	cfg := s.newConfig()
+	cfg := s.newConfig(c)
 
 	s.cloudService.EXPECT().Addresses().Return(network.NewSpaceAddresses("10.0.0.1", "10.0.0.2"))
 	s.cloudServiceGetter.EXPECT().CloudService(cfg.ControllerConfig.ControllerUUID()).Return(s.cloudService, nil)
@@ -80,7 +80,7 @@ func (s *deployerCAASSuite) TestControllerAddressMultipleAddressesScopeNonLocal(
 
 	// Ensure that we always pick local over non-local
 
-	cfg := s.newConfig()
+	cfg := s.newConfig(c)
 
 	s.cloudService.EXPECT().Addresses().Return(network.NewSpaceAddresses("2.201.120.241", "10.0.0.2"))
 	s.cloudServiceGetter.EXPECT().CloudService(cfg.ControllerConfig.ControllerUUID()).Return(s.cloudService, nil)
@@ -97,7 +97,7 @@ func (s *deployerCAASSuite) TestControllerAddressScopeNonLocal(c *gc.C) {
 	// Ensure that we return the non scoped local address if we don't have
 	// any local addresses.
 
-	cfg := s.newConfig()
+	cfg := s.newConfig(c)
 
 	s.cloudService.EXPECT().Addresses().Return(network.NewSpaceAddresses("2.201.120.241"))
 	s.cloudServiceGetter.EXPECT().CloudService(cfg.ControllerConfig.ControllerUUID()).Return(s.cloudService, nil)
@@ -111,7 +111,7 @@ func (s *deployerCAASSuite) TestControllerAddressScopeNonLocal(c *gc.C) {
 func (s *deployerCAASSuite) TestControllerAddressNoAddresses(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	cfg := s.newConfig()
+	cfg := s.newConfig(c)
 
 	s.cloudService.EXPECT().Addresses().Return(network.NewSpaceAddresses())
 	s.cloudServiceGetter.EXPECT().CloudService(cfg.ControllerConfig.ControllerUUID()).Return(s.cloudService, nil)
@@ -133,7 +133,7 @@ func (s *deployerCAASSuite) TestControllerCharmBase(c *gc.C) {
 func (s *deployerCAASSuite) TestCompleteProcess(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	cfg := s.newConfig()
+	cfg := s.newConfig(c)
 
 	op := &state.UpdateUnitOperation{}
 
@@ -150,7 +150,7 @@ func (s *deployerCAASSuite) TestCompleteProcess(c *gc.C) {
 }
 
 func (s *deployerCAASSuite) newDeployer(c *gc.C) *CAASDeployer {
-	return s.newDeployerWithConfig(c, s.newConfig())
+	return s.newDeployerWithConfig(c, s.newConfig(c))
 }
 
 func (s *deployerCAASSuite) newDeployerWithConfig(c *gc.C, cfg CAASDeployerConfig) *CAASDeployer {
@@ -169,9 +169,9 @@ func (s *deployerCAASSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *deployerCAASSuite) newConfig() CAASDeployerConfig {
+func (s *deployerCAASSuite) newConfig(c *gc.C) CAASDeployerConfig {
 	return CAASDeployerConfig{
-		BaseDeployerConfig: s.baseSuite.newConfig(),
+		BaseDeployerConfig: s.baseSuite.newConfig(c),
 		CloudServiceGetter: s.cloudServiceGetter,
 		OperationApplier:   s.operationApplier,
 		UnitPassword:       utils.MustNewUUID().String(),
