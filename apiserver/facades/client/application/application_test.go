@@ -770,9 +770,14 @@ func (s *applicationSuite) testClientApplicationsDeployWithBindings(c *gc.C, end
 
 	var cons constraints.Value
 	args := params.ApplicationDeploy{
-		ApplicationName:  "application",
-		CharmURL:         curl.String(),
-		CharmOrigin:      &params.CharmOrigin{Source: "charm-store", OS: "ubuntu", Channel: "12.10"},
+		ApplicationName: "application",
+		CharmURL:        curl.String(),
+		CharmOrigin: &params.CharmOrigin{
+			Source: "charm-store",
+			Base: params.Base{
+				Name: "ubuntu", Channel: "12.10",
+			},
+		},
 		NumUnits:         1,
 		Constraints:      cons,
 		EndpointBindings: endpointBindings,
@@ -986,8 +991,13 @@ func (s *applicationSuite) TestApplicationSetCharm(c *gc.C) {
 	}
 	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
-			CharmURL:        curl.String(),
-			CharmOrigin:     &params.CharmOrigin{Source: "charm-store", OS: "ubuntu", Channel: "12.10"},
+			CharmURL: curl.String(),
+			CharmOrigin: &params.CharmOrigin{
+				Source: "charm-store",
+				Base: params.Base{
+					Name: "ubuntu", Channel: "12.10",
+				},
+			},
 			ApplicationName: "application",
 			NumUnits:        numUnits,
 		}}})
@@ -1009,7 +1019,12 @@ func (s *applicationSuite) TestApplicationSetCharm(c *gc.C) {
 	err = s.applicationAPI.SetCharm(params.ApplicationSetCharm{
 		ApplicationName: "application",
 		CharmURL:        curl.String(),
-		CharmOrigin:     &params.CharmOrigin{Source: "charm-store", OS: "ubuntu", Channel: "12.10"},
+		CharmOrigin: &params.CharmOrigin{
+			Source: "charm-store",
+			Base: params.Base{
+				Name: "ubuntu", Channel: "12.10",
+			},
+		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1035,8 +1050,13 @@ func (s *applicationSuite) setupApplicationSetCharm(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
-			CharmURL:        curl.String(),
-			CharmOrigin:     &params.CharmOrigin{Source: "charm-store", OS: "ubuntu", Channel: "12.10"},
+			CharmURL: curl.String(),
+			CharmOrigin: &params.CharmOrigin{
+				Source: "charm-store",
+				Base: params.Base{
+					Name: "ubuntu", Channel: "12.10",
+				},
+			},
 			ApplicationName: "application",
 			NumUnits:        numUnits,
 		}}})
@@ -1077,7 +1097,12 @@ func (s *applicationSuite) assertApplicationSetCharmBlocked(c *gc.C, msg string)
 	err := s.applicationAPI.SetCharm(params.ApplicationSetCharm{
 		ApplicationName: "application",
 		CharmURL:        "cs:~who/quantal/wordpress-3",
-		CharmOrigin:     &params.CharmOrigin{Source: "charm-store", OS: "ubuntu", Channel: "12.10"},
+		CharmOrigin: &params.CharmOrigin{
+			Source: "charm-store",
+			Base: params.Base{
+				Name: "ubuntu", Channel: "12.10",
+			},
+		},
 	})
 	s.AssertBlocked(c, err, msg)
 }
@@ -1113,8 +1138,13 @@ func (s *applicationSuite) TestApplicationSetCharmForceUnits(c *gc.C) {
 	}
 	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
-			CharmURL:        curl.String(),
-			CharmOrigin:     &params.CharmOrigin{Source: "charm-store", OS: "ubuntu", Channel: "12.10"},
+			CharmURL: curl.String(),
+			CharmOrigin: &params.CharmOrigin{
+				Source: "charm-store",
+				Base: params.Base{
+					Name: "ubuntu", Channel: "12.10",
+				},
+			},
 			ApplicationName: "application",
 			NumUnits:        numUnits,
 		}}})
@@ -1165,9 +1195,13 @@ func (s *applicationSuite) TestApplicationSetCharmInvalidApplication(c *gc.C) {
 	err := s.applicationAPI.SetCharm(params.ApplicationSetCharm{
 		ApplicationName: "badapplication",
 		CharmURL:        "cs:quantal/wordpress-3",
-		CharmOrigin:     &params.CharmOrigin{Source: "charm-store", OS: "ubuntu", Channel: "12.10"},
-		ForceSeries:     true,
-		ForceUnits:      true,
+		CharmOrigin: &params.CharmOrigin{
+			Source: "charm-store",
+			Base: params.Base{
+				Name: "ubuntu", Channel: "12.10",
+			},
+		}, ForceSeries: true,
+		ForceUnits: true,
 	})
 	c.Assert(err, gc.ErrorMatches, `application "badapplication" not found`)
 }
@@ -1195,8 +1229,13 @@ func (s *applicationSuite) TestApplicationSetCharmLegacy(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
-			CharmURL:        curl.String(),
-			CharmOrigin:     &params.CharmOrigin{Source: "charm-store", OS: "ubuntu", Channel: "12.10"},
+			CharmURL: curl.String(),
+			CharmOrigin: &params.CharmOrigin{
+				Source: "charm-store",
+				Base: params.Base{
+					Name: "ubuntu", Channel: "12.10",
+				},
+			},
 			ApplicationName: "application",
 		}}})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1213,8 +1252,12 @@ func (s *applicationSuite) TestApplicationSetCharmLegacy(c *gc.C) {
 	err = s.applicationAPI.SetCharm(params.ApplicationSetCharm{
 		ApplicationName: "application",
 		CharmURL:        curl.String(),
-		CharmOrigin:     &params.CharmOrigin{Source: "charm-store", OS: "ubuntu", Channel: "12.10"},
-		ForceSeries:     true,
+		CharmOrigin: &params.CharmOrigin{
+			Source: "charm-store",
+			Base: params.Base{
+				Name: "ubuntu", Channel: "12.10",
+			},
+		}, ForceSeries: true,
 	})
 	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "application" to charm "cs:~who/trusty/dummy-1": cannot change an application's series`)
 }
@@ -1660,8 +1703,13 @@ func (s *applicationSuite) TestApplicationDeployToMachineWithInvalidLXDProfileAn
 func (s *applicationSuite) TestApplicationDeployToMachineNotFound(c *gc.C) {
 	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
-			CharmURL:        "cs:quantal/application-name-1",
-			CharmOrigin:     &params.CharmOrigin{Source: "charm-store", OS: "ubuntu", Channel: "12.10"},
+			CharmURL: "cs:quantal/application-name-1",
+			CharmOrigin: &params.CharmOrigin{
+				Source: "charm-store",
+				Base: params.Base{
+					Name: "ubuntu", Channel: "12.10",
+				},
+			},
 			ApplicationName: "application-name",
 			NumUnits:        1,
 			Placement:       []*instance.Placement{instance.MustParsePlacement("42")},

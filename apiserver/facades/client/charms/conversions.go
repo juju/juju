@@ -33,6 +33,14 @@ func convertOrigin(origin corecharm.Origin) (params.CharmOrigin, error) {
 			chSeries = origin.Platform.Channel
 		}
 	}
+	var base series.Base
+	if origin.Platform.Channel != "" {
+		var err error
+		base, err = series.ParseBase(origin.Platform.OS, origin.Platform.Channel)
+		if err != nil {
+			return params.CharmOrigin{}, errors.Trace(err)
+		}
+	}
 	return params.CharmOrigin{
 		Source:       string(origin.Source),
 		Type:         origin.Type,
@@ -47,6 +55,7 @@ func convertOrigin(origin corecharm.Origin) (params.CharmOrigin, error) {
 		Channel:      origin.Platform.Channel,
 		// TODO(juju3) - remove series
 		Series:      chSeries,
+		Base:        params.Base{Name: base.Name, Channel: base.Channel.String()},
 		InstanceKey: origin.InstanceKey,
 	}, nil
 }
