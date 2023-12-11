@@ -25,12 +25,13 @@ import (
 	corearch "github.com/juju/juju/core/arch"
 	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
-	"github.com/juju/juju/core/config"
+	coreconfig "github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/environs/bootstrap"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 )
 
@@ -50,7 +51,7 @@ type ControllerCharmDeployer interface {
 	DeployCharmhubCharm(context.Context, string, corebase.Base) (string, *corecharm.Origin, error)
 
 	// AddControllerApplication adds the controller application.
-	AddControllerApplication(context.Context, string, *corecharm.Origin, string) (ControllerUnit, error)
+	AddControllerApplication(context.Context, string, *corecharm.Origin, string) (Unit, error)
 
 	// ControllerAddress returns the address of the controller that should be
 	// used.
@@ -65,20 +66,7 @@ type ControllerCharmDeployer interface {
 	ControllerCharmArch() string
 
 	// CompleteProcess is called when the bootstrap process is complete.
-	CompleteProcess(context.Context, ControllerUnit) error
-}
-
-// ControllerUnit is the interface that is used to get information about a
-// controller unit.
-type ControllerUnit interface {
-	// UpdateOperation returns a model operation that will update a unit.
-	UpdateOperation(state.UnitUpdateProperties) *state.UpdateUnitOperation
-	// AssignToMachine assigns this unit to a given machine.
-	AssignToMachineRef(state.MachineRef) error
-	// UnitTag returns the tag of the unit.
-	UnitTag() names.UnitTag
-	// SetPassword sets the password for the unit.
-	SetPassword(string) error
+	CompleteProcess(context.Context, Unit) error
 }
 
 // Machine is the interface that is used to get information about a machine.
@@ -107,12 +95,59 @@ type HTTPClient interface {
 	Do(*http.Request) (*http.Response, error)
 }
 
+// CharmUploader is an interface that is used to update the charm in
+// state and upload it to the object store.
+type CharmUploader interface {
+	PrepareLocalCharmUpload(url string) (chosenURL *charm.URL, err error)
+	UpdateUploadedCharm(info state.CharmInfo) (services.UploadedCharm, error)
+	PrepareCharmUpload(curl string) (services.UploadedCharm, error)
+	ModelUUID() string
+}
+
 // CharmRepoFunc is the function that is used to create a charm repository.
 type CharmRepoFunc func(services.CharmRepoFactoryConfig) (corecharm.Repository, error)
 
 // CharmDownloaderFunc is the function that is used to create a charm
 // downloader.
 type CharmDownloaderFunc func(services.CharmDownloaderConfig) (interfaces.Downloader, error)
+
+// Application is the interface that is used to get information about an
+// application.
+type Application interface {
+	Name() string
+}
+
+// Charm is the interface that is used to get information about a charm.
+type Charm interface {
+	Meta() *charm.Meta
+}
+
+// Model is the interface that is used to get information about a model.
+type Model interface {
+	Config() (*config.Config, error)
+}
+
+// Unit is the interface that is used to get information about a
+// controller unit.
+type Unit interface {
+	// UpdateOperation returns a model operation that will update a unit.
+	UpdateOperation(state.UnitUpdateProperties) *state.UpdateUnitOperation
+	// AssignToMachine assigns this unit to a given machine.
+	AssignToMachineRef(state.MachineRef) error
+	// UnitTag returns the tag of the unit.
+	UnitTag() names.UnitTag
+	// SetPassword sets the password for the unit.
+	SetPassword(string) error
+}
+
+// StateBackend is the interface that is used to get information about the
+// state.
+type StateBackend interface {
+	AddApplication(state.AddApplicationArgs, objectstore.ObjectStore) (Application, error)
+	Charm(string) (Charm, error)
+	Model() (Model, error)
+	Unit(string) (Unit, error)
+}
 
 // BaseDeployerConfig holds the configuration for a baseDeployer.
 type BaseDeployerConfig struct {
@@ -160,7 +195,8 @@ func (c BaseDeployerConfig) Validate() error {
 
 type baseDeployer struct {
 	dataDir            string
-	state              *state.State
+	stateBackend       StateBackend
+	charmUploader      CharmUploader
 	objectStore        objectstore.ObjectStore
 	constraints        constraints.Value
 	controllerConfig   controller.Config
@@ -176,7 +212,8 @@ type baseDeployer struct {
 func makeBaseDeployer(config BaseDeployerConfig) baseDeployer {
 	return baseDeployer{
 		dataDir:            config.DataDir,
-		state:              config.State,
+		stateBackend:       &stateShim{State: config.State},
+		charmUploader:      &charmUploaderShim{State: config.State},
 		objectStore:        config.ObjectStore,
 		constraints:        config.Constraints,
 		controllerConfig:   config.ControllerConfig,
@@ -212,7 +249,7 @@ func (b *baseDeployer) DeployLocalCharm(ctx context.Context, arch string, base c
 		return nil, nil, errors.Trace(err)
 	}
 
-	curl, err := addLocalControllerCharm(ctx, b.objectStore, b.state, base, controllerCharmPath)
+	curl, err := addLocalControllerCharm(ctx, b.objectStore, b.charmUploader, base, controllerCharmPath)
 	if err != nil {
 		return nil, nil, errors.Annotatef(err, "cannot store controller charm at %q", controllerCharmPath)
 	}
@@ -231,16 +268,15 @@ func (b *baseDeployer) DeployLocalCharm(ctx context.Context, arch string, base c
 
 // DeployCharmhubCharm deploys the controller charm from charm hub.
 func (b *baseDeployer) DeployCharmhubCharm(ctx context.Context, arch string, base corebase.Base) (string, *corecharm.Origin, error) {
-	model, err := b.state.Model()
+	model, err := b.stateBackend.Model()
 	if err != nil {
 		return "", nil, err
 	}
 
-	stateBackend := &stateShim{State: b.state}
 	charmRepo, err := b.newCharmRepo(services.CharmRepoFactoryConfig{
 		LoggerFactory:      b.loggerFactory,
 		CharmhubHTTPClient: b.charmhubHTTPClient,
-		StateBackend:       stateBackend,
+		StateBackend:       b.charmUploader,
 		ModelBackend:       model,
 	})
 	if err != nil {
@@ -285,7 +321,7 @@ func (b *baseDeployer) DeployCharmhubCharm(ctx context.Context, arch string, bas
 		LoggerFactory:      b.loggerFactory,
 		CharmhubHTTPClient: b.charmhubHTTPClient,
 		ObjectStore:        b.objectStore,
-		StateBackend:       stateBackend,
+		StateBackend:       b.charmUploader,
 		ModelBackend:       model,
 	})
 	if err != nil {
@@ -302,8 +338,8 @@ func (b *baseDeployer) DeployCharmhubCharm(ctx context.Context, arch string, bas
 }
 
 // AddControllerApplication adds the controller application.
-func (b *baseDeployer) AddControllerApplication(ctx context.Context, curl string, origin corecharm.Origin, controllerAddress string) (ControllerUnit, error) {
-	ch, err := b.state.Charm(curl)
+func (b *baseDeployer) AddControllerApplication(ctx context.Context, curl string, origin corecharm.Origin, controllerAddress string) (Unit, error) {
+	_, err := b.stateBackend.Charm(curl)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -319,7 +355,7 @@ func (b *baseDeployer) AddControllerApplication(ctx context.Context, curl string
 		cfg["controller-url"] = api.ControllerAPIURL(addr, b.controllerConfig.APIPort())
 	}
 
-	appCfg, err := config.NewConfig(nil, configSchema, schema.Defaults{
+	appCfg, err := coreconfig.NewConfig(nil, configSchema, schema.Defaults{
 		coreapplication.TrustConfigOptionName: true,
 	})
 	if err != nil {
@@ -331,9 +367,9 @@ func (b *baseDeployer) AddControllerApplication(ctx context.Context, curl string
 		return nil, errors.Trace(err)
 	}
 
-	app, err := b.state.AddApplication(state.AddApplicationArgs{
-		Name:              bootstrap.ControllerApplicationName,
-		Charm:             ch,
+	app, err := b.stateBackend.AddApplication(state.AddApplicationArgs{
+		Name: bootstrap.ControllerApplicationName,
+		//Charm:             ch,
 		CharmOrigin:       stateOrigin,
 		CharmConfig:       cfg,
 		Constraints:       b.constraints,
@@ -343,11 +379,11 @@ func (b *baseDeployer) AddControllerApplication(ctx context.Context, curl string
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return b.state.Unit(app.Name() + "/0")
+	return b.stateBackend.Unit(app.Name() + "/0")
 }
 
 // addLocalControllerCharm adds the specified local charm to the controller.
-func addLocalControllerCharm(ctx context.Context, objectStore services.Storage, st *state.State, base corebase.Base, charmFileName string) (*charm.URL, error) {
+func addLocalControllerCharm(ctx context.Context, objectStore services.Storage, uploader CharmUploader, base corebase.Base, charmFileName string) (*charm.URL, error) {
 	archive, err := charm.ReadCharmArchive(charmFileName)
 	if err != nil {
 		return nil, errors.Errorf("invalid charm archive: %v", err)
@@ -369,14 +405,14 @@ func addLocalControllerCharm(ctx context.Context, objectStore services.Storage, 
 		Revision: archive.Revision(),
 		Series:   series,
 	}
-	curl, err = st.PrepareLocalCharmUpload(curl.String())
+	curl, err = uploader.PrepareLocalCharmUpload(curl.String())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	// Now we need to repackage it with the reserved URL, upload it to
 	// provider storage and update the state.
-	err = apiserver.RepackageAndUploadCharm(ctx, objectStore, st, archive, curl)
+	err = apiserver.RepackageAndUploadCharm(ctx, objectStore, uploader, archive, curl)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -391,15 +427,67 @@ var configSchema = environschema.Fields{
 	},
 }
 
-// stateShim allows us to use a real state instance with the charm services logic.
+// charmUploaderShim allows us to use a real state instance with the charm services logic.
+type charmUploaderShim struct {
+	*state.State
+}
+
+func (s *charmUploaderShim) PrepareCharmUpload(curl string) (services.UploadedCharm, error) {
+	return s.State.PrepareCharmUpload(curl)
+}
+
+func (s *charmUploaderShim) UpdateUploadedCharm(info state.CharmInfo) (services.UploadedCharm, error) {
+	return s.State.UpdateUploadedCharm(info)
+}
+
 type stateShim struct {
 	*state.State
 }
 
-func (st *stateShim) PrepareCharmUpload(curl string) (services.UploadedCharm, error) {
-	return st.State.PrepareCharmUpload(curl)
+func (s *stateShim) AddApplication(args state.AddApplicationArgs, objectStore objectstore.ObjectStore) (Application, error) {
+	a, err := s.State.AddApplication(args, objectStore)
+	if err != nil {
+		return nil, err
+	}
+	return &applicationShim{Application: a}, nil
 }
 
-func (st *stateShim) UpdateUploadedCharm(info state.CharmInfo) (services.UploadedCharm, error) {
-	return st.State.UpdateUploadedCharm(info)
+func (s *stateShim) Charm(name string) (Charm, error) {
+	c, err := s.State.Charm(name)
+	if err != nil {
+		return nil, err
+	}
+	return &charmShim{Charm: c}, nil
+}
+
+func (s *stateShim) Model() (Model, error) {
+	m, err := s.State.Model()
+	if err != nil {
+		return nil, err
+	}
+	return &modelShim{Model: m}, nil
+}
+
+func (s *stateShim) Unit(tag string) (Unit, error) {
+	u, err := s.State.Unit(tag)
+	if err != nil {
+		return nil, err
+	}
+	return &unitShim{Unit: u}, nil
+}
+
+type applicationShim struct {
+	*state.Application
+}
+
+type charmShim struct {
+	*state.Charm
+}
+
+type modelShim struct {
+	*state.Model
+}
+
+type unitShim struct {
+	*state.Unit
 }

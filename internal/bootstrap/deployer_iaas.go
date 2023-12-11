@@ -81,7 +81,7 @@ func (d *IAASDeployer) ControllerCharmBase() (corebase.Base, error) {
 }
 
 // CompleteProcess is called when the bootstrap process is complete.
-func (d *IAASDeployer) CompleteProcess(ctx context.Context, controllerUnit ControllerUnit) error {
+func (d *IAASDeployer) CompleteProcess(ctx context.Context, controllerUnit Unit) error {
 	m, err := d.machineGetter.Machine(agent.BootstrapControllerId)
 	if err != nil {
 		return errors.Trace(err)
