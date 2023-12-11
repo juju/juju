@@ -137,15 +137,15 @@ func (s *deployerCAASSuite) TestCompleteProcess(c *gc.C) {
 
 	op := &state.UpdateUnitOperation{}
 
-	s.controllerUnit.EXPECT().UnitTag().Return(names.NewUnitTag("controller/0"))
-	s.controllerUnit.EXPECT().UpdateOperation(state.UnitUpdateProperties{
+	s.unit.EXPECT().UnitTag().Return(names.NewUnitTag("controller/0"))
+	s.unit.EXPECT().UpdateOperation(state.UnitUpdateProperties{
 		ProviderId: ptr("controller-0"),
 	}).Return(op)
 	s.operationApplier.EXPECT().ApplyOperation(op).Return(nil)
-	s.controllerUnit.EXPECT().SetPassword(cfg.UnitPassword).Return(nil)
+	s.unit.EXPECT().SetPassword(cfg.UnitPassword).Return(nil)
 
 	deployer := s.newDeployerWithConfig(c, cfg)
-	err := deployer.CompleteProcess(context.Background(), s.controllerUnit)
+	err := deployer.CompleteProcess(context.Background(), s.unit)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

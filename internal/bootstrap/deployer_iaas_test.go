@@ -88,10 +88,10 @@ func (s *deployerIAASSuite) TestControllerCharmBase(c *gc.C) {
 func (s *deployerIAASSuite) TestCompleteProcess(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.controllerUnit.EXPECT().AssignToMachineRef(s.machine).Return(nil)
+	s.unit.EXPECT().AssignToMachineRef(s.machine).Return(nil)
 
 	deployer := s.newDeployer(c)
-	err := deployer.CompleteProcess(context.Background(), s.controllerUnit)
+	err := deployer.CompleteProcess(context.Background(), s.unit)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
