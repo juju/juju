@@ -5,6 +5,7 @@ package caasapplication
 
 import (
 	"fmt"
+	"path"
 	"strconv"
 	"strings"
 
@@ -178,7 +179,7 @@ func (f *Facade) UnitIntroduction(args params.CAASUnitIntroductionArgs) (params.
 	caCert, _ := controllerConfig.CACert()
 	version, _ := f.model.AgentVersion()
 	dataDir := paths.DataDir(paths.OSUnixLike)
-	logDir := paths.LogDir(paths.OSUnixLike)
+	logDir := path.Join(paths.LogDir(paths.OSUnixLike), "juju")
 	conf, err := agent.NewAgentConfig(
 		agent.AgentConfigParams{
 			Paths: agent.Paths{

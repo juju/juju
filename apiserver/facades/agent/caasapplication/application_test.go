@@ -275,7 +275,7 @@ func (s *CAASApplicationSuite) TestAgentConf(c *gc.C) {
 		"tag":               "unit-gitlab-0",
 		"datadir":           "/var/lib/juju",
 		"transient-datadir": "/var/run/juju",
-		"logdir":            "/var/log",
+		"logdir":            "/var/log/juju",
 		"metricsspooldir":   "/var/lib/juju/metricspool",
 		"upgradedToVersion": "1.9.99",
 		"cacert":            "ignore",
