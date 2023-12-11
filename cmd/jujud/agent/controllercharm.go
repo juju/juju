@@ -88,7 +88,7 @@ func (c *BootstrapCommand) deployControllerCharm(ctx context.Context, objectStor
 
 	// First try using a local charm specified at bootstrap time.
 	source := "local"
-	curl, origin, err := populateLocalControllerCharm(ctx, objectStore, st, c.DataDir(), arch, base)
+	curl, origin, err := populateLocalControllerCharm(ctx, objectStore, &stateShim{State: st}, c.DataDir(), arch, base)
 	if err != nil && !errors.Is(err, errors.NotFound) {
 		return errors.Annotate(err, "deploying local controller charm")
 	}
@@ -235,8 +235,17 @@ func (s stateShim) ModelType() (state.ModelType, error) {
 	return m.Type(), nil
 }
 
+// CharmUploader is an interface that is used to update the charm in
+// state and upload it to the object store.
+type CharmUploader interface {
+	PrepareLocalCharmUpload(url string) (chosenURL *charm.URL, err error)
+	UpdateUploadedCharm(info state.CharmInfo) (services.UploadedCharm, error)
+	PrepareCharmUpload(curl string) (services.UploadedCharm, error)
+	ModelUUID() string
+}
+
 // populateLocalControllerCharm downloads and stores a local controller charm archive.
-func populateLocalControllerCharm(ctx context.Context, objectStore services.Storage, st *state.State, dataDir, arch string, base corebase.Base) (*charm.URL, *corecharm.Origin, error) {
+func populateLocalControllerCharm(ctx context.Context, objectStore services.Storage, uploader CharmUploader, dataDir, arch string, base corebase.Base) (*charm.URL, *corecharm.Origin, error) {
 	controllerCharmPath := filepath.Join(dataDir, "charms", bootstrap.ControllerCharmArchive)
 	_, err := os.Stat(controllerCharmPath)
 	if os.IsNotExist(err) {
@@ -246,7 +255,7 @@ func populateLocalControllerCharm(ctx context.Context, objectStore services.Stor
 		return nil, nil, errors.Trace(err)
 	}
 
-	curl, err := addLocalControllerCharm(ctx, objectStore, st, base, controllerCharmPath)
+	curl, err := addLocalControllerCharm(ctx, objectStore, uploader, base, controllerCharmPath)
 	if err != nil {
 		return nil, nil, errors.Annotatef(err, "cannot store controller charm at %q", controllerCharmPath)
 	}
@@ -264,7 +273,7 @@ func populateLocalControllerCharm(ctx context.Context, objectStore services.Stor
 }
 
 // addLocalControllerCharm adds the specified local charm to the controller.
-func addLocalControllerCharm(ctx context.Context, objectStore services.Storage, st *state.State, base corebase.Base, charmFileName string) (*charm.URL, error) {
+func addLocalControllerCharm(ctx context.Context, objectStore services.Storage, uploader CharmUploader, base corebase.Base, charmFileName string) (*charm.URL, error) {
 	archive, err := charm.ReadCharmArchive(charmFileName)
 	if err != nil {
 		return nil, errors.Errorf("invalid charm archive: %v", err)
@@ -286,14 +295,14 @@ func addLocalControllerCharm(ctx context.Context, objectStore services.Storage, 
 		Revision: archive.Revision(),
 		Series:   series,
 	}
-	curl, err = st.PrepareLocalCharmUpload(curl.String())
+	curl, err = uploader.PrepareLocalCharmUpload(curl.String())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	// Now we need to repackage it with the reserved URL, upload it to
 	// provider storage and update the state.
-	err = apiserver.RepackageAndUploadCharm(ctx, objectStore, st, archive, curl)
+	err = apiserver.RepackageAndUploadCharm(ctx, objectStore, uploader, archive, curl)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -324,7 +324,7 @@ func (h *charmsHandler) processPost(r *http.Request, st *state.State) (*charm.UR
 		return nil, errors.Errorf("unsupported schema %q", schema)
 	}
 
-	err = RepackageAndUploadCharm(r.Context(), objectStore, st, archive, curl)
+	err = RepackageAndUploadCharm(r.Context(), objectStore, storageStateShim{State: st}, archive, curl)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -418,10 +418,18 @@ func (d byDepth) Len() int           { return len(d) }
 func (d byDepth) Swap(i, j int)      { d[i], d[j] = d[j], d[i] }
 func (d byDepth) Less(i, j int) bool { return depth(d[i]) < depth(d[j]) }
 
+// CharmUploader is an interface that is used to update the charm in
+// state and upload it to the object store.
+type CharmUploader interface {
+	UpdateUploadedCharm(info state.CharmInfo) (services.UploadedCharm, error)
+	PrepareCharmUpload(curl string) (services.UploadedCharm, error)
+	ModelUUID() string
+}
+
 // RepackageAndUploadCharm expands the given charm archive to a
 // temporary directory, repackages it with the given curl's revision,
 // then uploads it to storage, and finally updates the state.
-func RepackageAndUploadCharm(ctx context.Context, objectStore services.Storage, st *state.State, archive *charm.CharmArchive, curl *charm.URL) error {
+func RepackageAndUploadCharm(ctx context.Context, objectStore services.Storage, uploader CharmUploader, archive *charm.CharmArchive, curl *charm.URL) error {
 	// Create a temp dir to contain the extracted charm dir.
 	tempDir, err := os.MkdirTemp("", "charm-download")
 	if err != nil {
@@ -468,7 +476,7 @@ func RepackageAndUploadCharm(ctx context.Context, objectStore services.Storage, 
 	// provider storage and update the state.
 	charmStorage := services.NewCharmStorage(services.CharmStorageConfig{
 		Logger:       logger,
-		StateBackend: storageStateShim{st},
+		StateBackend: uploader,
 		ObjectStore:  objectStore,
 	})
 
