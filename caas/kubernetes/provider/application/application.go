@@ -1497,6 +1497,9 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 			}, {
 				Name:  "PEBBLE_SOCKET",
 				Value: "/charm/container/pebble.socket",
+			}, {
+				Name:  "PEBBLE",
+				Value: "/charm/container/pebble",
 			}},
 			LivenessProbe: &corev1.Probe{
 				ProbeHandler:        pebble.LivenessHandler(pebble.WorkloadHealthCheckPort(i)),
