@@ -101,7 +101,7 @@ func (d *CAASDeployer) ControllerCharmBase() corebase.Base {
 }
 
 // CompleteProcess is called when the bootstrap process is complete.
-func (d *CAASDeployer) CompleteProcess(ctx context.Context, controllerUnit ControllerUnit) error {
+func (d *CAASDeployer) CompleteProcess(ctx context.Context, controllerUnit Unit) error {
 	providerID := fmt.Sprintf("controller-%d", controllerUnit.UnitTag().Number())
 	op := controllerUnit.UpdateOperation(state.UnitUpdateProperties{
 		ProviderId: &providerID,
