@@ -120,6 +120,8 @@ type Application interface {
 // Charm is the interface that is used to get information about a charm.
 type Charm interface {
 	Meta() *charm.Meta
+	Manifest() *charm.Manifest
+	URL() string
 }
 
 // Model is the interface that is used to get information about a model.
@@ -270,7 +272,7 @@ func (b *baseDeployer) DeployLocalCharm(ctx context.Context, arch string, base c
 func (b *baseDeployer) DeployCharmhubCharm(ctx context.Context, arch string, base corebase.Base) (string, *corecharm.Origin, error) {
 	model, err := b.stateBackend.Model()
 	if err != nil {
-		return "", nil, err
+		return "", nil, errors.Trace(err)
 	}
 
 	charmRepo, err := b.newCharmRepo(services.CharmRepoFactoryConfig{
@@ -280,7 +282,7 @@ func (b *baseDeployer) DeployCharmhubCharm(ctx context.Context, arch string, bas
 		ModelBackend:       model,
 	})
 	if err != nil {
-		return "", nil, err
+		return "", nil, errors.Trace(err)
 	}
 
 	var curl *charm.URL
@@ -290,10 +292,11 @@ func (b *baseDeployer) DeployCharmhubCharm(ctx context.Context, arch string, bas
 		curl = charm.MustParseURL(b.charmhubURL)
 	}
 	if err != nil {
-		return "", nil, err
+		return "", nil, errors.Trace(err)
 	}
 	origin := corecharm.Origin{
 		Source:  corecharm.CharmHub,
+		Type:    "charm",
 		Channel: &b.channel,
 		Platform: corecharm.Platform{
 			Architecture: arch,
@@ -325,11 +328,11 @@ func (b *baseDeployer) DeployCharmhubCharm(ctx context.Context, arch string, bas
 		ModelBackend:       model,
 	})
 	if err != nil {
-		return "", nil, err
+		return "", nil, errors.Trace(err)
 	}
 	resOrigin, err := charmDownloader.DownloadAndStore(ctx, curl, origin, false)
 	if err != nil {
-		return "", nil, err
+		return "", nil, errors.Trace(err)
 	}
 
 	b.logger.Debugf("Successfully deployed charmhub Juju controller charm")
@@ -339,7 +342,7 @@ func (b *baseDeployer) DeployCharmhubCharm(ctx context.Context, arch string, bas
 
 // AddControllerApplication adds the controller application.
 func (b *baseDeployer) AddControllerApplication(ctx context.Context, curl string, origin corecharm.Origin, controllerAddress string) (Unit, error) {
-	_, err := b.stateBackend.Charm(curl)
+	ch, err := b.stateBackend.Charm(curl)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -368,8 +371,8 @@ func (b *baseDeployer) AddControllerApplication(ctx context.Context, curl string
 	}
 
 	app, err := b.stateBackend.AddApplication(state.AddApplicationArgs{
-		Name: bootstrap.ControllerApplicationName,
-		//Charm:             ch,
+		Name:              bootstrap.ControllerApplicationName,
+		Charm:             ch,
 		CharmOrigin:       stateOrigin,
 		CharmConfig:       cfg,
 		Constraints:       b.constraints,
