@@ -30,8 +30,7 @@ import (
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/osenv"
-	// Import the secret providers.
-	_ "github.com/juju/juju/secrets/provider/all"
+	_ "github.com/juju/juju/secrets/provider/all" // Import the secret providers.
 	"github.com/juju/juju/utils/proxy"
 	"github.com/juju/juju/worker/logsender"
 )
@@ -172,7 +171,7 @@ func main() {
 				Clock:     clock.WallClock,
 				Logger:    loggo.GetLogger("juju.machinelock"),
 				// TODO(ycliuhw): consider to rename machinelock package to something more generic for k8s pod lock.
-				LogFilename: filepath.Join(config.LogDir, machinelock.Filename),
+				LogFilename: filepath.Join(config.LogDir, "juju", machinelock.Filename),
 			})
 			if err != nil {
 				err = errors.Annotatef(err, "acquiring machine lock for juju-exec")
