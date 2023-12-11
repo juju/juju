@@ -191,20 +191,50 @@ func (st *State) RemoveUser(ctx context.Context, uuid user.UUID) error {
 		return errors.Annotate(err, "getting DB access")
 	}
 
-	removeUserQuery := "UPDATE user SET removed = true WHERE uuid = ?"
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		// remove password hash
+		err = removePasswordHash(ctx, tx, uuid)
+		if err != nil {
+			return errors.Annotatef(err, "removing password hash for user with uuid %q", uuid)
+		}
 
-	return db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		result, err := tx.ExecContext(ctx, removeUserQuery, uuid.String())
+		// remove activation key
+		err = removeActivationKey(ctx, tx, uuid)
+		if err != nil {
+			return errors.Annotatef(err, "removing activation key for user with uuid %q", uuid)
+		}
+
+		removeUserQuery := "UPDATE user SET removed = true WHERE uuid = $M.uuid"
+
+		updateRemoveUserStmt, err := sqlair.Prepare(removeUserQuery, sqlair.M{})
+		if err != nil {
+			return errors.Annotate(err, "preparing update removeUser query")
+		}
+
+		query := tx.Query(ctx, updateRemoveUserStmt, sqlair.M{"uuid": uuid.String()})
+		err = query.Run()
 		if err != nil {
 			return errors.Annotatef(err, "removing user with uuid %q", uuid)
 		}
-		if num, err := result.RowsAffected(); err != nil {
+
+		outcome := sqlair.Outcome{}
+		if err := query.Get(&outcome); err != nil {
 			return errors.Annotatef(err, "removing user with uuid %q", uuid)
-		} else if num != 1 {
+		}
+
+		if affected, err := outcome.Result().RowsAffected(); err != nil {
+			return errors.Annotatef(err, "determining results of removing user with uuid %q", uuid)
+		} else if affected != 1 {
 			return errors.Annotatef(usererrors.NotFound, "removing user with uuid %q", uuid)
 		}
-		return errors.Trace(err)
+
+		return nil
 	})
+	if err != nil {
+		return errors.Annotatef(err, "removing user with uuid %q", uuid)
+	}
+
+	return nil
 }
 
 // SetActivationKey removes any active passwords for the user and sets the
