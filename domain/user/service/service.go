@@ -38,9 +38,9 @@ type State interface {
 	// usererrors.UserCreatorNotFound will be returned.
 	AddUserWithActivationKey(ctx context.Context, uuid user.UUID, usr user.User, creatorUUID user.UUID, activationKey []byte) error
 
-	// GetUser will retrieve the user specified by name from the database.
-	// If the user does not exist an error that satisfies
-	// usererrors.NotFound will be returned.
+	// GetUser will retrieve the user specified by UUID from the database where
+	// the user is active. If the user does not exist
+	// or is deleted an error that satisfies usererrors.NotFound will be
 	GetUser(context.Context, user.UUID) (user.User, error)
 
 	// GetUserByName will retrieve the user specified by name from the database
@@ -52,7 +52,7 @@ type State interface {
 	// RemoveUser marks the user as removed. This obviates the ability of a user
 	// to function, but keeps the user retaining provenance, i.e. auditing.
 	// RemoveUser will also remove any credentials and activation codes for the
-	// user. If no user exists for the given name then an error that satisfies
+	// user. If no user exists for the given UUID then an error that satisfies
 	// usererrors.NotFound will be returned.
 	RemoveUser(context.Context, user.UUID) error
 
@@ -273,7 +273,7 @@ func (s *Service) AddUserWithActivationKey(ctx context.Context, usr user.User, c
 // longer usable in Juju and should never be un removed.
 func (s *Service) RemoveUser(ctx context.Context, uuid user.UUID) error {
 	if err := uuid.Validate(); err != nil {
-		return errors.Annotatef(err, "validating uuid %q", uuid)
+		return errors.Annotatef(usererrors.UUIDNotValid, "%q", uuid)
 	}
 
 	if err := s.st.RemoveUser(ctx, uuid); err != nil {
@@ -299,7 +299,7 @@ func (s *Service) SetPassword(
 ) error {
 	defer password.Destroy()
 	if err := uuid.Validate(); err != nil {
-		return errors.Annotatef(err, "validating uuid %q", uuid)
+		return errors.Annotatef(usererrors.UUIDNotValid, "%q", uuid)
 	}
 
 	salt, err := auth.NewSalt()
@@ -322,7 +322,7 @@ func (s *Service) SetPassword(
 // activation key for the user to use to set a new password.
 func (s *Service) ResetPassword(ctx context.Context, uuid user.UUID) ([]byte, error) {
 	if err := uuid.Validate(); err != nil {
-		return nil, errors.Annotatef(err, "validating uuid %q", uuid)
+		return nil, errors.Annotatef(usererrors.UUIDNotValid, "%q", uuid)
 	}
 
 	activationKey, err := generateActivationKey()

@@ -27,6 +27,8 @@ import (
 	modelmanagerstate "github.com/juju/juju/domain/modelmanager/state"
 	upgradeservice "github.com/juju/juju/domain/upgrade/service"
 	upgradestate "github.com/juju/juju/domain/upgrade/state"
+	userService "github.com/juju/juju/domain/user/service"
+	userstate "github.com/juju/juju/domain/user/state"
 )
 
 // Logger defines the logging interface used by the services.
@@ -147,5 +149,12 @@ func (s *ControllerFactory) Upgrade() *upgradeservice.Service {
 			s.controllerDB,
 			s.logger.Child("upgrade"),
 		),
+	)
+}
+
+// User returns the user service.
+func (s *ControllerFactory) User() *userService.Service {
+	return userService.NewService(
+		userstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
 	)
 }

@@ -6,9 +6,9 @@ package state
 import (
 	"crypto/rand"
 	"database/sql"
-	"github.com/juju/errors"
 	"time"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"golang.org/x/net/context"
 	gc "gopkg.in/check.v1"

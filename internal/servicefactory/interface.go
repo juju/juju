@@ -15,6 +15,7 @@ import (
 	modeldefaultsservice "github.com/juju/juju/domain/modeldefaults/service"
 	modelmanagerservice "github.com/juju/juju/domain/modelmanager/service"
 	upgradeservice "github.com/juju/juju/domain/upgrade/service"
+	userService "github.com/juju/juju/domain/user/service"
 )
 
 // ControllerServiceFactory provides access to the services required by the
@@ -40,6 +41,8 @@ type ControllerServiceFactory interface {
 	Cloud() *cloudservice.Service
 	// Upgrade returns the upgrade service.
 	Upgrade() *upgradeservice.Service
+	// User returns the user service.
+	User() *userService.Service
 }
 
 // ModelServiceFactory provides access to the services required by the

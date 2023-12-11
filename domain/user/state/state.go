@@ -140,7 +140,7 @@ WHERE uuid = $M.uuid
 
 // GetUserByName will retrieve the user specified by name from the database
 // where the user is active and has not been removed. If the user does not
-// exist or removed an error that satisfies usererrors.NotFound will be
+// exist or is removed an error that satisfies usererrors.NotFound will be
 // returned.
 func (st *State) GetUserByName(ctx context.Context, name string) (user.User, error) {
 	db, err := st.DB()
@@ -222,7 +222,7 @@ func (st *State) SetActivationKey(ctx context.Context, uuid user.UUID, activatio
 			return errors.Annotatef(err, "getting user with uuid %q", uuid)
 		}
 		if removed {
-			return usererrors.NotFound
+			return errors.Annotatef(usererrors.NotFound, "%q", uuid)
 		}
 
 		err = removePasswordHash(ctx, tx, uuid)
@@ -342,7 +342,9 @@ WHERE disabled = false
 
 // setPasswordHash sets the password hash and salt for the user with the
 // supplied uuid. If the user does not exist an error that satisfies
-// usererrors.NotFound will be returned.
+// usererrors.NotFound will be returned. If the user does not have their
+// authentication enabled an error that satisfies
+// usererrors.UserAuthenticationDisabled will be returned.
 func setPasswordHash(ctx context.Context, tx *sqlair.TX, uuid user.UUID, passwordHash string, salt []byte) error {
 	err := ensureUserAuthentication(ctx, tx, uuid)
 	if err != nil {
@@ -373,8 +375,7 @@ ON CONFLICT(user_uuid) DO NOTHING
 }
 
 // removePasswordHash removes the password hash and salt for the user with the
-// supplied uuid. If the user does not exist an error that satisfies
-// usererrors.NotFound will be returned.
+// supplied uuid.
 func removePasswordHash(ctx context.Context, tx *sqlair.TX, uuid user.UUID) error {
 	removePasswordHashQuery := `
 DELETE FROM user_password
@@ -396,7 +397,8 @@ WHERE user_uuid = $M.uuid
 
 // setActivationKey sets the activation key for the user with the supplied uuid.
 // If the user does not exist an error that satisfies usererrors.NotFound will
-// be returned.
+// be returned. If the user does not have their authentication enabled an error
+// that satisfies usererrors.UserAuthenticationDisabled will be returned.
 func setActivationKey(ctx context.Context, tx *sqlair.TX, uuid user.UUID, activationKey []byte) error {
 	err := ensureUserAuthentication(ctx, tx, uuid)
 	if err != nil {
@@ -423,8 +425,7 @@ ON CONFLICT(user_uuid) DO UPDATE SET activation_key = excluded.activation_key
 }
 
 // removeActivationKey removes the activation key for the user with the
-// supplied uuid. If the user does not exist an error that satisfies
-// usererrors.NotFound will be returned.
+// supplied uuid.
 func removeActivationKey(ctx context.Context, tx *sqlair.TX, uuid user.UUID) error {
 	removeActivationKeyQuery := `
 DELETE FROM user_activation_key
