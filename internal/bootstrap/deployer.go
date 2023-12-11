@@ -9,7 +9,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/juju/charm/v11"
+	"github.com/juju/charm/v12"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/schema"
@@ -27,6 +27,7 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/environs/bootstrap"
@@ -73,7 +74,7 @@ type ControllerUnit interface {
 	// UpdateOperation returns a model operation that will update a unit.
 	UpdateOperation(state.UnitUpdateProperties) *state.UpdateUnitOperation
 	// AssignToMachine assigns this unit to a given machine.
-	AssignToMachine(*state.Machine) error
+	AssignToMachineRef(state.MachineRef) error
 	// UnitTag returns the tag of the unit.
 	UnitTag() names.UnitTag
 	// SetPassword sets the password for the unit.
@@ -82,12 +83,17 @@ type ControllerUnit interface {
 
 // Machine is the interface that is used to get information about a machine.
 type Machine interface {
-	// PublicAddress returns a public address for the machine. If no address is
-	// available it returns an error that satisfies network.IsNoAddressError().
-	PublicAddress() (network.SpaceAddress, error)
-
-	// Base returns the underlying base of the machine.
+	DocID() string
+	Id() string
+	MachineTag() names.MachineTag
+	Life() state.Life
+	Clean() bool
+	ContainerType() instance.ContainerType
 	Base() state.Base
+	Jobs() []state.MachineJob
+	AddPrincipal(string)
+	FileSystems() []string
+	PublicAddress() (network.SpaceAddress, error)
 }
 
 // MachineGetter is the interface that is used to get information about a
