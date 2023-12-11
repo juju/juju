@@ -1545,7 +1545,7 @@ func (st *State) processIAASModelApplicationArgs(args *AddApplicationArgs) error
 			}
 			subordinate := args.Charm.Meta().Subordinate
 			if err := validateUnitMachineAssignment(
-				m, appBase, subordinate, storagePools,
+				st, m, appBase, subordinate, storagePools,
 			); err != nil {
 				return errors.Annotatef(
 					err, "cannot deploy to machine %s", m,

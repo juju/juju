@@ -1576,7 +1576,7 @@ func (a *Application) upgradeStorageOps(
 				countMin = int(cons.Count)
 			}
 			_, unitOps, err := sb.addUnitStorageOps(
-				meta, u, name, cons, countMin,
+				a.st, meta, u, name, cons, countMin,
 			)
 			if err != nil {
 				return nil, errors.Trace(err)
@@ -2624,6 +2624,7 @@ func (a *Application) addUnitStorageOps(
 	platform := a.CharmOrigin().Platform
 	sSeries, _ := corebase.GetSeriesFromChannel(platform.OS, platform.Channel)
 	storageOps, storageTags, numStorageAttachments, err := createStorageOps(
+		a.st,
 		sb,
 		unitTag,
 		charm.Meta(),
@@ -2643,6 +2644,7 @@ func (a *Application) addUnitStorageOps(
 			)
 		}
 		ops, err := sb.attachStorageOps(
+			a.st,
 			si,
 			unitTag,
 			sSeries,

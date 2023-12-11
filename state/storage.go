@@ -750,6 +750,7 @@ type machineAssignable interface {
 // describes the entity's machine assignment. If the entity is assigned
 // to a machine, then machine storage will be created.
 func createStorageOps(
+	st *State,
 	sb *storageBackend,
 	entityTag names.Tag,
 	charmMeta *charm.Meta,
@@ -847,6 +848,7 @@ func createStorageOps(
 				if maybeMachineAssignable != nil {
 					var err error
 					hostStorageOps, err = unitAssignedMachineStorageOps(
+						st,
 						sb, charmMeta, osname,
 						storageInstance,
 						maybeMachineAssignable,
@@ -900,6 +902,7 @@ func createStorageOps(
 // If the unit is not assigned to a machine, then ops will be returned to assert
 // this, and no error will be returned.
 func unitAssignedMachineStorageOps(
+	st *State,
 	sb *storageBackend,
 	charmMeta *charm.Meta,
 	osname string,
@@ -933,7 +936,7 @@ func unitAssignedMachineStorageOps(
 		return nil, errors.Trace(err)
 	}
 	attachmentOps, err := addMachineStorageAttachmentsOps(
-		m, volumeAttachments, filesystemAttachments,
+		st, m, volumeAttachments, filesystemAttachments,
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -1043,7 +1046,7 @@ func (sb *storageBackend) AttachStorage(storage names.StorageTag, unit names.Uni
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		ops, err := sb.attachStorageOps(si, u.UnitTag(), uSeries, ch, u)
+		ops, err := sb.attachStorageOps(ch.st, si, u.UnitTag(), uSeries, ch, u)
 		if errors.Is(err, errors.AlreadyExists) {
 			return nil, jujutxn.ErrNoOperations
 		}
@@ -1087,6 +1090,7 @@ func (sb *storageBackend) AttachStorage(storage names.StorageTag, unit names.Uni
 // The caller is responsible for incrementing the storage refcount for
 // the unit/storage name.
 func (sb *storageBackend) attachStorageOps(
+	st *State,
 	si *storageInstance,
 	unitTag names.UnitTag,
 	osName string,
@@ -1160,6 +1164,7 @@ func (sb *storageBackend) attachStorageOps(
 
 	if maybeMachineAssignable != nil {
 		machineStorageOps, err := unitAssignedMachineStorageOps(
+			st,
 			sb, charmMeta, osName, si,
 			maybeMachineAssignable,
 		)
@@ -2166,7 +2171,7 @@ func (sb *storageBackend) addStorageForUnitOps(
 		return nil, nil, errors.NotValidf("adding storage where instance count is 0")
 	}
 
-	tags, addUnitStorageOps, err := sb.addUnitStorageOps(charmMeta, u, storageName, cons, -1)
+	tags, addUnitStorageOps, err := sb.addUnitStorageOps(u.st, charmMeta, u, storageName, cons, -1)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
@@ -2179,6 +2184,7 @@ func (sb *storageBackend) addStorageForUnitOps(
 // be ignored, and as many storage instances as necessary to make up the
 // shortfall will be created.
 func (sb *storageBackend) addUnitStorageOps(
+	st *State,
 	charmMeta *charm.Meta,
 	u *Unit,
 	storageName string,
@@ -2224,6 +2230,7 @@ func (sb *storageBackend) addUnitStorageOps(
 		return nil, nil, errors.Trace(err)
 	}
 	storageOps, storageTags, _, err := createStorageOps(
+		st,
 		sb,
 		u.Tag(),
 		charmMeta,
@@ -2372,7 +2379,8 @@ func (sb *storageBackend) hostStorageOps(
 // conflicts, with a txn.Op added to prevent concurrent additions as
 // necessary.
 func addMachineStorageAttachmentsOps(
-	machine *Machine,
+	st *State,
+	machine MachineRef,
 	volumes []volumeAttachmentTemplate,
 	filesystems []filesystemAttachmentTemplate,
 ) ([]txn.Op, error) {
@@ -2405,14 +2413,14 @@ func addMachineStorageAttachmentsOps(
 			"filesystems", bson.D{{"$each", filesystemIds}},
 		})
 		if len(withLocation) > 0 {
-			if err := validateFilesystemMountPoints(machine, withLocation); err != nil {
+			if err := validateFilesystemMountPoints(st, machine, withLocation); err != nil {
 				return nil, errors.Annotate(err, "validating filesystem mount points")
 			}
 			// Make sure no filesystems are added concurrently.
 			assert = append(assert, bson.DocElem{
 				"filesystems", bson.D{{"$not", bson.D{{
 					"$elemMatch", bson.D{{
-						"$nin", machine.doc.Filesystems,
+						"$nin", machine.FileSystems(),
 					}},
 				}}}},
 			})
@@ -2424,7 +2432,7 @@ func addMachineStorageAttachmentsOps(
 	}
 	return []txn.Op{{
 		C:      machinesC,
-		Id:     machine.doc.Id,
+		Id:     machine.Id(),
 		Assert: assert,
 		Update: update,
 	}}, nil

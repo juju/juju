@@ -159,6 +159,12 @@ func newMachine(st *State, doc *machineDoc) *Machine {
 	return machine
 }
 
+// DocID returns the machine doc id.
+// Deprecated: this is only used for migration to the domain model.
+func (m *Machine) DocID() string {
+	return m.doc.DocID
+}
+
 // Id returns the machine id.
 func (m *Machine) Id() string {
 	return m.doc.Id
@@ -167,6 +173,13 @@ func (m *Machine) Id() string {
 // Principals returns the principals for the machine.
 func (m *Machine) Principals() []string {
 	return m.doc.Principals
+}
+
+// AddPrincipal adds a principal to the machine.
+func (m *Machine) AddPrincipal(name string) {
+	m.doc.Clean = false
+	m.doc.Principals = append(m.doc.Principals, name)
+	sort.Strings(m.doc.Principals)
 }
 
 // Base returns the os base running on the machine.
@@ -183,6 +196,11 @@ func (m *Machine) ContainerType() instance.ContainerType {
 // for the model that this machine is in.
 func (m *Machine) ModelUUID() string {
 	return m.doc.ModelUUID
+}
+
+// FileSystems returns the names of the filesystems attached to the machine.
+func (m *Machine) FileSystems() []string {
+	return m.doc.Filesystems
 }
 
 // ForceDestroyed returns whether the destruction of a dying/dead
