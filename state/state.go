@@ -1126,9 +1126,18 @@ func (st *State) CloudService(id string) (*CloudService, error) {
 	return svc.CloudService()
 }
 
+// CharmRef is an indirection to a charm, this allows us to pass in a charm,
+// without having a full concrete charm.
+type CharmRef interface {
+	Meta() *charm.Meta
+	Manifest() *charm.Manifest
+	URL() string
+}
+
+// AddApplicationArgs defines the arguments for AddApplication method.
 type AddApplicationArgs struct {
 	Name              string
-	Charm             *Charm
+	Charm             CharmRef
 	CharmOrigin       *CharmOrigin
 	Storage           map[string]StorageConstraints
 	Devices           map[string]DeviceConstraints
