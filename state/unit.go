@@ -74,7 +74,6 @@ type MachineRef interface {
 	ContainerType() instance.ContainerType
 	Base() Base
 	Jobs() []MachineJob
-	Principals() []string
 	AddPrincipal(string)
 	FileSystems() []string
 }
