@@ -131,16 +131,12 @@ func (s SpaceSubnetRow) ToSubnetInfo() network.SubnetInfo {
 	if s.SubnetProviderSpaceUUID.Valid {
 		sInfo.ProviderSpaceId = network.Id(s.SubnetProviderSpaceUUID.String)
 	}
-	if s.SubnetOverlayCIDR.Valid || s.SubnetUnderlayCIDR.Valid {
+	if s.SubnetUnderlayCIDR.Valid {
 		underlay := ""
 		if s.SubnetUnderlayCIDR.Valid {
 			underlay = s.SubnetUnderlayCIDR.String
 		}
-		overlay := ""
-		if s.SubnetOverlayCIDR.Valid {
-			overlay = s.SubnetOverlayCIDR.String
-		}
-		sInfo.SetFan(underlay, overlay)
+		sInfo.SetFan(underlay, "")
 	}
 	if s.SubnetSpaceUUID.Valid {
 		sInfo.SpaceID = s.SubnetSpaceUUID.String
