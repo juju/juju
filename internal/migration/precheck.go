@@ -16,8 +16,8 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/credential"
 	"github.com/juju/juju/internal/tools"
+	"github.com/juju/juju/internal/upgrades/upgradevalidation"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/upgrades/upgradevalidation"
 )
 
 // SourcePrecheck checks the state of the source controller to make

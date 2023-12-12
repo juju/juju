@@ -15,8 +15,8 @@ import (
 
 	"github.com/juju/juju/agent"
 	status "github.com/juju/juju/core/status"
+	"github.com/juju/juju/internal/upgrades"
 	jujutesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/upgrades"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -package upgradesteps -destination clock_mock_test.go github.com/juju/clock Clock

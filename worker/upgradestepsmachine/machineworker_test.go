@@ -16,9 +16,9 @@ import (
 
 	agent "github.com/juju/juju/agent"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/internal/upgrades"
 	"github.com/juju/juju/internal/upgradesteps"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/upgrades"
 )
 
 type machineWorkerSuite struct {

@@ -23,7 +23,7 @@ import (
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/watcher"
 	coretools "github.com/juju/juju/internal/tools"
-	"github.com/juju/juju/upgrades"
+	"github.com/juju/juju/internal/upgrades"
 	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/gate"
 )

@@ -25,7 +25,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/observability/probe"
 	proxy "github.com/juju/juju/internal/proxy/config"
-	"github.com/juju/juju/upgrades"
+	"github.com/juju/juju/internal/upgrades"
 	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/agent"
 	"github.com/juju/juju/worker/apiaddressupdater"

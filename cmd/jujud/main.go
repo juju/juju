@@ -38,12 +38,12 @@ import (
 	coreos "github.com/juju/juju/core/os"
 	proxy "github.com/juju/juju/internal/proxy/config"
 	_ "github.com/juju/juju/internal/secrets/provider/all" // Import the secret providers.
+	"github.com/juju/juju/internal/upgrades"
 	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/juju/sockets"
 	_ "github.com/juju/juju/provider/all" // Import the providers.
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/upgrades"
 	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/dbaccessor"
 	"github.com/juju/juju/worker/logsender"

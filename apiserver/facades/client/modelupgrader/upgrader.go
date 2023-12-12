@@ -24,9 +24,9 @@ import (
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/internal/docker/registry"
+	"github.com/juju/juju/internal/upgrades/upgradevalidation"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/upgrades/upgradevalidation"
 )
 
 // UpgradeService is an interface that allows us to check if the model
