@@ -45,6 +45,7 @@ type baseSuite struct {
 	charmUploader   *MockCharmUploader
 	charmDownloader *MockDownloader
 	charmRepo       *MockRepository
+	charm           *MockCharm
 
 	logger Logger
 }
@@ -64,6 +65,7 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.charmUploader = NewMockCharmUploader(ctrl)
 	s.charmDownloader = NewMockDownloader(ctrl)
 	s.charmRepo = NewMockRepository(ctrl)
+	s.charm = NewMockCharm(ctrl)
 
 	s.logger = jujujujutesting.NewCheckLogger(c)
 
@@ -83,6 +85,9 @@ func (s *baseSuite) newConfig(c *gc.C) BaseDeployerConfig {
 		Constraints: constraints.Value{},
 		ControllerConfig: controller.Config{
 			controller.ControllerUUIDKey: controllerUUID.String(),
+			controller.IdentityURL:       "https://inferi.com",
+			controller.PublicDNSAddress:  "obscura.com",
+			controller.APIPort:           1234,
 		},
 		NewCharmRepo: func(services.CharmRepoFactoryConfig) (corecharm.Repository, error) {
 			return s.charmRepo, nil

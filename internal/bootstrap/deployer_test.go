@@ -13,15 +13,19 @@ import (
 
 	"github.com/juju/charm/v12"
 	"github.com/juju/errors"
+	"github.com/juju/schema"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	services "github.com/juju/juju/apiserver/facades/client/charms/services"
+	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
+	coreconfig "github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/environs/bootstrap"
 	state "github.com/juju/juju/state"
 )
@@ -148,9 +152,12 @@ func (s *deployerSuite) TestDeployLocalCharm(c *gc.C) {
 func (s *deployerSuite) TestDeployCharmhubCharm(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
+	// Ensure we can deploy the charmhub charm, which by default is
+	// juju-controller.
+
 	cfg := s.newConfig(c)
 
-	s.expectCharmhubCharmUpload(c)
+	s.expectCharmhubCharmUpload(c, "juju-controller")
 
 	deployer := s.newBaseDeployer(c, cfg)
 
@@ -169,7 +176,107 @@ func (s *deployerSuite) TestDeployCharmhubCharm(c *gc.C) {
 	})
 }
 
+func (s *deployerSuite) TestDeployCharmhubCharmWithCustomName(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Ensure we can deploy a charmhub charm with a custom name.
+
+	cfg := s.newConfig(c)
+	cfg.CharmhubURL = "inferi"
+
+	s.expectCharmhubCharmUpload(c, "inferi")
+
+	deployer := s.newBaseDeployer(c, cfg)
+
+	url, origin, err := deployer.DeployCharmhubCharm(context.Background(), "arm64", base.MakeDefaultBase("ubuntu", "22.04"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(url, gc.Equals, "ch:arm64/jammy/inferi-0")
+	c.Assert(origin, gc.DeepEquals, &corecharm.Origin{
+		Source:  corecharm.CharmHub,
+		Type:    "charm",
+		Channel: &charm.Channel{},
+		Platform: corecharm.Platform{
+			Architecture: "arm64",
+			OS:           "ubuntu",
+			Channel:      "22.04",
+		},
+	})
+}
+
+func (s *deployerSuite) TestAddControllerApplication(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Ensure that we can add the controller application to the model. This will
+	// query the backend to ensure that the charm we just uploaded exists before
+	// we can add the application.
+
+	cfg := s.newConfig(c)
+
+	charmName := "obscura"
+
+	s.stateBackend.EXPECT().Charm(charmName).Return(s.charm, nil)
+	s.stateBackend.EXPECT().AddApplication(gomock.Any(), s.objectStore).DoAndReturn(func(args state.AddApplicationArgs, store objectstore.ObjectStore) (Application, error) {
+		appCfg, err := coreconfig.NewConfig(nil, configSchema, schema.Defaults{
+			coreapplication.TrustConfigOptionName: true,
+		})
+		c.Assert(err, jc.ErrorIsNil)
+
+		// It's interesting that although we don't pass a channel, a stable one
+		// is set when persisting the charm origin. I wonder if it would be
+		// better to not persist anything at all. In that way we can be sure
+		// that we didn't accidentally persist something that we shouldn't have.
+		c.Check(args, gc.DeepEquals, state.AddApplicationArgs{
+			Name:  bootstrap.ControllerApplicationName,
+			Charm: s.charm,
+			CharmOrigin: &state.CharmOrigin{
+				Source: "charm-hub",
+				Type:   "charm",
+				Channel: &state.Channel{
+					Risk: "stable",
+				},
+				Platform: &state.Platform{
+					Architecture: "arm64",
+					OS:           "ubuntu",
+					Channel:      "22.04",
+				},
+			},
+			CharmConfig: map[string]any{
+				"is-juju":               true,
+				"controller-url":        "wss://obscura.com:1234/api",
+				"identity-provider-url": "https://inferi.com",
+			},
+			Constraints:       constraints.Value{},
+			ApplicationConfig: appCfg,
+			NumUnits:          1,
+		})
+
+		return s.application, nil
+	})
+	s.application.EXPECT().Name().Return(bootstrap.ControllerApplicationName)
+	s.stateBackend.EXPECT().Unit(bootstrap.ControllerApplicationName+"/0").Return(s.unit, nil)
+
+	deployer := s.newBaseDeployer(c, cfg)
+
+	origin := corecharm.Origin{
+		Source:  corecharm.CharmHub,
+		Type:    "charm",
+		Channel: &charm.Channel{},
+		Platform: corecharm.Platform{
+			Architecture: "arm64",
+			OS:           "ubuntu",
+			Channel:      "22.04",
+		},
+	}
+	address := "10.0.0.1"
+	unit, err := deployer.AddControllerApplication(context.Background(), charmName, origin, address)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unit, gc.NotNil)
+}
+
 func (s *deployerSuite) ensureControllerCharm(c *gc.C, dataDir string) {
+	// This will place the most basic charm (no hooks, no config, no actions)
+	// into the data dir so that we can test the local charm path.
+
 	metadata := `
 name: juju-controller
 summary: Juju controller
@@ -225,10 +332,10 @@ func (s *deployerSuite) expectLocalCharmUpload(c *gc.C) {
 	})
 }
 
-func (s *deployerSuite) expectCharmhubCharmUpload(c *gc.C) {
+func (s *deployerSuite) expectCharmhubCharmUpload(c *gc.C, name string) {
 	curl := &charm.URL{
 		Schema:       string(charm.CharmHub),
-		Name:         "juju-controller",
+		Name:         name,
 		Revision:     0,
 		Series:       "jammy",
 		Architecture: "arm64",
@@ -245,6 +352,6 @@ func (s *deployerSuite) expectCharmhubCharmUpload(c *gc.C) {
 	}
 
 	s.stateBackend.EXPECT().Model().Return(s.model, nil)
-	s.charmRepo.EXPECT().ResolveWithPreferredChannel(gomock.Any(), "juju-controller", origin).Return(curl, origin, nil, nil)
+	s.charmRepo.EXPECT().ResolveWithPreferredChannel(gomock.Any(), name, origin).Return(curl, origin, nil, nil)
 	s.charmDownloader.EXPECT().DownloadAndStore(gomock.Any(), curl, origin, false).Return(origin, nil)
 }
