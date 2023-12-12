@@ -350,6 +350,8 @@ func (b *baseDeployer) AddControllerApplication(ctx context.Context, curl string
 		"is-juju": true,
 	}
 	cfg["identity-provider-url"] = b.controllerConfig.IdentityURL()
+
+	// Attempt to set the controller URL on to the controller charm config.
 	addr := b.controllerConfig.PublicDNSAddress()
 	if addr == "" {
 		addr = controllerAddress
