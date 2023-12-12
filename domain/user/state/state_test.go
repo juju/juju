@@ -542,6 +542,7 @@ func (s *stateSuite) TestAddUserWithActivationKey(c *gc.C) {
 		DisplayName: "admin",
 	}
 	adminActivationKey, err := generateActivationKey()
+	c.Assert(err, jc.ErrorIsNil)
 	err = st.AddUserWithActivationKey(context.Background(), adminUUID, adminUser, adminUUID, adminActivationKey)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -580,6 +581,7 @@ func (s *stateSuite) TestAddUserWithActivationKeyWhichCreatorDoesNotExist(c *gc.
 
 	// Try and add admin user with an activation key with a creator that does not exist.
 	newActivationKey, err := generateActivationKey()
+	c.Assert(err, jc.ErrorIsNil)
 	err = st.AddUserWithActivationKey(context.Background(), adminUUID, adminUser, nonExistedCreatorUuid, newActivationKey)
 	c.Assert(err, jc.ErrorIs, usererrors.UserCreatorUUIDNotFound)
 }
@@ -605,6 +607,7 @@ func (s *stateSuite) TestSetActivationKey(c *gc.C) {
 
 	// Set activation key.
 	adminActivationKey, err := generateActivationKey()
+	c.Assert(err, jc.ErrorIsNil)
 	err = st.SetActivationKey(context.Background(), adminUUID, adminActivationKey)
 	c.Assert(err, jc.ErrorIsNil)
 
