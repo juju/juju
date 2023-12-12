@@ -645,3 +645,87 @@ WHERE user_uuid = ?
 	err = row.Scan(&passwordHash, &passwordSalt)
 	c.Assert(err, jc.ErrorIs, sql.ErrNoRows)
 }
+
+// TestDisableUser asserts that we can disable a user.
+func (s *stateSuite) TestDisableUser(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	// Add admin user.
+	adminUUID, err := user.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	adminUser := user.User{
+		Name:        "admin",
+		DisplayName: "admin",
+	}
+
+	salt, err := auth.NewSalt()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Add user with password hash.
+	err = st.AddUserWithPasswordHash(context.Background(), adminUUID, adminUser, adminUUID, "passwordHash", salt)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Disable user.
+	err = st.DisableUser(context.Background(), adminUUID)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check that the user was disabled correctly.
+	db := s.DB()
+
+	row := db.QueryRow(`
+SELECT disabled
+FROM user_authentication
+WHERE user_uuid = ?
+	`, adminUUID)
+	c.Assert(row.Err(), jc.ErrorIsNil)
+
+	var disabled bool
+	err = row.Scan(&disabled)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(disabled, gc.Equals, true)
+}
+
+// TestEnableUser asserts that we can enable a user.
+func (s *stateSuite) TestEnableUser(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	// Add admin user with activation key.
+	adminUUID, err := user.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	adminUser := user.User{
+		Name:        "admin",
+		DisplayName: "admin",
+	}
+
+	salt, err := auth.NewSalt()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Add user with password hash.
+	err = st.AddUserWithPasswordHash(context.Background(), adminUUID, adminUser, adminUUID, "passwordHash", salt)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Disable user.
+	err = st.DisableUser(context.Background(), adminUUID)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Enable user.
+	err = st.EnableUser(context.Background(), adminUUID)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check that the user was enabled correctly.
+	db := s.DB()
+
+	row := db.QueryRow(`
+SELECT disabled
+FROM user_authentication
+WHERE user_uuid = ?
+	`, adminUUID)
+	c.Assert(row.Err(), jc.ErrorIsNil)
+
+	var disabled bool
+	err = row.Scan(&disabled)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(disabled, gc.Equals, false)
+}
