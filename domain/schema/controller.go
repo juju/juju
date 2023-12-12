@@ -4,6 +4,8 @@
 package schema
 
 import (
+	"fmt"
+
 	"github.com/juju/juju/core/database/schema"
 )
 
@@ -62,47 +64,26 @@ func ControllerDDL() *schema.Schema {
 	return schema
 }
 
-func annotationsSchema() schema.Patch {
-	return schema.MakePatch(`
-CREATE TABLE annotation_application (
+func annotationTablePatch(table string) string {
+	return fmt.Sprintf(`
+CREATE TABLE annotation_%[1]s (
     application_uuid    TEXT NOT NULL,
     key                 TEXT NOT NULL,
     value               TEXT NOT NULL,
-    PRIMARY KEY         (application_uuid, key)
-    CONSTRAINT          fk_annotation_application
-        FOREIGN KEY     (application_uuid)
-        REFERENCES      application(uuid)
-);
+    PRIMARY KEY         (%[1]s_uuid, key)
+    CONSTRAINT          fk_annotation_%[1]s
+        FOREIGN KEY     (%[1]s_uuid)
+        REFERENCES      %[1]s(uuid)
+);`[1:], table)
+}
 
-CREATE TABLE annotation_machine (
-    machine_uuid    TEXT NOT NULL,
-    key             TEXT NOT NULL,
-    value           TEXT NOT NULL,
-    PRIMARY KEY     (machine_uuid, key)
-    CONSTRAINT          fk_annotation_machine
-        FOREIGN KEY     (machine_uuid)
-        REFERENCES      machine(uuid)
-);
-
-CREATE TABLE annotation_unit (
-    unit_uuid       TEXT NOT NULL,
-    key             TEXT NOT NULL,
-    value           TEXT NOT NULL,
-    PRIMARY KEY     (unit_uuid, key)
-    CONSTRAINT          fk_annotation_unit
-        FOREIGN KEY     (unit_uuid)
-        REFERENCES      unit(uuid)
-);
-
-CREATE TABLE annotation_model (
-    model_uuid      TEXT NOT NULL,
-    key             TEXT NOT NULL,
-    value           TEXT NOT NULL,
-    PRIMARY KEY     (model_uuid, key)
-    CONSTRAINT          fk_annotation_model
-        FOREIGN KEY     (model_uuid)
-        REFERENCES      model_list(uuid)
-);`)
+func annotationsSchema() schema.Patch {
+	return schema.MakePatch(
+		annotationTablePatch("application") +
+			annotationTablePatch("machine") +
+			annotationTablePatch("unit") +
+			annotationTablePatch("model"),
+	)
 }
 
 func leaseSchema() schema.Patch {
