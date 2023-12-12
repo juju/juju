@@ -88,7 +88,6 @@ type Client struct {
 	refreshClient   *refreshClient
 	resourcesClient *resourcesClient
 	logger          Logger
-	loggerFactory   LoggerFactory
 }
 
 // NewClient creates a new Charmhub client from the supplied configuration.

@@ -45,7 +45,6 @@ type CharmRepoFactoryConfig struct {
 // calls.
 type CharmRepoFactory struct {
 	loggerFactory      LoggerFactory
-	logger             charmhub.Logger
 	charmhubHTTPClient charmhub.HTTPClient
 	stateBackend       StateBackend
 	modelBackend       ModelBackend
