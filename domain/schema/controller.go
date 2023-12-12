@@ -67,7 +67,7 @@ func ControllerDDL() *schema.Schema {
 func annotationTablePatch(table string) string {
 	return fmt.Sprintf(`
 CREATE TABLE annotation_%[1]s (
-    application_uuid    TEXT NOT NULL,
+    %[1]s_uuid    TEXT NOT NULL,
     key                 TEXT NOT NULL,
     value               TEXT NOT NULL,
     PRIMARY KEY         (%[1]s_uuid, key)
