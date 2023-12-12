@@ -35,6 +35,7 @@ import (
 	modelbootstrap "github.com/juju/juju/domain/model/bootstrap"
 	modelconfigbootstrap "github.com/juju/juju/domain/modelconfig/bootstrap"
 	modeldefaultsbootstrap "github.com/juju/juju/domain/modeldefaults/bootstrap"
+	userbootstrap "github.com/juju/juju/domain/user/bootstrap"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
@@ -245,6 +246,7 @@ func (b *AgentBootstrap) Initialize(ctx stdcontext.Context) (_ *state.Controller
 			credbootstrap.InsertCredential(credential.IdFromTag(cloudCredTag), cloudCred),
 			cloudbootstrap.SetCloudDefaults(stateParams.ControllerCloud.Name, stateParams.ControllerInheritedConfig),
 			modelbootstrap.CreateModel(controllerUUID, controllerModelArgs),
+			userbootstrap.InsertAdminUser(),
 		),
 		database.BootstrapModelConcern(controllerUUID,
 			modelconfigbootstrap.SetModelConfig(stateParams.ControllerModelConfig, controllerModelDefaults),

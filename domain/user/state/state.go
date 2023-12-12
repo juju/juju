@@ -291,6 +291,20 @@ func (st *State) SetPasswordHash(ctx context.Context, uuid user.UUID, passwordHa
 	})
 }
 
+func CreateAdminUser(ctx context.Context, tx *sqlair.TX) error {
+	uuid, err := user.NewUUID()
+	if err != nil {
+		return errors.Annotate(err, "generating UUID")
+	}
+
+	adminUser := user.User{
+		Name:        "admin",
+		DisplayName: "admin",
+		CreatedAt:   time.Now(),
+	}
+	return errors.Trace(addUser(ctx, tx, uuid, adminUser, uuid))
+}
+
 // addUser adds a new user to the database. If the user already exists an error
 // that satisfies usererrors.AlreadyExists will be returned. If the creator does
 // not exist an error that satisfies usererrors.UserCreatorUUIDNotFound will be
