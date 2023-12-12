@@ -14,8 +14,8 @@ import (
 	"github.com/juju/juju/core/watcher"
 )
 
-// blockDeviceWatcher is a notify watcher which watchers for
-// updates to the block devices for a machine and only fires
+// blockDeviceWatcher is a [github.com/juju/juju/core/watcher.NotifyWatcher]
+// which watches for updates to the block devices for a machine and only fires
 // when the block device content actually changes.
 type blockDeviceWatcher struct {
 	tomb tomb.Tomb
@@ -23,8 +23,8 @@ type blockDeviceWatcher struct {
 	baseWatcher watcher.NotifyWatcher
 	st          State
 
-	machine string
-	out     chan struct{}
+	machineId string
+	out       chan struct{}
 }
 
 // Kill implements Worker.
@@ -40,12 +40,12 @@ func (w *blockDeviceWatcher) Wait() error {
 func newBlockDeviceWatcher(
 	st State,
 	baseWatcher watcher.NotifyWatcher,
-	machine string,
+	machineId string,
 ) (watcher.NotifyWatcher, error) {
 	w := &blockDeviceWatcher{
 		st:          st,
 		baseWatcher: baseWatcher,
-		machine:     machine,
+		machineId:   machineId,
 		out:         make(chan struct{}),
 	}
 	w.tomb.Go(func() error {
@@ -72,7 +72,7 @@ func (w *blockDeviceWatcher) loop() (err error) {
 		}
 	}()
 
-	currentBlockDevices, err := w.st.BlockDevices(w.tomb.Context(nil), w.machine)
+	currentBlockDevices, err := w.st.BlockDevices(w.tomb.Context(nil), w.machineId)
 	if err != nil {
 		return errors.Annotate(err, "getting initial block devices")
 	}
@@ -83,7 +83,7 @@ func (w *blockDeviceWatcher) loop() (err error) {
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
 		case <-w.baseWatcher.Changes():
-			newBlockDevices, err := w.st.BlockDevices(w.tomb.Context(nil), w.machine)
+			newBlockDevices, err := w.st.BlockDevices(w.tomb.Context(nil), w.machineId)
 			if errors.Is(err, errors.NotFound) {
 				// Machine has been removed so exit gracefully.
 				return nil

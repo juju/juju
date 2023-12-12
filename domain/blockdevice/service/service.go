@@ -20,7 +20,7 @@ import (
 // State defines an interface for interacting with the underlying state.
 type State interface {
 	BlockDevices(ctx context.Context, machine string) ([]blockdevice.BlockDevice, error)
-	GetMachineInfo(ctx context.Context, machine string) (string, domain.Life, error)
+	GetMachineInfo(ctx context.Context, machineId string) (string, domain.Life, error)
 }
 
 // Logger facilitates emitting log messages.
@@ -57,14 +57,14 @@ func NewService(st State, wf WatcherFactory, logger Logger) *Service {
 // changes to block devices associated with the specified machine.
 func (s *Service) WatchBlockDevices(
 	ctx context.Context,
-	machine string,
+	machineId string,
 ) (watcher.NotifyWatcher, error) {
-	machineUUID, life, err := s.st.GetMachineInfo(ctx, machine)
+	machineUUID, life, err := s.st.GetMachineInfo(ctx, machineId)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	if life == domain.Dead {
-		return nil, errors.Errorf("cannot watch block devices on dead machine %q", machine)
+		return nil, errors.Errorf("cannot watch block devices on dead machine %q", machineId)
 	}
 
 	predicate := func(ctx context.Context, db database.TxnRunner, changes []changestream.ChangeEvent) (bool, error) {
@@ -77,7 +77,7 @@ func (s *Service) WatchBlockDevices(
 	}
 	baseWatcher, err := s.watcherFactory.NewValuePredicateWatcher("block_device_machine", machineUUID, changestream.All, predicate)
 	if err != nil {
-		return nil, errors.Annotatef(err, "watching machine block devices")
+		return nil, errors.Annotatef(err, "watching machine %q block devices", machineId)
 	}
-	return newBlockDeviceWatcher(s.st, baseWatcher, machine)
+	return newBlockDeviceWatcher(s.st, baseWatcher, machineId)
 }

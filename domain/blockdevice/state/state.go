@@ -31,7 +31,7 @@ func NewState(factory coredatabase.TxnRunnerFactory) *State {
 }
 
 // BlockDevices returns the BlockDevices for the specified machine.
-func (st *State) BlockDevices(ctx context.Context, machine string) ([]blockdevice.BlockDevice, error) {
+func (st *State) BlockDevices(ctx context.Context, machineId string) ([]blockdevice.BlockDevice, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -40,13 +40,13 @@ func (st *State) BlockDevices(ctx context.Context, machine string) ([]blockdevic
 	var result []blockdevice.BlockDevice
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
-		result, err = loadBlockDevices(ctx, tx, machine)
+		result, err = loadBlockDevices(ctx, tx, machineId)
 		return errors.Trace(err)
 	})
 	return result, errors.Trace(err)
 }
 
-func loadBlockDevices(ctx context.Context, tx *sqlair.TX, machine string) ([]blockdevice.BlockDevice, error) {
+func loadBlockDevices(ctx context.Context, tx *sqlair.TX, machineId string) ([]blockdevice.BlockDevice, error) {
 	credQuery := `
 SELECT bd.* AS &BlockDevice.*,
        bdl.* AS &DeviceLink.*,
@@ -76,17 +76,17 @@ WHERE  machine.machine_id = $M.machine_id
 		dbDeviceLinks     []DeviceLink
 		dbFilesystemTypes []FilesystemType
 	)
-	machineParam := sqlair.M{"machine_id": machine}
+	machineParam := sqlair.M{"machine_id": machineId}
 	err = tx.Query(ctx, stmt, machineParam).GetAll(&dbRows, &dbDeviceLinks, &dbFilesystemTypes)
 	if err != nil {
-		return nil, errors.Annotatef(err, "loading block devices for machine %q", machine)
+		return nil, errors.Annotatef(err, "loading block devices for machine %q", machineId)
 	}
 	return dbRows.toBlockDevices(dbDeviceLinks, dbFilesystemTypes)
 }
 
 // GetMachineInfo is used by the block device service to look up
 // the machine UUID and life for a machine with which to call the watcher.
-func (st *State) GetMachineInfo(ctx context.Context, machine string) (string, domain.Life, error) {
+func (st *State) GetMachineInfo(ctx context.Context, machineId string) (string, domain.Life, error) {
 	db, err := st.DB()
 	if err != nil {
 		return "", 0, errors.Trace(err)
@@ -98,13 +98,13 @@ func (st *State) GetMachineInfo(ctx context.Context, machine string) (string, do
 	)
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
-		machineUUID, life, err = getMachineInfo(ctx, tx, machine)
+		machineUUID, life, err = getMachineInfo(ctx, tx, machineId)
 		return errors.Trace(err)
 	})
 	return machineUUID, life, errors.Trace(err)
 }
 
-func getMachineInfo(ctx context.Context, tx *sqlair.TX, machine string) (string, domain.Life, error) {
+func getMachineInfo(ctx context.Context, tx *sqlair.TX, machineId string) (string, domain.Life, error) {
 	q := `
 SELECT machine.life_id AS &M.life_id, machine.uuid AS &M.machine_uuid
 FROM   machine
@@ -116,16 +116,16 @@ WHERE  machine.machine_id = $M.machine_id
 	}
 
 	result := sqlair.M{}
-	err = tx.Query(ctx, stmt, sqlair.M{"machine_id": machine}).Get(result)
+	err = tx.Query(ctx, stmt, sqlair.M{"machine_id": machineId}).Get(result)
 	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 		return "", 0, errors.Trace(err)
 	}
 	if len(result) == 0 {
-		return "", 0, fmt.Errorf("machine %q %w", machine, errors.NotFound)
+		return "", 0, fmt.Errorf("machine %q %w", machineId, errors.NotFound)
 	}
 	life, ok := result["life_id"].(int64)
 	if !ok {
-		return "", 0, errors.Errorf("missing life value for machine %q", machine)
+		return "", 0, errors.Errorf("missing life value for machine %q", machineId)
 	}
 	machineUUID := result["machine_uuid"].(string)
 	return machineUUID, domain.Life(life), nil
@@ -133,30 +133,30 @@ WHERE  machine.machine_id = $M.machine_id
 
 // SetMachineBlockDevices sets the block devices visible on the machine.
 // Previously recorded block devices not in the list will be removed.
-func (st *State) SetMachineBlockDevices(ctx context.Context, machine string, devices ...blockdevice.BlockDevice) error {
+func (st *State) SetMachineBlockDevices(ctx context.Context, machineId string, devices ...blockdevice.BlockDevice) error {
 	db, err := st.DB()
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		machineUUID, life, err := getMachineInfo(ctx, tx, machine)
+		machineUUID, life, err := getMachineInfo(ctx, tx, machineId)
 		if err != nil {
 			return errors.Trace(err)
 		}
 		if life == domain.Dead {
-			return errors.Errorf("cannot update block devices on dead machine %q", machine)
+			return errors.Errorf("cannot update block devices on dead machine %q", machineId)
 		}
-		existing, err := loadBlockDevices(ctx, tx, machine)
+		existing, err := loadBlockDevices(ctx, tx, machineId)
 		if err != nil {
-			return errors.Annotatef(err, "loading block devices for machine %q", machine)
+			return errors.Annotatef(err, "loading block devices for machine %q", machineId)
 		}
 		if !blockDevicesChanged(existing, devices) {
 			return nil
 		}
 
 		if err := updateBlockDevices(ctx, tx, machineUUID, devices...); err != nil {
-			return errors.Annotatef(err, "updating block devices on machine %q (%s)", machine, machineUUID)
+			return errors.Annotatef(err, "updating block devices on machine %q (%s)", machineId, machineUUID)
 		}
 		return nil
 	})
@@ -306,7 +306,7 @@ func blockDevicesChanged(oldDevices, newDevices []blockdevice.BlockDevice) bool 
 // RemoveMachineBlockDevices removes all the block devices for the specified machine.
 // It is the same as calling SetMachineBlockDevices with an empty list, but does not
 // error if the machine life is Dead.
-func (st *State) RemoveMachineBlockDevices(ctx context.Context, machine string) error {
+func (st *State) RemoveMachineBlockDevices(ctx context.Context, machineId string) error {
 	db, err := st.DB()
 	if err != nil {
 		return errors.Trace(err)
@@ -324,16 +324,16 @@ WHERE  machine.machine_id = $M.machine_id
 		}
 
 		result := sqlair.M{}
-		err = tx.Query(ctx, stmt, sqlair.M{"machine_id": machine}).Get(result)
+		err = tx.Query(ctx, stmt, sqlair.M{"machine_id": machineId}).Get(result)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Trace(err)
 		}
 		if len(result) == 0 {
-			return fmt.Errorf("machine %q %w", machine, errors.NotFound)
+			return fmt.Errorf("machine %q %w", machineId, errors.NotFound)
 		}
 		machineUUID := result["machine_uuid"].(string)
 		if err := removeMachineBlockDevices(ctx, tx, machineUUID); err != nil {
-			return errors.Annotatef(err, "removing block devices on machine %q (%s)", machine, machineUUID)
+			return errors.Annotatef(err, "removing block devices on machine %q (%s)", machineId, machineUUID)
 		}
 		return nil
 	})
