@@ -84,8 +84,7 @@ WHERE  machine.machine_id = $M.machine_id
 	return dbRows.toBlockDevices(dbDeviceLinks, dbFilesystemTypes)
 }
 
-// GetMachineInfo is used by the block device service to look up
-// the machine UUID and life for a machine with which to call the watcher.
+// GetMachineInfo is used look up the machine UUID and life for a machine.
 func (st *State) GetMachineInfo(ctx context.Context, machineId string) (string, domain.Life, error) {
 	db, err := st.DB()
 	if err != nil {
