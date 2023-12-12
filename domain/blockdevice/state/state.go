@@ -9,8 +9,8 @@ import (
 	"reflect"
 
 	"github.com/canonical/sqlair"
-	"github.com/google/uuid"
 	"github.com/juju/errors"
+	"github.com/juju/utils/v3"
 
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/domain"
@@ -209,17 +209,17 @@ VALUES (
 		return errors.Trace(err)
 	}
 
-	blockDevicesByUUID := make(map[string]blockdevice.BlockDevice, len(devices))
+	blockDevicesByUUID := make(map[utils.UUID]blockdevice.BlockDevice, len(devices))
 	for _, bd := range devices {
 		fsTypeID, ok := fsTypeByName[bd.FilesystemType]
 		if !ok {
 			return errors.NotValidf("filesystem type %q for block device %q", bd.FilesystemType, bd.DeviceName)
 		}
-		id, err := uuid.NewUUID()
+		id, err := utils.NewUUID()
 		if err != nil {
 			return errors.Trace(err)
 		}
-		blockDevicesByUUID[id.String()] = bd
+		blockDevicesByUUID[id] = bd
 		dbBlockDevice := BlockDevice{
 			ID:             id.String(),
 			DeviceName:     bd.DeviceName,
@@ -254,7 +254,7 @@ VALUES (
 	for uuid, bd := range blockDevicesByUUID {
 		for _, link := range bd.DeviceLinks {
 			dbDeviceLink := DeviceLink{
-				ParentUUID: uuid,
+				ParentUUID: uuid.String(),
 				Name:       link,
 			}
 			if err := tx.Query(ctx, insertStmt, dbDeviceLink).Run(); err != nil {
@@ -275,7 +275,7 @@ VALUES ($M.block_device_uuid, $M.machine_uuid)
 	for uuid := range blockDevicesByUUID {
 		if err := tx.Query(ctx, insertJoinStmt, sqlair.M{
 			"machine_uuid":      machineUUID,
-			"block_device_uuid": uuid,
+			"block_device_uuid": uuid.String(),
 		}).Run(); err != nil {
 			return errors.Trace(err)
 		}
