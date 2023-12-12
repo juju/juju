@@ -219,6 +219,9 @@ CREATE TABLE availability_zone (
     name            TEXT NOT NULL
 );
 
+CREATE UNIQUE INDEX idx_availability_zone_name
+ON availability_zone (name);
+
 CREATE TABLE availability_zone_subnet (
     availability_zone_uuid TEXT NOT NULL,
     subnet_uuid            TEXT NOT NULL,

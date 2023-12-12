@@ -169,6 +169,82 @@ func (s *stateSuite) TestFailAddTwoSubnetsSameProviderID(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "UNIQUE constraint failed: provider_subnet.provider_id")
 }
 
+func (s *stateSuite) TestRetrieveFanSubnet(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	// Add a subnet of type base.
+	subnetUUID0, err := utils.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	err = st.AddSubnet(
+		ctx.Background(),
+		subnetUUID0,
+		"192.168.0.0/20",
+		"provider-id-0",
+		"provider-network-id-0",
+		0,
+		[]string{"az0"},
+		"",
+		nil,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	// Add a subnet of type fan.
+	subnetUUID1, err := utils.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	err = st.AddSubnet(
+		ctx.Background(),
+		subnetUUID1,
+		"10.0.0.0/12",
+		"provider-id-1",
+		"provider-network-id-1",
+		0,
+		[]string{"az1"},
+		"",
+		&network.FanCIDRs{
+			FanLocalUnderlay: "192.168.0.0/20",
+			FanOverlay:       "10.0.0.0/8",
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	expected := network.SubnetInfo{
+		ID:                network.Id(subnetUUID1.String()),
+		CIDR:              "10.0.0.0/12",
+		ProviderId:        "provider-id-1",
+		ProviderNetworkId: "provider-network-id-1",
+		VLANTag:           0,
+		AvailabilityZones: []string{"az1"},
+		FanInfo: &network.FanCIDRs{
+			FanLocalUnderlay: "192.168.0.0/20",
+		},
+	}
+
+	// Get the fan subnet by uuid.
+	sn1, err := st.GetSubnet(ctx.Background(), subnetUUID1)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(sn1, gc.DeepEquals, &expected)
+	// Get the fan subnet by cidr.
+	subnetsByCIDR, err := st.GetSubnetsByCIDR(ctx.Background(), "10.0.0.0/12")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(subnetsByCIDR, gc.HasLen, 1)
+	c.Check(subnetsByCIDR[0], gc.DeepEquals, expected)
+	// Get all subnets.
+	allExpected := network.SubnetInfos{
+		expected,
+		{
+			ID:                network.Id(subnetUUID0.String()),
+			CIDR:              "192.168.0.0/20",
+			ProviderId:        "provider-id-0",
+			ProviderNetworkId: "provider-network-id-0",
+			VLANTag:           0,
+			AvailabilityZones: []string{"az0"},
+		},
+	}
+	allSubnets, err := st.GetAllSubnets(ctx.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(allSubnets, gc.HasLen, 2)
+	c.Check(allSubnets, jc.SameContents, allExpected)
+}
+
 func (s *stateSuite) TestRetrieveSubnetByUUID(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 

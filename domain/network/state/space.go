@@ -51,19 +51,18 @@ VALUES (?, ?)`
 INSERT INTO provider_space (provider_id, space_uuid)
 VALUES (?, ?)`
 
-	checkSubnetFanLocalUnderlay := `
-SELECT subnet.cidr,subnet_type.is_space_settable
-FROM   subnet_type
-JOIN   subnet
-ON     subnet.subnet_type_id = subnet_type.id
-WHERE  subnet.uuid = ?`
-
-	findFanSubnetsBinds, findFanSubnetsVals := database.SliceToPlaceholder(subnetIDs)
-
+	fanSubnetsBinds, fanSubnetsVals := database.SliceToPlaceholder(subnetIDs)
 	findFanSubnetsStmt := fmt.Sprintf(`
 SELECT subject_subnet_uuid
 FROM   subnet_association
-WHERE  association_type_id = 0 AND associated_subnet_uuid IN (%s)`, findFanSubnetsBinds)
+WHERE  association_type_id = 0 AND associated_subnet_uuid IN (%s)`, fanSubnetsBinds)
+
+	checkInputSubnetsStmt := fmt.Sprintf(`
+SELECT uuid
+FROM   subnet
+JOIN   subnet_type
+ON     subnet.subnet_type_id = subnet_type.id
+WHERE  subnet_type.is_space_settable = FALSE AND subnet.uuid IN (%s)`, fanSubnetsBinds)
 
 	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		if _, err := tx.ExecContext(ctx, insertSpaceStmt, uuid.String(), name); err != nil {
@@ -76,27 +75,34 @@ WHERE  association_type_id = 0 AND associated_subnet_uuid IN (%s)`, findFanSubne
 		}
 		// We must first check on the provided subnet ids to validate
 		// that none of them is a fan subnet.
-		for _, subnetID := range subnetIDs {
-			// Check if the subnet is a fan overlay, in that case
-			// the space cannot be created on this subnet: it must
-			// be inherited from the underlay.
-			var (
-				cidr            string
-				isSpaceSettable bool
-			)
-			row := tx.QueryRowContext(ctx, checkSubnetFanLocalUnderlay, subnetID)
-			if err := row.Scan(&cidr, &isSpaceSettable); err != nil {
+		fanSubnets, err := tx.QueryContext(ctx, checkInputSubnetsStmt, fanSubnetsVals...)
+		if err != nil {
+			return errors.Annotatef(err, "checking if there are fan subnets for space %q", uuid.String())
+		}
+		defer func() { _ = fanSubnets.Close() }()
+		// If any row is returned we must fail with the returned fan
+		// subnet uuids.
+		uniqueErrorSubnetUUIDs := make(map[string]string)
+		var fanUUIDs []string
+		for fanSubnets.Next() {
+			var fanSubnetID string
+			err = fanSubnets.Scan(&fanSubnetID)
+			if err != nil {
 				return errors.Trace(err)
 			}
-			if !isSpaceSettable {
-				return errors.Errorf(
-					"cannot set space for FAN subnet %q - it is always inherited from underlay", cidr)
+			if _, ok := uniqueErrorSubnetUUIDs[fanSubnetID]; !ok {
+				uniqueErrorSubnetUUIDs[fanSubnetID] = fanSubnetID
+				fanUUIDs = append(fanUUIDs, fanSubnetID)
 			}
+		}
+		if len(fanUUIDs) > 0 {
+			return errors.Errorf(
+				"cannot set space for FAN subnet UUIDs %q - it is always inherited from underlay", fanUUIDs)
 		}
 
 		// Retrieve the fan overlays (if any) of the passed subnet ids.
-		rows, err := tx.QueryContext(ctx, findFanSubnetsStmt, findFanSubnetsVals...)
-		if err != nil && err != sql.ErrNoRows {
+		rows, err := tx.QueryContext(ctx, findFanSubnetsStmt, fanSubnetsVals...)
+		if err != nil {
 			return errors.Annotatef(err, "retrieving the fan subnets for space %q", uuid.String())
 		}
 		defer func() { _ = rows.Close() }()
@@ -131,15 +137,15 @@ WHERE  association_type_id = 0 AND associated_subnet_uuid IN (%s)`, findFanSubne
 
 const retrieveSpacesStmt = `
 SELECT     
-    space.uuid                           AS &Space.uuid,
-    space.name                           AS &Space.name,
-    provider_space.provider_id           AS &Space.provider_id,
-    subnet.uuid                          AS &Space.subnet_uuid,
-    subnet.cidr                          AS &Space.subnet_cidr,
-    subnet.vlan_tag                      AS &Space.vlan_tag,
-    provider_subnet.provider_id          AS &Space.subnet_provider_id,
-    provider_network.provider_network_id AS &Space.subnet_provider_network_id,
-    availability_zone.name               AS &Space.subnet_az
+    space.uuid                           AS &SpaceSubnetRow.uuid,
+    space.name                           AS &SpaceSubnetRow.name,
+    provider_space.provider_id           AS &SpaceSubnetRow.provider_id,
+    subnet.uuid                          AS &SpaceSubnetRow.subnet_uuid,
+    subnet.cidr                          AS &SpaceSubnetRow.subnet_cidr,
+    subnet.vlan_tag                      AS &SpaceSubnetRow.subnet_vlan_tag,
+    provider_subnet.provider_id          AS &SpaceSubnetRow.subnet_provider_id,
+    provider_network.provider_network_id AS &SpaceSubnetRow.subnet_provider_network_id,
+    availability_zone.name               AS &SpaceSubnetRow.subnet_az
 FROM space 
     LEFT JOIN provider_space
     ON space.uuid = provider_space.space_uuid
@@ -169,12 +175,12 @@ func (st *State) GetSpace(
 	// Append the space uuid condition to the query only if it's passed to the function.
 	q := retrieveSpacesStmt + " WHERE space.uuid = $M.id;"
 
-	spacesStmt, err := sqlair.Prepare(q, Space{}, sqlair.M{})
+	spacesStmt, err := sqlair.Prepare(q, SpaceSubnetRow{}, sqlair.M{})
 	if err != nil {
 		return nil, errors.Annotatef(err, "preparing %q", q)
 	}
 
-	var spaceRows Spaces
+	var spaceRows SpaceSubnetRows
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, spacesStmt, sqlair.M{"id": uuid}).GetAll(&spaceRows)
 		if err != nil {
@@ -205,12 +211,12 @@ func (st *State) GetSpaceByName(
 	// Append the space.name condition to the query.
 	q := retrieveSpacesStmt + " WHERE space.name = $M.name;"
 
-	s, err := sqlair.Prepare(q, Space{}, sqlair.M{})
+	s, err := sqlair.Prepare(q, SpaceSubnetRow{}, sqlair.M{})
 	if err != nil {
 		return nil, errors.Annotatef(err, "preparing %q", q)
 	}
 
-	var rows Spaces
+	var rows SpaceSubnetRows
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		return errors.Trace(tx.Query(ctx, s, sqlair.M{"name": name}).GetAll(&rows))
 	}); err != nil {
@@ -233,12 +239,12 @@ func (st *State) GetAllSpaces(
 		return nil, errors.Trace(err)
 	}
 
-	s, err := sqlair.Prepare(retrieveSpacesStmt, Space{})
+	s, err := sqlair.Prepare(retrieveSpacesStmt, SpaceSubnetRow{})
 	if err != nil {
 		return nil, errors.Annotatef(err, "preparing %q", retrieveSpacesStmt)
 	}
 
-	var rows Spaces
+	var rows SpaceSubnetRows
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		return errors.Trace(tx.Query(ctx, s).GetAll(&rows))
 	}); err != nil {

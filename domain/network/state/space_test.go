@@ -5,6 +5,7 @@ package state
 
 import (
 	ctx "context"
+	"fmt"
 
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
@@ -198,7 +199,7 @@ func (s *stateSuite) TestAddSpaceFailFanOverlay(c *gc.C) {
 
 	// Should fail with error indicating we cannot set the space for a
 	// FAN subnet.
-	c.Assert(err, gc.ErrorMatches, "cannot set space for FAN subnet \"10.0.0.0/24\" - it is always inherited from underlay")
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("cannot set space for FAN subnet UUIDs \\[%q\\] - it is always inherited from underlay", subnetFanUUID.String()))
 }
 
 func (s *stateSuite) TestRetrieveSpaceByUUID(c *gc.C) {
