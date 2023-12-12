@@ -12,9 +12,9 @@ const (
 	// not exist.
 	NotFound = errors.ConstError("user not found")
 
-	// UserCreatorUuidNotFound describes an error that occurs when a user's creator UUID,
+	// UserCreatorUUIDNotFound describes an error that occurs when a user's creator UUID,
 	// the user that created the user in question, does not exist.
-	UserCreatorUuidNotFound = errors.ConstError("user creator UUID not found")
+	UserCreatorUUIDNotFound = errors.ConstError("user creator UUID not found")
 
 	// UsernameNotValid describes an error that occurs when a supplied username
 	// is not valid.
@@ -22,7 +22,15 @@ const (
 	// sufficient length.
 	UsernameNotValid = errors.ConstError("username not valid")
 
+	// UUIDNotValid describes an error that occurs when a supplied UUID is not
+	// valid.
+	UUIDNotValid = errors.ConstError("UUID not valid")
+
 	// AlreadyExists describes an error that occurs when the user being
 	// created already exists.
 	AlreadyExists = errors.ConstError("user already exists")
+
+	// UserAuthenticationDisabled describes an error that occurs when the users
+	// authentication mechanisms are disabled.
+	UserAuthenticationDisabled = errors.ConstError("user authentication disabled")
 )

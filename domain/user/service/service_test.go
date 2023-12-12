@@ -24,8 +24,9 @@ type serviceSuite struct {
 
 type stateUser struct {
 	activationKey []byte
-	creatorUUID   string
+	creatorUUID   user.UUID
 	createdAt     time.Time
+	name          string
 	displayName   string
 	passwordHash  string
 	passwordSalt  []byte
@@ -85,70 +86,98 @@ func (s *serviceSuite) service() *Service {
 	return NewService(s.state)
 }
 
-func (s *serviceSuite) setMockState(c *gc.C) map[string]stateUser {
-	mockState := map[string]stateUser{}
+// IsUserNameAlreadyExists is a helper function that checks if a username is
+// already in use.
+func IsUserNameAlreadyExists(name string, m map[user.UUID]stateUser) bool {
+	for _, v := range m {
+		if v.name == name && !v.removed {
+			return true
+		}
+	}
+	return false
+}
+
+func (s *serviceSuite) setMockState(c *gc.C) map[user.UUID]stateUser {
+	mockState := map[user.UUID]stateUser{}
 
 	s.state.EXPECT().GetUser(
 		gomock.Any(), gomock.Any(),
 	).DoAndReturn(func(
 		_ context.Context,
-		name string) (user.User, error) {
-		stUser, exists := mockState[name]
-		if !exists || stUser.removed {
+		uuid user.UUID) (user.User, error) {
+		stUser, exists := mockState[uuid]
+		if !exists {
 			return user.User{}, usererrors.NotFound
 		}
 		return user.User{
 			CreatorUUID: stUser.creatorUUID,
 			CreatedAt:   stUser.createdAt,
 			DisplayName: stUser.displayName,
-			Name:        name,
+			Name:        stUser.name,
 		}, nil
 	}).AnyTimes()
 
-	s.state.EXPECT().AddUser(
+	s.state.EXPECT().GetUserByName(
 		gomock.Any(), gomock.Any(),
 	).DoAndReturn(func(
 		_ context.Context,
-		user user.User) error {
-		usr, exists := mockState[user.Name]
-		if exists && !usr.removed {
-			return usererrors.AlreadyExists
-		}
-
-		if user.CreatorUUID != "" {
-			cusr, exists := mockState[user.CreatorUUID]
-			if !exists || cusr.removed {
-				return usererrors.UserCreatorUuidNotFound
+		name string) (user.User, error) {
+		for _, usr := range mockState {
+			if usr.name == name && !usr.removed {
+				return user.User{
+					CreatorUUID: usr.creatorUUID,
+					CreatedAt:   usr.createdAt,
+					DisplayName: usr.displayName,
+					Name:        usr.name,
+				}, nil
 			}
 		}
-		mockState[user.Name] = stateUser{
-			creatorUUID: user.CreatorUUID,
-			createdAt:   user.CreatedAt,
+		return user.User{}, usererrors.NotFound
+	}).AnyTimes()
+
+	s.state.EXPECT().AddUser(
+		gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
+	).DoAndReturn(func(
+		_ context.Context,
+		uuid user.UUID,
+		user user.User,
+		creatorUUID user.UUID) error {
+		if IsUserNameAlreadyExists(user.Name, mockState) {
+			return usererrors.AlreadyExists
+		}
+		cusr, exists := mockState[creatorUUID]
+		if !exists || cusr.removed {
+			return usererrors.UserCreatorUUIDNotFound
+		}
+		mockState[uuid] = stateUser{
+			creatorUUID: creatorUUID,
+			createdAt:   time.Now(),
 			displayName: user.DisplayName,
+			name:        user.Name,
 		}
 		return nil
 	}).AnyTimes()
 
 	s.state.EXPECT().AddUserWithPasswordHash(
-		gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
+		gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
 	).DoAndReturn(func(
 		_ context.Context,
+		uuid user.UUID,
 		user user.User,
+		creatorUUID user.UUID,
 		hash string,
 		salt []byte) error {
-		usr, exists := mockState[user.Name]
-		if exists && !usr.removed {
+		if IsUserNameAlreadyExists(user.Name, mockState) {
 			return usererrors.AlreadyExists
 		}
-		if user.CreatorUUID != "" {
-			cusr, exists := mockState[user.CreatorUUID]
-			if !exists || cusr.removed {
-				return usererrors.UserCreatorUuidNotFound
-			}
+		cusr, exists := mockState[creatorUUID]
+		if !exists || cusr.removed {
+			return usererrors.UserCreatorUUIDNotFound
 		}
-		mockState[user.Name] = stateUser{
-			creatorUUID:  user.CreatorUUID,
-			createdAt:    user.CreatedAt,
+		mockState[uuid] = stateUser{
+			name:         user.Name,
+			creatorUUID:  creatorUUID,
+			createdAt:    time.Now(),
 			displayName:  user.DisplayName,
 			passwordHash: hash,
 			passwordSalt: salt,
@@ -157,24 +186,24 @@ func (s *serviceSuite) setMockState(c *gc.C) map[string]stateUser {
 	}).AnyTimes()
 
 	s.state.EXPECT().AddUserWithActivationKey(
-		gomock.Any(), gomock.Any(), gomock.Any(),
+		gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
 	).DoAndReturn(func(
 		_ context.Context,
+		uuid user.UUID,
 		user user.User,
+		creatorUUID user.UUID,
 		key []byte) error {
-		usr, exists := mockState[user.Name]
-		if exists && !usr.removed {
+		if IsUserNameAlreadyExists(user.Name, mockState) {
 			return usererrors.AlreadyExists
 		}
-		if user.CreatorUUID != "" {
-			cusr, exists := mockState[user.CreatorUUID]
-			if !exists || cusr.removed {
-				return usererrors.UserCreatorUuidNotFound
-			}
+		cusr, exists := mockState[creatorUUID]
+		if !exists || cusr.removed {
+			return usererrors.UserCreatorUUIDNotFound
 		}
-		mockState[user.Name] = stateUser{
-			creatorUUID:   user.CreatorUUID,
-			createdAt:     user.CreatedAt,
+		mockState[uuid] = stateUser{
+			name:          user.Name,
+			creatorUUID:   creatorUUID,
+			createdAt:     time.Now(),
 			displayName:   user.DisplayName,
 			activationKey: key,
 		}
@@ -185,16 +214,16 @@ func (s *serviceSuite) setMockState(c *gc.C) map[string]stateUser {
 		gomock.Any(), gomock.Any(),
 	).DoAndReturn(func(
 		_ context.Context,
-		name string) error {
-		user, exists := mockState[name]
-		if !exists || user.removed {
+		uuid user.UUID) error {
+		user, exists := mockState[uuid]
+		if !exists {
 			return usererrors.NotFound
 		}
 		user.removed = true
 		user.activationKey = nil
 		user.passwordHash = ""
 		user.passwordSalt = nil
-		mockState[name] = user
+		mockState[uuid] = user
 		return nil
 	}).AnyTimes()
 
@@ -202,16 +231,16 @@ func (s *serviceSuite) setMockState(c *gc.C) map[string]stateUser {
 		gomock.Any(), gomock.Any(), gomock.Any(),
 	).DoAndReturn(func(
 		_ context.Context,
-		name string,
+		uuid user.UUID,
 		key []byte) error {
-		user, exists := mockState[name]
+		user, exists := mockState[uuid]
 		if !exists || user.removed {
 			return usererrors.NotFound
 		}
 		user.passwordHash = ""
 		user.passwordSalt = nil
 		user.activationKey = key
-		mockState[name] = user
+		mockState[uuid] = user
 		return nil
 	}).AnyTimes()
 
@@ -220,17 +249,17 @@ func (s *serviceSuite) setMockState(c *gc.C) map[string]stateUser {
 		gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
 	).DoAndReturn(func(
 		_ context.Context,
-		name string,
+		uuid user.UUID,
 		hash string,
 		salt []byte) error {
-		user, exists := mockState[name]
-		if !exists || user.removed {
+		usr, exists := mockState[uuid]
+		if !exists || usr.removed {
 			return usererrors.NotFound
 		}
-		user.passwordHash = hash
-		user.passwordSalt = salt
-		user.activationKey = nil
-		mockState[name] = user
+		usr.passwordHash = hash
+		usr.passwordSalt = salt
+		usr.activationKey = nil
+		mockState[uuid] = usr
 		return nil
 	}).AnyTimes()
 
@@ -241,171 +270,215 @@ func (s *serviceSuite) setMockState(c *gc.C) map[string]stateUser {
 func (s *serviceSuite) TestAddUser(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	mockState := s.setMockState(c)
-	mockState["adminUUID"] = stateUser{
+	adminUUID, err := user.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	mockState[adminUUID] = stateUser{
 		createdAt:   time.Now(),
 		displayName: "Admin",
 	}
 
-	u := user.User{
+	usr := user.User{
 		Name:        "f00-Bar.ram77",
 		DisplayName: "Display",
-		CreatedAt:   time.Now(),
-		CreatorUUID: "adminUUID",
 	}
 
-	err := s.service().AddUser(context.Background(), u)
+	usrUUID, err := s.service().AddUser(context.Background(), usr, adminUUID)
 	c.Assert(err, jc.ErrorIsNil)
 
-	userState := mockState["f00-Bar.ram77"]
-	c.Assert(userState.displayName, gc.Equals, "Display")
-	c.Assert(userState.creatorUUID, gc.Equals, "adminUUID")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(mockState[usrUUID].displayName, gc.Equals, "Display")
 
 	// We want to check now that we can add a user with the same name as one
 	// that has already been removed.
-	mockState["grace"] = stateUser{
+	graceUUID, err := user.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	mockState[graceUUID] = stateUser{
+		name:        "grace",
 		createdAt:   time.Now(),
 		displayName: "Grace",
 		removed:     true,
 	}
 
-	u = user.User{
+	usr = user.User{
 		Name:        "grace",
 		DisplayName: "test",
-		CreatedAt:   time.Now(),
 	}
 
-	err = s.service().AddUser(context.Background(), u)
+	_, err = s.service().AddUser(context.Background(), usr, adminUUID)
 	c.Assert(err, jc.ErrorIsNil)
 
-	userState = mockState["grace"]
-	c.Assert(userState.displayName, gc.Equals, "test")
-	c.Assert(userState.creatorUUID, gc.Equals, "")
+	resultUser, err := s.service().GetUserByName(context.Background(), usr.Name)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(resultUser.DisplayName, gc.Equals, "test")
+	c.Assert(resultUser.CreatorUUID, gc.Equals, adminUUID)
 }
 
-// TestAddUserCreatorUuidNotFound is testing that if we try and add a user with the
-// creator UUID field set and the creator UUID does not exist we get a error back that
-// satisfies usererrors.UserCreatorUuidNotFound.
-func (s *serviceSuite) TestAddUserCreatorUuidNotFound(c *gc.C) {
+// TestAddUserCreatorUUIDNotFound is testing that if we try and add a user with the
+// creator UUID field set and the creator UUID does not exist we get an error back that
+// satisfies usererrors.UserCreatorUUIDNotFound.
+func (s *serviceSuite) TestAddUserCreatorUUIDNotFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	mockState := s.setMockState(c)
 
-	user := user.User{
+	usr := user.User{
 		Name:        "f00-Bar.ram77",
 		DisplayName: "Display",
-		CreatedAt:   time.Now(),
-		CreatorUUID: "adminUUID",
 	}
 
-	err := s.service().AddUser(context.Background(), user)
-	c.Assert(err, jc.ErrorIs, usererrors.UserCreatorUuidNotFound)
+	adminUUID, err := user.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.service().AddUser(context.Background(), usr, adminUUID)
+	c.Assert(err, jc.ErrorIs, usererrors.UserCreatorUUIDNotFound)
 
 	// We need to check that there were no side effects to state.
 	c.Assert(len(mockState), gc.Equals, 0)
 }
 
-// TestAddUserUsernameNotValid is testing that if we try and add a user with a
-// username that is not valid we get a error that satisfies
+// TestAddUserNameNotValid is testing that if we try and add a user with a
+// username that is not valid we get an error that satisfies
 // usererrors.UsernameNotValid back.
-func (s *serviceSuite) TestAddUserUsernameNotValid(c *gc.C) {
+func (s *serviceSuite) TestAddUserNameNotValid(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	mockState := s.setMockState(c)
-	mockState["admin"] = stateUser{
+	adminUUID, err := user.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	mockState[adminUUID] = stateUser{
 		createdAt:   time.Now(),
 		displayName: "Admin",
 	}
 
-	user := user.User{
+	usr := user.User{
 		Name:        invalidUsernames[0],
 		DisplayName: "Display",
-		CreatedAt:   time.Now(),
-		CreatorUUID: "adminUUID",
 	}
 
-	err := s.service().AddUser(context.Background(), user)
+	_, err = s.service().AddUser(context.Background(), usr, adminUUID)
 	c.Assert(err, jc.ErrorIs, usererrors.UsernameNotValid)
 
 	// We need to check that there were no side effects to state.
 	c.Assert(len(mockState), gc.Equals, 1)
-	_, exists := mockState[invalidUsernames[0]]
-	c.Assert(exists, jc.IsFalse)
 }
 
 // TestAddUserAlreadyExists is testing that we cannot add a user with a username
 // that already exists and is active. We expect that in this case we should
-// receive a error back that satisfies usererrors.AlreadyExists.
+// receive an error back that satisfies usererrors.AlreadyExists.
 func (s *serviceSuite) TestAddUserAlreadyExists(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	mockState := s.setMockState(c)
-	mockState["admin"] = stateUser{
+	adminUUID, err := user.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	mockState[adminUUID] = stateUser{
 		createdAt:   time.Now(),
 		displayName: "Admin",
 	}
+
+	fredUUID, err := user.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
 	createdAt := time.Now()
-	mockState["fred"] = stateUser{
+	mockState[fredUUID] = stateUser{
 		createdAt:   createdAt,
+		name:        "fred",
 		displayName: "Freddie",
 	}
 
-	user := user.User{
+	usr := user.User{
 		Name:        "fred",
 		DisplayName: "Display",
-		CreatedAt:   time.Now(),
-		CreatorUUID: "adminUUID",
 	}
 
-	err := s.service().AddUser(context.Background(), user)
+	_, err = s.service().AddUser(context.Background(), usr, adminUUID)
 	c.Assert(err, jc.ErrorIs, usererrors.AlreadyExists)
 
 	// Test no state changes occurred
-	c.Assert(mockState["fred"], jc.DeepEquals, stateUser{
+	fredUser := mockState[fredUUID]
+	c.Assert(fredUser, jc.DeepEquals, stateUser{
 		createdAt:   createdAt,
+		name:        "fred",
 		displayName: "Freddie",
 	})
+}
+
+// TestAddUserAlreadyExistsRemoved is testing that add a user with
+// a creator uuid that has been removed in the system.
+func (s *serviceSuite) TestAddUserWithRemovedCreator(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	mockState := s.setMockState(c)
+
+	// Add admin user to state.
+	adminUUID, err := user.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	mockState[adminUUID] = stateUser{
+		createdAt:   time.Now(),
+		displayName: "Admin",
+	}
+
+	// Add a user that has been removed.
+	fredUUID, err := user.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	createdAt := time.Now()
+	mockState[fredUUID] = stateUser{
+		createdAt:   createdAt,
+		name:        "fred",
+		displayName: "Freddie",
+		removed:     true,
+	}
+
+	// Add a user with the removed user as the creator.
+	usr := user.User{
+		Name:        "f00-Bar.ram77",
+		DisplayName: "Display",
+	}
+
+	_, err = s.service().AddUser(context.Background(), usr, fredUUID)
+	c.Assert(err, jc.ErrorIs, usererrors.UserCreatorUUIDNotFound)
 }
 
 // TestAddUserWithPassword is testing the happy path of AddUserWithPassword.
 func (s *serviceSuite) TestAddUserWithPassword(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	mockState := s.setMockState(c)
-	mockState["adminUUID"] = stateUser{
+	adminUUID, err := user.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	mockState[adminUUID] = stateUser{
 		createdAt:   time.Now(),
 		displayName: "Admin",
 	}
 
-	u := user.User{
+	usr := user.User{
 		Name:        "f00-Bar.ram77",
 		DisplayName: "Display",
-		CreatedAt:   time.Now(),
-		CreatorUUID: "adminUUID",
 	}
 	password := auth.NewPassword("password")
 
-	err := s.service().AddUserWithPassword(context.Background(), u, password)
+	usrUUID, err := s.service().AddUserWithPassword(context.Background(), usr, adminUUID, password)
 	c.Assert(err, jc.ErrorIsNil)
 
-	userState := mockState[u.Name]
+	userState := mockState[usrUUID]
 	c.Assert(password.IsDestroyed(), jc.IsTrue)
 	c.Assert(userState.passwordHash == "", jc.IsFalse)
 	c.Assert(len(userState.passwordSalt) == 0, jc.IsFalse)
 	c.Assert(userState.activationKey, gc.IsNil)
 
-	mockState["fiona"] = stateUser{
+	fionaUUID, err := user.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	mockState[fionaUUID] = stateUser{
+		name:        "fiona",
 		displayName: "Fee",
 		createdAt:   time.Now(),
 		removed:     true,
 	}
 
-	u = user.User{
+	usr = user.User{
 		Name:        "fiona",
 		DisplayName: "Fiona",
-		CreatedAt:   time.Now(),
 	}
 	password = auth.NewPassword("password")
 
-	err = s.service().AddUserWithPassword(context.Background(), u, password)
+	usrUUID, err = s.service().AddUserWithPassword(context.Background(), usr, adminUUID, password)
 	c.Assert(err, jc.ErrorIsNil)
 
-	userState = mockState[u.Name]
+	userState = mockState[usrUUID]
 	c.Assert(password.IsDestroyed(), jc.IsTrue)
 	c.Assert(userState.passwordHash == "", jc.IsFalse)
 	c.Assert(userState.displayName, gc.Equals, "Fiona")
@@ -413,23 +486,24 @@ func (s *serviceSuite) TestAddUserWithPassword(c *gc.C) {
 	c.Assert(userState.activationKey, gc.IsNil)
 }
 
-// TestAddUserWithPasswordCreatorUuidNotFound is testing that is we add a user with
+// TestAddUserWithPasswordCreatorUUIDNotFound is testing that is we add a user with
 // the creatorUUID field set and a user does not exist for the creatorUUID a error that
-// satisfies usererrors.UserCreatorUuidNotFound is returned.
-func (s *serviceSuite) TestAddUserWithPasswordCreatorUuidNotFound(c *gc.C) {
+// satisfies usererrors.UserCreatorUUIDNotFound is returned.
+func (s *serviceSuite) TestAddUserWithPasswordCreatorUUIDNotFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	mockState := s.setMockState(c)
-	user := user.User{
+	adminUUID, err := user.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+
+	usr := user.User{
 		Name:        "f00-Bar.ram77",
 		DisplayName: "Display",
-		CreatedAt:   time.Now(),
-		CreatorUUID: "adminUUID",
 	}
 
 	password := auth.NewPassword("07fd670820925bad78a214c249379b")
 
-	err := s.service().AddUserWithPassword(context.Background(), user, password)
-	c.Assert(err, jc.ErrorIs, usererrors.UserCreatorUuidNotFound)
+	_, err = s.service().AddUserWithPassword(context.Background(), usr, adminUUID, password)
+	c.Assert(err, jc.ErrorIs, usererrors.UserCreatorUUIDNotFound)
 
 	// We want to assert no state changes occurred.
 	c.Assert(len(mockState), gc.Equals, 0)
@@ -437,85 +511,106 @@ func (s *serviceSuite) TestAddUserWithPasswordCreatorUuidNotFound(c *gc.C) {
 
 // TestAddUserWithPasswordInvalidUser is testing that if we call
 // AddUserWithPassword and the username of the user we are trying to add is
-// invalid we both get a error back that satisfies usererrors.UsernameNotValid
+// invalid we both get an error back that satisfies usererrors.UsernameNotValid
 // and that no state changes occur.
 func (s *serviceSuite) TestAddUserWithPasswordInvalidUser(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	mockState := s.setMockState(c)
 
+	// Add admin user to state.
+	adminUUID, err := user.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	mockState[adminUUID] = stateUser{
+		createdAt:   time.Now(),
+		displayName: "Admin",
+	}
+
 	fakeUser := user.User{
 		Name:        invalidUsernames[0],
 		DisplayName: "Display",
-		CreatedAt:   time.Now(),
-		CreatorUUID: "adminUUID",
 	}
 
 	fakePassword := auth.NewPassword("password")
 
-	err := s.service().AddUserWithPassword(context.Background(), fakeUser, fakePassword)
+	_, err = s.service().AddUserWithPassword(context.Background(), fakeUser, adminUUID, fakePassword)
 	c.Assert(err, jc.ErrorIs, usererrors.UsernameNotValid)
 
 	c.Assert(fakePassword.IsDestroyed(), jc.IsTrue)
-	c.Assert(len(mockState), gc.Equals, 0)
+	c.Assert(len(mockState), gc.Equals, 1)
 }
 
 // TestAddUserWithPasswordAlreadyExists is testing that if we try and add a user
-// with the same name as one that already exists we get back a error that
+// with the same name as one that already exists we get back an error that
 // satisfies usererrors.AlreadyExists.
 func (s *serviceSuite) TestAddUserWithPasswordAlreadyExists(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	mockState := s.setMockState(c)
-	mockState["jimbo"] = stateUser{
+	adminUUID, err := user.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	mockState[adminUUID] = stateUser{
 		createdAt:   time.Now(),
+		displayName: "Admin",
+	}
+
+	jimboUUID, err := user.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	mockState[jimboUUID] = stateUser{
+		createdAt:   time.Now(),
+		name:        "jimbo",
 		displayName: "Jimmy",
 		removed:     false,
 	}
 
-	user := user.User{
-		CreatedAt:   time.Now(),
+	usr := user.User{
 		DisplayName: "tlm",
 		Name:        "jimbo",
 	}
 	password := auth.NewPassword("51b11eb2e6d094a62a489e40")
 
-	err := s.service().AddUserWithPassword(context.Background(), user, password)
+	_, err = s.service().AddUserWithPassword(context.Background(), usr, adminUUID, password)
 	c.Assert(err, jc.ErrorIs, usererrors.AlreadyExists)
 
 	// Let's check that the password was destroyed as per the func contract.
 	c.Assert(password.IsDestroyed(), jc.IsTrue)
 
-	// We now need to double check no state change occurred.
-	userState := mockState["jimbo"]
+	// We now need to double-check no state change occurred.
+	userState := mockState[jimboUUID]
 	c.Assert(userState.displayName, gc.Equals, "Jimmy")
 	c.Assert(userState.removed, jc.IsFalse)
 }
 
 // TestAddUserWithPasswordDestroyedPassword tests that when adding a new user
-// with password we get a internal/auth.ErrPasswordDestroyed back when passing
+// with password we get an internal/auth.ErrPasswordDestroyed back when passing
 // in a password that has already been destroyed.
 //
-// The reason we want to check this is because there could exist circumstances
+// The reason we want to check this is because, there could exist circumstances
 // where a call might fail for a user password and something else has zero'd the
 // password. This is most commonly going to happen because of retry logic.
 func (s *serviceSuite) TestAddUserWithPasswordDestroyedPassword(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	mockState := s.setMockState(c)
-	user := user.User{
-		CreatedAt:   time.Now(),
+	adminUUID, err := user.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	mockState[adminUUID] = stateUser{
+		createdAt:   time.Now(),
+		displayName: "Admin",
+	}
+
+	usr := user.User{
 		DisplayName: "tlm",
 		Name:        "tlm",
 	}
 	password := auth.NewPassword("51b11eb2e6d094a62a489e40")
 	password.Destroy()
 
-	err := s.service().AddUserWithPassword(context.Background(), user, password)
+	_, err = s.service().AddUserWithPassword(context.Background(), usr, adminUUID, password)
 	c.Assert(err, jc.ErrorIs, auth.ErrPasswordDestroyed)
 
 	// Let's check that the password was destroyed as per the func contract.
 	c.Assert(password.IsDestroyed(), jc.IsTrue)
 
 	// Check that no state changes occurred.
-	c.Assert(len(mockState), gc.Equals, 0)
+	c.Assert(len(mockState), gc.Equals, 1)
 }
 
 // TestAddUserWithPasswordNotValid is checking that if we try and add a user
@@ -524,171 +619,185 @@ func (s *serviceSuite) TestAddUserWithPasswordDestroyedPassword(c *gc.C) {
 func (s *serviceSuite) TestAddUserWithPasswordNotValid(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	mockState := s.setMockState(c)
-	user := user.User{
-		CreatedAt:   time.Now(),
+	adminUUID, err := user.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	mockState[adminUUID] = stateUser{
+		createdAt:   time.Now(),
+		displayName: "Admin",
+	}
+
+	usr := user.User{
 		DisplayName: "tlm",
 		Name:        "tlm",
 	}
 	password := auth.NewPassword("")
 	password.Destroy()
 
-	err := s.service().AddUserWithPassword(context.Background(), user, password)
+	_, err = s.service().AddUserWithPassword(context.Background(), usr, adminUUID, password)
 	c.Assert(err, jc.ErrorIs, auth.ErrPasswordNotValid)
 
 	// Check that no state changes occurred.
-	c.Assert(len(mockState), gc.Equals, 0)
+	c.Assert(len(mockState), gc.Equals, 1)
 }
 
 // TestAddUserWithPasswordInvalidUsername is testing the happy path for adding a
-// user and generating a activation key for the new user.
+// user and generating an activation key for the new user.
 func (s *serviceSuite) TestAddUserWithActivationKey(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	mockState := s.setMockState(c)
-	mockState["adminUUID"] = stateUser{
+	adminUUID, err := user.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+
+	mockState[adminUUID] = stateUser{
 		createdAt:   time.Now(),
 		displayName: "Admin",
 	}
 
-	u := user.User{
+	usr := user.User{
 		Name:        "f00-Bar.ram77",
 		DisplayName: "Display",
-		CreatedAt:   time.Now(),
-		CreatorUUID: "adminUUID",
 	}
 
-	activationKey, err := s.service().AddUserWithActivationKey(context.Background(), u)
+	activationKey, usrUUID, err := s.service().AddUserWithActivationKey(context.Background(), usr, adminUUID)
 	c.Assert(err, jc.ErrorIsNil)
 
-	userState := mockState[u.Name]
+	userState := mockState[usrUUID]
 	c.Assert(len(activationKey) > 0, jc.IsTrue)
 	c.Assert(userState.activationKey, gc.DeepEquals, activationKey)
 	c.Assert(userState.displayName, gc.Equals, "Display")
-	c.Assert(userState.creatorUUID, gc.Equals, "adminUUID")
 
 	// We want to check now that we can add a user with the same name as one
 	// that has already been removed.
-	mockState["adam"] = stateUser{
+	adamUUID, err := user.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	mockState[adamUUID] = stateUser{
+		name:      "adam",
 		createdAt: time.Now(),
 		removed:   true,
 	}
 
-	u = user.User{
+	usr = user.User{
 		Name:        "adam",
 		DisplayName: "Adam",
-		CreatedAt:   time.Now(),
 	}
 
-	activationKey, err = s.service().AddUserWithActivationKey(context.Background(), u)
+	activationKey, usrUUID, err = s.service().AddUserWithActivationKey(context.Background(), usr, adminUUID)
 	c.Assert(err, jc.ErrorIsNil)
 
-	userState = mockState[u.Name]
+	userState = mockState[usrUUID]
 	c.Assert(len(activationKey) > 0, jc.IsTrue)
 	c.Assert(userState.activationKey, gc.DeepEquals, activationKey)
 	c.Assert(userState.displayName, gc.Equals, "Adam")
-	c.Assert(userState.creatorUUID, gc.Equals, "")
 }
 
 // TestAddUserWithActivationKeyUsernameNotValid is testing that if we add a user
-// with an invalid username that we get back a error that satisfies
+// with an invalid username that we get back an error that satisfies
 // usererrors.UsernameNotValid.
 func (s *serviceSuite) TestAddUserWithActivationKeyUsernameNotValid(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	mockState := s.setMockState(c)
 
-	u := user.User{
-		Name:        invalidUsernames[0],
-		DisplayName: "Display",
-		CreatedAt:   time.Now(),
-		CreatorUUID: "adminUUID",
+	// Add admin user to state.
+	adminUUID, err := user.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	mockState[adminUUID] = stateUser{
+		createdAt:   time.Now(),
+		displayName: "Admin",
 	}
 
-	activationKey, err := s.service().AddUserWithActivationKey(context.Background(), u)
+	usr := user.User{
+		Name:        invalidUsernames[0],
+		DisplayName: "Display",
+	}
+
+	activationKey, _, err := s.service().AddUserWithActivationKey(context.Background(), usr, adminUUID)
 	c.Assert(err, jc.ErrorIs, usererrors.UsernameNotValid)
-	c.Assert(len(mockState), gc.Equals, 0)
+	c.Assert(len(mockState), gc.Equals, 1)
 	c.Assert(len(activationKey), gc.Equals, 0)
 }
 
 // TestAddUserWithActivationKeyAlreadyExists is testing that is we try to add a
-// user that already exists we get back a error that satisfies
+// user that already exists we get back an error that satisfies
 // usererrors.AlreadyExists.
 func (s *serviceSuite) TestAddUserWithActivationKeyAlreadyExists(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	mockState := s.setMockState(c)
-	mockState["gazza"] = stateUser{
+	adminUUID, err := user.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+
+	mockState[adminUUID] = stateUser{
+		createdAt:   time.Now(),
+		displayName: "Admin",
+	}
+
+	gazzaUUID, err := user.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	mockState[gazzaUUID] = stateUser{
+		name:        "gazza",
 		displayName: "Garry",
 		createdAt:   time.Now(),
 	}
 
-	u := user.User{
+	usr := user.User{
 		Name:        "gazza",
 		DisplayName: "Garry",
-		CreatedAt:   time.Now(),
 	}
 
-	activationKey, err := s.service().AddUserWithActivationKey(context.Background(), u)
+	activationKey, _, err := s.service().AddUserWithActivationKey(context.Background(), usr, adminUUID)
 	c.Assert(err, jc.ErrorIs, usererrors.AlreadyExists)
-	c.Assert(len(mockState), gc.Equals, 1)
+	c.Assert(len(mockState), gc.Equals, 2)
 	c.Assert(len(activationKey), gc.Equals, 0)
+
+	// check that no state change occurred for the already established user
+	resultUser, err := s.service().GetUser(context.Background(), gazzaUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(resultUser.DisplayName, gc.Equals, "Garry")
+
 }
 
 // TestRemoveUser is testing the happy path for removing a user.
 func (s *serviceSuite) TestRemoveUser(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	mockState := s.setMockState(c)
-	name := "f00-Bar.ram77"
-	mockState[name] = stateUser{
+	uuid, err := user.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	mockState[uuid] = stateUser{
 		activationKey: []byte{0x1, 0x2, 0x3},
 		passwordHash:  "secrethash",
 		passwordSalt:  []byte{0x1, 0x2, 0x3},
 	}
 
-	err := s.service().RemoveUser(context.Background(), name)
+	err = s.service().RemoveUser(context.Background(), uuid)
 	c.Assert(err, jc.ErrorIsNil)
-	userState := mockState[name]
+	userState := mockState[uuid]
 	c.Assert(userState.removed, jc.IsTrue)
 	c.Assert(userState.passwordHash, gc.Equals, "")
 	c.Assert(userState.passwordSalt, gc.IsNil)
 	c.Assert(userState.activationKey, gc.IsNil)
 }
 
-// TestRemoveUser is testing that removing a user when they're already removed
-// results in a usererrors.NotFound error.
-func (s *serviceSuite) TestRemoveUserAlreadyRemoved(c *gc.C) {
+// TestRemoveUserInvalidUUID is testing that if we supply RemoveUser with
+// invalid UUIDs we get back an error.
+func (s *serviceSuite) TestRemoveUserInvalidUUID(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	mockState := s.setMockState(c)
-	name := "f00-Bar.ram77"
-	mockState[name] = stateUser{
-		removed: true,
-	}
+	uuid := user.UUID("invalid-UUID")
 
-	err := s.service().RemoveUser(context.Background(), name)
-	c.Assert(err, jc.ErrorIs, usererrors.NotFound)
-	userState := mockState[name]
-	c.Assert(userState.removed, jc.IsTrue)
-}
-
-// TestRemoveUserInvalidName is testing that if we supply RemoveUser with
-// invalid usernames we get back a error that satisfies
-// usererrors.UsernameNotValid and not state changes occur.
-func (s *serviceSuite) TestRemoveUserInvalidName(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-	mockState := s.setMockState(c)
-	name := invalidUsernames[0]
-
-	err := s.service().RemoveUser(context.Background(), name)
-	c.Assert(err, jc.ErrorIs, usererrors.UsernameNotValid)
+	err := s.service().RemoveUser(context.Background(), uuid)
+	c.Assert(err, jc.ErrorIs, usererrors.UUIDNotValid)
 	c.Assert(len(mockState), gc.Equals, 0)
 }
 
 // TestRemoveUserNotFound is testing that trying to remove a user that does not
-// exist results in a error that satisfies usererrors.UserNotFound. We also
+// exist results in an error that satisfies usererrors.UserNotFound. We also
 // check that no state changes occur.
 func (s *serviceSuite) TestRemoveUserNotFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	mockState := s.setMockState(c)
-	name := "tlm"
+	uuid, err := user.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
 
-	err := s.service().RemoveUser(context.Background(), name)
+	err = s.service().RemoveUser(context.Background(), uuid)
 	c.Assert(err, jc.ErrorIs, usererrors.NotFound)
 	c.Assert(len(mockState), gc.Equals, 0)
 }
@@ -697,32 +806,34 @@ func (s *serviceSuite) TestRemoveUserNotFound(c *gc.C) {
 func (s *serviceSuite) TestSetPassword(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	mockState := s.setMockState(c)
-	name := "f00-Bar.ram77"
-	mockState[name] = stateUser{}
-
-	password := auth.NewPassword("password")
-	err := s.service().SetPassword(context.Background(), name, password)
+	uuid, err := user.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 
-	userState := mockState[name]
+	mockState[uuid] = stateUser{
+		name: "username",
+	}
+
+	password := auth.NewPassword("password")
+	err = s.service().SetPassword(context.Background(), uuid, password)
+	c.Assert(err, jc.ErrorIsNil)
+
+	userState := mockState[uuid]
 	c.Assert(password.IsDestroyed(), jc.IsTrue)
 	c.Assert(userState.passwordHash == "", jc.IsFalse)
 	c.Assert(len(userState.passwordSalt) == 0, jc.IsFalse)
 	c.Assert(userState.activationKey, gc.IsNil)
 }
 
-// TestSetPasswordInvalidUsername is testing that if we throw junk usernames at
-// set password we get username invalid errors and that the junk doesn't end up
-// in state. We also want to assert that the password is destroyed no matter
-// what.
-func (s *serviceSuite) TestSetPasswordInvalidUsername(c *gc.C) {
+// TestSetPasswordInvalidUUID is testing that if we supply SetPassword with
+// invalid UUIDs we get back an error.
+func (s *serviceSuite) TestSetPasswordInvalidUUID(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	mockState := s.setMockState(c)
-	name := invalidUsernames[0]
+	uuid := user.UUID("invalid-UUID")
 
 	password := auth.NewPassword("password")
-	err := s.service().SetPassword(context.Background(), name, password)
-	c.Assert(err, jc.ErrorIs, usererrors.UsernameNotValid)
+	err := s.service().SetPassword(context.Background(), uuid, password)
+	c.Assert(err, jc.ErrorIs, usererrors.UUIDNotValid)
 	c.Assert(len(mockState), gc.Equals, 0)
 	c.Assert(password.IsDestroyed(), jc.IsTrue)
 }
@@ -733,10 +844,11 @@ func (s *serviceSuite) TestSetPasswordInvalidUsername(c *gc.C) {
 func (s *serviceSuite) TestSetPasswordUserNotFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	mockState := s.setMockState(c)
-	name := "tlm"
+	uuid, err := user.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
 
 	password := auth.NewPassword("password")
-	err := s.service().SetPassword(context.Background(), name, password)
+	err = s.service().SetPassword(context.Background(), uuid, password)
 	c.Assert(err, jc.ErrorIs, usererrors.NotFound)
 	c.Assert(len(mockState), gc.Equals, 0)
 	c.Assert(password.IsDestroyed(), jc.IsTrue)
@@ -747,54 +859,58 @@ func (s *serviceSuite) TestSetPasswordUserNotFound(c *gc.C) {
 func (s *serviceSuite) TestSetPasswordInvalid(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	mockState := s.setMockState(c)
-	name := "f00-Bar.ram77"
-	mockState[name] = stateUser{}
+	uuid, err := user.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+
+	mockState[uuid] = stateUser{}
 
 	// Empty password is a no no, well at least it should be.
 	password := auth.NewPassword("")
-	err := s.service().SetPassword(context.Background(), name, password)
+	err = s.service().SetPassword(context.Background(), uuid, password)
 	c.Assert(err, jc.ErrorIs, auth.ErrPasswordNotValid)
-	userState := mockState[name]
+	userState := mockState[uuid]
 	c.Assert(userState.passwordHash, gc.Equals, "")
 	c.Assert(len(userState.passwordSalt), gc.Equals, 0)
 
 	password = auth.NewPassword("password")
 	password.Destroy()
-	err = s.service().SetPassword(context.Background(), name, password)
+	err = s.service().SetPassword(context.Background(), uuid, password)
 	c.Assert(err, jc.ErrorIs, auth.ErrPasswordDestroyed)
-	userState = mockState[name]
+	userState = mockState[uuid]
 	c.Assert(userState.passwordHash, gc.Equals, "")
 	c.Assert(len(userState.passwordSalt), gc.Equals, 0)
 }
 
-// TestResetPassword tests the happy path for resetting a users password.
+// TestResetPassword tests the happy path for resetting a user's password.
 func (s *serviceSuite) TestResetPassword(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	mockState := s.setMockState(c)
-	name := "tlm"
-	mockState[name] = stateUser{
+	uuid, err := user.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	mockState[uuid] = stateUser{
+		name:         "name",
 		passwordHash: "12345",
 		passwordSalt: []byte{0x1, 0x2, 0x3, 0x4},
 	}
 
-	key, err := s.service().ResetPassword(context.Background(), name)
+	key, err := s.service().ResetPassword(context.Background(), uuid)
 	c.Assert(err, jc.ErrorIsNil)
-	userState := mockState[name]
+	userState := mockState[uuid]
 	c.Assert(len(key) > 0, jc.IsTrue)
 	c.Assert(userState.activationKey, gc.DeepEquals, key)
 	c.Assert(userState.passwordHash, gc.DeepEquals, "")
 	c.Assert(userState.passwordSalt, gc.IsNil)
 }
 
-// TestResetPasswordInvalidUser is testing invalid usernames to reset password
-// causes a usererrors.NotValid error to be returned and no state changes occurs.
-func (s *serviceSuite) TestResetPasswordInvalidUser(c *gc.C) {
+// TestResetPasswordInvalidUserUUID is testing that if we supply ResetPassword
+// with an invalid UUID we get back an error.
+func (s *serviceSuite) TestResetPasswordInvalidUserUUID(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	mockState := s.setMockState(c)
-	name := invalidUsernames[0]
+	uuid := user.UUID("invalid-UUID")
 
-	_, err := s.service().ResetPassword(context.Background(), name)
-	c.Assert(err, jc.ErrorIs, usererrors.UsernameNotValid)
+	_, err := s.service().ResetPassword(context.Background(), uuid)
+	c.Assert(err, jc.ErrorIs, usererrors.UUIDNotValid)
 	c.Assert(len(mockState), gc.Equals, 0)
 }
 
@@ -803,9 +919,10 @@ func (s *serviceSuite) TestResetPasswordInvalidUser(c *gc.C) {
 func (s *serviceSuite) TestResetPasswordUserNotFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	mockState := s.setMockState(c)
-	name := "tlm"
+	uuid, err := user.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
 
-	_, err := s.service().ResetPassword(context.Background(), name)
+	_, err = s.service().ResetPassword(context.Background(), uuid)
 	c.Assert(err, jc.ErrorIs, usererrors.NotFound)
 	c.Assert(len(mockState), gc.Equals, 0)
 }
@@ -817,22 +934,34 @@ func (s *serviceSuite) TestGetUserNotFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	mockState := s.setMockState(c)
 
-	_, err := s.service().GetUser(context.Background(), "اقتدار")
+	nonExistingUserUUID, err := user.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.service().GetUser(context.Background(), nonExistingUserUUID)
 	c.Assert(err, jc.ErrorIs, usererrors.NotFound)
 	c.Assert(len(mockState), gc.Equals, 0)
 }
 
-// TestGetUserRemoved tests that getting a user that has been removed results in
-// a error that satisfies usererrors.NotFound. We also want to check that no
-// state change occurs
+// TestGetUserRemoved tests that getting a user by name that has been removed
+// results in an error that satisfies usererrors.NotFound. We also want to
+// check that no state change occurs.
 func (s *serviceSuite) TestGetUserRemoved(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	mockState := s.setMockState(c)
-	mockState["اقتدار"] = stateUser{
+
+	userUUID, err := user.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+
+	mockState[userUUID] = stateUser{
+		name:    "removedUser",
 		removed: true,
 	}
 
-	_, err := s.service().GetUser(context.Background(), "اقتدار")
+	removedUser, err := s.service().GetUser(context.Background(), userUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(removedUser.Name, gc.Equals, "removedUser")
+
+	_, err = s.service().GetUserByName(context.Background(), "removedUser")
 	c.Assert(err, jc.ErrorIs, usererrors.NotFound)
 }
 
@@ -842,21 +971,76 @@ func (s *serviceSuite) TestGetUserRemoved(c *gc.C) {
 func (s *serviceSuite) TestGetUser(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	mockState := s.setMockState(c)
-	mockState["Jürgen.test"] = stateUser{
+	uuid1, err := user.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	mockState[uuid1] = stateUser{
+		name:        "Jürgen.test",
 		createdAt:   time.Now().Add(-time.Minute * 5),
 		displayName: "Old mate 👍",
 	}
-	mockState["杨-test"] = stateUser{
+	uuid2, err := user.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	mockState[uuid2] = stateUser{
+		name:        "杨-test",
 		createdAt:   time.Now().Add(-time.Minute * 5),
 		displayName: "test1",
 	}
 
-	for userName, userSt := range mockState {
-		rval, err := s.service().GetUser(context.Background(), userName)
+	for userUUID, userSt := range mockState {
+		rval, err := s.service().GetUser(context.Background(), userUUID)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(rval.Name, gc.Equals, userName)
-		c.Assert(rval.CreatedAt, gc.Equals, userSt.createdAt)
+		c.Assert(rval.Name, gc.Equals, userSt.name)
 		c.Assert(rval.DisplayName, gc.Equals, userSt.displayName)
+	}
+}
+
+// TestGetUserByName tests the happy path for GetUserByName.
+func (s *serviceSuite) TestGetUserByName(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	mockState := s.setMockState(c)
+	uuid1, err := user.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	mockState[uuid1] = stateUser{
+		name:        "Jürgen.test",
+		createdAt:   time.Now().Add(-time.Minute * 5),
+		displayName: "Old mate 👍",
+	}
+	uuid2, err := user.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	mockState[uuid2] = stateUser{
+		name:        "杨-test",
+		createdAt:   time.Now().Add(-time.Minute * 5),
+		displayName: "test1",
+	}
+
+	for _, userSt := range mockState {
+		rval, err := s.service().GetUserByName(context.Background(), userSt.name)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(rval.Name, gc.Equals, userSt.name)
+		c.Assert(rval.DisplayName, gc.Equals, userSt.displayName)
+	}
+}
+
+// TestGetUserByNameNotFound is testing that if we ask for a user by name that
+// doesn't exist we get back an error that satisfies usererrors.NotFound.
+func (s *serviceSuite) TestGetUserByNameNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	mockState := s.setMockState(c)
+
+	_, err := s.service().GetUserByName(context.Background(), "test")
+	c.Assert(err, jc.ErrorIs, usererrors.NotFound)
+	c.Assert(len(mockState), gc.Equals, 0)
+}
+
+// TestGetUserByNameInvalidUsername is here to assert that when we ask for a user with
+// a username that is invalid we get a UsernameNotValid error. We also check
+// here that the service doesn't let invalid usernames flow through to the state
+// layer.
+func (s *serviceSuite) TestGetUserByNameInvalidUsername(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	for _, invalid := range invalidUsernames {
+		_, err := s.service().GetUserByName(context.Background(), invalid)
+		c.Assert(err, jc.ErrorIs, usererrors.UsernameNotValid)
 	}
 }
 
@@ -873,14 +1057,14 @@ func FuzzGetUser(f *testing.F) {
 		state := NewMockState(ctrl)
 		defer ctrl.Finish()
 
-		state.EXPECT().GetUser(gomock.Any(), username).Return(
+		state.EXPECT().GetUserByName(gomock.Any(), username).Return(
 			user.User{
 				Name: username,
 			},
 			nil,
 		).AnyTimes()
 
-		user, err := NewService(state).GetUser(context.Background(), username)
+		usr, err := NewService(state).GetUserByName(context.Background(), username)
 		if err != nil && !errors.Is(err, usererrors.UsernameNotValid) {
 			t.Errorf("unexpected error %v when fuzzing GetUser with %q",
 				err, username,
@@ -889,21 +1073,10 @@ func FuzzGetUser(f *testing.F) {
 			return
 		}
 
-		if user.Name != username {
-			t.Errorf("GetUser() user.name %q != %q", user.Name, username)
+		if usr.Name != username {
+			t.Errorf("GetUser() user.name %q != %q", usr.Name, username)
 		}
 	})
-}
-
-// TestGetUserInvalidUsername is here to assert that when we ask for a user with
-// a username that is invalid we get a UsernameNotValid error. We also check
-// here that the service doesn't let invalid usernames flow through to the state
-// layer.
-func (s *serviceSuite) TestGetUserInvalidUsername(c *gc.C) {
-	for _, invalid := range invalidUsernames {
-		_, err := s.service().GetUser(context.Background(), invalid)
-		c.Assert(err, jc.ErrorIs, usererrors.UsernameNotValid)
-	}
 }
 
 // TestUsernameValidation exists to assert the regex that is in use by
