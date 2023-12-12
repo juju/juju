@@ -146,11 +146,9 @@ func (s *serviceSuite) setMockState(c *gc.C) map[user.UUID]stateUser {
 		if IsUserNameAlreadyExists(user.Name, mockState) {
 			return usererrors.AlreadyExists
 		}
-		if creatorUUID != "" {
-			cusr, exists := mockState[creatorUUID]
-			if !exists || cusr.removed {
-				return usererrors.UserCreatorUUIDNotFound
-			}
+		cusr, exists := mockState[creatorUUID]
+		if !exists || cusr.removed {
+			return usererrors.UserCreatorUUIDNotFound
 		}
 		mockState[uuid] = stateUser{
 			creatorUUID: creatorUUID,
@@ -173,11 +171,9 @@ func (s *serviceSuite) setMockState(c *gc.C) map[user.UUID]stateUser {
 		if IsUserNameAlreadyExists(user.Name, mockState) {
 			return usererrors.AlreadyExists
 		}
-		if creatorUUID != "" {
-			cusr, exists := mockState[creatorUUID]
-			if !exists || cusr.removed {
-				return usererrors.UserCreatorUUIDNotFound
-			}
+		cusr, exists := mockState[creatorUUID]
+		if !exists || cusr.removed {
+			return usererrors.UserCreatorUUIDNotFound
 		}
 		mockState[uuid] = stateUser{
 			name:         user.Name,
@@ -201,11 +197,9 @@ func (s *serviceSuite) setMockState(c *gc.C) map[user.UUID]stateUser {
 		if IsUserNameAlreadyExists(user.Name, mockState) {
 			return usererrors.AlreadyExists
 		}
-		if creatorUUID != "" {
-			cusr, exists := mockState[creatorUUID]
-			if !exists || cusr.removed {
-				return usererrors.UserCreatorUUIDNotFound
-			}
+		cusr, exists := mockState[creatorUUID]
+		if !exists || cusr.removed {
+			return usererrors.UserCreatorUUIDNotFound
 		}
 		mockState[uuid] = stateUser{
 			name:          user.Name,
