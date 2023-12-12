@@ -13,14 +13,14 @@ import (
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
+	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/blockdevice"
-	"github.com/juju/juju/domain/blockdevice/state"
 )
 
 // State defines an interface for interacting with the underlying state.
 type State interface {
 	BlockDevices(ctx context.Context, machine string) ([]blockdevice.BlockDevice, error)
-	GetMachineInfo(ctx context.Context, machine string) (string, int, error)
+	GetMachineInfo(ctx context.Context, machine string) (string, domain.Life, error)
 }
 
 // Logger facilitates emitting log messages.
@@ -63,7 +63,7 @@ func (s *Service) WatchBlockDevices(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if life == state.Dead {
+	if life == domain.Dead {
 		return nil, errors.Errorf("cannot watch block devices on dead machine %q", machine)
 	}
 

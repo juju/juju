@@ -86,7 +86,7 @@ WHERE  machine.machine_id = $M.machine_id
 
 // GetMachineInfo is used by the block device service to look up
 // the machine UUID and life for a machine with which to call the watcher.
-func (st *State) GetMachineInfo(ctx context.Context, machine string) (string, int, error) {
+func (st *State) GetMachineInfo(ctx context.Context, machine string) (string, domain.Life, error) {
 	db, err := st.DB()
 	if err != nil {
 		return "", 0, errors.Trace(err)
@@ -94,7 +94,7 @@ func (st *State) GetMachineInfo(ctx context.Context, machine string) (string, in
 
 	var (
 		machineUUID string
-		life        int
+		life        domain.Life
 	)
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
@@ -104,7 +104,7 @@ func (st *State) GetMachineInfo(ctx context.Context, machine string) (string, in
 	return machineUUID, life, errors.Trace(err)
 }
 
-func getMachineInfo(ctx context.Context, tx *sqlair.TX, machine string) (string, int, error) {
+func getMachineInfo(ctx context.Context, tx *sqlair.TX, machine string) (string, domain.Life, error) {
 	q := `
 SELECT machine.life_id AS &M.life_id, machine.uuid AS &M.machine_uuid
 FROM   machine
@@ -128,7 +128,7 @@ WHERE  machine.machine_id = $M.machine_id
 		return "", 0, errors.Errorf("missing life value for machine %q", machine)
 	}
 	machineUUID := result["machine_uuid"].(string)
-	return machineUUID, int(life), nil
+	return machineUUID, domain.Life(life), nil
 }
 
 // SetMachineBlockDevices sets the block devices visible on the machine.
@@ -140,11 +140,11 @@ func (st *State) SetMachineBlockDevices(ctx context.Context, machine string, dev
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		machineUUID, l, err := getMachineInfo(ctx, tx, machine)
+		machineUUID, life, err := getMachineInfo(ctx, tx, machine)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		if l == Dead {
+		if life == domain.Dead {
 			return errors.Errorf("cannot update block devices on dead machine %q", machine)
 		}
 		existing, err := loadBlockDevices(ctx, tx, machine)

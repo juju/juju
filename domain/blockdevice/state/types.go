@@ -9,12 +9,6 @@ import (
 	"github.com/juju/juju/domain/blockdevice"
 )
 
-// TODO(wallyworld) - move to a "life" package somewhere.
-const (
-	// Dead is life = Dead.
-	Dead = 2
-)
-
 // These structs represent the persistent block device entity schema in the database.
 
 type BlockDevice struct {
