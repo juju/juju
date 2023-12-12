@@ -6,7 +6,6 @@ package service
 import (
 	"context"
 
-	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/changestream"
@@ -68,12 +67,12 @@ func (s *Service) WatchBlockDevices(
 	}
 
 	predicate := func(ctx context.Context, db database.TxnRunner, changes []changestream.ChangeEvent) (bool, error) {
-		machineUUIDs := set.NewStrings()
 		for _, ch := range changes {
-			machineUUIDs.Add(ch.Changed())
+			if ch.Changed() == machineUUID {
+				return true, nil
+			}
 		}
-		s.logger.Debugf("block device changes for machines: %s", machineUUIDs.Values())
-		return machineUUIDs.Contains(machineUUID), nil
+		return false, nil
 	}
 	baseWatcher, err := s.watcherFactory.NewValuePredicateWatcher("block_device_machine", machineUUID, changestream.All, predicate)
 	if err != nil {
