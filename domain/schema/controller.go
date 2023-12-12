@@ -102,32 +102,7 @@ CREATE TABLE annotation_model (
     CONSTRAINT          fk_annotation_model
         FOREIGN KEY     (model_uuid)
         REFERENCES      model_list(uuid)
-);
-
--- Following needs to be added later when their schema are added
-/*
-CREATE TABLE annotation_charm (
-    charm_uuid      TEXT NOT NULL,
-    key             TEXT NOT NULL,
-    value           TEXT NOT NULL,
-    PRIMARY KEY     (charm_uuid, key)
-);
-
-CREATE TABLE annotation_storage_filesystem (
-    filesystem_uuid     TEXT NOT NULL,
-    key                 TEXT NOT NULL,
-    value               TEXT NOT NULL,
-    PRIMARY KEY         (filesystem_uuid, key)
-);
-
-CREATE TABLE annotation_storage_volume (
-    unit_uuid       TEXT NOT NULL,
-    key             TEXT NOT NULL,
-    value           TEXT NOT NULL,
-    PRIMARY KEY     (volume_uuid, key)
-);
-*/
-`)
+);`)
 }
 
 func leaseSchema() schema.Patch {
