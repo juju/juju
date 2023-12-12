@@ -31,6 +31,7 @@ type stateUser struct {
 	passwordHash  string
 	passwordSalt  []byte
 	removed       bool
+	disabled      bool
 }
 
 var _ = gc.Suite(&serviceSuite{})
@@ -259,6 +260,36 @@ func (s *serviceSuite) setMockState(c *gc.C) map[user.UUID]stateUser {
 		usr.passwordHash = hash
 		usr.passwordSalt = salt
 		usr.activationKey = nil
+		mockState[uuid] = usr
+		return nil
+	}).AnyTimes()
+
+	// Implement the contract defined by EnableUser
+	s.state.EXPECT().EnableUser(
+		gomock.Any(), gomock.Any(),
+	).DoAndReturn(func(
+		_ context.Context,
+		uuid user.UUID) error {
+		usr, exists := mockState[uuid]
+		if !exists || usr.removed {
+			return usererrors.NotFound
+		}
+		usr.disabled = false
+		mockState[uuid] = usr
+		return nil
+	}).AnyTimes()
+
+	// Implement the contract defined by DisableUser
+	s.state.EXPECT().DisableUser(
+		gomock.Any(), gomock.Any(),
+	).DoAndReturn(func(
+		_ context.Context,
+		uuid user.UUID) error {
+		usr, exists := mockState[uuid]
+		if !exists || usr.removed {
+			return usererrors.NotFound
+		}
+		usr.disabled = true
 		mockState[uuid] = usr
 		return nil
 	}).AnyTimes()
@@ -1042,6 +1073,44 @@ func (s *serviceSuite) TestGetUserByNameInvalidUsername(c *gc.C) {
 		_, err := s.service().GetUserByName(context.Background(), invalid)
 		c.Assert(err, jc.ErrorIs, usererrors.UsernameNotValid)
 	}
+}
+
+// TestEnableUser tests the happy path for EnableUser.
+func (s *serviceSuite) TestEnableUser(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	mockState := s.setMockState(c)
+	uuid, err := user.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+
+	mockState[uuid] = stateUser{
+		name:     "username",
+		disabled: true,
+	}
+
+	err = s.service().EnableUser(context.Background(), uuid)
+	c.Assert(err, jc.ErrorIsNil)
+
+	userState := mockState[uuid]
+	c.Assert(userState.disabled, jc.IsFalse)
+}
+
+// TestDisableUser tests the happy path for DisableUser.
+func (s *serviceSuite) TestDisableUser(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	mockState := s.setMockState(c)
+	uuid, err := user.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+
+	mockState[uuid] = stateUser{
+		name:     "username",
+		disabled: false,
+	}
+
+	err = s.service().DisableUser(context.Background(), uuid)
+	c.Assert(err, jc.ErrorIsNil)
+
+	userState := mockState[uuid]
+	c.Assert(userState.disabled, jc.IsTrue)
 }
 
 // FuzzGetUser is a fuzz test for GetUser() that stresses the username input of

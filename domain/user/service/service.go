@@ -65,6 +65,16 @@ type State interface {
 	// password hash and salt. If no user is found for the supplied UUID an error
 	// is returned that satisfies usererrors.NotFound.
 	SetPasswordHash(context.Context, user.UUID, string, []byte) error
+
+	// EnableUser will enable the user for authentication. If no user is found
+	// for the supplied UUID an error is returned that satisfies
+	// usererrors.NotFound.
+	EnableUser(context.Context, user.UUID) error
+
+	// DisableUser will disable the user for authentication. If no user is found
+	// for the supplied UUID an error is returned that satisfies
+	// usererrors.NotFound.
+	DisableUser(context.Context, user.UUID) error
 }
 
 // Service provides the API for working with users.
@@ -345,6 +355,38 @@ func (s *Service) ResetPassword(ctx context.Context, uuid user.UUID) ([]byte, er
 		return nil, errors.Annotatef(err, "setting activation key for user with uuid %q", uuid)
 	}
 	return activationKey, nil
+}
+
+// EnableUser will enable the user for authentication.
+//
+// The following error types are possible from this function:
+// - usererrors.UUIDNotValid: When the UUID supplied is not valid.
+// - usererrors.NotFound: If no user by the given UUID exists.
+func (s *Service) EnableUser(ctx context.Context, uuid user.UUID) error {
+	if err := uuid.Validate(); err != nil {
+		return errors.Annotatef(usererrors.UUIDNotValid, "%q", uuid)
+	}
+
+	if err := s.st.EnableUser(ctx, uuid); err != nil {
+		return errors.Annotatef(err, "enabling user with uuid %q", uuid)
+	}
+	return nil
+}
+
+// DisableUser will disable the user for authentication.
+//
+// The following error types are possible from this function:
+// - usererrors.UUIDNotValid: When the UUID supplied is not valid.
+// - usererrors.NotFound: If no user by the given UUID exists.
+func (s *Service) DisableUser(ctx context.Context, uuid user.UUID) error {
+	if err := uuid.Validate(); err != nil {
+		return errors.Annotatef(usererrors.UUIDNotValid, "%q", uuid)
+	}
+
+	if err := s.st.DisableUser(ctx, uuid); err != nil {
+		return errors.Annotatef(err, "disabling user with uuid %q", uuid)
+	}
+	return nil
 }
 
 // generateActivationKey is responsible for generating a new activation key that

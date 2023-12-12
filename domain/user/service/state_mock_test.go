@@ -77,6 +77,34 @@ func (mr *MockStateMockRecorder) AddUserWithPasswordHash(arg0, arg1, arg2, arg3,
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddUserWithPasswordHash", reflect.TypeOf((*MockState)(nil).AddUserWithPasswordHash), arg0, arg1, arg2, arg3, arg4, arg5)
 }
 
+// DisableUser mocks base method.
+func (m *MockState) DisableUser(arg0 context.Context, arg1 user.UUID) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DisableUser", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DisableUser indicates an expected call of DisableUser.
+func (mr *MockStateMockRecorder) DisableUser(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DisableUser", reflect.TypeOf((*MockState)(nil).DisableUser), arg0, arg1)
+}
+
+// EnableUser mocks base method.
+func (m *MockState) EnableUser(arg0 context.Context, arg1 user.UUID) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "EnableUser", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// EnableUser indicates an expected call of EnableUser.
+func (mr *MockStateMockRecorder) EnableUser(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnableUser", reflect.TypeOf((*MockState)(nil).EnableUser), arg0, arg1)
+}
+
 // GetUser mocks base method.
 func (m *MockState) GetUser(arg0 context.Context, arg1 user.UUID) (user.User, error) {
 	m.ctrl.T.Helper()
