@@ -4,12 +4,16 @@
 package lxd
 
 import (
+	"context"
 	"fmt"
 	"path"
+	"strings"
+	"time"
 
 	lxd "github.com/canonical/lxd/client"
 	"github.com/canonical/lxd/shared/api"
 	"github.com/juju/errors"
+	"github.com/juju/retry"
 	jujuarch "github.com/juju/utils/v3/arch"
 
 	jujubase "github.com/juju/juju/core/base"
@@ -37,6 +41,7 @@ type SourcedImage struct {
 // Copied images will have the juju/series/arch alias added to them.
 // The callback argument is used to report copy progress.
 func (s *Server) FindImage(
+	ctx context.Context,
 	base jujubase.Base,
 	arch string,
 	virtType instance.VirtType,
@@ -111,7 +116,7 @@ func (s *Server) FindImage(
 
 	// If requested, copy the image to the local cache, adding the local alias.
 	if copyLocal {
-		if err := s.CopyRemoteImage(sourced, []string{localAlias}, callback); err != nil {
+		if err := s.CopyRemoteImage(ctx, sourced, []string{localAlias}, callback); err != nil {
 			return sourced, errors.Trace(err)
 		}
 
@@ -126,7 +131,7 @@ func (s *Server) FindImage(
 // CopyRemoteImage accepts an image sourced from a remote server and copies it
 // to the local cache
 func (s *Server) CopyRemoteImage(
-	sourced SourcedImage, aliases []string, callback environs.StatusCallbackFunc,
+	ctx context.Context, sourced SourcedImage, aliases []string, callback environs.StatusCallbackFunc,
 ) error {
 	logger.Debugf("Copying image from remote server")
 
@@ -134,33 +139,64 @@ func (s *Server) CopyRemoteImage(
 	for i, a := range aliases {
 		newAliases[i] = api.ImageAlias{Name: a}
 	}
-
 	req := &lxd.ImageCopyArgs{Aliases: newAliases}
-	op, err := s.CopyImage(sourced.LXDServer, *sourced.Image, req)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	// Report progress via callback if supplied.
-	if callback != nil {
-		progress := func(op api.Operation) {
-			if op.Metadata == nil {
+	progress := func(op api.Operation) {
+		if op.Metadata == nil {
+			return
+		}
+		for _, key := range []string{"fs_progress", "download_progress"} {
+			if value, ok := op.Metadata[key]; ok {
+				_ = callback(status.Provisioning, fmt.Sprintf("Retrieving image: %s", value.(string)), nil)
 				return
 			}
-			for _, key := range []string{"fs_progress", "download_progress"} {
-				if value, ok := op.Metadata[key]; ok {
-					_ = callback(status.Provisioning, fmt.Sprintf("Retrieving image: %s", value.(string)), nil)
-					return
-				}
-			}
-		}
-		_, err = op.AddHandler(progress)
-		if err != nil {
-			return errors.Trace(err)
 		}
 	}
 
-	if err := op.Wait(); err != nil {
+	var op lxd.RemoteOperation
+	attemptDownload := func() error {
+		var err error
+		op, err = s.CopyImage(sourced.LXDServer, *sourced.Image, req)
+		if err != nil {
+			return err
+		}
+		// Report progress via callback if supplied.
+		if callback != nil {
+			_, err = op.AddHandler(progress)
+			if err != nil {
+				return err
+			}
+		}
+		if err := op.Wait(); err != nil {
+			return err
+		}
+		return nil
+	}
+	// NOTE(jack-w-shaw) We wish to retry downloading images because we have been seeing
+	// some flakey performance from the ubuntu cloud-images archive. This has lead to rare
+	// but disruptive failures to bootstrap due to these transient failures.
+	// Ideally this should be handled at lxd's end. However, image download is handled by
+	// the lxd server/agent, this needs to be handled by lxd.
+	// TODO(jack-s-shaw) Remove retries here once it's been implemented in lxd. See this bug:
+	// https://github.com/canonical/lxd/issues/12672
+	err := retry.Call(retry.CallArgs{
+		Clock:       s.clock,
+		Attempts:    3,
+		Delay:       15 * time.Second,
+		BackoffFunc: retry.DoubleDelay,
+		Stop:        ctx.Done(),
+		Func:        attemptDownload,
+		IsFatalError: func(err error) bool {
+			// unfortunately the LXD client currently does not
+			// provide a way to differentiate between errors
+			return !strings.HasPrefix(err.Error(), "Failed remote image download")
+		},
+		NotifyFunc: func(_ error, attempt int) {
+			if callback != nil {
+				_ = callback(status.Provisioning, fmt.Sprintf("Failed remote LXD image download. Retrying. Attempt number %d", attempt+1), nil)
+			}
+		},
+	})
+	if err != nil {
 		return errors.Trace(err)
 	}
 	opInfo, err := op.GetTarget()

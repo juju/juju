@@ -942,7 +942,7 @@ to create a new model to deploy %sworkloads.
 		c.controllerName, cloudRegion,
 	)
 
-	cloudCallCtx := envcontext.NewCloudCallContext(context.Background())
+	cloudCallCtx := envcontext.NewCloudCallContext(stdCtx)
 	// At this stage, the credential we intend to use is not yet stored
 	// server-side. So, if the credential is not accepted by the provider,
 	// we cannot mark it as invalid, just log it as an informative message.

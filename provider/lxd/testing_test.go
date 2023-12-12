@@ -4,6 +4,7 @@
 package lxd
 
 import (
+	stdcontext "context"
 	"net"
 	"os"
 	"strconv"
@@ -421,7 +422,7 @@ func (conn *StubClient) CreateContainerFromSpec(spec lxd.ContainerSpec) (*lxd.Co
 }
 
 func (conn *StubClient) FindImage(
-	base corebase.Base, arch string, virtType instance.VirtType, sources []lxd.ServerSpec, copyLocal bool, callback environs.StatusCallbackFunc,
+	ctx stdcontext.Context, base corebase.Base, arch string, virtType instance.VirtType, sources []lxd.ServerSpec, copyLocal bool, callback environs.StatusCallbackFunc,
 ) (lxd.SourcedImage, error) {
 	conn.AddCall("FindImage", base.DisplayString(), arch)
 	if err := conn.NextErr(); err != nil {

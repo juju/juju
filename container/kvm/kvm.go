@@ -4,6 +4,7 @@
 package kvm
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -148,6 +149,7 @@ func (manager *containerManager) Namespace() instance.Namespace {
 }
 
 func (manager *containerManager) CreateContainer(
+	_ context.Context,
 	instanceConfig *instancecfg.InstanceConfig,
 	cons constraints.Value,
 	base corebase.Base,
