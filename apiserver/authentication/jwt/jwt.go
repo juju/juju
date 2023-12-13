@@ -207,6 +207,10 @@ func PermissionFromToken(token jwt.Token, subject names.Tag) (permission.Access,
 		validate = permission.ValidateModelAccess
 	case names.CloudTagKind:
 		validate = permission.ValidateCloudAccess
+	case names.ApplicationOfferTagKind:
+		// TODO: fix ApplicationOfferTag parsing across Juju.
+		// Currently, we use both NewApplicationOfferTag(offerUUID) and NewApplicationOfferTag(offerName).
+		validate = permission.ValidateOfferAccess
 	default:
 		return "", errors.NotValidf("%q as a target", subject)
 	}

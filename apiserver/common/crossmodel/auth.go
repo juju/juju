@@ -71,8 +71,8 @@ type AuthContext struct {
 
 	clock              clock.Clock
 	offerThirdPartyKey *bakery.KeyPair
-	offerBakery        authentication.ExpirableStorageBakery
-	getTestBakery      func(idURL string) (authentication.ExpirableStorageBakery, error)
+	localOfferBakery   authentication.ExpirableStorageBakery
+	jaasOfferBakery    authentication.ExpirableStorageBakery
 
 	offerAccessEndpoint string
 }
@@ -82,15 +82,14 @@ type AuthContext struct {
 func NewAuthContext(
 	systemState Backend,
 	offerThirdPartyKey *bakery.KeyPair,
-	offerBakery authentication.ExpirableStorageBakery,
-	getTestBakery func(idURL string) (authentication.ExpirableStorageBakery, error),
+	localOfferBakery, jaasOfferBakery authentication.ExpirableStorageBakery,
 ) (*AuthContext, error) {
 	ctxt := &AuthContext{
 		systemState:        systemState,
 		clock:              clock.WallClock,
-		offerBakery:        offerBakery,
+		localOfferBakery:   localOfferBakery,
 		offerThirdPartyKey: offerThirdPartyKey,
-		getTestBakery:      getTestBakery,
+		jaasOfferBakery:    jaasOfferBakery,
 	}
 	return ctxt, nil
 }
@@ -227,8 +226,8 @@ func (a *AuthContext) CreateConsumeOfferMacaroon(ctx context.Context, offer *par
 		return nil, errors.Trace(err)
 	}
 	offerUUID := offer.OfferUUID
-	if !userTag.IsLocal() {
-		// If the user is not local, we need to verify the offer access in JaaS side.
+	if a.jaasOfferBakery != nil {
+		// We need to verify the offer access in JaaS side.
 		// So we donnot declare the offerUUID here then we will discharge the macaroon to JaaS.
 		offerUUID = ""
 	}
@@ -239,7 +238,7 @@ func (a *AuthContext) createConsumeOfferMacaroon(
 	ctx context.Context, offerUUID string, sourceModelTag names.ModelTag, userTag names.UserTag, version bakery.Version,
 ) (*bakery.Macaroon, error) {
 	expiryTime := a.clock.Now().Add(offerPermissionExpiryTime)
-	bakery, err := a.offerBakery.ExpireStorageAfter(offerPermissionExpiryTime)
+	bakery, err := a.localOfferBakery.ExpireStorageAfter(offerPermissionExpiryTime)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -267,7 +266,7 @@ func (a *AuthContext) CreateRemoteRelationMacaroon(
 ) (*bakery.Macaroon, error) {
 	logger.Criticalf("CreateRemoteRelationMacaroon sourceModelUUID %q, offerUUID %q, username %q, rel %#v, version %d", sourceModelUUID, offerUUID, username, rel, version)
 	expiryTime := a.clock.Now().Add(offerPermissionExpiryTime)
-	bakery, err := a.offerBakery.ExpireStorageAfter(offerPermissionExpiryTime)
+	bakery, err := a.localOfferBakery.ExpireStorageAfter(offerPermissionExpiryTime)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -327,7 +326,7 @@ func crossModelRelateOp(relationID string) bakery.Op {
 func (a *AuthContext) Authenticator() *authenticator {
 	auth := &authenticator{
 		clock:               a.clock,
-		bakery:              a.offerBakery,
+		bakery:              a.localOfferBakery,
 		ctxt:                a,
 		offerAccessEndpoint: a.offerAccessEndpoint,
 	}
@@ -409,6 +408,7 @@ func (a *authenticator) checkMacaroons(
 
 	auth := a.bakery.Auth(mac)
 	ai, err := auth.Allow(ctx, op)
+	logger.Criticalf("checkMacaroons auth.Allow(ctx, %#v) err %#v, ai.Conditions() %#v", op, err, ai.Conditions())
 	if err == nil && len(ai.Conditions()) > 0 {
 		authlogger.Criticalf("ok macaroon check ok, attr: %s, conditions: %s", pretty.Sprint(declared), pretty.Sprint(ai.Conditions()))
 		if err = a.checkMacaroonCaveats(op, relation, sourceModelUUID, offerUUID); err == nil {
@@ -433,7 +433,7 @@ func (a *authenticator) checkMacaroons(
 	requiredSourceModelUUID := requiredValues[sourcemodelKey]
 
 	var m *bakery.Macaroon
-	if userTag.IsLocal() {
+	if a.ctxt.jaasOfferBakery == nil {
 		keys := []string{usernameKey}
 		for k := range requiredValues {
 			keys = append(keys, k)
@@ -490,13 +490,8 @@ func (a *authenticator) createDischargeMacaroon(
 func (a *authenticator) createDischargeMacaroonForExternalUser(
 	ctx context.Context, offerUUID string, userTag names.UserTag, version bakery.Version, declaredCaveats ...checkers.Caveat,
 ) (*bakery.Macaroon, error) {
-	logger.Criticalf("createMacaroonForExternalUser offerUUID %q, userTag %q, relID %q, version %d", offerUUID, userTag, version)
+	logger.Criticalf("createMacaroonForExternalUser offerUUID %q, userTag %q, version %d", offerUUID, userTag, version)
 	idURL := `https://jimm.comsys-internal.v2.staging.canonical.com/macaroons`
-
-	bakery, err := a.ctxt.getTestBakery(idURL)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 
 	conditionParts := []string{
 		"is-consumer",
@@ -513,7 +508,7 @@ func (a *authenticator) createDischargeMacaroonForExternalUser(
 	}
 	logger.Criticalf("createMacaroonForExternalUser conditionCaveat %#v", conditionCaveat)
 	expiryTime := a.clock.Now().Add(offerPermissionExpiryTime)
-	macaroon, err := bakery.NewMacaroon(
+	macaroon, err := a.ctxt.jaasOfferBakery.NewMacaroon(
 		ctx,
 		version,
 		append(
