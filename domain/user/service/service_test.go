@@ -264,8 +264,8 @@ func (s *serviceSuite) setMockState(c *gc.C) map[user.UUID]stateUser {
 		return nil
 	}).AnyTimes()
 
-	// Implement the contract defined by EnableUser
-	s.state.EXPECT().EnableUser(
+	// Implement the contract defined by EnableUserAuthentication
+	s.state.EXPECT().EnableUserAuthentication(
 		gomock.Any(), gomock.Any(),
 	).DoAndReturn(func(
 		_ context.Context,
@@ -279,8 +279,8 @@ func (s *serviceSuite) setMockState(c *gc.C) map[user.UUID]stateUser {
 		return nil
 	}).AnyTimes()
 
-	// Implement the contract defined by DisableUser
-	s.state.EXPECT().DisableUser(
+	// Implement the contract defined by DisableUserAuthentication
+	s.state.EXPECT().DisableUserAuthentication(
 		gomock.Any(), gomock.Any(),
 	).DoAndReturn(func(
 		_ context.Context,
@@ -1075,8 +1075,8 @@ func (s *serviceSuite) TestGetUserByNameInvalidUsername(c *gc.C) {
 	}
 }
 
-// TestEnableUser tests the happy path for EnableUser.
-func (s *serviceSuite) TestEnableUser(c *gc.C) {
+// TestEnableUserAuthentication tests the happy path for EnableUserAuthentication.
+func (s *serviceSuite) TestEnableUserAuthentication(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	mockState := s.setMockState(c)
 	uuid, err := user.NewUUID()
@@ -1087,15 +1087,15 @@ func (s *serviceSuite) TestEnableUser(c *gc.C) {
 		disabled: true,
 	}
 
-	err = s.service().EnableUser(context.Background(), uuid)
+	err = s.service().EnableUserAuthentication(context.Background(), uuid)
 	c.Assert(err, jc.ErrorIsNil)
 
 	userState := mockState[uuid]
 	c.Assert(userState.disabled, jc.IsFalse)
 }
 
-// TestDisableUser tests the happy path for DisableUser.
-func (s *serviceSuite) TestDisableUser(c *gc.C) {
+// TestDisableUserAuthentication tests the happy path for DisableUserAuthentication.
+func (s *serviceSuite) TestDisableUserAuthentication(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	mockState := s.setMockState(c)
 	uuid, err := user.NewUUID()
@@ -1106,7 +1106,7 @@ func (s *serviceSuite) TestDisableUser(c *gc.C) {
 		disabled: false,
 	}
 
-	err = s.service().DisableUser(context.Background(), uuid)
+	err = s.service().DisableUserAuthentication(context.Background(), uuid)
 	c.Assert(err, jc.ErrorIsNil)
 
 	userState := mockState[uuid]

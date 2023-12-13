@@ -646,8 +646,8 @@ WHERE user_uuid = ?
 	c.Assert(err, jc.ErrorIs, sql.ErrNoRows)
 }
 
-// TestDisableUser asserts that we can disable a user.
-func (s *stateSuite) TestDisableUser(c *gc.C) {
+// TestDisableUserAuthentication asserts that we can disable a user.
+func (s *stateSuite) TestDisableUserAuthentication(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	// Add admin user.
@@ -666,7 +666,7 @@ func (s *stateSuite) TestDisableUser(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Disable user.
-	err = st.DisableUser(context.Background(), adminUUID)
+	err = st.DisableUserAuthentication(context.Background(), adminUUID)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that the user was disabled correctly.
@@ -686,8 +686,8 @@ WHERE user_uuid = ?
 	c.Check(disabled, gc.Equals, true)
 }
 
-// TestEnableUser asserts that we can enable a user.
-func (s *stateSuite) TestEnableUser(c *gc.C) {
+// TestEnableUserAuthentication asserts that we can enable a user.
+func (s *stateSuite) TestEnableUserAuthentication(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	// Add admin user with activation key.
@@ -706,11 +706,11 @@ func (s *stateSuite) TestEnableUser(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Disable user.
-	err = st.DisableUser(context.Background(), adminUUID)
+	err = st.DisableUserAuthentication(context.Background(), adminUUID)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Enable user.
-	err = st.EnableUser(context.Background(), adminUUID)
+	err = st.EnableUserAuthentication(context.Background(), adminUUID)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that the user was enabled correctly.

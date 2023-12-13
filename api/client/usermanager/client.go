@@ -94,13 +94,13 @@ func (c *Client) userCall(username string, methodCall string) error {
 // DisableUser disables a user.  If the user is already disabled, the action
 // is considered a success.
 func (c *Client) DisableUser(username string) error {
-	return c.userCall(username, "DisableUser")
+	return c.userCall(username, "DisableUserAuthentication")
 }
 
 // EnableUser enables a users.  If the user is already enabled, the action is
 // considered a success.
 func (c *Client) EnableUser(username string) error {
-	return c.userCall(username, "EnableUser")
+	return c.userCall(username, "EnableUserAuthentication")
 }
 
 // RemoveUser deletes a user. That is it permanently removes the user, while

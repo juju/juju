@@ -307,11 +307,11 @@ func AddUserWithPassword(
 	return errors.Trace(setPasswordHash(ctx, tx, uuid, passwordHash, salt))
 }
 
-// EnableUser will enable the user with the supplied UUID. If the user does not
+// EnableUserAuthentication will enable the user with the supplied UUID. If the user does not
 // exist an error that satisfies usererrors.NotFound will be returned. If the
 // user is already enabled an error that satisfies usererrors.AlreadyEnabled
 // will be returned.
-func (st *State) EnableUser(ctx context.Context, uuid user.UUID) error {
+func (st *State) EnableUserAuthentication(ctx context.Context, uuid user.UUID) error {
 	db, err := st.DB()
 	if err != nil {
 		return errors.Annotate(err, "getting DB access")
@@ -347,11 +347,11 @@ WHERE user_uuid = $M.uuid
 	})
 }
 
-// DisableUser will disable the user with the supplied UUID. If the user does
+// DisableUserAuthentication will disable the user with the supplied UUID. If the user does
 // not exist an error that satisfies usererrors.NotFound will be returned. If
 // the user is already disabled an error that satisfies
 // usererrors.AlreadyDisabled will be returned.
-func (st *State) DisableUser(ctx context.Context, uuid user.UUID) error {
+func (st *State) DisableUserAuthentication(ctx context.Context, uuid user.UUID) error {
 	db, err := st.DB()
 	if err != nil {
 		return errors.Annotate(err, "getting DB access")
