@@ -18,9 +18,9 @@ type bootstrapSuite struct {
 
 var _ = gc.Suite(&bootstrapSuite{})
 
-func (s *bootstrapSuite) TestInsertAdminUser(c *gc.C) {
+func (s *bootstrapSuite) TestGenerateAdminUser(c *gc.C) {
 	st := userstate.NewState(s.TxnRunnerFactory())
-	err := InsertAdminUser()(context.Background(), s.TxnRunner())
+	err := GenerateAdminUser()(context.Background(), s.TxnRunner())
 	c.Assert(err, gc.IsNil)
 
 	adminUser, err := st.GetUserByName(context.Background(), "admin")

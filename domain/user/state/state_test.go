@@ -8,6 +8,7 @@ import (
 	"database/sql"
 	"time"
 
+	"github.com/canonical/sqlair"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"golang.org/x/net/context"
@@ -96,11 +97,9 @@ func generateActivationKey() ([]byte, error) {
 	return activationKey[:], nil
 }
 
-// TestAddAdminUser asserts that we can add an admin (fist user while bootstrap)
-// user to the database .
-func (s *stateSuite) TestAddAdminUser(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
-
+// CreateUserWithNoPasswordAuthorization asserts that we can add a user with no
+// password authorization.
+func (s *stateSuite) CreateUserWithNoPasswordAuthorization(c *gc.C) {
 	// Add admin user.
 	adminUUID, err := user.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
@@ -108,7 +107,12 @@ func (s *stateSuite) TestAddAdminUser(c *gc.C) {
 		Name:        "admin",
 		DisplayName: "admin",
 	}
-	err = st.AddUser(context.Background(), adminUUID, adminUser, adminUUID)
+
+	// Add user with no password authorization.
+	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+		err = CreateUserWithNoPasswordAuthorization(context.Background(), tx, adminUUID, adminUser, adminUUID)
+		return err
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that the user was added correctly.

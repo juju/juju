@@ -246,7 +246,7 @@ func (b *AgentBootstrap) Initialize(ctx stdcontext.Context) (_ *state.Controller
 			credbootstrap.InsertCredential(credential.IdFromTag(cloudCredTag), cloudCred),
 			cloudbootstrap.SetCloudDefaults(stateParams.ControllerCloud.Name, stateParams.ControllerInheritedConfig),
 			modelbootstrap.CreateModel(controllerUUID, controllerModelArgs),
-			userbootstrap.InsertAdminUser(),
+			userbootstrap.GenerateAdminUser(),
 		),
 		database.BootstrapModelConcern(controllerUUID,
 			modelconfigbootstrap.SetModelConfig(stateParams.ControllerModelConfig, controllerModelDefaults),

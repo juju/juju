@@ -94,7 +94,9 @@ var (
 // NewService returns a new Service for interacting with the underlying user
 // state.
 func NewService(st State) *Service {
-	return &Service{st: st}
+	return &Service{
+		st: st,
+	}
 }
 
 // GetUser will find and return the user with UUID. If there is no

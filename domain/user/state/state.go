@@ -291,23 +291,18 @@ func (st *State) SetPasswordHash(ctx context.Context, uuid user.UUID, passwordHa
 	})
 }
 
-func CreateAdminUser(ctx context.Context, tx *sqlair.TX) error {
-	uuid, err := user.NewUUID()
+// CreateUserWithNoPasswordAuthorization will add a new user with no password
+// authorization to the database. If the user already exists
+// an error that satisfies usererrors.AlreadyExists will be returned. If the
+// creator does not exist an error that satisfies
+// usererrors.UserCreatorUUIDNotFound will be returned.
+func CreateUserWithNoPasswordAuthorization(ctx context.Context, tx *sqlair.TX, uuid user.UUID, usr user.User, creatorUUID user.UUID) error {
+	err := addUser(ctx, tx, uuid, usr, creatorUUID)
 	if err != nil {
-		return errors.Annotate(err, "generating UUID")
+		return errors.Annotate(err, "creating user")
 	}
 
-	adminUser := user.User{
-		Name:        "admin",
-		DisplayName: "admin",
-		CreatedAt:   time.Now(),
-	}
-
-	err = addUser(ctx, tx, uuid, adminUser, uuid)
-	if err != nil {
-		return errors.Annotate(err, "adding admin user")
-	}
-
+	// Enabling no password authentication for the user.
 	err = ensureUserAuthentication(ctx, tx, uuid)
 	if err != nil {
 		return errors.Annotate(err, "ensuring admin user authentication")
