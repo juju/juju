@@ -154,7 +154,8 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.TraceName,
 			config.ObjectStoreName,
 		},
-		Start: config.start,
+		Start:  config.start,
+		Output: output,
 	}
 }
 
@@ -297,4 +298,28 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		_ = stTracker.Done()
 		_ = config.PrometheusRegisterer.Unregister(metricsCollector)
 	}), nil
+}
+
+type EndpointRegistry interface {
+	AddEndpoint(apiserver.EndpointHandler) error
+	RemoveEndpoint(apiserver.Endpoint) error
+}
+
+func output(in worker.Worker, out interface{}) error {
+	if w, ok := in.(*common.CleanupWorker); ok {
+		in = w.Worker
+	}
+	w, ok := in.(*apiserver.Server)
+	if !ok {
+		return errors.Errorf("expected input of apiserver.Server, got %T", in)
+	}
+
+	switch out := out.(type) {
+	case *EndpointRegistry:
+		var target EndpointRegistry = w
+		*out = target
+		return nil
+	default:
+		return errors.Errorf("unsupported output type %T", out)
+	}
 }

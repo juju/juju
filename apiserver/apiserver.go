@@ -129,6 +129,9 @@ type Server struct {
 	// is to support registering the handlers underneath the
 	// "/introspection" prefix.
 	registerIntrospectionHandlers func(func(string, http.Handler))
+
+	addEndpointReq    chan EndpointHandler
+	removeEndpointReq chan Endpoint
 }
 
 // ServerConfig holds parameters required to set up an API server.
@@ -615,22 +618,54 @@ func (w httpRequestRecorderWrapper) RecordError(method string, url *url.URL, err
 	w.collector.TotalRequestErrors.WithLabelValues(w.modelUUID, url.Host).Inc()
 }
 
+type Endpoint struct {
+	Method  string
+	Pattern string
+}
+
+type EndpointHandler struct {
+	Endpoint
+	Handler http.Handler
+}
+
+func (srv *Server) AddEndpoint(endpoint EndpointHandler) error {
+	select {
+	case srv.addEndpointReq <- endpoint:
+		return nil
+	case <-srv.tomb.Dying():
+		return tomb.ErrDying
+	}
+}
+
+func (srv *Server) RemoveEndpoint(endpoint Endpoint) error {
+	select {
+	case srv.removeEndpointReq <- endpoint:
+		return nil
+	case <-srv.tomb.Dying():
+		return tomb.ErrDying
+	}
+}
+
 // loop is the main loop for the server.
 func (srv *Server) loop(ready chan struct{}) error {
 	// for pat based handlers, they are matched in-order of being
 	// registered, first match wins. So more specific ones have to be
 	// registered first.
-	endpoints, err := srv.endpoints()
+
+	// Register the default handlers first.
+	endpoints := make(map[Endpoint]struct{})
+
+	defaultEndpoints, err := srv.endpoints()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	for _, ep := range endpoints {
+	for _, ep := range defaultEndpoints {
 		_ = srv.mux.AddHandler(ep.Method, ep.Pattern, ep.Handler)
-		defer srv.mux.RemoveHandler(ep.Method, ep.Pattern)
 		if ep.Method == "GET" {
 			_ = srv.mux.AddHandler("HEAD", ep.Pattern, ep.Handler)
-			defer srv.mux.RemoveHandler("HEAD", ep.Pattern)
 		}
+
+		endpoints[Endpoint{Method: ep.Method, Pattern: ep.Pattern}] = struct{}{}
 	}
 
 	close(ready)
@@ -638,14 +673,43 @@ func (srv *Server) loop(ready chan struct{}) error {
 	srv.healthStatus = "running"
 	srv.mu.Unlock()
 
-	<-srv.tomb.Dying()
+	for {
+		select {
+		case ep := <-srv.addEndpointReq:
+			endpoints[ep.Endpoint] = struct{}{}
 
-	srv.mu.Lock()
-	srv.healthStatus = "stopping"
-	srv.mu.Unlock()
+			_ = srv.mux.AddHandler(ep.Method, ep.Pattern, ep.Handler)
+			if ep.Method == "GET" {
+				_ = srv.mux.AddHandler("HEAD", ep.Pattern, ep.Handler)
+			}
 
-	srv.wg.Wait() // wait for any outstanding requests to complete.
-	return tomb.ErrDying
+		case ep := <-srv.removeEndpointReq:
+			delete(endpoints, ep)
+
+			srv.mux.RemoveHandler(ep.Method, ep.Pattern)
+			if ep.Method == "GET" {
+				srv.mux.RemoveHandler("HEAD", ep.Pattern)
+			}
+
+		case <-srv.tomb.Dying():
+			srv.mu.Lock()
+			srv.healthStatus = "stopping"
+			srv.mu.Unlock()
+
+			// wait for any outstanding requests to complete.
+			srv.wg.Wait()
+
+			// Remove all outstanding endpoints that haven't been removed.
+			for ep := range endpoints {
+				srv.mux.RemoveHandler(ep.Method, ep.Pattern)
+				if ep.Method == "GET" {
+					srv.mux.RemoveHandler("HEAD", ep.Pattern)
+				}
+			}
+
+			return tomb.ErrDying
+		}
+	}
 }
 
 func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
