@@ -18,7 +18,7 @@ import (
 	agenterrors "github.com/juju/juju/agent/errors"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/upgrades"
+	"github.com/juju/juju/internal/upgrades"
 	"github.com/juju/juju/worker/gate"
 )
 

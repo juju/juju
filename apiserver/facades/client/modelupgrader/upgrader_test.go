@@ -31,12 +31,12 @@ import (
 	"github.com/juju/juju/internal/docker/registry/image"
 	registrymocks "github.com/juju/juju/internal/docker/registry/mocks"
 	coretools "github.com/juju/juju/internal/tools"
+	"github.com/juju/juju/internal/upgrades/upgradevalidation"
+	upgradevalidationmocks "github.com/juju/juju/internal/upgrades/upgradevalidation/mocks"
 	"github.com/juju/juju/provider/lxd"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/upgrades/upgradevalidation"
-	upgradevalidationmocks "github.com/juju/juju/upgrades/upgradevalidation/mocks"
 )
 
 var ubuntuVersions = []string{

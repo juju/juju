@@ -15,8 +15,8 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/internal/upgrades"
 	"github.com/juju/juju/internal/upgradesteps"
-	"github.com/juju/juju/upgrades"
 	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/gate"
 )

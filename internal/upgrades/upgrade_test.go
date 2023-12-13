@@ -20,8 +20,8 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/mongo"
+	"github.com/juju/juju/internal/upgrades"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/upgrades"
 	jujuversion "github.com/juju/juju/version"
 )
 

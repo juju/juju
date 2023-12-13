@@ -14,7 +14,7 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/upgrades"
+	"github.com/juju/juju/internal/upgrades"
 )
 
 type baseWorkerSuite struct {
