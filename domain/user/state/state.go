@@ -308,9 +308,7 @@ func AddUserWithPassword(
 }
 
 // EnableUserAuthentication will enable the user with the supplied UUID. If the user does not
-// exist an error that satisfies usererrors.NotFound will be returned. If the
-// user is already enabled an error that satisfies usererrors.AlreadyEnabled
-// will be returned.
+// exist an error that satisfies usererrors.NotFound will be returned.
 func (st *State) EnableUserAuthentication(ctx context.Context, uuid user.UUID) error {
 	db, err := st.DB()
 	if err != nil {
@@ -318,6 +316,14 @@ func (st *State) EnableUserAuthentication(ctx context.Context, uuid user.UUID) e
 	}
 
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = ensureUserAuthentication(ctx, tx, uuid)
+		// If the user does not exist then we return the error as is.
+		// If the user does exist but their authentication is disabled then we
+		// continue on to enable the user.
+		if !errors.Is(err, usererrors.UserAuthenticationDisabled) {
+			return errors.Annotatef(err, "enabling user with uuid %q", uuid)
+		}
+
 		removed, err := st.isRemoved(ctx, tx, uuid)
 		if err != nil {
 			return errors.Annotatef(err, "getting user with uuid %q", uuid)
@@ -348,9 +354,7 @@ WHERE user_uuid = $M.uuid
 }
 
 // DisableUserAuthentication will disable the user with the supplied UUID. If the user does
-// not exist an error that satisfies usererrors.NotFound will be returned. If
-// the user is already disabled an error that satisfies
-// usererrors.AlreadyDisabled will be returned.
+// not exist an error that satisfies usererrors.NotFound will be returned.
 func (st *State) DisableUserAuthentication(ctx context.Context, uuid user.UUID) error {
 	db, err := st.DB()
 	if err != nil {
@@ -358,6 +362,11 @@ func (st *State) DisableUserAuthentication(ctx context.Context, uuid user.UUID) 
 	}
 
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = ensureUserAuthentication(ctx, tx, uuid)
+		if err != nil {
+			return errors.Annotatef(err, "disabling user with uuid %q", uuid)
+		}
+
 		removed, err := st.isRemoved(ctx, tx, uuid)
 		if err != nil {
 			return errors.Annotatef(err, "getting user with uuid %q", uuid)
@@ -461,7 +470,7 @@ WHERE disabled = false
 	}
 
 	if affected == 0 {
-		return errors.Annotatef(usererrors.UserAuthenticationDisabled, "user with uuid %q", uuid)
+		return errors.Annotatef(usererrors.UserAuthenticationDisabled, "%q", uuid)
 	}
 	return nil
 }

@@ -118,7 +118,7 @@ func (s *usermanagerSuite) TestDisableUser(c *gc.C) {
 		Results: make([]params.ErrorResult, 1),
 	}
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "DisableUserAuthentication", args, result).SetArg(3, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "DisableUser", args, result).SetArg(3, results).Return(nil)
 
 	client := usermanager.NewClientFromCaller(mockFacadeCaller)
 	err := client.DisableUser(user.Name())
@@ -134,7 +134,7 @@ func (s *usermanagerSuite) TestEnableUser(c *gc.C) {
 	result := new(params.ErrorResults)
 	results := params.ErrorResults{Results: make([]params.ErrorResult, 1)}
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "EnableUserAuthentication", args, result).SetArg(3, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "EnableUser", args, result).SetArg(3, results).Return(nil)
 	client := usermanager.NewClientFromCaller(mockFacadeCaller)
 	err := client.EnableUser(user.Name())
 	c.Assert(err, jc.ErrorIsNil)
@@ -153,7 +153,7 @@ func (s *usermanagerSuite) TestCantRemoveAdminUser(c *gc.C) {
 		[]params.ErrorResult{{Error: &params.Error{Message: "failed to disable user: cannot disable controller model owner"}}},
 	}
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "DisableUserAuthentication", args, result).SetArg(3, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "DisableUser", args, result).SetArg(3, results).Return(nil)
 
 	client := usermanager.NewClientFromCaller(mockFacadeCaller)
 	err := client.DisableUser(admin.Name())
