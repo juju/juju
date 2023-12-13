@@ -166,7 +166,6 @@ func (s *schemaSuite) TestModelDDLApply(c *gc.C) {
 		"storage_instance",
 		"storage_instance_pool",
 		"storage_unit_owner",
-		"storage_application_owner",
 		"storage_attachment",
 		"storage_constraint_type",
 		"storage_instance_constraint",

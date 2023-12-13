@@ -482,8 +482,6 @@ CREATE TABLE storage_instance_pool (
 -- storage_unit_owner is used to indicate when
 -- a unit is the owner of a storage instance.
 -- This is different to a storage attachment.
--- The owner should be *either* an application
--- or a unit; not both.
 CREATE TABLE storage_unit_owner (
     storage_instance_uuid TEXT PRIMARY KEY,
     unit_uuid             TEXT NOT NULL,
@@ -493,19 +491,6 @@ CREATE TABLE storage_unit_owner (
     CONSTRAINT       fk_storage_owner_unit
         FOREIGN KEY  (unit_uuid)
         REFERENCES   unit(uuid)
-);
-
--- storage_application_owner is used to indicate when
--- an application is the owner of a storage instance.
-CREATE TABLE storage_application_owner (
-    storage_instance_uuid TEXT PRIMARY KEY,
-    application_uuid      TEXT NOT NULL,
-    CONSTRAINT       fk_storage_owner_storage
-        FOREIGN KEY  (storage_instance_uuid)
-        REFERENCES   storage_instance(uuid),
-    CONSTRAINT       fk_storage_owner_application
-        FOREIGN KEY  (application_uuid)
-        REFERENCES   application(uuid)
 );
 
 CREATE TABLE storage_attachment (
