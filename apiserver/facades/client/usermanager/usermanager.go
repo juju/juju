@@ -17,7 +17,9 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/permission"
+	coreuser "github.com/juju/juju/core/user"
 	userservice "github.com/juju/juju/domain/user/service"
+	"github.com/juju/juju/internal/auth"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -62,11 +64,48 @@ func (api *UserManagerAPI) AddUser(ctx context.Context, args params.AddUsers) (p
 
 	for i, arg := range args.Users {
 		var user *state.User
+		var usr coreuser.User
+		//var activationKey []byte
 		var err error
 		if arg.Password != "" {
+			// TODO(anvial): remove when finish with user migration to dqlite.
 			user, err = api.state.AddUser(arg.Username, arg.DisplayName, arg.Password, api.apiUser.Id())
+
+			// Add user with password to dqlite.
+			usr = coreuser.User{
+				Name:        arg.Username,
+				DisplayName: arg.DisplayName,
+			}
+
+			// Get creatorUUID from apiUser.
+			creatorName := api.apiUser.Name()
+			creatorUser, err := api.userService.GetUserByName(ctx, creatorName)
+			if err != nil {
+				return result, errors.Annotatef(err, "failed to get user %q", creatorName)
+			}
+
+			_, err = api.userService.AddUserWithPassword(ctx, usr, creatorUser.UUID, auth.NewPassword(arg.Password))
+			if err != nil {
+				return result, errors.Trace(err)
+			}
 		} else {
+			// TODO(anvial): remove when finish with user migration to dqlite.
 			user, err = api.state.AddUserWithSecretKey(arg.Username, arg.DisplayName, api.apiUser.Id())
+
+			// Add user with activation key to dqlite.
+			usr = coreuser.User{
+				Name:        arg.Username,
+				DisplayName: arg.DisplayName,
+			}
+
+			// Get creatorUUID from apiUser.
+			creatorName := api.apiUser.Name()
+			creatorUser, err := api.userService.GetUserByName(ctx, creatorName)
+			if err != nil {
+				return result, errors.Annotatef(err, "failed to get user %q", creatorName)
+			}
+
+			_, _, err = api.userService.AddUserWithActivationKey(ctx, usr, creatorUser.UUID)
 		}
 		if err != nil {
 			err = errors.Annotate(err, "failed to create user")
