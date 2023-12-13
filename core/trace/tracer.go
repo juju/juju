@@ -217,7 +217,11 @@ func (ns TaggedTracerNamespace) String() string {
 type Kind string
 
 const (
-	ControllerKind Kind = "controller"
-	UnitKind       Kind = "unit"
-	ClientKind     Kind = "client"
+	KindController Kind = "controller"
+	KindUnit       Kind = "unit"
+	KindClient     Kind = "client"
 )
+
+func (k Kind) String() string {
+	return string(k)
+}

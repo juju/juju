@@ -175,7 +175,7 @@ func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
 			return s.trackedTracer, nil
 		},
 		Tag:  names.NewMachineTag("0"),
-		Kind: coretrace.ControllerKind,
+		Kind: coretrace.KindController,
 	}, s.states)
 	c.Assert(err, jc.ErrorIsNil)
 	return w

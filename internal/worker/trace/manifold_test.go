@@ -56,7 +56,7 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		NewTracerWorker: func(context.Context, coretrace.TaggedTracerNamespace, string, bool, bool, float64, Logger, NewClientFunc) (TrackedTracer, error) {
 			return nil, nil
 		},
-		Kind: coretrace.ControllerKind,
+		Kind: coretrace.KindController,
 	}
 }
 

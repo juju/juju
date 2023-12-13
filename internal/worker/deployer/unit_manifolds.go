@@ -251,7 +251,7 @@ func UnitManifolds(config UnitManifoldsConfig) dependency.Manifolds {
 			Clock:           config.Clock,
 			Logger:          loggo.GetLogger("juju.worker.trace"),
 			NewTracerWorker: trace.NewTracerWorker,
-			Kind:            coretrace.UnitKind,
+			Kind:            coretrace.KindUnit,
 		}),
 
 		// TODO (mattyw) should be added to machine agent.

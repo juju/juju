@@ -119,7 +119,7 @@ func (s *workloadSuite) TestWorkloadCustomNoticeHook(c *gc.C) {
 		},
 	}
 	opFactory := &mockOperations{}
-	op, err := containerResolver.NextOp(localState, remoteState, opFactory)
+	op, err := containerResolver.NextOp(context.Background(), localState, remoteState, opFactory)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(op, gc.NotNil)
 	op = operation.Unwrap(op)

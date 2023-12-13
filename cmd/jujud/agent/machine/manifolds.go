@@ -605,7 +605,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Clock:           config.Clock,
 			Logger:          loggo.GetLogger("juju.worker.trace"),
 			NewTracerWorker: trace.NewTracerWorker,
-			Kind:            coretrace.ControllerKind,
+			Kind:            coretrace.KindController,
 		}),
 
 		httpServerArgsName: httpserverargs.Manifold(httpserverargs.ManifoldConfig{

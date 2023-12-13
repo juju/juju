@@ -64,7 +64,7 @@ func (c *WorkerConfig) Validate() error {
 		return errors.NotValidf("nil Tag")
 	}
 	if c.Kind == "" {
-		return errors.NotValidf("nil Kind")
+		return errors.NotValidf("nil or empty Kind")
 	}
 	// If we are enabled, then we require an endpoint.
 	if c.Endpoint == "" {
