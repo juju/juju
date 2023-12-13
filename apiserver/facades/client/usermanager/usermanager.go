@@ -17,6 +17,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/permission"
+	userservice "github.com/juju/juju/domain/user/service"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -24,13 +25,14 @@ import (
 // UserManagerAPI implements the user manager interface and is the concrete
 // implementation of the api end point.
 type UserManagerAPI struct {
-	state      *state.State
-	pool       *state.StatePool
-	authorizer facade.Authorizer
-	check      *common.BlockChecker
-	apiUser    names.UserTag
-	isAdmin    bool
-	logger     loggo.Logger
+	state       *state.State
+	userService *userservice.Service
+	pool        *state.StatePool
+	authorizer  facade.Authorizer
+	check       *common.BlockChecker
+	apiUser     names.UserTag
+	isAdmin     bool
+	logger      loggo.Logger
 }
 
 func (api *UserManagerAPI) hasControllerAdminAccess() (bool, error) {

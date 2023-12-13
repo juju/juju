@@ -43,12 +43,13 @@ func newUserManagerAPI(ctx facade.Context) (*UserManagerAPI, error) {
 	isAdmin := err == nil
 
 	return &UserManagerAPI{
-		state:      st,
-		pool:       ctx.StatePool(),
-		authorizer: authorizer,
-		check:      common.NewBlockChecker(st),
-		apiUser:    apiUser,
-		isAdmin:    isAdmin,
-		logger:     ctx.Logger().Child("usermanager"),
+		state:       st,
+		userService: ctx.ServiceFactory().User(),
+		pool:        ctx.StatePool(),
+		authorizer:  authorizer,
+		check:       common.NewBlockChecker(st),
+		apiUser:     apiUser,
+		isAdmin:     isAdmin,
+		logger:      ctx.Logger().Child("usermanager"),
 	}, nil
 }

@@ -31,6 +31,8 @@ import (
 	objectstorestate "github.com/juju/juju/domain/objectstore/state"
 	upgradeservice "github.com/juju/juju/domain/upgrade/service"
 	upgradestate "github.com/juju/juju/domain/upgrade/state"
+	userservice "github.com/juju/juju/domain/user/service"
+	userstate "github.com/juju/juju/domain/user/state"
 )
 
 // Logger defines the logging interface used by the services.
@@ -170,5 +172,12 @@ func (s *ControllerFactory) AgentObjectStore() *objectstoreservice.Service {
 func (s *ControllerFactory) Flag() *flagservice.Service {
 	return flagservice.NewService(
 		flagstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB), s.logger.Child("flag")),
+	)
+}
+
+// User returns the user service.
+func (s *ControllerFactory) User() *userservice.Service {
+	return userservice.NewService(
+		userstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
 	)
 }
