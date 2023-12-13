@@ -187,7 +187,7 @@ func updateBlockDevices(ctx context.Context, tx *sqlair.TX, machineUUID string, 
 	}
 
 	insertQuery := `
-INSERT INTO block_device (uuid, name, label, device_uuid, hardware_id, wwn, bus_address, serial_id, mount_point, size, filesystem_type_id, in_use)
+INSERT INTO block_device (uuid, name, label, device_uuid, hardware_id, wwn, bus_address, serial_id, mount_point, size_mib, filesystem_type_id, in_use)
 VALUES (
     $BlockDevice.uuid,
     $BlockDevice.name,
@@ -198,7 +198,7 @@ VALUES (
     $BlockDevice.bus_address,
     $BlockDevice.serial_id,
     $BlockDevice.mount_point,
-    $BlockDevice.size,
+    $BlockDevice.size_mib,
     $BlockDevice.filesystem_type_id,
     $BlockDevice.in_use
 )
@@ -229,7 +229,7 @@ VALUES (
 			BusAddress:     bd.BusAddress,
 			SerialId:       bd.SerialId,
 			MountPoint:     bd.MountPoint,
-			Size:           bd.Size,
+			SizeMiB:        bd.SizeMiB,
 			FilesystemType: fsTypeID,
 			InUse:          bd.InUse,
 		}

@@ -58,9 +58,9 @@ func (s *stateSuite) insertBlockDevice(c *gc.C, bd blockdevice.BlockDevice, bloc
 	}
 	_, err := db.ExecContext(context.Background(),
 		fmt.Sprintf(`
-INSERT INTO block_device (uuid, name, label, device_uuid, hardware_id, wwn, bus_address, serial_id, mount_point, filesystem_type_id, size, in_use)
+INSERT INTO block_device (uuid, name, label, device_uuid, hardware_id, wwn, bus_address, serial_id, mount_point, filesystem_type_id, Size_mib, in_use)
 VALUES ('%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', 2, %d, %d)
-`, blockDeviceUUID, bd.DeviceName, bd.Label, bd.UUID, bd.HardwareId, bd.WWN, bd.BusAddress, bd.SerialId, bd.MountPoint, bd.Size, inUse))
+`, blockDeviceUUID, bd.DeviceName, bd.Label, bd.UUID, bd.HardwareId, bd.WWN, bd.BusAddress, bd.SerialId, bd.MountPoint, bd.SizeMiB, inUse))
 	c.Assert(err, jc.ErrorIsNil)
 
 	for _, link := range bd.DeviceLinks {
@@ -89,7 +89,7 @@ func (s *stateSuite) TestBlockDevicesOne(c *gc.C) {
 		HardwareId:     "hardware-666",
 		WWN:            "wwn-666",
 		BusAddress:     "bus-666",
-		Size:           666,
+		SizeMiB:        666,
 		FilesystemType: "btrfs",
 		InUse:          true,
 		MountPoint:     "mount-666",
@@ -114,7 +114,7 @@ func (s *stateSuite) TestBlockDevicesMany(c *gc.C) {
 		HardwareId:     "hardware-666",
 		WWN:            "wwn-666",
 		BusAddress:     "bus-666",
-		Size:           666,
+		SizeMiB:        666,
 		FilesystemType: "btrfs",
 		InUse:          true,
 		MountPoint:     "mount-666",
@@ -128,7 +128,7 @@ func (s *stateSuite) TestBlockDevicesMany(c *gc.C) {
 		HardwareId:     "hardware-667",
 		WWN:            "wwn-667",
 		BusAddress:     "bus-667",
-		Size:           667,
+		SizeMiB:        667,
 		FilesystemType: "btrfs",
 		MountPoint:     "mount-667",
 		SerialId:       "serial-667",
@@ -154,7 +154,7 @@ func (s *stateSuite) TestBlockDevicesFilersOnMachine(c *gc.C) {
 		HardwareId:     "hardware-666",
 		WWN:            "wwn-666",
 		BusAddress:     "bus-666",
-		Size:           666,
+		SizeMiB:        666,
 		FilesystemType: "btrfs",
 		InUse:          true,
 		MountPoint:     "mount-666",
@@ -168,7 +168,7 @@ func (s *stateSuite) TestBlockDevicesFilersOnMachine(c *gc.C) {
 		HardwareId:     "hardware-667",
 		WWN:            "wwn-667",
 		BusAddress:     "bus-667",
-		Size:           667,
+		SizeMiB:        667,
 		FilesystemType: "btrfs",
 		MountPoint:     "mount-667",
 		SerialId:       "serial-667",
@@ -222,7 +222,7 @@ func (s *stateSuite) TestSetMachineBlockDevices(c *gc.C) {
 		HardwareId:     "hardware-666",
 		WWN:            "wwn-666",
 		BusAddress:     "bus-666",
-		Size:           666,
+		SizeMiB:        666,
 		FilesystemType: "btrfs",
 		InUse:          true,
 		MountPoint:     "mount-666",
@@ -254,7 +254,7 @@ func (s *stateSuite) TestSetMachineBlockDevicesUpdates(c *gc.C) {
 		HardwareId:     "hardware-666",
 		WWN:            "wwn-666",
 		BusAddress:     "bus-666",
-		Size:           666,
+		SizeMiB:        666,
 		FilesystemType: "btrfs",
 		InUse:          true,
 		MountPoint:     "mount-666",
@@ -302,7 +302,7 @@ func (s *stateSuite) TestSetMachineBlockDevicesReplacesExisting(c *gc.C) {
 		HardwareId:     "hardware-666",
 		WWN:            "wwn-666",
 		BusAddress:     "bus-666",
-		Size:           666,
+		SizeMiB:        666,
 		FilesystemType: "btrfs",
 		InUse:          true,
 		MountPoint:     "mount-666",
@@ -316,7 +316,7 @@ func (s *stateSuite) TestSetMachineBlockDevicesReplacesExisting(c *gc.C) {
 		HardwareId:     "hardware-667",
 		WWN:            "wwn-667",
 		BusAddress:     "bus-667",
-		Size:           667,
+		SizeMiB:        667,
 		FilesystemType: "btrfs",
 		MountPoint:     "mount-667",
 		SerialId:       "serial-667",
@@ -361,7 +361,7 @@ func (s *stateSuite) TestSetMachineBlockDevicesToEmpty(c *gc.C) {
 		HardwareId:     "hardware-666",
 		WWN:            "wwn-666",
 		BusAddress:     "bus-666",
-		Size:           666,
+		SizeMiB:        666,
 		FilesystemType: "btrfs",
 		InUse:          true,
 		MountPoint:     "mount-666",
@@ -404,7 +404,7 @@ func (s *stateSuite) TestRemoveMachineBlockDevices(c *gc.C) {
 		HardwareId:     "hardware-666",
 		WWN:            "wwn-666",
 		BusAddress:     "bus-666",
-		Size:           666,
+		SizeMiB:        666,
 		FilesystemType: "btrfs",
 		InUse:          true,
 		MountPoint:     "mount-666",

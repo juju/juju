@@ -20,7 +20,7 @@ type BlockDevice struct {
 	HardwareId     string `db:"hardware_id"`
 	WWN            string `db:"wwn"`
 	BusAddress     string `db:"bus_address"`
-	Size           uint64 `db:"size"`
+	SizeMiB        uint64 `db:"size_mib"`
 	FilesystemType int    `db:"filesystem_type_id"`
 	InUse          bool   `db:"in_use"`
 	MountPoint     string `db:"mount_point"`
@@ -60,7 +60,7 @@ func (rows BlockDevices) toBlockDevices(deviceLinks []DeviceLink, filesystemType
 			HardwareId:     row.HardwareId,
 			WWN:            row.WWN,
 			BusAddress:     row.BusAddress,
-			Size:           row.Size,
+			SizeMiB:        row.SizeMiB,
 			InUse:          row.InUse,
 			MountPoint:     row.MountPoint,
 			SerialId:       row.SerialId,

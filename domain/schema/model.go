@@ -367,7 +367,7 @@ CREATE TABLE block_device (
     bus_address        TEXT,
     serial_id          TEXT,
     filesystem_type_id INT,
-    size               INT,
+    size_mib           INT,
     mount_point        TEXT,
     in_use             BOOLEAN,
     CONSTRAINT         fk_filesystem_type

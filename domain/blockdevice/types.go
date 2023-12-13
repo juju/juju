@@ -51,8 +51,8 @@ type BlockDevice struct {
 	// Target=3, Lun=4, we populate this field with "scsi@1:2.3.4".
 	BusAddress string
 
-	// Size is the size of the block device, in MiB.
-	Size uint64
+	// SizeMiB is the size of the block device, in MiB.
+	SizeMiB uint64
 
 	// FilesystemType is the type of the filesystem present on the block
 	// device, if any.
