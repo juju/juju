@@ -28,7 +28,6 @@ const (
 // ControllerDDL is used to create the controller database schema at bootstrap.
 func ControllerDDL() *schema.Schema {
 	patches := []func() schema.Patch{
-		annotationsSchema,
 		leaseSchema,
 		changeLogSchema,
 		changeLogControllerNamespaces,
@@ -54,6 +53,10 @@ func ControllerDDL() *schema.Schema {
 		changeLogTriggersForTable("object_store_metadata_path", "path", tableObjectStoreMetadata),
 		userSchema,
 		flagSchema,
+		annotationSchemaForTable("application"),
+		annotationSchemaForTable("machine"),
+		annotationSchemaForTable("unit"),
+		annotationSchemaForTable("model"),
 	}
 
 	schema := schema.New()
@@ -64,8 +67,9 @@ func ControllerDDL() *schema.Schema {
 	return schema
 }
 
-func annotationTablePatch(table string) string {
-	return fmt.Sprintf(`
+func annotationSchemaForTable(table string) func() schema.Patch {
+	return func() schema.Patch {
+		return schema.MakePatch(fmt.Sprintf(`
 CREATE TABLE annotation_%[1]s (
     %[1]s_uuid    TEXT NOT NULL,
     key                 TEXT NOT NULL,
@@ -74,16 +78,8 @@ CREATE TABLE annotation_%[1]s (
     CONSTRAINT          fk_annotation_%[1]s
         FOREIGN KEY     (%[1]s_uuid)
         REFERENCES      %[1]s(uuid)
-);`[1:], table)
-}
-
-func annotationsSchema() schema.Patch {
-	return schema.MakePatch(
-		annotationTablePatch("application") +
-			annotationTablePatch("machine") +
-			annotationTablePatch("unit") +
-			annotationTablePatch("model"),
-	)
+);`[1:], table))
+	}
 }
 
 func leaseSchema() schema.Patch {
