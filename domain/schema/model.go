@@ -91,6 +91,9 @@ CREATE TABLE provider_space (
 
 CREATE UNIQUE INDEX idx_provider_space_space_uuid
 ON provider_space (space_uuid);
+
+INSERT INTO space VALUES
+    (0, 'alpha');
 `)
 }
 
@@ -98,7 +101,7 @@ func subnetSchema() schema.Patch {
 	return schema.MakePatch(`
 --  subnet                                    subnet_type
 -- +-----------------------+                 +-------------------------+
--- |*uuid              text|                 |*uuid                text|
+-- |*uuid              text|                 |*id                  text|
 -- |cidr               text|1               1|name                 text|
 -- |vlan_tag            int+-----------------+is_usable         boolean|
 -- |space_uuid         text|                 |is_space_settable boolean|
@@ -109,12 +112,12 @@ func subnetSchema() schema.Patch {
 --           |                                            |
 --           |                                            |
 --           |n                                           |n
---  subnet_association                        subject_subnet_type_uuid
--- +---------------------------+             +--------------------------------+
--- |*subject_subnet_uuid   text|             |*subject_subnet_type_uuid   text|
--- |associated_subnet_uuid text|             |associated_subnet_type_uuid text|
--- |association_type_uuid  text|             |association_type_uuid       text|
--- +---------+-----------------+             +------------+-------------------+
+--  subnet_association                        subnet_type_association_type
+-- +---------------------------+             +------------------------------+
+-- |*subject_subnet_uuid   text|             |*subject_subnet_type_id   text|
+-- |associated_subnet_uuid text|             |associated_subnet_type_id text|
+-- |association_type_id    text|             |association_type_id       text|
+-- +---------+-----------------+             +------------+-----------------+
 --           |1                                           |1
 --           |                                            |
 --           |                                            |
@@ -122,7 +125,7 @@ func subnetSchema() schema.Patch {
 --           |1                                           |
 --  subnet_association_type                               |
 -- +-----------------------+                              |
--- |*uuid              text+------------------------------+
+-- |*id                text+------------------------------+
 -- |name               text|1
 -- +-----------------------+
 CREATE TABLE subnet (
@@ -148,8 +151,7 @@ CREATE TABLE subnet_type (
 
 INSERT INTO subnet_type VALUES
     (0, 'base', true, true),    -- The base (or standard) subnet type. If another subnet is an overlay of a base subnet in fan bridging, then the base subnet is the underlay in fan terminology.
-    (1, 'fan_overlay', false, false),    
-    (2, 'fan_overlay_segment', true, true);
+    (1, 'fan_overlay_segment', true, false);
 
 CREATE TABLE subnet_association_type (
     id                           INT PRIMARY KEY,
@@ -208,8 +210,11 @@ ON provider_subnet (subnet_uuid);
 
 CREATE TABLE provider_network (
     uuid                TEXT PRIMARY KEY,
-    provider_network_id TEXT
+    provider_network_id TEXT NOT NULL
 );
+
+CREATE UNIQUE INDEX idx_provider_network_id
+ON provider_network (provider_network_id);
 
 CREATE TABLE provider_network_subnet (
     provider_network_uuid TEXT PRIMARY KEY,
@@ -227,27 +232,23 @@ ON provider_network_subnet (subnet_uuid);
 
 CREATE TABLE availability_zone (
     uuid            TEXT PRIMARY KEY,
-    name            TEXT
+    name            TEXT NOT NULL
 );
 
+CREATE UNIQUE INDEX idx_availability_zone_name
+ON availability_zone (name);
+
 CREATE TABLE availability_zone_subnet (
-    uuid                   TEXT PRIMARY KEY,
     availability_zone_uuid TEXT NOT NULL,
     subnet_uuid            TEXT NOT NULL,
+    PRIMARY KEY            (availability_zone_uuid, subnet_uuid),
     CONSTRAINT             fk_availability_zone_availability_zone_uuid
         FOREIGN KEY            (availability_zone_uuid)
         REFERENCES             availability_zone(uuid),
     CONSTRAINT             fk_availability_zone_subnet_uuid
         FOREIGN KEY            (subnet_uuid)
         REFERENCES             subnet(uuid)
-);
-
-CREATE INDEX idx_availability_zone_subnet_availability_zone_uuid
-ON availability_zone_subnet (uuid);
-
-CREATE INDEX idx_availability_zone_subnet_subnet_uuid
-ON availability_zone_subnet (subnet_uuid);
-`)
+);`)
 }
 
 func applicationSchema() schema.Patch {
