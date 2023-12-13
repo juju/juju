@@ -302,7 +302,18 @@ func CreateAdminUser(ctx context.Context, tx *sqlair.TX) error {
 		DisplayName: "admin",
 		CreatedAt:   time.Now(),
 	}
-	return errors.Trace(addUser(ctx, tx, uuid, adminUser, uuid))
+
+	err = addUser(ctx, tx, uuid, adminUser, uuid)
+	if err != nil {
+		return errors.Annotate(err, "adding admin user")
+	}
+
+	err = ensureUserAuthentication(ctx, tx, uuid)
+	if err != nil {
+		return errors.Annotate(err, "ensuring admin user authentication")
+	}
+
+	return nil
 }
 
 // addUser adds a new user to the database. If the user already exists an error
