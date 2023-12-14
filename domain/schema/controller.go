@@ -57,6 +57,8 @@ func ControllerDDL() *schema.Schema {
 		annotationSchemaForTable("machine"),
 		annotationSchemaForTable("unit"),
 		annotationSchemaForTable("model"),
+		annotationSchemaForTable("storage_volume"),
+		annotationSchemaForTable("storage_filesystem"),
 	}
 
 	schema := schema.New()
