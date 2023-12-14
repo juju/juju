@@ -74,7 +74,8 @@ type AuthContext struct {
 	localOfferBakery   authentication.ExpirableStorageBakery
 	jaasOfferBakery    authentication.ExpirableStorageBakery
 
-	offerAccessEndpoint string
+	localOfferAccessEndpoint string
+	jaasOfferAccessEndpoint  string
 }
 
 // NewAuthContext creates a new authentication context for checking
@@ -83,13 +84,15 @@ func NewAuthContext(
 	systemState Backend,
 	offerThirdPartyKey *bakery.KeyPair,
 	localOfferBakery, jaasOfferBakery authentication.ExpirableStorageBakery,
+	jaasOfferAccessEndpoint string,
 ) (*AuthContext, error) {
 	ctxt := &AuthContext{
-		systemState:        systemState,
-		clock:              clock.WallClock,
-		localOfferBakery:   localOfferBakery,
-		offerThirdPartyKey: offerThirdPartyKey,
-		jaasOfferBakery:    jaasOfferBakery,
+		systemState:             systemState,
+		clock:                   clock.WallClock,
+		localOfferBakery:        localOfferBakery,
+		offerThirdPartyKey:      offerThirdPartyKey,
+		jaasOfferBakery:         jaasOfferBakery,
+		jaasOfferAccessEndpoint: jaasOfferAccessEndpoint,
 	}
 	return ctxt, nil
 }
@@ -104,9 +107,9 @@ func (a *AuthContext) WithClock(clock clock.Clock) *AuthContext {
 
 // WithDischargeURL create an auth context based on this context and used
 // to perform third party discharges at the specified URL.
-func (a *AuthContext) WithDischargeURL(offerAccessEndpoint string) *AuthContext {
+func (a *AuthContext) WithDischargeURL(localOfferAccessEndpoint string) *AuthContext {
 	ctxtCopy := *a
-	ctxtCopy.offerAccessEndpoint = offerAccessEndpoint
+	ctxtCopy.localOfferAccessEndpoint = localOfferAccessEndpoint
 	return &ctxtCopy
 }
 
@@ -298,9 +301,9 @@ type authenticator struct {
 	bakery authentication.ExpirableStorageBakery
 	ctxt   *AuthContext
 
-	// offerAccessEndpoint holds the URL of the trusted third party
+	// localOfferAccessEndpoint holds the URL of the trusted third party
 	// that is used to address the has-offer-permission third party caveat.
-	offerAccessEndpoint string
+	localOfferAccessEndpoint string
 }
 
 const (
@@ -325,10 +328,10 @@ func crossModelRelateOp(relationID string) bakery.Op {
 // Authenticator returns an instance used to authenticate macaroons used to access offers.
 func (a *AuthContext) Authenticator() *authenticator {
 	auth := &authenticator{
-		clock:               a.clock,
-		bakery:              a.localOfferBakery,
-		ctxt:                a,
-		offerAccessEndpoint: a.offerAccessEndpoint,
+		clock:                    a.clock,
+		bakery:                   a.localOfferBakery,
+		ctxt:                     a,
+		localOfferAccessEndpoint: a.localOfferAccessEndpoint,
 	}
 	return auth
 }
@@ -477,7 +480,7 @@ func (a *authenticator) createDischargeMacaroon(
 		[]checkers.Caveat{
 			checkers.NeedDeclaredCaveat(
 				checkers.Caveat{
-					Location:  a.offerAccessEndpoint,
+					Location:  a.localOfferAccessEndpoint,
 					Condition: offerPermissionCaveat + " " + authYaml,
 				},
 				requiredKeys...,
@@ -490,23 +493,16 @@ func (a *authenticator) createDischargeMacaroon(
 func (a *authenticator) createDischargeMacaroonForExternalUser(
 	ctx context.Context, offerUUID string, userTag names.UserTag, version bakery.Version, declaredCaveats ...checkers.Caveat,
 ) (*bakery.Macaroon, error) {
-	logger.Criticalf("createMacaroonForExternalUser offerUUID %q, userTag %q, version %d", offerUUID, userTag, version)
-	idURL := `https://jimm.comsys-internal.v2.staging.canonical.com/macaroons`
-
+	logger.Criticalf("createDischargeMacaroonForExternalUser offerUUID %q, userTag %q, version %d", offerUUID, userTag, version)
 	conditionParts := []string{
-		"is-consumer",
-		// "user-ales@external",
-		userTag.String(),
-		// Currently jimm requires Tag.String() format: "applicationoffer-{uuid}",
-		// But we should change to use offerUUID because the Tag is for name instead of UUID!
-		names.NewApplicationOfferTag(offerUUID).String(),
+		"is-consumer", userTag.String(), names.NewApplicationOfferTag(offerUUID).String(),
 	}
 
 	conditionCaveat := checkers.Caveat{
-		Location:  idURL,
+		Location:  a.ctxt.jaasOfferAccessEndpoint,
 		Condition: strings.Join(conditionParts, " "),
 	}
-	logger.Criticalf("createMacaroonForExternalUser conditionCaveat %#v", conditionCaveat)
+	logger.Criticalf("createDischargeMacaroonForExternalUser conditionCaveat %#v", conditionCaveat)
 	expiryTime := a.clock.Now().Add(offerPermissionExpiryTime)
 	macaroon, err := a.ctxt.jaasOfferBakery.NewMacaroon(
 		ctx,

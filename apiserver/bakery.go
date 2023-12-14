@@ -56,31 +56,35 @@ func getJaaSOfferBakery(
 	bakeryConfig bakerystorage.BakeryConfig,
 	store bakerystorage.ExpirableStorage,
 	checker *checkers.Checker,
-) (authentication.ExpirableStorageBakery, error) {
+) (authentication.ExpirableStorageBakery, string, error) {
 	refreshURL, err := url.Parse(loginTokenRefreshURL)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, "", errors.Trace(err)
 	}
 	refreshURL.Path = ""
 	pkURL, err := url.JoinPath(refreshURL.String(), "macaroons")
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, "", errors.Trace(err)
 	}
 	logger.Criticalf("CreateMacaroonForJaaS loginTokenRefreshURL %q, pkURL %q", loginTokenRefreshURL, pkURL)
-	transport := &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
+	transport := &http.Transport{
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: true,
+		},
+	}
 	thirdPartyInfo, err := httpbakery.ThirdPartyInfoForLocation(context.TODO(), &http.Client{Transport: transport}, pkURL)
 	logger.Criticalf(
-		"CreateMacaroonForJaaS thirdPartyInfo.Version %q, thirdPartyInfo.PublicKey.Key.String() %q",
+		"CreateMacaroonForJaaS thirdPartyInfo.Version %d, thirdPartyInfo.PublicKey.Key.String() %q",
 		thirdPartyInfo.Version, thirdPartyInfo.PublicKey.Key.String(),
 	)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, "", errors.Trace(err)
 	}
 	thirdPartyKey := &bakery.KeyPair{Public: thirdPartyInfo.PublicKey}
 	logger.Criticalf("getTestBakery pKey %q", thirdPartyKey.Public.String())
 	key, err := bakeryConfig.GetExternalUsersThirdPartyKey()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, "", errors.Trace(err)
 	}
 
 	pkCache := bakery.NewThirdPartyStore()
@@ -106,5 +110,5 @@ func getJaaSOfferBakery(
 		Key:      key,
 		Store:    store,
 		Locator:  locator,
-	}, nil
+	}, pkURL, nil
 }
