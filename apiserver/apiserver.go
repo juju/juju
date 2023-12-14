@@ -648,10 +648,13 @@ func (srv *Server) loop(ready chan struct{}) error {
 	return tomb.ErrDying
 }
 
-func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
-	const modelRoutePrefix = "/model/:modeluuid"
-	const charmsObjectsRoutePrefix = "/:bucket/charms/:object"
+const (
+	modelRoutePrefix         = "/model/:modeluuid"
+	charmsObjectsRoutePrefix = "/:bucket/charms/:object"
+	objectsRoutePrefix       = "/:bucket/objects/:object"
+)
 
+func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 	type handler struct {
 		pattern         string
 		methods         []string
@@ -661,6 +664,7 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		tracked         bool
 		noModelUUID     bool
 	}
+
 	var endpoints []apihttp.Endpoint
 	systemState, err := srv.shared.statePool.SystemState()
 	if err != nil {
@@ -693,6 +697,11 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 					Query:   ":modeluuid",
 				}
 			} else if strings.HasPrefix(handler.pattern, charmsObjectsRoutePrefix) {
+				h = &httpcontext.BucketModelHandler{
+					Handler: h,
+					Query:   ":bucket",
+				}
+			} else if strings.HasPrefix(handler.pattern, objectsRoutePrefix) {
 				h = &httpcontext.BucketModelHandler{
 					Handler: h,
 					Query:   ":bucket",
@@ -768,12 +777,13 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 	}
 	modelCharmsUploadAuthorizer := tagKindAuthorizer{names.UserTagKind}
 
-	modelObjectsCharmsHandler := &objectsCharmHandler{
+	modelObjectsCharmsHTTPHandler := &objectsCharmHTTPHandler{
 		ctxt:              httpCtxt,
 		objectStoreGetter: srv.shared.objectStoreGetter,
 	}
-	modelObjectsCharmsHTTPHandler := &objectsCharmHTTPHandler{
-		GetHandler: modelObjectsCharmsHandler.ServeGet,
+	modelObjectsHTTPHandler := &objectsHTTPHandler{
+		ctxt:              httpCtxt,
+		objectStoreGetter: srv.shared.objectStoreGetter,
 	}
 
 	modelToolsUploadHandler := &toolsUploadHandler{
@@ -993,6 +1003,10 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		pattern: charmsObjectsRoutePrefix,
 		methods: []string{"GET"},
 		handler: modelObjectsCharmsHTTPHandler,
+	}, {
+		pattern: objectsRoutePrefix,
+		methods: []string{"GET"},
+		handler: modelObjectsHTTPHandler,
 	}}
 	if srv.registerIntrospectionHandlers != nil {
 		add := func(subpath string, h http.Handler) {

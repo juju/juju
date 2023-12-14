@@ -5,6 +5,7 @@ package apiserver
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"net/http"
@@ -22,14 +23,15 @@ type ObjectStoreGetter interface {
 }
 
 type objectsCharmHTTPHandler struct {
-	GetHandler FailableHandlerFunc
+	ctxt              httpContext
+	objectStoreGetter ObjectStoreGetter
 }
 
 func (h *objectsCharmHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var err error
 	switch r.Method {
 	case "GET":
-		err = errors.Annotate(h.GetHandler(w, r), "cannot retrieve charm")
+		err = errors.Annotate(h.ServeGet(w, r), "cannot retrieve charm")
 	default:
 		http.Error(w, fmt.Sprintf("http method %s not implemented", r.Method), http.StatusNotImplemented)
 		return
@@ -40,19 +42,11 @@ func (h *objectsCharmHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Reque
 			logger.Errorf("%v", errors.Annotate(err, "cannot return error to user"))
 		}
 	}
-
-}
-
-// objectsCharmHandler handles charm upload through S3-compatible HTTPS in the
-// API server.
-type objectsCharmHandler struct {
-	ctxt              httpContext
-	objectStoreGetter ObjectStoreGetter
 }
 
 // ServeGet serves the GET method for the S3 API. This is the equivalent of the
 // `GetObject` method in the AWS S3 API.
-func (h *objectsCharmHandler) ServeGet(w http.ResponseWriter, r *http.Request) error {
+func (h *objectsCharmHTTPHandler) ServeGet(w http.ResponseWriter, r *http.Request) error {
 	st, _, err := h.ctxt.stateForRequestAuthenticated(r)
 	if err != nil {
 		return errors.Trace(err)
@@ -98,6 +92,75 @@ func (h *objectsCharmHandler) ServeGet(w http.ResponseWriter, r *http.Request) e
 	_, err = io.Copy(w, reader)
 	if err != nil {
 		return errors.Annotate(err, "error processing charm archive download")
+	}
+
+	return nil
+}
+
+type objectsHTTPHandler struct {
+	ctxt              httpContext
+	objectStoreGetter ObjectStoreGetter
+}
+
+func (h *objectsHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	var err error
+	switch r.Method {
+	case "GET":
+		err = errors.Annotate(h.ServeGet(w, r), "cannot retrieve object")
+	default:
+		http.Error(w, fmt.Sprintf("http method %s not implemented", r.Method), http.StatusNotImplemented)
+		return
+	}
+
+	if err != nil {
+		if err := sendJSONError(w, r, errors.Trace(err)); err != nil {
+			logger.Errorf("%v", errors.Annotate(err, "cannot return error to user"))
+		}
+	}
+}
+
+// ServeGet serves the GET method for the S3 API. This is the equivalent of the
+// `GetObject` method in the AWS S3 API.
+func (h *objectsHTTPHandler) ServeGet(w http.ResponseWriter, r *http.Request) error {
+	st, _, err := h.ctxt.stateForRequestAuthenticated(r)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer st.Release()
+
+	query := r.URL.Query()
+	objectID := query.Get(":object")
+	if objectID == "" {
+		return errors.NewBadRequest(nil, "missing object id")
+	}
+
+	// The object ID is base64 encoded, so we need to decode it.
+	rawObjectID, err := base64.URLEncoding.DecodeString(objectID)
+	if err != nil {
+		return errors.NewBadRequest(nil, "cannot decode object id")
+	}
+
+	// Get the underlying object store for the model UUID, which we can then
+	// retrieve the blob from.
+	store, err := h.objectStoreGetter.GetObjectStore(r.Context(), st.ModelUUID())
+	if err != nil {
+		return errors.Annotate(err, "cannot get object store")
+	}
+
+	// Use the storage to retrieve the charm archive.
+	reader, size, err := store.Get(r.Context(), string(rawObjectID))
+	if err != nil {
+		return errors.Annotate(err, "cannot get object at path %s")
+	}
+	defer reader.Close()
+
+	written, err := io.Copy(w, reader)
+	if err != nil {
+		return errors.Annotate(err, "error processing charm archive download")
+	}
+
+	if written != size {
+		return errors.Errorf("expected to write %d bytes, but wrote %d", size, written)
 	}
 
 	return nil
