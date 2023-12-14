@@ -6,10 +6,10 @@ package bootstrap
 import (
 	"context"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	schematesting "github.com/juju/juju/domain/schema/testing"
-	userstate "github.com/juju/juju/domain/user/state"
 )
 
 type bootstrapSuite struct {
@@ -19,11 +19,14 @@ type bootstrapSuite struct {
 var _ = gc.Suite(&bootstrapSuite{})
 
 func (s *bootstrapSuite) TestGenerateAdminUser(c *gc.C) {
-	st := userstate.NewState(s.TxnRunnerFactory())
-	err := GenerateAdminUser()(context.Background(), s.TxnRunner())
-	c.Assert(err, gc.IsNil)
+	ctx := context.Background()
+	err := GenerateAdminUser("admin", "password")(ctx, s.TxnRunner())
+	c.Assert(err, jc.ErrorIsNil)
 
-	adminUser, err := st.GetUserByName(context.Background(), "admin")
-	c.Assert(err, gc.IsNil)
-	c.Assert(adminUser.Name, gc.Equals, "admin")
+	// Check that the user was created.
+	var name string
+	row := s.DB().QueryRow(`
+SELECT name FROM user WHERE name = ?`, "admin")
+	c.Assert(row.Scan(&name), jc.ErrorIsNil)
+	c.Assert(name, gc.Equals, "admin")
 }

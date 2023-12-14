@@ -97,9 +97,9 @@ func generateActivationKey() ([]byte, error) {
 	return activationKey[:], nil
 }
 
-// CreateUserWithNoPasswordAuthorization asserts that we can add a user with no
+// BootstrapAddUserWithPassword asserts that we can add a user with no
 // password authorization.
-func (s *stateSuite) CreateUserWithNoPasswordAuthorization(c *gc.C) {
+func (s *stateSuite) TestBootstrapAddUserWithPassword(c *gc.C) {
 	// Add admin user.
 	adminUUID, err := user.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
@@ -108,9 +108,12 @@ func (s *stateSuite) CreateUserWithNoPasswordAuthorization(c *gc.C) {
 		DisplayName: "admin",
 	}
 
+	salt, err := auth.NewSalt()
+	c.Assert(err, jc.ErrorIsNil)
+
 	// Add user with no password authorization.
 	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
-		err = CreateUserWithNoPasswordAuthorization(context.Background(), tx, adminUUID, adminUser, adminUUID)
+		err = BootstrapAddUserWithPassword(context.Background(), tx, adminUUID, adminUser, adminUUID, "passwordHash", salt)
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)

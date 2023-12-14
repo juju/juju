@@ -291,24 +291,25 @@ func (st *State) SetPasswordHash(ctx context.Context, uuid user.UUID, passwordHa
 	})
 }
 
-// CreateUserWithNoPasswordAuthorization will add a new user with no password
-// authorization to the database. If the user already exists
-// an error that satisfies usererrors.AlreadyExists will be returned. If the
-// creator does not exist an error that satisfies
-// usererrors.UserCreatorUUIDNotFound will be returned.
-func CreateUserWithNoPasswordAuthorization(ctx context.Context, tx *sqlair.TX, uuid user.UUID, usr user.User, creatorUUID user.UUID) error {
+// BootstrapAddUserWithPassword adds a new user to the database during bootstrap with the
+// provided password hash and salt. If the user already exists an error that
+// satisfies usererrors.AlreadyExists will be returned. if the creator does
+// not exist that satisfies usererrors.UserCreatorUUIDNotFound will be returned.
+func BootstrapAddUserWithPassword(
+	ctx context.Context,
+	tx *sqlair.TX,
+	uuid user.UUID,
+	usr user.User,
+	creatorUUID user.UUID,
+	passwordHash string,
+	salt []byte,
+) error {
 	err := addUser(ctx, tx, uuid, usr, creatorUUID)
 	if err != nil {
-		return errors.Annotate(err, "creating user")
+		return errors.Annotatef(err, "creating user with uuid %q", uuid)
 	}
 
-	// Enabling no password authentication for the user.
-	err = ensureUserAuthentication(ctx, tx, uuid)
-	if err != nil {
-		return errors.Annotate(err, "ensuring admin user authentication")
-	}
-
-	return nil
+	return errors.Trace(setPasswordHash(ctx, tx, uuid, passwordHash, salt))
 }
 
 // addUser adds a new user to the database. If the user already exists an error
