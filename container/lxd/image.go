@@ -85,7 +85,7 @@ func (s *Server) FindImage(
 		return sourced, errors.Trace(err)
 	}
 	for _, remote := range sources {
-		source, err := ConnectImageRemote(remote)
+		source, err := ConnectImageRemote(ctx, remote)
 		if err != nil {
 			logger.Infof("failed to connect to %q: %s", remote.Host, err)
 			lastErr = errors.Trace(err)

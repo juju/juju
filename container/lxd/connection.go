@@ -4,6 +4,7 @@
 package lxd
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -131,10 +132,10 @@ var CloudImagesLinuxContainersRemote = ServerSpec{
 // ConnectImageRemote connects to a remote ImageServer using specified protocol.
 var ConnectImageRemote = connectImageRemote
 
-func connectImageRemote(remote ServerSpec) (lxd.ImageServer, error) {
+func connectImageRemote(ctx context.Context, remote ServerSpec) (lxd.ImageServer, error) {
 	switch remote.Protocol {
 	case LXDProtocol:
-		return lxd.ConnectPublicLXD(remote.Host, remote.connectionArgs)
+		return lxd.ConnectPublicLXDWithContext(ctx, remote.Host, remote.connectionArgs)
 	case SimpleStreamsProtocol:
 		return lxd.ConnectSimpleStreams(remote.Host, remote.connectionArgs)
 	}
