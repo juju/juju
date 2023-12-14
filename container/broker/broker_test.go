@@ -4,6 +4,7 @@
 package broker_test
 
 import (
+	stdcontext "context"
 	"net"
 	"os"
 	"path/filepath"
@@ -213,7 +214,8 @@ type fakeContainerManager struct {
 	gitjujutesting.Stub
 }
 
-func (m *fakeContainerManager) CreateContainer(instanceConfig *instancecfg.InstanceConfig,
+func (m *fakeContainerManager) CreateContainer(_ stdcontext.Context,
+	instanceConfig *instancecfg.InstanceConfig,
 	cons constraints.Value,
 	base corebase.Base,
 	network *container.NetworkConfig,

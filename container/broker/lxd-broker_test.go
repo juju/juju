@@ -223,7 +223,7 @@ func (s *lxdBrokerSuite) TestStartInstanceWithLXDProfile(c *gc.C) {
 	arch := "testarch"
 	hw := instance.HardwareCharacteristics{Arch: &arch}
 	mockManager.EXPECT().CreateContainer(
-		gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
+		gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
 	).Return(&inst, &hw, nil)
 
 	broker, err := broker.NewLXDBroker(
