@@ -315,15 +315,18 @@ func (st *State) EnableUserAuthentication(ctx context.Context, uuid user.UUID) e
 		return errors.Annotate(err, "getting DB access")
 	}
 
-	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err = ensureUserAuthentication(ctx, tx, uuid)
-		// If the user does not exist then we return the error as is.
-		// If the user does exist but their authentication is disabled then we
-		// continue on to enable the user.
-		if !errors.Is(err, usererrors.UserAuthenticationDisabled) {
-			return errors.Annotatef(err, "enabling user with uuid %q", uuid)
-		}
+	enableUserQuery := `
+UPDATE user_authentication
+SET disabled = false
+WHERE user_uuid = $M.uuid
+`
 
+	updateEnableUserStmt, err := sqlair.Prepare(enableUserQuery, sqlair.M{})
+	if err != nil {
+		return errors.Annotate(err, "preparing update enableUserAuthentication query")
+	}
+
+	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		removed, err := st.isRemoved(ctx, tx, uuid)
 		if err != nil {
 			return errors.Annotatef(err, "getting user with uuid %q", uuid)
@@ -332,21 +335,18 @@ func (st *State) EnableUserAuthentication(ctx context.Context, uuid user.UUID) e
 			return errors.Annotatef(usererrors.NotFound, "%q", uuid)
 		}
 
-		enableUserQuery := `
-UPDATE user_authentication
-SET disabled = false
-WHERE user_uuid = $M.uuid
-`
-
-		updateEnableUserStmt, err := sqlair.Prepare(enableUserQuery, sqlair.M{})
-		if err != nil {
-			return errors.Annotate(err, "preparing update enableUser query")
+		err = ensureUserAuthentication(ctx, tx, uuid)
+		// If the user does not exist then we return the error as is.
+		// If the user does exist but their authentication is disabled then we
+		// continue on to enable the user.
+		if err != nil && !errors.Is(err, usererrors.UserAuthenticationDisabled) {
+			return errors.Annotatef(err, "authenticating user with uuid %q", uuid)
 		}
 
 		query := tx.Query(ctx, updateEnableUserStmt, sqlair.M{"uuid": uuid.String()})
 		err = query.Run()
 		if err != nil {
-			return errors.Annotatef(err, "enabling user with uuid %q", uuid)
+			return errors.Annotatef(err, "enabling user authentication with uuid %q", uuid)
 		}
 
 		return nil
@@ -361,12 +361,18 @@ func (st *State) DisableUserAuthentication(ctx context.Context, uuid user.UUID) 
 		return errors.Annotate(err, "getting DB access")
 	}
 
-	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err = ensureUserAuthentication(ctx, tx, uuid)
-		if err != nil {
-			return errors.Annotatef(err, "disabling user with uuid %q", uuid)
-		}
+	disableUserQuery := `
+UPDATE user_authentication
+SET disabled = true
+WHERE user_uuid = $M.uuid
+`
 
+	updateDisableUserStmt, err := sqlair.Prepare(disableUserQuery, sqlair.M{})
+	if err != nil {
+		return errors.Annotate(err, "preparing update disableUserAuthentication query")
+	}
+
+	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		removed, err := st.isRemoved(ctx, tx, uuid)
 		if err != nil {
 			return errors.Annotatef(err, "getting user with uuid %q", uuid)
@@ -375,21 +381,15 @@ func (st *State) DisableUserAuthentication(ctx context.Context, uuid user.UUID) 
 			return errors.Annotatef(usererrors.NotFound, "%q", uuid)
 		}
 
-		disableUserQuery := `
-UPDATE user_authentication
-SET disabled = true
-WHERE user_uuid = $M.uuid
-`
-
-		updateDisableUserStmt, err := sqlair.Prepare(disableUserQuery, sqlair.M{})
+		err = ensureUserAuthentication(ctx, tx, uuid)
 		if err != nil {
-			return errors.Annotate(err, "preparing update disableUser query")
+			return errors.Annotatef(err, "authenticating user with uuid %q", uuid)
 		}
 
 		query := tx.Query(ctx, updateDisableUserStmt, sqlair.M{"uuid": uuid.String()})
 		err = query.Run()
 		if err != nil {
-			return errors.Annotatef(err, "disabling user with uuid %q", uuid)
+			return errors.Annotatef(err, "disabling user authentication with uuid %q", uuid)
 		}
 
 		return nil
