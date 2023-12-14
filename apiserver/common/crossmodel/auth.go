@@ -390,13 +390,23 @@ func (a *authenticator) checkMacaroons(
 	authlogger.Debugf("check macaroons with declared attrs: %v", declared)
 	authlogger.Criticalf("check macaroons with declared 1: %s", pretty.Sprint(declared))
 
-	if consumedOfferTagStr, ok := declared["consumer"]; ok {
-		offerUUID := strings.TrimPrefix(consumedOfferTagStr, names.ApplicationOfferTagKind+"-")
-		authlogger.Criticalf("check macaroons consumedOfferTagStr %q, offerUUID: %#v", consumedOfferTagStr, offerUUID)
-		declared[offeruuidKey] = offerUUID
-		if relation, ok := requiredValues[relationKey]; ok {
-			// The user can consume the offer, so we should add the required relation as declared.
-			declared[relationKey] = relation
+	// if consumedOfferTagStr, ok := declared["consumer"]; ok {
+	// 	offerUUID := strings.TrimPrefix(consumedOfferTagStr, names.ApplicationOfferTagKind+"-")
+	// 	authlogger.Criticalf("check macaroons consumedOfferTagStr %q, offerUUID: %#v", consumedOfferTagStr, offerUUID)
+	// 	declared[offeruuidKey] = offerUUID
+	// 	if relation, ok := requiredValues[relationKey]; ok {
+	// 		// The user can consume the offer, so we should add the required relation as declared.
+	// 		declared[relationKey] = relation
+	// 	}
+	// }
+
+	if a.ctxt.jaasOfferBakery != nil {
+		// We only need to inject relationKey for jaas flow.
+		// Internal discharge endpoint has already done this for us.
+		if _, ok := declared[relationKey]; !ok {
+			if relation, ok := requiredValues[relationKey]; ok {
+				declared[relationKey] = relation
+			}
 		}
 	}
 	authlogger.Criticalf("check macaroons with declared 2: %s", pretty.Sprint(declared))
@@ -495,7 +505,8 @@ func (a *authenticator) createDischargeMacaroonForExternalUser(
 ) (*bakery.Macaroon, error) {
 	logger.Criticalf("createDischargeMacaroonForExternalUser offerUUID %q, userTag %q, version %d", offerUUID, userTag, version)
 	conditionParts := []string{
-		"is-consumer", userTag.String(), names.NewApplicationOfferTag(offerUUID).String(),
+		// "is-consumer", userTag.String(), names.NewApplicationOfferTag(offerUUID).String(),
+		"is-consumer", userTag.String(), offerUUID,
 	}
 
 	conditionCaveat := checkers.Caveat{
