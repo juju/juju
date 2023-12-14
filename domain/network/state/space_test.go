@@ -33,7 +33,7 @@ func (s *stateSuite) TestAddSpace(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.AddSubnet(
 		ctx.Background(),
-		subnetUUID,
+		subnetUUID.String(),
 		"192.168.0.0/12",
 		"provider-id-0",
 		"provider-network-id-0",
@@ -87,7 +87,7 @@ func (s *stateSuite) TestAddSpaceFailDuplicateName(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.AddSubnet(
 		ctx.Background(),
-		subnetUUID,
+		subnetUUID.String(),
 		"192.168.0.0/12",
 		"provider-id-0",
 		"provider-network-id-0",
@@ -127,7 +127,7 @@ func (s *stateSuite) TestAddSpaceEmptyProviderID(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.AddSubnet(
 		ctx.Background(),
-		subnetUUID,
+		subnetUUID.String(),
 		"192.168.0.0/12",
 		"",
 		"provider-network-id-0",
@@ -165,7 +165,7 @@ func (s *stateSuite) TestAddSpaceFailFanOverlay(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.AddSubnet(
 		ctx.Background(),
-		subnetUUID,
+		subnetUUID.String(),
 		"192.168.0.0/12",
 		"provider-id-0",
 		"provider-network-id-0",
@@ -180,7 +180,7 @@ func (s *stateSuite) TestAddSpaceFailFanOverlay(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.AddSubnet(
 		ctx.Background(),
-		subnetFanUUID,
+		subnetFanUUID.String(),
 		"10.0.0.0/24",
 		"provider-id-1",
 		"provider-network-id-1",
@@ -210,7 +210,7 @@ func (s *stateSuite) TestRetrieveSpaceByUUID(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.AddSubnet(
 		ctx.Background(),
-		subnetUUID0,
+		subnetUUID0.String(),
 		"192.168.0.0/12",
 		"provider-id-0",
 		"provider-network-id-0",
@@ -225,7 +225,7 @@ func (s *stateSuite) TestRetrieveSpaceByUUID(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.AddSubnet(
 		ctx.Background(),
-		subnetUUID1,
+		subnetUUID1.String(),
 		"192.176.0.0/12",
 		"provider-id-2",
 		"provider-network-id-2",
@@ -240,7 +240,7 @@ func (s *stateSuite) TestRetrieveSpaceByUUID(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.AddSubnet(
 		ctx.Background(),
-		subnetFanUUID,
+		subnetFanUUID.String(),
 		"10.0.0.0/20",
 		"provider-id-1",
 		"provider-network-id-1",
@@ -363,7 +363,7 @@ func (s *stateSuite) TestRetrieveAllSpaces(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.AddSubnet(
 		ctx.Background(),
-		subnetUUID0,
+		subnetUUID0.String(),
 		"192.168.0.0/24",
 		"provider-id-0",
 		"provider-network-id-0",
@@ -377,7 +377,7 @@ func (s *stateSuite) TestRetrieveAllSpaces(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.AddSubnet(
 		ctx.Background(),
-		subnetUUID1,
+		subnetUUID1.String(),
 		"192.168.1.0/24",
 		"provider-id-1",
 		"provider-network-id-1",
@@ -391,7 +391,7 @@ func (s *stateSuite) TestRetrieveAllSpaces(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.AddSubnet(
 		ctx.Background(),
-		subnetUUID2,
+		subnetUUID2.String(),
 		"192.168.2.0/24",
 		"provider-id-2",
 		"provider-network-id-2",
@@ -456,7 +456,7 @@ func (s *stateSuite) TestDeleteSpace(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.AddSubnet(
 		ctx.Background(),
-		subnetUUID0,
+		subnetUUID0.String(),
 		"192.168.0.0/20",
 		"provider-id-0",
 		"provider-network-id-0",
@@ -482,7 +482,7 @@ func (s *stateSuite) TestDeleteSpace(c *gc.C) {
 	c.Check(name, gc.Equals, spUUID.String())
 
 	// Check that the subnet is linked to the newly created space.
-	subnet, err := st.GetSubnet(ctx.Background(), subnetUUID0)
+	subnet, err := st.GetSubnet(ctx.Background(), subnetUUID0.String())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(subnet.SpaceID, gc.Equals, spUUID.String())
 
@@ -491,7 +491,7 @@ func (s *stateSuite) TestDeleteSpace(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that the subnet is not linked to the deleted space.
-	subnet, err = st.GetSubnet(ctx.Background(), subnetUUID0)
+	subnet, err = st.GetSubnet(ctx.Background(), subnetUUID0.String())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(subnet.SpaceID, gc.Equals, network.AlphaSpaceId)
 }
