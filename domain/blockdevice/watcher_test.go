@@ -69,13 +69,13 @@ func (s *watcherSuite) TestStops(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = workertest.CheckKill(c, w)
-	c.Assert(err, gc.ErrorMatches, "getting initial block devices: context canceled")
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *watcherSuite) TestWatchBlockDevices(c *gc.C) {
 	bd := blockdevice.BlockDevice{
 		DeviceName:     "name-666",
-		Size:           666,
+		SizeMiB:        666,
 		FilesystemType: "btrfs",
 	}
 	s.createMachine(c, "666")
@@ -119,7 +119,7 @@ func (s *watcherSuite) TestWatchBlockDevices(c *gc.C) {
 func (s *watcherSuite) TestWatchBlockDevicesIgnoresWrongMachine(c *gc.C) {
 	bd := blockdevice.BlockDevice{
 		DeviceName:     "name-666",
-		Size:           666,
+		SizeMiB:        666,
 		FilesystemType: "btrfs",
 	}
 	s.createMachine(c, "666")

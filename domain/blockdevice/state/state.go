@@ -12,7 +12,10 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/v3"
 
+	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/blockdevice"
 )
@@ -82,25 +85,6 @@ WHERE  machine.machine_id = $M.machine_id
 		return nil, errors.Annotatef(err, "loading block devices for machine %q", machineId)
 	}
 	return dbRows.toBlockDevices(dbDeviceLinks, dbFilesystemTypes)
-}
-
-// GetMachineInfo is used look up the machine UUID and life for a machine.
-func (st *State) GetMachineInfo(ctx context.Context, machineId string) (string, domain.Life, error) {
-	db, err := st.DB()
-	if err != nil {
-		return "", 0, errors.Trace(err)
-	}
-
-	var (
-		machineUUID string
-		life        domain.Life
-	)
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		var err error
-		machineUUID, life, err = getMachineInfo(ctx, tx, machineId)
-		return errors.Trace(err)
-	})
-	return machineUUID, life, errors.Trace(err)
 }
 
 func getMachineInfo(ctx context.Context, tx *sqlair.TX, machineId string) (string, domain.Life, error) {
@@ -398,4 +382,51 @@ WHERE uuid NOT IN (
 		return errors.Trace(err)
 	}
 	return nil
+}
+
+// WatchBlockDevices returns a new NotifyWatcher watching for
+// changes to block devices associated with the specified machine.
+func (st *State) WatchBlockDevices(
+	ctx context.Context,
+	getWatcher func(
+		namespace, changeValue string,
+		changeMask changestream.ChangeType,
+		predicate eventsource.Predicate,
+	) (watcher.NotifyWatcher, error),
+	machineId string,
+) (watcher.NotifyWatcher, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var (
+		machineUUID string
+		life        domain.Life
+	)
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		machineUUID, life, err = getMachineInfo(ctx, tx, machineId)
+		return errors.Trace(err)
+	})
+
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if life == domain.Dead {
+		return nil, errors.Errorf("cannot watch block devices on dead machine %q", machineId)
+	}
+
+	predicate := func(ctx context.Context, db coredatabase.TxnRunner, changes []changestream.ChangeEvent) (bool, error) {
+		for _, ch := range changes {
+			if ch.Changed() == machineUUID {
+				return true, nil
+			}
+		}
+		return false, nil
+	}
+	baseWatcher, err := getWatcher("block_device_machine", machineUUID, changestream.All, predicate)
+	if err != nil {
+		return nil, errors.Annotatef(err, "watching machine %q block devices", machineId)
+	}
+	return baseWatcher, nil
 }
