@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/blockdevice"
+	"github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 )
 
@@ -89,7 +90,7 @@ WHERE  machine.machine_id = $M.machine_id
 	return dbRows.toBlockDevices(dbDeviceLinks, dbFilesystemTypes)
 }
 
-func getMachineInfo(ctx context.Context, tx *sqlair.TX, machineId string) (string, domain.Life, error) {
+func getMachineInfo(ctx context.Context, tx *sqlair.TX, machineId string) (string, life.Life, error) {
 	q := `
 SELECT machine.life_id AS &M.life_id, machine.uuid AS &M.machine_uuid
 FROM   machine
@@ -106,14 +107,14 @@ WHERE  machine.machine_id = $M.machine_id
 		return "", 0, errors.Annotatef(err, "looking up UUID for machine %q", machineId)
 	}
 	if len(result) == 0 {
-		return "", 0, fmt.Errorf("machine %q %w%w", machineId, errors.NotFound, errors.Hide(machineerrors.NotFound))
+		return "", 0, fmt.Errorf("machine %q not found%w", machineId, errors.Hide(machineerrors.NotFound))
 	}
-	life, ok := result["life_id"].(int64)
+	machineLife, ok := result["life_id"].(int64)
 	if !ok {
 		return "", 0, errors.Errorf("missing life value for machine %q", machineId)
 	}
 	machineUUID := result["machine_uuid"].(string)
-	return machineUUID, domain.Life(life), nil
+	return machineUUID, life.Life(machineLife), nil
 }
 
 // SetMachineBlockDevices sets the block devices visible on the machine.
@@ -126,11 +127,11 @@ func (st *State) SetMachineBlockDevices(ctx context.Context, machineId string, d
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		machineUUID, life, err := getMachineInfo(ctx, tx, machineId)
+		machineUUID, machineLife, err := getMachineInfo(ctx, tx, machineId)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		if life == domain.Dead {
+		if machineLife == life.Dead {
 			return errors.Errorf("cannot update block devices on dead machine %q", machineId)
 		}
 		existing, err := loadBlockDevices(ctx, tx, machineId)
@@ -313,7 +314,7 @@ WHERE  machine.machine_id = $M.machine_id
 			return errors.Annotatef(err, "looking up UUID for machine %q", machineId)
 		}
 		if len(result) == 0 {
-			return fmt.Errorf("machine %q %w%w", machineId, errors.NotFound, errors.Hide(machineerrors.NotFound))
+			return fmt.Errorf("machine %q not found%w", machineId, errors.Hide(machineerrors.NotFound))
 		}
 		machineUUID := result["machine_uuid"].(string)
 		if err := removeMachineBlockDevices(ctx, tx, machineUUID); err != nil {
@@ -403,17 +404,17 @@ func (st *State) WatchBlockDevices(
 
 	var (
 		machineUUID string
-		life        domain.Life
+		machineLife life.Life
 	)
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		machineUUID, life, err = getMachineInfo(ctx, tx, machineId)
+		machineUUID, machineLife, err = getMachineInfo(ctx, tx, machineId)
 		return errors.Trace(err)
 	})
 
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if life == domain.Dead {
+	if machineLife == life.Dead {
 		return nil, errors.Errorf("cannot watch block devices on dead machine %q", machineId)
 	}
 

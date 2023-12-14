@@ -1,7 +1,7 @@
 // Copyright 2023 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package domain
+package life
 
 // Life represents the life of an entity
 // as recorded in the life lookup table.

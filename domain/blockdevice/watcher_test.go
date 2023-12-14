@@ -32,12 +32,10 @@ func (s *watcherSuite) createMachine(c *gc.C, name string) string {
 	db := s.DB()
 
 	netNodeUUID := utils.MustNewUUID().String()
-	_, err := db.ExecContext(context.Background(),
-		fmt.Sprintf("INSERT INTO net_node (uuid) VALUES ('%s')", netNodeUUID))
+	_, err := db.Exec(fmt.Sprintf("INSERT INTO net_node (uuid) VALUES ('%s')", netNodeUUID))
 	c.Assert(err, jc.ErrorIsNil)
 	machineUUID := utils.MustNewUUID().String()
-	_, err = db.ExecContext(context.Background(),
-		fmt.Sprintf(`
+	_, err = db.Exec(fmt.Sprintf(`
 INSERT INTO machine (uuid, life_id, machine_id, net_node_uuid)
 VALUES ('%s', %d, '%s', '%s')
 `, machineUUID, 0, name, netNodeUUID))

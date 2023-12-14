@@ -11,8 +11,8 @@ import (
 	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/blockdevice"
+	"github.com/juju/juju/domain/life"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 )
 
@@ -29,10 +29,10 @@ func (s *stateSuite) TestBlockDevicesNone(c *gc.C) {
 }
 
 func (s *stateSuite) createMachine(c *gc.C, machineId string) string {
-	return s.createMachineWithLife(c, machineId, domain.Alive)
+	return s.createMachineWithLife(c, machineId, life.Alive)
 }
 
-func (s *stateSuite) createMachineWithLife(c *gc.C, name string, life domain.Life) string {
+func (s *stateSuite) createMachineWithLife(c *gc.C, name string, life life.Life) string {
 	db := s.DB()
 
 	netNodeUUID := utils.MustNewUUID().String()
