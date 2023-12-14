@@ -103,7 +103,7 @@ WHERE  machine.machine_id = $M.machine_id
 	result := sqlair.M{}
 	err = tx.Query(ctx, stmt, sqlair.M{"machine_id": machineId}).Get(result)
 	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-		return "", 0, errors.Trace(err)
+		return "", 0, errors.Annotatef(err, "looking up UUID for machine %q", machineId)
 	}
 	if len(result) == 0 {
 		return "", 0, fmt.Errorf("machine %q %w%w", machineId, errors.NotFound, errors.Hide(machineerrors.NotFound))
@@ -233,7 +233,7 @@ VALUES (
 			InUse:          bd.InUse,
 		}
 		if err := tx.Query(ctx, insertStmt, dbBlockDevice).Run(); err != nil {
-			return errors.Trace(err)
+			return errors.Annotate(err, "inserting block devices")
 		}
 
 		for _, link := range bd.DeviceLinks {
@@ -242,7 +242,7 @@ VALUES (
 				Name:       link,
 			}
 			if err := tx.Query(ctx, insertLinkStmt, dbDeviceLink).Run(); err != nil {
-				return errors.Trace(err)
+				return errors.Annotate(err, "inserting block device links")
 			}
 		}
 	}
@@ -261,7 +261,7 @@ VALUES ($M.block_device_uuid, $M.machine_uuid)
 			"machine_uuid":      machineUUID,
 			"block_device_uuid": uuid.String(),
 		}).Run(); err != nil {
-			return errors.Trace(err)
+			return errors.Annotate(err, "inserting block device machine associations")
 		}
 	}
 
@@ -310,7 +310,7 @@ WHERE  machine.machine_id = $M.machine_id
 		result := sqlair.M{}
 		err = tx.Query(ctx, stmt, sqlair.M{"machine_id": machineId}).Get(result)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Trace(err)
+			return errors.Annotatef(err, "looking up UUID for machine %q", machineId)
 		}
 		if len(result) == 0 {
 			return fmt.Errorf("machine %q %w%w", machineId, errors.NotFound, errors.Hide(machineerrors.NotFound))
@@ -350,7 +350,7 @@ WHERE block_device_uuid IN (
 		return errors.Trace(err)
 	}
 	if err := tx.Query(ctx, deleteStmt, machineUUIDParam).Run(); err != nil {
-		return errors.Trace(err)
+		return errors.Annotate(err, "deleting block device link devices")
 	}
 
 	deviceMachineDeleteQuery := fmt.Sprintf(`
@@ -364,7 +364,7 @@ WHERE machine_uuid = $M.machine_uuid
 		return errors.Trace(err)
 	}
 	if err := tx.Query(ctx, deleteStmt, machineUUIDParam).Run(); err != nil {
-		return errors.Trace(err)
+		return errors.Annotate(err, "deleting block device machine associations")
 	}
 
 	deleteQuery := fmt.Sprintf(`
@@ -380,7 +380,7 @@ WHERE uuid NOT IN (
 		return errors.Trace(err)
 	}
 	if err := tx.Query(ctx, deleteStmt).Run(); err != nil {
-		return errors.Trace(err)
+		return errors.Annotate(err, "deleting block devices")
 	}
 	return nil
 }

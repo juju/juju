@@ -46,7 +46,7 @@ type BlockDevices []BlockDevice
 func (rows BlockDevices) toBlockDevices(deviceLinks []DeviceLink, filesystemTypes []FilesystemType) ([]blockdevice.BlockDevice, error) {
 	if n := len(rows); n != len(filesystemTypes) || n != len(deviceLinks) {
 		// Should never happen.
-		return nil, errors.New("row length mismatch")
+		return nil, errors.New("row length mismatch composing block device results")
 	}
 
 	var result []blockdevice.BlockDevice
