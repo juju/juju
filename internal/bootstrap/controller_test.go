@@ -100,7 +100,7 @@ func (s *ControllerSuite) expectCharmhubDeployment(origin charm.Origin) {
 }
 
 func (s *ControllerSuite) expectAddApplication(origin charm.Origin) {
-	s.deployer.EXPECT().AddControllerApplication(gomock.Any(), "juju-controller", &origin, "10.0.0.1").Return(s.unit, nil)
+	s.deployer.EXPECT().AddControllerApplication(gomock.Any(), "juju-controller", origin, "10.0.0.1").Return(s.unit, nil)
 }
 
 func (s *ControllerSuite) expectCompletion() {

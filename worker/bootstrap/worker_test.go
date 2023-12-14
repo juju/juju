@@ -5,8 +5,11 @@ package bootstrap
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	time "time"
 
+	"github.com/juju/charm/v12"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
 	"github.com/juju/worker/v3"
@@ -15,9 +18,13 @@ import (
 	gc "gopkg.in/check.v1"
 
 	controller "github.com/juju/juju/controller"
+	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/flags"
 	"github.com/juju/juju/core/objectstore"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/bootstrap"
+	"github.com/juju/juju/internal/cloudconfig"
+	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/testing"
 )
 
@@ -32,10 +39,12 @@ var _ = gc.Suite(&workerSuite{})
 func (s *workerSuite) TestKilled(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
+	s.ensureBootstrapParams(c)
+
 	s.expectGateUnlock()
 	s.expectControllerConfig()
 	s.expectAgentConfig(c)
-	s.expectObjectStoreGetter()
+	s.expectObjectStoreGetter(2)
 	s.expectBootstrapFlagSet()
 
 	w := s.newWorker(c)
@@ -54,10 +63,7 @@ func (s *workerSuite) TestSeedAgentBinary(c *gc.C) {
 	// object store. If it's not the controller model uuid, then the agent
 	// binary will not be found.
 
-	uuid := utils.MustNewUUID().String()
-
-	s.state.EXPECT().ControllerModelUUID().Return(uuid)
-	s.objectStoreGetter.EXPECT().GetObjectStore(gomock.Any(), uuid).Return(s.objectStore, nil)
+	s.expectObjectStoreGetter(1)
 
 	var called bool
 	w := &bootstrapWorker{
@@ -68,8 +74,14 @@ func (s *workerSuite) TestSeedAgentBinary(c *gc.C) {
 				called = true
 				return nil
 			},
-			State:  s.state,
-			Logger: s.logger,
+			ControllerCharmDeployer: func(ControllerCharmDeployerConfig) (bootstrap.ControllerCharmDeployer, error) {
+				return nil, nil
+			},
+			PopulateControllerCharm: func(context.Context, bootstrap.ControllerCharmDeployer) error {
+				return nil
+			},
+			SystemState:   s.state,
+			LoggerFactory: s.loggerFactory,
 		},
 	}
 	err := w.seedAgentBinary(context.Background(), c.MkDir())
@@ -79,14 +91,21 @@ func (s *workerSuite) TestSeedAgentBinary(c *gc.C) {
 
 func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
 	w, err := newWorker(WorkerConfig{
-		Logger:            s.logger,
+		LoggerFactory:     s.loggerFactory,
 		Agent:             s.agent,
 		ObjectStoreGetter: s.objectStoreGetter,
 		BootstrapUnlocker: s.bootstrapUnlocker,
 		AgentBinaryUploader: func(context.Context, string, BinaryAgentStorageService, objectstore.ObjectStore, Logger) error {
 			return nil
 		},
-		State:                   &state.State{},
+		ControllerCharmDeployer: func(ControllerCharmDeployerConfig) (bootstrap.ControllerCharmDeployer, error) {
+			return nil, nil
+		},
+		PopulateControllerCharm: func(context.Context, bootstrap.ControllerCharmDeployer) error {
+			return nil
+		},
+		CharmhubHTTPClient:      s.httpClient,
+		SystemState:             s.state,
 		ControllerConfigService: s.controllerConfigService,
 		FlagService:             s.flagService,
 	}, s.states)
@@ -122,13 +141,31 @@ func (s *workerSuite) ensureState(c *gc.C, st string) {
 }
 
 func (s *workerSuite) expectControllerConfig() {
-	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(controller.Config{}, nil).AnyTimes()
+	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(controller.Config{}, nil)
 }
 
-func (s *workerSuite) expectObjectStoreGetter() {
-	s.objectStoreGetter.EXPECT().GetObjectStore(gomock.Any(), gomock.Any()).Return(s.objectStore, nil)
+func (s *workerSuite) expectObjectStoreGetter(num int) {
+	s.state.EXPECT().ControllerModelUUID().Return(utils.MustNewUUID().String()).Times(num)
+	s.objectStoreGetter.EXPECT().GetObjectStore(gomock.Any(), gomock.Any()).Return(s.objectStore, nil).Times(num)
 }
 
 func (s *workerSuite) expectBootstrapFlagSet() {
 	s.flagService.EXPECT().SetFlag(gomock.Any(), flags.BootstrapFlag, true).Return(nil)
+}
+
+func (s *workerSuite) ensureBootstrapParams(c *gc.C) {
+	cfg, err := config.New(config.NoDefaults, testing.FakeConfig())
+	c.Assert(err, jc.ErrorIsNil)
+
+	args := instancecfg.StateInitializationParams{
+		ControllerModelConfig:       cfg,
+		BootstrapMachineConstraints: constraints.MustParse("mem=1G"),
+		ControllerCharmPath:         "obscura",
+		ControllerCharmChannel:      charm.MakePermissiveChannel("", "stable", ""),
+	}
+	bytes, err := args.Marshal()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = os.WriteFile(filepath.Join(s.dataDir, cloudconfig.FileNameBootstrapParams), bytes, 0644)
+	c.Assert(err, jc.ErrorIsNil)
 }

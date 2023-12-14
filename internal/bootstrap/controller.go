@@ -40,9 +40,12 @@ func PopulateControllerCharm(ctx context.Context, deployer ControllerCharmDeploy
 			return errors.Annotatef(err, "deploying charmhub controller charm")
 		}
 	}
+	if origin == nil {
+		return errors.NotValidf("origin")
+	}
 
 	// Once the charm is added, set up the controller application.
-	controllerUnit, err := deployer.AddControllerApplication(ctx, curl, origin, controllerAddress)
+	controllerUnit, err := deployer.AddControllerApplication(ctx, curl, *origin, controllerAddress)
 	if err != nil {
 		return errors.Annotatef(err, "adding controller application")
 	}

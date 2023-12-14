@@ -13,6 +13,7 @@ import (
 	"github.com/juju/worker/v3/dependency"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/flags"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/bootstrap"
@@ -21,15 +22,24 @@ import (
 	"github.com/juju/juju/worker/common"
 	"github.com/juju/juju/worker/gate"
 	workerobjectstore "github.com/juju/juju/worker/objectstore"
-	"github.com/juju/juju/worker/state"
+	workerstate "github.com/juju/juju/worker/state"
 )
+
+// LoggerFactory is the interface that is used to create new loggers.
+type LoggerFactory interface {
+	Child(string) Logger
+	ChildWithLabels(string, ...string) Logger
+	Namespace(string) LoggerFactory
+}
 
 // Logger represents the logging methods called.
 type Logger interface {
-	Errorf(message string, args ...any)
-	Warningf(message string, args ...any)
-	Infof(message string, args ...any)
-	Debugf(message string, args ...any)
+	IsTraceEnabled() bool
+
+	Errorf(string, ...interface{})
+	Warningf(string, ...interface{})
+	Debugf(string, ...interface{})
+	Tracef(string, ...interface{})
 }
 
 // BinaryAgentStorageService is the interface that is used to get the storage
@@ -46,12 +56,40 @@ type BinaryAgentStorage interface {
 	Close() error
 }
 
-// AgentBinaryBootstrapFunc is the function that is used to populate the tools.
-type AgentBinaryBootstrapFunc func(context.Context, string, BinaryAgentStorageService, objectstore.ObjectStore, Logger) error
+// ControllerConfigService is the interface that is used to get the
+// controller configuration.
+type ControllerConfigService interface {
+	ControllerConfig(context.Context) (controller.Config, error)
+}
 
-// ControllerCharmUploaderFunc is the function that is used to upload the
+// FlagService is the interface that is used to set the value of a
+// flag.
+type FlagService interface {
+	GetFlag(context.Context, string) (bool, error)
+	SetFlag(context.Context, string, bool) error
+}
+
+// ObjectStoreGetter is the interface that is used to get a object store.
+type ObjectStoreGetter interface {
+	// GetObjectStore returns a object store for the given namespace.
+	GetObjectStore(context.Context, string) (objectstore.ObjectStore, error)
+}
+
+// ControllerCharmDeployerFunc is the function that is used to upload the
 // controller charm.
-type ControllerCharmUploaderFunc func(context.Context, string, objectstore.ObjectStore, Logger) error
+type ControllerCharmDeployerFunc func(ControllerCharmDeployerConfig) (bootstrap.ControllerCharmDeployer, error)
+
+// PopulateControllerCharmFunc is the function that is used to populate the
+// controller charm.
+type PopulateControllerCharmFunc func(context.Context, bootstrap.ControllerCharmDeployer) error
+
+// ControllerUnitPasswordFunc is the function that is used to get the
+// controller unit password.
+type ControllerUnitPasswordFunc func(context.Context) (string, error)
+
+// RequiresBootstrapFunc is the function that is used to check if the bootstrap
+// process has completed.
+type RequiresBootstrapFunc func(context.Context, FlagService) (bool, error)
 
 // HTTPClient is the interface that is used to make HTTP requests.
 type HTTPClient interface {
@@ -68,9 +106,11 @@ type ManifoldConfig struct {
 	CharmhubHTTPClientName string
 
 	AgentBinaryUploader     AgentBinaryBootstrapFunc
-	ControllerCharmUploader ControllerCharmUploaderFunc
-	RequiresBootstrap       func(context.Context, FlagService) (bool, error)
-	Logger                  Logger
+	ControllerCharmDeployer ControllerCharmDeployerFunc
+	ControllerUnitPassword  ControllerUnitPasswordFunc
+	RequiresBootstrap       RequiresBootstrapFunc
+	PopulateControllerCharm PopulateControllerCharmFunc
+	LoggerFactory           LoggerFactory
 }
 
 // Validate validates the manifold configuration.
@@ -93,17 +133,23 @@ func (cfg ManifoldConfig) Validate() error {
 	if cfg.CharmhubHTTPClientName == "" {
 		return errors.NotValidf("empty CharmhubHTTPClientName")
 	}
-	if cfg.Logger == nil {
-		return errors.NotValidf("nil Logger")
+	if cfg.LoggerFactory == nil {
+		return errors.NotValidf("nil LoggerFactory")
 	}
 	if cfg.AgentBinaryUploader == nil {
 		return errors.NotValidf("nil AgentBinaryUploader")
 	}
-	if cfg.ControllerCharmUploader == nil {
-		return errors.NotValidf("nil ControllerCharmUploader")
+	if cfg.ControllerCharmDeployer == nil {
+		return errors.NotValidf("nil ControllerCharmDeployer")
+	}
+	if cfg.ControllerUnitPassword == nil {
+		return errors.NotValidf("nil ControllerUnitPassword")
 	}
 	if cfg.RequiresBootstrap == nil {
 		return errors.NotValidf("nil RequiresBootstrap")
+	}
+	if cfg.PopulateControllerCharm == nil {
+		return errors.NotValidf("nil PopulateControllerCharm")
 	}
 	return nil
 }
@@ -150,6 +196,12 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, dependency.ErrUninstall
 			}
 
+			// Locate the controller unit password.
+			unitPassword, err := config.ControllerUnitPassword(context.TODO())
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+
 			var objectStoreGetter workerobjectstore.ObjectStoreGetter
 			if err := ctx.Get(config.ObjectStoreName, &objectStoreGetter); err != nil {
 				return nil, errors.Trace(err)
@@ -160,7 +212,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 
-			var stTracker state.StateTracker
+			var stTracker workerstate.StateTracker
 			if err := ctx.Get(config.StateName, &stTracker); err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -183,11 +235,14 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				ObjectStoreGetter:       objectStoreGetter,
 				ControllerConfigService: controllerServiceFactory.ControllerConfig(),
 				FlagService:             flagService,
-				State:                   systemState,
+				SystemState:             &stateShim{State: systemState},
 				BootstrapUnlocker:       bootstrapUnlocker,
 				AgentBinaryUploader:     config.AgentBinaryUploader,
-				ControllerCharmUploader: config.ControllerCharmUploader,
-				Logger:                  config.Logger,
+				ControllerCharmDeployer: config.ControllerCharmDeployer,
+				PopulateControllerCharm: config.PopulateControllerCharm,
+				CharmhubHTTPClient:      charmhubHTTPClient,
+				UnitPassword:            unitPassword,
+				LoggerFactory:           config.LoggerFactory,
 			})
 			if err != nil {
 				_ = stTracker.Done()
@@ -201,25 +256,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	}
 }
 
-// CAASAgentBinaryUploader is the function that is used to populate the tools
-// for CAAS.
-func CAASAgentBinaryUploader(context.Context, string, BinaryAgentStorageService, objectstore.ObjectStore, Logger) error {
-	// CAAS doesn't need to populate the tools.
-	return nil
-}
-
-// IAASAgentBinaryUploader is the function that is used to populate the tools
-// for IAAS.
-func IAASAgentBinaryUploader(ctx context.Context, dataDir string, storageService BinaryAgentStorageService, objectStore objectstore.ObjectStore, logger Logger) error {
-	storage, err := storageService.AgentBinaryStorage(objectStore)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	defer storage.Close()
-
-	return bootstrap.PopulateAgentBinary(ctx, dataDir, storage, logger)
-}
-
 // RequiresBootstrap is the function that is used to check if the bootstrap
 // process has completed.
 func RequiresBootstrap(ctx context.Context, flagService FlagService) (bool, error) {
@@ -228,4 +264,10 @@ func RequiresBootstrap(ctx context.Context, flagService FlagService) (bool, erro
 		return false, errors.Trace(err)
 	}
 	return !bootstrapped, nil
+}
+
+// PopulateControllerCharm is the function that is used to populate the
+// controller charm.
+func PopulateControllerCharm(ctx context.Context, controllerCharmDeployer bootstrap.ControllerCharmDeployer) error {
+	return bootstrap.PopulateControllerCharm(ctx, controllerCharmDeployer)
 }
