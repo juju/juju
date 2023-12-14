@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 	"github.com/juju/utils/v3"
 
 	"github.com/juju/juju/core/network"
@@ -59,6 +60,43 @@ func NewSpaceService(st State, logger Logger) *SpaceService {
 		st:     st,
 		logger: logger,
 	}
+}
+
+// AddSpace creates and returns a new space.
+func (s *SpaceService) AddSpace(ctx context.Context, uuid utils.UUID, name string, providerID network.Id, subnetIDs []string) (*network.SpaceInfo, error) {
+	if !names.IsValidSpace(name) {
+		return nil, errors.NotValidf("space name %q for space with uuid %q", name, uuid.String())
+	}
+
+	if err := s.st.AddSpace(ctx, uuid, name, providerID, subnetIDs); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return s.st.GetSpace(ctx, uuid.String())
+}
+
+// Space returns a space from state that matches the input ID.
+// An error is returned if the space does not exist or if there was a problem
+// accessing its information.
+func (s *SpaceService) Space(ctx context.Context, uuid string) (*network.SpaceInfo, error) {
+	return s.st.GetSpace(ctx, uuid)
+}
+
+// SpaceByName returns a space from state that matches the input name.
+// An error is returned that satisfied errors.NotFound if the space was not found
+// or an error static any problems fetching the given space.
+func (s *SpaceService) SpaceByName(ctx context.Context, name string) (*network.SpaceInfo, error) {
+	return s.st.GetSpaceByName(ctx, name)
+}
+
+// GetAllSpaces returns all spaces for the model.
+func (s *SpaceService) GetAllSpaces(ctx context.Context) (network.SpaceInfos, error) {
+	return s.st.GetAllSpaces(ctx)
+}
+
+// Remove deletes a space identified by its uuid.
+func (s *SpaceService) Remove(ctx context.Context, uuid string) error {
+	return s.st.DeleteSpace(ctx, uuid)
 }
 
 // SaveProviderSubnets loads subnets into state.
