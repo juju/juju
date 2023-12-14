@@ -197,6 +197,33 @@ func (s *objectsSuite) TestInvalidModel(c *gc.C) {
 	c.Assert(string(body), gc.Equals, "invalid model UUID \"wrongbucket\"\n")
 }
 
+func (s *objectsSuite) TestObjectNameInURL(c *gc.C) {
+	// Notice that both charms and objects aren't in this list, as they are
+	// legitimate endpoints.
+	names := []string{
+		"action",
+		"agent",
+		"application",
+		"binary",
+		"blah",
+		"bundle",
+		"machine",
+		"network",
+		"offer",
+		"relation",
+		"storage",
+		"tools",
+		"unit",
+	}
+	for i, name := range names {
+		c.Logf("test %d: %s", i, name)
+
+		url := s.URL(fmt.Sprintf("/model-%s/%s/%s", s.ControllerModelUUID(), name, "blah="), nil).String()
+		resp := sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "GET", URL: url})
+		apitesting.AssertResponse(c, resp, http.StatusNotFound, "text/plain; charset=utf-8")
+	}
+}
+
 func (s *objectsSuite) TestOnlyMethodGET(c *gc.C) {
 	resp := sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "PUT", URL: s.objectsURL("somecharm-abcd0123").String()})
 	body := apitesting.AssertResponse(c, resp, http.StatusMethodNotAllowed, "text/plain; charset=utf-8")

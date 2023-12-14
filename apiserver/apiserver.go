@@ -651,7 +651,7 @@ func (srv *Server) loop(ready chan struct{}) error {
 const (
 	modelRoutePrefix         = "/model/:modeluuid"
 	charmsObjectsRoutePrefix = "/:bucket/charms/:object"
-	objectsRoutePrefix       = "/:bucket/:objects/:object"
+	objectsRoutePrefix       = "/:bucket/objects/:object"
 )
 
 func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
