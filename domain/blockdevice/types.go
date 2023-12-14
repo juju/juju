@@ -64,6 +64,6 @@ type BlockDevice struct {
 	// MountPoint is the path at which the block devices is mounted.
 	MountPoint string
 
-	// SerialId is the block devices serial id used for matching.
+	// SerialId is the block device's serial id used for matching.
 	SerialId string
 }

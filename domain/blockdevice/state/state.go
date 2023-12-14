@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/blockdevice"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
 )
 
 // State represents database interactions dealing with block devices.
@@ -34,6 +35,7 @@ func NewState(factory coredatabase.TxnRunnerFactory) *State {
 }
 
 // BlockDevices returns the BlockDevices for the specified machine.
+// Returns an error satisfying machinerrors.NotFound if the machine does not exist.
 func (st *State) BlockDevices(ctx context.Context, machineId string) ([]blockdevice.BlockDevice, error) {
 	db, err := st.DB()
 	if err != nil {
@@ -104,7 +106,7 @@ WHERE  machine.machine_id = $M.machine_id
 		return "", 0, errors.Trace(err)
 	}
 	if len(result) == 0 {
-		return "", 0, fmt.Errorf("machine %q %w", machineId, errors.NotFound)
+		return "", 0, fmt.Errorf("machine %q %w%w", machineId, errors.NotFound, errors.Hide(machineerrors.NotFound))
 	}
 	life, ok := result["life_id"].(int64)
 	if !ok {
@@ -116,6 +118,7 @@ WHERE  machine.machine_id = $M.machine_id
 
 // SetMachineBlockDevices sets the block devices visible on the machine.
 // Previously recorded block devices not in the list will be removed.
+// Returns an error satisfying machinerrors.NotFound if the machine does not exist.
 func (st *State) SetMachineBlockDevices(ctx context.Context, machineId string, devices ...blockdevice.BlockDevice) error {
 	db, err := st.DB()
 	if err != nil {
@@ -148,6 +151,14 @@ func (st *State) SetMachineBlockDevices(ctx context.Context, machineId string, d
 }
 
 func updateBlockDevices(ctx context.Context, tx *sqlair.TX, machineUUID string, devices ...blockdevice.BlockDevice) error {
+	if err := removeMachineBlockDevices(ctx, tx, machineUUID); err != nil {
+		return errors.Annotatef(err, "removing existing block devices for machine %q", machineUUID)
+	}
+
+	if len(devices) == 0 {
+		return nil
+	}
+
 	fsTypeQuery := `SELECT * AS &FilesystemType.* FROM filesystem_type`
 	fsTypeStmt, err := sqlair.Prepare(fsTypeQuery, FilesystemType{})
 	if err != nil {
@@ -160,14 +171,6 @@ func updateBlockDevices(ctx context.Context, tx *sqlair.TX, machineUUID string, 
 	fsTypeByName := make(map[string]int)
 	for _, fsType := range fsTypes {
 		fsTypeByName[fsType.Name] = fsType.ID
-	}
-
-	if err := removeMachineBlockDevices(ctx, tx, machineUUID); err != nil {
-		return errors.Annotatef(err, "removing existing block devices for machine %q", machineUUID)
-	}
-
-	if len(devices) == 0 {
-		return nil
 	}
 
 	insertQuery := `
@@ -188,6 +191,18 @@ VALUES (
 )
 `
 	insertStmt, err := sqlair.Prepare(insertQuery, BlockDevice{})
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	insertLinkQuery := `
+INSERT INTO block_device_link_device (block_device_uuid, name)
+VALUES (
+    $DeviceLink.block_device_uuid,
+    $DeviceLink.name
+)
+`
+	insertLinkStmt, err := sqlair.Prepare(insertLinkQuery, DeviceLink{})
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -220,27 +235,13 @@ VALUES (
 		if err := tx.Query(ctx, insertStmt, dbBlockDevice).Run(); err != nil {
 			return errors.Trace(err)
 		}
-	}
 
-	insertLinkQuery := `
-INSERT INTO block_device_link_device (block_device_uuid, name)
-VALUES (
-    $DeviceLink.block_device_uuid,
-    $DeviceLink.name
-)
-`
-	insertStmt, err = sqlair.Prepare(insertLinkQuery, DeviceLink{})
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	for uuid, bd := range blockDevicesByUUID {
 		for _, link := range bd.DeviceLinks {
 			dbDeviceLink := DeviceLink{
-				ParentUUID: uuid.String(),
+				ParentUUID: id.String(),
 				Name:       link,
 			}
-			if err := tx.Query(ctx, insertStmt, dbDeviceLink).Run(); err != nil {
+			if err := tx.Query(ctx, insertLinkStmt, dbDeviceLink).Run(); err != nil {
 				return errors.Trace(err)
 			}
 		}
@@ -312,7 +313,7 @@ WHERE  machine.machine_id = $M.machine_id
 			return errors.Trace(err)
 		}
 		if len(result) == 0 {
-			return fmt.Errorf("machine %q %w", machineId, errors.NotFound)
+			return fmt.Errorf("machine %q %w%w", machineId, errors.NotFound, errors.Hide(machineerrors.NotFound))
 		}
 		machineUUID := result["machine_uuid"].(string)
 		if err := removeMachineBlockDevices(ctx, tx, machineUUID); err != nil {
