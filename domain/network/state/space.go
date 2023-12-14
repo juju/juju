@@ -127,7 +127,7 @@ WHERE  subnet_type.is_space_settable = FALSE AND subnet.uuid IN (%s)`, subnetBin
 		// Update all subnets (including their fan overlays) to include
 		// the space uuid.
 		for _, subnetID := range subnetIDs {
-			if err := updateSubnetSpaceIDTx(ctx, tx, subnetID, uuid.String()); err != nil {
+			if err := updateSubnetSpaceID(ctx, tx, subnetID, uuid.String()); err != nil {
 				return errors.Annotatef(err, "updating subnet %q using space uuid %q", subnetID, uuid.String())
 			}
 		}
