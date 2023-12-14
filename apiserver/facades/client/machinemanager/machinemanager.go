@@ -229,6 +229,25 @@ func (mm *MachineManagerAPIV7) AddMachines(args params.AddMachines) (params.AddM
 	return mm.MachineManagerAPI.AddMachines(args)
 }
 
+// compatibilityMachineParams ensures that AddMachine called from a juju 3.x
+// client will work against a juju 2.9.x controller. In juju 3.x,
+// params.AddMachineParams was changed to remove series however, the facade
+// version was not changed, nor was the name of the params.AddMachineParams
+// changed. Thus it appears you can use a juju 3.x client to deploy from a
+// juju 2.9 controller, which then fails because the series was not found.
+// Make those corrections here.
+func compatibilityMachineParams(arg params.AddMachineParams) (params.AddMachineParams, error) {
+	if arg.Base == nil {
+		return arg, nil
+	}
+	machineSeries, err := series.GetSeriesFromChannel(arg.Base.Name, arg.Base.Channel)
+	if err != nil {
+		return arg, err
+	}
+	arg.Series = machineSeries
+	return arg, nil
+}
+
 // AddMachines adds new machines with the supplied parameters.
 // The args will contain Base info.
 func (mm *MachineManagerAPI) AddMachines(args params.AddMachines) (params.AddMachinesResults, error) {
@@ -242,6 +261,12 @@ func (mm *MachineManagerAPI) AddMachines(args params.AddMachines) (params.AddMac
 		return results, errors.Trace(err)
 	}
 	for i, p := range args.MachineParams {
+		var err error
+		p, err = compatibilityMachineParams(p)
+		if err != nil {
+			results.Machines[i].Error = apiservererrors.ServerError(errors.Annotatef(err, "compatibility updates of arg failed"))
+			continue
+		}
 		m, err := mm.addOneMachine(p)
 		results.Machines[i].Error = apiservererrors.ServerError(err)
 		if err == nil {

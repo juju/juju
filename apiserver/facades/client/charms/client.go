@@ -288,7 +288,38 @@ func (a *API) AddCharmWithAuthorization(args params.AddCharmWithAuth) (params.Ch
 	return a.addCharmWithAuthorization(args)
 }
 
+// compatibilityAddCharmWithAuthArg ensures that AddCharm calls from
+// a juju 3.x client will work against a juju 2.9.x controller. In
+// juju 3.x, params.AddCharmWithAuth was changed to remove series
+// however, the facade version was not changed, nor was the name of
+// the params.AddCharmWithAuth changed. Thus it appears you can use
+// a juju 3.x client to deploy from a juju 2.9 controller, however it
+// fails because the series was not found. Make those corrections here.
+func compatibilityAddCharmWithAuthArg(arg params.AddCharmWithAuth) (params.AddCharmWithAuth, error) {
+	origin := arg.Origin
+	if origin.Series != "" {
+		return arg, nil
+	}
+	originSeries, err := series.GetSeriesFromChannel(origin.Base.Name, origin.Base.Channel)
+	if err != nil {
+		return arg, err
+	}
+	curl, err := charm.ParseURL(arg.URL)
+	if err != nil {
+		return arg, err
+	}
+	arg.URL = curl.WithSeries(originSeries).String()
+	arg.Origin.Series = originSeries
+	arg.Series = originSeries
+	return arg, nil
+}
+
 func (a *API) addCharmWithAuthorization(args params.AddCharmWithAuth) (params.CharmOriginResult, error) {
+	var err error
+	args, err = compatibilityAddCharmWithAuthArg(args)
+	if err != nil {
+		return params.CharmOriginResult{}, errors.Annotatef(err, "compatibility updates of origin failed")
+	}
 	if args.Origin.Source != "charm-hub" && args.Origin.Source != "charm-store" {
 		return params.CharmOriginResult{}, errors.Errorf("unknown schema for charm URL %q", args.URL)
 	}
@@ -520,7 +551,6 @@ func (a *API) resolveOneCharm(arg params.ResolveCharmWithChannel, mac *macaroon.
 		return result
 	}
 	result.URL = resultURL.String()
-
 	apiOrigin, err := convertOrigin(origin)
 	if err != nil {
 		result.Error = apiservererrors.ServerError(err)

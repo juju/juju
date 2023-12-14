@@ -417,16 +417,19 @@ func (api *APIBase) Deploy(args params.ApplicationsDeploy) (params.ErrorResults,
 	}
 
 	for i, arg := range args.Applications {
-		err := deployApplication(
-			api.backend,
-			api.model,
-			api.stateCharm,
-			arg,
-			api.deployApplicationFunc,
-			api.storagePoolManager,
-			api.registry,
-			api.caasBroker,
-		)
+		var err error
+		if arg, err = compatibilityApplicationDeployArgs(arg); err == nil {
+			err = deployApplication(
+				api.backend,
+				api.model,
+				api.stateCharm,
+				arg,
+				api.deployApplicationFunc,
+				api.storagePoolManager,
+				api.registry,
+				api.caasBroker,
+			)
+		}
 		result.Results[i].Error = apiservererrors.ServerError(err)
 
 		if err != nil && len(arg.Resources) != 0 {
@@ -445,6 +448,32 @@ func (api *APIBase) Deploy(args params.ApplicationsDeploy) (params.ErrorResults,
 		}
 	}
 	return result, nil
+}
+
+// compatibilityApplicationDeployArgs ensures that Deploy calls from
+// a juju 3.x client will work against a juju 2.9.x controller. In
+// juju 3.x, params.ApplicationsDeploy was changed to remove series
+// however, the facade version was not changed, nor was the name of
+// the params.ApplicationsDeploy changed. Thus it appears you can use
+// a juju 3.x client to deploy from a juju 2.9 controller, however it
+// fails because the series was not found. Make those corrections here.
+func compatibilityApplicationDeployArgs(arg params.ApplicationDeploy) (params.ApplicationDeploy, error) {
+	origin := arg.CharmOrigin
+	if origin.Series != "" {
+		return arg, nil
+	}
+	originSeries, err := series.GetSeriesFromChannel(origin.Base.Name, origin.Base.Channel)
+	if err != nil {
+		return arg, err
+	}
+	curl, err := charm.ParseURL(arg.CharmURL)
+	if err != nil {
+		return arg, err
+	}
+	arg.CharmURL = curl.WithSeries(originSeries).String()
+	origin.Series = originSeries
+	arg.Series = originSeries
+	return arg, nil
 }
 
 func applicationConfigSchema(modelType state.ModelType) (environschema.Fields, schema.Defaults, error) {

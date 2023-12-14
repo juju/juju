@@ -289,18 +289,22 @@ func (s *charmsMockSuite) TestAddCharmWithLocalSource(c *gc.C) {
 		URL: curl.String(),
 		Origin: params.CharmOrigin{
 			Source: "local",
+			Base: params.Base{
+				Name:    "ubuntu",
+				Channel: "22.04",
+			},
 		},
 		Force: false,
 	}
 	_, err = api.AddCharm(args)
-	c.Assert(err, gc.ErrorMatches, `unknown schema for charm URL "local:testme"`)
+	c.Assert(err, gc.ErrorMatches, `unknown schema for charm URL "local:jammy/testme"`)
 }
 
 func (s *charmsMockSuite) TestAddCharm(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.state.EXPECT().ControllerConfig().Return(controller.Config{}, nil)
 
-	curl, err := charm.ParseURL("cs:testme-8")
+	curl, err := charm.ParseURL("cs:jammy/testme-8")
 	c.Assert(err, jc.ErrorIsNil)
 
 	requestedOrigin := corecharm.Origin{
@@ -308,11 +312,21 @@ func (s *charmsMockSuite) TestAddCharm(c *gc.C) {
 		Channel: &charm.Channel{
 			Risk: "stable",
 		},
+		Platform: corecharm.Platform{
+			Architecture: "amd64",
+			OS:           "ubuntu",
+			Channel:      "22.04",
+		},
 	}
 	resolvedOrigin := corecharm.Origin{
 		Source: "charm-store",
 		Channel: &charm.Channel{
 			Risk: "stable",
+		},
+		Platform: corecharm.Platform{
+			Architecture: "amd64",
+			OS:           "ubuntu",
+			Channel:      "22.04",
 		},
 	}
 
@@ -323,8 +337,16 @@ func (s *charmsMockSuite) TestAddCharm(c *gc.C) {
 	args := params.AddCharmWithOrigin{
 		URL: curl.String(),
 		Origin: params.CharmOrigin{
-			Source: "charm-store",
-			Risk:   "stable",
+			Source:       "charm-store",
+			Risk:         "stable",
+			Architecture: "amd64",
+			Base: params.Base{
+				Name:    "ubuntu",
+				Channel: "22.04/stable",
+			},
+			Series:  "jammy",
+			OS:      "ubuntu",
+			Channel: "22.04",
 		},
 		Force: false,
 	}
@@ -332,8 +354,16 @@ func (s *charmsMockSuite) TestAddCharm(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtained, gc.DeepEquals, params.CharmOriginResult{
 		Origin: params.CharmOrigin{
-			Source: "charm-store",
-			Risk:   "stable",
+			Source:       "charm-store",
+			Risk:         "stable",
+			Architecture: "amd64",
+			Base: params.Base{
+				Name:    "ubuntu",
+				Channel: "22.04/stable",
+			},
+			Series:  "jammy",
+			OS:      "ubuntu",
+			Channel: "22.04",
 		},
 	})
 }
@@ -342,7 +372,7 @@ func (s *charmsMockSuite) TestAddCharmWithAuthorization(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.state.EXPECT().ControllerConfig().Return(controller.Config{}, nil)
 
-	curl, err := charm.ParseURL("cs:testme-8")
+	curl, err := charm.ParseURL("cs:jammy/testme-8")
 	c.Assert(err, jc.ErrorIsNil)
 
 	requestedOrigin := corecharm.Origin{
@@ -350,11 +380,21 @@ func (s *charmsMockSuite) TestAddCharmWithAuthorization(c *gc.C) {
 		Channel: &charm.Channel{
 			Risk: "stable",
 		},
+		Platform: corecharm.Platform{
+			Architecture: "amd64",
+			OS:           "ubuntu",
+			Channel:      "22.04",
+		},
 	}
 	resolvedOrigin := corecharm.Origin{
 		Source: "charm-store",
 		Channel: &charm.Channel{
 			Risk: "stable",
+		},
+		Platform: corecharm.Platform{
+			Architecture: "amd64",
+			OS:           "ubuntu",
+			Channel:      "22.04",
 		},
 	}
 
@@ -369,8 +409,16 @@ func (s *charmsMockSuite) TestAddCharmWithAuthorization(c *gc.C) {
 	args := params.AddCharmWithAuth{
 		URL: curl.String(),
 		Origin: params.CharmOrigin{
-			Source: "charm-store",
-			Risk:   "stable",
+			Source:       "charm-store",
+			Risk:         "stable",
+			Architecture: "amd64",
+			Base: params.Base{
+				Name:    "ubuntu",
+				Channel: "22.04/stable",
+			},
+			Series:  "jammy",
+			OS:      "ubuntu",
+			Channel: "22.04",
 		},
 		Force:              false,
 		CharmStoreMacaroon: mac,
@@ -379,8 +427,16 @@ func (s *charmsMockSuite) TestAddCharmWithAuthorization(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtained, gc.DeepEquals, params.CharmOriginResult{
 		Origin: params.CharmOrigin{
-			Source: "charm-store",
-			Risk:   "stable",
+			Source:       "charm-store",
+			Risk:         "stable",
+			Architecture: "amd64",
+			Base: params.Base{
+				Name:    "ubuntu",
+				Channel: "22.04/stable",
+			},
+			Series:  "jammy",
+			OS:      "ubuntu",
+			Channel: "22.04",
 		},
 	})
 }
@@ -388,7 +444,7 @@ func (s *charmsMockSuite) TestAddCharmWithAuthorization(c *gc.C) {
 func (s *charmsMockSuite) TestQueueAsyncCharmDownload(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	curl, err := charm.ParseURL("cs:testme-8")
+	curl, err := charm.ParseURL("cs:jammy/testme-8")
 	c.Assert(err, jc.ErrorIsNil)
 
 	requestedOrigin := corecharm.Origin{
@@ -396,11 +452,21 @@ func (s *charmsMockSuite) TestQueueAsyncCharmDownload(c *gc.C) {
 		Channel: &charm.Channel{
 			Risk: "edge",
 		},
+		Platform: corecharm.Platform{
+			Architecture: "amd64",
+			OS:           "ubuntu",
+			Channel:      "22.04",
+		},
 	}
 	resolvedOrigin := corecharm.Origin{
 		Source: "charm-store",
 		Channel: &charm.Channel{
 			Risk: "stable",
+		},
+		Platform: corecharm.Platform{
+			Architecture: "amd64",
+			OS:           "ubuntu",
+			Channel:      "22.04",
 		},
 	}
 
@@ -442,8 +508,16 @@ func (s *charmsMockSuite) TestQueueAsyncCharmDownload(c *gc.C) {
 	args := params.AddCharmWithOrigin{
 		URL: curl.String(),
 		Origin: params.CharmOrigin{
-			Source: "charm-store",
-			Risk:   "edge",
+			Source:       "charm-store",
+			Risk:         "edge",
+			Architecture: "amd64",
+			Base: params.Base{
+				Name:    "ubuntu",
+				Channel: "22.04/stable",
+			},
+			Series:  "jammy",
+			OS:      "ubuntu",
+			Channel: "22.04",
 		},
 		Force: false,
 	}
@@ -451,8 +525,16 @@ func (s *charmsMockSuite) TestQueueAsyncCharmDownload(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtained, gc.DeepEquals, params.CharmOriginResult{
 		Origin: params.CharmOrigin{
-			Source: "charm-store",
-			Risk:   "stable",
+			Source:       "charm-store",
+			Risk:         "stable",
+			Architecture: "amd64",
+			Base: params.Base{
+				Name:    "ubuntu",
+				Channel: "22.04/stable",
+			},
+			Series:  "jammy",
+			OS:      "ubuntu",
+			Channel: "22.04",
 		},
 	})
 }
@@ -460,7 +542,7 @@ func (s *charmsMockSuite) TestQueueAsyncCharmDownload(c *gc.C) {
 func (s *charmsMockSuite) TestQueueAsyncCharmDownloadResolvesAgainOriginForAlreadyDownloadedCharm(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	curl, err := charm.ParseURL("cs:testme-8")
+	curl, err := charm.ParseURL("cs:jammy/testme-8")
 	c.Assert(err, jc.ErrorIsNil)
 	resURL, err := url.Parse(curl.String())
 	c.Assert(err, jc.ErrorIsNil)
@@ -469,6 +551,11 @@ func (s *charmsMockSuite) TestQueueAsyncCharmDownloadResolvesAgainOriginForAlrea
 		Source: "charm-store",
 		Channel: &charm.Channel{
 			Risk: "stable",
+		},
+		Platform: corecharm.Platform{
+			Architecture: "amd64",
+			OS:           "ubuntu",
+			Channel:      "22.04",
 		},
 	}
 
@@ -484,8 +571,16 @@ func (s *charmsMockSuite) TestQueueAsyncCharmDownloadResolvesAgainOriginForAlrea
 	args := params.AddCharmWithOrigin{
 		URL: curl.String(),
 		Origin: params.CharmOrigin{
-			Source: "charm-store",
-			Risk:   "edge",
+			Source:       "charm-store",
+			Risk:         "edge",
+			Architecture: "amd64",
+			Base: params.Base{
+				Name:    "ubuntu",
+				Channel: "22.04/stable",
+			},
+			Series:  "jammy",
+			OS:      "ubuntu",
+			Channel: "22.04",
 		},
 		Force: false,
 	}
@@ -493,8 +588,16 @@ func (s *charmsMockSuite) TestQueueAsyncCharmDownloadResolvesAgainOriginForAlrea
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtained, gc.DeepEquals, params.CharmOriginResult{
 		Origin: params.CharmOrigin{
-			Source: "charm-store",
-			Risk:   "stable",
+			Source:       "charm-store",
+			Risk:         "stable",
+			Architecture: "amd64",
+			Base: params.Base{
+				Name:    "ubuntu",
+				Channel: "22.04/stable",
+			},
+			Series:  "jammy",
+			OS:      "ubuntu",
+			Channel: "22.04",
 		},
 	}, gc.Commentf("expected to get back the origin recorded by the application"))
 }

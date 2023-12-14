@@ -12,7 +12,6 @@ import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/version/v2"
 	"gopkg.in/macaroon.v2"
 )
 
@@ -24,24 +23,6 @@ var logger = loggo.GetLogger("juju.apiserver.params")
 
 // MigrationInProgressError signifies a migration is in progress.
 var MigrationInProgressError = errors.New(CodeMigrationInProgress)
-
-// IncompatibleClientError signifies the connecting client is not
-// compatible with the controller.
-type IncompatibleClientError struct {
-	ServerVersion version.Number
-}
-
-// Error implements error.
-func (e *IncompatibleClientError) Error() string {
-	return fmt.Sprintf("client incompatible with server %v", e.ServerVersion)
-}
-
-// AsMap returns the data for the RPC error Info field.
-func (e *IncompatibleClientError) AsMap() map[string]interface{} {
-	return map[string]interface{}{
-		"server-version": e.ServerVersion,
-	}
-}
 
 // Error is the type of error returned by any call to the state API.
 type Error struct {
@@ -192,7 +173,6 @@ const (
 	CodeAlreadyExists             = "already exists"
 	CodeUpgradeInProgress         = "upgrade in progress"
 	CodeMigrationInProgress       = "model migration in progress"
-	CodeIncompatibleClient        = "incompatible client"
 	CodeActionNotAvailable        = "action no longer available"
 	CodeOperationBlocked          = "operation is blocked"
 	CodeLeadershipClaimDenied     = "leadership claim denied"
