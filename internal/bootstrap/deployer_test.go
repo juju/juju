@@ -49,7 +49,12 @@ func (s *deployerSuite) TestValidate(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
 
 	cfg = s.newConfig(c)
-	cfg.State = nil
+	cfg.StateBackend = nil
+	err = cfg.Validate()
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
+
+	cfg = s.newConfig(c)
+	cfg.CharmUploader = nil
 	err = cfg.Validate()
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
 
