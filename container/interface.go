@@ -4,6 +4,8 @@
 package container
 
 import (
+	"context"
+
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
@@ -31,6 +33,7 @@ type Manager interface {
 	// CreateContainer creates and starts a new container for the specified
 	// machine.
 	CreateContainer(
+		ctx context.Context,
 		instanceConfig *instancecfg.InstanceConfig,
 		cons constraints.Value,
 		base corebase.Base,

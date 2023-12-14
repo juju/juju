@@ -5,6 +5,7 @@
 package lxd
 
 import (
+	context "context"
 	reflect "reflect"
 
 	lxd "github.com/canonical/lxd/client"
@@ -259,18 +260,18 @@ func (mr *MockServerMockRecorder) FilterContainers(arg0 interface{}, arg1 ...int
 }
 
 // FindImage mocks base method.
-func (m *MockServer) FindImage(arg0 base.Base, arg1 string, arg2 api.InstanceType, arg3 []lxd0.ServerSpec, arg4 bool, arg5 environs.StatusCallbackFunc) (lxd0.SourcedImage, error) {
+func (m *MockServer) FindImage(arg0 context.Context, arg1 base.Base, arg2 string, arg3 api.InstanceType, arg4 []lxd0.ServerSpec, arg5 bool, arg6 environs.StatusCallbackFunc) (lxd0.SourcedImage, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "FindImage", arg0, arg1, arg2, arg3, arg4, arg5)
+	ret := m.ctrl.Call(m, "FindImage", arg0, arg1, arg2, arg3, arg4, arg5, arg6)
 	ret0, _ := ret[0].(lxd0.SourcedImage)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // FindImage indicates an expected call of FindImage.
-func (mr *MockServerMockRecorder) FindImage(arg0, arg1, arg2, arg3, arg4, arg5 interface{}) *gomock.Call {
+func (mr *MockServerMockRecorder) FindImage(arg0, arg1, arg2, arg3, arg4, arg5, arg6 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindImage", reflect.TypeOf((*MockServer)(nil).FindImage), arg0, arg1, arg2, arg3, arg4, arg5)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindImage", reflect.TypeOf((*MockServer)(nil).FindImage), arg0, arg1, arg2, arg3, arg4, arg5, arg6)
 }
 
 // GetCertificate mocks base method.
