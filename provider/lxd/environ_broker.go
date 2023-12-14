@@ -124,7 +124,7 @@ func (env *environ) newContainer(
 		return nil, errors.Trace(err)
 	}
 
-	image, err := target.FindImage(args.InstanceConfig.Base, arch, virtType, imageSources, true, statusCallback)
+	image, err := target.FindImage(ctx, args.InstanceConfig.Base, arch, virtType, imageSources, true, statusCallback)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -4,6 +4,7 @@
 package testing
 
 import (
+	context "context"
 	reflect "reflect"
 
 	instancecfg "github.com/juju/juju/cloudconfig/instancecfg"
@@ -40,9 +41,9 @@ func (m *MockManager) EXPECT() *MockManagerMockRecorder {
 }
 
 // CreateContainer mocks base method.
-func (m *MockManager) CreateContainer(arg0 *instancecfg.InstanceConfig, arg1 constraints.Value, arg2 base.Base, arg3 *container.NetworkConfig, arg4 *container.StorageConfig, arg5 environs.StatusCallbackFunc) (instances.Instance, *instance.HardwareCharacteristics, error) {
+func (m *MockManager) CreateContainer(arg0 context.Context, arg1 *instancecfg.InstanceConfig, arg2 constraints.Value, arg3 base.Base, arg4 *container.NetworkConfig, arg5 *container.StorageConfig, arg6 environs.StatusCallbackFunc) (instances.Instance, *instance.HardwareCharacteristics, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateContainer", arg0, arg1, arg2, arg3, arg4, arg5)
+	ret := m.ctrl.Call(m, "CreateContainer", arg0, arg1, arg2, arg3, arg4, arg5, arg6)
 	ret0, _ := ret[0].(instances.Instance)
 	ret1, _ := ret[1].(*instance.HardwareCharacteristics)
 	ret2, _ := ret[2].(error)
@@ -50,9 +51,9 @@ func (m *MockManager) CreateContainer(arg0 *instancecfg.InstanceConfig, arg1 con
 }
 
 // CreateContainer indicates an expected call of CreateContainer.
-func (mr *MockManagerMockRecorder) CreateContainer(arg0, arg1, arg2, arg3, arg4, arg5 interface{}) *gomock.Call {
+func (mr *MockManagerMockRecorder) CreateContainer(arg0, arg1, arg2, arg3, arg4, arg5, arg6 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateContainer", reflect.TypeOf((*MockManager)(nil).CreateContainer), arg0, arg1, arg2, arg3, arg4, arg5)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateContainer", reflect.TypeOf((*MockManager)(nil).CreateContainer), arg0, arg1, arg2, arg3, arg4, arg5, arg6)
 }
 
 // DestroyContainer mocks base method.
