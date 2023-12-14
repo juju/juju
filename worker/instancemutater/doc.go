@@ -2,9 +2,9 @@
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 
-// Package instancemutater defines workers that checks the list of lxd profiles
-// applied to a machine against the list of expected profiles based on the
-// application version which should be running on the machine. In particular, it
+// Package instancemutater defines workers that compares the list of lxd profiles
+// applied to a machine with the list of expected profiles based on the
+// application versions which should be running on the machine. In particular, it
 // creates two workers from the same code with different configurations; the
 // ContainerWorker, and the EnvironWorker.
 //
