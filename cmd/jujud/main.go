@@ -41,8 +41,7 @@ import (
 	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/juju/sockets"
-	// Import the providers.
-	_ "github.com/juju/juju/provider/all"
+
 	// Import the secret providers.
 	_ "github.com/juju/juju/secrets/provider/all"
 	"github.com/juju/juju/upgrades"
@@ -257,7 +256,6 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 		return &jujudWriter{target: target}
 	}
 
-	jujud.Register(agentcmd.NewBootstrapCommand())
 	jujud.Register(agentcmd.NewCAASUnitInitCommand())
 	jujud.Register(agentcmd.NewModelCommand(bufferedLogger))
 

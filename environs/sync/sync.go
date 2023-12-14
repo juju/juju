@@ -316,9 +316,9 @@ func buildAgentTarball(
 	}
 	// Built agent version needs to match the client used to bootstrap.
 	builtVersion := toolsVersion
-	builtVersion.Build = 0
+	//builtVersion.Build = 0
 	clientVersion := jujuversion.Current
-	clientVersion.Build = 0
+	//clientVersion.Build = 0
 	if builtVersion.Number.Compare(clientVersion) != 0 {
 		return nil, errors.Errorf(
 			"agent binary %v not compatible with bootstrap client %v",

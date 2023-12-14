@@ -23,10 +23,9 @@ import (
 )
 
 func MockMachineConfig(machineId string) (*instancecfg.InstanceConfig, error) {
-
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
 	instanceConfig, err := instancecfg.NewInstanceConfig(testing.ControllerTag, machineId, "fake-nonce",
-		imagemetadata.ReleasedStream, corebase.MakeDefaultBase("ubuntu", "22.04"), apiInfo)
+		imagemetadata.ReleasedStream, corebase.MakeDefaultBase("ubuntu", "22.04"), apiInfo, false)
 	if err != nil {
 		return nil, err
 	}

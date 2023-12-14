@@ -89,7 +89,7 @@ func findPackagedTools(
 func locallyBuildableTools() (buildable coretools.List, _ version.Number, _ error) {
 	buildNumber := jujuversion.Current
 	// Increment the build number so we know it's a custom build.
-	buildNumber.Build++
+	//buildNumber.Build++
 	if !coreos.HostOS().EquivalentTo(coreos.Ubuntu) {
 		return buildable, buildNumber, nil
 	}

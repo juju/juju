@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	"github.com/juju/juju/cmd/jujud/agent/machine"
-	"github.com/juju/juju/cmd/jujud/agent/model"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -141,19 +140,6 @@ var (
 		"upgrade-series",
 	}
 )
-
-type ModelManifoldsFunc func(config model.ManifoldsConfig) dependency.Manifolds
-
-func TrackModels(c *gc.C, tracker *agenttest.EngineTracker, inner ModelManifoldsFunc) ModelManifoldsFunc {
-	return func(config model.ManifoldsConfig) dependency.Manifolds {
-		raw := inner(config)
-		id := config.Agent.CurrentConfig().Model().Id()
-		if err := tracker.Install(raw, id); err != nil {
-			c.Errorf("cannot install tracker: %v", err)
-		}
-		return raw
-	}
-}
 
 type MachineManifoldsFunc func(config machine.ManifoldsConfig) dependency.Manifolds
 

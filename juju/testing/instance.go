@@ -213,6 +213,7 @@ func FillInStartInstanceParams(env environs.Environ, machineId string, isControl
 		imagemetadata.ReleasedStream,
 		preferredBase,
 		apiInfo,
+		isController,
 	)
 	if err != nil {
 		return errors.Trace(err)

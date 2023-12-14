@@ -94,6 +94,8 @@ cat > $tmpfile
 type FileTransporter struct {
 	params   ConfigureParams
 	prefix   string
+	safeHost string
+
 	errGroup *errgroup.Group
 	ctx      context.Context
 }
@@ -106,6 +108,24 @@ func NewFileTransporter(ctx context.Context, params ConfigureParams) *FileTransp
 	ft.errGroup = eg
 	ft.ctx = egCtx
 	ft.prefix = "juju-" + strconv.Itoa(rand.Int())
+
+	userHost := strings.SplitN(ft.params.Host, "@", 2)
+	user := ""
+	host := ""
+	if len(userHost) == 1 {
+		host = userHost[0]
+	} else {
+		user = userHost[0]
+		host = userHost[1]
+	}
+	if strings.Contains(host, ":") {
+		host = fmt.Sprintf("[%s]", host)
+	}
+	if user == "" {
+		ft.safeHost = host
+	} else {
+		ft.safeHost = fmt.Sprintf("%s@%s", user, host)
+	}
 	return ft
 }
 
@@ -128,7 +148,7 @@ func (ft *FileTransporter) SendBytes(hint string, payload []byte) string {
 		}
 		defer os.Remove(srcTmp)
 
-		dst := fmt.Sprintf("%s:%s", ft.params.Host, dstTmp)
+		dst := fmt.Sprintf("%s:%s", ft.safeHost, dstTmp)
 		err = client.Copy([]string{srcTmp, dst}, ft.params.SSHOptions)
 		if err != nil {
 			return errors.Annotatef(err, "failed scp-ing file %s to %s", srcTmp, dst)

@@ -34820,6 +34820,14 @@
                     },
                     "description": "SetSupportedContainers updates the list of containers supported by the machines passed in args."
                 },
+                "SnapSearchURLs": {
+                    "type": "object",
+                    "properties": {
+                        "Result": {
+                            "$ref": "#/definitions/StringsResult"
+                        }
+                    }
+                },
                 "Status": {
                     "type": "object",
                     "properties": {
@@ -36181,6 +36189,9 @@
                                     "additionalProperties": true
                                 }
                             }
+                        },
+                        "could-be-controller": {
+                            "type": "boolean"
                         },
                         "endpoint-bindings": {
                             "type": "object",

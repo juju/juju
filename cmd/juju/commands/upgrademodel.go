@@ -240,10 +240,10 @@ func uploadTools(
 	builtTools, err := sync.BuildAgentTarball(
 		buildAgent, "upgrade",
 		func(builtVersion version.Number) version.Number {
-			builtVersion.Build++
-			if agentVersion.Build >= builtVersion.Build {
-				builtVersion.Build = agentVersion.Build + 1
-			}
+			// builtVersion.Build++
+			// if agentVersion.Build >= builtVersion.Build {
+			// 	builtVersion.Build = agentVersion.Build + 1
+			// }
 			targetVersion = builtVersion
 			return builtVersion
 		},

@@ -170,9 +170,9 @@ func (u *Upgrader) loop() error {
 		// the current version to remove the Jenkins build number.
 		// We don't care about the build number when checking for upgrade.
 		haveVersion := jujuversion.Current
-		if wantVersion.Build == 0 {
-			haveVersion.Build = 0
-		}
+		// if wantVersion.Build == 0 {
+		// 	haveVersion.Build = 0
+		// }
 
 		if wantVersion == haveVersion {
 			u.config.InitialUpgradeCheckComplete.Unlock()

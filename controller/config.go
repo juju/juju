@@ -266,6 +266,11 @@ const (
 	// is enabled). The lower the threshold, the more queries will be output. A
 	// value of 0 means all queries will be output.
 	QueryTracingThreshold = "query-tracing-threshold"
+
+	// JujudControllerSnapSource returns the source for the controller snap.
+	// Can be set to "snapstore", "local" or "local-dangerous".
+	// Cannot be changed.
+	JujudControllerSnapSource = "jujud-controller-snap-source"
 )
 
 // Attribute Defaults
@@ -390,6 +395,10 @@ const (
 	// for query tracing. If a query takes longer than this to complete
 	// it will be logged if query tracing is enabled.
 	DefaultQueryTracingThreshold = time.Second
+
+	// JujudControllerSnapSource is the default value for the jujud controller
+	// snap source, which is the snapstore.
+	DefaultJujudControllerSnapSource = "snapstore"
 )
 
 var (
@@ -444,6 +453,7 @@ var (
 		ControllerResourceDownloadLimit,
 		QueryTracingEnabled,
 		QueryTracingThreshold,
+		JujudControllerSnapSource,
 	}
 
 	// For backwards compatibility, we must include "anything", "juju-apiserver"
@@ -848,6 +858,14 @@ func (c Config) JujuDBSnapChannel() string {
 	return c.asString(JujuDBSnapChannel)
 }
 
+// JujudControllerSnapSource returns the source of the jujud-controller snap.
+func (c Config) JujudControllerSnapSource() string {
+	if src, ok := c[JujudControllerSnapSource]; ok {
+		return src.(string)
+	}
+	return DefaultJujudControllerSnapSource
+}
+
 // NUMACtlPreference returns if numactl is preferred.
 func (c Config) NUMACtlPreference() bool {
 	if numa, ok := c[SetNUMAControlPolicyKey]; ok {
@@ -1231,6 +1249,14 @@ func Validate(c Config) error {
 	if d, ok := c[QueryTracingThreshold].(time.Duration); ok {
 		if d < 0 {
 			return errors.Errorf("%s value %q must be a positive duration", QueryTracingThreshold, d)
+		}
+	}
+
+	if v, ok := c[JujudControllerSnapSource].(string); ok {
+		switch v {
+		case "snapstore", "local", "local-dangerous":
+		default:
+			return errors.Errorf("%s value %q must be one of snapstore, local or local-dangerous.", JujudControllerSnapSource, v)
 		}
 	}
 

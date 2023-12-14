@@ -84,6 +84,7 @@ func prepInstanceConfig(c *gc.C) *instancecfg.InstanceConfig {
 		"imagestream",
 		corebase.MakeDefaultBase("ubuntu", "16.04"),
 		apiInfo,
+		false,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 

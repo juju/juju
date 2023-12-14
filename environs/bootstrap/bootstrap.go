@@ -158,6 +158,14 @@ type BootstrapParams struct {
 	// will be used to test the contents of the .snap at JujuDbSnap.
 	JujuDbSnapAssertionsPath string
 
+	// JujudControllerSnapPath is the path to a local .snap file that will be used
+	// to run the jujud-controller service.
+	JujudControllerSnapPath string
+
+	// JujudControllerSnapAssertionsPath is the path to a local .assertfile that
+	// will be used to test the contents of the .snap at JujudController.
+	JujudControllerSnapAssertionsPath string
+
 	// StoragePools is one or more named storage pools to create
 	// in the controller model.
 	StoragePools map[string]corestorage.Attrs
@@ -631,7 +639,11 @@ func bootstrapIAAS(
 		return errors.Trace(err)
 	}
 
-	if err := instanceConfig.SetSnapSource(args.JujuDbSnapPath, args.JujuDbSnapAssertionsPath); err != nil {
+	if err := instanceConfig.SetJujudControllerSnapSource(args.JujudControllerSnapPath, args.JujudControllerSnapAssertionsPath, nil); err != nil {
+		return errors.Trace(err)
+	}
+
+	if err := instanceConfig.SetJujuDbSnapSource(args.JujuDbSnapPath, args.JujuDbSnapAssertionsPath); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -811,6 +823,7 @@ func finalizeInstanceBootstrapConfig(
 	icfg.Bootstrap.JujuDbSnapAssertionsPath = args.JujuDbSnapAssertionsPath
 	icfg.Bootstrap.ControllerCharm = args.ControllerCharmPath
 	icfg.Bootstrap.ControllerCharmChannel = args.ControllerCharmChannel
+
 	return nil
 }
 

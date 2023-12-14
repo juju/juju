@@ -11,6 +11,8 @@ RUN useradd --uid 170 --gid 170 --no-create-home --shell /usr/bin/bash juju
 
 # Some Python dependencies.
 RUN apt-get update \
+    && apt-get install -y software-properties-common \
+    && add-apt-repository ppa:dqlite/dev -y \
     && apt-get install -y --no-install-recommends \
     python3-yaml \
     python3-pip \
@@ -20,6 +22,7 @@ RUN apt-get update \
     # below apt dependencies are required by controller pod.
     iproute2 \
     curl \
+    libdqlite0 \
     && pip3 install --upgrade pip setuptools \
     && rm -rf /var/lib/apt/lists/* \
     && rm -rf /root/.cache
@@ -35,6 +38,7 @@ RUN pip3 install -r /tmp/wheelhouse/requirements.txt
 
 WORKDIR /var/lib/juju
 COPY ${TARGETOS}_${TARGETARCH}/bin/jujud /opt/
+COPY ${TARGETOS}_${TARGETARCH}/bin/jujud-controller /opt/
 COPY ${TARGETOS}_${TARGETARCH}/bin/jujuc /opt/
 COPY ${TARGETOS}_${TARGETARCH}/bin/containeragent /opt/
 COPY ${TARGETOS}_${TARGETARCH}/bin/pebble /opt/

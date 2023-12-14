@@ -1005,7 +1005,7 @@ func (t *LiveTests) TestStartInstanceWithEmptyNonceFails(c *gc.C) {
 	machineId := "4"
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
 	instanceConfig, err := instancecfg.NewInstanceConfig(coretesting.ControllerTag, machineId, "",
-		"released", corebase.MakeDefaultBase("ubuntu", "22.04"), apiInfo)
+		"released", corebase.MakeDefaultBase("ubuntu", "22.04"), apiInfo, false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	t.PrepareOnce(c)

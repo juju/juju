@@ -6,8 +6,12 @@ package cloudconfig
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/url"
 	stdos "os"
 	"path"
 	"path/filepath"
@@ -93,6 +97,12 @@ has_juju_db_snap=$(snap info juju-db | grep installed:)
 if [ ! -z "$has_juju_db_snap" ]; then
   echo "removing juju-db snap and any persisted database data"
   snap remove --purge juju-db
+fi
+
+has_jujud_controller_snap=$(snap info jujud-controller | grep installed:)
+if [ ! -z "$has_jujud_controller_snap" ]; then
+  echo "removing jujud-controller snap"
+  snap remove --purge jujud-controller
 fi
 `
 	// We look to see if the proxy line is there already as
@@ -259,8 +269,8 @@ func (w *unixConfigure) ConfigureJuju() error {
 	// ConfigureBasic won't have been invoked; thus, the output log won't
 	// have been set. We don't want to show the log to the user, so simply
 	// append to the log file rather than teeing.
-	if stdout, _ := w.conf.Output(cloudinit.OutAll); stdout == "" {
-		w.conf.SetOutput(cloudinit.OutAll, ">> "+w.icfg.CloudInitOutputLog, "")
+	if stdout, stderr := w.conf.Output(cloudinit.OutAll); stdout == "" || stderr == "" {
+		w.conf.SetOutput(cloudinit.OutAll, "| tee -a "+w.icfg.CloudInitOutputLog, "")
 		w.conf.AddBootCmd(initProgressCmd)
 		w.conf.AddBootCmd(cloudinit.LogProgressCmd("Logging to %s on the bootstrap machine", w.icfg.CloudInitOutputLog))
 	}
@@ -333,6 +343,8 @@ func (w *unixConfigure) ConfigureJuju() error {
 	w.conf.AddScripts(
 		"bin="+shquote(w.icfg.JujuTools()),
 		"mkdir -p $bin",
+		"snapdir="+shquote(w.icfg.SnapDir()),
+		"mkdir -p $snapdir",
 	)
 
 	// Fetch the tools and unarchive them into it.
@@ -359,13 +371,26 @@ func (w *unixConfigure) ConfigureJuju() error {
 	}
 
 	if w.icfg.Bootstrap != nil {
-		if err = w.addLocalSnapUpload(); err != nil {
+		if err = w.addLocalJujuDbSnapUpload(); err != nil {
+			return errors.Trace(err)
+		}
+		if err = w.addLocalJujudControllerSnapUpload(); err != nil {
 			return errors.Trace(err)
 		}
 		if err = w.addLocalControllerCharmsUpload(); err != nil {
 			return errors.Trace(err)
 		}
+		if err := w.installJujudControllerSnap(); err != nil {
+			return errors.Trace(err)
+		}
 		if err := w.configureBootstrap(); err != nil {
+			return errors.Trace(err)
+		}
+	} else if w.icfg.CouldBeController {
+		if err = w.addLocalJujudControllerSnapUpload(); err != nil {
+			return errors.Trace(err)
+		}
+		if err := w.installJujudControllerSnap(); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -469,20 +494,39 @@ func (w *unixConfigure) configureBootstrap() error {
 		featureFlags = fmt.Sprintf("%s=%s ", osenv.JujuFeatureFlagEnvKey, featureFlags)
 	}
 	bootstrapAgentArgs := []string{
-		featureFlags + w.icfg.JujuTools() + "/jujud",
+		featureFlags + "/snap/bin/jujud-controller",
 		"bootstrap-state",
 		"--timeout", w.icfg.Bootstrap.Timeout.String(),
 		"--data-dir", shquote(w.icfg.DataDir),
 		loggingOption,
 		shquote(bootstrapParamsFile),
 	}
-	w.conf.AddRunCmd(cloudinit.LogProgressCmd("Installing Juju machine agent"))
+	w.conf.AddRunCmd(cloudinit.LogProgressCmd("Bootstrapping juju controller"))
 	w.conf.AddScripts(strings.Join(bootstrapAgentArgs, " "))
+	w.conf.AddRunCmd(cloudinit.LogProgressCmd("Bootstrapped juju controller"))
 
 	return nil
 }
 
-func (w *unixConfigure) addLocalSnapUpload() error {
+func (w *unixConfigure) installJujudControllerSnap() error {
+	// TODO(jujud-controller): download uploaded snap from controller if not bootstrap.
+	w.conf.AddRunCmd(cloudinit.LogProgressCmd("Installing jujud-controller snap"))
+	if w.icfg.JujudControllerSnapPath != "" {
+		_, snapName := path.Split(w.icfg.JujudControllerSnapPath)
+		snapPath := path.Join(w.icfg.SnapDir(), snapName)
+		if w.icfg.JujudControllerSnapAssertionsPath == "dangerous" {
+			w.conf.AddScripts(fmt.Sprintf("snap install %s --classic --dangerous", snapPath))
+		} else {
+			w.conf.AddScripts(fmt.Sprintf("snap install %s --classic", snapPath))
+		}
+	} else {
+		w.conf.AddScripts(fmt.Sprintf("snap install jujud-controller --classic --channel=%s/stable",
+			w.icfg.AgentVersion().String()))
+	}
+	return nil
+}
+
+func (w *unixConfigure) addLocalJujuDbSnapUpload() error {
 	if w.icfg.Bootstrap == nil {
 		return nil
 	}
@@ -509,6 +553,98 @@ func (w *unixConfigure) addLocalSnapUpload() error {
 	}
 	_, snapAssertionsName := path.Split(assertionsPath)
 	w.conf.AddRunBinaryFile(path.Join(w.icfg.SnapDir(), snapAssertionsName), snapAssertionsData, 0644)
+
+	return nil
+}
+
+func (w *unixConfigure) addLocalJujudControllerSnapUpload() error {
+	snapPath := w.icfg.JujudControllerSnapPath
+	assertionsPath := w.icfg.JujudControllerSnapAssertionsPath
+
+	if snapPath == "" {
+		return nil
+	}
+
+	snapFile := path.Base(snapPath)
+
+	f, err := stdos.Open(snapPath)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer f.Close()
+
+	hasher := sha256.New()
+	if len(w.icfg.JujudControllerSnapSearchURLs) > 0 {
+		_, err := io.Copy(hasher, f)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		curlCommand := curlCommand
+		var urls []string
+		for _, base := range w.icfg.JujudControllerSnapSearchURLs {
+			joined, err := url.JoinPath(base, snapFile)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			urls = append(urls, joined)
+		}
+		if w.icfg.Bootstrap != nil {
+			curlCommand += " --retry 10"
+			if w.icfg.DisableSSLHostnameVerification {
+				curlCommand += " --insecure"
+			}
+
+			curlProxyArgs := w.formatCurlProxyArguments()
+			curlCommand += curlProxyArgs
+		} else {
+			// Allow up to 20 seconds for curl to make a connection. This prevents
+			// slow/broken routes from holding up others.
+			//
+			// TODO(axw) 2017-02-14 #1654943
+			// When we model spaces everywhere, we should give
+			// priority to the URLs that we know are accessible
+			// based on space overlap.
+			curlCommand += " --connect-timeout 20"
+
+			// Don't go through the proxy when downloading tools from the controllers
+			curlCommand += ` --noproxy "*"`
+
+			// Our API server certificates are unusable by curl (invalid subject name),
+			// so we must disable certificate validation. It doesn't actually
+			// matter, because there is no sensitive information being transmitted
+			// and we verify the tools' hash after.
+			curlCommand += " --insecure"
+		}
+		curlCommand += fmt.Sprintf(" -o $snapdir/%s", snapFile)
+		w.conf.AddRunCmd(cloudinit.LogProgressCmd("Fetching Juju controller snap %s", snapFile))
+		logger.Infof("Fetching snap: %s <%s>", curlCommand, urls)
+		w.conf.AddRunCmd(toolsDownloadCommand(curlCommand, urls))
+	} else {
+		logger.Infof("preparing to upload jujud-controller snap from %v", snapPath)
+		snapData, err := io.ReadAll(io.TeeReader(f, hasher))
+		if err != nil {
+			return errors.Trace(err)
+		}
+		_, snapName := path.Split(snapPath)
+		w.conf.AddRunBinaryFile(path.Join(w.icfg.SnapDir(), snapName), snapData, 0644)
+	}
+
+	snapSHA256 := hex.EncodeToString(hasher.Sum(nil))
+	w.conf.AddScripts(
+		fmt.Sprintf("sha256sum $snapdir/%s > $snapdir/%s.sha256", snapFile, snapFile),
+		fmt.Sprintf(`grep '%s' $snapdir/%s.sha256 || (echo "Snap checksum mismatch"; exit 1)`, snapSHA256, snapFile),
+	)
+
+	if assertionsPath != "dangerous" {
+		logger.Infof("preparing to upload jujud-controller assertions from %v", assertionsPath)
+		snapAssertionsData, err := stdos.ReadFile(assertionsPath)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		_, snapAssertionsName := path.Split(assertionsPath)
+		w.conf.AddRunBinaryFile(path.Join(w.icfg.SnapDir(), snapAssertionsName), snapAssertionsData, 0644)
+	}
 
 	return nil
 }

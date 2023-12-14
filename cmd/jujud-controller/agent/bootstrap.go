@@ -7,6 +7,7 @@ import (
 	"bytes"
 	stdcontext "context"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"path/filepath"
@@ -28,7 +29,7 @@ import (
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/cmd/jujud/agent/agentconf"
+	"github.com/juju/juju/cmd/jujud-controller/agent/agentconf"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/arch"
@@ -100,6 +101,23 @@ func (c *BootstrapCommand) Init(args []string) error {
 	}
 	c.BootstrapParamsFile = args[0]
 	return c.AgentConf.CheckArgs(args[1:])
+}
+
+func copyFile(dest, source string) error {
+	df, err := os.OpenFile(dest, os.O_CREATE|os.O_TRUNC|os.O_RDWR, 0660)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer df.Close()
+
+	f, err := os.Open(source)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer f.Close()
+
+	_, err = io.Copy(df, f)
+	return errors.Trace(err)
 }
 
 func copyFileFromTemplate(to, from string) (err error) {
@@ -201,7 +219,7 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 	if ok && desiredVersion != jujuversion.Current {
 		if isCAAS {
 			currentVersion := jujuversion.Current
-			currentVersion.Build = 0
+			//currentVersion.Build = 0
 			if desiredVersion != currentVersion {
 				// For CAAS, the agent-version in controller config should
 				// always equals to current juju version.
