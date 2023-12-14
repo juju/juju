@@ -120,14 +120,16 @@ func (s *stateSuite) TestAddSubnet(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.AddSubnet(
 		ctx.Background(),
-		uuid.String(),
-		"10.0.0.0/24",
-		"provider-id",
-		"provider-network-id",
-		0,
-		[]string{"az0", "az1"},
-		spUUID.String(),
-		nil,
+		network.SubnetInfo{
+			ID:                network.Id(uuid.String()),
+			CIDR:              "10.0.0.0/24",
+			ProviderId:        "provider-id",
+			ProviderNetworkId: "provider-network-id",
+			VLANTag:           0,
+			AvailabilityZones: []string{"az0", "az1"},
+			SpaceID:           spUUID.String(),
+			FanInfo:           nil,
+		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -198,28 +200,32 @@ func (s *stateSuite) TestFailAddTwoSubnetsSameNetworkID(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.AddSubnet(
 		ctx.Background(),
-		subnetUUID0.String(),
-		"10.0.0.0/24",
-		"provider-id-0",
-		"provider-network-id",
-		0,
-		[]string{"az0", "az1"},
-		spUUID.String(),
-		nil,
+		network.SubnetInfo{
+			ID:                network.Id(subnetUUID0.String()),
+			CIDR:              "10.0.0.0/24",
+			ProviderId:        "provider-id-0",
+			ProviderNetworkId: "provider-network-id",
+			VLANTag:           0,
+			AvailabilityZones: []string{"az0", "az1"},
+			SpaceID:           spUUID.String(),
+			FanInfo:           nil,
+		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	subnetUUID1, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.AddSubnet(
 		ctx.Background(),
-		subnetUUID1.String(),
-		"10.0.1.0/24",
-		"provider-id-1",
-		"provider-network-id",
-		0,
-		[]string{"az0", "az1"},
-		spUUID.String(),
-		nil,
+		network.SubnetInfo{
+			ID:                network.Id(subnetUUID1.String()),
+			CIDR:              "10.0.1.0/24",
+			ProviderId:        "provider-id-1",
+			ProviderNetworkId: "provider-network-id",
+			VLANTag:           0,
+			AvailabilityZones: []string{"az0", "az1"},
+			SpaceID:           spUUID.String(),
+			FanInfo:           nil,
+		},
 	)
 	c.Assert(err, gc.ErrorMatches, "UNIQUE constraint failed: provider_network.provider_network_id")
 }
@@ -236,28 +242,32 @@ func (s *stateSuite) TestFailAddTwoSubnetsSameProviderID(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.AddSubnet(
 		ctx.Background(),
-		subnetUUID0.String(),
-		"10.0.0.0/24",
-		"provider-id",
-		"provider-network-id-0",
-		0,
-		[]string{"az0", "az1"},
-		spUUID.String(),
-		nil,
+		network.SubnetInfo{
+			ID:                network.Id(subnetUUID0.String()),
+			CIDR:              "10.0.0.0/24",
+			ProviderId:        "provider-id",
+			ProviderNetworkId: "provider-network-id-0",
+			VLANTag:           0,
+			AvailabilityZones: []string{"az0", "az1"},
+			SpaceID:           spUUID.String(),
+			FanInfo:           nil,
+		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	subnetUUID1, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.AddSubnet(
 		ctx.Background(),
-		subnetUUID1.String(),
-		"10.0.1.0/24",
-		"provider-id",
-		"provider-network-id-1",
-		0,
-		[]string{"az0", "az1"},
-		spUUID.String(),
-		nil,
+		network.SubnetInfo{
+			ID:                network.Id(subnetUUID1.String()),
+			CIDR:              "10.0.1.0/24",
+			ProviderId:        "provider-id",
+			ProviderNetworkId: "provider-network-id-1",
+			VLANTag:           0,
+			AvailabilityZones: []string{"az0", "az1"},
+			SpaceID:           spUUID.String(),
+			FanInfo:           nil,
+		},
 	)
 	c.Assert(err, gc.ErrorMatches, "UNIQUE constraint failed: provider_subnet.provider_id")
 }
@@ -270,14 +280,16 @@ func (s *stateSuite) TestRetrieveFanSubnet(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.AddSubnet(
 		ctx.Background(),
-		subnetUUID0.String(),
-		"192.168.0.0/20",
-		"provider-id-0",
-		"provider-network-id-0",
-		0,
-		[]string{"az0"},
-		"",
-		nil,
+		network.SubnetInfo{
+			ID:                network.Id(subnetUUID0.String()),
+			CIDR:              "192.168.0.0/20",
+			ProviderId:        "provider-id-0",
+			ProviderNetworkId: "provider-network-id-0",
+			VLANTag:           0,
+			AvailabilityZones: []string{"az0"},
+			SpaceID:           "",
+			FanInfo:           nil,
+		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	// Add a subnet of type fan.
@@ -285,16 +297,18 @@ func (s *stateSuite) TestRetrieveFanSubnet(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.AddSubnet(
 		ctx.Background(),
-		subnetUUID1.String(),
-		"10.0.0.0/12",
-		"provider-id-1",
-		"provider-network-id-1",
-		0,
-		[]string{"az1"},
-		"",
-		&network.FanCIDRs{
-			FanLocalUnderlay: "192.168.0.0/20",
-			FanOverlay:       "10.0.0.0/8",
+		network.SubnetInfo{
+			ID:                network.Id(subnetUUID1.String()),
+			CIDR:              "10.0.0.0/12",
+			ProviderId:        "provider-id-1",
+			ProviderNetworkId: "provider-network-id-1",
+			VLANTag:           0,
+			AvailabilityZones: []string{"az1"},
+			SpaceID:           "",
+			FanInfo: &network.FanCIDRs{
+				FanLocalUnderlay: "192.168.0.0/20",
+				FanOverlay:       "10.0.0.0/8",
+			},
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -350,14 +364,16 @@ func (s *stateSuite) TestRetrieveSubnetByUUID(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.AddSubnet(
 		ctx.Background(),
-		subnetUUID0.String(),
-		"192.168.0.0/20",
-		"provider-id-0",
-		"provider-network-id-0",
-		0,
-		[]string{"az0"},
-		"",
-		nil,
+		network.SubnetInfo{
+			ID:                network.Id(subnetUUID0.String()),
+			CIDR:              "192.168.0.0/20",
+			ProviderId:        "provider-id-0",
+			ProviderNetworkId: "provider-network-id-0",
+			VLANTag:           0,
+			AvailabilityZones: []string{"az0"},
+			SpaceID:           "",
+			FanInfo:           nil,
+		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	// Add a subnet of type fan.
@@ -365,16 +381,18 @@ func (s *stateSuite) TestRetrieveSubnetByUUID(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.AddSubnet(
 		ctx.Background(),
-		subnetUUID1.String(),
-		"10.0.0.0/12",
-		"provider-id-1",
-		"provider-network-id-1",
-		0,
-		[]string{"az1"},
-		"",
-		&network.FanCIDRs{
-			FanLocalUnderlay: "192.168.0.0/20",
-			FanOverlay:       "10.0.0.0/8",
+		network.SubnetInfo{
+			ID:                network.Id(subnetUUID1.String()),
+			CIDR:              "10.0.0.0/12",
+			ProviderId:        "provider-id-1",
+			ProviderNetworkId: "provider-network-id-1",
+			VLANTag:           0,
+			AvailabilityZones: []string{"az1"},
+			SpaceID:           "",
+			FanInfo: &network.FanCIDRs{
+				FanLocalUnderlay: "192.168.0.0/20",
+				FanOverlay:       "10.0.0.0/8",
+			},
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -426,42 +444,48 @@ func (s *stateSuite) TestRetrieveAllSubnets(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.AddSubnet(
 		ctx.Background(),
-		subnetUUID0.String(),
-		"192.168.0.0/24",
-		"provider-id-0",
-		"provider-network-id-0",
-		0,
-		[]string{"az0", "az1"},
-		"",
-		nil,
+		network.SubnetInfo{
+			ID:                network.Id(subnetUUID0.String()),
+			CIDR:              "192.168.0.0/20",
+			ProviderId:        "provider-id-0",
+			ProviderNetworkId: "provider-network-id-0",
+			VLANTag:           0,
+			AvailabilityZones: []string{"az0", "az1"},
+			SpaceID:           "",
+			FanInfo:           nil,
+		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	subnetUUID1, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.AddSubnet(
 		ctx.Background(),
-		subnetUUID1.String(),
-		"192.168.1.0/24",
-		"provider-id-1",
-		"provider-network-id-1",
-		0,
-		[]string{"az0", "az1"},
-		"",
-		nil,
+		network.SubnetInfo{
+			ID:                network.Id(subnetUUID1.String()),
+			CIDR:              "192.168.1.0/20",
+			ProviderId:        "provider-id-1",
+			ProviderNetworkId: "provider-network-id-1",
+			VLANTag:           0,
+			AvailabilityZones: []string{"az0", "az1"},
+			SpaceID:           "",
+			FanInfo:           nil,
+		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	subnetUUID2, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.AddSubnet(
 		ctx.Background(),
-		subnetUUID2.String(),
-		"192.168.2.0/24",
-		"provider-id-2",
-		"provider-network-id-2",
-		0,
-		[]string{"az2", "az3"},
-		"",
-		nil,
+		network.SubnetInfo{
+			ID:                network.Id(subnetUUID2.String()),
+			CIDR:              "192.168.2.0/20",
+			ProviderId:        "provider-id-2",
+			ProviderNetworkId: "provider-network-id-2",
+			VLANTag:           0,
+			AvailabilityZones: []string{"az2", "az3"},
+			SpaceID:           "",
+			FanInfo:           nil,
+		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -483,14 +507,16 @@ func (s *stateSuite) TestUpdateSubnet(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.AddSubnet(
 		ctx.Background(),
-		uuid.String(),
-		"10.0.0.0/24",
-		"provider-id",
-		"provider-network-id",
-		0,
-		[]string{"az0", "az1"},
-		spUUID.String(),
-		nil,
+		network.SubnetInfo{
+			ID:                network.Id(uuid.String()),
+			CIDR:              "10.0.0.0/24",
+			ProviderId:        "provider-id",
+			ProviderNetworkId: "provider-network-id",
+			VLANTag:           0,
+			AvailabilityZones: []string{"az0", "az1"},
+			SpaceID:           spUUID.String(),
+			FanInfo:           nil,
+		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -520,14 +546,16 @@ func (s *stateSuite) TestDeleteSubnet(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.AddSubnet(
 		ctx.Background(),
-		subnetUUID0.String(),
-		"192.168.0.0/20",
-		"provider-id-0",
-		"provider-network-id-0",
-		0,
-		[]string{"az0", "az1"},
-		"",
-		nil,
+		network.SubnetInfo{
+			ID:                network.Id(subnetUUID0.String()),
+			CIDR:              "192.168.0.0/20",
+			ProviderId:        "provider-id-0",
+			ProviderNetworkId: "provider-network-id-0",
+			VLANTag:           0,
+			AvailabilityZones: []string{"az0", "az1"},
+			SpaceID:           "",
+			FanInfo:           nil,
+		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	// Add a subnet of type fan.
@@ -535,16 +563,18 @@ func (s *stateSuite) TestDeleteSubnet(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.AddSubnet(
 		ctx.Background(),
-		subnetUUID1.String(),
-		"10.0.0.0/12",
-		"provider-id-1",
-		"provider-network-id-1",
-		0,
-		[]string{},
-		"",
-		&network.FanCIDRs{
-			FanLocalUnderlay: "192.168.0.0/20",
-			FanOverlay:       "10.0.0.0/8",
+		network.SubnetInfo{
+			ID:                network.Id(subnetUUID1.String()),
+			CIDR:              "10.0.0.0/12",
+			ProviderId:        "provider-id-1",
+			ProviderNetworkId: "provider-network-id-1",
+			VLANTag:           0,
+			AvailabilityZones: []string{},
+			SpaceID:           "",
+			FanInfo: &network.FanCIDRs{
+				FanLocalUnderlay: "192.168.0.0/20",
+				FanOverlay:       "10.0.0.0/8",
+			},
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -553,16 +583,18 @@ func (s *stateSuite) TestDeleteSubnet(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.AddSubnet(
 		ctx.Background(),
-		subnetUUID2.String(),
-		"10.8.0.0/12",
-		"provider-id-2",
-		"provider-network-id-2",
-		0,
-		[]string{"az4", "az5"},
-		"",
-		&network.FanCIDRs{
-			FanLocalUnderlay: "192.168.0.0/20",
-			FanOverlay:       "10.0.0.0/8",
+		network.SubnetInfo{
+			ID:                network.Id(subnetUUID2.String()),
+			CIDR:              "10.8.0.0/12",
+			ProviderId:        "provider-id-2",
+			ProviderNetworkId: "provider-network-id-2",
+			VLANTag:           0,
+			AvailabilityZones: []string{"az4", "az5"},
+			SpaceID:           "",
+			FanInfo: &network.FanCIDRs{
+				FanLocalUnderlay: "192.168.0.0/20",
+				FanOverlay:       "10.0.0.0/8",
+			},
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)

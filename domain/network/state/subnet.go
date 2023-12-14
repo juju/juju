@@ -30,7 +30,7 @@ func (st *State) UpsertSubnets(ctx context.Context, subnets []network.SubnetInfo
 
 	return db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		for _, subnet := range subnets {
-			err := updateSubnetSpaceIDTx(
+			err := updateSubnetSpaceID(
 				ctx,
 				tx,
 				string(subnet.ID),
@@ -44,14 +44,7 @@ func (st *State) UpsertSubnets(ctx context.Context, subnets []network.SubnetInfo
 				if err := addSubnet(
 					ctx,
 					tx,
-					string(subnet.ID),
-					subnet.CIDR,
-					subnet.ProviderId,
-					subnet.ProviderNetworkId,
-					subnet.VLANTag,
-					subnet.AvailabilityZones,
-					subnet.SpaceID,
-					subnet.FanInfo,
+					subnet,
 				); err != nil {
 					return errors.Trace(err)
 				}
@@ -64,22 +57,15 @@ func (st *State) UpsertSubnets(ctx context.Context, subnets []network.SubnetInfo
 func addSubnet(
 	ctx context.Context,
 	tx *sql.Tx,
-	uuid string,
-	cidr string,
-	providerID network.Id,
-	providerNetworkID network.Id,
-	VLANTag int,
-	availabilityZones []string,
-	spaceUUID string,
-	fanInfo *network.FanCIDRs,
+	subnet network.SubnetInfo,
 ) error {
 	var subnetType int
-	if fanInfo != nil {
+	if subnet.FanInfo != nil {
 		subnetType = subnetTypeFanOverlaySegment
 	}
 	var spaceUUIDValue any
-	spaceUUIDValue = spaceUUID
-	if spaceUUID == "" {
+	spaceUUIDValue = subnet.SpaceID
+	if subnet.SpaceID == "" {
 		spaceUUIDValue = network.AlphaSpaceId
 	}
 	pnUUID, err := utils.NewUUID()
@@ -121,9 +107,9 @@ VALUES (?, ?)`
 	if _, err := tx.ExecContext(
 		ctx,
 		insertSubnetStmt,
-		uuid,
-		cidr,
-		VLANTag,
+		subnet.ID,
+		subnet.CIDR,
+		subnet.VLANTag,
 		spaceUUIDValue,
 		subnetType,
 	); err != nil {
@@ -133,7 +119,7 @@ VALUES (?, ?)`
 	if subnetType == subnetTypeFanOverlaySegment {
 		// Retrieve the underlay subnet uuid.
 		var underlaySubnetUUID string
-		row := tx.QueryRowContext(ctx, retrieveUnderlaySubnetUUIDStmt, fanInfo.FanLocalUnderlay)
+		row := tx.QueryRowContext(ctx, retrieveUnderlaySubnetUUIDStmt, subnet.FanInfo.FanLocalUnderlay)
 		if err := row.Scan(&underlaySubnetUUID); err != nil {
 			return errors.Trace(err)
 		}
@@ -142,7 +128,7 @@ VALUES (?, ?)`
 		if _, err := tx.ExecContext(
 			ctx,
 			insertSubnetAssociationStmt,
-			uuid,
+			subnet.ID,
 			underlaySubnetUUID,
 		); err != nil {
 			return errors.Trace(err)
@@ -152,8 +138,8 @@ VALUES (?, ?)`
 	if _, err := tx.ExecContext(
 		ctx,
 		insertSubnetProviderIDStmt,
-		providerID,
-		uuid,
+		subnet.ProviderId,
+		subnet.ID,
 	); err != nil {
 		return errors.Trace(err)
 	}
@@ -163,7 +149,7 @@ VALUES (?, ?)`
 		ctx,
 		insertSubnetProviderNetworkIDStmt,
 		pnUUID.String(),
-		providerNetworkID,
+		subnet.ProviderNetworkId,
 	); err != nil {
 		return errors.Trace(err)
 	}
@@ -173,11 +159,11 @@ VALUES (?, ?)`
 		ctx,
 		insertSubnetProviderNetworkSubnetStmt,
 		pnUUID.String(),
-		uuid,
+		subnet.ID,
 	); err != nil {
 		return errors.Trace(err)
 	}
-	for _, az := range availabilityZones {
+	for _, az := range subnet.AvailabilityZones {
 		// Retrieve the availability zone.
 		var azUUIDStr string
 		row := tx.QueryRowContext(ctx, retrieveAvailabilityZoneStmt, az)
@@ -207,7 +193,7 @@ VALUES (?, ?)`
 			ctx,
 			insertAvailabilityZoneSubnetStmt,
 			azUUIDStr,
-			uuid,
+			subnet.ID,
 		); err != nil {
 			return errors.Trace(err)
 		}
@@ -218,14 +204,7 @@ VALUES (?, ?)`
 // AddSubnet creates a subnet.
 func (st *State) AddSubnet(
 	ctx context.Context,
-	uuid string,
-	cidr string,
-	providerID network.Id,
-	providerNetworkID network.Id,
-	VLANTag int,
-	availabilityZones []string,
-	spaceUUID string,
-	fanInfo *network.FanCIDRs,
+	subnet network.SubnetInfo,
 ) error {
 	db, err := st.DB()
 	if err != nil {
@@ -236,14 +215,7 @@ func (st *State) AddSubnet(
 		return addSubnet(
 			ctx,
 			tx,
-			uuid,
-			cidr,
-			providerID,
-			providerNetworkID,
-			VLANTag,
-			availabilityZones,
-			spaceUUID,
-			fanInfo,
+			subnet,
 		)
 	})
 	return errors.Trace(err)
@@ -383,7 +355,7 @@ func (st *State) GetSubnetsByCIDR(
 	return resultSubnets.ToSubnetInfos(), nil
 }
 
-func updateSubnetSpaceIDTx(
+func updateSubnetSpaceID(
 	ctx context.Context,
 	tx *sql.Tx,
 	uuid string,
@@ -421,7 +393,7 @@ func (st *State) UpdateSubnet(
 	}
 
 	return db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		return updateSubnetSpaceIDTx(ctx, tx, uuid, spaceID)
+		return updateSubnetSpaceID(ctx, tx, uuid, spaceID)
 	})
 }
 
