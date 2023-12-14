@@ -618,12 +618,14 @@ func newCharmAdder(
 	return &charmAdderShim{
 		api:               apiclient.NewClient(conn, logger),
 		charmsClient:      apicharms.NewClient(conn),
+		localCharmsClient: apicharms.NewLocalCharmClient(conn),
 		modelConfigClient: modelconfig.NewClient(conn),
 	}
 }
 
 type charmAdderShim struct {
 	*charmsClient
+	*localCharmsClient
 	*modelConfigClient
 	api *apiclient.Client
 }
@@ -633,7 +635,7 @@ func (c *charmAdderShim) AddLocalCharm(curl *charm.URL, ch charm.Charm, force bo
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return c.charmsClient.AddLocalCharm(curl, ch, force, agentVersion)
+	return c.localCharmsClient.AddLocalCharm(curl, ch, force, agentVersion)
 }
 
 func allEndpoints(ci *apicommoncharms.CharmInfo) set.Strings {
