@@ -49,6 +49,48 @@ func (s *stateSuite) SetUpTest(c *gc.C) {
 	s.upgradeUUID = uuid
 }
 
+func (s *stateSuite) TestEnsureUpgradeTypesMatchCore(c *gc.C) {
+	db := s.DB()
+
+	// This locks in the behaviour that the upgrade types in the database
+	// should match the upgrade types in the core upgrade package.
+
+	rows, err := db.Query(`SELECT id, type FROM upgrade_state_type`)
+	c.Assert(err, jc.ErrorIsNil)
+	defer rows.Close()
+
+	received := make(map[upgrade.State]string)
+
+	// Ensure all the upgrade types that are in the database are also in the
+	// core upgrade package.
+	for rows.Next() {
+		var (
+			id   int
+			name string
+		)
+		err = rows.Scan(&id, &name)
+		c.Assert(err, jc.ErrorIsNil)
+
+		c.Check(upgrade.State(id).String(), gc.Equals, name)
+
+		// Ensure that we don't have any entries that are not parsable.
+		state, err := upgrade.ParseState(name)
+		c.Assert(err, jc.ErrorIsNil)
+
+		received[state] = name
+	}
+
+	c.Assert(rows.Err(), jc.ErrorIsNil)
+
+	// Ensure all the upgrade types in the core upgrade package are also in the
+	// database.
+	for state, name := range upgrade.States {
+		r, ok := received[state]
+		c.Check(ok, jc.IsTrue)
+		c.Check(r, gc.Equals, name)
+	}
+}
+
 func (s *stateSuite) TestCreateUpgrade(c *gc.C) {
 	uuid, err := s.st.CreateUpgrade(context.Background(), version.MustParse("3.0.0"), version.MustParse("3.0.1"))
 	c.Assert(err, jc.ErrorIsNil)
