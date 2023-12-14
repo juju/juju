@@ -227,7 +227,7 @@ func (s *stateSuite) TestFailAddTwoSubnetsSameNetworkID(c *gc.C) {
 			FanInfo:           nil,
 		},
 	)
-	c.Assert(err, gc.ErrorMatches, "UNIQUE constraint failed: provider_network.provider_network_id")
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("inserting provider network id %q for subnet %q: UNIQUE constraint failed: provider_network.provider_network_id", "provider-network-id", subnetUUID1.String()))
 }
 
 func (s *stateSuite) TestFailAddTwoSubnetsSameProviderID(c *gc.C) {
@@ -269,7 +269,7 @@ func (s *stateSuite) TestFailAddTwoSubnetsSameProviderID(c *gc.C) {
 			FanInfo:           nil,
 		},
 	)
-	c.Assert(err, gc.ErrorMatches, "UNIQUE constraint failed: provider_subnet.provider_id")
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("inserting provider id %q for subnet %q: UNIQUE constraint failed: provider_subnet.provider_id", "provider-id", subnetUUID1.String()))
 }
 
 func (s *stateSuite) TestRetrieveFanSubnet(c *gc.C) {
