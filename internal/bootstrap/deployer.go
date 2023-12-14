@@ -154,7 +154,8 @@ type StateBackend interface {
 // BaseDeployerConfig holds the configuration for a baseDeployer.
 type BaseDeployerConfig struct {
 	DataDir            string
-	State              *state.State
+	StateBackend       StateBackend
+	CharmUploader      CharmUploader
 	ObjectStore        objectstore.ObjectStore
 	Constraints        constraints.Value
 	ControllerConfig   controller.Config
@@ -171,8 +172,11 @@ func (c BaseDeployerConfig) Validate() error {
 	if c.DataDir == "" {
 		return errors.NotValidf("DataDir")
 	}
-	if c.State == nil {
-		return errors.NotValidf("State")
+	if c.StateBackend == nil {
+		return errors.NotValidf("StateBackend")
+	}
+	if c.CharmUploader == nil {
+		return errors.NotValidf("CharmUploader")
 	}
 	if c.ObjectStore == nil {
 		return errors.NotValidf("ObjectStore")
@@ -214,8 +218,8 @@ type baseDeployer struct {
 func makeBaseDeployer(config BaseDeployerConfig) baseDeployer {
 	return baseDeployer{
 		dataDir:            config.DataDir,
-		stateBackend:       &stateShim{State: config.State},
-		charmUploader:      &charmUploaderShim{State: config.State},
+		stateBackend:       config.StateBackend,
+		charmUploader:      config.CharmUploader,
 		objectStore:        config.ObjectStore,
 		constraints:        config.Constraints,
 		controllerConfig:   config.ControllerConfig,
@@ -430,69 +434,4 @@ var configSchema = environschema.Fields{
 	coreapplication.TrustConfigOptionName: {
 		Type: environschema.Tbool,
 	},
-}
-
-// charmUploaderShim allows us to use a real state instance with the charm services logic.
-type charmUploaderShim struct {
-	*state.State
-}
-
-func (s *charmUploaderShim) PrepareCharmUpload(curl string) (services.UploadedCharm, error) {
-	return s.State.PrepareCharmUpload(curl)
-}
-
-func (s *charmUploaderShim) UpdateUploadedCharm(info state.CharmInfo) (services.UploadedCharm, error) {
-	return s.State.UpdateUploadedCharm(info)
-}
-
-type stateShim struct {
-	*state.State
-}
-
-func (s *stateShim) AddApplication(args state.AddApplicationArgs, objectStore objectstore.ObjectStore) (Application, error) {
-	a, err := s.State.AddApplication(args, objectStore)
-	if err != nil {
-		return nil, err
-	}
-	return &applicationShim{Application: a}, nil
-}
-
-func (s *stateShim) Charm(name string) (Charm, error) {
-	c, err := s.State.Charm(name)
-	if err != nil {
-		return nil, err
-	}
-	return &charmShim{Charm: c}, nil
-}
-
-func (s *stateShim) Model() (Model, error) {
-	m, err := s.State.Model()
-	if err != nil {
-		return nil, err
-	}
-	return &modelShim{Model: m}, nil
-}
-
-func (s *stateShim) Unit(tag string) (Unit, error) {
-	u, err := s.State.Unit(tag)
-	if err != nil {
-		return nil, err
-	}
-	return &unitShim{Unit: u}, nil
-}
-
-type applicationShim struct {
-	*state.Application
-}
-
-type charmShim struct {
-	*state.Charm
-}
-
-type modelShim struct {
-	*state.Model
-}
-
-type unitShim struct {
-	*state.Unit
 }
