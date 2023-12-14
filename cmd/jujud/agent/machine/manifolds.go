@@ -846,12 +846,15 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			StateName:               stateName,
 			ObjectStoreName:         objectStoreName,
 			ServiceFactoryName:      serviceFactoryName,
-			BootstrapGateName:       isBootstrapGateName,
 			CharmhubHTTPClientName:  charmhubHTTPClientName,
-			AgentBinaryUploader:     bootstrap.IAASAgentBinaryUploader,
-			ControllerCharmUploader: bootstrap.ControllerCharmUploader,
+			BootstrapGateName:       isBootstrapGateName,
 			RequiresBootstrap:       bootstrap.RequiresBootstrap,
-			Logger:                  loggo.GetLogger("juju.worker.bootstrap"),
+			PopulateControllerCharm: bootstrap.PopulateControllerCharm,
+			LoggerFactory:           bootstrap.LoggoLoggerFactory(loggo.GetLogger("juju.worker.bootstrap")),
+
+			AgentBinaryUploader:     bootstrap.IAASAgentBinaryUploader,
+			ControllerCharmDeployer: bootstrap.IAASControllerCharmUploader,
+			ControllerUnitPassword:  bootstrap.IAASControllerUnitPassword,
 		})),
 
 		toolsVersionCheckerName: ifNotMigrating(toolsversionchecker.Manifold(toolsversionchecker.ManifoldConfig{
@@ -1065,12 +1068,15 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			StateName:               stateName,
 			ObjectStoreName:         objectStoreName,
 			ServiceFactoryName:      serviceFactoryName,
-			BootstrapGateName:       isBootstrapGateName,
 			CharmhubHTTPClientName:  charmhubHTTPClientName,
-			AgentBinaryUploader:     bootstrap.CAASAgentBinaryUploader,
-			ControllerCharmUploader: bootstrap.ControllerCharmUploader,
+			BootstrapGateName:       isBootstrapGateName,
 			RequiresBootstrap:       bootstrap.RequiresBootstrap,
-			Logger:                  loggo.GetLogger("juju.worker.bootstrap"),
+			PopulateControllerCharm: bootstrap.PopulateControllerCharm,
+			LoggerFactory:           bootstrap.LoggoLoggerFactory(loggo.GetLogger("juju.worker.bootstrap")),
+
+			AgentBinaryUploader:     bootstrap.CAASAgentBinaryUploader,
+			ControllerCharmDeployer: bootstrap.CAASControllerCharmUploader,
+			ControllerUnitPassword:  bootstrap.CAASControllerUnitPassword,
 		})),
 
 		// TODO(caas) - when we support HA, only want this on primary

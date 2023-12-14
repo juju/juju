@@ -127,7 +127,8 @@ func (s *deployerCAASSuite) TestControllerCharmBase(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	deployer := s.newDeployer(c)
-	base := deployer.ControllerCharmBase()
+	base, err := deployer.ControllerCharmBase()
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(base, gc.DeepEquals, version.DefaultSupportedLTSBase())
 }
 

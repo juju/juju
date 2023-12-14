@@ -142,7 +142,7 @@ func (s *deployerSuite) TestDeployLocalCharm(c *gc.C) {
 
 	url, origin, err := deployer.DeployLocalCharm(context.Background(), "arm64", base.MakeDefaultBase("ubuntu", "22.04"))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(url.String(), gc.Equals, "local:arm64/jammy/juju-controller-0")
+	c.Assert(url, gc.Equals, "local:arm64/jammy/juju-controller-0")
 	c.Assert(origin, gc.DeepEquals, &corecharm.Origin{
 		Source: corecharm.Local,
 		Type:   "charm",
@@ -187,7 +187,7 @@ func (s *deployerSuite) TestDeployCharmhubCharmWithCustomName(c *gc.C) {
 	// Ensure we can deploy a charmhub charm with a custom name.
 
 	cfg := s.newConfig(c)
-	cfg.CharmhubURL = "inferi"
+	cfg.ControllerCharmName = "inferi"
 
 	s.expectCharmhubCharmUpload(c, "inferi")
 

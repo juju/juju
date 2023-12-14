@@ -97,8 +97,8 @@ func (d *CAASDeployer) ControllerAddress(context.Context) (string, error) {
 
 // ControllerCharmBase returns the base used for deploying the controller
 // charm.
-func (d *CAASDeployer) ControllerCharmBase() corebase.Base {
-	return version.DefaultSupportedLTSBase()
+func (d *CAASDeployer) ControllerCharmBase() (corebase.Base, error) {
+	return version.DefaultSupportedLTSBase(), nil
 }
 
 // CompleteProcess is called when the bootstrap process is complete.

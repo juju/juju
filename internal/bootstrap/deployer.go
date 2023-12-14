@@ -50,7 +50,7 @@ type ControllerCharmDeployer interface {
 	DeployCharmhubCharm(context.Context, string, corebase.Base) (string, *corecharm.Origin, error)
 
 	// AddControllerApplication adds the controller application.
-	AddControllerApplication(context.Context, string, *corecharm.Origin, string) (Unit, error)
+	AddControllerApplication(context.Context, string, corecharm.Origin, string) (Unit, error)
 
 	// ControllerAddress returns the address of the controller that should be
 	// used.
@@ -157,18 +157,18 @@ type StateBackend interface {
 
 // BaseDeployerConfig holds the configuration for a baseDeployer.
 type BaseDeployerConfig struct {
-	DataDir            string
-	StateBackend       StateBackend
-	CharmUploader      CharmUploader
-	ObjectStore        objectstore.ObjectStore
-	Constraints        constraints.Value
-	ControllerConfig   controller.Config
-	NewCharmRepo       CharmRepoFunc
-	NewCharmDownloader CharmDownloaderFunc
-	CharmhubHTTPClient HTTPClient
-	CharmhubURL        string
-	Channel            charm.Channel
-	LoggerFactory      LoggerFactory
+	DataDir             string
+	StateBackend        StateBackend
+	CharmUploader       CharmUploader
+	ObjectStore         objectstore.ObjectStore
+	Constraints         constraints.Value
+	ControllerConfig    controller.Config
+	NewCharmRepo        CharmRepoFunc
+	NewCharmDownloader  CharmDownloaderFunc
+	CharmhubHTTPClient  HTTPClient
+	ControllerCharmName string
+	Channel             charm.Channel
+	LoggerFactory       LoggerFactory
 }
 
 // Validate validates the configuration.
@@ -204,36 +204,36 @@ func (c BaseDeployerConfig) Validate() error {
 }
 
 type baseDeployer struct {
-	dataDir            string
-	stateBackend       StateBackend
-	charmUploader      CharmUploader
-	objectStore        objectstore.ObjectStore
-	constraints        constraints.Value
-	controllerConfig   controller.Config
-	newCharmRepo       CharmRepoFunc
-	newCharmDownloader CharmDownloaderFunc
-	charmhubHTTPClient HTTPClient
-	charmhubURL        string
-	channel            charm.Channel
-	loggerFactory      LoggerFactory
-	logger             Logger
+	dataDir             string
+	stateBackend        StateBackend
+	charmUploader       CharmUploader
+	objectStore         objectstore.ObjectStore
+	constraints         constraints.Value
+	controllerConfig    controller.Config
+	newCharmRepo        CharmRepoFunc
+	newCharmDownloader  CharmDownloaderFunc
+	charmhubHTTPClient  HTTPClient
+	controllerCharmName string
+	channel             charm.Channel
+	loggerFactory       LoggerFactory
+	logger              Logger
 }
 
 func makeBaseDeployer(config BaseDeployerConfig) baseDeployer {
 	return baseDeployer{
-		dataDir:            config.DataDir,
-		stateBackend:       config.StateBackend,
-		charmUploader:      config.CharmUploader,
-		objectStore:        config.ObjectStore,
-		constraints:        config.Constraints,
-		controllerConfig:   config.ControllerConfig,
-		newCharmRepo:       config.NewCharmRepo,
-		newCharmDownloader: config.NewCharmDownloader,
-		charmhubHTTPClient: config.CharmhubHTTPClient,
-		charmhubURL:        config.CharmhubURL,
-		channel:            config.Channel,
-		loggerFactory:      config.LoggerFactory,
-		logger:             config.LoggerFactory.Child("deployer"),
+		dataDir:             config.DataDir,
+		stateBackend:        config.StateBackend,
+		charmUploader:       config.CharmUploader,
+		objectStore:         config.ObjectStore,
+		constraints:         config.Constraints,
+		controllerConfig:    config.ControllerConfig,
+		newCharmRepo:        config.NewCharmRepo,
+		newCharmDownloader:  config.NewCharmDownloader,
+		charmhubHTTPClient:  config.CharmhubHTTPClient,
+		controllerCharmName: config.ControllerCharmName,
+		channel:             config.Channel,
+		loggerFactory:       config.LoggerFactory,
+		logger:              config.LoggerFactory.Child("deployer"),
 	}
 }
 
@@ -249,19 +249,19 @@ func (b *baseDeployer) ControllerCharmArch() string {
 
 // DeployLocalCharm deploys the controller charm from the local charm
 // store.
-func (b *baseDeployer) DeployLocalCharm(ctx context.Context, arch string, base corebase.Base) (*charm.URL, *corecharm.Origin, error) {
+func (b *baseDeployer) DeployLocalCharm(ctx context.Context, arch string, base corebase.Base) (string, *corecharm.Origin, error) {
 	controllerCharmPath := filepath.Join(b.dataDir, "charms", bootstrap.ControllerCharmArchive)
 	_, err := os.Stat(controllerCharmPath)
 	if os.IsNotExist(err) {
-		return nil, nil, errors.NotFoundf(controllerCharmPath)
+		return "", nil, errors.NotFoundf(controllerCharmPath)
 	}
 	if err != nil {
-		return nil, nil, errors.Trace(err)
+		return "", nil, errors.Trace(err)
 	}
 
 	curl, err := addLocalControllerCharm(ctx, b.objectStore, b.charmUploader, base, controllerCharmPath)
 	if err != nil {
-		return nil, nil, errors.Annotatef(err, "cannot store controller charm at %q", controllerCharmPath)
+		return "", nil, errors.Annotatef(err, "cannot store controller charm at %q", controllerCharmPath)
 	}
 	b.logger.Debugf("Successfully deployed local Juju controller charm")
 	origin := corecharm.Origin{
@@ -273,7 +273,7 @@ func (b *baseDeployer) DeployLocalCharm(ctx context.Context, arch string, base c
 			Channel:      base.Channel.String(),
 		},
 	}
-	return curl, &origin, nil
+	return curl.String(), &origin, nil
 }
 
 // DeployCharmhubCharm deploys the controller charm from charm hub.
@@ -294,10 +294,10 @@ func (b *baseDeployer) DeployCharmhubCharm(ctx context.Context, arch string, bas
 	}
 
 	var curl *charm.URL
-	if b.charmhubURL == "" {
+	if b.controllerCharmName == "" {
 		curl = charm.MustParseURL(controllerCharmURL)
 	} else {
-		curl = charm.MustParseURL(b.charmhubURL)
+		curl = charm.MustParseURL(b.controllerCharmName)
 	}
 	if err != nil {
 		return "", nil, errors.Trace(err)

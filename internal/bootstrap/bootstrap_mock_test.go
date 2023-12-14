@@ -91,7 +91,7 @@ func (m *MockControllerCharmDeployer) EXPECT() *MockControllerCharmDeployerMockR
 }
 
 // AddControllerApplication mocks base method.
-func (m *MockControllerCharmDeployer) AddControllerApplication(arg0 context.Context, arg1 string, arg2 *charm0.Origin, arg3 string) (Unit, error) {
+func (m *MockControllerCharmDeployer) AddControllerApplication(arg0 context.Context, arg1 string, arg2 charm0.Origin, arg3 string) (Unit, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AddControllerApplication", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(Unit)

@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/domain/servicefactory/testing"
+	"github.com/juju/juju/internal/bootstrap"
 )
 
 type manifoldSuite struct {
@@ -47,7 +48,7 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
-	cfg.Logger = nil
+	cfg.LoggerFactory = nil
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
@@ -58,10 +59,16 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 	cfg.AgentBinaryUploader = nil
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
-	cfg = s.getConfig()
-	cfg.ControllerCharmUploader = nil
+	cfg.ControllerCharmDeployer = nil
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
+	cfg = s.getConfig()
+	cfg.PopulateControllerCharm = nil
+	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig()
+	cfg.ControllerUnitPassword = nil
+	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 }
 
 func (s *manifoldSuite) getConfig() ManifoldConfig {
@@ -72,12 +79,18 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		BootstrapGateName:      "bootstrap-gate",
 		ServiceFactoryName:     "service-factory",
 		CharmhubHTTPClientName: "charmhub-http-client",
-		Logger:                 s.logger,
+		LoggerFactory:          s.loggerFactory,
 		AgentBinaryUploader: func(context.Context, string, BinaryAgentStorageService, objectstore.ObjectStore, Logger) (func(), error) {
 			return func() {}, nil
 		},
-		ControllerCharmUploader: func(context.Context, string, objectstore.ObjectStore, Logger) error {
+		ControllerCharmDeployer: func(ControllerCharmDeployerConfig) (bootstrap.ControllerCharmDeployer, error) {
+			return nil, nil
+		},
+		PopulateControllerCharm: func(context.Context, bootstrap.ControllerCharmDeployer) error {
 			return nil
+		},
+		ControllerUnitPassword: func(context.Context) (string, error) {
+			return "", nil
 		},
 		RequiresBootstrap: func(context.Context, FlagService) (bool, error) {
 			return false, nil
