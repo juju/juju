@@ -63,17 +63,18 @@ func (s *workerSuite) TestSeedAgentBinary(c *gc.C) {
 		internalStates: s.states,
 		cfg: WorkerConfig{
 			ObjectStoreGetter: s.objectStoreGetter,
-			AgentBinaryUploader: func(context.Context, string, BinaryAgentStorageService, objectstore.ObjectStore, Logger) error {
+			AgentBinaryUploader: func(context.Context, string, BinaryAgentStorageService, objectstore.ObjectStore, Logger) (func(), error) {
 				called = true
-				return nil
+				return func() {}, nil
 			},
 			State:  s.state,
 			Logger: s.logger,
 		},
 	}
-	err := w.seedAgentBinary(context.Background(), c.MkDir())
+	cleanup, err := w.seedAgentBinary(context.Background(), c.MkDir())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
+	c.Assert(cleanup, gc.NotNil)
 }
 
 func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
@@ -82,8 +83,8 @@ func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
 		Agent:             s.agent,
 		ObjectStoreGetter: s.objectStoreGetter,
 		BootstrapUnlocker: s.bootstrapUnlocker,
-		AgentBinaryUploader: func(context.Context, string, BinaryAgentStorageService, objectstore.ObjectStore, Logger) error {
-			return nil
+		AgentBinaryUploader: func(context.Context, string, BinaryAgentStorageService, objectstore.ObjectStore, Logger) (func(), error) {
+			return func() {}, nil
 		},
 		State:                   &state.State{},
 		ControllerConfigService: s.controllerConfigService,

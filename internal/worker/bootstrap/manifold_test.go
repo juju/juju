@@ -60,8 +60,8 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		BootstrapGateName:  "bootstrap-gate",
 		ServiceFactoryName: "service-factory",
 		Logger:             s.logger,
-		AgentBinaryUploader: func(context.Context, string, BinaryAgentStorageService, objectstore.ObjectStore, Logger) error {
-			return nil
+		AgentBinaryUploader: func(context.Context, string, BinaryAgentStorageService, objectstore.ObjectStore, Logger) (func(), error) {
+			return func() {}, nil
 		},
 		RequiresBootstrap: func(context.Context, FlagService) (bool, error) {
 			return false, nil

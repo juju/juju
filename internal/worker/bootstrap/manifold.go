@@ -51,7 +51,7 @@ type BinaryAgentStorage interface {
 }
 
 // AgentBinaryBootstrapFunc is the function that is used to populate the tools.
-type AgentBinaryBootstrapFunc func(context.Context, string, BinaryAgentStorageService, objectstore.ObjectStore, Logger) error
+type AgentBinaryBootstrapFunc func(context.Context, string, BinaryAgentStorageService, objectstore.ObjectStore, Logger) (func(), error)
 
 // ManifoldConfig defines the configuration for the trace manifold.
 type ManifoldConfig struct {
@@ -183,17 +183,17 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 
 // CAASAgentBinaryUploader is the function that is used to populate the tools
 // for CAAS.
-func CAASAgentBinaryUploader(context.Context, string, BinaryAgentStorageService, objectstore.ObjectStore, Logger) error {
+func CAASAgentBinaryUploader(context.Context, string, BinaryAgentStorageService, objectstore.ObjectStore, Logger) (func(), error) {
 	// CAAS doesn't need to populate the tools.
-	return nil
+	return func() {}, nil
 }
 
 // IAASAgentBinaryUploader is the function that is used to populate the tools
 // for IAAS.
-func IAASAgentBinaryUploader(ctx context.Context, dataDir string, storageService BinaryAgentStorageService, objectStore objectstore.ObjectStore, logger Logger) error {
+func IAASAgentBinaryUploader(ctx context.Context, dataDir string, storageService BinaryAgentStorageService, objectStore objectstore.ObjectStore, logger Logger) (func(), error) {
 	storage, err := storageService.AgentBinaryStorage(objectStore)
 	if err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	defer storage.Close()
 

@@ -148,7 +148,8 @@ func (w *bootstrapWorker) loop() error {
 	dataDir := agentConfig.DataDir()
 
 	// Seed the agent binary to the object store.
-	if err := w.seedAgentBinary(ctx, dataDir); err != nil {
+	cleanup, err := w.seedAgentBinary(ctx, dataDir)
+	if err != nil {
 		return errors.Trace(err)
 	}
 
@@ -156,6 +157,9 @@ func (w *bootstrapWorker) loop() error {
 	if err := w.cfg.FlagService.SetFlag(ctx, BootstrapFlag, true); err != nil {
 		return errors.Trace(err)
 	}
+
+	// Cleanup only after the bootstrap flag has been set.
+	cleanup()
 
 	w.reportInternalState(stateCompleted)
 
@@ -179,19 +183,21 @@ func (w *bootstrapWorker) scopedContext() (context.Context, context.CancelFunc) 
 	return w.tomb.Context(ctx), cancel
 }
 
-func (w *bootstrapWorker) seedAgentBinary(ctx context.Context, dataDir string) error {
+func (w *bootstrapWorker) seedAgentBinary(ctx context.Context, dataDir string) (func(), error) {
 	objectStore, err := w.cfg.ObjectStoreGetter.GetObjectStore(ctx, w.cfg.State.ControllerModelUUID())
 	if err != nil {
-		return fmt.Errorf("failed to get object store: %v", err)
+		return nil, fmt.Errorf("failed to get object store: %w", err)
 	}
 
 	// Agent binary seeder will populate the tools for the agent.
 	agentStorage := agentStorageShim{State: w.cfg.State}
-	if err := w.cfg.AgentBinaryUploader(ctx, dataDir, agentStorage, objectStore, w.cfg.Logger); err != nil {
-		return errors.Trace(err)
+
+	cleanup, err := w.cfg.AgentBinaryUploader(ctx, dataDir, agentStorage, objectStore, w.cfg.Logger)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 
-	return nil
+	return cleanup, nil
 }
 
 type agentStorageShim struct {
