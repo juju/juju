@@ -9,8 +9,8 @@ import (
 
 	life "github.com/juju/juju/core/life"
 	relation "github.com/juju/juju/core/relation"
-	params "github.com/juju/juju/rpc/params"
 	jujuc "github.com/juju/juju/internal/worker/uniter/runner/jujuc"
+	params "github.com/juju/juju/rpc/params"
 	names "github.com/juju/names/v4"
 	gomock "go.uber.org/mock/gomock"
 )

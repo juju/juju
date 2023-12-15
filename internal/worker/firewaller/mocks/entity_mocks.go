@@ -11,8 +11,8 @@ import (
 	life "github.com/juju/juju/core/life"
 	network "github.com/juju/juju/core/network"
 	watcher "github.com/juju/juju/core/watcher"
-	params "github.com/juju/juju/rpc/params"
 	firewaller "github.com/juju/juju/internal/worker/firewaller"
+	params "github.com/juju/juju/rpc/params"
 	names "github.com/juju/names/v4"
 	gomock "go.uber.org/mock/gomock"
 )

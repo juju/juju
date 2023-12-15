@@ -7,8 +7,8 @@ package mocks
 import (
 	reflect "reflect"
 
-	params "github.com/juju/juju/rpc/params"
 	meterstatus "github.com/juju/juju/internal/worker/meterstatus"
+	params "github.com/juju/juju/rpc/params"
 	gomock "go.uber.org/mock/gomock"
 )
 

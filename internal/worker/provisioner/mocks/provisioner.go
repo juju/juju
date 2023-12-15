@@ -16,8 +16,8 @@ import (
 	watcher "github.com/juju/juju/core/watcher"
 	config "github.com/juju/juju/environs/config"
 	network0 "github.com/juju/juju/internal/network"
-	params "github.com/juju/juju/rpc/params"
 	provisioner0 "github.com/juju/juju/internal/worker/provisioner"
+	params "github.com/juju/juju/rpc/params"
 	names "github.com/juju/names/v4"
 	gomock "go.uber.org/mock/gomock"
 )

@@ -8,8 +8,8 @@ import (
 	reflect "reflect"
 
 	watcher "github.com/juju/juju/core/watcher"
-	params "github.com/juju/juju/rpc/params"
 	stateconverter "github.com/juju/juju/internal/worker/stateconverter"
+	params "github.com/juju/juju/rpc/params"
 	names "github.com/juju/names/v4"
 	gomock "go.uber.org/mock/gomock"
 )
