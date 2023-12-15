@@ -14,7 +14,7 @@ import (
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 
 	apiresources "github.com/juju/juju/api/client/resources"
 	commoncharm "github.com/juju/juju/api/common/charm"

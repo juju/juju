@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	"github.com/juju/rfc/v2/rfc5424"
 	"github.com/juju/rfc/v2/rfc5424/sdelements"
 	"github.com/juju/testing"

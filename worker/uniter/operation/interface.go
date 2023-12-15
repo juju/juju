@@ -5,7 +5,7 @@ package operation
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	utilexec "github.com/juju/utils/v3/exec"
 
 	"github.com/juju/juju/core/model"

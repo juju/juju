@@ -11,7 +11,7 @@ import (
 	"net/http/httptest"
 
 	"github.com/juju/clock"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"github.com/pkg/errors"
 	gc "gopkg.in/check.v1"

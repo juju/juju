@@ -5,7 +5,7 @@ package controller
 
 import (
 	"github.com/juju/charm/v11"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 
 	jujucontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/permission"

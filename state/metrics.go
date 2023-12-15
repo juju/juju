@@ -16,7 +16,7 @@ import (
 	"github.com/juju/mgo/v3"
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/mgo/v3/txn"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 )
 
 var metricsLogger = loggo.GetLogger("juju.state.metrics")

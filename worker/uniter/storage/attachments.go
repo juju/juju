@@ -6,7 +6,7 @@ package storage
 import (
 	"github.com/juju/charm/v11/hooks"
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/worker/uniter/hook"

@@ -5,7 +5,7 @@ package state_test
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
@@ -184,7 +184,7 @@ func (s *ApplicationOfferUserSuite) TestCreateOfferAccessNoUserFails(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.CreateOfferAccess(
-		names.NewApplicationOfferTag("someoffer-uuid"),
+		names.NewApplicationOfferTag("f47ac10b-58cc-4372-a567-0e02b2c3d479"),
 		names.NewUserTag("validusername"), permission.ReadAccess)
 	c.Assert(err, gc.ErrorMatches, `user "validusername" does not exist locally: user "validusername" not found`)
 }

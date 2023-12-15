@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/juju/charm/v11"
-	"github.com/juju/description/v4"
+	"github.com/juju/description/v5"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"

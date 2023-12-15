@@ -11,7 +11,7 @@ import (
 	uniter "github.com/juju/juju/api/agent/uniter"
 	status "github.com/juju/juju/core/status"
 	params "github.com/juju/juju/rpc/params"
-	names "github.com/juju/names/v4"
+	names "github.com/juju/names/v5"
 	gomock "go.uber.org/mock/gomock"
 )
 

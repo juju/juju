@@ -9,7 +9,7 @@ import (
 	"github.com/juju/charm/v11"
 	"github.com/juju/clock"
 	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
 	"go.uber.org/mock/gomock"

@@ -8,7 +8,7 @@ import (
 	reflect "reflect"
 
 	permission "github.com/juju/juju/core/permission"
-	names "github.com/juju/names/v4"
+	names "github.com/juju/names/v5"
 	gomock "go.uber.org/mock/gomock"
 )
 

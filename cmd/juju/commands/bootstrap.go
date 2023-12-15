@@ -18,7 +18,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
 	"github.com/juju/gnuflag"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	"github.com/juju/naturalsort"
 	"github.com/juju/schema"
 	"github.com/juju/utils/v3"

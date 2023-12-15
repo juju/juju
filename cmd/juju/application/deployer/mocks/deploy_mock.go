@@ -22,7 +22,7 @@ import (
 	constraints "github.com/juju/juju/core/constraints"
 	crossmodel "github.com/juju/juju/core/crossmodel"
 	params "github.com/juju/juju/rpc/params"
-	names "github.com/juju/names/v4"
+	names "github.com/juju/names/v5"
 	gomock "go.uber.org/mock/gomock"
 	httprequest "gopkg.in/httprequest.v1"
 )

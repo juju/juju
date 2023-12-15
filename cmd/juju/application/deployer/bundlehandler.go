@@ -17,7 +17,7 @@ import (
 	"github.com/juju/cmd/v3"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	"github.com/kr/pretty"
 	"gopkg.in/yaml.v2"
 

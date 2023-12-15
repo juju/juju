@@ -24,7 +24,7 @@ import (
 	config0 "github.com/juju/juju/environs/config"
 	state "github.com/juju/juju/state"
 	tools "github.com/juju/juju/tools"
-	names "github.com/juju/names/v4"
+	names "github.com/juju/names/v5"
 	schema "github.com/juju/schema"
 	version "github.com/juju/version/v2"
 	gomock "go.uber.org/mock/gomock"

@@ -10,7 +10,7 @@ import (
 	charm "github.com/juju/charm/v11"
 	charms "github.com/juju/juju/apiserver/common/charms"
 	state "github.com/juju/juju/state"
-	names "github.com/juju/names/v4"
+	names "github.com/juju/names/v5"
 	gomock "go.uber.org/mock/gomock"
 )
 

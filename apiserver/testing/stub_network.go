@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"

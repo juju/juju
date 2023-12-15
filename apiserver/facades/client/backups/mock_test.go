@@ -4,7 +4,7 @@
 package backups_test
 
 import (
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/apiserver/facades/client/backups"
 	corebase "github.com/juju/juju/core/base"

@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/charm/v11/hooks"
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	utilexec "github.com/juju/utils/v3/exec"
 

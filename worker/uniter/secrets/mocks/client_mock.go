@@ -9,7 +9,7 @@ import (
 
 	secrets "github.com/juju/juju/core/secrets"
 	watcher "github.com/juju/juju/core/watcher"
-	names "github.com/juju/names/v4"
+	names "github.com/juju/names/v5"
 	gomock "go.uber.org/mock/gomock"
 )
 

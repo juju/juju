@@ -5,9 +5,10 @@ package applicationoffers_test
 
 import (
 	"github.com/juju/charm/v11"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	jtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
@@ -73,13 +74,19 @@ func (s *baseSuite) addApplication(c *gc.C, name string) jujucrossmodel.Applicat
 	}
 }
 
-func (s *baseSuite) setupOffers(c *gc.C, filterAppName string, filterWithEndpoints bool) {
+func (s *baseSuite) setupOffers(c *gc.C, filterAppName string, filterWithEndpoints bool) string {
+	offerUUID := utils.MustNewUUID().String()
+	s.setupOffersForUUID(c, offerUUID, filterAppName, filterWithEndpoints)
+	return offerUUID
+}
+
+func (s *baseSuite) setupOffersForUUID(c *gc.C, offerUUID, filterAppName string, filterWithEndpoints bool) {
 	applicationName := "test"
 	offerName := "hosted-db2"
 
 	anOffer := jujucrossmodel.ApplicationOffer{
 		OfferName:              offerName,
-		OfferUUID:              offerName + "-uuid",
+		OfferUUID:              offerUUID,
 		ApplicationName:        applicationName,
 		ApplicationDescription: "description",
 		Endpoints: map[string]charm.Relation{

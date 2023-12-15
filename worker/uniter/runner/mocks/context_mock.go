@@ -18,7 +18,7 @@ import (
 	context "github.com/juju/juju/worker/uniter/runner/context"
 	jujuc "github.com/juju/juju/worker/uniter/runner/jujuc"
 	loggo "github.com/juju/loggo"
-	names "github.com/juju/names/v4"
+	names "github.com/juju/names/v5"
 	gomock "go.uber.org/mock/gomock"
 )
 

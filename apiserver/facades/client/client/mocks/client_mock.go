@@ -19,7 +19,7 @@ import (
 	status "github.com/juju/juju/core/status"
 	config "github.com/juju/juju/environs/config"
 	state "github.com/juju/juju/state"
-	names "github.com/juju/names/v4"
+	names "github.com/juju/names/v5"
 	version "github.com/juju/version/v2"
 	gomock "go.uber.org/mock/gomock"
 )
