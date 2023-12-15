@@ -92,8 +92,6 @@ func (s *SpaceService) SaveProviderSubnets(
 			if err != nil {
 				return errors.Trace(err)
 			}
-			subnetWithDashes := strings.Replace(strings.Replace(subnetNet.String(), ".", "-", -1), "/", "-", -1)
-			id := fmt.Sprintf("%s-%s-%s", subnet.ProviderId, network.InFan, subnetWithDashes)
 			if subnetNet.IP.To4() == nil {
 				s.logger.Debugf("%s address is not an IPv4 address", subnetNet.IP)
 				continue
@@ -102,11 +100,17 @@ func (s *SpaceService) SaveProviderSubnets(
 			overlaySegment, err := network.CalculateOverlaySegment(subnet.CIDR, fan)
 			if err != nil {
 				return errors.Trace(err)
+			} else if overlaySegment == nil {
+				// network.CalculateOverlaySegment can return
+				// (nil, nil) so we need to make sure not to do
+				// anything when overlaySegment is nil.
+				continue
 			}
+			fanSubnetID := generateFanSubnetID(subnetNet.String(), subnet.ProviderId.String())
 			if overlaySegment != nil {
 				// Add the fan subnet to the upsert list.
 				fanSubnetToUpsert := subnet
-				fanSubnetToUpsert.ProviderId = network.Id(id)
+				fanSubnetToUpsert.ProviderId = network.Id(fanSubnetID)
 				fanSubnetToUpsert.SetFan(fanSubnetToUpsert.CIDR, fan.Overlay.String())
 				fanSubnetToUpsert.SpaceID = spaceUUID
 
@@ -129,4 +133,10 @@ func (s *SpaceService) SaveProviderSubnets(
 	}
 
 	return nil
+}
+
+// generateFanSubnetID generates a correct ID for a subnet of type fan overlay.
+func generateFanSubnetID(subnetNetwork, providerID string) string {
+	subnetWithDashes := strings.Replace(strings.Replace(subnetNetwork, ".", "-", -1), "/", "-", -1)
+	return fmt.Sprintf("%s-%s-%s", providerID, network.InFan, subnetWithDashes)
 }
