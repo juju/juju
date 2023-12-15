@@ -4,11 +4,11 @@
 package testing
 
 import (
+	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/domain/schema"
 	"github.com/juju/juju/internal/database/testing"
-	"github.com/juju/utils/v3"
 )
 
 // ModelSuite is used to provide an in-memory sql.DB reference to tests.
