@@ -5,7 +5,6 @@ package state
 
 import (
 	"context"
-	"fmt"
 
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
@@ -36,15 +35,13 @@ func (s *stateSuite) createMachineWithLife(c *gc.C, name string, life life.Life)
 	db := s.DB()
 
 	netNodeUUID := utils.MustNewUUID().String()
-	_, err := db.ExecContext(context.Background(),
-		fmt.Sprintf("INSERT INTO net_node (uuid) VALUES ('%s')", netNodeUUID))
+	_, err := db.ExecContext(context.Background(), "INSERT INTO net_node (uuid) VALUES (?)", netNodeUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	machineUUID := utils.MustNewUUID().String()
-	_, err = db.ExecContext(context.Background(),
-		fmt.Sprintf(`
+	_, err = db.ExecContext(context.Background(), `
 INSERT INTO machine (uuid, life_id, machine_id, net_node_uuid)
-VALUES ('%s', %d, '%s', '%s')
-`, machineUUID, life, name, netNodeUUID))
+VALUES (?, ?, ?, ?)
+`, machineUUID, life, name, netNodeUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	return machineUUID
 }
@@ -56,27 +53,24 @@ func (s *stateSuite) insertBlockDevice(c *gc.C, bd blockdevice.BlockDevice, bloc
 	if bd.InUse {
 		inUse = 1
 	}
-	_, err := db.ExecContext(context.Background(),
-		fmt.Sprintf(`
+	_, err := db.ExecContext(context.Background(), `
 INSERT INTO block_device (uuid, name, label, device_uuid, hardware_id, wwn, bus_address, serial_id, mount_point, filesystem_type_id, Size_mib, in_use)
-VALUES ('%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', 2, %d, %d)
-`, blockDeviceUUID, bd.DeviceName, bd.Label, bd.UUID, bd.HardwareId, bd.WWN, bd.BusAddress, bd.SerialId, bd.MountPoint, bd.SizeMiB, inUse))
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 2, ?, ?)
+`, blockDeviceUUID, bd.DeviceName, bd.Label, bd.UUID, bd.HardwareId, bd.WWN, bd.BusAddress, bd.SerialId, bd.MountPoint, bd.SizeMiB, inUse)
 	c.Assert(err, jc.ErrorIsNil)
 
 	for _, link := range bd.DeviceLinks {
-		_, err = db.ExecContext(context.Background(),
-			fmt.Sprintf(`
+		_, err = db.ExecContext(context.Background(), `
 INSERT INTO block_device_link_device (block_device_uuid, name)
-VALUES ('%s', '%s')
-`, blockDeviceUUID, link))
+VALUES (?, ?)
+`, blockDeviceUUID, link)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
-	_, err = db.ExecContext(context.Background(),
-		fmt.Sprintf(`
+	_, err = db.ExecContext(context.Background(), `
 INSERT INTO block_device_machine (machine_uuid, block_device_uuid)
-VALUES ('%s', '%s')
-`, machineUUID, blockDeviceUUID))
+VALUES (?, ?)
+`, machineUUID, blockDeviceUUID)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
