@@ -15,14 +15,14 @@ import (
 	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/engine"
 	"github.com/juju/juju/cmd/jujud/util"
-	"github.com/juju/juju/worker/agent"
-	"github.com/juju/juju/worker/controlleragentconfig"
-	"github.com/juju/juju/worker/dbaccessor"
-	"github.com/juju/juju/worker/logsender"
-	"github.com/juju/juju/worker/querylogger"
-	"github.com/juju/juju/worker/stateconfigwatcher"
-	"github.com/juju/juju/worker/syslogger"
-	"github.com/juju/juju/worker/terminationworker"
+	"github.com/juju/juju/internal/worker/agent"
+	"github.com/juju/juju/internal/worker/controlleragentconfig"
+	"github.com/juju/juju/internal/worker/dbaccessor"
+	"github.com/juju/juju/internal/worker/logsender"
+	"github.com/juju/juju/internal/worker/querylogger"
+	"github.com/juju/juju/internal/worker/stateconfigwatcher"
+	"github.com/juju/juju/internal/worker/syslogger"
+	"github.com/juju/juju/internal/worker/terminationworker"
 )
 
 // ManifoldsConfig allows specialisation of the result of Manifolds.

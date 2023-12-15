@@ -29,8 +29,8 @@ import (
 	"github.com/juju/juju/core/machinelock"
 	jujuos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/paths"
+	"github.com/juju/juju/internal/worker/uniter"
 	"github.com/juju/juju/juju/sockets"
-	"github.com/juju/juju/worker/uniter"
 )
 
 var logger = loggo.GetLogger("juju.cmd.jujud.run")

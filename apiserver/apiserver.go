@@ -53,12 +53,12 @@ import (
 	controllermsg "github.com/juju/juju/internal/pubsub/controller"
 	"github.com/juju/juju/internal/resource"
 	"github.com/juju/juju/internal/servicefactory"
+	"github.com/juju/juju/internal/worker/objectstore"
+	"github.com/juju/juju/internal/worker/syslogger"
+	"github.com/juju/juju/internal/worker/trace"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/jsoncodec"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/worker/objectstore"
-	"github.com/juju/juju/worker/syslogger"
-	"github.com/juju/juju/worker/trace"
 )
 
 var logger = loggo.GetLogger("juju.apiserver")

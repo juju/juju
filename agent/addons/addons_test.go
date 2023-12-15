@@ -20,8 +20,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent/addons"
+	"github.com/juju/juju/internal/worker/introspection"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/introspection"
 )
 
 type introspectionSuite struct {

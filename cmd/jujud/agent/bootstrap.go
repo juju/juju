@@ -50,11 +50,11 @@ import (
 	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/internal/objectstore"
 	"github.com/juju/juju/internal/tools"
+	"github.com/juju/juju/internal/worker/peergrouper"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/state/stateenvirons"
 	jujuversion "github.com/juju/juju/version"
-	"github.com/juju/juju/worker/peergrouper"
 )
 
 var (

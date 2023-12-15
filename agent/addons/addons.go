@@ -15,7 +15,7 @@ import (
 
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/presence"
-	"github.com/juju/juju/worker/introspection"
+	"github.com/juju/juju/internal/worker/introspection"
 )
 
 // MetricSink describes a way to unregister a model metrics collector. This

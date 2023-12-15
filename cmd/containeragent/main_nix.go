@@ -30,9 +30,9 @@ import (
 	"github.com/juju/juju/core/machinelock"
 	proxy "github.com/juju/juju/internal/proxy/config"
 	_ "github.com/juju/juju/internal/secrets/provider/all" // Import the secret providers.
+	"github.com/juju/juju/internal/worker/logsender"
 	"github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/osenv"
-	"github.com/juju/juju/worker/logsender"
 )
 
 var logger = loggo.GetLogger("juju.cmd.containeragent")

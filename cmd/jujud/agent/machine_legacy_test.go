@@ -50,6 +50,9 @@ import (
 	envstorage "github.com/juju/juju/environs/storage"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
+	"github.com/juju/juju/internal/worker/charmrevision"
+	"github.com/juju/juju/internal/worker/instancepoller"
+	"github.com/juju/juju/internal/worker/migrationmaster"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/rpc/params"
@@ -57,9 +60,6 @@ import (
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	jujuversion "github.com/juju/juju/version"
-	"github.com/juju/juju/worker/charmrevision"
-	"github.com/juju/juju/worker/instancepoller"
-	"github.com/juju/juju/worker/migrationmaster"
 )
 
 // MachineLegacySuite is an integration test suite that requires access to

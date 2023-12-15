@@ -22,7 +22,7 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/network/ssh"
-	unitdebug "github.com/juju/juju/worker/uniter/runner/debug"
+	unitdebug "github.com/juju/juju/internal/worker/uniter/runner/debug"
 )
 
 const usageDebugHooksExamples = `

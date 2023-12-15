@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/agent"
 	agenterrors "github.com/juju/juju/agent/errors"
 	"github.com/juju/juju/internal/mongo"
-	jworker "github.com/juju/juju/worker"
+	jworker "github.com/juju/juju/internal/worker"
 )
 
 // EnsureMongoServerInstalled is patched for testing.

@@ -24,10 +24,10 @@ import (
 	"github.com/juju/juju/core/permission"
 	coretrace "github.com/juju/juju/core/trace"
 	"github.com/juju/juju/internal/servicefactory"
+	"github.com/juju/juju/internal/worker/objectstore"
+	"github.com/juju/juju/internal/worker/trace"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/worker/objectstore"
-	"github.com/juju/juju/worker/trace"
 )
 
 var (

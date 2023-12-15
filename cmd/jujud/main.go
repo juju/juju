@@ -39,15 +39,15 @@ import (
 	proxy "github.com/juju/juju/internal/proxy/config"
 	_ "github.com/juju/juju/internal/secrets/provider/all" // Import the secret providers.
 	"github.com/juju/juju/internal/upgrades"
+	"github.com/juju/juju/internal/worker/dbaccessor"
+	"github.com/juju/juju/internal/worker/logsender"
+	"github.com/juju/juju/internal/worker/uniter/runner/jujuc"
 	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/juju/sockets"
 	_ "github.com/juju/juju/provider/all" // Import the providers.
 	"github.com/juju/juju/state"
 	jujuversion "github.com/juju/juju/version"
-	"github.com/juju/juju/worker/dbaccessor"
-	"github.com/juju/juju/worker/logsender"
-	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
 var logger = loggo.GetLogger("juju.cmd.jujud")

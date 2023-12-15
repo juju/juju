@@ -103,6 +103,9 @@ func (*importSuite) TestImports(c *gc.C) {
 		"internal/service/systemd",
 		"internal/storage",
 		"internal/tools",
+		"internal/worker/apicaller",
+		"internal/worker/introspection",
+		"internal/worker/introspection/pprof",
 		"juju/osenv",
 		"provider/lxd/lxdnames",
 		"rpc",
@@ -110,9 +113,6 @@ func (*importSuite) TestImports(c *gc.C) {
 		"rpc/params",
 		"state/errors",
 		"version",
-		"worker/apicaller",
-		"worker/introspection",
-		"worker/introspection/pprof",
 	)
 
 	unexpected := found.Difference(expected)

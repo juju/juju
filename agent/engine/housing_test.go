@@ -16,8 +16,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent/engine"
+	"github.com/juju/juju/internal/worker/fortress"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/fortress"
 )
 
 type HousingSuite struct {

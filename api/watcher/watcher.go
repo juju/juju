@@ -133,7 +133,7 @@ func (w *commonWatcher) commonLoop() {
 }
 
 var (
-	// ErrRestartArgent matches juju/juju/worker/error.go ErrRestartAgent
+	// ErrRestartArgent matches juju/juju/internal/worker/error.go ErrRestartAgent
 	// and is used to indicate that the watcher should be restarted.
 	ErrRestartAgent = errors.New("agent should be restarted")
 )

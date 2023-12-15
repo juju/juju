@@ -31,10 +31,10 @@ import (
 	"github.com/juju/juju/cmd/jujud/reboot"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/internal/storage/looputil"
+	jworker "github.com/juju/juju/internal/worker"
+	"github.com/juju/juju/internal/worker/dbaccessor"
+	"github.com/juju/juju/internal/worker/logsender"
 	"github.com/juju/juju/rpc/params"
-	jworker "github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/dbaccessor"
-	"github.com/juju/juju/worker/logsender"
 )
 
 // NewSafeModeAgentCommand creates a Command that handles parsing

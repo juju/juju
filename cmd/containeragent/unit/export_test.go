@@ -11,7 +11,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cmd/containeragent/utils"
 	"github.com/juju/juju/cmd/internal/agent/agentconf"
-	"github.com/juju/juju/worker/logsender"
+	"github.com/juju/juju/internal/worker/logsender"
 )
 
 type (
