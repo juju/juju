@@ -35,11 +35,13 @@ import (
 	modelbootstrap "github.com/juju/juju/domain/model/bootstrap"
 	modelconfigbootstrap "github.com/juju/juju/domain/modelconfig/bootstrap"
 	modeldefaultsbootstrap "github.com/juju/juju/domain/modeldefaults/bootstrap"
+	userbootstrap "github.com/juju/juju/domain/user/bootstrap"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/space"
+	"github.com/juju/juju/internal/auth"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/mongo"
@@ -234,6 +236,10 @@ func (b *AgentBootstrap) Initialize(ctx stdcontext.Context) (_ *state.Controller
 		stateParams.ControllerInheritedConfig,
 		stateParams.RegionInheritedConfig[stateParams.ControllerCloudRegion])
 
+	// Add initial Admin user to the database. This will return Admin user UUID
+	// and a function to insert it into the database.
+	_, addAdminUser := userbootstrap.AddUserWithPassword(b.adminUser.Name(), auth.NewPassword(info.Password))
+
 	if err := b.bootstrapDqlite(
 		ctx,
 		database.NewNodeManager(b.agentConfig, b.logger, coredatabase.NoopSlowQueryLogger{}),
@@ -245,6 +251,7 @@ func (b *AgentBootstrap) Initialize(ctx stdcontext.Context) (_ *state.Controller
 			credbootstrap.InsertCredential(credential.IdFromTag(cloudCredTag), cloudCred),
 			cloudbootstrap.SetCloudDefaults(stateParams.ControllerCloud.Name, stateParams.ControllerInheritedConfig),
 			modelbootstrap.CreateModel(controllerUUID, controllerModelArgs),
+			addAdminUser,
 		),
 		database.BootstrapModelConcern(controllerUUID,
 			modelconfigbootstrap.SetModelConfig(stateParams.ControllerModelConfig, controllerModelDefaults),

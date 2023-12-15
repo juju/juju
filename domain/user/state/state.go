@@ -63,12 +63,7 @@ func (st *State) AddUserWithPasswordHash(
 	}
 
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err = addUser(ctx, tx, uuid, user, creatorUUID)
-		if err != nil {
-			return errors.Trace(err)
-		}
-
-		return errors.Trace(setPasswordHash(ctx, tx, uuid, passwordHash, salt))
+		return errors.Trace(AddUserWithPassword(ctx, tx, uuid, user, creatorUUID, passwordHash, salt))
 	})
 }
 
@@ -289,6 +284,27 @@ func (st *State) SetPasswordHash(ctx context.Context, uuid user.UUID, passwordHa
 
 		return errors.Trace(setPasswordHash(ctx, tx, uuid, passwordHash, salt))
 	})
+}
+
+// AddUserWithPassword adds a new user to the database with the
+// provided password hash and salt. If the user already exists an error that
+// satisfies usererrors.AlreadyExists will be returned. if the creator does
+// not exist that satisfies usererrors.UserCreatorUUIDNotFound will be returned.
+func AddUserWithPassword(
+	ctx context.Context,
+	tx *sqlair.TX,
+	uuid user.UUID,
+	usr user.User,
+	creatorUUID user.UUID,
+	passwordHash string,
+	salt []byte,
+) error {
+	err := addUser(ctx, tx, uuid, usr, creatorUUID)
+	if err != nil {
+		return errors.Annotatef(err, "adding user with uuid %q", uuid)
+	}
+
+	return errors.Trace(setPasswordHash(ctx, tx, uuid, passwordHash, salt))
 }
 
 // addUser adds a new user to the database. If the user already exists an error
