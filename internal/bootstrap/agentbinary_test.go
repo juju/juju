@@ -55,8 +55,11 @@ func (s *agentBinarySuite) TestPopulateAgentBinary(c *gc.C) {
 		SHA256:  "sha256",
 	}).Return(nil)
 
-	err := PopulateAgentBinary(context.Background(), dir, s.storage, s.logger)
+	cleanup, err := PopulateAgentBinary(context.Background(), dir, s.storage, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
+	cleanup()
+
+	s.expectNoTools(c, toolsPath)
 }
 
 func (s *agentBinarySuite) TestPopulateAgentBinaryAddError(c *gc.C) {
@@ -86,8 +89,10 @@ func (s *agentBinarySuite) TestPopulateAgentBinaryAddError(c *gc.C) {
 		SHA256:  "sha256",
 	}).Return(errors.New("boom"))
 
-	err := PopulateAgentBinary(context.Background(), dir, s.storage, s.logger)
+	_, err := PopulateAgentBinary(context.Background(), dir, s.storage, s.logger)
 	c.Assert(err, gc.ErrorMatches, "boom")
+
+	s.expectTools(c, toolsPath)
 }
 
 func (s *agentBinarySuite) TestPopulateAgentBinaryNoDownloadedToolsFile(c *gc.C) {
@@ -101,7 +106,7 @@ func (s *agentBinarySuite) TestPopulateAgentBinaryNoDownloadedToolsFile(c *gc.C)
 
 	dir, _ := s.ensureDirs(c, current)
 
-	err := PopulateAgentBinary(context.Background(), dir, s.storage, s.logger)
+	_, err := PopulateAgentBinary(context.Background(), dir, s.storage, s.logger)
 	c.Assert(err, jc.ErrorIs, os.ErrNotExist)
 }
 
@@ -124,7 +129,7 @@ func (s *agentBinarySuite) TestPopulateAgentBinaryNoBinaryFile(c *gc.C) {
 		Size:    size,
 	})
 
-	err := PopulateAgentBinary(context.Background(), dir, s.storage, s.logger)
+	_, err := PopulateAgentBinary(context.Background(), dir, s.storage, s.logger)
 	c.Assert(err, jc.ErrorIs, os.ErrNotExist)
 }
 
@@ -150,11 +155,21 @@ func (s *agentBinarySuite) writeDownloadTools(c *gc.C, dir string, tools downloa
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (S *agentBinarySuite) writeAgentBinary(c *gc.C, dir string, current version.Binary) {
+func (s *agentBinarySuite) writeAgentBinary(c *gc.C, dir string, current version.Binary) {
 	err := os.WriteFile(filepath.Join(dir, "tools.tar.gz"), []byte("data"), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = os.WriteFile(filepath.Join(dir, fmt.Sprintf("%s.sha256", current.String())), []byte("sha256"), 0644)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *agentBinarySuite) expectNoTools(c *gc.C, dir string) {
+	_, err := os.Stat(filepath.Join(dir, "tools.tar.gz"))
+	c.Assert(err, jc.ErrorIs, os.ErrNotExist)
+}
+
+func (s *agentBinarySuite) expectTools(c *gc.C, dir string) {
+	_, err := os.Stat(filepath.Join(dir, "tools.tar.gz"))
 	c.Assert(err, jc.ErrorIsNil)
 }
 

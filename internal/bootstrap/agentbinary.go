@@ -42,7 +42,7 @@ type AgentBinaryStorage interface {
 
 // PopulateAgentBinary is the function that is used to populate the agent
 // binary at bootstrap.
-func PopulateAgentBinary(ctx context.Context, dataDir string, storage AgentBinaryStorage, logger Logger) error {
+func PopulateAgentBinary(ctx context.Context, dataDir string, storage AgentBinaryStorage, logger Logger) (func(), error) {
 	current := version.Binary{
 		Number:  jujuversion.Current,
 		Arch:    arch.HostArch(),
@@ -51,7 +51,7 @@ func PopulateAgentBinary(ctx context.Context, dataDir string, storage AgentBinar
 
 	agentTools, err := agenttools.ReadTools(dataDir, current)
 	if err != nil {
-		return fmt.Errorf("cannot read agent binary: %w", err)
+		return nil, fmt.Errorf("cannot read agent binary: %w", err)
 	}
 
 	rootPath := agenttools.SharedToolsDir(dataDir, current)
@@ -59,7 +59,7 @@ func PopulateAgentBinary(ctx context.Context, dataDir string, storage AgentBinar
 
 	data, err := os.ReadFile(binaryPath)
 	if err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 
 	metadata := binarystorage.Metadata{
@@ -70,18 +70,18 @@ func PopulateAgentBinary(ctx context.Context, dataDir string, storage AgentBinar
 
 	logger.Debugf("Adding agent binary: %v", agentTools.Version)
 	if err := storage.Add(ctx, bytes.NewReader(data), metadata); err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 
-	// Ensure that we remove the agent binary from disk.
-	if err := os.Remove(binaryPath); err != nil {
-		logger.Warningf("failed to remove agent binary: %v", err)
-	}
-	// Remove the sha that validates the agent binary file.
-	shaFilePath := filepath.Join(rootPath, fmt.Sprintf("juju%s.sha256", current.String()))
-	if err := os.Remove(shaFilePath); err != nil {
-		logger.Warningf("failed to remove agent binary sha: %v", err)
-	}
-
-	return nil
+	return func() {
+		// Ensure that we remove the agent binary from disk.
+		if err := os.Remove(binaryPath); err != nil {
+			logger.Warningf("failed to remove agent binary: %v", err)
+		}
+		// Remove the sha that validates the agent binary file.
+		shaFilePath := filepath.Join(rootPath, fmt.Sprintf("juju%s.sha256", current.String()))
+		if err := os.Remove(shaFilePath); err != nil {
+			logger.Warningf("failed to remove agent binary sha: %v", err)
+		}
+	}, nil
 }
