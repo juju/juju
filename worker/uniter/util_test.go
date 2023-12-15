@@ -18,6 +18,7 @@ import (
 	pebbleclient "github.com/canonical/pebble/client"
 	jujucharm "github.com/juju/charm/v12"
 	"github.com/juju/clock"
+	"github.com/juju/clock/testclock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -1807,7 +1808,8 @@ func (s injectTestContainer) step(c *gc.C, ctx *testContext) {
 		ctx.pebbleClients = make(map[string]*fakePebbleClient)
 	}
 	ctx.pebbleClients[s.containerName] = &fakePebbleClient{
-		err: errors.BadRequestf("not ready yet"),
+		err:   errors.BadRequestf("not ready yet"),
+		clock: testclock.NewClock(time.Time{}),
 	}
 }
 
