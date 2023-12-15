@@ -10,6 +10,7 @@ import (
 const (
 	tableModelConfig tableNamespaceID = iota + 1
 	tableModelObjectStoreMetadata
+	tableBlockDeviceMachine
 )
 
 // ModelDDL is used to create model databases.
@@ -28,6 +29,7 @@ func ModelDDL() *schema.Schema {
 		spaceSchema,
 		subnetSchema,
 		blockDeviceSchema,
+		changeLogTriggersForTable("block_device_machine", "machine_uuid", tableBlockDeviceMachine),
 		storageSchema,
 	}
 
@@ -58,7 +60,8 @@ func changeLogModelNamespace() schema.Patch {
 	return schema.MakePatch(`
 INSERT INTO change_log_namespace VALUES
     (1, 'model_config', 'model config changes based on config key'),
-    (2, 'object_store_metadata_path', 'object store metadata path changes based on the path');
+    (2, 'object_store_metadata_path', 'object store metadata path changes based on the path'),
+    (3, 'block_device_machine', 'block device for machine changes based on the machine uuid');
 `)
 }
 
@@ -365,7 +368,7 @@ CREATE TABLE block_device (
     bus_address        TEXT,
     serial_id          TEXT,
     filesystem_type_id INT,
-    size               INT,
+    size_mib           INT,
     mount_point        TEXT,
     in_use             BOOLEAN,
     CONSTRAINT         fk_filesystem_type
