@@ -120,8 +120,8 @@ func (s *stateSuite) TestAddSubnet(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.AddSubnet(
 		ctx.Background(),
+		uuid.String(),
 		network.SubnetInfo{
-			ID:                network.Id(uuid.String()),
 			CIDR:              "10.0.0.0/24",
 			ProviderId:        "provider-id",
 			ProviderNetworkId: "provider-network-id",
@@ -200,8 +200,8 @@ func (s *stateSuite) TestFailAddTwoSubnetsSameNetworkID(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.AddSubnet(
 		ctx.Background(),
+		subnetUUID0.String(),
 		network.SubnetInfo{
-			ID:                network.Id(subnetUUID0.String()),
 			CIDR:              "10.0.0.0/24",
 			ProviderId:        "provider-id-0",
 			ProviderNetworkId: "provider-network-id",
@@ -216,8 +216,8 @@ func (s *stateSuite) TestFailAddTwoSubnetsSameNetworkID(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.AddSubnet(
 		ctx.Background(),
+		subnetUUID1.String(),
 		network.SubnetInfo{
-			ID:                network.Id(subnetUUID1.String()),
 			CIDR:              "10.0.1.0/24",
 			ProviderId:        "provider-id-1",
 			ProviderNetworkId: "provider-network-id",
@@ -242,8 +242,8 @@ func (s *stateSuite) TestFailAddTwoSubnetsSameProviderID(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.AddSubnet(
 		ctx.Background(),
+		subnetUUID0.String(),
 		network.SubnetInfo{
-			ID:                network.Id(subnetUUID0.String()),
 			CIDR:              "10.0.0.0/24",
 			ProviderId:        "provider-id",
 			ProviderNetworkId: "provider-network-id-0",
@@ -258,8 +258,8 @@ func (s *stateSuite) TestFailAddTwoSubnetsSameProviderID(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.AddSubnet(
 		ctx.Background(),
+		subnetUUID1.String(),
 		network.SubnetInfo{
-			ID:                network.Id(subnetUUID1.String()),
 			CIDR:              "10.0.1.0/24",
 			ProviderId:        "provider-id",
 			ProviderNetworkId: "provider-network-id-1",
@@ -280,8 +280,8 @@ func (s *stateSuite) TestRetrieveFanSubnet(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.AddSubnet(
 		ctx.Background(),
+		subnetUUID0.String(),
 		network.SubnetInfo{
-			ID:                network.Id(subnetUUID0.String()),
 			CIDR:              "192.168.0.0/20",
 			ProviderId:        "provider-id-0",
 			ProviderNetworkId: "provider-network-id-0",
@@ -297,8 +297,8 @@ func (s *stateSuite) TestRetrieveFanSubnet(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.AddSubnet(
 		ctx.Background(),
+		subnetUUID1.String(),
 		network.SubnetInfo{
-			ID:                network.Id(subnetUUID1.String()),
 			CIDR:              "10.0.0.0/12",
 			ProviderId:        "provider-id-1",
 			ProviderNetworkId: "provider-network-id-1",
@@ -364,8 +364,8 @@ func (s *stateSuite) TestRetrieveSubnetByUUID(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.AddSubnet(
 		ctx.Background(),
+		subnetUUID0.String(),
 		network.SubnetInfo{
-			ID:                network.Id(subnetUUID0.String()),
 			CIDR:              "192.168.0.0/20",
 			ProviderId:        "provider-id-0",
 			ProviderNetworkId: "provider-network-id-0",
@@ -381,8 +381,8 @@ func (s *stateSuite) TestRetrieveSubnetByUUID(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.AddSubnet(
 		ctx.Background(),
+		subnetUUID1.String(),
 		network.SubnetInfo{
-			ID:                network.Id(subnetUUID1.String()),
 			CIDR:              "10.0.0.0/12",
 			ProviderId:        "provider-id-1",
 			ProviderNetworkId: "provider-network-id-1",
@@ -444,8 +444,8 @@ func (s *stateSuite) TestRetrieveAllSubnets(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.AddSubnet(
 		ctx.Background(),
+		subnetUUID0.String(),
 		network.SubnetInfo{
-			ID:                network.Id(subnetUUID0.String()),
 			CIDR:              "192.168.0.0/20",
 			ProviderId:        "provider-id-0",
 			ProviderNetworkId: "provider-network-id-0",
@@ -460,8 +460,8 @@ func (s *stateSuite) TestRetrieveAllSubnets(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.AddSubnet(
 		ctx.Background(),
+		subnetUUID1.String(),
 		network.SubnetInfo{
-			ID:                network.Id(subnetUUID1.String()),
 			CIDR:              "192.168.1.0/20",
 			ProviderId:        "provider-id-1",
 			ProviderNetworkId: "provider-network-id-1",
@@ -476,8 +476,8 @@ func (s *stateSuite) TestRetrieveAllSubnets(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.AddSubnet(
 		ctx.Background(),
+		subnetUUID2.String(),
 		network.SubnetInfo{
-			ID:                network.Id(subnetUUID2.String()),
 			CIDR:              "192.168.2.0/20",
 			ProviderId:        "provider-id-2",
 			ProviderNetworkId: "provider-network-id-2",
@@ -507,8 +507,8 @@ func (s *stateSuite) TestUpdateSubnet(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.AddSubnet(
 		ctx.Background(),
+		uuid.String(),
 		network.SubnetInfo{
-			ID:                network.Id(uuid.String()),
 			CIDR:              "10.0.0.0/24",
 			ProviderId:        "provider-id",
 			ProviderNetworkId: "provider-network-id",
@@ -546,8 +546,8 @@ func (s *stateSuite) TestDeleteSubnet(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.AddSubnet(
 		ctx.Background(),
+		subnetUUID0.String(),
 		network.SubnetInfo{
-			ID:                network.Id(subnetUUID0.String()),
 			CIDR:              "192.168.0.0/20",
 			ProviderId:        "provider-id-0",
 			ProviderNetworkId: "provider-network-id-0",
@@ -563,8 +563,8 @@ func (s *stateSuite) TestDeleteSubnet(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.AddSubnet(
 		ctx.Background(),
+		subnetUUID1.String(),
 		network.SubnetInfo{
-			ID:                network.Id(subnetUUID1.String()),
 			CIDR:              "10.0.0.0/12",
 			ProviderId:        "provider-id-1",
 			ProviderNetworkId: "provider-network-id-1",
@@ -583,8 +583,8 @@ func (s *stateSuite) TestDeleteSubnet(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.AddSubnet(
 		ctx.Background(),
+		subnetUUID2.String(),
 		network.SubnetInfo{
-			ID:                network.Id(subnetUUID2.String()),
 			CIDR:              "10.8.0.0/12",
 			ProviderId:        "provider-id-2",
 			ProviderNetworkId: "provider-network-id-2",

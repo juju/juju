@@ -44,6 +44,7 @@ func (st *State) UpsertSubnets(ctx context.Context, subnets []network.SubnetInfo
 				if err := addSubnet(
 					ctx,
 					tx,
+					subnet.ID.String(),
 					subnet,
 				); err != nil {
 					return errors.Trace(err)
@@ -54,11 +55,7 @@ func (st *State) UpsertSubnets(ctx context.Context, subnets []network.SubnetInfo
 	})
 }
 
-func addSubnet(
-	ctx context.Context,
-	tx *sql.Tx,
-	subnet network.SubnetInfo,
-) error {
+func addSubnet(ctx context.Context, tx *sql.Tx, uuid string, subnet network.SubnetInfo) error {
 	var subnetType int
 	if subnet.FanInfo != nil {
 		subnetType = subnetTypeFanOverlaySegment
@@ -95,7 +92,7 @@ VALUES (?, ?)`
 	if _, err := tx.ExecContext(
 		ctx,
 		insertSubnetStmt,
-		subnet.ID,
+		uuid,
 		subnet.CIDR,
 		subnet.VLANTag,
 		spaceUUIDValue,
@@ -109,17 +106,17 @@ VALUES (?, ?)`
 		var underlaySubnetUUID string
 		row := tx.QueryRowContext(ctx, retrieveUnderlaySubnetUUIDStmt, subnet.FanInfo.FanLocalUnderlay)
 		if err := row.Scan(&underlaySubnetUUID); err != nil {
-			return errors.Annotatef(err, "retrieving underlay subnet %q for subnet %q", subnet.FanInfo.FanLocalUnderlay, subnet.ID)
+			return errors.Annotatef(err, "retrieving underlay subnet %q for subnet %q", subnet.FanInfo.FanLocalUnderlay, uuid)
 		}
 		// Add the association of the underlay and the newly
 		// created subnet to the associations table.
 		if _, err := tx.ExecContext(
 			ctx,
 			insertSubnetAssociationStmt,
-			subnet.ID,
+			uuid,
 			underlaySubnetUUID,
 		); err != nil {
-			return errors.Annotatef(err, "inserting subnet association between underlay %q and subnet %q", subnet.FanInfo.FanLocalUnderlay, subnet.ID)
+			return errors.Annotatef(err, "inserting subnet association between underlay %q and subnet %q", subnet.FanInfo.FanLocalUnderlay, uuid)
 		}
 	}
 	// Add the subnet uuid to the provider ids table.
@@ -127,9 +124,9 @@ VALUES (?, ?)`
 		ctx,
 		insertSubnetProviderIDStmt,
 		subnet.ProviderId,
-		subnet.ID,
+		uuid,
 	); err != nil {
-		return errors.Annotatef(err, "inserting provider id %q for subnet %q", subnet.ProviderId, subnet.ID)
+		return errors.Annotatef(err, "inserting provider id %q for subnet %q", subnet.ProviderId, uuid)
 	}
 	// Add the subnet and provider network uuids to the
 	// provider_network_subnet table.
@@ -139,7 +136,7 @@ VALUES (?, ?)`
 		pnUUID.String(),
 		subnet.ProviderNetworkId,
 	); err != nil {
-		return errors.Annotatef(err, "inserting provider network id %q for subnet %q", subnet.ProviderNetworkId, subnet.ID)
+		return errors.Annotatef(err, "inserting provider network id %q for subnet %q", subnet.ProviderNetworkId, uuid)
 	}
 	// Insert the providerNetworkUUID into provider network to
 	// subnets mapping table.
@@ -147,17 +144,17 @@ VALUES (?, ?)`
 		ctx,
 		insertSubnetProviderNetworkSubnetStmt,
 		pnUUID.String(),
-		subnet.ID,
+		uuid,
 	); err != nil {
-		return errors.Annotatef(err, "inserting association between provider network id %q and subnet %q", subnet.ProviderNetworkId, subnet.ID)
+		return errors.Annotatef(err, "inserting association between provider network id %q and subnet %q", subnet.ProviderNetworkId, uuid)
 	}
 
-	return addAvailabilityZones(ctx, tx, subnet)
+	return addAvailabilityZones(ctx, tx, uuid, subnet)
 }
 
 // addAvailabilityZones adds the availability zones of a subnet if they don't exist, and
 // update the availability_zone_subnet table with the subnet's id.
-func addAvailabilityZones(ctx context.Context, tx *sql.Tx, subnet network.SubnetInfo) error {
+func addAvailabilityZones(ctx context.Context, tx *sql.Tx, subnetUUID string, subnet network.SubnetInfo) error {
 	retrieveAvailabilityZoneStmt := `
 SELECT uuid
 FROM   availability_zone
@@ -175,13 +172,13 @@ VALUES (?, ?)`
 		row := tx.QueryRowContext(ctx, retrieveAvailabilityZoneStmt, az)
 		err := row.Scan(&azUUIDStr)
 		if err != nil && err != sql.ErrNoRows {
-			return errors.Annotatef(err, "retrieving availability zone %q for subnet %q", az, subnet.ID)
+			return errors.Annotatef(err, "retrieving availability zone %q for subnet %q", az, subnetUUID)
 		}
 		// If it doesn't exist, add the availability zone.
 		if errors.Is(err, sql.ErrNoRows) {
 			azUUID, err := utils.NewUUID()
 			if err != nil {
-				return errors.Annotatef(err, "generating UUID for availability zone %q for subnet %q", az, subnet.ID)
+				return errors.Annotatef(err, "generating UUID for availability zone %q for subnet %q", az, subnetUUID)
 			}
 			azUUIDStr = azUUID.String()
 			if _, err := tx.ExecContext(
@@ -190,7 +187,7 @@ VALUES (?, ?)`
 				azUUIDStr,
 				az,
 			); err != nil {
-				return errors.Annotatef(err, "inserting availability zone %q for subnet %q", az, subnet.ID)
+				return errors.Annotatef(err, "inserting availability zone %q for subnet %q", az, subnetUUID)
 			}
 		}
 		// Add the subnet id along with the az uuid into the
@@ -199,9 +196,9 @@ VALUES (?, ?)`
 			ctx,
 			insertAvailabilityZoneSubnetStmt,
 			azUUIDStr,
-			subnet.ID,
+			subnetUUID,
 		); err != nil {
-			return errors.Annotatef(err, "inserting availability zone %q association with subnet %q", az, subnet.ID)
+			return errors.Annotatef(err, "inserting availability zone %q association with subnet %q", az, subnetUUID)
 		}
 	}
 	return nil
@@ -210,6 +207,7 @@ VALUES (?, ?)`
 // AddSubnet creates a subnet.
 func (st *State) AddSubnet(
 	ctx context.Context,
+	uuid string,
 	subnet network.SubnetInfo,
 ) error {
 	db, err := st.DB()
@@ -217,14 +215,11 @@ func (st *State) AddSubnet(
 		return errors.Trace(err)
 	}
 
-	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		return addSubnet(
-			ctx,
-			tx,
-			subnet,
-		)
-	})
-	return errors.Trace(err)
+	return errors.Trace(
+		db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+			return addSubnet(ctx, tx, uuid, subnet)
+		}),
+	)
 }
 
 const retrieveSubnetsStmt = `

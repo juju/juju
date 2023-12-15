@@ -33,8 +33,8 @@ func (s *stateSuite) TestAddSpace(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.AddSubnet(
 		ctx.Background(),
+		subnetUUID.String(),
 		network.SubnetInfo{
-			ID:                network.Id(subnetUUID.String()),
 			CIDR:              "192.168.0.0/12",
 			ProviderId:        "provider-id-0",
 			ProviderNetworkId: "provider-network-id-0",
@@ -89,8 +89,8 @@ func (s *stateSuite) TestAddSpaceFailDuplicateName(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.AddSubnet(
 		ctx.Background(),
+		subnetUUID.String(),
 		network.SubnetInfo{
-			ID:                network.Id(subnetUUID.String()),
 			CIDR:              "192.168.0.0/12",
 			ProviderId:        "provider-id-0",
 			ProviderNetworkId: "provider-network-id-0",
@@ -131,8 +131,8 @@ func (s *stateSuite) TestAddSpaceEmptyProviderID(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.AddSubnet(
 		ctx.Background(),
+		subnetUUID.String(),
 		network.SubnetInfo{
-			ID:                network.Id(subnetUUID.String()),
 			CIDR:              "192.168.0.0/12",
 			ProviderId:        "",
 			ProviderNetworkId: "provider-network-id-0",
@@ -171,8 +171,8 @@ func (s *stateSuite) TestAddSpaceFailFanOverlay(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.AddSubnet(
 		ctx.Background(),
+		subnetUUID.String(),
 		network.SubnetInfo{
-			ID:                network.Id(subnetUUID.String()),
 			CIDR:              "192.168.0.0/12",
 			ProviderId:        "provider-id-0",
 			ProviderNetworkId: "provider-network-id-0",
@@ -188,8 +188,8 @@ func (s *stateSuite) TestAddSpaceFailFanOverlay(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.AddSubnet(
 		ctx.Background(),
+		subnetFanUUID.String(),
 		network.SubnetInfo{
-			ID:                network.Id(subnetFanUUID.String()),
 			CIDR:              "10.0.0.0/24",
 			ProviderId:        "provider-id-1",
 			ProviderNetworkId: "provider-network-id-1",
@@ -220,8 +220,8 @@ func (s *stateSuite) TestRetrieveSpaceByUUID(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.AddSubnet(
 		ctx.Background(),
+		subnetUUID0.String(),
 		network.SubnetInfo{
-			ID:                network.Id(subnetUUID0.String()),
 			CIDR:              "192.168.0.0/12",
 			ProviderId:        "provider-id-0",
 			ProviderNetworkId: "provider-network-id-0",
@@ -237,8 +237,8 @@ func (s *stateSuite) TestRetrieveSpaceByUUID(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.AddSubnet(
 		ctx.Background(),
+		subnetUUID1.String(),
 		network.SubnetInfo{
-			ID:                network.Id(subnetUUID1.String()),
 			CIDR:              "192.176.0.0/12",
 			ProviderId:        "provider-id-2",
 			ProviderNetworkId: "provider-network-id-2",
@@ -254,8 +254,8 @@ func (s *stateSuite) TestRetrieveSpaceByUUID(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.AddSubnet(
 		ctx.Background(),
+		subnetFanUUID.String(),
 		network.SubnetInfo{
-			ID:                network.Id(subnetFanUUID.String()),
 			CIDR:              "10.0.0.0/20",
 			ProviderId:        "provider-id-1",
 			ProviderNetworkId: "provider-network-id-1",
@@ -379,8 +379,8 @@ func (s *stateSuite) TestRetrieveAllSpaces(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.AddSubnet(
 		ctx.Background(),
+		subnetUUID0.String(),
 		network.SubnetInfo{
-			ID:                network.Id(subnetUUID0.String()),
 			CIDR:              "192.168.0.0/24",
 			ProviderId:        "provider-id-0",
 			ProviderNetworkId: "provider-network-id-0",
@@ -395,8 +395,8 @@ func (s *stateSuite) TestRetrieveAllSpaces(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.AddSubnet(
 		ctx.Background(),
+		subnetUUID1.String(),
 		network.SubnetInfo{
-			ID:                network.Id(subnetUUID1.String()),
 			CIDR:              "192.168.1.0/24",
 			ProviderId:        "provider-id-1",
 			ProviderNetworkId: "provider-network-id-1",
@@ -411,8 +411,8 @@ func (s *stateSuite) TestRetrieveAllSpaces(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.AddSubnet(
 		ctx.Background(),
+		subnetUUID2.String(),
 		network.SubnetInfo{
-			ID:                network.Id(subnetUUID2.String()),
 			CIDR:              "192.168.2.0/24",
 			ProviderId:        "provider-id-2",
 			ProviderNetworkId: "provider-network-id-2",
@@ -478,8 +478,8 @@ func (s *stateSuite) TestDeleteSpace(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.AddSubnet(
 		ctx.Background(),
+		subnetUUID0.String(),
 		network.SubnetInfo{
-			ID:                network.Id(subnetUUID0.String()),
 			CIDR:              "192.168.0.0/20",
 			ProviderId:        "provider-id-0",
 			ProviderNetworkId: "provider-network-id-0",
