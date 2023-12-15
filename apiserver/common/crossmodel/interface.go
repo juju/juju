@@ -65,12 +65,9 @@ type Backend interface {
 	// with the supplied name (which must be unique across all applications, local and remote).
 	AddRemoteApplication(state.AddRemoteApplicationParams) (RemoteApplication, error)
 
-	// OfferNameForRelation gets the name of the offer for the
+	// OfferUUIDForRelation gets the uuid of the offer for the
 	// specified cross-model relation key.
-	OfferNameForRelation(string) (string, error)
-
-	// AppNameForOffer returns the application for an offer.
-	AppNameForOffer(offerName string) (string, error)
+	OfferUUIDForRelation(string) (string, error)
 
 	// GetRemoteEntity returns the tag of the entity associated with the given token.
 	GetRemoteEntity(string) (names.Tag, error)

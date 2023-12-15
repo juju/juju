@@ -52,13 +52,10 @@ func (st *State) CreateOfferAccess(offer names.ApplicationOfferTag, user names.U
 		}
 	}
 
-	offerUUID, err := applicationOfferUUID(st, offer.Id())
-	if err != nil {
-		return errors.Annotate(err, "creating offer access")
-	}
+	offerUUID := offer.Id()
 	op := createPermissionOp(applicationOfferKey(offerUUID), userGlobalKey(userAccessID(user)), access)
 
-	err = st.db().RunTransaction([]txn.Op{op})
+	err := st.db().RunTransaction([]txn.Op{op})
 	if err == txn.ErrAborted {
 		err = errors.AlreadyExistsf("permission for user %q for offer %q", user.Id(), offer.Name)
 	}
@@ -70,10 +67,7 @@ func (st *State) UpdateOfferAccess(offer names.ApplicationOfferTag, user names.U
 	if err := permission.ValidateOfferAccess(access); err != nil {
 		return errors.Trace(err)
 	}
-	offerUUID, err := applicationOfferUUID(st, offer.Id())
-	if err != nil {
-		return errors.Trace(err)
-	}
+	offerUUID := offer.Id()
 
 	buildTxn := func(int) ([]txn.Op, error) {
 		_, err := st.GetOfferAccess(offerUUID, user)
@@ -95,7 +89,7 @@ func (st *State) UpdateOfferAccess(offer names.ApplicationOfferTag, user names.U
 		return ops, nil
 	}
 
-	err = st.db().Run(buildTxn)
+	err := st.db().Run(buildTxn)
 	return errors.Trace(err)
 }
 
@@ -167,12 +161,8 @@ func (st *State) suspendRevokedRelationsOps(offerUUID, userId string) ([]txn.Op,
 
 // RemoveOfferAccess removes the access permission for a user on an offer.
 func (st *State) RemoveOfferAccess(offer names.ApplicationOfferTag, user names.UserTag) error {
-	offerUUID, err := applicationOfferUUID(st, offer.Id())
-	if err != nil {
-		return errors.Trace(err)
-	}
-
 	buildTxn := func(int) ([]txn.Op, error) {
+		offerUUID := offer.Id()
 		_, err := st.GetOfferAccess(offerUUID, user)
 		if err != nil {
 			return nil, err
@@ -192,6 +182,6 @@ func (st *State) RemoveOfferAccess(offer names.ApplicationOfferTag, user names.U
 		return ops, nil
 	}
 
-	err = st.db().Run(buildTxn)
+	err := st.db().Run(buildTxn)
 	return errors.Trace(err)
 }

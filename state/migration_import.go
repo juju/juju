@@ -1814,12 +1814,20 @@ func (i *importer) remoteEntities() error {
 		src: i.model,
 		dst: i.st.db(),
 	}
+	offerUUIDByName := make(map[string]string)
+	for _, app := range i.model.Applications() {
+		for _, offer := range app.Offers() {
+			offerUUIDByName[offer.OfferName()] = offer.OfferUUID()
+		}
+	}
 	migration.Add(func() error {
 		m := ImportRemoteEntities{}
-		return m.Execute(applicationOffersStateShim{stateModelNamspaceShim{
-			Model: migration.src,
-			st:    i.st,
-		}}, migration.dst)
+		return m.Execute(&applicationOffersStateShim{
+			offerUUIDByName: offerUUIDByName,
+			stateModelNamspaceShim: stateModelNamspaceShim{
+				Model: migration.src,
+				st:    i.st,
+			}}, migration.dst)
 	})
 	if err := migration.Run(); err != nil {
 		return errors.Trace(err)

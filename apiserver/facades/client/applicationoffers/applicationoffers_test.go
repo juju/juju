@@ -253,8 +253,8 @@ func (s *applicationOffersSuite) TestOfferError(c *gc.C) {
 
 func (s *applicationOffersSuite) assertList(c *gc.C, expectedErr error, expectedCIDRS []string) {
 	s.mockState.users["mary"] = &mockUser{"mary"}
-	s.mockState.CreateOfferAccess(
-		names.NewApplicationOfferTag("hosted-db2"),
+	_ = s.mockState.CreateOfferAccess(
+		names.NewApplicationOfferTag("hosted-db2-uuid"),
 		names.NewUserTag("mary"), permission.ConsumeAccess)
 	filter := params.OfferFilters{
 		Filters: []params.OfferFilter{
@@ -403,8 +403,8 @@ func (s *applicationOffersSuite) TestListRequiresFilter(c *gc.C) {
 func (s *applicationOffersSuite) assertShow(c *gc.C, url string, expected []params.ApplicationOfferResult) {
 	s.setupOffers(c, "", false)
 	s.mockState.users["mary"] = &mockUser{"mary"}
-	s.mockState.CreateOfferAccess(
-		names.NewApplicationOfferTag("hosted-db2"),
+	_ = s.mockState.CreateOfferAccess(
+		names.NewApplicationOfferTag("hosted-db2-uuid"),
 		names.NewUserTag("mary"), permission.ConsumeAccess)
 	filter := params.OfferURLs{[]string{url}, bakery.LatestVersion}
 
@@ -475,7 +475,7 @@ func (s *applicationOffersSuite) TestShow(c *gc.C) {
 func (s *applicationOffersSuite) TestShowNoPermission(c *gc.C) {
 	s.mockState.users["someone"] = &mockUser{"someone"}
 	user := names.NewUserTag("someone")
-	offer := names.NewApplicationOfferTag("hosted-db2")
+	offer := names.NewApplicationOfferTag("hosted-db2-uuid")
 	err := s.mockState.CreateOfferAccess(offer, user, permission.NoAccess)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -512,7 +512,7 @@ func (s *applicationOffersSuite) TestShowPermission(c *gc.C) {
 			},
 		}}}
 	s.mockState.users[user.Name()] = &mockUser{user.Name()}
-	s.mockState.CreateOfferAccess(names.NewApplicationOfferTag("hosted-db2"), user, permission.ReadAccess)
+	_ = s.mockState.CreateOfferAccess(names.NewApplicationOfferTag("hosted-db2-uuid"), user, permission.ReadAccess)
 	s.assertShow(c, "fred@external/prod.hosted-db2", expected)
 }
 
@@ -645,7 +645,7 @@ func (s *applicationOffersSuite) TestShowFoundMultiple(c *gc.C) {
 	user := names.NewUserTag("someone")
 	s.authorizer.Tag = user
 	s.mockState.users[user.Name()] = &mockUser{user.Name()}
-	s.mockState.CreateOfferAccess(names.NewApplicationOfferTag("hosted-test"), user, permission.ReadAccess)
+	_ = s.mockState.CreateOfferAccess(names.NewApplicationOfferTag("hosted-test-uuid"), user, permission.ReadAccess)
 
 	anotherState := &mockState{
 		modelUUID:   "uuid2",
@@ -666,7 +666,7 @@ func (s *applicationOffersSuite) TestShowFoundMultiple(c *gc.C) {
 		},
 	}
 	anotherState.users[user.Name()] = &mockUser{user.Name()}
-	anotherState.CreateOfferAccess(names.NewApplicationOfferTag("hosted-testagain"), user, permission.ConsumeAccess)
+	_ = anotherState.CreateOfferAccess(names.NewApplicationOfferTag("hosted-testagain-uuid"), user, permission.ConsumeAccess)
 	s.mockStatePool.st["uuid2"] = anotherState
 
 	found, err := s.api.ApplicationOffers(filter)
@@ -784,7 +784,7 @@ func (s *applicationOffersSuite) TestFind(c *gc.C) {
 func (s *applicationOffersSuite) TestFindNoPermission(c *gc.C) {
 	s.mockState.users["someone"] = &mockUser{"someone"}
 	user := names.NewUserTag("someone")
-	offer := names.NewApplicationOfferTag("hosted-db2")
+	offer := names.NewApplicationOfferTag("hosted-db2-uuid")
 	err := s.mockState.CreateOfferAccess(offer, user, permission.NoAccess)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -820,7 +820,7 @@ func (s *applicationOffersSuite) TestFindPermission(c *gc.C) {
 		},
 	}
 	s.mockState.users[user.Name()] = &mockUser{user.Name()}
-	_ = s.mockState.CreateOfferAccess(names.NewApplicationOfferTag("hosted-db2"), user, permission.ReadAccess)
+	_ = s.mockState.CreateOfferAccess(names.NewApplicationOfferTag("hosted-db2-uuid"), user, permission.ReadAccess)
 	s.assertFind(c, expected)
 }
 
@@ -931,7 +931,7 @@ func (s *applicationOffersSuite) TestFindMulti(c *gc.C) {
 	user := names.NewUserTag("someone")
 	s.authorizer.Tag = user
 	s.mockState.users[user.Name()] = &mockUser{user.Name()}
-	_ = s.mockState.CreateOfferAccess(names.NewApplicationOfferTag("hosted-db2"), user, permission.ConsumeAccess)
+	_ = s.mockState.CreateOfferAccess(names.NewApplicationOfferTag("hosted-db2-uuid"), user, permission.ConsumeAccess)
 
 	anotherState := &mockState{
 		modelUUID:   "uuid2",
@@ -990,8 +990,8 @@ func (s *applicationOffersSuite) TestFindMulti(c *gc.C) {
 		},
 	}
 	anotherState.users[user.Name()] = &mockUser{user.Name()}
-	anotherState.CreateOfferAccess(names.NewApplicationOfferTag("hosted-mysql"), user, permission.ReadAccess)
-	anotherState.CreateOfferAccess(names.NewApplicationOfferTag("hosted-postgresql"), user, permission.AdminAccess)
+	_ = anotherState.CreateOfferAccess(names.NewApplicationOfferTag("hosted-mysql-uuid"), user, permission.ReadAccess)
+	_ = anotherState.CreateOfferAccess(names.NewApplicationOfferTag("hosted-postgresql-uuid"), user, permission.AdminAccess)
 
 	s.mockState.allmodels = []applicationoffers.Model{
 		s.mockState.model,
@@ -1144,12 +1144,12 @@ func (s *consumeSuite) SetUpTest(c *gc.C) {
 	}
 
 	resources := common.NewResources()
-	resources.RegisterNamed("dataDir", common.StringResource(c.MkDir()))
+	err := resources.RegisterNamed("dataDir", common.StringResource(c.MkDir()))
+	c.Assert(err, jc.ErrorIsNil)
 
 	getEnviron := func(modelUUID string) (environs.Environ, error) {
 		return s.env, nil
 	}
-	var err error
 	thirdPartyKey := bakery.MustGenerateKey()
 	s.authContext, err = crossmodel.NewAuthContext(s.mockState, thirdPartyKey, s.bakery)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1177,7 +1177,7 @@ func (s *consumeSuite) TestConsumeDetailsNoPermission(c *gc.C) {
 	st := s.mockStatePool.st[testing.ModelTag.Id()]
 	st.(*mockState).users["someone"] = &mockUser{"someone"}
 	apiUser := names.NewUserTag("someone")
-	offer := names.NewApplicationOfferTag("hosted-mysql")
+	offer := names.NewApplicationOfferTag("hosted-mysql-uuid")
 	err := st.CreateOfferAccess(offer, apiUser, permission.NoAccess)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1233,7 +1233,7 @@ func (s *consumeSuite) assertConsumeDetailsWithPermission(
 	apiUser := names.NewUserTag("someone")
 
 	userTag := configAuthorizer(s.authorizer, apiUser)
-	offer := names.NewApplicationOfferTag("hosted-mysql")
+	offer := names.NewApplicationOfferTag("hosted-mysql-uuid")
 	err := st.CreateOfferAccess(offer, apiUser, permission.ConsumeAccess)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1285,7 +1285,7 @@ func (s *consumeSuite) TestConsumeDetailsNonAdminSpecifiedUser(c *gc.C) {
 	st := s.mockStatePool.st[testing.ModelTag.Id()]
 	st.(*mockState).users["someone"] = &mockUser{"someone"}
 	apiUser := names.NewUserTag("someone")
-	offer := names.NewApplicationOfferTag("hosted-mysql")
+	offer := names.NewApplicationOfferTag("hosted-mysql-uuid")
 	err := st.CreateOfferAccess(offer, apiUser, permission.ConsumeAccess)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1312,7 +1312,7 @@ func (s *consumeSuite) TestConsumeDetailsDefaultEndpoint(c *gc.C) {
 	st.applications["mysql"].(*mockApplication).bindings[""] = "default-endpoint"
 
 	apiUser := names.NewUserTag("someone")
-	offer := names.NewApplicationOfferTag("hosted-mysql")
+	offer := names.NewApplicationOfferTag("hosted-mysql-uuid")
 	err := st.CreateOfferAccess(offer, apiUser, permission.ConsumeAccess)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1404,7 +1404,7 @@ func (s *consumeSuite) TestRemoteApplicationInfo(c *gc.C) {
 
 	// Give user permission to see the offer.
 	user := names.NewUserTag("foobar")
-	offer := names.NewApplicationOfferTag("hosted-mysql")
+	offer := names.NewApplicationOfferTag("hosted-mysql-uuid")
 	err := st.CreateOfferAccess(offer, user, permission.ConsumeAccess)
 	c.Assert(err, jc.ErrorIsNil)
 

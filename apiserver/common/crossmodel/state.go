@@ -125,26 +125,12 @@ func (st stateShim) AddRemoteApplication(args state.AddRemoteApplicationParams) 
 	return remoteApplicationShim{a}, nil
 }
 
-func (st stateShim) OfferNameForRelation(key string) (string, error) {
+func (st stateShim) OfferUUIDForRelation(key string) (string, error) {
 	oc, err := st.State.OfferConnectionForRelation(key)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	appOffers := state.NewApplicationOffers(st.State)
-	offer, err := appOffers.ApplicationOfferForUUID(oc.OfferUUID())
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	return offer.OfferName, nil
-}
-
-func (st stateShim) AppNameForOffer(offerName string) (string, error) {
-	offers := state.NewApplicationOffers(st.State)
-	offer, err := offers.ApplicationOffer(offerName)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	return offer.ApplicationName, nil
+	return oc.OfferUUID(), nil
 }
 
 func (st stateShim) GetRemoteEntity(token string) (names.Tag, error) {

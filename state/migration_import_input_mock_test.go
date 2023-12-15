@@ -49,19 +49,34 @@ func (mr *MockRemoteEntitiesInputMockRecorder) DocID(arg0 interface{}) *gomock.C
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DocID", reflect.TypeOf((*MockRemoteEntitiesInput)(nil).DocID), arg0)
 }
 
-// OfferNameForApp mocks base method.
-func (m *MockRemoteEntitiesInput) OfferNameForApp(arg0 string) (string, error) {
+// OfferUUID mocks base method.
+func (m *MockRemoteEntitiesInput) OfferUUID(arg0 string) (string, bool) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "OfferNameForApp", arg0)
+	ret := m.ctrl.Call(m, "OfferUUID", arg0)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(bool)
+	return ret0, ret1
+}
+
+// OfferUUID indicates an expected call of OfferUUID.
+func (mr *MockRemoteEntitiesInputMockRecorder) OfferUUID(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OfferUUID", reflect.TypeOf((*MockRemoteEntitiesInput)(nil).OfferUUID), arg0)
+}
+
+// OfferUUIDForApp mocks base method.
+func (m *MockRemoteEntitiesInput) OfferUUIDForApp(arg0 string) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "OfferUUIDForApp", arg0)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// OfferNameForApp indicates an expected call of OfferNameForApp.
-func (mr *MockRemoteEntitiesInputMockRecorder) OfferNameForApp(arg0 interface{}) *gomock.Call {
+// OfferUUIDForApp indicates an expected call of OfferUUIDForApp.
+func (mr *MockRemoteEntitiesInputMockRecorder) OfferUUIDForApp(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OfferNameForApp", reflect.TypeOf((*MockRemoteEntitiesInput)(nil).OfferNameForApp), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OfferUUIDForApp", reflect.TypeOf((*MockRemoteEntitiesInput)(nil).OfferUUIDForApp), arg0)
 }
 
 // RemoteEntities mocks base method.

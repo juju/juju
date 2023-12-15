@@ -91,21 +91,6 @@ func (mr *MockRemoteRelationsStateMockRecorder) AllModelUUIDs() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllModelUUIDs", reflect.TypeOf((*MockRemoteRelationsState)(nil).AllModelUUIDs))
 }
 
-// AppNameForOffer mocks base method.
-func (m *MockRemoteRelationsState) AppNameForOffer(arg0 string) (string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AppNameForOffer", arg0)
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// AppNameForOffer indicates an expected call of AppNameForOffer.
-func (mr *MockRemoteRelationsStateMockRecorder) AppNameForOffer(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AppNameForOffer", reflect.TypeOf((*MockRemoteRelationsState)(nil).AppNameForOffer), arg0)
-}
-
 // Application mocks base method.
 func (m *MockRemoteRelationsState) Application(arg0 string) (crossmodel.Application, error) {
 	m.ctrl.T.Helper()
@@ -345,19 +330,19 @@ func (mr *MockRemoteRelationsStateMockRecorder) OfferConnectionForRelation(arg0 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OfferConnectionForRelation", reflect.TypeOf((*MockRemoteRelationsState)(nil).OfferConnectionForRelation), arg0)
 }
 
-// OfferNameForRelation mocks base method.
-func (m *MockRemoteRelationsState) OfferNameForRelation(arg0 string) (string, error) {
+// OfferUUIDForRelation mocks base method.
+func (m *MockRemoteRelationsState) OfferUUIDForRelation(arg0 string) (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "OfferNameForRelation", arg0)
+	ret := m.ctrl.Call(m, "OfferUUIDForRelation", arg0)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// OfferNameForRelation indicates an expected call of OfferNameForRelation.
-func (mr *MockRemoteRelationsStateMockRecorder) OfferNameForRelation(arg0 interface{}) *gomock.Call {
+// OfferUUIDForRelation indicates an expected call of OfferUUIDForRelation.
+func (mr *MockRemoteRelationsStateMockRecorder) OfferUUIDForRelation(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OfferNameForRelation", reflect.TypeOf((*MockRemoteRelationsState)(nil).OfferNameForRelation), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OfferUUIDForRelation", reflect.TypeOf((*MockRemoteRelationsState)(nil).OfferUUIDForRelation), arg0)
 }
 
 // RemoteApplication mocks base method.

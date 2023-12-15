@@ -2460,7 +2460,6 @@ func (s *ApplicationSuite) TestSetRelationSuspendedPermission(c *gc.C) {
 	offerConn.EXPECT().OfferUUID().Return("offer-uuid")
 	offerConn.EXPECT().UserName().Return("fred")
 	s.backend.EXPECT().OfferConnectionForRelation("wordpress:db mysql:db").Return(offerConn, nil)
-	s.backend.EXPECT().ApplicationOfferForUUID("offer-uuid").Return(&crossmodel.ApplicationOffer{OfferUUID: "mysql"}, nil)
 
 	results, err := s.api.SetRelationsSuspended(params.RelationSuspendedArgs{
 		Args: []params.RelationSuspendedArg{{

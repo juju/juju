@@ -285,7 +285,7 @@ func (s *watcherSuite) assertSetupRelationStatusWatch(
 	// Add the consume permission for the offer so the macaroon
 	// discharge can occur.
 	err = s.State.CreateOfferAccess(
-		names.NewApplicationOfferTag("hosted-mysql"),
+		names.NewApplicationOfferTag(offer.OfferUUID),
 		names.NewUserTag("fred"), permission.ConsumeAccess)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -422,7 +422,7 @@ func (s *watcherSuite) setupOfferStatusWatch(
 	// Add the consume permission for the offer so the macaroon
 	// discharge can occur.
 	err = s.State.CreateOfferAccess(
-		names.NewApplicationOfferTag("hosted-mysql"),
+		names.NewApplicationOfferTag(offer.OfferUUID),
 		names.NewUserTag("fred"), permission.ConsumeAccess)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -740,7 +740,7 @@ func (s *watcherSuite) setupSecretsRevisionWatcher(
 	// Add the consume permission for the offer so the macaroon
 	// discharge can occur.
 	err = s.State.CreateOfferAccess(
-		names.NewApplicationOfferTag("hosted-mysql"),
+		names.NewApplicationOfferTag(offer.OfferUUID),
 		names.NewUserTag("fred"), permission.ConsumeAccess)
 	c.Assert(err, jc.ErrorIsNil)
 

@@ -963,7 +963,7 @@ func (s *MigrationImportSuite) TestApplicationsWithExposedOffers(c *gc.C) {
 
 	// Allow "foo" to consume offer
 	err = s.State.CreateOfferAccess(
-		names.NewApplicationOfferTag("my-offer"),
+		names.NewApplicationOfferTag(stOffer.OfferUUID),
 		fooUser.UserTag(),
 		permission.ConsumeAccess,
 	)
@@ -981,12 +981,12 @@ func (s *MigrationImportSuite) TestApplicationsWithExposedOffers(c *gc.C) {
 		// If we import and the permissions still exist, the txn will fail
 		// as imports all assume any records do not already exist.
 		err = s.State.RemoveOfferAccess(
-			names.NewApplicationOfferTag("my-offer"),
+			names.NewApplicationOfferTag(stOffer.OfferUUID),
 			fooUser.UserTag(),
 		)
 		c.Assert(err, jc.ErrorIsNil)
 		err = s.State.RemoveOfferAccess(
-			names.NewApplicationOfferTag("my-offer"),
+			names.NewApplicationOfferTag(stOffer.OfferUUID),
 			names.NewUserTag("admin"),
 		)
 		c.Assert(err, jc.ErrorIsNil)

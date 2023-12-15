@@ -361,10 +361,10 @@ func (s *applicationOffersSuite) TestListOffersAllowedConsumers(c *gc.C) {
 
 	mary := names.NewUserTag("mary")
 	err := s.State.CreateOfferAccess(
-		names.NewApplicationOfferTag(offer.OfferName), mary, permission.ConsumeAccess)
+		names.NewApplicationOfferTag(offer.OfferUUID), mary, permission.ConsumeAccess)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.CreateOfferAccess(
-		names.NewApplicationOfferTag(offer2.OfferName), mary, permission.ReadAccess)
+		names.NewApplicationOfferTag(offer2.OfferUUID), mary, permission.ReadAccess)
 	c.Assert(err, jc.ErrorIsNil)
 	offers, err := sd.ListOffers(crossmodel.ApplicationOfferFilter{
 		AllowedConsumers: []string{"mary"},
