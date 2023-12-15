@@ -45,7 +45,7 @@ func newAPI(ctx facade.Context) (*API, error) {
 	reloadSpacesAPI := NewReloadSpacesAPI(
 		space.NewState(st),
 		reloadSpacesEnvirons,
-		EnvironSpacesAdapter{},
+		EnvironSpacesAdaptor{},
 		credentialInvalidatorGetter,
 		reloadSpacesAuth,
 	)

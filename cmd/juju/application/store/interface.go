@@ -18,7 +18,7 @@ type CharmAdder interface {
 	CheckCharmPlacement(string, *charm.URL) error
 }
 
-// CharmsAPI is functionality needed by the CharmAdapter from the Charms API.
+// CharmsAPI is functionality needed by the CharmAdaptor from the Charms API.
 type CharmsAPI interface {
 	ResolveCharms(charms []apicharm.CharmToResolve) ([]apicharm.ResolvedCharm, error)
 	GetDownloadInfo(curl *charm.URL, origin commoncharm.Origin) (apicharm.DownloadInfo, error)

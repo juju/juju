@@ -30,7 +30,7 @@ type ModelOperation interface {
 	Done(error) error
 }
 
-// modelOperationFunc is an adapter for composing a txn builder and done
+// modelOperationFunc is an adaptor for composing a txn builder and done
 // function/closure into a type that implements ModelOperation.
 type modelOperationFunc struct {
 	buildFn func(attempt int) ([]txn.Op, error)

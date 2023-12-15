@@ -329,7 +329,7 @@ func (a *API) queueAsyncCharmDownload(ctx context.Context, args params.AddCharmW
 	metaRes := essentialMeta[0]
 
 	_, err = a.backendState.AddCharmMetadata(state.CharmInfo{
-		Charm: corecharm.NewCharmInfoAdapter(metaRes),
+		Charm: corecharm.NewCharmInfoAdaptor(metaRes),
 		ID:    args.URL,
 	})
 	if err != nil {

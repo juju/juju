@@ -538,12 +538,12 @@ func registerCommands(r commandRegistry) {
 	r.Register(setmeterstatus.New())
 
 	// Manage clouds and credentials
-	r.Register(cloud.NewUpdateCloudCommand(&cloudToCommandAdapter{}))
+	r.Register(cloud.NewUpdateCloudCommand(&cloudToCommandAdaptor{}))
 	r.Register(cloud.NewUpdatePublicCloudsCommand())
 	r.Register(cloud.NewListCloudsCommand())
 	r.Register(cloud.NewListRegionsCommand())
 	r.Register(cloud.NewShowCloudCommand())
-	r.Register(cloud.NewAddCloudCommand(&cloudToCommandAdapter{}))
+	r.Register(cloud.NewAddCloudCommand(&cloudToCommandAdaptor{}))
 	r.Register(cloud.NewRemoveCloudCommand())
 	r.Register(cloud.NewListCredentialsCommand())
 	r.Register(cloud.NewDetectCredentialsCommand())
@@ -557,9 +557,9 @@ func registerCommands(r commandRegistry) {
 	r.Register(model.NewRevokeCloudCommand())
 
 	// CAAS commands
-	r.Register(caas.NewAddCAASCommand(&cloudToCommandAdapter{}))
-	r.Register(caas.NewUpdateCAASCommand(&cloudToCommandAdapter{}))
-	r.Register(caas.NewRemoveCAASCommand(&cloudToCommandAdapter{}))
+	r.Register(caas.NewAddCAASCommand(&cloudToCommandAdaptor{}))
+	r.Register(caas.NewUpdateCAASCommand(&cloudToCommandAdaptor{}))
+	r.Register(caas.NewRemoveCAASCommand(&cloudToCommandAdaptor{}))
 	r.Register(application.NewScaleApplicationCommand())
 
 	// Manage Application Credential Access
@@ -603,20 +603,20 @@ func registerCommands(r commandRegistry) {
 	r.Register(listagreements.NewListAgreementsCommand())
 }
 
-type cloudToCommandAdapter struct{}
+type cloudToCommandAdaptor struct{}
 
-func (cloudToCommandAdapter) ReadCloudData(path string) ([]byte, error) {
+func (cloudToCommandAdaptor) ReadCloudData(path string) ([]byte, error) {
 	return os.ReadFile(path)
 }
-func (cloudToCommandAdapter) ParseOneCloud(data []byte) (cloudfile.Cloud, error) {
+func (cloudToCommandAdaptor) ParseOneCloud(data []byte) (cloudfile.Cloud, error) {
 	return cloudfile.ParseOneCloud(data)
 }
-func (cloudToCommandAdapter) PublicCloudMetadata(searchPaths ...string) (map[string]cloudfile.Cloud, bool, error) {
+func (cloudToCommandAdaptor) PublicCloudMetadata(searchPaths ...string) (map[string]cloudfile.Cloud, bool, error) {
 	return cloudfile.PublicCloudMetadata(searchPaths...)
 }
-func (cloudToCommandAdapter) PersonalCloudMetadata() (map[string]cloudfile.Cloud, error) {
+func (cloudToCommandAdaptor) PersonalCloudMetadata() (map[string]cloudfile.Cloud, error) {
 	return cloudfile.PersonalCloudMetadata()
 }
-func (cloudToCommandAdapter) WritePersonalCloudMetadata(cloudsMap map[string]cloudfile.Cloud) error {
+func (cloudToCommandAdaptor) WritePersonalCloudMetadata(cloudsMap map[string]cloudfile.Cloud) error {
 	return cloudfile.WritePersonalCloudMetadata(cloudsMap)
 }

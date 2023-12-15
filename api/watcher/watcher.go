@@ -417,7 +417,7 @@ func (w *remoteRelationWatcher) Changes() <-chan params.RemoteRelationChangeEven
 // events.
 type SettingsGetter func([]string) ([]params.SettingsResult, error)
 
-// remoteRelationCompatWatcher is a compatibility adapter that calls
+// remoteRelationCompatWatcher is a compatibility adaptor that calls
 // back to the v1 crossmodelrelations API methods to wrap a
 // server-side RelationUnitsWatcher into a RemoteRelationWatcher. It
 // needs the relation and application token to include in the outgoing

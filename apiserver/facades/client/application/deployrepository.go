@@ -826,7 +826,7 @@ func (v *deployFromRepositoryValidator) getCharm(ctx context.Context, arg params
 		return nil, corecharm.Origin{}, nil, errors.BadRequestf("%q is not a charm", arg.CharmName)
 	}
 
-	resolvedCharm := corecharm.NewCharmInfoAdapter(resolvedData.EssentialMetadata)
+	resolvedCharm := corecharm.NewCharmInfoAdaptor(resolvedData.EssentialMetadata)
 	if resolvedCharm.Meta().Name == bootstrap.ControllerCharmName {
 		return nil, corecharm.Origin{}, nil, errors.NotSupportedf("manual deploy of the controller charm")
 	}

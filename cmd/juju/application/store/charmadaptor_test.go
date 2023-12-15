@@ -38,10 +38,10 @@ func (s *resolveSuite) TestResolveCharm(c *gc.C) {
 		Source: commoncharm.OriginCharmHub,
 		Risk:   "beta",
 	}
-	charmAdapter := store.NewCharmAdaptor(s.charmsAPI, func() (store.DownloadBundleClient, error) {
+	charmAdaptor := store.NewCharmAdaptor(s.charmsAPI, func() (store.DownloadBundleClient, error) {
 		return s.downloadClient, nil
 	})
-	obtainedURL, obtainedOrigin, obtainedBases, err := charmAdapter.ResolveCharm(curl, origin, false)
+	obtainedURL, obtainedOrigin, obtainedBases, err := charmAdaptor.ResolveCharm(curl, origin, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtainedOrigin.Risk, gc.Equals, "edge")
 	c.Assert(obtainedBases, jc.SameContents, []base.Base{
@@ -62,10 +62,10 @@ func (s *resolveSuite) TestResolveCharmWithAPIError(c *gc.C) {
 		Source: commoncharm.OriginCharmHub,
 		Risk:   "beta",
 	}
-	charmAdapter := store.NewCharmAdaptor(s.charmsAPI, func() (store.DownloadBundleClient, error) {
+	charmAdaptor := store.NewCharmAdaptor(s.charmsAPI, func() (store.DownloadBundleClient, error) {
 		return s.downloadClient, nil
 	})
-	_, _, _, err = charmAdapter.ResolveCharm(curl, origin, false)
+	_, _, _, err = charmAdaptor.ResolveCharm(curl, origin, false)
 	c.Assert(err, gc.ErrorMatches, `bad`)
 }
 
@@ -77,10 +77,10 @@ func (s *resolveSuite) TestResolveCharmNotCSCharm(c *gc.C) {
 		Source: commoncharm.OriginLocal,
 		Risk:   "beta",
 	}
-	charmAdapter := store.NewCharmAdaptor(s.charmsAPI, func() (store.DownloadBundleClient, error) {
+	charmAdaptor := store.NewCharmAdaptor(s.charmsAPI, func() (store.DownloadBundleClient, error) {
 		return s.downloadClient, nil
 	})
-	_, obtainedOrigin, _, err := charmAdapter.ResolveCharm(curl, origin, false)
+	_, obtainedOrigin, _, err := charmAdaptor.ResolveCharm(curl, origin, false)
 	c.Assert(err, gc.NotNil)
 	c.Assert(obtainedOrigin.Risk, gc.Equals, "")
 }
@@ -97,10 +97,10 @@ func (s *resolveSuite) TestResolveBundle(c *gc.C) {
 		Risk:   "edge",
 		Type:   "bundle",
 	}
-	charmAdapter := store.NewCharmAdaptor(s.charmsAPI, func() (store.DownloadBundleClient, error) {
+	charmAdaptor := store.NewCharmAdaptor(s.charmsAPI, func() (store.DownloadBundleClient, error) {
 		return s.downloadClient, nil
 	})
-	obtainedURL, obtainedChannel, err := charmAdapter.ResolveBundleURL(curl, origin)
+	obtainedURL, obtainedChannel, err := charmAdaptor.ResolveBundleURL(curl, origin)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtainedChannel.Risk, gc.Equals, "edge")
 	c.Assert(obtainedURL, gc.Equals, curl)
@@ -118,10 +118,10 @@ func (s *resolveSuite) TestResolveNotBundle(c *gc.C) {
 		Source: commoncharm.OriginCharmHub,
 		Risk:   "edge",
 	}
-	charmAdapter := store.NewCharmAdaptor(s.charmsAPI, func() (store.DownloadBundleClient, error) {
+	charmAdaptor := store.NewCharmAdaptor(s.charmsAPI, func() (store.DownloadBundleClient, error) {
 		return s.downloadClient, nil
 	})
-	_, _, err = charmAdapter.ResolveBundleURL(curl, origin)
+	_, _, err = charmAdaptor.ResolveBundleURL(curl, origin)
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
@@ -138,10 +138,10 @@ func (s *resolveSuite) TestCharmHubGetBundle(c *gc.C) {
 	}
 	s.expectedCharmHubGetBundle(c, curl, origin)
 
-	charmAdapter := store.NewCharmAdaptor(s.charmsAPI, func() (store.DownloadBundleClient, error) {
+	charmAdaptor := store.NewCharmAdaptor(s.charmsAPI, func() (store.DownloadBundleClient, error) {
 		return s.downloadClient, nil
 	})
-	bundle, err := charmAdapter.GetBundle(curl, origin, "/tmp/")
+	bundle, err := charmAdaptor.GetBundle(curl, origin, "/tmp/")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(bundle, gc.DeepEquals, s.bundle)
 }

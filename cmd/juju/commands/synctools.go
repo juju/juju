@@ -153,20 +153,20 @@ func (c *syncAgentBinaryCommand) Run(ctx *cmd.Context) (resultErr error) {
 			return err
 		}
 		defer api.Close()
-		adapter := syncToolAPIAdapter{api}
-		sctx.TargetToolsUploader = adapter
+		adaptor := syncToolAPIAdaptor{api}
+		sctx.TargetToolsUploader = adaptor
 	}
 	return block.ProcessBlockedError(syncTools(sctx), block.BlockChange)
 }
 
-// syncToolAPIAdapter implements sync.ToolsFinder and
+// syncToolAPIAdaptor implements sync.ToolsFinder and
 // sync.ToolsUploader, adapting a syncToolAPI. This
 // enables the use of sync.SyncTools.
-type syncToolAPIAdapter struct {
+type syncToolAPIAdaptor struct {
 	SyncToolAPI
 }
 
-func (s syncToolAPIAdapter) UploadTools(toolsDir, stream string, tools *coretools.Tools, data []byte) error {
+func (s syncToolAPIAdaptor) UploadTools(toolsDir, stream string, tools *coretools.Tools, data []byte) error {
 	_, err := s.SyncToolAPI.UploadTools(bytes.NewReader(data), tools.Version)
 	return err
 }

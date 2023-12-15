@@ -18,5 +18,5 @@ func Register(registry facade.FacadeRegistry) {
 
 // newFacade creates a new LogForwardingAPI. It is used for API registration.
 func newFacade(ctx facade.Context) (*LogForwardingAPI, error) {
-	return NewLogForwardingAPI(&stateAdapter{ctx.State()}, ctx.Auth())
+	return NewLogForwardingAPI(&stateAdaptor{ctx.State()}, ctx.Auth())
 }

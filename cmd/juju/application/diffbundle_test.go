@@ -53,14 +53,14 @@ func (s *diffSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *diffSuite) runDiffBundle(c *gc.C, args ...string) (*cmd.Context, error) {
-	return s.runDiffBundleWithCharmAdapter(c, func(base.APICallCloser, *charm.URL) (application.BundleResolver, error) {
+	return s.runDiffBundleWithCharmAdaptor(c, func(base.APICallCloser, *charm.URL) (application.BundleResolver, error) {
 		return s.charmHub, nil
 	}, func() (application.ModelConstraintsClient, error) {
 		return s.modelClient, nil
 	}, args...)
 }
 
-func (s *diffSuite) runDiffBundleWithCharmAdapter(c *gc.C,
+func (s *diffSuite) runDiffBundleWithCharmAdaptor(c *gc.C,
 	charmAdataperFn func(base.APICallCloser, *charm.URL) (application.BundleResolver, error),
 	modelConsFn func() (application.ModelConstraintsClient, error),
 	args ...string,

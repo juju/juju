@@ -75,7 +75,7 @@ configure_multi_nic_netplan() {
 
 # assert_net_iface_for_endpoint_matches(app_name, endpoint_name, exp_if_name)
 #
-# Verify that the (non-fan) network adapter assigned to the specified endpoint
+# Verify that the (non-fan) network adaptor assigned to the specified endpoint
 # matches the provided value.
 assert_net_iface_for_endpoint_matches() {
 	local app_name endpoint_name exp_if_name
