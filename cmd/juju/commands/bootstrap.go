@@ -394,6 +394,11 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 		}
 	}
 
+	c.BootstrapConstraints, err = constraints.Parse(c.BootstrapConstraintsStr)
+	if err != nil {
+		return errors.Errorf("cannot parse --bootstrap-constraints")
+	}
+
 	if c.Dev {
 		_, b, _, _ := runtime.Caller(0)
 		modCmd := exec.Command("go", "list", "-m", "-json")
@@ -414,8 +419,12 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 			return fmt.Errorf("cannot use juju binary built for --dev")
 		}
 		if c.JujudControllerSnapPath == "" {
+			toolsArch := arch.HostArch()
+			if c.BootstrapConstraints.Arch != nil {
+				toolsArch = *c.BootstrapConstraints.Arch
+			}
 			controllerSnapFile := filepath.Join(mod.Dir, fmt.Sprintf("jujud-controller_%s_%s.snap",
-				jujuversion.Current.String(), arch.HostArch()))
+				jujuversion.Current.String(), toolsArch))
 			if _, err := os.Stat(controllerSnapFile); os.IsNotExist(err) {
 				return errors.NotFoundf("expected jujud-controller snap file %s", controllerSnapFile)
 			} else if err != nil {
@@ -983,7 +992,7 @@ to create a new model to deploy %sworkloads.
 		SupportedBootstrapBases:           supportedBootstrapBases,
 		BootstrapImage:                    c.BootstrapImage,
 		Placement:                         c.Placement,
-		BuildAgent:                        false, // TODO(hpidcock): unpick all this build agent stuff
+		Dev:                               c.Dev,
 		BuildAgentTarball:                 sync.BuildAgentTarball,
 		AgentVersion:                      c.AgentVersion,
 		Cloud:                             cloud,
