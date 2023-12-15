@@ -2140,6 +2140,7 @@ func newDeployCommandForTest(fakeAPI *fakeDeployAPI) *DeployCommand {
 				Connection:        apiRoot,
 				legacyClient:      apiclient.NewClient(apiRoot, coretesting.NoopLogger{}),
 				charmsClient:      apicharms.NewClient(apiRoot),
+				localCharmsClient: apicharms.NewLocalCharmClient(apiRoot),
 				applicationClient: application.NewClient(apiRoot),
 				modelConfigClient: modelconfig.NewClient(apiRoot),
 				annotationsClient: annotations.NewClient(apiRoot),
