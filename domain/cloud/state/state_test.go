@@ -6,7 +6,6 @@ package state
 import (
 	ctx "context"
 	"database/sql"
-	"fmt"
 	"time"
 
 	"github.com/juju/collections/set"
@@ -642,12 +641,12 @@ func (s *stateSuite) TestDeleteCloudInUse(c *gc.C) {
 
 	credUUID := utils.MustNewUUID().String()
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		stmt := fmt.Sprintf(`
+		stmt := `
 INSERT INTO cloud_credential (uuid, name, cloud_uuid, auth_type_id, owner_uuid)
-SELECT '%s', 'default', uuid, 1, 'fred' FROM cloud
+SELECT ?, 'default', uuid, 1, 'fred' FROM cloud
 WHERE cloud.name = ?
-`, credUUID)
-		result, err := tx.ExecContext(ctx, stmt, "fluffy")
+`
+		result, err := tx.ExecContext(ctx, stmt, credUUID, "fluffy")
 		if err != nil {
 			return err
 		}

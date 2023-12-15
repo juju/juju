@@ -4,6 +4,7 @@
 package testing
 
 import (
+	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/domain/schema"
@@ -14,13 +15,21 @@ import (
 // It is pre-populated with the model schema.
 type ModelSuite struct {
 	testing.DqliteSuite
+
+	modelUUID string
 }
 
 // SetUpTest is responsible for setting up a testing database suite initialised
 // with the model schema.
 func (s *ModelSuite) SetUpTest(c *gc.C) {
+	s.modelUUID = utils.MustNewUUID().String()
+
 	s.DqliteSuite.SetUpTest(c)
 	s.DqliteSuite.ApplyDDL(c, &SchemaApplier{
 		Schema: schema.ModelDDL(),
 	})
+}
+
+func (s *ModelSuite) ModelUUID() string {
+	return s.modelUUID
 }
