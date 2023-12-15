@@ -287,6 +287,12 @@ func (f *contextFactory) HookContext(hookInfo hook.Info) (*HookContext, error) {
 	if hookInfo.Kind.IsWorkload() {
 		ctx.workloadName = hookInfo.WorkloadName
 		hookName = fmt.Sprintf("%s-%s", hookInfo.WorkloadName, hookName)
+		switch hookInfo.Kind {
+		case hooks.PebbleCustomNotice:
+			ctx.noticeID = hookInfo.NoticeID
+			ctx.noticeType = hookInfo.NoticeType
+			ctx.noticeKey = hookInfo.NoticeKey
+		}
 	}
 	if hookInfo.Kind == hooks.PreSeriesUpgrade {
 		ctx.baseUpgradeTarget = hookInfo.MachineUpgradeTarget

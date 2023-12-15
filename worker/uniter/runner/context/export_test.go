@@ -197,6 +197,15 @@ func SetEnvironmentHookContextStorage(context *HookContext, storageTag names.Sto
 	context.storageTag = storageTag
 }
 
+// SetEnvironmentHookContextNotice exists purely to set the fields used in hookVars.
+// It makes no assumptions about the validity of context.
+func SetEnvironmentHookContextNotice(context *HookContext, workloadName, noticeID, noticeType, noticeKey string) {
+	context.workloadName = workloadName
+	context.noticeID = noticeID
+	context.noticeType = noticeType
+	context.noticeKey = noticeKey
+}
+
 func PatchCachedStatus(ctx jujuc.Context, status, info string, data map[string]interface{}) func() {
 	hctx := ctx.(*HookContext)
 	oldStatus := hctx.status
