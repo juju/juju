@@ -47,7 +47,7 @@ func AddUserWithPassword(name string, password auth.Password) (user.UUID, func(c
 
 	return uuid, func(ctx context.Context, db database.TxnRunner) error {
 		return errors.Trace(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-			if err = state.BootstrapAddUserWithPassword(
+			if err = state.AddUserWithPassword(
 				ctx,
 				tx,
 				uuid,

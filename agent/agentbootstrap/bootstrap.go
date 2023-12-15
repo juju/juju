@@ -6,7 +6,6 @@ package agentbootstrap
 import (
 	stdcontext "context"
 	"fmt"
-	"github.com/juju/juju/internal/auth"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -42,6 +41,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/space"
+	"github.com/juju/juju/internal/auth"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/mongo"
