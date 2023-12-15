@@ -6,7 +6,7 @@ package upgrade
 import (
 	"github.com/juju/version/v2"
 
-	"github.com/juju/juju/worker/gate"
+	"github.com/juju/juju/internal/worker/gate"
 )
 
 // Version encapsulates the version of Juju that the agent has upgraded to.

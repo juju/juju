@@ -62,14 +62,14 @@ import (
 	"github.com/juju/juju/internal/mongo/mongotest"
 	internalobjectstore "github.com/juju/juju/internal/objectstore"
 	"github.com/juju/juju/internal/pubsub/centralhub"
+	"github.com/juju/juju/internal/worker/lease"
+	wmultiwatcher "github.com/juju/juju/internal/worker/multiwatcher"
 	"github.com/juju/juju/jujuclient"
 	_ "github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
-	"github.com/juju/juju/worker/lease"
-	wmultiwatcher "github.com/juju/juju/worker/multiwatcher"
 )
 
 const AdminSecret = "dummy-secret"

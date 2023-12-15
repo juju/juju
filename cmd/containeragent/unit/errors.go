@@ -7,7 +7,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/worker/v3/dependency"
 
-	"github.com/juju/juju/worker/lifeflag"
+	"github.com/juju/juju/internal/worker/lifeflag"
 )
 
 // ErrRemoved may be returned by some worker started from Manifolds to

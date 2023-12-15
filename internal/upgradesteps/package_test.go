@@ -21,7 +21,7 @@ import (
 
 //go:generate go run go.uber.org/mock/mockgen -package upgradesteps -destination clock_mock_test.go github.com/juju/clock Clock
 //go:generate go run go.uber.org/mock/mockgen -package upgradesteps -destination api_mock_test.go github.com/juju/juju/api/base APICaller
-//go:generate go run go.uber.org/mock/mockgen -package upgradesteps -destination lock_mock_test.go github.com/juju/juju/worker/gate Lock
+//go:generate go run go.uber.org/mock/mockgen -package upgradesteps -destination lock_mock_test.go github.com/juju/juju/internal/worker/gate Lock
 //go:generate go run go.uber.org/mock/mockgen -package upgradesteps -destination agent_mock_test.go github.com/juju/juju/agent Agent,Config,ConfigSetter
 //go:generate go run go.uber.org/mock/mockgen -package upgradesteps -destination status_mock_test.go github.com/juju/juju/internal/upgradesteps StatusSetter
 

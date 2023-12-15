@@ -11,8 +11,8 @@ import (
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/worker/v3"
 
+	jworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/state/watcher"
-	jworker "github.com/juju/juju/worker"
 )
 
 const (

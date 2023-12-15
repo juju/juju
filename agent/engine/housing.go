@@ -8,7 +8,7 @@ import (
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 
-	"github.com/juju/juju/worker/fortress"
+	"github.com/juju/juju/internal/worker/fortress"
 )
 
 // Decorator creates copies of dependency.Manifolds with additional

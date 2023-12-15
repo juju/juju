@@ -10,9 +10,9 @@ import (
 	"github.com/juju/charm/v12/hooks"
 
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/internal/worker/uniter/hook"
+	"github.com/juju/juju/internal/worker/uniter/operation"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/worker/uniter/hook"
-	"github.com/juju/juju/worker/uniter/operation"
 )
 
 // StatusAndErr pairs a StatusInfo with an error associated with

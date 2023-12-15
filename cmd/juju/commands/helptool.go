@@ -15,7 +15,7 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/internal/storage"
-	"github.com/juju/juju/worker/uniter/runner/jujuc"
+	"github.com/juju/juju/internal/worker/uniter/runner/jujuc"
 )
 
 // dummyHookContext implements hooks.Context,

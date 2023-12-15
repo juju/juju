@@ -41,12 +41,12 @@ import (
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/internal/upgrade"
 	"github.com/juju/juju/internal/upgrades"
+	jworker "github.com/juju/juju/internal/worker"
+	"github.com/juju/juju/internal/worker/introspection"
+	"github.com/juju/juju/internal/worker/logsender"
+	uniterworker "github.com/juju/juju/internal/worker/uniter"
 	jnames "github.com/juju/juju/juju/names"
 	jujuversion "github.com/juju/juju/version"
-	jworker "github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/introspection"
-	"github.com/juju/juju/worker/logsender"
-	uniterworker "github.com/juju/juju/worker/uniter"
 )
 
 var (

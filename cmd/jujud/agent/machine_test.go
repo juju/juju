@@ -45,16 +45,16 @@ import (
 	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/tools"
+	jworker "github.com/juju/juju/internal/worker"
+	"github.com/juju/juju/internal/worker/authenticationworker"
+	"github.com/juju/juju/internal/worker/dbaccessor"
+	databasetesting "github.com/juju/juju/internal/worker/dbaccessor/testing"
+	"github.com/juju/juju/internal/worker/diskmanager"
+	"github.com/juju/juju/internal/worker/machiner"
+	"github.com/juju/juju/internal/worker/storageprovisioner"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
-	jworker "github.com/juju/juju/worker"
-	"github.com/juju/juju/worker/authenticationworker"
-	"github.com/juju/juju/worker/dbaccessor"
-	databasetesting "github.com/juju/juju/worker/dbaccessor/testing"
-	"github.com/juju/juju/worker/diskmanager"
-	"github.com/juju/juju/worker/machiner"
-	"github.com/juju/juju/worker/storageprovisioner"
 )
 
 const (

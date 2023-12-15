@@ -15,8 +15,8 @@ import (
 	apitesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/common/lifeflag"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/worker"
 )
 
 type FacadeSuite struct {

@@ -42,13 +42,13 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/docker"
 	pscontroller "github.com/juju/juju/internal/pubsub/controller"
+	"github.com/juju/juju/internal/worker/multiwatcher"
 	jujujujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
-	"github.com/juju/juju/worker/multiwatcher"
 )
 
 type controllerSuite struct {

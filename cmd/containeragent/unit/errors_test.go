@@ -11,7 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/containeragent/unit"
-	"github.com/juju/juju/worker/lifeflag"
+	"github.com/juju/juju/internal/worker/lifeflag"
 )
 
 type ErrorsSuite struct {

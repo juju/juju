@@ -20,9 +20,9 @@ import (
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/internal/pubsub/controller"
 	"github.com/juju/juju/internal/servicefactory"
+	"github.com/juju/juju/internal/worker/objectstore"
+	"github.com/juju/juju/internal/worker/trace"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/worker/objectstore"
-	"github.com/juju/juju/worker/trace"
 )
 
 // SharedHub represents the methods of the pubsub.StructuredHub

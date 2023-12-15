@@ -35,12 +35,12 @@ import (
 	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/internal/mongo/mongotest"
 	coretools "github.com/juju/juju/internal/tools"
+	"github.com/juju/juju/internal/worker/peergrouper"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/peergrouper"
 )
 
 // TODO (stickupkid): Remove this once we have a better way of using a logger
