@@ -286,6 +286,82 @@ func (st *State) SetPasswordHash(ctx context.Context, uuid user.UUID, passwordHa
 	})
 }
 
+// EnableUserAuthentication will enable the user with the supplied UUID. If the user does not
+// exist an error that satisfies usererrors.NotFound will be returned.
+func (st *State) EnableUserAuthentication(ctx context.Context, uuid user.UUID) error {
+	db, err := st.DB()
+	if err != nil {
+		return errors.Annotate(err, "getting DB access")
+	}
+
+	enableUserQuery := `
+INSERT INTO user_authentication (user_uuid, disabled) VALUES ($M.uuid, $M.disabled)
+ON CONFLICT(user_uuid) DO UPDATE SET disabled = excluded.disabled
+WHERE disabled = true
+`
+
+	insertEnableUserStmt, err := sqlair.Prepare(enableUserQuery, sqlair.M{})
+	if err != nil {
+		return errors.Annotate(err, "preparing update enableUserAuthentication query")
+	}
+
+	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		removed, err := st.isRemoved(ctx, tx, uuid)
+		if err != nil {
+			return errors.Annotatef(err, "getting user with uuid %q", uuid)
+		}
+		if removed {
+			return errors.Annotatef(usererrors.NotFound, "%q", uuid)
+		}
+
+		query := tx.Query(ctx, insertEnableUserStmt, sqlair.M{"uuid": uuid.String(), "disabled": false})
+		err = query.Run()
+		if err != nil {
+			return errors.Annotatef(err, "enabling user authentication with uuid %q", uuid)
+		}
+
+		return nil
+	})
+}
+
+// DisableUserAuthentication will disable the user with the supplied UUID. If the user does
+// not exist an error that satisfies usererrors.NotFound will be returned.
+func (st *State) DisableUserAuthentication(ctx context.Context, uuid user.UUID) error {
+	db, err := st.DB()
+	if err != nil {
+		return errors.Annotate(err, "getting DB access")
+	}
+
+	disableUserQuery := `
+INSERT INTO user_authentication (user_uuid, disabled) VALUES ($M.uuid, $M.disabled)
+ON CONFLICT(user_uuid) DO UPDATE SET disabled = excluded.disabled
+WHERE disabled = false
+`
+
+	insertDisableUserStmt, err := sqlair.Prepare(disableUserQuery, sqlair.M{})
+	if err != nil {
+		return errors.Annotate(err, "preparing update disableUserAuthentication query")
+	}
+
+	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		removed, err := st.isRemoved(ctx, tx, uuid)
+		if err != nil {
+			return errors.Annotatef(err, "getting user with uuid %q", uuid)
+		}
+		if removed {
+			return errors.Annotatef(usererrors.NotFound, "%q", uuid)
+		}
+
+		query := tx.Query(ctx, insertDisableUserStmt, sqlair.M{"uuid": uuid.String(), "disabled": true})
+		err = query.Run()
+		if err != nil {
+			return errors.Annotatef(err, "disabling user authentication with uuid %q", uuid)
+		}
+
+		return nil
+	})
+}
+
 // AddUserWithPassword adds a new user to the database with the
 // provided password hash and salt. If the user already exists an error that
 // satisfies usererrors.AlreadyExists will be returned. if the creator does
@@ -381,7 +457,7 @@ WHERE disabled = false
 	}
 
 	if affected == 0 {
-		return errors.Annotatef(usererrors.UserAuthenticationDisabled, "user with uuid %q", uuid)
+		return errors.Annotatef(usererrors.UserAuthenticationDisabled, "%q", uuid)
 	}
 	return nil
 }
