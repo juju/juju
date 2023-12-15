@@ -107,8 +107,8 @@ func (s *crossmodelRelationsSuite) SetUpTest(c *gc.C) {
 
 func (s *crossmodelRelationsSuite) assertPublishRelationsChanges(c *gc.C, lifeValue life.Value, suspendedReason string, forceCleanup bool) {
 	s.st.remoteApplications["db2"] = &mockRemoteApplication{}
-	s.st.remoteEntities[names.NewApplicationOfferTag("db2-offer")] = "token-db2"
-	s.st.offers["db2-offer"] = &crossmodel.ApplicationOffer{
+	s.st.remoteEntities[names.NewApplicationOfferTag("hosted-db2-uuid")] = "token-db2"
+	s.st.offers["hosted-db2-uuid"] = &crossmodel.ApplicationOffer{
 		OfferName: "db2-offer", ApplicationName: "db2"}
 	rel := newMockRelation(1)
 	ru1 := newMockRelationUnit()
@@ -158,7 +158,7 @@ func (s *crossmodelRelationsSuite) assertPublishRelationsChanges(c *gc.C, lifeVa
 	expected := []testing.StubCall{
 		{"GetRemoteEntity", []interface{}{"token-db2:db django:db"}},
 		{"GetRemoteEntity", []interface{}{"token-db2"}},
-		{"AppNameForOffer", []interface{}{"db2-offer"}},
+		{"ApplicationOfferForUUID", []interface{}{"hosted-db2-uuid"}},
 		{"KeyRelation", []interface{}{"db2:db django:db"}},
 	}
 	if lifeValue == life.Alive {
@@ -271,7 +271,7 @@ func (s *crossmodelRelationsSuite) assertRegisterRemoteRelations(c *gc.C) {
 	c.Assert(results.Results, gc.HasLen, 1)
 	result := results.Results[0]
 	c.Assert(result.Error, gc.IsNil)
-	c.Check(result.Result.Token, gc.Equals, "token-offered")
+	c.Check(result.Result.Token, gc.Equals, "token-offer-uuid")
 	declared := checkers.InferDeclared(nil, macaroon.Slice{result.Result.Macaroon})
 	c.Assert(declared, jc.DeepEquals, map[string]string{
 		"source-model-uuid": "deadbeef-0bad-400d-8000-4b1d0d06f00d",
@@ -295,7 +295,7 @@ func (s *crossmodelRelationsSuite) assertRegisterRemoteRelations(c *gc.C) {
 	expectedRel.Stub = testing.Stub{} // don't care about api calls
 	c.Check(expectedRel, jc.DeepEquals, &mockRelation{id: 0, key: "offeredapp:local remote-apptoken:remote"})
 	c.Check(s.st.remoteEntities, gc.HasLen, 2)
-	c.Check(s.st.remoteEntities[names.NewApplicationOfferTag("offered")], gc.Equals, "token-offered")
+	c.Check(s.st.remoteEntities[names.NewApplicationOfferTag("offer-uuid")], gc.Equals, "token-offer-uuid")
 	c.Check(s.st.remoteEntities[names.NewRelationTag("offeredapp:local remote-apptoken:remote")], gc.Equals, "rel-token")
 	c.Assert(s.st.offerConnections, gc.HasLen, 1)
 	offerConnection := s.st.offerConnections[0]
@@ -558,7 +558,7 @@ func (s *crossmodelRelationsSuite) TestWatchOfferStatus(c *gc.C) {
 		OfferName: "hosted-mysql", OfferUUID: "mysql-uuid", ApplicationName: "mysql"}
 	app := &mockApplication{name: "mysql", appStatus: status.Waiting}
 	s.st.applications["mysql"] = app
-	s.st.remoteEntities[names.NewApplicationOfferTag("hosted-mysql")] = "token-hosted-mysql"
+	s.st.remoteEntities[names.NewApplicationOfferTag("mysql-uuid")] = "token-hosted-mysql"
 	mac, err := s.bakery.NewMacaroon(
 		context.TODO(),
 		bakery.LatestVersion,
@@ -600,6 +600,7 @@ func (s *crossmodelRelationsSuite) TestWatchOfferStatus(c *gc.C) {
 	c.Assert(s.watchedOffers, jc.DeepEquals, []string{"mysql-uuid"})
 	s.st.CheckCalls(c, []testing.StubCall{
 		{"IsMigrationActive", nil},
+		{"ApplicationOfferForUUID", []interface{}{"mysql-uuid"}},
 		{"Application", []interface{}{"mysql"}},
 	})
 	app.CheckCalls(c, []testing.StubCall{
@@ -609,8 +610,8 @@ func (s *crossmodelRelationsSuite) TestWatchOfferStatus(c *gc.C) {
 
 func (s *crossmodelRelationsSuite) TestPublishChangesWithApplicationSettingsRemoteEntityOfferTag(c *gc.C) {
 	s.st.remoteApplications["db2"] = &mockRemoteApplication{}
-	s.st.remoteEntities[names.NewApplicationOfferTag("db2-offer")] = "token-db2"
-	s.st.offers["db2-offer"] = &crossmodel.ApplicationOffer{
+	s.st.remoteEntities[names.NewApplicationOfferTag("hosted-db2-uuid")] = "token-db2"
+	s.st.offers["hosted-db2-uuid"] = &crossmodel.ApplicationOffer{
 		OfferName: "db2-offer", ApplicationName: "db2"}
 	rel := newMockRelation(1)
 	ru1 := newMockRelationUnit()
@@ -659,7 +660,7 @@ func (s *crossmodelRelationsSuite) TestPublishChangesWithApplicationSettingsRemo
 	expected := []testing.StubCall{
 		{"GetRemoteEntity", []interface{}{"token-db2:db django:db"}},
 		{"GetRemoteEntity", []interface{}{"token-db2"}},
-		{"AppNameForOffer", []interface{}{"db2-offer"}},
+		{"ApplicationOfferForUUID", []interface{}{"hosted-db2-uuid"}},
 		{"KeyRelation", []interface{}{"db2:db django:db"}},
 	}
 	s.st.CheckCalls(c, expected)
@@ -679,7 +680,7 @@ func (s *crossmodelRelationsSuite) TestPublishChangesWithApplicationSettingsRemo
 func (s *crossmodelRelationsSuite) TestPublishChangesWithApplicationSettingsRemoteEntityApplicationTag(c *gc.C) {
 	s.st.remoteApplications["db2"] = &mockRemoteApplication{}
 	s.st.remoteEntities[names.NewApplicationTag("db2")] = "token-db2"
-	s.st.offers["db2-offer"] = &crossmodel.ApplicationOffer{
+	s.st.offers["hosted-db2-uuid"] = &crossmodel.ApplicationOffer{
 		OfferName: "db2-offer", ApplicationName: "db2"}
 	rel := newMockRelation(1)
 	ru1 := newMockRelationUnit()
@@ -798,7 +799,7 @@ func (s *crossmodelRelationsSuite) TestWatchRelationChanges(c *gc.C) {
 	s.st.remoteApplications["db2"] = &mockRemoteApplication{}
 	s.st.remoteEntities[names.NewApplicationTag("db2")] = "token-db2"
 	s.st.applications["django"] = &mockApplication{}
-	s.st.remoteEntities[names.NewApplicationTag("offer-django")] = "token-offer-django"
+	s.st.remoteEntities[names.NewApplicationOfferTag("hosted-db2-uuid")] = "token-hosted-db2"
 	rel := newMockRelation(1)
 	ru1 := newMockRelationUnit()
 	ru2 := newMockRelationUnit()
@@ -840,7 +841,7 @@ func (s *crossmodelRelationsSuite) TestWatchRelationChanges(c *gc.C) {
 		relationKey:     "db2:db django:db",
 		relationId:      1,
 	}
-	s.st.offerNames["db2:db django:db"] = "offer-django"
+	s.st.offerUUIDs["db2:db django:db"] = "hosted-db2-uuid"
 	s.st.remoteEntities[names.NewRelationTag("db2:db django:db")] = "token-db2:db django:db"
 	mac, err := s.bakery.NewMacaroon(
 		context.TODO(),
@@ -865,7 +866,7 @@ func (s *crossmodelRelationsSuite) TestWatchRelationChanges(c *gc.C) {
 			RemoteRelationWatcherId: "1",
 			Changes: params.RemoteRelationChangeEvent{
 				RelationToken:    "token-db2:db django:db",
-				ApplicationToken: "token-offer-django",
+				ApplicationToken: "token-hosted-db2",
 				Macaroons:        nil,
 				UnitCount:        &uc,
 				ApplicationSettings: map[string]interface{}{
@@ -889,7 +890,7 @@ func (s *crossmodelRelationsSuite) TestWatchRelationChanges(c *gc.C) {
 	outw, ok := resource.(*commoncrossmodel.WrappedUnitsWatcher)
 	c.Assert(ok, gc.Equals, true)
 	c.Assert(outw.RelationToken, gc.Equals, "token-db2:db django:db")
-	c.Assert(outw.ApplicationToken, gc.Equals, "token-offer-django")
+	c.Assert(outw.ApplicationToken, gc.Equals, "token-hosted-db2")
 
 	// TODO(babbageclunk): add locking around updating mock
 	// relation/relunit settings.

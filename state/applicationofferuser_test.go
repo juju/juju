@@ -43,7 +43,7 @@ func (s *ApplicationOfferUserSuite) makeOffer(c *gc.C, access permission.Access)
 	_, err = s.State.GetOfferAccess(offer.OfferUUID, user.UserTag())
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
-	err = s.State.CreateOfferAccess(names.NewApplicationOfferTag(offer.OfferName), user.UserTag(), access)
+	err = s.State.CreateOfferAccess(names.NewApplicationOfferTag(offer.OfferUUID), user.UserTag(), access)
 	c.Assert(err, jc.ErrorIsNil)
 	return offer, user.UserTag()
 }
@@ -92,7 +92,7 @@ func (s *ApplicationOfferUserSuite) TestAddAdminModelUser(c *gc.C) {
 
 func (s *ApplicationOfferUserSuite) TestUpdateOfferAccess(c *gc.C) {
 	offer, user := s.makeOffer(c, permission.AdminAccess)
-	err := s.State.UpdateOfferAccess(names.NewApplicationOfferTag(offer.OfferName), user, permission.ReadAccess)
+	err := s.State.UpdateOfferAccess(names.NewApplicationOfferTag(offer.OfferUUID), user, permission.ReadAccess)
 	c.Assert(err, jc.ErrorIsNil)
 
 	access, err := s.State.GetOfferAccess(offer.OfferUUID, user)
@@ -127,7 +127,7 @@ func (s *ApplicationOfferUserSuite) TestUpdateOfferAccessSetsRelationSuspended(c
 	rel := s.setupOfferRelation(c, offer.OfferUUID, user.Name())
 
 	// Downgrade consume access and check the relation is suspended.
-	err := s.State.UpdateOfferAccess(names.NewApplicationOfferTag(offer.OfferName), user, permission.ReadAccess)
+	err := s.State.UpdateOfferAccess(names.NewApplicationOfferTag(offer.OfferUUID), user, permission.ReadAccess)
 	c.Assert(err, jc.ErrorIsNil)
 	err = rel.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
@@ -164,7 +164,7 @@ func (s *ApplicationOfferUserSuite) TestUpdateOfferAccessSetsRelationSuspendedRa
 	}).Check()
 
 	// Downgrade consume access and check both relations are suspended.
-	err := s.State.UpdateOfferAccess(names.NewApplicationOfferTag(offer.OfferName), user, permission.ReadAccess)
+	err := s.State.UpdateOfferAccess(names.NewApplicationOfferTag(offer.OfferUUID), user, permission.ReadAccess)
 	c.Assert(err, jc.ErrorIsNil)
 	err = rel.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
@@ -184,7 +184,7 @@ func (s *ApplicationOfferUserSuite) TestCreateOfferAccessNoUserFails(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.CreateOfferAccess(
-		names.NewApplicationOfferTag("someoffer"),
+		names.NewApplicationOfferTag("someoffer-uuid"),
 		names.NewUserTag("validusername"), permission.ReadAccess)
 	c.Assert(err, gc.ErrorMatches, `user "validusername" does not exist locally: user "validusername" not found`)
 }
@@ -192,7 +192,7 @@ func (s *ApplicationOfferUserSuite) TestCreateOfferAccessNoUserFails(c *gc.C) {
 func (s *ApplicationOfferUserSuite) TestRemoveOfferAccess(c *gc.C) {
 	offer, user := s.makeOffer(c, permission.ConsumeAccess)
 
-	err := s.State.RemoveOfferAccess(names.NewApplicationOfferTag(offer.OfferName), user)
+	err := s.State.RemoveOfferAccess(names.NewApplicationOfferTag(offer.OfferUUID), user)
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = s.State.GetOfferAccess(offer.OfferUUID, user)
@@ -201,7 +201,7 @@ func (s *ApplicationOfferUserSuite) TestRemoveOfferAccess(c *gc.C) {
 
 func (s *ApplicationOfferUserSuite) TestRemoveOfferAccessNoUser(c *gc.C) {
 	offer, _ := s.makeOffer(c, permission.ConsumeAccess)
-	err := s.State.RemoveOfferAccess(names.NewApplicationOfferTag(offer.OfferName), names.NewUserTag("fred"))
+	err := s.State.RemoveOfferAccess(names.NewApplicationOfferTag(offer.OfferUUID), names.NewUserTag("fred"))
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
@@ -210,7 +210,7 @@ func (s *ApplicationOfferUserSuite) TestRemoveOfferAccessSetsRelationSuspended(c
 	rel := s.setupOfferRelation(c, offer.OfferUUID, user.Name())
 
 	// Remove any access and check the relation is suspended.
-	err := s.State.RemoveOfferAccess(names.NewApplicationOfferTag(offer.OfferName), user)
+	err := s.State.RemoveOfferAccess(names.NewApplicationOfferTag(offer.OfferUUID), user)
 	c.Assert(err, jc.ErrorIsNil)
 	err = rel.Refresh()
 	c.Assert(err, jc.ErrorIsNil)

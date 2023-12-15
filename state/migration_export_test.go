@@ -760,7 +760,7 @@ func (s *MigrationExportSuite) TestApplicationExposingOffers(c *gc.C) {
 
 	// Allow "foo" to consume offer
 	err = s.State.CreateOfferAccess(
-		names.NewApplicationOfferTag("my-offer"),
+		names.NewApplicationOfferTag(stOffer.OfferUUID),
 		fooUser.UserTag(),
 		permission.ConsumeAccess,
 	)

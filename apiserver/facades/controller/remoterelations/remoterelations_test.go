@@ -449,7 +449,6 @@ func (s *remoteRelationsSuite) TestConsumeRelationResumePermission(c *gc.C) {
 	s.st.EXPECT().ControllerTag().Return(coretesting.ControllerTag)
 	s.st.EXPECT().ModelTag().Return(coretesting.ModelTag)
 	s.st.EXPECT().OfferConnectionForRelation(db2Relation.key).Return(offerConn, nil)
-	s.st.EXPECT().ApplicationOfferForUUID("offer-uuid").Return(&crossmodel.ApplicationOffer{ApplicationName: "django"}, nil)
 
 	result, err := s.api.ConsumeRemoteRelationChanges(changes)
 	c.Assert(err, jc.ErrorIsNil)

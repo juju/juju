@@ -117,14 +117,14 @@ func (s *offerAccessSuite) TestRevokeAdminLeavesReadAccess(c *gc.C) {
 	st.(*mockState).users["foobar"] = &mockUser{"foobar"}
 
 	user := names.NewUserTag("foobar")
-	offer := names.NewApplicationOfferTag("someoffer")
+	offer := names.NewApplicationOfferTag("someoffer-uuid")
 	err := st.CreateOfferAccess(offer, user, permission.ConsumeAccess)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.revoke(c, user, params.OfferConsumeAccess, "test.someoffer")
 	c.Assert(err, jc.ErrorIsNil)
 
-	access, err := st.GetOfferAccess(offer.Id()+"-uuid", user)
+	access, err := st.GetOfferAccess(offer.Id(), user)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(access, gc.Equals, permission.ReadAccess)
 }
@@ -135,14 +135,14 @@ func (s *offerAccessSuite) TestRevokeReadRemovesPermission(c *gc.C) {
 	st.(*mockState).users["foobar"] = &mockUser{"foobar"}
 
 	user := names.NewUserTag("foobar")
-	offer := names.NewApplicationOfferTag("someoffer")
+	offer := names.NewApplicationOfferTag("someoffer-uuid")
 	err := st.CreateOfferAccess(offer, user, permission.ConsumeAccess)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.revoke(c, user, params.OfferReadAccess, "test.someoffer")
 	c.Assert(err, gc.IsNil)
 
-	_, err = st.GetOfferAccess(offer.Id()+"-uuid", user)
+	_, err = st.GetOfferAccess(offer.Id(), user)
 	c.Assert(errors.IsNotFound(err), jc.IsTrue)
 }
 
@@ -154,8 +154,8 @@ func (s *offerAccessSuite) TestRevokeMissingUser(c *gc.C) {
 	err := s.revoke(c, user, params.OfferReadAccess, "test.someoffer")
 	c.Assert(err, gc.ErrorMatches, `could not revoke offer access: offer user "bob" does not exist`)
 
-	offer := names.NewApplicationOfferTag("someoffer")
-	_, err = st.GetOfferAccess(offer.Id()+"-uuid", user)
+	offer := names.NewApplicationOfferTag("someoffer-uuid")
+	_, err = st.GetOfferAccess(offer.Id(), user)
 	c.Assert(errors.IsNotFound(err), jc.IsTrue)
 }
 
@@ -184,8 +184,8 @@ func (s *offerAccessSuite) assertGrantOfferAddUser(c *gc.C, user names.UserTag) 
 	err := s.grant(c, user, params.OfferReadAccess, "superuser-bob/test.someoffer")
 	c.Assert(err, jc.ErrorIsNil)
 
-	offer := names.NewApplicationOfferTag("someoffer")
-	access, err := st.GetOfferAccess(offer.Id()+"-uuid", user)
+	offer := names.NewApplicationOfferTag("someoffer-uuid")
+	access, err := st.GetOfferAccess(offer.Id(), user)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(access, gc.Equals, permission.ReadAccess)
 }
@@ -210,8 +210,8 @@ func (s *offerAccessSuite) TestGrantOfferSuperUser(c *gc.C) {
 	err := s.grant(c, other, params.OfferReadAccess, "superuser-bob/test.someoffer")
 	c.Assert(err, jc.ErrorIsNil)
 
-	offer := names.NewApplicationOfferTag("someoffer")
-	access, err := st.GetOfferAccess(offer.Id()+"-uuid", other)
+	offer := names.NewApplicationOfferTag("someoffer-uuid")
+	access, err := st.GetOfferAccess(offer.Id(), other)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(access, gc.Equals, permission.ReadAccess)
 }
@@ -225,14 +225,14 @@ func (s *offerAccessSuite) TestGrantIncreaseAccess(c *gc.C) {
 	s.authorizer.Tag = user
 	s.authorizer.AdminTag = user
 
-	offer := names.NewApplicationOfferTag("someoffer")
+	offer := names.NewApplicationOfferTag("someoffer-uuid")
 	err := st.CreateOfferAccess(offer, user, permission.ReadAccess)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.grant(c, user, params.OfferConsumeAccess, "other/test.someoffer")
 	c.Assert(err, jc.ErrorIsNil)
 
-	access, err := st.GetOfferAccess(offer.Id()+"-uuid", user)
+	access, err := st.GetOfferAccess(offer.Id(), user)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(access, gc.Equals, permission.ConsumeAccess)
 }
@@ -260,7 +260,7 @@ func (s *offerAccessSuite) assertGrantToOffer(c *gc.C, userAccess permission.Acc
 	user := names.NewUserTag("bob@remote")
 	s.authorizer.Tag = user
 
-	offer := names.NewApplicationOfferTag("someoffer")
+	offer := names.NewApplicationOfferTag("someoffer-uuid")
 	err := st.CreateOfferAccess(offer, user, userAccess)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -286,7 +286,7 @@ func (s *offerAccessSuite) TestGrantToOfferAdminAccess(c *gc.C) {
 	user := names.NewUserTag("foobar")
 	s.authorizer.Tag = user
 	s.authorizer.AdminTag = user
-	offer := names.NewApplicationOfferTag("someoffer")
+	offer := names.NewApplicationOfferTag("someoffer-uuid")
 	err := st.CreateOfferAccess(offer, user, permission.AdminAccess)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -294,7 +294,7 @@ func (s *offerAccessSuite) TestGrantToOfferAdminAccess(c *gc.C) {
 	err = s.grant(c, other, params.OfferReadAccess, "foobar/test.someoffer")
 	c.Assert(err, jc.ErrorIsNil)
 
-	access, err := st.GetOfferAccess(offer.Id()+"-uuid", other)
+	access, err := st.GetOfferAccess(offer.Id(), other)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(access, gc.Equals, permission.ReadAccess)
 }
