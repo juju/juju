@@ -6,6 +6,7 @@ package agentbootstrap
 import (
 	stdcontext "context"
 	"fmt"
+	"github.com/juju/juju/internal/auth"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -235,6 +236,10 @@ func (b *AgentBootstrap) Initialize(ctx stdcontext.Context) (_ *state.Controller
 		stateParams.ControllerInheritedConfig,
 		stateParams.RegionInheritedConfig[stateParams.ControllerCloudRegion])
 
+	// Add initial Admin user to the database. This will return Admin user UUID
+	// and a function to insert it into the database.
+	_, addAdminUser := userbootstrap.AddUserWithPassword(b.adminUser.Name(), auth.NewPassword(info.Password))
+
 	if err := b.bootstrapDqlite(
 		ctx,
 		database.NewNodeManager(b.agentConfig, b.logger, coredatabase.NoopSlowQueryLogger{}),
@@ -246,7 +251,7 @@ func (b *AgentBootstrap) Initialize(ctx stdcontext.Context) (_ *state.Controller
 			credbootstrap.InsertCredential(credential.IdFromTag(cloudCredTag), cloudCred),
 			cloudbootstrap.SetCloudDefaults(stateParams.ControllerCloud.Name, stateParams.ControllerInheritedConfig),
 			modelbootstrap.CreateModel(controllerUUID, controllerModelArgs),
-			userbootstrap.GenerateAdminUser(b.adminUser.Name(), info.Password),
+			addAdminUser,
 		),
 		database.BootstrapModelConcern(controllerUUID,
 			modelconfigbootstrap.SetModelConfig(stateParams.ControllerModelConfig, controllerModelDefaults),

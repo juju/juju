@@ -10,6 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	schematesting "github.com/juju/juju/domain/schema/testing"
+	"github.com/juju/juju/internal/auth"
 )
 
 type bootstrapSuite struct {
@@ -18,10 +19,12 @@ type bootstrapSuite struct {
 
 var _ = gc.Suite(&bootstrapSuite{})
 
-func (s *bootstrapSuite) TestGenerateAdminUser(c *gc.C) {
+func (s *bootstrapSuite) TestAddUserWithPassword(c *gc.C) {
 	ctx := context.Background()
-	err := GenerateAdminUser("admin", "password")(ctx, s.TxnRunner())
+	uuid, addAdminUser := AddUserWithPassword("admin", auth.NewPassword("password"))
+	err := addAdminUser(ctx, s.TxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(uuid.Validate(), jc.ErrorIsNil)
 
 	// Check that the user was created.
 	var name string

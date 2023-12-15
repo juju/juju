@@ -15,48 +15,47 @@ import (
 	"github.com/juju/juju/internal/auth"
 )
 
-// GenerateAdminUser inserts the admin user into database.
+// AddUserWithPassword inserts the admin user into database.
 // It is used to bootstrap the database.
 //
 // Admin user is created with the following characteristics:
 // 1. This is first user created in the system.
 // 2. This user is used to owner of the first model created in the system.
 // 3. This user is created with no password authorization by default.
-func GenerateAdminUser(adminName string, password string) func(context.Context, database.TxnRunner) error {
-	adminUserUUID, err := user.NewUUID()
+func AddUserWithPassword(name string, password auth.Password) (user.UUID, func(context.Context, database.TxnRunner) error) {
+	defer password.Destroy()
+	uuid, err := user.NewUUID()
 	if err != nil {
-		return func(context.Context, database.TxnRunner) error {
+		return "", func(context.Context, database.TxnRunner) error {
 			return errors.Annotate(err, "generating uuid for bootstrap admin user")
 		}
 	}
 
-	adminPassword := auth.NewPassword(password)
-
 	salt, err := auth.NewSalt()
 	if err != nil {
-		return func(context.Context, database.TxnRunner) error {
+		return "", func(context.Context, database.TxnRunner) error {
 			return errors.Annotate(err, "generating salt for bootstrap admin user")
 		}
 	}
 
-	pwHash, err := auth.HashPassword(adminPassword, salt)
+	pwHash, err := auth.HashPassword(password, salt)
 	if err != nil {
-		return func(context.Context, database.TxnRunner) error {
+		return "", func(context.Context, database.TxnRunner) error {
 			return errors.Annotate(err, "generating password hash for bootstrap admin user")
 		}
 	}
 
-	return func(ctx context.Context, db database.TxnRunner) error {
+	return uuid, func(ctx context.Context, db database.TxnRunner) error {
 		return errors.Trace(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 			if err = state.BootstrapAddUserWithPassword(
 				ctx,
 				tx,
-				adminUserUUID,
+				uuid,
 				user.User{
-					Name:        adminName,
-					DisplayName: adminName,
+					Name:        name,
+					DisplayName: name,
 				},
-				adminUserUUID,
+				uuid,
 				pwHash,
 				salt,
 			); err != nil {
