@@ -138,10 +138,6 @@ endef
 # install is run.
 define INSTALL_TARGETS
 	juju \
-	jujuc \
-	jujud \
-	jujud-controller \
-	containeragent \
 	juju-metadata
 endef
 
@@ -700,3 +696,7 @@ rev:
 ## rev: increase the builder number
 	@printf $$(($(JUJU_BUILD_NUMBER)+1)) > $(BUILD_DIR)/build.number
 	@cat $(BUILD_DIR)/build.number
+
+.PHONY: controller
+controller: rebuild-schema go-agent-build resnap-controller
+## controller: build everything for the controller and agents
