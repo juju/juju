@@ -27,12 +27,14 @@ type Upgrader interface {
 	DesiredVersion(args params.Entities) (params.VersionResults, error)
 	Tools(args params.Entities) (params.ToolsResults, error)
 	SetTools(args params.EntitiesVersion) (params.ErrorResults, error)
+	ControllerConfig() (params.ControllerConfigResult, error)
 }
 
 // UpgraderAPI provides access to the Upgrader API facade.
 type UpgraderAPI struct {
 	*common.ToolsGetter
 	*common.ToolsSetter
+	*common.ControllerConfigAPI
 
 	st         *state.State
 	m          *state.Model
@@ -62,12 +64,13 @@ func NewUpgraderAPI(
 	newEnviron := common.EnvironFuncForModel(model, configGetter)
 	toolsFinder := common.NewToolsFinder(configGetter, st, urlGetter, newEnviron)
 	return &UpgraderAPI{
-		ToolsGetter: common.NewToolsGetter(st, configGetter, st, urlGetter, toolsFinder, getCanReadWrite),
-		ToolsSetter: common.NewToolsSetter(st, getCanReadWrite),
-		st:          st,
-		m:           model,
-		resources:   resources,
-		authorizer:  authorizer,
+		ToolsGetter:         common.NewToolsGetter(st, configGetter, st, urlGetter, toolsFinder, getCanReadWrite),
+		ToolsSetter:         common.NewToolsSetter(st, getCanReadWrite),
+		ControllerConfigAPI: common.NewStateControllerConfig(ctrlSt),
+		st:                  st,
+		m:                   model,
+		resources:           resources,
+		authorizer:          authorizer,
 	}, nil
 }
 

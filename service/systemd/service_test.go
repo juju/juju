@@ -233,30 +233,6 @@ func (s *initSystemSuite) TestNewServiceBasic(c *gc.C) {
 	c.Check(svc.DirName, gc.Equals, systemd.EtcSystemdDir)
 }
 
-func (s *initSystemSuite) TestNewServiceExtraScript(c *gc.C) {
-	s.conf.ExtraScript = "'/path/to/another/command'"
-	svc := s.newService(c)
-
-	script := `
-#!/usr/bin/env bash
-
-'/path/to/another/command'
-`[1:] + jujud + " machine-0"
-
-	c.Check(svc.Service, jc.DeepEquals, common.Service{
-		Name: s.name,
-		Conf: common.Conf{
-			Desc:      s.conf.Desc,
-			ExecStart: path.Join(svc.DirName, svc.Name()+"-exec-start.sh"),
-		},
-	})
-
-	c.Check(svc.ConfName, gc.Equals, s.name+".service")
-	c.Check(svc.UnitName, gc.Equals, s.name+".service")
-	c.Check(svc.DirName, gc.Equals, systemd.EtcSystemdDir)
-	c.Check(string(svc.Script), gc.Equals, script)
-}
-
 func (s *initSystemSuite) TestNewServiceMultiLine(c *gc.C) {
 	s.conf.ExecStart = "a\nb\nc"
 	svc := s.newService(c)

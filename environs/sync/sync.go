@@ -16,6 +16,7 @@ import (
 	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
 
+	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
@@ -219,36 +220,6 @@ func copyOneToolsPackage(toolsDir, stream string, tools *coretools.Tools, u Tool
 	return u.UploadTools(toolsDir, stream, tools, buf.Bytes())
 }
 
-// UploadFunc is the type of Upload, which may be
-// reassigned to control the behaviour of tools
-// uploading.
-type UploadFunc func(
-	envtools.SimplestreamsFetcher, storage.Storage, string,
-	func(vers version.Number) version.Number,
-) (*coretools.Tools, error)
-
-// Upload is exported for testing.
-var Upload UploadFunc = upload
-
-// upload builds whatever version of github.com/juju/juju is in $GOPATH,
-// uploads it to the given storage, and returns a Tools instance describing
-// them. If forceVersion is not nil, the uploaded tools bundle will report
-// the given version number.
-func upload(
-	ss envtools.SimplestreamsFetcher, store storage.Storage, stream string,
-	f func(vers version.Number) version.Number,
-) (*coretools.Tools, error) {
-	if f == nil {
-		f = func(vers version.Number) version.Number { return vers }
-	}
-	builtTools, err := BuildAgentTarball(true, stream, f)
-	if err != nil {
-		return nil, err
-	}
-	defer os.RemoveAll(builtTools.Dir)
-	return syncBuiltTools(ss, store, stream, builtTools)
-}
-
 // generateAgentMetadata copies the built tools tarball into a tarball for the specified
 // stream and series and generates corresponding metadata.
 func generateAgentMetadata(ss envtools.SimplestreamsFetcher, toolsInfo *BuiltAgent, stream string) error {
@@ -273,7 +244,6 @@ func generateAgentMetadata(ss envtools.SimplestreamsFetcher, toolsInfo *BuiltAge
 // a call to BundleTools.
 type BuiltAgent struct {
 	Version     version.Binary
-	Official    bool
 	Dir         string
 	StorageName string
 	Sha256Hash  string
@@ -281,22 +251,11 @@ type BuiltAgent struct {
 }
 
 // BuildAgentTarballFunc is a function which can build an agent tarball.
-type BuildAgentTarballFunc func(
-	build bool, stream string, getForceVersion func(version.Number) version.Number,
-) (*BuiltAgent, error)
-
-// Override for testing.
-var BuildAgentTarball BuildAgentTarballFunc = buildAgentTarball
+type BuildAgentTarballFunc func(devSrcDir string, stream string, arch arch.Arch) (*BuiltAgent, error)
 
 // BuildAgentTarball bundles an agent tarball and places it in a temp directory in
 // the expected agent path.
-func buildAgentTarball(
-	build bool, stream string,
-	getForceVersion func(version.Number) version.Number,
-) (_ *BuiltAgent, err error) {
-	// TODO(rog) find binaries from $PATH when not using a development
-	// version of juju within a $GOPATH.
-
+func BuildAgentTarball(devSrcDir string, stream string, arch arch.Arch) (_ *BuiltAgent, err error) {
 	logger.Debugf("Making agent binary tarball")
 	// We create the entire archive before asking the environment to
 	// start uploading so that we can be sure we have archived
@@ -310,15 +269,13 @@ func buildAgentTarball(
 		_ = os.Remove(f.Name())
 	}()
 
-	toolsVersion, forceVersion, official, sha256Hash, err := envtools.BundleTools(build, f, getForceVersion)
+	toolsVersion, sha256Hash, err := envtools.BundleTools(devSrcDir, arch, f)
 	if err != nil {
 		return nil, err
 	}
 	// Built agent version needs to match the client used to bootstrap.
 	builtVersion := toolsVersion
-	builtVersion.Build = 0
 	clientVersion := jujuversion.Current
-	clientVersion.Build = 0
 	if builtVersion.Number.Compare(clientVersion) != 0 {
 		return nil, errors.Errorf(
 			"agent binary %v not compatible with bootstrap client %v",
@@ -331,10 +288,7 @@ func buildAgentTarball(
 	}
 	size := fileInfo.Size()
 	agentBinary := "agent binary"
-	if official {
-		agentBinary = "official agent binary"
-	}
-	logger.Infof("using %s %v aliased to %v (%dkB)", agentBinary, toolsVersion, forceVersion, (size+512)/1024)
+	logger.Infof("using %s %v (%dkB)", agentBinary, toolsVersion, (size+512)/1024)
 
 	baseToolsDir, err := os.MkdirTemp("", "juju-tools")
 	if err != nil {
@@ -359,7 +313,6 @@ func buildAgentTarball(
 	}
 	return &BuiltAgent{
 		Version:     toolsVersion,
-		Official:    official,
 		Dir:         baseToolsDir,
 		StorageName: storageName,
 		Size:        size,

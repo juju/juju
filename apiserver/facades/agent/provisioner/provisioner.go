@@ -4,6 +4,7 @@
 package provisioner
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/juju/collections/set"
@@ -23,6 +24,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/lxdprofile"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -659,6 +661,37 @@ func (api *ProvisionerAPI) FindTools(args params.FindToolsParams) (params.FindTo
 		List:  list,
 		Error: apiservererrors.ServerError(err),
 	}, nil
+}
+
+func (api *ProvisionerAPI) SnapSearchURLs() (params.StringsResult, error) {
+	if !api.authorizer.AuthController() {
+		return params.StringsResult{}, apiservererrors.ErrPerm
+	}
+
+	res := params.StringsResult{}
+	apiHostPorts, err := api.st.APIHostPortsForAgents()
+	if err != nil {
+		res.Error = apiservererrors.ServerError(err)
+		return params.StringsResult{}, nil
+	}
+	var addrs = make([]string, 0, len(apiHostPorts))
+	for _, hostPorts := range apiHostPorts {
+		ordered := hostPorts.HostPorts().PrioritizedForScope(network.ScopeMatchCloudLocal)
+		for _, addr := range ordered {
+			if addr != "" {
+				addrs = append(addrs, addr)
+			}
+		}
+	}
+	if len(addrs) == 0 {
+		res.Error = apiservererrors.ServerError(errors.Errorf("no suitable API server address to pick from"))
+		return params.StringsResult{}, nil
+	}
+	controllerModelUUID := api.st.ControllerModelUUID()
+	for _, addr := range addrs {
+		res.Result = append(res.Result, fmt.Sprintf("https://%s/model-%s/snaps/", addr, controllerModelUUID))
+	}
+	return res, nil
 }
 
 // SetInstanceInfo sets the provider specific machine id, nonce,

@@ -11,8 +11,8 @@ import (
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cmd/jujud-controller/agent/model"
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
-	"github.com/juju/juju/cmd/jujud/agent/model"
 	"github.com/juju/juju/testing"
 )
 
@@ -31,7 +31,7 @@ func (s *ManifoldsSuite) TestIAASNames(c *gc.C) {
 	for name := range manifolds {
 		actual.Add(name)
 	}
-	// NOTE: if this test failed, the cmd/jujud/agent tests will
+	// NOTE: if this test failed, the cmd/jujud-controller/agent tests will
 	// also fail. Search for 'ModelWorkers' to find affected vars.
 	c.Check(actual.SortedValues(), jc.DeepEquals, []string{
 		"action-pruner",
@@ -81,7 +81,7 @@ func (s *ManifoldsSuite) TestCAASNames(c *gc.C) {
 	for name := range manifolds {
 		actual.Add(name)
 	}
-	// NOTE: if this test failed, the cmd/jujud/agent tests will
+	// NOTE: if this test failed, the cmd/jujud-controller/agent tests will
 	// also fail. Search for 'ModelWorkers' to find affected vars.
 	c.Check(actual.SortedValues(), jc.DeepEquals, []string{
 		"action-pruner",

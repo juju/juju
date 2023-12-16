@@ -648,6 +648,7 @@ func (s *legacyEnvironBrokerSuite) TestNotBootstrapping(c *gc.C) {
 			Addrs:    []string{"hey:123"},
 			Password: "mypassword1!",
 		},
+		false,
 	)
 
 	c.Assert(err, jc.ErrorIsNil)

@@ -645,6 +645,7 @@ func (srv *Server) loop(ready chan struct{}) error {
 func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 	const modelRoutePrefix = "/model/:modeluuid"
 	const charmsObjectsRoutePrefix = "/:bucket/charms/:object"
+	const snapsObjectRoutePrefix = "/:bucket/snaps/:object"
 
 	type handler struct {
 		pattern         string
@@ -687,6 +688,11 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 					Query:   ":modeluuid",
 				}
 			} else if strings.HasPrefix(handler.pattern, charmsObjectsRoutePrefix) {
+				h = &httpcontext.BucketModelHandler{
+					Handler: h,
+					Query:   ":bucket",
+				}
+			} else if strings.HasPrefix(handler.pattern, snapsObjectRoutePrefix) {
 				h = &httpcontext.BucketModelHandler{
 					Handler: h,
 					Query:   ":bucket",
@@ -983,6 +989,11 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		pattern: charmsObjectsRoutePrefix,
 		methods: []string{"GET"},
 		handler: modelObjectsCharmsHTTPHandler,
+	}, {
+		pattern:         snapsObjectRoutePrefix,
+		methods:         []string{"GET"},
+		handler:         newSnapDownloadHandler(httpCtxt),
+		unauthenticated: true,
 	}}
 	if srv.registerIntrospectionHandlers != nil {
 		add := func(subpath string, h http.Handler) {

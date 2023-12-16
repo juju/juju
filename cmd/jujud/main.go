@@ -41,8 +41,7 @@ import (
 	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/juju/sockets"
-	// Import the providers.
-	_ "github.com/juju/juju/provider/all"
+
 	// Import the secret providers.
 	_ "github.com/juju/juju/secrets/provider/all"
 	"github.com/juju/juju/upgrades"
@@ -203,8 +202,6 @@ type versionDetail struct {
 	GitTreeState string `json:"git-tree-state,omitempty" yaml:"git-tree-state,omitempty"`
 	// Compiler reported by runtime.Compiler
 	Compiler string `json:"compiler" yaml:"compiler"`
-	// OfficialBuild is a monotonic integer set by Jenkins.
-	OfficialBuild int `json:"official-build,omitempty" yaml:"official-build,omitempty"`
 	// GoBuildTags is the build tags used to build the binary.
 	GoBuildTags string `json:"go-build-tags,omitempty" yaml:"go-build-tags,omitempty"`
 }
@@ -257,7 +254,6 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 		return &jujudWriter{target: target}
 	}
 
-	jujud.Register(agentcmd.NewBootstrapCommand())
 	jujud.Register(agentcmd.NewCAASUnitInitCommand())
 	jujud.Register(agentcmd.NewModelCommand(bufferedLogger))
 

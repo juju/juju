@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"path"
 	"strings"
@@ -525,6 +526,20 @@ func ConfigureMachine(
 	cloudcfg.SetSystemUpdate(instanceConfig.EnableOSRefreshUpdate)
 	cloudcfg.SetSystemUpgrade(instanceConfig.EnableOSUpgrade)
 
+	sshinitConfig := sshinit.ConfigureParams{
+		Host:           "ubuntu@" + host,
+		Client:         client,
+		SSHOptions:     sshOptions,
+		Config:         cloudcfg,
+		ProgressWriter: ctx.GetStderr(),
+		OS:             instanceConfig.Base.OS,
+	}
+
+	stdctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+	ft := sshinit.NewFileTransporter(stdctx, sshinitConfig)
+	cloudcfg.SetFileTransporter(ft)
+
 	udata, err := cloudconfig.NewUserdataConfig(instanceConfig, cloudcfg)
 	if err != nil {
 		return err
@@ -539,17 +554,16 @@ func ConfigureMachine(
 	if err != nil {
 		return err
 	}
+
+	// Wait for the files to be sent to the machine.
+	if err := ft.Wait(); err != nil {
+		return errors.Annotate(err, "transporting files to machine")
+	}
+
 	script := shell.DumpFileOnErrorScript(instanceConfig.CloudInitOutputLog) + configScript
 	ctx.Infof("Running machine configuration script...")
 	// TODO(benhoyt) - plumb context through juju/utils/ssh?
-	return sshinit.RunConfigureScript(script, sshinit.ConfigureParams{
-		Host:           "ubuntu@" + host,
-		Client:         client,
-		SSHOptions:     sshOptions,
-		Config:         cloudcfg,
-		ProgressWriter: ctx.GetStderr(),
-		OS:             instanceConfig.Base.OS,
-	})
+	return sshinit.RunConfigureScript(script, sshinitConfig)
 }
 
 // HostSSHOptionsFunc is a function that, given a hostname, returns
@@ -739,7 +753,7 @@ func (p *parallelHostChecker) UpdateAddresses(addrs []network.ProviderAddress) {
 		if _, ok := p.active[addr]; ok {
 			continue
 		}
-		fmt.Fprintf(p.stderr, "Attempting to connect to %s:22\n", addr.Value)
+		fmt.Fprintf(p.stderr, "Attempting to connect to %s\n", net.JoinHostPort(addr.Value, "22"))
 		closed := make(chan struct{})
 		hc := &hostChecker{
 			addr:            addr,

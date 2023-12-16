@@ -108,7 +108,7 @@ func InstanceConfig(ctrlSt ControllerBackend, st InstanceConfigBackend, machineI
 		return nil, errors.Annotate(err, "getting machine base")
 	}
 	icfg, err := instancecfg.NewInstanceConfig(ctrlSt.ControllerTag(), machineId, nonce, modelConfig.ImageStream(),
-		base, apiInfo,
+		base, apiInfo, model.Name() == "controller",
 	)
 	if err != nil {
 		return nil, errors.Annotate(err, "initializing instance config")

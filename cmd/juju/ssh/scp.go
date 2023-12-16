@@ -126,6 +126,14 @@ func NewSCPCommand(hostChecker jujussh.ReachableChecker, retryStrategy retry.Cal
 	return modelcmd.Wrap(c)
 }
 
+func NewSCPCommandUnwrapped(hostChecker jujussh.ReachableChecker, retryStrategy retry.CallArgs, publicKeyRetryStrategy retry.CallArgs) modelcmd.ModelCommand {
+	c := new(scpCommand)
+	c.hostChecker = hostChecker
+	c.retryStrategy = retryStrategy
+	c.publicKeyRetryStrategy = publicKeyRetryStrategy
+	return c
+}
+
 // scpCommand is responsible for launching a scp command to copy files to/from remote machine(s)
 type scpCommand struct {
 	modelcmd.ModelCommandBase

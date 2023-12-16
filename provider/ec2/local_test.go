@@ -3111,7 +3111,7 @@ func (t *localServerSuite) TestStartInstanceWithEmptyNonceFails(c *gc.C) {
 	machineId := "4"
 	apiInfo := testing.FakeAPIInfo(machineId)
 	instanceConfig, err := instancecfg.NewInstanceConfig(coretesting.ControllerTag, machineId, "",
-		"released", jujuversion.DefaultSupportedLTSBase(), apiInfo)
+		"released", jujuversion.DefaultSupportedLTSBase(), apiInfo, false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	t.Prepare(c)

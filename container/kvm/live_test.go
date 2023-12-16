@@ -96,7 +96,7 @@ func createContainer(c *gc.C, manager container.Manager, machineId string) insta
 	machineNonce := "fake-nonce"
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
 	instanceConfig, err := instancecfg.NewInstanceConfig(coretesting.ControllerTag, machineId, machineNonce,
-		imagemetadata.ReleasedStream, corebase.MakeDefaultBase("ubuntu", "22.04"), apiInfo)
+		imagemetadata.ReleasedStream, corebase.MakeDefaultBase("ubuntu", "22.04"), apiInfo, false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	nics := network.InterfaceInfos{{

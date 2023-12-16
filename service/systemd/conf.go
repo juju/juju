@@ -15,7 +15,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/v3/shell"
 
-	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/service/common"
 )
 
@@ -36,68 +35,9 @@ var limitMap = map[string]string{
 	"stack":      "LimitSTACK",
 }
 
-// TODO(ericsnow) Move normalize to common.Conf.Normalize.
-
 type confRenderer interface {
 	shell.Renderer
 	shell.ScriptRenderer
-}
-
-// normalize adjusts the conf to more standardized content and
-// returns a new Conf with that updated content. It also returns the
-// content of any script file that should accompany the conf.
-func normalize(name string, conf common.Conf, scriptPath string, renderer confRenderer) (common.Conf, []byte) {
-	var data []byte
-
-	var cmds []string
-	if conf.Logfile != "" {
-		filename := conf.Logfile
-		cmds = append(cmds, "# Set up logging.")
-		cmds = append(cmds, renderer.Touch(filename, nil)...)
-		user, group := paths.SyslogUserGroup()
-		cmds = append(cmds, renderer.Chown(filename, user, group)...)
-		cmds = append(cmds, renderer.Chmod(filename, paths.LogfilePermission)...)
-		cmds = append(cmds, renderer.RedirectOutput(filename)...)
-		cmds = append(cmds, renderer.RedirectFD("out", "err")...)
-		cmds = append(cmds,
-			"",
-			"# Run the script.",
-		)
-		// We leave conf.Logfile alone (it will be ignored during validation).
-	}
-	cmds = append(cmds, conf.ExecStart)
-
-	if conf.ExtraScript != "" {
-		cmds = append([]string{conf.ExtraScript}, cmds...)
-		conf.ExtraScript = ""
-	}
-	if !isSimpleCommand(strings.Join(cmds, "\n")) {
-		data = renderer.RenderScript(cmds)
-		conf.ExecStart = scriptPath
-	}
-
-	if len(conf.Env) == 0 {
-		conf.Env = nil
-	}
-
-	if len(conf.Limit) == 0 {
-		conf.Limit = nil
-	}
-
-	if conf.Transient {
-		// TODO(ericsnow) Handle Transient via systemd-run command?
-		conf.ExecStopPost = commands{}.disable(name)
-	}
-
-	return conf, data
-}
-
-func isSimpleCommand(cmd string) bool {
-	if strings.ContainsAny(cmd, "\n;|><&") {
-		return false
-	}
-
-	return true
 }
 
 func validate(name string, conf common.Conf, renderer shell.Renderer) error {
@@ -108,12 +48,6 @@ func validate(name string, conf common.Conf, renderer shell.Renderer) error {
 	if err := conf.Validate(renderer); err != nil {
 		return errors.Trace(err)
 	}
-
-	if conf.ExtraScript != "" {
-		return errors.NotValidf("unexpected ExtraScript")
-	}
-
-	// We ignore Desc and Logfile.
 
 	for k := range conf.Limit {
 		if _, ok := limitMap[k]; !ok {
@@ -218,6 +152,14 @@ func serializeService(conf common.Conf) []*unit.UnitOption {
 	}
 	unitOptions = append(unitOptions, ServiceLimits(conf)...)
 
+	if conf.ExecStartPre != "" {
+		unitOptions = append(unitOptions, &unit.UnitOption{
+			Section: "Service",
+			Name:    "ExecStartPre",
+			Value:   conf.ExecStartPre,
+		})
+	}
+
 	if conf.ExecStart != "" {
 		unitOptions = append(unitOptions, &unit.UnitOption{
 			Section: "Service",
@@ -292,6 +234,8 @@ func deserializeOptions(opts []*unit.UnitOption, renderer shell.Renderer) (commo
 			}
 		case "Service":
 			switch {
+			case uo.Name == "ExecStartPre":
+				conf.ExecStartPre = uo.Value
 			case uo.Name == "ExecStart":
 				conf.ExecStart = uo.Value
 			case uo.Name == "Environment":

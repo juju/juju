@@ -1118,7 +1118,7 @@ func (*cloudinitSuite) createInstanceConfig(c *gc.C, environConfig *config.Confi
 	machineNonce := "fake-nonce"
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
 	instanceConfig, err := instancecfg.NewInstanceConfig(testing.ControllerTag, machineId, machineNonce,
-		imagemetadata.ReleasedStream, jammy, apiInfo)
+		imagemetadata.ReleasedStream, jammy, apiInfo, false)
 	c.Assert(err, jc.ErrorIsNil)
 	instanceConfig.SetTools(tools.List{
 		&tools.Tools{
