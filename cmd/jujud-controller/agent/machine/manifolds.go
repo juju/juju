@@ -101,7 +101,6 @@ import (
 	"github.com/juju/juju/worker/upgradesteps"
 )
 
-
 // ManifoldsConfig allows specialisation of the result of Manifolds.
 type ManifoldsConfig struct {
 
@@ -885,6 +884,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			PreviousAgentVersion: config.PreviousAgentVersion,
 			Logger:               loggo.GetLogger("juju.worker.upgrader"),
 			Clock:                config.Clock,
+			IsController:         true,
 		}),
 
 		upgradeSeriesWorkerName: ifNotMigrating(upgradeseries.Manifold(upgradeseries.ManifoldConfig{

@@ -1539,7 +1539,6 @@ func (task *provisionerTask) setupToStartMachine(
 		return environs.StartInstanceParams{}, errors.Annotatef(err, "finding agent binaries for machine %q", machine)
 	}
 
-	task.logger.Errorf(">>>>>>>>>>>>>>> OK")
 	// Ship the local snap over the wire if we could be a controller.
 	if instanceCfg.CouldBeController {
 		urls, err := task.snapFinder.SnapSearchURLs()
@@ -1559,9 +1558,9 @@ func (task *provisionerTask) setupToStartMachine(
 				return environs.StartInstanceParams{}, errors.Trace(err)
 			}
 		case "snapstore":
+			// TODO: add channel support.
 		}
 	}
-	task.logger.Errorf(">>>>>>>>>>>>>>> YES")
 
 	startInstanceParams, err := task.constructStartInstanceParams(
 		task.controllerUUID,

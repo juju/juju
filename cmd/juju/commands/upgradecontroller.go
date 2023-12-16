@@ -19,11 +19,13 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/version/v2"
 
+	apiclient "github.com/juju/juju/api/client/client"
 	"github.com/juju/juju/api/client/modelconfig"
 	"github.com/juju/juju/api/client/modelupgrader"
 	apicontroller "github.com/juju/juju/api/controller/controller"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
+	"github.com/juju/juju/cmd/juju/ssh"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/arch"
@@ -76,12 +78,14 @@ type upgradeControllerCommand struct {
 	baseUpgradeCommand
 
 	controllerAPI ControllerAPI
+	clientAPI     ClientAPI
 
 	Dev                               bool
 	JujudControllerSnapPath           string
 	JujudControllerSnapAssertionsPath string
 
 	fullControllerModelName string
+	controllerModelName     string
 	controllerModelDetails  *jujuclient.ModelDetails
 
 	devSrcDir string
@@ -93,6 +97,10 @@ type ControllerAPI interface {
 	ControllerConfig() (controller.Config, error)
 	ModelConfig() (map[string]interface{}, error)
 	Close() error
+}
+
+type ClientAPI interface {
+	Status(args *apiclient.StatusArgs) (*params.FullStatus, error)
 }
 
 func (c *upgradeControllerCommand) Info() *cmd.Info {
@@ -144,6 +152,19 @@ func (c *upgradeControllerCommand) Init(args []string) error {
 			return fmt.Errorf("cannot use juju binary built for --dev")
 		}
 		c.devSrcDir = mod.Dir
+		if c.JujudControllerSnapPath == "" {
+			toolsArch := arch.HostArch()
+			// TODO: multi-arch
+			controllerSnapFile := filepath.Join(mod.Dir, fmt.Sprintf("jujud-controller_%s_%s.snap",
+				jujuversion.Current.String(), toolsArch))
+			if _, err := os.Stat(controllerSnapFile); os.IsNotExist(err) {
+				return errors.NotFoundf("expected jujud-controller snap file %s", controllerSnapFile)
+			} else if err != nil {
+				return errors.Trace(err)
+			}
+			c.JujudControllerSnapPath = controllerSnapFile
+			c.JujudControllerSnapAssertionsPath = "dangerous"
+		}
 	}
 	if c.AgentVersionParam != "" && c.Dev {
 		return errors.New("--agent-version and --dev can't be used together")
@@ -194,7 +215,7 @@ func (c *upgradeControllerCommand) getModelConfigAPI() (ModelConfigAPI, error) {
 		return c.modelConfigAPI, nil
 	}
 
-	api, err := c.NewModelAPIRoot(c.fullControllerModelName)
+	api, err := c.NewModelAPIRoot(bootstrap.ControllerModelName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -211,6 +232,18 @@ func (c *upgradeControllerCommand) getControllerAPI() (ControllerAPI, error) {
 		return nil, errors.Trace(err)
 	}
 	return apicontroller.NewClient(api), nil
+}
+
+func (c *upgradeControllerCommand) getAPIClient() (ClientAPI, error) {
+	if c.clientAPI != nil {
+		return c.clientAPI, nil
+	}
+
+	api, err := c.NewModelAPIRoot(bootstrap.ControllerModelName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return apiclient.NewClient(api, logger), nil
 }
 
 func (c *upgradeControllerCommand) upgradeController(
@@ -277,11 +310,20 @@ func (c *upgradeControllerCommand) upgradeController(
 		return errUpToDate
 	}
 
+	if c.controllerModelDetails.ModelType == model.IAAS {
+		// TODO: validate version matches
+		err := c.uploadSnap(ctx, c.DryRun)
+		if err != nil {
+			return fmt.Errorf("failed to upload snap to controllers: %w", err)
+		}
+	}
+
 	if c.Dev {
 		if targetVersion != version.Zero {
 			return errors.Errorf("--dev cannot be used with --agent-version together")
 		}
-		if targetVersion, err = c.uploadTools(modelUpgrader, targetVersion, c.DryRun); err != nil {
+		targetVersion, err = c.uploadTools(modelUpgrader, c.DryRun)
+		if err != nil {
 			return block.ProcessBlockedError(err, block.BlockChange)
 		}
 		builtMsg := " (built from source)"
@@ -345,7 +387,7 @@ func (c *upgradeControllerCommand) notifyControllerUpgrade(
 	return chosenVersion, nil
 }
 
-func (c *upgradeControllerCommand) uploadTools(modelUpgrader ModelUpgraderAPI, agentVersion version.Number, dryRun bool) (version.Number, error) {
+func (c *upgradeControllerCommand) uploadTools(modelUpgrader ModelUpgraderAPI, dryRun bool) (version.Number, error) {
 	// TODO: arch handling here
 	builtTools, err := sync.BuildAgentTarball(c.devSrcDir, "upgrade", arch.AMD64)
 	if err != nil {
@@ -371,4 +413,59 @@ func (c *upgradeControllerCommand) uploadTools(modelUpgrader ModelUpgraderAPI, a
 		return version.Zero, errors.Trace(err)
 	}
 	return builtTools.Version.Number, nil
+}
+
+func (c *upgradeControllerCommand) uploadSnap(ctx *cmd.Context, dryRun bool) error {
+	if dryRun {
+		logger.Debugf("dryrun, skipping upload controller snap")
+		return nil
+	}
+
+	client, err := c.getAPIClient()
+	if err != nil {
+		return err
+	}
+
+	status, err := client.Status(nil)
+	if err != nil {
+		return err
+	}
+
+	for _, machine := range status.Machines {
+		// TODO: use datadir
+		// TODO: validate arch
+		err := c.copyFileToMachine(ctx, c.JujudControllerSnapPath, "/var/lib/juju/snap/", machine.Id)
+		if err != nil {
+			return err
+		}
+		if c.JujudControllerSnapAssertionsPath != "dangerous" {
+			err := c.copyFileToMachine(ctx, c.JujudControllerSnapAssertionsPath, "/var/lib/juju/snap/", machine.Id)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func (c *upgradeControllerCommand) copyFileToMachine(ctx *cmd.Context, src, dst, machineId string) error {
+	scpCmd := ssh.NewSCPCommandUnwrapped(nil, ssh.DefaultSSHRetryStrategy, ssh.DefaultSSHPublicKeyRetryStrategy)
+	scpCmd.SetClientStore(c.ClientStore())
+	wrapped := modelcmd.Wrap(scpCmd)
+	args := []string{"-m", c.fullControllerModelName, src, machineId + ":/home/ubuntu/"}
+	code := cmd.Main(wrapped, ctx, args)
+	if code != 0 {
+		return cmd.ErrSilent
+	}
+
+	sshCmd := ssh.NewSSHCommandUnwrapped(nil, nil, ssh.DefaultSSHRetryStrategy, ssh.DefaultSSHPublicKeyRetryStrategy)
+	sshCmd.SetClientStore(c.ClientStore())
+	wrapped = modelcmd.Wrap(sshCmd)
+	args = []string{"-m", c.fullControllerModelName, machineId, fmt.Sprintf("sudo chown root:root /home/ubuntu/%[1]s && sudo mv /home/ubuntu/%[1]s %[2]s", path.Base(src), dst)}
+	code = cmd.Main(wrapped, ctx, args)
+	if code != 0 {
+		return cmd.ErrSilent
+	}
+	return nil
 }

@@ -261,9 +261,6 @@ func bootstrapCAAS(
 	args BootstrapParams,
 	bootstrapParams environs.BootstrapParams,
 ) error {
-	if args.Dev && args.AgentVersion != nil {
-		return errors.Errorf("cannot bootstrap dev controller with agent version")
-	}
 	if args.BootstrapImage != "" {
 		return errors.NotSupportedf("--bootstrap-image when bootstrapping a k8s controller")
 	}
@@ -324,10 +321,6 @@ func bootstrapIAAS(
 	args BootstrapParams,
 	bootstrapParams environs.BootstrapParams,
 ) error {
-	if args.Dev && args.AgentVersion != nil {
-		return errors.Errorf("cannot bootstrap dev controller with agent version")
-	}
-
 	cfg := environ.Config()
 	if authKeys := ssh.SplitAuthorisedKeys(cfg.AuthorizedKeys()); len(authKeys) == 0 {
 		// Apparently this can never happen, so it's not tested. But, one day,
@@ -520,19 +513,14 @@ func bootstrapIAAS(
 			return errors.Annotate(err, "cannot package bootstrap agent binary")
 		}
 		defer os.RemoveAll(builtTools.Dir)
-		// Combine the built agent information with the list of
-		// available tools.
-		for i, tool := range availableTools {
-			if tool.URL != "" {
-				continue
-			}
-			filename := filepath.Join(builtTools.Dir, builtTools.StorageName)
-			tool.URL = fmt.Sprintf("file://%s", filename)
-			tool.Size = builtTools.Size
-			tool.SHA256 = builtTools.Sha256Hash
-			tool.Version = builtTools.Version
-			availableTools[i] = tool
-		}
+
+		filename := filepath.Join(builtTools.Dir, builtTools.StorageName)
+		availableTools = append(availableTools, &coretools.Tools{
+			Version: builtTools.Version,
+			URL:     fmt.Sprintf("file://%s", filename),
+			SHA256:  builtTools.Sha256Hash,
+			Size:    builtTools.Size,
+		})
 	}
 	if len(availableTools) == 0 {
 		return errors.New(noToolsMessage)

@@ -85,6 +85,13 @@ func (ai AgentInfo) ToolsDir(renderer shell.Renderer) string {
 	return renderer.FromSlash(tools.ToolsDir(ai.DataDir, ai.name))
 }
 
+func (ai AgentInfo) preStart(renderer shell.Renderer) string {
+	if !ai.UseJujudControllerSnap {
+		return ""
+	}
+	return `[ "$(stat -c '%U:%G:%a' /var/lib/juju/reinstall.sh || true)" = "root:root:755" ] && ./var/lib/juju/reinstall.sh || true`
+}
+
 func (ai AgentInfo) jujud(renderer shell.Renderer) string {
 	if ai.UseJujudControllerSnap {
 		return "/snap/bin/jujud-controller"

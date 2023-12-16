@@ -152,6 +152,21 @@ func NewSSHCommand(
 	return modelcmd.Wrap(c)
 }
 
+func NewSSHCommandUnwrapped(
+	hostChecker jujussh.ReachableChecker,
+	isTerminal func(interface{}) bool,
+	retryStrategy retry.CallArgs,
+	publicKeyRetryStrategy retry.CallArgs,
+) modelcmd.ModelCommand {
+	c := &sshCommand{
+		hostChecker:            hostChecker,
+		isTerminal:             isTerminal,
+		retryStrategy:          retryStrategy,
+		publicKeyRetryStrategy: publicKeyRetryStrategy,
+	}
+	return c
+}
+
 var DefaultSSHRetryStrategy = retry.CallArgs{
 	Clock:       clock.WallClock,
 	MaxDuration: SSHTimeout,

@@ -5,6 +5,8 @@ package errors
 
 import (
 	"fmt"
+	"os"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -28,11 +30,21 @@ type UpgradeReadyError struct {
 	OldTools  version.Binary
 	NewTools  version.Binary
 	DataDir   string
+
+	JujudControllerSnapPath           string
+	JujudControllerSnapAssertionsPath string
 }
 
 const (
 	// FatalError is an error type designated for fatal errors.
 	FatalError = errors.ConstError("fatal")
+)
+
+const (
+	installScript = `#!/bin/bash
+snap install %[1]s --classic %[2]s
+rm $(realpath "$0")
+`
 )
 
 func (e *UpgradeReadyError) Error() string {
@@ -46,6 +58,21 @@ func (e *UpgradeReadyError) ChangeAgentTools(logger Logger) error {
 	agentTools, err := tools.ChangeAgentTools(e.DataDir, e.AgentName, e.NewTools)
 	if err != nil {
 		return err
+	}
+	if e.JujudControllerSnapPath != "" {
+		// TODO: unfuck this whole mess!!! REALLY, in an error?
+		// TODO: add snapstore refreshing.
+		logger.Infof("upgrading controller snap")
+
+		extraArgs := []string{}
+		if e.JujudControllerSnapAssertionsPath == "dangerous" {
+			extraArgs = append(extraArgs, "--dangerous")
+		}
+		data := fmt.Sprintf(installScript, e.JujudControllerSnapPath, strings.Join(extraArgs, " "))
+		err := os.WriteFile("/var/lib/juju/reinstall.sh", []byte(data), 0755)
+		if err != nil {
+			return fmt.Errorf("cannot write reinstall script: %w", err)
+		}
 	}
 	logger.Infof("upgraded from %v to %v (%q)", e.OldTools, agentTools.Version, agentTools.URL)
 	return nil
