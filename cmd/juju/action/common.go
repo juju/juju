@@ -23,7 +23,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	"github.com/mattn/go-isatty"
 	"gopkg.in/yaml.v2"
 

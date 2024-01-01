@@ -11,7 +11,7 @@ import (
 	network "github.com/juju/juju/core/network"
 	cloudspec "github.com/juju/juju/environs/cloudspec"
 	config "github.com/juju/juju/environs/config"
-	names "github.com/juju/names/v4"
+	names "github.com/juju/names/v5"
 	gomock "go.uber.org/mock/gomock"
 )
 

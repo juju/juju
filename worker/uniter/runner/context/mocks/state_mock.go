@@ -10,7 +10,7 @@ import (
 	application "github.com/juju/juju/core/application"
 	network "github.com/juju/juju/core/network"
 	params "github.com/juju/juju/rpc/params"
-	names "github.com/juju/names/v4"
+	names "github.com/juju/names/v5"
 	gomock "go.uber.org/mock/gomock"
 )
 

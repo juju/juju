@@ -6,7 +6,7 @@ package context_test
 import (
 	"sort"
 
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	osseries "github.com/juju/os/v2/series"
 	"github.com/juju/proxy"
 	jc "github.com/juju/testing/checkers"

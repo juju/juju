@@ -8,7 +8,7 @@ import (
 	reflect "reflect"
 
 	relation "github.com/juju/juju/worker/uniter/relation"
-	names "github.com/juju/names/v4"
+	names "github.com/juju/names/v5"
 	gomock "go.uber.org/mock/gomock"
 )
 

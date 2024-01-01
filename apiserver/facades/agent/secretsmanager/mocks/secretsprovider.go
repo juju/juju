@@ -8,7 +8,7 @@ import (
 	reflect "reflect"
 
 	provider "github.com/juju/juju/secrets/provider"
-	names "github.com/juju/names/v4"
+	names "github.com/juju/names/v5"
 	gomock "go.uber.org/mock/gomock"
 )
 

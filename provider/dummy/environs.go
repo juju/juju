@@ -21,7 +21,7 @@ import (
 	"github.com/juju/jsonschema"
 	"github.com/juju/loggo"
 	mgotesting "github.com/juju/mgo/v3/testing"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/retry"
 	"github.com/juju/schema"

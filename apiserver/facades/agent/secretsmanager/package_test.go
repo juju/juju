@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/juju/clock"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	gc "gopkg.in/check.v1"
 
 	commonsecrets "github.com/juju/juju/apiserver/common/secrets"

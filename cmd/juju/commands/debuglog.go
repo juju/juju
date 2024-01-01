@@ -17,7 +17,7 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
 	"github.com/juju/loggo/loggocolor"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	"github.com/juju/retry"
 	"github.com/mattn/go-isatty"
 

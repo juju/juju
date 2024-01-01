@@ -14,7 +14,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	"golang.org/x/tools/go/packages"
 
 	"github.com/juju/juju/apiserver"

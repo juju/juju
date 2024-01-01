@@ -9,7 +9,7 @@ import (
 	reflect "reflect"
 
 	secrets "github.com/juju/juju/core/secrets"
-	names "github.com/juju/names/v4"
+	names "github.com/juju/names/v5"
 	version "github.com/juju/version/v2"
 	gomock "go.uber.org/mock/gomock"
 )

@@ -9,7 +9,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/mgo/v3/txn"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 )
 
 // Until we add 3.0 upgrade steps, keep static analysis happy.

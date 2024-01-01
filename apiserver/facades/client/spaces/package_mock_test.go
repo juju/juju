@@ -20,7 +20,7 @@ import (
 	space "github.com/juju/juju/environs/space"
 	state "github.com/juju/juju/state"
 	txn "github.com/juju/mgo/v3/txn"
-	names "github.com/juju/names/v4"
+	names "github.com/juju/names/v5"
 	gomock "go.uber.org/mock/gomock"
 )
 

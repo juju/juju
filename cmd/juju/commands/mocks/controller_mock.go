@@ -9,7 +9,7 @@ import (
 
 	controller "github.com/juju/juju/controller"
 	cloudspec "github.com/juju/juju/environs/cloudspec"
-	names "github.com/juju/names/v4"
+	names "github.com/juju/names/v5"
 	gomock "go.uber.org/mock/gomock"
 )
 

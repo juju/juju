@@ -11,7 +11,7 @@ import (
 	relation "github.com/juju/juju/core/relation"
 	params "github.com/juju/juju/rpc/params"
 	jujuc "github.com/juju/juju/worker/uniter/runner/jujuc"
-	names "github.com/juju/names/v4"
+	names "github.com/juju/names/v5"
 	gomock "go.uber.org/mock/gomock"
 )
 

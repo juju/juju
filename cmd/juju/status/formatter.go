@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/charm/v11"
 	"github.com/juju/collections/set"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	"github.com/juju/naturalsort"
 
 	"github.com/juju/juju/cmd/juju/common"

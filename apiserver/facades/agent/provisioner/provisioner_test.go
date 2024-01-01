@@ -10,7 +10,7 @@ import (
 
 	"github.com/juju/charm/v11"
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	"github.com/juju/proxy"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"

@@ -6,7 +6,7 @@ package caasoperator_test
 import (
 	"github.com/juju/charm/v11"
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	"github.com/juju/proxy"
 	"github.com/juju/testing"
 	"github.com/juju/version/v2"

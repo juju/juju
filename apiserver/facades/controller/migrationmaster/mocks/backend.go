@@ -7,11 +7,11 @@ package mocks
 import (
 	reflect "reflect"
 
-	description "github.com/juju/description/v4"
+	description "github.com/juju/description/v5"
 	controller "github.com/juju/juju/controller"
 	network "github.com/juju/juju/core/network"
 	state "github.com/juju/juju/state"
-	names "github.com/juju/names/v4"
+	names "github.com/juju/names/v5"
 	version "github.com/juju/version/v2"
 	gomock "go.uber.org/mock/gomock"
 )

@@ -20,7 +20,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
 	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	proxyutils "github.com/juju/proxy"
 	"github.com/juju/utils/v3/exec"
 	"github.com/juju/version/v2"

@@ -10,7 +10,7 @@ import (
 	machineactions "github.com/juju/juju/api/agent/machineactions"
 	watcher "github.com/juju/juju/core/watcher"
 	params "github.com/juju/juju/rpc/params"
-	names "github.com/juju/names/v4"
+	names "github.com/juju/names/v5"
 	gomock "go.uber.org/mock/gomock"
 )
 

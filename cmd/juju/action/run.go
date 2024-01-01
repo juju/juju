@@ -10,7 +10,7 @@ import (
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	"gopkg.in/yaml.v2"
 
 	actionapi "github.com/juju/juju/api/client/action"

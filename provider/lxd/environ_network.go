@@ -12,7 +12,7 @@ import (
 	lxdapi "github.com/canonical/lxd/shared/api"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
