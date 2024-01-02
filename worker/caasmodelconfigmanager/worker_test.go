@@ -108,7 +108,7 @@ func (s *workerSuite) TestConfigValidate(c *gc.C) {
 	c.Check(cfg.Validate(), jc.ErrorIsNil)
 }
 
-func (s *workerSuite) getWorkerStarter(c *gc.C) (func(...*gomock.Call) worker.Worker, *gomock.Controller) {
+func (s *workerSuite) getWorkerStarter(c *gc.C) (func(...any) worker.Worker, *gomock.Controller) {
 	ctrl := gomock.NewController(c)
 
 	s.facade = mocks.NewMockFacade(ctrl)
@@ -126,7 +126,7 @@ func (s *workerSuite) getWorkerStarter(c *gc.C) (func(...*gomock.Call) worker.Wo
 			return s.reg, nil
 		},
 	}
-	return func(calls ...*gomock.Call) worker.Worker {
+	return func(calls ...any) worker.Worker {
 		gomock.InOrder(calls...)
 		w, err := caasmodelconfigmanager.NewWorker(cfg)
 		c.Assert(err, jc.ErrorIsNil)

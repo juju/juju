@@ -1123,7 +1123,7 @@ func (c *controllerStack) buildStorageSpecForController(statefulset *apps.Statef
 		Spec: core.PersistentVolumeClaimSpec{
 			StorageClassName: &c.storageClass,
 			AccessModes:      []core.PersistentVolumeAccessMode{core.ReadWriteOnce},
-			Resources: core.ResourceRequirements{
+			Resources: core.VolumeResourceRequirements{
 				Requests: core.ResourceList{
 					core.ResourceStorage: c.storageSize,
 				},

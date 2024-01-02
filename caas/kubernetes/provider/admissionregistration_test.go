@@ -27,7 +27,7 @@ import (
 	"github.com/juju/juju/testing"
 )
 
-func (s *K8sBrokerSuite) assertMutatingWebhookConfigurations(c *gc.C, cfgs []k8sspecs.K8sMutatingWebhook, assertCalls ...*gomock.Call) {
+func (s *K8sBrokerSuite) assertMutatingWebhookConfigurations(c *gc.C, cfgs []k8sspecs.K8sMutatingWebhook, assertCalls ...any) {
 
 	basicPodSpec := getBasicPodspec()
 	basicPodSpec.ProviderPod = &k8sspecs.K8sPodSpec{
@@ -79,7 +79,7 @@ func (s *K8sBrokerSuite) assertMutatingWebhookConfigurations(c *gc.C, cfgs []k8s
 	serviceArg.Spec.Type = core.ServiceTypeClusterIP
 
 	assertCalls = append(
-		[]*gomock.Call{
+		[]any{
 			s.mockStatefulSets.EXPECT().Get(gomock.Any(), "juju-operator-app-name", metav1.GetOptions{}).
 				Return(nil, s.k8sNotFoundError()),
 		},
@@ -87,7 +87,7 @@ func (s *K8sBrokerSuite) assertMutatingWebhookConfigurations(c *gc.C, cfgs []k8s
 	)
 
 	ociImageSecret := s.getOCIImageSecret(c, nil)
-	assertCalls = append(assertCalls, []*gomock.Call{
+	assertCalls = append(assertCalls, []any{
 		s.mockSecrets.EXPECT().Create(gomock.Any(), ociImageSecret, metav1.CreateOptions{}).
 			Return(ociImageSecret, nil),
 		s.mockServices.EXPECT().Get(gomock.Any(), "app-name", metav1.GetOptions{}).
@@ -680,7 +680,7 @@ func (s *K8sBrokerSuite) TestEnsureMutatingWebhookConfigurationsUpdateV1(c *gc.C
 	)
 }
 
-func (s *K8sBrokerSuite) assertValidatingWebhookConfigurations(c *gc.C, cfgs []k8sspecs.K8sValidatingWebhook, assertCalls ...*gomock.Call) {
+func (s *K8sBrokerSuite) assertValidatingWebhookConfigurations(c *gc.C, cfgs []k8sspecs.K8sValidatingWebhook, assertCalls ...any) {
 
 	basicPodSpec := getBasicPodspec()
 	basicPodSpec.ProviderPod = &k8sspecs.K8sPodSpec{
@@ -732,7 +732,7 @@ func (s *K8sBrokerSuite) assertValidatingWebhookConfigurations(c *gc.C, cfgs []k
 	serviceArg.Spec.Type = core.ServiceTypeClusterIP
 
 	assertCalls = append(
-		[]*gomock.Call{
+		[]any{
 			s.mockStatefulSets.EXPECT().Get(gomock.Any(), "juju-operator-app-name", metav1.GetOptions{}).
 				Return(nil, s.k8sNotFoundError()),
 		},
@@ -740,7 +740,7 @@ func (s *K8sBrokerSuite) assertValidatingWebhookConfigurations(c *gc.C, cfgs []k
 	)
 
 	ociImageSecret := s.getOCIImageSecret(c, nil)
-	assertCalls = append(assertCalls, []*gomock.Call{
+	assertCalls = append(assertCalls, []any{
 		s.mockSecrets.EXPECT().Create(gomock.Any(), ociImageSecret, metav1.CreateOptions{}).
 			Return(ociImageSecret, nil),
 		s.mockServices.EXPECT().Get(gomock.Any(), "app-name", metav1.GetOptions{}).
