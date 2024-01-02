@@ -31,7 +31,7 @@ import (
 	"github.com/juju/juju/testing"
 )
 
-func (s *K8sBrokerSuite) assertCustomerResourceDefinitions(c *gc.C, crds []k8sspecs.K8sCustomResourceDefinition, assertCalls ...*gomock.Call) {
+func (s *K8sBrokerSuite) assertCustomerResourceDefinitions(c *gc.C, crds []k8sspecs.K8sCustomResourceDefinition, assertCalls ...any) {
 
 	basicPodSpec := getBasicPodspec()
 	basicPodSpec.ProviderPod = &k8sspecs.K8sPodSpec{
@@ -83,7 +83,7 @@ func (s *K8sBrokerSuite) assertCustomerResourceDefinitions(c *gc.C, crds []k8ssp
 	serviceArg.Spec.Type = core.ServiceTypeClusterIP
 
 	assertCalls = append(
-		[]*gomock.Call{
+		[]any{
 			s.mockStatefulSets.EXPECT().Get(gomock.Any(), "juju-operator-app-name", v1.GetOptions{}).
 				Return(nil, s.k8sNotFoundError()),
 		},
@@ -91,7 +91,7 @@ func (s *K8sBrokerSuite) assertCustomerResourceDefinitions(c *gc.C, crds []k8ssp
 	)
 
 	ociImageSecret := s.getOCIImageSecret(c, nil)
-	assertCalls = append(assertCalls, []*gomock.Call{
+	assertCalls = append(assertCalls, []any{
 		s.mockSecrets.EXPECT().Create(gomock.Any(), ociImageSecret, v1.CreateOptions{}).
 			Return(ociImageSecret, nil),
 		s.mockServices.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).
@@ -751,7 +751,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomResourceDefinitionsUpdateV1(c *g
 	)
 }
 
-func (s *K8sBrokerSuite) assertCustomerResources(c *gc.C, crs map[string][]unstructured.Unstructured, adjustClock func(), assertCalls ...*gomock.Call) {
+func (s *K8sBrokerSuite) assertCustomerResources(c *gc.C, crs map[string][]unstructured.Unstructured, adjustClock func(), assertCalls ...any) {
 
 	basicPodSpec := getBasicPodspec()
 	basicPodSpec.ProviderPod = &k8sspecs.K8sPodSpec{
@@ -803,7 +803,7 @@ func (s *K8sBrokerSuite) assertCustomerResources(c *gc.C, crs map[string][]unstr
 	serviceArg.Spec.Type = core.ServiceTypeClusterIP
 
 	assertCalls = append(
-		[]*gomock.Call{
+		[]any{
 			s.mockStatefulSets.EXPECT().Get(gomock.Any(), "juju-operator-app-name", v1.GetOptions{}).
 				Return(nil, s.k8sNotFoundError()),
 		},
@@ -811,7 +811,7 @@ func (s *K8sBrokerSuite) assertCustomerResources(c *gc.C, crs map[string][]unstr
 	)
 
 	ociImageSecret := s.getOCIImageSecret(c, nil)
-	assertCalls = append(assertCalls, []*gomock.Call{
+	assertCalls = append(assertCalls, []any{
 		s.mockSecrets.EXPECT().Create(gomock.Any(), ociImageSecret, v1.CreateOptions{}).
 			Return(ociImageSecret, nil),
 		s.mockServices.EXPECT().Get(gomock.Any(), "app-name", v1.GetOptions{}).

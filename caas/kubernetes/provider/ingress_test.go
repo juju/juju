@@ -29,7 +29,7 @@ import (
 	"github.com/juju/juju/testing"
 )
 
-func (s *K8sBrokerSuite) assertIngressResources(c *gc.C, ingressResources []k8sspecs.K8sIngress, expectedErrString string, assertCalls ...*gomock.Call) {
+func (s *K8sBrokerSuite) assertIngressResources(c *gc.C, ingressResources []k8sspecs.K8sIngress, expectedErrString string, assertCalls ...any) {
 	basicPodSpec := getBasicPodspec()
 	basicPodSpec.ProviderPod = &k8sspecs.K8sPodSpec{
 		KubernetesResources: &k8sspecs.KubernetesResources{
@@ -80,7 +80,7 @@ func (s *K8sBrokerSuite) assertIngressResources(c *gc.C, ingressResources []k8ss
 	serviceArg.Spec.Type = core.ServiceTypeClusterIP
 
 	assertCalls = append(
-		[]*gomock.Call{
+		[]any{
 			s.mockStatefulSets.EXPECT().Get(gomock.Any(), "juju-operator-app-name", metav1.GetOptions{}).
 				Return(nil, s.k8sNotFoundError()),
 		},
@@ -90,7 +90,7 @@ func (s *K8sBrokerSuite) assertIngressResources(c *gc.C, ingressResources []k8ss
 	ociImageSecret := s.getOCIImageSecret(c, nil)
 	if expectedErrString == "" {
 		// no error expected, so continue to check following assertions.
-		assertCalls = append(assertCalls, []*gomock.Call{
+		assertCalls = append(assertCalls, []any{
 			s.mockSecrets.EXPECT().Create(gomock.Any(), ociImageSecret, metav1.CreateOptions{}).
 				Return(ociImageSecret, nil),
 			s.mockServices.EXPECT().Get(gomock.Any(), "app-name", metav1.GetOptions{}).

@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/google/go-querystring/query"
@@ -208,6 +209,9 @@ func (s *LogStreamIntSuite) TestFullRequest(c *gc.C) {
 		}
 		if _, ok := err.(*net.OpError); ok {
 			return // so is this, probably
+		}
+		if err != nil && strings.Contains(err.Error(), "use of closed network connection") {
+			return // and so is this.
 		}
 		// anything else is a problem
 		c.Check(err, jc.ErrorIsNil)

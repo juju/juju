@@ -632,7 +632,7 @@ func (s *upgradeNewSuite) assertResetPreviousUpgrade(c *gc.C, answer string, exp
 		"agent-version": agentVersion.String(),
 	})
 
-	assertions := []*gomock.Call{
+	assertions := []any{
 		s.modelConfigAPI.EXPECT().ModelGet().Return(cfg, nil),
 		s.controllerAPI.EXPECT().ModelConfig().Return(cfg, nil),
 	}

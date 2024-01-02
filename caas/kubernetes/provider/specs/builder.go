@@ -64,7 +64,9 @@ func getRestMapper(c rest.Interface) meta.RESTMapper {
 	mapper := restmapper.NewDeferredDiscoveryRESTMapper(
 		memory.NewMemCacheClient(discoveryClient),
 	)
-	return restmapper.NewShortcutExpander(mapper, discoveryClient)
+	return restmapper.NewShortcutExpander(mapper, discoveryClient, func(warning string) {
+		logger.Warningf(warning)
+	})
 }
 
 func (ri *resourceInfo) withNamespace(namespace string) *resourceInfo {
