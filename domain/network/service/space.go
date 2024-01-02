@@ -20,7 +20,7 @@ import (
 // domain service.
 type State interface {
 	// AddSpace creates and returns a new space.
-	AddSpace(ctx context.Context, uuid network.Id, name string, providerID network.Id, subnetIDs []string) error
+	AddSpace(ctx context.Context, uuid string, name string, providerID network.Id, subnetIDs []string) error
 	// GetSpace returns the space by UUID.
 	GetSpace(ctx context.Context, uuid string) (*network.SpaceInfo, error)
 	// GetSpaceByName returns the space by name.
@@ -74,7 +74,7 @@ func (s *SpaceService) AddSpace(ctx context.Context, name string, providerID net
 	}
 	spaceID := network.Id(uuid.String())
 
-	if err := s.st.AddSpace(ctx, spaceID, name, providerID, subnetIDs); err != nil {
+	if err := s.st.AddSpace(ctx, spaceID.String(), name, providerID, subnetIDs); err != nil {
 		return "", errors.Trace(err)
 	}
 	return spaceID, nil

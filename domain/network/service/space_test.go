@@ -75,13 +75,13 @@ func (s *spaceSuite) TestAddSpaceErrorAdding(c *gc.C) {
 func (s *spaceSuite) TestAddSpace(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	var expectedUUID network.Id
+	var expectedUUID string
 	// Verify that the passed UUID is also returned.
 	s.st.EXPECT().AddSpace(gomock.Any(), gomock.Any(), "space0", network.Id("provider-id"), []string{}).
 		Do(
 			func(
 				ctx context.Context,
-				uuid network.Id,
+				uuid string,
 				name string,
 				providerID network.Id,
 				subnetIDs []string,
@@ -92,7 +92,7 @@ func (s *spaceSuite) TestAddSpace(c *gc.C) {
 
 	returnedUUID, err := NewSpaceService(s.st, s.logger).AddSpace(context.Background(), "space0", network.Id("provider-id"), []string{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(returnedUUID, gc.Equals, expectedUUID)
+	c.Assert(returnedUUID.String(), gc.Equals, expectedUUID)
 }
 
 func (s *spaceSuite) TestRetrieveSpaceByID(c *gc.C) {

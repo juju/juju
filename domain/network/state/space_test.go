@@ -47,7 +47,7 @@ func (s *stateSuite) TestAddSpace(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	subnets := []string{subnetUUID.String()}
-	err = st.AddSpace(ctx.Background(), network.Id(uuid.String()), "space0", "foo", subnets)
+	err = st.AddSpace(ctx.Background(), uuid.String(), "space0", "foo", subnets)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check the space entity.
@@ -103,7 +103,7 @@ func (s *stateSuite) TestAddSpaceFailDuplicateName(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	subnets := []string{subnetUUID.String()}
-	err = st.AddSpace(ctx.Background(), network.Id(uuid.String()), "space0", "foo", subnets)
+	err = st.AddSpace(ctx.Background(), uuid.String(), "space0", "foo", subnets)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check the space entity.
@@ -114,7 +114,7 @@ func (s *stateSuite) TestAddSpaceFailDuplicateName(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(name, gc.Equals, "space0")
 	// Fails when trying to add a new space with the same name.
-	err = st.AddSpace(ctx.Background(), network.Id(uuid.String()), "space0", "bar", subnets)
+	err = st.AddSpace(ctx.Background(), uuid.String(), "space0", "bar", subnets)
 	c.Assert(err, gc.ErrorMatches, "inserting space (.*) into space table: UNIQUE constraint failed: space.name")
 
 }
@@ -145,7 +145,7 @@ func (s *stateSuite) TestAddSpaceEmptyProviderID(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	subnets := []string{subnetUUID.String()}
-	err = st.AddSpace(ctx.Background(), network.Id(uuid.String()), "space0", "", subnets)
+	err = st.AddSpace(ctx.Background(), uuid.String(), "space0", "", subnets)
 	c.Assert(err, jc.ErrorIsNil)
 
 	sp, err := st.GetSpace(ctx.Background(), uuid.String())
@@ -205,7 +205,7 @@ func (s *stateSuite) TestAddSpaceFailFanOverlay(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	subnets := []string{subnetUUID.String(), subnetFanUUID.String()}
-	err = st.AddSpace(ctx.Background(), network.Id(uuid.String()), "space0", "foo", subnets)
+	err = st.AddSpace(ctx.Background(), uuid.String(), "space0", "foo", subnets)
 
 	// Should fail with error indicating we cannot set the space for a
 	// FAN subnet.
@@ -273,7 +273,7 @@ func (s *stateSuite) TestRetrieveSpaceByUUID(c *gc.C) {
 	subnets := []string{subnetUUID0.String(), subnetUUID1.String()}
 	spaceUUID, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
-	err = st.AddSpace(ctx.Background(), network.Id(spaceUUID.String()), "space0", "foo", subnets)
+	err = st.AddSpace(ctx.Background(), spaceUUID.String(), "space0", "foo", subnets)
 	c.Assert(err, jc.ErrorIsNil)
 
 	sp, err := st.GetSpace(ctx.Background(), spaceUUID.String())
@@ -333,11 +333,11 @@ func (s *stateSuite) TestRetrieveSpaceByName(c *gc.C) {
 
 	spaceUUID0, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
-	err = st.AddSpace(ctx.Background(), network.Id(spaceUUID0.String()), "space0", "provider0", []string{})
+	err = st.AddSpace(ctx.Background(), spaceUUID0.String(), "space0", "provider0", []string{})
 	c.Assert(err, jc.ErrorIsNil)
 	spaceUUID1, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
-	err = st.AddSpace(ctx.Background(), network.Id(spaceUUID1.String()), "space1", "provider1", []string{})
+	err = st.AddSpace(ctx.Background(), spaceUUID1.String(), "space1", "provider1", []string{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	sp0, err := st.GetSpaceByName(ctx.Background(), "space0")
@@ -362,7 +362,7 @@ func (s *stateSuite) TestRetrieveSpaceByUUIDWithoutSubnet(c *gc.C) {
 
 	spaceUUID, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
-	err = st.AddSpace(ctx.Background(), network.Id(spaceUUID.String()), "space0", "foo", []string{})
+	err = st.AddSpace(ctx.Background(), spaceUUID.String(), "space0", "foo", []string{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	sp, err := st.GetSpace(ctx.Background(), spaceUUID.String())
@@ -428,17 +428,17 @@ func (s *stateSuite) TestRetrieveAllSpaces(c *gc.C) {
 	subnets := []string{subnetUUID0.String()}
 	spaceUUID0, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
-	err = st.AddSpace(ctx.Background(), network.Id(spaceUUID0.String()), "space0", "foo0", subnets)
+	err = st.AddSpace(ctx.Background(), spaceUUID0.String(), "space0", "foo0", subnets)
 	c.Assert(err, jc.ErrorIsNil)
 	subnets = []string{subnetUUID1.String()}
 	spaceUUID1, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
-	err = st.AddSpace(ctx.Background(), network.Id(spaceUUID1.String()), "space1", "foo1", subnets)
+	err = st.AddSpace(ctx.Background(), spaceUUID1.String(), "space1", "foo1", subnets)
 	c.Assert(err, jc.ErrorIsNil)
 	subnets = []string{subnetUUID2.String()}
 	spaceUUID2, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
-	err = st.AddSpace(ctx.Background(), network.Id(spaceUUID2.String()), "space2", "foo2", subnets)
+	err = st.AddSpace(ctx.Background(), spaceUUID2.String(), "space2", "foo2", subnets)
 	c.Assert(err, jc.ErrorIsNil)
 
 	sp, err := st.GetAllSpaces(ctx.Background())
@@ -451,7 +451,7 @@ func (s *stateSuite) TestUpdateSpace(c *gc.C) {
 
 	uuid, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
-	err = st.AddSpace(ctx.Background(), network.Id(uuid.String()), "space0", "foo", []string{})
+	err = st.AddSpace(ctx.Background(), uuid.String(), "space0", "foo", []string{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = st.UpdateSpace(ctx.Background(), uuid.String(), "newSpaceName0")
@@ -494,7 +494,7 @@ func (s *stateSuite) TestDeleteSpace(c *gc.C) {
 	// Create a space containing the newly created subnet.
 	spUUID, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
-	err = st.AddSpace(ctx.Background(), network.Id(spUUID.String()), "space0", "foo", []string{subnetUUID0.String()})
+	err = st.AddSpace(ctx.Background(), spUUID.String(), "space0", "foo", []string{subnetUUID0.String()})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check the subnet entity.
