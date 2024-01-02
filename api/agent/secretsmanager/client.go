@@ -5,7 +5,7 @@ package secretsmanager
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/api/base"
 	commonsecretbackends "github.com/juju/juju/api/common/secretbackends"
@@ -161,6 +161,11 @@ func (c *Client) SecretMetadata() ([]coresecrets.SecretOwnerMetadata, error) {
 			LatestRevision:   info.LatestRevision,
 			LatestExpireTime: info.LatestExpireTime,
 			NextRotateTime:   info.NextRotateTime,
+		}
+		for _, g := range info.Access {
+			md.Access = append(md.Access, coresecrets.AccessInfo{
+				Target: g.TargetTag, Scope: g.ScopeTag, Role: g.Role,
+			})
 		}
 		revisions := make([]int, len(info.Revisions))
 		for i, r := range info.Revisions {

@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	"github.com/juju/version/v2"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"

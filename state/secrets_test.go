@@ -11,7 +11,7 @@ import (
 	"github.com/juju/charm/v12"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
@@ -1304,6 +1304,46 @@ func (s *SecretsSuite) TestChangeSecretBackendExternalToInternal(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(val, jc.DeepEquals, secrets.NewSecretValue(map[string]string{"foo": "bar"}))
 	c.Assert(valRef, gc.IsNil)
+}
+
+func (s *SecretsSuite) TestSecretGrants(c *gc.C) {
+	uri := secrets.NewURI()
+
+	now := s.Clock.Now().Round(time.Second).UTC()
+	next := now.Add(time.Minute).Round(time.Second).UTC()
+	cp := state.CreateSecretParams{
+		Version: 1,
+		Owner:   s.owner.Tag(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			Label:          strPtr("label-1"),
+			LeaderToken:    &fakeToken{},
+			RotatePolicy:   ptr(secrets.RotateDaily),
+			NextRotateTime: ptr(next),
+			Data:           map[string]string{"foo": "bar"},
+		},
+	}
+	md, err := s.store.CreateSecret(uri, cp)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(md.URI, jc.DeepEquals, uri)
+
+	subject := names.NewApplicationTag("wordpress")
+	err = s.State.GrantSecretAccess(uri, state.SecretAccessParams{
+		LeaderToken: &fakeToken{},
+		Scope:       s.relation.Tag(),
+		Subject:     subject,
+		Role:        secrets.RoleView,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	access, err := s.store.SecretGrants(uri, secrets.RoleView)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(access, jc.DeepEquals, []secrets.AccessInfo{
+		{
+			Target: subject.String(),
+			Scope:  "relation-wordpress.db#mysql.server",
+			Role:   secrets.RoleView,
+		},
+	})
 }
 
 func (s *SecretsSuite) TestGetSecret(c *gc.C) {

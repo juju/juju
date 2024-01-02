@@ -11,7 +11,7 @@ import (
 	"github.com/juju/charm/v12/hooks"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/core/leadership"
@@ -450,6 +450,7 @@ func (f *contextFactory) updateContext(ctx *HookContext) (err error) {
 			LatestExpireTime: md.LatestExpireTime,
 			NextRotateTime:   md.NextRotateTime,
 			Revisions:        v.Revisions,
+			Access:           md.Access,
 		}
 	}
 

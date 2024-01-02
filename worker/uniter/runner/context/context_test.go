@@ -10,7 +10,7 @@ import (
 
 	"github.com/juju/charm/v12"
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
@@ -563,6 +563,13 @@ func (s *InterfaceSuite) TestSecretMetadata(c *gc.C) {
 			Owner:        names.NewApplicationTag("mariadb"),
 			Description:  "description",
 			RotatePolicy: coresecrets.RotateHourly,
+			Access: []coresecrets.AccessInfo{
+				{
+					Target: "unit-gitlab-0",
+					Scope:  "relation-mariadb.db#gitlab.db",
+					Role:   coresecrets.RoleView,
+				},
+			},
 		},
 		uri2.ID: {
 			Owner:       names.NewApplicationTag("mariadb"),
@@ -578,6 +585,13 @@ func (s *InterfaceSuite) TestSecretMetadata(c *gc.C) {
 			Owner:        names.NewApplicationTag("mariadb"),
 			Description:  "description",
 			RotatePolicy: coresecrets.RotateHourly,
+			Access: []coresecrets.AccessInfo{
+				{
+					Target: "unit-gitlab-0",
+					Scope:  "relation-mariadb.db#gitlab.db",
+					Role:   coresecrets.RoleView,
+				},
+			},
 		},
 		uri2.ID: {
 			Owner:       names.NewApplicationTag("mariadb"),
@@ -595,6 +609,11 @@ func (s *InterfaceSuite) TestSecretMetadata(c *gc.C) {
 		Description: ptr("another"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
+	ctx.GrantSecret(uri, &jujuc.SecretGrantRevokeArgs{
+		UnitName:    ptr("gitlab/1"),
+		RelationKey: ptr("mariadb:db gitlab:db"),
+		Role:        ptr(coresecrets.RoleView),
+	})
 
 	err = ctx.RemoveSecret(uri2, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -606,6 +625,9 @@ func (s *InterfaceSuite) TestSecretMetadata(c *gc.C) {
 			Owner:        names.NewApplicationTag("mariadb"),
 			Description:  "another",
 			RotatePolicy: coresecrets.RotateHourly,
+			Access: []coresecrets.AccessInfo{
+				{Target: "unit-gitlab-0", Scope: "relation-mariadb.db#gitlab.db", Role: "view"},
+			},
 		},
 		uri3.ID: {
 			Owner:          names.NewApplicationTag("foo"),
@@ -1624,19 +1646,184 @@ func (s *mockHookContextSuite) TestSecretGrant(c *gc.C) {
 		RelationKey:     &relationKey,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(hookContext.PendingSecretGrants(), jc.DeepEquals, map[string]uniter.SecretGrantRevokeArgs{
+	c.Assert(hookContext.PendingSecretGrants(), jc.DeepEquals, map[string]map[string]uniter.SecretGrantRevokeArgs{
 		uri.ID: {
-			URI:             uri,
-			ApplicationName: &app,
-			RelationKey:     &relationKey,
-			Role:            coresecrets.RoleView,
+			relationKey: {
+				URI:             uri,
+				ApplicationName: &app,
+				RelationKey:     &relationKey,
+				Role:            coresecrets.RoleView,
+			},
 		},
 		uri2.ID: {
-			URI:             uri2,
-			ApplicationName: &app,
-			RelationKey:     &relationKey,
-			Role:            coresecrets.RoleView,
+			relationKey: {
+				URI:             uri2,
+				ApplicationName: &app,
+				RelationKey:     &relationKey,
+				Role:            coresecrets.RoleView,
+			},
 		}})
+}
+
+func (s *mockHookContextSuite) TestSecretGrantSecretNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	hookContext := context.NewMockUnitHookContext(s.mockUnit, model.IAAS, s.mockLeadership)
+
+	uri := coresecrets.NewURI()
+	app := "mariadb"
+	relationKey := "wordpress:db mysql:server"
+	err := hookContext.GrantSecret(uri, &jujuc.SecretGrantRevokeArgs{
+		ApplicationName: &app,
+		RelationKey:     &relationKey,
+	})
+	c.Assert(errors.Is(err, errors.NotFound), jc.IsTrue)
+}
+
+func (s *mockHookContextSuite) TestSecretGrantNotLeader(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	uri := coresecrets.NewURI()
+	hookContext := context.NewMockUnitHookContext(s.mockUnit, model.IAAS, s.mockLeadership)
+	context.SetEnvironmentHookContextSecret(hookContext, uri.String(), map[string]jujuc.SecretMetadata{
+		uri.ID: {Description: "a secret", LatestRevision: 666, Owner: names.NewApplicationTag("mariadb")},
+	}, nil, nil)
+	s.mockLeadership.EXPECT().IsLeader().Return(false, nil)
+
+	app := "mariadb"
+	relationKey := "wordpress:db mysql:server"
+	err := hookContext.GrantSecret(uri, &jujuc.SecretGrantRevokeArgs{
+		ApplicationName: &app,
+		RelationKey:     &relationKey,
+	})
+	c.Assert(errors.Is(err, context.ErrIsNotLeader), jc.IsTrue)
+}
+
+func (s *mockHookContextSuite) TestSecretGrantNoOPSBecauseofExactSameApp(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	uri := coresecrets.NewURI()
+	hookContext := context.NewMockUnitHookContext(s.mockUnit, model.IAAS, s.mockLeadership)
+	context.SetEnvironmentHookContextSecret(hookContext, uri.String(), map[string]jujuc.SecretMetadata{
+		uri.ID: {
+			Description:    "a secret",
+			LatestRevision: 666,
+			Owner:          names.NewApplicationTag("mariadb"),
+			Access: []coresecrets.AccessInfo{
+				{
+					Target: "application-gitlab",
+					Role:   coresecrets.RoleView,
+					Scope:  "relation-mariadb.db#gitlab.db",
+				},
+			},
+		},
+	}, nil, nil)
+	s.mockLeadership.EXPECT().IsLeader().Return(true, nil)
+	c.Assert(hookContext.PendingSecretGrants(), jc.DeepEquals, map[string]map[string]uniter.SecretGrantRevokeArgs{})
+	app := "gitlab"
+	relationKey := "mariadb:db gitlab:db"
+	err := hookContext.GrantSecret(uri, &jujuc.SecretGrantRevokeArgs{
+		ApplicationName: &app,
+		RelationKey:     &relationKey,
+		Role:            ptr(coresecrets.RoleView),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(hookContext.PendingSecretGrants(), jc.DeepEquals, map[string]map[string]uniter.SecretGrantRevokeArgs{})
+}
+
+func (s *mockHookContextSuite) TestSecretGrantNoOPSBecauseofExactSameUnit(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	uri := coresecrets.NewURI()
+	hookContext := context.NewMockUnitHookContext(s.mockUnit, model.IAAS, s.mockLeadership)
+	context.SetEnvironmentHookContextSecret(hookContext, uri.String(), map[string]jujuc.SecretMetadata{
+		uri.ID: {
+			Description:    "a secret",
+			LatestRevision: 666,
+			Owner:          names.NewApplicationTag("mariadb"),
+			Access: []coresecrets.AccessInfo{
+				{
+					Target: "unit-gitlab-0",
+					Role:   coresecrets.RoleView,
+					Scope:  "relation-mariadb.db#gitlab.db",
+				},
+			},
+		},
+	}, nil, nil)
+	s.mockLeadership.EXPECT().IsLeader().Return(true, nil)
+	c.Assert(hookContext.PendingSecretGrants(), jc.DeepEquals, map[string]map[string]uniter.SecretGrantRevokeArgs{})
+	unit := "gitlab/0"
+	relationKey := "mariadb:db gitlab:db"
+	err := hookContext.GrantSecret(uri, &jujuc.SecretGrantRevokeArgs{
+		UnitName:    &unit,
+		RelationKey: &relationKey,
+		Role:        ptr(coresecrets.RoleView),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(hookContext.PendingSecretGrants(), jc.DeepEquals, map[string]map[string]uniter.SecretGrantRevokeArgs{})
+}
+
+func (s *mockHookContextSuite) TestSecretGrantNoOPSBecauseApplicationLevelGrantedAlready(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	uri := coresecrets.NewURI()
+	hookContext := context.NewMockUnitHookContext(s.mockUnit, model.IAAS, s.mockLeadership)
+	context.SetEnvironmentHookContextSecret(hookContext, uri.String(), map[string]jujuc.SecretMetadata{
+		uri.ID: {
+			Description:    "a secret",
+			LatestRevision: 666,
+			Owner:          names.NewApplicationTag("mariadb"),
+			Access: []coresecrets.AccessInfo{
+				{
+					Target: "application-gitlab",
+					Role:   coresecrets.RoleView,
+					Scope:  "relation-mariadb.db#gitlab.db",
+				},
+			},
+		},
+	}, nil, nil)
+	s.mockLeadership.EXPECT().IsLeader().Return(true, nil)
+	c.Assert(hookContext.PendingSecretGrants(), jc.DeepEquals, map[string]map[string]uniter.SecretGrantRevokeArgs{})
+	unit := "gitlab/0"
+	relationKey := "mariadb:db gitlab:db"
+	err := hookContext.GrantSecret(uri, &jujuc.SecretGrantRevokeArgs{
+		UnitName:    &unit,
+		RelationKey: &relationKey,
+		Role:        ptr(coresecrets.RoleView),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(hookContext.PendingSecretGrants(), jc.DeepEquals, map[string]map[string]uniter.SecretGrantRevokeArgs{})
+}
+
+func (s *mockHookContextSuite) TestSecretGrantFailedRevokeExistingRecordRequired(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	uri := coresecrets.NewURI()
+	hookContext := context.NewMockUnitHookContext(s.mockUnit, model.IAAS, s.mockLeadership)
+	context.SetEnvironmentHookContextSecret(hookContext, uri.String(), map[string]jujuc.SecretMetadata{
+		uri.ID: {
+			Description:    "a secret",
+			LatestRevision: 666,
+			Owner:          names.NewApplicationTag("mariadb"),
+			Access: []coresecrets.AccessInfo{
+				{
+					Target: "unit-gitlab-0",
+					Role:   coresecrets.RoleView,
+					Scope:  "relation-mariadb.db#gitlab.db",
+				},
+			},
+		},
+	}, nil, nil)
+	s.mockLeadership.EXPECT().IsLeader().Return(true, nil)
+	c.Assert(hookContext.PendingSecretGrants(), jc.DeepEquals, map[string]map[string]uniter.SecretGrantRevokeArgs{})
+	app := "gitlab"
+	relationKey := "mariadb:db gitlab:db"
+	err := hookContext.GrantSecret(uri, &jujuc.SecretGrantRevokeArgs{
+		ApplicationName: &app,
+		RelationKey:     &relationKey,
+		Role:            ptr(coresecrets.RoleView),
+	})
+	c.Assert(err, gc.ErrorMatches, `any unit level grants need to be revoked before granting access to the corresponding application`)
 }
 
 func (s *mockHookContextSuite) TestSecretRevoke(c *gc.C) {
@@ -1644,13 +1831,14 @@ func (s *mockHookContextSuite) TestSecretRevoke(c *gc.C) {
 
 	uri := coresecrets.NewURI()
 	uri2 := coresecrets.NewURI()
-	s.mockLeadership.EXPECT().IsLeader().Return(true, nil)
+	s.mockLeadership.EXPECT().IsLeader().Return(true, nil).AnyTimes()
 	hookContext := context.NewMockUnitHookContext(s.mockUnit, model.IAAS, s.mockLeadership)
 	context.SetEnvironmentHookContextSecret(hookContext, uri.String(), map[string]jujuc.SecretMetadata{
 		uri.ID:  {Description: "a secret", LatestRevision: 666, Owner: names.NewApplicationTag("mariadb")},
 		uri2.ID: {Description: "another secret", LatestRevision: 667, Owner: names.NewUnitTag("mariadb/666")},
 	}, nil, nil)
 	app := "mariadb"
+	unit0 := "mariadb/0"
 	relationKey := "wordpress:db mysql:server"
 	err := hookContext.RevokeSecret(uri, &jujuc.SecretGrantRevokeArgs{
 		ApplicationName: &app,
@@ -1662,17 +1850,75 @@ func (s *mockHookContextSuite) TestSecretRevoke(c *gc.C) {
 		RelationKey:     &relationKey,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(hookContext.PendingSecretRevokes(), jc.DeepEquals, map[string]uniter.SecretGrantRevokeArgs{
-		uri.ID: {
-			URI:             uri,
-			ApplicationName: &app,
-			RelationKey:     &relationKey,
+	c.Assert(hookContext.PendingSecretRevokes(), jc.DeepEquals,
+		map[string][]uniter.SecretGrantRevokeArgs{
+			uri.ID: {
+				{
+					URI:             uri,
+					ApplicationName: &app,
+					RelationKey:     &relationKey,
+				},
+			},
+			uri2.ID: {
+				{
+					URI:             uri2,
+					ApplicationName: &app,
+					RelationKey:     &relationKey,
+				},
+			},
 		},
-		uri2.ID: {
-			URI:             uri2,
-			ApplicationName: &app,
-			RelationKey:     &relationKey,
-		}})
+	)
+
+	// No OPS for duplicated revoke.
+	err = hookContext.RevokeSecret(uri, &jujuc.SecretGrantRevokeArgs{
+		ApplicationName: &app,
+		RelationKey:     &relationKey,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(hookContext.PendingSecretRevokes(), jc.DeepEquals,
+		map[string][]uniter.SecretGrantRevokeArgs{
+			uri.ID: {
+				{
+					URI:             uri,
+					ApplicationName: &app,
+					RelationKey:     &relationKey,
+				},
+			},
+			uri2.ID: {
+				{
+					URI:             uri2,
+					ApplicationName: &app,
+					RelationKey:     &relationKey,
+				},
+			},
+		},
+	)
+
+	// No OPS for unit level revoke because application level revoke exists already.
+	err = hookContext.RevokeSecret(uri, &jujuc.SecretGrantRevokeArgs{
+		UnitName:    &unit0,
+		RelationKey: &relationKey,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(hookContext.PendingSecretRevokes(), jc.DeepEquals,
+		map[string][]uniter.SecretGrantRevokeArgs{
+			uri.ID: {
+				{
+					URI:             uri,
+					ApplicationName: &app,
+					RelationKey:     &relationKey,
+				},
+			},
+			uri2.ID: {
+				{
+					URI:             uri2,
+					ApplicationName: &app,
+					RelationKey:     &relationKey,
+				},
+			},
+		},
+	)
+
 }
 
 func (s *mockHookContextSuite) TestHookStorage(c *gc.C) {

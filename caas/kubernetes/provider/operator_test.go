@@ -225,7 +225,7 @@ func operatorStatefulSetArg(numUnits int32, scName, serviceAccountName string, w
 			Spec: core.PersistentVolumeClaimSpec{
 				StorageClassName: &scName,
 				AccessModes:      []core.PersistentVolumeAccessMode{core.ReadWriteOnce},
-				Resources: core.ResourceRequirements{
+				Resources: core.VolumeResourceRequirements{
 					Requests: core.ResourceList{
 						core.ResourceStorage: resource.MustParse("10Mi"),
 					},
@@ -769,7 +769,7 @@ func (s *K8sBrokerSuite) TestEnsureOperatorNoStorageExistingPVC(c *gc.C) {
 		Spec: core.PersistentVolumeClaimSpec{
 			StorageClassName: &scName,
 			AccessModes:      []core.PersistentVolumeAccessMode{core.ReadWriteOnce},
-			Resources: core.ResourceRequirements{
+			Resources: core.VolumeResourceRequirements{
 				Requests: core.ResourceList{
 					core.ResourceStorage: resource.MustParse("10Mi"),
 				},

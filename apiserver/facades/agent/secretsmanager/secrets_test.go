@@ -10,7 +10,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
@@ -658,6 +658,13 @@ func (s *SecretsManagerSuite) TestGetSecretMetadata(c *gc.C) {
 		LatestExpireTime: &now,
 		NextRotateTime:   &now,
 	}}, nil)
+	s.secretsState.EXPECT().SecretGrants(uri, coresecrets.RoleView).Return([]coresecrets.AccessInfo{
+		{
+			Target: "application-gitlab",
+			Scope:  "relation-key",
+			Role:   coresecrets.RoleView,
+		},
+	}, nil)
 	s.secretsState.EXPECT().ListSecretRevisions(uri).Return([]*coresecrets.SecretRevisionMetadata{{
 		Revision: 666,
 		ValueRef: &coresecrets.ValueRef{
@@ -689,6 +696,9 @@ func (s *SecretsManagerSuite) TestGetSecretMetadata(c *gc.C) {
 			}, {
 				Revision: 667,
 			}},
+			Access: []params.AccessInfo{
+				{TargetTag: "application-gitlab", ScopeTag: "relation-key", Role: "view"},
+			},
 		}},
 	})
 }

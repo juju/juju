@@ -13,7 +13,7 @@ import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/checkers"
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3/txn"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jujutxn "github.com/juju/txn/v3"
 	"gopkg.in/macaroon.v2"
@@ -40,7 +40,7 @@ type mockState struct {
 	remoteApplications    map[string]*mockRemoteApplication
 	applications          map[string]*mockApplication
 	offers                map[string]*crossmodel.ApplicationOffer
-	offerNames            map[string]string
+	offerUUIDs            map[string]string
 	offerConnections      map[int]*mockOfferConnection
 	offerConnectionsByKey map[string]*mockOfferConnection
 	remoteEntities        map[names.Tag]string
@@ -57,7 +57,7 @@ func newMockState() *mockState {
 		applications:          make(map[string]*mockApplication),
 		remoteEntities:        make(map[names.Tag]string),
 		offers:                make(map[string]*crossmodel.ApplicationOffer),
-		offerNames:            make(map[string]string),
+		offerUUIDs:            make(map[string]string),
 		offerConnections:      make(map[int]*mockOfferConnection),
 		offerConnectionsByKey: make(map[string]*mockOfferConnection),
 		ingressNetworks:       make(map[string][]string),
@@ -70,20 +70,12 @@ func (st *mockState) ControllerTag() names.ControllerTag {
 }
 
 func (st *mockState) ApplicationOfferForUUID(offerUUID string) (*crossmodel.ApplicationOffer, error) {
+	st.MethodCall(st, "ApplicationOfferForUUID", offerUUID)
 	offer, ok := st.offers[offerUUID]
 	if !ok {
 		return nil, errors.NotFoundf("offer %v", offerUUID)
 	}
 	return offer, nil
-}
-
-func (st *mockState) ApplicationOffer(offerName string) (*crossmodel.ApplicationOffer, error) {
-	for _, offer := range st.offers {
-		if offer.OfferName == offerName {
-			return offer, nil
-		}
-	}
-	return nil, errors.NotFoundf("offer %v", offerName)
 }
 
 func (st *mockState) ModelTag() names.ModelTag {
@@ -170,24 +162,12 @@ func (st *mockState) AddRemoteApplication(params state.AddRemoteApplicationParam
 	return app, nil
 }
 
-func (st *mockState) OfferNameForRelation(key string) (string, error) {
-	st.MethodCall(st, "OfferNameForRelation", key)
+func (st *mockState) OfferUUIDForRelation(key string) (string, error) {
+	st.MethodCall(st, "OfferUUIDForRelation", key)
 	if err := st.NextErr(); err != nil {
 		return "", err
 	}
-	return st.offerNames[key], nil
-}
-
-func (st *mockState) AppNameForOffer(offerName string) (string, error) {
-	st.MethodCall(st, "AppNameForOffer", offerName)
-	if err := st.NextErr(); err != nil {
-		return "", err
-	}
-	offer, ok := st.offers[offerName]
-	if !ok {
-		return "", errors.NotFoundf("offer %q", offerName)
-	}
-	return offer.ApplicationName, nil
+	return st.offerUUIDs[key], nil
 }
 
 func (st *mockState) ImportRemoteEntity(entity names.Tag, token string) error {

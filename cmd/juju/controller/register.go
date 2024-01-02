@@ -24,7 +24,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	jujuhttp "github.com/juju/http/v2"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	"golang.org/x/crypto/nacl/secretbox"
 	"golang.org/x/crypto/ssh/terminal"
 	"gopkg.in/yaml.v2"

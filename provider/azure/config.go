@@ -9,7 +9,7 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork"
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	"github.com/juju/schema"
 	"gopkg.in/juju/environschema.v1"
 

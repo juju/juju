@@ -4,7 +4,7 @@
 package keyupdater_test
 
 import (
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 

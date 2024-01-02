@@ -23,7 +23,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/mutex/v2"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	gt "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	ft "github.com/juju/testing/filetesting"
@@ -35,6 +35,8 @@ import (
 	"github.com/juju/juju/api/agent/secretsmanager"
 	apiuniter "github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/api/client/charms"
+	corearch "github.com/juju/juju/core/arch"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/leadership"
 	corelease "github.com/juju/juju/core/lease"
@@ -1026,13 +1028,41 @@ func (s upgradeCharm) step(c *gc.C, ctx *testContext) {
 	sch, err := ctx.st.Charm(curl)
 	c.Assert(err, jc.ErrorIsNil)
 	cfg := state.SetCharmConfig{
-		Charm:      sch,
-		ForceUnits: s.forced,
+		Charm:       sch,
+		ForceUnits:  s.forced,
+		CharmOrigin: defaultCharmOrigin(s.revision),
 	}
 	// Make sure we upload the charm before changing it in the DB.
 	serveCharm{}.step(c, ctx)
 	err = ctx.application.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func defaultCharmOrigin(revision int) *state.CharmOrigin {
+	// This functionality is highly depending on the local
+	// curl function. Any changes must be made in both locations.
+	source := corecharm.CharmHub.String()
+	channel := &state.Channel{
+		Risk: "stable",
+	}
+
+	platform := &state.Platform{
+		Architecture: corearch.DefaultArchitecture,
+		OS:           "ubuntu",
+		Channel:      "12.10",
+	}
+
+	return &state.CharmOrigin{
+		Source:   source,
+		Type:     "charm",
+		Revision: intPtr(revision),
+		Channel:  channel,
+		Platform: platform,
+	}
+}
+
+func intPtr(i int) *int {
+	return &i
 }
 
 type verifyCharm struct {
@@ -1381,6 +1411,9 @@ var subordinateDying = custom{func(c *gc.C, ctx *testContext) {
 }}
 
 func curl(revision int) string {
+	// This functionality is highly depended on by the local
+	// defaultCharmOrigin function. Any changes must be made
+	// in both locations.
 	return jujucharm.MustParseURL("ch:quantal/wordpress").WithRevision(revision).String()
 }
 

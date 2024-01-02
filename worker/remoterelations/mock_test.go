@@ -7,7 +7,7 @@ import (
 	"sync"
 
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	"gopkg.in/macaroon.v2"
 	"gopkg.in/tomb.v2"

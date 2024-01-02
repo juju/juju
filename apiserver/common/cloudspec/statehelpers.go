@@ -5,7 +5,7 @@ package cloudspec
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/state"

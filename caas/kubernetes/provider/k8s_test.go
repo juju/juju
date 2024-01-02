@@ -12,7 +12,7 @@ import (
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
 	"github.com/juju/worker/v3/workertest"
@@ -849,7 +849,7 @@ var _ = gc.Suite(&K8sBrokerSuite{})
 
 type fileSetToVolumeResultChecker func(core.Volume, error)
 
-func (s *K8sBrokerSuite) assertFileSetToVolume(c *gc.C, fs specs.FileSet, resultChecker fileSetToVolumeResultChecker, assertCalls ...*gomock.Call) {
+func (s *K8sBrokerSuite) assertFileSetToVolume(c *gc.C, fs specs.FileSet, resultChecker fileSetToVolumeResultChecker, assertCalls ...any) {
 
 	cfgMapName := func(n string) string { return n }
 
@@ -2068,7 +2068,7 @@ func unitStatefulSetArg(numUnits int32, scName string, podSpec core.PodSpec) *ap
 				Spec: core.PersistentVolumeClaimSpec{
 					StorageClassName: &scName,
 					AccessModes:      []core.PersistentVolumeAccessMode{core.ReadWriteOnce},
-					Resources: core.ResourceRequirements{
+					Resources: core.VolumeResourceRequirements{
 						Requests: core.ResourceList{
 							core.ResourceStorage: resource.MustParse("100Mi"),
 						},
@@ -3267,7 +3267,7 @@ func (s *K8sBrokerSuite) TestGetServiceSvcNotFound(c *gc.C) {
 	c.Assert(caasSvc, gc.DeepEquals, &caas.Service{})
 }
 
-func (s *K8sBrokerSuite) assertGetService(c *gc.C, mode caas.DeploymentMode, expectedSvcResult *caas.Service, assertCalls ...*gomock.Call) {
+func (s *K8sBrokerSuite) assertGetService(c *gc.C, mode caas.DeploymentMode, expectedSvcResult *caas.Service, assertCalls ...any) {
 	selectorLabels := map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"}
 	if mode == caas.ModeOperator {
 		selectorLabels = map[string]string{
@@ -3323,7 +3323,7 @@ func (s *K8sBrokerSuite) assertGetService(c *gc.C, mode caas.DeploymentMode, exp
 		},
 	}
 	gomock.InOrder(
-		append([]*gomock.Call{
+		append([]any{
 			s.mockServices.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: selector}).
 				Return(&core.ServiceList{Items: []core.Service{svcHeadless, svc}}, nil),
 
@@ -3418,7 +3418,7 @@ func (s *K8sBrokerSuite) assertGetServiceSvcFoundWithStatefulSet(c *gc.C, mode c
 	}
 	workload.SetGeneration(1)
 
-	var expectedCalls []*gomock.Call
+	var expectedCalls []any
 	if mode == caas.ModeOperator {
 		expectedCalls = append(expectedCalls,
 			s.mockStatefulSets.EXPECT().Get(gomock.Any(), "juju-operator-app-name-operator", v1.GetOptions{}).
@@ -3510,7 +3510,7 @@ func (s *K8sBrokerSuite) assertGetServiceSvcFoundWithDeployment(c *gc.C, mode ca
 	}
 	workload.SetGeneration(1)
 
-	var expectedCalls []*gomock.Call
+	var expectedCalls []any
 	if mode == caas.ModeOperator {
 		expectedCalls = append(expectedCalls,
 			s.mockStatefulSets.EXPECT().Get(gomock.Any(), "juju-operator-app-name-operator", v1.GetOptions{}).
@@ -5716,7 +5716,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithStorageCreate(c *gc.C
 		},
 		Spec: core.PersistentVolumeClaimSpec{
 			StorageClassName: pointer.StringPtr("workload-storage"),
-			Resources: core.ResourceRequirements{
+			Resources: core.VolumeResourceRequirements{
 				Requests: core.ResourceList{
 					core.ResourceStorage: resource.MustParse("100Mi"),
 				},
@@ -5864,7 +5864,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithStorageUpdate(c *gc.C
 		},
 		Spec: core.PersistentVolumeClaimSpec{
 			StorageClassName: pointer.StringPtr("workload-storage"),
-			Resources: core.ResourceRequirements{
+			Resources: core.VolumeResourceRequirements{
 				Requests: core.ResourceList{
 					core.ResourceStorage: resource.MustParse("100Mi"),
 				},
@@ -6080,7 +6080,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithStorageCreate(c *gc.C)
 		},
 		Spec: core.PersistentVolumeClaimSpec{
 			StorageClassName: pointer.StringPtr("workload-storage"),
-			Resources: core.ResourceRequirements{
+			Resources: core.VolumeResourceRequirements{
 				Requests: core.ResourceList{
 					core.ResourceStorage: resource.MustParse("100Mi"),
 				},
@@ -6260,7 +6260,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithUpdateStrategy(c *gc.C
 		},
 		Spec: core.PersistentVolumeClaimSpec{
 			StorageClassName: pointer.StringPtr("workload-storage"),
-			Resources: core.ResourceRequirements{
+			Resources: core.VolumeResourceRequirements{
 				Requests: core.ResourceList{
 					core.ResourceStorage: resource.MustParse("100Mi"),
 				},
@@ -6435,7 +6435,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithStorageUpdate(c *gc.C)
 		},
 		Spec: core.PersistentVolumeClaimSpec{
 			StorageClassName: pointer.StringPtr("workload-storage"),
-			Resources: core.ResourceRequirements{
+			Resources: core.VolumeResourceRequirements{
 				Requests: core.ResourceList{
 					core.ResourceStorage: resource.MustParse("100Mi"),
 				},

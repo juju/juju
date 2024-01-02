@@ -9,7 +9,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 
 	apiprovisioner "github.com/juju/juju/api/agent/provisioner"
 	"github.com/juju/juju/cloudconfig"

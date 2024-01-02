@@ -14,7 +14,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
 	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	"github.com/juju/retry"
 	"gopkg.in/yaml.v3"
 	apps "k8s.io/api/apps/v1"
@@ -1123,7 +1123,7 @@ func (c *controllerStack) buildStorageSpecForController(statefulset *apps.Statef
 		Spec: core.PersistentVolumeClaimSpec{
 			StorageClassName: &c.storageClass,
 			AccessModes:      []core.PersistentVolumeAccessMode{core.ReadWriteOnce},
-			Resources: core.ResourceRequirements{
+			Resources: core.VolumeResourceRequirements{
 				Requests: core.ResourceList{
 					core.ResourceStorage: c.storageSize,
 				},

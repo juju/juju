@@ -14,7 +14,7 @@ import (
 	"sync"
 
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	"github.com/juju/utils/v3/exec"
 	"github.com/juju/worker/v3"
 	"gopkg.in/tomb.v2"

@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	ociCore "github.com/oracle/oci-go-sdk/v65/core"
 	gc "gopkg.in/check.v1"

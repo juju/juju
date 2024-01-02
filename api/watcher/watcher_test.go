@@ -10,7 +10,7 @@ import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/checkers"
 	"github.com/juju/charm/v12"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
 	"github.com/juju/worker/v3"
@@ -285,7 +285,7 @@ func (s *watcherSuite) assertSetupRelationStatusWatch(
 	// Add the consume permission for the offer so the macaroon
 	// discharge can occur.
 	err = s.State.CreateOfferAccess(
-		names.NewApplicationOfferTag("hosted-mysql"),
+		names.NewApplicationOfferTag(offer.OfferUUID),
 		names.NewUserTag("fred"), permission.ConsumeAccess)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -422,7 +422,7 @@ func (s *watcherSuite) setupOfferStatusWatch(
 	// Add the consume permission for the offer so the macaroon
 	// discharge can occur.
 	err = s.State.CreateOfferAccess(
-		names.NewApplicationOfferTag("hosted-mysql"),
+		names.NewApplicationOfferTag(offer.OfferUUID),
 		names.NewUserTag("fred"), permission.ConsumeAccess)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -740,7 +740,7 @@ func (s *watcherSuite) setupSecretsRevisionWatcher(
 	// Add the consume permission for the offer so the macaroon
 	// discharge can occur.
 	err = s.State.CreateOfferAccess(
-		names.NewApplicationOfferTag("hosted-mysql"),
+		names.NewApplicationOfferTag(offer.OfferUUID),
 		names.NewUserTag("fred"), permission.ConsumeAccess)
 	c.Assert(err, jc.ErrorIsNil)
 

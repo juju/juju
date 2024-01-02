@@ -12,7 +12,7 @@ import (
 
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3/voyeur"
 	"github.com/juju/version/v2"

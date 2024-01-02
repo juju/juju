@@ -13,7 +13,7 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	ociCore "github.com/oracle/oci-go-sdk/v65/core"
 
 	"github.com/juju/juju/core/instance"

@@ -13,7 +13,7 @@ import (
 	"github.com/juju/charm/v12"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	"github.com/juju/retry"
 
 	"github.com/juju/juju/caas"
@@ -697,7 +697,9 @@ func ensureScale(appName string, app caas.Application, appLife life.Value,
 	if ps.ScaleTarget >= len(units) {
 		logger.Infof("scaling application %q to desired scale %d", appName, ps.ScaleTarget)
 		err = app.Scale(ps.ScaleTarget)
-		if err != nil {
+		if appLife != life.Alive && errors.Is(err, errors.NotFound) {
+			logger.Infof("dying application %q is already removed", appName)
+		} else if err != nil {
 			return err
 		}
 		return updateProvisioningState(appName, false, 0, facade)

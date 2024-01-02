@@ -1144,7 +1144,7 @@ var permissionError = soap.WrapSoapFault(&soap.Fault{
 	}{
 		Fault: types.NoPermission{
 			SecurityError: types.SecurityError{},
-			Object:        types.ManagedObjectReference{Type: "Folder", Value: "group-d1"},
+			Object:        &types.ManagedObjectReference{Type: "Folder", Value: "group-d1"},
 			PrivilegeId:   "System.Read",
 		},
 	},

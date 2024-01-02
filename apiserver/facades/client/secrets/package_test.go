@@ -6,7 +6,7 @@ package secrets
 import (
 	"testing"
 
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	gc "gopkg.in/check.v1"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"

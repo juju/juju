@@ -11,7 +11,7 @@ import (
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 
 	apisecrets "github.com/juju/juju/api/client/secrets"
 	jujucmd "github.com/juju/juju/cmd"
@@ -115,6 +115,26 @@ type secretDisplayDetails struct {
 	Error            string                  `json:"error,omitempty" yaml:"error,omitempty"`
 	Value            *secretValueDetails     `json:"content,omitempty" yaml:"content,omitempty"`
 	Revisions        []secretRevisionDetails `json:"revisions,omitempty" yaml:"revisions,omitempty"`
+	Access           []AccessInfo            `yaml:"access,omitempty" json:"access,omitempty"`
+}
+
+// AccessInfo holds info about a secret access information.
+type AccessInfo struct {
+	Target string             `json:"target" yaml:"target"`
+	Scope  string             `json:"scope" yaml:"scope"`
+	Role   secrets.SecretRole `json:"role" yaml:"role"`
+}
+
+func toGrantInfo(grants []secrets.AccessInfo) []AccessInfo {
+	result := make([]AccessInfo, len(grants))
+	for i, grant := range grants {
+		result[i] = AccessInfo{
+			Target: grant.Target,
+			Scope:  grant.Scope,
+			Role:   grant.Role,
+		}
+	}
+	return result
 }
 
 // Run implements cmd.Run.
@@ -143,11 +163,13 @@ func (c *listSecretsCommand) Run(ctxt *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	details := gatherSecretInfo(result, c.revealSecrets, false)
+	details := gatherSecretInfo(result, c.revealSecrets, false, false)
 	return c.out.Write(ctxt, details)
 }
 
-func gatherSecretInfo(secrets []apisecrets.SecretDetails, reveal, includeRevisions bool) map[string]secretDisplayDetails {
+func gatherSecretInfo(
+	secrets []apisecrets.SecretDetails, reveal, includeRevisions, includeGrants bool,
+) map[string]secretDisplayDetails {
 	details := make(secretDetailsByID)
 	for _, m := range secrets {
 		ownerId := ""
@@ -175,6 +197,9 @@ func gatherSecretInfo(secrets []apisecrets.SecretDetails, reveal, includeRevisio
 			CreateTime:       m.Metadata.CreateTime,
 			UpdateTime:       m.Metadata.UpdateTime,
 			Error:            m.Error,
+		}
+		if includeGrants {
+			info.Access = toGrantInfo(m.Access)
 		}
 		if includeRevisions {
 			info.Revisions = make([]secretRevisionDetails, len(m.Revisions))

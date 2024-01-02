@@ -8,7 +8,7 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/core/cache"
 	coredatabase "github.com/juju/juju/core/database"
