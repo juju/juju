@@ -20,7 +20,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
 	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	proxyutils "github.com/juju/proxy"
 	"github.com/juju/utils/v3/exec"
 	"github.com/juju/version/v2"
@@ -41,10 +41,8 @@ import (
 	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/juju/sockets"
-	// Import the providers.
-	_ "github.com/juju/juju/provider/all"
-	// Import the secret providers.
-	_ "github.com/juju/juju/secrets/provider/all"
+	_ "github.com/juju/juju/provider/all"         // Import the providers.
+	_ "github.com/juju/juju/secrets/provider/all" // Import the secret providers.
 	"github.com/juju/juju/upgrades"
 	"github.com/juju/juju/utils/proxy"
 	jujuversion "github.com/juju/juju/version"
@@ -326,7 +324,7 @@ func Main(args []string) int {
 			AgentName:   "juju-exec",
 			Clock:       clock.WallClock,
 			Logger:      loggo.GetLogger("juju.machinelock"),
-			LogFilename: filepath.Join(config.LogDir, machinelock.Filename),
+			LogFilename: filepath.Join(config.LogDir, "juju", machinelock.Filename),
 		})
 		if err != nil {
 			code = exit_err

@@ -15,7 +15,7 @@ import (
 	"github.com/juju/charm/v12/hooks"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	"github.com/juju/proxy"
 
 	"github.com/juju/juju/api/agent/uniter"
@@ -1055,13 +1055,27 @@ func (ctx *HookContext) SecretMetadata() (map[string]jujuc.SecretMetadata, error
 		}
 		result[id] = v
 	}
+	for k, v := range result {
+		uri := &coresecrets.URI{ID: k}
+		var err error
+		if v.Access, err = ctx.secretChanges.secretGrantInfo(uri, v.Access...); err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
 	return result, nil
 }
 
 // GrantSecret grants access to a specified secret.
-func (ctx *HookContext) GrantSecret(uri *coresecrets.URI, args *jujuc.SecretGrantRevokeArgs) error {
-	md, ok := ctx.secretMetadata[uri.ID]
-	if ok && md.Owner.Kind() == names.ApplicationTagKind {
+func (ctx *HookContext) GrantSecret(uri *coresecrets.URI, arg *jujuc.SecretGrantRevokeArgs) error {
+	secretMetadata, err := ctx.SecretMetadata()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	md, ok := secretMetadata[uri.ID]
+	if !ok {
+		return errors.NotFoundf("secret %q", uri.ID)
+	}
+	if md.Owner.Kind() == names.ApplicationTagKind {
 		isLeader, err := ctx.IsLeader()
 		if err != nil {
 			return errors.Annotatef(err, "cannot determine leadership")
@@ -1070,13 +1084,42 @@ func (ctx *HookContext) GrantSecret(uri *coresecrets.URI, args *jujuc.SecretGran
 			return ErrIsNotLeader
 		}
 	}
-	ctx.secretChanges.grant(uniter.SecretGrantRevokeArgs{
+	uniterArg := uniter.SecretGrantRevokeArgs{
 		URI:             uri,
-		ApplicationName: args.ApplicationName,
-		UnitName:        args.UnitName,
-		RelationKey:     args.RelationKey,
+		ApplicationName: arg.ApplicationName,
+		UnitName:        arg.UnitName,
+		RelationKey:     arg.RelationKey,
 		Role:            coresecrets.RoleView,
-	})
+	}
+	params := uniterArg.ToParams()
+	if len(params.SubjectTags) != 1 {
+		return errors.NewNotValid(nil, fmt.Sprintf("expected only 1 subject, got %d", len(params.SubjectTags)))
+	}
+	subjectTag, err := names.ParseTag(params.SubjectTags[0])
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, g := range md.Access {
+		if params.ScopeTag != g.Scope || params.Role != string(g.Role) {
+			continue
+		}
+		existingTargetTag, err := names.ParseTag(g.Target)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if existingTargetTag.String() == subjectTag.String() {
+			// No ops.
+			return nil
+		}
+		if existingTargetTag.Kind() == names.ApplicationTagKind {
+			// We haven already grant in application level, so no ops for any unit level grant.
+			return nil
+		}
+		if subjectTag.Kind() == names.ApplicationTagKind {
+			return errors.NewNotValid(nil, "any unit level grants need to be revoked before granting access to the corresponding application")
+		}
+	}
+	ctx.secretChanges.grant(uniterArg)
 	return nil
 }
 
@@ -1623,12 +1666,14 @@ func (ctx *HookContext) doFlush(process string) error {
 		}
 	}
 
-	for _, g := range ctx.secretChanges.pendingGrants {
-		pendingGrants = append(pendingGrants, g)
+	for _, grants := range ctx.secretChanges.pendingGrants {
+		for _, g := range grants {
+			pendingGrants = append(pendingGrants, g)
+		}
 	}
 
-	for _, r := range ctx.secretChanges.pendingRevokes {
-		pendingRevokes = append(pendingRevokes, r)
+	for _, revokes := range ctx.secretChanges.pendingRevokes {
+		pendingRevokes = append(pendingRevokes, revokes...)
 	}
 
 	for uri := range ctx.secretChanges.pendingTrackLatest {

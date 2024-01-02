@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/api/agent/machiner"
 	agenterrors "github.com/juju/juju/cmd/jujud/agent/errors"

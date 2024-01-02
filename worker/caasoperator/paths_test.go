@@ -6,7 +6,7 @@ package caasoperator_test
 import (
 	"path/filepath"
 
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"

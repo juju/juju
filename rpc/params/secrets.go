@@ -283,6 +283,14 @@ type ListSecretResult struct {
 	UpdateTime       time.Time          `json:"update-time"`
 	Revisions        []SecretRevision   `json:"revisions"`
 	Value            *SecretValueResult `json:"value,omitempty"`
+	Access           []AccessInfo       `json:"access,omitempty"`
+}
+
+// AccessInfo holds info about a secret access information.
+type AccessInfo struct {
+	TargetTag string             `json:"target-tag"`
+	ScopeTag  string             `json:"scope-tag"`
+	Role      secrets.SecretRole `json:"role"`
 }
 
 // SecretTriggerChange describes a change to a secret trigger.
@@ -324,7 +332,8 @@ type GrantRevokeSecretArg struct {
 	// ScopeTag is defines the entity to which the access is scoped.
 	ScopeTag string `json:"scope-tag"`
 
-	// OwnerTag is the owner of the secret.
+	// SubjectTags are the target tag of the secret grant/revoke request.
+	// TODO: rename this field to TargetTags and bump facade version.
 	SubjectTags []string `json:"subject-tags"`
 
 	// Role is the role being granted.

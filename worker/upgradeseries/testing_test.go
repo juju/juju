@@ -5,7 +5,7 @@ package upgradeseries_test
 
 import (
 	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	"github.com/juju/worker/v3"
 	"go.uber.org/mock/gomock"
 

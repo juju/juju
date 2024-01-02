@@ -10,7 +10,7 @@ import (
 	"net/url"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	"gopkg.in/httprequest.v1"
 	"gopkg.in/macaroon.v2"
 )

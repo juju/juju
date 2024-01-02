@@ -13,7 +13,7 @@ import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/checkers"
 	"github.com/juju/charm/v12"
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	jtesting "github.com/juju/testing"
 	"gopkg.in/macaroon.v2"
 
@@ -408,10 +408,10 @@ func (m *mockState) CreateOfferAccess(offer names.ApplicationOfferTag, user name
 	if _, ok := m.users[user.Name()]; !ok {
 		return errors.NotFoundf("user %q", user.Name())
 	}
-	if _, ok := m.accessPerms[offerAccess{user: user, offerUUID: offer.Id() + "-uuid"}]; ok {
+	if _, ok := m.accessPerms[offerAccess{user: user, offerUUID: offer.Id()}]; ok {
 		return errors.NewAlreadyExists(nil, fmt.Sprintf("offer user %s", user.Name()))
 	}
-	m.accessPerms[offerAccess{user: user, offerUUID: offer.Id() + "-uuid"}] = access
+	m.accessPerms[offerAccess{user: user, offerUUID: offer.Id()}] = access
 	return nil
 }
 
@@ -419,10 +419,10 @@ func (m *mockState) UpdateOfferAccess(offer names.ApplicationOfferTag, user name
 	if _, ok := m.users[user.Name()]; !ok {
 		return errors.NotFoundf("user %q", user.Name())
 	}
-	if _, ok := m.accessPerms[offerAccess{user: user, offerUUID: offer.Id() + "-uuid"}]; !ok {
+	if _, ok := m.accessPerms[offerAccess{user: user, offerUUID: offer.Id()}]; !ok {
 		return errors.NewNotFound(nil, fmt.Sprintf("offer user %s", user.Name()))
 	}
-	m.accessPerms[offerAccess{user: user, offerUUID: offer.Id() + "-uuid"}] = access
+	m.accessPerms[offerAccess{user: user, offerUUID: offer.Id()}] = access
 	return nil
 }
 
@@ -430,7 +430,7 @@ func (m *mockState) RemoveOfferAccess(offer names.ApplicationOfferTag, user name
 	if _, ok := m.users[user.Name()]; !ok {
 		return errors.NewNotFound(nil, fmt.Sprintf("offer user %q does not exist", user.Name()))
 	}
-	delete(m.accessPerms, offerAccess{user: user, offerUUID: offer.Id() + "-uuid"})
+	delete(m.accessPerms, offerAccess{user: user, offerUUID: offer.Id()})
 	return nil
 }
 

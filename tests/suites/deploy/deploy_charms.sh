@@ -226,7 +226,7 @@ run_deploy_lxd_to_container() {
 	juju deploy "${charm}" --to lxd
 
 	juju deploy ./testcharms/charms/lxd-profile-subordinate
-	juju add-relation lxd-profile-subordinate lxd-profile-alt
+	juju integrate lxd-profile-subordinate lxd-profile-alt
 
 	wait_for "lxd-profile-alt" "$(idle_condition "lxd-profile-alt")"
 	wait_for "lxd-profile-subordinate" ".applications | keys[1]"

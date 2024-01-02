@@ -17,7 +17,7 @@ import (
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
@@ -25,6 +25,7 @@ import (
 	actionapi "github.com/juju/juju/api/client/action"
 	"github.com/juju/juju/cmd/juju/action"
 	"github.com/juju/juju/core/actions"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/testing"
 )
 
@@ -527,6 +528,34 @@ mysql/0:
     started: 2015-02-14 08:15:00 +0000 UTC
   unit: mysql/0`[1:],
 	}, {
+		should:   "run action which fails with plain output selected",
+		withArgs: []string{validUnitId, "some-action", "--format", "plain"},
+		withActionResults: []actionapi.ActionResult{{
+			Action: &actionapi.Action{
+				ID:       validActionId,
+				Receiver: names.NewUnitTag(validUnitId).String(),
+				Name:     "some-action",
+			},
+			Status:  params.ActionFailed,
+			Message: "action failed msg",
+			Output: map[string]interface{}{
+				"outcome": "fail",
+				"result-map": map[string]interface{}{
+					"message": "failed :'(",
+				},
+			},
+		}},
+		expectedActionEnqueued: []actionapi.Action{{
+			Name:       "some-action",
+			Parameters: map[string]interface{}{},
+			Receiver:   names.NewUnitTag(validUnitId).String(),
+		}},
+		expectedOutput: `
+Action id 1 failed: action failed msg
+outcome: fail
+result-map:
+  message: failed :'(`[1:],
+	}, {
 		should:   "run action on multiple units with stdout for each action",
 		withArgs: []string{validUnitId, validUnitId2, "some-action", "--format", "yaml", "--utc"},
 		withActionResults: []actionapi.ActionResult{{
@@ -618,7 +647,7 @@ mysql/1:
 				Receiver: names.NewUnitTag(validUnitId2).String(),
 				Name:     "some-action",
 			},
-			Status: "completed",
+			Status: params.ActionCompleted,
 			Output: map[string]interface{}{
 				"outcome": "success",
 				"result-map": map[string]interface{}{
@@ -642,12 +671,128 @@ mysql/0:
     outcome: success
     result-map:
       message: hello
+  status: completed
 mysql/1:
   id: "2"
   output: |
     outcome: success
     result-map:
-      message: hello2`[1:],
+      message: hello2
+  status: completed`[1:],
+	}, {
+		should:   "run action on multiple units which fails with plain output selected",
+		withArgs: []string{validUnitId, validUnitId2, "some-action", "--format", "plain"},
+		withActionResults: []actionapi.ActionResult{{
+			Action: &actionapi.Action{
+				ID:       validActionId,
+				Receiver: names.NewUnitTag(validUnitId).String(),
+				Name:     "some-action",
+			},
+			Status:  params.ActionFailed,
+			Message: "action failed msg",
+			Output: map[string]interface{}{
+				"outcome": "fail",
+				"result-map": map[string]interface{}{
+					"message": "failed :'(",
+				},
+			},
+		}, {
+			Action: &actionapi.Action{
+				ID:       validActionId2,
+				Receiver: names.NewUnitTag(validUnitId2).String(),
+				Name:     "some-action",
+			},
+			Status:  params.ActionFailed,
+			Message: "action failed msg 2",
+			Output: map[string]interface{}{
+				"outcome": "fail",
+				"result-map": map[string]interface{}{
+					"message": "failed2 :'(",
+				},
+			},
+		}},
+		expectedActionEnqueued: []actionapi.Action{{
+			Name:       "some-action",
+			Parameters: map[string]interface{}{},
+			Receiver:   names.NewUnitTag(validUnitId).String(),
+		}, {
+			Name:       "some-action",
+			Parameters: map[string]interface{}{},
+			Receiver:   names.NewUnitTag(validUnitId2).String(),
+		}},
+		expectedOutput: `
+mysql/0:
+  id: "1"
+  message: action failed msg
+  output: |
+    outcome: fail
+    result-map:
+      message: failed :'(
+  status: failed
+mysql/1:
+  id: "2"
+  message: action failed msg 2
+  output: |
+    outcome: fail
+    result-map:
+      message: failed2 :'(
+  status: failed`[1:],
+	}, {
+		should:   "run action on multiple units which both pass and fail with plain output selected",
+		withArgs: []string{validUnitId, validUnitId2, "some-action", "--format", "plain"},
+		withActionResults: []actionapi.ActionResult{{
+			Action: &actionapi.Action{
+				ID:       validActionId,
+				Receiver: names.NewUnitTag(validUnitId).String(),
+				Name:     "some-action",
+			},
+			Status:  params.ActionFailed,
+			Message: "action failed msg",
+			Output: map[string]interface{}{
+				"outcome": "fail",
+				"result-map": map[string]interface{}{
+					"message": "failed :'(",
+				},
+			},
+		}, {
+			Action: &actionapi.Action{
+				ID:       validActionId2,
+				Receiver: names.NewUnitTag(validUnitId2).String(),
+				Name:     "some-action",
+			},
+			Status: params.ActionCompleted,
+			Output: map[string]interface{}{
+				"outcome": "success",
+				"result-map": map[string]interface{}{
+					"message": "pass",
+				},
+			},
+		}},
+		expectedActionEnqueued: []actionapi.Action{{
+			Name:       "some-action",
+			Parameters: map[string]interface{}{},
+			Receiver:   names.NewUnitTag(validUnitId).String(),
+		}, {
+			Name:       "some-action",
+			Parameters: map[string]interface{}{},
+			Receiver:   names.NewUnitTag(validUnitId2).String(),
+		}},
+		expectedOutput: `
+mysql/0:
+  id: "1"
+  message: action failed msg
+  output: |
+    outcome: fail
+    result-map:
+      message: failed :'(
+  status: failed
+mysql/1:
+  id: "2"
+  output: |
+    outcome: success
+    result-map:
+      message: pass
+  status: completed`[1:],
 	}, {
 		should: "enqueue an action with some explicit params",
 		withArgs: []string{validUnitId, "some-action", "--background",
@@ -818,6 +963,7 @@ Running operation 1 with 1 task
   - task 1 on unit-mysql-0
 
 Waiting for task 1...
+
 hello
 `[1:],
 	}, {
@@ -828,12 +974,13 @@ Running operation 1 with 1 task
   - task 1 on unit-mysql-0
 
 Waiting for task 1...
+
 hello
 `[1:],
 	}, {
 		about:  "quiet",
 		quiet:  true,
-		output: "hello\n",
+		output: "\nhello\n",
 	}}
 
 	// Set up fake API client

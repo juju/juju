@@ -7,7 +7,7 @@ import (
 	"github.com/juju/charm/v12"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	"github.com/juju/proxy"
 
 	"github.com/juju/juju/api/agent/uniter"
@@ -358,11 +358,11 @@ func (ctx *HookContext) SetPendingSecretUpdates(in map[string]uniter.SecretUpdat
 	ctx.secretChanges.pendingUpdates = in
 }
 
-func (ctx *HookContext) PendingSecretGrants() map[string]uniter.SecretGrantRevokeArgs {
+func (ctx *HookContext) PendingSecretGrants() map[string]map[string]uniter.SecretGrantRevokeArgs {
 	return ctx.secretChanges.pendingGrants
 }
 
-func (ctx *HookContext) PendingSecretRevokes() map[string]uniter.SecretGrantRevokeArgs {
+func (ctx *HookContext) PendingSecretRevokes() map[string][]uniter.SecretGrantRevokeArgs {
 	return ctx.secretChanges.pendingRevokes
 }
 

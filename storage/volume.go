@@ -3,7 +3,7 @@
 
 package storage
 
-import "github.com/juju/names/v4"
+import "github.com/juju/names/v5"
 
 type DeviceType string
 

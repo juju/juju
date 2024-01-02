@@ -6,7 +6,7 @@ package diskmanager_test
 import (
 	"errors"
 
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 

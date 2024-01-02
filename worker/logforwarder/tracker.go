@@ -5,7 +5,7 @@ package logforwarder
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/api/base"
 	logfwdapi "github.com/juju/juju/api/controller/logfwd"

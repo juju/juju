@@ -11,8 +11,9 @@ import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/checkers"
 	"github.com/juju/charm/v12"
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
@@ -251,10 +252,10 @@ func (s *applicationOffersSuite) TestOfferError(c *gc.C) {
 	s.applicationOffers.CheckCallNames(c, offerCall, addOffersBackendCall)
 }
 
-func (s *applicationOffersSuite) assertList(c *gc.C, expectedErr error, expectedCIDRS []string) {
+func (s *applicationOffersSuite) assertList(c *gc.C, offerUUID string, expectedErr error, expectedCIDRS []string) {
 	s.mockState.users["mary"] = &mockUser{"mary"}
-	s.mockState.CreateOfferAccess(
-		names.NewApplicationOfferTag("hosted-db2"),
+	_ = s.mockState.CreateOfferAccess(
+		names.NewApplicationOfferTag(offerUUID),
 		names.NewUserTag("mary"), permission.ConsumeAccess)
 	filter := params.OfferFilters{
 		Filters: []params.OfferFilter{
@@ -279,7 +280,7 @@ func (s *applicationOffersSuite) assertList(c *gc.C, expectedErr error, expected
 				SourceModelTag:         testing.ModelTag.String(),
 				ApplicationDescription: "description",
 				OfferName:              "hosted-db2",
-				OfferUUID:              "hosted-db2-uuid",
+				OfferUUID:              offerUUID,
 				OfferURL:               "fred@external/prod.hosted-db2",
 				Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
 				Bindings:               map[string]string{"db2": "myspace"},
@@ -333,27 +334,27 @@ func (s *applicationOffersSuite) assertList(c *gc.C, expectedErr error, expected
 
 func (s *applicationOffersSuite) TestList(c *gc.C) {
 	s.authorizer.Tag = names.NewUserTag("admin")
-	s.setupOffers(c, "test", false)
-	s.assertList(c, nil, []string{"192.168.1.0/32", "10.0.0.0/8"})
+	offerUUID := s.setupOffers(c, "test", false)
+	s.assertList(c, offerUUID, nil, []string{"192.168.1.0/32", "10.0.0.0/8"})
 }
 
 func (s *applicationOffersSuite) TestListCAAS(c *gc.C) {
 	s.authorizer.Tag = names.NewUserTag("admin")
-	s.setupOffers(c, "test", false)
+	offerUUID := s.setupOffers(c, "test", false)
 	s.mockState.model.modelType = state.ModelTypeCAAS
-	s.assertList(c, nil, []string{"192.168.1.0/32", "10.0.0.0/8"})
+	s.assertList(c, offerUUID, nil, []string{"192.168.1.0/32", "10.0.0.0/8"})
 }
 
 func (s *applicationOffersSuite) TestListNoRelationNetworks(c *gc.C) {
 	s.authorizer.Tag = names.NewUserTag("admin")
 	s.mockState.relationNetworks = nil
-	s.setupOffers(c, "test", false)
-	s.assertList(c, nil, nil)
+	offerUUID := s.setupOffers(c, "test", false)
+	s.assertList(c, offerUUID, nil, nil)
 }
 
 func (s *applicationOffersSuite) TestListPermission(c *gc.C) {
-	s.setupOffers(c, "test", false)
-	s.assertList(c, apiservererrors.ErrPerm, nil)
+	offerUUID := s.setupOffers(c, "test", false)
+	s.assertList(c, offerUUID, apiservererrors.ErrPerm, nil)
 }
 
 func (s *applicationOffersSuite) TestListError(c *gc.C) {
@@ -400,11 +401,11 @@ func (s *applicationOffersSuite) TestListRequiresFilter(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "at least one offer filter is required")
 }
 
-func (s *applicationOffersSuite) assertShow(c *gc.C, url string, expected []params.ApplicationOfferResult) {
-	s.setupOffers(c, "", false)
+func (s *applicationOffersSuite) assertShow(c *gc.C, url, offerUUID string, expected []params.ApplicationOfferResult) {
+	s.setupOffersForUUID(c, offerUUID, "", false)
 	s.mockState.users["mary"] = &mockUser{"mary"}
-	s.mockState.CreateOfferAccess(
-		names.NewApplicationOfferTag("hosted-db2"),
+	_ = s.mockState.CreateOfferAccess(
+		names.NewApplicationOfferTag(offerUUID),
 		names.NewUserTag("mary"), permission.ConsumeAccess)
 	filter := params.OfferURLs{[]string{url}, bakery.LatestVersion}
 
@@ -428,6 +429,7 @@ func (s *applicationOffersSuite) assertShow(c *gc.C, url string, expected []para
 }
 
 func (s *applicationOffersSuite) TestShow(c *gc.C) {
+	offerUUID := utils.MustNewUUID().String()
 	expected := []params.ApplicationOfferResult{{
 		Result: &params.ApplicationOfferAdminDetails{
 			ApplicationOfferDetails: params.ApplicationOfferDetails{
@@ -435,7 +437,7 @@ func (s *applicationOffersSuite) TestShow(c *gc.C) {
 				ApplicationDescription: "description",
 				OfferURL:               "fred@external/prod.hosted-db2",
 				OfferName:              "hosted-db2",
-				OfferUUID:              "hosted-db2-uuid",
+				OfferUUID:              offerUUID,
 				Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
 				Bindings:               map[string]string{"db2": "myspace"},
 				Spaces: []params.RemoteSpace{
@@ -462,20 +464,21 @@ func (s *applicationOffersSuite) TestShow(c *gc.C) {
 	}}
 	s.authorizer.Tag = names.NewUserTag("admin")
 	expected[0].Result.Users[0].UserName = "admin"
-	s.assertShow(c, "fred@external/prod.hosted-db2", expected)
+	s.assertShow(c, "fred@external/prod.hosted-db2", offerUUID, expected)
 	// Again with an unqualified model path.
 	s.mockState.AdminTag = names.NewUserTag("fred@external")
 	s.authorizer.AdminTag = s.mockState.AdminTag
 	s.authorizer.Tag = s.mockState.AdminTag
 	expected[0].Result.Users[0].UserName = "fred@external"
 	s.applicationOffers.ResetCalls()
-	s.assertShow(c, "prod.hosted-db2", expected)
+	s.assertShow(c, "prod.hosted-db2", offerUUID, expected)
 }
 
 func (s *applicationOffersSuite) TestShowNoPermission(c *gc.C) {
+	offerUUID := utils.MustNewUUID().String()
 	s.mockState.users["someone"] = &mockUser{"someone"}
 	user := names.NewUserTag("someone")
-	offer := names.NewApplicationOfferTag("hosted-db2")
+	offer := names.NewApplicationOfferTag(offerUUID)
 	err := s.mockState.CreateOfferAccess(offer, user, permission.NoAccess)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -483,10 +486,11 @@ func (s *applicationOffersSuite) TestShowNoPermission(c *gc.C) {
 	expected := []params.ApplicationOfferResult{{
 		Error: apiservererrors.ServerError(errors.NotFoundf("application offer %q", "fred@external/prod.hosted-db2")),
 	}}
-	s.assertShow(c, "fred@external/prod.hosted-db2", expected)
+	s.assertShow(c, "fred@external/prod.hosted-db2", offerUUID, expected)
 }
 
 func (s *applicationOffersSuite) TestShowPermission(c *gc.C) {
+	offerUUID := utils.MustNewUUID().String()
 	user := names.NewUserTag("someone")
 	s.authorizer.Tag = user
 	expected := []params.ApplicationOfferResult{{
@@ -496,7 +500,7 @@ func (s *applicationOffersSuite) TestShowPermission(c *gc.C) {
 				ApplicationDescription: "description",
 				OfferURL:               "fred@external/prod.hosted-db2",
 				OfferName:              "hosted-db2",
-				OfferUUID:              "hosted-db2-uuid",
+				OfferUUID:              offerUUID,
 				Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
 				Bindings:               map[string]string{"db2": "myspace"},
 				Spaces: []params.RemoteSpace{
@@ -512,8 +516,8 @@ func (s *applicationOffersSuite) TestShowPermission(c *gc.C) {
 			},
 		}}}
 	s.mockState.users[user.Name()] = &mockUser{user.Name()}
-	s.mockState.CreateOfferAccess(names.NewApplicationOfferTag("hosted-db2"), user, permission.ReadAccess)
-	s.assertShow(c, "fred@external/prod.hosted-db2", expected)
+	_ = s.mockState.CreateOfferAccess(names.NewApplicationOfferTag(offerUUID), user, permission.ReadAccess)
+	s.assertShow(c, "fred@external/prod.hosted-db2", offerUUID, expected)
 }
 
 func (s *applicationOffersSuite) TestShowError(c *gc.C) {
@@ -645,7 +649,7 @@ func (s *applicationOffersSuite) TestShowFoundMultiple(c *gc.C) {
 	user := names.NewUserTag("someone")
 	s.authorizer.Tag = user
 	s.mockState.users[user.Name()] = &mockUser{user.Name()}
-	s.mockState.CreateOfferAccess(names.NewApplicationOfferTag("hosted-test"), user, permission.ReadAccess)
+	_ = s.mockState.CreateOfferAccess(names.NewApplicationOfferTag("hosted-test-uuid"), user, permission.ReadAccess)
 
 	anotherState := &mockState{
 		modelUUID:   "uuid2",
@@ -666,7 +670,7 @@ func (s *applicationOffersSuite) TestShowFoundMultiple(c *gc.C) {
 		},
 	}
 	anotherState.users[user.Name()] = &mockUser{user.Name()}
-	anotherState.CreateOfferAccess(names.NewApplicationOfferTag("hosted-testagain"), user, permission.ConsumeAccess)
+	_ = anotherState.CreateOfferAccess(names.NewApplicationOfferTag("hosted-testagain-uuid"), user, permission.ConsumeAccess)
 	s.mockStatePool.st["uuid2"] = anotherState
 
 	found, err := s.api.ApplicationOffers(filter)
@@ -746,7 +750,7 @@ func (s *applicationOffersSuite) assertFind(c *gc.C, expected []params.Applicati
 }
 
 func (s *applicationOffersSuite) TestFind(c *gc.C) {
-	s.setupOffers(c, "", true)
+	offerUUID := s.setupOffers(c, "", true)
 	s.authorizer.Tag = names.NewUserTag("admin")
 	expected := []params.ApplicationOfferAdminDetails{
 		{
@@ -754,7 +758,7 @@ func (s *applicationOffersSuite) TestFind(c *gc.C) {
 				SourceModelTag:         testing.ModelTag.String(),
 				ApplicationDescription: "description",
 				OfferName:              "hosted-db2",
-				OfferUUID:              "hosted-db2-uuid",
+				OfferUUID:              offerUUID,
 				OfferURL:               "fred@external/prod.hosted-db2",
 				Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
 				Bindings:               map[string]string{"db2": "myspace"},
@@ -784,7 +788,7 @@ func (s *applicationOffersSuite) TestFind(c *gc.C) {
 func (s *applicationOffersSuite) TestFindNoPermission(c *gc.C) {
 	s.mockState.users["someone"] = &mockUser{"someone"}
 	user := names.NewUserTag("someone")
-	offer := names.NewApplicationOfferTag("hosted-db2")
+	offer := names.NewApplicationOfferTag(utils.MustNewUUID().String())
 	err := s.mockState.CreateOfferAccess(offer, user, permission.NoAccess)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -794,7 +798,7 @@ func (s *applicationOffersSuite) TestFindNoPermission(c *gc.C) {
 }
 
 func (s *applicationOffersSuite) TestFindPermission(c *gc.C) {
-	s.setupOffers(c, "", true)
+	offerUUID := s.setupOffers(c, "", true)
 	user := names.NewUserTag("someone")
 	s.authorizer.Tag = user
 	expected := []params.ApplicationOfferAdminDetails{
@@ -803,7 +807,7 @@ func (s *applicationOffersSuite) TestFindPermission(c *gc.C) {
 				SourceModelTag:         testing.ModelTag.String(),
 				ApplicationDescription: "description",
 				OfferName:              "hosted-db2",
-				OfferUUID:              "hosted-db2-uuid",
+				OfferUUID:              offerUUID,
 				OfferURL:               "fred@external/prod.hosted-db2",
 				Endpoints:              []params.RemoteEndpoint{{Name: "db"}},
 				Bindings:               map[string]string{"db2": "myspace"},
@@ -820,7 +824,7 @@ func (s *applicationOffersSuite) TestFindPermission(c *gc.C) {
 		},
 	}
 	s.mockState.users[user.Name()] = &mockUser{user.Name()}
-	_ = s.mockState.CreateOfferAccess(names.NewApplicationOfferTag("hosted-db2"), user, permission.ReadAccess)
+	_ = s.mockState.CreateOfferAccess(names.NewApplicationOfferTag(offerUUID), user, permission.ReadAccess)
 	s.assertFind(c, expected)
 }
 
@@ -848,16 +852,18 @@ func (s *applicationOffersSuite) TestFindRequiresFilter(c *gc.C) {
 }
 
 func (s *applicationOffersSuite) TestFindMulti(c *gc.C) {
+	oneOfferUUID := utils.MustNewUUID().String()
+	twoOfferUUID := utils.MustNewUUID().String()
 	db2Offer := jujucrossmodel.ApplicationOffer{
 		OfferName:              "hosted-db2",
-		OfferUUID:              "hosted-db2-uuid",
+		OfferUUID:              oneOfferUUID,
 		ApplicationName:        "db2",
 		ApplicationDescription: "db2 description",
 		Endpoints:              map[string]charm.Relation{"db": {Name: "db2"}},
 	}
 	mysqlOffer := jujucrossmodel.ApplicationOffer{
 		OfferName:              "hosted-mysql",
-		OfferUUID:              "hosted-mysql-uuid",
+		OfferUUID:              twoOfferUUID,
 		ApplicationName:        "mysql",
 		ApplicationDescription: "mysql description",
 		Endpoints:              map[string]charm.Relation{"db": {Name: "mysql"}},
@@ -931,7 +937,7 @@ func (s *applicationOffersSuite) TestFindMulti(c *gc.C) {
 	user := names.NewUserTag("someone")
 	s.authorizer.Tag = user
 	s.mockState.users[user.Name()] = &mockUser{user.Name()}
-	_ = s.mockState.CreateOfferAccess(names.NewApplicationOfferTag("hosted-db2"), user, permission.ConsumeAccess)
+	_ = s.mockState.CreateOfferAccess(names.NewApplicationOfferTag(oneOfferUUID), user, permission.ConsumeAccess)
 
 	anotherState := &mockState{
 		modelUUID:   "uuid2",
@@ -990,8 +996,8 @@ func (s *applicationOffersSuite) TestFindMulti(c *gc.C) {
 		},
 	}
 	anotherState.users[user.Name()] = &mockUser{user.Name()}
-	anotherState.CreateOfferAccess(names.NewApplicationOfferTag("hosted-mysql"), user, permission.ReadAccess)
-	anotherState.CreateOfferAccess(names.NewApplicationOfferTag("hosted-postgresql"), user, permission.AdminAccess)
+	_ = anotherState.CreateOfferAccess(names.NewApplicationOfferTag(twoOfferUUID), user, permission.ReadAccess)
+	_ = anotherState.CreateOfferAccess(names.NewApplicationOfferTag("hosted-postgresql-uuid"), user, permission.AdminAccess)
 
 	s.mockState.allmodels = []applicationoffers.Model{
 		s.mockState.model,
@@ -1031,7 +1037,7 @@ func (s *applicationOffersSuite) TestFindMulti(c *gc.C) {
 					SourceModelTag:         testing.ModelTag.String(),
 					ApplicationDescription: "db2 description",
 					OfferName:              "hosted-db2",
-					OfferUUID:              "hosted-db2-uuid",
+					OfferUUID:              oneOfferUUID,
 					OfferURL:               "fred@external/prod.hosted-db2",
 					Endpoints: []params.RemoteEndpoint{
 						{Name: "db"},
@@ -1056,7 +1062,7 @@ func (s *applicationOffersSuite) TestFindMulti(c *gc.C) {
 					SourceModelTag:         "model-uuid2",
 					ApplicationDescription: "mysql description",
 					OfferName:              "hosted-mysql",
-					OfferUUID:              "hosted-mysql-uuid",
+					OfferUUID:              twoOfferUUID,
 					OfferURL:               "mary/another.hosted-mysql",
 					Endpoints: []params.RemoteEndpoint{
 						{Name: "db"},
@@ -1144,12 +1150,12 @@ func (s *consumeSuite) SetUpTest(c *gc.C) {
 	}
 
 	resources := common.NewResources()
-	resources.RegisterNamed("dataDir", common.StringResource(c.MkDir()))
+	err := resources.RegisterNamed("dataDir", common.StringResource(c.MkDir()))
+	c.Assert(err, jc.ErrorIsNil)
 
 	getEnviron := func(modelUUID string) (environs.Environ, error) {
 		return s.env, nil
 	}
-	var err error
 	thirdPartyKey := bakery.MustGenerateKey()
 	s.authContext, err = crossmodel.NewAuthContext(s.mockState, thirdPartyKey, s.bakery)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1173,11 +1179,11 @@ func (s *consumeSuite) TestConsumeDetailsRejectsEndpoints(c *gc.C) {
 }
 
 func (s *consumeSuite) TestConsumeDetailsNoPermission(c *gc.C) {
-	s.setupOffer()
+	offerUUID := s.setupOffer()
 	st := s.mockStatePool.st[testing.ModelTag.Id()]
 	st.(*mockState).users["someone"] = &mockUser{"someone"}
 	apiUser := names.NewUserTag("someone")
-	offer := names.NewApplicationOfferTag("hosted-mysql")
+	offer := names.NewApplicationOfferTag(offerUUID)
 	err := st.CreateOfferAccess(offer, apiUser, permission.NoAccess)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1227,13 +1233,13 @@ func (s *consumeSuite) TestConsumeDetailsSpecifiedUserHasNoPermissionButSuperUse
 func (s *consumeSuite) assertConsumeDetailsWithPermission(
 	c *gc.C, configAuthorizer func(*apiservertesting.FakeAuthorizer, names.UserTag) string,
 ) {
-	s.setupOffer()
+	offerUUID := s.setupOffer()
 	st := s.mockStatePool.st[testing.ModelTag.Id()]
 	st.(*mockState).users["someone"] = &mockUser{"someone"}
 	apiUser := names.NewUserTag("someone")
 
 	userTag := configAuthorizer(s.authorizer, apiUser)
-	offer := names.NewApplicationOfferTag("hosted-mysql")
+	offer := names.NewApplicationOfferTag(offerUUID)
 	err := st.CreateOfferAccess(offer, apiUser, permission.ConsumeAccess)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1250,7 +1256,7 @@ func (s *consumeSuite) assertConsumeDetailsWithPermission(
 		SourceModelTag:         "model-deadbeef-0bad-400d-8000-4b1d0d06f00d",
 		OfferURL:               "fred@external/prod.hosted-mysql",
 		OfferName:              "hosted-mysql",
-		OfferUUID:              "hosted-mysql-uuid",
+		OfferUUID:              offerUUID,
 		ApplicationDescription: "a database",
 		Endpoints:              []params.RemoteEndpoint{{Name: "server", Role: "provider", Interface: "mysql"}},
 		Bindings:               map[string]string{"database": "myspace"},
@@ -1276,16 +1282,16 @@ func (s *consumeSuite) assertConsumeDetailsWithPermission(
 	c.Check(cav, gc.HasLen, 4)
 	c.Check(strings.HasPrefix(cav[0].Condition, "time-before "), jc.IsTrue)
 	c.Check(cav[1].Condition, gc.Equals, "declared source-model-uuid deadbeef-0bad-400d-8000-4b1d0d06f00d")
-	c.Check(cav[2].Condition, gc.Equals, "declared offer-uuid hosted-mysql-uuid")
+	c.Check(cav[2].Condition, gc.Equals, "declared offer-uuid "+offerUUID)
 	c.Check(cav[3].Condition, gc.Equals, "declared username someone")
 }
 
 func (s *consumeSuite) TestConsumeDetailsNonAdminSpecifiedUser(c *gc.C) {
-	s.setupOffer()
+	offerUUID := s.setupOffer()
 	st := s.mockStatePool.st[testing.ModelTag.Id()]
 	st.(*mockState).users["someone"] = &mockUser{"someone"}
 	apiUser := names.NewUserTag("someone")
-	offer := names.NewApplicationOfferTag("hosted-mysql")
+	offer := names.NewApplicationOfferTag(offerUUID)
 	err := st.CreateOfferAccess(offer, apiUser, permission.ConsumeAccess)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1299,7 +1305,7 @@ func (s *consumeSuite) TestConsumeDetailsNonAdminSpecifiedUser(c *gc.C) {
 }
 
 func (s *consumeSuite) TestConsumeDetailsDefaultEndpoint(c *gc.C) {
-	s.setupOffer()
+	offerUUID := s.setupOffer()
 
 	st := s.mockStatePool.st[testing.ModelTag.Id()].(*mockState)
 	st.users["someone"] = &mockUser{"someone"}
@@ -1312,7 +1318,7 @@ func (s *consumeSuite) TestConsumeDetailsDefaultEndpoint(c *gc.C) {
 	st.applications["mysql"].(*mockApplication).bindings[""] = "default-endpoint"
 
 	apiUser := names.NewUserTag("someone")
-	offer := names.NewApplicationOfferTag("hosted-mysql")
+	offer := names.NewApplicationOfferTag(offerUUID)
 	err := st.CreateOfferAccess(offer, apiUser, permission.ConsumeAccess)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1331,7 +1337,7 @@ func (s *consumeSuite) TestConsumeDetailsDefaultEndpoint(c *gc.C) {
 		SourceModelTag:         "model-deadbeef-0bad-400d-8000-4b1d0d06f00d",
 		OfferURL:               "fred@external/prod.hosted-mysql",
 		OfferName:              "hosted-mysql",
-		OfferUUID:              "hosted-mysql-uuid",
+		OfferUUID:              offerUUID,
 		ApplicationDescription: "a database",
 		Endpoints:              []params.RemoteEndpoint{{Name: "server", Role: "provider", Interface: "mysql"}},
 		Bindings:               map[string]string{"database": "default-endpoint"},
@@ -1341,7 +1347,7 @@ func (s *consumeSuite) TestConsumeDetailsDefaultEndpoint(c *gc.C) {
 	})
 }
 
-func (s *consumeSuite) setupOffer() {
+func (s *consumeSuite) setupOffer() string {
 	modelUUID := testing.ModelTag.Id()
 	offerName := "hosted-mysql"
 
@@ -1362,7 +1368,7 @@ func (s *consumeSuite) setupOffer() {
 		ApplicationName:        "mysql",
 		ApplicationDescription: "a database",
 		OfferName:              offerName,
-		OfferUUID:              offerName + "-uuid",
+		OfferUUID:              utils.MustNewUUID().String(),
 		Endpoints: map[string]charm.Relation{
 			"server": {Name: "database", Interface: "mysql", Role: "provider", Scope: "global"}},
 	}
@@ -1395,16 +1401,17 @@ func (s *consumeSuite) setupOffer() {
 			}},
 		},
 	}
+	return anOffer.OfferUUID
 }
 
 func (s *consumeSuite) TestRemoteApplicationInfo(c *gc.C) {
-	s.setupOffer()
+	offerUUID := s.setupOffer()
 	st := s.mockStatePool.st[testing.ModelTag.Id()]
 	st.(*mockState).users["foobar"] = &mockUser{"foobar"}
 
 	// Give user permission to see the offer.
 	user := names.NewUserTag("foobar")
-	offer := names.NewApplicationOfferTag("hosted-mysql")
+	offer := names.NewApplicationOfferTag(offerUUID)
 	err := st.CreateOfferAccess(offer, user, permission.ConsumeAccess)
 	c.Assert(err, jc.ErrorIsNil)
 

@@ -5,13 +5,14 @@ package caasapplication
 
 import (
 	"fmt"
+	"path"
 	"strconv"
 	"strings"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	"github.com/juju/utils/v3"
 
 	"github.com/juju/juju/agent"
@@ -178,7 +179,7 @@ func (f *Facade) UnitIntroduction(args params.CAASUnitIntroductionArgs) (params.
 	caCert, _ := controllerConfig.CACert()
 	version, _ := f.model.AgentVersion()
 	dataDir := paths.DataDir(paths.OSUnixLike)
-	logDir := paths.LogDir(paths.OSUnixLike)
+	logDir := path.Join(paths.LogDir(paths.OSUnixLike), "juju")
 	conf, err := agent.NewAgentConfig(
 		agent.AgentConfigParams{
 			Paths: agent.Paths{

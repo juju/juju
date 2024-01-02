@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 )
 
 // ImpliedModelHandler is an http.Handler that associates requests that

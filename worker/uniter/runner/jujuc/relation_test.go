@@ -6,7 +6,7 @@ package jujuc_test
 import (
 	"fmt"
 
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 
 	"github.com/juju/juju/worker/uniter/runner/jujuc"

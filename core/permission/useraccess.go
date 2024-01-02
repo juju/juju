@@ -6,7 +6,7 @@ package permission
 import (
 	"time"
 
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 )
 
 // UserAccess represents a user access to a target whereas the user

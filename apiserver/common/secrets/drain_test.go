@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
@@ -140,6 +140,7 @@ func (s *secretsDrainSuite) assertGetSecretsToDrain(
 		LatestExpireTime: &now,
 		NextRotateTime:   &now,
 	}}, nil)
+	s.secretsMetaState.EXPECT().SecretGrants(uri, coresecrets.RoleView).Return([]coresecrets.AccessInfo{}, nil)
 	s.secretsMetaState.EXPECT().ListSecretRevisions(uri).Return([]*coresecrets.SecretRevisionMetadata{
 		{
 			// External backend.

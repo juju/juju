@@ -10,7 +10,7 @@ import (
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	"gopkg.in/yaml.v2"
 
 	actionapi "github.com/juju/juju/api/client/action"
@@ -56,9 +56,10 @@ use the --background option.
 
 To set the maximum time to wait for a action to complete, use the --wait option.
 
-By default, the output of a single action will just be that action's stdout.
-For multiple actions, each action stdout is printed with the action id.
-To see more detailed information about run timings etc, use --format yaml.
+By default, a single action will output its failure message if the action fails,
+followed by any results set by the action. For multiple actions, each action's
+results will be printed with the action id and action status. To see more detailed
+information about run timings etc, use --format yaml.
 
 Valid unit identifiers are: 
   a standard unit ID, such as mysql/0 or;

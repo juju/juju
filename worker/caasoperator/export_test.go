@@ -4,7 +4,7 @@
 package caasoperator
 
 import (
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 )
 
 var (
