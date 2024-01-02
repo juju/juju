@@ -75,6 +75,28 @@ func (s *charmPathSuite) TestCharm(c *gc.C) {
 	c.Assert(url, gc.DeepEquals, charm.MustParseURL("local:focal/dummy-1"))
 }
 
+func (s *charmPathSuite) TestCharmArchive(c *gc.C) {
+	charmDir := filepath.Join(s.repoPath, "dummy")
+	s.cloneCharmDir(s.repoPath, "dummy")
+	chDir, err := charm.ReadCharmDir(charmDir)
+	c.Assert(err, jc.ErrorIsNil)
+
+	dir := c.MkDir()
+	archivePath := filepath.Join(dir, "archive.charm")
+	file, err := os.Create(archivePath)
+	c.Assert(err, jc.ErrorIsNil)
+	defer file.Close()
+
+	err = chDir.ArchiveTo(file)
+	c.Assert(err, jc.ErrorIsNil)
+
+	ch, url, err := corecharm.NewCharmAtPath(archivePath, base.MustParseBaseFromString("ubuntu@20.04"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ch.Meta().Name, gc.Equals, "dummy")
+	c.Assert(ch.Revision(), gc.Equals, 1)
+	c.Assert(url, gc.DeepEquals, charm.MustParseURL("local:focal/dummy-1"))
+}
+
 func (s *charmPathSuite) TestCharmWithManifest(c *gc.C) {
 	repo := testcharms.RepoForSeries("focal")
 	charmDir := repo.CharmDir("cockroach")
@@ -82,7 +104,7 @@ func (s *charmPathSuite) TestCharmWithManifest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ch.Meta().Name, gc.Equals, "cockroachdb")
 	c.Assert(ch.Revision(), gc.Equals, 0)
-	c.Assert(url, gc.DeepEquals, charm.MustParseURL("local:focal/cockroach-0"))
+	c.Assert(url, gc.DeepEquals, charm.MustParseURL("local:focal/cockroachdb-0"))
 }
 
 func (s *charmPathSuite) TestNoBaseSpecified(c *gc.C) {
@@ -106,7 +128,7 @@ func (s *charmPathSuite) TestMultiBaseDefault(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(ch.Meta().Name, gc.Equals, "new-charm-with-multi-series")
 	c.Assert(ch.Revision(), gc.Equals, 7)
-	c.Assert(url, gc.DeepEquals, charm.MustParseURL("local:jammy/multi-series-charmpath-7"))
+	c.Assert(url, gc.DeepEquals, charm.MustParseURL("local:jammy/new-charm-with-multi-series-7"))
 }
 
 func (s *charmPathSuite) TestMultiBase(c *gc.C) {
@@ -116,7 +138,7 @@ func (s *charmPathSuite) TestMultiBase(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(ch.Meta().Name, gc.Equals, "new-charm-with-multi-series")
 	c.Assert(ch.Revision(), gc.Equals, 7)
-	c.Assert(url, gc.DeepEquals, charm.MustParseURL("local:focal/multi-series-charmpath-7"))
+	c.Assert(url, gc.DeepEquals, charm.MustParseURL("local:focal/new-charm-with-multi-series-7"))
 }
 
 func (s *charmPathSuite) TestUnsupportedBase(c *gc.C) {
@@ -140,7 +162,7 @@ func (s *charmPathSuite) TestUnsupportedBaseForce(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ch.Meta().Name, gc.Equals, "new-charm-with-multi-series")
 	c.Assert(ch.Revision(), gc.Equals, 7)
-	c.Assert(url, gc.DeepEquals, charm.MustParseURL("local:wily/multi-series-charmpath-7"))
+	c.Assert(url, gc.DeepEquals, charm.MustParseURL("local:wily/new-charm-with-multi-series-7"))
 }
 
 func (s *charmPathSuite) TestFindsSymlinks(c *gc.C) {
