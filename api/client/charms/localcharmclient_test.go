@@ -37,16 +37,11 @@ func (s *addCharmSuite) TestAddLocalCharm(c *gc.C) {
 	defer ctrl.Finish()
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockCaller := basemocks.NewMockAPICaller(ctrl)
 	mockHttpDoer := mocks.NewMockHTTPClient(ctrl)
 	reqClient := &httprequest.Client{
 		BaseURL: "http://somewhere.invalid",
 		Doer:    mockHttpDoer,
 	}
-
-	mockCaller.EXPECT().Context().Return(context.TODO()).MinTimes(1)
-	mockCaller.EXPECT().HTTPClient().Return(reqClient, nil).MinTimes(1)
-	mockFacadeCaller.EXPECT().RawAPICaller().Return(mockCaller).MinTimes(1)
 
 	curl, charmArchive := s.testCharm(c)
 	resp := &http.Response{
@@ -59,7 +54,8 @@ func (s *addCharmSuite) TestAddLocalCharm(c *gc.C) {
 		&charmUploadMatcher{"http://somewhere.invalid/charms?revision=1&schema=local&series=quantal"},
 	).Return(resp, nil).MinTimes(1)
 
-	client := charms.NewLocalCharmClientWithFacade(mockFacadeCaller, nil)
+	httpPutter := charms.NewHTTPPutterWithHTTPClient(reqClient)
+	client := charms.NewLocalCharmClientWithFacade(mockFacadeCaller, nil, httpPutter)
 	vers := version.MustParse("2.6.6")
 	// Test the sanity checks first.
 	_, err := client.AddLocalCharm(charm.MustParseURL("ch:wordpress-1"), nil, false, vers)
@@ -107,16 +103,11 @@ func (s *addCharmSuite) TestAddLocalCharmWithLXDProfile(c *gc.C) {
 	defer ctrl.Finish()
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockCaller := basemocks.NewMockAPICaller(ctrl)
 	mockHttpDoer := mocks.NewMockHTTPClient(ctrl)
 	reqClient := &httprequest.Client{
 		BaseURL: "http://somewhere.invalid",
 		Doer:    mockHttpDoer,
 	}
-
-	mockCaller.EXPECT().Context().Return(context.TODO()).MinTimes(1)
-	mockCaller.EXPECT().HTTPClient().Return(reqClient, nil).MinTimes(1)
-	mockFacadeCaller.EXPECT().RawAPICaller().Return(mockCaller).MinTimes(1)
 
 	resp := &http.Response{
 		StatusCode: 200,
@@ -128,7 +119,8 @@ func (s *addCharmSuite) TestAddLocalCharmWithLXDProfile(c *gc.C) {
 		&charmUploadMatcher{"http://somewhere.invalid/charms?revision=0&schema=local&series=quantal"},
 	).Return(resp, nil).MinTimes(1)
 
-	client := charms.NewLocalCharmClientWithFacade(mockFacadeCaller, nil)
+	httpPutter := charms.NewHTTPPutterWithHTTPClient(reqClient)
+	client := charms.NewLocalCharmClientWithFacade(mockFacadeCaller, nil, httpPutter)
 
 	charmArchive := testcharms.Repo.CharmArchive(c.MkDir(), "lxd-profile")
 	curl := charm.MustParseURL(
@@ -146,7 +138,13 @@ func (s *addCharmSuite) TestAddLocalCharmWithInvalidLXDProfile(c *gc.C) {
 	defer ctrl.Finish()
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	client := charms.NewLocalCharmClientWithFacade(mockFacadeCaller, nil)
+	mockHttpDoer := mocks.NewMockHTTPClient(ctrl)
+	reqClient := &httprequest.Client{
+		BaseURL: "http://somewhere.invalid",
+		Doer:    mockHttpDoer,
+	}
+	httpPutter := charms.NewHTTPPutterWithHTTPClient(reqClient)
+	client := charms.NewLocalCharmClientWithFacade(mockFacadeCaller, nil, httpPutter)
 
 	charmArchive := testcharms.Repo.CharmArchive(c.MkDir(), "lxd-profile-fail")
 	curl := charm.MustParseURL(
@@ -171,16 +169,11 @@ func (s *addCharmSuite) testAddLocalCharmWithForceSucceeds(name string, c *gc.C)
 	defer ctrl.Finish()
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockCaller := basemocks.NewMockAPICaller(ctrl)
 	mockHttpDoer := mocks.NewMockHTTPClient(ctrl)
 	reqClient := &httprequest.Client{
 		BaseURL: "http://somewhere.invalid",
 		Doer:    mockHttpDoer,
 	}
-
-	mockCaller.EXPECT().Context().Return(context.TODO()).MinTimes(1)
-	mockCaller.EXPECT().HTTPClient().Return(reqClient, nil).MinTimes(1)
-	mockFacadeCaller.EXPECT().RawAPICaller().Return(mockCaller).MinTimes(1)
 
 	resp := &http.Response{
 		StatusCode: 200,
@@ -192,7 +185,8 @@ func (s *addCharmSuite) testAddLocalCharmWithForceSucceeds(name string, c *gc.C)
 		&charmUploadMatcher{"http://somewhere.invalid/charms?revision=0&schema=local&series=quantal"},
 	).Return(resp, nil).MinTimes(1)
 
-	client := charms.NewLocalCharmClientWithFacade(mockFacadeCaller, nil)
+	httpPutter := charms.NewHTTPPutterWithHTTPClient(reqClient)
+	client := charms.NewLocalCharmClientWithFacade(mockFacadeCaller, nil, httpPutter)
 
 	charmArchive := testcharms.Repo.CharmArchive(c.MkDir(), "lxd-profile")
 	curl := charm.MustParseURL(
@@ -213,7 +207,13 @@ func (s *addCharmSuite) assertAddLocalCharmFailed(c *gc.C, f func(string) (bool,
 	s.PatchValue(charms.HasHooksOrDispatch, f)
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	client := charms.NewLocalCharmClientWithFacade(mockFacadeCaller, nil)
+	mockHttpDoer := mocks.NewMockHTTPClient(ctrl)
+	reqClient := &httprequest.Client{
+		BaseURL: "http://somewhere.invalid",
+		Doer:    mockHttpDoer,
+	}
+	httpPutter := charms.NewHTTPPutterWithHTTPClient(reqClient)
+	client := charms.NewLocalCharmClientWithFacade(mockFacadeCaller, nil, httpPutter)
 	vers := version.MustParse("2.6.6")
 	_, err := client.AddLocalCharm(curl, ch, false, vers)
 	c.Assert(err, gc.ErrorMatches, msg)
@@ -228,16 +228,11 @@ func (s *addCharmSuite) TestAddLocalCharmDefinitelyWithHooks(c *gc.C) {
 		return true, nil
 	})
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockCaller := basemocks.NewMockAPICaller(ctrl)
 	mockHttpDoer := mocks.NewMockHTTPClient(ctrl)
 	reqClient := &httprequest.Client{
 		BaseURL: "http://somewhere.invalid",
 		Doer:    mockHttpDoer,
 	}
-
-	mockCaller.EXPECT().Context().Return(context.TODO()).MinTimes(1)
-	mockCaller.EXPECT().HTTPClient().Return(reqClient, nil).MinTimes(1)
-	mockFacadeCaller.EXPECT().RawAPICaller().Return(mockCaller).MinTimes(1)
 
 	resp := &http.Response{
 		StatusCode: 200,
@@ -249,7 +244,8 @@ func (s *addCharmSuite) TestAddLocalCharmDefinitelyWithHooks(c *gc.C) {
 		&charmUploadMatcher{"http://somewhere.invalid/charms?revision=1&schema=local&series=quantal"},
 	).Return(resp, nil).MinTimes(1)
 
-	client := charms.NewLocalCharmClientWithFacade(mockFacadeCaller, nil)
+	httpPutter := charms.NewHTTPPutterWithHTTPClient(reqClient)
+	client := charms.NewLocalCharmClientWithFacade(mockFacadeCaller, nil, httpPutter)
 
 	vers := version.MustParse("2.6.6")
 	savedCURL, err := client.AddLocalCharm(curl, ch, false, vers)
@@ -274,16 +270,11 @@ func (s *addCharmSuite) TestAddLocalCharmError(c *gc.C) {
 		return true, nil
 	})
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockCaller := basemocks.NewMockAPICaller(ctrl)
 	mockHttpDoer := mocks.NewMockHTTPClient(ctrl)
 	reqClient := &httprequest.Client{
 		BaseURL: "http://somewhere.invalid",
 		Doer:    mockHttpDoer,
 	}
-
-	mockCaller.EXPECT().Context().Return(context.TODO()).MinTimes(1)
-	mockCaller.EXPECT().HTTPClient().Return(reqClient, nil).MinTimes(1)
-	mockFacadeCaller.EXPECT().RawAPICaller().Return(mockCaller).MinTimes(1)
 
 	resp := &http.Response{
 		StatusCode: 200,
@@ -295,7 +286,8 @@ func (s *addCharmSuite) TestAddLocalCharmError(c *gc.C) {
 		&charmUploadMatcher{"http://somewhere.invalid/charms?revision=1&schema=local&series=quantal"},
 	).Return(nil, errors.New("boom")).MinTimes(1)
 
-	client := charms.NewLocalCharmClientWithFacade(mockFacadeCaller, nil)
+	httpPutter := charms.NewHTTPPutterWithHTTPClient(reqClient)
+	client := charms.NewLocalCharmClientWithFacade(mockFacadeCaller, nil, httpPutter)
 
 	vers := version.MustParse("2.6.6")
 	_, err := client.AddLocalCharm(curl, charmArchive, false, vers)
@@ -361,7 +353,8 @@ func testMinVer(t minverTest, c *gc.C) {
 		&charmUploadMatcher{"http://somewhere.invalid/charms?revision=1&schema=local&series=quantal"},
 	).Return(resp, nil).AnyTimes()
 
-	client := charms.NewLocalCharmClientWithFacade(mockFacadeCaller, nil)
+	httpPutter := charms.NewHTTPPutterWithHTTPClient(reqClient)
+	client := charms.NewLocalCharmClientWithFacade(mockFacadeCaller, nil, httpPutter)
 
 	charmMinVer := version.MustParse(t.charm)
 	jujuVer := version.MustParse(t.juju)
