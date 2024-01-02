@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/internal/s3client"
 	"github.com/juju/juju/observability/probe"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/upgrades"
@@ -195,7 +196,7 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 			AgentName:            agentName,
 			APIConfigWatcherName: apiConfigWatcherName,
 			APICallerName:        apiCallerName,
-			NewS3Client:          s3caller.NewS3Client,
+			NewS3Client:          s3client.NewS3Client,
 			Logger:               loggo.GetLogger("juju.worker.s3caller"),
 		}),
 

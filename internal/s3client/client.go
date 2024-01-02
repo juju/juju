@@ -1,7 +1,7 @@
 // Copyright 2023 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package s3caller
+package s3client
 
 import (
 	"context"
@@ -16,21 +16,40 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/httprequest.v1"
 
-	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 )
 
+// Logger represents the logging methods called.
+type Logger interface {
+	Errorf(message string, args ...interface{})
+	Warningf(message string, args ...interface{})
+	Infof(message string, args ...interface{})
+	Debugf(message string, args ...interface{})
+	Tracef(message string, args ...interface{})
+}
+
+// S3Client represents the S3 client methods required by objectClient
+type S3Client interface {
+	GetObject(ctx context.Context, params *s3.GetObjectInput, optFns ...func(*s3.Options)) (*s3.GetObjectOutput, error)
+}
+
+// Session represents the interface objectClient exports to interact with S3
 type Session interface {
 	GetObject(ctx context.Context, bucketName, objectName string) (io.ReadCloser, error)
 }
 
+// objectsClient is a Juju shim around the AWS S3 client,
+// which Juju uses to drive it's object store requirents
 type objectsClient struct {
 	logger Logger
-	client *s3.Client
+	client S3Client
 }
 
+// GetObject retrieves an object from an S3 object store. Returns a
+// stream containing the object's content
 func (c *objectsClient) GetObject(ctx context.Context, bucketName, objectName string) (io.ReadCloser, error) {
 	c.logger.Tracef("retrieving bucket %s object %s from s3 storage", bucketName, objectName)
+
 	obj, err := c.client.GetObject(ctx,
 		&s3.GetObjectInput{
 			Bucket: aws.String(bucketName),
@@ -79,7 +98,9 @@ func (l *awsLogger) Logf(classification logging.Classification, format string, v
 	}
 }
 
-func NewS3Client(apiConn api.Connection, agentConfig agent.Config, logger Logger) (Session, error) {
+// NewS3Client creates a generic S3 client which Juju should use to
+// drive it's object store requirements
+func NewS3Client(apiConn api.Connection, logger Logger) (Session, error) {
 	// We use api.Connection address because we assume this address is
 	// correct and reachable.
 	currentAPIAddress := apiConn.Addr()
