@@ -37,7 +37,7 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 }
 
 // AddSpace mocks base method.
-func (m *MockState) AddSpace(arg0 context.Context, arg1 utils.UUID, arg2 string, arg3 network.Id, arg4 []string) error {
+func (m *MockState) AddSpace(arg0 context.Context, arg1 network.Id, arg2 string, arg3 network.Id, arg4 []string) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AddSpace", arg0, arg1, arg2, arg3, arg4)
 	ret0, _ := ret[0].(error)

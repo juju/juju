@@ -10,7 +10,6 @@ import (
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/errors"
-	"github.com/juju/utils/v3"
 
 	coreDB "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/network"
@@ -33,7 +32,7 @@ func NewState(factory coreDB.TxnRunnerFactory) *State {
 // AddSpace creates and returns a new space.
 func (st *State) AddSpace(
 	ctx context.Context,
-	uuid utils.UUID,
+	uuid network.Id,
 	name string,
 	providerID network.Id,
 	subnetIDs []string,

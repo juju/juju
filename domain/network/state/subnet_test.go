@@ -19,7 +19,7 @@ func (s *stateSuite) TestUpsertSubnets(c *gc.C) {
 
 	spUUID, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
-	err = st.AddSpace(ctx.Background(), spUUID, "space0", "provider-space-id-1", []string{})
+	err = st.AddSpace(ctx.Background(), network.Id(spUUID.String()), "space0", "provider-space-id-1", []string{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	subnetUUID0, err := utils.NewUUID()
@@ -113,7 +113,7 @@ func (s *stateSuite) TestAddSubnet(c *gc.C) {
 
 	spUUID, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
-	err = st.AddSpace(ctx.Background(), spUUID, "space0", "foo", []string{})
+	err = st.AddSpace(ctx.Background(), network.Id(spUUID.String()), "space0", "foo", []string{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	uuid, err := utils.NewUUID()
@@ -193,7 +193,7 @@ func (s *stateSuite) TestFailAddTwoSubnetsSameNetworkID(c *gc.C) {
 
 	spUUID, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
-	err = st.AddSpace(ctx.Background(), spUUID, "space0", "foo", []string{})
+	err = st.AddSpace(ctx.Background(), network.Id(spUUID.String()), "space0", "foo", []string{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	subnetUUID0, err := utils.NewUUID()
@@ -235,7 +235,7 @@ func (s *stateSuite) TestFailAddTwoSubnetsSameProviderID(c *gc.C) {
 
 	spUUID, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
-	err = st.AddSpace(ctx.Background(), spUUID, "space0", "foo", []string{})
+	err = st.AddSpace(ctx.Background(), network.Id(spUUID.String()), "space0", "foo", []string{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	subnetUUID0, err := utils.NewUUID()
@@ -399,7 +399,7 @@ func (s *stateSuite) TestRetrieveSubnetByUUID(c *gc.C) {
 	// Add a space with subnet base.
 	spUUID, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
-	err = st.AddSpace(ctx.Background(), spUUID, "space0", "provider-space-id", []string{subnetUUID0.String()})
+	err = st.AddSpace(ctx.Background(), network.Id(spUUID.String()), "space0", "provider-space-id", []string{subnetUUID0.String()})
 	c.Assert(err, jc.ErrorIsNil)
 
 	expected := &network.SubnetInfo{
@@ -500,7 +500,7 @@ func (s *stateSuite) TestUpdateSubnet(c *gc.C) {
 
 	spUUID, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
-	err = st.AddSpace(ctx.Background(), spUUID, "space0", "foo", []string{})
+	err = st.AddSpace(ctx.Background(), network.Id(spUUID.String()), "space0", "foo", []string{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	uuid, err := utils.NewUUID()
@@ -522,7 +522,7 @@ func (s *stateSuite) TestUpdateSubnet(c *gc.C) {
 
 	newSpIUUID, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
-	err = st.AddSpace(ctx.Background(), newSpIUUID, "space1", "bar", []string{})
+	err = st.AddSpace(ctx.Background(), network.Id(newSpIUUID.String()), "space1", "bar", []string{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = st.UpdateSubnet(ctx.Background(), uuid.String(), newSpIUUID.String())

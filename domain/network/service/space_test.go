@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3"
 	gomock "go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
@@ -76,13 +75,13 @@ func (s *spaceSuite) TestAddSpaceErrorAdding(c *gc.C) {
 func (s *spaceSuite) TestAddSpace(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	var expectedUUID utils.UUID
+	var expectedUUID network.Id
 	// Verify that the passed UUID is also returned.
 	s.st.EXPECT().AddSpace(gomock.Any(), gomock.Any(), "space0", network.Id("provider-id"), []string{}).
 		Do(
 			func(
 				ctx context.Context,
-				uuid utils.UUID,
+				uuid network.Id,
 				name string,
 				providerID network.Id,
 				subnetIDs []string,
