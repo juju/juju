@@ -63,16 +63,20 @@ func NewSpaceService(st State, logger Logger) *SpaceService {
 }
 
 // AddSpace creates and returns a new space.
-func (s *SpaceService) AddSpace(ctx context.Context, uuid utils.UUID, name string, providerID network.Id, subnetIDs []string) (*network.SpaceInfo, error) {
+func (s *SpaceService) AddSpace(ctx context.Context, name string, providerID network.Id, subnetIDs []string) (utils.UUID, error) {
 	if !names.IsValidSpace(name) {
-		return nil, errors.NotValidf("space name %q for space with uuid %q", name, uuid.String())
+		return utils.UUID{}, errors.NotValidf("space name %q", name)
+	}
+
+	uuid, err := utils.NewUUID()
+	if err != nil {
+		return utils.UUID{}, errors.Annotatef(err, "creating uuid for new space %q", name)
 	}
 
 	if err := s.st.AddSpace(ctx, uuid, name, providerID, subnetIDs); err != nil {
-		return nil, errors.Trace(err)
+		return utils.UUID{}, errors.Trace(err)
 	}
-
-	return s.st.GetSpace(ctx, uuid.String())
+	return uuid, nil
 }
 
 // Space returns a space from state that matches the input ID.

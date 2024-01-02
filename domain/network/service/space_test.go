@@ -46,80 +46,54 @@ func (s *spaceSuite) TestGenerateFanSubnetID(c *gc.C) {
 func (s *spaceSuite) TestAddSpaceInvalidNameEmpty(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	uuid, err := utils.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
-
 	// Make sure no calls to state are done
 	s.st.EXPECT().AddSpace(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
-	s.st.EXPECT().GetSpace(gomock.Any(), gomock.Any()).Times(0)
 
-	_, err = NewSpaceService(s.st, s.logger).AddSpace(context.Background(), uuid, "", "", []string{})
-	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("space name \"\" for space with uuid %q not valid", uuid.String()))
+	_, err := NewSpaceService(s.st, s.logger).AddSpace(context.Background(), "", "", []string{})
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("space name \"\" not valid"))
 }
 
 func (s *spaceSuite) TestAddSpaceInvalidName(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	uuid, err := utils.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
-
 	// Make sure no calls to state are done
 	s.st.EXPECT().AddSpace(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
-	s.st.EXPECT().GetSpace(gomock.Any(), gomock.Any()).Times(0)
 
-	_, err = NewSpaceService(s.st, s.logger).AddSpace(context.Background(), uuid, "-bad name-", "provider-id", []string{})
-	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("space name \"-bad name-\" for space with uuid %q not valid", uuid.String()))
+	_, err := NewSpaceService(s.st, s.logger).AddSpace(context.Background(), "-bad name-", "provider-id", []string{})
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("space name \"-bad name-\" not valid"))
 }
 
 func (s *spaceSuite) TestAddSpaceErrorAdding(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	uuid, err := utils.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	s.st.EXPECT().AddSpace(gomock.Any(), gomock.Any(), "0", network.Id("provider-id"), []string{"0"}).
+		Return(errors.Errorf("updating subnet %q using space uuid \"space0\"", "0"))
 
-	// Make sure no calls to state are done
-	s.st.EXPECT().AddSpace(gomock.Any(), uuid, "0", network.Id("provider-id"), []string{"0"}).
-		Return(errors.Errorf("updating subnet %q using space uuid %q", "0", uuid.String()))
-	s.st.EXPECT().GetSpace(gomock.Any(), gomock.Any()).Times(0)
-
-	_, err = NewSpaceService(s.st, s.logger).AddSpace(context.Background(), uuid, "0", network.Id("provider-id"), []string{"0"})
-	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("updating subnet \"0\" using space uuid %q", uuid.String()))
-}
-
-func (s *spaceSuite) TestAddSpaceErrorRetrievingAfterAdd(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	uuid, err := utils.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Make sure no calls to state are done
-	s.st.EXPECT().AddSpace(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any())
-	s.st.EXPECT().GetSpace(gomock.Any(), gomock.Any()).
-		Return(nil, errors.Errorf("retrieving space %q", uuid.String()))
-
-	_, err = NewSpaceService(s.st, s.logger).AddSpace(context.Background(), uuid, "0", network.Id("provider-id"), []string{})
-	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("retrieving space %q", uuid.String()))
+	_, err := NewSpaceService(s.st, s.logger).AddSpace(context.Background(), "0", network.Id("provider-id"), []string{"0"})
+	c.Assert(err, gc.ErrorMatches, "updating subnet \"0\" using space uuid \"space0\"")
 }
 
 func (s *spaceSuite) TestAddSpace(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	uuid, err := utils.NewUUID()
+	var expectedUUID utils.UUID
+	// Verify that the passed UUID is also returned.
+	s.st.EXPECT().AddSpace(gomock.Any(), gomock.Any(), "space0", network.Id("provider-id"), []string{}).
+		Do(
+			func(
+				ctx context.Context,
+				uuid utils.UUID,
+				name string,
+				providerID network.Id,
+				subnetIDs []string,
+			) error {
+				expectedUUID = uuid
+				return nil
+			})
+
+	returnedUUID, err := NewSpaceService(s.st, s.logger).AddSpace(context.Background(), "space0", network.Id("provider-id"), []string{})
 	c.Assert(err, jc.ErrorIsNil)
-
-	expected := &network.SpaceInfo{
-		ID:         uuid.String(),
-		Name:       "space0",
-		ProviderId: network.Id("provider-id"),
-	}
-
-	// Make sure no calls to state are done
-	s.st.EXPECT().AddSpace(gomock.Any(), uuid, "space0", network.Id("provider-id"), []string{})
-	s.st.EXPECT().GetSpace(gomock.Any(), uuid.String()).Return(expected, nil)
-
-	sp, err := NewSpaceService(s.st, s.logger).AddSpace(context.Background(), uuid, "space0", network.Id("provider-id"), []string{})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(sp, gc.DeepEquals, expected)
+	c.Assert(returnedUUID, gc.Equals, expectedUUID)
 }
 
 func (s *spaceSuite) TestRetrieveSpaceByID(c *gc.C) {
