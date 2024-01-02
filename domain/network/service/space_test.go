@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gomock "go.uber.org/mock/gomock"
@@ -39,6 +40,109 @@ func (s *spaceSuite) TestGenerateFanSubnetID(c *gc.C) {
 	// Empty providerID
 	obtained = generateFanSubnetID("192.168.0.0/16", "")
 	c.Check(obtained, gc.Equals, "-INFAN-192-168-0-0-16")
+}
+
+func (s *spaceSuite) TestAddSpaceInvalidNameEmpty(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Make sure no calls to state are done
+	s.st.EXPECT().AddSpace(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+
+	_, err := NewSpaceService(s.st, s.logger).AddSpace(context.Background(), "", "", []string{})
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("space name \"\" not valid"))
+}
+
+func (s *spaceSuite) TestAddSpaceInvalidName(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Make sure no calls to state are done
+	s.st.EXPECT().AddSpace(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+
+	_, err := NewSpaceService(s.st, s.logger).AddSpace(context.Background(), "-bad name-", "provider-id", []string{})
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("space name \"-bad name-\" not valid"))
+}
+
+func (s *spaceSuite) TestAddSpaceErrorAdding(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.st.EXPECT().AddSpace(gomock.Any(), gomock.Any(), "0", network.Id("provider-id"), []string{"0"}).
+		Return(errors.Errorf("updating subnet %q using space uuid \"space0\"", "0"))
+
+	_, err := NewSpaceService(s.st, s.logger).AddSpace(context.Background(), "0", network.Id("provider-id"), []string{"0"})
+	c.Assert(err, gc.ErrorMatches, "updating subnet \"0\" using space uuid \"space0\"")
+}
+
+func (s *spaceSuite) TestAddSpace(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	var expectedUUID string
+	// Verify that the passed UUID is also returned.
+	s.st.EXPECT().AddSpace(gomock.Any(), gomock.Any(), "space0", network.Id("provider-id"), []string{}).
+		Do(
+			func(
+				ctx context.Context,
+				uuid string,
+				name string,
+				providerID network.Id,
+				subnetIDs []string,
+			) error {
+				expectedUUID = uuid
+				return nil
+			})
+
+	returnedUUID, err := NewSpaceService(s.st, s.logger).AddSpace(context.Background(), "space0", network.Id("provider-id"), []string{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(returnedUUID.String(), gc.Equals, expectedUUID)
+}
+
+func (s *spaceSuite) TestRetrieveSpaceByID(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.st.EXPECT().GetSpace(gomock.Any(), network.AlphaSpaceId)
+	_, err := NewSpaceService(s.st, s.logger).Space(context.Background(), network.AlphaSpaceId)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *spaceSuite) TestRetrieveSpaceByIDNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.st.EXPECT().GetSpace(gomock.Any(), "unknown-space").
+		Return(nil, errors.NotFoundf("space %q", "unknown-space"))
+	_, err := NewSpaceService(s.st, s.logger).Space(context.Background(), "unknown-space")
+	c.Assert(err, gc.ErrorMatches, "space \"unknown-space\" not found")
+}
+
+func (s *spaceSuite) TestRetrieveSpaceByName(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.st.EXPECT().GetSpaceByName(gomock.Any(), network.AlphaSpaceName)
+	_, err := NewSpaceService(s.st, s.logger).SpaceByName(context.Background(), network.AlphaSpaceName)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *spaceSuite) TestRetrieveSpaceByNameNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.st.EXPECT().GetSpaceByName(gomock.Any(), "unknown-space-name").
+		Return(nil, errors.NotFoundf("space with name %q", "unknown-space-name"))
+	_, err := NewSpaceService(s.st, s.logger).SpaceByName(context.Background(), "unknown-space-name")
+	c.Assert(err, gc.ErrorMatches, "space with name \"unknown-space-name\" not found")
+}
+
+func (s *spaceSuite) TestRetrieveAllSpaces(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.st.EXPECT().GetAllSpaces(gomock.Any())
+	_, err := NewSpaceService(s.st, s.logger).GetAllSpaces(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *spaceSuite) TestRemoveSpace(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.st.EXPECT().DeleteSpace(gomock.Any(), "space0")
+	err := NewSpaceService(s.st, s.logger).Remove(context.Background(), "space0")
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *spaceSuite) TestSaveProviderSubnetsWithoutSpaceUUID(c *gc.C) {

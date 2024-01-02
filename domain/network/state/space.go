@@ -10,7 +10,6 @@ import (
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/errors"
-	"github.com/juju/utils/v3"
 
 	coreDB "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/network"
@@ -33,7 +32,7 @@ func NewState(factory coreDB.TxnRunnerFactory) *State {
 // AddSpace creates and returns a new space.
 func (st *State) AddSpace(
 	ctx context.Context,
-	uuid utils.UUID,
+	uuid string,
 	name string,
 	providerID network.Id,
 	subnetIDs []string,
@@ -69,7 +68,7 @@ WHERE  subnet_type.is_space_settable = FALSE AND subnet.uuid IN (%s)`, subnetBin
 		// that are of a type on which the space can be set.
 		nonSettableSubnets, err := tx.QueryContext(ctx, checkInputSubnetsStmt, subnetVals...)
 		if err != nil {
-			return errors.Annotatef(err, "checking if there are fan subnets for space %q", uuid.String())
+			return errors.Annotatef(err, "checking if there are fan subnets for space %q", uuid)
 		}
 		defer func() { _ = nonSettableSubnets.Close() }()
 		// If any row is returned we must fail with the returned fan
@@ -92,11 +91,11 @@ WHERE  subnet_type.is_space_settable = FALSE AND subnet.uuid IN (%s)`, subnetBin
 				"cannot set space for FAN subnet UUIDs %q - it is always inherited from underlay", nonSettableUUIDs)
 		}
 
-		if _, err := tx.ExecContext(ctx, insertSpaceStmt, uuid.String(), name); err != nil {
-			return errors.Annotatef(err, "inserting space uuid %q into space table", uuid.String())
+		if _, err := tx.ExecContext(ctx, insertSpaceStmt, uuid, name); err != nil {
+			return errors.Annotatef(err, "inserting space uuid %q into space table", uuid)
 		}
 		if providerID != "" {
-			if _, err := tx.ExecContext(ctx, insertProviderStmt, providerID, uuid.String()); err != nil {
+			if _, err := tx.ExecContext(ctx, insertProviderStmt, providerID, uuid); err != nil {
 				return errors.Annotatef(err, "inserting provider id %q into provider_space table", providerID)
 			}
 		}
@@ -104,7 +103,7 @@ WHERE  subnet_type.is_space_settable = FALSE AND subnet.uuid IN (%s)`, subnetBin
 		// Retrieve the fan overlays (if any) of the passed subnet ids.
 		rows, err := tx.QueryContext(ctx, findFanSubnetsStmt, subnetVals...)
 		if err != nil {
-			return errors.Annotatef(err, "retrieving the fan subnets for space %q", uuid.String())
+			return errors.Annotatef(err, "retrieving the fan subnets for space %q", uuid)
 		}
 		defer func() { _ = rows.Close() }()
 		// Append the fan subnet (unique) ids (if any) to the provided
@@ -127,8 +126,8 @@ WHERE  subnet_type.is_space_settable = FALSE AND subnet.uuid IN (%s)`, subnetBin
 		// Update all subnets (including their fan overlays) to include
 		// the space uuid.
 		for _, subnetID := range subnetIDs {
-			if err := updateSubnetSpaceID(ctx, tx, subnetID, uuid.String()); err != nil {
-				return errors.Annotatef(err, "updating subnet %q using space uuid %q", subnetID, uuid.String())
+			if err := updateSubnetSpaceID(ctx, tx, subnetID, uuid); err != nil {
+				return errors.Annotatef(err, "updating subnet %q using space uuid %q", subnetID, uuid)
 			}
 		}
 		return nil
