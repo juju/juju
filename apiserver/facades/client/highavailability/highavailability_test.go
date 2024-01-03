@@ -286,6 +286,16 @@ func (s *clientSuite) TestEnableHAControllerConfigConstraints(c *gc.C) {
 	}
 }
 
+func (s *clientSuite) TestEnableHAControllerConfigWithFileBackedObjectStore(c *gc.C) {
+	st := s.ControllerModel(c).State()
+	controllerSettings, _ := st.ReadSettings("controllers", "controllerSettings")
+	controllerSettings.Set(controller.ObjectStoreType, "file")
+	controllerSettings.Write()
+
+	_, err := s.enableHA(c, 3, emptyCons, nil)
+	c.Assert(err, gc.ErrorMatches, `cannot enable-ha with filesystem backed object store`)
+}
+
 func (s *clientSuite) TestBlockMakeHA(c *gc.C) {
 	// Block all changes.
 	s.BlockAllChanges(c, "TestBlockEnableHA")
