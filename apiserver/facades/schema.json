@@ -35849,6 +35849,26 @@
                 }
             },
             "definitions": {
+                "AccessInfo": {
+                    "type": "object",
+                    "properties": {
+                        "role": {
+                            "type": "string"
+                        },
+                        "scope-tag": {
+                            "type": "string"
+                        },
+                        "target-tag": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "target-tag",
+                        "scope-tag",
+                        "role"
+                    ]
+                },
                 "CreateSecretArg": {
                     "type": "object",
                     "properties": {
@@ -36020,6 +36040,12 @@
                 "ListSecretResult": {
                     "type": "object",
                     "properties": {
+                        "access": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/AccessInfo"
+                            }
+                        },
                         "create-time": {
                             "type": "string",
                             "format": "date-time"
@@ -36379,6 +36405,26 @@
                 }
             },
             "definitions": {
+                "AccessInfo": {
+                    "type": "object",
+                    "properties": {
+                        "role": {
+                            "type": "string"
+                        },
+                        "scope-tag": {
+                            "type": "string"
+                        },
+                        "target-tag": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "target-tag",
+                        "scope-tag",
+                        "role"
+                    ]
+                },
                 "ChangeSecretBackendArg": {
                     "type": "object",
                     "properties": {
@@ -36465,6 +36511,12 @@
                 "ListSecretResult": {
                     "type": "object",
                     "properties": {
+                        "access": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/AccessInfo"
+                            }
+                        },
                         "create-time": {
                             "type": "string",
                             "format": "date-time"
@@ -36840,6 +36892,26 @@
                 }
             },
             "definitions": {
+                "AccessInfo": {
+                    "type": "object",
+                    "properties": {
+                        "role": {
+                            "type": "string"
+                        },
+                        "scope-tag": {
+                            "type": "string"
+                        },
+                        "target-tag": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "target-tag",
+                        "scope-tag",
+                        "role"
+                    ]
+                },
                 "CreateSecretArg": {
                     "type": "object",
                     "properties": {
@@ -37124,6 +37196,12 @@
                 "ListSecretResult": {
                     "type": "object",
                     "properties": {
+                        "access": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/AccessInfo"
+                            }
+                        },
                         "create-time": {
                             "type": "string",
                             "format": "date-time"
@@ -43594,6 +43672,26 @@
                         "servers"
                     ]
                 },
+                "AccessInfo": {
+                    "type": "object",
+                    "properties": {
+                        "role": {
+                            "type": "string"
+                        },
+                        "scope-tag": {
+                            "type": "string"
+                        },
+                        "target-tag": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "target-tag",
+                        "scope-tag",
+                        "role"
+                    ]
+                },
                 "Action": {
                     "type": "object",
                     "properties": {
@@ -44805,6 +44903,12 @@
                 "ListSecretResult": {
                     "type": "object",
                     "properties": {
+                        "access": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/AccessInfo"
+                            }
+                        },
                         "create-time": {
                             "type": "string",
                             "format": "date-time"
@@ -48236,6 +48340,26 @@
                 }
             },
             "definitions": {
+                "AccessInfo": {
+                    "type": "object",
+                    "properties": {
+                        "role": {
+                            "type": "string"
+                        },
+                        "scope-tag": {
+                            "type": "string"
+                        },
+                        "target-tag": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "target-tag",
+                        "scope-tag",
+                        "role"
+                    ]
+                },
                 "ChangeSecretBackendArg": {
                     "type": "object",
                     "properties": {
@@ -48358,6 +48482,12 @@
                 "ListSecretResult": {
                     "type": "object",
                     "properties": {
+                        "access": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/AccessInfo"
+                            }
+                        },
                         "create-time": {
                             "type": "string",
                             "format": "date-time"

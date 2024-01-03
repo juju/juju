@@ -7,7 +7,7 @@ import (
 	"github.com/juju/charm/v12"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	"github.com/juju/proxy"
 
 	"github.com/juju/juju/api/agent/uniter"
@@ -196,6 +196,15 @@ func SetEnvironmentHookContextStorage(context *HookContext, storageTag names.Sto
 	context.storageTag = storageTag
 }
 
+// SetEnvironmentHookContextNotice exists purely to set the fields used in hookVars.
+// It makes no assumptions about the validity of context.
+func SetEnvironmentHookContextNotice(context *HookContext, workloadName, noticeID, noticeType, noticeKey string) {
+	context.workloadName = workloadName
+	context.noticeID = noticeID
+	context.noticeType = noticeType
+	context.noticeKey = noticeKey
+}
+
 func PatchCachedStatus(ctx jujuc.Context, status, info string, data map[string]interface{}) func() {
 	hctx := ctx.(*HookContext)
 	oldStatus := hctx.status
@@ -340,11 +349,11 @@ func (ctx *HookContext) SetPendingSecretUpdates(in map[string]uniter.SecretUpdat
 	ctx.secretChanges.pendingUpdates = in
 }
 
-func (ctx *HookContext) PendingSecretGrants() map[string]uniter.SecretGrantRevokeArgs {
+func (ctx *HookContext) PendingSecretGrants() map[string]map[string]uniter.SecretGrantRevokeArgs {
 	return ctx.secretChanges.pendingGrants
 }
 
-func (ctx *HookContext) PendingSecretRevokes() map[string]uniter.SecretGrantRevokeArgs {
+func (ctx *HookContext) PendingSecretRevokes() map[string][]uniter.SecretGrantRevokeArgs {
 	return ctx.secretChanges.pendingRevokes
 }
 

@@ -84,7 +84,11 @@ func (s *MgoStatsCollectorSuite) TestCollect(c *gc.C) {
 	metricFamilies, err := registry.Gather()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(metricFamilies, gc.HasLen, 9)
-	c.Assert(metricFamilies, jc.DeepEquals, []*dto.MetricFamily{{
+
+	mc := jc.NewMultiChecker()
+	mc.AddExpr("_.CreatedTimestamp", gc.NotNil)
+	mc.AddExpr("_.CreatedTimestamp", jc.Ignore)
+	c.Assert(metricFamilies, mc, []*dto.MetricFamily{{
 		Name: stringptr("mgo_clusters"),
 		Help: stringptr("Current number of clusters"),
 		Type: metricTypePtr(dto.MetricType_GAUGE),

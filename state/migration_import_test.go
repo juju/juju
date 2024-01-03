@@ -11,9 +11,9 @@ import (
 	"time" // only uses time.Time values
 
 	"github.com/juju/charm/v12"
-	"github.com/juju/description/v4"
+	"github.com/juju/description/v5"
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
@@ -501,7 +501,7 @@ func (s *MigrationImportSuite) ApplicationPortOps(c *gc.C) {
 	c.Assert(ops[0].Id, gc.Equals, "gitlab")
 }
 
-//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/description_mock.go github.com/juju/description/v4 Application,Machine,PortRanges,UnitPortRanges
+//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/description_mock.go github.com/juju/description/v5 Application,Machine,PortRanges,UnitPortRanges
 func setupMockOpenedPortRanges(c *gc.C, mID string) (*gomock.Controller, *mocks.MockMachine) {
 	ctrl := gomock.NewController(c)
 	mockMachine := mocks.NewMockMachine(ctrl)
@@ -953,7 +953,7 @@ func (s *MigrationImportSuite) TestApplicationsWithExposedOffers(c *gc.C) {
 
 	// Allow "foo" to consume offer
 	err = s.State.CreateOfferAccess(
-		names.NewApplicationOfferTag("my-offer"),
+		names.NewApplicationOfferTag(stOffer.OfferUUID),
 		fooUser.UserTag(),
 		permission.ConsumeAccess,
 	)
@@ -971,12 +971,12 @@ func (s *MigrationImportSuite) TestApplicationsWithExposedOffers(c *gc.C) {
 		// If we import and the permissions still exist, the txn will fail
 		// as imports all assume any records do not already exist.
 		err = s.State.RemoveOfferAccess(
-			names.NewApplicationOfferTag("my-offer"),
+			names.NewApplicationOfferTag(stOffer.OfferUUID),
 			fooUser.UserTag(),
 		)
 		c.Assert(err, jc.ErrorIsNil)
 		err = s.State.RemoveOfferAccess(
-			names.NewApplicationOfferTag("my-offer"),
+			names.NewApplicationOfferTag(stOffer.OfferUUID),
 			names.NewUserTag("admin"),
 		)
 		c.Assert(err, jc.ErrorIsNil)

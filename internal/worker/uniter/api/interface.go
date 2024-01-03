@@ -5,7 +5,7 @@ package api
 
 import (
 	"github.com/juju/charm/v12"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/core/life"

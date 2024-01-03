@@ -31,6 +31,7 @@ type WorkloadEventType int
 const (
 	// ReadyEvent is triggered when the container/pebble starts up.
 	ReadyEvent WorkloadEventType = iota
+	CustomNoticeEvent
 )
 
 // WorkloadEvent contains information about the event type and data associated with
@@ -38,6 +39,9 @@ const (
 type WorkloadEvent struct {
 	Type         WorkloadEventType
 	WorkloadName string
+	NoticeID     string
+	NoticeType   string
+	NoticeKey    string
 }
 
 // WorkloadEventCallback is the type used to callback when an event has been processed.
@@ -151,21 +155,21 @@ func (r *workloadHookResolver) NextOp(
 ) (operation.Operation, error) {
 	noOp := func() (operation.Operation, error) {
 		if localState.Kind == operation.RunHook &&
-			localState.Hook != nil &&
-			localState.Hook.Kind == hooks.PebbleReady {
+			localState.Hook != nil && localState.Hook.Kind.IsWorkload() {
 			// If we are resuming from an unexpected state, skip hook.
 			return opFactory.NewSkipHook(*localState.Hook)
 		}
 		return nil, resolver.ErrNoOperation
 	}
+
 	switch localState.Kind {
 	case operation.RunHook:
 		if localState.Step != operation.Pending ||
-			localState.Hook == nil ||
-			localState.Hook.Kind != hooks.PebbleReady {
+			localState.Hook == nil || !localState.Hook.Kind.IsWorkload() {
 			break
 		}
 		fallthrough
+
 	case operation.Continue:
 		for _, id := range remoteState.WorkloadEvents {
 			evt, cb, err := r.events.GetWorkloadEvent(id)
@@ -174,9 +178,7 @@ func (r *workloadHookResolver) NextOp(
 			} else if err != nil {
 				return nil, errors.Trace(err)
 			}
-			if evt.Type != ReadyEvent {
-				return nil, errors.NotValidf("workload event type %v", evt.Type)
-			}
+
 			done := func(err error) {
 				cb(err)
 				r.events.RemoveWorkloadEvent(id)
@@ -184,10 +186,25 @@ func (r *workloadHookResolver) NextOp(
 					r.eventCompleted(id)
 				}
 			}
-			op, err := opFactory.NewRunHook(hook.Info{
-				Kind:         hooks.PebbleReady,
-				WorkloadName: evt.WorkloadName,
-			})
+
+			var op operation.Operation
+			switch evt.Type {
+			case CustomNoticeEvent:
+				op, err = opFactory.NewRunHook(hook.Info{
+					Kind:         hooks.PebbleCustomNotice,
+					WorkloadName: evt.WorkloadName,
+					NoticeID:     evt.NoticeID,
+					NoticeType:   evt.NoticeType,
+					NoticeKey:    evt.NoticeKey,
+				})
+			case ReadyEvent:
+				op, err = opFactory.NewRunHook(hook.Info{
+					Kind:         hooks.PebbleReady,
+					WorkloadName: evt.WorkloadName,
+				})
+			default:
+				return nil, errors.NotValidf("workload event type %v", evt.Type)
+			}
 			if err != nil {
 				done(err)
 				return nil, errors.Trace(err)
@@ -199,6 +216,7 @@ func (r *workloadHookResolver) NextOp(
 		}
 		return noOp()
 	}
+
 	return noOp()
 }
 

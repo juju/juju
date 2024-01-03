@@ -18,7 +18,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
 	"github.com/kr/pretty"
@@ -482,13 +482,14 @@ var (
 		"exposed": true,
 	})
 	loggingCharm = M{
-		"charm":        "logging",
-		"charm-origin": "charmhub",
-		"charm-name":   "logging",
-		"charm-rev":    1,
-		"base":         M{"name": "ubuntu", "channel": "12.10"},
-		"exposed":      true,
-		"scale":        2,
+		"charm":         "logging",
+		"charm-origin":  "charmhub",
+		"charm-name":    "logging",
+		"charm-rev":     1,
+		"charm-channel": "stable",
+		"base":          M{"name": "ubuntu", "channel": "12.10"},
+		"exposed":       true,
+		"scale":         2,
 		"application-status": M{
 			"current": "error",
 			"message": "somehow lost in all those logs",
@@ -1714,12 +1715,13 @@ var statusTests = []testCase{
 						},
 					}),
 					"varnish": M{
-						"charm":        "varnish",
-						"charm-origin": "charmhub",
-						"charm-name":   "varnish",
-						"charm-rev":    1,
-						"base":         M{"name": "ubuntu", "channel": "12.10"},
-						"exposed":      true,
+						"charm":         "varnish",
+						"charm-origin":  "charmhub",
+						"charm-name":    "varnish",
+						"charm-channel": "stable",
+						"charm-rev":     1,
+						"base":          M{"name": "ubuntu", "channel": "12.10"},
+						"exposed":       true,
 						"application-status": M{
 							"current": "waiting",
 							"message": "waiting for machine",
@@ -1855,12 +1857,13 @@ var statusTests = []testCase{
 				},
 				"applications": M{
 					"riak": M{
-						"charm":        "riak",
-						"charm-origin": "charmhub",
-						"charm-name":   "riak",
-						"charm-rev":    7,
-						"base":         M{"name": "ubuntu", "channel": "12.10"},
-						"exposed":      true,
+						"charm":         "riak",
+						"charm-origin":  "charmhub",
+						"charm-name":    "riak",
+						"charm-rev":     7,
+						"charm-channel": "stable",
+						"base":          M{"name": "ubuntu", "channel": "12.10"},
+						"exposed":       true,
 						"application-status": M{
 							"current": "active",
 							"since":   "01 Apr 15 01:23+10:00",
@@ -2294,7 +2297,7 @@ var statusTests = []testCase{
 		},
 	),
 	test( // 14
-		"unit with out of date charm",
+		"unit with out of date charm, switching from repo to local",
 		addMachine{machineId: "0", job: coremodel.JobManageModel},
 		setAddresses{"0", network.NewSpaceAddresses("10.0.0.1")},
 		startAliveMachine{"0", ""},
@@ -2322,10 +2325,8 @@ var statusTests = []testCase{
 					"1": machine1,
 				},
 				"applications": M{
-					"mysql": mysqlCharm(M{
-						"charm":        "local:quantal/mysql-1",
-						"charm-origin": "local",
-						"exposed":      true,
+					"mysql": localMysqlCharm(M{
+						"charm": "local:quantal/mysql-1",
 						"application-status": M{
 							"current": "active",
 							"since":   "01 Apr 15 01:23+10:00",
@@ -2391,7 +2392,6 @@ var statusTests = []testCase{
 				},
 				"applications": M{
 					"mysql": mysqlCharm(M{
-						"charm":          "mysql",
 						"charm-rev":      2,
 						"can-upgrade-to": "ch:mysql-23",
 						"exposed":        true,
@@ -2459,10 +2459,8 @@ var statusTests = []testCase{
 					"1": machine1,
 				},
 				"applications": M{
-					"mysql": mysqlCharm(M{
-						"charm":        "local:quantal/mysql-1",
-						"charm-origin": "local",
-						"exposed":      true,
+					"mysql": localMysqlCharm(M{
+						"charm": "local:quantal/mysql-1",
 						"application-status": M{
 							"current": "active",
 							"since":   "01 Apr 15 01:23+10:00",
@@ -2594,7 +2592,6 @@ var statusTests = []testCase{
 							"metrics-client": network.AlphaSpaceName,
 						},
 					}),
-
 					"applicationwithmeterstatus": meteredCharm(M{
 						"application-status": M{
 							"current": "active",
@@ -3128,10 +3125,14 @@ var statusTests = []testCase{
 					"1": machine1WithLXDProfile,
 				},
 				"applications": M{
-					"lxd-profile": lxdProfileCharm(M{
-						"charm":        "local:quantal/lxd-profile-1",
-						"charm-origin": "local",
-						"exposed":      true,
+					"lxd-profile": M{
+						"charm":         "local:quantal/lxd-profile-1",
+						"charm-origin":  "local",
+						"exposed":       true,
+						"charm-name":    "lxd-profile",
+						"charm-rev":     1,
+						"charm-profile": "juju-controller-lxd-profile-1",
+						"base":          M{"name": "ubuntu", "channel": "12.10"},
 						"application-status": M{
 							"current": "active",
 							"since":   "01 Apr 15 01:23+10:00",
@@ -3156,7 +3157,7 @@ var statusTests = []testCase{
 							"another": network.AlphaSpaceName,
 							"ubuntu":  network.AlphaSpaceName,
 						},
-					}),
+					},
 				},
 				"storage": M{},
 				"controller": M{
@@ -3200,61 +3201,64 @@ var statusTests = []testCase{
 
 func mysqlCharm(extras M) M {
 	charm := M{
-		"charm":        "mysql",
-		"charm-origin": "charmhub",
-		"charm-name":   "mysql",
-		"charm-rev":    1,
-		"base":         M{"name": "ubuntu", "channel": "12.10"},
-		"exposed":      false,
-	}
-	return composeCharms(charm, extras)
-}
-
-func lxdProfileCharm(extras M) M {
-	charm := M{
-		"charm":         "lxd-profile",
+		"charm":         "mysql",
 		"charm-origin":  "charmhub",
-		"charm-name":    "lxd-profile",
+		"charm-name":    "mysql",
 		"charm-rev":     1,
-		"charm-profile": "juju-controller-lxd-profile-1",
+		"charm-channel": "stable",
 		"base":          M{"name": "ubuntu", "channel": "12.10"},
 		"exposed":       false,
 	}
 	return composeCharms(charm, extras)
 }
 
-func meteredCharm(extras M) M {
+func localMysqlCharm(extras M) M {
 	charm := M{
-		"charm":        "metered",
-		"charm-origin": "charmhub",
-		"charm-name":   "metered",
+		"charm":        "mysql",
+		"charm-origin": "local",
+		"charm-name":   "mysql",
 		"charm-rev":    1,
 		"base":         M{"name": "ubuntu", "channel": "12.10"},
-		"exposed":      false,
+		"exposed":      true,
+	}
+	return composeCharms(charm, extras)
+}
+
+func meteredCharm(extras M) M {
+	charm := M{
+		"charm":         "metered",
+		"charm-origin":  "charmhub",
+		"charm-name":    "metered",
+		"charm-rev":     1,
+		"charm-channel": "stable",
+		"base":          M{"name": "ubuntu", "channel": "12.10"},
+		"exposed":       false,
 	}
 	return composeCharms(charm, extras)
 }
 
 func dummyCharm(extras M) M {
 	charm := M{
-		"charm":        "dummy",
-		"charm-origin": "charmhub",
-		"charm-name":   "dummy",
-		"charm-rev":    1,
-		"base":         M{"name": "ubuntu", "channel": "12.10"},
-		"exposed":      false,
+		"charm":         "dummy",
+		"charm-origin":  "charmhub",
+		"charm-name":    "dummy",
+		"charm-rev":     1,
+		"charm-channel": "stable",
+		"base":          M{"name": "ubuntu", "channel": "12.10"},
+		"exposed":       false,
 	}
 	return composeCharms(charm, extras)
 }
 
 func wordpressCharm(extras M) M {
 	charm := M{
-		"charm":        "wordpress",
-		"charm-origin": "charmhub",
-		"charm-name":   "wordpress",
-		"charm-rev":    3,
-		"base":         M{"name": "ubuntu", "channel": "12.10"},
-		"exposed":      false,
+		"charm":         "wordpress",
+		"charm-origin":  "charmhub",
+		"charm-name":    "wordpress",
+		"charm-rev":     3,
+		"charm-channel": "stable",
+		"base":          M{"name": "ubuntu", "channel": "12.10"},
+		"exposed":       false,
 	}
 	return composeCharms(charm, extras)
 }
@@ -3695,7 +3699,13 @@ func (as addApplication) step(c *gc.C, ctx *context) {
 	info, ok := ctx.charms[as.charm]
 	c.Assert(ok, jc.IsTrue)
 
-	series := charm.MustParseURL(info.url).Series
+	curl := charm.MustParseURL(info.url)
+	var channel string
+	if charm.CharmHub.Matches(curl.Schema) {
+		channel = "stable"
+	}
+
+	series := curl.Series
 	if series == "" {
 		series = "quantal"
 	}
@@ -3703,8 +3713,9 @@ func (as addApplication) step(c *gc.C, ctx *context) {
 	c.Assert(err, jc.ErrorIsNil)
 	now := time.Now()
 	app := params.ApplicationStatus{
-		Charm: info.url,
-		Base:  params.Base{Name: base.OS, Channel: base.Channel.String()},
+		Charm:        info.url,
+		CharmChannel: channel,
+		Base:         params.Base{Name: base.OS, Channel: base.Channel.String()},
 		Status: params.DetailedStatus{
 			Status: status.Unknown.String(),
 			Since:  &now,
@@ -3881,7 +3892,14 @@ func (ssc setApplicationCharm) step(c *gc.C, ctx *context) {
 	app, ok := ctx.api.result.Applications[ssc.name]
 	c.Assert(ok, jc.IsTrue)
 
+	curl := charm.MustParseURL(ssc.charm)
+	var channel string
+	if charm.CharmHub.Matches(curl.Schema) {
+		channel = "stable"
+	}
+
 	app.Charm = ssc.charm
+	app.CharmChannel = channel
 	ctx.api.result.Applications[ssc.name] = app
 }
 
@@ -4911,9 +4929,9 @@ SAAS         Status   Store  URL
 hosted-riak  unknown  local  me/model.riak
 
 App        Version          Status       Scale  Charm      Channel  Rev  Exposed  Message
-logging    a bit too lo...  error            2  logging               1  yes      somehow lost in all those logs
-mysql      5.7.13           maintenance    1/2  mysql                 1  yes      installing all the things
-wordpress  4.5.3            active           1  wordpress             3  yes      
+logging    a bit too lo...  error            2  logging    stable     1  yes      somehow lost in all those logs
+mysql      5.7.13           maintenance    1/2  mysql      stable     1  yes      installing all the things
+wordpress  4.5.3            active           1  wordpress  stable     3  yes      
 
 Unit          Workload     Agent  Machine  Public address  Ports  Message
 mysql/0*      maintenance  idle   2        10.0.2.1               installing all the things
@@ -4958,6 +4976,7 @@ func (s *StatusSuite) TestStatusWithFormatYaml(c *gc.C) {
 	c.Check(code, gc.Equals, 0)
 	c.Check(stderr, gc.Equals, "")
 	c.Assert(stdout, jc.Contains, "display-name: snowflake")
+	c.Assert(stdout, jc.Contains, "stable")
 }
 
 func (s *StatusSuite) TestStatusWithFormatJson(c *gc.C) {

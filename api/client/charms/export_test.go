@@ -14,3 +14,7 @@ func NewClientWithFacade(facade base.FacadeCaller, clientFacade base.ClientFacad
 	charmInfoClient := commoncharms.NewCharmInfoClient(facade)
 	return &Client{facade: facade, ClientFacade: clientFacade, CharmInfoClient: charmInfoClient}
 }
+
+func NewLocalCharmClientWithFacade(facade base.FacadeCaller, clientFacade base.ClientFacade) *LocalCharmClient {
+	return &LocalCharmClient{facade: facade, ClientFacade: clientFacade}
+}

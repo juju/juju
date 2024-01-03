@@ -511,7 +511,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 					Spec: core.PersistentVolumeClaimSpec{
 						StorageClassName: &scName,
 						AccessModes:      []core.PersistentVolumeAccessMode{core.ReadWriteOnce},
-						Resources: core.ResourceRequirements{
+						Resources: core.VolumeResourceRequirements{
 							Requests: core.ResourceList{
 								core.ResourceStorage: resource.MustParse("10000Mi"),
 							},

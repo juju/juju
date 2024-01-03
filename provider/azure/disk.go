@@ -12,7 +12,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v2"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/keyvault/armkeyvault"
 	"github.com/Azure/azure-sdk-for-go/sdk/security/keyvault/azkeys"
-	"github.com/gofrs/uuid"
+	"github.com/google/uuid"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/cloud"
@@ -152,8 +152,18 @@ func (env *azureEnviron) diskEncryptionInfo(
 	return diskEncryptionSetID, nil
 }
 
+// fromStringOrNil returns a UUID parsed from the input string.
+// Same behavior as Parse(), but returns uuid.Nil instead of an error.
+func fromStringOrNil(input string) uuid.UUID {
+	result, err := uuid.Parse(input)
+	if err != nil {
+		return uuid.Nil
+	}
+	return result
+}
+
 func vaultAccessPolicy(desIdentity *armcompute.EncryptionSetIdentity) *armkeyvault.AccessPolicyEntry {
-	tenantID := uuid.FromStringOrNil(toValue(desIdentity.TenantID))
+	tenantID := fromStringOrNil(toValue(desIdentity.TenantID))
 	return &armkeyvault.AccessPolicyEntry{
 		TenantID: to.Ptr(tenantID.String()),
 		ObjectID: desIdentity.PrincipalID,
@@ -210,7 +220,7 @@ func (env *azureEnviron) ensureVault(
 	desIdentity *armcompute.EncryptionSetIdentity,
 ) (*armkeyvault.Vault, *armkeyvault.VaultCreateOrUpdateParameters, error) {
 	logger.Debugf("ensure vault key %q", vaultName)
-	vaultTenantID := uuid.FromStringOrNil(env.tenantId)
+	vaultTenantID := fromStringOrNil(env.tenantId)
 	// Create the vault with full access for the tenant.
 	allKeyPermissions := armkeyvault.PossibleKeyPermissionsValues()
 

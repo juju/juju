@@ -6,7 +6,7 @@ package secretsmanager_test
 import (
 	"time"
 
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -393,7 +393,7 @@ func (s *SecretsSuite) TestSecretMetadata(c *gc.C) {
 		*(result.(*params.ListSecretResults)) = params.ListSecretResults{
 			Results: []params.ListSecretResult{{
 				URI:              uri.String(),
-				OwnerTag:         "application-mariadb",
+				OwnerTag:         coretesting.ModelTag.String(),
 				Label:            "label",
 				LatestRevision:   667,
 				NextRotateTime:   &now,
@@ -407,6 +407,13 @@ func (s *SecretsSuite) TestSecretMetadata(c *gc.C) {
 				}, {
 					Revision: 667,
 				}},
+				Access: []params.AccessInfo{
+					{
+						TargetTag: "application-gitlab",
+						ScopeTag:  coretesting.ModelTag.Id(),
+						Role:      coresecrets.RoleView,
+					},
+				},
 			}},
 		}
 		return nil
@@ -417,12 +424,19 @@ func (s *SecretsSuite) TestSecretMetadata(c *gc.C) {
 	c.Assert(result, gc.HasLen, 1)
 	for _, info := range result {
 		c.Assert(info.Metadata.URI.String(), gc.Equals, uri.String())
-		c.Assert(info.Metadata.OwnerTag, gc.Equals, "application-mariadb")
+		c.Assert(info.Metadata.OwnerTag, gc.Equals, coretesting.ModelTag.String())
 		c.Assert(info.Metadata.Label, gc.Equals, "label")
 		c.Assert(info.Metadata.LatestRevision, gc.Equals, 667)
 		c.Assert(info.Metadata.LatestExpireTime, gc.Equals, &now)
 		c.Assert(info.Metadata.NextRotateTime, gc.Equals, &now)
 		c.Assert(info.Revisions, jc.DeepEquals, []int{666, 667})
+		c.Assert(info.Metadata.Access, jc.DeepEquals, []coresecrets.AccessInfo{
+			{
+				Target: "application-gitlab",
+				Scope:  coretesting.ModelTag.Id(),
+				Role:   coresecrets.RoleView,
+			},
+		})
 	}
 }
 

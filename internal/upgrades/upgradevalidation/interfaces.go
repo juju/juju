@@ -4,7 +4,7 @@
 package upgradevalidation
 
 import (
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	"github.com/juju/replicaset/v3"
 	"github.com/juju/version/v2"
 

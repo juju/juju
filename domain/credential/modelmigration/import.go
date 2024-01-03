@@ -7,7 +7,7 @@ import (
 	"context"
 	"reflect"
 
-	"github.com/juju/description/v4"
+	"github.com/juju/description/v5"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/cloud"

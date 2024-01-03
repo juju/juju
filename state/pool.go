@@ -15,7 +15,7 @@ import (
 	"github.com/juju/featureflag"
 	"github.com/juju/loggo"
 	"github.com/juju/mgo/v3"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/worker/v3"
 

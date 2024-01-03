@@ -6,7 +6,7 @@ package cloud
 import (
 	stdcontext "context"
 
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/permission"

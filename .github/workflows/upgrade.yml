@@ -74,7 +74,7 @@ jobs:
 
       - name: Set up Go
         if: env.RUN_TEST == 'RUN'
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v5
         with:
           go-version-file: 'go.mod'
           cache: true

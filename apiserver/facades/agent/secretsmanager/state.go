@@ -6,7 +6,7 @@ package secretsmanager
 import (
 	"time"
 
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/core/secrets"
@@ -42,6 +42,7 @@ type SecretsState interface {
 	ListSecretRevisions(uri *secrets.URI) ([]*secrets.SecretRevisionMetadata, error)
 	WatchObsolete(owners []names.Tag) (state.StringsWatcher, error)
 	ChangeSecretBackend(state.ChangeSecretBackendParams) error
+	SecretGrants(uri *secrets.URI, role secrets.SecretRole) ([]secrets.AccessInfo, error)
 }
 
 type CrossModelState interface {

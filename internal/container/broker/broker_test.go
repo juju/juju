@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 
 	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	jtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
@@ -214,7 +214,8 @@ type fakeContainerManager struct {
 	jtesting.Stub
 }
 
-func (m *fakeContainerManager) CreateContainer(instanceConfig *instancecfg.InstanceConfig,
+func (m *fakeContainerManager) CreateContainer(_ context.Context,
+	instanceConfig *instancecfg.InstanceConfig,
 	cons constraints.Value,
 	base corebase.Base,
 	network *container.NetworkConfig,

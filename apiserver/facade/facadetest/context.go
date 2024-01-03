@@ -5,7 +5,7 @@ package facadetest
 
 import (
 	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/changestream"

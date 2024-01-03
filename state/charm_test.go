@@ -300,7 +300,7 @@ func (s *CharmSuite) TestDestroyUnitReferencedCharm(c *gc.C) {
 	info := s.dummyCharm(c, "ch:quantal/dummy-2")
 	newCh, err := s.State.AddCharm(info)
 	c.Assert(err, jc.ErrorIsNil)
-	err = app.SetCharm(state.SetCharmConfig{Charm: newCh}, state.NewObjectStore(c, s.State))
+	err = app.SetCharm(state.SetCharmConfig{Charm: newCh, CharmOrigin: defaultCharmOrigin(newCh.URL())}, state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// unit should still reference original charm until updated

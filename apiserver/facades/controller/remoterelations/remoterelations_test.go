@@ -9,7 +9,7 @@ import (
 	"github.com/juju/charm/v12"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
@@ -457,7 +457,6 @@ func (s *remoteRelationsSuite) TestConsumeRelationResumePermission(c *gc.C) {
 	s.st.EXPECT().ControllerTag().Return(coretesting.ControllerTag)
 	s.st.EXPECT().ModelTag().Return(coretesting.ModelTag)
 	s.st.EXPECT().OfferConnectionForRelation(db2Relation.key).Return(offerConn, nil)
-	s.st.EXPECT().ApplicationOfferForUUID("offer-uuid").Return(&crossmodel.ApplicationOffer{ApplicationName: "django"}, nil)
 
 	result, err := s.api.ConsumeRemoteRelationChanges(context.Background(), changes)
 	c.Assert(err, jc.ErrorIsNil)

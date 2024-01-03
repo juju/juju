@@ -9,7 +9,7 @@ import (
 
 	lxdclient "github.com/canonical/lxd/client"
 	lxdapi "github.com/canonical/lxd/shared/api"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
 	"go.uber.org/mock/gomock"
@@ -168,7 +168,7 @@ func (s *managerSuite) TestContainerCreateDestroy(c *gc.C) {
 	)
 
 	instance, hc, err := s.manager.CreateContainer(
-		iCfg, constraints.Value{}, corebase.MakeDefaultBase("ubuntu", "16.04"), prepNetworkConfig(), &container.StorageConfig{}, lxdtesting.NoOpCallback,
+		context.Background(), iCfg, constraints.Value{}, corebase.MakeDefaultBase("ubuntu", "16.04"), prepNetworkConfig(), &container.StorageConfig{}, lxdtesting.NoOpCallback,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -222,7 +222,7 @@ func (s *managerSuite) TestContainerCreateUpdateIPv4Network(c *gc.C) {
 		ParentInterfaceName: network.DefaultLXDBridge,
 	}})
 	_, _, err = s.manager.CreateContainer(
-		iCfg, constraints.Value{}, corebase.MakeDefaultBase("ubuntu", "16.04"), netConfig, &container.StorageConfig{}, lxdtesting.NoOpCallback,
+		context.Background(), iCfg, constraints.Value{}, corebase.MakeDefaultBase("ubuntu", "16.04"), netConfig, &container.StorageConfig{}, lxdtesting.NoOpCallback,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -241,6 +241,7 @@ func (s *managerSuite) TestCreateContainerCreateFailed(c *gc.C) {
 
 	s.makeManager(c)
 	_, _, err := s.manager.CreateContainer(
+		context.Background(),
 		prepInstanceConfig(c),
 		constraints.Value{},
 		corebase.MakeDefaultBase("ubuntu", "16.04"),
@@ -264,6 +265,7 @@ func (s *managerSuite) TestCreateContainerSpecCreationError(c *gc.C) {
 
 	s.makeManager(c)
 	_, _, err := s.manager.CreateContainer(
+		context.Background(),
 		prepInstanceConfig(c),
 		constraints.Value{},
 		corebase.MakeDefaultBase("ubuntu", "16.04"),
@@ -297,6 +299,7 @@ func (s *managerSuite) TestCreateContainerStartFailed(c *gc.C) {
 	)
 
 	_, _, err = s.manager.CreateContainer(
+		context.Background(),
 		iCfg,
 		constraints.Value{},
 		corebase.MakeDefaultBase("ubuntu", "16.04"),

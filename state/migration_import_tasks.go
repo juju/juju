@@ -7,12 +7,12 @@ import (
 	"strings"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/description/v4"
+	"github.com/juju/description/v5"
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3"
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/mgo/v3/txn"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/network/firewall"
@@ -373,7 +373,7 @@ type RemoteEntitiesDescription interface {
 
 // ApplicationOffersState is used to look up all application offers.
 type ApplicationOffersState interface {
-	OfferNameForApp(appName string) (string, error)
+	OfferUUIDForApp(appName string) (string, error)
 }
 
 // RemoteEntitiesInput describes the input used for migrating remote entities.
@@ -381,6 +381,9 @@ type RemoteEntitiesInput interface {
 	DocModelNamespace
 	RemoteEntitiesDescription
 	ApplicationOffersState
+
+	// OfferUUID returns the uuid for a given offer name.
+	OfferUUID(offerName string) (string, bool)
 }
 
 // ImportRemoteEntities describes a way to import remote entities from a
@@ -396,9 +399,16 @@ func (im *ImportRemoteEntities) Execute(src RemoteEntitiesInput, runner Transact
 	}
 	ops := make([]txn.Op, len(remoteEntities))
 	for i, entity := range remoteEntities {
-		id, err := im.legacyAppToOffer(entity.ID(), src.OfferNameForApp)
-		if err != nil {
-			return errors.Trace(err)
+		var (
+			id  string
+			ok  bool
+			err error
+		)
+		if id, ok = im.maybeConvertApplicationOffer(src, entity.ID()); !ok {
+			id, err = im.legacyAppToOffer(entity.ID(), src.OfferUUIDForApp)
+			if err != nil {
+				return errors.Trace(err)
+			}
 		}
 		docID := src.DocID(id)
 		ops[i] = txn.Op{
@@ -417,23 +427,43 @@ func (im *ImportRemoteEntities) Execute(src RemoteEntitiesInput, runner Transact
 	return nil
 }
 
-func (im *ImportRemoteEntities) legacyAppToOffer(id string, offerNameForApp func(string) (string, error)) (string, error) {
+// maybeConvertApplicationOffer returns the offer uuid if an offer name is passed in.
+func (im *ImportRemoteEntities) maybeConvertApplicationOffer(src RemoteEntitiesInput, id string) (string, bool) {
+	if !strings.HasPrefix(id, names.ApplicationOfferTagKind+"-") {
+		return id, false
+	}
+	offerName := strings.TrimPrefix(id, names.ApplicationOfferTagKind+"-")
+	if uuid, ok := src.OfferUUID(offerName); ok {
+		return names.NewApplicationOfferTag(uuid).String(), true
+	}
+	return id, false
+}
+
+func (im *ImportRemoteEntities) legacyAppToOffer(id string, offerUUIDForApp func(string) (string, error)) (string, error) {
 	tag, err := names.ParseTag(id)
 	if err != nil || tag.Kind() != names.ApplicationTagKind || strings.HasPrefix(tag.Id(), "remote-") {
 		return id, err
 	}
-	offerName, err := offerNameForApp(tag.Id())
+	offerUUID, err := offerUUIDForApp(tag.Id())
 	if errors.Is(err, errors.NotFound) {
 		return id, nil
 	}
-	return names.NewApplicationOfferTag(offerName).String(), err
+
+	return names.NewApplicationOfferTag(offerUUID).String(), err
 }
 
 type applicationOffersStateShim struct {
 	stateModelNamspaceShim
+
+	offerUUIDByName map[string]string
 }
 
-func (a applicationOffersStateShim) OfferNameForApp(appName string) (string, error) {
+func (s *applicationOffersStateShim) OfferUUID(offerName string) (string, bool) {
+	uuid, ok := s.offerUUIDByName[offerName]
+	return uuid, ok
+}
+
+func (a applicationOffersStateShim) OfferUUIDForApp(appName string) (string, error) {
 	applicationOffersCollection, closer := a.st.db().GetCollection(applicationOffersC)
 	defer closer()
 
@@ -445,7 +475,7 @@ func (a applicationOffersStateShim) OfferNameForApp(appName string) (string, err
 	if err != nil {
 		return "", errors.Annotate(err, "getting application offer documents")
 	}
-	return doc.OfferName, nil
+	return doc.OfferUUID, nil
 }
 
 // RelationNetworksDescription defines an in-place usage for reading relation networks.

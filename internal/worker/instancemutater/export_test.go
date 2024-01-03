@@ -5,7 +5,7 @@ package instancemutater
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	worker "github.com/juju/worker/v3"
 
 	"github.com/juju/juju/api/agent/instancemutater"

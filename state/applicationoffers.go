@@ -15,7 +15,7 @@ import (
 	"github.com/juju/mgo/v3"
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/mgo/v3/txn"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	jujutxn "github.com/juju/txn/v3"
 	"github.com/juju/utils/v3"
 
@@ -82,16 +82,6 @@ func ApplicationOfferEndpoint(offer crossmodel.ApplicationOffer, relationName st
 		}
 	}
 	return Endpoint{}, errors.NotFoundf("relation %q on application offer %q", relationName, offer.String())
-}
-
-// TODO(wallyworld) - remove when we use UUID everywhere
-func applicationOfferUUID(st *State, offerName string) (string, error) {
-	appOffers := &applicationOffers{st: st}
-	offer, err := appOffers.ApplicationOffer(offerName)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	return offer.OfferUUID, nil
 }
 
 func (s *applicationOffers) offerQuery(query bson.D) (*applicationOfferDoc, error) {
@@ -607,7 +597,7 @@ func (s *applicationOffers) AddOffer(offerArgs crossmodel.AddApplicationOfferArg
 	}
 
 	// Ensure the owner has admin access to the offer.
-	offerTag := names.NewApplicationOfferTag(doc.OfferName)
+	offerTag := names.NewApplicationOfferTag(doc.OfferUUID)
 	owner := names.NewUserTag(offerArgs.Owner)
 	err = s.st.CreateOfferAccess(offerTag, owner, permission.AdminAccess)
 	if err != nil {

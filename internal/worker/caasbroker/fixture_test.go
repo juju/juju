@@ -7,7 +7,7 @@ import (
 	"context"
 	"sync"
 
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/workertest"

@@ -10,7 +10,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3/txn"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/core/permission"
 )
@@ -154,11 +154,7 @@ func (st *State) UserPermission(subject names.UserTag, target names.Tag) (permis
 		}
 		return access.Access, nil
 	case names.ApplicationOfferTagKind:
-		offerUUID, err := applicationOfferUUID(st, target.Id())
-		if err != nil {
-			return "", errors.Trace(err)
-		}
-		return st.GetOfferAccess(offerUUID, subject)
+		return st.GetOfferAccess(target.Id(), subject)
 	case names.CloudTagKind:
 		return st.GetCloudAccess(target.Id(), subject)
 	default:

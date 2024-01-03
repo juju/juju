@@ -6,7 +6,7 @@ package hook
 import (
 	"github.com/juju/charm/v12/hooks"
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/core/secrets"
 )
@@ -42,6 +42,15 @@ type Info struct {
 
 	// WorkloadName is the name of the sidecar container or workload relevant to the hook.
 	WorkloadName string `yaml:"workload-name,omitempty"`
+
+	// NoticeID is the Pebble notice ID associated with the hook.
+	NoticeID string `yaml:"notice-id,omitempty"`
+
+	// NoticeType is the Pebble notice type associated with the hook.
+	NoticeType string `yaml:"notice-type,omitempty"`
+
+	// NoticeKey is the Pebble notice key associated with the hook.
+	NoticeKey string `yaml:"notice-key,omitempty"`
 
 	// MachineUpgradeTarget is the base that the unit's machine is to be
 	// updated to when Juju is issued the `upgrade-machine` command.
@@ -81,6 +90,14 @@ func (hi Info) Validate() error {
 		}
 		if hi.RemoteApplication == "" {
 			return errors.Errorf("%q hook has a remote unit but no application", hi.Kind)
+		}
+		return nil
+	case hooks.PebbleCustomNotice:
+		if hi.WorkloadName == "" {
+			return errors.Errorf("%q hook requires a workload name", hi.Kind)
+		}
+		if hi.NoticeID == "" || hi.NoticeType == "" || hi.NoticeKey == "" {
+			return errors.Errorf("%q hook requires a notice ID, type, and key", hi.Kind)
 		}
 		return nil
 	case hooks.PebbleReady:

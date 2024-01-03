@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -129,14 +129,12 @@ subnets:
 		`"status":"terminating",` +
 		`"space":"vlan-42",` +
 		`"zones":["zone1"]},` +
-
 		`"10.20.0.0/24":{` +
 		`"type":"ipv4",` +
 		`"provider-id":"subnet-foo",` +
 		`"status":"in-use",` +
 		`"space":"public",` +
 		`"zones":["zone1","zone2"]},` +
-
 		`"2001:db8::/32":{` +
 		`"type":"ipv6",` +
 		`"provider-id":"subnet-bar",` +

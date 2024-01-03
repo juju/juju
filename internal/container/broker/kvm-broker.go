@@ -6,7 +6,7 @@ package broker
 import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/core/instance"
@@ -122,7 +122,7 @@ func (broker *kvmBroker) StartInstance(ctx envcontext.ProviderCallContext, args 
 		AllowMount: true,
 	}
 	inst, hardware, err := broker.manager.CreateContainer(
-		args.InstanceConfig, args.Constraints, args.InstanceConfig.Base, net, storageConfig, args.StatusCallback,
+		ctx, args.InstanceConfig, args.Constraints, args.InstanceConfig.Base, net, storageConfig, args.StatusCallback,
 	)
 	if err != nil {
 		kvmLogger.Errorf("failed to start container: %v", err)

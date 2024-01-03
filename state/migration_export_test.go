@@ -13,9 +13,9 @@ import (
 
 	"github.com/juju/charm/v12"
 	charmresource "github.com/juju/charm/v12/resource"
-	"github.com/juju/description/v4"
+	"github.com/juju/description/v5"
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
@@ -727,7 +727,7 @@ func (s *MigrationExportSuite) TestApplicationExposingOffers(c *gc.C) {
 
 	// Allow "foo" to consume offer
 	err = s.State.CreateOfferAccess(
-		names.NewApplicationOfferTag("my-offer"),
+		names.NewApplicationOfferTag(stOffer.OfferUUID),
 		fooUser.UserTag(),
 		permission.ConsumeAccess,
 	)

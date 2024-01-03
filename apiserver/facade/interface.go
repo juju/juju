@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/leadership"

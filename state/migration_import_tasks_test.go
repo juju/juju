@@ -6,10 +6,10 @@ package state
 import (
 	"fmt"
 
-	"github.com/juju/description/v4"
+	"github.com/juju/description/v5"
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3/txn"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
 	"go.uber.org/mock/gomock"
@@ -319,8 +319,8 @@ func (s *MigrationImportTasksSuite) TestImportRemoteEntities(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	entity0 := s.remoteEntity(ctrl, "application-uuid2", "xxx-yyy-ccc")
-	entity1 := s.remoteEntity(ctrl, "applicationoffer-uuid3", "aaa-bbb-zzz")
+	entity0 := s.remoteEntity(ctrl, "application-app2", "xxx-yyy-ccc")
+	entity1 := s.remoteEntity(ctrl, "applicationoffer-offer3", "aaa-bbb-zzz")
 
 	entities := []description.RemoteEntity{
 		entity0,
@@ -329,27 +329,28 @@ func (s *MigrationImportTasksSuite) TestImportRemoteEntities(c *gc.C) {
 
 	model := NewMockRemoteEntitiesInput(ctrl)
 	model.EXPECT().RemoteEntities().Return(entities)
-	model.EXPECT().OfferNameForApp("uuid2").Return("offeruuid2", nil)
-	model.EXPECT().DocID("applicationoffer-offeruuid2").Return("uuid2")
-	model.EXPECT().DocID("applicationoffer-uuid3").Return("uuid3")
+	model.EXPECT().OfferUUIDForApp("app2").Return("uuid2", nil)
+	model.EXPECT().OfferUUID("offer3").Return("uuid3", true)
+	model.EXPECT().DocID("applicationoffer-uuid2").Return("doc-uuid2")
+	model.EXPECT().DocID("applicationoffer-uuid3").Return("doc-uuid3")
 
 	runner := NewMockTransactionRunner(ctrl)
 	runner.EXPECT().RunTransaction([]txn.Op{
 		{
 			C:      remoteEntitiesC,
-			Id:     "uuid2",
+			Id:     "doc-uuid2",
 			Assert: txn.DocMissing,
 			Insert: &remoteEntityDoc{
-				DocID: "uuid2",
+				DocID: "doc-uuid2",
 				Token: "xxx-yyy-ccc",
 			},
 		},
 		{
 			C:      remoteEntitiesC,
-			Id:     "uuid3",
+			Id:     "doc-uuid3",
 			Assert: txn.DocMissing,
 			Insert: &remoteEntityDoc{
-				DocID: "uuid3",
+				DocID: "doc-uuid3",
 				Token: "aaa-bbb-zzz",
 			},
 		},
@@ -389,17 +390,17 @@ func (s *MigrationImportTasksSuite) TestImportRemoteEntitiesWithTransactionRunne
 
 	model := NewMockRemoteEntitiesInput(ctrl)
 	model.EXPECT().RemoteEntities().Return(entities)
-	model.EXPECT().OfferNameForApp("uuid2").Return("offeruuid2", nil)
-	model.EXPECT().DocID("applicationoffer-offeruuid2").Return("uuid2")
+	model.EXPECT().OfferUUIDForApp("uuid2").Return("offeruuid2", nil)
+	model.EXPECT().DocID("applicationoffer-offeruuid2").Return("doc-uuid2")
 
 	runner := NewMockTransactionRunner(ctrl)
 	runner.EXPECT().RunTransaction([]txn.Op{
 		{
 			C:      remoteEntitiesC,
-			Id:     "uuid2",
+			Id:     "doc-uuid2",
 			Assert: txn.DocMissing,
 			Insert: &remoteEntityDoc{
-				DocID: "uuid2",
+				DocID: "doc-uuid2",
 				Token: "xxx-yyy-ccc",
 			},
 		},
@@ -412,7 +413,7 @@ func (s *MigrationImportTasksSuite) TestImportRemoteEntitiesWithTransactionRunne
 
 func (s *MigrationImportTasksSuite) remoteEntity(ctrl *gomock.Controller, id, token string) *MockRemoteEntity {
 	entity := NewMockRemoteEntity(ctrl)
-	entity.EXPECT().ID().Return(id)
+	entity.EXPECT().ID().Return(id).AnyTimes()
 	entity.EXPECT().Token().Return(token)
 	return entity
 }

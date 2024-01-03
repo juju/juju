@@ -5,7 +5,6 @@ package mongometrics_test
 
 import (
 	"errors"
-	"reflect"
 	"time"
 
 	"github.com/juju/mgo/v3/bson"
@@ -176,18 +175,18 @@ func (s *TxnCollectorSuite) TestCollect(c *gc.C) {
 			},
 		},
 	}
-	for _, dm := range dtoMetrics {
+	for i := range dtoMetrics {
 		var found bool
-		for i, m := range expected {
-			if !reflect.DeepEqual(dm, m) {
+		for j := range expected {
+			if !metricsEqual(&dtoMetrics[i], &expected[j]) {
 				continue
 			}
-			expected = append(expected[:i], expected[i+1:]...)
+			expected = append(expected[:j], expected[j+1:]...)
 			found = true
 			break
 		}
 		if !found {
-			c.Errorf("metric %+v not expected", dm)
+			c.Errorf("metric %+v not expected", &dtoMetrics[i])
 		}
 	}
 }

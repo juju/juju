@@ -12,7 +12,7 @@ import (
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
 	"github.com/juju/worker/v3/workertest"
@@ -849,7 +849,7 @@ func (s *K8sBrokerSuite) TestGetServiceSvcNotFound(c *gc.C) {
 	c.Assert(caasSvc, gc.DeepEquals, &caas.Service{})
 }
 
-func (s *K8sBrokerSuite) assertGetService(c *gc.C, expectedSvcResult *caas.Service, assertCalls ...*gomock.Call) {
+func (s *K8sBrokerSuite) assertGetService(c *gc.C, expectedSvcResult *caas.Service, assertCalls ...any) {
 	selectorLabels := map[string]string{"app.kubernetes.io/managed-by": "juju", "app.kubernetes.io/name": "app-name"}
 	labels := k8sutils.LabelsMerge(selectorLabels, k8sutils.LabelsJuju)
 
@@ -901,7 +901,7 @@ func (s *K8sBrokerSuite) assertGetService(c *gc.C, expectedSvcResult *caas.Servi
 		},
 	}
 	gomock.InOrder(
-		append([]*gomock.Call{
+		append([]any{
 			s.mockServices.EXPECT().List(gomock.Any(), v1.ListOptions{LabelSelector: selector}).
 				Return(&core.ServiceList{Items: []core.Service{svcHeadless, svc}}, nil),
 
@@ -979,7 +979,7 @@ func (s *K8sBrokerSuite) TestGetServiceSvcFoundWithStatefulSet(c *gc.C) {
 	}
 	workload.SetGeneration(1)
 
-	var expectedCalls []*gomock.Call
+	var expectedCalls []any
 	expectedCalls = append(expectedCalls,
 		s.mockStatefulSets.EXPECT().Get(gomock.Any(), appName, v1.GetOptions{}).
 			Return(workload, nil),
