@@ -62,6 +62,7 @@ require (
 	github.com/juju/lumberjack/v2 v2.0.2
 	github.com/juju/mgo/v3 v3.0.4
 	github.com/juju/mutex/v2 v2.0.0
+	github.com/juju/names/v4 v4.0.0-20220207005702-9c6532a52823
 	github.com/juju/names/v5 v5.0.0
 	github.com/juju/naturalsort v1.0.0
 	github.com/juju/os/v2 v2.2.3
@@ -214,7 +215,6 @@ require (
 	github.com/juju/gojsonreference v0.0.0-20150204194633-f0d24ac5ee33 // indirect
 	github.com/juju/lru v1.0.0 // indirect
 	github.com/juju/mgo/v2 v2.0.2 // indirect
-	github.com/juju/names/v4 v4.0.0-20220207005702-9c6532a52823 // indirect
 	github.com/juju/usso v1.0.1 // indirect
 	github.com/juju/version v0.0.0-20210303051006-2015802527a8 // indirect
 	github.com/julienschmidt/httprouter v1.3.0 // indirect

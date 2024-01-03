@@ -16,40 +16,10 @@ import (
 	"github.com/juju/juju/core/network"
 )
 
-// State describes retrieval and persistence methods needed for the network
-// domain service.
-type State interface {
-	// AddSpace creates and returns a new space.
-	AddSpace(ctx context.Context, uuid string, name string, providerID network.Id, subnetIDs []string) error
-	// GetSpace returns the space by UUID.
-	GetSpace(ctx context.Context, uuid string) (*network.SpaceInfo, error)
-	// GetSpaceByName returns the space by name.
-	GetSpaceByName(ctx context.Context, name string) (*network.SpaceInfo, error)
-	// GetAllSpaces returns all spaces for the model.
-	GetAllSpaces(ctx context.Context) (network.SpaceInfos, error)
-	// UpdateSpace updates the space identified by the passed uuid.
-	UpdateSpace(ctx context.Context, uuid string, name string) error
-	// DeleteSpace deletes the space identified by the passed uuid.
-	DeleteSpace(ctx context.Context, uuid string) error
-
-	// Subnet (sub-domain) methods
-
-	// UpdateSubnet updates the subnet identified by the passed uuid.
-	UpdateSubnet(ctx context.Context, uuid string, spaceID string) error
-	// AddSubnet creates a subnet.
-	AddSubnet(ctx context.Context, uuid utils.UUID, cidr string, providerID network.Id, providerNetworkID network.Id, VLANTag int, availabilityZones []string, spaceUUID string, fanInfo *network.FanCIDRs) error
-	// UpsertSubnets updates or adds each one of the provided subnets in one
-	// transaction.
-	UpsertSubnets(ctx context.Context, subnets []network.SubnetInfo) error
-}
-
-// Logger facilitates emitting log messages.
-type Logger interface {
-	Debugf(string, ...interface{})
-}
-
 // SpaceService provides the API for working with spaces.
 type SpaceService struct {
+	// The space service needs the full state because we make use of the
+	// UpsertSubnets method from the SubnetState.
 	st     State
 	logger Logger
 }
@@ -72,12 +42,11 @@ func (s *SpaceService) AddSpace(ctx context.Context, name string, providerID net
 	if err != nil {
 		return "", errors.Annotatef(err, "creating uuid for new space %q", name)
 	}
-	spaceID := network.Id(uuid.String())
 
-	if err := s.st.AddSpace(ctx, spaceID.String(), name, providerID, subnetIDs); err != nil {
+	if err := s.st.AddSpace(ctx, uuid.String(), name, providerID, subnetIDs); err != nil {
 		return "", errors.Trace(err)
 	}
-	return spaceID, nil
+	return network.Id(uuid.String()), nil
 }
 
 // Space returns a space from state that matches the input ID.
