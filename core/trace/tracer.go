@@ -11,8 +11,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-
-	"github.com/juju/juju/core/database"
 )
 
 const (
@@ -22,6 +20,10 @@ const (
 	// This error indicates to consuming workers that their dependency has
 	// become unmet and a restart by the dependency engine is imminent.
 	ErrTracerDying = errors.ConstError("tracer worker is dying")
+)
+
+const (
+	controllerNamespace = "controller"
 )
 
 // Option are options that can be passed to the Tracer.Start() method.
@@ -177,7 +179,7 @@ func Namespace(worker, namespace string) TracerNamespace {
 // ShortNamespace returns a short representation of the namespace.
 func (ns TracerNamespace) ShortNamespace() string {
 	// Don't shorten the controller namespace.
-	if ns.Namespace == database.ControllerNS {
+	if ns.Namespace == controllerNamespace {
 		return ns.Namespace
 	}
 	return ns.Namespace[:6]
