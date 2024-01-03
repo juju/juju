@@ -34,7 +34,7 @@ type Logger interface {
 // CharmRepoFactoryConfig encapsulates the information required for creating a
 // new CharmRepoFactory instance.
 type CharmRepoFactoryConfig struct {
-	// The logger to use.
+	// LoggerFactory is the logger factory to use when creating new loggers.
 	LoggerFactory LoggerFactory
 
 	// An HTTP client that is injected when making Charmhub API calls.
@@ -44,7 +44,7 @@ type CharmRepoFactoryConfig struct {
 	ModelBackend ModelBackend
 }
 
-// CharmRepoFactory instantitates charm repositories. It memoizes created
+// CharmRepoFactory instantiates charm repositories. It memoizes created
 // repositories allowing them to be reused by subsequent GetCharmRepository
 // calls.
 type CharmRepoFactory struct {
