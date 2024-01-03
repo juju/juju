@@ -160,6 +160,21 @@ func (mr *MockAPICallerMockRecorder) ModelTag() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelTag", reflect.TypeOf((*MockAPICaller)(nil).ModelTag))
 }
 
+// RootHTTPClient mocks base method.
+func (m *MockAPICaller) RootHTTPClient() (*httprequest.Client, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RootHTTPClient")
+	ret0, _ := ret[0].(*httprequest.Client)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// RootHTTPClient indicates an expected call of RootHTTPClient.
+func (mr *MockAPICallerMockRecorder) RootHTTPClient() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RootHTTPClient", reflect.TypeOf((*MockAPICaller)(nil).RootHTTPClient))
+}
+
 // MockFacadeCaller is a mock of FacadeCaller interface.
 type MockFacadeCaller struct {
 	ctrl     *gomock.Controller

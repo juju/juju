@@ -542,6 +542,21 @@ func (mr *MockDeployerAPIMockRecorder) Offer(arg0, arg1, arg2, arg3, arg4, arg5 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Offer", reflect.TypeOf((*MockDeployerAPI)(nil).Offer), arg0, arg1, arg2, arg3, arg4, arg5)
 }
 
+// RootHTTPClient mocks base method.
+func (m *MockDeployerAPI) RootHTTPClient() (*httprequest.Client, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RootHTTPClient")
+	ret0, _ := ret[0].(*httprequest.Client)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// RootHTTPClient indicates an expected call of RootHTTPClient.
+func (mr *MockDeployerAPIMockRecorder) RootHTTPClient() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RootHTTPClient", reflect.TypeOf((*MockDeployerAPI)(nil).RootHTTPClient))
+}
+
 // ScaleApplication mocks base method.
 func (m *MockDeployerAPI) ScaleApplication(arg0 application.ScaleApplicationParams) (params.ScaleApplicationResult, error) {
 	m.ctrl.T.Helper()
