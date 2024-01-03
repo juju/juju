@@ -580,8 +580,9 @@ func (s *statusUnitTestSuite) TestSubordinateUpgradingFrom(c *gc.C) {
 		Application: app,
 	})
 	subordApp := f.MakeApplication(c, &factory.ApplicationParams{
-		Charm: subordCharm,
-		Name:  "subord",
+		Charm:       subordCharm,
+		CharmOrigin: defaultCharmOrigin(subordCharm.URL()),
+		Name:        "subord",
 	})
 
 	subEndpoint, err := subordApp.Endpoint("info")
@@ -610,7 +611,8 @@ func (s *statusUnitTestSuite) TestSubordinateUpgradingFrom(c *gc.C) {
 	c.Assert(unitStatus.Charm, gc.Equals, "")
 
 	err = subordApp.SetCharm(state.SetCharmConfig{
-		Charm: subordCharmNew,
+		Charm:       subordCharmNew,
+		CharmOrigin: defaultCharmOrigin(subordCharmNew.URL()),
 	}, testing.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State()))
 	c.Assert(err, jc.ErrorIsNil)
 
