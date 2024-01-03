@@ -6,6 +6,8 @@ package s3caller
 import (
 	"github.com/juju/worker/v3"
 	"gopkg.in/tomb.v2"
+
+	"github.com/juju/juju/internal/s3client"
 )
 
 // logger is here to stop the desire of creating a package level logger.
@@ -14,7 +16,7 @@ type logger interface{}
 
 var _ logger = struct{}{}
 
-func newS3ClientWorker(session Session) worker.Worker {
+func newS3ClientWorker(session s3client.Session) worker.Worker {
 	w := &s3ClientWorker{session: session}
 	w.tomb.Go(w.loop)
 	return w
@@ -22,7 +24,7 @@ func newS3ClientWorker(session Session) worker.Worker {
 
 type s3ClientWorker struct {
 	tomb    tomb.Tomb
-	session Session
+	session s3client.Session
 }
 
 // Kill is part of the worker.Worker interface.
