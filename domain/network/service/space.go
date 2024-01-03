@@ -18,6 +18,8 @@ import (
 
 // SpaceService provides the API for working with spaces.
 type SpaceService struct {
+	// The space service needs the full state because we make use of the
+	// UpsertSubnets method from the SubnetState.
 	st     State
 	logger Logger
 }

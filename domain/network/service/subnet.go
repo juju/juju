@@ -14,11 +14,11 @@ import (
 
 // SubnetService provides the API for working with subnets.
 type SubnetService struct {
-	st State
+	st SubnetState
 }
 
 // NewSunbetService returns a new service reference wrapping the input state.
-func NewSubnetService(st State) *SubnetService {
+func NewSubnetService(st SubnetState) *SubnetService {
 	return &SubnetService{
 		st: st,
 	}

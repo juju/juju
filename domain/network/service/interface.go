@@ -12,8 +12,12 @@ import (
 // State describes retrieval and persistence methods needed for the network
 // domain service.
 type State interface {
-	// Space (sub-domain) methods
+	SpaceState
+	SubnetState
+}
 
+// SpaceState describes persistence layer methods for the space (sub-) domain.
+type SpaceState interface {
 	// AddSpace creates and returns a new space.
 	AddSpace(ctx context.Context, uuid string, name string, providerID network.Id, subnetIDs []string) error
 	// GetSpace returns the space by UUID.
@@ -26,9 +30,10 @@ type State interface {
 	UpdateSpace(ctx context.Context, uuid string, name string) error
 	// DeleteSpace deletes the space identified by the passed uuid.
 	DeleteSpace(ctx context.Context, uuid string) error
+}
 
-	// Subnet (sub-domain) methods
-
+// SubnetState describes persistence layer methods for the subnet (sub-) domain.
+type SubnetState interface {
 	// AddSubnet creates a subnet.
 	AddSubnet(ctx context.Context, uuid string, subnet network.SubnetInfo) error
 	// GetAllSubnets returns all known subnets in the model.
