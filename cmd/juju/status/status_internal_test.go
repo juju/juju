@@ -3699,7 +3699,13 @@ func (as addApplication) step(c *gc.C, ctx *context) {
 	info, ok := ctx.charms[as.charm]
 	c.Assert(ok, jc.IsTrue)
 
-	series := charm.MustParseURL(info.url).Series
+	curl := charm.MustParseURL(info.url)
+	var channel string
+	if charm.CharmHub.Matches(curl.Schema) {
+		channel = "stable"
+	}
+
+	series := curl.Series
 	if series == "" {
 		series = "quantal"
 	}
@@ -3707,8 +3713,9 @@ func (as addApplication) step(c *gc.C, ctx *context) {
 	c.Assert(err, jc.ErrorIsNil)
 	now := time.Now()
 	app := params.ApplicationStatus{
-		Charm: info.url,
-		Base:  params.Base{Name: base.OS, Channel: base.Channel.String()},
+		Charm:        info.url,
+		CharmChannel: channel,
+		Base:         params.Base{Name: base.OS, Channel: base.Channel.String()},
 		Status: params.DetailedStatus{
 			Status: status.Unknown.String(),
 			Since:  &now,
@@ -3885,7 +3892,14 @@ func (ssc setApplicationCharm) step(c *gc.C, ctx *context) {
 	app, ok := ctx.api.result.Applications[ssc.name]
 	c.Assert(ok, jc.IsTrue)
 
+	curl := charm.MustParseURL(ssc.charm)
+	var channel string
+	if charm.CharmHub.Matches(curl.Schema) {
+		channel = "stable"
+	}
+
 	app.Charm = ssc.charm
+	app.CharmChannel = channel
 	ctx.api.result.Applications[ssc.name] = app
 }
 
@@ -4962,6 +4976,7 @@ func (s *StatusSuite) TestStatusWithFormatYaml(c *gc.C) {
 	c.Check(code, gc.Equals, 0)
 	c.Check(stderr, gc.Equals, "")
 	c.Assert(stdout, jc.Contains, "display-name: snowflake")
+	c.Assert(stdout, jc.Contains, "stable")
 }
 
 func (s *StatusSuite) TestStatusWithFormatJson(c *gc.C) {
