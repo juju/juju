@@ -18,7 +18,11 @@ import (
 // LoggerFactory is the interface that is used to create loggers.
 type LoggerFactory interface {
 	charmhub.LoggerFactory
-	Namespace(string) LoggerFactory
+
+	// ForNamespace returns a new logger with the provided namespace. This
+	// provides a child logger factory that can be used to create loggers
+	// with a common namespace prefix.
+	ForNamespace(string) LoggerFactory
 }
 
 // Logger is the interface that is used to log messages.
@@ -86,7 +90,7 @@ func (f *CharmRepoFactory) GetCharmRepository(ctx context.Context, src corecharm
 		chClient, err := charmhub.NewClient(charmhub.Config{
 			URL:           chURL,
 			HTTPClient:    f.charmhubHTTPClient,
-			LoggerFactory: f.loggerFactory.Namespace("charmhub"),
+			LoggerFactory: f.loggerFactory.ForNamespace("charmhub"),
 		})
 		if err != nil {
 			return nil, errors.Trace(err)
