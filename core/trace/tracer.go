@@ -182,11 +182,19 @@ func (ns TracerNamespace) ShortNamespace() string {
 	if ns.Namespace == controllerNamespace {
 		return ns.Namespace
 	}
+	// If the namespace is less than 6 characters then return the whole
+	// namespace.
+	if len(ns.Namespace) < 6 {
+		return ns.Namespace
+	}
 	return ns.Namespace[:6]
 }
 
 // String returns a short representation of the namespace.
 func (ns TracerNamespace) String() string {
+	if ns.Namespace == "" {
+		return ns.Worker
+	}
 	return fmt.Sprintf("%s:%s", ns.Worker, ns.Namespace)
 }
 
