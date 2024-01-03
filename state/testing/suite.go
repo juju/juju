@@ -10,7 +10,7 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/loggo"
 	mgotesting "github.com/juju/mgo/v3/testing"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"

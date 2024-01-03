@@ -4,7 +4,7 @@
 package machiner_test
 
 import (
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	jujutesting "github.com/juju/testing"
 
 	"github.com/juju/juju/core/life"

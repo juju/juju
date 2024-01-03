@@ -4,7 +4,7 @@
 package jujuctesting
 
 import (
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/internal/worker/uniter/runner/jujuc"
@@ -15,6 +15,7 @@ type ContextSecrets struct {
 	contextBase
 
 	SecretValue secrets.SecretValue
+	Access      []secrets.AccessInfo
 }
 
 // GetSecret implements jujuc.ContextSecrets.
@@ -52,6 +53,7 @@ func (c *ContextSecrets) SecretMetadata() (map[string]jujuc.SecretMetadata, erro
 			Owner:          names.NewApplicationTag("mariadb"),
 			Description:    "description",
 			RotatePolicy:   secrets.RotateHourly,
+			Access:         c.Access,
 		},
 	}, nil
 }

@@ -5,16 +5,16 @@ package upgradesteps
 
 import (
 	stdtesting "testing"
-	time "time"
+	"time"
 
-	names "github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	"github.com/juju/testing"
-	version "github.com/juju/version/v2"
-	gomock "go.uber.org/mock/gomock"
+	"github.com/juju/version/v2"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
-	status "github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/upgrades"
 	jujutesting "github.com/juju/juju/testing"
 )

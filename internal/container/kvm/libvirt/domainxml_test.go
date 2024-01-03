@@ -33,6 +33,7 @@ var amd64DomainStr = `
     <features>
         <acpi></acpi>
     </features>
+    <cpu mode="host-passthrough" check="none"></cpu>
     <devices>
         <disk device="disk" type="file">
             <driver type="qcow2" name="qemu"></driver>
@@ -116,6 +117,7 @@ var amd64WithOvsBridgeDomainStr = `
     <features>
         <acpi></acpi>
     </features>
+    <cpu mode="host-passthrough" check="none"></cpu>
     <devices>
         <disk device="disk" type="file">
             <driver type="qcow2" name="qemu"></driver>

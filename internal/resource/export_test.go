@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/juju/charm/v12"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/state"
 )

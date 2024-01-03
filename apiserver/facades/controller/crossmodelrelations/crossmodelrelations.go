@@ -13,7 +13,7 @@ import (
 	"github.com/juju/charm/v12"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	"github.com/kr/pretty"
 	"gopkg.in/macaroon.v2"
 
@@ -127,12 +127,35 @@ func (api *CrossModelRelationsAPI) PublishRelationChanges(
 		}
 		// Look up the application on the remote side of this relation
 		// ie from the model which published this change.
-		remoteAppTag, err := api.st.GetRemoteEntity(change.ApplicationOrOfferToken)
+		appOrOfferTag, err := api.st.GetRemoteEntity(change.ApplicationOrOfferToken)
 		if err != nil && !errors.Is(err, errors.NotFound) {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		if err := commoncrossmodel.PublishRelationChange(api.authorizer, api.st, relationTag, remoteAppTag, change); err != nil {
+		// The tag is either an application tag (consuming side),
+		// or an offer tag (offering side).
+		var applicationTag names.Tag
+		if err == nil {
+			switch k := appOrOfferTag.Kind(); k {
+			case names.ApplicationTagKind:
+				applicationTag = appOrOfferTag
+			case names.ApplicationOfferTagKind:
+				// For an offer tag, load the offer and get the offered app from that.
+				offer, err := api.st.ApplicationOfferForUUID(appOrOfferTag.Id())
+				if err != nil && !errors.IsNotFound(err) {
+					results.Results[i].Error = apiservererrors.ServerError(err)
+					continue
+				}
+				if err == nil {
+					applicationTag = names.NewApplicationTag(offer.ApplicationName)
+				}
+			default:
+				// Should never happen.
+				results.Results[i].Error = apiservererrors.ServerError(errors.NotValidf("offer app tag kind %q", k))
+				continue
+			}
+		}
+		if err := commoncrossmodel.PublishRelationChange(api.authorizer, api.st, relationTag, applicationTag, change); err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
@@ -269,8 +292,9 @@ func (api *CrossModelRelationsAPI) registerRemoteRelation(relation params.Regist
 		// Again, if it already exists, that's fine.
 		if err != nil && !errors.Is(err, errors.AlreadyExists) {
 			return nil, errors.Annotate(err, "adding remote relation")
+		} else if err == nil {
+			api.logger.Debugf("added relation %v to model %v", localRel.Tag().Id(), api.st.ModelUUID())
 		}
-		api.logger.Debugf("added relation %v to model %v", localRel.Tag().Id(), api.st.ModelUUID())
 	}
 	_, err = api.st.AddOfferConnection(state.AddOfferConnectionParams{
 		SourceModelUUID: sourceModelTag.Id(), Username: username,
@@ -294,12 +318,9 @@ func (api *CrossModelRelationsAPI) registerRemoteRelation(relation params.Regist
 	api.logger.Debugf("relation token %v exported for %v ", relation.RelationToken, localRel.Tag().Id())
 
 	// Export the local offer from this model so we can tell the caller what the remote id is.
-	// The offer is exported as an application name since it models the behaviour of an application
-	// as far as the consuming side is concerned, and also needs to be unique.
-	// This allows > 1 offers off the one application to be made.
-	// NB we need to export the application last so that everything else is in place when the worker is
+	// NB we need to export the offer last so that everything else is in place when the worker is
 	// woken up by the watcher.
-	token, err := api.st.ExportLocalEntity(names.NewApplicationOfferTag(appOffer.OfferName))
+	token, err := api.st.ExportLocalEntity(names.NewApplicationOfferTag(appOffer.OfferUUID))
 	if err != nil && !errors.Is(err, errors.AlreadyExists) {
 		return nil, errors.Annotatef(err, "exporting local application offer %q", appOffer.OfferName)
 	}

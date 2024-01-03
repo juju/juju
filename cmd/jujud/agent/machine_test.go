@@ -16,7 +16,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/lumberjack/v2"
 	"github.com/juju/mgo/v3"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3/cert"

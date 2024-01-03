@@ -4,7 +4,7 @@
 package provider
 
 import (
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	"github.com/juju/version/v2"
 	"k8s.io/client-go/kubernetes"
 )

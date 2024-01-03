@@ -177,6 +177,16 @@ type SecretMetadata struct {
 
 	// AutoPrune is true if the secret revisions should be pruned when it's not been used.
 	AutoPrune bool
+
+	// Access is a list of access information for this secret.
+	Access []AccessInfo
+}
+
+// AccessInfo holds info about a secret access information.
+type AccessInfo struct {
+	Target string
+	Scope  string
+	Role   SecretRole
 }
 
 // SecretRevisionMetadata holds metadata about a secret revision.

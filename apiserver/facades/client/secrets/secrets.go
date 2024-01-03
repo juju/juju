@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/apiserver/common"
 	commonsecrets "github.com/juju/juju/apiserver/common/secrets"
@@ -128,6 +128,15 @@ func (s *SecretsAPI) ListSecrets(ctx context.Context, arg params.ListSecretsArgs
 			LatestExpireTime: m.LatestExpireTime,
 			CreateTime:       m.CreateTime,
 			UpdateTime:       m.UpdateTime,
+		}
+		grants, err := s.secretsState.SecretGrants(m.URI, coresecrets.RoleView)
+		if err != nil {
+			return result, errors.Trace(err)
+		}
+		for _, g := range grants {
+			secretResult.Access = append(secretResult.Access, params.AccessInfo{
+				TargetTag: g.Target, ScopeTag: g.Scope, Role: g.Role,
+			})
 		}
 		for _, r := range revisionMetadata[m.URI.ID] {
 			backendName := r.BackendName

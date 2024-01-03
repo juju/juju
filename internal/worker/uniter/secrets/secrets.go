@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/internal/worker/uniter/api"

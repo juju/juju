@@ -4,7 +4,9 @@
 package lxd_test
 
 import (
+	"context"
 	"errors"
+	"time"
 
 	lxdclient "github.com/canonical/lxd/client"
 	lxdapi "github.com/canonical/lxd/shared/api"
@@ -14,6 +16,7 @@ import (
 
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/internal/container/lxd"
+	"github.com/juju/juju/internal/container/lxd/mocks"
 	lxdtesting "github.com/juju/juju/internal/container/lxd/testing"
 )
 
@@ -49,7 +52,43 @@ func (s *imageSuite) TestCopyImageUsesPassedCallback(c *gc.C) {
 		Image:     &image,
 		LXDServer: iSvr,
 	}
-	err = jujuSvr.CopyRemoteImage(sourced, []string{"local/image/alias"}, lxdtesting.NoOpCallback)
+	err = jujuSvr.CopyRemoteImage(context.Background(), sourced, []string{"local/image/alias"}, lxdtesting.NoOpCallback)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *imageSuite) TestCopyImageRetries(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	clock := mocks.NewMockClock(ctrl)
+	after := make(chan time.Time, 2)
+	after <- time.Time{}
+	after <- time.Time{}
+	clock.EXPECT().After(gomock.Any()).Return(after).AnyTimes()
+	clock.EXPECT().Now().Return(time.Now()).AnyTimes()
+
+	iSvr := s.NewMockServer(ctrl)
+	image := lxdapi.Image{Filename: "this-is-our-image"}
+	aliases := []lxdapi.ImageAlias{{Name: "local/image/alias"}}
+	req := &lxdclient.ImageCopyArgs{Aliases: aliases}
+
+	copyOp := lxdtesting.NewMockRemoteOperation(ctrl)
+	copyOp.EXPECT().AddHandler(gomock.Any()).Return(nil, nil).AnyTimes()
+	copyOp.EXPECT().Wait().Return(nil).Return(errors.New("Failed remote image download: boom"))
+	copyOp.EXPECT().Wait().Return(nil).Return(errors.New("Failed remote image download: boom"))
+	copyOp.EXPECT().Wait().Return(nil).Return(nil)
+	copyOp.EXPECT().GetTarget().Return(&lxdapi.Operation{StatusCode: lxdapi.Success}, nil)
+
+	iSvr.EXPECT().CopyImage(iSvr, image, req).Return(copyOp, nil).Times(3)
+
+	jujuSvr, err := lxd.NewTestingServer(iSvr, clock)
+	c.Assert(err, jc.ErrorIsNil)
+
+	sourced := lxd.SourcedImage{
+		Image:     &image,
+		LXDServer: iSvr,
+	}
+	err = jujuSvr.CopyRemoteImage(context.Background(), sourced, []string{"local/image/alias"}, lxdtesting.NoOpCallback)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -68,7 +107,7 @@ func (s *imageSuite) TestFindImageLocalServer(c *gc.C) {
 	jujuSvr, err := lxd.NewServer(iSvr)
 	c.Assert(err, jc.ErrorIsNil)
 
-	found, err := jujuSvr.FindImage(corebase.MakeDefaultBase("ubuntu", "16.04"), s.Arch(), lxdapi.InstanceTypeContainer, []lxd.ServerSpec{{}}, false, nil)
+	found, err := jujuSvr.FindImage(context.Background(), corebase.MakeDefaultBase("ubuntu", "16.04"), s.Arch(), lxdapi.InstanceTypeContainer, []lxd.ServerSpec{{}}, false, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(found.LXDServer, gc.Equals, iSvr)
 	c.Check(*found.Image, gc.DeepEquals, image)
@@ -83,7 +122,7 @@ func (s *imageSuite) TestFindImageLocalServerUnknownSeries(c *gc.C) {
 	jujuSvr, err := lxd.NewServer(iSvr)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = jujuSvr.FindImage(corebase.MakeDefaultBase("pldlinux", "18.04"), s.Arch(), lxdapi.InstanceTypeContainer, []lxd.ServerSpec{{}}, false, nil)
+	_, err = jujuSvr.FindImage(context.Background(), corebase.MakeDefaultBase("pldlinux", "18.04"), s.Arch(), lxdapi.InstanceTypeContainer, []lxd.ServerSpec{{}}, false, nil)
 	c.Check(err, gc.ErrorMatches, `base.*pldlinux.*`)
 }
 
@@ -117,7 +156,7 @@ func (s *imageSuite) TestFindImageRemoteServers(c *gc.C) {
 		{Name: "server-that-has-image", Protocol: lxd.SimpleStreamsProtocol},
 		{Name: "server-that-should-not-be-touched", Protocol: lxd.LXDProtocol},
 	}
-	found, err := jujuSvr.FindImage(corebase.MakeDefaultBase("ubuntu", "16.04"), s.Arch(), lxdapi.InstanceTypeContainer, remotes, false, nil)
+	found, err := jujuSvr.FindImage(context.Background(), corebase.MakeDefaultBase("ubuntu", "16.04"), s.Arch(), lxdapi.InstanceTypeContainer, remotes, false, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(found.LXDServer, gc.Equals, rSvr2)
 	c.Check(*found.Image, gc.DeepEquals, image)
@@ -154,7 +193,7 @@ func (s *imageSuite) TestFindImageRemoteServersCopyLocalNoCallback(c *gc.C) {
 	remotes := []lxd.ServerSpec{
 		{Name: "server-that-has-image", Protocol: lxd.SimpleStreamsProtocol},
 	}
-	found, err := jujuSvr.FindImage(corebase.MakeDefaultBase("ubuntu", "16.04"), s.Arch(), lxdapi.InstanceTypeContainer, remotes, true, nil)
+	found, err := jujuSvr.FindImage(context.Background(), corebase.MakeDefaultBase("ubuntu", "16.04"), s.Arch(), lxdapi.InstanceTypeContainer, remotes, true, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(found.LXDServer, gc.Equals, iSvr)
 	c.Check(*found.Image, gc.DeepEquals, image)
@@ -182,7 +221,7 @@ func (s *imageSuite) TestFindImageRemoteServersNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	remotes := []lxd.ServerSpec{{Name: "server-that-has-image", Protocol: lxd.SimpleStreamsProtocol}}
-	_, err = jujuSvr.FindImage(corebase.MakeDefaultBase("ubuntu", "18.04"), s.Arch(), lxdapi.InstanceTypeContainer, remotes, false, nil)
+	_, err = jujuSvr.FindImage(context.Background(), corebase.MakeDefaultBase("ubuntu", "18.04"), s.Arch(), lxdapi.InstanceTypeContainer, remotes, false, nil)
 	c.Assert(err, gc.ErrorMatches, ".*failed to retrieve image.*")
 }
 

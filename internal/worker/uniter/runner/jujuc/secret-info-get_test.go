@@ -9,6 +9,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/internal/worker/uniter/runner/jujuc"
 )
 
@@ -57,6 +58,37 @@ func (s *SecretInfoGetSuite) TestSecretInfoGetURI(c *gc.C) {
   owner: application
   description: description
   rotation: hourly
+`[1:])
+}
+
+func (s *SecretInfoGetSuite) TestSecretInfoGetWithGrants(c *gc.C) {
+	hctx, _ := s.ContextSuite.NewHookContext()
+	hctx.ContextSecrets.Access = []secrets.AccessInfo{
+		{
+			Target: "application-gitlab",
+			Scope:  "relation-key",
+			Role:   secrets.RoleView,
+		},
+	}
+
+	com, err := jujuc.NewCommand(hctx, "secret-info-get")
+	c.Assert(err, jc.ErrorIsNil)
+	ctx := cmdtesting.Context(c)
+	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"secret:9m4e2mr0ui3e8a215n4g"})
+	c.Assert(code, gc.Equals, 0)
+
+	c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
+	c.Assert(bufferString(ctx.Stdout), gc.Equals, `
+9m4e2mr0ui3e8a215n4g:
+  revision: 666
+  label: label
+  owner: application
+  description: description
+  rotation: hourly
+  access:
+  - target: application-gitlab
+    scope: relation-key
+    role: view
 `[1:])
 }
 

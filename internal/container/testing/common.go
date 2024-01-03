@@ -4,6 +4,7 @@
 package testing
 
 import (
+	"context"
 	"os"
 
 	jc "github.com/juju/testing/checkers"
@@ -69,7 +70,7 @@ func CreateContainerWithMachineAndNetworkAndStorageConfig(
 ) instances.Instance {
 	callback := func(settableStatus status.Status, info string, data map[string]interface{}) error { return nil }
 	inst, hardware, err := manager.CreateContainer(
-		instanceConfig, constraints.Value{}, corebase.MakeDefaultBase("ubuntu", "18.04"), networkConfig, storageConfig, callback)
+		context.Background(), instanceConfig, constraints.Value{}, corebase.MakeDefaultBase("ubuntu", "18.04"), networkConfig, storageConfig, callback)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(hardware, gc.NotNil)
 	c.Assert(hardware.String(), gc.Not(gc.Equals), "")

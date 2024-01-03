@@ -6,7 +6,7 @@ package context_test
 import (
 	"sort"
 
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	osseries "github.com/juju/os/v2/series"
 	"github.com/juju/proxy"
 	jc "github.com/juju/testing/checkers"
@@ -140,6 +140,20 @@ func (s *EnvSuite) setSecret(ctx *context.HookContext) (expectVars []string) {
 	}
 }
 
+func (s *EnvSuite) setNotice(ctx *context.HookContext) (expectVars []string) {
+	workload := "wrk"
+	id := "1"
+	typ := "custom"
+	key := "a.com/b"
+	context.SetEnvironmentHookContextNotice(ctx, workload, id, typ, key)
+	return []string{
+		"JUJU_WORKLOAD_NAME=" + workload,
+		"JUJU_NOTICE_ID=" + id,
+		"JUJU_NOTICE_TYPE=" + typ,
+		"JUJU_NOTICE_KEY=" + key,
+	}
+}
+
 func (s *EnvSuite) setRelation(ctx *context.HookContext) (expectVars []string) {
 	context.SetEnvironmentHookContextRelation(ctx, 22, "an-endpoint", "that-unit/456", "that-app", "")
 	return []string{
@@ -230,9 +244,10 @@ func (s *EnvSuite) TestEnvUbuntu(c *gc.C) {
 	relationVars := s.setDepartingRelation(ctx)
 	secretVars := s.setSecret(ctx)
 	storageVars := s.setStorage(ctx)
+	noticeVars := s.setNotice(ctx)
 	actualVars, err = ctx.HookVars(paths, false, environmenter)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertVars(c, actualVars, contextVars, pathsVars, ubuntuVars, relationVars, secretVars, storageVars)
+	s.assertVars(c, actualVars, contextVars, pathsVars, ubuntuVars, relationVars, secretVars, storageVars, noticeVars)
 }
 
 func (s *EnvSuite) TestEnvCentos(c *gc.C) {
@@ -425,7 +440,7 @@ func (s *EnvSuite) TestContextDependentDoesIncludeAll(c *gc.C) {
 	c.Assert(len(context.ContextDependentEnvVars(environmenter)), gc.Equals, counter)
 }
 
-func (s *EnvSuite) TestContextDependentParitalInclude(c *gc.C) {
+func (s *EnvSuite) TestContextDependentPartialInclude(c *gc.C) {
 	counter := 0
 	environmenter := context.NewRemoteEnvironmenter(
 		func() []string { return []string{} },

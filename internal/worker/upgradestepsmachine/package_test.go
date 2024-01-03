@@ -7,7 +7,7 @@ import (
 	stdtesting "testing"
 	time "time"
 
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	"github.com/juju/version/v2"
 	"go.uber.org/mock/gomock"

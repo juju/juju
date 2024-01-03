@@ -7,7 +7,7 @@ import (
 	"context"
 	"net/url"
 
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	"gopkg.in/httprequest.v1"
 
 	"github.com/juju/juju/api/base"

@@ -4,6 +4,7 @@
 package lxd
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"sync"
@@ -106,6 +107,7 @@ func (m *containerManager) DestroyContainer(id instance.Id) error {
 
 // CreateContainer implements container.Manager.
 func (m *containerManager) CreateContainer(
+	ctx context.Context,
 	instanceConfig *instancecfg.InstanceConfig,
 	cons constraints.Value,
 	base corebase.Base,
@@ -118,7 +120,7 @@ func (m *containerManager) CreateContainer(
 	}
 
 	_ = callback(status.Provisioning, "Creating container spec", nil)
-	spec, err := m.getContainerSpec(instanceConfig, cons, base, networkConfig, callback)
+	spec, err := m.getContainerSpec(ctx, instanceConfig, cons, base, networkConfig, callback)
 	if err != nil {
 		_ = callback(status.ProvisioningError, fmt.Sprintf("Creating container spec: %v", err), nil)
 		return nil, nil, errors.Trace(err)
@@ -190,6 +192,7 @@ func (m *containerManager) IsInitialized() bool {
 // It sources an image based on the input series, and transforms the input
 // config objects into LXD configuration, including cloud init user data.
 func (m *containerManager) getContainerSpec(
+	ctx context.Context,
 	instanceConfig *instancecfg.InstanceConfig,
 	cons constraints.Value,
 	base corebase.Base,
@@ -215,7 +218,7 @@ func (m *containerManager) getContainerSpec(
 	// If an image needs to be copied from a remote, we don't want many
 	// goroutines attempting to do it at once.
 	m.imageMutex.Lock()
-	found, err := m.server.FindImage(base, jujuarch.HostArch(), virtType, imageSources, true, callback)
+	found, err := m.server.FindImage(ctx, base, jujuarch.HostArch(), virtType, imageSources, true, callback)
 	m.imageMutex.Unlock()
 	if err != nil {
 		return ContainerSpec{}, errors.Annotatef(err, "acquiring LXD image")

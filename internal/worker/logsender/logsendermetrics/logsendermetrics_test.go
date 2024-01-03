@@ -88,7 +88,7 @@ func (s *bufferedLogWriterSuite) TestCollect(c *gc.C) {
 	float64ptr := func(v float64) *float64 {
 		return &v
 	}
-	c.Assert(dtoMetrics, jc.DeepEquals, [4]dto.Metric{
+	c.Assert(&dtoMetrics, jc.DeepEquals, &[4]dto.Metric{
 		{Counter: &dto.Counter{Value: float64ptr(3)}},
 		{Counter: &dto.Counter{Value: float64ptr(5)}},
 		{Counter: &dto.Counter{Value: float64ptr(3)}},

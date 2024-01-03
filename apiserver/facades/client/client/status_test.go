@@ -8,9 +8,10 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/juju/charm/v12"
 	"github.com/juju/clock"
 	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
 	"go.uber.org/mock/gomock"
@@ -20,6 +21,9 @@ import (
 	apiclient "github.com/juju/juju/api/client/client"
 	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater"
 	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater/mocks"
+	corearch "github.com/juju/juju/core/arch"
+	"github.com/juju/juju/core/base"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/internal/charmhub/transport"
@@ -513,7 +517,8 @@ func (s *statusUnitTestSuite) TestPrincipalUpgradingFrom(c *gc.C) {
 	c.Assert(unitStatus.Charm, gc.Equals, "")
 
 	err = app.SetCharm(state.SetCharmConfig{
-		Charm: meteredCharmNew,
+		Charm:       meteredCharmNew,
+		CharmOrigin: defaultCharmOrigin(meteredCharmNew.URL()),
 	}, testing.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State()))
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -523,6 +528,42 @@ func (s *statusUnitTestSuite) TestPrincipalUpgradingFrom(c *gc.C) {
 	unitStatus, ok = status.Applications[app.Name()].Units[u.Name()]
 	c.Assert(ok, gc.Equals, true)
 	c.Assert(unitStatus.Charm, gc.Equals, "ch:amd64/quantal/metered-3")
+}
+
+func defaultCharmOrigin(curlStr string) *state.CharmOrigin {
+	// Use ParseURL here in test until either the charm and/or application
+	// can easily provide the same data.
+	curl, _ := charm.ParseURL(curlStr)
+	var source string
+	var channel *state.Channel
+	if charm.CharmHub.Matches(curl.Schema) {
+		source = corecharm.CharmHub.String()
+		channel = &state.Channel{
+			Risk: "stable",
+		}
+	} else if charm.Local.Matches(curl.Schema) {
+		source = corecharm.Local.String()
+	}
+
+	b, _ := base.GetBaseFromSeries(curl.Series)
+
+	platform := &state.Platform{
+		Architecture: corearch.DefaultArchitecture,
+		OS:           b.OS,
+		Channel:      b.Channel.String(),
+	}
+
+	return &state.CharmOrigin{
+		Source:   source,
+		Type:     "charm",
+		Revision: intPtr(curl.Revision),
+		Channel:  channel,
+		Platform: platform,
+	}
+}
+
+func intPtr(i int) *int {
+	return &i
 }
 
 func (s *statusUnitTestSuite) TestSubordinateUpgradingFrom(c *gc.C) {

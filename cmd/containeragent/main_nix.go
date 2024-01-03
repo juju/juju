@@ -171,7 +171,7 @@ func main() {
 				Clock:     clock.WallClock,
 				Logger:    loggo.GetLogger("juju.machinelock"),
 				// TODO(ycliuhw): consider to rename machinelock package to something more generic for k8s pod lock.
-				LogFilename: filepath.Join(config.LogDir, machinelock.Filename),
+				LogFilename: filepath.Join(config.LogDir, "juju", machinelock.Filename),
 			})
 			if err != nil {
 				err = errors.Annotatef(err, "acquiring machine lock for juju-exec")

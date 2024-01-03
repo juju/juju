@@ -14,7 +14,7 @@ import (
 	"github.com/juju/mgo/v3"
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/mgo/v3/txn"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	jujutxn "github.com/juju/txn/v3"
 	"gopkg.in/tomb.v2"
 
@@ -94,6 +94,7 @@ type SecretsStore interface {
 	WatchObsolete(owners []names.Tag) (StringsWatcher, error)
 	WatchRevisionsToPrune(ownerTags []names.Tag) (StringsWatcher, error)
 	ChangeSecretBackend(ChangeSecretBackendParams) error
+	SecretGrants(uri *secrets.URI, role secrets.SecretRole) ([]secrets.AccessInfo, error)
 }
 
 // NewSecrets creates a new mongo backed secrets store.
@@ -865,6 +866,38 @@ func (s *secretsStore) ChangeSecretBackend(arg ChangeSecretBackendParams) error 
 	}
 	err = s.st.db().Run(buildTxnWithLeadership(buildTxn, arg.Token))
 	return errors.Trace(err)
+}
+
+// SecretGrants returns the list of access information of the secret for the specified role.
+func (s *secretsStore) SecretGrants(uri *secrets.URI, role secrets.SecretRole) ([]secrets.AccessInfo, error) {
+	secretPermissionsCollection, closer := s.st.db().GetCollection(secretPermissionsC)
+	defer closer()
+
+	if err := s.st.checkExists(uri); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var docs []secretPermissionDoc
+	err := secretPermissionsCollection.Find(
+		bson.M{
+			"_id": bson.M{
+				"$regex": fmt.Sprintf("%s#.*", uri.ID),
+			},
+			"role": role,
+		},
+	).All(&docs)
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot retrieve secret permissions for %s", uri.String())
+	}
+	var results []secrets.AccessInfo
+	for _, doc := range docs {
+		results = append(results, secrets.AccessInfo{
+			Target: doc.Subject,
+			Scope:  doc.Scope,
+			Role:   secrets.SecretRole(doc.Role),
+		})
+	}
+	return results, nil
 }
 
 // GetSecret gets the secret metadata for the specified URL.

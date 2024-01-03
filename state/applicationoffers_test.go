@@ -6,7 +6,7 @@ package state_test
 import (
 	"github.com/juju/charm/v12"
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	jujutxn "github.com/juju/txn/v3"
 	"github.com/juju/worker/v3/workertest"
@@ -362,10 +362,10 @@ func (s *applicationOffersSuite) TestListOffersAllowedConsumers(c *gc.C) {
 
 	mary := names.NewUserTag("mary")
 	err := s.State.CreateOfferAccess(
-		names.NewApplicationOfferTag(offer.OfferName), mary, permission.ConsumeAccess)
+		names.NewApplicationOfferTag(offer.OfferUUID), mary, permission.ConsumeAccess)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.CreateOfferAccess(
-		names.NewApplicationOfferTag(offer2.OfferName), mary, permission.ReadAccess)
+		names.NewApplicationOfferTag(offer2.OfferUUID), mary, permission.ReadAccess)
 	c.Assert(err, jc.ErrorIsNil)
 	offers, err := sd.ListOffers(crossmodel.ApplicationOfferFilter{
 		AllowedConsumers: []string{"mary"},

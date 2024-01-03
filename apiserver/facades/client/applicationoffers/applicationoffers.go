@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	jujutxn "github.com/juju/txn/v3"
 
 	"github.com/juju/juju/apiserver/authentication"
@@ -210,7 +210,6 @@ func (api *OffersAPI) modifyOneOfferAccess(user names.UserTag, modelUUID string,
 	if err != nil {
 		return errors.Trace(err)
 	}
-	offerTag := names.NewApplicationOfferTag(url.ApplicationName)
 
 	canModifyOffer := isControllerAdmin
 	if !canModifyOffer {
@@ -221,7 +220,7 @@ func (api *OffersAPI) modifyOneOfferAccess(user names.UserTag, modelUUID string,
 	}
 
 	if !canModifyOffer {
-		offer, err := backend.ApplicationOffer(offerTag.Id())
+		offer, err := backend.ApplicationOffer(url.ApplicationName)
 		if err != nil {
 			return apiservererrors.ErrPerm
 		}
@@ -240,22 +239,23 @@ func (api *OffersAPI) modifyOneOfferAccess(user names.UserTag, modelUUID string,
 	if err != nil {
 		return errors.Annotate(err, "could not modify offer access")
 	}
-	return api.changeOfferAccess(backend, offerTag, targetUserTag, arg.Action, offerAccess)
+	return api.changeOfferAccess(backend, url.ApplicationName, targetUserTag, arg.Action, offerAccess)
 }
 
 // changeOfferAccess performs the requested access grant or revoke action for the
 // specified user on the specified application offer.
 func (api *OffersAPI) changeOfferAccess(
 	backend Backend,
-	offerTag names.ApplicationOfferTag,
+	offerName string,
 	targetUserTag names.UserTag,
 	action params.OfferAction,
 	access permission.Access,
 ) error {
-	_, err := backend.ApplicationOffer(offerTag.Name)
+	offer, err := backend.ApplicationOffer(offerName)
 	if err != nil {
 		return errors.Trace(err)
 	}
+	offerTag := names.NewApplicationOfferTag(offer.OfferUUID)
 	switch action {
 	case params.GrantOfferAccess:
 		return api.grantOfferAccess(backend, offerTag, targetUserTag, access)
@@ -268,13 +268,9 @@ func (api *OffersAPI) changeOfferAccess(
 
 func (api *OffersAPI) grantOfferAccess(backend Backend, offerTag names.ApplicationOfferTag, targetUserTag names.UserTag, access permission.Access) error {
 	err := backend.CreateOfferAccess(offerTag, targetUserTag, access)
-	if errors.Is(err, errors.AlreadyExists) {
-		offer, err := backend.ApplicationOffer(offerTag.Id())
-		if err != nil {
-			return apiservererrors.ErrPerm
-		}
-		offerAccess, err := backend.GetOfferAccess(offer.OfferUUID, targetUserTag)
-		if errors.Is(err, errors.NotFound) {
+	if errors.IsAlreadyExists(err) {
+		offerAccess, err := backend.GetOfferAccess(offerTag.Id(), targetUserTag)
+		if errors.IsNotFound(err) {
 			// Conflicts with prior check, must be inconsistent state.
 			err = jujutxn.ErrExcessiveContention
 		}

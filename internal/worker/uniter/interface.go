@@ -4,7 +4,7 @@
 package uniter
 
 import (
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 )
 
 // A UniterExecutionObserver gets the appropriate methods called when a hook

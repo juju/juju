@@ -14,12 +14,12 @@ import (
 	"github.com/juju/charm/v12"
 	"github.com/juju/collections/set"
 	"github.com/juju/collections/transform"
-	"github.com/juju/description/v4"
+	"github.com/juju/description/v5"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/mgo/v3/txn"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/controller"
@@ -1771,12 +1771,20 @@ func (i *importer) remoteEntities() error {
 		src: i.model,
 		dst: i.st.db(),
 	}
+	offerUUIDByName := make(map[string]string)
+	for _, app := range i.model.Applications() {
+		for _, offer := range app.Offers() {
+			offerUUIDByName[offer.OfferName()] = offer.OfferUUID()
+		}
+	}
 	migration.Add(func() error {
 		m := ImportRemoteEntities{}
-		return m.Execute(applicationOffersStateShim{stateModelNamspaceShim{
-			Model: migration.src,
-			st:    i.st,
-		}}, migration.dst)
+		return m.Execute(&applicationOffersStateShim{
+			offerUUIDByName: offerUUIDByName,
+			stateModelNamspaceShim: stateModelNamspaceShim{
+				Model: migration.src,
+				st:    i.st,
+			}}, migration.dst)
 	})
 	if err := migration.Run(); err != nil {
 		return errors.Trace(err)

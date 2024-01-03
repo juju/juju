@@ -35,9 +35,22 @@ func NewClient(caller base.APICallCloser, options ...Option) *Client {
 // SecretDetails holds a secret metadata and value.
 type SecretDetails struct {
 	Metadata  secrets.SecretMetadata
+	Access    []secrets.AccessInfo
 	Revisions []secrets.SecretRevisionMetadata
 	Value     secrets.SecretValue
 	Error     string
+}
+
+func toGrantInfo(grants []params.AccessInfo) []secrets.AccessInfo {
+	result := make([]secrets.AccessInfo, len(grants))
+	for i, g := range grants {
+		result[i] = secrets.AccessInfo{
+			Target: g.TargetTag,
+			Scope:  g.ScopeTag,
+			Role:   g.Role,
+		}
+	}
+	return result
 }
 
 // ListSecrets lists the available secrets.
@@ -74,6 +87,7 @@ func (api *Client) ListSecrets(reveal bool, filter secrets.Filter) ([]SecretDeta
 				CreateTime:       r.CreateTime,
 				UpdateTime:       r.UpdateTime,
 			},
+			Access: toGrantInfo(r.Access),
 		}
 		uri, err := secrets.ParseURI(r.URI)
 		if err == nil {

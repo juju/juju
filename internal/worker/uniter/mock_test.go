@@ -4,7 +4,7 @@
 package uniter_test
 
 import (
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/internal/worker/uniter/api"

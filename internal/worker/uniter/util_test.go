@@ -24,7 +24,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/mutex/v2"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	ft "github.com/juju/testing/filetesting"
 	"github.com/juju/utils/v3"
@@ -1878,6 +1878,9 @@ var subordinateDying = custom{func(c *gc.C, ctx *testContext) {
 }}
 
 func curl(revision int) string {
+	// This functionality is highly depended on by the local
+	// defaultCharmOrigin function. Any changes must be made
+	// in both locations.
 	return jujucharm.MustParseURL("ch:quantal/wordpress").WithRevision(revision).String()
 }
 
@@ -2264,7 +2267,8 @@ func (s injectTestContainer) step(c *gc.C, ctx *testContext) {
 		ctx.pebbleClients = make(map[string]*fakePebbleClient)
 	}
 	ctx.pebbleClients[s.containerName] = &fakePebbleClient{
-		err: errors.BadRequestf("not ready yet"),
+		err:   errors.BadRequestf("not ready yet"),
+		clock: testclock.NewClock(time.Time{}),
 	}
 }
 

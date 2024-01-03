@@ -4,7 +4,7 @@
 package authentication
 
 import (
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 )
 
 // TagWrapper is a utility struct to take a names tag and wrap it as to conform

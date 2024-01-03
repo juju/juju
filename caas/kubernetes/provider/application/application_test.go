@@ -790,7 +790,7 @@ func (s *applicationSuite) TestEnsureStateful(c *gc.C) {
 							Spec: corev1.PersistentVolumeClaimSpec{
 								StorageClassName: pointer.StringPtr("test-workload-storage"),
 								AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
-								Resources: corev1.ResourceRequirements{
+								Resources: corev1.VolumeResourceRequirements{
 									Requests: corev1.ResourceList{
 										corev1.ResourceStorage: k8sresource.MustParse("100Mi"),
 									},
@@ -902,7 +902,7 @@ func (s *applicationSuite) TestEnsureStatefulPrivateImageRepo(c *gc.C) {
 							Spec: corev1.PersistentVolumeClaimSpec{
 								StorageClassName: pointer.StringPtr("test-workload-storage"),
 								AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
-								Resources: corev1.ResourceRequirements{
+								Resources: corev1.VolumeResourceRequirements{
 									Requests: corev1.ResourceList{
 										corev1.ResourceStorage: k8sresource.MustParse("100Mi"),
 									},
@@ -943,7 +943,7 @@ func (s *applicationSuite) TestEnsureStateless(c *gc.C) {
 				},
 				Spec: corev1.PersistentVolumeClaimSpec{
 					StorageClassName: pointer.StringPtr("test-workload-storage"),
-					Resources: corev1.ResourceRequirements{
+					Resources: corev1.VolumeResourceRequirements{
 						Requests: corev1.ResourceList{
 							corev1.ResourceStorage: k8sresource.MustParse("100Mi"),
 						},
@@ -1016,7 +1016,7 @@ func (s *applicationSuite) TestEnsureDaemon(c *gc.C) {
 				},
 				Spec: corev1.PersistentVolumeClaimSpec{
 					StorageClassName: pointer.StringPtr("test-workload-storage"),
-					Resources: corev1.ResourceRequirements{
+					Resources: corev1.VolumeResourceRequirements{
 						Requests: corev1.ResourceList{
 							corev1.ResourceStorage: k8sresource.MustParse("100Mi"),
 						},
@@ -2253,7 +2253,7 @@ func (s *applicationSuite) TestUnits(c *gc.C) {
 				AccessModes: []corev1.PersistentVolumeAccessMode{
 					corev1.ReadWriteOnce,
 				},
-				Resources: corev1.ResourceRequirements{
+				Resources: corev1.VolumeResourceRequirements{
 					Requests: corev1.ResourceList{
 						"storage": k8sresource.MustParse("1Gi"),
 					},
@@ -2847,7 +2847,7 @@ func (s *applicationSuite) TestEnsureConstraints(c *gc.C) {
 							Spec: corev1.PersistentVolumeClaimSpec{
 								StorageClassName: pointer.StringPtr("test-workload-storage"),
 								AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
-								Resources: corev1.ResourceRequirements{
+								Resources: corev1.VolumeResourceRequirements{
 									Requests: corev1.ResourceList{
 										corev1.ResourceStorage: k8sresource.MustParse("100Mi"),
 									},

@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 )
 
 const defaultFlockDir = "/tmp"

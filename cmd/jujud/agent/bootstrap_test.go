@@ -20,7 +20,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/mgo/v3"
 	mgotesting "github.com/juju/mgo/v3/testing"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	osseries "github.com/juju/os/v2/series"
 	jtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"

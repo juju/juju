@@ -92,7 +92,7 @@ func (s *environBrokerSuite) TestStartInstanceDefaultNIC(c *gc.C) {
 	exp := svr.EXPECT()
 	gomock.InOrder(
 		exp.HostArch().Return(arch.AMD64),
-		exp.FindImage(corebase.MakeDefaultBase("ubuntu", "22.04"), arch.AMD64, api.InstanceTypeContainer, gomock.Any(), true, gomock.Any()).Return(containerlxd.SourcedImage{}, nil),
+		exp.FindImage(gomock.Any(), corebase.MakeDefaultBase("ubuntu", "22.04"), arch.AMD64, api.InstanceTypeContainer, gomock.Any(), true, gomock.Any()).Return(containerlxd.SourcedImage{}, nil),
 		exp.ServerVersion().Return("3.10.0"),
 		exp.GetNICsFromProfile("default").Return(s.defaultProfile.Devices, nil),
 		exp.CreateContainerFromSpec(matchesContainerSpec(check)).Return(&containerlxd.Container{}, nil),
@@ -131,7 +131,7 @@ func (s *environBrokerSuite) TestStartInstanceNonDefaultNIC(c *gc.C) {
 	exp := svr.EXPECT()
 	gomock.InOrder(
 		exp.HostArch().Return(arch.AMD64),
-		exp.FindImage(corebase.MakeDefaultBase("ubuntu", "22.04"), arch.AMD64, api.InstanceTypeContainer, gomock.Any(), true, gomock.Any()).Return(containerlxd.SourcedImage{}, nil),
+		exp.FindImage(gomock.Any(), corebase.MakeDefaultBase("ubuntu", "22.04"), arch.AMD64, api.InstanceTypeContainer, gomock.Any(), true, gomock.Any()).Return(containerlxd.SourcedImage{}, nil),
 		exp.ServerVersion().Return("3.10.0"),
 		exp.GetNICsFromProfile("default").Return(nics, nil),
 		exp.CreateContainerFromSpec(matchesContainerSpec(check)).Return(&containerlxd.Container{}, nil),
@@ -203,7 +203,7 @@ func (s *environBrokerSuite) TestStartInstanceWithSubnetsInSpace(c *gc.C) {
 	exp := svr.EXPECT()
 	gomock.InOrder(
 		exp.HostArch().Return(arch.AMD64),
-		exp.FindImage(corebase.MakeDefaultBase("ubuntu", "22.04"), arch.AMD64, api.InstanceTypeContainer, gomock.Any(), true, gomock.Any()).Return(containerlxd.SourcedImage{}, nil),
+		exp.FindImage(gomock.Any(), corebase.MakeDefaultBase("ubuntu", "22.04"), arch.AMD64, api.InstanceTypeContainer, gomock.Any(), true, gomock.Any()).Return(containerlxd.SourcedImage{}, nil),
 		exp.ServerVersion().Return("3.10.0"),
 		exp.GetNICsFromProfile("default").Return(profileNICs, nil),
 		exp.CreateContainerFromSpec(matchesContainerSpec(check)).Return(&containerlxd.Container{}, nil),
@@ -384,7 +384,7 @@ func (s *environBrokerSuite) TestStartInstanceWithConstraints(c *gc.C) {
 	exp := svr.EXPECT()
 	gomock.InOrder(
 		exp.HostArch().Return(arch.AMD64),
-		exp.FindImage(corebase.MakeDefaultBase("ubuntu", "22.04"), arch.AMD64, api.InstanceTypeContainer, gomock.Any(), true, gomock.Any()).Return(containerlxd.SourcedImage{}, nil),
+		exp.FindImage(gomock.Any(), corebase.MakeDefaultBase("ubuntu", "22.04"), arch.AMD64, api.InstanceTypeContainer, gomock.Any(), true, gomock.Any()).Return(containerlxd.SourcedImage{}, nil),
 		exp.ServerVersion().Return("3.10.0"),
 		exp.GetNICsFromProfile("default").Return(s.defaultProfile.Devices, nil),
 		exp.CreateContainerFromSpec(matchesContainerSpec(check)).Return(&containerlxd.Container{}, nil),
@@ -425,7 +425,7 @@ func (s *environBrokerSuite) TestStartInstanceWithConstraintsAndVirtType(c *gc.C
 
 	exp := svr.EXPECT()
 	exp.HostArch().Return(arch.AMD64)
-	exp.FindImage(corebase.MakeDefaultBase("ubuntu", "22.04"), arch.AMD64, api.InstanceTypeVM, gomock.Any(), true, gomock.Any()).Return(containerlxd.SourcedImage{}, nil)
+	exp.FindImage(gomock.Any(), corebase.MakeDefaultBase("ubuntu", "22.04"), arch.AMD64, api.InstanceTypeVM, gomock.Any(), true, gomock.Any()).Return(containerlxd.SourcedImage{}, nil)
 	exp.ServerVersion().Return("3.10.0")
 	exp.GetNICsFromProfile("default").Return(s.defaultProfile.Devices, nil)
 	exp.CreateContainerFromSpec(matchesContainerSpec(check)).Return(&containerlxd.Container{}, nil)
@@ -471,7 +471,7 @@ func (s *environBrokerSuite) TestStartInstanceWithCharmLXDProfile(c *gc.C) {
 	exp := svr.EXPECT()
 	gomock.InOrder(
 		exp.HostArch().Return(arch.AMD64),
-		exp.FindImage(corebase.MakeDefaultBase("ubuntu", "22.04"), arch.AMD64, api.InstanceTypeContainer, gomock.Any(), true, gomock.Any()).Return(containerlxd.SourcedImage{}, nil),
+		exp.FindImage(gomock.Any(), corebase.MakeDefaultBase("ubuntu", "22.04"), arch.AMD64, api.InstanceTypeContainer, gomock.Any(), true, gomock.Any()).Return(containerlxd.SourcedImage{}, nil),
 		exp.ServerVersion().Return("3.10.0"),
 		exp.GetNICsFromProfile("default").Return(s.defaultProfile.Devices, nil),
 		exp.CreateContainerFromSpec(matchesContainerSpec(check)).Return(&containerlxd.Container{}, nil),
@@ -508,7 +508,7 @@ func (s *environBrokerSuite) TestStartInstanceInvalidCredentials(c *gc.C) {
 	exp := svr.EXPECT()
 	gomock.InOrder(
 		exp.HostArch().Return(arch.AMD64),
-		exp.FindImage(corebase.MakeDefaultBase("ubuntu", "22.04"), arch.AMD64, api.InstanceTypeContainer, gomock.Any(), true, gomock.Any()).Return(containerlxd.SourcedImage{}, nil),
+		exp.FindImage(gomock.Any(), corebase.MakeDefaultBase("ubuntu", "22.04"), arch.AMD64, api.InstanceTypeContainer, gomock.Any(), true, gomock.Any()).Return(containerlxd.SourcedImage{}, nil),
 		exp.ServerVersion().Return("3.10.0"),
 		exp.GetNICsFromProfile("default").Return(s.defaultProfile.Devices, nil),
 		exp.CreateContainerFromSpec(gomock.Any()).Return(&containerlxd.Container{}, fmt.Errorf("not authorized")),
