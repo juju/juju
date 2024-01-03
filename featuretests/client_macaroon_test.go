@@ -34,7 +34,9 @@ func (s *clientMacaroonSuite) createTestClient(c *gc.C) *charms.LocalCharmClient
 	cookieJar := apitesting.NewClearableCookieJar()
 	s.DischargerLogin = func() string { return username }
 	api := s.OpenAPI(c, nil, cookieJar)
-	charmClient := charms.NewLocalCharmClient(api)
+	httpPutter, err := charms.NewHTTPPutter(api)
+	c.Assert(err, jc.ErrorIsNil)
+	charmClient := charms.NewLocalCharmClient(api, httpPutter)
 
 	// Even though we've logged into the API, we want
 	// the tests below to exercise the discharging logic
@@ -56,7 +58,9 @@ func (s *clientMacaroonSuite) TestAddLocalCharmWithFailedDischarge(c *gc.C) {
 }
 
 func (s *clientMacaroonSuite) TestAddLocalCharmSuccess(c *gc.C) {
-	charmClient := charms.NewLocalCharmClient(s.APIState)
+	httpPutter, err := charms.NewHTTPPutter(s.APIState)
+	c.Assert(err, jc.ErrorIsNil)
+	charmClient := charms.NewLocalCharmClient(s.APIState, httpPutter)
 	charmArchive := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
 	curl := charm.MustParseURL(
 		fmt.Sprintf("local:quantal/%s-%d", charmArchive.Meta().Name, charmArchive.Revision()),

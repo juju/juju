@@ -103,7 +103,7 @@ type CharmRefreshClient interface {
 // a new CharmAdder.
 type NewCharmAdderFunc func(
 	api.Connection,
-) store.CharmAdder
+) (store.CharmAdder, error)
 
 // NewCharmResolverFunc returns a client implementing CharmResolver.
 type NewCharmResolverFunc func(base.APICallCloser, store.DownloadBundleClient) CharmResolver
@@ -614,13 +614,17 @@ func (c *refreshCommand) upgradeResources(
 
 func newCharmAdder(
 	conn api.Connection,
-) store.CharmAdder {
+) (store.CharmAdder, error) {
+	httpPutter, err := apicharms.NewHTTPPutter(conn)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	return &charmAdderShim{
 		api:               apiclient.NewClient(conn, logger),
 		charmsClient:      apicharms.NewClient(conn),
-		localCharmsClient: apicharms.NewLocalCharmClient(conn),
+		localCharmsClient: apicharms.NewLocalCharmClient(conn, httpPutter),
 		modelConfigClient: modelconfig.NewClient(conn),
-	}
+	}, nil
 }
 
 type charmAdderShim struct {
@@ -666,9 +670,13 @@ func (c *refreshCommand) getRefresherFactory(apiRoot api.Connection) (refresher.
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	charmAdder, err := c.NewCharmAdder(apiRoot)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	deps := refresher.RefresherDependencies{
-		CharmAdder:    c.NewCharmAdder(apiRoot),
+		CharmAdder:    charmAdder,
 		CharmResolver: c.NewCharmResolver(apiRoot, downloadClient),
 	}
 	return c.NewRefresherFactory(deps), nil

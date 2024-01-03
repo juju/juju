@@ -220,10 +220,10 @@ func (s *BaseRefreshSuite) refreshCommand() cmd.Command {
 			s.AddCall("NewCharmResolver")
 			return &s.resolveCharm
 		},
-		func(conn api.Connection) store.CharmAdder {
+		func(conn api.Connection) (store.CharmAdder, error) {
 			s.AddCall("NewCharmAdder", conn)
 			s.PopNoErr()
-			return &s.charmAdder
+			return &s.charmAdder, nil
 		},
 		func(conn base.APICallCloser) utils.CharmClient {
 			s.AddCall("NewCharmClient", conn)
@@ -475,8 +475,8 @@ func (s *RefreshErrorsStateSuite) SetUpTest(c *gc.C) {
 	}
 	s.fakeAPI = vanillaFakeModelAPI(cfgAttrs)
 	s.cmd = NewRefreshCommandForStateTest(
-		func(conn api.Connection) store.CharmAdder {
-			return s.fakeAPI
+		func(conn api.Connection) (store.CharmAdder, error) {
+			return s.fakeAPI, nil
 		},
 		func(conn base.APICallCloser) utils.CharmClient {
 			return s.fakeAPI

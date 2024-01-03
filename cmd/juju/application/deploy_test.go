@@ -1477,7 +1477,7 @@ func (s *DeploySuite) setupNonESMBase(c *gc.C) (corebase.Base, string) {
 		c.Fatal("cannot write to metadata.yaml")
 	}
 
-	curl := charm.MustParseURL(fmt.Sprintf("local:%s/series-logging-1", nonEMSSeries))
+	curl := charm.MustParseURL(fmt.Sprintf("local:%s/logging-1", nonEMSSeries))
 	ch, err := charm.ReadCharm(loggingPath)
 	c.Assert(err, jc.ErrorIsNil)
 	withLocalCharmDeployable(s.fakeAPI, curl, ch, false)
@@ -2136,11 +2136,15 @@ func newDeployCommandForTest(fakeAPI *fakeDeployAPI) *DeployCommand {
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
+			httpPutter, err := apicharms.NewHTTPPutter(apiRoot)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
 			return &deployAPIAdapter{
 				Connection:        apiRoot,
 				legacyClient:      apiclient.NewClient(apiRoot, coretesting.NoopLogger{}),
 				charmsClient:      apicharms.NewClient(apiRoot),
-				localCharmsClient: apicharms.NewLocalCharmClient(apiRoot),
+				localCharmsClient: apicharms.NewLocalCharmClient(apiRoot, httpPutter),
 				applicationClient: application.NewClient(apiRoot),
 				modelConfigClient: modelconfig.NewClient(apiRoot),
 				annotationsClient: annotations.NewClient(apiRoot),
