@@ -1688,7 +1688,7 @@ func (e *Environ) volumeAttachmentsZone(volumeAttachments []storage.VolumeAttach
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	volumes, err := modelCinderVolumes(cinderProvider.storageAdapter, cinderProvider.modelUUID)
+	volumes, err := modelCinderVolumes(cinderProvider.storageAdaptor, cinderProvider.modelUUID)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -1924,7 +1924,7 @@ func (e *Environ) adoptVolumes(controllerTag map[string]string, ctx envcontext.P
 
 	var failed []string
 	for _, volumeId := range volumeIds {
-		_, err := cinder.storageAdapter.SetVolumeMetadata(volumeId, controllerTag)
+		_, err := cinder.storageAdaptor.SetVolumeMetadata(volumeId, controllerTag)
 		if err != nil {
 			logger.Errorf("error updating controller tag for volume %s: %v", volumeId, err)
 			failed = append(failed, volumeId)
@@ -2055,13 +2055,13 @@ func (e *Environ) destroyControllerManagedEnvirons(ctx envcontext.ProviderCallCo
 	// Delete all volumes managed by the controller.
 	cinder, err := e.cinderProvider()
 	if err == nil {
-		volumes, err := controllerCinderVolumes(cinder.storageAdapter, controllerUUID)
+		volumes, err := controllerCinderVolumes(cinder.storageAdaptor, controllerUUID)
 		if err != nil {
 			handleCredentialError(err, ctx)
 			return errors.Annotate(err, "listing volumes")
 		}
 		volIds := volumeInfoToVolumeIds(cinderToJujuVolumeInfos(volumes))
-		errs := foreachVolume(ctx, cinder.storageAdapter, volIds, destroyVolume)
+		errs := foreachVolume(ctx, cinder.storageAdaptor, volIds, destroyVolume)
 		for i, err := range errs {
 			if err == nil {
 				continue

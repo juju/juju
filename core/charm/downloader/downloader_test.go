@@ -133,7 +133,7 @@ func (s *downloaderSuite) TestDownloadAndHash(c *gc.C) {
 	s.charmArchive.EXPECT().LXDProfile().Return(nil)
 
 	dl := s.newDownloader()
-	dc, gotOrigin, err := dl.DownloadAndHash(context.Background(), name, requestedOrigin, repoAdapter{s.repo}, tmpFile)
+	dc, gotOrigin, err := dl.DownloadAndHash(context.Background(), name, requestedOrigin, repoAdaptor{s.repo}, tmpFile)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotOrigin, gc.DeepEquals, resolvedOrigin, gc.Commentf("expected to get back the resolved origin"))
 	c.Assert(dc.SHA256, gc.Equals, "4e97ed7423be2ea12939e8fdd592cfb3dcd4d0097d7d193ef998ab6b4db70461")
@@ -150,7 +150,7 @@ func (s downloaderSuite) TestCharmAlreadyStored(c *gc.C) {
 	s.storage.EXPECT().PrepareToStoreCharm(curl.String()).Return(
 		downloader.NewCharmAlreadyStoredError(curl.String()),
 	)
-	s.repoGetter.EXPECT().GetCharmRepository(gomock.Any(), corecharm.CharmHub).Return(repoAdapter{s.repo}, nil)
+	s.repoGetter.EXPECT().GetCharmRepository(gomock.Any(), corecharm.CharmHub).Return(repoAdaptor{s.repo}, nil)
 	retURL, _ := url.Parse(curl.String())
 	s.repo.EXPECT().GetDownloadURL(gomock.Any(), curl.Name, requestedOrigin).Return(retURL, knownOrigin, nil)
 
@@ -228,7 +228,7 @@ func (s downloaderSuite) TestDownloadAndStore(c *gc.C) {
 			return nil
 		},
 	)
-	s.repoGetter.EXPECT().GetCharmRepository(gomock.Any(), corecharm.CharmHub).Return(repoAdapter{s.repo}, nil)
+	s.repoGetter.EXPECT().GetCharmRepository(gomock.Any(), corecharm.CharmHub).Return(repoAdaptor{s.repo}, nil)
 	s.repo.EXPECT().DownloadCharm(gomock.Any(), curl.Name, requestedOriginWithPlatform, gomock.Any()).DoAndReturn(
 		func(_ context.Context, _ string, requestedOrigin corecharm.Origin, archivePath string) (downloader.CharmArchive, corecharm.Origin, error) {
 			c.Assert(os.WriteFile(archivePath, []byte("meshuggah\n"), 0644), jc.ErrorIsNil)
@@ -270,23 +270,23 @@ func mustParseChannel(c *gc.C, channel string) *charm.Channel {
 	return &ch
 }
 
-// repoAdapter is an adapter that allows us to use MockCharmRepository whose
+// repoAdaptor is an adaptor that allows us to use MockCharmRepository whose
 // DownloadCharm method returns a CharmArchive instead of the similarly named
 // interface in core/charm (which the package-local version embeds).
 //
 // This allows us to use a package-local mock for CharmArchive while testing.
-type repoAdapter struct {
+type repoAdaptor struct {
 	repo *mocks.MockCharmRepository
 }
 
-func (r repoAdapter) DownloadCharm(ctx context.Context, charmName string, requestedOrigin corecharm.Origin, archivePath string) (corecharm.CharmArchive, corecharm.Origin, error) {
+func (r repoAdaptor) DownloadCharm(ctx context.Context, charmName string, requestedOrigin corecharm.Origin, archivePath string) (corecharm.CharmArchive, corecharm.Origin, error) {
 	return r.repo.DownloadCharm(ctx, charmName, requestedOrigin, archivePath)
 }
 
-func (r repoAdapter) ResolveWithPreferredChannel(ctx context.Context, charmName string, requestedOrigin corecharm.Origin) (*charm.URL, corecharm.Origin, []corecharm.Platform, error) {
+func (r repoAdaptor) ResolveWithPreferredChannel(ctx context.Context, charmName string, requestedOrigin corecharm.Origin) (*charm.URL, corecharm.Origin, []corecharm.Platform, error) {
 	return r.repo.ResolveWithPreferredChannel(ctx, charmName, requestedOrigin)
 }
 
-func (r repoAdapter) GetDownloadURL(ctx context.Context, charmName string, requestedOrigin corecharm.Origin) (*url.URL, corecharm.Origin, error) {
+func (r repoAdaptor) GetDownloadURL(ctx context.Context, charmName string, requestedOrigin corecharm.Origin) (*url.URL, corecharm.Origin, error) {
 	return r.repo.GetDownloadURL(ctx, charmName, requestedOrigin)
 }

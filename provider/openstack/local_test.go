@@ -169,9 +169,9 @@ func (s *localHTTPSServerSuite) envUsingCertificate(c *gc.C) environs.Environ {
 	return env
 }
 
-func makeMockAdapter() *mockAdapter {
+func makeMockAdaptor() *mockAdaptor {
 	volumes := make(map[string]*cinder.Volume)
-	return &mockAdapter{
+	return &mockAdaptor{
 		createVolume: func(args cinder.CreateVolumeVolumeParams) (*cinder.Volume, error) {
 			metadata := args.Metadata.(map[string]string)
 			volume := cinder.Volume{
@@ -208,9 +208,9 @@ func makeMockAdapter() *mockAdapter {
 	}
 }
 
-func overrideCinderProvider(s *jujutesting.CleanupSuite, adapter *mockAdapter) {
+func overrideCinderProvider(s *jujutesting.CleanupSuite, adaptor *mockAdaptor) {
 	s.PatchValue(openstack.NewOpenstackStorage, func(*openstack.Environ) (openstack.OpenstackStorage, error) {
-		return adapter, nil
+		return adaptor, nil
 	})
 }
 
@@ -228,7 +228,7 @@ type localServerSuite struct {
 	env                  environs.Environ
 	toolsMetadataStorage envstorage.Storage
 	imageMetadataStorage envstorage.Storage
-	storageAdapter       *mockAdapter
+	storageAdaptor       *mockAdaptor
 	callCtx              envcontext.ProviderCallContext
 }
 
@@ -297,8 +297,8 @@ func (s *localServerSuite) SetUpTest(c *gc.C) {
 	envtesting.UploadFakeTools(c, s.toolsMetadataStorage, s.env.Config().AgentStream(), s.env.Config().AgentStream())
 	s.imageMetadataStorage = openstack.ImageMetadataStorage(s.env)
 	openstack.UseTestImageData(s.imageMetadataStorage, s.cred)
-	s.storageAdapter = makeMockAdapter()
-	overrideCinderProvider(&s.CleanupSuite, s.storageAdapter)
+	s.storageAdaptor = makeMockAdaptor()
+	overrideCinderProvider(&s.CleanupSuite, s.storageAdaptor)
 	s.callCtx = envcontext.WithoutCredentialInvalidator(context.Background())
 }
 
@@ -1738,7 +1738,7 @@ func (s *localServerSuite) testPrecheckInstanceVolumeAvailZones(c *gc.C, placeme
 		},
 	)
 
-	_, err := s.storageAdapter.CreateVolume(cinder.CreateVolumeVolumeParams{
+	_, err := s.storageAdaptor.CreateVolume(cinder.CreateVolumeVolumeParams{
 		Size:             123,
 		Name:             "foo",
 		AvailabilityZone: "az1",
@@ -1773,7 +1773,7 @@ func (s *localServerSuite) TestPrecheckInstanceAvailZonesConflictsVolume(c *gc.C
 		},
 	)
 
-	_, err := s.storageAdapter.CreateVolume(cinder.CreateVolumeVolumeParams{
+	_, err := s.storageAdaptor.CreateVolume(cinder.CreateVolumeVolumeParams{
 		Size:             123,
 		Name:             "foo",
 		AvailabilityZone: "az1",
@@ -1844,7 +1844,7 @@ func (s *localServerSuite) TestDeriveAvailabilityZonesVolumeNoPlacement(c *gc.C)
 		},
 	)
 
-	_, err := s.storageAdapter.CreateVolume(cinder.CreateVolumeVolumeParams{
+	_, err := s.storageAdaptor.CreateVolume(cinder.CreateVolumeVolumeParams{
 		Size:             123,
 		Name:             "foo",
 		AvailabilityZone: "az2",
@@ -1881,7 +1881,7 @@ func (s *localServerSuite) TestDeriveAvailabilityZonesConflictsVolume(c *gc.C) {
 		},
 	)
 
-	_, err := s.storageAdapter.CreateVolume(cinder.CreateVolumeVolumeParams{
+	_, err := s.storageAdaptor.CreateVolume(cinder.CreateVolumeVolumeParams{
 		Size:             123,
 		Name:             "foo",
 		AvailabilityZone: "az1",
@@ -2587,7 +2587,7 @@ var _ = gc.Suite(&localHTTPSServerSuite{})
 
 func (s *localHTTPSServerSuite) SetUpSuite(c *gc.C) {
 	s.BaseSuite.SetUpSuite(c)
-	overrideCinderProvider(&s.CleanupSuite, &mockAdapter{})
+	overrideCinderProvider(&s.CleanupSuite, &mockAdaptor{})
 	imagetesting.PatchOfficialDataSources(&s.CleanupSuite, "")
 }
 
@@ -3112,7 +3112,7 @@ func (s *localServerSuite) TestStartInstanceVolumeAttachmentsAvailZone(c *gc.C) 
 	err := bootstrapEnv(c, s.env)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = s.storageAdapter.CreateVolume(cinder.CreateVolumeVolumeParams{
+	_, err = s.storageAdaptor.CreateVolume(cinder.CreateVolumeVolumeParams{
 		Size:             123,
 		Name:             "foo",
 		AvailabilityZone: "az2",
@@ -3137,7 +3137,7 @@ func (s *localServerSuite) TestStartInstanceVolumeAttachmentsMultipleAvailZones(
 	c.Assert(err, jc.ErrorIsNil)
 
 	for _, az := range []string{"az1", "az2"} {
-		_, err := s.storageAdapter.CreateVolume(cinder.CreateVolumeVolumeParams{
+		_, err := s.storageAdaptor.CreateVolume(cinder.CreateVolumeVolumeParams{
 			Size:             123,
 			Name:             "vol-" + az,
 			AvailabilityZone: az,
@@ -3177,7 +3177,7 @@ func (s *localServerSuite) TestStartInstanceVolumeAttachmentsAvailZoneConflictsP
 			},
 		},
 	)
-	_, err = s.storageAdapter.CreateVolume(cinder.CreateVolumeVolumeParams{
+	_, err = s.storageAdaptor.CreateVolume(cinder.CreateVolumeVolumeParams{
 		Size:             123,
 		Name:             "foo",
 		AvailabilityZone: "az1",
@@ -3513,10 +3513,10 @@ func (s *localServerSuite) TestAdoptResourcesNoStorage(c *gc.C) {
 func addVolume(
 	c *gc.C, env environs.Environ, callCtx envcontext.ProviderCallContext, controllerUUID, name string,
 ) *storage.Volume {
-	storageAdapter, err := (*openstack.NewOpenstackStorage)(env.(*openstack.Environ))
+	storageAdaptor, err := (*openstack.NewOpenstackStorage)(env.(*openstack.Environ))
 	c.Assert(err, jc.ErrorIsNil)
 	modelUUID := env.Config().UUID()
-	source := openstack.NewCinderVolumeSourceForModel(storageAdapter, modelUUID, env.(common.ZonedEnviron))
+	source := openstack.NewCinderVolumeSourceForModel(storageAdaptor, modelUUID, env.(common.ZonedEnviron))
 	result, err := source.CreateVolumes(callCtx, []storage.VolumeParams{{
 		Tag: names.NewVolumeTag(name),
 		ResourceTags: tags.ResourceTags(

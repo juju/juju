@@ -108,8 +108,8 @@ func (s *syncToolSuite) TestSyncToolsCommand(c *gc.C) {
 			c.Assert(sctx.Stream, gc.Equals, test.stream)
 			c.Assert(sctx.Source, gc.Equals, test.source)
 
-			c.Assert(sctx.TargetToolsUploader, gc.FitsTypeOf, syncToolAPIAdapter{})
-			uploader := sctx.TargetToolsUploader.(syncToolAPIAdapter)
+			c.Assert(sctx.TargetToolsUploader, gc.FitsTypeOf, syncToolAPIAdaptor{})
+			uploader := sctx.TargetToolsUploader.(syncToolAPIAdaptor)
 			c.Assert(uploader.SyncToolAPI, gc.Equals, s.fakeSyncToolAPI)
 
 			called = true
@@ -174,7 +174,7 @@ func (s *syncToolSuite) TestSyncToolsCommandTargetDirectoryPublic(c *gc.C) {
 	c.Assert(called, jc.IsTrue)
 }
 
-func (s *syncToolSuite) TestAPIAdapterUploadTools(c *gc.C) {
+func (s *syncToolSuite) TestAPIAdaptorUploadTools(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	fakeAPI := mocks.NewMockSyncToolAPI(ctrl)
@@ -183,20 +183,20 @@ func (s *syncToolSuite) TestAPIAdapterUploadTools(c *gc.C) {
 	uploadToolsErr := errors.New("uh oh")
 	fakeAPI.EXPECT().UploadTools(bytes.NewReader([]byte("abc")), current).Return(nil, uploadToolsErr)
 
-	a := syncToolAPIAdapter{fakeAPI}
+	a := syncToolAPIAdaptor{fakeAPI}
 	err := a.UploadTools("released", "released", &coretools.Tools{Version: current}, []byte("abc"))
 	c.Assert(err, gc.Equals, uploadToolsErr)
 }
 
-func (s *syncToolSuite) TestAPIAdapterBlockUploadTools(c *gc.C) {
+func (s *syncToolSuite) TestAPIAdaptorBlockUploadTools(c *gc.C) {
 	ctrl, run := s.getSyncAgentBinariesCommand(
 		c, "-m", "test-target", "--agent-version", "2.9.99", "--local-dir", c.MkDir(), "--stream", "released")
 	defer ctrl.Finish()
 
 	syncTools = func(sctx *sync.SyncContext) error {
 		// Block operation
-		return apiservererrors.OperationBlockedError("TestAPIAdapterBlockUploadTools")
+		return apiservererrors.OperationBlockedError("TestAPIAdaptorBlockUploadTools")
 	}
 	_, err := run()
-	coretesting.AssertOperationWasBlocked(c, err, ".*TestAPIAdapterBlockUploadTools.*")
+	coretesting.AssertOperationWasBlocked(c, err, ".*TestAPIAdaptorBlockUploadTools.*")
 }

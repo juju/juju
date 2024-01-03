@@ -138,13 +138,13 @@ func DefaultReloadSpacesEnvirons(st *state.State, cloudService common.CloudServi
 	}, nil
 }
 
-// EnvironSpacesAdapter allows the calling of ReloadSpaces from a type level,
+// EnvironSpacesAdaptor allows the calling of ReloadSpaces from a type level,
 // instead of a package level construct.
-type EnvironSpacesAdapter struct{}
+type EnvironSpacesAdaptor struct{}
 
 // ReloadSpaces loads spaces and subnets from provider specified by environ
 // into state.
 // Currently it's an append-only operation, no spaces/subnets are deleted.
-func (EnvironSpacesAdapter) ReloadSpaces(ctx envcontext.ProviderCallContext, st ReloadSpacesState, env environs.BootstrapEnviron) error {
+func (EnvironSpacesAdaptor) ReloadSpaces(ctx envcontext.ProviderCallContext, st ReloadSpacesState, env environs.BootstrapEnviron) error {
 	return space.ReloadSpaces(ctx, st, env)
 }

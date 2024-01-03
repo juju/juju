@@ -62,7 +62,7 @@ type (
 	machineManagerClient = machinemanager.Client
 )
 
-type deployAPIAdapter struct {
+type deployAPIAdaptor struct {
 	api.Connection
 	*charmsClient
 	*localCharmsClient
@@ -75,16 +75,16 @@ type deployAPIAdapter struct {
 	legacyClient *apiclient.Client
 }
 
-func (a *deployAPIAdapter) ModelUUID() (string, bool) {
+func (a *deployAPIAdaptor) ModelUUID() (string, bool) {
 	tag, ok := a.ModelTag()
 	return tag.Id(), ok
 }
 
-func (a *deployAPIAdapter) WatchAll() (api.AllWatch, error) {
+func (a *deployAPIAdaptor) WatchAll() (api.AllWatch, error) {
 	return a.legacyClient.WatchAll()
 }
 
-func (a *deployAPIAdapter) Deploy(args application.DeployArgs) error {
+func (a *deployAPIAdaptor) Deploy(args application.DeployArgs) error {
 	for i, p := range args.Placement {
 		if p.Scope == "model-uuid" {
 			p.Scope = a.applicationClient.ModelUUID()
@@ -95,19 +95,19 @@ func (a *deployAPIAdapter) Deploy(args application.DeployArgs) error {
 	return errors.Trace(a.applicationClient.Deploy(args))
 }
 
-func (a *deployAPIAdapter) SetAnnotation(annotations map[string]map[string]string) ([]apiparams.ErrorResult, error) {
+func (a *deployAPIAdaptor) SetAnnotation(annotations map[string]map[string]string) ([]apiparams.ErrorResult, error) {
 	return a.annotationsClient.Set(annotations)
 }
 
-func (a *deployAPIAdapter) GetAnnotations(tags []string) ([]apiparams.AnnotationsGetResult, error) {
+func (a *deployAPIAdaptor) GetAnnotations(tags []string) ([]apiparams.AnnotationsGetResult, error) {
 	return a.annotationsClient.Get(tags)
 }
 
-func (a *deployAPIAdapter) GetModelConstraints() (constraints.Value, error) {
+func (a *deployAPIAdaptor) GetModelConstraints() (constraints.Value, error) {
 	return a.modelConfigClient.GetModelConstraints()
 }
 
-func (a *deployAPIAdapter) AddCharm(curl *charm.URL, origin commoncharm.Origin, force bool) (commoncharm.Origin, error) {
+func (a *deployAPIAdaptor) AddCharm(curl *charm.URL, origin commoncharm.Origin, force bool) (commoncharm.Origin, error) {
 	return a.charmsClient.AddCharm(curl, origin, force)
 }
 
@@ -131,7 +131,7 @@ func agentVersion(c modelGetter) (version.Number, error) {
 	return agentVersion, nil
 }
 
-func (a *deployAPIAdapter) AddLocalCharm(url *charm.URL, c charm.Charm, b bool) (*charm.URL, error) {
+func (a *deployAPIAdaptor) AddLocalCharm(url *charm.URL, c charm.Charm, b bool) (*charm.URL, error) {
 	agentVersion, err := agentVersion(a.modelConfigClient)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -139,7 +139,7 @@ func (a *deployAPIAdapter) AddLocalCharm(url *charm.URL, c charm.Charm, b bool) 
 	return a.localCharmsClient.AddLocalCharm(url, c, b, agentVersion)
 }
 
-func (a *deployAPIAdapter) Status(opts *apiclient.StatusArgs) (*apiparams.FullStatus, error) {
+func (a *deployAPIAdaptor) Status(opts *apiclient.StatusArgs) (*apiparams.FullStatus, error) {
 	return a.legacyClient.Status(opts)
 }
 
@@ -181,7 +181,7 @@ func newDeployCommand() *DeployCommand {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		return &deployAPIAdapter{
+		return &deployAPIAdaptor{
 			Connection:           apiRoot,
 			legacyClient:         apiclient.NewClient(apiRoot, logger),
 			charmsClient:         apicharms.NewClient(apiRoot),
@@ -837,15 +837,15 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 	}
 
 	charmAPIClient := c.NewCharmsAPI(c.apiRoot)
-	charmAdapter := c.NewResolver(charmAPIClient, downloadClientFn)
+	charmAdaptor := c.NewResolver(charmAPIClient, downloadClientFn)
 
 	factory, cfg := c.getDeployerFactory(base, charm.CharmHub)
-	deploy, err := factory.GetDeployer(cfg, deployAPI, charmAdapter)
+	deploy, err := factory.GetDeployer(cfg, deployAPI, charmAdaptor)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	return block.ProcessBlockedError(deploy.PrepareAndDeploy(ctx, deployAPI, charmAdapter), block.BlockChange)
+	return block.ProcessBlockedError(deploy.PrepareAndDeploy(ctx, deployAPI, charmAdaptor), block.BlockChange)
 }
 
 func (c *DeployCommand) parseBindFlag(api SpacesAPI) error {

@@ -117,11 +117,11 @@ func (api *LogForwardingAPI) newLastSentTracker(id params.LogForwardingID) (Last
 	return tracker, nil
 }
 
-type stateAdapter struct {
+type stateAdaptor struct {
 	*state.State
 }
 
 // NewLastSentTracker implements LogForwardingState.
-func (st stateAdapter) NewLastSentTracker(tag names.ModelTag, sink string) LastSentTracker {
+func (st stateAdaptor) NewLastSentTracker(tag names.ModelTag, sink string) LastSentTracker {
 	return state.NewLastSentLogTracker(st, tag.Id(), sink)
 }

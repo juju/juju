@@ -21,29 +21,29 @@ var (
 	}
 )
 
-// klogAdapter is an adapter for Kubernetes logger onto juju loggo. We use this
+// klogAdaptor is an adaptor for Kubernetes logger onto juju loggo. We use this
 // to suppress logging from client-go and force it through juju logging methods
-type klogAdapter struct {
+type klogAdaptor struct {
 	loggo.Logger
 }
 
-// newKlogAdapter creates a new klog adapter to juju loggo
-func newKlogAdapter() logr.Logger {
-	return logr.New(&klogAdapter{
+// newKlogAdaptor creates a new klog adaptor to juju loggo
+func newKlogAdaptor() logr.Logger {
+	return logr.New(&klogAdaptor{
 		Logger: loggo.GetLogger("juju.kubernetes.klog"),
 	})
 }
 
-func (k *klogAdapter) Init(info logr.RuntimeInfo) {
+func (k *klogAdaptor) Init(info logr.RuntimeInfo) {
 }
 
 // Enabled see https://pkg.go.dev/github.com/go-logr/logr#Logger
-func (k *klogAdapter) Enabled(level int) bool {
+func (k *klogAdaptor) Enabled(level int) bool {
 	return true
 }
 
 // Error see https://pkg.go.dev/github.com/go-logr/logr#Logger
-func (k *klogAdapter) Error(err error, msg string, keysAndValues ...interface{}) {
+func (k *klogAdaptor) Error(err error, msg string, keysAndValues ...interface{}) {
 	if err != nil {
 		k.Logger.Errorf(msg+": "+err.Error(), keysAndValues...)
 		return
@@ -56,7 +56,7 @@ func (k *klogAdapter) Error(err error, msg string, keysAndValues ...interface{})
 }
 
 // Info see https://pkg.go.dev/github.com/go-logr/logr#Logger
-func (k *klogAdapter) Info(level int, msg string, keysAndValues ...interface{}) {
+func (k *klogAdaptor) Info(level int, msg string, keysAndValues ...interface{}) {
 	k.Logger.Infof(msg, keysAndValues...)
 }
 
@@ -70,16 +70,16 @@ func (k KlogMessagePrefixes) Matches(log string) bool {
 }
 
 // V see https://pkg.go.dev/github.com/go-logr/logr#Logger
-func (k *klogAdapter) V(level int) logr.LogSink {
+func (k *klogAdaptor) V(level int) logr.LogSink {
 	return k
 }
 
 // WithValues see https://pkg.go.dev/github.com/go-logr/logr#Logger
-func (k *klogAdapter) WithValues(keysAndValues ...interface{}) logr.LogSink {
+func (k *klogAdaptor) WithValues(keysAndValues ...interface{}) logr.LogSink {
 	return k
 }
 
 // WithName see https://pkg.go.dev/github.com/go-logr/logr#Logger
-func (k *klogAdapter) WithName(name string) logr.LogSink {
+func (k *klogAdaptor) WithName(name string) logr.LogSink {
 	return k
 }
