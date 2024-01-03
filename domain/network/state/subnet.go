@@ -207,7 +207,6 @@ VALUES (?, ?)`
 // AddSubnet creates a subnet.
 func (st *State) AddSubnet(
 	ctx context.Context,
-	uuid string,
 	subnet network.SubnetInfo,
 ) error {
 	db, err := st.DB()
@@ -217,7 +216,7 @@ func (st *State) AddSubnet(
 
 	return errors.Trace(
 		db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-			return addSubnet(ctx, tx, uuid, subnet)
+			return addSubnet(ctx, tx, subnet.ID.String(), subnet)
 		}),
 	)
 }

@@ -26,36 +26,41 @@ func NewSubnetService(st SubnetState) *SubnetService {
 
 // AddSubnet creates and returns a new subnet.
 func (s *SubnetService) AddSubnet(ctx context.Context, args network.SubnetInfo) (network.Id, error) {
-	uuid, err := utils.NewUUID()
-	if err != nil {
-		return "", errors.Annotatef(err, "creating uuid for new subnet with CIDR %q", args.CIDR)
+	if args.ID == "" {
+		uuid, err := utils.NewUUID()
+		if err != nil {
+			return "", errors.Annotatef(err, "creating uuid for new subnet with CIDR %q", args.CIDR)
+		}
+		args.ID = network.Id(uuid.String())
 	}
 
-	if err := s.st.AddSubnet(ctx, uuid.String(), args); err != nil {
+	if err := s.st.AddSubnet(ctx, args); err != nil {
 		return "", errors.Trace(err)
 	}
 
-	return network.Id(uuid.String()), nil
+	return args.ID, nil
 }
 
 // Subnet returns the subnet identified by the input UUID,
 // or an error if it is not found.
 func (s *SubnetService) Subnet(ctx context.Context, uuid string) (*network.SubnetInfo, error) {
-	return s.st.GetSubnet(ctx, uuid)
+	subnet, err := s.st.GetSubnet(ctx, uuid)
+	return subnet, errors.Trace(err)
 }
 
 // SubnetsByCIDR returns the subnets matching the input CIDRs.
 func (s *SubnetService) SubnetsByCIDR(ctx context.Context, cidrs ...string) ([]network.SubnetInfo, error) {
-	return s.st.GetSubnetsByCIDR(ctx, cidrs...)
+	subnets, err := s.st.GetSubnetsByCIDR(ctx, cidrs...)
+	return subnets, errors.Trace(err)
 }
 
 // UpdateSubnet updates the spaceUUID of the subnet identified by the input
 // UUID.
 func (s *SubnetService) UpdateSubnet(ctx context.Context, uuid, spaceUUID string) error {
-	return s.st.UpdateSubnet(ctx, uuid, spaceUUID)
+	return errors.Trace(s.st.UpdateSubnet(ctx, uuid, spaceUUID))
 }
 
 // Remove deletes a subnet identified by its uuid.
 func (s *SubnetService) Remove(ctx context.Context, uuid string) error {
-	return s.st.DeleteSubnet(ctx, uuid)
+	return errors.Trace(s.st.DeleteSubnet(ctx, uuid))
 }

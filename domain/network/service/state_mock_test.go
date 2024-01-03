@@ -55,21 +55,17 @@ func (mr *MockStateMockRecorder) AddSpace(arg0, arg1, arg2, arg3, arg4 any) *gom
 }
 
 // AddSubnet mocks base method.
-func (m *MockState) AddSubnet(arg0 context.Context, arg1 string, arg2 network.SubnetInfo) error {
+func (m *MockState) AddSubnet(arg0 context.Context, arg1 network.SubnetInfo) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddSubnet", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "AddSubnet", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // AddSubnet indicates an expected call of AddSubnet.
-<<<<<<< HEAD
-func (mr *MockStateMockRecorder) AddSubnet(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8 any) *gomock.Call {
-=======
-func (mr *MockStateMockRecorder) AddSubnet(arg0, arg1, arg2 interface{}) *gomock.Call {
->>>>>>> 43afb7df6a (Add subnet methods to the network domain service layer)
+func (mr *MockStateMockRecorder) AddSubnet(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddSubnet", reflect.TypeOf((*MockState)(nil).AddSubnet), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddSubnet", reflect.TypeOf((*MockState)(nil).AddSubnet), arg0, arg1)
 }
 
 // DeleteSpace mocks base method.
@@ -95,7 +91,7 @@ func (m *MockState) DeleteSubnet(arg0 context.Context, arg1 string) error {
 }
 
 // DeleteSubnet indicates an expected call of DeleteSubnet.
-func (mr *MockStateMockRecorder) DeleteSubnet(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockStateMockRecorder) DeleteSubnet(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteSubnet", reflect.TypeOf((*MockState)(nil).DeleteSubnet), arg0, arg1)
 }
@@ -125,7 +121,7 @@ func (m *MockState) GetAllSubnets(arg0 context.Context) (network.SubnetInfos, er
 }
 
 // GetAllSubnets indicates an expected call of GetAllSubnets.
-func (mr *MockStateMockRecorder) GetAllSubnets(arg0 interface{}) *gomock.Call {
+func (mr *MockStateMockRecorder) GetAllSubnets(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllSubnets", reflect.TypeOf((*MockState)(nil).GetAllSubnets), arg0)
 }
@@ -170,7 +166,7 @@ func (m *MockState) GetSubnet(arg0 context.Context, arg1 string) (*network.Subne
 }
 
 // GetSubnet indicates an expected call of GetSubnet.
-func (mr *MockStateMockRecorder) GetSubnet(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockStateMockRecorder) GetSubnet(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSubnet", reflect.TypeOf((*MockState)(nil).GetSubnet), arg0, arg1)
 }
@@ -178,7 +174,7 @@ func (mr *MockStateMockRecorder) GetSubnet(arg0, arg1 interface{}) *gomock.Call 
 // GetSubnetsByCIDR mocks base method.
 func (m *MockState) GetSubnetsByCIDR(arg0 context.Context, arg1 ...string) (network.SubnetInfos, error) {
 	m.ctrl.T.Helper()
-	varargs := []interface{}{arg0}
+	varargs := []any{arg0}
 	for _, a := range arg1 {
 		varargs = append(varargs, a)
 	}
@@ -189,9 +185,9 @@ func (m *MockState) GetSubnetsByCIDR(arg0 context.Context, arg1 ...string) (netw
 }
 
 // GetSubnetsByCIDR indicates an expected call of GetSubnetsByCIDR.
-func (mr *MockStateMockRecorder) GetSubnetsByCIDR(arg0 interface{}, arg1 ...interface{}) *gomock.Call {
+func (mr *MockStateMockRecorder) GetSubnetsByCIDR(arg0 any, arg1 ...any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	varargs := append([]interface{}{arg0}, arg1...)
+	varargs := append([]any{arg0}, arg1...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSubnetsByCIDR", reflect.TypeOf((*MockState)(nil).GetSubnetsByCIDR), varargs...)
 }
 

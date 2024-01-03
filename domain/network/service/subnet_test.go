@@ -41,9 +41,19 @@ func (s *subnetSuite) TestFailAddSubnet(c *gc.C) {
 		AvailabilityZones: []string{"az0"},
 	}
 
-	// Verify that the passed UUID is also returned.
-	s.st.EXPECT().AddSubnet(gomock.Any(), gomock.Any(), subnetInfo).
-		Return(errors.New("boom"))
+	// Verify that the passed subnetInfo matches and return an error.
+	s.st.EXPECT().AddSubnet(gomock.Any(), gomock.Any()).
+		DoAndReturn(
+			func(
+				ctx context.Context,
+				subnet network.SubnetInfo,
+			) error {
+				c.Assert(subnet.CIDR, gc.Equals, subnetInfo.CIDR)
+				c.Assert(subnet.ProviderId, gc.Equals, subnetInfo.ProviderId)
+				c.Assert(subnet.ProviderNetworkId, gc.Equals, subnetInfo.ProviderNetworkId)
+				c.Assert(subnet.AvailabilityZones, jc.SameContents, subnetInfo.AvailabilityZones)
+				return errors.New("boom")
+			})
 
 	_, err := NewSubnetService(s.st).AddSubnet(context.Background(), subnetInfo)
 	c.Assert(err, gc.ErrorMatches, "boom")
@@ -59,22 +69,26 @@ func (s *subnetSuite) TestAddSubnet(c *gc.C) {
 		AvailabilityZones: []string{"az0"},
 	}
 
-	var expectedUUID string
-	// Verify that the passed UUID is also returned.
-	s.st.EXPECT().AddSubnet(gomock.Any(), gomock.Any(), subnetInfo).
+	var expectedUUID network.Id
+	// Verify that the passed subnetInfo matches and don't return an error.
+	s.st.EXPECT().AddSubnet(gomock.Any(), gomock.Any()).
 		Do(
 			func(
 				ctx context.Context,
-				uuid string,
 				subnet network.SubnetInfo,
 			) error {
-				expectedUUID = uuid
+				c.Assert(subnet.CIDR, gc.Equals, subnetInfo.CIDR)
+				c.Assert(subnet.ProviderId, gc.Equals, subnetInfo.ProviderId)
+				c.Assert(subnet.ProviderNetworkId, gc.Equals, subnetInfo.ProviderNetworkId)
+				c.Assert(subnet.AvailabilityZones, jc.SameContents, subnetInfo.AvailabilityZones)
+				expectedUUID = subnet.ID
 				return nil
 			})
 
 	returnedUUID, err := NewSubnetService(s.st).AddSubnet(context.Background(), subnetInfo)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(returnedUUID.String(), gc.Equals, expectedUUID)
+	// Verify that the passed UUID is also returned.
+	c.Assert(returnedUUID, gc.Equals, expectedUUID)
 }
 
 func (s *subnetSuite) TestRetrieveSubnetByID(c *gc.C) {
