@@ -286,18 +286,13 @@ func (t *fileObjectStore) get(ctx context.Context, path string) (io.ReadCloser, 
 }
 
 func (t *fileObjectStore) put(ctx context.Context, path string, r io.Reader, size int64, validator hashValidator) error {
-	hash, alreadyExists, err := t.putFile(path, r, size)
+	hash, err := t.putFile(path, r, size)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	// Ensure that the hash of the file matches the expected hash.
 	if expected, ok := validator(hash); !ok {
-		if !alreadyExists {
-			// If we failed to write the metadata, we need to remove the file
-			// we just wrote.
-			_ = os.Remove(t.filePath(hash))
-		}
 		return fmt.Errorf("hash mismatch for %q: expected %q, got %q: %w", path, expected, hash, objectstore.ErrHashMismatch)
 	}
 
@@ -309,27 +304,19 @@ func (t *fileObjectStore) put(ctx context.Context, path string, r io.Reader, siz
 		Hash: hash,
 		Size: size,
 	}); err != nil {
-		// If the file didn't already exist then we can remove it, it did
-		// already exist we can't remove it as it may be in use by another
-		// metadata.
-		if !alreadyExists {
-			// If we failed to write the metadata, we need to remove the file
-			// we just wrote.
-			_ = os.Remove(t.filePath(hash))
-		}
 		return errors.Trace(err)
 	}
 
 	return nil
 }
 
-func (t *fileObjectStore) putFile(path string, r io.Reader, size int64) (string, bool, error) {
+func (t *fileObjectStore) putFile(path string, r io.Reader, size int64) (string, error) {
 	// The following dance is to ensure that we don't end up with a partially
 	// written file if we crash while writing it or if we're attempting to
 	// read it at the same time.
 	tmpFile, err := os.CreateTemp("", "file")
 	if err != nil {
-		return "", false, errors.Trace(err)
+		return "", errors.Trace(err)
 	}
 	defer func() {
 		_ = tmpFile.Close()
@@ -339,12 +326,12 @@ func (t *fileObjectStore) putFile(path string, r io.Reader, size int64) (string,
 	hasher := sha256.New()
 	written, err := io.Copy(tmpFile, io.TeeReader(r, hasher))
 	if err != nil {
-		return "", false, errors.Trace(err)
+		return "", errors.Trace(err)
 	}
 
 	// Ensure that we write all the data.
 	if written != size {
-		return "", false, errors.Errorf("partially written data: written %d, expected %d", written, size)
+		return "", errors.Errorf("partially written data: written %d, expected %d", written, size)
 	}
 
 	hash := hex.EncodeToString(hasher.Sum(nil))
@@ -355,21 +342,21 @@ func (t *fileObjectStore) putFile(path string, r io.Reader, size int64) (string,
 		// If the file on disk isn't the same as the one we're trying to write,
 		// then we have a problem.
 		if info.Size() != size {
-			return "", false, errors.AlreadyExistsf("file %q encoded as %q", path, filePath)
+			return "", errors.AlreadyExistsf("file %q encoded as %q", path, filePath)
 		}
-		return hash, true, nil
+		return hash, nil
 	} else if err != nil && !errors.Is(err, os.ErrNotExist) {
 		// There is an error attempting to stat the file, and it's not because
 		// the file doesn't exist.
-		return "", false, errors.Trace(err)
+		return "", errors.Trace(err)
 	}
 
 	// Swap out the temporary file for the real one.
 	if err := os.Rename(tmpFile.Name(), filePath); err != nil {
-		return "", false, errors.Trace(err)
+		return "", errors.Trace(err)
 	}
 
-	return hash, false, nil
+	return hash, nil
 }
 
 func (t *fileObjectStore) remove(ctx context.Context, path string) error {

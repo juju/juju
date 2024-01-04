@@ -163,7 +163,7 @@ func (s *FileObjectStoreSuite) TestPutCleansUpFileOnMetadataFailure(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// If the file is not referenced by another metadata entry, then the file
-	// should be cleaned up if the metadata service returns an error.
+	// should be left to be cleaned by the object store later on.
 
 	path := c.MkDir()
 
@@ -183,7 +183,7 @@ func (s *FileObjectStoreSuite) TestPutCleansUpFileOnMetadataFailure(c *gc.C) {
 	err = store.Put(context.Background(), "foo", strings.NewReader("some content"), 12)
 	c.Assert(err, gc.ErrorMatches, `.*boom`)
 
-	s.expectFileDoesNotExist(c, path, namespace, hash)
+	s.expectFileDoesExist(c, path, namespace, hash)
 }
 
 func (s *FileObjectStoreSuite) TestPutDoesNotCleansUpFileOnMetadataFailure(c *gc.C) {
@@ -290,7 +290,7 @@ func (s *FileObjectStoreSuite) TestPutAndCheckHashCleansUpFileOnMetadataFailure(
 	defer s.setupMocks(c).Finish()
 
 	// If the file is not referenced by another metadata entry, then the file
-	// should be cleaned up if the metadata service returns an error.
+	// should be left to cleaned up by the object store later on.
 
 	path := c.MkDir()
 
@@ -310,7 +310,7 @@ func (s *FileObjectStoreSuite) TestPutAndCheckHashCleansUpFileOnMetadataFailure(
 	err = store.PutAndCheckHash(context.Background(), "foo", strings.NewReader("some content"), 12, hash)
 	c.Assert(err, gc.ErrorMatches, `.*boom`)
 
-	s.expectFileDoesNotExist(c, path, namespace, hash)
+	s.expectFileDoesExist(c, path, namespace, hash)
 }
 
 func (s *FileObjectStoreSuite) TestPutAndCheckHashDoesNotCleansUpFileOnMetadataFailure(c *gc.C) {
