@@ -29,4 +29,7 @@ const (
 
 	// WATCHERS defines a common label for dealing with watchers.
 	WATCHERS Label = "watchers"
+
+	// MIGRATION defines a common label for dealing with migration.
+	MIGRATION Label = "migration"
 )
