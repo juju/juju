@@ -45,7 +45,7 @@ require (
 	github.com/im7mortal/kmutex v1.0.1
 	github.com/juju/ansiterm v1.0.0
 	github.com/juju/blobstore/v3 v3.0.2
-	github.com/juju/charm/v12 v12.0.0
+	github.com/juju/charm/v12 v12.0.1
 	github.com/juju/clock v1.0.3
 	github.com/juju/cmd/v3 v3.0.14
 	github.com/juju/collections v1.0.4
@@ -62,7 +62,6 @@ require (
 	github.com/juju/lumberjack/v2 v2.0.2
 	github.com/juju/mgo/v3 v3.0.4
 	github.com/juju/mutex/v2 v2.0.0
-	github.com/juju/names/v4 v4.0.0-20220207005702-9c6532a52823
 	github.com/juju/names/v5 v5.0.0
 	github.com/juju/naturalsort v1.0.0
 	github.com/juju/os/v2 v2.2.3
