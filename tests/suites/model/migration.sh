@@ -6,7 +6,9 @@ run_model_migration() {
 	# Ensure we have another controller available.
 	bootstrap_alt_controller "alt-model-migration"
 	juju switch "alt-model-migration"
-	juju add-model "model-migration"
+	add_model "model-migration"
+	juju model-config -m controller "logging-config=#migration=DEBUG"
+	juju model-config -m model-migration "logging-config=#migration=DEBUG"
 
 	juju deploy jameinel-ubuntu-lite ubuntu
 
@@ -15,6 +17,7 @@ run_model_migration() {
 	# Capture logs to ensure they are migrated
 	old_logs="$(juju debug-log --no-tail -l DEBUG)"
 
+	juju model-config -m "${BOOTSTRAPPED_JUJU_CTRL_NAME}:controller" "logging-config=#migration=DEBUG"
 	juju migrate "model-migration" "${BOOTSTRAPPED_JUJU_CTRL_NAME}"
 	juju switch "${BOOTSTRAPPED_JUJU_CTRL_NAME}"
 
@@ -77,7 +80,7 @@ run_model_migration_version() {
 	# Ensure we have another controller available.
 	bootstrap_alt_controller "alt-model-migration-version-stable"
 	juju --show-log switch "alt-model-migration-version-stable"
-	juju --show-log add-model "model-migration-version-stable"
+	add_model "model-migration-version-stable"
 
 	juju --show-log deploy easyrsa
 	juju --show-log deploy etcd
@@ -156,7 +159,7 @@ run_model_migration_saas_common() {
 
 	wait_for "dummy-source" "$(idle_condition "dummy-source")"
 
-	juju add-model blog
+	add_model blog
 	juju switch blog
 	juju deploy juju-qa-dummy-sink --series jammy
 
@@ -294,7 +297,7 @@ run_model_migration_saas_consumer() {
 	wait_for "dummy-source" "$(idle_condition "dummy-source")"
 
 	juju switch "model-migration-saas-consume"
-	juju add-model "model-migration-consumer"
+	add_model "model-migration-consumer"
 	juju deploy juju-qa-dummy-sink --series jammy
 
 	wait_for "dummy-sink" "$(idle_condition "dummy-sink")"

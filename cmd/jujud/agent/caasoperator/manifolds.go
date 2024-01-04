@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/api/client/charms"
 	"github.com/juju/juju/caas/kubernetes/provider/exec"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/juju/sockets"
@@ -219,7 +220,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			ValidateMigration: config.ValidateMigration,
 			NewFacade:         migrationminion.NewFacade,
 			NewWorker:         migrationminion.NewWorker,
-			Logger:            loggo.GetLogger("juju.worker.migrationminion"),
+			Logger:            loggo.GetLoggerWithLabels("juju.worker.migrationminion", corelogger.MIGRATION),
 		}),
 
 		// The proxy config updater is a leaf worker that sets http/https/apt/etc
