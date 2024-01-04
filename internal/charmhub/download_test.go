@@ -11,7 +11,6 @@ import (
 	"net/url"
 	"os"
 
-	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -23,7 +22,7 @@ const defaultSeries = "bionic"
 const localCharmRepo = "../../testcharms/charm-repo"
 
 type DownloadSuite struct {
-	testing.IsolationSuite
+	baseSuite
 }
 
 var _ = gc.Suite(&DownloadSuite{})
@@ -55,7 +54,7 @@ func (s *DownloadSuite) TestDownloadAndRead(c *gc.C) {
 	serverURL, err := url.Parse("http://meshuggah.rocks")
 	c.Assert(err, jc.ErrorIsNil)
 
-	client := newDownloadClient(httpClient, fileSystem, &FakeLogger{})
+	client := newDownloadClient(httpClient, fileSystem, s.logger)
 	_, err = client.DownloadAndRead(context.Background(), serverURL, tmpFile.Name())
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -85,7 +84,7 @@ func (s *DownloadSuite) TestDownloadAndReadWithNotFoundStatusCode(c *gc.C) {
 	serverURL, err := url.Parse("http://meshuggah.rocks")
 	c.Assert(err, jc.ErrorIsNil)
 
-	client := newDownloadClient(httpClient, fileSystem, &FakeLogger{})
+	client := newDownloadClient(httpClient, fileSystem, s.logger)
 	_, err = client.DownloadAndRead(context.Background(), serverURL, tmpFile.Name())
 	c.Assert(err, gc.ErrorMatches, `cannot retrieve "http://meshuggah.rocks": archive not found`)
 }
@@ -116,7 +115,7 @@ func (s *DownloadSuite) TestDownloadAndReadWithFailedStatusCode(c *gc.C) {
 	serverURL, err := url.Parse("http://meshuggah.rocks")
 	c.Assert(err, jc.ErrorIsNil)
 
-	client := newDownloadClient(httpClient, fileSystem, &FakeLogger{})
+	client := newDownloadClient(httpClient, fileSystem, s.logger)
 	_, err = client.DownloadAndRead(context.Background(), serverURL, tmpFile.Name())
 	c.Assert(err, gc.ErrorMatches, `cannot retrieve "http://meshuggah.rocks": unable to locate archive \(store API responded with status: Internal Server Error\)`)
 }

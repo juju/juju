@@ -156,9 +156,9 @@ func newFacadeBase(ctx facade.Context) (*APIBase, error) {
 	charmhubHTTPClient := ctx.HTTPClient(facade.CharmhubHTTPClient)
 	chURL, _ := modelCfg.CharmHubURL()
 	chClient, err := charmhub.NewClient(charmhub.Config{
-		URL:        chURL,
-		HTTPClient: charmhubHTTPClient,
-		Logger:     logger,
+		URL:           chURL,
+		HTTPClient:    charmhubHTTPClient,
+		LoggerFactory: charmhub.LoggoLoggerFactory(logger),
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

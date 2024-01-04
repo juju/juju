@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/loggo"
+	gc "gopkg.in/check.v1"
 )
 
 // NoopLogger is a loggo.Logger that does nothing.
@@ -63,6 +64,9 @@ func (c CheckLogger) Logf(level loggo.Level, msg string, args ...any) {
 	c.Log.Logf(fmt.Sprintf("%s: %s", level.String(), msg), args...)
 }
 func (c CheckLogger) Child(name string) CheckLogger { return c }
+func (c CheckLogger) ChildWithLabels(string, ...string) CheckLogger {
+	return c
+}
 
 func (c CheckLogger) IsErrorEnabled() bool            { return true }
 func (c CheckLogger) IsWarningEnabled() bool          { return true }
@@ -70,3 +74,21 @@ func (c CheckLogger) IsInfoEnabled() bool             { return true }
 func (c CheckLogger) IsDebugEnabled() bool            { return true }
 func (c CheckLogger) IsTraceEnabled() bool            { return true }
 func (c CheckLogger) IsLevelEnabled(loggo.Level) bool { return true }
+
+// CheckLoggerFactory is a factory for creating CheckLoggers.
+type CheckLoggerFactory struct {
+	c *gc.C
+}
+
+// NewCheckLoggerFactory returns a CheckLoggerFactory that creates
+// CheckLoggers that log to the given *check.C.
+func NewCheckLoggerFactory(c *gc.C) CheckLoggerFactory {
+	return CheckLoggerFactory{}
+}
+
+func (c CheckLoggerFactory) Child(string) CheckLogger {
+	return NewCheckLogger(c.c)
+}
+func (c CheckLoggerFactory) ChildWithLabels(string, ...string) CheckLogger {
+	return NewCheckLogger(c.c)
+}

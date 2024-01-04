@@ -16,7 +16,6 @@ import (
 	reflect "reflect"
 
 	path "github.com/juju/juju/internal/charmhub/path"
-	loggo "github.com/juju/loggo"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -172,23 +171,21 @@ func (m *MockLogger) EXPECT() *MockLoggerMockRecorder {
 	return m.recorder
 }
 
-// ChildWithLabels mocks base method.
-func (m *MockLogger) ChildWithLabels(arg0 string, arg1 ...string) loggo.Logger {
+// Debugf mocks base method.
+func (m *MockLogger) Debugf(arg0 string, arg1 ...any) {
 	m.ctrl.T.Helper()
 	varargs := []any{arg0}
 	for _, a := range arg1 {
 		varargs = append(varargs, a)
 	}
-	ret := m.ctrl.Call(m, "ChildWithLabels", varargs...)
-	ret0, _ := ret[0].(loggo.Logger)
-	return ret0
+	m.ctrl.Call(m, "Debugf", varargs...)
 }
 
-// ChildWithLabels indicates an expected call of ChildWithLabels.
-func (mr *MockLoggerMockRecorder) ChildWithLabels(arg0 any, arg1 ...any) *gomock.Call {
+// Debugf indicates an expected call of Debugf.
+func (mr *MockLoggerMockRecorder) Debugf(arg0 any, arg1 ...any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]any{arg0}, arg1...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ChildWithLabels", reflect.TypeOf((*MockLogger)(nil).ChildWithLabels), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Debugf", reflect.TypeOf((*MockLogger)(nil).Debugf), varargs...)
 }
 
 // Errorf mocks base method.
@@ -237,4 +234,21 @@ func (mr *MockLoggerMockRecorder) Tracef(arg0 any, arg1 ...any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]any{arg0}, arg1...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Tracef", reflect.TypeOf((*MockLogger)(nil).Tracef), varargs...)
+}
+
+// Warningf mocks base method.
+func (m *MockLogger) Warningf(arg0 string, arg1 ...any) {
+	m.ctrl.T.Helper()
+	varargs := []any{arg0}
+	for _, a := range arg1 {
+		varargs = append(varargs, a)
+	}
+	m.ctrl.Call(m, "Warningf", varargs...)
+}
+
+// Warningf indicates an expected call of Warningf.
+func (mr *MockLoggerMockRecorder) Warningf(arg0 any, arg1 ...any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]any{arg0}, arg1...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Warningf", reflect.TypeOf((*MockLogger)(nil).Warningf), varargs...)
 }

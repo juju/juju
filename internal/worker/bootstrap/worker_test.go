@@ -15,6 +15,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	controller "github.com/juju/juju/controller"
+	"github.com/juju/juju/core/flags"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
@@ -130,5 +131,5 @@ func (s *workerSuite) expectObjectStoreGetter() {
 }
 
 func (s *workerSuite) expectBootstrapFlagSet() {
-	s.flagService.EXPECT().SetFlag(gomock.Any(), BootstrapFlag, true).Return(nil)
+	s.flagService.EXPECT().SetFlag(gomock.Any(), flags.BootstrapFlag, true).Return(nil)
 }

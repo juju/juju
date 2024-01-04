@@ -500,7 +500,7 @@ func (a *API) getCharmRepository(ctx context.Context, src corecharm.Source) (cor
 	a.mu.Unlock()
 
 	repoFactory := a.newRepoFactory(services.CharmRepoFactoryConfig{
-		Logger:             a.logger,
+		LoggerFactory:      services.LoggoLoggerFactory(a.logger),
 		CharmhubHTTPClient: a.charmhubHTTPClient,
 		StateBackend:       a.backendState,
 		ModelBackend:       a.backendModel,

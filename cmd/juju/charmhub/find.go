@@ -134,8 +134,8 @@ func (c *findCommand) Init(args []string) error {
 // part of the cmd.Command interface.
 func (c *findCommand) Run(cmdContext *cmd.Context) error {
 	cfg := charmhub.Config{
-		URL:    c.charmHubURL,
-		Logger: logger,
+		URL:           c.charmHubURL,
+		LoggerFactory: charmhub.LoggoLoggerFactory(logger),
 	}
 
 	client, err := c.CharmHubClientFunc(cfg)

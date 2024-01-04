@@ -24,7 +24,7 @@ import (
 )
 
 type RefreshSuite struct {
-	testing.IsolationSuite
+	baseSuite
 }
 
 var (
@@ -75,7 +75,7 @@ func (s *RefreshSuite) TestRefresh(c *gc.C) {
 	restClient := NewMockRESTClient(ctrl)
 	s.expectPost(restClient, baseURLPath, id, body)
 
-	client := newRefreshClient(baseURLPath, restClient, &FakeLogger{})
+	client := newRefreshClient(baseURLPath, restClient, s.logger)
 	responses, err := client.Refresh(context.Background(), config)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(responses), gc.Equals, 1)
@@ -169,7 +169,7 @@ func (s *RefreshSuite) TestRefreshMetadata(c *gc.C) {
 	}
 
 	restClient := newHTTPRESTClient(httpClient)
-	client := newRefreshClient(baseURLPath, restClient, &FakeLogger{})
+	client := newRefreshClient(baseURLPath, restClient, s.logger)
 
 	config1, err := RefreshOne("instance-key-foo", "foo", 1, "latest/stable", RefreshBase{
 		Name:         "ubuntu",
@@ -219,7 +219,7 @@ func (s *RefreshSuite) TestRefreshMetadataRandomOrder(c *gc.C) {
 	}
 
 	restClient := newHTTPRESTClient(httpClient)
-	client := newRefreshClient(baseURLPath, restClient, &FakeLogger{})
+	client := newRefreshClient(baseURLPath, restClient, s.logger)
 
 	config1, err := RefreshOne("instance-key-foo", "foo", 1, "latest/stable", RefreshBase{
 		Name:         "ubuntu",
@@ -278,7 +278,7 @@ func (s *RefreshSuite) TestRefreshWithMetricsOnly(c *gc.C) {
 		},
 	}
 
-	client := newRefreshClient(baseURLPath, restClient, &FakeLogger{})
+	client := newRefreshClient(baseURLPath, restClient, s.logger)
 	err := client.RefreshWithMetricsOnly(context.Background(), metrics)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -367,7 +367,7 @@ func (s *RefreshSuite) TestRefreshWithRequestMetrics(c *gc.C) {
 		},
 	}
 
-	client := newRefreshClient(baseURLPath, restClient, &FakeLogger{})
+	client := newRefreshClient(baseURLPath, restClient, s.logger)
 	responses, err := client.RefreshWithRequestMetrics(context.Background(), config, metrics)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(responses), gc.Equals, 2)
@@ -393,7 +393,7 @@ func (s *RefreshSuite) TestRefreshFailure(c *gc.C) {
 	restClient := NewMockRESTClient(ctrl)
 	s.expectPostFailure(restClient)
 
-	client := newRefreshClient(baseURLPath, restClient, &FakeLogger{})
+	client := newRefreshClient(baseURLPath, restClient, s.logger)
 	_, err = client.Refresh(context.Background(), config)
 	c.Assert(err, gc.Not(jc.ErrorIsNil))
 }

@@ -17,7 +17,6 @@ import (
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/loggo"
 
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/core/arch"
@@ -181,8 +180,8 @@ func (c *downloadCommand) Run(cmdContext *cmd.Context) error {
 	}
 
 	cfg := charmhub.Config{
-		URL:    c.charmHubURL,
-		Logger: downloadLogger{Context: cmdContext},
+		URL:           c.charmHubURL,
+		LoggerFactory: downloadLoggerFactory{Context: cmdContext},
 	}
 
 	if c.pipeToStdout {
@@ -404,27 +403,43 @@ func (c *downloadCommand) calculateHash(path string) (string, error) {
 	return fmt.Sprintf("%x", hash.Sum(nil)), nil
 }
 
-type downloadLogger struct {
+type downloadLoggerFactory struct {
 	Context *cmd.Context
 }
 
+func (d downloadLoggerFactory) Child(name string) charmhub.Logger {
+	return downloadLogger{
+		factory: d,
+	}
+}
+
+func (d downloadLoggerFactory) ChildWithLabels(name string, labels ...string) charmhub.Logger {
+	return downloadLogger{
+		factory: d,
+	}
+}
+
+type downloadLogger struct {
+	factory downloadLoggerFactory
+}
+
 func (d downloadLogger) IsTraceEnabled() bool {
-	return !d.Context.Quiet()
+	return !d.factory.Context.Quiet()
 }
 
 func (d downloadLogger) Errorf(msg string, args ...interface{}) {
-	d.Context.Verbosef(msg, args...)
+	d.factory.Context.Verbosef(msg, args...)
+}
+
+func (d downloadLogger) Warningf(msg string, args ...interface{}) {
+	d.factory.Context.Verbosef(msg, args...)
 }
 
 func (d downloadLogger) Debugf(msg string, args ...interface{}) {
-	d.Context.Verbosef(msg, args...)
+	d.factory.Context.Verbosef(msg, args...)
 }
 
 func (d downloadLogger) Tracef(msg string, args ...interface{}) {}
-
-func (d downloadLogger) ChildWithLabels(name string, labels ...string) loggo.Logger {
-	return logger.ChildWithLabels(name, labels...)
-}
 
 type stdoutFileSystem struct{}
 

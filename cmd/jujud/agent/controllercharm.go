@@ -149,11 +149,12 @@ func populateStoreControllerCharm(ctx context.Context, objectStore services.Stor
 		return nil, nil, err
 	}
 
-	charmhubHTTPClient := charmhub.DefaultHTTPClient(logger)
+	loggerFactory := charmhub.LoggoLoggerFactory(logger)
+	charmhubHTTPClient := charmhub.DefaultHTTPClient(loggerFactory)
 
 	stateBackend := &stateShim{st}
 	charmRepo, err := newCharmRepo(services.CharmRepoFactoryConfig{
-		Logger:             logger,
+		LoggerFactory:      services.LoggoLoggerFactory(logger),
 		CharmhubHTTPClient: charmhubHTTPClient,
 		StateBackend:       stateBackend,
 		ModelBackend:       model,
@@ -197,7 +198,7 @@ func populateStoreControllerCharm(ctx context.Context, objectStore services.Stor
 	}
 
 	charmDownloader, err := newCharmDownloader(services.CharmDownloaderConfig{
-		Logger:             logger,
+		LoggerFactory:      services.LoggoLoggerFactory(logger),
 		CharmhubHTTPClient: charmhubHTTPClient,
 		ObjectStore:        objectStore,
 		StateBackend:       stateBackend,
