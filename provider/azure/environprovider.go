@@ -14,6 +14,7 @@ import (
 	"github.com/juju/jsonschema"
 	"github.com/juju/loggo"
 
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
@@ -119,9 +120,16 @@ func (prov *azureEnvironProvider) Version() int {
 // Open is part of the EnvironProvider interface.
 func (prov *azureEnvironProvider) Open(ctx stdcontext.Context, args environs.OpenParams) (environs.Environ, error) {
 	logger.Debugf("opening model %q", args.Config.Name())
-	environ := &azureEnviron{
-		provider: prov,
+
+	namespace, err := instance.NewNamespace(args.Config.UUID())
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
+	environ := &azureEnviron{
+		provider:  prov,
+		namespace: namespace,
+	}
+
 	// Config is needed before cloud spec.
 	if err := environ.SetConfig(args.Config); err != nil {
 		return nil, errors.Trace(err)

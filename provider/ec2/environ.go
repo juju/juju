@@ -108,6 +108,9 @@ type environ struct {
 	ecfgMutex    sync.Mutex
 	ecfgUnlocked *environConfig
 
+	// namespace is used to create the machine and device hostnames.
+	namespace instance.Namespace
+
 	instTypesCache      *instanceTypeCache
 	instTypesCacheMutex sync.RWMutex
 
@@ -676,10 +679,12 @@ func (e *environ) StartInstance(
 	}
 	rootDiskSize := uint64(aws.ToInt32(blockDeviceMappings[0].Ebs.VolumeSize)) * 1024
 
-	instanceName := resourceName(
-		names.NewMachineTag(args.InstanceConfig.MachineId), e.Config().Name(),
-	)
-	args.InstanceConfig.Tags[tagName] = instanceName
+	hostname, err := e.namespace.Hostname(args.InstanceConfig.MachineId)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	args.InstanceConfig.Tags[tagName] = hostname
 
 	instanceTags := CreateTagSpecification(types.ResourceTypeInstance, args.InstanceConfig.Tags)
 
@@ -689,7 +694,7 @@ func (e *environ) StartInstance(
 		names.NewControllerTag(args.ControllerUUID),
 		cfg,
 	)
-	rootVolumeTags[tagName] = instanceName + "-root"
+	rootVolumeTags[tagName] = hostname + "-root"
 	volumeTags := CreateTagSpecification(types.ResourceTypeVolume, rootVolumeTags)
 
 	imageID := aws.String(spec.Image.Id)

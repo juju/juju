@@ -121,7 +121,7 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 	s.vmTags = map[string]string{
 		"juju-model-uuid":      testing.ModelTag.Id(),
 		"juju-controller-uuid": s.controllerUUID,
-		"juju-machine-name":    "machine-0",
+		"juju-machine-name":    "juju-06f00d-0",
 	}
 
 	s.group = &armresources.ResourceGroup{
@@ -222,7 +222,7 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 		KeyData: to.Ptr(testing.FakeAuthKeys),
 	}}
 	s.linuxOsProfile = armcompute.OSProfile{
-		ComputerName:  to.Ptr("machine-0"),
+		ComputerName:  to.Ptr("juju-06f00d-0"),
 		CustomData:    to.Ptr("<juju-goes-here>"),
 		AdminUsername: to.Ptr("ubuntu"),
 		LinuxConfiguration: &armcompute.LinuxConfiguration{
@@ -420,15 +420,15 @@ func (s *environSuite) startInstanceSenders(args startInstanceSenderParams) azur
 	}
 	if args.withQuotaRetry {
 		quotaErr := newAzureResponseError(http.StatusBadRequest, "QuotaExceeded")
-		senders = append(senders, s.makeErrorSender("/deployments/machine-0", quotaErr, 1))
+		senders = append(senders, s.makeErrorSender("/deployments/juju-06f00d-0", quotaErr, 1))
 		return senders
 	}
 	if args.withConflictRetry {
 		conflictErr := newAzureResponseError(http.StatusConflict, "Conflict")
-		senders = append(senders, s.makeErrorSender("/deployments/machine-0", conflictErr, 1))
+		senders = append(senders, s.makeErrorSender("/deployments/juju-06f00d-0", conflictErr, 1))
 		return senders
 	}
-	senders = append(senders, makeSender("/deployments/machine-0", s.deployment))
+	senders = append(senders, makeSender("/deployments/juju-06f00d-0", s.deployment))
 	return senders
 }
 
@@ -437,7 +437,7 @@ func (s *environSuite) startInstanceSendersNoSizes() azuretesting.Senders {
 	if s.ubuntuServerSKUs != nil {
 		senders = append(senders, makeSender(".*/Canonical/.*/0001-com-ubuntu-server-jammy/skus", s.ubuntuServerSKUs))
 	}
-	senders = append(senders, makeSender("/deployments/machine-0", s.deployment))
+	senders = append(senders, makeSender("/deployments/juju-06f00d-0", s.deployment))
 	return senders
 }
 
@@ -645,7 +645,7 @@ func (s *environSuite) assertStartInstance(
 	if withQuotaRetry {
 		// Retry after a quota error - the same instance creation senders are
 		// used except that the availability set now exists.
-		s.sender = append(s.sender, makeSenderWithStatus(".*/deployments/machine-0/cancel", http.StatusNoContent))
+		s.sender = append(s.sender, makeSenderWithStatus(".*/deployments/juju-06f00d-0/cancel", http.StatusNoContent))
 		s.sender = append(s.sender, s.startInstanceSenders(startInstanceSenderParams{
 			bootstrap:             false,
 			diskEncryptionSetName: diskEncryptionSetName,
@@ -796,7 +796,7 @@ func (s *environSuite) TestStartInstanceCommonDeployment(c *gc.C) {
 
 	_, err := env.StartInstance(s.callCtx, makeStartInstanceParams(c, s.controllerUUID, corebase.MakeDefaultBase("ubuntu", "22.04")))
 	c.Assert(err, gc.ErrorMatches,
-		`creating virtual machine "machine-0": `+
+		`creating virtual machine "juju-06f00d-0": `+
 			`waiting for common resources to be created: `+
 			`"common" resource deployment status is "Failed"`)
 }
@@ -820,7 +820,7 @@ func (s *environSuite) TestStartInstanceCommonDeploymentRetryTimeout(c *gc.C) {
 
 	_, err := env.StartInstance(s.callCtx, makeStartInstanceParams(c, s.controllerUUID, corebase.MakeDefaultBase("ubuntu", "22.04")))
 	c.Assert(err, gc.ErrorMatches,
-		`creating virtual machine "machine-0": `+
+		`creating virtual machine "juju-06f00d-0": `+
 			`waiting for common resources to be created: `+
 			`max duration exceeded: deployment incomplete`)
 
@@ -885,7 +885,7 @@ func (s *environSuite) TestStartInstanceWithInvalidPlacement(c *gc.C) {
 	params.Placement = "foo"
 
 	_, err := env.StartInstance(s.callCtx, params)
-	c.Assert(err, gc.ErrorMatches, `creating virtual machine "machine-0": unknown placement directive: foo`)
+	c.Assert(err, gc.ErrorMatches, `creating virtual machine "juju-06f00d-0": unknown placement directive: foo`)
 }
 
 func (s *environSuite) TestStartInstanceWithInvalidSubnet(c *gc.C) {
@@ -896,7 +896,7 @@ func (s *environSuite) TestStartInstanceWithInvalidSubnet(c *gc.C) {
 	params.Placement = "subnet=foo"
 
 	_, err := env.StartInstance(s.callCtx, params)
-	c.Assert(err, gc.ErrorMatches, `creating virtual machine "machine-0": subnet "foo" not found`)
+	c.Assert(err, gc.ErrorMatches, `creating virtual machine "juju-06f00d-0": subnet "foo" not found`)
 }
 
 func (s *environSuite) TestStartInstanceWithPlacementNoSpacesConstraint(c *gc.C) {
@@ -1197,7 +1197,7 @@ func (s *environSuite) assertStartInstanceRequests(
 	}
 	var publicIPAddress *armnetwork.PublicIPAddress
 	if args.publicIP {
-		publicIPAddressId := `[resourceId('Microsoft.Network/publicIPAddresses', 'machine-0-public-ip')]`
+		publicIPAddressId := `[resourceId('Microsoft.Network/publicIPAddresses', 'juju-06f00d-0-public-ip')]`
 		publicIPAddress = &armnetwork.PublicIPAddress{
 			ID: to.Ptr(publicIPAddressId),
 		}
@@ -1224,7 +1224,7 @@ func (s *environSuite) assertStartInstanceRequests(
 			nicDependsOn = append(nicDependsOn, *publicIPAddress.ID)
 		}
 
-		nicId := fmt.Sprintf(`[resourceId('Microsoft.Network/networkInterfaces', 'machine-0-%s')]`, name)
+		nicId := fmt.Sprintf(`[resourceId('Microsoft.Network/networkInterfaces', 'juju-06f00d-0-%s')]`, name)
 		nics = append(nics, &armcompute.NetworkInterfaceReference{
 			ID: to.Ptr(nicId),
 			Properties: &armcompute.NetworkInterfaceReferenceProperties{
@@ -1235,7 +1235,7 @@ func (s *environSuite) assertStartInstanceRequests(
 		nicResources = append(nicResources, armtemplates.Resource{
 			APIVersion: azure.NetworkAPIVersion,
 			Type:       "Microsoft.Network/networkInterfaces",
-			Name:       "machine-0-" + name,
+			Name:       "juju-06f00d-0-" + name,
 			Location:   "westus",
 			Tags:       s.vmTags,
 			Properties: &armnetwork.InterfacePropertiesFormat{
@@ -1246,7 +1246,7 @@ func (s *environSuite) assertStartInstanceRequests(
 	}
 
 	osDisk := &armcompute.OSDisk{
-		Name:         to.Ptr("machine-0"),
+		Name:         to.Ptr("juju-06f00d-0"),
 		CreateOption: to.Ptr(armcompute.DiskCreateOptionTypesFromImage),
 		Caching:      to.Ptr(armcompute.CachingTypesReadWrite),
 		DiskSizeGB:   to.Ptr(int32(args.diskSizeGB)),
@@ -1265,7 +1265,7 @@ func (s *environSuite) assertStartInstanceRequests(
 		templateResources = append(templateResources, armtemplates.Resource{
 			APIVersion: azure.NetworkAPIVersion,
 			Type:       "Microsoft.Network/publicIPAddresses",
-			Name:       "machine-0-public-ip",
+			Name:       "juju-06f00d-0-public-ip",
 			Location:   "westus",
 			Tags:       s.vmTags,
 			Properties: &armnetwork.PublicIPAddressPropertiesFormat{
@@ -1279,7 +1279,7 @@ func (s *environSuite) assertStartInstanceRequests(
 	templateResources = append(templateResources, []armtemplates.Resource{{
 		APIVersion: azure.ComputeAPIVersion,
 		Type:       "Microsoft.Compute/virtualMachines",
-		Name:       "machine-0",
+		Name:       "juju-06f00d-0",
 		Location:   "westus",
 		Tags:       s.vmTags,
 		Properties: &armcompute.VirtualMachineProperties{
@@ -1302,11 +1302,11 @@ func (s *environSuite) assertStartInstanceRequests(
 		templateResources = append(templateResources, armtemplates.Resource{
 			APIVersion: azure.ComputeAPIVersion,
 			Type:       "Microsoft.Compute/virtualMachines/extensions",
-			Name:       "machine-0/JujuCustomScriptExtension",
+			Name:       "juju-06f00d-0/JujuCustomScriptExtension",
 			Location:   "westus",
 			Tags:       s.vmTags,
 			Properties: args.vmExtension,
-			DependsOn:  []string{"Microsoft.Compute/virtualMachines/machine-0"},
+			DependsOn:  []string{"Microsoft.Compute/virtualMachines/juju-06f00d-0"},
 		})
 	}
 	templateMap := map[string]interface{}{
@@ -1782,28 +1782,28 @@ func (s *environSuite) TestStopInstancesNoSecurityGroup(c *gc.C) {
 		Properties: &armnetwork.SubnetPropertiesFormat{},
 	}
 	nic0IPConfiguration.Properties.PublicIPAddress = &armnetwork.PublicIPAddress{}
-	nic0 := makeNetworkInterface("nic-0", "machine-0", nic0IPConfiguration)
+	nic0 := makeNetworkInterface("nic-0", "juju-06f00d-0", nic0IPConfiguration)
 	s.sender = azuretesting.Senders{
-		makeSenderWithStatus(".*/deployments/machine-0/cancel", http.StatusNoContent), // Cancel
-		s.networkInterfacesSender(nic0),                                               // GET: no NICs
-		s.publicIPAddressesSender(),                                                   // GET: no public IPs
-		makeSender(".*/virtualMachines/machine-0", nil),                               // DELETE
-		makeSender(".*/disks/machine-0", nil),                                         // DELETE
-		makeSender(internalSubnetId, nic0IPConfiguration.Properties.Subnet),           // GET: subnets to get security group
-		makeSender(".*/networkInterfaces/nic-0", nil),                                 // DELETE
-		makeSenderWithStatus(".*/deployments/machine-0", http.StatusNoContent),        // DELETE
+		makeSenderWithStatus(".*/deployments/juju-06f00d-0/cancel", http.StatusNoContent), // Cancel
+		s.networkInterfacesSender(nic0),                                            // GET: no NICs
+		s.publicIPAddressesSender(),                                                // GET: no public IPs
+		makeSender(".*/virtualMachines/juju-06f00d-0", nil),                        // DELETE
+		makeSender(".*/disks/juju-06f00d-0", nil),                                  // DELETE
+		makeSender(internalSubnetId, nic0IPConfiguration.Properties.Subnet),        // GET: subnets to get security group
+		makeSender(".*/networkInterfaces/nic-0", nil),                              // DELETE
+		makeSenderWithStatus(".*/deployments/juju-06f00d-0", http.StatusNoContent), // DELETE
 	}
-	err := env.StopInstances(s.callCtx, "machine-0")
+	err := env.StopInstances(s.callCtx, "juju-06f00d-0")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *environSuite) TestStopInstances(c *gc.C) {
 	env := s.openEnviron(c)
 
-	// Security group has rules for machine-0, as well as a rule that doesn't match.
+	// Security group has rules for juju-06f00d-0, as well as a rule that doesn't match.
 	nsg := makeSecurityGroup(
-		makeSecurityRule("machine-0-80", "192.168.0.4", "80"),
-		makeSecurityRule("machine-0-1000-2000", "192.168.0.4", "1000-2000"),
+		makeSecurityRule("juju-06f00d-0-80", "192.168.0.4", "80"),
+		makeSecurityRule("juju-06f00d-0-1000-2000", "192.168.0.4", "1000-2000"),
 		makeSecurityRule("machine-42", "192.168.0.5", "*"),
 	)
 
@@ -1812,35 +1812,35 @@ func (s *environSuite) TestStopInstances(c *gc.C) {
 	nic0IPConfiguration := makeIPConfiguration("192.168.0.4")
 	nic0IPConfiguration.Properties.PublicIPAddress = &armnetwork.PublicIPAddress{}
 	nic0IPConfiguration.Properties.Primary = to.Ptr(true)
-	nic0 := makeNetworkInterface("nic-0", "machine-0", nic0IPConfiguration)
+	nic0 := makeNetworkInterface("nic-0", "juju-06f00d-0", nic0IPConfiguration)
 	nic0.Properties.NetworkSecurityGroup = &nsg
 
 	s.sender = azuretesting.Senders{
-		makeSenderWithStatus(".*/deployments/machine-0/cancel", http.StatusNoContent), // POST
+		makeSenderWithStatus(".*/deployments/juju-06f00d-0/cancel", http.StatusNoContent), // POST
 		s.networkInterfacesSender(nic0),
-		s.publicIPAddressesSender(makePublicIPAddress("pip-0", "machine-0", "1.2.3.4")),
-		makeSender(".*/virtualMachines/machine-0", nil),                                                 // DELETE
-		makeSender(".*/disks/machine-0", nil),                                                           // GET
-		makeSender(".*/networkSecurityGroups/juju-internal-nsg/securityRules/machine-0-80", nil),        // DELETE
-		makeSender(".*/networkSecurityGroups/juju-internal-nsg/securityRules/machine-0-1000-2000", nil), // DELETE
-		makeSender(".*/networkInterfaces/nic-0", nil),                                                   // DELETE
-		makeSender(".*/publicIPAddresses/pip-0", nil),                                                   // DELETE
-		makeSenderWithStatus(".*/deployments/machine-0", http.StatusNoContent),                          // DELETE
+		s.publicIPAddressesSender(makePublicIPAddress("pip-0", "juju-06f00d-0", "1.2.3.4")),
+		makeSender(".*/virtualMachines/juju-06f00d-0", nil),                                                 // DELETE
+		makeSender(".*/disks/juju-06f00d-0", nil),                                                           // GET
+		makeSender(".*/networkSecurityGroups/juju-internal-nsg/securityRules/juju-06f00d-0-80", nil),        // DELETE
+		makeSender(".*/networkSecurityGroups/juju-internal-nsg/securityRules/juju-06f00d-0-1000-2000", nil), // DELETE
+		makeSender(".*/networkInterfaces/nic-0", nil),                                                       // DELETE
+		makeSender(".*/publicIPAddresses/pip-0", nil),                                                       // DELETE
+		makeSenderWithStatus(".*/deployments/juju-06f00d-0", http.StatusNoContent),                          // DELETE
 	}
 
-	err := env.StopInstances(s.callCtx, "machine-0")
+	err := env.StopInstances(s.callCtx, "juju-06f00d-0")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *environSuite) TestStopInstancesMultiple(c *gc.C) {
 	env := s.openEnviron(c)
 
-	vmDeleteSender0 := s.makeErrorSender(".*/virtualMachines/machine-[01]", errors.New("blargh"), 2)
-	vmDeleteSender1 := s.makeErrorSender(".*/virtualMachines/machine-[01]", errors.New("blargh"), 2)
+	vmDeleteSender0 := s.makeErrorSender(".*/virtualMachines/juju-06f00d-[01]", errors.New("blargh"), 2)
+	vmDeleteSender1 := s.makeErrorSender(".*/virtualMachines/juju-06f00d-[01]", errors.New("blargh"), 2)
 
 	s.sender = azuretesting.Senders{
-		makeSenderWithStatus(".*/deployments/machine-[01]/cancel", http.StatusNoContent), // POST
-		makeSenderWithStatus(".*/deployments/machine-[01]/cancel", http.StatusNoContent), // POST
+		makeSenderWithStatus(".*/deployments/juju-06f00d-[01]/cancel", http.StatusNoContent), // POST
+		makeSenderWithStatus(".*/deployments/juju-06f00d-[01]/cancel", http.StatusNoContent), // POST
 
 		// We should only query the NICs and public IPs
 		// regardless of how many instances are deleted.
@@ -1850,8 +1850,8 @@ func (s *environSuite) TestStopInstancesMultiple(c *gc.C) {
 		vmDeleteSender0,
 		vmDeleteSender1,
 	}
-	err := env.StopInstances(s.callCtx, "machine-0", "machine-1")
-	c.Assert(err, gc.ErrorMatches, `deleting instance "machine-[01]":.*blargh`)
+	err := env.StopInstances(s.callCtx, "juju-06f00d-0", "juju-06f00d-1")
+	c.Assert(err, gc.ErrorMatches, `deleting instance "juju-06f00d-[01]":.*blargh`)
 }
 
 func (s *environSuite) TestStopInstancesDeploymentNotFound(c *gc.C) {
@@ -1862,7 +1862,7 @@ func (s *environSuite) TestStopInstancesDeploymentNotFound(c *gc.C) {
 		"deployment not found", http.StatusNotFound,
 	), 2)
 	s.sender = azuretesting.Senders{cancelSender}
-	err := env.StopInstances(s.callCtx, "machine-0")
+	err := env.StopInstances(s.callCtx, "juju-06f00d-0")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1933,11 +1933,11 @@ func (s *environSuite) TestDestroyHostedModelCustomResourceGroup(c *gc.C) {
 		testing.Attrs{"controller-uuid": utils.MustNewUUID().String(), "resource-group-name": "foo"})
 	res := []*armresources.GenericResourceExpanded{{
 		ID:   to.Ptr("id-0"),
-		Name: to.Ptr("machine-0"),
+		Name: to.Ptr("juju-06f00d-0"),
 		Type: to.Ptr("Microsoft.Compute/virtualMachines"),
 	}, {
 		ID:   to.Ptr("id-0"),
-		Name: to.Ptr("machine-0-disk"),
+		Name: to.Ptr("juju-06f00d-0-disk"),
 		Type: to.Ptr("Microsoft.Compute/disks"),
 	}, {
 		ID:   to.Ptr("networkSecurityGroups/nsg-0"),
@@ -1952,18 +1952,18 @@ func (s *environSuite) TestDestroyHostedModelCustomResourceGroup(c *gc.C) {
 
 	nic0IPConfiguration := makeIPConfiguration("192.168.0.4")
 	nic0IPConfiguration.Properties.PublicIPAddress = &armnetwork.PublicIPAddress{}
-	nic0 := makeNetworkInterface("nic-0", "machine-0", nic0IPConfiguration)
+	nic0 := makeNetworkInterface("nic-0", "juju-06f00d-0", nic0IPConfiguration)
 
 	s.sender = azuretesting.Senders{
-		makeSender(".*/resourceGroups/foo/resources.*", resourceListResult),           // GET
-		makeSenderWithStatus(".*/deployments/machine-0/cancel", http.StatusNoContent), // POST
+		makeSender(".*/resourceGroups/foo/resources.*", resourceListResult),               // GET
+		makeSenderWithStatus(".*/deployments/juju-06f00d-0/cancel", http.StatusNoContent), // POST
 		s.networkInterfacesSender(nic0),
-		s.publicIPAddressesSender(makePublicIPAddress("pip-0", "machine-0", "1.2.3.4")),
-		makeSender(".*/virtualMachines/machine-0", nil),                                                           // DELETE
-		makeSender(".*/disks/machine-0", nil),                                                                     // DELETE
+		s.publicIPAddressesSender(makePublicIPAddress("pip-0", "juju-06f00d-0", "1.2.3.4")),
+		makeSender(".*/virtualMachines/juju-06f00d-0", nil),                                                       // DELETE
+		makeSender(".*/disks/juju-06f00d-0", nil),                                                                 // DELETE
 		makeSender(".*/networkInterfaces/nic-0", nil),                                                             // DELETE
 		makeSender(".*/publicIPAddresses/pip-0", nil),                                                             // DELETE
-		makeSenderWithStatus(".*/deployments/machine-0", http.StatusNoContent),                                    // DELETE
+		makeSenderWithStatus(".*/deployments/juju-06f00d-0", http.StatusNoContent),                                // DELETE
 		s.makeErrorSender("/networkSecurityGroups/nsg-0", newAzureResponseError(http.StatusConflict, "InUse"), 1), // DELETE
 		makeSender("/networkSecurityGroups/nsg-0", nil),                                                           // DELETE
 		makeSender(".*/vaults/secret-0", nil),                                                                     // DELETE
