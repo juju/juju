@@ -42,12 +42,12 @@ func (s *ModelHandlersSuite) SetUpTest(c *gc.C) {
 	}
 	s.bucketHandler = &httpcontext.BucketModelHandler{
 		Handler: h,
-		Query:   ":bucket",
+		Query:   ":modeluuid",
 	}
 	mux := apiserverhttp.NewMux()
 	mux.AddHandler("GET", "/query", s.queryHandler)
 	mux.AddHandler("GET", "/implied", s.impliedHandler)
-	mux.AddHandler("GET", "/:bucket/charms/:object", s.bucketHandler)
+	mux.AddHandler("GET", "/model-:modeluuid/charms/:object", s.bucketHandler)
 	s.server = httptest.NewServer(mux)
 }
 
@@ -103,12 +103,12 @@ func (s *ModelHandlersSuite) TestBucket(c *gc.C) {
 func (s *ModelHandlersSuite) TestInvalidBucket(c *gc.C) {
 	resp, err := s.server.Client().Get(s.server.URL + "/modelwrongbucket/charms/somecharm-abcd0123")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(resp.StatusCode, gc.Equals, http.StatusBadRequest)
+	c.Assert(resp.StatusCode, gc.Equals, http.StatusNotFound)
 	defer resp.Body.Close()
 
 	out, err := io.ReadAll(resp.Body)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(out), gc.Equals, `invalid bucket format "modelwrongbucket"`+"\n")
+	c.Assert(string(out), gc.Equals, "404 page not found\n")
 }
 
 func (s *ModelHandlersSuite) TestBucketInvalidModelUUID(c *gc.C) {

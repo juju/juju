@@ -59,7 +59,7 @@ func (s *charmS3DownloaderSuite) TestCharmOpener(c *gc.C) {
 
 				modelTag := names.NewModelTag("testmodel")
 				mockCaller.EXPECT().ModelTag().Return(modelTag, true)
-				mockGetter.EXPECT().GetCharm(gomock.Any(), "model-testmodel", "charms/mycharm-abcd0123").MinTimes(1).Return(nil, nil)
+				mockGetter.EXPECT().GetCharm(gomock.Any(), "testmodel", "mycharm-abcd0123").MinTimes(1).Return(nil, nil)
 			},
 		},
 	}

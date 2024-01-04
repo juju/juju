@@ -5,6 +5,7 @@ package s3client
 
 import (
 	"context"
+	"fmt"
 	"io"
 )
 
@@ -16,7 +17,9 @@ type Charms struct {
 
 // GetCharm retrieves a charm from the S3-compatible object store hosted
 // by the apiserver. Returns an archived charm as a stream of bytes
-func (c *Charms) GetCharm(ctx context.Context, bucketName, objectName string) (io.ReadCloser, error) {
+func (c *Charms) GetCharm(ctx context.Context, modelUUID, charmRef string) (io.ReadCloser, error) {
+	bucketName := fmt.Sprintf("model-%s", modelUUID)
+	objectName := fmt.Sprintf("charms/%s", charmRef)
 	return c.session.GetObject(ctx, bucketName, objectName)
 }
 
