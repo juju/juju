@@ -12,6 +12,7 @@ import (
 	"github.com/juju/worker/v3/dependency"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/core/flags"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/bootstrap"
 	"github.com/juju/juju/internal/servicefactory"
@@ -20,12 +21,6 @@ import (
 	workerobjectstore "github.com/juju/juju/internal/worker/objectstore"
 	"github.com/juju/juju/internal/worker/state"
 	"github.com/juju/juju/state/binarystorage"
-)
-
-const (
-	// BootstrapFlag is the name of the flag that is used to check if the
-	// bootstrap process has completed.
-	BootstrapFlag = "bootstrapped"
 )
 
 // Logger represents the logging methods called.
@@ -203,7 +198,7 @@ func IAASAgentBinaryUploader(ctx context.Context, dataDir string, storageService
 // RequiresBootstrap is the function that is used to check if the bootstrap
 // process has completed.
 func RequiresBootstrap(ctx context.Context, flagService FlagService) (bool, error) {
-	bootstrapped, err := flagService.GetFlag(ctx, BootstrapFlag)
+	bootstrapped, err := flagService.GetFlag(ctx, flags.BootstrapFlag)
 	if err != nil {
 		return false, errors.Trace(err)
 	}

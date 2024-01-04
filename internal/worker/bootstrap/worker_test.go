@@ -131,5 +131,5 @@ func (s *workerSuite) expectObjectStoreGetter() {
 }
 
 func (s *workerSuite) expectBootstrapFlagSet() {
-	s.flagService.EXPECT().SetFlag(gomock.Any(), flags.BootstrapFlag, true).Return(nil)
+	s.flagService.EXPECT().SetFlag(gomock.Any(), flags.BootstrapFlag, true, flags.BootstrapFlagDescription).Return(nil)
 }
