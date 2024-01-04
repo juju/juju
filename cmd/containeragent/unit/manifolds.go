@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/model"
+	coretrace "github.com/juju/juju/core/trace"
 	"github.com/juju/juju/internal/observability/probe"
 	proxy "github.com/juju/juju/internal/proxy/config"
 	"github.com/juju/juju/internal/upgrades"
@@ -49,6 +50,7 @@ import (
 	"github.com/juju/juju/internal/worker/s3caller"
 	"github.com/juju/juju/internal/worker/secretsdrainworker"
 	"github.com/juju/juju/internal/worker/simplesignalhandler"
+	"github.com/juju/juju/internal/worker/trace"
 	"github.com/juju/juju/internal/worker/uniter"
 	"github.com/juju/juju/internal/worker/upgradestepsmachine"
 )
@@ -374,6 +376,7 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 			ModelType:                    model.CAAS,
 			APICallerName:                apiCallerName,
 			S3CallerName:                 s3CallerName,
+			TraceName:                    traceName,
 			MachineLock:                  config.MachineLock,
 			Clock:                        config.Clock,
 			LeadershipTrackerName:        leadershipTrackerName,
@@ -385,6 +388,14 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 			EnforcedCharmModifiedVersion: config.CharmModifiedVersion,
 			ContainerNames:               config.ContainerNames,
 		}))),
+
+		traceName: trace.Manifold(trace.ManifoldConfig{
+			AgentName:       agentName,
+			Clock:           config.Clock,
+			Logger:          loggo.GetLogger("juju.worker.trace"),
+			NewTracerWorker: trace.NewTracerWorker,
+			Kind:            coretrace.KindUnit,
+		}),
 
 		// The CAAS unit termination worker handles SIGTERM from the container runtime.
 		caasUnitTerminationWorker: ifNotMigrating(ifNotDead(caasunitterminationworker.Manifold(caasunitterminationworker.ManifoldConfig{
@@ -446,6 +457,7 @@ const (
 	s3CallerName         = "s3-caller"
 	uniterName           = "uniter"
 	logSenderName        = "log-sender"
+	traceName            = "trace"
 
 	charmDirName          = "charm-dir"
 	leadershipTrackerName = "leadership-tracker"

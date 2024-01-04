@@ -4,6 +4,7 @@
 package uniter
 
 import (
+	stdcontext "context"
 	"fmt"
 	"os"
 	"sync"
@@ -26,6 +27,7 @@ import (
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
+	coretrace "github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/watcher"
 	jworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/fortress"
@@ -77,6 +79,7 @@ type Uniter struct {
 	enforcedCharmModifiedVersion int
 	storage                      *storage.Attachments
 	clock                        clock.Clock
+	tracer                       coretrace.Tracer
 
 	relationStateTracker relation.RelationStateTracker
 
@@ -206,6 +209,7 @@ type UniterParams struct {
 	EnforcedCharmModifiedVersion int
 	ContainerNames               []string
 	NewPebbleClient              NewPebbleClientFunc
+	Tracer                       coretrace.Tracer
 }
 
 // NewOperationExecutorFunc is a func which returns an operations.Executor.
@@ -260,6 +264,7 @@ func newUniter(uniterParams *UniterParams) func() (worker.Worker, error) {
 			translateResolverErr:          translateResolverErr,
 			observer:                      uniterParams.Observer,
 			clock:                         uniterParams.Clock,
+			tracer:                        uniterParams.Tracer,
 			downloader:                    uniterParams.Downloader,
 			containerRunningStatusChannel: uniterParams.ContainerRunningStatusChannel,
 			containerRunningStatusFunc:    uniterParams.ContainerRunningStatusFunc,
@@ -293,6 +298,13 @@ func newUniter(uniterParams *UniterParams) func() (worker.Worker, error) {
 }
 
 func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
+	ctx, cancel := u.scopedContext()
+	defer cancel()
+
+	// Ensure that we pass in the tracer to the context, so that it can be
+	// used by the resolver.
+	ctx = coretrace.WithTracer(ctx, u.tracer)
+
 	defer func() {
 		// If this is a CAAS unit, then dead errors are fairly normal ways to exit
 		// the uniter main loop, but the parent operator agent needs to keep running.
@@ -353,7 +365,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 		}
 	}
 
-	canApplyCharmProfile, charmURL, charmModifiedVersion, err := u.charmState()
+	canApplyCharmProfile, charmURL, charmModifiedVersion, err := u.charmState(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -536,7 +548,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 		}
 
 		for err == nil {
-			err = resolver.Loop(resolver.LoopConfig{
+			err = resolver.Loop(ctx, resolver.LoopConfig{
 				Resolver:      uniterResolver,
 				Watcher:       watcher,
 				Executor:      u.operationExecutor,
@@ -646,7 +658,7 @@ func (u *Uniter) verifyCharmProfile(url string) error {
 // charmState returns data for the local state setup.
 // While gathering the data, look for interrupted Install or pending
 // charm upgrade, execute if found.
-func (u *Uniter) charmState() (bool, string, int, error) {
+func (u *Uniter) charmState(ctx stdcontext.Context) (bool, string, int, error) {
 	// Install is a special case, as it must run before there
 	// is any remote state, and before the remote state watcher
 	// is started.
@@ -672,7 +684,7 @@ func (u *Uniter) charmState() (bool, string, int, error) {
 		if err != nil {
 			return canApplyCharmProfile, charmURL, charmModifiedVersion, errors.Trace(err)
 		}
-		if err := u.operationExecutor.Run(op, nil); err != nil {
+		if err := u.operationExecutor.Run(ctx, op, nil); err != nil {
 			return canApplyCharmProfile, charmURL, charmModifiedVersion, errors.Trace(err)
 		}
 		charmURL = opState.CharmURL
@@ -1044,4 +1056,12 @@ func (u *Uniter) Report() map[string]interface{} {
 	}
 
 	return result
+}
+
+// scopedContext returns a context that is in the scope of the worker lifetime.
+// It returns a cancellable context that is cancelled when the action has
+// completed.
+func (u *Uniter) scopedContext() (stdcontext.Context, stdcontext.CancelFunc) {
+	ctx, cancel := stdcontext.WithCancel(stdcontext.Background())
+	return u.catacomb.Context(ctx), cancel
 }

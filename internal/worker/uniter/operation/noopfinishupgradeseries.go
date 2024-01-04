@@ -4,6 +4,7 @@
 package operation
 
 import (
+	"context"
 	"fmt"
 )
 
@@ -17,7 +18,7 @@ func (op *noOpFinishUpgradeSeries) String() string {
 }
 
 // Commit is part of the Operation interface.
-func (op *noOpFinishUpgradeSeries) Commit(state State) (*State, error) {
+func (op *noOpFinishUpgradeSeries) Commit(ctx context.Context, state State) (*State, error) {
 	// make no change to state
 	return &state, nil
 }

@@ -4,6 +4,8 @@
 package verifycharmprofile
 
 import (
+	"context"
+
 	jujucharm "github.com/juju/charm/v12"
 
 	"github.com/juju/juju/core/lxdprofile"
@@ -33,6 +35,7 @@ func NewResolver(logger Logger, modelType model.ModelType) resolver.Resolver {
 // NextOp is defined on the Resolver interface.
 // This NextOp is only meant to be called before any Upgrade operation.
 func (r *verifyCharmProfileResolver) NextOp(
+	ctx context.Context,
 	_ resolver.LocalState, remoteState remotestate.Snapshot, _ operation.Factory,
 ) (operation.Operation, error) {
 	// NOTE: this is very similar code to Uniter.verifyCharmProfile(),
@@ -67,6 +70,7 @@ type caasVerifyCharmProfileResolver struct{}
 // NextOp is defined on the Resolver interface.
 // This NextOp ensures that we never check for lxd profiles on CAAS machines.
 func (r *caasVerifyCharmProfileResolver) NextOp(
+	_ context.Context,
 	_ resolver.LocalState, _ remotestate.Snapshot, _ operation.Factory,
 ) (operation.Operation, error) {
 	return nil, resolver.ErrNoOperation

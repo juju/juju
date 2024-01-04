@@ -4,6 +4,8 @@
 package container_test
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
@@ -77,7 +79,7 @@ func (s *workloadSuite) TestWorkloadReadyHook(c *gc.C) {
 		},
 	}
 	opFactory := &mockOperations{}
-	op, err := containerResolver.NextOp(localState, remoteState, opFactory)
+	op, err := containerResolver.NextOp(context.Background(), localState, remoteState, opFactory)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(op, gc.NotNil)
 	op = operation.Unwrap(op)
@@ -117,7 +119,7 @@ func (s *workloadSuite) TestWorkloadCustomNoticeHook(c *gc.C) {
 		},
 	}
 	opFactory := &mockOperations{}
-	op, err := containerResolver.NextOp(localState, remoteState, opFactory)
+	op, err := containerResolver.NextOp(context.Background(), localState, remoteState, opFactory)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(op, gc.NotNil)
 	op = operation.Unwrap(op)

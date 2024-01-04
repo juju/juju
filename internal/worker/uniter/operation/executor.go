@@ -4,16 +4,18 @@
 package operation
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/internal/worker/uniter/remotestate"
 )
 
 type executorStep struct {
 	verb string
-	run  func(op Operation, state State) (*State, error)
+	run  func(op Operation, ctx context.Context, state State) (*State, error)
 }
 
 func (step executorStep) message(op Operation, unitName string) string {
@@ -81,7 +83,16 @@ func (x *executor) State() State {
 }
 
 // Run is part of the Executor interface.
-func (x *executor) Run(op Operation, remoteStateChange <-chan remotestate.Snapshot) error {
+func (x *executor) Run(ctx context.Context, op Operation, remoteStateChange <-chan remotestate.Snapshot) (err error) {
+	_, span := trace.Start(ctx, trace.NameFromFunc(), trace.WithAttributes(
+		trace.StringAttr("executor.state", op.String()),
+		trace.StringAttr("executor.unit", x.unitName),
+	))
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	x.logger.Debugf("running operation %v for %s", op, x.unitName)
 
 	if op.NeedsGlobalMachineLock() {
@@ -96,7 +107,7 @@ func (x *executor) Run(op Operation, remoteStateChange <-chan remotestate.Snapsh
 		x.logger.Debugf("no machine lock needed for %s", x.unitName)
 	}
 
-	switch err := x.do(op, stepPrepare); errors.Cause(err) {
+	switch err := x.do(ctx, op, stepPrepare); errors.Cause(err) {
 	case ErrSkipExecute:
 	case nil:
 		done := make(chan struct{})
@@ -113,7 +124,7 @@ func (x *executor) Run(op Operation, remoteStateChange <-chan remotestate.Snapsh
 				}
 			}
 		}()
-		if err := x.do(op, stepExecute); err != nil {
+		if err := x.do(ctx, op, stepExecute); err != nil {
 			close(done)
 			return err
 		}
@@ -121,19 +132,28 @@ func (x *executor) Run(op Operation, remoteStateChange <-chan remotestate.Snapsh
 	default:
 		return err
 	}
-	return x.do(op, stepCommit)
+	return x.do(ctx, op, stepCommit)
 }
 
 // Skip is part of the Executor interface.
-func (x *executor) Skip(op Operation) error {
+func (x *executor) Skip(ctx context.Context, op Operation) (err error) {
+	_, span := trace.Start(ctx, trace.NameFromFunc(), trace.WithAttributes(
+		trace.StringAttr("executor.state", op.String()),
+		trace.StringAttr("executor.unit", x.unitName),
+	))
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	x.logger.Debugf("skipping operation %v for %s", op, x.unitName)
-	return x.do(op, stepCommit)
+	return x.do(ctx, op, stepCommit)
 }
 
-func (x *executor) do(op Operation, step executorStep) (err error) {
+func (x *executor) do(ctx context.Context, op Operation, step executorStep) (err error) {
 	message := step.message(op, x.unitName)
 	x.logger.Debugf(message)
-	newState, firstErr := step.run(op, *x.state)
+	newState, firstErr := step.run(op, ctx, *x.state)
 	if newState != nil {
 		writeErr := x.writeState(*newState)
 		if firstErr == nil {

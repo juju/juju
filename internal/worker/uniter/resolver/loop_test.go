@@ -4,6 +4,7 @@
 package resolver_test
 
 import (
+	"context"
 	"errors"
 	"time"
 
@@ -40,7 +41,7 @@ var _ = gc.Suite(&LoopSuite{})
 
 func (s *LoopSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.resolver = resolver.ResolverFunc(func(resolver.LocalState, remotestate.Snapshot, operation.Factory) (operation.Operation, error) {
+	s.resolver = resolver.ResolverFunc(func(context.Context, resolver.LocalState, remotestate.Snapshot, operation.Factory) (operation.Operation, error) {
 		return nil, resolver.ErrNoOperation
 	})
 	s.watcher = &mockRemoteStateWatcher{
@@ -56,7 +57,7 @@ func (s *LoopSuite) loop() (resolver.LocalState, error) {
 	localState := resolver.LocalState{
 		CharmURL: s.charmURL,
 	}
-	err := resolver.Loop(resolver.LoopConfig{
+	err := resolver.Loop(context.Background(), resolver.LoopConfig{
 		Resolver:      s.resolver,
 		Factory:       s.opFactory,
 		Watcher:       s.watcher,
@@ -120,6 +121,7 @@ func (s *LoopSuite) TestErrWaitingNoOnIdle(c *gc.C) {
 		return nil
 	}
 	s.resolver = resolver.ResolverFunc(func(
+		_ context.Context,
 		_ resolver.LocalState,
 		_ remotestate.Snapshot,
 		_ operation.Factory,
@@ -135,6 +137,7 @@ func (s *LoopSuite) TestErrWaitingNoOnIdle(c *gc.C) {
 func (s *LoopSuite) TestInitialFinalLocalState(c *gc.C) {
 	var local resolver.LocalState
 	s.resolver = resolver.ResolverFunc(func(
+		_ context.Context,
 		l resolver.LocalState,
 		_ remotestate.Snapshot,
 		_ operation.Factory,
@@ -156,6 +159,7 @@ func (s *LoopSuite) TestLoop(c *gc.C) {
 	var resolverCalls int
 	theOp := &mockOp{}
 	s.resolver = resolver.ResolverFunc(func(
+		_ context.Context,
 		_ resolver.LocalState,
 		_ remotestate.Snapshot,
 		_ operation.Factory,
@@ -195,6 +199,7 @@ func (s *LoopSuite) TestLoopWithChange(c *gc.C) {
 	var resolverCalls int
 	theOp := &mockOp{}
 	s.resolver = resolver.ResolverFunc(func(
+		_ context.Context,
 		_ resolver.LocalState,
 		_ remotestate.Snapshot,
 		_ operation.Factory,
@@ -263,6 +268,7 @@ func (s *LoopSuite) TestLoopWithChange(c *gc.C) {
 func (s *LoopSuite) TestRunFails(c *gc.C) {
 	s.executor.SetErrors(errors.New("run fails"))
 	s.resolver = resolver.ResolverFunc(func(
+		_ context.Context,
 		_ resolver.LocalState,
 		_ remotestate.Snapshot,
 		_ operation.Factory,
@@ -275,6 +281,7 @@ func (s *LoopSuite) TestRunFails(c *gc.C) {
 
 func (s *LoopSuite) TestNextOpFails(c *gc.C) {
 	s.resolver = resolver.ResolverFunc(func(
+		_ context.Context,
 		_ resolver.LocalState,
 		_ remotestate.Snapshot,
 		_ operation.Factory,
@@ -359,6 +366,7 @@ func (s *LoopSuite) TestCheckCharmUpgradeIncorrectLXDProfile(c *gc.C) {
 
 func (s *LoopSuite) testCheckCharmUpgradeDoesNothing(c *gc.C) {
 	s.resolver = resolver.ResolverFunc(func(
+		_ context.Context,
 		_ resolver.LocalState,
 		_ remotestate.Snapshot,
 		_ operation.Factory,
@@ -458,6 +466,7 @@ func (s *LoopSuite) testCheckCharmUpgradeCallsRun(c *gc.C, op string) {
 		op:      mockOp{},
 	}
 	s.resolver = resolver.ResolverFunc(func(
+		_ context.Context,
 		_ resolver.LocalState,
 		_ remotestate.Snapshot,
 		_ operation.Factory,
@@ -490,6 +499,7 @@ func (s *LoopSuite) TestCancelledLockAcquisitionCausesRestart(c *gc.C) {
 	}
 
 	s.resolver = resolver.ResolverFunc(func(
+		_ context.Context,
 		_ resolver.LocalState,
 		_ remotestate.Snapshot,
 		_ operation.Factory,

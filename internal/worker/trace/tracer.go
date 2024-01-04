@@ -92,8 +92,8 @@ func (t *tracer) Start(ctx context.Context, name string, opts ...coretrace.Optio
 	attrs = append(attrs,
 		attribute.String("namespace", t.namespace.Namespace),
 		attribute.String("namespace.short", t.namespace.ShortNamespace()),
-		attribute.String("namespace.tag", t.namespace.Tag.String()),
-		attribute.String("namespace.worker", t.namespace.Worker),
+		attribute.Stringer("namespace.tag", t.namespace.Tag),
+		attribute.Stringer("namespace.kind", t.namespace.Kind),
 	)
 
 	ctx, span = t.clientTracer.Start(ctx, name, trace.WithAttributes(attrs...))

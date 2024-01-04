@@ -4,6 +4,7 @@
 package operation
 
 import (
+	stdcontext "context"
 	"fmt"
 
 	"github.com/juju/charm/v12/hooks"
@@ -63,7 +64,7 @@ func (rh *runHook) String() string {
 
 // Prepare ensures the hook can be executed.
 // Prepare is part of the Operation interface.
-func (rh *runHook) Prepare(state State) (*State, error) {
+func (rh *runHook) Prepare(ctx stdcontext.Context, state State) (*State, error) {
 	name, err := rh.callbacks.PrepareHook(rh.info)
 	if err != nil {
 		return nil, err
@@ -131,7 +132,7 @@ func RunningHookMessage(hookName string, info hook.Info) string {
 
 // Execute runs the hook.
 // Execute is part of the Operation interface.
-func (rh *runHook) Execute(state State) (*State, error) {
+func (rh *runHook) Execute(ctx stdcontext.Context, state State) (*State, error) {
 	message := RunningHookMessage(rh.name, rh.info)
 	if err := rh.beforeHook(state); err != nil {
 		return nil, err
@@ -295,7 +296,7 @@ func createUpgradeSeriesStatusMessage(name string, hookFound bool) string {
 // records the impact of start and collect-metrics hooks, and queues follow-up
 // config-changed hooks to directly follow install and upgrade-charm hooks.
 // Commit is part of the Operation interface.
-func (rh *runHook) Commit(state State) (*State, error) {
+func (rh *runHook) Commit(ctx stdcontext.Context, state State) (*State, error) {
 	var err error
 	err = rh.callbacks.CommitHook(rh.info)
 	if err != nil {

@@ -4,6 +4,8 @@
 package resolver
 
 import (
+	"context"
+
 	"github.com/juju/charm/v12/hooks"
 	"github.com/juju/errors"
 
@@ -203,8 +205,8 @@ type onCommitWrapper struct {
 	onCommit func(*operation.State)
 }
 
-func (op onCommitWrapper) Commit(state operation.State) (*operation.State, error) {
-	st, err := op.Operation.Commit(state)
+func (op onCommitWrapper) Commit(ctx context.Context, state operation.State) (*operation.State, error) {
+	st, err := op.Operation.Commit(ctx, state)
 	if err != nil {
 		return nil, err
 	}
@@ -222,8 +224,8 @@ type onPrepareWrapper struct {
 	onPrepare func()
 }
 
-func (op onPrepareWrapper) Prepare(state operation.State) (*operation.State, error) {
-	st, err := op.Operation.Prepare(state)
+func (op onPrepareWrapper) Prepare(ctx context.Context, state operation.State) (*operation.State, error) {
+	st, err := op.Operation.Prepare(ctx, state)
 	if err != nil {
 		return nil, err
 	}

@@ -127,7 +127,7 @@ func (s *workerSuite) TestGetTracerIsNotCachedForDifferentNamespaces(c *gc.C) {
 
 	close(done)
 
-	c.Assert(atomic.LoadInt64(&s.called), gc.Equals, int64(10))
+	c.Assert(atomic.LoadInt64(&s.called), gc.Equals, int64(1))
 }
 
 func (s *workerSuite) TestGetTracerConcurrently(c *gc.C) {
@@ -160,7 +160,7 @@ func (s *workerSuite) TestGetTracerConcurrently(c *gc.C) {
 	}
 
 	assertWait(c, wg.Wait)
-	c.Assert(atomic.LoadInt64(&s.called), gc.Equals, int64(10))
+	c.Assert(atomic.LoadInt64(&s.called), gc.Equals, int64(1))
 
 	close(done)
 }
@@ -174,7 +174,8 @@ func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
 			atomic.AddInt64(&s.called, 1)
 			return s.trackedTracer, nil
 		},
-		Tag: names.NewMachineTag("0"),
+		Tag:  names.NewMachineTag("0"),
+		Kind: coretrace.KindController,
 	}, s.states)
 	c.Assert(err, jc.ErrorIsNil)
 	return w

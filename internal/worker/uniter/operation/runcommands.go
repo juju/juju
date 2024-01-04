@@ -4,6 +4,7 @@
 package operation
 
 import (
+	stdcontext "context"
 	"fmt"
 
 	"github.com/juju/errors"
@@ -41,7 +42,7 @@ func (rc *runCommands) String() string {
 
 // Prepare ensures the commands can be run. It never returns a state change.
 // Prepare is part of the Operation interface.
-func (rc *runCommands) Prepare(state State) (*State, error) {
+func (rc *runCommands) Prepare(ctx stdcontext.Context, state State) (*State, error) {
 	rnr, err := rc.runnerFactory.NewCommandRunner(context.CommandInfo{
 		RelationId:     rc.args.RelationId,
 		RemoteUnitName: rc.args.RemoteUnitName,
@@ -63,7 +64,7 @@ func (rc *runCommands) Prepare(state State) (*State, error) {
 // Execute runs the commands and dispatches their results. It never returns a
 // state change.
 // Execute is part of the Operation interface.
-func (rc *runCommands) Execute(state State) (*State, error) {
+func (rc *runCommands) Execute(ctx stdcontext.Context, state State) (*State, error) {
 	rc.logger.Tracef("run commands: %s", rc)
 	if err := rc.callbacks.SetExecutingStatus("running commands"); err != nil {
 		return nil, errors.Trace(err)
@@ -88,7 +89,7 @@ func (rc *runCommands) Execute(state State) (*State, error) {
 
 // Commit does nothing.
 // Commit is part of the Operation interface.
-func (rc *runCommands) Commit(state State) (*State, error) {
+func (rc *runCommands) Commit(ctx stdcontext.Context, state State) (*State, error) {
 	return nil, nil
 }
 

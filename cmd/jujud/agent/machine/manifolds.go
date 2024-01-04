@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/core/presence"
+	coretrace "github.com/juju/juju/core/trace"
 	containerbroker "github.com/juju/juju/internal/container/broker"
 	"github.com/juju/juju/internal/container/lxd"
 	internalobjectstore "github.com/juju/juju/internal/objectstore"
@@ -604,6 +605,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Clock:           config.Clock,
 			Logger:          loggo.GetLogger("juju.worker.trace"),
 			NewTracerWorker: trace.NewTracerWorker,
+			Kind:            coretrace.KindController,
 		}),
 
 		httpServerArgsName: httpserverargs.Manifold(httpserverargs.ManifoldConfig{

@@ -43,6 +43,7 @@ type ManifoldConfig struct {
 	Clock           clock.Clock
 	Logger          Logger
 	NewTracerWorker TracerWorkerFunc
+	Kind            coretrace.Kind
 }
 
 // Validate validates the manifold configuration.
@@ -58,6 +59,9 @@ func (cfg ManifoldConfig) Validate() error {
 	}
 	if cfg.NewTracerWorker == nil {
 		return errors.NotValidf("nil NewTracerWorker")
+	}
+	if cfg.Kind == "" {
+		return errors.NotValidf("empty Kind")
 	}
 	return nil
 }
@@ -99,6 +103,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				Logger:             config.Logger,
 				NewTracerWorker:    config.NewTracerWorker,
 				Tag:                currentConfig.Tag(),
+				Kind:               config.Kind,
 				Endpoint:           endpoint,
 				InsecureSkipVerify: currentConfig.OpenTelemetryInsecure(),
 				StackTracesEnabled: currentConfig.OpenTelemetryStackTraces(),

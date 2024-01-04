@@ -4,6 +4,8 @@
 package storage
 
 import (
+	"context"
+
 	"github.com/juju/charm/v12/hooks"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
@@ -55,6 +57,7 @@ func NewResolver(logger Logger, storage *Attachments, modelType model.ModelType)
 
 // NextOp is defined on the Resolver interface.
 func (s *storageResolver) NextOp(
+	ctx context.Context,
 	localState resolver.LocalState,
 	remoteState remotestate.Snapshot,
 	opFactory operation.Factory,

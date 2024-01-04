@@ -4,6 +4,7 @@
 package operation
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/juju/internal/worker/uniter/remotestate"
@@ -24,12 +25,12 @@ func (op *skipOperation) NeedsGlobalMachineLock() bool {
 }
 
 // Prepare is part of the Operation interface.
-func (op *skipOperation) Prepare(state State) (*State, error) {
+func (op *skipOperation) Prepare(ctx context.Context, state State) (*State, error) {
 	return nil, ErrSkipExecute
 }
 
 // Execute is part of the Operation interface.
-func (op *skipOperation) Execute(state State) (*State, error) {
+func (op *skipOperation) Execute(ctx context.Context, state State) (*State, error) {
 	return nil, ErrSkipExecute
 }
 

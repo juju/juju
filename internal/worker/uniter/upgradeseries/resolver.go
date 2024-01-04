@@ -4,6 +4,8 @@
 package upgradeseries
 
 import (
+	"context"
+
 	"github.com/juju/charm/v12/hooks"
 
 	"github.com/juju/juju/core/model"
@@ -28,6 +30,7 @@ func NewResolver(logger Logger) resolver.Resolver {
 
 // NextOp is defined on the Resolver interface.
 func (r *upgradeSeriesResolver) NextOp(
+	ctx context.Context,
 	localState resolver.LocalState, remoteState remotestate.Snapshot, opFactory operation.Factory,
 ) (operation.Operation, error) {
 	// If the unit is in the validate state, just sit and idle until validation

@@ -4,6 +4,7 @@
 package container
 
 import (
+	"context"
 	"strconv"
 	"sync"
 
@@ -149,6 +150,7 @@ func NewWorkloadHookResolver(logger Logger, events WorkloadEvents, eventComplete
 
 // NextOp implements the resolver.Resolver interface.
 func (r *workloadHookResolver) NextOp(
+	ctx context.Context,
 	localState resolver.LocalState,
 	remoteState remotestate.Snapshot,
 	opFactory operation.Factory,
@@ -228,8 +230,8 @@ type errorWrappedOp struct {
 }
 
 // Prepare is part of the Operation interface.
-func (op *errorWrappedOp) Prepare(state operation.State) (*operation.State, error) {
-	newState, err := op.Operation.Prepare(state)
+func (op *errorWrappedOp) Prepare(ctx context.Context, state operation.State) (*operation.State, error) {
+	newState, err := op.Operation.Prepare(ctx, state)
 	if err != nil && err != operation.ErrSkipExecute {
 		op.handler(err)
 	}
@@ -237,8 +239,8 @@ func (op *errorWrappedOp) Prepare(state operation.State) (*operation.State, erro
 }
 
 // Execute is part of the Operation interface.
-func (op *errorWrappedOp) Execute(state operation.State) (*operation.State, error) {
-	newState, err := op.Operation.Execute(state)
+func (op *errorWrappedOp) Execute(ctx context.Context, state operation.State) (*operation.State, error) {
+	newState, err := op.Operation.Execute(ctx, state)
 	if err != nil {
 		op.handler(err)
 	}
@@ -247,8 +249,8 @@ func (op *errorWrappedOp) Execute(state operation.State) (*operation.State, erro
 
 // Commit preserves the recorded hook, and returns a neutral state.
 // Commit is part of the Operation interface.
-func (op *errorWrappedOp) Commit(state operation.State) (*operation.State, error) {
-	newState, err := op.Operation.Commit(state)
+func (op *errorWrappedOp) Commit(ctx context.Context, state operation.State) (*operation.State, error) {
+	newState, err := op.Operation.Commit(ctx, state)
 	op.handler(err)
 	return newState, err
 }

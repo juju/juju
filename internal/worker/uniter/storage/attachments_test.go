@@ -4,6 +4,8 @@
 package storage_test
 
 import (
+	"context"
+
 	"github.com/juju/charm/v12/hooks"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v5"
@@ -171,7 +173,7 @@ func (s *attachmentsSuite) TestAttachmentsUpdateShortCircuitDeath(c *gc.C) {
 	}}
 	storageTag0 := names.NewStorageTag("data/0")
 	storageTag1 := names.NewStorageTag("data/1")
-	_, err = r.NextOp(localState, remotestate.Snapshot{
+	_, err = r.NextOp(context.Background(), localState, remotestate.Snapshot{
 		Life: life.Alive,
 		Storage: map[names.StorageTag]remotestate.StorageSnapshot{
 			storageTag0: {
@@ -185,7 +187,7 @@ func (s *attachmentsSuite) TestAttachmentsUpdateShortCircuitDeath(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	for _, storageTag := range []names.StorageTag{storageTag0, storageTag1} {
-		_, err = r.NextOp(localState, remotestate.Snapshot{
+		_, err = r.NextOp(context.Background(), localState, remotestate.Snapshot{
 			Life: life.Alive,
 			Storage: map[names.StorageTag]remotestate.StorageSnapshot{
 				storageTag: {Life: life.Dying},
@@ -232,7 +234,7 @@ func (s *attachmentsSuite) testAttachmentsStorage(c *gc.C, opState operation.Sta
 
 	// Inform the resolver of an attachment.
 	localState := resolver.LocalState{State: opState}
-	op, err := r.NextOp(localState, remotestate.Snapshot{
+	op, err := r.NextOp(context.Background(), localState, remotestate.Snapshot{
 		Life: life.Alive,
 		Storage: map[names.StorageTag]remotestate.StorageSnapshot{
 			storageTag: {
@@ -272,7 +274,7 @@ func (s *caasAttachmentsSuite) TestAttachmentsStorageNotStarted(c *gc.C) {
 		Installed: true,
 		Started:   false,
 	}}
-	_, err = r.NextOp(localState, remotestate.Snapshot{
+	_, err = r.NextOp(context.Background(), localState, remotestate.Snapshot{
 		Life: life.Alive,
 		Storage: map[names.StorageTag]remotestate.StorageSnapshot{
 			storageTag: {
@@ -313,7 +315,7 @@ func (s *attachmentsSuite) TestAttachmentsCommitHook(c *gc.C) {
 	localState := resolver.LocalState{State: operation.State{
 		Kind: operation.Continue,
 	}}
-	_, err = r.NextOp(localState, remotestate.Snapshot{
+	_, err = r.NextOp(context.Background(), localState, remotestate.Snapshot{
 		Life: life.Alive,
 		Storage: map[names.StorageTag]remotestate.StorageSnapshot{
 			storageTag: {
@@ -396,7 +398,7 @@ func (s *attachmentsSuite) TestAttachmentsSetDying(c *gc.C) {
 	localState := resolver.LocalState{State: operation.State{
 		Kind: operation.Continue,
 	}}
-	_, err = r.NextOp(localState, remotestate.Snapshot{
+	_, err = r.NextOp(context.Background(), localState, remotestate.Snapshot{
 		Life: life.Dying,
 		Storage: map[names.StorageTag]remotestate.StorageSnapshot{
 			storageTag: {
@@ -435,7 +437,7 @@ func (s *attachmentsSuite) TestAttachmentsWaitPending(c *gc.C) {
 			Installed: installed,
 			Kind:      operation.Continue,
 		}}
-		_, err := r.NextOp(localState, remotestate.Snapshot{
+		_, err := r.NextOp(context.Background(), localState, remotestate.Snapshot{
 			Life: life.Alive,
 			Storage: map[names.StorageTag]remotestate.StorageSnapshot{
 				storageTag: {

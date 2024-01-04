@@ -4,6 +4,8 @@
 package operation
 
 import (
+	stdcontext "context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	utilexec "github.com/juju/utils/v3/exec"
@@ -53,16 +55,16 @@ type Operation interface {
 	// If it returns a non-nil state, that state will be validated and recorded.
 	// If it returns ErrSkipExecute, it indicates that the operation can be
 	// committed directly.
-	Prepare(state State) (*State, error)
+	Prepare(ctx stdcontext.Context, state State) (*State, error)
 
 	// Execute carries out the operation. It must not be called without having
 	// called Prepare first. If it returns a non-nil state, that state will be
 	// validated and recorded.
-	Execute(state State) (*State, error)
+	Execute(ctx stdcontext.Context, state State) (*State, error)
 
 	// Commit ensures that the operation's completion is recorded. If it returns
 	// a non-nil state, that state will be validated and recorded.
-	Commit(state State) (*State, error)
+	Commit(ctx stdcontext.Context, state State) (*State, error)
 
 	// RemoteStateChanged is called when the remote state changed during execution
 	// of the operation.
@@ -99,11 +101,11 @@ type Executor interface {
 	// error, the run will be aborted and an error will be returned.
 	// On remote state change, the executor will fire the operation's
 	// RemoteStateChanged method.
-	Run(Operation, <-chan remotestate.Snapshot) error
+	Run(stdcontext.Context, Operation, <-chan remotestate.Snapshot) error
 
 	// Skip will Commit the supplied operation, and write any state change
 	// indicated. If Commit returns an error, so will Skip.
-	Skip(Operation) error
+	Skip(stdcontext.Context, Operation) error
 }
 
 // Factory creates operations.

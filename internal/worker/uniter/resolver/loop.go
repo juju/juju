@@ -4,6 +4,7 @@
 package resolver
 
 import (
+	"context"
 	"time"
 
 	jujucharm "github.com/juju/charm/v12"
@@ -72,7 +73,7 @@ type LoopConfig struct {
 //     state has changed again
 //   - if the resolver, onIdle, or executor return some other
 //     error, the loop will exit immediately
-func Loop(cfg LoopConfig, localState *LocalState) error {
+func Loop(ctx context.Context, cfg LoopConfig, localState *LocalState) error {
 	rf := &resolverOpFactory{Factory: cfg.Factory, LocalState: localState}
 
 	// Initialize charmdir availability before entering the loop in case we're recovering from a restart.
@@ -83,7 +84,7 @@ func Loop(cfg LoopConfig, localState *LocalState) error {
 
 	// If we're restarting the loop, ensure any pending charm upgrade is run
 	// before continuing.
-	err = checkCharmInstallUpgrade(cfg.Logger, cfg.CharmDir, cfg.Watcher.Snapshot(), rf, cfg.Executor)
+	err = checkCharmInstallUpgrade(ctx, cfg.Logger, cfg.CharmDir, cfg.Watcher.Snapshot(), rf, cfg.Executor)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -103,7 +104,7 @@ func Loop(cfg LoopConfig, localState *LocalState) error {
 			}
 		}
 
-		op, err := cfg.Resolver.NextOp(*rf.LocalState, rf.RemoteState, rf)
+		op, err := cfg.Resolver.NextOp(ctx, *rf.LocalState, rf.RemoteState, rf)
 		for err == nil {
 			// Send remote state changes to running operations.
 			remoteStateChanged := make(chan remotestate.Snapshot)
@@ -130,7 +131,7 @@ func Loop(cfg LoopConfig, localState *LocalState) error {
 			}()
 
 			cfg.Logger.Tracef("running op: %v", op)
-			if err := cfg.Executor.Run(op, remoteStateChanged); err != nil {
+			if err := cfg.Executor.Run(ctx, op, remoteStateChanged); err != nil {
 				close(done)
 
 				if errors.Cause(err) == mutex.ErrCancelled {
@@ -159,7 +160,7 @@ func Loop(cfg LoopConfig, localState *LocalState) error {
 				return errors.Trace(err)
 			}
 
-			op, err = cfg.Resolver.NextOp(*rf.LocalState, rf.RemoteState, rf)
+			op, err = cfg.Resolver.NextOp(ctx, *rf.LocalState, rf.RemoteState, rf)
 		}
 
 		switch errors.Cause(err) {
@@ -248,7 +249,7 @@ func updateCharmDir(opState operation.State, guard fortress.Guard, abort fortres
 	}
 }
 
-func checkCharmInstallUpgrade(logger Logger, charmDir string, remote remotestate.Snapshot, rf *resolverOpFactory, ex operation.Executor) error {
+func checkCharmInstallUpgrade(ctx context.Context, logger Logger, charmDir string, remote remotestate.Snapshot, rf *resolverOpFactory, ex operation.Executor) error {
 	// If we restarted due to error with a pending charm upgrade available,
 	// do the upgrade now.  There are cases (lp:1895040) where the error was
 	// caused because not all units were upgraded before relation-created
@@ -311,7 +312,7 @@ func checkCharmInstallUpgrade(logger Logger, charmDir string, remote remotestate
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if err = ex.Run(op, nil); err != nil {
+	if err = ex.Run(ctx, op, nil); err != nil {
 		return errors.Trace(err)
 	}
 	if local.Restart {

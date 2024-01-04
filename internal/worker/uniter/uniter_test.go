@@ -4,6 +4,7 @@
 package uniter_test
 
 import (
+	"context"
 	"io"
 	"os"
 	"path/filepath"
@@ -1471,10 +1472,10 @@ type mockExecutor struct {
 	operation.Executor
 }
 
-func (m *mockExecutor) Run(op operation.Operation, rs <-chan remotestate.Snapshot) error {
+func (m *mockExecutor) Run(ctx context.Context, op operation.Operation, rs <-chan remotestate.Snapshot) error {
 	// want to allow charm unpacking to occur
 	if strings.HasPrefix(op.String(), "install") {
-		return m.Executor.Run(op, rs)
+		return m.Executor.Run(ctx, op, rs)
 	}
 	// but hooks should error
 	return mockExecutorErr

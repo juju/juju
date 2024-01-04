@@ -4,6 +4,8 @@
 package upgradeseries_test
 
 import (
+	"context"
+
 	"github.com/juju/charm/v12/hooks"
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
@@ -37,7 +39,7 @@ func (s ResolverSuite) TestNextOpWithValidationStatus(c *gc.C) {
 
 	mockFactory := mocks.NewMockFactory(ctrl)
 	res := s.NewResolver()
-	_, err := res.NextOp(resolver.LocalState{}, remotestate.Snapshot{
+	_, err := res.NextOp(context.Background(), resolver.LocalState{}, remotestate.Snapshot{
 		UpgradeMachineStatus: model.UpgradeSeriesValidate,
 	}, mockFactory)
 	c.Assert(err, gc.Equals, resolver.ErrDoNotProceed)
@@ -49,7 +51,7 @@ func (s ResolverSuite) TestNextOpWithRemoveStateCompleted(c *gc.C) {
 
 	mockFactory := mocks.NewMockFactory(ctrl)
 	res := s.NewResolver()
-	_, err := res.NextOp(resolver.LocalState{}, remotestate.Snapshot{
+	_, err := res.NextOp(context.Background(), resolver.LocalState{}, remotestate.Snapshot{
 		UpgradeMachineStatus: model.UpgradeSeriesPrepareCompleted,
 	}, mockFactory)
 	c.Assert(err, gc.Equals, resolver.ErrDoNotProceed)
@@ -65,7 +67,7 @@ func (s ResolverSuite) TestNextOpWithPreSeriesUpgrade(c *gc.C) {
 	mockFactory.EXPECT().NewRunHook(hook.Info{Kind: hooks.PreSeriesUpgrade}).Return(mockOp, nil)
 
 	res := s.NewResolver()
-	op, err := res.NextOp(resolver.LocalState{
+	op, err := res.NextOp(context.Background(), resolver.LocalState{
 		State: operation.State{
 			Kind: operation.Continue,
 		},
@@ -87,7 +89,7 @@ func (s ResolverSuite) TestNextOpWithPostSeriesUpgrade(c *gc.C) {
 	mockFactory.EXPECT().NewRunHook(hook.Info{Kind: hooks.PostSeriesUpgrade}).Return(mockOp, nil)
 
 	res := s.NewResolver()
-	op, err := res.NextOp(resolver.LocalState{
+	op, err := res.NextOp(context.Background(), resolver.LocalState{
 		State: operation.State{
 			Kind: operation.Continue,
 		},
@@ -109,7 +111,7 @@ func (s ResolverSuite) TestNextOpWithFinishUpgradeSeries(c *gc.C) {
 	mockFactory.EXPECT().NewNoOpFinishUpgradeSeries().Return(mockOp, nil)
 
 	res := s.NewResolver()
-	op, err := res.NextOp(resolver.LocalState{
+	op, err := res.NextOp(context.Background(), resolver.LocalState{
 		State: operation.State{
 			Kind: operation.Continue,
 		},
@@ -128,6 +130,6 @@ func (s ResolverSuite) TestNextOpWithNoState(c *gc.C) {
 	mockFactory := mocks.NewMockFactory(ctrl)
 
 	res := s.NewResolver()
-	_, err := res.NextOp(resolver.LocalState{}, remotestate.Snapshot{}, mockFactory)
+	_, err := res.NextOp(context.Background(), resolver.LocalState{}, remotestate.Snapshot{}, mockFactory)
 	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
 }

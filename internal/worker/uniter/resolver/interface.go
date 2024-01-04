@@ -4,6 +4,8 @@
 package resolver
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/model"
@@ -46,6 +48,7 @@ type Resolver interface {
 	// it will never have any more operations to perform,
 	// and the caller can cease calling.
 	NextOp(
+		context.Context,
 		LocalState,
 		remotestate.Snapshot,
 		operation.Factory,

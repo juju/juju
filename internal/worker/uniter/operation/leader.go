@@ -4,6 +4,8 @@
 package operation
 
 import (
+	"context"
+
 	"github.com/juju/charm/v12/hooks"
 	"github.com/juju/errors"
 
@@ -21,7 +23,7 @@ func (al *acceptLeadership) String() string {
 }
 
 // Prepare is part of the Operation interface.
-func (al *acceptLeadership) Prepare(state State) (*State, error) {
+func (al *acceptLeadership) Prepare(ctx context.Context, state State) (*State, error) {
 	if err := al.checkState(state); err != nil {
 		return nil, err
 	}
@@ -29,12 +31,12 @@ func (al *acceptLeadership) Prepare(state State) (*State, error) {
 }
 
 // Execute is part of the Operation interface.
-func (al *acceptLeadership) Execute(state State) (*State, error) {
+func (al *acceptLeadership) Execute(ctx context.Context, state State) (*State, error) {
 	return nil, errors.New("prepare always errors; Execute is never valid")
 }
 
 // Commit is part of the Operation interface.
-func (al *acceptLeadership) Commit(state State) (*State, error) {
+func (al *acceptLeadership) Commit(ctx context.Context, state State) (*State, error) {
 	if err := al.checkState(state); err != nil {
 		return nil, err
 	}
@@ -78,7 +80,7 @@ func (rl *resignLeadership) String() string {
 }
 
 // Prepare is part of the Operation interface.
-func (rl *resignLeadership) Prepare(state State) (*State, error) {
+func (rl *resignLeadership) Prepare(ctx context.Context, state State) (*State, error) {
 	if !state.Leader {
 		// Nothing needs to be done -- state.Leader should only be set to
 		// false when committing the leader-deposed hook. This code is not
@@ -89,7 +91,7 @@ func (rl *resignLeadership) Prepare(state State) (*State, error) {
 }
 
 // Execute is part of the Operation interface.
-func (rl *resignLeadership) Execute(state State) (*State, error) {
+func (rl *resignLeadership) Execute(ctx context.Context, state State) (*State, error) {
 	// TODO(fwereade): this hits a lot of interestingly intersecting problems.
 	//
 	// 1) we can't yet create a sufficiently dumbed-down hook context for a
@@ -125,7 +127,7 @@ func (rl *resignLeadership) Execute(state State) (*State, error) {
 }
 
 // Commit is part of the Operation interface.
-func (rl *resignLeadership) Commit(state State) (*State, error) {
+func (rl *resignLeadership) Commit(ctx context.Context, state State) (*State, error) {
 	state.Leader = false
 	return &state, nil
 }

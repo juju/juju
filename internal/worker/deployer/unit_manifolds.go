@@ -20,6 +20,7 @@ import (
 	commonapi "github.com/juju/juju/api/common"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/model"
+	coretrace "github.com/juju/juju/core/trace"
 	"github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/agent"
 	"github.com/juju/juju/internal/worker/apiaddressupdater"
@@ -38,6 +39,7 @@ import (
 	"github.com/juju/juju/internal/worker/retrystrategy"
 	"github.com/juju/juju/internal/worker/s3caller"
 	"github.com/juju/juju/internal/worker/secretsdrainworker"
+	"github.com/juju/juju/internal/worker/trace"
 	"github.com/juju/juju/internal/worker/uniter"
 	"github.com/juju/juju/internal/worker/upgrader"
 )
@@ -234,6 +236,7 @@ func UnitManifolds(config UnitManifoldsConfig) dependency.Manifolds {
 			ModelType:             model.IAAS,
 			APICallerName:         apiCallerName,
 			S3CallerName:          s3CallerName,
+			TraceName:             traceName,
 			MachineLock:           config.MachineLock,
 			Clock:                 config.Clock,
 			LeadershipTrackerName: leadershipTrackerName,
@@ -242,6 +245,14 @@ func UnitManifolds(config UnitManifoldsConfig) dependency.Manifolds {
 			TranslateResolverErr:  uniter.TranslateFortressErrors,
 			Logger:                config.LoggingContext.GetLogger("juju.worker.uniter"),
 		})),
+
+		traceName: trace.Manifold(trace.ManifoldConfig{
+			AgentName:       agentName,
+			Clock:           config.Clock,
+			Logger:          loggo.GetLogger("juju.worker.trace"),
+			NewTracerWorker: trace.NewTracerWorker,
+			Kind:            coretrace.KindUnit,
+		}),
 
 		// TODO (mattyw) should be added to machine agent.
 		metricSpoolName: ifNotMigrating(spool.Manifold(spool.ManifoldConfig{
@@ -326,6 +337,7 @@ const (
 	hookRetryStrategyName = "hook-retry-strategy"
 	uniterName            = "uniter"
 	upgraderName          = "upgrader"
+	traceName             = "trace"
 
 	metricSpoolName   = "metric-spool"
 	meterStatusName   = "meter-status"

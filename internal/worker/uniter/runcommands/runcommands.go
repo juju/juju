@@ -4,6 +4,7 @@
 package runcommands
 
 import (
+	"context"
 	"fmt"
 	"sync"
 
@@ -88,6 +89,7 @@ func NewCommandsResolver(commands Commands, commandCompleted func(string)) resol
 
 // NextOp is part of the resolver.Resolver interface.
 func (s *commandsResolver) NextOp(
+	ctx context.Context,
 	localState resolver.LocalState,
 	remoteState remotestate.Snapshot,
 	opFactory operation.Factory,
@@ -104,7 +106,7 @@ func (s *commandsResolver) NextOp(
 		s.commands.RemoveCommand(id)
 		s.commandCompleted(id)
 	}
-	return &commandCompleter{op, commandCompleted}, nil
+	return &commandCompleter{Operation: op, commandCompleted: commandCompleted}, nil
 }
 
 type commandCompleter struct {
@@ -112,8 +114,8 @@ type commandCompleter struct {
 	commandCompleted func()
 }
 
-func (c *commandCompleter) Commit(st operation.State) (*operation.State, error) {
-	result, err := c.Operation.Commit(st)
+func (c *commandCompleter) Commit(ctx context.Context, st operation.State) (*operation.State, error) {
+	result, err := c.Operation.Commit(ctx, st)
 	if err == nil {
 		c.commandCompleted()
 	}

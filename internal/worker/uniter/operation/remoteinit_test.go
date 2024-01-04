@@ -4,6 +4,8 @@
 package operation_test
 
 import (
+	stdcontext "context"
+
 	"github.com/juju/charm/v12/hooks"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
@@ -38,7 +40,7 @@ func (s *RemoteInitSuite) TestRemoteInit(c *gc.C) {
 	op, err := factory.NewRemoteInit(runningStatus)
 	c.Assert(err, jc.ErrorIsNil)
 
-	newState, err := op.Prepare(operation.State{})
+	newState, err := op.Prepare(stdcontext.Background(), operation.State{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(newState, gc.DeepEquals, &operation.State{
 		Kind: operation.RemoteInit,
@@ -47,7 +49,7 @@ func (s *RemoteInitSuite) TestRemoteInit(c *gc.C) {
 	c.Assert(callbacks.MockRemoteInit.gotRunningStatus, gc.IsNil)
 	c.Assert(callbacks.MockRemoteInit.gotAbort, gc.IsNil)
 
-	newState, err = op.Execute(*newState)
+	newState, err = op.Execute(stdcontext.Background(), *newState)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(newState, gc.DeepEquals, &operation.State{
 		Kind: operation.RemoteInit,
@@ -56,7 +58,7 @@ func (s *RemoteInitSuite) TestRemoteInit(c *gc.C) {
 	c.Assert(callbacks.MockRemoteInit.gotRunningStatus, gc.DeepEquals, &runningStatus)
 	c.Assert(callbacks.MockRemoteInit.gotAbort, gc.Equals, abort)
 
-	newState, err = op.Commit(*newState)
+	newState, err = op.Commit(stdcontext.Background(), *newState)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(newState, gc.DeepEquals, &operation.State{
 		Kind: operation.Continue,
@@ -81,7 +83,7 @@ func (s *RemoteInitSuite) TestRemoteInitWithHook(c *gc.C) {
 	op, err := factory.NewRemoteInit(runningStatus)
 	c.Assert(err, jc.ErrorIsNil)
 
-	newState, err := op.Prepare(operation.State{
+	newState, err := op.Prepare(stdcontext.Background(), operation.State{
 		Kind: operation.RunHook,
 		Step: operation.Pending,
 		Hook: &hook.Info{
@@ -99,7 +101,7 @@ func (s *RemoteInitSuite) TestRemoteInitWithHook(c *gc.C) {
 	c.Assert(callbacks.MockRemoteInit.gotRunningStatus, gc.IsNil)
 	c.Assert(callbacks.MockRemoteInit.gotAbort, gc.IsNil)
 
-	newState, err = op.Execute(*newState)
+	newState, err = op.Execute(stdcontext.Background(), *newState)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(newState, gc.DeepEquals, &operation.State{
 		Kind: operation.RemoteInit,
@@ -111,7 +113,7 @@ func (s *RemoteInitSuite) TestRemoteInitWithHook(c *gc.C) {
 	c.Assert(callbacks.MockRemoteInit.gotRunningStatus, gc.DeepEquals, &runningStatus)
 	c.Assert(callbacks.MockRemoteInit.gotAbort, gc.Equals, abort)
 
-	newState, err = op.Commit(*newState)
+	newState, err = op.Commit(stdcontext.Background(), *newState)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(newState, gc.DeepEquals, &operation.State{
 		Kind: operation.RunHook,
@@ -139,7 +141,7 @@ func (s *RemoteInitSuite) TestRemoteInitFail(c *gc.C) {
 	op, err := factory.NewRemoteInit(runningStatus)
 	c.Assert(err, jc.ErrorIsNil)
 
-	newState, err := op.Prepare(operation.State{})
+	newState, err := op.Prepare(stdcontext.Background(), operation.State{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(newState, gc.DeepEquals, &operation.State{
 		Kind: operation.RemoteInit,
@@ -148,7 +150,7 @@ func (s *RemoteInitSuite) TestRemoteInitFail(c *gc.C) {
 	c.Assert(callbacks.MockRemoteInit.gotRunningStatus, gc.IsNil)
 	c.Assert(callbacks.MockRemoteInit.gotAbort, gc.IsNil)
 
-	newState, err = op.Execute(*newState)
+	newState, err = op.Execute(stdcontext.Background(), *newState)
 	c.Assert(err, gc.ErrorMatches, "ooops")
 	c.Assert(newState, gc.IsNil)
 	c.Assert(callbacks.MockRemoteInit.gotRunningStatus, gc.DeepEquals, &runningStatus)
@@ -169,19 +171,19 @@ func (s *RemoteInitSuite) TestSkipRemoteInit(c *gc.C) {
 	op, err := factory.NewSkipRemoteInit(false)
 	c.Assert(err, jc.ErrorIsNil)
 
-	newState, err := op.Prepare(operation.State{})
+	newState, err := op.Prepare(stdcontext.Background(), operation.State{})
 	c.Assert(err, gc.Equals, operation.ErrSkipExecute)
 	c.Assert(newState, gc.IsNil)
 	c.Assert(callbacks.MockRemoteInit.gotRunningStatus, gc.IsNil)
 	c.Assert(callbacks.MockRemoteInit.gotAbort, gc.IsNil)
 
-	newState, err = op.Execute(operation.State{})
+	newState, err = op.Execute(stdcontext.Background(), operation.State{})
 	c.Assert(err, gc.Equals, operation.ErrSkipExecute)
 	c.Assert(newState, gc.IsNil)
 	c.Assert(callbacks.MockRemoteInit.gotRunningStatus, gc.IsNil)
 	c.Assert(callbacks.MockRemoteInit.gotAbort, gc.IsNil)
 
-	newState, err = op.Commit(operation.State{})
+	newState, err = op.Commit(stdcontext.Background(), operation.State{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(newState, gc.DeepEquals, &operation.State{
 		Kind: operation.Continue,
@@ -203,7 +205,7 @@ func (s *RemoteInitSuite) TestSkipRemoteInitWithHook(c *gc.C) {
 	op, err := factory.NewSkipRemoteInit(false)
 	c.Assert(err, jc.ErrorIsNil)
 
-	newState, err := op.Prepare(operation.State{
+	newState, err := op.Prepare(stdcontext.Background(), operation.State{
 		Kind: operation.RemoteInit,
 		Step: operation.Pending,
 		Hook: &hook.Info{
@@ -215,7 +217,7 @@ func (s *RemoteInitSuite) TestSkipRemoteInitWithHook(c *gc.C) {
 	c.Assert(callbacks.MockRemoteInit.gotRunningStatus, gc.IsNil)
 	c.Assert(callbacks.MockRemoteInit.gotAbort, gc.IsNil)
 
-	newState, err = op.Execute(operation.State{
+	newState, err = op.Execute(stdcontext.Background(), operation.State{
 		Kind: operation.RemoteInit,
 		Step: operation.Pending,
 		Hook: &hook.Info{
@@ -227,7 +229,7 @@ func (s *RemoteInitSuite) TestSkipRemoteInitWithHook(c *gc.C) {
 	c.Assert(callbacks.MockRemoteInit.gotRunningStatus, gc.IsNil)
 	c.Assert(callbacks.MockRemoteInit.gotAbort, gc.IsNil)
 
-	newState, err = op.Commit(operation.State{
+	newState, err = op.Commit(stdcontext.Background(), operation.State{
 		Kind: operation.RemoteInit,
 		Step: operation.Pending,
 		Hook: &hook.Info{
@@ -258,19 +260,19 @@ func (s *RemoteInitSuite) TestSkipRemoteInitRetry(c *gc.C) {
 	op, err := factory.NewSkipRemoteInit(true)
 	c.Assert(err, jc.ErrorIsNil)
 
-	newState, err := op.Prepare(operation.State{})
+	newState, err := op.Prepare(stdcontext.Background(), operation.State{})
 	c.Assert(err, gc.Equals, operation.ErrSkipExecute)
 	c.Assert(newState, gc.IsNil)
 	c.Assert(callbacks.MockRemoteInit.gotRunningStatus, gc.IsNil)
 	c.Assert(callbacks.MockRemoteInit.gotAbort, gc.IsNil)
 
-	newState, err = op.Execute(operation.State{})
+	newState, err = op.Execute(stdcontext.Background(), operation.State{})
 	c.Assert(err, gc.Equals, operation.ErrSkipExecute)
 	c.Assert(newState, gc.IsNil)
 	c.Assert(callbacks.MockRemoteInit.gotRunningStatus, gc.IsNil)
 	c.Assert(callbacks.MockRemoteInit.gotAbort, gc.IsNil)
 
-	newState, err = op.Commit(operation.State{})
+	newState, err = op.Commit(stdcontext.Background(), operation.State{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(newState, gc.DeepEquals, &operation.State{
 		Kind: operation.RemoteInit,
@@ -292,7 +294,7 @@ func (s *RemoteInitSuite) TestSkipRemoteInitRetryWithHook(c *gc.C) {
 	op, err := factory.NewSkipRemoteInit(true)
 	c.Assert(err, jc.ErrorIsNil)
 
-	newState, err := op.Prepare(operation.State{
+	newState, err := op.Prepare(stdcontext.Background(), operation.State{
 		Kind: operation.RemoteInit,
 		Step: operation.Done,
 		Hook: &hook.Info{
@@ -304,7 +306,7 @@ func (s *RemoteInitSuite) TestSkipRemoteInitRetryWithHook(c *gc.C) {
 	c.Assert(callbacks.MockRemoteInit.gotRunningStatus, gc.IsNil)
 	c.Assert(callbacks.MockRemoteInit.gotAbort, gc.IsNil)
 
-	newState, err = op.Execute(operation.State{
+	newState, err = op.Execute(stdcontext.Background(), operation.State{
 		Kind: operation.RemoteInit,
 		Step: operation.Done,
 		Hook: &hook.Info{
@@ -316,7 +318,7 @@ func (s *RemoteInitSuite) TestSkipRemoteInitRetryWithHook(c *gc.C) {
 	c.Assert(callbacks.MockRemoteInit.gotRunningStatus, gc.IsNil)
 	c.Assert(callbacks.MockRemoteInit.gotAbort, gc.IsNil)
 
-	newState, err = op.Commit(operation.State{
+	newState, err = op.Commit(stdcontext.Background(), operation.State{
 		Kind: operation.RemoteInit,
 		Step: operation.Done,
 		Hook: &hook.Info{

@@ -4,6 +4,8 @@
 package operation_test
 
 import (
+	stdcontext "context"
+
 	"github.com/juju/charm/v12/hooks"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
@@ -25,7 +27,7 @@ func (s *FailActionSuite) TestPrepare(c *gc.C) {
 	op, err := factory.NewFailAction(someActionId)
 	c.Assert(err, jc.ErrorIsNil)
 
-	newState, err := op.Prepare(operation.State{})
+	newState, err := op.Prepare(stdcontext.Background(), operation.State{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(newState, jc.DeepEquals, &operation.State{
 		Kind:     operation.RunAction,
@@ -64,11 +66,11 @@ func (s *FailActionSuite) TestExecuteSuccess(c *gc.C) {
 		factory := newOpFactory(nil, callbacks)
 		op, err := factory.NewFailAction(someActionId)
 		c.Assert(err, jc.ErrorIsNil)
-		midState, err := op.Prepare(test.before)
+		midState, err := op.Prepare(stdcontext.Background(), test.before)
 		c.Assert(midState, gc.NotNil)
 		c.Assert(err, jc.ErrorIsNil)
 
-		newState, err := op.Execute(*midState)
+		newState, err := op.Execute(stdcontext.Background(), *midState)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(newState, jc.DeepEquals, &test.after)
 		c.Assert(*callbacks.MockFailAction.gotMessage, gc.Equals, "action terminated")
@@ -86,11 +88,11 @@ func (s *FailActionSuite) TestExecuteFail(c *gc.C) {
 	factory := newOpFactory(nil, callbacks)
 	op, err := factory.NewFailAction(someActionId)
 	c.Assert(err, jc.ErrorIsNil)
-	midState, err := op.Prepare(st)
+	midState, err := op.Prepare(stdcontext.Background(), st)
 	c.Assert(midState, gc.NotNil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = op.Execute(*midState)
+	_, err = op.Execute(stdcontext.Background(), *midState)
 	c.Assert(err, gc.ErrorMatches, "squelch")
 }
 
@@ -143,7 +145,7 @@ func (s *FailActionSuite) TestCommit(c *gc.C) {
 		op, err := factory.NewFailAction(someActionId)
 		c.Assert(err, jc.ErrorIsNil)
 
-		newState, err := op.Commit(test.before)
+		newState, err := op.Commit(stdcontext.Background(), test.before)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(newState, jc.DeepEquals, &test.after)
 	}
