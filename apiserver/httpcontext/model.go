@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"strings"
 
 	"github.com/juju/names/v5"
 )
@@ -54,18 +53,7 @@ type BucketModelHandler struct {
 
 // ServeHTTP is part of the http.Handler interface.
 func (h *BucketModelHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	bucketPrefix := "model-"
-	bucket := req.URL.Query().Get(h.Query)
-
-	if !strings.HasPrefix(bucket, bucketPrefix) {
-		http.Error(w,
-			fmt.Sprintf("invalid bucket format %q", bucket),
-			http.StatusBadRequest,
-		)
-		return
-	}
-
-	modelUUID := bucket[len(bucketPrefix):]
+	modelUUID := req.URL.Query().Get(h.Query)
 	validateModelAndServe(h.Handler, modelUUID, w, req)
 }
 
