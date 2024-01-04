@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/api/base"
 	commonapi "github.com/juju/juju/api/common"
 	"github.com/juju/juju/cmd/jujud/agent/engine"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/s3client"
@@ -178,7 +179,7 @@ func UnitManifolds(config UnitManifoldsConfig) dependency.Manifolds {
 			ValidateMigration: config.ValidateMigration,
 			NewFacade:         migrationminion.NewFacade,
 			NewWorker:         migrationminion.NewWorker,
-			Logger:            config.LoggingContext.GetLogger("juju.worker.migrationminion"),
+			Logger:            config.LoggingContext.GetLogger("juju.worker.migrationminion", corelogger.MIGRATION),
 		}),
 
 		// The logging config updater is a leaf worker that indirectly

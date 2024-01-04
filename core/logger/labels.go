@@ -26,4 +26,7 @@ const (
 
 	// SECRETS defines a common label for dealing with secrets.
 	SECRETS Label = "secrets"
+
+	// MIGRATION defines a common label for dealing with migration.
+	MIGRATION Label = "migration"
 )

@@ -322,14 +322,14 @@ pre_bootstrap() {
 # and shouldn't be used by any of the tests directly.  Calls post_add_model
 # models are added during bootstrap.
 post_bootstrap() {
-	local name model
+	local controller model
 
-	name=${1}
+	controller=${1}
 	model=${2}
 
 	# Setup up log tailing on the controller.
 	# shellcheck disable=SC2069
-	juju debug-log -m "${name}:controller" --replay --tail 2>&1 >"${TEST_DIR}/controller-debug.log" &
+	juju debug-log -m "${controller}:controller" --replay --tail 2>&1 >"${TEST_DIR}/${controller}-controller-debug.log" &
 	CMD_PID=$!
 	echo "${CMD_PID}" >>"${TEST_DIR}/pids"
 
@@ -338,7 +338,7 @@ post_bootstrap() {
 		rm -r "${TEST_DIR}"/image-streams
 		;;
 	esac
-	post_add_model "${name}" "${model}"
+	post_add_model "${controller}" "${model}"
 }
 
 # post_add_model does provider specific config required after a new model is added
@@ -350,7 +350,7 @@ post_add_model() {
 	model=${2}
 
 	ctrl_arg="${controller}:${model}"
-	log_file="${controller}-${model}.log"
+	log_file="${controller}-${model}-debug.log"
 	if [[ -z ${controller} ]]; then
 		ctrl_arg="${model}"
 		log_file="${model}.log"
