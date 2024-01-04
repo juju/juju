@@ -230,6 +230,7 @@ func (r *Resident) CacheId() uint64 {
 func (r *Resident) registerWorker(w worker.Worker) func() {
 	id := r.nextResourceId()
 	r.mu.Lock()
+	defer r.mu.Unlock()
 	// If this resident is already being evicted
 	// don't register any new workers.
 	if r.evicting {
@@ -242,7 +243,6 @@ func (r *Resident) registerWorker(w worker.Worker) func() {
 		}
 	}
 	r.workers[id] = w
-	r.mu.Unlock()
 	return func() { r.deregisterWorker(id) }
 }
 
