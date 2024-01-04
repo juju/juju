@@ -149,7 +149,6 @@ func ServerError(err error) *params.Error {
 
 	var (
 		dischargeRequiredError       *DischargeRequiredError
-		incompatibleClientError      *params.IncompatibleClientError
 		notLeaderError               *NotLeaderError
 		redirectError                *RedirectError
 		upgradeSeriesValidationError *UpgradeSeriesValidationError
@@ -242,9 +241,6 @@ func ServerError(err error) *params.Error {
 		code = params.CodeNotYetAvailable
 	case errors.Is(err, ErrTryAgain):
 		code = params.CodeTryAgain
-	case errors.As(err, &incompatibleClientError):
-		code = params.CodeIncompatibleClient
-		info = incompatibleClientError.AsMap()
 	case errors.As(err, &notLeaderError):
 		code = params.CodeNotLeader
 		info = notLeaderError.AsMap()
