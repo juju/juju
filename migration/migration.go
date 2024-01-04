@@ -17,13 +17,14 @@ import (
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/leadership"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/tools"
 )
 
-var logger = loggo.GetLogger("juju.migration")
+var logger = loggo.GetLoggerWithLabels("juju.migration", corelogger.MIGRATION)
 
 // StateExporter describes interface on state required to export a
 // model.

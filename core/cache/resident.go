@@ -212,8 +212,9 @@ type Resident struct {
 	// evicted from the cache.
 	// Obvious examples are watchers created by the resident.
 	// Access to this map should be protected with the Mutex below.
-	workers map[uint64]worker.Worker
-	mu      sync.Mutex
+	workers  map[uint64]worker.Worker
+	mu       sync.Mutex
+	evicting bool
 }
 
 // CacheId returns the unique ID for this cache resident.
@@ -229,14 +230,28 @@ func (r *Resident) CacheId() uint64 {
 func (r *Resident) registerWorker(w worker.Worker) func() {
 	id := r.nextResourceId()
 	r.mu.Lock()
+	defer r.mu.Unlock()
+	// If this resident is already being evicted
+	// don't register any new workers.
+	if r.evicting {
+		return func() {
+			// We'll still stop the worker when it gets "deregistered" even
+			// though it's not added to the cache.
+			if err := worker.Stop(w); err != nil {
+				logger.Warningf("worker cleanup error: %s", err.Error())
+			}
+		}
+	}
 	r.workers[id] = w
-	r.mu.Unlock()
 	return func() { r.deregisterWorker(id) }
 }
 
 // evict cleans up any resources created by this resident,
 // then deregisters it.
 func (r *Resident) evict() error {
+	r.mu.Lock()
+	r.evicting = true
+	r.mu.Unlock()
 	if err := r.cleanup(); err != nil {
 		return errors.Trace(err)
 	}
@@ -248,15 +263,21 @@ func (r *Resident) evict() error {
 // being evicted from the cache.
 // Note that this method does not deregister the resident from the manager.
 func (r *Resident) cleanup() error {
-	return errors.Annotatef(r.cleanupWorkers(), "cleaning up cache resident %d:", r.id)
+	r.mu.Lock()
+	toStop := make(map[uint64]worker.Worker)
+	for id, w := range r.workers {
+		toStop[id] = w
+	}
+	r.mu.Unlock()
+	return errors.Annotatef(r.cleanupWorkers(toStop), "cleaning up cache resident %d:", r.id)
 }
 
 // cleanupWorkers calls "Stop" on all registered workers.
 // Note that the deregistration method should have been added to the worker's
 // tomb cleanup method - stopping the worker cleanly is enough to deregister.
-func (r *Resident) cleanupWorkers() error {
+func (r *Resident) cleanupWorkers(toStop map[uint64]worker.Worker) error {
 	var errs []string
-	for id, w := range r.workers {
+	for id, w := range toStop {
 		if err := worker.Stop(w); err != nil {
 			errs = append(errs, errors.Annotatef(err, "worker %d", id).Error())
 		}

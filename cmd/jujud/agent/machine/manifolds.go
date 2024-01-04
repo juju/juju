@@ -29,6 +29,7 @@ import (
 	containerbroker "github.com/juju/juju/container/broker"
 	"github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/core/instance"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/core/presence"
@@ -541,7 +542,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			ValidateMigration: config.ValidateMigration,
 			NewFacade:         migrationminion.NewFacade,
 			NewWorker:         migrationminion.NewWorker,
-			Logger:            loggo.GetLogger("juju.worker.migrationminion"),
+			Logger:            loggo.GetLoggerWithLabels("juju.worker.migrationminion", corelogger.MIGRATION),
 		}),
 
 		// Each controller machine runs a singular worker which will
