@@ -496,6 +496,7 @@ func (c *nestedContext) createUnitAgentConfig(tag names.UnitTag, initialPassword
 			OpenTelemetryEndpoint:    c.agentConfig.OpenTelemetryEndpoint(),
 			OpenTelemetryInsecure:    c.agentConfig.OpenTelemetryInsecure(),
 			OpenTelemetryStackTraces: c.agentConfig.OpenTelemetryStackTraces(),
+			OpenTelemetrySampleRatio: c.agentConfig.OpenTelemetrySampleRatio(),
 		})
 	if err != nil {
 		return nil, errors.Trace(err)
