@@ -17,6 +17,7 @@ import (
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/controller"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/objectstore"
@@ -26,7 +27,7 @@ import (
 	"github.com/juju/juju/state"
 )
 
-var logger = loggo.GetLogger("juju.migration")
+var logger = loggo.GetLoggerWithLabels("juju.migration", corelogger.MIGRATION)
 
 // LegacyStateExporter describes interface on state required to export a
 // model.

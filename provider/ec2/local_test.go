@@ -2210,8 +2210,14 @@ func (t *localServerSuite) TestInstanceTags(c *gc.C) {
 	for _, t := range ec2Inst.Tags {
 		tags = append(tags, *t.Key+":"+*t.Value)
 	}
+	namespace, err := instance.NewNamespace(coretesting.ModelTag.Id())
+	c.Assert(err, jc.ErrorIsNil)
+
+	hostname, err := namespace.Hostname("0")
+	c.Assert(err, jc.ErrorIsNil)
+
 	c.Assert(tags, jc.SameContents, []string{
-		"Name:juju-sample-machine-0",
+		fmt.Sprintf("Name:%s", hostname),
 		"juju-model-uuid:" + coretesting.ModelTag.Id(),
 		"juju-controller-uuid:" + t.ControllerUUID,
 		"juju-is-controller:true",
@@ -2238,8 +2244,15 @@ func (t *localServerSuite) TestRootDiskTags(c *gc.C) {
 		}
 	}
 	c.Assert(found, gc.NotNil)
+
+	namespace, err := instance.NewNamespace(coretesting.ModelTag.Id())
+	c.Assert(err, jc.ErrorIsNil)
+
+	hostname, err := namespace.Hostname("0")
+	c.Assert(err, jc.ErrorIsNil)
+
 	compareTags(c, found.Tags, []tagInfo{
-		{"Name", "juju-sample-machine-0-root"},
+		{"Name", hostname + "-root"},
 		{"juju-model-uuid", coretesting.ModelTag.Id()},
 		{"juju-controller-uuid", t.ControllerUUID},
 	})

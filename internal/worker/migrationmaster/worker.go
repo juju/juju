@@ -17,10 +17,12 @@ import (
 	"github.com/juju/names/v5"
 	"github.com/juju/version/v2"
 	"github.com/juju/worker/v3/catacomb"
+	"github.com/kr/pretty"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/api/controller/migrationtarget"
+	corelogger "github.com/juju/juju/core/logger"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/watcher"
@@ -169,7 +171,7 @@ func New(config Config) (*Worker, error) {
 	// the logs from different migrationmaster insteads using the short
 	// model UUID suffix.
 	loggerName := "juju.worker.migrationmaster." + names.NewModelTag(config.ModelUUID).ShortId()
-	logger := loggo.GetLogger(loggerName)
+	logger := loggo.GetLoggerWithLabels(loggerName, corelogger.MIGRATION)
 
 	w := &Worker{
 		config: config,
@@ -782,6 +784,7 @@ func (w *Worker) waitForMinions(
 			if err := validateMinionReports(reports, status); err != nil {
 				return false, errors.Trace(err)
 			}
+			w.logger.Debugf("migration minion reports:\n%s", pretty.Sprint(reports))
 			failures := len(reports.FailedMachines) + len(reports.FailedUnits) + len(reports.FailedApplications)
 			if failures > 0 {
 				w.logger.Errorf(formatMinionFailure(reports, infoPrefix))

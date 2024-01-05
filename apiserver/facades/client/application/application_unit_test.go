@@ -1748,8 +1748,14 @@ func (s *ApplicationSuite) TestDeployCAASBlockStorageRejected(c *gc.C) {
 		Applications: []params.ApplicationDeploy{{
 			ApplicationName: "foo",
 			CharmURL:        "local:foo-0",
-			CharmOrigin:     &params.CharmOrigin{Source: "local"},
-			NumUnits:        1,
+			CharmOrigin: &params.CharmOrigin{
+				Source:       "local",
+				Architecture: "amd64",
+				Base: params.Base{
+					Name:    "ubuntu",
+					Channel: "22.04/stable",
+				}},
+			NumUnits: 1,
 		}},
 	}
 	result, err := s.api.Deploy(context.Background(), args)
@@ -1775,8 +1781,15 @@ func (s *ApplicationSuite) TestDeployCAASModelNoOperatorStorage(c *gc.C) {
 		Applications: []params.ApplicationDeploy{{
 			ApplicationName: "foo",
 			CharmURL:        "local:foo-0",
-			CharmOrigin:     &params.CharmOrigin{Source: "local"},
-			NumUnits:        1,
+			CharmOrigin: &params.CharmOrigin{
+				Source:       "local",
+				Architecture: "amd64",
+				Base: params.Base{
+					Name:    "ubuntu",
+					Channel: "22.04/stable",
+				},
+			},
+			NumUnits: 1,
 		}},
 	}
 	result, err := s.api.Deploy(context.Background(), args)
