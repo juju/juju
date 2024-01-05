@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/testing"
@@ -27,8 +28,9 @@ import (
 type FileObjectStoreSuite struct {
 	testing.IsolationSuite
 
-	service *MockObjectStoreMetadata
-	locker  *MockLocker
+	service      *MockObjectStoreMetadata
+	locker       *MockLocker
+	lockExtender *MockLockExtender
 }
 
 var _ = gc.Suite(&FileObjectStoreSuite{})
@@ -452,6 +454,7 @@ func (s *FileObjectStoreSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 	s.service = NewMockObjectStoreMetadata(ctrl)
 	s.locker = NewMockLocker(ctrl)
+	s.lockExtender = NewMockLockExtender(ctrl)
 
 	return ctrl
 }
@@ -514,7 +517,9 @@ func (s *FileObjectStoreSuite) expectFileDoesExist(c *gc.C, path, namespace, has
 }
 
 func (s *FileObjectStoreSuite) expectLock(hash string, num int) {
-	s.locker.EXPECT().Lock(gomock.Any(), hash).Return(nil).Times(num)
+	s.locker.EXPECT().Lock(gomock.Any(), hash).Return(s.lockExtender, nil).Times(num)
+	s.lockExtender.EXPECT().Extend(gomock.Any()).Return(nil).AnyTimes()
+	s.lockExtender.EXPECT().Duration().Return(time.Second).AnyTimes()
 }
 
 func (s *FileObjectStoreSuite) expectUnlock(hash string, num int) {

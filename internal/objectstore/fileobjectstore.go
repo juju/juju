@@ -19,12 +19,6 @@ import (
 	"github.com/juju/juju/core/objectstore"
 )
 
-// Locker is the interface that is used to lock a file.
-type Locker interface {
-	Lock(ctx context.Context, hash string) error
-	Unlock(ctx context.Context, hash string) error
-}
-
 type opType int
 
 const (
@@ -49,16 +43,11 @@ type response struct {
 }
 
 type fileObjectStore struct {
-	tomb      tomb.Tomb
+	baseObjectStore
 	fs        fs.FS
 	path      string
 	namespace string
 	requests  chan request
-
-	metadataService objectstore.ObjectStoreMetadata
-	locker          Locker
-
-	logger Logger
 }
 
 // NewFileObjectStore returns a new object store worker based on the file
@@ -67,12 +56,14 @@ func NewFileObjectStore(ctx context.Context, namespace, rootPath string, metadat
 	path := filepath.Join(rootPath, namespace)
 
 	s := &fileObjectStore{
-		fs:              os.DirFS(path),
-		path:            path,
-		namespace:       namespace,
-		metadataService: metadataService,
-		locker:          locker,
-		logger:          logger,
+		baseObjectStore: baseObjectStore{
+			locker:          locker,
+			metadataService: metadataService,
+			logger:          logger,
+		},
+		fs:        os.DirFS(path),
+		path:      path,
+		namespace: namespace,
 
 		requests: make(chan request),
 	}
@@ -306,30 +297,24 @@ func (t *fileObjectStore) put(ctx context.Context, path string, r io.Reader, siz
 
 	// Lock the file with the given hash, so that we can't remove the file
 	// while we're writing it.
-	if err := t.locker.Lock(ctx, hash); err != nil {
-		return errors.Trace(err)
-	}
+	return t.withLock(ctx, hash, func(ctx context.Context) error {
+		// Persist the temporary file to the final location.
+		if err := t.persistTmpFile(ctx, fileName, hash, size); err != nil {
+			return errors.Trace(err)
+		}
 
-	// Remove the lock once we're done writing the file.
-	defer t.locker.Unlock(ctx, hash)
-
-	// Persist the temporary file to the final location.
-	if err := t.persistTmpFile(ctx, fileName, hash, size); err != nil {
-		return errors.Trace(err)
-	}
-
-	// Save the metadata for the file after we've written it. That way we
-	// correctly sequence the watch events. Otherwise there is a potential
-	// race where the watch event is emitted before the file is written.
-	if err := t.metadataService.PutMetadata(ctx, objectstore.Metadata{
-		Path: path,
-		Hash: hash,
-		Size: size,
-	}); err != nil {
-		return errors.Trace(err)
-	}
-
-	return nil
+		// Save the metadata for the file after we've written it. That way we
+		// correctly sequence the watch events. Otherwise there is a potential
+		// race where the watch event is emitted before the file is written.
+		if err := t.metadataService.PutMetadata(ctx, objectstore.Metadata{
+			Path: path,
+			Hash: hash,
+			Size: size,
+		}); err != nil {
+			return errors.Trace(err)
+		}
+		return nil
+	})
 }
 
 func (t *fileObjectStore) writeToTmpFile(ctx context.Context, path string, r io.Reader, size int64) (string, string, error) {
@@ -404,35 +389,20 @@ func (t *fileObjectStore) remove(ctx context.Context, path string) error {
 		return nil
 	}
 
-	// Lock the file with the given hash, so that we can't remove the file
-	// while we're writing it.
-	if err := t.locker.Lock(ctx, hash); err != nil {
-		return errors.Trace(err)
-	}
-
-	// Remove the lock once we're done writing the file.
-	defer t.locker.Unlock(ctx, hash)
-
-	// If we fail to remove the file, we don't want to return an error, as
-	// the metadata has already been removed. Manual intervention will be
-	// required to remove the file. We may in the future want to prune the
-	// file store of files that are no longer referenced by metadata.
-	if err := os.Remove(filePath); err != nil {
-		t.logger.Errorf("failed to remove file %q for path %q: %v", filePath, path, err)
-	}
-	return nil
+	return t.withLock(ctx, hash, func(ctx context.Context) error {
+		// If we fail to remove the file, we don't want to return an error, as
+		// the metadata has already been removed. Manual intervention will be
+		// required to remove the file. We may in the future want to prune the
+		// file store of files that are no longer referenced by metadata.
+		if err := os.Remove(filePath); err != nil {
+			t.logger.Errorf("failed to remove file %q for path %q: %v", filePath, path, err)
+		}
+		return nil
+	})
 }
 
 func (t *fileObjectStore) filePath(hash string) string {
 	return filepath.Join(t.path, hash)
-}
-
-// scopedContext returns a context that is in the scope of the worker lifetime.
-// It returns a cancellable context that is cancelled when the action has
-// completed.
-func (w *fileObjectStore) scopedContext() (context.Context, context.CancelFunc) {
-	ctx, cancel := context.WithCancel(context.Background())
-	return w.tomb.Context(ctx), cancel
 }
 
 type hashValidator func(string) (string, bool)
