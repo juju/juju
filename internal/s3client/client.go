@@ -65,11 +65,10 @@ type awsEndpointResolver struct {
 	endpoint string
 }
 
-func (a *awsEndpointResolver) ResolveEndpoint(service, region string) (aws.Endpoint, error) {
+func (a *awsEndpointResolver) ResolveEndpoint(_, _ string) (aws.Endpoint, error) {
 	return aws.Endpoint{
-		URL: "https://" + a.endpoint,
+		URL: a.endpoint,
 	}, nil
-
 }
 
 type awsHTTPDoer struct {
@@ -101,14 +100,7 @@ func (l *awsLogger) Logf(classification logging.Classification, format string, v
 // NewS3Client creates a generic S3 client which Juju should use to
 // drive it's object store requirements
 func NewS3Client(apiConn api.Connection, logger Logger) (Session, error) {
-	// We use api.Connection address because we assume this address is
-	// correct and reachable.
-	currentAPIAddress := apiConn.Addr()
-	if currentAPIAddress == "" {
-		return nil, errors.New("API address not available for S3 client")
-	}
-
-	apiHTTPClient, err := apiConn.HTTPClient()
+	apiHTTPClient, err := apiConn.RootHTTPClient()
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot retrieve http client from the api connection")
 	}
@@ -123,7 +115,7 @@ func NewS3Client(apiConn api.Connection, logger Logger) (Session, error) {
 		context.Background(),
 		config.WithLogger(awsLogger),
 		config.WithHTTPClient(awsHTTPDoer),
-		config.WithEndpointResolver(&awsEndpointResolver{endpoint: currentAPIAddress}),
+		config.WithEndpointResolver(&awsEndpointResolver{endpoint: apiHTTPClient.BaseURL}),
 		// Standard retryer retries 3 times with 20s backoff time by
 		// default.
 		config.WithRetryer(func() aws.Retryer { return retry.NewStandard() }),

@@ -44,6 +44,10 @@ type APICaller interface {
 	// method should not include a host part.
 	HTTPClient() (*httprequest.Client, error)
 
+	// RootHTTPClient returns an httprequest.Client pointing to
+	// the API server root path.
+	RootHTTPClient() (*httprequest.Client, error)
+
 	// BakeryClient returns the bakery client for this connection.
 	BakeryClient() MacaroonDischarger
 
