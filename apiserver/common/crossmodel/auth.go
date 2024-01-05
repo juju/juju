@@ -5,8 +5,6 @@ package crossmodel
 
 import (
 	"context"
-	"encoding/json"
-	"runtime"
 	"strings"
 	"time"
 
@@ -15,7 +13,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	"github.com/kr/pretty"
 	"gopkg.in/macaroon.v2"
 	"gopkg.in/yaml.v2"
 
@@ -230,8 +227,8 @@ func (a *AuthContext) CreateConsumeOfferMacaroon(ctx context.Context, offer *par
 	}
 	offerUUID := offer.OfferUUID
 	if a.jaasOfferBakery != nil {
-		// We need to verify the offer access in JaaS side.
-		// So we donnot declare the offerUUID here then we will discharge the macaroon to JaaS.
+		// We donnot declare the offerUUID here since we will discharge the
+		// macaroon to JaaS to verify the offer access for JaaS flow.
 		offerUUID = ""
 	}
 	return a.createConsumeOfferMacaroon(ctx, offerUUID, sourceModelTag, userTag, version)
@@ -246,7 +243,6 @@ func (a *AuthContext) createConsumeOfferMacaroon(
 		return nil, errors.Trace(err)
 	}
 
-	logger.Criticalf("CreateConsumeOfferMacaroon checkers.DeclaredCaveat(offeruuidKey, offer.OfferUUID) %#v", checkers.DeclaredCaveat(offeruuidKey, offerUUID))
 	caveats := []checkers.Caveat{
 		checkers.TimeBeforeCaveat(expiryTime),
 		checkers.DeclaredCaveat(sourcemodelKey, sourceModelTag.Id()),
@@ -255,10 +251,6 @@ func (a *AuthContext) createConsumeOfferMacaroon(
 	if offerUUID != "" {
 		declaredOfferUUID := checkers.DeclaredCaveat(offeruuidKey, offerUUID)
 		caveats = append(caveats, declaredOfferUUID)
-		logger.Criticalf("CreateConsumeOfferMacaroon checkers.DeclaredCaveat(offeruuidKey, offer.OfferUUID) %#v", declaredOfferUUID)
-		for j, cav := range caveats {
-			logger.Criticalf("createConsumeOfferMacaroon caveat[%d] %s", j, pretty.Sprint(cav))
-		}
 	}
 	return bakery.NewMacaroon(ctx, version, caveats, crossModelConsumeOp(offerUUID))
 }
@@ -267,7 +259,6 @@ func (a *AuthContext) createConsumeOfferMacaroon(
 func (a *AuthContext) CreateRemoteRelationMacaroon(
 	ctx context.Context, sourceModelUUID, offerUUID, username string, rel names.Tag, version bakery.Version,
 ) (*bakery.Macaroon, error) {
-	logger.Criticalf("CreateRemoteRelationMacaroon sourceModelUUID %q, offerUUID %q, username %q, rel %#v, version %d", sourceModelUUID, offerUUID, username, rel, version)
 	expiryTime := a.clock.Now().Add(offerPermissionExpiryTime)
 	bakery, err := a.localOfferBakery.ExpireStorageAfter(offerPermissionExpiryTime)
 	if err != nil {
@@ -363,53 +354,26 @@ func (a *authenticator) checkMacaroonCaveats(op bakery.Op, relationId, sourceMod
 
 func (a *authenticator) checkMacaroons(
 	ctx context.Context, mac macaroon.Slice, version bakery.Version, requiredValues map[string]string, op bakery.Op,
-) (o map[string]string, err error) {
-	defer func() {
-		authlogger.Criticalf("checkMacaroons out %#v, err %#v", o, err)
-	}()
+) (map[string]string, error) {
 	authlogger.Debugf("check %d macaroons with required attrs: %v", len(mac), requiredValues)
-	pc, file, line, ok := runtime.Caller(1)
-	authlogger.Criticalf("checkMacaroons CALLED by pc %#v, file %q, line %d, ok %v", pc, file, line, ok)
-	authlogger.Criticalf("checkMacaroons %d macaroons(called by %s:%d) with required attrs: %#v, op %#v", len(mac), file, line, requiredValues, op)
-	for i, mc := range mac {
-		data, err := json.Marshal(mc)
-		authlogger.Criticalf("checkMacaroons err %#v, mac[%d] => \ndata => \n%s\npretty => \n%s", err, i, data, pretty.Sprint(mc))
-		for j, cav := range mc.Caveats() {
-			logger.Criticalf("checkMacaroons mac[%d] caveat[%d] %q", i, j, string(cav.Id))
-		}
-	}
 	for _, m := range mac {
 		if m == nil {
 			authlogger.Warningf("unexpected nil cross model macaroon")
 			continue
 		}
 		authlogger.Debugf("- mac %s", m.Id())
-		authlogger.Criticalf("- mac %s", m.Id())
 	}
 	declared := checkers.InferDeclared(coremacaroon.MacaroonNamespace, mac)
 	authlogger.Debugf("check macaroons with declared attrs: %v", declared)
-	authlogger.Criticalf("check macaroons with declared 1: %s", pretty.Sprint(declared))
-
-	// if consumedOfferTagStr, ok := declared["consumer"]; ok {
-	// 	offerUUID := strings.TrimPrefix(consumedOfferTagStr, names.ApplicationOfferTagKind+"-")
-	// 	authlogger.Criticalf("check macaroons consumedOfferTagStr %q, offerUUID: %#v", consumedOfferTagStr, offerUUID)
-	// 	declared[offeruuidKey] = offerUUID
-	// 	if relation, ok := requiredValues[relationKey]; ok {
-	// 		// The user can consume the offer, so we should add the required relation as declared.
-	// 		declared[relationKey] = relation
-	// 	}
-	// }
 
 	if a.ctxt.jaasOfferBakery != nil {
 		// We only need to inject relationKey for jaas flow.
-		// Internal discharge endpoint has already done this for us.
 		if _, ok := declared[relationKey]; !ok {
 			if relation, ok := requiredValues[relationKey]; ok {
 				declared[relationKey] = relation
 			}
 		}
 	}
-	authlogger.Criticalf("check macaroons with declared 2: %s", pretty.Sprint(declared))
 	username, ok := declared[usernameKey]
 	if !ok {
 		return nil, apiservererrors.ErrPerm
@@ -421,15 +385,11 @@ func (a *authenticator) checkMacaroons(
 
 	auth := a.bakery.Auth(mac)
 	ai, err := auth.Allow(ctx, op)
-	logger.Criticalf("checkMacaroons auth.Allow(ctx, %#v) err %#v, ai.Conditions() %#v", op, err, ai.Conditions())
 	if err == nil && len(ai.Conditions()) > 0 {
-		authlogger.Criticalf("ok macaroon check ok, attr: %s, conditions: %s", pretty.Sprint(declared), pretty.Sprint(ai.Conditions()))
 		if err = a.checkMacaroonCaveats(op, relation, sourceModelUUID, offerUUID); err == nil {
 			authlogger.Debugf("ok macaroon check ok, attr: %v, conditions: %v", declared, ai.Conditions())
-			authlogger.Criticalf("ok macaroon check ok, attr: %v, conditions: %v", declared, ai.Conditions())
 			return declared, nil
 		}
-		authlogger.Criticalf("checkMacaroons checkMacaroonCaveats(%v, %q, %q, %q) err %#v", op, relation, sourceModelUUID, offerUUID, err)
 		if _, ok := err.(*bakery.VerificationError); !ok {
 			return nil, apiservererrors.ErrPerm
 		}
@@ -455,7 +415,6 @@ func (a *authenticator) checkMacaroons(
 	} else {
 		var existingDeclaredCaveats []checkers.Caveat
 		for k, v := range declared {
-			logger.Criticalf("Regenerate existing declared caveat => [%q] %q", k, v)
 			existingDeclaredCaveats = append(existingDeclaredCaveats, checkers.DeclaredCaveat(k, v))
 		}
 		m, err = a.createDischargeMacaroonForExternalUser(ctx, requiredOffer, userTag, version, existingDeclaredCaveats...)
@@ -504,7 +463,6 @@ func (a *authenticator) createDischargeMacaroonForExternalUser(
 	ctx context.Context, offerUUID string, userTag names.UserTag, version bakery.Version, declaredCaveats ...checkers.Caveat,
 ) (*bakery.Macaroon, error) {
 	conditionParts := []string{
-		// "is-consumer", userTag.String(), names.NewApplicationOfferTag(offerUUID).String(),
 		"is-consumer", userTag.String(), offerUUID,
 	}
 

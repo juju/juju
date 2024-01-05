@@ -79,12 +79,14 @@ func (s *loginTokenSuite) TestAuthenticateLoginRequestNotSupported(c *gc.C) {
 
 func (s *loginTokenSuite) TestUsesLoginToken(c *gc.C) {
 	modelTag := names.NewModelTag("test")
+	applicationOfferTag := names.NewApplicationOfferTag("hosted-mysql-uuid")
 	tok, err := EncodedJWT(JWTParams{
 		Controller: testing.ControllerTag.Id(),
 		User:       "user-fred",
 		Access: map[string]string{
 			testing.ControllerTag.String(): "login",
 			modelTag.String():              "write",
+			applicationOfferTag.String():   "consume",
 		},
 	}, s.keySet, s.signingKey)
 	c.Assert(err, jc.ErrorIsNil)
@@ -108,6 +110,10 @@ func (s *loginTokenSuite) TestUsesLoginToken(c *gc.C) {
 	perm, err = authInfo.SubjectPermissions(testing.ControllerTag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(perm, gc.Equals, permission.LoginAccess)
+
+	perm, err = authInfo.SubjectPermissions(applicationOfferTag)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(perm, gc.Equals, permission.ConsumeAccess)
 }
 
 // TestPermissionsForDifferentEntity is trying to assert that if we use the

@@ -52,11 +52,6 @@ func getLocalOfferBakery(
 var (
 	// Override for testing.
 	DefaultTransport = http.DefaultTransport
-	// DefaultTransport http.RoundTripper = &http.Transport{
-	// 	TLSClientConfig: &tls.Config{
-	// 		InsecureSkipVerify: true,
-	// 	},
-	// }
 )
 
 func getJaaSOfferBakery(
@@ -74,30 +69,21 @@ func getJaaSOfferBakery(
 	if err != nil {
 		return nil, "", errors.Trace(err)
 	}
-	logger.Criticalf("CreateMacaroonForJaaS loginTokenRefreshURL %q, pkURL %q", loginTokenRefreshURL, pkURL)
 	thirdPartyInfo, err := httpbakery.ThirdPartyInfoForLocation(
 		context.TODO(), &http.Client{Transport: DefaultTransport}, pkURL,
 	)
-	logger.Criticalf(
-		"CreateMacaroonForJaaS thirdPartyInfo.Version %d, thirdPartyInfo.PublicKey.Key.String() %q",
-		thirdPartyInfo.Version, thirdPartyInfo.PublicKey.Key.String(),
-	)
+	logger.Tracef("got third party info %#v from %q", thirdPartyInfo, pkURL)
 	if err != nil {
 		return nil, "", errors.Trace(err)
 	}
-	thirdPartyKey := &bakery.KeyPair{Public: thirdPartyInfo.PublicKey}
-	logger.Criticalf("getTestBakery pKey %q", thirdPartyKey.Public.String())
 	key, err := bakeryConfig.GetExternalUsersThirdPartyKey()
 	if err != nil {
 		return nil, "", errors.Trace(err)
 	}
 
 	pkCache := bakery.NewThirdPartyStore()
+	pkCache.AddInfo(pkURL, thirdPartyInfo)
 	locator := httpbakery.NewThirdPartyLocator(nil, pkCache)
-	pkCache.AddInfo(pkURL, bakery.ThirdPartyInfo{
-		PublicKey: thirdPartyKey.Public,
-		Version:   3,
-	})
 
 	store = store.ExpireAfter(15 * time.Minute)
 	return &bakeryutil.ExpirableStorageBakery{
@@ -106,7 +92,7 @@ func getJaaSOfferBakery(
 				Checker:       checker,
 				RootKeyStore:  store,
 				Locator:       locator,
-				Key:           key, // key can be nil？？
+				Key:           key,
 				OpsAuthorizer: crossmodel.CrossModelAuthorizer{},
 				Location:      location,
 			},

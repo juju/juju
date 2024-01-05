@@ -78,7 +78,6 @@ func newOfferAuthcontext(pool *state.StatePool) (*crossmodel.AuthContext, error)
 	loginTokenRefreshURL := controllerConfig.LoginTokenRefreshURL()
 	var jaasOfferBakery authentication.ExpirableStorageBakery
 	var jaasOfferAccessEndpoint string
-	logger.Criticalf("newOfferAuthcontext loginTokenRefreshURL %q", loginTokenRefreshURL)
 	if loginTokenRefreshURL != "" {
 		store, err := st.NewBakeryStorage()
 		if err != nil {
@@ -87,7 +86,6 @@ func newOfferAuthcontext(pool *state.StatePool) (*crossmodel.AuthContext, error)
 		jaasOfferBakery, jaasOfferAccessEndpoint, err = getJaaSOfferBakery(
 			loginTokenRefreshURL, location, bakeryConfig, store, checker,
 		)
-		logger.Criticalf("newOfferAuthcontext jaasOfferBakery %#v, jaasOfferAccessEndpoint %q, err %#v", jaasOfferBakery, jaasOfferAccessEndpoint, err)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
