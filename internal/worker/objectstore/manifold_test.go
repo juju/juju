@@ -45,6 +45,10 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 	cfg.ServiceFactoryName = ""
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
+	cfg = s.getConfig()
+	cfg.LeaseManagerName = ""
+	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+
 	cfg.Clock = nil
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
@@ -63,6 +67,7 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		StateName:          "state",
 		TraceName:          "trace",
 		ServiceFactoryName: "service-factory",
+		LeaseManagerName:   "lease-manager",
 		Clock:              s.clock,
 		Logger:             s.logger,
 		NewObjectStoreWorker: func(context.Context, objectstore.BackendType, string, ...internalobjectstore.Option) (internalobjectstore.TrackedObjectStore, error) {
@@ -80,6 +85,7 @@ func (s *manifoldSuite) getContext() dependency.Context {
 		"trace":           &stubTracerGetter{},
 		"state":           s.stateTracker,
 		"service-factory": &stubServiceFactoryGetter{},
+		"lease-manager":   s.leaseManager,
 	}
 	return dependencytesting.StubContext(nil, resources)
 }

@@ -7,21 +7,25 @@ import (
 	"context"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/objectstore"
 	"gopkg.in/tomb.v2"
+
+	"github.com/juju/juju/core/objectstore"
 )
 
-// Locker is the interface that is used to lock a file.
-type Locker interface {
-	// Lock locks the file with the given hash.
-	Lock(ctx context.Context, hash string) (LockExtender, error)
-	// Unlock unlocks the file with the given hash.
-	Unlock(ctx context.Context, hash string) error
+// Claimer is the interface that is used to claim an exclusive lock on a file.
+// The lock is used to prevent concurrent access to the same file for put
+// and remove operations.
+type Claimer interface {
+	// Claim locks the file with the given hash.
+	Claim(ctx context.Context, hash string) (ClaimExtender, error)
+	// Release releases the file with the given hash.
+	Release(ctx context.Context, hash string) error
 }
 
-// LockExtender is the interface that is used to extend a lock.
-type LockExtender interface {
+// ClaimExtender is the interface that is used to extend a lock.
+type ClaimExtender interface {
 	// Extend extends the lock for the given hash.
 	Extend(ctx context.Context) error
 
@@ -32,8 +36,19 @@ type LockExtender interface {
 type baseObjectStore struct {
 	tomb            tomb.Tomb
 	metadataService objectstore.ObjectStoreMetadata
-	locker          Locker
+	claimer         Claimer
 	logger          Logger
+	clock           clock.Clock
+}
+
+// Kill implements the worker.Worker interface.
+func (s *baseObjectStore) Kill() {
+	s.tomb.Kill(nil)
+}
+
+// Wait implements the worker.Worker interface.
+func (s *baseObjectStore) Wait() error {
+	return s.tomb.Wait()
 }
 
 // scopedContext returns a context that is in the scope of the worker lifetime.
@@ -45,16 +60,27 @@ func (w *baseObjectStore) scopedContext() (context.Context, context.CancelFunc) 
 }
 
 func (w *baseObjectStore) withLock(ctx context.Context, hash string, f func(context.Context) error) error {
+	// If the context is already done, then don't waste any cycles trying
+	// to claim the lock.
+	if err := ctx.Err(); err != nil {
+		return errors.Trace(err)
+	}
+
 	// Lock the file with the given hash, so that we can't remove the file
 	// while we're writing it.
-	extender, err := w.locker.Lock(ctx, hash)
+	extender, err := w.claimer.Claim(ctx, hash)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	defer w.locker.Unlock(ctx, hash)
+	// Always release the lock when we're done. This is optimistic, because
+	// when the duration of the lock has expired, the lock will be released
+	// anyway.
+	defer func() {
+		_ = w.claimer.Release(ctx, hash)
+	}()
 
-	newCtx, cancel := context.WithCancel(ctx)
+	runnerCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
 	// Extend the lock for the duration of the operation.
@@ -62,36 +88,38 @@ func (w *baseObjectStore) withLock(ctx context.Context, hash string, f func(cont
 	runner.Go(func() error {
 		defer cancel()
 
-		return f(newCtx)
+		return f(runnerCtx)
 	})
 	runner.Go(func() error {
 		defer cancel()
 
-		timer := time.NewTimer(extender.Duration())
-		defer timer.Stop()
-
 		for {
 			select {
-			case <-newCtx.Done():
-				return nil
-			case <-timer.C:
-				if err := extender.Extend(newCtx); err != nil {
-					return errors.Trace(err)
-				}
 			case <-w.tomb.Dying():
 				return nil
+			case <-runnerCtx.Done():
+				return nil
+
+			case <-w.clock.After(extender.Duration()):
+				// Attempt to extend the lock if the function is still running.
+				if err := extender.Extend(runnerCtx); err != nil {
+					return errors.Trace(err)
+				}
 			}
 		}
 	})
 
 	select {
+	case <-ctx.Done():
+		return ctx.Err()
 	case <-runner.Dying():
 		return runner.Err()
 	case <-w.tomb.Dying():
 		// Ensure that we cancel the context if the runner is dying.
 		runner.Kill(nil)
-		<-runner.Dying()
-
+		if err := runner.Wait(); err != nil {
+			return errors.Trace(err)
+		}
 		return tomb.ErrDying
 	}
 }

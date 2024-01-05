@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"gopkg.in/tomb.v2"
 
@@ -52,14 +53,15 @@ type fileObjectStore struct {
 
 // NewFileObjectStore returns a new object store worker based on the file
 // storage.
-func NewFileObjectStore(ctx context.Context, namespace, rootPath string, metadataService objectstore.ObjectStoreMetadata, locker Locker, logger Logger) (TrackedObjectStore, error) {
+func NewFileObjectStore(ctx context.Context, namespace, rootPath string, metadataService objectstore.ObjectStoreMetadata, claimer Claimer, logger Logger, clock clock.Clock) (TrackedObjectStore, error) {
 	path := filepath.Join(rootPath, namespace)
 
 	s := &fileObjectStore{
 		baseObjectStore: baseObjectStore{
-			locker:          locker,
+			claimer:         claimer,
 			metadataService: metadataService,
 			logger:          logger,
+			clock:           clock,
 		},
 		fs:        os.DirFS(path),
 		path:      path,
@@ -194,16 +196,6 @@ func (t *fileObjectStore) Remove(ctx context.Context, path string) error {
 	}
 }
 
-// Kill implements the worker.Worker interface.
-func (s *fileObjectStore) Kill() {
-	s.tomb.Kill(nil)
-}
-
-// Wait implements the worker.Worker interface.
-func (s *fileObjectStore) Wait() error {
-	return s.tomb.Wait()
-}
-
 func (t *fileObjectStore) loop() error {
 	// Ensure the namespace directory exists.
 	if _, err := os.Stat(t.path); err != nil && errors.Is(err, os.ErrNotExist) {
@@ -285,7 +277,7 @@ func (t *fileObjectStore) get(ctx context.Context, path string) (io.ReadCloser, 
 }
 
 func (t *fileObjectStore) put(ctx context.Context, path string, r io.Reader, size int64, validator hashValidator) error {
-	fileName, hash, err := t.writeToTmpFile(ctx, path, r, size)
+	fileName, hash, err := t.writeToTmpFile(path, r, size)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -317,7 +309,7 @@ func (t *fileObjectStore) put(ctx context.Context, path string, r io.Reader, siz
 	})
 }
 
-func (t *fileObjectStore) writeToTmpFile(ctx context.Context, path string, r io.Reader, size int64) (string, string, error) {
+func (t *fileObjectStore) writeToTmpFile(path string, r io.Reader, size int64) (string, string, error) {
 	// The following dance is to ensure that we don't end up with a partially
 	// written file if we crash while writing it or if we're attempting to
 	// read it at the same time.

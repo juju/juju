@@ -6,6 +6,7 @@ package objectstore
 import (
 	"context"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/worker/v3"
@@ -68,17 +69,33 @@ func WithLogger(logger Logger) Option {
 	}
 }
 
+// WithClaimer is the option to set the claimer to use.
+func WithClaimer(claimer Claimer) Option {
+	return func(o *options) {
+		o.claimer = claimer
+	}
+}
+
+// WithClock is the option to set the clock to use.
+func WithClock(clock clock.Clock) Option {
+	return func(o *options) {
+		o.clock = clock
+	}
+}
+
 type options struct {
 	rootDir         string
 	mongoSession    MongoSession
 	metadataService MetadataService
-	locker          Locker
+	claimer         Claimer
 	logger          Logger
+	clock           clock.Clock
 }
 
 func newOptions() *options {
 	return &options{
 		logger: loggo.GetLogger("juju.objectstore"),
+		clock:  clock.WallClock,
 	}
 }
 
@@ -97,7 +114,7 @@ func ObjectStoreFactory(ctx context.Context, backendType objectstore.BackendType
 	case objectstore.StateBackend:
 		return NewStateObjectStore(ctx, namespace, opts.mongoSession, opts.logger)
 	case objectstore.FileBackend:
-		return NewFileObjectStore(ctx, namespace, opts.rootDir, opts.metadataService.ObjectStore(), opts.locker, opts.logger)
+		return NewFileObjectStore(ctx, namespace, opts.rootDir, opts.metadataService.ObjectStore(), opts.claimer, opts.logger, opts.clock)
 	default:
 		return nil, errors.NotValidf("backend type %q", backendType)
 	}

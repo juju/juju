@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -28,9 +29,9 @@ import (
 type FileObjectStoreSuite struct {
 	testing.IsolationSuite
 
-	service      *MockObjectStoreMetadata
-	locker       *MockLocker
-	lockExtender *MockLockExtender
+	service       *MockObjectStoreMetadata
+	claimer       *MockClaimer
+	claimExtender *MockClaimExtender
 }
 
 var _ = gc.Suite(&FileObjectStoreSuite{})
@@ -40,7 +41,7 @@ func (s *FileObjectStoreSuite) TestGetMetadataNotFound(c *gc.C) {
 
 	path := c.MkDir()
 
-	store, err := NewFileObjectStore(context.Background(), "inferi", path, s.service, s.locker, jujutesting.NewCheckLogger(c))
+	store, err := NewFileObjectStore(context.Background(), "inferi", path, s.service, s.claimer, jujutesting.NewCheckLogger(c), clock.WallClock)
 	c.Assert(err, gc.IsNil)
 	defer workertest.DirtyKill(c, store)
 
@@ -55,7 +56,7 @@ func (s *FileObjectStoreSuite) TestGetMetadataFoundNoFile(c *gc.C) {
 
 	path := c.MkDir()
 
-	store, err := NewFileObjectStore(context.Background(), "inferi", path, s.service, s.locker, jujutesting.NewCheckLogger(c))
+	store, err := NewFileObjectStore(context.Background(), "inferi", path, s.service, s.claimer, jujutesting.NewCheckLogger(c), clock.WallClock)
 	c.Assert(err, gc.IsNil)
 	defer workertest.DirtyKill(c, store)
 
@@ -78,7 +79,7 @@ func (s *FileObjectStoreSuite) TestGetMetadataAndFileFound(c *gc.C) {
 	fileName := "foo"
 	size, hash := s.createFile(c, filepath.Join(path, namespace), fileName, "some content")
 
-	store, err := NewFileObjectStore(context.Background(), namespace, path, s.service, s.locker, jujutesting.NewCheckLogger(c))
+	store, err := NewFileObjectStore(context.Background(), namespace, path, s.service, s.claimer, jujutesting.NewCheckLogger(c), clock.WallClock)
 	c.Assert(err, gc.IsNil)
 	defer workertest.DirtyKill(c, store)
 
@@ -103,7 +104,7 @@ func (s *FileObjectStoreSuite) TestGetMetadataAndFileFoundWithIncorrectSize(c *g
 	fileName := "foo"
 	size, hash := s.createFile(c, filepath.Join(path, namespace), fileName, "some content")
 
-	store, err := NewFileObjectStore(context.Background(), namespace, path, s.service, s.locker, jujutesting.NewCheckLogger(c))
+	store, err := NewFileObjectStore(context.Background(), namespace, path, s.service, s.claimer, jujutesting.NewCheckLogger(c), clock.WallClock)
 	c.Assert(err, gc.IsNil)
 	defer workertest.DirtyKill(c, store)
 
@@ -121,14 +122,14 @@ func (s *FileObjectStoreSuite) TestPut(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	hash := s.calculateHash(c, "some content")
-	s.expectLock(hash, 1)
-	s.expectUnlock(hash, 1)
+	s.expectClaim(hash, 1)
+	s.expectRelease(hash, 1)
 
 	path := c.MkDir()
 
 	namespace := "inferi"
 
-	store, err := NewFileObjectStore(context.Background(), namespace, path, s.service, s.locker, jujutesting.NewCheckLogger(c))
+	store, err := NewFileObjectStore(context.Background(), namespace, path, s.service, s.claimer, jujutesting.NewCheckLogger(c), clock.WallClock)
 	c.Assert(err, gc.IsNil)
 	defer workertest.DirtyKill(c, store)
 
@@ -146,14 +147,14 @@ func (s *FileObjectStoreSuite) TestPutFileAlreadyExists(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	hash := s.calculateHash(c, "some content")
-	s.expectLock(hash, 2)
-	s.expectUnlock(hash, 2)
+	s.expectClaim(hash, 2)
+	s.expectRelease(hash, 2)
 
 	path := c.MkDir()
 
 	namespace := "inferi"
 
-	store, err := NewFileObjectStore(context.Background(), namespace, path, s.service, s.locker, jujutesting.NewCheckLogger(c))
+	store, err := NewFileObjectStore(context.Background(), namespace, path, s.service, s.claimer, jujutesting.NewCheckLogger(c), clock.WallClock)
 	c.Assert(err, gc.IsNil)
 	defer workertest.DirtyKill(c, store)
 
@@ -177,14 +178,14 @@ func (s *FileObjectStoreSuite) TestPutCleansUpFileOnMetadataFailure(c *gc.C) {
 	// should be left to be cleaned by the object store later on.
 
 	hash := s.calculateHash(c, "some content")
-	s.expectLock(hash, 1)
-	s.expectUnlock(hash, 1)
+	s.expectClaim(hash, 1)
+	s.expectRelease(hash, 1)
 
 	path := c.MkDir()
 
 	namespace := "inferi"
 
-	store, err := NewFileObjectStore(context.Background(), namespace, path, s.service, s.locker, jujutesting.NewCheckLogger(c))
+	store, err := NewFileObjectStore(context.Background(), namespace, path, s.service, s.claimer, jujutesting.NewCheckLogger(c), clock.WallClock)
 	c.Assert(err, gc.IsNil)
 	defer workertest.DirtyKill(c, store)
 
@@ -208,14 +209,14 @@ func (s *FileObjectStoreSuite) TestPutDoesNotCleansUpFileOnMetadataFailure(c *gc
 	// cleaned up if the metadata service returns an error.
 
 	hash := s.calculateHash(c, "some content")
-	s.expectLock(hash, 2)
-	s.expectUnlock(hash, 2)
+	s.expectClaim(hash, 2)
+	s.expectRelease(hash, 2)
 
 	path := c.MkDir()
 
 	namespace := "inferi"
 
-	store, err := NewFileObjectStore(context.Background(), namespace, path, s.service, s.locker, jujutesting.NewCheckLogger(c))
+	store, err := NewFileObjectStore(context.Background(), namespace, path, s.service, s.claimer, jujutesting.NewCheckLogger(c), clock.WallClock)
 	c.Assert(err, gc.IsNil)
 	defer workertest.DirtyKill(c, store)
 
@@ -244,14 +245,14 @@ func (s *FileObjectStoreSuite) TestPutAndCheckHash(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	hash := s.calculateHash(c, "some content")
-	s.expectLock(hash, 1)
-	s.expectUnlock(hash, 1)
+	s.expectClaim(hash, 1)
+	s.expectRelease(hash, 1)
 
 	path := c.MkDir()
 
 	namespace := "inferi"
 
-	store, err := NewFileObjectStore(context.Background(), namespace, path, s.service, s.locker, jujutesting.NewCheckLogger(c))
+	store, err := NewFileObjectStore(context.Background(), namespace, path, s.service, s.claimer, jujutesting.NewCheckLogger(c), clock.WallClock)
 	c.Assert(err, gc.IsNil)
 	defer workertest.DirtyKill(c, store)
 
@@ -275,7 +276,7 @@ func (s *FileObjectStoreSuite) TestPutAndCheckHashWithInvalidHash(c *gc.C) {
 
 	namespace := "inferi"
 
-	store, err := NewFileObjectStore(context.Background(), namespace, path, s.service, s.locker, jujutesting.NewCheckLogger(c))
+	store, err := NewFileObjectStore(context.Background(), namespace, path, s.service, s.claimer, jujutesting.NewCheckLogger(c), clock.WallClock)
 	c.Assert(err, gc.IsNil)
 	defer workertest.DirtyKill(c, store)
 
@@ -287,14 +288,14 @@ func (s *FileObjectStoreSuite) TestPutAndCheckHashFileAlreadyExists(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	hash := s.calculateHash(c, "some content")
-	s.expectLock(hash, 2)
-	s.expectUnlock(hash, 2)
+	s.expectClaim(hash, 2)
+	s.expectRelease(hash, 2)
 
 	path := c.MkDir()
 
 	namespace := "inferi"
 
-	store, err := NewFileObjectStore(context.Background(), namespace, path, s.service, s.locker, jujutesting.NewCheckLogger(c))
+	store, err := NewFileObjectStore(context.Background(), namespace, path, s.service, s.claimer, jujutesting.NewCheckLogger(c), clock.WallClock)
 	c.Assert(err, gc.IsNil)
 	defer workertest.DirtyKill(c, store)
 
@@ -318,14 +319,14 @@ func (s *FileObjectStoreSuite) TestPutAndCheckHashCleansUpFileOnMetadataFailure(
 	// should be left to cleaned up by the object store later on.
 
 	hash := s.calculateHash(c, "some content")
-	s.expectLock(hash, 1)
-	s.expectUnlock(hash, 1)
+	s.expectClaim(hash, 1)
+	s.expectRelease(hash, 1)
 
 	path := c.MkDir()
 
 	namespace := "inferi"
 
-	store, err := NewFileObjectStore(context.Background(), namespace, path, s.service, s.locker, jujutesting.NewCheckLogger(c))
+	store, err := NewFileObjectStore(context.Background(), namespace, path, s.service, s.claimer, jujutesting.NewCheckLogger(c), clock.WallClock)
 	c.Assert(err, gc.IsNil)
 	defer workertest.DirtyKill(c, store)
 
@@ -349,14 +350,14 @@ func (s *FileObjectStoreSuite) TestPutAndCheckHashDoesNotCleansUpFileOnMetadataF
 	// cleaned up if the metadata service returns an error.
 
 	hash := s.calculateHash(c, "some content")
-	s.expectLock(hash, 2)
-	s.expectUnlock(hash, 2)
+	s.expectClaim(hash, 2)
+	s.expectRelease(hash, 2)
 
 	path := c.MkDir()
 
 	namespace := "inferi"
 
-	store, err := NewFileObjectStore(context.Background(), namespace, path, s.service, s.locker, jujutesting.NewCheckLogger(c))
+	store, err := NewFileObjectStore(context.Background(), namespace, path, s.service, s.claimer, jujutesting.NewCheckLogger(c), clock.WallClock)
 	c.Assert(err, gc.IsNil)
 	defer workertest.DirtyKill(c, store)
 
@@ -393,7 +394,7 @@ func (s *FileObjectStoreSuite) TestRemoveFileNotFound(c *gc.C) {
 	namespace := "inferi"
 	fileName := "foo"
 
-	store, err := NewFileObjectStore(context.Background(), namespace, path, s.service, s.locker, jujutesting.NewCheckLogger(c))
+	store, err := NewFileObjectStore(context.Background(), namespace, path, s.service, s.claimer, jujutesting.NewCheckLogger(c), clock.WallClock)
 	c.Assert(err, gc.IsNil)
 	defer workertest.DirtyKill(c, store)
 
@@ -413,14 +414,14 @@ func (s *FileObjectStoreSuite) TestRemove(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	hash := s.calculateHash(c, "some content")
-	s.expectLock(hash, 2)
-	s.expectUnlock(hash, 2)
+	s.expectClaim(hash, 2)
+	s.expectRelease(hash, 2)
 
 	path := c.MkDir()
 
 	namespace := "inferi"
 
-	store, err := NewFileObjectStore(context.Background(), namespace, path, s.service, s.locker, jujutesting.NewCheckLogger(c))
+	store, err := NewFileObjectStore(context.Background(), namespace, path, s.service, s.claimer, jujutesting.NewCheckLogger(c), clock.WallClock)
 	c.Assert(err, gc.IsNil)
 	defer workertest.DirtyKill(c, store)
 
@@ -453,8 +454,8 @@ func (s *FileObjectStoreSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.service = NewMockObjectStoreMetadata(ctrl)
-	s.locker = NewMockLocker(ctrl)
-	s.lockExtender = NewMockLockExtender(ctrl)
+	s.claimer = NewMockClaimer(ctrl)
+	s.claimExtender = NewMockClaimExtender(ctrl)
 
 	return ctrl
 }
@@ -516,12 +517,12 @@ func (s *FileObjectStoreSuite) expectFileDoesExist(c *gc.C, path, namespace, has
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *FileObjectStoreSuite) expectLock(hash string, num int) {
-	s.locker.EXPECT().Lock(gomock.Any(), hash).Return(s.lockExtender, nil).Times(num)
-	s.lockExtender.EXPECT().Extend(gomock.Any()).Return(nil).AnyTimes()
-	s.lockExtender.EXPECT().Duration().Return(time.Second).AnyTimes()
+func (s *FileObjectStoreSuite) expectClaim(hash string, num int) {
+	s.claimer.EXPECT().Claim(gomock.Any(), hash).Return(s.claimExtender, nil).Times(num)
+	s.claimExtender.EXPECT().Extend(gomock.Any()).Return(nil).AnyTimes()
+	s.claimExtender.EXPECT().Duration().Return(time.Second).AnyTimes()
 }
 
-func (s *FileObjectStoreSuite) expectUnlock(hash string, num int) {
-	s.locker.EXPECT().Unlock(gomock.Any(), hash).Return(nil).Times(num)
+func (s *FileObjectStoreSuite) expectRelease(hash string, num int) {
+	s.claimer.EXPECT().Release(gomock.Any(), hash).Return(nil).Times(num)
 }

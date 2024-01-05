@@ -5,6 +5,7 @@ package objectstore
 
 import (
 	stdcontext "context"
+	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -14,8 +15,9 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/lease"
 	coreobjectstore "github.com/juju/juju/core/objectstore"
-	internalobjectstore "github.com/juju/juju/internal/objectstore"
+	"github.com/juju/juju/internal/objectstore"
 	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/internal/worker/common"
 	"github.com/juju/juju/internal/worker/state"
@@ -63,6 +65,11 @@ type MetadataServiceGetter interface {
 	ForModelUUID(string) MetadataService
 }
 
+// ModelClaimGetter is the interface that is used to get a model claimer.
+type ModelClaimGetter interface {
+	ForModelUUID(string) (objectstore.Claimer, error)
+}
+
 // MetadataService is the interface that is used to get a object store.
 type MetadataService interface {
 	ObjectStore() coreobjectstore.ObjectStoreMetadata
@@ -73,10 +80,11 @@ type ManifoldConfig struct {
 	AgentName          string
 	TraceName          string
 	ServiceFactoryName string
+	LeaseManagerName   string
 
 	Clock                clock.Clock
 	Logger               Logger
-	NewObjectStoreWorker internalobjectstore.ObjectStoreWorkerFunc
+	NewObjectStoreWorker objectstore.ObjectStoreWorkerFunc
 	GetObjectStoreType   func(ControllerConfigService) (coreobjectstore.BackendType, error)
 
 	// StateName is only here for backwards compatibility. Once we have
@@ -95,6 +103,9 @@ func (cfg ManifoldConfig) Validate() error {
 	}
 	if cfg.ServiceFactoryName == "" {
 		return errors.NotValidf("empty ServiceFactoryName")
+	}
+	if cfg.LeaseManagerName == "" {
+		return errors.NotValidf("empty LeaseManagerName")
 	}
 	if cfg.Clock == nil {
 		return errors.NotValidf("nil Clock")
@@ -143,6 +154,11 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 
+			var leaseManager lease.Manager
+			if err := context.Get(config.LeaseManagerName, &leaseManager); err != nil {
+				return nil, errors.Trace(err)
+			}
+
 			var modelServiceFactoryGetter servicefactory.ServiceFactoryGetter
 			if err := context.Get(config.ServiceFactoryName, &modelServiceFactoryGetter); err != nil {
 				return nil, errors.Trace(err)
@@ -169,6 +185,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				ObjectStoreType:            objectStoreType,
 				ControllerMetadataService:  controllerMetadataService{factory: controllerServiceFactory},
 				ModelMetadataServiceGetter: modelMetadataServiceGetter{factoryGetter: modelServiceFactoryGetter},
+				ModelClaimGetter:           modelClaimGetter{manager: leaseManager},
 
 				// StatePool is only here for backwards compatibility. Once we
 				// have the right abstractions in place, and we have a
@@ -267,4 +284,67 @@ type modelMetadataService struct {
 // ObjectStore returns the object store metadata for the given model UUID
 func (s modelMetadataService) ObjectStore() coreobjectstore.ObjectStoreMetadata {
 	return s.factory.ObjectStore()
+}
+
+type modelClaimGetter struct {
+	manager lease.Manager
+}
+
+// ForModelUUID returns the Locker for the given model UUID.
+func (s modelClaimGetter) ForModelUUID(modelUUID string) (objectstore.Claimer, error) {
+	leaseClaimer, err := s.manager.Claimer(lease.ObjectStoreNamespace, modelUUID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	leaseRevoker, err := s.manager.Revoker(lease.ObjectStoreNamespace, modelUUID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return claimer{
+		claimer: leaseClaimer,
+		revoker: leaseRevoker,
+	}, nil
+}
+
+const (
+	defaultLockDuration = time.Minute
+	defaultHolderName   = "objectstore"
+)
+
+type claimer struct {
+	claimer lease.Claimer
+	revoker lease.Revoker
+}
+
+// Lock locks the given hash for the default duration.
+func (l claimer) Claim(ctx stdcontext.Context, hash string) (objectstore.ClaimExtender, error) {
+	if err := l.claimer.Claim(hash, defaultHolderName, defaultLockDuration); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return claimExtender{
+		claimer: l.claimer,
+		hash:    hash,
+	}, nil
+}
+
+// Unlock unlocks the given hash.
+func (l claimer) Release(ctx stdcontext.Context, hash string) error {
+	return l.revoker.Revoke(hash, defaultHolderName)
+}
+
+type claimExtender struct {
+	claimer lease.Claimer
+	hash    string
+}
+
+// Extend extends the lock for the given hash.
+func (l claimExtender) Extend(ctx stdcontext.Context) error {
+	return l.claimer.Claim(l.hash, defaultHolderName, defaultLockDuration)
+}
+
+// Duration returns the duration of the lock.
+func (l claimExtender) Duration() time.Duration {
+	return defaultLockDuration / 2
 }

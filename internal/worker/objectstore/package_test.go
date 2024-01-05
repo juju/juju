@@ -16,8 +16,10 @@ import (
 
 //go:generate go run go.uber.org/mock/mockgen -package objectstore -destination clock_mock_test.go github.com/juju/clock Clock,Timer
 //go:generate go run go.uber.org/mock/mockgen -package objectstore -destination agent_mock_test.go github.com/juju/juju/agent Agent,Config
-//go:generate go run go.uber.org/mock/mockgen -package objectstore -destination objectstore_mock_test.go github.com/juju/juju/internal/worker/objectstore TrackedObjectStore,StatePool,MongoSession,MetadataServiceGetter,MetadataService
+//go:generate go run go.uber.org/mock/mockgen -package objectstore -destination objectstore_mock_test.go github.com/juju/juju/internal/worker/objectstore TrackedObjectStore,StatePool,MongoSession,MetadataServiceGetter,MetadataService,ModelClaimGetter
+//go:generate go run go.uber.org/mock/mockgen -package objectstore -destination claimer_mock_test.go github.com/juju/juju/internal/objectstore Claimer
 //go:generate go run go.uber.org/mock/mockgen -package objectstore -destination state_mock_test.go github.com/juju/juju/internal/worker/state StateTracker
+//go:generate go run go.uber.org/mock/mockgen -package objectstore -destination lease_mock_test.go github.com/juju/juju/core/lease Manager
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)
@@ -28,9 +30,11 @@ type baseSuite struct {
 
 	logger Logger
 
-	clock       *MockClock
-	agent       *MockAgent
-	agentConfig *MockConfig
+	clock        *MockClock
+	agent        *MockAgent
+	agentConfig  *MockConfig
+	leaseManager *MockManager
+	claimer      *MockClaimer
 
 	// Deprecated: These are only here for backwards compatibility.
 	stateTracker *MockStateTracker
@@ -47,6 +51,8 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.stateTracker = NewMockStateTracker(ctrl)
 	s.statePool = NewMockStatePool(ctrl)
 	s.mongoSession = NewMockMongoSession(ctrl)
+	s.leaseManager = NewMockManager(ctrl)
+	s.claimer = NewMockClaimer(ctrl)
 
 	s.logger = jujujujutesting.NewCheckLogger(c)
 
