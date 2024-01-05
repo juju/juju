@@ -7,5 +7,6 @@ package flags
 const (
 	// BootstrapFlag is the name of the flag that is used to check if the
 	// bootstrap process has completed.
-	BootstrapFlag = "bootstrapped"
+	BootstrapFlag            = "bootstrapped"
+	BootstrapFlagDescription = "Flag that indicates if the bootstrap process has completed"
 )

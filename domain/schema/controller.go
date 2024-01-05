@@ -586,7 +586,8 @@ func flagSchema() schema.Patch {
 	return schema.MakePatch(`
 CREATE TABLE flag (
     name TEXT PRIMARY KEY,
-    value BOOLEAN DEFAULT 0
+    value BOOLEAN DEFAULT 0,
+    description TEXT NOT NULL
 );
 `)
 }

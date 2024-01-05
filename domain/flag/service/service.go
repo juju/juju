@@ -11,7 +11,7 @@ import (
 
 // State describes retrieval and persistence methods for storage.
 type State interface {
-	SetFlag(context.Context, string, bool) error
+	SetFlag(ctx context.Context, flag string, value bool, description string) error
 	GetFlag(context.Context, string) (bool, error)
 }
 
@@ -28,8 +28,9 @@ func NewService(st State) *Service {
 }
 
 // SetFlag sets the value of a flag.
-func (s *Service) SetFlag(ctx context.Context, flag string, value bool) error {
-	return s.st.SetFlag(ctx, flag, value)
+// Description is used to describe the flag and it's potential state.
+func (s *Service) SetFlag(ctx context.Context, flag string, value bool, description string) error {
+	return s.st.SetFlag(ctx, flag, value, description)
 }
 
 // GetFlag returns the value of a flag.

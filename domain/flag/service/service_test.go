@@ -24,10 +24,10 @@ var _ = gc.Suite(&serviceSuite{})
 func (s *serviceSuite) TestSetFlag(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().SetFlag(gomock.Any(), "foo", true).Return(nil)
+	s.state.EXPECT().SetFlag(gomock.Any(), "foo", true, "foo set to true").Return(nil)
 
 	service := NewService(s.state)
-	err := service.SetFlag(context.Background(), "foo", true)
+	err := service.SetFlag(context.Background(), "foo", true, "foo set to true")
 	c.Assert(err, jc.ErrorIsNil)
 }
 

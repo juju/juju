@@ -96,17 +96,17 @@ func (mr *MockFlagServiceMockRecorder) GetFlag(arg0, arg1 any) *gomock.Call {
 }
 
 // SetFlag mocks base method.
-func (m *MockFlagService) SetFlag(arg0 context.Context, arg1 string, arg2 bool) error {
+func (m *MockFlagService) SetFlag(arg0 context.Context, arg1 string, arg2 bool, arg3 string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetFlag", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "SetFlag", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SetFlag indicates an expected call of SetFlag.
-func (mr *MockFlagServiceMockRecorder) SetFlag(arg0, arg1, arg2 any) *gomock.Call {
+func (mr *MockFlagServiceMockRecorder) SetFlag(arg0, arg1, arg2, arg3 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetFlag", reflect.TypeOf((*MockFlagService)(nil).SetFlag), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetFlag", reflect.TypeOf((*MockFlagService)(nil).SetFlag), arg0, arg1, arg2, arg3)
 }
 
 // MockObjectStoreGetter is a mock of ObjectStoreGetter interface.

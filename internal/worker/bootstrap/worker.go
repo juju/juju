@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/flags"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/worker/gate"
 	"github.com/juju/juju/state/binarystorage"
@@ -33,7 +34,7 @@ type ControllerConfigService interface {
 // flag.
 type FlagService interface {
 	GetFlag(context.Context, string) (bool, error)
-	SetFlag(context.Context, string, bool) error
+	SetFlag(ctx context.Context, flag string, value bool, description string) error
 }
 
 // ObjectStoreGetter is the interface that is used to get a object store.
@@ -154,7 +155,7 @@ func (w *bootstrapWorker) loop() error {
 	}
 
 	// Set the bootstrap flag, to indicate that the bootstrap has completed.
-	if err := w.cfg.FlagService.SetFlag(ctx, BootstrapFlag, true); err != nil {
+	if err := w.cfg.FlagService.SetFlag(ctx, flags.BootstrapFlag, true, flags.BootstrapFlagDescription); err != nil {
 		return errors.Trace(err)
 	}
 

@@ -33,20 +33,22 @@ func NewState(factory coredb.TxnRunnerFactory, logger Logger) *State {
 }
 
 // SetFlag sets the value of a flag.
-func (s *State) SetFlag(ctx context.Context, flag string, value bool) error {
+// Description is used to describe the flag and it's potential state.
+func (s *State) SetFlag(ctx context.Context, flag string, value bool, description string) error {
 	db, err := s.DB()
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	query := `
-INSERT INTO flag (name, value)
-VALUES (?, ?)
-ON CONFLICT (name) DO UPDATE SET value = excluded.value;
+INSERT INTO flag (name, value, description)
+VALUES (?, ?, ?)
+ON CONFLICT (name) DO UPDATE SET value = excluded.value,
+                                 description = excluded.description;
 `
 
 	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		result, err := tx.ExecContext(ctx, query, flag, value)
+		result, err := tx.ExecContext(ctx, query, flag, value, description)
 		if err != nil {
 			return errors.Trace(err)
 		}
