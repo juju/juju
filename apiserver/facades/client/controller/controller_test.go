@@ -404,7 +404,7 @@ func (s *controllerSuite) TestWatchAllModels(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	var disposed bool
-	watcherAPI_, err := apiserver.NewAllWatcher(facadetest.Context{
+	watcherAPI_, err := apiserver.NewAllWatcher(context.Background(), facadetest.Context{
 		State_:           s.State,
 		Resources_:       s.resources,
 		WatcherRegistry_: s.watcherRegistry,

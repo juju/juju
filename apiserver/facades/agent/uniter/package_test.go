@@ -4,6 +4,7 @@
 package uniter_test
 
 import (
+	"context"
 	stdtesting "testing"
 
 	"github.com/juju/collections/set"
@@ -149,7 +150,7 @@ func (s *uniterSuiteBase) newUniterAPI(c *gc.C, st *state.State, auth facade.Aut
 	facadeContext.State_ = st
 	facadeContext.Auth_ = auth
 	facadeContext.LeadershipRevoker_ = s.leadershipRevoker
-	uniterAPI, err := uniter.NewUniterAPI(facadeContext)
+	uniterAPI, err := uniter.NewUniterAPI(context.Background(), facadeContext)
 	c.Assert(err, jc.ErrorIsNil)
 	return uniterAPI
 }

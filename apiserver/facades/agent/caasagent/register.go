@@ -4,6 +4,7 @@
 package caasagent
 
 import (
+	"context"
 	"reflect"
 
 	"github.com/juju/errors"
@@ -16,7 +17,7 @@ import (
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	registry.MustRegister("CAASAgent", 2, func(ctx facade.Context) (facade.Facade, error) {
+	registry.MustRegister("CAASAgent", 2, func(stdCtx context.Context, ctx facade.Context) (facade.Facade, error) {
 		return newStateFacadeV2(ctx)
 	}, reflect.TypeOf((*FacadeV2)(nil)))
 }

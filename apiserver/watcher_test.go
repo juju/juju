@@ -61,7 +61,7 @@ func (s *watcherSuite) getFacade(
 	dispose func(),
 ) interface{} {
 	factory := getFacadeFactory(c, name, version)
-	facade, err := factory(s.facadeContext(c, id, dispose))
+	facade, err := factory(context.Background(), s.facadeContext(c, id, dispose))
 	c.Assert(err, jc.ErrorIsNil)
 	return facade
 }
@@ -163,7 +163,7 @@ func (s *watcherSuite) TestMigrationStatusWatcherNotAgent(c *gc.C) {
 
 	factory, err := apiserver.AllFacades().GetFactory("MigrationStatusWatcher", 1)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = factory(facadetest.Context{
+	_, err = factory(context.Background(), facadetest.Context{
 		Resources_: s.resources,
 		Auth_:      s.authorizer,
 		ID_:        id,

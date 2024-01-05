@@ -4,6 +4,7 @@
 package crossmodelrelations
 
 import (
+	"context"
 	"reflect"
 
 	"github.com/juju/juju/apiserver/common"
@@ -15,7 +16,7 @@ import (
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	registry.MustRegister("CrossModelRelations", 2, func(ctx facade.Context) (facade.Facade, error) {
+	registry.MustRegister("CrossModelRelations", 2, func(stdCtx context.Context, ctx facade.Context) (facade.Facade, error) {
 		return newStateCrossModelRelationsAPI(ctx) // Adds WatchRelationChanges, removes WatchRelationUnits
 	}, reflect.TypeOf((*CrossModelRelationsAPI)(nil)))
 }

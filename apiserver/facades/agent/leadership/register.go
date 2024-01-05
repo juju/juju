@@ -4,6 +4,7 @@
 package leadership
 
 import (
+	"context"
 	"reflect"
 
 	"github.com/juju/errors"
@@ -13,7 +14,7 @@ import (
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	registry.MustRegister("LeadershipService", 2, func(ctx facade.Context) (facade.Facade, error) {
+	registry.MustRegister("LeadershipService", 2, func(stdCtx context.Context, ctx facade.Context) (facade.Facade, error) {
 		return newLeadershipServiceFacade(ctx)
 	}, reflect.TypeOf((*LeadershipService)(nil)).Elem())
 }

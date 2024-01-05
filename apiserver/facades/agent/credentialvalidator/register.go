@@ -4,6 +4,7 @@
 package credentialvalidator
 
 import (
+	"context"
 	"reflect"
 
 	"github.com/juju/juju/apiserver/facade"
@@ -11,7 +12,7 @@ import (
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	registry.MustRegister("CredentialValidator", 2, func(ctx facade.Context) (facade.Facade, error) {
+	registry.MustRegister("CredentialValidator", 2, func(stdCtx context.Context, ctx facade.Context) (facade.Facade, error) {
 		return newCredentialValidatorAPI(ctx) // adds WatchModelCredential
 	}, reflect.TypeOf((*CredentialValidatorAPI)(nil)))
 }

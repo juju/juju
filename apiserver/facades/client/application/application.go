@@ -109,7 +109,7 @@ type CaasBrokerInterface interface {
 	Version() (*version.Number, error)
 }
 
-func newFacadeBase(ctx facade.Context) (*APIBase, error) {
+func newFacadeBase(stdCtx context.Context, ctx facade.Context) (*APIBase, error) {
 	m, err := ctx.State().Model()
 	if err != nil {
 		return nil, errors.Annotate(err, "getting model")
@@ -175,7 +175,7 @@ func newFacadeBase(ctx facade.Context) (*APIBase, error) {
 		state:              state,
 		storagePoolManager: storagePoolManager,
 	}
-	repoDeploy := NewDeployFromRepositoryAPI(state, ctx.ObjectStore(), makeDeployFromRepositoryValidator(context.TODO(), validatorCfg))
+	repoDeploy := NewDeployFromRepositoryAPI(state, ctx.ObjectStore(), makeDeployFromRepositoryValidator(stdCtx, validatorCfg))
 
 	return NewAPIBase(
 		state,

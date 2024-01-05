@@ -4,6 +4,7 @@
 package machine
 
 import (
+	"context"
 	"reflect"
 
 	"github.com/juju/errors"
@@ -13,7 +14,7 @@ import (
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	registry.MustRegister("Machiner", 5, func(ctx facade.Context) (facade.Facade, error) {
+	registry.MustRegister("Machiner", 5, func(stdCtx context.Context, ctx facade.Context) (facade.Facade, error) {
 		return newMachinerAPI(ctx) // Adds RecordAgentHostAndStartTime.
 	}, reflect.TypeOf((*MachinerAPI)(nil)))
 }

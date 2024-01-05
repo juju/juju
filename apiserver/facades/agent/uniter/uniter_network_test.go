@@ -710,7 +710,7 @@ func (s *uniterNetworkInfoSuite) TestCommitHookChanges(c *gc.C) {
 	)
 
 	// Test-suite uses an older API version
-	api, err := uniter.NewUniterAPI(s.facadeContext(c))
+	api, err := uniter.NewUniterAPI(context.Background(), s.facadeContext(c))
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := api.CommitHookChanges(context.Background(), req)
@@ -770,7 +770,7 @@ func (s *uniterNetworkInfoSuite) TestCommitHookChangesWhenNotLeader(c *gc.C) {
 	req, _ := b.Build()
 
 	// Test-suite uses an older API version
-	api, err := uniter.NewUniterAPI(s.facadeContext(c))
+	api, err := uniter.NewUniterAPI(context.Background(), s.facadeContext(c))
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := api.CommitHookChanges(context.Background(), req)

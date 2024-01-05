@@ -4,6 +4,7 @@
 package subnets
 
 import (
+	"context"
 	"reflect"
 
 	"github.com/juju/errors"
@@ -14,7 +15,7 @@ import (
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	registry.MustRegister("Subnets", 5, func(ctx facade.Context) (facade.Facade, error) {
+	registry.MustRegister("Subnets", 5, func(stdCtx context.Context, ctx facade.Context) (facade.Facade, error) {
 		return newAPI(ctx) // Removes AddSubnets.
 	}, reflect.TypeOf((*API)(nil)))
 }

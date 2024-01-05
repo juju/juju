@@ -4,6 +4,7 @@
 package modelgeneration
 
 import (
+	"context"
 	"reflect"
 
 	"github.com/juju/errors"
@@ -13,7 +14,7 @@ import (
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	registry.MustRegister("ModelGeneration", 4, func(ctx facade.Context) (facade.Facade, error) {
+	registry.MustRegister("ModelGeneration", 4, func(stdCtx context.Context, ctx facade.Context) (facade.Facade, error) {
 		return newModelGenerationFacadeV4(ctx)
 	}, reflect.TypeOf((*API)(nil)))
 }

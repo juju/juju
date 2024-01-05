@@ -4,6 +4,7 @@
 package caasapplicationprovisioner
 
 import (
+	"context"
 	"reflect"
 
 	"github.com/juju/juju/apiserver/facade"
@@ -11,7 +12,7 @@ import (
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	registry.MustRegister("CAASApplicationProvisioner", 1, func(ctx facade.Context) (facade.Facade, error) {
+	registry.MustRegister("CAASApplicationProvisioner", 1, func(stdCtx context.Context, ctx facade.Context) (facade.Facade, error) {
 		return newAPI(ctx)
 	}, reflect.TypeOf((*APIGroup)(nil)))
 }

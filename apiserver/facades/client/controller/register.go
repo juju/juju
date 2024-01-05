@@ -4,6 +4,7 @@
 package controller
 
 import (
+	"context"
 	"reflect"
 
 	"github.com/juju/juju/apiserver/facade"
@@ -11,7 +12,7 @@ import (
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	registry.MustRegister("Controller", 11, func(ctx facade.Context) (facade.Facade, error) {
+	registry.MustRegister("Controller", 11, func(stdCtx context.Context, ctx facade.Context) (facade.Facade, error) {
 		return newControllerAPIv11(ctx)
 	}, reflect.TypeOf((*ControllerAPI)(nil)))
 }

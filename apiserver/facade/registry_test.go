@@ -4,6 +4,7 @@
 package facade_test
 
 import (
+	"context"
 	"reflect"
 
 	"github.com/juju/errors"
@@ -32,7 +33,7 @@ func (s *RegistrySuite) TestRegister(c *gc.C) {
 
 	factory, err := registry.GetFactory("myfacade", 123)
 	c.Assert(err, jc.ErrorIsNil)
-	val, err := factory(nil)
+	val, err := factory(context.Background(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(val, gc.Equals, "myobject")
 }
@@ -49,13 +50,13 @@ func (s *RegistrySuite) TestListDetails(c *gc.C) {
 	c.Assert(details, gc.HasLen, 2)
 	c.Assert(details[0].Name, gc.Equals, "f1")
 	c.Assert(details[0].Version, gc.Equals, 9)
-	v, _ := details[0].Factory(nil)
+	v, _ := details[0].Factory(context.Background(), nil)
 	c.Assert(v, gc.FitsTypeOf, new(int))
 	c.Assert(details[0].Type, gc.Equals, intPtrType)
 
 	c.Assert(details[1].Name, gc.Equals, "f2")
 	c.Assert(details[1].Version, gc.Equals, 6)
-	v, _ = details[1].Factory(nil)
+	v, _ = details[1].Factory(context.Background(), nil)
 	c.Assert(v, gc.Equals, "myobject")
 	c.Assert(details[1].Type, gc.Equals, interfaceType)
 }
@@ -115,7 +116,7 @@ func (*RegistrySuite) TestRegisterAndListMultiple(c *gc.C) {
 func (*RegistrySuite) TestRegisterAlreadyPresent(c *gc.C) {
 	registry := &facade.Registry{}
 	assertRegister(c, registry, "name", 0)
-	secondIdFactory := func(context facade.Context) (facade.Facade, error) {
+	secondIdFactory := func(_ context.Context, context facade.Context) (facade.Facade, error) {
 		var i = 200
 		return &i, nil
 	}
@@ -125,7 +126,7 @@ func (*RegistrySuite) TestRegisterAlreadyPresent(c *gc.C) {
 	factory, err := registry.GetFactory("name", 0)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(factory, gc.NotNil)
-	val, err := factory(nil)
+	val, err := factory(context.Background(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	asIntPtr := val.(*int)
 	c.Check(*asIntPtr, gc.Equals, 100)
@@ -138,7 +139,7 @@ func (*RegistrySuite) TestGetFactory(c *gc.C) {
 	factory, err := registry.GetFactory("name", 0)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(factory, gc.NotNil)
-	res, err := factory(nil)
+	res, err := factory(context.Background(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res, gc.NotNil)
 	asIntPtr := res.(*int)
@@ -195,11 +196,11 @@ func assertRegisterFlag(c *gc.C, registry *facade.Registry, name string, version
 	c.Assert(err, gc.IsNil)
 }
 
-func testFacade(_ facade.Context) (facade.Facade, error) {
+func testFacade(_ context.Context, _ facade.Context) (facade.Facade, error) {
 	return "myobject", nil
 }
 
-func validIdFactory(_ facade.Context) (facade.Facade, error) {
+func validIdFactory(_ context.Context, _ facade.Context) (facade.Facade, error) {
 	var i = 100
 	return &i, nil
 }

@@ -53,9 +53,9 @@ var _ = gc.Suite(&uniterSuite{})
 func (s *uniterSuite) TestUniterFailsWithNonUnitAgentUser(c *gc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewMachineTag("9")
-	context := s.facadeContext(c)
-	context.Auth_ = anAuthorizer
-	_, err := uniter.NewUniterAPI(context)
+	ctx := s.facadeContext(c)
+	ctx.Auth_ = anAuthorizer
+	_, err := uniter.NewUniterAPI(context.Background(), ctx)
 	c.Assert(err, gc.NotNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
@@ -3587,7 +3587,7 @@ func (s *uniterSuite) TestCommitHookChangesWithStorage(c *gc.C) {
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag: unit.Tag(),
 	}
-	api, err := uniter.NewUniterAPI(s.facadeContext(c))
+	api, err := uniter.NewUniterAPI(context.Background(), s.facadeContext(c))
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := api.CommitHookChanges(context.Background(), req)
@@ -3626,7 +3626,7 @@ func (s *uniterSuite) TestCommitHookChangesWithPortsSidecarApplication(c *gc.C) 
 	req, _ := b.Build()
 
 	s.authorizer = apiservertesting.FakeAuthorizer{Tag: unit.Tag()}
-	uniterAPI, err := uniter.NewUniterAPI(facadetest.Context{
+	uniterAPI, err := uniter.NewUniterAPI(context.Background(), facadetest.Context{
 		State_:             cm.State(),
 		StatePool_:         s.StatePool(),
 		Resources_:         s.resources,

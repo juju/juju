@@ -327,7 +327,7 @@ func (r *apiHandler) EntityHasPermission(entity names.Tag, operation permission.
 // and place a call on its method.
 type srvCaller struct {
 	objMethod rpcreflect.ObjMethod
-	creator   func(id string) (reflect.Value, error)
+	creator   func(ctx context.Context, id string) (reflect.Value, error)
 }
 
 // ParamsType defines the parameters that should be supplied to this function.
@@ -345,7 +345,7 @@ func (s *srvCaller) ResultType() reflect.Type {
 // Call takes the object Id and an instance of ParamsType to create an object and place
 // a call on its method. It then returns an instance of ResultType.
 func (s *srvCaller) Call(ctx context.Context, objId string, arg reflect.Value) (reflect.Value, error) {
-	objVal, err := s.creator(objId)
+	objVal, err := s.creator(ctx, objId)
 	if err != nil {
 		return reflect.Value{}, err
 	}
@@ -516,7 +516,7 @@ func (r *apiRoot) FindMethod(rootName string, version int, methodName string) (r
 		return nil, err
 	}
 
-	creator := func(id string) (reflect.Value, error) {
+	creator := func(ctx context.Context, id string) (reflect.Value, error) {
 		objKey := objectKey{name: rootName, version: version, objId: id}
 		r.objectMutex.RLock()
 		objValue, ok := r.objectCache[objKey]
@@ -538,7 +538,7 @@ func (r *apiRoot) FindMethod(rootName string, version int, methodName string) (r
 			// check.
 			return reflect.Value{}, err
 		}
-		obj, err := factory(r.facadeContext(objKey))
+		obj, err := factory(ctx, r.facadeContext(objKey))
 		if err != nil {
 			return reflect.Value{}, err
 		}

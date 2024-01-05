@@ -4,7 +4,7 @@
 package usersecretsdrain
 
 import (
-	stdCtx "context"
+	stdcontext "context"
 	"reflect"
 
 	"github.com/juju/errors"
@@ -18,7 +18,7 @@ import (
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	registry.MustRegister("UserSecretsDrain", 1, func(ctx facade.Context) (facade.Facade, error) {
+	registry.MustRegister("UserSecretsDrain", 1, func(stdCtx stdcontext.Context, ctx facade.Context) (facade.Facade, error) {
 		return newUserSecretsDrainAPI(ctx)
 	}, reflect.TypeOf((*SecretsDrainAPI)(nil)))
 }
@@ -36,7 +36,7 @@ func newUserSecretsDrainAPI(context facade.Context) (*SecretsDrainAPI, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	ctx := stdCtx.Background()
+	ctx := stdcontext.Background()
 	serviceFactory := context.ServiceFactory()
 	cloudService := serviceFactory.Cloud()
 	credentialSerivce := serviceFactory.Credential()

@@ -4,6 +4,7 @@
 package application
 
 import (
+	"context"
 	"reflect"
 
 	"github.com/juju/errors"
@@ -13,13 +14,13 @@ import (
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	registry.MustRegister("Application", 19, func(ctx facade.Context) (facade.Facade, error) {
-		return newFacadeV19(ctx) // Added new DeployFromRepository
+	registry.MustRegister("Application", 19, func(stdCtx context.Context, ctx facade.Context) (facade.Facade, error) {
+		return newFacadeV19(stdCtx, ctx) // Added new DeployFromRepository
 	}, reflect.TypeOf((*APIv19)(nil)))
 }
 
-func newFacadeV19(ctx facade.Context) (*APIv19, error) {
-	api, err := newFacadeBase(ctx)
+func newFacadeV19(stdCtx context.Context, ctx facade.Context) (*APIv19, error) {
+	api, err := newFacadeBase(stdCtx, ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
