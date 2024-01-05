@@ -259,7 +259,7 @@ func (c *upgradeMachineCommand) trapInterrupt(ctx *cmd.Context) func() {
 	interrupted := make(chan os.Signal, 1)
 	ctx.InterruptNotify(interrupted)
 
-	cancelCtx, cancel := context.WithCancel(context.TODO())
+	cancelCtx, cancel := context.WithCancel(ctx)
 	go func() {
 		for range interrupted {
 			select {

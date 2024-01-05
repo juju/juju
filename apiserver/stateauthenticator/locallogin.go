@@ -57,8 +57,8 @@ func (h *localLoginHandlers) AddHandlers(mux *apiserverhttp.Mux) {
 	_ = mux.AddHandler("POST", localUserIdentityLocationPath+"/form", dischargeMux)
 }
 
-func (h *localLoginHandlers) bakeryError(w http.ResponseWriter, err error) {
-	httpbakery.WriteError(context.TODO(), w, err)
+func (h *localLoginHandlers) bakeryError(ctx context.Context, w http.ResponseWriter, err error) {
+	httpbakery.WriteError(ctx, w, err)
 }
 
 func (h *localLoginHandlers) formHandler(w http.ResponseWriter, req *http.Request) {
@@ -75,7 +75,7 @@ func (h *localLoginHandlers) formHandler(w http.ResponseWriter, req *http.Reques
 	}
 	loginRequest := form.LoginRequest{}
 	if err := httprequest.Unmarshal(reqParams, &loginRequest); err != nil {
-		h.bakeryError(w, errors.Annotate(err, "can't unmarshal login request"))
+		h.bakeryError(ctx, w, errors.Annotate(err, "can't unmarshal login request"))
 		return
 	}
 
@@ -83,7 +83,7 @@ func (h *localLoginHandlers) formHandler(w http.ResponseWriter, req *http.Reques
 	password := loginRequest.Body.Form["password"].(string)
 	userTag := names.NewUserTag(username)
 	if !userTag.IsLocal() {
-		h.bakeryError(w, errors.NotValidf("non-local username %q", username))
+		h.bakeryError(ctx, w, errors.NotValidf("non-local username %q", username))
 		return
 	}
 
@@ -92,13 +92,13 @@ func (h *localLoginHandlers) formHandler(w http.ResponseWriter, req *http.Reques
 		AuthTag:     userTag,
 		Credentials: password,
 	}); err != nil {
-		h.bakeryError(w, err)
+		h.bakeryError(ctx, w, err)
 		return
 	}
 
 	token, err := newID()
 	if err != nil {
-		h.bakeryError(w, errors.Annotate(err, "cannot generate token"))
+		h.bakeryError(ctx, w, errors.Annotate(err, "cannot generate token"))
 		return
 	}
 	h.userTokens[token] = username

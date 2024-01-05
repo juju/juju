@@ -4,6 +4,7 @@
 package store_test
 
 import (
+	"context"
 	"net/url"
 
 	"github.com/juju/charm/v12"
@@ -141,7 +142,7 @@ func (s *resolveSuite) TestCharmHubGetBundle(c *gc.C) {
 	charmAdaptor := store.NewCharmAdaptor(s.charmsAPI, func() (store.DownloadBundleClient, error) {
 		return s.downloadClient, nil
 	})
-	bundle, err := charmAdaptor.GetBundle(curl, origin, "/tmp/")
+	bundle, err := charmAdaptor.GetBundle(context.Background(), curl, origin, "/tmp/")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(bundle, gc.DeepEquals, s.bundle)
 }

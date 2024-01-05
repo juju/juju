@@ -62,20 +62,6 @@ func (mr *MockContextMockRecorder) Auth() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Auth", reflect.TypeOf((*MockContext)(nil).Auth))
 }
 
-// Cancel mocks base method.
-func (m *MockContext) Cancel() <-chan struct{} {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Cancel")
-	ret0, _ := ret[0].(<-chan struct{})
-	return ret0
-}
-
-// Cancel indicates an expected call of Cancel.
-func (mr *MockContextMockRecorder) Cancel() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Cancel", reflect.TypeOf((*MockContext)(nil).Cancel))
-}
-
 // ControllerDB mocks base method.
 func (m *MockContext) ControllerDB() (changestream.WatchableDB, error) {
 	m.ctrl.T.Helper()

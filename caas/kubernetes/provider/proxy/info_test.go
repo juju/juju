@@ -29,7 +29,7 @@ func (i *infoSuite) SetUpTest(c *gc.C) {
 	i.clock = testclock.NewClock(time.Time{})
 
 	i.client = fake.NewSimpleClientset()
-	_, err := i.client.CoreV1().Namespaces().Create(context.TODO(),
+	_, err := i.client.CoreV1().Namespaces().Create(context.Background(),
 		&core.Namespace{
 			ObjectMeta: meta.ObjectMeta{
 				Name: testNamespace,
@@ -57,7 +57,7 @@ func (i *infoSuite) TestHasControllerProxy(c *gc.C) {
 	}
 
 	// fake k8s client does not populate the token for secret, so we have to do it manually.
-	_, err := i.client.CoreV1().Secrets(testNamespace).Create(context.TODO(), &core.Secret{
+	_, err := i.client.CoreV1().Secrets(testNamespace).Create(context.Background(), &core.Secret{
 		ObjectMeta: meta.ObjectMeta{
 			Labels: labels.Set{},
 			Name:   config.Name,
@@ -100,7 +100,7 @@ func (i *infoSuite) TestGetControllerProxier(c *gc.C) {
 	}
 
 	// fake k8s client does not populate the token for secret, so we have to do it manually.
-	_, err := i.client.CoreV1().Secrets(testNamespace).Create(context.TODO(), &core.Secret{
+	_, err := i.client.CoreV1().Secrets(testNamespace).Create(context.Background(), &core.Secret{
 		ObjectMeta: meta.ObjectMeta{
 			Labels: labels.Set{},
 			Name:   config.Name,

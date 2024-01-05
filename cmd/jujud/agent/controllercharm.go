@@ -133,9 +133,9 @@ func (c *BootstrapCommand) deployControllerCharm(ctx context.Context, objectStor
 
 // These are patched for testing.
 var (
-	newCharmRepo = func(cfg services.CharmRepoFactoryConfig) (corecharm.Repository, error) {
+	newCharmRepo = func(ctx context.Context, cfg services.CharmRepoFactoryConfig) (corecharm.Repository, error) {
 		charmRepoFactory := services.NewCharmRepoFactory(cfg)
-		return charmRepoFactory.GetCharmRepository(context.TODO(), corecharm.CharmHub)
+		return charmRepoFactory.GetCharmRepository(ctx, corecharm.CharmHub)
 	}
 	newCharmDownloader = func(cfg services.CharmDownloaderConfig) (interfaces.Downloader, error) {
 		return services.NewCharmDownloader(cfg)
@@ -153,7 +153,7 @@ func populateStoreControllerCharm(ctx context.Context, objectStore services.Stor
 	charmhubHTTPClient := charmhub.DefaultHTTPClient(loggerFactory)
 
 	stateBackend := &stateShim{st}
-	charmRepo, err := newCharmRepo(services.CharmRepoFactoryConfig{
+	charmRepo, err := newCharmRepo(ctx, services.CharmRepoFactoryConfig{
 		LoggerFactory:      services.LoggoLoggerFactory(logger),
 		CharmhubHTTPClient: charmhubHTTPClient,
 		StateBackend:       stateBackend,
@@ -192,7 +192,7 @@ func populateStoreControllerCharm(ctx context.Context, objectStore services.Stor
 	// error response.
 	//
 	// The controller charm doesn't have any series specific code.
-	curl, origin, _, err = charmRepo.ResolveWithPreferredChannel(context.TODO(), curl.Name, origin)
+	curl, origin, _, err = charmRepo.ResolveWithPreferredChannel(ctx, curl.Name, origin)
 	if err != nil {
 		return nil, nil, errors.Annotatef(err, "resolving %q", controllerCharmURL)
 	}

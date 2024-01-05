@@ -5,6 +5,7 @@ package deployer
 
 import (
 	"archive/zip"
+	"context"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -39,7 +40,7 @@ var logger = loggo.GetLogger("juju.cmd.juju.application.deployer")
 // DeployerKind is an interface that provides CreateDeployer function to
 // attempt creation of the related deployer.
 type DeployerKind interface {
-	CreateDeployer(d factory) (Deployer, error)
+	CreateDeployer(ctx context.Context, d factory) (Deployer, error)
 }
 
 // localBundleDeployerKind represents a local bundle deployment
@@ -91,7 +92,7 @@ func NewDeployerFactory(dep DeployerDependencies) DeployerFactory {
 
 // GetDeployer returns the correct deployer to use based on the cfg provided.
 // A ModelConfigGetter needed to find the deployer.
-func (d *factory) GetDeployer(cfg DeployerConfig, getter ModelConfigGetter, resolver Resolver) (Deployer, error) {
+func (d *factory) GetDeployer(ctx context.Context, cfg DeployerConfig, getter ModelConfigGetter, resolver Resolver) (Deployer, error) {
 	// Determine the type of deploy we have
 	var dk DeployerKind
 
@@ -166,7 +167,7 @@ func (d *factory) GetDeployer(cfg DeployerConfig, getter ModelConfigGetter, reso
 		}
 	}
 
-	return dk.CreateDeployer(*d)
+	return dk.CreateDeployer(ctx, *d)
 }
 
 func (d *factory) repoCharmDeployer(userCharmURL *charm.URL, origin commoncharm.Origin, charmHubSchemaCheck bool) (DeployerKind, error) {
@@ -502,7 +503,7 @@ func (d *factory) newDeployCharm() deployCharm {
 	}
 }
 
-func (dt *localBundleDeployerKind) CreateDeployer(d factory) (Deployer, error) {
+func (dt *localBundleDeployerKind) CreateDeployer(_ context.Context, d factory) (Deployer, error) {
 	if err := d.validateBundleFlags(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -549,14 +550,14 @@ func (d *factory) newDeployBundle(_ charm.Schema, ds charm.BundleDataSource) dep
 	}
 }
 
-func (dk *localPreDeployerKind) CreateDeployer(d factory) (Deployer, error) {
+func (dk *localPreDeployerKind) CreateDeployer(_ context.Context, d factory) (Deployer, error) {
 	return &predeployedLocalCharm{
 		deployCharm:  d.newDeployCharm(),
 		userCharmURL: dk.userCharmURL,
 	}, nil
 }
 
-func (dk *localCharmDeployerKind) CreateDeployer(d factory) (Deployer, error) {
+func (dk *localCharmDeployerKind) CreateDeployer(_ context.Context, d factory) (Deployer, error) {
 	// Avoid deploying charm if the charm base is not correct for the
 	// available image streams.
 	var err error
@@ -574,7 +575,7 @@ func (dk *localCharmDeployerKind) CreateDeployer(d factory) (Deployer, error) {
 	}, err
 }
 
-func (dk *repositoryCharmDeployerKind) CreateDeployer(d factory) (Deployer, error) {
+func (dk *repositoryCharmDeployerKind) CreateDeployer(_ context.Context, d factory) (Deployer, error) {
 	return &repositoryCharm{
 		deployCharm:                    dk.deployCharm,
 		userRequestedURL:               dk.charmURL,
@@ -584,7 +585,7 @@ func (dk *repositoryCharmDeployerKind) CreateDeployer(d factory) (Deployer, erro
 
 }
 
-func (dk *repositoryBundleDeployerKind) CreateDeployer(d factory) (Deployer, error) {
+func (dk *repositoryBundleDeployerKind) CreateDeployer(ctx context.Context, d factory) (Deployer, error) {
 
 	// Validated, prepare to Deploy
 	// TODO(bundles) - Ideally, we would like to expose a GetBundleDataSource method for the charmstore.
@@ -597,7 +598,7 @@ func (dk *repositoryBundleDeployerKind) CreateDeployer(d factory) (Deployer, err
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	bundle, err := dk.resolver.GetBundle(dk.bundleURL, dk.bundleOrigin, filepath.Join(dir, dk.bundleURL.Name))
+	bundle, err := dk.resolver.GetBundle(ctx, dk.bundleURL, dk.bundleOrigin, filepath.Join(dir, dk.bundleURL.Name))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

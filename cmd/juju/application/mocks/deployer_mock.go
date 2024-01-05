@@ -10,6 +10,7 @@
 package mocks
 
 import (
+	context "context"
 	reflect "reflect"
 
 	cmd "github.com/juju/cmd/v3"
@@ -92,16 +93,16 @@ func (m *MockDeployerFactory) EXPECT() *MockDeployerFactoryMockRecorder {
 }
 
 // GetDeployer mocks base method.
-func (m *MockDeployerFactory) GetDeployer(arg0 deployer.DeployerConfig, arg1 deployer.ModelConfigGetter, arg2 deployer.Resolver) (deployer.Deployer, error) {
+func (m *MockDeployerFactory) GetDeployer(arg0 context.Context, arg1 deployer.DeployerConfig, arg2 deployer.ModelConfigGetter, arg3 deployer.Resolver) (deployer.Deployer, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetDeployer", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "GetDeployer", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(deployer.Deployer)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetDeployer indicates an expected call of GetDeployer.
-func (mr *MockDeployerFactoryMockRecorder) GetDeployer(arg0, arg1, arg2 any) *gomock.Call {
+func (mr *MockDeployerFactoryMockRecorder) GetDeployer(arg0, arg1, arg2, arg3 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDeployer", reflect.TypeOf((*MockDeployerFactory)(nil).GetDeployer), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDeployer", reflect.TypeOf((*MockDeployerFactory)(nil).GetDeployer), arg0, arg1, arg2, arg3)
 }

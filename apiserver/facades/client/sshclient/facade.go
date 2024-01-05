@@ -243,7 +243,7 @@ func (facade *Facade) ModelCredentialForSSH(ctx stdcontext.Context) (params.Clou
 		return result, nil
 	}
 
-	token, err := facade.getExecSecretToken(spec, model)
+	token, err := facade.getExecSecretToken(ctx, spec, model)
 	if err != nil {
 		result.Error = apiservererrors.ServerError(err)
 		return result, nil
@@ -272,13 +272,13 @@ func (facade *Facade) ModelCredentialForSSH(ctx stdcontext.Context) (params.Clou
 	return result, nil
 }
 
-func (facade *Facade) getExecSecretToken(cloudSpec environscloudspec.CloudSpec, model Model) (string, error) {
+func (facade *Facade) getExecSecretToken(ctx stdcontext.Context, cloudSpec environscloudspec.CloudSpec, model Model) (string, error) {
 	cfg, err := model.Config()
 	if err != nil {
 		return "", errors.Trace(err)
 	}
 
-	broker, err := facade.getBroker(stdcontext.TODO(), environs.OpenParams{
+	broker, err := facade.getBroker(ctx, environs.OpenParams{
 		ControllerUUID: model.ControllerUUID(),
 		Cloud:          cloudSpec,
 		Config:         cfg,

@@ -372,7 +372,7 @@ func (c *CharmHubRepository) DownloadCharm(ctx context.Context, charmName string
 		return nil, corecharm.Origin{}, errors.Trace(err)
 	}
 
-	charmArchive, err := c.client.DownloadAndRead(context.TODO(), resURL, archivePath)
+	charmArchive, err := c.client.DownloadAndRead(ctx, resURL, archivePath)
 	if err != nil {
 		return nil, corecharm.Origin{}, errors.Trace(err)
 	}
@@ -457,7 +457,7 @@ func (c *CharmHubRepository) ListResources(ctx context.Context, charmName string
 // downloaded) resources to determine which to use. Provided (uploaded) take
 // precedence. If charmhub has a newer resource than the back end, use that.
 func (c *CharmHubRepository) ResolveResources(ctx context.Context, resources []charmresource.Resource, id corecharm.CharmID) ([]charmresource.Resource, error) {
-	revisionResources, err := c.listResourcesIfRevisions(resources, id.URL.Name)
+	revisionResources, err := c.listResourcesIfRevisions(ctx, resources, id.URL.Name)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -479,7 +479,7 @@ func (c *CharmHubRepository) ResolveResources(ctx context.Context, resources []c
 	return resolved, nil
 }
 
-func (c *CharmHubRepository) listResourcesIfRevisions(resources []charmresource.Resource, charmName string) (map[string]charmresource.Resource, error) {
+func (c *CharmHubRepository) listResourcesIfRevisions(ctx context.Context, resources []charmresource.Resource, charmName string) (map[string]charmresource.Resource, error) {
 	results := make(map[string]charmresource.Resource, 0)
 	for _, resource := range resources {
 		// If not revision is specified, or the resource has already been
@@ -487,7 +487,7 @@ func (c *CharmHubRepository) listResourcesIfRevisions(resources []charmresource.
 		if resource.Revision == -1 || resource.Origin == charmresource.OriginUpload {
 			continue
 		}
-		refreshResp, err := c.client.ListResourceRevisions(context.TODO(), charmName, resource.Name)
+		refreshResp, err := c.client.ListResourceRevisions(ctx, charmName, resource.Name)
 		if err != nil {
 			return nil, errors.Annotatef(err, "refreshing charm %q", charmName)
 		}

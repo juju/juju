@@ -5,6 +5,7 @@ package commands
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -236,7 +237,7 @@ func (s *MainSuite) TestNoWarn2xFirstRun(c *gc.C) {
 	s.PatchEnvironment("JUJU_HOME", path)
 
 	s.PatchValue(&cloud.FetchAndMaybeUpdatePublicClouds,
-		func(access cloud.PublicCloudsAccessDetails, updateClient bool) (map[string]jujucloud.Cloud, string, error) {
+		func(_ context.Context, access cloud.PublicCloudsAccessDetails, updateClient bool) (map[string]jujucloud.Cloud, string, error) {
 			return nil, "", nil
 		})
 
@@ -264,7 +265,7 @@ func (s *MainSuite) assertRunUpdateCloud(c *gc.C, expectedCalled bool) {
 
 	called := false
 	s.PatchValue(&cloud.FetchAndMaybeUpdatePublicClouds,
-		func(access cloud.PublicCloudsAccessDetails, updateClient bool) (map[string]jujucloud.Cloud, string, error) {
+		func(_ context.Context, access cloud.PublicCloudsAccessDetails, updateClient bool) (map[string]jujucloud.Cloud, string, error) {
 			called = true
 			return nil, "", nil
 		})

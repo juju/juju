@@ -47,7 +47,6 @@ type sharedServerContext struct {
 	presence             presence.Recorder
 	leaseManager         lease.Manager
 	logger               loggo.Logger
-	cancel               <-chan struct{}
 	charmhubHTTPClient   facade.HTTPClient
 	dbGetter             changestream.WatchableDBGetter
 	serviceFactoryGetter servicefactory.ServiceFactoryGetter

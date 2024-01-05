@@ -984,6 +984,7 @@ func (s *secretsSuite) TestRemoveSecretsForModelAdminWithRevisions(c *gc.C) {
 	}
 
 	results, err := secrets.RemoveUserSecrets(
+		context.Background(),
 		removeState, adminConfigGetter,
 		names.NewUserTag("foo"),
 		params.DeleteSecretArgs{
@@ -1061,6 +1062,7 @@ func (s *secretsSuite) TestRemoveSecretsForModelAdmin(c *gc.C) {
 	}
 
 	results, err := secrets.RemoveUserSecrets(
+		context.Background(),
 		removeState, adminConfigGetter,
 		names.NewUserTag("foo"),
 		params.DeleteSecretArgs{

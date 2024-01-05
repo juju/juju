@@ -91,7 +91,7 @@ func (s *stubAPI) setResource(info resources.Resource, reader io.ReadCloser) {
 }
 
 func (s *stubAPI) Context() context.Context {
-	return context.TODO()
+	return context.Background()
 }
 
 func (s *stubAPI) BestFacadeVersion(_ string) int {

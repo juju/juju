@@ -30,6 +30,5 @@ func newAPI(ctx facade.Context) (*API, error) {
 		ModelWatcher: common.NewModelWatcher(m, ctx.Resources(), ctx.Auth()),
 		st:           ctx.State(),
 		authorizer:   ctx.Auth(),
-		cancel:       ctx.Cancel(),
 	}, nil
 }

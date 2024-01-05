@@ -24,8 +24,7 @@ type apiclientWhiteboxSuite struct {
 var _ = gc.Suite(&apiclientWhiteboxSuite{})
 
 func (s *apiclientWhiteboxSuite) TestDialWebsocketMultiCancelled(c *gc.C) {
-	ctx := context.TODO()
-	ctx, cancel := context.WithCancel(ctx)
+	ctx, cancel := context.WithCancel(context.Background())
 	started := make(chan struct{})
 	go func() {
 		select {

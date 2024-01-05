@@ -99,7 +99,7 @@ func (s *storageTestSuite) TestStoreBlobAlreadyStored(c *gc.C) {
 
 	// As the blob is already uploaded (to another path), we need to remove
 	// the duplicate we just uploaded from the store.
-	s.storageBackend.EXPECT().Remove(context.Background(), expStoreCharmPath).Return(nil)
+	s.storageBackend.EXPECT().Remove(gomock.Any(), expStoreCharmPath).Return(nil)
 
 	err := s.storage.Store(context.Background(), curl, dlCharm)
 	c.Assert(err, jc.ErrorIsNil) // charm already uploaded by someone; no error

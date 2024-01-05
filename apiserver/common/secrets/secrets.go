@@ -582,6 +582,7 @@ func RemoveSecretsForAgent(
 // RemoveUserSecrets removes the specified user supplied secrets.
 // The secrets are removed from the state and backend, and the caller must have model admin access.
 func RemoveUserSecrets(
+	ctx context.Context,
 	removeState SecretsRemoveState, adminConfigGetter BackendAdminConfigGetter,
 	authTag names.Tag, args params.DeleteSecretArgs,
 	modelUUID string,
@@ -595,7 +596,7 @@ func RemoveUserSecrets(
 				return errors.Trace(err)
 			}
 			for _, revId := range revs.RevisionIDs() {
-				if err = backend.DeleteContent(context.TODO(), revId); err != nil {
+				if err = backend.DeleteContent(ctx, revId); err != nil {
 					return errors.Trace(err)
 				}
 			}

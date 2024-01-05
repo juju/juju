@@ -246,18 +246,18 @@ func (s *BakeryStorageSuite) ensureIndexes(c *gc.C) {
 
 func (s *BakeryStorageSuite) TestCheckNewMacaroon(c *gc.C) {
 	cav := []checkers.Caveat{{Condition: "something"}}
-	mac, err := s.bakery.Oven.NewMacaroon(context.TODO(), bakery.LatestVersion, cav, bakery.NoOp)
+	mac, err := s.bakery.Oven.NewMacaroon(context.Background(), bakery.LatestVersion, cav, bakery.NoOp)
 	c.Assert(err, jc.ErrorIsNil)
-	_, _, err = s.bakery.Oven.VerifyMacaroon(context.TODO(), macaroon.Slice{mac.M()})
+	_, _, err = s.bakery.Oven.VerifyMacaroon(context.Background(), macaroon.Slice{mac.M()})
 	c.Assert(err, gc.ErrorMatches, "verification failed: macaroon not found in storage")
 
 	store := s.store.ExpireAfter(10 * time.Second)
 	b := bakery.New(bakery.BakeryParams{
 		RootKeyStore: store,
 	})
-	mac, err = b.Oven.NewMacaroon(context.TODO(), bakery.LatestVersion, cav, bakery.NoOp)
+	mac, err = b.Oven.NewMacaroon(context.Background(), bakery.LatestVersion, cav, bakery.NoOp)
 	c.Assert(err, jc.ErrorIsNil)
-	op, conditions, err := s.bakery.Oven.VerifyMacaroon(context.TODO(), macaroon.Slice{mac.M()})
+	op, conditions, err := s.bakery.Oven.VerifyMacaroon(context.Background(), macaroon.Slice{mac.M()})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(op, jc.DeepEquals, []bakery.Op{bakery.NoOp})
 	c.Assert(conditions, jc.DeepEquals, []string{"something"})
@@ -268,13 +268,13 @@ func (s *BakeryStorageSuite) TestExpiryTime(c *gc.C) {
 	// items immediately.
 	s.initService(c, true)
 
-	mac, err := s.bakery.Oven.NewMacaroon(context.TODO(), bakery.LatestVersion, nil, bakery.NoOp)
+	mac, err := s.bakery.Oven.NewMacaroon(context.Background(), bakery.LatestVersion, nil, bakery.NoOp)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// The background thread that removes records runs every 60s.
 	// Give a little bit of leeway for loaded systems.
 	for i := 0; i < 90; i++ {
-		_, _, err = s.bakery.Oven.VerifyMacaroon(context.TODO(), macaroon.Slice{mac.M()})
+		_, _, err = s.bakery.Oven.VerifyMacaroon(context.Background(), macaroon.Slice{mac.M()})
 		if err == nil {
 			time.Sleep(time.Second)
 			continue

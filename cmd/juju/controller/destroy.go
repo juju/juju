@@ -584,7 +584,7 @@ func (c *destroyCommandBase) getControllerEnviron(
 	// fall back position.
 	env, err := c.getControllerEnvironFromStore(ctx, store, controllerName)
 	if errors.Is(err, errors.NotFound) {
-		return c.getControllerEnvironFromAPI(sysAPI, controllerName)
+		return c.getControllerEnvironFromAPI(ctx, sysAPI)
 	} else if err != nil {
 		return nil, errors.Annotate(err, "getting environ using bootstrap config from client store")
 	}
@@ -636,14 +636,14 @@ func (c *destroyCommandBase) getControllerEnvironFromStore(
 		Config:         cfg,
 	}
 	if cloud.CloudTypeIsCAAS(bootstrapConfig.CloudType) {
-		return caas.New(stdcontext.TODO(), openParams)
+		return caas.New(ctx, openParams)
 	}
-	return environs.New(stdcontext.TODO(), openParams)
+	return environs.New(ctx, openParams)
 }
 
 func (c *destroyCommandBase) getControllerEnvironFromAPI(
+	ctx stdcontext.Context,
 	api destroyControllerAPI,
-	controllerName string,
 ) (environs.Environ, error) {
 	if api == nil {
 		return nil, errors.New(
@@ -666,7 +666,7 @@ func (c *destroyCommandBase) getControllerEnvironFromAPI(
 	if err != nil {
 		return nil, errors.Annotate(err, "getting controller config from API")
 	}
-	return environs.New(stdcontext.TODO(), environs.OpenParams{
+	return environs.New(ctx, environs.OpenParams{
 		ControllerUUID: ctrlCfg.ControllerUUID(),
 		Cloud:          cloudSpec,
 		Config:         cfg,

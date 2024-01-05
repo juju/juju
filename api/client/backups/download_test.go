@@ -32,7 +32,7 @@ func (s *downloadSuite) TestDownload(c *gc.C) {
 	httpClient := &httprequest.Client{BaseURL: srv.URL}
 
 	s.apiCaller.EXPECT().HTTPClient().Return(httpClient, nil)
-	s.apiCaller.EXPECT().Context().Return(context.TODO())
+	s.apiCaller.EXPECT().Context().Return(context.Background())
 
 	client := s.newClient()
 	rdr, err := client.Download("/path/to/backup")

@@ -217,7 +217,7 @@ func (s *authSuite) TestCreateConsumeOfferMacaroon(c *gc.C) {
 	}
 	authContext, err := crossmodel.NewAuthContext(nil, s.bakeryKey, s.bakery)
 	c.Assert(err, jc.ErrorIsNil)
-	mac, err := authContext.CreateConsumeOfferMacaroon(context.TODO(), offer, "mary", bakery.LatestVersion)
+	mac, err := authContext.CreateConsumeOfferMacaroon(context.Background(), offer, "mary", bakery.LatestVersion)
 	c.Assert(err, jc.ErrorIsNil)
 	cav := mac.M().Caveats()
 	c.Assert(cav, gc.HasLen, 4)
@@ -231,7 +231,7 @@ func (s *authSuite) TestCreateRemoteRelationMacaroon(c *gc.C) {
 	authContext, err := crossmodel.NewAuthContext(nil, s.bakeryKey, s.bakery)
 	c.Assert(err, jc.ErrorIsNil)
 	mac, err := authContext.CreateRemoteRelationMacaroon(
-		context.TODO(),
+		context.Background(),
 		coretesting.ModelTag.Id(), "mysql-uuid", "mary", names.NewRelationTag("mediawiki:db mysql:server"), bakery.LatestVersion)
 	c.Assert(err, jc.ErrorIsNil)
 	cav := mac.M().Caveats()
@@ -247,7 +247,7 @@ func (s *authSuite) TestCheckOfferMacaroons(c *gc.C) {
 	authContext, err := crossmodel.NewAuthContext(nil, s.bakeryKey, s.bakery)
 	c.Assert(err, jc.ErrorIsNil)
 	mac, err := s.bakery.NewMacaroon(
-		context.TODO(),
+		context.Background(),
 		bakery.LatestVersion,
 		[]checkers.Caveat{
 			checkers.DeclaredCaveat("username", "mary"),
@@ -257,7 +257,7 @@ func (s *authSuite) TestCheckOfferMacaroons(c *gc.C) {
 
 	c.Assert(err, jc.ErrorIsNil)
 	attr, err := authContext.Authenticator().CheckOfferMacaroons(
-		context.TODO(),
+		context.Background(),
 		coretesting.ModelTag.Id(),
 		"mysql-uuid",
 		macaroon.Slice{mac.M()},
@@ -276,7 +276,7 @@ func (s *authSuite) TestCheckOfferMacaroonsWrongOffer(c *gc.C) {
 	authContext, err := crossmodel.NewAuthContext(nil, s.bakeryKey, s.bakery)
 	c.Assert(err, jc.ErrorIsNil)
 	mac, err := s.bakery.NewMacaroon(
-		context.TODO(),
+		context.Background(),
 		bakery.LatestVersion,
 		[]checkers.Caveat{
 			checkers.DeclaredCaveat("username", "mary"),
@@ -286,7 +286,7 @@ func (s *authSuite) TestCheckOfferMacaroonsWrongOffer(c *gc.C) {
 
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = authContext.Authenticator().CheckOfferMacaroons(
-		context.TODO(),
+		context.Background(),
 		coretesting.ModelTag.Id(),
 		"prod.another",
 		macaroon.Slice{mac.M()},
@@ -302,7 +302,7 @@ func (s *authSuite) TestCheckOfferMacaroonsNoUser(c *gc.C) {
 	authContext, err := crossmodel.NewAuthContext(nil, s.bakeryKey, s.bakery)
 	c.Assert(err, jc.ErrorIsNil)
 	mac, err := s.bakery.NewMacaroon(
-		context.TODO(),
+		context.Background(),
 		bakery.LatestVersion,
 		[]checkers.Caveat{
 			checkers.DeclaredCaveat("offer-uuid", "mysql-uuid"),
@@ -311,7 +311,7 @@ func (s *authSuite) TestCheckOfferMacaroonsNoUser(c *gc.C) {
 
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = authContext.Authenticator().CheckOfferMacaroons(
-		context.TODO(),
+		context.Background(),
 		coretesting.ModelTag.Id(),
 		"mysql-uuid",
 		macaroon.Slice{mac.M()},
@@ -330,11 +330,11 @@ func (s *authSuite) TestCheckOfferMacaroonsDischargeRequired(c *gc.C) {
 		SourceModelTag: coretesting.ModelTag.String(),
 		OfferUUID:      "mysql-uuid",
 	}
-	mac, err := authContext.CreateConsumeOfferMacaroon(context.TODO(), offer, "mary", bakery.LatestVersion)
+	mac, err := authContext.CreateConsumeOfferMacaroon(context.Background(), offer, "mary", bakery.LatestVersion)
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = authContext.Authenticator().CheckOfferMacaroons(
-		context.TODO(),
+		context.Background(),
 		coretesting.ModelTag.Id(),
 		"mysql-uuid",
 		macaroon.Slice{mac.M()},
@@ -352,7 +352,7 @@ func (s *authSuite) TestCheckRelationMacaroons(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	relationTag := names.NewRelationTag("mediawiki:db mysql:server")
 	mac, err := s.bakery.NewMacaroon(
-		context.TODO(),
+		context.Background(),
 		bakery.LatestVersion,
 		[]checkers.Caveat{
 			checkers.DeclaredCaveat("username", "mary"),
@@ -362,7 +362,7 @@ func (s *authSuite) TestCheckRelationMacaroons(c *gc.C) {
 
 	c.Assert(err, jc.ErrorIsNil)
 	err = authContext.Authenticator().CheckRelationMacaroons(
-		context.TODO(),
+		context.Background(),
 		coretesting.ModelTag.Id(),
 		"mysql-uuid",
 		relationTag,
@@ -377,7 +377,7 @@ func (s *authSuite) TestCheckRelationMacaroonsWrongRelation(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	relationTag := names.NewRelationTag("mediawiki:db mysql:server")
 	mac, err := s.bakery.NewMacaroon(
-		context.TODO(),
+		context.Background(),
 		bakery.LatestVersion,
 		[]checkers.Caveat{
 			checkers.DeclaredCaveat("username", "mary"),
@@ -387,7 +387,7 @@ func (s *authSuite) TestCheckRelationMacaroonsWrongRelation(c *gc.C) {
 
 	c.Assert(err, jc.ErrorIsNil)
 	err = authContext.Authenticator().CheckRelationMacaroons(
-		context.TODO(),
+		context.Background(),
 		coretesting.ModelTag.Id(),
 		"mysql-uuid",
 		names.NewRelationTag("app:db offer:db"),
@@ -405,7 +405,7 @@ func (s *authSuite) TestCheckRelationMacaroonsNoUser(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	relationTag := names.NewRelationTag("mediawiki:db mysql:server")
 	mac, err := s.bakery.NewMacaroon(
-		context.TODO(),
+		context.Background(),
 		bakery.LatestVersion,
 		[]checkers.Caveat{
 			checkers.DeclaredCaveat("relation-key", relationTag.Id()),
@@ -414,7 +414,7 @@ func (s *authSuite) TestCheckRelationMacaroonsNoUser(c *gc.C) {
 
 	c.Assert(err, jc.ErrorIsNil)
 	err = authContext.Authenticator().CheckRelationMacaroons(
-		context.TODO(),
+		context.Background(),
 		coretesting.ModelTag.Id(),
 		"mysql-uuid",
 		relationTag,
@@ -432,12 +432,12 @@ func (s *authSuite) TestCheckRelationMacaroonsDischargeRequired(c *gc.C) {
 	authContext = authContext.WithDischargeURL("http://thirdparty")
 	relationTag := names.NewRelationTag("mediawiki:db mysql:server")
 	mac, err := authContext.CreateRemoteRelationMacaroon(
-		context.TODO(),
+		context.Background(),
 		coretesting.ModelTag.Id(), "mysql-uuid", "mary", relationTag, bakery.LatestVersion)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = authContext.Authenticator().CheckRelationMacaroons(
-		context.TODO(),
+		context.Background(),
 		coretesting.ModelTag.Id(),
 		"mysql-uuid",
 		relationTag,

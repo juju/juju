@@ -104,7 +104,7 @@ func (s *SimpleStreamsToolsSuite) uploadStreams(c *gc.C, versions toolstesting.S
 func (s *SimpleStreamsToolsSuite) resetEnv(c *gc.C, attrs map[string]interface{}) {
 	jujuversion.Current = s.origCurrentVersion
 	attrs = coretesting.FakeConfig().Merge(attrs)
-	env, err := bootstrap.PrepareController(false, envtesting.BootstrapContext(stdcontext.TODO(), c),
+	env, err := bootstrap.PrepareController(false, envtesting.BootstrapContext(stdcontext.Background(), c),
 		jujuclient.NewMemStore(),
 		bootstrap.PrepareParams{
 			ControllerConfig: coretesting.FakeControllerConfig(),

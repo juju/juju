@@ -165,12 +165,11 @@ func (w *EgressAddressWatcher) loop() error {
 			if !ok {
 				return w.catacomb.ErrDying()
 			}
-			cfg, err := w.backend.ModelConfig(context.TODO())
+			egress, err := w.getEgressSubnets()
 			if err != nil {
 				return err
 			}
 			haveInitialModelConfig = true
-			egress := set.NewStrings(cfg.EgressSubnets()...)
 			if !setEquals(egress, w.knownModelEgress) {
 				logger.Debugf(
 					"model config egress subnets changed to %s (was %s)",
@@ -222,6 +221,25 @@ func (w *EgressAddressWatcher) loop() error {
 			changed = changed || addressesChanged
 		}
 	}
+}
+
+// scopedContext returns a context that is in the scope of the watcher lifetime.
+// It returns a cancellable context that is cancelled when the action has
+// completed.
+func (w *EgressAddressWatcher) scopedContext() (context.Context, context.CancelFunc) {
+	ctx, cancel := context.WithCancel(context.Background())
+	return w.catacomb.Context(ctx), cancel
+}
+
+func (w *EgressAddressWatcher) getEgressSubnets() (set.Strings, error) {
+	ctx, cancel := w.scopedContext()
+	defer cancel()
+
+	cfg, err := w.backend.ModelConfig(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return set.NewStrings(cfg.EgressSubnets()...), nil
 }
 
 func (w *EgressAddressWatcher) unitAddress(unit Unit) (string, bool, error) {

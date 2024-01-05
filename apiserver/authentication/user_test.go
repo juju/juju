@@ -50,7 +50,7 @@ func (s *userAuthenticatorSuite) TestMachineLoginFails(c *gc.C) {
 
 	// attempt machine login
 	authenticator := &authentication.LocalUserAuthenticator{}
-	_, err = authenticator.Authenticate(context.TODO(), nil, authentication.AuthParams{
+	_, err = authenticator.Authenticate(context.Background(), nil, authentication.AuthParams{
 		AuthTag:     machine.Tag(),
 		Credentials: machinePassword,
 		Nonce:       nonce,
@@ -77,7 +77,7 @@ func (s *userAuthenticatorSuite) TestUnitLoginFails(c *gc.C) {
 
 	// Attempt unit login
 	authenticator := &authentication.LocalUserAuthenticator{}
-	_, err = authenticator.Authenticate(context.TODO(), nil, authentication.AuthParams{
+	_, err = authenticator.Authenticate(context.Background(), nil, authentication.AuthParams{
 		AuthTag:     unit.UnitTag(),
 		Credentials: unitPassword,
 	})
@@ -96,7 +96,7 @@ func (s *userAuthenticatorSuite) TestValidUserLogin(c *gc.C) {
 
 	// User login
 	authenticator := &authentication.LocalUserAuthenticator{}
-	_, err := authenticator.Authenticate(context.TODO(), s.ControllerModel(c).State(), authentication.AuthParams{
+	_, err := authenticator.Authenticate(context.Background(), s.ControllerModel(c).State(), authentication.AuthParams{
 		AuthTag:     user.Tag(),
 		Credentials: "password",
 	})
@@ -115,7 +115,7 @@ func (s *userAuthenticatorSuite) TestUserLoginWrongPassword(c *gc.C) {
 
 	// User login
 	authenticator := &authentication.LocalUserAuthenticator{}
-	_, err := authenticator.Authenticate(context.TODO(), s.ControllerModel(c).State(), authentication.AuthParams{
+	_, err := authenticator.Authenticate(context.Background(), s.ControllerModel(c).State(), authentication.AuthParams{
 		AuthTag:     user.Tag(),
 		Credentials: "wrongpassword",
 	})
@@ -142,7 +142,7 @@ func (s *userAuthenticatorSuite) TestInvalidRelationLogin(c *gc.C) {
 
 	// Attempt relation login
 	authenticator := &authentication.LocalUserAuthenticator{}
-	_, err = authenticator.Authenticate(context.TODO(), nil, authentication.AuthParams{
+	_, err = authenticator.Authenticate(context.Background(), nil, authentication.AuthParams{
 		AuthTag:     relation.Tag(),
 		Credentials: "dummy-secret",
 	})
@@ -165,7 +165,7 @@ func (s *userAuthenticatorSuite) TestValidMacaroonUserLogin(c *gc.C) {
 
 	// User login
 	authenticator := &authentication.LocalUserAuthenticator{Bakery: &service, Clock: testclock.NewClock(time.Time{})}
-	_, err = authenticator.Authenticate(context.TODO(), s.ControllerModel(c).State(), authentication.AuthParams{
+	_, err = authenticator.Authenticate(context.Background(), s.ControllerModel(c).State(), authentication.AuthParams{
 		AuthTag:   user.Tag(),
 		Macaroons: macaroons,
 	})
@@ -181,7 +181,7 @@ func (s *userAuthenticatorSuite) TestCreateLocalLoginMacaroon(c *gc.C) {
 	service := mockBakeryService{}
 	clock := testclock.NewClock(time.Time{})
 	_, err := authentication.CreateLocalLoginMacaroon(
-		context.TODO(),
+		context.Background(),
 		names.NewUserTag("bobbrown"), &service, clock, bakery.LatestVersion,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -203,7 +203,7 @@ func (s *userAuthenticatorSuite) TestAuthenticateLocalLoginMacaroon(c *gc.C) {
 
 	service.SetErrors(nil, &bakery.VerificationError{})
 	_, err := authenticator.Authenticate(
-		context.TODO(),
+		context.Background(),
 		authentication.EntityFinder(nil),
 		authentication.AuthParams{
 			AuthTag: names.NewUserTag("bobbrown"),
@@ -346,7 +346,7 @@ func (s *macaroonAuthenticatorSuite) TestMacaroonAuthentication(c *gc.C) {
 		}
 
 		// Authenticate once to obtain the macaroon to be discharged.
-		_, err := authenticator.Authenticate(context.TODO(), test.finder, authentication.AuthParams{})
+		_, err := authenticator.Authenticate(context.Background(), test.finder, authentication.AuthParams{})
 
 		// Discharge the macaroon.
 		dischargeErr := errors.Cause(err).(*apiservererrors.DischargeRequiredError)
@@ -355,7 +355,7 @@ func (s *macaroonAuthenticatorSuite) TestMacaroonAuthentication(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 
 		// Authenticate again with the discharged macaroon.
-		entity, err := authenticator.Authenticate(context.TODO(), test.finder, authentication.AuthParams{
+		entity, err := authenticator.Authenticate(context.Background(), test.finder, authentication.AuthParams{
 			Macaroons: []macaroon.Slice{ms},
 		})
 		if test.expectError != "" {

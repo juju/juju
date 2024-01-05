@@ -51,7 +51,7 @@ func (s *OpenSuite) TestNewDummyEnviron(c *gc.C) {
 	// matches *Settings.Map()
 	cfg, err := config.New(config.NoDefaults, testing.FakeConfig())
 	c.Assert(err, jc.ErrorIsNil)
-	ctx := envtesting.BootstrapContext(context.TODO(), c)
+	ctx := envtesting.BootstrapContext(context.Background(), c)
 	cache := jujuclient.NewMemStore()
 	controllerCfg := testing.FakeControllerConfig()
 	bootstrapEnviron, err := bootstrap.PrepareController(false, ctx, cache, bootstrap.PrepareParams{
@@ -85,7 +85,7 @@ func (s *OpenSuite) TestNewDummyEnviron(c *gc.C) {
 
 func (s *OpenSuite) TestUpdateEnvInfo(c *gc.C) {
 	store := jujuclient.NewMemStore()
-	ctx := envtesting.BootstrapContext(context.TODO(), c)
+	ctx := envtesting.BootstrapContext(context.Background(), c)
 	uuid := utils.MustNewUUID().String()
 	cfg, err := config.New(config.UseDefaults, map[string]interface{}{
 		"type": "dummy",
@@ -116,7 +116,7 @@ func (s *OpenSuite) TestUpdateEnvInfo(c *gc.C) {
 }
 
 func (*OpenSuite) TestNewUnknownEnviron(c *gc.C) {
-	env, err := environs.New(context.TODO(), environs.OpenParams{
+	env, err := environs.New(context.Background(), environs.OpenParams{
 		Cloud: environscloudspec.CloudSpec{
 			Type: "wondercloud",
 		},
@@ -133,7 +133,7 @@ func (*OpenSuite) TestNew(c *gc.C) {
 		},
 	))
 	c.Assert(err, jc.ErrorIsNil)
-	ctx := context.TODO()
+	ctx := context.Background()
 	e, err := environs.New(ctx, environs.OpenParams{
 		Cloud:  testing.FakeCloudSpec(),
 		Config: cfg,
@@ -155,7 +155,7 @@ func (*OpenSuite) TestDestroy(c *gc.C) {
 	// Prepare the environment and sanity-check that
 	// the config storage info has been made.
 	controllerCfg := testing.FakeControllerConfig()
-	ctx := envtesting.BootstrapContext(context.TODO(), c)
+	ctx := envtesting.BootstrapContext(context.Background(), c)
 	bootstrapEnviron, err := bootstrap.PrepareController(false, ctx, store, bootstrap.PrepareParams{
 		ControllerConfig: controllerCfg,
 		ControllerName:   "controller-name",
@@ -183,7 +183,7 @@ func (*OpenSuite) TestDestroy(c *gc.C) {
 func (*OpenSuite) TestDestroyNotFound(c *gc.C) {
 	var env destroyControllerEnv
 	store := jujuclient.NewMemStore()
-	err := environs.Destroy("fnord", &env, envcontext.WithoutCredentialInvalidator(context.TODO()), store)
+	err := environs.Destroy("fnord", &env, envcontext.WithoutCredentialInvalidator(context.Background()), store)
 	c.Assert(err, jc.ErrorIsNil)
 	env.CheckCallNames(c) // no controller details, no call
 }

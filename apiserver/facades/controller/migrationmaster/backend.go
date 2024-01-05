@@ -4,6 +4,8 @@
 package migrationmaster
 
 import (
+	"context"
+
 	"github.com/juju/names/v5"
 	"github.com/juju/version/v2"
 
@@ -23,7 +25,7 @@ type Backend interface {
 	ModelUUID() string
 	ModelName() (string, error)
 	ModelOwner() (names.UserTag, error)
-	AgentVersion() (version.Number, error)
+	AgentVersion(ctx context.Context) (version.Number, error)
 	RemoveExportingModelDocs() error
 	ControllerConfig() (controller.Config, error)
 	AllLocalRelatedModels() ([]string, error)

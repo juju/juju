@@ -65,7 +65,7 @@ func (s *subscriptionSuite) TestSubscriptionWitnessChanges(c *gc.C) {
 	}}
 
 	go func() {
-		err := sub.dispatch(context.TODO(), changes)
+		err := sub.dispatch(context.Background(), changes)
 		c.Assert(err, jc.ErrorIsNil)
 	}()
 

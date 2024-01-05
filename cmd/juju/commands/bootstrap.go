@@ -47,7 +47,7 @@ import (
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	environscmd "github.com/juju/juju/environs/cmd"
 	"github.com/juju/juju/environs/config"
-	envcontext "github.com/juju/juju/environs/envcontext"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/sync"
 	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/internal/feature"
@@ -645,39 +645,7 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	var (
 		initialModel     *jujuclient.ModelDetails
 		isCAASController bool
-
-		// The stdCtx is used as a placeholder for the defer below. This will
-		// be replaced with a context that can be cancelled later on.
-		stdCtx = context.TODO()
 	)
-
-	defer func() {
-		// If the context is an error state, then don't continue on processing
-		// the bootstrap command.
-		if stdCtx.Err() != nil {
-			return
-		}
-
-		resultErr = handleChooseCloudRegionError(ctx, resultErr)
-		if !c.showClouds && resultErr == nil {
-			if initialModel != nil {
-				ctx.Infof("Initial model %q added", c.initialModelName)
-				return
-			}
-
-			workloadType := ""
-			if isCAASController {
-				workloadType = "k8s "
-			}
-
-			ctx.Infof(`
-Now you can run
-	juju add-model <model-name>
-to create a new model to deploy %sworkloads.
-`, workloadType)
-		}
-	}()
-
 	if err := c.parseConstraints(ctx); err != nil {
 		return err
 	}
@@ -845,7 +813,34 @@ to create a new model to deploy %sworkloads.
 	defer ctx.StopInterruptNotify(interrupted)
 
 	var cancel context.CancelFunc
-	stdCtx, cancel = context.WithTimeout(context.Background(), bootstrapCfg.bootstrap.BootstrapTimeout)
+	stdCtx, cancel := context.WithTimeout(context.Background(), bootstrapCfg.bootstrap.BootstrapTimeout)
+
+	defer func() {
+		// If the context is an error state, then don't continue on processing
+		// the bootstrap command.
+		if stdCtx.Err() != nil {
+			return
+		}
+
+		resultErr = handleChooseCloudRegionError(ctx, resultErr)
+		if !c.showClouds && resultErr == nil {
+			if initialModel != nil {
+				ctx.Infof("Initial model %q added", c.initialModelName)
+				return
+			}
+
+			workloadType := ""
+			if isCAASController {
+				workloadType = "k8s "
+			}
+
+			ctx.Infof(`
+Now you can run
+	juju add-model <model-name>
+to create a new model to deploy %sworkloads.
+`, workloadType)
+		}
+	}()
 
 	go func() {
 		for range interrupted {

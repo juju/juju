@@ -60,7 +60,7 @@ type AddCloudAPI interface {
 }
 
 // BrokerGetter returns caas broker instance.
-type BrokerGetter func(cloud jujucloud.Cloud, credential jujucloud.Credential) (k8s.ClusterMetadataChecker, error)
+type BrokerGetter func(ctx stdcontext.Context, cloud jujucloud.Cloud, credential jujucloud.Credential) (k8s.ClusterMetadataChecker, error)
 
 var usageAddCAASSummary = `
 Adds a k8s endpoint and credential to Juju.`[1:]
@@ -544,7 +544,7 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) (err error) {
 		return errors.Trace(err)
 	}
 
-	broker, err := c.brokerGetter(newCloud, newCredential)
+	broker, err := c.brokerGetter(ctx, newCloud, newCredential)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -695,7 +695,7 @@ func checkCloudRegion(given, detected string) error {
 	return nil
 }
 
-func (c *AddCAASCommand) newK8sClusterBroker(cloud jujucloud.Cloud, credential jujucloud.Credential) (k8s.ClusterMetadataChecker, error) {
+func (c *AddCAASCommand) newK8sClusterBroker(ctx stdcontext.Context, cloud jujucloud.Cloud, credential jujucloud.Credential) (k8s.ClusterMetadataChecker, error) {
 	openParams, err := provider.BaseKubeCloudOpenParams(cloud, credential)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -708,7 +708,7 @@ func (c *AddCAASCommand) newK8sClusterBroker(cloud jujucloud.Cloud, credential j
 		openParams.ControllerUUID = ctrlUUID
 	}
 
-	broker, err := caas.New(stdcontext.TODO(), openParams)
+	broker, err := caas.New(ctx, openParams)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

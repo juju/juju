@@ -4,6 +4,8 @@
 package usersecrets
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 
@@ -49,8 +51,9 @@ func (s *UserSecretsManager) WatchRevisionsToPrune() (params.StringsWatchResult,
 }
 
 // DeleteRevisions deletes the specified revisions of the specified secret.
-func (s *UserSecretsManager) DeleteRevisions(args params.DeleteSecretArgs) (params.ErrorResults, error) {
+func (s *UserSecretsManager) DeleteRevisions(ctx context.Context, args params.DeleteSecretArgs) (params.ErrorResults, error) {
 	return commonsecrets.RemoveUserSecrets(
+		ctx,
 		s.secretsState, s.backendConfigGetter,
 		s.authTag, args, s.modelUUID,
 		func(uri *coresecrets.URI) error {

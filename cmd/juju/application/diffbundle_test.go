@@ -605,7 +605,7 @@ func (s *mockCharmHub) ResolveBundleURL(url *charm.URL, preferredOrigin commonch
 	return s.url, s.origin, s.stub.NextErr()
 }
 
-func (s *mockCharmHub) GetBundle(url *charm.URL, _ commoncharm.Origin, path string) (charm.Bundle, error) {
+func (s *mockCharmHub) GetBundle(_ context.Context, url *charm.URL, _ commoncharm.Origin, path string) (charm.Bundle, error) {
 	s.stub.AddCall("GetBundle", url, path)
 	return s.bundle, s.stub.NextErr()
 }

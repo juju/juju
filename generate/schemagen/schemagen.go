@@ -246,10 +246,6 @@ func (c context) ControllerTag() names.ControllerTag {
 
 func (c context) Dispose() {}
 
-func (c context) Cancel() <-chan struct{} {
-	return make(chan struct{})
-}
-
 func (c context) ControllerDB() (changestream.WatchableDB, error) {
 	return nil, nil
 }

@@ -28,7 +28,7 @@ type DownloadBundleClientFunc = func() (DownloadBundleClient, error)
 
 // BundleFactory represents a type for getting a bundle from a given url.
 type BundleFactory interface {
-	GetBundle(*charm.URL, commoncharm.Origin, string) (charm.Bundle, error)
+	GetBundle(context.Context, *charm.URL, commoncharm.Origin, string) (charm.Bundle, error)
 }
 
 // BundleRepoFunc creates a bundle factory from a charm URL.
@@ -93,12 +93,12 @@ func (c *CharmAdaptor) ResolveBundleURL(maybeBundle *charm.URL, preferredOrigin 
 }
 
 // GetBundle returns a bundle from a given charmstore path.
-func (c *CharmAdaptor) GetBundle(url *charm.URL, origin commoncharm.Origin, path string) (charm.Bundle, error) {
+func (c *CharmAdaptor) GetBundle(ctx context.Context, url *charm.URL, origin commoncharm.Origin, path string) (charm.Bundle, error) {
 	repo, err := c.bundleRepoFn(url)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return repo.GetBundle(url, origin, path)
+	return repo.GetBundle(ctx, url, origin, path)
 }
 
 type chBundleFactory struct {
@@ -106,7 +106,7 @@ type chBundleFactory struct {
 	downloadBundleClientFunc DownloadBundleClientFunc
 }
 
-func (ch chBundleFactory) GetBundle(curl *charm.URL, origin commoncharm.Origin, path string) (charm.Bundle, error) {
+func (ch chBundleFactory) GetBundle(ctx context.Context, curl *charm.URL, origin commoncharm.Origin, path string) (charm.Bundle, error) {
 	client, err := ch.downloadBundleClientFunc()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -120,5 +120,5 @@ func (ch chBundleFactory) GetBundle(curl *charm.URL, origin commoncharm.Origin, 
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return client.DownloadAndReadBundle(context.TODO(), url, path)
+	return client.DownloadAndReadBundle(ctx, url, path)
 }

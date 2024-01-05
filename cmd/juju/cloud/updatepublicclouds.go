@@ -108,11 +108,11 @@ func (c *updatePublicCloudsCommand) Init(args []string) error {
 	return cmd.CheckEmpty(args)
 }
 
-func PublishedPublicClouds(url, key string) (map[string]jujucloud.Cloud, error) {
+func PublishedPublicClouds(ctx context.Context, url, key string) (map[string]jujucloud.Cloud, error) {
 	client := jujuhttp.NewClient(
 		jujuhttp.WithLogger(logger.ChildWithLabels("http", corelogger.HTTP)),
 	)
-	resp, err := client.Get(context.TODO(), url)
+	resp, err := client.Get(ctx, url)
 	if err != nil {
 		return nil, err
 	}
@@ -146,6 +146,7 @@ func (c *updatePublicCloudsCommand) Run(ctxt *cmd.Context) error {
 	fmt.Fprint(ctxt.Stderr, "Fetching latest public cloud list...\n")
 	var returnedErr error
 	publishedClouds, msg, err := FetchAndMaybeUpdatePublicClouds(
+		ctxt,
 		PublicCloudsAccessDetails{
 			publicSigningKey: c.publicSigningKey,
 			publicCloudURL:   c.publicCloudURL,
@@ -182,9 +183,9 @@ func (c *updatePublicCloudsCommand) Run(ctxt *cmd.Context) error {
 // Since this call can also update a client copy of clouds, it is possible that the public
 // clouds have been retrieved but the client update fail. In this case, we still
 // return public clouds as well as the client error.
-var FetchAndMaybeUpdatePublicClouds = func(access PublicCloudsAccessDetails, updateClient bool) (map[string]jujucloud.Cloud, string, error) {
+var FetchAndMaybeUpdatePublicClouds = func(ctx context.Context, access PublicCloudsAccessDetails, updateClient bool) (map[string]jujucloud.Cloud, string, error) {
 	var msg string
-	publishedClouds, err := PublishedPublicClouds(access.publicCloudURL, access.publicSigningKey)
+	publishedClouds, err := PublishedPublicClouds(ctx, access.publicCloudURL, access.publicSigningKey)
 	if err != nil {
 		return nil, msg, errors.Trace(err)
 	}

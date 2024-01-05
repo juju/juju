@@ -4,6 +4,7 @@
 package deployer
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -62,7 +63,7 @@ func (s *deployerSuite) TestGetDeployerPredeployedLocalCharm(c *gc.C) {
 	cfg.CharmOrBundle = ch.String()
 
 	factory := s.newDeployerFactory()
-	deployer, err := factory.GetDeployer(cfg, s.modelConfigGetter, s.resolver)
+	deployer, err := factory.GetDeployer(context.Background(), cfg, s.modelConfigGetter, s.resolver)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(deployer.String(), gc.Equals, fmt.Sprintf("deploy predeployed local charm: %s", ch.String()))
 }
@@ -79,7 +80,7 @@ func (s *deployerSuite) TestGetDeployerLocalCharm(c *gc.C) {
 	cfg.CharmOrBundle = charmPath
 
 	factory := s.newDeployerFactory()
-	deployer, err := factory.GetDeployer(cfg, s.modelConfigGetter, s.resolver)
+	deployer, err := factory.GetDeployer(context.Background(), cfg, s.modelConfigGetter, s.resolver)
 	c.Assert(err, jc.ErrorIsNil)
 	ch := charm.MustParseURL("local:jammy/multi-series-1")
 	c.Assert(deployer.String(), gc.Equals, fmt.Sprintf("deploy local charm: %s", ch.String()))
@@ -93,7 +94,7 @@ func (s *deployerSuite) TestGetDeployerLocalCharmError(c *gc.C) {
 
 	s.expectStat(path, os.ErrNotExist)
 
-	_, err := factory.GetDeployer(DeployerConfig{CharmOrBundle: path}, s.modelConfigGetter, nil)
+	_, err := factory.GetDeployer(context.Background(), DeployerConfig{CharmOrBundle: path}, s.modelConfigGetter, nil)
 	c.Assert(err, gc.ErrorMatches, `no charm was found at "./bad.charm"`)
 }
 
@@ -115,7 +116,7 @@ func (s *deployerSuite) testGetDeployerRepositoryCharm(c *gc.C, ch *charm.URL) {
 	cfg.CharmOrBundle = ch.String()
 
 	factory := s.newDeployerFactory()
-	deployer, err := factory.GetDeployer(cfg, s.modelConfigGetter, s.resolver)
+	deployer, err := factory.GetDeployer(context.Background(), cfg, s.modelConfigGetter, s.resolver)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(deployer.String(), gc.Equals, fmt.Sprintf("deploy charm: %s", ch.String()))
 }
@@ -150,7 +151,7 @@ func (s *deployerSuite) testGetDeployerRepositoryCharmWithRevision(c *gc.C, ch *
 	s.expectStat(cfg.CharmOrBundle, errors.NotFoundf("file"))
 
 	factory := s.newDeployerFactory()
-	return factory.GetDeployer(cfg, s.modelConfigGetter, s.resolver)
+	return factory.GetDeployer(context.Background(), cfg, s.modelConfigGetter, s.resolver)
 }
 
 func (s *deployerSuite) TestSeriesOverride(c *gc.C) {
@@ -164,7 +165,7 @@ func (s *deployerSuite) TestSeriesOverride(c *gc.C) {
 	cfg.CharmOrBundle = ch.String()
 
 	factory := s.newDeployerFactory()
-	deployer, err := factory.GetDeployer(cfg, s.modelConfigGetter, s.resolver)
+	deployer, err := factory.GetDeployer(context.Background(), cfg, s.modelConfigGetter, s.resolver)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(deployer.String(), gc.Equals, fmt.Sprintf("deploy charm: %s", ch.String()))
 
@@ -197,7 +198,7 @@ func (s *deployerSuite) TestGetDeployerLocalBundle(c *gc.C) {
 	cfg.CharmOrBundle = bundlePath
 
 	factory := s.newDeployerFactory()
-	deployer, err := factory.GetDeployer(cfg, s.modelConfigGetter, s.resolver)
+	deployer, err := factory.GetDeployer(context.Background(), cfg, s.modelConfigGetter, s.resolver)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(deployer.String(), gc.Equals, fmt.Sprintf("deploy local bundle from: %s", bundlePath))
 }
@@ -219,7 +220,7 @@ func (s *deployerSuite) TestGetDeployerCharmHubBundleWithChannel(c *gc.C) {
 	s.expectData()
 
 	factory := s.newDeployerFactory()
-	deployer, err := factory.GetDeployer(cfg, s.modelConfigGetter, s.resolver)
+	deployer, err := factory.GetDeployer(context.Background(), cfg, s.modelConfigGetter, s.resolver)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(deployer.String(), gc.Equals, fmt.Sprintf("deploy bundle: %s from channel edge", bundle.String()))
 }
@@ -240,7 +241,7 @@ func (s *deployerSuite) TestGetDeployerCharmHubBundleWithRevision(c *gc.C) {
 
 	s.expectResolveBundleURL(nil, 1)
 	factory := s.newDeployerFactory()
-	deployer, err := factory.GetDeployer(cfg, s.modelConfigGetter, s.resolver)
+	deployer, err := factory.GetDeployer(context.Background(), cfg, s.modelConfigGetter, s.resolver)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(deployer.String(), gc.Equals, fmt.Sprintf("deploy bundle: %s with revision 8", bundle.String()))
 }
@@ -256,7 +257,7 @@ func (s *deployerSuite) TestGetDeployerCharmHubBundleWithRevisionURL(c *gc.C) {
 	s.expectModelType()
 
 	factory := s.newDeployerFactory()
-	_, err := factory.GetDeployer(cfg, s.modelConfigGetter, s.resolver)
+	_, err := factory.GetDeployer(context.Background(), cfg, s.modelConfigGetter, s.resolver)
 	c.Assert(err, gc.ErrorMatches, "cannot specify revision in a charm or bundle name. Please use --revision.")
 }
 
@@ -273,7 +274,7 @@ func (s *deployerSuite) TestGetDeployerCharmHubBundleError(c *gc.C) {
 	s.expectResolveBundleURL(nil, 1)
 
 	factory := s.newDeployerFactory()
-	_, err := factory.GetDeployer(cfg, s.modelConfigGetter, s.resolver)
+	_, err := factory.GetDeployer(context.Background(), cfg, s.modelConfigGetter, s.resolver)
 	c.Assert(err, gc.ErrorMatches, "revision and channel are mutually exclusive when deploying a bundle. Please choose one.")
 }
 
@@ -357,7 +358,7 @@ func (s *deployerSuite) TestMaybeReadLocalCharmErrorWithApplicationName(c *gc.C)
 		fileSystem:      s.filesystem,
 	}
 
-	_, err := f.GetDeployer(DeployerConfig{CharmOrBundle: url}, s.modelConfigGetter, s.resolver)
+	_, err := f.GetDeployer(context.Background(), DeployerConfig{CharmOrBundle: url}, s.modelConfigGetter, s.resolver)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -379,7 +380,7 @@ func (s *deployerSuite) TestMaybeReadLocalCharmErrorWithoutApplicationName(c *gc
 		fileSystem:    s.filesystem,
 	}
 
-	_, err := f.GetDeployer(DeployerConfig{CharmOrBundle: url}, s.modelConfigGetter, s.resolver)
+	_, err := f.GetDeployer(context.Background(), DeployerConfig{CharmOrBundle: url}, s.modelConfigGetter, s.resolver)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -494,7 +495,7 @@ func (s *deployerSuite) expectModelType() {
 }
 
 func (s *deployerSuite) expectGetBundle(err error) {
-	s.resolver.EXPECT().GetBundle(gomock.AssignableToTypeOf(&charm.URL{}), gomock.Any(), gomock.Any()).Return(s.bundle, err)
+	s.resolver.EXPECT().GetBundle(gomock.Any(), gomock.AssignableToTypeOf(&charm.URL{}), gomock.Any(), gomock.Any()).Return(s.bundle, err)
 }
 
 func (s *deployerSuite) expectData() {

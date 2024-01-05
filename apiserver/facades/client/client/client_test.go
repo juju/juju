@@ -407,7 +407,7 @@ func (s *findToolsSuite) TestFindToolsIAAS(c *gc.C) {
 		authorizer.EXPECT().HasPermission(permission.WriteAccess, coretesting.ModelTag).Return(nil),
 
 		backend.EXPECT().Model().Return(model, nil),
-		toolsFinder.EXPECT().FindAgents(context.Background(), common.FindAgentsParams{MajorVersion: 2}).
+		toolsFinder.EXPECT().FindAgents(gomock.Any(), common.FindAgentsParams{MajorVersion: 2}).
 			Return(simpleStreams, nil),
 		model.EXPECT().Type().Return(state.ModelTypeIAAS),
 	)

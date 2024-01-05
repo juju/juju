@@ -100,7 +100,7 @@ func (l *LabelSuite) TestIsLegacyModelLabels(c *gc.C) {
 	}
 
 	for _, test := range tests {
-		_, err := l.client.CoreV1().Namespaces().Create(context.TODO(), test.Namespace, meta.CreateOptions{})
+		_, err := l.client.CoreV1().Namespaces().Create(context.Background(), test.Namespace, meta.CreateOptions{})
 		c.Assert(err, jc.ErrorIsNil)
 
 		legacy, err := utils.IsLegacyModelLabels(test.Namespace.Name, test.Model, l.client.CoreV1().Namespaces())

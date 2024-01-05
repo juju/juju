@@ -4,6 +4,7 @@
 package usersecrets_test
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/collections/set"
@@ -132,6 +133,7 @@ func (s *userSecretsSuite) TestDeleteRevisionsAutoPruneEnabled(c *gc.C) {
 	).Return(nil)
 
 	results, err := s.facade.DeleteRevisions(
+		context.Background(),
 		params.DeleteSecretArgs{
 			Args: []params.DeleteSecretArg{
 				{
@@ -157,6 +159,7 @@ func (s *userSecretsSuite) TestDeleteRevisionsAutoPruneDisabled(c *gc.C) {
 	}, nil).Times(2)
 
 	results, err := s.facade.DeleteRevisions(
+		context.Background(),
 		params.DeleteSecretArgs{
 			Args: []params.DeleteSecretArg{
 				{

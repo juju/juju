@@ -279,7 +279,7 @@ func (s *unitUpgradeStepsSuite) expectSetAndApplyStateOperation(err1, err2 error
 		controller.MaxAgentStateSize: 456,
 	}
 
-	s.ctrlConfigGetter.EXPECT().ControllerConfig(context.Background()).Return(ctrlCfg, nil)
+	s.ctrlConfigGetter.EXPECT().ControllerConfig(gomock.Any()).Return(ctrlCfg, nil)
 
 	expLimits := state.UnitStateSizeLimits{
 		MaxCharmStateSize: 123,

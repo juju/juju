@@ -357,7 +357,7 @@ func (s *uploadSuite) assertUploadedTools(c *gc.C, t *coretools.Tools, expectOST
 // downloadToolsRaw downloads the supplied tools and returns the raw bytes.
 func downloadToolsRaw(c *gc.C, t *coretools.Tools) []byte {
 	client := jujuhttp.NewClient()
-	resp, err := client.Get(context.TODO(), t.URL)
+	resp, err := client.Get(context.Background(), t.URL)
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() { _ = resp.Body.Close() }()
 	c.Assert(resp.StatusCode, gc.Equals, http.StatusOK)
