@@ -27,7 +27,7 @@ var _ = gc.Suite(&ScaleSuite{})
 func (s *ScaleSuite) SetUpTest(c *gc.C) {
 	s.client = fake.NewSimpleClientset()
 	_, err := s.client.CoreV1().Namespaces().Create(
-		context.TODO(),
+		context.Background(),
 		&core.Namespace{
 			ObjectMeta: meta.ObjectMeta{
 				Name: "test",
@@ -39,7 +39,7 @@ func (s *ScaleSuite) SetUpTest(c *gc.C) {
 
 func (s *ScaleSuite) TestDeploymentScale(c *gc.C) {
 	_, err := s.client.AppsV1().Deployments("test").Create(
-		context.TODO(),
+		context.Background(),
 		&apps.Deployment{
 			ObjectMeta: meta.ObjectMeta{
 				Name: "test",
@@ -52,7 +52,7 @@ func (s *ScaleSuite) TestDeploymentScale(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = scale.PatchReplicasToScale(
-		context.TODO(),
+		context.Background(),
 		"test",
 		3,
 		scale.DeploymentScalePatcher(s.client.AppsV1().Deployments("test")),
@@ -60,7 +60,7 @@ func (s *ScaleSuite) TestDeploymentScale(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	dep, err := s.client.AppsV1().Deployments("test").Get(
-		context.TODO(),
+		context.Background(),
 		"test",
 		meta.GetOptions{},
 	)
@@ -68,7 +68,7 @@ func (s *ScaleSuite) TestDeploymentScale(c *gc.C) {
 	c.Assert(*dep.Spec.Replicas, gc.Equals, int32(3))
 
 	err = scale.PatchReplicasToScale(
-		context.TODO(),
+		context.Background(),
 		"test",
 		0,
 		scale.DeploymentScalePatcher(s.client.AppsV1().Deployments("test")),
@@ -76,7 +76,7 @@ func (s *ScaleSuite) TestDeploymentScale(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	dep, err = s.client.AppsV1().Deployments("test").Get(
-		context.TODO(),
+		context.Background(),
 		"test",
 		meta.GetOptions{},
 	)
@@ -86,7 +86,7 @@ func (s *ScaleSuite) TestDeploymentScale(c *gc.C) {
 
 func (s *ScaleSuite) TestDeploymentScaleNotFound(c *gc.C) {
 	err := scale.PatchReplicasToScale(
-		context.TODO(),
+		context.Background(),
 		"test",
 		3,
 		scale.DeploymentScalePatcher(s.client.AppsV1().Deployments("test")),
@@ -96,7 +96,7 @@ func (s *ScaleSuite) TestDeploymentScaleNotFound(c *gc.C) {
 
 func (s *ScaleSuite) TestStatefulSetScaleNotFound(c *gc.C) {
 	err := scale.PatchReplicasToScale(
-		context.TODO(),
+		context.Background(),
 		"test",
 		3,
 		scale.StatefulSetScalePatcher(s.client.AppsV1().StatefulSets("test")),
@@ -106,7 +106,7 @@ func (s *ScaleSuite) TestStatefulSetScaleNotFound(c *gc.C) {
 
 func (s *ScaleSuite) TestStatefulSetScale(c *gc.C) {
 	_, err := s.client.AppsV1().StatefulSets("test").Create(
-		context.TODO(),
+		context.Background(),
 		&apps.StatefulSet{
 			ObjectMeta: meta.ObjectMeta{
 				Name: "test",
@@ -119,7 +119,7 @@ func (s *ScaleSuite) TestStatefulSetScale(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = scale.PatchReplicasToScale(
-		context.TODO(),
+		context.Background(),
 		"test",
 		3,
 		scale.StatefulSetScalePatcher(s.client.AppsV1().StatefulSets("test")),
@@ -127,7 +127,7 @@ func (s *ScaleSuite) TestStatefulSetScale(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	ss, err := s.client.AppsV1().StatefulSets("test").Get(
-		context.TODO(),
+		context.Background(),
 		"test",
 		meta.GetOptions{},
 	)
@@ -135,7 +135,7 @@ func (s *ScaleSuite) TestStatefulSetScale(c *gc.C) {
 	c.Assert(*ss.Spec.Replicas, gc.Equals, int32(3))
 
 	err = scale.PatchReplicasToScale(
-		context.TODO(),
+		context.Background(),
 		"test",
 		0,
 		scale.StatefulSetScalePatcher(s.client.AppsV1().StatefulSets("test")),
@@ -143,7 +143,7 @@ func (s *ScaleSuite) TestStatefulSetScale(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	ss, err = s.client.AppsV1().StatefulSets("test").Get(
-		context.TODO(),
+		context.Background(),
 		"test",
 		meta.GetOptions{},
 	)
@@ -153,7 +153,7 @@ func (s *ScaleSuite) TestStatefulSetScale(c *gc.C) {
 
 func (s *ScaleSuite) TestInvalidScale(c *gc.C) {
 	err := scale.PatchReplicasToScale(
-		context.TODO(),
+		context.Background(),
 		"test",
 		-1,
 		scale.StatefulSetScalePatcher(s.client.AppsV1().StatefulSets("test")),

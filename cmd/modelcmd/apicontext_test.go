@@ -105,7 +105,7 @@ func (s *APIContextSuite) TestNewAPIContextEmbedded(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	interactor := modelcmd.Interactor(ctx)
 	c.Assert(interactor, gc.Not(gc.IsNil))
-	_, err = interactor.Interact(context.TODO(), nil, "", nil)
+	_, err = interactor.Interact(context.Background(), nil, "", nil)
 	c.Assert(err, jc.ErrorIs, errors.NotSupported)
 }
 

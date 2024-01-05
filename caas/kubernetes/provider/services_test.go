@@ -26,7 +26,7 @@ func (s *servicesSuite) SetUpTest(c *gc.C) {
 
 func (s *servicesSuite) TestFindServiceForApplication(c *gc.C) {
 	_, err := s.client.CoreV1().Services("test").Create(
-		context.TODO(),
+		context.Background(),
 		&core.Service{
 			ObjectMeta: meta.ObjectMeta{
 				Name: "wallyworld",
@@ -42,7 +42,7 @@ func (s *servicesSuite) TestFindServiceForApplication(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	svc, err := findServiceForApplication(
-		context.TODO(),
+		context.Background(),
 		s.client.CoreV1().Services("test"),
 		"wallyworld",
 		false,
@@ -54,7 +54,7 @@ func (s *servicesSuite) TestFindServiceForApplication(c *gc.C) {
 
 func (s *servicesSuite) TestFindServiceForApplicationWithEndpoints(c *gc.C) {
 	_, err := s.client.CoreV1().Services("test").Create(
-		context.TODO(),
+		context.Background(),
 		&core.Service{
 			ObjectMeta: meta.ObjectMeta{
 				Name: "wallyworld",
@@ -69,7 +69,7 @@ func (s *servicesSuite) TestFindServiceForApplicationWithEndpoints(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = s.client.CoreV1().Services("test").Create(
-		context.TODO(),
+		context.Background(),
 		&core.Service{
 			ObjectMeta: meta.ObjectMeta{
 				Name: "wallyworld-endpoints",
@@ -84,7 +84,7 @@ func (s *servicesSuite) TestFindServiceForApplicationWithEndpoints(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	svc, err := findServiceForApplication(
-		context.TODO(),
+		context.Background(),
 		s.client.CoreV1().Services("test"),
 		"wallyworld",
 		false,
@@ -96,7 +96,7 @@ func (s *servicesSuite) TestFindServiceForApplicationWithEndpoints(c *gc.C) {
 
 func (s *servicesSuite) TestFindServiceForApplicationWithMultiple(c *gc.C) {
 	_, err := s.client.CoreV1().Services("test").Create(
-		context.TODO(),
+		context.Background(),
 		&core.Service{
 			ObjectMeta: meta.ObjectMeta{
 				Name: "wallyworld",
@@ -111,7 +111,7 @@ func (s *servicesSuite) TestFindServiceForApplicationWithMultiple(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = s.client.CoreV1().Services("test").Create(
-		context.TODO(),
+		context.Background(),
 		&core.Service{
 			ObjectMeta: meta.ObjectMeta{
 				Name: "wallyworld-v2",
@@ -126,7 +126,7 @@ func (s *servicesSuite) TestFindServiceForApplicationWithMultiple(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = findServiceForApplication(
-		context.TODO(),
+		context.Background(),
 		s.client.CoreV1().Services("test"),
 		"wallyworld",
 		false,
@@ -137,7 +137,7 @@ func (s *servicesSuite) TestFindServiceForApplicationWithMultiple(c *gc.C) {
 
 func (s *servicesSuite) TestFindServiceForApplicationMissing(c *gc.C) {
 	_, err := findServiceForApplication(
-		context.TODO(),
+		context.Background(),
 		s.client.CoreV1().Services("test"),
 		"wallyworld",
 		false,

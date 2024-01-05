@@ -56,7 +56,7 @@ func (s *modelUpgraderSuite) TestModelOperatorUpgrade(c *gc.C) {
 		newImagePath = fmt.Sprintf("%s/%s:9.9.9", podcfg.JujudOCINamespace, podcfg.JujudOCIName)
 	)
 
-	_, err := s.broker.Client().AppsV1().Deployments(s.broker.Namespace()).Create(context.TODO(),
+	_, err := s.broker.Client().AppsV1().Deployments(s.broker.Namespace()).Create(context.Background(),
 		&apps.Deployment{
 			ObjectMeta: meta.ObjectMeta{
 				Name: operatorName,
@@ -83,7 +83,7 @@ func (s *modelUpgraderSuite) TestModelOperatorUpgrade(c *gc.C) {
 
 	c.Assert(modelOperatorUpgrade(operatorName, version.MustParse("9.9.9"), s.broker), jc.ErrorIsNil)
 	de, err := s.broker.Client().AppsV1().Deployments(s.broker.Namespace()).
-		Get(context.TODO(), operatorName, meta.GetOptions{})
+		Get(context.Background(), operatorName, meta.GetOptions{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(de.Spec.Template.Spec.Containers[0].Image, gc.Equals, newImagePath)
 

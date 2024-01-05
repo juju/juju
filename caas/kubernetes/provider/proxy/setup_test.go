@@ -32,7 +32,7 @@ var (
 func (s *setupSuite) SetUpTest(c *gc.C) {
 	s.clock = testclock.NewClock(time.Time{})
 	s.client = fake.NewSimpleClientset()
-	_, err := s.client.CoreV1().Namespaces().Create(context.TODO(),
+	_, err := s.client.CoreV1().Namespaces().Create(context.Background(),
 		&core.Namespace{
 			ObjectMeta: meta.ObjectMeta{
 				Name: testNamespace,
@@ -52,7 +52,7 @@ func (s *setupSuite) TestProxyObjCreation(c *gc.C) {
 	}
 
 	// fake k8s client does not populate the token for secret, so we have to do it manually.
-	_, err := s.client.CoreV1().Secrets(testNamespace).Create(context.TODO(), &core.Secret{
+	_, err := s.client.CoreV1().Secrets(testNamespace).Create(context.Background(), &core.Secret{
 		ObjectMeta: meta.ObjectMeta{
 			Labels: labels.Set{},
 			Name:   config.Name,
@@ -80,7 +80,7 @@ func (s *setupSuite) TestProxyObjCreation(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	role, err := s.client.RbacV1().Roles(testNamespace).Get(
-		context.TODO(),
+		context.Background(),
 		config.Name,
 		meta.GetOptions{},
 	)
@@ -94,7 +94,7 @@ func (s *setupSuite) TestProxyObjCreation(c *gc.C) {
 	c.Assert(role.Rules[2].Verbs, jc.DeepEquals, []string{"create", "get"})
 
 	sa, err := s.client.CoreV1().ServiceAccounts(testNamespace).Get(
-		context.TODO(),
+		context.Background(),
 		config.Name,
 		meta.GetOptions{},
 	)
@@ -104,7 +104,7 @@ func (s *setupSuite) TestProxyObjCreation(c *gc.C) {
 	c.Assert(sa.Secrets[0].Name, gc.Equals, config.Name)
 
 	secret, err := s.client.CoreV1().ServiceAccounts(testNamespace).Get(
-		context.TODO(),
+		context.Background(),
 		config.Name,
 		meta.GetOptions{},
 	)
@@ -112,7 +112,7 @@ func (s *setupSuite) TestProxyObjCreation(c *gc.C) {
 	c.Assert(secret.Name, gc.Equals, config.Name)
 
 	roleBinding, err := s.client.RbacV1().RoleBindings(testNamespace).Get(
-		context.TODO(),
+		context.Background(),
 		config.Name,
 		meta.GetOptions{},
 	)
@@ -120,7 +120,7 @@ func (s *setupSuite) TestProxyObjCreation(c *gc.C) {
 	c.Assert(roleBinding.Name, gc.Equals, config.Name)
 
 	cm, err := s.client.CoreV1().ConfigMaps(testNamespace).Get(
-		context.TODO(),
+		context.Background(),
 		config.Name,
 		meta.GetOptions{},
 	)
@@ -137,7 +137,7 @@ func (s *setupSuite) TestProxyConfigMap(c *gc.C) {
 	}
 
 	// fake k8sclient does not populate the token for secret, so we have to do it manually.
-	_, err := s.client.CoreV1().Secrets(testNamespace).Create(context.TODO(), &core.Secret{
+	_, err := s.client.CoreV1().Secrets(testNamespace).Create(context.Background(), &core.Secret{
 		ObjectMeta: meta.ObjectMeta{
 			Labels: labels.Set{},
 			Name:   config.Name,
@@ -165,7 +165,7 @@ func (s *setupSuite) TestProxyConfigMap(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	cm, err := s.client.CoreV1().ConfigMaps(testNamespace).Get(
-		context.TODO(),
+		context.Background(),
 		config.Name,
 		meta.GetOptions{},
 	)

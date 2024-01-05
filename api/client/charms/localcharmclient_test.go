@@ -44,7 +44,7 @@ func (s *addCharmSuite) TestAddLocalCharm(c *gc.C) {
 		Doer:    mockHttpDoer,
 	}
 
-	mockCaller.EXPECT().Context().Return(context.TODO()).MinTimes(1)
+	mockCaller.EXPECT().Context().Return(context.Background()).MinTimes(1)
 	mockCaller.EXPECT().HTTPClient().Return(reqClient, nil).MinTimes(1)
 	mockFacadeCaller.EXPECT().RawAPICaller().Return(mockCaller).MinTimes(1)
 
@@ -114,7 +114,7 @@ func (s *addCharmSuite) TestAddLocalCharmWithLXDProfile(c *gc.C) {
 		Doer:    mockHttpDoer,
 	}
 
-	mockCaller.EXPECT().Context().Return(context.TODO()).MinTimes(1)
+	mockCaller.EXPECT().Context().Return(context.Background()).MinTimes(1)
 	mockCaller.EXPECT().HTTPClient().Return(reqClient, nil).MinTimes(1)
 	mockFacadeCaller.EXPECT().RawAPICaller().Return(mockCaller).MinTimes(1)
 
@@ -178,7 +178,7 @@ func (s *addCharmSuite) testAddLocalCharmWithForceSucceeds(name string, c *gc.C)
 		Doer:    mockHttpDoer,
 	}
 
-	mockCaller.EXPECT().Context().Return(context.TODO()).MinTimes(1)
+	mockCaller.EXPECT().Context().Return(context.Background()).MinTimes(1)
 	mockCaller.EXPECT().HTTPClient().Return(reqClient, nil).MinTimes(1)
 	mockFacadeCaller.EXPECT().RawAPICaller().Return(mockCaller).MinTimes(1)
 
@@ -235,7 +235,7 @@ func (s *addCharmSuite) TestAddLocalCharmDefinitelyWithHooks(c *gc.C) {
 		Doer:    mockHttpDoer,
 	}
 
-	mockCaller.EXPECT().Context().Return(context.TODO()).MinTimes(1)
+	mockCaller.EXPECT().Context().Return(context.Background()).MinTimes(1)
 	mockCaller.EXPECT().HTTPClient().Return(reqClient, nil).MinTimes(1)
 	mockFacadeCaller.EXPECT().RawAPICaller().Return(mockCaller).MinTimes(1)
 
@@ -281,7 +281,7 @@ func (s *addCharmSuite) TestAddLocalCharmError(c *gc.C) {
 		Doer:    mockHttpDoer,
 	}
 
-	mockCaller.EXPECT().Context().Return(context.TODO()).MinTimes(1)
+	mockCaller.EXPECT().Context().Return(context.Background()).MinTimes(1)
 	mockCaller.EXPECT().HTTPClient().Return(reqClient, nil).MinTimes(1)
 	mockFacadeCaller.EXPECT().RawAPICaller().Return(mockCaller).MinTimes(1)
 
@@ -347,7 +347,7 @@ func testMinVer(t minverTest, c *gc.C) {
 		Doer:    mockHttpDoer,
 	}
 
-	mockCaller.EXPECT().Context().Return(context.TODO()).AnyTimes()
+	mockCaller.EXPECT().Context().Return(context.Background()).AnyTimes()
 	mockCaller.EXPECT().HTTPClient().Return(reqClient, nil).AnyTimes()
 	mockFacadeCaller.EXPECT().RawAPICaller().Return(mockCaller).AnyTimes()
 

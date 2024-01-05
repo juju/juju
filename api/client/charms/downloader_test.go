@@ -37,7 +37,7 @@ func (s *charmDownloaderSuite) TestCharmOpener(c *gc.C) {
 		Doer:    mockHttpDoer,
 	}
 
-	mockCaller.EXPECT().Context().Return(context.TODO()).MinTimes(1)
+	mockCaller.EXPECT().Context().Return(context.Background()).MinTimes(1)
 	mockCaller.EXPECT().HTTPClient().Return(reqClient, nil).MinTimes(1)
 
 	charmData := "charmdatablob"

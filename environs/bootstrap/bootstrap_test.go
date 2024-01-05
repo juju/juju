@@ -1580,7 +1580,7 @@ func (e bootstrapEnvironWithHardwareDetection) UpdateModelConstraints() bool {
 
 func bootstrapContext(c *gc.C) (environs.BootstrapContext, *simplestreams.Simplestreams) {
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
-	ctx := context.WithValue(context.TODO(), bootstrap.SimplestreamsFetcherContextKey, ss)
+	ctx := context.WithValue(context.Background(), bootstrap.SimplestreamsFetcherContextKey, ss)
 	return envtesting.BootstrapContext(ctx, c), ss
 }
 
@@ -1597,7 +1597,7 @@ func (s *BootstrapContextSuite) TestContextDone(c *gc.C) {
 		done bool
 	}{{
 		name: "todo context",
-		ctx:  context.TODO(),
+		ctx:  context.Background(),
 		done: false,
 	}, {
 		name: "background context",

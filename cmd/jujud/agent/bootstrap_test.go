@@ -257,7 +257,7 @@ func (s *BootstrapSuite) TestStoreControllerCharm(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	repo := mocks.NewMockRepository(ctrl)
-	s.PatchValue(&newCharmRepo, func(cfg services.CharmRepoFactoryConfig) (corecharm.Repository, error) {
+	s.PatchValue(&newCharmRepo, func(_ context.Context, cfg services.CharmRepoFactoryConfig) (corecharm.Repository, error) {
 		return repo, nil
 	})
 	downloader := mocks.NewMockDownloader(ctrl)

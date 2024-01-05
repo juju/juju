@@ -187,7 +187,7 @@ func (s *CrossModelSecretsSuite) assertGetSecretContentInfo(c *gc.C, newConsumer
 	)
 
 	mac, err := s.bakery.NewMacaroon(
-		context.TODO(),
+		context.Background(),
 		bakery.LatestVersion,
 		[]checkers.Caveat{
 			checkers.DeclaredCaveat("username", "mary"),

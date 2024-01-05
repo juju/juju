@@ -120,7 +120,7 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	s.pcfg = pcfg
 	s.controllerStackerGetter = func() provider.ControllerStackerForTest {
 		controllerStacker, err := provider.NewcontrollerStackForTest(
-			envtesting.BootstrapContext(context.TODO(), c), "juju-controller-test", "some-storage", s.broker, s.pcfg,
+			envtesting.BootstrapContext(context.Background(), c), "juju-controller-test", "some-storage", s.broker, s.pcfg,
 		)
 		c.Assert(err, jc.ErrorIsNil)
 		return controllerStacker
@@ -176,7 +176,7 @@ func (s *bootstrapSuite) TestFindControllerNamespace(c *gc.C) {
 	for _, test := range tests {
 		client := fake.NewSimpleClientset()
 		_, err := client.CoreV1().Namespaces().Create(
-			context.TODO(),
+			context.Background(),
 			&test.Namespace,
 			v1.CreateOptions{},
 		)
@@ -334,7 +334,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 	randomPrefixFunc := func() (string, error) {
 		return "appuuid", nil
 	}
-	_, err := s.mockNamespaces.Get(context.TODO(), s.namespace, v1.GetOptions{})
+	_, err := s.mockNamespaces.Get(context.Background(), s.namespace, v1.GetOptions{})
 	c.Assert(err, jc.Satisfies, k8serrors.IsNotFound)
 
 	var bootstrapWatchers []k8swatcher.KubernetesNotifyWatcher
@@ -1226,7 +1226,7 @@ func (s *bootstrapSuite) TestBootstrapFailedTimeout(c *gc.C) {
 	randomPrefixFunc := func() (string, error) {
 		return "appuuid", nil
 	}
-	_, err := s.mockNamespaces.Get(context.TODO(), s.namespace, v1.GetOptions{})
+	_, err := s.mockNamespaces.Get(context.Background(), s.namespace, v1.GetOptions{})
 	c.Assert(err, jc.Satisfies, k8serrors.IsNotFound)
 
 	var watchers []k8swatcher.KubernetesNotifyWatcher

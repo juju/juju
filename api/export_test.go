@@ -23,7 +23,7 @@ var (
 )
 
 func DialAPI(info *Info, opts DialOpts) (jsoncodec.JSONConn, string, error) {
-	result, err := dialAPI(context.TODO(), info, opts)
+	result, err := dialAPI(context.Background(), info, opts)
 	if err != nil {
 		return nil, "", err
 	}

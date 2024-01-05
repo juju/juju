@@ -54,14 +54,13 @@ func (s *httpSuite) TestOpenURI(c *gc.C) {
 		Body:       io.NopCloser(strings.NewReader("2.6.6-ubuntu-amd64")),
 	}
 	resultResp.Header.Add("Content-Type", "application/json")
-	ctx := context.TODO()
-	mockHttp.EXPECT().Do(ctx, &uriMatcher{"/tools/2.6.6-ubuntu-amd64"}, gomock.Any()).DoAndReturn(func(_ context.Context, _ *http.Request, resp interface{}) error {
+	mockHttp.EXPECT().Do(gomock.Any(), &uriMatcher{"/tools/2.6.6-ubuntu-amd64"}, gomock.Any()).DoAndReturn(func(_ context.Context, _ *http.Request, resp interface{}) error {
 		out := resp.(**http.Response)
 		*out = resultResp
 		return nil
 	})
 
-	reader, err := apihttp.OpenURI(ctx, mockHttp, "/tools/2.6.6-ubuntu-amd64", nil)
+	reader, err := apihttp.OpenURI(context.Background(), mockHttp, "/tools/2.6.6-ubuntu-amd64", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	defer reader.Close()
 

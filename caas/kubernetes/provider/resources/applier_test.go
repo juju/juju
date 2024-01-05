@@ -44,7 +44,7 @@ func (s *applierSuite) TestRun(c *gc.C) {
 		r2.EXPECT().Get(gomock.Any(), gomock.Any()).Return(errors.NewNotFound(nil, "")),
 		r2.EXPECT().Delete(gomock.Any(), gomock.Any()).Return(nil),
 	)
-	c.Assert(applier.Run(context.TODO(), nil, false), jc.ErrorIsNil)
+	c.Assert(applier.Run(context.Background(), nil, false), jc.ErrorIsNil)
 }
 
 func (s *applierSuite) TestRunApplyFailedWithRollBackForNewResource(c *gc.C) {
@@ -74,7 +74,7 @@ func (s *applierSuite) TestRunApplyFailedWithRollBackForNewResource(c *gc.C) {
 		// delete the new resource was just created.
 		r1.EXPECT().Delete(gomock.Any(), gomock.Any()).Return(nil),
 	)
-	c.Assert(applier.Run(context.TODO(), nil, false), gc.ErrorMatches, `something was wrong`)
+	c.Assert(applier.Run(context.Background(), nil, false), gc.ErrorMatches, `something was wrong`)
 }
 
 func (s *applierSuite) TestRunApplyResourceVersionChanged(c *gc.C) {
@@ -102,7 +102,7 @@ func (s *applierSuite) TestRunApplyResourceVersionChanged(c *gc.C) {
 		r1.EXPECT().Clone().Return(existingR1),
 		existingR1.EXPECT().Get(gomock.Any(), gomock.Any()).Return(nil),
 	)
-	c.Assert(applier.Run(context.TODO(), nil, false), gc.ErrorMatches, `A r1: resource version conflict`)
+	c.Assert(applier.Run(context.Background(), nil, false), gc.ErrorMatches, `A r1: resource version conflict`)
 }
 
 func (s *applierSuite) TestRunApplyFailedWithRollBackForExistingResource(c *gc.C) {
@@ -132,7 +132,7 @@ func (s *applierSuite) TestRunApplyFailedWithRollBackForExistingResource(c *gc.C
 		// re-apply the old resource.
 		existingR1.EXPECT().Apply(gomock.Any(), gomock.Any()).Return(nil),
 	)
-	c.Assert(applier.Run(context.TODO(), nil, false), gc.ErrorMatches, `something was wrong`)
+	c.Assert(applier.Run(context.Background(), nil, false), gc.ErrorMatches, `something was wrong`)
 }
 
 func (s *applierSuite) TestRunDeleteFailedWithRollBack(c *gc.C) {
@@ -162,7 +162,7 @@ func (s *applierSuite) TestRunDeleteFailedWithRollBack(c *gc.C) {
 		// re-apply the old resource.
 		existingR1.EXPECT().Apply(gomock.Any(), gomock.Any()).Return(nil),
 	)
-	c.Assert(applier.Run(context.TODO(), nil, false), gc.ErrorMatches, `something was wrong`)
+	c.Assert(applier.Run(context.Background(), nil, false), gc.ErrorMatches, `something was wrong`)
 }
 
 func (s *applierSuite) TestApplySet(c *gc.C) {
@@ -202,5 +202,5 @@ func (s *applierSuite) TestApplySet(c *gc.C) {
 		r3.EXPECT().Get(gomock.Any(), gomock.Any()).Return(errors.NotFoundf("missing aye")),
 		r3.EXPECT().Apply(gomock.Any(), gomock.Any()).Return(nil),
 	)
-	c.Assert(applier.Run(context.TODO(), nil, false), jc.ErrorIsNil)
+	c.Assert(applier.Run(context.Background(), nil, false), jc.ErrorIsNil)
 }

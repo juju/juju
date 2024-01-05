@@ -355,7 +355,7 @@ func (c customMethodCaller) Call(_ context.Context, objId string, arg reflect.Va
 		logger.Errorf("got the wrong type back, expected %s got %T", c.expectedType, obj)
 	}
 	logger.Debugf("calling: %T %v %#v", obj, obj, c.objMethod)
-	return c.objMethod.Call(context.TODO(), obj, arg)
+	return c.objMethod.Call(context.Background(), obj, arg)
 }
 
 func (cc *CustomRoot) Kill() {}

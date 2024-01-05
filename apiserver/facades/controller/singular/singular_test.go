@@ -162,7 +162,7 @@ func (s *SingularSuite) TestWait(c *gc.C) {
 	backend.stub.SetErrors(errors.New("zap!"), nil)
 	facade, err := singular.NewFacade(backend, backend, mockAuth{})
 	c.Assert(err, jc.ErrorIsNil)
-	result := facade.Wait(context.TODO(), waits)
+	result := facade.Wait(context.Background(), waits)
 	c.Assert(result.Results, gc.HasLen, count)
 
 	checkDenied(c, result.Results[0])

@@ -43,7 +43,7 @@ func (s *imageutilsSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.client, err = armcompute.NewVirtualMachineImagesClient("subscription-id", &azuretesting.FakeCredential{}, opts)
 	c.Assert(err, jc.ErrorIsNil)
-	s.callCtx = envcontext.WithoutCredentialInvalidator(context.TODO())
+	s.callCtx = envcontext.WithoutCredentialInvalidator(context.Background())
 }
 
 func (s *imageutilsSuite) TestSeriesImage(c *gc.C) {
@@ -105,7 +105,7 @@ func (s *imageutilsSuite) TestSeriesImageStreamNotFound(c *gc.C) {
 func (s *imageutilsSuite) TestSeriesImageStreamThrewCredentialError(c *gc.C) {
 	s.mockSender.AppendResponse(azuretesting.NewResponseWithStatus("401 Unauthorized", http.StatusUnauthorized))
 	called := false
-	s.callCtx = envcontext.WithCredentialInvalidator(context.TODO(), func(context.Context, string) error {
+	s.callCtx = envcontext.WithCredentialInvalidator(context.Background(), func(context.Context, string) error {
 		called = true
 		return nil
 	})
@@ -118,7 +118,7 @@ func (s *imageutilsSuite) TestSeriesImageStreamThrewCredentialError(c *gc.C) {
 func (s *imageutilsSuite) TestSeriesImageStreamThrewNonCredentialError(c *gc.C) {
 	s.mockSender.AppendResponse(azuretesting.NewResponseWithStatus("308 Permanent Redirect", http.StatusPermanentRedirect))
 	called := false
-	s.callCtx = envcontext.WithCredentialInvalidator(context.TODO(), func(context.Context, string) error {
+	s.callCtx = envcontext.WithCredentialInvalidator(context.Background(), func(context.Context, string) error {
 		called = true
 		return nil
 	})
