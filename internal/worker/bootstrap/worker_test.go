@@ -35,7 +35,7 @@ func (s *workerSuite) TestKilled(c *gc.C) {
 	s.expectGateUnlock()
 	s.expectControllerConfig()
 	s.expectAgentConfig(c)
-	s.expectObjectStoreGetter()
+	s.expectObjectStoreGetter(2)
 	s.expectBootstrapFlagSet()
 
 	w := s.newWorker(c)
@@ -80,16 +80,19 @@ func (s *workerSuite) TestSeedAgentBinary(c *gc.C) {
 
 func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
 	w, err := newWorker(WorkerConfig{
-		Logger:            s.logger,
-		Agent:             s.agent,
-		ObjectStoreGetter: s.objectStoreGetter,
-		BootstrapUnlocker: s.bootstrapUnlocker,
-		AgentBinaryUploader: func(context.Context, string, BinaryAgentStorageService, objectstore.ObjectStore, Logger) (func(), error) {
-			return func() {}, nil
-		},
+		Logger:                  s.logger,
+		Agent:                   s.agent,
+		ObjectStoreGetter:       s.objectStoreGetter,
+		BootstrapUnlocker:       s.bootstrapUnlocker,
 		State:                   &state.State{},
 		ControllerConfigService: s.controllerConfigService,
 		FlagService:             s.flagService,
+		AgentBinaryUploader: func(context.Context, string, BinaryAgentStorageService, objectstore.ObjectStore, Logger) (func(), error) {
+			return func() {}, nil
+		},
+		ControllerCharmUploader: func(context.Context, string, objectstore.ObjectStore, Logger) error {
+			return nil
+		},
 	}, s.states)
 	c.Assert(err, jc.ErrorIsNil)
 	return w
@@ -126,8 +129,8 @@ func (s *workerSuite) expectControllerConfig() {
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(controller.Config{}, nil).AnyTimes()
 }
 
-func (s *workerSuite) expectObjectStoreGetter() {
-	s.objectStoreGetter.EXPECT().GetObjectStore(gomock.Any(), gomock.Any()).Return(s.objectStore, nil)
+func (s *workerSuite) expectObjectStoreGetter(num int) {
+	s.objectStoreGetter.EXPECT().GetObjectStore(gomock.Any(), gomock.Any()).Return(s.objectStore, nil).Times(num)
 }
 
 func (s *workerSuite) expectBootstrapFlagSet() {

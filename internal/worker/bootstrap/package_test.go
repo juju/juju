@@ -19,7 +19,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -package bootstrap -destination state_mock_test.go github.com/juju/juju/internal/worker/state StateTracker
 //go:generate go run go.uber.org/mock/mockgen -package bootstrap -destination objectstore_mock_test.go github.com/juju/juju/core/objectstore ObjectStore
 //go:generate go run go.uber.org/mock/mockgen -package bootstrap -destination lock_mock_test.go github.com/juju/juju/internal/worker/gate Unlocker
-//go:generate go run go.uber.org/mock/mockgen -package bootstrap -destination bootstrap_mock_test.go github.com/juju/juju/internal/worker/bootstrap ControllerConfigService,FlagService,ObjectStoreGetter,LegacyState
+//go:generate go run go.uber.org/mock/mockgen -package bootstrap -destination bootstrap_mock_test.go github.com/juju/juju/internal/worker/bootstrap ControllerConfigService,FlagService,ObjectStoreGetter,LegacyState,HTTPClient
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)
@@ -37,6 +37,7 @@ type baseSuite struct {
 	bootstrapUnlocker       *MockUnlocker
 	controllerConfigService *MockControllerConfigService
 	flagService             *MockFlagService
+	httpClient              *MockHTTPClient
 
 	logger Logger
 }
@@ -53,6 +54,7 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.bootstrapUnlocker = NewMockUnlocker(ctrl)
 	s.controllerConfigService = NewMockControllerConfigService(ctrl)
 	s.flagService = NewMockFlagService(ctrl)
+	s.httpClient = NewMockHTTPClient(ctrl)
 
 	s.logger = jujujujutesting.NewCheckLogger(c)
 

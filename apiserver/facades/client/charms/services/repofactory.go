@@ -25,6 +25,14 @@ type LoggerFactory interface {
 	ForNamespace(string) LoggerFactory
 }
 
+// Logger is the interface that is used to log messages.
+type Logger interface {
+	Errorf(string, ...interface{})
+	Warningf(string, ...interface{})
+	Debugf(string, ...interface{})
+	Tracef(string, ...interface{})
+}
+
 // CharmRepoFactoryConfig encapsulates the information required for creating a
 // new CharmRepoFactory instance.
 type CharmRepoFactoryConfig struct {
@@ -43,7 +51,6 @@ type CharmRepoFactoryConfig struct {
 // calls.
 type CharmRepoFactory struct {
 	loggerFactory      LoggerFactory
-	logger             charmhub.Logger
 	charmhubHTTPClient charmhub.HTTPClient
 	stateBackend       StateBackend
 	modelBackend       ModelBackend

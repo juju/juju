@@ -220,6 +220,14 @@ func IAASAgentBinaryUploader(ctx context.Context, dataDir string, storageService
 	return bootstrap.PopulateAgentBinary(ctx, dataDir, storage, logger)
 }
 
+// ControllerCharmUploader is the function that is used to upload the
+// controller charm.
+func ControllerCharmUploader(context.Context, string, objectstore.ObjectStore, Logger) error {
+	// This isn't wired up yet, that will come in a later PR.
+	// For now just return nil.
+	return nil
+}
+
 // RequiresBootstrap is the function that is used to check if the bootstrap
 // process has completed.
 func RequiresBootstrap(ctx context.Context, flagService FlagService) (bool, error) {

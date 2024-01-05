@@ -21,17 +21,20 @@ type Base struct {
 	Channel Channel
 }
 
+// Empty is an empty base.
+var Empty = Base{}
+
 // ParseBase constructs a Base from the os and channel string.
 func ParseBase(os string, channel string) (Base, error) {
 	if os == "" && channel == "" {
-		return Base{}, nil
+		return Empty, nil
 	}
 	if os == "" || channel == "" {
-		return Base{}, errors.NotValidf("missing base os or channel")
+		return Empty, errors.NotValidf("missing base os or channel")
 	}
 	ch, err := ParseChannelNormalize(channel)
 	if err != nil {
-		return Base{}, errors.Annotatef(err, "parsing base %s@%s", os, channel)
+		return Empty, errors.Annotatef(err, "parsing base %s@%s", os, channel)
 	}
 	return Base{OS: strings.ToLower(os), Channel: ch}, nil
 }
@@ -41,11 +44,11 @@ func ParseBase(os string, channel string) (Base, error) {
 func ParseBaseFromString(b string) (Base, error) {
 	parts := strings.Split(b, "@")
 	if len(parts) != 2 {
-		return Base{}, errors.New("expected base string to contain os and channel separated by '@'")
+		return Empty, errors.New("expected base string to contain os and channel separated by '@'")
 	}
 	channel, err := ParseChannelNormalize(parts[1])
 	if err != nil {
-		return Base{}, errors.Trace(err)
+		return Empty, errors.Trace(err)
 	}
 	return Base{OS: parts[0], Channel: channel}, nil
 }

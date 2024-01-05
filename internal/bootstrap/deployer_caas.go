@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
+
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/state"

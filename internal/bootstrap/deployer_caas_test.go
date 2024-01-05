@@ -7,14 +7,15 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	network "github.com/juju/juju/core/network"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/version"
-	"github.com/juju/names/v4"
+	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
 	gomock "go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/version"
 )
 
 type deployerCAASSuite struct {
