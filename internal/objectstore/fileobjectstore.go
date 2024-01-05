@@ -19,6 +19,12 @@ import (
 	"github.com/juju/juju/core/objectstore"
 )
 
+// Locker is the interface that is used to lock a file.
+type Locker interface {
+	Lock(ctx context.Context, hash string) error
+	Unlock(ctx context.Context, hash string) error
+}
+
 type opType int
 
 const (
@@ -50,13 +56,14 @@ type fileObjectStore struct {
 	requests  chan request
 
 	metadataService objectstore.ObjectStoreMetadata
+	locker          Locker
 
 	logger Logger
 }
 
 // NewFileObjectStore returns a new object store worker based on the file
 // storage.
-func NewFileObjectStore(ctx context.Context, namespace, rootPath string, metadataService objectstore.ObjectStoreMetadata, logger Logger) (TrackedObjectStore, error) {
+func NewFileObjectStore(ctx context.Context, namespace, rootPath string, metadataService objectstore.ObjectStoreMetadata, locker Locker, logger Logger) (TrackedObjectStore, error) {
 	path := filepath.Join(rootPath, namespace)
 
 	s := &fileObjectStore{
@@ -64,6 +71,7 @@ func NewFileObjectStore(ctx context.Context, namespace, rootPath string, metadat
 		path:            path,
 		namespace:       namespace,
 		metadataService: metadataService,
+		locker:          locker,
 		logger:          logger,
 
 		requests: make(chan request),
@@ -286,7 +294,7 @@ func (t *fileObjectStore) get(ctx context.Context, path string) (io.ReadCloser, 
 }
 
 func (t *fileObjectStore) put(ctx context.Context, path string, r io.Reader, size int64, validator hashValidator) error {
-	hash, err := t.putFile(path, r, size)
+	fileName, hash, err := t.writeToTmpFile(ctx, path, r, size)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -294,6 +302,20 @@ func (t *fileObjectStore) put(ctx context.Context, path string, r io.Reader, siz
 	// Ensure that the hash of the file matches the expected hash.
 	if expected, ok := validator(hash); !ok {
 		return fmt.Errorf("hash mismatch for %q: expected %q, got %q: %w", path, expected, hash, objectstore.ErrHashMismatch)
+	}
+
+	// Lock the file with the given hash, so that we can't remove the file
+	// while we're writing it.
+	if err := t.locker.Lock(ctx, hash); err != nil {
+		return errors.Trace(err)
+	}
+
+	// Remove the lock once we're done writing the file.
+	defer t.locker.Unlock(ctx, hash)
+
+	// Persist the temporary file to the final location.
+	if err := t.persistTmpFile(ctx, fileName, hash, size); err != nil {
+		return errors.Trace(err)
 	}
 
 	// Save the metadata for the file after we've written it. That way we
@@ -310,31 +332,36 @@ func (t *fileObjectStore) put(ctx context.Context, path string, r io.Reader, siz
 	return nil
 }
 
-func (t *fileObjectStore) putFile(path string, r io.Reader, size int64) (string, error) {
+func (t *fileObjectStore) writeToTmpFile(ctx context.Context, path string, r io.Reader, size int64) (string, string, error) {
 	// The following dance is to ensure that we don't end up with a partially
 	// written file if we crash while writing it or if we're attempting to
 	// read it at the same time.
 	tmpFile, err := os.CreateTemp("", "file")
 	if err != nil {
-		return "", errors.Trace(err)
+		return "", "", errors.Trace(err)
 	}
 	defer func() {
 		_ = tmpFile.Close()
-		_ = os.Remove(tmpFile.Name())
 	}()
 
 	hasher := sha256.New()
 	written, err := io.Copy(tmpFile, io.TeeReader(r, hasher))
 	if err != nil {
-		return "", errors.Trace(err)
+		_ = os.Remove(tmpFile.Name())
+		return "", "", errors.Trace(err)
 	}
 
 	// Ensure that we write all the data.
 	if written != size {
-		return "", errors.Errorf("partially written data: written %d, expected %d", written, size)
+		_ = os.Remove(tmpFile.Name())
+		return "", "", errors.Errorf("partially written data: written %d, expected %d", written, size)
 	}
 
 	hash := hex.EncodeToString(hasher.Sum(nil))
+	return tmpFile.Name(), hash, nil
+}
+
+func (t *fileObjectStore) persistTmpFile(ctx context.Context, tmpFileName, hash string, size int64) error {
 	filePath := t.filePath(hash)
 
 	// Check to see if the file already exists with the same name.
@@ -342,21 +369,21 @@ func (t *fileObjectStore) putFile(path string, r io.Reader, size int64) (string,
 		// If the file on disk isn't the same as the one we're trying to write,
 		// then we have a problem.
 		if info.Size() != size {
-			return "", errors.AlreadyExistsf("file %q encoded as %q", path, filePath)
+			return errors.AlreadyExistsf("encoded as %q", filePath)
 		}
-		return hash, nil
+		return nil
 	} else if err != nil && !errors.Is(err, os.ErrNotExist) {
 		// There is an error attempting to stat the file, and it's not because
 		// the file doesn't exist.
-		return "", errors.Trace(err)
+		return errors.Trace(err)
 	}
 
 	// Swap out the temporary file for the real one.
-	if err := os.Rename(tmpFile.Name(), filePath); err != nil {
-		return "", errors.Trace(err)
+	if err := os.Rename(tmpFileName, filePath); err != nil {
+		return errors.Trace(err)
 	}
 
-	return hash, nil
+	return nil
 }
 
 func (t *fileObjectStore) remove(ctx context.Context, path string) error {
@@ -369,12 +396,22 @@ func (t *fileObjectStore) remove(ctx context.Context, path string) error {
 		return fmt.Errorf("remove metadata: %w", err)
 	}
 
-	filePath := t.filePath(metadata.Hash)
+	hash := metadata.Hash
+	filePath := t.filePath(hash)
 
 	// File doesn't exist, return early, nothing we can do in this case.
 	if _, err := os.Stat(filePath); err != nil && errors.Is(err, os.ErrNotExist) {
 		return nil
 	}
+
+	// Lock the file with the given hash, so that we can't remove the file
+	// while we're writing it.
+	if err := t.locker.Lock(ctx, hash); err != nil {
+		return errors.Trace(err)
+	}
+
+	// Remove the lock once we're done writing the file.
+	defer t.locker.Unlock(ctx, hash)
 
 	// If we fail to remove the file, we don't want to return an error, as
 	// the metadata has already been removed. Manual intervention will be

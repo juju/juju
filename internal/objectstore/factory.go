@@ -72,6 +72,7 @@ type options struct {
 	rootDir         string
 	mongoSession    MongoSession
 	metadataService MetadataService
+	locker          Locker
 	logger          Logger
 }
 
@@ -96,7 +97,7 @@ func ObjectStoreFactory(ctx context.Context, backendType objectstore.BackendType
 	case objectstore.StateBackend:
 		return NewStateObjectStore(ctx, namespace, opts.mongoSession, opts.logger)
 	case objectstore.FileBackend:
-		return NewFileObjectStore(ctx, namespace, opts.rootDir, opts.metadataService.ObjectStore(), opts.logger)
+		return NewFileObjectStore(ctx, namespace, opts.rootDir, opts.metadataService.ObjectStore(), opts.locker, opts.logger)
 	default:
 		return nil, errors.NotValidf("backend type %q", backendType)
 	}
