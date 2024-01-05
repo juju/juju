@@ -16,6 +16,9 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -package apiserver_test -destination registration_environs_mock_test.go github.com/juju/juju/environs ConnectorInfo
 //go:generate go run go.uber.org/mock/mockgen -package apiserver_test -destination registration_proxy_mock_test.go github.com/juju/juju/proxy Proxier
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/resources_mock.go github.com/juju/juju/state Resources
+//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/bakerystorage_mock.go github.com/juju/juju/state/bakerystorage BakeryConfig,ExpirableStorage
+//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/bakery_mock.go github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery FirstPartyCaveatChecker
+//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/http_mock.go net/http RoundTripper
 
 func TestPackage(t *testing.T) {
 	coretesting.MgoTestPackage(t)

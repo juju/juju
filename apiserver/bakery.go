@@ -5,13 +5,11 @@ package apiserver
 
 import (
 	"context"
-	"crypto/tls"
 	"net/http"
 	"net/url"
 	"time"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
-	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/checkers"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/juju/errors"
 
@@ -25,7 +23,7 @@ func getLocalOfferBakery(
 	location string,
 	bakeryConfig bakerystorage.BakeryConfig,
 	store bakerystorage.ExpirableStorage,
-	checker *checkers.Checker,
+	checker bakery.FirstPartyCaveatChecker,
 ) (authentication.ExpirableStorageBakery, error) {
 	key, err := bakeryConfig.GetOffersThirdPartyKey()
 	if err != nil {
@@ -51,11 +49,21 @@ func getLocalOfferBakery(
 	}, nil
 }
 
+var (
+	// Override for testing.
+	DefaultTransport = http.DefaultTransport
+	// DefaultTransport http.RoundTripper = &http.Transport{
+	// 	TLSClientConfig: &tls.Config{
+	// 		InsecureSkipVerify: true,
+	// 	},
+	// }
+)
+
 func getJaaSOfferBakery(
 	loginTokenRefreshURL, location string,
 	bakeryConfig bakerystorage.BakeryConfig,
 	store bakerystorage.ExpirableStorage,
-	checker *checkers.Checker,
+	checker bakery.FirstPartyCaveatChecker,
 ) (authentication.ExpirableStorageBakery, string, error) {
 	refreshURL, err := url.Parse(loginTokenRefreshURL)
 	if err != nil {
@@ -67,12 +75,9 @@ func getJaaSOfferBakery(
 		return nil, "", errors.Trace(err)
 	}
 	logger.Criticalf("CreateMacaroonForJaaS loginTokenRefreshURL %q, pkURL %q", loginTokenRefreshURL, pkURL)
-	transport := &http.Transport{
-		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: true,
-		},
-	}
-	thirdPartyInfo, err := httpbakery.ThirdPartyInfoForLocation(context.TODO(), &http.Client{Transport: transport}, pkURL)
+	thirdPartyInfo, err := httpbakery.ThirdPartyInfoForLocation(
+		context.TODO(), &http.Client{Transport: DefaultTransport}, pkURL,
+	)
 	logger.Criticalf(
 		"CreateMacaroonForJaaS thirdPartyInfo.Version %d, thirdPartyInfo.PublicKey.Key.String() %q",
 		thirdPartyInfo.Version, thirdPartyInfo.PublicKey.Key.String(),
@@ -101,7 +106,7 @@ func getJaaSOfferBakery(
 				Checker:       checker,
 				RootKeyStore:  store,
 				Locator:       locator,
-				Key:           key,
+				Key:           key, // key can be nil？？
 				OpsAuthorizer: crossmodel.CrossModelAuthorizer{},
 				Location:      location,
 			},

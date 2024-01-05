@@ -28,6 +28,8 @@ var (
 	MaxClientPingInterval = maxClientPingInterval
 	NewBackups            = &newBackups
 	SetResource           = setResource
+	GetLocalOfferBakery   = getLocalOfferBakery
+	GetJaaSOfferBakery    = getJaaSOfferBakery
 )
 
 func APIHandlerWithEntity(entity state.Entity) *apiHandler {
