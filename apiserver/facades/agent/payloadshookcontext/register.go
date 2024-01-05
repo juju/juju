@@ -4,6 +4,7 @@
 package payloadshookcontext
 
 import (
+	"context"
 	"reflect"
 
 	"github.com/juju/errors"
@@ -16,7 +17,7 @@ import (
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	registry.MustRegister("PayloadsHookContext", 1, func(ctx facade.Context) (facade.Facade, error) {
+	registry.MustRegister("PayloadsHookContext", 1, func(stdCtx context.Context, ctx facade.Context) (facade.Facade, error) {
 		return newStateFacade(ctx)
 	}, reflect.TypeOf((*UnitFacade)(nil)))
 }

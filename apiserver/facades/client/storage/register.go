@@ -4,6 +4,7 @@
 package storage
 
 import (
+	"context"
 	"reflect"
 
 	"github.com/juju/errors"
@@ -21,7 +22,7 @@ import (
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	registry.MustRegister("Storage", 6, func(ctx facade.Context) (facade.Facade, error) {
+	registry.MustRegister("Storage", 6, func(stdCtx context.Context, ctx facade.Context) (facade.Facade, error) {
 		return newStorageAPI(ctx) // modify Remove to support force and maxWait; add DetachStorage to support force and maxWait.
 	}, reflect.TypeOf((*StorageAPI)(nil)))
 }

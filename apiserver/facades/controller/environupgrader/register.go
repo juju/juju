@@ -4,6 +4,7 @@
 package environupgrader
 
 import (
+	"context"
 	"reflect"
 
 	"github.com/juju/names/v5"
@@ -16,7 +17,7 @@ import (
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	registry.MustRegister("EnvironUpgrader", 1, func(ctx facade.Context) (facade.Facade, error) {
+	registry.MustRegister("EnvironUpgrader", 1, func(stdCtx context.Context, ctx facade.Context) (facade.Facade, error) {
 		return NewStateFacade(ctx)
 	}, reflect.TypeOf((*Facade)(nil)))
 }

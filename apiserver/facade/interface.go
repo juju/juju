@@ -4,6 +4,7 @@
 package facade
 
 import (
+	"context"
 	"net/http"
 	"net/url"
 	"time"
@@ -28,7 +29,7 @@ import (
 type Facade interface{}
 
 // Factory is a callback used to create a Facade.
-type Factory func(Context) (Facade, error)
+type Factory func(stdCtx context.Context, facadeCtx Context) (Facade, error)
 
 // LeadershipContext describes factory methods for objects that deliver
 // specific lease-related capabilities

@@ -4,6 +4,7 @@
 package main
 
 import (
+	stdcontext "context"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -183,7 +184,7 @@ func (l defaultLinker) isAvailable(facadeName string, factory facade.Factory, ki
 		},
 		watcherRegistry: l.watcherRegistry,
 	}
-	_, err := factory(ctx)
+	_, err := factory(stdcontext.Background(), ctx)
 	return errors.Cause(err) != apiservererrors.ErrPerm
 }
 

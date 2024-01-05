@@ -84,7 +84,7 @@ type ProvisionerAPI struct {
 }
 
 // NewProvisionerAPI creates a new server-side ProvisionerAPI facade.
-func NewProvisionerAPI(ctx facade.Context) (*ProvisionerAPI, error) {
+func NewProvisionerAPI(stdCtx stdcontext.Context, ctx facade.Context) (*ProvisionerAPI, error) {
 	authorizer := ctx.Auth()
 	if !authorizer.AuthMachineAgent() && !authorizer.AuthController() {
 		return nil, apiservererrors.ErrPerm
@@ -132,7 +132,7 @@ func NewProvisionerAPI(ctx facade.Context) (*ProvisionerAPI, error) {
 
 	// Get the controller config early, so we can use it to cache the
 	// controller UUID.
-	controllerCfg, err := serviceFactory.ControllerConfig().ControllerConfig(stdcontext.TODO())
+	controllerCfg, err := serviceFactory.ControllerConfig().ControllerConfig(stdCtx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

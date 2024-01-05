@@ -4,6 +4,7 @@
 package uniter
 
 import (
+	"context"
 	"reflect"
 
 	"github.com/juju/errors"
@@ -19,15 +20,16 @@ import (
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	registry.MustRegister("Uniter", 19, func(ctx facade.Context) (facade.Facade, error) {
-		return newUniterAPI(ctx)
+	registry.MustRegister("Uniter", 19, func(stdCtx context.Context, ctx facade.Context) (facade.Facade, error) {
+		return newUniterAPI(stdCtx, ctx)
 	}, reflect.TypeOf((*UniterAPI)(nil)))
 }
 
 // newUniterAPI creates a new instance of the core Uniter API.
-func newUniterAPI(context facade.Context) (*UniterAPI, error) {
+func newUniterAPI(stdCtx context.Context, context facade.Context) (*UniterAPI, error) {
 	serviceFactory := context.ServiceFactory()
 	return newUniterAPIWithServices(
+		stdCtx,
 		context,
 		serviceFactory.ControllerConfig(),
 		serviceFactory.Cloud(),
@@ -37,6 +39,7 @@ func newUniterAPI(context facade.Context) (*UniterAPI, error) {
 
 // newUniterAPIWithServices creates a new instance using the services.
 func newUniterAPIWithServices(
+	stdCtx context.Context,
 	context facade.Context,
 	controllerConfigService ControllerConfigService,
 	cloudService CloudService,
@@ -96,7 +99,7 @@ func newUniterAPIWithServices(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	secretsAPI, err := secretsmanager.NewSecretManagerAPI(context)
+	secretsAPI, err := secretsmanager.NewSecretManagerAPI(stdCtx, context)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

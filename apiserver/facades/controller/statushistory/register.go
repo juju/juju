@@ -4,6 +4,7 @@
 package statushistory
 
 import (
+	"context"
 	"reflect"
 
 	"github.com/juju/errors"
@@ -14,7 +15,7 @@ import (
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	registry.MustRegister("StatusHistory", 2, func(ctx facade.Context) (facade.Facade, error) {
+	registry.MustRegister("StatusHistory", 2, func(stdCtx context.Context, ctx facade.Context) (facade.Facade, error) {
 		return newAPI(ctx)
 	}, reflect.TypeOf((*API)(nil)))
 }

@@ -4,6 +4,7 @@
 package charmdownloader
 
 import (
+	"context"
 	"reflect"
 
 	"github.com/juju/clock"
@@ -15,7 +16,7 @@ import (
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	registry.MustRegister("CharmDownloader", 1, func(ctx facade.Context) (facade.Facade, error) {
+	registry.MustRegister("CharmDownloader", 1, func(stdCtx context.Context, ctx facade.Context) (facade.Facade, error) {
 		return newFacadeV1(ctx)
 	}, reflect.TypeOf((*CharmDownloaderAPI)(nil)))
 }

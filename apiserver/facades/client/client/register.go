@@ -4,6 +4,7 @@
 package client
 
 import (
+	"context"
 	"reflect"
 
 	"github.com/juju/juju/apiserver/facade"
@@ -11,10 +12,10 @@ import (
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	registry.MustRegister("Client", 6, func(ctx facade.Context) (facade.Facade, error) {
+	registry.MustRegister("Client", 6, func(stdCtx context.Context, ctx facade.Context) (facade.Facade, error) {
 		return newFacadeV6(ctx)
 	}, reflect.TypeOf((*ClientV6)(nil)))
-	registry.MustRegister("Client", 7, func(ctx facade.Context) (facade.Facade, error) {
+	registry.MustRegister("Client", 7, func(stdCtx context.Context, ctx facade.Context) (facade.Facade, error) {
 		return newFacadeV7(ctx)
 	}, reflect.TypeOf((*Client)(nil)))
 }

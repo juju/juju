@@ -22,13 +22,13 @@ import (
 // Register is called to expose a package of facades onto a given registry.
 func Register(requiredMigrationFacadeVersions facades.FacadeVersions) func(registry facade.FacadeRegistry) {
 	return func(registry facade.FacadeRegistry) {
-		registry.MustRegister("MigrationTarget", 1, func(ctx facade.Context) (facade.Facade, error) {
+		registry.MustRegister("MigrationTarget", 1, func(stdCtx context.Context, ctx facade.Context) (facade.Facade, error) {
 			return newFacadeV1(ctx)
 		}, reflect.TypeOf((*APIV1)(nil)))
-		registry.MustRegister("MigrationTarget", 2, func(ctx facade.Context) (facade.Facade, error) {
+		registry.MustRegister("MigrationTarget", 2, func(stdCtx context.Context, ctx facade.Context) (facade.Facade, error) {
 			return newFacadeV2(ctx)
 		}, reflect.TypeOf((*APIV2)(nil)))
-		registry.MustRegister("MigrationTarget", 3, func(ctx facade.Context) (facade.Facade, error) {
+		registry.MustRegister("MigrationTarget", 3, func(stdCtx context.Context, ctx facade.Context) (facade.Facade, error) {
 			return newFacade(ctx, requiredMigrationFacadeVersions)
 		}, reflect.TypeOf((*API)(nil)))
 	}

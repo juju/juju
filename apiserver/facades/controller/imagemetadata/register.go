@@ -4,6 +4,7 @@
 package imagemetadata
 
 import (
+	"context"
 	"reflect"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -12,7 +13,7 @@ import (
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	registry.MustRegister("ImageMetadata", 3, func(ctx facade.Context) (facade.Facade, error) {
+	registry.MustRegister("ImageMetadata", 3, func(stdCtx context.Context, ctx facade.Context) (facade.Facade, error) {
 		return newAPI(ctx)
 	}, reflect.TypeOf((*API)(nil)))
 }

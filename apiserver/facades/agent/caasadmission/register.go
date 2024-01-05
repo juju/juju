@@ -4,6 +4,7 @@
 package caasadmission
 
 import (
+	"context"
 	"reflect"
 
 	"github.com/juju/juju/apiserver/common"
@@ -13,7 +14,7 @@ import (
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	registry.MustRegister("CAASAdmission", 1, func(ctx facade.Context) (facade.Facade, error) {
+	registry.MustRegister("CAASAdmission", 1, func(stdCtx context.Context, ctx facade.Context) (facade.Facade, error) {
 		return newStateFacade(ctx)
 	}, reflect.TypeOf((*Facade)(nil)))
 }

@@ -4,6 +4,7 @@
 package resources
 
 import (
+	"context"
 	"reflect"
 
 	"github.com/juju/errors"
@@ -13,7 +14,7 @@ import (
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	registry.MustRegister("Resources", 3, func(ctx facade.Context) (facade.Facade, error) {
+	registry.MustRegister("Resources", 3, func(stdCtx context.Context, ctx facade.Context) (facade.Facade, error) {
 		return newFacadeV3(ctx)
 	}, reflect.TypeOf((*API)(nil)))
 }

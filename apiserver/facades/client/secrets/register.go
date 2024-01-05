@@ -18,10 +18,10 @@ import (
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	registry.MustRegister("Secrets", 1, func(ctx facade.Context) (facade.Facade, error) {
+	registry.MustRegister("Secrets", 1, func(stdCtx stdcontext.Context, ctx facade.Context) (facade.Facade, error) {
 		return newSecretsAPIV1(ctx)
 	}, reflect.TypeOf((*SecretsAPI)(nil)))
-	registry.MustRegister("Secrets", 2, func(ctx facade.Context) (facade.Facade, error) {
+	registry.MustRegister("Secrets", 2, func(stdCtx stdcontext.Context, ctx facade.Context) (facade.Facade, error) {
 		return newSecretsAPI(ctx)
 	}, reflect.TypeOf((*SecretsAPI)(nil)))
 }

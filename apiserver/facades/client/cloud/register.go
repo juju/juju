@@ -17,7 +17,7 @@ import (
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	registry.MustRegister("Cloud", 7, func(ctx facade.Context) (facade.Facade, error) {
+	registry.MustRegister("Cloud", 7, func(stdCtx stdcontext.Context, ctx facade.Context) (facade.Facade, error) {
 		return newFacadeV7(ctx) // Do not set error if forcing credential update.
 	}, reflect.TypeOf((*CloudAPI)(nil)))
 }
