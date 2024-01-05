@@ -59,7 +59,7 @@ func (s *applicationOffersSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.bakery = &mockBakeryService{caveats: make(map[string][]checkers.Caveat)}
 	thirdPartyKey := bakery.MustGenerateKey()
-	s.authContext, err = crossmodel.NewAuthContext(s.mockState, thirdPartyKey, s.bakery)
+	s.authContext, err = crossmodel.NewAuthContext(s.mockState, thirdPartyKey, s.bakery, nil, "")
 	c.Assert(err, jc.ErrorIsNil)
 	api, err := applicationoffers.CreateOffersAPI(
 		getApplicationOffers, getEnviron, getFakeControllerInfo,
@@ -1157,7 +1157,7 @@ func (s *consumeSuite) SetUpTest(c *gc.C) {
 		return s.env, nil
 	}
 	thirdPartyKey := bakery.MustGenerateKey()
-	s.authContext, err = crossmodel.NewAuthContext(s.mockState, thirdPartyKey, s.bakery)
+	s.authContext, err = crossmodel.NewAuthContext(s.mockState, thirdPartyKey, s.bakery, nil, "")
 	c.Assert(err, jc.ErrorIsNil)
 	api, err := applicationoffers.CreateOffersAPI(
 		getApplicationOffers, getEnviron, getFakeControllerInfo,

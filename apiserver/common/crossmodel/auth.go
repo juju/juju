@@ -503,7 +503,6 @@ func (a *authenticator) createDischargeMacaroon(
 func (a *authenticator) createDischargeMacaroonForExternalUser(
 	ctx context.Context, offerUUID string, userTag names.UserTag, version bakery.Version, declaredCaveats ...checkers.Caveat,
 ) (*bakery.Macaroon, error) {
-	logger.Criticalf("createDischargeMacaroonForExternalUser offerUUID %q, userTag %q, version %d", offerUUID, userTag, version)
 	conditionParts := []string{
 		// "is-consumer", userTag.String(), names.NewApplicationOfferTag(offerUUID).String(),
 		"is-consumer", userTag.String(), offerUUID,
@@ -513,7 +512,6 @@ func (a *authenticator) createDischargeMacaroonForExternalUser(
 		Location:  a.ctxt.jaasOfferAccessEndpoint,
 		Condition: strings.Join(conditionParts, " "),
 	}
-	logger.Criticalf("createDischargeMacaroonForExternalUser conditionCaveat %#v", conditionCaveat)
 	expiryTime := a.clock.Now().Add(offerPermissionExpiryTime)
 	macaroon, err := a.ctxt.jaasOfferBakery.NewMacaroon(
 		ctx,

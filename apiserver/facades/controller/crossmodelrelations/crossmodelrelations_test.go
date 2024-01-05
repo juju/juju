@@ -95,7 +95,7 @@ func (s *crossmodelRelationsSuite) SetUpTest(c *gc.C) {
 	}
 	var err error
 	thirdPartyKey := bakery.MustGenerateKey()
-	s.authContext, err = commoncrossmodel.NewAuthContext(s.st, thirdPartyKey, s.bakery)
+	s.authContext, err = commoncrossmodel.NewAuthContext(s.st, thirdPartyKey, s.bakery, nil, "")
 	c.Assert(err, jc.ErrorIsNil)
 	api, err := crossmodelrelations.NewCrossModelRelationsAPI(
 		s.st, fw, s.resources, s.authorizer,
