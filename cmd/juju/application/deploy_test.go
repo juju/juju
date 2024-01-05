@@ -466,7 +466,7 @@ func (s *CAASDeploySuiteBase) expectDeployer(c *gc.C, cfg deployer.DeployerConfi
 		c:        c,
 		expected: cfg,
 	}
-	s.factory.EXPECT().GetDeployer(match, gomock.Any(), gomock.Any()).Return(s.deployer, nil)
+	s.factory.EXPECT().GetDeployer(gomock.Any(), match, gomock.Any(), gomock.Any()).Return(s.deployer, nil)
 	s.deployer.EXPECT().PrepareAndDeploy(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 }
 
@@ -1145,7 +1145,7 @@ func (s *DeployUnitTestSuite) expectDeployer(c *gc.C, cfg deployer.DeployerConfi
 		c:        c,
 		expected: cfg,
 	}
-	s.factory.EXPECT().GetDeployer(match, gomock.Any(), gomock.Any()).Return(s.deployer, nil)
+	s.factory.EXPECT().GetDeployer(gomock.Any(), match, gomock.Any(), gomock.Any()).Return(s.deployer, nil)
 	s.deployer.EXPECT().PrepareAndDeploy(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 }
 
@@ -1368,7 +1368,7 @@ func (f *fakeDeployAPI) GetModelConstraints() (constraints.Value, error) {
 	return f.modelCons, nil
 }
 
-func (f *fakeDeployAPI) GetBundle(url *charm.URL, _ commoncharm.Origin, _ string) (charm.Bundle, error) {
+func (f *fakeDeployAPI) GetBundle(_ context.Context, url *charm.URL, _ commoncharm.Origin, _ string) (charm.Bundle, error) {
 	results := f.MethodCall(f, "GetBundle", url)
 	if results == nil {
 		return nil, errors.NotFoundf("bundle %v", url)

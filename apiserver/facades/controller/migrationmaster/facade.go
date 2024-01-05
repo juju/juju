@@ -163,7 +163,7 @@ func (api *API) ModelInfo(ctx context.Context) (params.MigrationModelInfo, error
 		return empty, errors.Annotate(err, "retrieving model owner")
 	}
 
-	vers, err := api.backend.AgentVersion()
+	vers, err := api.backend.AgentVersion(ctx)
 	if err != nil {
 		return empty, errors.Annotate(err, "retrieving agent version")
 	}

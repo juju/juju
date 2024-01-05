@@ -55,7 +55,7 @@ type CharmhubRefreshClient interface {
 
 // charmhubLatestCharmInfo fetches the latest information about the given
 // charms from charmhub's "charm_refresh" API.
-func charmhubLatestCharmInfo(client CharmhubRefreshClient, metrics map[metrics.MetricKey]map[metrics.MetricKey]string, ids []charmhubID, now time.Time, logger loggo.Logger) ([]charmhubResult, error) {
+func charmhubLatestCharmInfo(parentCtx context.Context, client CharmhubRefreshClient, metrics map[metrics.MetricKey]map[metrics.MetricKey]string, ids []charmhubID, now time.Time, logger loggo.Logger) ([]charmhubResult, error) {
 	cfgs := make([]charmhub.RefreshConfig, len(ids))
 	for i, id := range ids {
 		base := charmhub.RefreshBase{
@@ -75,7 +75,7 @@ func charmhubLatestCharmInfo(client CharmhubRefreshClient, metrics map[metrics.M
 	}
 	config := charmhub.RefreshMany(cfgs...)
 
-	ctx, cancel := context.WithTimeout(context.TODO(), charmhub.RefreshTimeout)
+	ctx, cancel := context.WithTimeout(parentCtx, charmhub.RefreshTimeout)
 	defer cancel()
 	responses, err := client.RefreshWithRequestMetrics(ctx, config, metrics)
 	if err != nil {

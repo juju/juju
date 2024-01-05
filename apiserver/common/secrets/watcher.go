@@ -82,7 +82,7 @@ func (w *secretBackendModelConfigWatcher) loop() error {
 			if !ok {
 				return errors.Errorf("event watcher closed")
 			}
-			changed, err := w.processModelChange(context.TODO())
+			changed, err := w.processModelChange()
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -96,7 +96,18 @@ func (w *secretBackendModelConfigWatcher) loop() error {
 	}
 }
 
-func (w *secretBackendModelConfigWatcher) processModelChange(ctx context.Context) (bool, error) {
+// scopedContext returns a context that is in the scope of the watcher lifetime.
+// It returns a cancellable context that is cancelled when the action has
+// completed.
+func (w *secretBackendModelConfigWatcher) scopedContext() (context.Context, context.CancelFunc) {
+	ctx, cancel := context.WithCancel(context.Background())
+	return w.catacomb.Context(ctx), cancel
+}
+
+func (w *secretBackendModelConfigWatcher) processModelChange() (bool, error) {
+	ctx, cancel := w.scopedContext()
+	defer cancel()
+
 	modelConfig, err := w.modelConfigGetter.ModelConfig(ctx)
 	if err != nil {
 		return false, errors.Trace(err)

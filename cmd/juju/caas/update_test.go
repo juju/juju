@@ -4,6 +4,7 @@
 package caas_test
 
 import (
+	"context"
 	"strings"
 
 	"github.com/juju/cmd/v3"
@@ -139,7 +140,7 @@ func (s *updateCAASSuite) makeCommand() cmd.Command {
 		func() (caas.UpdateCloudAPI, error) {
 			return s.fakeCloudAPI, nil
 		},
-		func(cloud jujucloud.Cloud, credential jujucloud.Credential) (k8s.ClusterMetadataChecker, error) {
+		func(_ context.Context, cloud jujucloud.Cloud, credential jujucloud.Credential) (k8s.ClusterMetadataChecker, error) {
 			return s.fakeK8sClusterMetadataChecker, nil
 		},
 	)

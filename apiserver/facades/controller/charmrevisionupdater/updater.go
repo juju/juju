@@ -67,16 +67,16 @@ func NewCharmRevisionUpdaterAPIState(
 // UpdateLatestRevisions retrieves the latest revision information from the charm store for all deployed charms
 // and records this information in state.
 func (api *CharmRevisionUpdaterAPI) UpdateLatestRevisions(ctx context.Context) (params.ErrorResult, error) {
-	if err := api.updateLatestRevisions(); err != nil {
+	if err := api.updateLatestRevisions(ctx); err != nil {
 		return params.ErrorResult{Error: apiservererrors.ServerError(err)}, nil
 	}
 	return params.ErrorResult{}, nil
 }
 
-func (api *CharmRevisionUpdaterAPI) updateLatestRevisions() error {
+func (api *CharmRevisionUpdaterAPI) updateLatestRevisions(ctx context.Context) error {
 	// Look up the information for all the deployed charms. This is the
 	// "expensive" part.
-	latest, err := api.retrieveLatestCharmInfo()
+	latest, err := api.retrieveLatestCharmInfo(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -114,7 +114,7 @@ type appInfo struct {
 
 // retrieveLatestCharmInfo looks up the charm store to return the charm URLs for the
 // latest revision of the deployed charms.
-func (api *CharmRevisionUpdaterAPI) retrieveLatestCharmInfo() ([]latestCharmInfo, error) {
+func (api *CharmRevisionUpdaterAPI) retrieveLatestCharmInfo(ctx context.Context) ([]latestCharmInfo, error) {
 	applications, err := api.state.AllApplications()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -134,7 +134,7 @@ func (api *CharmRevisionUpdaterAPI) retrieveLatestCharmInfo() ([]latestCharmInfo
 		if !telemetry {
 			return nil, nil
 		}
-		return nil, errors.Trace(api.sendEmptyModelMetrics())
+		return nil, errors.Trace(api.sendEmptyModelMetrics(ctx))
 	}
 
 	var (
@@ -210,7 +210,7 @@ func (api *CharmRevisionUpdaterAPI) retrieveLatestCharmInfo() ([]latestCharmInfo
 				return nil, errors.Trace(err)
 			}
 		}
-		hubLatest, err := api.fetchCharmhubInfos(cfg, charmhubIDs, charmhubApps)
+		hubLatest, err := api.fetchCharmhubInfos(ctx, cfg, charmhubIDs, charmhubApps)
 		if err != nil {
 			charmhubErr = err
 		} else {
@@ -248,7 +248,7 @@ func (api *CharmRevisionUpdaterAPI) addMetricsToCharmhubInfos(ids []charmhubID, 
 // for an empty model.  This is highly likely for juju 2.9.  A
 // controller charm was introduced for juju 3.0.  Allows us to get
 // the controller version etc.
-func (api *CharmRevisionUpdaterAPI) sendEmptyModelMetrics() error {
+func (api *CharmRevisionUpdaterAPI) sendEmptyModelMetrics(ctx context.Context) error {
 	requestMetrics, err := charmhubRequestMetadata(api.state)
 	if err != nil {
 		return errors.Trace(err)
@@ -257,7 +257,7 @@ func (api *CharmRevisionUpdaterAPI) sendEmptyModelMetrics() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	ctx, cancel := context.WithTimeout(context.TODO(), charmhub.RefreshTimeout)
+	ctx, cancel := context.WithTimeout(ctx, charmhub.RefreshTimeout)
 	defer cancel()
 	return errors.Trace(client.RefreshWithMetricsOnly(ctx, requestMetrics))
 }
@@ -326,7 +326,7 @@ func relationApplicationNames(str string) (string, string, bool) {
 	return one[0], two[0], true
 }
 
-func (api *CharmRevisionUpdaterAPI) fetchCharmhubInfos(cfg *config.Config, ids []charmhubID, appInfos []appInfo) ([]latestCharmInfo, error) {
+func (api *CharmRevisionUpdaterAPI) fetchCharmhubInfos(ctx context.Context, cfg *config.Config, ids []charmhubID, appInfos []appInfo) ([]latestCharmInfo, error) {
 	var requestMetrics map[charmmetrics.MetricKey]map[charmmetrics.MetricKey]string
 	if cfg.Telemetry() {
 		var err error
@@ -339,7 +339,7 @@ func (api *CharmRevisionUpdaterAPI) fetchCharmhubInfos(cfg *config.Config, ids [
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	results, err := charmhubLatestCharmInfo(client, requestMetrics, ids, api.clock.Now().UTC(), api.logger)
+	results, err := charmhubLatestCharmInfo(ctx, client, requestMetrics, ids, api.clock.Now().UTC(), api.logger)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

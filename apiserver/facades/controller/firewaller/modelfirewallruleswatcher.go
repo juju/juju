@@ -57,17 +57,36 @@ func (w *modelFirewallRulesWatcher) loop() error {
 			if !ok {
 				return w.catacomb.ErrDying()
 			}
-			cfg, err := w.backend.ModelConfig(context.TODO())
+			sshAllow, err := w.getSSHAllow()
 			if err != nil {
 				return errors.Trace(err)
 			}
-			sshAllow := set.NewStrings(cfg.SSHAllow()...)
 			if !setEquals(sshAllow, w.sshAllowCache) {
 				out = w.out
 				w.sshAllowCache = sshAllow
 			}
 		}
 	}
+}
+
+// scopedContext returns a context that is in the scope of the watcher lifetime.
+// It returns a cancellable context that is cancelled when the action has
+// completed.
+func (w *modelFirewallRulesWatcher) scopedContext() (context.Context, context.CancelFunc) {
+	ctx, cancel := context.WithCancel(context.Background())
+	return w.catacomb.Context(ctx), cancel
+}
+
+func (w *modelFirewallRulesWatcher) getSSHAllow() (set.Strings, error) {
+	ctx, cancel := w.scopedContext()
+	defer cancel()
+
+	cfg, err := w.backend.ModelConfig(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	sshAllow := set.NewStrings(cfg.SSHAllow()...)
+	return sshAllow, nil
 }
 
 func (w *modelFirewallRulesWatcher) Changes() <-chan struct{} {

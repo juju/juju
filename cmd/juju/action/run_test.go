@@ -1005,7 +1005,7 @@ hello
 		// Set up context
 		output := bytes.Buffer{}
 		ctx := &cmd.Context{
-			Context: context.TODO(),
+			Context: context.Background(),
 			Stdout:  &output,
 			Stderr:  &output,
 		}

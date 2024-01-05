@@ -176,7 +176,7 @@ func (s *suite) TestReadFile(c *gc.C) {
 		ConfigFile: jujucmd.FileVar{Path: filename},
 	}
 	ctx := &jujucmd.Context{
-		Context: context.TODO(),
+		Context: context.Background(),
 		Dir:     dir,
 	}
 
@@ -193,7 +193,7 @@ func (s *suite) TestReadFileStdin(c *gc.C) {
 		ConfigFile: jujucmd.FileVar{Path: "-"},
 	}
 	ctx := &jujucmd.Context{
-		Context: context.TODO(),
+		Context: context.Background(),
 		Stdin:   stdin,
 	}
 
@@ -213,7 +213,7 @@ func (s *suite) TestReadNoSuchFile(c *gc.C) {
 		ConfigFile: jujucmd.FileVar{Path: filename},
 	}
 	ctx := &jujucmd.Context{
-		Context: context.TODO(),
+		Context: context.Background(),
 		Dir:     dir,
 	}
 
@@ -232,7 +232,7 @@ func (s *suite) TestReadFileBadYAML(c *gc.C) {
 		ConfigFile: jujucmd.FileVar{Path: filename},
 	}
 	ctx := &jujucmd.Context{
-		Context: context.TODO(),
+		Context: context.Background(),
 		Dir:     dir,
 	}
 

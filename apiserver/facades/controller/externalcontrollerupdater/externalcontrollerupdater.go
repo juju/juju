@@ -80,7 +80,7 @@ func (s *ExternalControllerUpdaterAPI) ExternalControllerInfo(ctx context.Contex
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		controllerInfo, err := s.ecService.Controller(context.TODO(), controllerTag.Id())
+		controllerInfo, err := s.ecService.Controller(ctx, controllerTag.Id())
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -106,7 +106,7 @@ func (s *ExternalControllerUpdaterAPI) SetExternalControllerInfo(ctx context.Con
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		if err := s.ecService.UpdateExternalController(context.TODO(), crossmodel.ControllerInfo{
+		if err := s.ecService.UpdateExternalController(ctx, crossmodel.ControllerInfo{
 			ControllerTag: controllerTag,
 			Alias:         arg.Info.Alias,
 			Addrs:         arg.Info.Addrs,

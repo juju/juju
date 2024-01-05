@@ -840,7 +840,7 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 	charmAdaptor := c.NewResolver(charmAPIClient, downloadClientFn)
 
 	factory, cfg := c.getDeployerFactory(base, charm.CharmHub)
-	deploy, err := factory.GetDeployer(cfg, deployAPI, charmAdaptor)
+	deploy, err := factory.GetDeployer(ctx, cfg, deployAPI, charmAdaptor)
 	if err != nil {
 		return errors.Trace(err)
 	}

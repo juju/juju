@@ -655,11 +655,6 @@ type facadeContext struct {
 	key objectKey
 }
 
-// Cancel is part of the facade.Context interface.
-func (ctx *facadeContext) Cancel() <-chan struct{} {
-	return ctx.r.shared.cancel
-}
-
 // Auth is part of the facade.Context interface.
 func (ctx *facadeContext) Auth() facade.Authorizer {
 	return ctx.r.authorizer

@@ -5,6 +5,7 @@ package cloud_test
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -105,28 +106,28 @@ func (s *updatePublicCloudsSuite) run(c *gc.C, url, errMsg string, args ...strin
 func (s *updatePublicCloudsSuite) Test404(c *gc.C) {
 	ts := s.setupTestServer(c, "404")
 	defer ts.Close()
-	_, err := cloud.PublishedPublicClouds(ts.URL, "")
+	_, err := cloud.PublishedPublicClouds(context.Background(), ts.URL, "")
 	c.Assert(err, gc.ErrorMatches, "public cloud list is unavailable right now")
 }
 
 func (s *updatePublicCloudsSuite) Test401(c *gc.C) {
 	ts := s.setupTestServer(c, "401")
 	defer ts.Close()
-	_, err := cloud.PublishedPublicClouds(ts.URL, "")
+	_, err := cloud.PublishedPublicClouds(context.Background(), ts.URL, "")
 	c.Assert(err, gc.ErrorMatches, "unauthorised access to URL .*")
 }
 
 func (s *updatePublicCloudsSuite) TestUnsignedData(c *gc.C) {
 	ts := s.setupTestServer(c, "unsigned")
 	defer ts.Close()
-	_, err := cloud.PublishedPublicClouds(ts.URL, "")
+	_, err := cloud.PublishedPublicClouds(context.Background(), ts.URL, "")
 	c.Assert(err, gc.ErrorMatches, "receiving updated cloud data: no PGP signature embedded in plain text data")
 }
 
 func (s *updatePublicCloudsSuite) TestBadDataOnServer(c *gc.C) {
 	ts := s.setupTestServer(c, "bad data")
 	defer ts.Close()
-	_, err := cloud.PublishedPublicClouds(ts.URL, sstesting.SignedMetadataPublicKey)
+	_, err := cloud.PublishedPublicClouds(context.Background(), ts.URL, sstesting.SignedMetadataPublicKey)
 	c.Assert(err, gc.ErrorMatches, "(?s)invalid cloud data received when updating clouds.*")
 }
 

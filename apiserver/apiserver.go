@@ -418,8 +418,6 @@ func newServer(ctx context.Context, cfg ServerConfig) (_ *Server, err error) {
 		return nil, errors.Trace(err)
 	}
 
-	srv.shared.cancel = srv.tomb.Dying()
-
 	// The auth context for authenticating access to application offers.
 	srv.offerAuthCtxt, err = newOfferAuthcontext(cfg.StatePool)
 	if err != nil {
@@ -1089,7 +1087,7 @@ func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {
 		modelUUID := httpcontext.RequestModelUUID(req)
 		logger.Tracef("got a request for model %q", modelUUID)
 		if err := srv.serveConn(
-			req.Context(),
+			srv.tomb.Context(req.Context()),
 			conn,
 			modelUUID,
 			connectionID,

@@ -47,18 +47,18 @@ func (m *MockBackend) EXPECT() *MockBackendMockRecorder {
 }
 
 // AgentVersion mocks base method.
-func (m *MockBackend) AgentVersion() (version.Number, error) {
+func (m *MockBackend) AgentVersion(arg0 context.Context) (version.Number, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AgentVersion")
+	ret := m.ctrl.Call(m, "AgentVersion", arg0)
 	ret0, _ := ret[0].(version.Number)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // AgentVersion indicates an expected call of AgentVersion.
-func (mr *MockBackendMockRecorder) AgentVersion() *gomock.Call {
+func (mr *MockBackendMockRecorder) AgentVersion(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AgentVersion", reflect.TypeOf((*MockBackend)(nil).AgentVersion))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AgentVersion", reflect.TypeOf((*MockBackend)(nil).AgentVersion), arg0)
 }
 
 // AllLocalRelatedModels mocks base method.

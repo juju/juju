@@ -79,7 +79,6 @@ type UniterAPI struct {
 	credentialService       CredentialService
 	controllerConfigService ControllerConfigService
 	clock                   clock.Clock
-	cancel                  <-chan struct{}
 	auth                    facade.Authorizer
 	resources               facade.Resources
 	leadershipChecker       leadership.Checker

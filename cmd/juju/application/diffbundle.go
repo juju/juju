@@ -352,7 +352,7 @@ func (c *diffBundleCommand) bundleDataSource(ctx *cmd.Context, apiRoot base.APIC
 		return nil, errors.Trace(err)
 	}
 	bundlePath := filepath.Join(dir, bundleURL.Name)
-	bundle, err := charmAdaptor.GetBundle(bundleURL, bundleOrigin, bundlePath)
+	bundle, err := charmAdaptor.GetBundle(ctx, bundleURL, bundleOrigin, bundlePath)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -471,5 +471,5 @@ func (e *extractorImpl) Sequences() (map[string]int, error) {
 // bundle and read the bundle data.
 type BundleResolver interface {
 	ResolveBundleURL(*charm.URL, commoncharm.Origin) (*charm.URL, commoncharm.Origin, error)
-	GetBundle(*charm.URL, commoncharm.Origin, string) (charm.Bundle, error)
+	GetBundle(context.Context, *charm.URL, commoncharm.Origin, string) (charm.Bundle, error)
 }

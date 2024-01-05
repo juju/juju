@@ -124,7 +124,6 @@ func newUniterAPIWithServices(
 		cloudService:            cloudService,
 		credentialService:       credentialService,
 		clock:                   aClock,
-		cancel:                  context.Cancel(),
 		auth:                    authorizer,
 		resources:               resources,
 		leadershipChecker:       leadershipChecker,

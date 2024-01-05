@@ -29,7 +29,6 @@ type Context struct {
 	MultiwatcherFactory_ multiwatcher.Factory
 	ID_                  string
 	RequestRecorder_     facade.RequestRecorder
-	Cancel_              <-chan struct{}
 
 	LeadershipClaimer_     leadership.Claimer
 	LeadershipRevoker_     leadership.Revoker
@@ -51,11 +50,6 @@ type Context struct {
 	// Identity is not part of the facade.Context interface, but is instead
 	// used to make sure that the context objects are the same.
 	Identity string
-}
-
-// Cancel is part of the facade.Context interface.
-func (context Context) Cancel() <-chan struct{} {
-	return context.Cancel_
 }
 
 // Auth is part of the facade.Context interface.

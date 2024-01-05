@@ -175,7 +175,7 @@ func (s *Suite) TestModelInfo(c *gc.C) {
 	exp.ModelUUID().Return("model-uuid")
 	exp.ModelName().Return("model-name", nil)
 	exp.ModelOwner().Return(names.NewUserTag("owner"), nil)
-	exp.AgentVersion().Return(version.MustParse("1.2.3"), nil)
+	exp.AgentVersion(gomock.Any()).Return(version.MustParse("1.2.3"), nil)
 
 	mod, err := s.mustMakeAPI(c).ModelInfo(context.Background())
 	c.Assert(err, jc.ErrorIsNil)

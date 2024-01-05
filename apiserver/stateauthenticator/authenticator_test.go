@@ -33,7 +33,7 @@ var _ = gc.Suite(&agentAuthenticatorSuite{})
 func (s *agentAuthenticatorSuite) TestAuthenticateLoginRequestHandleNotSupportedRequests(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	_, err := s.authenticator.AuthenticateLoginRequest(context.TODO(), "", "", authentication.AuthParams{Token: "token"})
+	_, err := s.authenticator.AuthenticateLoginRequest(context.Background(), "", "", authentication.AuthParams{Token: "token"})
 	c.Assert(err, jc.ErrorIs, errors.NotSupported)
 }
 
@@ -47,7 +47,7 @@ func (s *agentAuthenticatorSuite) TestAuthenticatorForTag(c *gc.C) {
 	c.Assert(authenticator, gc.NotNil)
 	userFinder := userFinder{user}
 
-	entity, err := authenticator.Authenticate(context.TODO(), userFinder, authentication.AuthParams{
+	entity, err := authenticator.Authenticate(context.Background(), userFinder, authentication.AuthParams{
 		AuthTag:     user.Tag(),
 		Credentials: "password",
 		Nonce:       "nonce",

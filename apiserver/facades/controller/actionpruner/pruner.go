@@ -16,7 +16,6 @@ import (
 // API provides access to the action pruner API.
 type API struct {
 	*common.ModelWatcher
-	cancel     <-chan struct{}
 	st         *state.State
 	authorizer facade.Authorizer
 }
@@ -37,5 +36,5 @@ func (api *API) Prune(ctx context.Context, p params.ActionPruneArgs) error {
 		return apiservererrors.ErrPerm
 	}
 
-	return Prune(api.cancel, api.st, p.MaxHistoryTime, p.MaxHistoryMB)
+	return Prune(ctx.Done(), api.st, p.MaxHistoryTime, p.MaxHistoryMB)
 }
