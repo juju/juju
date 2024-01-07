@@ -193,6 +193,7 @@ func (cfg *ubuntuCloudConfig) getCommandsForAddingPackages() ([]string, error) {
 	var pkgCmds []string
 	var pkgNames []string
 	var pkgsWithTargetRelease []string
+	var batchPkgs []string
 	pkgs := cfg.Packages()
 	for i := range pkgs {
 		pack := pkgs[i]
@@ -214,11 +215,22 @@ func (cfg *ubuntuCloudConfig) getCommandsForAddingPackages() ([]string, error) {
 			// If we have a --target-release package, build the
 			// install command args from the accumulated
 			// pkgsWithTargetRelease slice and reset it.
-			installArgs = append([]string{}, pkgsWithTargetRelease...)
-			pkgsWithTargetRelease = []string{}
+			installArgs = pkgsWithTargetRelease
+			pkgsWithTargetRelease = nil
+		}
+
+		if len(installArgs) == 1 {
+			// simple case where we can invoke apt once.
+			batchPkgs = append(batchPkgs, installArgs...)
+			continue
 		}
 
 		cmd := looper + pkgCmder.InstallCmd(installArgs...)
+		pkgCmds = append(pkgCmds, cmd)
+	}
+
+	if len(batchPkgs) > 0 {
+		cmd := looper + pkgCmder.InstallCmd(batchPkgs...)
 		pkgCmds = append(pkgCmds, cmd)
 	}
 

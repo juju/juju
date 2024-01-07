@@ -9,6 +9,7 @@ import (
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api/common"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
@@ -17,13 +18,19 @@ import (
 
 // State provides access to an upgrader worker's view of the state.
 type State struct {
+	*common.ControllerConfigAPI
+
 	facade base.FacadeCaller
 }
 
 // NewState returns a version of the state that provides functionality
 // required by the upgrader worker.
 func NewState(caller base.APICaller) *State {
-	return &State{base.NewFacadeCaller(caller, "Upgrader")}
+	facadeCaller := base.NewFacadeCaller(caller, "Upgrader")
+	return &State{
+		facade:              facadeCaller,
+		ControllerConfigAPI: common.NewControllerConfig(facadeCaller),
+	}
 }
 
 // SetVersion sets the tools version associated with the entity with

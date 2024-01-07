@@ -118,7 +118,7 @@ in a specific container in a juju unit running in Kubernetes:
     juju scp --container loki chunks-inspect loki-k8s/0:/loki
 `
 
-func NewSCPCommand(hostChecker jujussh.ReachableChecker, retryStrategy retry.CallArgs, publicKeyRetryStrategy retry.CallArgs) cmd.Command {
+func NewSCPCommand(hostChecker jujussh.ReachableChecker, retryStrategy retry.CallArgs, publicKeyRetryStrategy retry.CallArgs) modelcmd.ModelCommand {
 	c := new(scpCommand)
 	c.hostChecker = hostChecker
 	c.retryStrategy = retryStrategy

@@ -22,6 +22,7 @@ const (
 func AgentConf(info AgentInfo, renderer shell.Renderer) common.Conf {
 	conf := common.Conf{
 		Desc:          fmt.Sprintf("juju agent for %s", info.name),
+		ExecStartPre:  info.preStart(renderer),
 		ExecStart:     info.cmd(renderer),
 		Logfile:       info.logFile(renderer),
 		Env:           osenv.FeatureFlags(),

@@ -58,6 +58,7 @@ var configChecker = schema.FieldMap(schema.Fields{
 	ControllerResourceDownloadLimit:  schema.ForceInt(),
 	QueryTracingEnabled:              schema.Bool(),
 	QueryTracingThreshold:            schema.TimeDuration(),
+	JujudControllerSnapSource:        schema.String(),
 }, schema.Defaults{
 	AgentRateLimitMax:                schema.Omit,
 	AgentRateLimitRate:               schema.Omit,
@@ -105,6 +106,7 @@ var configChecker = schema.FieldMap(schema.Fields{
 	ControllerResourceDownloadLimit:  schema.Omit,
 	QueryTracingEnabled:              DefaultQueryTracingEnabled,
 	QueryTracingThreshold:            DefaultQueryTracingThreshold,
+	JujudControllerSnapSource:        DefaultJujudControllerSnapSource,
 })
 
 // ConfigSchema holds information on all the fields defined by

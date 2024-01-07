@@ -110,7 +110,8 @@ func (api *ProvisionerAPI) getProvisioningInfoBase(m *state.Machine,
 
 		// EndpointBindings are used by MAAS by the provider. Operator defined
 		// space bindings are reflected in ProvisioningNetworkTopology.
-		EndpointBindings: endpointBindings,
+		EndpointBindings:  endpointBindings,
+		CouldBeController: api.st.ControllerModelUUID() == api.st.ModelUUID(),
 	}
 
 	var err error

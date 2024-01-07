@@ -311,7 +311,7 @@ func makeInstanceConfig(c *gc.C, s patcher, machineId string) *instancecfg.Insta
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
 	instanceConfig, err := instancecfg.NewInstanceConfig(coretesting.ControllerTag, machineId, machineNonce,
-		"released", corebase.MakeDefaultBase("ubuntu", "22.04"), apiInfo)
+		"released", corebase.MakeDefaultBase("ubuntu", "22.04"), apiInfo, false)
 	c.Assert(err, jc.ErrorIsNil)
 	return instanceConfig
 }

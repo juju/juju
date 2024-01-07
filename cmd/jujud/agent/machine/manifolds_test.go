@@ -39,12 +39,6 @@ func (s *ManifoldsSuite) TestStartFuncsIAAS(c *gc.C) {
 	}))
 }
 
-func (s *ManifoldsSuite) TestStartFuncsCAAS(c *gc.C) {
-	s.assertStartFuncs(c, machine.CAASManifolds(machine.ManifoldsConfig{
-		Agent: &mockAgent{},
-	}))
-}
-
 func (*ManifoldsSuite) assertStartFuncs(c *gc.C, manifolds dependency.Manifolds) {
 	for name, manifold := range manifolds {
 		c.Logf("checking %q manifold", name)
@@ -126,70 +120,6 @@ func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *gc.C) {
 			"upgrade-database-gate",
 			"upgrade-database-runner",
 			"upgrade-series",
-			"upgrade-steps-flag",
-			"upgrade-steps-gate",
-			"upgrade-steps-runner",
-			"upgrader",
-			"valid-credential-flag",
-		},
-	)
-}
-
-func (s *ManifoldsSuite) TestManifoldNamesCAAS(c *gc.C) {
-	s.assertManifoldNames(c,
-		machine.CAASManifolds(machine.ManifoldsConfig{
-			Agent: &mockAgent{},
-		}),
-		[]string{
-			"agent",
-			"agent-config-updater",
-			"api-caller",
-			"api-config-watcher",
-			"api-server",
-			"audit-config-updater",
-			"caas-units-manager",
-			"central-hub",
-			"certificate-watcher",
-			"change-stream",
-			"charmhub-http-client",
-			"clock",
-			"control-socket",
-			"controller-port",
-			"db-accessor",
-			"external-controller-updater",
-			"file-notify-watcher",
-			"http-server",
-			"http-server-args",
-			"is-controller-flag",
-			"is-primary-controller-flag",
-			"lease-expiry",
-			"lease-manager",
-			"log-sender",
-			"logging-config-updater",
-			"migration-fortress",
-			"migration-minion",
-			"migration-inactive-flag",
-			"model-cache",
-			"model-cache-initialized-flag",
-			"model-cache-initialized-gate",
-			"model-worker-manager",
-			"multiwatcher",
-			"peer-grouper",
-			"presence",
-			"proxy-config-updater",
-			"pubsub-forwarder",
-			"query-logger",
-			"secret-backend-rotate",
-			"ssh-identity-writer",
-			"state",
-			"state-config-watcher",
-			"syslog",
-			"termination-signal-handler",
-			"upgrade-check-flag",
-			"upgrade-check-gate",
-			"upgrade-database-flag",
-			"upgrade-database-gate",
-			"upgrade-database-runner",
 			"upgrade-steps-flag",
 			"upgrade-steps-gate",
 			"upgrade-steps-runner",
@@ -422,15 +352,6 @@ func (s *ManifoldsSuite) TestManifoldsDependenciesIAAS(c *gc.C) {
 			Agent: &mockAgent{},
 		}),
 		expectedMachineManifoldsWithDependenciesIAAS,
-	)
-}
-
-func (s *ManifoldsSuite) TestManifoldsDependenciesCAAS(c *gc.C) {
-	agenttest.AssertManifoldsDependencies(c,
-		machine.CAASManifolds(machine.ManifoldsConfig{
-			Agent: &mockAgent{},
-		}),
-		expectedMachineManifoldsWithDependenciesCAAS,
 	)
 }
 

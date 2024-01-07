@@ -41,6 +41,10 @@ type Conf struct {
 	// default) are treated as though there is no timeout.
 	Timeout int
 
+	// ExecStartPre is the command (with arguments) that will be run before
+	// ExecStart.
+	ExecStartPre string
+
 	// ExecStart is the command (with arguments) that will be run. The
 	// path to the executable must be absolute.
 	// The command will be restarted if it exits with a non-zero exit code.
@@ -53,11 +57,6 @@ type Conf struct {
 	// Logfile, if set, indicates where the service's output should be
 	// written.
 	Logfile string
-
-	// TODO(ericsnow) Turn ExtraScript into ExecStartPre.
-
-	// ExtraScript allows to insert script before command execution.
-	ExtraScript string
 
 	// ServiceBinary is the actual binary without any arguments.
 	ServiceBinary string

@@ -84,24 +84,6 @@ func findPackagedTools(
 	return toolsList, nil
 }
 
-// locallyBuildableTools returns the list of tools that
-// can be built locally.
-func locallyBuildableTools() (buildable coretools.List, _ version.Number, _ error) {
-	buildNumber := jujuversion.Current
-	// Increment the build number so we know it's a custom build.
-	buildNumber.Build++
-	if !coreos.HostOS().EquivalentTo(coreos.Ubuntu) {
-		return buildable, buildNumber, nil
-	}
-	binary := version.Binary{
-		Number:  buildNumber,
-		Release: "ubuntu",
-		Arch:    localToolsArch(),
-	}
-	buildable = append(buildable, &coretools.Tools{Version: binary})
-	return buildable, buildNumber, nil
-}
-
 // findBootstrapTools returns a tools.List containing only those tools with
 // which it would be reasonable to launch an environment's first machine,
 // given the supplied constraints. If a specific agent version is not requested,

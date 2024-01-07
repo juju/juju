@@ -59,6 +59,10 @@ type InstanceConfig struct {
 	// used to manage this new instance.
 	ControllerConfig controller.Config
 
+	// CouldBeController is set to true for all machines created on the
+	// controller model.
+	CouldBeController bool
+
 	// The public key used to sign Juju simplestreams image metadata.
 	PublicImageSigningKey string
 
@@ -196,6 +200,17 @@ type InstanceConfig struct {
 
 	// Profiles is a slice of (lxd) profile names to be used by a container
 	Profiles []string
+
+	// JujudControllerSnapPath is the path to a .snap file that will be used as the jujud-controller
+	// service.
+	JujudControllerSnapPath string
+
+	// JujudControllerAssertionsPath is a path to a .assert file that will be used
+	// to verify the .snap at JujudControllerSnapPath
+	JujudControllerSnapAssertionsPath string
+
+	// JujudControllerSnapSearchURLs
+	JujudControllerSnapSearchURLs []string
 }
 
 // BootstrapConfig represents bootstrap-specific initialization information
@@ -446,6 +461,13 @@ func (p *StateInitializationParams) Unmarshal(data []byte) error {
 }
 
 func (cfg *InstanceConfig) agentInfo() service.AgentInfo {
+	if cfg.CouldBeController {
+		return service.NewControllerMachineAgentInfo(
+			cfg.MachineId,
+			cfg.DataDir,
+			cfg.LogDir,
+		)
+	}
 	return service.NewMachineAgentInfo(
 		cfg.MachineId,
 		cfg.DataDir,
@@ -611,10 +633,10 @@ func copyToolsList(in coretools.List) coretools.List {
 	return out
 }
 
-// SetSnapSource annotates the instance configuration
+// SetJujuDbSnapSource annotates the instance configuration
 // with the location of a local .snap to upload during
 // the instance's provisioning.
-func (cfg *InstanceConfig) SetSnapSource(snapPath string, snapAssertionsPath string) error {
+func (cfg *InstanceConfig) SetJujuDbSnapSource(snapPath string, snapAssertionsPath string) error {
 	if snapPath == "" {
 		return nil
 	}
@@ -631,6 +653,33 @@ func (cfg *InstanceConfig) SetSnapSource(snapPath string, snapAssertionsPath str
 
 	cfg.Bootstrap.JujuDbSnapPath = snapPath
 	cfg.Bootstrap.JujuDbSnapAssertionsPath = snapAssertionsPath
+
+	return nil
+}
+
+// SetJujudControllerSnapSource annotates the instance configuration
+// with the location of a local .snap to upload during
+// the instance's provisioning.
+func (cfg *InstanceConfig) SetJujudControllerSnapSource(snapPath string, snapAssertionsPath string, searchURLs []string) error {
+	if snapPath == "" {
+		return nil
+	}
+
+	_, err := os.Stat(snapPath)
+	if err != nil {
+		return errors.Annotatef(err, "unable set local snap (at %s)", snapPath)
+	}
+
+	if snapAssertionsPath != "dangerous" {
+		_, err = os.Stat(snapAssertionsPath)
+		if err != nil {
+			return errors.Annotatef(err, "unable set local snap .assert (at %s)", snapAssertionsPath)
+		}
+	}
+
+	cfg.JujudControllerSnapSearchURLs = searchURLs
+	cfg.JujudControllerSnapPath = snapPath
+	cfg.JujudControllerSnapAssertionsPath = snapAssertionsPath
 
 	return nil
 }
@@ -764,6 +813,7 @@ func NewInstanceConfig(
 	imageStream string,
 	base corebase.Base,
 	apiInfo *api.Info,
+	couldBeController bool,
 ) (*InstanceConfig, error) {
 	osType := paths.OSType(base.OS)
 	logDir := paths.LogDir(osType)
@@ -780,11 +830,12 @@ func NewInstanceConfig(
 		Tags:                    map[string]string{},
 
 		// Parameter entries.
-		ControllerTag: controllerTag,
-		MachineId:     machineID,
-		MachineNonce:  machineNonce,
-		APIInfo:       apiInfo,
-		ImageStream:   imageStream,
+		ControllerTag:     controllerTag,
+		MachineId:         machineID,
+		MachineNonce:      machineNonce,
+		APIInfo:           apiInfo,
+		ImageStream:       imageStream,
+		CouldBeController: couldBeController,
 	}
 	return icfg, nil
 }
@@ -800,10 +851,11 @@ func NewBootstrapInstanceConfig(
 ) (*InstanceConfig, error) {
 	// For a bootstrap instance, the caller must provide the state.Info
 	// and the api.Info. The machine id must *always* be "0".
-	icfg, err := NewInstanceConfig(names.NewControllerTag(config.ControllerUUID()), agent.BootstrapControllerId, agent.BootstrapNonce, "", base, nil)
+	icfg, err := NewInstanceConfig(names.NewControllerTag(config.ControllerUUID()), agent.BootstrapControllerId, agent.BootstrapNonce, "", base, nil, true)
 	if err != nil {
 		return nil, err
 	}
+	icfg.CouldBeController = true
 	icfg.PublicImageSigningKey = publicImageSigningKey
 	icfg.ControllerConfig = make(map[string]interface{})
 	for k, v := range config {

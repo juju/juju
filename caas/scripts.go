@@ -64,7 +64,7 @@ export JUJU_DATA_DIR=%[1]s
 export JUJU_TOOLS_DIR=$JUJU_DATA_DIR/tools
 
 mkdir -p $JUJU_TOOLS_DIR
-cp /opt/jujud $JUJU_TOOLS_DIR/jujud
+cp /opt/jujud-controller $JUJU_TOOLS_DIR/jujud-controller
 
 %[2]s
 

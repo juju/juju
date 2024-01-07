@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"path"
 	"strings"
@@ -752,7 +753,7 @@ func (p *parallelHostChecker) UpdateAddresses(addrs []network.ProviderAddress) {
 		if _, ok := p.active[addr]; ok {
 			continue
 		}
-		fmt.Fprintf(p.stderr, "Attempting to connect to %s:22\n", addr.Value)
+		fmt.Fprintf(p.stderr, "Attempting to connect to %s\n", net.JoinHostPort(addr.Value, "22"))
 		closed := make(chan struct{})
 		hc := &hostChecker{
 			addr:            addr,

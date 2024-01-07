@@ -7,6 +7,7 @@ import (
 	stdcontext "context"
 	"fmt"
 	"math/rand"
+	"path"
 	"sort"
 	"sync"
 	"time"
@@ -31,6 +32,7 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/workerpool"
@@ -44,6 +46,7 @@ import (
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/storage"
 	coretools "github.com/juju/juju/tools"
+	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/common"
 	"github.com/juju/juju/wrench"
 )
@@ -80,6 +83,13 @@ type ToolsFinder interface {
 	FindTools(version version.Number, os string, arch string) (coretools.List, error)
 }
 
+// SnapFinder is an interface used for finding snaps to run on
+// provisioned instances.
+type SnapFinder interface {
+	// SnapSearchURLs returns all the URL prefixes to search for a juju snap.
+	SnapSearchURLs() ([]string, error)
+}
+
 // TaskConfig holds the initialisation data for a ProvisionerTask instance.
 type TaskConfig struct {
 	ControllerUUID             string
@@ -89,6 +99,7 @@ type TaskConfig struct {
 	TaskAPI                    TaskAPI
 	DistributionGroupFinder    DistributionGroupFinder
 	ToolsFinder                ToolsFinder
+	SnapFinder                 SnapFinder
 	MachineWatcher             watcher.StringsWatcher
 	RetryWatcher               watcher.NotifyWatcher
 	Broker                     environs.InstanceBroker
@@ -115,6 +126,7 @@ func NewProvisionerTask(cfg TaskConfig) (ProvisionerTask, error) {
 		taskAPI:                    cfg.TaskAPI,
 		distributionGroupFinder:    cfg.DistributionGroupFinder,
 		toolsFinder:                cfg.ToolsFinder,
+		snapFinder:                 cfg.SnapFinder,
 		machineChanges:             machineChanges,
 		retryChanges:               retryChanges,
 		broker:                     cfg.Broker,
@@ -160,6 +172,7 @@ type provisionerTask struct {
 	taskAPI                    TaskAPI
 	distributionGroupFinder    DistributionGroupFinder
 	toolsFinder                ToolsFinder
+	snapFinder                 SnapFinder
 	machineChanges             watcher.StringsChannel
 	retryChanges               watcher.NotifyChannel
 	broker                     environs.InstanceBroker
@@ -169,6 +182,7 @@ type provisionerTask struct {
 	harvestMode                config.HarvestMode
 	harvestModeChan            chan config.HarvestMode
 	retryStartInstanceStrategy RetryStrategy
+	isContainer                bool
 
 	machinesMutex            sync.RWMutex
 	machines                 map[string]apiprovisioner.MachineProvisioner // machine ID -> machine
@@ -764,7 +778,6 @@ func (task *provisionerTask) constructInstanceConfig(
 	auth authentication.AuthenticationProvider,
 	pInfo *params.ProvisioningInfo,
 ) (*instancecfg.InstanceConfig, error) {
-
 	apiInfo, err := auth.SetupAuthentication(machine)
 	if err != nil {
 		return nil, errors.Annotate(err, "setting up authentication")
@@ -783,13 +796,15 @@ func (task *provisionerTask) constructInstanceConfig(
 	if err != nil {
 		return nil, errors.Annotatef(err, "parsing machine base %q", pInfo.Base)
 	}
+	controllerConfig := controller.Config(pInfo.ControllerConfig)
 	instanceConfig, err := instancecfg.NewInstanceConfig(
-		names.NewControllerTag(controller.Config(pInfo.ControllerConfig).ControllerUUID()),
+		names.NewControllerTag(controllerConfig.ControllerUUID()),
 		machine.Id(),
 		nonce,
 		task.imageStream,
 		base,
 		apiInfo,
+		!names.IsContainerMachine(machine.Id()) && pInfo.CouldBeController,
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -825,7 +840,6 @@ func (task *provisionerTask) constructStartInstanceParams(
 	provisioningInfo *params.ProvisioningInfo,
 	possibleTools coretools.List,
 ) (environs.StartInstanceParams, error) {
-
 	volumes := make([]storage.VolumeParams, len(provisioningInfo.Volumes))
 	for i, v := range provisioningInfo.Volumes {
 		volumeTag, err := names.ParseVolumeTag(v.VolumeTag)
@@ -1507,6 +1521,8 @@ func (task *provisionerTask) setupToStartMachine(
 		return environs.StartInstanceParams{}, errors.Errorf("no provisioning info for machine %q", machine.Id())
 	}
 
+	controllerConfig := controller.Config(pInfo.ControllerConfig)
+
 	instanceCfg, err := task.constructInstanceConfig(machine, task.auth, pInfo)
 	if err != nil {
 		return environs.StartInstanceParams{}, errors.Annotatef(err, "creating instance config for machine %q", machine)
@@ -1521,6 +1537,29 @@ func (task *provisionerTask) setupToStartMachine(
 	possibleTools, err := task.toolsFinder.FindTools(*version, pInfo.Base.Name, agentArch)
 	if err != nil {
 		return environs.StartInstanceParams{}, errors.Annotatef(err, "finding agent binaries for machine %q", machine)
+	}
+
+	// Ship the local snap over the wire if we could be a controller.
+	if instanceCfg.CouldBeController {
+		urls, err := task.snapFinder.SnapSearchURLs()
+		if err != nil {
+			return environs.StartInstanceParams{}, errors.Annotatef(err, "finding snap search URLs for machine %q", machine)
+		}
+		basePath := path.Join(paths.DataDir(paths.CurrentOS()), "snap", fmt.Sprintf("jujud-controller_%s_%s", jujuversion.Current.String(), agentArch))
+		switch controllerConfig.JujudControllerSnapSource() {
+		case "local":
+			err := instanceCfg.SetJujudControllerSnapSource(basePath+".snap", basePath+".assert", urls)
+			if err != nil {
+				return environs.StartInstanceParams{}, errors.Trace(err)
+			}
+		case "local-dangerous":
+			err := instanceCfg.SetJujudControllerSnapSource(basePath+".snap", "dangerous", urls)
+			if err != nil {
+				return environs.StartInstanceParams{}, errors.Trace(err)
+			}
+		case "snapstore":
+			// TODO: add channel support.
+		}
 	}
 
 	startInstanceParams, err := task.constructStartInstanceParams(
@@ -1681,7 +1720,6 @@ func volumesToAPIServer(volumes []storage.Volume) []params.Volume {
 func volumeAttachmentsToAPIServer(attachments []storage.VolumeAttachment) map[string]params.VolumeAttachmentInfo {
 	result := make(map[string]params.VolumeAttachmentInfo)
 	for _, a := range attachments {
-
 		// Volume attachment plans are used in the OCI provider where actions
 		// are required on the instance itself in order to complete attachments
 		// of SCSI volumes.

@@ -40,7 +40,6 @@ import (
 	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/environs/storage"
-	"github.com/juju/juju/environs/sync"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	envtoolstesting "github.com/juju/juju/environs/tools/testing"
@@ -50,7 +49,6 @@ import (
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	stateerrors "github.com/juju/juju/state/errors"
-	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
@@ -238,9 +236,10 @@ func (t *LiveTests) BootstrapOnce(c *gc.C) {
 	// we could connect to (actual live tests, rather than local-only)
 	cons := constraints.MustParse("mem=2G")
 	if t.CanOpenState {
-		ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
-		_, err := sync.Upload(ss, t.toolsStorage, "released", nil)
-		c.Assert(err, jc.ErrorIsNil)
+		c.Fatal("TODO(hpidcock): remove tool uploading")
+		// ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
+		// _, err := sync.Upload(ss, t.toolsStorage, "released", nil)
+		// c.Assert(err, jc.ErrorIsNil)
 	}
 	args := t.bootstrapParams()
 	args.BootstrapConstraints = cons
@@ -957,25 +956,26 @@ func waitAgentTools(c *gc.C, w *toolsWaiter, expect version.Binary) *coretools.T
 // checkUpgrade sets the environment agent version and checks that
 // all the provided watchers upgrade to the requested version.
 func (t *LiveTests) checkUpgrade(c *gc.C, st *state.State, newVersion version.Binary, waiters ...*toolsWaiter) {
-	c.Logf("putting testing version of juju tools")
-	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
-	upgradeTools, err := sync.Upload(
-		ss, t.toolsStorage, "released",
-		func(version.Number) version.Number { return newVersion.Number },
-	)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Fatal("TODO(hpidcock): remove tool uploading")
+	// c.Logf("putting testing version of juju tools")
+	// ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
+	// upgradeTools, err := sync.Upload(
+	// 	ss, t.toolsStorage, "released",
+	// 	func(version.Number) version.Number { return newVersion.Number },
+	// )
+	// c.Assert(err, jc.ErrorIsNil)
 
-	// Check that the put version really is the version we expect.
-	c.Assert(upgradeTools.Version, gc.Equals, newVersion)
-	err = statetesting.SetAgentVersion(st, newVersion.Number)
-	c.Assert(err, jc.ErrorIsNil)
+	// // Check that the put version really is the version we expect.
+	// c.Assert(upgradeTools.Version, gc.Equals, newVersion)
+	// err = statetesting.SetAgentVersion(st, newVersion.Number)
+	// c.Assert(err, jc.ErrorIsNil)
 
-	for i, w := range waiters {
-		c.Logf("waiting for upgrade of %d: %v", i, w.tooler.String())
+	// for i, w := range waiters {
+	// 	c.Logf("waiting for upgrade of %d: %v", i, w.tooler.String())
 
-		waitAgentTools(c, w, newVersion)
-		c.Logf("upgrade %d successful", i)
-	}
+	// 	waitAgentTools(c, w, newVersion)
+	// 	c.Logf("upgrade %d successful", i)
+	// }
 }
 
 // TODO(katco): 2016-08-09: lp:1611427
@@ -1005,7 +1005,7 @@ func (t *LiveTests) TestStartInstanceWithEmptyNonceFails(c *gc.C) {
 	machineId := "4"
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
 	instanceConfig, err := instancecfg.NewInstanceConfig(coretesting.ControllerTag, machineId, "",
-		"released", corebase.MakeDefaultBase("ubuntu", "22.04"), apiInfo)
+		"released", corebase.MakeDefaultBase("ubuntu", "22.04"), apiInfo, false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	t.PrepareOnce(c)

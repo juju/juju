@@ -4,6 +4,7 @@
 package systemd
 
 import (
+	"fmt"
 	"path"
 	"reflect"
 	"strings"
@@ -60,7 +61,7 @@ type Service struct {
 	UnitName        string
 	DirName         string
 	FallBackDirName string
-	Script          []byte
+	Scripts         map[string][]byte
 
 	fileOps FileSystemOps
 	newDBus DBusAPIFactory
@@ -110,6 +111,7 @@ var newChan = func() chan string {
 }
 
 func (s *Service) errorf(err error, msg string, args ...interface{}) error {
+	// TODO: WTF
 	msg += " for application %q"
 	args = append(args, s.Service.Name)
 	if err == nil {
@@ -156,24 +158,69 @@ func (s *Service) validate(conf common.Conf) error {
 	return nil
 }
 
-func (s *Service) normalize(conf common.Conf) (common.Conf, []byte) {
-	scriptPath := renderer.ScriptFilename(s.execStartFileName(), s.DirName)
-	return normalize(s.Service.Name, conf, scriptPath, &renderer)
+func (s *Service) normalize(conf common.Conf) (common.Conf, map[string][]byte) {
+	// TODO: delete this whole file... seriously wtf
+	scripts := map[string][]byte{}
+
+	if conf.ExecStart != "" {
+		var cmds []string
+		if conf.Logfile != "" {
+			filename := conf.Logfile
+			cmds = append(cmds, "# Set up logging.")
+			cmds = append(cmds, renderer.Touch(filename, nil)...)
+			user, group := paths.SyslogUserGroup()
+			cmds = append(cmds, renderer.Chown(filename, user, group)...)
+			cmds = append(cmds, renderer.Chmod(filename, paths.LogfilePermission)...)
+			cmds = append(cmds, renderer.RedirectOutput(filename)...)
+			cmds = append(cmds, renderer.RedirectFD("out", "err")...)
+			cmds = append(cmds,
+				"",
+				"# Run the script.",
+			)
+			// We leave conf.Logfile alone (it will be ignored during validation).
+		}
+		cmds = append(cmds, conf.ExecStart)
+		scriptName := renderer.ScriptFilename(s.execStartFileName(), s.DirName)
+		scripts[scriptName] = renderer.RenderScript(cmds)
+		conf.ExecStart = scriptName
+	}
+
+	if conf.ExecStartPre != "" {
+		scriptName := renderer.ScriptFilename(s.execStartPreFileName(), s.DirName)
+		scripts[scriptName] = renderer.RenderScript([]string{conf.ExecStartPre})
+		conf.ExecStartPre = scriptName
+	}
+
+	if len(conf.Env) == 0 {
+		conf.Env = nil
+	}
+
+	if len(conf.Limit) == 0 {
+		conf.Limit = nil
+	}
+
+	if conf.Transient {
+		// TODO(ericsnow) Handle Transient via systemd-run command?
+		// TODO: wtf...
+		conf.ExecStopPost = commands{}.disable(s.Service.Name)
+	}
+
+	return conf, scripts
 }
 
 func (s *Service) setConf(conf common.Conf) error {
 	if conf.IsZero() {
 		s.Service.Conf = conf
+		s.Scripts = nil
 		return nil
 	}
 
-	normalConf, data := s.normalize(conf)
+	normalConf, scripts := s.normalize(conf)
 	if err := s.validate(normalConf); err != nil {
 		return errors.Trace(err)
 	}
-
-	s.Script = data
 	s.Service.Conf = normalConf
+	s.Scripts = scripts
 	return nil
 }
 
@@ -469,20 +516,14 @@ func (s *Service) writeConf() (string, error) {
 
 	filename := path.Join(s.DirName, s.ConfName)
 
-	if s.Script != nil {
-		scriptPath := renderer.ScriptFilename(s.execStartFileName(), s.DirName)
-		if scriptPath != s.Service.Conf.ExecStart {
-			err := errors.Errorf("wrong script path: expected %q, got %q", scriptPath, s.Service.Conf.ExecStart)
-			return filename, s.errorf(err, "failed to write script at %q", scriptPath)
-		}
-		// TODO(ericsnow) Use the renderer here for the perms.
-		if err := s.fileOps.WriteFile(scriptPath, s.Script, 0755); err != nil {
-			return filename, s.errorf(err, "failed to write script at %q", scriptPath)
+	for scriptPath, scriptData := range s.Scripts {
+		if err := s.fileOps.WriteFile(scriptPath, scriptData, 0755); err != nil {
+			return "", s.errorf(err, "failed to write script at %q", scriptPath)
 		}
 	}
 
 	if err := s.fileOps.WriteFile(filename, data, 0644); err != nil {
-		return filename, s.errorf(err, "failed to write conf file %q", filename)
+		return "", s.errorf(err, "failed to write conf file %q", filename)
 	}
 
 	return filename, nil
@@ -495,7 +536,7 @@ func (s *Service) InstallCommands() ([]string, error) {
 	}
 
 	name := s.Name()
-	dirname := s.DirName
+	dirName := s.DirName
 
 	data, err := s.serialize()
 	if err != nil {
@@ -503,19 +544,22 @@ func (s *Service) InstallCommands() ([]string, error) {
 	}
 
 	var cmdList []string
-	if s.Script != nil {
-		scriptName := renderer.Base(renderer.ScriptFilename(s.execStartFileName(), ""))
+	for scriptPath, scriptData := range s.Scripts {
+		if path.Dir(scriptPath) != dirName {
+			return nil, fmt.Errorf("path mismatch %s is not in %s", scriptPath, dirName)
+		}
+		scriptName := path.Base(scriptPath)
 		cmdList = append(cmdList, []string{
 			// TODO(ericsnow) Use the renderer here.
-			cmds.writeFile(scriptName, dirname, s.Script),
-			cmds.chmod(scriptName, dirname, 0755),
+			cmds.writeFile(scriptName, dirName, scriptData),
+			cmds.chmod(scriptName, dirName, 0755),
 		}...)
 	}
 	cmdList = append(cmdList, []string{
-		cmds.writeConf(name, dirname, data),
-		cmds.link(name, dirname),
+		cmds.writeConf(name, dirName, data),
+		cmds.link(name, dirName),
 		cmds.reload(),
-		cmds.enableLinked(name, dirname),
+		cmds.enableLinked(name, dirName),
 	}...)
 	return cmdList, nil
 }
@@ -573,6 +617,10 @@ func (s *Service) WriteService() error {
 // See: https://www.freedesktop.org/software/systemd/man/systemd.service.html#Command%20lines
 func (s *Service) execStartFileName() string {
 	return s.Name() + "-exec-start"
+}
+
+func (s *Service) execStartPreFileName() string {
+	return s.Name() + "-exec-start-pre"
 }
 
 // SysdReload reloads Service daemon.

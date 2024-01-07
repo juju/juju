@@ -205,6 +205,18 @@ func (st *State) FindTools(v version.Number, os string, arch string) (tools.List
 	return result.List, nil
 }
 
+// SnapSearchURLs returns the URLs to search for a juju snap.
+func (st *State) SnapSearchURLs() ([]string, error) {
+	var result params.StringsResult
+	if err := st.facade.FacadeCall("SnapSearchURLs", nil, &result); err != nil {
+		return nil, err
+	}
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return result.Result, nil
+}
+
 // ReleaseContainerAddresses releases a static IP address allocated to a
 // container.
 func (st *State) ReleaseContainerAddresses(containerTag names.MachineTag) (err error) {

@@ -42,6 +42,10 @@ type AgentInfo struct {
 
 	// LogDir is the path to the agent's log dir.
 	LogDir string
+
+	// UseJujudControllerSnap is true on machines in the juju controller model
+	// even if they aren't controllers yet.
+	UseJujudControllerSnap bool
 }
 
 // NewAgentInfo composes a new AgentInfo for the given essentials.
@@ -56,6 +60,13 @@ func NewAgentInfo(kind AgentKind, id, dataDir, logDir string) AgentInfo {
 
 		name: name,
 	}
+	return info
+}
+
+// NewControllerMachineAgentInfo returns a new AgentInfo for a machine agent.
+func NewControllerMachineAgentInfo(id, dataDir, logDir string) AgentInfo {
+	info := NewAgentInfo(AgentKindMachine, id, dataDir, logDir)
+	info.UseJujudControllerSnap = true
 	return info
 }
 
@@ -74,7 +85,17 @@ func (ai AgentInfo) ToolsDir(renderer shell.Renderer) string {
 	return renderer.FromSlash(tools.ToolsDir(ai.DataDir, ai.name))
 }
 
+func (ai AgentInfo) preStart(renderer shell.Renderer) string {
+	if !ai.UseJujudControllerSnap {
+		return ""
+	}
+	return `[ "$(stat -c '%U:%G:%a' /var/lib/juju/reinstall.sh || true)" = "root:root:755" ] && ./var/lib/juju/reinstall.sh || true`
+}
+
 func (ai AgentInfo) jujud(renderer shell.Renderer) string {
+	if ai.UseJujudControllerSnap {
+		return "/snap/bin/jujud-controller"
+	}
 	exeName := "jujud" + renderer.ExeSuffix()
 	return renderer.Join(ai.ToolsDir(renderer), exeName)
 }

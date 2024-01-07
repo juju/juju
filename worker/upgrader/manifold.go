@@ -40,6 +40,7 @@ type ManifoldConfig struct {
 	PreviousAgentVersion version.Number
 	Logger               Logger
 	Clock                Clock
+	IsController         bool
 }
 
 // Manifold returns a dependency manifold that runs an upgrader
@@ -101,6 +102,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				UpgradeStepsWaiter:          upgradeStepsWaiter,
 				InitialUpgradeCheckComplete: initialCheckUnlocker,
 				CheckDiskSpace:              upgrades.CheckFreeDiskSpace,
+				IsController:                config.IsController,
 			})
 		},
 	}

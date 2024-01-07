@@ -142,7 +142,7 @@ func NewSSHCommand(
 	isTerminal func(interface{}) bool,
 	retryStrategy retry.CallArgs,
 	publicKeyRetryStrategy retry.CallArgs,
-) cmd.Command {
+) modelcmd.ModelCommand {
 	c := &sshCommand{
 		hostChecker:            hostChecker,
 		isTerminal:             isTerminal,

@@ -1535,7 +1535,7 @@ func jujudPebbleLayer(machineCmd string, env map[string]string) ([]byte, error) 
 	layer := plan.Layer{
 		Summary: "jujud service",
 		Services: map[string]*plan.Service{
-			"jujud": {
+			"jujud-controller": {
 				Override: plan.ReplaceOverride,
 				Summary:  "Juju controller agent",
 				Command:  machineCmd,
@@ -1544,7 +1544,7 @@ func jujudPebbleLayer(machineCmd string, env map[string]string) ([]byte, error) 
 		},
 	}
 	if env != nil {
-		layer.Services["jujud"].Environment = env
+		layer.Services["jujud-controller"].Environment = env
 	}
 
 	return yaml.Marshal(layer)
@@ -1575,7 +1575,7 @@ func (c *controllerStack) buildContainerSpecForController() (*core.PodSpec, erro
 		// only do bootstrap-state on the bootstrap controller - controller-0.
 		bootstrapStateCmd := fmt.Sprintf(
 			"%s bootstrap-state %s --data-dir $JUJU_DATA_DIR %s --timeout %s",
-			c.pathJoin("$JUJU_TOOLS_DIR", "jujud"),
+			c.pathJoin("$JUJU_TOOLS_DIR", "jujud-controller"),
 			c.pathJoin("$JUJU_DATA_DIR", cloudconfig.FileNameBootstrapParams),
 			loggingOption,
 			c.timeout.String(),
@@ -1592,7 +1592,7 @@ func (c *controllerStack) buildContainerSpecForController() (*core.PodSpec, erro
 
 	machineCmd := fmt.Sprintf(
 		"%s machine --data-dir $JUJU_DATA_DIR --controller-id %s --log-to-stderr %s",
-		c.pathJoin("$JUJU_TOOLS_DIR", "jujud"),
+		c.pathJoin("$JUJU_TOOLS_DIR", "jujud-controller"),
 		c.pcfg.ControllerId,
 		loggingOption,
 	)

@@ -4,6 +4,7 @@
 package upgrader
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/version/v2"
 
@@ -171,4 +172,8 @@ func (u *UnitUpgraderAPI) getMachineToolsVersion(tag names.Tag) (*version.Number
 		return nil, err
 	}
 	return &machineTools.Version.Number, nil
+}
+
+func (u *UnitUpgraderAPI) ControllerConfig() (params.ControllerConfigResult, error) {
+	return params.ControllerConfigResult{}, errors.NotImplemented
 }

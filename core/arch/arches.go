@@ -106,6 +106,14 @@ func NormaliseArch(rawArch string) string {
 	return rawArch
 }
 
+// ToGoArch converts to a GOARCH compatible string.
+func ToGoArch(arch Arch) string {
+	if arch == PPC64EL {
+		return "ppc64le"
+	}
+	return string(arch)
+}
+
 // IsSupportedArch returns true if arch is one supported by Juju.
 func IsSupportedArch(arch string) bool {
 	for _, a := range AllSupportedArches {

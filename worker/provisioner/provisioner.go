@@ -64,6 +64,7 @@ type provisioner struct {
 	broker                  environs.InstanceBroker
 	distributionGroupFinder DistributionGroupFinder
 	toolsFinder             ToolsFinder
+	snapFinder              SnapFinder
 	catacomb                catacomb.Catacomb
 	callContextFunc         common.CloudCallContextFunc
 }
@@ -125,6 +126,12 @@ var getToolsFinder = func(st *apiprovisioner.State) ToolsFinder {
 	return st
 }
 
+// getSnapFinder returns a SnapFinder for the provided State.
+// This exists for mocking.
+var getSnapFinder = func(st *apiprovisioner.State) SnapFinder {
+	return st
+}
+
 // getDistributionGroupFinder returns a DistributionGroupFinder
 // for the provided State. This exists for mocking.
 var getDistributionGroupFinder = func(st *apiprovisioner.State) DistributionGroupFinder {
@@ -170,6 +177,7 @@ func (p *provisioner) getStartTask(harvestMode config.HarvestMode, workerCount i
 		TaskAPI:                    p.st,
 		DistributionGroupFinder:    p.distributionGroupFinder,
 		ToolsFinder:                p.toolsFinder,
+		SnapFinder:                 p.snapFinder,
 		MachineWatcher:             machineWatcher,
 		RetryWatcher:               retryWatcher,
 		Broker:                     p.broker,
@@ -204,6 +212,7 @@ func NewEnvironProvisioner(
 			agentConfig:             agentConfig,
 			logger:                  logger,
 			toolsFinder:             getToolsFinder(st),
+			snapFinder:              getSnapFinder(st),
 			distributionGroupFinder: getDistributionGroupFinder(st),
 			callContextFunc:         common.NewCloudCallContextFunc(credentialAPI),
 		},
@@ -309,6 +318,7 @@ func NewContainerProvisioner(
 			logger:                  logger,
 			broker:                  broker,
 			toolsFinder:             toolsFinder,
+			snapFinder:              nil, // TODO
 			distributionGroupFinder: distributionGroupFinder,
 			callContextFunc:         common.NewCloudCallContextFunc(credentialAPI),
 		},

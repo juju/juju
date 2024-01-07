@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"path"
 	"time"
 
 	"github.com/juju/errors"
@@ -68,6 +69,7 @@ type Config struct {
 	UpgradeStepsWaiter          gate.Waiter
 	InitialUpgradeCheckComplete gate.Unlocker
 	CheckDiskSpace              func(string, uint64) error
+	IsController                bool
 }
 
 // NewAgentUpgrader returns a new upgrader worker. It watches changes to the
@@ -165,15 +167,7 @@ func (u *Upgrader) loop() error {
 		}
 		logger.Infof("desired agent binary version: %v", wantVersion)
 
-		// If we have a desired version of Juju without the build number,
-		// i.e. it is not a user compiled version, reset the build number of
-		// the current version to remove the Jenkins build number.
-		// We don't care about the build number when checking for upgrade.
 		haveVersion := jujuversion.Current
-		if wantVersion.Build == 0 {
-			haveVersion.Build = 0
-		}
-
 		if wantVersion == haveVersion {
 			u.config.InitialUpgradeCheckComplete.Unlock()
 			continue
@@ -188,10 +182,42 @@ func (u *Upgrader) loop() error {
 		}
 		logger.Infof("%s requested from %v to %v", direction, haveVersion, wantVersion)
 
+		upgradeError := &agenterrors.UpgradeReadyError{
+			OldTools:  toBinaryVersion(haveVersion, hostOSType),
+			AgentName: u.tag.String(),
+			DataDir:   u.dataDir,
+		}
+
+		if u.config.IsController {
+			config, err := u.st.ControllerConfig()
+			if err != nil {
+				return err
+			}
+			assertFile := ""
+			switch config.JujudControllerSnapSource() {
+			case "local-dangerous":
+				assertFile = "dangerous"
+				fallthrough
+			case "local":
+				// TODO: acquire snap rather than just expecting it to exist.
+				snapFile := path.Join(u.dataDir, "snap",
+					fmt.Sprintf("jujud-controller_%v_%s.snap", wantVersion, arch.HostArch()))
+				if assertFile == "" {
+					assertFile = path.Join(u.dataDir, "snap",
+						fmt.Sprintf("jujud-controller_%v_%s.assert", wantVersion, arch.HostArch()))
+				}
+				upgradeError.JujudControllerSnapPath = snapFile
+				upgradeError.JujudControllerSnapAssertionsPath = assertFile
+			case "snapstore":
+				return errors.NotImplementedf("upgrading from snap store")
+			}
+		}
+
 		// Check if tools have already been downloaded.
 		wantVersionBinary := toBinaryVersion(wantVersion, hostOSType)
 		if u.toolsAlreadyDownloaded(wantVersionBinary) {
-			return u.newUpgradeReadyError(haveVersion, wantVersionBinary, hostOSType)
+			upgradeError.NewTools = wantVersionBinary
+			return upgradeError
 		}
 
 		// Check if tools are available for download.
@@ -214,7 +240,8 @@ func (u *Upgrader) loop() error {
 			}
 			err = u.ensureTools(wantTools)
 			if err == nil {
-				return u.newUpgradeReadyError(haveVersion, wantTools.Version, hostOSType)
+				upgradeError.NewTools = wantTools.Version
+				return upgradeError
 			}
 			logger.Errorf("failed to fetch agent binaries from %q: %v", wantTools.URL, err)
 		}
@@ -234,15 +261,6 @@ func toBinaryVersion(vers version.Number, osType string) version.Binary {
 func (u *Upgrader) toolsAlreadyDownloaded(wantVersion version.Binary) bool {
 	_, err := agenttools.ReadTools(u.dataDir, wantVersion)
 	return err == nil
-}
-
-func (u *Upgrader) newUpgradeReadyError(haveVersion version.Number, newVersion version.Binary, osType string) *agenterrors.UpgradeReadyError {
-	return &agenterrors.UpgradeReadyError{
-		OldTools:  toBinaryVersion(haveVersion, osType),
-		NewTools:  newVersion,
-		AgentName: u.tag.String(),
-		DataDir:   u.dataDir,
-	}
 }
 
 func (u *Upgrader) ensureTools(agentTools *coretools.Tools) error {

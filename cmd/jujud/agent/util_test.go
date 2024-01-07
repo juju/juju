@@ -35,8 +35,6 @@ import (
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
 	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/mongo/mongometrics"
-	"github.com/juju/juju/mongo/mongotest"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
@@ -67,7 +65,6 @@ type commonMachineSuite struct {
 func (s *commonMachineSuite) SetUpSuite(c *gc.C) {
 	s.AgentSuite.SetUpSuite(c)
 	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
-	s.PatchValue(&stateWorkerDialOpts, mongotest.DialOpts())
 }
 
 func (s *commonMachineSuite) SetUpTest(c *gc.C) {
@@ -168,10 +165,6 @@ func NewTestMachineAgentFactory(
 	rootDir string,
 	cmdRunner CommandRunner,
 ) machineAgentFactoryFnType {
-	preUpgradeSteps := func(_ *state.StatePool, _ agent.Config, isController, isCaas bool) error {
-		return nil
-	}
-
 	return func(agentTag names.Tag, isCAAS bool) (*MachineAgent, error) {
 		prometheusRegistry, err := addons.NewPrometheusRegistry()
 		c.Assert(err, jc.ErrorIsNil)
@@ -192,10 +185,6 @@ func NewTestMachineAgentFactory(
 			loopDeviceManager:           &mockLoopDeviceManager{},
 			newIntrospectionSocketName:  addons.DefaultIntrospectionSocketName,
 			prometheusRegistry:          prometheusRegistry,
-			mongoTxnCollector:           mongometrics.NewTxnCollector(),
-			mongoDialCollector:          mongometrics.NewDialCollector(),
-			preUpgradeSteps:             preUpgradeSteps,
-			isCaasAgent:                 isCAAS,
 			cmdRunner:                   cmdRunner,
 		}
 		return a, nil

@@ -5,22 +5,19 @@ package tools
 
 import (
 	"archive/tar"
-	"bytes"
 	"compress/gzip"
 	"crypto/sha256"
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
-	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/arch"
-	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/juju/names"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -192,14 +189,8 @@ func existingJujuLocation() (string, error) {
 // tests.)
 var VersionFileFallbackDir = "/usr/lib/juju"
 
-func copyExistingJujus(dir string, skipCopyVersionFile bool) error {
-	// Assume that the user is running juju.
-	jujuDir, err := ExistingJujuLocation()
-	if err != nil {
-		logger.Infof("couldn't find existing jujud: %v", err)
-		return errors.Trace(err)
-	}
-	jujudLocation := filepath.Join(jujuDir, names.Jujud)
+func copyBins(srcDir string, targetDir string) error {
+	jujudLocation := filepath.Join(srcDir, names.Jujud)
 	logger.Debugf("checking: %s", jujudLocation)
 	info, err := os.Stat(jujudLocation)
 	if err != nil {
@@ -207,14 +198,14 @@ func copyExistingJujus(dir string, skipCopyVersionFile bool) error {
 		return errors.Trace(err)
 	}
 	logger.Infof("Found agent binary to upload (%s)", jujudLocation)
-	target := filepath.Join(dir, names.Jujud)
+	target := filepath.Join(targetDir, names.Jujud)
 	logger.Infof("target: %v", target)
 	err = copyFileWithMode(jujudLocation, target, info.Mode())
 	if err != nil {
 		return errors.Trace(err)
 	}
-	jujucLocation := filepath.Join(jujuDir, names.Jujuc)
-	jujucTarget := filepath.Join(dir, names.Jujuc)
+	jujucLocation := filepath.Join(srcDir, names.Jujuc)
+	jujucTarget := filepath.Join(targetDir, names.Jujuc)
 	if _, err = os.Stat(jujucLocation); os.IsNotExist(err) {
 		logger.Infof("jujuc not found at %s, not including", jujucLocation)
 	} else if err != nil {
@@ -226,277 +217,34 @@ func copyExistingJujus(dir string, skipCopyVersionFile bool) error {
 			return errors.Trace(err)
 		}
 	}
-	if skipCopyVersionFile {
-		return nil
-	}
-	// If there's a version file beside the jujud binary or in the
-	// fallback location, include that.
-	versionTarget := filepath.Join(dir, names.JujudVersions)
-
-	versionPaths := []string{
-		filepath.Join(jujuDir, names.JujudVersions),
-		filepath.Join(VersionFileFallbackDir, names.JujudVersions),
-	}
-	for _, versionPath := range versionPaths {
-		info, err = os.Stat(versionPath)
-		if os.IsNotExist(err) {
-			continue
-		} else if err != nil {
-			return errors.Trace(err)
-		}
-		logger.Infof("including versions file %q", versionPath)
-		return errors.Trace(copyFileWithMode(versionPath, versionTarget, info.Mode()))
-	}
 	return nil
 }
 
-func buildJujus(dir string) error {
-	logger.Infof("building jujud")
-
-	// Determine if we are in tree of juju and if to prefer
-	// vendor or readonly mod deps.
-	var lastErr error
-	var cmdDir string
-	for _, m := range []string{"-mod=vendor", "-mod=readonly"} {
-		var stdout, stderr bytes.Buffer
-		cmd := exec.Command("go", "list", "-json", m, "github.com/juju/juju")
-		cmd.Env = append(os.Environ(), "GO111MODULE=on")
-		cmd.Stderr = &stderr
-		cmd.Stdout = &stdout
-		err := cmd.Run()
-		if err != nil {
-			lastErr = fmt.Errorf(`cannot build juju agent outside of github.com/juju/juju tree
-			cd into the directory containing juju version=%s commit=%s: %w:
-			%s`, jujuversion.Current.String(), jujuversion.GitCommit, err, stderr.String())
-			continue
-		}
-		pkg := struct {
-			Root string `json:"Root"`
-		}{}
-		err = json.Unmarshal(stdout.Bytes(), &pkg)
-		if err != nil {
-			lastErr = fmt.Errorf("cannot parse go list output for github.com/juju/juju version=%s commit=%s: %w",
-				jujuversion.Current.String(), jujuversion.GitCommit, err)
-			continue
-		}
-		lastErr = nil
-		cmdDir = pkg.Root
-		break
-	}
-	if lastErr != nil {
-		return lastErr
-	}
-
-	// Build binaries.
-	cmds := [][]string{
-		{"make", "jujud"},
-	}
-	for _, args := range cmds {
-		cmd := exec.Command(args[0], args[1:]...)
-		cmd.Env = append(os.Environ(), "GOBIN="+dir)
-		cmd.Dir = cmdDir
-		out, err := cmd.CombinedOutput()
-		if err != nil {
-			return fmt.Errorf("build command %q failed: %v; %s", args[0], err, out)
-		}
-		if logger.IsTraceEnabled() {
-			logger.Tracef("Built jujud:\n%s", out)
-		}
-	}
-	return nil
-}
-
-func packageLocalTools(toolsDir string, buildAgent bool) error {
-	if !buildAgent {
-		if err := copyExistingJujus(toolsDir, true); err != nil {
-			return errors.New("no prepackaged agent available and no jujud binary can be found")
-		}
-		return nil
-	}
-	logger.Infof("Building agent binary to upload (%s)", jujuversion.Current.String())
-	if err := buildJujus(toolsDir); err != nil {
-		return errors.Annotate(err, "cannot build jujud agent binary from source")
-	}
-	return nil
-}
-
-// BundleToolsFunc is a function which can bundle all the current juju tools
-// in gzipped tar format to the given writer.
-type BundleToolsFunc func(
-	build bool, w io.Writer,
-	getForceVersion func(version.Number) version.Number,
-) (builtVersion version.Binary, forceVersion version.Number, _ bool, _ string, _ error)
-
-// Override for testing.
-var BundleTools BundleToolsFunc = func(
-	build bool, w io.Writer,
-	getForceVersion func(version.Number) version.Number,
-) (version.Binary, version.Number, bool, string, error) {
-	return bundleTools(build, w, getForceVersion, JujudVersion)
-}
-
-// bundleTools bundles all the current juju tools in gzipped tar
-// format to the given writer. A FORCE-VERSION file is included in
-// the tools bundle so it will lie about its current version number.
-func bundleTools(
-	build bool, w io.Writer,
-	getForceVersion func(version.Number) version.Number,
-	jujudVersion func(dir string) (version.Binary, bool, error),
-) (_ version.Binary, _ version.Number, official bool, sha256hash string, _ error) {
+// BundleTools bundles all the current juju tools in gzipped tar
+// format to the given writer.
+func BundleTools(devSrcDir string, toolsArch arch.Arch, w io.Writer) (_ version.Binary, sha256hash string, _ error) {
 	dir, err := os.MkdirTemp("", "juju-tools")
 	if err != nil {
-		return version.Binary{}, version.Number{}, false, "", err
+		return version.Binary{}, "", err
 	}
 	defer os.RemoveAll(dir)
 
-	existingJujuLocation, err := ExistingJujuLocation()
+	binDir := path.Join(devSrcDir, "_build", "linux_"+arch.ToGoArch(toolsArch), "bin")
+
+	// TODO: validate version to prevent version mismatch.
+	err = copyBins(binDir, dir)
 	if err != nil {
-		return version.Binary{}, version.Number{}, false, "", errors.Annotate(err, "couldn't find existing jujud")
+		return version.Binary{}, "", errors.New("no prepackaged agent available and no jujud binary can be found")
 	}
-	_, official, err = jujudVersion(existingJujuLocation)
-	if err != nil && !errors.IsNotFound(err) {
-		return version.Binary{}, version.Number{}, official, "", errors.Trace(err)
-	}
-	if official && build {
-		return version.Binary{}, version.Number{}, official, "", errors.Errorf("cannot build agent for official build")
-	}
-
-	if err := packageLocalTools(dir, build); err != nil {
-		return version.Binary{}, version.Number{}, false, "", err
-	}
-
-	// We need to get the version again because the juju binaries at dir might be built from source code.
-	tvers, official, err := jujudVersion(dir)
-	if err != nil {
-		return version.Binary{}, version.Number{}, false, "", errors.Trace(err)
-	}
-	if official {
-		logger.Debugf("using official version %s", tvers)
-	}
-	forceVersion := getForceVersion(tvers.Number)
-	logger.Debugf("forcing version to %s", forceVersion)
-	if err := os.WriteFile(filepath.Join(dir, "FORCE-VERSION"), []byte(forceVersion.String()), 0666); err != nil {
-		return version.Binary{}, version.Number{}, false, "", err
-	}
-
 	sha256hash, err = archiveAndSHA256(w, dir)
 	if err != nil {
-		return version.Binary{}, version.Number{}, false, "", err
-	}
-	return tvers, forceVersion, official, sha256hash, err
-}
-
-// Override for testing.
-var ExecCommand = exec.Command
-
-func getVersionFromJujud(dir string) (version.Binary, error) {
-	// If there's no jujud, return a NotFound error.
-	path := filepath.Join(dir, names.Jujud)
-	if _, err := os.Stat(path); err != nil {
-		if os.IsNotExist(err) {
-			return version.Binary{}, errors.NotFoundf(path)
-		}
-		return version.Binary{}, errors.Trace(err)
-	}
-	cmd := ExecCommand(path, "version")
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-
-	if err := cmd.Run(); err != nil {
-		return version.Binary{}, errors.Errorf("cannot get version from %q: %v; %s", path, err, stderr.String()+stdout.String())
-	}
-	tvs := strings.TrimSpace(stdout.String())
-	tvers, err := version.ParseBinary(tvs)
-	if err != nil {
-		return version.Binary{}, errors.Errorf("invalid version %q printed by jujud", tvs)
-	}
-	return tvers, nil
-}
-
-// JujudVersion returns the Jujud version at the specified location,
-// and whether it is an official binary.
-func JujudVersion(dir string) (version.Binary, bool, error) {
-	tvers, err := getVersionFromFile(dir)
-	official := err == nil
-	if err != nil && !errors.IsNotFound(err) && !isNoMatchingToolsChecksum(err) {
-		return version.Binary{}, false, errors.Trace(err)
-	}
-	if errors.IsNotFound(err) || isNoMatchingToolsChecksum(err) {
-		// No signature file found.
-		// Extract the version number that the jujud binary was built with.
-		// This is used to check compatibility with the version of the client
-		// being used to bootstrap.
-		tvers, err = getVersionFromJujud(dir)
-		if err != nil {
-			return version.Binary{}, false, errors.Trace(err)
-		}
-	}
-	return tvers, official, nil
-}
-
-type noMatchingToolsChecksum struct {
-	versionPath string
-	jujudPath   string
-}
-
-func (e *noMatchingToolsChecksum) Error() string {
-	return fmt.Sprintf("no SHA256 in version file %q matches binary %q", e.versionPath, e.jujudPath)
-}
-
-func isNoMatchingToolsChecksum(err error) bool {
-	_, ok := err.(*noMatchingToolsChecksum)
-	return ok
-}
-
-func getVersionFromFile(dir string) (version.Binary, error) {
-	versionPath := filepath.Join(dir, names.JujudVersions)
-	sigFile, err := os.Open(versionPath)
-	if os.IsNotExist(err) {
-		return version.Binary{}, errors.NotFoundf("version file %q", versionPath)
-	} else if err != nil {
-		return version.Binary{}, errors.Trace(err)
-	}
-	defer sigFile.Close()
-
-	versions, err := ParseVersions(sigFile)
-	if err != nil {
-		return version.Binary{}, errors.Trace(err)
+		return version.Binary{}, "", err
 	}
 
-	// Find the binary by hash.
-	jujudPath := filepath.Join(dir, names.Jujud)
-	jujudFile, err := os.Open(jujudPath)
-	if err != nil {
-		return version.Binary{}, errors.Trace(err)
+	toolsVersion := version.Binary{
+		Number:  jujuversion.Current,
+		Release: "ubuntu",
+		Arch:    toolsArch,
 	}
-	defer jujudFile.Close()
-	matching, err := versions.VersionsMatching(jujudFile)
-	if err != nil {
-		return version.Binary{}, errors.Trace(err)
-	}
-	if len(matching) == 0 {
-		return version.Binary{}, &noMatchingToolsChecksum{versionPath, jujudPath}
-	}
-	return selectBinary(matching)
-}
-
-func selectBinary(versions []string) (version.Binary, error) {
-	thisArch := arch.HostArch()
-	thisHost := coreos.HostOSTypeName()
-	var current version.Binary
-	for _, ver := range versions {
-		var err error
-		current, err = version.ParseBinary(ver)
-		if err != nil {
-			return version.Binary{}, errors.Trace(err)
-		}
-		if current.Release == thisHost && current.Arch == thisArch {
-			return current, nil
-		}
-	}
-	// There's no version matching our osType/arch, but the signature
-	// still matches the binary for all versions passed in, so just
-	// punt.
-	return current, nil
+	return toolsVersion, sha256hash, nil
 }

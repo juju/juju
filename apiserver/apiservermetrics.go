@@ -4,7 +4,6 @@
 package apiserver
 
 import (
-	"fmt"
 	"runtime"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -110,7 +109,6 @@ func NewMetricsCollector() *Collector {
 		Help:      "The versions of various parts of the Juju Controller",
 		ConstLabels: prometheus.Labels{
 			MetricLabelVersion: version.Current.String(),
-			"official_build":   fmt.Sprint(version.OfficialBuild),
 			"go_compiler":      runtime.Compiler,
 			"go_version":       runtime.Version(),
 			"git_commit":       version.GitCommit,

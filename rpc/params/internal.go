@@ -817,6 +817,7 @@ type ProvisioningInfo struct {
 	ControllerConfig  map[string]interface{}   `json:"controller-config,omitempty"`
 	CloudInitUserData map[string]interface{}   `json:"cloudinit-userdata,omitempty"`
 	CharmLXDProfiles  []string                 `json:"charm-lxd-profiles,omitempty"`
+	CouldBeController bool                     `json:"could-be-controller,omitempty"`
 
 	ProvisioningNetworkTopology
 }
