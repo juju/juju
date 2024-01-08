@@ -215,10 +215,10 @@ func (s *BaseRefreshSuite) refreshCommand() cmd.Command {
 			s.AddCall("NewCharmResolver")
 			return &s.resolveCharm
 		},
-		func(conn api.Connection) store.CharmAdder {
+		func(conn api.Connection) (store.CharmAdder, error) {
 			s.AddCall("NewCharmAdder", conn)
 			s.PopNoErr()
-			return &s.charmAdder
+			return &s.charmAdder, nil
 		},
 		func(conn base.APICallCloser) apputils.CharmClient {
 			s.AddCall("NewCharmClient", conn)

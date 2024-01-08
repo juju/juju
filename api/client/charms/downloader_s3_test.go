@@ -28,7 +28,7 @@ func (s *charmS3DownloaderSuite) TestCharmOpener(c *gc.C) {
 	tests := []struct {
 		name               string
 		req                downloader.Request
-		mocks              func(*mocks.MockSession, *basemocks.MockAPICaller)
+		mocks              func(*mocks.MockCharmGetter, *basemocks.MockAPICaller)
 		expectedErrPattern string
 	}{
 		{
@@ -55,11 +55,11 @@ func (s *charmS3DownloaderSuite) TestCharmOpener(c *gc.C) {
 				ArchiveSha256: "abcd0123",
 				URL:           correctURL,
 			},
-			mocks: func(mockSession *mocks.MockSession, mockCaller *basemocks.MockAPICaller) {
+			mocks: func(mockGetter *mocks.MockCharmGetter, mockCaller *basemocks.MockAPICaller) {
 
 				modelTag := names.NewModelTag("testmodel")
 				mockCaller.EXPECT().ModelTag().Return(modelTag, true)
-				mockSession.EXPECT().GetObject(gomock.Any(), "model-testmodel", "charms/mycharm-abcd0123").MinTimes(1).Return(nil, nil)
+				mockGetter.EXPECT().GetCharm(gomock.Any(), "testmodel", "mycharm-abcd0123").MinTimes(1).Return(nil, nil)
 			},
 		},
 	}
@@ -71,12 +71,12 @@ func (s *charmS3DownloaderSuite) TestCharmOpener(c *gc.C) {
 		defer ctrl.Finish()
 
 		mockCaller := basemocks.NewMockAPICaller(ctrl)
-		mockSession := mocks.NewMockSession(ctrl)
+		mockGetter := mocks.NewMockCharmGetter(ctrl)
 		if tt.mocks != nil {
-			tt.mocks(mockSession, mockCaller)
+			tt.mocks(mockGetter, mockCaller)
 		}
 
-		charmOpener := charms.NewS3CharmOpener(mockSession, mockCaller)
+		charmOpener := charms.NewS3CharmOpener(mockGetter, mockCaller)
 		r, err := charmOpener.OpenCharm(tt.req)
 
 		if tt.expectedErrPattern != "" {

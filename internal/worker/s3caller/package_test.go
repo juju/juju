@@ -9,6 +9,7 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/internal/s3client"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -20,7 +21,7 @@ func TestPackage(t *testing.T) {
 }
 
 type baseSuite struct {
-	logger  Logger
+	logger  s3client.Logger
 	session *MockSession
 	apiConn *MockConnection
 }

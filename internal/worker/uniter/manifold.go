@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	coretrace "github.com/juju/juju/core/trace"
 	"github.com/juju/juju/internal/observability/probe"
+	"github.com/juju/juju/internal/s3client"
 	"github.com/juju/juju/internal/secrets"
 	"github.com/juju/juju/internal/worker/common/reboot"
 	"github.com/juju/juju/internal/worker/fortress"
@@ -159,7 +160,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 
-			s3Downloader := charms.NewS3CharmDownloader(objectStoreCaller, apiConn)
+			s3Downloader := charms.NewS3CharmDownloader(s3client.NewCharmsS3Client(objectStoreCaller), apiConn)
 
 			jujuSecretsAPI := secretsmanager.NewClient(apiConn, uniter.WithTracer(tracer))
 			secretRotateWatcherFunc := func(unitTag names.UnitTag, isLeader bool, rotateSecrets chan []string) (worker.Worker, error) {

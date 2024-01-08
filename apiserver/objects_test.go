@@ -103,8 +103,8 @@ func (s *charmObjectsSuite) TestGetFailsWithInvalidObjectSha256(c *gc.C) {
 func (s *charmObjectsSuite) TestInvalidBucket(c *gc.C) {
 	wrongURL := s.URL("modelwrongbucket/charms/somecharm-abcd0123", nil)
 	resp := sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "GET", URL: wrongURL.String()})
-	body := apitesting.AssertResponse(c, resp, http.StatusBadRequest, "text/plain; charset=utf-8")
-	c.Assert(string(body), gc.Equals, "invalid bucket format \"modelwrongbucket\"\n")
+	body := apitesting.AssertResponse(c, resp, http.StatusNotFound, "text/plain; charset=utf-8")
+	c.Assert(string(body), gc.Equals, "404 page not found\n")
 }
 
 func (s *charmObjectsSuite) TestInvalidModel(c *gc.C) {

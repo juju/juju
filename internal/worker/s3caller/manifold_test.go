@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/internal/s3client"
 )
 
 type manifoldSuite struct {
@@ -40,7 +41,7 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 func (s *manifoldSuite) getConfig() ManifoldConfig {
 	return ManifoldConfig{
 		APICallerName: "api-caller",
-		NewClient: func(api.Connection, Logger) (objectstore.Session, error) {
+		NewClient: func(api.Connection, s3client.Logger) (objectstore.Session, error) {
 			return s.session, nil
 		},
 		Logger: s.logger,

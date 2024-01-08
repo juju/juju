@@ -10,14 +10,8 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/internal/s3client"
 )
-
-// Logger represents the logging methods called.
-type Logger interface {
-	Warningf(message string, args ...any)
-	Debugf(message string, args ...any)
-	Tracef(message string, args ...any)
-}
 
 // ManifoldConfig defines a Manifold's dependencies.
 type ManifoldConfig struct {
@@ -26,10 +20,10 @@ type ManifoldConfig struct {
 	APICallerName string
 
 	// NewClient is used to create a new object store client.
-	NewClient func(apiConn api.Connection, logger Logger) (objectstore.Session, error)
+	NewClient func(apiConn api.Connection, logger s3client.Logger) (objectstore.Session, error)
 
 	// Logger is used to write logging statements for the worker.
-	Logger Logger
+	Logger s3client.Logger
 }
 
 func (cfg ManifoldConfig) Validate() error {
