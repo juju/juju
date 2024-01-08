@@ -181,7 +181,7 @@ func newDeployCommand() *DeployCommand {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		httpPutter, err := apicharms.NewHTTPPutter(apiRoot)
+		localCharmsClient, err := apicharms.NewLocalCharmClient(apiRoot)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -189,7 +189,7 @@ func newDeployCommand() *DeployCommand {
 			Connection:           apiRoot,
 			legacyClient:         apiclient.NewClient(apiRoot, logger),
 			charmsClient:         apicharms.NewClient(apiRoot),
-			localCharmsClient:    apicharms.NewLocalCharmClient(apiRoot, httpPutter),
+			localCharmsClient:    localCharmsClient,
 			applicationClient:    application.NewClient(apiRoot),
 			machineManagerClient: machinemanager.NewClient(apiRoot),
 			modelConfigClient:    modelconfig.NewClient(apiRoot),

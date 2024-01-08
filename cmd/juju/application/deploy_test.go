@@ -2136,7 +2136,7 @@ func newDeployCommandForTest(fakeAPI *fakeDeployAPI) *DeployCommand {
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			httpPutter, err := apicharms.NewHTTPPutter(apiRoot)
+			localCharmClient, err := apicharms.NewLocalCharmClient(apiRoot)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -2144,7 +2144,7 @@ func newDeployCommandForTest(fakeAPI *fakeDeployAPI) *DeployCommand {
 				Connection:        apiRoot,
 				legacyClient:      apiclient.NewClient(apiRoot, coretesting.NoopLogger{}),
 				charmsClient:      apicharms.NewClient(apiRoot),
-				localCharmsClient: apicharms.NewLocalCharmClient(apiRoot, httpPutter),
+				localCharmsClient: localCharmClient,
 				applicationClient: application.NewClient(apiRoot),
 				modelConfigClient: modelconfig.NewClient(apiRoot),
 				annotationsClient: annotations.NewClient(apiRoot),

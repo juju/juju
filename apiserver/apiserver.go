@@ -764,6 +764,7 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 	}
 	modelObjectsCharmsHTTPHandler := &objectsCharmHTTPHandler{
 		GetHandler:          modelObjectsCharmsHandler.ServeGet,
+		PutHandler:          modelObjectsCharmsHandler.ServePut,
 		LegacyCharmsHandler: modelCharmsHTTPHandler,
 	}
 
@@ -981,7 +982,7 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		authorizer: modelCharmsUploadAuthorizer,
 	}, {
 		pattern: charmsObjectsRoutePrefix,
-		methods: []string{"GET"},
+		methods: []string{"GET", "PUT"},
 		handler: modelObjectsCharmsHTTPHandler,
 	}}
 	if srv.registerIntrospectionHandlers != nil {
