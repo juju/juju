@@ -84,7 +84,7 @@ func (s *SecretsManagerSuite) setup(c *gc.C) *gomock.Controller {
 
 	s.clock = testclock.NewClock(time.Now())
 
-	backendConfigGetter := func(backendIds []string, wantAll bool) (*provider.ModelBackendConfigInfo, error) {
+	backendConfigGetter := func(_ context.Context, backendIds []string, wantAll bool) (*provider.ModelBackendConfigInfo, error) {
 		// wantAll is for 3.1 compatibility only.
 		if wantAll {
 			return nil, errors.NotSupportedf("wantAll")
@@ -104,7 +104,7 @@ func (s *SecretsManagerSuite) setup(c *gc.C) *gomock.Controller {
 			},
 		}, nil
 	}
-	adminConfigGetter := func() (*provider.ModelBackendConfigInfo, error) {
+	adminConfigGetter := func(_ context.Context) (*provider.ModelBackendConfigInfo, error) {
 		return &provider.ModelBackendConfigInfo{
 			ActiveID: "backend-id",
 			Configs: map[string]provider.ModelBackendConfig{
@@ -120,7 +120,7 @@ func (s *SecretsManagerSuite) setup(c *gc.C) *gomock.Controller {
 			},
 		}, nil
 	}
-	drainConfigGetter := func(backendID string) (*provider.ModelBackendConfigInfo, error) {
+	drainConfigGetter := func(_ context.Context, backendID string) (*provider.ModelBackendConfigInfo, error) {
 		return &provider.ModelBackendConfigInfo{
 			ActiveID: "backend-id",
 			Configs: map[string]provider.ModelBackendConfig{
@@ -136,7 +136,7 @@ func (s *SecretsManagerSuite) setup(c *gc.C) *gomock.Controller {
 			},
 		}, nil
 	}
-	remoteClientGetter := func(uri *coresecrets.URI) (secretsmanager.CrossModelSecretsClient, error) {
+	remoteClientGetter := func(_ context.Context, uri *coresecrets.URI) (secretsmanager.CrossModelSecretsClient, error) {
 		return s.remoteClient, nil
 	}
 

@@ -4,6 +4,7 @@
 package usersecrets
 
 import (
+	"context"
 	"testing"
 
 	"github.com/juju/names/v5"
@@ -29,7 +30,7 @@ func NewTestAPI(
 	controllerUUID string,
 	modelUUID string,
 	secretsState SecretsState,
-	backendConfigGetter func() (*provider.ModelBackendConfigInfo, error),
+	backendConfigGetter func(ctx context.Context) (*provider.ModelBackendConfigInfo, error),
 ) (*UserSecretsManager, error) {
 	if !authorizer.AuthController() {
 		return nil, apiservererrors.ErrPerm

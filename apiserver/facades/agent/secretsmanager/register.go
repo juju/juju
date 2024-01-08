@@ -62,13 +62,13 @@ func NewSecretManagerAPI(stdCtx context.Context, ctx facade.Context) (*SecretsMa
 	}
 	cloudService := serviceFactory.Cloud()
 	credentialSerivce := serviceFactory.Credential()
-	secretBackendConfigGetter := func(backendIDs []string, wantAll bool) (*provider.ModelBackendConfigInfo, error) {
+	secretBackendConfigGetter := func(stdCtx context.Context, backendIDs []string, wantAll bool) (*provider.ModelBackendConfigInfo, error) {
 		return secrets.BackendConfigInfo(stdCtx, secrets.SecretsModel(model), cloudService, credentialSerivce, backendIDs, wantAll, ctx.Auth().GetAuthTag(), leadershipChecker)
 	}
-	secretBackendAdminConfigGetter := func() (*provider.ModelBackendConfigInfo, error) {
+	secretBackendAdminConfigGetter := func(stdCtx context.Context) (*provider.ModelBackendConfigInfo, error) {
 		return secrets.AdminBackendConfigInfo(stdCtx, secrets.SecretsModel(model), cloudService, credentialSerivce)
 	}
-	secretBackendDrainConfigGetter := func(backendID string) (*provider.ModelBackendConfigInfo, error) {
+	secretBackendDrainConfigGetter := func(stdCtx context.Context, backendID string) (*provider.ModelBackendConfigInfo, error) {
 		return secrets.DrainBackendConfigInfo(stdCtx, backendID, secrets.SecretsModel(model), cloudService, credentialSerivce, ctx.Auth().GetAuthTag(), leadershipChecker)
 	}
 	controllerAPI := common.NewControllerConfigAPI(
@@ -76,7 +76,7 @@ func NewSecretManagerAPI(stdCtx context.Context, ctx facade.Context) (*SecretsMa
 		serviceFactory.ControllerConfig(),
 		serviceFactory.ExternalController(),
 	)
-	remoteClientGetter := func(uri *coresecrets.URI) (CrossModelSecretsClient, error) {
+	remoteClientGetter := func(stdCtx context.Context, uri *coresecrets.URI) (CrossModelSecretsClient, error) {
 		info, err := controllerAPI.ControllerAPIInfoForModels(stdCtx, params.Entities{Entities: []params.Entity{{
 			Tag: names.NewModelTag(uri.SourceUUID).String(),
 		}}})

@@ -49,7 +49,7 @@ type ModelUpgraderAPI struct {
 	upgradeService              UpgradeService
 
 	registryAPIFunc         func(repoDetails docker.ImageRepoDetails) (registry.Registry, error)
-	environscloudspecGetter func(names.ModelTag) (environscloudspec.CloudSpec, error)
+	environscloudspecGetter func(context.Context, names.ModelTag) (environscloudspec.CloudSpec, error)
 	logger                  loggo.Logger
 }
 
@@ -64,7 +64,7 @@ func NewModelUpgraderAPI(
 	authorizer facade.Authorizer,
 	credentialInvalidatorGetter envcontext.ModelCredentialInvalidatorGetter,
 	registryAPIFunc func(docker.ImageRepoDetails) (registry.Registry, error),
-	environscloudspecGetter func(names.ModelTag) (environscloudspec.CloudSpec, error),
+	environscloudspecGetter func(context.Context, names.ModelTag) (environscloudspec.CloudSpec, error),
 	upgradeService UpgradeService,
 	logger loggo.Logger,
 ) (*ModelUpgraderAPI, error) {
@@ -223,7 +223,7 @@ func (m *ModelUpgraderAPI) UpgradeModel(ctx stdcontext.Context, arg params.Upgra
 		return result, errors.Trace(err)
 	}
 
-	if err := m.validateModelUpgrade(false, modelTag, targetVersion, st, model); err != nil {
+	if err := m.validateModelUpgrade(ctx, false, modelTag, targetVersion, st, model); err != nil {
 		result.Error = apiservererrors.ServerError(err)
 		return result, nil
 	}
@@ -307,6 +307,7 @@ func preCheckEnvironForUpgradeModel(
 }
 
 func (m *ModelUpgraderAPI) validateModelUpgrade(
+	ctx context.Context,
 	force bool, modelTag names.ModelTag, targetVersion version.Number,
 	st State, model Model,
 ) (err error) {
@@ -322,7 +323,7 @@ func (m *ModelUpgraderAPI) validateModelUpgrade(
 		}
 	}()
 
-	cloudspec, err := m.environscloudspecGetter(modelTag)
+	cloudspec, err := m.environscloudspecGetter(ctx, modelTag)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -372,7 +373,7 @@ func (m *ModelUpgraderAPI) validateModelUpgrade(
 			continue
 		}
 
-		cloudspec, err := m.environscloudspecGetter(names.NewModelTag(modelUUID))
+		cloudspec, err := m.environscloudspecGetter(ctx, names.NewModelTag(modelUUID))
 		if err != nil {
 			return errors.Trace(err)
 		}

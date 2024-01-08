@@ -439,7 +439,7 @@ Please choose a different model name.
 		}
 	}()
 
-	broker, err := m.getBroker(context.Background(), environs.OpenParams{
+	broker, err := m.getBroker(ctx, environs.OpenParams{
 		ControllerUUID: controllerConfig.ControllerUUID(),
 		Cloud:          cloudSpec,
 		Config:         newConfig,
@@ -496,7 +496,7 @@ func (m *ModelManagerAPI) newModel(
 	}
 
 	// Create the Environ.
-	env, err := environs.New(context.Background(), environs.OpenParams{
+	env, err := environs.New(ctx, environs.OpenParams{
 		ControllerUUID: controllerCfg.ControllerUUID(),
 		Cloud:          cloudSpec,
 		Config:         newConfig,

@@ -4,6 +4,7 @@
 package secretsmanager
 
 import (
+	"context"
 	"testing"
 
 	"github.com/juju/clock"
@@ -43,7 +44,7 @@ func NewTestAPI(
 	backendConfigGetter commonsecrets.BackendConfigGetter,
 	adminConfigGetter commonsecrets.BackendAdminConfigGetter,
 	drainConfigGetter commonsecrets.BackendDrainConfigGetter,
-	remoteClientGetter func(uri *coresecrets.URI) (CrossModelSecretsClient, error),
+	remoteClientGetter func(ctx context.Context, uri *coresecrets.URI) (CrossModelSecretsClient, error),
 	crossModelState CrossModelState,
 	authTag names.Tag,
 	clock clock.Clock,

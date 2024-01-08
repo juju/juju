@@ -228,7 +228,7 @@ func (api *MetricsManagerAPI) SendMetrics(ctx context.Context, args params.Entit
 		if err != nil {
 			return result, errors.Trace(err)
 		}
-		err = metricsender.SendMetrics(modelBackend{modelState, model}, api.sender, api.clock, maxBatchesPerSend, txVendorMetrics)
+		err = metricsender.SendMetrics(ctx, modelBackend{modelState, model}, api.sender, api.clock, maxBatchesPerSend, txVendorMetrics)
 		if err != nil {
 			err = errors.Annotatef(err, "failed to send metrics for %s", tag)
 			logger.Warningf("%v", err)

@@ -138,7 +138,7 @@ func CheckLocalLoginRequest(
 	auth MacaroonChecker,
 	req *http.Request,
 ) error {
-	a := auth.Auth(httpbakery.RequestMacaroons(req)...)
+	a := auth.Auth(ctx, httpbakery.RequestMacaroons(req)...)
 	ai, err := a.Allow(ctx, identchecker.LoginOp)
 	if err != nil {
 		return errors.Annotatef(err, "local login request failed: %v", req.Header[httpbakery.MacaroonsHeader])
@@ -167,7 +167,7 @@ func (u *LocalUserAuthenticator) authenticateMacaroons(
 		mac, _ := json.Marshal(authParams.Macaroons)
 		logger.Tracef("authentication macaroons for %s: %s", tag, mac)
 	}
-	a := u.Bakery.Auth(authParams.Macaroons...)
+	a := u.Bakery.Auth(ctx, authParams.Macaroons...)
 	ai, err := a.Allow(ctx, identchecker.LoginOp)
 	if err == nil {
 		logger.Tracef("authenticated conditions: %v", ai.Conditions())
@@ -327,7 +327,7 @@ type Bakery interface {
 
 // MacaroonChecker exposes the methods needed from bakery.Checker.
 type MacaroonChecker interface {
-	Auth(mss ...macaroon.Slice) *bakery.AuthChecker
+	Auth(ctx context.Context, mss ...macaroon.Slice) *bakery.AuthChecker
 }
 
 // MacaroonMinter exposes the methods needed from bakery.Oven.

@@ -13,12 +13,12 @@ import (
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("Controller", 11, func(stdCtx context.Context, ctx facade.Context) (facade.Facade, error) {
-		return newControllerAPIv11(ctx)
+		return newControllerAPIv11(stdCtx, ctx)
 	}, reflect.TypeOf((*ControllerAPI)(nil)))
 }
 
 // newControllerAPIv11 creates a new ControllerAPIv11
-func newControllerAPIv11(ctx facade.Context) (*ControllerAPI, error) {
+func newControllerAPIv11(stdCtx context.Context, ctx facade.Context) (*ControllerAPI, error) {
 	var (
 		st             = ctx.State()
 		authorizer     = ctx.Auth()
@@ -31,6 +31,7 @@ func newControllerAPIv11(ctx facade.Context) (*ControllerAPI, error) {
 	)
 
 	return NewControllerAPI(
+		stdCtx,
 		st,
 		pool,
 		authorizer,

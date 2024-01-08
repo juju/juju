@@ -41,6 +41,7 @@ func (s *provisionerSuite) TestNewStorageProvisionerAPINonMachine(c *gc.C) {
 	backend, storageBackend, err := storageprovisioner.NewStateBackends(s.st)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = storageprovisioner.NewStorageProvisionerAPIv4(
+		context.Background(),
 		backend,
 		storageBackend,
 		s.ControllerServiceFactory(c).ControllerConfig(),

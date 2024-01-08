@@ -28,6 +28,7 @@ var sendMetrics = func(ctx context.Context, st metricsender.ModelBackend) error 
 	}
 
 	err = metricsender.SendMetrics(
+		ctx,
 		st,
 		metricsender.DefaultSenderFactory()(meteringURL),
 		clock.WallClock,

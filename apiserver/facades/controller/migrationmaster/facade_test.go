@@ -613,7 +613,7 @@ func (s *Suite) makeAPI() (*migrationmaster.API, error) {
 		s.resources,
 		s.authorizer,
 		&stubPresence{},
-		func(names.ModelTag) (environscloudspec.CloudSpec, error) { return s.cloudSpec, nil },
+		func(context.Context, names.ModelTag) (environscloudspec.CloudSpec, error) { return s.cloudSpec, nil },
 		stubLeadership{},
 		s.credentialService,
 		s.upgradeService,

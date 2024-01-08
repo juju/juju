@@ -61,6 +61,7 @@ func (s *destroyControllerSuite) SetUpTest(c *gc.C) {
 		Tag: jujutesting.AdminUser,
 	}
 	testController, err := controller.NewControllerAPIv11(
+		context.Background(),
 		facadetest.Context{
 			State_:          s.ControllerModel(c).State(),
 			StatePool_:      s.StatePool(),

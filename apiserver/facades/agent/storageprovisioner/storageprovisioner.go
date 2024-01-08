@@ -56,6 +56,7 @@ type StorageProvisionerAPIv4 struct {
 
 // NewStorageProvisionerAPIv4 creates a new server-side StorageProvisioner v3 facade.
 func NewStorageProvisionerAPIv4(
+	ctx context.Context,
 	st Backend,
 	sb StorageBackend,
 	controllerConfigService ControllerConfigService,
@@ -72,7 +73,7 @@ func NewStorageProvisionerAPIv4(
 	// Cache the controller UUID so that we can use it later on.
 	// The controller UUID is a readonly property of the controller	config,
 	// so we don't need to refetch it for every request.
-	controllerConfig, err := controllerConfigService.ControllerConfig(context.Background())
+	controllerConfig, err := controllerConfigService.ControllerConfig(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

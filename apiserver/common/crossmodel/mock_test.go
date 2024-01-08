@@ -27,7 +27,7 @@ func (m *mockBakery) ExpireStorageAfter(time.Duration) (authentication.Expirable
 	return m, nil
 }
 
-func (m *mockBakery) Auth(mss ...macaroon.Slice) *bakery.AuthChecker {
+func (m *mockBakery) Auth(_ context.Context, mss ...macaroon.Slice) *bakery.AuthChecker {
 	return m.Bakery.Checker.Auth(mss...)
 }
 

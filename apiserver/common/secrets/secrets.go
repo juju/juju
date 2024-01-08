@@ -45,13 +45,13 @@ func getSecretBackendsState(m Model) state.SecretBackendsStorage {
 }
 
 // BackendConfigGetter is a func used to get secret backend config.
-type BackendConfigGetter func(backendIDs []string, wantAll bool) (*provider.ModelBackendConfigInfo, error)
+type BackendConfigGetter func(ctx context.Context, backendIDs []string, wantAll bool) (*provider.ModelBackendConfigInfo, error)
 
 // BackendAdminConfigGetter is a func used to get admin level secret backend config.
-type BackendAdminConfigGetter func() (*provider.ModelBackendConfigInfo, error)
+type BackendAdminConfigGetter func(context.Context) (*provider.ModelBackendConfigInfo, error)
 
 // BackendDrainConfigGetter is a func used to get secret backend config for draining.
-type BackendDrainConfigGetter func(string) (*provider.ModelBackendConfigInfo, error)
+type BackendDrainConfigGetter func(context.Context, string) (*provider.ModelBackendConfigInfo, error)
 
 // AdminBackendConfigInfo returns the admin config for the secret backends is use by
 // the specified model.
@@ -564,16 +564,18 @@ func GetSecretMetadata(
 // The secrets are only removed from the state and
 // the caller must have permission to manage the secret(secret owners remove secrets from the backend on uniter side).
 func RemoveSecretsForAgent(
+	ctx context.Context,
 	removeState SecretsRemoveState, adminConfigGetter BackendAdminConfigGetter,
 	args params.DeleteSecretArgs,
 	modelUUID string,
 	canDelete func(*coresecrets.URI) error,
 ) (params.ErrorResults, error) {
 	return removeSecrets(
+		ctx,
 		removeState, adminConfigGetter, args,
 		modelUUID,
 		canDelete,
-		func(provider.SecretBackendProvider, provider.ModelBackendConfig, provider.SecretRevisions) error {
+		func(context.Context, provider.SecretBackendProvider, provider.ModelBackendConfig, provider.SecretRevisions) error {
 			return nil
 		},
 	)
@@ -589,8 +591,9 @@ func RemoveUserSecrets(
 	canDelete func(*coresecrets.URI) error,
 ) (params.ErrorResults, error) {
 	return removeSecrets(
+		ctx,
 		removeState, adminConfigGetter, args, modelUUID, canDelete,
-		func(p provider.SecretBackendProvider, cfg provider.ModelBackendConfig, revs provider.SecretRevisions) error {
+		func(ctx context.Context, p provider.SecretBackendProvider, cfg provider.ModelBackendConfig, revs provider.SecretRevisions) error {
 			backend, err := p.NewBackend(&cfg)
 			if err != nil {
 				return errors.Trace(err)
@@ -626,11 +629,12 @@ func getSecretURIForLabel(secretsState ListSecretsState, modelUUID string, label
 }
 
 func removeSecrets(
+	ctx context.Context,
 	removeState SecretsRemoveState, adminConfigGetter BackendAdminConfigGetter,
 	args params.DeleteSecretArgs,
 	modelUUID string,
 	canDelete func(*coresecrets.URI) error,
-	removeFromBackend func(provider.SecretBackendProvider, provider.ModelBackendConfig, provider.SecretRevisions) error,
+	removeFromBackend func(context.Context, provider.SecretBackendProvider, provider.ModelBackendConfig, provider.SecretRevisions) error,
 ) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Args)),
@@ -639,7 +643,7 @@ func removeSecrets(
 	if len(args.Args) == 0 {
 		return result, nil
 	}
-	cfgInfo, err := adminConfigGetter()
+	cfgInfo, err := adminConfigGetter(ctx)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -684,7 +688,7 @@ func removeSecrets(
 			if err != nil {
 				return errors.Trace(err)
 			}
-			if err := removeFromBackend(provider, backendCfg, r); err != nil {
+			if err := removeFromBackend(ctx, provider, backendCfg, r); err != nil {
 				return errors.Trace(err)
 			}
 		}

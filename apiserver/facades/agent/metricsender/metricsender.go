@@ -77,7 +77,7 @@ func handleResponse(mm *state.MetricsManager, st ModelBackend, response wireform
 // SendMetrics will send any unsent metrics
 // over the MetricSender interface in batches
 // no larger than batchSize.
-func SendMetrics(st ModelBackend, sender MetricSender, clock clock.Clock, batchSize int, transmitVendorMetrics bool) error {
+func SendMetrics(ctx context.Context, st ModelBackend, sender MetricSender, clock clock.Clock, batchSize int, transmitVendorMetrics bool) error {
 	metricsManager, err := st.MetricsManager()
 	if err != nil {
 		return errors.Trace(err)
@@ -111,7 +111,7 @@ func SendMetrics(st ModelBackend, sender MetricSender, clock clock.Clock, batchS
 				wireData = append(wireData, ToWire(m, modelName))
 			}
 		}
-		response, err := sender.Send(context.Background(), wireData)
+		response, err := sender.Send(ctx, wireData)
 		if err != nil {
 			logger.Errorf("%+v", err)
 			if incErr := metricsManager.IncrementConsecutiveErrors(); incErr != nil {

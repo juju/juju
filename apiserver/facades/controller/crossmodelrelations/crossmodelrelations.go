@@ -38,7 +38,6 @@ type consumedSecretsWatcherFunc func(CrossModelRelationsState, string) (state.St
 
 // CrossModelRelationsAPI provides access to the CrossModelRelations API facade.
 type CrossModelRelationsAPI struct {
-	ctx        context.Context
 	st         CrossModelRelationsState
 	fw         firewall.State
 	resources  facade.Resources
@@ -69,7 +68,6 @@ func NewCrossModelRelationsAPI(
 	logger loggo.Logger,
 ) (*CrossModelRelationsAPI, error) {
 	return &CrossModelRelationsAPI{
-		ctx:                    context.Background(),
 		st:                     st,
 		fw:                     fw,
 		resources:              resources,
@@ -97,7 +95,7 @@ func (api *CrossModelRelationsAPI) checkMacaroonsForRelation(ctx context.Context
 		offerUUID = oc.OfferUUID()
 	}
 	auth := api.authCtxt.Authenticator()
-	return auth.CheckRelationMacaroons(api.ctx, api.st.ModelUUID(), offerUUID, relationTag, mac, version)
+	return auth.CheckRelationMacaroons(ctx, api.st.ModelUUID(), offerUUID, relationTag, mac, version)
 }
 
 // PublishRelationChanges publishes relation changes to the
@@ -176,14 +174,14 @@ func (api *CrossModelRelationsAPI) RegisterRemoteRelations(
 		Results: make([]params.RegisterRemoteRelationResult, len(relations.Relations)),
 	}
 	for i, relation := range relations.Relations {
-		id, err := api.registerRemoteRelation(relation)
+		id, err := api.registerRemoteRelation(ctx, relation)
 		results.Results[i].Result = id
 		results.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return results, nil
 }
 
-func (api *CrossModelRelationsAPI) registerRemoteRelation(relation params.RegisterRemoteRelationArg) (*params.RemoteRelationDetails, error) {
+func (api *CrossModelRelationsAPI) registerRemoteRelation(ctx context.Context, relation params.RegisterRemoteRelationArg) (*params.RemoteRelationDetails, error) {
 	api.logger.Debugf("register remote relation %+v", relation)
 	// TODO(wallyworld) - do this as a transaction so the result is atomic
 	// Perform some initial validation - is the local application alive?
@@ -196,7 +194,7 @@ func (api *CrossModelRelationsAPI) registerRemoteRelation(relation params.Regist
 
 	// Check that the supplied macaroon allows access.
 	auth := api.authCtxt.Authenticator()
-	attr, err := auth.CheckOfferMacaroons(api.ctx, api.st.ModelUUID(), appOffer.OfferUUID, relation.Macaroons, relation.BakeryVersion)
+	attr, err := auth.CheckOfferMacaroons(ctx, api.st.ModelUUID(), appOffer.OfferUUID, relation.Macaroons, relation.BakeryVersion)
 	if err != nil {
 		return nil, err
 	}
@@ -328,7 +326,7 @@ func (api *CrossModelRelationsAPI) registerRemoteRelation(relation params.Regist
 
 	// Mint a new macaroon attenuated to the actual relation.
 	relationMacaroon, err := api.authCtxt.CreateRemoteRelationMacaroon(
-		api.ctx, api.st.ModelUUID(), relation.OfferUUID, username, localRel.Tag(), relation.BakeryVersion)
+		ctx, api.st.ModelUUID(), relation.OfferUUID, username, localRel.Tag(), relation.BakeryVersion)
 	if err != nil {
 		return nil, errors.Annotate(err, "creating relation macaroon")
 	}
@@ -502,6 +500,7 @@ func watchConsumedSecrets(st CrossModelRelationsState, appName string) (state.St
 // WatchOfferStatus starts an OfferStatusWatcher for
 // watching the status of an offer.
 func (api *CrossModelRelationsAPI) WatchOfferStatus(
+	ctx context.Context,
 	offerArgs params.OfferArgs,
 ) (params.OfferStatusWatchResults, error) {
 	results := params.OfferStatusWatchResults{
@@ -511,7 +510,7 @@ func (api *CrossModelRelationsAPI) WatchOfferStatus(
 	auth := api.authCtxt.Authenticator()
 	for i, arg := range offerArgs.Args {
 		// Ensure the supplied macaroon allows access.
-		_, err := auth.CheckOfferMacaroons(api.ctx, api.st.ModelUUID(), arg.OfferUUID, arg.Macaroons, arg.BakeryVersion)
+		_, err := auth.CheckOfferMacaroons(ctx, api.st.ModelUUID(), arg.OfferUUID, arg.Macaroons, arg.BakeryVersion)
 		if err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -563,7 +562,7 @@ func (api *CrossModelRelationsAPI) WatchConsumedSecretsChanges(ctx context.Conte
 		}
 
 		// Ensure the supplied macaroon allows access.
-		_, err = auth.CheckOfferMacaroons(api.ctx, api.st.ModelUUID(), offerUUID, arg.Macaroons, arg.BakeryVersion)
+		_, err = auth.CheckOfferMacaroons(ctx, api.st.ModelUUID(), offerUUID, arg.Macaroons, arg.BakeryVersion)
 		if err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue

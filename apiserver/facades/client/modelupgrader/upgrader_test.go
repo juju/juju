@@ -137,7 +137,7 @@ func (s *modelUpgradeSuite) newFacade(c *gc.C) *modelupgrader.ModelUpgraderAPI {
 		func(docker.ImageRepoDetails) (registry.Registry, error) {
 			return s.registryProvider, nil
 		},
-		func(names.ModelTag) (environscloudspec.CloudSpec, error) {
+		func(stdcontext.Context, names.ModelTag) (environscloudspec.CloudSpec, error) {
 			return s.cloudSpec.CloudSpec, nil
 		},
 		s.upgradeService,

@@ -49,7 +49,7 @@ type API struct {
 	authorizer              facade.Authorizer
 	resources               facade.Resources
 	presence                facade.Presence
-	environscloudspecGetter func(names.ModelTag) (environscloudspec.CloudSpec, error)
+	environscloudspecGetter func(context.Context, names.ModelTag) (environscloudspec.CloudSpec, error)
 	leadership              leadership.Reader
 	credentialService       common.CredentialService
 	upgradeService          UpgradeService
@@ -68,7 +68,7 @@ func NewAPI(
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 	presence facade.Presence,
-	environscloudspecGetter func(names.ModelTag) (environscloudspec.CloudSpec, error),
+	environscloudspecGetter func(context.Context, names.ModelTag) (environscloudspec.CloudSpec, error),
 	leadership leadership.Reader,
 	credentialService common.CredentialService,
 	upgradeService UpgradeService,

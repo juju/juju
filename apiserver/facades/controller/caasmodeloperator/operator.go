@@ -111,7 +111,7 @@ func (a *API) ModelOperatorProvisioningInfo(ctx context.Context) (params.ModelOp
 				modelConfig.Name()))
 	}
 
-	apiAddresses, err := a.APIAddresses(context.Background())
+	apiAddresses, err := a.APIAddresses(ctx)
 	if err != nil && apiAddresses.Error != nil {
 		err = apiAddresses.Error
 	}

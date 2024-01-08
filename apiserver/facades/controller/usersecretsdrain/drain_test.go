@@ -4,6 +4,8 @@
 package usersecretsdrain_test
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -36,7 +38,7 @@ func (s *drainSuite) setup(c *gc.C) *gomock.Controller {
 	s.authorizer.EXPECT().AuthController().Return(true)
 	s.secretsState = mocks.NewMockSecretsState(ctrl)
 
-	backendConfigGetter := func(backendIds []string, wantAll bool) (*provider.ModelBackendConfigInfo, error) {
+	backendConfigGetter := func(_ context.Context, backendIds []string, wantAll bool) (*provider.ModelBackendConfigInfo, error) {
 		// wantAll is for 3.1 compatibility only.
 		if wantAll {
 			return nil, errors.NotSupportedf("wantAll")
@@ -57,7 +59,7 @@ func (s *drainSuite) setup(c *gc.C) *gomock.Controller {
 		}, nil
 	}
 
-	drainConfigGetter := func(backendID string) (*provider.ModelBackendConfigInfo, error) {
+	drainConfigGetter := func(_ context.Context, backendID string) (*provider.ModelBackendConfigInfo, error) {
 		return &provider.ModelBackendConfigInfo{
 			ActiveID: "backend-id",
 			Configs: map[string]provider.ModelBackendConfig{
@@ -84,7 +86,7 @@ func (s *drainSuite) setup(c *gc.C) *gomock.Controller {
 func (s *drainSuite) TestGetSecretBackendConfigs(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	result, err := s.facade.GetSecretBackendConfigs(params.SecretBackendArgs{
+	result, err := s.facade.GetSecretBackendConfigs(context.Background(), params.SecretBackendArgs{
 		BackendIDs: []string{"backend-id"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -108,7 +110,7 @@ func (s *drainSuite) TestGetSecretBackendConfigs(c *gc.C) {
 func (s *drainSuite) TestGetSecretContentInvalidArg(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	results, err := s.facade.GetSecretContentInfo(params.GetSecretContentArgs{
+	results, err := s.facade.GetSecretContentInfo(context.Background(), params.GetSecretContentArgs{
 		Args: []params.GetSecretContentArg{{}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -126,7 +128,7 @@ func (s *drainSuite) TestGetSecretContentInternal(c *gc.C) {
 		val, nil, nil,
 	)
 
-	results, err := s.facade.GetSecretContentInfo(params.GetSecretContentArgs{
+	results, err := s.facade.GetSecretContentInfo(context.Background(), params.GetSecretContentArgs{
 		Args: []params.GetSecretContentArg{
 			{URI: uri.String()},
 		},
@@ -151,7 +153,7 @@ func (s *drainSuite) TestGetSecretContentExternal(c *gc.C) {
 		}, nil,
 	)
 
-	results, err := s.facade.GetSecretContentInfo(params.GetSecretContentArgs{
+	results, err := s.facade.GetSecretContentInfo(context.Background(), params.GetSecretContentArgs{
 		Args: []params.GetSecretContentArg{
 			{URI: uri.String()},
 		},
@@ -189,7 +191,7 @@ func (s *drainSuite) TestGetSecretRevisionContentInfoInternal(c *gc.C) {
 		val, nil, nil,
 	)
 
-	results, err := s.facade.GetSecretRevisionContentInfo(params.SecretRevisionArg{
+	results, err := s.facade.GetSecretRevisionContentInfo(context.Background(), params.SecretRevisionArg{
 		URI:       uri.String(),
 		Revisions: []int{666},
 	})
@@ -212,7 +214,7 @@ func (s *drainSuite) TestGetSecretRevisionContentInfoExternal(c *gc.C) {
 		}, nil,
 	)
 
-	results, err := s.facade.GetSecretRevisionContentInfo(params.SecretRevisionArg{
+	results, err := s.facade.GetSecretRevisionContentInfo(context.Background(), params.SecretRevisionArg{
 		URI:       uri.String(),
 		Revisions: []int{666},
 	})

@@ -352,7 +352,7 @@ func (a *authenticator) checkMacaroons(
 	sourceModelUUID := declared[sourcemodelKey]
 	offerUUID := declared[offeruuidKey]
 
-	auth := a.bakery.Auth(mac)
+	auth := a.bakery.Auth(ctx, mac)
 	ai, err := auth.Allow(ctx, op)
 	if err == nil && len(ai.Conditions()) > 0 {
 		if err = a.checkMacaroonCaveats(op, relation, sourceModelUUID, offerUUID); err == nil {

@@ -86,6 +86,7 @@ var LatestAPI = newControllerAPIv11
 // NewControllerAPI creates a new api server endpoint for operations
 // on a controller.
 func NewControllerAPI(
+	ctx context.Context,
 	st *state.State,
 	pool *state.StatePool,
 	authorizer facade.Authorizer,
@@ -240,6 +241,7 @@ func (c *ControllerAPI) dashboardConnectionInfoForCAAS(
 // dashboardConnectionInforForIAAS returns a dashboard connection for a Juju
 // dashboard deployed on IAAS.
 func (c *ControllerAPI) dashboardConnectionInfoForIAAS(
+	ctx context.Context,
 	appName string,
 	appSettings map[string]interface{},
 ) (*params.DashboardConnectionSSHTunnel, error) {
@@ -269,7 +271,7 @@ func (c *ControllerAPI) dashboardConnectionInfoForIAAS(
 		return nil, errors.Trace(err)
 	}
 	modelName := model.Name()
-	ctrCfg, err := c.controllerConfigService.ControllerConfig(context.Background())
+	ctrCfg, err := c.controllerConfigService.ControllerConfig(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -325,6 +327,7 @@ func (c *ControllerAPI) DashboardConnectionInfo(ctx context.Context) (params.Das
 
 			if model.Type() != state.ModelTypeCAAS {
 				sshConnection, err := c.dashboardConnectionInfoForIAAS(
+					ctx,
 					related.ApplicationName,
 					appSettings)
 				rval.SSHConnection = sshConnection
@@ -809,13 +812,13 @@ func (c *ControllerAPI) ConfigSet(ctx context.Context, args params.ControllerCon
 		return errors.Trace(err)
 	}
 	// Write Controller Config to DQLite.
-	if err := c.controllerConfigService.UpdateControllerConfig(context.Background(), args.Config, nil); err != nil {
+	if err := c.controllerConfigService.UpdateControllerConfig(ctx, args.Config, nil); err != nil {
 		return errors.Trace(err)
 	}
 	// TODO(thumper): add a version to controller config to allow for
 	// simultaneous updates and races in publishing, potentially across
 	// HA servers.
-	cfg, err := c.controllerConfigService.ControllerConfig(context.Background())
+	cfg, err := c.controllerConfigService.ControllerConfig(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -995,7 +998,7 @@ func makeModelInfo(ctx context.Context, st, ctlrSt *state.State, controllerConfi
 	}
 	controllerVersion, _ := controllerConfig.AgentVersion()
 
-	coreConf, err := controllerConfigService.ControllerConfig(context.Background())
+	coreConf, err := controllerConfigService.ControllerConfig(ctx)
 	if err != nil {
 		return empty, userList{}, errors.Trace(err)
 	}

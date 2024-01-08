@@ -98,7 +98,7 @@ func (u *UndertakerAPI) ProcessDyingModel(ctx context.Context) error {
 
 // RemoveModel removes any records of this model from Juju.
 func (u *UndertakerAPI) RemoveModel(ctx context.Context) error {
-	secretBackendCfg, err := u.secretBackendConfigGetter()
+	secretBackendCfg, err := u.secretBackendConfigGetter(ctx)
 	if err != nil {
 		return errors.Annotate(err, "getting secrets backends config")
 	}

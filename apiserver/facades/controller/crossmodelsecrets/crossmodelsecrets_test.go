@@ -68,7 +68,7 @@ func (m *mockBakery) ExpireStorageAfter(_ time.Duration) (authentication.Expirab
 	return m, nil
 }
 
-func (m *mockBakery) Auth(mss ...macaroon.Slice) *bakery.AuthChecker {
+func (m *mockBakery) Auth(_ context.Context, mss ...macaroon.Slice) *bakery.AuthChecker {
 	return m.Bakery.Checker.Auth(mss...)
 }
 
@@ -105,7 +105,7 @@ func (s *CrossModelSecretsSuite) setup(c *gc.C) *gomock.Controller {
 	secretsStateGetter := func(modelUUID string) (crossmodelsecrets.SecretsState, crossmodelsecrets.SecretsConsumer, func() bool, error) {
 		return s.secretsState, s.secretsConsumer, func() bool { return false }, nil
 	}
-	backendConfigGetter := func(modelUUID string) (*provider.ModelBackendConfigInfo, error) {
+	backendConfigGetter := func(_ context.Context, modelUUID string) (*provider.ModelBackendConfigInfo, error) {
 		return &provider.ModelBackendConfigInfo{
 			ActiveID: "active-id",
 			Configs: map[string]provider.ModelBackendConfig{

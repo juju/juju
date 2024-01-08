@@ -34,9 +34,9 @@ func NewUserSecretsManager(context facade.Context) (*UserSecretsManager, error) 
 	}
 
 	serviceFactory := context.ServiceFactory()
-	backendConfigGetter := func() (*provider.ModelBackendConfigInfo, error) {
+	backendConfigGetter := func(ctx stdcontext.Context) (*provider.ModelBackendConfigInfo, error) {
 		return secrets.AdminBackendConfigInfo(
-			stdcontext.Background(), secrets.SecretsModel(model),
+			ctx, secrets.SecretsModel(model),
 			serviceFactory.Cloud(), serviceFactory.Credential(),
 		)
 	}

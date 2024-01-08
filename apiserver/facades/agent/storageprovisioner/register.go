@@ -20,12 +20,12 @@ import (
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("StorageProvisioner", 4, func(stdCtx context.Context, ctx facade.Context) (facade.Facade, error) {
-		return newFacadeV4(ctx)
+		return newFacadeV4(stdCtx, ctx)
 	}, reflect.TypeOf((*StorageProvisionerAPIv4)(nil)))
 }
 
 // newFacadeV4 provides the signature required for facade registration.
-func newFacadeV4(ctx facade.Context) (*StorageProvisionerAPIv4, error) {
+func newFacadeV4(stdCtx context.Context, ctx facade.Context) (*StorageProvisionerAPIv4, error) {
 	st := ctx.State()
 	model, err := st.Model()
 	if err != nil {
@@ -47,6 +47,7 @@ func newFacadeV4(ctx facade.Context) (*StorageProvisionerAPIv4, error) {
 		return nil, errors.Trace(err)
 	}
 	return NewStorageProvisionerAPIv4(
+		stdCtx,
 		backend,
 		storageBackend,
 		serviceFactory.ControllerConfig(),

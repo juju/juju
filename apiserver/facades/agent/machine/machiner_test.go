@@ -44,6 +44,7 @@ func (s *machinerSuite) SetUpTest(c *gc.C) {
 	st := s.ControllerModel(c).State()
 	// Create a machiner API for machine 1.
 	machiner, err := machine.NewMachinerAPIForState(
+		context.Background(),
 		st,
 		st,
 		s.ControllerServiceFactory(c).ControllerConfig(),
@@ -60,6 +61,7 @@ func (s *machinerSuite) TestMachinerFailsWithNonMachineAgentUser(c *gc.C) {
 	anAuthorizer.Tag = names.NewUnitTag("ubuntu/1")
 	st := s.ControllerModel(c).State()
 	aMachiner, err := machine.NewMachinerAPIForState(
+		context.Background(),
 		st,
 		st,
 		s.ControllerServiceFactory(c).ControllerConfig(),
