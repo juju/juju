@@ -24,6 +24,7 @@ func ModelDDL() *schema.Schema {
 		objectStoreMetadataSchema,
 		changeLogTriggersForTable("object_store_metadata_path", "path", tableModelObjectStoreMetadata),
 		applicationSchema,
+		charmSchema,
 		nodeSchema,
 		unitSchema,
 		spaceSchema,
@@ -267,6 +268,14 @@ CREATE TABLE application (
 
 CREATE UNIQUE INDEX idx_application_name
 ON application (name);
+`)
+}
+
+func charmSchema() schema.Patch {
+	return schema.MakePatch(`
+CREATE TABLE charm (
+    uuid    TEXT PRIMARY KEY
+);
 `)
 }
 

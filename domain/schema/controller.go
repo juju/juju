@@ -54,6 +54,7 @@ func ControllerDDL() *schema.Schema {
 		userSchema,
 		flagSchema,
 		annotationSchemaForTable("application"),
+		annotationSchemaForTable("charm"),
 		annotationSchemaForTable("machine"),
 		annotationSchemaForTable("unit"),
 		annotationSchemaForTable("model"),
