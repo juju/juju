@@ -5,7 +5,6 @@ package usermanager
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/juju/errors"
@@ -462,7 +461,6 @@ func (api *UserManagerAPI) SetPassword(ctx context.Context, args params.EntityPa
 	result.Results = make([]params.ErrorResult, len(args.Changes))
 	for i, arg := range args.Changes {
 		if err := api.setPassword(arg); err != nil {
-			fmt.Println("here 112345")
 			result.Results[i].Error = apiservererrors.ServerError(err)
 		}
 	}
@@ -486,6 +484,18 @@ func (api *UserManagerAPI) setPassword(arg params.EntityPassword) error {
 	}
 	if err := user.SetPassword(arg.Password); err != nil {
 		return errors.Annotate(err, "failed to set password")
+	}
+
+	// Get user from dqlite by name.
+	usr, err := api.userService.GetUserByName(context.Background(), user.Name())
+	if err != nil {
+		return errors.Annotatef(err, "failed to get user %q", user.Name())
+	}
+
+	// Set password for user in dqlite.
+	err = api.userService.SetPassword(context.Background(), usr.UUID, auth.NewPassword(arg.Password))
+	if err != nil {
+		return errors.Annotatef(err, "failed to set password for user %q", user.Name())
 	}
 	return nil
 }
