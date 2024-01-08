@@ -5,6 +5,7 @@ package charms
 
 import (
 	"archive/zip"
+	"context"
 	"io"
 	"net/http"
 	"net/url"
@@ -15,7 +16,9 @@ import (
 	"github.com/juju/charm/v12"
 	"github.com/juju/errors"
 	"github.com/juju/version/v2"
+	"gopkg.in/httprequest.v1"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/rpc/params"
@@ -26,12 +29,15 @@ import (
 // required to add a local charm
 type LocalCharmClient struct {
 	base.ClientFacade
-	facade base.FacadeCaller
+	facade      base.FacadeCaller
+	charmPutter CharmPutter
 }
 
-func NewLocalCharmClient(st base.APICallCloser) *LocalCharmClient {
+// NewLocalCharmClient creates a client which can be used to
+// upload local charms to the server
+func NewLocalCharmClient(st base.APICallCloser, charmPutter CharmPutter) *LocalCharmClient {
 	frontend, backend := base.NewClientFacade(st, "Charms")
-	return &LocalCharmClient{ClientFacade: frontend, facade: backend}
+	return &LocalCharmClient{ClientFacade: frontend, facade: backend, charmPutter: charmPutter}
 }
 
 // AddLocalCharm prepares the given charm with a local: schema in its
@@ -88,51 +94,15 @@ func (c *LocalCharmClient) AddLocalCharm(curl *charm.URL, ch charm.Charm, force 
 		return nil, errors.Errorf("invalid charm %q: has no hooks nor dispatch file", curl.Name)
 	}
 
-	curl, err = c.uploadCharm(curl, archive)
+	newCurlStr, err := c.charmPutter.PutCharm(context.Background(), curl.String(), archive)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return curl, nil
-}
-
-// uploadCharm sends the content to the API server using an HTTP post.
-func (c *LocalCharmClient) uploadCharm(curl *charm.URL, content io.ReadSeekCloser) (*charm.URL, error) {
-	args := url.Values{}
-	args.Add("series", curl.Series)
-	args.Add("schema", curl.Schema)
-	args.Add("revision", strconv.Itoa(curl.Revision))
-	apiURI := url.URL{Path: "/charms", RawQuery: args.Encode()}
-
-	contentType := "application/zip"
-	var resp params.CharmsResponse
-	if err := c.httpPost(content, apiURI.String(), contentType, &resp); err != nil {
+	newCurl, err := charm.ParseURL(newCurlStr)
+	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
-	curl, err := charm.ParseURL(resp.CharmURL)
-	if err != nil {
-		return nil, errors.Annotatef(err, "bad charm URL in response")
-	}
-	return curl, nil
-}
-
-func (c *LocalCharmClient) httpPost(content io.ReadSeeker, endpoint, contentType string, response interface{}) error {
-	req, err := http.NewRequest("POST", endpoint, content)
-	if err != nil {
-		return errors.Annotate(err, "cannot create upload request")
-	}
-	req.Header.Set("Content-Type", contentType)
-
-	// The returned httpClient sets the base url to /model/<uuid> if it can.
-	httpClient, err := c.facade.RawAPICaller().HTTPClient()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	if err := httpClient.Do(c.facade.RawAPICaller().Context(), req, response); err != nil {
-		return errors.Trace(err)
-	}
-	return nil
+	return newCurl, nil
 }
 
 // lxdCharmProfiler massages a charm.Charm into a LXDProfiler inside of the
@@ -195,6 +165,62 @@ func (c *LocalCharmClient) validateCharmVersion(ch charm.Charm, agentVersion ver
 	minver := ch.Meta().MinJujuVersion
 	if minver != version.Zero {
 		return jujuversion.CheckJujuMinVersion(minver, agentVersion)
+	}
+	return nil
+}
+
+// CharmPutter provides the methods required to upload a charm
+// to the apiserver
+type CharmPutter interface {
+	PutCharm(ctx context.Context, curl string, body io.Reader) (string, error)
+}
+
+// HTTPPutter uploads charms via the ":modeluuid/charms" endpoint
+type HTTPPutter struct {
+	httpClient *httprequest.Client
+}
+
+// NewHTTPPutter creates a CharmPutter which uploads charms via the
+// ":modeluuid/charms" endpoint
+func NewHTTPPutter(apiConn api.Connection) (CharmPutter, error) {
+	// The returned httpClient sets the base url to /model/<uuid> if it can.
+	apiHTTPClient, err := apiConn.HTTPClient()
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot retrieve http client from the api connection")
+	}
+	return &HTTPPutter{
+		httpClient: apiHTTPClient,
+	}, nil
+}
+
+func (h *HTTPPutter) PutCharm(ctx context.Context, curlStr string, body io.Reader) (string, error) {
+	curl, err := charm.ParseURL(curlStr)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	args := url.Values{}
+	args.Add("series", curl.Series)
+	args.Add("schema", curl.Schema)
+	args.Add("revision", strconv.Itoa(curl.Revision))
+	apiURI := url.URL{Path: "/charms", RawQuery: args.Encode()}
+
+	contentType := "application/zip"
+	var resp params.CharmsResponse
+	if err := h.httpPost(ctx, body, apiURI.String(), contentType, &resp); err != nil {
+		return "", errors.Trace(err)
+	}
+	return resp.CharmURL, nil
+}
+
+func (h *HTTPPutter) httpPost(ctx context.Context, content io.Reader, endpoint, contentType string, response interface{}) error {
+	req, err := http.NewRequest("POST", endpoint, content)
+	if err != nil {
+		return errors.Annotate(err, "cannot create upload request")
+	}
+	req.Header.Set("Content-Type", contentType)
+
+	if err := h.httpClient.Do(ctx, req, response); err != nil {
+		return errors.Trace(err)
 	}
 	return nil
 }

@@ -49,6 +49,10 @@ func (APICallerFunc) HTTPClient() (*httprequest.Client, error) {
 	return nil, errors.New("no HTTP client available in this test")
 }
 
+func (APICallerFunc) RootHTTPClient() (*httprequest.Client, error) {
+	return nil, errors.New("no Root HTTP client available in this test")
+}
+
 func (APICallerFunc) BakeryClient() base.MacaroonDischarger {
 	panic("no bakery client available in this test")
 }
