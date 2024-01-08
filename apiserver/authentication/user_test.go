@@ -233,7 +233,7 @@ type mockBakeryService struct {
 	testing.Stub
 }
 
-func (s *mockBakeryService) Auth(mss ...macaroon.Slice) *bakery.AuthChecker {
+func (s *mockBakeryService) Auth(_ context.Context, mss ...macaroon.Slice) *bakery.AuthChecker {
 	s.MethodCall(s, "Auth", mss)
 	checker := bakery.NewChecker(bakery.CheckerParams{
 		OpsAuthorizer:    mockAuthorizer{},

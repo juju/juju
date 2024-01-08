@@ -67,6 +67,7 @@ func (s *iaasProvisionerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.storageBackend = storageBackend
 	s.api, err = storageprovisioner.NewStorageProvisionerAPIv4(
+		context.Background(),
 		backend,
 		storageBackend,
 		s.ControllerServiceFactory(c).ControllerConfig(),

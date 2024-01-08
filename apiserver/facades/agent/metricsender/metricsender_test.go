@@ -4,6 +4,7 @@
 package metricsender_test
 
 import (
+	"context"
 	"errors"
 	"time"
 
@@ -120,7 +121,7 @@ func (s *MetricSenderSuite) TestSendMetricsFromNewModel(c *gc.C) {
 	f2.MakeMetric(c, &factory.MetricParams{Unit: credUnit, Time: &now})
 	f2.MakeMetric(c, &factory.MetricParams{Unit: meteredUnit, Time: &now})
 	f2.MakeMetric(c, &factory.MetricParams{Unit: credUnit, Sent: true, Time: &now})
-	err = metricsender.SendMetrics(TestSenderBackend{st, model}, &sender, clock, 10, true)
+	err = metricsender.SendMetrics(context.Background(), TestSenderBackend{st, model}, &sender, clock, 10, true)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sender.Data, gc.HasLen, 1)
 	c.Assert(sender.Data[0], gc.HasLen, 2)
@@ -143,7 +144,7 @@ func (s *MetricSenderSuite) TestSendMetrics(c *gc.C) {
 	f.MakeMetric(c, &factory.MetricParams{Unit: s.credUnit, Sent: true, Time: &now})
 
 	st := s.ControllerModel(c).State()
-	err := metricsender.SendMetrics(TestSenderBackend{st, s.ControllerModel(c)}, &sender, s.clock, 10, true)
+	err := metricsender.SendMetrics(context.Background(), TestSenderBackend{st, s.ControllerModel(c)}, &sender, s.clock, 10, true)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sender.Data, gc.HasLen, 1)
 	c.Assert(sender.Data[0], gc.HasLen, 2)
@@ -170,7 +171,7 @@ func (s *MetricSenderSuite) TestSendingHandlesModelMeterStatus(c *gc.C) {
 	f.MakeMetric(c, &factory.MetricParams{Unit: s.credUnit, Sent: true, Time: &now})
 
 	st := s.ControllerModel(c).State()
-	err := metricsender.SendMetrics(TestSenderBackend{st, s.ControllerModel(c)}, &sender, s.clock, 10, true)
+	err := metricsender.SendMetrics(context.Background(), TestSenderBackend{st, s.ControllerModel(c)}, &sender, s.clock, 10, true)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sender.Data, gc.HasLen, 1)
 	c.Assert(sender.Data[0], gc.HasLen, 2)
@@ -194,7 +195,7 @@ func (s *MetricSenderSuite) TestSendingHandlesEmptyModelMeterStatus(c *gc.C) {
 	f.MakeMetric(c, &factory.MetricParams{Unit: s.credUnit, Sent: true, Time: &now})
 
 	st := s.ControllerModel(c).State()
-	err := metricsender.SendMetrics(TestSenderBackend{st, s.ControllerModel(c)}, &sender, s.clock, 10, true)
+	err := metricsender.SendMetrics(context.Background(), TestSenderBackend{st, s.ControllerModel(c)}, &sender, s.clock, 10, true)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sender.Data, gc.HasLen, 1)
 	c.Assert(sender.Data[0], gc.HasLen, 2)
@@ -223,7 +224,7 @@ func (s *MetricSenderSuite) TestSendMetricsAbort(c *gc.C) {
 
 	// Send 4 batches per POST.
 	st := s.ControllerModel(c).State()
-	err := metricsender.SendMetrics(TestSenderBackend{st, s.ControllerModel(c)}, sender, s.clock, 4, true)
+	err := metricsender.SendMetrics(context.Background(), TestSenderBackend{st, s.ControllerModel(c)}, sender, s.clock, 4, true)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sender.Data, gc.HasLen, 4)
 
@@ -257,7 +258,7 @@ func (s *MetricSenderSuite) TestHoldMetrics(c *gc.C) {
 	f.MakeMetric(c, &factory.MetricParams{Unit: s.credUnit, Sent: true, Time: &now})
 
 	st := s.ControllerModel(c).State()
-	err := metricsender.SendMetrics(TestSenderBackend{st, s.ControllerModel(c)}, &sender, s.clock, 10, false)
+	err := metricsender.SendMetrics(context.Background(), TestSenderBackend{st, s.ControllerModel(c)}, &sender, s.clock, 10, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sender.Data, gc.HasLen, 1)
 	c.Assert(sender.Data[0], gc.HasLen, 1)
@@ -287,7 +288,7 @@ func (s *MetricSenderSuite) TestHoldMetricsSetsMeterStatus(c *gc.C) {
 	f.MakeMetric(c, &factory.MetricParams{Unit: s.credUnit, Sent: true, Time: &now})
 
 	st := s.ControllerModel(c).State()
-	err = metricsender.SendMetrics(TestSenderBackend{st, s.ControllerModel(c)}, &sender, s.clock, 10, false)
+	err = metricsender.SendMetrics(context.Background(), TestSenderBackend{st, s.ControllerModel(c)}, &sender, s.clock, 10, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sender.Data, gc.HasLen, 1)
 	c.Assert(sender.Data[0], gc.HasLen, 1)
@@ -318,7 +319,7 @@ func (s *MetricSenderSuite) TestSendBulkMetrics(c *gc.C) {
 	}
 
 	st := s.ControllerModel(c).State()
-	err := metricsender.SendMetrics(TestSenderBackend{st, s.ControllerModel(c)}, &sender, s.clock, 10, true)
+	err := metricsender.SendMetrics(context.Background(), TestSenderBackend{st, s.ControllerModel(c)}, &sender, s.clock, 10, true)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(sender.Data, gc.HasLen, 10)
@@ -340,7 +341,7 @@ func (s *MetricSenderSuite) TestDontSendWithNopSender(c *gc.C) {
 	}
 
 	st := s.ControllerModel(c).State()
-	err := metricsender.SendMetrics(TestSenderBackend{st, s.ControllerModel(c)}, metricsender.NopSender{}, s.clock, 10, true)
+	err := metricsender.SendMetrics(context.Background(), TestSenderBackend{st, s.ControllerModel(c)}, metricsender.NopSender{}, s.clock, 10, true)
 	c.Assert(err, jc.ErrorIsNil)
 	sent, err := st.CountOfSentMetrics()
 	c.Assert(err, jc.ErrorIsNil)
@@ -359,7 +360,7 @@ func (s *MetricSenderSuite) TestFailureIncrementsConsecutiveFailures(c *gc.C) {
 	}
 
 	st := s.ControllerModel(c).State()
-	err := metricsender.SendMetrics(TestSenderBackend{st, s.ControllerModel(c)}, sender, s.clock, 1, true)
+	err := metricsender.SendMetrics(context.Background(), TestSenderBackend{st, s.ControllerModel(c)}, sender, s.clock, 1, true)
 	c.Assert(err, gc.ErrorMatches, "something went wrong")
 	mm, err := st.MetricsManager()
 	c.Assert(err, jc.ErrorIsNil)
@@ -380,7 +381,7 @@ func (s *MetricSenderSuite) TestFailuresResetOnSuccessfulSend(c *gc.C) {
 	for i := 0; i < 3; i++ {
 		f.MakeMetric(c, &factory.MetricParams{Unit: s.credUnit, Sent: false, Time: &now})
 	}
-	err = metricsender.SendMetrics(TestSenderBackend{st, s.ControllerModel(c)}, metricsender.NopSender{}, s.clock, 10, true)
+	err = metricsender.SendMetrics(context.Background(), TestSenderBackend{st, s.ControllerModel(c)}, metricsender.NopSender{}, s.clock, 10, true)
 	c.Assert(err, jc.ErrorIsNil)
 	mm, err = st.MetricsManager()
 	c.Assert(err, jc.ErrorIsNil)

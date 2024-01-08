@@ -2595,7 +2595,7 @@ func (u *UniterAPI) commitHookChangesForOneUnit(ctx context.Context, unitTag nam
 
 	// TODO - do in txn once we have support for that
 	if len(changes.SecretCreates) > 0 {
-		result, err := u.SecretsManagerAPI.CreateSecrets(context.Background(), params.CreateSecretArgs{Args: changes.SecretCreates})
+		result, err := u.SecretsManagerAPI.CreateSecrets(ctx, params.CreateSecretArgs{Args: changes.SecretCreates})
 		if err == nil {
 			var errorStrings []string
 			for _, r := range result.Results {
@@ -2612,7 +2612,7 @@ func (u *UniterAPI) commitHookChangesForOneUnit(ctx context.Context, unitTag nam
 		}
 	}
 	if len(changes.SecretUpdates) > 0 {
-		result, err := u.SecretsManagerAPI.UpdateSecrets(context.Background(), params.UpdateSecretArgs{Args: changes.SecretUpdates})
+		result, err := u.SecretsManagerAPI.UpdateSecrets(ctx, params.UpdateSecretArgs{Args: changes.SecretUpdates})
 		if err == nil {
 			err = result.Combine()
 		}
@@ -2630,7 +2630,7 @@ func (u *UniterAPI) commitHookChangesForOneUnit(ctx context.Context, unitTag nam
 		}
 	}
 	if len(changes.SecretGrants) > 0 {
-		result, err := u.SecretsManagerAPI.SecretsGrant(context.Background(), params.GrantRevokeSecretArgs{Args: changes.SecretGrants})
+		result, err := u.SecretsManagerAPI.SecretsGrant(ctx, params.GrantRevokeSecretArgs{Args: changes.SecretGrants})
 		if err == nil {
 			err = result.Combine()
 		}
@@ -2639,7 +2639,7 @@ func (u *UniterAPI) commitHookChangesForOneUnit(ctx context.Context, unitTag nam
 		}
 	}
 	if len(changes.SecretRevokes) > 0 {
-		result, err := u.SecretsManagerAPI.SecretsRevoke(context.Background(), params.GrantRevokeSecretArgs{Args: changes.SecretRevokes})
+		result, err := u.SecretsManagerAPI.SecretsRevoke(ctx, params.GrantRevokeSecretArgs{Args: changes.SecretRevokes})
 		if err == nil {
 			err = result.Combine()
 		}
@@ -2648,7 +2648,7 @@ func (u *UniterAPI) commitHookChangesForOneUnit(ctx context.Context, unitTag nam
 		}
 	}
 	if len(changes.SecretDeletes) > 0 {
-		result, err := u.SecretsManagerAPI.RemoveSecrets(context.Background(), params.DeleteSecretArgs{Args: changes.SecretDeletes})
+		result, err := u.SecretsManagerAPI.RemoveSecrets(ctx, params.DeleteSecretArgs{Args: changes.SecretDeletes})
 		if err == nil {
 			err = result.Combine()
 		}

@@ -721,7 +721,7 @@ func (s *validatorSuite) TestResolvedCharmValidationSubordinate(c *gc.C) {
 	arg := params.DeployFromRepositoryArg{
 		NumUnits: intptr(1),
 	}
-	dt, err := s.getValidator().resolvedCharmValidation(ch, arg)
+	dt, err := s.getValidator().resolvedCharmValidation(context.Background(), ch, arg)
 	c.Assert(err, gc.HasLen, 0)
 	c.Assert(dt.numUnits, gc.Equals, 0)
 }

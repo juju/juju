@@ -769,7 +769,7 @@ func (s *secretsSuite) TestRemoveSecretsForSecretOwnersWithRevisions(c *gc.C) {
 		RevisionID: "rev-666",
 	}}, nil)
 
-	adminConfigGetter := func() (*provider.ModelBackendConfigInfo, error) {
+	adminConfigGetter := func(_ context.Context) (*provider.ModelBackendConfigInfo, error) {
 		return &provider.ModelBackendConfigInfo{
 			ActiveID: "backend-id",
 			Configs: map[string]provider.ModelBackendConfig{
@@ -787,6 +787,7 @@ func (s *secretsSuite) TestRemoveSecretsForSecretOwnersWithRevisions(c *gc.C) {
 	}
 
 	results, err := secrets.RemoveSecretsForAgent(
+		context.Background(),
 		removeState, adminConfigGetter,
 		params.DeleteSecretArgs{
 			Args: []params.DeleteSecretArg{{
@@ -828,7 +829,7 @@ func (s *secretsSuite) TestRemoveSecretsForSecretOwners(c *gc.C) {
 		RevisionID: "rev-666",
 	}}, nil)
 
-	adminConfigGetter := func() (*provider.ModelBackendConfigInfo, error) {
+	adminConfigGetter := func(_ context.Context) (*provider.ModelBackendConfigInfo, error) {
 		return &provider.ModelBackendConfigInfo{
 			ActiveID: "backend-id",
 			Configs: map[string]provider.ModelBackendConfig{
@@ -846,6 +847,7 @@ func (s *secretsSuite) TestRemoveSecretsForSecretOwners(c *gc.C) {
 	}
 
 	results, err := secrets.RemoveSecretsForAgent(
+		context.Background(),
 		removeState, adminConfigGetter,
 		params.DeleteSecretArgs{
 			Args: []params.DeleteSecretArg{{
@@ -896,7 +898,7 @@ func (s *secretsSuite) TestRemoveSecretsByLabel(c *gc.C) {
 		RevisionID: "rev-666",
 	}}, nil)
 
-	adminConfigGetter := func() (*provider.ModelBackendConfigInfo, error) {
+	adminConfigGetter := func(_ context.Context) (*provider.ModelBackendConfigInfo, error) {
 		return &provider.ModelBackendConfigInfo{
 			ActiveID: "backend-id",
 			Configs: map[string]provider.ModelBackendConfig{
@@ -914,6 +916,7 @@ func (s *secretsSuite) TestRemoveSecretsByLabel(c *gc.C) {
 	}
 
 	results, err := secrets.RemoveSecretsForAgent(
+		context.Background(),
 		removeState, adminConfigGetter,
 		params.DeleteSecretArgs{
 			Args: []params.DeleteSecretArg{{
@@ -966,7 +969,7 @@ func (s *secretsSuite) TestRemoveSecretsForModelAdminWithRevisions(c *gc.C) {
 		provider.SecretRevisions{uri.ID: set.NewStrings("rev-666")},
 	).Return(nil)
 
-	adminConfigGetter := func() (*provider.ModelBackendConfigInfo, error) {
+	adminConfigGetter := func(_ context.Context) (*provider.ModelBackendConfigInfo, error) {
 		return &provider.ModelBackendConfigInfo{
 			ActiveID: "backend-id",
 			Configs: map[string]provider.ModelBackendConfig{
@@ -1044,7 +1047,7 @@ func (s *secretsSuite) TestRemoveSecretsForModelAdmin(c *gc.C) {
 		provider.SecretRevisions{uri.ID: set.NewStrings("rev-666")},
 	).Return(nil)
 
-	adminConfigGetter := func() (*provider.ModelBackendConfigInfo, error) {
+	adminConfigGetter := func(_ context.Context) (*provider.ModelBackendConfigInfo, error) {
 		return &provider.ModelBackendConfigInfo{
 			ActiveID: "backend-id",
 			Configs: map[string]provider.ModelBackendConfig{

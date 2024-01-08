@@ -370,7 +370,7 @@ func (v *deployFromRepositoryValidator) validate(ctx context.Context, arg params
 	}
 
 	// Various checks of the resolved charm against the arg provided.
-	dt, rcErrs := v.resolvedCharmValidation(resolvedCharm, arg)
+	dt, rcErrs := v.resolvedCharmValidation(ctx, resolvedCharm, arg)
 	if len(rcErrs) > 0 {
 		errs = append(errs, rcErrs...)
 	}
@@ -423,7 +423,7 @@ func validateAndParseAttachStorage(input []string, numUnits int) ([]names.Storag
 	return attachStorage, errs
 }
 
-func (v *deployFromRepositoryValidator) resolvedCharmValidation(resolvedCharm charm.Charm, arg params.DeployFromRepositoryArg) (deployTemplate, []error) {
+func (v *deployFromRepositoryValidator) resolvedCharmValidation(ctx context.Context, resolvedCharm charm.Charm, arg params.DeployFromRepositoryArg) (deployTemplate, []error) {
 	errs := make([]error, 0)
 
 	var cons constraints.Value
@@ -473,7 +473,7 @@ func (v *deployFromRepositoryValidator) resolvedCharmValidation(resolvedCharm ch
 	}
 
 	// Enforce "assumes" requirements if the feature flag is enabled.
-	if err := assertCharmAssumptions(context.Background(), resolvedCharm.Meta().Assumes, v.model, v.cloudService, v.credentialService, v.state.ControllerConfig); err != nil {
+	if err := assertCharmAssumptions(ctx, resolvedCharm.Meta().Assumes, v.model, v.cloudService, v.credentialService, v.state.ControllerConfig); err != nil {
 		if !errors.Is(err, errors.NotSupported) || !arg.Force {
 			errs = append(errs, err)
 		}

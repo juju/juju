@@ -610,7 +610,7 @@ func (s *crossmodelRelationsSuite) TestWatchOfferStatus(c *gc.C) {
 			},
 		},
 	}
-	results, err := s.api.WatchOfferStatus(args)
+	results, err := s.api.WatchOfferStatus(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, len(args.Args))
 	c.Assert(results.Results[0].Error.ErrorCode(), gc.Equals, params.CodeUnauthorized)

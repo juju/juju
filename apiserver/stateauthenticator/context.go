@@ -17,11 +17,12 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
+	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/bakeryutil"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/core/macaroon"
+	coremacaroon "github.com/juju/juju/core/macaroon"
 	"github.com/juju/juju/state"
 )
 
@@ -96,8 +97,8 @@ func newAuthContext(
 	// Create a bakery for discharging third-party caveats for
 	// local user authentication. This service does not persist keys;
 	// its macaroons should be very short-lived.
-	checker := checkers.New(macaroon.MacaroonNamespace)
-	checker.Register("is-authenticated-user", macaroon.MacaroonURI,
+	checker := checkers.New(coremacaroon.MacaroonNamespace)
+	checker.Register("is-authenticated-user", coremacaroon.MacaroonURI,
 		// Having a macaroon with an is-authenticated-user
 		// caveat is proof that the user is "logged in".
 		// "is-authenticated-user",
@@ -165,12 +166,18 @@ func (ctxt *authContext) CheckLocalLoginCaveat(caveat string) (names.UserTag, er
 	return authentication.CheckLocalLoginCaveat(caveat)
 }
 
+type macaroonAuthFunc func(mss ...macaroon.Slice) *bakery.AuthChecker
+
+func (f macaroonAuthFunc) Auth(_ context.Context, mss ...macaroon.Slice) *bakery.AuthChecker {
+	return f(mss...)
+}
+
 // CheckLocalLoginRequest checks that the given HTTP request contains at least
 // one valid local login macaroon minted using CreateLocalLoginMacaroon. It
 // returns an error with a *bakery.VerificationError cause if the macaroon
 // verification failed.
 func (ctxt *authContext) CheckLocalLoginRequest(ctx context.Context, req *http.Request) error {
-	return authentication.CheckLocalLoginRequest(ctx, ctxt.localUserThirdPartyBakery.Checker, req)
+	return authentication.CheckLocalLoginRequest(ctx, macaroonAuthFunc(ctxt.localUserThirdPartyBakery.Checker.Auth), req)
 }
 
 // DischargeCaveats returns the caveats to add to a login discharge macaroon.

@@ -406,7 +406,7 @@ func (ctx *precheckSource) checkModel(stdCtx context.Context) error {
 		}
 	}
 
-	cloudspec, err := ctx.environscloudspecGetter(names.NewModelTag(model.UUID()))
+	cloudspec, err := ctx.environscloudspecGetter(stdCtx, names.NewModelTag(model.UUID()))
 	if err != nil {
 		return errors.Trace(err)
 	}

@@ -4,6 +4,8 @@
 package usersecretsdrain
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
@@ -28,7 +30,7 @@ type SecretsDrainAPI struct {
 }
 
 // GetSecretBackendConfigs gets the config needed to create a client to secret backends for the drain worker.
-func (s *SecretsDrainAPI) GetSecretBackendConfigs(arg params.SecretBackendArgs) (params.SecretBackendConfigResults, error) {
+func (s *SecretsDrainAPI) GetSecretBackendConfigs(ctx context.Context, arg params.SecretBackendArgs) (params.SecretBackendConfigResults, error) {
 	if len(arg.BackendIDs) > 1 {
 		return params.SecretBackendConfigResults{}, errors.Errorf("Maximumly only one backend ID can be specified for drain")
 	}
@@ -39,7 +41,7 @@ func (s *SecretsDrainAPI) GetSecretBackendConfigs(arg params.SecretBackendArgs) 
 	results := params.SecretBackendConfigResults{
 		Results: make(map[string]params.SecretBackendConfigResult, 1),
 	}
-	cfgInfo, err := s.drainConfigGetter(backendID)
+	cfgInfo, err := s.drainConfigGetter(ctx, backendID)
 	if err != nil {
 		return results, errors.Trace(err)
 	}
@@ -63,12 +65,12 @@ func (s *SecretsDrainAPI) GetSecretBackendConfigs(arg params.SecretBackendArgs) 
 }
 
 // GetSecretContentInfo returns the secret values for the specified secrets.
-func (s *SecretsDrainAPI) GetSecretContentInfo(args params.GetSecretContentArgs) (params.SecretContentResults, error) {
+func (s *SecretsDrainAPI) GetSecretContentInfo(ctx context.Context, args params.GetSecretContentArgs) (params.SecretContentResults, error) {
 	result := params.SecretContentResults{
 		Results: make([]params.SecretContentResult, len(args.Args)),
 	}
 	for i, arg := range args.Args {
-		content, backend, draining, err := s.getSecretContent(arg)
+		content, backend, draining, err := s.getSecretContent(ctx, arg)
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -100,7 +102,7 @@ func (s *SecretsDrainAPI) GetSecretContentInfo(args params.GetSecretContentArgs)
 	return result, nil
 }
 
-func (s *SecretsDrainAPI) getSecretContent(arg params.GetSecretContentArg) (
+func (s *SecretsDrainAPI) getSecretContent(ctx context.Context, arg params.GetSecretContentArg) (
 	*secrets.ContentParams, *provider.ModelBackendConfig, bool, error,
 ) {
 	if arg.URI == "" {
@@ -128,12 +130,12 @@ func (s *SecretsDrainAPI) getSecretContent(arg params.GetSecretContentArg) (
 		return content, nil, false, errors.Trace(err)
 	}
 	// Get backend config for external secret.
-	backend, draining, err := s.getBackend(content.ValueRef.BackendID)
+	backend, draining, err := s.getBackend(ctx, content.ValueRef.BackendID)
 	return content, backend, draining, errors.Trace(err)
 }
 
-func (s *SecretsDrainAPI) getBackend(backendID string) (*provider.ModelBackendConfig, bool, error) {
-	cfgInfo, err := s.backendConfigGetter([]string{backendID}, false)
+func (s *SecretsDrainAPI) getBackend(ctx context.Context, backendID string) (*provider.ModelBackendConfig, bool, error) {
+	cfgInfo, err := s.backendConfigGetter(ctx, []string{backendID}, false)
 	if err != nil {
 		return nil, false, errors.Trace(err)
 	}
@@ -153,7 +155,7 @@ func (s *SecretsDrainAPI) getBackend(backendID string) (*provider.ModelBackendCo
 }
 
 // GetSecretRevisionContentInfo returns the secret values for the specified secret revisions.
-func (s *SecretsDrainAPI) GetSecretRevisionContentInfo(arg params.SecretRevisionArg) (params.SecretContentResults, error) {
+func (s *SecretsDrainAPI) GetSecretRevisionContentInfo(ctx context.Context, arg params.SecretRevisionArg) (params.SecretContentResults, error) {
 	result := params.SecretContentResults{
 		Results: make([]params.SecretContentResult, len(arg.Revisions)),
 	}
@@ -174,7 +176,7 @@ func (s *SecretsDrainAPI) GetSecretRevisionContentInfo(arg params.SecretRevision
 				BackendID:  valueRef.BackendID,
 				RevisionID: valueRef.RevisionID,
 			}
-			backend, draining, err := s.getBackend(valueRef.BackendID)
+			backend, draining, err := s.getBackend(ctx, valueRef.BackendID)
 			if err != nil {
 				result.Results[i].Error = apiservererrors.ServerError(err)
 				continue

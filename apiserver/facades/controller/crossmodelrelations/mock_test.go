@@ -715,7 +715,7 @@ func (s *mockBakeryService) NewMacaroon(ctx context.Context, version bakery.Vers
 	return bakery.NewLegacyMacaroon(mac)
 }
 
-func (s *mockBakeryService) Auth(mss ...macaroon.Slice) *bakery.AuthChecker {
+func (s *mockBakeryService) Auth(_ context.Context, mss ...macaroon.Slice) *bakery.AuthChecker {
 	s.MethodCall(s, "Auth", mss)
 	checker := bakery.NewChecker(bakery.CheckerParams{
 		OpsAuthorizer:    mockAuthorizer{},

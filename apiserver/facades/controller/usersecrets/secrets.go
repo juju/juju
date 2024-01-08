@@ -28,7 +28,7 @@ type UserSecretsManager struct {
 	modelUUID      string
 
 	secretsState        SecretsState
-	backendConfigGetter func() (*provider.ModelBackendConfigInfo, error)
+	backendConfigGetter func(context.Context) (*provider.ModelBackendConfigInfo, error)
 }
 
 // WatchRevisionsToPrune returns a watcher for notifying when:

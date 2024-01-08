@@ -61,7 +61,7 @@ func (s *userSecretsSuite) setup(c *gc.C) *gomock.Controller {
 	s.facade, err = usersecrets.NewTestAPI(
 		s.authorizer, s.resources, s.authTag,
 		coretesting.ControllerTag.Id(), coretesting.ModelTag.Id(), s.state,
-		func() (*provider.ModelBackendConfigInfo, error) {
+		func(_ context.Context) (*provider.ModelBackendConfigInfo, error) {
 			return &provider.ModelBackendConfigInfo{
 				ActiveID: "backend-id",
 				Configs: map[string]provider.ModelBackendConfig{

@@ -43,7 +43,7 @@ func GetEnvironAndCloud(ctx context.Context, st EnvironConfigGetter, newEnviron 
 			err, "retrieving cloud spec for model %q (%s)", modelConfig.Name(), modelConfig.UUID())
 	}
 
-	env, err := newEnviron(context.TODO(), OpenParams{
+	env, err := newEnviron(ctx, OpenParams{
 		Cloud:  cloudSpec,
 		Config: modelConfig,
 	})

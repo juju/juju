@@ -23,14 +23,13 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-type backendConfigGetter func(string) (*provider.ModelBackendConfigInfo, error)
+type backendConfigGetter func(stdcontext.Context, string) (*provider.ModelBackendConfigInfo, error)
 type secretStateGetter func(modelUUID string) (SecretsState, SecretsConsumer, func() bool, error)
 
 // CrossModelSecretsAPI provides access to the CrossModelSecrets API facade.
 type CrossModelSecretsAPI struct {
 	resources facade.Resources
 
-	ctx       stdcontext.Context
 	mu        sync.Mutex
 	authCtxt  *crossmodel.AuthContext
 	modelUUID string
@@ -54,7 +53,6 @@ func NewCrossModelSecretsAPI(
 	logger loggo.Logger,
 ) (*CrossModelSecretsAPI, error) {
 	return &CrossModelSecretsAPI{
-		ctx:                 stdcontext.Background(),
 		resources:           resources,
 		authCtxt:            authContext,
 		modelUUID:           modelUUID,
@@ -115,7 +113,7 @@ func (s *CrossModelSecretsAPI) getSecretAccessScope(arg params.GetRemoteSecretAc
 	return s.crossModelState.GetToken(scopeTag)
 }
 
-func (s *CrossModelSecretsAPI) checkRelationMacaroons(consumerTag names.Tag, mac macaroon.Slice, version bakery.Version) error {
+func (s *CrossModelSecretsAPI) checkRelationMacaroons(ctx stdcontext.Context, consumerTag names.Tag, mac macaroon.Slice, version bakery.Version) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -138,7 +136,7 @@ func (s *CrossModelSecretsAPI) checkRelationMacaroons(consumerTag names.Tag, mac
 	// A cross model secret can only be accessed if the corresponding cross model relation
 	// it is scoped to is accessible by the supplied macaroon.
 	auth := s.authCtxt.Authenticator()
-	return auth.CheckRelationMacaroons(s.ctx, s.modelUUID, offerUUID, names.NewRelationTag(relKey), mac, version)
+	return auth.CheckRelationMacaroons(ctx, s.modelUUID, offerUUID, names.NewRelationTag(relKey), mac, version)
 }
 
 // GetSecretContentInfo returns the secret values for the specified secrets.
@@ -147,7 +145,7 @@ func (s *CrossModelSecretsAPI) GetSecretContentInfo(ctx stdcontext.Context, args
 		Results: make([]params.SecretContentResult, len(args.Args)),
 	}
 	for i, arg := range args.Args {
-		content, backend, latestRevision, err := s.getSecretContent(arg)
+		content, backend, latestRevision, err := s.getSecretContent(ctx, arg)
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -169,7 +167,7 @@ func (s *CrossModelSecretsAPI) GetSecretContentInfo(ctx stdcontext.Context, args
 	return result, nil
 }
 
-func (s *CrossModelSecretsAPI) getSecretContent(arg params.GetRemoteSecretContentArg) (*secrets.ContentParams, *params.SecretBackendConfigResult, int, error) {
+func (s *CrossModelSecretsAPI) getSecretContent(ctx stdcontext.Context, arg params.GetRemoteSecretContentArg) (*secrets.ContentParams, *params.SecretBackendConfigResult, int, error) {
 	if arg.URI == "" {
 		return nil, nil, 0, errors.NewNotValid(nil, "empty uri")
 	}
@@ -190,7 +188,7 @@ func (s *CrossModelSecretsAPI) getSecretContent(arg params.GetRemoteSecretConten
 	}
 	consumer := names.NewUnitTag(fmt.Sprintf("%s/%d", appTag.Id(), arg.UnitId))
 
-	if err := s.checkRelationMacaroons(appTag, arg.Macaroons, arg.BakeryVersion); err != nil {
+	if err := s.checkRelationMacaroons(ctx, appTag, arg.Macaroons, arg.BakeryVersion); err != nil {
 		return nil, nil, 0, errors.Trace(err)
 	}
 
@@ -225,7 +223,7 @@ func (s *CrossModelSecretsAPI) getSecretContent(arg params.GetRemoteSecretConten
 	if err != nil || content.ValueRef == nil {
 		return content, nil, latestRevision, errors.Trace(err)
 	}
-	backend, err := s.getBackend(uri.SourceUUID, content.ValueRef.BackendID)
+	backend, err := s.getBackend(ctx, uri.SourceUUID, content.ValueRef.BackendID)
 	return content, backend, latestRevision, errors.Trace(err)
 }
 
@@ -255,8 +253,8 @@ func (s *CrossModelSecretsAPI) updateConsumedRevision(secretsState SecretsState,
 	return md.LatestRevision, nil
 }
 
-func (s *CrossModelSecretsAPI) getBackend(modelUUID string, backendID string) (*params.SecretBackendConfigResult, error) {
-	cfgInfo, err := s.backendConfigGetter(modelUUID)
+func (s *CrossModelSecretsAPI) getBackend(ctx stdcontext.Context, modelUUID string, backendID string) (*params.SecretBackendConfigResult, error) {
+	cfgInfo, err := s.backendConfigGetter(ctx, modelUUID)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -45,7 +45,7 @@ func (s *undertakerSuite) setupStateAndAPI(c *gc.C, isSystem bool, modelName str
 	s.secrets = &mockSecrets{}
 	s.PatchValue(&undertaker.GetProvider, func(string) (provider.SecretBackendProvider, error) { return s.secrets, nil })
 
-	secretBackendConfigGetter := func() (*provider.ModelBackendConfigInfo, error) {
+	secretBackendConfigGetter := func(_ context.Context) (*provider.ModelBackendConfigInfo, error) {
 		return &provider.ModelBackendConfigInfo{
 			ActiveID: "backend-id",
 			Configs: map[string]provider.ModelBackendConfig{
@@ -74,7 +74,7 @@ func (s *undertakerSuite) TestNoPerms(c *gc.C) {
 			st,
 			nil,
 			authorizer,
-			func() (*provider.ModelBackendConfigInfo, error) {
+			func(_ context.Context) (*provider.ModelBackendConfigInfo, error) {
 				return nil, errors.NotImplemented
 			},
 			nil,

@@ -79,8 +79,8 @@ func (s *firewallerSuite) SetUpTest(c *gc.C) {
 func (s *firewallerSuite) TestFirewallerFailsWithNonControllerUser(c *gc.C) {
 	defer s.ctrl.Finish()
 
-	constructor := func(context facade.Context) error {
-		_, err := firewaller.NewFirewallerAPIV7(context)
+	constructor := func(ctx facade.Context) error {
+		_, err := firewaller.NewFirewallerAPIV7(ctx)
 		return err
 	}
 	s.testFirewallerFailsWithNonControllerUser(c, constructor)

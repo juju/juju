@@ -44,7 +44,7 @@ func sourcePrecheck(backend migration.PrecheckBackend, credentialService migrati
 	return migration.SourcePrecheck(
 		context.Background(),
 		backend, allAlivePresence(), allAlivePresence(),
-		func(names.ModelTag) (environscloudspec.CloudSpec, error) {
+		func(context.Context, names.ModelTag) (environscloudspec.CloudSpec, error) {
 			return environscloudspec.CloudSpec{Type: "lxd"}, nil
 		},
 		credentialService,
@@ -62,7 +62,7 @@ func (s *SourcePrecheckSuite) TestSuccess(c *gc.C) {
 	err := migration.SourcePrecheck(
 		context.Background(),
 		backend, allAlivePresence(), allAlivePresence(),
-		func(names.ModelTag) (environscloudspec.CloudSpec, error) {
+		func(context.Context, names.ModelTag) (environscloudspec.CloudSpec, error) {
 			return environscloudspec.CloudSpec{Type: "lxd"}, nil
 		},
 		&fakeCredentialService{},
@@ -125,7 +125,7 @@ func (s *SourcePrecheckSuite) TestTargetController3Failed(c *gc.C) {
 	err := migration.SourcePrecheck(
 		context.Background(),
 		backend, allAlivePresence(), allAlivePresence(),
-		func(names.ModelTag) (environscloudspec.CloudSpec, error) {
+		func(context.Context, names.ModelTag) (environscloudspec.CloudSpec, error) {
 			return cloudSpec.CloudSpec, nil
 		},
 		&fakeCredentialService{},
@@ -153,7 +153,7 @@ func (s *SourcePrecheckSuite) TestTargetController2Failed(c *gc.C) {
 	err := migration.SourcePrecheck(
 		context.Background(),
 		backend, allAlivePresence(), allAlivePresence(),
-		func(names.ModelTag) (environscloudspec.CloudSpec, error) {
+		func(context.Context, names.ModelTag) (environscloudspec.CloudSpec, error) {
 			return environscloudspec.CloudSpec{Type: "lxd"}, nil
 		},
 		&fakeCredentialService{},
@@ -263,7 +263,7 @@ func (s *SourcePrecheckSuite) TestDownMachineAgent(c *gc.C) {
 	err := migration.SourcePrecheck(
 		context.Background(),
 		backend, modelPresence, controllerPresence,
-		func(names.ModelTag) (environscloudspec.CloudSpec, error) {
+		func(context.Context, names.ModelTag) (environscloudspec.CloudSpec, error) {
 			return environscloudspec.CloudSpec{Type: "foo"}, nil
 		},
 		&fakeCredentialService{},
@@ -406,7 +406,7 @@ func (s *SourcePrecheckSuite) TestUnitLost(c *gc.C) {
 	err := migration.SourcePrecheck(
 		context.Background(),
 		backend, modelPresence, controllerPresence,
-		func(names.ModelTag) (environscloudspec.CloudSpec, error) {
+		func(context.Context, names.ModelTag) (environscloudspec.CloudSpec, error) {
 			return environscloudspec.CloudSpec{Type: "foo"}, nil
 		},
 		&fakeCredentialService{},

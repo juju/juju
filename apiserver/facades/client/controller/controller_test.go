@@ -131,7 +131,7 @@ func (s *controllerSuite) SetUpTest(c *gc.C) {
 		MultiwatcherFactory_: multiWatcherWorker,
 		ServiceFactory_:      s.ControllerServiceFactory(c),
 	}
-	controller, err := controller.LatestAPI(s.context)
+	controller, err := controller.LatestAPI(context.Background(), s.context)
 	c.Assert(err, jc.ErrorIsNil)
 	s.controller = controller
 
@@ -147,7 +147,7 @@ func (s *controllerSuite) TestNewAPIRefusesNonClient(c *gc.C) {
 	anAuthoriser := apiservertesting.FakeAuthorizer{
 		Tag: names.NewUnitTag("mysql/0"),
 	}
-	endPoint, err := controller.LatestAPI(facadetest.Context{
+	endPoint, err := controller.LatestAPI(context.Background(), facadetest.Context{
 		State_:          s.State,
 		Resources_:      s.resources,
 		Auth_:           anAuthoriser,
@@ -329,6 +329,7 @@ func (s *controllerSuite) TestModelConfigFromNonController(c *gc.C) {
 		AdminTag: s.Owner,
 	}
 	controller, err := controller.NewControllerAPIv11(
+		context.Background(),
 		facadetest.Context{
 			State_:          st,
 			StatePool_:      s.StatePool,
@@ -360,6 +361,7 @@ func (s *controllerSuite) TestControllerConfigFromNonController(c *gc.C) {
 
 	authorizer := &apiservertesting.FakeAuthorizer{Tag: s.Owner}
 	controller, err := controller.NewControllerAPIv11(
+		context.Background(),
 		facadetest.Context{
 			State_:          st,
 			Resources_:      common.NewResources(),
@@ -911,12 +913,14 @@ func (s *controllerSuite) TestGetControllerAccessPermissions(c *gc.C) {
 	anAuthoriser := apiservertesting.FakeAuthorizer{
 		Tag: user.Tag(),
 	}
-	endpoint, err := controller.NewControllerAPIv11(facadetest.Context{
-		State_:          s.State,
-		Resources_:      s.resources,
-		Auth_:           anAuthoriser,
-		ServiceFactory_: s.ControllerServiceFactory(c),
-	})
+	endpoint, err := controller.NewControllerAPIv11(
+		context.Background(),
+		facadetest.Context{
+			State_:          s.State,
+			Resources_:      s.resources,
+			Auth_:           anAuthoriser,
+			ServiceFactory_: s.ControllerServiceFactory(c),
+		})
 	c.Assert(err, jc.ErrorIsNil)
 	args := params.ModifyControllerAccessRequest{
 		Changes: []params.ModifyControllerAccess{{
@@ -997,12 +1001,14 @@ func (s *controllerSuite) TestConfigSetRequiresSuperUser(c *gc.C) {
 	anAuthoriser := apiservertesting.FakeAuthorizer{
 		Tag: user.Tag(),
 	}
-	endpoint, err := controller.NewControllerAPIv11(facadetest.Context{
-		State_:          s.State,
-		Resources_:      s.resources,
-		Auth_:           anAuthoriser,
-		ServiceFactory_: s.ControllerServiceFactory(c),
-	})
+	endpoint, err := controller.NewControllerAPIv11(
+		context.Background(),
+		facadetest.Context{
+			State_:          s.State,
+			Resources_:      s.resources,
+			Auth_:           anAuthoriser,
+			ServiceFactory_: s.ControllerServiceFactory(c),
+		})
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = endpoint.ConfigSet(stdcontext.Background(), params.ControllerConfigSet{Config: map[string]interface{}{
@@ -1171,12 +1177,14 @@ func (s *controllerSuite) TestWatchAllModelSummariesByNonAdmin(c *gc.C) {
 	anAuthoriser := apiservertesting.FakeAuthorizer{
 		Tag: names.NewLocalUserTag("bob"),
 	}
-	endPoint, err := controller.LatestAPI(facadetest.Context{
-		State_:          s.State,
-		Resources_:      s.resources,
-		Auth_:           anAuthoriser,
-		ServiceFactory_: s.ControllerServiceFactory(c),
-	})
+	endPoint, err := controller.LatestAPI(
+		context.Background(),
+		facadetest.Context{
+			State_:          s.State,
+			Resources_:      s.resources,
+			Auth_:           anAuthoriser,
+			ServiceFactory_: s.ControllerServiceFactory(c),
+		})
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = endPoint.WatchAllModelSummaries(stdcontext.Background())

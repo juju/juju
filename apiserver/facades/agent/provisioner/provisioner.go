@@ -148,7 +148,7 @@ func NewProvisionerAPI(stdCtx stdcontext.Context, ctx facade.Context) (*Provisio
 	if isCaasModel {
 		env, err = stateenvirons.GetNewCAASBrokerFunc(caas.New)(model, serviceFactory.Cloud(), serviceFactory.Credential())
 	} else {
-		env, err = environs.GetEnviron(stdcontext.Background(), configGetter, environs.New)
+		env, err = environs.GetEnviron(stdCtx, configGetter, environs.New)
 	}
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -156,7 +156,7 @@ func NewProvisionerAPI(stdCtx stdcontext.Context, ctx facade.Context) (*Provisio
 	storageProviderRegistry := stateenvirons.NewStorageProviderRegistry(env)
 
 	netConfigAPI, err := networkingcommon.NewNetworkConfigAPI(
-		stdcontext.Background(), st, serviceFactory.Cloud(), getCanModify)
+		stdCtx, st, serviceFactory.Cloud(), getCanModify)
 	if err != nil {
 		return nil, errors.Annotate(err, "instantiating network config API")
 	}

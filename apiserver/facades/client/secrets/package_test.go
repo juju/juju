@@ -4,6 +4,7 @@
 package secrets
 
 import (
+	"context"
 	"testing"
 
 	"github.com/juju/names/v5"
@@ -26,9 +27,9 @@ func NewTestAPI(
 	authorizer facade.Authorizer,
 	secretsState SecretsState,
 	secretsConsumer SecretsConsumer,
-	adminBackendConfigGetter func() (*provider.ModelBackendConfigInfo, error),
-	backendConfigGetterForUserSecretsWrite func(backendID string) (*provider.ModelBackendConfigInfo, error),
-	backendGetter func(*provider.ModelBackendConfig) (provider.SecretsBackend, error),
+	adminBackendConfigGetter func(ctx context.Context) (*provider.ModelBackendConfigInfo, error),
+	backendConfigGetterForUserSecretsWrite func(ctx context.Context, backendID string) (*provider.ModelBackendConfigInfo, error),
+	backendGetter func(context.Context, *provider.ModelBackendConfig) (provider.SecretsBackend, error),
 ) (*SecretsAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm

@@ -40,9 +40,9 @@ type SecretsAPI struct {
 	secretsState    SecretsState
 	secretsConsumer SecretsConsumer
 
-	adminBackendConfigGetter               func() (*provider.ModelBackendConfigInfo, error)
-	backendConfigGetterForUserSecretsWrite func(backendID string) (*provider.ModelBackendConfigInfo, error)
-	backendGetter                          func(*provider.ModelBackendConfig) (provider.SecretsBackend, error)
+	adminBackendConfigGetter               func(ctx context.Context) (*provider.ModelBackendConfigInfo, error)
+	backendConfigGetterForUserSecretsWrite func(ctx context.Context, backendID string) (*provider.ModelBackendConfigInfo, error)
+	backendGetter                          func(context.Context, *provider.ModelBackendConfig) (provider.SecretsBackend, error)
 }
 
 // SecretsAPIV1 is the backend for the Secrets facade v1.
@@ -178,13 +178,13 @@ func (s *SecretsAPI) ListSecrets(ctx context.Context, arg params.ListSecretsArgs
 	return result, nil
 }
 
-func (s *SecretsAPI) getBackendInfo() error {
-	info, err := s.adminBackendConfigGetter()
+func (s *SecretsAPI) getBackendInfo(ctx context.Context) error {
+	info, err := s.adminBackendConfigGetter(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	for id, cfg := range info.Configs {
-		s.backends[id], err = s.backendGetter(&cfg)
+		s.backends[id], err = s.backendGetter(ctx, &cfg)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -195,7 +195,7 @@ func (s *SecretsAPI) getBackendInfo() error {
 
 func (s *SecretsAPI) secretContentFromBackend(ctx context.Context, uri *coresecrets.URI, rev int) (coresecrets.SecretValue, error) {
 	if s.activeBackendID == "" {
-		err := s.getBackendInfo()
+		err := s.getBackendInfo(ctx)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -225,7 +225,7 @@ func (s *SecretsAPI) secretContentFromBackend(ctx context.Context, uri *coresecr
 			continue
 		}
 		// The active backend may have changed.
-		if initErr := s.getBackendInfo(); initErr != nil {
+		if initErr := s.getBackendInfo(ctx); initErr != nil {
 			return nil, errors.Trace(initErr)
 		}
 		if s.activeBackendID == backendID {
@@ -234,13 +234,13 @@ func (s *SecretsAPI) secretContentFromBackend(ctx context.Context, uri *coresecr
 	}
 }
 
-func (s *SecretsAPI) getBackendForUserSecretsWrite() (provider.SecretsBackend, error) {
+func (s *SecretsAPI) getBackendForUserSecretsWrite(ctx context.Context) (provider.SecretsBackend, error) {
 	if s.activeBackendID == "" {
-		if err := s.getBackendInfo(); err != nil {
+		if err := s.getBackendInfo(ctx); err != nil {
 			return nil, errors.Trace(err)
 		}
 	}
-	cfgInfo, err := s.backendConfigGetterForUserSecretsWrite(s.activeBackendID)
+	cfgInfo, err := s.backendConfigGetterForUserSecretsWrite(ctx, s.activeBackendID)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -249,7 +249,7 @@ func (s *SecretsAPI) getBackendForUserSecretsWrite() (provider.SecretsBackend, e
 		// This should never happen.
 		return nil, errors.NotFoundf("secret backend %q", s.activeBackendID)
 	}
-	return s.backendGetter(&cfg)
+	return s.backendGetter(ctx, &cfg)
 }
 
 // CreateSecrets isn't on the v1 API.
@@ -263,7 +263,7 @@ func (s *SecretsAPI) CreateSecrets(ctx context.Context, args params.CreateSecret
 	if err := s.checkCanWrite(); err != nil {
 		return result, errors.Trace(err)
 	}
-	backend, err := s.getBackendForUserSecretsWrite()
+	backend, err := s.getBackendForUserSecretsWrite(ctx)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -386,7 +386,7 @@ func (s *SecretsAPI) UpdateSecrets(ctx context.Context, args params.UpdateUserSe
 	if err := s.checkCanWrite(); err != nil {
 		return result, errors.Trace(err)
 	}
-	backend, err := s.getBackendForUserSecretsWrite()
+	backend, err := s.getBackendForUserSecretsWrite(ctx)
 	if err != nil {
 		return result, errors.Trace(err)
 	}

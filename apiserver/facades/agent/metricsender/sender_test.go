@@ -4,6 +4,7 @@
 package metricsender_test
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -77,7 +78,7 @@ func (s *SenderSuite) TestHTTPSender(c *gc.C) {
 	}
 	sender := metricsender.DefaultSenderFactory()("http://example.com")
 	st := s.ControllerModel(c).State()
-	err := metricsender.SendMetrics(TestSenderBackend{st, s.ControllerModel(c)}, sender, s.clock, 10, true)
+	err := metricsender.SendMetrics(context.Background(), TestSenderBackend{st, s.ControllerModel(c)}, sender, s.clock, 10, true)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(receiverChan, gc.HasLen, metricCount)
@@ -162,7 +163,7 @@ func (s *SenderSuite) TestErrorCodes(c *gc.C) {
 		}
 		sender := metricsender.DefaultSenderFactory()("http://example.com")
 		st := s.ControllerModel(c).State()
-		err := metricsender.SendMetrics(TestSenderBackend{st, s.ControllerModel(c)}, sender, s.clock, 10, true)
+		err := metricsender.SendMetrics(context.Background(), TestSenderBackend{st, s.ControllerModel(c)}, sender, s.clock, 10, true)
 		c.Assert(err, gc.ErrorMatches, test.expectedErr)
 		for _, batch := range batches {
 			m, err := st.MetricBatch(batch.UUID())
@@ -194,7 +195,7 @@ func (s *SenderSuite) TestMeterStatus(c *gc.C) {
 
 	sender := metricsender.DefaultSenderFactory()("http://example.com")
 	st := s.ControllerModel(c).State()
-	err = metricsender.SendMetrics(TestSenderBackend{st, s.ControllerModel(c)}, sender, s.clock, 10, true)
+	err = metricsender.SendMetrics(context.Background(), TestSenderBackend{st, s.ControllerModel(c)}, sender, s.clock, 10, true)
 	c.Assert(err, jc.ErrorIsNil)
 
 	status, err = s.unit.GetMeterStatus()
@@ -243,7 +244,7 @@ func (s *SenderSuite) TestMeterStatusInvalid(c *gc.C) {
 
 	sender := metricsender.DefaultSenderFactory()("http://example.com")
 	st := s.ControllerModel(c).State()
-	err := metricsender.SendMetrics(TestSenderBackend{st, s.ControllerModel(c)}, sender, s.clock, 10, true)
+	err := metricsender.SendMetrics(context.Background(), TestSenderBackend{st, s.ControllerModel(c)}, sender, s.clock, 10, true)
 	c.Assert(err, jc.ErrorIsNil)
 
 	status, err := unit1.GetMeterStatus()
@@ -269,7 +270,7 @@ func (s *SenderSuite) TestGracePeriodResponse(c *gc.C) {
 	defer cleanup()
 	sender := metricsender.DefaultSenderFactory()("http://example.com")
 	st := s.ControllerModel(c).State()
-	err := metricsender.SendMetrics(TestSenderBackend{st, s.ControllerModel(c)}, sender, s.clock, 10, true)
+	err := metricsender.SendMetrics(context.Background(), TestSenderBackend{st, s.ControllerModel(c)}, sender, s.clock, 10, true)
 	c.Assert(err, jc.ErrorIsNil)
 	mm, err := st.MetricsManager()
 	c.Assert(err, jc.ErrorIsNil)
@@ -286,7 +287,7 @@ func (s *SenderSuite) TestNegativeGracePeriodResponse(c *gc.C) {
 	defer cleanup()
 	sender := metricsender.DefaultSenderFactory()("http://example.com")
 	st := s.ControllerModel(c).State()
-	err := metricsender.SendMetrics(TestSenderBackend{st, s.ControllerModel(c)}, sender, s.clock, 10, true)
+	err := metricsender.SendMetrics(context.Background(), TestSenderBackend{st, s.ControllerModel(c)}, sender, s.clock, 10, true)
 	c.Assert(err, jc.ErrorIsNil)
 	mm, err := st.MetricsManager()
 	c.Assert(err, jc.ErrorIsNil)
@@ -303,7 +304,7 @@ func (s *SenderSuite) TestZeroGracePeriodResponse(c *gc.C) {
 	defer cleanup()
 	sender := metricsender.DefaultSenderFactory()("http://example.com")
 	st := s.ControllerModel(c).State()
-	err := metricsender.SendMetrics(TestSenderBackend{st, s.ControllerModel(c)}, sender, s.clock, 10, true)
+	err := metricsender.SendMetrics(context.Background(), TestSenderBackend{st, s.ControllerModel(c)}, sender, s.clock, 10, true)
 	c.Assert(err, jc.ErrorIsNil)
 	mm, err := st.MetricsManager()
 	c.Assert(err, jc.ErrorIsNil)

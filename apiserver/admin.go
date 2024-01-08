@@ -64,8 +64,8 @@ func (a *admin) Admin(id string) (*admin, error) {
 
 // Login logs in with the provided credentials.  All subsequent requests on the
 // connection will act as the authenticated user.
-func (a *admin) Login(req params.LoginRequest) (params.LoginResult, error) {
-	return a.login(context.Background(), req, 3)
+func (a *admin) Login(ctx context.Context, req params.LoginRequest) (params.LoginResult, error) {
+	return a.login(ctx, req, 3)
 }
 
 // RedirectInfo returns redirected host information for the model.

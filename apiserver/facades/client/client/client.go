@@ -258,7 +258,7 @@ func (c *Client) FindTools(ctx stdcontext.Context, args params.FindToolsParams) 
 	}
 
 	list, err := c.api.toolsFinder.FindAgents(
-		stdcontext.Background(),
+		ctx,
 		common.FindAgentsParams{
 			Number:       args.Number,
 			MajorVersion: args.MajorVersion,

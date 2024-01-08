@@ -131,4 +131,4 @@ type ModelPresence interface {
 	AgentStatus(agent string) (presence.Status, error)
 }
 
-type environsCloudSpecGetter func(names.ModelTag) (environscloudspec.CloudSpec, error)
+type environsCloudSpecGetter func(context.Context, names.ModelTag) (environscloudspec.CloudSpec, error)

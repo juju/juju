@@ -49,23 +49,23 @@ func newSecretsAPI(context facade.Context) (*SecretsAPI, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	adminBackendConfigGetter := func() (*provider.ModelBackendConfigInfo, error) {
+	adminBackendConfigGetter := func(ctx stdcontext.Context) (*provider.ModelBackendConfigInfo, error) {
 		return secrets.AdminBackendConfigInfo(
-			stdcontext.Background(), secrets.SecretsModel(model),
+			ctx, secrets.SecretsModel(model),
 			serviceFactory.Cloud(), serviceFactory.Credential(),
 		)
 	}
-	backendConfigGetterForUserSecretsWrite := func(backendID string) (*provider.ModelBackendConfigInfo, error) {
+	backendConfigGetterForUserSecretsWrite := func(ctx stdcontext.Context, backendID string) (*provider.ModelBackendConfigInfo, error) {
 		// User secrets are owned by the model.
 		authTag := model.ModelTag()
 		return secrets.BackendConfigInfo(
-			stdcontext.Background(), secrets.SecretsModel(model),
+			ctx, secrets.SecretsModel(model),
 			serviceFactory.Cloud(), serviceFactory.Credential(),
 			[]string{backendID}, false, authTag, leadershipChecker,
 		)
 	}
 
-	backendGetter := func(cfg *provider.ModelBackendConfig) (provider.SecretsBackend, error) {
+	backendGetter := func(ctx stdcontext.Context, cfg *provider.ModelBackendConfig) (provider.SecretsBackend, error) {
 		p, err := provider.Provider(cfg.BackendType)
 		if err != nil {
 			return nil, errors.Trace(err)
