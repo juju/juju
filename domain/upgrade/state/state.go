@@ -79,7 +79,7 @@ func (st *State) SetControllerReady(ctx context.Context, upgradeUUID domainupgra
 	}
 
 	lookForReadyNodeQuery := `
-SELECT  (controller_node_id) AS &infoControllerNode.*
+SELECT  controller_node_id AS &infoControllerNode.controller_node_id
 FROM    upgrade_info_controller_node
 WHERE   upgrade_info_uuid = $M.info_uuid
 AND     controller_node_id = $M.controller_id;
@@ -214,7 +214,7 @@ WHERE uuid = ?
 }
 
 // SetDBUpgradeCompleted marks the database upgrade as completed
-func (st State) SetDBUpgradeCompleted(ctx context.Context, upgradeUUID domainupgrade.UUID) error {
+func (st *State) SetDBUpgradeCompleted(ctx context.Context, upgradeUUID domainupgrade.UUID) error {
 	db, err := st.DB()
 	if err != nil {
 		return errors.Trace(err)
@@ -249,7 +249,7 @@ AND state_type_id = $M.from_state;`
 }
 
 // SetDBUpgradeFailed marks the database upgrade as failed
-func (st State) SetDBUpgradeFailed(ctx context.Context, upgradeUUID domainupgrade.UUID) error {
+func (st *State) SetDBUpgradeFailed(ctx context.Context, upgradeUUID domainupgrade.UUID) error {
 	db, err := st.DB()
 	if err != nil {
 		return errors.Trace(err)
@@ -296,7 +296,7 @@ func (st *State) SetControllerDone(ctx context.Context, upgradeUUID domainupgrad
 	}
 
 	lookForDoneNodesQuery := `
-SELECT (controller_node_id, node_upgrade_completed_at) AS &infoControllerNode.*
+SELECT (controller_node_id, node_upgrade_completed_at) AS (&infoControllerNode.*)
 FROM   upgrade_info_controller_node
 WHERE  upgrade_info_uuid = $M.info_uuid
 AND    controller_node_id = $M.controller_id;`

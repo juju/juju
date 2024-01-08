@@ -15,11 +15,9 @@ import (
 	"github.com/juju/juju/domain"
 )
 
-// ExternalController represents a single row from the database when
-// external_controller is joined with external_controller_address and
-// external_model.
+// Autocert is a named certificate.
 type Autocert struct {
-	// Name is the autocert cache name (primary key).
+	// Name is the autocert name. It uniquely identifies the certificate.
 	Name string `db:"name"`
 
 	// Data represents the binary (encoded) contents of the autocert.
@@ -72,7 +70,7 @@ func (st *State) Get(ctx context.Context, name string) ([]byte, error) {
 	}
 
 	q := `
-SELECT (name, data) AS &Autocert.*
+SELECT (name, data) AS (&Autocert.*)
 FROM   autocert_cache 
 WHERE  name = $M.name`
 	s, err := sqlair.Prepare(q, Autocert{}, sqlair.M{})
