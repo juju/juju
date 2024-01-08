@@ -5,6 +5,7 @@ package charms
 
 import (
 	"context"
+	"fmt"
 	"io"
 
 	"github.com/juju/charm/v12"
@@ -18,7 +19,7 @@ import (
 type CharmGetter interface {
 	// GetCharm returns an io.ReadCloser for the specified object within the
 	// specified bucket.
-	GetCharm(ctx context.Context, bucketName, objectName string) (io.ReadCloser, error)
+	GetCharm(ctx context.Context, modelUUID, charmName string) (io.ReadCloser, error)
 }
 
 // NewS3CharmDownloader returns a new charm downloader that wraps a s3Caller
@@ -63,10 +64,9 @@ func (s *s3charmOpener) OpenCharm(req downloader.Request) (io.ReadCloser, error)
 	// We can ignore the second return bool from ModelTag() because if it's
 	// a controller model, then it will fail later when calling GetCharm.
 	modelTag, _ := s.apiCaller.ModelTag()
-	bucket := "model-" + modelTag.Id()
 
-	object := "charms/" + curl.Name + "-" + shortSha256
-	return s.charmGetter.GetCharm(s.ctx, bucket, object)
+	charmRef := fmt.Sprintf("%s-%s", curl.Name, shortSha256)
+	return s.charmGetter.GetCharm(s.ctx, modelTag.Id(), charmRef)
 }
 
 // NewS3CharmOpener returns a charm opener for the specified s3Caller.

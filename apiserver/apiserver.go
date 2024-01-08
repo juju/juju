@@ -644,7 +644,7 @@ func (srv *Server) loop(ready chan struct{}) error {
 
 func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 	const modelRoutePrefix = "/model/:modeluuid"
-	const charmsObjectsRoutePrefix = "/:bucket/charms/:object"
+	const charmsObjectsRoutePrefix = "/model-:modeluuid/charms/:object"
 
 	type handler struct {
 		pattern         string
@@ -689,7 +689,7 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 			} else if strings.HasPrefix(handler.pattern, charmsObjectsRoutePrefix) {
 				h = &httpcontext.BucketModelHandler{
 					Handler: h,
-					Query:   ":bucket",
+					Query:   ":modeluuid",
 				}
 			} else {
 				h = &httpcontext.ImpliedModelHandler{
