@@ -252,7 +252,7 @@ func (api *UserManagerAPI) EnableUser(ctx context.Context, users params.Entities
 	if err := api.check.ChangeAllowed(ctx); err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
-	return api.enableUserImpl(users, "enable", (*state.User).Enable)
+	return api.enableUserImpl(ctx, users, "enable", (*state.User).Enable)
 }
 
 // DisableUser disables one or more users.  If the user is already disabled,
@@ -265,10 +265,10 @@ func (api *UserManagerAPI) DisableUser(ctx context.Context, users params.Entitie
 	if err := api.check.ChangeAllowed(ctx); err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
-	return api.enableUserImpl(users, "disable", (*state.User).Disable)
+	return api.enableUserImpl(ctx, users, "disable", (*state.User).Disable)
 }
 
-func (api *UserManagerAPI) enableUserImpl(args params.Entities, action string, method func(*state.User) error) (params.ErrorResults, error) {
+func (api *UserManagerAPI) enableUserImpl(ctx context.Context, args params.Entities, action string, method func(*state.User) error) (params.ErrorResults, error) {
 	var result params.ErrorResults
 
 	if len(args.Entities) == 0 {
@@ -285,6 +285,7 @@ func (api *UserManagerAPI) enableUserImpl(args params.Entities, action string, m
 	result.Results = make([]params.ErrorResult, len(args.Entities))
 
 	for i, arg := range args.Entities {
+		// TODO(anvial): remove when finish with user migration to dqlite.
 		user, err := api.getUser(arg.Tag)
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
@@ -293,6 +294,24 @@ func (api *UserManagerAPI) enableUserImpl(args params.Entities, action string, m
 		err = method(user)
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(errors.Errorf("failed to %s user: %s", action, err))
+		}
+
+		// Get user from dqlite by name.
+		usr, err := api.userService.GetUserByName(ctx, user.Name())
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		// Enable or disable user in dqlite.
+		if action == "enable" {
+			err = api.userService.EnableUserAuthentication(ctx, usr.UUID)
+		} else {
+			err = api.userService.DisableUserAuthentication(ctx, usr.UUID)
+		}
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
 		}
 	}
 	return result, nil
@@ -460,14 +479,14 @@ func (api *UserManagerAPI) SetPassword(ctx context.Context, args params.EntityPa
 	// Create the results list to populate.
 	result.Results = make([]params.ErrorResult, len(args.Changes))
 	for i, arg := range args.Changes {
-		if err := api.setPassword(arg); err != nil {
+		if err := api.setPassword(ctx, arg); err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 		}
 	}
 	return result, nil
 }
 
-func (api *UserManagerAPI) setPassword(arg params.EntityPassword) error {
+func (api *UserManagerAPI) setPassword(ctx context.Context, arg params.EntityPassword) error {
 	user, err := api.getUser(arg.Tag)
 	if err != nil {
 		return errors.Trace(err)
@@ -487,13 +506,13 @@ func (api *UserManagerAPI) setPassword(arg params.EntityPassword) error {
 	}
 
 	// Get user from dqlite by name.
-	usr, err := api.userService.GetUserByName(context.Background(), user.Name())
+	usr, err := api.userService.GetUserByName(ctx, user.Name())
 	if err != nil {
 		return errors.Annotatef(err, "failed to get user %q", user.Name())
 	}
 
 	// Set password for user in dqlite.
-	err = api.userService.SetPassword(context.Background(), usr.UUID, auth.NewPassword(arg.Password))
+	err = api.userService.SetPassword(ctx, usr.UUID, auth.NewPassword(arg.Password))
 	if err != nil {
 		return errors.Annotatef(err, "failed to set password for user %q", user.Name())
 	}
@@ -529,11 +548,28 @@ func (api *UserManagerAPI) ResetPassword(ctx context.Context, args params.Entiti
 			continue
 		}
 		if isSuperUser && api.apiUser != user.Tag() {
+			// TODO(anvial): remove when finish with user migration to dqlite.
 			key, err := user.ResetPassword()
 			if err != nil {
 				result.Results[i].Error = apiservererrors.ServerError(err)
 				continue
 			}
+
+			// Get user from dqlite by name.
+			usr, err := api.userService.GetUserByName(ctx, user.Name())
+			if err != nil {
+				result.Results[i].Error = apiservererrors.ServerError(err)
+				continue
+			}
+
+			// Reset password for user in dqlite.
+			// TODO: use this key to reset password in dqlite.
+			_, err = api.userService.ResetPassword(ctx, usr.UUID)
+			if err != nil {
+				result.Results[i].Error = apiservererrors.ServerError(err)
+				continue
+			}
+
 			result.Results[i].SecretKey = key
 		} else {
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
