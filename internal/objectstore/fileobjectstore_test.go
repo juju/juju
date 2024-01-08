@@ -45,7 +45,7 @@ func (s *FileObjectStoreSuite) TestGetMetadataNotFound(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	defer workertest.DirtyKill(c, store)
 
-	s.service.EXPECT().GetMetadata(gomock.Any(), "foo").Return(objectstore.Metadata{}, errors.NotFound)
+	s.service.EXPECT().GetMetadata(gomock.Any(), "foo").Return(objectstore.Metadata{}, errors.NotFound).Times(2)
 
 	_, _, err = store.Get(context.Background(), "foo")
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
@@ -64,7 +64,7 @@ func (s *FileObjectStoreSuite) TestGetMetadataFoundNoFile(c *gc.C) {
 		Hash: "blah",
 		Path: "foo",
 		Size: 666,
-	}, nil)
+	}, nil).Times(2)
 
 	_, _, err = store.Get(context.Background(), "foo")
 	c.Assert(err, jc.ErrorIs, os.ErrNotExist)
@@ -95,6 +95,35 @@ func (s *FileObjectStoreSuite) TestGetMetadataAndFileFound(c *gc.C) {
 	c.Assert(s.readFile(c, file), gc.Equals, "some content")
 }
 
+func (s *FileObjectStoreSuite) TestGetMetadataAndFileNotFoundThenFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	path := c.MkDir()
+
+	namespace := "inferi"
+	fileName := "foo"
+	size, hash := s.createFile(c, filepath.Join(path, namespace), fileName, "some content")
+
+	store, err := NewFileObjectStore(context.Background(), namespace, path, s.service, s.claimer, jujutesting.NewCheckLogger(c), clock.WallClock)
+	c.Assert(err, gc.IsNil)
+	defer workertest.DirtyKill(c, store)
+
+	s.service.EXPECT().GetMetadata(gomock.Any(), fileName).Return(objectstore.Metadata{
+		Hash: hash,
+		Path: fileName,
+		Size: size,
+	}, errors.NotFoundf("not found"))
+	s.service.EXPECT().GetMetadata(gomock.Any(), fileName).Return(objectstore.Metadata{
+		Hash: hash,
+		Path: fileName,
+		Size: size,
+	}, nil)
+
+	file, fileSize, err := store.Get(context.Background(), fileName)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(size, gc.Equals, fileSize)
+	c.Assert(s.readFile(c, file), gc.Equals, "some content")
+}
 func (s *FileObjectStoreSuite) TestGetMetadataAndFileFoundWithIncorrectSize(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -112,7 +141,7 @@ func (s *FileObjectStoreSuite) TestGetMetadataAndFileFoundWithIncorrectSize(c *g
 		Hash: hash,
 		Path: fileName,
 		Size: size + 1,
-	}, nil)
+	}, nil).Times(2)
 
 	_, _, err = store.Get(context.Background(), fileName)
 	c.Assert(err, gc.ErrorMatches, `.*size mismatch.*`)

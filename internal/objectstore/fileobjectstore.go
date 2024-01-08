@@ -78,6 +78,13 @@ func NewFileObjectStore(ctx context.Context, namespace, rootPath string, metadat
 // Get returns an io.ReadCloser for data at path, namespaced to the
 // model.
 func (t *fileObjectStore) Get(ctx context.Context, path string) (io.ReadCloser, int64, error) {
+	// Optimistically try to get the file from the file system. If it doesn't
+	// exist, then we'll get an error, and we'll try to get it when sequencing
+	// the get request with the put and remove requests.
+	if reader, size, err := t.get(ctx, path); err == nil {
+		return reader, size, nil
+	}
+
 	// Sequence the get request with the put and remove requests.
 	response := make(chan response)
 	select {
@@ -264,16 +271,19 @@ func (t *fileObjectStore) get(ctx context.Context, path string) (io.ReadCloser, 
 		return nil, -1, fmt.Errorf("opening file %q encoded as %q: %w", path, metadata.Hash, err)
 	}
 
+	// Verify that the size of the file matches the expected size.
+	// This is a sanity check, that the underlying file hasn't changed.
 	stat, err := file.Stat()
 	if err != nil {
 		return nil, -1, fmt.Errorf("retrieving size: file %q encoded as %q: %w", path, metadata.Hash, err)
 	}
 
-	if metadata.Size != stat.Size() {
-		return nil, -1, fmt.Errorf("size mismatch for %q: expected %d, got %d", path, metadata.Size, stat.Size())
+	size := stat.Size()
+	if metadata.Size != size {
+		return nil, -1, fmt.Errorf("size mismatch for %q: expected %d, got %d", path, metadata.Size, size)
 	}
 
-	return file, stat.Size(), nil
+	return file, size, nil
 }
 
 func (t *fileObjectStore) put(ctx context.Context, path string, r io.Reader, size int64, validator hashValidator) error {
