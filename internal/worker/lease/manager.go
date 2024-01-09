@@ -225,7 +225,8 @@ func (manager *Manager) choose(ctx context.Context, blocks blocks) error {
 }
 
 func (manager *Manager) bind(namespace, modelUUID string) (broker, error) {
-	secretary, err := manager.config.Secretary(namespace)
+	finder := manager.config.SecretaryFinder
+	secretary, err := finder.SecretaryFor(namespace)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

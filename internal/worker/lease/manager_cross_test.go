@@ -171,7 +171,7 @@ func (s *CrossSuite) TestDifferentNamespaceValidation(c *gc.C) {
 	manager, err := lease.NewManager(lease.ManagerConfig{
 		Clock: clock,
 		Store: store,
-		Secretary: func(namespace string) (lease.Secretary, error) {
+		SecretaryFinder: FuncSecretaryFinder(func(namespace string) (lease.Secretary, error) {
 			switch namespace {
 			case "ns1":
 				return Secretary{}, nil
@@ -180,7 +180,7 @@ func (s *CrossSuite) TestDifferentNamespaceValidation(c *gc.C) {
 			default:
 				return nil, errors.Errorf("bad namespace!")
 			}
-		},
+		}),
 		MaxSleep:             defaultMaxSleep,
 		Logger:               loggo.GetLogger("lease_test"),
 		PrometheusRegisterer: noopRegisterer{},

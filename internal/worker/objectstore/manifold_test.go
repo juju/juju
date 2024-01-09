@@ -90,7 +90,7 @@ func (s *manifoldSuite) getContext() dependency.Context {
 	return dependencytesting.StubContext(nil, resources)
 }
 
-var expectedInputs = []string{"agent", "state", "trace", "service-factory"}
+var expectedInputs = []string{"agent", "state", "trace", "service-factory", "lease-manager"}
 
 func (s *manifoldSuite) TestInputs(c *gc.C) {
 	c.Assert(Manifold(s.getConfig()).Inputs, jc.SameContents, expectedInputs)

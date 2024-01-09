@@ -15,8 +15,29 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/lease"
+	workerlease "github.com/juju/juju/internal/worker/lease"
 	coretesting "github.com/juju/juju/testing"
 )
+
+// SecretaryFinder implements lease.SecretaryFinder for testing purposes.
+type SecretaryFinder struct {
+	fn func(string) (workerlease.Secretary, error)
+}
+
+// FuncSecretaryFinder returns a SecretaryFinder that calls the supplied
+// function to find the Secretary.
+func FuncSecretaryFinder(fn func(string) (workerlease.Secretary, error)) SecretaryFinder {
+	return SecretaryFinder{fn: fn}
+}
+
+// Register adds a Secretary to the Cabinet.
+func (c SecretaryFinder) Register(namespace string, secretary workerlease.Secretary) {}
+
+// SecretaryFor returns the Secretary for the given namespace.
+// Returns an error if the namespace is not valid.
+func (c SecretaryFinder) SecretaryFor(namespace string) (workerlease.Secretary, error) {
+	return c.fn(namespace)
+}
 
 // Secretary implements lease.Secretary for testing purposes.
 type Secretary struct{}

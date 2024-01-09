@@ -127,6 +127,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.TraceName,
 			config.StateName,
 			config.ServiceFactoryName,
+			config.LeaseManagerName,
 		},
 		Output: output,
 		Start: func(context dependency.Context) (worker.Worker, error) {
@@ -308,10 +309,12 @@ func (s modelClaimGetter) ForModelUUID(modelUUID string) (objectstore.Claimer, e
 }
 
 const (
+	// DefaultLockDuration is the default duration for a lock.
 	defaultLockDuration = time.Minute
-	defaultHolderName   = "objectstore"
 )
 
+// Claimer is the implementation of the objectstore.Claimer interface, which
+// wraps the lease complexity.
 type claimer struct {
 	claimer lease.Claimer
 	revoker lease.Revoker
@@ -319,7 +322,7 @@ type claimer struct {
 
 // Lock locks the given hash for the default duration.
 func (l claimer) Claim(ctx stdcontext.Context, hash string) (objectstore.ClaimExtender, error) {
-	if err := l.claimer.Claim(hash, defaultHolderName, defaultLockDuration); err != nil {
+	if err := l.claimer.Claim(hash, coreobjectstore.ObjectStoreLeaseHolderName, defaultLockDuration); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -331,7 +334,7 @@ func (l claimer) Claim(ctx stdcontext.Context, hash string) (objectstore.ClaimEx
 
 // Unlock unlocks the given hash.
 func (l claimer) Release(ctx stdcontext.Context, hash string) error {
-	return l.revoker.Revoke(hash, defaultHolderName)
+	return l.revoker.Revoke(hash, coreobjectstore.ObjectStoreLeaseHolderName)
 }
 
 type claimExtender struct {
@@ -341,10 +344,12 @@ type claimExtender struct {
 
 // Extend extends the lock for the given hash.
 func (l claimExtender) Extend(ctx stdcontext.Context) error {
-	return l.claimer.Claim(l.hash, defaultHolderName, defaultLockDuration)
+	return l.claimer.Claim(l.hash, coreobjectstore.ObjectStoreLeaseHolderName, defaultLockDuration)
 }
 
 // Duration returns the duration of the lock.
 func (l claimExtender) Duration() time.Duration {
+	// Return half the default lock duration, so that a lock can be extended
+	// before it expires.
 	return defaultLockDuration / 2
 }

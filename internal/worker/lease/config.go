@@ -14,20 +14,6 @@ import (
 	"github.com/juju/juju/core/trace"
 )
 
-// Secretary is responsible for validating the sanity of lease and holder names
-// before bothering the manager with them.
-type Secretary interface {
-
-	// CheckLease returns an error if the supplied lease name is not valid.
-	CheckLease(key lease.Key) error
-
-	// CheckHolder returns an error if the supplied holder name is not valid.
-	CheckHolder(name string) error
-
-	// CheckDuration returns an error if the supplied duration is not valid.
-	CheckDuration(duration time.Duration) error
-}
-
 // Logger represents the logging methods we use from a loggo.Logger.
 type Logger interface {
 	Tracef(string, ...interface{})
@@ -41,10 +27,10 @@ type Logger interface {
 // Manager.
 type ManagerConfig struct {
 
-	// Secretary determines validation given a namespace. The
+	// SecretaryFinder determines validation given a namespace. The
 	// secretary returned is responsible for validating lease names
 	// and holder names for that namespace.
-	Secretary func(namespace string) (Secretary, error)
+	SecretaryFinder SecretaryFinder
 
 	// Store is responsible for recording, retrieving, and expiring leases.
 	Store lease.Store
@@ -77,8 +63,8 @@ type ManagerConfig struct {
 // Validate returns an error if the configuration contains invalid information
 // or missing resources.
 func (config ManagerConfig) Validate() error {
-	if config.Secretary == nil {
-		return errors.NotValidf("nil Secretary")
+	if config.SecretaryFinder == nil {
+		return errors.NotValidf("nil SecretaryFinder")
 	}
 	if config.Store == nil {
 		return errors.NotValidf("nil Store")

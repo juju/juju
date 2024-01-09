@@ -6,91 +6,30 @@ package lease
 import (
 	"time"
 
-	"github.com/juju/errors"
-	"github.com/juju/names/v5"
-
-	coreagent "github.com/juju/juju/core/agent"
 	"github.com/juju/juju/core/lease"
 )
 
-// SingularSecretary implements Secretary to restrict claims to either
-// a lease for the controller or the specific model it's asking for,
-// holdable only by machine-tag strings.
-type SingularSecretary struct {
-	ControllerUUID string
+// Secretary is responsible for validating the sanity of lease and holder names
+// before bothering the manager with them.
+type Secretary interface {
+
+	// CheckLease returns an error if the supplied lease name is not valid.
+	CheckLease(key lease.Key) error
+
+	// CheckHolder returns an error if the supplied holder name is not valid.
+	CheckHolder(name string) error
+
+	// CheckDuration returns an error if the supplied duration is not valid.
+	CheckDuration(duration time.Duration) error
 }
 
-// CheckLease is part of the lease.Secretary interface.
-func (s SingularSecretary) CheckLease(key lease.Key) error {
-	if key.Lease != s.ControllerUUID && key.Lease != key.ModelUUID {
-		return errors.New("expected controller or model UUID")
-	}
-	return nil
-}
+// SecretaryFinder is responsible for returning the correct Secretary for a
+// given namespace.
+type SecretaryFinder interface {
+	// Register adds a Secretary to the SecretaryFinder.
+	Register(namespace string, secretary Secretary)
 
-// CheckHolder is part of the lease.Secretary interface.
-func (s SingularSecretary) CheckHolder(name string) error {
-	tag, err := names.ParseTag(name)
-	if err != nil {
-		return errors.Annotate(err, "expected a valid tag")
-	}
-	if !coreagent.IsAllowedControllerTag(tag.Kind()) {
-		return errors.New("expected machine or controller tag")
-	}
-	return nil
-}
-
-// CheckDuration is part of the lease.Secretary interface.
-func (s SingularSecretary) CheckDuration(duration time.Duration) error {
-	if duration <= 0 {
-		return errors.NewNotValid(nil, "non-positive")
-	}
-	return nil
-}
-
-// LeadershipSecretary implements Secretary; it checks that leases are
-// application names, and holders are unit names.
-type LeadershipSecretary struct{}
-
-// CheckLease is part of the lease.Secretary interface.
-func (LeadershipSecretary) CheckLease(key lease.Key) error {
-	if !names.IsValidApplication(key.Lease) {
-		return errors.NewNotValid(nil, "not an application name")
-	}
-	return nil
-}
-
-// CheckHolder is part of the lease.Secretary interface.
-func (LeadershipSecretary) CheckHolder(name string) error {
-	if !names.IsValidUnit(name) {
-		return errors.NewNotValid(nil, "not a unit name")
-	}
-	return nil
-}
-
-// CheckDuration is part of the lease.Secretary interface.
-func (LeadershipSecretary) CheckDuration(duration time.Duration) error {
-	if duration <= 0 {
-		return errors.NewNotValid(nil, "non-positive")
-	}
-	return nil
-}
-
-// SecretaryFinder returns a function to find the correct secretary to
-// use for validation for a specific lease namespace (or an error if
-// the namespace isn't valid).
-func SecretaryFinder(controllerUUID string) func(string) (Secretary, error) {
-	secretaries := map[string]Secretary{
-		lease.ApplicationLeadershipNamespace: LeadershipSecretary{},
-		lease.SingularControllerNamespace: SingularSecretary{
-			ControllerUUID: controllerUUID,
-		},
-	}
-	return func(namespace string) (Secretary, error) {
-		result, found := secretaries[namespace]
-		if !found {
-			return nil, errors.NotValidf("namespace %q", namespace)
-		}
-		return result, nil
-	}
+	// SecretaryFor returns the Secretary for the given namespace.
+	// Returns an error if the namespace is not valid.
+	SecretaryFor(namespace string) (Secretary, error)
 }

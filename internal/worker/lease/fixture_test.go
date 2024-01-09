@@ -73,9 +73,9 @@ func (fix *Fixture) RunTest(c *gc.C, test func(*lease.Manager, *testclock.Clock)
 	manager, err := lease.NewManager(lease.ManagerConfig{
 		Clock: clock,
 		Store: store,
-		Secretary: func(string) (lease.Secretary, error) {
+		SecretaryFinder: FuncSecretaryFinder(func(string) (lease.Secretary, error) {
 			return Secretary{}, nil
-		},
+		}),
 		MaxSleep:             defaultMaxSleep,
 		Logger:               loggo.GetLogger("lease_test"),
 		PrometheusRegisterer: noopRegisterer{},
