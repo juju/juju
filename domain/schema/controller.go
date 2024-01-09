@@ -4,8 +4,6 @@
 package schema
 
 import (
-	"fmt"
-
 	"github.com/juju/juju/core/database/schema"
 )
 
@@ -53,13 +51,6 @@ func ControllerDDL() *schema.Schema {
 		changeLogTriggersForTable("object_store_metadata_path", "path", tableObjectStoreMetadata),
 		userSchema,
 		flagSchema,
-		annotationSchemaForTable("application"),
-		annotationSchemaForTable("charm"),
-		annotationSchemaForTable("machine"),
-		annotationSchemaForTable("unit"),
-		annotationSchemaForTable("model"),
-		annotationSchemaForTable("storage_volume"),
-		annotationSchemaForTable("storage_filesystem"),
 	}
 
 	schema := schema.New()
@@ -68,23 +59,6 @@ func ControllerDDL() *schema.Schema {
 	}
 
 	return schema
-}
-
-func annotationSchemaForTable(table string) func() schema.Patch {
-	return func() schema.Patch {
-		return schema.MakePatch(fmt.Sprintf(`
-CREATE TABLE annotation_%[1]s (
-    %[1]s_uuid    TEXT NOT NULL,
-    key                 TEXT NOT NULL,
-    value               TEXT NOT NULL,
-    PRIMARY KEY         (%[1]s_uuid, key)
-    -- Following needs to be uncommented when we do have the
-    -- annotatables as real domain entities.
-    -- CONSTRAINT          fk_annotation_%[1]s
-    --     FOREIGN KEY     (%[1]s_uuid)
-    --     REFERENCES      %[1]s(uuid)
-);`[1:], table))
-	}
 }
 
 func leaseSchema() schema.Patch {

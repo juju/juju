@@ -34,15 +34,6 @@ func (s *schemaSuite) TestControllerDDLApply(c *gc.C) {
 
 	// Ensure that each table is present.
 	expected := set.NewStrings(
-		// Annotations
-		"annotation_application",
-		"annotation_charm",
-		"annotation_machine",
-		"annotation_unit",
-		"annotation_model",
-		"annotation_storage_volume",
-		"annotation_storage_filesystem",
-
 		// Autocert cache
 		"autocert_cache",
 		"autocert_cache_encoding",
@@ -123,6 +114,15 @@ func (s *schemaSuite) TestModelDDLApply(c *gc.C) {
 
 	// Ensure that each table is present.
 	expected := set.NewStrings(
+		// Annotations
+		"annotation_application",
+		"annotation_charm",
+		"annotation_machine",
+		"annotation_unit",
+		"annotation_model",
+		"annotation_storage_volume",
+		"annotation_storage_filesystem",
+
 		"life",
 
 		// Change log
