@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -376,17 +377,20 @@ func (s *authSuite) TestCheckOfferMacaroonsDischargeRequiredJaaSWorkflow(c *gc.C
 	mockJaaSBakery := mocks.NewMockExpirableStorageBakery(ctrl)
 	mockJaaSBakery.EXPECT().NewMacaroon(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, version bakery.Version, caveats []checkers.Caveat, ops ...bakery.Op) (*bakery.Macaroon, error) {
+			sort.Slice(caveats, func(i, j int) bool {
+				return caveats[i].Condition < caveats[j].Condition
+			})
 			c.Assert(caveats, gc.HasLen, 4)
 			c.Assert(caveats[0], jc.DeepEquals, checkers.Caveat{
-				Location: "offer-access-endpoint", Condition: "is-consumer user-mary mysql-uuid",
-			})
-			c.Assert(strings.HasPrefix(caveats[1].Condition, "time-before"), jc.IsTrue)
-			c.Assert(caveats[2], jc.DeepEquals, checkers.Caveat{
 				Condition: "declared source-model-uuid " + coretesting.ModelTag.Id(), Namespace: "std",
 			})
-			c.Assert(caveats[3], jc.DeepEquals, checkers.Caveat{
+			c.Assert(caveats[1], jc.DeepEquals, checkers.Caveat{
 				Condition: "declared username mary", Namespace: "std",
 			})
+			c.Assert(caveats[2], jc.DeepEquals, checkers.Caveat{
+				Location: "offer-access-endpoint", Condition: "is-consumer user-mary mysql-uuid",
+			})
+			c.Assert(strings.HasPrefix(caveats[3].Condition, "time-before"), jc.IsTrue)
 			return bakery.NewLegacyMacaroon(apitesting.MustNewMacaroon("test"))
 		},
 	)
@@ -552,23 +556,26 @@ func (s *authSuite) TestCheckRelationMacaroonsDischargeRequiredJaaSWorkflow(c *g
 	mockJaaSBakery := mocks.NewMockExpirableStorageBakery(ctrl)
 	mockJaaSBakery.EXPECT().NewMacaroon(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, version bakery.Version, caveats []checkers.Caveat, ops ...bakery.Op) (*bakery.Macaroon, error) {
+			sort.Slice(caveats, func(i, j int) bool {
+				return caveats[i].Condition < caveats[j].Condition
+			})
 			c.Assert(caveats, gc.HasLen, 6)
 			c.Assert(caveats[0], jc.DeepEquals, checkers.Caveat{
-				Location: "offer-access-endpoint", Condition: "is-consumer user-mary mysql-uuid",
+				Condition: "declared offer-uuid mysql-uuid", Namespace: "std",
 			})
-			c.Assert(strings.HasPrefix(caveats[1].Condition, "time-before"), jc.IsTrue)
+			c.Assert(caveats[1], jc.DeepEquals, checkers.Caveat{
+				Condition: "declared relation-key mediawiki:db mysql:server", Namespace: "std",
+			})
 			c.Assert(caveats[2], jc.DeepEquals, checkers.Caveat{
 				Condition: "declared source-model-uuid " + coretesting.ModelTag.Id(), Namespace: "std",
 			})
 			c.Assert(caveats[3], jc.DeepEquals, checkers.Caveat{
-				Condition: "declared offer-uuid mysql-uuid", Namespace: "std",
-			})
-			c.Assert(caveats[4], jc.DeepEquals, checkers.Caveat{
 				Condition: "declared username mary", Namespace: "std",
 			})
-			c.Assert(caveats[5], jc.DeepEquals, checkers.Caveat{
-				Condition: "declared relation-key mediawiki:db mysql:server", Namespace: "std",
+			c.Assert(caveats[4], jc.DeepEquals, checkers.Caveat{
+				Location: "offer-access-endpoint", Condition: "is-consumer user-mary mysql-uuid",
 			})
+			c.Assert(strings.HasPrefix(caveats[5].Condition, "time-before"), jc.IsTrue)
 			return bakery.NewLegacyMacaroon(apitesting.MustNewMacaroon("test"))
 		},
 	)

@@ -79,7 +79,7 @@ func (s *loginTokenSuite) TestAuthenticateLoginRequestNotSupported(c *gc.C) {
 
 func (s *loginTokenSuite) TestUsesLoginToken(c *gc.C) {
 	modelTag := names.NewModelTag("test")
-	applicationOfferTag := names.NewApplicationOfferTag("hosted-mysql-uuid")
+	applicationOfferTag := names.NewApplicationOfferTag("f47ac10b-58cc-4372-a567-0e02b2c3d479")
 	tok, err := EncodedJWT(JWTParams{
 		Controller: testing.ControllerTag.Id(),
 		User:       "user-fred",
