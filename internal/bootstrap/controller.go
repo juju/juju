@@ -13,6 +13,12 @@ const controllerCharmURL = "juju-controller"
 
 // PopulateControllerCharm is the function that is used to populate the
 // controller charm.
+// When deploying a local charm, it is expected that the charm is located
+// in a certain location. If the charm is not located there, we'll get an
+// error indicating that the charm is not found.
+// If the errors is not found locally, we'll try to download it from
+// charm hub.
+// Once the charm is added, set up the controller application.
 func PopulateControllerCharm(ctx context.Context, deployer ControllerCharmDeployer) error {
 	controllerAddress, err := deployer.ControllerAddress(ctx)
 	if err != nil {
@@ -47,6 +53,7 @@ func PopulateControllerCharm(ctx context.Context, deployer ControllerCharmDeploy
 		return errors.Annotatef(err, "adding controller application")
 	}
 
+	// Finally, complete the process.
 	if err := deployer.CompleteProcess(ctx, controllerUnit); err != nil {
 		return errors.Annotatef(err, "completing process")
 	}

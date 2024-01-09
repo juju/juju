@@ -134,7 +134,7 @@ type Model interface {
 type Unit interface {
 	// UpdateOperation returns a model operation that will update a unit.
 	UpdateOperation(state.UnitUpdateProperties) *state.UpdateUnitOperation
-	// AssignToMachine assigns this unit to a given machine.
+	// AssignToMachineRef assigns this unit to a given machine.
 	AssignToMachineRef(state.MachineRef) error
 	// UnitTag returns the tag of the unit.
 	UnitTag() names.UnitTag
@@ -306,15 +306,15 @@ func (b *baseDeployer) DeployCharmhubCharm(ctx context.Context, arch string, bas
 	}
 
 	// Since we're running on the machine to which the controller charm will be
-	// deployed, we know the exact platform to ask for, not need to review the
-	// supported series.
+	// deployed, we know the exact platform to ask for, no need to review the
+	// supported base.
 	//
-	// We prefer the latest LTS series, if the current series is not one,
+	// We prefer the latest LTS bases, if the current base is not one,
 	// charmRepo.ResolveWithPreferredChannel, will return an origin with the
 	// latest LTS based on data provided by charmhub in the revision-not-found
 	// error response.
 	//
-	// The controller charm doesn't have any series specific code.
+	// The controller charm doesn't have any base specific code.
 	curl, origin, _, err = charmRepo.ResolveWithPreferredChannel(ctx, curl.Name, origin)
 	if err != nil {
 		return "", nil, errors.Annotatef(err, "resolving %q", controllerCharmURL)

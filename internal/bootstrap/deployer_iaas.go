@@ -73,7 +73,7 @@ func (d *IAASDeployer) ControllerAddress(context.Context) (string, error) {
 func (d *IAASDeployer) ControllerCharmBase() (corebase.Base, error) {
 	m, err := d.machineGetter.Machine(agent.BootstrapControllerId)
 	if err != nil {
-		return corebase.Empty, errors.Trace(err)
+		return corebase.Base{}, errors.Trace(err)
 	}
 
 	machineBase := m.Base()
