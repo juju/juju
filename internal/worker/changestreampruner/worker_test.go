@@ -6,12 +6,12 @@ import (
 	"context"
 	"fmt"
 	"strconv"
-	time "time"
+	"time"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	gomock "go.uber.org/mock/gomock"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	coredatabase "github.com/juju/juju/core/database"
@@ -519,7 +519,7 @@ VALUES ($M.id, 4, 2, 0, $M.created_at);
 
 func (s *workerSuite) expectChangeLogWitnesses(c *gc.C, runner coredatabase.TxnRunner, watermarks []Watermark) {
 	query, err := sqlair.Prepare(`
-SELECT (controller_id, lower_bound, updated_at) AS &Watermark.* FROM change_log_witness;
+SELECT (controller_id, lower_bound, updated_at) AS (&Watermark.*) FROM change_log_witness;
 `, Watermark{})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -539,7 +539,7 @@ SELECT (controller_id, lower_bound, updated_at) AS &Watermark.* FROM change_log_
 
 func (s *workerSuite) expectChangeLogItems(c *gc.C, runner coredatabase.TxnRunner, amount, lowerBound, upperBound int) {
 	query, err := sqlair.Prepare(`
-SELECT (id, edit_type_id, namespace_id, changed, created_at) AS &ChangeLogItem.* FROM change_log;
+SELECT (id, edit_type_id, namespace_id, changed, created_at) AS (&ChangeLogItem.*) FROM change_log;
 	`, ChangeLogItem{})
 	c.Assert(err, jc.ErrorIsNil)
 

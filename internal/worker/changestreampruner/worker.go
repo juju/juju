@@ -153,7 +153,7 @@ func (w *Pruner) prune() (map[string]int64, error) {
 		return nil, errors.Trace(err)
 	}
 
-	query, err := sqlair.Prepare(`SELECT (uuid) AS &Model.* FROM model_list;`, Model{})
+	query, err := sqlair.Prepare(`SELECT uuid AS &Model.uuid FROM model_list;`, Model{})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -225,12 +225,12 @@ type ChangeLog struct {
 }
 
 var (
-	selectWitnessQuery = sqlair.MustPrepare(`SELECT (controller_id, lower_bound, updated_at) AS &Watermark.* FROM change_log_witness;`, Watermark{})
+	selectWitnessQuery = sqlair.MustPrepare(`SELECT (controller_id, lower_bound, updated_at) AS (&Watermark.*) FROM change_log_witness;`, Watermark{})
 
 	// TODO (stickupkid): This needs to be swapped out for the following query
 	// once we have a way to use functions in columns.
 	// SELECT COUNT(*) AS &Result.count FROM change_log WHERE created_at > $M.created_at LIMIT $M.limit;
-	selectChangeLogQuery = sqlair.MustPrepare(`SELECT (id) AS &ChangeLog.* FROM change_log WHERE created_at > $M.created_at LIMIT $M.limit;`, ChangeLog{}, sqlair.M{})
+	selectChangeLogQuery = sqlair.MustPrepare(`SELECT id AS &ChangeLog.id FROM change_log WHERE created_at > $M.created_at LIMIT $M.limit;`, ChangeLog{}, sqlair.M{})
 )
 
 func (w *Pruner) locateLowestWatermark(ctx context.Context, tx *sqlair.TX, namespace string) (Watermark, error) {

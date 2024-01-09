@@ -380,10 +380,10 @@ func (st *State) loadCloudCredentials(ctx context.Context, tx *sqlair.TX, name, 
 SELECT (cc.uuid, cc.name,
        cc.revoked, cc.invalid, 
        cc.invalid_reason, 
-       cc.owner_uuid) AS &Credential.*,
+       cc.owner_uuid) AS (&Credential.*),
        auth_type.type AS &AuthType.*,
        cloud.name AS &Cloud.*,
-       (cc_attr.key, cc_attr.value) AS &credentialAttribute.*
+       (cc_attr.key, cc_attr.value) AS (&credentialAttribute.*)
 FROM   cloud_credential cc
        JOIN auth_type ON cc.auth_type_id = auth_type.id
        JOIN cloud ON cc.cloud_uuid = cloud.uuid

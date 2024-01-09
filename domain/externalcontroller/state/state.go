@@ -44,7 +44,7 @@ func (st *State) Controller(
 SELECT (ctrl.uuid,
        alias,
        ca_cert,
-       address) as &ExternalController.*,
+       address) as (&ExternalController.*),
        model.uuid as &ExternalController.model
 FROM   external_controller AS ctrl
        LEFT JOIN external_model AS model
@@ -87,7 +87,7 @@ func (st *State) ControllersForModels(ctx context.Context, modelUUIDs ...string)
 SELECT (ctrl.uuid,  
        ctrl.alias,
        ctrl.ca_cert,
-       addrs.address) as &ExternalController.*,
+       addrs.address) as (&ExternalController.*),
        model.uuid as &ExternalController.model
 FROM   external_controller AS ctrl	
        LEFT JOIN external_model AS model
