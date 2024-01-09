@@ -23,9 +23,7 @@ import (
 
 // Logger represents the logging methods called.
 type Logger interface {
-	Errorf(message string, args ...any)
 	Warningf(message string, args ...any)
-	Infof(message string, args ...any)
 	Debugf(message string, args ...any)
 }
 

@@ -546,6 +546,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 	"bootstrap": {
 		"agent",
 		"change-stream",
+		"charmhub-http-client",
 		"db-accessor",
 		"file-notify-watcher",
 		"is-bootstrap-gate",
@@ -1263,6 +1264,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 	"bootstrap": {
 		"agent",
 		"change-stream",
+		"charmhub-http-client",
 		"db-accessor",
 		"file-notify-watcher",
 		"is-bootstrap-gate",

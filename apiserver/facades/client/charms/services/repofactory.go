@@ -27,8 +27,10 @@ type LoggerFactory interface {
 
 // Logger is the interface that is used to log messages.
 type Logger interface {
-	Errorf(message string, args ...any)
-	Tracef(message string, args ...any)
+	Errorf(string, ...interface{})
+	Warningf(string, ...interface{})
+	Debugf(string, ...interface{})
+	Tracef(string, ...interface{})
 }
 
 // CharmRepoFactoryConfig encapsulates the information required for creating a
