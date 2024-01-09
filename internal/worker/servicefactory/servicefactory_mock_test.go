@@ -25,6 +25,7 @@ import (
 	service9 "github.com/juju/juju/domain/modelmanager/service"
 	service10 "github.com/juju/juju/domain/objectstore/service"
 	service11 "github.com/juju/juju/domain/upgrade/service"
+	service12 "github.com/juju/juju/domain/user/service"
 	servicefactory "github.com/juju/juju/internal/servicefactory"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -218,6 +219,20 @@ func (m *MockControllerServiceFactory) Upgrade() *service11.Service {
 func (mr *MockControllerServiceFactoryMockRecorder) Upgrade() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Upgrade", reflect.TypeOf((*MockControllerServiceFactory)(nil).Upgrade))
+}
+
+// User mocks base method.
+func (m *MockControllerServiceFactory) User() *service12.Service {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "User")
+	ret0, _ := ret[0].(*service12.Service)
+	return ret0
+}
+
+// User indicates an expected call of User.
+func (mr *MockControllerServiceFactoryMockRecorder) User() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "User", reflect.TypeOf((*MockControllerServiceFactory)(nil).User))
 }
 
 // MockModelServiceFactory is a mock of ModelServiceFactory interface.
@@ -488,6 +503,20 @@ func (m *MockServiceFactory) Upgrade() *service11.Service {
 func (mr *MockServiceFactoryMockRecorder) Upgrade() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Upgrade", reflect.TypeOf((*MockServiceFactory)(nil).Upgrade))
+}
+
+// User mocks base method.
+func (m *MockServiceFactory) User() *service12.Service {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "User")
+	ret0, _ := ret[0].(*service12.Service)
+	return ret0
+}
+
+// User indicates an expected call of User.
+func (mr *MockServiceFactoryMockRecorder) User() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "User", reflect.TypeOf((*MockServiceFactory)(nil).User))
 }
 
 // MockServiceFactoryGetter is a mock of ServiceFactoryGetter interface.

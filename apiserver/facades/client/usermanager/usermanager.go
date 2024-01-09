@@ -21,16 +21,55 @@ import (
 	"github.com/juju/juju/state"
 )
 
+// UserService defines the methods to operate with the database.
+type UserService interface {
+}
+
 // UserManagerAPI implements the user manager interface and is the concrete
 // implementation of the api end point.
 type UserManagerAPI struct {
-	state      *state.State
-	pool       *state.StatePool
-	authorizer facade.Authorizer
-	check      *common.BlockChecker
-	apiUser    names.UserTag
-	isAdmin    bool
-	logger     loggo.Logger
+	state       *state.State
+	userService UserService
+	pool        *state.StatePool
+	authorizer  facade.Authorizer
+	check       *common.BlockChecker
+	apiUser     names.UserTag
+	isAdmin     bool
+	logger      loggo.Logger
+}
+
+// NewAPI creates a new API endpoint for calling user manager functions.
+func NewAPI(
+	ctx facade.Context,
+	userService UserService,
+) (*UserManagerAPI, error) {
+	authorizer := ctx.Auth()
+	if !authorizer.AuthClient() {
+		return nil, apiservererrors.ErrPerm
+	}
+
+	// Since we know this is a user tag (because AuthClient is true),
+	// we just do the type assertion to the UserTag.
+	apiUser, _ := authorizer.GetAuthTag().(names.UserTag)
+	// Pretty much all of the user manager methods have special casing for admin
+	// users, so look once when we start and remember if the user is an admin.
+	st := ctx.State()
+	err := authorizer.HasPermission(permission.SuperuserAccess, st.ControllerTag())
+	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
+		return nil, errors.Trace(err)
+	}
+	isAdmin := err == nil
+
+	return &UserManagerAPI{
+		state:       st,
+		userService: userService,
+		pool:        ctx.StatePool(),
+		authorizer:  authorizer,
+		check:       common.NewBlockChecker(st),
+		apiUser:     apiUser,
+		isAdmin:     isAdmin,
+		logger:      ctx.Logger().Child("usermanager"),
+	}, nil
 }
 
 func (api *UserManagerAPI) hasControllerAdminAccess() (bool, error) {

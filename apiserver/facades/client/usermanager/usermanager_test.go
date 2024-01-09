@@ -12,6 +12,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
@@ -42,6 +43,11 @@ type userManagerSuite struct {
 var _ = gc.Suite(&userManagerSuite{})
 
 func (s *userManagerSuite) SetUpTest(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	userService := NewMockUserService(ctrl)
+
 	s.ApiServerSuite.SetUpTest(c)
 
 	s.resources = common.NewResources()
@@ -51,12 +57,13 @@ func (s *userManagerSuite) SetUpTest(c *gc.C) {
 		Tag: adminTag,
 	}
 	var err error
-	s.usermanager, err = usermanager.NewUserManagerAPI(facadetest.Context{
+
+	s.usermanager, err = usermanager.NewAPI(facadetest.Context{
 		StatePool_: s.StatePool(),
 		State_:     s.ControllerModel(c).State(),
 		Resources_: s.resources,
 		Auth_:      s.authorizer,
-	})
+	}, userService)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.BlockHelper = commontesting.NewBlockHelper(s.OpenControllerModelAPI(c))
@@ -64,13 +71,18 @@ func (s *userManagerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *userManagerSuite) TestNewUserManagerAPIRefusesNonClient(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	userService := NewMockUserService(ctrl)
+
 	anAuthoriser := s.authorizer
 	anAuthoriser.Tag = names.NewMachineTag("1")
-	endPoint, err := usermanager.NewUserManagerAPI(facadetest.Context{
+	endPoint, err := usermanager.NewAPI(facadetest.Context{
 		State_:     s.ControllerModel(c).State(),
 		Resources_: s.resources,
 		Auth_:      anAuthoriser,
-	})
+	}, userService)
 	c.Assert(endPoint, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
@@ -160,15 +172,20 @@ func (s *userManagerSuite) TestBlockAddUser(c *gc.C) {
 }
 
 func (s *userManagerSuite) TestAddUserAsNormalUser(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	userService := NewMockUserService(ctrl)
+
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 	alex := f.MakeUser(c, &factory.UserParams{Name: "alex", NoModelUser: true})
 	st := s.ControllerModel(c).State()
-	usermanager, err := usermanager.NewUserManagerAPI(facadetest.Context{
+	usermanager, err := usermanager.NewAPI(facadetest.Context{
 		State_:     st,
 		Resources_: s.resources,
 		Auth_:      apiservertesting.FakeAuthorizer{Tag: alex.Tag()},
-	})
+	}, userService)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.AddUsers{
@@ -326,14 +343,19 @@ func (s *userManagerSuite) TestBlockEnableUser(c *gc.C) {
 }
 
 func (s *userManagerSuite) TestDisableUserAsNormalUser(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	userService := NewMockUserService(ctrl)
+
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 	alex := f.MakeUser(c, &factory.UserParams{Name: "alex", NoModelUser: true})
-	usermanager, err := usermanager.NewUserManagerAPI(facadetest.Context{
+	usermanager, err := usermanager.NewAPI(facadetest.Context{
 		State_:     s.ControllerModel(c).State(),
 		Resources_: s.resources,
 		Auth_:      apiservertesting.FakeAuthorizer{Tag: alex.Tag()},
-	})
+	}, userService)
 	c.Assert(err, jc.ErrorIsNil)
 
 	barb := f.MakeUser(c, &factory.UserParams{Name: "barb"})
@@ -350,14 +372,19 @@ func (s *userManagerSuite) TestDisableUserAsNormalUser(c *gc.C) {
 }
 
 func (s *userManagerSuite) TestEnableUserAsNormalUser(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	userService := NewMockUserService(ctrl)
+
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 	alex := f.MakeUser(c, &factory.UserParams{Name: "alex", NoModelUser: true})
-	usermanager, err := usermanager.NewUserManagerAPI(facadetest.Context{
+	usermanager, err := usermanager.NewAPI(facadetest.Context{
 		State_:     s.ControllerModel(c).State(),
 		Resources_: s.resources,
 		Auth_:      apiservertesting.FakeAuthorizer{Tag: alex.Tag()},
-	})
+	}, userService)
 	c.Assert(err, jc.ErrorIsNil)
 
 	barb := f.MakeUser(c, &factory.UserParams{Name: "barb", Disabled: true})
@@ -515,6 +542,11 @@ func (s *userManagerSuite) TestUserInfoAll(c *gc.C) {
 }
 
 func (s *userManagerSuite) TestUserInfoNonControllerAdmin(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	userService := NewMockUserService(ctrl)
+
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 	f.MakeUser(c, &factory.UserParams{Name: "foobar", DisplayName: "Foo Bar"})
@@ -523,11 +555,11 @@ func (s *userManagerSuite) TestUserInfoNonControllerAdmin(c *gc.C) {
 	authorizer := apiservertesting.FakeAuthorizer{
 		Tag: userAardvark.Tag(),
 	}
-	usermanager, err := usermanager.NewUserManagerAPI(facadetest.Context{
+	usermanager, err := usermanager.NewAPI(facadetest.Context{
 		State_:     s.ControllerModel(c).State(),
 		Resources_: s.resources,
 		Auth_:      authorizer,
-	})
+	}, userService)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.UserInfoRequest{Entities: []params.Entity{
@@ -749,14 +781,19 @@ func (s *userManagerSuite) TestBlockSetPassword(c *gc.C) {
 }
 
 func (s *userManagerSuite) TestSetPasswordForSelf(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	userService := NewMockUserService(ctrl)
+
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 	alex := f.MakeUser(c, &factory.UserParams{Name: "alex", NoModelUser: true})
-	usermanager, err := usermanager.NewUserManagerAPI(facadetest.Context{
+	usermanager, err := usermanager.NewAPI(facadetest.Context{
 		State_:     s.ControllerModel(c).State(),
 		Resources_: s.resources,
 		Auth_:      apiservertesting.FakeAuthorizer{Tag: alex.Tag()},
-	})
+	}, userService)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.EntityPasswords{
@@ -776,15 +813,20 @@ func (s *userManagerSuite) TestSetPasswordForSelf(c *gc.C) {
 }
 
 func (s *userManagerSuite) TestSetPasswordForOther(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	userService := NewMockUserService(ctrl)
+
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 	alex := f.MakeUser(c, &factory.UserParams{Name: "alex", NoModelUser: true})
 	barb := f.MakeUser(c, &factory.UserParams{Name: "barb", NoModelUser: true})
-	usermanager, err := usermanager.NewUserManagerAPI(facadetest.Context{
+	usermanager, err := usermanager.NewAPI(facadetest.Context{
 		State_:     s.ControllerModel(c).State(),
 		Resources_: s.resources,
 		Auth_:      apiservertesting.FakeAuthorizer{Tag: alex.Tag()},
-	})
+	}, userService)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.EntityPasswords{
@@ -863,6 +905,11 @@ func (s *userManagerSuite) TestRemoveUser(c *gc.C) {
 }
 
 func (s *userManagerSuite) TestRemoveUserAsNormalUser(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	userService := NewMockUserService(ctrl)
+
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 	// Create a user to delete.
@@ -874,11 +921,11 @@ func (s *userManagerSuite) TestRemoveUserAsNormalUser(c *gc.C) {
 	})
 
 	// Authenticate as chuck.
-	usermanager, err := usermanager.NewUserManagerAPI(facadetest.Context{
+	usermanager, err := usermanager.NewAPI(facadetest.Context{
 		State_:     s.ControllerModel(c).State(),
 		Resources_: s.resources,
 		Auth_:      apiservertesting.FakeAuthorizer{Tag: chuck.Tag()},
-	})
+	}, userService)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Make sure the user exists.
@@ -900,6 +947,11 @@ func (s *userManagerSuite) TestRemoveUserAsNormalUser(c *gc.C) {
 }
 
 func (s *userManagerSuite) TestRemoveUserSelfAsNormalUser(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	userService := NewMockUserService(ctrl)
+
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 	// Create a user to delete.
@@ -907,11 +959,11 @@ func (s *userManagerSuite) TestRemoveUserSelfAsNormalUser(c *gc.C) {
 		Name:        "jimmyjam",
 		NoModelUser: true,
 	})
-	usermanager, err := usermanager.NewUserManagerAPI(facadetest.Context{
+	usermanager, err := usermanager.NewAPI(facadetest.Context{
 		State_:     s.ControllerModel(c).State(),
 		Resources_: s.resources,
 		Auth_:      apiservertesting.FakeAuthorizer{Tag: jjam.Tag()},
-	})
+	}, userService)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Make sure the user exists.
@@ -1095,17 +1147,22 @@ func (s *userManagerSuite) TestResetPasswordControllerAdminForSelf(c *gc.C) {
 }
 
 func (s *userManagerSuite) TestResetPasswordNotControllerAdmin(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	userService := NewMockUserService(ctrl)
+
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 	alex := f.MakeUser(c, &factory.UserParams{Name: "alex", NoModelUser: true})
 	c.Assert(alex.PasswordValid("password"), jc.IsTrue)
 	barb := f.MakeUser(c, &factory.UserParams{Name: "barb", NoModelUser: true})
 	c.Assert(barb.PasswordValid("password"), jc.IsTrue)
-	usermanager, err := usermanager.NewUserManagerAPI(facadetest.Context{
+	usermanager, err := usermanager.NewAPI(facadetest.Context{
 		State_:     s.ControllerModel(c).State(),
 		Resources_: s.resources,
 		Auth_:      apiservertesting.FakeAuthorizer{Tag: alex.Tag()},
-	})
+	}, userService)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.Entities{Entities: []params.Entity{
