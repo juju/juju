@@ -7,7 +7,6 @@ import (
 	"context"
 	"net/http"
 	"net/url"
-	"time"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
@@ -85,7 +84,6 @@ func getJaaSOfferBakery(
 	pkCache.AddInfo(pkURL, thirdPartyInfo)
 	locator := httpbakery.NewThirdPartyLocator(nil, pkCache)
 
-	store = store.ExpireAfter(15 * time.Minute)
 	return &bakeryutil.ExpirableStorageBakery{
 		Bakery: bakery.New(
 			bakery.BakeryParams{

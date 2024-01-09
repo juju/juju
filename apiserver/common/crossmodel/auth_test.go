@@ -221,7 +221,7 @@ func (s *authSuite) TestCreateConsumeOfferMacaroon(c *gc.C) {
 	}
 	authContext, err := crossmodel.NewAuthContext(nil, s.bakeryKey, s.bakery, nil, "")
 	c.Assert(err, jc.ErrorIsNil)
-	mac, err := authContext.CreateConsumeOfferMacaroon(context.Background(), offer, names.NewUserTag("mary"), bakery.LatestVersion)
+	mac, err := authContext.CreateConsumeOfferMacaroon(context.Background(), offer, "mary", bakery.LatestVersion)
 	c.Assert(err, jc.ErrorIsNil)
 	cav := mac.M().Caveats()
 	c.Assert(cav, gc.HasLen, 4)
@@ -242,7 +242,7 @@ func (s *authSuite) TestCreateConsumeOfferMacaroonForJaaS(c *gc.C) {
 		SourceModelTag: coretesting.ModelTag.String(),
 		OfferUUID:      "mysql-uuid",
 	}
-	mac, err := authContext.CreateConsumeOfferMacaroon(context.Background(), offer, names.NewUserTag("mary"), bakery.LatestVersion)
+	mac, err := authContext.CreateConsumeOfferMacaroon(context.Background(), offer, "mary", bakery.LatestVersion)
 	c.Assert(err, jc.ErrorIsNil)
 	cav := mac.M().Caveats()
 	c.Assert(cav, gc.HasLen, 3)
@@ -354,7 +354,7 @@ func (s *authSuite) TestCheckOfferMacaroonsDischargeRequired(c *gc.C) {
 		SourceModelTag: coretesting.ModelTag.String(),
 		OfferUUID:      "mysql-uuid",
 	}
-	mac, err := authContext.CreateConsumeOfferMacaroon(context.Background(), offer, names.NewUserTag("mary"), bakery.LatestVersion)
+	mac, err := authContext.CreateConsumeOfferMacaroon(context.Background(), offer, "mary", bakery.LatestVersion)
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = authContext.Authenticator().CheckOfferMacaroons(
@@ -375,6 +375,7 @@ func (s *authSuite) TestCheckOfferMacaroonsDischargeRequiredJaaSWorkflow(c *gc.C
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	mockJaaSBakery := mocks.NewMockExpirableStorageBakery(ctrl)
+	mockJaaSBakery.EXPECT().ExpireStorageAfter(3 * time.Minute).Return(mockJaaSBakery, nil)
 	mockJaaSBakery.EXPECT().NewMacaroon(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, version bakery.Version, caveats []checkers.Caveat, ops ...bakery.Op) (*bakery.Macaroon, error) {
 			sort.Slice(caveats, func(i, j int) bool {
@@ -404,7 +405,7 @@ func (s *authSuite) TestCheckOfferMacaroonsDischargeRequiredJaaSWorkflow(c *gc.C
 		SourceModelTag: coretesting.ModelTag.String(),
 		OfferUUID:      "mysql-uuid",
 	}
-	mac, err := authContext.CreateConsumeOfferMacaroon(context.Background(), offer, names.NewUserTag("mary"), bakery.LatestVersion)
+	mac, err := authContext.CreateConsumeOfferMacaroon(context.Background(), offer, "mary", bakery.LatestVersion)
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = authContext.Authenticator().CheckOfferMacaroons(
@@ -554,6 +555,7 @@ func (s *authSuite) TestCheckRelationMacaroonsDischargeRequiredJaaSWorkflow(c *g
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	mockJaaSBakery := mocks.NewMockExpirableStorageBakery(ctrl)
+	mockJaaSBakery.EXPECT().ExpireStorageAfter(3*time.Minute).Return(mockJaaSBakery, nil)
 	mockJaaSBakery.EXPECT().NewMacaroon(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, version bakery.Version, caveats []checkers.Caveat, ops ...bakery.Op) (*bakery.Macaroon, error) {
 			sort.Slice(caveats, func(i, j int) bool {
