@@ -79,11 +79,13 @@ func newFacadeV10(ctx facade.Context) (*ModelManagerAPI, error) {
 	return NewModelManagerAPI(
 		backend.(StateBackend),
 		migration.NewModelExporter(
+			ctx.ServiceFactory().User(),
 			backend,
 			modelmigration.NewScope(changestream.NewTxnRunnerFactory(ctx.ControllerDB), nil),
 		),
 		common.NewModelManagerBackend(ctrlModel, pool),
 		serviceFactory.Cloud(),
+		serviceFactory.User(),
 		serviceFactory.Credential(),
 		serviceFactory.ModelManager(),
 		serviceFactory.Model(),

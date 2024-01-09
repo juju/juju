@@ -5,6 +5,7 @@ package state
 
 import (
 	"fmt"
+	coreuser "github.com/juju/juju/core/user"
 	"strconv"
 	"strings"
 	"time"
@@ -333,7 +334,7 @@ func (m ModelArgs) Validate() error {
 // model document means that we have a way to represent external
 // models, perhaps for future use around cross model
 // relations.
-func (ctlr *Controller) NewModel(args ModelArgs) (_ *Model, _ *State, err error) {
+func (ctlr *Controller) NewModel(usr coreuser.User, args ModelArgs) (_ *Model, _ *State, err error) {
 	st, err := ctlr.pool.SystemState()
 	if err != nil {
 		return nil, nil, errors.Trace(err)
@@ -427,7 +428,7 @@ func (ctlr *Controller) NewModel(args ModelArgs) (_ *Model, _ *State, err error)
 		_, _ = probablyUpdateStatusHistory(newSt.db(), modelGlobalKey, modelStatusDoc)
 	}
 
-	_, err = newSt.SetUserAccess(newModel.Owner(), newModel.ModelTag(), permission.AdminAccess)
+	_, err = newSt.SetUserAccess(usr, newModel.Owner(), newModel.ModelTag(), permission.AdminAccess)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "granting admin permission to the owner")
 	}
@@ -955,33 +956,17 @@ func (st *State) AllEndpointBindingsSpaceNames() (set.Strings, error) {
 }
 
 // Users returns a slice of all users for this model.
-func (m *Model) Users() ([]permission.UserAccess, error) {
-	coll, closer := m.st.db().GetCollection(modelUsersC)
-	defer closer()
-
-	var userDocs []userAccessDoc
-	err := coll.Find(nil).All(&userDocs)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
+func (m *Model) Users(usrs []coreuser.User) ([]permission.UserAccess, error) {
 	var modelUsers []permission.UserAccess
-	for _, doc := range userDocs {
+	for _, usr := range usrs {
 		// check if the User belonging to this model user has
-		// been deleted, in this case we should not return it.
-		userTag := names.NewUserTag(doc.UserName)
+		// been removed, in this case we should not return it.
+		userTag := names.NewUserTag(usr.Name)
 		if userTag.IsLocal() {
-			_, err := m.st.User(userTag)
-			if err != nil {
-				if !IsDeletedUserError(err) {
-					// We ignore deleted users for now. So if it is not a
-					// DeletedUserError we return the error.
-					return nil, errors.Trace(err)
-				}
-				continue
-			}
+			// TODO(anvial): Delete if this block not needed
+			continue
 		}
-		mu, err := NewModelUserAccess(m.st, doc)
+		mu, err := NewModelUserAccess(m.st, usr)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

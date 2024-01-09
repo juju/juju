@@ -11,11 +11,12 @@ import (
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/core/permission"
+	coreuser "github.com/juju/juju/core/user"
 )
 
 // GetOfferAccess gets the access permission for the specified user on an offer.
 func (st *State) GetOfferAccess(offerUUID string, user names.UserTag) (permission.Access, error) {
-	perm, err := st.userPermission(applicationOfferKey(offerUUID), userGlobalKey(userAccessID(user)))
+	perm, err := st.userPermission(applicationOfferKey(offerUUID), coreuser.UserGlobalKey(userAccessID(user)))
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -30,30 +31,25 @@ func (st *State) GetOfferUsers(offerUUID string) (map[string]permission.Access, 
 	}
 	result := make(map[string]permission.Access)
 	for _, p := range perms {
-		result[userIDFromGlobalKey(p.doc.SubjectGlobalKey)] = p.access()
+		result[coreuser.UserIDFromGlobalKey(p.doc.SubjectGlobalKey)] = p.access()
 	}
 	return result, nil
 }
 
 // CreateOfferAccess creates a new access permission for a user on an offer.
-func (st *State) CreateOfferAccess(offer names.ApplicationOfferTag, user names.UserTag, access permission.Access) error {
+func (st *State) CreateOfferAccess(usr coreuser.User, offer names.ApplicationOfferTag, user names.UserTag, access permission.Access) error {
 	if err := permission.ValidateOfferAccess(access); err != nil {
 		return errors.Trace(err)
 	}
 
-	// Local users must exist.
-	if user.IsLocal() {
-		_, err := st.User(user)
-		if err != nil {
-			if errors.Is(err, errors.NotFound) {
-				return errors.Annotatef(err, "user %q does not exist locally", user.Name())
-			}
-			return errors.Trace(err)
-		}
+	// Local usr must exist.
+	if !names.NewUserTag(usr.Name).IsLocal() {
+		return errors.Errorf("user %q does not exist locally", usr.Name)
+
 	}
 
 	offerUUID := offer.Id()
-	op := createPermissionOp(applicationOfferKey(offerUUID), userGlobalKey(userAccessID(user)), access)
+	op := createPermissionOp(applicationOfferKey(offerUUID), coreuser.UserGlobalKey(userAccessID(user)), access)
 
 	err := st.db().RunTransaction([]txn.Op{op})
 	if err == txn.ErrAborted {
@@ -63,7 +59,7 @@ func (st *State) CreateOfferAccess(offer names.ApplicationOfferTag, user names.U
 }
 
 // UpdateOfferAccess changes the user's access permissions on an offer.
-func (st *State) UpdateOfferAccess(offer names.ApplicationOfferTag, user names.UserTag, access permission.Access) error {
+func (st *State) UpdateOfferAccess(usr coreuser.User, offer names.ApplicationOfferTag, user names.UserTag, access permission.Access) error {
 	if err := permission.ValidateOfferAccess(access); err != nil {
 		return errors.Trace(err)
 	}
@@ -74,11 +70,11 @@ func (st *State) UpdateOfferAccess(offer names.ApplicationOfferTag, user names.U
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		isAdmin, err := st.isControllerOrModelAdmin(user)
+		isAdmin, err := st.isControllerOrModelAdmin(usr, user)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		ops := []txn.Op{updatePermissionOp(applicationOfferKey(offerUUID), userGlobalKey(userAccessID(user)), access)}
+		ops := []txn.Op{updatePermissionOp(applicationOfferKey(offerUUID), coreuser.UserGlobalKey(userAccessID(user)), access)}
 		if !isAdmin && access != permission.ConsumeAccess && access != permission.AdminAccess {
 			suspendOps, err := st.suspendRevokedRelationsOps(offerUUID, user.Id())
 			if err != nil {
@@ -160,18 +156,18 @@ func (st *State) suspendRevokedRelationsOps(offerUUID, userId string) ([]txn.Op,
 }
 
 // RemoveOfferAccess removes the access permission for a user on an offer.
-func (st *State) RemoveOfferAccess(offer names.ApplicationOfferTag, user names.UserTag) error {
+func (st *State) RemoveOfferAccess(usr coreuser.User, offer names.ApplicationOfferTag, user names.UserTag) error {
 	buildTxn := func(int) ([]txn.Op, error) {
 		offerUUID := offer.Id()
 		_, err := st.GetOfferAccess(offerUUID, user)
 		if err != nil {
 			return nil, err
 		}
-		isAdmin, err := st.isControllerOrModelAdmin(user)
+		isAdmin, err := st.isControllerOrModelAdmin(usr, user)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		ops := []txn.Op{removePermissionOp(applicationOfferKey(offerUUID), userGlobalKey(userAccessID(user)))}
+		ops := []txn.Op{removePermissionOp(applicationOfferKey(offerUUID), coreuser.UserGlobalKey(userAccessID(user)))}
 		if !isAdmin {
 			suspendOps, err := st.suspendRevokedRelationsOps(offerUUID, user.Id())
 			if err != nil {

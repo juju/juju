@@ -5,6 +5,7 @@ package crossmodel
 
 import (
 	"github.com/juju/charm/v12"
+	coreuser "github.com/juju/juju/core/user"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/rpc/params"
@@ -124,7 +125,7 @@ type EndpointFilterTerm struct {
 type ApplicationOffers interface {
 
 	// AddOffer adds a new application offer to the directory.
-	AddOffer(offer AddApplicationOfferArgs) (*ApplicationOffer, error)
+	AddOffer(usr coreuser.User, offer AddApplicationOfferArgs) (*ApplicationOffer, error)
 
 	// UpdateOffer replaces an existing offer at the same URL.
 	UpdateOffer(offer AddApplicationOfferArgs) (*ApplicationOffer, error)

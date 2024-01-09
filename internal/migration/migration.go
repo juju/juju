@@ -5,6 +5,7 @@ package migration
 
 import (
 	"context"
+	coreuser "github.com/juju/juju/core/user"
 	"io"
 	"net/url"
 	"os"
@@ -34,14 +35,15 @@ var logger = loggo.GetLoggerWithLabels("juju.migration", corelogger.MIGRATION)
 // Note: This is being deprecated.
 type LegacyStateExporter interface {
 	// Export generates an abstract representation of a model.
-	Export(leaders map[string]string, store objectstore.ObjectStore) (description.Model, error)
+	Export(usrs []coreuser.User, leaders map[string]string, store objectstore.ObjectStore) (description.Model, error)
 	// ExportPartial produces a partial export based based on the input
 	// config.
-	ExportPartial(cfg state.ExportConfig, store objectstore.ObjectStore) (description.Model, error)
+	ExportPartial(usrs []coreuser.User, cfg state.ExportConfig, store objectstore.ObjectStore) (description.Model, error)
 }
 
 // ModelExporter facilitates partial and full export of a model.
 type ModelExporter struct {
+	userService UserService
 	// TODO(nvinuesa): This is being deprecated, only needed until the
 	// migration to dqlite is complete.
 	legacyStateExporter LegacyStateExporter
@@ -49,15 +51,29 @@ type ModelExporter struct {
 	scope modelmigration.Scope
 }
 
-func NewModelExporter(legacyStateExporter LegacyStateExporter, scope modelmigration.Scope) *ModelExporter {
-	return &ModelExporter{legacyStateExporter, scope}
+type UserService interface {
+	GetAllUsers(ctx context.Context) ([]coreuser.User, error)
+	GetUserByName(ctx context.Context, name string) (coreuser.User, error)
+}
+
+func NewModelExporter(
+	userService UserService,
+	legacyStateExporter LegacyStateExporter,
+	scope modelmigration.Scope,
+) *ModelExporter {
+	return &ModelExporter{userService, legacyStateExporter, scope}
 }
 
 // ExportModelPartial partially serializes a model description from the
 // database (legacy mongodb plus dqlite) contents, optionally skipping aspects
 // as defined by the ExportConfig.
 func (e *ModelExporter) ExportModelPartial(ctx context.Context, cfg state.ExportConfig, store objectstore.ObjectStore) (description.Model, error) {
-	model, err := e.legacyStateExporter.ExportPartial(cfg, store)
+	usrs, err := e.userService.GetAllUsers(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	model, err := e.legacyStateExporter.ExportPartial(usrs, cfg, store)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -68,7 +84,12 @@ func (e *ModelExporter) ExportModelPartial(ctx context.Context, cfg state.Export
 // ExportModel serializes a model description from the database (legacy mongodb
 // plus dqlite) contents.
 func (e *ModelExporter) ExportModel(ctx context.Context, leaders map[string]string, store objectstore.ObjectStore) (description.Model, error) {
-	model, err := e.legacyStateExporter.Export(leaders, store)
+	usrs, err := e.userService.GetAllUsers(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	model, err := e.legacyStateExporter.Export(usrs, leaders, store)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -91,7 +112,7 @@ func (e *ModelExporter) Export(ctx context.Context, model description.Model) (de
 // legacyStateImporter describes the method needed to import a model
 // into the database.
 type legacyStateImporter interface {
-	Import(description.Model, controller.Config) (*state.Model, *state.State, error)
+	Import(description.Model, controller.Config, UserService) (*state.Model, *state.State, error)
 }
 
 // ModelImporter represents a model migration that implements Import.
@@ -100,6 +121,7 @@ type ModelImporter struct {
 	// migration to dqlite is complete.
 	legacyStateImporter     legacyStateImporter
 	controllerConfigService ControllerConfigService
+	userService             UserService
 
 	scope modelmigration.Scope
 }
@@ -109,11 +131,13 @@ func NewModelImporter(
 	stateImporter legacyStateImporter,
 	scope modelmigration.Scope,
 	controllerConfigService ControllerConfigService,
+	userService UserService,
 ) *ModelImporter {
 	return &ModelImporter{
 		legacyStateImporter:     stateImporter,
 		scope:                   scope,
 		controllerConfigService: controllerConfigService,
+		userService:             userService,
 	}
 }
 
@@ -131,7 +155,7 @@ func (i *ModelImporter) ImportModel(ctx context.Context, bytes []byte) (*state.M
 		return nil, nil, errors.Annotatef(err, "unable to get controller config")
 	}
 
-	dbModel, dbState, err := i.legacyStateImporter.Import(model, ctrlConfig)
+	dbModel, dbState, err := i.legacyStateImporter.Import(model, ctrlConfig, i.userService)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}

@@ -21,6 +21,7 @@ import (
 type workerConfig struct {
 	statePool               *state.StatePool
 	controllerConfigGetter  ControllerConfigGetter
+	userService             UserService
 	mux                     *apiserverhttp.Mux
 	clock                   clock.Clock
 	newStateAuthenticatorFn NewStateAuthenticatorFunc
@@ -50,6 +51,7 @@ type argsWorker struct {
 	cfg                     workerConfig
 	authenticator           macaroon.LocalMacaroonAuthenticator
 	managedCtrlConfigGetter *managedCtrlConfigGetter
+	userService             *managedUserService
 }
 
 func newWorker(cfg workerConfig) (worker.Worker, error) {
@@ -59,6 +61,7 @@ func newWorker(cfg workerConfig) (worker.Worker, error) {
 	w := argsWorker{
 		cfg:                     cfg,
 		managedCtrlConfigGetter: newManagedCtrlConfigGetter(cfg.controllerConfigGetter),
+		managedUserService:      newManagedUserService(cfg.userService),
 	}
 
 	if err := catacomb.Invoke(catacomb.Plan{
@@ -74,6 +77,7 @@ func newWorker(cfg workerConfig) (worker.Worker, error) {
 	authenticator, err := w.cfg.newStateAuthenticatorFn(
 		w.cfg.statePool,
 		w.managedCtrlConfigGetter,
+		w.userService,
 		w.cfg.mux,
 		w.cfg.clock,
 		w.catacomb.Dying(),
@@ -112,9 +116,25 @@ type managedCtrlConfigGetter struct {
 	configGetter ControllerConfigGetter
 }
 
+type managedUserService struct {
+	tomb        tomb.Tomb
+	userService UserService
+}
+
 func newManagedCtrlConfigGetter(configGetter ControllerConfigGetter) *managedCtrlConfigGetter {
 	w := &managedCtrlConfigGetter{
 		configGetter: configGetter,
+	}
+	w.tomb.Go(func() error {
+		<-w.tomb.Dying()
+		return tomb.ErrDying
+	})
+	return w
+}
+
+func newManagedUserService(userService UserService) *managedUserService {
+	w := &managedUserService{
+		userService: userService,
 	}
 	w.tomb.Go(func() error {
 		<-w.tomb.Dying()

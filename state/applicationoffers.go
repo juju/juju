@@ -21,6 +21,7 @@ import (
 
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/permission"
+	coreuser "github.com/juju/juju/core/user"
 )
 
 const (
@@ -307,7 +308,7 @@ func (op *RemoveOfferOperation) Done(err error) error {
 	for userName := range userPerms {
 		user := names.NewUserTag(userName)
 		removeOps = append(removeOps,
-			removePermissionOp(applicationOfferKey(op.offer.OfferUUID), userGlobalKey(userAccessID(user))))
+			removePermissionOp(applicationOfferKey(op.offer.OfferUUID), coreuser.UserGlobalKey(userAccessID(user))))
 	}
 	err = op.offerStore.st.db().RunTransaction(removeOps)
 	if err != nil {
@@ -542,7 +543,7 @@ func (s *applicationOffers) validateOfferArgs(offer crossmodel.AddApplicationOff
 }
 
 // AddOffer adds a new application offering to the directory.
-func (s *applicationOffers) AddOffer(offerArgs crossmodel.AddApplicationOfferArgs) (_ *crossmodel.ApplicationOffer, err error) {
+func (s *applicationOffers) AddOffer(usr coreuser.User, offerArgs crossmodel.AddApplicationOfferArgs) (_ *crossmodel.ApplicationOffer, err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot add application offer %q", offerArgs.OfferName)
 
 	if err := s.validateOfferArgs(offerArgs); err != nil {
@@ -599,14 +600,14 @@ func (s *applicationOffers) AddOffer(offerArgs crossmodel.AddApplicationOfferArg
 	// Ensure the owner has admin access to the offer.
 	offerTag := names.NewApplicationOfferTag(doc.OfferUUID)
 	owner := names.NewUserTag(offerArgs.Owner)
-	err = s.st.CreateOfferAccess(offerTag, owner, permission.AdminAccess)
+	err = s.st.CreateOfferAccess(usr, offerTag, owner, permission.AdminAccess)
 	if err != nil {
 		return nil, errors.Annotate(err, "granting admin permission to the offer owner")
 	}
 	// Add in any read access permissions.
 	for _, user := range offerArgs.HasRead {
 		readerTag := names.NewUserTag(user)
-		err = s.st.CreateOfferAccess(offerTag, readerTag, permission.ReadAccess)
+		err = s.st.CreateOfferAccess(usr, offerTag, readerTag, permission.ReadAccess)
 		if err != nil {
 			return nil, errors.Annotatef(err, "granting read permission to %q", user)
 		}

@@ -6,6 +6,7 @@ package state
 import (
 	"context"
 	"fmt"
+	coreuser "github.com/juju/juju/core/user"
 	"regexp"
 	"sort"
 	"strconv"
@@ -154,8 +155,8 @@ func (st *State) ControllerOwner() (names.UserTag, error) {
 	return names.NewUserTag(owner), nil
 }
 
-func ControllerAccess(st *State, tag names.Tag) (permission.UserAccess, error) {
-	return st.UserAccess(tag.(names.UserTag), st.controllerTag)
+func ControllerAccess(usr coreuser.User, st *State, tag names.Tag) (permission.UserAccess, error) {
+	return st.UserAccess(usr, tag.(names.UserTag), st.controllerTag)
 }
 
 // setDyingModelToDead sets current dying model to dead.
@@ -866,8 +867,6 @@ func (st *State) FindEntity(tag names.Tag) (Entity, error) {
 		return st.Machine(id)
 	case names.UnitTag:
 		return st.Unit(id)
-	case names.UserTag:
-		return st.User(tag)
 	case names.ApplicationTag:
 		return st.Application(id)
 	case names.ModelTag:

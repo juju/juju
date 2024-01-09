@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	coreuser "github.com/juju/juju/core/user"
 	"sort"
 	"strconv"
 	"strings"
@@ -46,13 +47,18 @@ type APIv8 struct {
 	*BundleAPI
 }
 
+type UserService interface {
+	GetAllUsers(ctx context.Context) ([]coreuser.User, error)
+}
+
 // BundleAPI implements the Bundle interface and is the concrete implementation
 // of the API end point.
 type BundleAPI struct {
-	backend    Backend
-	store      objectstore.ObjectStore
-	authorizer facade.Authorizer
-	modelTag   names.ModelTag
+	backend     Backend
+	store       objectstore.ObjectStore
+	authorizer  facade.Authorizer
+	modelTag    names.ModelTag
+	userService UserService
 }
 
 // NewFacade provides the required signature for facade registration.
@@ -61,6 +67,7 @@ func newFacade(ctx facade.Context) (*BundleAPI, error) {
 	st := ctx.State()
 
 	return NewBundleAPI(
+		ctx.ServiceFactory().User(),
 		NewStateShim(st),
 		ctx.ObjectStore(),
 		authorizer,
@@ -70,6 +77,7 @@ func newFacade(ctx facade.Context) (*BundleAPI, error) {
 
 // NewBundleAPI returns the new Bundle API facade.
 func NewBundleAPI(
+	userService UserService,
 	st Backend,
 	store objectstore.ObjectStore,
 	auth facade.Authorizer,
@@ -80,10 +88,11 @@ func NewBundleAPI(
 	}
 
 	return &BundleAPI{
-		backend:    st,
-		store:      store,
-		authorizer: auth,
-		modelTag:   tag,
+		userService: userService,
+		backend:     st,
+		store:       store,
+		authorizer:  auth,
+		modelTag:    tag,
 	}, nil
 }
 
@@ -199,8 +208,13 @@ func (b *BundleAPI) ExportBundle(ctx context.Context, arg params.ExportBundlePar
 		return fail(err)
 	}
 
+	usrs, err := b.userService.GetAllUsers(ctx)
+	if err != nil {
+		return fail(err)
+	}
+
 	exportConfig := b.backend.GetExportConfig()
-	model, err := b.backend.ExportPartial(exportConfig, b.store)
+	model, err := b.backend.ExportPartial(usrs, exportConfig, b.store)
 	if err != nil {
 		return fail(err)
 	}

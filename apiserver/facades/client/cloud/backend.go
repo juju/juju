@@ -5,7 +5,7 @@ package cloud
 
 import (
 	stdcontext "context"
-
+	coreuser "github.com/juju/juju/core/user"
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/cloud"
@@ -13,7 +13,6 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/credential"
 	credentialservice "github.com/juju/juju/domain/credential/service"
-	"github.com/juju/juju/state"
 )
 
 // CloudService provides access to clouds.
@@ -28,7 +27,7 @@ type CloudService interface {
 type CloudPermissionService interface {
 	GetCloudAccess(cloud string, user names.UserTag) (permission.Access, error)
 	GetCloudUsers(cloud string) (map[string]permission.Access, error)
-	CreateCloudAccess(cloud string, user names.UserTag, access permission.Access) error
+	CreateCloudAccess(usr coreuser.User, cloud string, user names.UserTag, access permission.Access) error
 	UpdateCloudAccess(cloud string, user names.UserTag, access permission.Access) error
 	RemoveCloudAccess(cloud string, user names.UserTag) error
 	CloudsForUser(user names.UserTag) ([]cloud.CloudAccess, error)
@@ -36,12 +35,12 @@ type CloudPermissionService interface {
 
 // UserService provides access to users.
 type UserService interface {
-	User(tag names.UserTag) (User, error)
+	GetUserByName(ctx stdcontext.Context, name string) (coreuser.User, error)
 }
 
 // ModelCredentialService provides access to model credential info.
 type ModelCredentialService interface {
-	CredentialModelsAndOwnerAccess(tag names.CloudCredentialTag) ([]cloud.CredentialOwnerModelAccess, error)
+	CredentialModelsAndOwnerAccess(usr coreuser.User, tag names.CloudCredentialTag) ([]cloud.CredentialOwnerModelAccess, error)
 }
 
 // CredentialService provides access to the credential domain service.
@@ -54,16 +53,4 @@ type CredentialService interface {
 	WatchCredential(ctx stdcontext.Context, id credential.ID) (watcher.NotifyWatcher, error)
 	CheckAndUpdateCredential(ctx stdcontext.Context, id credential.ID, cred cloud.Credential, force bool) ([]credentialservice.UpdateCredentialModelResult, error)
 	CheckAndRevokeCredential(ctx stdcontext.Context, id credential.ID, force bool) error
-}
-
-type User interface {
-	DisplayName() string
-}
-
-type stateShim struct {
-	*state.State
-}
-
-func (s stateShim) User(tag names.UserTag) (User, error) {
-	return s.State.User(tag)
 }

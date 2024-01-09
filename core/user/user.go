@@ -5,6 +5,7 @@ package user
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/juju/utils/v3"
@@ -60,4 +61,16 @@ func (u UUID) Validate() error {
 // String returns the UUID as a string.
 func (u UUID) String() string {
 	return string(u)
+}
+
+// Legacy code (to delete when get rid of it's usagein `state`)
+const UserGlobalKeyPrefix = "us"
+
+func UserGlobalKey(userID string) string {
+	return fmt.Sprintf("%s#%s", UserGlobalKeyPrefix, userID)
+}
+
+func UserIDFromGlobalKey(key string) string {
+	prefix := UserGlobalKeyPrefix + "#"
+	return strings.TrimPrefix(key, prefix)
 }

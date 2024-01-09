@@ -6,6 +6,7 @@ package migrationtarget
 import (
 	"context"
 	"fmt"
+	coreuser "github.com/juju/juju/core/user"
 	"time"
 
 	"github.com/juju/errors"
@@ -58,6 +59,12 @@ type ControllerConfigService interface {
 	ControllerConfig(context.Context) (controller.Config, error)
 }
 
+// UserService provides a subset of the user domain service methods.
+type UserService interface {
+	GetAllUsers(ctx context.Context) ([]coreuser.User, error)
+	GetUserByName(ctx context.Context, name string) (coreuser.User, error)
+}
+
 // UpgradeService provides a subset of the upgrade domain service methods.
 type UpgradeService interface {
 	// IsUpgrading returns whether the controller is currently upgrading.
@@ -104,6 +111,7 @@ func NewAPI(
 	upgradeService UpgradeService,
 	cloudService common.CloudService,
 	credentialService credentialcommon.CredentialService,
+	userService UserService,
 	validator credentialservice.CredentialValidator,
 	credentialCallContextGetter credentialservice.ValidationContextGetter,
 	credentialInvalidatorGetter environscontext.ModelCredentialInvalidatorGetter,
@@ -117,7 +125,7 @@ func NewAPI(
 
 		scope         = modelmigration.NewScope(changestream.NewTxnRunnerFactory(ctx.ControllerDB), nil)
 		controller    = state.NewController(pool)
-		modelImporter = migration.NewModelImporter(controller, scope, controllerConfigService)
+		modelImporter = migration.NewModelImporter(controller, scope, controllerConfigService, userService)
 	)
 
 	return &API{

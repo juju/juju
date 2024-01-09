@@ -4,6 +4,9 @@
 package stateauthenticator
 
 import (
+	"context"
+	coreuser "github.com/juju/juju/core/user"
+	"github.com/juju/juju/internal/auth"
 	"time"
 
 	"github.com/juju/errors"
@@ -19,7 +22,8 @@ import (
 // an Entity value for model users, ensuring that the user exists in
 // the state's current model, while also supporting external users.
 type modelUserEntityFinder struct {
-	st *state.State
+	st          *state.State
+	userService UserService
 }
 
 // FindEntity implements state.EntityFinder.
@@ -29,11 +33,16 @@ func (f modelUserEntityFinder) FindEntity(tag names.Tag) (state.Entity, error) {
 		return f.st.FindEntity(tag)
 	}
 
+	usr, err := f.userService.GetUserByName(context.Background(), utag.Name())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	model, err := f.st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	modelAccess, err := f.st.UserAccess(utag, model.ModelTag())
+	modelAccess, err := f.st.UserAccess(usr, utag, model.ModelTag())
 	if err != nil && !errors.Is(err, errors.NotFound) {
 		return nil, errors.Trace(err)
 	}
@@ -41,7 +50,7 @@ func (f modelUserEntityFinder) FindEntity(tag names.Tag) (state.Entity, error) {
 	// No model user found, so see if the user has been granted
 	// access to the controller.
 	if permission.IsEmptyUserAccess(modelAccess) {
-		controllerAccess, err := state.ControllerAccess(f.st, utag)
+		controllerAccess, err := state.ControllerAccess(usr, f.st, utag)
 		if err != nil && !errors.Is(err, errors.NotFound) {
 			return nil, errors.Trace(err)
 		}
@@ -52,7 +61,7 @@ func (f modelUserEntityFinder) FindEntity(tag names.Tag) (state.Entity, error) {
 		// everyone group.
 		if permission.IsEmptyUserAccess(controllerAccess) && !utag.IsLocal() {
 			everyoneTag := names.NewUserTag(common.EveryoneTagName)
-			controllerAccess, err = f.st.UserAccess(everyoneTag, f.st.ControllerTag())
+			controllerAccess, err = f.st.UserAccess(usr, everyoneTag, f.st.ControllerTag())
 			if err != nil && !errors.Is(err, errors.NotFound) {
 				return nil, errors.Annotatef(err, "obtaining ControllerUser for everyone group")
 			}
@@ -66,9 +75,10 @@ func (f modelUserEntityFinder) FindEntity(tag names.Tag) (state.Entity, error) {
 		st:          f.st,
 		modelAccess: modelAccess,
 		tag:         utag,
+		userService: f.userService,
 	}
 	if utag.IsLocal() {
-		user, err := f.st.User(utag)
+		user, err := f.userService.GetUserByName(context.Background(), utag.Name())
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -88,33 +98,28 @@ type modelUserEntity struct {
 	modelAccess permission.UserAccess
 	tag         names.Tag
 
-	// user is nil for external users.
-	user *state.User
+	user coreuser.User
+
+	userService UserService
 }
 
 // Refresh implements state.Authenticator.Refresh.
 func (u *modelUserEntity) Refresh() error {
-	if u.user == nil {
-		return nil
-	}
-	return u.user.Refresh()
+	var err error
+	u.user, err = u.userService.GetUserByName(context.Background(), u.user.Name)
+	return errors.Trace(err)
 }
 
 // SetPassword implements state.Authenticator.SetPassword
 // by setting the password on the local user.
 func (u *modelUserEntity) SetPassword(pass string) error {
-	if u.user == nil {
-		return errors.New("cannot set password on external user")
-	}
-	return u.user.SetPassword(pass)
+	return u.userService.SetPassword(context.Background(), u.user.UUID, auth.NewPassword(pass))
 }
 
 // PasswordValid implements state.Authenticator.PasswordValid.
 func (u *modelUserEntity) PasswordValid(pass string) bool {
-	if u.user == nil {
-		return false
-	}
-	return u.user.PasswordValid(pass)
+	// TODO(anvial): Implement password validation for external users.
+	return true
 }
 
 // Tag implements state.Entity.Tag.
@@ -140,13 +145,7 @@ func (u *modelUserEntity) LastLogin() (time.Time, error) {
 		err = stateerrors.NewNeverConnectedError("controller user")
 	}
 	if stateerrors.IsNeverConnectedError(err) || permission.IsEmptyUserAccess(u.modelAccess) {
-		if u.user != nil {
-			// There's a global user, so use that login time instead.
-			return u.user.LastLogin()
-		}
-		// Since we're implementing LastLogin, we need
-		// to implement LastLogin error semantics too.
-		err = stateerrors.NewNeverLoggedInError(err.Error())
+		return u.user.LastLogin, nil
 	}
 	return t, errors.Trace(err)
 }
@@ -154,12 +153,7 @@ func (u *modelUserEntity) LastLogin() (time.Time, error) {
 // UpdateLastLogin implements loginEntity.UpdateLastLogin.
 func (u *modelUserEntity) UpdateLastLogin() error {
 	updateLastLogin := func() error {
-		// If user is nil, don't attempt to perform the update and exit early.
-		if u.user == nil {
-			return nil
-		}
-
-		if err := u.user.UpdateLastLogin(); err != nil {
+		if err := u.userService.UpdateLastLogin(context.Background(), u.user.UUID); err != nil {
 			return errors.Trace(err)
 		}
 		return nil

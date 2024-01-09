@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	coreuser "github.com/juju/juju/core/user"
 	"sort"
 	"strings"
 
@@ -57,6 +58,11 @@ type UpgradeService interface {
 	IsUpgrading(context.Context) (bool, error)
 }
 
+type UserService interface {
+	GetAllUsers(context.Context) ([]coreuser.User, error)
+	GetUserByName(context.Context, string) (coreuser.User, error)
+}
+
 // ControllerAPI provides the Controller API.
 type ControllerAPI struct {
 	*common.ControllerConfigAPI
@@ -74,6 +80,7 @@ type ControllerAPI struct {
 	credentialService       common.CredentialService
 	upgradeService          UpgradeService
 	controllerConfigService ControllerConfigService
+	userService             UserService
 
 	multiwatcherFactory multiwatcher.Factory
 	logger              loggo.Logger
@@ -607,7 +614,14 @@ func (c *ControllerAPI) GetControllerAccess(ctx context.Context, req params.Enti
 			results.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		access, err := c.state.UserPermission(userTag, c.state.ControllerTag())
+
+		usr, err := c.userService.GetUserByName(ctx, userTag.Name())
+		if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		access, err := c.state.UserPermission(usr, userTag, c.state.ControllerTag())
 		if err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -689,12 +703,18 @@ func (c *ControllerAPI) initiateOneMigration(ctx context.Context, spec params.Mi
 		Macaroons:       macs,
 	}
 
+	usrs, err := c.userService.GetAllUsers(ctx)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
 	// Check if the migration is likely to succeed.
 	systemState, err := c.statePool.SystemState()
 	if err != nil {
 		return "", errors.Trace(err)
 	}
 	if err := runMigrationPrechecks(
+		usrs,
 		ctx,
 		hostedState.State, systemState,
 		&targetInfo, c.presence,
@@ -707,7 +727,7 @@ func (c *ControllerAPI) initiateOneMigration(ctx context.Context, spec params.Mi
 	}
 
 	// Trigger the migration.
-	mig, err := hostedState.CreateMigration(state.MigrationSpec{
+	mig, err := hostedState.CreateMigration(usrs, state.MigrationSpec{
 		InitiatedBy: c.apiUser,
 		TargetInfo:  targetInfo,
 	})
@@ -750,8 +770,14 @@ func (c *ControllerAPI) ModifyControllerAccess(ctx context.Context, args params.
 			continue
 		}
 
+		usr, err := c.userService.GetUserByName(ctx, targetUserTag.Name())
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(errors.Annotate(err, "could not modify controller access"))
+			continue
+		}
+
 		result.Results[i].Error = apiservererrors.ServerError(
-			ChangeControllerAccess(c.state, c.apiUser, targetUserTag, arg.Action, controllerAccess))
+			ChangeControllerAccess(usr, c.state, c.apiUser, targetUserTag, arg.Action, controllerAccess))
 	}
 	return result, nil
 }
@@ -834,6 +860,7 @@ func (c *ControllerAPI) ConfigSet(ctx context.Context, args params.ControllerCon
 // information in targetInfo as needed based on information
 // retrieved from the target controller.
 var runMigrationPrechecks = func(
+	usrs []coreuser.User,
 	ctx context.Context,
 	st, ctlrSt *state.State,
 	targetInfo *coremigration.TargetInfo,
@@ -863,7 +890,7 @@ var runMigrationPrechecks = func(
 	}
 
 	// Check target controller.
-	modelInfo, srcUserList, err := makeModelInfo(ctx, st, ctlrSt, controllerConfigService)
+	modelInfo, srcUserList, err := makeModelInfo(usrs, ctx, st, ctlrSt, controllerConfigService)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -962,7 +989,7 @@ users to the destination controller or remove them from the current model:
 	return nil
 }
 
-func makeModelInfo(ctx context.Context, st, ctlrSt *state.State, controllerConfigService ControllerConfigService) (coremigration.ModelInfo, userList, error) {
+func makeModelInfo(usrs []coreuser.User, ctx context.Context, st, ctlrSt *state.State, controllerConfigService ControllerConfigService) (coremigration.ModelInfo, userList, error) {
 	var empty coremigration.ModelInfo
 	var ul userList
 
@@ -971,7 +998,7 @@ func makeModelInfo(ctx context.Context, st, ctlrSt *state.State, controllerConfi
 		return empty, ul, errors.Trace(err)
 	}
 
-	users, err := model.Users()
+	users, err := model.Users(usrs)
 	if err != nil {
 		return empty, ul, errors.Trace(err)
 	}
@@ -1050,11 +1077,11 @@ func targetToAPIInfo(ti *coremigration.TargetInfo) *api.Info {
 	return info
 }
 
-func grantControllerAccess(accessor ControllerAccess, targetUserTag, apiUser names.UserTag, access permission.Access) error {
-	_, err := accessor.AddControllerUser(state.UserAccessSpec{User: targetUserTag, CreatedBy: apiUser, Access: access})
+func grantControllerAccess(usr coreuser.User, accessor ControllerAccess, targetUserTag, apiUser names.UserTag, access permission.Access) error {
+	_, err := accessor.AddControllerUser(usr, state.UserAccessSpec{User: targetUserTag, CreatedBy: apiUser, Access: access})
 	if errors.Is(err, errors.AlreadyExists) {
 		controllerTag := accessor.ControllerTag()
-		controllerUser, err := accessor.UserAccess(targetUserTag, controllerTag)
+		controllerUser, err := accessor.UserAccess(usr, targetUserTag, controllerTag)
 		if errors.Is(err, errors.NotFound) {
 			// Conflicts with prior check, must be inconsistent state.
 			err = jujutxn.ErrExcessiveContention
@@ -1067,7 +1094,7 @@ func grantControllerAccess(accessor ControllerAccess, targetUserTag, apiUser nam
 		if controllerUser.Access.EqualOrGreaterControllerAccessThan(access) {
 			return errors.Errorf("user already has %q access or greater", access)
 		}
-		if _, err = accessor.SetUserAccess(controllerUser.UserTag, controllerUser.Object, access); err != nil {
+		if _, err = accessor.SetUserAccess(usr, controllerUser.UserTag, controllerUser.Object, access); err != nil {
 			return errors.Annotate(err, "could not set controller access for user")
 		}
 		return nil
@@ -1079,7 +1106,7 @@ func grantControllerAccess(accessor ControllerAccess, targetUserTag, apiUser nam
 	return nil
 }
 
-func revokeControllerAccess(accessor ControllerAccess, targetUserTag, apiUser names.UserTag, access permission.Access) error {
+func revokeControllerAccess(usr coreuser.User, accessor ControllerAccess, targetUserTag, apiUser names.UserTag, access permission.Access) error {
 	controllerTag := accessor.ControllerTag()
 	switch access {
 	case permission.LoginAccess:
@@ -1088,11 +1115,11 @@ func revokeControllerAccess(accessor ControllerAccess, targetUserTag, apiUser na
 		return errors.Annotate(err, "could not revoke controller access")
 	case permission.SuperuserAccess:
 		// Revoking superuser sets login.
-		controllerUser, err := accessor.UserAccess(targetUserTag, controllerTag)
+		controllerUser, err := accessor.UserAccess(usr, targetUserTag, controllerTag)
 		if err != nil {
 			return errors.Annotate(err, "could not look up controller access for user")
 		}
-		_, err = accessor.SetUserAccess(controllerUser.UserTag, controllerUser.Object, permission.LoginAccess)
+		_, err = accessor.SetUserAccess(usr, controllerUser.UserTag, controllerUser.Object, permission.LoginAccess)
 		return errors.Annotate(err, "could not set controller access to login")
 
 	default:
@@ -1102,16 +1129,16 @@ func revokeControllerAccess(accessor ControllerAccess, targetUserTag, apiUser na
 
 // ChangeControllerAccess performs the requested access grant or revoke action for the
 // specified user on the controller.
-func ChangeControllerAccess(accessor ControllerAccess, apiUser, targetUserTag names.UserTag, action params.ControllerAction, access permission.Access) error {
+func ChangeControllerAccess(usr coreuser.User, accessor ControllerAccess, apiUser, targetUserTag names.UserTag, action params.ControllerAction, access permission.Access) error {
 	switch action {
 	case params.GrantControllerAccess:
-		err := grantControllerAccess(accessor, targetUserTag, apiUser, access)
+		err := grantControllerAccess(usr, accessor, targetUserTag, apiUser, access)
 		if err != nil {
 			return errors.Annotate(err, "could not grant controller access")
 		}
 		return nil
 	case params.RevokeControllerAccess:
-		return revokeControllerAccess(accessor, targetUserTag, apiUser, access)
+		return revokeControllerAccess(usr, accessor, targetUserTag, apiUser, access)
 	default:
 		return errors.Errorf("unknown action %q", action)
 	}

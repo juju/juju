@@ -6,6 +6,7 @@ package applicationoffers
 import (
 	"context"
 	"fmt"
+	coreuser "github.com/juju/juju/core/user"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -32,10 +33,16 @@ type OffersAPI struct {
 	BaseAPI
 	dataDir     string
 	authContext *commoncrossmodel.AuthContext
+	userService UserService
+}
+
+type UserService interface {
+	GetUserByName(ctx context.Context, name string) (coreuser.User, error)
 }
 
 // createAPI returns a new application offers OffersAPI facade.
 func createOffersAPI(
+	userService UserService,
 	getApplicationOffers func(interface{}) jujucrossmodel.ApplicationOffers,
 	getEnviron environFromModelFunc,
 	getControllerInfo func(context.Context) ([]string, string, error),
@@ -52,6 +59,7 @@ func createOffersAPI(
 	}
 
 	api := &OffersAPI{
+		userService: userService,
 		dataDir:     dataDir,
 		authContext: authContext,
 		BaseAPI: BaseAPI{
@@ -110,7 +118,12 @@ func (api *OffersAPI) Offer(ctx context.Context, all params.AddApplicationOffers
 		if _, err = offerBackend.ApplicationOffer(applicationOfferParams.OfferName); err == nil {
 			_, err = offerBackend.UpdateOffer(applicationOfferParams)
 		} else {
-			_, err = offerBackend.AddOffer(applicationOfferParams)
+			usr, err := api.userService.GetUserByName(ctx, owner.Id())
+			if err != nil {
+				return params.ErrorResults{}, errors.Trace(err)
+			}
+
+			_, err = offerBackend.AddOffer(usr, applicationOfferParams)
 		}
 		result[i].Error = apiservererrors.ServerError(err)
 	}
@@ -188,13 +201,19 @@ func (api *OffersAPI) ModifyOfferAccess(ctx context.Context, args params.ModifyO
 			result.Results[i].Error = apiservererrors.ServerError(models[i].err)
 			continue
 		}
-		err = api.modifyOneOfferAccess(user, models[i].model.UUID(), isControllerAdmin, arg)
+
+		usr, err := api.userService.GetUserByName(ctx, arg.UserTag)
+		if err != nil {
+			return params.ErrorResults{}, errors.Trace(err)
+		}
+
+		err = api.modifyOneOfferAccess(usr, user, models[i].model.UUID(), isControllerAdmin, arg)
 		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
 }
 
-func (api *OffersAPI) modifyOneOfferAccess(user names.UserTag, modelUUID string, isControllerAdmin bool, arg params.ModifyOfferAccess) error {
+func (api *OffersAPI) modifyOneOfferAccess(usr coreuser.User, user names.UserTag, modelUUID string, isControllerAdmin bool, arg params.ModifyOfferAccess) error {
 	backend, releaser, err := api.StatePool.Get(modelUUID)
 	if err != nil {
 		return errors.Trace(err)
@@ -239,12 +258,13 @@ func (api *OffersAPI) modifyOneOfferAccess(user names.UserTag, modelUUID string,
 	if err != nil {
 		return errors.Annotate(err, "could not modify offer access")
 	}
-	return api.changeOfferAccess(backend, url.ApplicationName, targetUserTag, arg.Action, offerAccess)
+	return api.changeOfferAccess(usr, backend, url.ApplicationName, targetUserTag, arg.Action, offerAccess)
 }
 
 // changeOfferAccess performs the requested access grant or revoke action for the
 // specified user on the specified application offer.
 func (api *OffersAPI) changeOfferAccess(
+	usr coreuser.User,
 	backend Backend,
 	offerName string,
 	targetUserTag names.UserTag,
@@ -258,16 +278,16 @@ func (api *OffersAPI) changeOfferAccess(
 	offerTag := names.NewApplicationOfferTag(offer.OfferUUID)
 	switch action {
 	case params.GrantOfferAccess:
-		return api.grantOfferAccess(backend, offerTag, targetUserTag, access)
+		return api.grantOfferAccess(usr, backend, offerTag, targetUserTag, access)
 	case params.RevokeOfferAccess:
-		return api.revokeOfferAccess(backend, offerTag, targetUserTag, access)
+		return api.revokeOfferAccess(usr, backend, offerTag, targetUserTag, access)
 	default:
 		return errors.Errorf("unknown action %q", action)
 	}
 }
 
-func (api *OffersAPI) grantOfferAccess(backend Backend, offerTag names.ApplicationOfferTag, targetUserTag names.UserTag, access permission.Access) error {
-	err := backend.CreateOfferAccess(offerTag, targetUserTag, access)
+func (api *OffersAPI) grantOfferAccess(usr coreuser.User, backend Backend, offerTag names.ApplicationOfferTag, targetUserTag names.UserTag, access permission.Access) error {
+	err := backend.CreateOfferAccess(usr, offerTag, targetUserTag, access)
 	if errors.IsAlreadyExists(err) {
 		offerAccess, err := backend.GetOfferAccess(offerTag.Id(), targetUserTag)
 		if errors.IsNotFound(err) {
@@ -282,7 +302,7 @@ func (api *OffersAPI) grantOfferAccess(backend Backend, offerTag names.Applicati
 		if offerAccess.EqualOrGreaterOfferAccessThan(access) {
 			return errors.Errorf("user already has %q access or greater", access)
 		}
-		if err = backend.UpdateOfferAccess(offerTag, targetUserTag, access); err != nil {
+		if err = backend.UpdateOfferAccess(usr, offerTag, targetUserTag, access); err != nil {
 			return errors.Annotate(err, "could not set offer access for user")
 		}
 		return nil
@@ -290,19 +310,19 @@ func (api *OffersAPI) grantOfferAccess(backend Backend, offerTag names.Applicati
 	return errors.Annotate(err, "could not grant offer access")
 }
 
-func (api *OffersAPI) revokeOfferAccess(backend Backend, offerTag names.ApplicationOfferTag, targetUserTag names.UserTag, access permission.Access) error {
+func (api *OffersAPI) revokeOfferAccess(usr coreuser.User, backend Backend, offerTag names.ApplicationOfferTag, targetUserTag names.UserTag, access permission.Access) error {
 	switch access {
 	case permission.ReadAccess:
 		// Revoking read access removes all access.
-		err := backend.RemoveOfferAccess(offerTag, targetUserTag)
+		err := backend.RemoveOfferAccess(usr, offerTag, targetUserTag)
 		return errors.Annotate(err, "could not revoke offer access")
 	case permission.ConsumeAccess:
 		// Revoking consume access sets read-only.
-		err := backend.UpdateOfferAccess(offerTag, targetUserTag, permission.ReadAccess)
+		err := backend.UpdateOfferAccess(usr, offerTag, targetUserTag, permission.ReadAccess)
 		return errors.Annotate(err, "could not set offer access to read-only")
 	case permission.AdminAccess:
 		// Revoking admin access sets read-consume.
-		err := backend.UpdateOfferAccess(offerTag, targetUserTag, permission.ConsumeAccess)
+		err := backend.UpdateOfferAccess(usr, offerTag, targetUserTag, permission.ConsumeAccess)
 		return errors.Annotate(err, "could not set offer access to read-consume")
 
 	default:

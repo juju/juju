@@ -8,19 +8,18 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/mgo/v3"
-	"github.com/juju/mgo/v3/txn"
-	"github.com/juju/names/v5"
-	"github.com/juju/utils/v3"
-
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
+	coreuser "github.com/juju/juju/core/user"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/poolmanager"
+	"github.com/juju/mgo/v3"
+	"github.com/juju/mgo/v3/txn"
+	"github.com/juju/names/v5"
 )
 
 // InitializeParams contains the parameters for initializing the state database.
@@ -173,23 +172,25 @@ func Initialize(args InitializeParams) (_ *Controller, err error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	salt, err := utils.RandomSalt()
+	//salt, err := utils.RandomSalt()
 	if err != nil {
 		return nil, err
 	}
 
-	dateCreated := st.nowToTheSecond()
-	ops := createInitialUserOps(
-		args.ControllerConfig.ControllerUUID(),
-		args.ControllerModelArgs.Owner,
-		args.AdminPassword,
-		salt,
-		dateCreated,
-	)
+	// TODO(anvial): This is a temporary hack to get the initial user
+	//dateCreated := st.nowToTheSecond()
+	//ops := createInitialUserOps(
+	//	args.ControllerConfig.ControllerUUID(),
+	//	args.ControllerModelArgs.Owner,
+	//	args.AdminPassword,
+	//	salt,
+	//	dateCreated,
+	//)
+	ops := []txn.Op{}
 
 	cloudPermissionOps := createPermissionOp(
 		cloudGlobalKey(args.CloudName),
-		userGlobalKey(userAccessID(args.ControllerModelArgs.Owner)),
+		coreuser.UserGlobalKey(userAccessID(args.ControllerModelArgs.Owner)),
 		permission.AdminAccess)
 
 	bakeryConfig := st.NewBakeryConfig()

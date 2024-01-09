@@ -5,7 +5,6 @@ package annotations
 
 import (
 	"context"
-
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 

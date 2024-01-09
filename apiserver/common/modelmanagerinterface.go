@@ -5,6 +5,7 @@ package common
 
 import (
 	"context"
+	coreuser "github.com/juju/juju/core/user"
 	"time"
 
 	"github.com/juju/collections/set"
@@ -40,8 +41,8 @@ type ModelManagerBackend interface {
 	ModelUUID() string
 	ModelBasicInfoForUser(user names.UserTag, isSuperuser bool) ([]state.ModelAccessInfo, error)
 	ModelSummariesForUser(user names.UserTag, isSupersser bool) ([]state.ModelSummary, error)
-	IsControllerAdmin(user names.UserTag) (bool, error)
-	NewModel(state.ModelArgs) (Model, ModelManagerBackend, error)
+	IsControllerAdmin(usr coreuser.User, user names.UserTag) (bool, error)
+	NewModel(coreuser.User, state.ModelArgs) (Model, ModelManagerBackend, error)
 	Model() (Model, error)
 	AllModelUUIDs() ([]string, error)
 	GetModel(string) (Model, func() bool, error)
@@ -59,9 +60,9 @@ type ModelManagerBackend interface {
 	Name() string
 	ModelTag() names.ModelTag
 	ModelConfig(context.Context) (*config.Config, error)
-	AddControllerUser(state.UserAccessSpec) (permission.UserAccess, error)
+	AddControllerUser(coreuser.User, state.UserAccessSpec) (permission.UserAccess, error)
 	RemoveUserAccess(names.UserTag, names.Tag) error
-	UserAccess(names.UserTag, names.Tag) (permission.UserAccess, error)
+	UserAccess(coreuser.User, names.UserTag, names.Tag) (permission.UserAccess, error)
 	GetCloudAccess(cloud string, user names.UserTag) (permission.Access, error)
 	AllMachines() (machines []Machine, err error)
 	AllApplications() (applications []Application, err error)
@@ -69,9 +70,9 @@ type ModelManagerBackend interface {
 	AllVolumes() ([]state.Volume, error)
 	ControllerUUID() string
 	ControllerTag() names.ControllerTag
-	Export(leaders map[string]string, store objectstore.ObjectStore) (description.Model, error)
-	ExportPartial(state.ExportConfig, objectstore.ObjectStore) (description.Model, error)
-	SetUserAccess(subject names.UserTag, target names.Tag, access permission.Access) (permission.UserAccess, error)
+	Export(usrs []coreuser.User, leaders map[string]string, store objectstore.ObjectStore) (description.Model, error)
+	ExportPartial([]coreuser.User, state.ExportConfig, objectstore.ObjectStore) (description.Model, error)
+	SetUserAccess(usr coreuser.User, subject names.UserTag, target names.Tag, access permission.Access) (permission.UserAccess, error)
 	SetModelMeterStatus(string, string) error
 	AllSpaces() ([]*state.Space, error)
 	AddSpace(string, network.Id, []string) (*state.Space, error)
@@ -115,7 +116,7 @@ type Model interface {
 	CloudName() string
 	CloudCredentialTag() (names.CloudCredentialTag, bool)
 	CloudRegion() string
-	Users() ([]permission.UserAccess, error)
+	Users([]coreuser.User) ([]permission.UserAccess, error)
 	Destroy(state.DestroyModelParams) error
 	SLALevel() string
 	SLAOwner() string
@@ -124,7 +125,7 @@ type Model interface {
 	UUID() string
 	ControllerUUID() string
 	LastModelConnection(user names.UserTag) (time.Time, error)
-	AddUser(state.UserAccessSpec) (permission.UserAccess, error)
+	AddUser(coreuser.User, state.UserAccessSpec) (permission.UserAccess, error)
 	AutoConfigureContainerNetworking(environ environs.BootstrapEnviron) error
 	SetCloudCredential(tag names.CloudCredentialTag) (bool, error)
 }
@@ -165,9 +166,9 @@ func NewUserAwareModelManagerBackend(m *state.Model, pool *state.StatePool, u na
 }
 
 // NewModel implements ModelManagerBackend.
-func (st modelManagerStateShim) NewModel(args state.ModelArgs) (Model, ModelManagerBackend, error) {
+func (st modelManagerStateShim) NewModel(usr coreuser.User, args state.ModelArgs) (Model, ModelManagerBackend, error) {
 	aController := state.NewController(st.pool)
-	otherModel, otherState, err := aController.NewModel(args)
+	otherModel, otherState, err := aController.NewModel(usr, args)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -288,8 +289,8 @@ type modelShim struct {
 }
 
 // Users implements ModelManagerBackend.
-func (m modelShim) Users() ([]permission.UserAccess, error) {
-	stateUsers, err := m.Model.Users()
+func (m modelShim) Users(usrs []coreuser.User) ([]permission.UserAccess, error) {
+	stateUsers, err := m.Model.Users(usrs)
 	if err != nil {
 		return nil, err
 	}

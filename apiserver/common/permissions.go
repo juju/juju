@@ -5,6 +5,7 @@ package common
 
 import (
 	"github.com/juju/errors"
+	coreuser "github.com/juju/juju/core/user"
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/apiserver/authentication"
@@ -18,11 +19,12 @@ const EveryoneTagName = "everyone@external"
 
 // UserAccessFunc represents a func that can answer the question about what
 // level of access a user entity has for a given subject tag.
-type UserAccessFunc func(names.UserTag, names.Tag) (permission.Access, error)
+type UserAccessFunc func(coreuser.User, names.UserTag, names.Tag) (permission.Access, error)
 
 // HasPermission returns true if the specified user has the specified
 // permission on target.
 func HasPermission(
+	usr coreuser.User,
 	accessGetter UserAccessFunc, utag names.Tag,
 	requestedPermission permission.Access, target names.Tag,
 ) (bool, error) {
@@ -49,7 +51,7 @@ func HasPermission(
 		return false, nil
 	}
 
-	userAccess, err := GetPermission(accessGetter, userTag, target)
+	userAccess, err := GetPermission(usr, accessGetter, userTag, target)
 	if err != nil && !errors.Is(err, errors.NotFound) {
 		return false, errors.Annotatef(err, "while obtaining %s user", target.Kind())
 	}
@@ -69,8 +71,8 @@ func HasPermission(
 }
 
 // GetPermission returns the permission a user has on the specified target.
-func GetPermission(accessGetter UserAccessFunc, userTag names.UserTag, target names.Tag) (permission.Access, error) {
-	userAccess, err := accessGetter(userTag, target)
+func GetPermission(usr coreuser.User, accessGetter UserAccessFunc, userTag names.UserTag, target names.Tag) (permission.Access, error) {
+	userAccess, err := accessGetter(usr, userTag, target)
 	if err != nil && !errors.Is(err, errors.NotFound) {
 		return permission.NoAccess, errors.Annotatef(err, "while obtaining %s user", target.Kind())
 	}
@@ -79,7 +81,7 @@ func GetPermission(accessGetter UserAccessFunc, userTag names.UserTag, target na
 		// TODO(perrito666) remove the following section about everyone group
 		// when groups are implemented.
 		everyoneTag := names.NewUserTag(EveryoneTagName)
-		everyoneAccess, err := accessGetter(everyoneTag, target)
+		everyoneAccess, err := accessGetter(usr, everyoneTag, target)
 		if err != nil && !errors.Is(err, errors.NotFound) {
 			return permission.NoAccess, errors.Trace(err)
 		}

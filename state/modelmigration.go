@@ -6,6 +6,7 @@ package state
 import (
 	"encoding/json"
 	"fmt"
+	coreuser "github.com/juju/juju/core/user"
 	"strings"
 	"time"
 
@@ -675,7 +676,7 @@ func (spec *MigrationSpec) Validate() error {
 // CreateMigration initialises state that tracks a model migration. It
 // will return an error if there is already a model migration in
 // progress.
-func (st *State) CreateMigration(spec MigrationSpec) (ModelMigration, error) {
+func (st *State) CreateMigration(usrs []coreuser.User, spec MigrationSpec) (ModelMigration, error) {
 	if st.IsController() {
 		return nil, errors.New("controllers can't be migrated")
 	}
@@ -722,7 +723,7 @@ func (st *State) CreateMigration(spec MigrationSpec) (ModelMigration, error) {
 			return nil, errors.Trace(err)
 		}
 
-		userDocs, err := modelUserDocs(model)
+		userDocs, err := modelUserDocs(usrs, model)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -788,8 +789,8 @@ func (st *State) CreateMigration(spec MigrationSpec) (ModelMigration, error) {
 	}, nil
 }
 
-func modelUserDocs(m *Model) ([]modelMigUserDoc, error) {
-	users, err := m.Users()
+func modelUserDocs(usrs []coreuser.User, m *Model) ([]modelMigUserDoc, error) {
+	users, err := m.Users(usrs)
 	if err != nil {
 		return nil, err
 	}

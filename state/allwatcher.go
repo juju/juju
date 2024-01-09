@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
+	coreuser "github.com/juju/juju/core/user"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state/watcher"
 )
@@ -238,7 +239,7 @@ func (e *backingPermission) modelAndUser(id string) (string, string, bool) {
 	}
 
 	// At this stage, we are only dealing with model user permissions.
-	if parts[0] != modelGlobalKey || parts[2] != userGlobalKeyPrefix {
+	if parts[0] != modelGlobalKey || parts[2] != coreuser.UserGlobalKeyPrefix {
 		return "", "", false
 	}
 	return parts[1], parts[3], true
@@ -2108,7 +2109,7 @@ func (ctx *allWatcherContext) permissionsForModel(uuid string) (map[string]permi
 	}
 	result := make(map[string]permission.Access)
 	for _, perm := range permissions {
-		user := userIDFromGlobalKey(perm.doc.SubjectGlobalKey)
+		user := coreuser.UserIDFromGlobalKey(perm.doc.SubjectGlobalKey)
 		if user == perm.doc.SubjectGlobalKey {
 			// Not a user subject
 			continue

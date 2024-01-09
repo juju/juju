@@ -5,6 +5,7 @@ package controller
 
 import (
 	"github.com/juju/charm/v12"
+	coreuser "github.com/juju/juju/core/user"
 	"github.com/juju/names/v5"
 
 	jujucontroller "github.com/juju/juju/controller"
@@ -16,15 +17,15 @@ import (
 
 type ControllerAccess interface {
 	ControllerTag() names.ControllerTag
-	AddControllerUser(spec state.UserAccessSpec) (permission.UserAccess, error)
-	UserAccess(subject names.UserTag, target names.Tag) (permission.UserAccess, error)
+	AddControllerUser(usr coreuser.User, spec state.UserAccessSpec) (permission.UserAccess, error)
+	UserAccess(usr coreuser.User, subject names.UserTag, target names.Tag) (permission.UserAccess, error)
 	ControllerInfo() (*state.ControllerInfo, error)
-	CreateCloudAccess(cloud string, user names.UserTag, access permission.Access) error
+	CreateCloudAccess(usr coreuser.User, cloud string, user names.UserTag, access permission.Access) error
 	GetCloudAccess(cloud string, user names.UserTag) (permission.Access, error)
 	RemoveCloudAccess(cloud string, user names.UserTag) error
-	UserPermission(subject names.UserTag, target names.Tag) (permission.Access, error)
+	UserPermission(usr coreuser.User, subject names.UserTag, target names.Tag) (permission.Access, error)
 	RemoveUserAccess(subject names.UserTag, target names.Tag) error
-	SetUserAccess(subject names.UserTag, target names.Tag, access permission.Access) (permission.UserAccess, error)
+	SetUserAccess(usr coreuser.User, subject names.UserTag, target names.Tag, access permission.Access) (permission.UserAccess, error)
 }
 
 type Backend interface {

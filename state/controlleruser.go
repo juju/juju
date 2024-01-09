@@ -14,6 +14,7 @@ import (
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/core/permission"
+	coreuser "github.com/juju/juju/core/user"
 )
 
 const defaultControllerPermission = permission.LoginAccess
@@ -60,7 +61,7 @@ func createControllerUserOps(controllerUUID string, user, createdBy names.UserTa
 		DateCreated: dateCreated,
 	}
 	ops := []txn.Op{
-		createPermissionOp(controllerKey(controllerUUID), userGlobalKey(userAccessID(user)), access),
+		createPermissionOp(controllerKey(controllerUUID), coreuser.UserGlobalKey(userAccessID(user)), access),
 		{
 			C:      controllerUsersC,
 			Id:     userAccessID(user),
@@ -73,7 +74,7 @@ func createControllerUserOps(controllerUUID string, user, createdBy names.UserTa
 
 func removeControllerUserOps(controllerUUID string, user names.UserTag) []txn.Op {
 	return []txn.Op{
-		removePermissionOp(controllerKey(controllerUUID), userGlobalKey(userAccessID(user))),
+		removePermissionOp(controllerKey(controllerUUID), coreuser.UserGlobalKey(userAccessID(user))),
 		{
 			C:      controllerUsersC,
 			Id:     userAccessID(user),

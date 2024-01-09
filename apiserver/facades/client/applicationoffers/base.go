@@ -28,6 +28,7 @@ import (
 
 // BaseAPI provides various boilerplate methods used by the facade business logic.
 type BaseAPI struct {
+	userService                 UserService
 	Authorizer                  facade.Authorizer
 	GetApplicationOffers        func(interface{}) jujucrossmodel.ApplicationOffers
 	ControllerModel             Backend
@@ -79,13 +80,13 @@ func (api *BaseAPI) modelForName(modelName, ownerName string) (Model, string, bo
 	return model, modelPath, model != nil, nil
 }
 
-func (api *BaseAPI) userDisplayName(backend Backend, userTag names.UserTag) (string, error) {
+func (api *BaseAPI) userDisplayName(ctx context.Context, userTag names.UserTag) (string, error) {
 	var displayName string
-	user, err := backend.User(userTag)
+	user, err := api.userService.GetUserByName(ctx, userTag.Name())
 	if err != nil && !errors.Is(err, errors.NotFound) {
 		return "", errors.Trace(err)
 	} else if err == nil {
-		displayName = user.DisplayName()
+		displayName = user.DisplayName
 	}
 	return displayName, nil
 }
@@ -122,7 +123,7 @@ func (api *BaseAPI) applicationOffersFromModel(
 		return nil, errors.Trace(err)
 	}
 
-	apiUserDisplayName, err := api.userDisplayName(backend, user)
+	apiUserDisplayName, err := api.userDisplayName(ctx, user)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -158,7 +159,7 @@ func (api *BaseAPI) applicationOffersFromModel(
 		}
 		// Only admins can see some sensitive details of the offer.
 		if isAdmin {
-			if err := api.getOfferAdminDetails(user, backend, app, &offer); err != nil {
+			if err := api.getOfferAdminDetails(ctx, user, backend, app, &offer); err != nil {
 				api.logger.Warningf("cannot get offer admin details: %v", err)
 			}
 		}
@@ -167,7 +168,7 @@ func (api *BaseAPI) applicationOffersFromModel(
 	return results, nil
 }
 
-func (api *BaseAPI) getOfferAdminDetails(user names.UserTag, backend Backend, app crossmodel.Application, offer *params.ApplicationOfferAdminDetails) error {
+func (api *BaseAPI) getOfferAdminDetails(ctx context.Context, user names.UserTag, backend Backend, app crossmodel.Application, offer *params.ApplicationOfferAdminDetails) error {
 	curl, _ := app.CharmURL()
 	conns, err := backend.OfferConnections(offer.OfferUUID)
 	if err != nil {
@@ -219,7 +220,7 @@ func (api *BaseAPI) getOfferAdminDetails(user names.UserTag, backend Backend, ap
 		if userName == user.Id() {
 			continue
 		}
-		displayName, err := api.userDisplayName(backend, names.NewUserTag(userName))
+		displayName, err := api.userDisplayName(ctx, names.NewUserTag(userName))
 		if err != nil {
 			return errors.Trace(err)
 		}

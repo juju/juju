@@ -6,13 +6,14 @@ package bundle
 import (
 	"github.com/juju/charm/v12"
 	"github.com/juju/description/v5"
+	coreuser "github.com/juju/juju/core/user"
 
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/state"
 )
 
 type Backend interface {
-	ExportPartial(cfg state.ExportConfig, store objectstore.ObjectStore) (description.Model, error)
+	ExportPartial(usrs []coreuser.User, cfg state.ExportConfig, store objectstore.ObjectStore) (description.Model, error)
 	GetExportConfig() state.ExportConfig
 	Charm(url string) (charm.Charm, error)
 	state.EndpointBinding

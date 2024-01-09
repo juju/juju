@@ -52,6 +52,7 @@ func newMigrationMasterFacade(ctx facade.Context) (*API, error) {
 		controllerState,
 		backend,
 		migration.NewModelExporter(
+			ctx.ServiceFactory().User(),
 			backend,
 			modelmigration.NewScope(changestream.NewTxnRunnerFactory(ctx.ControllerDB), nil),
 		),

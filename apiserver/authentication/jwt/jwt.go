@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	coreuser "github.com/juju/juju/core/user"
 	"net/http"
 	"time"
 
@@ -110,6 +111,7 @@ func (t TokenEntity) Tag() names.Tag {
 
 // SubjectPermissions implements PermissionDelegator
 func (p *PermissionDelegator) SubjectPermissions(
+	usr coreuser.User,
 	e authentication.Entity,
 	subject names.Tag,
 ) (a permission.Access, err error) {

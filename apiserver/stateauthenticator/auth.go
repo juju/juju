@@ -6,6 +6,8 @@ package stateauthenticator
 import (
 	"context"
 	"encoding/base64"
+	coreuser "github.com/juju/juju/core/user"
+	"github.com/juju/juju/internal/auth"
 	"net/http"
 	"strconv"
 	"strings"
@@ -46,6 +48,7 @@ var AgentTags = []string{
 type Authenticator struct {
 	statePool              *state.StatePool
 	controllerConfigGetter ControllerConfigGetter
+	userService            UserService
 	authContext            *authContext
 }
 
@@ -60,10 +63,17 @@ type ControllerConfigGetter interface {
 	ControllerConfig(context.Context) (controller.Config, error)
 }
 
+type UserService interface {
+	GetUserByName(ctx context.Context, name string) (coreuser.User, error)
+	SetPassword(ctx context.Context, uuid coreuser.UUID, password auth.Password) error
+	UpdateLastLogin(ctx context.Context, uuid coreuser.UUID) error
+}
+
 // NewAuthenticator returns a new Authenticator using the given StatePool.
 func NewAuthenticator(
 	statePool *state.StatePool,
 	controllerConfigGetter ControllerConfigGetter,
+	userService UserService,
 	clock clock.Clock,
 ) (*Authenticator, error) {
 	systemState, err := statePool.SystemState()
@@ -77,6 +87,7 @@ func NewAuthenticator(
 	return &Authenticator{
 		statePool:              statePool,
 		controllerConfigGetter: controllerConfigGetter,
+		userService:            userService,
 		authContext:            authContext,
 	}, nil
 }
@@ -203,6 +214,7 @@ func (a *Authenticator) AuthenticateLoginRequest(
 
 // SubjectPermissions implements PermissionDelegator
 func (p *PermissionDelegator) SubjectPermissions(
+	usr coreuser.User,
 	e authentication.Entity,
 	s names.Tag,
 ) (permission.Access, error) {
@@ -211,7 +223,7 @@ func (p *PermissionDelegator) SubjectPermissions(
 		return permission.NoAccess, errors.Errorf("%s is not a user", names.ReadableString(e.Tag()))
 	}
 
-	return p.State.UserPermission(userTag, s)
+	return p.State.UserPermission(usr, userTag, s)
 }
 
 func (p *PermissionDelegator) PermissionError(
@@ -233,7 +245,7 @@ func (a *Authenticator) checkCreds(
 		// When looking up model users, use a custom
 		// entity finder that looks up both the local user (if the user
 		// tag is in the local domain) and the model user.
-		entityFinder = modelUserEntityFinder{st}
+		entityFinder = modelUserEntityFinder{st, a.userService}
 	}
 	entity, err := authenticator.Authenticate(ctx, entityFinder, authParams)
 	if err != nil {

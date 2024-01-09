@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
+	coreuser "github.com/juju/juju/core/user"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/internal/mongo/utils"
@@ -410,7 +411,7 @@ func (p *modelSummaryProcessor) fillInJustUser() error {
 	username := strings.ToLower(p.user.Name())
 	var permissionIds []string
 	for _, modelUUID := range p.modelUUIDs {
-		permId := permissionID(modelKey(modelUUID), userGlobalKey(username))
+		permId := permissionID(modelKey(modelUUID), coreuser.UserGlobalKey(username))
 		permissionIds = append(permissionIds, permId)
 	}
 	if err := p.fillInPermissions(permissionIds); err != nil {

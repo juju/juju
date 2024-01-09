@@ -5,6 +5,7 @@ package applicationoffers
 
 import (
 	"github.com/juju/errors"
+	coreuser "github.com/juju/juju/core/user"
 	"github.com/juju/names/v5"
 
 	commoncrossmodel "github.com/juju/juju/apiserver/common/crossmodel"
@@ -59,11 +60,10 @@ type Backend interface {
 	Model() (Model, error)
 	OfferConnections(string) ([]OfferConnection, error)
 	SpaceByName(string) (Space, error)
-	User(names.UserTag) (User, error)
 
-	CreateOfferAccess(offer names.ApplicationOfferTag, user names.UserTag, access permission.Access) error
-	UpdateOfferAccess(offer names.ApplicationOfferTag, user names.UserTag, access permission.Access) error
-	RemoveOfferAccess(offer names.ApplicationOfferTag, user names.UserTag) error
+	CreateOfferAccess(usr coreuser.User, offer names.ApplicationOfferTag, user names.UserTag, access permission.Access) error
+	UpdateOfferAccess(usr coreuser.User, offer names.ApplicationOfferTag, user names.UserTag, access permission.Access) error
+	RemoveOfferAccess(usr coreuser.User, offer names.ApplicationOfferTag, user names.UserTag) error
 	GetOfferUsers(offerUUID string) (map[string]permission.Access, error)
 
 	AllSpaceInfos() (network.SpaceInfos, error)
@@ -81,20 +81,20 @@ type stateShim struct {
 	st *state.State
 }
 
-func (s stateShim) UserPermission(subject names.UserTag, target names.Tag) (permission.Access, error) {
-	return s.st.UserPermission(subject, target)
+func (s stateShim) UserPermission(usr coreuser.User, subject names.UserTag, target names.Tag) (permission.Access, error) {
+	return s.st.UserPermission(usr, subject, target)
 }
 
-func (s stateShim) CreateOfferAccess(offer names.ApplicationOfferTag, user names.UserTag, access permission.Access) error {
-	return s.st.CreateOfferAccess(offer, user, access)
+func (s stateShim) CreateOfferAccess(usr coreuser.User, offer names.ApplicationOfferTag, user names.UserTag, access permission.Access) error {
+	return s.st.CreateOfferAccess(usr, offer, user, access)
 }
 
-func (s stateShim) UpdateOfferAccess(offer names.ApplicationOfferTag, user names.UserTag, access permission.Access) error {
-	return s.st.UpdateOfferAccess(offer, user, access)
+func (s stateShim) UpdateOfferAccess(usr coreuser.User, offer names.ApplicationOfferTag, user names.UserTag, access permission.Access) error {
+	return s.st.UpdateOfferAccess(usr, offer, user, access)
 }
 
-func (s stateShim) RemoveOfferAccess(offer names.ApplicationOfferTag, user names.UserTag) error {
-	return s.st.RemoveOfferAccess(offer, user)
+func (s stateShim) RemoveOfferAccess(usr coreuser.User, offer names.ApplicationOfferTag, user names.UserTag) error {
+	return s.st.RemoveOfferAccess(usr, offer, user)
 }
 
 func (s stateShim) GetOfferUsers(offerUUID string) (map[string]permission.Access, error) {
@@ -180,12 +180,4 @@ type OfferConnection interface {
 
 type offerConnectionShim struct {
 	*state.OfferConnection
-}
-
-func (s *stateShim) User(tag names.UserTag) (User, error) {
-	return s.st.User(tag)
-}
-
-type User interface {
-	DisplayName() string
 }

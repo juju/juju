@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	coreuser "github.com/juju/juju/core/user"
 	"reflect"
 	"strconv"
 	"time"
@@ -41,8 +42,12 @@ import (
 	"github.com/juju/juju/state/cloudimagemetadata"
 )
 
+type UserService interface {
+	GetUserByName(ctx context.Context, name string) (coreuser.User, error)
+}
+
 // Import the database agnostic model representation into the database.
-func (ctrl *Controller) Import(model description.Model, controllerConfig controller.Config) (_ *Model, _ *State, err error) {
+func (ctrl *Controller) Import(model description.Model, controllerConfig controller.Config, userService UserService) (_ *Model, _ *State, err error) {
 	st, err := ctrl.pool.SystemState()
 	if err != nil {
 		return nil, nil, errors.Trace(err)
@@ -100,7 +105,13 @@ func (ctrl *Controller) Import(model description.Model, controllerConfig control
 		// that is now done using the new domain/credential importer.
 		args.CloudCredential = credTag
 	}
-	dbModel, newSt, err := ctrl.NewModel(args)
+
+	usr, err := userService.GetUserByName(context.Background(), model.Owner().Name())
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+
+	dbModel, newSt, err := ctrl.NewModel(usr, args)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}

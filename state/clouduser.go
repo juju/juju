@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/permission"
+	coreuser "github.com/juju/juju/core/user"
 )
 
 // cloudGlobalKey will return the key for a given cloud.
@@ -22,23 +23,17 @@ func cloudGlobalKey(cloudName string) string {
 }
 
 // CreateCloudAccess creates a new access permission for a user on a cloud.
-func (st *State) CreateCloudAccess(cloud string, user names.UserTag, access permission.Access) error {
+func (st *State) CreateCloudAccess(usr coreuser.User, cloud string, user names.UserTag, access permission.Access) error {
 	if err := permission.ValidateCloudAccess(access); err != nil {
 		return errors.Trace(err)
 	}
 
 	// Local users must exist.
-	if user.IsLocal() {
-		_, err := st.User(user)
-		if err != nil {
-			if errors.Is(err, errors.NotFound) {
-				return errors.Annotatef(err, "user %q does not exist locally", user.Name())
-			}
-			return errors.Trace(err)
-		}
+	if !names.NewUserTag(usr.Name).IsLocal() {
+		return errors.Errorf("user %q does not exist locally", usr.Name)
 	}
 
-	op := createPermissionOp(cloudGlobalKey(cloud), userGlobalKey(userAccessID(user)), access)
+	op := createPermissionOp(cloudGlobalKey(cloud), coreuser.UserGlobalKey(userAccessID(user)), access)
 
 	err := st.db().RunTransaction([]txn.Op{op})
 	if err == txn.ErrAborted {
@@ -49,7 +44,7 @@ func (st *State) CreateCloudAccess(cloud string, user names.UserTag, access perm
 
 // GetCloudAccess gets the access permission for the specified user on a cloud.
 func (st *State) GetCloudAccess(cloud string, user names.UserTag) (permission.Access, error) {
-	perm, err := st.userPermission(cloudGlobalKey(cloud), userGlobalKey(userAccessID(user)))
+	perm, err := st.userPermission(cloudGlobalKey(cloud), coreuser.UserGlobalKey(userAccessID(user)))
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -64,7 +59,7 @@ func (st *State) GetCloudUsers(cloud string) (map[string]permission.Access, erro
 	}
 	result := make(map[string]permission.Access)
 	for _, p := range perms {
-		result[userIDFromGlobalKey(p.doc.SubjectGlobalKey)] = p.access()
+		result[coreuser.UserIDFromGlobalKey(p.doc.SubjectGlobalKey)] = p.access()
 	}
 	return result, nil
 }
@@ -80,7 +75,7 @@ func (st *State) UpdateCloudAccess(cloud string, user names.UserTag, access perm
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		ops := []txn.Op{updatePermissionOp(cloudGlobalKey(cloud), userGlobalKey(userAccessID(user)), access)}
+		ops := []txn.Op{updatePermissionOp(cloudGlobalKey(cloud), coreuser.UserGlobalKey(userAccessID(user)), access)}
 		return ops, nil
 	}
 
@@ -95,7 +90,7 @@ func (st *State) RemoveCloudAccess(cloud string, user names.UserTag) error {
 		if err != nil {
 			return nil, err
 		}
-		ops := []txn.Op{removePermissionOp(cloudGlobalKey(cloud), userGlobalKey(userAccessID(user)))}
+		ops := []txn.Op{removePermissionOp(cloudGlobalKey(cloud), coreuser.UserGlobalKey(userAccessID(user)))}
 		return ops, nil
 	}
 
@@ -130,7 +125,7 @@ func (st *State) cloudNamesForUser(user names.UserTag) ([]string, error) {
 	permissions, permCloser := st.db().GetRawCollection(permissionsC)
 	defer permCloser()
 
-	findExpr := fmt.Sprintf("^cloud#.*#%s$", userGlobalKey(user.Id()))
+	findExpr := fmt.Sprintf("^cloud#.*#%s$", coreuser.UserGlobalKey(user.Id()))
 	query := permissions.Find(
 		bson.D{{"_id", bson.D{{"$regex", findExpr}}}},
 	).Batch(100)
@@ -154,7 +149,7 @@ func (st *State) fillInCloudUserAccess(user names.UserTag, cloudInfo []cloud.Clo
 	username := strings.ToLower(user.Name())
 	var permissionIds []string
 	for _, info := range cloudInfo {
-		permId := permissionID(cloudGlobalKey(info.Name), userGlobalKey(username))
+		permId := permissionID(cloudGlobalKey(info.Name), coreuser.UserGlobalKey(username))
 		permissionIds = append(permissionIds, permId)
 	}
 

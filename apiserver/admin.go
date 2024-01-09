@@ -459,7 +459,7 @@ func (a *admin) checkUserPermissions(authInfo authentication.AuthInfo, controlle
 		everyoneGroupAccess = everyoneGroupUser.Access
 	}
 
-	controllerAccess, err := authInfo.SubjectPermissions(a.root.state.ControllerTag())
+	controllerAccess, err := authInfo.SubjectPermissions(usr, a.root.state.ControllerTag())
 	if errors.Is(err, errors.NotFound) {
 		controllerAccess = everyoneGroupAccess
 	} else if err != nil {
@@ -473,7 +473,7 @@ func (a *admin) checkUserPermissions(authInfo authentication.AuthInfo, controlle
 		// admin.
 
 		var err error
-		modelAccess, err = authInfo.SubjectPermissions(a.root.model.ModelTag())
+		modelAccess, err = authInfo.SubjectPermissions(usr, a.root.model.ModelTag())
 		if err != nil && controllerAccess != permission.SuperuserAccess {
 			return nil, errors.Wrap(err, apiservererrors.ErrPerm)
 		}

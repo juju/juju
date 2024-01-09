@@ -15,6 +15,7 @@ import (
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/core/permission"
+	coreuser "github.com/juju/juju/core/user"
 	"github.com/juju/juju/internal/mongo"
 )
 
@@ -120,7 +121,7 @@ func createModelUserOps(modelUUID string, user, createdBy names.UserTag, display
 	}
 
 	ops := []txn.Op{
-		createPermissionOp(modelKey(modelUUID), userGlobalKey(userAccessID(user)), access),
+		createPermissionOp(modelKey(modelUUID), coreuser.UserGlobalKey(userAccessID(user)), access),
 		{
 			C:      modelUsersC,
 			Id:     userAccessID(user),
@@ -133,7 +134,7 @@ func createModelUserOps(modelUUID string, user, createdBy names.UserTag, display
 
 func removeModelUserOps(modelUUID string, user names.UserTag) []txn.Op {
 	return []txn.Op{
-		removePermissionOp(modelKey(modelUUID), userGlobalKey(userAccessID(user))),
+		removePermissionOp(modelKey(modelUUID), coreuser.UserGlobalKey(userAccessID(user))),
 		{
 			C:      modelUsersC,
 			Id:     userAccessID(user),
@@ -144,7 +145,7 @@ func removeModelUserOps(modelUUID string, user names.UserTag) []txn.Op {
 
 func removeModelUserOpsGlobal(modelUUID string, user names.UserTag) []txn.Op {
 	return []txn.Op{
-		removePermissionOp(modelKey(modelUUID), userGlobalKey(userAccessID(user))),
+		removePermissionOp(modelKey(modelUUID), coreuser.UserGlobalKey(userAccessID(user))),
 		{
 			C:      modelUsersC,
 			Id:     ensureModelUUID(modelUUID, userAccessID(user)),
@@ -290,12 +291,12 @@ func (st *State) ModelBasicInfoForUser(user names.UserTag, isSuperuser bool) ([]
 // ModelUUIDsForUser returns a list of models that the user is able to
 // access.
 // Results are sorted by (name, owner).
-func (st *State) ModelUUIDsForUser(user names.UserTag) ([]string, error) {
+func (st *State) ModelUUIDsForUser(usr coreuser.User, user names.UserTag) ([]string, error) {
 	// Consider the controller permissions overriding Model permission, for
 	// this case the only relevant one is superuser.
 	// The mgo query below wont work for superuser case because it needs at
 	// least one model user per model.
-	access, err := st.UserAccess(user, st.controllerTag)
+	access, err := st.UserAccess(usr, user, st.controllerTag)
 	if err != nil && !errors.Is(err, errors.NotFound) {
 		return nil, errors.Trace(err)
 	}
@@ -345,12 +346,12 @@ func (st *State) ModelUUIDsForUser(user names.UserTag) ([]string, error) {
 }
 
 // IsControllerAdmin returns true if the user specified has Super User Access.
-func (st *State) IsControllerAdmin(user names.UserTag) (bool, error) {
+func (st *State) IsControllerAdmin(usr coreuser.User, user names.UserTag) (bool, error) {
 	model, err := st.Model()
 	if err != nil {
 		return false, errors.Trace(err)
 	}
-	ua, err := st.UserAccess(user, model.ControllerTag())
+	ua, err := st.UserAccess(usr, user, model.ControllerTag())
 	if errors.Is(err, errors.NotFound) {
 		return false, nil
 	}
@@ -360,15 +361,15 @@ func (st *State) IsControllerAdmin(user names.UserTag) (bool, error) {
 	return ua.Access == permission.SuperuserAccess, nil
 }
 
-func (st *State) isControllerOrModelAdmin(user names.UserTag) (bool, error) {
-	isAdmin, err := st.IsControllerAdmin(user)
+func (st *State) isControllerOrModelAdmin(usr coreuser.User, user names.UserTag) (bool, error) {
+	isAdmin, err := st.IsControllerAdmin(usr, user)
 	if err != nil {
 		return false, errors.Trace(err)
 	}
 	if isAdmin {
 		return true, nil
 	}
-	ua, err := st.UserAccess(user, names.NewModelTag(st.ModelUUID()))
+	ua, err := st.UserAccess(usr, user, names.NewModelTag(st.ModelUUID()))
 	if errors.Is(err, errors.NotFound) {
 		return false, nil
 	}

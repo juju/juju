@@ -6,6 +6,7 @@ package modelmanager
 import (
 	"context"
 	"fmt"
+	coreuser "github.com/juju/juju/core/user"
 	"sort"
 	"time"
 
@@ -84,6 +85,11 @@ type StateBackend interface {
 	InvalidateModelCredential(string) error
 }
 
+type UserService interface {
+	GetAllUsers(ctx context.Context) ([]coreuser.User, error)
+	GetUserByName(ctx context.Context, name string) (coreuser.User, error)
+}
+
 // ModelManagerAPI implements the model manager interface and is
 // the concrete implementation of the api end point.
 type ModelManagerAPI struct {
@@ -91,6 +97,7 @@ type ModelManagerAPI struct {
 	modelManagerService ModelManagerService
 	modelService        ModelService
 	state               StateBackend
+	userService         UserService
 	modelExporter       ModelExporter
 	ctlrState           common.ModelManagerBackend
 	cloudService        CloudService
@@ -112,6 +119,7 @@ func NewModelManagerAPI(
 	modelExporter ModelExporter,
 	ctlrSt common.ModelManagerBackend,
 	cloudService CloudService,
+	userService UserService,
 	credentialService CredentialService,
 	modelManagerService ModelManagerService,
 	modelService ModelService,
@@ -142,6 +150,7 @@ func NewModelManagerAPI(
 		modelExporter:       modelExporter,
 		ctlrState:           ctlrSt,
 		cloudService:        cloudService,
+		userService:         userService,
 		credentialService:   credentialService,
 		modelManagerService: modelManagerService,
 		store:               store,
@@ -458,7 +467,12 @@ Please choose a different model name.
 
 	storageProviderRegistry := stateenvirons.NewStorageProviderRegistry(broker)
 
-	model, st, err := m.state.NewModel(state.ModelArgs{
+	usr, err := m.userService.GetUserByName(ctx, ownerTag.Name())
+	if err != nil {
+		return nil, errors.Annotate(err, "failed to get user")
+	}
+
+	model, st, err := m.state.NewModel(usr, state.ModelArgs{
 		Type:                    state.ModelTypeCAAS,
 		CloudName:               cloudTag.Id(),
 		CloudRegion:             cloudRegionName,
@@ -517,10 +531,15 @@ func (m *ModelManagerAPI) newModel(
 	}
 	storageProviderRegistry := stateenvirons.NewStorageProviderRegistry(env)
 
+	usr, err := m.userService.GetUserByName(ctx, ownerTag.Name())
+	if err != nil {
+		return nil, errors.Annotate(err, "failed to get user")
+	}
+
 	// NOTE: check the agent-version of the config, and if it is > the current
 	// version, it is not supported, also check existing tools, and if we don't
 	// have tools for that version, also die.
-	model, st, err := m.state.NewModel(state.ModelArgs{
+	model, st, err := m.state.NewModel(usr, state.ModelArgs{
 		Type:                    state.ModelTypeIAAS,
 		CloudName:               cloudTag.Id(),
 		CloudRegion:             cloudRegionName,
@@ -1039,7 +1058,12 @@ func (m *ModelManagerAPI) getModelInfo(ctx context.Context, tag names.ModelTag, 
 		modelAdmin = err == nil
 	}
 
-	users, err := model.Users()
+	usrs, err := m.userService.GetAllUsers(ctx)
+	if err != nil {
+		return params.ModelInfo{}, errors.Trace(err)
+	}
+
+	users, err := model.Users(usrs)
 	if shouldErr(err) {
 		return params.ModelInfo{}, errors.Trace(err)
 	}
@@ -1174,13 +1198,19 @@ func (m *ModelManagerAPI) ModifyModelAccess(ctx context.Context, args params.Mod
 			continue
 		}
 
+		usr, err := m.userService.GetUserByName(ctx, targetUserTag.Name())
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(errors.Annotate(err, "could not modify model access"))
+			continue
+		}
+
 		result.Results[i].Error = apiservererrors.ServerError(
-			changeModelAccess(m.state, modelTag, m.apiUser, targetUserTag, arg.Action, modelAccess, m.isAdmin))
+			changeModelAccess(usr, m.state, modelTag, m.apiUser, targetUserTag, arg.Action, modelAccess, m.isAdmin))
 	}
 	return result, nil
 }
 
-func userAuthorizedToChangeAccess(st common.ModelManagerBackend, userIsAdmin bool, userTag names.UserTag) error {
+func userAuthorizedToChangeAccess(usr coreuser.User, st common.ModelManagerBackend, userIsAdmin bool, userTag names.UserTag) error {
 	if userIsAdmin {
 		// Just confirm that the model that has been given is a valid model.
 		_, err := st.Model()
@@ -1192,7 +1222,7 @@ func userAuthorizedToChangeAccess(st common.ModelManagerBackend, userIsAdmin boo
 
 	// Get the current user's ModelUser for the Model to see if the user has
 	// permission to grant or revoke permissions on the model.
-	currentUser, err := st.UserAccess(userTag, st.ModelTag())
+	currentUser, err := st.UserAccess(usr, userTag, st.ModelTag())
 	if err != nil {
 		if errors.Is(err, errors.NotFound) {
 			// No, this user doesn't have permission.
@@ -1208,14 +1238,14 @@ func userAuthorizedToChangeAccess(st common.ModelManagerBackend, userIsAdmin boo
 
 // changeModelAccess performs the requested access grant or revoke action for the
 // specified user on the specified model.
-func changeModelAccess(accessor common.ModelManagerBackend, modelTag names.ModelTag, apiUser, targetUserTag names.UserTag, action params.ModelAction, access permission.Access, userIsAdmin bool) error {
+func changeModelAccess(usr coreuser.User, accessor common.ModelManagerBackend, modelTag names.ModelTag, apiUser, targetUserTag names.UserTag, action params.ModelAction, access permission.Access, userIsAdmin bool) error {
 	st, release, err := accessor.GetBackend(modelTag.Id())
 	if err != nil {
 		return errors.Annotate(err, "could not lookup model")
 	}
 	defer release()
 
-	if err := userAuthorizedToChangeAccess(st, userIsAdmin, apiUser); err != nil {
+	if err := userAuthorizedToChangeAccess(usr, st, userIsAdmin, apiUser); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -1226,9 +1256,9 @@ func changeModelAccess(accessor common.ModelManagerBackend, modelTag names.Model
 
 	switch action {
 	case params.GrantModelAccess:
-		_, err = model.AddUser(state.UserAccessSpec{User: targetUserTag, CreatedBy: apiUser, Access: access})
+		_, err = model.AddUser(usr, state.UserAccessSpec{User: targetUserTag, CreatedBy: apiUser, Access: access})
 		if errors.Is(err, errors.AlreadyExists) {
-			modelUser, err := st.UserAccess(targetUserTag, modelTag)
+			modelUser, err := st.UserAccess(usr, targetUserTag, modelTag)
 			if errors.Is(err, errors.NotFound) {
 				// Conflicts with prior check, must be inconsistent state.
 				err = jujutxn.ErrExcessiveContention
@@ -1241,7 +1271,7 @@ func changeModelAccess(accessor common.ModelManagerBackend, modelTag names.Model
 			if modelUser.Access.EqualOrGreaterModelAccessThan(access) {
 				return errors.Errorf("user already has %q access or greater", access)
 			}
-			if _, err = st.SetUserAccess(modelUser.UserTag, modelUser.Object, access); err != nil {
+			if _, err = st.SetUserAccess(usr, modelUser.UserTag, modelUser.Object, access); err != nil {
 				return errors.Annotate(err, "could not set model access for user")
 			}
 			return nil
@@ -1256,19 +1286,19 @@ func changeModelAccess(accessor common.ModelManagerBackend, modelTag names.Model
 			return errors.Annotate(err, "could not revoke model access")
 		case permission.WriteAccess:
 			// Revoking write access sets read-only.
-			modelUser, err := st.UserAccess(targetUserTag, modelTag)
+			modelUser, err := st.UserAccess(usr, targetUserTag, modelTag)
 			if err != nil {
 				return errors.Annotate(err, "could not look up model access for user")
 			}
-			_, err = st.SetUserAccess(modelUser.UserTag, modelUser.Object, permission.ReadAccess)
+			_, err = st.SetUserAccess(usr, modelUser.UserTag, modelUser.Object, permission.ReadAccess)
 			return errors.Annotate(err, "could not set model access to read-only")
 		case permission.AdminAccess:
 			// Revoking admin access sets read-write.
-			modelUser, err := st.UserAccess(targetUserTag, modelTag)
+			modelUser, err := st.UserAccess(usr, targetUserTag, modelTag)
 			if err != nil {
 				return errors.Annotate(err, "could not look up model access for user")
 			}
-			_, err = st.SetUserAccess(modelUser.UserTag, modelUser.Object, permission.WriteAccess)
+			_, err = st.SetUserAccess(usr, modelUser.UserTag, modelUser.Object, permission.WriteAccess)
 			return errors.Annotate(err, "could not set model access to read-write")
 
 		default:

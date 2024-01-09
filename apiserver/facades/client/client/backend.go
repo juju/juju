@@ -4,6 +4,7 @@
 package client
 
 import (
+	coreuser "github.com/juju/juju/core/user"
 	"time"
 
 	"github.com/juju/charm/v12"
@@ -30,7 +31,7 @@ import (
 type Backend interface {
 	network.SpaceLookup
 
-	AddControllerUser(state.UserAccessSpec) (permission.UserAccess, error)
+	AddControllerUser(coreuser.User, state.UserAccessSpec) (permission.UserAccess, error)
 	AddMachineInsideMachine(state.MachineTemplate, string, instance.ContainerType) (*state.Machine, error)
 	AddMachineInsideNewMachine(template, parentTemplate state.MachineTemplate, containerType instance.ContainerType) (*state.Machine, error)
 	AddOneMachine(state.MachineTemplate) (*state.Machine, error)
@@ -92,8 +93,8 @@ type Model interface {
 	CloudCredentialTag() (names.CloudCredentialTag, bool)
 	Config() (*config.Config, error)
 	Owner() names.UserTag
-	AddUser(state.UserAccessSpec) (permission.UserAccess, error)
-	Users() ([]permission.UserAccess, error)
+	AddUser(coreuser.User, state.UserAccessSpec) (permission.UserAccess, error)
+	Users([]coreuser.User) ([]permission.UserAccess, error)
 	StatusHistory(status.StatusHistoryFilter) ([]status.StatusInfo, error)
 	SLAOwner() string
 	SLALevel() string

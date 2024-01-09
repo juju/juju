@@ -53,6 +53,7 @@ func newOffersAPI(facadeContext facade.Context) (*OffersAPI, error) {
 
 	authContext := facadeContext.Resources().Get("offerAccessAuthContext").(*common.ValueResource).Value
 	return createOffersAPI(
+		facadeContext.ServiceFactory().User(),
 		GetApplicationOffers,
 		environFromModel,
 		getControllerInfo,

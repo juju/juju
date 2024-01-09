@@ -5,6 +5,7 @@ package crossmodel
 
 import (
 	"context"
+	coreuser "github.com/juju/juju/core/user"
 	"time"
 
 	"github.com/juju/charm/v12"
@@ -49,7 +50,7 @@ type Backend interface {
 	GetOfferAccess(offerUUID string, user names.UserTag) (permission.Access, error)
 
 	// UserPermission returns the access permission for the passed subject and target.
-	UserPermission(subject names.UserTag, target names.Tag) (permission.Access, error)
+	UserPermission(usr coreuser.User, subject names.UserTag, target names.Tag) (permission.Access, error)
 
 	// RemoteApplication returns a remote application by name.
 	RemoteApplication(string) (RemoteApplication, error)

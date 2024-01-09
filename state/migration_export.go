@@ -5,6 +5,7 @@ package state
 
 import (
 	"fmt"
+	coreuser "github.com/juju/juju/core/user"
 	"strings"
 	"time"
 
@@ -81,16 +82,16 @@ type ExportConfig struct {
 
 // ExportPartial the current model for the State optionally skipping
 // aspects as defined by the ExportConfig.
-func (st *State) ExportPartial(cfg ExportConfig, store objectstore.ObjectStore) (description.Model, error) {
-	return st.exportImpl(cfg, map[string]string{}, store)
+func (st *State) ExportPartial(usrs []coreuser.User, cfg ExportConfig, store objectstore.ObjectStore) (description.Model, error) {
+	return st.exportImpl(usrs, cfg, map[string]string{}, store)
 }
 
 // Export the current model for the State.
-func (st *State) Export(leaders map[string]string, store objectstore.ObjectStore) (description.Model, error) {
-	return st.exportImpl(ExportConfig{}, leaders, store)
+func (st *State) Export(usrs []coreuser.User, leaders map[string]string, store objectstore.ObjectStore) (description.Model, error) {
+	return st.exportImpl(usrs, ExportConfig{}, leaders, store)
 }
 
-func (st *State) exportImpl(cfg ExportConfig, leaders map[string]string, store objectstore.ObjectStore) (description.Model, error) {
+func (st *State) exportImpl(usrs []coreuser.User, cfg ExportConfig, leaders map[string]string, store objectstore.ObjectStore) (description.Model, error) {
 	dbModel, err := st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -171,7 +172,7 @@ func (st *State) exportImpl(cfg ExportConfig, leaders map[string]string, store o
 	if err := export.modelStatus(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err := export.modelUsers(); err != nil {
+	if err := export.modelUsers(usrs); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if err := export.machines(); err != nil {
@@ -339,8 +340,8 @@ func (e *exporter) modelStatus() error {
 	return nil
 }
 
-func (e *exporter) modelUsers() error {
-	users, err := e.dbModel.Users()
+func (e *exporter) modelUsers(usrs []coreuser.User) error {
+	users, err := e.dbModel.Users(usrs)
 	if err != nil {
 		return errors.Trace(err)
 	}

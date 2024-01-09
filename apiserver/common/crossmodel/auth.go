@@ -5,6 +5,7 @@ package crossmodel
 
 import (
 	"context"
+	coreuser "github.com/juju/juju/core/user"
 	"time"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
@@ -144,9 +145,9 @@ func (a *AuthContext) CheckOfferAccessCaveat(caveat string) (*offerPermissionChe
 // It returns an error with a *bakery.VerificationError cause if the macaroon
 // verification failed. If the macaroon is valid, CheckLocalAccessRequest
 // returns a list of caveats to add to the discharge macaroon.
-func (a *AuthContext) CheckLocalAccessRequest(details *offerPermissionCheck) ([]checkers.Caveat, error) {
+func (a *AuthContext) CheckLocalAccessRequest(usr coreuser.User, details *offerPermissionCheck) ([]checkers.Caveat, error) {
 	authlogger.Debugf("authenticate local offer access: %+v", details)
-	if err := a.checkOfferAccess(a.systemState.UserPermission, details.User, details.OfferUUID); err != nil {
+	if err := a.checkOfferAccess(usr, a.systemState.UserPermission, details.User, details.OfferUUID); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -162,25 +163,25 @@ func (a *AuthContext) CheckLocalAccessRequest(details *offerPermissionCheck) ([]
 	return firstPartyCaveats, nil
 }
 
-type userAccessFunc func(names.UserTag, names.Tag) (permission.Access, error)
+type userAccessFunc func(coreuser.User, names.UserTag, names.Tag) (permission.Access, error)
 
-func (a *AuthContext) checkOfferAccess(userAccess userAccessFunc, username, offerUUID string) error {
+func (a *AuthContext) checkOfferAccess(usr coreuser.User, userAccess userAccessFunc, username, offerUUID string) error {
 	userTag := names.NewUserTag(username)
-	isAdmin, err := hasAccess(userAccess, userTag, permission.SuperuserAccess, a.systemState.ControllerTag())
+	isAdmin, err := hasAccess(usr, userAccess, userTag, permission.SuperuserAccess, a.systemState.ControllerTag())
 	if is := errors.Is(err, authentication.ErrorEntityMissingPermission); err != nil && !is {
 		return apiservererrors.ErrPerm
 	}
 	if isAdmin {
 		return nil
 	}
-	isAdmin, err = hasAccess(userAccess, userTag, permission.AdminAccess, a.systemState.ModelTag())
+	isAdmin, err = hasAccess(usr, userAccess, userTag, permission.AdminAccess, a.systemState.ModelTag())
 	if is := errors.Is(err, authentication.ErrorEntityMissingPermission); err != nil && !is {
 		return apiservererrors.ErrPerm
 	}
 	if isAdmin {
 		return nil
 	}
-	isConsume, err := hasAccess(userAccess, userTag, permission.ConsumeAccess, names.NewApplicationOfferTag(offerUUID))
+	isConsume, err := hasAccess(usr, userAccess, userTag, permission.ConsumeAccess, names.NewApplicationOfferTag(offerUUID))
 	if is := errors.Is(err, authentication.ErrorEntityMissingPermission); err != nil && !is {
 		return err
 	}
@@ -192,8 +193,8 @@ func (a *AuthContext) checkOfferAccess(userAccess userAccessFunc, username, offe
 	return nil
 }
 
-func hasAccess(userAccess func(names.UserTag, names.Tag) (permission.Access, error), userTag names.UserTag, access permission.Access, target names.Tag) (bool, error) {
-	has, err := common.HasPermission(userAccess, userTag, access, target)
+func hasAccess(usr coreuser.User, userAccess func(coreuser.User, names.UserTag, names.Tag) (permission.Access, error), userTag names.UserTag, access permission.Access, target names.Tag) (bool, error) {
+	has, err := common.HasPermission(usr, userAccess, userTag, access, target)
 	if errors.Is(err, errors.NotFound) {
 		return false, nil
 	}

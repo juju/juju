@@ -6,6 +6,7 @@ package cloud
 import (
 	"context"
 	"fmt"
+	coreuser "github.com/juju/juju/core/user"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -265,7 +266,7 @@ func (api *CloudAPI) getCloudInfo(ctx context.Context, tag names.CloudTag) (*par
 		userTag := names.NewUserTag(userId)
 		displayName := userId
 		if userTag.IsLocal() {
-			u, err := api.userService.User(userTag)
+			u, err := api.userService.GetUserByName(ctx, userTag.Name())
 			if err != nil {
 				if !stateerrors.IsDeletedUserError(err) {
 					// We ignore deleted users for now. So if it is not a
@@ -274,7 +275,7 @@ func (api *CloudAPI) getCloudInfo(ctx context.Context, tag names.CloudTag) (*par
 				}
 				continue
 			}
-			displayName = u.DisplayName()
+			displayName = u.DisplayName
 		}
 
 		userInfo := params.CloudUserInfo{
@@ -631,12 +632,17 @@ func (api *CloudAPI) AddCloud(ctx context.Context, cloudArgs params.AddCloudArgs
 		aCloud.Regions = []cloud.Region{{Name: cloud.DefaultCloudRegion}}
 	}
 
+	usr, err := api.userService.GetUserByName(ctx, api.apiUser.Name())
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	// TODO(wallyworld) - refactor once permissions are on dqlite.
 	err = api.cloudService.Save(ctx, aCloud)
 	if err != nil {
 		return errors.Annotatef(err, "creating cloud %q", cloudArgs.Name)
 	}
-	err = api.cloudPermissionService.CreateCloudAccess(cloudArgs.Name, api.apiUser, permission.AdminAccess)
+	err = api.cloudPermissionService.CreateCloudAccess(usr, cloudArgs.Name, api.apiUser, permission.AdminAccess)
 	return errors.Trace(err)
 }
 
@@ -754,9 +760,14 @@ func (api *CloudAPI) internalCredentialContents(ctx context.Context, args params
 			info.Content.Valid = &valid
 		}
 
+		usr, err := api.userService.GetUserByName(ctx, api.apiUser.Name())
+		if err != nil {
+			return params.CredentialContentResult{Error: apiservererrors.ServerError(err)}
+		}
+
 		// get models
 		credTag := names.NewCloudCredentialTag(fmt.Sprintf("%s/%s/%s", id.Cloud, id.Owner, id.Name))
-		models, err := api.modelCredentialService.CredentialModelsAndOwnerAccess(credTag)
+		models, err := api.modelCredentialService.CredentialModelsAndOwnerAccess(usr, credTag)
 		if err != nil && !errors.Is(err, errors.NotFound) {
 			return params.CredentialContentResult{Error: apiservererrors.ServerError(err)}
 		}
@@ -831,6 +842,12 @@ func (api *CloudAPI) ModifyCloudAccess(ctx context.Context, args params.ModifyCl
 			continue
 		}
 
+		usr, err := api.userService.GetUserByName(ctx, api.apiUser.Name())
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
 		err = api.authorizer.HasPermission(permission.SuperuserAccess, api.controllerTag)
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
@@ -861,17 +878,17 @@ func (api *CloudAPI) ModifyCloudAccess(ctx context.Context, args params.ModifyCl
 		}
 
 		result.Results[i].Error = apiservererrors.ServerError(
-			ChangeCloudAccess(api.cloudPermissionService, cloudTag.Id(), targetUserTag, arg.Action, cloudAccess))
+			ChangeCloudAccess(usr, api.cloudPermissionService, cloudTag.Id(), targetUserTag, arg.Action, cloudAccess))
 	}
 	return result, nil
 }
 
 // ChangeCloudAccess performs the requested access grant or revoke action for the
 // specified user on the cloud.
-func ChangeCloudAccess(backend CloudPermissionService, cloud string, targetUserTag names.UserTag, action params.CloudAction, access permission.Access) error {
+func ChangeCloudAccess(usr coreuser.User, backend CloudPermissionService, cloud string, targetUserTag names.UserTag, action params.CloudAction, access permission.Access) error {
 	switch action {
 	case params.GrantCloudAccess:
-		err := grantCloudAccess(backend, cloud, targetUserTag, access)
+		err := grantCloudAccess(usr, backend, cloud, targetUserTag, access)
 		if err != nil {
 			return errors.Annotate(err, "could not grant cloud access")
 		}
@@ -883,8 +900,8 @@ func ChangeCloudAccess(backend CloudPermissionService, cloud string, targetUserT
 	}
 }
 
-func grantCloudAccess(backend CloudPermissionService, cloud string, targetUserTag names.UserTag, access permission.Access) error {
-	err := backend.CreateCloudAccess(cloud, targetUserTag, access)
+func grantCloudAccess(usr coreuser.User, backend CloudPermissionService, cloud string, targetUserTag names.UserTag, access permission.Access) error {
+	err := backend.CreateCloudAccess(usr, cloud, targetUserTag, access)
 	if errors.Is(err, errors.AlreadyExists) {
 		cloudAccess, err := backend.GetCloudAccess(cloud, targetUserTag)
 		if errors.Is(err, errors.NotFound) {

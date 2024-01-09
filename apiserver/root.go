@@ -6,6 +6,7 @@ package apiserver
 import (
 	"context"
 	"fmt"
+	coreuser "github.com/juju/juju/core/user"
 	"net/url"
 	"reflect"
 	"sync"
@@ -315,14 +316,14 @@ func (r *apiHandler) HasPermission(operation permission.Access, target names.Tag
 // to provide a permission error. All permissions errors returned satisfy
 // errors.Is(err, ErrorEntityMissingPermission) to distinguish before errors and
 // no permissions errors. If error is nil then the user has permission.
-func (r *apiHandler) EntityHasPermission(entity names.Tag, operation permission.Access, target names.Tag) error {
-	var userAccessFunc common.UserAccessFunc = func(entity names.UserTag, subject names.Tag) (permission.Access, error) {
+func (r *apiHandler) EntityHasPermission(usr coreuser.User, entity names.Tag, operation permission.Access, target names.Tag) error {
+	var userAccessFunc common.UserAccessFunc = func(usr coreuser.User, entity names.UserTag, subject names.Tag) (permission.Access, error) {
 		if r.authInfo.Delegator == nil {
 			return permission.NoAccess, fmt.Errorf("permissions %w for auth info", errors.NotImplemented)
 		}
-		return r.authInfo.Delegator.SubjectPermissions(authentication.TagToEntity(entity), subject)
+		return r.authInfo.Delegator.SubjectPermissions(usr, authentication.TagToEntity(entity), subject)
 	}
-	has, err := common.HasPermission(userAccessFunc, entity, operation, target)
+	has, err := common.HasPermission(usr, userAccessFunc, entity, operation, target)
 	if err != nil && !errors.Is(err, errors.NotFound) {
 		return fmt.Errorf("checking entity %q has permission: %w", entity, err)
 	}

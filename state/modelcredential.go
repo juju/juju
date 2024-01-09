@@ -5,6 +5,7 @@ package state
 
 import (
 	"fmt"
+	coreuser "github.com/juju/juju/core/user"
 	"strings"
 
 	"github.com/juju/errors"
@@ -61,7 +62,7 @@ func (st *State) modelsWithCredential(tag names.CloudCredentialTag) ([]modelDoc,
 
 // CredentialModelsAndOwnerAccess returns all models that use given cloud credential as well as
 // what access the credential owner has on these models.
-func (st *State) CredentialModelsAndOwnerAccess(tag names.CloudCredentialTag) ([]cloud.CredentialOwnerModelAccess, error) {
+func (st *State) CredentialModelsAndOwnerAccess(usr coreuser.User, tag names.CloudCredentialTag) ([]cloud.CredentialOwnerModelAccess, error) {
 	models, err := st.modelsWithCredential(tag)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -69,7 +70,7 @@ func (st *State) CredentialModelsAndOwnerAccess(tag names.CloudCredentialTag) ([
 
 	var results []cloud.CredentialOwnerModelAccess
 	for _, m := range models {
-		ownerAccess, err := st.UserAccess(tag.Owner(), names.NewModelTag(m.UUID))
+		ownerAccess, err := st.UserAccess(usr, tag.Owner(), names.NewModelTag(m.UUID))
 		if err != nil {
 			if errors.Is(err, errors.NotFound) {
 				results = append(results, cloud.CredentialOwnerModelAccess{ModelName: m.Name, ModelUUID: m.UUID, OwnerAccess: permission.NoAccess})
