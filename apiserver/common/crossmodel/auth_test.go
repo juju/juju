@@ -375,7 +375,7 @@ func (s *authSuite) TestCheckOfferMacaroonsDischargeRequiredJaaSWorkflow(c *gc.C
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	mockJaaSBakery := mocks.NewMockExpirableStorageBakery(ctrl)
-	mockJaaSBakery.EXPECT().ExpireStorageAfter(3 * time.Minute).Return(mockJaaSBakery, nil)
+	mockJaaSBakery.EXPECT().ExpireStorageAfter(3*time.Minute).Return(mockJaaSBakery, nil)
 	mockJaaSBakery.EXPECT().NewMacaroon(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, version bakery.Version, caveats []checkers.Caveat, ops ...bakery.Op) (*bakery.Macaroon, error) {
 			sort.Slice(caveats, func(i, j int) bool {
