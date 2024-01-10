@@ -101,47 +101,33 @@ func (mr *MockAPICallCloserMockRecorder) Close() *gomock.Call {
 }
 
 // ConnectControllerStream mocks base method.
-func (m *MockAPICallCloser) ConnectControllerStream(arg0 string, arg1 url.Values, arg2 http.Header) (base.Stream, error) {
+func (m *MockAPICallCloser) ConnectControllerStream(arg0 context.Context, arg1 string, arg2 url.Values, arg3 http.Header) (base.Stream, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ConnectControllerStream", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "ConnectControllerStream", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(base.Stream)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ConnectControllerStream indicates an expected call of ConnectControllerStream.
-func (mr *MockAPICallCloserMockRecorder) ConnectControllerStream(arg0, arg1, arg2 any) *gomock.Call {
+func (mr *MockAPICallCloserMockRecorder) ConnectControllerStream(arg0, arg1, arg2, arg3 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConnectControllerStream", reflect.TypeOf((*MockAPICallCloser)(nil).ConnectControllerStream), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConnectControllerStream", reflect.TypeOf((*MockAPICallCloser)(nil).ConnectControllerStream), arg0, arg1, arg2, arg3)
 }
 
 // ConnectStream mocks base method.
-func (m *MockAPICallCloser) ConnectStream(arg0 string, arg1 url.Values) (base.Stream, error) {
+func (m *MockAPICallCloser) ConnectStream(arg0 context.Context, arg1 string, arg2 url.Values) (base.Stream, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ConnectStream", arg0, arg1)
+	ret := m.ctrl.Call(m, "ConnectStream", arg0, arg1, arg2)
 	ret0, _ := ret[0].(base.Stream)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ConnectStream indicates an expected call of ConnectStream.
-func (mr *MockAPICallCloserMockRecorder) ConnectStream(arg0, arg1 any) *gomock.Call {
+func (mr *MockAPICallCloserMockRecorder) ConnectStream(arg0, arg1, arg2 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConnectStream", reflect.TypeOf((*MockAPICallCloser)(nil).ConnectStream), arg0, arg1)
-}
-
-// Context mocks base method.
-func (m *MockAPICallCloser) Context() context.Context {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Context")
-	ret0, _ := ret[0].(context.Context)
-	return ret0
-}
-
-// Context indicates an expected call of Context.
-func (mr *MockAPICallCloserMockRecorder) Context() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Context", reflect.TypeOf((*MockAPICallCloser)(nil).Context))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConnectStream", reflect.TypeOf((*MockAPICallCloser)(nil).ConnectStream), arg0, arg1, arg2)
 }
 
 // HTTPClient mocks base method.

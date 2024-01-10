@@ -231,33 +231,33 @@ func (mr *MockDeployerAPIMockRecorder) Close() *gomock.Call {
 }
 
 // ConnectControllerStream mocks base method.
-func (m *MockDeployerAPI) ConnectControllerStream(arg0 string, arg1 url.Values, arg2 http.Header) (base.Stream, error) {
+func (m *MockDeployerAPI) ConnectControllerStream(arg0 context.Context, arg1 string, arg2 url.Values, arg3 http.Header) (base.Stream, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ConnectControllerStream", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "ConnectControllerStream", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(base.Stream)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ConnectControllerStream indicates an expected call of ConnectControllerStream.
-func (mr *MockDeployerAPIMockRecorder) ConnectControllerStream(arg0, arg1, arg2 any) *gomock.Call {
+func (mr *MockDeployerAPIMockRecorder) ConnectControllerStream(arg0, arg1, arg2, arg3 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConnectControllerStream", reflect.TypeOf((*MockDeployerAPI)(nil).ConnectControllerStream), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConnectControllerStream", reflect.TypeOf((*MockDeployerAPI)(nil).ConnectControllerStream), arg0, arg1, arg2, arg3)
 }
 
 // ConnectStream mocks base method.
-func (m *MockDeployerAPI) ConnectStream(arg0 string, arg1 url.Values) (base.Stream, error) {
+func (m *MockDeployerAPI) ConnectStream(arg0 context.Context, arg1 string, arg2 url.Values) (base.Stream, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ConnectStream", arg0, arg1)
+	ret := m.ctrl.Call(m, "ConnectStream", arg0, arg1, arg2)
 	ret0, _ := ret[0].(base.Stream)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ConnectStream indicates an expected call of ConnectStream.
-func (mr *MockDeployerAPIMockRecorder) ConnectStream(arg0, arg1 any) *gomock.Call {
+func (mr *MockDeployerAPIMockRecorder) ConnectStream(arg0, arg1, arg2 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConnectStream", reflect.TypeOf((*MockDeployerAPI)(nil).ConnectStream), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConnectStream", reflect.TypeOf((*MockDeployerAPI)(nil).ConnectStream), arg0, arg1, arg2)
 }
 
 // Consume mocks base method.
@@ -273,20 +273,6 @@ func (m *MockDeployerAPI) Consume(arg0 crossmodel.ConsumeApplicationArgs) (strin
 func (mr *MockDeployerAPIMockRecorder) Consume(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Consume", reflect.TypeOf((*MockDeployerAPI)(nil).Consume), arg0)
-}
-
-// Context mocks base method.
-func (m *MockDeployerAPI) Context() context.Context {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Context")
-	ret0, _ := ret[0].(context.Context)
-	return ret0
-}
-
-// Context indicates an expected call of Context.
-func (mr *MockDeployerAPIMockRecorder) Context() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Context", reflect.TypeOf((*MockDeployerAPI)(nil).Context))
 }
 
 // Deploy mocks base method.
