@@ -171,7 +171,7 @@ func (s *CrossSuite) TestDifferentNamespaceValidation(c *gc.C) {
 	manager, err := lease.NewManager(lease.ManagerConfig{
 		Clock: clock,
 		Store: store,
-		SecretaryFinder: FuncSecretaryFinder(func(namespace string) (lease.Secretary, error) {
+		SecretaryFinder: FuncSecretaryFinder(func(namespace string) (corelease.Secretary, error) {
 			switch namespace {
 			case "ns1":
 				return Secretary{}, nil

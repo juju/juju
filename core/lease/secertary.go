@@ -1,12 +1,10 @@
-// Copyright 2018 Canonical Ltd.
+// Copyright 2024 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package lease
 
 import (
 	"time"
-
-	"github.com/juju/juju/core/lease"
 )
 
 // Secretary is responsible for validating the sanity of lease and holder names
@@ -14,7 +12,7 @@ import (
 type Secretary interface {
 
 	// CheckLease returns an error if the supplied lease name is not valid.
-	CheckLease(key lease.Key) error
+	CheckLease(key Key) error
 
 	// CheckHolder returns an error if the supplied holder name is not valid.
 	CheckHolder(name string) error

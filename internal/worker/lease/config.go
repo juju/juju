@@ -30,7 +30,7 @@ type ManagerConfig struct {
 	// SecretaryFinder determines validation given a namespace. The
 	// secretary returned is responsible for validating lease names
 	// and holder names for that namespace.
-	SecretaryFinder SecretaryFinder
+	SecretaryFinder lease.SecretaryFinder
 
 	// Store is responsible for recording, retrieving, and expiring leases.
 	Store lease.Store

@@ -68,7 +68,7 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		NewStore: func(coredatabase.DBGetter, Logger) lease.Store {
 			return nil
 		},
-		NewSecretaryFinder: func(s string) SecretaryFinder {
+		NewSecretaryFinder: func(s string) lease.SecretaryFinder {
 			return nil
 		},
 	}

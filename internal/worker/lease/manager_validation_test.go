@@ -33,7 +33,7 @@ func (s *ValidationSuite) SetUpTest(c *gc.C) {
 	s.config = lease.ManagerConfig{
 		Store: struct{ corelease.Store }{},
 		Clock: struct{ clock.Clock }{},
-		SecretaryFinder: FuncSecretaryFinder(func(string) (lease.Secretary, error) {
+		SecretaryFinder: FuncSecretaryFinder(func(string) (corelease.Secretary, error) {
 			return nil, nil
 		}),
 		MaxSleep:             time.Minute,

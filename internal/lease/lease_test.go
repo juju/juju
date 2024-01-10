@@ -5,12 +5,13 @@ package lease
 
 import (
 	"github.com/juju/errors"
-	workerlease "github.com/juju/juju/internal/worker/lease"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
 	gomock "go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/core/lease"
 )
 
 type secretaryFinderSuite struct {
@@ -22,7 +23,7 @@ type secretaryFinderSuite struct {
 var _ = gc.Suite(&secretaryFinderSuite{})
 
 func (s *secretaryFinderSuite) TestRegisterNil(c *gc.C) {
-	finder := s.newSecretaryFinder(map[string]workerlease.Secretary{
+	finder := s.newSecretaryFinder(map[string]lease.Secretary{
 		"foo": nil,
 	})
 
@@ -34,7 +35,7 @@ func (s *secretaryFinderSuite) TestRegisterNil(c *gc.C) {
 func (s *secretaryFinderSuite) TestRegister(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	finder := s.newSecretaryFinder(map[string]workerlease.Secretary{
+	finder := s.newSecretaryFinder(map[string]lease.Secretary{
 		"foo": s.secretary,
 	})
 
@@ -59,7 +60,7 @@ func (s *secretaryFinderSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *secretaryFinderSuite) newSecretaryFinder(secretaries map[string]workerlease.Secretary) SecretaryFinder {
+func (s *secretaryFinderSuite) newSecretaryFinder(secretaries map[string]lease.Secretary) SecretaryFinder {
 	return SecretaryFinder{
 		secretaries: secretaries,
 	}

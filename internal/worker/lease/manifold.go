@@ -43,7 +43,7 @@ type ManifoldConfig struct {
 	PrometheusRegisterer prometheus.Registerer
 	NewWorker            func(ManagerConfig) (worker.Worker, error)
 	NewStore             func(database.DBGetter, Logger) lease.Store
-	NewSecretaryFinder   func(string) SecretaryFinder
+	NewSecretaryFinder   func(string) lease.SecretaryFinder
 }
 
 // Validate checks that the config has all the required values.

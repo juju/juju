@@ -73,7 +73,7 @@ func (fix *Fixture) RunTest(c *gc.C, test func(*lease.Manager, *testclock.Clock)
 	manager, err := lease.NewManager(lease.ManagerConfig{
 		Clock: clock,
 		Store: store,
-		SecretaryFinder: FuncSecretaryFinder(func(string) (lease.Secretary, error) {
+		SecretaryFinder: FuncSecretaryFinder(func(string) (corelease.Secretary, error) {
 			return Secretary{}, nil
 		}),
 		MaxSleep:             defaultMaxSleep,

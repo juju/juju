@@ -13,7 +13,7 @@ import (
 type token struct {
 	leaseKey   lease.Key
 	holderName string
-	secretary  Secretary
+	secretary  lease.Secretary
 	checks     chan<- check
 	stop       <-chan struct{}
 }

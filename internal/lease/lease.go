@@ -12,23 +12,22 @@ import (
 	coreagent "github.com/juju/juju/core/agent"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/objectstore"
-	workerlease "github.com/juju/juju/internal/worker/lease"
 )
 
 // SecretaryFinder is responsible for returning the correct Secretary for a
 // given namespace.
 type SecretaryFinder struct {
-	secretaries map[string]workerlease.Secretary
+	secretaries map[string]lease.Secretary
 }
 
 // Register adds a Secretary to the Cabinet.
-func (c SecretaryFinder) Register(namespace string, secretary workerlease.Secretary) {
+func (c SecretaryFinder) Register(namespace string, secretary lease.Secretary) {
 	c.secretaries[namespace] = secretary
 }
 
 // SecretaryFor returns the Secretary for the given namespace.
 // Returns an error if the namespace is not valid.
-func (c SecretaryFinder) SecretaryFor(namespace string) (workerlease.Secretary, error) {
+func (c SecretaryFinder) SecretaryFor(namespace string) (lease.Secretary, error) {
 	result, found := c.secretaries[namespace]
 	if !found {
 		return nil, errors.NotValidf("namespace %q", namespace)
@@ -39,9 +38,9 @@ func (c SecretaryFinder) SecretaryFor(namespace string) (workerlease.Secretary, 
 // NewCabinet returns a SecretaryFinder with default set of secretaries
 // registered with it.
 // Note: a cabinet is a group of secretaries.
-func NewSecretaryFinder(controllerUUID string) workerlease.SecretaryFinder {
+func NewSecretaryFinder(controllerUUID string) lease.SecretaryFinder {
 	finder := SecretaryFinder{
-		secretaries: map[string]workerlease.Secretary{
+		secretaries: map[string]lease.Secretary{
 			lease.SingularControllerNamespace: SingularSecretary{
 				ControllerUUID: controllerUUID,
 			},
