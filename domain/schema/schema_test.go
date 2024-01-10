@@ -114,6 +114,15 @@ func (s *schemaSuite) TestModelDDLApply(c *gc.C) {
 
 	// Ensure that each table is present.
 	expected := set.NewStrings(
+		// Annotations
+		"annotation_application",
+		"annotation_charm",
+		"annotation_machine",
+		"annotation_unit",
+		"annotation_model",
+		"annotation_storage_volume",
+		"annotation_storage_filesystem",
+
 		"life",
 
 		// Change log
@@ -131,6 +140,7 @@ func (s *schemaSuite) TestModelDDLApply(c *gc.C) {
 		"object_store_metadata_hash_type",
 
 		"application",
+		"charm",
 		"machine",
 		"net_node",
 		"cloud_service",
