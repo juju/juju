@@ -4,6 +4,7 @@
 package jujuc
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/charm/v12"
@@ -146,7 +147,7 @@ func (*RestrictedContext) AddUnitStorage(map[string]params.StorageConstraints) e
 }
 
 // DownloadResource implements hooks.Context.
-func (ctx *RestrictedContext) DownloadResource(name string) (filePath string, _ error) {
+func (ctx *RestrictedContext) DownloadResource(_ context.Context, name string) (filePath string, _ error) {
 	return "", ErrRestrictedContext
 }
 

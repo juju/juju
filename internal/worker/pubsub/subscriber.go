@@ -4,6 +4,7 @@
 package pubsub
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"strings"
@@ -31,7 +32,7 @@ type WorkerConfig struct {
 	Logger Logger
 
 	APIInfo   *api.Info
-	NewWriter func(*api.Info) (MessageWriter, error)
+	NewWriter func(context.Context, *api.Info) (MessageWriter, error)
 	NewRemote func(RemoteServerConfig) (RemoteServer, error)
 }
 

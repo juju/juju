@@ -5,6 +5,7 @@ package deployer
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"path/filepath"
 	"strconv"
@@ -85,7 +86,7 @@ type bundleDeploySpec struct {
 //
 // Note: deployBundle expects that spec.BundleData points to a verified bundle
 // that has all required external overlays applied.
-func bundleDeploy(defaultCharmSchema charm.Schema, bundleData *charm.BundleData, spec bundleDeploySpec) error {
+func bundleDeploy(ctx context.Context, defaultCharmSchema charm.Schema, bundleData *charm.BundleData, spec bundleDeploySpec) error {
 	// TODO: move bundle parsing and checking into the handler.
 	h := makeBundleHandler(defaultCharmSchema, bundleData, spec)
 	if err := h.makeModel(spec.useExistingMachines, spec.bundleMachines); err != nil {
@@ -97,7 +98,7 @@ func bundleDeploy(defaultCharmSchema charm.Schema, bundleData *charm.BundleData,
 	if err := h.getChanges(); err != nil {
 		return errors.Trace(err)
 	}
-	if err := h.handleChanges(); err != nil {
+	if err := h.handleChanges(ctx); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
@@ -497,7 +498,7 @@ func (h *bundleHandler) getChanges() error {
 	return nil
 }
 
-func (h *bundleHandler) handleChanges() error {
+func (h *bundleHandler) handleChanges(ctx context.Context) error {
 	var err error
 	// Instantiate a watcher used to follow the deployment progress.
 	h.watcher, err = h.deployAPI.WatchAll()
@@ -531,7 +532,7 @@ func (h *bundleHandler) handleChanges() error {
 		case *bundlechanges.AddRelationChange:
 			err = h.addRelation(change)
 		case *bundlechanges.AddApplicationChange:
-			err = h.addApplication(change)
+			err = h.addApplication(ctx, change)
 		case *bundlechanges.ScaleChange:
 			err = h.scaleApplication(change)
 		case *bundlechanges.AddUnitChange:
@@ -541,7 +542,7 @@ func (h *bundleHandler) handleChanges() error {
 		case *bundlechanges.SetAnnotationsChange:
 			err = h.setAnnotations(change)
 		case *bundlechanges.UpgradeCharmChange:
-			err = h.upgradeCharm(change)
+			err = h.upgradeCharm(ctx, change)
 		case *bundlechanges.SetOptionsChange:
 			err = h.setOptions(change)
 		case *bundlechanges.SetConstraintsChange:
@@ -751,7 +752,7 @@ func (h *bundleHandler) makeResourceMap(meta map[string]charmresource.Meta, stor
 }
 
 // addApplication deploys an application with no units.
-func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChange) error {
+func (h *bundleHandler) addApplication(ctx context.Context, change *bundlechanges.AddApplicationChange) error {
 	// TODO: add verbose output for details
 	if h.dryRun {
 		return nil
@@ -857,6 +858,7 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 	}
 
 	resNames2IDs, err := h.deployResources(
+		ctx,
 		p.Application,
 		resources.CharmID{
 			URL:    chID.URL,
@@ -1215,7 +1217,7 @@ func (h *bundleHandler) addUnit(change *bundlechanges.AddUnitChange) error {
 }
 
 // upgradeCharm will get the application to use the new charm.
-func (h *bundleHandler) upgradeCharm(change *bundlechanges.UpgradeCharmChange) error {
+func (h *bundleHandler) upgradeCharm(ctx context.Context, change *bundlechanges.UpgradeCharmChange) error {
 	if h.dryRun {
 		return nil
 	}
@@ -1251,7 +1253,7 @@ func (h *bundleHandler) upgradeCharm(change *bundlechanges.UpgradeCharmChange) e
 		Origin: origin,
 	}
 
-	resNames2IDs, err := h.upgradeCharmResources(chID, p)
+	resNames2IDs, err := h.upgradeCharmResources(ctx, chID, p)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1271,7 +1273,7 @@ func (h *bundleHandler) upgradeCharm(change *bundlechanges.UpgradeCharmChange) e
 	return nil
 }
 
-func (h *bundleHandler) upgradeCharmResources(chID application.CharmID, param bundlechanges.UpgradeCharmParams) (map[string]string, error) {
+func (h *bundleHandler) upgradeCharmResources(ctx context.Context, chID application.CharmID, param bundlechanges.UpgradeCharmParams) (map[string]string, error) {
 	meta, err := utils.GetMetaResources(chID.URL, h.deployAPI)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -1289,6 +1291,7 @@ func (h *bundleHandler) upgradeCharmResources(chID application.CharmID, param bu
 	var resNames2IDs map[string]string
 	if len(filtered) != 0 {
 		resNames2IDs, err = h.deployResources(
+			ctx,
 			param.Application,
 			resources.CharmID{
 				URL:    chID.URL,

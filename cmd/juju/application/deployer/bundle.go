@@ -113,7 +113,7 @@ Please repeat the deploy command with the --trust argument if you consent to tru
 
 	// Deploying bundles does not allow the use force, it's expected that the
 	// bundle is correct and therefore the charms are also.
-	if err := bundleDeploy(d.defaultCharmSchema, bundleData, spec); err != nil {
+	if err := bundleDeploy(ctx, d.defaultCharmSchema, bundleData, spec); err != nil {
 		return errors.Annotate(err, "cannot deploy bundle")
 	}
 	return nil

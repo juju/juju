@@ -4,6 +4,7 @@
 package logsender
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/errors"
@@ -19,7 +20,7 @@ const loggerName = "juju.worker.logsender"
 
 // LogSenderAPI provides a log writer.
 type LogSenderAPI interface {
-	LogWriter() (logsender.LogWriter, error)
+	LogWriter(ctx context.Context) (logsender.LogWriter, error)
 }
 
 // New starts a logsender worker which reads log message structs from
@@ -35,7 +36,7 @@ func New(logs LogRecordCh, logSenderAPI LogSenderAPI) worker.Worker {
 		sender := make(chan logsender.LogWriter)
 		errChan := make(chan error)
 		go func() {
-			logWriter, err := logSenderAPI.LogWriter()
+			logWriter, err := logSenderAPI.LogWriter(context.TODO())
 			if err != nil {
 				select {
 				case errChan <- err:

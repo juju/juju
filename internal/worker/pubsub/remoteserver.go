@@ -4,6 +4,7 @@
 package pubsub
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"time"
@@ -42,7 +43,7 @@ type remoteServer struct {
 	info   *api.Info
 	logger Logger
 
-	newWriter  func(*api.Info) (MessageWriter, error)
+	newWriter  func(context.Context, *api.Info) (MessageWriter, error)
 	connection MessageWriter
 
 	hub   *pubsub.StructuredHub
@@ -70,7 +71,7 @@ type RemoteServerConfig struct {
 
 	// APIInfo is initially populated with the addresses of the target machine.
 	APIInfo   *api.Info
-	NewWriter func(*api.Info) (MessageWriter, error)
+	NewWriter func(context.Context, *api.Info) (MessageWriter, error)
 }
 
 // NewRemoteServer creates a new RemoteServer that will connect to the remote
@@ -229,7 +230,7 @@ func (r *remoteServer) connect() bool {
 	_ = retry.Call(retry.CallArgs{
 		Func: func() error {
 			r.logger.Debugf("open api to %s: %v", r.target, r.info.Addrs)
-			conn, err := r.newWriter(r.info)
+			conn, err := r.newWriter(context.TODO(), r.info)
 			if err != nil {
 				r.logger.Tracef("unable to get message writer for %s, reconnecting... : %v\n%s", r.target, err, errors.ErrorStack(err))
 				return errors.Trace(err)

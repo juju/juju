@@ -4,6 +4,7 @@
 package remoterelations
 
 import (
+	"context"
 	"fmt"
 	"sync"
 
@@ -178,7 +179,7 @@ func (w *remoteApplicationWorker) loop() (err error) {
 			arg.BakeryVersion = bakery.LatestVersion
 		}
 
-		offerStatusWatcher, err = w.remoteModelFacade.WatchOfferStatus(arg)
+		offerStatusWatcher, err = w.remoteModelFacade.WatchOfferStatus(context.TODO(), arg)
 		if err != nil {
 			w.checkOfferPermissionDenied(err, "", "")
 			if isNotFound(err) {
@@ -228,7 +229,7 @@ func (w *remoteApplicationWorker) loop() (err error) {
 			w.logger.Debugf("local relation units changed -> publishing: %#v", &change)
 			// TODO(babbageclunk): add macaroons to event here instead
 			// of in the relation units worker.
-			if err := w.remoteModelFacade.PublishRelationChange(change.RemoteRelationChangeEvent); err != nil {
+			if err := w.remoteModelFacade.PublishRelationChange(context.TODO(), change.RemoteRelationChangeEvent); err != nil {
 				w.checkOfferPermissionDenied(err, change.ApplicationOrOfferToken, change.RelationToken)
 				if isNotFound(err) || params.IsCodeCannotEnterScope(err) {
 					w.logger.Debugf("relation %v changed but remote side already removed", change.Tag.Id())
@@ -344,7 +345,7 @@ func (w *remoteApplicationWorker) processRelationDying(key string, r *relation, 
 		if forceCleanup {
 			change.ForceCleanup = &forceCleanup
 		}
-		if err := w.remoteModelFacade.PublishRelationChange(change); err != nil {
+		if err := w.remoteModelFacade.PublishRelationChange(context.TODO(), change); err != nil {
 			w.checkOfferPermissionDenied(err, r.applicationToken, r.relationToken)
 			if isNotFound(err) {
 				w.logger.Debugf("relation %v dying but remote side already removed", key)
@@ -560,7 +561,7 @@ func (w *remoteApplicationWorker) startUnitsWorkers(
 
 	// Start a watcher to track changes to the units in the relation in the remote model.
 	remoteRelationUnitsWatcher, err := w.remoteModelFacade.WatchRelationChanges(
-		relationToken, remoteAppToken, macaroon.Slice{mac},
+		context.TODO(), relationToken, remoteAppToken, macaroon.Slice{mac},
 	)
 	if err != nil {
 		w.checkOfferPermissionDenied(err, remoteAppToken, relationToken)
@@ -613,7 +614,7 @@ func (w *remoteApplicationWorker) processConsumingRelation(
 	r, relationKnown := w.relations[key]
 	if !relationKnown {
 		// Totally new so start the lifecycle watcher.
-		remoteRelationsWatcher, err := w.remoteModelFacade.WatchRelationSuspendedStatus(params.RemoteEntityArg{
+		remoteRelationsWatcher, err := w.remoteModelFacade.WatchRelationSuspendedStatus(context.TODO(), params.RemoteEntityArg{
 			Token:         relationToken,
 			Macaroons:     macaroon.Slice{mac},
 			BakeryVersion: bakery.LatestVersion,
@@ -663,7 +664,7 @@ func (w *remoteApplicationWorker) processConsumingRelation(
 	}
 
 	if w.secretChangesWatcher == nil {
-		w.secretChangesWatcher, err = w.remoteModelFacade.WatchConsumedSecretsChanges(applicationToken, relationToken, w.offerMacaroon)
+		w.secretChangesWatcher, err = w.remoteModelFacade.WatchConsumedSecretsChanges(context.TODO(), applicationToken, relationToken, w.offerMacaroon)
 		if err != nil && !errors.Is(err, errors.NotFound) {
 			w.checkOfferPermissionDenied(err, "", "")
 			if !isNotFound(err) {
@@ -725,7 +726,7 @@ func (w *remoteApplicationWorker) registerRemoteRelation(
 		arg.Macaroons = macaroon.Slice{w.offerMacaroon}
 		arg.BakeryVersion = bakery.LatestVersion
 	}
-	remoteRelation, err := w.remoteModelFacade.RegisterRemoteRelations(arg)
+	remoteRelation, err := w.remoteModelFacade.RegisterRemoteRelations(context.TODO(), arg)
 	if err != nil {
 		return fail(errors.Trace(err))
 	}

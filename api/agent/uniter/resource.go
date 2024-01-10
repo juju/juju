@@ -43,11 +43,9 @@ func NewResourcesFacadeClient(caller base.APICaller, unitTag names.UnitTag) (*Re
 		return nil, errors.Trace(err)
 	}
 
-	ctx := caller.Context()
 	return &ResourcesFacadeClient{
 		FacadeCaller: facadeCaller,
-		HTTPDoer:     NewUnitHTTPClient(ctx, httpClient, unitTag.String()),
-		ctx:          ctx,
+		HTTPDoer:     NewUnitHTTPClient(httpClient, unitTag.String()),
 	}, nil
 }
 
@@ -56,19 +54,18 @@ func NewResourcesFacadeClient(caller base.APICaller, unitTag names.UnitTag) (*Re
 type ResourcesFacadeClient struct {
 	FacadeCaller
 	apihttp.HTTPDoer
-	ctx context.Context
 }
 
 // GetResource opens the resource (metadata/blob), if it exists, via
 // the HTTP API and returns it. If it does not exist or hasn't been
 // uploaded yet then errors.NotFound is returned.
-func (c *ResourcesFacadeClient) GetResource(resourceName string) (resources.Resource, io.ReadCloser, error) {
+func (c *ResourcesFacadeClient) GetResource(ctx context.Context, resourceName string) (resources.Resource, io.ReadCloser, error) {
 	var response *http.Response
 	req, err := api.NewHTTPDownloadRequest(resourceName)
 	if err != nil {
 		return resources.Resource{}, nil, errors.Annotate(err, "failed to build API request")
 	}
-	if err := c.Do(c.ctx, req, &response); err != nil {
+	if err := c.Do(ctx, req, &response); err != nil {
 		return resources.Resource{}, nil, errors.Annotate(err, "HTTP request failed")
 	}
 
@@ -114,17 +111,15 @@ func (c *ResourcesFacadeClient) getResourceInfo(resourceName string) (resources.
 type unitHTTPClient struct {
 	apihttp.HTTPDoer
 	unitName string
-	ctx      context.Context
 }
 
 // NewUnitHTTPClient wraps an HTTP client (a la httprequest.Client)
 // with unit information. This allows rewriting of the URL to match
 // the relevant unit.
-func NewUnitHTTPClient(ctx context.Context, client apihttp.HTTPDoer, unitName string) UnitHTTPClient {
+func NewUnitHTTPClient(client apihttp.HTTPDoer, unitName string) UnitHTTPClient {
 	return &unitHTTPClient{
 		HTTPDoer: client,
 		unitName: unitName,
-		ctx:      ctx,
 	}
 }
 

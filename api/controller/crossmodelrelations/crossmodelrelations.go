@@ -55,7 +55,7 @@ func NewClientWithCache(caller base.APICallCloser, cache *MacaroonCache, options
 // handleError is used to process an error obtained when making a facade call.
 // If the error indicates that a macaroon discharge is required, this is done
 // and the resulting discharge macaroons passed back so the api call can be retried.
-func (c *Client) handleError(apiErr error) (macaroon.Slice, error) {
+func (c *Client) handleError(ctx context.Context, apiErr error) (macaroon.Slice, error) {
 	if params.ErrCode(apiErr) != params.CodeDischargeRequired {
 		return nil, apiErr
 	}
@@ -78,7 +78,7 @@ func (c *Client) handleError(apiErr error) (macaroon.Slice, error) {
 			return nil, errors.Wrap(apiErr, err)
 		}
 	}
-	ms, err := c.facade.RawAPICaller().BakeryClient().DischargeAll(c.facade.RawAPICaller().Context(), m)
+	ms, err := c.facade.RawAPICaller().BakeryClient().DischargeAll(ctx, m)
 	if err == nil && logger.IsTraceEnabled() {
 		logger.Tracef("discharge macaroon ids:")
 		for _, m := range ms {
@@ -106,7 +106,7 @@ func (c *Client) getCachedMacaroon(opName, token string) (macaroon.Slice, bool) 
 
 // PublishRelationChange publishes relation changes to the
 // model hosting the remote application involved in the relation.
-func (c *Client) PublishRelationChange(change params.RemoteRelationChangeEvent) error {
+func (c *Client) PublishRelationChange(ctx context.Context, change params.RemoteRelationChangeEvent) error {
 	args := params.RemoteRelationsChanges{
 		Changes: []params.RemoteRelationChangeEvent{change},
 	}
@@ -134,7 +134,7 @@ func (c *Client) PublishRelationChange(change params.RemoteRelationChangeEvent) 
 	}
 
 	// On error, possibly discharge the macaroon and retry.
-	mac, err2 := c.handleError(err)
+	mac, err2 := c.handleError(ctx, err)
 	if err2 != nil {
 		return errors.Trace(err2)
 	}
@@ -144,7 +144,7 @@ func (c *Client) PublishRelationChange(change params.RemoteRelationChangeEvent) 
 	return apiCall()
 }
 
-func (c *Client) PublishIngressNetworkChange(change params.IngressNetworksChangeEvent) error {
+func (c *Client) PublishIngressNetworkChange(ctx context.Context, change params.IngressNetworksChangeEvent) error {
 	args := params.IngressNetworksChanges{
 		Changes: []params.IngressNetworksChangeEvent{change},
 	}
@@ -169,7 +169,7 @@ func (c *Client) PublishIngressNetworkChange(change params.IngressNetworksChange
 	}
 
 	// On error, possibly discharge the macaroon and retry.
-	mac, err2 := c.handleError(err)
+	mac, err2 := c.handleError(ctx, err)
 	if err2 != nil {
 		return errors.Trace(err2)
 	}
@@ -181,7 +181,7 @@ func (c *Client) PublishIngressNetworkChange(change params.IngressNetworksChange
 
 // RegisterRemoteRelations sets up the remote model to participate
 // in the specified relations.
-func (c *Client) RegisterRemoteRelations(relations ...params.RegisterRemoteRelationArg) ([]params.RegisterRemoteRelationResult, error) {
+func (c *Client) RegisterRemoteRelations(ctx context.Context, relations ...params.RegisterRemoteRelationArg) ([]params.RegisterRemoteRelationResult, error) {
 	var (
 		args         params.RegisterRemoteRelationArgs
 		retryIndices []int
@@ -224,7 +224,7 @@ func (c *Client) RegisterRemoteRelations(relations ...params.RegisterRemoteRelat
 		if res.Error == nil {
 			continue
 		}
-		mac, err := c.handleError(res.Error)
+		mac, err := c.handleError(ctx, res.Error)
 		if err != nil {
 			resCopy := res
 			resCopy.Error.Message = err.Error()
@@ -257,7 +257,7 @@ func (c *Client) RegisterRemoteRelations(relations ...params.RegisterRemoteRelat
 // WatchRelationChanges returns a watcher that notifies of changes to
 // the units or application settings in the remote model for the
 // relation with the given remote token.
-func (c *Client) WatchRelationChanges(relationToken, applicationToken string, macs macaroon.Slice) (apiwatcher.RemoteRelationWatcher, error) {
+func (c *Client) WatchRelationChanges(ctx context.Context, relationToken, applicationToken string, macs macaroon.Slice) (apiwatcher.RemoteRelationWatcher, error) {
 	args := params.RemoteEntityArgs{Args: []params.RemoteEntityArg{{
 		Token:         relationToken,
 		Macaroons:     macs,
@@ -290,7 +290,7 @@ func (c *Client) WatchRelationChanges(relationToken, applicationToken string, ma
 	// On error, possibly discharge the macaroon and retry.
 	result := results.Results[0]
 	if result.Error != nil {
-		mac, err := c.handleError(result.Error)
+		mac, err := c.handleError(ctx, result.Error)
 		if err != nil {
 			result.Error.Message = err.Error()
 			return nil, result.Error
@@ -316,7 +316,7 @@ func (c *Client) WatchRelationChanges(relationToken, applicationToken string, ma
 // from which connections will originate to the offering side of the relation, change.
 // Each event contains the entire set of addresses which the offering side is required
 // to allow for access to the other side of the relation.
-func (c *Client) WatchEgressAddressesForRelation(remoteRelationArg params.RemoteEntityArg) (watcher.StringsWatcher, error) {
+func (c *Client) WatchEgressAddressesForRelation(ctx context.Context, remoteRelationArg params.RemoteEntityArg) (watcher.StringsWatcher, error) {
 	args := params.RemoteEntityArgs{Args: []params.RemoteEntityArg{remoteRelationArg}}
 	// Use any previously cached discharge macaroons.
 	if ms, ok := c.getCachedMacaroon("watch relation egress addresses", remoteRelationArg.Token); ok {
@@ -345,7 +345,7 @@ func (c *Client) WatchEgressAddressesForRelation(remoteRelationArg params.Remote
 	// On error, possibly discharge the macaroon and retry.
 	result := results.Results[0]
 	if result.Error != nil {
-		mac, err := c.handleError(result.Error)
+		mac, err := c.handleError(ctx, result.Error)
 		if err != nil {
 			result.Error.Message = err.Error()
 			return nil, result.Error
@@ -369,7 +369,7 @@ func (c *Client) WatchEgressAddressesForRelation(remoteRelationArg params.Remote
 
 // WatchRelationSuspendedStatus starts a RelationStatusWatcher for watching the life and
 // suspended status of the specified relation in the remote model.
-func (c *Client) WatchRelationSuspendedStatus(arg params.RemoteEntityArg) (watcher.RelationStatusWatcher, error) {
+func (c *Client) WatchRelationSuspendedStatus(ctx context.Context, arg params.RemoteEntityArg) (watcher.RelationStatusWatcher, error) {
 	args := params.RemoteEntityArgs{Args: []params.RemoteEntityArg{arg}}
 	// Use any previously cached discharge macaroons.
 	if ms, ok := c.getCachedMacaroon("watch relation status", arg.Token); ok {
@@ -398,7 +398,7 @@ func (c *Client) WatchRelationSuspendedStatus(arg params.RemoteEntityArg) (watch
 	// On error, possibly discharge the macaroon and retry.
 	result := results.Results[0]
 	if result.Error != nil {
-		mac, err := c.handleError(result.Error)
+		mac, err := c.handleError(ctx, result.Error)
 		if err != nil {
 			result.Error.Message = err.Error()
 			return nil, result.Error
@@ -422,7 +422,7 @@ func (c *Client) WatchRelationSuspendedStatus(arg params.RemoteEntityArg) (watch
 
 // WatchOfferStatus starts an OfferStatusWatcher for watching the status
 // of the specified offer in the remote model.
-func (c *Client) WatchOfferStatus(arg params.OfferArg) (watcher.OfferStatusWatcher, error) {
+func (c *Client) WatchOfferStatus(ctx context.Context, arg params.OfferArg) (watcher.OfferStatusWatcher, error) {
 	args := params.OfferArgs{Args: []params.OfferArg{arg}}
 	// Use any previously cached discharge macaroons.
 	if ms, ok := c.getCachedMacaroon("watch offer status", arg.OfferUUID); ok {
@@ -451,7 +451,7 @@ func (c *Client) WatchOfferStatus(arg params.OfferArg) (watcher.OfferStatusWatch
 	// On error, possibly discharge the macaroon and retry.
 	result := results.Results[0]
 	if result.Error != nil {
-		mac, err := c.handleError(result.Error)
+		mac, err := c.handleError(ctx, result.Error)
 		if err != nil {
 			result.Error.Message = err.Error()
 			return nil, result.Error
@@ -474,7 +474,7 @@ func (c *Client) WatchOfferStatus(arg params.OfferArg) (watcher.OfferStatusWatch
 
 // WatchConsumedSecretsChanges returns a watcher which notifies of new secret revisions consumed by the
 // app with the specified token.
-func (c *Client) WatchConsumedSecretsChanges(applicationToken, relationToken string, mac *macaroon.Macaroon) (watcher.SecretsRevisionWatcher, error) {
+func (c *Client) WatchConsumedSecretsChanges(ctx context.Context, applicationToken, relationToken string, mac *macaroon.Macaroon) (watcher.SecretsRevisionWatcher, error) {
 	var macs macaroon.Slice
 	if mac != nil {
 		macs = macaroon.Slice{mac}
@@ -514,7 +514,7 @@ func (c *Client) WatchConsumedSecretsChanges(applicationToken, relationToken str
 	// On error, possibly discharge the macaroon and retry.
 	result := results.Results[0]
 	if result.Error != nil {
-		mac, err := c.handleError(result.Error)
+		mac, err := c.handleError(ctx, result.Error)
 		if err != nil {
 			result.Error.Message = err.Error()
 			return nil, result.Error

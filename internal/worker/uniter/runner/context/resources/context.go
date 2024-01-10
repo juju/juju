@@ -4,6 +4,7 @@
 package resources
 
 import (
+	"context"
 	"io"
 	"os"
 	"path/filepath"
@@ -24,12 +25,12 @@ type ResourcesHookContext struct {
 // not been uploaded yet then errors.NotFound is returned.
 //
 // Note that the downloaded file is checked for correctness.
-func (ctx *ResourcesHookContext) DownloadResource(name string) (filePath string, _ error) {
+func (ctx *ResourcesHookContext) DownloadResource(stdCtx context.Context, name string) (filePath string, _ error) {
 	// TODO(katco): Potential race-condition: two commands running at
 	// once. Solve via collision using os.Mkdir() with a uniform
 	// temp dir name (e.g. "<resourcesDir>/.<res name>.download")?
 
-	remote, err := OpenResource(name, ctx.Client)
+	remote, err := OpenResource(stdCtx, name, ctx.Client)
 	if err != nil {
 		return "", errors.Trace(err)
 	}

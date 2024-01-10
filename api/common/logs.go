@@ -109,7 +109,7 @@ func StreamDebugLog(ctx context.Context, source base.StreamConnector, args Debug
 	// Prepare URL query attributes.
 	attrs := args.URLQuery()
 
-	connection, err := source.ConnectStream("/log", attrs)
+	connection, err := source.ConnectStream(ctx, "/log", attrs)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

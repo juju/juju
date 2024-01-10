@@ -123,6 +123,7 @@ func (d *deployCharm) deploy(
 	}
 
 	ids, err := d.deployResources(
+		ctx,
 		applicationName,
 		resources.CharmID{
 			URL:    id.URL,
@@ -410,7 +411,7 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 	}
 
 	// No localPendingResources should exist if a dry-run.
-	uploadErr := c.uploadExistingPendingResources(info.Name, localPendingResources, deployAPI,
+	uploadErr := c.uploadExistingPendingResources(ctx, info.Name, localPendingResources, deployAPI,
 		c.model.Filesystem())
 	if uploadErr != nil {
 		ctx.Errorf("Unable to upload resources for %v, consider using --attach-resource. \n %v",

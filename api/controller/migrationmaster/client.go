@@ -236,7 +236,7 @@ func (c *Client) ProcessRelations(controllerAlias string) error {
 }
 
 // OpenResource downloads the named resource for an application.
-func (c *Client) OpenResource(application, name string) (io.ReadCloser, error) {
+func (c *Client) OpenResource(ctx context.Context, application, name string) (io.ReadCloser, error) {
 	httpClient, err := c.httpClientFactory()
 	if err != nil {
 		return nil, errors.Annotate(err, "unable to create HTTP client")
@@ -245,7 +245,7 @@ func (c *Client) OpenResource(application, name string) (io.ReadCloser, error) {
 	uri := fmt.Sprintf("/applications/%s/resources/%s", application, name)
 	var resp *http.Response
 	if err := httpClient.Get(
-		c.caller.RawAPICaller().Context(),
+		ctx,
 		uri, &resp); err != nil {
 		return nil, errors.Annotate(err, "unable to retrieve resource")
 	}

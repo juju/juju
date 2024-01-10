@@ -56,7 +56,7 @@ func NewClientWithCache(caller base.APICallCloser, cache *crossmodelrelations.Ma
 
 var logger = loggo.GetLogger("juju.api.crossmodelsecrets")
 
-func (c *Client) handleDischargeError(apiErr error) (macaroon.Slice, error) {
+func (c *Client) handleDischargeError(ctx context.Context, apiErr error) (macaroon.Slice, error) {
 	errResp := errors.Cause(apiErr).(*params.Error)
 	if errResp.Info == nil {
 		return nil, errors.Annotatef(apiErr, "no error info found in discharge-required response error")
@@ -68,7 +68,7 @@ func (c *Client) handleDischargeError(apiErr error) (macaroon.Slice, error) {
 	}
 
 	m := info.BakeryMacaroon
-	ms, err := c.facade.RawAPICaller().BakeryClient().DischargeAll(c.facade.RawAPICaller().Context(), m)
+	ms, err := c.facade.RawAPICaller().BakeryClient().DischargeAll(ctx, m)
 	if err == nil && logger.IsTraceEnabled() {
 		logger.Tracef("discharge macaroon ids:")
 		for _, m := range ms {
@@ -159,7 +159,7 @@ func (c *Client) GetSecretAccessScope(uri *coresecrets.URI, appToken string, uni
 }
 
 // GetRemoteSecretContentInfo gets secret content from a cross model controller.
-func (c *Client) GetRemoteSecretContentInfo(uri *coresecrets.URI, revision int, refresh, peek bool, appToken string, unitId int, macs macaroon.Slice) (
+func (c *Client) GetRemoteSecretContentInfo(ctx context.Context, uri *coresecrets.URI, revision int, refresh, peek bool, appToken string, unitId int, macs macaroon.Slice) (
 	*secrets.ContentParams, *provider.ModelBackendConfig, int, bool, error,
 ) {
 	if uri == nil {
@@ -257,7 +257,7 @@ func (c *Client) GetRemoteSecretContentInfo(uri *coresecrets.URI, revision int, 
 			}
 			// On error, possibly discharge the macaroon and retry.
 			var mac macaroon.Slice
-			mac, apiErr = c.handleDischargeError(err)
+			mac, apiErr = c.handleDischargeError(ctx, err)
 			if apiErr != nil {
 				return true
 			}

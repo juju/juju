@@ -48,8 +48,8 @@ type FirewallerAPI interface {
 // CrossModelFirewallerFacade exposes firewaller functionality on the
 // remote offering model to a worker.
 type CrossModelFirewallerFacade interface {
-	PublishIngressNetworkChange(params.IngressNetworksChangeEvent) error
-	WatchEgressAddressesForRelation(details params.RemoteEntityArg) (watcher.StringsWatcher, error)
+	PublishIngressNetworkChange(stdcontext.Context, params.IngressNetworksChangeEvent) error
+	WatchEgressAddressesForRelation(ctx stdcontext.Context, details params.RemoteEntityArg) (watcher.StringsWatcher, error)
 }
 
 // CrossModelFirewallerFacadeCloser implements CrossModelFirewallerFacade

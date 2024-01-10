@@ -4,6 +4,7 @@
 package resources_test
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 
@@ -37,14 +38,14 @@ func (s *ContextSuite) TestDownloadOutOfDate(c *gc.C) {
 	resourceDir := c.MkDir()
 	client := mocks.NewMockOpenedResourceClient(ctrl)
 
-	client.EXPECT().GetResource("spam").Return(info, reader, nil)
+	client.EXPECT().GetResource(gomock.Any(), "spam").Return(info, reader, nil)
 
 	ctx := resources.ResourcesHookContext{
 		Client:       client,
 		ResourcesDir: resourceDir,
 		Logger:       coretesting.NoopLogger{},
 	}
-	path, err := ctx.DownloadResource("spam")
+	path, err := ctx.DownloadResource(context.Background(), "spam")
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "Read", "Read", "Close")
@@ -66,14 +67,14 @@ func (s *ContextSuite) TestContextDownloadUpToDate(c *gc.C) {
 
 	client := mocks.NewMockOpenedResourceClient(ctrl)
 
-	client.EXPECT().GetResource("spam").Return(info, reader, nil)
+	client.EXPECT().GetResource(gomock.Any(), "spam").Return(info, reader, nil)
 
 	ctx := resources.ResourcesHookContext{
 		Client:       client,
 		ResourcesDir: resourceDir,
 		Logger:       coretesting.NoopLogger{},
 	}
-	path, err := ctx.DownloadResource("spam")
+	path, err := ctx.DownloadResource(context.Background(), "spam")
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "Close")

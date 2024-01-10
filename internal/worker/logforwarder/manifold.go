@@ -4,6 +4,8 @@
 package logforwarder
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
@@ -45,8 +47,8 @@ type ManifoldConfig struct {
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	openLogStream := config.OpenLogStream
 	if openLogStream == nil {
-		openLogStream = func(caller base.APICaller, cfg params.LogStreamConfig, controllerUUID string) (LogStream, error) {
-			return logstream.Open(caller, cfg, controllerUUID)
+		openLogStream = func(ctx context.Context, caller base.APICaller, cfg params.LogStreamConfig, controllerUUID string) (LogStream, error) {
+			return logstream.Open(ctx, caller, cfg, controllerUUID)
 		}
 	}
 

@@ -277,7 +277,7 @@ type Connection interface {
 
 	// These are a bit off -- ServerVersion is apparently not known until after
 	// Login()? Maybe evidence of need for a separate AuthenticatedConnection..?
-	Login(name names.Tag, password, nonce string, ms []macaroon.Slice) error
+	Login(ctx context.Context, name names.Tag, password, nonce string, ms []macaroon.Slice) error
 	ServerVersion() (version.Number, bool)
 
 	// APICaller provides the facility to make API calls directly.

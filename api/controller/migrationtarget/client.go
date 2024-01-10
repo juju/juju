@@ -114,7 +114,7 @@ func (c *Client) Activate(modelUUID string, sourceInfo coremigration.SourceContr
 
 // UploadCharm sends the content to the API server using an HTTP post in order
 // to add the charm binary to the model specified.
-func (c *Client) UploadCharm(modelUUID string, curl *charm.URL, content io.ReadSeeker) (*charm.URL, error) {
+func (c *Client) UploadCharm(ctx context.Context, modelUUID string, curl *charm.URL, content io.ReadSeeker) (*charm.URL, error) {
 	args := url.Values{}
 	args.Add("name", curl.Name)
 	args.Add("schema", curl.Schema)
@@ -129,7 +129,7 @@ func (c *Client) UploadCharm(modelUUID string, curl *charm.URL, content io.ReadS
 
 	contentType := "application/zip"
 	var resp params.CharmsResponse
-	if err := c.httpPost(modelUUID, content, apiURI.String(), contentType, &resp); err != nil {
+	if err := c.httpPost(ctx, modelUUID, content, apiURI.String(), contentType, &resp); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -142,44 +142,44 @@ func (c *Client) UploadCharm(modelUUID string, curl *charm.URL, content io.ReadS
 
 // UploadTools uploads tools at the specified location to the API server over HTTPS
 // for the specified model.
-func (c *Client) UploadTools(modelUUID string, r io.ReadSeeker, vers version.Binary) (tools.List, error) {
+func (c *Client) UploadTools(ctx context.Context, modelUUID string, r io.ReadSeeker, vers version.Binary) (tools.List, error) {
 	endpoint := fmt.Sprintf("/migrate/tools?binaryVersion=%s", vers)
 	contentType := "application/x-tar-gz"
 	var resp params.ToolsResult
-	if err := c.httpPost(modelUUID, r, endpoint, contentType, &resp); err != nil {
+	if err := c.httpPost(ctx, modelUUID, r, endpoint, contentType, &resp); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return resp.ToolsList, nil
 }
 
 // UploadResource uploads a resource to the migration endpoint.
-func (c *Client) UploadResource(modelUUID string, res resources.Resource, r io.ReadSeeker) error {
+func (c *Client) UploadResource(ctx context.Context, modelUUID string, res resources.Resource, r io.ReadSeeker) error {
 	args := makeResourceArgs(res)
 	args.Add("application", res.ApplicationID)
-	err := c.resourcePost(modelUUID, args, r)
+	err := c.resourcePost(ctx, modelUUID, args, r)
 	return errors.Trace(err)
 }
 
 // SetPlaceholderResource sets the metadata for a placeholder resource.
-func (c *Client) SetPlaceholderResource(modelUUID string, res resources.Resource) error {
+func (c *Client) SetPlaceholderResource(ctx context.Context, modelUUID string, res resources.Resource) error {
 	args := makeResourceArgs(res)
 	args.Add("application", res.ApplicationID)
-	err := c.resourcePost(modelUUID, args, nil)
+	err := c.resourcePost(ctx, modelUUID, args, nil)
 	return errors.Trace(err)
 }
 
 // SetUnitResource sets the metadata for a particular unit resource.
-func (c *Client) SetUnitResource(modelUUID, unit string, res resources.Resource) error {
+func (c *Client) SetUnitResource(ctx context.Context, modelUUID, unit string, res resources.Resource) error {
 	args := makeResourceArgs(res)
 	args.Add("unit", unit)
-	err := c.resourcePost(modelUUID, args, nil)
+	err := c.resourcePost(ctx, modelUUID, args, nil)
 	return errors.Trace(err)
 }
 
-func (c *Client) resourcePost(modelUUID string, args url.Values, r io.ReadSeeker) error {
+func (c *Client) resourcePost(ctx context.Context, modelUUID string, args url.Values, r io.ReadSeeker) error {
 	uri := "/migrate/resources?" + args.Encode()
 	contentType := "application/octet-stream"
-	err := c.httpPost(modelUUID, r, uri, contentType, nil)
+	err := c.httpPost(ctx, modelUUID, r, uri, contentType, nil)
 	return errors.Trace(err)
 }
 
@@ -202,7 +202,7 @@ func makeResourceArgs(res resources.Resource) url.Values {
 	return args
 }
 
-func (c *Client) httpPost(modelUUID string, content io.ReadSeeker, endpoint, contentType string, response interface{}) error {
+func (c *Client) httpPost(ctx context.Context, modelUUID string, content io.ReadSeeker, endpoint, contentType string, response interface{}) error {
 	req, err := http.NewRequest("POST", endpoint, content)
 	if err != nil {
 		return errors.Annotate(err, "cannot create upload request")
@@ -216,17 +216,17 @@ func (c *Client) httpPost(modelUUID string, content io.ReadSeeker, endpoint, con
 		return errors.Trace(err)
 	}
 
-	return errors.Trace(httpClient.Do(c.caller.RawAPICaller().Context(), req, response))
+	return errors.Trace(httpClient.Do(ctx, req, response))
 }
 
 // OpenLogTransferStream connects to the migration logtransfer
 // endpoint on the target controller and returns a stream that JSON
 // logs records can be fed into. The objects written should be params.LogRecords.
-func (c *Client) OpenLogTransferStream(modelUUID string) (base.Stream, error) {
+func (c *Client) OpenLogTransferStream(ctx context.Context, modelUUID string) (base.Stream, error) {
 	headers := http.Header{}
 	headers.Set(params.MigrationModelHTTPHeader, modelUUID)
 	caller := c.caller.RawAPICaller()
-	stream, err := caller.ConnectControllerStream("/migrate/logtransfer", url.Values{}, headers)
+	stream, err := caller.ConnectControllerStream(ctx, "/migrate/logtransfer", url.Values{}, headers)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
