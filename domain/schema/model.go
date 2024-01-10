@@ -582,13 +582,22 @@ CREATE UNIQUE INDEX idx_storage_instance_constraint
 ON storage_instance_constraint (storage_instance_uuid, constraint_type_id);
 
 CREATE TABLE storage_volume (
-    uuid    TEXT PRIMARY KEY,
-    life_id INT NOT NULL,
-    name    TEXT NOT NULL,
+    uuid        TEXT PRIMARY KEY,
+    life_id     INT NOT NULL,
+    name        TEXT NOT NULL,
+    provider_id TEXT,
+    pool_uuid   TEXT,
+    size_mib    INT,
+    hardware_id TEXT,
+    wwn         TEXT,
+    persistent  BOOLEAN,
     -- TODO (manadart 2023-12-11) info and params.
     CONSTRAINT      fk_storage_instance_life
         FOREIGN KEY (life_id)
-        REFERENCES  life(id)
+        REFERENCES  life(id),
+    CONSTRAINT      fk_storage_volume_pool
+        FOREIGN KEY (storage_pool_uuid)
+        REFERENCES  storage_pool(uuid)
 );
 
 -- An instance can have at most one volume.
@@ -612,6 +621,10 @@ CREATE TABLE storage_volume_attachment (
     storage_volume_uuid TEXT NOT NULL,
     net_node_uuid       TEXT NOT NULL,
     life_id             INT NOT NULL,
+    device_name         TEXT,
+    device_link         TEXT,
+    bus_address         TEXT,
+    read_only           BOOLEAN,
     -- TODO (manadart 2023-12-11) info, params and plans.
     CONSTRAINT       fk_storage_volume_attachment_vol
         FOREIGN KEY  (storage_volume_uuid)
