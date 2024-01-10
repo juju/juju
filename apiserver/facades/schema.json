@@ -47843,9 +47843,6 @@
         "Description": "UserManagerAPI implements the user manager interface and is the concrete\nimplementation of the api end point.",
         "Version": 3,
         "AvailableTo": [
-            "controller-machine-agent",
-            "machine-agent",
-            "unit-agent",
             "controller-user"
         ],
         "Schema": {
