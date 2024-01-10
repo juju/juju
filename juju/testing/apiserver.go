@@ -165,7 +165,7 @@ func (noopRegisterer) Unregister(prometheus.Collector) bool {
 func leaseManager(controllerUUID string, db database.DBGetter, clock clock.Clock) (*lease.Manager, error) {
 	logger := loggo.GetLogger("juju.worker.lease.test")
 	return lease.NewManager(lease.ManagerConfig{
-		SecretaryFinder:      internallease.NewCabinet(controllerUUID),
+		SecretaryFinder:      internallease.NewSecretaryFinder(controllerUUID),
 		Store:                lease.NewStore(db, logger),
 		Logger:               logger,
 		Clock:                clock,

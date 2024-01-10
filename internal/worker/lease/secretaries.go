@@ -26,9 +26,6 @@ type Secretary interface {
 // SecretaryFinder is responsible for returning the correct Secretary for a
 // given namespace.
 type SecretaryFinder interface {
-	// Register adds a Secretary to the SecretaryFinder.
-	Register(namespace string, secretary Secretary)
-
 	// SecretaryFor returns the Secretary for the given namespace.
 	// Returns an error if the namespace is not valid.
 	SecretaryFor(namespace string) (Secretary, error)

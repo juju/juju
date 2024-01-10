@@ -309,8 +309,8 @@ func (s modelClaimGetter) ForModelUUID(modelUUID string) (objectstore.Claimer, e
 }
 
 const (
-	// DefaultLockDuration is the default duration for a lock.
-	defaultLockDuration = time.Minute
+	// defaultClaimDuration is the default duration for the claim.
+	defaultClaimDuration = time.Second * 30
 )
 
 // Claimer is the implementation of the objectstore.Claimer interface, which
@@ -320,9 +320,10 @@ type claimer struct {
 	revoker lease.Revoker
 }
 
-// Lock locks the given hash for the default duration.
+// Claim attempts to claim an exclusive lock for the hash. If the claim
+// is already taken or fails, then an error is returned.
 func (l claimer) Claim(ctx stdcontext.Context, hash string) (objectstore.ClaimExtender, error) {
-	if err := l.claimer.Claim(hash, coreobjectstore.ObjectStoreLeaseHolderName, defaultLockDuration); err != nil {
+	if err := l.claimer.Claim(hash, coreobjectstore.ObjectStoreLeaseHolderName, defaultClaimDuration*2); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -332,7 +333,7 @@ func (l claimer) Claim(ctx stdcontext.Context, hash string) (objectstore.ClaimEx
 	}, nil
 }
 
-// Unlock unlocks the given hash.
+// Release removes the claim for the given hash.
 func (l claimer) Release(ctx stdcontext.Context, hash string) error {
 	return l.revoker.Revoke(hash, coreobjectstore.ObjectStoreLeaseHolderName)
 }
@@ -342,14 +343,14 @@ type claimExtender struct {
 	hash    string
 }
 
-// Extend extends the lock for the given hash.
+// Extend extends the claim for the given hash. This will also check that the
+// claim is still valid. If the claim is no longer held, it will claim it
+// again.
 func (l claimExtender) Extend(ctx stdcontext.Context) error {
-	return l.claimer.Claim(l.hash, coreobjectstore.ObjectStoreLeaseHolderName, defaultLockDuration)
+	return l.claimer.Claim(l.hash, coreobjectstore.ObjectStoreLeaseHolderName, defaultClaimDuration)
 }
 
-// Duration returns the duration of the lock.
+// Duration returns the duration of the claim.
 func (l claimExtender) Duration() time.Duration {
-	// Return half the default lock duration, so that a lock can be extended
-	// before it expires.
-	return defaultLockDuration / 2
+	return defaultClaimDuration
 }

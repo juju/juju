@@ -21,13 +21,6 @@ type SecretaryFinder struct {
 	secretaries map[string]workerlease.Secretary
 }
 
-// NewSecretaryFinder returns a new SecretaryFinder.
-func NewSecretaryFinder() *SecretaryFinder {
-	return &SecretaryFinder{
-		secretaries: make(map[string]workerlease.Secretary),
-	}
-}
-
 // Register adds a Secretary to the Cabinet.
 func (c SecretaryFinder) Register(namespace string, secretary workerlease.Secretary) {
 	c.secretaries[namespace] = secretary
@@ -46,15 +39,16 @@ func (c SecretaryFinder) SecretaryFor(namespace string) (workerlease.Secretary, 
 // NewCabinet returns a SecretaryFinder with default set of secretaries
 // registered with it.
 // Note: a cabinet is a group of secretaries.
-func NewCabinet(controllerUUID string) workerlease.SecretaryFinder {
-	finder := NewSecretaryFinder()
-
-	finder.Register(lease.SingularControllerNamespace, SingularSecretary{
-		ControllerUUID: controllerUUID,
-	})
-	finder.Register(lease.ApplicationLeadershipNamespace, LeadershipSecretary{})
-	finder.Register(lease.ObjectStoreNamespace, ObjectStoreSecretary{})
-
+func NewSecretaryFinder(controllerUUID string) workerlease.SecretaryFinder {
+	finder := SecretaryFinder{
+		secretaries: map[string]workerlease.Secretary{
+			lease.SingularControllerNamespace: SingularSecretary{
+				ControllerUUID: controllerUUID,
+			},
+			lease.ApplicationLeadershipNamespace: LeadershipSecretary{},
+			lease.ObjectStoreNamespace:           ObjectStoreSecretary{},
+		},
+	}
 	return finder
 }
 

@@ -14,13 +14,14 @@ import (
 	"github.com/juju/juju/core/objectstore"
 )
 
-// Claimer is the interface that is used to claim an exclusive lock on a file.
-// The lock is used to prevent concurrent access to the same file for put
+// Claimer is the interface that is used to claim an exclusive lock for a
+// particular object store blob.
+// The lock is used to prevent concurrent access to the same blob for put
 // and remove operations.
 type Claimer interface {
-	// Claim locks the file with the given hash.
+	// Claim locks the blob with the given hash.
 	Claim(ctx context.Context, hash string) (ClaimExtender, error)
-	// Release releases the file with the given hash.
+	// Release releases the blob with the given hash.
 	Release(ctx context.Context, hash string) error
 }
 
