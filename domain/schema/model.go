@@ -486,16 +486,17 @@ CREATE TABLE storage_pool_attribute (
 );
 
 CREATE TABLE storage_kind (
-    id   INT PRIMARY KEY,
-    kind TEXT
+    id   		INT PRIMARY KEY,
+    kind 		TEXT NOT NULL,
+    description TEXT                     
 );
 
 CREATE UNIQUE INDEX idx_storage_kind
 ON storage_kind (kind);
 
 INSERT INTO storage_kind VALUES
-    (0, 'block'), 
-    (1, 'filesystem');
+    (0, 'block', 'Allows for the creation of raw storage volumes'), 
+    (1, 'filesystem', 'Provides a hierarchical file storage system');
 
 CREATE TABLE storage_instance (
     uuid            TEXT PRIMARY KEY,
@@ -551,17 +552,18 @@ CREATE TABLE storage_attachment (
 );
 
 CREATE TABLE storage_constraint_type (
-    id   INT PRIMARY KEY,
-    name TEXT NOT NULL 
+    id          INT PRIMARY KEY,
+    name        TEXT NOT NULL,
+    description TEXT
 );
 
 CREATE UNIQUE INDEX idx_storage_constraint_type
 ON storage_constraint_type (name);
 
 INSERT INTO storage_constraint_type VALUES
-    (0, 'pool'), 
-    (1, 'size'), -- MiB.
-    (2, 'count'); 
+    (0, 'pool', 'The storage pool from which storage must be provisioned'), 
+    (1, 'size', 'Minimum size in MiB'),
+    (2, 'count', 'Number of storage instances required'); 
 
 CREATE TABLE storage_instance_constraint (
     uuid                  TEXT PRIMARY KEY,
