@@ -76,8 +76,8 @@ func WaitForAgentInitialisation(
 	isCAASController bool,
 	controllerName string,
 ) (err error) {
-	if ctx.Context().Err() != nil {
-		return errors.Errorf("unable to contact api server: (%v)", ctx.Context().Err())
+	if ctx.Err() != nil {
+		return errors.Errorf("unable to contact api server: (%v)", ctx.Err())
 	}
 
 	// Make a best effort to find the new controller address so we can print it.
@@ -97,7 +97,7 @@ func WaitForAgentInitialisation(
 		Clock:    clock.WallClock,
 		Attempts: bootstrapReadyPollCount,
 		Delay:    bootstrapReadyPollDelay,
-		Stop:     ctx.Context().Done(),
+		Stop:     ctx.Done(),
 		NotifyFunc: func(lastErr error, attempts int) {
 			apiAttempts = attempts
 		},

@@ -496,6 +496,7 @@ func (s *SecretsSuite) assertUpdateSecrets(c *gc.C, uri *coresecrets.URI, isInte
 		s.backend.EXPECT().DeleteContent(gomock.Any(), "rev-1").Return(nil)
 		s.backend.EXPECT().DeleteContent(gomock.Any(), "rev-2").Return(nil)
 		s.provider.EXPECT().CleanupSecrets(
+			gomock.Any(),
 			cfg, names.NewUserTag("foo"),
 			provider.SecretRevisions{uri.ID: set.NewStrings("rev-1", "rev-2")},
 		).Return(nil)
@@ -579,6 +580,7 @@ func (s *SecretsSuite) TestRemoveSecrets(c *gc.C) {
 	s.provider.EXPECT().NewBackend(cfg).Return(s.backend, nil)
 	s.backend.EXPECT().DeleteContent(gomock.Any(), "rev-666").Return(nil)
 	s.provider.EXPECT().CleanupSecrets(
+		gomock.Any(),
 		cfg, names.NewUserTag("foo"),
 		provider.SecretRevisions{uri.ID: set.NewStrings("rev-666")},
 	).Return(nil)
@@ -679,6 +681,7 @@ func (s *SecretsSuite) TestRemoveSecretRevision(c *gc.C) {
 	s.provider.EXPECT().NewBackend(cfg).Return(s.backend, nil)
 	s.backend.EXPECT().DeleteContent(gomock.Any(), "rev-666").Return(nil)
 	s.provider.EXPECT().CleanupSecrets(
+		gomock.Any(),
 		cfg, names.NewUserTag("foo"),
 		provider.SecretRevisions{uri.ID: set.NewStrings("rev-666")},
 	).Return(nil)

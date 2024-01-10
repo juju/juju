@@ -37,8 +37,8 @@ func (k *kubernetesClient) StorageProvider(t jujustorage.ProviderType) (jujustor
 	return nil, errors.NotFoundf("storage provider %q", t)
 }
 
-func (k *kubernetesClient) deleteStorageClasses(selector k8slabels.Selector) error {
-	err := k.client().StorageV1().StorageClasses().DeleteCollection(context.TODO(), v1.DeleteOptions{
+func (k *kubernetesClient) deleteStorageClasses(ctx context.Context, selector k8slabels.Selector) error {
+	err := k.client().StorageV1().StorageClasses().DeleteCollection(ctx, v1.DeleteOptions{
 		PropagationPolicy: constants.DefaultPropagationPolicy(),
 	}, v1.ListOptions{
 		LabelSelector: selector.String(),
@@ -50,11 +50,11 @@ func (k *kubernetesClient) deleteStorageClasses(selector k8slabels.Selector) err
 }
 
 // ListStorageClasses returns a list of storage classes for the provided labels.
-func (k *kubernetesClient) ListStorageClasses(selector k8slabels.Selector) ([]storagev1.StorageClass, error) {
+func (k *kubernetesClient) ListStorageClasses(ctx context.Context, selector k8slabels.Selector) ([]storagev1.StorageClass, error) {
 	listOps := v1.ListOptions{
 		LabelSelector: selector.String(),
 	}
-	list, err := k.client().StorageV1().StorageClasses().List(context.TODO(), listOps)
+	list, err := k.client().StorageV1().StorageClasses().List(ctx, listOps)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -64,11 +64,11 @@ func (k *kubernetesClient) ListStorageClasses(selector k8slabels.Selector) ([]st
 	return list.Items, nil
 }
 
-func (k *kubernetesClient) getPVC(name string) (*core.PersistentVolumeClaim, error) {
+func (k *kubernetesClient) getPVC(ctx context.Context, name string) (*core.PersistentVolumeClaim, error) {
 	if k.namespace == "" {
 		return nil, errNoNamespace
 	}
-	pvc, err := k.client().CoreV1().PersistentVolumeClaims(k.namespace).Get(context.TODO(), name, v1.GetOptions{})
+	pvc, err := k.client().CoreV1().PersistentVolumeClaims(k.namespace).Get(ctx, name, v1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
 		return nil, errors.NotFoundf("pvc %q", name)
 	} else if err != nil {
@@ -78,12 +78,12 @@ func (k *kubernetesClient) getPVC(name string) (*core.PersistentVolumeClaim, err
 }
 
 // ValidateStorageClass returns an error if the storage config is not valid.
-func (k *kubernetesClient) ValidateStorageClass(config map[string]interface{}) error {
+func (k *kubernetesClient) ValidateStorageClass(ctx context.Context, config map[string]interface{}) error {
 	cfg, err := storage.ParseStorageConfig(config)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	sc, err := k.getStorageClass(cfg.StorageClass)
+	sc, err := k.getStorageClass(ctx, cfg.StorageClass)
 	if err != nil {
 		return errors.NewNotValid(err, fmt.Sprintf("storage class %q", cfg.StorageClass))
 	}
@@ -99,9 +99,9 @@ func (k *kubernetesClient) ValidateStorageClass(config map[string]interface{}) e
 }
 
 // EnsureStorageProvisioner creates a storage class with the specified config, or returns an existing one.
-func (k *kubernetesClient) EnsureStorageProvisioner(cfg k8s.StorageProvisioner) (*k8s.StorageProvisioner, bool, error) {
+func (k *kubernetesClient) EnsureStorageProvisioner(ctx context.Context, cfg k8s.StorageProvisioner) (*k8s.StorageProvisioner, bool, error) {
 	// First see if the named storage class exists.
-	sc, err := k.getStorageClass(cfg.Name)
+	sc, err := k.getStorageClass(ctx, cfg.Name)
 	if err == nil {
 		return toCaaSStorageProvisioner(sc), true, nil
 	}
@@ -135,7 +135,7 @@ func (k *kubernetesClient) EnsureStorageProvisioner(cfg k8s.StorageProvisioner) 
 	if cfg.Namespace != "" {
 		sc.Labels = utils.LabelsForModel(k.CurrentModel(), k.IsLegacyLabels())
 	}
-	_, err = k.client().StorageV1().StorageClasses().Create(context.TODO(), sc, v1.CreateOptions{})
+	_, err = k.client().StorageV1().StorageClasses().Create(ctx, sc, v1.CreateOptions{})
 	if err != nil {
 		return nil, false, errors.Annotatef(err, "creating storage class %q", cfg.Name)
 	}
@@ -168,12 +168,12 @@ func (k *kubernetesClient) volumeInfoForEmptyDir(vol core.Volume, volMount core.
 	}, nil
 }
 
-func (k *kubernetesClient) volumeInfoForPVC(vol core.Volume, volMount core.VolumeMount, claimName string, now time.Time) (*caas.FilesystemInfo, error) {
+func (k *kubernetesClient) volumeInfoForPVC(ctx context.Context, vol core.Volume, volMount core.VolumeMount, claimName string, now time.Time) (*caas.FilesystemInfo, error) {
 	if k.namespace == "" {
 		return nil, errNoNamespace
 	}
 	pvClaims := k.client().CoreV1().PersistentVolumeClaims(k.namespace)
-	pvc, err := pvClaims.Get(context.TODO(), claimName, v1.GetOptions{})
+	pvc, err := pvClaims.Get(ctx, claimName, v1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
 		// Ignore claims which don't exist (yet).
 		return nil, nil
@@ -205,7 +205,7 @@ func (k *kubernetesClient) volumeInfoForPVC(vol core.Volume, volMount core.Volum
 	if statusMessage == "" {
 		// If there are any events for this pvc we can use the
 		// most recent to set the status.
-		eventList, err := k.getEvents(pvc.Name, "PersistentVolumeClaim")
+		eventList, err := k.getEvents(ctx, pvc.Name, "PersistentVolumeClaim")
 		if err != nil {
 			return nil, errors.Annotate(err, "unable to get events for PVC")
 		}
@@ -216,7 +216,7 @@ func (k *kubernetesClient) volumeInfoForPVC(vol core.Volume, volMount core.Volum
 	}
 
 	pVolumes := k.client().CoreV1().PersistentVolumes()
-	pv, err := pVolumes.Get(context.TODO(), pvc.Spec.VolumeName, v1.GetOptions{})
+	pv, err := pVolumes.Get(ctx, pvc.Spec.VolumeName, v1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
 		// Ignore volumes which don't exist (yet).
 		return nil, nil

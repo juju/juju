@@ -237,16 +237,16 @@ func (m *MockBroker) EXPECT() *MockBrokerMockRecorder {
 }
 
 // GetSecretToken mocks base method.
-func (m *MockBroker) GetSecretToken(arg0 string) (string, error) {
+func (m *MockBroker) GetSecretToken(arg0 context.Context, arg1 string) (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetSecretToken", arg0)
+	ret := m.ctrl.Call(m, "GetSecretToken", arg0, arg1)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetSecretToken indicates an expected call of GetSecretToken.
-func (mr *MockBrokerMockRecorder) GetSecretToken(arg0 any) *gomock.Call {
+func (mr *MockBrokerMockRecorder) GetSecretToken(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecretToken", reflect.TypeOf((*MockBroker)(nil).GetSecretToken), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecretToken", reflect.TypeOf((*MockBroker)(nil).GetSecretToken), arg0, arg1)
 }

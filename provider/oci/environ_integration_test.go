@@ -336,7 +336,7 @@ func (s *environSuite) TestPrepareForBootstrap(c *gc.C) {
 		gomock.Any(), gomock.Any()).Return(
 		ociIdentity.ListAvailabilityDomainsResponse{}, errors.New("got error"))
 
-	ctx := envtesting.BootstrapTODOContext(c)
+	ctx := envtesting.BootstrapTestContext(c)
 	err := s.env.PrepareForBootstrap(ctx, "controller-1")
 	c.Assert(err, gc.IsNil)
 
@@ -910,7 +910,7 @@ func (s *environSuite) TestBootstrap(c *gc.C) {
 
 	s.setupStartInstanceExpectations(true, true, gomock.Any())
 
-	ctx := envtesting.BootstrapTODOContext(c)
+	ctx := envtesting.BootstrapTestContext(c)
 	_, err := s.env.Bootstrap(ctx, envcontext.WithoutCredentialInvalidator(context.Background()),
 		environs.BootstrapParams{
 			ControllerConfig:         testing.FakeControllerConfig(),
@@ -930,7 +930,7 @@ func (s *environSuite) TestBootstrapFlexibleShape(c *gc.C) {
 	// By setting the constraint cpu-cores=32, we are selecting the
 	// VM.Standard3.Flex shape defined in listShapesResponse(), which has
 	// 32 maximum CPUs.
-	ctx := envtesting.BootstrapTODOContext(c)
+	ctx := envtesting.BootstrapTestContext(c)
 	_, err := s.env.Bootstrap(ctx, envcontext.WithoutCredentialInvalidator(context.Background()),
 		environs.BootstrapParams{
 			ControllerConfig:         testing.FakeControllerConfig(),
@@ -958,7 +958,7 @@ func (s *environSuite) TestBootstrapNoAllocatePublicIP(c *gc.C) {
 
 	s.setupStartInstanceExpectations(true, false, noPublicIPMatcher{})
 
-	ctx := envtesting.BootstrapTODOContext(c)
+	ctx := envtesting.BootstrapTestContext(c)
 	_, err := s.env.Bootstrap(ctx, envcontext.WithoutCredentialInvalidator(context.Background()),
 		environs.BootstrapParams{
 			ControllerConfig:         testing.FakeControllerConfig(),
@@ -988,7 +988,7 @@ func (s *environSuite) TestBootstrapNoMatchingTools(c *gc.C) {
 	s.setupListRouteTableExpectations(vcnId, machineTags, 0)
 	s.setupListSubnetsExpectations(vcnId, "fakeRouteTableId", machineTags, 0)
 
-	ctx := envtesting.BootstrapTODOContext(c)
+	ctx := envtesting.BootstrapTestContext(c)
 	_, err := s.env.Bootstrap(ctx, envcontext.WithoutCredentialInvalidator(context.Background()),
 		environs.BootstrapParams{
 			ControllerConfig:         testing.FakeControllerConfig(),

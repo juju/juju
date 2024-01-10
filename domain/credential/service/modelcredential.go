@@ -18,7 +18,7 @@ import (
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
-	envcontext "github.com/juju/juju/environs/envcontext"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
 )
 
@@ -115,7 +115,7 @@ func checkCAASModelCredential(ctx stdcontext.Context, brokerParams environs.Open
 		return nil, errors.Trace(err)
 	}
 
-	if err = broker.CheckCloudCredentials(); err != nil {
+	if err = broker.CheckCloudCredentials(ctx); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return nil, nil

@@ -5,6 +5,7 @@ package commands
 
 import (
 	"bytes"
+	"context"
 
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
@@ -101,7 +102,7 @@ func (s *syncToolSuite) TestSyncToolsCommand(c *gc.C) {
 		s.fakeSyncToolAPI.EXPECT().Close()
 
 		called := false
-		syncTools = func(sctx *sync.SyncContext) error {
+		syncTools = func(_ context.Context, sctx *sync.SyncContext) error {
 			c.Assert(sctx.AllVersions, gc.Equals, false)
 			c.Assert(sctx.ChosenVersion, gc.Equals, version.MustParse("2.9.99"))
 			c.Assert(sctx.DryRun, gc.Equals, test.dryRun)
@@ -134,7 +135,7 @@ func (s *syncToolSuite) TestSyncToolsCommandTargetDirectory(c *gc.C) {
 	defer ctrl.Finish()
 
 	called := false
-	syncTools = func(sctx *sync.SyncContext) error {
+	syncTools = func(_ context.Context, sctx *sync.SyncContext) error {
 		c.Assert(sctx.AllVersions, jc.IsFalse)
 		c.Assert(sctx.DryRun, jc.IsFalse)
 		c.Assert(sctx.Stream, gc.Equals, "proposed")
@@ -161,7 +162,7 @@ func (s *syncToolSuite) TestSyncToolsCommandTargetDirectoryPublic(c *gc.C) {
 	defer ctrl.Finish()
 
 	called := false
-	syncTools = func(sctx *sync.SyncContext) error {
+	syncTools = func(_ context.Context, sctx *sync.SyncContext) error {
 		c.Assert(sctx.TargetToolsUploader, gc.FitsTypeOf, sync.StorageToolsUploader{})
 		uploader := sctx.TargetToolsUploader.(sync.StorageToolsUploader)
 		c.Assert(uploader.WriteMirrors, gc.Equals, envtools.WriteMirrors)
@@ -181,10 +182,10 @@ func (s *syncToolSuite) TestAPIAdaptorUploadTools(c *gc.C) {
 
 	current := coretesting.CurrentVersion()
 	uploadToolsErr := errors.New("uh oh")
-	fakeAPI.EXPECT().UploadTools(bytes.NewReader([]byte("abc")), current).Return(nil, uploadToolsErr)
+	fakeAPI.EXPECT().UploadTools(context.Background(), bytes.NewReader([]byte("abc")), current).Return(nil, uploadToolsErr)
 
 	a := syncToolAPIAdaptor{fakeAPI}
-	err := a.UploadTools("released", "released", &coretools.Tools{Version: current}, []byte("abc"))
+	err := a.UploadTools(context.Background(), "released", "released", &coretools.Tools{Version: current}, []byte("abc"))
 	c.Assert(err, gc.Equals, uploadToolsErr)
 }
 
@@ -193,7 +194,7 @@ func (s *syncToolSuite) TestAPIAdaptorBlockUploadTools(c *gc.C) {
 		c, "-m", "test-target", "--agent-version", "2.9.99", "--local-dir", c.MkDir(), "--stream", "released")
 	defer ctrl.Finish()
 
-	syncTools = func(sctx *sync.SyncContext) error {
+	syncTools = func(_ context.Context, sctx *sync.SyncContext) error {
 		// Block operation
 		return apiservererrors.OperationBlockedError("TestAPIAdaptorBlockUploadTools")
 	}

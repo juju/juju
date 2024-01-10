@@ -228,8 +228,8 @@ func (s *OpsSuite) TestUpdateState(c *gc.C) {
 		unitFacade.EXPECT().UpdateApplicationService(updateServiceArg).Return(nil),
 		app.EXPECT().Units().Return(units, nil),
 		facade.EXPECT().UpdateUnits(updateUnitsArg).Return(appUnitInfo, nil),
-		broker.EXPECT().AnnotateUnit("test", "a", names.NewUnitTag("test/0")).Return(nil),
-		broker.EXPECT().AnnotateUnit("test", "b", names.NewUnitTag("test/1")).Return(nil),
+		broker.EXPECT().AnnotateUnit(gomock.Any(), "test", "a", names.NewUnitTag("test/0")).Return(nil),
+		broker.EXPECT().AnnotateUnit(gomock.Any(), "test", "b", names.NewUnitTag("test/1")).Return(nil),
 	)
 
 	lastReportedStatus := map[string]status.StatusInfo{

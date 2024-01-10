@@ -5,6 +5,7 @@ package storage_test
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	stdtesting "testing"
@@ -46,7 +47,7 @@ func (s *datasourceSuite) TestFetch(c *gc.C) {
 	sampleData := "hello world"
 	s.stor.Put("foo/bar/data.txt", bytes.NewReader([]byte(sampleData)), int64(len(sampleData)))
 	ds := storage.NewStorageSimpleStreamsDataSource("test datasource", s.stor, "", simplestreams.DEFAULT_CLOUD_DATA, false)
-	rc, url, err := ds.Fetch("foo/bar/data.txt")
+	rc, url, err := ds.Fetch(context.Background(), "foo/bar/data.txt")
 	c.Assert(err, jc.ErrorIsNil)
 	defer rc.Close()
 	c.Assert(url, gc.Equals, s.baseURL+"/foo/bar/data.txt")
@@ -59,7 +60,7 @@ func (s *datasourceSuite) TestFetchWithBasePath(c *gc.C) {
 	sampleData := "hello world"
 	s.stor.Put("base/foo/bar/data.txt", bytes.NewReader([]byte(sampleData)), int64(len(sampleData)))
 	ds := storage.NewStorageSimpleStreamsDataSource("test datasource", s.stor, "base", simplestreams.DEFAULT_CLOUD_DATA, false)
-	rc, url, err := ds.Fetch("foo/bar/data.txt")
+	rc, url, err := ds.Fetch(context.Background(), "foo/bar/data.txt")
 	c.Assert(err, jc.ErrorIsNil)
 	defer rc.Close()
 	c.Assert(url, gc.Equals, s.baseURL+"/base/foo/bar/data.txt")
@@ -71,7 +72,7 @@ func (s *datasourceSuite) TestFetchWithBasePath(c *gc.C) {
 func (s *datasourceSuite) TestFetchWithRetry(c *gc.C) {
 	stor := &fakeStorage{shouldRetry: true}
 	ds := storage.NewStorageSimpleStreamsDataSource("test datasource", stor, "base", simplestreams.DEFAULT_CLOUD_DATA, false)
-	_, _, err := ds.Fetch("foo/bar/data.txt")
+	_, _, err := ds.Fetch(context.Background(), "foo/bar/data.txt")
 	c.Assert(err, gc.ErrorMatches, "an error")
 	c.Assert(stor.getName, gc.Equals, "base/foo/bar/data.txt")
 	c.Assert(stor.invokeCount, gc.Equals, 10)

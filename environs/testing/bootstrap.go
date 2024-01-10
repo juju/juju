@@ -14,7 +14,7 @@ import (
 
 	"github.com/juju/juju/environs"
 	environscmd "github.com/juju/juju/environs/cmd"
-	envcontext "github.com/juju/juju/environs/envcontext"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/provider/common"
@@ -46,6 +46,6 @@ func BootstrapContext(ctx context.Context, c *gc.C) environs.BootstrapContext {
 	return environscmd.BootstrapContext(ctx, cmdtesting.Context(c))
 }
 
-func BootstrapTODOContext(c *gc.C) environs.BootstrapContext {
-	return BootstrapContext(context.TODO(), c)
+func BootstrapTestContext(c *gc.C) environs.BootstrapContext {
+	return BootstrapContext(context.Background(), c)
 }

@@ -270,7 +270,7 @@ func (c *UpdateCAASCommand) Run(ctx *cmd.Context) (err error) {
 			return errors.Trace(err)
 		}
 
-		if _, err := broker.GetClusterMetadata(""); err != nil {
+		if _, err := broker.GetClusterMetadata(ctx, ""); err != nil {
 			return errors.Annotate(err, "unable to update k8s cluster because the cluster is not accessible")
 		}
 	}

@@ -230,7 +230,7 @@ func (c *ControllerAPI) dashboardConnectionInfoForCAAS(
 		return nil, errors.NotFoundf("dashboard port in charm config")
 	}
 
-	proxier, err := caasBroker.ProxyToApplication(applicationName, fmt.Sprint(port))
+	proxier, err := caasBroker.ProxyToApplication(ctx, applicationName, fmt.Sprint(port))
 	if err != nil {
 		return nil, err
 	}

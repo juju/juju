@@ -38,11 +38,11 @@ func (environProvider) Version() int {
 }
 
 // Open implements environs.EnvironProvider.
-func (environProvider) Open(_ stdcontext.Context, args environs.OpenParams) (environs.Environ, error) {
+func (environProvider) Open(ctx stdcontext.Context, args environs.OpenParams) (environs.Environ, error) {
 	if err := validateCloudSpec(args.Cloud); err != nil {
 		return nil, errors.Annotate(err, "validating cloud spec")
 	}
-	env, err := newEnviron(args.Cloud, args.Config)
+	env, err := newEnviron(ctx, args.Cloud, args.Config)
 	return env, errors.Trace(err)
 }
 

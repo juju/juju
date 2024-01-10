@@ -59,12 +59,12 @@ func (EnvironProvider) Version() int {
 	return 0
 }
 
-func (EnvironProvider) Open(_ stdcontext.Context, args environs.OpenParams) (environs.Environ, error) {
+func (EnvironProvider) Open(ctx stdcontext.Context, args environs.OpenParams) (environs.Environ, error) {
 	logger.Debugf("opening model %q.", args.Config.Name())
 	if err := validateCloudSpec(args.Cloud); err != nil {
 		return nil, errors.Annotate(err, "validating cloud spec")
 	}
-	env, err := NewEnviron(args.Cloud, args.Config, nil)
+	env, err := NewEnviron(ctx, args.Cloud, args.Config, nil)
 	if err != nil {
 		return nil, errors.Annotate(err, "creating MAAS environ")
 	}

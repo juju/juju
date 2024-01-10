@@ -105,7 +105,7 @@ type APIBase struct {
 }
 
 type CaasBrokerInterface interface {
-	ValidateStorageClass(config map[string]interface{}) error
+	ValidateStorageClass(ctx context.Context, config map[string]interface{}) error
 	Version() (*version.Number, error)
 }
 
@@ -482,7 +482,7 @@ func (c caasDeployParams) precheck(
 			return errors.Errorf(
 				"the %q storage pool requires a provider type of %q, not %q", poolName, k8sconstants.StorageProviderType, sp.Provider)
 		}
-		if err := caasBroker.ValidateStorageClass(sp.Attributes); err != nil {
+		if err := caasBroker.ValidateStorageClass(ctx, sp.Attributes); err != nil {
 			return errors.Trace(err)
 		}
 	}

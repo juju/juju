@@ -1911,7 +1911,7 @@ func (s *localServerSuite) TestValidateImageMetadata(c *gc.C) {
 	params.Sources, err = environs.ImageMetadataSources(env, ss)
 	c.Assert(err, jc.ErrorIsNil)
 	params.Release = "13.04"
-	imageIDs, _, err := imagemetadata.ValidateImageMetadata(ss, params)
+	imageIDs, _, err := imagemetadata.ValidateImageMetadata(context.Background(), ss, params)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(imageIDs, jc.SameContents, []string{"id-y"})
 }
@@ -2628,7 +2628,7 @@ func (s *localHTTPSServerSuite) SetUpTest(c *gc.C) {
 	c.Assert(attrs["auth-url"].(string)[:8], gc.Equals, "https://")
 	env, err := bootstrap.PrepareController(
 		false,
-		envtesting.BootstrapTODOContext(c),
+		envtesting.BootstrapTestContext(c),
 		jujuclient.NewMemStore(),
 		prepareParams(attrs, s.cred),
 	)
@@ -2734,7 +2734,7 @@ func (s *localHTTPSServerSuite) TestFetchFromImageMetadataSources(c *gc.C) {
 	}
 
 	// Read from the Config entry's image-metadata-url
-	contentReader, imageURL, err := mappedSources["image-metadata-url"].Fetch(custom)
+	contentReader, imageURL, err := mappedSources["image-metadata-url"].Fetch(context.Background(), custom)
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() { _ = contentReader.Close() }()
 	content, err := io.ReadAll(contentReader)
@@ -2743,7 +2743,7 @@ func (s *localHTTPSServerSuite) TestFetchFromImageMetadataSources(c *gc.C) {
 	c.Check(imageURL[:8], gc.Equals, "https://")
 
 	// Check the entry we got from keystone
-	contentReader, imageURL, err = mappedSources["keystone catalog"].Fetch(metadata)
+	contentReader, imageURL, err = mappedSources["keystone catalog"].Fetch(context.Background(), metadata)
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() { _ = contentReader.Close() }()
 	content, err = io.ReadAll(contentReader)
@@ -2794,7 +2794,7 @@ func (s *localHTTPSServerSuite) TestFetchFromImageMetadataSourcesWithCertificate
 	}
 
 	// Check the entry we got from keystone
-	contentReader, imageURL, err := mappedSources["keystone catalog"].Fetch(metadata)
+	contentReader, imageURL, err := mappedSources["keystone catalog"].Fetch(context.Background(), metadata)
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() { _ = contentReader.Close() }()
 	content, err := io.ReadAll(contentReader)
@@ -2842,7 +2842,7 @@ func (s *localHTTPSServerSuite) TestFetchFromToolsMetadataSources(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Read from the Config entry's agent-metadata-url
-	contentReader, metadataURL, err := sources[0].Fetch(custom)
+	contentReader, metadataURL, err := sources[0].Fetch(context.Background(), custom)
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() { _ = contentReader.Close() }()
 	content, err := io.ReadAll(contentReader)
@@ -2852,7 +2852,7 @@ func (s *localHTTPSServerSuite) TestFetchFromToolsMetadataSources(c *gc.C) {
 
 	// Check the entry we got from keystone
 	// Now fetch the data, and verify the contents.
-	contentReader, metadataURL, err = sources[1].Fetch(keystoneContainer + "/" + keystone)
+	contentReader, metadataURL, err = sources[1].Fetch(context.Background(), keystoneContainer+"/"+keystone)
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() { _ = contentReader.Close() }()
 	content, err = io.ReadAll(contentReader)
@@ -3754,7 +3754,7 @@ func (s *noNeutronSuite) TestSupport(c *gc.C) {
 	// For testing, we create a storage instance to which is uploaded tools and image metadata.
 	_, err = bootstrap.PrepareController(
 		false,
-		envtesting.BootstrapTODOContext(c),
+		envtesting.BootstrapTestContext(c),
 		jujuclient.NewMemStore(),
 		prepareParams(attrs, s.cred),
 	)
@@ -3853,7 +3853,7 @@ func (s *noSwiftSuite) SetUpTest(c *gc.C) {
 
 	env, err := bootstrap.PrepareController(
 		false,
-		envtesting.BootstrapTODOContext(c),
+		envtesting.BootstrapTestContext(c),
 		jujuclient.NewMemStore(),
 		prepareParams(attrs, s.cred),
 	)
@@ -3905,7 +3905,7 @@ func bootstrapEnv(c *gc.C, env environs.Environ) error {
 }
 
 func bootstrapEnvWithConstraints(c *gc.C, env environs.Environ, cons constraints.Value) error {
-	return bootstrap.Bootstrap(envtesting.BootstrapTODOContext(c), env,
+	return bootstrap.Bootstrap(envtesting.BootstrapTestContext(c), env,
 		envcontext.WithoutCredentialInvalidator(context.Background()),
 		bootstrap.BootstrapParams{
 			ControllerConfig:        coretesting.FakeControllerConfig(),

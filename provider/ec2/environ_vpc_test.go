@@ -42,7 +42,7 @@ func (s *vpcSuite) SetUpTest(c *gc.C) {
 func (s *vpcSuite) TestValidateBootstrapVPCUnexpectedError(c *gc.C) {
 	s.stubAPI.SetErrors(errors.New("AWS failed!"))
 
-	err := validateBootstrapVPC(s.stubAPI, s.cloudCallCtx, "region", anyVPCID, false, envtesting.BootstrapTODOContext(c))
+	err := validateBootstrapVPC(s.stubAPI, s.cloudCallCtx, "region", anyVPCID, false, envtesting.BootstrapTestContext(c))
 	s.checkErrorMatchesCannotVerifyVPC(c, err)
 
 	s.stubAPI.CheckCallNames(c, "DescribeVpcsWithContext")
@@ -50,7 +50,7 @@ func (s *vpcSuite) TestValidateBootstrapVPCUnexpectedError(c *gc.C) {
 
 func (s *vpcSuite) TestValidateBootstrapVPCCredentialError(c *gc.C) {
 	s.stubAPI.SetErrors(fmt.Errorf("%w: AWS failed!", common.ErrorCredentialNotValid))
-	err := validateBootstrapVPC(s.stubAPI, s.cloudCallCtx, "region", anyVPCID, false, envtesting.BootstrapTODOContext(c))
+	err := validateBootstrapVPC(s.stubAPI, s.cloudCallCtx, "region", anyVPCID, false, envtesting.BootstrapTestContext(c))
 	s.checkErrorMatchesCannotVerifyVPC(c, err)
 	c.Check(err, jc.ErrorIs, common.ErrorCredentialNotValid)
 }

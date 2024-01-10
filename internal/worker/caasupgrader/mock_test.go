@@ -4,6 +4,8 @@
 package caasupgrader_test
 
 import (
+	"context"
+
 	"github.com/juju/testing"
 	"github.com/juju/version/v2"
 
@@ -37,7 +39,7 @@ type mockOperatorUpgrader struct {
 	testing.Stub
 }
 
-func (m *mockOperatorUpgrader) Upgrade(appName string, vers version.Number) error {
+func (m *mockOperatorUpgrader) Upgrade(_ context.Context, appName string, vers version.Number) error {
 	m.AddCall("Upgrade", appName, vers)
 	return nil
 }

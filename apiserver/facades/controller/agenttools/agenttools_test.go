@@ -4,6 +4,8 @@
 package agenttools
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
@@ -46,7 +48,7 @@ func (s *AgentToolsSuite) TestCheckTools(c *gc.C) {
 	var (
 		calledWithMajor, calledWithMinor int
 	)
-	fakeToolFinder := func(_ tools.SimplestreamsFetcher, e environs.BootstrapEnviron, maj int, min int, streams []string, filter coretools.Filter) (coretools.List, error) {
+	fakeToolFinder := func(_ context.Context, _ tools.SimplestreamsFetcher, e environs.BootstrapEnviron, maj int, min int, streams []string, filter coretools.Filter) (coretools.List, error) {
 		calledWithMajor = maj
 		calledWithMinor = min
 		ver := version.Binary{Number: version.Number{Major: maj, Minor: min}}
@@ -57,7 +59,7 @@ func (s *AgentToolsSuite) TestCheckTools(c *gc.C) {
 		return coretools.List{&t}, nil
 	}
 
-	ver, err := checkToolsAvailability(getDummyEnviron, cfg, fakeToolFinder)
+	ver, err := checkToolsAvailability(context.Background(), getDummyEnviron, cfg, fakeToolFinder)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ver, gc.Not(gc.Equals), version.Zero)
 	c.Assert(ver, gc.Equals, version.Number{Major: 2, Minor: 5, Patch: 0})
@@ -75,7 +77,7 @@ func (s *AgentToolsSuite) TestCheckToolsNonReleasedStream(c *gc.C) {
 		calledWithMajor, calledWithMinor int
 		calledWithStreams                [][]string
 	)
-	fakeToolFinder := func(_ tools.SimplestreamsFetcher, e environs.BootstrapEnviron, maj int, min int, streams []string, filter coretools.Filter) (coretools.List, error) {
+	fakeToolFinder := func(_ context.Context, _ tools.SimplestreamsFetcher, e environs.BootstrapEnviron, maj int, min int, streams []string, filter coretools.Filter) (coretools.List, error) {
 		calledWithMajor = maj
 		calledWithMinor = min
 		calledWithStreams = append(calledWithStreams, streams)
@@ -88,7 +90,7 @@ func (s *AgentToolsSuite) TestCheckToolsNonReleasedStream(c *gc.C) {
 		c.Assert(calledWithMinor, gc.Equals, 5)
 		return coretools.List{&t}, nil
 	}
-	ver, err := checkToolsAvailability(getDummyEnviron, cfg, fakeToolFinder)
+	ver, err := checkToolsAvailability(context.Background(), getDummyEnviron, cfg, fakeToolFinder)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(calledWithStreams, gc.DeepEquals, [][]string{{"released"}, {"proposed"}})
 	c.Assert(ver, gc.Not(gc.Equals), version.Zero)
@@ -113,7 +115,7 @@ func (s *AgentToolsSuite) TestUpdateToolsAvailability(c *gc.C) {
 	}
 	s.PatchValue(&modelConfig, fakeModelConfig)
 
-	fakeToolFinder := func(_ tools.SimplestreamsFetcher, _ environs.BootstrapEnviron, _ int, _ int, _ []string, _ coretools.Filter) (coretools.List, error) {
+	fakeToolFinder := func(_ context.Context, _ tools.SimplestreamsFetcher, _ environs.BootstrapEnviron, _ int, _ int, _ []string, _ coretools.Filter) (coretools.List, error) {
 		ver := version.Binary{Number: version.Number{Major: 2, Minor: 5, Patch: 2}}
 		olderVer := version.Binary{Number: version.Number{Major: 2, Minor: 5, Patch: 1}}
 		t := coretools.Tools{Version: ver, URL: "http://example.com", Size: 1}
@@ -129,7 +131,7 @@ func (s *AgentToolsSuite) TestUpdateToolsAvailability(c *gc.C) {
 
 	cfg, err := config.New(config.NoDefaults, coretesting.FakeConfig())
 	c.Assert(err, jc.ErrorIsNil)
-	err = updateToolsAvailability(&mockState{configGetter{cfg}}, getDummyEnviron, fakeToolFinder, fakeUpdate, loggo.GetLogger("juju.apiserver.model"))
+	err = updateToolsAvailability(context.Background(), &mockState{configGetter{cfg}}, getDummyEnviron, fakeToolFinder, fakeUpdate, loggo.GetLogger("juju.apiserver.model"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(ver, gc.Not(gc.Equals), version.Zero)
@@ -147,7 +149,7 @@ func (s *AgentToolsSuite) TestUpdateToolsAvailabilityNoMatches(c *gc.C) {
 	s.PatchValue(&modelConfig, fakeModelConfig)
 
 	// No new tools available.
-	fakeToolFinder := func(_ tools.SimplestreamsFetcher, _ environs.BootstrapEnviron, _ int, _ int, _ []string, _ coretools.Filter) (coretools.List, error) {
+	fakeToolFinder := func(_ context.Context, _ tools.SimplestreamsFetcher, _ environs.BootstrapEnviron, _ int, _ int, _ []string, _ coretools.Filter) (coretools.List, error) {
 		return nil, errors.NotFoundf("tools")
 	}
 
@@ -159,7 +161,7 @@ func (s *AgentToolsSuite) TestUpdateToolsAvailabilityNoMatches(c *gc.C) {
 
 	cfg, err := config.New(config.NoDefaults, coretesting.FakeConfig())
 	c.Assert(err, jc.ErrorIsNil)
-	err = updateToolsAvailability(&mockState{configGetter{cfg}}, getDummyEnviron, fakeToolFinder, fakeUpdate, loggo.GetLogger("juju.apiserver.model"))
+	err = updateToolsAvailability(context.Background(), &mockState{configGetter{cfg}}, getDummyEnviron, fakeToolFinder, fakeUpdate, loggo.GetLogger("juju.apiserver.model"))
 	c.Assert(err, jc.ErrorIsNil)
 }
 

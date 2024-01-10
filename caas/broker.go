@@ -35,7 +35,7 @@ type ContainerEnvironProvider interface {
 	//
 	// Open should not perform any expensive operations, such as querying
 	// the cloud API, as it will be called frequently.
-	Open(args environs.OpenParams) (Broker, error)
+	Open(ctx context.Context, args environs.OpenParams) (Broker, error)
 }
 
 // RegisterContainerProvider is used for providers that we want to use for managing 'instances',
@@ -64,7 +64,7 @@ func Open(ctx context.Context, p environs.EnvironProvider, args environs.OpenPar
 	if envProvider, ok := p.(ContainerEnvironProvider); !ok {
 		return nil, errors.NotValidf("container environ provider %T", p)
 	} else {
-		return envProvider.Open(args)
+		return envProvider.Open(ctx, args)
 	}
 }
 
@@ -179,7 +179,7 @@ type Broker interface {
 	APIVersion() (string, error)
 
 	// GetSecretToken returns the token content for the specified secret name.
-	GetSecretToken(name string) (string, error)
+	GetSecretToken(ctx context.Context, name string) (string, error)
 
 	// ClusterVersionGetter provides methods to get cluster version information.
 	ClusterVersionGetter
@@ -206,7 +206,7 @@ type Broker interface {
 	ModelOperatorManager
 
 	// EnsureImageRepoSecret ensures the image pull secret gets created.
-	EnsureImageRepoSecret(docker.ImageRepoDetails) error
+	EnsureImageRepoSecret(context.Context, docker.ImageRepoDetails) error
 
 	// ProxyManager provides methods for managing application proxy connections.
 	ProxyManager
@@ -221,19 +221,19 @@ type ApplicationBroker interface {
 	// Units returns all units and any associated filesystems
 	// of the specified application. Filesystems are mounted
 	// via volumes bound to the unit.
-	Units(appName string) ([]Unit, error)
+	Units(ctx context.Context, appName string) ([]Unit, error)
 
 	// AnnotateUnit annotates the specified pod (name or uid) with a unit tag.
-	AnnotateUnit(appName string, podName string, unit names.UnitTag) error
+	AnnotateUnit(ctx context.Context, appName string, podName string, unit names.UnitTag) error
 }
 
 // SecretsProvider provides an API for accessing the broker interface for managing secret k8s provider resources.
 type SecretsProvider interface {
 	// EnsureSecretAccessToken ensures the secret related RBAC resources for the provided entity.
-	EnsureSecretAccessToken(tag names.Tag, owned, read, removed []string) (string, error)
+	EnsureSecretAccessToken(ctx context.Context, tag names.Tag, owned, read, removed []string) (string, error)
 
 	// RemoveSecretAccessToken removes the secret related RBAC resources for the provided entity.
-	RemoveSecretAccessToken(tag names.Tag) error
+	RemoveSecretAccessToken(ctx context.Context, tag names.Tag) error
 }
 
 // SecretsBackend provides an API for managing Juju secrets.
@@ -253,27 +253,27 @@ type SecretsBackend interface {
 type ModelOperatorManager interface {
 	// ModelOperatorExists indicates if the model operator for the given broker
 	// exists
-	ModelOperatorExists() (bool, error)
+	ModelOperatorExists(ctx context.Context) (bool, error)
 
 	// EnsureModelOperator creates or updates a model operator pod for running
 	// model operations in a CAAS namespace/model
-	EnsureModelOperator(modelUUID, agentPath string, config *ModelOperatorConfig) error
+	EnsureModelOperator(ctx context.Context, modelUUID, agentPath string, config *ModelOperatorConfig) error
 
 	// ModelOperator return the model operator config used to create the current
 	// model operator for this broker
-	ModelOperator() (*ModelOperatorConfig, error)
+	ModelOperator(ctx context.Context) (*ModelOperatorConfig, error)
 }
 
 // Upgrader provides the API to perform upgrades.
 type Upgrader interface {
 	// Upgrade sets the OCI image for the app to the specified version.
-	Upgrade(appName string, vers version.Number) error
+	Upgrade(ctx context.Context, appName string, vers version.Number) error
 }
 
 // StorageValidator provides methods to validate storage.
 type StorageValidator interface {
 	// ValidateStorageClass returns an error if the storage config is not valid.
-	ValidateStorageClass(config map[string]interface{}) error
+	ValidateStorageClass(ctx context.Context, config map[string]interface{}) error
 }
 
 // ClusterVersionGetter provides methods to get cluster version information.
@@ -287,18 +287,18 @@ type ClusterVersionGetter interface {
 type CredentialChecker interface {
 	// CheckCloudCredentials verifies that the provided cloud credentials
 	// are still valid for the cloud.
-	CheckCloudCredentials() error
+	CheckCloudCredentials(ctx context.Context) error
 }
 
 // ProxyManager provides the API to get proxier information for applications
 type ProxyManager interface {
-	ProxyToApplication(appName, remotePort string) (proxy.Proxier, error)
+	ProxyToApplication(ctx context.Context, appName, remotePort string) (proxy.Proxier, error)
 }
 
 // ServiceManager provides the API to manipulate services.
 type ServiceManager interface {
 	// GetService returns the service for the specified application.
-	GetService(appName string, includeClusterIP bool) (*Service, error)
+	GetService(ctx context.Context, appName string, includeClusterIP bool) (*Service, error)
 }
 
 // Service represents information about the status of a caas service entity.

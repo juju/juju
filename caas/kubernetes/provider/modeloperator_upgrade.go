@@ -4,7 +4,8 @@
 package provider
 
 import (
-	"github.com/juju/names/v5"
+	"context"
+
 	"github.com/juju/version/v2"
 	"k8s.io/client-go/kubernetes"
 )
@@ -36,10 +37,12 @@ func (u *upgradeCAASModelOperatorBridge) IsLegacyLabels() bool {
 }
 
 func modelOperatorUpgrade(
+	ctx context.Context,
 	operatorName string,
 	vers version.Number,
 	broker UpgradeCAASModelOperatorBroker) error {
 	return upgradeDeployment(
+		ctx,
 		operatorName,
 		"",
 		vers,
@@ -51,11 +54,11 @@ func (u *upgradeCAASModelOperatorBridge) Namespace() string {
 	return u.namespaceFn()
 }
 
-func (k *kubernetesClient) upgradeModelOperator(agentTag names.Tag, vers version.Number) error {
+func (k *kubernetesClient) upgradeModelOperator(ctx context.Context, vers version.Number) error {
 	broker := &upgradeCAASModelOperatorBridge{
 		clientFn:    k.client,
 		namespaceFn: k.GetCurrentNamespace,
 		isLegacyFn:  k.IsLegacyLabels,
 	}
-	return modelOperatorUpgrade(modelOperatorName, vers, broker)
+	return modelOperatorUpgrade(ctx, modelOperatorName, vers, broker)
 }

@@ -28,7 +28,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -package testing -destination testing/package_mock.go -write_package_comment=false github.com/juju/juju/environs EnvironProvider,CloudEnvironProvider,ProviderSchema,ProviderCredentials,FinalizeCredentialContext,FinalizeCloudContext,CloudFinalizer,CloudDetector,CloudRegionDetector,ModelConfigUpgrader,ConfigGetter,CloudDestroyer,Environ,InstancePrechecker,Firewaller,InstanceTagger,InstanceTypesFetcher,Upgrader,UpgradeStep,DefaultConstraintsChecker,ProviderCredentialsRegister,RequestFinalizeCredential,NetworkingEnviron
 
 type ConnectorInfo interface {
-	ConnectionProxyInfo() (proxy.Proxier, error)
+	ConnectionProxyInfo(ctx stdcontext.Context) (proxy.Proxier, error)
 }
 
 // A EnvironProvider represents a computing and storage provider
@@ -214,6 +214,8 @@ type FinalizeCredentialParams struct {
 // to provide a means of interacting with the user when finalizing
 // a cloud definition.
 type FinalizeCloudContext interface {
+	stdcontext.Context
+
 	// Verbosef will write the formatted string to Stderr if the
 	// verbose flag is true, and to the logger if not.
 	Verbosef(string, ...interface{})

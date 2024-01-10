@@ -4,6 +4,7 @@
 package caasadmission
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -70,7 +71,7 @@ func (c *Controller) makeLoop(
 		defer mux.RemoveHandler(http.MethodPost, path)
 
 		logger.Infof("ensuring model k8s webhook configurations")
-		admissionCleanup, err := admissionCreator.EnsureMutatingWebhookConfiguration()
+		admissionCleanup, err := admissionCreator.EnsureMutatingWebhookConfiguration(context.TODO())
 		if err != nil {
 			return errors.Trace(err)
 		}

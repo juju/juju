@@ -4,6 +4,7 @@
 package testing
 
 import (
+	"context"
 	"io"
 
 	"github.com/juju/testing"
@@ -50,31 +51,31 @@ func (s *StubDataSource) Description() string {
 	return s.DescriptionFunc()
 }
 
-// Description implements simplestreams.DataSource.
-func (s *StubDataSource) Fetch(path string) (io.ReadCloser, string, error) {
+// Fetch implements simplestreams.DataSource.
+func (s *StubDataSource) Fetch(ctx context.Context, path string) (io.ReadCloser, string, error) {
 	s.MethodCall(s, "Fetch", path)
 	return s.FetchFunc(path)
 }
 
-// Description implements simplestreams.DataSource.
+// URL implements simplestreams.DataSource.
 func (s *StubDataSource) URL(path string) (string, error) {
 	s.MethodCall(s, "URL", path)
 	return s.URLFunc(path)
 }
 
-// Description implements simplestreams.DataSource.
+// PublicSigningKey implements simplestreams.DataSource.
 func (s *StubDataSource) PublicSigningKey() string {
 	s.MethodCall(s, "PublicSigningKey")
 	return s.PublicSigningKeyFunc()
 }
 
-// Description implements simplestreams.DataSource.
+// Priority implements simplestreams.DataSource.
 func (s *StubDataSource) Priority() int {
 	s.MethodCall(s, "Priority")
 	return s.PriorityFunc()
 }
 
-// Description implements simplestreams.DataSource.
+// RequireSigned implements simplestreams.DataSource.
 func (s *StubDataSource) RequireSigned() bool {
 	s.MethodCall(s, "RequireSigned")
 	return s.RequireSignedFunc()

@@ -4,6 +4,7 @@
 package caas
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/cmd/v3"
@@ -112,7 +113,7 @@ func (c *RemoveCAASCommand) Run(ctxt *cmd.Context) error {
 	}
 
 	if c.ControllerName != "" && c.Client { // TODO(caas): only do RBAC cleanup for removing from both client and controller to less complexity.
-		if err := cleanUpCredentialRBACResources(c.cloudName, c.cloudMetadataStore, c.credentialStoreAPI); err != nil {
+		if err := cleanUpCredentialRBACResources(ctxt, c.cloudName, c.cloudMetadataStore, c.credentialStoreAPI); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -144,6 +145,7 @@ func (c *RemoveCAASCommand) Run(ctxt *cmd.Context) error {
 }
 
 func cleanUpCredentialRBACResources(
+	ctx context.Context,
 	cloudName string,
 	cloudMetadataStore CloudMetadataStore, credentialStoreAPI credentialGetter,
 ) error {
@@ -167,7 +169,7 @@ func cleanUpCredentialRBACResources(
 		return nil
 	}
 	for _, credential := range cloudCredentials.AuthCredentials {
-		if err := cleanUpCredentialRBAC(pCloud, credential); err != nil {
+		if err := cleanUpCredentialRBAC(ctx, pCloud, credential); err != nil {
 			logger.Warningf("unable to remove RBAC resources for credential %q", credential.Label)
 		}
 	}

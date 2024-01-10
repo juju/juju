@@ -172,7 +172,7 @@ func (c *validateImageMetadataCommand) Run(ctx *cmd.Context) error {
 	}
 
 	fetcher := simplestreams.NewSimpleStreams(simplestreams.DefaultDataSourceFactory())
-	images, resolveInfo, err := imagemetadata.ValidateImageMetadata(fetcher, params)
+	images, resolveInfo, err := imagemetadata.ValidateImageMetadata(ctx, fetcher, params)
 	if err != nil {
 		if resolveInfo != nil {
 			metadata := map[string]interface{}{

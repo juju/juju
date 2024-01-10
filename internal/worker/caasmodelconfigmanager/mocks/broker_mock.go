@@ -10,6 +10,7 @@
 package mocks
 
 import (
+	context "context"
 	reflect "reflect"
 
 	docker "github.com/juju/juju/internal/docker"
@@ -40,15 +41,15 @@ func (m *MockCAASBroker) EXPECT() *MockCAASBrokerMockRecorder {
 }
 
 // EnsureImageRepoSecret mocks base method.
-func (m *MockCAASBroker) EnsureImageRepoSecret(arg0 docker.ImageRepoDetails) error {
+func (m *MockCAASBroker) EnsureImageRepoSecret(arg0 context.Context, arg1 docker.ImageRepoDetails) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "EnsureImageRepoSecret", arg0)
+	ret := m.ctrl.Call(m, "EnsureImageRepoSecret", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // EnsureImageRepoSecret indicates an expected call of EnsureImageRepoSecret.
-func (mr *MockCAASBrokerMockRecorder) EnsureImageRepoSecret(arg0 any) *gomock.Call {
+func (mr *MockCAASBrokerMockRecorder) EnsureImageRepoSecret(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsureImageRepoSecret", reflect.TypeOf((*MockCAASBroker)(nil).EnsureImageRepoSecret), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsureImageRepoSecret", reflect.TypeOf((*MockCAASBroker)(nil).EnsureImageRepoSecret), arg0, arg1)
 }

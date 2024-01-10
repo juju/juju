@@ -38,12 +38,13 @@ type GetProxyConfig struct {
 // GetProxy attempts to create a Proxier from the named resources using the
 // found service account and associated secret.
 func GetProxy(
+	ctx context.Context,
 	name string,
 	config GetProxyConfig,
 	saI core.ServiceAccountInterface,
 	secretI core.SecretInterface,
 ) (*Proxier, error) {
-	sa, err := saI.Get(context.TODO(), name, meta.GetOptions{})
+	sa, err := saI.Get(ctx, name, meta.GetOptions{})
 	if k8serrors.IsNotFound(err) {
 		return nil, errors.NotFoundf("proxy service account for %s", name)
 	} else if err != nil {
@@ -54,7 +55,7 @@ func GetProxy(
 		return nil, fmt.Errorf("no secret created for service account %q", sa.GetName())
 	}
 
-	sec, err := secretI.Get(context.TODO(), sa.Secrets[0].Name, meta.GetOptions{})
+	sec, err := secretI.Get(ctx, sa.Secrets[0].Name, meta.GetOptions{})
 	if k8serrors.IsNotFound(err) {
 		return nil, fmt.Errorf("could not get proxy service account secret: %q", sa.Secrets[0].Name)
 	} else if err != nil {
@@ -75,13 +76,14 @@ func GetProxy(
 
 // GetControllerProxy returns the proxier for the controller specified by name.
 func GetControllerProxy(
+	ctx context.Context,
 	name,
 	apiHost string,
 	configI core.ConfigMapInterface,
 	saI core.ServiceAccountInterface,
 	secretI core.SecretInterface,
 ) (*Proxier, error) {
-	cm, err := configI.Get(context.TODO(), name, meta.GetOptions{})
+	cm, err := configI.Get(ctx, name, meta.GetOptions{})
 	if k8serrors.IsNotFound(err) {
 		return nil, errors.NotFoundf("controller proxy config %s", name)
 	} else if err != nil {
@@ -93,25 +95,10 @@ func GetControllerProxy(
 		return nil, errors.Trace(err)
 	}
 
-	return GetProxy(config.Name, GetProxyConfig{
+	return GetProxy(ctx, config.Name, GetProxyConfig{
 		APIHost:    apiHost,
 		Namespace:  config.Namespace,
 		RemotePort: config.RemotePort,
 		Service:    config.TargetService,
 	}, saI, secretI)
-}
-
-// HasControllerProxy indicates if a controller proxy exists for the supplied
-// name and namespace.
-func HasControllerProxy(
-	name string,
-	configI core.ConfigMapInterface,
-) (bool, error) {
-	_, err := configI.Get(context.TODO(), name, meta.GetOptions{})
-	if k8serrors.IsNotFound(err) {
-		return false, nil
-	} else if err != nil {
-		return false, errors.Trace(err)
-	}
-	return true, nil
 }

@@ -10,6 +10,7 @@
 package apiserver_test
 
 import (
+	context "context"
 	reflect "reflect"
 
 	proxy "github.com/juju/juju/internal/proxy"
@@ -40,16 +41,16 @@ func (m *MockConnectorInfo) EXPECT() *MockConnectorInfoMockRecorder {
 }
 
 // ConnectionProxyInfo mocks base method.
-func (m *MockConnectorInfo) ConnectionProxyInfo() (proxy.Proxier, error) {
+func (m *MockConnectorInfo) ConnectionProxyInfo(arg0 context.Context) (proxy.Proxier, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ConnectionProxyInfo")
+	ret := m.ctrl.Call(m, "ConnectionProxyInfo", arg0)
 	ret0, _ := ret[0].(proxy.Proxier)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ConnectionProxyInfo indicates an expected call of ConnectionProxyInfo.
-func (mr *MockConnectorInfoMockRecorder) ConnectionProxyInfo() *gomock.Call {
+func (mr *MockConnectorInfoMockRecorder) ConnectionProxyInfo(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConnectionProxyInfo", reflect.TypeOf((*MockConnectorInfo)(nil).ConnectionProxyInfo))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConnectionProxyInfo", reflect.TypeOf((*MockConnectorInfo)(nil).ConnectionProxyInfo), arg0)
 }

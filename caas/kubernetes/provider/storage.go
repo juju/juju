@@ -4,7 +4,6 @@
 package provider
 
 import (
-	"context"
 	"fmt"
 	"sync"
 
@@ -114,7 +113,7 @@ func (v *volumeSource) CreateVolumes(ctx jujucontext.ProviderCallContext, params
 // ListVolumes is specified on the jujustorage.VolumeSource interface.
 func (v *volumeSource) ListVolumes(ctx jujucontext.ProviderCallContext) ([]string, error) {
 	pVolumes := v.client.client().CoreV1().PersistentVolumes()
-	vols, err := pVolumes.List(context.TODO(), v1.ListOptions{})
+	vols, err := pVolumes.List(ctx, v1.ListOptions{})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -128,7 +127,7 @@ func (v *volumeSource) ListVolumes(ctx jujucontext.ProviderCallContext) ([]strin
 // DescribeVolumes is specified on the jujustorage.VolumeSource interface.
 func (v *volumeSource) DescribeVolumes(ctx jujucontext.ProviderCallContext, volIds []string) ([]jujustorage.DescribeVolumesResult, error) {
 	pVolumes := v.client.client().CoreV1().PersistentVolumes()
-	vols, err := pVolumes.List(context.TODO(), v1.ListOptions{
+	vols, err := pVolumes.List(ctx, v1.ListOptions{
 		// TODO(caas) - filter on volumes for the current model
 	})
 	if err != nil {
@@ -160,7 +159,7 @@ func (v *volumeSource) DestroyVolumes(ctx jujucontext.ProviderCallContext, volId
 	logger.Debugf("destroy k8s volumes: %v", volIds)
 	pVolumes := v.client.client().CoreV1().PersistentVolumes()
 	return foreachVolume(volIds, func(volumeId string) error {
-		vol, err := pVolumes.Get(context.TODO(), volumeId, v1.GetOptions{})
+		vol, err := pVolumes.Get(ctx, volumeId, v1.GetOptions{})
 		if err != nil && !k8serrors.IsNotFound(err) {
 			return errors.Annotatef(err, "getting volume %v to delete", volumeId)
 		}
@@ -168,12 +167,12 @@ func (v *volumeSource) DestroyVolumes(ctx jujucontext.ProviderCallContext, volId
 			claimRef := vol.Spec.ClaimRef
 			pClaims := v.client.client().CoreV1().PersistentVolumeClaims(claimRef.Namespace)
 			logger.Infof("deleting PVC %s due to call to volumeSource.DestroyVolumes(%q)", claimRef.Name, volumeId)
-			err := pClaims.Delete(context.TODO(), claimRef.Name, v1.DeleteOptions{PropagationPolicy: constants.DefaultPropagationPolicy()})
+			err := pClaims.Delete(ctx, claimRef.Name, v1.DeleteOptions{PropagationPolicy: constants.DefaultPropagationPolicy()})
 			if err != nil && !k8serrors.IsNotFound(err) {
 				return errors.Annotatef(err, "destroying volume claim %v", claimRef.Name)
 			}
 		}
-		if err := pVolumes.Delete(context.TODO(),
+		if err := pVolumes.Delete(ctx,
 			volumeId,
 			v1.DeleteOptions{PropagationPolicy: constants.DefaultPropagationPolicy()},
 		); !k8serrors.IsNotFound(err) {

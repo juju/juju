@@ -23,7 +23,7 @@ import (
 	"github.com/juju/juju/internal/cloudconfig/podcfg"
 )
 
-func (k *kubernetesClient) Upgrade(agentTag string, vers version.Number) error {
+func (k *kubernetesClient) Upgrade(ctx context.Context, agentTag string, vers version.Number) error {
 	tag, err := names.ParseTag(agentTag)
 	if err != nil {
 		return errors.Annotate(err, "parsing agent tag to upgrade")
@@ -34,9 +34,9 @@ func (k *kubernetesClient) Upgrade(agentTag string, vers version.Number) error {
 	switch tag.Kind() {
 	case names.MachineTagKind:
 	case names.ControllerAgentTagKind:
-		return k.upgradeController(vers)
+		return k.upgradeController(ctx, vers)
 	case names.ModelTagKind:
-		return k.upgradeModelOperator(tag, vers)
+		return k.upgradeModelOperator(ctx, vers)
 	case names.UnitTagKind:
 		// Sidecar charms don't have an upgrade step.
 		// See PR 14974
@@ -46,13 +46,14 @@ func (k *kubernetesClient) Upgrade(agentTag string, vers version.Number) error {
 }
 
 func upgradeDeployment(
+	ctx context.Context,
 	name,
 	imagePath string,
 	vers version.Number,
 	legacyLabels bool,
 	broker appstyped.DeploymentInterface,
 ) error {
-	de, err := broker.Get(context.TODO(), name, meta.GetOptions{})
+	de, err := broker.Get(ctx, name, meta.GetOptions{})
 	if k8serrors.IsNotFound(err) {
 		return errors.NotFoundf(
 			"deployment %q", name)
@@ -85,7 +86,7 @@ func upgradeDeployment(
 			Merge(utils.AnnotationsForVersion(vers.String(), legacyLabels)).ToMap(),
 	)
 
-	if _, err := broker.Update(context.TODO(), de, meta.UpdateOptions{}); err != nil {
+	if _, err := broker.Update(ctx, de, meta.UpdateOptions{}); err != nil {
 		return errors.Annotatef(err, "updating deployment %q to %s",
 			name, vers)
 	}
@@ -93,6 +94,7 @@ func upgradeDeployment(
 }
 
 func upgradeOperatorOrControllerStatefulSet(
+	ctx context.Context,
 	appName string,
 	name string,
 	isOperator bool,
@@ -102,7 +104,7 @@ func upgradeOperatorOrControllerStatefulSet(
 	legacyLabels bool,
 	broker appstyped.StatefulSetInterface,
 ) error {
-	ss, err := broker.Get(context.TODO(), name, meta.GetOptions{})
+	ss, err := broker.Get(ctx, name, meta.GetOptions{})
 	if k8serrors.IsNotFound(err) {
 		return errors.NotFoundf(
 			"statefulset %q", name)
@@ -142,7 +144,7 @@ func upgradeOperatorOrControllerStatefulSet(
 			Merge(utils.AnnotationsForVersion(vers.String(), legacyLabels)).ToMap(),
 	)
 
-	if _, err := broker.Update(context.TODO(), ss, meta.UpdateOptions{}); err != nil {
+	if _, err := broker.Update(ctx, ss, meta.UpdateOptions{}); err != nil {
 		return errors.Annotatef(err, "updating statefulset %q to %s",
 			name, vers)
 	}

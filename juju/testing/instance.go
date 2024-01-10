@@ -4,6 +4,8 @@
 package testing
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
@@ -177,7 +179,7 @@ func FillInStartInstanceParams(env environs.Environ, machineId string, isControl
 	}
 	streams := tools.PreferredStreams(&agentVersion, env.Config().Development(), env.Config().AgentStream())
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
-	possibleTools, err := tools.FindTools(ss, env, -1, -1, streams, filter)
+	possibleTools, err := tools.FindTools(context.Background(), ss, env, -1, -1, streams, filter)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -253,7 +255,7 @@ func SetImageMetadata(env environs.Environ, fetcher imagemetadata.SimplestreamsF
 	if err != nil {
 		return errors.Trace(err)
 	}
-	imageMetadata, _, err := imagemetadata.Fetch(fetcher, sources, imageConstraint)
+	imageMetadata, _, err := imagemetadata.Fetch(context.Background(), fetcher, sources, imageConstraint)
 	if err != nil {
 		return errors.Trace(err)
 	}

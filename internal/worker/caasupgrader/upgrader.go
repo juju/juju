@@ -4,6 +4,7 @@
 package caasupgrader
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/errors"
@@ -42,7 +43,7 @@ type UpgraderClient interface {
 }
 
 type CAASOperatorUpgrader interface {
-	Upgrade(agentTag string, v version.Number) error
+	Upgrade(ctx context.Context, agentTag string, v version.Number) error
 }
 
 // Config contains the items the worker needs to start.
@@ -163,7 +164,7 @@ func (u *Upgrader) loop() error {
 			direction = "downgrade"
 		}
 		logger.Debugf("%s requested for %v from %v to %v", direction, u.tag, jujuversion.Current, wantVersion)
-		err = u.operatorUpgrader.Upgrade(u.tag.String(), wantVersion)
+		err = u.operatorUpgrader.Upgrade(context.TODO(), u.tag.String(), wantVersion)
 		if err != nil {
 			return errors.Annotatef(
 				err, "requesting upgrade for %v from %v to %v", u.tag.String(), jujuversion.Current, wantVersion)

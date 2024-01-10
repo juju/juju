@@ -4,6 +4,7 @@
 package ssh
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -226,6 +227,7 @@ func (c *sshContainer) resolveTarget(target string) (*resolvedTarget, error) {
 
 // Context defines methods for command context.
 type Context interface {
+	context.Context
 	InterruptNotify(c chan<- os.Signal)
 	StopInterruptNotify(c chan<- os.Signal)
 	GetStdout() io.Writer
@@ -247,6 +249,7 @@ func (c *sshContainer) ssh(ctx Context, enablePty bool, target *resolvedTarget) 
 		}
 	}
 	return c.execClient.Exec(
+		ctx,
 		k8sexec.ExecParams{
 			PodName:       target.entity,
 			ContainerName: c.container,
@@ -300,7 +303,7 @@ func (c *sshContainer) copy(ctx Context) error {
 
 	cancel, stop := getInterruptAbortChan(ctx)
 	defer stop()
-	return c.execClient.Copy(k8sexec.CopyParams{Src: srcSpec, Dest: destSpec}, cancel)
+	return c.execClient.Copy(ctx, k8sexec.CopyParams{Src: srcSpec, Dest: destSpec}, cancel)
 }
 
 func (c *sshContainer) expandSCPArg(arg string) (o k8sexec.FileResource, err error) {

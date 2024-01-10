@@ -10,6 +10,7 @@
 package mocks
 
 import (
+	context "context"
 	io "io"
 	reflect "reflect"
 
@@ -56,16 +57,16 @@ func (mr *MockSyncToolAPIMockRecorder) Close() *gomock.Call {
 }
 
 // UploadTools mocks base method.
-func (m *MockSyncToolAPI) UploadTools(arg0 io.ReadSeeker, arg1 version.Binary) (tools.List, error) {
+func (m *MockSyncToolAPI) UploadTools(arg0 context.Context, arg1 io.ReadSeeker, arg2 version.Binary) (tools.List, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UploadTools", arg0, arg1)
+	ret := m.ctrl.Call(m, "UploadTools", arg0, arg1, arg2)
 	ret0, _ := ret[0].(tools.List)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // UploadTools indicates an expected call of UploadTools.
-func (mr *MockSyncToolAPIMockRecorder) UploadTools(arg0, arg1 any) *gomock.Call {
+func (mr *MockSyncToolAPIMockRecorder) UploadTools(arg0, arg1, arg2 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UploadTools", reflect.TypeOf((*MockSyncToolAPI)(nil).UploadTools), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UploadTools", reflect.TypeOf((*MockSyncToolAPI)(nil).UploadTools), arg0, arg1, arg2)
 }

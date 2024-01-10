@@ -4,6 +4,7 @@
 package caasmodelconfigmanager
 
 import (
+	"context"
 	"reflect"
 	"time"
 
@@ -46,7 +47,7 @@ type Facade interface {
 
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/broker_mock.go github.com/juju/juju/internal/worker/caasmodelconfigmanager CAASBroker
 type CAASBroker interface {
-	EnsureImageRepoSecret(docker.ImageRepoDetails) error
+	EnsureImageRepoSecret(context.Context, docker.ImageRepoDetails) error
 }
 
 // Config holds the configuration and dependencies for a worker.
@@ -199,7 +200,7 @@ func (w *manager) loop() (err error) {
 			}
 		case <-refresh:
 			refresh = nil
-			next, err := w.ensureImageRepoSecret(reg, first)
+			next, err := w.ensureImageRepoSecret(context.TODO(), reg, first)
 			if err != nil {
 				w.logger.Errorf("failed to update repository secret: %s", err.Error())
 				next = retryDuration
@@ -214,7 +215,7 @@ func (w *manager) loop() (err error) {
 	}
 }
 
-func (w *manager) ensureImageRepoSecret(reg registry.Registry, force bool) (time.Duration, error) {
+func (w *manager) ensureImageRepoSecret(ctx context.Context, reg registry.Registry, force bool) (time.Duration, error) {
 	shouldRefresh, nextRefresh := reg.ShouldRefreshAuth()
 	if nextRefresh == time.Duration(0) {
 		nextRefresh = refreshDuration
@@ -229,7 +230,7 @@ func (w *manager) ensureImageRepoSecret(reg registry.Registry, force bool) (time
 	}
 
 	w.logger.Debugf("applying refreshed auth token for %q", w.name)
-	err := w.config.Broker.EnsureImageRepoSecret(reg.ImageRepoDetails())
+	err := w.config.Broker.EnsureImageRepoSecret(ctx, reg.ImageRepoDetails())
 	if err != nil {
 		return time.Duration(0), errors.Annotatef(err, "ensuring image repository secret for %q", w.name)
 	}

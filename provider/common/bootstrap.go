@@ -30,7 +30,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
-	envcontext "github.com/juju/juju/environs/envcontext"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/models"
@@ -288,7 +288,7 @@ func BootstrapInstance(
 		}
 
 		select {
-		case <-ctx.Context().Done():
+		case <-ctx.Done():
 			return nil, nil, nil, errors.Annotate(err, "starting controller (cancelled)")
 		default:
 		}
@@ -458,7 +458,7 @@ var FinishBootstrap = func(
 
 	hostSSHOptions := bootstrapSSHOptionsFunc(instanceConfig)
 	addr, err := WaitSSH(
-		ctx.Context(),
+		ctx,
 		ctx.GetStderr(),
 		client,
 		GetCheckNonceCommand(instanceConfig),

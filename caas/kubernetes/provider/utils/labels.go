@@ -40,8 +40,8 @@ func HasLabels(src, has labels.Set) bool {
 
 // IsLegacyModelLabels checks to see if the provided model is running on an older
 // labeling scheme or a newer one.
-func IsLegacyModelLabels(namespace, model string, namespaceI core.NamespaceInterface) (bool, error) {
-	ns, err := namespaceI.Get(context.TODO(), namespace, meta.GetOptions{})
+func IsLegacyModelLabels(ctx context.Context, namespace, model string, namespaceI core.NamespaceInterface) (bool, error) {
+	ns, err := namespaceI.Get(ctx, namespace, meta.GetOptions{})
 	if k8serrors.IsNotFound(err) {
 		return false, nil
 	}

@@ -5,6 +5,7 @@ package imagemetadata
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"path"
 	"time"
@@ -28,13 +29,13 @@ func ProductMetadataStoragePath() string {
 
 // MergeAndWriteMetadata reads the existing metadata from storage (if any),
 // and merges it with supplied metadata, writing the resulting metadata is written to storage.
-func MergeAndWriteMetadata(fetcher SimplestreamsFetcher,
+func MergeAndWriteMetadata(ctx context.Context, fetcher SimplestreamsFetcher,
 	base corebase.Base,
 	metadata []*ImageMetadata,
 	cloudSpec *simplestreams.CloudSpec,
 	metadataStore storage.Storage) error {
 
-	existingMetadata, err := readMetadata(fetcher, metadataStore)
+	existingMetadata, err := readMetadata(ctx, fetcher, metadataStore)
 	if err != nil {
 		return err
 	}
@@ -43,14 +44,14 @@ func MergeAndWriteMetadata(fetcher SimplestreamsFetcher,
 }
 
 // readMetadata reads the image metadata from metadataStore.
-func readMetadata(fetcher SimplestreamsFetcher, metadataStore storage.Storage) ([]*ImageMetadata, error) {
+func readMetadata(ctx context.Context, fetcher SimplestreamsFetcher, metadataStore storage.Storage) ([]*ImageMetadata, error) {
 	// Read any existing metadata so we can merge the new tools metadata with what's there.
 	dataSource := storage.NewStorageSimpleStreamsDataSource("existing metadata", metadataStore, storage.BaseImagesPath, simplestreams.EXISTING_CLOUD_DATA, false)
 	imageConstraint, err := NewImageConstraint(simplestreams.LookupParams{})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	existingMetadata, _, err := Fetch(fetcher, []simplestreams.DataSource{dataSource}, imageConstraint)
+	existingMetadata, _, err := Fetch(ctx, fetcher, []simplestreams.DataSource{dataSource}, imageConstraint)
 	if err != nil && !errors.Is(err, errors.NotFound) {
 		return nil, err
 	}

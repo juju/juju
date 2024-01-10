@@ -10,6 +10,7 @@ import (
 	context "context"
 	io "io"
 	reflect "reflect"
+	time "time"
 
 	jsonschema "github.com/juju/jsonschema"
 	cloud "github.com/juju/juju/cloud"
@@ -500,6 +501,63 @@ func NewMockFinalizeCloudContext(ctrl *gomock.Controller) *MockFinalizeCloudCont
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockFinalizeCloudContext) EXPECT() *MockFinalizeCloudContextMockRecorder {
 	return m.recorder
+}
+
+// Deadline mocks base method.
+func (m *MockFinalizeCloudContext) Deadline() (time.Time, bool) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Deadline")
+	ret0, _ := ret[0].(time.Time)
+	ret1, _ := ret[1].(bool)
+	return ret0, ret1
+}
+
+// Deadline indicates an expected call of Deadline.
+func (mr *MockFinalizeCloudContextMockRecorder) Deadline() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Deadline", reflect.TypeOf((*MockFinalizeCloudContext)(nil).Deadline))
+}
+
+// Done mocks base method.
+func (m *MockFinalizeCloudContext) Done() <-chan struct{} {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Done")
+	ret0, _ := ret[0].(<-chan struct{})
+	return ret0
+}
+
+// Done indicates an expected call of Done.
+func (mr *MockFinalizeCloudContextMockRecorder) Done() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Done", reflect.TypeOf((*MockFinalizeCloudContext)(nil).Done))
+}
+
+// Err mocks base method.
+func (m *MockFinalizeCloudContext) Err() error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Err")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Err indicates an expected call of Err.
+func (mr *MockFinalizeCloudContextMockRecorder) Err() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Err", reflect.TypeOf((*MockFinalizeCloudContext)(nil).Err))
+}
+
+// Value mocks base method.
+func (m *MockFinalizeCloudContext) Value(arg0 any) any {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Value", arg0)
+	ret0, _ := ret[0].(any)
+	return ret0
+}
+
+// Value indicates an expected call of Value.
+func (mr *MockFinalizeCloudContextMockRecorder) Value(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Value", reflect.TypeOf((*MockFinalizeCloudContext)(nil).Value), arg0)
 }
 
 // Verbosef mocks base method.

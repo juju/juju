@@ -12,6 +12,7 @@
 package caasapplicationprovisioner
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/clock"
@@ -71,8 +72,8 @@ type CAASProvisionerFacade interface {
 // CAASBroker exposes CAAS broker functionality to a worker.
 type CAASBroker interface {
 	Application(string, caas.DeploymentType) caas.Application
-	AnnotateUnit(appName string, podName string, unit names.UnitTag) error
-	Units(appName string) ([]caas.Unit, error)
+	AnnotateUnit(ctx context.Context, appName string, podName string, unit names.UnitTag) error
+	Units(ctx context.Context, appName string) ([]caas.Unit, error)
 }
 
 // Runner exposes functionalities of a worker.Runner.

@@ -19,11 +19,11 @@ import (
 	"github.com/juju/juju/caas/kubernetes/provider/constants"
 )
 
-func (k *kubernetesClient) listCustomResourceDefinitions(selector k8slabels.Selector) ([]apiextensionsv1.CustomResourceDefinition, error) {
+func (k *kubernetesClient) listCustomResourceDefinitions(ctx context.Context, selector k8slabels.Selector) ([]apiextensionsv1.CustomResourceDefinition, error) {
 	listOps := metav1.ListOptions{
 		LabelSelector: selector.String(),
 	}
-	list, err := k.extendedClient().ApiextensionsV1().CustomResourceDefinitions().List(context.TODO(), listOps)
+	list, err := k.extendedClient().ApiextensionsV1().CustomResourceDefinitions().List(ctx, listOps)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -33,8 +33,8 @@ func (k *kubernetesClient) listCustomResourceDefinitions(selector k8slabels.Sele
 	return list.Items, nil
 }
 
-func (k *kubernetesClient) deleteCustomResourceDefinitions(selector k8slabels.Selector) error {
-	err := k.extendedClient().ApiextensionsV1().CustomResourceDefinitions().DeleteCollection(context.TODO(), metav1.DeleteOptions{
+func (k *kubernetesClient) deleteCustomResourceDefinitions(ctx context.Context, selector k8slabels.Selector) error {
+	err := k.extendedClient().ApiextensionsV1().CustomResourceDefinitions().DeleteCollection(ctx, metav1.DeleteOptions{
 		PropagationPolicy: constants.DefaultPropagationPolicy(),
 	}, metav1.ListOptions{
 		LabelSelector: selector.String(),
@@ -45,8 +45,8 @@ func (k *kubernetesClient) deleteCustomResourceDefinitions(selector k8slabels.Se
 	return errors.Trace(err)
 }
 
-func (k *kubernetesClient) deleteCustomResources(selectorGetter func(apiextensionsv1.CustomResourceDefinition) k8slabels.Selector) error {
-	crds, err := k.extendedClient().ApiextensionsV1().CustomResourceDefinitions().List(context.TODO(), metav1.ListOptions{
+func (k *kubernetesClient) deleteCustomResources(ctx context.Context, selectorGetter func(apiextensionsv1.CustomResourceDefinition) k8slabels.Selector) error {
+	crds, err := k.extendedClient().ApiextensionsV1().CustomResourceDefinitions().List(ctx, metav1.ListOptions{
 		// CRDs might be provisioned by another application/charm from a different model.
 	})
 	if err != nil {
@@ -62,7 +62,7 @@ func (k *kubernetesClient) deleteCustomResources(selectorGetter func(apiextensio
 			if err != nil {
 				return errors.Trace(err)
 			}
-			err = crdClient.DeleteCollection(context.TODO(), metav1.DeleteOptions{
+			err = crdClient.DeleteCollection(ctx, metav1.DeleteOptions{
 				PropagationPolicy: constants.DefaultPropagationPolicy(),
 			}, metav1.ListOptions{
 				LabelSelector: selector.String(),
@@ -75,8 +75,8 @@ func (k *kubernetesClient) deleteCustomResources(selectorGetter func(apiextensio
 	return nil
 }
 
-func (k *kubernetesClient) listCustomResources(selectorGetter func(apiextensionsv1.CustomResourceDefinition) k8slabels.Selector) (out []unstructured.Unstructured, err error) {
-	crds, err := k.extendedClient().ApiextensionsV1().CustomResourceDefinitions().List(context.TODO(), metav1.ListOptions{
+func (k *kubernetesClient) listCustomResources(ctx context.Context, selectorGetter func(apiextensionsv1.CustomResourceDefinition) k8slabels.Selector) (out []unstructured.Unstructured, err error) {
+	crds, err := k.extendedClient().ApiextensionsV1().CustomResourceDefinitions().List(ctx, metav1.ListOptions{
 		// CRDs might be provisioned by another application/charm from a different model.
 	})
 	if err != nil {
@@ -92,7 +92,7 @@ func (k *kubernetesClient) listCustomResources(selectorGetter func(apiextensions
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			list, err := crdClient.List(context.TODO(), metav1.ListOptions{
+			list, err := crdClient.List(ctx, metav1.ListOptions{
 				LabelSelector: selector.String(),
 			})
 			if err != nil && !k8serrors.IsNotFound(err) {

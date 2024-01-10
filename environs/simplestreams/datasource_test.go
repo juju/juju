@@ -5,6 +5,7 @@ package simplestreams_test
 
 import (
 	"compress/gzip"
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -31,7 +32,7 @@ func (s *datasourceSuite) assertFetch(c *gc.C, compressed bool) {
 	server := httptest.NewServer(&testDataHandler{supportsGzip: compressed})
 	defer server.Close()
 	ds := testing.VerifyDefaultCloudDataSource("test", server.URL)
-	rc, url, err := ds.Fetch("streams/v1/tools_metadata.json")
+	rc, url, err := ds.Fetch(context.Background(), "streams/v1/tools_metadata.json")
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() { _ = rc.Close() }()
 	c.Assert(url, gc.Equals, fmt.Sprintf("%s/streams/v1/tools_metadata.json", server.URL))
@@ -67,7 +68,7 @@ func (s *datasourceSuite) TestRetry(c *gc.C) {
 		Priority:    simplestreams.DEFAULT_CLOUD_DATA,
 		Clock:       testclock.NewDilatedWallClock(10 * time.Millisecond),
 	})
-	_, _, err := ds.Fetch("500")
+	_, _, err := ds.Fetch(context.Background(), "500")
 	c.Assert(err, gc.NotNil)
 	c.Assert(handler.numReq.Load(), gc.Equals, int64(3))
 }
@@ -171,7 +172,7 @@ func (s *datasourceHTTPSSuite) TestNormalClientFails(c *gc.C) {
 	url, err := ds.URL("bar")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(url, gc.Equals, s.server.URL+"/bar")
-	reader, _, err := ds.Fetch("bar")
+	reader, _, err := ds.Fetch(context.Background(), "bar")
 	c.Assert(err, gc.ErrorMatches, `.*x509: certificate signed by unknown authority`)
 	c.Check(reader, gc.IsNil)
 }
@@ -187,7 +188,7 @@ func (s *datasourceHTTPSSuite) TestNonVerifyingClientSucceeds(c *gc.C) {
 	url, err := ds.URL("bar")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(url, gc.Equals, s.server.URL+"/bar")
-	reader, _, err := ds.Fetch("bar")
+	reader, _, err := ds.Fetch(context.Background(), "bar")
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() { _ = reader.Close() }()
 	byteContent, err := io.ReadAll(reader)

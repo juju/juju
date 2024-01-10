@@ -157,7 +157,7 @@ func (s *AgentSuite) PrimeAgentVersion(c *gc.C, tag names.Tag, password string, 
 
 	agentTools := envtesting.PrimeTools(c, store, s.DataDir, "released", vers)
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
-	err = envtools.MergeAndWriteMetadata(ss, store, "released", "released", coretools.List{agentTools}, envtools.DoNotWriteMirrors)
+	err = envtools.MergeAndWriteMetadata(context.Background(), ss, store, "released", "released", coretools.List{agentTools}, envtools.DoNotWriteMirrors)
 	c.Assert(err, jc.ErrorIsNil)
 
 	tools1, err := agenttools.ChangeAgentTools(s.DataDir, tag.String(), vers)

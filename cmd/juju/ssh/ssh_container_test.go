@@ -5,6 +5,7 @@ package ssh_test
 
 import (
 	"bytes"
+	"context"
 	"os"
 	"time"
 
@@ -309,8 +310,8 @@ func (s *sshContainerSuite) TestSSHNoContainerSpecified(c *gc.C) {
 		ctx.EXPECT().GetStdout().Return(buffer),
 		ctx.EXPECT().GetStderr().Return(buffer),
 		ctx.EXPECT().GetStdin().Return(buffer),
-		s.execClient.EXPECT().Exec(gomock.Any(), gomock.Any()).DoAndReturn(
-			func(arg k8sexec.ExecParams, cancel <-chan struct{}) error {
+		s.execClient.EXPECT().Exec(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+			func(_ context.Context, arg k8sexec.ExecParams, cancel <-chan struct{}) error {
 				mc := jc.NewMultiChecker()
 				mc.AddExpr(`_.Env`, jc.Ignore)
 				c.Check(arg, mc, k8sexec.ExecParams{
@@ -346,8 +347,8 @@ func (s *sshContainerSuite) TestSSHWithContainerSpecified(c *gc.C) {
 		ctx.EXPECT().GetStdout().Return(buffer),
 		ctx.EXPECT().GetStderr().Return(buffer),
 		ctx.EXPECT().GetStdin().Return(buffer),
-		s.execClient.EXPECT().Exec(gomock.Any(), gomock.Any()).DoAndReturn(
-			func(arg k8sexec.ExecParams, cancel <-chan struct{}) error {
+		s.execClient.EXPECT().Exec(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+			func(_ context.Context, arg k8sexec.ExecParams, cancel <-chan struct{}) error {
 				mc := jc.NewMultiChecker()
 				mc.AddExpr(`_.Env`, jc.Ignore)
 				c.Check(arg, mc, k8sexec.ExecParams{
@@ -388,8 +389,8 @@ func (s *sshContainerSuite) TestSSHCancelled(c *gc.C) {
 		ctx.EXPECT().GetStdout().Return(buffer),
 		ctx.EXPECT().GetStderr().Return(buffer),
 		ctx.EXPECT().GetStdin().Return(buffer),
-		s.execClient.EXPECT().Exec(gomock.Any(), gomock.Any()).DoAndReturn(
-			func(arg k8sexec.ExecParams, cancel <-chan struct{}) error {
+		s.execClient.EXPECT().Exec(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+			func(_ context.Context, arg k8sexec.ExecParams, cancel <-chan struct{}) error {
 				mc := jc.NewMultiChecker()
 				mc.AddExpr(`_.Env`, jc.Ignore)
 				c.Check(arg, mc, k8sexec.ExecParams{
@@ -491,7 +492,7 @@ func (s *sshContainerSuite) TestCopyFromWorkloadPod(c *gc.C) {
 			}, nil),
 
 		ctx.EXPECT().InterruptNotify(gomock.Any()),
-		s.execClient.EXPECT().Copy(k8sexec.CopyParams{
+		s.execClient.EXPECT().Copy(gomock.Any(), k8sexec.CopyParams{
 			Src:  k8sexec.FileResource{Path: "/home/ubuntu/", PodName: "mariadb-k8s-0", ContainerName: "charm"},
 			Dest: k8sexec.FileResource{Path: "./file1"},
 		}, gomock.Any()).
@@ -521,7 +522,7 @@ func (s *sshContainerSuite) TestCopyToWorkloadPod(c *gc.C) {
 			}, nil),
 
 		ctx.EXPECT().InterruptNotify(gomock.Any()),
-		s.execClient.EXPECT().Copy(k8sexec.CopyParams{
+		s.execClient.EXPECT().Copy(gomock.Any(), k8sexec.CopyParams{
 			Src:  k8sexec.FileResource{Path: "./file1"},
 			Dest: k8sexec.FileResource{Path: "/home/ubuntu/", PodName: "mariadb-k8s-0", ContainerName: "charm"},
 		}, gomock.Any()).
@@ -555,7 +556,7 @@ func (s *sshContainerSuite) TestCopyToWorkloadPodWithContainerSpecified(c *gc.C)
 			}, nil),
 
 		ctx.EXPECT().InterruptNotify(gomock.Any()),
-		s.execClient.EXPECT().Copy(k8sexec.CopyParams{
+		s.execClient.EXPECT().Copy(gomock.Any(), k8sexec.CopyParams{
 			Src:  k8sexec.FileResource{Path: "./file1"},
 			Dest: k8sexec.FileResource{Path: "/home/ubuntu/", PodName: "mariadb-k8s-0", ContainerName: "container1"},
 		}, gomock.Any()).
@@ -607,8 +608,8 @@ func (s *sshContainerSuite) TestSSHWithTerm(c *gc.C) {
 		ctx.EXPECT().GetStdout().Return(buffer),
 		ctx.EXPECT().GetStderr().Return(buffer),
 		ctx.EXPECT().GetStdin().Return(buffer),
-		s.execClient.EXPECT().Exec(gomock.Any(), gomock.Any()).DoAndReturn(
-			func(arg k8sexec.ExecParams, cancel <-chan struct{}) error {
+		s.execClient.EXPECT().Exec(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+			func(_ context.Context, arg k8sexec.ExecParams, cancel <-chan struct{}) error {
 				c.Check(arg, jc.DeepEquals, k8sexec.ExecParams{
 					PodName:  "mariadb-k8s-0",
 					Env:      []string{"TERM=foobar-256color"},
@@ -653,8 +654,8 @@ func (s *sshContainerSuite) TestSSHWithTermNoTTY(c *gc.C) {
 		ctx.EXPECT().GetStdout().Return(buffer),
 		ctx.EXPECT().GetStderr().Return(buffer),
 		ctx.EXPECT().GetStdin().Return(buffer),
-		s.execClient.EXPECT().Exec(gomock.Any(), gomock.Any()).DoAndReturn(
-			func(arg k8sexec.ExecParams, cancel <-chan struct{}) error {
+		s.execClient.EXPECT().Exec(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+			func(_ context.Context, arg k8sexec.ExecParams, cancel <-chan struct{}) error {
 				c.Check(arg, jc.DeepEquals, k8sexec.ExecParams{
 					PodName:  "mariadb-k8s-0",
 					Env:      nil,

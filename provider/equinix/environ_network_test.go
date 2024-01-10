@@ -99,8 +99,8 @@ func (s *networkSuite) TestListIPsByProjectIDAndRegion(c *gc.C) {
 		cl.ProjectIPs = projectIP
 		return cl
 	})
-	ctx := envtesting.BootstrapTODOContext(c)
-	env, err := environs.Open(ctx.Context(), s.provider, environs.OpenParams{
+	ctx := envtesting.BootstrapTestContext(c)
+	env, err := environs.Open(ctx, s.provider, environs.OpenParams{
 		Cloud:  s.spec,
 		Config: makeTestModelConfig(c),
 	})
@@ -302,8 +302,8 @@ func (s *networkSuite) TestNetworkInterfaces(c *gc.C) {
 		cl.ProjectIPs = projectIP
 		return cl
 	})
-	ctx := envtesting.BootstrapTODOContext(c)
-	env, err := environs.Open(ctx.Context(), s.provider, environs.OpenParams{
+	ctx := envtesting.BootstrapTestContext(c)
+	env, err := environs.Open(ctx, s.provider, environs.OpenParams{
 		Cloud:  s.spec,
 		Config: makeTestModelConfig(c),
 	})

@@ -68,7 +68,7 @@ func (s *registrationSuite) assertRegisterNoProxy(c *gc.C, hasProxy bool) {
 		return nil, errors.NotSupportedf("proxier")
 	})
 	if hasProxy {
-		environ.EXPECT().ConnectionProxyInfo().Return(proxier, nil)
+		environ.EXPECT().ConnectionProxyInfo(gomock.Any()).Return(proxier, nil)
 		proxier.EXPECT().RawConfig().Return(rawConfig, nil)
 		proxier.EXPECT().Type().Return("kubernetes-port-forward")
 	}

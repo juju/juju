@@ -243,7 +243,7 @@ func (h *registerUserHandler) getSecretKeyLoginResponsePayload(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	proxier, err := connInfo.ConnectionProxyInfo()
+	proxier, err := connInfo.ConnectionProxyInfo(ctx)
 	if errors.Is(err, errors.NotFound) {
 		return &payload, nil
 	}

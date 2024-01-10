@@ -4,6 +4,8 @@
 package caasadmission_test
 
 import (
+	"context"
+
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	admission "k8s.io/api/admissionregistration/v1"
@@ -16,16 +18,16 @@ type AdmissionSuite struct {
 }
 
 type dummyAdmissionCreator struct {
-	EnsureMutatingWebhookConfigurationFunc func() (func(), error)
+	EnsureMutatingWebhookConfigurationFunc func(ctx context.Context) (func(), error)
 }
 
 var _ = gc.Suite(&AdmissionSuite{})
 
-func (d *dummyAdmissionCreator) EnsureMutatingWebhookConfiguration() (func(), error) {
+func (d *dummyAdmissionCreator) EnsureMutatingWebhookConfiguration(ctx context.Context) (func(), error) {
 	if d.EnsureMutatingWebhookConfigurationFunc == nil {
 		return func() {}, nil
 	}
-	return d.EnsureMutatingWebhookConfigurationFunc()
+	return d.EnsureMutatingWebhookConfigurationFunc(ctx)
 }
 
 func int32Ptr(i int32) *int32 {
@@ -58,7 +60,7 @@ func (a *AdmissionSuite) TestAdmissionCreatorObject(c *gc.C) {
 
 	admissionCreator, err := caasadmission.NewAdmissionCreator(
 		authority, "testns", "testmodel", false,
-		func(obj *admission.MutatingWebhookConfiguration) (func(), error) {
+		func(_ context.Context, obj *admission.MutatingWebhookConfiguration) (func(), error) {
 			ensureWebhookCalled = true
 
 			c.Assert(obj.Namespace, gc.Equals, namespace)
@@ -78,7 +80,7 @@ func (a *AdmissionSuite) TestAdmissionCreatorObject(c *gc.C) {
 
 	c.Assert(err, jc.ErrorIsNil)
 
-	cleanup, err := admissionCreator.EnsureMutatingWebhookConfiguration()
+	cleanup, err := admissionCreator.EnsureMutatingWebhookConfiguration(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ensureWebhookCalled, jc.IsTrue)
 

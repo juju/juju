@@ -150,7 +150,7 @@ func DrainBackendConfigInfo(
 	if !ok {
 		return nil, errors.Errorf("missing secret backend %q", backendID)
 	}
-	backendCfg, err := backendConfigInfo(model, backendID, &cfg, authTag, leadershipChecker, true)
+	backendCfg, err := backendConfigInfo(ctx, model, backendID, &cfg, authTag, leadershipChecker, true)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -193,7 +193,7 @@ func BackendConfigInfo(
 		if !ok {
 			return nil, errors.Errorf("missing secret backend %q", backendID)
 		}
-		backendCfg, err := backendConfigInfo(model, backendID, &cfg, authTag, leadershipChecker, false)
+		backendCfg, err := backendConfigInfo(ctx, model, backendID, &cfg, authTag, leadershipChecker, false)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -203,6 +203,7 @@ func BackendConfigInfo(
 }
 
 func backendConfigInfo(
+	ctx context.Context,
 	model Model, backendID string, adminCfg *provider.ModelBackendConfig,
 	authTag names.Tag, leadershipChecker leadership.Checker, forDrain bool,
 ) (*provider.ModelBackendConfig, error) {
@@ -271,7 +272,7 @@ func backendConfigInfo(
 	}
 
 	logger.Debugf("secrets for %v:\nowned: %v\nconsumed:%v", authTag.String(), ownedRevisions, readRevisions)
-	cfg, err := p.RestrictedConfig(adminCfg, forDrain, authTag, ownedRevisions[backendID], readRevisions[backendID])
+	cfg, err := p.RestrictedConfig(ctx, adminCfg, forDrain, authTag, ownedRevisions[backendID], readRevisions[backendID])
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -603,7 +604,7 @@ func RemoveUserSecrets(
 					return errors.Trace(err)
 				}
 			}
-			if err := p.CleanupSecrets(&cfg, authTag, revs); err != nil {
+			if err := p.CleanupSecrets(ctx, &cfg, authTag, revs); err != nil {
 				return errors.Trace(err)
 			}
 			return nil

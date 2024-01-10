@@ -55,7 +55,7 @@ func (api *API) UpgradeOperator(ctx context.Context, arg params.KubernetesUpgrad
 	}
 
 	api.logger.Debugf("upgrading caas agent for %s", tag)
-	err = api.broker.Upgrade(arg.AgentTag, arg.Version)
+	err = api.broker.Upgrade(ctx, arg.AgentTag, arg.Version)
 	if err != nil {
 		return serverErr(err), nil
 	}

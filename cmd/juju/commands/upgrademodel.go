@@ -4,6 +4,7 @@
 package commands
 
 import (
+	"context"
 	stderrors "errors"
 	"fmt"
 	"io"
@@ -168,7 +169,7 @@ type ModelUpgraderAPI interface {
 	UpgradeModel(
 		modelUUID string, targetVersion version.Number, stream string, ignoreAgentVersions, druRun bool,
 	) (version.Number, error)
-	UploadTools(r io.ReadSeeker, vers version.Binary) (coretools.List, error)
+	UploadTools(ctx context.Context, r io.ReadSeeker, vers version.Binary) (coretools.List, error)
 
 	Close() error
 }
@@ -228,7 +229,7 @@ func (c *upgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 }
 
 func uploadTools(
-	modelUpgrader ModelUpgraderAPI, buildAgent bool, agentVersion version.Number, dryRun bool,
+	ctx context.Context, modelUpgrader ModelUpgraderAPI, buildAgent bool, agentVersion version.Number, dryRun bool,
 ) (targetVersion version.Number, err error) {
 	builtTools, err := sync.BuildAgentTarball(
 		buildAgent, "upgrade",
@@ -262,7 +263,7 @@ func uploadTools(
 	}
 	defer f.Close()
 
-	_, err = modelUpgrader.UploadTools(f, uploadToolsVersion)
+	_, err = modelUpgrader.UploadTools(ctx, f, uploadToolsVersion)
 	if err != nil {
 		return targetVersion, errors.Trace(err)
 	}
@@ -307,7 +308,7 @@ func (c *upgradeJujuCommand) upgradeWithTargetVersion(
 	}
 
 	// found a best target version but a local binary is required to be uploaded.
-	if chosenVersion, err = uploadTools(modelUpgrader, false, agentVersion, dryRun); err != nil {
+	if chosenVersion, err = uploadTools(ctx, modelUpgrader, false, agentVersion, dryRun); err != nil {
 		return chosenVersion, block.ProcessBlockedError(err, block.BlockChange)
 	}
 	fmt.Fprintf(ctx.Stdout,
@@ -417,7 +418,7 @@ func (c *upgradeJujuCommand) upgradeModel(
 		return err
 	}
 	if c.BuildAgent {
-		if targetVersion, err = uploadTools(modelUpgrader, c.BuildAgent, agentVersion, c.DryRun); err != nil {
+		if targetVersion, err = uploadTools(ctx, modelUpgrader, c.BuildAgent, agentVersion, c.DryRun); err != nil {
 			return block.ProcessBlockedError(err, block.BlockChange)
 		}
 		builtMsg := " (built from source)"

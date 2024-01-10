@@ -242,7 +242,7 @@ func (s *upgradeNewSuite) TestUpgradeModelWithAgentVersionUploadLocalOfficial(c 
 			version.Zero,
 			errors.NotFoundf("available agent tool, upload required"),
 		),
-		s.modelUpgrader.EXPECT().UploadTools(gomock.Any(), builtVersion).Return(nil, nil),
+		s.modelUpgrader.EXPECT().UploadTools(gomock.Any(), gomock.Any(), builtVersion).Return(nil, nil),
 		s.modelUpgrader.EXPECT().UpgradeModel(
 			coretesting.ModelTag.Id(), builtVersion.Number,
 			"", false, false,
@@ -504,7 +504,7 @@ func (s *upgradeNewSuite) TestUpgradeModelWithBuildAgent(c *gc.C) {
 	gomock.InOrder(
 		s.modelConfigAPI.EXPECT().ModelGet().Return(cfg, nil),
 		s.controllerAPI.EXPECT().ModelConfig().Return(cfg, nil),
-		s.modelUpgrader.EXPECT().UploadTools(gomock.Any(), builtVersion).Return(nil, nil),
+		s.modelUpgrader.EXPECT().UploadTools(gomock.Any(), gomock.Any(), builtVersion).Return(nil, nil),
 		s.modelUpgrader.EXPECT().UpgradeModel(
 			coretesting.ModelTag.Id(), builtVersion.Number,
 			"", false, false,

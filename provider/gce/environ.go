@@ -110,7 +110,7 @@ var (
 	bootstrap  = common.Bootstrap
 )
 
-func newEnviron(cloud environscloudspec.CloudSpec, cfg *config.Config) (*environ, error) {
+func newEnviron(ctx stdcontext.Context, cloud environscloudspec.CloudSpec, cfg *config.Config) (*environ, error) {
 	ecfg, err := newConfig(cfg, nil)
 	if err != nil {
 		return nil, errors.Annotate(err, "invalid config")
@@ -127,7 +127,7 @@ func newEnviron(cloud environscloudspec.CloudSpec, cfg *config.Config) (*environ
 		ecfg:      ecfg,
 		namespace: namespace,
 	}
-	if err = e.SetCloudSpec(stdcontext.TODO(), cloud); err != nil {
+	if err = e.SetCloudSpec(ctx, cloud); err != nil {
 		return nil, err
 	}
 	return e, nil

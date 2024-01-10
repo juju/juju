@@ -80,17 +80,17 @@ func (mr *MockBrokerMockRecorder) AdoptResources(arg0, arg1, arg2 any) *gomock.C
 }
 
 // AnnotateUnit mocks base method.
-func (m *MockBroker) AnnotateUnit(arg0, arg1 string, arg2 names.UnitTag) error {
+func (m *MockBroker) AnnotateUnit(arg0 context.Context, arg1, arg2 string, arg3 names.UnitTag) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AnnotateUnit", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "AnnotateUnit", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // AnnotateUnit indicates an expected call of AnnotateUnit.
-func (mr *MockBrokerMockRecorder) AnnotateUnit(arg0, arg1, arg2 any) *gomock.Call {
+func (mr *MockBrokerMockRecorder) AnnotateUnit(arg0, arg1, arg2, arg3 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AnnotateUnit", reflect.TypeOf((*MockBroker)(nil).AnnotateUnit), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AnnotateUnit", reflect.TypeOf((*MockBroker)(nil).AnnotateUnit), arg0, arg1, arg2, arg3)
 }
 
 // Application mocks base method.
@@ -123,17 +123,17 @@ func (mr *MockBrokerMockRecorder) Bootstrap(arg0, arg1, arg2 any) *gomock.Call {
 }
 
 // CheckCloudCredentials mocks base method.
-func (m *MockBroker) CheckCloudCredentials() error {
+func (m *MockBroker) CheckCloudCredentials(arg0 context.Context) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CheckCloudCredentials")
+	ret := m.ctrl.Call(m, "CheckCloudCredentials", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // CheckCloudCredentials indicates an expected call of CheckCloudCredentials.
-func (mr *MockBrokerMockRecorder) CheckCloudCredentials() *gomock.Call {
+func (mr *MockBrokerMockRecorder) CheckCloudCredentials(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckCloudCredentials", reflect.TypeOf((*MockBroker)(nil).CheckCloudCredentials))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckCloudCredentials", reflect.TypeOf((*MockBroker)(nil).CheckCloudCredentials), arg0)
 }
 
 // Config mocks base method.
@@ -222,46 +222,46 @@ func (mr *MockBrokerMockRecorder) DestroyController(arg0, arg1 any) *gomock.Call
 }
 
 // EnsureImageRepoSecret mocks base method.
-func (m *MockBroker) EnsureImageRepoSecret(arg0 docker.ImageRepoDetails) error {
+func (m *MockBroker) EnsureImageRepoSecret(arg0 context.Context, arg1 docker.ImageRepoDetails) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "EnsureImageRepoSecret", arg0)
+	ret := m.ctrl.Call(m, "EnsureImageRepoSecret", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // EnsureImageRepoSecret indicates an expected call of EnsureImageRepoSecret.
-func (mr *MockBrokerMockRecorder) EnsureImageRepoSecret(arg0 any) *gomock.Call {
+func (mr *MockBrokerMockRecorder) EnsureImageRepoSecret(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsureImageRepoSecret", reflect.TypeOf((*MockBroker)(nil).EnsureImageRepoSecret), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsureImageRepoSecret", reflect.TypeOf((*MockBroker)(nil).EnsureImageRepoSecret), arg0, arg1)
 }
 
 // EnsureModelOperator mocks base method.
-func (m *MockBroker) EnsureModelOperator(arg0, arg1 string, arg2 *caas.ModelOperatorConfig) error {
+func (m *MockBroker) EnsureModelOperator(arg0 context.Context, arg1, arg2 string, arg3 *caas.ModelOperatorConfig) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "EnsureModelOperator", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "EnsureModelOperator", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // EnsureModelOperator indicates an expected call of EnsureModelOperator.
-func (mr *MockBrokerMockRecorder) EnsureModelOperator(arg0, arg1, arg2 any) *gomock.Call {
+func (mr *MockBrokerMockRecorder) EnsureModelOperator(arg0, arg1, arg2, arg3 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsureModelOperator", reflect.TypeOf((*MockBroker)(nil).EnsureModelOperator), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsureModelOperator", reflect.TypeOf((*MockBroker)(nil).EnsureModelOperator), arg0, arg1, arg2, arg3)
 }
 
 // EnsureSecretAccessToken mocks base method.
-func (m *MockBroker) EnsureSecretAccessToken(arg0 names.Tag, arg1, arg2, arg3 []string) (string, error) {
+func (m *MockBroker) EnsureSecretAccessToken(arg0 context.Context, arg1 names.Tag, arg2, arg3, arg4 []string) (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "EnsureSecretAccessToken", arg0, arg1, arg2, arg3)
+	ret := m.ctrl.Call(m, "EnsureSecretAccessToken", arg0, arg1, arg2, arg3, arg4)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // EnsureSecretAccessToken indicates an expected call of EnsureSecretAccessToken.
-func (mr *MockBrokerMockRecorder) EnsureSecretAccessToken(arg0, arg1, arg2, arg3 any) *gomock.Call {
+func (mr *MockBrokerMockRecorder) EnsureSecretAccessToken(arg0, arg1, arg2, arg3, arg4 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsureSecretAccessToken", reflect.TypeOf((*MockBroker)(nil).EnsureSecretAccessToken), arg0, arg1, arg2, arg3)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsureSecretAccessToken", reflect.TypeOf((*MockBroker)(nil).EnsureSecretAccessToken), arg0, arg1, arg2, arg3, arg4)
 }
 
 // GetJujuSecret mocks base method.
@@ -280,63 +280,63 @@ func (mr *MockBrokerMockRecorder) GetJujuSecret(arg0, arg1 any) *gomock.Call {
 }
 
 // GetSecretToken mocks base method.
-func (m *MockBroker) GetSecretToken(arg0 string) (string, error) {
+func (m *MockBroker) GetSecretToken(arg0 context.Context, arg1 string) (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetSecretToken", arg0)
+	ret := m.ctrl.Call(m, "GetSecretToken", arg0, arg1)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetSecretToken indicates an expected call of GetSecretToken.
-func (mr *MockBrokerMockRecorder) GetSecretToken(arg0 any) *gomock.Call {
+func (mr *MockBrokerMockRecorder) GetSecretToken(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecretToken", reflect.TypeOf((*MockBroker)(nil).GetSecretToken), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecretToken", reflect.TypeOf((*MockBroker)(nil).GetSecretToken), arg0, arg1)
 }
 
 // GetService mocks base method.
-func (m *MockBroker) GetService(arg0 string, arg1 bool) (*caas.Service, error) {
+func (m *MockBroker) GetService(arg0 context.Context, arg1 string, arg2 bool) (*caas.Service, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetService", arg0, arg1)
+	ret := m.ctrl.Call(m, "GetService", arg0, arg1, arg2)
 	ret0, _ := ret[0].(*caas.Service)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetService indicates an expected call of GetService.
-func (mr *MockBrokerMockRecorder) GetService(arg0, arg1 any) *gomock.Call {
+func (mr *MockBrokerMockRecorder) GetService(arg0, arg1, arg2 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetService", reflect.TypeOf((*MockBroker)(nil).GetService), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetService", reflect.TypeOf((*MockBroker)(nil).GetService), arg0, arg1, arg2)
 }
 
 // ModelOperator mocks base method.
-func (m *MockBroker) ModelOperator() (*caas.ModelOperatorConfig, error) {
+func (m *MockBroker) ModelOperator(arg0 context.Context) (*caas.ModelOperatorConfig, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ModelOperator")
+	ret := m.ctrl.Call(m, "ModelOperator", arg0)
 	ret0, _ := ret[0].(*caas.ModelOperatorConfig)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ModelOperator indicates an expected call of ModelOperator.
-func (mr *MockBrokerMockRecorder) ModelOperator() *gomock.Call {
+func (mr *MockBrokerMockRecorder) ModelOperator(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelOperator", reflect.TypeOf((*MockBroker)(nil).ModelOperator))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelOperator", reflect.TypeOf((*MockBroker)(nil).ModelOperator), arg0)
 }
 
 // ModelOperatorExists mocks base method.
-func (m *MockBroker) ModelOperatorExists() (bool, error) {
+func (m *MockBroker) ModelOperatorExists(arg0 context.Context) (bool, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ModelOperatorExists")
+	ret := m.ctrl.Call(m, "ModelOperatorExists", arg0)
 	ret0, _ := ret[0].(bool)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ModelOperatorExists indicates an expected call of ModelOperatorExists.
-func (mr *MockBrokerMockRecorder) ModelOperatorExists() *gomock.Call {
+func (mr *MockBrokerMockRecorder) ModelOperatorExists(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelOperatorExists", reflect.TypeOf((*MockBroker)(nil).ModelOperatorExists))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelOperatorExists", reflect.TypeOf((*MockBroker)(nil).ModelOperatorExists), arg0)
 }
 
 // PrecheckInstance mocks base method.
@@ -382,32 +382,32 @@ func (mr *MockBrokerMockRecorder) Provider() *gomock.Call {
 }
 
 // ProxyToApplication mocks base method.
-func (m *MockBroker) ProxyToApplication(arg0, arg1 string) (proxy.Proxier, error) {
+func (m *MockBroker) ProxyToApplication(arg0 context.Context, arg1, arg2 string) (proxy.Proxier, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ProxyToApplication", arg0, arg1)
+	ret := m.ctrl.Call(m, "ProxyToApplication", arg0, arg1, arg2)
 	ret0, _ := ret[0].(proxy.Proxier)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ProxyToApplication indicates an expected call of ProxyToApplication.
-func (mr *MockBrokerMockRecorder) ProxyToApplication(arg0, arg1 any) *gomock.Call {
+func (mr *MockBrokerMockRecorder) ProxyToApplication(arg0, arg1, arg2 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProxyToApplication", reflect.TypeOf((*MockBroker)(nil).ProxyToApplication), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProxyToApplication", reflect.TypeOf((*MockBroker)(nil).ProxyToApplication), arg0, arg1, arg2)
 }
 
 // RemoveSecretAccessToken mocks base method.
-func (m *MockBroker) RemoveSecretAccessToken(arg0 names.Tag) error {
+func (m *MockBroker) RemoveSecretAccessToken(arg0 context.Context, arg1 names.Tag) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RemoveSecretAccessToken", arg0)
+	ret := m.ctrl.Call(m, "RemoveSecretAccessToken", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // RemoveSecretAccessToken indicates an expected call of RemoveSecretAccessToken.
-func (mr *MockBrokerMockRecorder) RemoveSecretAccessToken(arg0 any) *gomock.Call {
+func (mr *MockBrokerMockRecorder) RemoveSecretAccessToken(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveSecretAccessToken", reflect.TypeOf((*MockBroker)(nil).RemoveSecretAccessToken), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveSecretAccessToken", reflect.TypeOf((*MockBroker)(nil).RemoveSecretAccessToken), arg0, arg1)
 }
 
 // SaveJujuSecret mocks base method.
@@ -470,46 +470,46 @@ func (mr *MockBrokerMockRecorder) StorageProviderTypes() *gomock.Call {
 }
 
 // Units mocks base method.
-func (m *MockBroker) Units(arg0 string) ([]caas.Unit, error) {
+func (m *MockBroker) Units(arg0 context.Context, arg1 string) ([]caas.Unit, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Units", arg0)
+	ret := m.ctrl.Call(m, "Units", arg0, arg1)
 	ret0, _ := ret[0].([]caas.Unit)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Units indicates an expected call of Units.
-func (mr *MockBrokerMockRecorder) Units(arg0 any) *gomock.Call {
+func (mr *MockBrokerMockRecorder) Units(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Units", reflect.TypeOf((*MockBroker)(nil).Units), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Units", reflect.TypeOf((*MockBroker)(nil).Units), arg0, arg1)
 }
 
 // Upgrade mocks base method.
-func (m *MockBroker) Upgrade(arg0 string, arg1 version.Number) error {
+func (m *MockBroker) Upgrade(arg0 context.Context, arg1 string, arg2 version.Number) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Upgrade", arg0, arg1)
+	ret := m.ctrl.Call(m, "Upgrade", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Upgrade indicates an expected call of Upgrade.
-func (mr *MockBrokerMockRecorder) Upgrade(arg0, arg1 any) *gomock.Call {
+func (mr *MockBrokerMockRecorder) Upgrade(arg0, arg1, arg2 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Upgrade", reflect.TypeOf((*MockBroker)(nil).Upgrade), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Upgrade", reflect.TypeOf((*MockBroker)(nil).Upgrade), arg0, arg1, arg2)
 }
 
 // ValidateStorageClass mocks base method.
-func (m *MockBroker) ValidateStorageClass(arg0 map[string]any) error {
+func (m *MockBroker) ValidateStorageClass(arg0 context.Context, arg1 map[string]any) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ValidateStorageClass", arg0)
+	ret := m.ctrl.Call(m, "ValidateStorageClass", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // ValidateStorageClass indicates an expected call of ValidateStorageClass.
-func (mr *MockBrokerMockRecorder) ValidateStorageClass(arg0 any) *gomock.Call {
+func (mr *MockBrokerMockRecorder) ValidateStorageClass(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidateStorageClass", reflect.TypeOf((*MockBroker)(nil).ValidateStorageClass), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidateStorageClass", reflect.TypeOf((*MockBroker)(nil).ValidateStorageClass), arg0, arg1)
 }
 
 // Version mocks base method.

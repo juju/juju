@@ -652,7 +652,7 @@ func (b *AgentBootstrap) initControllerCloudService(
 		// this should never happen.
 		return errors.Errorf("environ %T does not implement ServiceManager interface", env)
 	}
-	svc, err := broker.GetService(k8sconstants.JujuControllerStackName, true)
+	svc, err := broker.GetService(ctx, k8sconstants.JujuControllerStackName, true)
 	if err != nil {
 		return errors.Trace(err)
 	}

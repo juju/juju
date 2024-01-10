@@ -5,6 +5,7 @@ package caas
 
 import (
 	"bytes"
+	"context"
 	"io"
 
 	jujuclock "github.com/juju/clock"
@@ -23,7 +24,7 @@ func NewAddCAASCommandForTest(
 	credentialStoreAPI CredentialStoreAPI,
 	store jujuclient.ClientStore,
 	addCloudAPIFunc func() (AddCloudAPI, error),
-	adminServiceAccountResolver func(jujuclock.Clock) clientconfig.K8sCredentialResolver,
+	adminServiceAccountResolver func(context.Context, jujuclock.Clock) clientconfig.K8sCredentialResolver,
 	brokerGetter BrokerGetter,
 	k8sCluster k8sCluster,
 	newClientConfigReaderFunc func(string) (clientconfig.ClientConfigFunc, error),

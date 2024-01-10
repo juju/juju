@@ -5,6 +5,7 @@ package commands
 
 import (
 	"bytes"
+	"context"
 	"io"
 	"os"
 
@@ -98,7 +99,7 @@ func (c *syncAgentBinaryCommand) Init(args []string) error {
 // SyncToolAPI provides an interface with a subset of the
 // modelupgrader.Client API. This exists to enable mocking.
 type SyncToolAPI interface {
-	UploadTools(r io.ReadSeeker, v version.Binary) (coretools.List, error)
+	UploadTools(ctx context.Context, r io.ReadSeeker, v version.Binary) (coretools.List, error)
 	Close() error
 }
 
@@ -156,7 +157,7 @@ func (c *syncAgentBinaryCommand) Run(ctx *cmd.Context) (resultErr error) {
 		adaptor := syncToolAPIAdaptor{api}
 		sctx.TargetToolsUploader = adaptor
 	}
-	return block.ProcessBlockedError(syncTools(sctx), block.BlockChange)
+	return block.ProcessBlockedError(syncTools(ctx, sctx), block.BlockChange)
 }
 
 // syncToolAPIAdaptor implements sync.ToolsFinder and
@@ -166,7 +167,7 @@ type syncToolAPIAdaptor struct {
 	SyncToolAPI
 }
 
-func (s syncToolAPIAdaptor) UploadTools(toolsDir, stream string, tools *coretools.Tools, data []byte) error {
-	_, err := s.SyncToolAPI.UploadTools(bytes.NewReader(data), tools.Version)
+func (s syncToolAPIAdaptor) UploadTools(ctx context.Context, toolsDir, stream string, tools *coretools.Tools, data []byte) error {
+	_, err := s.SyncToolAPI.UploadTools(ctx, bytes.NewReader(data), tools.Version)
 	return err
 }

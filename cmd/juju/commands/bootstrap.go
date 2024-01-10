@@ -813,7 +813,7 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	defer ctx.StopInterruptNotify(interrupted)
 
 	var cancel context.CancelFunc
-	stdCtx, cancel := context.WithTimeout(context.Background(), bootstrapCfg.bootstrap.BootstrapTimeout)
+	stdCtx, cancel := context.WithTimeout(ctx, bootstrapCfg.bootstrap.BootstrapTimeout)
 
 	defer func() {
 		// If the context is an error state, then don't continue on processing
@@ -1118,7 +1118,7 @@ func (c *bootstrapCommand) controllerDataRefresher(
 	} else if env, ok := environ.(caas.ServiceManager); ok {
 		// CAAS.
 		var svc *caas.Service
-		svc, err = env.GetService(k8sconstants.JujuControllerStackName, false)
+		svc, err = env.GetService(callCtx, k8sconstants.JujuControllerStackName, false)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -1134,7 +1134,7 @@ func (c *bootstrapCommand) controllerDataRefresher(
 
 	var proxier proxy.Proxier
 	if conInfo, ok := environ.(environs.ConnectorInfo); ok {
-		proxier, err = conInfo.ConnectionProxyInfo()
+		proxier, err = conInfo.ConnectionProxyInfo(callCtx)
 		if err != nil && !errors.Is(err, errors.NotFound) {
 			return errors.Trace(err)
 		}

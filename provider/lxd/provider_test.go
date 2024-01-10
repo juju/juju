@@ -277,7 +277,7 @@ func (s *providerSuite) TestFinalizeCloud(c *gc.C) {
 	server.EXPECT().LocalBridgeName().Return("lxdbr0")
 	deps.factory.EXPECT().LocalServerAddress().Return("1.2.3.4:1234", nil)
 
-	var ctx mockContext
+	ctx := mockContext{Context: context.Background()}
 	out, err := finalizer.FinalizeCloud(&ctx, cloud.Cloud{
 		Name:      "localhost",
 		Type:      "lxd",
@@ -311,7 +311,7 @@ func (s *providerSuite) TestFinalizeCloudWithRemoteProvider(c *gc.C) {
 	deps := s.createProvider(ctrl)
 	finalizer := deps.provider.(environs.CloudFinalizer)
 
-	var ctx mockContext
+	ctx := mockContext{Context: context.Background()}
 	out, err := finalizer.FinalizeCloud(&ctx, cloud.Cloud{
 		Name:      "nuc8",
 		Type:      "lxd",
@@ -616,6 +616,7 @@ func (s *ProviderFunctionalSuite) TestPrepareConfigEmptyAuthNonLocal(c *gc.C) {
 }
 
 type mockContext struct {
+	context.Context
 	jtesting.Stub
 }
 

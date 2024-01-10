@@ -112,7 +112,7 @@ func (s *environSuite) TestBootstrapAPI(c *gc.C) {
 		ControllerConfig:         coretesting.FakeControllerConfig(),
 		SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
 	}
-	callCtx := envcontext.WithoutCredentialInvalidator(ctx.Context())
+	callCtx := envcontext.WithoutCredentialInvalidator(ctx)
 	_, err := s.Env.Bootstrap(ctx, callCtx, params)
 	c.Assert(err, jc.ErrorIsNil)
 

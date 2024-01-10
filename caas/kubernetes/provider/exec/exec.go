@@ -55,9 +55,9 @@ type client struct {
 
 // Executor provides the API to exec or cp on a pod inside the cluster.
 type Executor interface {
-	Status(params StatusParams) (*Status, error)
-	Exec(params ExecParams, cancel <-chan struct{}) error
-	Copy(params CopyParams, cancel <-chan struct{}) error
+	Status(ctx context.Context, params StatusParams) (*Status, error)
+	Exec(ctx context.Context, params ExecParams, cancel <-chan struct{}) error
+	Copy(ctx context.Context, params CopyParams, cancel <-chan struct{}) error
 	RawClient() kubernetes.Interface
 	NameSpace() string
 }
@@ -144,13 +144,13 @@ type ExecParams struct {
 	Signal <-chan syscall.Signal
 }
 
-func (ep *ExecParams) validate(podGetter typedcorev1.PodInterface) (err error) {
+func (ep *ExecParams) validate(ctx context.Context, podGetter typedcorev1.PodInterface) (err error) {
 	if len(ep.Commands) == 0 {
 		return errors.NotValidf("empty commands")
 	}
 
 	if ep.PodName, ep.ContainerName, err = getValidatedPodContainer(
-		podGetter, ep.PodName, ep.ContainerName,
+		ctx, podGetter, ep.PodName, ep.ContainerName,
 	); err != nil {
 		return errors.Trace(err)
 	}
@@ -168,8 +168,8 @@ func (c client) NameSpace() string {
 }
 
 // Exec runs commands on a pod in the cluster.
-func (c client) Exec(params ExecParams, cancel <-chan struct{}) error {
-	if err := params.validate(c.podGetter); err != nil {
+func (c client) Exec(ctx context.Context, params ExecParams, cancel <-chan struct{}) error {
+	if err := params.validate(ctx, c.podGetter); err != nil {
 		return errors.Trace(err)
 	}
 	return errors.Trace(c.exec(params, cancel))
@@ -365,11 +365,11 @@ func parsePodName(podName string) (string, error) {
 	return podName, nil
 }
 
-func getValidatedPod(podGetter typedcorev1.PodInterface, podName string) (pod *core.Pod, err error) {
+func getValidatedPod(ctx context.Context, podGetter typedcorev1.PodInterface, podName string) (pod *core.Pod, err error) {
 	if podName, err = parsePodName(podName); err != nil {
 		return nil, errors.Trace(err)
 	}
-	if pod, err = podGetter.Get(context.TODO(), podName, metav1.GetOptions{}); err == nil {
+	if pod, err = podGetter.Get(ctx, podName, metav1.GetOptions{}); err == nil {
 		return pod, nil
 	} else if !k8serrors.IsNotFound(err) {
 		return nil, errors.Trace(err)
@@ -377,7 +377,7 @@ func getValidatedPod(podGetter typedcorev1.PodInterface, podName string) (pod *c
 
 	logger.Debugf("no pod named %q found", podName)
 	logger.Debugf("try get pod by UID for %q", podName)
-	pods, err := podGetter.List(context.TODO(), metav1.ListOptions{})
+	pods, err := podGetter.List(ctx, metav1.ListOptions{})
 	// TODO(caas): remove getting pod by Id (a bit expensive) once we started to store podName in cloudContainer doc.
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -392,9 +392,10 @@ func getValidatedPod(podGetter typedcorev1.PodInterface, podName string) (pod *c
 }
 
 func getValidatedPodContainer(
+	ctx context.Context,
 	podGetter typedcorev1.PodInterface, podName, containerName string,
 ) (string, string, error) {
-	pod, err := getValidatedPod(podGetter, podName)
+	pod, err := getValidatedPod(ctx, podGetter, podName)
 	if err != nil {
 		return "", "", errors.Trace(err)
 	}

@@ -10,6 +10,7 @@
 package sync_test
 
 import (
+	context "context"
 	reflect "reflect"
 
 	simplestreams "github.com/juju/juju/environs/simplestreams"
@@ -40,9 +41,9 @@ func (m *MockSimplestreamsFetcher) EXPECT() *MockSimplestreamsFetcherMockRecorde
 }
 
 // GetMetadata mocks base method.
-func (m *MockSimplestreamsFetcher) GetMetadata(arg0 []simplestreams.DataSource, arg1 simplestreams.GetMetadataParams) ([]any, *simplestreams.ResolveInfo, error) {
+func (m *MockSimplestreamsFetcher) GetMetadata(arg0 context.Context, arg1 []simplestreams.DataSource, arg2 simplestreams.GetMetadataParams) ([]any, *simplestreams.ResolveInfo, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetMetadata", arg0, arg1)
+	ret := m.ctrl.Call(m, "GetMetadata", arg0, arg1, arg2)
 	ret0, _ := ret[0].([]any)
 	ret1, _ := ret[1].(*simplestreams.ResolveInfo)
 	ret2, _ := ret[2].(error)
@@ -50,9 +51,9 @@ func (m *MockSimplestreamsFetcher) GetMetadata(arg0 []simplestreams.DataSource, 
 }
 
 // GetMetadata indicates an expected call of GetMetadata.
-func (mr *MockSimplestreamsFetcherMockRecorder) GetMetadata(arg0, arg1 any) *gomock.Call {
+func (mr *MockSimplestreamsFetcherMockRecorder) GetMetadata(arg0, arg1, arg2 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMetadata", reflect.TypeOf((*MockSimplestreamsFetcher)(nil).GetMetadata), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMetadata", reflect.TypeOf((*MockSimplestreamsFetcher)(nil).GetMetadata), arg0, arg1, arg2)
 }
 
 // NewDataSource mocks base method.
