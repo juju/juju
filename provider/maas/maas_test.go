@@ -4,6 +4,8 @@
 package maas
 
 import (
+	"context"
+
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gomaasapi/v2"
@@ -61,7 +63,7 @@ func (suite *maasSuite) makeEnviron(c *gc.C, controller gomaasapi.Controller) *m
 	suite.controllerUUID = coretesting.FakeControllerConfig().ControllerUUID()
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
-	env, err := NewEnviron(cloud, cfg, nil)
+	env, err := NewEnviron(context.Background(), cloud, cfg, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env, gc.NotNil)
 	return env

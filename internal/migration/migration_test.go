@@ -305,7 +305,7 @@ type fakeUploader struct {
 	reassignCharmURL bool
 }
 
-func (f *fakeUploader) UploadTools(r io.ReadSeeker, v version.Binary) (tools.List, error) {
+func (f *fakeUploader) UploadTools(_ context.Context, r io.ReadSeeker, v version.Binary) (tools.List, error) {
 	data, err := io.ReadAll(r)
 	if err != nil {
 		return nil, errors.Trace(err)

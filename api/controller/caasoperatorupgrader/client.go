@@ -34,13 +34,13 @@ func NewClient(caller base.APICaller, options ...Option) *Client {
 }
 
 // Upgrade upgrades the operator for the specified agent tag to v.
-func (c *Client) Upgrade(agentTag string, v version.Number) error {
+func (c *Client) Upgrade(ctx context.Context, agentTag string, v version.Number) error {
 	var result params.ErrorResult
 	arg := params.KubernetesUpgradeArg{
 		AgentTag: agentTag,
 		Version:  v,
 	}
-	if err := c.facade.FacadeCall(context.TODO(), "UpgradeOperator", arg, &result); err != nil {
+	if err := c.facade.FacadeCall(ctx, "UpgradeOperator", arg, &result); err != nil {
 		return errors.Trace(err)
 	}
 	if result.Error != nil {

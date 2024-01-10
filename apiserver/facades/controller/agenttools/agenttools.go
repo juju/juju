@@ -60,10 +60,10 @@ type ModelGetter interface {
 }
 
 type newEnvironFunc func() (environs.Environ, error)
-type toolsFinder func(tools.SimplestreamsFetcher, environs.BootstrapEnviron, int, int, []string, coretools.Filter) (coretools.List, error)
+type toolsFinder func(context.Context, tools.SimplestreamsFetcher, environs.BootstrapEnviron, int, int, []string, coretools.Filter) (coretools.List, error)
 type envVersionUpdater func(*state.Model, version.Number) error
 
-func checkToolsAvailability(newEnviron newEnvironFunc, modelCfg *config.Config, finder toolsFinder) (version.Number, error) {
+func checkToolsAvailability(ctx context.Context, newEnviron newEnvironFunc, modelCfg *config.Config, finder toolsFinder) (version.Number, error) {
 	currentVersion, ok := modelCfg.AgentVersion()
 	if !ok || currentVersion == version.Zero {
 		return version.Zero, nil
@@ -80,10 +80,10 @@ func checkToolsAvailability(newEnviron newEnvironFunc, modelCfg *config.Config, 
 	// only return patches for the passed major.minor (from major.minor.patch).
 	// We'll try the released stream first, then fall back to the current configured stream
 	// if no released tools are found.
-	vers, err := finder(ss, env, currentVersion.Major, currentVersion.Minor, []string{tools.ReleasedStream}, coretools.Filter{})
+	vers, err := finder(ctx, ss, env, currentVersion.Major, currentVersion.Minor, []string{tools.ReleasedStream}, coretools.Filter{})
 	preferredStream := tools.PreferredStreams(&currentVersion, modelCfg.Development(), modelCfg.AgentStream())[0]
 	if preferredStream != tools.ReleasedStream && errors.Cause(err) == coretools.ErrNoMatches {
-		vers, err = finder(ss, env, currentVersion.Major, currentVersion.Minor, []string{preferredStream}, coretools.Filter{})
+		vers, err = finder(ctx, ss, env, currentVersion.Major, currentVersion.Minor, []string{preferredStream}, coretools.Filter{})
 	}
 	if err != nil {
 		return version.Zero, errors.Annotatef(err, "cannot find available agent binaries")
@@ -103,7 +103,7 @@ func envVersionUpdate(env *state.Model, ver version.Number) error {
 	return env.UpdateLatestToolsVersion(ver)
 }
 
-func updateToolsAvailability(modelGetter ModelGetter, newEnviron newEnvironFunc, finder toolsFinder, update envVersionUpdater, logger loggo.Logger) error {
+func updateToolsAvailability(ctx context.Context, modelGetter ModelGetter, newEnviron newEnvironFunc, finder toolsFinder, update envVersionUpdater, logger loggo.Logger) error {
 	model, err := modelGetter.Model()
 	if err != nil {
 		return errors.Annotate(err, "cannot get model")
@@ -112,7 +112,7 @@ func updateToolsAvailability(modelGetter ModelGetter, newEnviron newEnvironFunc,
 	if err != nil {
 		return errors.Annotate(err, "cannot get config")
 	}
-	ver, err := checkToolsAvailability(newEnviron, cfg, finder)
+	ver, err := checkToolsAvailability(ctx, newEnviron, cfg, finder)
 	if err != nil {
 		if errors.Is(err, errors.NotFound) {
 			// No newer tools, so exit silently.
@@ -133,5 +133,5 @@ func (api *AgentToolsAPI) UpdateToolsAvailable(ctx context.Context) error {
 	if !api.authorizer.AuthController() {
 		return apiservererrors.ErrPerm
 	}
-	return updateToolsAvailability(api.modelGetter, api.newEnviron, api.findTools, api.envVersionUpdate, api.logger)
+	return updateToolsAvailability(ctx, api.modelGetter, api.newEnviron, api.findTools, api.envVersionUpdate, api.logger)
 }

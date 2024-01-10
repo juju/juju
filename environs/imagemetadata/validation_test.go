@@ -4,6 +4,7 @@
 package imagemetadata_test
 
 import (
+	"context"
 	"path"
 	"path/filepath"
 
@@ -40,7 +41,7 @@ func (s *ValidateSuite) makeLocalMetadata(c *gc.C, ss *simplestreams.Simplestrea
 	}
 	targetStorage, err := filestorage.NewFileStorageWriter(s.metadataDir)
 	c.Assert(err, jc.ErrorIsNil)
-	err = imagemetadata.MergeAndWriteMetadata(ss, base, metadata, &cloudSpec, targetStorage)
+	err = imagemetadata.MergeAndWriteMetadata(context.Background(), ss, base, metadata, &cloudSpec, targetStorage)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -62,7 +63,7 @@ func (s *ValidateSuite) assertMatch(c *gc.C, ss *simplestreams.Simplestreams, st
 		Sources: []simplestreams.DataSource{
 			sstesting.VerifyDefaultCloudDataSource("test", utils.MakeFileURL(metadataPath))},
 	}
-	imageIds, resolveInfo, err := imagemetadata.ValidateImageMetadata(ss, params)
+	imageIds, resolveInfo, err := imagemetadata.ValidateImageMetadata(context.Background(), ss, params)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(imageIds, gc.DeepEquals, []string{"1234"})
 	c.Check(resolveInfo, gc.DeepEquals, &simplestreams.ResolveInfo{
@@ -92,7 +93,7 @@ func (s *ValidateSuite) assertNoMatch(c *gc.C, ss *simplestreams.Simplestreams, 
 		Sources: []simplestreams.DataSource{
 			sstesting.VerifyDefaultCloudDataSource("test", "file://"+s.metadataDir)},
 	}
-	_, _, err := imagemetadata.ValidateImageMetadata(ss, params)
+	_, _, err := imagemetadata.ValidateImageMetadata(context.Background(), ss, params)
 	c.Assert(err, gc.Not(gc.IsNil))
 }
 

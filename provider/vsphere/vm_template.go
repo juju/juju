@@ -181,7 +181,7 @@ func (v *vmTemplateManager) downloadAndImportTemplate(
 	if err != nil {
 		return nil, "", errors.Trace(err)
 	}
-	img, err := findImageMetadata(v.env, arch, series)
+	img, err := findImageMetadata(ctx, v.env, arch, series)
 	if err != nil {
 		return nil, "", environs.ZoneIndependentError(err)
 	}

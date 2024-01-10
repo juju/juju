@@ -59,32 +59,32 @@ func (m *ModelOperatorSuite) assertEnsure(c *gc.C, isPrivateImageRepo bool) {
 	}
 	bridge := &modelOperatorBrokerBridge{
 		client: m.client,
-		ensureConfigMap: func(cm *core.ConfigMap) ([]func(), error) {
+		ensureConfigMap: func(ctx context.Context, cm *core.ConfigMap) ([]func(), error) {
 			ensureConfigMapCalled = true
 			_, err := m.client.CoreV1().ConfigMaps(namespace).Create(context.Background(), cm, meta.CreateOptions{})
 			return nil, err
 		},
-		ensureDeployment: func(d *apps.Deployment) ([]func(), error) {
+		ensureDeployment: func(ctx context.Context, d *apps.Deployment) ([]func(), error) {
 			ensureDeploymentCalled = true
 			_, err := m.client.AppsV1().Deployments(namespace).Create(context.Background(), d, meta.CreateOptions{})
 			return nil, err
 		},
-		ensureRole: func(r *rbac.Role) ([]func(), error) {
+		ensureRole: func(ctx context.Context, r *rbac.Role) ([]func(), error) {
 			ensureRoleCalled = true
 			_, err := m.client.RbacV1().Roles(namespace).Create(context.Background(), r, meta.CreateOptions{})
 			return nil, err
 		},
-		ensureRoleBinding: func(rb *rbac.RoleBinding) ([]func(), error) {
+		ensureRoleBinding: func(ctx context.Context, rb *rbac.RoleBinding) ([]func(), error) {
 			ensureRoleBindingCalled = true
 			_, err := m.client.RbacV1().RoleBindings(namespace).Create(context.Background(), rb, meta.CreateOptions{})
 			return nil, err
 		},
-		ensureServiceAccount: func(sa *core.ServiceAccount) ([]func(), error) {
+		ensureServiceAccount: func(ctx context.Context, sa *core.ServiceAccount) ([]func(), error) {
 			ensureServiceAccountCalled = true
 			_, err := m.client.CoreV1().ServiceAccounts(namespace).Create(context.Background(), sa, meta.CreateOptions{})
 			return nil, err
 		},
-		ensureService: func(s *core.Service) ([]func(), error) {
+		ensureService: func(ctx context.Context, s *core.Service) ([]func(), error) {
 			ensureServiceCalled = true
 			_, err := m.client.CoreV1().Services(namespace).Create(context.Background(), s, meta.CreateOptions{})
 			return nil, err
@@ -116,7 +116,7 @@ func (m *ModelOperatorSuite) assertEnsure(c *gc.C, isPrivateImageRepo bool) {
 
 	errChan := make(chan error)
 	go func() {
-		errChan <- ensureModelOperator(modelUUID, agentPath, m.clock, &config, bridge)
+		errChan <- ensureModelOperator(context.Background(), modelUUID, agentPath, m.clock, &config, bridge)
 	}()
 
 	select {

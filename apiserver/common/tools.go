@@ -344,7 +344,7 @@ func (f *toolsFinder) findMatchingAgents(ctx context.Context, args FindAgentsPar
 		majorVersion = args.MajorVersion
 		minorVersion = args.MinorVersion
 	}
-	simplestreamsList, err := envtoolsFindTools(ss,
+	simplestreamsList, err := envtoolsFindTools(ctx, ss,
 		env, majorVersion, minorVersion, streams, filter,
 	)
 	if len(storageList) == 0 && err != nil {

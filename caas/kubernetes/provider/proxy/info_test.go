@@ -40,57 +40,6 @@ func (i *infoSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (i *infoSuite) TestHasControllerProxyFalse(c *gc.C) {
-	has, err := proxy.HasControllerProxy("test",
-		i.client.CoreV1().ConfigMaps(testNamespace),
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(has, jc.IsFalse)
-}
-
-func (i *infoSuite) TestHasControllerProxy(c *gc.C) {
-	config := proxy.ControllerProxyConfig{
-		Name:          "controller-proxy",
-		Namespace:     testNamespace,
-		RemotePort:    "17707",
-		TargetService: "controller-service",
-	}
-
-	// fake k8s client does not populate the token for secret, so we have to do it manually.
-	_, err := i.client.CoreV1().Secrets(testNamespace).Create(context.Background(), &core.Secret{
-		ObjectMeta: meta.ObjectMeta{
-			Labels: labels.Set{},
-			Name:   config.Name,
-			Annotations: map[string]string{
-				core.ServiceAccountNameKey: config.Name,
-			},
-		},
-		Type: core.SecretTypeServiceAccountToken,
-		Data: map[string][]byte{
-			core.ServiceAccountTokenKey: []byte("token"),
-		},
-	}, meta.CreateOptions{})
-	c.Assert(err, jc.ErrorIsNil)
-	err = proxy.CreateControllerProxy(
-		context.Background(),
-		config,
-		labels.Set{},
-		i.clock,
-		i.client.CoreV1().ConfigMaps(testNamespace),
-		i.client.RbacV1().Roles(testNamespace),
-		i.client.RbacV1().RoleBindings(testNamespace),
-		i.client.CoreV1().ServiceAccounts(testNamespace),
-		i.client.CoreV1().Secrets(testNamespace),
-	)
-	c.Assert(err, jc.ErrorIsNil)
-
-	has, err := proxy.HasControllerProxy(config.Name,
-		i.client.CoreV1().ConfigMaps(testNamespace),
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(has, jc.IsTrue)
-}
-
 func (i *infoSuite) TestGetControllerProxier(c *gc.C) {
 	config := proxy.ControllerProxyConfig{
 		Name:          "controller-proxy",
@@ -128,6 +77,7 @@ func (i *infoSuite) TestGetControllerProxier(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = proxy.GetControllerProxy(
+		context.Background(),
 		config.Name,
 		"https://localhost:8123",
 		i.client.CoreV1().ConfigMaps(testNamespace),

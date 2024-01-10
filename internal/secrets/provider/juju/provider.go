@@ -4,6 +4,8 @@
 package juju
 
 import (
+	"context"
+
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/internal/secrets/provider"
@@ -39,7 +41,7 @@ func (p jujuProvider) CleanupModel(*provider.ModelBackendConfig) error {
 }
 
 // CleanupSecrets is not used.
-func (p jujuProvider) CleanupSecrets(cfg *provider.ModelBackendConfig, tag names.Tag, removed provider.SecretRevisions) error {
+func (p jujuProvider) CleanupSecrets(ctx context.Context, cfg *provider.ModelBackendConfig, tag names.Tag, removed provider.SecretRevisions) error {
 	return nil
 }
 
@@ -52,7 +54,7 @@ func BuiltInConfig() provider.BackendConfig {
 // secrets backend client restricted to manage the specified
 // owned secrets and read shared secrets for the given entity tag.
 func (p jujuProvider) RestrictedConfig(
-	adminCfg *provider.ModelBackendConfig, forDrain bool, tag names.Tag, owned provider.SecretRevisions, read provider.SecretRevisions,
+	ctx context.Context, adminCfg *provider.ModelBackendConfig, forDrain bool, tag names.Tag, owned provider.SecretRevisions, read provider.SecretRevisions,
 ) (*provider.BackendConfig, error) {
 	return &provider.BackendConfig{
 		BackendType: BackendType,

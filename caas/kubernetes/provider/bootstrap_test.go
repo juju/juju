@@ -10,7 +10,6 @@ import (
 
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/clock/testclock"
-	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3/workertest"
@@ -37,7 +36,6 @@ import (
 	"github.com/juju/juju/controller"
 	k8sannotations "github.com/juju/juju/core/annotations"
 	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/environs/cmd"
 	"github.com/juju/juju/environs/config"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/internal/cloudconfig/podcfg"
@@ -182,7 +180,7 @@ func (s *bootstrapSuite) TestFindControllerNamespace(c *gc.C) {
 		)
 		c.Assert(err, jc.ErrorIsNil)
 		ns, err := provider.FindControllerNamespace(
-			client, test.ControllerUUID)
+			context.Background(), client, test.ControllerUUID)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(ns, jc.DeepEquals, &test.Namespace)
 	}
@@ -1123,7 +1121,7 @@ exec /opt/pebble run --http :38811 --verbose
 	statefulsetChanges := statefulsetWatcher.ResultChan()
 
 	go func() {
-		errChan <- controllerStacker.Deploy()
+		errChan <- controllerStacker.Deploy(context.Background())
 	}()
 	go func(clk *testclock.Clock) {
 		for {
@@ -1164,7 +1162,7 @@ exec /opt/pebble run --http :38811 --verbose
 				pp, err := s.mockPods.Create(context.Background(), p, v1.CreateOptions{})
 				c.Assert(err, jc.ErrorIsNil)
 
-				_, err = s.broker.GetPod(podName)
+				_, err = s.broker.GetPod(context.Background(), podName)
 				c.Assert(err, jc.ErrorIsNil)
 				podFirer()
 				pp.Status.Phase = core.PodRunning
@@ -1251,8 +1249,6 @@ func (s *bootstrapSuite) TestBootstrapFailedTimeout(c *gc.C) {
 
 	controllerStacker := s.controllerStackerGetter()
 	mockStdCtx := mocks.NewMockContext(ctrl)
-	ctx := cmd.BootstrapContext(mockStdCtx, cmdtesting.Context(c))
-	controllerStacker.SetContext(ctx)
 
 	ns := &core.Namespace{
 		ObjectMeta: v1.ObjectMeta{
@@ -1276,7 +1272,7 @@ func (s *bootstrapSuite) TestBootstrapFailedTimeout(c *gc.C) {
 
 	errChan := make(chan error)
 	go func() {
-		errChan <- controllerStacker.Deploy()
+		errChan <- controllerStacker.Deploy(mockStdCtx)
 	}()
 
 	select {

@@ -4,6 +4,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/cmd/v3"
@@ -134,7 +135,7 @@ func (c *generateAgentsCommand) Run(context *cmd.Context) error {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		toolsList, err = envtools.FindToolsForCloud(ss, makeDataSources(ss, source), simplestreams.CloudSpec{}, []string{c.stream}, -1, -1, coretools.Filter{})
+		toolsList, err = envtools.FindToolsForCloud(context, ss, makeDataSources(ss, source), simplestreams.CloudSpec{}, []string{c.stream}, -1, -1, coretools.Filter{})
 	}
 	if err != nil {
 		return errors.Trace(err)
@@ -148,7 +149,7 @@ func (c *generateAgentsCommand) Run(context *cmd.Context) error {
 	if c.public {
 		writeMirrors = envtools.WriteMirrors
 	}
-	return errors.Trace(mergeAndWriteMetadata(ss, targetStorage, c.stream, c.stream, c.clean, toolsList, writeMirrors))
+	return errors.Trace(mergeAndWriteMetadata(context, ss, targetStorage, c.stream, c.stream, c.clean, toolsList, writeMirrors))
 }
 
 func makeDataSources(ss *simplestreams.Simplestreams, urls ...string) []simplestreams.DataSource {
@@ -170,10 +171,10 @@ func makeDataSources(ss *simplestreams.Simplestreams, urls ...string) []simplest
 // This is essentially the same as tools.MergeAndWriteMetadata, but also
 // resolves metadata for existing agents by fetching them and computing
 // size/sha256 locally.
-func mergeAndWriteMetadata(ss envtools.SimplestreamsFetcher,
+func mergeAndWriteMetadata(ctx context.Context, ss envtools.SimplestreamsFetcher,
 	stor storage.Storage, toolsDir, stream string, clean bool, toolsList coretools.List, writeMirrors envtools.ShouldWriteMirrors,
 ) error {
-	existing, err := envtools.ReadAllMetadata(ss, stor)
+	existing, err := envtools.ReadAllMetadata(ctx, ss, stor)
 	if err != nil {
 		return err
 	}

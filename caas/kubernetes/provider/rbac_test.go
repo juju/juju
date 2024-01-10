@@ -4,6 +4,8 @@
 package provider_test
 
 import (
+	"context"
+
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
@@ -95,7 +97,7 @@ func (s *rbacSuite) TestEnsureSecretAccessTokenCreate(c *gc.C) {
 		),
 	)
 
-	token, err := s.broker.EnsureSecretAccessToken(tag, nil, nil, nil)
+	token, err := s.broker.EnsureSecretAccessToken(context.Background(), tag, nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(token, gc.Equals, "token")
 }
@@ -181,7 +183,7 @@ func (s *rbacSuite) TestEnsureSecretAccessTokenControllerModelCreate(c *gc.C) {
 		),
 	)
 
-	token, err := s.broker.EnsureSecretAccessToken(tag, nil, nil, nil)
+	token, err := s.broker.EnsureSecretAccessToken(context.Background(), tag, nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(token, gc.Equals, "token")
 }
@@ -258,7 +260,7 @@ func (s *rbacSuite) TestEnsureSecretAccessTokeUpdate(c *gc.C) {
 		),
 	)
 
-	token, err := s.broker.EnsureSecretAccessToken(tag, nil, nil, nil)
+	token, err := s.broker.EnsureSecretAccessToken(context.Background(), tag, nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(token, gc.Equals, "token")
 }
@@ -335,7 +337,7 @@ func (s *rbacSuite) TestEnsureSecretAccessTokeControllerModelUpdate(c *gc.C) {
 		),
 	)
 
-	token, err := s.broker.EnsureSecretAccessToken(tag, nil, nil, nil)
+	token, err := s.broker.EnsureSecretAccessToken(context.Background(), tag, nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(token, gc.Equals, "token")
 }

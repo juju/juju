@@ -408,7 +408,7 @@ func updateState(appName string, app caas.Application, lastReportedStatus map[st
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			err = broker.AnnotateUnit(appName, unitInfo.ProviderId, unit)
+			err = broker.AnnotateUnit(context.TODO(), appName, unitInfo.ProviderId, unit)
 			if errors.Is(err, errors.NotFound) {
 				continue
 			} else if err != nil {

@@ -56,6 +56,7 @@ func newK8sClientSet(config *clientcmdapi.Config, contextName string) (*kubernet
 }
 
 func ensureJujuAdminServiceAccount(
+	ctx context.Context,
 	clientset kubernetes.Interface,
 	UID string,
 	config *clientcmdapi.Config,
@@ -82,7 +83,7 @@ func ensureJujuAdminServiceAccount(
 	}
 
 	// Create admin cluster role.
-	clusterRole, crCleanUps, err := getOrCreateClusterRole(objMeta, clientset.RbacV1().ClusterRoles())
+	clusterRole, crCleanUps, err := getOrCreateClusterRole(ctx, objMeta, clientset.RbacV1().ClusterRoles())
 	cleanUps = append(cleanUps, crCleanUps...)
 	if err != nil {
 		return nil, errors.Annotatef(
@@ -90,7 +91,7 @@ func ensureJujuAdminServiceAccount(
 	}
 
 	// Create juju admin service account.
-	sa, saCleanUps, err := getOrCreateServiceAccount(objMeta, clientset.CoreV1().ServiceAccounts(adminNameSpace))
+	sa, saCleanUps, err := getOrCreateServiceAccount(ctx, objMeta, clientset.CoreV1().ServiceAccounts(adminNameSpace))
 	cleanUps = append(cleanUps, saCleanUps...)
 	if err != nil {
 		return nil, errors.Annotatef(
@@ -98,14 +99,14 @@ func ensureJujuAdminServiceAccount(
 	}
 
 	// Create role binding for juju admin service account with admin cluster role.
-	_, rbCleanUps, err := getOrCreateClusterRoleBinding(objMeta, sa, clusterRole, clientset.RbacV1().ClusterRoleBindings())
+	_, rbCleanUps, err := getOrCreateClusterRoleBinding(ctx, objMeta, sa, clusterRole, clientset.RbacV1().ClusterRoleBindings())
 	cleanUps = append(cleanUps, rbCleanUps...)
 	if err != nil {
 		return nil, errors.Annotatef(err, "ensuring cluster role binding %q", name)
 	}
 
 	secret, err := proxy.EnsureSecretForServiceAccount(
-		sa.GetName(), objMeta, clock,
+		ctx, sa.GetName(), objMeta, clock,
 		clientset.CoreV1().Secrets(adminNameSpace),
 		clientset.CoreV1().ServiceAccounts(adminNameSpace),
 	)
@@ -116,16 +117,16 @@ func ensureJujuAdminServiceAccount(
 }
 
 // RemoveCredentialRBACResources removes all RBAC resources for specific caas credential UID.
-func RemoveCredentialRBACResources(config *rest.Config, UID string) error {
+func RemoveCredentialRBACResources(ctx context.Context, config *rest.Config, UID string) error {
 	// TODO(caas): call this in destroy/kill-controller with UID == "microk8s".
 	clientset, err := kubernetes.NewForConfig(config)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return removeJujuAdminServiceAccount(clientset, UID)
+	return removeJujuAdminServiceAccount(ctx, clientset, UID)
 }
 
-func removeJujuAdminServiceAccount(clientset kubernetes.Interface, UID string) error {
+func removeJujuAdminServiceAccount(ctx context.Context, clientset kubernetes.Interface, UID string) error {
 	labels := getRBACLabels(UID)
 	for _, api := range []rbacDeleter{
 		// Order matters.
@@ -133,7 +134,7 @@ func removeJujuAdminServiceAccount(clientset kubernetes.Interface, UID string) e
 		clientset.RbacV1().ClusterRoles(),
 		clientset.CoreV1().ServiceAccounts(adminNameSpace),
 	} {
-		if err := deleteRBACResource(api, labels); err != nil {
+		if err := deleteRBACResource(ctx, api, labels); err != nil {
 			logger.Warningf("deleting rbac resources: %v", err)
 		}
 	}
@@ -144,9 +145,9 @@ type rbacDeleter interface {
 	DeleteCollection(context.Context, metav1.DeleteOptions, metav1.ListOptions) error
 }
 
-func deleteRBACResource(api rbacDeleter, labels map[string]string) error {
+func deleteRBACResource(ctx context.Context, api rbacDeleter, labels map[string]string) error {
 	propagationPolicy := metav1.DeletePropagationForeground
-	err := api.DeleteCollection(context.TODO(), metav1.DeleteOptions{
+	err := api.DeleteCollection(ctx, metav1.DeleteOptions{
 		PropagationPolicy: &propagationPolicy,
 	}, metav1.ListOptions{
 		LabelSelector: k8slabels.SelectorFromValidatedSet(labels).String(),
@@ -158,17 +159,18 @@ func deleteRBACResource(api rbacDeleter, labels map[string]string) error {
 }
 
 func getOrCreateClusterRole(
+	ctx context.Context,
 	objMeta metav1.ObjectMeta,
 	api rbacv1.ClusterRoleInterface,
 ) (cr *rbac.ClusterRole, cleanUps cleanUpFuncs, err error) {
 
-	cr, err = api.Get(context.TODO(), objMeta.GetName(), metav1.GetOptions{})
+	cr, err = api.Get(ctx, objMeta.GetName(), metav1.GetOptions{})
 	if !k8serrors.IsNotFound(err) {
 		return cr, cleanUps, errors.Trace(err)
 	}
 	// This cluster role will be granted extra privileges which requires proper
 	// permissions setup for the credential in kubeconfig file.
-	cr, err = api.Create(context.TODO(), &rbac.ClusterRole{
+	cr, err = api.Create(ctx, &rbac.ClusterRole{
 		ObjectMeta: objMeta,
 		Rules: []rbac.PolicyRule{
 			{
@@ -189,20 +191,21 @@ func getOrCreateClusterRole(
 	if err != nil {
 		return nil, cleanUps, errors.Trace(err)
 	}
-	cleanUps = append(cleanUps, func() { _ = deleteRBACResource(api, objMeta.GetLabels()) })
+	cleanUps = append(cleanUps, func() { _ = deleteRBACResource(ctx, api, objMeta.GetLabels()) })
 	return cr, cleanUps, nil
 }
 
 func getOrCreateServiceAccount(
+	ctx context.Context,
 	objMeta metav1.ObjectMeta,
 	api corev1.ServiceAccountInterface,
 ) (sa *core.ServiceAccount, cleanUps cleanUpFuncs, err error) {
-	sa, err = getServiceAccount(objMeta.GetName(), api)
+	sa, err = getServiceAccount(ctx, objMeta.GetName(), api)
 	if !errors.Is(err, errors.NotFound) {
 		return sa, cleanUps, errors.Trace(err)
 	}
 
-	_, err = api.Create(context.TODO(), &core.ServiceAccount{ObjectMeta: objMeta}, metav1.CreateOptions{})
+	_, err = api.Create(ctx, &core.ServiceAccount{ObjectMeta: objMeta}, metav1.CreateOptions{})
 	if k8serrors.IsAlreadyExists(err) {
 		// This should not happen.
 		return nil, cleanUps, errors.AlreadyExistsf("service account %q", objMeta.GetName())
@@ -210,17 +213,17 @@ func getOrCreateServiceAccount(
 	if err != nil {
 		return nil, cleanUps, errors.Trace(err)
 	}
-	cleanUps = append(cleanUps, func() { _ = deleteRBACResource(api, objMeta.GetLabels()) })
+	cleanUps = append(cleanUps, func() { _ = deleteRBACResource(ctx, api, objMeta.GetLabels()) })
 
-	sa, err = getServiceAccount(objMeta.GetName(), api)
+	sa, err = getServiceAccount(ctx, objMeta.GetName(), api)
 	if err != nil {
 		return nil, cleanUps, errors.Trace(err)
 	}
 	return sa, cleanUps, nil
 }
 
-func getServiceAccount(name string, client corev1.ServiceAccountInterface) (*core.ServiceAccount, error) {
-	sa, err := client.Get(context.TODO(), name, metav1.GetOptions{})
+func getServiceAccount(ctx context.Context, name string, client corev1.ServiceAccountInterface) (*core.ServiceAccount, error) {
+	sa, err := client.Get(ctx, name, metav1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
 		return nil, errors.NotFoundf("service account %q", name)
 	}
@@ -228,17 +231,18 @@ func getServiceAccount(name string, client corev1.ServiceAccountInterface) (*cor
 }
 
 func getOrCreateClusterRoleBinding(
+	ctx context.Context,
 	objMeta metav1.ObjectMeta,
 	sa *core.ServiceAccount,
 	cr *rbac.ClusterRole,
 	api rbacv1.ClusterRoleBindingInterface,
 ) (rb *rbac.ClusterRoleBinding, cleanUps cleanUpFuncs, err error) {
-	rb, err = api.Get(context.TODO(), objMeta.GetName(), metav1.GetOptions{})
+	rb, err = api.Get(ctx, objMeta.GetName(), metav1.GetOptions{})
 	if !k8serrors.IsNotFound(err) {
 		return rb, cleanUps, errors.Trace(err)
 	}
 
-	rb, err = api.Create(context.TODO(), &rbac.ClusterRoleBinding{
+	rb, err = api.Create(ctx, &rbac.ClusterRoleBinding{
 		ObjectMeta: objMeta,
 		RoleRef: rbac.RoleRef{
 			Kind: "ClusterRole",
@@ -259,7 +263,7 @@ func getOrCreateClusterRoleBinding(
 	if err != nil {
 		return nil, cleanUps, errors.Trace(err)
 	}
-	cleanUps = append(cleanUps, func() { _ = deleteRBACResource(api, objMeta.GetLabels()) })
+	cleanUps = append(cleanUps, func() { _ = deleteRBACResource(ctx, api, objMeta.GetLabels()) })
 	return rb, cleanUps, nil
 }
 

@@ -111,7 +111,7 @@ var _ environs.Networking = (*maasEnviron)(nil)
 // the capabilities of a MAAS installation.
 type Capabilities = func(client *gomaasapi.MAASObject, serverURL string) (set.Strings, error)
 
-func NewEnviron(cloud environscloudspec.CloudSpec, cfg *config.Config, getCaps Capabilities) (*maasEnviron, error) {
+func NewEnviron(ctx stdcontext.Context, cloud environscloudspec.CloudSpec, cfg *config.Config, getCaps Capabilities) (*maasEnviron, error) {
 	if getCaps == nil {
 		getCaps = getCapabilities
 	}
@@ -125,7 +125,7 @@ func NewEnviron(cloud environscloudspec.CloudSpec, cfg *config.Config, getCaps C
 	if err := env.SetConfig(cfg); err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err := env.SetCloudSpec(stdcontext.TODO(), cloud); err != nil {
+	if err := env.SetCloudSpec(ctx, cloud); err != nil {
 		return nil, errors.Trace(err)
 	}
 

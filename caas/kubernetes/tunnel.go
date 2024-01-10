@@ -65,10 +65,10 @@ func (t *Tunnel) Close() {
 
 // findSuitablePodForService when tunneling to a kubernetes service we need to
 // introspection.
-func (t *Tunnel) findSuitablePodForService() (*corev1.Pod, error) {
+func (t *Tunnel) findSuitablePodForService(ctx context.Context) (*corev1.Pod, error) {
 	clientSet := kubernetes.New(t.client)
 	service, err := clientSet.CoreV1().Services(t.Namespace).
-		Get(context.TODO(), t.Target, meta.GetOptions{})
+		Get(ctx, t.Target, meta.GetOptions{})
 	if k8serrors.IsNotFound(err) {
 		return nil, errors.NewNotFound(err, "can't find service "+t.Target)
 	} else if err != nil {
@@ -76,7 +76,7 @@ func (t *Tunnel) findSuitablePodForService() (*corev1.Pod, error) {
 	}
 
 	pods, err := clientSet.CoreV1().Pods(t.Namespace).
-		List(context.TODO(), meta.ListOptions{
+		List(ctx, meta.ListOptions{
 			LabelSelector: labels.SelectorFromSet(service.Spec.Selector).String(),
 		})
 
@@ -94,7 +94,7 @@ func (t *Tunnel) findSuitablePodForService() (*corev1.Pod, error) {
 	return &pods.Items[rand.Intn(podCount-1)], nil
 }
 
-func (t *Tunnel) ForwardPort() error {
+func (t *Tunnel) ForwardPort(ctx context.Context) error {
 	if !t.IsValidTunnelKind() {
 		return fmt.Errorf("invalid tunnel kind %s", t.Kind)
 	}
@@ -105,7 +105,7 @@ func (t *Tunnel) ForwardPort() error {
 	podName := t.Target
 
 	if t.Kind == TunnelKindServices {
-		pod, err := t.findSuitablePodForService()
+		pod, err := t.findSuitablePodForService(ctx)
 		if err != nil {
 			return errors.Trace(err)
 		}

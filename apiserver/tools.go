@@ -242,7 +242,7 @@ func (h *toolsDownloadHandler) fetchAndCacheTools(
 	}
 
 	ss := simplestreams.NewSimpleStreams(simplestreams.DefaultDataSourceFactory())
-	exactTools, err := envtools.FindExactTools(ss, env, v.Number, v.Release, v.Arch)
+	exactTools, err := envtools.FindExactTools(ctx, ss, env, v.Number, v.Release, v.Arch)
 	if err != nil {
 		return err
 	}

@@ -4,6 +4,7 @@
 package exec
 
 import (
+	"context"
 	"os"
 
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -17,8 +18,8 @@ var (
 	RandomString                 = &randomString
 )
 
-func (ep *ExecParams) Validate(podGetter typedcorev1.PodInterface) error {
-	return ep.validate(podGetter)
+func (ep *ExecParams) Validate(ctx context.Context, podGetter typedcorev1.PodInterface) error {
+	return ep.validate(ctx, podGetter)
 }
 
 func (fr *FileResource) Validate() error {

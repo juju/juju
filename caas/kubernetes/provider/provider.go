@@ -37,31 +37,31 @@ import (
 // ClusterMetadataStorageChecker provides functionalities for checking k8s cluster storage and pods details.
 type ClusterMetadataStorageChecker interface {
 	k8s.ClusterMetadataChecker
-	ListStorageClasses(selector k8slabels.Selector) ([]storagev1.StorageClass, error)
-	ListPods(namespace string, selector k8slabels.Selector) ([]corev1.Pod, error)
+	ListStorageClasses(ctx stdcontext.Context, selector k8slabels.Selector) ([]storagev1.StorageClass, error)
+	ListPods(ctx stdcontext.Context, namespace string, selector k8slabels.Selector) ([]corev1.Pod, error)
 }
 
 type kubernetesEnvironProvider struct {
 	environProviderCredentials
 	cmdRunner          CommandRunner
 	builtinCloudGetter func(CommandRunner) (cloud.Cloud, error)
-	brokerGetter       func(environs.OpenParams) (ClusterMetadataStorageChecker, error)
+	brokerGetter       func(stdcontext.Context, environs.OpenParams) (ClusterMetadataStorageChecker, error)
 }
 
 var _ environs.EnvironProvider = (*kubernetesEnvironProvider)(nil)
 var providerInstance = kubernetesEnvironProvider{
 	environProviderCredentials: environProviderCredentials{
 		cmdRunner: defaultRunner{},
-		builtinCredentialGetter: func(cmdRunner CommandRunner) (cloud.Credential, error) {
-			return attemptMicroK8sCredential(cmdRunner, decideKubeConfigDir)
+		builtinCredentialGetter: func(ctx stdcontext.Context, cmdRunner CommandRunner) (cloud.Credential, error) {
+			return attemptMicroK8sCredential(ctx, cmdRunner, decideKubeConfigDir)
 		},
 	},
 	cmdRunner: defaultRunner{},
 	builtinCloudGetter: func(cmdRunner CommandRunner) (cloud.Cloud, error) {
 		return attemptMicroK8sCloud(cmdRunner, decideKubeConfigDir)
 	},
-	brokerGetter: func(args environs.OpenParams) (ClusterMetadataStorageChecker, error) {
-		broker, err := caas.New(stdcontext.TODO(), args)
+	brokerGetter: func(ctx stdcontext.Context, args environs.OpenParams) (ClusterMetadataStorageChecker, error) {
+		broker, err := caas.New(ctx, args)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -160,7 +160,7 @@ func newRestClient(cfg *rest.Config) (rest.Interface, error) {
 }
 
 // Open is part of the ContainerEnvironProvider interface.
-func (p kubernetesEnvironProvider) Open(args environs.OpenParams) (caas.Broker, error) {
+func (p kubernetesEnvironProvider) Open(ctx stdcontext.Context, args environs.OpenParams) (caas.Broker, error) {
 	logger.Debugf("opening model %q.", args.Config.Name())
 	if err := p.validateCloudSpec(args.Cloud); err != nil {
 		return nil, errors.Annotate(err, "validating cloud spec")
@@ -172,7 +172,7 @@ func (p kubernetesEnvironProvider) Open(args environs.OpenParams) (caas.Broker, 
 
 	if args.Config.Name() != environsbootstrap.ControllerModelName {
 		broker, err := newK8sBroker(
-			args.ControllerUUID, k8sRestConfig, args.Config, args.Config.Name(), NewK8sClients, newRestClient,
+			ctx, args.ControllerUUID, k8sRestConfig, args.Config, args.Config.Name(), NewK8sClients, newRestClient,
 			k8swatcher.NewKubernetesNotifyWatcher, k8swatcher.NewKubernetesStringsWatcher, utils.RandomPrefix,
 			jujuclock.WallClock)
 		if err != nil {
@@ -186,11 +186,11 @@ func (p kubernetesEnvironProvider) Open(args environs.OpenParams) (caas.Broker, 
 		return nil, errors.Trace(err)
 	}
 
-	ns, err := findControllerNamespace(k8sClient, args.ControllerUUID)
+	ns, err := findControllerNamespace(ctx, k8sClient, args.ControllerUUID)
 	if errors.Is(err, errors.NotFound) {
 		// The controller is currently bootstrapping.
 		return newK8sBroker(
-			args.ControllerUUID, k8sRestConfig, args.Config, "",
+			ctx, args.ControllerUUID, k8sRestConfig, args.Config, "",
 			NewK8sClients, newRestClient, k8swatcher.NewKubernetesNotifyWatcher, k8swatcher.NewKubernetesStringsWatcher,
 			utils.RandomPrefix, jujuclock.WallClock)
 	} else if err != nil {
@@ -198,7 +198,7 @@ func (p kubernetesEnvironProvider) Open(args environs.OpenParams) (caas.Broker, 
 	}
 
 	return newK8sBroker(
-		args.ControllerUUID, k8sRestConfig, args.Config, ns.Name,
+		ctx, args.ControllerUUID, k8sRestConfig, args.Config, ns.Name,
 		NewK8sClients, newRestClient, k8swatcher.NewKubernetesNotifyWatcher, k8swatcher.NewKubernetesStringsWatcher,
 		utils.RandomPrefix, jujuclock.WallClock)
 }

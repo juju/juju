@@ -5,6 +5,7 @@ package caasadmission
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 
 	"github.com/juju/errors"
@@ -19,11 +20,11 @@ import (
 // AdmissionCreator represents a creator of mutating webhooks that is context aware of the
 // current controller.
 type AdmissionCreator interface {
-	EnsureMutatingWebhookConfiguration() (func(), error)
+	EnsureMutatingWebhookConfiguration(context.Context) (func(), error)
 }
 
 // AdmissionCreatorFunc is the func type of AdmissionCreator.
-type AdmissionCreatorFunc func() (func(), error)
+type AdmissionCreatorFunc func(context.Context) (func(), error)
 
 const (
 	// Component describes a sub zone to use on the juju tld for unique resource
@@ -41,8 +42,8 @@ var (
 
 // EnsureMutatingWebhookConfiguration implements AdmissionCreator interface for
 // func type.
-func (a AdmissionCreatorFunc) EnsureMutatingWebhookConfiguration() (func(), error) {
-	return a()
+func (a AdmissionCreatorFunc) EnsureMutatingWebhookConfiguration(ctx context.Context) (func(), error) {
+	return a(ctx)
 }
 
 // NewAdmissionCreator instantiates a new AdmissionCreator for the supplied
@@ -51,7 +52,7 @@ func NewAdmissionCreator(
 	authority pki.Authority,
 	namespace, modelName string,
 	legacyLabels bool,
-	ensureConfig func(*admission.MutatingWebhookConfiguration) (func(), error),
+	ensureConfig func(context.Context, *admission.MutatingWebhookConfiguration) (func(), error),
 	service *admission.ServiceReference) (AdmissionCreator, error) {
 
 	caPemBuffer := bytes.Buffer{}
@@ -113,7 +114,7 @@ func NewAdmissionCreator(
 		},
 	}
 
-	return AdmissionCreatorFunc(func() (func(), error) {
+	return AdmissionCreatorFunc(func(ctx context.Context) (func(), error) {
 		leafGroup := fmt.Sprintf("k8sadmission-%s", modelName)
 		_, err := authority.LeafRequestForGroup(leafGroup).
 			AddDNSNames(fmt.Sprintf("%s.%s.svc", service.Name, service.Namespace)).
@@ -122,7 +123,7 @@ func NewAdmissionCreator(
 			return nil, errors.Trace(err)
 		}
 
-		configCleanup, err := ensureConfig(&obj)
+		configCleanup, err := ensureConfig(ctx, &obj)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

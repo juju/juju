@@ -10,6 +10,7 @@
 package mocks
 
 import (
+	context "context"
 	reflect "reflect"
 
 	exec "github.com/juju/juju/caas/kubernetes/provider/exec"
@@ -41,31 +42,31 @@ func (m *MockExecutor) EXPECT() *MockExecutorMockRecorder {
 }
 
 // Copy mocks base method.
-func (m *MockExecutor) Copy(arg0 exec.CopyParams, arg1 <-chan struct{}) error {
+func (m *MockExecutor) Copy(arg0 context.Context, arg1 exec.CopyParams, arg2 <-chan struct{}) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Copy", arg0, arg1)
+	ret := m.ctrl.Call(m, "Copy", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Copy indicates an expected call of Copy.
-func (mr *MockExecutorMockRecorder) Copy(arg0, arg1 any) *gomock.Call {
+func (mr *MockExecutorMockRecorder) Copy(arg0, arg1, arg2 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Copy", reflect.TypeOf((*MockExecutor)(nil).Copy), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Copy", reflect.TypeOf((*MockExecutor)(nil).Copy), arg0, arg1, arg2)
 }
 
 // Exec mocks base method.
-func (m *MockExecutor) Exec(arg0 exec.ExecParams, arg1 <-chan struct{}) error {
+func (m *MockExecutor) Exec(arg0 context.Context, arg1 exec.ExecParams, arg2 <-chan struct{}) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Exec", arg0, arg1)
+	ret := m.ctrl.Call(m, "Exec", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Exec indicates an expected call of Exec.
-func (mr *MockExecutorMockRecorder) Exec(arg0, arg1 any) *gomock.Call {
+func (mr *MockExecutorMockRecorder) Exec(arg0, arg1, arg2 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Exec", reflect.TypeOf((*MockExecutor)(nil).Exec), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Exec", reflect.TypeOf((*MockExecutor)(nil).Exec), arg0, arg1, arg2)
 }
 
 // NameSpace mocks base method.
@@ -97,16 +98,16 @@ func (mr *MockExecutorMockRecorder) RawClient() *gomock.Call {
 }
 
 // Status mocks base method.
-func (m *MockExecutor) Status(arg0 exec.StatusParams) (*exec.Status, error) {
+func (m *MockExecutor) Status(arg0 context.Context, arg1 exec.StatusParams) (*exec.Status, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Status", arg0)
+	ret := m.ctrl.Call(m, "Status", arg0, arg1)
 	ret0, _ := ret[0].(*exec.Status)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Status indicates an expected call of Status.
-func (mr *MockExecutorMockRecorder) Status(arg0 any) *gomock.Call {
+func (mr *MockExecutorMockRecorder) Status(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Status", reflect.TypeOf((*MockExecutor)(nil).Status), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Status", reflect.TypeOf((*MockExecutor)(nil).Status), arg0, arg1)
 }

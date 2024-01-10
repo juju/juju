@@ -342,7 +342,7 @@ func (s *findToolsSuite) TestFindToolsMatchMajor(c *gc.C) {
 			Version: version.MustParseBinary("123.456.1-windows-alpha"),
 		},
 	}
-	s.PatchValue(common.EnvtoolsFindTools, func(_ envtools.SimplestreamsFetcher, e environs.BootstrapEnviron, major, minor int, streams []string, filter coretools.Filter) (coretools.List, error) {
+	s.PatchValue(common.EnvtoolsFindTools, func(_ context.Context, _ envtools.SimplestreamsFetcher, e environs.BootstrapEnviron, major, minor int, streams []string, filter coretools.Filter) (coretools.List, error) {
 		c.Assert(major, gc.Equals, 123)
 		c.Assert(minor, gc.Equals, 456)
 		c.Assert(streams, gc.DeepEquals, []string{"released"})
@@ -404,7 +404,7 @@ func (s *findToolsSuite) TestFindToolsRequestAgentStream(c *gc.C) {
 			Version: version.MustParseBinary("123.456.1-windows-alpha"),
 		},
 	}
-	s.PatchValue(common.EnvtoolsFindTools, func(_ envtools.SimplestreamsFetcher, e environs.BootstrapEnviron, major, minor int, streams []string, filter coretools.Filter) (coretools.List, error) {
+	s.PatchValue(common.EnvtoolsFindTools, func(_ context.Context, _ envtools.SimplestreamsFetcher, e environs.BootstrapEnviron, major, minor int, streams []string, filter coretools.Filter) (coretools.List, error) {
 		c.Assert(major, gc.Equals, 123)
 		c.Assert(minor, gc.Equals, 456)
 		c.Assert(streams, gc.DeepEquals, []string{"pretend"})
@@ -451,7 +451,7 @@ func (s *findToolsSuite) TestFindToolsRequestAgentStream(c *gc.C) {
 func (s *findToolsSuite) TestFindToolsNotFound(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	s.PatchValue(common.EnvtoolsFindTools, func(_ envtools.SimplestreamsFetcher, e environs.BootstrapEnviron, major, minor int, stream []string, filter coretools.Filter) (list coretools.List, err error) {
+	s.PatchValue(common.EnvtoolsFindTools, func(_ context.Context, _ envtools.SimplestreamsFetcher, e environs.BootstrapEnviron, major, minor int, stream []string, filter coretools.Filter) (list coretools.List, err error) {
 		return nil, errors.NotFoundf("tools")
 	})
 
@@ -503,7 +503,7 @@ func (s *findToolsSuite) TestFindToolsExactNotInStorage(c *gc.C) {
 func (s *findToolsSuite) testFindToolsExact(c *gc.C, inStorage bool, develVersion bool) {
 	var called bool
 	current := coretesting.CurrentVersion()
-	s.PatchValue(common.EnvtoolsFindTools, func(_ envtools.SimplestreamsFetcher, e environs.BootstrapEnviron, major, minor int, stream []string, filter coretools.Filter) (list coretools.List, err error) {
+	s.PatchValue(common.EnvtoolsFindTools, func(_ context.Context, _ envtools.SimplestreamsFetcher, e environs.BootstrapEnviron, major, minor int, stream []string, filter coretools.Filter) (list coretools.List, err error) {
 		called = true
 		c.Assert(filter.Number, gc.Equals, jujuversion.Current)
 		c.Assert(filter.OSType, gc.Equals, current.Release)
@@ -538,7 +538,7 @@ func (s *findToolsSuite) TestFindToolsToolsStorageError(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	var called bool
-	s.PatchValue(common.EnvtoolsFindTools, func(_ envtools.SimplestreamsFetcher, e environs.BootstrapEnviron, major, minor int, stream []string, filter coretools.Filter) (list coretools.List, err error) {
+	s.PatchValue(common.EnvtoolsFindTools, func(_ context.Context, _ envtools.SimplestreamsFetcher, e environs.BootstrapEnviron, major, minor int, stream []string, filter coretools.Filter) (list coretools.List, err error) {
 		called = true
 		return nil, errors.NotFoundf("tools")
 	})

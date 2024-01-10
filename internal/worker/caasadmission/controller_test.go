@@ -4,6 +4,7 @@
 package caasadmission_test
 
 import (
+	"context"
 	"net/http"
 	"sync"
 
@@ -60,7 +61,7 @@ func (s *ControllerSuite) TestControllerStartup(c *gc.C) {
 		},
 	}
 	creator := &dummyAdmissionCreator{
-		EnsureMutatingWebhookConfigurationFunc: func() (func(), error) {
+		EnsureMutatingWebhookConfigurationFunc: func(_ context.Context) (func(), error) {
 			waitGroup.Done()
 			return func() { waitGroup.Done() }, nil
 		},
@@ -118,7 +119,7 @@ func (s *ControllerSuite) TestControllerStartupAdmissionError(c *gc.C) {
 	waitGroup.Add(1)
 	mux := &dummyMux{}
 	creator := &dummyAdmissionCreator{
-		EnsureMutatingWebhookConfigurationFunc: func() (func(), error) {
+		EnsureMutatingWebhookConfigurationFunc: func(_ context.Context) (func(), error) {
 			waitGroup.Done()
 			return func() {}, errors.NewNotValid(nil, "not valid")
 		},

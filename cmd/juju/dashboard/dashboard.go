@@ -152,7 +152,7 @@ func (c *dashboardCommand) Run(ctx *cmd.Context) error {
 			return errors.Annotatef(err, "unsupported proxy type %q for dashboard", res.Proxier.Type())
 		}
 
-		runner = tunnelProxyRunner(tunnelProxy)
+		runner = tunnelProxyRunner(ctx, tunnelProxy)
 	} else if res.SSHTunnel != nil {
 		runner = tunnelSSHRunner(*res.SSHTunnel, c.port, c.embeddedSSHCmd)
 	} else {
@@ -249,9 +249,9 @@ func tunnelSSHRunner(
 	}
 }
 
-func tunnelProxyRunner(p proxy.TunnelProxier) connectionRunner {
+func tunnelProxyRunner(ctx context.Context, p proxy.TunnelProxier) connectionRunner {
 	return func(ctx context.Context, callBack urlCallBack) error {
-		if err := p.Start(); err != nil {
+		if err := p.Start(ctx); err != nil {
 			return errors.Annotate(err, "starting tunnel proxy")
 		}
 		defer p.Stop()

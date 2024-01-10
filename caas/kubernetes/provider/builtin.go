@@ -5,6 +5,7 @@ package provider
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -45,7 +46,7 @@ func attemptMicroK8sCloud(cmdRunner CommandRunner, getKubeConfigDir func() (stri
 	return k8sCloud, err
 }
 
-func attemptMicroK8sCredential(cmdRunner CommandRunner, getKubeConfigDir func() (string, error)) (jujucloud.Credential, error) {
+func attemptMicroK8sCredential(ctx context.Context, cmdRunner CommandRunner, getKubeConfigDir func() (string, error)) (jujucloud.Credential, error) {
 	microk8sConfig, err := getLocalMicroK8sConfig(cmdRunner, getKubeConfigDir)
 	if err != nil {
 		return jujucloud.Credential{}, err
@@ -62,7 +63,7 @@ func attemptMicroK8sCredential(cmdRunner CommandRunner, getKubeConfigDir func() 
 	}
 
 	context := k8sConfig.Contexts[contextName]
-	resolver := clientconfig.GetJujuAdminServiceAccountResolver(jujuclock.WallClock)
+	resolver := clientconfig.GetJujuAdminServiceAccountResolver(ctx, jujuclock.WallClock)
 	conf, err := resolver(k8s.K8sCloudMicrok8s, k8sConfig, contextName)
 	if err != nil {
 		return jujucloud.Credential{}, errors.Annotate(err, "resolving microk8s credentials")

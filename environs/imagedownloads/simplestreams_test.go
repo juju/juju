@@ -4,6 +4,7 @@
 package imagedownloads_test
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -80,7 +81,7 @@ func (*Suite) TestFetchManyDefaultFilter(c *gc.C) {
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	got, resolveInfo, err := Fetch(ss, tds, constraints, nil)
+	got, resolveInfo, err := Fetch(context.Background(), ss, tds, constraints, nil)
 	c.Check(resolveInfo.Signed, jc.IsTrue)
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(len(got), jc.DeepEquals, 27)
@@ -107,7 +108,7 @@ func (*Suite) TestFetchManyDefaultFilterAndCustomImageDownloadURL(c *gc.C) {
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	got, resolveInfo, err := Fetch(ss, tds, constraints, nil)
+	got, resolveInfo, err := Fetch(context.Background(), ss, tds, constraints, nil)
 	c.Check(resolveInfo.Signed, jc.IsTrue)
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(len(got), jc.DeepEquals, 27)
@@ -134,7 +135,7 @@ func (*Suite) TestFetchSingleDefaultFilter(c *gc.C) {
 			Arches:   []string{"ppc64el"},
 			Releases: []string{"16.04"},
 		}}
-	got, resolveInfo, err := Fetch(ss, tds, constraints, nil)
+	got, resolveInfo, err := Fetch(context.Background(), ss, tds, constraints, nil)
 	c.Check(resolveInfo.Signed, jc.IsTrue)
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(len(got), jc.DeepEquals, 8)
@@ -157,7 +158,7 @@ func (*Suite) TestFetchOneWithFilter(c *gc.C) {
 			Arches:   []string{"ppc64el"},
 			Releases: []string{"16.04"},
 		}}
-	got, resolveInfo, err := Fetch(ss, tds, constraints, Filter("disk1.img"))
+	got, resolveInfo, err := Fetch(context.Background(), ss, tds, constraints, Filter("disk1.img"))
 	c.Check(resolveInfo.Signed, jc.IsTrue)
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(len(got), jc.DeepEquals, 1)
@@ -184,7 +185,7 @@ func (*Suite) TestFetchManyWithFilter(c *gc.C) {
 			Arches:   []string{"amd64", "arm64", "ppc64el"},
 			Releases: []string{"16.04"},
 		}}
-	got, resolveInfo, err := Fetch(ss, tds, constraints, Filter("disk1.img"))
+	got, resolveInfo, err := Fetch(context.Background(), ss, tds, constraints, Filter("disk1.img"))
 	c.Check(resolveInfo.Signed, jc.IsTrue)
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(len(got), jc.DeepEquals, 3)
@@ -206,7 +207,7 @@ func (*Suite) TestOneAmd64XenialTarGz(c *gc.C) {
 	ss := simplestreams.NewSimpleStreams(streamstesting.TestDataSourceFactory())
 	ts := httptest.NewServer(&sstreamsHandler{})
 	defer ts.Close()
-	got, err := One(ss, "amd64", "16.04", "", "tar.gz", newTestDataSourceFunc(ts.URL))
+	got, err := One(context.Background(), ss, "amd64", "16.04", "", "tar.gz", newTestDataSourceFunc(ts.URL))
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(got, jc.DeepEquals, &Metadata{
 		Arch:    "amd64",
@@ -223,7 +224,7 @@ func (*Suite) TestOneArm64JammyImg(c *gc.C) {
 	ss := simplestreams.NewSimpleStreams(streamstesting.TestDataSourceFactory())
 	ts := httptest.NewServer(&sstreamsHandler{})
 	defer ts.Close()
-	got, err := One(ss, "arm64", "22.04", "released", "disk1.img", newTestDataSourceFunc(ts.URL))
+	got, err := One(context.Background(), ss, "arm64", "22.04", "released", "disk1.img", newTestDataSourceFunc(ts.URL))
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(got, jc.DeepEquals, &Metadata{
 		Arch:    "arm64",
@@ -240,7 +241,7 @@ func (*Suite) TestOneArm64FocalImg(c *gc.C) {
 	ss := simplestreams.NewSimpleStreams(streamstesting.TestDataSourceFactory())
 	ts := httptest.NewServer(&sstreamsHandler{})
 	defer ts.Close()
-	got, err := One(ss, "arm64", "20.04", "released", "disk1.img", newTestDataSourceFunc(ts.URL))
+	got, err := One(context.Background(), ss, "arm64", "20.04", "released", "disk1.img", newTestDataSourceFunc(ts.URL))
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(got, jc.DeepEquals, &Metadata{
 		Arch:    "arm64",
@@ -271,7 +272,7 @@ func (*Suite) TestOneErrors(c *gc.C) {
 	defer ts.Close()
 	for i, test := range table {
 		c.Logf("test % 1d: %s\n", i+1, test.description)
-		_, err := One(ss, test.arch, test.version, test.stream, test.ftype, newTestDataSourceFunc(ts.URL))
+		_, err := One(context.Background(), ss, test.arch, test.version, test.stream, test.ftype, newTestDataSourceFunc(ts.URL))
 		c.Check(err, gc.ErrorMatches, test.errorMatch)
 	}
 }

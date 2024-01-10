@@ -111,7 +111,7 @@ func PrimeTools(c *gc.C, stor storage.Storage, dataDir, toolsDir string, vers ve
 	agentTools, err := uploadFakeToolsVersion(stor, toolsDir, vers)
 	c.Assert(err, jc.ErrorIsNil)
 	client := http.NewClient()
-	resp, err := client.Get(context.TODO(), agentTools.URL)
+	resp, err := client.Get(context.Background(), agentTools.URL)
 	c.Assert(err, jc.ErrorIsNil)
 	defer resp.Body.Close()
 	err = agenttools.UnpackTools(dataDir, agentTools, resp.Body)
@@ -174,7 +174,7 @@ func UploadFakeToolsVersions(store storage.Storage, toolsDir, stream string, ver
 		}
 	}
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
-	if err := envtools.MergeAndWriteMetadata(ss, store, toolsDir, stream, agentTools, envtools.DoNotWriteMirrors); err != nil {
+	if err := envtools.MergeAndWriteMetadata(context.Background(), ss, store, toolsDir, stream, agentTools, envtools.DoNotWriteMirrors); err != nil {
 		return nil, err
 	}
 	err := SignTestTools(store)

@@ -170,7 +170,7 @@ type fakeK8sClusterMetadataChecker struct {
 	existingSC bool
 }
 
-func (api *fakeK8sClusterMetadataChecker) GetClusterMetadata(storageClass string) (result *k8s.ClusterMetadata, err error) {
+func (api *fakeK8sClusterMetadataChecker) GetClusterMetadata(ctx context.Context, storageClass string) (result *k8s.ClusterMetadata, err error) {
 	results := api.MethodCall(api, "GetClusterMetadata")
 	return results[0].(*k8s.ClusterMetadata), jujutesting.TypeAssertError(results[1])
 }
@@ -374,7 +374,7 @@ func (s *addCAASSuite) makeCommand(c *gc.C, cloudTypeExists, emptyClientConfig, 
 		func() (caas.AddCloudAPI, error) {
 			return s.fakeCloudAPI, nil
 		},
-		func(_ jujuclock.Clock) clientconfig.K8sCredentialResolver {
+		func(_ context.Context, _ jujuclock.Clock) clientconfig.K8sCredentialResolver {
 			return func(_ string, c *clientcmdapi.Config, _ string) (*clientcmdapi.Config, error) {
 				return c, nil
 			}

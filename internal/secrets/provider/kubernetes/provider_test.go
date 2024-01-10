@@ -44,7 +44,7 @@ func (s *providerSuite) assertRestrictedConfigWithTag(c *gc.C, isControllerCloud
 	s.PatchEnvironment("KUBERNETES_SERVICE_PORT", "8888")
 
 	broker.EXPECT().EnsureSecretAccessToken(
-		tag, []string{"owned-rev-1"}, []string{"read-rev-1", "read-rev-2"}, nil,
+		gomock.Any(), tag, []string{"owned-rev-1"}, []string{"read-rev-1", "read-rev-2"}, nil,
 	).Return("token", nil)
 
 	p, err := provider.Provider(kubernetes.BackendType)
@@ -64,7 +64,7 @@ func (s *providerSuite) assertRestrictedConfigWithTag(c *gc.C, isControllerCloud
 		},
 	}
 
-	backendCfg, err := p.RestrictedConfig(adminCfg, false, tag,
+	backendCfg, err := p.RestrictedConfig(context.Background(), adminCfg, false, tag,
 		provider.SecretRevisions{"owned-a": set.NewStrings("owned-rev-1")},
 		provider.SecretRevisions{"read-b": set.NewStrings("read-rev-1", "read-rev-2")},
 	)
@@ -121,11 +121,11 @@ func (s *providerSuite) TestCleanupSecrets(c *gc.C) {
 
 	gomock.InOrder(
 		broker.EXPECT().EnsureSecretAccessToken(
-			tag, nil, nil, []string{"rev-1", "rev-2"},
+			gomock.Any(), tag, nil, nil, []string{"rev-1", "rev-2"},
 		).Return("token", nil),
 	)
 
-	err = p.CleanupSecrets(adminCfg, tag, provider.SecretRevisions{"removed": set.NewStrings("rev-1", "rev-2")})
+	err = p.CleanupSecrets(context.Background(), adminCfg, tag, provider.SecretRevisions{"removed": set.NewStrings("rev-1", "rev-2")})
 	c.Assert(err, jc.ErrorIsNil)
 }
 

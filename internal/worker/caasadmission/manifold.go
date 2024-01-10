@@ -4,6 +4,8 @@
 package caasadmission
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
@@ -31,7 +33,7 @@ type K8sBroker interface {
 	// cleanup function that will destroy the webhook configuration from k8s
 	// when called and a subsequent error if there was a problem. If error is
 	// not nil then no other return values should be considered valid.
-	EnsureMutatingWebhookConfiguration(*admission.MutatingWebhookConfiguration) (func(), error)
+	EnsureMutatingWebhookConfiguration(context.Context, *admission.MutatingWebhookConfiguration) (func(), error)
 
 	// IsLegacyLabels reports if the k8s broker requires legacy labels to be
 	// used for the broker model/namespace

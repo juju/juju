@@ -92,7 +92,7 @@ type mockBroker struct {
 	testing.Stub
 }
 
-func (m *mockBroker) Upgrade(app string, vers version.Number) error {
+func (m *mockBroker) Upgrade(_ context.Context, app string, vers version.Number) error {
 	m.AddCall("Upgrade", app, vers)
 	return nil
 }

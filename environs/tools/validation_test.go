@@ -4,6 +4,7 @@
 package tools
 
 import (
+	"context"
 	"path"
 
 	jc "github.com/juju/testing/checkers"
@@ -68,7 +69,7 @@ func (s *ValidateSuite) TestExactVersionMatch(c *gc.C) {
 		},
 	}
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
-	versions, resolveInfo, err := ValidateToolsMetadata(ss, params)
+	versions, resolveInfo, err := ValidateToolsMetadata(context.Background(), ss, params)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(versions, gc.DeepEquals, []string{"1.11.2-ubuntu-amd64"})
 	c.Check(resolveInfo, gc.DeepEquals, &simplestreams.ResolveInfo{
@@ -94,7 +95,7 @@ func (s *ValidateSuite) TestMajorVersionMatch(c *gc.C) {
 		},
 	}
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
-	versions, resolveInfo, err := ValidateToolsMetadata(ss, params)
+	versions, resolveInfo, err := ValidateToolsMetadata(context.Background(), ss, params)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(versions, gc.DeepEquals, []string{"1.11.2-ubuntu-amd64"})
 	c.Check(resolveInfo, gc.DeepEquals, &simplestreams.ResolveInfo{
@@ -119,7 +120,7 @@ func (s *ValidateSuite) TestMajorMinorVersionMatch(c *gc.C) {
 			Sources:       []simplestreams.DataSource{s.dataSource}},
 	}
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
-	versions, resolveInfo, err := ValidateToolsMetadata(ss, params)
+	versions, resolveInfo, err := ValidateToolsMetadata(context.Background(), ss, params)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(versions, gc.DeepEquals, []string{"1.11.2-ubuntu-amd64"})
 	c.Check(resolveInfo, gc.DeepEquals, &simplestreams.ResolveInfo{
@@ -143,7 +144,7 @@ func (s *ValidateSuite) TestNoMatch(c *gc.C) {
 			Sources:       []simplestreams.DataSource{s.dataSource}},
 	}
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
-	_, _, err := ValidateToolsMetadata(ss, params)
+	_, _, err := ValidateToolsMetadata(context.Background(), ss, params)
 	c.Assert(err, gc.Not(gc.IsNil))
 }
 
@@ -160,6 +161,6 @@ func (s *ValidateSuite) TestStreamsNoMatch(c *gc.C) {
 			Sources:       []simplestreams.DataSource{s.dataSource}},
 	}
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
-	_, _, err := ValidateToolsMetadata(ss, params)
+	_, _, err := ValidateToolsMetadata(context.Background(), ss, params)
 	c.Assert(err, gc.Not(gc.IsNil))
 }

@@ -6,6 +6,7 @@ package testing
 // Provides a TestDataSuite which creates and provides http access to sample simplestreams metadata.
 
 import (
+	stdcontext "context"
 	"fmt"
 	"io"
 	"net/http"
@@ -732,6 +733,7 @@ func (s *LocalLiveSimplestreamsSuite) GetIndexRef(format string) (*simplestreams
 	}
 	ss := simplestreams.NewSimpleStreams(TestDataSourceFactory())
 	return ss.GetIndexWithFormat(
+		stdcontext.Background(),
 		s.Source, s.IndexPath(),
 		format,
 		simplestreams.MirrorsPath(s.StreamsVersion),
@@ -781,7 +783,7 @@ func (s *LocalLiveSimplestreamsSuite) TestGetProductsPathInvalidProductSpec(c *g
 func (s *LocalLiveSimplestreamsSuite) AssertGetMetadata(c *gc.C) *simplestreams.CloudMetadata {
 	indexRef, err := s.GetIndexRef(Index_v1)
 	c.Assert(err, jc.ErrorIsNil)
-	metadata, err := indexRef.GetCloudMetadataWithFormat(s.ValidConstraint, Product_v1, s.RequireSigned)
+	metadata, err := indexRef.GetCloudMetadataWithFormat(stdcontext.Background(), s.ValidConstraint, Product_v1, s.RequireSigned)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(metadata.Format, gc.Equals, Product_v1)
 	c.Assert(len(metadata.Products) > 0, jc.IsTrue)

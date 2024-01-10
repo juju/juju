@@ -139,7 +139,7 @@ func getDefaultControllerServiceSpecs(cloudType string) *controllerServiceSpec {
 }
 
 type controllerStack struct {
-	ctx environs.BootstrapContext
+	logger environs.BootstrapLogger
 
 	stackName        string
 	selectorLabels   map[string]string
@@ -171,7 +171,7 @@ type controllerStack struct {
 
 type controllerStacker interface {
 	// Deploy creates all resources for controller stack.
-	Deploy() error
+	Deploy(ctx context.Context) error
 }
 
 // findControllerNamespace is used for finding a controller's namespace based on
@@ -179,6 +179,7 @@ type controllerStacker interface {
 // and should be removed in 3.0. We have it here as we are still trying to use
 // Kubernetes annotations as database selectors in some parts of Juju.
 func findControllerNamespace(
+	ctx context.Context,
 	client kubernetes.Interface,
 	controllerUUID string,
 ) (*core.Namespace, error) {
@@ -186,7 +187,7 @@ func findControllerNamespace(
 	// legacy labels as that is the direction we are moving towards and hence
 	// should be the quickest operation
 	namespaces, err := client.CoreV1().Namespaces().List(
-		context.TODO(),
+		ctx,
 		metav1.ListOptions{
 			LabelSelector: labels.Set{
 				constants.LabelJujuModelName: environsbootstrap.ControllerModelName,
@@ -206,7 +207,7 @@ func findControllerNamespace(
 
 	// We didn't find anything using new labels so lets try the old ones.
 	namespaces, err = client.CoreV1().Namespaces().List(
-		context.TODO(),
+		ctx,
 		metav1.ListOptions{
 			LabelSelector: labels.Set{
 				constants.LegacyLabelModelName: environsbootstrap.ControllerModelName,
@@ -236,8 +237,8 @@ func DecideControllerNamespace(controllerName string) string {
 	return "controller-" + controllerName
 }
 
-func newcontrollerStack(
-	ctx environs.BootstrapContext,
+func newControllerStack(
+	logger environs.BootstrapLogger,
 	stackName string,
 	storageClass string,
 	broker *kubernetesClient,
@@ -286,7 +287,7 @@ func newcontrollerStack(
 
 	controllerUUIDKey := providerutils.AnnotationControllerUUIDKey(false)
 	cs := &controllerStack{
-		ctx:              ctx,
+		logger:           logger,
 		stackName:        stackName,
 		selectorLabels:   selectorLabels,
 		stackLabels:      labels,
@@ -359,19 +360,19 @@ func (c *controllerStack) pathJoin(elem ...string) string {
 	return strings.Join(elem, pathSeparator)
 }
 
-func (c *controllerStack) getControllerSecret() (secret *core.Secret, err error) {
+func (c *controllerStack) getControllerSecret(ctx context.Context) (secret *core.Secret, err error) {
 	defer func() {
 		if err == nil && secret != nil && secret.Data == nil {
 			secret.Data = map[string][]byte{}
 		}
 	}()
 
-	secret, err = c.broker.getSecret(c.resourceNameSecret)
+	secret, err = c.broker.getSecret(ctx, c.resourceNameSecret)
 	if err == nil {
 		return secret, nil
 	}
 	if errors.Is(err, errors.NotFound) {
-		_, err = c.broker.createSecret(&core.Secret{
+		_, err = c.broker.createSecret(ctx, &core.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:        c.resourceNameSecret,
 				Labels:      c.stackLabels,
@@ -384,22 +385,22 @@ func (c *controllerStack) getControllerSecret() (secret *core.Secret, err error)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return c.broker.getSecret(c.resourceNameSecret)
+	return c.broker.getSecret(ctx, c.resourceNameSecret)
 }
 
-func (c *controllerStack) getControllerConfigMap() (cm *core.ConfigMap, err error) {
+func (c *controllerStack) getControllerConfigMap(ctx context.Context) (cm *core.ConfigMap, err error) {
 	defer func() {
 		if cm != nil && cm.Data == nil {
 			cm.Data = map[string]string{}
 		}
 	}()
 
-	cm, err = c.broker.getConfigMap(c.resourceNameConfigMap)
+	cm, err = c.broker.getConfigMap(ctx, c.resourceNameConfigMap)
 	if err == nil {
 		return cm, nil
 	}
 	if errors.Is(err, errors.NotFound) {
-		_, err = c.broker.createConfigMap(&core.ConfigMap{
+		_, err = c.broker.createConfigMap(ctx, &core.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:        c.resourceNameConfigMap,
 				Labels:      c.stackLabels,
@@ -411,7 +412,7 @@ func (c *controllerStack) getControllerConfigMap() (cm *core.ConfigMap, err erro
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return c.broker.getConfigMap(c.resourceNameConfigMap)
+	return c.broker.getConfigMap(ctx, c.resourceNameConfigMap)
 }
 
 func (c *controllerStack) doCleanUp() {
@@ -422,15 +423,15 @@ func (c *controllerStack) doCleanUp() {
 }
 
 // Deploy creates all resources for the controller stack.
-func (c *controllerStack) Deploy() (err error) {
+func (c *controllerStack) Deploy(ctx context.Context) (err error) {
 	// creating namespace for controller stack, this namespace will be removed by broker.DestroyController if bootstrap failed.
 	nsName := c.broker.GetCurrentNamespace()
-	c.ctx.Infof("Creating k8s resources for controller %q", nsName)
-	if err = c.broker.createNamespace(nsName); err != nil {
+	c.logger.Infof("Creating k8s resources for controller %q", nsName)
+	if err = c.broker.createNamespace(ctx, nsName); err != nil {
 		return errors.Annotate(err, "creating namespace for controller stack")
 	}
 
-	if environsbootstrap.IsContextDone(c.ctx.Context()) {
+	if environsbootstrap.IsContextDone(ctx) {
 		return environsbootstrap.Cancelled()
 	}
 
@@ -441,60 +442,60 @@ func (c *controllerStack) Deploy() (err error) {
 	}()
 
 	// create service for controller pod.
-	if err = c.createControllerService(c.ctx.Context()); err != nil {
+	if err = c.createControllerService(ctx); err != nil {
 		return errors.Annotate(err, "creating service for controller")
 	}
-	if environsbootstrap.IsContextDone(c.ctx.Context()) {
+	if environsbootstrap.IsContextDone(ctx) {
 		return environsbootstrap.Cancelled()
 	}
 
 	// create the proxy resources for services of type cluster ip
-	if err = c.createControllerProxy(c.ctx.Context()); err != nil {
+	if err = c.createControllerProxy(ctx); err != nil {
 		return errors.Annotate(err, "creating controller service proxy for controller")
 	}
 
 	// create shared-secret secret for controller pod.
-	if err = c.createControllerSecretSharedSecret(); err != nil {
+	if err = c.createControllerSecretSharedSecret(ctx); err != nil {
 		return errors.Annotate(err, "creating shared-secret secret for controller")
 	}
-	if environsbootstrap.IsContextDone(c.ctx.Context()) {
+	if environsbootstrap.IsContextDone(ctx) {
 		return environsbootstrap.Cancelled()
 	}
 
 	// create server.pem secret for controller pod.
-	if err = c.createControllerSecretServerPem(); err != nil {
+	if err = c.createControllerSecretServerPem(ctx); err != nil {
 		return errors.Annotate(err, "creating server.pem secret for controller")
 	}
-	if environsbootstrap.IsContextDone(c.ctx.Context()) {
+	if environsbootstrap.IsContextDone(ctx) {
 		return environsbootstrap.Cancelled()
 	}
 
 	// create bootstrap-params configmap for controller pod.
-	if err = c.ensureControllerConfigmapBootstrapParams(); err != nil {
+	if err = c.ensureControllerConfigmapBootstrapParams(ctx); err != nil {
 		return errors.Annotate(err, "creating bootstrap-params configmap for controller")
 	}
-	if environsbootstrap.IsContextDone(c.ctx.Context()) {
+	if environsbootstrap.IsContextDone(ctx) {
 		return environsbootstrap.Cancelled()
 	}
 
 	// Note: create agent config configmap for controller pod lastly because agentConfig has been updated in previous steps.
-	if err = c.ensureControllerConfigmapAgentConf(); err != nil {
+	if err = c.ensureControllerConfigmapAgentConf(ctx); err != nil {
 		return errors.Annotate(err, "creating agent config configmap for controller")
 	}
-	if environsbootstrap.IsContextDone(c.ctx.Context()) {
+	if environsbootstrap.IsContextDone(ctx) {
 		return environsbootstrap.Cancelled()
 	}
 
-	if err = c.ensureControllerApplicationSecret(); err != nil {
+	if err = c.ensureControllerApplicationSecret(ctx); err != nil {
 		return errors.Annotate(err, "creating secret for controller application")
 	}
-	if environsbootstrap.IsContextDone(c.ctx.Context()) {
+	if environsbootstrap.IsContextDone(ctx) {
 		return environsbootstrap.Cancelled()
 	}
 
 	// create service account for local cluster/provider connections.
 	saName, saCleanUps, err := ensureControllerServiceAccount(
-		c.ctx.Context(),
+		ctx,
 		c.broker.client(),
 		c.broker.GetCurrentNamespace(),
 		c.stackLabels,
@@ -509,22 +510,22 @@ func (c *controllerStack) Deploy() (err error) {
 	if err != nil {
 		return errors.Annotate(err, "creating service account for controller")
 	}
-	if environsbootstrap.IsContextDone(c.ctx.Context()) {
+	if environsbootstrap.IsContextDone(ctx) {
 		return environsbootstrap.Cancelled()
 	}
 
-	if err = c.patchServiceAccountForImagePullSecret(saName); err != nil {
+	if err = c.patchServiceAccountForImagePullSecret(ctx, saName); err != nil {
 		return errors.Annotate(err, "patching image pull secret for controller service account")
 	}
-	if environsbootstrap.IsContextDone(c.ctx.Context()) {
+	if environsbootstrap.IsContextDone(ctx) {
 		return environsbootstrap.Cancelled()
 	}
 
 	// create statefulset to ensure controller stack.
-	if err = c.createControllerStatefulset(); err != nil {
+	if err = c.createControllerStatefulset(ctx); err != nil {
 		return errors.Annotate(err, "creating statefulset for controller")
 	}
-	if environsbootstrap.IsContextDone(c.ctx.Context()) {
+	if environsbootstrap.IsContextDone(ctx) {
 		return environsbootstrap.Cancelled()
 	}
 
@@ -649,18 +650,18 @@ func (c *controllerStack) createControllerService(ctx context.Context) error {
 	}
 
 	logger.Debugf("creating controller service: \n%+v", spec)
-	if _, err := c.broker.ensureK8sService(spec); err != nil {
+	if _, err := c.broker.ensureK8sService(ctx, spec); err != nil {
 		return errors.Trace(err)
 	}
 
 	c.addCleanUp(func() {
 		logger.Debugf("deleting %q", svcName)
-		_ = c.broker.deleteService(svcName)
+		_ = c.broker.deleteService(ctx, svcName)
 	})
 
 	publicAddressPoller := func() error {
 		// get the service by app name;
-		svc, err := c.broker.GetService(c.stackName, false)
+		svc, err := c.broker.GetService(ctx, c.stackName, false)
 		if err != nil {
 			return errors.Annotate(err, "getting controller service")
 		}
@@ -695,13 +696,13 @@ func (c *controllerStack) addCleanUp(cleanUp func()) {
 	c.cleanUps = append(c.cleanUps, cleanUp)
 }
 
-func (c *controllerStack) createControllerSecretSharedSecret() error {
+func (c *controllerStack) createControllerSecretSharedSecret(ctx context.Context) error {
 	si, ok := c.agentConfig.StateServingInfo()
 	if !ok {
 		return errors.NewNotValid(nil, "agent config has no state serving info")
 	}
 
-	secret, err := c.getControllerSecret()
+	secret, err := c.getControllerSecret(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -709,19 +710,19 @@ func (c *controllerStack) createControllerSecretSharedSecret() error {
 	logger.Tracef("ensuring shared secret: \n%+v", secret)
 	c.addCleanUp(func() {
 		logger.Debugf("deleting %q shared-secret", secret.Name)
-		_ = c.broker.deleteSecret(secret.GetName(), secret.GetUID())
+		_ = c.broker.deleteSecret(ctx, secret.GetName(), secret.GetUID())
 	})
-	return c.broker.updateSecret(secret)
+	return c.broker.updateSecret(ctx, secret)
 }
 
-func (c *controllerStack) createDockerSecret() (string, error) {
+func (c *controllerStack) createDockerSecret(ctx context.Context) (string, error) {
 	if len(c.dockerAuthSecretData) == 0 {
 		return "", errors.NotValidf("empty docker secret data")
 	}
 	name := c.resourceNamedockerSecret
 	logger.Debugf("ensuring docker secret %q", name)
 	cleanUp, err := c.broker.ensureOCIImageSecret(
-		name, c.stackLabels, c.dockerAuthSecretData, c.stackAnnotations,
+		ctx, name, c.stackLabels, c.dockerAuthSecretData, c.stackAnnotations,
 	)
 	c.addCleanUp(func() {
 		logger.Debugf("deleting %q", name)
@@ -733,15 +734,15 @@ func (c *controllerStack) createDockerSecret() (string, error) {
 	return name, nil
 }
 
-func (c *controllerStack) patchServiceAccountForImagePullSecret(saName string) error {
+func (c *controllerStack) patchServiceAccountForImagePullSecret(ctx context.Context, saName string) error {
 	if !c.isPrivateRepo() {
 		return nil
 	}
-	dockerSecretName, err := c.createDockerSecret()
+	dockerSecretName, err := c.createDockerSecret(ctx)
 	if err != nil {
 		return errors.Annotate(err, "creating docker secret for controller")
 	}
-	sa, err := c.broker.getServiceAccount(saName)
+	sa, err := c.broker.getServiceAccount(ctx, saName)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -749,18 +750,18 @@ func (c *controllerStack) patchServiceAccountForImagePullSecret(saName string) e
 		sa.ImagePullSecrets,
 		core.LocalObjectReference{Name: dockerSecretName},
 	)
-	_, err = c.broker.updateServiceAccount(sa)
+	_, err = c.broker.updateServiceAccount(ctx, sa)
 	return errors.Trace(err)
 }
 
-func (c *controllerStack) createControllerSecretServerPem() error {
+func (c *controllerStack) createControllerSecretServerPem(ctx context.Context) error {
 	si, ok := c.agentConfig.StateServingInfo()
 	if !ok || si.CAPrivateKey == "" {
 		// No certificate information exists yet, nothing to do.
 		return errors.NewNotValid(nil, "certificate is empty")
 	}
 
-	secret, err := c.getControllerSecret()
+	secret, err := c.getControllerSecret(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -769,19 +770,19 @@ func (c *controllerStack) createControllerSecretServerPem() error {
 	logger.Tracef("ensuring server.pem secret: \n%+v", secret)
 	c.addCleanUp(func() {
 		logger.Debugf("deleting %q server.pem", secret.Name)
-		_ = c.broker.deleteSecret(secret.GetName(), secret.GetUID())
+		_ = c.broker.deleteSecret(ctx, secret.GetName(), secret.GetUID())
 	})
-	return c.broker.updateSecret(secret)
+	return c.broker.updateSecret(ctx, secret)
 }
 
-func (c *controllerStack) ensureControllerConfigmapBootstrapParams() error {
+func (c *controllerStack) ensureControllerConfigmapBootstrapParams(ctx context.Context) error {
 	bootstrapParamsFileContent, err := c.pcfg.Bootstrap.StateInitializationParams.Marshal()
 	if err != nil {
 		return errors.Trace(err)
 	}
 	logger.Tracef("bootstrapParams file content: \n%s", string(bootstrapParamsFileContent))
 
-	cm, err := c.getControllerConfigMap()
+	cm, err := c.getControllerConfigMap(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -789,7 +790,7 @@ func (c *controllerStack) ensureControllerConfigmapBootstrapParams() error {
 
 	logger.Tracef("creating bootstrap-params configmap: \n%+v", cm)
 
-	cleanUp, err := c.broker.ensureConfigMap(cm)
+	cleanUp, err := c.broker.ensureConfigMap(ctx, cm)
 	c.addCleanUp(func() {
 		logger.Debugf("deleting %q bootstrap-params", cm.Name)
 		cleanUp()
@@ -797,7 +798,7 @@ func (c *controllerStack) ensureControllerConfigmapBootstrapParams() error {
 	return errors.Trace(err)
 }
 
-func (c *controllerStack) ensureControllerConfigmapAgentConf() error {
+func (c *controllerStack) ensureControllerConfigmapAgentConf(ctx context.Context) error {
 	agentConfigFileContent, err := c.agentConfig.Render()
 	if err != nil {
 		return errors.Trace(err)
@@ -810,7 +811,7 @@ func (c *controllerStack) ensureControllerConfigmapAgentConf() error {
 	}
 	logger.Tracef("controller unit agentConfig file content: \n%s", string(unitAgentConfigFileContent))
 
-	cm, err := c.getControllerConfigMap()
+	cm, err := c.getControllerConfigMap(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -818,7 +819,7 @@ func (c *controllerStack) ensureControllerConfigmapAgentConf() error {
 	cm.Data[constants.ControllerUnitAgentConfigFilename] = string(unitAgentConfigFileContent)
 
 	logger.Tracef("ensuring agent.conf configmap: \n%+v", cm)
-	cleanUp, err := c.broker.ensureConfigMap(cm)
+	cleanUp, err := c.broker.ensureConfigMap(ctx, cm)
 	c.addCleanUp(func() {
 		logger.Debugf("deleting %q template-agent.conf", cm.Name)
 		cleanUp()
@@ -826,7 +827,7 @@ func (c *controllerStack) ensureControllerConfigmapAgentConf() error {
 	return errors.Trace(err)
 }
 
-func (c *controllerStack) ensureControllerApplicationSecret() error {
+func (c *controllerStack) ensureControllerApplicationSecret(ctx context.Context) error {
 	controllerUnitPassword := c.unitAgentConfig.OldPassword()
 	apiInfo, ok := c.unitAgentConfig.APIInfo()
 	if ok {
@@ -845,7 +846,7 @@ func (c *controllerStack) ensureControllerApplicationSecret() error {
 			constants.EnvJujuK8sUnitPassword: []byte(controllerUnitPassword),
 		},
 	}
-	cleanUp, err := c.broker.ensureSecret(secret)
+	cleanUp, err := c.broker.ensureSecret(ctx, secret)
 	c.addCleanUp(func() {
 		logger.Debugf("deleting %q secret", c.appSecretName())
 		cleanUp()
@@ -874,7 +875,7 @@ func ensureControllerServiceAccount(
 		AutomountServiceAccountToken: boolPtr(true),
 	})
 
-	cleanUps, err := sa.Ensure(context.TODO(), client)
+	cleanUps, err := sa.Ensure(ctx, client)
 	if err != nil {
 		return sa.Name, cleanUps, errors.Trace(err)
 	}
@@ -904,7 +905,7 @@ func ensureControllerServiceAccount(
 	return sa.Name, cleanUps, errors.Trace(err)
 }
 
-func (c *controllerStack) createControllerStatefulset() error {
+func (c *controllerStack) createControllerStatefulset(ctx context.Context) error {
 	numberOfPods := int32(1) // TODO(caas): HA mode!
 	controllerStatefulSet := &apps.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
@@ -941,14 +942,14 @@ func (c *controllerStack) createControllerStatefulset() error {
 		return errors.Trace(err)
 	}
 	controllerStatefulSet.Spec.Template.Spec = *controllerSpec
-	if err := c.buildStorageSpecForController(controllerStatefulSet); err != nil {
+	if err := c.buildStorageSpecForController(ctx, controllerStatefulSet); err != nil {
 		return errors.Trace(err)
 	}
 
 	logger.Tracef("creating controller statefulset: \n%+v", controllerStatefulSet)
 	c.addCleanUp(func() {
 		logger.Debugf("deleting %q statefulset", controllerStatefulSet.Name)
-		_ = c.broker.deleteStatefulSet(controllerStatefulSet.Name)
+		_ = c.broker.deleteStatefulSet(ctx, controllerStatefulSet.Name)
 	})
 	w, err := c.broker.WatchUnits(c.stackName)
 	if err != nil {
@@ -956,20 +957,20 @@ func (c *controllerStack) createControllerStatefulset() error {
 	}
 	defer w.Kill()
 
-	if _, err = c.broker.createStatefulSet(controllerStatefulSet); err != nil {
+	if _, err = c.broker.createStatefulSet(ctx, controllerStatefulSet); err != nil {
 		return errors.Trace(err)
 	}
 
 	for i := int32(0); i < numberOfPods; i++ {
 		podName := c.pcfg.GetPodName() // TODO(caas): HA mode!
-		if err = c.waitForPod(w, podName); err != nil {
+		if err = c.waitForPod(ctx, w, podName); err != nil {
 			return errors.Trace(err)
 		}
 	}
 	return nil
 }
 
-func (c *controllerStack) waitForPod(podWatcher watcher.NotifyWatcher, podName string) error {
+func (c *controllerStack) waitForPod(ctx context.Context, podWatcher watcher.NotifyWatcher, podName string) error {
 	timeout := c.broker.clock.NewTimer(c.timeout)
 
 	podEventWatcher, err := c.broker.watchEvents(podName, "Pod")
@@ -980,7 +981,7 @@ func (c *controllerStack) waitForPod(podWatcher watcher.NotifyWatcher, podName s
 
 	printedMsg := set.NewStrings()
 	printPodEvents := func() error {
-		events, err := c.broker.getEvents(podName, "Pod")
+		events, err := c.broker.getEvents(ctx, podName, "Pod")
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -1003,7 +1004,7 @@ func (c *controllerStack) waitForPod(podWatcher watcher.NotifyWatcher, podName s
 				printedMsg.Add(evt.Message)
 				logger.Debugf(evt.Message)
 				if evt.Reason == PullingImage {
-					c.ctx.Infof(evt.Message)
+					c.logger.Infof(evt.Message)
 				}
 			}
 		}
@@ -1015,12 +1016,12 @@ func (c *controllerStack) waitForPod(podWatcher watcher.NotifyWatcher, podName s
 		// Volumes
 		for _, volume := range pod.Spec.Volumes {
 			if pvcSource := volume.PersistentVolumeClaim; pvcSource != nil {
-				pvc, err := c.broker.getPVC(pvcSource.ClaimName)
+				pvc, err := c.broker.getPVC(ctx, pvcSource.ClaimName)
 				if err != nil {
 					return errors.Annotatef(err, "failed to get pvc %s", pvcSource.ClaimName)
 				}
 				if pvc.Status.Phase == core.ClaimPending {
-					events, err := c.broker.getEvents(pvc.Name, "PersistentVolumeClaim")
+					events, err := c.broker.getEvents(ctx, pvc.Name, "PersistentVolumeClaim")
 					if err != nil {
 						return errors.Annotate(err, "failed to get pvc events")
 					}
@@ -1036,8 +1037,8 @@ func (c *controllerStack) waitForPod(podWatcher watcher.NotifyWatcher, podName s
 		return nil
 	}
 
-	pendingReason := func() error {
-		pod, err := c.broker.getPod(podName)
+	pendingReason := func(ctx context.Context) error {
+		pod, err := c.broker.getPod(ctx, podName)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -1059,12 +1060,12 @@ func (c *controllerStack) waitForPod(podWatcher watcher.NotifyWatcher, podName s
 		return nil
 	}
 
-	checkStatus := func(pod *core.Pod) (bool, error) {
+	checkStatus := func(ctx context.Context, pod *core.Pod) (bool, error) {
 		switch pod.Status.Phase {
 		case core.PodRunning:
 			return true, nil
 		case core.PodFailed:
-			return false, errors.Annotate(pendingReason(), "controller pod failed")
+			return false, errors.Annotate(pendingReason(ctx), "controller pod failed")
 		case core.PodSucceeded:
 			return false, errors.Errorf("controller pod terminated unexpectedly")
 		}
@@ -1076,7 +1077,7 @@ func (c *controllerStack) waitForPod(podWatcher watcher.NotifyWatcher, podName s
 		select {
 		case <-podWatcher.Changes():
 			_ = printPodEvents()
-			pod, err := c.broker.getPod(podName)
+			pod, err := c.broker.getPod(ctx, podName)
 			if errors.Is(err, errors.NotFound) {
 				logger.Debugf("pod %q is not provisioned yet", podName)
 				continue
@@ -1084,18 +1085,18 @@ func (c *controllerStack) waitForPod(podWatcher watcher.NotifyWatcher, podName s
 			if err != nil {
 				return errors.Annotate(err, "fetching pods' status for controller")
 			}
-			done, err := checkStatus(pod)
+			done, err := checkStatus(ctx, pod)
 			if err != nil {
 				return errors.Trace(err)
 			}
 			if done {
-				c.ctx.Infof("Starting controller pod")
+				c.logger.Infof("Starting controller pod")
 				return nil
 			}
 		case <-podEventWatcher.Changes():
 			_ = printPodEvents()
 		case <-timeout.Chan():
-			err := pendingReason()
+			err := pendingReason(ctx)
 			if err != nil {
 				return errors.Annotatef(err, "timed out waiting for controller pod")
 			}
@@ -1104,8 +1105,8 @@ func (c *controllerStack) waitForPod(podWatcher watcher.NotifyWatcher, podName s
 	}
 }
 
-func (c *controllerStack) buildStorageSpecForController(statefulset *apps.StatefulSet) error {
-	sc, err := c.broker.getStorageClass(c.storageClass)
+func (c *controllerStack) buildStorageSpecForController(ctx context.Context, statefulset *apps.StatefulSet) error {
+	sc, err := c.broker.getStorageClass(ctx, c.storageClass)
 	if err != nil {
 		return errors.Trace(err)
 	}

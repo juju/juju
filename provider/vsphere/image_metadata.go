@@ -4,6 +4,8 @@
 package vsphere
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/environs"
@@ -31,7 +33,7 @@ func init() {
 	simplestreams.RegisterStructTags(OvaFileMetadata{})
 }
 
-func findImageMetadata(env environs.Environ, arch string, series string) (*OvaFileMetadata, error) {
+func findImageMetadata(ctx context.Context, env environs.Environ, arch string, series string) (*OvaFileMetadata, error) {
 	vers, err := imagemetadata.ImageRelease(series)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -49,7 +51,7 @@ func findImageMetadata(env environs.Environ, arch string, series string) (*OvaFi
 		return nil, errors.Trace(err)
 	}
 
-	matchingImages, err := imageMetadataFetch(sources, ic)
+	matchingImages, err := imageMetadataFetch(ctx, sources, ic)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -60,7 +62,7 @@ func findImageMetadata(env environs.Environ, arch string, series string) (*OvaFi
 	return matchingImages[0], nil
 }
 
-func imageMetadataFetch(sources []simplestreams.DataSource, cons *imagemetadata.ImageConstraint) ([]*OvaFileMetadata, error) {
+func imageMetadataFetch(ctx context.Context, sources []simplestreams.DataSource, cons *imagemetadata.ImageConstraint) ([]*OvaFileMetadata, error) {
 	params := simplestreams.GetMetadataParams{
 		StreamsVersion:   imagemetadata.StreamsVersionV1,
 		LookupConstraint: cons,
@@ -71,7 +73,7 @@ func imageMetadataFetch(sources []simplestreams.DataSource, cons *imagemetadata.
 		},
 	}
 	ss := simplestreams.NewSimpleStreams(simplestreams.DefaultDataSourceFactory())
-	items, _, err := ss.GetMetadata(sources, params)
+	items, _, err := ss.GetMetadata(ctx, sources, params)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

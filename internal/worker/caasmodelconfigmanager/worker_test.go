@@ -4,6 +4,7 @@
 package caasmodelconfigmanager_test
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -175,7 +176,7 @@ func (s *workerSuite) TestWorkerTokenRefreshRequired(c *gc.C) {
 			})
 			return o
 		}),
-		s.broker.EXPECT().EnsureImageRepoSecret(gomock.Any()).DoAndReturn(func(i docker.ImageRepoDetails) error {
+		s.broker.EXPECT().EnsureImageRepoSecret(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, i docker.ImageRepoDetails) error {
 			c.Check(i, gc.DeepEquals, s.CAASImageRepo(c))
 			return nil
 		}),
@@ -183,7 +184,7 @@ func (s *workerSuite) TestWorkerTokenRefreshRequired(c *gc.C) {
 		s.reg.EXPECT().ShouldRefreshAuth().Return(true, time.Duration(0)),
 		s.reg.EXPECT().RefreshAuth().Return(nil),
 		s.reg.EXPECT().ImageRepoDetails().Return(refreshed),
-		s.broker.EXPECT().EnsureImageRepoSecret(gomock.Any()).DoAndReturn(func(i docker.ImageRepoDetails) error {
+		s.broker.EXPECT().EnsureImageRepoSecret(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, i docker.ImageRepoDetails) error {
 			c.Check(i, gc.DeepEquals, refreshed)
 			close(done)
 			return nil
@@ -238,7 +239,7 @@ func (s *workerSuite) TestWorkerTokenRefreshNotRequiredThenRetry(c *gc.C) {
 			})
 			return o
 		}),
-		s.broker.EXPECT().EnsureImageRepoSecret(gomock.Any()).DoAndReturn(func(i docker.ImageRepoDetails) error {
+		s.broker.EXPECT().EnsureImageRepoSecret(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, i docker.ImageRepoDetails) error {
 			c.Check(i, gc.DeepEquals, s.CAASImageRepo(c))
 			return nil
 		}),
@@ -252,7 +253,7 @@ func (s *workerSuite) TestWorkerTokenRefreshNotRequiredThenRetry(c *gc.C) {
 		}),
 		s.reg.EXPECT().RefreshAuth().Return(nil),
 		s.reg.EXPECT().ImageRepoDetails().Return(s.CAASImageRepo(c)),
-		s.broker.EXPECT().EnsureImageRepoSecret(gomock.Any()).DoAndReturn(func(i docker.ImageRepoDetails) error {
+		s.broker.EXPECT().EnsureImageRepoSecret(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, i docker.ImageRepoDetails) error {
 			c.Check(i, gc.DeepEquals, s.CAASImageRepo(c))
 			close(done)
 			return nil

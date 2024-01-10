@@ -5,19 +5,23 @@ package cmd
 
 import (
 	"context"
+	"os"
 
 	"github.com/juju/cmd/v3"
 
 	"github.com/juju/juju/environs"
 )
 
-// Define a type alias so we can embed *cmd.Context and have a Context() method.
-type cmdContext = cmd.Context
+type interruptable interface {
+	InterruptNotify(c chan<- os.Signal)
+	StopInterruptNotify(c chan<- os.Signal)
+}
 
 type bootstrapContext struct {
-	*cmdContext
+	context.Context
+	environs.BootstrapLogger
+	interruptable
 	verifyCredentials bool
-	ctx               context.Context
 }
 
 // ShouldVerifyCredentials implements BootstrapContext.ShouldVerifyCredentials
@@ -25,17 +29,13 @@ func (c *bootstrapContext) ShouldVerifyCredentials() bool {
 	return c.verifyCredentials
 }
 
-// Context returns this bootstrap's context.Context value.
-func (c *bootstrapContext) Context() context.Context {
-	return c.ctx
-}
-
 // BootstrapContext returns a new BootstrapContext constructed from a command Context.
 func BootstrapContext(ctx context.Context, cmdContext *cmd.Context) environs.BootstrapContext {
 	return &bootstrapContext{
-		cmdContext:        cmdContext,
+		Context:           ctx,
+		interruptable:     cmdContext,
+		BootstrapLogger:   cmdContext,
 		verifyCredentials: true,
-		ctx:               ctx,
 	}
 }
 
@@ -43,8 +43,9 @@ func BootstrapContext(ctx context.Context, cmdContext *cmd.Context) environs.Boo
 // where the validation of credentials is false.
 func BootstrapContextNoVerify(ctx context.Context, cmdContext *cmd.Context) environs.BootstrapContext {
 	return &bootstrapContext{
-		cmdContext:        cmdContext,
+		Context:           ctx,
+		interruptable:     cmdContext,
+		BootstrapLogger:   cmdContext,
 		verifyCredentials: false,
-		ctx:               ctx,
 	}
 }

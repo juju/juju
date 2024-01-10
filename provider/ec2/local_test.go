@@ -269,8 +269,8 @@ func (t *localServerSuite) SetUpTest(c *gc.C) {
 	t.Tests.SetUpTest(c)
 
 	t.Tests.BootstrapContext = bootstrapContextWithClientFunc(c, bootstrapClientFunc(t.client), bootstrapIAMClientFunc(t.iamClient))
-	t.Tests.ProviderCallContext = envcontext.WithoutCredentialInvalidator(t.Tests.BootstrapContext.Context())
-	t.callCtx = envcontext.WithoutCredentialInvalidator(t.Tests.BootstrapContext.Context())
+	t.Tests.ProviderCallContext = envcontext.WithoutCredentialInvalidator(t.Tests.BootstrapContext)
+	t.callCtx = envcontext.WithoutCredentialInvalidator(t.Tests.BootstrapContext)
 	t.useIAMRole = false
 }
 
@@ -593,7 +593,7 @@ func (t *localServerSuite) TestDestroyControllerModelDeleteSecurityGroupInsisten
 
 func (t *localServerSuite) TestDestroyHostedModelDeleteSecurityGroupInsistentlyError(c *gc.C) {
 	env := t.prepareAndBootstrap(c)
-	hostedEnv, err := environs.New(t.BootstrapContext.Context(), environs.OpenParams{
+	hostedEnv, err := environs.New(t.BootstrapContext, environs.OpenParams{
 		Cloud:  t.CloudSpec(),
 		Config: env.Config(),
 	})
@@ -620,7 +620,7 @@ func (t *localServerSuite) TestDestroyControllerDestroysHostedModelResources(c *
 		"firewall-mode": "global",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	env, err := environs.New(t.BootstrapContext.Context(), environs.OpenParams{
+	env, err := environs.New(t.BootstrapContext, environs.OpenParams{
 		Cloud:  t.CloudSpec(),
 		Config: cfg,
 	})
@@ -1907,7 +1907,7 @@ func (t *localServerSuite) TestValidateImageMetadata(c *gc.C) {
 	params.Endpoint = "http://foo"
 	params.Sources, err = environs.ImageMetadataSources(env, ss)
 	c.Assert(err, jc.ErrorIsNil)
-	image_ids, _, err := imagemetadata.ValidateImageMetadata(ss, params)
+	image_ids, _, err := imagemetadata.ValidateImageMetadata(context.Background(), ss, params)
 	c.Assert(err, jc.ErrorIsNil)
 	sort.Strings(image_ids)
 	c.Assert(image_ids, gc.DeepEquals, []string{"ami-02204133", "ami-02204135", "ami-02204139"})
@@ -2294,7 +2294,7 @@ func (s *localServerSuite) TestAdoptResources(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	env, err := environs.New(s.BootstrapContext.Context(), environs.OpenParams{
+	env, err := environs.New(s.BootstrapContext, environs.OpenParams{
 		Cloud:          s.CloudSpec(),
 		Config:         cfg,
 		ControllerUUID: coretesting.ControllerTag.Id(),

@@ -10,6 +10,7 @@
 package mocks
 
 import (
+	context "context"
 	reflect "reflect"
 
 	caas "github.com/juju/juju/caas"
@@ -41,17 +42,17 @@ func (m *MockCAASBroker) EXPECT() *MockCAASBrokerMockRecorder {
 }
 
 // AnnotateUnit mocks base method.
-func (m *MockCAASBroker) AnnotateUnit(arg0, arg1 string, arg2 names.UnitTag) error {
+func (m *MockCAASBroker) AnnotateUnit(arg0 context.Context, arg1, arg2 string, arg3 names.UnitTag) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AnnotateUnit", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "AnnotateUnit", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // AnnotateUnit indicates an expected call of AnnotateUnit.
-func (mr *MockCAASBrokerMockRecorder) AnnotateUnit(arg0, arg1, arg2 any) *gomock.Call {
+func (mr *MockCAASBrokerMockRecorder) AnnotateUnit(arg0, arg1, arg2, arg3 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AnnotateUnit", reflect.TypeOf((*MockCAASBroker)(nil).AnnotateUnit), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AnnotateUnit", reflect.TypeOf((*MockCAASBroker)(nil).AnnotateUnit), arg0, arg1, arg2, arg3)
 }
 
 // Application mocks base method.
@@ -69,16 +70,16 @@ func (mr *MockCAASBrokerMockRecorder) Application(arg0, arg1 any) *gomock.Call {
 }
 
 // Units mocks base method.
-func (m *MockCAASBroker) Units(arg0 string) ([]caas.Unit, error) {
+func (m *MockCAASBroker) Units(arg0 context.Context, arg1 string) ([]caas.Unit, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Units", arg0)
+	ret := m.ctrl.Call(m, "Units", arg0, arg1)
 	ret0, _ := ret[0].([]caas.Unit)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Units indicates an expected call of Units.
-func (mr *MockCAASBrokerMockRecorder) Units(arg0 any) *gomock.Call {
+func (mr *MockCAASBrokerMockRecorder) Units(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Units", reflect.TypeOf((*MockCAASBroker)(nil).Units), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Units", reflect.TypeOf((*MockCAASBroker)(nil).Units), arg0, arg1)
 }

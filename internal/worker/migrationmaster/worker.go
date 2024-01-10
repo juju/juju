@@ -396,7 +396,7 @@ type uploadWrapper struct {
 }
 
 // UploadTools prepends the model UUID to the args passed to the migration client.
-func (w *uploadWrapper) UploadTools(r io.ReadSeeker, vers version.Binary) (tools.List, error) {
+func (w *uploadWrapper) UploadTools(_ context.Context, r io.ReadSeeker, vers version.Binary) (tools.List, error) {
 	return w.client.UploadTools(w.modelUUID, r, vers)
 }
 

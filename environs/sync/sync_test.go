@@ -154,7 +154,7 @@ func (s *syncSuite) TestSyncing(c *gc.C) {
 			test.ctx.TargetToolsFinder = mockToolsFinder{}
 			test.ctx.TargetToolsUploader = &uploader
 
-			err := sync.SyncTools(test.ctx)
+			err := sync.SyncTools(context.Background(), test.ctx)
 			c.Assert(err, jc.ErrorIsNil)
 
 			ds, err := sync.SelectSourceDatasource(test.ctx)
@@ -185,7 +185,7 @@ func (s *syncSuite) TestSyncToolsOldPatchVersion(c *gc.C) {
 	// Add some extra tools for the newer patch versions
 	toolstesting.MakeTools(c, s.localStorage, "released", []string{"1.8.3-ubuntu-amd64"})
 
-	err := sync.SyncTools(&sync.SyncContext{
+	err := sync.SyncTools(context.Background(), &sync.SyncContext{
 		Source: s.localStorage,
 		// Request an older patch version of the current series (1.8.x)
 		ChosenVersion: version.MustParse("1.8.0"),
@@ -200,7 +200,7 @@ type fakeToolsUploader struct {
 	uploaded map[version.Binary]bool
 }
 
-func (u *fakeToolsUploader) UploadTools(_, _ string, tools *coretools.Tools, _ []byte) error {
+func (u *fakeToolsUploader) UploadTools(_ context.Context, _, _ string, tools *coretools.Tools, _ []byte) error {
 	u.uploaded[tools.Version] = true
 	return nil
 }
@@ -259,11 +259,11 @@ func (s *uploadSuite) TestUpload(c *gc.C) {
 	defer ctrl.Finish()
 
 	ss := NewMockSimplestreamsFetcher(ctrl)
-	ss.EXPECT().GetMetadata(gomock.Any(), gomock.Any()).AnyTimes()
+	ss.EXPECT().GetMetadata(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
 
 	forceVersion := jujuversion.Current
 	s.patchBundleTools(c, forceVersion)
-	t, err := sync.Upload(ss, s.targetStorage, "released",
+	t, err := sync.Upload(context.Background(), ss, s.targetStorage, "released",
 		func(version.Number) version.Number { return forceVersion },
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -278,12 +278,12 @@ func (s *uploadSuite) TestUploadAndForceVersion(c *gc.C) {
 	defer ctrl.Finish()
 
 	ss := NewMockSimplestreamsFetcher(ctrl)
-	ss.EXPECT().GetMetadata(gomock.Any(), gomock.Any()).AnyTimes()
+	ss.EXPECT().GetMetadata(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
 
 	forceVersion := jujuversion.Current
 	forceVersion.Patch++
 	s.patchBundleTools(c, forceVersion)
-	t, err := sync.Upload(ss, s.targetStorage, "released",
+	t, err := sync.Upload(context.Background(), ss, s.targetStorage, "released",
 		func(version.Number) version.Number { return forceVersion },
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -295,7 +295,7 @@ func (s *uploadSuite) TestSyncTools(c *gc.C) {
 	defer ctrl.Finish()
 
 	ss := NewMockSimplestreamsFetcher(ctrl)
-	ss.EXPECT().GetMetadata(gomock.Any(), gomock.Any()).AnyTimes()
+	ss.EXPECT().GetMetadata(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
 
 	forceVersion := jujuversion.Current
 	forceVersion.Patch++
@@ -304,7 +304,7 @@ func (s *uploadSuite) TestSyncTools(c *gc.C) {
 		func(version.Number) version.Number { return forceVersion },
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	t, err := sync.SyncBuiltTools(ss, s.targetStorage, "released", builtTools)
+	t, err := sync.SyncBuiltTools(context.Background(), ss, s.targetStorage, "released", builtTools)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertEqualsCurrentVersion(c, t.Version)
 	c.Assert(t.URL, gc.Not(gc.Equals), "")
@@ -315,7 +315,7 @@ func (s *uploadSuite) TestSyncAndForceVersion(c *gc.C) {
 	defer ctrl.Finish()
 
 	ss := NewMockSimplestreamsFetcher(ctrl)
-	ss.EXPECT().GetMetadata(gomock.Any(), gomock.Any()).AnyTimes()
+	ss.EXPECT().GetMetadata(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
 
 	forceVersion := jujuversion.Current
 	forceVersion.Patch++
@@ -324,7 +324,7 @@ func (s *uploadSuite) TestSyncAndForceVersion(c *gc.C) {
 		func(version.Number) version.Number { return forceVersion },
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	t, err := sync.SyncBuiltTools(ss, s.targetStorage, "released", builtTools)
+	t, err := sync.SyncBuiltTools(context.Background(), ss, s.targetStorage, "released", builtTools)
 	c.Assert(err, jc.ErrorIsNil)
 	// Reported version from build call matches the real jujud version.
 	c.Assert(t.Version, gc.Equals, coretesting.CurrentVersion())
@@ -335,7 +335,7 @@ func (s *uploadSuite) assertUploadedTools(c *gc.C, t *coretools.Tools, expectOST
 	defer ctrl.Finish()
 
 	ss := NewMockSimplestreamsFetcher(ctrl)
-	ss.EXPECT().GetMetadata(gomock.Any(), gomock.Any()).AnyTimes()
+	ss.EXPECT().GetMetadata(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
 
 	s.assertEqualsCurrentVersion(c, t.Version)
 	expectRaw := downloadToolsRaw(c, t)
@@ -349,7 +349,7 @@ func (s *uploadSuite) assertUploadedTools(c *gc.C, t *coretools.Tools, expectOST
 		actualRaw := downloadToolsRaw(c, t)
 		c.Assert(string(actualRaw), gc.Equals, string(expectRaw))
 	}
-	metadata, err := envtools.ReadMetadata(ss, s.targetStorage, stream)
+	metadata, err := envtools.ReadMetadata(context.Background(), ss, s.targetStorage, stream)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(metadata, gc.HasLen, 0)
 }
@@ -576,7 +576,7 @@ func (s *uploadSuite) testStorageToolsUploaderWriteMirrors(c *gc.C, writeMirrors
 	defer ctrl.Finish()
 
 	ss := NewMockSimplestreamsFetcher(ctrl)
-	ss.EXPECT().GetMetadata(gomock.Any(), gomock.Any()).AnyTimes()
+	ss.EXPECT().GetMetadata(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
 
 	storageDir := c.MkDir()
 	stor, err := filestorage.NewFileStorageWriter(storageDir)
@@ -590,6 +590,7 @@ func (s *uploadSuite) testStorageToolsUploaderWriteMirrors(c *gc.C, writeMirrors
 	}
 
 	err = uploader.UploadTools(
+		context.Background(),
 		"released",
 		"released",
 		&coretools.Tools{

@@ -4,6 +4,7 @@
 package maas
 
 import (
+	"context"
 	"encoding/base64"
 	"fmt"
 	"math/rand"
@@ -82,7 +83,7 @@ func (suite *maasEnvironSuite) getEnvWithServer(c *gc.C) (*maasEnviron, error) {
 	attrs := coretesting.FakeConfig().Merge(maasEnvAttrs)
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
-	return NewEnviron(cloud, cfg, nil)
+	return NewEnviron(context.Background(), cloud, cfg, nil)
 }
 
 func (suite *maasEnvironSuite) TestNewEnvironWithController(c *gc.C) {
@@ -696,7 +697,7 @@ func (suite *maasEnvironSuite) TestWaitForNodeDeploymentError(c *gc.C) {
 	suite.injectController(controller)
 	suite.setupFakeTools(c)
 	env := suite.makeEnviron(c, nil)
-	err := bootstrap.Bootstrap(envtesting.BootstrapTODOContext(c), env,
+	err := bootstrap.Bootstrap(envtesting.BootstrapTestContext(c), env,
 		suite.callCtx, bootstrap.BootstrapParams{
 			ControllerConfig:        coretesting.FakeControllerConfig(),
 			AdminSecret:             jujutesting.AdminSecret,
@@ -720,7 +721,7 @@ func (suite *maasEnvironSuite) TestWaitForNodeDeploymentRetry(c *gc.C) {
 	suite.injectController(controller)
 	suite.setupFakeTools(c)
 	env := suite.makeEnviron(c, nil)
-	bootstrap.Bootstrap(envtesting.BootstrapTODOContext(c), env,
+	bootstrap.Bootstrap(envtesting.BootstrapTestContext(c), env,
 		suite.callCtx, bootstrap.BootstrapParams{
 			ControllerConfig:        coretesting.FakeControllerConfig(),
 			AdminSecret:             jujutesting.AdminSecret,
@@ -744,7 +745,7 @@ func (suite *maasEnvironSuite) TestWaitForNodeDeploymentSucceeds(c *gc.C) {
 	suite.injectController(controller)
 	suite.setupFakeTools(c)
 	env := suite.makeEnviron(c, nil)
-	err := bootstrap.Bootstrap(envtesting.BootstrapTODOContext(c), env,
+	err := bootstrap.Bootstrap(envtesting.BootstrapTestContext(c), env,
 		suite.callCtx, bootstrap.BootstrapParams{
 			ControllerConfig:        coretesting.FakeControllerConfig(),
 			AdminSecret:             jujutesting.AdminSecret,
@@ -2398,7 +2399,7 @@ func (suite *maasEnvironSuite) TestStartInstanceEndToEnd(c *gc.C) {
 	}
 
 	env := suite.makeEnviron(c, controller)
-	err := bootstrap.Bootstrap(envtesting.BootstrapTODOContext(c), env,
+	err := bootstrap.Bootstrap(envtesting.BootstrapTestContext(c), env,
 		suite.callCtx, bootstrap.BootstrapParams{
 			ControllerConfig:        coretesting.FakeControllerConfig(),
 			AdminSecret:             jujutesting.AdminSecret,
@@ -2537,7 +2538,7 @@ func (suite *maasEnvironSuite) TestDestroy(c *gc.C) {
 func (suite *maasEnvironSuite) TestBootstrapFailsIfNoTools(c *gc.C) {
 	env := suite.makeEnviron(c, newFakeController())
 	vers := version.MustParse("1.2.3")
-	err := bootstrap.Bootstrap(envtesting.BootstrapTODOContext(c), env,
+	err := bootstrap.Bootstrap(envtesting.BootstrapTestContext(c), env,
 		suite.callCtx, bootstrap.BootstrapParams{
 			ControllerConfig: coretesting.FakeControllerConfig(),
 			AdminSecret:      jujutesting.AdminSecret,
@@ -2558,7 +2559,7 @@ func (suite *maasEnvironSuite) TestBootstrapFailsIfNoNodes(c *gc.C) {
 	controller := newFakeController()
 	controller.allocateMachineError = gomaasapi.NewNoMatchError("oops")
 	env := suite.makeEnviron(c, controller)
-	err := bootstrap.Bootstrap(envtesting.BootstrapTODOContext(c), env,
+	err := bootstrap.Bootstrap(envtesting.BootstrapTestContext(c), env,
 		suite.callCtx, bootstrap.BootstrapParams{
 			ControllerConfig:        coretesting.FakeControllerConfig(),
 			AdminSecret:             jujutesting.AdminSecret,

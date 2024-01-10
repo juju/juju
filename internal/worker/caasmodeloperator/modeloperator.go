@@ -4,6 +4,8 @@
 package caasmodeloperator
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"github.com/juju/utils/v3"
@@ -25,9 +27,9 @@ type ModelOperatorAPI interface {
 // ModelOperatorBroker describes the caas broker interface needed for installing
 // a ModelOperator into Kubernetes
 type ModelOperatorBroker interface {
-	EnsureModelOperator(string, string, *caas.ModelOperatorConfig) error
-	ModelOperator() (*caas.ModelOperatorConfig, error)
-	ModelOperatorExists() (bool, error)
+	EnsureModelOperator(context.Context, string, string, *caas.ModelOperatorConfig) error
+	ModelOperator(ctx context.Context) (*caas.ModelOperatorConfig, error)
+	ModelOperatorExists(ctx context.Context) (bool, error)
 }
 
 // ModelOperatorManager defines the worker used for managing model operators in
@@ -72,7 +74,7 @@ func (m *ModelOperatorManager) loop() error {
 		case <-m.catacomb.Dying():
 			return m.catacomb.ErrDying()
 		case <-watcher.Changes():
-			err := m.update()
+			err := m.update(context.TODO())
 			if err != nil {
 				return errors.Annotate(err, "failed to update model operator")
 			}
@@ -80,14 +82,14 @@ func (m *ModelOperatorManager) loop() error {
 	}
 }
 
-func (m *ModelOperatorManager) update() error {
+func (m *ModelOperatorManager) update(ctx context.Context) error {
 	m.logger.Debugf("gathering model operator provisioning information for model %s", m.modelUUID)
 	info, err := m.api.ModelOperatorProvisioningInfo()
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	exists, err := m.broker.ModelOperatorExists()
+	exists, err := m.broker.ModelOperatorExists(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -98,7 +100,7 @@ func (m *ModelOperatorManager) update() error {
 		return errors.Trace(err)
 	}
 	if exists {
-		mo, err := m.broker.ModelOperator()
+		mo, err := m.broker.ModelOperator(ctx)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -133,6 +135,7 @@ func (m *ModelOperatorManager) update() error {
 
 	m.logger.Debugf("ensuring model operator deployment in kubernetes for model %s", m.modelUUID)
 	err = m.broker.EnsureModelOperator(
+		ctx,
 		m.modelUUID,
 		m.agentConfig.DataDir(),
 		&caas.ModelOperatorConfig{

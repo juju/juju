@@ -30,7 +30,7 @@ type DataSource interface {
 	// Fetch loads the data at the specified relative path. It returns a reader from which
 	// the data can be retrieved as well as the full URL of the file. The full URL is typically
 	// used in log messages to help diagnose issues accessing the data.
-	Fetch(path string) (io.ReadCloser, string, error)
+	Fetch(ctx context.Context, path string) (io.ReadCloser, string, error)
 
 	// URL returns the full URL of the path, as applicable to this datasource.
 	// This method is used primarily for logging purposes.
@@ -178,7 +178,7 @@ func urlJoin(baseURL, relpath string) string {
 }
 
 // Fetch is defined in simplestreams.DataSource.
-func (h *urlDataSource) Fetch(path string) (io.ReadCloser, string, error) {
+func (h *urlDataSource) Fetch(ctx context.Context, path string) (io.ReadCloser, string, error) {
 	var readCloser io.ReadCloser
 	dataURL := urlJoin(h.baseURL, path)
 	// dataURL can be http:// or file://
@@ -188,7 +188,7 @@ func (h *urlDataSource) Fetch(path string) (io.ReadCloser, string, error) {
 	err := retry.Call(retry.CallArgs{
 		Func: func() error {
 			var err error
-			readCloser, err = h.fetch(dataURL)
+			readCloser, err = h.fetch(ctx, dataURL)
 			return err
 		},
 		IsFatalError: func(err error) bool {
@@ -203,8 +203,8 @@ func (h *urlDataSource) Fetch(path string) (io.ReadCloser, string, error) {
 	return readCloser, dataURL, err
 }
 
-func (h *urlDataSource) fetch(path string) (io.ReadCloser, error) {
-	resp, err := h.httpClient.Get(context.TODO(), path)
+func (h *urlDataSource) fetch(ctx context.Context, path string) (io.ReadCloser, error) {
+	resp, err := h.httpClient.Get(ctx, path)
 	if err != nil {
 		// Callers of this mask the actual error.  Therefore warn here.
 		// This is called multiple times when a machine is created, we

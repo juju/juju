@@ -138,17 +138,17 @@ func (mr *MockSecretBackendProviderMockRecorder) CleanupModel(arg0 any) *gomock.
 }
 
 // CleanupSecrets mocks base method.
-func (m *MockSecretBackendProvider) CleanupSecrets(arg0 *provider.ModelBackendConfig, arg1 names.Tag, arg2 provider.SecretRevisions) error {
+func (m *MockSecretBackendProvider) CleanupSecrets(arg0 context.Context, arg1 *provider.ModelBackendConfig, arg2 names.Tag, arg3 provider.SecretRevisions) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CleanupSecrets", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "CleanupSecrets", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // CleanupSecrets indicates an expected call of CleanupSecrets.
-func (mr *MockSecretBackendProviderMockRecorder) CleanupSecrets(arg0, arg1, arg2 any) *gomock.Call {
+func (mr *MockSecretBackendProviderMockRecorder) CleanupSecrets(arg0, arg1, arg2, arg3 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CleanupSecrets", reflect.TypeOf((*MockSecretBackendProvider)(nil).CleanupSecrets), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CleanupSecrets", reflect.TypeOf((*MockSecretBackendProvider)(nil).CleanupSecrets), arg0, arg1, arg2, arg3)
 }
 
 // Initialise mocks base method.
@@ -181,18 +181,18 @@ func (mr *MockSecretBackendProviderMockRecorder) NewBackend(arg0 any) *gomock.Ca
 }
 
 // RestrictedConfig mocks base method.
-func (m *MockSecretBackendProvider) RestrictedConfig(arg0 *provider.ModelBackendConfig, arg1 bool, arg2 names.Tag, arg3, arg4 provider.SecretRevisions) (*provider.BackendConfig, error) {
+func (m *MockSecretBackendProvider) RestrictedConfig(arg0 context.Context, arg1 *provider.ModelBackendConfig, arg2 bool, arg3 names.Tag, arg4, arg5 provider.SecretRevisions) (*provider.BackendConfig, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RestrictedConfig", arg0, arg1, arg2, arg3, arg4)
+	ret := m.ctrl.Call(m, "RestrictedConfig", arg0, arg1, arg2, arg3, arg4, arg5)
 	ret0, _ := ret[0].(*provider.BackendConfig)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // RestrictedConfig indicates an expected call of RestrictedConfig.
-func (mr *MockSecretBackendProviderMockRecorder) RestrictedConfig(arg0, arg1, arg2, arg3, arg4 any) *gomock.Call {
+func (mr *MockSecretBackendProviderMockRecorder) RestrictedConfig(arg0, arg1, arg2, arg3, arg4, arg5 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RestrictedConfig", reflect.TypeOf((*MockSecretBackendProvider)(nil).RestrictedConfig), arg0, arg1, arg2, arg3, arg4)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RestrictedConfig", reflect.TypeOf((*MockSecretBackendProvider)(nil).RestrictedConfig), arg0, arg1, arg2, arg3, arg4, arg5)
 }
 
 // Type mocks base method.

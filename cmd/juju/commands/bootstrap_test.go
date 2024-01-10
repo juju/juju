@@ -1206,7 +1206,7 @@ func createImageMetadata(c *gc.C) (string, []*imagemetadata.ImageMetadata) {
 	c.Assert(err, jc.ErrorIsNil)
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
 	base := corebase.MustParseBaseFromString("ubuntu@22.04")
-	err = imagemetadata.MergeAndWriteMetadata(ss, base, im, cloudSpec, sourceStor)
+	err = imagemetadata.MergeAndWriteMetadata(context.Background(), ss, base, im, cloudSpec, sourceStor)
 	c.Assert(err, jc.ErrorIsNil)
 	return sourceDir, im
 }
@@ -2339,7 +2339,7 @@ clouds:
 // checkTools check if the environment contains the passed envtools.
 func checkTools(c *gc.C, env environs.Environ, expected []version.Binary) {
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
-	list, err := envtools.FindTools(ss,
+	list, err := envtools.FindTools(context.Background(), ss,
 		env, jujuversion.Current.Major, jujuversion.Current.Minor, []string{"released"}, coretools.Filter{})
 	c.Check(err, jc.ErrorIsNil)
 	c.Logf("found: " + list.String())

@@ -4,6 +4,8 @@
 package caasmodeloperator_test
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
@@ -26,34 +28,34 @@ type dummyAPI struct {
 }
 
 type dummyBroker struct {
-	ensureModelOperator func(string, string, *caas.ModelOperatorConfig) error
-	modelOperator       func() (*caas.ModelOperatorConfig, error)
-	modelOperatorExists func() (bool, error)
+	ensureModelOperator func(context.Context, string, string, *caas.ModelOperatorConfig) error
+	modelOperator       func(ctx context.Context) (*caas.ModelOperatorConfig, error)
+	modelOperatorExists func(context.Context) (bool, error)
 }
 
 type ModelOperatorManagerSuite struct{}
 
 var _ = gc.Suite(&ModelOperatorManagerSuite{})
 
-func (b *dummyBroker) EnsureModelOperator(modelUUID, agentPath string, c *caas.ModelOperatorConfig) error {
+func (b *dummyBroker) EnsureModelOperator(ctx context.Context, modelUUID, agentPath string, c *caas.ModelOperatorConfig) error {
 	if b.ensureModelOperator == nil {
 		return nil
 	}
-	return b.ensureModelOperator(modelUUID, agentPath, c)
+	return b.ensureModelOperator(ctx, modelUUID, agentPath, c)
 }
 
-func (b *dummyBroker) ModelOperator() (*caas.ModelOperatorConfig, error) {
+func (b *dummyBroker) ModelOperator(ctx context.Context) (*caas.ModelOperatorConfig, error) {
 	if b.modelOperator == nil {
 		return nil, nil
 	}
-	return b.modelOperator()
+	return b.modelOperator(ctx)
 }
 
-func (b *dummyBroker) ModelOperatorExists() (bool, error) {
+func (b *dummyBroker) ModelOperatorExists(ctx context.Context) (bool, error) {
 	if b.modelOperatorExists == nil {
 		return false, nil
 	}
-	return b.modelOperatorExists()
+	return b.modelOperatorExists(ctx)
 }
 
 func (a *dummyAPI) ModelOperatorProvisioningInfo() (modeloperatorapi.ModelOperatorProvisioningInfo, error) {
@@ -106,7 +108,7 @@ func (m *ModelOperatorManagerSuite) TestModelOperatorManagerApplying(c *gc.C) {
 	}
 
 	broker := &dummyBroker{
-		ensureModelOperator: func(_, _ string, conf *caas.ModelOperatorConfig) error {
+		ensureModelOperator: func(_ context.Context, _, _ string, conf *caas.ModelOperatorConfig) error {
 			defer func() {
 				iteration++
 			}()
@@ -131,10 +133,10 @@ func (m *ModelOperatorManagerSuite) TestModelOperatorManagerApplying(c *gc.C) {
 
 			return nil
 		},
-		modelOperatorExists: func() (bool, error) {
+		modelOperatorExists: func(context.Context) (bool, error) {
 			return iteration > 0, nil
 		},
-		modelOperator: func() (*caas.ModelOperatorConfig, error) {
+		modelOperator: func(context.Context) (*caas.ModelOperatorConfig, error) {
 			if iteration == 0 {
 				return nil, errors.NotFoundf("model operator")
 			}

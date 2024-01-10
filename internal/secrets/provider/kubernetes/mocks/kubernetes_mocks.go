@@ -57,18 +57,18 @@ func (mr *MockBrokerMockRecorder) DeleteJujuSecret(arg0, arg1 any) *gomock.Call 
 }
 
 // EnsureSecretAccessToken mocks base method.
-func (m *MockBroker) EnsureSecretAccessToken(arg0 names.Tag, arg1, arg2, arg3 []string) (string, error) {
+func (m *MockBroker) EnsureSecretAccessToken(arg0 context.Context, arg1 names.Tag, arg2, arg3, arg4 []string) (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "EnsureSecretAccessToken", arg0, arg1, arg2, arg3)
+	ret := m.ctrl.Call(m, "EnsureSecretAccessToken", arg0, arg1, arg2, arg3, arg4)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // EnsureSecretAccessToken indicates an expected call of EnsureSecretAccessToken.
-func (mr *MockBrokerMockRecorder) EnsureSecretAccessToken(arg0, arg1, arg2, arg3 any) *gomock.Call {
+func (mr *MockBrokerMockRecorder) EnsureSecretAccessToken(arg0, arg1, arg2, arg3, arg4 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsureSecretAccessToken", reflect.TypeOf((*MockBroker)(nil).EnsureSecretAccessToken), arg0, arg1, arg2, arg3)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsureSecretAccessToken", reflect.TypeOf((*MockBroker)(nil).EnsureSecretAccessToken), arg0, arg1, arg2, arg3, arg4)
 }
 
 // GetJujuSecret mocks base method.
@@ -87,17 +87,17 @@ func (mr *MockBrokerMockRecorder) GetJujuSecret(arg0, arg1 any) *gomock.Call {
 }
 
 // RemoveSecretAccessToken mocks base method.
-func (m *MockBroker) RemoveSecretAccessToken(arg0 names.Tag) error {
+func (m *MockBroker) RemoveSecretAccessToken(arg0 context.Context, arg1 names.Tag) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RemoveSecretAccessToken", arg0)
+	ret := m.ctrl.Call(m, "RemoveSecretAccessToken", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // RemoveSecretAccessToken indicates an expected call of RemoveSecretAccessToken.
-func (mr *MockBrokerMockRecorder) RemoveSecretAccessToken(arg0 any) *gomock.Call {
+func (mr *MockBrokerMockRecorder) RemoveSecretAccessToken(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveSecretAccessToken", reflect.TypeOf((*MockBroker)(nil).RemoveSecretAccessToken), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveSecretAccessToken", reflect.TypeOf((*MockBroker)(nil).RemoveSecretAccessToken), arg0, arg1)
 }
 
 // SaveJujuSecret mocks base method.

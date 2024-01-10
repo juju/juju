@@ -36,7 +36,7 @@ type Model interface {
 
 // Broker is a subset of caas broker.
 type Broker interface {
-	GetSecretToken(name string) (string, error)
+	GetSecretToken(ctx context.Context, name string) (string, error)
 }
 
 // SSHMachine specifies the methods on State.Machine of interest to

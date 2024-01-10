@@ -166,7 +166,7 @@ type ToolsDownloader interface {
 // ToolsUploader defines a single method that is used to upload tools
 // to the target controller in a migration.
 type ToolsUploader interface {
-	UploadTools(io.ReadSeeker, version.Binary) (tools.List, error)
+	UploadTools(context.Context, io.ReadSeeker, version.Binary) (tools.List, error)
 }
 
 // ResourceDownloader defines the interface for downloading resources
@@ -319,7 +319,7 @@ func uploadTools(config UploadBinariesConfig) error {
 		}
 		defer cleanup()
 
-		if _, err := config.ToolsUploader.UploadTools(content, v); err != nil {
+		if _, err := config.ToolsUploader.UploadTools(context.TODO(), content, v); err != nil {
 			return errors.Annotate(err, "cannot upload agent binaries")
 		}
 	}

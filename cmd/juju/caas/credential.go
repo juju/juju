@@ -4,6 +4,7 @@
 package caas
 
 import (
+	"context"
 	"encoding/hex"
 	"math/rand"
 
@@ -70,7 +71,7 @@ func decideCredentialUID(store credentialGetter, cloudName, credentialName strin
 	return credUID, nil
 }
 
-func cleanUpCredentialRBAC(cloud jujucloud.Cloud, credential jujucloud.Credential) error {
+func cleanUpCredentialRBAC(ctx context.Context, cloud jujucloud.Cloud, credential jujucloud.Credential) error {
 	attr := credential.Attributes()
 	if attr == nil {
 		return nil
@@ -88,6 +89,6 @@ func cleanUpCredentialRBAC(cloud jujucloud.Cloud, credential jujucloud.Credentia
 	if err != nil {
 		return errors.Trace(err)
 	}
-	err = clientconfig.RemoveCredentialRBACResources(restConfig, credUID)
+	err = clientconfig.RemoveCredentialRBACResources(ctx, restConfig, credUID)
 	return errors.Trace(err)
 }

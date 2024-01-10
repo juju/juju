@@ -62,6 +62,7 @@ type environ struct {
 }
 
 func newEnviron(
+	ctx stdcontext.Context,
 	p *environProvider,
 	spec environscloudspec.CloudSpec,
 	cfg *config.Config,
@@ -86,7 +87,7 @@ func newEnviron(
 	}
 	env.base = common.DefaultProvider{Env: env}
 
-	err = env.SetCloudSpec(stdcontext.TODO(), spec)
+	err = env.SetCloudSpec(ctx, spec)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

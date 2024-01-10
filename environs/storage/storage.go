@@ -4,6 +4,7 @@
 package storage
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"path"
@@ -103,7 +104,7 @@ func (s *storageSimpleStreamsDataSource) Description() string {
 }
 
 // Fetch is defined in simplestreams.DataSource.
-func (s *storageSimpleStreamsDataSource) Fetch(path string) (io.ReadCloser, string, error) {
+func (s *storageSimpleStreamsDataSource) Fetch(_ context.Context, path string) (io.ReadCloser, string, error) {
 	relpath := s.relpath(path)
 	dataURL := relpath
 	fullURL, err := s.storage.URL(relpath)

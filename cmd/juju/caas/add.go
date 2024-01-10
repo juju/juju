@@ -177,7 +177,7 @@ type AddCAASCommand struct {
 	eks        bool
 	k8sCluster k8sCluster
 
-	adminServiceAccountResolver func(jujuclock.Clock) clientconfig.K8sCredentialResolver
+	adminServiceAccountResolver func(stdcontext.Context, jujuclock.Clock) clientconfig.K8sCredentialResolver
 	cloudMetadataStore          CloudMetadataStore
 	credentialStoreAPI          CredentialStoreAPI
 	newClientConfigReader       func(string) (clientconfig.ClientConfigFunc, error)
@@ -499,7 +499,7 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) (err error) {
 		}
 	}
 
-	k8sConfig, err = c.adminServiceAccountResolver(c.clock)(
+	k8sConfig, err = c.adminServiceAccountResolver(ctx, c.clock)(
 		credentialUID,
 		k8sConfig,
 		k8sCtxName,
@@ -847,7 +847,7 @@ func (c *AddCAASCommand) getClusterMetadataFunc(ctx *cmd.Context) provider.GetCl
 		result := make(chan *k8s.ClusterMetadata, 1)
 		errChan := make(chan error, 1)
 		go func() {
-			clusterMetadata, err := storageParams.MetadataChecker.GetClusterMetadata(storageParams.WorkloadStorage)
+			clusterMetadata, err := storageParams.MetadataChecker.GetClusterMetadata(ctx, storageParams.WorkloadStorage)
 			if err != nil {
 				errChan <- err
 			} else {

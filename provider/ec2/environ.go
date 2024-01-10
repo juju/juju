@@ -160,7 +160,7 @@ func (e *environ) Name() string {
 // PrepareForBootstrap is part of the Environ interface.
 func (e *environ) PrepareForBootstrap(ctx environs.BootstrapContext, controllerName string) error {
 	// Cannot really invalidate a credential here since nothing is bootstrapped yet.
-	callCtx := envcontext.WithoutCredentialInvalidator(ctx.Context())
+	callCtx := envcontext.WithoutCredentialInvalidator(ctx)
 	if ctx.ShouldVerifyCredentials() {
 		if err := verifyCredentials(e.ec2Client, callCtx); err != nil {
 			return err

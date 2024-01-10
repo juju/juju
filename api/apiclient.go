@@ -639,7 +639,7 @@ func dialAPI(ctx context.Context, info *Info, opts0 DialOpts) (*dialResult, erro
 	addrs := info.Addrs[:]
 
 	if info.Proxier != nil {
-		if err := info.Proxier.Start(); err != nil {
+		if err := info.Proxier.Start(ctx); err != nil {
 			return nil, errors.Annotate(err, "starting proxy for api connection")
 		}
 		logger.Debugf("starting proxier for connection")

@@ -927,17 +927,17 @@ func (m *MockCaasBrokerInterface) EXPECT() *MockCaasBrokerInterfaceMockRecorder 
 }
 
 // ValidateStorageClass mocks base method.
-func (m *MockCaasBrokerInterface) ValidateStorageClass(arg0 map[string]any) error {
+func (m *MockCaasBrokerInterface) ValidateStorageClass(arg0 context.Context, arg1 map[string]any) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ValidateStorageClass", arg0)
+	ret := m.ctrl.Call(m, "ValidateStorageClass", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // ValidateStorageClass indicates an expected call of ValidateStorageClass.
-func (mr *MockCaasBrokerInterfaceMockRecorder) ValidateStorageClass(arg0 any) *gomock.Call {
+func (mr *MockCaasBrokerInterfaceMockRecorder) ValidateStorageClass(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidateStorageClass", reflect.TypeOf((*MockCaasBrokerInterface)(nil).ValidateStorageClass), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidateStorageClass", reflect.TypeOf((*MockCaasBrokerInterface)(nil).ValidateStorageClass), arg0, arg1)
 }
 
 // Version mocks base method.

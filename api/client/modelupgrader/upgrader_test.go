@@ -115,6 +115,7 @@ func (s *UpgradeModelSuite) TestUploadTools(c *gc.C) {
 	client := modelupgrader.NewClient(apiCaller)
 
 	result, err := client.UploadTools(
+		context.Background(),
 		nil, version.MustParseBinary("2.9.100-ubuntu-amd64"),
 	)
 	c.Assert(err, jc.ErrorIsNil)

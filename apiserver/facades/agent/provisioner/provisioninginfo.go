@@ -145,7 +145,7 @@ func (api *ProvisionerAPI) getProvisioningInfoBase(
 		return result, errors.Annotate(err, "cannot write lxd profiles")
 	}
 
-	if result.ImageMetadata, err = api.availableImageMetadata(m, env); err != nil {
+	if result.ImageMetadata, err = api.availableImageMetadata(ctx, m, env); err != nil {
 		return result, errors.Annotate(err, "cannot get available image metadata")
 	}
 
@@ -553,6 +553,7 @@ func (api *ProvisionerAPI) translateEndpointBindingsToSpaces(spaceInfos network.
 // availableImageMetadata returns all image metadata available to this machine
 // or an error fetching them.
 func (api *ProvisionerAPI) availableImageMetadata(
+	ctx context.Context,
 	m *state.Machine, env environs.Environ,
 ) ([]params.CloudImageMetadata, error) {
 	imageConstraint, err := api.constructImageConstraint(m, env)
@@ -561,7 +562,7 @@ func (api *ProvisionerAPI) availableImageMetadata(
 	}
 
 	// Look for image metadata in state.
-	data, err := api.findImageMetadata(imageConstraint, env)
+	data, err := api.findImageMetadata(ctx, imageConstraint, env)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -613,7 +614,7 @@ func (api *ProvisionerAPI) constructImageConstraint(m *state.Machine, env enviro
 // findImageMetadata returns all image metadata or an error fetching them.
 // It looks for image metadata in state.
 // If none are found, we fall back on original image search in simple streams.
-func (api *ProvisionerAPI) findImageMetadata(imageConstraint *imagemetadata.ImageConstraint, env environs.Environ) ([]params.CloudImageMetadata, error) {
+func (api *ProvisionerAPI) findImageMetadata(ctx context.Context, imageConstraint *imagemetadata.ImageConstraint, env environs.Environ) ([]params.CloudImageMetadata, error) {
 	// Look for image metadata in state.
 	stateMetadata, err := api.imageMetadataFromState(imageConstraint)
 	if err != nil && !errors.Is(err, errors.NotFound) {
@@ -631,7 +632,7 @@ func (api *ProvisionerAPI) findImageMetadata(imageConstraint *imagemetadata.Imag
 	// Currently, an image metadata worker picks up this metadata periodically (daily),
 	// and stores it in state. So potentially, this collection could be different
 	// to what is in state.
-	dsMetadata, err := api.imageMetadataFromDataSources(env, imageConstraint)
+	dsMetadata, err := api.imageMetadataFromDataSources(ctx, env, imageConstraint)
 	if err != nil {
 		if !errors.Is(err, errors.NotFound) {
 			return nil, errors.Trace(err)
@@ -681,7 +682,7 @@ func (api *ProvisionerAPI) imageMetadataFromState(constraint *imagemetadata.Imag
 }
 
 // imageMetadataFromDataSources finds image metadata that match specified criteria in existing data sources.
-func (api *ProvisionerAPI) imageMetadataFromDataSources(env environs.Environ, constraint *imagemetadata.ImageConstraint) ([]params.CloudImageMetadata, error) {
+func (api *ProvisionerAPI) imageMetadataFromDataSources(ctx context.Context, env environs.Environ, constraint *imagemetadata.ImageConstraint) ([]params.CloudImageMetadata, error) {
 	fetcher := simplestreams.NewSimpleStreams(simplestreams.DefaultDataSourceFactory())
 	sources, err := environs.ImageMetadataSources(env, fetcher)
 	if err != nil {
@@ -718,7 +719,7 @@ func (api *ProvisionerAPI) imageMetadataFromDataSources(env environs.Environ, co
 	var metadataState []cloudimagemetadata.Metadata
 	for _, source := range sources {
 		api.logger.Debugf("looking in data source %v", source.Description())
-		found, info, err := imagemetadata.Fetch(fetcher, []simplestreams.DataSource{source}, constraint)
+		found, info, err := imagemetadata.Fetch(ctx, fetcher, []simplestreams.DataSource{source}, constraint)
 		if errors.Is(err, errors.NotFound) || errors.Is(err, errors.Unauthorized) {
 			// Do not stop looking in other data sources if there is an issue here.
 			api.logger.Warningf("encountered %v while getting published images metadata from %v", err, source.Description())

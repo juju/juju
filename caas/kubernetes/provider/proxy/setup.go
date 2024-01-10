@@ -85,7 +85,7 @@ func proxyRoleForName(name string, lbs labels.Set) *rbacv1.Role {
 	return &role
 }
 
-// EnsureModelProxy ensures there is a proxy service account in existence for
+// EnsureProxyService ensures there is a proxy service account in existence for
 // the namespace of a Kubernetes model.
 func EnsureProxyService(
 	ctx context.Context,
@@ -151,7 +151,7 @@ func EnsureProxyService(
 		Labels: lbs,
 		Name:   name,
 	}
-	_, err = EnsureSecretForServiceAccount(sa.GetName(), objMeta, clock, secretI, saI)
+	_, err = EnsureSecretForServiceAccount(ctx, sa.GetName(), objMeta, clock, secretI, saI)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -253,7 +253,7 @@ func FetchTokenReadySecret(ctx context.Context, name string, api core.SecretInte
 		Stop:        ctx.Done(),
 		Clock:       clock,
 		Func: func() error {
-			secret, err = api.Get(context.TODO(), name, meta.GetOptions{})
+			secret, err = api.Get(ctx, name, meta.GetOptions{})
 			if k8serrors.IsNotFound(err) {
 				return errors.NotFoundf("token for secret %q", name)
 			}
@@ -283,6 +283,7 @@ func FetchTokenReadySecret(ctx context.Context, name string, api core.SecretInte
 
 // EnsureSecretForServiceAccount ensures secret for the provided service created and ready to use.
 func EnsureSecretForServiceAccount(
+	ctx context.Context,
 	saName string,
 	objMeta meta.ObjectMeta,
 	clock clock.Clock,
@@ -293,7 +294,7 @@ func EnsureSecretForServiceAccount(
 		objMeta.Annotations = map[string]string{}
 	}
 	objMeta.Annotations[corev1.ServiceAccountNameKey] = saName
-	_, err := secretAPI.Create(context.TODO(), &corev1.Secret{
+	_, err := secretAPI.Create(ctx, &corev1.Secret{
 		ObjectMeta: objMeta,
 		Type:       corev1.SecretTypeServiceAccountToken,
 	}, meta.CreateOptions{})
@@ -304,14 +305,14 @@ func EnsureSecretForServiceAccount(
 	// microk8s bootstrapping. Microk8s is taking a significant amoutn of time
 	// to be Kubernetes ready while still reporting that it is ready to go.
 	// See lp:1937282
-	ctx, cancel := context.WithTimeout(context.TODO(), 120*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 120*time.Second)
 	defer cancel()
 	secret, err := FetchTokenReadySecret(ctx, objMeta.GetName(), secretAPI, clock)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	// sa may be updated already in 1.21 or earlier versions, so get the latest sa.
-	sa, err := saAPI.Get(context.TODO(), saName, meta.GetOptions{})
+	sa, err := saAPI.Get(ctx, saName, meta.GetOptions{})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -322,7 +323,7 @@ func EnsureSecretForServiceAccount(
 			Name:      secret.Name,
 			UID:       secret.UID,
 		})
-		_, err = saAPI.Update(context.TODO(), sa, meta.UpdateOptions{})
+		_, err = saAPI.Update(ctx, sa, meta.UpdateOptions{})
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

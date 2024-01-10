@@ -45,7 +45,7 @@ import (
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
-	envcontext "github.com/juju/juju/environs/envcontext"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/cloudconfig/podcfg"
 	"github.com/juju/juju/internal/docker"
 	jujuversion "github.com/juju/juju/version"
@@ -134,6 +134,7 @@ type NewK8sClientFunc func(c *rest.Config) (kubernetes.Interface, apiextensionsc
 
 // newK8sBroker returns a kubernetes client for the specified k8s cluster.
 func newK8sBroker(
+	ctx context.Context,
 	controllerUUID string,
 	k8sRestConfig *rest.Config,
 	cfg *config.Config,
@@ -162,7 +163,7 @@ func newK8sBroker(
 	isLegacy := false
 	if namespace != "" {
 		isLegacy, err = utils.IsLegacyModelLabels(
-			namespace, newCfg.Config.Name(), k8sClient.CoreV1().Namespaces())
+			ctx, namespace, newCfg.Config.Name(), k8sClient.CoreV1().Namespaces())
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -198,7 +199,7 @@ func newK8sBroker(
 		return client, nil
 	}
 
-	ns, err := client.getNamespaceByName(namespace)
+	ns, err := client.getNamespaceByName(ctx, namespace)
 	if errors.Is(err, errors.NotFound) {
 		return client, nil
 	} else if err != nil {
@@ -209,13 +210,14 @@ func newK8sBroker(
 		return client, nil
 	}
 
-	if err := client.ensureNamespaceAnnotationForControllerUUID(ns, controllerUUID, isLegacy); err != nil {
+	if err := client.ensureNamespaceAnnotationForControllerUUID(ctx, ns, controllerUUID, isLegacy); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return client, nil
 }
 
 func (k *kubernetesClient) ensureNamespaceAnnotationForControllerUUID(
+	ctx context.Context,
 	ns *core.Namespace,
 	controllerUUID string,
 	isLegacy bool,
@@ -249,7 +251,7 @@ func (k *kubernetesClient) ensureNamespaceAnnotationForControllerUUID(
 	if err := k.ensureNamespaceAnnotations(ns); err != nil {
 		return errors.Trace(err)
 	}
-	_, err := k.client().CoreV1().Namespaces().Update(context.TODO(), ns, v1.UpdateOptions{})
+	_, err := k.client().CoreV1().Namespaces().Update(ctx, ns, v1.UpdateOptions{})
 	return errors.Trace(err)
 }
 
@@ -364,7 +366,7 @@ Please bootstrap again and choose a different controller name.`, controllerName)
 	k.namespace = DecideControllerNamespace(controllerName)
 
 	// ensure no existing namespace has the same name.
-	_, err := k.getNamespaceByName(k.namespace)
+	_, err := k.getNamespaceByName(ctx, k.namespace)
 	if err == nil {
 		return alreadyExistErr
 	}
@@ -375,7 +377,7 @@ Please bootstrap again and choose a different controller name.`, controllerName)
 	// Now, try to find if there is any existing controller running in this cluster.
 	// Note: we have to do this check before we are confident to support multi controllers running in same k8s cluster.
 
-	_, err = k.listNamespacesByAnnotations(k.annotations)
+	_, err = k.listNamespacesByAnnotations(ctx, k.annotations)
 	if err == nil {
 		return alreadyExistErr
 	}
@@ -386,19 +388,19 @@ Please bootstrap again and choose a different controller name.`, controllerName)
 	// The namespace will be set to controller-name in newcontrollerStack.
 
 	// do validation on storage class.
-	_, err = k.validateOperatorStorage()
+	_, err = k.validateOperatorStorage(ctx)
 	return errors.Trace(err)
 }
 
 // Create (environs.BootstrapEnviron) creates a new environ.
 // It must raise an error satisfying IsAlreadyExists if the
 // namespace is already used by another model.
-func (k *kubernetesClient) Create(envcontext.ProviderCallContext, environs.CreateParams) error {
-	return errors.Trace(k.createNamespace(k.namespace))
+func (k *kubernetesClient) Create(ctx envcontext.ProviderCallContext, _ environs.CreateParams) error {
+	return errors.Trace(k.createNamespace(ctx, k.namespace))
 }
 
 // EnsureImageRepoSecret ensures the image pull secret gets created.
-func (k *kubernetesClient) EnsureImageRepoSecret(imageRepo docker.ImageRepoDetails) error {
+func (k *kubernetesClient) EnsureImageRepoSecret(ctx context.Context, imageRepo docker.ImageRepoDetails) error {
 	if !imageRepo.IsPrivate() {
 		return nil
 	}
@@ -408,6 +410,7 @@ func (k *kubernetesClient) EnsureImageRepoSecret(imageRepo docker.ImageRepoDetai
 		return errors.Trace(err)
 	}
 	_, err = k.ensureOCIImageSecret(
+		ctx,
 		constants.CAASImageRepoSecretName,
 		utils.LabelsJuju, secretData,
 		k.annotations,
@@ -415,12 +418,12 @@ func (k *kubernetesClient) EnsureImageRepoSecret(imageRepo docker.ImageRepoDetai
 	return errors.Trace(err)
 }
 
-func (k *kubernetesClient) validateOperatorStorage() (string, error) {
+func (k *kubernetesClient) validateOperatorStorage(ctx context.Context) (string, error) {
 	storageClass, _ := k.Config().AllAttrs()[k8sconstants.OperatorStorageKey].(string)
 	if storageClass == "" {
 		return "", errors.NewNotValid(nil, "config without operator-storage value not valid.\nRun juju add-k8s to reimport your k8s cluster.")
 	}
-	_, err := k.getStorageClass(storageClass)
+	_, err := k.getStorageClass(ctx, storageClass)
 	return storageClass, errors.Trace(err)
 }
 
@@ -435,7 +438,7 @@ func (k *kubernetesClient) Bootstrap(
 		return nil, errors.NotSupportedf("set series for bootstrapping to kubernetes")
 	}
 
-	storageClass, err := k.validateOperatorStorage()
+	storageClass, err := k.validateOperatorStorage(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -450,7 +453,7 @@ func (k *kubernetesClient) Bootstrap(
 
 		// validate initial model name if we need to create it.
 		if initialModelName, has := pcfg.GetInitialModel(); has {
-			_, err := k.getNamespaceByName(initialModelName)
+			_, err := k.getNamespaceByName(ctx, initialModelName)
 			if err == nil {
 				return errors.NewAlreadyExists(nil,
 					fmt.Sprintf(`
@@ -468,7 +471,7 @@ please choose a different initial model name then try again.`, initialModelName)
 		setControllerNamespace := func(controllerName string, broker *kubernetesClient) error {
 			nsName := DecideControllerNamespace(controllerName)
 
-			_, err := broker.GetNamespace(nsName)
+			_, err := broker.GetNamespace(ctx, nsName)
 			if errors.Is(err, errors.NotFound) {
 				// all good.
 				// ensure controller specific annotations.
@@ -487,12 +490,12 @@ please choose a different initial model name then try again.`, initialModelName)
 		}
 
 		// create configmap, secret, volume, statefulset, etc resources for controller stack.
-		controllerStack, err := newcontrollerStack(ctx, k8sconstants.JujuControllerStackName, storageClass, k, pcfg)
+		controllerStack, err := newControllerStack(ctx, k8sconstants.JujuControllerStackName, storageClass, k, pcfg)
 		if err != nil {
 			return errors.Trace(err)
 		}
 		return errors.Annotate(
-			controllerStack.Deploy(),
+			controllerStack.Deploy(ctx),
 			"creating controller stack",
 		)
 	}
@@ -594,24 +597,24 @@ func (k *kubernetesClient) APIVersion() (string, error) {
 
 // getStorageClass returns a named storage class, first looking for
 // one which is qualified by the current namespace if it's available.
-func (k *kubernetesClient) getStorageClass(name string) (*storagev1.StorageClass, error) {
+func (k *kubernetesClient) getStorageClass(ctx context.Context, name string) (*storagev1.StorageClass, error) {
 	if k.namespace == "" {
 		return nil, errNoNamespace
 	}
 	storageClasses := k.client().StorageV1().StorageClasses()
 	qualifiedName := constants.QualifiedStorageClassName(k.namespace, name)
-	sc, err := storageClasses.Get(context.TODO(), qualifiedName, v1.GetOptions{})
+	sc, err := storageClasses.Get(ctx, qualifiedName, v1.GetOptions{})
 	if err == nil {
 		return sc, nil
 	}
 	if !k8serrors.IsNotFound(err) {
 		return nil, errors.Trace(err)
 	}
-	return storageClasses.Get(context.TODO(), name, v1.GetOptions{})
+	return storageClasses.Get(ctx, name, v1.GetOptions{})
 }
 
 // GetService returns the service for the specified application.
-func (k *kubernetesClient) GetService(appName string, includeClusterIP bool) (*caas.Service, error) {
+func (k *kubernetesClient) GetService(ctx context.Context, appName string, includeClusterIP bool) (*caas.Service, error) {
 	if k.namespace == "" {
 		return nil, errNoNamespace
 	}
@@ -621,7 +624,7 @@ func (k *kubernetesClient) GetService(appName string, includeClusterIP bool) (*c
 		labels = utils.LabelsMerge(labels, utils.LabelsJuju)
 	}
 
-	servicesList, err := services.List(context.TODO(), v1.ListOptions{
+	servicesList, err := services.List(ctx, v1.ListOptions{
 		LabelSelector: utils.LabelsToSelector(labels).String(),
 	})
 	if err != nil {
@@ -647,9 +650,9 @@ func (k *kubernetesClient) GetService(appName string, includeClusterIP bool) (*c
 		}
 	}
 
-	deploymentName := k.deploymentName(appName, true)
+	deploymentName := k.deploymentName(ctx, appName, true)
 	statefulsets := k.client().AppsV1().StatefulSets(k.namespace)
-	ss, err := statefulsets.Get(context.TODO(), deploymentName, v1.GetOptions{})
+	ss, err := statefulsets.Get(ctx, deploymentName, v1.GetOptions{})
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return nil, errors.Trace(err)
 	}
@@ -660,7 +663,7 @@ func (k *kubernetesClient) GetService(appName string, includeClusterIP bool) (*c
 		}
 		gen := ss.GetGeneration()
 		result.Generation = &gen
-		message, ssStatus, err := k.getStatefulSetStatus(ss)
+		message, ssStatus, err := k.getStatefulSetStatus(ctx, ss)
 		if err != nil {
 			return nil, errors.Annotatef(err, "getting status for %s", ss.Name)
 		}
@@ -672,7 +675,7 @@ func (k *kubernetesClient) GetService(appName string, includeClusterIP bool) (*c
 	}
 
 	deployments := k.client().AppsV1().Deployments(k.namespace)
-	deployment, err := deployments.Get(context.TODO(), deploymentName, v1.GetOptions{})
+	deployment, err := deployments.Get(ctx, deploymentName, v1.GetOptions{})
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return nil, errors.Trace(err)
 	}
@@ -683,7 +686,7 @@ func (k *kubernetesClient) GetService(appName string, includeClusterIP bool) (*c
 		}
 		gen := deployment.GetGeneration()
 		result.Generation = &gen
-		message, deployStatus, err := k.getDeploymentStatus(deployment)
+		message, deployStatus, err := k.getDeploymentStatus(ctx, deployment)
 		if err != nil {
 			return nil, errors.Annotatef(err, "getting status for %s", ss.Name)
 		}
@@ -695,7 +698,7 @@ func (k *kubernetesClient) GetService(appName string, includeClusterIP bool) (*c
 	}
 
 	daemonsets := k.client().AppsV1().DaemonSets(k.namespace)
-	ds, err := daemonsets.Get(context.TODO(), deploymentName, v1.GetOptions{})
+	ds, err := daemonsets.Get(ctx, deploymentName, v1.GetOptions{})
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return nil, errors.Trace(err)
 	}
@@ -706,7 +709,7 @@ func (k *kubernetesClient) GetService(appName string, includeClusterIP bool) (*c
 
 		gen := ds.GetGeneration()
 		result.Generation = &gen
-		message, dsStatus, err := k.getDaemonSetStatus(ds)
+		message, dsStatus, err := k.getDaemonSetStatus(ctx, ds)
 		if err != nil {
 			return nil, errors.Annotatef(err, "getting status for %s", ss.Name)
 		}
@@ -718,30 +721,30 @@ func (k *kubernetesClient) GetService(appName string, includeClusterIP bool) (*c
 	return &result, nil
 }
 
-func (k *kubernetesClient) ensureDeployment(spec *apps.Deployment) error {
+func (k *kubernetesClient) ensureDeployment(ctx context.Context, spec *apps.Deployment) error {
 	if k.namespace == "" {
 		return errNoNamespace
 	}
 	deployments := k.client().AppsV1().Deployments(k.namespace)
-	_, err := k.createDeployment(spec)
+	_, err := k.createDeployment(ctx, spec)
 	if err == nil || !errors.Is(err, errors.AlreadyExists) {
 		return errors.Annotatef(err, "ensuring deployment %q", spec.GetName())
 	}
-	existing, err := k.getDeployment(spec.GetName())
+	existing, err := k.getDeployment(ctx, spec.GetName())
 	if err != nil {
 		return errors.Trace(err)
 	}
 	existing.SetAnnotations(spec.GetAnnotations())
 	existing.Spec = spec.Spec
-	_, err = deployments.Update(context.TODO(), existing, v1.UpdateOptions{})
+	_, err = deployments.Update(ctx, existing, v1.UpdateOptions{})
 	if err != nil {
 		return errors.Annotatef(err, "ensuring deployment %q", spec.GetName())
 	}
 	return errors.Trace(err)
 }
 
-func (k *kubernetesClient) createDeployment(spec *apps.Deployment) (*apps.Deployment, error) {
-	out, err := k.client().AppsV1().Deployments(k.namespace).Create(context.TODO(), spec, v1.CreateOptions{})
+func (k *kubernetesClient) createDeployment(ctx context.Context, spec *apps.Deployment) (*apps.Deployment, error) {
+	out, err := k.client().AppsV1().Deployments(k.namespace).Create(ctx, spec, v1.CreateOptions{})
 	if k8serrors.IsAlreadyExists(err) {
 		return nil, errors.AlreadyExistsf("deployment %q", spec.GetName())
 	}
@@ -751,11 +754,11 @@ func (k *kubernetesClient) createDeployment(spec *apps.Deployment) (*apps.Deploy
 	return out, errors.Trace(err)
 }
 
-func (k *kubernetesClient) getDeployment(name string) (*apps.Deployment, error) {
+func (k *kubernetesClient) getDeployment(ctx context.Context, name string) (*apps.Deployment, error) {
 	if k.namespace == "" {
 		return nil, errNoNamespace
 	}
-	out, err := k.client().AppsV1().Deployments(k.namespace).Get(context.TODO(), name, v1.GetOptions{})
+	out, err := k.client().AppsV1().Deployments(k.namespace).Get(ctx, name, v1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
 		return nil, errors.NotFoundf("deployment %q", name)
 	}
@@ -789,18 +792,18 @@ func (k *kubernetesClient) applicationSelector(appName string) string {
 }
 
 // AnnotateUnit annotates the specified pod (name or uid) with a unit tag.
-func (k *kubernetesClient) AnnotateUnit(appName string, podName string, unit names.UnitTag) error {
+func (k *kubernetesClient) AnnotateUnit(ctx context.Context, appName string, podName string, unit names.UnitTag) error {
 	if k.namespace == "" {
 		return errNoNamespace
 	}
 	pods := k.client().CoreV1().Pods(k.namespace)
 
-	pod, err := pods.Get(context.TODO(), podName, v1.GetOptions{})
+	pod, err := pods.Get(ctx, podName, v1.GetOptions{})
 	if err != nil {
 		if !k8serrors.IsNotFound(err) {
 			return errors.Trace(err)
 		}
-		pods, err := pods.List(context.TODO(), v1.ListOptions{
+		pods, err := pods.List(ctx, v1.ListOptions{
 			LabelSelector: k.applicationSelector(appName),
 		})
 		// TODO(caas): remove getting pod by Id (a bit expensive) once we started to store podName in cloudContainer doc.
@@ -837,7 +840,7 @@ func (k *kubernetesClient) AnnotateUnit(appName string, podName string, unit nam
 		return errors.Trace(err)
 	}
 
-	_, err = pods.Patch(context.TODO(), pod.Name, types.MergePatchType, jsonPatch, v1.PatchOptions{})
+	_, err = pods.Patch(ctx, pod.Name, types.MergePatchType, jsonPatch, v1.PatchOptions{})
 	if k8serrors.IsNotFound(err) {
 		return errors.NotFoundf("pod %q", podName)
 	}
@@ -860,8 +863,8 @@ func (k *kubernetesClient) WatchUnits(appName string) (watcher.NotifyWatcher, er
 
 // CheckCloudCredentials verifies the the cloud credentials provided to the
 // broker are functioning.
-func (k *kubernetesClient) CheckCloudCredentials() error {
-	if _, err := k.Namespaces(); err != nil {
+func (k *kubernetesClient) CheckCloudCredentials(ctx context.Context) error {
+	if _, err := k.Namespaces(ctx); err != nil {
 		// If this call could not be made with provided credential, we
 		// know that the credential is invalid.
 		return errors.Trace(err)
@@ -871,12 +874,12 @@ func (k *kubernetesClient) CheckCloudCredentials() error {
 
 // Units returns all units and any associated filesystems of the specified application.
 // Filesystems are mounted via volumes bound to the unit.
-func (k *kubernetesClient) Units(appName string) ([]caas.Unit, error) {
+func (k *kubernetesClient) Units(ctx context.Context, appName string) ([]caas.Unit, error) {
 	if k.namespace == "" {
 		return nil, errNoNamespace
 	}
 	pods := k.client().CoreV1().Pods(k.namespace)
-	podsList, err := pods.List(context.TODO(), v1.ListOptions{
+	podsList, err := pods.List(ctx, v1.ListOptions{
 		LabelSelector: k.applicationSelector(appName),
 	})
 	if err != nil {
@@ -894,7 +897,7 @@ func (k *kubernetesClient) Units(appName string) ([]caas.Unit, error) {
 		}
 
 		eventGetter := func() ([]core.Event, error) {
-			return k.getEvents(p.Name, "Pod")
+			return k.getEvents(ctx, p.Name, "Pod")
 		}
 
 		terminated := p.DeletionTimestamp != nil
@@ -931,7 +934,7 @@ func (k *kubernetesClient) Units(appName string) ([]caas.Unit, error) {
 			}
 			var fsInfo *caas.FilesystemInfo
 			if vol.PersistentVolumeClaim != nil && vol.PersistentVolumeClaim.ClaimName != "" {
-				fsInfo, err = k.volumeInfoForPVC(vol, volMount, vol.PersistentVolumeClaim.ClaimName, now)
+				fsInfo, err = k.volumeInfoForPVC(ctx, vol, volMount, vol.PersistentVolumeClaim.ClaimName, now)
 			} else if vol.EmptyDir != nil {
 				fsInfo, err = k.volumeInfoForEmptyDir(vol, volMount, now)
 			} else {
@@ -961,11 +964,11 @@ func (k *kubernetesClient) Units(appName string) ([]caas.Unit, error) {
 }
 
 // ListPods filters a list of pods for the provided namespace and labels.
-func (k *kubernetesClient) ListPods(namespace string, selector k8slabels.Selector) ([]core.Pod, error) {
+func (k *kubernetesClient) ListPods(ctx context.Context, namespace string, selector k8slabels.Selector) ([]core.Pod, error) {
 	listOps := v1.ListOptions{
 		LabelSelector: selector.String(),
 	}
-	list, err := k.client().CoreV1().Pods(namespace).List(context.TODO(), listOps)
+	list, err := k.client().CoreV1().Pods(namespace).List(ctx, listOps)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -975,12 +978,12 @@ func (k *kubernetesClient) ListPods(namespace string, selector k8slabels.Selecto
 	return list.Items, nil
 }
 
-func (k *kubernetesClient) getPod(podName string) (*core.Pod, error) {
+func (k *kubernetesClient) getPod(ctx context.Context, podName string) (*core.Pod, error) {
 	if k.namespace == "" {
 		return nil, errNoNamespace
 	}
 	pods := k.client().CoreV1().Pods(k.namespace)
-	pod, err := pods.Get(context.TODO(), podName, v1.GetOptions{})
+	pod, err := pods.Get(ctx, podName, v1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
 		return nil, errors.NotFoundf("pod %q", podName)
 	} else if err != nil {
@@ -989,7 +992,7 @@ func (k *kubernetesClient) getPod(podName string) (*core.Pod, error) {
 	return pod, nil
 }
 
-func (k *kubernetesClient) getStatefulSetStatus(ss *apps.StatefulSet) (string, status.Status, error) {
+func (k *kubernetesClient) getStatefulSetStatus(ctx context.Context, ss *apps.StatefulSet) (string, status.Status, error) {
 	terminated := ss.DeletionTimestamp != nil
 	jujuStatus := status.Waiting
 	if terminated {
@@ -998,10 +1001,10 @@ func (k *kubernetesClient) getStatefulSetStatus(ss *apps.StatefulSet) (string, s
 	if ss.Status.ReadyReplicas == ss.Status.Replicas {
 		jujuStatus = status.Active
 	}
-	return k.getStatusFromEvents(ss.Name, "StatefulSet", jujuStatus)
+	return k.getStatusFromEvents(ctx, ss.Name, "StatefulSet", jujuStatus)
 }
 
-func (k *kubernetesClient) getDeploymentStatus(deployment *apps.Deployment) (string, status.Status, error) {
+func (k *kubernetesClient) getDeploymentStatus(ctx context.Context, deployment *apps.Deployment) (string, status.Status, error) {
 	terminated := deployment.DeletionTimestamp != nil
 	jujuStatus := status.Waiting
 	if terminated {
@@ -1010,10 +1013,10 @@ func (k *kubernetesClient) getDeploymentStatus(deployment *apps.Deployment) (str
 	if deployment.Status.ReadyReplicas == deployment.Status.Replicas {
 		jujuStatus = status.Active
 	}
-	return k.getStatusFromEvents(deployment.Name, "Deployment", jujuStatus)
+	return k.getStatusFromEvents(ctx, deployment.Name, "Deployment", jujuStatus)
 }
 
-func (k *kubernetesClient) getDaemonSetStatus(ds *apps.DaemonSet) (string, status.Status, error) {
+func (k *kubernetesClient) getDaemonSetStatus(ctx context.Context, ds *apps.DaemonSet) (string, status.Status, error) {
 	terminated := ds.DeletionTimestamp != nil
 	jujuStatus := status.Waiting
 	if terminated {
@@ -1022,11 +1025,11 @@ func (k *kubernetesClient) getDaemonSetStatus(ds *apps.DaemonSet) (string, statu
 	if ds.Status.NumberReady == ds.Status.DesiredNumberScheduled {
 		jujuStatus = status.Active
 	}
-	return k.getStatusFromEvents(ds.Name, "DaemonSet", jujuStatus)
+	return k.getStatusFromEvents(ctx, ds.Name, "DaemonSet", jujuStatus)
 }
 
-func (k *kubernetesClient) getStatusFromEvents(name, kind string, jujuStatus status.Status) (string, status.Status, error) {
-	events, err := k.getEvents(name, kind)
+func (k *kubernetesClient) getStatusFromEvents(ctx context.Context, name, kind string, jujuStatus status.Status) (string, status.Status, error) {
+	events, err := k.getEvents(ctx, name, kind)
 	if err != nil {
 		return "", "", errors.Trace(err)
 	}
@@ -1050,18 +1053,18 @@ func boolPtr(b bool) *bool {
 
 // legacyAppName returns true if there are any artifacts for
 // appName which indicate that this deployment was for Juju 2.5.0.
-func (k *kubernetesClient) legacyAppName(appName string) bool {
+func (k *kubernetesClient) legacyAppName(ctx context.Context, appName string) bool {
 	legacyName := "juju-operator-" + appName
-	_, err := k.getStatefulSet(legacyName)
+	_, err := k.getStatefulSet(ctx, legacyName)
 	return err == nil
 }
 
-func (k *kubernetesClient) deploymentName(appName string, legacySupport bool) string {
+func (k *kubernetesClient) deploymentName(ctx context.Context, appName string, legacySupport bool) string {
 	if !legacySupport {
 		// No need to check old operator statefulset for brand new features like raw k8s spec.
 		return appName
 	}
-	if k.legacyAppName(appName) {
+	if k.legacyAppName(ctx, appName) {
 		return "juju-" + appName
 	}
 	return appName

@@ -69,7 +69,7 @@ func (s *OpenSuite) TestNewDummyEnviron(c *gc.C) {
 	stor, err := filestorage.NewFileStorageWriter(storageDir)
 	c.Assert(err, jc.ErrorIsNil)
 	envtesting.UploadFakeTools(c, stor, cfg.AgentStream(), cfg.AgentStream())
-	err = bootstrap.Bootstrap(ctx, env, envcontext.WithoutCredentialInvalidator(ctx.Context()), bootstrap.BootstrapParams{
+	err = bootstrap.Bootstrap(ctx, env, envcontext.WithoutCredentialInvalidator(ctx), bootstrap.BootstrapParams{
 		ControllerConfig:        controllerCfg,
 		AdminSecret:             "admin-secret",
 		CAPrivateKey:            testing.CAKey,
@@ -168,7 +168,7 @@ func (*OpenSuite) TestDestroy(c *gc.C) {
 	_, err = store.ControllerByName("controller-name")
 	c.Assert(err, jc.ErrorIsNil)
 
-	callCtx := envcontext.WithoutCredentialInvalidator(ctx.Context())
+	callCtx := envcontext.WithoutCredentialInvalidator(ctx)
 	err = environs.Destroy("controller-name", e, callCtx, store)
 	c.Assert(err, jc.ErrorIsNil)
 

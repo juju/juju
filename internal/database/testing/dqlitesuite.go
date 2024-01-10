@@ -96,7 +96,7 @@ func (s *DqliteSuite) SetUpTest(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.dqlite.Ready(context.TODO())
+	err = s.dqlite.Ready(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.trackedDB, s.db = s.OpenDB(c)

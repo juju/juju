@@ -3,6 +3,8 @@
 
 package testing
 
+import "context"
+
 type MockProxier struct {
 	// See Proxier interface
 	RawConfigFn func() (map[string]interface{}, error)
@@ -40,7 +42,7 @@ func (mp *MockProxier) RawConfig() (map[string]interface{}, error) {
 	return mp.RawConfigFn()
 }
 
-func (mp *MockProxier) Start() error {
+func (mp *MockProxier) Start(_ context.Context) error {
 	if mp.StartFn == nil {
 		return nil
 	}

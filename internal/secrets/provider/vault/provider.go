@@ -140,7 +140,7 @@ func (p vaultProvider) CleanupModel(cfg *provider.ModelBackendConfig) (err error
 }
 
 // CleanupSecrets removes policies associated with the removed secrets.
-func (p vaultProvider) CleanupSecrets(cfg *provider.ModelBackendConfig, tag names.Tag, removed provider.SecretRevisions) error {
+func (p vaultProvider) CleanupSecrets(ctx context.Context, cfg *provider.ModelBackendConfig, tag names.Tag, removed provider.SecretRevisions) error {
 	modelPath := modelPathPrefix(cfg.ModelName, cfg.ModelUUID)
 	client, err := p.newBackend(modelPath, &cfg.BackendConfig)
 	if err != nil {
@@ -161,7 +161,6 @@ func (p vaultProvider) CleanupSecrets(cfg *provider.ModelBackendConfig, tag name
 		return false
 	}
 
-	ctx := context.Background()
 	policies, err := sys.ListPoliciesWithContext(ctx)
 	if err != nil {
 		return errors.Trace(err)
@@ -183,7 +182,7 @@ func (p vaultProvider) CleanupSecrets(cfg *provider.ModelBackendConfig, tag name
 // secrets backend client restricted to manage the specified
 // owned secrets and read shared secrets for the given entity tag.
 func (p vaultProvider) RestrictedConfig(
-	adminCfg *provider.ModelBackendConfig, forDrain bool, tag names.Tag, owned provider.SecretRevisions, read provider.SecretRevisions,
+	ctx context.Context, adminCfg *provider.ModelBackendConfig, forDrain bool, tag names.Tag, owned provider.SecretRevisions, read provider.SecretRevisions,
 ) (*provider.BackendConfig, error) {
 	adminUser := tag == nil
 	// Get an admin backend client so we can set up the policies.
@@ -194,7 +193,6 @@ func (p vaultProvider) RestrictedConfig(
 	}
 	sys := backend.client.Sys()
 
-	ctx := context.Background()
 	var policies []string
 	if forDrain {
 		// For drain worker, we need to be able to update a secret.

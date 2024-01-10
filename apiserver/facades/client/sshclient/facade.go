@@ -286,5 +286,5 @@ func (facade *Facade) getExecSecretToken(ctx stdcontext.Context, cloudSpec envir
 	if err != nil {
 		return "", errors.Annotate(err, "failed to open kubernetes client")
 	}
-	return broker.GetSecretToken(k8sprovider.ExecRBACResourceName)
+	return broker.GetSecretToken(ctx, k8sprovider.ExecRBACResourceName)
 }

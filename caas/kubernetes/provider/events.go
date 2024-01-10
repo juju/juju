@@ -44,11 +44,11 @@ const (
 	BackOffPullImage        = "BackOff"
 )
 
-func (k *kubernetesClient) getEvents(objName string, objKind string) ([]core.Event, error) {
+func (k *kubernetesClient) getEvents(ctx context.Context, objName string, objKind string) ([]core.Event, error) {
 	if k.namespace == "" {
 		return nil, errNoNamespace
 	}
-	return resources.ListEventsForObject(context.TODO(), k.client(), k.namespace, objName, objKind)
+	return resources.ListEventsForObject(ctx, k.client(), k.namespace, objName, objKind)
 }
 
 func (k *kubernetesClient) watchEvents(objName string, objKind string) (watcher.NotifyWatcher, error) {
