@@ -79,6 +79,14 @@ func (l *awsLogger) Logf(classification logging.Classification, format string, v
 	}
 }
 
+type NoOpRateLimit struct{}
+
+func (NoOpRateLimit) AddTokens(uint) error { return nil }
+func (NoOpRateLimit) GetToken(context.Context, uint) (func() error, error) {
+	return noOpToken, nil
+}
+func noOpToken() error { return nil }
+
 func NewS3Client(apiConn api.Connection, agentConfig agent.Config, logger Logger) (Session, error) {
 	// We use api.Connection address because we assume this address is
 	// correct and reachable.
@@ -103,9 +111,16 @@ func NewS3Client(apiConn api.Connection, agentConfig agent.Config, logger Logger
 		config.WithLogger(awsLogger),
 		config.WithHTTPClient(awsHTTPDoer),
 		config.WithEndpointResolver(&awsEndpointResolver{endpoint: currentAPIAddress}),
-		// Standard retryer retries 3 times with 20s backoff time by
-		// default.
-		config.WithRetryer(func() aws.Retryer { return retry.NewStandard() }),
+		// Standard retryer with custom max attemps. Will retry at most
+		// 10 times with 20s backoff time.
+		config.WithRetryer(func() aws.Retryer {
+			return retry.NewStandard(
+				func(o *retry.StandardOptions) {
+					o.MaxAttempts = 10
+					o.RateLimiter = NoOpRateLimit{}
+				},
+			)
+		}),
 		// The anonymous credentials are needed by the aws sdk to
 		// perform anonymous s3 access.
 		config.WithCredentialsProvider(aws.AnonymousCredentials{}),
