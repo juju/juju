@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"gopkg.in/tomb.v2"
 
@@ -43,28 +44,28 @@ type response struct {
 }
 
 type fileObjectStore struct {
-	tomb      tomb.Tomb
+	baseObjectStore
 	fs        fs.FS
 	path      string
 	namespace string
 	requests  chan request
-
-	metadataService objectstore.ObjectStoreMetadata
-
-	logger Logger
 }
 
 // NewFileObjectStore returns a new object store worker based on the file
 // storage.
-func NewFileObjectStore(ctx context.Context, namespace, rootPath string, metadataService objectstore.ObjectStoreMetadata, logger Logger) (TrackedObjectStore, error) {
+func NewFileObjectStore(ctx context.Context, namespace, rootPath string, metadataService objectstore.ObjectStoreMetadata, claimer Claimer, logger Logger, clock clock.Clock) (TrackedObjectStore, error) {
 	path := filepath.Join(rootPath, namespace)
 
 	s := &fileObjectStore{
-		fs:              os.DirFS(path),
-		path:            path,
-		namespace:       namespace,
-		metadataService: metadataService,
-		logger:          logger,
+		baseObjectStore: baseObjectStore{
+			claimer:         claimer,
+			metadataService: metadataService,
+			logger:          logger,
+			clock:           clock,
+		},
+		fs:        os.DirFS(path),
+		path:      path,
+		namespace: namespace,
 
 		requests: make(chan request),
 	}
@@ -195,16 +196,6 @@ func (t *fileObjectStore) Remove(ctx context.Context, path string) error {
 	}
 }
 
-// Kill implements the worker.Worker interface.
-func (s *fileObjectStore) Kill() {
-	s.tomb.Kill(nil)
-}
-
-// Wait implements the worker.Worker interface.
-func (s *fileObjectStore) Wait() error {
-	return s.tomb.Wait()
-}
-
 func (t *fileObjectStore) loop() error {
 	// Ensure the namespace directory exists.
 	if _, err := os.Stat(t.path); err != nil && errors.Is(err, os.ErrNotExist) {
@@ -286,7 +277,7 @@ func (t *fileObjectStore) get(ctx context.Context, path string) (io.ReadCloser, 
 }
 
 func (t *fileObjectStore) put(ctx context.Context, path string, r io.Reader, size int64, validator hashValidator) error {
-	hash, err := t.putFile(path, r, size)
+	fileName, hash, err := t.writeToTmpFile(path, r, size)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -296,45 +287,58 @@ func (t *fileObjectStore) put(ctx context.Context, path string, r io.Reader, siz
 		return fmt.Errorf("hash mismatch for %q: expected %q, got %q: %w", path, expected, hash, objectstore.ErrHashMismatch)
 	}
 
-	// Save the metadata for the file after we've written it. That way we
-	// correctly sequence the watch events. Otherwise there is a potential
-	// race where the watch event is emitted before the file is written.
-	if err := t.metadataService.PutMetadata(ctx, objectstore.Metadata{
-		Path: path,
-		Hash: hash,
-		Size: size,
-	}); err != nil {
-		return errors.Trace(err)
-	}
+	// Lock the file with the given hash, so that we can't remove the file
+	// while we're writing it.
+	return t.withLock(ctx, hash, func(ctx context.Context) error {
+		// Persist the temporary file to the final location.
+		if err := t.persistTmpFile(ctx, fileName, hash, size); err != nil {
+			return errors.Trace(err)
+		}
 
-	return nil
+		// Save the metadata for the file after we've written it. That way we
+		// correctly sequence the watch events. Otherwise there is a potential
+		// race where the watch event is emitted before the file is written.
+		if err := t.metadataService.PutMetadata(ctx, objectstore.Metadata{
+			Path: path,
+			Hash: hash,
+			Size: size,
+		}); err != nil {
+			return errors.Trace(err)
+		}
+		return nil
+	})
 }
 
-func (t *fileObjectStore) putFile(path string, r io.Reader, size int64) (string, error) {
+func (t *fileObjectStore) writeToTmpFile(path string, r io.Reader, size int64) (string, string, error) {
 	// The following dance is to ensure that we don't end up with a partially
 	// written file if we crash while writing it or if we're attempting to
 	// read it at the same time.
 	tmpFile, err := os.CreateTemp("", "file")
 	if err != nil {
-		return "", errors.Trace(err)
+		return "", "", errors.Trace(err)
 	}
 	defer func() {
 		_ = tmpFile.Close()
-		_ = os.Remove(tmpFile.Name())
 	}()
 
 	hasher := sha256.New()
 	written, err := io.Copy(tmpFile, io.TeeReader(r, hasher))
 	if err != nil {
-		return "", errors.Trace(err)
+		_ = os.Remove(tmpFile.Name())
+		return "", "", errors.Trace(err)
 	}
 
 	// Ensure that we write all the data.
 	if written != size {
-		return "", errors.Errorf("partially written data: written %d, expected %d", written, size)
+		_ = os.Remove(tmpFile.Name())
+		return "", "", errors.Errorf("partially written data: written %d, expected %d", written, size)
 	}
 
 	hash := hex.EncodeToString(hasher.Sum(nil))
+	return tmpFile.Name(), hash, nil
+}
+
+func (t *fileObjectStore) persistTmpFile(ctx context.Context, tmpFileName, hash string, size int64) error {
 	filePath := t.filePath(hash)
 
 	// Check to see if the file already exists with the same name.
@@ -342,21 +346,21 @@ func (t *fileObjectStore) putFile(path string, r io.Reader, size int64) (string,
 		// If the file on disk isn't the same as the one we're trying to write,
 		// then we have a problem.
 		if info.Size() != size {
-			return "", errors.AlreadyExistsf("file %q encoded as %q", path, filePath)
+			return errors.AlreadyExistsf("encoded as %q", filePath)
 		}
-		return hash, nil
+		return nil
 	} else if err != nil && !errors.Is(err, os.ErrNotExist) {
 		// There is an error attempting to stat the file, and it's not because
 		// the file doesn't exist.
-		return "", errors.Trace(err)
+		return errors.Trace(err)
 	}
 
 	// Swap out the temporary file for the real one.
-	if err := os.Rename(tmpFile.Name(), filePath); err != nil {
-		return "", errors.Trace(err)
+	if err := os.Rename(tmpFileName, filePath); err != nil {
+		return errors.Trace(err)
 	}
 
-	return hash, nil
+	return nil
 }
 
 func (t *fileObjectStore) remove(ctx context.Context, path string) error {
@@ -369,33 +373,28 @@ func (t *fileObjectStore) remove(ctx context.Context, path string) error {
 		return fmt.Errorf("remove metadata: %w", err)
 	}
 
-	filePath := t.filePath(metadata.Hash)
+	hash := metadata.Hash
+	filePath := t.filePath(hash)
 
 	// File doesn't exist, return early, nothing we can do in this case.
 	if _, err := os.Stat(filePath); err != nil && errors.Is(err, os.ErrNotExist) {
 		return nil
 	}
 
-	// If we fail to remove the file, we don't want to return an error, as
-	// the metadata has already been removed. Manual intervention will be
-	// required to remove the file. We may in the future want to prune the
-	// file store of files that are no longer referenced by metadata.
-	if err := os.Remove(filePath); err != nil {
-		t.logger.Errorf("failed to remove file %q for path %q: %v", filePath, path, err)
-	}
-	return nil
+	return t.withLock(ctx, hash, func(ctx context.Context) error {
+		// If we fail to remove the file, we don't want to return an error, as
+		// the metadata has already been removed. Manual intervention will be
+		// required to remove the file. We may in the future want to prune the
+		// file store of files that are no longer referenced by metadata.
+		if err := os.Remove(filePath); err != nil {
+			t.logger.Errorf("failed to remove file %q for path %q: %v", filePath, path, err)
+		}
+		return nil
+	})
 }
 
 func (t *fileObjectStore) filePath(hash string) string {
 	return filepath.Join(t.path, hash)
-}
-
-// scopedContext returns a context that is in the scope of the worker lifetime.
-// It returns a cancellable context that is cancelled when the action has
-// completed.
-func (w *fileObjectStore) scopedContext() (context.Context, context.CancelFunc) {
-	ctx, cancel := context.WithCancel(context.Background())
-	return w.tomb.Context(ctx), cancel
 }
 
 type hashValidator func(string) (string, bool)

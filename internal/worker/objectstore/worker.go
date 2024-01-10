@@ -43,6 +43,7 @@ type WorkerConfig struct {
 	ObjectStoreType            coreobjectstore.BackendType
 	ControllerMetadataService  MetadataService
 	ModelMetadataServiceGetter MetadataServiceGetter
+	ModelClaimGetter           ModelClaimGetter
 
 	// StatePool is only here for backwards compatibility. Once we have
 	// the right abstractions in place, and we have a replacement, we can
@@ -72,6 +73,9 @@ func (c *WorkerConfig) Validate() error {
 	}
 	if c.ModelMetadataServiceGetter == nil {
 		return errors.NotValidf("nil ModelMetadataServiceGetter")
+	}
+	if c.ModelClaimGetter == nil {
+		return errors.NotValidf("nil ModelClaimGetter")
 	}
 	if c.StatePool == nil {
 		return errors.NotValidf("nil StatePool")
@@ -259,6 +263,12 @@ func (w *objectStoreWorker) initObjectStore(namespace string) error {
 			return nil, errors.Trace(err)
 		}
 
+		// Grab the claimer for the model.
+		claimer, err := w.cfg.ModelClaimGetter.ForModelUUID(namespace)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
 		// We can remove the MongoSession once we have the file storage
 		// as the default storage.
 		var state MongoSession
@@ -285,6 +295,7 @@ func (w *objectStoreWorker) initObjectStore(namespace string) error {
 			internalobjectstore.WithLogger(w.cfg.Logger),
 			internalobjectstore.WithMetadataService(metadataService),
 			internalobjectstore.WithRootDir(w.cfg.RootDir),
+			internalobjectstore.WithClaimer(claimer),
 		)
 		if err != nil {
 			return nil, errors.Trace(err)

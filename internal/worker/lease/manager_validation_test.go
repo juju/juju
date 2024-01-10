@@ -33,9 +33,9 @@ func (s *ValidationSuite) SetUpTest(c *gc.C) {
 	s.config = lease.ManagerConfig{
 		Store: struct{ corelease.Store }{},
 		Clock: struct{ clock.Clock }{},
-		Secretary: func(string) (lease.Secretary, error) {
+		SecretaryFinder: FuncSecretaryFinder(func(string) (corelease.Secretary, error) {
 			return nil, nil
-		},
+		}),
 		MaxSleep:             time.Minute,
 		Logger:               loggo.GetLogger("lease_test"),
 		PrometheusRegisterer: struct{ prometheus.Registerer }{},
@@ -81,9 +81,9 @@ func (s *ValidationSuite) TestMissingLogger(c *gc.C) {
 }
 
 func (s *ValidationSuite) TestMissingSecretary(c *gc.C) {
-	s.config.Secretary = nil
+	s.config.SecretaryFinder = nil
 	manager, err := lease.NewManager(s.config)
-	c.Check(err, gc.ErrorMatches, "nil Secretary not valid")
+	c.Check(err, gc.ErrorMatches, "nil SecretaryFinder not valid")
 	c.Check(err, jc.ErrorIs, errors.NotValid)
 	c.Check(manager, gc.IsNil)
 }

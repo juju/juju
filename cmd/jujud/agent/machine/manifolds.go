@@ -35,6 +35,7 @@ import (
 	coretrace "github.com/juju/juju/core/trace"
 	containerbroker "github.com/juju/juju/internal/container/broker"
 	"github.com/juju/juju/internal/container/lxd"
+	internallease "github.com/juju/juju/internal/lease"
 	internalobjectstore "github.com/juju/juju/internal/objectstore"
 	proxyconfig "github.com/juju/juju/internal/proxy/config"
 	"github.com/juju/juju/internal/servicefactory"
@@ -775,6 +776,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			PrometheusRegisterer: config.PrometheusRegisterer,
 			NewWorker:            leasemanager.NewWorker,
 			NewStore:             leasemanager.NewStore,
+			NewSecretaryFinder:   internallease.NewSecretaryFinder,
 		})),
 
 		// The proxy config updater is a leaf worker that sets http/https/apt/etc
@@ -822,6 +824,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			StateName:            stateName,
 			TraceName:            traceName,
 			ServiceFactoryName:   serviceFactoryName,
+			LeaseManagerName:     leaseManagerName,
 			Clock:                config.Clock,
 			Logger:               loggo.GetLogger("juju.worker.objectstore"),
 			NewObjectStoreWorker: internalobjectstore.ObjectStoreFactory,

@@ -43,6 +43,7 @@ type ManifoldConfig struct {
 	PrometheusRegisterer prometheus.Registerer
 	NewWorker            func(ManagerConfig) (worker.Worker, error)
 	NewStore             func(database.DBGetter, Logger) lease.Store
+	NewSecretaryFinder   func(string) lease.SecretaryFinder
 }
 
 // Validate checks that the config has all the required values.
@@ -61,6 +62,9 @@ func (c ManifoldConfig) Validate() error {
 	}
 	if c.Logger == nil {
 		return errors.NotValidf("nil Logger")
+	}
+	if c.NewSecretaryFinder == nil {
+		return errors.NotValidf("nil NewSecretaryFinder")
 	}
 	if c.PrometheusRegisterer == nil {
 		return errors.NotValidf("nil PrometheusRegisterer")
@@ -114,7 +118,7 @@ func (s *manifoldState) start(context dependency.Context) (worker.Worker, error)
 
 	controllerUUID := currentConfig.Controller().Id()
 	w, err := s.config.NewWorker(ManagerConfig{
-		Secretary:            SecretaryFinder(controllerUUID),
+		SecretaryFinder:      s.config.NewSecretaryFinder(controllerUUID),
 		Store:                store,
 		Tracer:               tracer,
 		Clock:                clock,

@@ -25,7 +25,7 @@ type broker interface {
 // It represents a lease manager for a specific namespace and model.
 type boundManager struct {
 	manager   *Manager
-	secretary Secretary
+	secretary lease.Secretary
 	namespace string
 	modelUUID string
 }

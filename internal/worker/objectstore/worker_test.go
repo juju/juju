@@ -28,6 +28,7 @@ type workerSuite struct {
 	trackedObjectStore         *MockTrackedObjectStore
 	controllerMetadataService  *MockMetadataService
 	modelMetadataServiceGetter *MockMetadataServiceGetter
+	modelClaimGetter           *MockModelClaimGetter
 	modelMetadataService       *MockMetadataService
 	called                     int64
 }
@@ -198,6 +199,7 @@ func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
 		},
 		ControllerMetadataService:  s.controllerMetadataService,
 		ModelMetadataServiceGetter: s.modelMetadataServiceGetter,
+		ModelClaimGetter:           s.modelClaimGetter,
 		RootDir:                    c.MkDir(),
 	}, s.states)
 	c.Assert(err, jc.ErrorIsNil)
@@ -218,6 +220,9 @@ func (s *workerSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 	s.modelMetadataServiceGetter = NewMockMetadataServiceGetter(ctrl)
 	s.modelMetadataServiceGetter.EXPECT().ForModelUUID(gomock.Any()).Return(s.modelMetadataService).AnyTimes()
+
+	s.modelClaimGetter = NewMockModelClaimGetter(ctrl)
+	s.modelClaimGetter.EXPECT().ForModelUUID(gomock.Any()).Return(s.claimer, nil).AnyTimes()
 
 	return ctrl
 }

@@ -58,6 +58,7 @@ import (
 	"github.com/juju/juju/domain/model"
 	servicefactorytesting "github.com/juju/juju/domain/servicefactory/testing"
 	databasetesting "github.com/juju/juju/internal/database/testing"
+	internallease "github.com/juju/juju/internal/lease"
 	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/internal/mongo/mongotest"
 	internalobjectstore "github.com/juju/juju/internal/objectstore"
@@ -164,7 +165,7 @@ func (noopRegisterer) Unregister(prometheus.Collector) bool {
 func leaseManager(controllerUUID string, db database.DBGetter, clock clock.Clock) (*lease.Manager, error) {
 	logger := loggo.GetLogger("juju.worker.lease.test")
 	return lease.NewManager(lease.ManagerConfig{
-		Secretary:            lease.SecretaryFinder(controllerUUID),
+		SecretaryFinder:      internallease.NewSecretaryFinder(controllerUUID),
 		Store:                lease.NewStore(db, logger),
 		Logger:               logger,
 		Clock:                clock,

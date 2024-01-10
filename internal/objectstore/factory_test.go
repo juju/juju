@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/worker/v3/workertest"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
@@ -32,6 +33,8 @@ func (s *ObjectStoreFactorySuite) TestNewObjectStore(c *gc.C) {
 	obj, err := ObjectStoreFactory(context.Background(), DefaultBackendType(), "inferi", WithMongoSession(s.session), WithLogger(jujutesting.NewCheckLogger(c)))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(obj, gc.NotNil)
+
+	workertest.CleanKill(c, obj)
 }
 
 func (s *ObjectStoreFactorySuite) TestNewObjectStoreInvalidBackend(c *gc.C) {

@@ -48,6 +48,9 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 
 	cfg.NewStore = nil
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+
+	cfg.NewSecretaryFinder = nil
+	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 }
 
 func (s *manifoldSuite) getConfig() ManifoldConfig {
@@ -63,6 +66,9 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 			return nil, nil
 		},
 		NewStore: func(coredatabase.DBGetter, Logger) lease.Store {
+			return nil
+		},
+		NewSecretaryFinder: func(s string) lease.SecretaryFinder {
 			return nil
 		},
 	}
