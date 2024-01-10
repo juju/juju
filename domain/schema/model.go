@@ -625,12 +625,17 @@ CREATE TABLE storage_volume_attachment (
 );
 
 CREATE TABLE storage_filesystem (
-    uuid    TEXT PRIMARY KEY,
-    life_id INT NOT NULL,
-    -- TODO (manadart 2023-12-11) info and params.
+    uuid        TEXT PRIMARY KEY,
+    life_id     INT NOT NULL,
+    provider_id TEXT,
+    pool_uuid   TEXT,
+    size_mib    INT,
     CONSTRAINT      fk_storage_instance_life
         FOREIGN KEY (life_id)
-        REFERENCES  life(id)
+        REFERENCES  life(id),
+    CONSTRAINT      fk_storage_filesystem_pool
+        FOREIGN KEY (storage_pool_uuid)
+        REFERENCES  storage_pool(uuid)
 );
 
 -- An instance can have at most one filesystem.
@@ -654,6 +659,8 @@ CREATE TABLE storage_filesystem_attachment (
     storage_filesystem_uuid TEXT NOT NULL,
     net_node_uuid           TEXT NOT NULL,
     life_id                 INT NOT NULL,
+    mount_point             TEXT,
+    read_only               BOOLEAN, 
     -- TODO (manadart 2023-12-11) info and params.
     CONSTRAINT       fk_storage_filesystem_attachment_fs
         FOREIGN KEY  (storage_filesystem_uuid)
