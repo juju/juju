@@ -1,7 +1,7 @@
 // Copyright 2021 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package services_test
+package services
 
 import (
 	"context"
@@ -16,8 +16,6 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/facades/client/charms/services"
-	"github.com/juju/juju/apiserver/facades/client/charms/services/mocks"
 	"github.com/juju/juju/core/charm/downloader"
 	"github.com/juju/juju/state"
 	stateerrors "github.com/juju/juju/state/errors"
@@ -28,10 +26,10 @@ var _ = gc.Suite(&storageTestSuite{})
 type storageTestSuite struct {
 	testing.IsolationSuite
 
-	stateBackend   *mocks.MockStateBackend
-	uploadedCharm  *mocks.MockUploadedCharm
-	storageBackend *mocks.MockStorage
-	storage        *services.CharmStorage
+	stateBackend   *MockStateBackend
+	uploadedCharm  *MockUploadedCharm
+	storageBackend *MockStorage
+	storage        *CharmStorage
 	uuid           utils.UUID
 }
 
@@ -107,22 +105,22 @@ func (s *storageTestSuite) TestStoreBlobAlreadyStored(c *gc.C) {
 
 func (s *storageTestSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
-	s.stateBackend = mocks.NewMockStateBackend(ctrl)
-	s.uploadedCharm = mocks.NewMockUploadedCharm(ctrl)
-	s.storageBackend = mocks.NewMockStorage(ctrl)
+	s.stateBackend = NewMockStateBackend(ctrl)
+	s.uploadedCharm = NewMockUploadedCharm(ctrl)
+	s.storageBackend = NewMockStorage(ctrl)
 
 	var err error
 	s.uuid, err = utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.storage = services.NewCharmStorage(services.CharmStorageConfig{
+	s.storage = NewCharmStorage(CharmStorageConfig{
 		Logger:       loggo.GetLogger("test"),
 		StateBackend: s.stateBackend,
 		ObjectStore:  s.storageBackend,
 	})
-	s.storage.SetUUIDGenerator(func() (utils.UUID, error) {
+	s.storage.uuidGenerator = func() (utils.UUID, error) {
 		return s.uuid, nil
-	})
+	}
 
 	return ctrl
 }

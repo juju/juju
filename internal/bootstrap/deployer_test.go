@@ -18,7 +18,6 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	services "github.com/juju/juju/apiserver/facades/client/charms/services"
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/base"
@@ -27,6 +26,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/environs/bootstrap"
+	services "github.com/juju/juju/internal/charm/services"
 	state "github.com/juju/juju/state"
 )
 

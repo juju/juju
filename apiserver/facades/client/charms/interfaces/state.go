@@ -6,10 +6,10 @@ package interfaces
 import (
 	"github.com/juju/names/v5"
 
-	"github.com/juju/juju/apiserver/facades/client/charms/services"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/charm/services"
 	"github.com/juju/juju/state"
 )
 

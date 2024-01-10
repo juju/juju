@@ -18,8 +18,6 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/facades/client/application"
-	"github.com/juju/juju/apiserver/facades/client/charms/interfaces"
-	"github.com/juju/juju/apiserver/facades/client/charms/services"
 	"github.com/juju/juju/controller"
 	coreapplication "github.com/juju/juju/core/application"
 	corearch "github.com/juju/juju/core/arch"
@@ -32,6 +30,7 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/charm/services"
 	"github.com/juju/juju/state"
 )
 
@@ -107,9 +106,14 @@ type CharmUploader interface {
 // CharmRepoFunc is the function that is used to create a charm repository.
 type CharmRepoFunc func(services.CharmRepoFactoryConfig) (corecharm.Repository, error)
 
+// Downloader defines an API for downloading and storing charms.
+type Downloader interface {
+	DownloadAndStore(ctx context.Context, charmURL *charm.URL, requestedOrigin corecharm.Origin, force bool) (corecharm.Origin, error)
+}
+
 // CharmDownloaderFunc is the function that is used to create a charm
 // downloader.
-type CharmDownloaderFunc func(services.CharmDownloaderConfig) (interfaces.Downloader, error)
+type CharmDownloaderFunc func(services.CharmDownloaderConfig) (Downloader, error)
 
 // Application is the interface that is used to get information about an
 // application.
