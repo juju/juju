@@ -93,7 +93,7 @@ func (s *LogForwarderSuite) newLogForwarderArgsWithAPI(
 			}
 			return sink, nil
 		},
-		OpenLogStream: func(_ base.APICaller, _ params.LogStreamConfig, controllerUUID string) (logforwarder.LogStream, error) {
+		OpenLogStream: func(_ context.Context, _ base.APICaller, _ params.LogStreamConfig, controllerUUID string) (logforwarder.LogStream, error) {
 			c.Assert(controllerUUID, gc.Equals, "feebdaed-2f18-4fd2-967d-db9663db7bea")
 			return stream, nil
 		},
@@ -236,10 +236,6 @@ type mockCaller struct {
 
 func (*mockCaller) APICall(ctx context.Context, objType string, version int, id, request string, params, response interface{}) error {
 	return nil
-}
-
-func (*mockCaller) Context() context.Context {
-	return context.Background()
 }
 
 func (*mockCaller) BestFacadeVersion(facade string) int {

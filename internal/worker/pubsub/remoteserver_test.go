@@ -4,6 +4,7 @@
 package pubsub_test
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"time"
@@ -310,7 +311,7 @@ func (f *fakeConnectionOpener) getWriter() *messageWriter {
 	return f.writer
 }
 
-func (f *fakeConnectionOpener) newWriter(info *api.Info) (psworker.MessageWriter, error) {
+func (f *fakeConnectionOpener) newWriter(_ context.Context, info *api.Info) (psworker.MessageWriter, error) {
 	f.mutex.Lock()
 	defer f.mutex.Unlock()
 	if f.callback != nil {

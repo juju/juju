@@ -58,7 +58,6 @@ func (s *UploadSuite) TestUpload(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	ctx := context.Background()
-	s.mockAPICaller.EXPECT().Context().Return(ctx)
 
 	data := "<data>"
 	fp, err := charmresource.GenerateFingerprint(strings.NewReader(data))
@@ -73,7 +72,7 @@ func (s *UploadSuite) TestUpload(c *gc.C) {
 
 	s.mockHTTPClient.EXPECT().Do(ctx, reqMatcher{c, req}, gomock.Any())
 
-	err = s.client.Upload("a-application", "spam", "foo.zip", "", strings.NewReader(data))
+	err = s.client.Upload(context.Background(), "a-application", "spam", "foo.zip", "", strings.NewReader(data))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -111,7 +110,7 @@ func (m reqMatcher) String() string {
 func (s *UploadSuite) TestUploadBadApplication(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	err := s.client.Upload("???", "spam", "file.zip", "", nil)
+	err := s.client.Upload(context.Background(), "???", "spam", "file.zip", "", nil)
 	c.Check(err, gc.ErrorMatches, `.*invalid application.*`)
 }
 
@@ -130,9 +129,8 @@ func (s *UploadSuite) TestUploadFailed(c *gc.C) {
 	req.ContentLength = int64(len(data))
 
 	ctx := context.Background()
-	s.mockAPICaller.EXPECT().Context().Return(ctx)
 	s.mockHTTPClient.EXPECT().Do(ctx, reqMatcher{c, req}, gomock.Any()).Return(errors.New("boom"))
-	err = s.client.Upload("a-application", "spam", "foo.zip", "", strings.NewReader(data))
+	err = s.client.Upload(ctx, "a-application", "spam", "foo.zip", "", strings.NewReader(data))
 	c.Assert(err, gc.ErrorMatches, "boom")
 }
 
@@ -208,11 +206,10 @@ func (s *UploadSuite) TestUploadPendingResource(c *gc.C) {
 	req.Header.Set("Content-Disposition", "form-data; filename=file.zip")
 
 	ctx := context.Background()
-	s.mockAPICaller.EXPECT().Context().Return(ctx)
 	s.mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "AddPendingResources", &args, gomock.Any()).SetArg(3, results).Return(nil)
 	s.mockHTTPClient.EXPECT().Do(ctx, reqMatcher{c, req}, gomock.Any())
 
-	uploadID, err := s.client.UploadPendingResource("a-application", res[0].Resource, "file.zip", strings.NewReader(data))
+	uploadID, err := s.client.UploadPendingResource(ctx, "a-application", res[0].Resource, "file.zip", strings.NewReader(data))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(uploadID, gc.Equals, expected)
 }
@@ -233,7 +230,7 @@ func (s *UploadSuite) TestUploadPendingResourceNoFile(c *gc.C) {
 	}
 	s.mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "AddPendingResources", &args, gomock.Any()).SetArg(3, results).Return(nil)
 
-	uploadID, err := s.client.UploadPendingResource("a-application", res[0].Resource, "file.zip", nil)
+	uploadID, err := s.client.UploadPendingResource(context.Background(), "a-application", res[0].Resource, "file.zip", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(uploadID, gc.Equals, expected)
 }
@@ -243,7 +240,7 @@ func (s *UploadSuite) TestUploadPendingResourceBadApplication(c *gc.C) {
 	defer ctrl.Finish()
 
 	res, _ := newResourceResult(c, "spam")
-	_, err := s.client.UploadPendingResource("???", res[0].Resource, "file.zip", nil)
+	_, err := s.client.UploadPendingResource(context.Background(), "???", res[0].Resource, "file.zip", nil)
 	c.Assert(err, gc.ErrorMatches, `.*invalid application.*`)
 }
 
@@ -274,11 +271,10 @@ func (s *UploadSuite) TestUploadPendingResourceFailed(c *gc.C) {
 	req.Header.Set("Content-Disposition", "form-data; filename=file.zip")
 
 	ctx := context.Background()
-	s.mockAPICaller.EXPECT().Context().Return(ctx)
 	s.mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "AddPendingResources", &args, gomock.Any()).SetArg(3, results).Return(nil)
 	s.mockHTTPClient.EXPECT().Do(ctx, reqMatcher{c, req}, gomock.Any()).Return(errors.New("boom"))
 
-	_, err = s.client.UploadPendingResource("a-application", res[0].Resource, "file.zip", strings.NewReader(data))
+	_, err = s.client.UploadPendingResource(ctx, "a-application", res[0].Resource, "file.zip", strings.NewReader(data))
 	c.Assert(err, gc.ErrorMatches, "boom")
 }
 

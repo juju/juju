@@ -4,8 +4,6 @@
 package usersecretsdrain_test
 
 import (
-	"context"
-
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
@@ -26,7 +24,6 @@ func (s *userSecretsdrainSuite) TestNewClient(c *gc.C) {
 
 	apiCaller := mocks.NewMockAPICaller(ctrl)
 	apiCaller.EXPECT().BestFacadeVersion("UserSecretsDrain").Return(1)
-	apiCaller.EXPECT().Context().Return(context.Background()).AnyTimes()
 
 	client := usersecretsdrain.NewClient(apiCaller)
 	c.Assert(client, gc.NotNil)

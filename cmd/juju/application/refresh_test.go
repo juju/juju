@@ -102,6 +102,7 @@ func (s *BaseRefreshSuite) setup(c *gc.C, currentCharmURL, latestCharmURL *charm
 	s.testPlatform = corecharm.MustParsePlatform(fmt.Sprintf("%s/%s/%s", arch.DefaultArchitecture, s.testBase.OS, s.testBase.Channel))
 
 	s.deployResources = func(
+		_ context.Context,
 		applicationID string,
 		chID resources.CharmID,
 		filesAndRevisions map[string]string,

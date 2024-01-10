@@ -46,7 +46,7 @@ func (s *ResourceGetCmdSuite) TestRun(c *gc.C) {
 
 	const expected = "/var/lib/juju/agents/unit-foo-1/resources/spam/a-file.tgz"
 	hctx := mocks.NewMockContext(ctrl)
-	hctx.EXPECT().DownloadResource("spam").Return(expected, nil)
+	hctx.EXPECT().DownloadResource(gomock.Any(), "spam").Return(expected, nil)
 
 	com, err := jujuc.NewCommand(hctx, "resource-get")
 	c.Assert(err, jc.ErrorIsNil)
@@ -62,7 +62,7 @@ func (s *ResourceGetCmdSuite) TestRunDownloadFailure(c *gc.C) {
 	defer ctrl.Finish()
 
 	hctx := mocks.NewMockContext(ctrl)
-	hctx.EXPECT().DownloadResource("spam").Return("", errors.New("<failure>"))
+	hctx.EXPECT().DownloadResource(gomock.Any(), "spam").Return("", errors.New("<failure>"))
 
 	com, err := jujuc.NewCommand(hctx, "resource-get")
 	c.Assert(err, jc.ErrorIsNil)

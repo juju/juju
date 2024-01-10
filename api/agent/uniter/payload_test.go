@@ -427,10 +427,6 @@ func (s *stubFacade) APICall(ctx context.Context, objType string, version int, i
 	return nil
 }
 
-func (s *stubFacade) Context() context.Context {
-	return context.Background()
-}
-
 type unitMethods struct{}
 
 func (m unitMethods) Handler(name string) (func(target, response interface{}), bool) {

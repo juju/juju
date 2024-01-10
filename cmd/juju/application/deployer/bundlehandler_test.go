@@ -93,7 +93,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleNotFoundCharmHub(c *gc.C) 
 		},
 	}
 
-	err := bundleDeploy(charm.CharmHub, bundleData, s.bundleDeploySpec())
+	err := bundleDeploy(context.Background(), charm.CharmHub, bundleData, s.bundleDeploySpec())
 	c.Assert(err, gc.ErrorMatches, `cannot resolve charm or bundle "no-such": bundle not found`)
 }
 
@@ -169,7 +169,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleSuccessWithModelConstraint
 	bundleData, err := charm.ReadBundleData(strings.NewReader(wordpressBundle))
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = bundleDeploy(charm.CharmHub, bundleData, s.bundleDeploySpecWithConstraints(constraints.MustParse("arch=arm64")))
+	err = bundleDeploy(context.Background(), charm.CharmHub, bundleData, s.bundleDeploySpecWithConstraints(constraints.MustParse("arch=arm64")))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.deployArgs, gc.HasLen, 2)
 	s.assertDeployArgs(c, wordpressCurl.String(), "wordpress", "ubuntu", "20.04")
@@ -251,7 +251,7 @@ func (s *BundleDeployRepositorySuite) TestDeployAddCharmHasBase(c *gc.C) {
 	bundleData, err := charm.ReadBundleData(strings.NewReader(multiApplicationBundle))
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = bundleDeploy(charm.CharmHub, bundleData, s.bundleDeploySpec())
+	err = bundleDeploy(context.Background(), charm.CharmHub, bundleData, s.bundleDeploySpec())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.deployArgs, gc.HasLen, 3)
 	s.assertDeployArgs(c, fullGatewayURL.String(), "istio-ingressgateway", "ubuntu", "20.04")
@@ -439,7 +439,7 @@ func (s *BundleDeployRepositorySuite) TestDeployKubernetesBundleSuccessWithRevis
 	bundleData, err := charm.ReadBundleData(strings.NewReader(kubernetesCharmhubGitlabBundleWithRevision))
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = bundleDeploy(charm.CharmHub, bundleData, s.bundleDeploySpec())
+	err = bundleDeploy(context.Background(), charm.CharmHub, bundleData, s.bundleDeploySpec())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.deployArgs, gc.HasLen, 2)
 	s.assertDeployArgs(c, fullGitlabCurl.String(), "gitlab", "ubuntu", "20.04")
@@ -846,6 +846,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleResources(c *gc.C) {
 
 	spec := s.bundleDeploySpec()
 	spec.deployResources = func(
+		_ context.Context,
 		_ string,
 		_ resources.CharmID,
 		filesAndRevisions map[string]string,
@@ -899,6 +900,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleSpecifyResources(c *gc.C) 
 
 	spec := s.bundleDeploySpec()
 	spec.deployResources = func(
+		_ context.Context,
 		_ string,
 		_ resources.CharmID,
 		filesAndRevisions map[string]string,
@@ -1654,7 +1656,7 @@ machines:
 
 	bundleData, err := charm.ReadBundleData(strings.NewReader(quickBundle))
 	c.Assert(err, jc.ErrorIsNil)
-	err = bundleDeploy(charm.CharmHub, bundleData, s.bundleDeploySpec())
+	err = bundleDeploy(context.Background(), charm.CharmHub, bundleData, s.bundleDeploySpec())
 	c.Assert(err, gc.ErrorMatches, `cannot create machine for holding wp unit: invalid container type "bad"`)
 }
 
@@ -1898,7 +1900,7 @@ relations:
 	bundleData, err := charm.ReadBundleData(strings.NewReader(bundle))
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = bundleDeploy(charm.CharmHub, bundleData, s.bundleDeploySpec())
+	err = bundleDeploy(context.Background(), charm.CharmHub, bundleData, s.bundleDeploySpec())
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertDeployArgs(c, wordpressCurl.String(), "wordpress", "ubuntu", "20.04")
 	s.assertDeployArgs(c, mysqlCurl.String(), "mysql", "ubuntu", "20.04")
@@ -1966,7 +1968,7 @@ relations:
 	bundleData, err := charm.ReadBundleData(strings.NewReader(bundle))
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = bundleDeploy(charm.CharmHub, bundleData, s.bundleDeploySpec())
+	err = bundleDeploy(context.Background(), charm.CharmHub, bundleData, s.bundleDeploySpec())
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertDeployArgs(c, wordpressCurl.String(), "wordpress", "ubuntu", "20.04")
 	s.assertDeployArgs(c, mysqlCurl.String(), "mysql", "ubuntu", "20.04")
@@ -2047,7 +2049,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleWithEndpointBindings(c *gc
 	bundleDeploymentSpec := s.bundleDeploySpec()
 	bundleDeploymentSpec.knownSpaceNames = set.NewStrings("alpha", "beta")
 
-	err = bundleDeploy(charm.CharmHub, bundleData, bundleDeploymentSpec)
+	err = bundleDeploy(context.Background(), charm.CharmHub, bundleData, bundleDeploymentSpec)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -2064,7 +2066,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleWithInvalidEndpointBinding
 	bundleDeploymentSpec := s.bundleDeploySpec()
 	bundleDeploymentSpec.knownSpaceNames = set.NewStrings("alpha")
 
-	err = bundleDeploy(charm.CharmHub, bundleData, bundleDeploymentSpec)
+	err = bundleDeploy(context.Background(), charm.CharmHub, bundleData, bundleDeploymentSpec)
 	c.Assert(err, gc.ErrorMatches, `space "beta" not found`)
 }
 
@@ -2090,7 +2092,9 @@ func (s *BundleDeployRepositorySuite) bundleDeploySpec() bundleDeploySpec {
 }
 
 func (s *BundleDeployRepositorySuite) bundleDeploySpecWithConstraints(cons constraints.Value) bundleDeploySpec {
-	deployResourcesFunc := func(_ string,
+	deployResourcesFunc := func(
+		_ context.Context,
+		_ string,
 		_ resources.CharmID,
 		_ map[string]string,
 		_ map[string]charmresource.Meta,
@@ -2189,7 +2193,6 @@ func (s *BundleDeployRepositorySuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.deployerAPI = mocks.NewMockDeployerAPI(ctrl)
 	s.deployerAPI.EXPECT().BestFacadeVersion("Resources").Return(666).AnyTimes()
-	s.deployerAPI.EXPECT().Context().Return(context.Background()).AnyTimes()
 	s.deployerAPI.EXPECT().BestFacadeVersion("Charms").Return(666).AnyTimes()
 	s.deployerAPI.EXPECT().HTTPClient().Return(&httprequest.Client{}, nil).AnyTimes()
 	s.bundleResolver = mocks.NewMockResolver(ctrl)
@@ -2215,7 +2218,7 @@ func (s *BundleDeployRepositorySuite) runDeployWithSpec(c *gc.C, bundle string, 
 	bundleData, err := charm.ReadBundleData(strings.NewReader(bundle))
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = bundleDeploy(charm.CharmHub, bundleData, spec)
+	err = bundleDeploy(context.Background(), charm.CharmHub, bundleData, spec)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

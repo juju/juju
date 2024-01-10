@@ -4,7 +4,6 @@
 package controller_test
 
 import (
-	"context"
 	"net/url"
 
 	"github.com/juju/names/v5"
@@ -30,11 +29,6 @@ func (*httpAPICallCloser) ModelTag() (names.ModelTag, bool) {
 // BestFacadeVersion implements base.APICallCloser.
 func (*httpAPICallCloser) BestFacadeVersion(facade string) int {
 	return 42
-}
-
-// BestFacadeVersion implements base.APICallCloser.
-func (*httpAPICallCloser) Context() context.Context {
-	return context.Background()
 }
 
 // HTTPClient implements base.APICallCloser. The returned HTTP client can be

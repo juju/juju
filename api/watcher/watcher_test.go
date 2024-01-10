@@ -42,7 +42,6 @@ var _ = gc.Suite(&watcherSuite{})
 
 func setupWatcher[T any](c *gc.C, caller *apimocks.MockAPICaller, facadeName string) (string, chan T) {
 	caller.EXPECT().BestFacadeVersion(facadeName).Return(666).AnyTimes()
-	caller.EXPECT().Context().Return(context.Background()).AnyTimes()
 	// Initial event.
 	eventCh := make(chan T)
 
@@ -75,7 +74,6 @@ func (s *watcherSuite) TestWatchMachine(c *gc.C) {
 
 	caller := apimocks.NewMockAPICaller(ctrl)
 	caller.EXPECT().BestFacadeVersion("Machiner").Return(666)
-	caller.EXPECT().Context().Return(context.Background()).AnyTimes()
 
 	watcherID, _ := setupWatcher[any](c, caller, "NotifyWatcher")
 
@@ -111,7 +109,6 @@ func (s *watcherSuite) TestNotifyWatcherStopsWithPendingSend(c *gc.C) {
 
 	caller := apimocks.NewMockAPICaller(ctrl)
 	caller.EXPECT().BestFacadeVersion("Machiner").Return(666)
-	caller.EXPECT().Context().Return(context.Background()).AnyTimes()
 
 	watcherID, _ := setupWatcher[any](c, caller, "NotifyWatcher")
 
@@ -145,7 +142,6 @@ func (s *watcherSuite) TestWatchUnits(c *gc.C) {
 
 	caller := apimocks.NewMockAPICaller(ctrl)
 	caller.EXPECT().BestFacadeVersion("Deployer").Return(666)
-	caller.EXPECT().Context().Return(context.Background()).AnyTimes()
 
 	watcherID, eventCh := setupWatcher[*params.StringsWatchResult](c, caller, "StringsWatcher")
 
@@ -187,7 +183,6 @@ func (s *watcherSuite) TestStringsWatcherStopsWithPendingSend(c *gc.C) {
 
 	caller := apimocks.NewMockAPICaller(ctrl)
 	caller.EXPECT().BestFacadeVersion("Deployer").Return(666)
-	caller.EXPECT().Context().Return(context.Background()).AnyTimes()
 
 	watcherID, _ := setupWatcher[*params.StringsWatchResult](c, caller, "StringsWatcher")
 
@@ -218,7 +213,6 @@ func (s *watcherSuite) TestWatchMachineStorage(c *gc.C) {
 
 	caller := apimocks.NewMockAPICaller(ctrl)
 	caller.EXPECT().BestFacadeVersion("StorageProvisioner").Return(666)
-	caller.EXPECT().Context().Return(context.Background()).AnyTimes()
 
 	watcherID, eventCh := setupWatcher[*params.MachineStorageIdsWatchResult](c, caller, "VolumeAttachmentsWatcher")
 
@@ -293,7 +287,6 @@ func (s *watcherSuite) TestRelationStatusWatcher(c *gc.C) {
 
 	caller := apimocks.NewMockAPICaller(ctrl)
 	caller.EXPECT().BestFacadeVersion("CrossModelRelations").Return(666)
-	caller.EXPECT().Context().Return(context.Background()).AnyTimes()
 
 	watcherID, eventCh := setupWatcher[*params.RelationLifeSuspendedStatusWatchResult](c, caller, "RelationStatusWatcher")
 
@@ -318,7 +311,7 @@ func (s *watcherSuite) TestRelationStatusWatcher(c *gc.C) {
 	caller.EXPECT().APICall(gomock.Any(), "CrossModelRelations", 666, "", "WatchRelationsSuspendedStatus", args, gomock.Any()).SetArg(6, initialResults).Return(nil)
 
 	client := crossmodelrelations.NewClient(&apicloser{caller})
-	w, err := client.WatchRelationSuspendedStatus(arg)
+	w, err := client.WatchRelationSuspendedStatus(context.Background(), arg)
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
@@ -368,7 +361,6 @@ func (s *watcherSuite) TestOfferStatusWatcher(c *gc.C) {
 
 	caller := apimocks.NewMockAPICaller(ctrl)
 	caller.EXPECT().BestFacadeVersion("CrossModelRelations").Return(666)
-	caller.EXPECT().Context().Return(context.Background()).AnyTimes()
 
 	watcherID, eventCh := setupWatcher[*params.OfferStatusWatchResult](c, caller, "OfferStatusWatcher")
 
@@ -400,7 +392,7 @@ func (s *watcherSuite) TestOfferStatusWatcher(c *gc.C) {
 	caller.EXPECT().APICall(gomock.Any(), "CrossModelRelations", 666, "", "WatchOfferStatus", args, gomock.Any()).SetArg(6, initialResults).Return(nil)
 
 	client := crossmodelrelations.NewClient(&apicloser{caller})
-	w, err := client.WatchOfferStatus(arg)
+	w, err := client.WatchOfferStatus(context.Background(), arg)
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
@@ -516,7 +508,6 @@ func (s *watcherSuite) TestSecretsRotationWatcher(c *gc.C) {
 
 	caller := apimocks.NewMockAPICaller(ctrl)
 	caller.EXPECT().BestFacadeVersion("SecretsManager").Return(666).AnyTimes()
-	caller.EXPECT().Context().Return(context.Background()).AnyTimes()
 
 	client := secretsmanager.NewClient(caller)
 	s.assertSecretsTriggerWatcher(c, caller, "WatchSecretsRotationChanges", client.WatchSecretsRotationChanges)
@@ -528,7 +519,6 @@ func (s *watcherSuite) TestSecretsRevisionsExpiryWatcher(c *gc.C) {
 
 	caller := apimocks.NewMockAPICaller(ctrl)
 	caller.EXPECT().BestFacadeVersion("SecretsManager").Return(666).AnyTimes()
-	caller.EXPECT().Context().Return(context.Background()).AnyTimes()
 
 	client := secretsmanager.NewClient(caller)
 	s.assertSecretsTriggerWatcher(c, caller, "WatchSecretRevisionsExpiryChanges", client.WatchSecretRevisionsExpiryChanges)
@@ -540,7 +530,6 @@ func (s *watcherSuite) TestCrossModelSecretsRevisionWatcher(c *gc.C) {
 
 	caller := apimocks.NewMockAPICaller(ctrl)
 	caller.EXPECT().BestFacadeVersion("CrossModelRelations").Return(666).AnyTimes()
-	caller.EXPECT().Context().Return(context.Background()).AnyTimes()
 	watcherID, eventCh := setupWatcher[*params.SecretRevisionWatchResult](c, caller, "SecretsRevisionWatcher")
 
 	mac, err := jujutesting.NewMacaroon("apimac")
@@ -563,7 +552,7 @@ func (s *watcherSuite) TestCrossModelSecretsRevisionWatcher(c *gc.C) {
 	caller.EXPECT().APICall(gomock.Any(), "CrossModelRelations", 666, "", "WatchConsumedSecretsChanges", args, gomock.Any()).SetArg(6, initialResults).Return(nil)
 
 	client := crossmodelrelations.NewClient(&apicloser{caller})
-	w, err := client.WatchConsumedSecretsChanges("app-token", "rel-token", mac)
+	w, err := client.WatchConsumedSecretsChanges(context.Background(), "app-token", "rel-token", mac)
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
@@ -615,7 +604,6 @@ func (s *migrationSuite) TestMigrationStatusWatcher(c *gc.C) {
 
 	caller := apimocks.NewMockAPICaller(ctrl)
 	caller.EXPECT().BestFacadeVersion("MigrationMinion").Return(666).AnyTimes()
-	caller.EXPECT().Context().Return(context.Background()).AnyTimes()
 	watcherID, eventCh := setupWatcher[*params.MigrationStatus](c, caller, "MigrationStatusWatcher")
 
 	initialResult := params.NotifyWatchResult{

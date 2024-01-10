@@ -397,6 +397,7 @@ func (s *deployerSuite) makeBundleDir(c *gc.C, content string) string {
 func (s *deployerSuite) newDeployerFactory() DeployerFactory {
 	dep := DeployerDependencies{
 		DeployResources: func(
+			context.Context,
 			string,
 			resources.CharmID,
 			map[string]string,

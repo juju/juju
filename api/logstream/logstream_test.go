@@ -4,6 +4,7 @@
 package logstream_test
 
 import (
+	"context"
 	"net/url"
 	"time"
 
@@ -38,7 +39,7 @@ func (s *LogReaderSuite) TestOpenFullConfig(c *gc.C) {
 		Sink: "spam",
 	}
 
-	_, err := logstream.Open(conn, cfg, cUUID)
+	_, err := logstream.Open(context.Background(), conn, cfg, cUUID)
 	c.Assert(err, gc.IsNil)
 
 	stub.CheckCallNames(c, "ConnectStream")
@@ -55,7 +56,7 @@ func (s *LogReaderSuite) TestOpenError(c *gc.C) {
 	stub.SetErrors(failure)
 	var cfg params.LogStreamConfig
 
-	_, err := logstream.Open(conn, cfg, cUUID)
+	_, err := logstream.Open(context.Background(), conn, cfg, cUUID)
 
 	c.Check(err, gc.ErrorMatches, "cannot connect to /logstream: foo")
 	stub.CheckCallNames(c, "ConnectStream")
@@ -85,7 +86,7 @@ func (s *LogReaderSuite) TestNextOneRecord(c *gc.C) {
 	jsonReader.ReturnReadJSON = logsCh
 	conn.ReturnConnectStream = jsonReader
 	var cfg params.LogStreamConfig
-	stream, err := logstream.Open(conn, cfg, cUUID)
+	stream, err := logstream.Open(context.Background(), conn, cfg, cUUID)
 	c.Assert(err, gc.IsNil)
 	stub.ResetCalls()
 
@@ -150,7 +151,7 @@ func (s *LogReaderSuite) TestNextError(c *gc.C) {
 	failure := errors.New("an error")
 	stub.SetErrors(nil, failure)
 	var cfg params.LogStreamConfig
-	stream, err := logstream.Open(conn, cfg, cUUID)
+	stream, err := logstream.Open(context.Background(), conn, cfg, cUUID)
 	c.Assert(err, gc.IsNil)
 
 	var nextErr error
@@ -175,7 +176,7 @@ func (s *LogReaderSuite) TestClose(c *gc.C) {
 	jsonReader := mockStream{stub: stub}
 	conn.ReturnConnectStream = jsonReader
 	var cfg params.LogStreamConfig
-	stream, err := logstream.Open(conn, cfg, cUUID)
+	stream, err := logstream.Open(context.Background(), conn, cfg, cUUID)
 	c.Assert(err, gc.IsNil)
 	stub.ResetCalls()
 
@@ -196,7 +197,7 @@ type mockConnector struct {
 	ReturnConnectStream base.Stream
 }
 
-func (c *mockConnector) ConnectStream(path string, values url.Values) (base.Stream, error) {
+func (c *mockConnector) ConnectStream(_ context.Context, path string, values url.Values) (base.Stream, error) {
 	c.stub.AddCall("ConnectStream", path, values)
 	if err := c.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)

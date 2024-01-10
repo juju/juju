@@ -4,6 +4,7 @@
 package pubsub_test
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -85,7 +86,7 @@ func (*WorkerConfigSuite) TestValidate(c *gc.C) {
 				APIInfo: &api.Info{
 					Addrs: []string{"localhost"},
 				},
-				NewWriter: func(*api.Info) (psworker.MessageWriter, error) {
+				NewWriter: func(context.Context, *api.Info) (psworker.MessageWriter, error) {
 					return &messageWriter{}, nil
 				},
 			},
@@ -99,7 +100,7 @@ func (*WorkerConfigSuite) TestValidate(c *gc.C) {
 				APIInfo: &api.Info{
 					Addrs: []string{"localhost"},
 				},
-				NewWriter: func(*api.Info) (psworker.MessageWriter, error) {
+				NewWriter: func(context.Context, *api.Info) (psworker.MessageWriter, error) {
 					return &messageWriter{}, nil
 				},
 				NewRemote: func(psworker.RemoteServerConfig) (psworker.RemoteServer, error) {
@@ -152,7 +153,7 @@ func (s *SubscriberSuite) SetUpTest(c *gc.C) {
 			CACert: "fake as",
 			Tag:    tag,
 		},
-		NewWriter: func(*api.Info) (psworker.MessageWriter, error) {
+		NewWriter: func(context.Context, *api.Info) (psworker.MessageWriter, error) {
 			return &messageWriter{}, nil
 		},
 		NewRemote: s.remotes.new,

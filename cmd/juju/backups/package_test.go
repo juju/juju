@@ -5,6 +5,7 @@ package backups_test
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -197,7 +198,7 @@ func (c *fakeAPIClient) Create(notes string, noDownload bool) (*params.BackupsMe
 	return createResult, nil
 }
 
-func (c *fakeAPIClient) Download(id string) (io.ReadCloser, error) {
+func (c *fakeAPIClient) Download(_ context.Context, id string) (io.ReadCloser, error) {
 	c.calls = append(c.calls, "Download")
 	c.args = append(c.args, id)
 	if c.err != nil {

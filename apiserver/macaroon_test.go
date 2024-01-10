@@ -286,7 +286,7 @@ func (s *macaroonLoginSuite) TestConnectStream(c *gc.C) {
 
 	// Then check that ConnectStream works OK and that it doesn't need
 	// to discharge again.
-	conn, err := client.ConnectStream("/path", nil)
+	conn, err := client.ConnectStream(context.Background(), "/path", nil)
 	c.Assert(err, gc.IsNil)
 	defer conn.Close()
 	connectURL, err := url.Parse(catcher.Location())
@@ -322,7 +322,7 @@ func (s *macaroonLoginSuite) TestConnectStreamFailedDischarge(c *gc.C) {
 	// the actual debug-log endpoint will return an error).
 	dischargeError = true
 	logArgs := url.Values{"noTail": []string{"true"}}
-	conn, err := client.ConnectStream("/log", logArgs)
+	conn, err := client.ConnectStream(context.Background(), "/log", logArgs)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(conn, gc.NotNil)
 	conn.Close()
@@ -331,7 +331,7 @@ func (s *macaroonLoginSuite) TestConnectStreamFailedDischarge(c *gc.C) {
 	// and try again. The login should fail.
 	jar.Clear()
 
-	conn, err = client.ConnectStream("/log", logArgs)
+	conn, err = client.ConnectStream(context.Background(), "/log", logArgs)
 	c.Assert(err, gc.ErrorMatches, `cannot get discharge from "https://.*": third party refused discharge: cannot discharge: login denied by discharger`)
 	c.Assert(conn, gc.IsNil)
 }
@@ -382,7 +382,7 @@ func (s *macaroonLoginSuite) TestConnectStreamWithDischargedMacaroons(c *gc.C) {
 	info2.Macaroons = dischargedMacaroons
 
 	client2 := s.OpenAPI(c, info2, nil)
-	conn, err := client2.ConnectStream("/path", nil)
+	conn, err := client2.ConnectStream(context.Background(), "/path", nil)
 	c.Assert(err, gc.IsNil)
 	defer conn.Close()
 

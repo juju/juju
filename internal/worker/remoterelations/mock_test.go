@@ -4,6 +4,7 @@
 package remoterelations_test
 
 import (
+	"context"
 	"sync"
 
 	"github.com/juju/errors"
@@ -278,7 +279,7 @@ func (m *mockRemoteRelationsFacade) Close() error {
 	return nil
 }
 
-func (m *mockRemoteRelationsFacade) PublishRelationChange(change params.RemoteRelationChangeEvent) error {
+func (m *mockRemoteRelationsFacade) PublishRelationChange(_ context.Context, change params.RemoteRelationChangeEvent) error {
 	m.stub.MethodCall(m, "PublishRelationChange", change)
 	if err := m.stub.NextErr(); err != nil {
 		return err
@@ -286,7 +287,7 @@ func (m *mockRemoteRelationsFacade) PublishRelationChange(change params.RemoteRe
 	return nil
 }
 
-func (m *mockRemoteRelationsFacade) RegisterRemoteRelations(relations ...params.RegisterRemoteRelationArg) ([]params.RegisterRemoteRelationResult, error) {
+func (m *mockRemoteRelationsFacade) RegisterRemoteRelations(_ context.Context, relations ...params.RegisterRemoteRelationArg) ([]params.RegisterRemoteRelationResult, error) {
 	m.stub.MethodCall(m, "RegisterRemoteRelations", relations)
 	if err := m.stub.NextErr(); err != nil {
 		return nil, err
@@ -312,7 +313,7 @@ func (m *mockRemoteRelationsFacade) remoteRelationWatcher(key string) (*mockRemo
 	return w, ok
 }
 
-func (m *mockRemoteRelationsFacade) WatchRelationChanges(relationToken string, appToken string, mac macaroon.Slice) (apiwatcher.RemoteRelationWatcher, error) {
+func (m *mockRemoteRelationsFacade) WatchRelationChanges(_ context.Context, relationToken string, appToken string, mac macaroon.Slice) (apiwatcher.RemoteRelationWatcher, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.stub.MethodCall(m, "WatchRelationChanges", relationToken, appToken, mac)
@@ -337,7 +338,7 @@ func (m *mockRemoteRelationsFacade) secretsRevisionWatcher(key string) (*mockSec
 	return w, ok
 }
 
-func (m *mockRemoteRelationsFacade) WatchRelationSuspendedStatus(arg params.RemoteEntityArg) (watcher.RelationStatusWatcher, error) {
+func (m *mockRemoteRelationsFacade) WatchRelationSuspendedStatus(_ context.Context, arg params.RemoteEntityArg) (watcher.RelationStatusWatcher, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.stub.MethodCall(m, "WatchRelationSuspendedStatus", arg.Token, arg.Macaroons)
@@ -348,7 +349,7 @@ func (m *mockRemoteRelationsFacade) WatchRelationSuspendedStatus(arg params.Remo
 	return m.relationsStatusWatchers[arg.Token], nil
 }
 
-func (m *mockRemoteRelationsFacade) WatchOfferStatus(arg params.OfferArg) (watcher.OfferStatusWatcher, error) {
+func (m *mockRemoteRelationsFacade) WatchOfferStatus(_ context.Context, arg params.OfferArg) (watcher.OfferStatusWatcher, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.stub.MethodCall(m, "WatchOfferStatus", arg.OfferUUID, arg.Macaroons)
@@ -360,7 +361,7 @@ func (m *mockRemoteRelationsFacade) WatchOfferStatus(arg params.OfferArg) (watch
 }
 
 // RelationUnitSettings returns the relation unit settings for the given relation units in the remote model.
-func (m *mockRemoteRelationsFacade) RelationUnitSettings(relationUnits []params.RemoteRelationUnit) ([]params.SettingsResult, error) {
+func (m *mockRemoteRelationsFacade) RelationUnitSettings(_ context.Context, relationUnits []params.RemoteRelationUnit) ([]params.SettingsResult, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.stub.MethodCall(m, "RelationUnitSettings", relationUnits)
@@ -376,7 +377,7 @@ func (m *mockRemoteRelationsFacade) RelationUnitSettings(relationUnits []params.
 	return result, nil
 }
 
-func (m *mockRemoteRelationsFacade) WatchConsumedSecretsChanges(appToken, relToken string, mac *macaroon.Macaroon) (watcher.SecretsRevisionWatcher, error) {
+func (m *mockRemoteRelationsFacade) WatchConsumedSecretsChanges(_ context.Context, appToken, relToken string, mac *macaroon.Macaroon) (watcher.SecretsRevisionWatcher, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.stub.MethodCall(m, "WatchConsumedSecretsChanges", appToken, relToken, mac)

@@ -47,7 +47,7 @@ func (s *ResourcesFacadeClientSuite) TestGetResource(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	cl.HTTPDoer = s.api
 
-	info, content, err := cl.GetResource("spam")
+	info, content, err := cl.GetResource(context.Background(), "spam")
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "Do", "GetResourceInfo")
@@ -60,7 +60,7 @@ func (s *ResourcesFacadeClientSuite) TestUnitDoer(c *gc.C) {
 	req, err := http.NewRequest("GET", "/resources/eggs", body)
 	c.Assert(err, jc.ErrorIsNil)
 	var resp *http.Response
-	doer := uniter.NewUnitHTTPClient(context.Background(), s.api, "spam/1")
+	doer := uniter.NewUnitHTTPClient(s.api, "spam/1")
 
 	err = doer.Do(context.Background(), req, &resp)
 	c.Assert(err, jc.ErrorIsNil)
@@ -88,10 +88,6 @@ func (s *stubAPI) setResource(info resources.Resource, reader io.ReadCloser) {
 	s.ReturnDo = &http.Response{
 		Body: reader,
 	}
-}
-
-func (s *stubAPI) Context() context.Context {
-	return context.Background()
 }
 
 func (s *stubAPI) BestFacadeVersion(_ string) int {

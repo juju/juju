@@ -5,6 +5,7 @@ package deployer
 
 import (
 	"bytes"
+	"context"
 
 	"github.com/juju/charm/v12"
 	charmresource "github.com/juju/charm/v12/resource"
@@ -112,7 +113,7 @@ func (s *charmSuite) TestRepositoryCharmDeployDryRunDefaultSeriesForce(c *gc.C) 
 			OS: "ubuntu"},
 	}
 
-	repoCharm.uploadExistingPendingResources = func(appName string, pendingResources []application.PendingResourceUpload, conn base.APICallCloser, filesystem modelcmd.Filesystem) error {
+	repoCharm.uploadExistingPendingResources = func(_ context.Context, appName string, pendingResources []application.PendingResourceUpload, conn base.APICallCloser, filesystem modelcmd.Filesystem) error {
 		c.Assert(appName, gc.Equals, dInfo.Name)
 		return nil
 	}
@@ -161,7 +162,7 @@ func (s *charmSuite) TestDeployFromRepositoryCharmAppNameVSCharmName(c *gc.C) {
 			OS: "ubuntu"},
 	}
 
-	repoCharm.uploadExistingPendingResources = func(appName string, pendingResources []application.PendingResourceUpload, conn base.APICallCloser, filesystem modelcmd.Filesystem) error {
+	repoCharm.uploadExistingPendingResources = func(_ context.Context, appName string, pendingResources []application.PendingResourceUpload, conn base.APICallCloser, filesystem modelcmd.Filesystem) error {
 		c.Assert(appName, gc.Equals, dInfo.Name)
 		return nil
 	}
@@ -198,7 +199,7 @@ func (s *charmSuite) TestDeployFromRepositoryErrorNoUploadResources(c *gc.C) {
 		Stdout: writer,
 	}
 
-	repoCharm.uploadExistingPendingResources = func(appName string, pendingResources []application.PendingResourceUpload, conn base.APICallCloser, filesystem modelcmd.Filesystem) error {
+	repoCharm.uploadExistingPendingResources = func(_ context.Context, appName string, pendingResources []application.PendingResourceUpload, conn base.APICallCloser, filesystem modelcmd.Filesystem) error {
 		c.Fatalf("Do not upload pending resources if errors")
 		return nil
 	}
@@ -213,6 +214,7 @@ func (s *charmSuite) newDeployCharm() *deployCharm {
 	return &deployCharm{
 		configOptions: s.configFlag,
 		deployResources: func(
+			context.Context,
 			string,
 			resources.CharmID,
 			map[string]string,

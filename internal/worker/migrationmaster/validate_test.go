@@ -4,6 +4,8 @@
 package migrationmaster_test
 
 import (
+	"context"
+
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
@@ -82,7 +84,7 @@ func validConfig() migrationmaster.Config {
 		Guard:           struct{ fortress.Guard }{},
 		Facade:          struct{ migrationmaster.Facade }{},
 		APIOpen:         func(*api.Info, api.DialOpts) (api.Connection, error) { return nil, nil },
-		UploadBinaries:  func(migration.UploadBinariesConfig) error { return nil },
+		UploadBinaries:  func(context.Context, migration.UploadBinariesConfig) error { return nil },
 		CharmDownloader: struct{ migration.CharmDownloader }{},
 		ToolsDownloader: struct{ migration.ToolsDownloader }{},
 		Clock:           struct{ clock.Clock }{},
