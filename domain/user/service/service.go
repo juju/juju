@@ -49,6 +49,11 @@ type State interface {
 	// returned.
 	GetUserByName(context.Context, string) (user.User, error)
 
+	// GetAllUsers will retrieve all users from the database where the user is
+	// active and has not been removed. If no users exist an empty slice will be
+	// returned.
+	GetAllUsers(context.Context) ([]user.User, error)
+
 	// RemoveUser marks the user as removed. This obviates the ability of a user
 	// to function, but keeps the user retaining provenance, i.e. auditing.
 	// RemoveUser will also remove any credentials and activation codes for the
@@ -147,6 +152,15 @@ func (s *Service) GetUserByName(
 		return user.User{}, errors.Annotatef(err, "getting user %q", name)
 	}
 
+	return usr, nil
+}
+
+// GetAllUsers will return all users that have not been removed.
+func (s *Service) GetAllUsers(ctx context.Context) ([]user.User, error) {
+	usr, err := s.st.GetAllUsers(ctx)
+	if err != nil {
+		return nil, errors.Annotate(err, "getting all users")
+	}
 	return usr, nil
 }
 

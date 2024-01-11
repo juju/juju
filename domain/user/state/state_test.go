@@ -411,6 +411,47 @@ WHERE uuid = ?
 	c.Check(removed, gc.Equals, true)
 }
 
+// TestGetAllUsers asserts that we can get all users from the database.
+func (s *stateSuite) TestGetAllUsers(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	// Add admin1 user.
+	adminUUID1, err := user.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	adminUser1 := user.User{
+		Name:        "admin1",
+		DisplayName: "admin1",
+	}
+	err = st.AddUser(context.Background(), adminUUID1, adminUser1, adminUUID1)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Add admin1 user.
+	adminUUID2, err := user.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	adminUser2 := user.User{
+		Name:        "admin2",
+		DisplayName: "admin2",
+	}
+	err = st.AddUser(context.Background(), adminUUID2, adminUser2, adminUUID2)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Get all users.
+	users, err := st.GetAllUsers(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(users, gc.HasLen, 2)
+
+	c.Check(users[0].Name, gc.Equals, adminUser1.Name)
+	c.Check(users[0].DisplayName, gc.Equals, adminUser1.DisplayName)
+	c.Check(users[0].CreatorUUID, gc.Equals, adminUUID1)
+	c.Check(users[0].CreatedAt, gc.NotNil)
+
+	c.Check(users[1].Name, gc.Equals, adminUser2.Name)
+	c.Check(users[1].DisplayName, gc.Equals, adminUser2.DisplayName)
+	c.Check(users[1].CreatorUUID, gc.Equals, adminUUID2)
+	c.Check(users[1].CreatedAt, gc.NotNil)
+}
+
 // TestSetPasswordHash asserts that we can set a password hash for a user.
 func (s *stateSuite) TestSetPasswordHash(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())

@@ -175,6 +175,47 @@ WHERE name = $M.name AND removed = false
 	return usr, nil
 }
 
+// GetAllUsers will retrieve all users from the database where the user is
+// active and has not been removed. If no users exist an empty slice will be
+// returned.
+func (st *State) GetAllUsers(ctx context.Context) ([]user.User, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Annotate(err, "getting DB access")
+	}
+
+	var usrs []user.User
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		getAllUsersQuery := `
+SELECT &User.*
+FROM user
+WHERE removed = false
+`
+
+		selectGetAllUsersStmt, err := sqlair.Prepare(getAllUsersQuery, User{}, sqlair.M{})
+		if err != nil {
+			return errors.Annotate(err, "preparing select getAllUsers query")
+		}
+
+		var results []User
+		err = tx.Query(ctx, selectGetAllUsersStmt).GetAll(&results)
+		if err != nil {
+			return errors.Annotate(err, "getting query results")
+		}
+
+		for _, result := range results {
+			usrs = append(usrs, result.toCoreUser())
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Annotate(err, "getting all users")
+	}
+
+	return usrs, nil
+}
+
 // RemoveUser marks the user as removed. This obviates the ability of a user
 // to function, but keeps the user retaining provenance, i.e. auditing.
 // RemoveUser will also remove any credentials and activation codes for the

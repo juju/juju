@@ -110,6 +110,21 @@ func (mr *MockStateMockRecorder) EnableUserAuthentication(arg0, arg1 any) *gomoc
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnableUserAuthentication", reflect.TypeOf((*MockState)(nil).EnableUserAuthentication), arg0, arg1)
 }
 
+// GetAllUsers mocks base method.
+func (m *MockState) GetAllUsers(arg0 context.Context) ([]user.User, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetAllUsers", arg0)
+	ret0, _ := ret[0].([]user.User)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetAllUsers indicates an expected call of GetAllUsers.
+func (mr *MockStateMockRecorder) GetAllUsers(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllUsers", reflect.TypeOf((*MockState)(nil).GetAllUsers), arg0)
+}
+
 // GetUser mocks base method.
 func (m *MockState) GetUser(arg0 context.Context, arg1 user.UUID) (user.User, error) {
 	m.ctrl.T.Helper()
