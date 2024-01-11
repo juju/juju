@@ -14,12 +14,12 @@ import (
 	reflect "reflect"
 
 	charm "github.com/juju/charm/v12"
-	services "github.com/juju/juju/apiserver/facades/client/charms/services"
 	charmdownloader "github.com/juju/juju/apiserver/facades/controller/charmdownloader"
 	controller "github.com/juju/juju/controller"
 	charm0 "github.com/juju/juju/core/charm"
 	status "github.com/juju/juju/core/status"
 	config "github.com/juju/juju/environs/config"
+	services "github.com/juju/juju/internal/charm/services"
 	state "github.com/juju/juju/state"
 	worker "github.com/juju/worker/v3"
 	gomock "go.uber.org/mock/gomock"

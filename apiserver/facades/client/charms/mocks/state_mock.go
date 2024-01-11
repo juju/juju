@@ -15,11 +15,11 @@ import (
 
 	charm "github.com/juju/charm/v12"
 	interfaces "github.com/juju/juju/apiserver/facades/client/charms/interfaces"
-	services "github.com/juju/juju/apiserver/facades/client/charms/services"
 	charm0 "github.com/juju/juju/core/charm"
 	constraints "github.com/juju/juju/core/constraints"
 	instance "github.com/juju/juju/core/instance"
 	config "github.com/juju/juju/environs/config"
+	services "github.com/juju/juju/internal/charm/services"
 	state "github.com/juju/juju/state"
 	mgo "github.com/juju/mgo/v3"
 	names "github.com/juju/names/v5"

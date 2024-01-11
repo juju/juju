@@ -12,8 +12,8 @@ import (
 	charmscommon "github.com/juju/juju/apiserver/common/charms"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/apiserver/facades/client/charms/services"
 	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/internal/charm/services"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -66,7 +66,7 @@ func newFacadeBase(ctx facade.Context) (*API, error) {
 		return nil, errors.Trace(err)
 	}
 
-	commonState := &charmscommon.StateShim{st}
+	commonState := &charmscommon.StateShim{State: st}
 	charmInfoAPI, err := charmscommon.NewCharmInfoAPI(commonState, authorizer)
 	if err != nil {
 		return nil, errors.Trace(err)

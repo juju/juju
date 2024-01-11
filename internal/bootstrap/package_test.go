@@ -12,11 +12,10 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/facades/client/charms/interfaces"
-	services "github.com/juju/juju/apiserver/facades/client/charms/services"
 	"github.com/juju/juju/controller"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
+	services "github.com/juju/juju/internal/charm/services"
 	state "github.com/juju/juju/state"
 	jujujujutesting "github.com/juju/juju/testing"
 )
@@ -92,7 +91,7 @@ func (s *baseSuite) newConfig(c *gc.C) BaseDeployerConfig {
 		NewCharmRepo: func(services.CharmRepoFactoryConfig) (corecharm.Repository, error) {
 			return s.charmRepo, nil
 		},
-		NewCharmDownloader: func(services.CharmDownloaderConfig) (interfaces.Downloader, error) {
+		NewCharmDownloader: func(services.CharmDownloaderConfig) (Downloader, error) {
 			return s.charmDownloader, nil
 		},
 		CharmhubHTTPClient: s.httpClient,

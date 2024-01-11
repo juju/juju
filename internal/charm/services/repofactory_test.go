@@ -1,7 +1,7 @@
 // Copyright 2021 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package services_test
+package services
 
 import (
 	"context"
@@ -12,8 +12,6 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/facades/client/charms/services"
-	"github.com/juju/juju/apiserver/facades/client/charms/services/mocks"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/charm/repository"
 	"github.com/juju/juju/environs/config"
@@ -24,8 +22,8 @@ var _ = gc.Suite(&repoFactoryTestSuite{})
 type repoFactoryTestSuite struct {
 	testing.IsolationSuite
 
-	stateBackend *mocks.MockStateBackend
-	modelBackend *mocks.MockModelBackend
+	stateBackend *MockStateBackend
+	modelBackend *MockModelBackend
 	repoFactory  corecharm.RepositoryFactory
 }
 
@@ -72,11 +70,11 @@ func (s *repoFactoryTestSuite) TestGetCharmRepositoryMemoization(c *gc.C) {
 
 func (s *repoFactoryTestSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
-	s.stateBackend = mocks.NewMockStateBackend(ctrl)
-	s.modelBackend = mocks.NewMockModelBackend(ctrl)
+	s.stateBackend = NewMockStateBackend(ctrl)
+	s.modelBackend = NewMockModelBackend(ctrl)
 
-	s.repoFactory = services.NewCharmRepoFactory(services.CharmRepoFactoryConfig{
-		LoggerFactory: services.LoggoLoggerFactory(loggo.GetLogger("test")),
+	s.repoFactory = NewCharmRepoFactory(CharmRepoFactoryConfig{
+		LoggerFactory: LoggoLoggerFactory(loggo.GetLogger("test")),
 		StateBackend:  s.stateBackend,
 		ModelBackend:  s.modelBackend,
 	})
