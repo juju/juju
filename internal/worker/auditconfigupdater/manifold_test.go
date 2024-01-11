@@ -4,14 +4,16 @@
 package auditconfigupdater_test
 
 import (
+	"context"
+
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
-	dt "github.com/juju/worker/v3/dependency/testing"
-	"github.com/juju/worker/v3/workertest"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
+	dt "github.com/juju/worker/v4/dependency/testing"
+	"github.com/juju/worker/v4/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
@@ -25,7 +27,7 @@ type manifoldSuite struct {
 	testing.IsolationSuite
 
 	manifold     dependency.Manifold
-	context      dependency.Context
+	getter       dependency.Getter
 	agent        *mockAgent
 	stateTracker stubStateTracker
 
@@ -56,7 +58,7 @@ func (s *manifoldSuite) SetUpTest(c *gc.C) {
 	s.stateTracker = stubStateTracker{}
 	s.stub.ResetCalls()
 
-	s.context = s.newContext(nil)
+	s.getter = s.newGetter(nil)
 
 	s.manifold = auditconfigupdater.Manifold(auditconfigupdater.ManifoldConfig{
 		AgentName: "agent",
@@ -65,7 +67,7 @@ func (s *manifoldSuite) SetUpTest(c *gc.C) {
 	})
 }
 
-func (s *manifoldSuite) newContext(overlay map[string]interface{}) dependency.Context {
+func (s *manifoldSuite) newGetter(overlay map[string]interface{}) dependency.Getter {
 	resources := map[string]interface{}{
 		"agent": s.agent,
 		"state": &s.stateTracker,
@@ -73,7 +75,7 @@ func (s *manifoldSuite) newContext(overlay map[string]interface{}) dependency.Co
 	for k, v := range overlay {
 		resources[k] = v
 	}
-	return dt.StubContext(nil, resources)
+	return dt.StubGetter(resources)
 }
 
 func (s *manifoldSuite) newWorker(
@@ -99,16 +101,16 @@ func (s *manifoldSuite) TestInputs(c *gc.C) {
 
 func (s *manifoldSuite) TestMissingInputs(c *gc.C) {
 	for _, input := range expectedInputs {
-		context := s.newContext(map[string]interface{}{
+		getter := s.newGetter(map[string]interface{}{
 			input: dependency.ErrMissing,
 		})
-		_, err := s.manifold.Start(context)
+		_, err := s.manifold.Start(context.Background(), getter)
 		c.Assert(errors.Cause(err), gc.Equals, dependency.ErrMissing)
 	}
 }
 
 func (s *manifoldSuite) TestStart(c *gc.C) {
-	w, err := s.manifold.Start(s.context)
+	w, err := s.manifold.Start(context.Background(), s.getter)
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
@@ -137,7 +139,7 @@ func (s *manifoldSuite) TestStart(c *gc.C) {
 
 func (s *manifoldSuite) TestStartWithAuditingDisabled(c *gc.C) {
 	s.cfgSource.cfg["auditing-enabled"] = false
-	w, err := s.manifold.Start(s.context)
+	w, err := s.manifold.Start(context.Background(), s.getter)
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
@@ -152,7 +154,7 @@ func (s *manifoldSuite) TestStartWithAuditingDisabled(c *gc.C) {
 }
 
 func (s *manifoldSuite) TestOutput(c *gc.C) {
-	w, err := s.manifold.Start(s.context)
+	w, err := s.manifold.Start(context.Background(), s.getter)
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
@@ -172,7 +174,7 @@ func (s *manifoldSuite) TestOutput(c *gc.C) {
 }
 
 func (s *manifoldSuite) TestStopWorkerClosesState(c *gc.C) {
-	w, err := s.manifold.Start(s.context)
+	w, err := s.manifold.Start(context.Background(), s.getter)
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
@@ -184,7 +186,7 @@ func (s *manifoldSuite) TestStopWorkerClosesState(c *gc.C) {
 
 func (s *manifoldSuite) TestClosesStateOnWorkerError(c *gc.C) {
 	s.stub.SetErrors(errors.Errorf("splat"))
-	w, err := s.manifold.Start(s.context)
+	w, err := s.manifold.Start(context.Background(), s.getter)
 	c.Assert(err, gc.ErrorMatches, "splat")
 	c.Assert(w, gc.IsNil)
 

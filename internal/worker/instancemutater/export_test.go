@@ -6,7 +6,7 @@ package instancemutater
 import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	worker "github.com/juju/worker/v3"
+	worker "github.com/juju/worker/v4"
 
 	"github.com/juju/juju/api/agent/instancemutater"
 	"github.com/juju/juju/core/lxdprofile"

@@ -7,8 +7,8 @@ package machineactions_test
 import (
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/workertest"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/workertest"
 
 	"github.com/juju/juju/api/agent/machineactions"
 	"github.com/juju/juju/core/watcher"

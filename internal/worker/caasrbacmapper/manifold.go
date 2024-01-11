@@ -4,9 +4,11 @@
 package caasrbacmapper
 
 import (
+	"context"
+
 	"github.com/juju/errors"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
 	"k8s.io/client-go/informers"
 )
 
@@ -48,13 +50,13 @@ func manifoldOutput(in worker.Worker, out interface{}) error {
 	return nil
 }
 
-func (c ManifoldConfig) Start(context dependency.Context) (worker.Worker, error) {
+func (c ManifoldConfig) Start(context context.Context, getter dependency.Getter) (worker.Worker, error) {
 	if err := c.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	var broker K8sBroker
-	if err := context.Get(c.BrokerName, &broker); err != nil {
+	if err := getter.Get(c.BrokerName, &broker); err != nil {
 		return nil, errors.Trace(err)
 	}
 

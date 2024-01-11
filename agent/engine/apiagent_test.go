@@ -4,12 +4,14 @@
 package engine_test
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
-	dt "github.com/juju/worker/v3/dependency/testing"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
+	dt "github.com/juju/worker/v4/dependency/testing"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
@@ -53,22 +55,22 @@ func (s *AgentAPIManifoldSuite) TestOutput(c *gc.C) {
 }
 
 func (s *AgentAPIManifoldSuite) TestStartAgentMissing(c *gc.C) {
-	context := dt.StubContext(nil, map[string]interface{}{
+	getter := dt.StubGetter(map[string]interface{}{
 		"agent-name": dependency.ErrMissing,
 	})
 
-	worker, err := s.manifold.Start(context)
+	worker, err := s.manifold.Start(context.Background(), getter)
 	c.Check(worker, gc.IsNil)
 	c.Check(err, gc.Equals, dependency.ErrMissing)
 }
 
 func (s *AgentAPIManifoldSuite) TestStartAPIConnMissing(c *gc.C) {
-	context := dt.StubContext(nil, map[string]interface{}{
+	getter := dt.StubGetter(map[string]interface{}{
 		"agent-name":      &dummyAgent{},
 		"api-caller-name": dependency.ErrMissing,
 	})
 
-	worker, err := s.manifold.Start(context)
+	worker, err := s.manifold.Start(context.Background(), getter)
 	c.Check(worker, gc.IsNil)
 	c.Check(err, gc.Equals, dependency.ErrMissing)
 }
@@ -76,13 +78,13 @@ func (s *AgentAPIManifoldSuite) TestStartAPIConnMissing(c *gc.C) {
 func (s *AgentAPIManifoldSuite) TestStartFailure(c *gc.C) {
 	expectAgent := &dummyAgent{}
 	expectAPICaller := &dummyAPICaller{}
-	context := dt.StubContext(nil, map[string]interface{}{
+	getter := dt.StubGetter(map[string]interface{}{
 		"agent-name":      expectAgent,
 		"api-caller-name": expectAPICaller,
 	})
 	s.SetErrors(errors.New("some error"))
 
-	worker, err := s.manifold.Start(context)
+	worker, err := s.manifold.Start(context.Background(), getter)
 	c.Check(worker, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "some error")
 	s.CheckCalls(c, []testing.StubCall{{
@@ -94,12 +96,12 @@ func (s *AgentAPIManifoldSuite) TestStartFailure(c *gc.C) {
 func (s *AgentAPIManifoldSuite) TestStartSuccess(c *gc.C) {
 	expectAgent := &dummyAgent{}
 	expectAPICaller := &dummyAPICaller{}
-	context := dt.StubContext(nil, map[string]interface{}{
+	getter := dt.StubGetter(map[string]interface{}{
 		"agent-name":      expectAgent,
 		"api-caller-name": expectAPICaller,
 	})
 
-	worker, err := s.manifold.Start(context)
+	worker, err := s.manifold.Start(context.Background(), getter)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(worker, gc.Equals, s.worker)
 	s.CheckCalls(c, []testing.StubCall{{

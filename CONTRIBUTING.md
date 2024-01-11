@@ -211,7 +211,7 @@ group is alphabetically sorted. eg:
         gc "gopkg.in/check.v1"
 
         "github.com/juju/juju/state"
-        "github.com/juju/worker/v3"
+        "github.com/juju/worker/v4"
     )
 ```
 

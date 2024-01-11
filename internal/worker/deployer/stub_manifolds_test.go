@@ -4,11 +4,12 @@
 package deployer_test
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/loggo"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/worker/deployer"
@@ -24,7 +25,7 @@ func (s *unitWorkersStub) Manifolds(config deployer.UnitManifoldsConfig) depende
 func (s *unitWorkersStub) Manifold(unitName string) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{},
-		Start: func(context dependency.Context) (worker.Worker, error) {
+		Start: func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
 			if s.startError != nil {
 				return nil, s.startError
 			}

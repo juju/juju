@@ -9,8 +9,8 @@ import (
 	"net/http"
 
 	"github.com/juju/errors"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/core/flags"
@@ -119,23 +119,23 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.ServiceFactoryName,
 			config.CharmhubHTTPClientName,
 		},
-		Start: func(ctx dependency.Context) (worker.Worker, error) {
+		Start: func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
 			if err := config.Validate(); err != nil {
 				return nil, errors.Trace(err)
 			}
 
 			var bootstrapUnlocker gate.Unlocker
-			if err := ctx.Get(config.BootstrapGateName, &bootstrapUnlocker); err != nil {
+			if err := getter.Get(config.BootstrapGateName, &bootstrapUnlocker); err != nil {
 				return nil, errors.Trace(err)
 			}
 
 			var a agent.Agent
-			if err := ctx.Get(config.AgentName, &a); err != nil {
+			if err := getter.Get(config.AgentName, &a); err != nil {
 				return nil, err
 			}
 
 			var controllerServiceFactory servicefactory.ControllerServiceFactory
-			if err := ctx.Get(config.ServiceFactoryName, &controllerServiceFactory); err != nil {
+			if err := getter.Get(config.ServiceFactoryName, &controllerServiceFactory); err != nil {
 				return nil, errors.Trace(err)
 			}
 
@@ -143,7 +143,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			// bootstrap. Uninstall the worker, as we don't need it running
 			// anymore.
 			flagService := controllerServiceFactory.Flag()
-			if ok, err := config.RequiresBootstrap(context.TODO(), flagService); err != nil {
+			if ok, err := config.RequiresBootstrap(ctx, flagService); err != nil {
 				return nil, errors.Trace(err)
 			} else if !ok {
 				bootstrapUnlocker.Unlock()
@@ -151,17 +151,17 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 
 			var objectStoreGetter workerobjectstore.ObjectStoreGetter
-			if err := ctx.Get(config.ObjectStoreName, &objectStoreGetter); err != nil {
+			if err := getter.Get(config.ObjectStoreName, &objectStoreGetter); err != nil {
 				return nil, errors.Trace(err)
 			}
 
 			var charmhubHTTPClient HTTPClient
-			if err := ctx.Get(config.CharmhubHTTPClientName, &charmhubHTTPClient); err != nil {
+			if err := getter.Get(config.CharmhubHTTPClientName, &charmhubHTTPClient); err != nil {
 				return nil, errors.Trace(err)
 			}
 
 			var stTracker state.StateTracker
-			if err := ctx.Get(config.StateName, &stTracker); err != nil {
+			if err := getter.Get(config.StateName, &stTracker); err != nil {
 				return nil, errors.Trace(err)
 			}
 

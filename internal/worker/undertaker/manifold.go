@@ -8,8 +8,8 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/environs"
@@ -29,10 +29,9 @@ type ManifoldConfig struct {
 	NewCloudDestroyerFunc        func(context.Context, environs.OpenParams) (environs.CloudDestroyer, error)
 }
 
-func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, error) {
-
+func (config ManifoldConfig) start(context context.Context, getter dependency.Getter) (worker.Worker, error) {
 	var apiCaller base.APICaller
-	if err := context.Get(config.APICallerName, &apiCaller); err != nil {
+	if err := getter.Get(config.APICallerName, &apiCaller); err != nil {
 		return nil, errors.Trace(err)
 	}
 

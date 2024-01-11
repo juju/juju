@@ -10,8 +10,8 @@ import (
 	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/catacomb"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/catacomb"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/tomb.v2"
 

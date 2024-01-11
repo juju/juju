@@ -4,6 +4,7 @@
 package httpserver
 
 import (
+	"context"
 	stdcontext "context"
 	"crypto/tls"
 	"time"
@@ -12,8 +13,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/pubsub/v2"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
 	"github.com/prometheus/client_golang/prometheus"
 	"golang.org/x/crypto/acme/autocert"
 
@@ -129,46 +130,46 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 }
 
 // start is a method on ManifoldConfig because it's more readable than a closure.
-func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, error) {
+func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	var authority pki.Authority
-	if err := context.Get(config.AuthorityName, &authority); err != nil {
+	if err := getter.Get(config.AuthorityName, &authority); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	var hub *pubsub.StructuredHub
-	if err := context.Get(config.HubName, &hub); err != nil {
+	if err := getter.Get(config.HubName, &hub); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	var mux *apiserverhttp.Mux
-	if err := context.Get(config.MuxName, &mux); err != nil {
+	if err := getter.Get(config.MuxName, &mux); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	// We don't actually need anything from these workers, but we
 	// shouldn't start until they're available.
-	if err := context.Get(config.APIServerName, nil); err != nil {
+	if err := getter.Get(config.APIServerName, nil); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	var controllerServiceFactory servicefactory.ControllerServiceFactory
-	if err := context.Get(config.ServiceFactoryName, &controllerServiceFactory); err != nil {
+	if err := getter.Get(config.ServiceFactoryName, &controllerServiceFactory); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	var stTracker workerstate.StateTracker
-	if err := context.Get(config.StateName, &stTracker); err != nil {
+	if err := getter.Get(config.StateName, &stTracker); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	ctx, cancel := stdcontext.WithCancel(stdcontext.Background())
+	newCtx, cancel := stdcontext.WithCancel(ctx)
 	defer cancel()
 
-	controllerConfig, err := config.GetControllerConfig(ctx, controllerServiceFactory.ControllerConfig())
+	controllerConfig, err := config.GetControllerConfig(newCtx, controllerServiceFactory.ControllerConfig())
 	if err != nil {
 		_ = stTracker.Done()
 		return nil, errors.Annotate(err, "unable to get controller config")

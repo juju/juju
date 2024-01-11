@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/charm/v12/hooks"
 	"github.com/juju/errors"
-	"github.com/juju/worker/v3/dependency"
+	"github.com/juju/worker/v4/dependency"
 
 	"github.com/juju/juju/internal/worker/uniter/api"
 	"github.com/juju/juju/internal/worker/uniter/hook"

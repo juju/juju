@@ -9,8 +9,8 @@ import (
 	gc "gopkg.in/check.v1"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/worker_mock.go github.com/juju/worker/v3 Worker
-//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/dependency_mock.go github.com/juju/worker/v3/dependency Context
+//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/worker_mock.go github.com/juju/worker/v4 Worker
+//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/dependency_mock.go github.com/juju/worker/v4/dependency Getter
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/environs_mock.go github.com/juju/juju/environs LXDProfiler,InstanceBroker
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/machine_lock_mock.go github.com/juju/juju/core/machinelock Lock
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/base_mock.go github.com/juju/juju/api/base APICaller

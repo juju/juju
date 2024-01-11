@@ -4,14 +4,15 @@
 package syslogger_test
 
 import (
+	"context"
 	"io"
 
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
-	dt "github.com/juju/worker/v3/dependency/testing"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
+	dt "github.com/juju/worker/v4/dependency/testing"
 	gc "gopkg.in/check.v1"
 
 	corelogger "github.com/juju/juju/core/logger"
@@ -20,7 +21,7 @@ import (
 
 type ManifoldSuite struct {
 	manifold dependency.Manifold
-	context  dependency.Context
+	getter   dependency.Getter
 	worker   *mockWorker
 	stub     testing.Stub
 }
@@ -31,19 +32,19 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.stub.ResetCalls()
 
 	s.worker = &mockWorker{}
-	s.context = s.newContext(nil)
+	s.getter = s.newGetter(nil)
 	s.manifold = syslogger.Manifold(syslogger.ManifoldConfig{
 		NewWorker: s.newWorker,
 		NewLogger: s.newLogger,
 	})
 }
 
-func (s *ManifoldSuite) newContext(overlay map[string]interface{}) dependency.Context {
+func (s *ManifoldSuite) newGetter(overlay map[string]interface{}) dependency.Getter {
 	resources := map[string]interface{}{}
 	for k, v := range overlay {
 		resources[k] = v
 	}
-	return dt.StubContext(nil, resources)
+	return dt.StubGetter(resources)
 }
 
 func (s *ManifoldSuite) newWorker(config syslogger.WorkerConfig) (worker.Worker, error) {
@@ -67,10 +68,10 @@ func (s *ManifoldSuite) TestInputs(c *gc.C) {
 
 func (s *ManifoldSuite) TestMissingInputs(c *gc.C) {
 	for _, input := range expectedInputs {
-		context := s.newContext(map[string]interface{}{
+		getter := s.newGetter(map[string]interface{}{
 			input: dependency.ErrMissing,
 		})
-		_, err := s.manifold.Start(context)
+		_, err := s.manifold.Start(context.Background(), getter)
 		c.Assert(errors.Cause(err), gc.Equals, dependency.ErrMissing)
 	}
 }
@@ -99,7 +100,7 @@ func (s *ManifoldSuite) TestOutput(c *gc.C) {
 }
 
 func (s *ManifoldSuite) startWorkerClean(c *gc.C) worker.Worker {
-	w, err := s.manifold.Start(s.context)
+	w, err := s.manifold.Start(context.Background(), s.getter)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(w, gc.Equals, s.worker)
 	return w

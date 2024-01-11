@@ -4,12 +4,14 @@
 package storageprovisioner_test
 
 import (
+	"context"
+
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v3/dependency"
-	dt "github.com/juju/worker/v3/dependency/testing"
+	"github.com/juju/worker/v4/dependency"
+	dt "github.com/juju/worker/v4/dependency/testing"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/base"
@@ -39,7 +41,7 @@ func (s *ManifoldSuite) TestMissingAPICaller(c *gc.C) {
 		APICallerName:       "api-caller",
 		StorageRegistryName: "environ",
 	})
-	_, err := manifold.Start(dt.StubContext(nil, map[string]interface{}{
+	_, err := manifold.Start(context.Background(), dt.StubGetter(map[string]interface{}{
 		"api-caller": dependency.ErrMissing,
 		"clock":      struct{ clock.Clock }{},
 		"environ":    struct{ environs.Environ }{},
@@ -52,7 +54,7 @@ func (s *ManifoldSuite) TestMissingEnviron(c *gc.C) {
 		APICallerName:       "api-caller",
 		StorageRegistryName: "environ",
 	})
-	_, err := manifold.Start(dt.StubContext(nil, map[string]interface{}{
+	_, err := manifold.Start(context.Background(), dt.StubGetter(map[string]interface{}{
 		"api-caller": struct{ base.APICaller }{},
 		"clock":      struct{ clock.Clock }{},
 		"environ":    dependency.ErrMissing,

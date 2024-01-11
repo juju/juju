@@ -4,9 +4,11 @@
 package containerbroker_test
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/testing"
-	worker "github.com/juju/worker/v3"
+	worker "github.com/juju/worker/v4"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
@@ -107,7 +109,7 @@ func (s *manifoldConfigSuite) TestValidConfigValidate(c *gc.C) {
 type manifoldSuite struct {
 	testing.IsolationSuite
 
-	context     *mocks.MockContext
+	getter      *mocks.MockGetter
 	agent       *mocks.MockAgent
 	agentConfig *mocks.MockConfig
 	broker      *mocks.MockInstanceBroker
@@ -121,7 +123,7 @@ var _ = gc.Suite(&manifoldSuite{})
 func (s *manifoldSuite) setup(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.context = mocks.NewMockContext(ctrl)
+	s.getter = mocks.NewMockGetter(ctrl)
 	s.agent = mocks.NewMockAgent(ctrl)
 	s.agentConfig = mocks.NewMockConfig(ctrl)
 	s.broker = mocks.NewMockInstanceBroker(ctrl)
@@ -150,7 +152,7 @@ func (s *manifoldSuite) TestNewTrackerIsCalled(c *gc.C) {
 		},
 	}
 	manifold := containerbroker.Manifold(config)
-	result, err := manifold.Start(s.context)
+	result, err := manifold.Start(context.Background(), s.getter)
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, gc.Equals, s.worker)
 }
@@ -173,12 +175,12 @@ func (s *manifoldSuite) TestNewTrackerReturnsError(c *gc.C) {
 		},
 	}
 	manifold := containerbroker.Manifold(config)
-	_, err := manifold.Start(s.context)
+	_, err := manifold.Start(context.Background(), s.getter)
 	c.Assert(err, gc.ErrorMatches, "errored")
 }
 
 func (s *manifoldSuite) behaviourContext() {
-	cExp := s.context.EXPECT()
+	cExp := s.getter.EXPECT()
 	cExp.Get("moon", gomock.Any()).SetArg(1, s.agent).Return(nil)
 	cExp.Get("baz", gomock.Any()).SetArg(1, s.apiCaller).Return(nil)
 }

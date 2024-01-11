@@ -4,10 +4,12 @@
 package changestreampruner
 
 import (
+	"context"
+
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
 )
 
 // Logger represents the logging methods called.
@@ -57,13 +59,13 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 		Inputs: []string{
 			config.DBAccessor,
 		},
-		Start: func(context dependency.Context) (worker.Worker, error) {
+		Start: func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
 			if err := config.Validate(); err != nil {
 				return nil, errors.Trace(err)
 			}
 
 			var dbGetter DBGetter
-			if err := context.Get(config.DBAccessor, &dbGetter); err != nil {
+			if err := getter.Get(config.DBAccessor, &dbGetter); err != nil {
 				return nil, errors.Trace(err)
 			}
 

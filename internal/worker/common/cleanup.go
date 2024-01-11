@@ -6,7 +6,7 @@ package common
 import (
 	"sync"
 
-	"github.com/juju/worker/v3"
+	"github.com/juju/worker/v4"
 )
 
 // NewCleanupWorker returns a worker that ensures a cleanup function

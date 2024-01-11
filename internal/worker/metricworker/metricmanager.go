@@ -5,7 +5,7 @@ package metricworker
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/worker/v3"
+	"github.com/juju/worker/v4"
 
 	"github.com/juju/juju/api/controller/metricsmanager"
 	jworker "github.com/juju/juju/internal/worker"

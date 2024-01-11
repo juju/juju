@@ -12,7 +12,7 @@ import (
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/utils/v3/voyeur"
 	"github.com/juju/version/v2"
-	"github.com/juju/worker/v3/dependency"
+	"github.com/juju/worker/v4/dependency"
 	"github.com/prometheus/client_golang/prometheus"
 
 	coreagent "github.com/juju/juju/agent"

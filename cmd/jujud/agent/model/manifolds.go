@@ -10,8 +10,8 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/v3/voyeur"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
 
 	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/engine"
@@ -585,7 +585,7 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 // clockManifold expresses a Clock as a ValueWorker manifold.
 func clockManifold(clock clock.Clock) dependency.Manifold {
 	return dependency.Manifold{
-		Start: func(_ dependency.Context) (worker.Worker, error) {
+		Start: func(_ context.Context, getter dependency.Getter) (worker.Worker, error) {
 			return engine.NewValueWorker(clock)
 		},
 		Output: engine.ValueWorkerOutput,

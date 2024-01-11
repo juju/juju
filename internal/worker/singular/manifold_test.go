@@ -4,6 +4,7 @@
 package singular_test
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -11,9 +12,9 @@ import (
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
-	dt "github.com/juju/worker/v3/dependency/testing"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
+	dt "github.com/juju/worker/v4/dependency/testing"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent/engine"
@@ -120,20 +121,20 @@ func (s *ManifoldSuite) TestStartMissingClock(c *gc.C) {
 	manifold := singular.Manifold(singular.ManifoldConfig{
 		APICallerName: "api-caller",
 	})
-	context := dt.StubContext(nil, map[string]interface{}{})
+	getter := dt.StubGetter(map[string]interface{}{})
 
-	worker, err := manifold.Start(context)
+	worker, err := manifold.Start(context.Background(), getter)
 	c.Check(errors.Cause(err), gc.ErrorMatches, `nil Clock not valid`)
 	c.Check(worker, gc.IsNil)
 }
 
 func (s *ManifoldSuite) TestStartMissingAPICaller(c *gc.C) {
 	manifold := singular.Manifold(s.config)
-	context := dt.StubContext(nil, map[string]interface{}{
+	getter := dt.StubGetter(map[string]interface{}{
 		"api-caller": dependency.ErrMissing,
 	})
 
-	worker, err := manifold.Start(context)
+	worker, err := manifold.Start(context.Background(), getter)
 	c.Check(errors.Cause(err), gc.Equals, dependency.ErrMissing)
 	c.Check(worker, gc.IsNil)
 }
@@ -149,11 +150,11 @@ func (s *ManifoldSuite) TestStartNewFacadeError(c *gc.C) {
 		return nil, errors.New("grark plop")
 	}
 	manifold := singular.Manifold(s.config)
-	context := dt.StubContext(nil, map[string]interface{}{
+	getter := dt.StubGetter(map[string]interface{}{
 		"api-caller": expectAPICaller,
 	})
 
-	worker, err := manifold.Start(context)
+	worker, err := manifold.Start(context.Background(), getter)
 	c.Check(err, gc.ErrorMatches, "grark plop")
 	c.Check(worker, gc.IsNil)
 }
@@ -170,11 +171,11 @@ func (s *ManifoldSuite) TestStartNewWorkerError(c *gc.C) {
 		return nil, errors.New("blomp tik")
 	}
 	manifold := singular.Manifold(s.config)
-	context := dt.StubContext(nil, map[string]interface{}{
+	getter := dt.StubGetter(map[string]interface{}{
 		"api-caller": &fakeAPICaller{},
 	})
 
-	worker, err := manifold.Start(context)
+	worker, err := manifold.Start(context.Background(), getter)
 	c.Check(err, gc.ErrorMatches, "blomp tik")
 	c.Check(worker, gc.IsNil)
 }
@@ -189,11 +190,11 @@ func (s *ManifoldSuite) TestStartSuccess(c *gc.C) {
 		return expectWorker, nil
 	}
 	manifold := singular.Manifold(s.config)
-	context := dt.StubContext(nil, map[string]interface{}{
+	getter := dt.StubGetter(map[string]interface{}{
 		"api-caller": &fakeAPICaller{},
 	})
 
-	worker, err := manifold.Start(context)
+	worker, err := manifold.Start(context.Background(), getter)
 	c.Check(err, jc.ErrorIsNil)
 
 	var out engine.Flag
@@ -217,11 +218,11 @@ func (s *ManifoldSuite) TestWorkerBouncesOnRefresh(c *gc.C) {
 	}
 
 	manifold := singular.Manifold(s.config)
-	context := dt.StubContext(nil, map[string]interface{}{
+	getter := dt.StubGetter(map[string]interface{}{
 		"api-caller": &fakeAPICaller{},
 	})
 
-	worker, err := manifold.Start(context)
+	worker, err := manifold.Start(context.Background(), getter)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(worker.Wait(), gc.Equals, dependency.ErrBounce)
 }

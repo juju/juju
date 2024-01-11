@@ -4,10 +4,12 @@
 package caasenvironupgrader
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/internal/worker/gate"
@@ -24,15 +26,14 @@ type ManifoldConfig struct {
 	NewWorker func(Config) (worker.Worker, error)
 }
 
-func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, error) {
-
+func (config ManifoldConfig) start(context context.Context, getter dependency.Getter) (worker.Worker, error) {
 	var apiCaller base.APICaller
-	if err := context.Get(config.APICallerName, &apiCaller); err != nil {
+	if err := getter.Get(config.APICallerName, &apiCaller); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	var gate gate.Unlocker
-	if err := context.Get(config.GateName, &gate); err != nil {
+	if err := getter.Get(config.GateName, &gate); err != nil {
 		return nil, errors.Trace(err)
 	}
 

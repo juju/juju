@@ -5,7 +5,7 @@
 package worker
 
 import (
-	"github.com/juju/worker/v3"
+	"github.com/juju/worker/v4"
 )
 
 func NewNoOpWorker() worker.Worker {

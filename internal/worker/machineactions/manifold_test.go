@@ -5,13 +5,15 @@
 package machineactions_test
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
-	dt "github.com/juju/worker/v3/dependency/testing"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
+	dt "github.com/juju/worker/v4/dependency/testing"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
@@ -22,7 +24,7 @@ import (
 
 type ManifoldSuite struct {
 	testing.IsolationSuite
-	context    dependency.Context
+	getter     dependency.Getter
 	fakeAgent  agent.Agent
 	fakeCaller base.APICaller
 	fakeFacade machineactions.Facade
@@ -40,7 +42,7 @@ func (s *ManifoldSuite) SetUpSuite(c *gc.C) {
 	s.fakeCaller = &fakeCaller{}
 	s.fakeLock = machinelock.Lock(nil)
 
-	s.context = dt.StubContext(nil, map[string]interface{}{
+	s.getter = dt.StubGetter(map[string]interface{}{
 		"wut":     s.fakeAgent,
 		"exactly": s.fakeCaller,
 	})
@@ -77,11 +79,11 @@ func (s *ManifoldSuite) TestStartMissingAgent(c *gc.C) {
 		AgentName:     "wut",
 		APICallerName: "exactly",
 	})
-	context := dt.StubContext(nil, map[string]interface{}{
+	getter := dt.StubGetter(map[string]interface{}{
 		"wut": dependency.ErrMissing,
 	})
 
-	w, err := manifold.Start(context)
+	w, err := manifold.Start(context.Background(), getter)
 	c.Assert(errors.Cause(err), gc.Equals, dependency.ErrMissing)
 	c.Assert(w, gc.IsNil)
 }
@@ -91,12 +93,12 @@ func (s *ManifoldSuite) TestStartMissingAPI(c *gc.C) {
 		AgentName:     "wut",
 		APICallerName: "exactly",
 	})
-	context := dt.StubContext(nil, map[string]interface{}{
+	getter := dt.StubGetter(map[string]interface{}{
 		"wut":     &fakeAgent{},
 		"exactly": dependency.ErrMissing,
 	})
 
-	w, err := manifold.Start(context)
+	w, err := manifold.Start(context.Background(), getter)
 	c.Assert(errors.Cause(err), gc.Equals, dependency.ErrMissing)
 	c.Assert(w, gc.IsNil)
 }
@@ -110,7 +112,7 @@ func (s *ManifoldSuite) TestStartWorkerError(c *gc.C) {
 		MachineLock:   s.fakeLock,
 	})
 
-	w, err := manifold.Start(s.context)
+	w, err := manifold.Start(context.Background(), s.getter)
 	c.Assert(err, gc.ErrorMatches, "blam")
 	c.Assert(w, gc.IsNil)
 }
@@ -125,7 +127,7 @@ func (s *ManifoldSuite) TestStartSuccess(c *gc.C) {
 		MachineLock:   s.fakeLock,
 	})
 
-	w, err := manifold.Start(s.context)
+	w, err := manifold.Start(context.Background(), s.getter)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(w, gc.Equals, fakeWorker)
 }
@@ -139,12 +141,12 @@ func (s *ManifoldSuite) TestInvalidTag(c *gc.C) {
 		NewWorker:     s.newWorker(fakeWorker, nil),
 		MachineLock:   s.fakeLock,
 	})
-	context := dt.StubContext(nil, map[string]interface{}{
+	getter := dt.StubGetter(map[string]interface{}{
 		"wut":     &fakeAgent{tag: fakeTagErr},
 		"exactly": s.fakeCaller,
 	})
 
-	w, err := manifold.Start(context)
+	w, err := manifold.Start(context.Background(), getter)
 	c.Assert(err, gc.ErrorMatches, "this manifold can only be used inside a machine")
 	c.Assert(w, gc.IsNil)
 }

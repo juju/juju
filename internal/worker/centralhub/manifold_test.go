@@ -4,13 +4,15 @@
 package centralhub_test
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v3/dependency"
-	dt "github.com/juju/worker/v3/dependency/testing"
-	"github.com/juju/worker/v3/workertest"
+	"github.com/juju/worker/v4/dependency"
+	dt "github.com/juju/worker/v4/dependency/testing"
+	"github.com/juju/worker/v4/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/worker/centralhub"
@@ -42,43 +44,43 @@ func (s *ManifoldSuite) TestInputs(c *gc.C) {
 }
 
 func (s *ManifoldSuite) TestStateConfigWatcherMissing(c *gc.C) {
-	context := dt.StubContext(nil, map[string]interface{}{
+	getter := dt.StubGetter(map[string]interface{}{
 		"state-config-watcher": dependency.ErrMissing,
 	})
 
-	worker, err := s.manifold().Start(context)
+	worker, err := s.manifold().Start(context.Background(), getter)
 	c.Check(worker, gc.IsNil)
 	c.Check(errors.Cause(err), gc.Equals, dependency.ErrMissing)
 }
 
 func (s *ManifoldSuite) TestStateConfigWatcherNotAStateServer(c *gc.C) {
-	context := dt.StubContext(nil, map[string]interface{}{
+	getter := dt.StubGetter(map[string]interface{}{
 		"state-config-watcher": false,
 	})
 
-	worker, err := s.manifold().Start(context)
+	worker, err := s.manifold().Start(context.Background(), getter)
 	c.Check(worker, gc.IsNil)
 	c.Check(errors.Cause(err), gc.Equals, dependency.ErrMissing)
 }
 
 func (s *ManifoldSuite) TestMissingHub(c *gc.C) {
 	s.config.Hub = nil
-	context := dt.StubContext(nil, map[string]interface{}{
+	getter := dt.StubGetter(map[string]interface{}{
 		"state-config-watcher": true,
 	})
 
-	worker, err := s.manifold().Start(context)
+	worker, err := s.manifold().Start(context.Background(), getter)
 	c.Check(worker, gc.IsNil)
 	c.Check(errors.Cause(err), jc.ErrorIs, errors.NotValid)
 }
 
 func (s *ManifoldSuite) TestHubOutput(c *gc.C) {
-	context := dt.StubContext(nil, map[string]interface{}{
+	getter := dt.StubGetter(map[string]interface{}{
 		"state-config-watcher": true,
 	})
 
 	manifold := s.manifold()
-	worker, err := manifold.Start(context)
+	worker, err := manifold.Start(context.Background(), getter)
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(worker, gc.NotNil)
 	defer workertest.CleanKill(c, worker)

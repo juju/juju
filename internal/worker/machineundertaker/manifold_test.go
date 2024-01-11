@@ -4,14 +4,16 @@
 package machineundertaker_test
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
-	dt "github.com/juju/worker/v3/dependency/testing"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
+	dt "github.com/juju/worker/v4/dependency/testing"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/base"
@@ -29,7 +31,7 @@ var _ = gc.Suite(&manifoldSuite{})
 
 func (*manifoldSuite) TestMissingCaller(c *gc.C) {
 	manifold := makeManifold(nil, nil)
-	result, err := manifold.Start(dt.StubContext(nil, map[string]interface{}{
+	result, err := manifold.Start(context.Background(), dt.StubGetter(map[string]interface{}{
 		"the-caller":  dependency.ErrMissing,
 		"the-environ": &fakeEnviron{},
 	}))
@@ -39,7 +41,7 @@ func (*manifoldSuite) TestMissingCaller(c *gc.C) {
 
 func (*manifoldSuite) TestMissingEnviron(c *gc.C) {
 	manifold := makeManifold(nil, nil)
-	result, err := manifold.Start(dt.StubContext(nil, map[string]interface{}{
+	result, err := manifold.Start(context.Background(), dt.StubGetter(map[string]interface{}{
 		"the-caller":  &fakeAPICaller{},
 		"the-environ": dependency.ErrMissing,
 	}))
@@ -49,7 +51,7 @@ func (*manifoldSuite) TestMissingEnviron(c *gc.C) {
 
 func (*manifoldSuite) TestAPIError(c *gc.C) {
 	manifold := makeManifold(nil, nil)
-	result, err := manifold.Start(dt.StubContext(nil, map[string]interface{}{
+	result, err := manifold.Start(context.Background(), dt.StubGetter(map[string]interface{}{
 		"the-caller":  &fakeAPICaller{},
 		"the-environ": &fakeEnviron{},
 	}))
@@ -59,7 +61,7 @@ func (*manifoldSuite) TestAPIError(c *gc.C) {
 
 func (*manifoldSuite) TestWorkerError(c *gc.C) {
 	manifold := makeManifold(nil, errors.New("boglodite"))
-	result, err := manifold.Start(dt.StubContext(nil, map[string]interface{}{
+	result, err := manifold.Start(context.Background(), dt.StubGetter(map[string]interface{}{
 		"the-caller":  apitesting.APICallerFunc(nil),
 		"the-environ": &fakeEnviron{},
 	}))
@@ -70,7 +72,7 @@ func (*manifoldSuite) TestWorkerError(c *gc.C) {
 func (*manifoldSuite) TestSuccess(c *gc.C) {
 	w := fakeWorker{name: "Boris"}
 	manifold := makeManifold(&w, nil)
-	result, err := manifold.Start(dt.StubContext(nil, map[string]interface{}{
+	result, err := manifold.Start(context.Background(), dt.StubGetter(map[string]interface{}{
 		"the-caller":  apitesting.APICallerFunc(nil),
 		"the-environ": &fakeEnviron{},
 	}))

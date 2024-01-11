@@ -7,8 +7,8 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
 	admission "k8s.io/api/admissionregistration/v1"
 
 	"github.com/juju/juju/agent"
@@ -85,38 +85,38 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 
 // Start is used to start the manifold an extract a worker from the supplied
 // configuration.
-func (c ManifoldConfig) Start(context dependency.Context) (worker.Worker, error) {
+func (c ManifoldConfig) Start(context context.Context, getter dependency.Getter) (worker.Worker, error) {
 	if err := c.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	var agent agent.Agent
-	if err := context.Get(c.AgentName, &agent); err != nil {
+	if err := getter.Get(c.AgentName, &agent); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	var authority pki.Authority
-	if err := context.Get(c.AuthorityName, &authority); err != nil {
+	if err := getter.Get(c.AuthorityName, &authority); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	var broker K8sBroker
-	if err := context.Get(c.BrokerName, &broker); err != nil {
+	if err := getter.Get(c.BrokerName, &broker); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	var rbacMapper caasrbacmapper.Mapper
-	if err := context.Get(c.RBACMapperName, &rbacMapper); err != nil {
+	if err := getter.Get(c.RBACMapperName, &rbacMapper); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	var mux *apiserverhttp.Mux
-	if err := context.Get(c.MuxName, &mux); err != nil {
+	if err := getter.Get(c.MuxName, &mux); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	var serverInfo muxhttpserver.ServerInfo
-	if err := context.Get(c.ServerInfoName, &serverInfo); err != nil {
+	if err := getter.Get(c.ServerInfoName, &serverInfo); err != nil {
 		return nil, errors.Trace(err)
 	}
 

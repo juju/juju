@@ -4,11 +4,13 @@
 package stateconfigwatcher
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/v3/voyeur"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/agent"
@@ -37,9 +39,9 @@ type ManifoldConfig struct {
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{config.AgentName},
-		Start: func(context dependency.Context) (worker.Worker, error) {
+		Start: func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
 			var a agent.Agent
-			if err := context.Get(config.AgentName, &a); err != nil {
+			if err := getter.Get(config.AgentName, &a); err != nil {
 				return nil, err
 			}
 

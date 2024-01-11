@@ -4,9 +4,11 @@
 package fortress
 
 import (
+	"context"
+
 	"github.com/juju/errors"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
 )
 
 // Manifold returns a dependency.Manifold that runs a fortress.
@@ -20,7 +22,7 @@ import (
 // be impossible to reliably tell from outside. So please don't do that.
 func Manifold() dependency.Manifold {
 	return dependency.Manifold{
-		Start: func(_ dependency.Context) (worker.Worker, error) {
+		Start: func(_ context.Context, getter dependency.Getter) (worker.Worker, error) {
 			return newFortress(), nil
 		},
 		Output: func(in worker.Worker, out interface{}) error {

@@ -4,15 +4,17 @@
 package upgradedatabase
 
 import (
+	"context"
+
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
-	dependencytesting "github.com/juju/worker/v3/dependency/testing"
-	"github.com/juju/worker/v3/workertest"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
+	dependencytesting "github.com/juju/worker/v4/dependency/testing"
+	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
@@ -72,14 +74,14 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 	}
 }
 
-func (s *manifoldSuite) getContext() dependency.Context {
+func (s *manifoldSuite) newGetter() dependency.Getter {
 	resources := map[string]any{
 		"agent":                 s.agent,
 		"upgrade-database-lock": s.lock,
 		"service-factory":       s.serviceFactory,
 		"db-accessor":           s.dbGetter,
 	}
-	return dependencytesting.StubContext(nil, resources)
+	return dependencytesting.StubGetter(resources)
 }
 
 var expectedInputs = []string{"agent", "upgrade-database-lock", "service-factory", "db-accessor"}
@@ -93,7 +95,7 @@ func (s *manifoldSuite) TestStart(c *gc.C) {
 
 	s.expectWorker()
 
-	w, err := Manifold(s.getConfig()).Start(s.getContext())
+	w, err := Manifold(s.getConfig()).Start(context.Background(), s.newGetter())
 	c.Assert(err, jc.ErrorIsNil)
 	workertest.CleanKill(c, w)
 }

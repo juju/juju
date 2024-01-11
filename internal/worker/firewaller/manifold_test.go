@@ -4,12 +4,14 @@
 package firewaller_test
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
@@ -29,7 +31,7 @@ type ManifoldSuite struct {
 var _ = gc.Suite(&ManifoldSuite{})
 
 func (s *ManifoldSuite) TestManifoldFirewallModeNone(c *gc.C) {
-	ctx := &mockDependencyContext{
+	ctx := &mockDependencyGetter{
 		env: &mockEnviron{
 			config: coretesting.CustomModelConfig(c, coretesting.Attrs{
 				"firewall-mode": config.FwNone,
@@ -38,16 +40,16 @@ func (s *ManifoldSuite) TestManifoldFirewallModeNone(c *gc.C) {
 	}
 
 	manifold := firewaller.Manifold(validConfig())
-	_, err := manifold.Start(ctx)
+	_, err := manifold.Start(context.Background(), ctx)
 	c.Assert(err, gc.Equals, dependency.ErrUninstall)
 }
 
-type mockDependencyContext struct {
-	dependency.Context
+type mockDependencyGetter struct {
+	dependency.Getter
 	env *mockEnviron
 }
 
-func (m *mockDependencyContext) Get(name string, out interface{}) error {
+func (m *mockDependencyGetter) Get(name string, out interface{}) error {
 	if name == "environ" {
 		*(out.(*environs.Environ)) = m.env
 	}

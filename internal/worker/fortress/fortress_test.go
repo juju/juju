@@ -4,13 +4,14 @@
 package fortress_test
 
 import (
+	"context"
 	"sync"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v3"
+	"github.com/juju/worker/v4"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/worker/fortress"
@@ -126,7 +127,7 @@ func (s *FortressSuite) TestWorkersIndependent(c *gc.C) {
 	defer fix.TearDown(c)
 
 	// Create a separate worker and associated guard from the same manifold.
-	worker2, err := fix.manifold.Start(nil)
+	worker2, err := fix.manifold.Start(context.Background(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	defer CheckStop(c, worker2)
 	var guard2 fortress.Guard

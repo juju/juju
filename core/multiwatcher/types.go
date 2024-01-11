@@ -7,7 +7,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/juju/worker/v3"
+	"github.com/juju/worker/v4"
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"

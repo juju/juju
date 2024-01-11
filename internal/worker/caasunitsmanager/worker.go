@@ -6,8 +6,8 @@ package caasunitsmanager
 import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/catacomb"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/catacomb"
 
 	message "github.com/juju/juju/internal/pubsub/agent"
 )

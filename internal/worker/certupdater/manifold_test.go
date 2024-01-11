@@ -4,14 +4,16 @@
 package certupdater_test
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
-	dt "github.com/juju/worker/v3/dependency/testing"
-	"github.com/juju/worker/v3/workertest"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
+	dt "github.com/juju/worker/v4/dependency/testing"
+	"github.com/juju/worker/v4/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
@@ -30,7 +32,7 @@ type ManifoldSuite struct {
 
 	authority              pki.Authority
 	manifold               dependency.Manifold
-	context                dependency.Context
+	getter                 dependency.Getter
 	agent                  *mockAgent
 	stateTracker           stubStateTracker
 	addressWatcher         fakeAddressWatcher
@@ -59,7 +61,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.authority = authority
 
-	s.context = s.newContext(nil)
+	s.getter = s.newGetter(nil)
 	s.manifold = certupdater.Manifold(certupdater.ManifoldConfig{
 		AgentName:                "agent",
 		AuthorityName:            "authority",
@@ -71,7 +73,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	})
 }
 
-func (s *ManifoldSuite) newContext(overlay map[string]any) dependency.Context {
+func (s *ManifoldSuite) newGetter(overlay map[string]any) dependency.Getter {
 	resources := map[string]any{
 		"agent":           s.agent,
 		"authority":       s.authority,
@@ -81,7 +83,7 @@ func (s *ManifoldSuite) newContext(overlay map[string]any) dependency.Context {
 	for k, v := range overlay {
 		resources[k] = v
 	}
-	return dt.StubContext(nil, resources)
+	return dt.StubGetter(resources)
 }
 
 func (s *ManifoldSuite) newWorker(config certupdater.Config) (worker.Worker, error) {
@@ -107,16 +109,16 @@ func (s *ManifoldSuite) TestInputs(c *gc.C) {
 
 func (s *ManifoldSuite) TestMissingInputs(c *gc.C) {
 	for _, input := range expectedInputs {
-		context := s.newContext(map[string]any{
+		getter := s.newGetter(map[string]any{
 			input: dependency.ErrMissing,
 		})
-		_, err := s.manifold.Start(context)
+		_, err := s.manifold.Start(context.Background(), getter)
 		c.Assert(errors.Cause(err), gc.Equals, dependency.ErrMissing)
 	}
 }
 
 func (s *ManifoldSuite) TestStart(c *gc.C) {
-	w, err := s.manifold.Start(s.context)
+	w, err := s.manifold.Start(context.Background(), s.getter)
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
@@ -140,14 +142,14 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 func (s *ManifoldSuite) TestStartErrorClosesState(c *gc.C) {
 	s.stub.SetErrors(errors.New("boom"))
 
-	_, err := s.manifold.Start(s.context)
+	_, err := s.manifold.Start(context.Background(), s.getter)
 	c.Assert(err, gc.ErrorMatches, "boom")
 
 	s.stateTracker.CheckCallNames(c, "Use", "Done")
 }
 
 func (s *ManifoldSuite) TestStopWorkerClosesState(c *gc.C) {
-	w, err := s.manifold.Start(s.context)
+	w, err := s.manifold.Start(context.Background(), s.getter)
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 

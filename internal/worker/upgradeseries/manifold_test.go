@@ -4,13 +4,15 @@
 package upgradeseries_test
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
-	dt "github.com/juju/worker/v3/dependency/testing"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
+	dt "github.com/juju/worker/v4/dependency/testing"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
@@ -42,7 +44,7 @@ func (*ManifoldSuite) TestStartMissingNewFacade(c *gc.C) {
 	cfg, _, _ := validManifoldConfig(ctrl)
 	cfg.NewFacade = nil
 
-	work, err := upgradeseries.Manifold(cfg).Start(newStubContext())
+	work, err := upgradeseries.Manifold(cfg).Start(context.Background(), newGetter())
 	c.Check(work, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "nil NewFacade function not valid")
 }
@@ -54,7 +56,7 @@ func (*ManifoldSuite) TestStartMissingNewWorker(c *gc.C) {
 	cfg, _, _ := validManifoldConfig(ctrl)
 	cfg.NewWorker = nil
 
-	work, err := upgradeseries.Manifold(cfg).Start(newStubContext())
+	work, err := upgradeseries.Manifold(cfg).Start(context.Background(), newGetter())
 	c.Check(work, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "nil NewWorker function not valid")
 }
@@ -66,7 +68,7 @@ func (*ManifoldSuite) TestStartMissingLogger(c *gc.C) {
 	cfg, _, _ := validManifoldConfig(ctrl)
 	cfg.Logger = nil
 
-	work, err := upgradeseries.Manifold(cfg).Start(newStubContext())
+	work, err := upgradeseries.Manifold(cfg).Start(context.Background(), newGetter())
 	c.Check(work, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "nil Logger not valid")
 }
@@ -76,12 +78,12 @@ func (s *ManifoldSuite) TestStartMissingAgentName(c *gc.C) {
 	defer ctrl.Finish()
 
 	cfg, _, _ := validManifoldConfig(ctrl)
-	ctx := dt.StubContext(nil, map[string]interface{}{
+	getter := dt.StubGetter(map[string]interface{}{
 		"agent-name":      dependency.ErrMissing,
 		"api-caller-name": &dummyAPICaller{},
 	})
 
-	work, err := upgradeseries.Manifold(cfg).Start(ctx)
+	work, err := upgradeseries.Manifold(cfg).Start(context.Background(), getter)
 	c.Check(work, gc.IsNil)
 	c.Check(errors.Cause(err), gc.Equals, dependency.ErrMissing)
 }
@@ -91,12 +93,12 @@ func (s *ManifoldSuite) TestStartMissingAPICallerName(c *gc.C) {
 	defer ctrl.Finish()
 
 	cfg, _, _ := validManifoldConfig(ctrl)
-	ctx := dt.StubContext(nil, map[string]interface{}{
+	getter := dt.StubGetter(map[string]interface{}{
 		"agent-name":      &dummyAgent{},
 		"api-caller-name": dependency.ErrMissing,
 	})
 
-	work, err := upgradeseries.Manifold(cfg).Start(ctx)
+	work, err := upgradeseries.Manifold(cfg).Start(context.Background(), getter)
 	c.Check(work, gc.IsNil)
 	c.Check(errors.Cause(err), gc.Equals, dependency.ErrMissing)
 }
@@ -107,7 +109,7 @@ func (s *ManifoldSuite) TestStartSuccess(c *gc.C) {
 
 	cfg, _, _ := validManifoldConfig(ctrl)
 
-	work, err := upgradeseries.Manifold(cfg).Start(newStubContext())
+	work, err := upgradeseries.Manifold(cfg).Start(context.Background(), newGetter())
 	c.Check(work, gc.NotNil)
 	c.Check(err, jc.ErrorIsNil)
 }
@@ -119,7 +121,7 @@ func (s *ManifoldSuite) TestStartError(c *gc.C) {
 	cfg, _, _ := validManifoldConfig(ctrl)
 	cfg.NewWorker = func(_ upgradeseries.Config) (worker.Worker, error) { return nil, errors.New("WHACK!") }
 
-	work, err := upgradeseries.Manifold(cfg).Start(newStubContext())
+	work, err := upgradeseries.Manifold(cfg).Start(context.Background(), newGetter())
 	c.Check(work, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "starting machine upgrade series worker: WHACK!")
 }
@@ -148,8 +150,8 @@ func (*dummyConfig) DataDir() string {
 	return "/unused"
 }
 
-func newStubContext() *dt.Context {
-	return dt.StubContext(nil, map[string]interface{}{
+func newGetter() *dt.Getter {
+	return dt.StubGetter(map[string]interface{}{
 		"agent-name":      &dummyAgent{},
 		"api-caller-name": &dummyAPICaller{},
 	})

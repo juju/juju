@@ -9,8 +9,8 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
 	"github.com/prometheus/client_golang/prometheus"
 
 	coreagent "github.com/juju/juju/agent"
@@ -103,13 +103,13 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.QueryLoggerName,
 		},
 		Output: dbAccessorOutput,
-		Start: func(context dependency.Context) (worker.Worker, error) {
+		Start: func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
 			if err := config.Validate(); err != nil {
 				return nil, errors.Trace(err)
 			}
 
 			var agent coreagent.Agent
-			if err := context.Get(config.AgentName, &agent); err != nil {
+			if err := getter.Get(config.AgentName, &agent); err != nil {
 				return nil, err
 			}
 			agentConfig := agent.CurrentConfig()
@@ -121,7 +121,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 
 			var slowQueryLogger coredatabase.SlowQueryLogger
-			if err := context.Get(config.QueryLoggerName, &slowQueryLogger); err != nil {
+			if err := getter.Get(config.QueryLoggerName, &slowQueryLogger); err != nil {
 				config.PrometheusRegisterer.Unregister(metricsCollector)
 				return nil, err
 			}

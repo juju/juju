@@ -4,10 +4,12 @@
 package upgradestepsmachine
 
 import (
+	"context"
+
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
@@ -82,26 +84,26 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.APICallerName,
 			config.UpgradeStepsGateName,
 		},
-		Start: func(context dependency.Context) (worker.Worker, error) {
+		Start: func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
 			if err := config.Validate(); err != nil {
 				return nil, errors.Trace(err)
 			}
 
 			// Get the agent.
 			var agent agent.Agent
-			if err := context.Get(config.AgentName, &agent); err != nil {
+			if err := getter.Get(config.AgentName, &agent); err != nil {
 				return nil, errors.Trace(err)
 			}
 
 			// Get API connection.
 			var apiCaller base.APICaller
-			if err := context.Get(config.APICallerName, &apiCaller); err != nil {
+			if err := getter.Get(config.APICallerName, &apiCaller); err != nil {
 				return nil, errors.Trace(err)
 			}
 
 			// Get upgradeSteps completed lock.
 			var upgradeStepsLock gate.Lock
-			if err := context.Get(config.UpgradeStepsGateName, &upgradeStepsLock); err != nil {
+			if err := getter.Get(config.UpgradeStepsGateName, &upgradeStepsLock); err != nil {
 				return nil, errors.Trace(err)
 			}
 

@@ -4,14 +4,16 @@
 package apicaller_test
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
-	dt "github.com/juju/worker/v3/dependency/testing"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
+	dt "github.com/juju/worker/v4/dependency/testing"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
@@ -29,7 +31,7 @@ type ManifoldSuite struct {
 	manifoldConfig apicaller.ManifoldConfig
 	agent          *mockAgent
 	conn           *mockConn
-	context        dependency.Context
+	getter         dependency.Getter
 }
 
 var _ = gc.Suite(&ManifoldSuite{})
@@ -68,7 +70,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		model:  coretesting.ModelTag,
 		entity: names.NewMachineTag("42"),
 	}
-	s.context = dt.StubContext(nil, map[string]interface{}{
+	s.getter = dt.StubGetter(map[string]interface{}{
 		"agent-name": s.agent,
 	})
 
@@ -96,11 +98,11 @@ func (s *ManifoldSuite) TestInputs(c *gc.C) {
 }
 
 func (s *ManifoldSuite) TestStartMissingAgent(c *gc.C) {
-	context := dt.StubContext(nil, map[string]interface{}{
+	getter := dt.StubGetter(map[string]interface{}{
 		"agent-name": dependency.ErrMissing,
 	})
 
-	worker, err := s.manifold.Start(context)
+	worker, err := s.manifold.Start(context.Background(), getter)
 	c.Check(worker, gc.IsNil)
 	c.Check(err, gc.Equals, dependency.ErrMissing)
 	s.CheckCalls(c, nil)
@@ -109,7 +111,7 @@ func (s *ManifoldSuite) TestStartMissingAgent(c *gc.C) {
 func (s *ManifoldSuite) TestStartCannotOpenAPI(c *gc.C) {
 	s.SetErrors(errors.New("no api for you"))
 
-	worker, err := s.manifold.Start(s.context)
+	worker, err := s.manifold.Start(context.Background(), s.getter)
 	c.Check(worker, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, `\[deadbe\] "machine-42" cannot open api: no api for you`)
 	s.CheckCalls(c, []testing.StubCall{{
@@ -119,7 +121,7 @@ func (s *ManifoldSuite) TestStartCannotOpenAPI(c *gc.C) {
 }
 
 func (s *ManifoldSuite) TestStartSuccess(c *gc.C) {
-	worker, err := s.manifold.Start(s.context)
+	worker, err := s.manifold.Start(context.Background(), s.getter)
 	c.Check(err, jc.ErrorIsNil)
 	defer assertStop(c, worker)
 	s.CheckCalls(c, []testing.StubCall{{
@@ -129,7 +131,7 @@ func (s *ManifoldSuite) TestStartSuccess(c *gc.C) {
 }
 
 func (s *ManifoldSuite) setupWorkerTest(c *gc.C) worker.Worker {
-	w, err := s.manifold.Start(s.context)
+	w, err := s.manifold.Start(context.Background(), s.getter)
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(c *gc.C) { w.Kill() })
 	return w

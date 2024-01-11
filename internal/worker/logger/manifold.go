@@ -4,9 +4,11 @@
 package logger
 
 import (
+	"context"
+
 	"github.com/juju/loggo"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/agent/logger"
@@ -40,16 +42,16 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.AgentName,
 			config.APICallerName,
 		},
-		Start: func(context dependency.Context) (worker.Worker, error) {
+		Start: func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
 			var a agent.Agent
-			if err := context.Get(config.AgentName, &a); err != nil {
+			if err := getter.Get(config.AgentName, &a); err != nil {
 				return nil, err
 			}
 			currentConfig := a.CurrentConfig()
 			loggingOverride := currentConfig.Value(agent.LoggingOverride)
 
 			var apiCaller base.APICaller
-			if err := context.Get(config.APICallerName, &apiCaller); err != nil {
+			if err := getter.Get(config.APICallerName, &apiCaller); err != nil {
 				return nil, err
 			}
 

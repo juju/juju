@@ -4,13 +4,15 @@
 package gate_test
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
-	dt "github.com/juju/worker/v3/dependency/testing"
-	"github.com/juju/worker/v3/workertest"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
+	dt "github.com/juju/worker/v4/dependency/testing"
+	"github.com/juju/worker/v4/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent/engine"
@@ -77,20 +79,20 @@ func (*FlagSuite) TestManifoldFilterLeavesNil(c *gc.C) {
 }
 
 func (*FlagSuite) TestManifoldStartGateMissing(c *gc.C) {
-	context := dt.StubContext(nil, map[string]interface{}{
+	getter := dt.StubGetter(map[string]interface{}{
 		"some-gate": dependency.ErrMissing,
 	})
 	manifold := gate.FlagManifold(gate.FlagManifoldConfig{
 		GateName: "some-gate",
 	})
-	worker, err := manifold.Start(context)
+	worker, err := manifold.Start(context.Background(), getter)
 	c.Check(worker, gc.IsNil)
 	c.Check(errors.Cause(err), gc.Equals, dependency.ErrMissing)
 }
 
 func (*FlagSuite) TestManifoldStartError(c *gc.C) {
 	expect := &dummyWaiter{}
-	context := dt.StubContext(nil, map[string]interface{}{
+	getter := dt.StubGetter(map[string]interface{}{
 		"some-gate": expect,
 	})
 	manifold := gate.FlagManifold(gate.FlagManifoldConfig{
@@ -100,13 +102,13 @@ func (*FlagSuite) TestManifoldStartError(c *gc.C) {
 			return nil, errors.New("gronk")
 		},
 	})
-	worker, err := manifold.Start(context)
+	worker, err := manifold.Start(context.Background(), getter)
 	c.Check(worker, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "gronk")
 }
 
 func (*FlagSuite) TestManifoldStartSuccess(c *gc.C) {
-	context := dt.StubContext(nil, map[string]interface{}{
+	getter := dt.StubGetter(map[string]interface{}{
 		"some-gate": &dummyWaiter{},
 	})
 	expect := &dummyWorker{}
@@ -116,7 +118,7 @@ func (*FlagSuite) TestManifoldStartSuccess(c *gc.C) {
 			return expect, nil
 		},
 	})
-	worker, err := manifold.Start(context)
+	worker, err := manifold.Start(context.Background(), getter)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(worker, gc.Equals, expect)
 }

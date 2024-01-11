@@ -19,8 +19,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/workertest"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/workertest"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
 

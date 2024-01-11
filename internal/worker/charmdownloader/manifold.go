@@ -4,9 +4,11 @@
 package charmdownloader
 
 import (
+	"context"
+
 	"github.com/juju/errors"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
@@ -46,13 +48,13 @@ func (cfg ManifoldConfig) Validate() error {
 }
 
 // start is a StartFunc for a Worker manifold.
-func (cfg ManifoldConfig) start(context dependency.Context) (worker.Worker, error) {
+func (cfg ManifoldConfig) start(context context.Context, getter dependency.Getter) (worker.Worker, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	var apiConn api.Connection
-	if err := context.Get(cfg.APICallerName, &apiConn); err != nil {
+	if err := getter.Get(cfg.APICallerName, &apiConn); err != nil {
 		return nil, errors.Trace(err)
 	}
 

@@ -4,14 +4,16 @@
 package proxyupdater_test
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"github.com/juju/proxy"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
-	dt "github.com/juju/worker/v3/dependency/testing"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
+	dt "github.com/juju/worker/v4/dependency/testing"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
@@ -62,60 +64,60 @@ func (s *ManifoldSuite) TestInputs(c *gc.C) {
 
 func (s *ManifoldSuite) TestWorkerFuncMissing(c *gc.C) {
 	s.config.WorkerFunc = nil
-	context := dt.StubContext(nil, nil)
-	worker, err := s.manifold().Start(context)
+	getter := dt.StubGetter(nil)
+	worker, err := s.manifold().Start(context.Background(), getter)
 	c.Check(worker, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "missing WorkerFunc not valid")
 }
 
 func (s *ManifoldSuite) TestInProcessUpdateMissing(c *gc.C) {
 	s.config.InProcessUpdate = nil
-	context := dt.StubContext(nil, nil)
-	worker, err := s.manifold().Start(context)
+	getter := dt.StubGetter(nil)
+	worker, err := s.manifold().Start(context.Background(), getter)
 	c.Check(worker, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "missing InProcessUpdate not valid")
 }
 
 func (s *ManifoldSuite) TestStartAgentMissing(c *gc.C) {
-	context := dt.StubContext(nil, map[string]interface{}{
+	getter := dt.StubGetter(map[string]interface{}{
 		"agent-name": dependency.ErrMissing,
 	})
 
-	worker, err := s.manifold().Start(context)
+	worker, err := s.manifold().Start(context.Background(), getter)
 	c.Check(worker, gc.IsNil)
 	c.Check(errors.Cause(err), gc.Equals, dependency.ErrMissing)
 }
 
 func (s *ManifoldSuite) TestStartAPICallerMissing(c *gc.C) {
-	context := dt.StubContext(nil, map[string]interface{}{
+	getter := dt.StubGetter(map[string]interface{}{
 		"agent-name":      &dummyAgent{},
 		"api-caller-name": dependency.ErrMissing,
 	})
 
-	worker, err := s.manifold().Start(context)
+	worker, err := s.manifold().Start(context.Background(), getter)
 	c.Check(worker, gc.IsNil)
 	c.Check(errors.Cause(err), gc.Equals, dependency.ErrMissing)
 }
 
 func (s *ManifoldSuite) TestStartError(c *gc.C) {
 	s.startErr = errors.New("boom")
-	context := dt.StubContext(nil, map[string]interface{}{
+	getter := dt.StubGetter(map[string]interface{}{
 		"agent-name":      &dummyAgent{},
 		"api-caller-name": &dummyAPICaller{},
 	})
 
-	worker, err := s.manifold().Start(context)
+	worker, err := s.manifold().Start(context.Background(), getter)
 	c.Check(worker, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "boom")
 }
 
 func (s *ManifoldSuite) TestStartSuccess(c *gc.C) {
-	context := dt.StubContext(nil, map[string]interface{}{
+	getter := dt.StubGetter(map[string]interface{}{
 		"agent-name":      &dummyAgent{},
 		"api-caller-name": &dummyAPICaller{},
 	})
 
-	worker, err := s.manifold().Start(context)
+	worker, err := s.manifold().Start(context.Background(), getter)
 	c.Check(err, jc.ErrorIsNil)
 	dummy, ok := worker.(*dummyWorker)
 	c.Assert(ok, jc.IsTrue)

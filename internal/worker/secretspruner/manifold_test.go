@@ -4,12 +4,14 @@
 package secretspruner_test
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v3"
-	dt "github.com/juju/worker/v3/dependency/testing"
+	"github.com/juju/worker/v4"
+	dt "github.com/juju/worker/v4/dependency/testing"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
@@ -88,7 +90,7 @@ func (s *manifoldSuite) TestStart(c *gc.C) {
 		return nil, nil
 	}
 	manifold := secretspruner.Manifold(s.config)
-	w, err := manifold.Start(dt.StubContext(nil, map[string]interface{}{
+	w, err := manifold.Start(context.Background(), dt.StubGetter(map[string]interface{}{
 		"api-caller": struct{ base.APICaller }{&mockAPICaller{}},
 	}))
 	c.Assert(w, gc.IsNil)

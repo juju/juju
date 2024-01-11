@@ -4,9 +4,11 @@
 package auditconfigupdater
 
 import (
+	"context"
+
 	"github.com/juju/errors"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
 
 	jujuagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/core/auditlog"
@@ -55,18 +57,18 @@ var ConfigSourceFromState = func(st *state.State) ConfigSource {
 	return st
 }
 
-func (config ManifoldConfig) start(context dependency.Context) (_ worker.Worker, err error) {
+func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter) (_ worker.Worker, err error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	var agent jujuagent.Agent
-	if err := context.Get(config.AgentName, &agent); err != nil {
+	if err := getter.Get(config.AgentName, &agent); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	var stTracker workerstate.StateTracker
-	if err := context.Get(config.StateName, &stTracker); err != nil {
+	if err := getter.Get(config.StateName, &stTracker); err != nil {
 		return nil, errors.Trace(err)
 	}
 	_, st, err := stTracker.Use()

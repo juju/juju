@@ -9,7 +9,7 @@ import (
 	"sync"
 
 	"github.com/juju/errors"
-	"github.com/juju/worker/v3"
+	"github.com/juju/worker/v4"
 
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"

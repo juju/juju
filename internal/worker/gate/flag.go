@@ -4,9 +4,11 @@
 package gate
 
 import (
+	"context"
+
 	"github.com/juju/errors"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/agent/engine"
@@ -20,9 +22,9 @@ type FlagManifoldConfig struct {
 }
 
 // start is a dependency.StartFunc that uses config.
-func (config FlagManifoldConfig) start(context dependency.Context) (worker.Worker, error) {
+func (config FlagManifoldConfig) start(context context.Context, getter dependency.Getter) (worker.Worker, error) {
 	var gate Waiter
-	if err := context.Get(config.GateName, &gate); err != nil {
+	if err := getter.Get(config.GateName, &gate); err != nil {
 		return nil, errors.Trace(err)
 	}
 	worker, err := config.NewWorker(gate)

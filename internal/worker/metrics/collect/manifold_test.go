@@ -4,6 +4,7 @@
 package collect_test
 
 import (
+	stdcontext "context"
 	"os"
 	"path/filepath"
 	"time"
@@ -15,8 +16,8 @@ import (
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
-	"github.com/juju/worker/v3/dependency"
-	dt "github.com/juju/worker/v3/dependency/testing"
+	"github.com/juju/worker/v4/dependency"
+	dt "github.com/juju/worker/v4/dependency/testing"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
@@ -84,7 +85,7 @@ func (s *ManifoldSuite) TestStartMissingDeps(c *gc.C) {
 				testResources[k] = v
 			}
 		}
-		worker, err := s.manifold.Start(testResources.Context())
+		worker, err := s.manifold.Start(stdcontext.Background(), testResources.Getter())
 		c.Check(worker, gc.IsNil)
 		c.Check(errors.Cause(err), gc.Equals, dependency.ErrMissing)
 	}
@@ -107,7 +108,7 @@ func (s *ManifoldSuite) TestCollectWorkerStarts(c *gc.C) {
 		func(_ names.UnitTag, _ context.Paths) (string, map[string]jujucharm.Metric, error) {
 			return "ch:ubuntu-1", map[string]jujucharm.Metric{"pings": {Description: "test metric", Type: jujucharm.MetricTypeAbsolute}}, nil
 		})
-	worker, err := s.manifold.Start(s.resources.Context())
+	worker, err := s.manifold.Start(stdcontext.Background(), s.resources.Getter())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(worker, gc.NotNil)
 	worker.Kill()
@@ -126,7 +127,7 @@ func (s *ManifoldSuite) TestCollectWorkerErrorStopsListener(c *gc.C) {
 		func(_ names.UnitTag, _ context.Paths) (string, map[string]jujucharm.Metric, error) {
 			return "local:ubuntu-1", map[string]jujucharm.Metric{"pings": {Description: "test metric", Type: jujucharm.MetricTypeAbsolute}}, nil
 		})
-	worker, err := s.manifold.Start(s.resources.Context())
+	worker, err := s.manifold.Start(stdcontext.Background(), s.resources.Getter())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(worker, gc.NotNil)
 	err = worker.Wait()
@@ -164,7 +165,7 @@ func (s *ManifoldSuite) TestRecordMetricsError(c *gc.C) {
 		func(_ names.UnitTag, _ context.Paths) (string, map[string]jujucharm.Metric, error) {
 			return "ch:wordpress-37", nil, nil
 		})
-	collectEntity, err := collect.NewCollect(s.manifoldConfig, s.resources.Context())
+	collectEntity, err := collect.NewCollect(stdcontext.Background(), s.manifoldConfig, s.resources.Getter())
 	c.Assert(err, jc.ErrorIsNil)
 	err = collectEntity.Do(nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -186,7 +187,7 @@ func (s *ManifoldSuite) TestJujuUnitsBuiltinMetric(c *gc.C) {
 		func(_ names.UnitTag, _ context.Paths) (string, map[string]jujucharm.Metric, error) {
 			return "ch:wordpress-37", map[string]jujucharm.Metric{"pings": {Description: "test metric", Type: jujucharm.MetricTypeAbsolute}}, nil
 		})
-	collectEntity, err := collect.NewCollect(s.manifoldConfig, s.resources.Context())
+	collectEntity, err := collect.NewCollect(stdcontext.Background(), s.manifoldConfig, s.resources.Getter())
 	c.Assert(err, jc.ErrorIsNil)
 	err = collectEntity.Do(nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -216,7 +217,7 @@ func (s *ManifoldSuite) TestAvailability(c *gc.C) {
 		})
 	charmdir := &dummyCharmdir{}
 	s.resources["charmdir-name"] = dt.NewStubResource(charmdir)
-	collectEntity, err := collect.NewCollect(s.manifoldConfig, s.resources.Context())
+	collectEntity, err := collect.NewCollect(stdcontext.Background(), s.manifoldConfig, s.resources.Getter())
 	c.Assert(err, jc.ErrorIsNil)
 	charmdir.aborted = true
 	err = collectEntity.Do(nil)
@@ -225,7 +226,7 @@ func (s *ManifoldSuite) TestAvailability(c *gc.C) {
 
 	charmdir = &dummyCharmdir{aborted: false}
 	s.resources["charmdir-name"] = dt.NewStubResource(charmdir)
-	collectEntity, err = collect.NewCollect(s.manifoldConfig, s.resources.Context())
+	collectEntity, err = collect.NewCollect(stdcontext.Background(), s.manifoldConfig, s.resources.Getter())
 	c.Assert(err, jc.ErrorIsNil)
 	err = collectEntity.Do(nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -249,7 +250,7 @@ func (s *ManifoldSuite) TestNoMetricsDeclared(c *gc.C) {
 		func(_ names.UnitTag, _ context.Paths) (string, map[string]jujucharm.Metric, error) {
 			return "ch:wordpress-37", map[string]jujucharm.Metric{}, nil
 		})
-	collectEntity, err := collect.NewCollect(s.manifoldConfig, s.resources.Context())
+	collectEntity, err := collect.NewCollect(stdcontext.Background(), s.manifoldConfig, s.resources.Getter())
 	c.Assert(err, jc.ErrorIsNil)
 	err = collectEntity.Do(nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -262,7 +263,7 @@ func (s *ManifoldSuite) TestNoMetricsDeclared(c *gc.C) {
 func (s *ManifoldSuite) TestCharmDirAborted(c *gc.C) {
 	charmdir := &dummyCharmdir{aborted: true}
 	s.resources["charmdir-name"] = dt.NewStubResource(charmdir)
-	_, err := collect.NewCollect(s.manifoldConfig, s.resources.Context())
+	_, err := collect.NewCollect(stdcontext.Background(), s.manifoldConfig, s.resources.Getter())
 	c.Assert(errors.Cause(err), gc.Equals, fortress.ErrAborted)
 }
 

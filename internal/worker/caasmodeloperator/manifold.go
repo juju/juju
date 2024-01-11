@@ -4,9 +4,11 @@
 package caasmodeloperator
 
 import (
+	"context"
+
 	"github.com/juju/errors"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
@@ -49,23 +51,23 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 
 // Start is used to start the manifold an extract a worker from the supplied
 // configuration
-func (m ManifoldConfig) Start(context dependency.Context) (worker.Worker, error) {
+func (m ManifoldConfig) Start(context context.Context, getter dependency.Getter) (worker.Worker, error) {
 	if err := m.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	var agent agent.Agent
-	if err := context.Get(m.AgentName, &agent); err != nil {
+	if err := getter.Get(m.AgentName, &agent); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	var apiCaller base.APICaller
-	if err := context.Get(m.APICallerName, &apiCaller); err != nil {
+	if err := getter.Get(m.APICallerName, &apiCaller); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	var broker caas.Broker
-	if err := context.Get(m.BrokerName, &broker); err != nil {
+	if err := getter.Get(m.BrokerName, &broker); err != nil {
 		return nil, errors.Trace(err)
 	}
 

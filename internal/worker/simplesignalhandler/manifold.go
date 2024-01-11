@@ -4,12 +4,13 @@
 package simplesignalhandler
 
 import (
+	"context"
 	"fmt"
 	"os"
 
 	"github.com/juju/errors"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
 )
 
 type Logger interface {
@@ -45,7 +46,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 }
 
 // Start is responsible for creating a new worker for the manifold config.
-func (m ManifoldConfig) Start(context dependency.Context) (worker.Worker, error) {
+func (m ManifoldConfig) Start(context context.Context, getter dependency.Getter) (worker.Worker, error) {
 	if err := m.Validate(); err != nil {
 		return nil, err
 	}

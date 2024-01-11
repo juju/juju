@@ -6,7 +6,7 @@ package remotestate
 import (
 	"testing"
 
-	"github.com/juju/worker/v3"
+	"github.com/juju/worker/v4"
 	gc "gopkg.in/check.v1"
 )
 

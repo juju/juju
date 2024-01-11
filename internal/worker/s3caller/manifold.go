@@ -4,9 +4,11 @@
 package s3caller
 
 import (
+	context "context"
+
 	"github.com/juju/errors"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/core/objectstore"
@@ -53,13 +55,13 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 // startFunc returns a StartFunc that creates a S3 client based on the supplied
 // manifold config and wraps it in a worker.
 func (config ManifoldConfig) startFunc() dependency.StartFunc {
-	return func(context dependency.Context) (worker.Worker, error) {
+	return func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
 		if err := config.Validate(); err != nil {
 			return nil, errors.Trace(err)
 		}
 
 		var apiConn api.Connection
-		if err := context.Get(config.APICallerName, &apiConn); err != nil {
+		if err := getter.Get(config.APICallerName, &apiConn); err != nil {
 			return nil, err
 		}
 

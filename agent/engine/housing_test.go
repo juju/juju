@@ -4,15 +4,16 @@
 package engine_test
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
-	dt "github.com/juju/worker/v3/dependency/testing"
-	"github.com/juju/worker/v3/workertest"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
+	dt "github.com/juju/worker/v4/dependency/testing"
+	"github.com/juju/worker/v4/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent/engine"
@@ -45,7 +46,7 @@ func (*HousingSuite) TestEmptyHousingPopulatedManifold(c *gc.C) {
 
 	c.Check(manifold.Inputs, jc.DeepEquals, []string{"x", "y", "z"})
 	c.Check(func() {
-		manifold.Start(nil)
+		manifold.Start(context.Background(), nil)
 	}, gc.PanicMatches, "panicStart")
 	c.Check(func() {
 		manifold.Output(nil, nil)
@@ -106,11 +107,11 @@ func (*HousingSuite) TestFlagMissing(c *gc.C) {
 	manifold := engine.Housing{
 		Flags: []string{"flag"},
 	}.Decorate(dependency.Manifold{})
-	context := dt.StubContext(nil, map[string]interface{}{
+	getter := dt.StubGetter(map[string]interface{}{
 		"flag": dependency.ErrMissing,
 	})
 
-	worker, err := manifold.Start(context)
+	worker, err := manifold.Start(context.Background(), getter)
 	c.Check(worker, gc.IsNil)
 	c.Check(errors.Cause(err), gc.Equals, dependency.ErrMissing)
 }
@@ -119,11 +120,11 @@ func (*HousingSuite) TestFlagBadType(c *gc.C) {
 	manifold := engine.Housing{
 		Flags: []string{"flag"},
 	}.Decorate(dependency.Manifold{})
-	context := dt.StubContext(nil, map[string]interface{}{
+	getter := dt.StubGetter(map[string]interface{}{
 		"flag": false,
 	})
 
-	worker, err := manifold.Start(context)
+	worker, err := manifold.Start(context.Background(), getter)
 	c.Check(worker, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "cannot set false into .*")
 }
@@ -132,11 +133,11 @@ func (*HousingSuite) TestFlagBadValue(c *gc.C) {
 	manifold := engine.Housing{
 		Flags: []string{"flag"},
 	}.Decorate(dependency.Manifold{})
-	context := dt.StubContext(nil, map[string]interface{}{
+	getter := dt.StubGetter(map[string]interface{}{
 		"flag": flag{false},
 	})
 
-	worker, err := manifold.Start(context)
+	worker, err := manifold.Start(context.Background(), getter)
 	c.Check(worker, gc.IsNil)
 	c.Check(errors.Cause(err), gc.Equals, dependency.ErrMissing)
 }
@@ -146,15 +147,15 @@ func (*HousingSuite) TestFlagSuccess(c *gc.C) {
 	manifold := engine.Housing{
 		Flags: []string{"flag"},
 	}.Decorate(dependency.Manifold{
-		Start: func(dependency.Context) (worker.Worker, error) {
+		Start: func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
 			return expectWorker, nil
 		},
 	})
-	context := dt.StubContext(nil, map[string]interface{}{
+	getter := dt.StubGetter(map[string]interface{}{
 		"flag": flag{true},
 	})
 
-	worker, err := manifold.Start(context)
+	worker, err := manifold.Start(context.Background(), getter)
 	c.Check(worker, gc.Equals, expectWorker)
 	c.Check(err, jc.ErrorIsNil)
 }
@@ -186,12 +187,12 @@ func (*HousingSuite) TestFlagBlocksOccupy(c *gc.C) {
 		Flags:  []string{"flag"},
 		Occupy: "fortress",
 	}.Decorate(dependency.Manifold{})
-	context := dt.StubContext(nil, map[string]interface{}{
+	getter := dt.StubGetter(map[string]interface{}{
 		"flag":     dependency.ErrMissing,
 		"fortress": errors.New("never happen"),
 	})
 
-	worker, err := manifold.Start(context)
+	worker, err := manifold.Start(context.Background(), getter)
 	c.Check(worker, gc.IsNil)
 	c.Check(errors.Cause(err), gc.Equals, dependency.ErrMissing)
 }
@@ -200,11 +201,11 @@ func (*HousingSuite) TestOccupyMissing(c *gc.C) {
 	manifold := engine.Housing{
 		Occupy: "fortress",
 	}.Decorate(dependency.Manifold{})
-	context := dt.StubContext(nil, map[string]interface{}{
+	getter := dt.StubGetter(map[string]interface{}{
 		"fortress": dependency.ErrMissing,
 	})
 
-	worker, err := manifold.Start(context)
+	worker, err := manifold.Start(context.Background(), getter)
 	c.Check(worker, gc.IsNil)
 	c.Check(errors.Cause(err), gc.Equals, dependency.ErrMissing)
 }
@@ -213,11 +214,11 @@ func (*HousingSuite) TestOccupyBadType(c *gc.C) {
 	manifold := engine.Housing{
 		Occupy: "fortress",
 	}.Decorate(dependency.Manifold{})
-	context := dt.StubContext(nil, map[string]interface{}{
+	getter := dt.StubGetter(map[string]interface{}{
 		"fortress": false,
 	})
 
-	worker, err := manifold.Start(context)
+	worker, err := manifold.Start(context.Background(), getter)
 	c.Check(worker, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "cannot set false into .*")
 }
@@ -226,8 +227,9 @@ func (*HousingSuite) TestOccupyLocked(c *gc.C) {
 	manifold := engine.Housing{
 		Occupy: "fortress",
 	}.Decorate(dependency.Manifold{})
-	abort := make(chan struct{})
-	context := dt.StubContext(abort, map[string]interface{}{
+
+	ctx, cancel := context.WithCancel(context.Background())
+	getter := dt.StubGetter(map[string]interface{}{
 		"fortress": newGuest(false),
 	})
 
@@ -235,7 +237,7 @@ func (*HousingSuite) TestOccupyLocked(c *gc.C) {
 	started := make(chan struct{})
 	go func() {
 		defer close(started)
-		worker, err := manifold.Start(context)
+		worker, err := manifold.Start(ctx, getter)
 		c.Check(worker, gc.IsNil)
 		c.Check(errors.Cause(err), gc.Equals, fortress.ErrAborted)
 	}()
@@ -248,7 +250,7 @@ func (*HousingSuite) TestOccupyLocked(c *gc.C) {
 	}
 
 	// ...until the context is aborted.
-	close(abort)
+	cancel()
 	select {
 	case <-started:
 	case <-time.After(coretesting.LongWait):
@@ -262,12 +264,12 @@ func (*HousingSuite) TestOccupySuccess(c *gc.C) {
 	manifold := engine.Housing{
 		Occupy: "fortress",
 	}.Decorate(dependency.Manifold{
-		Start: func(dependency.Context) (worker.Worker, error) {
+		Start: func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
 			return expectWorker, nil
 		},
 	})
 	guest := newGuest(true)
-	context := dt.StubContext(nil, map[string]interface{}{
+	getter := dt.StubGetter(map[string]interface{}{
 		"fortress": guest,
 	})
 
@@ -275,7 +277,7 @@ func (*HousingSuite) TestOccupySuccess(c *gc.C) {
 	started := make(chan struct{})
 	go func() {
 		defer close(started)
-		worker, err := manifold.Start(context)
+		worker, err := manifold.Start(context.Background(), getter)
 		c.Check(worker, gc.Equals, expectWorker)
 		c.Check(err, jc.ErrorIsNil)
 	}()
@@ -337,7 +339,7 @@ func (flag flag) Check() bool {
 	return flag.value
 }
 
-func panicStart(dependency.Context) (worker.Worker, error) {
+func panicStart(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
 	panic("panicStart")
 }
 

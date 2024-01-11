@@ -4,14 +4,16 @@
 package multiwatcher_test
 
 import (
+	"context"
+
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
-	dt "github.com/juju/worker/v3/dependency/testing"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
+	dt "github.com/juju/worker/v4/dependency/testing"
 	"github.com/prometheus/client_golang/prometheus"
 	gc "gopkg.in/check.v1"
 
@@ -92,20 +94,20 @@ func (s *ManifoldSuite) TestConfigValidationMissingNewWorker(c *gc.C) {
 }
 
 func (s *ManifoldSuite) TestManifoldCallsValidate(c *gc.C) {
-	context := dt.StubContext(nil, map[string]interface{}{})
+	getter := dt.StubGetter(map[string]interface{}{})
 	s.config.Logger = nil
-	w, err := s.manifold().Start(context)
+	w, err := s.manifold().Start(context.Background(), getter)
 	c.Check(w, gc.IsNil)
 	c.Check(err, jc.ErrorIs, errors.NotValid)
 	c.Check(err, gc.ErrorMatches, `missing Logger not valid`)
 }
 
 func (s *ManifoldSuite) TestStateMissing(c *gc.C) {
-	context := dt.StubContext(nil, map[string]interface{}{
+	getter := dt.StubGetter(map[string]interface{}{
 		"state": dependency.ErrMissing,
 	})
 
-	w, err := s.manifold().Start(context)
+	w, err := s.manifold().Start(context.Background(), getter)
 	c.Check(w, gc.IsNil)
 	c.Check(errors.Cause(err), gc.Equals, dependency.ErrMissing)
 }
@@ -118,11 +120,11 @@ func (s *ManifoldSuite) TestNewWorkerArgs(c *gc.C) {
 	}
 
 	tracker := &fakeStateTracker{}
-	context := dt.StubContext(nil, map[string]interface{}{
+	getter := dt.StubGetter(map[string]interface{}{
 		"state": tracker,
 	})
 
-	w, err := s.manifold().Start(context)
+	w, err := s.manifold().Start(context.Background(), getter)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(w, gc.NotNil)
 
@@ -137,11 +139,11 @@ func (s *ManifoldSuite) TestNewWorkerArgs(c *gc.C) {
 
 func (s *ManifoldSuite) TestNewWorkerErrorReleasesState(c *gc.C) {
 	tracker := &fakeStateTracker{}
-	context := dt.StubContext(nil, map[string]interface{}{
+	getter := dt.StubGetter(map[string]interface{}{
 		"state": tracker,
 	})
 
-	worker, err := s.manifold().Start(context)
+	worker, err := s.manifold().Start(context.Background(), getter)
 	c.Check(err, gc.ErrorMatches, "boom")
 	c.Check(worker, gc.IsNil)
 	c.Check(tracker.released, jc.IsTrue)

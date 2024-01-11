@@ -4,14 +4,16 @@
 package caasapplicationprovisioner_test
 
 import (
+	"context"
+
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v3"
-	dt "github.com/juju/worker/v3/dependency/testing"
+	"github.com/juju/worker/v4"
+	dt "github.com/juju/worker/v4/dependency/testing"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/base"
@@ -95,7 +97,7 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 		return nil, nil
 	}
 	manifold := caasapplicationprovisioner.Manifold(s.config)
-	w, err := manifold.Start(dt.StubContext(nil, map[string]interface{}{
+	w, err := manifold.Start(context.Background(), dt.StubGetter(map[string]interface{}{
 		"api-caller": struct{ base.APICaller }{&mockAPICaller{}},
 		"broker":     struct{ caas.Broker }{},
 		"clock":      struct{ clock.Clock }{},

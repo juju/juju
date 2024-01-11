@@ -3,7 +3,7 @@
 
 package facade
 
-import "github.com/juju/worker/v3"
+import "github.com/juju/worker/v4"
 
 // WatcherRegistry holds all the watchers for a connection.
 // It allows the registration of watchers that will be cleaned up when a

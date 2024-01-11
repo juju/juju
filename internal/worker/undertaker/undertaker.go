@@ -10,7 +10,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/worker/v3/catacomb"
+	"github.com/juju/worker/v4/catacomb"
 	"gopkg.in/retry.v1"
 
 	"github.com/juju/juju/core/life"

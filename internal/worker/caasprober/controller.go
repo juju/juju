@@ -9,7 +9,7 @@ import (
 	"strconv"
 
 	jujuerrors "github.com/juju/errors"
-	"github.com/juju/worker/v3/catacomb"
+	"github.com/juju/worker/v4/catacomb"
 
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/internal/observability/probe"

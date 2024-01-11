@@ -4,11 +4,12 @@
 package gate
 
 import (
+	"context"
 	"sync"
 
 	"github.com/juju/errors"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
 	"gopkg.in/tomb.v2"
 )
 
@@ -30,7 +31,7 @@ func Manifold() dependency.Manifold {
 // are running inside the dependency engine.
 func ManifoldEx(lock Lock) dependency.Manifold {
 	return dependency.Manifold{
-		Start: func(_ dependency.Context) (worker.Worker, error) {
+		Start: func(_ context.Context, getter dependency.Getter) (worker.Worker, error) {
 			// Need to assign a copy of the arg so we don't
 			// modify the variable in the closure when we get
 			// called a second time.

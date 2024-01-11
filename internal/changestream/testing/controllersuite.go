@@ -6,7 +6,7 @@ package testing
 import (
 	"time"
 
-	"github.com/juju/worker/v3"
+	"github.com/juju/worker/v4"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/changestream"

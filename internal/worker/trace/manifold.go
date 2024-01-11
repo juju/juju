@@ -9,8 +9,8 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
 
 	"github.com/juju/juju/agent"
 	coretrace "github.com/juju/juju/core/trace"
@@ -73,13 +73,13 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.AgentName,
 		},
 		Output: tracerOutput,
-		Start: func(context dependency.Context) (worker.Worker, error) {
+		Start: func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
 			if err := config.Validate(); err != nil {
 				return nil, errors.Trace(err)
 			}
 
 			var a agent.Agent
-			if err := context.Get(config.AgentName, &a); err != nil {
+			if err := getter.Get(config.AgentName, &a); err != nil {
 				return nil, err
 			}
 

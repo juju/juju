@@ -5,7 +5,7 @@ package machine
 
 import (
 	"github.com/juju/cmd/v3"
-	"github.com/juju/worker/v3/catacomb"
+	"github.com/juju/worker/v4/catacomb"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/modelcmd"

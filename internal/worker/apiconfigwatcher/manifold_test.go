@@ -4,16 +4,17 @@
 package apiconfigwatcher_test
 
 import (
+	"context"
 	"sync"
 
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3/voyeur"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
-	dt "github.com/juju/worker/v3/dependency/testing"
-	"github.com/juju/worker/v3/workertest"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
+	dt "github.com/juju/worker/v4/dependency/testing"
+	"github.com/juju/worker/v4/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
@@ -24,7 +25,7 @@ type ManifoldSuite struct {
 	testing.IsolationSuite
 
 	manifold           dependency.Manifold
-	context            dependency.Context
+	getter             dependency.Getter
 	agent              *mockAgent
 	agentConfigChanged *voyeur.Value
 }
@@ -35,7 +36,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	s.agent = new(mockAgent)
-	s.context = dt.StubContext(nil, map[string]interface{}{
+	s.getter = dt.StubGetter(map[string]interface{}{
 		"agent": s.agent,
 	})
 	s.agentConfigChanged = voyeur.NewValue(0)
@@ -54,15 +55,15 @@ func (s *ManifoldSuite) TestNilAgentConfigChanged(c *gc.C) {
 	manifold := apiconfigwatcher.Manifold(apiconfigwatcher.ManifoldConfig{
 		AgentName: "agent",
 	})
-	_, err := manifold.Start(s.context)
+	_, err := manifold.Start(context.Background(), s.getter)
 	c.Assert(err, gc.ErrorMatches, "nil AgentConfigChanged .+")
 }
 
 func (s *ManifoldSuite) TestNoAgent(c *gc.C) {
-	context := dt.StubContext(nil, map[string]interface{}{
+	getter := dt.StubGetter(map[string]interface{}{
 		"agent": dependency.ErrMissing,
 	})
-	_, err := s.manifold.Start(context)
+	_, err := s.manifold.Start(context.Background(), getter)
 	c.Assert(err, gc.Equals, dependency.ErrMissing)
 }
 
@@ -119,7 +120,7 @@ func (s *ManifoldSuite) TestClosedVoyeur(c *gc.C) {
 }
 
 func (s *ManifoldSuite) startWorkerClean(c *gc.C) worker.Worker {
-	w, err := s.manifold.Start(s.context)
+	w, err := s.manifold.Start(context.Background(), s.getter)
 	c.Assert(err, jc.ErrorIsNil)
 	workertest.CheckAlive(c, w)
 	return w

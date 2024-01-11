@@ -4,13 +4,13 @@
 package lease
 
 import (
-	stdcontext "context"
+	"context"
 	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/juju/juju/agent"
@@ -82,34 +82,34 @@ type manifoldState struct {
 	config ManifoldConfig
 }
 
-func (s *manifoldState) start(context dependency.Context) (worker.Worker, error) {
+func (s *manifoldState) start(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
 	if err := s.config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	var agent agent.Agent
-	if err := context.Get(s.config.AgentName, &agent); err != nil {
+	if err := getter.Get(s.config.AgentName, &agent); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	var clock clock.Clock
-	if err := context.Get(s.config.ClockName, &clock); err != nil {
+	if err := getter.Get(s.config.ClockName, &clock); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	var dbGetter database.DBGetter
-	if err := context.Get(s.config.DBAccessorName, &dbGetter); err != nil {
+	if err := getter.Get(s.config.DBAccessorName, &dbGetter); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	var tracerGetter trace.TracerGetter
-	if err := context.Get(s.config.TraceName, &tracerGetter); err != nil {
+	if err := getter.Get(s.config.TraceName, &tracerGetter); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	currentConfig := agent.CurrentConfig()
 
-	tracer, err := tracerGetter.GetTracer(stdcontext.TODO(), coretrace.Namespace("leaseexpiry", currentConfig.Model().Id()))
+	tracer, err := tracerGetter.GetTracer(ctx, coretrace.Namespace("leaseexpiry", currentConfig.Model().Id()))
 	if err != nil {
 		tracer = coretrace.NoopTracer{}
 	}

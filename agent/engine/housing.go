@@ -4,9 +4,11 @@
 package engine
 
 import (
+	"context"
+
 	"github.com/juju/errors"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
 
 	"github.com/juju/juju/internal/worker/fortress"
 )
@@ -80,15 +82,15 @@ func maybeAdd(original []string, add string) []string {
 }
 
 func occupyStart(inner dependency.StartFunc, name string) dependency.StartFunc {
-	return func(context dependency.Context) (worker.Worker, error) {
+	return func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
 		var guest fortress.Guest
-		if err := context.Get(name, &guest); err != nil {
+		if err := getter.Get(name, &guest); err != nil {
 			return nil, errors.Trace(err)
 		}
 		task := func() (worker.Worker, error) {
-			return inner(context)
+			return inner(ctx, getter)
 		}
-		worker, err := fortress.Occupy(guest, task, context.Abort())
+		worker, err := fortress.Occupy(guest, task, ctx.Done())
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -97,14 +99,14 @@ func occupyStart(inner dependency.StartFunc, name string) dependency.StartFunc {
 }
 
 func flagStart(inner dependency.StartFunc, name string) dependency.StartFunc {
-	return func(context dependency.Context) (worker.Worker, error) {
+	return func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
 		var flag Flag
-		if err := context.Get(name, &flag); err != nil {
+		if err := getter.Get(name, &flag); err != nil {
 			return nil, errors.Trace(err)
 		}
 		if !flag.Check() {
 			return nil, errors.Annotatef(dependency.ErrMissing, "%q not set", name)
 		}
-		return inner(context)
+		return inner(ctx, getter)
 	}
 }

@@ -4,11 +4,13 @@
 package storageprovisioner
 
 import (
+	stdcontext "context"
+
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
 
 	"github.com/juju/juju/api/agent/storageprovisioner"
 	"github.com/juju/juju/api/base"
@@ -33,14 +35,14 @@ type ModelManifoldConfig struct {
 func ModelManifold(config ModelManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{config.APICallerName, config.StorageRegistryName},
-		Start: func(context dependency.Context) (worker.Worker, error) {
+		Start: func(context stdcontext.Context, getter dependency.Getter) (worker.Worker, error) {
 
 			var apiCaller base.APICaller
-			if err := context.Get(config.APICallerName, &apiCaller); err != nil {
+			if err := getter.Get(config.APICallerName, &apiCaller); err != nil {
 				return nil, errors.Trace(err)
 			}
 			var registry storage.ProviderRegistry
-			if err := context.Get(config.StorageRegistryName, &registry); err != nil {
+			if err := getter.Get(config.StorageRegistryName, &registry); err != nil {
 				return nil, errors.Trace(err)
 			}
 

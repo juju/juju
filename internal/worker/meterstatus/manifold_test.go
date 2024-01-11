@@ -4,6 +4,7 @@
 package meterstatus_test
 
 import (
+	"context"
 	"sync"
 	"time"
 
@@ -11,9 +12,9 @@ import (
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
-	dt "github.com/juju/worker/v3/dependency/testing"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
+	dt "github.com/juju/worker/v4/dependency/testing"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
@@ -85,7 +86,7 @@ func (s *ManifoldSuite) TestStartMissingDeps(c *gc.C) {
 				testResources[k] = v
 			}
 		}
-		worker, err := s.manifold.Start(testResources.Context())
+		worker, err := s.manifold.Start(context.Background(), testResources.Getter())
 		c.Check(worker, gc.IsNil)
 		c.Check(err, gc.Equals, dependency.ErrMissing)
 	}
@@ -128,7 +129,7 @@ func (s *PatchedManifoldSuite) TestStatusWorkerStarts(c *gc.C) {
 		return meterstatus.NewConnectedStatusWorker(cfg)
 	}
 	manifold := meterstatus.Manifold(s.manifoldConfig)
-	worker, err := manifold.Start(s.resources.Context())
+	worker, err := manifold.Start(context.Background(), s.resources.Getter())
 	c.Assert(called, jc.IsTrue)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(worker, gc.NotNil)
@@ -147,7 +148,7 @@ func (s *PatchedManifoldSuite) TestIsolatedWorker(c *gc.C) {
 		return meterstatus.NewIsolatedStatusWorker(cfg)
 	}
 	manifold := meterstatus.Manifold(s.manifoldConfig)
-	worker, err := manifold.Start(s.resources.Context())
+	worker, err := manifold.Start(context.Background(), s.resources.Getter())
 	c.Assert(called, jc.IsTrue)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(worker, gc.NotNil)

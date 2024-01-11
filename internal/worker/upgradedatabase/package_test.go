@@ -18,7 +18,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -package upgradedatabase -destination servicefactory_mock_test.go github.com/juju/juju/internal/servicefactory ControllerServiceFactory
 //go:generate go run go.uber.org/mock/mockgen -package upgradedatabase -destination database_mock_test.go github.com/juju/juju/core/database DBGetter
 //go:generate go run go.uber.org/mock/mockgen -package upgradedatabase -destination service_mock_test.go github.com/juju/juju/internal/worker/upgradedatabase UpgradeService,ModelManagerService
-//go:generate go run go.uber.org/mock/mockgen -package upgradedatabase -destination worker_mock_test.go github.com/juju/worker/v3 Worker
+//go:generate go run go.uber.org/mock/mockgen -package upgradedatabase -destination worker_mock_test.go github.com/juju/worker/v4 Worker
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)

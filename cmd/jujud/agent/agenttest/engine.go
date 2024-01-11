@@ -4,14 +4,15 @@
 package agenttest
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"time"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
 	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v2"
 
@@ -153,10 +154,10 @@ func (tracker *EngineTracker) Install(raw dependency.Manifolds, id string) error
 }
 
 func (tracker *EngineTracker) startFunc(id string, names []string) dependency.StartFunc {
-	return func(context dependency.Context) (worker.Worker, error) {
+	return func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
 		seen := set.NewStrings()
 		for _, name := range names {
-			err := context.Get(name, nil)
+			err := getter.Get(name, nil)
 			switch errors.Cause(err) {
 			case nil:
 			case dependency.ErrMissing:
@@ -169,12 +170,12 @@ func (tracker *EngineTracker) startFunc(id string, names []string) dependency.St
 
 		var report map[string]interface{}
 		var reporter dependency.Reporter
-		if err := context.Get("self", &reporter); err == nil {
+		if err := getter.Get("self", &reporter); err == nil {
 			report = reporter.Report()
 		}
 
 		select {
-		case <-context.Abort():
+		case <-ctx.Done():
 			// don't bother to report if it's about to change
 		default:
 			tracker.mu.Lock()

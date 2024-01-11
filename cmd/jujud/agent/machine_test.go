@@ -23,7 +23,7 @@ import (
 	"github.com/juju/utils/v3/ssh"
 	sshtesting "github.com/juju/utils/v3/ssh/testing"
 	"github.com/juju/version/v2"
-	"github.com/juju/worker/v3"
+	"github.com/juju/worker/v4"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 

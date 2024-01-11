@@ -4,6 +4,7 @@
 package httpserverargs_test
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/clock"
@@ -11,10 +12,10 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
-	dt "github.com/juju/worker/v3/dependency/testing"
-	"github.com/juju/worker/v3/workertest"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
+	dt "github.com/juju/worker/v4/dependency/testing"
+	"github.com/juju/worker/v4/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/apiserverhttp"
@@ -31,7 +32,7 @@ type ManifoldSuite struct {
 
 	config         httpserverargs.ManifoldConfig
 	manifold       dependency.Manifold
-	context        dependency.Context
+	getter         dependency.Getter
 	clock          *testclock.Clock
 	state          stubStateTracker
 	authenticator  mockLocalMacaroonAuthenticator
@@ -50,7 +51,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.serviceFactory = stubServiceFactory{}
 	s.stub.ResetCalls()
 
-	s.context = s.newContext(nil)
+	s.getter = s.newGetter(nil)
 	s.config = httpserverargs.ManifoldConfig{
 		ClockName:             "clock",
 		StateName:             "state",
@@ -60,7 +61,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.manifold = httpserverargs.Manifold(s.config)
 }
 
-func (s *ManifoldSuite) newContext(overlay map[string]any) dependency.Context {
+func (s *ManifoldSuite) newGetter(overlay map[string]any) dependency.Getter {
 	resources := map[string]any{
 		"clock":           s.clock,
 		"state":           &s.state,
@@ -69,7 +70,7 @@ func (s *ManifoldSuite) newContext(overlay map[string]any) dependency.Context {
 	for k, v := range overlay {
 		resources[k] = v
 	}
-	return dt.StubContext(nil, resources)
+	return dt.StubGetter(resources)
 }
 
 func (s *ManifoldSuite) newStateAuthenticator(
@@ -94,10 +95,10 @@ func (s *ManifoldSuite) TestInputs(c *gc.C) {
 
 func (s *ManifoldSuite) TestMissingInputs(c *gc.C) {
 	for _, input := range expectedInputs {
-		context := s.newContext(map[string]any{
+		getter := s.newGetter(map[string]any{
 			input: dependency.ErrMissing,
 		})
-		_, err := s.manifold.Start(context)
+		_, err := s.manifold.Start(context.Background(), getter)
 		c.Assert(errors.Cause(err), gc.Equals, dependency.ErrMissing)
 	}
 }
@@ -127,7 +128,7 @@ func (s *ManifoldSuite) TestAuthenticatorOutput(c *gc.C) {
 }
 
 func (s *ManifoldSuite) startWorkerClean(c *gc.C) worker.Worker {
-	w, err := s.manifold.Start(s.context)
+	w, err := s.manifold.Start(context.Background(), s.getter)
 	c.Assert(err, jc.ErrorIsNil)
 	workertest.CheckAlive(c, w)
 	return w
@@ -188,7 +189,7 @@ func (s *ManifoldSuite) TestValidate(c *gc.C) {
 		config := s.config
 		test.f(&config)
 		manifold := httpserverargs.Manifold(config)
-		w, err := manifold.Start(s.context)
+		w, err := manifold.Start(context.Background(), s.getter)
 		workertest.CheckNilOrKill(c, w)
 		c.Check(err, gc.ErrorMatches, test.expect)
 	}

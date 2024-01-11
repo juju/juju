@@ -4,12 +4,13 @@
 package stateconverter_test
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v3/workertest"
+	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
@@ -25,7 +26,7 @@ type manifoldConfigSuite struct {
 	machiner *mocks.MockMachiner
 	agent    *mocks.MockAgent
 	config   *mocks.MockConfig
-	context  *mocks.MockContext
+	getter   *mocks.MockGetter
 }
 
 func (s *manifoldConfigSuite) TestValidateAgentNameFail(c *gc.C) {
@@ -74,7 +75,7 @@ func (s *manifoldConfigSuite) TestManifoldStart(c *gc.C) {
 		},
 	}
 	gomock.InOrder(
-		s.context.EXPECT().Get(cfg.AgentName, gomock.Any()).SetArg(1, s.agent).Return(nil),
+		s.getter.EXPECT().Get(cfg.AgentName, gomock.Any()).SetArg(1, s.agent).Return(nil),
 		s.agent.EXPECT().CurrentConfig().Return(s.config),
 		s.config.EXPECT().Tag().Return(names.NewMachineTag("3")),
 		s.machiner.EXPECT().Machine(names.NewMachineTag("3")).DoAndReturn(func(_ names.MachineTag) (stateconverter.Machine, error) {
@@ -83,7 +84,7 @@ func (s *manifoldConfigSuite) TestManifoldStart(c *gc.C) {
 		}),
 	)
 	manifold := stateconverter.Manifold(cfg)
-	w, err := manifold.Start(s.context)
+	w, err := manifold.Start(context.Background(), s.getter)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(w, gc.NotNil)
 	select {
@@ -99,7 +100,7 @@ func (s *manifoldConfigSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.agent = mocks.NewMockAgent(ctrl)
 	s.config = mocks.NewMockConfig(ctrl)
-	s.context = mocks.NewMockContext(ctrl)
+	s.getter = mocks.NewMockGetter(ctrl)
 	s.machiner = mocks.NewMockMachiner(ctrl)
 	return ctrl
 }

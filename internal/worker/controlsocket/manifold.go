@@ -4,9 +4,11 @@
 package controlsocket
 
 import (
+	"context"
+
 	"github.com/juju/errors"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
 
 	"github.com/juju/juju/internal/worker/common"
 	workerstate "github.com/juju/juju/internal/worker/state"
@@ -49,13 +51,13 @@ func (cfg ManifoldConfig) Validate() error {
 }
 
 // start is a StartFunc for a Worker manifold.
-func (cfg ManifoldConfig) start(context dependency.Context) (_ worker.Worker, err error) {
+func (cfg ManifoldConfig) start(ctx context.Context, getter dependency.Getter) (_ worker.Worker, err error) {
 	if err = cfg.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	var stTracker workerstate.StateTracker
-	if err = context.Get(cfg.StateName, &stTracker); err != nil {
+	if err = getter.Get(cfg.StateName, &stTracker); err != nil {
 		return nil, errors.Trace(err)
 	}
 

@@ -4,11 +4,13 @@
 package model_test
 
 import (
+	"context"
+
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v3/workertest"
+	"github.com/juju/worker/v4/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent/agenttest"
@@ -173,7 +175,7 @@ func (s *ManifoldsSuite) TestClockWrapper(c *gc.C) {
 	})
 	manifold, ok := manifolds["clock"]
 	c.Assert(ok, jc.IsTrue)
-	worker, err := manifold.Start(nil)
+	worker, err := manifold.Start(context.Background(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CheckKill(c, worker)
 

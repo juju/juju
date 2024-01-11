@@ -11,9 +11,9 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/catacomb"
-	"github.com/juju/worker/v3/dependency"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/catacomb"
+	"github.com/juju/worker/v4/dependency"
 
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/domain/controllernode/service"
