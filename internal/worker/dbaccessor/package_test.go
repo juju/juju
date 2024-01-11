@@ -12,6 +12,7 @@ import (
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
+	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
@@ -25,6 +26,8 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -package dbaccessor -destination metrics_mock_test.go github.com/prometheus/client_golang/prometheus Registerer
 
 func TestPackage(t *testing.T) {
+	defer goleak.VerifyNone(t)
+
 	gc.TestingT(t)
 }
 
@@ -137,6 +140,16 @@ func (s *baseSuite) newWorkerWithDB(c *gc.C, db TrackedDB) worker.Worker {
 type dbBaseSuite struct {
 	domaintesting.ControllerSuite
 	baseSuite
+}
+
+func (s *dbBaseSuite) SetUpTest(c *gc.C) {
+	s.ControllerSuite.SetUpTest(c)
+	s.baseSuite.SetUpTest(c)
+}
+
+func (s *dbBaseSuite) TearDownTest(c *gc.C) {
+	s.ControllerSuite.TearDownTest(c)
+	s.baseSuite.TearDownTest(c)
 }
 
 func ensureStartup(c *gc.C, w *dbWorker) {

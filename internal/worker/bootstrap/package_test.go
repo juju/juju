@@ -9,6 +9,7 @@ import (
 	"github.com/juju/names/v5"
 	jujutesting "github.com/juju/testing"
 	"github.com/juju/utils/v3"
+	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
@@ -22,6 +23,8 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -package bootstrap -destination bootstrap_mock_test.go github.com/juju/juju/internal/worker/bootstrap ControllerConfigService,FlagService,ObjectStoreGetter,LegacyState,HTTPClient
 
 func TestPackage(t *testing.T) {
+	defer goleak.VerifyNone(t)
+
 	gc.TestingT(t)
 }
 

@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
@@ -19,6 +20,8 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -package changestream -destination metrics_mock_test.go github.com/prometheus/client_golang/prometheus Registerer
 
 func TestPackage(t *testing.T) {
+	defer goleak.VerifyNone(t)
+
 	gc.TestingT(t)
 }
 
