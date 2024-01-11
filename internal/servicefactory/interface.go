@@ -17,6 +17,7 @@ import (
 	modelmanagerservice "github.com/juju/juju/domain/modelmanager/service"
 	objectstoreservice "github.com/juju/juju/domain/objectstore/service"
 	upgradeservice "github.com/juju/juju/domain/upgrade/service"
+	userservice "github.com/juju/juju/domain/user/service"
 )
 
 // ControllerServiceFactory provides access to the services required by the
@@ -48,6 +49,8 @@ type ControllerServiceFactory interface {
 	AgentObjectStore() *objectstoreservice.Service
 	// Flag returns the flag service.
 	Flag() *flagservice.Service
+	// User returns the user service.
+	User() *userservice.Service
 }
 
 // ModelServiceFactory provides access to the services required by the

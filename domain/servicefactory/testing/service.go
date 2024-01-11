@@ -17,6 +17,7 @@ import (
 	modelmanagerservice "github.com/juju/juju/domain/modelmanager/service"
 	objectstoreservice "github.com/juju/juju/domain/objectstore/service"
 	upgradeservice "github.com/juju/juju/domain/upgrade/service"
+	userservice "github.com/juju/juju/domain/user/service"
 )
 
 // TestingServiceFactory provides access to the services required by the apiserver.
@@ -95,5 +96,10 @@ func (s *TestingServiceFactory) ObjectStore() *objectstoreservice.Service {
 
 // Flag returns the flag service.
 func (s *TestingServiceFactory) Flag() *flagservice.Service {
+	return nil
+}
+
+// User returns the user service.
+func (s *TestingServiceFactory) User() *userservice.Service {
 	return nil
 }

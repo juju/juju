@@ -21,16 +21,44 @@ import (
 	"github.com/juju/juju/state"
 )
 
+// UserService defines the methods to operate with the database.
+type UserService interface {
+}
+
 // UserManagerAPI implements the user manager interface and is the concrete
 // implementation of the api end point.
 type UserManagerAPI struct {
-	state      *state.State
-	pool       *state.StatePool
-	authorizer facade.Authorizer
-	check      *common.BlockChecker
-	apiUser    names.UserTag
-	isAdmin    bool
-	logger     loggo.Logger
+	state       *state.State
+	userService UserService
+	pool        *state.StatePool
+	authorizer  facade.Authorizer
+	check       *common.BlockChecker
+	apiUser     names.UserTag
+	isAdmin     bool
+	logger      loggo.Logger
+}
+
+// NewAPI creates a new API endpoint for calling user manager functions.
+func NewAPI(
+	state *state.State,
+	userService UserService,
+	pool *state.StatePool,
+	authorizer facade.Authorizer,
+	check *common.BlockChecker,
+	apiUser names.UserTag,
+	isAdmin bool,
+	logger loggo.Logger,
+) (*UserManagerAPI, error) {
+	return &UserManagerAPI{
+		state:       state,
+		userService: userService,
+		pool:        pool,
+		authorizer:  authorizer,
+		check:       check,
+		apiUser:     apiUser,
+		isAdmin:     isAdmin,
+		logger:      logger,
+	}, nil
 }
 
 func (api *UserManagerAPI) hasControllerAdminAccess() (bool, error) {
