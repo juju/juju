@@ -81,35 +81,6 @@ func (s *userManagerSuite) SetUpTest(c *gc.C) {
 	s.AddCleanup(func(*gc.C) { s.BlockHelper.Close() })
 }
 
-//func (s *userManagerSuite) TestNewUserManagerAPIRefusesNonClient(c *gc.C) {
-//	ctrl := gomock.NewController(c)
-//	defer ctrl.Finish()
-//
-//	userService := NewMockUserService(ctrl)
-//
-//	anAuthoriser := s.authorizer
-//	anAuthoriser.Tag = names.NewMachineTag("1")
-//
-//	ctx := facadetest.Context{
-//		State_:     s.ControllerModel(c).State(),
-//		Resources_: s.resources,
-//		Auth_:      anAuthoriser,
-//	}
-//
-//	endPoint, err := usermanager.NewAPI(
-//		ctx.State(),
-//		userService,
-//		ctx.StatePool(),
-//		ctx.Auth(),
-//		common.NewBlockChecker(ctx.State()),
-//		ctx.Auth().GetAuthTag().(names.UserTag),
-//		true,
-//		ctx.Logger(),
-//	)
-//	c.Assert(endPoint, gc.IsNil)
-//	c.Assert(err, gc.ErrorMatches, "permission denied")
-//}
-
 func (s *userManagerSuite) assertAddUser(c *gc.C, access params.UserAccessPermission, sharedModelTags []string) {
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
