@@ -4,6 +4,7 @@
 package deployer
 
 import (
+	"context"
 	"strconv"
 
 	charmresource "github.com/juju/charm/v12/resource"
@@ -18,6 +19,7 @@ import (
 
 // DeployResourcesFunc is the function type of DeployResources.
 type DeployResourcesFunc func(
+	ctx context.Context,
 	applicationID string,
 	chID resources.CharmID,
 	filesAndRevisions map[string]string,
@@ -30,6 +32,7 @@ type DeployResourcesFunc func(
 // creates pending resource metadata for the all resource mentioned in the
 // metadata. It returns a map of resource name to pending resource IDs.
 func DeployResources(
+	ctx context.Context,
 	applicationID string,
 	chID resources.CharmID,
 	filesAndRevisions map[string]string,
@@ -60,7 +63,7 @@ func DeployResources(
 		}
 	}
 
-	ids, err = resourcecmd.DeployResources(resourcecmd.DeployResourcesArgs{
+	ids, err = resourcecmd.DeployResources(ctx, resourcecmd.DeployResourcesArgs{
 		ApplicationID:  applicationID,
 		CharmID:        chID,
 		ResourceValues: filenames,
@@ -88,7 +91,7 @@ func (cl *deployClient) AddPendingResources(applicationID string, chID resources
 	})
 }
 
-type UploadExistingPendingResourcesFunc func(appName string,
+type UploadExistingPendingResourcesFunc func(ctx context.Context, appName string,
 	pendingResources []application.PendingResourceUpload,
 	conn base.APICallCloser,
 	filesystem modelcmd.Filesystem) error
@@ -99,6 +102,7 @@ type UploadExistingPendingResourcesFunc func(appName string,
 // Called after AddApplication so no pending resource IDs are
 // necessary, see juju attach for more examples.
 func UploadExistingPendingResources(
+	ctx context.Context,
 	appName string,
 	pendingResources []application.PendingResourceUpload,
 	conn base.APICallCloser,
@@ -123,7 +127,7 @@ func UploadExistingPendingResources(
 			return errors.Annotatef(openResErr, "unable to open resource %v", pendingResUpload.Name)
 		}
 
-		uploadErr := resourceApiClient.Upload(appName,
+		uploadErr := resourceApiClient.Upload(ctx, appName,
 			pendingResUpload.Name, pendingResUpload.Filename, "", r)
 
 		if uploadErr != nil {

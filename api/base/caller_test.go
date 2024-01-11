@@ -4,8 +4,6 @@
 package base_test
 
 import (
-	"context"
-
 	"github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -28,7 +26,7 @@ func (s *apiCallerSuite) TestNewFacadeCaller(c *gc.C) {
 
 	facade := base.NewFacadeCaller(s.apiCaller, "Foo")
 	c.Assert(facade, gc.NotNil)
-	c.Check(facade.(Tracer).Tracer(), gc.Equals, coretrace.NoopTracer{})
+	c.Check(facade.(Tracer).Tracer(), gc.IsNil)
 }
 
 func (s *apiCallerSuite) TestNewFacadeCallerWithTracer(c *gc.C) {
@@ -44,7 +42,6 @@ func (s *apiCallerSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 	s.apiCaller = mocks.NewMockAPICaller(ctrl)
 	s.apiCaller.EXPECT().BestFacadeVersion("Foo").Return(1)
-	s.apiCaller.EXPECT().Context().Return(context.Background()).AnyTimes()
 
 	return ctrl
 }

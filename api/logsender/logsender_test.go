@@ -4,6 +4,7 @@
 package logsender_test
 
 import (
+	"context"
 	"errors"
 	"io"
 	"net/url"
@@ -30,7 +31,7 @@ func (s *LogSenderSuite) TestNewAPI(c *gc.C) {
 		c: c,
 	}
 	a := logsender.NewAPI(conn)
-	w, err := a.LogWriter()
+	w, err := a.LogWriter(context.Background())
 	c.Assert(err, gc.IsNil)
 
 	msg := new(params.LogRecord)
@@ -51,7 +52,7 @@ func (s *LogSenderSuite) TestNewAPIWriteLogError(c *gc.C) {
 		connectError: errors.New("foo"),
 	}
 	a := logsender.NewAPI(conn)
-	w, err := a.LogWriter()
+	w, err := a.LogWriter(context.Background())
 	c.Assert(err, gc.ErrorMatches, "cannot connect to /logsink: foo")
 	c.Assert(w, gc.Equals, nil)
 }
@@ -62,7 +63,7 @@ func (s *LogSenderSuite) TestNewAPIWriteError(c *gc.C) {
 		writeError: errors.New("foo"),
 	}
 	a := logsender.NewAPI(conn)
-	w, err := a.LogWriter()
+	w, err := a.LogWriter(context.Background())
 	c.Assert(err, gc.IsNil)
 
 	err = w.WriteLog(new(params.LogRecord))
@@ -78,7 +79,7 @@ func (s *LogSenderSuite) TestNewAPIReadError(c *gc.C) {
 		writeError: errors.New("closed yo"),
 	}
 	a := logsender.NewAPI(conn)
-	w, err := a.LogWriter()
+	w, err := a.LogWriter(context.Background())
 	c.Assert(err, gc.IsNil)
 	select {
 	case <-conn.closed:
@@ -103,7 +104,7 @@ type mockConnector struct {
 	closed       chan bool
 }
 
-func (c *mockConnector) ConnectStream(path string, values url.Values) (base.Stream, error) {
+func (c *mockConnector) ConnectStream(_ context.Context, path string, values url.Values) (base.Stream, error) {
 	c.c.Assert(path, gc.Equals, "/logsink")
 	c.c.Assert(values, jc.DeepEquals, url.Values{
 		"version": []string{"1"},

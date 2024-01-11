@@ -4,7 +4,6 @@
 package provisioner_test
 
 import (
-	"context"
 	"sync"
 	"time"
 
@@ -118,7 +117,6 @@ func (s *containerWorkerSuite) TestContainerSetupAndProvisionerErrWatcherClose(c
 	s.initialiser = testing.NewMockInitialiser(ctrl)
 	s.caller = apimocks.NewMockAPICaller(ctrl)
 	s.caller.EXPECT().BestFacadeVersion("Provisioner").Return(0).AnyTimes()
-	s.caller.EXPECT().Context().Return(context.Background()).AnyTimes()
 	s.stringsWatcher = mocks.NewMockStringsWatcher(ctrl)
 	s.machine = provisionermocks.NewMockMachineProvisioner(ctrl)
 	s.manager = testing.NewMockManager(ctrl)
@@ -195,7 +193,6 @@ func (s *containerWorkerSuite) patch(c *gc.C) *gomock.Controller {
 	s.caller.EXPECT().BestFacadeVersion("Provisioner").Return(0).AnyTimes()
 	s.caller.EXPECT().BestFacadeVersion("NotifyWatcher").Return(0).AnyTimes()
 	s.caller.EXPECT().BestFacadeVersion("StringsWatcher").Return(0).AnyTimes()
-	s.caller.EXPECT().Context().Return(context.Background()).AnyTimes()
 	s.stringsWatcher = mocks.NewMockStringsWatcher(ctrl)
 	s.machine = provisionermocks.NewMockMachineProvisioner(ctrl)
 	s.manager = testing.NewMockManager(ctrl)

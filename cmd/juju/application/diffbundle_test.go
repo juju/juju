@@ -630,10 +630,6 @@ func (r *mockAPIRoot) BestFacadeVersion(name string) int {
 	return 42
 }
 
-func (r *mockAPIRoot) Context() context.Context {
-	return context.Background()
-}
-
 func (r *mockAPIRoot) APICall(ctx context.Context, objType string, version int, id, request string, params, response interface{}) error {
 	call := objType + "." + request
 	r.stub.AddCall(call, version, params)

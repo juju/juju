@@ -4,6 +4,7 @@
 package resource
 
 import (
+	"context"
 	"io"
 
 	charmresource "github.com/juju/charm/v12/resource"
@@ -20,7 +21,7 @@ type DeployClient interface {
 	AddPendingResources(applicationID string, chID apiresources.CharmID, resources []charmresource.Resource) (ids []string, err error)
 
 	// UploadPendingResource uploads data and metadata for a pending resource for the given application.
-	UploadPendingResource(applicationID string, resource charmresource.Resource, filename string, r io.ReadSeeker) (id string, err error)
+	UploadPendingResource(ctx context.Context, applicationID string, resource charmresource.Resource, filename string, r io.ReadSeeker) (id string, err error)
 }
 
 // DeployResourcesArgs holds the arguments to DeployResources().
@@ -53,7 +54,7 @@ type DeployResourcesArgs struct {
 // DeployResources uploads the bytes for the given files to the server and
 // creates pending resource metadata for the all resource mentioned in the
 // metadata. It returns a map of resource name to pending resource IDs.
-func DeployResources(args DeployResourcesArgs) (ids map[string]string, err error) {
+func DeployResources(ctx context.Context, args DeployResourcesArgs) (ids map[string]string, err error) {
 	d := deployUploader{
 		applicationID: args.ApplicationID,
 		chID:          args.CharmID,
@@ -62,7 +63,7 @@ func DeployResources(args DeployResourcesArgs) (ids map[string]string, err error
 		filesystem:    args.Filesystem,
 	}
 
-	ids, err = d.upload(args.ResourceValues, args.Revisions)
+	ids, err = d.upload(ctx, args.ResourceValues, args.Revisions)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -77,7 +78,7 @@ type deployUploader struct {
 	filesystem    modelcmd.Filesystem
 }
 
-func (d deployUploader) upload(resourceValues map[string]string, revisions map[string]int) (map[string]string, error) {
+func (d deployUploader) upload(ctx context.Context, resourceValues map[string]string, revisions map[string]int) (map[string]string, error) {
 	if err := ValidateResources(d.resources); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -109,7 +110,7 @@ func (d deployUploader) upload(resourceValues map[string]string, revisions map[s
 		if err != nil {
 			return nil, errors.Annotatef(err, "resource %q", name)
 		}
-		id, err := d.uploadPendingResource(name, resValue, r)
+		id, err := d.uploadPendingResource(ctx, name, resValue, r)
 		if err != nil {
 			return nil, errors.Annotatef(err, "resource %q", name)
 		}
@@ -145,11 +146,11 @@ func (d deployUploader) storeResources(uploads map[string]string, revisions map[
 	return resources
 }
 
-func (d deployUploader) uploadPendingResource(resourcename, resourcevalue string, data io.ReadSeeker) (id string, err error) {
+func (d deployUploader) uploadPendingResource(ctx context.Context, resourcename, resourcevalue string, data io.ReadSeeker) (id string, err error) {
 	res := charmresource.Resource{
 		Meta:   d.resources[resourcename],
 		Origin: charmresource.OriginUpload,
 	}
 
-	return d.client.UploadPendingResource(d.applicationID, res, resourcevalue, data)
+	return d.client.UploadPendingResource(ctx, d.applicationID, res, resourcevalue, data)
 }

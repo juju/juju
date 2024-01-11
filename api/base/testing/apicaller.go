@@ -37,10 +37,6 @@ func (APICallerFunc) ModelTag() (names.ModelTag, bool) {
 	return names.NewModelTag("deadbeef-0bad-400d-8000-4b1d0d06f00d"), true
 }
 
-func (APICallerFunc) Context() context.Context {
-	return context.Background()
-}
-
 func (APICallerFunc) Close() error {
 	return nil
 }
@@ -57,11 +53,11 @@ func (APICallerFunc) BakeryClient() base.MacaroonDischarger {
 	panic("no bakery client available in this test")
 }
 
-func (APICallerFunc) ConnectStream(path string, attrs url.Values) (base.Stream, error) {
+func (APICallerFunc) ConnectStream(_ context.Context, path string, attrs url.Values) (base.Stream, error) {
 	return nil, errors.NotImplementedf("stream connection")
 }
 
-func (APICallerFunc) ConnectControllerStream(path string, attrs url.Values, headers http.Header) (base.Stream, error) {
+func (APICallerFunc) ConnectControllerStream(_ context.Context, path string, attrs url.Values, headers http.Header) (base.Stream, error) {
 	return nil, errors.NotImplementedf("controller stream connection")
 }
 

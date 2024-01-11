@@ -149,7 +149,7 @@ func (c *createCommand) decideFilename(ctx *cmd.Context, filename string, timest
 }
 
 func (c *createCommand) download(ctx *cmd.Context, client APIClient, copyFrom string, archiveFilename string) error {
-	resultArchive, err := client.Download(copyFrom)
+	resultArchive, err := client.Download(ctx, copyFrom)
 	if err != nil {
 		return errors.Trace(err)
 	}

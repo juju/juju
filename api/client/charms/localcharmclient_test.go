@@ -4,7 +4,6 @@
 package charms_test
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -339,7 +338,6 @@ func testMinVer(t minverTest, c *gc.C) {
 		Doer:    mockHttpDoer,
 	}
 
-	mockCaller.EXPECT().Context().Return(context.Background()).AnyTimes()
 	mockCaller.EXPECT().HTTPClient().Return(reqClient, nil).AnyTimes()
 	mockFacadeCaller.EXPECT().RawAPICaller().Return(mockCaller).AnyTimes()
 

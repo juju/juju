@@ -4,6 +4,8 @@
 package firewaller
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"github.com/juju/worker/v3"
@@ -68,7 +70,7 @@ func NewWorker(cfg Config) (worker.Worker, error) {
 func crossmodelFirewallerFacadeFunc(
 	connectionFunc apicaller.NewExternalControllerConnectionFunc,
 ) newCrossModelFacadeFunc {
-	return func(apiInfo *api.Info) (CrossModelFirewallerFacadeCloser, error) {
+	return func(ctx context.Context, apiInfo *api.Info) (CrossModelFirewallerFacadeCloser, error) {
 		apiInfo.Tag = names.NewUserTag(api.AnonymousUsername)
 		conn, err := connectionFunc(apiInfo)
 		if err != nil {

@@ -10,6 +10,7 @@
 package mocks
 
 import (
+	context "context"
 	reflect "reflect"
 	time "time"
 
@@ -209,18 +210,18 @@ func (mr *MockContextMockRecorder) DeleteCharmStateValue(arg0 any) *gomock.Call 
 }
 
 // DownloadResource mocks base method.
-func (m *MockContext) DownloadResource(arg0 string) (string, error) {
+func (m *MockContext) DownloadResource(arg0 context.Context, arg1 string) (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DownloadResource", arg0)
+	ret := m.ctrl.Call(m, "DownloadResource", arg0, arg1)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // DownloadResource indicates an expected call of DownloadResource.
-func (mr *MockContextMockRecorder) DownloadResource(arg0 any) *gomock.Call {
+func (mr *MockContextMockRecorder) DownloadResource(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DownloadResource", reflect.TypeOf((*MockContext)(nil).DownloadResource), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DownloadResource", reflect.TypeOf((*MockContext)(nil).DownloadResource), arg0, arg1)
 }
 
 // FlushPayloads mocks base method.

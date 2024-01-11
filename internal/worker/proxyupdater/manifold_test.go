@@ -4,8 +4,6 @@
 package proxyupdater_test
 
 import (
-	"context"
-
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"github.com/juju/proxy"
@@ -153,10 +151,6 @@ type dummyAPICaller struct {
 
 func (*dummyAPICaller) BestFacadeVersion(_ string) int {
 	return 42
-}
-
-func (*dummyAPICaller) Context() context.Context {
-	return context.Background()
 }
 
 type dummyWorker struct {

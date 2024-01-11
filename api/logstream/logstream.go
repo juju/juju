@@ -4,6 +4,7 @@
 package logstream
 
 import (
+	"context"
 	"io"
 	"sync"
 
@@ -38,8 +39,8 @@ type LogStream struct {
 
 // Open opens a websocket to the API's /logstream endpoint and returns
 // a stream of log records from that connection.
-func Open(conn base.StreamConnector, cfg params.LogStreamConfig, controllerUUID string) (*LogStream, error) {
-	wsStream, err := stream.Open(conn, "/logstream", &cfg)
+func Open(ctx context.Context, conn base.StreamConnector, cfg params.LogStreamConfig, controllerUUID string) (*LogStream, error) {
+	wsStream, err := stream.Open(ctx, conn, "/logstream", &cfg)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

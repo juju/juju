@@ -4,8 +4,6 @@
 package machineundertaker_test
 
 import (
-	"context"
-
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
@@ -348,8 +346,4 @@ func (c *fakeAPICaller) ModelTag() (names.ModelTag, bool) {
 
 func (c *fakeAPICaller) BestFacadeVersion(string) int {
 	return 0
-}
-
-func (c *fakeAPICaller) Context() context.Context {
-	return context.Background()
 }

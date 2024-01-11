@@ -199,7 +199,7 @@ func (s *ImportSuite) TestBinariesMigration(c *gc.C) {
 		ResourceDownloader: downloader,
 		ResourceUploader:   uploader,
 	}
-	err := migration.UploadBinaries(config)
+	err := migration.UploadBinaries(context.Background(), config)
 	c.Assert(err, jc.ErrorIsNil)
 
 	expectedCharms := []string{
@@ -243,7 +243,7 @@ func (s *ImportSuite) TestWrongCharmURLAssigned(c *gc.C) {
 		ResourceDownloader: downloader,
 		ResourceUploader:   uploader,
 	}
-	err := migration.UploadBinaries(config)
+	err := migration.UploadBinaries(context.Background(), config)
 	c.Assert(err, gc.ErrorMatches,
 		"cannot upload charms: charm local:foo/bar-2 unexpectedly assigned local:foo/bar-1")
 }
@@ -276,13 +276,13 @@ type fakeDownloader struct {
 	resources []string
 }
 
-func (d *fakeDownloader) OpenCharm(curl string) (io.ReadCloser, error) {
+func (d *fakeDownloader) OpenCharm(_ context.Context, curl string) (io.ReadCloser, error) {
 	d.charms = append(d.charms, curl)
 	// Return the charm URL string as the fake charm content
 	return io.NopCloser(bytes.NewReader([]byte(curl + " content"))), nil
 }
 
-func (d *fakeDownloader) OpenURI(uri string, query url.Values) (io.ReadCloser, error) {
+func (d *fakeDownloader) OpenURI(_ context.Context, uri string, query url.Values) (io.ReadCloser, error) {
 	if query != nil {
 		panic("query should be empty")
 	}
@@ -291,7 +291,7 @@ func (d *fakeDownloader) OpenURI(uri string, query url.Values) (io.ReadCloser, e
 	return io.NopCloser(bytes.NewReader([]byte(uri))), nil
 }
 
-func (d *fakeDownloader) OpenResource(app, name string) (io.ReadCloser, error) {
+func (d *fakeDownloader) OpenResource(_ context.Context, app, name string) (io.ReadCloser, error) {
 	d.resources = append(d.resources, app+"/"+name)
 	// Use the resource name as the content.
 	return io.NopCloser(bytes.NewReader([]byte(name))), nil
@@ -314,7 +314,7 @@ func (f *fakeUploader) UploadTools(_ context.Context, r io.ReadSeeker, v version
 	return tools.List{&tools.Tools{Version: v}}, nil
 }
 
-func (f *fakeUploader) UploadCharm(u *charm.URL, r io.ReadSeeker) (*charm.URL, error) {
+func (f *fakeUploader) UploadCharm(_ context.Context, u *charm.URL, r io.ReadSeeker) (*charm.URL, error) {
 	data, err := io.ReadAll(r)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -331,7 +331,7 @@ func (f *fakeUploader) UploadCharm(u *charm.URL, r io.ReadSeeker) (*charm.URL, e
 	return &outU, nil
 }
 
-func (f *fakeUploader) UploadResource(res resources.Resource, r io.ReadSeeker) error {
+func (f *fakeUploader) UploadResource(_ context.Context, res resources.Resource, r io.ReadSeeker) error {
 	body, err := io.ReadAll(r)
 	if err != nil {
 		return errors.Trace(err)
@@ -340,12 +340,12 @@ func (f *fakeUploader) UploadResource(res resources.Resource, r io.ReadSeeker) e
 	return nil
 }
 
-func (f *fakeUploader) SetPlaceholderResource(res resources.Resource) error {
+func (f *fakeUploader) SetPlaceholderResource(_ context.Context, res resources.Resource) error {
 	f.resources[res.ApplicationID+"/"+res.Name] = "<placeholder>"
 	return nil
 }
 
-func (f *fakeUploader) SetUnitResource(unit string, res resources.Resource) error {
+func (f *fakeUploader) SetUnitResource(_ context.Context, unit string, res resources.Resource) error {
 	f.unitResources = append(f.unitResources, unit+"-"+res.Name)
 	return nil
 }

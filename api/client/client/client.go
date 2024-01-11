@@ -209,17 +209,17 @@ func (c *Client) AbortCurrentUpgrade() error {
 }
 
 // UploadTools uploads tools at the specified location to the API server over HTTPS.
-func (c *Client) UploadTools(r io.ReadSeeker, vers version.Binary, additionalSeries ...string) (tools.List, error) {
+func (c *Client) UploadTools(ctx context.Context, r io.ReadSeeker, vers version.Binary, additionalSeries ...string) (tools.List, error) {
 	endpoint := fmt.Sprintf("/tools?binaryVersion=%s&series=%s", vers, strings.Join(additionalSeries, ","))
 	contentType := "application/x-tar-gz"
 	var resp params.ToolsResult
-	if err := c.httpPost(r, endpoint, contentType, &resp); err != nil {
+	if err := c.httpPost(ctx, r, endpoint, contentType, &resp); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return resp.ToolsList, nil
 }
 
-func (c *Client) httpPost(content io.ReadSeeker, endpoint, contentType string, response interface{}) error {
+func (c *Client) httpPost(ctx context.Context, content io.ReadSeeker, endpoint, contentType string, response interface{}) error {
 	req, err := http.NewRequest("POST", endpoint, content)
 	if err != nil {
 		return errors.Annotate(err, "cannot create upload request")
@@ -232,7 +232,7 @@ func (c *Client) httpPost(content io.ReadSeeker, endpoint, contentType string, r
 		return errors.Trace(err)
 	}
 
-	if err := httpClient.Do(c.facade.RawAPICaller().Context(), req, response); err != nil {
+	if err := httpClient.Do(ctx, req, response); err != nil {
 		return errors.Trace(err)
 	}
 	return nil

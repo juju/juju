@@ -10,6 +10,7 @@
 package mocks
 
 import (
+	context "context"
 	reflect "reflect"
 	time "time"
 
@@ -19,7 +20,7 @@ import (
 	network "github.com/juju/juju/core/network"
 	payloads "github.com/juju/juju/core/payloads"
 	secrets "github.com/juju/juju/core/secrets"
-	context "github.com/juju/juju/internal/worker/uniter/runner/context"
+	context0 "github.com/juju/juju/internal/worker/uniter/runner/context"
 	jujuc "github.com/juju/juju/internal/worker/uniter/runner/jujuc"
 	params "github.com/juju/juju/rpc/params"
 	loggo "github.com/juju/loggo"
@@ -51,10 +52,10 @@ func (m *MockContext) EXPECT() *MockContextMockRecorder {
 }
 
 // ActionData mocks base method.
-func (m *MockContext) ActionData() (*context.ActionData, error) {
+func (m *MockContext) ActionData() (*context0.ActionData, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ActionData")
-	ret0, _ := ret[0].(*context.ActionData)
+	ret0, _ := ret[0].(*context0.ActionData)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -226,18 +227,18 @@ func (mr *MockContextMockRecorder) DeleteCharmStateValue(arg0 any) *gomock.Call 
 }
 
 // DownloadResource mocks base method.
-func (m *MockContext) DownloadResource(arg0 string) (string, error) {
+func (m *MockContext) DownloadResource(arg0 context.Context, arg1 string) (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DownloadResource", arg0)
+	ret := m.ctrl.Call(m, "DownloadResource", arg0, arg1)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // DownloadResource indicates an expected call of DownloadResource.
-func (mr *MockContextMockRecorder) DownloadResource(arg0 any) *gomock.Call {
+func (mr *MockContextMockRecorder) DownloadResource(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DownloadResource", reflect.TypeOf((*MockContext)(nil).DownloadResource), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DownloadResource", reflect.TypeOf((*MockContext)(nil).DownloadResource), arg0, arg1)
 }
 
 // Flush mocks base method.
@@ -416,7 +417,7 @@ func (mr *MockContextMockRecorder) HookStorage() *gomock.Call {
 }
 
 // HookVars mocks base method.
-func (m *MockContext) HookVars(arg0 context.Paths, arg1 bool, arg2 context.Environmenter) ([]string, error) {
+func (m *MockContext) HookVars(arg0 context0.Paths, arg1 bool, arg2 context0.Environmenter) ([]string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "HookVars", arg0, arg1, arg2)
 	ret0, _ := ret[0].([]string)
@@ -804,7 +805,7 @@ func (mr *MockContextMockRecorder) SetPayloadStatus(arg0, arg1, arg2 any) *gomoc
 }
 
 // SetProcess mocks base method.
-func (m *MockContext) SetProcess(arg0 context.HookProcess) {
+func (m *MockContext) SetProcess(arg0 context0.HookProcess) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "SetProcess", arg0)
 }

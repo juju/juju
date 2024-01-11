@@ -4,6 +4,7 @@
 package application
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 
@@ -453,7 +454,7 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 		URL:    curl,
 		Origin: origin,
 	}
-	resourceIDs, err := c.upgradeResources(apiRoot, chID)
+	resourceIDs, err := c.upgradeResources(ctx, apiRoot, chID)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -569,6 +570,7 @@ func (c *refreshCommand) parseBindFlag(apiRoot base.APICallCloser) error {
 // TODO(axw) apiRoot is passed in here because DeployResources requires it,
 // DeployResources should accept a resource-specific client instead.
 func (c *refreshCommand) upgradeResources(
+	ctx context.Context,
 	apiRoot base.APICallCloser,
 	chID application.CharmID,
 ) (map[string]string, error) {
@@ -599,6 +601,7 @@ func (c *refreshCommand) upgradeResources(
 	// Note: the validity of user-supplied resources to be uploaded will be
 	// checked further down the stack.
 	ids, err := c.DeployResources(
+		ctx,
 		c.ApplicationName,
 		resources.CharmID{
 			URL:    chID.URL,

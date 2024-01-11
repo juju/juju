@@ -85,7 +85,7 @@ func (c *ResourceGetCmd) Init(args []string) error {
 
 // Run implements cmd.Command.
 func (c ResourceGetCmd) Run(ctx *cmd.Context) error {
-	filePath, err := c.ctx.DownloadResource(c.resourceName)
+	filePath, err := c.ctx.DownloadResource(ctx, c.resourceName)
 	if err != nil {
 		return errors.Annotate(err, "could not download resource")
 	}

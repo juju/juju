@@ -4,6 +4,7 @@
 package pubsub_test
 
 import (
+	"context"
 	"errors"
 	"io"
 	"net/url"
@@ -28,7 +29,7 @@ func (s *PubSubSuite) TestNewAPI(c *gc.C) {
 		c: c,
 	}
 	a := apipubsub.NewAPI(conn)
-	w, err := a.OpenMessageWriter()
+	w, err := a.OpenMessageWriter(context.Background())
 	c.Assert(err, gc.IsNil)
 
 	msg := new(params.PubSubMessage)
@@ -49,7 +50,7 @@ func (s *PubSubSuite) TestNewAPIWriteLogError(c *gc.C) {
 		connectError: errors.New("foo"),
 	}
 	a := apipubsub.NewAPI(conn)
-	w, err := a.OpenMessageWriter()
+	w, err := a.OpenMessageWriter(context.Background())
 	c.Assert(err, gc.ErrorMatches, "cannot connect to /pubsub: foo")
 	c.Assert(w, gc.Equals, nil)
 }
@@ -60,7 +61,7 @@ func (s *PubSubSuite) TestNewAPIWriteError(c *gc.C) {
 		writeError: errors.New("foo"),
 	}
 	a := apipubsub.NewAPI(conn)
-	w, err := a.OpenMessageWriter()
+	w, err := a.OpenMessageWriter(context.Background())
 	c.Assert(err, gc.IsNil)
 	defer w.Close()
 
@@ -79,7 +80,7 @@ type mockConnector struct {
 	closeCount int
 }
 
-func (c *mockConnector) ConnectStream(path string, values url.Values) (base.Stream, error) {
+func (c *mockConnector) ConnectStream(_ context.Context, path string, values url.Values) (base.Stream, error) {
 	c.c.Assert(path, gc.Equals, "/pubsub")
 	c.c.Assert(values, gc.HasLen, 0)
 	if c.connectError != nil {

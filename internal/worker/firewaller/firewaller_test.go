@@ -4,6 +4,7 @@
 package firewaller_test
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"sync"
@@ -356,7 +357,7 @@ func (s *firewallerBaseSuite) newFirewaller(c *gc.C, ctrl *gomock.Controller) wo
 		EnvironIPV6CIDRSupport: s.withIpv6,
 		FirewallerAPI:          s.firewaller,
 		RemoteRelationsApi:     s.remoteRelations,
-		NewCrossModelFacadeFunc: func(*api.Info) (firewaller.CrossModelFirewallerFacadeCloser, error) {
+		NewCrossModelFacadeFunc: func(context.Context, *api.Info) (firewaller.CrossModelFirewallerFacadeCloser, error) {
 			return s.crossmodelFirewaller, nil
 		},
 		Clock:              s.clock,
@@ -1216,7 +1217,7 @@ func (s *InstanceModeSuite) TestRemoteRelationRequirerRoleConsumingSide(c *gc.C)
 		Macaroons:       macaroon.Slice{mac},
 		BakeryVersion:   bakery.LatestVersion,
 	}
-	s.crossmodelFirewaller.EXPECT().PublishIngressNetworkChange(event).DoAndReturn(func(_ params.IngressNetworksChangeEvent) error {
+	s.crossmodelFirewaller.EXPECT().PublishIngressNetworkChange(gomock.Any(), event).DoAndReturn(func(_ context.Context, _ params.IngressNetworksChangeEvent) error {
 		published <- true
 		return nil
 	})
@@ -1232,7 +1233,7 @@ func (s *InstanceModeSuite) TestRemoteRelationRequirerRoleConsumingSide(c *gc.C)
 	// Trigger watcher for unit on the consuming app (leave the relation scope).
 	event.IngressRequired = false
 	event.Networks = []string{}
-	s.crossmodelFirewaller.EXPECT().PublishIngressNetworkChange(event).DoAndReturn(func(_ params.IngressNetworksChangeEvent) error {
+	s.crossmodelFirewaller.EXPECT().PublishIngressNetworkChange(gomock.Any(), event).DoAndReturn(func(_ context.Context, _ params.IngressNetworksChangeEvent) error {
 		published <- true
 		return nil
 	})
@@ -1267,7 +1268,7 @@ func (s *InstanceModeSuite) TestRemoteRelationWorkerError(c *gc.C) {
 		Macaroons:       macaroon.Slice{mac},
 		BakeryVersion:   bakery.LatestVersion,
 	}
-	s.crossmodelFirewaller.EXPECT().PublishIngressNetworkChange(event).DoAndReturn(func(_ params.IngressNetworksChangeEvent) error {
+	s.crossmodelFirewaller.EXPECT().PublishIngressNetworkChange(gomock.Any(), event).DoAndReturn(func(_ context.Context, _ params.IngressNetworksChangeEvent) error {
 		published <- true
 		return errors.New("fail")
 	})
@@ -1280,7 +1281,7 @@ func (s *InstanceModeSuite) TestRemoteRelationWorkerError(c *gc.C) {
 	case <-published:
 	}
 
-	s.crossmodelFirewaller.EXPECT().PublishIngressNetworkChange(event).DoAndReturn(func(_ params.IngressNetworksChangeEvent) error {
+	s.crossmodelFirewaller.EXPECT().PublishIngressNetworkChange(gomock.Any(), event).DoAndReturn(func(_ context.Context, _ params.IngressNetworksChangeEvent) error {
 		published <- true
 		return nil
 	})
@@ -1355,7 +1356,7 @@ func (s *InstanceModeSuite) TestRemoteRelationProviderRoleConsumingSide(c *gc.C)
 		Token:     "rel-token",
 		Macaroons: macaroon.Slice{mac},
 	}
-	s.crossmodelFirewaller.EXPECT().WatchEgressAddressesForRelation(arg).DoAndReturn(func(_ params.RemoteEntityArg) (watcher.StringsWatcher, error) {
+	s.crossmodelFirewaller.EXPECT().WatchEgressAddressesForRelation(gomock.Any(), arg).DoAndReturn(func(_ context.Context, _ params.RemoteEntityArg) (watcher.StringsWatcher, error) {
 		watched <- true
 		return remoteEgressWatch, nil
 	})
@@ -1442,7 +1443,7 @@ func (s *InstanceModeSuite) TestRemoteRelationIngressRejected(c *gc.C) {
 		Macaroons:       macaroon.Slice{mac},
 		BakeryVersion:   bakery.LatestVersion,
 	}
-	s.crossmodelFirewaller.EXPECT().PublishIngressNetworkChange(event).DoAndReturn(func(_ params.IngressNetworksChangeEvent) error {
+	s.crossmodelFirewaller.EXPECT().PublishIngressNetworkChange(gomock.Any(), event).DoAndReturn(func(_ context.Context, _ params.IngressNetworksChangeEvent) error {
 		return &params.Error{Code: params.CodeForbidden, Message: "error"}
 	})
 	s.firewaller.EXPECT().SetRelationStatus(relTag.Id(), relation.Error, "error").DoAndReturn(func(string, relation.Status, string) error {
@@ -2282,7 +2283,7 @@ func (s *NoneModeSuite) TestStopImmediately(c *gc.C) {
 		EnvironIPV6CIDRSupport: s.withIpv6,
 		FirewallerAPI:          s.firewaller,
 		RemoteRelationsApi:     s.remoteRelations,
-		NewCrossModelFacadeFunc: func(*api.Info) (firewaller.CrossModelFirewallerFacadeCloser, error) {
+		NewCrossModelFacadeFunc: func(context.Context, *api.Info) (firewaller.CrossModelFirewallerFacadeCloser, error) {
 			return s.crossmodelFirewaller, nil
 		},
 		Clock:         s.clock,

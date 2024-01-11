@@ -148,19 +148,19 @@ func (i *ModelImporter) ImportModel(ctx context.Context, bytes []byte) (*state.M
 // CharmDownloader defines a single method that is used to download a
 // charm from the source controller in a migration.
 type CharmDownloader interface {
-	OpenCharm(string) (io.ReadCloser, error)
+	OpenCharm(context.Context, string) (io.ReadCloser, error)
 }
 
 // CharmUploader defines a single method that is used to upload a
 // charm to the target controller in a migration.
 type CharmUploader interface {
-	UploadCharm(*charm.URL, io.ReadSeeker) (*charm.URL, error)
+	UploadCharm(context.Context, *charm.URL, io.ReadSeeker) (*charm.URL, error)
 }
 
 // ToolsDownloader defines a single method that is used to download
 // tools from the source controller in a migration.
 type ToolsDownloader interface {
-	OpenURI(string, url.Values) (io.ReadCloser, error)
+	OpenURI(context.Context, string, url.Values) (io.ReadCloser, error)
 }
 
 // ToolsUploader defines a single method that is used to upload tools
@@ -172,15 +172,15 @@ type ToolsUploader interface {
 // ResourceDownloader defines the interface for downloading resources
 // from the source controller during a migration.
 type ResourceDownloader interface {
-	OpenResource(string, string) (io.ReadCloser, error)
+	OpenResource(context.Context, string, string) (io.ReadCloser, error)
 }
 
 // ResourceUploader defines the interface for uploading resources into
 // the target controller during a migration.
 type ResourceUploader interface {
-	UploadResource(resources.Resource, io.ReadSeeker) error
-	SetPlaceholderResource(resources.Resource) error
-	SetUnitResource(string, resources.Resource) error
+	UploadResource(context.Context, resources.Resource, io.ReadSeeker) error
+	SetPlaceholderResource(context.Context, resources.Resource) error
+	SetUnitResource(context.Context, string, resources.Resource) error
 }
 
 // UploadBinariesConfig provides all the configuration that the
@@ -225,17 +225,17 @@ func (c *UploadBinariesConfig) Validate() error {
 
 // UploadBinaries will send binaries stored in the source blobstore to
 // the target controller.
-func UploadBinaries(config UploadBinariesConfig) error {
+func UploadBinaries(ctx context.Context, config UploadBinariesConfig) error {
 	if err := config.Validate(); err != nil {
 		return errors.Trace(err)
 	}
-	if err := uploadCharms(config); err != nil {
+	if err := uploadCharms(ctx, config); err != nil {
 		return errors.Annotatef(err, "cannot upload charms")
 	}
-	if err := uploadTools(config); err != nil {
+	if err := uploadTools(ctx, config); err != nil {
 		return errors.Annotatef(err, "cannot upload agent binaries")
 	}
-	if err := uploadResources(config); err != nil {
+	if err := uploadResources(ctx, config); err != nil {
 		return errors.Annotatef(err, "cannot upload resources")
 	}
 	return nil
@@ -269,7 +269,7 @@ func streamThroughTempFile(r io.Reader) (_ io.ReadSeeker, cleanup func(), err er
 	return tempFile, rmTempFile, nil
 }
 
-func uploadCharms(config UploadBinariesConfig) error {
+func uploadCharms(ctx context.Context, config UploadBinariesConfig) error {
 	// It is critical that charms are uploaded in ascending charm URL
 	// order so that charm revisions end up the same in the target as
 	// they were in the source.
@@ -277,7 +277,7 @@ func uploadCharms(config UploadBinariesConfig) error {
 
 	for _, charmURL := range config.Charms {
 		logger.Debugf("sending charm %s to target", charmURL)
-		reader, err := config.CharmDownloader.OpenCharm(charmURL)
+		reader, err := config.CharmDownloader.OpenCharm(ctx, charmURL)
 		if err != nil {
 			return errors.Annotate(err, "cannot open charm")
 		}
@@ -293,7 +293,7 @@ func uploadCharms(config UploadBinariesConfig) error {
 		if err != nil {
 			return errors.Annotate(err, "bad charm URL")
 		}
-		if usedCurl, err := config.CharmUploader.UploadCharm(curl, content); err != nil {
+		if usedCurl, err := config.CharmUploader.UploadCharm(ctx, curl, content); err != nil {
 			return errors.Annotate(err, "cannot upload charm")
 		} else if usedCurl.String() != curl.String() {
 			// The target controller shouldn't assign a different charm URL.
@@ -303,11 +303,11 @@ func uploadCharms(config UploadBinariesConfig) error {
 	return nil
 }
 
-func uploadTools(config UploadBinariesConfig) error {
+func uploadTools(ctx context.Context, config UploadBinariesConfig) error {
 	for v, uri := range config.Tools {
 		logger.Debugf("sending agent binaries to target: %s", v)
 
-		reader, err := config.ToolsDownloader.OpenURI(uri, nil)
+		reader, err := config.ToolsDownloader.OpenURI(ctx, uri, nil)
 		if err != nil {
 			return errors.Annotate(err, "cannot open charm")
 		}
@@ -326,19 +326,19 @@ func uploadTools(config UploadBinariesConfig) error {
 	return nil
 }
 
-func uploadResources(config UploadBinariesConfig) error {
+func uploadResources(ctx context.Context, config UploadBinariesConfig) error {
 	for _, res := range config.Resources {
 		if res.ApplicationRevision.IsPlaceholder() {
 			// Resource placeholders created in the migration import rather
 			// than attempting to post empty resources.
 		} else {
-			err := uploadAppResource(config, res.ApplicationRevision)
+			err := uploadAppResource(ctx, config, res.ApplicationRevision)
 			if err != nil {
 				return errors.Trace(err)
 			}
 		}
 		for unitName, unitRev := range res.UnitRevisions {
-			if err := config.ResourceUploader.SetUnitResource(unitName, unitRev); err != nil {
+			if err := config.ResourceUploader.SetUnitResource(ctx, unitName, unitRev); err != nil {
 				return errors.Annotate(err, "cannot set unit resource")
 			}
 		}
@@ -349,9 +349,9 @@ func uploadResources(config UploadBinariesConfig) error {
 	return nil
 }
 
-func uploadAppResource(config UploadBinariesConfig, rev resources.Resource) error {
+func uploadAppResource(ctx context.Context, config UploadBinariesConfig, rev resources.Resource) error {
 	logger.Debugf("opening application resource for %s: %s", rev.ApplicationID, rev.Name)
-	reader, err := config.ResourceDownloader.OpenResource(rev.ApplicationID, rev.Name)
+	reader, err := config.ResourceDownloader.OpenResource(ctx, rev.ApplicationID, rev.Name)
 	if err != nil {
 		return errors.Annotate(err, "cannot open resource")
 	}
@@ -366,7 +366,7 @@ func uploadAppResource(config UploadBinariesConfig, rev resources.Resource) erro
 	}
 	defer cleanup()
 
-	if err := config.ResourceUploader.UploadResource(rev, content); err != nil {
+	if err := config.ResourceUploader.UploadResource(ctx, rev, content); err != nil {
 		return errors.Annotate(err, "cannot upload resource")
 	}
 	return nil

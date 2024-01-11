@@ -32,7 +32,7 @@ import (
 // or macaroons. Subsequent requests on the conn will act as that entity.
 // This method is usually called automatically by Open. The machine nonce
 // should be empty unless logging in as a machine agent.
-func (c *conn) Login(tag names.Tag, password, nonce string, macaroons []macaroon.Slice) error {
+func (c *conn) Login(ctx context.Context, tag names.Tag, password, nonce string, macaroons []macaroon.Slice) error {
 	var result params.LoginResult
 	request := &params.LoginRequest{
 		AuthTag:       tagToString(tag),
@@ -57,7 +57,7 @@ func (c *conn) Login(tag names.Tag, password, nonce string, macaroons []macaroon
 			httpbakery.MacaroonsForURL(c.bakeryClient.Client.Jar, c.cookieURL)...,
 		)
 	}
-	err := c.APICall(context.TODO(), "Admin", 3, "", "Login", request, &result)
+	err := c.APICall(ctx, "Admin", 3, "", "Login", request, &result)
 	if err != nil {
 		if !params.IsRedirect(err) {
 			return errors.Trace(err)
@@ -89,7 +89,7 @@ func (c *conn) Login(tag names.Tag, password, nonce string, macaroons []macaroon
 		// an error, we'd probably put this information in the Login response,
 		// but we can't do that currently.
 		var resp params.RedirectInfoResult
-		if err := c.APICall(context.TODO(), "Admin", 3, "", "RedirectInfo", nil, &resp); err != nil {
+		if err := c.APICall(ctx, "Admin", 3, "", "RedirectInfo", nil, &resp); err != nil {
 			return errors.Annotatef(err, "cannot get redirect addresses")
 		}
 		return &RedirectError{
@@ -114,7 +114,7 @@ func (c *conn) Login(tag names.Tag, password, nonce string, macaroons []macaroon
 				return errors.Trace(err)
 			}
 		}
-		if err := c.bakeryClient.HandleError(c.ctx, c.cookieURL, &httpbakery.Error{
+		if err := c.bakeryClient.HandleError(ctx, c.cookieURL, &httpbakery.Error{
 			Message: result.DischargeRequiredReason,
 			Code:    httpbakery.ErrDischargeRequired,
 			Info: &httpbakery.ErrorInfo{
@@ -134,7 +134,7 @@ func (c *conn) Login(tag names.Tag, password, nonce string, macaroons []macaroon
 		// Add the macaroons that have been saved by HandleError to our login request.
 		request.Macaroons = httpbakery.MacaroonsForURL(c.bakeryClient.Client.Jar, c.cookieURL)
 		result = params.LoginResult{} // zero result
-		err = c.APICall(context.TODO(), "Admin", 3, "", "Login", request, &result)
+		err = c.APICall(ctx, "Admin", 3, "", "Login", request, &result)
 		if err != nil {
 			return errors.Trace(err)
 		}

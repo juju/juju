@@ -4,6 +4,7 @@
 package remoterelations
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"sync"
@@ -45,11 +46,11 @@ type RemoteModelRelationsFacadeCloser interface {
 type RemoteModelRelationsFacade interface {
 	// RegisterRemoteRelations sets up the remote model to participate
 	// in the specified relations.
-	RegisterRemoteRelations(relations ...params.RegisterRemoteRelationArg) ([]params.RegisterRemoteRelationResult, error)
+	RegisterRemoteRelations(_ context.Context, relations ...params.RegisterRemoteRelationArg) ([]params.RegisterRemoteRelationResult, error)
 
 	// PublishRelationChange publishes relation changes to the
 	// model hosting the remote application involved in the relation.
-	PublishRelationChange(params.RemoteRelationChangeEvent) error
+	PublishRelationChange(context.Context, params.RemoteRelationChangeEvent) error
 
 	// WatchRelationChanges returns a watcher that notifies of changes
 	// to the units in the remote model for the relation with the
@@ -57,19 +58,19 @@ type RemoteModelRelationsFacade interface {
 	// the case where we're talking to a v1 API and the client needs
 	// to convert RelationUnitsChanges into RemoteRelationChangeEvents
 	// as they come in.
-	WatchRelationChanges(relationToken, applicationToken string, macs macaroon.Slice) (apiwatcher.RemoteRelationWatcher, error)
+	WatchRelationChanges(_ context.Context, relationToken, applicationToken string, macs macaroon.Slice) (apiwatcher.RemoteRelationWatcher, error)
 
 	// WatchRelationSuspendedStatus starts a RelationStatusWatcher for watching the
 	// relations of each specified application in the remote model.
-	WatchRelationSuspendedStatus(arg params.RemoteEntityArg) (watcher.RelationStatusWatcher, error)
+	WatchRelationSuspendedStatus(_ context.Context, arg params.RemoteEntityArg) (watcher.RelationStatusWatcher, error)
 
 	// WatchOfferStatus starts an OfferStatusWatcher for watching the status
 	// of the specified offer in the remote model.
-	WatchOfferStatus(arg params.OfferArg) (watcher.OfferStatusWatcher, error)
+	WatchOfferStatus(_ context.Context, arg params.OfferArg) (watcher.OfferStatusWatcher, error)
 
 	// WatchConsumedSecretsChanges starts a watcher for any changes to secrets
 	// consumed by the specified application.
-	WatchConsumedSecretsChanges(applicationToken, relationToken string, mac *macaroon.Macaroon) (watcher.SecretsRevisionWatcher, error)
+	WatchConsumedSecretsChanges(ctx context.Context, applicationToken, relationToken string, mac *macaroon.Macaroon) (watcher.SecretsRevisionWatcher, error)
 }
 
 // RemoteRelationsFacade exposes remote relation functionality to a worker.

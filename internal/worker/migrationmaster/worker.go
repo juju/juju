@@ -94,7 +94,7 @@ type Facade interface {
 	ProcessRelations(string) error
 
 	// OpenResource downloads a single resource for an application.
-	OpenResource(string, string) (io.ReadCloser, error)
+	OpenResource(context.Context, string, string) (io.ReadCloser, error)
 
 	// Reap removes all documents of the model associated with the API
 	// connection.
@@ -125,7 +125,7 @@ type Config struct {
 	Facade          Facade
 	Guard           fortress.Guard
 	APIOpen         func(*api.Info, api.DialOpts) (api.Connection, error)
-	UploadBinaries  func(migration.UploadBinariesConfig) error
+	UploadBinaries  func(context.Context, migration.UploadBinariesConfig) error
 	CharmDownloader migration.CharmDownloader
 	ToolsDownloader migration.ToolsDownloader
 	Clock           clock.Clock
@@ -396,28 +396,28 @@ type uploadWrapper struct {
 }
 
 // UploadTools prepends the model UUID to the args passed to the migration client.
-func (w *uploadWrapper) UploadTools(_ context.Context, r io.ReadSeeker, vers version.Binary) (tools.List, error) {
-	return w.client.UploadTools(w.modelUUID, r, vers)
+func (w *uploadWrapper) UploadTools(ctx context.Context, r io.ReadSeeker, vers version.Binary) (tools.List, error) {
+	return w.client.UploadTools(ctx, w.modelUUID, r, vers)
 }
 
 // UploadCharm prepends the model UUID to the args passed to the migration client.
-func (w *uploadWrapper) UploadCharm(curl *charm.URL, content io.ReadSeeker) (*charm.URL, error) {
-	return w.client.UploadCharm(w.modelUUID, curl, content)
+func (w *uploadWrapper) UploadCharm(ctx context.Context, curl *charm.URL, content io.ReadSeeker) (*charm.URL, error) {
+	return w.client.UploadCharm(ctx, w.modelUUID, curl, content)
 }
 
 // UploadResource prepends the model UUID to the args passed to the migration client.
-func (w *uploadWrapper) UploadResource(res resources.Resource, content io.ReadSeeker) error {
-	return w.client.UploadResource(w.modelUUID, res, content)
+func (w *uploadWrapper) UploadResource(ctx context.Context, res resources.Resource, content io.ReadSeeker) error {
+	return w.client.UploadResource(ctx, w.modelUUID, res, content)
 }
 
 // SetPlaceholderResource prepends the model UUID to the args passed to the migration client.
-func (w *uploadWrapper) SetPlaceholderResource(res resources.Resource) error {
-	return w.client.SetPlaceholderResource(w.modelUUID, res)
+func (w *uploadWrapper) SetPlaceholderResource(ctx context.Context, res resources.Resource) error {
+	return w.client.SetPlaceholderResource(ctx, w.modelUUID, res)
 }
 
 // SetUnitResource prepends the model UUID to the args passed to the migration client.
-func (w *uploadWrapper) SetUnitResource(unitName string, res resources.Resource) error {
-	return w.client.SetUnitResource(w.modelUUID, unitName, res)
+func (w *uploadWrapper) SetUnitResource(ctx context.Context, unitName string, res resources.Resource) error {
+	return w.client.SetUnitResource(ctx, w.modelUUID, unitName, res)
 }
 
 func (w *Worker) transferModel(targetInfo coremigration.TargetInfo, modelUUID string) error {
@@ -444,9 +444,12 @@ func (w *Worker) transferModel(targetInfo coremigration.TargetInfo, modelUUID st
 		return errors.New("wrench in the transferModel works")
 	}
 
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+
 	w.setInfoStatus("uploading model binaries into target controller")
 	wrapper := &uploadWrapper{targetClient, modelUUID}
-	err = w.config.UploadBinaries(migration.UploadBinariesConfig{
+	err = w.config.UploadBinaries(ctx, migration.UploadBinariesConfig{
 		Charms:          serialized.Charms,
 		CharmDownloader: w.config.CharmDownloader,
 		CharmUploader:   wrapper,
@@ -616,7 +619,7 @@ func (w *Worker) transferLogs(targetInfo coremigration.TargetInfo, modelUUID str
 		return errors.Annotate(err, "opening source log stream")
 	}
 
-	logTarget, err := targetClient.OpenLogTransferStream(modelUUID)
+	logTarget, err := targetClient.OpenLogTransferStream(ctx, modelUUID)
 	if err != nil {
 		return errors.Annotate(err, "opening target log stream")
 	}

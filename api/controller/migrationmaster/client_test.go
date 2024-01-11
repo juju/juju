@@ -424,7 +424,7 @@ func setupFakeHTTP() (*migrationmaster.Client, *fakeDoer) {
 
 func (s *ClientSuite) TestOpenResource(c *gc.C) {
 	client, doer := setupFakeHTTP()
-	r, err := client.OpenResource("app", "blob")
+	r, err := client.OpenResource(context.Background(), "app", "blob")
 	c.Assert(err, jc.ErrorIsNil)
 	checkReader(c, r, "resourceful")
 	c.Check(doer.method, gc.Equals, "GET")
@@ -630,11 +630,7 @@ func (fakeConnector) BestFacadeVersion(string) int {
 	return 0
 }
 
-func (fakeConnector) Context() context.Context {
-	return context.Background()
-}
-
-func (c fakeConnector) ConnectStream(path string, attrs url.Values) (base.Stream, error) {
+func (c fakeConnector) ConnectStream(_ context.Context, path string, attrs url.Values) (base.Stream, error) {
 	*c.path = path
 	*c.attrs = attrs
 	return nil, errors.New("colonel abrams")
@@ -648,10 +644,6 @@ type fakeHTTPCaller struct {
 
 func (fakeHTTPCaller) BestFacadeVersion(string) int {
 	return 0
-}
-
-func (r *fakeHTTPCaller) Context() context.Context {
-	return context.Background()
 }
 
 func (c fakeHTTPCaller) HTTPClient() (*httprequest.Client, error) {

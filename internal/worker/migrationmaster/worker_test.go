@@ -1474,10 +1474,6 @@ func (c *stubConnection) APICall(ctx context.Context, objType string, _ int, _, 
 	return errors.New("unexpected API call")
 }
 
-func (c *stubConnection) Context() context.Context {
-	return context.Background()
-}
-
 func (c *stubConnection) Client() *apiclient.Client {
 	// This is kinda crappy but the *Client doesn't have to be
 	// functional...
@@ -1493,7 +1489,7 @@ func (c *stubConnection) ControllerTag() names.ControllerTag {
 	return c.controllerTag
 }
 
-func (c *stubConnection) ConnectControllerStream(path string, attrs url.Values, headers http.Header) (base.Stream, error) {
+func (c *stubConnection) ConnectControllerStream(_ context.Context, path string, attrs url.Values, headers http.Header) (base.Stream, error) {
 	c.stub.AddCall("ConnectControllerStream", path, attrs, headers)
 	if c.streamErr != nil {
 		return nil, c.streamErr
@@ -1501,8 +1497,8 @@ func (c *stubConnection) ConnectControllerStream(path string, attrs url.Values, 
 	return c.logStream, nil
 }
 
-func makeStubUploadBinaries(stub *jujutesting.Stub) func(migration.UploadBinariesConfig) error {
-	return func(config migration.UploadBinariesConfig) error {
+func makeStubUploadBinaries(stub *jujutesting.Stub) func(context.Context, migration.UploadBinariesConfig) error {
+	return func(_ context.Context, config migration.UploadBinariesConfig) error {
 		stub.AddCall(
 			"UploadBinaries",
 			config.Charms,
@@ -1518,7 +1514,7 @@ func makeStubUploadBinaries(stub *jujutesting.Stub) func(migration.UploadBinarie
 
 // nullUploadBinaries is a UploadBinaries variant which is intended to
 // not get called.
-func nullUploadBinaries(migration.UploadBinariesConfig) error {
+func nullUploadBinaries(context.Context, migration.UploadBinariesConfig) error {
 	panic("should not get called")
 }
 

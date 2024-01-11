@@ -34,7 +34,7 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-type newCrossModelFacadeFunc func(*api.Info) (CrossModelFirewallerFacadeCloser, error)
+type newCrossModelFacadeFunc func(context.Context, *api.Info) (CrossModelFirewallerFacadeCloser, error)
 
 // Config defines the operation of a Worker.
 type Config struct {
@@ -1526,12 +1526,12 @@ func (rd *remoteRelationData) watchLoop() error {
 	}
 
 	if rd.endpointRole == charm.RoleRequirer {
-		return rd.requirerEndpointLoop()
+		return rd.requirerEndpointLoop(context.TODO())
 	}
 	return rd.providerEndpointLoop()
 }
 
-func (rd *remoteRelationData) requirerEndpointLoop() error {
+func (rd *remoteRelationData) requirerEndpointLoop(ctx context.Context) error {
 	// If the requirer end of the relation is on the offering model,
 	// there's nothing to do here because the provider end on the
 	// consuming model will be watching for changes.
@@ -1562,7 +1562,7 @@ func (rd *remoteRelationData) requirerEndpointLoop() error {
 		case cidrs := <-egressAddressWatcher.Changes():
 			rd.fw.logger.Debugf("relation egress addresses for %v changed in model %v: %v", rd.tag, rd.fw.modelUUID,
 				cidrs)
-			if err := rd.updateProviderModel(cidrs); err != nil {
+			if err := rd.updateProviderModel(ctx, cidrs); err != nil {
 				return errors.Trace(err)
 			}
 		}
@@ -1572,7 +1572,7 @@ func (rd *remoteRelationData) requirerEndpointLoop() error {
 func (rd *remoteRelationData) providerEndpointLoop() error {
 	rd.fw.logger.Debugf("starting provider endpoint loop for %v on %v ", rd.tag.Id(), rd.localApplicationTag.Id())
 	// Watch for ingress changes requested by the consuming model.
-	ingressAddressWatcher, err := rd.ingressAddressWatcher()
+	ingressAddressWatcher, err := rd.ingressAddressWatcher(context.TODO())
 	if err != nil {
 		if !params.IsCodeNotFound(err) && !params.IsCodeNotSupported(err) {
 			return errors.Trace(err)
@@ -1598,7 +1598,7 @@ func (rd *remoteRelationData) providerEndpointLoop() error {
 	}
 }
 
-func (rd *remoteRelationData) ingressAddressWatcher() (watcher.StringsWatcher, error) {
+func (rd *remoteRelationData) ingressAddressWatcher(ctx context.Context) (watcher.StringsWatcher, error) {
 	if rd.isOffer {
 		// On the offering side we watch the local model for ingress changes
 		// which will have been published from the consuming model.
@@ -1610,7 +1610,7 @@ func (rd *remoteRelationData) ingressAddressWatcher() (watcher.StringsWatcher, e
 		if err != nil {
 			return nil, errors.Annotatef(err, "cannot get api info for model %v", rd.remoteModelUUID)
 		}
-		rd.crossModelFirewallerFacade, err = rd.fw.newRemoteFirewallerAPIFunc(apiInfo)
+		rd.crossModelFirewallerFacade, err = rd.fw.newRemoteFirewallerAPIFunc(ctx, apiInfo)
 		if err != nil {
 			return nil, errors.Annotate(err, "cannot open facade to remote model to watch ingress addresses")
 		}
@@ -1623,7 +1623,7 @@ func (rd *remoteRelationData) ingressAddressWatcher() (watcher.StringsWatcher, e
 			Token:     rd.relationToken,
 			Macaroons: macaroon.Slice{mac},
 		}
-		return rd.crossModelFirewallerFacade.WatchEgressAddressesForRelation(arg)
+		return rd.crossModelFirewallerFacade.WatchEgressAddressesForRelation(ctx, arg)
 	}
 }
 
@@ -1636,7 +1636,7 @@ type remoteRelationNetworkChange struct {
 
 // updateProviderModel gathers the ingress CIDRs for the relation and notifies
 // that a change has occurred.
-func (rd *remoteRelationData) updateProviderModel(cidrs []string) error {
+func (rd *remoteRelationData) updateProviderModel(ctx context.Context, cidrs []string) error {
 	rd.fw.logger.Debugf("ingress cidrs for %v: %+v", rd.tag, cidrs)
 	change := &remoteRelationNetworkChange{
 		relationTag:         rd.tag,
@@ -1657,7 +1657,7 @@ func (rd *remoteRelationData) updateProviderModel(cidrs []string) error {
 	if err != nil {
 		return errors.Annotatef(err, "cannot get macaroon for %v", rd.tag.Id())
 	}
-	remoteModelAPI, err := rd.fw.newRemoteFirewallerAPIFunc(apiInfo)
+	remoteModelAPI, err := rd.fw.newRemoteFirewallerAPIFunc(ctx, apiInfo)
 	if err != nil {
 		return errors.Annotate(err, "cannot open facade to remote model to publish network change")
 	}
@@ -1669,7 +1669,7 @@ func (rd *remoteRelationData) updateProviderModel(cidrs []string) error {
 		Macaroons:       macaroon.Slice{mac},
 		BakeryVersion:   bakery.LatestVersion,
 	}
-	err = remoteModelAPI.PublishIngressNetworkChange(event)
+	err = remoteModelAPI.PublishIngressNetworkChange(ctx, event)
 	if errors.Is(err, errors.NotFound) {
 		rd.fw.logger.Debugf("relation id not found publishing %+v", event)
 		return nil

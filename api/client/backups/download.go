@@ -4,6 +4,7 @@
 package backups
 
 import (
+	"context"
 	"io"
 	"net/http"
 
@@ -19,7 +20,7 @@ type downloadParams struct {
 }
 
 // Download returns an io.ReadCloser for the given backup id.
-func (c *Client) Download(filename string) (io.ReadCloser, error) {
+func (c *Client) Download(ctx context.Context, filename string) (io.ReadCloser, error) {
 	httpClient, err := c.st.HTTPClient()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -27,7 +28,7 @@ func (c *Client) Download(filename string) (io.ReadCloser, error) {
 
 	var resp *http.Response
 	err = httpClient.Call(
-		c.st.Context(),
+		ctx,
 		&downloadParams{
 			Body: params.BackupsDownloadArgs{
 				ID: filename,

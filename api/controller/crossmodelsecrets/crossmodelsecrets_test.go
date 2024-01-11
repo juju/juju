@@ -4,6 +4,7 @@
 package crossmodelsecrets_test
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -84,7 +85,7 @@ func (s *CrossControllerSuite) TestGetRemoteSecretContentInfo(c *gc.C) {
 		return nil
 	})
 	client := crossmodelsecrets.NewClient(apiCaller)
-	content, backend, latestRevision, draining, err := client.GetRemoteSecretContentInfo(uri, 665, true, true, "token", 666, macs)
+	content, backend, latestRevision, draining, err := client.GetRemoteSecretContentInfo(context.Background(), uri, 665, true, true, "token", 666, macs)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(latestRevision, gc.Equals, 666)
 	c.Assert(draining, jc.IsTrue)
@@ -118,7 +119,7 @@ func (s *CrossControllerSuite) TestControllerInfoError(c *gc.C) {
 		return nil
 	})
 	client := crossmodelsecrets.NewClient(apiCaller)
-	content, backend, _, _, err := client.GetRemoteSecretContentInfo(coresecrets.NewURI(), 665, false, false, "token", 666, nil)
+	content, backend, _, _, err := client.GetRemoteSecretContentInfo(context.Background(), coresecrets.NewURI(), 665, false, false, "token", 666, nil)
 	c.Assert(err, gc.ErrorMatches, "attempt count exceeded: boom")
 	c.Assert(content, gc.IsNil)
 	c.Assert(backend, gc.IsNil)

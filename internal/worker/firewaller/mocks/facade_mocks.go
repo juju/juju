@@ -398,32 +398,32 @@ func (mr *MockCrossModelFirewallerFacadeCloserMockRecorder) Close() *gomock.Call
 }
 
 // PublishIngressNetworkChange mocks base method.
-func (m *MockCrossModelFirewallerFacadeCloser) PublishIngressNetworkChange(arg0 params.IngressNetworksChangeEvent) error {
+func (m *MockCrossModelFirewallerFacadeCloser) PublishIngressNetworkChange(arg0 context.Context, arg1 params.IngressNetworksChangeEvent) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "PublishIngressNetworkChange", arg0)
+	ret := m.ctrl.Call(m, "PublishIngressNetworkChange", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // PublishIngressNetworkChange indicates an expected call of PublishIngressNetworkChange.
-func (mr *MockCrossModelFirewallerFacadeCloserMockRecorder) PublishIngressNetworkChange(arg0 any) *gomock.Call {
+func (mr *MockCrossModelFirewallerFacadeCloserMockRecorder) PublishIngressNetworkChange(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PublishIngressNetworkChange", reflect.TypeOf((*MockCrossModelFirewallerFacadeCloser)(nil).PublishIngressNetworkChange), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PublishIngressNetworkChange", reflect.TypeOf((*MockCrossModelFirewallerFacadeCloser)(nil).PublishIngressNetworkChange), arg0, arg1)
 }
 
 // WatchEgressAddressesForRelation mocks base method.
-func (m *MockCrossModelFirewallerFacadeCloser) WatchEgressAddressesForRelation(arg0 params.RemoteEntityArg) (watcher.Watcher[[]string], error) {
+func (m *MockCrossModelFirewallerFacadeCloser) WatchEgressAddressesForRelation(arg0 context.Context, arg1 params.RemoteEntityArg) (watcher.Watcher[[]string], error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchEgressAddressesForRelation", arg0)
+	ret := m.ctrl.Call(m, "WatchEgressAddressesForRelation", arg0, arg1)
 	ret0, _ := ret[0].(watcher.Watcher[[]string])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // WatchEgressAddressesForRelation indicates an expected call of WatchEgressAddressesForRelation.
-func (mr *MockCrossModelFirewallerFacadeCloserMockRecorder) WatchEgressAddressesForRelation(arg0 any) *gomock.Call {
+func (mr *MockCrossModelFirewallerFacadeCloserMockRecorder) WatchEgressAddressesForRelation(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchEgressAddressesForRelation", reflect.TypeOf((*MockCrossModelFirewallerFacadeCloser)(nil).WatchEgressAddressesForRelation), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchEgressAddressesForRelation", reflect.TypeOf((*MockCrossModelFirewallerFacadeCloser)(nil).WatchEgressAddressesForRelation), arg0, arg1)
 }
 
 // MockEnvironFirewaller is a mock of EnvironFirewaller interface.

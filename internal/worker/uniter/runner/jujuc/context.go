@@ -4,6 +4,7 @@
 package jujuc
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"strings"
@@ -325,7 +326,7 @@ type ContextStorage interface {
 type ContextResources interface {
 	// DownloadResource downloads the named resource and returns
 	// the path to which it was downloaded.
-	DownloadResource(name string) (filePath string, _ error)
+	DownloadResource(ctx context.Context, name string) (filePath string, _ error)
 }
 
 // ContextPayloads exposes the functionality needed by the

@@ -155,11 +155,11 @@ func (s *stubAPICaller) ModelTag() (names.ModelTag, bool) {
 	return names.NewModelTag("foobar"), true
 }
 
-func (s *stubAPICaller) ConnectStream(string, url.Values) (base.Stream, error) {
+func (s *stubAPICaller) ConnectStream(context.Context, string, url.Values) (base.Stream, error) {
 	panic("should not be called")
 }
 
-func (s *stubAPICaller) ConnectControllerStream(string, url.Values, http.Header) (base.Stream, error) {
+func (s *stubAPICaller) ConnectControllerStream(context.Context, string, url.Values, http.Header) (base.Stream, error) {
 	panic("should not be called")
 }
 
@@ -169,10 +169,6 @@ func (s *stubAPICaller) HTTPClient() (*httprequest.Client, error) {
 
 func (s *stubAPICaller) RootHTTPClient() (*httprequest.Client, error) {
 	panic("should not be called")
-}
-
-func (s *stubAPICaller) Context() context.Context {
-	return context.Background()
 }
 
 func (s *stubAPICaller) BakeryClient() base.MacaroonDischarger {

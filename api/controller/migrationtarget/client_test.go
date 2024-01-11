@@ -133,7 +133,7 @@ func (s *ClientSuite) TestActivate(c *gc.C) {
 func (s *ClientSuite) TestOpenLogTransferStream(c *gc.C) {
 	caller := fakeConnector{Stub: &jujutesting.Stub{}}
 	client := migrationtarget.NewClient(caller)
-	stream, err := client.OpenLogTransferStream("bad-dad")
+	stream, err := client.OpenLogTransferStream(context.Background(), "bad-dad")
 	c.Assert(stream, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "sound hound")
 
@@ -209,7 +209,7 @@ func (s *ClientSuite) TestUploadCharm(c *gc.C) {
 		httpClient: &httprequest.Client{Doer: doer},
 	}
 	client := migrationtarget.NewClient(caller)
-	outCurl, err := client.UploadCharm("uuid", curl, strings.NewReader(charmBody))
+	outCurl, err := client.UploadCharm(context.Background(), "uuid", curl, strings.NewReader(charmBody))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(outCurl, gc.DeepEquals, curl)
 	c.Assert(doer.method, gc.Equals, "POST")
@@ -227,7 +227,7 @@ func (s *ClientSuite) TestUploadCharmHubCharm(c *gc.C) {
 		httpClient: &httprequest.Client{Doer: doer},
 	}
 	client := migrationtarget.NewClient(caller)
-	outCurl, err := client.UploadCharm("uuid", curl, strings.NewReader(charmBody))
+	outCurl, err := client.UploadCharm(context.Background(), "uuid", curl, strings.NewReader(charmBody))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(outCurl, gc.DeepEquals, curl)
 	c.Assert(doer.method, gc.Equals, "POST")
@@ -247,6 +247,7 @@ func (s *ClientSuite) TestUploadTools(c *gc.C) {
 	}
 	client := migrationtarget.NewClient(caller)
 	toolsList, err := client.UploadTools(
+		context.Background(),
 		"uuid",
 		strings.NewReader(toolsBody),
 		vers,
@@ -270,7 +271,7 @@ func (s *ClientSuite) TestUploadResource(c *gc.C) {
 	res := resourcetesting.NewResource(c, nil, "blob", "app", resourceBody).Resource
 	res.Revision = 1
 
-	err := client.UploadResource("uuid", res, strings.NewReader(resourceBody))
+	err := client.UploadResource(context.Background(), "uuid", res, strings.NewReader(resourceBody))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(doer.method, gc.Equals, "POST")
 	expectedURL := fmt.Sprintf("/migrate/resources?application=app&description=blob+description&fingerprint=%s&name=blob&origin=upload&path=blob.tgz&revision=1&size=11&timestamp=%d&type=file&user=a-user", res.Fingerprint.Hex(), res.Timestamp.UnixNano())
@@ -289,7 +290,7 @@ func (s *ClientSuite) TestSetUnitResource(c *gc.C) {
 	res := resourcetesting.NewResource(c, nil, "blob", "app", resourceBody).Resource
 	res.Revision = 2
 
-	err := client.SetUnitResource("uuid", "app/0", res)
+	err := client.SetUnitResource(context.Background(), "uuid", "app/0", res)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(doer.method, gc.Equals, "POST")
 	expectedURL := fmt.Sprintf("/migrate/resources?description=blob+description&fingerprint=%s&name=blob&origin=upload&path=blob.tgz&revision=2&size=11&timestamp=%d&type=file&unit=app%%2F0&user=a-user", res.Fingerprint.Hex(), res.Timestamp.UnixNano())
@@ -308,7 +309,7 @@ func (s *ClientSuite) TestPlaceholderResource(c *gc.C) {
 	res.Revision = 3
 	res.Size = 123
 
-	err := client.SetPlaceholderResource("uuid", res)
+	err := client.SetPlaceholderResource(context.Background(), "uuid", res)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(doer.method, gc.Equals, "POST")
 	expectedURL := fmt.Sprintf("/migrate/resources?application=app&description=blob+description&fingerprint=%s&name=blob&origin=upload&path=blob.tgz&revision=3&size=123&type=file", res.Fingerprint.Hex())
@@ -353,11 +354,7 @@ func (fakeConnector) BestFacadeVersion(string) int {
 	return 0
 }
 
-func (fakeConnector) Context() context.Context {
-	return context.Background()
-}
-
-func (c fakeConnector) ConnectControllerStream(path string, attrs url.Values, headers http.Header) (base.Stream, error) {
+func (c fakeConnector) ConnectControllerStream(_ context.Context, path string, attrs url.Values, headers http.Header) (base.Stream, error) {
 	c.Stub.AddCall("ConnectControllerStream", path, attrs, headers)
 	return nil, errors.New("sound hound")
 }
@@ -374,10 +371,6 @@ func (fakeHTTPCaller) BestFacadeVersion(string) int {
 
 func (c fakeHTTPCaller) HTTPClient() (*httprequest.Client, error) {
 	return c.httpClient, c.err
-}
-
-func (r *fakeHTTPCaller) Context() context.Context {
-	return context.Background()
 }
 
 func newFakeDoer(c *gc.C, respBody interface{}) *fakeDoer {

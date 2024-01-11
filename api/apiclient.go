@@ -67,7 +67,6 @@ type rpcConnection interface {
 
 // conn is the internal implementation of the Connection interface.
 type conn struct {
-	ctx    context.Context
 	client rpcConnection
 	conn   jsoncodec.JSONConn
 	clock  clock.Clock
@@ -254,7 +253,6 @@ func Open(info *Info, opts DialOpts) (Connection, error) {
 	}
 
 	c := &conn{
-		ctx:                 context.Background(),
 		client:              client,
 		conn:                dialResult.conn,
 		clock:               opts.Clock,
@@ -324,12 +322,10 @@ func PerferredHost(info *Info) string {
 
 // loginWithContext wraps conn.Login with code that terminates
 // if the context is cancelled.
-// TODO(rogpeppe) pass Context into Login (and all API calls) so
-// that this becomes unnecessary.
 func loginWithContext(ctx context.Context, st *conn, info *Info) error {
 	result := make(chan error, 1)
 	go func() {
-		result <- st.Login(info.Tag, info.Password, info.Nonce, info.Macaroons)
+		result <- st.Login(ctx, info.Tag, info.Password, info.Nonce, info.Macaroons)
 	}()
 	select {
 	case err := <-result:
@@ -359,20 +355,15 @@ func (t *hostSwitchingTransport) RoundTrip(req *http.Request) (*http.Response, e
 	return t.fallback.RoundTrip(req)
 }
 
-// Context returns the context associated with this conn.
-func (c *conn) Context() context.Context {
-	return c.ctx
-}
-
 // ConnectStream implements StreamConnector.ConnectStream. The stream
 // returned will apply a 30-second write deadline, so WriteJSON should
 // only be called from one goroutine.
-func (c *conn) ConnectStream(path string, attrs url.Values) (base.Stream, error) {
+func (c *conn) ConnectStream(ctx context.Context, path string, attrs url.Values) (base.Stream, error) {
 	path, err := apiPath(c.modelTag.Id(), path)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	conn, err := c.connectStreamWithRetry(path, attrs, nil)
+	conn, err := c.connectStreamWithRetry(ctx, path, attrs, nil)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -384,21 +375,21 @@ func (c *conn) ConnectStream(path string, attrs url.Values) (base.Stream, error)
 // endpoint needs one) can be specified in the headers. The stream
 // returned will apply a 30-second write deadline, so WriteJSON should
 // only be called from one goroutine.
-func (c *conn) ConnectControllerStream(path string, attrs url.Values, headers http.Header) (base.Stream, error) {
+func (c *conn) ConnectControllerStream(ctx context.Context, path string, attrs url.Values, headers http.Header) (base.Stream, error) {
 	if !strings.HasPrefix(path, "/") {
 		return nil, errors.Errorf("path %q is not absolute", path)
 	}
 	if strings.HasPrefix(path, modelRoot) {
 		return nil, errors.Errorf("path %q is model-specific", path)
 	}
-	conn, err := c.connectStreamWithRetry(path, attrs, headers)
+	conn, err := c.connectStreamWithRetry(ctx, path, attrs, headers)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return conn, nil
 }
 
-func (c *conn) connectStreamWithRetry(path string, attrs url.Values, headers http.Header) (base.Stream, error) {
+func (c *conn) connectStreamWithRetry(ctx context.Context, path string, attrs url.Values, headers http.Header) (base.Stream, error) {
 	if !c.isLoggedIn() {
 		return nil, errors.New("cannot use ConnectStream without logging in")
 	}
@@ -415,7 +406,7 @@ func (c *conn) connectStreamWithRetry(path string, attrs url.Values, headers htt
 	if params.ErrCode(err) != params.CodeDischargeRequired {
 		return nil, errors.Trace(err)
 	}
-	if err := c.bakeryClient.HandleError(c.ctx, c.cookieURL, bakeryError(err)); err != nil {
+	if err := c.bakeryClient.HandleError(ctx, c.cookieURL, bakeryError(err)); err != nil {
 		return nil, errors.Trace(err)
 	}
 	// Try again with the discharged macaroon.

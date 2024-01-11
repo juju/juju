@@ -624,6 +624,7 @@ func (s *CAASDeploySuite) TestDevices(c *gc.C) {
 		},
 	)
 	s.DeployResources = func(
+		_ context.Context,
 		applicationID string,
 		chID resources.CharmID,
 		filesAndRevisions map[string]string,
@@ -1177,6 +1178,7 @@ func newDeployCommandForTest(fakeAPI *fakeDeployAPI) modelcmd.ModelCommand {
 			return fakeAPI, nil
 		},
 		DeployResources: func(
+			_ context.Context,
 			applicationID string,
 			chID resources.CharmID,
 			filesAndRevisions map[string]string,
@@ -1279,10 +1281,6 @@ func (f *fakeDeployAPI) BestFacadeVersion(facade string) int {
 func (f *fakeDeployAPI) APICall(ctx context.Context, objType string, version int, id, request string, params, response interface{}) error {
 	results := f.MethodCall(f, "APICall", objType, version, id, request, params, response)
 	return jujutesting.TypeAssertError(results[0])
-}
-
-func (f *fakeDeployAPI) Context() context.Context {
-	return context.Background()
 }
 
 func (f *fakeDeployAPI) Client() *apiclient.Client {

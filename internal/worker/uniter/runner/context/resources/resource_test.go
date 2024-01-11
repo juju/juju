@@ -4,6 +4,7 @@
 package resources_test
 
 import (
+	"context"
 	"io"
 
 	"github.com/juju/testing"
@@ -34,9 +35,9 @@ func (s *OpenedResourceSuite) TestOpenResource(c *gc.C) {
 
 	client := mocks.NewMockOpenedResourceClient(ctrl)
 	info, reader := newResource(c, s.stub, "spam", "some data")
-	client.EXPECT().GetResource("spam").Return(info, reader, nil)
+	client.EXPECT().GetResource(gomock.Any(), "spam").Return(info, reader, nil)
 
-	opened, err := resources.OpenResource("spam", client)
+	opened, err := resources.OpenResource(context.Background(), "spam", client)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(opened, jc.DeepEquals, &resources.OpenedResource{
 		Resource:   info,
@@ -66,9 +67,9 @@ func (s *OpenedResourceSuite) TestDockerImage(c *gc.C) {
 	client := mocks.NewMockOpenedResourceClient(ctrl)
 	jsonContent := `{"ImageName":"image-name","Username":"docker-registry","Password":"secret"}`
 	info, reader := newDockerResource(c, s.stub, "spam", jsonContent)
-	client.EXPECT().GetResource("spam").Return(info, reader, nil)
+	client.EXPECT().GetResource(gomock.Any(), "spam").Return(info, reader, nil)
 
-	opened, err := resources.OpenResource("spam", client)
+	opened, err := resources.OpenResource(context.Background(), "spam", client)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(opened.Path, gc.Equals, "content.yaml")
 	content := opened.Content()

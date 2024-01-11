@@ -35,7 +35,6 @@ func (s *UpgradeModelSuite) TestAbortModelUpgrade(c *gc.C) {
 	apiCaller := mocks.NewMockAPICallCloser(ctrl)
 
 	apiCaller.EXPECT().BestFacadeVersion("ModelUpgrader").Return(1)
-	apiCaller.EXPECT().Context().Return(context.Background()).AnyTimes()
 	apiCaller.EXPECT().APICall(
 		gomock.Any(),
 		"ModelUpgrader", 1, "", "AbortModelUpgrade",
@@ -55,7 +54,6 @@ func (s *UpgradeModelSuite) TestUpgradeModel(c *gc.C) {
 	apiCaller := mocks.NewMockAPICallCloser(ctrl)
 
 	apiCaller.EXPECT().BestFacadeVersion("ModelUpgrader").Return(1)
-	apiCaller.EXPECT().Context().Return(context.Background()).AnyTimes()
 	apiCaller.EXPECT().APICall(
 		gomock.Any(),
 		"ModelUpgrader", 1, "", "UpgradeModel",
@@ -109,7 +107,6 @@ func (s *UpgradeModelSuite) TestUploadTools(c *gc.C) {
 
 	apiCaller.EXPECT().BestFacadeVersion("ModelUpgrader").Return(1)
 	apiCaller.EXPECT().HTTPClient().Return(&httprequest.Client{Doer: doer}, nil)
-	apiCaller.EXPECT().Context().Return(ctx).AnyTimes()
 	doer.EXPECT().Do(req).Return(resp, nil)
 
 	client := modelupgrader.NewClient(apiCaller)

@@ -4,6 +4,7 @@
 package logsender_test
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"time"
@@ -31,7 +32,7 @@ type logsenderAPI struct {
 	writer *mocks.MockLogWriter
 }
 
-func (s logsenderAPI) LogWriter() (apilogsender.LogWriter, error) {
+func (s logsenderAPI) LogWriter(_ context.Context) (apilogsender.LogWriter, error) {
 	return s.writer, nil
 }
 

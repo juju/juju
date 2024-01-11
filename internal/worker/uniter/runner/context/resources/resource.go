@@ -5,6 +5,7 @@ package resources
 
 import (
 	"bytes"
+	"context"
 	"io"
 
 	charmresource "github.com/juju/charm/v12/resource"
@@ -20,7 +21,7 @@ import (
 type OpenedResourceClient interface {
 	// GetResource returns the resource info and content for the given
 	// name (and unit-implied application).
-	GetResource(resourceName string) (resources.Resource, io.ReadCloser, error)
+	GetResource(ctx context.Context, resourceName string) (resources.Resource, io.ReadCloser, error)
 }
 
 // OpenedResource wraps the resource info and reader returned
@@ -31,8 +32,8 @@ type OpenedResource struct {
 }
 
 // OpenResource opens the identified resource using the provided client.
-func OpenResource(name string, client OpenedResourceClient) (*OpenedResource, error) {
-	info, reader, err := client.GetResource(name)
+func OpenResource(ctx context.Context, name string, client OpenedResourceClient) (*OpenedResource, error) {
+	info, reader, err := client.GetResource(ctx, name)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
