@@ -105,7 +105,7 @@ func NewS3Client(httpClient HTTPClient, credentials Credentials, logger Logger) 
 
 // GetObject gets an object from the object store based on the bucket name and
 // object name.
-func (c *S3Client) GetObject(ctx context.Context, bucketName, objectName string) (io.ReadCloser, error) {
+func (c *S3Client) GetObject(ctx context.Context, bucketName, objectName string) (io.ReadCloser, int64, error) {
 	c.logger.Tracef("retrieving bucket %s object %s from s3 storage", bucketName, objectName)
 
 	obj, err := c.client.GetObject(ctx,
@@ -114,9 +114,13 @@ func (c *S3Client) GetObject(ctx context.Context, bucketName, objectName string)
 			Key:    aws.String(objectName),
 		})
 	if err != nil {
-		return nil, errors.Annotatef(err, "unable to get object %s on bucket %s using S3 client", objectName, bucketName)
+		return nil, -1, errors.Annotatef(err, "unable to get object %s on bucket %s using S3 client", objectName, bucketName)
 	}
-	return obj.Body, nil
+	var size int64
+	if obj.ContentLength != nil {
+		size = *obj.ContentLength
+	}
+	return obj.Body, size, nil
 }
 
 // PutObject puts an object into the object store based on the bucket name and

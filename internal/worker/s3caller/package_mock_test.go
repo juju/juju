@@ -55,12 +55,13 @@ func (mr *MockSessionMockRecorder) DeleteObject(arg0, arg1, arg2 any) *gomock.Ca
 }
 
 // GetObject mocks base method.
-func (m *MockSession) GetObject(arg0 context.Context, arg1, arg2 string) (io.ReadCloser, error) {
+func (m *MockSession) GetObject(arg0 context.Context, arg1, arg2 string) (io.ReadCloser, int64, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetObject", arg0, arg1, arg2)
 	ret0, _ := ret[0].(io.ReadCloser)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret1, _ := ret[1].(int64)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
 }
 
 // GetObject indicates an expected call of GetObject.

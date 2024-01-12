@@ -40,12 +40,13 @@ func (s *s3ClientSuite) TestGetObject(c *gc.C) {
 	client, err := NewS3Client(httpClient, AnonymousCredentials{}, jujutesting.NewCheckLogger(c))
 	c.Assert(err, jc.ErrorIsNil)
 
-	resp, err := client.GetObject(context.Background(), "bucket", "object")
+	resp, size, err := client.GetObject(context.Background(), "bucket", "object")
 	c.Assert(err, jc.ErrorIsNil)
 
 	blob, err := io.ReadAll(resp)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(string(blob), gc.Equals, "blob")
+	c.Check(size, gc.Equals, int64(4))
 }
 
 func (s *s3ClientSuite) TestPutObject(c *gc.C) {

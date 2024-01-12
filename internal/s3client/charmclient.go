@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/juju/errors"
+
 	"github.com/juju/juju/core/objectstore"
 )
 
@@ -22,7 +24,11 @@ type Charms struct {
 func (c *Charms) GetCharm(ctx context.Context, modelUUID, charmRef string) (io.ReadCloser, error) {
 	bucketName := fmt.Sprintf("model-%s", modelUUID)
 	objectName := fmt.Sprintf("charms/%s", charmRef)
-	return c.session.GetObject(ctx, bucketName, objectName)
+	reader, _, err := c.session.GetObject(ctx, bucketName, objectName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return reader, nil
 }
 
 // NewCharmsS3Client creates a client to interact with charm blobs stored
