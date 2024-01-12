@@ -137,20 +137,22 @@ func (s *serviceSuite) setMockState(c *gc.C) map[user.UUID]stateUser {
 		return user.User{}, usererrors.NotFound
 	}).AnyTimes()
 
-	s.state.EXPECT().GetAllUsers(
+	s.state.EXPECT().GetAllUsersWithAuthInfo(
 		gomock.Any(),
 	).DoAndReturn(func(
-		_ context.Context) ([]user.User, error) {
-		var users []user.User
+		_ context.Context) ([]user.UserWithAuthInfo, error) {
+		var users []user.UserWithAuthInfo
 		for _, usr := range mockState {
-			if !usr.removed {
-				users = append(users, user.User{
+			users = append(users, user.UserWithAuthInfo{
+				User: user.User{
 					CreatorUUID: usr.creatorUUID,
 					CreatedAt:   usr.createdAt,
 					DisplayName: usr.displayName,
 					Name:        usr.name,
-				})
-			}
+				},
+				LastLogin: usr.lastLogin,
+				Disabled:  usr.disabled,
+			})
 		}
 		return users, nil
 	}).AnyTimes()
@@ -1103,16 +1105,18 @@ func (s *serviceSuite) TestGetUserByNameNotFound(c *gc.C) {
 	c.Assert(len(mockState), gc.Equals, 0)
 }
 
-// TestGetAllUsers tests the happy path for GetAllUsers.
-func (s *serviceSuite) TestGetAllUsers(c *gc.C) {
+// TestGetAllUsersWithAuthInfo tests the happy path for GetAllUsersWithAuthInfo.
+func (s *serviceSuite) TestGetAllUsersWithAuthInfo(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	mockState := s.setMockState(c)
 	uuid1, err := user.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
+	lastLogin := time.Now().Add(-time.Minute * 2)
 	mockState[uuid1] = stateUser{
 		name:        "Jürgen.test",
 		createdAt:   time.Now().Add(-time.Minute * 5),
 		displayName: "Old mate 👍",
+		lastLogin:   lastLogin,
 	}
 	uuid2, err := user.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1120,13 +1124,18 @@ func (s *serviceSuite) TestGetAllUsers(c *gc.C) {
 		name:        "杨-test",
 		createdAt:   time.Now().Add(-time.Minute * 5),
 		displayName: "test1",
+		lastLogin:   lastLogin,
 	}
 
-	users, err := s.service().GetAllUsers(context.Background())
+	users, err := s.service().GetAllUsersWithAuthInfo(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(users), gc.Equals, 2)
 	c.Assert(users[0].Name, gc.Equals, "Jürgen.test")
+	c.Assert(users[0].DisplayName, gc.Equals, "Old mate 👍")
+	c.Assert(users[0].LastLogin, gc.Equals, lastLogin)
 	c.Assert(users[1].Name, gc.Equals, "杨-test")
+	c.Assert(users[1].DisplayName, gc.Equals, "test1")
+	c.Assert(users[1].LastLogin, gc.Equals, lastLogin)
 }
 
 // TestGetUserWithAuthInfo tests the happy path for GetUserWithAuthInfo.

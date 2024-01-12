@@ -49,10 +49,10 @@ type State interface {
 	// returned.
 	GetUserByName(context.Context, string) (user.User, error)
 
-	// GetAllUsers will retrieve all users from the database where the user is
-	// active and has not been removed. If no users exist an empty slice will be
-	// returned.
-	GetAllUsers(context.Context) ([]user.User, error)
+	// GetAllUsersWithAuthInfo will retrieve all users with authentication information
+	// (last login, disabled) from the database. If no users exist an empty slice
+	// will be returned.
+	GetAllUsersWithAuthInfo(context.Context) ([]user.UserWithAuthInfo, error)
 
 	// GetUserWithAuthInfo will retrieve the user with authentication information (last login, disabled)
 	// specified by UUID from the database. If the user does not exist an error that satisfies
@@ -160,13 +160,15 @@ func (s *Service) GetUserByName(
 	return usr, nil
 }
 
-// GetAllUsers will return all users that have not been removed.
-func (s *Service) GetAllUsers(ctx context.Context) ([]user.User, error) {
-	usr, err := s.st.GetAllUsers(ctx)
+// GetAllUsersWithAuthInfo will retrieve all users with authentication information
+// (last login, disabled) from the database. If no users exist an empty slice
+// will be returned.
+func (s *Service) GetAllUsersWithAuthInfo(ctx context.Context) ([]user.UserWithAuthInfo, error) {
+	usrs, err := s.st.GetAllUsersWithAuthInfo(ctx)
 	if err != nil {
-		return nil, errors.Annotate(err, "getting all users")
+		return nil, errors.Annotate(err, "getting all users with auth info")
 	}
-	return usr, nil
+	return usrs, nil
 }
 
 // GetUserWithAuthInfo will find and return the user with UUID. If there is no

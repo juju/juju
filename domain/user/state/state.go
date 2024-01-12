@@ -175,20 +175,21 @@ WHERE name = $M.name AND removed = false
 	return usr, nil
 }
 
-// GetAllUsers will retrieve all users from the database where the user is
-// active and has not been removed. If no users exist an empty slice will be
-// returned.
-func (st *State) GetAllUsers(ctx context.Context) ([]user.User, error) {
+// GetAllUsersWithAuthInfo will retrieve all users with authentication information
+// (last login, disabled) from the database. If no users exist an empty slice
+// will be returned.
+func (st *State) GetAllUsersWithAuthInfo(ctx context.Context) ([]user.UserWithAuthInfo, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Annotate(err, "getting DB access")
 	}
 
-	var usrs []user.User
+	var usrs []user.UserWithAuthInfo
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		getAllUsersQuery := `
-SELECT (user.uuid, user.name, user.display_name, user.created_by_uuid, user.created_at) AS (&User.*)
+SELECT &User.*
 FROM user
+JOIN user_authentication ON user.uuid = user_authentication.user_uuid
 WHERE removed = false
 `
 
@@ -204,7 +205,7 @@ WHERE removed = false
 		}
 
 		for _, result := range results {
-			usrs = append(usrs, result.toCoreUser())
+			usrs = append(usrs, result.toCoreUserWithAuthInfo())
 		}
 
 		return nil

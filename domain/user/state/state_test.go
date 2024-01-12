@@ -411,45 +411,58 @@ WHERE uuid = ?
 	c.Check(removed, gc.Equals, true)
 }
 
-// TestGetAllUsers asserts that we can get all users from the database.
-func (s *stateSuite) TestGetAllUsers(c *gc.C) {
+// GetAllUsersWihAuthInfo asserts that we can get all users with auth info from
+// the database.
+func (s *stateSuite) TestGetAllUsersWihAuthInfo(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
-	// Add admin1 user.
-	adminUUID1, err := user.NewUUID()
+	// Add admin1 user with password hash.
+	admin1UUID, err := user.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
-	adminUser1 := user.User{
+	admin1User := user.User{
 		Name:        "admin1",
 		DisplayName: "admin1",
 	}
-	err = st.AddUser(context.Background(), adminUUID1, adminUser1, adminUUID1)
+	salt, err := auth.NewSalt()
+	c.Assert(err, jc.ErrorIsNil)
+	err = st.AddUserWithPasswordHash(context.Background(), admin1UUID, admin1User, admin1UUID, "passwordHash", salt)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Add admin1 user.
-	adminUUID2, err := user.NewUUID()
+	// Add admin2 user with activation key.
+	admin2UUID, err := user.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
-	adminUser2 := user.User{
+	admin2User := user.User{
 		Name:        "admin2",
 		DisplayName: "admin2",
 	}
-	err = st.AddUser(context.Background(), adminUUID2, adminUser2, adminUUID2)
+	admin2ActivationKey, err := generateActivationKey()
+	c.Assert(err, jc.ErrorIsNil)
+	err = st.AddUserWithActivationKey(context.Background(), admin2UUID, admin2User, admin2UUID, admin2ActivationKey)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Get all users.
-	users, err := st.GetAllUsers(context.Background())
+	// Disable admin2 user.
+	err = st.DisableUserAuthentication(context.Background(), admin2UUID)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Get all users with auth info.
+	users, err := st.GetAllUsersWithAuthInfo(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(users, gc.HasLen, 2)
 
-	c.Check(users[0].Name, gc.Equals, adminUser1.Name)
-	c.Check(users[0].DisplayName, gc.Equals, adminUser1.DisplayName)
-	c.Check(users[0].CreatorUUID, gc.Equals, adminUUID1)
+	c.Check(users[0].Name, gc.Equals, admin1User.Name)
+	c.Check(users[0].DisplayName, gc.Equals, admin1User.DisplayName)
+	c.Check(users[0].CreatorUUID, gc.Equals, admin1UUID)
 	c.Check(users[0].CreatedAt, gc.NotNil)
+	c.Check(users[0].LastLogin, gc.NotNil)
+	c.Check(users[0].Disabled, gc.Equals, false)
 
-	c.Check(users[1].Name, gc.Equals, adminUser2.Name)
-	c.Check(users[1].DisplayName, gc.Equals, adminUser2.DisplayName)
-	c.Check(users[1].CreatorUUID, gc.Equals, adminUUID2)
+	c.Check(users[1].Name, gc.Equals, admin2User.Name)
+	c.Check(users[1].DisplayName, gc.Equals, admin2User.DisplayName)
+	c.Check(users[1].CreatorUUID, gc.Equals, admin2UUID)
 	c.Check(users[1].CreatedAt, gc.NotNil)
+	c.Check(users[1].LastLogin, gc.NotNil)
+	c.Check(users[1].Disabled, gc.Equals, true)
 }
 
 // TestUserWithAuthInfo asserts that we can get a user with auth info from the
