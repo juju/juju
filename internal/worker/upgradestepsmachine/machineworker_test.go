@@ -71,18 +71,19 @@ func (s *machineWorkerSuite) TestRunUpgrades(c *gc.C) {
 
 	var called int64
 
-	w := s.newWorker(c)
-	w.base.PreUpgradeSteps = func(_ agent.Config, isController bool) error {
+	baseWorker := s.newBaseWorker(c, version.MustParse("6.6.6"), version.MustParse("9.9.9"))
+	baseWorker.PreUpgradeSteps = func(_ agent.Config, isController bool) error {
 		atomic.AddInt64(&called, 1)
 		return nil
 	}
-	w.base.PerformUpgradeSteps = func(from version.Number, targets []upgrades.Target, context upgrades.Context) error {
+	baseWorker.PerformUpgradeSteps = func(from version.Number, targets []upgrades.Target, context upgrades.Context) error {
 		atomic.AddInt64(&called, 1)
 
 		// Ensure that the targets are correct.
 		c.Check(targets, jc.DeepEquals, []upgrades.Target{upgrades.HostMachine})
 		return nil
 	}
+	w := newMachineWorker(baseWorker)
 	defer workertest.DirtyKill(c, w)
 
 	select {
@@ -108,13 +109,14 @@ func (s *machineWorkerSuite) TestRunUpgradesFailedWithAPIError(c *gc.C) {
 
 	var called int64
 
-	w := s.newWorker(c)
-	w.base.PreUpgradeSteps = func(_ agent.Config, isController bool) error {
+	baseWorker := s.newBaseWorker(c, version.MustParse("6.6.6"), version.MustParse("9.9.9"))
+	baseWorker.PreUpgradeSteps = func(_ agent.Config, isController bool) error {
 		defer close(done)
 
 		atomic.AddInt64(&called, 1)
 		return upgradesteps.NewAPILostDuringUpgrade(errors.New("boom"))
 	}
+	w := newMachineWorker(baseWorker)
 	defer workertest.DirtyKill(c, w)
 
 	select {
@@ -141,13 +143,14 @@ func (s *machineWorkerSuite) TestRunUpgradesFailedWithNotAPIError(c *gc.C) {
 
 	var called int64
 
-	w := s.newWorker(c)
-	w.base.PreUpgradeSteps = func(_ agent.Config, isController bool) error {
+	baseWorker := s.newBaseWorker(c, version.MustParse("6.6.6"), version.MustParse("9.9.9"))
+	baseWorker.PreUpgradeSteps = func(_ agent.Config, isController bool) error {
 		defer close(done)
 
 		atomic.AddInt64(&called, 1)
 		return errors.New("boom")
 	}
+	w := newMachineWorker(baseWorker)
 	defer workertest.DirtyKill(c, w)
 
 	select {
