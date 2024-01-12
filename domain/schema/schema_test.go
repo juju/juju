@@ -101,6 +101,10 @@ func (s *schemaSuite) TestControllerDDLApply(c *gc.C) {
 
 		// Flags
 		"flag",
+
+		// Permissions
+		"access_type",
+		"permissions",
 	)
 	c.Assert(readTableNames(c, s.DB()), jc.SameContents, expected.Union(internalTableNames).SortedValues())
 }

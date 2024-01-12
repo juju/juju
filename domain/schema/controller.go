@@ -51,6 +51,7 @@ func ControllerDDL() *schema.Schema {
 		changeLogTriggersForTable("object_store_metadata_path", "path", tableObjectStoreMetadata),
 		userSchema,
 		flagSchema,
+		permissionsSchema,
 	}
 
 	schema := schema.New()
@@ -588,6 +589,45 @@ CREATE TABLE flag (
     name TEXT PRIMARY KEY,
     value BOOLEAN DEFAULT 0,
     description TEXT NOT NULL
+);
+`)
+}
+
+// The permissions schema
+func permissionsSchema() schema.Patch {
+	return schema.MakePatch(`
+CREATE TABLE access_type (
+    id     INT PRIMARY KEY,
+    type   Text
+);
+
+CREATE UNIQUE INDEX idx_access_type
+ON access_type (type);
+
+-- Maps to the Access type in core/permission package.
+INSERT INTO access_type VALUES
+    (0, ''),
+    (1, 'read'),
+    (2, 'write'),
+    (3, 'consume'),
+    (4, 'admin'),
+    (5, 'login'),
+    (6, 'add-model;'),
+    (7, 'superuser');
+
+CREATE TABLE permissions (
+    access_type_id  INT NOT NULL,
+    object_key      TEXT NOT NULL,
+    user_uuid       TEXT NOT NULL,
+    -- ensure we only have one permutation of the object_key and user_uuid
+    -- combination within the table.
+    CONSTRAINT      pk_permissions_key PRIMARY KEY (user_uuid, object_key),
+    CONSTRAINT      fk_permissions_user_uuid
+    	FOREIGN KEY (user_uuid)
+    	REFERENCES  user(uuid)
+    CONSTRAINT      fk_permissions_access_type_id
+    	FOREIGN KEY (access_type_id)
+    	REFERENCES   access_type(id)                 
 );
 `)
 }
