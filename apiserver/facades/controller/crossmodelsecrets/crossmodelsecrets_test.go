@@ -103,7 +103,9 @@ func (s *CrossModelSecretsSuite) setup(c *gc.C) *gomock.Controller {
 	secretsStateGetter := func(modelUUID string) (crossmodelsecrets.SecretsState, crossmodelsecrets.SecretsConsumer, func() bool, error) {
 		return s.secretsState, s.secretsConsumer, func() bool { return false }, nil
 	}
-	backendConfigGetter := func(modelUUID string) (*provider.ModelBackendConfigInfo, error) {
+	backendConfigGetter := func(modelUUID, backendID string, consumer names.Tag) (*provider.ModelBackendConfigInfo, error) {
+		c.Assert(backendID, gc.Equals, "backend-id")
+		c.Assert(consumer.String(), gc.Equals, "unit-remote-app-666")
 		return &provider.ModelBackendConfigInfo{
 			ActiveID: "active-id",
 			Configs: map[string]provider.ModelBackendConfig{
