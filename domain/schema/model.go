@@ -685,5 +685,55 @@ CREATE TABLE storage_filesystem_attachment (
         FOREIGN KEY  (life_id)
         REFERENCES   life(id)
 );
+
+CREATE TABLE storage_volume_device_type (
+    id          INT PRIMARY KEY,
+    name        TEXT NOT NULL,
+    description TEXT
+);
+
+CREATE UNIQUE INDEX idx_storage_volume_dev_type
+ON storage_volume_device_type (name);
+
+INSERT INTO storage_volume_device_type VALUES
+    (0, 'local', 'Default device type for on-machine volume attachments'), 
+    (1, 'iscsi', 'iSCSI protocol for linking storage');
+
+CREATE TABLE storage_volume_attachment_plan (
+    uuid                TEXT PRIMARY KEY,
+    storage_volume_uuid TEXT NOT NULL,
+    net_node_uuid       TEXT NOT NULL,
+    life_id             INT NOT NULL,
+    device_type_id      INT,
+    block_device_uuid   TEXT,
+    CONSTRAINT       fk_storage_volume_attachment_plan_vol
+        FOREIGN KEY  (storage_volume_uuid)
+        REFERENCES   storage_volume(uuid),
+    CONSTRAINT       fk_storage_volume_attachment_plan_node
+        FOREIGN KEY  (net_node_uuid)
+        REFERENCES   net_node(uuid),
+    CONSTRAINT       fk_storage_volume_attachment_plan_life
+        FOREIGN KEY  (life_id)
+        REFERENCES   life(id),
+    CONSTRAINT       fk_storage_volume_attachment_plan_device
+        FOREIGN KEY  (device_type_id)
+        REFERENCES   storage_volume_device_type(id),
+    CONSTRAINT       fk_storage_volume_attachment_plan_block
+        FOREIGN KEY  (block_device_uuid)
+        REFERENCES   block_device(uuid)
+);
+
+CREATE TABLE storage_volume_attachment_plan_attr (
+    uuid                 TEXT PRIMARY KEY, 
+    attachment_plan_uuid TEXT NOT NULL,
+    key                  TEXT NOT NULL,
+    value                TEXT NOT NULL,
+    CONSTRAINT       fk_storage_volume_attachment_plan_vol
+        FOREIGN KEY  (storage_volume_uuid)
+        REFERENCES   storage_volume(uuid)
+);
+
+CREATE UNIQUE INDEX idx_storage_vol_attachment_plan_attr
+ON storage_volume_attachment_plan_attr (attachment_plan_uuid, key);
 `)
 }
