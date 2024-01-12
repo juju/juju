@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/juju/names/v5"
 	"github.com/juju/utils/v3"
 )
 
@@ -25,6 +26,11 @@ type User struct {
 
 	// CreatedAt is the time that the user was created at.
 	CreatedAt time.Time
+}
+
+// UserTag returns the user tag for the user.
+func (u User) UserTag() names.UserTag {
+	return names.NewUserTag(u.Name)
 }
 
 // UUID is a unique identifier for a user.
