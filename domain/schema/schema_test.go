@@ -184,6 +184,10 @@ func (s *schemaSuite) TestModelDDLApply(c *gc.C) {
 		"storage_filesystem",
 		"storage_instance_filesystem",
 		"storage_filesystem_attachment",
+		"storage_volume_attachment_plan",
+		"storage_volume_attachment_plan_attr",
+		"storage_provisioning_status",
+		"storage_volume_device_type",
 	)
 	c.Assert(readTableNames(c, s.DB()), jc.SameContents, expected.Union(internalTableNames).SortedValues())
 }
