@@ -187,7 +187,7 @@ func (st *State) GetAllUsersWithAuthInfo(ctx context.Context) ([]user.UserWithAu
 	var usrs []user.UserWithAuthInfo
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		getAllUsersQuery := `
-SELECT &User.*
+SELECT (user.uuid, user.name, user.display_name, user.created_by_uuid, user.created_at, user_authentication.last_login, user_authentication.disabled) AS (&User.*)
 FROM user
 JOIN user_authentication ON user.uuid = user_authentication.user_uuid
 WHERE removed = false
@@ -229,7 +229,7 @@ func (st *State) GetUserWithAuthInfo(ctx context.Context, uuid user.UUID) (user.
 	var usr user.UserWithAuthInfo
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		getUserWithAuthInfoQuery := `
-SELECT &User.*
+SELECT (user.uuid, user.name, user.display_name, user.created_by_uuid, user.created_at, user_authentication.last_login, user_authentication.disabled) AS (&User.*)
 FROM user
 JOIN user_authentication ON user.uuid = user_authentication.user_uuid
 WHERE user.uuid = $M.uuid
