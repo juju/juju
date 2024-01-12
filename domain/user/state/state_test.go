@@ -452,6 +452,39 @@ func (s *stateSuite) TestGetAllUsers(c *gc.C) {
 	c.Check(users[1].CreatedAt, gc.NotNil)
 }
 
+// TestUserWithAuthInfo asserts that we can get a user with auth info from the
+// database.
+func (s *stateSuite) TestUserWithAuthInfo(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	// Add admin1 user with password hash.
+	adminUUID, err := user.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	adminUser := user.User{
+		Name:        "admin",
+		DisplayName: "admin",
+	}
+	salt, err := auth.NewSalt()
+	c.Assert(err, jc.ErrorIsNil)
+	err = st.AddUserWithPasswordHash(context.Background(), adminUUID, adminUser, adminUUID, "passwordHash", salt)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Disable admin1 user.
+	err = st.DisableUserAuthentication(context.Background(), adminUUID)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Get user with auth info.
+	u, err := st.GetUserWithAuthInfo(context.Background(), adminUUID)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(u.Name, gc.Equals, adminUser.Name)
+	c.Check(u.DisplayName, gc.Equals, adminUser.DisplayName)
+	c.Check(u.CreatorUUID, gc.Equals, adminUUID)
+	c.Check(u.CreatedAt, gc.NotNil)
+	c.Check(u.LastLogin, gc.NotNil)
+	c.Check(u.Disabled, gc.Equals, true)
+}
+
 // TestSetPasswordHash asserts that we can set a password hash for a user.
 func (s *stateSuite) TestSetPasswordHash(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())

@@ -31,6 +31,7 @@ type stateUser struct {
 	passwordHash  string
 	passwordSalt  []byte
 	removed       bool
+	lastLogin     time.Time
 	disabled      bool
 }
 
@@ -134,6 +135,45 @@ func (s *serviceSuite) setMockState(c *gc.C) map[user.UUID]stateUser {
 			}
 		}
 		return user.User{}, usererrors.NotFound
+	}).AnyTimes()
+
+	s.state.EXPECT().GetAllUsers(
+		gomock.Any(),
+	).DoAndReturn(func(
+		_ context.Context) ([]user.User, error) {
+		var users []user.User
+		for _, usr := range mockState {
+			if !usr.removed {
+				users = append(users, user.User{
+					CreatorUUID: usr.creatorUUID,
+					CreatedAt:   usr.createdAt,
+					DisplayName: usr.displayName,
+					Name:        usr.name,
+				})
+			}
+		}
+		return users, nil
+	}).AnyTimes()
+
+	s.state.EXPECT().GetUserWithAuthInfo(
+		gomock.Any(), gomock.Any(),
+	).DoAndReturn(func(
+		_ context.Context,
+		uuid user.UUID) (user.UserWithAuthInfo, error) {
+		stUser, exists := mockState[uuid]
+		if !exists {
+			return user.UserWithAuthInfo{}, usererrors.NotFound
+		}
+		return user.UserWithAuthInfo{
+			User: user.User{
+				CreatorUUID: stUser.creatorUUID,
+				CreatedAt:   stUser.createdAt,
+				DisplayName: stUser.displayName,
+				Name:        stUser.name,
+			},
+			LastLogin: stUser.lastLogin,
+			Disabled:  stUser.disabled,
+		}, nil
 	}).AnyTimes()
 
 	s.state.EXPECT().AddUser(
@@ -1059,6 +1099,69 @@ func (s *serviceSuite) TestGetUserByNameNotFound(c *gc.C) {
 	mockState := s.setMockState(c)
 
 	_, err := s.service().GetUserByName(context.Background(), "test")
+	c.Assert(err, jc.ErrorIs, usererrors.NotFound)
+	c.Assert(len(mockState), gc.Equals, 0)
+}
+
+// TestGetAllUsers tests the happy path for GetAllUsers.
+func (s *serviceSuite) TestGetAllUsers(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	mockState := s.setMockState(c)
+	uuid1, err := user.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	mockState[uuid1] = stateUser{
+		name:        "Jürgen.test",
+		createdAt:   time.Now().Add(-time.Minute * 5),
+		displayName: "Old mate 👍",
+	}
+	uuid2, err := user.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	mockState[uuid2] = stateUser{
+		name:        "杨-test",
+		createdAt:   time.Now().Add(-time.Minute * 5),
+		displayName: "test1",
+	}
+
+	users, err := s.service().GetAllUsers(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(users), gc.Equals, 2)
+	c.Assert(users[0].Name, gc.Equals, "Jürgen.test")
+	c.Assert(users[1].Name, gc.Equals, "杨-test")
+}
+
+// TestGetUserWithAuthInfo tests the happy path for GetUserWithAuthInfo.
+func (s *serviceSuite) TestGetUserWithAuthInfo(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	mockState := s.setMockState(c)
+	uuid, err := user.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	lastLogin := time.Now().Add(-time.Minute * 2)
+	mockState[uuid] = stateUser{
+		name:        "Jürgen.test",
+		createdAt:   time.Now().Add(-time.Minute * 5),
+		displayName: "Old mate 👍",
+		lastLogin:   lastLogin,
+		disabled:    true,
+	}
+
+	user, err := s.service().GetUserWithAuthInfo(context.Background(), uuid)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(user.Name, gc.Equals, "Jürgen.test")
+	c.Assert(user.DisplayName, gc.Equals, "Old mate 👍")
+	c.Assert(user.LastLogin, gc.Equals, lastLogin)
+	c.Assert(user.Disabled, gc.Equals, true)
+}
+
+// TestGetUserWithAuthInfoNotFound is testing that if we ask for a user that
+// doesn't exist we get back an error that satisfies usererrors.NotFound.
+func (s *serviceSuite) TestGetUserWithAuthInfoNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	mockState := s.setMockState(c)
+
+	nonExistingUserUUID, err := user.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.service().GetUserWithAuthInfo(context.Background(), nonExistingUserUUID)
 	c.Assert(err, jc.ErrorIs, usererrors.NotFound)
 	c.Assert(len(mockState), gc.Equals, 0)
 }

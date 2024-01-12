@@ -54,6 +54,11 @@ type State interface {
 	// returned.
 	GetAllUsers(context.Context) ([]user.User, error)
 
+	// GetUserWithAuthInfo will retrieve the user with authentication information (last login, disabled)
+	// specified by UUID from the database. If the user does not exist an error that satisfies
+	// usererrors.NotFound will be returned.
+	GetUserWithAuthInfo(context.Context, user.UUID) (user.UserWithAuthInfo, error)
+
 	// RemoveUser marks the user as removed. This obviates the ability of a user
 	// to function, but keeps the user retaining provenance, i.e. auditing.
 	// RemoveUser will also remove any credentials and activation codes for the
@@ -161,6 +166,25 @@ func (s *Service) GetAllUsers(ctx context.Context) ([]user.User, error) {
 	if err != nil {
 		return nil, errors.Annotate(err, "getting all users")
 	}
+	return usr, nil
+}
+
+// GetUserWithAuthInfo will find and return the user with UUID. If there is no
+// user for the UUID then an error that satisfies usererrors.NotFound will
+// be returned.
+func (s *Service) GetUserWithAuthInfo(
+	ctx context.Context,
+	uuid user.UUID,
+) (user.UserWithAuthInfo, error) {
+	if err := uuid.Validate(); err != nil {
+		return user.UserWithAuthInfo{}, errors.Annotatef(usererrors.UUIDNotValid, "validating uuid %q", uuid)
+	}
+
+	usr, err := s.st.GetUserWithAuthInfo(ctx, uuid)
+	if err != nil {
+		return user.UserWithAuthInfo{}, errors.Annotatef(err, "getting user for uuid %q", uuid)
+	}
+
 	return usr, nil
 }
 

@@ -10,6 +10,7 @@ import (
 	"github.com/juju/utils/v3"
 )
 
+// User represents a user in the system.
 type User struct {
 	// UUID is the unique identifier for the user.
 	UUID UUID
@@ -25,6 +26,17 @@ type User struct {
 
 	// CreatedAt is the time that the user was created at.
 	CreatedAt time.Time
+}
+
+// UserWithAuthInfo represents a user in the system with auth info.
+type UserWithAuthInfo struct {
+	User
+
+	// LastLogin is the last time the user logged in.
+	LastLogin time.Time
+
+	// Disabled is true if the user is disabled.
+	Disabled bool
 }
 
 // UUID is a unique identifier for a user.
