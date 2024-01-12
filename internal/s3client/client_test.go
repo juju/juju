@@ -5,48 +5,107 @@ package s3client
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"io"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/s3"
-	"github.com/juju/loggo"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
+
+	jujutesting "github.com/juju/juju/testing"
 )
 
 type s3ClientSuite struct {
-	s3Client *MockS3Client
+	testing.IsolationSuite
 }
 
 var _ = gc.Suite(&s3ClientSuite{})
 
-func (s *s3ClientSuite) setupMocks(c *gc.C) *gomock.Controller {
-	ctrl := gomock.NewController(c)
-	s.s3Client = NewMockS3Client(ctrl)
+func (s *s3ClientSuite) SetUpTest(c *gc.C) {
 
-	return ctrl
 }
 
 func (s *s3ClientSuite) TestGetObject(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	httpClient, cleanup := s.setupServer(c, func(w http.ResponseWriter, r *http.Request) {
+		c.Check(r.Method, gc.Equals, http.MethodGet)
+		c.Check(r.URL.Path, gc.Equals, "/bucket/object")
+		w.Write([]byte("blob"))
+	})
+	defer cleanup()
 
-	s.s3Client.EXPECT().GetObject(gomock.Any(), &s3.GetObjectInput{
-		Bucket: aws.String("bucket"),
-		Key:    aws.String("object"),
-	}, gomock.Any()).Return(&s3.GetObjectOutput{
-		Body: io.NopCloser(strings.NewReader("blob")),
-	}, nil)
+	client, err := NewS3Client(httpClient, AnonymousCredentials{}, jujutesting.NewCheckLogger(c))
+	c.Assert(err, jc.ErrorIsNil)
 
-	cli := objectsClient{
-		client: s.s3Client,
-		logger: loggo.GetLogger("juju.testing.s3client"),
-	}
-	resp, err := cli.GetObject(context.Background(), "bucket", "object")
+	resp, err := client.GetObject(context.Background(), "bucket", "object")
 	c.Assert(err, jc.ErrorIsNil)
 
 	blob, err := io.ReadAll(resp)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(string(blob), gc.Equals, "blob")
+	c.Check(string(blob), gc.Equals, "blob")
+}
+
+func (s *s3ClientSuite) TestPutObject(c *gc.C) {
+	hash := "fa2c8cc4f28176bbeed4b736df569a34c79cd3723e9ec42f9674b4d46ac6b8b8"
+
+	httpClient, cleanup := s.setupServer(c, func(w http.ResponseWriter, r *http.Request) {
+		c.Check(r.Method, gc.Equals, http.MethodPut)
+		c.Check(r.URL.Path, gc.Equals, "/bucket/object")
+
+		body, err := io.ReadAll(r.Body)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(string(body), gc.Equals, "blob")
+
+		hasher := sha256.New()
+		_, err = hasher.Write(body)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(hex.EncodeToString(hasher.Sum(nil)), gc.Equals, hash)
+	})
+	defer cleanup()
+
+	client, err := NewS3Client(httpClient, AnonymousCredentials{}, jujutesting.NewCheckLogger(c))
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = client.PutObject(context.Background(), "bucket", "object", strings.NewReader("blob"), hash)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *s3ClientSuite) TestDeleteObject(c *gc.C) {
+	httpClient, cleanup := s.setupServer(c, func(w http.ResponseWriter, r *http.Request) {
+		c.Check(r.Method, gc.Equals, http.MethodDelete)
+		c.Check(r.URL.Path, gc.Equals, "/bucket/object")
+	})
+	defer cleanup()
+
+	client, err := NewS3Client(httpClient, AnonymousCredentials{}, jujutesting.NewCheckLogger(c))
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = client.DeleteObject(context.Background(), "bucket", "object")
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *s3ClientSuite) setupServer(c *gc.C, handler http.HandlerFunc) (*httpClient, func()) {
+	server := httptest.NewTLSServer(handler)
+	return &httpClient{
+			client:  server.Client(),
+			baseURL: server.URL,
+		}, func() {
+			server.Close()
+		}
+}
+
+type httpClient struct {
+	client  *http.Client
+	baseURL string
+}
+
+func (c httpClient) Do(req *http.Request) (*http.Response, error) {
+	return c.client.Do(req)
+}
+
+func (c httpClient) BaseURL() string {
+	return c.baseURL
 }

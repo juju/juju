@@ -106,7 +106,7 @@ func (t *fileObjectStore) Get(ctx context.Context, path string) (io.ReadCloser, 
 		return nil, -1, tomb.ErrDying
 	case resp := <-response:
 		if resp.err != nil {
-			return nil, -1, fmt.Errorf("getting file: %w", resp.err)
+			return nil, -1, fmt.Errorf("getting blob: %w", resp.err)
 		}
 		return resp.reader, resp.size, nil
 	}
@@ -137,7 +137,7 @@ func (t *fileObjectStore) Put(ctx context.Context, path string, r io.Reader, siz
 		return tomb.ErrDying
 	case resp := <-response:
 		if resp.err != nil {
-			return fmt.Errorf("putting file: %w", resp.err)
+			return fmt.Errorf("putting blob: %w", resp.err)
 		}
 		return nil
 	}
@@ -169,7 +169,7 @@ func (t *fileObjectStore) PutAndCheckHash(ctx context.Context, path string, r io
 		return tomb.ErrDying
 	case resp := <-response:
 		if resp.err != nil {
-			return fmt.Errorf("putting file and check hash: %w", resp.err)
+			return fmt.Errorf("putting blob and check hash: %w", resp.err)
 		}
 		return nil
 	}
@@ -197,7 +197,7 @@ func (t *fileObjectStore) Remove(ctx context.Context, path string) error {
 		return tomb.ErrDying
 	case resp := <-response:
 		if resp.err != nil {
-			return fmt.Errorf("removing file: %w", resp.err)
+			return fmt.Errorf("removing blob: %w", resp.err)
 		}
 		return nil
 	}

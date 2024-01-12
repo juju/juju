@@ -8,7 +8,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/s3client"
 )
@@ -41,7 +40,7 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 func (s *manifoldSuite) getConfig() ManifoldConfig {
 	return ManifoldConfig{
 		APICallerName: "api-caller",
-		NewClient: func(api.Connection, s3client.Logger) (objectstore.Session, error) {
+		NewClient: func(s3client.HTTPClient, s3client.Credentials, s3client.Logger) (objectstore.Session, error) {
 			return s.session, nil
 		},
 		Logger: s.logger,
