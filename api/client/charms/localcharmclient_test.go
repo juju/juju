@@ -4,10 +4,10 @@
 package charms_test
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"net/http"
+	"regexp"
 	"strings"
 
 	"github.com/juju/charm/v12"
@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/api/client/charms"
 	"github.com/juju/juju/api/http/mocks"
 	"github.com/juju/juju/testcharms"
+	"github.com/juju/juju/testing"
 	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -32,16 +33,22 @@ type addCharmSuite struct {
 
 var _ = gc.Suite(&addCharmSuite{})
 
-func (s *addCharmSuite) TestAddLocalCharm(c *gc.C) {
+// TestLegacyAddLocalCharm runs the same test as AddLocalCharm,
+// but backs our client with the legacy http putter
+func (s *addCharmSuite) TestLegacyAddLocalCharm(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockCaller := basemocks.NewMockAPICaller(ctrl)
 	mockHttpDoer := mocks.NewMockHTTPClient(ctrl)
 	reqClient := &httprequest.Client{
 		BaseURL: "http://somewhere.invalid",
 		Doer:    mockHttpDoer,
 	}
+
+	mockCaller.EXPECT().ModelTag().Return(testing.ModelTag, false).AnyTimes()
+	mockFacadeCaller.EXPECT().RawAPICaller().Return(mockCaller).AnyTimes()
 
 	curl, charmArchive := s.testCharm(c)
 	resp := &http.Response{
@@ -51,7 +58,7 @@ func (s *addCharmSuite) TestAddLocalCharm(c *gc.C) {
 	}
 	resp.Header.Add("Content-Type", "application/json")
 	mockHttpDoer.EXPECT().Do(
-		&charmUploadMatcher{"http://somewhere.invalid/charms?revision=1&schema=local&series=quantal"},
+		&httpURLMatcher{"http://somewhere.invalid/charms\\?revision=1&schema=local&series=quantal"},
 	).Return(resp, nil).MinTimes(1)
 
 	httpPutter := charms.NewHTTPPutterWithHTTPClient(reqClient)
@@ -82,6 +89,60 @@ func (s *addCharmSuite) TestAddLocalCharm(c *gc.C) {
 	c.Assert(savedURL.String(), gc.Equals, curl.WithRevision(43).String())
 }
 
+func (s *addCharmSuite) TestAddLocalCharm(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockCaller := basemocks.NewMockAPICaller(ctrl)
+	mockHttpDoer := mocks.NewMockHTTPClient(ctrl)
+	reqClient := &httprequest.Client{
+		BaseURL: "http://somewhere.invalid",
+		Doer:    mockHttpDoer,
+	}
+
+	mockCaller.EXPECT().ModelTag().Return(testing.ModelTag, false).AnyTimes()
+	mockFacadeCaller.EXPECT().RawAPICaller().Return(mockCaller).AnyTimes()
+
+	curl, charmArchive := s.testCharm(c)
+	resp := &http.Response{
+		StatusCode: 200,
+		Header:     make(http.Header),
+	}
+	resp.Header.Add("Content-Type", "application/json")
+	resp.Header.Add("Juju-Curl", "local:quantal/dummy-1")
+	mockHttpDoer.EXPECT().Do(
+		&httpURLMatcher{fmt.Sprintf("http://somewhere.invalid/model-%s/charms/dummy-[a-f0-9]{7}", testing.ModelTag.Id())},
+	).Return(resp, nil).MinTimes(1)
+
+	httpPutter := charms.NewS3PutterWithHTTPClient(reqClient)
+	client := charms.NewLocalCharmClientWithFacade(mockFacadeCaller, nil, httpPutter)
+	vers := version.MustParse("2.6.6")
+	// Test the sanity checks first.
+	_, err := client.AddLocalCharm(charm.MustParseURL("ch:wordpress-1"), nil, false, vers)
+	c.Assert(err, gc.ErrorMatches, `expected charm URL with local: schema, got "ch:wordpress-1"`)
+
+	// Upload an archive with its original revision.
+	savedURL, err := client.AddLocalCharm(curl, charmArchive, false, vers)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(savedURL.String(), gc.Equals, curl.String())
+
+	// Upload a charm directory with changed revision.
+	resp.Header.Set("Juju-Curl", "local:quantal/dummy-42")
+	charmDir := testcharms.Repo.ClonedDir(c.MkDir(), "dummy")
+	err = charmDir.SetDiskRevision(42)
+	c.Assert(err, jc.ErrorIsNil)
+	savedURL, err = client.AddLocalCharm(curl, charmDir, false, vers)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(savedURL.Revision, gc.Equals, 42)
+
+	// Upload a charm directory again, revision should be bumped.
+	resp.Header.Set("Juju-Curl", "local:quantal/dummy-43")
+	savedURL, err = client.AddLocalCharm(curl, charmDir, false, vers)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(savedURL.String(), gc.Equals, curl.WithRevision(43).String())
+}
+
 func (s *addCharmSuite) TestAddLocalCharmFindingHooksError(c *gc.C) {
 	s.assertAddLocalCharmFailed(c,
 		func(string) (bool, error) {
@@ -103,23 +164,27 @@ func (s *addCharmSuite) TestAddLocalCharmWithLXDProfile(c *gc.C) {
 	defer ctrl.Finish()
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockCaller := basemocks.NewMockAPICaller(ctrl)
 	mockHttpDoer := mocks.NewMockHTTPClient(ctrl)
 	reqClient := &httprequest.Client{
 		BaseURL: "http://somewhere.invalid",
 		Doer:    mockHttpDoer,
 	}
 
+	mockCaller.EXPECT().ModelTag().Return(testing.ModelTag, false).AnyTimes()
+	mockFacadeCaller.EXPECT().RawAPICaller().Return(mockCaller).AnyTimes()
+
 	resp := &http.Response{
 		StatusCode: 200,
 		Header:     make(http.Header),
-		Body:       io.NopCloser(strings.NewReader(`{"charm-url": "local:quantal/lxd-profile-0"}`)),
 	}
 	resp.Header.Add("Content-Type", "application/json")
+	resp.Header.Add("Juju-Curl", "local:quantal/lxd-profile-0")
 	mockHttpDoer.EXPECT().Do(
-		&charmUploadMatcher{"http://somewhere.invalid/charms?revision=0&schema=local&series=quantal"},
+		&httpURLMatcher{fmt.Sprintf("http://somewhere.invalid/model-%s/charms/lxd-profile-[a-f0-9]{7}", testing.ModelTag.Id())},
 	).Return(resp, nil).MinTimes(1)
 
-	httpPutter := charms.NewHTTPPutterWithHTTPClient(reqClient)
+	httpPutter := charms.NewS3PutterWithHTTPClient(reqClient)
 	client := charms.NewLocalCharmClientWithFacade(mockFacadeCaller, nil, httpPutter)
 
 	charmArchive := testcharms.Repo.CharmArchive(c.MkDir(), "lxd-profile")
@@ -143,7 +208,7 @@ func (s *addCharmSuite) TestAddLocalCharmWithInvalidLXDProfile(c *gc.C) {
 		BaseURL: "http://somewhere.invalid",
 		Doer:    mockHttpDoer,
 	}
-	httpPutter := charms.NewHTTPPutterWithHTTPClient(reqClient)
+	httpPutter := charms.NewS3PutterWithHTTPClient(reqClient)
 	client := charms.NewLocalCharmClientWithFacade(mockFacadeCaller, nil, httpPutter)
 
 	charmArchive := testcharms.Repo.CharmArchive(c.MkDir(), "lxd-profile-fail")
@@ -169,23 +234,27 @@ func (s *addCharmSuite) testAddLocalCharmWithForceSucceeds(name string, c *gc.C)
 	defer ctrl.Finish()
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockCaller := basemocks.NewMockAPICaller(ctrl)
 	mockHttpDoer := mocks.NewMockHTTPClient(ctrl)
 	reqClient := &httprequest.Client{
 		BaseURL: "http://somewhere.invalid",
 		Doer:    mockHttpDoer,
 	}
 
+	mockCaller.EXPECT().ModelTag().Return(testing.ModelTag, false).AnyTimes()
+	mockFacadeCaller.EXPECT().RawAPICaller().Return(mockCaller).AnyTimes()
+
 	resp := &http.Response{
 		StatusCode: 200,
 		Header:     make(http.Header),
-		Body:       io.NopCloser(strings.NewReader(`{"charm-url": "local:quantal/lxd-profile-0"}`)),
 	}
 	resp.Header.Add("Content-Type", "application/json")
+	resp.Header.Add("Juju-Curl", "local:quantal/lxd-profile-0")
 	mockHttpDoer.EXPECT().Do(
-		&charmUploadMatcher{"http://somewhere.invalid/charms?revision=0&schema=local&series=quantal"},
+		&httpURLMatcher{fmt.Sprintf("http://somewhere.invalid/model-%s/charms/lxd-profile-[a-f0-9]{7}", testing.ModelTag.Id())},
 	).Return(resp, nil).MinTimes(1)
 
-	httpPutter := charms.NewHTTPPutterWithHTTPClient(reqClient)
+	httpPutter := charms.NewS3PutterWithHTTPClient(reqClient)
 	client := charms.NewLocalCharmClientWithFacade(mockFacadeCaller, nil, httpPutter)
 
 	charmArchive := testcharms.Repo.CharmArchive(c.MkDir(), "lxd-profile")
@@ -212,7 +281,7 @@ func (s *addCharmSuite) assertAddLocalCharmFailed(c *gc.C, f func(string) (bool,
 		BaseURL: "http://somewhere.invalid",
 		Doer:    mockHttpDoer,
 	}
-	httpPutter := charms.NewHTTPPutterWithHTTPClient(reqClient)
+	httpPutter := charms.NewS3PutterWithHTTPClient(reqClient)
 	client := charms.NewLocalCharmClientWithFacade(mockFacadeCaller, nil, httpPutter)
 	vers := version.MustParse("2.6.6")
 	_, err := client.AddLocalCharm(curl, ch, false, vers)
@@ -228,23 +297,27 @@ func (s *addCharmSuite) TestAddLocalCharmDefinitelyWithHooks(c *gc.C) {
 		return true, nil
 	})
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockCaller := basemocks.NewMockAPICaller(ctrl)
 	mockHttpDoer := mocks.NewMockHTTPClient(ctrl)
 	reqClient := &httprequest.Client{
 		BaseURL: "http://somewhere.invalid",
 		Doer:    mockHttpDoer,
 	}
 
+	mockCaller.EXPECT().ModelTag().Return(testing.ModelTag, false).AnyTimes()
+	mockFacadeCaller.EXPECT().RawAPICaller().Return(mockCaller).AnyTimes()
+
 	resp := &http.Response{
 		StatusCode: 200,
 		Header:     make(http.Header),
-		Body:       io.NopCloser(strings.NewReader(`{"charm-url": "local:quantal/dummy-1"}`)),
 	}
 	resp.Header.Add("Content-Type", "application/json")
+	resp.Header.Add("Juju-Curl", "local:quantal/dummy-1")
 	mockHttpDoer.EXPECT().Do(
-		&charmUploadMatcher{"http://somewhere.invalid/charms?revision=1&schema=local&series=quantal"},
+		&httpURLMatcher{fmt.Sprintf("http://somewhere.invalid/model-%s/charms/dummy-[a-f0-9]{7}", testing.ModelTag.Id())},
 	).Return(resp, nil).MinTimes(1)
 
-	httpPutter := charms.NewHTTPPutterWithHTTPClient(reqClient)
+	httpPutter := charms.NewS3PutterWithHTTPClient(reqClient)
 	client := charms.NewLocalCharmClientWithFacade(mockFacadeCaller, nil, httpPutter)
 
 	vers := version.MustParse("2.6.6")
@@ -270,23 +343,26 @@ func (s *addCharmSuite) TestAddLocalCharmError(c *gc.C) {
 		return true, nil
 	})
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockCaller := basemocks.NewMockAPICaller(ctrl)
 	mockHttpDoer := mocks.NewMockHTTPClient(ctrl)
 	reqClient := &httprequest.Client{
 		BaseURL: "http://somewhere.invalid",
 		Doer:    mockHttpDoer,
 	}
 
+	mockCaller.EXPECT().ModelTag().Return(testing.ModelTag, false).AnyTimes()
+	mockFacadeCaller.EXPECT().RawAPICaller().Return(mockCaller).AnyTimes()
 	resp := &http.Response{
 		StatusCode: 200,
 		Header:     make(http.Header),
-		Body:       io.NopCloser(strings.NewReader(`{"charm-url": "local:quantal/dummy-1"}`)),
 	}
 	resp.Header.Add("Content-Type", "application/json")
+	resp.Header.Add("Juju-Curl", "local:quantal/dummy-1")
 	mockHttpDoer.EXPECT().Do(
-		&charmUploadMatcher{"http://somewhere.invalid/charms?revision=1&schema=local&series=quantal"},
+		&httpURLMatcher{fmt.Sprintf("http://somewhere.invalid/model-%s/charms/dummy-[a-f0-9]{7}", testing.ModelTag.Id())},
 	).Return(nil, errors.New("boom")).MinTimes(1)
 
-	httpPutter := charms.NewHTTPPutterWithHTTPClient(reqClient)
+	httpPutter := charms.NewS3PutterWithHTTPClient(reqClient)
 	client := charms.NewLocalCharmClientWithFacade(mockFacadeCaller, nil, httpPutter)
 
 	vers := version.MustParse("2.6.6")
@@ -339,21 +415,20 @@ func testMinVer(t minverTest, c *gc.C) {
 		Doer:    mockHttpDoer,
 	}
 
-	mockCaller.EXPECT().Context().Return(context.TODO()).AnyTimes()
-	mockCaller.EXPECT().HTTPClient().Return(reqClient, nil).AnyTimes()
+	mockCaller.EXPECT().ModelTag().Return(testing.ModelTag, false).AnyTimes()
 	mockFacadeCaller.EXPECT().RawAPICaller().Return(mockCaller).AnyTimes()
 
 	resp := &http.Response{
 		StatusCode: 200,
 		Header:     make(http.Header),
-		Body:       io.NopCloser(strings.NewReader(`{"charm-url": "local:quantal/dummy-1"}`)),
 	}
 	resp.Header.Add("Content-Type", "application/json")
+	resp.Header.Add("Juju-Curl", "local:quantal/dummy-1")
 	mockHttpDoer.EXPECT().Do(
-		&charmUploadMatcher{"http://somewhere.invalid/charms?revision=1&schema=local&series=quantal"},
+		&httpURLMatcher{fmt.Sprintf("http://somewhere.invalid/model-%s/charms/dummy-[a-f0-9]{7}", testing.ModelTag.Id())},
 	).Return(resp, nil).AnyTimes()
 
-	httpPutter := charms.NewHTTPPutterWithHTTPClient(reqClient)
+	httpPutter := charms.NewS3PutterWithHTTPClient(reqClient)
 	client := charms.NewLocalCharmClientWithFacade(mockFacadeCaller, nil, httpPutter)
 
 	charmMinVer := version.MustParse(t.charm)
@@ -378,4 +453,24 @@ func testMinVer(t minverTest, c *gc.C) {
 			c.Errorf("Wrong error for jujuver %v, minver %v: expected minVersionError, got: %#v", t.juju, t.charm, err)
 		}
 	}
+}
+
+type httpURLMatcher struct {
+	expectedURL string
+}
+
+func (m httpURLMatcher) Matches(x interface{}) bool {
+	req, ok := x.(*http.Request)
+	if !ok {
+		return false
+	}
+	match, err := regexp.MatchString(m.expectedURL, req.URL.String())
+	if err != nil {
+		panic("httpURLMatcher regexp invalid")
+	}
+	return match
+}
+
+func (m httpURLMatcher) String() string {
+	return fmt.Sprintf("Request URL to match %s", m.expectedURL)
 }

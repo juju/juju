@@ -6,22 +6,19 @@ package charms
 import (
 	"archive/zip"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"fmt"
 	"io"
-	"net/http"
-	"net/url"
 	"os"
-	"strconv"
 	"strings"
 
 	"github.com/juju/charm/v12"
 	"github.com/juju/errors"
 	"github.com/juju/version/v2"
-	"gopkg.in/httprequest.v1"
 
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/core/lxdprofile"
-	"github.com/juju/juju/rpc/params"
 	jujuversion "github.com/juju/juju/version"
 )
 
@@ -33,9 +30,21 @@ type LocalCharmClient struct {
 	charmPutter CharmPutter
 }
 
-func NewLocalCharmClient(st base.APICallCloser, charmPutter CharmPutter) *LocalCharmClient {
+func NewLocalCharmClient(st base.APICallCloser) (*LocalCharmClient, error) {
+	httpPutter, err := newHTTPPutter(st)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	s3Putter, err := newS3Putter(st)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	fallbackPutter, err := newFallbackPutter(s3Putter, httpPutter)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	frontend, backend := base.NewClientFacade(st, "Charms")
-	return &LocalCharmClient{ClientFacade: frontend, facade: backend, charmPutter: charmPutter}
+	return &LocalCharmClient{ClientFacade: frontend, facade: backend, charmPutter: fallbackPutter}, nil
 }
 
 // AddLocalCharm prepares the given charm with a local: schema in its
@@ -71,7 +80,7 @@ func (c *LocalCharmClient) AddLocalCharm(curl *charm.URL, ch charm.Charm, force 
 		if err := ch.ArchiveTo(archive); err != nil {
 			return nil, errors.Annotate(err, "cannot repackage charm")
 		}
-		if _, err := archive.Seek(0, 0); err != nil {
+		if _, err := archive.Seek(0, os.SEEK_SET); err != nil {
 			return nil, errors.Annotate(err, "cannot rewind packaged charm")
 		}
 	case *charm.CharmArchive:
@@ -92,7 +101,15 @@ func (c *LocalCharmClient) AddLocalCharm(curl *charm.URL, ch charm.Charm, force 
 		return nil, errors.Errorf("invalid charm %q: has no hooks nor dispatch file", curl.Name)
 	}
 
-	newCurlStr, err := c.charmPutter.PutCharm(context.Background(), curl.String(), archive)
+	hash, err := hashArchive(archive)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	charmRef := fmt.Sprintf("%s-%s", curl.Name, hash)
+
+	modelTag, _ := c.facade.RawAPICaller().ModelTag()
+
+	newCurlStr, err := c.charmPutter.PutCharm(context.Background(), modelTag.Id(), charmRef, curl.String(), archive)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -167,53 +184,15 @@ func (c *LocalCharmClient) validateCharmVersion(ch charm.Charm, agentVersion ver
 	return nil
 }
 
-type CharmPutter interface {
-	PutCharm(ctx context.Context, curl string, body io.Reader) (string, error)
-}
-
-type HTTPPutter struct {
-	httpClient *httprequest.Client
-}
-
-func NewHTTPPutter(apiConn api.Connection) (CharmPutter, error) {
-	// The returned httpClient sets the base url to /model/<uuid> if it can.
-	apiHTTPClient, err := apiConn.HTTPClient()
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot retrieve http client from the api connection")
-	}
-	return &HTTPPutter{
-		httpClient: apiHTTPClient,
-	}, nil
-}
-
-func (h *HTTPPutter) PutCharm(ctx context.Context, curlStr string, body io.Reader) (string, error) {
-	curl, err := charm.ParseURL(curlStr)
+func hashArchive(archive *os.File) (string, error) {
+	hash := sha256.New()
+	_, err := io.Copy(hash, archive)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	args := url.Values{}
-	args.Add("series", curl.Series)
-	args.Add("schema", curl.Schema)
-	args.Add("revision", strconv.Itoa(curl.Revision))
-	apiURI := url.URL{Path: "/charms", RawQuery: args.Encode()}
-
-	contentType := "application/zip"
-	var resp params.CharmsResponse
-	if err := h.httpPost(ctx, body, apiURI.String(), contentType, &resp); err != nil {
+	_, err = archive.Seek(0, os.SEEK_SET)
+	if err != nil {
 		return "", errors.Trace(err)
 	}
-	return resp.CharmURL, nil
-}
-
-func (h *HTTPPutter) httpPost(ctx context.Context, content io.Reader, endpoint, contentType string, response interface{}) error {
-	req, err := http.NewRequest("POST", endpoint, content)
-	if err != nil {
-		return errors.Annotate(err, "cannot create upload request")
-	}
-	req.Header.Set("Content-Type", contentType)
-
-	if err := h.httpClient.Do(ctx, req, response); err != nil {
-		return errors.Trace(err)
-	}
-	return nil
+	return hex.EncodeToString(hash.Sum(nil))[0:7], nil
 }
