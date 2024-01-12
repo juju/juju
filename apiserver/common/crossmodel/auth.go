@@ -5,12 +5,10 @@ package crossmodel
 
 import (
 	"context"
-	"strings"
 	"time"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/checkers"
-	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"gopkg.in/macaroon.v2"
@@ -64,16 +62,10 @@ func (CrossModelAuthorizer) AuthorizeOps(ctx context.Context, authorizedOp baker
 // AuthContext is used to validate macaroons used to access
 // application offers.
 type AuthContext struct {
+	offerBakery OfferBakeryInterface
 	systemState Backend
 
-	clock              clock.Clock
 	offerThirdPartyKey *bakery.KeyPair
-
-	localOfferBakery authentication.ExpirableStorageBakery
-	jaasOfferBakery  authentication.ExpirableStorageBakery
-
-	localOfferAccessEndpoint string
-	jaasOfferAccessEndpoint  string
 }
 
 // NewAuthContext creates a new authentication context for checking
@@ -81,41 +73,24 @@ type AuthContext struct {
 func NewAuthContext(
 	systemState Backend,
 	offerThirdPartyKey *bakery.KeyPair,
-	localOfferBakery, jaasOfferBakery authentication.ExpirableStorageBakery,
-	jaasOfferAccessEndpoint string,
+	offerBakery OfferBakeryInterface,
 ) (*AuthContext, error) {
 	ctxt := &AuthContext{
-		systemState:             systemState,
-		clock:                   clock.WallClock,
-		localOfferBakery:        localOfferBakery,
-		offerThirdPartyKey:      offerThirdPartyKey,
-		jaasOfferBakery:         jaasOfferBakery,
-		jaasOfferAccessEndpoint: jaasOfferAccessEndpoint,
+		systemState:        systemState,
+		offerThirdPartyKey: offerThirdPartyKey,
+		offerBakery:        offerBakery,
 	}
 	return ctxt, nil
 }
 
-// WithClock creates a new authentication context
-// using the specified clock.
-func (a *AuthContext) WithClock(clock clock.Clock) *AuthContext {
-	ctxtCopy := *a
-	ctxtCopy.clock = clock
-	return &ctxtCopy
-}
-
 // WithDischargeURL create an auth context based on this context and used
 // to perform third party discharges at the specified URL.
-func (a *AuthContext) WithDischargeURL(localOfferAccessEndpoint string) *AuthContext {
+func (a *AuthContext) WithDischargeURL(offerAccessEndpoint string) (*AuthContext, error) {
 	ctxtCopy := *a
-	ctxtCopy.localOfferAccessEndpoint = localOfferAccessEndpoint
-	return &ctxtCopy
-}
-
-func (a *AuthContext) getBakery() authentication.ExpirableStorageBakery {
-	if a.jaasOfferBakery != nil {
-		return a.jaasOfferBakery
+	if err := ctxtCopy.offerBakery.RefreshDischargeURL(offerAccessEndpoint); err != nil {
+		return nil, errors.Trace(err)
 	}
-	return a.localOfferBakery
+	return &ctxtCopy, nil
 }
 
 // OfferThirdPartyKey returns the key used to discharge offer macaroons.
@@ -175,7 +150,7 @@ func (a *AuthContext) CheckLocalAccessRequest(details *offerPermissionCheck) ([]
 		checkers.DeclaredCaveat(sourcemodelKey, details.SourceModelUUID),
 		checkers.DeclaredCaveat(offeruuidKey, details.OfferUUID),
 		checkers.DeclaredCaveat(usernameKey, details.User),
-		checkers.TimeBeforeCaveat(a.clock.Now().Add(offerPermissionExpiryTime)),
+		checkers.TimeBeforeCaveat(a.offerBakery.Clock().Now().Add(offerPermissionExpiryTime)),
 	}
 	if details.Relation != "" {
 		firstPartyCaveats = append(firstPartyCaveats, checkers.DeclaredCaveat(relationKey, details.Relation))
@@ -187,21 +162,21 @@ type userAccessFunc func(names.UserTag, names.Tag) (permission.Access, error)
 
 func (a *AuthContext) checkOfferAccess(userAccess userAccessFunc, username, offerUUID string) error {
 	userTag := names.NewUserTag(username)
-	isAdmin, err := a.hasAccess(userAccess, userTag, permission.SuperuserAccess, a.systemState.ControllerTag())
+	isAdmin, err := hasAccess(userAccess, userTag, permission.SuperuserAccess, a.systemState.ControllerTag())
 	if is := errors.Is(err, authentication.ErrorEntityMissingPermission); err != nil && !is {
 		return apiservererrors.ErrPerm
 	}
 	if isAdmin {
 		return nil
 	}
-	isAdmin, err = a.hasAccess(userAccess, userTag, permission.AdminAccess, a.systemState.ModelTag())
+	isAdmin, err = hasAccess(userAccess, userTag, permission.AdminAccess, a.systemState.ModelTag())
 	if is := errors.Is(err, authentication.ErrorEntityMissingPermission); err != nil && !is {
 		return apiservererrors.ErrPerm
 	}
 	if isAdmin {
 		return nil
 	}
-	isConsume, err := a.hasAccess(userAccess, userTag, permission.ConsumeAccess, names.NewApplicationOfferTag(offerUUID))
+	isConsume, err := hasAccess(userAccess, userTag, permission.ConsumeAccess, names.NewApplicationOfferTag(offerUUID))
 	if is := errors.Is(err, authentication.ErrorEntityMissingPermission); err != nil && !is {
 		return err
 	}
@@ -213,7 +188,7 @@ func (a *AuthContext) checkOfferAccess(userAccess userAccessFunc, username, offe
 	return nil
 }
 
-func (a *AuthContext) hasAccess(userAccess func(names.UserTag, names.Tag) (permission.Access, error), userTag names.UserTag, access permission.Access, target names.Tag) (bool, error) {
+func hasAccess(userAccess func(names.UserTag, names.Tag) (permission.Access, error), userTag names.UserTag, access permission.Access, target names.Tag) (bool, error) {
 	has, err := common.HasPermission(userAccess, userTag, access, target)
 	if errors.Is(err, errors.NotFound) {
 		return false, nil
@@ -221,62 +196,32 @@ func (a *AuthContext) hasAccess(userAccess func(names.UserTag, names.Tag) (permi
 	return has, err
 }
 
-func (a *AuthContext) offerPermissionYaml(sourceModelUUID, username, offerURL, relationKey string, permission permission.Access) (string, error) {
-	out, err := yaml.Marshal(offerPermissionCheck{
-		SourceModelUUID: sourceModelUUID,
-		User:            username,
-		OfferUUID:       offerURL,
-		Relation:        relationKey,
-		Permission:      string(permission),
-	})
-	if err != nil {
-		return "", err
-	}
-	return string(out), nil
-}
-
 // CreateConsumeOfferMacaroon creates a macaroon that authorises access to the specified offer.
-func (a *AuthContext) CreateConsumeOfferMacaroon(ctx context.Context, offer *params.ApplicationOfferDetails, username string, version bakery.Version) (*bakery.Macaroon, error) {
+func (a *AuthContext) CreateConsumeOfferMacaroon(
+	ctx context.Context, offer *params.ApplicationOfferDetails, username string, version bakery.Version,
+) (*bakery.Macaroon, error) {
 	sourceModelTag, err := names.ParseModelTag(offer.SourceModelTag)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	offerUUID := offer.OfferUUID
-	if a.jaasOfferBakery != nil {
-		// We donnot declare the offerUUID here since we will discharge the
-		// macaroon to JaaS to verify the offer access for JaaS flow.
-		offerUUID = ""
-	}
-	return a.createConsumeOfferMacaroon(ctx, offerUUID, sourceModelTag, username, version)
-}
-
-func (a *AuthContext) createConsumeOfferMacaroon(
-	ctx context.Context, offerUUID string, sourceModelTag names.ModelTag, username string, version bakery.Version,
-) (*bakery.Macaroon, error) {
-	expiryTime := a.clock.Now().Add(offerPermissionExpiryTime)
-	bakery, err := a.localOfferBakery.ExpireStorageAfter(offerPermissionExpiryTime)
+	bakery, err := a.offerBakery.Bakery().ExpireStorageAfter(offerPermissionExpiryTime)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
-	caveats := []checkers.Caveat{
-		checkers.TimeBeforeCaveat(expiryTime),
-		checkers.DeclaredCaveat(sourcemodelKey, sourceModelTag.Id()),
-		checkers.DeclaredCaveat(usernameKey, username),
-	}
-	if offerUUID != "" {
-		declaredOfferUUID := checkers.DeclaredCaveat(offeruuidKey, offerUUID)
-		caveats = append(caveats, declaredOfferUUID)
-	}
-	return bakery.NewMacaroon(ctx, version, caveats, crossModelConsumeOp(offerUUID))
+	return bakery.NewMacaroon(
+		ctx, version,
+		a.offerBakery.GetConsumeOfferCaveats(offer.OfferUUID, sourceModelTag.Id(), username),
+		crossModelConsumeOp(offerUUID),
+	)
 }
 
 // CreateRemoteRelationMacaroon creates a macaroon that authorises access to the specified relation.
 func (a *AuthContext) CreateRemoteRelationMacaroon(
 	ctx context.Context, sourceModelUUID, offerUUID, username string, rel names.Tag, version bakery.Version,
 ) (*bakery.Macaroon, error) {
-	expiryTime := a.clock.Now().Add(offerPermissionExpiryTime)
-	bakery, err := a.localOfferBakery.ExpireStorageAfter(offerPermissionExpiryTime)
+	expiryTime := a.offerBakery.Clock().Now().Add(offerPermissionExpiryTime)
+	bakery, err := a.offerBakery.Bakery().ExpireStorageAfter(offerPermissionExpiryTime)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -295,118 +240,8 @@ func (a *AuthContext) CreateRemoteRelationMacaroon(
 	return offerMacaroon, err
 }
 
-func (a *AuthContext) inferDeclaredFromMacaroon(mac macaroon.Slice, requiredValues map[string]string) map[string]string {
-	declared := checkers.InferDeclared(coremacaroon.MacaroonNamespace, mac)
-	authlogger.Debugf("check macaroons with declared attrs: %v", declared)
-	if a.jaasOfferBakery == nil {
-		return declared
-	}
-	// We only need to inject relationKey for jaas flow
-	// because the relation key injected in juju discharge
-	// process will not be injected in Jaas discharge endpoint.
-	if _, ok := declared[relationKey]; !ok {
-		if relation, ok := requiredValues[relationKey]; ok {
-			declared[relationKey] = relation
-		}
-	}
-	return declared
-}
-
-func (a *AuthContext) createDischargeMacaroon(
-	ctx context.Context, username string,
-	requiredValues, declaredValues map[string]string,
-	op bakery.Op, version bakery.Version,
-) (*bakery.Macaroon, error) {
-	if a.jaasOfferBakery == nil {
-		return a.createDischargeMacaroonForLocal(
-			ctx, username, requiredValues, declaredValues, op, version,
-		)
-	}
-	return a.createDischargeMacaroonForExternal(
-		ctx, username, requiredValues, declaredValues, op, version,
-	)
-}
-
-func (a *AuthContext) createDischargeMacaroonForLocal(
-	ctx context.Context, username string,
-	requiredValues, declaredValues map[string]string,
-	op bakery.Op, version bakery.Version,
-) (*bakery.Macaroon, error) {
-	logger.Criticalf("createDischargeMacaroonForLocal")
-	requiredSourceModelUUID := requiredValues[sourcemodelKey]
-	requiredOffer := requiredValues[offeruuidKey]
-	requiredRelation := requiredValues[relationKey]
-	authYaml, err := a.offerPermissionYaml(
-		requiredSourceModelUUID, username, requiredOffer, requiredRelation,
-		permission.ConsumeAccess,
-	)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	bakery, err := a.localOfferBakery.ExpireStorageAfter(offerPermissionExpiryTime)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	requiredKeys := []string{usernameKey}
-	for k := range requiredValues {
-		requiredKeys = append(requiredKeys, k)
-	}
-	return bakery.NewMacaroon(
-		ctx,
-		version,
-		[]checkers.Caveat{
-			checkers.NeedDeclaredCaveat(
-				checkers.Caveat{
-					Location:  a.localOfferAccessEndpoint,
-					Condition: offerPermissionCaveat + " " + authYaml,
-				},
-				requiredKeys...,
-			),
-			checkers.TimeBeforeCaveat(a.clock.Now().Add(offerPermissionExpiryTime)),
-		}, op,
-	)
-}
-
-func (a *AuthContext) createDischargeMacaroonForExternal(
-	ctx context.Context, username string,
-	requiredValues, declaredValues map[string]string,
-	op bakery.Op, version bakery.Version,
-) (*bakery.Macaroon, error) {
-	logger.Criticalf("createDischargeMacaroonForExternal")
-	requiredOffer := requiredValues[offeruuidKey]
-	conditionParts := []string{
-		"is-consumer", names.NewUserTag(username).String(), requiredOffer,
-	}
-
-	conditionCaveat := checkers.Caveat{
-		Location:  a.jaasOfferAccessEndpoint,
-		Condition: strings.Join(conditionParts, " "),
-	}
-	var declaredCaveats []checkers.Caveat
-	for k, v := range declaredValues {
-		declaredCaveats = append(declaredCaveats, checkers.DeclaredCaveat(k, v))
-	}
-	bakery, err := a.jaasOfferBakery.ExpireStorageAfter(offerPermissionExpiryTime)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	macaroon, err := bakery.NewMacaroon(
-		ctx,
-		version,
-		append(
-			[]checkers.Caveat{
-				conditionCaveat,
-				checkers.TimeBeforeCaveat(a.clock.Now().Add(offerPermissionExpiryTime)),
-			},
-			declaredCaveats...,
-		), op,
-	)
-	return macaroon, err
-}
-
 type authenticator struct {
-	clock clock.Clock
-	ctxt  *AuthContext
+	ctxt *AuthContext
 }
 
 const (
@@ -430,7 +265,7 @@ func crossModelRelateOp(relationID string) bakery.Op {
 
 // Authenticator returns an instance used to authenticate macaroons used to access offers.
 func (a *AuthContext) Authenticator() *authenticator {
-	return &authenticator{clock: a.clock, ctxt: a}
+	return &authenticator{ctxt: a}
 }
 
 func (a *authenticator) checkMacaroonCaveats(op bakery.Op, relationId, sourceModelUUID, offerUUID string) error {
@@ -469,7 +304,7 @@ func (a *authenticator) checkMacaroons(
 		}
 		authlogger.Debugf("- mac %s", m.Id())
 	}
-	declared := a.ctxt.inferDeclaredFromMacaroon(mac, requiredValues)
+	declared := a.ctxt.offerBakery.InferDeclaredFromMacaroon(mac, requiredValues)
 	authlogger.Debugf("check macaroons with declared attrs: %v", declared)
 
 	username, ok := declared[usernameKey]
@@ -480,7 +315,7 @@ func (a *authenticator) checkMacaroons(
 	sourceModelUUID := declared[sourcemodelKey]
 	offerUUID := declared[offeruuidKey]
 
-	auth := a.ctxt.getBakery().Auth(mac)
+	auth := a.ctxt.offerBakery.Bakery().Auth(mac)
 	ai, err := auth.Allow(ctx, op)
 	if err == nil && len(ai.Conditions()) > 0 {
 		if err = a.checkMacaroonCaveats(op, relation, sourceModelUUID, offerUUID); err == nil {
@@ -498,10 +333,7 @@ func (a *authenticator) checkMacaroons(
 	}
 	authlogger.Debugf("generating discharge macaroon because: %v", cause)
 
-	m, err := a.ctxt.createDischargeMacaroon(
-		ctx, username,
-		requiredValues, declared, op, version,
-	)
+	m, err := a.ctxt.offerBakery.CreateDischargeMacaroon(ctx, username, requiredValues, declared, op, version)
 	if err != nil {
 		err = errors.Annotate(err, "cannot create macaroon")
 		authlogger.Errorf("cannot create cross model macaroon: %v", err)

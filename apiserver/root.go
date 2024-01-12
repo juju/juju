@@ -115,15 +115,29 @@ func newAPIHandler(srv *Server, st *state.State, rpcConn *rpc.Conn, modelUUID st
 
 	// Facades involved with managing application offers need the auth context
 	// to mint and validate macaroons.
-	localOfferAccessEndpoint := url.URL{
+	offerAccessEndpoint := &url.URL{
 		Scheme: "https",
 		Host:   serverHost,
 		Path:   localOfferAccessLocationPath,
 	}
-	offerAuthCtxt := srv.offerAuthCtxt.WithDischargeURL(localOfferAccessEndpoint.String())
+
+	controllerConfig, err := st.ControllerConfig()
+	if err != nil {
+		return nil, errors.Annotate(err, "unable to get controller config")
+	}
+	loginTokenRefreshURL := controllerConfig.LoginTokenRefreshURL()
+	if loginTokenRefreshURL != "" {
+		offerAccessEndpoint, err = url.Parse(loginTokenRefreshURL)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+	offerAuthCtxt, err := srv.offerAuthCtxt.WithDischargeURL(offerAccessEndpoint.String())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	if err := r.resources.RegisterNamed(
-		"offerAccessAuthContext",
-		common.ValueResource{Value: offerAuthCtxt},
+		"offerAccessAuthContext", common.ValueResource{Value: offerAuthCtxt},
 	); err != nil {
 		return nil, errors.Trace(err)
 	}
