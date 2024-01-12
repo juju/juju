@@ -60,12 +60,6 @@ func (ctxt *httpContext) stateForRequestAuthenticated(r *http.Request) (
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	defer func() {
-		// Here err is the named return arg.
-		if err != nil {
-			st.Release()
-		}
-	}()
 	return st, authInfo.Entity, nil
 }
 
