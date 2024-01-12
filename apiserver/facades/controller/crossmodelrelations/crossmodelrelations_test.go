@@ -12,6 +12,7 @@ import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/checkers"
 	"github.com/juju/charm/v11"
+	"github.com/juju/clock"
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -95,7 +96,10 @@ func (s *crossmodelRelationsSuite) SetUpTest(c *gc.C) {
 	}
 	var err error
 	thirdPartyKey := bakery.MustGenerateKey()
-	s.authContext, err = commoncrossmodel.NewAuthContext(s.st, thirdPartyKey, s.bakery)
+	s.authContext, err = commoncrossmodel.NewAuthContext(
+		s.st, thirdPartyKey,
+		commoncrossmodel.NewOfferBakeryForTest(s.bakery, clock.WallClock),
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	api, err := crossmodelrelations.NewCrossModelRelationsAPI(
 		s.st, fw, s.resources, s.authorizer,
