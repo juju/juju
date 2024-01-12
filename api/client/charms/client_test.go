@@ -4,7 +4,6 @@
 package charms_test
 
 import (
-	"net/http"
 	"os"
 
 	"github.com/juju/charm/v12"
@@ -424,23 +423,4 @@ func (s *charmsMockSuite) TestZipHasNoHooksNorDispath(c *gc.C) {
 	hasHooks, err := f(tempFile.Name())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(hasHooks, jc.IsFalse)
-}
-
-type charmUploadMatcher struct {
-	expectedURL string
-}
-
-func (m charmUploadMatcher) Matches(x interface{}) bool {
-	req, ok := x.(*http.Request)
-	if !ok {
-		return false
-	}
-	if req.URL.String() != m.expectedURL {
-		return false
-	}
-	return true
-}
-
-func (charmUploadMatcher) String() string {
-	return "matches charm upload requests"
 }

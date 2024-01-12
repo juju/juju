@@ -34,9 +34,8 @@ func (s *clientMacaroonIntegrationSuite) createTestClient(c *gc.C) *charms.Local
 	cookieJar := jujutesting.NewClearableCookieJar()
 	s.DischargerLogin = func() string { return username }
 	api := s.OpenAPI(c, nil, cookieJar)
-	httpPutter, err := charms.NewHTTPPutter(api)
+	charmClient, err := charms.NewLocalCharmClient(api)
 	c.Assert(err, jc.ErrorIsNil)
-	charmClient := charms.NewLocalCharmClient(api, httpPutter)
 
 	// Even though we've logged into the API, we want
 	// the tests below to exercise the discharging logic
@@ -53,14 +52,13 @@ func (s *clientMacaroonIntegrationSuite) TestAddLocalCharmWithFailedDischarge(c 
 		fmt.Sprintf("local:quantal/%s-%d", charmArchive.Meta().Name, charmArchive.Revision()),
 	)
 	savedURL, err := charmClient.AddLocalCharm(curl, charmArchive, false, jujuversion.Current)
-	c.Assert(err, gc.ErrorMatches, `Post https://.+: cannot get discharge from "https://.*": third party refused discharge: cannot discharge: login denied by discharger`)
+	c.Assert(err, gc.ErrorMatches, `Put https://.+: cannot get discharge from "https://.*": third party refused discharge: cannot discharge: login denied by discharger`)
 	c.Assert(savedURL, gc.IsNil)
 }
 
 func (s *clientMacaroonIntegrationSuite) TestAddLocalCharmSuccess(c *gc.C) {
-	httpPutter, err := charms.NewHTTPPutter(s.OpenControllerModelAPI(c))
+	charmClient, err := charms.NewLocalCharmClient(s.OpenControllerModelAPI(c))
 	c.Assert(err, jc.ErrorIsNil)
-	charmClient := charms.NewLocalCharmClient(s.OpenControllerModelAPI(c), httpPutter)
 	charmArchive := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
 	curl := charm.MustParseURL(
 		fmt.Sprintf("local:quantal/%s-%d", charmArchive.Meta().Name, charmArchive.Revision()),

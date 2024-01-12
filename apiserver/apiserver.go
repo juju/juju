@@ -770,8 +770,9 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 	modelCharmsUploadAuthorizer := tagKindAuthorizer{names.UserTagKind}
 
 	modelObjectsCharmsHTTPHandler := &objectsCharmHTTPHandler{
-		ctxt:              httpCtxt,
-		objectStoreGetter: srv.shared.objectStoreGetter,
+		ctxt:                httpCtxt,
+		objectStoreGetter:   srv.shared.objectStoreGetter,
+		LegacyCharmsHandler: modelCharmsHTTPHandler,
 	}
 
 	modelToolsUploadHandler := &toolsUploadHandler{
@@ -989,7 +990,7 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		unauthenticated: true,
 	}, {
 		pattern: charmsObjectsRoutePrefix,
-		methods: []string{"GET"},
+		methods: []string{"GET", "PUT"},
 		handler: modelObjectsCharmsHTTPHandler,
 	}}
 	if srv.registerIntrospectionHandlers != nil {
