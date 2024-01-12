@@ -42,9 +42,8 @@ func (h *RestHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // modelRestHandler handles ReST requests through HTTPS in the API server.
 type modelRestHandler struct {
-	ctxt          httpContext
-	dataDir       string
-	stateAuthFunc func(*http.Request) (*state.PooledState, error)
+	ctxt    httpContext
+	dataDir string
 }
 
 // ServeGet handles http GET requests.
