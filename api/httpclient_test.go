@@ -61,6 +61,7 @@ var httpClientTests = []struct {
 	handler         http.HandlerFunc
 	expectResponse  interface{}
 	expectError     string
+	expectErrorIs   errors.ConstError
 	expectErrorCode string
 	expectErrorInfo map[string]interface{}
 }{{
@@ -78,9 +79,10 @@ var httpClientTests = []struct {
 	},
 	expectError: `Get http://.*/: something`,
 }, {
-	about:       "non-JSON error response",
-	handler:     http.NotFound,
-	expectError: `Get http://.*/: unexpected content type text/plain; want application/json; content: 404 page not found`,
+	about:         "non-JSON NotFound error response",
+	handler:       http.NotFound,
+	expectError:   `(?m)Get http://.*/: 404 page not found.*`,
+	expectErrorIs: errors.NotFound,
 }, {
 	about: "bad error response",
 	handler: func(w http.ResponseWriter, req *http.Request) {
@@ -177,6 +179,9 @@ func (s *httpSuite) TestHTTPClient(c *gc.C) {
 		if test.expectError != "" {
 			c.Check(err, gc.ErrorMatches, test.expectError)
 			c.Check(params.ErrCode(err), gc.Equals, test.expectErrorCode)
+			if test.expectErrorIs != "" {
+				c.Check(errors.Cause(err), jc.ErrorIs, test.expectErrorIs)
+			}
 			if err, ok := errors.Cause(err).(*params.Error); ok {
 				c.Check(err.Info, jc.DeepEquals, test.expectErrorInfo)
 			} else if test.expectErrorInfo != nil {

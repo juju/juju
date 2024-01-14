@@ -58,6 +58,7 @@ func (s *SupportedSeriesLinuxSuite) TestUbuntuSeriesVersion(c *gc.C) {
 		{"eoan", "19.10"},
 		{"focal", "20.04"},
 		{"jammy", "22.04"},
+		{"noble", "24.04"},
 	}
 	for _, v := range isUbuntuTests {
 		ver, err := UbuntuSeriesVersion(v.series)
@@ -80,6 +81,6 @@ func (s *SupportedSeriesLinuxSuite) TestWorkloadSeries(c *gc.C) {
 	series, err := WorkloadSeries(time.Time{}, "", "")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(series.SortedValues(), gc.DeepEquals, []string{
-		"centos7", "centos9", "focal", "genericlinux", "jammy",
+		"centos7", "centos9", "focal", "genericlinux", "jammy", "noble",
 	})
 }

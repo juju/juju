@@ -618,14 +618,14 @@ func (c *refreshCommand) upgradeResources(
 func newCharmAdder(
 	conn api.Connection,
 ) (store.CharmAdder, error) {
-	httpPutter, err := apicharms.NewHTTPPutter(conn)
+	localCharmsClient, err := apicharms.NewLocalCharmClient(conn)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return &charmAdderShim{
 		api:               apiclient.NewClient(conn, logger),
 		charmsClient:      apicharms.NewClient(conn),
-		localCharmsClient: apicharms.NewLocalCharmClient(conn, httpPutter),
+		localCharmsClient: localCharmsClient,
 		modelConfigClient: modelconfig.NewClient(conn),
 	}, nil
 }

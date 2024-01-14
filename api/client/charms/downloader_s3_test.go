@@ -12,7 +12,6 @@ import (
 
 	basemocks "github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/api/client/charms"
-	"github.com/juju/juju/api/client/charms/mocks"
 	"github.com/juju/juju/internal/downloader"
 )
 
@@ -28,7 +27,7 @@ func (s *charmS3DownloaderSuite) TestCharmOpener(c *gc.C) {
 	tests := []struct {
 		name               string
 		req                downloader.Request
-		mocks              func(*mocks.MockCharmGetter, *basemocks.MockAPICaller)
+		mocks              func(*MockCharmGetter, *basemocks.MockAPICaller)
 		expectedErrPattern string
 	}{
 		{
@@ -55,7 +54,7 @@ func (s *charmS3DownloaderSuite) TestCharmOpener(c *gc.C) {
 				ArchiveSha256: "abcd0123",
 				URL:           correctURL,
 			},
-			mocks: func(mockGetter *mocks.MockCharmGetter, mockCaller *basemocks.MockAPICaller) {
+			mocks: func(mockGetter *MockCharmGetter, mockCaller *basemocks.MockAPICaller) {
 
 				modelTag := names.NewModelTag("testmodel")
 				mockCaller.EXPECT().ModelTag().Return(modelTag, true)
@@ -71,7 +70,7 @@ func (s *charmS3DownloaderSuite) TestCharmOpener(c *gc.C) {
 		defer ctrl.Finish()
 
 		mockCaller := basemocks.NewMockAPICaller(ctrl)
-		mockGetter := mocks.NewMockCharmGetter(ctrl)
+		mockGetter := NewMockCharmGetter(ctrl)
 		if tt.mocks != nil {
 			tt.mocks(mockGetter, mockCaller)
 		}

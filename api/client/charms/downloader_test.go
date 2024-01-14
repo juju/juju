@@ -47,7 +47,7 @@ func (s *charmDownloaderSuite) TestCharmOpener(c *gc.C) {
 	}
 	resp.Header.Add("Content-Type", "application/json")
 	mockHttpDoer.EXPECT().Do(
-		&charmUploadMatcher{"http://somewhere.invalid/charms?file=%2A&url=ch%3Amycharm"},
+		&httpURLMatcher{"http://somewhere.invalid/charms\\?file=%2A&url=ch%3Amycharm"},
 	).Return(resp, nil).MinTimes(1)
 
 	opener, err := charms.NewCharmOpener(mockCaller)
