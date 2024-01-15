@@ -8,7 +8,7 @@ import (
 	"reflect"
 
 	"github.com/juju/errors"
-	"github.com/juju/worker/v3/catacomb"
+	"github.com/juju/worker/v4/catacomb"
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/controller"

@@ -10,8 +10,8 @@ import (
 	"github.com/juju/errors"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v3"
-	dt "github.com/juju/worker/v3/dependency/testing"
+	"github.com/juju/worker/v4"
+	dt "github.com/juju/worker/v4/dependency/testing"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
@@ -70,7 +70,7 @@ func (s *manifoldSuite) TestStartSuccess(c *gc.C) {
 
 	cfg := s.newManifoldConfig(c)
 
-	work, err := leaseexpiry.Manifold(cfg).Start(s.newStubContext())
+	work, err := leaseexpiry.Manifold(cfg).Start(context.Background(), s.newGetter())
 	c.Check(work, gc.NotNil)
 	c.Check(err, jc.ErrorIsNil)
 }
@@ -83,8 +83,8 @@ func (s *manifoldSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *manifoldSuite) newStubContext() *dt.Context {
-	return dt.StubContext(nil, map[string]interface{}{
+func (s *manifoldSuite) newGetter() *dt.Getter {
+	return dt.StubGetter(map[string]interface{}{
 		"clock-name":       clock.WallClock,
 		"db-accessor-name": stubDBGetter{runner: nil},
 		"trace-name":       stubTracerGetter{},

@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/collections/deque"
 	"github.com/juju/errors"
-	"github.com/juju/worker/v3"
+	"github.com/juju/worker/v4"
 	"github.com/prometheus/client_golang/prometheus"
 	"gopkg.in/tomb.v2"
 

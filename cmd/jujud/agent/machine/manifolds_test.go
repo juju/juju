@@ -4,13 +4,14 @@
 package machine_test
 
 import (
+	"context"
 	"sort"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
@@ -429,7 +430,7 @@ func (*ManifoldsSuite) TestUpgradeGates(c *gc.C) {
 }
 
 func assertGate(c *gc.C, manifold dependency.Manifold, unlocker gate.Unlocker) {
-	w, err := manifold.Start(nil)
+	w, err := manifold.Start(context.Background(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	defer worker.Stop(w)
 

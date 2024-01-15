@@ -4,11 +4,13 @@
 package gate_test
 
 import (
+	"context"
+
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
-	"github.com/juju/worker/v3/workertest"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
+	"github.com/juju/worker/v4/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/worker/gate"
@@ -25,7 +27,7 @@ var _ = gc.Suite(&ManifoldSuite{})
 func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.manifold = gate.Manifold()
-	w, err := s.manifold.Start(nil)
+	w, err := s.manifold.Start(context.Background(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.worker = w
 }
@@ -64,7 +66,7 @@ func (s *ManifoldSuite) TestRestartLocks(c *gc.C) {
 	u.Unlock()
 
 	workertest.CleanKill(c, s.worker)
-	worker, err := s.manifold.Start(nil)
+	worker, err := s.manifold.Start(context.Background(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, worker)
 
@@ -75,11 +77,11 @@ func (s *ManifoldSuite) TestRestartLocks(c *gc.C) {
 func (s *ManifoldSuite) TestManifoldWithLockWorkersConnected(c *gc.C) {
 	lock := gate.NewLock()
 	manifold := gate.ManifoldEx(lock)
-	worker, err := manifold.Start(nil)
+	worker, err := manifold.Start(context.Background(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, worker)
 
-	worker2, err := manifold.Start(nil)
+	worker2, err := manifold.Start(context.Background(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, worker2)
 
@@ -103,7 +105,7 @@ func (s *ManifoldSuite) TestLockOutput(c *gc.C) {
 
 func (s *ManifoldSuite) TestDifferentManifoldWorkersUnconnected(c *gc.C) {
 	manifold2 := gate.Manifold()
-	worker2, err := manifold2.Start(nil)
+	worker2, err := manifold2.Start(context.Background(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	defer checkStop(c, worker2)
 
@@ -126,7 +128,7 @@ func (s *ManifoldSuite) TestManifoldEx(c *gc.C) {
 	var waiter1 gate.Waiter = lock
 	var unlocker1 gate.Unlocker = lock
 
-	worker, err := manifold.Start(nil)
+	worker, err := manifold.Start(context.Background(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	defer checkStop(c, worker)
 	waiter2 := waiter(c, manifold, worker)

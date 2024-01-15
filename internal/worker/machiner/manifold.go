@@ -8,8 +8,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
 
 	"github.com/juju/juju/agent"
 	apiagent "github.com/juju/juju/api/agent/agent"
@@ -34,17 +34,17 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.APICallerName,
 			config.FanConfigurerName,
 		},
-		Start: func(context dependency.Context) (worker.Worker, error) {
+		Start: func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
 			var agent agent.Agent
-			if err := context.Get(config.AgentName, &agent); err != nil {
+			if err := getter.Get(config.AgentName, &agent); err != nil {
 				return nil, err
 			}
 			var apiCaller base.APICaller
-			if err := context.Get(config.APICallerName, &apiCaller); err != nil {
+			if err := getter.Get(config.APICallerName, &apiCaller); err != nil {
 				return nil, err
 			}
 			var fanConfigurerReady bool
-			if err := context.Get(config.FanConfigurerName, &fanConfigurerReady); err != nil {
+			if err := getter.Get(config.FanConfigurerName, &fanConfigurerReady); err != nil {
 				return nil, err
 			}
 			if !fanConfigurerReady {

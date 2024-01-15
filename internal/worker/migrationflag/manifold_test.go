@@ -4,12 +4,14 @@
 package migrationflag_test
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
-	dt "github.com/juju/worker/v3/dependency/testing"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
+	dt "github.com/juju/worker/v4/dependency/testing"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent/engine"
@@ -97,19 +99,19 @@ func (*ManifoldSuite) TestStartMissingNewWorker(c *gc.C) {
 }
 
 func (*ManifoldSuite) TestStartMissingAPICaller(c *gc.C) {
-	context := dt.StubContext(nil, map[string]interface{}{
+	getter := dt.StubGetter(map[string]interface{}{
 		"api-caller": dependency.ErrMissing,
 	})
 	manifold := migrationflag.Manifold(validManifoldConfig())
 
-	worker, err := manifold.Start(context)
+	worker, err := manifold.Start(context.Background(), getter)
 	c.Check(worker, gc.IsNil)
 	c.Check(errors.Cause(err), gc.Equals, dependency.ErrMissing)
 }
 
 func (*ManifoldSuite) TestStartNewFacadeError(c *gc.C) {
 	expectCaller := &stubCaller{}
-	context := dt.StubContext(nil, map[string]interface{}{
+	getter := dt.StubGetter(map[string]interface{}{
 		"api-caller": expectCaller,
 	})
 	config := validManifoldConfig()
@@ -119,13 +121,13 @@ func (*ManifoldSuite) TestStartNewFacadeError(c *gc.C) {
 	}
 	manifold := migrationflag.Manifold(config)
 
-	worker, err := manifold.Start(context)
+	worker, err := manifold.Start(context.Background(), getter)
 	c.Check(worker, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "bort")
 }
 
 func (*ManifoldSuite) TestStartNewWorkerError(c *gc.C) {
-	context := dt.StubContext(nil, map[string]interface{}{
+	getter := dt.StubGetter(map[string]interface{}{
 		"api-caller": &stubCaller{},
 	})
 	expectFacade := &struct{ migrationflag.Facade }{}
@@ -141,13 +143,13 @@ func (*ManifoldSuite) TestStartNewWorkerError(c *gc.C) {
 	}
 	manifold := migrationflag.Manifold(config)
 
-	worker, err := manifold.Start(context)
+	worker, err := manifold.Start(context.Background(), getter)
 	c.Check(worker, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "snerk")
 }
 
 func (*ManifoldSuite) TestStartSuccess(c *gc.C) {
-	context := dt.StubContext(nil, map[string]interface{}{
+	getter := dt.StubGetter(map[string]interface{}{
 		"api-caller": &stubCaller{},
 	})
 	expectWorker := &struct{ worker.Worker }{}
@@ -160,7 +162,7 @@ func (*ManifoldSuite) TestStartSuccess(c *gc.C) {
 	}
 	manifold := migrationflag.Manifold(config)
 
-	worker, err := manifold.Start(context)
+	worker, err := manifold.Start(context.Background(), getter)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(worker, gc.Equals, expectWorker)
 }

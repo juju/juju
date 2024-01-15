@@ -9,9 +9,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
-	dt "github.com/juju/worker/v3/dependency/testing"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
+	dt "github.com/juju/worker/v4/dependency/testing"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/base"
@@ -77,7 +77,7 @@ func (s *manifoldSuite) TestAPICallerMissing(c *gc.C) {
 	resources := resourcesMissing("api-caller")
 	manifold := undertaker.Manifold(s.namesConfig())
 
-	worker, err := manifold.Start(resources.Context())
+	worker, err := manifold.Start(context.Background(), resources.Getter())
 	c.Check(errors.Cause(err), gc.Equals, dependency.ErrMissing)
 	c.Check(worker, gc.IsNil)
 }
@@ -91,7 +91,7 @@ func (s *manifoldSuite) TestNewFacadeError(c *gc.C) {
 	}
 	manifold := undertaker.Manifold(config)
 
-	worker, err := manifold.Start(resources.Context())
+	worker, err := manifold.Start(context.Background(), resources.Getter())
 	c.Check(err, gc.ErrorMatches, "blort")
 	c.Check(worker, gc.IsNil)
 }
@@ -107,7 +107,7 @@ func (s *manifoldSuite) TestNewCredentialAPIError(c *gc.C) {
 	manifold := undertaker.Manifold(config)
 
 	resources := resourcesMissing()
-	worker, err := manifold.Start(resources.Context())
+	worker, err := manifold.Start(context.Background(), resources.Getter())
 	c.Check(err, gc.ErrorMatches, "blort")
 	c.Check(worker, gc.IsNil)
 }
@@ -125,7 +125,7 @@ func (s *manifoldSuite) TestNewWorkerError(c *gc.C) {
 	}
 	manifold := undertaker.Manifold(config)
 
-	worker, err := manifold.Start(resources.Context())
+	worker, err := manifold.Start(context.Background(), resources.Getter())
 	c.Check(err, gc.ErrorMatches, "lhiis")
 	c.Check(worker, gc.IsNil)
 }
@@ -144,7 +144,7 @@ func (s *manifoldSuite) TestNewWorkerSuccess(c *gc.C) {
 	manifold := undertaker.Manifold(config)
 	resources := resourcesMissing()
 
-	worker, err := manifold.Start(resources.Context())
+	worker, err := manifold.Start(context.Background(), resources.Getter())
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(worker, gc.Equals, expectWorker)
 	c.Assert(gotConfig.Logger, gc.Equals, &s.logger)

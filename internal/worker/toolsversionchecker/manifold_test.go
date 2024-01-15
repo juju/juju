@@ -7,8 +7,8 @@ import (
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"

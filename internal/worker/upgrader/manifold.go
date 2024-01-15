@@ -4,12 +4,13 @@
 package upgrader
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/version/v2"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/agent/upgrader"
@@ -59,16 +60,16 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 
 	return dependency.Manifold{
 		Inputs: inputs,
-		Start: func(context dependency.Context) (worker.Worker, error) {
+		Start: func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
 
 			var agent agent.Agent
-			if err := context.Get(config.AgentName, &agent); err != nil {
+			if err := getter.Get(config.AgentName, &agent); err != nil {
 				return nil, err
 			}
 			currentConfig := agent.CurrentConfig()
 
 			var apiCaller base.APICaller
-			if err := context.Get(config.APICallerName, &apiCaller); err != nil {
+			if err := getter.Get(config.APICallerName, &apiCaller); err != nil {
 				return nil, err
 			}
 			upgraderFacade := upgrader.NewClient(apiCaller)
@@ -80,14 +81,14 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				if config.PreviousAgentVersion == version.Zero {
 					return nil, errors.New("previous agent version not specified")
 				}
-				if err := context.Get(config.UpgradeStepsGateName, &upgradeStepsWaiter); err != nil {
+				if err := getter.Get(config.UpgradeStepsGateName, &upgradeStepsWaiter); err != nil {
 					return nil, err
 				}
 			}
 
 			var initialCheckUnlocker gate.Unlocker
 			if config.UpgradeCheckGateName != "" {
-				if err := context.Get(config.UpgradeCheckGateName, &initialCheckUnlocker); err != nil {
+				if err := getter.Get(config.UpgradeCheckGateName, &initialCheckUnlocker); err != nil {
 					return nil, err
 				}
 			}

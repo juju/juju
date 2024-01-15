@@ -7,7 +7,7 @@ package common
 import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	"github.com/juju/worker/v3"
+	"github.com/juju/worker/v4"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/rpc/params"

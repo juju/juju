@@ -12,7 +12,7 @@ package mocks
 import (
 	reflect "reflect"
 
-	worker "github.com/juju/worker/v3"
+	worker "github.com/juju/worker/v4"
 	gomock "go.uber.org/mock/gomock"
 )
 

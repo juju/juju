@@ -4,8 +4,10 @@
 package engine
 
 import (
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
+	"context"
+
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
 
 	"github.com/juju/juju/api/base"
 )
@@ -26,9 +28,9 @@ func APIManifold(config APIManifoldConfig, start APIStartFunc) dependency.Manifo
 		Inputs: []string{
 			config.APICallerName,
 		},
-		Start: func(context dependency.Context) (worker.Worker, error) {
+		Start: func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
 			var apiCaller base.APICaller
-			if err := context.Get(config.APICallerName, &apiCaller); err != nil {
+			if err := getter.Get(config.APICallerName, &apiCaller); err != nil {
 				return nil, err
 			}
 			return start(apiCaller)

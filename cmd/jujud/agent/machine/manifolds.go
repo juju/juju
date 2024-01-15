@@ -4,6 +4,7 @@
 package machine
 
 import (
+	"context"
 	stdcontext "context"
 	"net/http"
 	"runtime"
@@ -16,8 +17,8 @@ import (
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/utils/v3/voyeur"
 	"github.com/juju/version/v2"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
 	"github.com/prometheus/client_golang/prometheus"
 
 	coreagent "github.com/juju/juju/agent"
@@ -665,7 +666,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		}),
 
 		charmhubHTTPClientName: dependency.Manifold{
-			Start: func(_ dependency.Context) (worker.Worker, error) {
+			Start: func(_ context.Context, _ dependency.Getter) (worker.Worker, error) {
 				return engine.NewValueWorker(config.CharmhubHTTPClient)
 			},
 			Output: engine.ValueWorkerOutput,
@@ -1125,7 +1126,7 @@ func mergeManifolds(config ManifoldsConfig, manifolds dependency.Manifolds) depe
 
 func clockManifold(clock clock.Clock) dependency.Manifold {
 	return dependency.Manifold{
-		Start: func(_ dependency.Context) (worker.Worker, error) {
+		Start: func(_ context.Context, _ dependency.Getter) (worker.Worker, error) {
 			return engine.NewValueWorker(clock)
 		},
 		Output: engine.ValueWorkerOutput,

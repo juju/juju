@@ -7,7 +7,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils/v3/voyeur"
 	"github.com/juju/version/v2"
-	"github.com/juju/worker/v3/dependency"
+	"github.com/juju/worker/v4/dependency"
 
 	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/api"

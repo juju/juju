@@ -4,10 +4,12 @@
 package stateconverter
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
@@ -55,13 +57,13 @@ func (cfg ManifoldConfig) Validate() error {
 }
 
 // start is a StartFunc for a Worker manifold.
-func (cfg ManifoldConfig) start(context dependency.Context) (worker.Worker, error) {
+func (cfg ManifoldConfig) start(context context.Context, getter dependency.Getter) (worker.Worker, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	var a agent.Agent
-	if err := context.Get(cfg.AgentName, &a); err != nil {
+	if err := getter.Get(cfg.AgentName, &a); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -71,7 +73,7 @@ func (cfg ManifoldConfig) start(context dependency.Context) (worker.Worker, erro
 		return nil, errors.NotValidf("%q machine tag", a)
 	}
 
-	machiner, err := cfg.newMachiner(context)
+	machiner, err := cfg.newMachiner(getter)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -91,13 +93,13 @@ func (cfg ManifoldConfig) start(context dependency.Context) (worker.Worker, erro
 	return w, nil
 }
 
-func (cfg ManifoldConfig) newMachiner(context dependency.Context) (Machiner, error) {
+func (cfg ManifoldConfig) newMachiner(getter dependency.Getter) (Machiner, error) {
 	if cfg.NewMachinerAPI != nil {
 		machiner := cfg.NewMachinerAPI(nil)
 		return machiner, nil
 	}
 	var apiConn api.Connection
-	if err := context.Get(cfg.APICallerName, &apiConn); err != nil {
+	if err := getter.Get(cfg.APICallerName, &apiConn); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return wrapper{m: apimachiner.NewClient(apiConn)}, nil

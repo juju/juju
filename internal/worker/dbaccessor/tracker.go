@@ -12,7 +12,7 @@ import (
 	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/worker/v3"
+	"github.com/juju/worker/v4"
 	"gopkg.in/tomb.v2"
 
 	coredatabase "github.com/juju/juju/core/database"

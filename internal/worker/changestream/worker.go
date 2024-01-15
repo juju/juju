@@ -6,8 +6,8 @@ package changestream
 import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/catacomb"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/catacomb"
 
 	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"

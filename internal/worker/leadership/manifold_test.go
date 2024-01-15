@@ -4,15 +4,16 @@
 package leadership_test
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
-	dt "github.com/juju/worker/v3/dependency/testing"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
+	dt "github.com/juju/worker/v4/dependency/testing"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
@@ -46,31 +47,31 @@ func (s *ManifoldSuite) TestInputs(c *gc.C) {
 
 func (s *ManifoldSuite) TestStartClockMissing(c *gc.C) {
 	manifold := leadership.Manifold(leadership.ManifoldConfig{})
-	context := dt.StubContext(nil, nil)
-	worker, err := manifold.Start(context)
+	getter := dt.StubGetter(nil)
+	worker, err := manifold.Start(context.Background(), getter)
 	c.Check(worker, gc.IsNil)
 	c.Check(err.Error(), gc.Equals, "missing Clock not valid")
 	c.Check(err, jc.ErrorIs, errors.NotValid)
 }
 
 func (s *ManifoldSuite) TestStartAgentMissing(c *gc.C) {
-	context := dt.StubContext(nil, map[string]interface{}{
+	getter := dt.StubGetter(map[string]interface{}{
 		"agent-name":      dependency.ErrMissing,
 		"api-caller-name": &dummyAPICaller{},
 	})
 
-	worker, err := s.manifold.Start(context)
+	worker, err := s.manifold.Start(context.Background(), getter)
 	c.Check(worker, gc.IsNil)
 	c.Check(err, gc.Equals, dependency.ErrMissing)
 }
 
 func (s *ManifoldSuite) TestStartAPICallerMissing(c *gc.C) {
-	context := dt.StubContext(nil, map[string]interface{}{
+	getter := dt.StubGetter(map[string]interface{}{
 		"agent-name":      &dummyAgent{},
 		"api-caller-name": dependency.ErrMissing,
 	})
 
-	worker, err := s.manifold.Start(context)
+	worker, err := s.manifold.Start(context.Background(), getter)
 	c.Check(worker, gc.IsNil)
 	c.Check(err, gc.Equals, dependency.ErrMissing)
 }
@@ -78,7 +79,7 @@ func (s *ManifoldSuite) TestStartAPICallerMissing(c *gc.C) {
 func (s *ManifoldSuite) TestStartError(c *gc.C) {
 	dummyAgent := &dummyAgent{}
 	dummyAPICaller := &dummyAPICaller{}
-	context := dt.StubContext(nil, map[string]interface{}{
+	getter := dt.StubGetter(map[string]interface{}{
 		"agent-name":      dummyAgent,
 		"api-caller-name": dummyAPICaller,
 	})
@@ -87,7 +88,7 @@ func (s *ManifoldSuite) TestStartError(c *gc.C) {
 		return nil, errors.New("blammo")
 	})
 
-	worker, err := s.manifold.Start(context)
+	worker, err := s.manifold.Start(context.Background(), getter)
 	c.Check(worker, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "blammo")
 	s.CheckCalls(c, []testing.StubCall{{
@@ -99,7 +100,7 @@ func (s *ManifoldSuite) TestStartError(c *gc.C) {
 func (s *ManifoldSuite) TestStartSuccess(c *gc.C) {
 	dummyAgent := &dummyAgent{}
 	dummyAPICaller := &dummyAPICaller{}
-	context := dt.StubContext(nil, map[string]interface{}{
+	getter := dt.StubGetter(map[string]interface{}{
 		"agent-name":      dummyAgent,
 		"api-caller-name": dummyAPICaller,
 	})
@@ -109,7 +110,7 @@ func (s *ManifoldSuite) TestStartSuccess(c *gc.C) {
 		return dummyWorker, nil
 	})
 
-	worker, err := s.manifold.Start(context)
+	worker, err := s.manifold.Start(context.Background(), getter)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(worker, gc.Equals, dummyWorker)
 	s.CheckCalls(c, []testing.StubCall{{

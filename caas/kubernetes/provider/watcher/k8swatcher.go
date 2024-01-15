@@ -9,7 +9,7 @@ import (
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/worker/v3/catacomb"
+	"github.com/juju/worker/v4/catacomb"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/client-go/tools/cache"
 

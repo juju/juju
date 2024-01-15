@@ -4,13 +4,15 @@
 package lifeflag_test
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
-	dt "github.com/juju/worker/v3/dependency/testing"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
+	dt "github.com/juju/worker/v4/dependency/testing"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
@@ -68,14 +70,14 @@ func (*ManifoldSuite) TestOutputSuccess(c *gc.C) {
 }
 
 func (*ManifoldSuite) TestMissingAPICaller(c *gc.C) {
-	context := dt.StubContext(nil, map[string]interface{}{
+	getter := dt.StubGetter(map[string]interface{}{
 		"api-caller": dependency.ErrMissing,
 	})
 	manifold := lifeflag.Manifold(lifeflag.ManifoldConfig{
 		APICallerName: "api-caller",
 	})
 
-	worker, err := manifold.Start(context)
+	worker, err := manifold.Start(context.Background(), getter)
 	c.Check(worker, gc.IsNil)
 	c.Check(errors.Cause(err), gc.Equals, dependency.ErrMissing)
 }
@@ -83,7 +85,7 @@ func (*ManifoldSuite) TestMissingAPICaller(c *gc.C) {
 func (*ManifoldSuite) TestNewWorkerError(c *gc.C) {
 	expectFacade := struct{ lifeflag.Facade }{}
 	expectEntity := names.NewMachineTag("33")
-	context := dt.StubContext(nil, map[string]interface{}{
+	getter := dt.StubGetter(map[string]interface{}{
 		"api-caller": struct{ base.APICaller }{},
 	})
 	manifold := lifeflag.Manifold(lifeflag.ManifoldConfig{
@@ -101,14 +103,14 @@ func (*ManifoldSuite) TestNewWorkerError(c *gc.C) {
 		},
 	})
 
-	worker, err := manifold.Start(context)
+	worker, err := manifold.Start(context.Background(), getter)
 	c.Check(worker, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "boof")
 }
 
 func (*ManifoldSuite) TestNewWorkerSuccess(c *gc.C) {
 	expectWorker := &struct{ worker.Worker }{}
-	context := dt.StubContext(nil, map[string]interface{}{
+	getter := dt.StubGetter(map[string]interface{}{
 		"api-caller": struct{ base.APICaller }{},
 	})
 	manifold := lifeflag.Manifold(lifeflag.ManifoldConfig{
@@ -121,14 +123,14 @@ func (*ManifoldSuite) TestNewWorkerSuccess(c *gc.C) {
 		},
 	})
 
-	worker, err := manifold.Start(context)
+	worker, err := manifold.Start(context.Background(), getter)
 	c.Check(worker, gc.Equals, expectWorker)
 	c.Check(err, jc.ErrorIsNil)
 }
 
 func (*ManifoldSuite) TestNewWorkerSuccessWithAgentName(c *gc.C) {
 	expectWorker := &struct{ worker.Worker }{}
-	context := dt.StubContext(nil, map[string]interface{}{
+	getter := dt.StubGetter(map[string]interface{}{
 		"api-caller": struct{ base.APICaller }{},
 		"agent-name": &fakeAgent{config: fakeConfig{tag: names.NewUnitTag("ubuntu/0")}},
 	})
@@ -144,7 +146,7 @@ func (*ManifoldSuite) TestNewWorkerSuccessWithAgentName(c *gc.C) {
 		},
 	})
 
-	worker, err := manifold.Start(context)
+	worker, err := manifold.Start(context.Background(), getter)
 	c.Check(worker, gc.Equals, expectWorker)
 	c.Check(err, jc.ErrorIsNil)
 }

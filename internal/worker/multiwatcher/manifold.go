@@ -4,11 +4,12 @@
 package multiwatcher
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/juju/juju/core/multiwatcher"
@@ -81,12 +82,12 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 }
 
 // start is a method on ManifoldConfig because it's more readable than a closure.
-func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, error) {
+func (config ManifoldConfig) start(context context.Context, getter dependency.Getter) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
 	var stTracker workerstate.StateTracker
-	if err := context.Get(config.StateName, &stTracker); err != nil {
+	if err := getter.Get(config.StateName, &stTracker); err != nil {
 		return nil, errors.Trace(err)
 	}
 

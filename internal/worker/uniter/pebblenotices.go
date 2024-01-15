@@ -9,7 +9,7 @@ import (
 	"github.com/canonical/pebble/client"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/worker/v3"
+	"github.com/juju/worker/v4"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/internal/worker/uniter/container"

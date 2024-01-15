@@ -4,11 +4,13 @@
 package pubsub
 
 import (
+	"context"
+
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/pubsub/v2"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
 
 	coreagent "github.com/juju/juju/agent"
 )
@@ -41,17 +43,17 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.AgentName,
 			config.CentralHubName,
 		},
-		Start: func(context dependency.Context) (worker.Worker, error) {
+		Start: func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
 			// Get the agent.
 			var agent coreagent.Agent
-			if err := context.Get(config.AgentName, &agent); err != nil {
+			if err := getter.Get(config.AgentName, &agent); err != nil {
 				return nil, err
 			}
 			agentConfig := agent.CurrentConfig()
 
 			// Get the hub.
 			var hub *pubsub.StructuredHub
-			if err := context.Get(config.CentralHubName, &hub); err != nil {
+			if err := getter.Get(config.CentralHubName, &hub); err != nil {
 				return nil, err
 			}
 

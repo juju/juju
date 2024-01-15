@@ -8,9 +8,9 @@ import (
 	"time"
 
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
-	"github.com/juju/worker/v3/workertest"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
+	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 

@@ -4,13 +4,15 @@
 package migrationflag_test
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v3"
-	dt "github.com/juju/worker/v3/dependency/testing"
-	"github.com/juju/worker/v3/workertest"
+	"github.com/juju/worker/v4"
+	dt "github.com/juju/worker/v4/dependency/testing"
+	"github.com/juju/worker/v4/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/base"
@@ -159,7 +161,7 @@ func validManifoldConfig() migrationflag.ManifoldConfig {
 // a manifold that cannot be started.
 func checkManifoldNotValid(c *gc.C, config migrationflag.ManifoldConfig, expect string) {
 	manifold := migrationflag.Manifold(config)
-	worker, err := manifold.Start(dt.StubContext(nil, nil))
+	worker, err := manifold.Start(context.Background(), dt.StubGetter(nil))
 	c.Check(worker, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, expect)
 	c.Check(err, jc.ErrorIs, errors.NotValid)

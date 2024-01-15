@@ -4,11 +4,13 @@
 package provisioner
 
 import (
+	"context"
+
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
 
 	"github.com/juju/juju/agent"
 	apiprovisioner "github.com/juju/juju/api/agent/provisioner"
@@ -69,13 +71,13 @@ func (cfg ContainerManifoldConfig) Validate() error {
 	return nil
 }
 
-func (cfg ContainerManifoldConfig) start(context dependency.Context) (worker.Worker, error) {
+func (cfg ContainerManifoldConfig) start(context context.Context, getter dependency.Getter) (worker.Worker, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	var a agent.Agent
-	if err := context.Get(cfg.AgentName, &a); err != nil {
+	if err := getter.Get(cfg.AgentName, &a); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -89,7 +91,7 @@ func (cfg ContainerManifoldConfig) start(context dependency.Context) (worker.Wor
 	}
 
 	var apiCaller base.APICaller
-	if err := context.Get(cfg.APICallerName, &apiCaller); err != nil {
+	if err := getter.Get(cfg.APICallerName, &apiCaller); err != nil {
 		return nil, errors.Trace(err)
 	}
 	pr := apiprovisioner.NewClient(apiCaller)

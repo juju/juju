@@ -10,8 +10,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"github.com/juju/os/v2/series"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/catacomb"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/catacomb"
 
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/rpc/params"

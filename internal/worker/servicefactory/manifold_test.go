@@ -4,11 +4,13 @@
 package servicefactory
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v3"
-	dt "github.com/juju/worker/v3/dependency/testing"
-	"github.com/juju/worker/v3/workertest"
+	"github.com/juju/worker/v4"
+	dt "github.com/juju/worker/v4/dependency/testing"
+	"github.com/juju/worker/v4/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/changestream"
@@ -59,7 +61,7 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 }
 
 func (s *manifoldSuite) TestStart(c *gc.C) {
-	context := map[string]any{
+	getter := map[string]any{
 		"dbaccessor":   s.dbDeleter,
 		"changestream": s.dbGetter,
 	}
@@ -73,7 +75,7 @@ func (s *manifoldSuite) TestStart(c *gc.C) {
 		NewControllerServiceFactory: NewControllerServiceFactory,
 		NewModelServiceFactory:      NewModelServiceFactory,
 	})
-	w, err := manifold.Start(dt.StubContext(nil, context))
+	w, err := manifold.Start(context.Background(), dt.StubGetter(getter))
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 

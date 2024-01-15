@@ -16,7 +16,7 @@ import (
 	environs "github.com/juju/juju/environs"
 	instancemutater0 "github.com/juju/juju/internal/worker/instancemutater"
 	names "github.com/juju/names/v5"
-	worker "github.com/juju/worker/v3"
+	worker "github.com/juju/worker/v4"
 	gomock "go.uber.org/mock/gomock"
 )
 

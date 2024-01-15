@@ -4,15 +4,17 @@
 package terminationworker
 
 import (
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
+	"context"
+
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
 )
 
 // Manifold returns a manifold whose worker returns ErrTerminateAgent
 // if a termination signal is received by the process it's running in.
 func Manifold() dependency.Manifold {
 	return dependency.Manifold{
-		Start: func(_ dependency.Context) (worker.Worker, error) {
+		Start: func(_ context.Context, _ dependency.Getter) (worker.Worker, error) {
 			return NewWorker(), nil
 		},
 	}

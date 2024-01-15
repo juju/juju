@@ -4,12 +4,14 @@
 package applicationscaler_test
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
-	dt "github.com/juju/worker/v3/dependency/testing"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
+	dt "github.com/juju/worker/v4/dependency/testing"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/base"
@@ -38,11 +40,11 @@ func (s *ManifoldSuite) TestStartMissingAPICaller(c *gc.C) {
 	manifold := applicationscaler.Manifold(applicationscaler.ManifoldConfig{
 		APICallerName: "api-caller",
 	})
-	context := dt.StubContext(nil, map[string]interface{}{
+	getter := dt.StubGetter(map[string]interface{}{
 		"api-caller": dependency.ErrMissing,
 	})
 
-	worker, err := manifold.Start(context)
+	worker, err := manifold.Start(context.Background(), getter)
 	c.Check(errors.Cause(err), gc.Equals, dependency.ErrMissing)
 	c.Check(worker, gc.IsNil)
 }
@@ -56,11 +58,11 @@ func (s *ManifoldSuite) TestStartFacadeError(c *gc.C) {
 			return nil, errors.New("blort")
 		},
 	})
-	context := dt.StubContext(nil, map[string]interface{}{
+	getter := dt.StubGetter(map[string]interface{}{
 		"api-caller": expectCaller,
 	})
 
-	worker, err := manifold.Start(context)
+	worker, err := manifold.Start(context.Background(), getter)
 	c.Check(err, gc.ErrorMatches, "blort")
 	c.Check(worker, gc.IsNil)
 }
@@ -78,11 +80,11 @@ func (s *ManifoldSuite) TestStartWorkerError(c *gc.C) {
 			return nil, errors.New("splot")
 		},
 	})
-	context := dt.StubContext(nil, map[string]interface{}{
+	getter := dt.StubGetter(map[string]interface{}{
 		"api-caller": &fakeCaller{},
 	})
 
-	worker, err := manifold.Start(context)
+	worker, err := manifold.Start(context.Background(), getter)
 	c.Check(err, gc.ErrorMatches, "splot")
 	c.Check(worker, gc.IsNil)
 }
@@ -98,11 +100,11 @@ func (s *ManifoldSuite) TestSuccess(c *gc.C) {
 			return expectWorker, nil
 		},
 	})
-	context := dt.StubContext(nil, map[string]interface{}{
+	getter := dt.StubGetter(map[string]interface{}{
 		"api-caller": &fakeCaller{},
 	})
 
-	worker, err := manifold.Start(context)
+	worker, err := manifold.Start(context.Background(), getter)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(worker, gc.Equals, expectWorker)
 }

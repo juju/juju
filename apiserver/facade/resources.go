@@ -3,7 +3,7 @@
 
 package facade
 
-import "github.com/juju/worker/v3"
+import "github.com/juju/worker/v4"
 
 // Resources allows you to store and retrieve Resource implementations.
 //

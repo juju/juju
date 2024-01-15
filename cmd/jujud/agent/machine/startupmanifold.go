@@ -4,9 +4,11 @@
 package machine
 
 import (
+	"context"
+
 	"github.com/juju/errors"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
 
 	"github.com/juju/juju/api"
 )
@@ -47,7 +49,7 @@ func MachineStartupManifold(config MachineStartupConfig) dependency.Manifold {
 		Inputs: []string{
 			config.APICallerName,
 		},
-		Start: func(context dependency.Context) (worker.Worker, error) {
+		Start: func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
 			if err := config.Validate(); err != nil {
 				return nil, err
 			}
@@ -55,7 +57,7 @@ func MachineStartupManifold(config MachineStartupConfig) dependency.Manifold {
 
 			// Get API connection.
 			var apiConn api.Connection
-			if err := context.Get(config.APICallerName, &apiConn); err != nil {
+			if err := getter.Get(config.APICallerName, &apiConn); err != nil {
 				return nil, err
 			}
 			if err := config.MachineStartup(apiConn, config.Logger); err != nil {

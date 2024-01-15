@@ -4,12 +4,14 @@
 package environupgrader_test
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
-	dt "github.com/juju/worker/v3/dependency/testing"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
+	dt "github.com/juju/worker/v4/dependency/testing"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/base"
@@ -35,7 +37,7 @@ func (*ManifoldSuite) TestInputs(c *gc.C) {
 }
 
 func (*ManifoldSuite) TestMissingAPICaller(c *gc.C) {
-	context := dt.StubContext(nil, map[string]interface{}{
+	getter := dt.StubGetter(map[string]interface{}{
 		"api-caller": dependency.ErrMissing,
 		"environ":    struct{ environs.Environ }{},
 		"gate":       struct{ gate.Unlocker }{},
@@ -46,13 +48,13 @@ func (*ManifoldSuite) TestMissingAPICaller(c *gc.C) {
 		GateName:      "gate",
 	})
 
-	worker, err := manifold.Start(context)
+	worker, err := manifold.Start(context.Background(), getter)
 	c.Check(worker, gc.IsNil)
 	c.Check(errors.Cause(err), gc.Equals, dependency.ErrMissing)
 }
 
 func (*ManifoldSuite) TestMissingGateName(c *gc.C) {
-	context := dt.StubContext(nil, map[string]interface{}{
+	getter := dt.StubGetter(map[string]interface{}{
 		"api-caller": struct{ base.APICaller }{},
 		"environ":    struct{ environs.Environ }{},
 		"gate":       dependency.ErrMissing,
@@ -63,7 +65,7 @@ func (*ManifoldSuite) TestMissingGateName(c *gc.C) {
 		GateName:      "gate",
 	})
 
-	worker, err := manifold.Start(context)
+	worker, err := manifold.Start(context.Background(), getter)
 	c.Check(worker, gc.IsNil)
 	c.Check(errors.Cause(err), gc.Equals, dependency.ErrMissing)
 }
@@ -72,7 +74,7 @@ func (*ManifoldSuite) TestNewFacadeError(c *gc.C) {
 	expectAPICaller := struct{ base.APICaller }{}
 	expectEnviron := struct{ environs.Environ }{}
 	expectGate := struct{ gate.Unlocker }{}
-	context := dt.StubContext(nil, map[string]interface{}{
+	getter := dt.StubGetter(map[string]interface{}{
 		"api-caller": expectAPICaller,
 		"environ":    expectEnviron,
 		"gate":       expectGate,
@@ -87,14 +89,14 @@ func (*ManifoldSuite) TestNewFacadeError(c *gc.C) {
 		},
 	})
 
-	worker, err := manifold.Start(context)
+	worker, err := manifold.Start(context.Background(), getter)
 	c.Check(worker, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "splort")
 }
 
 func (*ManifoldSuite) TestNewWorkerError(c *gc.C) {
 	expectFacade := struct{ environupgrader.Facade }{}
-	context := dt.StubContext(nil, map[string]interface{}{
+	getter := dt.StubGetter(map[string]interface{}{
 		"api-caller": struct{ base.APICaller }{},
 		"environ":    struct{ environs.Environ }{},
 		"gate":       struct{ gate.Unlocker }{},
@@ -113,7 +115,7 @@ func (*ManifoldSuite) TestNewWorkerError(c *gc.C) {
 		NewCredentialValidatorFacade: func(base.APICaller) (common.CredentialAPI, error) { return nil, nil },
 	})
 
-	worker, err := manifold.Start(context)
+	worker, err := manifold.Start(context.Background(), getter)
 	c.Check(worker, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "boof")
 }
@@ -121,7 +123,7 @@ func (*ManifoldSuite) TestNewWorkerError(c *gc.C) {
 func (*ManifoldSuite) TestNewWorkerSuccessWithEnviron(c *gc.C) {
 	expectWorker := &struct{ worker.Worker }{}
 	expectEnviron := struct{ environs.Environ }{}
-	context := dt.StubContext(nil, map[string]interface{}{
+	getter := dt.StubGetter(map[string]interface{}{
 		"api-caller": struct{ base.APICaller }{},
 		"environ":    expectEnviron,
 		"gate":       struct{ gate.Unlocker }{},
@@ -141,7 +143,7 @@ func (*ManifoldSuite) TestNewWorkerSuccessWithEnviron(c *gc.C) {
 		NewCredentialValidatorFacade: func(base.APICaller) (common.CredentialAPI, error) { return nil, nil },
 	})
 
-	worker, err := manifold.Start(context)
+	worker, err := manifold.Start(context.Background(), getter)
 	c.Check(worker, gc.Equals, expectWorker)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(newWorkerConfig.Environ, gc.Equals, expectEnviron)
@@ -149,7 +151,7 @@ func (*ManifoldSuite) TestNewWorkerSuccessWithEnviron(c *gc.C) {
 
 func (*ManifoldSuite) TestNewWorkerSuccessWithoutEnviron(c *gc.C) {
 	expectWorker := &struct{ worker.Worker }{}
-	context := dt.StubContext(nil, map[string]interface{}{
+	getter := dt.StubGetter(map[string]interface{}{
 		"api-caller": struct{ base.APICaller }{},
 		"environ":    dependency.ErrMissing,
 		"gate":       struct{ gate.Unlocker }{},
@@ -169,7 +171,7 @@ func (*ManifoldSuite) TestNewWorkerSuccessWithoutEnviron(c *gc.C) {
 		NewCredentialValidatorFacade: func(base.APICaller) (common.CredentialAPI, error) { return nil, nil },
 	})
 
-	worker, err := manifold.Start(context)
+	worker, err := manifold.Start(context.Background(), getter)
 	c.Check(worker, gc.Equals, expectWorker)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(newWorkerConfig.Environ, gc.IsNil)

@@ -4,6 +4,7 @@
 package presence_test
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -13,9 +14,9 @@ import (
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
-	dt "github.com/juju/worker/v3/dependency/testing"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
+	dt "github.com/juju/worker/v4/dependency/testing"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
@@ -98,31 +99,31 @@ func (s *ManifoldSuite) TestConfigNewWorker(c *gc.C) {
 }
 
 func (s *ManifoldSuite) TestManifoldCallsValidate(c *gc.C) {
-	context := dt.StubContext(nil, map[string]interface{}{})
+	getter := dt.StubGetter(map[string]interface{}{})
 	s.config.Recorder = nil
-	worker, err := s.manifold().Start(context)
+	worker, err := s.manifold().Start(context.Background(), getter)
 	c.Check(worker, gc.IsNil)
 	c.Check(err, jc.ErrorIs, errors.NotValid)
 	c.Check(err, gc.ErrorMatches, `missing Recorder not valid`)
 }
 
 func (s *ManifoldSuite) TestAgentMissing(c *gc.C) {
-	context := dt.StubContext(nil, map[string]interface{}{
+	getter := dt.StubGetter(map[string]interface{}{
 		"agent": dependency.ErrMissing,
 	})
 
-	worker, err := s.manifold().Start(context)
+	worker, err := s.manifold().Start(context.Background(), getter)
 	c.Check(worker, gc.IsNil)
 	c.Check(errors.Cause(err), gc.Equals, dependency.ErrMissing)
 }
 
 func (s *ManifoldSuite) TestCentralHubMissing(c *gc.C) {
-	context := dt.StubContext(nil, map[string]interface{}{
+	getter := dt.StubGetter(map[string]interface{}{
 		"agent":       &fakeAgent{tag: names.NewMachineTag("42")},
 		"central-hub": dependency.ErrMissing,
 	})
 
-	worker, err := s.manifold().Start(context)
+	worker, err := s.manifold().Start(context.Background(), getter)
 	c.Check(worker, gc.IsNil)
 	c.Check(errors.Cause(err), gc.Equals, dependency.ErrMissing)
 }
@@ -135,12 +136,12 @@ func (s *ManifoldSuite) TestNewWorkerArgs(c *gc.C) {
 		return &fakeWorker{}, nil
 	}
 
-	context := dt.StubContext(nil, map[string]interface{}{
+	getter := dt.StubGetter(map[string]interface{}{
 		"agent":       &fakeAgent{tag: names.NewMachineTag("42")},
 		"central-hub": hub,
 	})
 
-	worker, err := s.manifold().Start(context)
+	worker, err := s.manifold().Start(context.Background(), getter)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(worker, gc.NotNil)
 

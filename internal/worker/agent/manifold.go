@@ -4,9 +4,11 @@
 package agent
 
 import (
+	"context"
+
 	"github.com/juju/errors"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/agent"
@@ -25,7 +27,7 @@ func Manifold(a agent.Agent) dependency.Manifold {
 // startFunc returns a StartFunc that starts a worker holding a reference to
 // the supplied Agent.
 func startFunc(a agent.Agent) dependency.StartFunc {
-	return func(_ dependency.Context) (worker.Worker, error) {
+	return func(ctx context.Context, _ dependency.Getter) (worker.Worker, error) {
 		w := &agentWorker{agent: a}
 		w.tomb.Go(func() error {
 			<-w.tomb.Dying()

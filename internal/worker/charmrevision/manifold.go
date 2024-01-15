@@ -4,12 +4,13 @@
 package charmrevision
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/controller/charmrevisionupdater"
@@ -40,12 +41,12 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 		Inputs: []string{
 			config.APICallerName,
 		},
-		Start: func(context dependency.Context) (worker.Worker, error) {
+		Start: func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
 			if config.Clock == nil {
 				return nil, errors.NotValidf("nil Clock")
 			}
 			var apiCaller base.APICaller
-			if err := context.Get(config.APICallerName, &apiCaller); err != nil {
+			if err := getter.Get(config.APICallerName, &apiCaller); err != nil {
 				return nil, errors.Trace(err)
 			}
 			facade, err := config.NewFacade(apiCaller)

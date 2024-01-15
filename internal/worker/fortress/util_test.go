@@ -4,12 +4,13 @@
 package fortress_test
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/worker/fortress"
@@ -27,7 +28,7 @@ type fixture struct {
 // by deferring a TearDown).
 func newFixture(c *gc.C) *fixture {
 	manifold := fortress.Manifold()
-	worker, err := manifold.Start(nil)
+	worker, err := manifold.Start(context.Background(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	return &fixture{
 		manifold: manifold,

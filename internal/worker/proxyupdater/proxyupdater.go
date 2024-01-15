@@ -15,7 +15,7 @@ import (
 	"github.com/juju/packaging/v2/commands"
 	"github.com/juju/packaging/v2/config"
 	"github.com/juju/proxy"
-	"github.com/juju/worker/v3"
+	"github.com/juju/worker/v4"
 
 	"github.com/juju/juju/api/agent/proxyupdater"
 	"github.com/juju/juju/core/os"

@@ -4,8 +4,10 @@
 package util
 
 import (
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
+	"context"
+
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
 
 	"github.com/juju/juju/agent/engine"
 )
@@ -20,9 +22,9 @@ func IsControllerFlagManifold(inputName string, yes bool) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{inputName},
 		Output: engine.FlagOutput,
-		Start: func(context dependency.Context) (worker.Worker, error) {
+		Start: func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
 			var haveStateConfig bool
-			if err := context.Get(inputName, &haveStateConfig); err != nil {
+			if err := getter.Get(inputName, &haveStateConfig); err != nil {
 				return nil, err
 			}
 			return engine.NewStaticFlagWorker(haveStateConfig && yes || !haveStateConfig && !yes), nil

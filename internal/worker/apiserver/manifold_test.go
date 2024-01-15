@@ -14,10 +14,10 @@ import (
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
-	dt "github.com/juju/worker/v3/dependency/testing"
-	"github.com/juju/worker/v3/workertest"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
+	dt "github.com/juju/worker/v4/dependency/testing"
+	"github.com/juju/worker/v4/workertest"
 	"github.com/prometheus/client_golang/prometheus"
 	gc "gopkg.in/check.v1"
 
@@ -51,7 +51,7 @@ type ManifoldSuite struct {
 	auditConfig          stubAuditConfig
 	authenticator        *mockAuthenticator
 	clock                *testclock.Clock
-	context              dependency.Context
+	getter               dependency.Getter
 	hub                  pubsub.StructuredHub
 	leaseManager         *lease.Manager
 	metricsCollector     *coreapiserver.Collector
@@ -89,7 +89,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.charmhubHTTPClient = &http.Client{}
 	s.stub.ResetCalls()
 
-	s.context = s.newContext(nil)
+	s.getter = s.newGetter(nil)
 	s.manifold = apiserver.Manifold(apiserver.ManifoldConfig{
 		AgentName:                         "agent",
 		AuthenticatorName:                 "authenticator",
@@ -115,7 +115,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	})
 }
 
-func (s *ManifoldSuite) newContext(overlay map[string]interface{}) dependency.Context {
+func (s *ManifoldSuite) newGetter(overlay map[string]interface{}) dependency.Getter {
 	resources := map[string]interface{}{
 		"agent":                s.agent,
 		"authenticator":        s.authenticator,
@@ -136,7 +136,7 @@ func (s *ManifoldSuite) newContext(overlay map[string]interface{}) dependency.Co
 	for k, v := range overlay {
 		resources[k] = v
 	}
-	return dt.StubContext(nil, resources)
+	return dt.StubGetter(resources)
 }
 
 type mockSysLogger struct {
@@ -172,10 +172,10 @@ func (s *ManifoldSuite) TestInputs(c *gc.C) {
 
 func (s *ManifoldSuite) TestMissingInputs(c *gc.C) {
 	for _, input := range expectedInputs {
-		context := s.newContext(map[string]interface{}{
+		getter := s.newGetter(map[string]interface{}{
 			input: dependency.ErrMissing,
 		})
-		_, err := s.manifold.Start(context)
+		_, err := s.manifold.Start(context.Background(), getter)
 		c.Assert(errors.Cause(err), gc.Equals, dependency.ErrMissing)
 
 		// The state tracker must have either no calls, or a Use and a Done.
@@ -249,7 +249,7 @@ func (s *ManifoldSuite) TestStopWorkerClosesState(c *gc.C) {
 }
 
 func (s *ManifoldSuite) startWorkerClean(c *gc.C) worker.Worker {
-	w, err := s.manifold.Start(s.context)
+	w, err := s.manifold.Start(context.Background(), s.getter)
 	c.Assert(err, jc.ErrorIsNil)
 	workertest.CheckAlive(c, w)
 	return w

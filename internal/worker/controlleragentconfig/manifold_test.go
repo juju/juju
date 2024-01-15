@@ -4,12 +4,14 @@
 package controlleragentconfig
 
 import (
+	"context"
+
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v3/dependency"
-	dependencytesting "github.com/juju/worker/v3/dependency/testing"
-	"github.com/juju/worker/v3/workertest"
+	"github.com/juju/worker/v4/dependency"
+	dependencytesting "github.com/juju/worker/v4/dependency/testing"
+	"github.com/juju/worker/v4/workertest"
 	gc "gopkg.in/check.v1"
 )
 
@@ -41,9 +43,9 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 	}
 }
 
-func (s *manifoldSuite) getContext() dependency.Context {
+func (s *manifoldSuite) newContext() dependency.Getter {
 	resources := map[string]any{}
-	return dependencytesting.StubContext(nil, resources)
+	return dependencytesting.StubGetter(resources)
 }
 
 var expectedInputs = []string{}
@@ -55,7 +57,7 @@ func (s *manifoldSuite) TestInputs(c *gc.C) {
 func (s *manifoldSuite) TestStart(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	w, err := Manifold(s.getConfig()).Start(s.getContext())
+	w, err := Manifold(s.getConfig()).Start(context.Background(), s.newContext())
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 }
@@ -64,7 +66,7 @@ func (s *manifoldSuite) TestOutput(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	man := Manifold(s.getConfig())
-	w, err := man.Start(s.getContext())
+	w, err := man.Start(context.Background(), s.newContext())
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 

@@ -14,10 +14,10 @@ import (
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
-	dt "github.com/juju/worker/v3/dependency/testing"
-	"github.com/juju/worker/v3/workertest"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
+	dt "github.com/juju/worker/v4/dependency/testing"
+	"github.com/juju/worker/v4/workertest"
 	"golang.org/x/crypto/acme/autocert"
 	gc "gopkg.in/check.v1"
 
@@ -38,7 +38,7 @@ type ManifoldSuite struct {
 	authority              pki.Authority
 	config                 httpserver.ManifoldConfig
 	manifold               dependency.Manifold
-	context                dependency.Context
+	getter                 dependency.Getter
 	state                  stubStateTracker
 	hub                    *pubsub.StructuredHub
 	mux                    *apiserverhttp.Mux
@@ -81,7 +81,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	}
 	s.stub.ResetCalls()
 
-	s.context = s.newContext(nil)
+	s.getter = s.newGetter(nil)
 	s.config = httpserver.ManifoldConfig{
 		AgentName:            "machine-42",
 		AuthorityName:        "authority",
@@ -106,7 +106,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *ManifoldSuite) newContext(overlay map[string]interface{}) dependency.Context {
+func (s *ManifoldSuite) newGetter(overlay map[string]interface{}) dependency.Getter {
 	resources := map[string]interface{}{
 		"authority":       s.authority,
 		"state":           &s.state,
@@ -118,7 +118,7 @@ func (s *ManifoldSuite) newContext(overlay map[string]interface{}) dependency.Co
 	for k, v := range overlay {
 		resources[k] = v
 	}
-	return dt.StubContext(nil, resources)
+	return dt.StubGetter(resources)
 }
 
 func (s *ManifoldSuite) getControllerConfig(_ context.Context, getter httpserver.ControllerConfigGetter) (controller.Config, error) {
@@ -163,10 +163,10 @@ func (s *ManifoldSuite) TestInputs(c *gc.C) {
 
 func (s *ManifoldSuite) TestMissingInputs(c *gc.C) {
 	for _, input := range expectedInputs {
-		context := s.newContext(map[string]interface{}{
+		getter := s.newGetter(map[string]interface{}{
 			input: dependency.ErrMissing,
 		})
-		_, err := s.manifold.Start(context)
+		_, err := s.manifold.Start(context.Background(), getter)
 		c.Assert(errors.Cause(err), gc.Equals, dependency.ErrMissing)
 	}
 }
@@ -244,14 +244,14 @@ func (s *ManifoldSuite) TestValidate(c *gc.C) {
 		config := s.config
 		test.f(&config)
 		manifold := httpserver.Manifold(config)
-		w, err := manifold.Start(s.context)
+		w, err := manifold.Start(context.Background(), s.getter)
 		workertest.CheckNilOrKill(c, w)
 		c.Check(err, gc.ErrorMatches, test.expect)
 	}
 }
 
 func (s *ManifoldSuite) startWorkerClean(c *gc.C) worker.Worker {
-	w, err := s.manifold.Start(s.context)
+	w, err := s.manifold.Start(context.Background(), s.getter)
 	c.Assert(err, jc.ErrorIsNil)
 	workertest.CheckAlive(c, w)
 	return w

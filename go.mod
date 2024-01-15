@@ -82,7 +82,7 @@ require (
 	github.com/juju/version/v2 v2.0.1
 	github.com/juju/viddy v0.0.0-beta5
 	github.com/juju/webbrowser v1.0.0
-	github.com/juju/worker/v3 v3.5.0
+	github.com/juju/worker/v4 v4.0.0
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/kr/pretty v0.3.1
 	github.com/lestrrat-go/jwx/v2 v2.0.18

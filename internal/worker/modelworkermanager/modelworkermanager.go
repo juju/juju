@@ -13,8 +13,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v5"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/catacomb"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/catacomb"
 
 	agentengine "github.com/juju/juju/agent/engine"
 	"github.com/juju/juju/apiserver/apiserverhttp"

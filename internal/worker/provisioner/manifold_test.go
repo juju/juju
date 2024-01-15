@@ -4,12 +4,14 @@
 package provisioner_test
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v3/dependency"
-	dt "github.com/juju/worker/v3/dependency/testing"
+	"github.com/juju/worker/v4/dependency"
+	dt "github.com/juju/worker/v4/dependency/testing"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
@@ -57,7 +59,7 @@ func (s *ManifoldSuite) TestManifold(c *gc.C) {
 
 func (s *ManifoldSuite) TestMissingAgent(c *gc.C) {
 	manifold := s.makeManifold()
-	w, err := manifold.Start(dt.StubContext(nil, map[string]interface{}{
+	w, err := manifold.Start(context.Background(), dt.StubGetter(map[string]interface{}{
 		"agent":      dependency.ErrMissing,
 		"api-caller": struct{ base.APICaller }{},
 		"environ":    struct{ environs.Environ }{},
@@ -68,7 +70,7 @@ func (s *ManifoldSuite) TestMissingAgent(c *gc.C) {
 
 func (s *ManifoldSuite) TestMissingAPICaller(c *gc.C) {
 	manifold := s.makeManifold()
-	w, err := manifold.Start(dt.StubContext(nil, map[string]interface{}{
+	w, err := manifold.Start(context.Background(), dt.StubGetter(map[string]interface{}{
 		"agent":      struct{ agent.Agent }{},
 		"api-caller": dependency.ErrMissing,
 		"environ":    struct{ environs.Environ }{},
@@ -79,7 +81,7 @@ func (s *ManifoldSuite) TestMissingAPICaller(c *gc.C) {
 
 func (s *ManifoldSuite) TestMissingEnviron(c *gc.C) {
 	manifold := s.makeManifold()
-	w, err := manifold.Start(dt.StubContext(nil, map[string]interface{}{
+	w, err := manifold.Start(context.Background(), dt.StubGetter(map[string]interface{}{
 		"agent":      struct{ agent.Agent }{},
 		"api-caller": struct{ base.APICaller }{},
 		"environ":    dependency.ErrMissing,
@@ -90,7 +92,7 @@ func (s *ManifoldSuite) TestMissingEnviron(c *gc.C) {
 
 func (s *ManifoldSuite) TestStarts(c *gc.C) {
 	manifold := s.makeManifold()
-	w, err := manifold.Start(dt.StubContext(nil, map[string]interface{}{
+	w, err := manifold.Start(context.Background(), dt.StubGetter(map[string]interface{}{
 		"agent":      new(fakeAgent),
 		"api-caller": apitesting.APICallerFunc(nil),
 		"environ":    struct{ environs.Environ }{},

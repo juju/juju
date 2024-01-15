@@ -5,7 +5,7 @@ package caasapplicationprovisioner_test
 
 import (
 	jujutesting "github.com/juju/testing"
-	"github.com/juju/worker/v3"
+	"github.com/juju/worker/v4"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/broker_mock.go github.com/juju/juju/internal/worker/caasapplicationprovisioner CAASBroker

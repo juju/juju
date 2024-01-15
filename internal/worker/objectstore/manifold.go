@@ -4,14 +4,15 @@
 package objectstore
 
 import (
+	"context"
 	stdcontext "context"
 	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/controller"
@@ -130,24 +131,24 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.LeaseManagerName,
 		},
 		Output: output,
-		Start: func(context dependency.Context) (worker.Worker, error) {
+		Start: func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
 			if err := config.Validate(); err != nil {
 				return nil, errors.Trace(err)
 			}
 
 			var a agent.Agent
-			if err := context.Get(config.AgentName, &a); err != nil {
+			if err := getter.Get(config.AgentName, &a); err != nil {
 				return nil, err
 			}
 
 			var tracerGetter trace.TracerGetter
-			if err := context.Get(config.TraceName, &tracerGetter); err != nil {
+			if err := getter.Get(config.TraceName, &tracerGetter); err != nil {
 				return nil, errors.Trace(err)
 			}
 
 			// Ensure we can support the object store type, before continuing.
 			var controllerServiceFactory servicefactory.ControllerServiceFactory
-			if err := context.Get(config.ServiceFactoryName, &controllerServiceFactory); err != nil {
+			if err := getter.Get(config.ServiceFactoryName, &controllerServiceFactory); err != nil {
 				return nil, errors.Trace(err)
 			}
 			objectStoreType, err := config.GetObjectStoreType(controllerServiceFactory.ControllerConfig())
@@ -156,17 +157,17 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 
 			var leaseManager lease.Manager
-			if err := context.Get(config.LeaseManagerName, &leaseManager); err != nil {
+			if err := getter.Get(config.LeaseManagerName, &leaseManager); err != nil {
 				return nil, errors.Trace(err)
 			}
 
 			var modelServiceFactoryGetter servicefactory.ServiceFactoryGetter
-			if err := context.Get(config.ServiceFactoryName, &modelServiceFactoryGetter); err != nil {
+			if err := getter.Get(config.ServiceFactoryName, &modelServiceFactoryGetter); err != nil {
 				return nil, errors.Trace(err)
 			}
 
 			var stTracker state.StateTracker
-			if err := context.Get(config.StateName, &stTracker); err != nil {
+			if err := getter.Get(config.StateName, &stTracker); err != nil {
 				return nil, errors.Trace(err)
 			}
 

@@ -18,7 +18,7 @@ import (
 
 //go:generate go run go.uber.org/mock/mockgen -package changestreampruner -destination stream_mock_test.go github.com/juju/juju/internal/worker/changestreampruner DBGetter,Logger
 //go:generate go run go.uber.org/mock/mockgen -package changestreampruner -destination clock_mock_test.go github.com/juju/clock Clock,Timer
-//go:generate go run go.uber.org/mock/mockgen -package changestreampruner -destination worker_mock_test.go github.com/juju/worker/v3 Worker
+//go:generate go run go.uber.org/mock/mockgen -package changestreampruner -destination worker_mock_test.go github.com/juju/worker/v4 Worker
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)

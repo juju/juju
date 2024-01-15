@@ -6,7 +6,7 @@ package remoterelations
 import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	"github.com/juju/worker/v3"
+	"github.com/juju/worker/v4"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"

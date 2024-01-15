@@ -4,8 +4,10 @@
 package engine
 
 import (
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
+	"context"
+
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
@@ -30,13 +32,13 @@ func AgentAPIManifold(config AgentAPIManifoldConfig, start AgentAPIStartFunc) de
 			config.AgentName,
 			config.APICallerName,
 		},
-		Start: func(context dependency.Context) (worker.Worker, error) {
+		Start: func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
 			var agent agent.Agent
-			if err := context.Get(config.AgentName, &agent); err != nil {
+			if err := getter.Get(config.AgentName, &agent); err != nil {
 				return nil, err
 			}
 			var apiCaller base.APICaller
-			if err := context.Get(config.APICallerName, &apiCaller); err != nil {
+			if err := getter.Get(config.APICallerName, &apiCaller); err != nil {
 				return nil, err
 			}
 			return start(agent, apiCaller)

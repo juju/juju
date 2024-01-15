@@ -4,12 +4,14 @@
 package caasenvironupgrader_test
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
-	dt "github.com/juju/worker/v3/dependency/testing"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
+	dt "github.com/juju/worker/v4/dependency/testing"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/base"
@@ -32,7 +34,7 @@ func (*ManifoldSuite) TestInputs(c *gc.C) {
 }
 
 func (*ManifoldSuite) TestMissingAPICaller(c *gc.C) {
-	context := dt.StubContext(nil, map[string]interface{}{
+	getter := dt.StubGetter(map[string]interface{}{
 		"api-caller": dependency.ErrMissing,
 		"gate":       struct{ gate.Unlocker }{},
 	})
@@ -41,13 +43,13 @@ func (*ManifoldSuite) TestMissingAPICaller(c *gc.C) {
 		GateName:      "gate",
 	})
 
-	worker, err := manifold.Start(context)
+	worker, err := manifold.Start(context.Background(), getter)
 	c.Check(worker, gc.IsNil)
 	c.Check(errors.Cause(err), gc.Equals, dependency.ErrMissing)
 }
 
 func (*ManifoldSuite) TestMissingGateName(c *gc.C) {
-	context := dt.StubContext(nil, map[string]interface{}{
+	getter := dt.StubGetter(map[string]interface{}{
 		"api-caller": struct{ base.APICaller }{},
 		"gate":       dependency.ErrMissing,
 	})
@@ -56,7 +58,7 @@ func (*ManifoldSuite) TestMissingGateName(c *gc.C) {
 		GateName:      "gate",
 	})
 
-	worker, err := manifold.Start(context)
+	worker, err := manifold.Start(context.Background(), getter)
 	c.Check(worker, gc.IsNil)
 	c.Check(errors.Cause(err), gc.Equals, dependency.ErrMissing)
 }
@@ -64,7 +66,7 @@ func (*ManifoldSuite) TestMissingGateName(c *gc.C) {
 func (*ManifoldSuite) TestNewFacadeError(c *gc.C) {
 	expectAPICaller := struct{ base.APICaller }{}
 	expectGate := struct{ gate.Unlocker }{}
-	context := dt.StubContext(nil, map[string]interface{}{
+	getter := dt.StubGetter(map[string]interface{}{
 		"api-caller": expectAPICaller,
 		"gate":       expectGate,
 	})
@@ -77,14 +79,14 @@ func (*ManifoldSuite) TestNewFacadeError(c *gc.C) {
 		},
 	})
 
-	worker, err := manifold.Start(context)
+	worker, err := manifold.Start(context.Background(), getter)
 	c.Check(worker, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "error")
 }
 
 func (*ManifoldSuite) TestNewWorkerError(c *gc.C) {
 	expectFacade := struct{ caasenvironupgrader.Facade }{}
-	context := dt.StubContext(nil, map[string]interface{}{
+	getter := dt.StubGetter(map[string]interface{}{
 		"api-caller": struct{ base.APICaller }{},
 		"gate":       struct{ gate.Unlocker }{},
 	})
@@ -100,7 +102,7 @@ func (*ManifoldSuite) TestNewWorkerError(c *gc.C) {
 		},
 	})
 
-	worker, err := manifold.Start(context)
+	worker, err := manifold.Start(context.Background(), getter)
 	c.Check(worker, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "error")
 }

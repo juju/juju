@@ -9,7 +9,7 @@ import (
 	"sync"
 
 	"github.com/juju/errors"
-	"github.com/juju/worker/v3/catacomb"
+	"github.com/juju/worker/v4/catacomb"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/api/base"

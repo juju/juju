@@ -4,10 +4,12 @@
 package centralhub
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/pubsub/v2"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
 	"gopkg.in/tomb.v2"
 )
 
@@ -26,11 +28,11 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 		Inputs: []string{
 			config.StateConfigWatcherName,
 		},
-		Start: func(context dependency.Context) (worker.Worker, error) {
+		Start: func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
 			// Confirm we're running in a state server by asking the
 			// stateconfigwatcher manifold.
 			var haveStateConfig bool
-			if err := context.Get(config.StateConfigWatcherName, &haveStateConfig); err != nil {
+			if err := getter.Get(config.StateConfigWatcherName, &haveStateConfig); err != nil {
 				return nil, err
 			}
 			if !haveStateConfig {

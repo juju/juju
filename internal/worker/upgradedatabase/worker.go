@@ -11,9 +11,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"github.com/juju/version/v2"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/catacomb"
-	"github.com/juju/worker/v3/dependency"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/catacomb"
+	"github.com/juju/worker/v4/dependency"
 
 	"github.com/juju/juju/agent"
 	coredatabase "github.com/juju/juju/core/database"

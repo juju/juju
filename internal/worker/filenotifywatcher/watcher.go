@@ -9,8 +9,8 @@ import (
 	"github.com/fsnotify/fsnotify"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/catacomb"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/catacomb"
 	"gopkg.in/tomb.v2"
 )
 

@@ -5,7 +5,7 @@ package gate
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/worker/v3"
+	"github.com/juju/worker/v4"
 )
 
 func NewFlagWorker(gate Waiter) (worker.Worker, error) {

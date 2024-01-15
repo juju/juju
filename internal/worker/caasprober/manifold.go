@@ -4,9 +4,11 @@
 package caasprober
 
 import (
+	"context"
+
 	"github.com/juju/errors"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
 
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/internal/observability/probe"
@@ -32,7 +34,7 @@ type ManifoldConfig struct {
 // passed into the manifold and producing a set of CAASProbes that can be run
 // as part of this worker.
 func gatherCAASProbes(
-	context dependency.Context,
+	getter dependency.Getter,
 	defaultProviders map[string]probe.ProbeProvider,
 	providers []string) (*CAASProbes, error,
 ) {
@@ -61,7 +63,7 @@ func gatherCAASProbes(
 	}
 	for _, provider := range providers {
 		var probeProvider probe.ProbeProvider
-		if err := context.Get(provider, &probeProvider); err != nil {
+		if err := getter.Get(provider, &probeProvider); err != nil {
 			return probes, errors.Trace(err)
 		}
 
@@ -91,17 +93,17 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	}
 }
 
-func (c ManifoldConfig) Start(context dependency.Context) (worker.Worker, error) {
+func (c ManifoldConfig) Start(context context.Context, getter dependency.Getter) (worker.Worker, error) {
 	if err := c.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	var mux *apiserverhttp.Mux
-	if err := context.Get(c.MuxName, &mux); err != nil {
+	if err := getter.Get(c.MuxName, &mux); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	probes, err := gatherCAASProbes(context, c.DefaultProviders, c.Providers)
+	probes, err := gatherCAASProbes(getter, c.DefaultProviders, c.Providers)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

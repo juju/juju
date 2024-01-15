@@ -9,9 +9,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v3/dependency"
-	dependencytesting "github.com/juju/worker/v3/dependency/testing"
-	"github.com/juju/worker/v3/workertest"
+	"github.com/juju/worker/v4/dependency"
+	dependencytesting "github.com/juju/worker/v4/dependency/testing"
+	"github.com/juju/worker/v4/workertest"
 	gc "gopkg.in/check.v1"
 
 	coretrace "github.com/juju/juju/core/trace"
@@ -60,11 +60,11 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 	}
 }
 
-func (s *manifoldSuite) getContext() dependency.Context {
+func (s *manifoldSuite) newGetter() dependency.Getter {
 	resources := map[string]any{
 		"agent": s.agent,
 	}
-	return dependencytesting.StubContext(nil, resources)
+	return dependencytesting.StubGetter(resources)
 }
 
 var expectedInputs = []string{"agent"}
@@ -83,7 +83,7 @@ func (s *manifoldSuite) TestStart(c *gc.C) {
 			s.expectOpenTelemetry()
 		}
 
-		w, err := Manifold(s.getConfig()).Start(s.getContext())
+		w, err := Manifold(s.getConfig()).Start(context.Background(), s.newGetter())
 		c.Assert(err, jc.ErrorIsNil)
 		workertest.CleanKill(c, w)
 	}

@@ -4,9 +4,11 @@
 package enginetest
 
 import (
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
-	dt "github.com/juju/worker/v3/dependency/testing"
+	"context"
+
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
+	dt "github.com/juju/worker/v4/dependency/testing"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/engine"
@@ -43,11 +45,11 @@ func RunAgentAPIManifold(
 				return nil
 			})
 	}
-	context := dt.StubContext(nil, map[string]interface{}{
+	getter := dt.StubGetter(map[string]interface{}{
 		"agent-name":      agent,
 		"api-caller-name": apiCaller,
 	})
-	return manifold.Start(context)
+	return manifold.Start(context.Background(), getter)
 }
 
 type dummyAgent struct {

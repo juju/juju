@@ -4,10 +4,12 @@
 package upgradedatabase
 
 import (
+	"context"
+
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
 
 	"github.com/juju/juju/agent"
 	coredatabase "github.com/juju/juju/core/database"
@@ -69,29 +71,29 @@ func Manifold(cfg ManifoldConfig) dependency.Manifold {
 			cfg.ServiceFactoryName,
 			cfg.DBAccessorName,
 		},
-		Start: func(context dependency.Context) (worker.Worker, error) {
+		Start: func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
 			// Get the db completed lock.
 			var dbUpgradeCompleteLock gate.Lock
-			if err := context.Get(cfg.UpgradeDBGateName, &dbUpgradeCompleteLock); err != nil {
+			if err := getter.Get(cfg.UpgradeDBGateName, &dbUpgradeCompleteLock); err != nil {
 				return nil, errors.Trace(err)
 			}
 
 			// Determine this controller's agent.
 			var controllerAgent agent.Agent
-			if err := context.Get(cfg.AgentName, &controllerAgent); err != nil {
+			if err := getter.Get(cfg.AgentName, &controllerAgent); err != nil {
 				return nil, errors.Trace(err)
 			}
 
 			// Service factory is used to get the upgrade service and
 			// then we can locate all the model uuids.
 			var serviceFactoryGetter servicefactory.ControllerServiceFactory
-			if err := context.Get(cfg.ServiceFactoryName, &serviceFactoryGetter); err != nil {
+			if err := getter.Get(cfg.ServiceFactoryName, &serviceFactoryGetter); err != nil {
 				return nil, errors.Trace(err)
 			}
 
 			// DBGetter is used to get the database to run the schema against.
 			var dbGetter coredatabase.DBGetter
-			if err := context.Get(cfg.DBAccessorName, &dbGetter); err != nil {
+			if err := getter.Get(cfg.DBAccessorName, &dbGetter); err != nil {
 				return nil, errors.Trace(err)
 			}
 

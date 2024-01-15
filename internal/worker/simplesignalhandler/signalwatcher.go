@@ -8,7 +8,7 @@ import (
 	"os"
 
 	"github.com/juju/errors"
-	"github.com/juju/worker/v3/catacomb"
+	"github.com/juju/worker/v4/catacomb"
 )
 
 // SignalHandlerFunc is func definition for returning an error based on a

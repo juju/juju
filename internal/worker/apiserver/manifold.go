@@ -4,6 +4,7 @@
 package apiserver
 
 import (
+	"context"
 	stdcontext "context"
 	"net/http"
 	"strings"
@@ -12,8 +13,8 @@ import (
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/pubsub/v2"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/juju/juju/agent"
@@ -159,83 +160,83 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 }
 
 // start is a method on ManifoldConfig because it's more readable than a closure.
-func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, error) {
+func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	var agent agent.Agent
-	if err := context.Get(config.AgentName, &agent); err != nil {
+	if err := getter.Get(config.AgentName, &agent); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	var clock clock.Clock
-	if err := context.Get(config.ClockName, &clock); err != nil {
+	if err := getter.Get(config.ClockName, &clock); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	var mux *apiserverhttp.Mux
-	if err := context.Get(config.MuxName, &mux); err != nil {
+	if err := getter.Get(config.MuxName, &mux); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	var macaroonAuthenticator macaroon.LocalMacaroonAuthenticator
-	if err := context.Get(config.AuthenticatorName, &macaroonAuthenticator); err != nil {
+	if err := getter.Get(config.AuthenticatorName, &macaroonAuthenticator); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	var stTracker workerstate.StateTracker
-	if err := context.Get(config.StateName, &stTracker); err != nil {
+	if err := getter.Get(config.StateName, &stTracker); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	var factory multiwatcher.Factory
-	if err := context.Get(config.MultiwatcherName, &factory); err != nil {
+	if err := getter.Get(config.MultiwatcherName, &factory); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	var upgradeLock gate.Waiter
-	if err := context.Get(config.UpgradeGateName, &upgradeLock); err != nil {
+	if err := getter.Get(config.UpgradeGateName, &upgradeLock); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	var getAuditConfig func() auditlog.Config
-	if err := context.Get(config.AuditConfigUpdaterName, &getAuditConfig); err != nil {
+	if err := getter.Get(config.AuditConfigUpdaterName, &getAuditConfig); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	var leaseManager lease.Manager
-	if err := context.Get(config.LeaseManagerName, &leaseManager); err != nil {
+	if err := getter.Get(config.LeaseManagerName, &leaseManager); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	var sysLogger syslogger.SysLogger
-	if err := context.Get(config.SyslogName, &sysLogger); err != nil {
+	if err := getter.Get(config.SyslogName, &sysLogger); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	var charmhubHTTPClient HTTPClient
-	if err := context.Get(config.CharmhubHTTPClientName, &charmhubHTTPClient); err != nil {
+	if err := getter.Get(config.CharmhubHTTPClientName, &charmhubHTTPClient); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	var dbGetter changestream.WatchableDBGetter
-	if err := context.Get(config.ChangeStreamName, &dbGetter); err != nil {
+	if err := getter.Get(config.ChangeStreamName, &dbGetter); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	var serviceFactoryGetter servicefactory.ServiceFactoryGetter
-	if err := context.Get(config.ServiceFactoryName, &serviceFactoryGetter); err != nil {
+	if err := getter.Get(config.ServiceFactoryName, &serviceFactoryGetter); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	var tracerGetter trace.TracerGetter
-	if err := context.Get(config.TraceName, &tracerGetter); err != nil {
+	if err := getter.Get(config.TraceName, &tracerGetter); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	var objectStoreGetter objectstore.ObjectStoreGetter
-	if err := context.Get(config.ObjectStoreName, &objectStoreGetter); err != nil {
+	if err := getter.Get(config.ObjectStoreName, &objectStoreGetter); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -257,7 +258,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		return nil, errors.Trace(err)
 	}
 
-	w, err := config.NewWorker(stdcontext.TODO(), Config{
+	w, err := config.NewWorker(ctx, Config{
 		AgentConfig:                       agent.CurrentConfig(),
 		Clock:                             clock,
 		Mux:                               mux,

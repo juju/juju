@@ -10,8 +10,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v5"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
@@ -103,36 +103,36 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.HookRetryStrategyName,
 			config.TraceName,
 		},
-		Start: func(ctx dependency.Context) (worker.Worker, error) {
+		Start: func(ctx stdcontext.Context, getter dependency.Getter) (worker.Worker, error) {
 			if err := config.Validate(); err != nil {
 				return nil, errors.Trace(err)
 			}
 			// Collect all required resources.
 			var agent agent.Agent
-			if err := ctx.Get(config.AgentName, &agent); err != nil {
+			if err := getter.Get(config.AgentName, &agent); err != nil {
 				return nil, errors.Trace(err)
 			}
 			var apiConn api.Connection
-			if err := ctx.Get(config.APICallerName, &apiConn); err != nil {
+			if err := getter.Get(config.APICallerName, &apiConn); err != nil {
 				// TODO(fwereade): absence of an APICaller shouldn't be the end of
 				// the world -- we ought to return a type that can at least run the
 				// leader-deposed hook -- but that's not done yet.
 				return nil, errors.Trace(err)
 			}
 			var leadershipTracker leadership.TrackerWorker
-			if err := ctx.Get(config.LeadershipTrackerName, &leadershipTracker); err != nil {
+			if err := getter.Get(config.LeadershipTrackerName, &leadershipTracker); err != nil {
 				return nil, errors.Trace(err)
 			}
 			leadershipTrackerFunc := func(_ names.UnitTag) leadership.TrackerWorker {
 				return leadershipTracker
 			}
 			var charmDirGuard fortress.Guard
-			if err := ctx.Get(config.CharmDirName, &charmDirGuard); err != nil {
+			if err := getter.Get(config.CharmDirName, &charmDirGuard); err != nil {
 				return nil, errors.Trace(err)
 			}
 
 			var hookRetryStrategy params.RetryStrategy
-			if err := ctx.Get(config.HookRetryStrategyName, &hookRetryStrategy); err != nil {
+			if err := getter.Get(config.HookRetryStrategyName, &hookRetryStrategy); err != nil {
 				return nil, errors.Trace(err)
 			}
 
@@ -146,7 +146,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 
 			// Get the tracer from the context.
 			var tracerGetter trace.TracerGetter
-			if err := ctx.Get(config.TraceName, &tracerGetter); err != nil {
+			if err := getter.Get(config.TraceName, &tracerGetter); err != nil {
 				return nil, errors.Trace(err)
 			}
 
@@ -156,7 +156,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 
 			var objectStoreCaller objectstore.Session
-			if err := ctx.Get(config.S3CallerName, &objectStoreCaller); err != nil {
+			if err := getter.Get(config.S3CallerName, &objectStoreCaller); err != nil {
 				return nil, errors.Trace(err)
 			}
 

@@ -8,8 +8,8 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
 
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/lease"
@@ -61,23 +61,23 @@ func (c ManifoldConfig) Validate() error {
 	return nil
 }
 
-func (c ManifoldConfig) start(ctx dependency.Context) (worker.Worker, error) {
+func (c ManifoldConfig) start(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
 	if err := c.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	var clk clock.Clock
-	if err := ctx.Get(c.ClockName, &clk); err != nil {
+	if err := getter.Get(c.ClockName, &clk); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	var dbGetter database.DBGetter
-	if err := ctx.Get(c.DBAccessorName, &dbGetter); err != nil {
+	if err := getter.Get(c.DBAccessorName, &dbGetter); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	var tracerGetter trace.TracerGetter
-	if err := ctx.Get(c.TraceName, &tracerGetter); err != nil {
+	if err := getter.Get(c.TraceName, &tracerGetter); err != nil {
 		return nil, errors.Trace(err)
 	}
 

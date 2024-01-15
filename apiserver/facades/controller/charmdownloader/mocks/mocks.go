@@ -21,7 +21,7 @@ import (
 	config "github.com/juju/juju/environs/config"
 	services "github.com/juju/juju/internal/charm/services"
 	state "github.com/juju/juju/state"
-	worker "github.com/juju/worker/v3"
+	worker "github.com/juju/worker/v4"
 	gomock "go.uber.org/mock/gomock"
 )
 

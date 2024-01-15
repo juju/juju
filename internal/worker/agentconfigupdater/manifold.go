@@ -4,12 +4,12 @@
 package agentconfigupdater
 
 import (
-	stdcontext "context"
+	"context"
 
 	"github.com/juju/errors"
 	"github.com/juju/pubsub/v2"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
 
 	jujuagent "github.com/juju/juju/agent"
 	apiagent "github.com/juju/juju/api/agent/agent"
@@ -52,10 +52,10 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.CentralHubName,
 			config.TraceName,
 		},
-		Start: func(context dependency.Context) (worker.Worker, error) {
+		Start: func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
 			// Get the agent.
 			var agent jujuagent.Agent
-			if err := context.Get(config.AgentName, &agent); err != nil {
+			if err := getter.Get(config.AgentName, &agent); err != nil {
 				return nil, err
 			}
 
@@ -72,7 +72,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 
 			// Get API connection.
 			var apiCaller base.APICaller
-			if err := context.Get(config.APICallerName, &apiCaller); err != nil {
+			if err := getter.Get(config.APICallerName, &apiCaller); err != nil {
 				return nil, err
 			}
 			// If the machine needs Client, grab the state serving info
@@ -86,11 +86,11 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 
 			// Get the tracer from the context.
 			var tracerGetter trace.TracerGetter
-			if err := context.Get(config.TraceName, &tracerGetter); err != nil {
+			if err := getter.Get(config.TraceName, &tracerGetter); err != nil {
 				return nil, errors.Trace(err)
 			}
 
-			tracer, err := tracerGetter.GetTracer(stdcontext.TODO(), coretrace.Namespace("agentconfigupdater", currentConfig.Model().Id()))
+			tracer, err := tracerGetter.GetTracer(ctx, coretrace.Namespace("agentconfigupdater", currentConfig.Model().Id()))
 			if err != nil {
 				tracer = coretrace.NoopTracer{}
 			}
@@ -244,7 +244,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			// Only get the hub if we are a controller and we haven't updated
 			// the memory profile.
 			var hub *pubsub.StructuredHub
-			if err := context.Get(config.CentralHubName, &hub); err != nil {
+			if err := getter.Get(config.CentralHubName, &hub); err != nil {
 				logger.Tracef("hub dependency not available")
 				return nil, err
 			}

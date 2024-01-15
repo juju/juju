@@ -28,7 +28,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	ft "github.com/juju/testing/filetesting"
 	"github.com/juju/utils/v3"
-	"github.com/juju/worker/v3"
+	"github.com/juju/worker/v4"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/yaml.v2"

@@ -4,12 +4,13 @@
 package httpserverargs
 
 import (
+	"context"
 	"reflect"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
 
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/apiserver/authentication/macaroon"
@@ -45,23 +46,23 @@ func (config ManifoldConfig) Validate() error {
 	return nil
 }
 
-func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, error) {
+func (config ManifoldConfig) start(context context.Context, getter dependency.Getter) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	var clock clock.Clock
-	if err := context.Get(config.ClockName, &clock); err != nil {
+	if err := getter.Get(config.ClockName, &clock); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	var controllerServiceFactory servicefactory.ControllerServiceFactory
-	if err := context.Get(config.ServiceFactoryName, &controllerServiceFactory); err != nil {
+	if err := getter.Get(config.ServiceFactoryName, &controllerServiceFactory); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	var stTracker workerstate.StateTracker
-	if err := context.Get(config.StateName, &stTracker); err != nil {
+	if err := getter.Get(config.StateName, &stTracker); err != nil {
 		return nil, errors.Trace(err)
 	}
 	statePool, _, err := stTracker.Use()

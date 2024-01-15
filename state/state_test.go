@@ -26,7 +26,7 @@ import (
 	jujutxn "github.com/juju/txn/v3"
 	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
-	"github.com/juju/worker/v3/workertest"
+	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 

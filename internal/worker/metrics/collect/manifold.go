@@ -4,6 +4,7 @@
 package collect
 
 import (
+	stdcontext "context"
 	"path"
 	"sync"
 	"time"
@@ -13,8 +14,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v5"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
 
 	"github.com/juju/juju/agent"
 	jworker "github.com/juju/juju/internal/worker"
@@ -118,8 +119,8 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.MetricSpoolName,
 			config.CharmDirName,
 		},
-		Start: func(context dependency.Context) (worker.Worker, error) {
-			collector, err := newCollect(config, context)
+		Start: func(ctx stdcontext.Context, getter dependency.Getter) (worker.Worker, error) {
+			collector, err := newCollect(ctx, config, getter)
 			if err != nil {
 				return nil, err
 			}
@@ -132,7 +133,7 @@ func socketName(baseDir, unitTag string) string {
 	return path.Join(baseDir, defaultSocketName)
 }
 
-func newCollect(config ManifoldConfig, context dependency.Context) (*collect, error) {
+func newCollect(ctx stdcontext.Context, config ManifoldConfig, getter dependency.Getter) (*collect, error) {
 	if wrench.IsActive("metricscollector", "short-interval") {
 		defaultPeriod = 10 * time.Second
 	}
@@ -143,24 +144,24 @@ func newCollect(config ManifoldConfig, context dependency.Context) (*collect, er
 	}
 
 	var agent agent.Agent
-	if err := context.Get(config.AgentName, &agent); err != nil {
+	if err := getter.Get(config.AgentName, &agent); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	var metricFactory spool.MetricFactory
-	err := context.Get(config.MetricSpoolName, &metricFactory)
+	err := getter.Get(config.MetricSpoolName, &metricFactory)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	var charmdir fortress.Guest
-	err = context.Get(config.CharmDirName, &charmdir)
+	err = getter.Get(config.CharmDirName, &charmdir)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	err = charmdir.Visit(func() error {
 		return nil
-	}, context.Abort())
+	}, ctx.Done())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

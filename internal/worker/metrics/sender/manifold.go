@@ -4,13 +4,14 @@
 package sender
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v5"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/agent/metricsadder"
@@ -44,19 +45,19 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.APICallerName,
 			config.MetricSpoolName,
 		},
-		Start: func(context dependency.Context) (worker.Worker, error) {
+		Start: func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
 			var apicaller base.APICaller
 			var factory spool.MetricFactory
-			err := context.Get(config.APICallerName, &apicaller)
+			err := getter.Get(config.APICallerName, &apicaller)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			err = context.Get(config.MetricSpoolName, &factory)
+			err = getter.Get(config.MetricSpoolName, &factory)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
 			var agent agent.Agent
-			if err := context.Get(config.AgentName, &agent); err != nil {
+			if err := getter.Get(config.AgentName, &agent); err != nil {
 				return nil, err
 			}
 			agentConfig := agent.CurrentConfig()

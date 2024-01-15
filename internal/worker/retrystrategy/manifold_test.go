@@ -5,15 +5,16 @@
 package retrystrategy_test
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
-	dt "github.com/juju/worker/v3/dependency/testing"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
+	dt "github.com/juju/worker/v4/dependency/testing"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
@@ -25,7 +26,7 @@ import (
 
 type ManifoldSuite struct {
 	testing.IsolationSuite
-	context    dependency.Context
+	getter     dependency.Getter
 	fakeAgent  agent.Agent
 	fakeCaller base.APICaller
 	fakeFacade retrystrategy.Facade
@@ -40,7 +41,7 @@ func (s *ManifoldSuite) SetUpSuite(c *gc.C) {
 	s.IsolationSuite.SetUpSuite(c)
 	s.fakeAgent = &fakeAgent{}
 	s.fakeCaller = &fakeCaller{}
-	s.context = dt.StubContext(nil, map[string]interface{}{
+	s.getter = dt.StubGetter(map[string]interface{}{
 		"agent":      s.fakeAgent,
 		"api-caller": s.fakeCaller,
 	})
@@ -75,12 +76,12 @@ func (s *ManifoldSuite) TestStartMissingAgent(c *gc.C) {
 		AgentName:     "agent",
 		APICallerName: "api-caller",
 	})
-	context := dt.StubContext(nil, map[string]interface{}{
+	getter := dt.StubGetter(map[string]interface{}{
 		"agent":      dependency.ErrMissing,
 		"api-caller": s.fakeCaller,
 	})
 
-	w, err := manifold.Start(context)
+	w, err := manifold.Start(context.Background(), getter)
 	c.Assert(errors.Cause(err), gc.Equals, dependency.ErrMissing)
 	c.Assert(w, gc.IsNil)
 }
@@ -90,12 +91,12 @@ func (s *ManifoldSuite) TestStartMissingAPI(c *gc.C) {
 		AgentName:     "agent",
 		APICallerName: "api-caller",
 	})
-	context := dt.StubContext(nil, map[string]interface{}{
+	getter := dt.StubGetter(map[string]interface{}{
 		"agent":      s.fakeAgent,
 		"api-caller": dependency.ErrMissing,
 	})
 
-	w, err := manifold.Start(context)
+	w, err := manifold.Start(context.Background(), getter)
 	c.Assert(errors.Cause(err), gc.Equals, dependency.ErrMissing)
 	c.Assert(w, gc.IsNil)
 }
@@ -107,7 +108,7 @@ func (s *ManifoldSuite) TestStartFacadeValueError(c *gc.C) {
 		NewFacade:     s.newFacade(&fakeFacadeErr{err: errors.New("blop")}),
 	})
 
-	w, err := manifold.Start(s.context)
+	w, err := manifold.Start(context.Background(), s.getter)
 	c.Assert(errors.Cause(err), gc.ErrorMatches, "blop")
 	c.Assert(w, gc.IsNil)
 }
@@ -120,7 +121,7 @@ func (s *ManifoldSuite) TestStartWorkerError(c *gc.C) {
 		NewWorker:     s.newWorker(nil, errors.New("blam")),
 	})
 
-	w, err := manifold.Start(s.context)
+	w, err := manifold.Start(context.Background(), s.getter)
 	c.Assert(err, gc.ErrorMatches, "blam")
 	c.Assert(w, gc.IsNil)
 }
@@ -134,7 +135,7 @@ func (s *ManifoldSuite) TestStartSuccess(c *gc.C) {
 		NewWorker:     s.newWorker(fakeWorker, nil),
 	})
 
-	w, err := manifold.Start(s.context)
+	w, err := manifold.Start(context.Background(), s.getter)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(w, gc.Equals, fakeWorker)
 }
@@ -147,7 +148,7 @@ func (s *ManifoldSuite) TestOutputSuccess(c *gc.C) {
 		NewWorker:     retrystrategy.NewRetryStrategyWorker,
 	})
 
-	w, err := manifold.Start(s.context)
+	w, err := manifold.Start(context.Background(), s.getter)
 	s.AddCleanup(func(c *gc.C) { w.Kill() })
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -165,7 +166,7 @@ func (s *ManifoldSuite) TestOutputBadInput(c *gc.C) {
 		NewWorker:     s.newWorker(&fakeWorker{}, nil),
 	})
 
-	w, err := manifold.Start(s.context)
+	w, err := manifold.Start(context.Background(), s.getter)
 	c.Assert(err, jc.ErrorIsNil)
 
 	var out params.RetryStrategy
@@ -182,7 +183,7 @@ func (s *ManifoldSuite) TestOutputBadTarget(c *gc.C) {
 		NewWorker:     retrystrategy.NewRetryStrategyWorker,
 	})
 
-	w, err := manifold.Start(s.context)
+	w, err := manifold.Start(context.Background(), s.getter)
 	s.AddCleanup(func(c *gc.C) { w.Kill() })
 	c.Assert(err, jc.ErrorIsNil)
 

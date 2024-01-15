@@ -6,8 +6,8 @@ package filenotifywatcher
 import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/catacomb"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/catacomb"
 )
 
 // FileNotifyWatcher represents a way to watch for changes in a namespace folder

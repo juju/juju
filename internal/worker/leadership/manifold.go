@@ -4,14 +4,15 @@
 package leadership
 
 import (
+	"context"
 	"fmt"
 	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/agent/leadership"
@@ -43,16 +44,16 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 // startFunc returns a StartFunc that creates a worker based on the manifolds
 // named in the supplied config.
 func startFunc(config ManifoldConfig) dependency.StartFunc {
-	return func(context dependency.Context) (worker.Worker, error) {
+	return func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
 		if config.Clock == nil {
 			return nil, errors.NotValidf("missing Clock")
 		}
 		var agent agent.Agent
-		if err := context.Get(config.AgentName, &agent); err != nil {
+		if err := getter.Get(config.AgentName, &agent); err != nil {
 			return nil, err
 		}
 		var apiCaller base.APICaller
-		if err := context.Get(config.APICallerName, &apiCaller); err != nil {
+		if err := getter.Get(config.APICallerName, &apiCaller); err != nil {
 			return nil, err
 		}
 		return NewManifoldWorker(agent, apiCaller, config.Clock, config.LeadershipGuarantee)

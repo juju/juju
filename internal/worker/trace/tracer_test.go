@@ -9,7 +9,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v3/workertest"
+	"github.com/juju/worker/v4/workertest"
 	"go.opentelemetry.io/otel/trace"
 	gomock "go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"

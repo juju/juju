@@ -4,9 +4,11 @@
 package machine_test
 
 import (
+	"context"
+
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v3/dependency"
-	dt "github.com/juju/worker/v3/dependency/testing"
+	"github.com/juju/worker/v4/dependency"
+	dt "github.com/juju/worker/v4/dependency/testing"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
@@ -41,10 +43,10 @@ func (s *MachineStartupSuite) TestInputs(c *gc.C) {
 }
 
 func (s *MachineStartupSuite) TestStartSuccess(c *gc.C) {
-	context := dt.StubContext(nil, map[string]interface{}{
+	getter := dt.StubGetter(map[string]interface{}{
 		"api-caller": new(mockAPIConn),
 	})
-	worker, err := s.manifold.Start(context)
+	worker, err := s.manifold.Start(context.Background(), getter)
 	c.Check(worker, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "resource permanently unavailable")
 	c.Check(s.startCalled, jc.IsTrue)

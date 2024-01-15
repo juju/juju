@@ -5,7 +5,7 @@ package charmdownloader
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/worker/v3"
+	"github.com/juju/worker/v4"
 
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/controller"

@@ -4,14 +4,16 @@
 package caasfirewaller_test
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
-	dt "github.com/juju/worker/v3/dependency/testing"
-	"github.com/juju/worker/v3/workertest"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
+	dt "github.com/juju/worker/v4/dependency/testing"
+	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
@@ -26,7 +28,7 @@ type manifoldSuite struct {
 	testing.IsolationSuite
 	testing.Stub
 	manifold dependency.Manifold
-	context  dependency.Context
+	getter   dependency.Getter
 
 	apiCaller *mocks.MockAPICaller
 	broker    *caasmocks.MockBroker
@@ -46,7 +48,7 @@ func (s *manifoldSuite) SetUpTest(c *gc.C) {
 	s.broker = caasmocks.NewMockBroker(s.ctrl)
 	s.client = mocks.NewMockClient(s.ctrl)
 
-	s.context = s.newContext(nil)
+	s.getter = s.newGetter(nil)
 	s.manifold = caasfirewaller.Manifold(s.validConfig())
 }
 
@@ -77,7 +79,7 @@ func (s *manifoldSuite) newWorker(config caasfirewaller.Config) (worker.Worker, 
 	return w, nil
 }
 
-func (s *manifoldSuite) newContext(overlay map[string]interface{}) dependency.Context {
+func (s *manifoldSuite) newGetter(overlay map[string]interface{}) dependency.Getter {
 	resources := map[string]interface{}{
 		"api-caller": s.apiCaller,
 		"broker":     s.broker,
@@ -85,7 +87,7 @@ func (s *manifoldSuite) newContext(overlay map[string]interface{}) dependency.Co
 	for k, v := range overlay {
 		resources[k] = v
 	}
-	return dt.StubContext(nil, resources)
+	return dt.StubGetter(resources)
 }
 
 func (s *manifoldSuite) TestMissingControllerUUID(c *gc.C) {
@@ -138,16 +140,16 @@ func (s *manifoldSuite) TestInputs(c *gc.C) {
 
 func (s *manifoldSuite) TestMissingInputs(c *gc.C) {
 	for _, input := range expectedInputs {
-		context := s.newContext(map[string]interface{}{
+		getter := s.newGetter(map[string]interface{}{
 			input: dependency.ErrMissing,
 		})
-		_, err := s.manifold.Start(context)
+		_, err := s.manifold.Start(context.Background(), getter)
 		c.Assert(errors.Cause(err), gc.Equals, dependency.ErrMissing)
 	}
 }
 
 func (s *manifoldSuite) TestStart(c *gc.C) {
-	w, err := s.manifold.Start(s.context)
+	w, err := s.manifold.Start(context.Background(), s.getter)
 	c.Assert(err, jc.ErrorIsNil)
 	workertest.CleanKill(c, w)
 

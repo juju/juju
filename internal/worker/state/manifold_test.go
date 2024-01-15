@@ -10,10 +10,10 @@ import (
 	"github.com/juju/errors"
 	mgotesting "github.com/juju/mgo/v3/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
-	dt "github.com/juju/worker/v3/dependency/testing"
-	"github.com/juju/worker/v3/workertest"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
+	dt "github.com/juju/worker/v4/dependency/testing"
+	"github.com/juju/worker/v4/workertest"
 	gc "gopkg.in/check.v1"
 
 	coreagent "github.com/juju/juju/agent"
@@ -111,7 +111,7 @@ func (s *ManifoldSuite) TestStartSetStatePoolNil(c *gc.C) {
 
 func (s *ManifoldSuite) startManifoldInvalidConfig(c *gc.C, config workerstate.ManifoldConfig, expect string) {
 	manifold := workerstate.Manifold(config)
-	w, err := manifold.Start(s.resources.Context())
+	w, err := manifold.Start(context.Background(), s.resources.Getter())
 	c.Check(w, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, expect)
 }
@@ -218,7 +218,7 @@ func (s *ManifoldSuite) mustStartManifold(c *gc.C) worker.Worker {
 }
 
 func (s *ManifoldSuite) startManifold(c *gc.C) (worker.Worker, error) {
-	w, err := s.manifold.Start(s.resources.Context())
+	w, err := s.manifold.Start(context.Background(), s.resources.Getter())
 	if w != nil {
 		s.AddCleanup(func(*gc.C) { worker.Stop(w) })
 	}

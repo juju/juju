@@ -6,7 +6,7 @@ package engine_test
 import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v3"
+	"github.com/juju/worker/v4"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent/engine"

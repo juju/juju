@@ -11,10 +11,10 @@ import (
 	"github.com/juju/names/v5"
 	"github.com/juju/pubsub/v2"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
-	dt "github.com/juju/worker/v3/dependency/testing"
-	"github.com/juju/worker/v3/workertest"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
+	dt "github.com/juju/worker/v4/dependency/testing"
+	"github.com/juju/worker/v4/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
@@ -62,20 +62,20 @@ func (s *AgentConfigUpdaterSuite) TestInputs(c *gc.C) {
 }
 
 func (s *AgentConfigUpdaterSuite) TestStartAgentMissing(c *gc.C) {
-	context := dt.StubContext(nil, map[string]interface{}{
+	getter := dt.StubGetter(map[string]interface{}{
 		"agent": dependency.ErrMissing,
 	})
-	worker, err := s.manifold.Start(context)
+	worker, err := s.manifold.Start(context.Background(), getter)
 	c.Check(worker, gc.IsNil)
 	c.Check(err, gc.Equals, dependency.ErrMissing)
 }
 
 func (s *AgentConfigUpdaterSuite) TestStartAPICallerMissing(c *gc.C) {
-	context := dt.StubContext(nil, map[string]interface{}{
+	getter := dt.StubGetter(map[string]interface{}{
 		"agent":      &mockAgent{},
 		"api-caller": dependency.ErrMissing,
 	})
-	worker, err := s.manifold.Start(context)
+	worker, err := s.manifold.Start(context.Background(), getter)
 	c.Check(worker, gc.IsNil)
 	c.Check(err, gc.Equals, dependency.ErrMissing)
 }
@@ -84,10 +84,10 @@ func (s *AgentConfigUpdaterSuite) TestNotMachine(c *gc.C) {
 	a := &mockAgent{
 		conf: mockConfig{tag: names.NewUnitTag("foo/0")},
 	}
-	context := dt.StubContext(nil, map[string]interface{}{
+	getter := dt.StubGetter(map[string]interface{}{
 		"agent": a,
 	})
-	worker, err := s.manifold.Start(context)
+	worker, err := s.manifold.Start(context.Background(), getter)
 	c.Check(worker, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "agent's tag is not a machine or controller agent tag")
 }
@@ -113,13 +113,13 @@ func (s *AgentConfigUpdaterSuite) TestEntityLookupFailure(c *gc.C) {
 	)
 	// Call the manifold's start func with a fake resource getter that
 	// returns the fake Agent and APICaller
-	context := dt.StubContext(nil, map[string]interface{}{
+	getter := dt.StubGetter(map[string]interface{}{
 		"agent":       a,
 		"api-caller":  apiCaller,
 		"central-hub": s.hub,
 		"trace":       coretrace.NoopTracer{},
 	})
-	w, err := s.manifold.Start(context)
+	w, err := s.manifold.Start(context.Background(), getter)
 	c.Assert(w, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "checking controller status: boom")
 }
@@ -162,13 +162,13 @@ func (s *AgentConfigUpdaterSuite) TestCentralHubMissing(c *gc.C) {
 			return nil
 		},
 	)
-	context := dt.StubContext(nil, map[string]interface{}{
+	getter := dt.StubGetter(map[string]interface{}{
 		"agent":       &mockAgent{},
 		"api-caller":  apiCaller,
 		"central-hub": dependency.ErrMissing,
 		"trace":       stubTracerGetter{},
 	})
-	worker, err := s.manifold.Start(context)
+	worker, err := s.manifold.Start(context.Background(), getter)
 	c.Check(worker, gc.IsNil)
 	c.Check(err, gc.Equals, dependency.ErrMissing)
 }
@@ -206,13 +206,13 @@ func (s *AgentConfigUpdaterSuite) TestCentralHubMissingFirstPass(c *gc.C) {
 			return nil
 		},
 	)
-	context := dt.StubContext(nil, map[string]interface{}{
+	getter := dt.StubGetter(map[string]interface{}{
 		"agent":       agent,
 		"api-caller":  apiCaller,
 		"central-hub": dependency.ErrMissing,
 		"trace":       stubTracerGetter{},
 	})
-	worker, err := s.manifold.Start(context)
+	worker, err := s.manifold.Start(context.Background(), getter)
 	c.Check(worker, gc.IsNil)
 	c.Check(err, gc.Equals, jworker.ErrRestartAgent)
 }
@@ -255,13 +255,13 @@ func (s *AgentConfigUpdaterSuite) startManifold(c *gc.C, a agent.Agent, mockAPIP
 			return nil
 		},
 	)
-	context := dt.StubContext(nil, map[string]interface{}{
+	getter := dt.StubGetter(map[string]interface{}{
 		"agent":       a,
 		"api-caller":  apiCaller,
 		"central-hub": s.hub,
 		"trace":       stubTracerGetter{},
 	})
-	return s.manifold.Start(context)
+	return s.manifold.Start(context.Background(), getter)
 }
 
 func (s *AgentConfigUpdaterSuite) TestJobManageEnviron(c *gc.C) {
@@ -341,7 +341,7 @@ func (s *AgentConfigUpdaterSuite) checkNotController(c *gc.C, job model.MachineJ
 			return nil
 		},
 	)
-	w, err := s.manifold.Start(dt.StubContext(nil, map[string]interface{}{
+	w, err := s.manifold.Start(context.Background(), dt.StubGetter(map[string]interface{}{
 		"agent":       a,
 		"api-caller":  apiCaller,
 		"central-hub": s.hub,

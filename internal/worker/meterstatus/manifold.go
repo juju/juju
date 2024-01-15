@@ -4,6 +4,7 @@
 package meterstatus
 
 import (
+	"context"
 	"os"
 	"path"
 	"time"
@@ -11,8 +12,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v5"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/agent/meterstatus"
@@ -67,21 +68,21 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.AgentName,
 			config.APICallerName,
 		},
-		Start: func(context dependency.Context) (worker.Worker, error) {
+		Start: func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
 			if config.Clock == nil {
 				return nil, errors.NotValidf("missing Clock")
 			}
 			if config.MachineLock == nil {
 				return nil, errors.NotValidf("missing MachineLock")
 			}
-			return newStatusWorker(config, context)
+			return newStatusWorker(config, ctx, getter)
 		},
 	}
 }
 
-func newStatusWorker(config ManifoldConfig, context dependency.Context) (worker.Worker, error) {
+func newStatusWorker(config ManifoldConfig, ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
 	var agent agent.Agent
-	if err := context.Get(config.AgentName, &agent); err != nil {
+	if err := getter.Get(config.AgentName, &agent); err != nil {
 		return nil, err
 	}
 
@@ -107,7 +108,7 @@ func newStatusWorker(config ManifoldConfig, context dependency.Context) (worker.
 	// it with a disk-backed StateReadWriter and attempt to push the data
 	// back to the controller once we get a valid connection.
 	var apiCaller base.APICaller
-	err := context.Get(config.APICallerName, &apiCaller)
+	err := getter.Get(config.APICallerName, &apiCaller)
 	if errors.Cause(err) == dependency.ErrMissing {
 		config.Logger.Tracef("API caller dependency not available, starting isolated meter status worker.")
 		cfg := IsolatedConfig{

@@ -4,6 +4,7 @@
 package collect_test
 
 import (
+	stdcontext "context"
 	"net"
 	"os"
 	"path/filepath"
@@ -16,9 +17,9 @@ import (
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v3/dependency"
-	dt "github.com/juju/worker/v3/dependency/testing"
-	"github.com/juju/worker/v3/workertest"
+	"github.com/juju/worker/v4/dependency"
+	dt "github.com/juju/worker/v4/dependency/testing"
+	"github.com/juju/worker/v4/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/worker/metrics/collect"
@@ -101,7 +102,7 @@ func (s *handlerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *handlerSuite) TestListenerStart(c *gc.C) {
-	worker, err := s.manifold.Start(s.resources.Context())
+	worker, err := s.manifold.Start(stdcontext.Background(), s.resources.Getter())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(worker, gc.NotNil)
 	c.Assert(s.listener.Calls(), gc.HasLen, 0)
@@ -110,7 +111,7 @@ func (s *handlerSuite) TestListenerStart(c *gc.C) {
 }
 
 func (s *handlerSuite) TestJujuUnitsBuiltinMetric(c *gc.C) {
-	worker, err := s.manifold.Start(s.resources.Context())
+	worker, err := s.manifold.Start(stdcontext.Background(), s.resources.Getter())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(worker, gc.NotNil)
 	c.Assert(s.listener.Calls(), gc.HasLen, 0)
@@ -128,7 +129,7 @@ func (s *handlerSuite) TestJujuUnitsBuiltinMetric(c *gc.C) {
 }
 
 func (s *handlerSuite) TestReadCharmCalledOnEachTrigger(c *gc.C) {
-	worker, err := s.manifold.Start(s.resources.Context())
+	worker, err := s.manifold.Start(stdcontext.Background(), s.resources.Getter())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(worker, gc.NotNil)
 	c.Assert(s.listener.Calls(), gc.HasLen, 0)
@@ -147,7 +148,7 @@ func (s *handlerSuite) TestReadCharmCalledOnEachTrigger(c *gc.C) {
 }
 
 func (s *handlerSuite) TestHandlerError(c *gc.C) {
-	worker, err := s.manifold.Start(s.resources.Context())
+	worker, err := s.manifold.Start(stdcontext.Background(), s.resources.Getter())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(worker, gc.NotNil)
 	c.Assert(s.listener.Calls(), gc.HasLen, 0)

@@ -4,10 +4,12 @@
 package instancemutater
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/dependency"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
@@ -110,17 +112,17 @@ func EnvironAPIManifold(config EnvironAPIConfig, start EnvironAPIStartFunc) depe
 			config.APICallerName,
 			config.EnvironName,
 		},
-		Start: func(context dependency.Context) (worker.Worker, error) {
+		Start: func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
 			var agent agent.Agent
-			if err := context.Get(config.AgentName, &agent); err != nil {
+			if err := getter.Get(config.AgentName, &agent); err != nil {
 				return nil, errors.Trace(err)
 			}
 			var environ environs.Environ
-			if err := context.Get(config.EnvironName, &environ); err != nil {
+			if err := getter.Get(config.EnvironName, &environ); err != nil {
 				return nil, errors.Trace(err)
 			}
 			var apiCaller base.APICaller
-			if err := context.Get(config.APICallerName, &apiCaller); err != nil {
+			if err := getter.Get(config.APICallerName, &apiCaller); err != nil {
 				return nil, errors.Trace(err)
 			}
 			return start(environ, apiCaller, agent)
@@ -229,17 +231,17 @@ func BrokerAPIManifold(config BrokerAPIConfig, start BrokerAPIStartFunc) depende
 			config.APICallerName,
 			config.BrokerName,
 		},
-		Start: func(context dependency.Context) (worker.Worker, error) {
+		Start: func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
 			var agent agent.Agent
-			if err := context.Get(config.AgentName, &agent); err != nil {
+			if err := getter.Get(config.AgentName, &agent); err != nil {
 				return nil, errors.Trace(err)
 			}
 			var broker environs.InstanceBroker
-			if err := context.Get(config.BrokerName, &broker); err != nil {
+			if err := getter.Get(config.BrokerName, &broker); err != nil {
 				return nil, errors.Trace(err)
 			}
 			var apiCaller base.APICaller
-			if err := context.Get(config.APICallerName, &apiCaller); err != nil {
+			if err := getter.Get(config.APICallerName, &apiCaller); err != nil {
 				return nil, errors.Trace(err)
 			}
 			return start(broker, apiCaller, agent)

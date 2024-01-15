@@ -4,14 +4,15 @@
 package state
 
 import (
+	"context"
 	stdcontext "context"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/catacomb"
-	"github.com/juju/worker/v3/dependency"
+	"github.com/juju/worker/v4"
+	"github.com/juju/worker/v4/catacomb"
+	"github.com/juju/worker/v4/dependency"
 
 	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/internal/servicefactory"
@@ -68,21 +69,21 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.StateConfigWatcherName,
 			config.ServiceFactoryName,
 		},
-		Start: func(context dependency.Context) (worker.Worker, error) {
+		Start: func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
 			if err := config.Validate(); err != nil {
 				return nil, errors.Trace(err)
 			}
 
 			// Get the agent.
 			var agent coreagent.Agent
-			if err := context.Get(config.AgentName, &agent); err != nil {
+			if err := getter.Get(config.AgentName, &agent); err != nil {
 				return nil, err
 			}
 
 			// Confirm we're running in a state server by asking the
 			// stateconfigwatcher manifold.
 			var haveStateConfig bool
-			if err := context.Get(config.StateConfigWatcherName, &haveStateConfig); err != nil {
+			if err := getter.Get(config.StateConfigWatcherName, &haveStateConfig); err != nil {
 				return nil, err
 			}
 			if !haveStateConfig {
@@ -90,7 +91,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 
 			var controllerServiceFactory servicefactory.ControllerServiceFactory
-			if err := context.Get(config.ServiceFactoryName, &controllerServiceFactory); err != nil {
+			if err := getter.Get(config.ServiceFactoryName, &controllerServiceFactory); err != nil {
 				return nil, err
 			}
 			pool, err := config.OpenStatePool(stdcontext.Background(), agent.CurrentConfig(), controllerServiceFactory)
