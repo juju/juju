@@ -259,6 +259,48 @@ WHERE user.uuid = $M.uuid
 	return usr, nil
 }
 
+// GetUserWithAuthInfoByName will retrieve the user with authentication information (last login, disabled)
+// specified by name from the database. If the user does not exist an error that satisfies
+// usererrors.NotFound will be returned.
+func (st *State) GetUserWithAuthInfoByName(ctx context.Context, name string) (user.UserWithAuthInfo, error) {
+	db, err := st.DB()
+	if err != nil {
+		return user.UserWithAuthInfo{}, errors.Annotate(err, "getting DB access")
+	}
+
+	var usr user.UserWithAuthInfo
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		getUserWithAuthInfoByNameQuery := `
+SELECT (user.uuid, user.name, user.display_name, user.created_by_uuid, user.created_at, user_authentication.last_login, user_authentication.disabled) AS (&User.*)
+FROM user
+JOIN user_authentication ON user.uuid = user_authentication.user_uuid
+WHERE user.name = $M.name AND removed = false
+`
+
+		selectGetUserWithAuthInfoByNameStmt, err := sqlair.Prepare(getUserWithAuthInfoByNameQuery, User{}, sqlair.M{})
+		if err != nil {
+			return errors.Annotate(err, "preparing select getUserWithAuthInfoByName query")
+		}
+
+		var result User
+		err = tx.Query(ctx, selectGetUserWithAuthInfoByNameStmt, sqlair.M{"name": name}).Get(&result)
+		if err != nil && errors.Is(err, sql.ErrNoRows) {
+			return errors.Annotatef(usererrors.NotFound, "%q", name)
+		} else if err != nil {
+			return errors.Annotatef(err, "getting user with name %q", name)
+		}
+
+		usr = result.toCoreUserWithAuthInfo()
+
+		return nil
+	})
+	if err != nil {
+		return user.UserWithAuthInfo{}, errors.Annotatef(err, "getting user with name %q", name)
+	}
+
+	return usr, nil
+}
+
 // RemoveUser marks the user as removed. This obviates the ability of a user
 // to function, but keeps the user retaining provenance, i.e. auditing.
 // RemoveUser will also remove any credentials and activation codes for the

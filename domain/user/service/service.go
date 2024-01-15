@@ -59,6 +59,11 @@ type State interface {
 	// usererrors.NotFound will be returned.
 	GetUserWithAuthInfo(context.Context, user.UUID) (user.UserWithAuthInfo, error)
 
+	// GetUserWithAuthInfoByName will retrieve the user with authentication information (last login, disabled)
+	// specified by name from the database. If the user does not exist an error that satisfies
+	// usererrors.NotFound will be returned.
+	GetUserWithAuthInfoByName(ctx context.Context, name string) (user.UserWithAuthInfo, error)
+
 	// RemoveUser marks the user as removed. This obviates the ability of a user
 	// to function, but keeps the user retaining provenance, i.e. auditing.
 	// RemoveUser will also remove any credentials and activation codes for the
@@ -185,6 +190,28 @@ func (s *Service) GetUserWithAuthInfo(
 	usr, err := s.st.GetUserWithAuthInfo(ctx, uuid)
 	if err != nil {
 		return user.UserWithAuthInfo{}, errors.Annotatef(err, "getting user for uuid %q", uuid)
+	}
+
+	return usr, nil
+}
+
+// GetUserWithAuthInfoByName will find and return the user associated with name. If there is no
+// user for the user name then an error that satisfies usererrors.NotFound will
+// be returned. If supplied with an invalid user name then an error that satisfies
+// usererrors.UsernameNotValid will be returned.
+//
+// GetUserWithAuthInfoByName will not return users that have been previously removed.
+func (s *Service) GetUserWithAuthInfoByName(
+	ctx context.Context,
+	name string,
+) (user.UserWithAuthInfo, error) {
+	if err := ValidateUsername(name); err != nil {
+		return user.UserWithAuthInfo{}, errors.Annotatef(err, "validating username %q", name)
+	}
+
+	usr, err := s.st.GetUserWithAuthInfoByName(ctx, name)
+	if err != nil {
+		return user.UserWithAuthInfo{}, errors.Annotatef(err, "getting user %q", name)
 	}
 
 	return usr, nil
