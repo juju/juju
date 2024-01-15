@@ -265,6 +265,12 @@ func (s *applicationSuite) assertEnsure(c *gc.C, app caas.Application, isPrivate
 			APIGroups: []string{"*"},
 			Resources: []string{"*"},
 		}}
+	} else {
+		appClusterRole.Rules = []rbacv1.PolicyRule{{
+			Verbs:     []string{"get", "list"},
+			APIGroups: []string{""},
+			Resources: []string{"namespaces"},
+		}}
 	}
 	appClusterRoleBinding := rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{

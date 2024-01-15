@@ -10,6 +10,7 @@ import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/checkers"
 	"github.com/juju/charm/v12"
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
@@ -59,7 +60,10 @@ func (s *applicationOffersSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.bakery = &mockBakeryService{caveats: make(map[string][]checkers.Caveat)}
 	thirdPartyKey := bakery.MustGenerateKey()
-	s.authContext, err = crossmodel.NewAuthContext(s.mockState, thirdPartyKey, s.bakery)
+	s.authContext, err = crossmodel.NewAuthContext(
+		s.mockState, thirdPartyKey,
+		crossmodel.NewOfferBakeryForTest(s.bakery, clock.WallClock),
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	api, err := applicationoffers.CreateOffersAPI(
 		getApplicationOffers, getEnviron, getFakeControllerInfo,
@@ -1157,7 +1161,10 @@ func (s *consumeSuite) SetUpTest(c *gc.C) {
 		return s.env, nil
 	}
 	thirdPartyKey := bakery.MustGenerateKey()
-	s.authContext, err = crossmodel.NewAuthContext(s.mockState, thirdPartyKey, s.bakery)
+	s.authContext, err = crossmodel.NewAuthContext(
+		s.mockState, thirdPartyKey,
+		crossmodel.NewOfferBakeryForTest(s.bakery, clock.WallClock),
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	api, err := applicationoffers.CreateOffersAPI(
 		getApplicationOffers, getEnviron, getFakeControllerInfo,
@@ -1282,8 +1289,8 @@ func (s *consumeSuite) assertConsumeDetailsWithPermission(
 	c.Check(cav, gc.HasLen, 4)
 	c.Check(strings.HasPrefix(cav[0].Condition, "time-before "), jc.IsTrue)
 	c.Check(cav[1].Condition, gc.Equals, "declared source-model-uuid deadbeef-0bad-400d-8000-4b1d0d06f00d")
-	c.Check(cav[2].Condition, gc.Equals, "declared offer-uuid "+offerUUID)
-	c.Check(cav[3].Condition, gc.Equals, "declared username someone")
+	c.Check(cav[2].Condition, gc.Equals, "declared username someone")
+	c.Check(cav[3].Condition, gc.Equals, "declared offer-uuid "+offerUUID)
 }
 
 func (s *consumeSuite) TestConsumeDetailsNonAdminSpecifiedUser(c *gc.C) {

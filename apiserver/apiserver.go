@@ -741,9 +741,8 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		controllerModelUUID,
 	)
 	modelRestHandler := &modelRestHandler{
-		ctxt:          httpCtxt,
-		dataDir:       srv.dataDir,
-		stateAuthFunc: httpCtxt.stateForRequestAuthenticatedUser,
+		ctxt:    httpCtxt,
+		dataDir: srv.dataDir,
 	}
 	modelRestServer := &RestHTTPHandler{
 		GetHandler: modelRestHandler.ServeGet,
@@ -781,6 +780,7 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 			if err != nil {
 				return nil, nil, nil, errors.Trace(err)
 			}
+
 			rst := st.Resources()
 			return rst, st, entity.Tag(), nil
 		},
@@ -789,6 +789,8 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 			if err != nil {
 				return errors.Trace(err)
 			}
+			defer st.Release()
+
 			blockChecker := common.NewBlockChecker(st)
 			if err := blockChecker.ChangeAllowed(); err != nil {
 				return errors.Trace(err)
@@ -802,6 +804,7 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 			if err != nil {
 				return nil, nil, errors.Trace(err)
 			}
+
 			tagStr := req.URL.Query().Get(":unit")
 			tag, err := names.ParseUnitTag(tagStr)
 			if err != nil {

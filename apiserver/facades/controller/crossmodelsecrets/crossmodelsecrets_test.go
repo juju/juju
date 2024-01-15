@@ -9,6 +9,7 @@ import (
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/checkers"
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
@@ -88,7 +89,9 @@ func (s *CrossModelSecretsSuite) SetUpTest(c *gc.C) {
 		OpsAuthorizer: crossmodel.CrossModelAuthorizer{},
 	})
 	s.bakery = &mockBakery{bakery}
-	s.authContext, err = crossmodel.NewAuthContext(nil, key, s.bakery)
+	s.authContext, err = crossmodel.NewAuthContext(
+		nil, key, crossmodel.NewOfferBakeryForTest(s.bakery, clock.WallClock),
+	)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -103,7 +106,9 @@ func (s *CrossModelSecretsSuite) setup(c *gc.C) *gomock.Controller {
 	secretsStateGetter := func(modelUUID string) (crossmodelsecrets.SecretsState, crossmodelsecrets.SecretsConsumer, func() bool, error) {
 		return s.secretsState, s.secretsConsumer, func() bool { return false }, nil
 	}
-	backendConfigGetter := func(modelUUID string) (*provider.ModelBackendConfigInfo, error) {
+	backendConfigGetter := func(modelUUID, backendID string, consumer names.Tag) (*provider.ModelBackendConfigInfo, error) {
+		c.Assert(backendID, gc.Equals, "backend-id")
+		c.Assert(consumer.String(), gc.Equals, "unit-remote-app-666")
 		return &provider.ModelBackendConfigInfo{
 			ActiveID: "active-id",
 			Configs: map[string]provider.ModelBackendConfig{
