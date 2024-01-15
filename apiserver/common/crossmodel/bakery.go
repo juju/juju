@@ -267,7 +267,6 @@ func (o *OfferBakery) CreateDischargeMacaroon(
 		requiredSourceModelUUID, username, requiredOffer, requiredRelation,
 		permission.ConsumeAccess,
 	)
-	logger.Criticalf("authYaml: %s", authYaml)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
