@@ -21,8 +21,25 @@ const (
 
 // Session provides access to the object store.
 type Session interface {
+	ReadSession
+	WriteSession
+}
+
+// ReadSession provides read access to the object store.
+type ReadSession interface {
 	// GetObject returns a reader for the specified object.
-	GetObject(ctx context.Context, bucketName, objectName string) (io.ReadCloser, error)
+	GetObject(ctx context.Context, bucketName, objectName string) (io.ReadCloser, int64, error)
+}
+
+// WriteSession provides read access to the object store.
+type WriteSession interface {
+	// PutObject puts an object into the object store based on the bucket name and
+	// object name.
+	PutObject(ctx context.Context, bucketName, objectName string, body io.Reader, hash string) error
+
+	// DeleteObject deletes an object from the object store based on the bucket name
+	// and object name.
+	DeleteObject(ctx context.Context, bucketName, objectName string) error
 }
 
 // ObjectStore represents a full object store for both read and write access.

@@ -27,7 +27,6 @@ import (
 	coretrace "github.com/juju/juju/core/trace"
 	"github.com/juju/juju/internal/observability/probe"
 	proxy "github.com/juju/juju/internal/proxy/config"
-	"github.com/juju/juju/internal/s3client"
 	"github.com/juju/juju/internal/upgrades"
 	jworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/agent"
@@ -198,7 +197,7 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 		// S3-compatible API.
 		s3CallerName: s3caller.Manifold(s3caller.ManifoldConfig{
 			APICallerName: apiCallerName,
-			NewClient:     s3client.NewS3Client,
+			NewClient:     s3caller.NewS3Client,
 			Logger:        loggo.GetLogger("juju.worker.s3caller"),
 		}),
 

@@ -40,17 +40,46 @@ func (m *MockSession) EXPECT() *MockSessionMockRecorder {
 	return m.recorder
 }
 
+// DeleteObject mocks base method.
+func (m *MockSession) DeleteObject(arg0 context.Context, arg1, arg2 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteObject", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteObject indicates an expected call of DeleteObject.
+func (mr *MockSessionMockRecorder) DeleteObject(arg0, arg1, arg2 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteObject", reflect.TypeOf((*MockSession)(nil).DeleteObject), arg0, arg1, arg2)
+}
+
 // GetObject mocks base method.
-func (m *MockSession) GetObject(arg0 context.Context, arg1, arg2 string) (io.ReadCloser, error) {
+func (m *MockSession) GetObject(arg0 context.Context, arg1, arg2 string) (io.ReadCloser, int64, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetObject", arg0, arg1, arg2)
 	ret0, _ := ret[0].(io.ReadCloser)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret1, _ := ret[1].(int64)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
 }
 
 // GetObject indicates an expected call of GetObject.
 func (mr *MockSessionMockRecorder) GetObject(arg0, arg1, arg2 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetObject", reflect.TypeOf((*MockSession)(nil).GetObject), arg0, arg1, arg2)
+}
+
+// PutObject mocks base method.
+func (m *MockSession) PutObject(arg0 context.Context, arg1, arg2 string, arg3 io.Reader, arg4 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "PutObject", arg0, arg1, arg2, arg3, arg4)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// PutObject indicates an expected call of PutObject.
+func (mr *MockSessionMockRecorder) PutObject(arg0, arg1, arg2, arg3, arg4 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PutObject", reflect.TypeOf((*MockSession)(nil).PutObject), arg0, arg1, arg2, arg3, arg4)
 }
