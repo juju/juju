@@ -79,10 +79,10 @@ func (l *awsLogger) Logf(classification logging.Classification, format string, v
 	}
 }
 
-type NoOpRateLimit struct{}
+type unlimitedRateLimiter struct{}
 
-func (NoOpRateLimit) AddTokens(uint) error { return nil }
-func (NoOpRateLimit) GetToken(context.Context, uint) (func() error, error) {
+func (unlimitedRateLimiter) AddTokens(uint) error { return nil }
+func (unlimitedRateLimiter) GetToken(context.Context, uint) (func() error, error) {
 	return noOpToken, nil
 }
 func noOpToken() error { return nil }
@@ -111,13 +111,13 @@ func NewS3Client(apiConn api.Connection, agentConfig agent.Config, logger Logger
 		config.WithLogger(awsLogger),
 		config.WithHTTPClient(awsHTTPDoer),
 		config.WithEndpointResolver(&awsEndpointResolver{endpoint: currentAPIAddress}),
-		// Standard retryer with custom max attemps. Will retry at most
+		// Standard retryer with custom max attempts. Will retry at most
 		// 10 times with 20s backoff time.
 		config.WithRetryer(func() aws.Retryer {
 			return retry.NewStandard(
 				func(o *retry.StandardOptions) {
 					o.MaxAttempts = 10
-					o.RateLimiter = NoOpRateLimit{}
+					o.RateLimiter = unlimitedRateLimiter{}
 				},
 			)
 		}),
