@@ -24,7 +24,7 @@ import (
 	"github.com/juju/juju/secrets/provider"
 )
 
-type backendConfigGetter func(string) (*provider.ModelBackendConfigInfo, error)
+type backendConfigGetter func(modelUUID, backendID string, consumer names.Tag) (*provider.ModelBackendConfigInfo, error)
 type secretStateGetter func(modelUUID string) (SecretsState, SecretsConsumer, func() bool, error)
 
 // CrossModelSecretsAPI provides access to the CrossModelSecrets API facade.
@@ -225,7 +225,7 @@ func (s *CrossModelSecretsAPI) getSecretContent(arg params.GetRemoteSecretConten
 	if err != nil || content.ValueRef == nil {
 		return content, nil, latestRevision, errors.Trace(err)
 	}
-	backend, err := s.getBackend(uri.SourceUUID, content.ValueRef.BackendID)
+	backend, err := s.getBackend(uri.SourceUUID, content.ValueRef.BackendID, consumer)
 	return content, backend, latestRevision, errors.Trace(err)
 }
 
@@ -255,8 +255,8 @@ func (s *CrossModelSecretsAPI) updateConsumedRevision(secretsState SecretsState,
 	return md.LatestRevision, nil
 }
 
-func (s *CrossModelSecretsAPI) getBackend(modelUUID string, backendID string) (*params.SecretBackendConfigResult, error) {
-	cfgInfo, err := s.backendConfigGetter(modelUUID)
+func (s *CrossModelSecretsAPI) getBackend(modelUUID string, backendID string, consumer names.Tag) (*params.SecretBackendConfigResult, error) {
+	cfgInfo, err := s.backendConfigGetter(modelUUID, backendID, consumer)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
