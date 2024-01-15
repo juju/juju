@@ -585,7 +585,7 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 // clockManifold expresses a Clock as a ValueWorker manifold.
 func clockManifold(clock clock.Clock) dependency.Manifold {
 	return dependency.Manifold{
-		Start: func(_ context.Context, getter dependency.Getter) (worker.Worker, error) {
+		Start: func(_ context.Context, _ dependency.Getter) (worker.Worker, error) {
 			return engine.NewValueWorker(clock)
 		},
 		Output: engine.ValueWorkerOutput,

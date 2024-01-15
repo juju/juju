@@ -31,7 +31,7 @@ func Manifold() dependency.Manifold {
 // are running inside the dependency engine.
 func ManifoldEx(lock Lock) dependency.Manifold {
 	return dependency.Manifold{
-		Start: func(_ context.Context, getter dependency.Getter) (worker.Worker, error) {
+		Start: func(_ context.Context, _ dependency.Getter) (worker.Worker, error) {
 			// Need to assign a copy of the arg so we don't
 			// modify the variable in the closure when we get
 			// called a second time.

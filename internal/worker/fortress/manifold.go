@@ -22,7 +22,7 @@ import (
 // be impossible to reliably tell from outside. So please don't do that.
 func Manifold() dependency.Manifold {
 	return dependency.Manifold{
-		Start: func(_ context.Context, getter dependency.Getter) (worker.Worker, error) {
+		Start: func(_ context.Context, _ dependency.Getter) (worker.Worker, error) {
 			return newFortress(), nil
 		},
 		Output: func(in worker.Worker, out interface{}) error {
