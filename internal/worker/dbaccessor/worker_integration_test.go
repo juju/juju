@@ -133,15 +133,8 @@ func (s *integrationSuite) TearDownTest(c *gc.C) {
 	if s.db != nil {
 		s.db.Close()
 	}
-
-	// We can't for what ever reason call s.DqliteSuite.TearDownTest here
-	// because it will cause a segfault. The workaround is to close the
-	// db directly.
-	if db := s.DB(); db != nil {
-		db.Close()
-	}
-
 	s.dqliteAppIntegrationSuite.TearDownTest(c)
+	s.DqliteSuite.TearDownTest(c)
 }
 
 func (s *integrationSuite) TestWorkerSetsNodeIDAndAddress(c *gc.C) {
