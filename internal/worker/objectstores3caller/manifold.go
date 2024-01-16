@@ -30,6 +30,9 @@ type Logger interface {
 // NewClientFunc is a function that returns a new S3 client.
 type NewClientFunc func(string, s3client.HTTPClient, s3client.Credentials, s3client.Logger) (objectstore.Session, error)
 
+// GetServiceFunc is a function that returns a service from the manifold.
+type GetServiceFunc func(string, dependency.Getter, func(servicefactory.ControllerServiceFactory) ControllerService) (ControllerService, error)
+
 // ManifoldConfig defines a Manifold's dependencies.
 type ManifoldConfig struct {
 	HTTPClientName     string
@@ -41,6 +44,9 @@ type ManifoldConfig struct {
 	Logger Logger
 	// Clock is used for the retry mechanism.
 	Clock clock.Clock
+
+	// GetService is used to get a service from the manifold.
+	GetService GetServiceFunc
 }
 
 func (cfg ManifoldConfig) Validate() error {
@@ -81,12 +87,12 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		return nil, errors.Trace(err)
 	}
 
-	var serviceFactoryGetter servicefactory.ControllerServiceFactory
-	if err := getter.Get(config.ServiceFactoryName, &serviceFactoryGetter); err != nil {
+	controllerConfigService, err := config.GetService(config.ServiceFactoryName, getter, func(service servicefactory.ControllerServiceFactory) ControllerService {
+		return service.ControllerConfig()
+	})
+	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
-	controllerConfigService := serviceFactoryGetter.ControllerConfig()
 	controllerConfig, err := controllerConfigService.ControllerConfig(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -130,4 +136,14 @@ func outputFunc(in worker.Worker, out any) error {
 // NewS3Client returns a new S3 client based on the supplied dependencies.
 func NewS3Client(url string, client s3client.HTTPClient, creds s3client.Credentials, logger s3client.Logger) (objectstore.Session, error) {
 	return s3client.NewS3Client(url, client, creds, logger)
+}
+
+func GetService[A, B any](name string, getter dependency.Getter, fn func(A) B) (B, error) {
+	var service A
+	if err := getter.Get(name, &service); err != nil {
+		var b B
+		return b, errors.Trace(err)
+	}
+
+	return fn(service), nil
 }

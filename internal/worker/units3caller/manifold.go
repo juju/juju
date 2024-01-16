@@ -12,6 +12,7 @@ import (
 	"github.com/juju/worker/v4/dependency"
 	httprequest "gopkg.in/httprequest.v1"
 
+	"github.com/juju/juju/agent/engine"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/s3client"
@@ -24,7 +25,7 @@ type ManifoldConfig struct {
 	APICallerName string
 
 	// NewClient is used to create a new object store client.
-	NewClient func(string, s3client.HTTPClient, s3client.Logger) (objectstore.Session, error)
+	NewClient func(string, s3client.HTTPClient, s3client.Logger) (objectstore.ReadSession, error)
 
 	// Logger is used to write logging statements for the worker.
 	Logger s3client.Logger
@@ -49,7 +50,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 		Inputs: []string{
 			config.APICallerName,
 		},
-		Output: output,
+		Output: engine.ValueWorkerOutput,
 		Start:  config.start,
 	}
 }
@@ -75,27 +76,11 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 	if err != nil {
 		return nil, err
 	}
-	return newS3Worker(session), nil
-}
-
-// output extracts a S3 client from a *s3caller.
-func output(in worker.Worker, out any) error {
-	inWorker, _ := in.(*s3Worker)
-	if inWorker == nil {
-		return errors.Errorf("in should be a %T; got %T", inWorker, in)
-	}
-
-	switch outPointer := out.(type) {
-	case *objectstore.Session:
-		*outPointer = inWorker.session
-	default:
-		return errors.Errorf("out should be *objectstore.Session; got %T", out)
-	}
-	return nil
+	return engine.NewValueWorker(session)
 }
 
 // NewS3Client returns a new S3 client based on the supplied dependencies.
-func NewS3Client(url string, client s3client.HTTPClient, logger s3client.Logger) (objectstore.Session, error) {
+func NewS3Client(url string, client s3client.HTTPClient, logger s3client.Logger) (objectstore.ReadSession, error) {
 	return s3client.NewS3Client(url, client, s3client.AnonymousCredentials{}, logger)
 }
 
