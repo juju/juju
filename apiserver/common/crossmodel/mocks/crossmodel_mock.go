@@ -51,47 +51,19 @@ func (m *MockOfferBakeryInterface) EXPECT() *MockOfferBakeryInterfaceMockRecorde
 	return m.recorder
 }
 
-// Bakery mocks base method.
-func (m *MockOfferBakeryInterface) Bakery() authentication.ExpirableStorageBakery {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Bakery")
-	ret0, _ := ret[0].(authentication.ExpirableStorageBakery)
-	return ret0
-}
-
-// Bakery indicates an expected call of Bakery.
-func (mr *MockOfferBakeryInterfaceMockRecorder) Bakery() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Bakery", reflect.TypeOf((*MockOfferBakeryInterface)(nil).Bakery))
-}
-
-// Clock mocks base method.
-func (m *MockOfferBakeryInterface) Clock() clock.Clock {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Clock")
-	ret0, _ := ret[0].(clock.Clock)
-	return ret0
-}
-
-// Clock indicates an expected call of Clock.
-func (mr *MockOfferBakeryInterfaceMockRecorder) Clock() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Clock", reflect.TypeOf((*MockOfferBakeryInterface)(nil).Clock))
-}
-
 // CreateDischargeMacaroon mocks base method.
-func (m *MockOfferBakeryInterface) CreateDischargeMacaroon(arg0 context.Context, arg1 string, arg2, arg3 map[string]string, arg4 bakery.Op, arg5 bakery.Version) (*bakery.Macaroon, error) {
+func (m *MockOfferBakeryInterface) CreateDischargeMacaroon(arg0 context.Context, arg1, arg2 string, arg3, arg4 map[string]string, arg5 bakery.Op, arg6 bakery.Version) (*bakery.Macaroon, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateDischargeMacaroon", arg0, arg1, arg2, arg3, arg4, arg5)
+	ret := m.ctrl.Call(m, "CreateDischargeMacaroon", arg0, arg1, arg2, arg3, arg4, arg5, arg6)
 	ret0, _ := ret[0].(*bakery.Macaroon)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // CreateDischargeMacaroon indicates an expected call of CreateDischargeMacaroon.
-func (mr *MockOfferBakeryInterfaceMockRecorder) CreateDischargeMacaroon(arg0, arg1, arg2, arg3, arg4, arg5 any) *gomock.Call {
+func (mr *MockOfferBakeryInterfaceMockRecorder) CreateDischargeMacaroon(arg0, arg1, arg2, arg3, arg4, arg5, arg6 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateDischargeMacaroon", reflect.TypeOf((*MockOfferBakeryInterface)(nil).CreateDischargeMacaroon), arg0, arg1, arg2, arg3, arg4, arg5)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateDischargeMacaroon", reflect.TypeOf((*MockOfferBakeryInterface)(nil).CreateDischargeMacaroon), arg0, arg1, arg2, arg3, arg4, arg5, arg6)
 }
 
 // GetConsumeOfferCaveats mocks base method.
@@ -123,11 +95,12 @@ func (mr *MockOfferBakeryInterfaceMockRecorder) InferDeclaredFromMacaroon(arg0, 
 }
 
 // RefreshDischargeURL mocks base method.
-func (m *MockOfferBakeryInterface) RefreshDischargeURL(arg0 string) error {
+func (m *MockOfferBakeryInterface) RefreshDischargeURL(arg0 string) (string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RefreshDischargeURL", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // RefreshDischargeURL indicates an expected call of RefreshDischargeURL.
@@ -136,16 +109,44 @@ func (mr *MockOfferBakeryInterfaceMockRecorder) RefreshDischargeURL(arg0 any) *g
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RefreshDischargeURL", reflect.TypeOf((*MockOfferBakeryInterface)(nil).RefreshDischargeURL), arg0)
 }
 
-// SetClock mocks base method.
-func (m *MockOfferBakeryInterface) SetClock(arg0 clock.Clock) {
+// getBakery mocks base method.
+func (m *MockOfferBakeryInterface) getBakery() authentication.ExpirableStorageBakery {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "SetClock", arg0)
+	ret := m.ctrl.Call(m, "getBakery")
+	ret0, _ := ret[0].(authentication.ExpirableStorageBakery)
+	return ret0
 }
 
-// SetClock indicates an expected call of SetClock.
-func (mr *MockOfferBakeryInterfaceMockRecorder) SetClock(arg0 any) *gomock.Call {
+// getBakery indicates an expected call of getBakery.
+func (mr *MockOfferBakeryInterfaceMockRecorder) getBakery() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetClock", reflect.TypeOf((*MockOfferBakeryInterface)(nil).SetClock), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "getBakery", reflect.TypeOf((*MockOfferBakeryInterface)(nil).getBakery))
+}
+
+// getClock mocks base method.
+func (m *MockOfferBakeryInterface) getClock() clock.Clock {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "getClock")
+	ret0, _ := ret[0].(clock.Clock)
+	return ret0
+}
+
+// getClock indicates an expected call of getClock.
+func (mr *MockOfferBakeryInterfaceMockRecorder) getClock() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "getClock", reflect.TypeOf((*MockOfferBakeryInterface)(nil).getClock))
+}
+
+// setClock mocks base method.
+func (m *MockOfferBakeryInterface) setClock(arg0 clock.Clock) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "setClock", arg0)
+}
+
+// setClock indicates an expected call of setClock.
+func (mr *MockOfferBakeryInterfaceMockRecorder) setClock(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "setClock", reflect.TypeOf((*MockOfferBakeryInterface)(nil).setClock), arg0)
 }
 
 // MockBackend is a mock of Backend interface.
