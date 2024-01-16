@@ -139,9 +139,9 @@ bootstrap() {
 
 		juju_add_model "${model}" "${cloud}" "${bootstrapped_name}" "${output}"
 		name="${bootstrapped_name}"
-		BOOTSTRAPPED_CLOUD=$(juju show-model controller | yq -o=j | jq -r '.[] | .cloud')
+		BOOTSTRAPPED_CLOUD=$(juju show-model controller | yq -j | jq -r '.[] | .cloud')
 		export BOOTSTRAPPED_CLOUD
-		BOOTSTRAPPED_CLOUD_REGION=$(juju show-model controller | yq -o=j | jq -r '.[] | (.cloud + "/" + .region)')
+		BOOTSTRAPPED_CLOUD_REGION=$(juju show-model controller | yq -j | jq -r '.[] | (.cloud + "/" + .region)')
 		export BOOTSTRAPPED_CLOUD_REGION
 	else
 		local cloud_region

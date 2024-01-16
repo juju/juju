@@ -22,14 +22,10 @@ func TestAll(t *testing.T) {
 	gc.TestingT(t)
 }
 
-func (o *OfferBakery) DischargeURL() string {
-	return o.accessEndpoint
-}
-
 func (o *OfferBakery) SetBakery(bakery authentication.ExpirableStorageBakery) {
 	o.bakery = bakery
 }
 
 func (o *AuthContext) SetClock(clk clock.Clock) {
-	o.offerBakery.SetClock(clk)
+	o.offerBakery.setClock(clk)
 }

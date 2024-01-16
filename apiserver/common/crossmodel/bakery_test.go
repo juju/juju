@@ -15,7 +15,7 @@ import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/checkers"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gomock "go.uber.org/mock/gomock"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
 
@@ -52,7 +52,9 @@ func (s *bakerySuite) getLocalOfferBakery(c *gc.C) (*crossmodel.OfferBakery, *go
 	b, err := crossmodel.NewLocalOfferBakery("", mockBakeryConfig, mockExpirableStorage, mockFirstPartyCaveatChecker)
 	c.Assert(err, gc.IsNil)
 	c.Assert(b, gc.NotNil)
-	b.RefreshDischargeURL("https://example.com/offeraccess")
+	url, err := b.RefreshDischargeURL("https://example.com/offeraccess")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(url, gc.Equals, "https://example.com/offeraccess")
 	return b, ctrl
 }
 
@@ -100,10 +102,9 @@ func (s *bakerySuite) TestRefreshDischargeURL(c *gc.C) {
 	offerBakery, ctrl := s.getLocalOfferBakery(c)
 	defer ctrl.Finish()
 
-	c.Assert(offerBakery.DischargeURL(), gc.Equals, "https://example.com/offeraccess")
-	err := offerBakery.RefreshDischargeURL("https://example-1.com/offeraccess")
+	result, err := offerBakery.RefreshDischargeURL("https://example-1.com/offeraccess")
 	c.Assert(err, gc.IsNil)
-	c.Assert(offerBakery.DischargeURL(), gc.Equals, "https://example-1.com/offeraccess")
+	c.Assert(result, gc.Equals, "https://example-1.com/offeraccess")
 }
 
 func (s *bakerySuite) TestRefreshDischargeURLJaaS(c *gc.C) {
@@ -128,10 +129,9 @@ func (s *bakerySuite) TestRefreshDischargeURLJaaS(c *gc.C) {
 		},
 	)
 
-	c.Assert(offerBakery.DischargeURL(), gc.Equals, "https://example.com/macaroons")
-	err := offerBakery.RefreshDischargeURL("https://example-1.com/.well-known/jwks.json")
+	result, err := offerBakery.RefreshDischargeURL("https://example-1.com/.well-known/jwks.json")
 	c.Assert(err, gc.IsNil)
-	c.Assert(offerBakery.DischargeURL(), gc.Equals, "https://example-1.com/macaroons")
+	c.Assert(result, gc.Equals, "https://example-1.com/macaroons")
 }
 
 func (s *bakerySuite) TestGetConsumeOfferCaveats(c *gc.C) {
@@ -224,7 +224,7 @@ permission: consume
 		},
 	)
 	_, err := offerBakery.CreateDischargeMacaroon(
-		context.Background(), "mary",
+		context.Background(), "https://example.com/offeraccess", "mary",
 		map[string]string{
 			"relation-key":      "mediawiki:db mysql:server",
 			"username":          "mary",
@@ -272,7 +272,7 @@ func (s *bakerySuite) TestCreateDischargeMacaroonJaaS(c *gc.C) {
 		},
 	)
 	_, err := offerBakery.CreateDischargeMacaroon(
-		context.Background(), "mary",
+		context.Background(), "https://example.com/macaroons", "mary",
 		map[string]string{
 			"relation-key":      "mediawiki:db mysql:server",
 			"username":          "mary",
