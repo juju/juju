@@ -24,7 +24,7 @@ type Charms struct {
 func (c *Charms) GetCharm(ctx context.Context, modelUUID, charmRef string) (io.ReadCloser, error) {
 	bucketName := fmt.Sprintf("model-%s", modelUUID)
 	objectName := fmt.Sprintf("charms/%s", charmRef)
-	reader, _, err := c.session.GetObject(ctx, bucketName, objectName)
+	reader, _, _, err := c.session.GetObject(ctx, bucketName, objectName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

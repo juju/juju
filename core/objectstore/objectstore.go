@@ -28,7 +28,7 @@ type Session interface {
 // ReadSession provides read access to the object store.
 type ReadSession interface {
 	// GetObject returns a reader for the specified object.
-	GetObject(ctx context.Context, bucketName, objectName string) (io.ReadCloser, int64, error)
+	GetObject(ctx context.Context, bucketName, objectName string) (io.ReadCloser, int64, string, error)
 }
 
 // WriteSession provides read access to the object store.

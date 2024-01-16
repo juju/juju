@@ -33,6 +33,8 @@ func (s *s3ClientSuite) TestGetObject(c *gc.C) {
 	httpClient, cleanup := s.setupServer(c, func(w http.ResponseWriter, r *http.Request) {
 		c.Check(r.Method, gc.Equals, http.MethodGet)
 		c.Check(r.URL.Path, gc.Equals, "/bucket/object")
+		w.Header().Set("x-amz-checksum-mode", "sha256")
+		w.Header().Set("x-amz-checksum-sha256", "fa2c8cc4f28176bbeed4b736df569a34c79cd3723e9ec42f9674b4d46ac6b8b8")
 		w.Write([]byte("blob"))
 	})
 	defer cleanup()
@@ -40,13 +42,14 @@ func (s *s3ClientSuite) TestGetObject(c *gc.C) {
 	client, err := NewS3Client(httpClient, AnonymousCredentials{}, jujutesting.NewCheckLogger(c))
 	c.Assert(err, jc.ErrorIsNil)
 
-	resp, size, err := client.GetObject(context.Background(), "bucket", "object")
+	resp, size, hash, err := client.GetObject(context.Background(), "bucket", "object")
 	c.Assert(err, jc.ErrorIsNil)
 
 	blob, err := io.ReadAll(resp)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(string(blob), gc.Equals, "blob")
 	c.Check(size, gc.Equals, int64(4))
+	c.Check(hash, gc.Equals, "fa2c8cc4f28176bbeed4b736df569a34c79cd3723e9ec42f9674b4d46ac6b8b8")
 }
 
 func (s *s3ClientSuite) TestPutObject(c *gc.C) {
