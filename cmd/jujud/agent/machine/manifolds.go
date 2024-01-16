@@ -843,7 +843,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			GetObjectStoreType:   objectstore.GetObjectStoreType,
 		})),
 
-		s3CallerName: ifController(objectstores3caller.Manifold(objectstores3caller.ManifoldConfig{
+		objectStoreS3CallerName: ifController(objectstores3caller.Manifold(objectstores3caller.ManifoldConfig{
 			HTTPClientName:     s3HTTPClientName,
 			ServiceFactoryName: serviceFactoryName,
 			NewClient:          objectstores3caller.NewS3Client,
@@ -1224,7 +1224,6 @@ const (
 	stateConfigWatcherName = "state-config-watcher"
 	stateName              = "state"
 	apiCallerName          = "api-caller"
-	s3CallerName           = "s3-caller"
 	apiConfigWatcherName   = "api-config-watcher"
 	centralHubName         = "central-hub"
 	presenceName           = "presence"
@@ -1290,6 +1289,7 @@ const (
 	kvmContainerProvisioner       = "kvm-container-provisioner"
 	controllerAgentConfigName     = "controller-agent-config"
 	objectStoreName               = "object-store"
+	objectStoreS3CallerName       = "object-store-s3-caller"
 
 	secretBackendRotateName = "secret-backend-rotate"
 
