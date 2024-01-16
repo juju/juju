@@ -82,7 +82,7 @@ EOF
 	CLOUD_LIST=$(JUJU_DATA="${TEST_DIR}/juju" juju clouds --client --format=json | jq -S 'with_entries(select(
 	                                                  .value.defined != "built-in")) | with_entries((select(.value.defined == "local")
 	                                                  | del(.value.defined) |  del(.value.description)))')
-	EXPECTED=$(echo "${CLOUDS}" | yq -o=j | jq -S '.[] | del(.clouds) | .[] |= ({endpoint} as $endpoint | .[] |= walk(
+	EXPECTED=$(echo "${CLOUDS}" | yq -j | jq -S '.[] | del(.clouds) | .[] |= ({endpoint} as $endpoint | .[] |= walk(
                                                   (objects | select(contains($endpoint))) |= del(.endpoint)
                                                 ))')
 	if [ "${CLOUD_LIST}" != "${EXPECTED}" ]; then
@@ -90,7 +90,7 @@ EOF
 		exit 1
 	fi
 
-	CLOUD_LIST=$(JUJU_DATA="${TEST_DIR}/juju" juju show-cloud finfolk-vmaas --format yaml --client | yq -o=j | jq -S 'with_entries((select(.value!= null)))')
+	CLOUD_LIST=$(JUJU_DATA="${TEST_DIR}/juju" juju show-cloud finfolk-vmaas --format yaml --client | yq -j | jq -S 'with_entries((select(.value!= null)))')
 	EXPECTED=$(
 		cat <<'EOF' | jq -S
 	{

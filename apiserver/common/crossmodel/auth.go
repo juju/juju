@@ -66,6 +66,8 @@ type AuthContext struct {
 	systemState Backend
 
 	offerThirdPartyKey *bakery.KeyPair
+
+	offerAccessEndpoint string
 }
 
 // NewAuthContext creates a new authentication context for checking
@@ -87,9 +89,11 @@ func NewAuthContext(
 // to perform third party discharges at the specified URL.
 func (a *AuthContext) WithDischargeURL(offerAccessEndpoint string) (*AuthContext, error) {
 	ctxtCopy := *a
-	if err := ctxtCopy.offerBakery.RefreshDischargeURL(offerAccessEndpoint); err != nil {
+	newEndpoint, err := ctxtCopy.offerBakery.RefreshDischargeURL(offerAccessEndpoint)
+	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	ctxtCopy.offerAccessEndpoint = newEndpoint
 	return &ctxtCopy, nil
 }
 
@@ -150,7 +154,7 @@ func (a *AuthContext) CheckLocalAccessRequest(details *offerPermissionCheck) ([]
 		checkers.DeclaredCaveat(sourcemodelKey, details.SourceModelUUID),
 		checkers.DeclaredCaveat(offeruuidKey, details.OfferUUID),
 		checkers.DeclaredCaveat(usernameKey, details.User),
-		checkers.TimeBeforeCaveat(a.offerBakery.Clock().Now().Add(offerPermissionExpiryTime)),
+		checkers.TimeBeforeCaveat(a.offerBakery.getClock().Now().Add(offerPermissionExpiryTime)),
 	}
 	if details.Relation != "" {
 		firstPartyCaveats = append(firstPartyCaveats, checkers.DeclaredCaveat(relationKey, details.Relation))
@@ -205,7 +209,7 @@ func (a *AuthContext) CreateConsumeOfferMacaroon(
 		return nil, errors.Trace(err)
 	}
 	offerUUID := offer.OfferUUID
-	bakery, err := a.offerBakery.Bakery().ExpireStorageAfter(offerPermissionExpiryTime)
+	bakery, err := a.offerBakery.getBakery().ExpireStorageAfter(offerPermissionExpiryTime)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -220,8 +224,8 @@ func (a *AuthContext) CreateConsumeOfferMacaroon(
 func (a *AuthContext) CreateRemoteRelationMacaroon(
 	ctx context.Context, sourceModelUUID, offerUUID, username string, rel names.Tag, version bakery.Version,
 ) (*bakery.Macaroon, error) {
-	expiryTime := a.offerBakery.Clock().Now().Add(offerPermissionExpiryTime)
-	bakery, err := a.offerBakery.Bakery().ExpireStorageAfter(offerPermissionExpiryTime)
+	expiryTime := a.offerBakery.getClock().Now().Add(offerPermissionExpiryTime)
+	bakery, err := a.offerBakery.getBakery().ExpireStorageAfter(offerPermissionExpiryTime)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -315,7 +319,7 @@ func (a *authenticator) checkMacaroons(
 	sourceModelUUID := declared[sourcemodelKey]
 	offerUUID := declared[offeruuidKey]
 
-	auth := a.ctxt.offerBakery.Bakery().Auth(mac)
+	auth := a.ctxt.offerBakery.getBakery().Auth(mac)
 	ai, err := auth.Allow(ctx, op)
 	if err == nil && len(ai.Conditions()) > 0 {
 		if err = a.checkMacaroonCaveats(op, relation, sourceModelUUID, offerUUID); err == nil {
@@ -333,7 +337,7 @@ func (a *authenticator) checkMacaroons(
 	}
 	authlogger.Debugf("generating discharge macaroon because: %v", cause)
 
-	m, err := a.ctxt.offerBakery.CreateDischargeMacaroon(ctx, username, requiredValues, declared, op, version)
+	m, err := a.ctxt.offerBakery.CreateDischargeMacaroon(ctx, a.ctxt.offerAccessEndpoint, username, requiredValues, declared, op, version)
 	if err != nil {
 		err = errors.Annotate(err, "cannot create macaroon")
 		authlogger.Errorf("cannot create cross model macaroon: %v", err)

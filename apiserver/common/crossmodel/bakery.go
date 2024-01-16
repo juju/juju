@@ -30,43 +30,38 @@ import (
 type OfferBakery struct {
 	clock clock.Clock
 
-	bakery         authentication.ExpirableStorageBakery
-	accessEndpoint string
+	bakery authentication.ExpirableStorageBakery
 }
 
 // OfferBakeryInterface is the interface that OfferBakery implements.
 type OfferBakeryInterface interface {
-	Clock() clock.Clock
-	SetClock(clock.Clock)
-	Bakery() authentication.ExpirableStorageBakery
-	RefreshDischargeURL(string) error
+	getClock() clock.Clock
+	setClock(clock.Clock)
+	getBakery() authentication.ExpirableStorageBakery
 
+	RefreshDischargeURL(string) (string, error)
 	GetConsumeOfferCaveats(offerUUID, sourceModelUUID, username string) []checkers.Caveat
 	InferDeclaredFromMacaroon(macaroon.Slice, map[string]string) map[string]string
 	CreateDischargeMacaroon(
-		context.Context, string, map[string]string, map[string]string, bakery.Op, bakery.Version,
+		context.Context, string, string, map[string]string, map[string]string, bakery.Op, bakery.Version,
 	) (*bakery.Macaroon, error)
 }
 
-// Clock returns the clock used by the bakery service.
-func (o *OfferBakery) Clock() clock.Clock {
+func (o *OfferBakery) getClock() clock.Clock {
 	return o.clock
 }
 
-// SetClock sets the clock used by the bakery service.
-func (o *OfferBakery) SetClock(clock clock.Clock) {
+func (o *OfferBakery) setClock(clock clock.Clock) {
 	o.clock = clock
 }
 
-// Bakery returns the ExpirableStorageBakery service.
-func (o *OfferBakery) Bakery() authentication.ExpirableStorageBakery {
+func (o *OfferBakery) getBakery() authentication.ExpirableStorageBakery {
 	return o.bakery
 }
 
 // RefreshDischargeURL updates the discharge URL for the bakery service.
-func (o *OfferBakery) RefreshDischargeURL(accessEndpoint string) error {
-	o.accessEndpoint = accessEndpoint
-	return nil
+func (o *OfferBakery) RefreshDischargeURL(accessEndpoint string) (string, error) {
+	return accessEndpoint, nil
 }
 
 // NewOfferBakeryForTest is for testing.
@@ -110,23 +105,24 @@ func NewLocalOfferBakery(
 type JaaSOfferBakery struct {
 	*OfferBakery
 
-	location     string
-	bakeryConfig bakerystorage.BakeryConfig
-	store        bakerystorage.ExpirableStorage
-	checker      bakery.FirstPartyCaveatChecker
+	location               string
+	currrentAccessEndpoint string
+	bakeryConfig           bakerystorage.BakeryConfig
+	store                  bakerystorage.ExpirableStorage
+	checker                bakery.FirstPartyCaveatChecker
 }
 
 // RefreshDischargeURL updates the discharge URL for the bakery service.
-func (o *JaaSOfferBakery) RefreshDischargeURL(accessEndpoint string) error {
+func (o *JaaSOfferBakery) RefreshDischargeURL(accessEndpoint string) (string, error) {
 	accessEndpoint, err := o.cleanDischargeURL(accessEndpoint)
 	if err != nil {
-		return errors.Trace(err)
+		return "", errors.Trace(err)
 	}
-	if o.accessEndpoint == accessEndpoint {
-		return nil
+	if o.currrentAccessEndpoint == accessEndpoint {
+		return accessEndpoint, nil
 	}
-	o.accessEndpoint = accessEndpoint
-	return errors.Trace(o.refreshBakery())
+	o.currrentAccessEndpoint = accessEndpoint
+	return accessEndpoint, errors.Trace(o.refreshBakery(accessEndpoint))
 }
 
 func (o *JaaSOfferBakery) cleanDischargeURL(addr string) (string, error) {
@@ -138,11 +134,11 @@ func (o *JaaSOfferBakery) cleanDischargeURL(addr string) (string, error) {
 	return refreshURL.String(), nil
 }
 
-func (o *JaaSOfferBakery) refreshBakery() (err error) {
+func (o *JaaSOfferBakery) refreshBakery(accessEndpoint string) (err error) {
 	thirdPartyInfo, err := httpbakery.ThirdPartyInfoForLocation(
-		context.TODO(), &http.Client{Transport: DefaultTransport}, o.accessEndpoint,
+		context.TODO(), &http.Client{Transport: DefaultTransport}, accessEndpoint,
 	)
-	logger.Tracef("got third party info %#v from %q", thirdPartyInfo, o.accessEndpoint)
+	logger.Tracef("got third party info %#v from %q", thirdPartyInfo, accessEndpoint)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -152,7 +148,7 @@ func (o *JaaSOfferBakery) refreshBakery() (err error) {
 	}
 
 	pkCache := bakery.NewThirdPartyStore()
-	pkCache.AddInfo(o.accessEndpoint, thirdPartyInfo)
+	pkCache.AddInfo(accessEndpoint, thirdPartyInfo)
 	locator := httpbakery.NewThirdPartyLocator(nil, pkCache)
 
 	o.bakery = &bakeryutil.ExpirableStorageBakery{
@@ -193,7 +189,7 @@ func NewJaaSOfferBakery(
 		checker:      checker,
 		OfferBakery:  &OfferBakery{clock: clock.WallClock},
 	}
-	if err := offerBakery.RefreshDischargeURL(loginTokenRefreshURL); err != nil {
+	if _, err := offerBakery.RefreshDischargeURL(loginTokenRefreshURL); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return offerBakery, nil
@@ -256,7 +252,7 @@ func localOfferPermissionYaml(sourceModelUUID, username, offerURL, relationKey s
 
 // CreateDischargeMacaroon creates a discharge macaroon.
 func (o *OfferBakery) CreateDischargeMacaroon(
-	ctx context.Context, username string,
+	ctx context.Context, accessEndpoint, username string,
 	requiredValues, declaredValues map[string]string,
 	op bakery.Op, version bakery.Version,
 ) (*bakery.Macaroon, error) {
@@ -285,7 +281,7 @@ func (o *OfferBakery) CreateDischargeMacaroon(
 		[]checkers.Caveat{
 			checkers.NeedDeclaredCaveat(
 				checkers.Caveat{
-					Location:  o.accessEndpoint,
+					Location:  accessEndpoint,
 					Condition: offerPermissionCaveat + " " + authYaml,
 				},
 				requiredKeys...,
@@ -297,7 +293,7 @@ func (o *OfferBakery) CreateDischargeMacaroon(
 
 // CreateDischargeMacaroon creates a discharge macaroon.
 func (o *JaaSOfferBakery) CreateDischargeMacaroon(
-	ctx context.Context, username string,
+	ctx context.Context, accessEndpoint, username string,
 	requiredValues, declaredValues map[string]string,
 	op bakery.Op, version bakery.Version,
 ) (*bakery.Macaroon, error) {
@@ -307,7 +303,7 @@ func (o *JaaSOfferBakery) CreateDischargeMacaroon(
 	}
 
 	conditionCaveat := checkers.Caveat{
-		Location:  o.accessEndpoint,
+		Location:  accessEndpoint,
 		Condition: strings.Join(conditionParts, " "),
 	}
 	var declaredCaveats []checkers.Caveat
