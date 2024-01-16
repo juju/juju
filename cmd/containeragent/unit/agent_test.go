@@ -25,12 +25,11 @@ import (
 	"github.com/juju/juju/internal/worker/logsender"
 	jnames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/testing"
-	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 )
 
 type containerUnitAgentSuite struct {
-	coretesting.BaseSuite
+	testing.BaseSuite
 
 	rootDir          string
 	dataDir          string
@@ -199,7 +198,7 @@ func (s *containerUnitAgentSuite) TestChangeConfig(c *gc.C) {
 	select {
 	case result := <-configChangedCh:
 		c.Check(result, jc.IsTrue)
-	case <-time.After(coretesting.LongWait):
+	case <-time.After(testing.LongWait):
 		c.Fatal("timed out waiting for config changed signal")
 	}
 }

@@ -19,6 +19,15 @@ const (
 	ErrObjectStoreDying = errors.ConstError("object store worker is dying")
 )
 
+// Client provides access to the object store.
+type Client interface {
+	// Session calls the given function with a session.
+	// The func maybe called multiple times if the underlying session has
+	// invalid credentials. Therefore session might not be the same across
+	// calls. The function should be idempotent.
+	Session(ctx context.Context, f func(context.Context, Session) error) error
+}
+
 // Session provides access to the object store.
 type Session interface {
 	ReadSession

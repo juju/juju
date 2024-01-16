@@ -71,6 +71,7 @@ import (
 	"github.com/juju/juju/internal/mongo/mongometrics"
 	"github.com/juju/juju/internal/pki"
 	"github.com/juju/juju/internal/pubsub/centralhub"
+	"github.com/juju/juju/internal/s3client"
 	"github.com/juju/juju/internal/service"
 	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/internal/storage/looputil"
@@ -621,6 +622,9 @@ func (a *MachineAgent) makeEngineCreator(
 		charmhubLogger := loggo.GetLoggerWithLabels("juju.charmhub", corelogger.CHARMHUB)
 		charmhubHTTPClient := charmhub.DefaultHTTPClient(charmhub.LoggoLoggerFactory(charmhubLogger))
 
+		s3Logger := loggo.GetLoggerWithLabels("juju.objectstore.s3", corelogger.OBJECTSTORE)
+		s3HTTPClient := s3client.DefaultHTTPClient(s3Logger)
+
 		manifoldsCfg := machine.ManifoldsConfig{
 			PreviousAgentVersion: previousAgentVersion,
 			AgentName:            agentName,
@@ -668,6 +672,7 @@ func (a *MachineAgent) makeEngineCreator(
 			SetupLogging:            agentconf.SetupAgentLogging,
 			DependencyEngineMetrics: metrics,
 			CharmhubHTTPClient:      charmhubHTTPClient,
+			S3HTTPClient:            s3HTTPClient,
 		}
 		manifolds := iaasMachineManifolds(manifoldsCfg)
 		if a.isCaasAgent {

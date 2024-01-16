@@ -24,7 +24,7 @@ type ManifoldConfig struct {
 	APICallerName string
 
 	// NewClient is used to create a new object store client.
-	NewClient func(s3client.HTTPClient, s3client.Credentials, s3client.Logger) (objectstore.Session, error)
+	NewClient func(string, s3client.HTTPClient, s3client.Logger) (objectstore.Session, error)
 
 	// Logger is used to write logging statements for the worker.
 	Logger s3client.Logger
@@ -49,45 +49,38 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 		Inputs: []string{
 			config.APICallerName,
 		},
-		Output: outputFunc,
-		Start:  config.startFunc(),
+		Output: output,
+		Start:  config.start,
 	}
 }
 
-// startFunc returns a StartFunc that creates a S3 client based on the supplied
+// start returns a StartFunc that creates a S3 client based on the supplied
 // manifold config and wraps it in a worker.
-func (config ManifoldConfig) startFunc() dependency.StartFunc {
-	return func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
-		if err := config.Validate(); err != nil {
-			return nil, errors.Trace(err)
-		}
-
-		var apiConn api.Connection
-		if err := getter.Get(config.APICallerName, &apiConn); err != nil {
-			return nil, err
-		}
-
-		httpClient, err := apiConn.RootHTTPClient()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-
-		// TODO (stickupkid): Depending on the type of s3client we're using,
-		// will then depend on the type of credentials we need to pass in.
-		// For now, we're just using anonymous credentials, as we're just
-		// hitting the local juju api server.
-		credentials := s3client.AnonymousCredentials{}
-		session, err := config.NewClient(newHTTPClient(httpClient), credentials, config.Logger)
-		if err != nil {
-			return nil, err
-		}
-		return newS3ClientWorker(session), nil
+func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
+	if err := config.Validate(); err != nil {
+		return nil, errors.Trace(err)
 	}
+
+	var apiConn api.Connection
+	if err := getter.Get(config.APICallerName, &apiConn); err != nil {
+		return nil, err
+	}
+
+	httpClient, err := apiConn.RootHTTPClient()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	session, err := config.NewClient(httpClient.BaseURL, newHTTPClient(httpClient), config.Logger)
+	if err != nil {
+		return nil, err
+	}
+	return newS3Worker(session), nil
 }
 
-// outputFunc extracts a S3 client from a *s3caller.
-func outputFunc(in worker.Worker, out any) error {
-	inWorker, _ := in.(*s3ClientWorker)
+// output extracts a S3 client from a *s3caller.
+func output(in worker.Worker, out any) error {
+	inWorker, _ := in.(*s3Worker)
 	if inWorker == nil {
 		return errors.Errorf("in should be a %T; got %T", inWorker, in)
 	}
@@ -96,14 +89,14 @@ func outputFunc(in worker.Worker, out any) error {
 	case *objectstore.Session:
 		*outPointer = inWorker.session
 	default:
-		return errors.Errorf("out should be *s3caller.Session; got %T", out)
+		return errors.Errorf("out should be *objectstore.Session; got %T", out)
 	}
 	return nil
 }
 
 // NewS3Client returns a new S3 client based on the supplied dependencies.
-func NewS3Client(client s3client.HTTPClient, creds s3client.Credentials, logger s3client.Logger) (objectstore.Session, error) {
-	return s3client.NewS3Client(client, creds, logger)
+func NewS3Client(url string, client s3client.HTTPClient, logger s3client.Logger) (objectstore.Session, error) {
+	return s3client.NewS3Client(url, client, s3client.AnonymousCredentials{}, logger)
 }
 
 // httpClient is a shim around a shim. The httprequest.Client is a shim around
@@ -123,8 +116,4 @@ func (c *httpClient) Do(req *http.Request) (*http.Response, error) {
 	var res *http.Response
 	err := c.client.Do(req.Context(), req, &res)
 	return res, err
-}
-
-func (c *httpClient) BaseURL() string {
-	return c.client.BaseURL
 }

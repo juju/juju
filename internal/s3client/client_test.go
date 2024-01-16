@@ -30,7 +30,7 @@ func (s *s3ClientSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *s3ClientSuite) TestGetObject(c *gc.C) {
-	httpClient, cleanup := s.setupServer(c, func(w http.ResponseWriter, r *http.Request) {
+	url, httpClient, cleanup := s.setupServer(c, func(w http.ResponseWriter, r *http.Request) {
 		c.Check(r.Method, gc.Equals, http.MethodGet)
 		c.Check(r.URL.Path, gc.Equals, "/bucket/object")
 		w.Header().Set("x-amz-checksum-mode", "sha256")
@@ -39,7 +39,7 @@ func (s *s3ClientSuite) TestGetObject(c *gc.C) {
 	})
 	defer cleanup()
 
-	client, err := NewS3Client(httpClient, AnonymousCredentials{}, jujutesting.NewCheckLogger(c))
+	client, err := NewS3Client(url, httpClient, AnonymousCredentials{}, jujutesting.NewCheckLogger(c))
 	c.Assert(err, jc.ErrorIsNil)
 
 	resp, size, hash, err := client.GetObject(context.Background(), "bucket", "object")
@@ -55,7 +55,7 @@ func (s *s3ClientSuite) TestGetObject(c *gc.C) {
 func (s *s3ClientSuite) TestPutObject(c *gc.C) {
 	hash := "fa2c8cc4f28176bbeed4b736df569a34c79cd3723e9ec42f9674b4d46ac6b8b8"
 
-	httpClient, cleanup := s.setupServer(c, func(w http.ResponseWriter, r *http.Request) {
+	url, httpClient, cleanup := s.setupServer(c, func(w http.ResponseWriter, r *http.Request) {
 		c.Check(r.Method, gc.Equals, http.MethodPut)
 		c.Check(r.URL.Path, gc.Equals, "/bucket/object")
 
@@ -70,7 +70,7 @@ func (s *s3ClientSuite) TestPutObject(c *gc.C) {
 	})
 	defer cleanup()
 
-	client, err := NewS3Client(httpClient, AnonymousCredentials{}, jujutesting.NewCheckLogger(c))
+	client, err := NewS3Client(url, httpClient, AnonymousCredentials{}, jujutesting.NewCheckLogger(c))
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = client.PutObject(context.Background(), "bucket", "object", strings.NewReader("blob"), hash)
@@ -78,38 +78,22 @@ func (s *s3ClientSuite) TestPutObject(c *gc.C) {
 }
 
 func (s *s3ClientSuite) TestDeleteObject(c *gc.C) {
-	httpClient, cleanup := s.setupServer(c, func(w http.ResponseWriter, r *http.Request) {
+	url, httpClient, cleanup := s.setupServer(c, func(w http.ResponseWriter, r *http.Request) {
 		c.Check(r.Method, gc.Equals, http.MethodDelete)
 		c.Check(r.URL.Path, gc.Equals, "/bucket/object")
 	})
 	defer cleanup()
 
-	client, err := NewS3Client(httpClient, AnonymousCredentials{}, jujutesting.NewCheckLogger(c))
+	client, err := NewS3Client(url, httpClient, AnonymousCredentials{}, jujutesting.NewCheckLogger(c))
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = client.DeleteObject(context.Background(), "bucket", "object")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *s3ClientSuite) setupServer(c *gc.C, handler http.HandlerFunc) (*httpClient, func()) {
+func (s *s3ClientSuite) setupServer(c *gc.C, handler http.HandlerFunc) (string, HTTPClient, func()) {
 	server := httptest.NewTLSServer(handler)
-	return &httpClient{
-			client:  server.Client(),
-			baseURL: server.URL,
-		}, func() {
-			server.Close()
-		}
-}
-
-type httpClient struct {
-	client  *http.Client
-	baseURL string
-}
-
-func (c httpClient) Do(req *http.Request) (*http.Response, error) {
-	return c.client.Do(req)
-}
-
-func (c httpClient) BaseURL() string {
-	return c.baseURL
+	return server.URL, server.Client(), func() {
+		server.Close()
+	}
 }

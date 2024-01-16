@@ -1,7 +1,7 @@
-// Copyright 2023 Canonical Ltd.
+// Copyright 2024 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package units3caller
+package objectstores3caller
 
 import (
 	"github.com/juju/errors"
@@ -25,7 +25,11 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 	c.Check(cfg.Validate(), jc.ErrorIsNil)
 
 	cfg = s.getConfig()
-	cfg.APICallerName = ""
+	cfg.ServiceFactoryName = ""
+	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig()
+	cfg.HTTPClientName = ""
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
@@ -39,10 +43,12 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 
 func (s *manifoldSuite) getConfig() ManifoldConfig {
 	return ManifoldConfig{
-		APICallerName: "api-caller",
-		NewClient: func(string, s3client.HTTPClient, s3client.Logger) (objectstore.Session, error) {
+		HTTPClientName:     "http-client",
+		ServiceFactoryName: "service-factory",
+		NewClient: func(string, s3client.HTTPClient, s3client.Credentials, s3client.Logger) (objectstore.Session, error) {
 			return s.session, nil
 		},
 		Logger: s.logger,
+		Clock:  s.clock,
 	}
 }

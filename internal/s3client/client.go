@@ -15,6 +15,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
+	"github.com/aws/smithy-go"
 	"github.com/aws/smithy-go/logging"
 	"github.com/juju/errors"
 )
@@ -26,12 +27,13 @@ type Logger interface {
 	Infof(message string, args ...any)
 	Debugf(message string, args ...any)
 	Tracef(message string, args ...any)
+
+	IsTraceEnabled() bool
 }
 
 // HTTPClient represents the http client used to access the object store.
 type HTTPClient interface {
 	Do(req *http.Request) (*http.Response, error)
-	BaseURL() string
 }
 
 // CredentialsKind represents the kind of credentials used to access the object
@@ -82,7 +84,7 @@ type S3Client struct {
 }
 
 // NewS3Client returns a new s3Caller client for accessing the object store.
-func NewS3Client(httpClient HTTPClient, credentials Credentials, logger Logger) (*S3Client, error) {
+func NewS3Client(baseURL string, httpClient HTTPClient, credentials Credentials, logger Logger) (*S3Client, error) {
 	credentialsProvider, err := getCredentialsProvider(credentials)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot get credentials provider")
@@ -92,15 +94,11 @@ func NewS3Client(httpClient HTTPClient, credentials Credentials, logger Logger) 
 		logger: logger,
 	}
 
-	httpsAPIAddress := ensureHTTPS(httpClient.BaseURL())
-
 	cfg, err := config.LoadDefaultConfig(
 		context.Background(),
 		config.WithLogger(awsLogger),
 		config.WithHTTPClient(httpClient),
-		config.WithEndpointResolverWithOptions(&awsEndpointResolver{endpoint: httpsAPIAddress}),
-		// Standard retryer with custom max attempts. Will retry at most
-		// 10 times with 20s backoff time.
+		config.WithEndpointResolverWithOptions(&awsEndpointResolver{endpoint: ensureHTTPS(baseURL)}),
 		config.WithRetryer(func() aws.Retryer {
 			return retry.NewStandard(
 				func(o *retry.StandardOptions) {
@@ -109,6 +107,7 @@ func NewS3Client(httpClient HTTPClient, credentials Credentials, logger Logger) 
 				},
 			)
 		}),
+
 		// The anonymous credentials are needed by the aws sdk to
 		// perform anonymous s3 access.
 		config.WithCredentialsProvider(credentialsProvider),
@@ -136,6 +135,9 @@ func (c *S3Client) GetObject(ctx context.Context, bucketName, objectName string)
 			Key:    aws.String(objectName),
 		})
 	if err != nil {
+		if err := handleError(err); err != nil {
+			return nil, -1, "", errors.Trace(err)
+		}
 		return nil, -1, "", errors.Annotatef(err, "unable to get object %s on bucket %s using S3 client", objectName, bucketName)
 	}
 	var size int64
@@ -163,6 +165,9 @@ func (c *S3Client) PutObject(ctx context.Context, bucketName, objectName string,
 			ChecksumSHA256:    aws.String(hash),
 		})
 	if err != nil {
+		if err := handleError(err); err != nil {
+			return errors.Trace(err)
+		}
 		return errors.Annotatef(err, "unable to put object %s on bucket %s using S3 client", objectName, bucketName)
 	}
 	return nil
@@ -179,9 +184,37 @@ func (c *S3Client) DeleteObject(ctx context.Context, bucketName, objectName stri
 			Key:    aws.String(objectName),
 		})
 	if err != nil {
+		if err := handleError(err); err != nil {
+			return errors.Trace(err)
+		}
 		return errors.Annotatef(err, "unable to delete object %s on bucket %s using S3 client", objectName, bucketName)
 	}
 	return nil
+}
+
+// forbiddenErrorCodes is a list of error codes that are returned when the
+// credentials are invalid.
+// https://docs.aws.amazon.com/AmazonS3/latest/API/ErrorResponses.html#ErrorCodeList
+var forbiddenErrorCodes = map[string]struct{}{
+	"AccessDenied":          {},
+	"InvalidAccessKeyId":    {},
+	"InvalidSecurity":       {},
+	"SignatureDoesNotMatch": {},
+}
+
+func handleError(err error) error {
+	if err == nil {
+		return nil
+	}
+
+	var ae smithy.APIError
+	if errors.As(err, &ae) {
+		if _, ok := forbiddenErrorCodes[ae.ErrorCode()]; ok {
+			return errors.NewForbidden(err, ae.ErrorMessage())
+		}
+	}
+
+	return errors.Trace(err)
 }
 
 type awsEndpointResolver struct {
