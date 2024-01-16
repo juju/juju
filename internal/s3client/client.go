@@ -12,6 +12,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/aws/retry"
 	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/aws/smithy-go/logging"
@@ -59,16 +60,22 @@ func (AnonymousCredentials) Kind() CredentialsKind {
 	return AnonymousCredentialsKind
 }
 
-type unlimitedRateLimiter struct{}
-
-func (unlimitedRateLimiter) AddTokens(uint) error { return nil }
-func (unlimitedRateLimiter) GetToken(context.Context, uint) (func() error, error) {
-	return noOpToken, nil
-}
-func noOpToken() error { return nil }
-
 // S3Client is a Juju shim around the AWS S3 client,
 // which Juju uses to drive its object store requirements.
+// StaticCredentials represents static credentials.
+type StaticCredentials struct {
+	Key     string
+	Secret  string
+	Session string
+}
+
+// Kind returns the kind of credentials.
+func (StaticCredentials) Kind() CredentialsKind {
+	return StaticCredentialsKind
+}
+
+// objectsClient is a Juju shim around the AWS S3 client,
+// which Juju uses to drive it's object store requirents
 type S3Client struct {
 	logger Logger
 	client *s3.Client
@@ -214,7 +221,18 @@ func getCredentialsProvider(creds Credentials) (aws.CredentialsProvider, error) 
 	switch creds.Kind() {
 	case AnonymousCredentialsKind:
 		return aws.AnonymousCredentials{}, nil
+	case StaticCredentialsKind:
+		s := creds.(StaticCredentials)
+		return credentials.NewStaticCredentialsProvider(s.Key, s.Secret, s.Session), nil
 	default:
 		return nil, errors.Errorf("unknown credentials kind %q", creds.Kind())
 	}
 }
+
+type unlimitedRateLimiter struct{}
+
+func (unlimitedRateLimiter) AddTokens(uint) error { return nil }
+func (unlimitedRateLimiter) GetToken(context.Context, uint) (func() error, error) {
+	return noOpToken, nil
+}
+func noOpToken() error { return nil }
