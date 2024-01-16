@@ -60,6 +60,7 @@ func (s *dqliteAppIntegrationSuite) TearDownTest(c *gc.C) {
 type integrationSuite struct {
 	dqliteAppIntegrationSuite
 
+	db        *sql.DB
 	dbGetter  coredatabase.DBGetter
 	dbDeleter coredatabase.DBDeleter
 	worker    worker.Worker
@@ -119,6 +120,7 @@ func (s *integrationSuite) SetUpTest(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
+	s.db = db
 	s.dbGetter = w
 	s.dbDeleter = w
 	s.worker = w
@@ -128,8 +130,11 @@ func (s *integrationSuite) TearDownTest(c *gc.C) {
 	if dqlite.Enabled && s.worker != nil {
 		workertest.CleanKill(c, s.worker)
 	}
-
+	if s.db != nil {
+		s.db.Close()
+	}
 	s.dqliteAppIntegrationSuite.TearDownTest(c)
+	s.DqliteSuite.TearDownTest(c)
 }
 
 func (s *integrationSuite) TestWorkerSetsNodeIDAndAddress(c *gc.C) {

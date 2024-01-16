@@ -121,9 +121,13 @@ func (s *streamSuite) TestOneChange(c *gc.C) {
 func (s *streamSuite) TestOneChangeDoesNotRepeatSameChange(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
+	done := make(chan struct{})
+	defer close(done)
+
 	s.expectAnyLogs()
 	s.expectFileNotifyWatcher()
 	s.expectAfterAnyTimes()
+	s.expectBackoffAnyTimes(done)
 	s.expectTimer()
 	s.expectClock()
 	s.expectMetrics()
@@ -174,9 +178,13 @@ func (s *streamSuite) TestOneChangeDoesNotRepeatSameChange(c *gc.C) {
 func (s *streamSuite) TestOneChangeWithEmptyResults(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
+	done := make(chan struct{})
+	defer close(done)
+
 	s.expectAnyLogs()
 	s.expectFileNotifyWatcher()
 	s.expectAfterAnyTimes()
+	s.expectBackoffAnyTimes(done)
 	s.expectTimer()
 	s.expectClock()
 	s.expectMetrics()
@@ -375,9 +383,13 @@ func (s *streamSuite) TestOneChangeWithTimeoutCausesWorkerToBounce(c *gc.C) {
 func (s *streamSuite) TestMultipleTerms(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
+	done := make(chan struct{})
+	defer close(done)
+
 	s.expectAnyLogs()
 	s.expectFileNotifyWatcher()
 	s.expectAfterAnyTimes()
+	s.expectBackoffAnyTimes(done)
 	s.expectTimer()
 	s.expectClock()
 	s.expectMetrics()
@@ -423,6 +435,9 @@ func (s *streamSuite) TestMultipleTermsAllEmpty(c *gc.C) {
 	s.expectClock()
 	s.expectMetrics()
 
+	done := make(chan struct{})
+	defer close(done)
+
 	var duration int64
 	s.clock.EXPECT().After(defaultWaitTermTimeout).Return(make(chan time.Time)).AnyTimes()
 	s.clock.EXPECT().After(gomock.Any()).DoAndReturn(func(d time.Duration) <-chan time.Time {
@@ -433,7 +448,10 @@ func (s *streamSuite) TestMultipleTermsAllEmpty(c *gc.C) {
 
 		ch := make(chan time.Time)
 		go func() {
-			ch <- time.Now()
+			select {
+			case ch <- time.Now():
+			case <-done:
+			}
 		}()
 		return ch
 	}).AnyTimes()
@@ -877,8 +895,12 @@ func constructWatermark(start, finish int) string {
 func (s *streamSuite) TestReport(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
+	done := make(chan struct{})
+	defer close(done)
+
 	s.expectAnyLogs()
 	s.expectAfterAnyTimes()
+	s.expectBackoffAnyTimes(done)
 	s.expectFileNotifyWatcher()
 	s.expectClock()
 	s.expectMetrics()
@@ -973,8 +995,12 @@ func (s *streamSuite) TestReport(c *gc.C) {
 func (s *streamSuite) TestWatermarkWrite(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
+	done := make(chan struct{})
+	defer close(done)
+
 	s.expectAnyLogs()
 	s.expectAfterAnyTimes()
+	s.expectBackoffAnyTimes(done)
 	s.expectFileNotifyWatcher()
 	s.expectClock()
 	s.expectMetrics()
@@ -1034,8 +1060,12 @@ func (s *streamSuite) TestWatermarkWrite(c *gc.C) {
 func (s *streamSuite) TestWatermarkWriteIsIgnored(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
+	done := make(chan struct{})
+	defer close(done)
+
 	s.expectAnyLogs()
 	s.expectAfterAnyTimes()
+	s.expectBackoffAnyTimes(done)
 	s.expectFileNotifyWatcher()
 	s.expectClock()
 	s.expectMetrics()
@@ -1095,8 +1125,12 @@ func (s *streamSuite) TestWatermarkWriteIsIgnored(c *gc.C) {
 func (s *streamSuite) TestWatermarkWriteUpdatesToTheLaterOne(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
+	done := make(chan struct{})
+	defer close(done)
+
 	s.expectAnyLogs()
 	s.expectAfterAnyTimes()
+	s.expectBackoffAnyTimes(done)
 	s.expectFileNotifyWatcher()
 	s.expectClock()
 	s.expectMetrics()
