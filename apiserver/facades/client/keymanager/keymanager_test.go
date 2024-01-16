@@ -113,24 +113,6 @@ func (s *keyManagerSuite) TestListKeysHidesJujuInternal(c *gc.C) {
 	})
 }
 
-func (s *keyManagerSuite) TestListJujuSystemKey(c *gc.C) {
-	defer s.setup(c).Finish()
-
-	key1 := sshtesting.ValidKeyOne.Key
-	s.setAuthorizedKeys(c, key1)
-
-	args := params.ListSSHKeys{
-		Entities: params.Entities{Entities: []params.Entity{
-			{Tag: config.JujuSystemKey},
-		}},
-		Mode: ssh.FullKeys,
-	}
-	results, err := s.api.ListKeys(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0].Error, gc.ErrorMatches, "permission denied")
-}
-
 func (s *keyManagerSuite) assertAddKeys(c *gc.C) {
 	key1 := sshtesting.ValidKeyOne.Key + " user@host"
 	key2 := sshtesting.ValidKeyTwo.Key

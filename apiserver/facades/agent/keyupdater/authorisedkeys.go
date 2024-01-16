@@ -5,6 +5,7 @@ package keyupdater
 
 import (
 	"context"
+	stderrors "errors"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
@@ -13,10 +14,16 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
 )
+
+// ControllerConfigService is the interface that gets ControllerConfig form DB.
+type ControllerConfigService interface {
+	ControllerConfig(context.Context) (controller.Config, error)
+}
 
 // KeyUpdater defines the methods on the keyupdater API end point.
 type KeyUpdater interface {
@@ -27,19 +34,22 @@ type KeyUpdater interface {
 // KeyUpdaterAPI implements the KeyUpdater interface and is the concrete
 // implementation of the api end point.
 type KeyUpdaterAPI struct {
-	state      *state.State
-	model      *state.Model
-	resources  facade.Resources
-	authorizer facade.Authorizer
-	getCanRead common.GetAuthFunc
+	controllerConfigService ControllerConfigService
+	state                   *state.State
+	model                   *state.Model
+	resources               facade.Resources
+	authorizer              facade.Authorizer
+	getCanRead              common.GetAuthFunc
 }
 
 var _ KeyUpdater = (*KeyUpdaterAPI)(nil)
 
-// WatchAuthorisedKeys starts a watcher to track changes to the authorised ssh keys
-// for the specified machines.
-// The current implementation relies on global authorised keys being stored in the model config.
-// This will change as new user management and authorisation functionality is added.
+// WatchAuthorisedKeys starts a watcher to track changes to the authorised ssh
+// keys for the specified machines.
+// The current implementation relies on global authorised keys being stored in
+// the model config and also the Juju system ssh key coming from the controllers
+// config. This will change as new user management and authorisation
+// functionality is added.
 func (api *KeyUpdaterAPI) WatchAuthorisedKeys(ctx context.Context, arg params.Entities) (params.NotifyWatchResults, error) {
 	results := make([]params.NotifyWatchResult, len(arg.Entities))
 
@@ -81,8 +91,10 @@ func (api *KeyUpdaterAPI) WatchAuthorisedKeys(ctx context.Context, arg params.En
 }
 
 // AuthorisedKeys reports the authorised ssh keys for the specified machines.
-// The current implementation relies on global authorised keys being stored in the model config.
-// This will change as new user management and authorisation functionality is added.
+// The current implementation relies on global authorised keys being stored in
+// the model config and also the Juju system ssh key coming from the controllers
+// config. This will change as new user management and authorisation
+// functionality is added.
 func (api *KeyUpdaterAPI) AuthorisedKeys(ctx context.Context, arg params.Entities) (params.StringsResults, error) {
 	if len(arg.Entities) == 0 {
 		return params.StringsResults{}, nil
@@ -94,6 +106,13 @@ func (api *KeyUpdaterAPI) AuthorisedKeys(ctx context.Context, arg params.Entitie
 	config, configErr := api.model.ModelConfig(ctx)
 	if configErr == nil {
 		keys = ssh.SplitAuthorisedKeys(config.AuthorizedKeys())
+	}
+
+	controllerConfig, err := api.controllerConfigService.ControllerConfig(ctx)
+	if err == nil {
+		keys = append(keys, ssh.SplitAuthorisedKeys(controllerConfig.SystemSSHKeys())...)
+	} else if err != nil {
+		configErr = stderrors.Join(configErr, err)
 	}
 
 	canRead, err := api.getCanRead()

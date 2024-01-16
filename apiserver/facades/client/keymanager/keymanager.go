@@ -24,8 +24,9 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-// The comment values used by juju internal ssh keys.
-var internalComments = set.NewStrings("juju-client-key", config.JujuSystemKey)
+// jujuKeyCommentIdentifiers is the set of identifiers in use by Juju system
+// keys that may be stored within model config.
+var jujuKeyCommentIdentifiers = set.NewStrings("juju-client-key", config.JujuSystemKey)
 
 // KeyManagerAPI provides api endpoints for manipulating ssh keys
 type KeyManagerAPI struct {
@@ -43,29 +44,11 @@ func (api *KeyManagerAPI) checkCanRead(sshUser string) error {
 	} else if err != apiservererrors.ErrPerm {
 		return errors.Trace(err)
 	}
-	if sshUser == config.JujuSystemKey {
-		// users cannot read the system key.
-		// NOTE: This check currently has no use as the apiserver ignores the user(s) included
-		// in requests. It exists as an added layer of protection for the future, to prevent users
-		// requesting the system key. Later, when keys are not global we will need to put more
-		// thought into exactly how we should ensure the system key is never exposed to users.
-		// At the moment this is handled by using `internalComments`
-		return apiservererrors.ErrPerm
-	}
 	err := api.authorizer.HasPermission(permission.ReadAccess, api.model.ModelTag())
 	return err
 }
 
 func (api *KeyManagerAPI) checkCanWrite(sshUser string) error {
-	if sshUser == config.JujuSystemKey {
-		// users cannot modify the system key.
-		// NOTE: This check currently has no use as the apiserver ignores the user(s) included
-		// in requests. It exists as an added layer of protection for the future, to prevent users
-		// requesting the system key. Later, when keys are not global we will need to put more
-		// thought into exactly how we should ensure the system key is never exposed to users.
-		// At the moment this is handled by using `internalComments`
-		return apiservererrors.ErrPerm
-	}
 	ok, err := common.HasModelAdmin(api.authorizer, api.controllerTag, api.model.ModelTag())
 	if err != nil {
 		return errors.Trace(err)
@@ -113,8 +96,7 @@ func parseKeys(keys []string, mode ssh.ListMode) (keyInfo []string) {
 			keyInfo = append(keyInfo, fmt.Sprintf("Invalid key: %v", key))
 			continue
 		}
-		// Only including user added keys not internal ones.
-		if internalComments.Contains(comment) {
+		if jujuKeyCommentIdentifiers.Contains(comment) {
 			continue
 		}
 		if mode == ssh.FullKeys {
@@ -186,7 +168,7 @@ func (api *KeyManagerAPI) AddKeys(ctx context.Context, arg params.ModifyUserSSHK
 		if err != nil {
 			return params.ErrorResult{Error: apiservererrors.ServerError(fmt.Errorf("invalid ssh key: %s", key))}
 		}
-		if internalComments.Contains(comment) {
+		if jujuKeyCommentIdentifiers.Contains(comment) {
 			return params.ErrorResult{Error: apiservererrors.ServerError(fmt.Errorf("may not add key with comment %s: %s", comment, key))}
 		}
 		if currentFingerprints.Contains(fingerprint) {
@@ -282,7 +264,7 @@ func (api *KeyManagerAPI) ImportKeys(ctx context.Context, arg params.ModifyUserS
 				compoundErr += fmt.Sprintf("%v\n", keyInfo.err)
 				continue
 			}
-			if internalComments.Contains(keyInfo.comment) {
+			if jujuKeyCommentIdentifiers.Contains(keyInfo.comment) {
 				compoundErr += fmt.Sprintf("%v\n", errors.Errorf("may not add key with comment %s: %s", keyInfo.comment, keyInfo.key))
 				continue
 			}
@@ -364,7 +346,7 @@ func (api *KeyManagerAPI) DeleteKeys(ctx context.Context, arg params.ModifyUserS
 		// Not a fingerprint, is it a comment?
 		key, ok = byComment[keyId]
 		if ok {
-			if internalComments.Contains(keyId) {
+			if jujuKeyCommentIdentifiers.Contains(keyId) {
 				return params.ErrorResult{Error: apiservererrors.ServerError(fmt.Errorf("may not delete internal key: %s", keyId))}
 			}
 			keysToDelete.Add(key)

@@ -276,7 +276,7 @@ func (s *BootstrapSuite) TestInitializeModel(c *gc.C) {
 
 	cfg, err := m.ModelConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.AuthorizedKeys(), gc.Equals, s.bootstrapParams.ControllerModelConfig.AuthorizedKeys()+"\npublic-key")
+	c.Assert(cfg.AuthorizedKeys(), gc.Equals, s.bootstrapParams.ControllerModelConfig.AuthorizedKeys())
 }
 
 func (s *BootstrapSuite) TestInitializeModelInvalidOplogSize(c *gc.C) {

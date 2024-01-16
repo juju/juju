@@ -68,6 +68,7 @@ var configChecker = schema.FieldMap(schema.Fields{
 	ObjectStoreS3StaticKey:           schema.String(),
 	ObjectStoreS3StaticSecret:        schema.String(),
 	ObjectStoreS3StaticSession:       schema.String(),
+	SystemSSHKeys:                    schema.String(),
 }, schema.Defaults{
 	AgentRateLimitMax:                schema.Omit,
 	AgentRateLimitRate:               schema.Omit,
@@ -125,6 +126,7 @@ var configChecker = schema.FieldMap(schema.Fields{
 	ObjectStoreS3StaticKey:           schema.Omit,
 	ObjectStoreS3StaticSecret:        schema.Omit,
 	ObjectStoreS3StaticSession:       schema.Omit,
+	SystemSSHKeys:                    schema.Omit,
 })
 
 // ConfigSchema holds information on all the fields defined by
@@ -361,5 +363,9 @@ will be output if tracing is enabled.`,
 	ObjectStoreS3StaticSession: {
 		Type:        environschema.Tstring,
 		Description: `The s3 static session for the object store backend`,
+	},
+	SystemSSHKeys: {
+		Type:        environschema.Tstring,
+		Description: `Defines the system ssh keys`,
 	},
 }

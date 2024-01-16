@@ -21,6 +21,7 @@ import (
 	"github.com/juju/names/v5"
 	"github.com/juju/proxy"
 	"github.com/juju/utils/v3/shell"
+	"github.com/juju/utils/v3/ssh"
 	"github.com/juju/version/v2"
 	"gopkg.in/yaml.v2"
 
@@ -303,8 +304,11 @@ type StateInitializationParams struct {
 	// ControllerCharmChannel is used when deploying the controller charm.
 	ControllerCharmChannel charm.Channel
 
-	// ControllerInheritedConfig is a set of config attributes to be shared by all
-	// models managed by this controller.
+	// ControllerInheritedConfig is a set of default config attributes to be set
+	// as defaults on the cloud that is in use by the controller
+	// ("the controller cloud"). These default config attributes do not actually
+	// get applied to every model in reality just to models that use the same
+	// cloud as the controller.
 	ControllerInheritedConfig map[string]interface{}
 
 	// RegionInheritedConfig holds region specific configuration attributes to
@@ -809,6 +813,7 @@ func NewBootstrapInstanceConfig(
 	if err != nil {
 		return nil, err
 	}
+	icfg.AuthorizedKeys = config.SystemSSHKeys()
 	icfg.PublicImageSigningKey = publicImageSigningKey
 	icfg.ControllerConfig = make(map[string]interface{})
 	for k, v := range config {
@@ -897,7 +902,8 @@ func PopulateInstanceConfig(icfg *InstanceConfig,
 	cloudInitUserData map[string]interface{},
 	profiles []string,
 ) error {
-	icfg.AuthorizedKeys = authorizedKeys
+	systemSSHKeys := icfg.ControllerConfig.SystemSSHKeys()
+	icfg.AuthorizedKeys = ssh.ConcatAuthorisedKeys(systemSSHKeys, authorizedKeys)
 	if icfg.AgentEnvironment == nil {
 		icfg.AgentEnvironment = make(map[string]string)
 	}
@@ -931,7 +937,10 @@ func PopulateInstanceConfig(icfg *InstanceConfig,
 // it is better that this functionality be collected in one place here than
 // that it be spread out across 3 or 4 providers, but this is its only
 // redeeming feature.
-func FinishInstanceConfig(icfg *InstanceConfig, cfg *config.Config) (err error) {
+func FinishInstanceConfig(
+	icfg *InstanceConfig,
+	cfg *config.Config,
+) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot complete machine configuration")
 	if err := PopulateInstanceConfig(
 		icfg,
