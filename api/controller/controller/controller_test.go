@@ -376,60 +376,6 @@ func (s *Suite) TestConfigSet(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "ruth mundy")
 }
 
-func (s *Suite) TestWatchModelSummaries(c *gc.C) {
-	apiCaller := apitesting.BestVersionCaller{
-		BestVersion: 9,
-		APICallerFunc: func(objType string, version int, id, request string, args, result interface{}) error {
-			c.Check(objType, gc.Equals, "Controller")
-			c.Check(version, gc.Equals, 9)
-			c.Check(request, gc.Equals, "WatchModelSummaries")
-			c.Check(result, gc.FitsTypeOf, &params.SummaryWatcherID{})
-			c.Check(args, gc.IsNil)
-			return errors.New("some error")
-		},
-	}
-	client := controller.NewClient(apiCaller)
-	watcher, err := client.WatchModelSummaries()
-	c.Assert(err, gc.ErrorMatches, "some error")
-	c.Assert(watcher, gc.IsNil)
-}
-
-func (s *Suite) TestWatchAllModelSummaries(c *gc.C) {
-	apiCaller := apitesting.BestVersionCaller{
-		BestVersion: 9,
-		APICallerFunc: func(objType string, version int, id, request string, args, result interface{}) error {
-			c.Check(objType, gc.Equals, "Controller")
-			c.Check(version, gc.Equals, 9)
-			c.Check(request, gc.Equals, "WatchAllModelSummaries")
-			c.Check(result, gc.FitsTypeOf, &params.SummaryWatcherID{})
-			c.Check(args, gc.IsNil)
-			return errors.New("some error")
-		},
-	}
-	client := controller.NewClient(apiCaller)
-	watcher, err := client.WatchAllModelSummaries()
-	c.Assert(err, gc.ErrorMatches, "some error")
-	c.Assert(watcher, gc.IsNil)
-}
-
-func (s *Suite) TestWatchAllModels(c *gc.C) {
-	apiCaller := apitesting.BestVersionCaller{
-		BestVersion: 9,
-		APICallerFunc: func(objType string, version int, id, request string, args, result interface{}) error {
-			c.Check(objType, gc.Equals, "Controller")
-			c.Check(version, gc.Equals, 9)
-			c.Check(request, gc.Equals, "WatchAllModels")
-			c.Check(result, gc.FitsTypeOf, &params.AllWatcherId{})
-			c.Check(args, gc.IsNil)
-			return errors.New("some error")
-		},
-	}
-	client := controller.NewClient(apiCaller)
-	watcher, err := client.WatchAllModels()
-	c.Assert(err, gc.ErrorMatches, "some error")
-	c.Assert(watcher, gc.IsNil)
-}
-
 func (s *Suite) TestDashboardConnectionInfo(c *gc.C) {
 	apiCaller := apitesting.APICallerFunc(
 		func(objType string, version int, id, request string, args, result interface{}) error {

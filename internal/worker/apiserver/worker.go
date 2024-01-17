@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/lease"
-	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/internal/worker/objectstore"
@@ -38,7 +37,6 @@ type Config struct {
 	Hub                               *pubsub.StructuredHub
 	Presence                          presence.Recorder
 	Mux                               *apiserverhttp.Mux
-	MultiwatcherFactory               multiwatcher.Factory
 	LocalMacaroonAuthenticator        macaroon.LocalMacaroonAuthenticator
 	StatePool                         *state.StatePool
 	LeaseManager                      lease.Manager
@@ -85,9 +83,6 @@ func (config Config) Validate() error {
 	}
 	if config.Mux == nil {
 		return errors.NotValidf("nil Mux")
-	}
-	if config.MultiwatcherFactory == nil {
-		return errors.NotValidf("nil MultiwatcherFactory")
 	}
 	if config.LocalMacaroonAuthenticator == nil {
 		return errors.NotValidf("nil LocalMacaroonAuthenticator")
@@ -172,7 +167,6 @@ func NewWorker(ctx context.Context, config Config) (worker.Worker, error) {
 		LogDir:                        config.AgentConfig.LogDir(),
 		Hub:                           config.Hub,
 		Presence:                      config.Presence,
-		MultiwatcherFactory:           config.MultiwatcherFactory,
 		Mux:                           config.Mux,
 		LocalMacaroonAuthenticator:    config.LocalMacaroonAuthenticator,
 		JWTAuthenticator:              jwtAuthenticator,

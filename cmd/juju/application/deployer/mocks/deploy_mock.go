@@ -18,7 +18,6 @@ import (
 	charm "github.com/juju/charm/v12"
 	resource "github.com/juju/charm/v12/resource"
 	cmd "github.com/juju/cmd/v3"
-	api "github.com/juju/juju/api"
 	base "github.com/juju/juju/api/base"
 	application "github.com/juju/juju/api/client/application"
 	client "github.com/juju/juju/api/client/client"
@@ -643,21 +642,6 @@ func (m *MockDeployerAPI) Status(arg0 *client.StatusArgs) (*params.FullStatus, e
 func (mr *MockDeployerAPIMockRecorder) Status(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Status", reflect.TypeOf((*MockDeployerAPI)(nil).Status), arg0)
-}
-
-// WatchAll mocks base method.
-func (m *MockDeployerAPI) WatchAll() (api.AllWatch, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchAll")
-	ret0, _ := ret[0].(api.AllWatch)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// WatchAll indicates an expected call of WatchAll.
-func (mr *MockDeployerAPIMockRecorder) WatchAll() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchAll", reflect.TypeOf((*MockDeployerAPI)(nil).WatchAll))
 }
 
 // MockCharmReader is a mock of CharmReader interface.

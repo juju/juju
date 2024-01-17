@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/lease"
-	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/presence"
@@ -118,9 +117,6 @@ type Context interface {
 	// StatePool returns the state pool used by the apiserver to minimise the
 	// creation of the expensive *State instances.
 	StatePool() *state.StatePool
-
-	// MultiwatcherFactory returns the factory to create multiwatchers.
-	MultiwatcherFactory() multiwatcher.Factory
 
 	// Presence returns an instance that is able to be asked for
 	// the current model presence.

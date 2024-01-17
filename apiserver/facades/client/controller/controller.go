@@ -30,7 +30,6 @@ import (
 	corecontroller "github.com/juju/juju/controller"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/internal/docker"
@@ -75,8 +74,7 @@ type ControllerAPI struct {
 	upgradeService          UpgradeService
 	controllerConfigService ControllerConfigService
 
-	multiwatcherFactory multiwatcher.Factory
-	logger              loggo.Logger
+	logger loggo.Logger
 }
 
 // LatestAPI is used for testing purposes to create the latest
@@ -93,7 +91,6 @@ func NewControllerAPI(
 	resources facade.Resources,
 	presence facade.Presence,
 	hub facade.Hub,
-	factory multiwatcher.Factory,
 	logger loggo.Logger,
 	controllerConfigService ControllerConfigService,
 	externalControllerService common.ExternalControllerService,
@@ -139,7 +136,6 @@ func NewControllerAPI(
 		resources:               resources,
 		presence:                presence,
 		hub:                     hub,
-		multiwatcherFactory:     factory,
 		logger:                  logger,
 		controllerConfigService: controllerConfigService,
 		credentialService:       credentialService,
@@ -543,34 +539,6 @@ func (c *ControllerAPI) RemoveBlocks(ctx context.Context, args params.RemoveBloc
 		return errors.New("not supported")
 	}
 	return errors.Trace(c.state.RemoveAllBlocksForController())
-}
-
-// WatchAllModels starts watching events for all models in the
-// controller. The returned AllWatcherId should be used with Next on the
-// AllModelWatcher endpoint to receive deltas.
-func (c *ControllerAPI) WatchAllModels(ctx context.Context) (params.AllWatcherId, error) {
-	if err := c.checkIsSuperUser(); err != nil {
-		return params.AllWatcherId{}, errors.Trace(err)
-	}
-	w := c.multiwatcherFactory.WatchController()
-	return params.AllWatcherId{
-		AllWatcherId: c.resources.Register(w),
-	}, nil
-}
-
-// WatchAllModelSummaries starts watching the summary updates from the cache.
-// This method is superuser access only, and watches all models in the
-// controller.
-func (c *ControllerAPI) WatchAllModelSummaries(ctx context.Context) (params.SummaryWatcherID, error) {
-	if err := c.checkIsSuperUser(); err != nil {
-		return params.SummaryWatcherID{}, errors.Trace(err)
-	}
-	// TODO(dqlite) - implement me
-	//w := c.controller.WatchAllModels()
-	//return params.SummaryWatcherID{
-	//	WatcherID: c.resources.Register(w),
-	//}, nil
-	return params.SummaryWatcherID{}, errors.NotSupportedf("WatchAllModelSummaries")
 }
 
 // WatchModelSummaries starts watching the summary updates from the cache.

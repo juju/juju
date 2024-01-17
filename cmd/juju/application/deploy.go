@@ -80,10 +80,6 @@ func (a *deployAPIAdaptor) ModelUUID() (string, bool) {
 	return tag.Id(), ok
 }
 
-func (a *deployAPIAdaptor) WatchAll() (api.AllWatch, error) {
-	return a.legacyClient.WatchAll()
-}
-
 func (a *deployAPIAdaptor) Deploy(args application.DeployArgs) error {
 	for i, p := range args.Placement {
 		if p.Scope == "model-uuid" {

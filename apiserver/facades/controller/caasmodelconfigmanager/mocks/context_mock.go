@@ -16,7 +16,6 @@ import (
 	changestream "github.com/juju/juju/core/changestream"
 	leadership "github.com/juju/juju/core/leadership"
 	lease "github.com/juju/juju/core/lease"
-	multiwatcher "github.com/juju/juju/core/multiwatcher"
 	objectstore "github.com/juju/juju/core/objectstore"
 	servicefactory "github.com/juju/juju/internal/servicefactory"
 	state "github.com/juju/juju/state"
@@ -274,20 +273,6 @@ func (m *MockContext) MachineTag() names.Tag {
 func (mr *MockContextMockRecorder) MachineTag() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MachineTag", reflect.TypeOf((*MockContext)(nil).MachineTag))
-}
-
-// MultiwatcherFactory mocks base method.
-func (m *MockContext) MultiwatcherFactory() multiwatcher.Factory {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "MultiwatcherFactory")
-	ret0, _ := ret[0].(multiwatcher.Factory)
-	return ret0
-}
-
-// MultiwatcherFactory indicates an expected call of MultiwatcherFactory.
-func (mr *MockContextMockRecorder) MultiwatcherFactory() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MultiwatcherFactory", reflect.TypeOf((*MockContext)(nil).MultiwatcherFactory))
 }
 
 // ObjectStore mocks base method.

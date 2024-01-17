@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/juju/charm/v12"
 	charmresource "github.com/juju/charm/v12/resource"
@@ -22,7 +21,6 @@ import (
 	"github.com/kr/pretty"
 	"gopkg.in/yaml.v2"
 
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/client/application"
 	"github.com/juju/juju/api/client/charms"
 	"github.com/juju/juju/api/client/resources"
@@ -43,7 +41,6 @@ import (
 	bundlechanges "github.com/juju/juju/internal/bundle/changes"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state/watcher"
 )
 
 type bundleDeploySpec struct {
@@ -186,10 +183,6 @@ type bundleHandler struct {
 	// knownSpaceNames is a set of the names of existing spaces an application
 	// can bind to
 	knownSpaceNames set.Strings
-
-	// watcher holds an environment mega-watcher used to keep the environment
-	// status up to date.
-	watcher api.AllWatch
 
 	// The name and UUID of the model where the bundle is about to be deployed.
 	targetModelName string
@@ -499,14 +492,6 @@ func (h *bundleHandler) getChanges() error {
 }
 
 func (h *bundleHandler) handleChanges(ctx context.Context) error {
-	var err error
-	// Instantiate a watcher used to follow the deployment progress.
-	h.watcher, err = h.deployAPI.WatchAll()
-	if err != nil {
-		return errors.Annotate(err, "cannot watch model")
-	}
-	defer func() { _ = h.watcher.Stop() }()
-
 	if len(h.changes) == 0 {
 		h.ctx.Infof("No changes to apply.")
 		return nil
@@ -524,6 +509,7 @@ func (h *bundleHandler) handleChanges(ctx context.Context) error {
 		if logger.IsTraceEnabled() {
 			logger.Tracef("%d: change %s", i, pretty.Sprint(change))
 		}
+		var err error
 		switch change := change.(type) {
 		case *bundlechanges.AddCharmChange:
 			err = h.addCharm(change)
@@ -1543,39 +1529,13 @@ func (h *bundleHandler) applicationsForMachineChange(change *bundlechanges.AddMa
 	return applications.SortedValues()
 }
 
-// updateUnitStatusPeriod is the time duration used to wait for a mega-watcher
-// change to be available.
-var updateUnitStatusPeriod = watcher.Period + 5*time.Second
-
 // updateUnitStatus uses the mega-watcher to update units and machines info
 // (h.unitStatus) so that it reflects the current environment status.
 // This function must be called assuming new delta changes are available or
 // will be available within the watcher time period. Otherwise, the function
 // unblocks and an error is returned.
 func (h *bundleHandler) updateUnitStatus() error {
-	var delta []params.Delta
-	var err error
-	ch := make(chan struct{})
-	go func() {
-		delta, err = h.watcher.Next()
-		close(ch)
-	}()
-	select {
-	case <-ch:
-		if err != nil {
-			return errors.Annotate(err, "cannot update model status")
-		}
-		for _, d := range delta {
-			switch entityInfo := d.Entity.(type) {
-			case *params.UnitInfo:
-				h.unitStatus[entityInfo.Name] = entityInfo.MachineId
-			}
-		}
-	case <-time.After(updateUnitStatusPeriod):
-		// TODO(fwereade): 2016-03-17 lp:1558657
-		return errors.New("timeout while trying to get new changes from the watcher")
-	}
-	return nil
+	return errors.NotImplementedf("updateUnitStatus")
 }
 
 // resolveMachine returns the machine id resolving the given unit or machine

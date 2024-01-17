@@ -6,6 +6,7 @@ package params
 import (
 	"time"
 
+	"github.com/juju/charm/v12"
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/constraints"
@@ -400,6 +401,27 @@ type RelationUnitsSettings struct {
 // information about multiple relations.
 type RelationResults struct {
 	Results []RelationResult `json:"results"`
+}
+
+// Endpoint holds an application-relation pair.
+type Endpoint struct {
+	ApplicationName string        `json:"application-name"`
+	Relation        CharmRelation `json:"relation"`
+}
+
+// NewCharmRelation creates a new local CharmRelation structure from  the
+// charm.Relation structure. NOTE: when we update the database to not store a
+// charm.Relation directly in the database, this method should take the state
+// structure type.
+func NewCharmRelation(cr charm.Relation) CharmRelation {
+	return CharmRelation{
+		Name:      cr.Name,
+		Role:      string(cr.Role),
+		Interface: cr.Interface,
+		Optional:  cr.Optional,
+		Limit:     cr.Limit,
+		Scope:     string(cr.Scope),
+	}
 }
 
 // RelationResult returns information about a single relation,

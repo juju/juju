@@ -12,7 +12,6 @@ import (
 	"github.com/juju/names/v5"
 	"gopkg.in/macaroon.v2"
 
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/api/common/cloudspec"
@@ -196,37 +195,6 @@ func (c *Client) ListBlockedModels() ([]params.ModelBlockInfo, error) {
 func (c *Client) RemoveBlocks() error {
 	args := params.RemoveBlocksArgs{All: true}
 	return c.facade.FacadeCall(context.TODO(), "RemoveBlocks", args, nil)
-}
-
-// WatchAllModels returns an AllWatcher, from which you can request
-// the Next collection of Deltas (for all models).
-func (c *Client) WatchAllModels() (*api.AllWatcher, error) {
-	var info params.AllWatcherId
-	if err := c.facade.FacadeCall(context.TODO(), "WatchAllModels", nil, &info); err != nil {
-		return nil, err
-	}
-	return api.NewAllModelWatcher(c.facade.RawAPICaller(), &info.AllWatcherId), nil
-}
-
-// WatchModelSummaries returns a SummaryWatcher, from which you can request
-// the Next set of ModelAbstracts for all models the user can see.
-func (c *Client) WatchModelSummaries() (*SummaryWatcher, error) {
-	var info params.SummaryWatcherID
-	if err := c.facade.FacadeCall(context.TODO(), "WatchModelSummaries", nil, &info); err != nil {
-		return nil, err
-	}
-	return NewSummaryWatcher(c.facade.RawAPICaller(), &info.WatcherID), nil
-}
-
-// WatchAllModelSummaries returns a SummaryWatcher, from which you can request
-// the Next set of ModelAbstracts. This method is only valid for controller
-// superusers and returns abstracts for all models in the controller.
-func (c *Client) WatchAllModelSummaries() (*SummaryWatcher, error) {
-	var info params.SummaryWatcherID
-	if err := c.facade.FacadeCall(context.TODO(), "WatchAllModelSummaries", nil, &info); err != nil {
-		return nil, err
-	}
-	return NewSummaryWatcher(c.facade.RawAPICaller(), &info.WatcherID), nil
 }
 
 // GrantController grants a user access to the controller.

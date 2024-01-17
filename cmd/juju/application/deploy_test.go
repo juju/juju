@@ -28,11 +28,9 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
 
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/client/application"
 	apicharms "github.com/juju/juju/api/client/charms"
-	"github.com/juju/juju/api/client/client"
 	apiclient "github.com/juju/juju/api/client/client"
 	"github.com/juju/juju/api/client/resources"
 	commoncharm "github.com/juju/juju/api/common/charm"
@@ -1379,11 +1377,6 @@ func (f *fakeDeployAPI) Status(args *apiclient.StatusArgs) (*params.FullStatus, 
 	return results[0].(*params.FullStatus), jujutesting.TypeAssertError(results[1])
 }
 
-func (f *fakeDeployAPI) WatchAll() (api.AllWatch, error) {
-	results := f.MethodCall(f, "WatchAll")
-	return results[0].(*api.AllWatcher), jujutesting.TypeAssertError(results[1])
-}
-
 func (f *fakeDeployAPI) AddRelation(endpoints, viaCIDRs []string) (*params.AddRelationResults, error) {
 	results := f.MethodCall(f, "AddRelation", stringToInterface(endpoints), stringToInterface(viaCIDRs))
 	return results[0].(*params.AddRelationResults), jujutesting.TypeAssertError(results[1])
@@ -1803,13 +1796,4 @@ func withLocalBundleCharmDeployable(
 		ApplicationName: url.Name,
 		NumUnits:        1,
 	}).Returns([]string{url.Name + "/0"}, error(nil))
-}
-
-func withAllWatcher(fakeAPI *fakeDeployAPI) {
-	id := "0"
-	fakeAPI.Call("WatchAll").Returns(api.NewAllWatcher(fakeAPI, &id), error(nil))
-
-	fakeAPI.Call("BestFacadeVersion", "AllWatcher").Returns(0)
-	fakeAPI.Call("APICall", "AllWatcher", 0, "0", "Stop", nil, nil).Returns(error(nil))
-	fakeAPI.Call("Status", (*client.StatusArgs)(nil)).Returns(&params.FullStatus{}, error(nil))
 }

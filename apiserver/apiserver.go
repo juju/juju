@@ -46,7 +46,6 @@ import (
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/lease"
-	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/core/resources"
 	coretrace "github.com/juju/juju/core/trace"
@@ -151,11 +150,6 @@ type ServerConfig struct {
 	// provider.
 	JWTAuthenticator jwt.Authenticator
 
-	// MultiwatcherFactory is used by the API server to create
-	// multiwatchers. The real factory is managed by the multiwatcher
-	// worker.
-	MultiwatcherFactory multiwatcher.Factory
-
 	// StatePool is the StatePool used for looking up State
 	// to pass to facades. StatePool will not be closed by the
 	// server; it is the callers responsibility to close it
@@ -234,9 +228,6 @@ type ServerConfig struct {
 func (c ServerConfig) Validate() error {
 	if c.StatePool == nil {
 		return errors.NotValidf("missing StatePool")
-	}
-	if c.MultiwatcherFactory == nil {
-		return errors.NotValidf("missing MultiwatcherFactory")
 	}
 	if c.Hub == nil {
 		return errors.NotValidf("missing Hub")
@@ -342,7 +333,6 @@ func newServer(ctx context.Context, cfg ServerConfig) (_ *Server, err error) {
 
 	shared, err := newSharedServerContext(sharedServerConfig{
 		statePool:            cfg.StatePool,
-		multiwatcherFactory:  cfg.MultiwatcherFactory,
 		centralHub:           cfg.Hub,
 		presence:             cfg.Presence,
 		leaseManager:         cfg.LeaseManager,

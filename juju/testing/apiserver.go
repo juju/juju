@@ -44,7 +44,6 @@ import (
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
 	corelogger "github.com/juju/juju/core/logger"
-	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/presence"
@@ -64,7 +63,6 @@ import (
 	internalobjectstore "github.com/juju/juju/internal/objectstore"
 	"github.com/juju/juju/internal/pubsub/centralhub"
 	"github.com/juju/juju/internal/worker/lease"
-	wmultiwatcher "github.com/juju/juju/internal/worker/multiwatcher"
 	"github.com/juju/juju/jujuclient"
 	_ "github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
@@ -139,7 +137,6 @@ type ApiServerSuite struct {
 	// set up the api server with real components instead of stubs.
 
 	WithLeaseManager        bool
-	WithMultiWatcher        bool
 	WithControllerModelType state.ModelType
 	WithEmbeddedCLICommand  func(ctx *cmd.Context, store jujuclient.ClientStore, whitelist []string, cmdPlusArgs string) int
 
@@ -174,19 +171,6 @@ func leaseManager(controllerUUID string, db database.DBGetter, clock clock.Clock
 		PrometheusRegisterer: noopRegisterer{},
 		Tracer:               trace.NoopTracer{},
 	})
-}
-
-func multiWatcher(c *gc.C, statePool *state.StatePool, clock clock.Clock) *wmultiwatcher.Worker {
-	allWatcherBacking, err := state.NewAllWatcherBacking(statePool)
-	c.Assert(err, jc.ErrorIsNil)
-	multiWatcherWorker, err := wmultiwatcher.NewWorker(wmultiwatcher.Config{
-		Clock:                clock,
-		Logger:               loggo.GetLogger("dummy.multiwatcher"),
-		Backing:              allWatcherBacking,
-		PrometheusRegisterer: noopRegisterer{},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	return multiWatcherWorker
 }
 
 func (s *ApiServerSuite) SetUpSuite(c *gc.C) {
@@ -333,9 +317,6 @@ func (s *ApiServerSuite) setupApiServer(c *gc.C, controllerCfg controller.Config
 		cfg.LeaseManager = leaseManager
 		s.LeaseManager = leaseManager
 	}
-	if s.WithMultiWatcher {
-		cfg.MultiwatcherFactory = multiWatcher(c, cfg.StatePool, s.Clock)
-	}
 	if s.WithIntrospection != nil {
 		cfg.RegisterIntrospectionHandlers = s.WithIntrospection
 	}
@@ -375,7 +356,6 @@ func (s *ApiServerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *ApiServerSuite) TearDownTest(c *gc.C) {
-	s.WithMultiWatcher = false
 	s.WithLeaseManager = false
 	s.WithAuditLogConfig = nil
 	s.WithUpgrading = false
@@ -619,7 +599,6 @@ func DefaultServerConfig(c *gc.C, testclock clock.Clock) apiserver.ServerConfig 
 		LogDir:                     c.MkDir(),
 		DataDir:                    c.MkDir(),
 		Hub:                        hub,
-		MultiwatcherFactory:        &fakeMultiwatcherFactory{},
 		Presence:                   &fakePresence{},
 		LeaseManager:               apitesting.StubLeaseManager{},
 		NewObserver:                func() observer.Observer { return &fakeobserver.Instance{} },
@@ -706,10 +685,6 @@ func (stubWatchableDB) Subscribe(...changestream.SubscriptionOption) (changestre
 type noopSysLogger struct{}
 
 func (noopSysLogger) Log([]corelogger.LogRecord) error { return nil }
-
-type fakeMultiwatcherFactory struct {
-	multiwatcher.Factory
-}
 
 type mockAuthenticator struct {
 	macaroon.LocalMacaroonAuthenticator

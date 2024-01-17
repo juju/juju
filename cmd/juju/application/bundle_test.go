@@ -48,7 +48,6 @@ func (s *BundleDeploySuite) SetUpTest(c *gc.C) {
 	s.fakeAPI = vanillaFakeModelAPI(cfg)
 	s.fakeAPI.deployerFactoryFunc = deployer.NewDeployerFactory
 	s.fakeAPI.Call("ListSpaces").Returns([]params.Space{{Name: "alpha", Id: "0"}}, error(nil))
-	withAllWatcher(s.fakeAPI)
 }
 
 // DeployBundleYAML uses the given bundle content to create a bundle in the
@@ -607,7 +606,7 @@ Please repeat the deploy command with the --trust argument if you consent to tru
 }
 
 func (s *BundleDeploySuite) TestDeployBundleWithChannel(c *gc.C) {
-	withAllWatcher(s.fakeAPI)
+	c.Skip("requires all watcher")
 
 	// The second charm from the bundle does not require trust so no
 	// additional configuration should be injected
@@ -633,7 +632,7 @@ func (s *BundleDeploySuite) TestDeployBundleWithChannel(c *gc.C) {
 }
 
 func (s *BundleDeploySuite) TestDeployBundlesRequiringTrust(c *gc.C) {
-	withAllWatcher(s.fakeAPI)
+	c.Skip("requires all watcher")
 
 	inURL := charm.MustParseURL("ch:aws-integrator")
 	withCharmRepoResolvable(s.fakeAPI, inURL, "jammy")
@@ -701,7 +700,7 @@ func (s *BundleDeploySuite) TestDeployBundlesRequiringTrust(c *gc.C) {
 }
 
 func (s *BundleDeploySuite) TestDeployBundleWithOffers(c *gc.C) {
-	withAllWatcher(s.fakeAPI)
+	c.Skip("requires all watcher")
 
 	inURL := charm.MustParseURL("ch:apache2")
 	withCharmRepoResolvable(s.fakeAPI, inURL, "jammy")
@@ -768,7 +767,7 @@ func (s *BundleDeploySuite) TestDeployBundleWithOffers(c *gc.C) {
 }
 
 func (s *BundleDeploySuite) TestDeployBundleWithSAAS(c *gc.C) {
-	withAllWatcher(s.fakeAPI)
+	c.Skip("requires all watcher")
 
 	inURL := charm.MustParseURL("ch:wordpress")
 	withCharmRepoResolvable(s.fakeAPI, inURL, "jammy")

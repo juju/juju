@@ -17,14 +17,10 @@ import (
 	"github.com/juju/pubsub/v2"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
-	"github.com/juju/version/v2"
 	"github.com/juju/worker/v4/workertest"
-	"github.com/kr/pretty"
-	"github.com/prometheus/client_golang/prometheus"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
 
-	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facade/facadetest"
@@ -32,7 +28,6 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/cloud"
 	corecontroller "github.com/juju/juju/controller"
-	coremultiwatcher "github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/watcher/registry"
 	servicefactorytesting "github.com/juju/juju/domain/servicefactory/testing"
@@ -42,7 +37,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/docker"
 	pscontroller "github.com/juju/juju/internal/pubsub/controller"
-	"github.com/juju/juju/internal/worker/multiwatcher"
 	jujujujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -91,20 +85,9 @@ func (s *controllerSuite) SetUpTest(c *gc.C) {
 	s.StateSuite.ControllerConfig = controllerCfg
 	s.StateSuite.SetUpTest(c)
 
-	allWatcherBacking, err := state.NewAllWatcherBacking(s.StatePool)
-	c.Assert(err, jc.ErrorIsNil)
-	multiWatcherWorker, err := multiwatcher.NewWorker(multiwatcher.Config{
-		Clock:                clock.WallClock,
-		Logger:               loggo.GetLogger("test"),
-		Backing:              allWatcherBacking,
-		PrometheusRegisterer: noopRegisterer{},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	// The worker itself is a coremultiwatcher.Factory.
-	s.AddCleanup(func(c *gc.C) { workertest.CleanKill(c, multiWatcherWorker) })
-
 	s.hub = pubsub.NewStructuredHub(nil)
 
+	var err error
 	s.watcherRegistry, err = registry.NewRegistry(clock.WallClock)
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(c *gc.C) { workertest.DirtyKill(c, s.watcherRegistry) })
@@ -122,14 +105,13 @@ func (s *controllerSuite) SetUpTest(c *gc.C) {
 	jujujujutesting.SeedCloudCredentials(c, s.ControllerSuite.TxnRunner())
 
 	s.context = facadetest.Context{
-		State_:               s.State,
-		StatePool_:           s.StatePool,
-		Resources_:           s.resources,
-		WatcherRegistry_:     s.watcherRegistry,
-		Auth_:                s.authorizer,
-		Hub_:                 s.hub,
-		MultiwatcherFactory_: multiWatcherWorker,
-		ServiceFactory_:      s.ControllerServiceFactory(c),
+		State_:           s.State,
+		StatePool_:       s.StatePool,
+		Resources_:       s.resources,
+		WatcherRegistry_: s.watcherRegistry,
+		Auth_:            s.authorizer,
+		Hub_:             s.hub,
+		ServiceFactory_:  s.ControllerServiceFactory(c),
 	}
 	controller, err := controller.LatestAPI(context.Background(), s.context)
 	c.Assert(err, jc.ErrorIsNil)
@@ -399,96 +381,6 @@ func (s *controllerSuite) TestRemoveBlocks(c *gc.C) {
 func (s *controllerSuite) TestRemoveBlocksNotAll(c *gc.C) {
 	err := s.controller.RemoveBlocks(stdcontext.Background(), params.RemoveBlocksArgs{})
 	c.Assert(err, gc.ErrorMatches, "not supported")
-}
-
-func (s *controllerSuite) TestWatchAllModels(c *gc.C) {
-	watcherId, err := s.controller.WatchAllModels(stdcontext.Background())
-	c.Assert(err, jc.ErrorIsNil)
-
-	var disposed bool
-	watcherAPI_, err := apiserver.NewAllWatcher(context.Background(), facadetest.Context{
-		State_:           s.State,
-		Resources_:       s.resources,
-		WatcherRegistry_: s.watcherRegistry,
-		ServiceFactory_:  s.ControllerServiceFactory(c),
-		Auth_:            s.authorizer,
-		ID_:              watcherId.AllWatcherId,
-		Dispose_:         func() { disposed = true },
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	watcherAPI := watcherAPI_.(*apiserver.SrvAllWatcher)
-	defer func() {
-		err := watcherAPI.Stop()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(disposed, jc.IsTrue)
-	}()
-
-	done := make(chan bool)
-	defer close(done)
-	resultC := make(chan params.AllWatcherNextResults)
-	go func() {
-		for {
-			select {
-			case <-done:
-				return
-			default:
-				result, err := watcherAPI.Next(context.Background())
-				if err != nil {
-					c.Assert(err, jc.Satisfies, coremultiwatcher.IsErrStopped)
-					return
-				}
-				resultC <- result
-			}
-		}
-	}()
-
-	select {
-	case result := <-resultC:
-		// Expect to see the initial model be reported.
-		deltas := result.Deltas
-		c.Assert(deltas, gc.HasLen, 1)
-		modelInfo := deltas[0].Entity.(*params.ModelUpdate)
-		c.Assert(modelInfo.ModelUUID, gc.Equals, s.State.ModelUUID())
-		c.Assert(modelInfo.IsController, gc.Equals, s.State.IsController())
-	case <-time.After(testing.LongWait):
-		c.Fatal("timed out")
-	}
-
-	// To ensure we really watch all models, make another one.
-	st := s.Factory.MakeModel(c, &factory.ModelParams{
-		Name: "test"})
-	defer st.Close()
-
-	// Update the model agent versions to ensure settings changes cause an update.
-	err = s.State.SetModelAgentVersion(version.MustParse("2.6.666"), nil, true, stubUpgrader{})
-	c.Assert(err, jc.ErrorIsNil)
-	err = st.SetModelAgentVersion(version.MustParse("2.6.667"), nil, true, stubUpgrader{})
-	c.Assert(err, jc.ErrorIsNil)
-	expectedVersions := map[string]string{
-		s.State.ModelUUID(): "2.6.666",
-		st.ModelUUID():      "2.6.667",
-	}
-
-	for resultCount := 0; resultCount != 2; {
-		select {
-		case result := <-resultC:
-			c.Logf("got change: %# v", pretty.Formatter(result))
-			for _, d := range result.Deltas {
-				if d.Removed {
-					continue
-				}
-				modelInfo, ok := d.Entity.(*params.ModelUpdate)
-				if !ok {
-					continue
-				}
-				if modelInfo.Config["agent-version"] == expectedVersions[modelInfo.ModelUUID] {
-					resultCount = resultCount + 1
-				}
-			}
-		case <-time.After(testing.LongWait):
-			c.Fatalf("timed out waiting for 2 model updates, got %d", resultCount)
-		}
-	}
 }
 
 func (s *controllerSuite) TestInitiateMigration(c *gc.C) {
@@ -1127,138 +1019,4 @@ func (s *controllerSuite) TestIdentityProviderURL(c *gc.C) {
 	urlRes, err = s.controller.IdentityProviderURL(stdcontext.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(urlRes.Result, gc.Equals, expURL)
-}
-
-func (s *controllerSuite) newSummaryWatcherFacade(c *gc.C, id string) *apiserver.SrvModelSummaryWatcher {
-	context := s.context
-	context.ID_ = id
-	watcher, err := apiserver.NewModelSummaryWatcher(context)
-	c.Assert(err, jc.ErrorIsNil)
-	return watcher
-}
-
-func (s *controllerSuite) TestWatchAllModelSummariesByAdmin(c *gc.C) {
-	// TODO(dqlite) - implement me
-	c.Skip("watch model summaries to be implemented")
-	// Default authorizer is an admin.
-	result, err := s.controller.WatchAllModelSummaries(stdcontext.Background())
-	c.Assert(err, jc.ErrorIsNil)
-
-	watcherAPI := s.newSummaryWatcherFacade(c, result.WatcherID)
-
-	resultC := make(chan params.SummaryWatcherNextResults)
-	go func() {
-		result, err := watcherAPI.Next(context.Background())
-		c.Assert(err, jc.ErrorIsNil)
-		resultC <- result
-	}()
-
-	select {
-	case result := <-resultC:
-		// Expect to see the initial environment be reported.
-		c.Assert(result, jc.DeepEquals, params.SummaryWatcherNextResults{
-			Models: []params.ModelAbstract{
-				{
-					UUID:       "deadbeef-0bad-400d-8000-4b1d0d06f00d",
-					Controller: "", // TODO(thumper): add controller name next branch
-					Name:       "controller",
-					Admins:     []string{"test-admin"},
-					Cloud:      "dummy",
-					Region:     "dummy-region",
-					Status:     "green",
-					Messages:   []params.ModelSummaryMessage{},
-				}}})
-	case <-time.After(testing.LongWait):
-		c.Fatal("timed out")
-	}
-}
-
-func (s *controllerSuite) TestWatchAllModelSummariesByNonAdmin(c *gc.C) {
-	anAuthoriser := apiservertesting.FakeAuthorizer{
-		Tag: names.NewLocalUserTag("bob"),
-	}
-	endPoint, err := controller.LatestAPI(
-		context.Background(),
-		facadetest.Context{
-			State_:          s.State,
-			Resources_:      s.resources,
-			Auth_:           anAuthoriser,
-			ServiceFactory_: s.ControllerServiceFactory(c),
-		})
-	c.Assert(err, jc.ErrorIsNil)
-
-	_, err = endPoint.WatchAllModelSummaries(stdcontext.Background())
-	c.Assert(err, gc.ErrorMatches, "permission denied")
-}
-
-func (s *controllerSuite) makeBobsModel(c *gc.C) string {
-	bob := s.Factory.MakeUser(c, &factory.UserParams{
-		Name:        "bob",
-		NoModelUser: true,
-	})
-	st := s.Factory.MakeModel(c, &factory.ModelParams{
-		Owner: bob.UserTag(),
-		Name:  "bobs-model"})
-	uuid := st.ModelUUID()
-	st.Close()
-	s.WaitForModelWatchersIdle(c, uuid)
-	return uuid
-}
-
-func (s *controllerSuite) TestWatchModelSummariesByNonAdmin(c *gc.C) {
-	// TODO(dqlite) - implement me
-	c.Skip("watch model summaries to be implemented")
-	s.makeBobsModel(c)
-
-	// Default authorizer is an admin. As a user, admin can't see
-	// Bob's model.
-	result, err := s.controller.WatchModelSummaries(stdcontext.Background())
-	c.Assert(err, jc.ErrorIsNil)
-
-	watcherAPI := s.newSummaryWatcherFacade(c, result.WatcherID)
-
-	resultC := make(chan params.SummaryWatcherNextResults)
-	go func() {
-		result, err := watcherAPI.Next(context.Background())
-		c.Assert(err, jc.ErrorIsNil)
-		resultC <- result
-	}()
-
-	select {
-	case result := <-resultC:
-		// Expect to see the initial environment be reported.
-		c.Assert(result, jc.DeepEquals, params.SummaryWatcherNextResults{
-			Models: []params.ModelAbstract{
-				{
-					UUID:       "deadbeef-0bad-400d-8000-4b1d0d06f00d",
-					Controller: "", // TODO(thumper): add controller name next branch
-					Name:       "controller",
-					Admins:     []string{"test-admin"},
-					Cloud:      "dummy",
-					Region:     "dummy-region",
-					Status:     "green",
-					Messages:   []params.ModelSummaryMessage{},
-				}}})
-	case <-time.After(testing.LongWait):
-		c.Fatal("timed out")
-	}
-
-}
-
-type noopRegisterer struct {
-	prometheus.Registerer
-}
-
-func (noopRegisterer) Register(prometheus.Collector) error {
-	return nil
-}
-
-func (noopRegisterer) Unregister(prometheus.Collector) bool {
-	return true
-}
-
-type stubUpgrader struct{}
-
-func (stubUpgrader) IsUpgrading() (bool, error) {
-	return false, nil
 }
