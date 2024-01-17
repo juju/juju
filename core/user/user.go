@@ -26,11 +26,6 @@ type User struct {
 
 	// CreatedAt is the time that the user was created at.
 	CreatedAt time.Time
-}
-
-// UserWithAuthInfo represents a user in the system with auth info.
-type UserWithAuthInfo struct {
-	User
 
 	// LastLogin is the last time the user logged in.
 	LastLogin time.Time

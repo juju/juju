@@ -44,20 +44,7 @@ func (u User) toCoreUser() user.User {
 		DisplayName: u.DisplayName,
 		CreatorUUID: u.CreatorUUID,
 		CreatedAt:   u.CreatedAt,
-	}
-}
-
-// toCoreUserWithAuthInfo converts the state user to a core user with auth info.
-func (u User) toCoreUserWithAuthInfo() user.UserWithAuthInfo {
-	return user.UserWithAuthInfo{
-		User: user.User{
-			UUID:        u.UUID,
-			Name:        u.Name,
-			DisplayName: u.DisplayName,
-			CreatorUUID: u.CreatorUUID,
-			CreatedAt:   u.CreatedAt,
-		},
-		LastLogin: u.LastLogin,
-		Disabled:  u.Disabled,
+		LastLogin:   u.LastLogin,
+		Disabled:    u.Disabled,
 	}
 }

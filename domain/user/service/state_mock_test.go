@@ -110,19 +110,19 @@ func (mr *MockStateMockRecorder) EnableUserAuthentication(arg0, arg1 any) *gomoc
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnableUserAuthentication", reflect.TypeOf((*MockState)(nil).EnableUserAuthentication), arg0, arg1)
 }
 
-// GetAllUsersWithAuthInfo mocks base method.
-func (m *MockState) GetAllUsersWithAuthInfo(arg0 context.Context) ([]user.UserWithAuthInfo, error) {
+// GetAllUsers mocks base method.
+func (m *MockState) GetAllUsers(arg0 context.Context) ([]user.User, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetAllUsersWithAuthInfo", arg0)
-	ret0, _ := ret[0].([]user.UserWithAuthInfo)
+	ret := m.ctrl.Call(m, "GetAllUsers", arg0)
+	ret0, _ := ret[0].([]user.User)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetAllUsersWithAuthInfo indicates an expected call of GetAllUsersWithAuthInfo.
-func (mr *MockStateMockRecorder) GetAllUsersWithAuthInfo(arg0 any) *gomock.Call {
+// GetAllUsers indicates an expected call of GetAllUsers.
+func (mr *MockStateMockRecorder) GetAllUsers(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllUsersWithAuthInfo", reflect.TypeOf((*MockState)(nil).GetAllUsersWithAuthInfo), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllUsers", reflect.TypeOf((*MockState)(nil).GetAllUsers), arg0)
 }
 
 // GetUser mocks base method.
@@ -153,36 +153,6 @@ func (m *MockState) GetUserByName(arg0 context.Context, arg1 string) (user.User,
 func (mr *MockStateMockRecorder) GetUserByName(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUserByName", reflect.TypeOf((*MockState)(nil).GetUserByName), arg0, arg1)
-}
-
-// GetUserWithAuthInfo mocks base method.
-func (m *MockState) GetUserWithAuthInfo(arg0 context.Context, arg1 user.UUID) (user.UserWithAuthInfo, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetUserWithAuthInfo", arg0, arg1)
-	ret0, _ := ret[0].(user.UserWithAuthInfo)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetUserWithAuthInfo indicates an expected call of GetUserWithAuthInfo.
-func (mr *MockStateMockRecorder) GetUserWithAuthInfo(arg0, arg1 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUserWithAuthInfo", reflect.TypeOf((*MockState)(nil).GetUserWithAuthInfo), arg0, arg1)
-}
-
-// GetUserWithAuthInfoByName mocks base method.
-func (m *MockState) GetUserWithAuthInfoByName(arg0 context.Context, arg1 string) (user.UserWithAuthInfo, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetUserWithAuthInfoByName", arg0, arg1)
-	ret0, _ := ret[0].(user.UserWithAuthInfo)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetUserWithAuthInfoByName indicates an expected call of GetUserWithAuthInfoByName.
-func (mr *MockStateMockRecorder) GetUserWithAuthInfoByName(arg0, arg1 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUserWithAuthInfoByName", reflect.TypeOf((*MockState)(nil).GetUserWithAuthInfoByName), arg0, arg1)
 }
 
 // RemoveUser mocks base method.

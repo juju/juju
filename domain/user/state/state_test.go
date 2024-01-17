@@ -195,8 +195,11 @@ func (s *stateSuite) TestGetUser(c *gc.C) {
 		Name:        "admin",
 		DisplayName: "admin",
 	}
-	err = st.AddUser(context.Background(), adminUUID, adminUser, adminUUID)
+
+	salt, err := auth.NewSalt()
 	c.Assert(err, jc.ErrorIsNil)
+
+	err = st.AddUserWithPasswordHash(context.Background(), adminUUID, adminUser, adminUUID, "passwordHash", salt)
 
 	// Get the user.
 	u, err := st.GetUser(context.Background(), adminUUID)
@@ -229,8 +232,11 @@ func (s *stateSuite) TestGetRemovedUser(c *gc.C) {
 		Name:        "userToRemove",
 		DisplayName: "userToRemove",
 	}
-	err = st.AddUser(context.Background(), userToRemoveUUID, userToRemove, adminUUID)
+
+	salt, err := auth.NewSalt()
 	c.Assert(err, jc.ErrorIsNil)
+
+	err = st.AddUserWithPasswordHash(context.Background(), userToRemoveUUID, userToRemove, adminUUID, "passwordHash", salt)
 
 	// Remove userToRemove.
 	err = st.RemoveUser(context.Background(), userToRemoveUUID)
@@ -271,7 +277,11 @@ func (s *stateSuite) TestGetUserByName(c *gc.C) {
 		Name:        "admin",
 		DisplayName: "admin",
 	}
-	err = st.AddUser(context.Background(), adminUUID, adminUser, adminUUID)
+
+	salt, err := auth.NewSalt()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = st.AddUserWithPasswordHash(context.Background(), adminUUID, adminUser, adminUUID, "passwordHash", salt)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Get the user.
@@ -282,6 +292,8 @@ func (s *stateSuite) TestGetUserByName(c *gc.C) {
 	c.Check(u.DisplayName, gc.Equals, adminUser.DisplayName)
 	c.Check(u.CreatorUUID, gc.Equals, adminUUID)
 	c.Check(u.CreatedAt, gc.NotNil)
+	c.Check(u.LastLogin, gc.NotNil)
+	c.Check(u.Disabled, gc.Equals, false)
 }
 
 // TestGetRemovedUserByName asserts that we can get only non-removed user by name.
@@ -343,8 +355,11 @@ func (s *stateSuite) TestGetUserByNameMultipleUsers(c *gc.C) {
 		Name:        "admin",
 		DisplayName: "admin2",
 	}
-	err = st.AddUser(context.Background(), admin2UUID, admin2User, admin2UUID)
+
+	salt, err := auth.NewSalt()
 	c.Assert(err, jc.ErrorIsNil)
+
+	err = st.AddUserWithPasswordHash(context.Background(), admin2UUID, admin2User, admin2UUID, "passwordHash", salt)
 
 	// Get the user.
 	u, err := st.GetUserByName(context.Background(), "admin")
@@ -386,7 +401,7 @@ func (s *stateSuite) TestGetUserWithAuthInfoByName(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Get the user.
-	u, err := st.GetUserWithAuthInfoByName(context.Background(), adminUser.Name)
+	u, err := st.GetUserByName(context.Background(), adminUser.Name)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(u.Name, gc.Equals, adminUser.Name)
@@ -476,7 +491,7 @@ func (s *stateSuite) TestGetAllUsersWihAuthInfo(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Get all users with auth info.
-	users, err := st.GetAllUsersWithAuthInfo(context.Background())
+	users, err := st.GetAllUsers(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(users, gc.HasLen, 2)
@@ -518,7 +533,7 @@ func (s *stateSuite) TestUserWithAuthInfo(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Get user with auth info.
-	u, err := st.GetUserWithAuthInfo(context.Background(), adminUUID)
+	u, err := st.GetUser(context.Background(), adminUUID)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(u.Name, gc.Equals, adminUser.Name)
