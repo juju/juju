@@ -152,7 +152,7 @@ func (st *State) SetMachineBlockDevices(ctx context.Context, machineId string, d
 }
 
 func updateBlockDevices(ctx context.Context, tx *sqlair.TX, machineUUID string, devices ...blockdevice.BlockDevice) error {
-	if err := removeMachineBlockDevices(ctx, tx, machineUUID); err != nil {
+	if err := RemoveMachineBlockDevices(ctx, tx, machineUUID); err != nil {
 		return errors.Annotatef(err, "removing existing block devices for machine %q", machineUUID)
 	}
 
@@ -317,7 +317,7 @@ WHERE  machine.machine_id = $M.machine_id
 			return fmt.Errorf("machine %q not found%w", machineId, errors.Hide(machineerrors.NotFound))
 		}
 		machineUUID := result["machine_uuid"].(string)
-		if err := removeMachineBlockDevices(ctx, tx, machineUUID); err != nil {
+		if err := RemoveMachineBlockDevices(ctx, tx, machineUUID); err != nil {
 			return errors.Annotatef(err, "removing block devices on machine %q (%s)", machineId, machineUUID)
 		}
 		return nil
@@ -326,7 +326,9 @@ WHERE  machine.machine_id = $M.machine_id
 	return errors.Trace(err)
 }
 
-func removeMachineBlockDevices(ctx context.Context, tx *sqlair.TX, machineUUID string) error {
+// RemoveMachineBlockDevices deletes all the block devices belonging to the specified machine.
+// Exported so that it can be called from [domain.machine.state.DeleteMachine].
+func RemoveMachineBlockDevices(ctx context.Context, tx *sqlair.TX, machineUUID string) error {
 	machineUUIDParam := sqlair.M{"machine_uuid": machineUUID}
 
 	// TODO(wallyworld) - sqlair doesn't support IN clauses yet.
