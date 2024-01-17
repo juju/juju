@@ -1186,7 +1186,7 @@ func (s *CleanupSuite) assertCleanupCAASEntityWithStorage(c *gc.C, deleteOp func
 
 	assertCleanups := func(n int) {
 		for i := 0; i < 4; i++ {
-			err := st.Cleanup(context.Background(), state.NewObjectStore(c, s.State))
+			err := st.Cleanup(context.Background(), state.NewObjectStore(c, s.State), fakeMachineRemover{})
 			c.Assert(err, jc.ErrorIsNil)
 		}
 		state.AssertNoCleanups(c, st)
@@ -1712,7 +1712,7 @@ func (s *CleanupSuite) TestForceDestroyRelationIncorrectUnitCount(c *gc.C) {
 }
 
 func (s *CleanupSuite) assertCleanupRuns(c *gc.C) {
-	err := s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State))
+	err := s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State), fakeMachineRemover{})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1779,3 +1779,7 @@ func assertUnitInScope(c *gc.C, unit *state.Unit, rel *state.Relation, expected 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(inscope, gc.Equals, expected)
 }
+
+type fakeMachineRemover struct{}
+
+func (fakeMachineRemover) Delete(context.Context, string) error { return nil }

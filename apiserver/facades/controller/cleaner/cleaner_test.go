@@ -17,6 +17,8 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/cleaner"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/objectstore"
+	machineservice "github.com/juju/juju/domain/machine/service"
+	servicefactorytesting "github.com/juju/juju/domain/servicefactory/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
@@ -25,9 +27,10 @@ import (
 type CleanerSuite struct {
 	coretesting.BaseSuite
 
-	st         *mockState
-	api        *cleaner.CleanerAPI
-	authoriser apiservertesting.FakeAuthorizer
+	st             *mockState
+	machineService *machineservice.Service
+	api            *cleaner.CleanerAPI
+	authoriser     apiservertesting.FakeAuthorizer
 }
 
 var _ = gc.Suite(&CleanerSuite{})
@@ -42,9 +45,13 @@ func (s *CleanerSuite) SetUpTest(c *gc.C) {
 	cleaner.PatchState(s, s.st)
 	var err error
 	res := common.NewResources()
+	s.machineService = machineservice.NewService(nil)
 	s.api, err = cleaner.NewCleanerAPI(facadetest.Context{
 		Resources_: res,
 		Auth_:      s.authoriser,
+		ServiceFactory_: servicefactorytesting.NewTestingServiceFactory().WithMachineService(func() *machineservice.Service {
+			return s.machineService
+		}),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.api, gc.NotNil)
@@ -81,6 +88,10 @@ func (s *CleanerSuite) TestCleanupSuccess(c *gc.C) {
 	err := s.api.Cleanup(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	s.st.CheckCallNames(c, "Cleanup")
+	s.st.CheckCalls(c, []testing.StubCall{{
+		FuncName: "Cleanup",
+		Args:     []any{s.machineService},
+	}})
 }
 
 func (s *CleanerSuite) TestCleanupFailure(c *gc.C) {
@@ -133,7 +144,7 @@ func (st *mockState) WatchCleanups() state.NotifyWatcher {
 	return w
 }
 
-func (st *mockState) Cleanup(context.Context, objectstore.ObjectStore) error {
-	st.MethodCall(st, "Cleanup")
+func (st *mockState) Cleanup(_ context.Context, _ objectstore.ObjectStore, mr state.MachineRemover) error {
+	st.MethodCall(st, "Cleanup", mr)
 	return st.NextErr()
 }

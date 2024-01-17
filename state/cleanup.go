@@ -161,10 +161,16 @@ func (st *State) NeedsCleanup() (bool, error) {
 	return count > 0, nil
 }
 
+// MachineRemover deletes a machine from the dqlite database.
+// This allows us to initially weave some dqlite support into the cleanup workflow.
+type MachineRemover interface {
+	Delete(context.Context, string) error
+}
+
 // Cleanup removes all documents that were previously marked for removal, if
 // any such exist. It should be called periodically by at least one element
 // of the system.
-func (st *State) Cleanup(ctx context.Context, store objectstore.ObjectStore) (err error) {
+func (st *State) Cleanup(ctx context.Context, store objectstore.ObjectStore, machineRemover MachineRemover) (err error) {
 	var doc cleanupDoc
 	cleanups, closer := st.db().GetCollection(cleanupsC)
 	defer closer()
@@ -218,9 +224,9 @@ func (st *State) Cleanup(ctx context.Context, store objectstore.ObjectStore) (er
 		case cleanupDyingMachine:
 			err = st.cleanupDyingMachine(doc.Prefix, args)
 		case cleanupForceDestroyedMachine:
-			err = st.cleanupForceDestroyedMachine(store, doc.Prefix, args)
+			err = st.cleanupForceDestroyedMachine(ctx, store, machineRemover, doc.Prefix, args)
 		case cleanupForceRemoveMachine:
-			err = st.cleanupForceRemoveMachine(store, doc.Prefix, args)
+			err = st.cleanupForceRemoveMachine(ctx, store, machineRemover, doc.Prefix, args)
 		case cleanupEvacuateMachine:
 			err = st.cleanupEvacuateMachine(store, doc.Prefix, args)
 		case cleanupAttachmentsForDyingStorage:
@@ -1267,7 +1273,7 @@ func (st *State) cleanupDyingMachine(machineID string, cleanupArgs []bson.Raw) e
 // cleanupForceDestroyedMachine systematically destroys and removes all entities
 // that depend upon the supplied machine, and removes the machine from state. It's
 // expected to be used in response to destroy-machine --force.
-func (st *State) cleanupForceDestroyedMachine(store objectstore.ObjectStore, machineId string, cleanupArgs []bson.Raw) error {
+func (st *State) cleanupForceDestroyedMachine(ctx context.Context, store objectstore.ObjectStore, machineRemover MachineRemover, machineId string, cleanupArgs []bson.Raw) error {
 	var maxWait time.Duration
 	// It's valid to have no args: old cleanups have no args, so follow the old behaviour.
 	if n := len(cleanupArgs); n > 0 {
@@ -1280,10 +1286,10 @@ func (st *State) cleanupForceDestroyedMachine(store objectstore.ObjectStore, mac
 			}
 		}
 	}
-	return st.cleanupForceDestroyedMachineInternal(store, machineId, maxWait)
+	return st.cleanupForceDestroyedMachineInternal(ctx, store, machineRemover, machineId, maxWait)
 }
 
-func (st *State) cleanupForceDestroyedMachineInternal(store objectstore.ObjectStore, machineID string, maxWait time.Duration) error {
+func (st *State) cleanupForceDestroyedMachineInternal(ctx context.Context, store objectstore.ObjectStore, machineRemover MachineRemover, machineID string, maxWait time.Duration) error {
 	// The first thing we want to do is remove any series upgrade machine
 	// locks that might prevent other resources from being removed.
 	// We don't tie the lock cleanup to existence of the machine.
@@ -1316,7 +1322,7 @@ func (st *State) cleanupForceDestroyedMachineInternal(store objectstore.ObjectSt
 	// But machine destruction is unsophisticated, and doesn't allow for
 	// destruction while dependencies exist; so we just have to deal with that
 	// possibility below.
-	if err := st.cleanupContainers(store, machine, maxWait); err != nil {
+	if err := st.cleanupContainers(ctx, store, machineRemover, machine, maxWait); err != nil {
 		return errors.Trace(err)
 	}
 	for _, unitName := range machine.doc.Principals {
@@ -1384,7 +1390,7 @@ func (st *State) cleanupForceDestroyedMachineInternal(store objectstore.ObjectSt
 // cleanupForceRemoveMachine is a backstop to remove a force-destroyed
 // machine after a certain amount of time if it hasn't gone away
 // already.
-func (st *State) cleanupForceRemoveMachine(store objectstore.ObjectStore, machineId string, cleanupArgs []bson.Raw) error {
+func (st *State) cleanupForceRemoveMachine(ctx context.Context, store objectstore.ObjectStore, machineRemover MachineRemover, machineId string, cleanupArgs []bson.Raw) error {
 	var maxWait time.Duration
 	// It's valid to have no args: old cleanups have no args, so follow the old behaviour.
 	if n := len(cleanupArgs); n > 0 {
@@ -1436,7 +1442,10 @@ func (st *State) cleanupForceRemoveMachine(store objectstore.ObjectStore, machin
 	if err := machine.advanceLifecycle(Dead, true, false, maxWait); err != nil {
 		return errors.Trace(err)
 	}
-	return machine.Remove(store)
+	if err := machine.Remove(store); err != nil {
+		return errors.Trace(err)
+	}
+	return machineRemover.Delete(ctx, machineId)
 }
 
 // cleanupEvacuateMachine is initiated by machine.Destroy() to gracefully remove units
@@ -1497,7 +1506,7 @@ func (st *State) cleanupEvacuateMachine(store objectstore.ObjectStore, machineId
 
 // cleanupContainers recursively calls cleanupForceDestroyedMachine on the supplied
 // machine's containers, and removes them from state entirely.
-func (st *State) cleanupContainers(store objectstore.ObjectStore, machine *Machine, maxWait time.Duration) error {
+func (st *State) cleanupContainers(ctx context.Context, store objectstore.ObjectStore, machineRemover MachineRemover, machine *Machine, maxWait time.Duration) error {
 	containerIds, err := machine.Containers()
 	if errors.Is(err, errors.NotFound) {
 		return nil
@@ -1505,7 +1514,7 @@ func (st *State) cleanupContainers(store objectstore.ObjectStore, machine *Machi
 		return err
 	}
 	for _, containerId := range containerIds {
-		if err := st.cleanupForceDestroyedMachineInternal(store, containerId, maxWait); err != nil {
+		if err := st.cleanupForceDestroyedMachineInternal(ctx, store, machineRemover, containerId, maxWait); err != nil {
 			return err
 		}
 		container, err := st.Machine(containerId)
@@ -1515,6 +1524,9 @@ func (st *State) cleanupContainers(store objectstore.ObjectStore, machine *Machi
 			return err
 		}
 		if err := container.Remove(store); err != nil {
+			return err
+		}
+		if err = machineRemover.Delete(ctx, containerId); err != nil {
 			return err
 		}
 	}

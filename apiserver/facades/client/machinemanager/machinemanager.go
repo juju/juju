@@ -67,6 +67,12 @@ type Authorizer interface {
 	AuthClient() bool
 }
 
+// MachineService manages machines.
+type MachineService interface {
+	Save(context.Context, string) error
+	Delete(context.Context, string) error
+}
+
 // CharmhubClient represents a way for querying the charmhub api for information
 // about the application charm.
 type CharmhubClient interface {
@@ -88,6 +94,8 @@ type MachineManagerAPI struct {
 	upgradeSeriesAPI        UpgradeSeries
 	store                   objectstore.ObjectStore
 	controllerStore         objectstore.ObjectStore
+
+	machineService MachineService
 
 	credentialInvalidatorGetter environscontext.ModelCredentialInvalidatorGetter
 	logger                      loggo.Logger
@@ -155,6 +163,7 @@ func NewFacadeV10(ctx facade.Context) (*MachineManagerAPI, error) {
 		backend,
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
+		serviceFactory.Machine(),
 		ctx.ObjectStore(),
 		ctx.ControllerObjectStore(),
 		storageAccess,
@@ -177,6 +186,7 @@ func NewMachineManagerAPI(
 	backend Backend,
 	cloudService common.CloudService,
 	credentialService common.CredentialService,
+	machineService MachineService,
 	store, controllerStore objectstore.ObjectStore,
 	storageAccess StorageInterface,
 	pool Pool,
@@ -196,6 +206,7 @@ func NewMachineManagerAPI(
 		st:                          backend,
 		cloudService:                cloudService,
 		credentialService:           credentialService,
+		machineService:              machineService,
 		store:                       store,
 		controllerStore:             controllerStore,
 		pool:                        pool,
@@ -228,7 +239,7 @@ func (mm *MachineManagerAPI) AddMachines(ctx context.Context, args params.AddMac
 		return results, errors.Trace(err)
 	}
 	for i, p := range args.MachineParams {
-		m, err := mm.addOneMachine(p)
+		m, err := mm.addOneMachine(ctx, p)
 		results.Machines[i].Error = apiservererrors.ServerError(err)
 		if err == nil {
 			results.Machines[i].Machine = m.Id()
@@ -237,7 +248,7 @@ func (mm *MachineManagerAPI) AddMachines(ctx context.Context, args params.AddMac
 	return results, nil
 }
 
-func (mm *MachineManagerAPI) addOneMachine(p params.AddMachineParams) (*state.Machine, error) {
+func (mm *MachineManagerAPI) addOneMachine(ctx context.Context, p params.AddMachineParams) (result Machine, err error) {
 	if p.ParentId != "" && p.ContainerType == "" {
 		return nil, fmt.Errorf("parent machine specified without container type")
 	}
@@ -337,6 +348,14 @@ func (mm *MachineManagerAPI) addOneMachine(p params.AddMachineParams) (*state.Ma
 		Addresses:               sAddrs,
 		Placement:               placementDirective,
 	}
+
+	defer func() {
+		if err == nil {
+			// Ensure machine(s) exist in dqlite.
+			err = mm.saveMachineInfo(ctx, result.Id())
+		}
+	}()
+
 	if p.ContainerType == "" {
 		return mm.st.AddOneMachine(template)
 	}
@@ -344,6 +363,29 @@ func (mm *MachineManagerAPI) addOneMachine(p params.AddMachineParams) (*state.Ma
 		return mm.st.AddMachineInsideMachine(template, p.ParentId, p.ContainerType)
 	}
 	return mm.st.AddMachineInsideNewMachine(template, template, p.ContainerType)
+}
+
+func (mm *MachineManagerAPI) saveMachineInfo(ctx context.Context, machineId string) error {
+	// This is temporary - just insert the machine id all al the parent ones.
+	var errs []error
+	for machineId != "" {
+		if err := mm.machineService.Save(ctx, machineId); err != nil {
+			errs = append(errs, errors.Annotatef(err, "saving info for machine %q", machineId))
+		}
+		parent := names.NewMachineTag(machineId).Parent()
+		if parent == nil {
+			break
+		}
+		machineId = parent.Id()
+	}
+	if len(errs) == 0 {
+		return nil
+	}
+	var errStr string
+	for _, e := range errs {
+		errStr += e.Error() + "\n"
+	}
+	return errors.New(errStr)
 }
 
 // ProvisioningScript returns a shell script that, when run,

@@ -65,6 +65,11 @@ type UnitAdder interface {
 	AddUnit(state.AddUnitParams) (Unit, error)
 }
 
+// MachineSaver instances save a machine to dqlite state.
+type MachineSaver interface {
+	Save(context.Context, string) error
+}
+
 // DeployApplication takes a charm and various parameters and deploys it.
 func DeployApplication(
 	ctx context.Context, st ApplicationDeployer, model Model, cloudService common.CloudService,
@@ -134,7 +139,9 @@ func DeployApplication(
 // addUnits starts n units of the given application using the specified placement
 // directives to allocate the machines.
 func addUnits(
+	ctx context.Context,
 	unitAdder UnitAdder,
+	machineService MachineSaver,
 	appName string,
 	n int,
 	placement []*instance.Placement,
@@ -162,13 +169,37 @@ func addUnits(
 			if err := unit.AssignWithPolicy(policy); err != nil {
 				return nil, errors.Trace(err)
 			}
-			continue
+		} else {
+			if err := unit.AssignWithPlacement(placement[i]); err != nil {
+				return nil, errors.Annotatef(err, "acquiring machine to host unit %q", unit.UnitTag().Id())
+			}
 		}
-		if err := unit.AssignWithPlacement(placement[i]); err != nil {
-			return nil, errors.Annotatef(err, "acquiring machine to host unit %q", unit.UnitTag().Id())
+
+		// Get assigned machine and ensure it exists in dqlite.
+		id, err := unit.AssignedMachineId()
+		if err != nil {
+			return nil, errors.Annotatef(err, "getting assigned machine for unit: %q", unit.Name())
+		}
+		if err := saveMachineInfo(ctx, machineService, id); err != nil {
+			return nil, errors.Annotatef(err, "saving assigned machine %q for unit: %q", id, unit.Name())
 		}
 	}
 	return units, nil
+}
+
+func saveMachineInfo(ctx context.Context, machineService MachineSaver, machineId string) error {
+	// This is temporary - just insert the machine id all al the parent ones.
+	for machineId != "" {
+		if err := machineService.Save(ctx, machineId); err != nil {
+			return errors.Annotatef(err, "saving info for machine %q", machineId)
+		}
+		parent := names.NewMachineTag(machineId).Parent()
+		if parent == nil {
+			break
+		}
+		machineId = parent.Id()
+	}
+	return nil
 }
 
 func stateStorageConstraints(cons map[string]storage.Constraints) map[string]state.StorageConstraints {

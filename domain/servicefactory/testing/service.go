@@ -11,6 +11,7 @@ import (
 	credentialservice "github.com/juju/juju/domain/credential/service"
 	externalcontrollerservice "github.com/juju/juju/domain/externalcontroller/service"
 	flagservice "github.com/juju/juju/domain/flag/service"
+	machineservice "github.com/juju/juju/domain/machine/service"
 	modelservice "github.com/juju/juju/domain/model/service"
 	modelconfigservice "github.com/juju/juju/domain/modelconfig/service"
 	modeldefaultsservice "github.com/juju/juju/domain/modeldefaults/service"
@@ -21,7 +22,9 @@ import (
 )
 
 // TestingServiceFactory provides access to the services required by the apiserver.
-type TestingServiceFactory struct{}
+type TestingServiceFactory struct {
+	machineServiceGetter func() *machineservice.Service
+}
 
 // NewTestingServiceFactory returns a new registry which uses the provided controllerDB
 // function to obtain a controller database.
@@ -102,4 +105,19 @@ func (s *TestingServiceFactory) Flag() *flagservice.Service {
 // User returns the user service.
 func (s *TestingServiceFactory) User() *userservice.Service {
 	return nil
+}
+
+// Machine returns the machine service.
+func (s *TestingServiceFactory) Machine() *machineservice.Service {
+	if s.machineServiceGetter == nil {
+		return nil
+	}
+	return s.machineServiceGetter()
+}
+
+// WithMachineService returns a service factory which gets its machine service
+// using the supplied getter.
+func (s *TestingServiceFactory) WithMachineService(getter func() *machineservice.Service) *TestingServiceFactory {
+	s.machineServiceGetter = getter
+	return s
 }

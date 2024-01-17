@@ -21,10 +21,15 @@ import (
 type assignerState interface {
 	WatchForUnitAssignment() state.StringsWatcher
 	AssignStagedUnits(ids []string) ([]state.UnitAssignmentResult, error)
+	AssignedMachineId(unit string) (string, error)
 }
 
 type statusSetter interface {
 	SetStatus(context.Context, params.SetStatus) (params.ErrorResults, error)
+}
+
+type machineSaver interface {
+	Save(context.Context, string) error
 }
 
 // API implements the functionality for assigning units to machines.
@@ -32,6 +37,7 @@ type API struct {
 	st           assignerState
 	res          facade.Resources
 	statusSetter statusSetter
+	machineSaver machineSaver
 }
 
 // AssignUnits assigns the units with the given ids to the correct machine. The
@@ -62,6 +68,19 @@ func (a *API) AssignUnits(ctx context.Context, args params.Entities) (params.Err
 	resultMap := make(map[string]error, len(ids))
 	for _, r := range res {
 		resultMap[r.Unit] = r.Error
+		if r.Error != nil {
+			continue
+		}
+
+		// Get assigned machine and ensure it exists in dqlite.
+		machineId, err := a.st.AssignedMachineId(r.Unit)
+		if err != nil {
+			resultMap[r.Unit] = err
+			continue
+		}
+		if err := a.saveMachineInfo(ctx, machineId); err != nil {
+			resultMap[r.Unit] = err
+		}
 	}
 
 	result.Results = make([]params.ErrorResult, len(args.Entities))
@@ -75,6 +94,21 @@ func (a *API) AssignUnits(ctx context.Context, args params.Entities) (params.Err
 	}
 
 	return result, nil
+}
+
+func (a *API) saveMachineInfo(ctx context.Context, machineId string) error {
+	// This is temporary - just insert the machine id all al the parent ones.
+	for machineId != "" {
+		if err := a.machineSaver.Save(ctx, machineId); err != nil {
+			return errors.Annotatef(err, "saving info for machine %q", machineId)
+		}
+		parent := names.NewMachineTag(machineId).Parent()
+		if parent == nil {
+			break
+		}
+		machineId = parent.Id()
+	}
+	return nil
 }
 
 // WatchUnitAssignments returns a strings watcher that is notified when new unit

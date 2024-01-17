@@ -458,7 +458,7 @@ func (s *RelationUnitSuite) TestDestroyRelationWithUnitsInScope(c *gc.C) {
 
 	// Check that unit settings for the original unit still exist, and have
 	// not yet been marked for deletion.
-	err = s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State))
+	err = s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State), fakeMachineRemover{})
 	c.Assert(err, jc.ErrorIsNil)
 	assertSettings := func() {
 		settings, err := pr.ru1.ReadSettings("riak/0")
@@ -479,7 +479,7 @@ func (s *RelationUnitSuite) TestDestroyRelationWithUnitsInScope(c *gc.C) {
 	assertSettings()
 
 	// ...but they were scheduled for deletion.
-	err = s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State))
+	err = s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State), fakeMachineRemover{})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = pr.ru1.ReadSettings("riak/0")
 	c.Assert(err, gc.ErrorMatches, `cannot read settings for unit "riak/0" in relation "riak:ring": unit "riak/0": settings not found`)

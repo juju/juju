@@ -19,9 +19,12 @@ var _ = gc.Suite(testsuite{})
 type testsuite struct{}
 
 func (testsuite) TestAssignUnits(c *gc.C) {
-	f := &fakeState{}
+	f := &fakeState{
+		unitMachines: map[string]string{"foo/0": "1/lxd/2"},
+	}
 	f.results = []state.UnitAssignmentResult{{Unit: "foo/0"}}
-	api := API{st: f, res: common.NewResources()}
+	a := &fakeMachineSaver{}
+	api := API{st: f, res: common.NewResources(), machineSaver: a}
 	args := params.Entities{Entities: []params.Entity{{Tag: "unit-foo-0"}, {Tag: "unit-bar-1"}}}
 	res, err := api.AssignUnits(context.Background(), args)
 	c.Assert(f.ids, gc.DeepEquals, []string{"foo/0", "bar/1"})
@@ -30,6 +33,7 @@ func (testsuite) TestAssignUnits(c *gc.C) {
 	c.Assert(res.Results, gc.HasLen, 2)
 	c.Assert(res.Results[0].Error, gc.IsNil)
 	c.Assert(res.Results[1].Error, gc.ErrorMatches, `unit "unit-bar-1" not found`)
+	c.Assert(a.machineIds, jc.SameContents, []string{"1", "1/lxd/2"})
 }
 
 func (testsuite) TestWatchUnitAssignment(c *gc.C) {
@@ -57,11 +61,21 @@ func (testsuite) TestSetStatus(c *gc.C) {
 	c.Assert(err, gc.Equals, f.err)
 }
 
+type fakeMachineSaver struct {
+	machineIds []string
+}
+
+func (f *fakeMachineSaver) Save(_ context.Context, machineId string) error {
+	f.machineIds = append(f.machineIds, machineId)
+	return nil
+}
+
 type fakeState struct {
-	watchCalled bool
-	ids         []string
-	results     []state.UnitAssignmentResult
-	err         error
+	watchCalled  bool
+	ids          []string
+	unitMachines map[string]string
+	results      []state.UnitAssignmentResult
+	err          error
 }
 
 func (f *fakeState) WatchForUnitAssignment() state.StringsWatcher {
@@ -72,6 +86,13 @@ func (f *fakeState) WatchForUnitAssignment() state.StringsWatcher {
 func (f *fakeState) AssignStagedUnits(ids []string) ([]state.UnitAssignmentResult, error) {
 	f.ids = ids
 	return f.results, f.err
+}
+
+func (f *fakeState) AssignedMachineId(unit string) (string, error) {
+	if len(f.unitMachines) == 0 {
+		return "", nil
+	}
+	return f.unitMachines[unit], nil
 }
 
 type fakeWatcher struct {
