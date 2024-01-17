@@ -99,13 +99,7 @@ VALUES ($M.machine_uuid, $M.net_node_uuid, $M.machine_id, $M.life_id)
 		}
 		return nil
 	})
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	s.logger.Debugf("upserted machine %q", machineId)
-
-	return nil
+	return errors.Annotatef(err, "upserting machine %q", machineId)
 }
 
 // DeleteMachine deletes the specified machine and any dependent child records.
@@ -164,10 +158,5 @@ DELETE FROM net_node WHERE uuid IN
 
 		return nil
 	})
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	s.logger.Debugf("deleted machine %q", machineId)
-	return nil
+	return errors.Annotatef(err, "deleting machine %q", machineId)
 }

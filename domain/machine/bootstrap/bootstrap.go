@@ -14,9 +14,9 @@ import (
 	"github.com/juju/juju/domain/life"
 )
 
-// InsertBootstrapMachine inserts the initial machine during bootstrap.
+// InsertMachine inserts a machine during bootstrap.
 // TODO - this just creates a minimal row for now.
-func InsertBootstrapMachine(machineId string) func(context.Context, database.TxnRunner) error {
+func InsertMachine(machineId string) func(context.Context, database.TxnRunner) error {
 	return func(ctx context.Context, db database.TxnRunner) error {
 
 		createMachine := `

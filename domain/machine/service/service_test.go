@@ -38,10 +38,12 @@ func (s *serviceSuite) TestUpdateSuccess(c *gc.C) {
 func (s *serviceSuite) TestUpdateError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().UpsertMachine(gomock.Any(), "666").Return(errors.New("boom"))
+	rErr := errors.New("boom")
+	s.state.EXPECT().UpsertMachine(gomock.Any(), "666").Return(rErr)
 
 	err := NewService(s.state).Save(context.Background(), "666")
-	c.Assert(err, gc.ErrorMatches, `updating machine "666": boom`)
+	c.Check(err, jc.ErrorIs, rErr)
+	c.Assert(err, gc.ErrorMatches, `saving machine "666": boom`)
 }
 
 func (s *serviceSuite) TestDeleteSuccess(c *gc.C) {
@@ -56,8 +58,10 @@ func (s *serviceSuite) TestDeleteSuccess(c *gc.C) {
 func (s *serviceSuite) TestDeleteError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().DeleteMachine(gomock.Any(), "666").Return(errors.New("boom"))
+	rErr := errors.New("boom")
+	s.state.EXPECT().DeleteMachine(gomock.Any(), "666").Return(rErr)
 
 	err := NewService(s.state).Delete(context.Background(), "666")
+	c.Check(err, jc.ErrorIs, rErr)
 	c.Assert(err, gc.ErrorMatches, `deleting machine "666": boom`)
 }

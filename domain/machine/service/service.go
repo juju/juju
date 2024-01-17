@@ -33,7 +33,7 @@ func NewService(st State) *Service {
 // Save inserts or updates the specified machine.
 func (s *Service) Save(ctx context.Context, machineId string) error {
 	err := s.st.UpsertMachine(ctx, machineId)
-	return errors.Annotatef(err, "updating machine %q", machineId)
+	return errors.Annotatef(err, "saving machine %q", machineId)
 }
 
 // Delete deletes the specified machine.
