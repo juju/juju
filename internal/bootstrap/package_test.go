@@ -16,7 +16,6 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	services "github.com/juju/juju/internal/charm/services"
-	state "github.com/juju/juju/state"
 	jujujujutesting "github.com/juju/juju/testing"
 )
 
@@ -56,6 +55,7 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.deployer = NewMockControllerCharmDeployer(ctrl)
 	s.httpClient = NewMockHTTPClient(ctrl)
 	s.objectStore = NewMockObjectStore(ctrl)
+	s.loggerFactory = NewMockLoggerFactory(ctrl)
 
 	s.unit = NewMockUnit(ctrl)
 	s.model = NewMockModel(ctrl)
@@ -78,10 +78,11 @@ func (s *baseSuite) newConfig(c *gc.C) BaseDeployerConfig {
 	controllerUUID := utils.MustNewUUID()
 
 	return BaseDeployerConfig{
-		DataDir:     c.MkDir(),
-		State:       &state.State{},
-		ObjectStore: s.objectStore,
-		Constraints: constraints.Value{},
+		DataDir:       c.MkDir(),
+		StateBackend:  s.stateBackend,
+		CharmUploader: s.charmUploader,
+		ObjectStore:   s.objectStore,
+		Constraints:   constraints.Value{},
 		ControllerConfig: controller.Config{
 			controller.ControllerUUIDKey: controllerUUID.String(),
 			controller.IdentityURL:       "https://inferi.com",

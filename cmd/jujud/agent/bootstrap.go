@@ -48,7 +48,6 @@ import (
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/mongo"
-	"github.com/juju/juju/internal/objectstore"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/internal/worker/peergrouper"
 	"github.com/juju/juju/state"
@@ -214,12 +213,10 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 
 	isCAAS := args.ControllerCloud.Type == k8sconstants.CAASProviderType
 
-	var controllerUnitPassword string
 	if isCAAS {
 		if err := c.ensureConfigFilesForCaas(); err != nil {
 			return errors.Trace(err)
 		}
-		controllerUnitPassword = os.Getenv(k8sconstants.EnvJujuK8sUnitPassword)
 	}
 
 	// Get the bootstrap machine's addresses from the provider.
@@ -428,20 +425,6 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 				return err
 			}
 		}
-	}
-
-	objectStore, err := objectstore.ObjectStoreFactory(ctx,
-		objectstore.BackendTypeOrDefault(args.ControllerConfig.ObjectStoreType()),
-		st.ModelUUID(),
-		objectstore.WithMongoSession(st),
-		objectstore.WithLogger(logger),
-	)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	// Deploy and set up the controller charm and application.
-	if err := c.deployControllerCharm(ctx, objectStore, st, args.ControllerConfig, args.BootstrapMachineConstraints, args.ControllerCharmPath, args.ControllerCharmChannel, isCAAS, controllerUnitPassword); err != nil {
-		return errors.Annotate(err, "cannot deploy controller application")
 	}
 
 	// bootstrap nodes always get the vote

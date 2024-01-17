@@ -87,7 +87,6 @@ type Client struct {
 	downloadClient  *downloadClient
 	refreshClient   *refreshClient
 	resourcesClient *resourcesClient
-	logger          Logger
 }
 
 // NewClient creates a new Charmhub client from the supplied configuration.
@@ -154,7 +153,6 @@ func NewClient(config Config) (*Client, error) {
 		// refresh response.
 		downloadClient:  newDownloadClient(httpClient, fs, logger),
 		resourcesClient: newResourcesClient(resourcesPath, restClient, logger),
-		logger:          logger,
 	}, nil
 }
 
