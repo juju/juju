@@ -29,7 +29,9 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/watcher/registry"
+	"github.com/juju/juju/domain/servicefactory/testing"
 	"github.com/juju/juju/generate/schemagen/gen"
+	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/state"
 )
 
@@ -256,6 +258,10 @@ func (c context) DBDeleter() coredatabase.DBDeleter {
 
 func (c context) ObjectStore() objectstore.ObjectStore {
 	return nil
+}
+
+func (c context) ServiceFactory() servicefactory.ServiceFactory {
+	return testing.NewTestingServiceFactory()
 }
 
 type authorizer struct {
