@@ -14,9 +14,12 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/core/flags"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/cloudconfig"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
+	"github.com/juju/juju/environs/envcontext"
+	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/internal/worker/gate"
 	"github.com/juju/juju/state/binarystorage"
 )
@@ -41,6 +44,12 @@ type LegacyState interface {
 	ToolsStorage(store objectstore.ObjectStore) (binarystorage.StorageCloser, error)
 }
 
+// Environ specifies the provider-specific methods needed by the bootstrap
+// worker.
+type Environ interface {
+	Instances(ctx envcontext.ProviderCallContext, ids []instance.Id) ([]instances.Instance, error)
+}
+
 // WorkerConfig encapsulates the configuration options for the
 // bootstrap worker.
 type WorkerConfig struct {
@@ -50,10 +59,13 @@ type WorkerConfig struct {
 	FlagService             FlagService
 	BootstrapUnlocker       gate.Unlocker
 	AgentBinaryUploader     AgentBinaryBootstrapFunc
+<<<<<<< HEAD
 	ControllerCharmDeployer ControllerCharmDeployerFunc
 	PopulateControllerCharm PopulateControllerCharmFunc
 	CharmhubHTTPClient      HTTPClient
 	UnitPassword            string
+	ControllerCharmUploader ControllerCharmUploaderFunc
+	Environ                 Environ
 
 	// Deprecated: This is only here, until we can remove the state layer.
 	SystemState SystemState

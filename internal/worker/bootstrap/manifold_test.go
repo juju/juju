@@ -45,6 +45,7 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	cfg.CharmhubHTTPClientName = ""
+	cfg.EnvironName = ""
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
@@ -80,6 +81,8 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		ServiceFactoryName:     "service-factory",
 		CharmhubHTTPClientName: "charmhub-http-client",
 		LoggerFactory:          s.loggerFactory,
+		Logger:                 s.logger,
+		EnvironName:            "environ",
 		AgentBinaryUploader: func(context.Context, string, BinaryAgentStorageService, objectstore.ObjectStore, Logger) (func(), error) {
 			return func() {}, nil
 		},
@@ -106,11 +109,12 @@ func (s *manifoldSuite) newGetter() dependency.Getter {
 		"bootstrap-gate":       s.bootstrapUnlocker,
 		"charmhub-http-client": s.httpClient,
 		"service-factory":      testing.NewTestingServiceFactory(),
+		"environ":              s.environ,
 	}
 	return dependencytesting.StubGetter(resources)
 }
 
-var expectedInputs = []string{"agent", "state", "object-store", "bootstrap-gate", "service-factory", "charmhub-http-client"}
+var expectedInputs = []string{"agent", "state", "object-store", "bootstrap-gate", "service-factory", "charmhub-http-client", "environ"}
 
 func (s *manifoldSuite) TestInputs(c *gc.C) {
 	c.Assert(Manifold(s.getConfig()).Inputs, jc.SameContents, expectedInputs)

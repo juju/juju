@@ -88,6 +88,7 @@ type ManifoldConfig struct {
 	BootstrapGateName      string
 	ServiceFactoryName     string
 	CharmhubHTTPClientName string
+	EnvironName            string
 
 	AgentBinaryUploader     AgentBinaryBootstrapFunc
 	ControllerCharmDeployer ControllerCharmDeployerFunc
@@ -119,6 +120,11 @@ func (cfg ManifoldConfig) Validate() error {
 	}
 	if cfg.LoggerFactory == nil {
 		return errors.NotValidf("nil LoggerFactory")
+	if cfg.EnvironName == "" {
+		return errors.NotValidf("empty EnvironName")
+	}
+	if cfg.Logger == nil {
+		return errors.NotValidf("nil Logger")
 	}
 	if cfg.AgentBinaryUploader == nil {
 		return errors.NotValidf("nil AgentBinaryUploader")
@@ -148,6 +154,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.BootstrapGateName,
 			config.ServiceFactoryName,
 			config.CharmhubHTTPClientName,
+			config.EnvironName,
 		},
 		Start: func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
 			if err := config.Validate(); err != nil {
@@ -166,6 +173,11 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 
 			var controllerServiceFactory servicefactory.ControllerServiceFactory
 			if err := getter.Get(config.ServiceFactoryName, &controllerServiceFactory); err != nil {
+				return nil, errors.Trace(err)
+			}
+
+			var environ Environ
+			if err := getter.Get(config.EnvironName, &environ); err != nil {
 				return nil, errors.Trace(err)
 			}
 
