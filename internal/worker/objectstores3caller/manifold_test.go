@@ -8,17 +8,16 @@ import (
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 	dependencytesting "github.com/juju/worker/v4/dependency/testing"
 	"github.com/juju/worker/v4/workertest"
-	gomock "go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	controller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/objectstore"
 	servicefactorytesting "github.com/juju/juju/domain/servicefactory/testing"
 	"github.com/juju/juju/internal/s3client"
-	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/testing"
 )
 
@@ -68,8 +67,11 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		},
 		Logger: s.logger,
 		Clock:  s.clock,
-		GetService: func(string, dependency.Getter, func(servicefactory.ControllerServiceFactory) ControllerService) (ControllerService, error) {
+		GetControllerConfigService: func(getter dependency.Getter, name string) (ControllerService, error) {
 			return s.controllerService, nil
+		},
+		NewWorker: func(cfg workerConfig) (worker.Worker, error) {
+			return newWorker(cfg, s.states)
 		},
 	}
 }
@@ -92,13 +94,25 @@ func (s *manifoldSuite) TestStart(c *gc.C) {
 func (s *manifoldSuite) TestStartS3Backend(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
+	// Expect that the controller config has started with the S3 backend. and
+	// that the manifold has started the worker.
+
+	// The controller config will be called twice, once to get the initial
+	// config in the manifold and once more when creating the initial session.
+
 	config := testing.FakeControllerConfig()
-	config[controller.ObjectStoreType] = objectstore.S3Backend
+	config[controller.ObjectStoreType] = string(objectstore.S3Backend)
 
 	s.expectControllerConfig(c, config)
+	s.expectControllerConfig(c, config)
+	s.expectControllerConfigWatch(c)
 
 	w, err := Manifold(s.getConfig()).Start(context.Background(), s.newGetter())
 	c.Assert(err, jc.ErrorIsNil)
+
+	defer workertest.DirtyKill(c, w)
+
+	s.ensureStartup(c)
 
 	workertest.CleanKill(c, w)
 }
@@ -106,20 +120,35 @@ func (s *manifoldSuite) TestStartS3Backend(c *gc.C) {
 func (s *manifoldSuite) TestOutput(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
+	config := testing.FakeControllerConfig()
+	config[controller.ObjectStoreType] = string(objectstore.S3Backend)
+
+	s.expectClock()
+	s.expectControllerConfig(c, config)
+	s.expectControllerConfig(c, config)
+	s.expectControllerConfigWatch(c)
+
 	manifold := Manifold(s.getConfig())
 	w, err := manifold.Start(context.Background(), s.newGetter())
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
+	s.ensureStartup(c)
+
 	var client objectstore.Client
 	err = manifold.Output(w, &client)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(client, gc.Equals, s.session)
+	c.Check(client, gc.NotNil)
+
+	var session objectstore.Session
+	err = client.Session(context.Background(), func(ctx context.Context, s objectstore.Session) error {
+		session = s
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(session, gc.Equals, s.session)
 
 	workertest.CleanKill(c, w)
-}
-
-func (s *manifoldSuite) expectControllerConfig(c *gc.C, config controller.Config) {
-	s.controllerService.EXPECT().ControllerConfig(gomock.Any()).Return(config, nil)
 }

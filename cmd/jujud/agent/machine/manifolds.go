@@ -844,11 +844,13 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		})),
 
 		objectStoreS3CallerName: ifController(objectstores3caller.Manifold(objectstores3caller.ManifoldConfig{
-			HTTPClientName:     s3HTTPClientName,
-			ServiceFactoryName: serviceFactoryName,
-			NewClient:          objectstores3caller.NewS3Client,
-			Logger:             loggo.GetLogger("juju.worker.s3caller"),
-			Clock:              config.Clock,
+			HTTPClientName:             s3HTTPClientName,
+			ServiceFactoryName:         serviceFactoryName,
+			NewClient:                  objectstores3caller.NewS3Client,
+			Logger:                     loggo.GetLogger("juju.worker.s3caller"),
+			Clock:                      config.Clock,
+			GetControllerConfigService: objectstores3caller.GetControllerConfigService,
+			NewWorker:                  objectstores3caller.NewWorker,
 		})),
 	}
 

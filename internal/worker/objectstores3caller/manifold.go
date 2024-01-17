@@ -11,6 +11,7 @@ import (
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 
+	coredependency "github.com/juju/juju/core/dependency"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/s3client"
 	"github.com/juju/juju/internal/servicefactory"
@@ -30,8 +31,12 @@ type Logger interface {
 // NewClientFunc is a function that returns a new S3 client.
 type NewClientFunc func(string, s3client.HTTPClient, s3client.Credentials, s3client.Logger) (objectstore.Session, error)
 
-// GetServiceFunc is a function that returns a service from the manifold.
-type GetServiceFunc func(string, dependency.Getter, func(servicefactory.ControllerServiceFactory) ControllerService) (ControllerService, error)
+// GetControllerConfigServiceFunc is a helper function that gets a service from
+// the manifold.
+type GetControllerConfigServiceFunc func(getter dependency.Getter, name string) (ControllerService, error)
+
+// NewWorkerFunc is a function that returns a new worker.
+type NewWorkerFunc func(workerConfig) (worker.Worker, error)
 
 // ManifoldConfig defines a Manifold's dependencies.
 type ManifoldConfig struct {
@@ -45,8 +50,9 @@ type ManifoldConfig struct {
 	// Clock is used for the retry mechanism.
 	Clock clock.Clock
 
-	// GetService is used to get a service from the manifold.
-	GetService GetServiceFunc
+	// GetControllerConfigService is used to get a service from the manifold.
+	GetControllerConfigService GetControllerConfigServiceFunc
+	NewWorker                  NewWorkerFunc
 }
 
 func (cfg ManifoldConfig) Validate() error {
@@ -87,9 +93,7 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		return nil, errors.Trace(err)
 	}
 
-	controllerConfigService, err := config.GetService(config.ServiceFactoryName, getter, func(service servicefactory.ControllerServiceFactory) ControllerService {
-		return service.ControllerConfig()
-	})
+	controllerConfigService, err := config.GetControllerConfigService(getter, config.ServiceFactoryName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -108,7 +112,7 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		return nil, errors.Trace(err)
 	}
 
-	return newS3Worker(workerConfig{
+	return config.NewWorker(workerConfig{
 		ControllerService: controllerConfigService,
 		HTTPClient:        httpClient,
 		NewClient:         config.NewClient,
@@ -138,12 +142,10 @@ func NewS3Client(url string, client s3client.HTTPClient, creds s3client.Credenti
 	return s3client.NewS3Client(url, client, creds, logger)
 }
 
-func GetService[A, B any](name string, getter dependency.Getter, fn func(A) B) (B, error) {
-	var service A
-	if err := getter.Get(name, &service); err != nil {
-		var b B
-		return b, errors.Trace(err)
-	}
-
-	return fn(service), nil
+// GetControllerConfigService is a helper function that gets a service from the
+// manifold.
+func GetControllerConfigService(getter dependency.Getter, name string) (ControllerService, error) {
+	return coredependency.GetDependencyByName[servicefactory.ControllerServiceFactory, ControllerService](getter, name, func(factory servicefactory.ControllerServiceFactory) ControllerService {
+		return factory.ControllerConfig()
+	})
 }

@@ -24,6 +24,12 @@ import (
 )
 
 const (
+	// States which report the state of the worker.
+	stateStarted       = "started"
+	stateClientUpdated = "client-updated"
+)
+
+const (
 	// default retry strategy for when the forbidden error is returned.
 	defaultRetryAttempts    = 10
 	defaultRetryDelay       = time.Second * 1
@@ -45,7 +51,6 @@ type workerConfig struct {
 	ControllerService ControllerService
 	HTTPClient        s3client.HTTPClient
 	NewClient         NewClientFunc
-	Tracer            coretrace.Tracer
 	Logger            s3client.Logger
 	Clock             clock.Clock
 }
@@ -68,22 +73,38 @@ func (cfg workerConfig) Validate() error {
 }
 
 type s3Worker struct {
-	catacomb catacomb.Catacomb
-	config   workerConfig
+	internalStates chan string
+	catacomb       catacomb.Catacomb
+	config         workerConfig
 
 	mutex   sync.Mutex
 	session objectstore.Session
 }
 
-func newS3Worker(config workerConfig) (worker.Worker, error) {
+// NewWorker returns a new worker that wraps an S3 Session.
+func NewWorker(config workerConfig) (worker.Worker, error) {
+	return newWorker(config, nil)
+}
+
+func newWorker(config workerConfig, internalStates chan string) (*s3Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	w := &s3Worker{
-		config: config,
+		internalStates: internalStates,
+		config:         config,
 	}
 
+	// Before we start the catacomb we need to create the initial session.
+	client, err := w.makeNewClient(context.Background())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	w.session = client
+
+	// Now start the catacomb once we have the initial session.
 	if err := catacomb.Invoke(catacomb.Plan{
 		Site: &w.catacomb,
 		Work: w.loop,
@@ -145,6 +166,9 @@ func (w *s3Worker) loop() (err error) {
 		return errors.Trace(err)
 	}
 
+	// Report the initial started state.
+	w.reportInternalState(stateStarted)
+
 	for {
 		select {
 		case <-w.catacomb.Dying():
@@ -156,28 +180,7 @@ func (w *s3Worker) loop() (err error) {
 				continue
 			}
 
-			// Attempt to get the controller config. If we can't get it, then
-			// defer the update until the next change or until
-			controllerConfig, err := w.config.ControllerService.ControllerConfig(ctx)
-			if err != nil {
-				return errors.Trace(err)
-			}
-
-			// We're no longer using S3, so we need to stop this worker.
-			if controllerConfig.ObjectStoreType() != objectstore.S3Backend {
-				return dependency.ErrUninstall
-			}
-
-			client, err := w.config.NewClient(
-				controllerConfig.ObjectStoreS3Endpoint(),
-				w.config.HTTPClient,
-				s3client.StaticCredentials{
-					Key:     controllerConfig.ObjectStoreS3StaticKey(),
-					Secret:  controllerConfig.ObjectStoreS3StaticSecret(),
-					Session: controllerConfig.ObjectStoreS3StaticSession(),
-				},
-				w.config.Logger,
-			)
+			client, err := w.makeNewClient(ctx)
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -185,8 +188,39 @@ func (w *s3Worker) loop() (err error) {
 			w.mutex.Lock()
 			w.session = client
 			w.mutex.Unlock()
+
+			w.reportInternalState(stateClientUpdated)
 		}
 	}
+}
+
+func (w *s3Worker) makeNewClient(ctx context.Context) (objectstore.Session, error) {
+	// Attempt to get the controller config. If we can't get it, then
+	// defer the update until the next change or until
+	controllerConfig, err := w.config.ControllerService.ControllerConfig(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// We're no longer using S3, so we need to stop this worker.
+	if controllerConfig.ObjectStoreType() != objectstore.S3Backend {
+		return nil, dependency.ErrUninstall
+	}
+
+	client, err := w.config.NewClient(
+		controllerConfig.ObjectStoreS3Endpoint(),
+		w.config.HTTPClient,
+		s3client.StaticCredentials{
+			Key:     controllerConfig.ObjectStoreS3StaticKey(),
+			Secret:  controllerConfig.ObjectStoreS3StaticSecret(),
+			Session: controllerConfig.ObjectStoreS3StaticSession(),
+		},
+		w.config.Logger,
+	)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return client, nil
 }
 
 func (w *s3Worker) addWatcher(ctx context.Context, watcher eventsource.Watcher[[]string]) error {
@@ -198,6 +232,11 @@ func (w *s3Worker) addWatcher(ctx context.Context, watcher eventsource.Watcher[[
 	// dispatch an initial event when it is created, so we need to consume
 	// that event before we can start watching.
 	if _, err := eventsource.ConsumeInitialEvent[[]string](ctx, watcher); err != nil {
+		// IF we're shutting down, then we don't care about the error. Just
+		// return nil.
+		if errors.Is(err, context.Canceled) {
+			return nil
+		}
 		return errors.Trace(err)
 	}
 
@@ -206,6 +245,14 @@ func (w *s3Worker) addWatcher(ctx context.Context, watcher eventsource.Watcher[[
 
 func (w *s3Worker) scopedContext() (context.Context, context.CancelFunc) {
 	return context.WithCancel(w.catacomb.Context(context.Background()))
+}
+
+func (w *s3Worker) reportInternalState(state string) {
+	select {
+	case <-w.catacomb.Dying():
+	case w.internalStates <- state:
+	default:
+	}
 }
 
 var objectStoreKeys = map[string]struct{}{
