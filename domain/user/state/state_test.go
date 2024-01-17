@@ -200,6 +200,7 @@ func (s *stateSuite) TestGetUser(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = st.AddUserWithPasswordHash(context.Background(), adminUUID, adminUser, adminUUID, "passwordHash", salt)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Get the user.
 	u, err := st.GetUser(context.Background(), adminUUID)
@@ -237,6 +238,7 @@ func (s *stateSuite) TestGetRemovedUser(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = st.AddUserWithPasswordHash(context.Background(), userToRemoveUUID, userToRemove, adminUUID, "passwordHash", salt)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Remove userToRemove.
 	err = st.RemoveUser(context.Background(), userToRemoveUUID)
@@ -360,6 +362,7 @@ func (s *stateSuite) TestGetUserByNameMultipleUsers(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = st.AddUserWithPasswordHash(context.Background(), admin2UUID, admin2User, admin2UUID, "passwordHash", salt)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Get the user.
 	u, err := st.GetUserByName(context.Background(), "admin")
@@ -861,4 +864,45 @@ WHERE user_uuid = ?
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(disabled, gc.Equals, false)
+}
+
+// TestUpdateLastLogin asserts that we can update the last login time for a
+// user.
+func (s *stateSuite) TestUpdateLastLogin(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	// Add admin user with activation key.
+	adminUUID, err := user.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	adminUser := user.User{
+		Name:        "admin",
+		DisplayName: "admin",
+	}
+
+	salt, err := auth.NewSalt()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Add user with password hash.
+	err = st.AddUserWithPasswordHash(context.Background(), adminUUID, adminUser, adminUUID, "passwordHash", salt)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Update last login.
+	err = st.UpdateLastLogin(context.Background(), adminUUID)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check that the last login was updated correctly.
+	db := s.DB()
+
+	row := db.QueryRow(`
+SELECT last_login
+FROM user_authentication
+WHERE user_uuid = ?
+	`, adminUUID)
+	c.Assert(row.Err(), jc.ErrorIsNil)
+
+	var lastLogin time.Time
+	err = row.Scan(&lastLogin)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(lastLogin, gc.NotNil)
 }

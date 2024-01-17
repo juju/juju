@@ -155,7 +155,7 @@ WHERE user.uuid = $M.uuid
 
 		selectGetUserStmt, err := sqlair.Prepare(getUserQuery, User{}, sqlair.M{})
 		if err != nil {
-			return errors.Annotate(err, "preparing select getUserWithAuthInfo query")
+			return errors.Annotate(err, "preparing select getUser query")
 		}
 
 		var result User
@@ -197,7 +197,7 @@ WHERE user.name = $M.name AND removed = false
 
 		selectGetUserByNameStmt, err := sqlair.Prepare(getUserByNameQuery, User{}, sqlair.M{})
 		if err != nil {
-			return errors.Annotate(err, "preparing select getUserWithAuthInfoByName query")
+			return errors.Annotate(err, "preparing select getUserByName query")
 		}
 
 		var result User
@@ -425,6 +425,45 @@ func AddUserWithPassword(
 	}
 
 	return errors.Trace(setPasswordHash(ctx, tx, uuid, passwordHash, salt))
+}
+
+// UpdateLastLogin updates the last login time for the user with the supplied
+// uuid. If the user does not exist an error that satisfies
+// usererrors.NotFound will be returned.
+func (st *State) UpdateLastLogin(ctx context.Context, uuid user.UUID) error {
+	db, err := st.DB()
+	if err != nil {
+		return errors.Annotate(err, "getting DB access")
+	}
+
+	updateLastLoginQuery := `
+UPDATE user_authentication
+SET last_login = $M.last_login
+WHERE user_uuid = $M.uuid
+`
+
+	updateLastLoginStmt, err := sqlair.Prepare(updateLastLoginQuery, sqlair.M{})
+	if err != nil {
+		return errors.Annotate(err, "preparing update updateLastLogin query")
+	}
+
+	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		removed, err := st.isRemoved(ctx, tx, uuid)
+		if err != nil {
+			return errors.Annotatef(err, "getting user with uuid %q", uuid)
+		}
+		if removed {
+			return errors.Annotatef(usererrors.NotFound, "%q", uuid)
+		}
+
+		query := tx.Query(ctx, updateLastLoginStmt, sqlair.M{"uuid": uuid.String(), "last_login": time.Now()})
+		err = query.Run()
+		if err != nil {
+			return errors.Annotatef(err, "updating last login for user with uuid %q", uuid)
+		}
+
+		return nil
+	})
 }
 
 // addUser adds a new user to the database. If the user already exists an error

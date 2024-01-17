@@ -79,6 +79,11 @@ type State interface {
 	// If no user is found for the supplied UUID an error is returned that
 	// satisfies usererrors.NotFound.
 	DisableUserAuthentication(context.Context, user.UUID) error
+
+	// UpdateLastLogin will update the last login time for the user.
+	// If no user is found for the supplied UUID an error is returned that
+	// satisfies usererrors.NotFound.
+	UpdateLastLogin(context.Context, user.UUID) error
 }
 
 // Service provides the API for working with users.
@@ -400,6 +405,22 @@ func (s *Service) DisableUserAuthentication(ctx context.Context, uuid user.UUID)
 
 	if err := s.st.DisableUserAuthentication(ctx, uuid); err != nil {
 		return errors.Annotatef(err, "disabling user with uuid %q", uuid)
+	}
+	return nil
+}
+
+// UpdateLastLogin will update the last login time for the user.
+//
+// The following error types are possible from this function:
+// - usererrors.UUIDNotValid: When the UUID supplied is not valid.
+// - usererrors.NotFound: If no user by the given UUID exists.
+func (s *Service) UpdateLastLogin(ctx context.Context, uuid user.UUID) error {
+	if err := uuid.Validate(); err != nil {
+		return errors.Annotatef(usererrors.UUIDNotValid, "%q", uuid)
+	}
+
+	if err := s.st.UpdateLastLogin(ctx, uuid); err != nil {
+		return errors.Annotatef(err, "updating last login for user with uuid %q", uuid)
 	}
 	return nil
 }

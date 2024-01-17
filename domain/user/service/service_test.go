@@ -317,6 +317,20 @@ func (s *serviceSuite) setMockState(c *gc.C) map[user.UUID]stateUser {
 		return nil
 	}).AnyTimes()
 
+	// Implement the contract defined by UpdateLastLogin
+	s.state.EXPECT().UpdateLastLogin(
+		gomock.Any(), gomock.Any(),
+	).DoAndReturn(func(
+		_ context.Context,
+		uuid user.UUID) error {
+		usr, exists := mockState[uuid]
+		if !exists || usr.removed {
+			return usererrors.NotFound
+		}
+		usr.lastLogin = time.Now()
+		mockState[uuid] = usr
+		return nil
+	}).AnyTimes()
 	return mockState
 }
 
@@ -1283,4 +1297,24 @@ func (s *serviceSuite) TestUsernameValidation(c *gc.C) {
 			)
 		}
 	}
+}
+
+// TestUpdateLastLogin tests the happy path for UpdateLastLogin.
+func (s *serviceSuite) TestUpdateLastLogin(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	mockState := s.setMockState(c)
+	now := time.Now()
+	uuid, err := user.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+
+	mockState[uuid] = stateUser{
+		name:      "username",
+		lastLogin: now,
+	}
+
+	err = s.service().UpdateLastLogin(context.Background(), uuid)
+	c.Assert(err, jc.ErrorIsNil)
+
+	userState := mockState[uuid]
+	c.Assert(userState.lastLogin, gc.NotNil)
 }
