@@ -100,9 +100,9 @@ type ControllerCharmDeployerConfig struct {
 }
 
 // CAASControllerUnitPassword is the function that is used to get the unit
-// password for IAAS.
+// password for CAAS. This is currently retrieved from the environment
+// variable.
 func CAASControllerUnitPassword(context.Context) (string, error) {
-	// IAAS doesn't need a unit password.
 	return os.Getenv(k8sconstants.EnvJujuK8sUnitPassword), nil
 }
 
