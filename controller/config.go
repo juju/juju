@@ -291,6 +291,20 @@ const (
 	// This isn't currently allowed to be changed dynamically, that will come
 	// when we support multiple object store types (not including state).
 	ObjectStoreType = "object-store-type"
+
+	// ObjectStoreS3Endpoint is the endpoint to use for S3 object stores.
+	ObjectStoreS3Endpoint = "object-store-s3-endpoint"
+
+	// ObjectStoreS3StaticKey is the static key to use for S3 object stores.
+	ObjectStoreS3StaticKey = "object-store-s3-static-key"
+
+	// ObjectStoreS3StaticSecret is the static secret to use for S3 object
+	// stores.
+	ObjectStoreS3StaticSecret = "object-store-s3-static-secret"
+
+	// ObjectStoreS3StaticSession is the static session token to use for S3
+	// object stores.
+	ObjectStoreS3StaticSession = "object-store-s3-static-session"
 )
 
 // Attribute Defaults
@@ -498,6 +512,10 @@ var (
 		OpenTelemetryStackTraces,
 		OpenTelemetrySampleRatio,
 		ObjectStoreType,
+		ObjectStoreS3Endpoint,
+		ObjectStoreS3StaticKey,
+		ObjectStoreS3StaticSecret,
+		ObjectStoreS3StaticSession,
 	}
 
 	// For backwards compatibility, we must include "anything", "juju-apiserver"
@@ -553,6 +571,10 @@ var (
 		PublicDNSAddress,
 		QueryTracingEnabled,
 		QueryTracingThreshold,
+		ObjectStoreS3Endpoint,
+		ObjectStoreS3StaticKey,
+		ObjectStoreS3StaticSecret,
+		ObjectStoreS3StaticSession,
 	)
 
 	methodNameRE = regexp.MustCompile(`[[:alpha:]][[:alnum:]]*\.[[:alpha:]][[:alnum:]]*`)
@@ -1071,6 +1093,28 @@ func (c Config) OpenTelemetrySampleRatio() float64 {
 // ObjectStoreType returns the type of object store to use for storing blobs.
 func (c Config) ObjectStoreType() objectstore.BackendType {
 	return objectstore.BackendType(c.asString(ObjectStoreType))
+}
+
+// ObjectStoreS3Endpoint returns the endpoint to use for S3 object stores.
+func (c Config) ObjectStoreS3Endpoint() string {
+	return c.asString(ObjectStoreS3Endpoint)
+}
+
+// ObjectStoreS3StaticKey returns the static key to use for S3 object stores.
+func (c Config) ObjectStoreS3StaticKey() string {
+	return c.asString(ObjectStoreS3StaticKey)
+}
+
+// ObjectStoreS3StaticSecret returns the static secret to use for S3 object
+// stores.
+func (c Config) ObjectStoreS3StaticSecret() string {
+	return c.asString(ObjectStoreS3StaticSecret)
+}
+
+// ObjectStoreS3StaticSession returns the static session token to use for S3
+// object stores.
+func (c Config) ObjectStoreS3StaticSession() string {
+	return c.asString(ObjectStoreS3StaticSession)
 }
 
 // Validate ensures that config is a valid configuration.

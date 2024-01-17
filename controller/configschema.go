@@ -64,6 +64,10 @@ var configChecker = schema.FieldMap(schema.Fields{
 	OpenTelemetryStackTraces:         schema.Bool(),
 	OpenTelemetrySampleRatio:         schema.String(),
 	ObjectStoreType:                  schema.String(),
+	ObjectStoreS3Endpoint:            schema.String(),
+	ObjectStoreS3StaticKey:           schema.String(),
+	ObjectStoreS3StaticSecret:        schema.String(),
+	ObjectStoreS3StaticSession:       schema.String(),
 }, schema.Defaults{
 	AgentRateLimitMax:                schema.Omit,
 	AgentRateLimitRate:               schema.Omit,
@@ -117,6 +121,10 @@ var configChecker = schema.FieldMap(schema.Fields{
 	OpenTelemetryStackTraces:         DefaultOpenTelemetryStackTraces,
 	OpenTelemetrySampleRatio:         fmt.Sprintf("%.02f", DefaultOpenTelemetrySampleRatio),
 	ObjectStoreType:                  schema.Omit,
+	ObjectStoreS3Endpoint:            schema.Omit,
+	ObjectStoreS3StaticKey:           schema.Omit,
+	ObjectStoreS3StaticSecret:        schema.Omit,
+	ObjectStoreS3StaticSession:       schema.Omit,
 })
 
 // ConfigSchema holds information on all the fields defined by
@@ -337,5 +345,21 @@ will be output if tracing is enabled.`,
 	ObjectStoreType: {
 		Type:        environschema.Tstring,
 		Description: `The type of object store backend to use for storing blobs`,
+	},
+	ObjectStoreS3Endpoint: {
+		Type:        environschema.Tstring,
+		Description: `The s3 endpoint for the object store backend`,
+	},
+	ObjectStoreS3StaticKey: {
+		Type:        environschema.Tstring,
+		Description: `The s3 static key for the object store backend`,
+	},
+	ObjectStoreS3StaticSecret: {
+		Type:        environschema.Tstring,
+		Description: `The s3 static secret for the object store backend`,
+	},
+	ObjectStoreS3StaticSession: {
+		Type:        environschema.Tstring,
+		Description: `The s3 static session for the object store backend`,
 	},
 }

@@ -399,6 +399,30 @@ var newConfigTests = []struct {
 		controller.ObjectStoreType: 1,
 	},
 	expectError: `object-store-type: expected string, got int\(1\)`,
+}, {
+	about: "invalid object store s3 endpoint value",
+	config: controller.Config{
+		controller.ObjectStoreS3Endpoint: 1,
+	},
+	expectError: `object-store-s3-endpoint: expected string, got int\(1\)`,
+}, {
+	about: "invalid object store s3 static key value",
+	config: controller.Config{
+		controller.ObjectStoreS3StaticKey: 1,
+	},
+	expectError: `object-store-s3-static-key: expected string, got int\(1\)`,
+}, {
+	about: "invalid object store s3 static secret value",
+	config: controller.Config{
+		controller.ObjectStoreS3StaticSecret: 1,
+	},
+	expectError: `object-store-s3-static-secret: expected string, got int\(1\)`,
+}, {
+	about: "invalid object store s3 static session value",
+	config: controller.Config{
+		controller.ObjectStoreS3StaticSession: 1,
+	},
+	expectError: `object-store-s3-static-session: expected string, got int\(1\)`,
 }}
 
 func (s *ConfigSuite) TestNewConfig(c *gc.C) {
@@ -1010,4 +1034,32 @@ func (s *ConfigSuite) TestObjectStoreType(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.ObjectStoreType(), gc.Equals, objectstore.StateBackend)
+}
+
+func (s *ConfigSuite) TestObjectStoreS3Endpoint(c *gc.C) {
+	cfg, err := controller.NewConfig(
+		testing.ControllerTag.Id(),
+		testing.CACert,
+		map[string]interface{}{
+			controller.ObjectStoreS3Endpoint: "http://localhost:9000",
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cfg.ObjectStoreS3Endpoint(), gc.Equals, "http://localhost:9000")
+}
+
+func (s *ConfigSuite) TestObjectStoreS3Credentials(c *gc.C) {
+	cfg, err := controller.NewConfig(
+		testing.ControllerTag.Id(),
+		testing.CACert,
+		map[string]interface{}{
+			controller.ObjectStoreS3StaticKey:     "key",
+			controller.ObjectStoreS3StaticSecret:  "secret",
+			controller.ObjectStoreS3StaticSession: "session",
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cfg.ObjectStoreS3StaticKey(), gc.Equals, "key")
+	c.Assert(cfg.ObjectStoreS3StaticSecret(), gc.Equals, "secret")
+	c.Assert(cfg.ObjectStoreS3StaticSession(), gc.Equals, "session")
 }
