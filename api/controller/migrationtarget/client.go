@@ -29,8 +29,8 @@ import (
 // NewClient returns a new Client based on an existing API connection.
 func NewClient(caller base.APICaller) *Client {
 	return &Client{
-		caller:            base.NewFacadeCaller(caller, "MigrationTarget"),
-		httpClientFactory: caller.HTTPClient,
+		caller:                base.NewFacadeCaller(caller, "MigrationTarget"),
+		httpRootClientFactory: caller.RootHTTPClient,
 	}
 }
 
@@ -38,8 +38,8 @@ func NewClient(caller base.APICaller) *Client {
 // used by the migrationmaster worker when talking to the target
 // controller during a migration.
 type Client struct {
-	caller            base.FacadeCaller
-	httpClientFactory func() (*httprequest.Client, error)
+	caller                base.FacadeCaller
+	httpRootClientFactory func() (*httprequest.Client, error)
 }
 
 // BestFacadeVersion returns the best supported facade version
@@ -202,8 +202,8 @@ func (c *Client) httpPost(modelUUID string, content io.ReadSeeker, endpoint, con
 	req.Header.Set("Content-Type", contentType)
 	req.Header.Set(params.MigrationModelHTTPHeader, modelUUID)
 
-	// The returned httpClient sets the base url to /model/<uuid> if it can.
-	httpClient, err := c.httpClientFactory()
+	// The returned httpClient sets the base url to the controller api root
+	httpClient, err := c.httpRootClientFactory()
 	if err != nil {
 		return errors.Trace(err)
 	}
