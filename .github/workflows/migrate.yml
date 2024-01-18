@@ -49,6 +49,14 @@ jobs:
         if: matrix.cloud == 'lxd'
         uses: canonical/setup-lxd@4e959f8e0d9c5feb27d44c5e4d9a330a782edee0
 
+      - name: Wait for LXD
+        if: matrix.cloud == 'lxd'
+        run: |
+          while ! ip link show lxdbr0; do
+            echo "Waiting for lxdbr0..."
+            sleep 10
+          done
+
       - name: Install Juju ${{ matrix.channel }}
         run: |
           mkdir -p ~/.local/share/juju
