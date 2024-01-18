@@ -51,7 +51,7 @@ func ControllerDDL() *schema.Schema {
 		changeLogTriggersForTable("object_store_metadata_path", "path", tableObjectStoreMetadata),
 		userSchema,
 		flagSchema,
-		permissionsSchema,
+		userPermissionSchema,
 	}
 
 	schema := schema.New()
@@ -593,41 +593,82 @@ CREATE TABLE flag (
 `)
 }
 
-// The permissions schema
-func permissionsSchema() schema.Patch {
+func userPermissionSchema() schema.Patch {
 	return schema.MakePatch(`
-CREATE TABLE access_type (
+CREATE TABLE permission_access_type (
     id     INT PRIMARY KEY,
-    type   Text
+    type   TEXT NOT NULL
 );
 
-CREATE UNIQUE INDEX idx_access_type
-ON access_type (type);
+CREATE UNIQUE INDEX idx_permission_access_type
+ON permission_access_type (type);
 
 -- Maps to the Access type in core/permission package.
-INSERT INTO access_type VALUES
-    (0, ''),
-    (1, 'read'),
-    (2, 'write'),
-    (3, 'consume'),
-    (4, 'admin'),
-    (5, 'login'),
-    (6, 'add-model;'),
-    (7, 'superuser');
+INSERT INTO permission_access_type VALUES
+    (0, 'read'),
+    (1, 'write'),
+    (2, 'consume'),
+    (3, 'admin'),
+    (4, 'login'),
+    (5, 'addmodel'),
+    (6, 'superuser');
 
-CREATE TABLE permissions (
-    access_type_id  INT NOT NULL,
-    object_key      TEXT NOT NULL,
+CREATE TABLE permission_object_type (
+    id    INT PRIMARY KEY,
+    type  TEXT NOT NULL
+);
+
+CREATE UNIQUE INDEX idx_permission_object_type
+ON permission_object_type (type);
+
+INSERT INTO permission_object_type VALUES
+    (0, 'controller'),
+    (1, 'cloud'),
+    (2, 'model'),
+    (3, 'offer');
+
+CREATE TABLE permission_object_access (
+    id              INT PRIMARY KEY,
+    access_type     INT NOT NULL,
+    object_type     INT NOT NULL,
+    CONSTRAINT      uc_object_access UNIQUE (access_type, object_type),
+    CONSTRAINT      fk_permission_access_type
+        FOREIGN KEY (access_type)
+        REFERENCES  permission_access_type(id),
+    CONSTRAINT      fk_permission_object_type
+        FOREIGN KEY (object_type)
+        REFERENCES  permission_object_type(id)
+);
+
+CREATE UNIQUE INDEX idx_permission_object_access
+ON permission_object_access (access_type, object_type);
+
+INSERT INTO permission_object_access VALUES
+    (0, 5 ,0), -- login, controller
+    (1, 7 ,0), -- superuser, controller
+    (2, 4, 1), -- admin, cloud
+    (3, 6, 1), -- addmodel, cloud
+    (4, 1, 2), -- read, model
+    (5, 2, 2), -- write, model
+    (6, 4, 2), -- admin, model
+    (7, 1, 3), -- read, offer
+    (8, 3, 3), -- consume, offer
+    (9, 4, 3); -- admin, offer
+
+
+CREATE TABLE user_permission (
+    uuid            TEXT PRIMARY KEY,
+    object_name     TEXT NOT NULL, -- name or uuid of the object
+    object_access   INT NOT NULL,
     user_uuid       TEXT NOT NULL,
-    -- ensure we only have one permutation of the object_key and user_uuid
-    -- combination within the table.
-    CONSTRAINT      pk_permissions_key PRIMARY KEY (user_uuid, object_key),
-    CONSTRAINT      fk_permissions_user_uuid
+    -- ensure that for a user, only one object_name enters the DB
+    CONSTRAINT      uc_permission UNIQUE (user_uuid, object_name),
+    CONSTRAINT      fk_permission_user_uuid
     	FOREIGN KEY (user_uuid)
-    	REFERENCES  user(uuid)
-    CONSTRAINT      fk_permissions_access_type_id
-    	FOREIGN KEY (access_type_id)
-    	REFERENCES   access_type(id)                 
+    	REFERENCES  user(uuid),
+    CONSTRAINT      fk_permission_object_access
+        FOREIGN KEY (object_access)
+        REFERENCES  permission_object_access(id)
 );
 `)
 }
