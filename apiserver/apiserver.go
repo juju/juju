@@ -830,6 +830,11 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		PostHandler: migrateCharmsHandler.ServePost,
 		GetHandler:  migrateCharmsHandler.ServeUnsupported,
 	}
+	migrateObjectsCharmsHTTPHandler := &objectsCharmHTTPHandler{
+		PutHandler:          modelObjectsCharmsHandler.ServePut,
+		GetHandler:          modelObjectsCharmsHandler.ServeUnsupported,
+		LegacyCharmsHandler: migrateCharmsHTTPHandler,
+	}
 	migrateToolsUploadHandler := &toolsUploadHandler{
 		ctxt:          httpCtxt,
 		stateAuthFunc: httpCtxt.stateForMigrationImporting,
@@ -912,8 +917,13 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		handler:    backupHandler,
 		authorizer: controllerAdminAuthorizer,
 	}, {
+		// Legacy migration endpoint. Used by Juju 3.3 and prior
 		pattern:    "/migrate/charms",
 		handler:    migrateCharmsHTTPHandler,
+		authorizer: controllerAdminAuthorizer,
+	}, {
+		pattern:    "/migrate/charms/:object",
+		handler:    migrateObjectsCharmsHTTPHandler,
 		authorizer: controllerAdminAuthorizer,
 	}, {
 		pattern:    "/migrate/tools",

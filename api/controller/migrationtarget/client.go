@@ -8,10 +8,8 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"strconv"
 	"time"
 
-	"github.com/juju/charm/v12"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"github.com/juju/version/v2"
@@ -106,28 +104,24 @@ func (c *Client) Activate(modelUUID string, sourceInfo coremigration.SourceContr
 
 // UploadCharm sends the content to the API server using an HTTP post in order
 // to add the charm binary to the model specified.
-func (c *Client) UploadCharm(modelUUID string, curl *charm.URL, content io.ReadSeeker) (*charm.URL, error) {
-	args := url.Values{}
-	args.Add("name", curl.Name)
-	args.Add("schema", curl.Schema)
-	args.Add("arch", curl.Architecture)
-	args.Add("series", curl.Series)
-	args.Add("revision", strconv.Itoa(curl.Revision))
-
-	apiURI := url.URL{
-		Path:     "/migrate/charms",
-		RawQuery: args.Encode(),
-	}
+func (c *Client) UploadCharm(modelUUID string, curl string, charmRef string, content io.ReadSeeker) (string, error) {
+	apiURI := url.URL{Path: fmt.Sprintf("/migrate/charms/%s", charmRef)}
 
 	contentType := "application/zip"
-	var resp params.CharmsResponse
-	if err := c.httpPost(modelUUID, content, apiURI.String(), contentType, &resp); err != nil {
-		return nil, errors.Trace(err)
+	resp := &http.Response{}
+	// Add Juju-Curl header to Put operation. Juju 3.4 apiserver
+	// expects this header to be present, since we still need some
+	// of the values from the charm url.
+	headers := map[string]string{
+		"Juju-Curl": curl,
+	}
+	if err := c.httpPut(modelUUID, content, apiURI.String(), contentType, headers, &resp); err != nil {
+		return "", errors.Trace(err)
 	}
 
-	respCurl, err := charm.ParseURL(resp.CharmURL)
-	if err != nil {
-		return nil, errors.Annotatef(err, "bad charm URL in response")
+	respCurl := resp.Header.Get("Juju-Curl")
+	if respCurl == "" {
+		return "", errors.Errorf("response returned no charm URL")
 	}
 	return respCurl, nil
 }
@@ -138,7 +132,7 @@ func (c *Client) UploadTools(modelUUID string, r io.ReadSeeker, vers version.Bin
 	endpoint := fmt.Sprintf("/migrate/tools?binaryVersion=%s", vers)
 	contentType := "application/x-tar-gz"
 	var resp params.ToolsResult
-	if err := c.httpPost(modelUUID, r, endpoint, contentType, &resp); err != nil {
+	if err := c.httpPost(modelUUID, r, endpoint, contentType, nil, &resp); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return resp.ToolsList, nil
@@ -171,7 +165,7 @@ func (c *Client) SetUnitResource(modelUUID, unit string, res resources.Resource)
 func (c *Client) resourcePost(modelUUID string, args url.Values, r io.ReadSeeker) error {
 	uri := "/migrate/resources?" + args.Encode()
 	contentType := "application/octet-stream"
-	err := c.httpPost(modelUUID, r, uri, contentType, nil)
+	err := c.httpPost(modelUUID, r, uri, contentType, nil, nil)
 	return errors.Trace(err)
 }
 
@@ -194,13 +188,24 @@ func makeResourceArgs(res resources.Resource) url.Values {
 	return args
 }
 
-func (c *Client) httpPost(modelUUID string, content io.ReadSeeker, endpoint, contentType string, response interface{}) error {
-	req, err := http.NewRequest("POST", endpoint, content)
+func (c *Client) httpPost(modelUUID string, content io.ReadSeeker, endpoint, contentType string, headers map[string]string, response interface{}) error {
+	return c.http("POST", modelUUID, content, endpoint, contentType, headers, response)
+}
+
+func (c *Client) httpPut(modelUUID string, content io.ReadSeeker, endpoint, contentType string, headers map[string]string, response interface{}) error {
+	return c.http("PUT", modelUUID, content, endpoint, contentType, headers, response)
+}
+
+func (c *Client) http(method, modelUUID string, content io.ReadSeeker, endpoint, contentType string, headers map[string]string, response interface{}) error {
+	req, err := http.NewRequest(method, endpoint, content)
 	if err != nil {
 		return errors.Annotate(err, "cannot create upload request")
 	}
 	req.Header.Set("Content-Type", contentType)
 	req.Header.Set(params.MigrationModelHTTPHeader, modelUUID)
+	for k, v := range headers {
+		req.Header.Set(k, v)
+	}
 
 	// The returned httpClient sets the base url to the controller api root
 	httpClient, err := c.httpRootClientFactory()

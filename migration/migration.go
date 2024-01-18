@@ -4,6 +4,9 @@
 package migration
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"fmt"
 	"io"
 	"net/url"
 	"os"
@@ -103,7 +106,7 @@ type CharmDownloader interface {
 // CharmUploader defines a single method that is used to upload a
 // charm to the target controller in a migration.
 type CharmUploader interface {
-	UploadCharm(*charm.URL, io.ReadSeeker) (*charm.URL, error)
+	UploadCharm(charmURL string, charmRef string, content io.ReadSeeker) (string, error)
 }
 
 // ToolsDownloader defines a single method that is used to download
@@ -218,6 +221,19 @@ func streamThroughTempFile(r io.Reader) (_ io.ReadSeeker, cleanup func(), err er
 	return tempFile, rmTempFile, nil
 }
 
+func hashArchive(archive io.ReadSeeker) (string, error) {
+	hash := sha256.New()
+	_, err := io.Copy(hash, archive)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	_, err = archive.Seek(0, os.SEEK_SET)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return hex.EncodeToString(hash.Sum(nil))[0:7], nil
+}
+
 func uploadCharms(config UploadBinariesConfig) error {
 	// It is critical that charms are uploaded in ascending charm URL
 	// order so that charm revisions end up the same in the target as
@@ -242,11 +258,17 @@ func uploadCharms(config UploadBinariesConfig) error {
 		if err != nil {
 			return errors.Annotate(err, "bad charm URL")
 		}
-		if usedCurl, err := config.CharmUploader.UploadCharm(curl, content); err != nil {
+		hash, err := hashArchive(content)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		charmRef := fmt.Sprintf("%s-%s", curl.Name, hash)
+
+		if usedCurl, err := config.CharmUploader.UploadCharm(charmURL, charmRef, content); err != nil {
 			return errors.Annotate(err, "cannot upload charm")
-		} else if usedCurl.String() != curl.String() {
+		} else if usedCurl != charmURL {
 			// The target controller shouldn't assign a different charm URL.
-			return errors.Errorf("charm %s unexpectedly assigned %s", curl, usedCurl)
+			return errors.Errorf("charm %s unexpectedly assigned %s", charmURL, usedCurl)
 		}
 	}
 	return nil
