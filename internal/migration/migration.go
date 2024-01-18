@@ -31,7 +31,7 @@ var logger = loggo.GetLoggerWithLabels("juju.migration", corelogger.MIGRATION)
 
 // LegacyStateExporter describes interface on state required to export a
 // model.
-// Note: This is being deprecated.
+// Deprecated: This is being replaced with the ModelExporter.
 type LegacyStateExporter interface {
 	// Export generates an abstract representation of a model.
 	Export(leaders map[string]string, store objectstore.ObjectStore) (description.Model, error)
@@ -50,7 +50,7 @@ type ModelExporter struct {
 }
 
 func NewModelExporter(legacyStateExporter LegacyStateExporter, scope modelmigration.Scope) *ModelExporter {
-	return &ModelExporter{legacyStateExporter, scope}
+	return &ModelExporter{legacyStateExporter: legacyStateExporter, scope: scope}
 }
 
 // ExportModelPartial partially serializes a model description from the

@@ -24,11 +24,13 @@ import (
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/lease"
 	corelogger "github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/watcher/registry"
+	"github.com/juju/juju/internal/migration"
 	"github.com/juju/juju/internal/rpcreflect"
 	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/rpc"
@@ -813,10 +815,22 @@ func (ctx *facadeContext) HTTPClient(purpose facade.HTTPClientPurpose) facade.HT
 	}
 }
 
-// ControllerDB returns a watchable database for the controller database.
-func (ctx *facadeContext) ControllerDB() (changestream.WatchableDB, error) {
-	db, err := ctx.r.shared.dbGetter.GetWatchableDB(coredatabase.ControllerNS)
-	return db, errors.Trace(err)
+// ModelExporter returns a model exporter for the current model.
+func (ctx *facadeContext) ModelExporter(backend facade.LegacyStateExporter) facade.ModelExporter {
+	return migration.NewModelExporter(
+		backend,
+		ctx.migrationScope(),
+	)
+}
+
+// ModelImporter returns a model importer.
+func (ctx *facadeContext) ModelImporter() facade.ModelImporter {
+	pool := ctx.r.shared.statePool
+	return migration.NewModelImporter(
+		state.NewController(pool),
+		ctx.migrationScope(),
+		ctx.ServiceFactory().ControllerConfig(),
+	)
 }
 
 // ServiceFactory returns the services factory for the current model.
@@ -858,6 +872,32 @@ func (ctx *facadeContext) LogDir() string {
 // Logger returns the apiserver logger instance.
 func (ctx *facadeContext) Logger() loggo.Logger {
 	return ctx.r.shared.logger
+}
+
+// controllerDB is a protected method, do not expose this directly in to the
+// facade context. It is expect that users of the facade context will use the
+// higher level abstractions.
+func (ctx *facadeContext) controllerDB() (changestream.WatchableDB, error) {
+	db, err := ctx.r.shared.dbGetter.GetWatchableDB(coredatabase.ControllerNS)
+	return db, errors.Trace(err)
+}
+
+// modelDB is a protected method, do not expose this directly in to the
+// facade context. It is expect that users of the facade context will use the
+// higher level abstractions.
+func (ctx *facadeContext) modelDB() (changestream.WatchableDB, error) {
+	db, err := ctx.r.shared.dbGetter.GetWatchableDB(ctx.r.state.ModelUUID())
+	return db, errors.Trace(err)
+}
+
+// migrationScope is a protected method, do not expose this directly in to the
+// facade context. It is expect that users of the facade context will use the
+// higher level abstractions.
+func (ctx *facadeContext) migrationScope() modelmigration.Scope {
+	return modelmigration.NewScope(
+		changestream.NewTxnRunnerFactory(ctx.controllerDB),
+		changestream.NewTxnRunnerFactory(ctx.modelDB),
+	)
 }
 
 // DescribeFacades returns the list of available Facades and their Versions
