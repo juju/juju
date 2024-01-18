@@ -58,7 +58,6 @@ jobs:
           echo "juju-snap-channel=${jujuSnapChannel}" >> $GITHUB_OUTPUT
           echo "target-juju-version=${targetJujuVersion}" >> $GITHUB_OUTPUT
           echo "source-juju-version=${sourceJujuVersion}" >> $GITHUB_OUTPUT
-          echo "juju-db-version=4.4" >> $GITHUB_OUTPUT
         id: vars
 
       - name: Set up Go
@@ -134,8 +133,6 @@ jobs:
         if: matrix.cloud == 'microk8s'
         env:
           SOURCE_JUJU_TAG: ${{ steps.vars.outputs.source-juju-version }}
-          JUJU_DB_TAG: ${{ steps.vars.outputs.juju-db-version }}
-          CHARM_BASE: ubuntu-20.04
         run: |
           set -euxo pipefail
           
@@ -152,13 +149,7 @@ jobs:
           docker build $BUILD_TEMP -t ${DOCKER_REGISTRY}/test-repo/jujud-operator:${SOURCE_JUJU_TAG}
           docker push ${DOCKER_REGISTRY}/test-repo/jujud-operator:${SOURCE_JUJU_TAG}
           
-          docker pull docker.io/jujusolutions/juju-db:${JUJU_DB_TAG}
-          docker tag docker.io/jujusolutions/juju-db:${JUJU_DB_TAG} ${DOCKER_REGISTRY}/test-repo/juju-db:${JUJU_DB_TAG}
-          docker push ${DOCKER_REGISTRY}/test-repo/juju-db:${JUJU_DB_TAG}
-          
-          docker pull docker.io/jujusolutions/charm-base:${CHARM_BASE}
-          docker tag docker.io/jujusolutions/charm-base:${CHARM_BASE} ${DOCKER_REGISTRY}/test-repo/charm-base:${CHARM_BASE}
-          docker push ${DOCKER_REGISTRY}/test-repo/charm-base:${CHARM_BASE}
+          DOCKER_USERNAME=${DOCKER_REGISTRY}/test-repo make seed-repository
 
       - name: Bootstrap Juju - localhost
         if: matrix.cloud == 'localhost'
