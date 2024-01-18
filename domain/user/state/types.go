@@ -28,6 +28,12 @@ type User struct {
 
 	// CreatedAt is the time that the user was created at.
 	CreatedAt time.Time `db:"created_at"`
+
+	// LastLogin is the last time the user logged in.
+	LastLogin time.Time `db:"last_login"`
+
+	// Disabled is true if the user is disabled.
+	Disabled bool `db:"disabled"`
 }
 
 // toCoreUser converts the state user to a core user.
@@ -38,5 +44,7 @@ func (u User) toCoreUser() user.User {
 		DisplayName: u.DisplayName,
 		CreatorUUID: u.CreatorUUID,
 		CreatedAt:   u.CreatedAt,
+		LastLogin:   u.LastLogin,
+		Disabled:    u.Disabled,
 	}
 }

@@ -195,7 +195,11 @@ func (s *stateSuite) TestGetUser(c *gc.C) {
 		Name:        "admin",
 		DisplayName: "admin",
 	}
-	err = st.AddUser(context.Background(), adminUUID, adminUser, adminUUID)
+
+	salt, err := auth.NewSalt()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = st.AddUserWithPasswordHash(context.Background(), adminUUID, adminUser, adminUUID, "passwordHash", salt)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Get the user.
@@ -229,7 +233,11 @@ func (s *stateSuite) TestGetRemovedUser(c *gc.C) {
 		Name:        "userToRemove",
 		DisplayName: "userToRemove",
 	}
-	err = st.AddUser(context.Background(), userToRemoveUUID, userToRemove, adminUUID)
+
+	salt, err := auth.NewSalt()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = st.AddUserWithPasswordHash(context.Background(), userToRemoveUUID, userToRemove, adminUUID, "passwordHash", salt)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Remove userToRemove.
@@ -271,7 +279,11 @@ func (s *stateSuite) TestGetUserByName(c *gc.C) {
 		Name:        "admin",
 		DisplayName: "admin",
 	}
-	err = st.AddUser(context.Background(), adminUUID, adminUser, adminUUID)
+
+	salt, err := auth.NewSalt()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = st.AddUserWithPasswordHash(context.Background(), adminUUID, adminUser, adminUUID, "passwordHash", salt)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Get the user.
@@ -282,6 +294,8 @@ func (s *stateSuite) TestGetUserByName(c *gc.C) {
 	c.Check(u.DisplayName, gc.Equals, adminUser.DisplayName)
 	c.Check(u.CreatorUUID, gc.Equals, adminUUID)
 	c.Check(u.CreatedAt, gc.NotNil)
+	c.Check(u.LastLogin, gc.NotNil)
+	c.Check(u.Disabled, gc.Equals, false)
 }
 
 // TestGetRemovedUserByName asserts that we can get only non-removed user by name.
@@ -343,7 +357,11 @@ func (s *stateSuite) TestGetUserByNameMultipleUsers(c *gc.C) {
 		Name:        "admin",
 		DisplayName: "admin2",
 	}
-	err = st.AddUser(context.Background(), admin2UUID, admin2User, admin2UUID)
+
+	salt, err := auth.NewSalt()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = st.AddUserWithPasswordHash(context.Background(), admin2UUID, admin2User, admin2UUID, "passwordHash", salt)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Get the user.
@@ -364,6 +382,37 @@ func (s *stateSuite) TestGetUserByNameNotFound(c *gc.C) {
 	// Get the user.
 	_, err := st.GetUserByName(context.Background(), "admin")
 	c.Assert(err, jc.ErrorIs, usererrors.NotFound)
+}
+
+// TestGetUserWithAuthInfoByName asserts that we can get a user with auth info
+// by name from the database.
+func (s *stateSuite) TestGetUserWithAuthInfoByName(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	// Add admin user with password hash.
+	adminUUID, err := user.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	adminUser := user.User{
+		Name:        "admin",
+		DisplayName: "admin",
+	}
+
+	salt, err := auth.NewSalt()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = st.AddUserWithPasswordHash(context.Background(), adminUUID, adminUser, adminUUID, "passwordHash", salt)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Get the user.
+	u, err := st.GetUserByName(context.Background(), adminUser.Name)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(u.Name, gc.Equals, adminUser.Name)
+	c.Check(u.DisplayName, gc.Equals, adminUser.DisplayName)
+	c.Check(u.CreatorUUID, gc.Equals, adminUUID)
+	c.Check(u.CreatedAt, gc.NotNil)
+	c.Check(u.LastLogin, gc.NotNil)
+	c.Check(u.Disabled, gc.Equals, false)
 }
 
 // TestRemoveUser asserts that we can remove a user from the database.
@@ -411,45 +460,91 @@ WHERE uuid = ?
 	c.Check(removed, gc.Equals, true)
 }
 
-// TestGetAllUsers asserts that we can get all users from the database.
-func (s *stateSuite) TestGetAllUsers(c *gc.C) {
+// GetAllUsersWihAuthInfo asserts that we can get all users with auth info from
+// the database.
+func (s *stateSuite) TestGetAllUsersWihAuthInfo(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
-	// Add admin1 user.
-	adminUUID1, err := user.NewUUID()
+	// Add admin1 user with password hash.
+	admin1UUID, err := user.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
-	adminUser1 := user.User{
+	admin1User := user.User{
 		Name:        "admin1",
 		DisplayName: "admin1",
 	}
-	err = st.AddUser(context.Background(), adminUUID1, adminUser1, adminUUID1)
+	salt, err := auth.NewSalt()
+	c.Assert(err, jc.ErrorIsNil)
+	err = st.AddUserWithPasswordHash(context.Background(), admin1UUID, admin1User, admin1UUID, "passwordHash", salt)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Add admin1 user.
-	adminUUID2, err := user.NewUUID()
+	// Add admin2 user with activation key.
+	admin2UUID, err := user.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
-	adminUser2 := user.User{
+	admin2User := user.User{
 		Name:        "admin2",
 		DisplayName: "admin2",
 	}
-	err = st.AddUser(context.Background(), adminUUID2, adminUser2, adminUUID2)
+	admin2ActivationKey, err := generateActivationKey()
+	c.Assert(err, jc.ErrorIsNil)
+	err = st.AddUserWithActivationKey(context.Background(), admin2UUID, admin2User, admin2UUID, admin2ActivationKey)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Get all users.
+	// Disable admin2 user.
+	err = st.DisableUserAuthentication(context.Background(), admin2UUID)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Get all users with auth info.
 	users, err := st.GetAllUsers(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(users, gc.HasLen, 2)
 
-	c.Check(users[0].Name, gc.Equals, adminUser1.Name)
-	c.Check(users[0].DisplayName, gc.Equals, adminUser1.DisplayName)
-	c.Check(users[0].CreatorUUID, gc.Equals, adminUUID1)
+	c.Check(users[0].Name, gc.Equals, admin1User.Name)
+	c.Check(users[0].DisplayName, gc.Equals, admin1User.DisplayName)
+	c.Check(users[0].CreatorUUID, gc.Equals, admin1UUID)
 	c.Check(users[0].CreatedAt, gc.NotNil)
+	c.Check(users[0].LastLogin, gc.NotNil)
+	c.Check(users[0].Disabled, gc.Equals, false)
 
-	c.Check(users[1].Name, gc.Equals, adminUser2.Name)
-	c.Check(users[1].DisplayName, gc.Equals, adminUser2.DisplayName)
-	c.Check(users[1].CreatorUUID, gc.Equals, adminUUID2)
+	c.Check(users[1].Name, gc.Equals, admin2User.Name)
+	c.Check(users[1].DisplayName, gc.Equals, admin2User.DisplayName)
+	c.Check(users[1].CreatorUUID, gc.Equals, admin2UUID)
 	c.Check(users[1].CreatedAt, gc.NotNil)
+	c.Check(users[1].LastLogin, gc.NotNil)
+	c.Check(users[1].Disabled, gc.Equals, true)
+}
+
+// TestUserWithAuthInfo asserts that we can get a user with auth info from the
+// database.
+func (s *stateSuite) TestUserWithAuthInfo(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	// Add admin1 user with password hash.
+	adminUUID, err := user.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	adminUser := user.User{
+		Name:        "admin",
+		DisplayName: "admin",
+	}
+	salt, err := auth.NewSalt()
+	c.Assert(err, jc.ErrorIsNil)
+	err = st.AddUserWithPasswordHash(context.Background(), adminUUID, adminUser, adminUUID, "passwordHash", salt)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Disable admin1 user.
+	err = st.DisableUserAuthentication(context.Background(), adminUUID)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Get user with auth info.
+	u, err := st.GetUser(context.Background(), adminUUID)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(u.Name, gc.Equals, adminUser.Name)
+	c.Check(u.DisplayName, gc.Equals, adminUser.DisplayName)
+	c.Check(u.CreatorUUID, gc.Equals, adminUUID)
+	c.Check(u.CreatedAt, gc.NotNil)
+	c.Check(u.LastLogin, gc.NotNil)
+	c.Check(u.Disabled, gc.Equals, true)
 }
 
 // TestSetPasswordHash asserts that we can set a password hash for a user.
@@ -769,4 +864,45 @@ WHERE user_uuid = ?
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(disabled, gc.Equals, false)
+}
+
+// TestUpdateLastLogin asserts that we can update the last login time for a
+// user.
+func (s *stateSuite) TestUpdateLastLogin(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	// Add admin user with activation key.
+	adminUUID, err := user.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	adminUser := user.User{
+		Name:        "admin",
+		DisplayName: "admin",
+	}
+
+	salt, err := auth.NewSalt()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Add user with password hash.
+	err = st.AddUserWithPasswordHash(context.Background(), adminUUID, adminUser, adminUUID, "passwordHash", salt)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Update last login.
+	err = st.UpdateLastLogin(context.Background(), adminUUID)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check that the last login was updated correctly.
+	db := s.DB()
+
+	row := db.QueryRow(`
+SELECT last_login
+FROM user_authentication
+WHERE user_uuid = ?
+	`, adminUUID)
+	c.Assert(row.Err(), jc.ErrorIsNil)
+
+	var lastLogin time.Time
+	err = row.Scan(&lastLogin)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(lastLogin, gc.NotNil)
 }

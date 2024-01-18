@@ -93,91 +93,9 @@ func (st *State) AddUserWithActivationKey(
 	})
 }
 
-// GetUser will retrieve the user specified by UUID from the database.
-// If the user does not exist an error that satisfies
-// usererrors.NotFound will be returned.
-func (st *State) GetUser(ctx context.Context, uuid user.UUID) (user.User, error) {
-	db, err := st.DB()
-	if err != nil {
-		return user.User{}, errors.Annotate(err, "getting DB access")
-	}
-
-	var usr user.User
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		getUserQuery := `
-SELECT &User.*
-FROM user
-WHERE uuid = $M.uuid
-`
-		selectGetUserStmt, err := sqlair.Prepare(getUserQuery, User{}, sqlair.M{})
-		if err != nil {
-			return errors.Annotate(err, "preparing select getUser query")
-		}
-
-		var result User
-		err = tx.Query(ctx, selectGetUserStmt, sqlair.M{"uuid": uuid.String()}).Get(&result)
-		if err != nil && errors.Is(err, sql.ErrNoRows) {
-			return errors.Annotatef(usererrors.NotFound, "%q", uuid)
-		} else if err != nil {
-			return errors.Annotatef(err, "getting user with uuid %q", uuid)
-		}
-
-		usr = result.toCoreUser()
-
-		return nil
-	})
-	if err != nil {
-		return user.User{}, errors.Annotatef(err, "getting user with uuid %q", uuid)
-	}
-
-	return usr, nil
-}
-
-// GetUserByName will retrieve the user specified by name from the database
-// where the user is active and has not been removed. If the user does not
-// exist or is removed an error that satisfies usererrors.NotFound will be
-// returned.
-func (st *State) GetUserByName(ctx context.Context, name string) (user.User, error) {
-	db, err := st.DB()
-	if err != nil {
-		return user.User{}, errors.Annotate(err, "getting DB access")
-	}
-
-	var usr user.User
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		getUserByNameQuery := `
-SELECT &User.*
-FROM user
-WHERE name = $M.name AND removed = false
-`
-
-		selectGetUserByNameStmt, err := sqlair.Prepare(getUserByNameQuery, User{}, sqlair.M{})
-		if err != nil {
-			return errors.Annotate(err, "preparing select getUserByName query")
-		}
-
-		var result User
-		err = tx.Query(ctx, selectGetUserByNameStmt, sqlair.M{"name": name}).Get(&result)
-		if err != nil && errors.Is(err, sql.ErrNoRows) {
-			return errors.Annotatef(usererrors.NotFound, "%q", name)
-		} else if err != nil {
-			return errors.Annotatef(err, "getting user %q", name)
-		}
-
-		usr = result.toCoreUser()
-
-		return nil
-	})
-	if err != nil {
-		return user.User{}, errors.Annotatef(err, "getting user %q", name)
-	}
-
-	return usr, nil
-}
-
-// GetAllUsers will retrieve all users from the database where the user is
-// active and has not been removed. If no users exist an empty slice will be
-// returned.
+// GetAllUsers will retrieve all users with authentication information
+// (last login, disabled) from the database. If no users exist an empty slice
+// will be returned.
 func (st *State) GetAllUsers(ctx context.Context) ([]user.User, error) {
 	db, err := st.DB()
 	if err != nil {
@@ -189,6 +107,7 @@ func (st *State) GetAllUsers(ctx context.Context) ([]user.User, error) {
 		getAllUsersQuery := `
 SELECT &User.*
 FROM user
+JOIN user_authentication ON user.uuid = user_authentication.user_uuid
 WHERE removed = false
 `
 
@@ -214,6 +133,90 @@ WHERE removed = false
 	}
 
 	return usrs, nil
+}
+
+// GetUser will retrieve the user with authentication information (last login, disabled)
+// specified by UUID from the database. If the user does not exist an error that satisfies
+// usererrors.NotFound will be returned.
+func (st *State) GetUser(ctx context.Context, uuid user.UUID) (user.User, error) {
+	db, err := st.DB()
+	if err != nil {
+		return user.User{}, errors.Annotate(err, "getting DB access")
+	}
+
+	var usr user.User
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		getUserQuery := `
+SELECT &User.*
+FROM user
+JOIN user_authentication ON user.uuid = user_authentication.user_uuid
+WHERE user.uuid = $M.uuid
+`
+
+		selectGetUserStmt, err := sqlair.Prepare(getUserQuery, User{}, sqlair.M{})
+		if err != nil {
+			return errors.Annotate(err, "preparing select getUser query")
+		}
+
+		var result User
+		err = tx.Query(ctx, selectGetUserStmt, sqlair.M{"uuid": uuid.String()}).Get(&result)
+		if err != nil && errors.Is(err, sql.ErrNoRows) {
+			return errors.Annotatef(usererrors.NotFound, "%q", uuid)
+		} else if err != nil {
+			return errors.Annotatef(err, "getting user with uuid %q", uuid)
+		}
+
+		usr = result.toCoreUser()
+
+		return nil
+	})
+	if err != nil {
+		return user.User{}, errors.Annotatef(err, "getting user with uuid %q", uuid)
+	}
+
+	return usr, nil
+}
+
+// GetUserByName will retrieve the user with authentication information (last login, disabled)
+// specified by name from the database. If the user does not exist an error that satisfies
+// usererrors.NotFound will be returned.
+func (st *State) GetUserByName(ctx context.Context, name string) (user.User, error) {
+	db, err := st.DB()
+	if err != nil {
+		return user.User{}, errors.Annotate(err, "getting DB access")
+	}
+
+	var usr user.User
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		getUserByNameQuery := `
+SELECT &User.*
+FROM user
+JOIN user_authentication ON user.uuid = user_authentication.user_uuid
+WHERE user.name = $M.name AND removed = false
+`
+
+		selectGetUserByNameStmt, err := sqlair.Prepare(getUserByNameQuery, User{}, sqlair.M{})
+		if err != nil {
+			return errors.Annotate(err, "preparing select getUserByName query")
+		}
+
+		var result User
+		err = tx.Query(ctx, selectGetUserByNameStmt, sqlair.M{"name": name}).Get(&result)
+		if err != nil && errors.Is(err, sql.ErrNoRows) {
+			return errors.Annotatef(usererrors.NotFound, "%q", name)
+		} else if err != nil {
+			return errors.Annotatef(err, "getting user with name %q", name)
+		}
+
+		usr = result.toCoreUser()
+
+		return nil
+	})
+	if err != nil {
+		return user.User{}, errors.Annotatef(err, "getting user with name %q", name)
+	}
+
+	return usr, nil
 }
 
 // RemoveUser marks the user as removed. This obviates the ability of a user
@@ -422,6 +425,45 @@ func AddUserWithPassword(
 	}
 
 	return errors.Trace(setPasswordHash(ctx, tx, uuid, passwordHash, salt))
+}
+
+// UpdateLastLogin updates the last login time for the user with the supplied
+// uuid. If the user does not exist an error that satisfies
+// usererrors.NotFound will be returned.
+func (st *State) UpdateLastLogin(ctx context.Context, uuid user.UUID) error {
+	db, err := st.DB()
+	if err != nil {
+		return errors.Annotate(err, "getting DB access")
+	}
+
+	updateLastLoginQuery := `
+UPDATE user_authentication
+SET last_login = $M.last_login
+WHERE user_uuid = $M.uuid
+`
+
+	updateLastLoginStmt, err := sqlair.Prepare(updateLastLoginQuery, sqlair.M{})
+	if err != nil {
+		return errors.Annotate(err, "preparing update updateLastLogin query")
+	}
+
+	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		removed, err := st.isRemoved(ctx, tx, uuid)
+		if err != nil {
+			return errors.Annotatef(err, "getting user with uuid %q", uuid)
+		}
+		if removed {
+			return errors.Annotatef(usererrors.NotFound, "%q", uuid)
+		}
+
+		query := tx.Query(ctx, updateLastLoginStmt, sqlair.M{"uuid": uuid.String(), "last_login": time.Now().UTC()})
+		err = query.Run()
+		if err != nil {
+			return errors.Annotatef(err, "updating last login for user with uuid %q", uuid)
+		}
+
+		return nil
+	})
 }
 
 // addUser adds a new user to the database. If the user already exists an error

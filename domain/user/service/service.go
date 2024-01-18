@@ -38,21 +38,20 @@ type State interface {
 	// usererrors.UserCreatorNotFound will be returned.
 	AddUserWithActivationKey(ctx context.Context, uuid user.UUID, usr user.User, creatorUUID user.UUID, activationKey []byte) error
 
-	// GetUser will retrieve the user specified by UUID from the database where
-	// the user is active. If the user does not exist an error that satisfies
+	// GetAllUsers will retrieve all users with authentication information
+	// (last login, disabled) from the database. If no users exist an empty slice
+	// will be returned.
+	GetAllUsers(context.Context) ([]user.User, error)
+
+	// GetUser will retrieve the user with authentication information (last login, disabled)
+	// specified by UUID from the database. If the user does not exist an error that satisfies
 	// usererrors.NotFound will be returned.
 	GetUser(context.Context, user.UUID) (user.User, error)
 
-	// GetUserByName will retrieve the user specified by name from the database
-	// where the user is active and has not been removed. If the user does not
-	// exist or is removed an error that satisfies usererrors.NotFound will be
-	// returned.
-	GetUserByName(context.Context, string) (user.User, error)
-
-	// GetAllUsers will retrieve all users from the database where the user is
-	// active and has not been removed. If no users exist an empty slice will be
-	// returned.
-	GetAllUsers(context.Context) ([]user.User, error)
+	// GetUserByName will retrieve the user with authentication information (last login, disabled)
+	// specified by name from the database. If the user does not exist an error that satisfies
+	// usererrors.NotFound will be returned.
+	GetUserByName(ctx context.Context, name string) (user.User, error)
 
 	// RemoveUser marks the user as removed. This obviates the ability of a user
 	// to function, but keeps the user retaining provenance, i.e. auditing.
@@ -80,6 +79,11 @@ type State interface {
 	// If no user is found for the supplied UUID an error is returned that
 	// satisfies usererrors.NotFound.
 	DisableUserAuthentication(context.Context, user.UUID) error
+
+	// UpdateLastLogin will update the last login time for the user.
+	// If no user is found for the supplied UUID an error is returned that
+	// satisfies usererrors.NotFound.
+	UpdateLastLogin(context.Context, user.UUID) error
 }
 
 // Service provides the API for working with users.
@@ -112,6 +116,17 @@ func NewService(st State) *Service {
 	return &Service{
 		st: st,
 	}
+}
+
+// GetAllUsers will retrieve all users with authentication information
+// (last login, disabled) from the database. If no users exist an empty slice
+// will be returned.
+func (s *Service) GetAllUsers(ctx context.Context) ([]user.User, error) {
+	usrs, err := s.st.GetAllUsers(ctx)
+	if err != nil {
+		return nil, errors.Annotate(err, "getting all users with auth info")
+	}
+	return usrs, nil
 }
 
 // GetUser will find and return the user with UUID. If there is no
@@ -152,15 +167,6 @@ func (s *Service) GetUserByName(
 		return user.User{}, errors.Annotatef(err, "getting user %q", name)
 	}
 
-	return usr, nil
-}
-
-// GetAllUsers will return all users that have not been removed.
-func (s *Service) GetAllUsers(ctx context.Context) ([]user.User, error) {
-	usr, err := s.st.GetAllUsers(ctx)
-	if err != nil {
-		return nil, errors.Annotate(err, "getting all users")
-	}
 	return usr, nil
 }
 
@@ -399,6 +405,22 @@ func (s *Service) DisableUserAuthentication(ctx context.Context, uuid user.UUID)
 
 	if err := s.st.DisableUserAuthentication(ctx, uuid); err != nil {
 		return errors.Annotatef(err, "disabling user with uuid %q", uuid)
+	}
+	return nil
+}
+
+// UpdateLastLogin will update the last login time for the user.
+//
+// The following error types are possible from this function:
+// - usererrors.UUIDNotValid: When the UUID supplied is not valid.
+// - usererrors.NotFound: If no user by the given UUID exists.
+func (s *Service) UpdateLastLogin(ctx context.Context, uuid user.UUID) error {
+	if err := uuid.Validate(); err != nil {
+		return errors.Annotatef(usererrors.UUIDNotValid, "%q", uuid)
+	}
+
+	if err := s.st.UpdateLastLogin(ctx, uuid); err != nil {
+		return errors.Annotatef(err, "updating last login for user with uuid %q", uuid)
 	}
 	return nil
 }
