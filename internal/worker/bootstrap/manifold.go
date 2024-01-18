@@ -120,11 +120,9 @@ func (cfg ManifoldConfig) Validate() error {
 	}
 	if cfg.LoggerFactory == nil {
 		return errors.NotValidf("nil LoggerFactory")
+	}
 	if cfg.EnvironName == "" {
 		return errors.NotValidf("empty EnvironName")
-	}
-	if cfg.Logger == nil {
-		return errors.NotValidf("nil Logger")
 	}
 	if cfg.AgentBinaryUploader == nil {
 		return errors.NotValidf("nil AgentBinaryUploader")

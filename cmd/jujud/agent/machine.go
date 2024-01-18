@@ -673,6 +673,7 @@ func (a *MachineAgent) makeEngineCreator(
 			DependencyEngineMetrics: metrics,
 			CharmhubHTTPClient:      charmhubHTTPClient,
 			S3HTTPClient:            s3HTTPClient,
+			NewEnvironFunc:          newEnvirons,
 		}
 		manifolds := iaasMachineManifolds(manifoldsCfg)
 		if a.isCaasAgent {
