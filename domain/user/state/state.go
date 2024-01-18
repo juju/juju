@@ -456,7 +456,7 @@ WHERE user_uuid = $M.uuid
 			return errors.Annotatef(usererrors.NotFound, "%q", uuid)
 		}
 
-		query := tx.Query(ctx, updateLastLoginStmt, sqlair.M{"uuid": uuid.String(), "last_login": time.Now()})
+		query := tx.Query(ctx, updateLastLoginStmt, sqlair.M{"uuid": uuid.String(), "last_login": time.Now().UTC()})
 		err = query.Run()
 		if err != nil {
 			return errors.Annotatef(err, "updating last login for user with uuid %q", uuid)
