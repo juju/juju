@@ -51,6 +51,7 @@ jobs:
 
       - name: Install Juju ${{ matrix.channel }}
         run: |
+          mkdir -p ~/.local/share/juju
           if [[ ${{ matrix.channel }} == '2.9/stable' ]]; then
             sudo snap install juju --classic --channel ${{ matrix.channel }}
           else
