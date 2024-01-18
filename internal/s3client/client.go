@@ -7,7 +7,6 @@ import (
 	"context"
 	"io"
 	"net/http"
-	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/aws/retry"
@@ -98,7 +97,9 @@ func NewS3Client(baseURL string, httpClient HTTPClient, credentials Credentials,
 		context.Background(),
 		config.WithLogger(awsLogger),
 		config.WithHTTPClient(httpClient),
-		config.WithEndpointResolverWithOptions(&awsEndpointResolver{endpoint: ensureHTTPS(baseURL)}),
+		config.WithEndpointResolverWithOptions(&awsEndpointResolver{endpoint: baseURL}),
+		// Standard retryer with custom max attempts. Will retry at most
+		// 10 times with 20s backoff time.
 		config.WithRetryer(func() aws.Retryer {
 			return retry.NewStandard(
 				func(o *retry.StandardOptions) {
@@ -192,6 +193,23 @@ func (c *S3Client) DeleteObject(ctx context.Context, bucketName, objectName stri
 	return nil
 }
 
+// CreateBucket creates a bucket in the object store based on the bucket name.
+func (c *S3Client) CreateBucket(ctx context.Context, bucketName string) error {
+	c.logger.Tracef("creating bucket %s in s3 storage", bucketName)
+
+	_, err := c.client.CreateBucket(ctx,
+		&s3.CreateBucketInput{
+			Bucket: aws.String(bucketName),
+		})
+	if err != nil {
+		if err := handleError(err); err != nil {
+			return errors.Trace(err)
+		}
+		return errors.Annotatef(err, "unable to create bucket %s using S3 client", bucketName)
+	}
+	return nil
+}
+
 // forbiddenErrorCodes is a list of error codes that are returned when the
 // credentials are invalid.
 // https://docs.aws.amazon.com/AmazonS3/latest/API/ErrorResponses.html#ErrorCodeList
@@ -200,6 +218,10 @@ var forbiddenErrorCodes = map[string]struct{}{
 	"InvalidAccessKeyId":    {},
 	"InvalidSecurity":       {},
 	"SignatureDoesNotMatch": {},
+}
+
+var alreadyExistCodes = map[string]struct{}{
+	"BucketAlreadyExists": {},
 }
 
 func handleError(err error) error {
@@ -211,6 +233,9 @@ func handleError(err error) error {
 	if errors.As(err, &ae) {
 		if _, ok := forbiddenErrorCodes[ae.ErrorCode()]; ok {
 			return errors.NewForbidden(err, ae.ErrorMessage())
+		}
+		if _, ok := alreadyExistCodes[ae.ErrorCode()]; ok {
+			return errors.NewAlreadyExists(err, ae.ErrorMessage())
 		}
 	}
 
@@ -241,17 +266,6 @@ func (l *awsLogger) Logf(classification logging.Classification, format string, v
 	default:
 		l.logger.Tracef(format, v)
 	}
-}
-
-// ensureHTTPS takes a URI and ensures that it is a HTTPS URL.
-func ensureHTTPS(address string) string {
-	if strings.HasPrefix(address, "https://") {
-		return address
-	}
-	if strings.HasPrefix(address, "http://") {
-		return strings.Replace(address, "http://", "https://", 1)
-	}
-	return "https://" + address
 }
 
 func getCredentialsProvider(creds Credentials) (aws.CredentialsProvider, error) {

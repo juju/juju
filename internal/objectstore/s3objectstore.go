@@ -7,9 +7,7 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/fs"
 	"os"
-	"path/filepath"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -18,32 +16,24 @@ import (
 	"github.com/juju/juju/core/objectstore"
 )
 
-const (
-	defaultFileDirectory = "objectstore"
-)
-
-type fileObjectStore struct {
+type s3ObjectStore struct {
 	baseObjectStore
-	fs        fs.FS
-	path      string
+	client    objectstore.Client
 	namespace string
 	requests  chan request
 }
 
-// NewFileObjectStore returns a new object store worker based on the file
+// NewS3ObjectStore returns a new object store worker based on the s3 backing
 // storage.
-func NewFileObjectStore(ctx context.Context, namespace, rootPath string, metadataService objectstore.ObjectStoreMetadata, claimer Claimer, logger Logger, clock clock.Clock) (TrackedObjectStore, error) {
-	path := filepath.Join(rootPath, defaultFileDirectory, namespace)
-
-	s := &fileObjectStore{
+func NewS3ObjectStore(ctx context.Context, namespace string, client objectstore.Client, metadataService objectstore.ObjectStoreMetadata, claimer Claimer, logger Logger, clock clock.Clock) (TrackedObjectStore, error) {
+	s := &s3ObjectStore{
 		baseObjectStore: baseObjectStore{
 			claimer:         claimer,
 			metadataService: metadataService,
 			logger:          logger,
 			clock:           clock,
 		},
-		fs:        os.DirFS(path),
-		path:      path,
+		client:    client,
 		namespace: namespace,
 
 		requests: make(chan request),
@@ -56,7 +46,7 @@ func NewFileObjectStore(ctx context.Context, namespace, rootPath string, metadat
 
 // Get returns an io.ReadCloser for data at path, namespaced to the
 // model.
-func (t *fileObjectStore) Get(ctx context.Context, path string) (io.ReadCloser, int64, error) {
+func (t *s3ObjectStore) Get(ctx context.Context, path string) (io.ReadCloser, int64, error) {
 	// Optimistically try to get the file from the file system. If it doesn't
 	// exist, then we'll get an error, and we'll try to get it when sequencing
 	// the get request with the put and remove requests.
@@ -92,7 +82,7 @@ func (t *fileObjectStore) Get(ctx context.Context, path string) (io.ReadCloser, 
 }
 
 // Put stores data from reader at path, namespaced to the model.
-func (t *fileObjectStore) Put(ctx context.Context, path string, r io.Reader, size int64) error {
+func (t *s3ObjectStore) Put(ctx context.Context, path string, r io.Reader, size int64) error {
 	response := make(chan response)
 	select {
 	case <-ctx.Done():
@@ -124,7 +114,7 @@ func (t *fileObjectStore) Put(ctx context.Context, path string, r io.Reader, siz
 
 // Put stores data from reader at path, namespaced to the model.
 // It also ensures the stored data has the correct hash.
-func (t *fileObjectStore) PutAndCheckHash(ctx context.Context, path string, r io.Reader, size int64, hash string) error {
+func (t *s3ObjectStore) PutAndCheckHash(ctx context.Context, path string, r io.Reader, size int64, hash string) error {
 	response := make(chan response)
 	select {
 	case <-ctx.Done():
@@ -155,7 +145,7 @@ func (t *fileObjectStore) PutAndCheckHash(ctx context.Context, path string, r io
 }
 
 // Remove removes data at path, namespaced to the model.
-func (t *fileObjectStore) Remove(ctx context.Context, path string) error {
+func (t *s3ObjectStore) Remove(ctx context.Context, path string) error {
 	response := make(chan response)
 	select {
 	case <-ctx.Done():
@@ -182,14 +172,7 @@ func (t *fileObjectStore) Remove(ctx context.Context, path string) error {
 	}
 }
 
-func (t *fileObjectStore) loop() error {
-	// Ensure the namespace directory exists.
-	if _, err := os.Stat(t.path); err != nil && errors.Is(err, os.ErrNotExist) {
-		if err := os.MkdirAll(t.path, 0755); err != nil {
-			return errors.Trace(err)
-		}
-	}
-
+func (t *s3ObjectStore) loop() error {
 	ctx, cancel := t.scopedContext()
 	defer cancel()
 
@@ -239,33 +222,28 @@ func (t *fileObjectStore) loop() error {
 	}
 }
 
-func (t *fileObjectStore) get(ctx context.Context, path string) (io.ReadCloser, int64, error) {
+func (t *s3ObjectStore) get(ctx context.Context, path string) (io.ReadCloser, int64, error) {
 	metadata, err := t.metadataService.GetMetadata(ctx, path)
 	if err != nil {
 		return nil, -1, fmt.Errorf("get metadata: %w", err)
 	}
 
-	file, err := t.fs.Open(metadata.Hash)
-	if err != nil {
-		return nil, -1, fmt.Errorf("opening file %q encoded as %q: %w", path, metadata.Hash, err)
+	var reader io.ReadCloser
+	var size int64
+	if err := t.client.Session(ctx, func(ctx context.Context, s objectstore.Session) error {
+		var err error
+		reader, size, _, err = s.GetObject(ctx, t.namespace, metadata.Hash)
+		return err
+	}); err != nil {
+		return nil, -1, fmt.Errorf("get object: %w", err)
 	}
 
-	// Verify that the size of the file matches the expected size.
-	// This is a sanity check, that the underlying file hasn't changed.
-	stat, err := file.Stat()
-	if err != nil {
-		return nil, -1, fmt.Errorf("retrieving size: file %q encoded as %q: %w", path, metadata.Hash, err)
-	}
-
-	size := stat.Size()
-	if metadata.Size != size {
-		return nil, -1, fmt.Errorf("size mismatch for %q: expected %d, got %d", path, metadata.Size, size)
-	}
-
-	return file, size, nil
+	return reader, size, nil
 }
 
-func (t *fileObjectStore) put(ctx context.Context, path string, r io.Reader, size int64, validator hashValidator) error {
+func (t *s3ObjectStore) put(ctx context.Context, path string, r io.Reader, size int64, validator hashValidator) error {
+	// We need to write this to a temp file, because if the client retries
+	// then we need seek back to the beginning of the file.
 	fileName, hash, err := t.writeToTmpFile(path, r, size)
 	if err != nil {
 		return errors.Trace(err)
@@ -298,32 +276,29 @@ func (t *fileObjectStore) put(ctx context.Context, path string, r io.Reader, siz
 	})
 }
 
-func (t *fileObjectStore) persistTmpFile(ctx context.Context, tmpFileName, hash string, size int64) error {
-	filePath := t.filePath(hash)
-
-	// Check to see if the file already exists with the same name.
-	if info, err := os.Stat(filePath); err == nil {
-		// If the file on disk isn't the same as the one we're trying to write,
-		// then we have a problem.
-		if info.Size() != size {
-			return errors.AlreadyExistsf("encoded as %q", filePath)
-		}
-		return nil
-	} else if err != nil && !errors.Is(err, os.ErrNotExist) {
-		// There is an error attempting to stat the file, and it's not because
-		// the file doesn't exist.
+func (t *s3ObjectStore) persistTmpFile(ctx context.Context, tmpFileName, hash string, size int64) error {
+	file, err := os.Open(tmpFileName)
+	if err != nil {
 		return errors.Trace(err)
 	}
 
-	// Swap out the temporary file for the real one.
-	if err := os.Rename(tmpFileName, filePath); err != nil {
+	if err := t.client.Session(ctx, func(ctx context.Context, s objectstore.Session) error {
+		// Seek back to the beginning of the file, so that we can read it again.
+		if _, err := file.Seek(0, io.SeekStart); err != nil {
+			return errors.Trace(err)
+		}
+
+		// Now that we've written the file, we can upload it to the object
+		// store.
+		return s.PutObject(ctx, t.namespace, hash, file, hash)
+	}); err != nil {
 		return errors.Trace(err)
 	}
 
 	return nil
 }
 
-func (t *fileObjectStore) remove(ctx context.Context, path string) error {
+func (t *s3ObjectStore) remove(ctx context.Context, path string) error {
 	metadata, err := t.metadataService.GetMetadata(ctx, path)
 	if err != nil {
 		return fmt.Errorf("get metadata: %w", err)
@@ -335,24 +310,8 @@ func (t *fileObjectStore) remove(ctx context.Context, path string) error {
 			return fmt.Errorf("remove metadata: %w", err)
 		}
 
-		filePath := t.filePath(hash)
-
-		// File doesn't exist, return early, nothing we can do in this case.
-		if _, err := os.Stat(filePath); err != nil && errors.Is(err, os.ErrNotExist) {
-			return nil
-		}
-
-		// If we fail to remove the file, we don't want to return an error, as
-		// the metadata has already been removed. Manual intervention will be
-		// required to remove the file. We may in the future want to prune the
-		// file store of files that are no longer referenced by metadata.
-		if err := os.Remove(filePath); err != nil {
-			t.logger.Errorf("failed to remove file %q for path %q: %v", filePath, path, err)
-		}
-		return nil
+		return t.client.Session(ctx, func(ctx context.Context, s objectstore.Session) error {
+			return s.DeleteObject(ctx, t.namespace, hash)
+		})
 	})
-}
-
-func (t *fileObjectStore) filePath(hash string) string {
-	return filepath.Join(t.path, hash)
 }

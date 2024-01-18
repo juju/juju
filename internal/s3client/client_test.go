@@ -91,6 +91,20 @@ func (s *s3ClientSuite) TestDeleteObject(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *s3ClientSuite) TestCreateBucket(c *gc.C) {
+	url, httpClient, cleanup := s.setupServer(c, func(w http.ResponseWriter, r *http.Request) {
+		c.Check(r.Method, gc.Equals, http.MethodPut)
+		c.Check(r.URL.Path, gc.Equals, "/bucket")
+	})
+	defer cleanup()
+
+	client, err := NewS3Client(url, httpClient, AnonymousCredentials{}, jujutesting.NewCheckLogger(c))
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = client.CreateBucket(context.Background(), "bucket")
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *s3ClientSuite) setupServer(c *gc.C, handler http.HandlerFunc) (string, HTTPClient, func()) {
 	server := httptest.NewTLSServer(handler)
 	return server.URL, server.Client(), func() {

@@ -16,7 +16,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
@@ -27,11 +26,7 @@ import (
 )
 
 type FileObjectStoreSuite struct {
-	testing.IsolationSuite
-
-	service       *MockObjectStoreMetadata
-	claimer       *MockClaimer
-	claimExtender *MockClaimExtender
+	baseSuite
 }
 
 var _ = gc.Suite(&FileObjectStoreSuite{})
@@ -98,6 +93,9 @@ func (s *FileObjectStoreSuite) TestGetMetadataAndFileFound(c *gc.C) {
 func (s *FileObjectStoreSuite) TestGetMetadataAndFileNotFoundThenFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
+	// Attempt to read the file before it exists. This should fail.
+	// Then attempt to read the file after it exists. This should succeed.
+
 	path := c.MkDir()
 
 	namespace := "inferi"
@@ -124,6 +122,7 @@ func (s *FileObjectStoreSuite) TestGetMetadataAndFileNotFoundThenFound(c *gc.C) 
 	c.Assert(size, gc.Equals, fileSize)
 	c.Assert(s.readFile(c, file), gc.Equals, "some content")
 }
+
 func (s *FileObjectStoreSuite) TestGetMetadataAndFileFoundWithIncorrectSize(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -418,6 +417,9 @@ func (s *FileObjectStoreSuite) TestRemoveFileNotFound(c *gc.C) {
 	// We just want to ensure that we don't return an error after the metadata
 	// is removed.
 
+	s.expectClaim("blah", 1)
+	s.expectRelease("blah", 1)
+
 	path := c.MkDir()
 
 	namespace := "inferi"
@@ -479,16 +481,6 @@ func (s *FileObjectStoreSuite) TestRemove(c *gc.C) {
 	s.expectFileDoesNotExist(c, path, namespace, hash)
 }
 
-func (s *FileObjectStoreSuite) setupMocks(c *gc.C) *gomock.Controller {
-	ctrl := gomock.NewController(c)
-
-	s.service = NewMockObjectStoreMetadata(ctrl)
-	s.claimer = NewMockClaimer(ctrl)
-	s.claimExtender = NewMockClaimExtender(ctrl)
-
-	return ctrl
-}
-
 func (s *FileObjectStoreSuite) createFile(c *gc.C, path, name, contents string) (int64, string) {
 	// Ensure the directory exists.
 	err := os.MkdirAll(path, 0755)
@@ -519,14 +511,6 @@ func (s *FileObjectStoreSuite) createFile(c *gc.C, path, name, contents string) 
 	c.Assert(err, jc.ErrorIsNil)
 
 	return info.Size(), hash
-}
-
-func (s *FileObjectStoreSuite) readFile(c *gc.C, reader io.ReadCloser) string {
-	defer reader.Close()
-
-	content, err := io.ReadAll(reader)
-	c.Assert(err, jc.ErrorIsNil)
-	return string(content)
 }
 
 func (s *FileObjectStoreSuite) calculateHash(c *gc.C, contents string) string {
