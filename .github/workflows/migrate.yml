@@ -19,7 +19,7 @@ permissions:
 
 jobs:
   migrate:
-    name: 2.9-to-3.x via ${{ matrix.client }} client
+    name: migrate from ${{ matrix.channel }} via ${{ matrix.client }} client
     runs-on: [self-hosted, linux, arm64, aws, large]
     if: github.event.pull_request.draft == false
     strategy:
@@ -27,8 +27,8 @@ jobs:
       matrix:
         # TODO: add microk8s tests
         cloud: ["lxd"]
-        channel: ["2.9/stable"]
-        client: ['2.9', '3.x']
+        channel: ["2.9/stable", "3.1/stable"]
+        client: ['source', 'target']
 
     steps:
       - name: Checkout code
@@ -47,62 +47,61 @@ jobs:
 
       - name: Setup LXD
         if: matrix.cloud == 'lxd'
-        uses: canonical/setup-lxd@v0.1.1
+        uses: canonical/setup-lxd@4e959f8e0d9c5feb27d44c5e4d9a330a782edee0
 
-      - name: Install Juju 2.9
+      - name: Install Juju ${{ matrix.channel }}
         run: |
-          sudo snap install juju --classic --channel ${{ matrix.channel }}
+          if [[ ${{ matrix.channel }} == '2.9/stable' ]]; then
+            sudo snap install juju --classic --channel ${{ matrix.channel }}
+          else
+            sudo snap install juju --channel ${{ matrix.channel }}
+          fi
 
-      - name: Bootstrap a 2.9 controller and model
+      - name: Bootstrap a ${{ matrix.channel }} controller and model
         run: |
           /snap/bin/juju version
-          /snap/bin/juju bootstrap lxd test29 --constraints "arch=$(go env GOARCH)"
+          /snap/bin/juju bootstrap lxd source-controller --constraints "arch=$(go env GOARCH)"
           /snap/bin/juju add-model test-migrate
           /snap/bin/juju set-model-constraints arch=$(go env GOARCH)
           /snap/bin/juju deploy ubuntu
-          
-          # TODO: use juju-restore
-          # TODO: add users/permissions/models and test that those migrate over
 
-      - name: Upgrade client to 3.x
+      - name: Install target juju client
         run: |
           make go-install &>/dev/null
 
-      - name: Bootstrap 3.x controller
+      - name: Bootstrap target controller
         run: |
           juju version
-          juju bootstrap lxd test3x --constraints "arch=$(go env GOARCH)"
+          juju bootstrap lxd target-controller --constraints "arch=$(go env GOARCH)"
           juju switch controller
           juju wait-for application controller
-
-        # TODO: create backup and juju restore
 
       - name: Migrate default model to 3.x controller
         run: |
           # Determine which Juju client to use
           JUJU='juju'
-          if [[ ${{ matrix.client }} == '2.9' ]]; then
+          if [[ ${{ matrix.client }} == 'source' ]]; then
             JUJU='/snap/bin/juju'
           fi
           
-          $JUJU switch test29
+          $JUJU switch source-controller
           
           # Ensure application is fully deployed
           # We have to use the old client to speak to the new controller, as
           # this is blocked otherwise.
-          /snap/bin/juju wait-for application ubuntu
+          $JUJU wait-for application ubuntu
 
           # Wait a few secs for the machine status to update
           # so that migration prechecks pass.
           sleep 10
 
           $JUJU version
-          $JUJU migrate test-migrate test3x
+          $JUJU migrate test-migrate target-controller
 
       - name: Check the migration was successful
         run: |
           set -x
-          juju switch test3x
+          juju switch target-controller
           
           # Wait for 'test-migrate' model to come through
           attempt=0
