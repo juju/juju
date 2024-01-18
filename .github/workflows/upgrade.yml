@@ -1,7 +1,7 @@
 name: "Upgrade"
 on:
   push:
-    branches: [2.9, 3.1, 3.2, 3.3]
+    branches: [3.*]
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
@@ -34,59 +34,57 @@ jobs:
       CHARM_localhost: apache2
       CHARM_microk8s: prometheus-k8s
       DOCKER_REGISTRY: 10.152.183.69
-      RUN_TEST: RUN
       UPGRADE_FLAGS_localhost: --build-agent
       UPGRADE_FLAGS_microk8s: --agent-stream=develop
       MODEL_TYPE_localhost: iaas
       MODEL_TYPE_microk8s: caas
 
     steps:
-      - name: Install Dependencies
-        if: env.RUN_TEST == 'RUN'
-        shell: bash
-        run: |
-          set -euxo pipefail
-          sudo snap install juju --channel=3.2/stable
-          mkdir -p ~/.local/share
-          echo "/snap/bin" >> $GITHUB_PATH
-
       - name: Checkout
-        if: env.RUN_TEST == 'RUN'
         uses: actions/checkout@v3
 
       - name: Setup LXD
-        if: env.RUN_TEST == 'RUN' && matrix.cloud == 'localhost'
+        if: matrix.cloud == 'localhost'
         uses: canonical/setup-lxd@4e959f8e0d9c5feb27d44c5e4d9a330a782edee0
 
       - name: Set some variables
-        if: env.RUN_TEST == 'RUN'
         run: |
           set -euxo pipefail
           
-          echo "base-juju-version=$(juju version | cut -d '-' -f 1)" >> $GITHUB_OUTPUT
-          upstreamJujuVersion=$(grep -r "const version =" version/version.go | sed -r 's/^const version = \"(.*)\"$/\1/')
-          echo "upstream-juju-version=${upstreamJujuVersion}" >> $GITHUB_OUTPUT
-          currentStableChannel="$(echo $upstreamJujuVersion | cut -d'.' -f1,2)/stable"
-          currentStableVersion=$(snap info juju | yq ".channels[\"$currentStableChannel\"]" | cut -d' ' -f1)
-          echo "current-stable-juju-version=$currentStableVersion" >> $GITHUB_OUTPUT
+          targetJujuVersion=$(grep -r "const version =" version/version.go | sed -r 's/^const version = \"(.*)\"$/\1/')
+          jujuSnapChannel="$(echo $targetJujuVersion | cut -d'.' -f1,2)/stable"
+          sourceJujuVersion=$(snap info juju | yq ".channels[\"$jujuSnapChannel\"]" | cut -d' ' -f1)
+
+          echo "juju-snap-channel=${jujuSnapChannel}" >> $GITHUB_OUTPUT
+          echo "target-juju-version=${targetJujuVersion}" >> $GITHUB_OUTPUT
+          echo "source-juju-version=${sourceJujuVersion}" >> $GITHUB_OUTPUT
           echo "juju-db-version=4.4" >> $GITHUB_OUTPUT
         id: vars
 
       - name: Set up Go
-        if: env.RUN_TEST == 'RUN'
         uses: actions/setup-go@v4
         with:
           go-version-file: 'go.mod'
           cache: true
 
-      - name: setup env
+      - name: Setup Environment
         shell: bash
         run: |
           echo "GOPATH=$(go env GOPATH)" >> $GITHUB_ENV
           echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
 
+      - name: Install Juju
+        shell: bash
+        env:
+          JUJU_SNAP_CHANNEL: ${{ steps.vars.outputs.juju-snap-channel }}
+        run: |
+          set -euxo pipefail
+          sudo snap install juju --channel=${JUJU_SNAP_CHANNEL}
+          mkdir -p ~/.local/share
+          echo "/snap/bin" >> $GITHUB_PATH
+
       - name: Setup Docker Mirror
-        if: env.RUN_TEST == 'RUN' && matrix.cloud == 'microk8s'
+        if: matrix.cloud == 'microk8s'
         shell: bash
         run: |
           (cat /etc/docker/daemon.json 2> /dev/null || echo "{}") | yq -o json '.registry-mirrors += ["http://10.0.1.123:80"]' | sudo tee /etc/docker/daemon.json
@@ -95,7 +93,7 @@ jobs:
           docker system info
 
       - name: Setup k8s
-        if: env.RUN_TEST == 'RUN' && matrix.cloud == 'microk8s'
+        if: matrix.cloud == 'microk8s'
         uses: balchua/microk8s-actions@e99a1ffcd3bb2682d941104cf6c1a215c657903f
         with:
           channel: "1.28-strict/stable"
@@ -103,7 +101,7 @@ jobs:
           launch-configuration: "$GITHUB_WORKSPACE/.github/microk8s-launch-config-aws.yaml"
 
       - name: Setup local caas registry
-        if: env.RUN_TEST == 'RUN' && matrix.cloud == 'microk8s'
+        if: matrix.cloud == 'microk8s'
         run: |
           set -euxo pipefail
           
@@ -133,9 +131,9 @@ jobs:
           curl https://${DOCKER_REGISTRY}/v2/
 
       - name: Mirror docker images required for juju bootstrap
-        if: env.RUN_TEST == 'RUN' && matrix.cloud == 'microk8s'
+        if: matrix.cloud == 'microk8s'
         env:
-          BASE_JUJU_TAG: ${{ steps.vars.outputs.base-juju-version }}
+          SOURCE_JUJU_TAG: ${{ steps.vars.outputs.source-juju-version }}
           JUJU_DB_TAG: ${{ steps.vars.outputs.juju-db-version }}
           CHARM_BASE: ubuntu-20.04
         run: |
@@ -145,14 +143,14 @@ jobs:
           BUILD_TEMP=$(mktemp -d)
           cp ~/certs/ca.crt $BUILD_TEMP/
           cat >$BUILD_TEMP/Dockerfile <<EOL
-            FROM docker.io/jujusolutions/jujud-operator:${BASE_JUJU_TAG}
+            FROM docker.io/jujusolutions/jujud-operator:${SOURCE_JUJU_TAG}
           
             COPY ca.crt /usr/local/share/ca-certificates/ca.crt
           
             RUN update-ca-certificates
           EOL
-          docker build $BUILD_TEMP -t ${DOCKER_REGISTRY}/test-repo/jujud-operator:${BASE_JUJU_TAG}
-          docker push ${DOCKER_REGISTRY}/test-repo/jujud-operator:${BASE_JUJU_TAG}
+          docker build $BUILD_TEMP -t ${DOCKER_REGISTRY}/test-repo/jujud-operator:${SOURCE_JUJU_TAG}
+          docker push ${DOCKER_REGISTRY}/test-repo/jujud-operator:${SOURCE_JUJU_TAG}
           
           docker pull docker.io/jujusolutions/juju-db:${JUJU_DB_TAG}
           docker tag docker.io/jujusolutions/juju-db:${JUJU_DB_TAG} ${DOCKER_REGISTRY}/test-repo/juju-db:${JUJU_DB_TAG}
@@ -163,7 +161,7 @@ jobs:
           docker push ${DOCKER_REGISTRY}/test-repo/charm-base:${CHARM_BASE}
 
       - name: Bootstrap Juju - localhost
-        if: env.RUN_TEST == 'RUN' && matrix.cloud == 'localhost'
+        if: matrix.cloud == 'localhost'
         shell: bash
         run: |
           set -euxo pipefail
@@ -177,7 +175,7 @@ jobs:
           juju status
 
       - name: Bootstrap Juju - microk8s
-        if: env.RUN_TEST == 'RUN' && matrix.cloud == 'microk8s'
+        if: matrix.cloud == 'microk8s'
 
         # TODO: Enabling developer-mode is a bit of a hack to get this working for now.
         # Ideally, we would mock our own simplestream, similar to Jenkins, to select
@@ -198,7 +196,6 @@ jobs:
           juju status
 
       - name: Deploy some applications
-        if: env.RUN_TEST == 'RUN'
         shell: bash
         run: |
           set -euxo pipefail
@@ -216,17 +213,16 @@ jobs:
           $GITHUB_WORKSPACE/.github/verify-${CHARM_${{ matrix.cloud }}}.sh 30
 
       - name: Update Juju
-        if: env.RUN_TEST == 'RUN'
         shell: bash
         run: |
           sudo snap remove juju --purge
           make go-install
 
       - name: Build jujud image
-        if: env.RUN_TEST == 'RUN' && matrix.cloud == 'microk8s'
+        if: matrix.cloud == 'microk8s'
         env:
-          UPSTREAM_JUJU_TAG: ${{ steps.vars.outputs.upstream-juju-version }}
-          CURRENT_STABLE_JUJU_TAG: ${{ steps.vars.outputs.current-stable-juju-version }}
+          UPSTREAM_JUJU_TAG: ${{ steps.vars.outputs.target-juju-version }}
+          CURRENT_STABLE_JUJU_TAG: ${{ steps.vars.outputs.source-juju-version }}
         run: |
           set -euxo pipefail
           
@@ -258,7 +254,6 @@ jobs:
           docker push ${DOCKER_REGISTRY}/test-repo/jujud-operator:${CURRENT_STABLE_JUJU_TAG}
 
       - name: Preflight
-        if: env.RUN_TEST == 'RUN'
         shell: bash
         run: |
           set -euxo pipefail
@@ -266,11 +261,10 @@ jobs:
           juju version
 
       - name: Test upgrade controller
-        if: env.RUN_TEST == 'RUN'
         shell: bash
         env:
-          UPSTREAM_JUJU_TAG: ${{ steps.vars.outputs.upstream-juju-version }}
-          CURRENT_STABLE_JUJU_TAG: ${{ steps.vars.outputs.current-stable-juju-version }}
+          UPSTREAM_JUJU_TAG: ${{ steps.vars.outputs.target-juju-version }}
+          CURRENT_STABLE_JUJU_TAG: ${{ steps.vars.outputs.source-juju-version }}
         run: |
           set -euxo pipefail
           
@@ -290,10 +284,9 @@ jobs:
           $GITHUB_WORKSPACE/.github/verify-${CHARM_${{ matrix.cloud }}}.sh 30
 
       - name: Test upgrade model
-        if: env.RUN_TEST == 'RUN'
         shell: bash
         env:
-          UPSTREAM_JUJU_TAG: ${{ steps.vars.outputs.upstream-juju-version }}
+          UPSTREAM_JUJU_TAG: ${{ steps.vars.outputs.target-juju-version }}
         run: |
           set -euxo pipefail
           
@@ -329,7 +322,6 @@ jobs:
           $GITHUB_WORKSPACE/.github/verify-${CHARM_${{ matrix.cloud }}}.sh 30
 
       - name: Wrap up
-        if: env.RUN_TEST == 'RUN'
         run: |
           set -euxo pipefail
           
