@@ -1,7 +1,7 @@
 name: "Snapcraft"
 on:
   push:
-    branches: [2.9, 3.1, 3.2, 3.3, main]
+    branches: [2.*, 3.*, 4.*, main]
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
