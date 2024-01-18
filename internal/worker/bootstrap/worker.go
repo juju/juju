@@ -13,11 +13,12 @@ import (
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/flags"
-	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/objectstore"
-	"github.com/juju/juju/environs/envcontext"
-	"github.com/juju/juju/environs/instances"
+	"github.com/juju/juju/domain/credential"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/internal/cloudconfig"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/worker/gate"
@@ -44,18 +45,14 @@ type LegacyState interface {
 	ToolsStorage(store objectstore.ObjectStore) (binarystorage.StorageCloser, error)
 }
 
-// Environ specifies the provider-specific methods needed by the bootstrap
-// worker.
-type Environ interface {
-	Instances(ctx envcontext.ProviderCallContext, ids []instance.Id) ([]instances.Instance, error)
-}
-
 // WorkerConfig encapsulates the configuration options for the
 // bootstrap worker.
 type WorkerConfig struct {
 	Agent                   agent.Agent
 	ObjectStoreGetter       ObjectStoreGetter
 	ControllerConfigService ControllerConfigService
+	CredentialService       CredentialService
+	CloudService            CloudService
 	FlagService             FlagService
 	BootstrapUnlocker       gate.Unlocker
 	AgentBinaryUploader     AgentBinaryBootstrapFunc
@@ -63,12 +60,11 @@ type WorkerConfig struct {
 	PopulateControllerCharm PopulateControllerCharmFunc
 	CharmhubHTTPClient      HTTPClient
 	UnitPassword            string
-	Environ                 Environ
+	NewEnvironsFunc         environs.NewEnvironFunc
+	LoggerFactory           LoggerFactory
 
 	// Deprecated: This is only here, until we can remove the state layer.
 	SystemState SystemState
-
-	LoggerFactory LoggerFactory
 }
 
 // Validate ensures that the config values are valid.
@@ -81,6 +77,12 @@ func (c *WorkerConfig) Validate() error {
 	}
 	if c.ControllerConfigService == nil {
 		return errors.NotValidf("nil ControllerConfigService")
+	}
+	if c.CredentialService == nil {
+		return errors.NotValidf("nil CredentialService")
+	}
+	if c.CloudService == nil {
+		return errors.NotValidf("nil CloudService")
 	}
 	if c.BootstrapUnlocker == nil {
 		return errors.NotValidf("nil BootstrapUnlocker")
@@ -105,6 +107,9 @@ func (c *WorkerConfig) Validate() error {
 	}
 	if c.SystemState == nil {
 		return errors.NotValidf("nil SystemState")
+	}
+	if c.NewEnvironsFunc == nil {
+		return errors.NotValidf("nil NewEnvironsFunc")
 	}
 	return nil
 }
@@ -163,6 +168,13 @@ func (w *bootstrapWorker) loop() error {
 
 	// Seed the controller charm to the object store.
 	if err := w.seedControllerCharm(ctx, dataDir); err != nil {
+		return errors.Trace(err)
+	}
+
+	// Get environ (needed to retrieve the controller address) so we can
+	// set the API host port.
+	_, err = w.getEnviron(ctx)
+	if err != nil {
 		return errors.Trace(err)
 	}
 
@@ -258,6 +270,49 @@ func (w *bootstrapWorker) bootstrapParams(ctx context.Context, dataDir string) (
 		return instancecfg.StateInitializationParams{}, errors.Trace(err)
 	}
 	return args, nil
+}
+
+func (w *bootstrapWorker) getEnviron(ctx context.Context) (environs.Environ, error) {
+	controllerModel, err := w.cfg.SystemState.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var cred *cloud.Credential
+	if cloudCredentialTag, ok := controllerModel.CloudCredentialTag(); ok {
+		credentialValue, err := w.cfg.CredentialService.CloudCredential(ctx, credential.IdFromTag(cloudCredentialTag))
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		cloudCredential := cloud.NewNamedCredential(
+			credentialValue.Label,
+			credentialValue.AuthType(),
+			credentialValue.Attributes(),
+			credentialValue.Revoked,
+		)
+		cred = &cloudCredential
+	}
+
+	cloud, err := w.cfg.CloudService.Get(ctx, controllerModel.CloudName())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	cloudSpec, err := cloudspec.MakeCloudSpec(*cloud, controllerModel.CloudRegion(), cred)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	controllerModelConfig, err := controllerModel.Config()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return w.cfg.NewEnvironsFunc(ctx, environs.OpenParams{
+		ControllerUUID: w.cfg.SystemState.ControllerModelUUID(),
+		Cloud:          cloudSpec,
+		Config:         controllerModelConfig,
+	})
 }
 
 type agentStorageShim struct {

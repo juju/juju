@@ -131,6 +131,9 @@ type Charm interface {
 // Model is the interface that is used to get information about a model.
 type Model interface {
 	Config() (*config.Config, error)
+	CloudCredentialTag() (names.CloudCredentialTag, bool)
+	CloudRegion() string
+	CloudName() string
 }
 
 // Unit is the interface that is used to get information about a

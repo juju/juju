@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/flags"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/bootstrap"
 	"github.com/juju/juju/internal/cloudconfig"
@@ -99,6 +100,8 @@ func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
 		CharmhubHTTPClient:      s.httpClient,
 		SystemState:             s.state,
 		ControllerConfigService: s.controllerConfigService,
+		CredentialService:       s.credentialService,
+		CloudService:            s.cloudService,
 		FlagService:             s.flagService,
 		PopulateControllerCharm: func(context.Context, bootstrap.ControllerCharmDeployer) error {
 			return nil
@@ -109,6 +112,7 @@ func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
 		ControllerCharmDeployer: func(ControllerCharmDeployerConfig) (bootstrap.ControllerCharmDeployer, error) {
 			return nil, nil
 		},
+		NewEnvironsFunc: func(context.Context, environs.OpenParams) (environs.Environ, error) { return nil, nil },
 	}, s.states)
 	c.Assert(err, jc.ErrorIsNil)
 	return w

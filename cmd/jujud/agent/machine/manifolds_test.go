@@ -85,7 +85,6 @@ func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *gc.C) {
 			"db-accessor",
 			"deployer",
 			"disk-manager",
-			"environ-tracker",
 			"external-controller-updater",
 			"fan-configurer",
 			"file-notify-watcher",
@@ -172,7 +171,6 @@ func (s *ManifoldsSuite) TestManifoldNamesCAAS(c *gc.C) {
 			"control-socket",
 			"controller-agent-config",
 			"db-accessor",
-			"environ-tracker",
 			"external-controller-updater",
 			"file-notify-watcher",
 			"http-server-args",
@@ -260,7 +258,6 @@ func (s *ManifoldsSuite) TestMigrationGuardsUsed(c *gc.C) {
 		"controller-agent-config",
 		"db-accessor",
 		"deployer",
-		"environ-tracker",
 		"file-notify-watcher",
 		"global-clock-updater",
 		"http-server",
@@ -557,17 +554,13 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 
 	"bootstrap": {
 		"agent",
-		"api-caller",
-		"api-config-watcher",
 		"change-stream",
 		"charmhub-http-client",
 		"clock",
 		"db-accessor",
-		"environ-tracker",
 		"file-notify-watcher",
 		"is-bootstrap-gate",
 		"is-controller-flag",
-		"is-responsible-flag",
 		"lease-manager",
 		"object-store",
 		"query-logger",
@@ -577,7 +570,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"trace",
 		"upgrade-database-flag",
 		"upgrade-database-gate",
-		"valid-credential-flag",
 	},
 
 	"broker-tracker": {
@@ -686,14 +678,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"upgrade-check-gate",
 		"upgrade-steps-flag",
 		"upgrade-steps-gate",
-	},
-
-	"environ-tracker": {
-		"agent",
-		"api-caller",
-		"api-config-watcher",
-		"is-responsible-flag",
-		"valid-credential-flag",
 	},
 
 	"external-controller-updater": {
@@ -1310,17 +1294,13 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 
 	"bootstrap": {
 		"agent",
-		"api-caller",
-		"api-config-watcher",
 		"change-stream",
 		"charmhub-http-client",
 		"clock",
 		"db-accessor",
-		"environ-tracker",
 		"file-notify-watcher",
 		"is-bootstrap-gate",
 		"is-controller-flag",
-		"is-responsible-flag",
 		"lease-manager",
 		"object-store",
 		"query-logger",
@@ -1330,7 +1310,6 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"trace",
 		"upgrade-database-flag",
 		"upgrade-database-gate",
-		"valid-credential-flag",
 	},
 
 	"central-hub": {"agent", "state-config-watcher"},
@@ -1388,14 +1367,6 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"is-controller-flag",
 		"query-logger",
 		"state-config-watcher",
-	},
-
-	"environ-tracker": {
-		"agent",
-		"api-caller",
-		"api-config-watcher",
-		"is-responsible-flag",
-		"valid-credential-flag",
 	},
 
 	"external-controller-updater": {

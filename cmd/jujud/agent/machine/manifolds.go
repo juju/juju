@@ -67,7 +67,6 @@ import (
 	"github.com/juju/juju/internal/worker/dbaccessor"
 	"github.com/juju/juju/internal/worker/deployer"
 	"github.com/juju/juju/internal/worker/diskmanager"
-	"github.com/juju/juju/internal/worker/environ"
 	"github.com/juju/juju/internal/worker/externalcontrollerupdater"
 	"github.com/juju/juju/internal/worker/fanconfigurer"
 	"github.com/juju/juju/internal/worker/filenotifywatcher"
@@ -333,11 +332,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 	controllerTag := agentConfig.Controller()
 
 	manifolds := dependency.Manifolds{
-		environTrackerName: ifCredentialValid(ifResponsible(environ.Manifold(environ.ManifoldConfig{
-			APICallerName:  apiCallerName,
-			NewEnvironFunc: config.NewEnvironFunc,
-			Logger:         loggo.GetLogger("juju.worker.environ"),
-		}))),
 		// The agent manifold references the enclosing agent, and is the
 		// foundation stone on which most other manifolds ultimately depend.
 		agentName: agent.Manifold(config.Agent),
@@ -883,10 +877,11 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			PopulateControllerCharm: bootstrap.PopulateControllerCharm,
 			LoggerFactory:           bootstrap.LoggoLoggerFactory(loggo.GetLogger("juju.worker.bootstrap")),
 
+			NewEnvironsFunc: config.NewEnvironFunc,
+
 			AgentBinaryUploader:     bootstrap.IAASAgentBinaryUploader,
 			ControllerCharmDeployer: bootstrap.IAASControllerCharmUploader,
 			ControllerUnitPassword:  bootstrap.IAASControllerUnitPassword,
-			EnvironName:             environTrackerName,
 		})),
 
 		toolsVersionCheckerName: ifNotMigrating(toolsversionchecker.Manifold(toolsversionchecker.ManifoldConfig{
@@ -1109,7 +1104,6 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			AgentBinaryUploader:     bootstrap.CAASAgentBinaryUploader,
 			ControllerCharmDeployer: bootstrap.CAASControllerCharmUploader,
 			ControllerUnitPassword:  bootstrap.CAASControllerUnitPassword,
-			EnvironName:             environTrackerName,
 		})),
 
 		// TODO(caas) - when we support HA, only want this on primary
@@ -1225,14 +1219,6 @@ var ifCredentialValid = engine.Housing{
 	},
 }.Decorate
 
-// ifResponsible wraps a manifold such that it only runs if the
-// responsibility flag is set.
-var ifResponsible = engine.Housing{
-	Flags: []string{
-		isResponsibleFlagName,
-	},
-}.Decorate
-
 var ifDatabaseUpgradeComplete = engine.Housing{
 	Flags: []string{
 		upgradeDatabaseFlagName,
@@ -1251,8 +1237,6 @@ const (
 	presenceName           = "presence"
 	pubSubName             = "pubsub-forwarder"
 	clockName              = "clock"
-	environTrackerName     = "environ-tracker"
-	isResponsibleFlagName  = "is-responsible-flag"
 
 	bootstrapName       = "bootstrap"
 	isBootstrapGateName = "is-bootstrap-gate"

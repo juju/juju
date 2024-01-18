@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/domain/servicefactory/testing"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/bootstrap"
 )
 
@@ -45,7 +46,6 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	cfg.CharmhubHTTPClientName = ""
-	cfg.EnvironName = ""
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
@@ -81,8 +81,6 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		ServiceFactoryName:     "service-factory",
 		CharmhubHTTPClientName: "charmhub-http-client",
 		LoggerFactory:          s.loggerFactory,
-		Logger:                 s.logger,
-		EnvironName:            "environ",
 		AgentBinaryUploader: func(context.Context, string, BinaryAgentStorageService, objectstore.ObjectStore, Logger) (func(), error) {
 			return func() {}, nil
 		},
@@ -98,6 +96,7 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		RequiresBootstrap: func(context.Context, FlagService) (bool, error) {
 			return false, nil
 		},
+		NewEnvironsFunc: func(context.Context, environs.OpenParams) (environs.Environ, error) { return nil, nil },
 	}
 }
 
@@ -109,12 +108,11 @@ func (s *manifoldSuite) newGetter() dependency.Getter {
 		"bootstrap-gate":       s.bootstrapUnlocker,
 		"charmhub-http-client": s.httpClient,
 		"service-factory":      testing.NewTestingServiceFactory(),
-		"environ":              s.environ,
 	}
 	return dependencytesting.StubGetter(resources)
 }
 
-var expectedInputs = []string{"agent", "state", "object-store", "bootstrap-gate", "service-factory", "charmhub-http-client", "environ"}
+var expectedInputs = []string{"agent", "state", "object-store", "bootstrap-gate", "service-factory", "charmhub-http-client"}
 
 func (s *manifoldSuite) TestInputs(c *gc.C) {
 	c.Assert(Manifold(s.getConfig()).Inputs, jc.SameContents, expectedInputs)

@@ -12,9 +12,12 @@ import (
 	"github.com/juju/worker/v4/dependency"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/flags"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/domain/credential"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/bootstrap"
 	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/internal/worker/common"
@@ -44,6 +47,18 @@ type Logger interface {
 // controller configuration.
 type ControllerConfigService interface {
 	ControllerConfig(context.Context) (controller.Config, error)
+}
+
+// CredentialService is the interface that is used to get the
+// cloud credential.
+type CredentialService interface {
+	CloudCredential(ctx context.Context, id credential.ID) (cloud.Credential, error)
+}
+
+// CloudService is the interface that is used to interact with the
+// cloud.
+type CloudService interface {
+	Get(ctx context.Context, name string) (*cloud.Cloud, error)
 }
 
 // FlagService is the interface that is used to set the value of a
@@ -88,14 +103,16 @@ type ManifoldConfig struct {
 	BootstrapGateName      string
 	ServiceFactoryName     string
 	CharmhubHTTPClientName string
-	EnvironName            string
 
 	AgentBinaryUploader     AgentBinaryBootstrapFunc
 	ControllerCharmDeployer ControllerCharmDeployerFunc
 	ControllerUnitPassword  ControllerUnitPasswordFunc
 	RequiresBootstrap       RequiresBootstrapFunc
 	PopulateControllerCharm PopulateControllerCharmFunc
-	LoggerFactory           LoggerFactory
+
+	NewEnvironsFunc environs.NewEnvironFunc
+
+	LoggerFactory LoggerFactory
 }
 
 // Validate validates the manifold configuration.
@@ -121,9 +138,6 @@ func (cfg ManifoldConfig) Validate() error {
 	if cfg.LoggerFactory == nil {
 		return errors.NotValidf("nil LoggerFactory")
 	}
-	if cfg.EnvironName == "" {
-		return errors.NotValidf("empty EnvironName")
-	}
 	if cfg.AgentBinaryUploader == nil {
 		return errors.NotValidf("nil AgentBinaryUploader")
 	}
@@ -139,6 +153,9 @@ func (cfg ManifoldConfig) Validate() error {
 	if cfg.PopulateControllerCharm == nil {
 		return errors.NotValidf("nil PopulateControllerCharm")
 	}
+	if cfg.NewEnvironsFunc == nil {
+		return errors.NotValidf("nil NewEnvironsFunc")
+	}
 	return nil
 }
 
@@ -152,7 +169,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.BootstrapGateName,
 			config.ServiceFactoryName,
 			config.CharmhubHTTPClientName,
-			config.EnvironName,
 		},
 		Start: func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
 			if err := config.Validate(); err != nil {
@@ -171,11 +187,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 
 			var controllerServiceFactory servicefactory.ControllerServiceFactory
 			if err := getter.Get(config.ServiceFactoryName, &controllerServiceFactory); err != nil {
-				return nil, errors.Trace(err)
-			}
-
-			var environ Environ
-			if err := getter.Get(config.EnvironName, &environ); err != nil {
 				return nil, errors.Trace(err)
 			}
 
@@ -228,6 +239,8 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				Agent:                   a,
 				ObjectStoreGetter:       objectStoreGetter,
 				ControllerConfigService: controllerServiceFactory.ControllerConfig(),
+				CredentialService:       controllerServiceFactory.Credential(),
+				CloudService:            controllerServiceFactory.Cloud(),
 				FlagService:             flagService,
 				SystemState:             &stateShim{State: systemState},
 				BootstrapUnlocker:       bootstrapUnlocker,
@@ -237,6 +250,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				CharmhubHTTPClient:      charmhubHTTPClient,
 				UnitPassword:            unitPassword,
 				LoggerFactory:           config.LoggerFactory,
+				NewEnvironsFunc:         config.NewEnvironsFunc,
 			})
 			if err != nil {
 				_ = stTracker.Done()
