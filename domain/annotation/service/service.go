@@ -46,5 +46,5 @@ func (s *Service) GetAnnotations(ctx context.Context, entity state.GlobalEntity)
 // in the database, then it will be updated.
 func (s *Service) SetAnnotations(ctx context.Context, entity state.GlobalEntity, annotations map[string]string) error {
 	err := s.st.SetAnnotations(ctx, entity, annotations)
-	return errors.Annotatef(err, "updating annotations for entity %q", entity.Tag())
+	return errors.Annotatef(err, "updating annotations for entity")
 }
