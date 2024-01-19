@@ -20,6 +20,7 @@ permissions:
 jobs:
   migrate:
     name: migrate from ${{ matrix.channel }} via ${{ matrix.client }} client
+    timeout-minutes: 30
     runs-on: [self-hosted, linux, arm64, aws, xlarge]
     if: github.event.pull_request.draft == false
     strategy:
@@ -85,7 +86,7 @@ jobs:
           juju switch controller
           juju wait-for application controller
 
-      - name: Migrate default model to 3.x controller
+      - name: Migrate model to target controller
         run: |
           # Determine which Juju client to use
           JUJU='juju'
