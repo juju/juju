@@ -59,8 +59,16 @@ func (AnonymousCredentials) Kind() CredentialsKind {
 	return AnonymousCredentialsKind
 }
 
-// objectsClient is a Juju shim around the AWS S3 client,
-// which Juju uses to drive it's object store requirents
+type unlimitedRateLimiter struct{}
+
+func (unlimitedRateLimiter) AddTokens(uint) error { return nil }
+func (unlimitedRateLimiter) GetToken(context.Context, uint) (func() error, error) {
+	return noOpToken, nil
+}
+func noOpToken() error { return nil }
+
+// S3Client is a Juju shim around the AWS S3 client,
+// which Juju uses to drive its object store requirements.
 type S3Client struct {
 	logger Logger
 	client *s3.Client
@@ -84,9 +92,16 @@ func NewS3Client(httpClient HTTPClient, credentials Credentials, logger Logger) 
 		config.WithLogger(awsLogger),
 		config.WithHTTPClient(httpClient),
 		config.WithEndpointResolverWithOptions(&awsEndpointResolver{endpoint: httpsAPIAddress}),
-		// Standard retryer retries 3 times with 20s backoff time by
-		// default.
-		config.WithRetryer(func() aws.Retryer { return retry.NewStandard() }),
+		// Standard retryer with custom max attempts. Will retry at most
+		// 10 times with 20s backoff time.
+		config.WithRetryer(func() aws.Retryer {
+			return retry.NewStandard(
+				func(o *retry.StandardOptions) {
+					o.MaxAttempts = 10
+					o.RateLimiter = unlimitedRateLimiter{}
+				},
+			)
+		}),
 		// The anonymous credentials are needed by the aws sdk to
 		// perform anonymous s3 access.
 		config.WithCredentialsProvider(credentialsProvider),
