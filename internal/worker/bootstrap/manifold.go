@@ -58,7 +58,7 @@ type CredentialService interface {
 // CloudService is the interface that is used to interact with the
 // cloud.
 type CloudService interface {
-	Get(ctx context.Context, name string) (*cloud.Cloud, error)
+	Get(context.Context, string) (*cloud.Cloud, error)
 }
 
 // FlagService is the interface that is used to set the value of a

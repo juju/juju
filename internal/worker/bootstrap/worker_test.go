@@ -17,6 +17,7 @@ import (
 	gomock "go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	cloud "github.com/juju/juju/cloud"
 	controller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/flags"
@@ -47,6 +48,7 @@ func (s *workerSuite) TestKilled(c *gc.C) {
 	s.expectAgentConfig(c)
 	s.expectObjectStoreGetter(2)
 	s.expectBootstrapFlagSet()
+	s.expectGetEnviron()
 
 	w := s.newWorker(c)
 	defer workertest.DirtyKill(c, w)
@@ -147,6 +149,23 @@ func (s *workerSuite) ensureState(c *gc.C, st string) {
 
 func (s *workerSuite) expectControllerConfig() {
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(controller.Config{}, nil)
+}
+
+func (s *workerSuite) expectGetEnviron() {
+	s.state.EXPECT().Model().Return(s.stateModel, nil)
+	s.stateModel.EXPECT().CloudCredentialTag()
+	s.stateModel.EXPECT().CloudName().Return("cloud-name")
+	s.stateModel.EXPECT().CloudRegion().Return("cloud-region")
+	s.stateModel.EXPECT().Config().Return(&config.Config{}, nil)
+	cloud := cloud.Cloud{
+		Regions: []cloud.Region{
+			{
+				Name: "cloud-region",
+			},
+		},
+	}
+	s.cloudService.EXPECT().Get(gomock.Any(), "cloud-name").Return(&cloud, nil)
+	s.state.EXPECT().ControllerModelUUID()
 }
 
 func (s *workerSuite) expectObjectStoreGetter(num int) {
