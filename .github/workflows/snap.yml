@@ -1,7 +1,7 @@
 name: "Snapcraft"
 on:
   push:
-    branches: [2.9, 3.1, 3.2, 3.3, main]
+    branches: [2.*, 3.*, 4.*, main]
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
@@ -37,6 +37,13 @@ jobs:
 
     - name: Setup LXD
       uses: canonical/setup-lxd@4e959f8e0d9c5feb27d44c5e4d9a330a782edee0
+  
+    - name: Wait for LXD
+      run: |
+        while ! ip link show lxdbr0; do
+          echo "Waiting for lxdbr0..."
+          sleep 10
+        done
 
     - name: Set up Go
       if: env.RUN_TEST == 'RUN'
