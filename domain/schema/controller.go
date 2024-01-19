@@ -21,6 +21,7 @@ const (
 	tableAutocertCache
 	tableUpgradeInfoControllerNode
 	tableObjectStoreMetadata
+	tableSecretBackendRotation
 )
 
 // ControllerDDL is used to create the controller database schema at bootstrap.
@@ -28,32 +29,37 @@ func ControllerDDL() *schema.Schema {
 	patches := []func() schema.Patch{
 		leaseSchema,
 		changeLogSchema,
-		changeLogControllerNamespaces,
+		changeLogControllerNamespacesSchema,
 		cloudSchema,
-		changeLogTriggersForTable("cloud", "uuid", tableCloud),
-		changeLogTriggersForTable("cloud_credential", "uuid", tableCloudCredential),
 		externalControllerSchema,
-		changeLogTriggersForTable("external_controller", "uuid", tableExternalController),
 		modelListSchema,
 		modelMetadataSchema,
 		modelAgentSchema,
 		controllerConfigSchema,
-		changeLogTriggersForTable("controller_config", "key", tableControllerConfig),
-		controllerNodeTable,
-		changeLogTriggersForTable("controller_node", "controller_id", tableControllerNode),
+		controllerNodeTableSchema,
 		modelMigrationSchema,
-		changeLogTriggersForTable("model_migration_status", "uuid", tableModelMigrationStatus),
-		changeLogTriggersForTable("model_migration_minion_sync", "uuid", tableModelMigrationMinionSync),
 		upgradeInfoSchema,
-		changeLogTriggersForTable("upgrade_info", "uuid", tableUpgradeInfo),
-		changeLogTriggersForTable("upgrade_info_controller_node", "upgrade_info_uuid", tableUpgradeInfoControllerNode),
 		autocertCacheSchema,
 		objectStoreMetadataSchema,
-		changeLogTriggersForTable("object_store_metadata_path", "path", tableObjectStoreMetadata),
 		userSchema,
 		flagSchema,
 		userPermissionSchema,
+		secretBackendSchema,
 	}
+
+	patches = append(patches,
+		changeLogTriggersForTable("cloud", "uuid", tableCloud),
+		changeLogTriggersForTable("cloud_credential", "uuid", tableCloudCredential),
+		changeLogTriggersForTable("external_controller", "uuid", tableExternalController),
+		changeLogTriggersForTable("controller_config", "key", tableControllerConfig),
+		changeLogTriggersForTable("controller_node", "controller_id", tableControllerNode),
+		changeLogTriggersForTable("model_migration_status", "uuid", tableModelMigrationStatus),
+		changeLogTriggersForTable("model_migration_minion_sync", "uuid", tableModelMigrationMinionSync),
+		changeLogTriggersForTable("upgrade_info", "uuid", tableUpgradeInfo),
+		changeLogTriggersForTable("upgrade_info_controller_node", "upgrade_info_uuid", tableUpgradeInfoControllerNode),
+		changeLogTriggersForTable("object_store_metadata_path", "path", tableObjectStoreMetadata),
+		changeLogTriggersForTableOnColumn("secret_backend_rotation", "backend_uuid", "next_rotation_time", tableSecretBackendRotation),
+	)
 
 	ctrlSchema := schema.New()
 	for _, fn := range patches {
@@ -114,7 +120,7 @@ CREATE INDEX idx_lease_pin_lease
 ON lease_pin (lease_uuid);`)
 }
 
-func changeLogControllerNamespaces() schema.Patch {
+func changeLogControllerNamespacesSchema() schema.Patch {
 	// Note: These should match exactly the values of the tableNamespaceID
 	// constants above.
 	return schema.MakePatch(`
@@ -411,7 +417,7 @@ CREATE TABLE controller_config (
 );`)
 }
 
-func controllerNodeTable() schema.Patch {
+func controllerNodeTableSchema() schema.Patch {
 	return schema.MakePatch(`
 CREATE TABLE controller_node (
     controller_id  TEXT PRIMARY KEY, 
