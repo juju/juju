@@ -1101,6 +1101,8 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			PopulateControllerCharm: bootstrap.PopulateControllerCharm,
 			LoggerFactory:           bootstrap.LoggoLoggerFactory(loggo.GetLogger("juju.worker.bootstrap")),
 
+			NewEnvironsFunc: config.NewEnvironFunc,
+
 			AgentBinaryUploader:     bootstrap.CAASAgentBinaryUploader,
 			ControllerCharmDeployer: bootstrap.CAASControllerCharmUploader,
 			ControllerUnitPassword:  bootstrap.CAASControllerUnitPassword,
