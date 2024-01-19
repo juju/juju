@@ -21,12 +21,32 @@ permissions:
   contents: read
 
 jobs:
+  setup:
+    name: Upgrade pre-check
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.check.outputs.version }}
+      channel: ${{ steps.check.outputs.channel }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Check
+        id: check
+        run: |
+          set -euxo pipefail
+          version=$(grep -r "const version =" version/version.go | sed -r 's/^const version = \"(.*)\"$/\1/')
+          majmin=$(echo $version | awk -F'[.-]' '{print $1 "." $2}')
+          snap info juju > snap-info.txt
+          channel=$(awk -F':' -v ver=$majmin 'NR == 1, /channels/ {next} {gsub(/ /, "", $1); gsub(/ /, "", $2); if (!match($1,ver)) next; if ($2 == "--") next; print $1; exit}' snap-info.txt)
+          echo "version=$version" >> $GITHUB_OUTPUT 
+          echo "channel=$channel" >> $GITHUB_OUTPUT 
 
   upgrade:
     name: Upgrade
     runs-on: [self-hosted, linux, x64, aws, xlarge]
     timeout-minutes: 30
-    if: github.event.pull_request.draft == false
+    needs: setup
+    if: github.event.pull_request.draft == false && needs.setup.outputs.channel != ''
     strategy:
       fail-fast: false
       matrix:
@@ -60,12 +80,7 @@ jobs:
         run: |
           set -euxo pipefail
           
-          targetJujuVersion=$(grep -r "const version =" version/version.go | sed -r 's/^const version = \"(.*)\"$/\1/')
-          jujuSnapChannel="$(echo $targetJujuVersion | cut -d'.' -f1,2)/stable"
-          sourceJujuVersion=$(snap info juju | yq ".channels[\"$jujuSnapChannel\"]" | cut -d' ' -f1)
-
-          echo "juju-snap-channel=${jujuSnapChannel}" >> $GITHUB_OUTPUT
-          echo "target-juju-version=${targetJujuVersion}" >> $GITHUB_OUTPUT
+          sourceJujuVersion=$(snap info juju | yq ".channels[\"${{ needs.setup.outputs.channel }}\"]" | cut -d' ' -f1)
           echo "source-juju-version=${sourceJujuVersion}" >> $GITHUB_OUTPUT
         id: vars
 
@@ -84,7 +99,7 @@ jobs:
       - name: Install Juju
         shell: bash
         env:
-          JUJU_SNAP_CHANNEL: ${{ steps.vars.outputs.juju-snap-channel }}
+          JUJU_SNAP_CHANNEL: ${{ needs.setup.outputs.channel }}
         run: |
           set -euxo pipefail
           sudo snap install juju --channel=${JUJU_SNAP_CHANNEL}
@@ -221,7 +236,7 @@ jobs:
       - name: Build jujud image
         if: matrix.cloud == 'microk8s'
         env:
-          TARGET_JUJU_VERSION: ${{ steps.vars.outputs.target-juju-version }}
+          TARGET_JUJU_VERSION: ${{ needs.setup.outputs.version }}
         run: |
           set -euxo pipefail
           
@@ -250,7 +265,7 @@ jobs:
       - name: Test upgrade controller
         shell: bash
         env:
-          TARGET_JUJU_VERSION: ${{ steps.vars.outputs.target-juju-version }}
+          TARGET_JUJU_VERSION: ${{ needs.setup.outputs.version }}
         run: |
           set -euxo pipefail
           
@@ -272,7 +287,7 @@ jobs:
       - name: Test upgrade model
         shell: bash
         env:
-          TARGET_JUJU_VERSION: ${{ steps.vars.outputs.target-juju-version }}
+          TARGET_JUJU_VERSION: ${{ needs.setup.outputs.version }}
         run: |
           set -euxo pipefail
           
