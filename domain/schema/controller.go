@@ -629,46 +629,46 @@ INSERT INTO permission_object_type VALUES
 
 CREATE TABLE permission_object_access (
     id              INT PRIMARY KEY,
-    access_type     INT NOT NULL,
-    object_type     INT NOT NULL,
-    CONSTRAINT      uc_object_access UNIQUE (access_type, object_type),
+    access_type_id  INT NOT NULL,
+    object_type_id  INT NOT NULL,
     CONSTRAINT      fk_permission_access_type
-        FOREIGN KEY (access_type)
+        FOREIGN KEY (access_type_id)
         REFERENCES  permission_access_type(id),
     CONSTRAINT      fk_permission_object_type
-        FOREIGN KEY (object_type)
+        FOREIGN KEY (object_type_id)
         REFERENCES  permission_object_type(id)
 );
 
 CREATE UNIQUE INDEX idx_permission_object_access
-ON permission_object_access (access_type, object_type);
+ON permission_object_access (access_type_id, object_type_id);
 
 INSERT INTO permission_object_access VALUES
-    (0, 5 ,0), -- login, controller
-    (1, 7 ,0), -- superuser, controller
-    (2, 4, 1), -- admin, cloud
-    (3, 6, 1), -- addmodel, cloud
-    (4, 1, 2), -- read, model
-    (5, 2, 2), -- write, model
-    (6, 4, 2), -- admin, model
-    (7, 1, 3), -- read, offer
-    (8, 3, 3), -- consume, offer
-    (9, 4, 3); -- admin, offer
+    (0, 4, 0), -- login, controller
+    (1, 6, 0), -- superuser, controller
+    (2, 3, 1), -- admin, cloud
+    (3, 5, 1), -- addmodel, cloud
+    (4, 0, 2), -- read, model
+    (5, 1, 2), -- write, model
+    (6, 3, 2), -- admin, model
+    (7, 0, 3), -- read, offer
+    (8, 2, 3), -- consume, offer
+    (9, 3, 3); -- admin, offer
 
 
 CREATE TABLE user_permission (
-    uuid            TEXT PRIMARY KEY,
-    object_name     TEXT NOT NULL, -- name or uuid of the object
-    object_access   INT NOT NULL,
-    user_uuid       TEXT NOT NULL,
-    -- ensure that for a user, only one object_name enters the DB
-    CONSTRAINT      uc_permission UNIQUE (user_uuid, object_name),
-    CONSTRAINT      fk_permission_user_uuid
-    	FOREIGN KEY (user_uuid)
-    	REFERENCES  user(uuid),
-    CONSTRAINT      fk_permission_object_access
-        FOREIGN KEY (object_access)
-        REFERENCES  permission_object_access(id)
+    uuid               TEXT PRIMARY KEY,
+    object_identifier  TEXT NOT NULL, -- name or uuid of the object
+    object_access_id   INT NOT NULL,
+    user_uuid          TEXT NOT NULL,
+    CONSTRAINT         fk_permission_user_uuid
+        FOREIGN KEY    (user_uuid)
+        REFERENCES     user(uuid),
+    CONSTRAINT         fk_permission_object_access
+        FOREIGN KEY    (object_access_id)
+        REFERENCES     permission_object_access(id)
 );
+
+CREATE UNIQUE INDEX idx_user_permission
+ON user_permission (user_uuid, object_identifier);
 `)
 }
