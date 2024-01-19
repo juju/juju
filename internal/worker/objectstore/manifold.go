@@ -5,7 +5,6 @@ package objectstore
 
 import (
 	"context"
-	stdcontext "context"
 	"time"
 
 	"github.com/juju/clock"
@@ -40,7 +39,7 @@ type Logger interface {
 // ObjectStoreGetter is the interface that is used to get a object store.
 type ObjectStoreGetter interface {
 	// GetObjectStore returns a object store for the given namespace.
-	GetObjectStore(stdcontext.Context, string) (coreobjectstore.ObjectStore, error)
+	GetObjectStore(context.Context, string) (coreobjectstore.ObjectStore, error)
 }
 
 // StatePool is the interface to retrieve the mongo session from.
@@ -82,6 +81,7 @@ type ManifoldConfig struct {
 	TraceName          string
 	ServiceFactoryName string
 	LeaseManagerName   string
+	S3ClientName       string
 
 	Clock                clock.Clock
 	Logger               Logger
@@ -108,6 +108,9 @@ func (cfg ManifoldConfig) Validate() error {
 	if cfg.LeaseManagerName == "" {
 		return errors.NotValidf("empty LeaseManagerName")
 	}
+	if cfg.S3ClientName == "" {
+		return errors.NotValidf("empty S3ClientName")
+	}
 	if cfg.Clock == nil {
 		return errors.NotValidf("nil Clock")
 	}
@@ -129,6 +132,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.StateName,
 			config.ServiceFactoryName,
 			config.LeaseManagerName,
+			config.S3ClientName,
 		},
 		Output: output,
 		Start: func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
@@ -166,6 +170,11 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 
+			var s3Client coreobjectstore.Client
+			if err := getter.Get(config.S3ClientName, &s3Client); err != nil {
+				return nil, errors.Trace(err)
+			}
+
 			var stTracker state.StateTracker
 			if err := getter.Get(config.StateName, &stTracker); err != nil {
 				return nil, errors.Trace(err)
@@ -185,6 +194,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				Logger:                     config.Logger,
 				NewObjectStoreWorker:       config.NewObjectStoreWorker,
 				ObjectStoreType:            objectStoreType,
+				S3Client:                   s3Client,
 				ControllerMetadataService:  controllerMetadataService{factory: controllerServiceFactory},
 				ModelMetadataServiceGetter: modelMetadataServiceGetter{factoryGetter: modelServiceFactoryGetter},
 				ModelClaimGetter:           modelClaimGetter{manager: leaseManager},
@@ -210,7 +220,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 // ControllerConfigService is the interface that is used to get the controller
 // config.
 type ControllerConfigService interface {
-	ControllerConfig(stdcontext.Context) (controller.Config, error)
+	ControllerConfig(context.Context) (controller.Config, error)
 }
 
 // GetObjectStoreType returns the object store type from the controller config
@@ -218,7 +228,7 @@ type ControllerConfigService interface {
 // In reality this is a work around from the fact that we're dealing with
 // a real concrete controller config service, and not an interface.
 func GetObjectStoreType(controllerConfigService ControllerConfigService) (coreobjectstore.BackendType, error) {
-	controllerConfig, err := controllerConfigService.ControllerConfig(stdcontext.TODO())
+	controllerConfig, err := controllerConfigService.ControllerConfig(context.TODO())
 	if err != nil {
 		return coreobjectstore.BackendType(""), errors.Trace(err)
 	}
@@ -323,7 +333,7 @@ type claimer struct {
 
 // Claim attempts to claim an exclusive lock for the hash. If the claim
 // is already taken or fails, then an error is returned.
-func (l claimer) Claim(ctx stdcontext.Context, hash string) (objectstore.ClaimExtender, error) {
+func (l claimer) Claim(ctx context.Context, hash string) (objectstore.ClaimExtender, error) {
 	if err := l.claimer.Claim(hash, coreobjectstore.ObjectStoreLeaseHolderName, defaultClaimDuration*2); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -335,7 +345,7 @@ func (l claimer) Claim(ctx stdcontext.Context, hash string) (objectstore.ClaimEx
 }
 
 // Release removes the claim for the given hash.
-func (l claimer) Release(ctx stdcontext.Context, hash string) error {
+func (l claimer) Release(ctx context.Context, hash string) error {
 	return l.revoker.Revoke(hash, coreobjectstore.ObjectStoreLeaseHolderName)
 }
 
@@ -347,7 +357,7 @@ type claimExtender struct {
 // Extend extends the claim for the given hash. This will also check that the
 // claim is still valid. If the claim is no longer held, it will claim it
 // again.
-func (l claimExtender) Extend(ctx stdcontext.Context) error {
+func (l claimExtender) Extend(ctx context.Context) error {
 	return l.claimer.Claim(l.hash, coreobjectstore.ObjectStoreLeaseHolderName, defaultClaimDuration)
 }
 

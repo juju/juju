@@ -50,6 +50,9 @@ type WriteSession interface {
 	// DeleteObject deletes an object from the object store based on the bucket name
 	// and object name.
 	DeleteObject(ctx context.Context, bucketName, objectName string) error
+
+	// CreateBucket creates a bucket in the object store based on the bucket name.
+	CreateBucket(ctx context.Context, bucketName string) error
 }
 
 // ObjectStore represents a full object store for both read and write access.

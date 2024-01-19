@@ -13,7 +13,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
-	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/aws/smithy-go"
 	"github.com/aws/smithy-go/logging"
 	"github.com/juju/errors"
@@ -159,11 +158,11 @@ func (c *S3Client) PutObject(ctx context.Context, bucketName, objectName string,
 
 	_, err := c.client.PutObject(ctx,
 		&s3.PutObjectInput{
-			Bucket:            aws.String(bucketName),
-			Key:               aws.String(objectName),
-			Body:              body,
-			ChecksumAlgorithm: types.ChecksumAlgorithmSha256,
-			ChecksumSHA256:    aws.String(hash),
+			Bucket: aws.String(bucketName),
+			Key:    aws.String(objectName),
+			Body:   body,
+			// ChecksumAlgorithm: types.ChecksumAlgorithmSha256,
+			// ChecksumSHA256:    aws.String(hash),
 		})
 	if err != nil {
 		if err := handleError(err); err != nil {
@@ -221,7 +220,8 @@ var forbiddenErrorCodes = map[string]struct{}{
 }
 
 var alreadyExistCodes = map[string]struct{}{
-	"BucketAlreadyExists": {},
+	"BucketAlreadyExists":     {},
+	"BucketAlreadyOwnedByYou": {},
 }
 
 func handleError(err error) error {

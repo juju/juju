@@ -40,6 +40,20 @@ func (m *MockSession) EXPECT() *MockSessionMockRecorder {
 	return m.recorder
 }
 
+// CreateBucket mocks base method.
+func (m *MockSession) CreateBucket(arg0 context.Context, arg1 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateBucket", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// CreateBucket indicates an expected call of CreateBucket.
+func (mr *MockSessionMockRecorder) CreateBucket(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateBucket", reflect.TypeOf((*MockSession)(nil).CreateBucket), arg0, arg1)
+}
+
 // DeleteObject mocks base method.
 func (m *MockSession) DeleteObject(arg0 context.Context, arg1, arg2 string) error {
 	m.ctrl.T.Helper()

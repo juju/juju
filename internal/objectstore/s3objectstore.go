@@ -16,6 +16,10 @@ import (
 	"github.com/juju/juju/core/objectstore"
 )
 
+const (
+	defaultBucketName = "juju"
+)
+
 type s3ObjectStore struct {
 	baseObjectStore
 	client    objectstore.Client
@@ -176,6 +180,17 @@ func (t *s3ObjectStore) loop() error {
 	ctx, cancel := t.scopedContext()
 	defer cancel()
 
+	// Ensure that we have the base directory.
+	if err := t.client.Session(ctx, func(ctx context.Context, s objectstore.Session) error {
+		err := s.CreateBucket(ctx, defaultBucketName)
+		if err != nil && !errors.Is(err, errors.AlreadyExists) {
+			return errors.Trace(err)
+		}
+		return nil
+	}); err != nil {
+		return errors.Trace(err)
+	}
+
 	// Sequence the get request with the put, remove requests.
 	for {
 		select {
@@ -232,7 +247,7 @@ func (t *s3ObjectStore) get(ctx context.Context, path string) (io.ReadCloser, in
 	var size int64
 	if err := t.client.Session(ctx, func(ctx context.Context, s objectstore.Session) error {
 		var err error
-		reader, size, _, err = s.GetObject(ctx, t.namespace, metadata.Hash)
+		reader, size, _, err = s.GetObject(ctx, defaultBucketName, t.filePath(metadata.Hash))
 		return err
 	}); err != nil {
 		return nil, -1, fmt.Errorf("get object: %w", err)
@@ -290,7 +305,7 @@ func (t *s3ObjectStore) persistTmpFile(ctx context.Context, tmpFileName, hash st
 
 		// Now that we've written the file, we can upload it to the object
 		// store.
-		return s.PutObject(ctx, t.namespace, hash, file, hash)
+		return s.PutObject(ctx, defaultBucketName, t.filePath(hash), file, hash)
 	}); err != nil {
 		return errors.Trace(err)
 	}
@@ -311,7 +326,11 @@ func (t *s3ObjectStore) remove(ctx context.Context, path string) error {
 		}
 
 		return t.client.Session(ctx, func(ctx context.Context, s objectstore.Session) error {
-			return s.DeleteObject(ctx, t.namespace, hash)
+			return s.DeleteObject(ctx, defaultBucketName, t.filePath(hash))
 		})
 	})
+}
+
+func (t *s3ObjectStore) filePath(hash string) string {
+	return fmt.Sprintf("%s/%s", t.namespace, hash)
 }
