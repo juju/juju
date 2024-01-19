@@ -5,6 +5,7 @@ package objectstore
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"io/fs"
@@ -240,6 +241,8 @@ func (t *fileObjectStore) loop() error {
 }
 
 func (t *fileObjectStore) get(ctx context.Context, path string) (io.ReadCloser, int64, error) {
+	t.logger.Debugf("getting object %q from file storage", path)
+
 	metadata, err := t.metadataService.GetMetadata(ctx, path)
 	if err != nil {
 		return nil, -1, fmt.Errorf("get metadata: %w", err)
@@ -266,21 +269,25 @@ func (t *fileObjectStore) get(ctx context.Context, path string) (io.ReadCloser, 
 }
 
 func (t *fileObjectStore) put(ctx context.Context, path string, r io.Reader, size int64, validator hashValidator) error {
-	fileName, hash, err := t.writeToTmpFile(path, r, size)
+	t.logger.Debugf("putting object %q to file storage", path)
+
+	tmpFileName, hash, err := t.writeToTmpFile(path, r, size)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
+	encoded := hex.EncodeToString(hash)
+
 	// Ensure that the hash of the file matches the expected hash.
-	if expected, ok := validator(hash); !ok {
-		return fmt.Errorf("hash mismatch for %q: expected %q, got %q: %w", path, expected, hash, objectstore.ErrHashMismatch)
+	if expected, ok := validator(encoded); !ok {
+		return fmt.Errorf("hash mismatch for %q: expected %q, got %q: %w", path, expected, encoded, objectstore.ErrHashMismatch)
 	}
 
 	// Lock the file with the given hash, so that we can't remove the file
 	// while we're writing it.
-	return t.withLock(ctx, hash, func(ctx context.Context) error {
+	return t.withLock(ctx, encoded, func(ctx context.Context) error {
 		// Persist the temporary file to the final location.
-		if err := t.persistTmpFile(ctx, fileName, hash, size); err != nil {
+		if err := t.persistTmpFile(ctx, tmpFileName, encoded, size); err != nil {
 			return errors.Trace(err)
 		}
 
@@ -289,7 +296,7 @@ func (t *fileObjectStore) put(ctx context.Context, path string, r io.Reader, siz
 		// race where the watch event is emitted before the file is written.
 		if err := t.metadataService.PutMetadata(ctx, objectstore.Metadata{
 			Path: path,
-			Hash: hash,
+			Hash: encoded,
 			Size: size,
 		}); err != nil {
 			return errors.Trace(err)
@@ -324,6 +331,8 @@ func (t *fileObjectStore) persistTmpFile(ctx context.Context, tmpFileName, hash 
 }
 
 func (t *fileObjectStore) remove(ctx context.Context, path string) error {
+	t.logger.Debugf("removing object %q from file storage", path)
+
 	metadata, err := t.metadataService.GetMetadata(ctx, path)
 	if err != nil {
 		return fmt.Errorf("get metadata: %w", err)

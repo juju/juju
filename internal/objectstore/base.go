@@ -6,7 +6,6 @@ package objectstore
 import (
 	"context"
 	"crypto/sha256"
-	"encoding/hex"
 	"io"
 	"os"
 	"time"
@@ -87,13 +86,13 @@ func (w *baseObjectStore) scopedContext() (context.Context, context.CancelFunc) 
 	return w.tomb.Context(ctx), cancel
 }
 
-func (t *baseObjectStore) writeToTmpFile(path string, r io.Reader, size int64) (string, string, error) {
+func (t *baseObjectStore) writeToTmpFile(path string, r io.Reader, size int64) (string, []byte, error) {
 	// The following dance is to ensure that we don't end up with a partially
 	// written file if we crash while writing it or if we're attempting to
 	// read it at the same time.
 	tmpFile, err := os.CreateTemp("", "file")
 	if err != nil {
-		return "", "", errors.Trace(err)
+		return "", nil, errors.Trace(err)
 	}
 	defer func() {
 		_ = tmpFile.Close()
@@ -103,17 +102,16 @@ func (t *baseObjectStore) writeToTmpFile(path string, r io.Reader, size int64) (
 	written, err := io.Copy(tmpFile, io.TeeReader(r, hasher))
 	if err != nil {
 		_ = os.Remove(tmpFile.Name())
-		return "", "", errors.Trace(err)
+		return "", nil, errors.Trace(err)
 	}
 
 	// Ensure that we write all the data.
 	if written != size {
 		_ = os.Remove(tmpFile.Name())
-		return "", "", errors.Errorf("partially written data: written %d, expected %d", written, size)
+		return "", nil, errors.Errorf("partially written data: written %d, expected %d", written, size)
 	}
 
-	hash := hex.EncodeToString(hasher.Sum(nil))
-	return tmpFile.Name(), hash, nil
+	return tmpFile.Name(), hasher.Sum(nil), nil
 }
 
 func (w *baseObjectStore) withLock(ctx context.Context, hash string, f func(context.Context) error) error {

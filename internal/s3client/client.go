@@ -13,6 +13,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/aws/smithy-go"
 	"github.com/aws/smithy-go/logging"
 	"github.com/juju/errors"
@@ -156,19 +157,21 @@ func (c *S3Client) GetObject(ctx context.Context, bucketName, objectName string)
 func (c *S3Client) PutObject(ctx context.Context, bucketName, objectName string, body io.Reader, hash string) error {
 	c.logger.Tracef("putting bucket %s object %s to s3 storage", bucketName, objectName)
 
-	_, err := c.client.PutObject(ctx,
+	obj, err := c.client.PutObject(ctx,
 		&s3.PutObjectInput{
-			Bucket: aws.String(bucketName),
-			Key:    aws.String(objectName),
-			Body:   body,
-			// ChecksumAlgorithm: types.ChecksumAlgorithmSha256,
-			// ChecksumSHA256:    aws.String(hash),
+			Bucket:            aws.String(bucketName),
+			Key:               aws.String(objectName),
+			Body:              body,
+			ChecksumAlgorithm: types.ChecksumAlgorithmSha256,
 		})
 	if err != nil {
 		if err := handleError(err); err != nil {
 			return errors.Trace(err)
 		}
 		return errors.Annotatef(err, "putting object %s on bucket %s using S3 client", objectName, bucketName)
+	}
+	if hash != "" && obj.ChecksumSHA256 != nil && hash != *obj.ChecksumSHA256 {
+		return errors.Errorf("hash mismatch, expected %q got %q", hash, *obj.ChecksumSHA256)
 	}
 	return nil
 }

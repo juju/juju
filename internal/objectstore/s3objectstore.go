@@ -5,6 +5,8 @@ package objectstore
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"os"
@@ -264,16 +266,18 @@ func (t *s3ObjectStore) put(ctx context.Context, path string, r io.Reader, size 
 		return errors.Trace(err)
 	}
 
+	hexEncodedHash := hex.EncodeToString(hash)
+
 	// Ensure that the hash of the file matches the expected hash.
-	if expected, ok := validator(hash); !ok {
-		return fmt.Errorf("hash mismatch for %q: expected %q, got %q: %w", path, expected, hash, objectstore.ErrHashMismatch)
+	if expected, ok := validator(hexEncodedHash); !ok {
+		return fmt.Errorf("hash mismatch for %q: expected %q, got %q: %w", path, expected, hexEncodedHash, objectstore.ErrHashMismatch)
 	}
 
-	// Lock the file with the given hash, so that we can't remove the file
-	// while we're writing it.
-	return t.withLock(ctx, hash, func(ctx context.Context) error {
+	// Lock the file with the given hash (hexEncodedHash), so that we can't
+	// remove the file while we're writing it.
+	return t.withLock(ctx, hexEncodedHash, func(ctx context.Context) error {
 		// Persist the temporary file to the final location.
-		if err := t.persistTmpFile(ctx, fileName, hash, size); err != nil {
+		if err := t.persistTmpFile(ctx, fileName, hash, hexEncodedHash, size); err != nil {
 			return errors.Trace(err)
 		}
 
@@ -282,7 +286,7 @@ func (t *s3ObjectStore) put(ctx context.Context, path string, r io.Reader, size 
 		// race where the watch event is emitted before the file is written.
 		if err := t.metadataService.PutMetadata(ctx, objectstore.Metadata{
 			Path: path,
-			Hash: hash,
+			Hash: hexEncodedHash,
 			Size: size,
 		}); err != nil {
 			return errors.Trace(err)
@@ -291,11 +295,13 @@ func (t *s3ObjectStore) put(ctx context.Context, path string, r io.Reader, size 
 	})
 }
 
-func (t *s3ObjectStore) persistTmpFile(ctx context.Context, tmpFileName, hash string, size int64) error {
+func (t *s3ObjectStore) persistTmpFile(ctx context.Context, tmpFileName string, hash []byte, hexEncodedHash string, size int64) error {
 	file, err := os.Open(tmpFileName)
 	if err != nil {
 		return errors.Trace(err)
 	}
+
+	base64EncodedHash := base64.StdEncoding.EncodeToString(hash)
 
 	if err := t.client.Session(ctx, func(ctx context.Context, s objectstore.Session) error {
 		// Seek back to the beginning of the file, so that we can read it again.
@@ -305,7 +311,7 @@ func (t *s3ObjectStore) persistTmpFile(ctx context.Context, tmpFileName, hash st
 
 		// Now that we've written the file, we can upload it to the object
 		// store.
-		return s.PutObject(ctx, defaultBucketName, t.filePath(hash), file, hash)
+		return s.PutObject(ctx, defaultBucketName, t.filePath(hexEncodedHash), file, base64EncodedHash)
 	}); err != nil {
 		return errors.Trace(err)
 	}
