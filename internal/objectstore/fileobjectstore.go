@@ -20,6 +20,10 @@ import (
 	"github.com/juju/juju/core/objectstore"
 )
 
+const (
+	defaultFileDirectory = "objectstore"
+)
+
 type opType int
 
 const (
@@ -54,7 +58,7 @@ type fileObjectStore struct {
 // NewFileObjectStore returns a new object store worker based on the file
 // storage.
 func NewFileObjectStore(ctx context.Context, namespace, rootPath string, metadataService objectstore.ObjectStoreMetadata, claimer Claimer, logger Logger, clock clock.Clock) (TrackedObjectStore, error) {
-	path := filepath.Join(rootPath, namespace)
+	path := filepath.Join(rootPath, defaultFileDirectory, namespace)
 
 	s := &fileObjectStore{
 		baseObjectStore: baseObjectStore{
