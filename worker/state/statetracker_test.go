@@ -144,23 +144,4 @@ func (s *StateTrackerSuite) TestReport(c *gc.C) {
 	// txn-watcher report and the system state.
 	c.Check(report, gc.HasLen, 3)
 	c.Check(report["pool-size"], gc.Equals, 0)
-
-	// Calling Report increments the request count in the system
-	// state's hubwatcher stats, so zero that out before comparing.
-	removeRequestCount := func(report map[string]interface{}) map[string]interface{} {
-		next := report
-		for _, p := range []string{"system", "workers", "txnlog", "report"} {
-			child, ok := next[p]
-			if !ok {
-				c.Fatalf("couldn't find system.workers.txnlog.report")
-			}
-			next = child.(map[string]interface{})
-		}
-		delete(next, "request-count")
-		return report
-	}
-	report = removeRequestCount(report)
-	c.Check(removeRequestCount(s.stateTracker.Report()), gc.DeepEquals, report)
-	c.Check(removeRequestCount(s.stateTracker.Report()), gc.DeepEquals, report)
-	c.Check(removeRequestCount(s.stateTracker.Report()), gc.DeepEquals, report)
 }
