@@ -45,10 +45,10 @@ func (m *MockExpirableStorageBakery) EXPECT() *MockExpirableStorageBakeryMockRec
 }
 
 // Auth mocks base method.
-func (m *MockExpirableStorageBakery) Auth(arg0 ...macaroon.Slice) *bakery.AuthChecker {
+func (m *MockExpirableStorageBakery) Auth(arg0 context.Context, arg1 ...macaroon.Slice) *bakery.AuthChecker {
 	m.ctrl.T.Helper()
-	varargs := []any{}
-	for _, a := range arg0 {
+	varargs := []any{arg0}
+	for _, a := range arg1 {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "Auth", varargs...)
@@ -57,9 +57,10 @@ func (m *MockExpirableStorageBakery) Auth(arg0 ...macaroon.Slice) *bakery.AuthCh
 }
 
 // Auth indicates an expected call of Auth.
-func (mr *MockExpirableStorageBakeryMockRecorder) Auth(arg0 ...any) *gomock.Call {
+func (mr *MockExpirableStorageBakeryMockRecorder) Auth(arg0 any, arg1 ...any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Auth", reflect.TypeOf((*MockExpirableStorageBakery)(nil).Auth), arg0...)
+	varargs := append([]any{arg0}, arg1...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Auth", reflect.TypeOf((*MockExpirableStorageBakery)(nil).Auth), varargs...)
 }
 
 // ExpireStorageAfter mocks base method.

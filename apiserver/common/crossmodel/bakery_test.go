@@ -19,9 +19,9 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
 
-	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/apiserver/common/crossmodel/mocks"
+	jujutesting "github.com/juju/juju/juju/testing"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -175,7 +175,7 @@ func (s *bakerySuite) TestInferDeclaredFromMacaroon(c *gc.C) {
 	offerBakery, ctrl := s.getLocalOfferBakery(c)
 	defer ctrl.Finish()
 
-	mac := apitesting.MustNewMacaroon("test")
+	mac := jujutesting.MustNewMacaroon("test")
 	declared := offerBakery.InferDeclaredFromMacaroon(
 		macaroon.Slice{mac}, map[string]string{"relation-key": "mediawiki:db mysql:server"},
 	)
@@ -186,7 +186,7 @@ func (s *bakerySuite) TestInferDeclaredFromMacaroonJaaS(c *gc.C) {
 	offerBakery, ctrl := s.getJaaSOfferBakery(c)
 	defer ctrl.Finish()
 
-	mac := apitesting.MustNewMacaroon("test")
+	mac := jujutesting.MustNewMacaroon("test")
 	declared := offerBakery.InferDeclaredFromMacaroon(
 		macaroon.Slice{mac}, map[string]string{"relation-key": "mediawiki:db mysql:server"},
 	)
@@ -220,7 +220,7 @@ permission: consume
 			c.Assert(strings.HasPrefix(caveats[1].Condition, "time-before"), jc.IsTrue)
 			c.Assert(ops, gc.HasLen, 1)
 			c.Assert(ops[0], jc.DeepEquals, bakery.Op{Action: "consume", Entity: "mysql-uuid"})
-			return bakery.NewLegacyMacaroon(apitesting.MustNewMacaroon("test"))
+			return bakery.NewLegacyMacaroon(jujutesting.MustNewMacaroon("test"))
 		},
 	)
 	_, err := offerBakery.CreateDischargeMacaroon(
@@ -268,7 +268,7 @@ func (s *bakerySuite) TestCreateDischargeMacaroonJaaS(c *gc.C) {
 				Location: "https://example.com/macaroons", Condition: "is-consumer user-mary mysql-uuid",
 			})
 			c.Assert(strings.HasPrefix(caveats[4].Condition, "time-before"), jc.IsTrue)
-			return bakery.NewLegacyMacaroon(apitesting.MustNewMacaroon("test"))
+			return bakery.NewLegacyMacaroon(jujutesting.MustNewMacaroon("test"))
 		},
 	)
 	_, err := offerBakery.CreateDischargeMacaroon(
