@@ -5,6 +5,7 @@ package common
 
 import (
 	"context"
+	coreuser "github.com/juju/juju/core/user"
 
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
@@ -19,9 +20,14 @@ import (
 
 // ModelStatusAPI implements the ModelStatus() API.
 type ModelStatusAPI struct {
-	authorizer facade.Authorizer
-	apiUser    names.UserTag
-	backend    ModelManagerBackend
+	authorizer  facade.Authorizer
+	apiUser     names.UserTag
+	backend     ModelManagerBackend
+	userService UserService
+}
+
+type UserService interface {
+	GetUserByName(ctx context.Context, name string) (coreuser.User, error)
 }
 
 // ModelApplicationInfo returns information about applications.
@@ -33,11 +39,17 @@ func ModelApplicationInfo(applications []Application) ([]params.ModelApplication
 }
 
 // NewModelStatusAPI creates an implementation providing the ModelStatus() API.
-func NewModelStatusAPI(backend ModelManagerBackend, authorizer facade.Authorizer, apiUser names.UserTag) *ModelStatusAPI {
+func NewModelStatusAPI(
+	backend ModelManagerBackend,
+	authorizer facade.Authorizer,
+	apiUser names.UserTag,
+	userService UserService,
+) *ModelStatusAPI {
 	return &ModelStatusAPI{
-		authorizer: authorizer,
-		apiUser:    apiUser,
-		backend:    backend,
+		authorizer:  authorizer,
+		apiUser:     apiUser,
+		backend:     backend,
+		userService: userService,
 	}
 }
 
@@ -46,7 +58,12 @@ func (c *ModelStatusAPI) ModelStatus(ctx context.Context, req params.Entities) (
 	models := req.Entities
 	status := make([]params.ModelStatus, len(models))
 	for i, model := range models {
-		modelStatus, err := c.modelStatus(model.Tag)
+		usr, err := c.userService.GetUserByName(ctx, c.apiUser.Name())
+		if err != nil {
+			return params.ModelStatusResults{}, errors.Trace(err)
+		}
+
+		modelStatus, err := c.modelStatus(usr, model.Tag)
 		if err != nil {
 			status[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -56,7 +73,7 @@ func (c *ModelStatusAPI) ModelStatus(ctx context.Context, req params.Entities) (
 	return params.ModelStatusResults{Results: status}, nil
 }
 
-func (c *ModelStatusAPI) modelStatus(tag string) (params.ModelStatus, error) {
+func (c *ModelStatusAPI) modelStatus(usr coreuser.User, tag string) (params.ModelStatus, error) {
 	var status params.ModelStatus
 	modelTag, err := names.ParseModelTag(tag)
 	if err != nil {
@@ -76,7 +93,7 @@ func (c *ModelStatusAPI) modelStatus(tag string) (params.ModelStatus, error) {
 	if err != nil {
 		return status, errors.Trace(err)
 	}
-	isAdmin, err := HasModelAdmin(c.authorizer, c.backend.ControllerTag(), model.ModelTag())
+	isAdmin, err := HasModelAdmin(usr, c.authorizer, c.backend.ControllerTag(), model.ModelTag())
 	if err != nil {
 		return status, errors.Trace(err)
 	}

@@ -180,7 +180,12 @@ func (api *OffersAPI) ModifyOfferAccess(ctx context.Context, args params.ModifyO
 		return result, nil
 	}
 
-	err := api.Authorizer.HasPermission(permission.SuperuserAccess, api.ControllerModel.ControllerTag())
+	usr, err := api.userService.GetUserByName(ctx, api.Authorizer.GetAuthTag().(names.UserTag).Name())
+	if err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
+	}
+
+	err := api.Authorizer.HasPermission(usr, permission.SuperuserAccess, api.ControllerModel.ControllerTag())
 	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return result, errors.Trace(err)
 	}
@@ -232,7 +237,7 @@ func (api *OffersAPI) modifyOneOfferAccess(usr coreuser.User, user names.UserTag
 
 	canModifyOffer := isControllerAdmin
 	if !canModifyOffer {
-		err = api.Authorizer.HasPermission(permission.AdminAccess, backend.ModelTag())
+		err = api.Authorizer.HasPermission(usr, permission.AdminAccess, backend.ModelTag())
 		if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 			return errors.Trace(err)
 		}
@@ -435,8 +440,13 @@ func (api *OffersAPI) GetConsumeDetails(ctx context.Context, args params.Consume
 	user := api.Authorizer.GetAuthTag().(names.UserTag)
 	// Prefer args user if provided.
 	if args.UserTag != "" {
+		usr, err := api.userService.GetUserByName(ctx, user.Name())
+		if err != nil {
+			return params.ConsumeOfferDetailsResults{}, errors.Trace(err)
+		}
+
 		// Only controller admins can get consume details for another user.
-		err := api.checkControllerAdmin()
+		err = api.checkControllerAdmin(usr)
 		if err != nil {
 			return params.ConsumeOfferDetailsResults{}, errors.Trace(err)
 		}
@@ -506,11 +516,16 @@ func (api *OffersAPI) getConsumeDetails(ctx context.Context, user names.UserTag,
 				continue
 			}
 			if err != nil {
+				usr, err := api.userService.GetUserByName(ctx, user.Name())
+				if err != nil {
+					return params.ConsumeOfferDetailsResults{}, errors.Trace(err)
+				}
+
 				// This logic is purely for JaaS.
 				// Jaas has already checked permissions of args.UserTag in their side, so we don't need to check it again.
 				// But as a TODO, we need to set the ConsumeOfferMacaroon's expiry time to 0 to force go to
 				// discharge flow once they got the macaroon.
-				err := api.checkControllerAdmin()
+				err = api.checkControllerAdmin(usr)
 				if err != nil {
 					results[i].Error = apiservererrors.ServerError(err)
 					continue

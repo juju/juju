@@ -157,7 +157,7 @@ func (c *Client) StatusHistory(request params.StatusHistoryRequests) params.Stat
 			Delta:    request.Filter.Delta,
 			Exclude:  set.NewStrings(request.Filter.Exclude...),
 		}
-		if err := c.checkCanRead(); err != nil {
+		if err := c.checkCanRead(usr); err != nil {
 			history := params.StatusHistoryResult{
 				Error: apiservererrors.ServerError(err),
 			}
@@ -215,7 +215,7 @@ func (c *Client) StatusHistory(request params.StatusHistoryRequests) params.Stat
 
 // FullStatus gives the information needed for juju status over the api
 func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (params.FullStatus, error) {
-	if err := c.checkCanRead(); err != nil {
+	if err := c.checkCanRead(usr); err != nil {
 		return params.FullStatus{}, err
 	}
 
@@ -251,7 +251,7 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 		return noStatus, errors.Annotate(err, "could not fetch remote applications")
 	}
 	// Only admins can see offer details.
-	if err := c.checkIsAdmin(); err == nil {
+	if err := c.checkIsAdmin(usr); err == nil {
 		if context.offers, err =
 			fetchOffers(c.api.stateAccessor, context.allAppsUnitsCharmBindings.applications); err != nil {
 			return noStatus, errors.Annotate(err, "could not fetch application offers")

@@ -52,7 +52,7 @@ func (api *API) hasAdminAccess(ctx context.Context) error {
 	// We used to cache the result on the api object if the user was a superuser.
 	// We don't do that anymore as permission caching could become invalid
 	// for long lived connections.
-	err := api.authorizer.HasPermission(permission.SuperuserAccess, api.st.ControllerTag())
+	err := api.authorizer.HasPermission(usr, permission.SuperuserAccess, api.st.ControllerTag())
 	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return err
 	}
@@ -61,7 +61,7 @@ func (api *API) hasAdminAccess(ctx context.Context) error {
 		return nil
 	}
 
-	return api.authorizer.HasPermission(permission.AdminAccess, api.model.ModelTag())
+	return api.authorizer.HasPermission(usr, permission.AdminAccess, api.model.ModelTag())
 }
 
 // AddBranch adds a new branch with the input name to the model.

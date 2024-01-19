@@ -121,7 +121,7 @@ type ValidationResult struct {
 // If they do, a list of the machine's current units is returned for use in
 // soliciting user confirmation of the command.
 func (a *UpgradeSeriesAPI) Validate(ctx context.Context, entities []ValidationEntity) ([]ValidationResult, error) {
-	if err := a.authorizer.CanRead(); err != nil {
+	if err := a.authorizer.CanRead(usr); err != nil {
 		return nil, errors.Trace(err)
 	}
 

@@ -6,6 +6,8 @@ package apiserver
 import (
 	"context"
 	"fmt"
+	coreuser "github.com/juju/juju/core/user"
+	"github.com/juju/juju/internal/auth"
 	"io"
 	"net/http"
 	"strings"
@@ -238,6 +240,11 @@ func newLineReader(r io.Reader) *linereader.Reader {
 // configuration.
 type ControllerConfigService interface {
 	ControllerConfig(context.Context) (controller.Config, error)
+}
+
+type UserService interface {
+	GetUserByName(ctx context.Context, name string) (coreuser.User, error)
+	SetPassword(ctx context.Context, uuid coreuser.UUID, password auth.Password) error
 }
 
 // ExecEmbeddedCommandFunc defines a function which runs a named Juju command

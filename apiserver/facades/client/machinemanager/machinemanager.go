@@ -6,6 +6,7 @@ package machinemanager
 import (
 	"context"
 	"fmt"
+	coreuser "github.com/juju/juju/core/user"
 	"strconv"
 	"time"
 
@@ -41,6 +42,10 @@ type ControllerConfigService interface {
 	ControllerConfig(context.Context) (controller.Config, error)
 }
 
+type UserService interface {
+	GetUserByName(ctx context.Context, name string) (coreuser.User, error)
+}
+
 // Leadership represents a type for modifying the leadership settings of an
 // application for series upgrades.
 type Leadership interface {
@@ -57,11 +62,11 @@ type Leadership interface {
 type Authorizer interface {
 	// CanRead checks to see if a read is possible. Returns an error if a read
 	// is not possible.
-	CanRead() error
+	CanRead(user coreuser.User) error
 
 	// CanWrite checks to see if a write is possible. Returns an error if a
 	// write is not possible.
-	CanWrite() error
+	CanWrite(usr coreuser.User) error
 
 	// AuthClient returns true if the entity is an external user.
 	AuthClient() bool
@@ -76,6 +81,7 @@ type CharmhubClient interface {
 // MachineManagerAPI provides access to the MachineManager API facade.
 type MachineManagerAPI struct {
 	controllerConfigService ControllerConfigService
+	userService             UserService
 	st                      Backend
 	cloudService            common.CloudService
 	credentialService       common.CredentialService
@@ -152,6 +158,7 @@ func NewFacadeV10(ctx facade.Context) (*MachineManagerAPI, error) {
 
 	return NewMachineManagerAPI(
 		controllerConfigService,
+		ctx.ServiceFactory().User(),
 		backend,
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
@@ -174,6 +181,7 @@ func NewFacadeV10(ctx facade.Context) (*MachineManagerAPI, error) {
 // NewMachineManagerAPI creates a new server-side MachineManager API facade.
 func NewMachineManagerAPI(
 	controllerConfigService ControllerConfigService,
+	userService UserService,
 	backend Backend,
 	cloudService common.CloudService,
 	credentialService common.CredentialService,
@@ -193,6 +201,7 @@ func NewMachineManagerAPI(
 
 	api := &MachineManagerAPI{
 		controllerConfigService:     controllerConfigService,
+		userService:                 userService,
 		st:                          backend,
 		cloudService:                cloudService,
 		credentialService:           credentialService,
@@ -221,7 +230,7 @@ func (mm *MachineManagerAPI) AddMachines(ctx context.Context, args params.AddMac
 	results := params.AddMachinesResults{
 		Machines: make([]params.AddMachinesResult, len(args.MachineParams)),
 	}
-	if err := mm.authorizer.CanWrite(); err != nil {
+	if err := mm.authorizer.CanWrite(usr); err != nil {
 		return results, err
 	}
 	if err := mm.check.ChangeAllowed(ctx); err != nil {
@@ -349,7 +358,7 @@ func (mm *MachineManagerAPI) addOneMachine(p params.AddMachineParams) (*state.Ma
 // ProvisioningScript returns a shell script that, when run,
 // provisions a machine agent on the machine executing the script.
 func (mm *MachineManagerAPI) ProvisioningScript(ctx context.Context, args params.ProvisioningScriptParams) (params.ProvisioningScriptResult, error) {
-	if err := mm.authorizer.CanWrite(); err != nil {
+	if err := mm.authorizer.CanWrite(usr); err != nil {
 		return params.ProvisioningScriptResult{}, err
 	}
 
@@ -409,7 +418,7 @@ func (mm *MachineManagerAPI) ProvisioningScript(ctx context.Context, args params
 
 // RetryProvisioning marks a provisioning error as transient on the machines.
 func (mm *MachineManagerAPI) RetryProvisioning(ctx context.Context, p params.RetryProvisioningArgs) (params.ErrorResults, error) {
-	if err := mm.authorizer.CanWrite(); err != nil {
+	if err := mm.authorizer.CanWrite(usr); err != nil {
 		return params.ErrorResults{}, err
 	}
 
@@ -492,7 +501,7 @@ func (mm *MachineManagerV9) DestroyMachineWithParams(ctx context.Context, args p
 }
 
 func (mm *MachineManagerAPI) destroyMachine(ctx context.Context, args params.Entities, force, keep, dryRun bool, maxWait time.Duration) (params.DestroyMachineResults, error) {
-	if err := mm.authorizer.CanWrite(); err != nil {
+	if err := mm.authorizer.CanWrite(usr); err != nil {
 		return params.DestroyMachineResults{}, err
 	}
 	if err := mm.check.RemoveAllowed(ctx); err != nil {
@@ -703,7 +712,12 @@ func (mm *MachineManagerAPI) UpgradeSeriesValidate(
 
 // UpgradeSeriesPrepare prepares a machine for a OS series upgrade.
 func (mm *MachineManagerAPI) UpgradeSeriesPrepare(ctx context.Context, arg params.UpdateChannelArg) (params.ErrorResult, error) {
-	if err := mm.authorizer.CanWrite(); err != nil {
+	usr, err := mm.userService.GetUserByName(ctx)
+	if err != nil {
+		return params.ErrorResult{}, err
+	}
+
+	if err := mm.authorizer.CanWrite(usr); err != nil {
 		return params.ErrorResult{}, err
 	}
 	if err := mm.check.ChangeAllowed(ctx); err != nil {
@@ -718,7 +732,7 @@ func (mm *MachineManagerAPI) UpgradeSeriesPrepare(ctx context.Context, arg param
 // UpgradeSeriesComplete marks a machine as having completed a managed series
 // upgrade.
 func (mm *MachineManagerAPI) UpgradeSeriesComplete(ctx context.Context, arg params.UpdateChannelArg) (params.ErrorResult, error) {
-	if err := mm.authorizer.CanWrite(); err != nil {
+	if err := mm.authorizer.CanWrite(usr); err != nil {
 		return params.ErrorResult{}, err
 	}
 	if err := mm.check.ChangeAllowed(ctx); err != nil {
@@ -735,7 +749,7 @@ func (mm *MachineManagerAPI) UpgradeSeriesComplete(ctx context.Context, arg para
 // WatchUpgradeSeriesNotifications returns a watcher that fires on upgrade
 // series events.
 func (mm *MachineManagerAPI) WatchUpgradeSeriesNotifications(ctx context.Context, args params.Entities) (params.NotifyWatchResults, error) {
-	err := mm.authorizer.CanRead()
+	err := mm.authorizer.CanRead(usr)
 	if err != nil {
 		return params.NotifyWatchResults{}, err
 	}
@@ -769,7 +783,7 @@ func (mm *MachineManagerAPI) WatchUpgradeSeriesNotifications(ctx context.Context
 // series events. Messages that have already been retrieved once are not
 // returned by this method.
 func (mm *MachineManagerAPI) GetUpgradeSeriesMessages(ctx context.Context, args params.UpgradeSeriesNotificationParams) (params.StringsResults, error) {
-	if err := mm.authorizer.CanRead(); err != nil {
+	if err := mm.authorizer.CanRead(usr); err != nil {
 		return params.StringsResults{}, err
 	}
 	results := params.StringsResults{
@@ -837,14 +851,14 @@ type ModelAuthorizer struct {
 
 // CanRead checks to see if a read is possible. Returns an error if a read is
 // not possible.
-func (a ModelAuthorizer) CanRead() error {
-	return a.checkAccess(permission.ReadAccess)
+func (a ModelAuthorizer) CanRead(usr coreuser.User) error {
+	return a.checkAccess(usr, permission.ReadAccess)
 }
 
 // CanWrite checks to see if a write is possible. Returns an error if a write
 // is not possible.
-func (a ModelAuthorizer) CanWrite() error {
-	return a.checkAccess(permission.WriteAccess)
+func (a ModelAuthorizer) CanWrite(usr coreuser.User) error {
+	return a.checkAccess(usr, permission.WriteAccess)
 }
 
 // AuthClient returns true if the entity is an external user.
@@ -852,6 +866,6 @@ func (a ModelAuthorizer) AuthClient() bool {
 	return a.Authorizer.AuthClient()
 }
 
-func (a ModelAuthorizer) checkAccess(access permission.Access) error {
-	return a.Authorizer.HasPermission(access, a.ModelTag)
+func (a ModelAuthorizer) checkAccess(usr coreuser.User, access permission.Access) error {
+	return a.Authorizer.HasPermission(usr, access, a.ModelTag)
 }

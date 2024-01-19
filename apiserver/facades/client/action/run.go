@@ -22,7 +22,7 @@ import (
 // Run the commands specified on the machines identified through the
 // list of machines, units and services.
 func (a *ActionAPI) Run(ctx context.Context, run params.RunParams) (results params.EnqueuedActions, err error) {
-	if err := a.checkCanAdmin(); err != nil {
+	if err := a.checkCanAdmin(usr); err != nil {
 		return results, err
 	}
 
@@ -47,12 +47,12 @@ func (a *ActionAPI) Run(ctx context.Context, run params.RunParams) (results para
 	if err != nil {
 		return results, errors.Trace(err)
 	}
-	return a.EnqueueOperation(actionParams)
+	return a.EnqueueOperation(usr, actionParams)
 }
 
 // RunOnAllMachines attempts to run the specified command on all the machines.
 func (a *ActionAPI) RunOnAllMachines(ctx context.Context, run params.RunParams) (results params.EnqueuedActions, err error) {
-	if err := a.checkCanAdmin(); err != nil {
+	if err := a.checkCanAdmin(usr); err != nil {
 		return results, err
 	}
 
@@ -81,7 +81,7 @@ func (a *ActionAPI) RunOnAllMachines(ctx context.Context, run params.RunParams) 
 	if err != nil {
 		return results, errors.Trace(err)
 	}
-	return a.EnqueueOperation(actionParams)
+	return a.EnqueueOperation(usr, actionParams)
 }
 
 func (a *ActionAPI) createRunActionsParams(

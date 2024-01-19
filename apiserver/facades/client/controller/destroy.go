@@ -35,7 +35,7 @@ func destroyController(
 	args params.DestroyControllerArgs,
 	logger loggo.Logger,
 ) error {
-	err := authorizer.HasPermission(permission.SuperuserAccess, st.ControllerTag())
+	err := authorizer.HasPermission(usr, permission.SuperuserAccess, st.ControllerTag())
 	if err != nil {
 		return errors.Trace(err)
 	}

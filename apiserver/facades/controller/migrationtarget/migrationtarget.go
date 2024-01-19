@@ -6,6 +6,7 @@ package migrationtarget
 import (
 	"context"
 	"fmt"
+	"github.com/juju/description/v5"
 	coreuser "github.com/juju/juju/core/user"
 	"time"
 
@@ -125,7 +126,7 @@ func NewAPI(
 
 		scope         = modelmigration.NewScope(changestream.NewTxnRunnerFactory(ctx.ControllerDB), nil)
 		controller    = state.NewController(pool)
-		modelImporter = migration.NewModelImporter(controller, scope, controllerConfigService, userService)
+		modelImporter = migration.NewModelImporter(importShim{controller: controller}, scope, controllerConfigService, userService)
 	)
 
 	return &API{
@@ -147,12 +148,20 @@ func NewAPI(
 	}, nil
 }
 
-func checkAuth(authorizer facade.Authorizer, st *state.State) error {
+type importShim struct {
+	controller *state.Controller
+}
+
+func (s importShim) Import(model description.Model, controllerConfig controller.Config, userService migration.UserService) (*state.Model, *state.State, error) {
+	return s.controller.Import(model, controllerConfig, userService)
+}
+
+func checkAuth(usr coreuser.User, authorizer facade.Authorizer, st *state.State) error {
 	if !authorizer.AuthClient() {
 		return errors.Trace(apiservererrors.ErrPerm)
 	}
 
-	return authorizer.HasPermission(permission.SuperuserAccess, st.ControllerTag())
+	return authorizer.HasPermission(usr, permission.SuperuserAccess, st.ControllerTag())
 }
 
 // Prechecks ensure that the target controller is ready to accept a

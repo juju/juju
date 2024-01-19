@@ -61,6 +61,7 @@ func (h *registerUserHandler) ServeHTTP(w http.ResponseWriter, req *http.Request
 		req,
 		st.State,
 		serviceFactory.ControllerConfig(),
+		serviceFactory.User(),
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
 	)
@@ -116,6 +117,7 @@ func (h *registerUserHandler) processPost(
 	req *http.Request,
 	st *state.State,
 	controllerConfigService ControllerConfigService,
+	userService UserService,
 	cloudService common.CloudService, credentialService common.CredentialService,
 ) (
 	names.UserTag, *params.SecretKeyLoginResponse, error,

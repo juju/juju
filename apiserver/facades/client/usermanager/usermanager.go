@@ -72,8 +72,8 @@ func NewAPI(
 	}, nil
 }
 
-func (api *UserManagerAPI) hasControllerAdminAccess() (bool, error) {
-	err := api.authorizer.HasPermission(permission.SuperuserAccess, api.state.ControllerTag())
+func (api *UserManagerAPI) hasControllerAdminAccess(usr coreuser.User) (bool, error) {
+	err := api.authorizer.HasPermission(usr, permission.SuperuserAccess, api.state.ControllerTag())
 	return err == nil, err
 }
 
@@ -93,7 +93,7 @@ func (api *UserManagerAPI) AddUser(ctx context.Context, args params.AddUsers) (p
 	// Create the results list to populate.
 	result.Results = make([]params.AddUserResult, len(args.Users))
 
-	if _, err := api.hasControllerAdminAccess(); err != nil {
+	if _, err := api.hasControllerAdminAccess(usr); err != nil {
 		return result, err
 	}
 
@@ -170,7 +170,7 @@ func (api *UserManagerAPI) RemoveUser(ctx context.Context, entities params.Entit
 	// Create the results list to populate.
 	deletions.Results = make([]params.ErrorResult, len(entities.Entities))
 
-	isSuperUser, err := api.hasControllerAdminAccess()
+	isSuperUser, err := api.hasControllerAdminAccess(usr)
 	if err != nil {
 		return deletions, errors.Trace(err)
 	}
@@ -260,7 +260,7 @@ func (api *UserManagerAPI) getUserWithAuthInfo(ctx context.Context, tag string) 
 // EnableUser enables one or more users.  If the user is already enabled,
 // the action is considered a success.
 func (api *UserManagerAPI) EnableUser(ctx context.Context, users params.Entities) (params.ErrorResults, error) {
-	if _, err := api.hasControllerAdminAccess(); err != nil {
+	if _, err := api.hasControllerAdminAccess(usr); err != nil {
 		return params.ErrorResults{}, err
 	}
 
@@ -273,7 +273,7 @@ func (api *UserManagerAPI) EnableUser(ctx context.Context, users params.Entities
 // DisableUser disables one or more users.  If the user is already disabled,
 // the action is considered a success.
 func (api *UserManagerAPI) DisableUser(ctx context.Context, users params.Entities) (params.ErrorResults, error) {
-	if _, err := api.hasControllerAdminAccess(); err != nil {
+	if _, err := api.hasControllerAdminAccess(usr); err != nil {
 		return params.ErrorResults{}, err
 	}
 
@@ -291,7 +291,7 @@ func (api *UserManagerAPI) enableUserImpl(ctx context.Context, args params.Entit
 	}
 
 	if !api.isAdmin {
-		if _, err := api.hasControllerAdminAccess(); err != nil {
+		if _, err := api.hasControllerAdminAccess(usr); err != nil {
 			return result, err
 		}
 	}
@@ -324,7 +324,7 @@ func (api *UserManagerAPI) enableUserImpl(ctx context.Context, args params.Entit
 // UserInfo returns information on a user.
 func (api *UserManagerAPI) UserInfo(ctx context.Context, request params.UserInfoRequest) (params.UserInfoResults, error) {
 	var results params.UserInfoResults
-	isAdmin, err := api.hasControllerAdminAccess()
+	isAdmin, err := api.hasControllerAdminAccess(usr)
 	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return results, errors.Trace(err)
 	}
@@ -424,8 +424,8 @@ func (api *UserManagerAPI) UserInfo(ctx context.Context, request params.UserInfo
 	return results, nil
 }
 
-func (api *UserManagerAPI) checkCanRead(modelTag names.Tag) error {
-	return api.authorizer.HasPermission(permission.ReadAccess, modelTag)
+func (api *UserManagerAPI) checkCanRead(usr coreuser.User, modelTag names.Tag) error {
+	return api.authorizer.HasPermission(usr, permission.ReadAccess, modelTag)
 }
 
 // ModelUserInfo returns information on all users in the model.
@@ -442,7 +442,7 @@ func (api *UserManagerAPI) ModelUserInfo(ctx context.Context, args params.Entiti
 			return result, errors.Trace(err)
 		}
 
-		infos, err := api.modelUserInfo(usrs, modelTag)
+		infos, err := api.modelUserInfo(usr, usrs, modelTag)
 		if err != nil {
 			return result, errors.Trace(err)
 		}
@@ -451,14 +451,14 @@ func (api *UserManagerAPI) ModelUserInfo(ctx context.Context, args params.Entiti
 	return result, nil
 }
 
-func (api *UserManagerAPI) modelUserInfo(usrs []coreuser.User, modelTag names.ModelTag) ([]params.ModelUserInfoResult, error) {
+func (api *UserManagerAPI) modelUserInfo(usr coreuser.User, usrs []coreuser.User, modelTag names.ModelTag) ([]params.ModelUserInfoResult, error) {
 	var results []params.ModelUserInfoResult
 	model, closer, err := api.pool.GetModel(modelTag.Id())
 	if err != nil {
 		return results, errors.Trace(err)
 	}
 	defer closer.Release()
-	if err := api.checkCanRead(model.ModelTag()); err != nil {
+	if err := api.checkCanRead(usr, model.ModelTag()); err != nil {
 		return results, err
 	}
 
@@ -510,7 +510,7 @@ func (api *UserManagerAPI) setPassword(ctx context.Context, arg params.EntityPas
 	}
 
 	if !api.isAdmin {
-		if _, err := api.hasControllerAdminAccess(); err != nil && api.apiUser != names.NewLocalUserTag(user.Name) {
+		if _, err := api.hasControllerAdminAccess(usr); err != nil && api.apiUser != names.NewLocalUserTag(user.Name) {
 			return err
 		}
 	}
@@ -548,7 +548,7 @@ func (api *UserManagerAPI) ResetPassword(ctx context.Context, args params.Entiti
 		return result, nil
 	}
 
-	isSuperUser, err := api.hasControllerAdminAccess()
+	isSuperUser, err := api.hasControllerAdminAccess(usr)
 	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return result, errors.Trace(err)
 	}

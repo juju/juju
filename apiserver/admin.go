@@ -452,7 +452,7 @@ func (a *admin) checkUserPermissions(authInfo authentication.AuthInfo, controlle
 	everyoneGroupAccess := permission.NoAccess
 	if !userTag.IsLocal() {
 		everyoneTag := names.NewUserTag(common.EveryoneTagName)
-		everyoneGroupUser, err := state.ControllerAccess(a.root.state, everyoneTag)
+		everyoneGroupUser, err := state.ControllerAccess(usr, a.root.state, everyoneTag)
 		if err != nil && !errors.Is(err, errors.NotFound) {
 			return nil, errors.Annotatef(err, "obtaining ControllerUser for everyone group")
 		}

@@ -6,6 +6,7 @@ package modelconfig
 import (
 	"context"
 	"fmt"
+	coreuser "github.com/juju/juju/core/user"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -46,40 +47,40 @@ func NewModelConfigAPI(backend Backend, authorizer facade.Authorizer) (*ModelCon
 	return &ModelConfigAPIV3{client}, nil
 }
 
-func (c *ModelConfigAPI) checkCanWrite() error {
-	return c.auth.HasPermission(permission.WriteAccess, c.backend.ModelTag())
+func (c *ModelConfigAPI) checkCanWrite(usr coreuser.User) error {
+	return c.auth.HasPermission(usr, permission.WriteAccess, c.backend.ModelTag())
 }
 
-func (c *ModelConfigAPI) isControllerAdmin() error {
-	return c.auth.HasPermission(permission.SuperuserAccess, c.backend.ControllerTag())
+func (c *ModelConfigAPI) isControllerAdmin(usr coreuser.User) error {
+	return c.auth.HasPermission(usr, permission.SuperuserAccess, c.backend.ControllerTag())
 }
 
-func (c *ModelConfigAPI) canReadModel() error {
-	err := c.auth.HasPermission(permission.SuperuserAccess, c.backend.ControllerTag())
+func (c *ModelConfigAPI) canReadModel(usr coreuser.User) error {
+	err := c.auth.HasPermission(usr, permission.SuperuserAccess, c.backend.ControllerTag())
 	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return errors.Trace(err)
 	} else if err == nil {
 		return nil
 	}
 
-	err = c.auth.HasPermission(permission.AdminAccess, c.backend.ModelTag())
+	err = c.auth.HasPermission(usr, permission.AdminAccess, c.backend.ModelTag())
 	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return errors.Trace(err)
 	} else if err == nil {
 		return nil
 	}
 
-	return c.auth.HasPermission(permission.ReadAccess, c.backend.ModelTag())
+	return c.auth.HasPermission(usr, permission.ReadAccess, c.backend.ModelTag())
 }
 
-func (c *ModelConfigAPI) isModelAdmin() (bool, error) {
-	err := c.auth.HasPermission(permission.SuperuserAccess, c.backend.ControllerTag())
+func (c *ModelConfigAPI) isModelAdmin(usr coreuser.User) (bool, error) {
+	err := c.auth.HasPermission(usr, permission.SuperuserAccess, c.backend.ControllerTag())
 	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return false, errors.Trace(err)
 	} else if err == nil {
 		return true, nil
 	}
-	err = c.auth.HasPermission(permission.AdminAccess, c.backend.ModelTag())
+	err = c.auth.HasPermission(usr, permission.AdminAccess, c.backend.ModelTag())
 	return err == nil, err
 }
 
@@ -87,11 +88,11 @@ func (c *ModelConfigAPI) isModelAdmin() (bool, error) {
 // model-config CLI command.
 func (c *ModelConfigAPI) ModelGet(ctx context.Context) (params.ModelConfigResults, error) {
 	result := params.ModelConfigResults{}
-	if err := c.canReadModel(); err != nil {
+	if err := c.canReadModel(usr); err != nil {
 		return result, errors.Trace(err)
 	}
 
-	isAdmin, err := c.isModelAdmin()
+	isAdmin, err := c.isModelAdmin(usr)
 	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return result, errors.Trace(err)
 	}
@@ -132,14 +133,14 @@ func (c *ModelConfigAPI) ModelGet(ctx context.Context) (params.ModelConfigResult
 // ModelSet implements the server-side part of the
 // set-model-config CLI command.
 func (c *ModelConfigAPI) ModelSet(ctx context.Context, args params.ModelSet) error {
-	if err := c.checkCanWrite(); err != nil {
+	if err := c.checkCanWrite(usr); err != nil {
 		return err
 	}
 
 	if err := c.check.ChangeAllowed(ctx); err != nil {
 		return errors.Trace(err)
 	}
-	isAdmin, err := c.isModelAdmin()
+	isAdmin, err := c.isModelAdmin(usr)
 	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return errors.Trace(err)
 	}
@@ -161,7 +162,7 @@ func (c *ModelConfigAPI) ModelSet(ctx context.Context, args params.ModelSet) err
 	checkCharmhubURL := c.checkCharmhubURL()
 
 	// Only controller admins can set trace level debugging on a model.
-	checkLogTrace := c.checkLogTrace()
+	checkLogTrace := c.checkLogTrace(usr)
 
 	// Make sure DefaultSpace exists.
 	checkDefaultSpace := c.checkDefaultSpace()
@@ -195,7 +196,7 @@ func (c *ModelConfigAPI) checkAuthorizedKeys() state.ValidateConfigFunc {
 	}
 }
 
-func (c *ModelConfigAPI) checkLogTrace() state.ValidateConfigFunc {
+func (c *ModelConfigAPI) checkLogTrace(usr coreuser.User) state.ValidateConfigFunc {
 	return func(updateAttrs map[string]interface{}, removeAttrs []string, oldConfig *config.Config) error {
 		spec, ok := updateAttrs["logging-config"]
 		if !ok {
@@ -223,7 +224,7 @@ func (c *ModelConfigAPI) checkLogTrace() state.ValidateConfigFunc {
 			return nil
 		}
 
-		err = c.isControllerAdmin()
+		err = c.isControllerAdmin(usr)
 		if !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 			return errors.Trace(err)
 		} else if err != nil {
@@ -307,7 +308,7 @@ func (c *ModelConfigAPI) checkSecretBackend() state.ValidateConfigFunc {
 // ModelUnset implements the server-side part of the
 // set-model-config CLI command.
 func (c *ModelConfigAPI) ModelUnset(ctx context.Context, args params.ModelUnset) error {
-	if err := c.checkCanWrite(); err != nil {
+	if err := c.checkCanWrite(usr); err != nil {
 		return err
 	}
 	if err := c.check.ChangeAllowed(ctx); err != nil {
@@ -319,7 +320,7 @@ func (c *ModelConfigAPI) ModelUnset(ctx context.Context, args params.ModelUnset)
 
 // GetModelConstraints returns the constraints for the model.
 func (c *ModelConfigAPI) GetModelConstraints(ctx context.Context) (params.GetConstraintsResults, error) {
-	if err := c.canReadModel(); err != nil {
+	if err := c.canReadModel(usr); err != nil {
 		return params.GetConstraintsResults{}, err
 	}
 
@@ -332,7 +333,7 @@ func (c *ModelConfigAPI) GetModelConstraints(ctx context.Context) (params.GetCon
 
 // SetModelConstraints sets the constraints for the model.
 func (c *ModelConfigAPI) SetModelConstraints(ctx context.Context, args params.SetConstraints) error {
-	if err := c.checkCanWrite(); err != nil {
+	if err := c.checkCanWrite(usr); err != nil {
 		return err
 	}
 
@@ -344,7 +345,7 @@ func (c *ModelConfigAPI) SetModelConstraints(ctx context.Context, args params.Se
 
 // SetSLALevel sets the sla level on the model.
 func (c *ModelConfigAPI) SetSLALevel(ctx context.Context, args params.ModelSLA) error {
-	if err := c.checkCanWrite(); err != nil {
+	if err := c.checkCanWrite(usr); err != nil {
 		return err
 	}
 	return c.backend.SetSLA(args.Level, args.Owner, args.Credentials)
@@ -365,7 +366,7 @@ func (c *ModelConfigAPI) SLALevel(ctx context.Context) (params.StringResult, err
 // Sequences returns the model's sequence names and next values.
 func (c *ModelConfigAPI) Sequences(ctx context.Context) (params.ModelSequencesResult, error) {
 	result := params.ModelSequencesResult{}
-	if err := c.canReadModel(); err != nil {
+	if err := c.canReadModel(usr); err != nil {
 		return result, errors.Trace(err)
 	}
 

@@ -70,7 +70,7 @@ func newAPIWithBacking(cfg apiConfig) (*API, error) {
 // CreateSpaces creates a new Juju network space, associating the
 // specified subnets with it (optional; can be empty).
 func (api *API) CreateSpaces(ctx stdcontext.Context, args params.CreateSpacesParams) (results params.ErrorResults, err error) {
-	err = api.auth.HasPermission(permission.AdminAccess, api.backing.ModelTag())
+	err = api.auth.HasPermission(usr, permission.AdminAccess, api.backing.ModelTag())
 	if err != nil {
 		return results, err
 	}
@@ -125,7 +125,7 @@ func (api *API) createOneSpace(args params.CreateSpaceParams) error {
 
 // ListSpaces lists all the available spaces and their associated subnets.
 func (api *API) ListSpaces(ctx stdcontext.Context) (results params.ListSpacesResults, err error) {
-	err = api.auth.HasPermission(permission.ReadAccess, api.backing.ModelTag())
+	err = api.auth.HasPermission(usr, permission.ReadAccess, api.backing.ModelTag())
 	if err != nil {
 		return results, err
 	}
@@ -166,7 +166,7 @@ func (api *API) ListSpaces(ctx stdcontext.Context) (results params.ListSpacesRes
 
 // ShowSpace shows the spaces for a set of given entities.
 func (api *API) ShowSpace(ctx stdcontext.Context, entities params.Entities) (params.ShowSpaceResults, error) {
-	err := api.auth.HasPermission(permission.ReadAccess, api.backing.ModelTag())
+	err := api.auth.HasPermission(usr, permission.ReadAccess, api.backing.ModelTag())
 	if err != nil {
 		return params.ShowSpaceResults{}, err
 	}
@@ -288,7 +288,7 @@ func (api *API) applicationsBoundToSpace(spaceID string) ([]string, error) {
 // ensureSpacesAreMutable checks that the current user
 // is allowed to edit the Space topology.
 func (api *API) ensureSpacesAreMutable(ctx stdcontext.Context) error {
-	err := api.auth.HasPermission(permission.AdminAccess, api.backing.ModelTag())
+	err := api.auth.HasPermission(usr, permission.AdminAccess, api.backing.ModelTag())
 	if err != nil {
 		return err
 	}

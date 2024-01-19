@@ -5,6 +5,7 @@ package client
 
 import (
 	stdcontext "context"
+	coreuser "github.com/juju/juju/core/user"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -69,8 +70,8 @@ type ClientV6 struct {
 	*Client
 }
 
-func (c *Client) checkCanRead() error {
-	err := c.api.auth.HasPermission(permission.SuperuserAccess, c.api.stateAccessor.ControllerTag())
+func (c *Client) checkCanRead(usr coreuser.User) error {
+	err := c.api.auth.HasPermission(usr, permission.SuperuserAccess, c.api.stateAccessor.ControllerTag())
 	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return errors.Trace(err)
 	}
@@ -79,11 +80,11 @@ func (c *Client) checkCanRead() error {
 		return nil
 	}
 
-	return c.api.auth.HasPermission(permission.ReadAccess, c.api.stateAccessor.ModelTag())
+	return c.api.auth.HasPermission(usr, permission.ReadAccess, c.api.stateAccessor.ModelTag())
 }
 
-func (c *Client) checkCanWrite() error {
-	err := c.api.auth.HasPermission(permission.SuperuserAccess, c.api.stateAccessor.ControllerTag())
+func (c *Client) checkCanWrite(usr coreuser.User) error {
+	err := c.api.auth.HasPermission(usr, permission.SuperuserAccess, c.api.stateAccessor.ControllerTag())
 	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return errors.Trace(err)
 	}
@@ -92,11 +93,11 @@ func (c *Client) checkCanWrite() error {
 		return nil
 	}
 
-	return c.api.auth.HasPermission(permission.WriteAccess, c.api.stateAccessor.ModelTag())
+	return c.api.auth.HasPermission(usr, permission.WriteAccess, c.api.stateAccessor.ModelTag())
 }
 
-func (c *Client) checkIsAdmin() error {
-	err := c.api.auth.HasPermission(permission.SuperuserAccess, c.api.stateAccessor.ControllerTag())
+func (c *Client) checkIsAdmin(usr coreuser.User) error {
+	err := c.api.auth.HasPermission(usr, permission.SuperuserAccess, c.api.stateAccessor.ControllerTag())
 	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return errors.Trace(err)
 	}
@@ -105,7 +106,7 @@ func (c *Client) checkIsAdmin() error {
 		return nil
 	}
 
-	return c.api.auth.HasPermission(permission.AdminAccess, c.api.stateAccessor.ModelTag())
+	return c.api.auth.HasPermission(usr, permission.AdminAccess, c.api.stateAccessor.ModelTag())
 }
 
 // NewFacade creates a Client facade to handle API requests.
@@ -203,10 +204,10 @@ func NewClient(
 
 // WatchAll initiates a watcher for entities in the connected model.
 func (c *Client) WatchAll(ctx stdcontext.Context) (params.AllWatcherId, error) {
-	if err := c.checkCanRead(); err != nil {
+	if err := c.checkCanRead(usr); err != nil {
 		return params.AllWatcherId{}, err
 	}
-	isAdmin, err := common.HasModelAdmin(c.api.auth, c.api.stateAccessor.ControllerTag(), names.NewModelTag(c.api.state().ModelUUID()))
+	isAdmin, err := common.HasModelAdmin(usr, c.api.auth, c.api.stateAccessor.ControllerTag(), names.NewModelTag(c.api.state().ModelUUID()))
 	if err != nil {
 		return params.AllWatcherId{}, errors.Trace(err)
 	}
@@ -249,7 +250,7 @@ func (s *stripApplicationOffers) Next(ctx stdcontext.Context) ([]multiwatcher.De
 // FindTools returns a List containing all tools matching the given parameters.
 // TODO(juju 3.1) - remove, used by 2.9 client only
 func (c *Client) FindTools(ctx stdcontext.Context, args params.FindToolsParams) (params.FindToolsResult, error) {
-	if err := c.checkCanWrite(); err != nil {
+	if err := c.checkCanWrite(usr); err != nil {
 		return params.FindToolsResult{}, err
 	}
 	model, err := c.api.stateAccessor.Model()

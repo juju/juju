@@ -6,6 +6,7 @@ package applicationoffers
 import (
 	"context"
 	"fmt"
+	coreuser "github.com/juju/juju/core/user"
 	"sort"
 
 	"github.com/juju/charm/v12"
@@ -52,8 +53,8 @@ func (api *BaseAPI) checkAdmin(user names.UserTag, backend Backend) error {
 }
 
 // checkControllerAdmin ensures that the logged in user is a controller admin.
-func (api *BaseAPI) checkControllerAdmin() error {
-	return api.Authorizer.HasPermission(permission.SuperuserAccess, api.ControllerModel.ControllerTag())
+func (api *BaseAPI) checkControllerAdmin(usr coreuser.User) error {
+	return api.Authorizer.HasPermission(usr, permission.SuperuserAccess, api.ControllerModel.ControllerTag())
 }
 
 // modelForName looks up the model details for the named model and returns

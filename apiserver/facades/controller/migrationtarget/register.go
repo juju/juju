@@ -56,7 +56,7 @@ func newFacadeV2(ctx facade.Context) (*APIV2, error) {
 func newFacade(ctx facade.Context, facadeVersions facades.FacadeVersions) (*API, error) {
 	auth := ctx.Auth()
 	st := ctx.State()
-	if err := checkAuth(auth, st); err != nil {
+	if err := checkAuth(usr, auth, st); err != nil {
 		return nil, errors.Trace(err)
 	}
 

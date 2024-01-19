@@ -101,7 +101,7 @@ func DefaultReloadSpacesAuthorizer(
 	state AuthorizerState,
 ) ReloadSpacesAuthorizer {
 	return func(ctx stdcontext.Context) error {
-		err := auth.HasPermission(permission.WriteAccess, state.ModelTag())
+		err := auth.HasPermission(usr, permission.WriteAccess, state.ModelTag())
 		if err != nil {
 			return err
 		}

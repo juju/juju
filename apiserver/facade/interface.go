@@ -5,6 +5,7 @@ package facade
 
 import (
 	"context"
+	coreuser "github.com/juju/juju/core/user"
 	"net/http"
 	"net/url"
 	"time"
@@ -227,7 +228,7 @@ type Authorizer interface {
 
 	// HasPermission reports whether the given access is allowed for the given
 	// target by the authenticated entity.
-	HasPermission(operation permission.Access, target names.Tag) error
+	HasPermission(usr coreuser.User, operation permission.Access, target names.Tag) error
 
 	// EntityHasPermission reports whether the given access is allowed for the given
 	// target by the given entity.

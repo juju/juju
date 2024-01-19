@@ -5,6 +5,7 @@ package secretbackends
 
 import (
 	"context"
+	coreuser "github.com/juju/juju/core/user"
 	"time"
 
 	"github.com/juju/clock"
@@ -34,8 +35,8 @@ type SecretBackendsAPI struct {
 	statePool    StatePool
 }
 
-func (s *SecretBackendsAPI) checkCanAdmin() error {
-	return s.authorizer.HasPermission(permission.SuperuserAccess, names.NewControllerTag(s.controllerUUID))
+func (s *SecretBackendsAPI) checkCanAdmin(usr coreuser.User) error {
+	return s.authorizer.HasPermission(usr, permission.SuperuserAccess, names.NewControllerTag(s.controllerUUID))
 }
 
 // AddSecretBackends adds new secret backends.
@@ -43,7 +44,7 @@ func (s *SecretBackendsAPI) AddSecretBackends(ctx context.Context, args params.A
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Args)),
 	}
-	if err := s.checkCanAdmin(); err != nil {
+	if err := s.checkCanAdmin(usr); err != nil {
 		return result, errors.Trace(err)
 	}
 	for i, arg := range args.Args {
@@ -113,7 +114,7 @@ func (s *SecretBackendsAPI) UpdateSecretBackends(ctx context.Context, args param
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Args)),
 	}
-	if err := s.checkCanAdmin(); err != nil {
+	if err := s.checkCanAdmin(usr); err != nil {
 		return result, errors.Trace(err)
 	}
 	for i, arg := range args.Args {
@@ -194,7 +195,7 @@ func (s *SecretBackendsAPI) updateBackend(arg params.UpdateSecretBackendArg) err
 func (s *SecretBackendsAPI) ListSecretBackends(ctx context.Context, arg params.ListSecretBackendsArgs) (params.ListSecretBackendsResults, error) {
 	result := params.ListSecretBackendsResults{}
 	if arg.Reveal {
-		if err := s.checkCanAdmin(); err != nil {
+		if err := s.checkCanAdmin(usr); err != nil {
 			return result, errors.Trace(err)
 		}
 	}
@@ -213,7 +214,7 @@ func (s *SecretBackendsAPI) RemoveSecretBackends(ctx context.Context, args param
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Args)),
 	}
-	if err := s.checkCanAdmin(); err != nil {
+	if err := s.checkCanAdmin(usr); err != nil {
 		return result, errors.Trace(err)
 	}
 	for i, arg := range args.Args {

@@ -60,29 +60,41 @@ func NewLeadershipPinningFromContext(ctx facade.Context) (*LeadershipPinning, er
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return NewLeadershipPinning(leadershipPinningBackend{st}, model.ModelTag(), pinner, ctx.Auth())
+	return NewLeadershipPinning(
+		leadershipPinningBackend{st},
+		model.ModelTag(),
+		pinner,
+		ctx.Auth(),
+		ctx.ServiceFactory().User(),
+	)
 }
 
 // NewLeadershipPinning creates and returns a new leadership API from the
 // input tag, Pinner implementation and facade Authorizer.
 func NewLeadershipPinning(
-	st LeadershipPinningBackend, modelTag names.ModelTag, pinner leadership.Pinner, authorizer facade.Authorizer,
+	st LeadershipPinningBackend,
+	modelTag names.ModelTag,
+	pinner leadership.Pinner,
+	authorizer facade.Authorizer,
+	userService UserService,
 ) (*LeadershipPinning, error) {
 	return &LeadershipPinning{
-		st:         st,
-		modelTag:   modelTag,
-		pinner:     pinner,
-		authorizer: authorizer,
+		st:          st,
+		modelTag:    modelTag,
+		pinner:      pinner,
+		authorizer:  authorizer,
+		userService: userService,
 	}, nil
 }
 
 // LeadershipPinning defines a type for pinning and unpinning application
 // leaders.
 type LeadershipPinning struct {
-	st         LeadershipPinningBackend
-	modelTag   names.ModelTag
-	pinner     leadership.Pinner
-	authorizer facade.Authorizer
+	st          LeadershipPinningBackend
+	modelTag    names.ModelTag
+	pinner      leadership.Pinner
+	authorizer  facade.Authorizer
+	userService UserService
 }
 
 // PinnedLeadership returns all pinned applications and the entities that
@@ -90,7 +102,12 @@ type LeadershipPinning struct {
 func (a *LeadershipPinning) PinnedLeadership(ctx context.Context) (params.PinnedLeadershipResult, error) {
 	result := params.PinnedLeadershipResult{}
 
-	err := a.authorizer.HasPermission(permission.ReadAccess, a.modelTag)
+	usr, err := a.userService.GetUserByName(ctx, a.authorizer.GetAuthTag().String())
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+
+	err = a.authorizer.HasPermission(usr, permission.ReadAccess, a.modelTag)
 	if err != nil {
 		return result, errors.Trace(err)
 	}

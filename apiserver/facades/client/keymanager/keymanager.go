@@ -6,6 +6,7 @@ package keymanager
 import (
 	"context"
 	"fmt"
+	coreuser "github.com/juju/juju/core/user"
 	"strings"
 
 	"github.com/juju/collections/set"
@@ -37,8 +38,8 @@ type KeyManagerAPI struct {
 	logger        loggo.Logger
 }
 
-func (api *KeyManagerAPI) checkCanRead(sshUser string) error {
-	if err := api.checkCanWrite(sshUser); err == nil {
+func (api *KeyManagerAPI) checkCanRead(usr coreuser.User, sshUser string) error {
+	if err := api.checkCanWrite(usr, sshUser); err == nil {
 		return nil
 	} else if err != apiservererrors.ErrPerm {
 		return errors.Trace(err)
@@ -52,11 +53,11 @@ func (api *KeyManagerAPI) checkCanRead(sshUser string) error {
 		// At the moment this is handled by using `internalComments`
 		return apiservererrors.ErrPerm
 	}
-	err := api.authorizer.HasPermission(permission.ReadAccess, api.model.ModelTag())
+	err := api.authorizer.HasPermission(usr, permission.ReadAccess, api.model.ModelTag())
 	return err
 }
 
-func (api *KeyManagerAPI) checkCanWrite(sshUser string) error {
+func (api *KeyManagerAPI) checkCanWrite(usr coreuser.User, sshUser string) error {
 	if sshUser == config.JujuSystemKey {
 		// users cannot modify the system key.
 		// NOTE: This check currently has no use as the apiserver ignores the user(s) included
@@ -66,7 +67,7 @@ func (api *KeyManagerAPI) checkCanWrite(sshUser string) error {
 		// At the moment this is handled by using `internalComments`
 		return apiservererrors.ErrPerm
 	}
-	ok, err := common.HasModelAdmin(api.authorizer, api.controllerTag, api.model.ModelTag())
+	ok, err := common.HasModelAdmin(usr, api.authorizer, api.controllerTag, api.model.ModelTag())
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -97,7 +98,7 @@ func (api *KeyManagerAPI) ListKeys(ctx context.Context, arg params.ListSSHKeys) 
 
 	results := transform.Slice(arg.Entities.Entities, func(entity params.Entity) params.StringsResult {
 		// NOTE: entity.Tag isn't a tag, but a username.
-		if err := api.checkCanRead(entity.Tag); err != nil {
+		if err := api.checkCanRead(usr, entity.Tag); err != nil {
 			return params.StringsResult{Error: apiservererrors.ServerError(err)}
 		}
 		// All keys are global, no need to look up the user.
@@ -164,7 +165,7 @@ func (api *KeyManagerAPI) currentKeyDataForAdd(ctx context.Context) (keys []stri
 
 // AddKeys adds new authorised ssh keys for the specified user.
 func (api *KeyManagerAPI) AddKeys(ctx context.Context, arg params.ModifyUserSSHKeys) (params.ErrorResults, error) {
-	if err := api.checkCanWrite(arg.User); err != nil {
+	if err := api.checkCanWrite(usr, arg.User); err != nil {
 		return params.ErrorResults{}, apiservererrors.ServerError(err)
 	}
 	if err := api.check.ChangeAllowed(ctx); err != nil {
@@ -256,7 +257,7 @@ func runSSHKeyImport(keyIds []string) map[string][]importedSSHKey {
 
 // ImportKeys imports new authorised ssh keys from the specified key ids for the specified user.
 func (api *KeyManagerAPI) ImportKeys(ctx context.Context, arg params.ModifyUserSSHKeys) (params.ErrorResults, error) {
-	if err := api.checkCanWrite(arg.User); err != nil {
+	if err := api.checkCanWrite(usr, arg.User); err != nil {
 		return params.ErrorResults{}, apiservererrors.ServerError(err)
 	}
 	if err := api.check.ChangeAllowed(ctx); err != nil {
@@ -336,7 +337,7 @@ func (api *KeyManagerAPI) currentKeyDataForDelete(ctx context.Context) (
 
 // DeleteKeys deletes the authorised ssh keys for the specified user.
 func (api *KeyManagerAPI) DeleteKeys(ctx context.Context, arg params.ModifyUserSSHKeys) (params.ErrorResults, error) {
-	if err := api.checkCanWrite(arg.User); err != nil {
+	if err := api.checkCanWrite(usr, arg.User); err != nil {
 		return params.ErrorResults{}, apiservererrors.ServerError(err)
 	}
 	if err := api.check.RemoveAllowed(ctx); err != nil {

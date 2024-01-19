@@ -6,6 +6,7 @@ package annotations
 import (
 	"context"
 	"github.com/juju/errors"
+	coreuser "github.com/juju/juju/core/user"
 	"github.com/juju/names/v5"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -32,19 +33,19 @@ type API struct {
 	authorizer facade.Authorizer
 }
 
-func (api *API) checkCanRead() error {
-	return api.authorizer.HasPermission(permission.ReadAccess, api.access.ModelTag())
+func (api *API) checkCanRead(usr coreuser.User) error {
+	return api.authorizer.HasPermission(usr, permission.ReadAccess, api.access.ModelTag())
 }
 
-func (api *API) checkCanWrite() error {
-	return api.authorizer.HasPermission(permission.WriteAccess, api.access.ModelTag())
+func (api *API) checkCanWrite(usr coreuser.User) error {
+	return api.authorizer.HasPermission(usr, permission.WriteAccess, api.access.ModelTag())
 }
 
 // Get returns annotations for given entities.
 // If annotations cannot be retrieved for a given entity, an error is returned.
 // Each entity is treated independently and, hence, will fail or succeed independently.
 func (api *API) Get(ctx context.Context, args params.Entities) params.AnnotationsGetResults {
-	if err := api.checkCanRead(); err != nil {
+	if err := api.checkCanRead(usr); err != nil {
 		result := make([]params.AnnotationsGetResult, len(args.Entities))
 		for i := range result {
 			result[i].Error = params.ErrorResult{Error: apiservererrors.ServerError(err)}
@@ -67,7 +68,7 @@ func (api *API) Get(ctx context.Context, args params.Entities) params.Annotation
 
 // Set stores annotations for given entities
 func (api *API) Set(ctx context.Context, args params.AnnotationsSet) params.ErrorResults {
-	if err := api.checkCanWrite(); err != nil {
+	if err := api.checkCanWrite(usr); err != nil {
 		errorResults := make([]params.ErrorResult, len(args.Annotations))
 		for i := range errorResults {
 			errorResults[i].Error = apiservererrors.ServerError(err)

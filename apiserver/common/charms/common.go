@@ -57,7 +57,7 @@ func checkCanRead(authorizer facade.Authorizer, state State) error {
 	if authorizer.AuthController() {
 		return nil
 	}
-	return errors.Trace(authorizer.HasPermission(permission.ReadAccess, model.ModelTag()))
+	return errors.Trace(authorizer.HasPermission(usr, permission.ReadAccess, model.ModelTag()))
 }
 
 // NewCharmInfoAPI provides the signature required for facade registration.

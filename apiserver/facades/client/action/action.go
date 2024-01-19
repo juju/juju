@@ -5,6 +5,7 @@ package action
 
 import (
 	"context"
+	coreuser "github.com/juju/juju/core/user"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
@@ -69,22 +70,22 @@ func newActionAPI(
 	}, nil
 }
 
-func (a *ActionAPI) checkCanRead() error {
-	return a.authorizer.HasPermission(permission.ReadAccess, a.model.ModelTag())
+func (a *ActionAPI) checkCanRead(usr coreuser.User) error {
+	return a.authorizer.HasPermission(usr, permission.ReadAccess, a.model.ModelTag())
 }
 
-func (a *ActionAPI) checkCanWrite() error {
-	return a.authorizer.HasPermission(permission.WriteAccess, a.model.ModelTag())
+func (a *ActionAPI) checkCanWrite(usr coreuser.User) error {
+	return a.authorizer.HasPermission(usr, permission.WriteAccess, a.model.ModelTag())
 }
 
-func (a *ActionAPI) checkCanAdmin() error {
-	return a.authorizer.HasPermission(permission.AdminAccess, a.model.ModelTag())
+func (a *ActionAPI) checkCanAdmin(usr coreuser.User) error {
+	return a.authorizer.HasPermission(usr, permission.AdminAccess, a.model.ModelTag())
 }
 
 // Actions takes a list of ActionTags, and returns the full Action for
 // each ID.
 func (a *ActionAPI) Actions(ctx context.Context, arg params.Entities) (params.ActionResults, error) {
-	if err := a.checkCanRead(); err != nil {
+	if err := a.checkCanRead(usr); err != nil {
 		return params.ActionResults{}, errors.Trace(err)
 	}
 
@@ -122,7 +123,7 @@ func (a *ActionAPI) Actions(ctx context.Context, arg params.Entities) (params.Ac
 
 // Cancel attempts to cancel enqueued Actions from running.
 func (a *ActionAPI) Cancel(ctx context.Context, arg params.Entities) (params.ActionResults, error) {
-	if err := a.checkCanWrite(); err != nil {
+	if err := a.checkCanWrite(usr); err != nil {
 		return params.ActionResults{}, errors.Trace(err)
 	}
 
@@ -172,7 +173,7 @@ func (a *ActionAPI) Cancel(ctx context.Context, arg params.Entities) (params.Act
 // services.
 func (a *ActionAPI) ApplicationsCharmsActions(ctx context.Context, args params.Entities) (params.ApplicationsCharmActionsResults, error) {
 	result := params.ApplicationsCharmActionsResults{Results: make([]params.ApplicationCharmActionsResult, len(args.Entities))}
-	if err := a.checkCanWrite(); err != nil {
+	if err := a.checkCanWrite(usr); err != nil {
 		return result, errors.Trace(err)
 	}
 

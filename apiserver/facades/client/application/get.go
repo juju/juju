@@ -5,6 +5,7 @@ package application
 
 import (
 	"github.com/juju/charm/v12"
+	coreuser "github.com/juju/juju/core/user"
 	"github.com/juju/schema"
 	"gopkg.in/juju/environschema.v1"
 
@@ -18,16 +19,17 @@ import (
 )
 
 // Get returns the charm configuration for an application.
-func (api *APIBase) Get(args params.ApplicationGet) (params.ApplicationGetResults, error) {
-	return api.getConfig(args, describe)
+func (api *APIBase) Get(usr coreuser.User, args params.ApplicationGet) (params.ApplicationGetResults, error) {
+	return api.getConfig(usr, args, describe)
 }
 
 // Get returns the charm configuration for an application.
 func (api *APIBase) getConfig(
+	usr coreuser.User,
 	args params.ApplicationGet,
 	describe func(settings charm.Settings, config *charm.Config) map[string]interface{},
 ) (params.ApplicationGetResults, error) {
-	if err := api.checkCanRead(); err != nil {
+	if err := api.checkCanRead(usr); err != nil {
 		return params.ApplicationGetResults{}, err
 	}
 

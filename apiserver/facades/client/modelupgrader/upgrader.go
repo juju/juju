@@ -7,6 +7,7 @@ import (
 	"context"
 	stdcontext "context"
 	"fmt"
+	coreuser "github.com/juju/juju/core/user"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -91,8 +92,9 @@ func NewModelUpgraderAPI(
 	}, nil
 }
 
-func (m *ModelUpgraderAPI) canUpgrade(model names.ModelTag) error {
+func (m *ModelUpgraderAPI) canUpgrade(usr coreuser.User, model names.ModelTag) error {
 	err := m.authorizer.HasPermission(
+		usr,
 		permission.SuperuserAccess,
 		m.controllerTag,
 	)
@@ -103,7 +105,7 @@ func (m *ModelUpgraderAPI) canUpgrade(model names.ModelTag) error {
 		return nil
 	}
 
-	return m.authorizer.HasPermission(permission.WriteAccess, model)
+	return m.authorizer.HasPermission(usr, permission.WriteAccess, model)
 }
 
 // ConfigSource describes a type that is able to provide config.
@@ -132,7 +134,7 @@ func (m *ModelUpgraderAPI) UpgradeModel(ctx stdcontext.Context, arg params.Upgra
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-	if err := m.canUpgrade(modelTag); err != nil {
+	if err := m.canUpgrade(usr, modelTag); err != nil {
 		return result, err
 	}
 

@@ -83,7 +83,7 @@ func NewCloudAPI(
 		return nil, apiservererrors.ErrPerm
 	}
 
-	err := authorizer.HasPermission(permission.SuperuserAccess, controllerTag)
+	err := authorizer.HasPermission(usr, permission.SuperuserAccess, controllerTag)
 	if err != nil && !errors.Is(err, errors.NotFound) && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return nil, err
 	}
@@ -133,7 +133,7 @@ func (api *CloudAPI) Clouds(ctx context.Context) (params.CloudsResult, error) {
 	if err != nil {
 		return result, err
 	}
-	err = api.authorizer.HasPermission(permission.SuperuserAccess, api.controllerTag)
+	err = api.authorizer.HasPermission(usr, permission.SuperuserAccess, api.controllerTag)
 	if err != nil &&
 		!errors.Is(err, authentication.ErrorEntityMissingPermission) &&
 		!errors.Is(err, errors.NotFound) {
@@ -163,7 +163,7 @@ func (api *CloudAPI) Cloud(ctx context.Context, args params.Entities) (params.Cl
 	results := params.CloudResults{
 		Results: make([]params.CloudResult, len(args.Entities)),
 	}
-	err := api.authorizer.HasPermission(permission.SuperuserAccess, api.controllerTag)
+	err := api.authorizer.HasPermission(usr, permission.SuperuserAccess, api.controllerTag)
 	if err != nil &&
 		!errors.Is(err, authentication.ErrorEntityMissingPermission) &&
 		!errors.Is(err, errors.NotFound) {
@@ -229,7 +229,7 @@ func (api *CloudAPI) CloudInfo(ctx context.Context, args params.Entities) (param
 }
 
 func (api *CloudAPI) getCloudInfo(ctx context.Context, tag names.CloudTag) (*params.CloudInfo, error) {
-	err := api.authorizer.HasPermission(permission.SuperuserAccess, api.controllerTag)
+	err := api.authorizer.HasPermission(usr, permission.SuperuserAccess, api.controllerTag)
 	if err != nil && !errors.Is(err, errors.NotFound) && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return nil, errors.Trace(err)
 	}
@@ -435,7 +435,7 @@ func (api *CloudAPI) AddCredentials(ctx context.Context, args params.TaggedCrede
 func (api *CloudAPI) UpdateCredentialsCheckModels(ctx context.Context, args params.UpdateCredentialArgs) (params.UpdateCredentialResults, error) {
 	if args.Force {
 		// Only controller admins can ask for an update to be forced.
-		err := api.authorizer.HasPermission(permission.SuperuserAccess, api.controllerTag)
+		err := api.authorizer.HasPermission(usr, permission.SuperuserAccess, api.controllerTag)
 		if err != nil && !errors.Is(err, errors.NotFound) && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 			return params.UpdateCredentialResults{}, errors.Trace(err)
 		}
@@ -607,7 +607,7 @@ func (api *CloudAPI) Credential(ctx context.Context, args params.Entities) (para
 
 // AddCloud adds a new cloud, different from the one managed by the controller.
 func (api *CloudAPI) AddCloud(ctx context.Context, cloudArgs params.AddCloudArgs) error {
-	err := api.authorizer.HasPermission(permission.SuperuserAccess, api.controllerTag)
+	err := api.authorizer.HasPermission(usr, permission.SuperuserAccess, api.controllerTag)
 	if err != nil {
 		return err
 	}
@@ -651,7 +651,7 @@ func (api *CloudAPI) UpdateCloud(ctx context.Context, cloudArgs params.UpdateClo
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(cloudArgs.Clouds)),
 	}
-	err := api.authorizer.HasPermission(permission.SuperuserAccess, api.controllerTag)
+	err := api.authorizer.HasPermission(usr, permission.SuperuserAccess, api.controllerTag)
 	if err != nil && !errors.Is(err, errors.NotFound) && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return results, errors.Trace(err)
 	} else if err != nil {
@@ -670,7 +670,7 @@ func (api *CloudAPI) RemoveClouds(ctx context.Context, args params.Entities) (pa
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
 	}
-	err := api.authorizer.HasPermission(permission.SuperuserAccess, api.controllerTag)
+	err := api.authorizer.HasPermission(usr, permission.SuperuserAccess, api.controllerTag)
 	if err != nil && !errors.Is(err, errors.NotFound) && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return result, errors.Trace(err)
 	}
@@ -848,7 +848,7 @@ func (api *CloudAPI) ModifyCloudAccess(ctx context.Context, args params.ModifyCl
 			continue
 		}
 
-		err = api.authorizer.HasPermission(permission.SuperuserAccess, api.controllerTag)
+		err = api.authorizer.HasPermission(usr, permission.SuperuserAccess, api.controllerTag)
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue

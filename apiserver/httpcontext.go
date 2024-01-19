@@ -6,6 +6,7 @@ package apiserver
 import (
 	"encoding/json"
 	"fmt"
+	coreuser "github.com/juju/juju/core/user"
 	"net/http"
 	"strings"
 
@@ -259,11 +260,11 @@ func (a controllerAdminAuthorizer) Authorize(authInfo authentication.AuthInfo) e
 
 	has, err := common.HasPermission(
 		usr,
-		common.UserAccessFunc(func(entity names.UserTag, subject names.Tag) (permission.Access, error) {
+		common.UserAccessFunc(func(usr coreuser.User, entity names.UserTag, subject names.Tag) (permission.Access, error) {
 			if entity.String() != userTag.String() {
 				return permission.NoAccess, fmt.Errorf("expected entity %q got %q", userTag.String(), entity.String())
 			}
-			return authInfo.SubjectPermissions(subject)
+			return authInfo.SubjectPermissions(usr, subject)
 		}),
 		userTag, permission.SuperuserAccess, a.controllerTag,
 	)

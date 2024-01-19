@@ -5,6 +5,7 @@ package action
 
 import (
 	"fmt"
+	coreuser "github.com/juju/juju/core/user"
 	"strings"
 
 	"github.com/juju/collections/set"
@@ -20,8 +21,8 @@ import (
 // EnqueueOperation takes a list of Actions and queues them up to be executed as
 // an operation, each action running as a task on the designated ActionReceiver.
 // We return the ID of the overall operation and each individual task.
-func (a *ActionAPI) EnqueueOperation(arg params.Actions) (params.EnqueuedActions, error) {
-	operationId, actionResults, err := a.enqueue(arg)
+func (a *ActionAPI) EnqueueOperation(usr coreuser.User, arg params.Actions) (params.EnqueuedActions, error) {
+	operationId, actionResults, err := a.enqueue(usr, arg)
 	if err != nil {
 		return params.EnqueuedActions{}, err
 	}
@@ -32,8 +33,8 @@ func (a *ActionAPI) EnqueueOperation(arg params.Actions) (params.EnqueuedActions
 	return results, nil
 }
 
-func (a *ActionAPI) enqueue(arg params.Actions) (string, params.ActionResults, error) {
-	if err := a.checkCanWrite(); err != nil {
+func (a *ActionAPI) enqueue(usr coreuser.User, arg params.Actions) (string, params.ActionResults, error) {
+	if err := a.checkCanWrite(usr); err != nil {
 		return "", params.ActionResults{}, errors.Trace(err)
 	}
 
@@ -126,8 +127,8 @@ func (a *ActionAPI) handleFailedActionEnqueuing(operationID string, response par
 }
 
 // ListOperations fetches the called actions for specified apps/units.
-func (a *ActionAPI) ListOperations(arg params.OperationQueryArgs) (params.OperationResults, error) {
-	if err := a.checkCanRead(); err != nil {
+func (a *ActionAPI) ListOperations(usr coreuser.User, arg params.OperationQueryArgs) (params.OperationResults, error) {
+	if err := a.checkCanRead(usr); err != nil {
 		return params.OperationResults{}, errors.Trace(err)
 	}
 
@@ -211,8 +212,8 @@ func (a *ActionAPI) ListOperations(arg params.OperationQueryArgs) (params.Operat
 }
 
 // Operations fetches the specified operation ids.
-func (a *ActionAPI) Operations(arg params.Entities) (params.OperationResults, error) {
-	if err := a.checkCanRead(); err != nil {
+func (a *ActionAPI) Operations(usr coreuser.User, arg params.Entities) (params.OperationResults, error) {
+	if err := a.checkCanRead(usr); err != nil {
 		return params.OperationResults{}, errors.Trace(err)
 	}
 	results := params.OperationResults{Results: make([]params.OperationResult, len(arg.Entities))}

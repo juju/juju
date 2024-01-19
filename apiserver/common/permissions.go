@@ -100,12 +100,13 @@ func GetPermission(usr coreuser.User, accessGetter UserAccessFunc, userTag names
 // superuser, or if they have been explicitly granted admin access to the
 // model.
 func HasModelAdmin(
+	usr coreuser.User,
 	authorizer facade.Authorizer,
 	controllerTag names.ControllerTag,
 	modelTag names.ModelTag,
 ) (bool, error) {
 	// superusers have admin for all models.
-	err := authorizer.HasPermission(permission.SuperuserAccess, controllerTag)
+	err := authorizer.HasPermission(usr, permission.SuperuserAccess, controllerTag)
 	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return false, err
 	}
@@ -114,6 +115,6 @@ func HasModelAdmin(
 		return true, nil
 	}
 
-	err = authorizer.HasPermission(permission.AdminAccess, modelTag)
+	err = authorizer.HasPermission(usr, permission.AdminAccess, modelTag)
 	return err == nil, err
 }

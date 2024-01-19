@@ -50,7 +50,7 @@ func (api *HighAvailabilityAPI) EnableHA(
 ) (params.ControllersChangeResults, error) {
 	results := params.ControllersChangeResults{}
 
-	err := api.authorizer.HasPermission(permission.SuperuserAccess, api.st.ControllerTag())
+	err := api.authorizer.HasPermission(usr, permission.SuperuserAccess, api.st.ControllerTag())
 	if err != nil {
 		return results, apiservererrors.ServerError(apiservererrors.ErrPerm)
 	}

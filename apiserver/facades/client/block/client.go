@@ -5,6 +5,7 @@ package block
 
 import (
 	"context"
+	coreuser "github.com/juju/juju/core/user"
 
 	"github.com/juju/errors"
 
@@ -40,19 +41,19 @@ var getState = func(st *state.State, m *state.Model) blockAccess {
 	return stateShim{st, m}
 }
 
-func (a *API) checkCanRead() error {
-	err := a.authorizer.HasPermission(permission.ReadAccess, a.access.ModelTag())
+func (a *API) checkCanRead(usr coreuser.User) error {
+	err := a.authorizer.HasPermission(usr, permission.ReadAccess, a.access.ModelTag())
 	return err
 }
 
-func (a *API) checkCanWrite() error {
-	err := a.authorizer.HasPermission(permission.WriteAccess, a.access.ModelTag())
+func (a *API) checkCanWrite(usr coreuser.User) error {
+	err := a.authorizer.HasPermission(usr, permission.WriteAccess, a.access.ModelTag())
 	return err
 }
 
 // List implements Block.List().
 func (a *API) List(ctx context.Context) (params.BlockResults, error) {
-	if err := a.checkCanRead(); err != nil {
+	if err := a.checkCanRead(usr); err != nil {
 		return params.BlockResults{}, err
 	}
 
@@ -85,7 +86,7 @@ func convertBlock(b state.Block) params.BlockResult {
 
 // SwitchBlockOn implements Block.SwitchBlockOn().
 func (a *API) SwitchBlockOn(ctx context.Context, args params.BlockSwitchParams) params.ErrorResult {
-	if err := a.checkCanWrite(); err != nil {
+	if err := a.checkCanWrite(usr); err != nil {
 		return params.ErrorResult{Error: apiservererrors.ServerError(err)}
 	}
 
@@ -95,7 +96,7 @@ func (a *API) SwitchBlockOn(ctx context.Context, args params.BlockSwitchParams) 
 
 // SwitchBlockOff implements Block.SwitchBlockOff().
 func (a *API) SwitchBlockOff(ctx context.Context, args params.BlockSwitchParams) params.ErrorResult {
-	if err := a.checkCanWrite(); err != nil {
+	if err := a.checkCanWrite(usr); err != nil {
 		return params.ErrorResult{Error: apiservererrors.ServerError(err)}
 	}
 

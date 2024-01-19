@@ -5,6 +5,7 @@ package subnets
 
 import (
 	stdcontext "context"
+	coreuser "github.com/juju/juju/core/user"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -58,8 +59,8 @@ type API struct {
 	logger                      loggo.Logger
 }
 
-func (api *API) checkCanRead() error {
-	return api.authorizer.HasPermission(permission.ReadAccess, api.backing.ModelTag())
+func (api *API) checkCanRead(usr coreuser.User) error {
+	return api.authorizer.HasPermission(usr, permission.ReadAccess, api.backing.ModelTag())
 }
 
 // newAPIWithBacking creates a new server-side Subnets API facade with
@@ -85,7 +86,7 @@ func newAPIWithBacking(
 // zone is unusable, unavailable, or deprecated the Available
 // field will be false.
 func (api *API) AllZones(ctx stdcontext.Context) (params.ZoneResults, error) {
-	if err := api.checkCanRead(); err != nil {
+	if err := api.checkCanRead(usr); err != nil {
 		return params.ZoneResults{}, err
 	}
 	invalidator, err := api.credentialInvalidatorGetter()
@@ -99,7 +100,7 @@ func (api *API) AllZones(ctx stdcontext.Context) (params.ZoneResults, error) {
 // ListSubnets returns the matching subnets after applying
 // optional filters.
 func (api *API) ListSubnets(ctx stdcontext.Context, args params.SubnetsFilters) (results params.ListSubnetsResults, err error) {
-	if err := api.checkCanRead(); err != nil {
+	if err := api.checkCanRead(usr); err != nil {
 		return params.ListSubnetsResults{}, err
 	}
 
@@ -144,7 +145,7 @@ func (api *API) ListSubnets(ctx stdcontext.Context, args params.SubnetsFilters) 
 func (api *API) SubnetsByCIDR(ctx stdcontext.Context, arg params.CIDRParams) (params.SubnetsResults, error) {
 	result := params.SubnetsResults{}
 
-	if err := api.checkCanRead(); err != nil {
+	if err := api.checkCanRead(usr); err != nil {
 		return result, err
 	}
 

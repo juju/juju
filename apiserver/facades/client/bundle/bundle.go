@@ -96,8 +96,8 @@ func NewBundleAPI(
 	}, nil
 }
 
-func (b *BundleAPI) checkCanRead() error {
-	return b.authorizer.HasPermission(permission.ReadAccess, b.modelTag)
+func (b *BundleAPI) checkCanRead(usr coreuser.User) error {
+	return b.authorizer.HasPermission(usr, permission.ReadAccess, b.modelTag)
 }
 
 type validators struct {
@@ -204,7 +204,7 @@ func (b *BundleAPI) ExportBundle(ctx context.Context, arg params.ExportBundlePar
 		return params.StringResult{}, apiservererrors.ServerError(failErr)
 	}
 
-	if err := b.checkCanRead(); err != nil {
+	if err := b.checkCanRead(usr); err != nil {
 		return fail(err)
 	}
 

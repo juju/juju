@@ -5,6 +5,7 @@ package secrets
 
 import (
 	"context"
+	coreuser "github.com/juju/juju/core/user"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -50,16 +51,16 @@ type SecretsAPIV1 struct {
 	*SecretsAPI
 }
 
-func (s *SecretsAPI) checkCanRead() error {
-	return s.authorizer.HasPermission(permission.ReadAccess, names.NewModelTag(s.modelUUID))
+func (s *SecretsAPI) checkCanRead(usr coreuser.User) error {
+	return s.authorizer.HasPermission(usr, permission.ReadAccess, names.NewModelTag(s.modelUUID))
 }
 
-func (s *SecretsAPI) checkCanWrite() error {
-	return s.authorizer.HasPermission(permission.WriteAccess, names.NewModelTag(s.modelUUID))
+func (s *SecretsAPI) checkCanWrite(usr coreuser.User) error {
+	return s.authorizer.HasPermission(usr, permission.WriteAccess, names.NewModelTag(s.modelUUID))
 }
 
-func (s *SecretsAPI) checkCanAdmin() error {
-	_, err := common.HasModelAdmin(s.authorizer, names.NewControllerTag(s.controllerUUID), names.NewModelTag(s.modelUUID))
+func (s *SecretsAPI) checkCanAdmin(usr coreuser.User) error {
+	_, err := common.HasModelAdmin(usr, s.authorizer, names.NewControllerTag(s.controllerUUID), names.NewModelTag(s.modelUUID))
 	return err
 }
 
@@ -67,11 +68,11 @@ func (s *SecretsAPI) checkCanAdmin() error {
 func (s *SecretsAPI) ListSecrets(ctx context.Context, arg params.ListSecretsArgs) (params.ListSecretResults, error) {
 	result := params.ListSecretResults{}
 	if arg.ShowSecrets {
-		if err := s.checkCanAdmin(); err != nil {
+		if err := s.checkCanAdmin(usr); err != nil {
 			return result, errors.Trace(err)
 		}
 	} else {
-		if err := s.checkCanRead(); err != nil {
+		if err := s.checkCanRead(usr); err != nil {
 			return result, errors.Trace(err)
 		}
 	}
@@ -260,7 +261,7 @@ func (s *SecretsAPI) CreateSecrets(ctx context.Context, args params.CreateSecret
 	result := params.StringResults{
 		Results: make([]params.StringResult, len(args.Args)),
 	}
-	if err := s.checkCanWrite(); err != nil {
+	if err := s.checkCanWrite(usr); err != nil {
 		return result, errors.Trace(err)
 	}
 	backend, err := s.getBackendForUserSecretsWrite(ctx)
@@ -383,7 +384,7 @@ func (s *SecretsAPI) UpdateSecrets(ctx context.Context, args params.UpdateUserSe
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Args)),
 	}
-	if err := s.checkCanWrite(); err != nil {
+	if err := s.checkCanWrite(usr); err != nil {
 		return result, errors.Trace(err)
 	}
 	backend, err := s.getBackendForUserSecretsWrite(ctx)
@@ -491,7 +492,7 @@ func (s *SecretsAPI) RemoveSecrets(ctx context.Context, args params.DeleteSecret
 		s.secretsState, s.adminBackendConfigGetter,
 		s.authTag, args, s.modelUUID,
 		func(uri *coresecrets.URI) error {
-			if err := s.checkCanWrite(); err != nil {
+			if err := s.checkCanWrite(usr); err != nil {
 				return errors.Trace(err)
 			}
 			md, err := s.secretsState.GetSecret(uri)
@@ -551,7 +552,7 @@ func (s *SecretsAPI) secretsGrantRevoke(arg params.GrantRevokeUserSecretArg, op 
 		return results, errors.New("must specify either URI or name")
 	}
 
-	if err := s.checkCanWrite(); err != nil {
+	if err := s.checkCanWrite(usr); err != nil {
 		return results, errors.Trace(err)
 	}
 
