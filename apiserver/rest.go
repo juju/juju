@@ -43,7 +43,6 @@ func (h *RestHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 type modelRestHandler struct {
 	ctxt              httpContext
 	dataDir           string
-	stateAuthFunc     func(*http.Request) (*state.PooledState, error)
 	objectStoreGetter ObjectStoreGetter
 }
 

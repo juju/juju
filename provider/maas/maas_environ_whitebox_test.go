@@ -2571,7 +2571,7 @@ func (suite *maasEnvironSuite) TestBootstrapFailsIfNoNodes(c *gc.C) {
 		})
 	// Since there are no nodes, the attempt to allocate one returns a
 	// 409: Conflict.
-	c.Check(err, gc.ErrorMatches, "cannot start bootstrap instance in any availability zone \\(mossack, fonseca\\)")
+	c.Check(err, gc.ErrorMatches, "(?ms)cannot start bootstrap instance in any availability zone \\(mossack, fonseca\\).*")
 }
 
 func (suite *maasEnvironSuite) TestGetToolsMetadataSources(c *gc.C) {

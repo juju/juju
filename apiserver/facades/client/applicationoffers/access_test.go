@@ -8,6 +8,7 @@ import (
 	"regexp"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v5"
@@ -40,7 +41,10 @@ func (s *offerAccessSuite) SetUpTest(c *gc.C) {
 
 	var err error
 	thirdPartyKey := bakery.MustGenerateKey()
-	s.authContext, err = crossmodel.NewAuthContext(s.mockState, thirdPartyKey, s.bakery)
+	s.authContext, err = crossmodel.NewAuthContext(
+		s.mockState, thirdPartyKey,
+		crossmodel.NewOfferBakeryForTest(s.bakery, clock.WallClock),
+	)
 	c.Assert(err, jc.ErrorIsNil)
 
 	api, err := applicationoffers.CreateOffersAPI(

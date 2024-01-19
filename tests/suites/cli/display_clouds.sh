@@ -90,7 +90,7 @@ EOF
 		exit 1
 	fi
 
-	CLOUD_LIST=$(JUJU_DATA="${TEST_DIR}/juju" juju show-cloud finfolk-vmaas --format yaml --client | yq -o=j | jq -S 'with_entries((select(.value!= null)))')
+	CLOUD_LIST=$(JUJU_DATA="${TEST_DIR}/juju" juju show-cloud finfolk-vmaas --format yaml --client | yq -j | jq -S 'with_entries((select(.value!= null)))')
 	EXPECTED=$(
 		cat <<'EOF' | jq -S
 	{

@@ -116,6 +116,7 @@ func (s *BootstrapSuite) TestCannotStartInstance(c *gc.C) {
 		storage: newStorage(s, c),
 		config:  configGetter(c),
 	}
+	rvalErr := errors.Errorf("meh, not started")
 
 	startInstance := func(ctx envcontext.ProviderCallContext, args environs.StartInstanceParams) (
 		instances.Instance,
@@ -148,7 +149,7 @@ func (s *BootstrapSuite) TestCannotStartInstance(c *gc.C) {
 		expectedMcfg.NetBondReconfigureDelay = env.Config().NetBondReconfigureDelay()
 		args.InstanceConfig.Bootstrap.InitialSSHHostKeys = nil
 		c.Assert(args.InstanceConfig, jc.DeepEquals, expectedMcfg)
-		return nil, nil, nil, errors.Errorf("meh, not started")
+		return nil, nil, nil, rvalErr
 	}
 
 	env.startInstance = startInstance
@@ -163,6 +164,9 @@ func (s *BootstrapSuite) TestCannotStartInstance(c *gc.C) {
 		SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
 	})
 	c.Assert(err, gc.ErrorMatches, "cannot start bootstrap instance: meh, not started")
+	// We do this check to make sure that errors propagated from start instance
+	// are then passed on through Bootstrap().
+	c.Assert(err, jc.ErrorIs, rvalErr)
 }
 
 func (s *BootstrapSuite) TestBootstrapInstanceCancelled(c *gc.C) {
@@ -345,7 +349,7 @@ func (s *BootstrapSuite) TestStartInstanceAttemptAllZones(c *gc.C) {
 		SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
 	})
 	c.Assert(err, gc.ErrorMatches,
-		`cannot start bootstrap instance in any availability zone \(z0, z2\)`,
+		`(?ms)cannot start bootstrap instance in any availability zone \(z0, z2\).*`,
 	)
 	c.Assert(callZones, jc.SameContents, []string{"z0", "z2"})
 }
@@ -390,7 +394,7 @@ func (s *BootstrapSuite) TestStartInstanceAttemptZoneConstrained(c *gc.C) {
 		},
 	})
 	c.Assert(err, gc.ErrorMatches,
-		`cannot start bootstrap instance in any availability zone \(z0, z2\)`,
+		`(?ms)cannot start bootstrap instance in any availability zone \(z0, z2\).*`,
 	)
 	c.Assert(callZones, jc.SameContents, []string{"z0", "z2"})
 }

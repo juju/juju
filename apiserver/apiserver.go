@@ -751,7 +751,6 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		ctxt:              httpCtxt,
 		dataDir:           srv.dataDir,
 		objectStoreGetter: srv.shared.objectStoreGetter,
-		stateAuthFunc:     httpCtxt.stateForRequestAuthenticatedUser,
 	}
 	modelRestServer := &RestHTTPHandler{
 		GetHandler: modelRestHandler.ServeGet,
@@ -788,6 +787,7 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 			if err != nil {
 				return nil, nil, nil, errors.Trace(err)
 			}
+
 			store, err := httpCtxt.objectStoreForRequest(req)
 			if err != nil {
 				return nil, nil, nil, errors.Trace(err)
@@ -800,6 +800,8 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 			if err != nil {
 				return errors.Trace(err)
 			}
+			defer st.Release()
+
 			blockChecker := common.NewBlockChecker(st)
 			if err := blockChecker.ChangeAllowed(req.Context()); err != nil {
 				return errors.Trace(err)
@@ -817,6 +819,7 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 			if err != nil {
 				return nil, nil, errors.Trace(err)
 			}
+
 			tagStr := req.URL.Query().Get(":unit")
 			tag, err := names.ParseUnitTag(tagStr)
 			if err != nil {

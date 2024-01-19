@@ -13,7 +13,6 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/apiserverhttp"
-	"github.com/juju/juju/apiserver/bakeryutil"
 	"github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/core/macaroon"
 	"github.com/juju/juju/state"
@@ -64,27 +63,26 @@ func newOfferAuthcontext(pool *state.StatePool) (*crossmodel.AuthContext, error)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	locator := bakeryutil.BakeryThirdPartyLocator{PublicKey: key.Public}
-	localOfferBakery := bakery.New(
-		bakery.BakeryParams{
-			Checker:       checker,
-			RootKeyStore:  store,
-			Locator:       locator,
-			Key:           key,
-			OpsAuthorizer: crossmodel.CrossModelAuthorizer{},
-			Location:      location,
-		},
-	)
-	localOfferBakeryKey := key
-	offerBakery := &bakeryutil.ExpirableStorageBakery{
-		localOfferBakery, location, localOfferBakeryKey, store, locator,
-	}
-	authCtx, err := crossmodel.NewAuthContext(
-		crossmodel.GetBackend(st), key, offerBakery)
+
+	controllerConfig, err := st.ControllerConfig()
 	if err != nil {
-		return nil, err
+		return nil, errors.Annotate(err, "unable to get controller config")
 	}
-	return authCtx, nil
+	loginTokenRefreshURL := controllerConfig.LoginTokenRefreshURL()
+	if loginTokenRefreshURL != "" {
+		offerBakery, err := crossmodel.NewJaaSOfferBakery(
+			loginTokenRefreshURL, location, bakeryConfig, store, checker,
+		)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return crossmodel.NewAuthContext(crossmodel.GetBackend(st), key, offerBakery)
+	}
+	offerBakery, err := crossmodel.NewLocalOfferBakery(location, bakeryConfig, store, checker)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return crossmodel.NewAuthContext(crossmodel.GetBackend(st), key, offerBakery)
 }
 
 func (h *localOfferAuthHandler) checkThirdPartyCaveat(stdctx context.Context, req *http.Request, cavInfo *bakery.ThirdPartyCaveatInfo, _ *httpbakery.DischargeToken) ([]checkers.Caveat, error) {

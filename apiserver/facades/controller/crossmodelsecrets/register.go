@@ -8,6 +8,7 @@ import (
 	"reflect"
 
 	"github.com/juju/errors"
+	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/crossmodel"
@@ -29,14 +30,19 @@ func Register(registry facade.FacadeRegistry) {
 // backed by global state.
 func newStateCrossModelSecretsAPI(stdCtx context.Context, ctx facade.Context) (*CrossModelSecretsAPI, error) {
 	authCtxt := ctx.Resources().Get("offerAccessAuthContext").(*common.ValueResource).Value
-	secretBackendConfigGetter := func(stdCtx context.Context, modelUUID string) (*provider.ModelBackendConfigInfo, error) {
+
+	leadershipChecker, err := ctx.LeadershipChecker()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	secretBackendConfigGetter := func(stdCtx context.Context, modelUUID, backendID string, consumer names.Tag) (*provider.ModelBackendConfigInfo, error) {
 		model, closer, err := ctx.StatePool().GetModel(modelUUID)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		defer closer.Release()
-		return secrets.AdminBackendConfigInfo(
-			stdCtx, secrets.SecretsModel(model), ctx.ServiceFactory().Cloud(), ctx.ServiceFactory().Credential())
+		return secrets.BackendConfigInfo(stdCtx, secrets.SecretsModel(model), ctx.ServiceFactory().Cloud(), ctx.ServiceFactory().Credential(), []string{backendID}, false, consumer, leadershipChecker)
 	}
 	secretInfoGetter := func(modelUUID string) (SecretsState, SecretsConsumer, func() bool, error) {
 		st, err := ctx.StatePool().Get(modelUUID)

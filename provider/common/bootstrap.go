@@ -6,6 +6,7 @@ package common
 import (
 	"bufio"
 	"context"
+	stderrors "errors"
 	"fmt"
 	"io"
 	"os"
@@ -280,12 +281,14 @@ func BootstrapInstance(
 	}
 
 	var result *environs.StartInstanceResult
+	zoneErrors := []error{} // is a collection of errors we encounter for each zone.
 	for i, zone := range zones {
 		startInstanceArgs.AvailabilityZone = zone
 		result, err = env.StartInstance(callCtx, startInstanceArgs)
 		if err == nil {
 			break
 		}
+		zoneErrors = append(zoneErrors, fmt.Errorf("starting bootstrap instance in zone %q: %w", zone, err))
 
 		select {
 		case <-ctx.Done():
@@ -304,9 +307,9 @@ func BootstrapInstance(
 		}
 		// This is the last zone in the list, error.
 		if len(zones) > 1 {
-			return nil, nil, nil, errors.Errorf(
-				"cannot start bootstrap instance in any availability zone (%s)",
-				strings.Join(zones, ", "),
+			return nil, nil, nil, fmt.Errorf(
+				"cannot start bootstrap instance in any availability zone (%s):\n%w",
+				strings.Join(zones, ", "), stderrors.Join(zoneErrors...),
 			)
 		}
 		return nil, nil, nil, errors.Annotatef(err, "cannot start bootstrap instance in availability zone %q", zone)
