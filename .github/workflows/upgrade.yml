@@ -140,7 +140,7 @@ jobs:
       - name: Mirror docker images required for juju bootstrap
         if: matrix.cloud == 'microk8s'
         env:
-          SOURCE_JUJU_TAG: ${{ steps.vars.outputs.source-juju-version }}
+          SOURCE_JUJU_VERSION: ${{ steps.vars.outputs.source-juju-version }}
         run: |
           set -euxo pipefail
           
@@ -148,14 +148,14 @@ jobs:
           BUILD_TEMP=$(mktemp -d)
           cp ~/certs/ca.crt $BUILD_TEMP/
           cat >$BUILD_TEMP/Dockerfile <<EOL
-            FROM docker.io/jujusolutions/jujud-operator:${SOURCE_JUJU_TAG}
+            FROM docker.io/jujusolutions/jujud-operator:${SOURCE_JUJU_VERSION}
           
             COPY ca.crt /usr/local/share/ca-certificates/ca.crt
           
             RUN update-ca-certificates
           EOL
-          docker build $BUILD_TEMP -t ${DOCKER_REGISTRY}/test-repo/jujud-operator:${SOURCE_JUJU_TAG}
-          docker push ${DOCKER_REGISTRY}/test-repo/jujud-operator:${SOURCE_JUJU_TAG}
+          docker build $BUILD_TEMP -t ${DOCKER_REGISTRY}/test-repo/jujud-operator:${SOURCE_JUJU_VERSION}
+          docker push ${DOCKER_REGISTRY}/test-repo/jujud-operator:${SOURCE_JUJU_VERSION}
           
           DOCKER_USERNAME=${DOCKER_REGISTRY}/test-repo make seed-repository
 
@@ -220,8 +220,7 @@ jobs:
       - name: Build jujud image
         if: matrix.cloud == 'microk8s'
         env:
-          UPSTREAM_JUJU_TAG: ${{ steps.vars.outputs.target-juju-version }}
-          CURRENT_STABLE_JUJU_TAG: ${{ steps.vars.outputs.source-juju-version }}
+          TARGET_JUJU_VERSION: ${{ steps.vars.outputs.target-juju-version }}
         run: |
           set -euxo pipefail
           
@@ -231,26 +230,14 @@ jobs:
           BUILD_TEMP=$(mktemp -d)
           cp ~/certs/ca.crt $BUILD_TEMP/
           cat >$BUILD_TEMP/Dockerfile <<EOL
-            FROM docker.io/jujusolutions/jujud-operator:${UPSTREAM_JUJU_TAG}
+            FROM docker.io/jujusolutions/jujud-operator:${TARGET_JUJU_VERSION}
           
             COPY ca.crt /usr/local/share/ca-certificates/ca.crt
           
             RUN update-ca-certificates
           EOL
-          docker build $BUILD_TEMP -t ${DOCKER_REGISTRY}/test-repo/jujud-operator:${UPSTREAM_JUJU_TAG}
-          docker push ${DOCKER_REGISTRY}/test-repo/jujud-operator:${UPSTREAM_JUJU_TAG}
-          
-          BUILD_TEMP=$(mktemp -d)
-          cp ~/certs/ca.crt $BUILD_TEMP/
-          cat >$BUILD_TEMP/Dockerfile <<EOL
-            FROM docker.io/jujusolutions/jujud-operator:${CURRENT_STABLE_JUJU_TAG}
-          
-            COPY ca.crt /usr/local/share/ca-certificates/ca.crt
-          
-            RUN update-ca-certificates
-          EOL
-          docker build $BUILD_TEMP -t ${DOCKER_REGISTRY}/test-repo/jujud-operator:${CURRENT_STABLE_JUJU_TAG}
-          docker push ${DOCKER_REGISTRY}/test-repo/jujud-operator:${CURRENT_STABLE_JUJU_TAG}
+          docker build $BUILD_TEMP -t ${DOCKER_REGISTRY}/test-repo/jujud-operator:${TARGET_JUJU_VERSION}
+          docker push ${DOCKER_REGISTRY}/test-repo/jujud-operator:${TARGET_JUJU_VERSION}
 
       - name: Preflight
         shell: bash
@@ -262,8 +249,7 @@ jobs:
       - name: Test upgrade controller
         shell: bash
         env:
-          UPSTREAM_JUJU_TAG: ${{ steps.vars.outputs.target-juju-version }}
-          CURRENT_STABLE_JUJU_TAG: ${{ steps.vars.outputs.source-juju-version }}
+          TARGET_JUJU_VERSION: ${{ steps.vars.outputs.target-juju-version }}
         run: |
           set -euxo pipefail
           
@@ -271,7 +257,7 @@ jobs:
           if [[ $OUTPUT == 'no upgrades available' ]]; then
             exit 1
           fi
-          .github/verify-agent-version.sh ${MODEL_TYPE_${{ matrix.cloud }}} ${UPSTREAM_JUJU_TAG}
+          .github/verify-agent-version.sh ${MODEL_TYPE_${{ matrix.cloud }}} ${TARGET_JUJU_VERSION}
           
           PANIC=$(juju debug-log --replay --no-tail -m controller | grep "panic" || true)
           if [ "$PANIC" != "" ]; then
@@ -285,7 +271,7 @@ jobs:
       - name: Test upgrade model
         shell: bash
         env:
-          UPSTREAM_JUJU_TAG: ${{ steps.vars.outputs.target-juju-version }}
+          TARGET_JUJU_VERSION: ${{ steps.vars.outputs.target-juju-version }}
         run: |
           set -euxo pipefail
           
@@ -300,7 +286,7 @@ jobs:
           attempt=0
           while true; do
             UPDATED=$((juju show-model m --format=json || echo "") | jq -r '.m."agent-version"')
-            if [[ $UPDATED == $UPSTREAM_JUJU_TAG* ]]; then
+            if [[ $UPDATED == $TARGET_JUJU_VERSION* ]]; then
               break
             fi
             sleep 10

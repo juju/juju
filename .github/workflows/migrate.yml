@@ -20,7 +20,7 @@ permissions:
 jobs:
   migrate:
     name: migrate from ${{ matrix.channel }} via ${{ matrix.client }} client
-    runs-on: [self-hosted, linux, arm64, aws, large]
+    runs-on: [self-hosted, linux, arm64, aws, xlarge]
     if: github.event.pull_request.draft == false
     strategy:
       fail-fast: false
