@@ -77,7 +77,7 @@ func (s *FileObjectStoreSuite) TestGetMetadataAndFileFound(c *gc.C) {
 
 	namespace := "inferi"
 	fileName := "foo"
-	size, hash := s.createFile(c, filepath.Join(path, namespace), fileName, "some content")
+	size, hash := s.createFile(c, s.filePath(path, namespace), fileName, "some content")
 
 	store, err := NewFileObjectStore(context.Background(), namespace, path, s.service, s.claimer, jujutesting.NewCheckLogger(c), clock.WallClock)
 	c.Assert(err, gc.IsNil)
@@ -102,7 +102,7 @@ func (s *FileObjectStoreSuite) TestGetMetadataAndFileNotFoundThenFound(c *gc.C) 
 
 	namespace := "inferi"
 	fileName := "foo"
-	size, hash := s.createFile(c, filepath.Join(path, namespace), fileName, "some content")
+	size, hash := s.createFile(c, s.filePath(path, namespace), fileName, "some content")
 
 	store, err := NewFileObjectStore(context.Background(), namespace, path, s.service, s.claimer, jujutesting.NewCheckLogger(c), clock.WallClock)
 	c.Assert(err, gc.IsNil)
@@ -131,7 +131,7 @@ func (s *FileObjectStoreSuite) TestGetMetadataAndFileFoundWithIncorrectSize(c *g
 
 	namespace := "inferi"
 	fileName := "foo"
-	size, hash := s.createFile(c, filepath.Join(path, namespace), fileName, "some content")
+	size, hash := s.createFile(c, s.filePath(path, namespace), fileName, "some content")
 
 	store, err := NewFileObjectStore(context.Background(), namespace, path, s.service, s.claimer, jujutesting.NewCheckLogger(c), clock.WallClock)
 	c.Assert(err, gc.IsNil)
@@ -537,12 +537,12 @@ func (s *FileObjectStoreSuite) calculateHash(c *gc.C, contents string) string {
 }
 
 func (s *FileObjectStoreSuite) expectFileDoesNotExist(c *gc.C, path, namespace, hash string) {
-	_, err := os.Stat(filepath.Join(path, namespace, hash))
+	_, err := os.Stat(filepath.Join(path, defaultFileDirectory, namespace, hash))
 	c.Assert(err, jc.Satisfies, os.IsNotExist)
 }
 
 func (s *FileObjectStoreSuite) expectFileDoesExist(c *gc.C, path, namespace, hash string) {
-	_, err := os.Stat(filepath.Join(path, namespace, hash))
+	_, err := os.Stat(filepath.Join(path, defaultFileDirectory, namespace, hash))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -554,4 +554,8 @@ func (s *FileObjectStoreSuite) expectClaim(hash string, num int) {
 
 func (s *FileObjectStoreSuite) expectRelease(hash string, num int) {
 	s.claimer.EXPECT().Release(gomock.Any(), hash).Return(nil).Times(num)
+}
+
+func (s *FileObjectStoreSuite) filePath(path, namespace string) string {
+	return filepath.Join(path, defaultFileDirectory, namespace)
 }
