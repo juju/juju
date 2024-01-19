@@ -122,3 +122,15 @@ func (s *AccountsSuite) TestRemoveControllerRemovesaccounts(c *gc.C) {
 	_, ok := accounts["kontroll"]
 	c.Assert(ok, jc.IsFalse) // kontroll accounts are removed
 }
+
+func (s *AccountsSuite) TestStoreAccessToken(c *gc.C) {
+	testAccountDetails := jujuclient.AccountDetails{
+		User:        "admin",
+		AccessToken: "test-access-token",
+	}
+	err := s.store.UpdateAccount("kontroll", testAccountDetails)
+	c.Assert(err, jc.ErrorIsNil)
+	details, err := s.store.AccountDetails("kontroll")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(*details, jc.DeepEquals, testAccountDetails)
+}

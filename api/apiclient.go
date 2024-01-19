@@ -329,7 +329,18 @@ func PerferredHost(info *Info) string {
 func loginWithContext(ctx context.Context, st *state, info *Info) error {
 	result := make(chan error, 1)
 	go func() {
-		result <- st.Login(info.Tag, info.Password, info.Nonce, info.Macaroons)
+		result <- st.Login(
+			LoginParams{
+				Tag:              info.Tag,
+				Password:         info.Password,
+				Nonce:            info.Nonce,
+				Macaroons:        info.Macaroons,
+				AccessToken:      info.AccessToken,
+				ClientID:         info.ClientID,
+				ClientSecret:     info.ClientSecret,
+				ShowLoginDetails: info.ShowLoginDetails,
+			},
+		)
 	}()
 	select {
 	case err := <-result:

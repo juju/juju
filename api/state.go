@@ -4,6 +4,8 @@
 package api
 
 import (
+	"context"
+	"fmt"
 	"net"
 	"net/url"
 	"os"
@@ -17,9 +19,9 @@ import (
 	"github.com/juju/names/v5"
 	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
-	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api/agent/keyupdater"
+	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/rpc"
@@ -27,17 +29,108 @@ import (
 	jujuversion "github.com/juju/juju/version"
 )
 
-// Login authenticates as the entity with the given name and password
-// or macaroons. Subsequent requests on the state will act as that entity.
-// This method is usually called automatically by Open. The machine nonce
-// should be empty unless logging in as a machine agent.
-func (st *state) Login(tag names.Tag, password, nonce string, macaroons []macaroon.Slice) error {
+var (
+	loginDeviceAPICall = func(st base.APICaller, request interface{}, response interface{}) error {
+		return st.APICall("Admin", 4, "", "LoginDevice", request, response)
+	}
+	getAccessTokenAPICall = func(st base.APICaller, request interface{}, response interface{}) error {
+		return st.APICall("Admin", 4, "", "GetAccessToken", request, response)
+	}
+	loginWithAccessTokenAPICall = func(st base.APICaller, request interface{}, response interface{}) error {
+		return st.APICall("Admin", 4, "", "LoginWithAccessToken", request, response)
+	}
+	loginWithClientCredentialsAPICall = func(st base.APICaller, request interface{}, response interface{}) error {
+		return st.APICall("Admin", 4, "", "LoginWithClientCredentials", request, response)
+	}
+)
+
+func (st *state) loginWithDeviceFlow(ctx context.Context, showLoginDetails func(string) error) (params.LoginResult, error) {
+	var result params.LoginResult
+
+	type loginRequest struct {
+		AccessToken string `json:"access-token"`
+	}
+
+	type deviceResponse struct {
+		UserCode        string `json:"user-code"`
+		VerificationURL string `json:"verification-url"`
+	}
+	var deviceResult deviceResponse
+	err := loginDeviceAPICall(st, &loginRequest{}, &deviceResult)
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+
+	if showLoginDetails == nil {
+		return result, errors.New("device login flow not configured")
+	}
+
+	err = showLoginDetails(fmt.Sprintf("Please visit %s and enter code %s to log in.", deviceResult.VerificationURL, deviceResult.UserCode))
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+
+	type loginResponse struct {
+		AccessToken string `json:"access-token"`
+	}
+	var accessTokenResult loginResponse
+	err = getAccessTokenAPICall(st, &loginRequest{}, &accessTokenResult)
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+
+	// TODO (alesstimec) Persis access token in accounts.yaml.
+
+	return st.loginWithAccessToken(ctx, accessTokenResult.AccessToken)
+}
+
+func (st *state) loginWithAccessToken(ctx context.Context, accessToken string) (params.LoginResult, error) {
+	type loginRequest struct {
+		AccessToken string `json:"access-token"`
+	}
+
+	var result params.LoginResult
+	err := loginWithAccessTokenAPICall(
+		st,
+		&loginRequest{
+			AccessToken: accessToken,
+		},
+		&result,
+	)
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	return result, nil
+}
+
+func (st *state) loginWithClientCredentials(ctx context.Context, clientID, clientSecret string) (params.LoginResult, error) {
+	type loginRequest struct {
+		ClientID     string `json:"client-id"`
+		ClientSecret string `json:"client-secret"`
+	}
+
+	var result params.LoginResult
+	err := loginWithClientCredentialsAPICall(
+		st,
+		&loginRequest{
+			ClientID:     clientID,
+			ClientSecret: clientSecret,
+		},
+		&result,
+	)
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	return result, nil
+}
+
+func (st *state) loginV3(p LoginParams) (params.LoginResult, error) {
 	var result params.LoginResult
 	request := &params.LoginRequest{
-		AuthTag:       tagToString(tag),
-		Credentials:   password,
-		Nonce:         nonce,
-		Macaroons:     macaroons,
+		AuthTag:       tagToString(p.Tag),
+		Credentials:   p.Password,
+		Nonce:         p.Nonce,
+		Macaroons:     p.Macaroons,
 		BakeryVersion: bakery.LatestVersion,
 		CLIArgs:       utils.CommandString(os.Args...),
 		ClientVersion: jujuversion.Current.String(),
@@ -49,7 +142,7 @@ func (st *state) Login(tag names.Tag, password, nonce string, macaroons []macaro
 		request.UserData = string(debug.Stack())
 	}
 
-	if password == "" {
+	if p.Password == "" {
 		// Add any macaroons from the cookie jar that might work for
 		// authenticating the login request.
 		request.Macaroons = append(request.Macaroons,
@@ -59,7 +152,7 @@ func (st *state) Login(tag names.Tag, password, nonce string, macaroons []macaro
 	err := st.APICall("Admin", 3, "", "Login", request, &result)
 	if err != nil {
 		if !params.IsRedirect(err) {
-			return errors.Trace(err)
+			return result, errors.Trace(err)
 		}
 
 		if rpcErr, ok := errors.Cause(err).(*rpc.RequestError); ok {
@@ -69,11 +162,11 @@ func (st *state) Login(tag names.Tag, password, nonce string, macaroons []macaro
 				var controllerTag names.ControllerTag
 				if redirInfo.ControllerTag != "" {
 					if controllerTag, err = names.ParseControllerTag(redirInfo.ControllerTag); err != nil {
-						return errors.Trace(err)
+						return result, errors.Trace(err)
 					}
 				}
 
-				return &RedirectError{
+				return result, &RedirectError{
 					Servers:         params.ToMachineHostsPorts(redirInfo.Servers),
 					CACert:          redirInfo.CACert,
 					ControllerTag:   controllerTag,
@@ -89,9 +182,9 @@ func (st *state) Login(tag names.Tag, password, nonce string, macaroons []macaro
 		// but we can't do that currently.
 		var resp params.RedirectInfoResult
 		if err := st.APICall("Admin", 3, "", "RedirectInfo", nil, &resp); err != nil {
-			return errors.Annotatef(err, "cannot get redirect addresses")
+			return result, errors.Annotatef(err, "cannot get redirect addresses")
 		}
-		return &RedirectError{
+		return result, &RedirectError{
 			Servers:        params.ToMachineHostsPorts(resp.Servers),
 			CACert:         resp.CACert,
 			FollowRedirect: true, // JAAS-type redirect
@@ -110,7 +203,7 @@ func (st *state) Login(tag names.Tag, password, nonce string, macaroons []macaro
 		if dcMac == nil {
 			dcMac, err = bakery.NewLegacyMacaroon(result.DischargeRequired)
 			if err != nil {
-				return errors.Trace(err)
+				return result, errors.Trace(err)
 			}
 		}
 		if err := st.bakeryClient.HandleError(st.ctx, st.cookieURL, &httpbakery.Error{
@@ -128,24 +221,64 @@ func (st *state) Login(tag names.Tag, password, nonce string, macaroons []macaro
 				// they presented was invalid.
 				err = cause.(*httpbakery.InteractionError).Reason
 			}
-			return errors.Trace(err)
+			return result, errors.Trace(err)
 		}
 		// Add the macaroons that have been saved by HandleError to our login request.
 		request.Macaroons = httpbakery.MacaroonsForURL(st.bakeryClient.Client.Jar, st.cookieURL)
 		result = params.LoginResult{} // zero result
 		err = st.APICall("Admin", 3, "", "Login", request, &result)
 		if err != nil {
-			return errors.Trace(err)
+			return result, errors.Trace(err)
 		}
 		if result.DischargeRequired != nil {
-			return errors.Errorf("login with discharged macaroons failed: %s", result.DischargeRequiredReason)
+			return result, errors.Errorf("login with discharged macaroons failed: %s", result.DischargeRequiredReason)
+		}
+	}
+	return result, nil
+}
+
+// Login authenticates as the entity with the given name and password
+// or macaroons. Subsequent requests on the state will act as that entity.
+// This method is usually called automatically by Open. The machine nonce
+// should be empty unless logging in as a machine agent.
+func (st *state) Login(p LoginParams) error {
+	var result params.LoginResult
+	var err error
+
+	switch {
+	case p.AccessToken == "" && p.ClientID == "" && p.ClientSecret == "" && p.Password == "" && p.Macaroons == nil:
+		result, err = st.loginWithDeviceFlow(context.Background(), p.ShowLoginDetails)
+		if err != nil {
+			if params.IsCodeNotImplemented(err) || params.IsCodeNotSupported(err) {
+				result, err = st.loginV3(p)
+				if err != nil {
+					return errors.Trace(err)
+				}
+			} else {
+				return errors.Trace(err)
+			}
+		}
+	case p.AccessToken != "":
+		result, err = st.loginWithAccessToken(context.Background(), p.AccessToken)
+		if err != nil {
+			return errors.Trace(err)
+		}
+	case p.ClientID != "" && p.ClientSecret != "":
+		result, err = st.loginWithClientCredentials(context.Background(), p.ClientID, p.ClientSecret)
+		if err != nil {
+			return errors.Trace(err)
+		}
+	default:
+		result, err = st.loginV3(p)
+		if err != nil {
+			return errors.Trace(err)
 		}
 	}
 
 	var controllerAccess string
 	var modelAccess string
 	if result.UserInfo != nil {
-		tag, err = names.ParseTag(result.UserInfo.Identity)
+		p.Tag, err = names.ParseTag(result.UserInfo.Identity)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -154,7 +287,7 @@ func (st *state) Login(tag names.Tag, password, nonce string, macaroons []macaro
 	}
 	servers := params.ToMachineHostsPorts(result.Servers)
 	if err = st.setLoginResult(loginResultParams{
-		tag:              tag,
+		tag:              p.Tag,
 		modelTag:         result.ModelTag,
 		controllerTag:    result.ControllerTag,
 		servers:          servers,

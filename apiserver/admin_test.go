@@ -150,7 +150,10 @@ func (s *loginSuite) TestBadLogin(c *gc.C) {
 			})
 
 			// Since these are user login tests, the nonce is empty.
-			err = st.Login(t.tag, t.password, "", nil)
+			err = st.Login(api.LoginParams{
+				Tag:      t.tag,
+				Password: t.password,
+			})
 			c.Assert(errors.Cause(err), gc.DeepEquals, t.err)
 			c.Assert(params.ErrCode(err), gc.Equals, t.code)
 
@@ -177,7 +180,10 @@ func (s *loginSuite) TestLoginAsDeactivatedUser(c *gc.C) {
 	})
 
 	// Since these are user login tests, the nonce is empty.
-	err = st.Login(u.Tag(), password, "", nil)
+	err = st.Login(api.LoginParams{
+		Tag:      u.Tag(),
+		Password: password,
+	})
 	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
 		Message: fmt.Sprintf("user %q is disabled", u.Tag().Id()),
 		Code:    "unauthorized access",
@@ -207,7 +213,10 @@ func (s *loginSuite) TestLoginAsDeletedUser(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Since these are user login tests, the nonce is empty.
-	err = st.Login(u.Tag(), password, "", nil)
+	err = st.Login(api.LoginParams{
+		Tag:      u.Tag(),
+		Password: password,
+	})
 	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
 		Message: fmt.Sprintf("user %q is permanently deleted", u.Tag().Id()),
 		Code:    "unauthorized access",
@@ -491,7 +500,10 @@ func (s *loginSuite) testLoginDuringMaintenance(c *gc.C, check func(api.Connecti
 	info := s.newServer(c).Info
 
 	st := s.openAPIWithoutLogin(c, info)
-	err := st.Login(s.Owner, s.AdminPassword, "", nil)
+	err := st.Login(api.LoginParams{
+		Tag:      s.Owner,
+		Password: s.AdminPassword,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	check(st)
@@ -663,7 +675,10 @@ func (s *loginSuite) TestControllerModel(c *gc.C) {
 	st := s.openAPIWithoutLogin(c, info)
 
 	adminUser := s.Owner
-	err := st.Login(adminUser, s.AdminPassword, "", nil)
+	err := st.Login(api.LoginParams{
+		Tag:      adminUser,
+		Password: s.AdminPassword,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.assertRemoteModel(c, st, s.Model.ModelTag())
@@ -674,7 +689,10 @@ func (s *loginSuite) TestControllerModelBadCreds(c *gc.C) {
 	st := s.openAPIWithoutLogin(c, info)
 
 	adminUser := s.Owner
-	err := st.Login(adminUser, "bad-password", "", nil)
+	err := st.Login(api.LoginParams{
+		Tag:      adminUser,
+		Password: "bad-password",
+	})
 	assertInvalidEntityPassword(c, err)
 }
 
@@ -687,7 +705,10 @@ func (s *loginSuite) TestNonExistentModel(c *gc.C) {
 	st := s.openAPIWithoutLogin(c, info)
 
 	adminUser := s.Owner
-	err = st.Login(adminUser, s.AdminPassword, "", nil)
+	err = st.Login(api.LoginParams{
+		Tag:      adminUser,
+		Password: s.AdminPassword,
+	})
 	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
 		Message: fmt.Sprintf("unknown model: %q", uuid),
 		Code:    "model not found",
@@ -742,7 +763,10 @@ func (s *loginSuite) TestOtherModel(c *gc.C) {
 
 	st := s.openAPIWithoutLogin(c, info)
 
-	err = st.Login(modelOwner.UserTag(), "password", "", nil)
+	err = st.Login(api.LoginParams{
+		Tag:      modelOwner.UserTag(),
+		Password: "password",
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertRemoteModel(c, st, model.ModelTag())
 }
@@ -778,7 +802,11 @@ func (s *loginSuite) TestMachineLoginOtherModel(c *gc.C) {
 	info.ModelTag = model.ModelTag()
 	st := s.openAPIWithoutLogin(c, info)
 
-	err = st.Login(machine.Tag(), password, "test-nonce", nil)
+	err = st.Login(api.LoginParams{
+		Tag:      machine.Tag(),
+		Password: password,
+		Nonce:    "test-nonce",
+	})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -810,7 +838,11 @@ func (s *loginSuite) TestMachineLoginOtherModelNotProvisioned(c *gc.C) {
 	// If the agent attempts Login before the provisioner has recorded
 	// the machine's nonce in state, then the agent should get back an
 	// error with code "not provisioned".
-	err = st.Login(machine.Tag(), password, "nonce", nil)
+	err = st.Login(api.LoginParams{
+		Tag:      machine.Tag(),
+		Password: password,
+		Nonce:    "nonce",
+	})
 	c.Assert(err, gc.ErrorMatches, `machine 0 not provisioned \(not provisioned\)`)
 	c.Assert(err, jc.Satisfies, params.IsCodeNotProvisioned)
 }
@@ -835,7 +867,10 @@ func (s *loginSuite) TestOtherModelFromController(c *gc.C) {
 	info.ModelTag = model.ModelTag()
 	st := s.openAPIWithoutLogin(c, info)
 
-	err = st.Login(machine.Tag(), password, "nonce", nil)
+	err = st.Login(api.LoginParams{
+		Tag:      machine.Tag(),
+		Password: password, Nonce: "nonce",
+	})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -867,7 +902,11 @@ func (s *loginSuite) TestOtherModelFromControllerOtherNotProvisioned(c *gc.C) {
 	// The fact that the machine with the same tag in the hosted
 	// model is unprovisioned should not cause the login to fail
 	// with "not provisioned", because the passwords don't match.
-	err = st.Login(managerMachine.Tag(), password, "nonce", nil)
+	err = st.Login(api.LoginParams{
+		Tag:      managerMachine.Tag(),
+		Password: password,
+		Nonce:    "nonce",
+	})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -889,7 +928,11 @@ func (s *loginSuite) TestOtherModelWhenNotController(c *gc.C) {
 	info.ModelTag = model.ModelTag()
 	st := s.openAPIWithoutLogin(c, info)
 
-	err = st.Login(machine.Tag(), password, "nonce", nil)
+	err = st.Login(api.LoginParams{
+		Tag:      machine.Tag(),
+		Password: password,
+		Nonce:    "nonce",
+	})
 	assertInvalidEntityPassword(c, err)
 }
 

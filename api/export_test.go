@@ -19,9 +19,13 @@ import (
 )
 
 var (
-	CertDir             = &certDir
-	SlideAddressToFront = slideAddressToFront
-	FacadeVersions      = &facadeVersions
+	CertDir                           = &certDir
+	SlideAddressToFront               = slideAddressToFront
+	FacadeVersions                    = &facadeVersions
+	LoginDeviceAPICall                = &loginDeviceAPICall
+	GetAccessTokenAPICall             = &getAccessTokenAPICall
+	LoginWithAccessTokenAPICall       = &loginWithAccessTokenAPICall
+	LoginWithClientCredentialsAPICall = &loginWithClientCredentialsAPICall
 )
 
 func DialAPI(info *Info, opts DialOpts) (jsoncodec.JSONConn, string, error) {

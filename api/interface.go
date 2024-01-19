@@ -76,6 +76,16 @@ type Info struct {
 	// authenticate with the API server.
 	Macaroons []macaroon.Slice `yaml:",omitempty"`
 
+	// AccessToken holds the access token for the connecting entity.
+	AccessToken string
+	// ClientID holds the client id for the connecting entity.
+	ClientID string
+	// ClientSecret holds the client secret for the connecting entity.
+	ClientSecret string
+	// ShowLoginDetails is a funcion used by the login process to show
+	// login details to the user
+	ShowLoginDetails func(string) error
+
 	// Nonce holds the nonce used when provisioning the machine. Used
 	// only by the machine agent.
 	Nonce string `yaml:",omitempty"`
@@ -230,6 +240,21 @@ func WithDialOpts(newOpts DialOpts) DialOption {
 // OpenFunc is the usual form of a function that opens an API connection.
 type OpenFunc func(*Info, DialOpts) (Connection, error)
 
+// LoginParams holds parameters login parameters.
+// User can now log in using a username and password,
+// macaroons, access token or client credentials
+// (client id and secret).
+type LoginParams struct {
+	Tag              names.Tag
+	Password         string
+	Nonce            string
+	Macaroons        []macaroon.Slice
+	AccessToken      string
+	ClientID         string
+	ClientSecret     string
+	ShowLoginDetails func(string) error
+}
+
 // Connection exists purely to make api-opening funcs mockable. It's just a
 // dumb copy of all the methods on api.state; we can and should be extracting
 // smaller and more relevant interfaces (and dropping some of them too).
@@ -284,7 +309,7 @@ type Connection interface {
 
 	// These are a bit off -- ServerVersion is apparently not known until after
 	// Login()? Maybe evidence of need for a separate AuthenticatedConnection..?
-	Login(name names.Tag, password, nonce string, ms []macaroon.Slice) error
+	Login(LoginParams) error
 	ServerVersion() (version.Number, bool)
 
 	// APICaller provides the facility to make API calls directly.

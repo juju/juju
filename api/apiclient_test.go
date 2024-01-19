@@ -1182,7 +1182,7 @@ func (s *apiclientSuite) TestLoginCapturesCLIArgs(c *gc.C) {
 		Broken:        broken,
 		Closed:        make(chan struct{}),
 	})
-	err := testState.Login(info.Tag, info.Password, "", nil)
+	err := testState.Login(api.LoginParams{Tag: info.Tag, Password: info.Password})
 	c.Assert(err, jc.ErrorIsNil)
 
 	calls := conn.stub.Calls()

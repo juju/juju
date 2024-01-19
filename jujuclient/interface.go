@@ -101,6 +101,9 @@ type AccountDetails struct {
 	// They are only set when using the MemStore implementation,
 	// and are used by embedded commands. The are not written to disk.
 	Macaroons []macaroon.Slice `yaml:"-"`
+
+	// AccessToken holds the access token for the account.
+	AccessToken string `yaml:"access-token,omitempty"`
 }
 
 // BootstrapConfig holds the configuration used to bootstrap a controller.

@@ -24,9 +24,11 @@ type SimpleConfig struct {
 	ModelUUID string
 
 	// Either Username/Password or Macaroons is required to get authentication.
-	Username  string
-	Password  string
-	Macaroons []macaroon.Slice
+	Username     string
+	Password     string
+	Macaroons    []macaroon.Slice
+	ClientID     string
+	ClientSecret string
 }
 
 // A SimpleConnector can provide connections from a simple set of options.
@@ -46,9 +48,11 @@ func NewSimple(opts SimpleConfig, dialOptions ...api.DialOption) (*SimpleConnect
 		CACert:   opts.CACert,
 		ModelTag: names.NewModelTag(opts.ModelUUID),
 
-		Tag:       names.NewUserTag(opts.Username),
-		Password:  opts.Password,
-		Macaroons: opts.Macaroons,
+		Tag:          names.NewUserTag(opts.Username),
+		Password:     opts.Password,
+		Macaroons:    opts.Macaroons,
+		ClientID:     opts.ClientID,
+		ClientSecret: opts.ClientSecret,
 	}
 	if err := info.Validate(); err != nil {
 		return nil, err

@@ -222,6 +222,10 @@ func connectionInfo(args NewAPIConnectionParams) (*api.Info, *jujuclient.Control
 		// Optionally the account may have macaroons to use.
 		apiInfo.Macaroons = account.Macaroons
 	}
+	if account.AccessToken != "" {
+		// If an access token is available, we use it to log in.
+		apiInfo.AccessToken = account.AccessToken
+	}
 	return apiInfo, controller, nil
 }
 
