@@ -984,9 +984,15 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		handler:    modelCharmsHTTPHandler,
 		authorizer: modelCharmsUploadAuthorizer,
 	}, {
+		// GET has no authorizer
 		pattern: charmsObjectsRoutePrefix,
-		methods: []string{"GET", "PUT"},
+		methods: []string{"GET"},
 		handler: modelObjectsCharmsHTTPHandler,
+	}, {
+		pattern:    charmsObjectsRoutePrefix,
+		methods:    []string{"PUT"},
+		handler:    modelObjectsCharmsHTTPHandler,
+		authorizer: modelCharmsUploadAuthorizer,
 	}}
 	if srv.registerIntrospectionHandlers != nil {
 		add := func(subpath string, h http.Handler) {
