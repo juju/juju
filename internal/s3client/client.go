@@ -127,7 +127,7 @@ func NewS3Client(baseURL string, httpClient HTTPClient, credentials Credentials,
 // GetObject gets an object from the object store based on the bucket name and
 // object name.
 func (c *S3Client) GetObject(ctx context.Context, bucketName, objectName string) (io.ReadCloser, int64, string, error) {
-	c.logger.Tracef("retrieving bucket %s object %s from s3 storage", bucketName, objectName)
+	c.logger.Tracef("getting bucket %s object %s from s3 storage", bucketName, objectName)
 
 	obj, err := c.client.GetObject(ctx,
 		&s3.GetObjectInput{
@@ -138,7 +138,7 @@ func (c *S3Client) GetObject(ctx context.Context, bucketName, objectName string)
 		if err := handleError(err); err != nil {
 			return nil, -1, "", errors.Trace(err)
 		}
-		return nil, -1, "", errors.Annotatef(err, "unable to get object %s on bucket %s using S3 client", objectName, bucketName)
+		return nil, -1, "", errors.Annotatef(err, "getting object %s on bucket %s using S3 client", objectName, bucketName)
 	}
 	var size int64
 	if obj.ContentLength != nil {
@@ -168,7 +168,7 @@ func (c *S3Client) PutObject(ctx context.Context, bucketName, objectName string,
 		if err := handleError(err); err != nil {
 			return errors.Trace(err)
 		}
-		return errors.Annotatef(err, "unable to put object %s on bucket %s using S3 client", objectName, bucketName)
+		return errors.Annotatef(err, "putting object %s on bucket %s using S3 client", objectName, bucketName)
 	}
 	return nil
 }
@@ -187,7 +187,7 @@ func (c *S3Client) DeleteObject(ctx context.Context, bucketName, objectName stri
 		if err := handleError(err); err != nil {
 			return errors.Trace(err)
 		}
-		return errors.Annotatef(err, "unable to delete object %s on bucket %s using S3 client", objectName, bucketName)
+		return errors.Annotatef(err, "deleting object %s on bucket %s using S3 client", objectName, bucketName)
 	}
 	return nil
 }

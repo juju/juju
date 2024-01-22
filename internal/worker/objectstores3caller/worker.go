@@ -86,6 +86,9 @@ func NewWorker(config workerConfig) (worker.Worker, error) {
 	return newWorker(config, nil)
 }
 
+// newWorker returns a new worker that wraps an S3 Session. The S3 session
+// provides read and write access to the object store. This differs from the
+// unit s3 caller which only provides read access.
 func newWorker(config workerConfig, internalStates chan string) (*s3Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)

@@ -339,6 +339,7 @@ func (*ManifoldsSuite) TestSingularGuardsUsed(c *gc.C) {
 		"object-store-s3-caller",
 		"query-logger",
 		"query-logger",
+		"s3-http-client",
 		"upgrade-database-flag",
 		"upgrade-database-gate",
 		"upgrade-database-runner",
@@ -1047,7 +1048,11 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"upgrade-steps-gate",
 	},
 
-	"s3-http-client": {},
+	"s3-http-client": {
+		"agent",
+		"is-controller-flag",
+		"state-config-watcher",
+	},
 
 	"secret-backend-rotate": {
 		"agent",
@@ -1620,7 +1625,11 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"state-config-watcher",
 	},
 
-	"s3-http-client": {},
+	"s3-http-client": {
+		"agent",
+		"is-controller-flag",
+		"state-config-watcher",
+	},
 
 	"secret-backend-rotate": {
 		"agent",

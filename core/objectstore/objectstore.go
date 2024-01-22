@@ -24,7 +24,8 @@ type Client interface {
 	// Session calls the given function with a session.
 	// The func maybe called multiple times if the underlying session has
 	// invalid credentials. Therefore session might not be the same across
-	// calls. The function should be idempotent.
+	// calls.
+	// It is the caller's responsibility to ensure that f is idempotent.
 	Session(ctx context.Context, f func(context.Context, Session) error) error
 }
 

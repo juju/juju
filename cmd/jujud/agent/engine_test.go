@@ -108,7 +108,6 @@ var (
 		"migration-fortress",
 		"migration-inactive-flag",
 		"migration-minion",
-		"s3-http-client",
 		"state-config-watcher",
 		"syslog",
 		"termination-signal-handler",

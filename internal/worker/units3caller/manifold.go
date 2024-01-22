@@ -72,6 +72,8 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		return nil, errors.Trace(err)
 	}
 
+	// Although we get the S3 client, this is the anonymous client which only
+	// provides read access to the object store.
 	session, err := config.NewClient(httpClient.BaseURL, newHTTPClient(httpClient), config.Logger)
 	if err != nil {
 		return nil, err
@@ -80,6 +82,9 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 }
 
 // NewS3Client returns a new S3 client based on the supplied dependencies.
+// This only provides a read only session to the object store. As this is
+// intended to be used by the unit, there is never an expectation that the unit
+// will write to the object store.
 func NewS3Client(url string, client s3client.HTTPClient, logger s3client.Logger) (objectstore.ReadSession, error) {
 	return s3client.NewS3Client(url, client, s3client.AnonymousCredentials{}, logger)
 }

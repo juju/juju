@@ -676,12 +676,12 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Output: engine.ValueWorkerOutput,
 		},
 
-		s3HTTPClientName: dependency.Manifold{
+		s3HTTPClientName: ifController(dependency.Manifold{
 			Start: func(_ context.Context, _ dependency.Getter) (worker.Worker, error) {
 				return engine.NewValueWorker(config.S3HTTPClient)
 			},
 			Output: engine.ValueWorkerOutput,
-		},
+		}),
 
 		modelWorkerManagerName: ifFullyUpgraded(modelworkermanager.Manifold(modelworkermanager.ManifoldConfig{
 			AgentName:          agentName,
