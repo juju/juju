@@ -4,8 +4,69 @@
 package annotations
 
 import (
+	"fmt"
+
 	"github.com/juju/errors"
+	"github.com/juju/names/v5"
 )
+
+type Kind int
+
+const (
+	KindCharm Kind = iota
+	KindMachine
+	KindUnit
+	KindModel
+	KindVolume
+	KindFilesystem
+)
+
+type ID struct {
+	Kind Kind
+	Name string
+}
+
+// ParseID converts the names.Tag into an internal ID for different kinds of entities.
+func ParseID(n names.Tag) (ID, error) {
+	switch n.Kind() {
+	case names.CharmTagKind:
+		return ID{
+			Kind: KindCharm,
+			Name: n.Id(),
+		}, nil
+	case names.MachineTagKind:
+		return ID{
+			Kind: KindMachine,
+			Name: n.Id(),
+		}, nil
+	case names.UnitTagKind:
+		return ID{
+			Kind: KindUnit,
+			Name: n.Id(),
+		}, nil
+	case names.ModelTagKind:
+		return ID{
+			Kind: KindModel,
+			Name: n.Id(),
+		}, nil
+	case names.VolumeTagKind:
+		return ID{
+			Kind: KindVolume,
+			Name: n.Id(),
+		}, nil
+	case names.FilesystemTagKind:
+		return ID{
+			Kind: KindFilesystem,
+			Name: n.Id(),
+		}, nil
+	default:
+		return ID{}, fmt.Errorf("unknown kind %q", n.Kind())
+	}
+}
+
+func (i ID) String() string {
+	return fmt.Sprintf("%v/%v", i.Kind, i.Name)
+}
 
 // Annotation extends k8s annotation map.
 type Annotation map[string]string
