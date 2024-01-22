@@ -249,37 +249,6 @@ func (s *charmsMockSuite) TestResolveCharmsUnknownSchema(c *gc.C) {
 	c.Assert(result.Results[0].Error, gc.ErrorMatches, `unknown schema for charm URL "local:testme"`)
 }
 
-func (s *charmsMockSuite) TestResolveCharmNoDefinedSeries(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-	s.expectResolveWithPreferredChannelNoSeries()
-	api := s.api(c)
-
-	seriesCurl := "ch:amd64/focal/testme"
-
-	edgeOrigin := params.CharmOrigin{
-		Source:       corecharm.CharmHub.String(),
-		Type:         "charm",
-		Risk:         "edge",
-		Architecture: "amd64",
-	}
-
-	args := params.ResolveCharmsWithChannel{
-		Resolve: []params.ResolveCharmWithChannel{
-			{Reference: seriesCurl, Origin: edgeOrigin},
-		},
-	}
-
-	expected := []params.ResolveCharmWithChannelResult{{
-		URL:            seriesCurl,
-		Origin:         edgeOrigin,
-		SupportedBases: []params.Base{{Name: "ubuntu", Channel: "20.04/stable"}},
-	}}
-	result, err := api.ResolveCharms(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results, jc.DeepEquals, expected)
-}
-
 func (s *charmsMockSuite) TestResolveCharmV6(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectResolveWithPreferredChannel(3, nil)
@@ -714,35 +683,6 @@ func (s *charmsMockSuite) expectResolveWithPreferredChannel(times int, err error
 			}
 			return curl, resolvedOrigin, bases, err
 		}).Times(times)
-}
-
-func (s *charmsMockSuite) expectResolveWithPreferredChannelNoSeries() {
-	s.repoFactory.EXPECT().GetCharmRepository(gomock.Any()).Return(s.repository, nil)
-	s.repository.EXPECT().ResolveWithPreferredChannel(
-		gomock.AssignableToTypeOf(""),
-		gomock.AssignableToTypeOf(corecharm.Origin{}),
-	).DoAndReturn(
-		func(name string, requestedOrigin corecharm.Origin) (*charm.URL, corecharm.Origin, []string, error) {
-			resolvedOrigin := requestedOrigin
-			resolvedOrigin.Type = "charm"
-
-			if requestedOrigin.Channel == nil || requestedOrigin.Channel.Risk == "" {
-				if requestedOrigin.Channel == nil {
-					resolvedOrigin.Channel = new(charm.Channel)
-				}
-
-				resolvedOrigin.Channel.Risk = "stable"
-			}
-			// ensure the charm url returned is filled out
-			curl := &charm.URL{
-				Schema:       "ch",
-				Name:         name,
-				Series:       "focal",
-				Architecture: "amd64",
-				Revision:     -1,
-			}
-			return curl, resolvedOrigin, []string{}, nil
-		})
 }
 
 func (s *charmsMockSuite) expectApplication(name string) {

@@ -417,18 +417,7 @@ func (a *API) resolveOneCharm(arg params.ResolveCharmWithChannel) params.Resolve
 	}
 
 	result.Origin = archOrigin
-
-	switch {
-	case resultURL.Series != "" && len(resolvedBases) == 0:
-		base, err := base.GetBaseFromSeries(resultURL.Series)
-		if err != nil {
-			result.Error = apiservererrors.ServerError(err)
-			return result
-		}
-		result.SupportedBases = []params.Base{{Name: base.OS, Channel: base.Channel.String()}}
-	default:
-		result.SupportedBases = transform.Slice(resolvedBases, convertCharmBase)
-	}
+	result.SupportedBases = transform.Slice(resolvedBases, convertCharmBase)
 
 	return result
 }
