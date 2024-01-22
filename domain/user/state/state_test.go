@@ -415,6 +415,38 @@ func (s *stateSuite) TestGetUserWithAuthInfoByName(c *gc.C) {
 	c.Check(u.Disabled, gc.Equals, false)
 }
 
+// TestGetUserWithAuth asserts that we can get a user with auth info from the
+// database.
+func (s *stateSuite) TestGetUserWithAuth(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	// Add admin user with password hash.
+	adminUUID, err := user.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	adminUser := user.User{
+		Name:        "admin",
+		DisplayName: "admin",
+	}
+
+	salt, err := auth.NewSalt()
+	c.Assert(err, jc.ErrorIsNil)
+
+	passwordHash, err := auth.HashPassword(auth.NewPassword("password"), salt)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = st.AddUserWithPasswordHash(context.Background(), adminUUID, adminUser, adminUUID, passwordHash, salt)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Get the user.
+	u, err := st.GetUserWithAuth(context.Background(), adminUUID, "password")
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(u.Name, gc.Equals, adminUser.Name)
+	c.Check(u.DisplayName, gc.Equals, adminUser.DisplayName)
+	c.Check(u.CreatorUUID, gc.Equals, adminUUID)
+	c.Check(u.CreatedAt, gc.NotNil)
+}
+
 // TestRemoveUser asserts that we can remove a user from the database.
 func (s *stateSuite) TestRemoveUser(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())

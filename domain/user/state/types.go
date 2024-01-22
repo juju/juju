@@ -34,6 +34,12 @@ type User struct {
 
 	// Disabled is true if the user is disabled.
 	Disabled bool `db:"disabled"`
+
+	// PasswordHash is the hash of the password.
+	PasswordHash string `db:"password_hash"`
+
+	// PasswordSalt is the salt used to hash the password.
+	PasswordSalt []byte `db:"password_salt"`
 }
 
 // toCoreUser converts the state user to a core user.
