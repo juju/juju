@@ -824,6 +824,11 @@ func (ctx *facadeContext) ServiceFactory() servicefactory.ServiceFactory {
 	return ctx.r.serviceFactory
 }
 
+func (ctx *facadeContext) EventWatcher() (changestream.EventWatcher, error) {
+	db, err := ctx.r.shared.dbGetter.GetWatchableDB(ctx.r.state.ModelUUID())
+	return db, errors.Trace(err)
+}
+
 // Tracer returns the tracer for the current model.
 func (ctx *facadeContext) Tracer() trace.Tracer {
 	return ctx.r.tracer

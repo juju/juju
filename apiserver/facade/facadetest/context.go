@@ -39,6 +39,7 @@ type Context struct {
 	CharmhubHTTPClient_    facade.HTTPClient
 	ServiceFactory_        servicefactory.ServiceFactory
 	ControllerDB_          changestream.WatchableDB
+	EventWatcher_          changestream.EventWatcher
 	ObjectStore_           objectstore.ObjectStore
 	ControllerObjectStore_ objectstore.ObjectStore
 	Logger_                loggo.Logger
@@ -176,6 +177,10 @@ func (context Context) ServiceFactory() servicefactory.ServiceFactory {
 // ControllerDB implements facade.Context.
 func (context Context) ControllerDB() (changestream.WatchableDB, error) {
 	return context.ControllerDB_, nil
+}
+
+func (context Context) EventWatcher() (changestream.EventWatcher, error) {
+	return context.EventWatcher_, nil
 }
 
 // MachineTag returns the current machine tag.

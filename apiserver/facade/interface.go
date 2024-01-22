@@ -71,6 +71,7 @@ type Context interface {
 	ControllerDBGetter
 	ServiceFactory
 	ObjectStoreFactory
+	EventWatcher
 	Logger
 
 	// Auth represents information about the connected client. You
@@ -164,6 +165,13 @@ type ControllerDBGetter interface {
 type ServiceFactory interface {
 	// ServiceFactory returns the services factory for the current model.
 	ServiceFactory() servicefactory.ServiceFactory
+}
+
+// EventWatcher defines an interface for listening to changes from the database.
+type EventWatcher interface {
+	// EventWatcher returns a event watcher that can be used to listen to
+	// changes from the database.
+	EventWatcher() (changestream.EventWatcher, error)
 }
 
 // ObjectStoreFactory defines an interface for accessing the object store.

@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/internal/changestream/eventmultiplexer"
+	"github.com/juju/juju/internal/changestream/eventwatcher"
 	"github.com/juju/juju/internal/changestream/stream"
 )
 
@@ -31,8 +32,9 @@ type WatchableDBWorker interface {
 type WatchableDB struct {
 	catacomb catacomb.Catacomb
 
-	db  coredatabase.TxnRunner
-	mux *eventmultiplexer.EventMultiplexer
+	db      coredatabase.TxnRunner
+	mux     *eventmultiplexer.EventMultiplexer
+	watcher *eventwatcher.EventWatcher
 }
 
 // NewWatchableDB creates a new WatchableDB.
@@ -51,9 +53,15 @@ func NewWatchableDB(
 		return nil, errors.Trace(err)
 	}
 
+	watcher, err := eventwatcher.New(mux, clock, logger)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	w := &WatchableDB{
-		db:  db,
-		mux: mux,
+		db:      db,
+		mux:     mux,
+		watcher: watcher,
 	}
 
 	if err := catacomb.Invoke(catacomb.Plan{
@@ -98,6 +106,11 @@ func (w *WatchableDB) StdTxn(ctx context.Context, fn func(context.Context, *sql.
 // The subscription is then used to drive watchers.
 func (w *WatchableDB) Subscribe(opts ...changestream.SubscriptionOption) (changestream.Subscription, error) {
 	return w.mux.Subscribe(opts...)
+}
+
+// Watch returns a watcher that can be used to watch all events.
+func (w *WatchableDB) Watch() (changestream.Watcher, error) {
+	return w.watcher.Watch()
 }
 
 func (w *WatchableDB) loop() error {

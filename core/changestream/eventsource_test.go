@@ -59,4 +59,5 @@ func (s *changestreamSuite) setupMocks(c *gc.C) *gomock.Controller {
 type stubWatchableDB struct {
 	database.TxnRunner
 	EventSource
+	EventWatcher
 }

@@ -5,8 +5,18 @@ package changestream
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/worker/v4"
 
 	"github.com/juju/juju/core/database"
+)
+
+const (
+	// ErrWatcherDying is used to indicate to *third parties* that the
+	// watcher worker is dying, instead of catacomb.ErrDying, which is
+	// unsuitable for propagating inter-worker.
+	// This error indicates to consuming workers that their dependency has
+	// become unmet and a restart by the dependency engine is imminent.
+	ErrWatcherDying = errors.ConstError("watcher worker is dying")
 )
 
 // EventSource describes the ability to subscribe
@@ -17,11 +27,28 @@ type EventSource interface {
 	Subscribe(opts ...SubscriptionOption) (Subscription, error)
 }
 
+// Watcher describes the ability to watch a subset of events from a change
+// stream.
+type Watcher interface {
+	worker.Worker
+	Changes() <-chan []ChangeEvent
+	Unsubscribe()
+}
+
+// EventWatcher describes the ability to watch all events from a change stream.
+// This is a continuous stream of events. There is no way to stop the stream,
+// either by applying back pressure or by closing the stream.
+type EventWatcher interface {
+	// Watch returns a watcher that can be used to watch all events.
+	Watch() (Watcher, error)
+}
+
 // WatchableDB describes the ability to run transactions against a database
 // and to subscribe to events emitted from that same source.
 type WatchableDB interface {
 	database.TxnRunner
 	EventSource
+	EventWatcher
 }
 
 // WatchableDBGetter describes the ability to get
