@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 	"errors"
+	"sort"
 	"testing"
 	"time"
 
@@ -117,6 +118,11 @@ func (s *serviceSuite) setMockState(c *gc.C) map[user.UUID]stateUser {
 				Disabled:    usr.disabled,
 			})
 		}
+
+		// Ensure we return the users in a deterministic order.
+		sort.Slice(users, func(i, j int) bool {
+			return users[i].Name < users[j].Name
+		})
 		return users, nil
 	}).AnyTimes()
 
@@ -1122,17 +1128,22 @@ func (s *serviceSuite) TestGetUserByNameNotFound(c *gc.C) {
 func (s *serviceSuite) TestGetAllUsers(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	mockState := s.setMockState(c)
+
+	lastLogin := time.Now().Add(-time.Minute * 2)
+
 	uuid1, err := user.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
-	lastLogin := time.Now().Add(-time.Minute * 2)
+
 	mockState[uuid1] = stateUser{
 		name:        "Jürgen.test",
 		createdAt:   time.Now().Add(-time.Minute * 5),
 		displayName: "Old mate 👍",
 		lastLogin:   lastLogin,
 	}
+
 	uuid2, err := user.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
+
 	mockState[uuid2] = stateUser{
 		name:        "杨-test",
 		createdAt:   time.Now().Add(-time.Minute * 5),
@@ -1143,12 +1154,12 @@ func (s *serviceSuite) TestGetAllUsers(c *gc.C) {
 	users, err := s.service().GetAllUsers(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(users), gc.Equals, 2)
-	c.Assert(users[0].Name, gc.Equals, "Jürgen.test")
-	c.Assert(users[0].DisplayName, gc.Equals, "Old mate 👍")
-	c.Assert(users[0].LastLogin, gc.Equals, lastLogin)
-	c.Assert(users[1].Name, gc.Equals, "杨-test")
-	c.Assert(users[1].DisplayName, gc.Equals, "test1")
-	c.Assert(users[1].LastLogin, gc.Equals, lastLogin)
+	c.Check(users[0].Name, gc.Equals, "Jürgen.test")
+	c.Check(users[0].DisplayName, gc.Equals, "Old mate 👍")
+	c.Check(users[0].LastLogin, gc.Equals, lastLogin)
+	c.Check(users[1].Name, gc.Equals, "杨-test")
+	c.Check(users[1].DisplayName, gc.Equals, "test1")
+	c.Check(users[1].LastLogin, gc.Equals, lastLogin)
 }
 
 // TestGetUserWithAuthInfo tests the happy path for GetUser.
