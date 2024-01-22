@@ -160,21 +160,20 @@ func (s *serviceSuite) setMockState(c *gc.C) map[user.UUID]stateUser {
 	}).AnyTimes()
 
 	s.state.EXPECT().GetUserWithAuth(
-		gomock.Any(), gomock.Any(),
+		gomock.Any(), gomock.Any(), gomock.Any(),
 	).DoAndReturn(func(
 		_ context.Context,
-		uuid user.UUID) (user.User, error) {
+		uuid user.UUID,
+		password string) (user.User, error) {
 		stUser, exists := mockState[uuid]
 		if !exists {
 			return user.User{}, usererrors.NotFound
 		}
 		return user.User{
-			CreatorUUID:  stUser.creatorUUID,
-			CreatedAt:    stUser.createdAt,
-			DisplayName:  stUser.displayName,
-			Name:         stUser.name,
-			PasswordHash: stUser.passwordHash,
-			PasswordSalt: stUser.passwordSalt,
+			CreatorUUID: stUser.creatorUUID,
+			CreatedAt:   stUser.createdAt,
+			DisplayName: stUser.displayName,
+			Name:        stUser.name,
 		}, nil
 	}).AnyTimes()
 

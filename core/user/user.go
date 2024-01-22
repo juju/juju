@@ -32,12 +32,6 @@ type User struct {
 
 	// Disabled is true if the user is disabled.
 	Disabled bool
-
-	// PasswordHash is the hash of the password.
-	PasswordHash string
-
-	// PasswordSalt is the salt used to hash the password.
-	PasswordSalt []byte
 }
 
 // UUID is a unique identifier for a user.

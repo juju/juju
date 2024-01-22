@@ -56,7 +56,7 @@ type State interface {
 	// GetUserWithAuth will retrieve the user with checking authentication information
 	// specified by UUID from the database. If the user does not exist
 	// an error that satisfies usererrors.NotFound will be returned.
-	GetUserWithAuth(context.Context, user.UUID) (user.User, error)
+	GetUserWithAuth(context.Context, user.UUID, string) (user.User, error)
 
 	// RemoveUser marks the user as removed. This obviates the ability of a user
 	// to function, but keeps the user retaining provenance, i.e. auditing.
@@ -189,16 +189,9 @@ func (s *Service) GetUserWithAuth(
 		return user.User{}, errors.Annotatef(usererrors.UUIDNotValid, "validating uuid %q", uuid)
 	}
 
-	usr, err := s.st.GetUserWithAuth(ctx, uuid)
+	usr, err := s.st.GetUserWithAuth(ctx, uuid, password)
 	if err != nil {
 		return user.User{}, errors.Annotatef(err, "getting user for uuid %q", uuid)
-	}
-
-	passwordHash, err := auth.HashPassword(auth.NewPassword(password), usr.PasswordSalt)
-	if err != nil {
-		return user.User{}, errors.Annotatef(err, "hashing password for user with uuid %q", uuid)
-	} else if passwordHash != usr.PasswordHash {
-		return user.User{}, errors.Annotatef(usererrors.Unauthorized, "invalid password for user with uuid %q", uuid)
 	}
 
 	return usr, nil

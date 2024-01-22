@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain"
 	usererrors "github.com/juju/juju/domain/user/errors"
+	"github.com/juju/juju/internal/auth"
 	databaseutils "github.com/juju/juju/internal/database"
 )
 
@@ -231,7 +232,7 @@ WHERE user.name = $M.name AND removed = false
 // GetUserWithAuth will retrieve the user with checking authentication information
 // specified by UUID from the database. If the user does not exist
 // an error that satisfies usererrors.NotFound will be returned.
-func (st *State) GetUserWithAuth(ctx context.Context, uuid user.UUID) (user.User, error) {
+func (st *State) GetUserWithAuth(ctx context.Context, uuid user.UUID, password string) (user.User, error) {
 	db, err := st.DB()
 	if err != nil {
 		return user.User{}, errors.Annotate(err, "getting DB access")
@@ -260,6 +261,13 @@ WHERE user.uuid = $M.uuid AND removed = false
 			return errors.Annotatef(usererrors.NotFound, "%q", uuid)
 		} else if err != nil {
 			return errors.Annotatef(err, "getting user with uuid %q", uuid)
+		}
+
+		passwordHash, err := auth.HashPassword(auth.NewPassword(password), result.PasswordSalt)
+		if err != nil {
+			return errors.Annotatef(err, "hashing password for user with uuid %q", uuid)
+		} else if passwordHash != result.PasswordHash {
+			return errors.Annotatef(usererrors.Unauthorized, "%q", uuid)
 		}
 
 		usr = result.toCoreUser()

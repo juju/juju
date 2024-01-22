@@ -45,14 +45,12 @@ type User struct {
 // toCoreUser converts the state user to a core user.
 func (u User) toCoreUser() user.User {
 	return user.User{
-		UUID:         u.UUID,
-		Name:         u.Name,
-		DisplayName:  u.DisplayName,
-		CreatorUUID:  u.CreatorUUID,
-		CreatedAt:    u.CreatedAt,
-		LastLogin:    u.LastLogin,
-		Disabled:     u.Disabled,
-		PasswordHash: u.PasswordHash,
-		PasswordSalt: u.PasswordSalt,
+		UUID:        u.UUID,
+		Name:        u.Name,
+		DisplayName: u.DisplayName,
+		CreatorUUID: u.CreatorUUID,
+		CreatedAt:   u.CreatedAt,
+		LastLogin:   u.LastLogin,
+		Disabled:    u.Disabled,
 	}
 }

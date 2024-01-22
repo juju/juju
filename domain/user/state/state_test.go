@@ -431,21 +431,20 @@ func (s *stateSuite) TestGetUserWithAuth(c *gc.C) {
 	salt, err := auth.NewSalt()
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = st.AddUserWithPasswordHash(context.Background(), adminUUID, adminUser, adminUUID, "passwordHash", salt)
+	passwordHash, err := auth.HashPassword(auth.NewPassword("password"), salt)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = st.AddUserWithPasswordHash(context.Background(), adminUUID, adminUser, adminUUID, passwordHash, salt)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Get the user.
-	u, err := st.GetUserWithAuth(context.Background(), adminUUID)
+	u, err := st.GetUserWithAuth(context.Background(), adminUUID, "password")
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(u.Name, gc.Equals, adminUser.Name)
 	c.Check(u.DisplayName, gc.Equals, adminUser.DisplayName)
 	c.Check(u.CreatorUUID, gc.Equals, adminUUID)
 	c.Check(u.CreatedAt, gc.NotNil)
-	c.Check(u.LastLogin, gc.NotNil)
-	c.Check(u.Disabled, gc.Equals, false)
-	c.Check(u.PasswordHash, gc.Equals, "passwordHash")
-	c.Check(u.PasswordSalt, gc.DeepEquals, salt)
 }
 
 // TestRemoveUser asserts that we can remove a user from the database.

@@ -156,18 +156,18 @@ func (mr *MockStateMockRecorder) GetUserByName(arg0, arg1 any) *gomock.Call {
 }
 
 // GetUserWithAuth mocks base method.
-func (m *MockState) GetUserWithAuth(arg0 context.Context, arg1 user.UUID) (user.User, error) {
+func (m *MockState) GetUserWithAuth(arg0 context.Context, arg1 user.UUID, arg2 string) (user.User, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetUserWithAuth", arg0, arg1)
+	ret := m.ctrl.Call(m, "GetUserWithAuth", arg0, arg1, arg2)
 	ret0, _ := ret[0].(user.User)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetUserWithAuth indicates an expected call of GetUserWithAuth.
-func (mr *MockStateMockRecorder) GetUserWithAuth(arg0, arg1 any) *gomock.Call {
+func (mr *MockStateMockRecorder) GetUserWithAuth(arg0, arg1, arg2 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUserWithAuth", reflect.TypeOf((*MockState)(nil).GetUserWithAuth), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUserWithAuth", reflect.TypeOf((*MockState)(nil).GetUserWithAuth), arg0, arg1, arg2)
 }
 
 // RemoveUser mocks base method.
