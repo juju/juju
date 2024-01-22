@@ -42,6 +42,7 @@ func newHookContext(config hookConfig) *hookContext {
 
 // HookVars implements runner.Context.
 func (ctx *hookContext) HookVars(
+	_ stdcontext.Context,
 	paths context.Paths,
 	remote bool,
 	envVars context.Environmenter,

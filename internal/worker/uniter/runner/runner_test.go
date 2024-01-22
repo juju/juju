@@ -251,6 +251,7 @@ func (ctx *MockContext) UnitName() string {
 }
 
 func (ctx *MockContext) HookVars(
+	_ stdcontext.Context,
 	paths context.Paths,
 	_ bool,
 	envVars context.Environmenter,

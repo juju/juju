@@ -101,7 +101,7 @@ func (w *connectedStatusHandler) Handle(ctx context.Context) error {
 		w.config.Logger.Tracef("meter status (%q, %q) matches stored information (%q, %q), skipping", currentCode, currentInfo, w.st.Code, w.st.Info)
 		return nil
 	}
-	w.applyStatus(ctx, currentCode, currentInfo, ctx.Done())
+	w.applyStatus(ctx, currentCode, currentInfo)
 	w.st.Code, w.st.Info = currentCode, currentInfo
 	if err = w.config.StateReadWriter.Write(w.st); err != nil {
 		return errors.Annotate(err, "failed to record meter status worker state")
@@ -109,7 +109,7 @@ func (w *connectedStatusHandler) Handle(ctx context.Context) error {
 	return nil
 }
 
-func (w *connectedStatusHandler) applyStatus(ctx context.Context, code, info string, abort <-chan struct{}) {
+func (w *connectedStatusHandler) applyStatus(ctx context.Context, code, info string) {
 	w.config.Logger.Tracef("applying meter status change: %q (%q)", code, info)
-	w.config.Runner.RunHook(ctx, code, info, abort)
+	w.config.Runner.RunHook(ctx, code, info)
 }

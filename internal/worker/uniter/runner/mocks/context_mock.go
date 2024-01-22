@@ -417,18 +417,18 @@ func (mr *MockContextMockRecorder) HookStorage() *gomock.Call {
 }
 
 // HookVars mocks base method.
-func (m *MockContext) HookVars(arg0 context0.Paths, arg1 bool, arg2 context0.Environmenter) ([]string, error) {
+func (m *MockContext) HookVars(arg0 context.Context, arg1 context0.Paths, arg2 bool, arg3 context0.Environmenter) ([]string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "HookVars", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "HookVars", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].([]string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // HookVars indicates an expected call of HookVars.
-func (mr *MockContextMockRecorder) HookVars(arg0, arg1, arg2 any) *gomock.Call {
+func (mr *MockContextMockRecorder) HookVars(arg0, arg1, arg2, arg3 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HookVars", reflect.TypeOf((*MockContext)(nil).HookVars), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HookVars", reflect.TypeOf((*MockContext)(nil).HookVars), arg0, arg1, arg2, arg3)
 }
 
 // Id mocks base method.

@@ -94,6 +94,9 @@ func NewIsolatedStatusWorker(cfg IsolatedConfig) (worker.Worker, error) {
 }
 
 func (w *isolatedStatusWorker) loop() error {
+	ctx, cancel := w.scopedContext()
+	defer cancel()
+
 	st, err := w.config.StateReadWriter.Read()
 	if err != nil {
 		if !errors.Is(err, errors.NotFound) {
@@ -106,7 +109,7 @@ func (w *isolatedStatusWorker) loop() error {
 
 	// Disconnected time has not been recorded yet.
 	if st.Disconnected == nil {
-		st.Disconnected = &Disconnected{w.config.Clock.Now().Unix(), WaitingAmber}
+		st.Disconnected = &Disconnected{Disconnected: w.config.Clock.Now().Unix(), State: WaitingAmber}
 	}
 
 	amberSignal, redSignal := w.config.TriggerFactory(st.Disconnected.State, st.Code, st.Disconnected.When(), w.config.Clock, w.config.AmberGracePeriod, w.config.RedGracePeriod)
@@ -119,7 +122,7 @@ func (w *isolatedStatusWorker) loop() error {
 			currentCode := "RED"
 			currentInfo := "unit agent has been disconnected"
 
-			w.applyStatus(context.TODO(), currentCode, currentInfo)
+			w.applyStatus(ctx, currentCode, currentInfo)
 			st.Code, st.Info = currentCode, currentInfo
 			st.Disconnected.State = Done
 		case <-amberSignal:
@@ -127,7 +130,7 @@ func (w *isolatedStatusWorker) loop() error {
 			currentCode := "AMBER"
 			currentInfo := "unit agent has been disconnected"
 
-			w.applyStatus(context.TODO(), currentCode, currentInfo)
+			w.applyStatus(ctx, currentCode, currentInfo)
 			st.Code, st.Info = currentCode, currentInfo
 			st.Disconnected.State = WaitingRed
 		}
@@ -139,7 +142,7 @@ func (w *isolatedStatusWorker) loop() error {
 
 func (w *isolatedStatusWorker) applyStatus(ctx context.Context, code, info string) {
 	w.config.Logger.Tracef("applying meter status change: %q (%q)", code, info)
-	w.config.Runner.RunHook(ctx, code, info, w.tomb.Dying())
+	w.config.Runner.RunHook(ctx, code, info)
 }
 
 // Kill is part of the worker.Worker interface.
@@ -150,4 +153,9 @@ func (w *isolatedStatusWorker) Kill() {
 // Wait is part of the worker.Worker interface.
 func (w *isolatedStatusWorker) Wait() error {
 	return w.tomb.Wait()
+}
+
+func (w *isolatedStatusWorker) scopedContext() (context.Context, context.CancelFunc) {
+	ctx, cancel := context.WithCancel(context.Background())
+	return w.tomb.Context(ctx), cancel
 }

@@ -230,7 +230,7 @@ func (s *FactorySuite) TestNewActionRunnerGood(c *gc.C) {
 			Params:     test.payload,
 			ResultsMap: map[string]interface{}{},
 		})
-		vars, err := ctx.HookVars(s.paths, false, context.NewRemoteEnvironmenter(
+		vars, err := ctx.HookVars(stdcontext.Background(), s.paths, false, context.NewRemoteEnvironmenter(
 			func() []string { return []string{} },
 			func(k string) string {
 				switch k {
@@ -313,7 +313,7 @@ func (s *FactorySuite) TestNewActionRunnerWithCancel(c *gc.C) {
 		ResultsMap: map[string]interface{}{},
 		Cancel:     cancel,
 	})
-	vars, err := ctx.HookVars(s.paths, false, context.NewRemoteEnvironmenter(
+	vars, err := ctx.HookVars(stdcontext.Background(), s.paths, false, context.NewRemoteEnvironmenter(
 		func() []string { return []string{} },
 		func(k string) string {
 			switch k {

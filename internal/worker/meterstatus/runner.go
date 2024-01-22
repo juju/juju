@@ -19,7 +19,7 @@ import (
 
 // HookRunner implements the functionality necessary to run a meter-status-changed hook.
 type HookRunner interface {
-	RunHook(context.Context, string, string, <-chan struct{})
+	RunHook(context.Context, string, string)
 }
 
 // hookRunner implements functionality for running a hook.
@@ -52,9 +52,9 @@ func NewHookRunner(config HookRunnerConfig) HookRunner {
 
 // acquireExecutionLock acquires the machine-level execution lock and returns a function to be used
 // to unlock it.
-func (w *hookRunner) acquireExecutionLock(action string, interrupt <-chan struct{}) (func(), error) {
+func (w *hookRunner) acquireExecutionLock(ctx context.Context, action string) (func(), error) {
 	spec := machinelock.Spec{
-		Cancel:  interrupt,
+		Cancel:  ctx.Done(),
 		Worker:  "meterstatus",
 		Comment: action,
 	}
@@ -65,26 +65,26 @@ func (w *hookRunner) acquireExecutionLock(action string, interrupt <-chan struct
 	return releaser, nil
 }
 
-func (w *hookRunner) RunHook(stdCtx context.Context, code, info string, interrupt <-chan struct{}) {
+func (w *hookRunner) RunHook(ctx context.Context, code, info string) {
 	unitTag := w.tag
-	ctx := newLimitedContext(hookConfig{
+	hookContext := newLimitedContext(hookConfig{
 		unitName: unitTag.String(),
 		clock:    w.clock,
 		logger:   w.logger,
 	})
-	ctx.SetEnvVars(map[string]string{
+	hookContext.SetEnvVars(map[string]string{
 		"JUJU_METER_STATUS": code,
 		"JUJU_METER_INFO":   info,
 	})
 	paths := uniter.NewPaths(w.config.DataDir(), unitTag, nil)
-	r := runner.NewRunner(ctx, paths, nil)
-	releaser, err := w.acquireExecutionLock(string(hooks.MeterStatusChanged), interrupt)
+	r := runner.NewRunner(hookContext, paths, nil)
+	releaser, err := w.acquireExecutionLock(ctx, string(hooks.MeterStatusChanged))
 	if err != nil {
 		w.logger.Errorf("failed to acquire machine lock: %v", err)
 		return
 	}
 	defer releaser()
-	handlerType, err := r.RunHook(stdCtx, string(hooks.MeterStatusChanged))
+	handlerType, err := r.RunHook(ctx, string(hooks.MeterStatusChanged))
 	cause := errors.Cause(err)
 	switch {
 	case charmrunner.IsMissingHookError(cause):

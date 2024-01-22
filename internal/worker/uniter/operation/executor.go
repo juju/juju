@@ -84,7 +84,7 @@ func (x *executor) State() State {
 
 // Run is part of the Executor interface.
 func (x *executor) Run(ctx context.Context, op Operation, remoteStateChange <-chan remotestate.Snapshot) (err error) {
-	_, span := trace.Start(ctx, trace.NameFromFunc(), trace.WithAttributes(
+	ctx, span := trace.Start(ctx, trace.NameFromFunc(), trace.WithAttributes(
 		trace.StringAttr("executor.state", op.String()),
 		trace.StringAttr("executor.unit", x.unitName),
 	))
@@ -137,7 +137,7 @@ func (x *executor) Run(ctx context.Context, op Operation, remoteStateChange <-ch
 
 // Skip is part of the Executor interface.
 func (x *executor) Skip(ctx context.Context, op Operation) (err error) {
-	_, span := trace.Start(ctx, trace.NameFromFunc(), trace.WithAttributes(
+	ctx, span := trace.Start(ctx, trace.NameFromFunc(), trace.WithAttributes(
 		trace.StringAttr("executor.state", op.String()),
 		trace.StringAttr("executor.unit", x.unitName),
 	))

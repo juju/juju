@@ -283,24 +283,24 @@ type hookRunner struct {
 	logger Logger
 }
 
-func (h *hookRunner) do(stdCtx stdcontext.Context, recorder spool.MetricRecorder) error {
+func (h *hookRunner) do(ctx stdcontext.Context, recorder spool.MetricRecorder) error {
 	h.m.Lock()
 	defer h.m.Unlock()
 	h.logger.Debugf("recording metrics")
 
-	ctx := newHookContext(hookConfig{
+	hookContext := newHookContext(hookConfig{
 		unitName: h.unitTag,
 		recorder: recorder,
 		clock:    h.clock,
 		logger:   h.logger,
 	})
-	err := ctx.addJujuUnitsMetric()
+	err := hookContext.addJujuUnitsMetric()
 	if err != nil {
 		return errors.Annotatef(err, "error adding 'juju-units' metric")
 	}
 
-	r := runner.NewRunner(ctx, h.paths, nil)
-	handlerType, err := r.RunHook(stdCtx, string(hooks.CollectMetrics))
+	r := runner.NewRunner(hookContext, h.paths, nil)
+	handlerType, err := r.RunHook(ctx, string(hooks.CollectMetrics))
 	switch {
 	case charmrunner.IsMissingHookError(errors.Cause(err)):
 		fallthrough
