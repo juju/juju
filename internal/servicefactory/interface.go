@@ -11,6 +11,7 @@ import (
 	credentialservice "github.com/juju/juju/domain/credential/service"
 	externalcontrollerservice "github.com/juju/juju/domain/externalcontroller/service"
 	flagservice "github.com/juju/juju/domain/flag/service"
+	machineservice "github.com/juju/juju/domain/machine/service"
 	modelservice "github.com/juju/juju/domain/model/service"
 	modelconfigservice "github.com/juju/juju/domain/modelconfig/service"
 	modeldefaultsservice "github.com/juju/juju/domain/modeldefaults/service"
@@ -60,6 +61,8 @@ type ModelServiceFactory interface {
 	Config(modelconfigservice.ModelDefaultsProvider) *modelconfigservice.Service
 	// ObjectStore returns the object store service.
 	ObjectStore() *objectstoreservice.Service
+	// Machine returns the machine service.
+	Machine() *machineservice.Service
 }
 
 // ServiceFactory provides access to the services required by the apiserver.

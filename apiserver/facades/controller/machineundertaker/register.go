@@ -19,5 +19,5 @@ func Register(registry facade.FacadeRegistry) {
 
 // newFacade provides the signature required for facade registration.
 func newFacade(ctx facade.Context) (*API, error) {
-	return NewAPI(&backendShim{ctx.State()}, ctx.Resources(), ctx.Auth())
+	return NewAPI(&backendShim{ctx.State()}, ctx.Resources(), ctx.Auth(), ctx.ServiceFactory().Machine())
 }

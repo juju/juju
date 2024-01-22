@@ -21,12 +21,18 @@ type API struct {
 	backend        Backend
 	resources      facade.Resources
 	canManageModel func(modelUUID string) bool
+
+	machineRemover machineRemover
+}
+
+type machineRemover interface {
+	Delete(context.Context, string) error
 }
 
 // NewAPI implements the API used by the machine undertaker worker to
 // find out what provider-level resources need to be cleaned up when a
 // machine goes away.
-func NewAPI(backend Backend, resources facade.Resources, authorizer facade.Authorizer) (*API, error) {
+func NewAPI(backend Backend, resources facade.Resources, authorizer facade.Authorizer, machineRemover machineRemover) (*API, error) {
 	if !authorizer.AuthController() {
 		return nil, errors.Trace(apiservererrors.ErrPerm)
 	}
@@ -37,6 +43,7 @@ func NewAPI(backend Backend, resources facade.Resources, authorizer facade.Autho
 		canManageModel: func(modelUUID string) bool {
 			return modelUUID == authorizer.ConnectedModel()
 		},
+		machineRemover: machineRemover,
 	}
 	return api, nil
 }
@@ -120,7 +127,18 @@ func (m *API) CompleteMachineRemovals(ctx context.Context, machines params.Entit
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return m.backend.CompleteMachineRemovals(machineIDs...)
+	err = m.backend.CompleteMachineRemovals(machineIDs...)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// Remove the machines from dqlite.
+	for _, id := range machineIDs {
+		if err := m.machineRemover.Delete(ctx, id); err != nil {
+			return errors.Annotatef(err, "removing machine %q", id)
+		}
+	}
+	return nil
 }
 
 // WatchMachineRemovals returns a watcher that will signal each time a

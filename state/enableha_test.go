@@ -338,7 +338,7 @@ func (s *EnableHASuite) progressControllerToDead(c *gc.C, id string) {
 	// TODO(HA) - no longer need to refresh once HasVote is moved off machine
 	c.Assert(node.Refresh(), jc.ErrorIsNil)
 	c.Assert(s.State.RemoveControllerReference(node), jc.ErrorIsNil)
-	c.Assert(s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State)), jc.ErrorIsNil)
+	c.Assert(s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State), fakeMachineRemover{}), jc.ErrorIsNil)
 	c.Assert(m.EnsureDead(), jc.ErrorIsNil)
 }
 

@@ -23,8 +23,9 @@ func newFacade(ctx facade.Context) (*API, error) {
 	st := ctx.State()
 	setter := common.NewStatusSetter(&common.UnitAgentFinder{EntityFinder: st}, common.AuthAlways())
 	return &API{
-		st:           st,
+		st:           stateShim{st},
 		res:          ctx.Resources(),
 		statusSetter: setter,
+		machineSaver: ctx.ServiceFactory().Machine(),
 	}, nil
 }

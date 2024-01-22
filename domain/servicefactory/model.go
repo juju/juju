@@ -6,6 +6,8 @@ package servicefactory
 import (
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/domain"
+	machineservice "github.com/juju/juju/domain/machine/service"
+	machinestate "github.com/juju/juju/domain/machine/state"
 	modelconfigservice "github.com/juju/juju/domain/modelconfig/service"
 	modelconfigstate "github.com/juju/juju/domain/modelconfig/state"
 	objectstoreservice "github.com/juju/juju/domain/objectstore/service"
@@ -51,5 +53,12 @@ func (s *ModelFactory) ObjectStore() *objectstoreservice.Service {
 			s.modelDB,
 			s.logger.Child("objectstore"),
 		),
+	)
+}
+
+// Machine returns the model's machine service.
+func (s *ModelFactory) Machine() *machineservice.Service {
+	return machineservice.NewService(
+		machinestate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), s.logger.Child("machine")),
 	)
 }

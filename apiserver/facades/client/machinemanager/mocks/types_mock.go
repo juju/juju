@@ -55,10 +55,10 @@ func (m *MockBackend) EXPECT() *MockBackendMockRecorder {
 }
 
 // AddMachineInsideMachine mocks base method.
-func (m *MockBackend) AddMachineInsideMachine(arg0 state.MachineTemplate, arg1 string, arg2 instance.ContainerType) (*state.Machine, error) {
+func (m *MockBackend) AddMachineInsideMachine(arg0 state.MachineTemplate, arg1 string, arg2 instance.ContainerType) (machinemanager.Machine, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AddMachineInsideMachine", arg0, arg1, arg2)
-	ret0, _ := ret[0].(*state.Machine)
+	ret0, _ := ret[0].(machinemanager.Machine)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -70,10 +70,10 @@ func (mr *MockBackendMockRecorder) AddMachineInsideMachine(arg0, arg1, arg2 any)
 }
 
 // AddMachineInsideNewMachine mocks base method.
-func (m *MockBackend) AddMachineInsideNewMachine(arg0, arg1 state.MachineTemplate, arg2 instance.ContainerType) (*state.Machine, error) {
+func (m *MockBackend) AddMachineInsideNewMachine(arg0, arg1 state.MachineTemplate, arg2 instance.ContainerType) (machinemanager.Machine, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AddMachineInsideNewMachine", arg0, arg1, arg2)
-	ret0, _ := ret[0].(*state.Machine)
+	ret0, _ := ret[0].(machinemanager.Machine)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -85,10 +85,10 @@ func (mr *MockBackendMockRecorder) AddMachineInsideNewMachine(arg0, arg1, arg2 a
 }
 
 // AddOneMachine mocks base method.
-func (m *MockBackend) AddOneMachine(arg0 state.MachineTemplate) (*state.Machine, error) {
+func (m *MockBackend) AddOneMachine(arg0 state.MachineTemplate) (machinemanager.Machine, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AddOneMachine", arg0)
-	ret0, _ := ret[0].(*state.Machine)
+	ret0, _ := ret[0].(machinemanager.Machine)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

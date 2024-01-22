@@ -67,6 +67,7 @@ type ApplicationSuite struct {
 	ecService          *mocks.MockECService
 	cloudService       *commonmocks.MockCloudService
 	credService        *commonmocks.MockCredentialService
+	machineSaver       *mocks.MockMachineSaver
 	storageAccess      *mocks.MockStorageInterface
 	model              *mocks.MockModel
 	leadershipReader   *mocks.MockReader
@@ -163,6 +164,8 @@ func (s *ApplicationSuite) setup(c *gc.C) *gomock.Controller {
 	s.backend.EXPECT().ControllerTag().Return(coretesting.ControllerTag).AnyTimes()
 	s.backend.EXPECT().AllSpaceInfos().Return(s.allSpaceInfos, nil).AnyTimes()
 
+	s.machineSaver = mocks.NewMockMachineSaver(ctrl)
+
 	s.ecService = mocks.NewMockECService(ctrl)
 
 	s.storageAccess = mocks.NewMockStorageInterface(ctrl)
@@ -207,6 +210,7 @@ func (s *ApplicationSuite) setup(c *gc.C) *gomock.Controller {
 		s.model,
 		s.cloudService,
 		s.credService,
+		s.machineSaver,
 		s.leadershipReader,
 		func(application.Charm) *state.Charm {
 			return nil
@@ -1991,6 +1995,8 @@ func (s *ApplicationSuite) TestAddUnits(c *gc.C) {
 	app.EXPECT().AddUnit(state.AddUnitParams{AttachStorage: []names.StorageTag{}}).Return(newUnit, nil)
 	s.backend.EXPECT().Application("postgresql").AnyTimes().Return(app, nil)
 
+	s.machineSaver.EXPECT().Save(gomock.Any(), "99")
+
 	results, err := s.api.AddUnits(context.Background(), params.AddApplicationUnits{
 		ApplicationName: "postgresql",
 		NumUnits:        1,
@@ -2025,6 +2031,8 @@ func (s *ApplicationSuite) TestAddUnitsAttachStorage(c *gc.C) {
 		AttachStorage: []names.StorageTag{names.NewStorageTag("pgdata/0")},
 	}).Return(newUnit, nil)
 	s.backend.EXPECT().Application("postgresql").AnyTimes().Return(app, nil)
+
+	s.machineSaver.EXPECT().Save(gomock.Any(), "99")
 
 	_, err := s.api.AddUnits(context.Background(), params.AddApplicationUnits{
 		ApplicationName: "postgresql",

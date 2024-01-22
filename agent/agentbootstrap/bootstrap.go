@@ -31,6 +31,7 @@ import (
 	ccbootstrap "github.com/juju/juju/domain/controllerconfig/bootstrap"
 	"github.com/juju/juju/domain/credential"
 	credbootstrap "github.com/juju/juju/domain/credential/bootstrap"
+	machinebootstrap "github.com/juju/juju/domain/machine/bootstrap"
 	modeldomain "github.com/juju/juju/domain/model"
 	modelbootstrap "github.com/juju/juju/domain/model/bootstrap"
 	modelconfigbootstrap "github.com/juju/juju/domain/modelconfig/bootstrap"
@@ -240,11 +241,7 @@ func (b *AgentBootstrap) Initialize(ctx stdcontext.Context) (_ *state.Controller
 	// and a function to insert it into the database.
 	_, addAdminUser := userbootstrap.AddUserWithPassword(b.adminUser.Name(), auth.NewPassword(info.Password))
 
-	if err := b.bootstrapDqlite(
-		ctx,
-		database.NewNodeManager(b.agentConfig, b.logger, coredatabase.NoopSlowQueryLogger{}),
-		b.logger,
-		false,
+	databaseBootstrapConcerns := []database.BootstrapConcern{
 		database.BootstrapControllerConcern(
 			ccbootstrap.InsertInitialControllerConfig(stateParams.ControllerConfig),
 			cloudbootstrap.InsertCloud(stateParams.ControllerCloud),
@@ -256,6 +253,21 @@ func (b *AgentBootstrap) Initialize(ctx stdcontext.Context) (_ *state.Controller
 		database.BootstrapModelConcern(controllerUUID,
 			modelconfigbootstrap.SetModelConfig(stateParams.ControllerModelConfig, controllerModelDefaults),
 		),
+	}
+	isCAAS := cloud.CloudIsCAAS(stateParams.ControllerCloud)
+	if !isCAAS {
+		// TODO(wallyworld) - this is just a placeholder for now
+		databaseBootstrapConcerns = append(databaseBootstrapConcerns,
+			database.BootstrapModelConcern(controllerUUID,
+				machinebootstrap.InsertMachine(agent.BootstrapControllerId),
+			))
+	}
+	if err := b.bootstrapDqlite(
+		ctx,
+		database.NewNodeManager(b.agentConfig, b.logger, coredatabase.NoopSlowQueryLogger{}),
+		b.logger,
+		false,
+		databaseBootstrapConcerns...,
 	); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -268,7 +280,6 @@ func (b *AgentBootstrap) Initialize(ctx stdcontext.Context) (_ *state.Controller
 
 	b.logger.Debugf("initializing address %v", info.Addrs)
 
-	isCAAS := cloud.CloudIsCAAS(stateParams.ControllerCloud)
 	modelType := state.ModelTypeIAAS
 	if isCAAS {
 		modelType = state.ModelTypeCAAS

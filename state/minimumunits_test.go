@@ -332,7 +332,7 @@ func (s *MinUnitsSuite) TestEnsureMinUnitsApplicationNotAlive(c *gc.C) {
 	c.Assert(s.application.EnsureMinUnits(), gc.ErrorMatches, expectedErr)
 
 	// An error is returned if the application was removed.
-	err = s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State))
+	err = s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State), fakeMachineRemover{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.application.EnsureMinUnits(), gc.ErrorMatches, expectedErr)
 }

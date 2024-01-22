@@ -88,6 +88,7 @@ type APIBase struct {
 	model             Model
 	cloudService      common.CloudService
 	credentialService common.CredentialService
+	machineService    MachineSaver
 
 	resources        facade.Resources
 	leadershipReader leadership.Reader
@@ -188,6 +189,7 @@ func newFacadeBase(stdCtx context.Context, ctx facade.Context) (*APIBase, error)
 		model,
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
+		serviceFactory.Machine(),
 		leadershipReader,
 		stateCharm,
 		DeployApplication,
@@ -214,6 +216,7 @@ func NewAPIBase(
 	model Model,
 	cloudService common.CloudService,
 	credentialService common.CredentialService,
+	machineService MachineSaver,
 	leadershipReader leadership.Reader,
 	stateCharm func(Charm) *state.Charm,
 	deployApplication DeployApplicationFunc,
@@ -238,6 +241,7 @@ func NewAPIBase(
 		model:                 model,
 		cloudService:          cloudService,
 		credentialService:     credentialService,
+		machineService:        machineService,
 		leadershipReader:      leadershipReader,
 		stateCharm:            stateCharm,
 		deployApplicationFunc: deployApplication,
@@ -1413,7 +1417,7 @@ func (api *APIBase) AddUnits(ctx context.Context, args params.AddApplicationUnit
 	if err := api.check.ChangeAllowed(ctx); err != nil {
 		return params.AddApplicationUnitsResults{}, errors.Trace(err)
 	}
-	units, err := addApplicationUnits(api.backend, api.model.Type(), args)
+	units, err := addApplicationUnits(ctx, api.machineService, api.backend, api.model.Type(), args)
 	if err != nil {
 		return params.AddApplicationUnitsResults{}, errors.Trace(err)
 	}
@@ -1425,7 +1429,7 @@ func (api *APIBase) AddUnits(ctx context.Context, args params.AddApplicationUnit
 }
 
 // addApplicationUnits adds a given number of units to an application.
-func addApplicationUnits(backend Backend, modelType state.ModelType, args params.AddApplicationUnits) ([]Unit, error) {
+func addApplicationUnits(ctx context.Context, machineService MachineSaver, backend Backend, modelType state.ModelType, args params.AddApplicationUnits) ([]Unit, error) {
 	if args.NumUnits < 1 {
 		return nil, errors.New("must add at least one unit")
 	}
@@ -1467,7 +1471,9 @@ func addApplicationUnits(backend Backend, modelType state.ModelType, args params
 		return nil, errors.Trace(err)
 	}
 	return addUnits(
+		ctx,
 		oneApplication,
+		machineService,
 		args.ApplicationName,
 		args.NumUnits,
 		args.Placement,

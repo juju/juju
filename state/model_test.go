@@ -1811,7 +1811,7 @@ func (s *ModelCloudValidationSuite) initializeState(
 }
 
 func assertCleanupRuns(c *gc.C, st *state.State) {
-	err := st.Cleanup(context.Background(), state.NewObjectStore(c, st))
+	err := st.Cleanup(context.Background(), state.NewObjectStore(c, st), fakeMachineRemover{})
 	c.Assert(err, jc.ErrorIsNil)
 }
 

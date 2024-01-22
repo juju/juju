@@ -36,6 +36,7 @@ type instanceTypesSuite struct {
 	api          *machinemanager.MachineManagerAPI
 
 	controllerConfigService *mocks.MockControllerConfigService
+	machineService          *mocks.MockMachineService
 }
 
 var _ = gc.Suite(&instanceTypesSuite{})
@@ -52,6 +53,7 @@ func (s *instanceTypesSuite) setup(c *gc.C) *gomock.Controller {
 	s.cloudService = commonmocks.NewMockCloudService(ctrl)
 	s.credService = commonmocks.NewMockCredentialService(ctrl)
 	s.controllerConfigService = mocks.NewMockControllerConfigService(ctrl)
+	s.machineService = mocks.NewMockMachineService(ctrl)
 	s.store = mocks.NewMockObjectStore(ctrl)
 
 	var err error
@@ -60,6 +62,7 @@ func (s *instanceTypesSuite) setup(c *gc.C) *gomock.Controller {
 		s.st,
 		s.cloudService,
 		s.credService,
+		s.machineService,
 		s.store,
 		nil,
 		nil,
