@@ -660,7 +660,6 @@ func (a *MachineAgent) makeEngineCreator(
 			RegisterIntrospectionHTTPHandlers: registerIntrospectionHandlers,
 			NewModelWorker:                    a.startModelWorkers,
 			MuxShutdownWait:                   1 * time.Minute,
-			NewContainerBrokerFunc:            newCAASBroker,
 			NewBrokerFunc:                     newBroker,
 			IsCaasConfig:                      a.isCaasAgent,
 			UnitEngineConfig: func() dependency.EngineConfig {

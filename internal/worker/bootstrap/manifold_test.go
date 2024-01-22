@@ -12,6 +12,7 @@ import (
 	dependencytesting "github.com/juju/worker/v4/dependency/testing"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/domain/servicefactory/testing"
 	"github.com/juju/juju/environs"
@@ -96,7 +97,8 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		RequiresBootstrap: func(context.Context, FlagService) (bool, error) {
 			return false, nil
 		},
-		NewEnvironsFunc: func(context.Context, environs.OpenParams) (environs.Environ, error) { return nil, nil },
+		NewEnvironFunc:         func(context.Context, environs.OpenParams) (environs.Environ, error) { return nil, nil },
+		BootstrapAddressesFunc: func(context.Context, environs.Environ) (network.ProviderAddresses, error) { return nil, nil },
 	}
 }
 

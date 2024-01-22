@@ -26,11 +26,11 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/controller/crosscontroller"
-	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/core/instance"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machinelock"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/core/presence"
 	coretrace "github.com/juju/juju/core/trace"
@@ -256,9 +256,6 @@ type ManifoldsConfig struct {
 	// exits regardless.
 	MuxShutdownWait time.Duration
 
-	// NewContainerBrokerFunc is a function opens a CAAS provider.
-	NewContainerBrokerFunc caas.NewContainerBrokerFunc
-
 	// NewBrokerFunc is a function opens a instance broker (LXD/KVM)
 	NewBrokerFunc containerbroker.NewBrokerFunc
 
@@ -284,7 +281,7 @@ type ManifoldsConfig struct {
 	S3HTTPClient HTTPClient
 	// NewEnvironFunc is a function opens a provider "environment"
 	// (typically environs.New).
-	NewEnvironFunc environs.NewEnvironFunc
+	NewEnvironFunc func(context.Context, environs.OpenParams) (environs.Environ, error)
 }
 
 type HTTPClient interface {
@@ -877,7 +874,8 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			PopulateControllerCharm: bootstrap.PopulateControllerCharm,
 			LoggerFactory:           bootstrap.LoggoLoggerFactory(loggo.GetLogger("juju.worker.bootstrap")),
 
-			NewEnvironsFunc: config.NewEnvironFunc,
+			NewEnvironFunc:         config.NewEnvironFunc,
+			BootstrapAddressesFunc: bootstrap.BootstrapAddresses,
 
 			AgentBinaryUploader:     bootstrap.IAASAgentBinaryUploader,
 			ControllerCharmDeployer: bootstrap.IAASControllerCharmUploader,
@@ -1101,7 +1099,12 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			PopulateControllerCharm: bootstrap.PopulateControllerCharm,
 			LoggerFactory:           bootstrap.LoggoLoggerFactory(loggo.GetLogger("juju.worker.bootstrap")),
 
-			NewEnvironsFunc: config.NewEnvironFunc,
+			NewEnvironFunc: func(context.Context, environs.OpenParams) (environs.Environ, error) {
+				return nil, errors.NotSupportedf("environ creator function in CAAS")
+			},
+			BootstrapAddressesFunc: func(ctx context.Context, env environs.Environ) (network.ProviderAddresses, error) {
+				return nil, errors.NotSupportedf("bootstrap address function in CAAS")
+			},
 
 			AgentBinaryUploader:     bootstrap.CAASAgentBinaryUploader,
 			ControllerCharmDeployer: bootstrap.CAASControllerCharmUploader,

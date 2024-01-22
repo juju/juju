@@ -15,9 +15,12 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/flags"
+	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/domain/credential"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/bootstrap"
 	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/internal/worker/common"
@@ -95,6 +98,31 @@ type HTTPClient interface {
 	Do(*http.Request) (*http.Response, error)
 }
 
+// BootstrapAddress attemps to use the provided Environ to get the list of
+// instances and its addresses. If the Environ does not implement
+// InstanceListener (this is the case of CAAS for the moment), then we
+// return the hard-coded 'localhost' address.
+func BootstrapAddresses(ctx context.Context, env environs.Environ) (network.ProviderAddresses, error) {
+	callCtx := envcontext.WithoutCredentialInvalidator(ctx)
+	instanceLister, ok := env.(environs.InstanceLister)
+	if !ok {
+		// NOTE(nvinuesa): This will happen on caas providers where
+		// the environ does not implement InstanceListener, in this
+		// we return "localhost" as address.
+		return network.NewMachineAddresses([]string{"localhost"}).AsProviderAddresses(), nil
+	}
+	// TODO(nvinuesa): which instanceID to use?
+	instances, err := instanceLister.Instances(callCtx, []instance.Id{"0"})
+	if err != nil {
+		return nil, errors.Annotate(err, "getting bootstrap instance")
+	}
+	addrs, err := instances[0].Addresses(callCtx)
+	if err != nil {
+		return nil, errors.Annotate(err, "getting bootstrap instance addresses")
+	}
+	return addrs, nil
+}
+
 // ManifoldConfig defines the configuration for the trace manifold.
 type ManifoldConfig struct {
 	AgentName              string
@@ -110,7 +138,8 @@ type ManifoldConfig struct {
 	RequiresBootstrap       RequiresBootstrapFunc
 	PopulateControllerCharm PopulateControllerCharmFunc
 
-	NewEnvironsFunc environs.NewEnvironFunc
+	NewEnvironFunc         func(context.Context, environs.OpenParams) (environs.Environ, error)
+	BootstrapAddressesFunc func(ctx context.Context, env environs.Environ) (network.ProviderAddresses, error)
 
 	LoggerFactory LoggerFactory
 }
@@ -153,8 +182,11 @@ func (cfg ManifoldConfig) Validate() error {
 	if cfg.PopulateControllerCharm == nil {
 		return errors.NotValidf("nil PopulateControllerCharm")
 	}
-	if cfg.NewEnvironsFunc == nil {
+	if cfg.NewEnvironFunc == nil {
 		return errors.NotValidf("nil NewEnvironsFunc")
+	}
+	if cfg.BootstrapAddressesFunc == nil {
+		return errors.NotValidf("nil BootstrapAddressesFunc")
 	}
 	return nil
 }
@@ -250,7 +282,8 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				CharmhubHTTPClient:      charmhubHTTPClient,
 				UnitPassword:            unitPassword,
 				LoggerFactory:           config.LoggerFactory,
-				NewEnvironsFunc:         config.NewEnvironsFunc,
+				NewEnvironFunc:          config.NewEnvironFunc,
+				BootstrapAddressesFunc:  config.BootstrapAddressesFunc,
 			})
 			if err != nil {
 				_ = stTracker.Done()

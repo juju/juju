@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/flags"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/domain/credential"
 	"github.com/juju/juju/environs"
@@ -60,7 +61,8 @@ type WorkerConfig struct {
 	PopulateControllerCharm PopulateControllerCharmFunc
 	CharmhubHTTPClient      HTTPClient
 	UnitPassword            string
-	NewEnvironsFunc         environs.NewEnvironFunc
+	NewEnvironFunc          func(context.Context, environs.OpenParams) (environs.Environ, error)
+	BootstrapAddressesFunc  func(ctx context.Context, env environs.Environ) (network.ProviderAddresses, error)
 	LoggerFactory           LoggerFactory
 
 	// Deprecated: This is only here, until we can remove the state layer.
@@ -108,8 +110,11 @@ func (c *WorkerConfig) Validate() error {
 	if c.SystemState == nil {
 		return errors.NotValidf("nil SystemState")
 	}
-	if c.NewEnvironsFunc == nil {
-		return errors.NotValidf("nil NewEnvironsFunc")
+	if c.NewEnvironFunc == nil {
+		return errors.NotValidf("nil NewEnvironFunc")
+	}
+	if c.BootstrapAddressesFunc == nil {
+		return errors.NotValidf("nil BootstrapAddressesFunc")
 	}
 	return nil
 }
@@ -171,12 +176,25 @@ func (w *bootstrapWorker) loop() error {
 		return errors.Trace(err)
 	}
 
-	// Get environ (needed to retrieve the controller address) so we can
-	// set the API host port.
-	_, err = w.getEnviron(ctx)
-	if err != nil {
+	// Retrieve controller addresses needed to set the API host ports.
+	var addresses network.ProviderAddresses
+	env, err := w.getEnviron(ctx)
+	if err != nil && !errors.Is(err, errors.NotSupported) {
 		return errors.Trace(err)
 	}
+	if errors.Is(err, errors.NotSupported) {
+		addresses = network.NewMachineAddresses([]string{"localhost"}).AsProviderAddresses()
+	}
+	addresses, err = w.cfg.BootstrapAddressesFunc(ctx, env)
+	if err != nil && !errors.Is(err, errors.NotSupported) {
+		return errors.Trace(err)
+	}
+	if errors.Is(err, errors.NotSupported) {
+		addresses = network.NewMachineAddresses([]string{"localhost"}).AsProviderAddresses()
+	}
+	// NOTE(nvinuesa): This is only temporary, its usage will be
+	// implemented in a future patch.
+	_ = addresses
 
 	// Set the bootstrap flag, to indicate that the bootstrap has completed.
 	if err := w.cfg.FlagService.SetFlag(ctx, flags.BootstrapFlag, true, flags.BootstrapFlagDescription); err != nil {
@@ -272,6 +290,8 @@ func (w *bootstrapWorker) bootstrapParams(ctx context.Context, dataDir string) (
 	return args, nil
 }
 
+// getEnviron creates a new environ using the provided NewEnvironFunc from the
+// worker config.
 func (w *bootstrapWorker) getEnviron(ctx context.Context) (environs.Environ, error) {
 	controllerModel, err := w.cfg.SystemState.Model()
 	if err != nil {
@@ -308,7 +328,7 @@ func (w *bootstrapWorker) getEnviron(ctx context.Context) (environs.Environ, err
 		return nil, errors.Trace(err)
 	}
 
-	return w.cfg.NewEnvironsFunc(ctx, environs.OpenParams{
+	return w.cfg.NewEnvironFunc(ctx, environs.OpenParams{
 		ControllerUUID: w.cfg.SystemState.ControllerModelUUID(),
 		Cloud:          cloudSpec,
 		Config:         controllerModelConfig,
