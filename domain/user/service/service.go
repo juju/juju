@@ -53,6 +53,11 @@ type State interface {
 	// usererrors.NotFound will be returned.
 	GetUserByName(ctx context.Context, name string) (user.User, error)
 
+	// GetUserWithAuth will retrieve the user with checking authentication information
+	// specified by UUID from the database. If the user does not exist
+	// an error that satisfies usererrors.NotFound will be returned.
+	GetUserWithAuth(context.Context, user.UUID) (user.User, error)
+
 	// RemoveUser marks the user as removed. This obviates the ability of a user
 	// to function, but keeps the user retaining provenance, i.e. auditing.
 	// RemoveUser will also remove any credentials and activation codes for the
@@ -165,6 +170,35 @@ func (s *Service) GetUserByName(
 	usr, err := s.st.GetUserByName(ctx, name)
 	if err != nil {
 		return user.User{}, errors.Annotatef(err, "getting user %q", name)
+	}
+
+	return usr, nil
+}
+
+// GetUserWithAuth will find and return the user with UUID. If there is no
+// user for the UUID then an error that satisfies usererrors.NotFound will
+// be returned.
+//
+// GetUserWithAuth will not return users that have been previously removed.
+func (s *Service) GetUserWithAuth(
+	ctx context.Context,
+	uuid user.UUID,
+	password string,
+) (user.User, error) {
+	if err := uuid.Validate(); err != nil {
+		return user.User{}, errors.Annotatef(usererrors.UUIDNotValid, "validating uuid %q", uuid)
+	}
+
+	usr, err := s.st.GetUserWithAuth(ctx, uuid)
+	if err != nil {
+		return user.User{}, errors.Annotatef(err, "getting user for uuid %q", uuid)
+	}
+
+	passwordHash, err := auth.HashPassword(auth.NewPassword(password), usr.PasswordSalt)
+	if err != nil {
+		return user.User{}, errors.Annotatef(err, "hashing password for user with uuid %q", uuid)
+	} else if passwordHash != usr.PasswordHash {
+		return user.User{}, errors.Annotatef(usererrors.Unauthorized, "invalid password for user with uuid %q", uuid)
 	}
 
 	return usr, nil

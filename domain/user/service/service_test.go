@@ -159,6 +159,25 @@ func (s *serviceSuite) setMockState(c *gc.C) map[user.UUID]stateUser {
 		return user.User{}, usererrors.NotFound
 	}).AnyTimes()
 
+	s.state.EXPECT().GetUserWithAuth(
+		gomock.Any(), gomock.Any(),
+	).DoAndReturn(func(
+		_ context.Context,
+		uuid user.UUID) (user.User, error) {
+		stUser, exists := mockState[uuid]
+		if !exists {
+			return user.User{}, usererrors.NotFound
+		}
+		return user.User{
+			CreatorUUID:  stUser.creatorUUID,
+			CreatedAt:    stUser.createdAt,
+			DisplayName:  stUser.displayName,
+			Name:         stUser.name,
+			PasswordHash: stUser.passwordHash,
+			PasswordSalt: stUser.passwordSalt,
+		}, nil
+	}).AnyTimes()
+
 	s.state.EXPECT().AddUser(
 		gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(),
 	).DoAndReturn(func(
@@ -1189,6 +1208,30 @@ func (s *serviceSuite) TestGetUserWithAuthInfoByName(c *gc.C) {
 	c.Assert(user.DisplayName, gc.Equals, "Old mate 👍")
 	c.Assert(user.LastLogin, gc.Equals, lastLogin)
 	c.Assert(user.Disabled, gc.Equals, true)
+}
+
+// TestGetUserWithAuth is testing the happy path for GetUserWithAuth.
+func (s *serviceSuite) TestGetUserWithAuth(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	mockState := s.setMockState(c)
+	uuid, err := user.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	lastLogin := time.Now().Add(-time.Minute * 2)
+	mockState[uuid] = stateUser{
+		name:        "Jürgen.test",
+		createdAt:   time.Now().Add(-time.Minute * 5),
+		displayName: "Old mate 👍",
+		lastLogin:   lastLogin,
+	}
+
+	password := auth.NewPassword("password")
+	err = s.service().SetPassword(context.Background(), uuid, password)
+	c.Assert(err, jc.ErrorIsNil)
+
+	user, err := s.service().GetUserWithAuth(context.Background(), uuid, "password")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(user.Name, gc.Equals, "Jürgen.test")
+	c.Assert(user.DisplayName, gc.Equals, "Old mate 👍")
 }
 
 // TestEnableUserAuthentication tests the happy path for EnableUserAuthentication.
