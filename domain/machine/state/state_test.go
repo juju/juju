@@ -110,9 +110,9 @@ func (s *stateSuite) insertBlockDevice(c *gc.C, bd blockdevice.BlockDevice, bloc
 		inUse = 1
 	}
 	_, err := db.ExecContext(context.Background(), `
-INSERT INTO block_device (uuid, name, label, device_uuid, hardware_id, wwn, bus_address, serial_id, mount_point, filesystem_type_id, Size_mib, in_use)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 2, ?, ?)
-`, blockDeviceUUID, bd.DeviceName, bd.Label, bd.UUID, bd.HardwareId, bd.WWN, bd.BusAddress, bd.SerialId, bd.MountPoint, bd.SizeMiB, inUse)
+INSERT INTO block_device (uuid, name, label, device_uuid, hardware_id, wwn, bus_address, serial_id, mount_point, filesystem_type_id, Size_mib, in_use, machine_uuid)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 2, ?, ?, (SELECT uuid FROM machine WHERE machine_id=?))
+`, blockDeviceUUID, bd.DeviceName, bd.Label, bd.UUID, bd.HardwareId, bd.WWN, bd.BusAddress, bd.SerialId, bd.MountPoint, bd.SizeMiB, inUse, machineId)
 	c.Assert(err, jc.ErrorIsNil)
 
 	for _, link := range bd.DeviceLinks {
@@ -122,10 +122,5 @@ VALUES (?, ?)
 `, blockDeviceUUID, link)
 		c.Assert(err, jc.ErrorIsNil)
 	}
-
-	_, err = db.ExecContext(context.Background(), `
-INSERT INTO block_device_machine (machine_uuid, block_device_uuid)
-VALUES ((SELECT uuid FROM machine WHERE machine_id = ?), ?)
-`, machineId, blockDeviceUUID)
 	c.Assert(err, jc.ErrorIsNil)
 }

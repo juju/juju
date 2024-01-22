@@ -12,7 +12,8 @@ import (
 // These structs represent the persistent block device entity schema in the database.
 
 type BlockDevice struct {
-	ID string `db:"uuid"`
+	ID          string `db:"uuid"`
+	MachineUUID string `db:"machine_uuid"`
 
 	DeviceName     string `db:"name"`
 	Label          string `db:"label"`
@@ -37,21 +38,24 @@ type DeviceLink struct {
 	Name       string `db:"name"`
 }
 
-type DeviceMachine struct {
-	BlockDeviceUUID string `db:"block_device_uuid"`
+type BlockDeviceMachine struct {
+	MachineId string `db:"machine_id"`
 }
 
 type BlockDevices []BlockDevice
 
-func (rows BlockDevices) toBlockDevices(deviceLinks []DeviceLink, filesystemTypes []FilesystemType) ([]blockdevice.BlockDevice, error) {
-	if n := len(rows); n != len(filesystemTypes) || n != len(deviceLinks) {
+func (rows BlockDevices) toBlockDevicesAndMachines(deviceLinks []DeviceLink, filesystemTypes []FilesystemType, machines []BlockDeviceMachine) ([]blockdevice.BlockDevice, []string, error) {
+	if n := len(rows); n != len(filesystemTypes) || n != len(deviceLinks) || (machines != nil && n != len(machines)) {
 		// Should never happen.
-		return nil, errors.New("row length mismatch composing block device results")
+		return nil, nil, errors.New("row length mismatch composing block device results")
 	}
 
-	var result []blockdevice.BlockDevice
-	recordResult := func(row *BlockDevice, fsType string, deviceLinks []string) {
-		result = append(result, blockdevice.BlockDevice{
+	var (
+		resultBlockDevices []blockdevice.BlockDevice
+		resultMachines     []string
+	)
+	recordResult := func(row *BlockDevice, fsType string, deviceLinks []string, machineId string) {
+		resultBlockDevices = append(resultBlockDevices, blockdevice.BlockDevice{
 			DeviceName:     row.DeviceName,
 			DeviceLinks:    deviceLinks,
 			Label:          row.Label,
@@ -65,19 +69,24 @@ func (rows BlockDevices) toBlockDevices(deviceLinks []DeviceLink, filesystemType
 			MountPoint:     row.MountPoint,
 			SerialId:       row.SerialId,
 		})
+		resultMachines = append(resultMachines, machineId)
 	}
 
 	var (
-		current *BlockDevice
-		fsType  string
-		links   []string
+		current   *BlockDevice
+		fsType    string
+		links     []string
+		machineId string
 	)
 	for i, row := range rows {
 		if current != nil && row.ID != current.ID {
-			recordResult(current, fsType, links)
+			recordResult(current, fsType, links, machineId)
 			links = []string(nil)
 		}
 		fsType = filesystemTypes[i].Name
+		if machines != nil {
+			machineId = machines[i].MachineId
+		}
 		if deviceLinks[i].Name != "" {
 			links = append(links, deviceLinks[i].Name)
 		}
@@ -85,7 +94,7 @@ func (rows BlockDevices) toBlockDevices(deviceLinks []DeviceLink, filesystemType
 		current = &rowCopy
 	}
 	if current != nil {
-		recordResult(current, fsType, links)
+		recordResult(current, fsType, links, machineId)
 	}
-	return result, nil
+	return resultBlockDevices, resultMachines, nil
 }

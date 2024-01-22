@@ -67,3 +67,11 @@ type BlockDevice struct {
 	// SerialId is the block device's serial id used for matching.
 	SerialId string
 }
+
+// MachineBlockDevice represents a block device on a machine.
+type MachineBlockDevice struct {
+	// MachineId is the id of the machine.
+	MachineId string
+	// BlockDevice is the block device.
+	BlockDevice BlockDevice
+}

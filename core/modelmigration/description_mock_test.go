@@ -83,6 +83,20 @@ func (mr *MockModelMockRecorder) AddApplication(arg0 any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddApplication", reflect.TypeOf((*MockModel)(nil).AddApplication), arg0)
 }
 
+// AddBlockDevice mocks base method.
+func (m *MockModel) AddBlockDevice(arg0 string, arg1 description.BlockDeviceArgs) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AddBlockDevice", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// AddBlockDevice indicates an expected call of AddBlockDevice.
+func (mr *MockModelMockRecorder) AddBlockDevice(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddBlockDevice", reflect.TypeOf((*MockModel)(nil).AddBlockDevice), arg0, arg1)
+}
+
 // AddCloudImageMetadata mocks base method.
 func (m *MockModel) AddCloudImageMetadata(arg0 description.CloudImageMetadataArgs) description.CloudImageMetadata {
 	m.ctrl.T.Helper()

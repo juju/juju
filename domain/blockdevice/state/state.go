@@ -53,13 +53,12 @@ func (st *State) BlockDevices(ctx context.Context, machineId string) ([]blockdev
 }
 
 func loadBlockDevices(ctx context.Context, tx *sqlair.TX, machineId string) ([]blockdevice.BlockDevice, error) {
-	credQuery := `
+	query := `
 SELECT bd.* AS &BlockDevice.*,
        bdl.* AS &DeviceLink.*,
        fs_type.* AS &FilesystemType.*
 FROM   block_device bd
-       JOIN block_device_machine bdm ON bd.uuid = bdm.block_device_uuid
-       JOIN machine ON bdm.machine_uuid = machine.uuid
+       JOIN machine ON bd.machine_uuid = machine.uuid
        LEFT JOIN block_device_link_device bdl ON bd.uuid = bdl.block_device_uuid
        LEFT JOIN filesystem_type fs_type ON bd.filesystem_type_id = fs_type.id
 WHERE  machine.machine_id = $M.machine_id
@@ -72,7 +71,7 @@ WHERE  machine.machine_id = $M.machine_id
 		sqlair.M{},
 	}
 
-	stmt, err := sqlair.Prepare(credQuery, types...)
+	stmt, err := sqlair.Prepare(query, types...)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -87,7 +86,8 @@ WHERE  machine.machine_id = $M.machine_id
 	if err != nil {
 		return nil, errors.Annotatef(err, "loading block devices for machine %q", machineId)
 	}
-	return dbRows.toBlockDevices(dbDeviceLinks, dbFilesystemTypes)
+	result, _, err := dbRows.toBlockDevicesAndMachines(dbDeviceLinks, dbFilesystemTypes, nil)
+	return result, errors.Trace(err)
 }
 
 func getMachineInfo(ctx context.Context, tx *sqlair.TX, machineId string) (string, life.Life, error) {
@@ -175,9 +175,10 @@ func updateBlockDevices(ctx context.Context, tx *sqlair.TX, machineUUID string, 
 	}
 
 	insertQuery := `
-INSERT INTO block_device (uuid, name, label, device_uuid, hardware_id, wwn, bus_address, serial_id, mount_point, size_mib, filesystem_type_id, in_use)
+INSERT INTO block_device (uuid, machine_uuid, name, label, device_uuid, hardware_id, wwn, bus_address, serial_id, mount_point, size_mib, filesystem_type_id, in_use)
 VALUES (
     $BlockDevice.uuid,
+    $BlockDevice.machine_uuid,
     $BlockDevice.name,
     $BlockDevice.label,
     $BlockDevice.device_uuid,
@@ -221,6 +222,7 @@ VALUES (
 		blockDevicesByUUID[id] = bd
 		dbBlockDevice := BlockDevice{
 			ID:             id.String(),
+			MachineUUID:    machineUUID,
 			DeviceName:     bd.DeviceName,
 			Label:          bd.Label,
 			DeviceUUID:     bd.UUID,
@@ -248,24 +250,6 @@ VALUES (
 		}
 	}
 
-	insertJoinQuery := `
-INSERT INTO block_device_machine(block_device_uuid, machine_uuid)
-VALUES ($M.block_device_uuid, $M.machine_uuid)
-`
-	insertJoinStmt, err := sqlair.Prepare(insertJoinQuery, sqlair.M{})
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	for uuid := range blockDevicesByUUID {
-		if err := tx.Query(ctx, insertJoinStmt, sqlair.M{
-			"machine_uuid":      machineUUID,
-			"block_device_uuid": uuid.String(),
-		}).Run(); err != nil {
-			return errors.Annotate(err, "inserting block device machine associations")
-		}
-	}
-
 	return nil
 }
 
@@ -288,42 +272,64 @@ func blockDevicesChanged(oldDevices, newDevices []blockdevice.BlockDevice) bool 
 	return false
 }
 
-// RemoveMachineBlockDevices removes all the block devices for the specified machine.
-// It is the same as calling SetMachineBlockDevices with an empty list, but does not
-// error if the machine life is Dead.
-func (st *State) RemoveMachineBlockDevices(ctx context.Context, machineId string) error {
+// MachineBlockDevices retrieves block devices for all machines.
+func (st *State) MachineBlockDevices(ctx context.Context) ([]blockdevice.MachineBlockDevice, error) {
 	db, err := st.DB()
 	if err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		q := `
-SELECT machine.uuid AS &M.machine_uuid
-FROM   machine
-WHERE  machine.machine_id = $M.machine_id
+	query := `
+SELECT bd.* AS &BlockDevice.*,
+       bdl.* AS &DeviceLink.*,
+       fs_type.* AS &FilesystemType.*,
+       machine.machine_id AS &BlockDeviceMachine.*
+FROM   block_device bd
+       JOIN machine ON bd.machine_uuid = machine.uuid
+       LEFT JOIN block_device_link_device bdl ON bd.uuid = bdl.block_device_uuid
+       LEFT JOIN filesystem_type fs_type ON bd.filesystem_type_id = fs_type.id
 `
-		stmt, err := sqlair.Prepare(q, sqlair.M{})
-		if err != nil {
-			return errors.Trace(err)
-		}
 
-		result := sqlair.M{}
-		err = tx.Query(ctx, stmt, sqlair.M{"machine_id": machineId}).Get(result)
-		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Annotatef(err, "looking up UUID for machine %q", machineId)
+	types := []any{
+		BlockDevice{},
+		FilesystemType{},
+		DeviceLink{},
+		BlockDeviceMachine{},
+	}
+
+	stmt, err := sqlair.Prepare(query, types...)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var (
+		blockDevices []blockdevice.BlockDevice
+		machines     []string
+	)
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var (
+			dbRows            BlockDevices
+			dbDeviceLinks     []DeviceLink
+			dbFilesystemTypes []FilesystemType
+			dbMachines        []BlockDeviceMachine
+		)
+		if err := tx.Query(ctx, stmt).GetAll(&dbRows, &dbDeviceLinks, &dbFilesystemTypes, &dbMachines); err != nil {
+			return errors.Annotate(err, "loading block devices")
 		}
-		if len(result) == 0 {
-			return fmt.Errorf("machine %q not found%w", machineId, errors.Hide(machineerrors.NotFound))
-		}
-		machineUUID := result["machine_uuid"].(string)
-		if err := RemoveMachineBlockDevices(ctx, tx, machineUUID); err != nil {
-			return errors.Annotatef(err, "removing block devices on machine %q (%s)", machineId, machineUUID)
-		}
-		return nil
+		blockDevices, machines, err = dbRows.toBlockDevicesAndMachines(dbDeviceLinks, dbFilesystemTypes, dbMachines)
+		return errors.Trace(err)
 	})
-
-	return errors.Trace(err)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	result := make([]blockdevice.MachineBlockDevice, len(blockDevices))
+	for i, bd := range blockDevices {
+		result[i] = blockdevice.MachineBlockDevice{
+			MachineId:   machines[i],
+			BlockDevice: bd,
+		}
+	}
+	return result, nil
 }
 
 // RemoveMachineBlockDevices deletes all the block devices belonging to the specified machine.
@@ -343,9 +349,9 @@ func RemoveMachineBlockDevices(ctx context.Context, tx *sqlair.TX, machineUUID s
 DELETE 
 FROM  block_device_link_device
 WHERE block_device_uuid IN (
-    SELECT DISTINCT block_device_uuid
-    FROM            block_device_machine bdm
-    WHERE           bdm.machine_uuid = $M.machine_uuid
+    SELECT DISTINCT uuid
+    FROM            block_device bd
+    WHERE           bd.machine_uuid = $M.machine_uuid
 )`)
 
 	deleteStmt, err := sqlair.Prepare(linkDeleteQuery, sqlair.M{})
@@ -356,33 +362,17 @@ WHERE block_device_uuid IN (
 		return errors.Annotate(err, "deleting block device link devices")
 	}
 
-	deviceMachineDeleteQuery := fmt.Sprintf(`
+	deleteQuery := fmt.Sprintf(`
 DELETE
-FROM  block_device_machine
+FROM  block_device
 WHERE machine_uuid = $M.machine_uuid
 `)
 
-	deleteStmt, err = sqlair.Prepare(deviceMachineDeleteQuery, sqlair.M{})
+	deleteStmt, err = sqlair.Prepare(deleteQuery, sqlair.M{})
 	if err != nil {
 		return errors.Trace(err)
 	}
 	if err := tx.Query(ctx, deleteStmt, machineUUIDParam).Run(); err != nil {
-		return errors.Annotate(err, "deleting block device machine associations")
-	}
-
-	deleteQuery := fmt.Sprintf(`
-DELETE
-FROM  block_device
-WHERE uuid NOT IN (
-    SELECT DISTINCT block_device_uuid
-    FROM            block_device_machine
-)`)
-
-	deleteStmt, err = sqlair.Prepare(deleteQuery)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if err := tx.Query(ctx, deleteStmt).Run(); err != nil {
 		return errors.Annotate(err, "deleting block devices")
 	}
 	return nil
@@ -428,7 +418,7 @@ func (st *State) WatchBlockDevices(
 		}
 		return false, nil
 	}
-	baseWatcher, err := getWatcher("block_device_machine", machineUUID, changestream.All, predicate)
+	baseWatcher, err := getWatcher("block_device", machineUUID, changestream.All, predicate)
 	if err != nil {
 		return nil, errors.Annotatef(err, "watching machine %q block devices", machineId)
 	}
