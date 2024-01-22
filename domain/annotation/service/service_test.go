@@ -10,7 +10,7 @@ import (
 	gomock "go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/core/annotations"
 )
 
 type serviceSuite struct {
@@ -22,7 +22,7 @@ type serviceSuite struct {
 // (e.g. annotation_machine, annotation_unit, etc.)
 // mockState in the tests below models each one.
 type stateAnnotationKey struct {
-	entity state.GlobalEntity
+	entity annotations.ID
 	key    string
 }
 
@@ -41,9 +41,9 @@ func (s *serviceSuite) service() *Service {
 // TestGetAnnotations is testing the happy path for getting annotations for an entity.
 func (s *serviceSuite) TestGetAnnotations(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	entity1 := &state.Unit{}
-	entity33 := &state.Unit{}
-	entity44 := &state.Unit{}
+	entity1 := annotations.ID{Kind: annotations.KindUnit, Name: "unit1"}
+	entity33 := annotations.ID{Kind: annotations.KindUnit, Name: "unit33"}
+	entity44 := annotations.ID{Kind: annotations.KindUnit, Name: "unit44"}
 	mockState := map[stateAnnotationKey]string{
 		{entity1, "annotationKey1"}:  "annotationValue1",
 		{entity1, "annotationKey2"}:  "annotationValue2",
@@ -53,7 +53,7 @@ func (s *serviceSuite) TestGetAnnotations(c *gc.C) {
 
 	s.state.EXPECT().GetAnnotations(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(_ context.Context,
-			entity state.GlobalEntity) (map[string]string, error) {
+			entity annotations.ID) (map[string]string, error) {
 			annotations := make(map[string]string)
 			for annKey := range mockState {
 				if annKey.entity == entity {
@@ -74,9 +74,9 @@ func (s *serviceSuite) TestGetAnnotations(c *gc.C) {
 // TestSetAnnotations is testing the happy path for setting annotations for an entity.
 func (s *serviceSuite) TestSetAnnotations(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	entity1 := &state.Unit{}
-	entity33 := &state.Unit{}
-	entity44 := &state.Unit{}
+	entity1 := annotations.ID{Kind: annotations.KindUnit, Name: "unit1"}
+	entity33 := annotations.ID{Kind: annotations.KindUnit, Name: "unit33"}
+	entity44 := annotations.ID{Kind: annotations.KindUnit, Name: "unit44"}
 	mockState := map[stateAnnotationKey]string{
 		{entity1, "annotationKey1"}:  "annotationValue1",
 		{entity1, "annotationKey2"}:  "annotationValue2",
@@ -86,7 +86,7 @@ func (s *serviceSuite) TestSetAnnotations(c *gc.C) {
 
 	s.state.EXPECT().SetAnnotations(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 		func(_ context.Context,
-			entity state.GlobalEntity,
+			entity annotations.ID,
 			annotations map[string]string) error {
 			for annKey, annVal := range annotations {
 				mockState[stateAnnotationKey{entity, annKey}] = annVal

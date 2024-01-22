@@ -13,7 +13,7 @@ import (
 	context "context"
 	reflect "reflect"
 
-	state "github.com/juju/juju/state"
+	annotations "github.com/juju/juju/core/annotations"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -41,7 +41,7 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 }
 
 // GetAnnotations mocks base method.
-func (m *MockState) GetAnnotations(arg0 context.Context, arg1 state.GlobalEntity) (map[string]string, error) {
+func (m *MockState) GetAnnotations(arg0 context.Context, arg1 annotations.ID) (map[string]string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetAnnotations", arg0, arg1)
 	ret0, _ := ret[0].(map[string]string)
@@ -56,7 +56,7 @@ func (mr *MockStateMockRecorder) GetAnnotations(arg0, arg1 any) *gomock.Call {
 }
 
 // SetAnnotations mocks base method.
-func (m *MockState) SetAnnotations(arg0 context.Context, arg1 state.GlobalEntity, arg2 map[string]string) error {
+func (m *MockState) SetAnnotations(arg0 context.Context, arg1 annotations.ID, arg2 map[string]string) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetAnnotations", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)

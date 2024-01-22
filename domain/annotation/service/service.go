@@ -7,19 +7,20 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/state"
+
+	"github.com/juju/juju/core/annotations"
 )
 
 // State describes retrieval and persistence methods for annotations.
 type State interface {
 	// GetAnnotations retrieves all the annotations associated with a given entity.
 	// If no annotations are found, an empty map is returned.
-	GetAnnotations(ctx context.Context, entity state.GlobalEntity) (map[string]string, error)
+	GetAnnotations(ctx context.Context, entity annotations.ID) (map[string]string, error)
 
 	// SetAnnotations adds key/value pairs to the annotations in the corresponding
 	// table for a given entity. If a given annotation already exists for the given entity
 	// in the database, then it will be updated.
-	SetAnnotations(ctx context.Context, entity state.GlobalEntity, annotations map[string]string) error
+	SetAnnotations(ctx context.Context, entity annotations.ID, annotations map[string]string) error
 }
 
 // Service provides the API for working with annotations.
@@ -36,7 +37,7 @@ func NewService(st State) *Service {
 
 // GetAnnotations retrieves all annotations associated with a given entity.
 // If no annotations are found, an empty map is returned.
-func (s *Service) GetAnnotations(ctx context.Context, entity state.GlobalEntity) (map[string]string, error) {
+func (s *Service) GetAnnotations(ctx context.Context, entity annotations.ID) (map[string]string, error) {
 	annotations, err := s.st.GetAnnotations(ctx, entity)
 	return annotations, errors.Trace(err)
 }
@@ -44,7 +45,7 @@ func (s *Service) GetAnnotations(ctx context.Context, entity state.GlobalEntity)
 // SetAnnotations adds key/value pairs to the annotations in the corresponding
 // table for a given entity. If a given annotation already exists for the given entity
 // in the database, then it will be updated.
-func (s *Service) SetAnnotations(ctx context.Context, entity state.GlobalEntity, annotations map[string]string) error {
+func (s *Service) SetAnnotations(ctx context.Context, entity annotations.ID, annotations map[string]string) error {
 	err := s.st.SetAnnotations(ctx, entity, annotations)
 	return errors.Annotatef(err, "updating annotations for entity")
 }
