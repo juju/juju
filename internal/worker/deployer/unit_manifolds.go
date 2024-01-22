@@ -38,10 +38,10 @@ import (
 	"github.com/juju/juju/internal/worker/migrationflag"
 	"github.com/juju/juju/internal/worker/migrationminion"
 	"github.com/juju/juju/internal/worker/retrystrategy"
-	"github.com/juju/juju/internal/worker/s3caller"
 	"github.com/juju/juju/internal/worker/secretsdrainworker"
 	"github.com/juju/juju/internal/worker/trace"
 	"github.com/juju/juju/internal/worker/uniter"
+	"github.com/juju/juju/internal/worker/units3caller"
 	"github.com/juju/juju/internal/worker/upgrader"
 )
 
@@ -137,10 +137,10 @@ func UnitManifolds(config UnitManifoldsConfig) dependency.Manifolds {
 		// The S3 API caller is a shim API that wraps the /charms REST
 		// API for uploading and downloading charms. It provides a
 		// S3-compatible API.
-		s3CallerName: s3caller.Manifold(s3caller.ManifoldConfig{
+		s3CallerName: units3caller.Manifold(units3caller.ManifoldConfig{
 			APICallerName: apiCallerName,
-			NewClient:     s3caller.NewS3Client,
-			Logger:        loggo.GetLogger("juju.worker.s3caller"),
+			NewClient:     units3caller.NewS3Client,
+			Logger:        loggo.GetLogger("juju.worker.units3caller"),
 		}),
 
 		// The log sender is a leaf worker that sends log messages to some

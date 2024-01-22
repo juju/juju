@@ -26,6 +26,9 @@ func (s *ObjectStoreSuite) TestObjectStore(c *gc.C) {
 		value:    "file",
 		expected: "file",
 	}, {
+		value:    "s3",
+		expected: "s3",
+	}, {
 		value: "inferi",
 		err:   "object store type \"inferi\" not valid",
 	}}

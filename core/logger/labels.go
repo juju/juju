@@ -32,4 +32,7 @@ const (
 
 	// MIGRATION defines a common label for dealing with migration.
 	MIGRATION Label = "migration"
+
+	// OBJECTSTORE defines a common label for dealing with objectstore.
+	OBJECTSTORE Label = "objectstore"
 )

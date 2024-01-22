@@ -31,7 +31,7 @@ func (s *charmsS3ClientSuite) setupMocks(c *gc.C) *gomock.Controller {
 func (s *charmsS3ClientSuite) TestGetCharm(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.session.EXPECT().GetObject(gomock.Any(), "model-"+coretesting.ModelTag.Id(), "charms/somecharm-abcd0123").Return(io.NopCloser(bytes.NewBufferString("blob")), int64(4), nil)
+	s.session.EXPECT().GetObject(gomock.Any(), "model-"+coretesting.ModelTag.Id(), "charms/somecharm-abcd0123").Return(io.NopCloser(bytes.NewBufferString("blob")), int64(4), "ignored", nil)
 
 	cli := NewCharmsS3Client(s.session)
 	body, err := cli.GetCharm(context.Background(), coretesting.ModelTag.Id(), "somecharm-abcd0123")

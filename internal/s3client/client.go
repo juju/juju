@@ -12,8 +12,10 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/aws/retry"
 	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
+	"github.com/aws/smithy-go"
 	"github.com/aws/smithy-go/logging"
 	"github.com/juju/errors"
 )
@@ -25,12 +27,13 @@ type Logger interface {
 	Infof(message string, args ...any)
 	Debugf(message string, args ...any)
 	Tracef(message string, args ...any)
+
+	IsTraceEnabled() bool
 }
 
 // HTTPClient represents the http client used to access the object store.
 type HTTPClient interface {
 	Do(req *http.Request) (*http.Response, error)
-	BaseURL() string
 }
 
 // CredentialsKind represents the kind of credentials used to access the object
@@ -59,23 +62,29 @@ func (AnonymousCredentials) Kind() CredentialsKind {
 	return AnonymousCredentialsKind
 }
 
-type unlimitedRateLimiter struct{}
-
-func (unlimitedRateLimiter) AddTokens(uint) error { return nil }
-func (unlimitedRateLimiter) GetToken(context.Context, uint) (func() error, error) {
-	return noOpToken, nil
-}
-func noOpToken() error { return nil }
-
 // S3Client is a Juju shim around the AWS S3 client,
 // which Juju uses to drive its object store requirements.
+// StaticCredentials represents static credentials.
+type StaticCredentials struct {
+	Key     string
+	Secret  string
+	Session string
+}
+
+// Kind returns the kind of credentials.
+func (StaticCredentials) Kind() CredentialsKind {
+	return StaticCredentialsKind
+}
+
+// objectsClient is a Juju shim around the AWS S3 client,
+// which Juju uses to drive it's object store requirents
 type S3Client struct {
 	logger Logger
 	client *s3.Client
 }
 
 // NewS3Client returns a new s3Caller client for accessing the object store.
-func NewS3Client(httpClient HTTPClient, credentials Credentials, logger Logger) (*S3Client, error) {
+func NewS3Client(baseURL string, httpClient HTTPClient, credentials Credentials, logger Logger) (*S3Client, error) {
 	credentialsProvider, err := getCredentialsProvider(credentials)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot get credentials provider")
@@ -85,15 +94,11 @@ func NewS3Client(httpClient HTTPClient, credentials Credentials, logger Logger) 
 		logger: logger,
 	}
 
-	httpsAPIAddress := ensureHTTPS(httpClient.BaseURL())
-
 	cfg, err := config.LoadDefaultConfig(
 		context.Background(),
 		config.WithLogger(awsLogger),
 		config.WithHTTPClient(httpClient),
-		config.WithEndpointResolverWithOptions(&awsEndpointResolver{endpoint: httpsAPIAddress}),
-		// Standard retryer with custom max attempts. Will retry at most
-		// 10 times with 20s backoff time.
+		config.WithEndpointResolverWithOptions(&awsEndpointResolver{endpoint: ensureHTTPS(baseURL)}),
 		config.WithRetryer(func() aws.Retryer {
 			return retry.NewStandard(
 				func(o *retry.StandardOptions) {
@@ -102,6 +107,7 @@ func NewS3Client(httpClient HTTPClient, credentials Credentials, logger Logger) 
 				},
 			)
 		}),
+
 		// The anonymous credentials are needed by the aws sdk to
 		// perform anonymous s3 access.
 		config.WithCredentialsProvider(credentialsProvider),
@@ -120,8 +126,8 @@ func NewS3Client(httpClient HTTPClient, credentials Credentials, logger Logger) 
 
 // GetObject gets an object from the object store based on the bucket name and
 // object name.
-func (c *S3Client) GetObject(ctx context.Context, bucketName, objectName string) (io.ReadCloser, int64, error) {
-	c.logger.Tracef("retrieving bucket %s object %s from s3 storage", bucketName, objectName)
+func (c *S3Client) GetObject(ctx context.Context, bucketName, objectName string) (io.ReadCloser, int64, string, error) {
+	c.logger.Tracef("getting bucket %s object %s from s3 storage", bucketName, objectName)
 
 	obj, err := c.client.GetObject(ctx,
 		&s3.GetObjectInput{
@@ -129,13 +135,20 @@ func (c *S3Client) GetObject(ctx context.Context, bucketName, objectName string)
 			Key:    aws.String(objectName),
 		})
 	if err != nil {
-		return nil, -1, errors.Annotatef(err, "unable to get object %s on bucket %s using S3 client", objectName, bucketName)
+		if err := handleError(err); err != nil {
+			return nil, -1, "", errors.Trace(err)
+		}
+		return nil, -1, "", errors.Annotatef(err, "getting object %s on bucket %s using S3 client", objectName, bucketName)
 	}
 	var size int64
 	if obj.ContentLength != nil {
 		size = *obj.ContentLength
 	}
-	return obj.Body, size, nil
+	var hash string
+	if obj.ChecksumSHA256 != nil {
+		hash = *obj.ChecksumSHA256
+	}
+	return obj.Body, size, hash, nil
 }
 
 // PutObject puts an object into the object store based on the bucket name and
@@ -152,7 +165,10 @@ func (c *S3Client) PutObject(ctx context.Context, bucketName, objectName string,
 			ChecksumSHA256:    aws.String(hash),
 		})
 	if err != nil {
-		return errors.Annotatef(err, "unable to put object %s on bucket %s using S3 client", objectName, bucketName)
+		if err := handleError(err); err != nil {
+			return errors.Trace(err)
+		}
+		return errors.Annotatef(err, "putting object %s on bucket %s using S3 client", objectName, bucketName)
 	}
 	return nil
 }
@@ -168,9 +184,37 @@ func (c *S3Client) DeleteObject(ctx context.Context, bucketName, objectName stri
 			Key:    aws.String(objectName),
 		})
 	if err != nil {
-		return errors.Annotatef(err, "unable to delete object %s on bucket %s using S3 client", objectName, bucketName)
+		if err := handleError(err); err != nil {
+			return errors.Trace(err)
+		}
+		return errors.Annotatef(err, "deleting object %s on bucket %s using S3 client", objectName, bucketName)
 	}
 	return nil
+}
+
+// forbiddenErrorCodes is a list of error codes that are returned when the
+// credentials are invalid.
+// https://docs.aws.amazon.com/AmazonS3/latest/API/ErrorResponses.html#ErrorCodeList
+var forbiddenErrorCodes = map[string]struct{}{
+	"AccessDenied":          {},
+	"InvalidAccessKeyId":    {},
+	"InvalidSecurity":       {},
+	"SignatureDoesNotMatch": {},
+}
+
+func handleError(err error) error {
+	if err == nil {
+		return nil
+	}
+
+	var ae smithy.APIError
+	if errors.As(err, &ae) {
+		if _, ok := forbiddenErrorCodes[ae.ErrorCode()]; ok {
+			return errors.NewForbidden(err, ae.ErrorMessage())
+		}
+	}
+
+	return errors.Trace(err)
 }
 
 type awsEndpointResolver struct {
@@ -214,7 +258,18 @@ func getCredentialsProvider(creds Credentials) (aws.CredentialsProvider, error) 
 	switch creds.Kind() {
 	case AnonymousCredentialsKind:
 		return aws.AnonymousCredentials{}, nil
+	case StaticCredentialsKind:
+		s := creds.(StaticCredentials)
+		return credentials.NewStaticCredentialsProvider(s.Key, s.Secret, s.Session), nil
 	default:
 		return nil, errors.Errorf("unknown credentials kind %q", creds.Kind())
 	}
 }
+
+type unlimitedRateLimiter struct{}
+
+func (unlimitedRateLimiter) AddTokens(uint) error { return nil }
+func (unlimitedRateLimiter) GetToken(context.Context, uint) (func() error, error) {
+	return noOpToken, nil
+}
+func noOpToken() error { return nil }

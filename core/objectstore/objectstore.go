@@ -19,6 +19,16 @@ const (
 	ErrObjectStoreDying = errors.ConstError("object store worker is dying")
 )
 
+// Client provides access to the object store.
+type Client interface {
+	// Session calls the given function with a session.
+	// The func maybe called multiple times if the underlying session has
+	// invalid credentials. Therefore session might not be the same across
+	// calls.
+	// It is the caller's responsibility to ensure that f is idempotent.
+	Session(ctx context.Context, f func(context.Context, Session) error) error
+}
+
 // Session provides access to the object store.
 type Session interface {
 	ReadSession
@@ -28,7 +38,7 @@ type Session interface {
 // ReadSession provides read access to the object store.
 type ReadSession interface {
 	// GetObject returns a reader for the specified object.
-	GetObject(ctx context.Context, bucketName, objectName string) (io.ReadCloser, int64, error)
+	GetObject(ctx context.Context, bucketName, objectName string) (io.ReadCloser, int64, string, error)
 }
 
 // WriteSession provides read access to the object store.

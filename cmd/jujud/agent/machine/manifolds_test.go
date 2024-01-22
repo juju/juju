@@ -112,12 +112,14 @@ func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *gc.C) {
 			"model-worker-manager",
 			"multiwatcher",
 			"object-store",
+			"object-store-s3-caller",
 			"peer-grouper",
 			"presence",
 			"proxy-config-updater",
 			"pubsub-forwarder",
 			"query-logger",
 			"reboot-executor",
+			"s3-http-client",
 			"secret-backend-rotate",
 			"service-factory",
 			"ssh-authkeys-updater",
@@ -187,11 +189,13 @@ func (s *ManifoldsSuite) TestManifoldNamesCAAS(c *gc.C) {
 			"model-worker-manager",
 			"multiwatcher",
 			"object-store",
+			"object-store-s3-caller",
 			"peer-grouper",
 			"presence",
 			"proxy-config-updater",
 			"pubsub-forwarder",
 			"query-logger",
+			"s3-http-client",
 			"secret-backend-rotate",
 			"service-factory",
 			"ssh-identity-writer",
@@ -272,7 +276,9 @@ func (s *ManifoldsSuite) TestMigrationGuardsUsed(c *gc.C) {
 		"presence",
 		"pubsub-forwarder",
 		"object-store",
+		"object-store-s3-caller",
 		"query-logger",
+		"s3-http-client",
 		"service-factory",
 		"state",
 		"state-config-watcher",
@@ -330,8 +336,10 @@ func (*ManifoldsSuite) TestSingularGuardsUsed(c *gc.C) {
 		"is-primary-controller-flag",
 		"lease-manager",
 		"object-store",
+		"object-store-s3-caller",
 		"query-logger",
 		"query-logger",
+		"s3-http-client",
 		"upgrade-database-flag",
 		"upgrade-database-gate",
 		"upgrade-database-runner",
@@ -1010,6 +1018,18 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"trace",
 	},
 
+	"object-store-s3-caller": {
+		"agent",
+		"change-stream",
+		"db-accessor",
+		"file-notify-watcher",
+		"is-controller-flag",
+		"query-logger",
+		"s3-http-client",
+		"service-factory",
+		"state-config-watcher",
+	},
+
 	"query-logger": {
 		"agent",
 		"is-controller-flag",
@@ -1026,6 +1046,12 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"upgrade-check-gate",
 		"upgrade-steps-flag",
 		"upgrade-steps-gate",
+	},
+
+	"s3-http-client": {
+		"agent",
+		"is-controller-flag",
+		"state-config-watcher",
 	},
 
 	"secret-backend-rotate": {
@@ -1581,7 +1607,25 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"trace",
 	},
 
+	"object-store-s3-caller": {
+		"agent",
+		"change-stream",
+		"db-accessor",
+		"file-notify-watcher",
+		"is-controller-flag",
+		"query-logger",
+		"s3-http-client",
+		"service-factory",
+		"state-config-watcher",
+	},
+
 	"query-logger": {
+		"agent",
+		"is-controller-flag",
+		"state-config-watcher",
+	},
+
+	"s3-http-client": {
 		"agent",
 		"is-controller-flag",
 		"state-config-watcher",

@@ -48,11 +48,11 @@ import (
 	"github.com/juju/juju/internal/worker/muxhttpserver"
 	"github.com/juju/juju/internal/worker/proxyupdater"
 	"github.com/juju/juju/internal/worker/retrystrategy"
-	"github.com/juju/juju/internal/worker/s3caller"
 	"github.com/juju/juju/internal/worker/secretsdrainworker"
 	"github.com/juju/juju/internal/worker/simplesignalhandler"
 	"github.com/juju/juju/internal/worker/trace"
 	"github.com/juju/juju/internal/worker/uniter"
+	"github.com/juju/juju/internal/worker/units3caller"
 	"github.com/juju/juju/internal/worker/upgradestepsmachine"
 )
 
@@ -195,10 +195,10 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 		// The S3 API caller is a shim API that wraps the /charms REST
 		// API for uploading and downloading charms. It provides a
 		// S3-compatible API.
-		s3CallerName: s3caller.Manifold(s3caller.ManifoldConfig{
+		s3CallerName: units3caller.Manifold(units3caller.ManifoldConfig{
 			APICallerName: apiCallerName,
-			NewClient:     s3caller.NewS3Client,
-			Logger:        loggo.GetLogger("juju.worker.s3caller"),
+			NewClient:     units3caller.NewS3Client,
+			Logger:        loggo.GetLogger("juju.worker.units3caller"),
 		}),
 
 		deadFlagName: lifeflag.Manifold(lifeflag.ManifoldConfig{

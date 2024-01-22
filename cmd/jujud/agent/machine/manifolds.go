@@ -87,6 +87,7 @@ import (
 	"github.com/juju/juju/internal/worker/modelworkermanager"
 	"github.com/juju/juju/internal/worker/multiwatcher"
 	"github.com/juju/juju/internal/worker/objectstore"
+	"github.com/juju/juju/internal/worker/objectstores3caller"
 	"github.com/juju/juju/internal/worker/peergrouper"
 	prworker "github.com/juju/juju/internal/worker/presence"
 	"github.com/juju/juju/internal/worker/provisioner"
@@ -277,6 +278,9 @@ type ManifoldsConfig struct {
 
 	// CharmhubHTTPClient is the HTTP client used for Charmhub API requests.
 	CharmhubHTTPClient HTTPClient
+
+	// S3HTTPClient is the HTTP client used for S3 API requests.
+	S3HTTPClient HTTPClient
 }
 
 type HTTPClient interface {
@@ -672,6 +676,13 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Output: engine.ValueWorkerOutput,
 		},
 
+		s3HTTPClientName: ifController(dependency.Manifold{
+			Start: func(_ context.Context, _ dependency.Getter) (worker.Worker, error) {
+				return engine.NewValueWorker(config.S3HTTPClient)
+			},
+			Output: engine.ValueWorkerOutput,
+		}),
+
 		modelWorkerManagerName: ifFullyUpgraded(modelworkermanager.Manifold(modelworkermanager.ManifoldConfig{
 			AgentName:          agentName,
 			AuthorityName:      certificateWatcherName,
@@ -830,6 +841,16 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Logger:               loggo.GetLogger("juju.worker.objectstore"),
 			NewObjectStoreWorker: internalobjectstore.ObjectStoreFactory,
 			GetObjectStoreType:   objectstore.GetObjectStoreType,
+		})),
+
+		objectStoreS3CallerName: ifController(objectstores3caller.Manifold(objectstores3caller.ManifoldConfig{
+			HTTPClientName:             s3HTTPClientName,
+			ServiceFactoryName:         serviceFactoryName,
+			NewClient:                  objectstores3caller.NewS3Client,
+			Logger:                     loggo.GetLogger("juju.worker.s3caller"),
+			Clock:                      config.Clock,
+			GetControllerConfigService: objectstores3caller.GetControllerConfigService,
+			NewWorker:                  objectstores3caller.NewWorker,
 		})),
 	}
 
@@ -1205,7 +1226,6 @@ const (
 	stateConfigWatcherName = "state-config-watcher"
 	stateName              = "state"
 	apiCallerName          = "api-caller"
-	s3CallerName           = "s3-caller"
 	apiConfigWatcherName   = "api-config-watcher"
 	centralHubName         = "central-hub"
 	presenceName           = "presence"
@@ -1271,6 +1291,7 @@ const (
 	kvmContainerProvisioner       = "kvm-container-provisioner"
 	controllerAgentConfigName     = "controller-agent-config"
 	objectStoreName               = "object-store"
+	objectStoreS3CallerName       = "object-store-s3-caller"
 
 	secretBackendRotateName = "secret-backend-rotate"
 
@@ -1290,6 +1311,7 @@ const (
 	brokerTrackerName = "broker-tracker"
 
 	charmhubHTTPClientName = "charmhub-http-client"
+	s3HTTPClientName       = "s3-http-client"
 
 	controlSocketName = "control-socket"
 )
