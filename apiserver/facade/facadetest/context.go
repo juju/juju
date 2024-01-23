@@ -8,7 +8,6 @@ import (
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/multiwatcher"
@@ -38,7 +37,8 @@ type Context struct {
 	SingularClaimer_       lease.Claimer
 	CharmhubHTTPClient_    facade.HTTPClient
 	ServiceFactory_        servicefactory.ServiceFactory
-	ControllerDB_          changestream.WatchableDB
+	ModelExporter_         facade.ModelExporter
+	ModelImporter_         facade.ModelImporter
 	ObjectStore_           objectstore.ObjectStore
 	ControllerObjectStore_ objectstore.ObjectStore
 	Logger_                loggo.Logger
@@ -173,9 +173,14 @@ func (context Context) ServiceFactory() servicefactory.ServiceFactory {
 	return context.ServiceFactory_
 }
 
-// ControllerDB implements facade.Context.
-func (context Context) ControllerDB() (changestream.WatchableDB, error) {
-	return context.ControllerDB_, nil
+// ModelExporter returns a model exporter for the current model.
+func (context Context) ModelExporter(facade.LegacyStateExporter) facade.ModelExporter {
+	return context.ModelExporter_
+}
+
+// ModelImporter returns a model importer.
+func (context Context) ModelImporter() facade.ModelImporter {
+	return context.ModelImporter_
 }
 
 // MachineTag returns the current machine tag.

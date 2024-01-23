@@ -14,9 +14,6 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/caas"
-	"github.com/juju/juju/core/changestream"
-	"github.com/juju/juju/core/modelmigration"
-	"github.com/juju/juju/internal/migration"
 	"github.com/juju/juju/state/stateenvirons"
 )
 
@@ -78,10 +75,7 @@ func newFacadeV10(ctx facade.Context) (*ModelManagerAPI, error) {
 
 	return NewModelManagerAPI(
 		backend.(StateBackend),
-		migration.NewModelExporter(
-			backend,
-			modelmigration.NewScope(changestream.NewTxnRunnerFactory(ctx.ControllerDB), nil),
-		),
+		ctx.ModelExporter(backend),
 		common.NewModelManagerBackend(ctrlModel, pool),
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),

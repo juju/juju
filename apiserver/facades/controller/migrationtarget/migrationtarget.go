@@ -17,11 +17,9 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/facades"
 	coremigration "github.com/juju/juju/core/migration"
-	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/credential"
@@ -35,7 +33,10 @@ import (
 	"github.com/juju/juju/state/stateenvirons"
 )
 
+// ModelImporter defines an interface for importing models.
 type ModelImporter interface {
+	// ImportModel takes a serialized description model (yaml bytes) and returns
+	// a state model and state state.
 	ImportModel(ctx context.Context, bytes []byte) (*state.Model, *state.State, error)
 }
 
@@ -111,19 +112,10 @@ func NewAPI(
 	getCAASBroker stateenvirons.NewCAASBrokerFunc,
 	requiredMigrationFacadeVersions facades.FacadeVersions,
 ) (*API, error) {
-	var (
-		st   = ctx.State()
-		pool = ctx.StatePool()
-
-		scope         = modelmigration.NewScope(changestream.NewTxnRunnerFactory(ctx.ControllerDB), nil)
-		controller    = state.NewController(pool)
-		modelImporter = migration.NewModelImporter(controller, scope, controllerConfigService)
-	)
-
 	return &API{
-		state:                           st,
-		modelImporter:                   modelImporter,
-		pool:                            pool,
+		state:                           ctx.State(),
+		modelImporter:                   ctx.ModelImporter(),
+		pool:                            ctx.StatePool(),
 		externalControllerService:       externalControllerService,
 		cloudService:                    cloudService,
 		upgradeService:                  upgradeService,

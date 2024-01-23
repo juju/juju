@@ -62,6 +62,7 @@ type ModelService interface {
 	DeleteModel(context.Context, model.UUID) error
 }
 
+// ModelExporter defines a interface for exporting models.
 type ModelExporter interface {
 	ExportModelPartial(ctx context.Context, cfg state.ExportConfig, store objectstore.ObjectStore) (description.Model, error)
 }

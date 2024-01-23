@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/facades"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/domain/credential"
 	"github.com/juju/juju/domain/credential/service"
 	"github.com/juju/juju/domain/model"
@@ -36,6 +37,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
+	"github.com/juju/juju/internal/migration"
 	jujujujutesting "github.com/juju/juju/juju/testing"
 	_ "github.com/juju/juju/provider/manual"
 	"github.com/juju/juju/rpc/params"
@@ -56,6 +58,7 @@ type Suite struct {
 	cloudService              *commonmocks.MockCloudService
 	credentialService         *credentialcommon.MockCredentialService
 	credentialValidator       *MockCredentialValidator
+	modelImporter             *MockModelImporter
 
 	facadeContext facadetest.Context
 	callContext   envcontext.ProviderCallContext
@@ -213,6 +216,8 @@ with an earlier version of the target controller and try again.
 func (s *Suite) TestImport(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
+	s.expectImportModel(c)
+
 	api := s.mustNewAPI(c)
 	tag := s.importModel(c, api)
 	// Check the model was imported.
@@ -225,6 +230,8 @@ func (s *Suite) TestImport(c *gc.C) {
 
 func (s *Suite) TestAbort(c *gc.C) {
 	defer s.setupMocks(c).Finish()
+
+	s.expectImportModel(c)
 
 	api := s.mustNewAPI(c)
 	tag := s.importModel(c, api)
@@ -270,6 +277,8 @@ func (s *Suite) TestAbortNotImportingModel(c *gc.C) {
 
 func (s *Suite) TestActivate(c *gc.C) {
 	defer s.setupMocks(c).Finish()
+
+	s.expectImportModel(c)
 
 	sourceModel := "deadbeef-0bad-400d-8000-4b1d0d06f666"
 	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
@@ -594,15 +603,18 @@ func (s *Suite) setupMocks(c *gc.C) *gomock.Controller {
 	s.credentialService = credentialcommon.NewMockCredentialService(ctrl)
 	s.credentialValidator = NewMockCredentialValidator(ctrl)
 
+	s.modelImporter = NewMockModelImporter(ctrl)
+
 	s.authorizer = &apiservertesting.FakeAuthorizer{
 		Tag:      s.Owner,
 		AdminTag: s.Owner,
 	}
 	s.callContext = envcontext.WithoutCredentialInvalidator(context.Background())
 	s.facadeContext = facadetest.Context{
-		State_:     s.State,
-		StatePool_: s.StatePool,
-		Auth_:      s.authorizer,
+		State_:         s.State,
+		StatePool_:     s.StatePool,
+		Auth_:          s.authorizer,
+		ModelImporter_: s.modelImporter,
 	}
 
 	s.leaders = map[string]string{}
@@ -682,6 +694,14 @@ func (s *Suite) controllerVersion(c *gc.C) version.Number {
 	vers, ok := cfg.AgentVersion()
 	c.Assert(ok, jc.IsTrue)
 	return vers
+}
+
+func (s *Suite) expectImportModel(c *gc.C) {
+	s.modelImporter.EXPECT().ImportModel(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, bytes []byte) (*state.Model, *state.State, error) {
+		scope := modelmigration.NewScope(nil, nil)
+		controller := state.NewController(s.StatePool)
+		return migration.NewModelImporter(controller, scope, s.controllerConfigService).ImportModel(ctx, bytes)
+	})
 }
 
 type mockEnv struct {

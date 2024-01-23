@@ -9,10 +9,10 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/juju/description/v5"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v5"
 
-	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/multiwatcher"
@@ -68,7 +68,7 @@ type Context interface {
 	// Context should have a single responsibility, and that's access to other
 	// types/objects.
 	LeadershipContext
-	ControllerDBGetter
+	ModelMigrationFactory
 	ServiceFactory
 	ObjectStoreFactory
 	Logger
@@ -153,11 +153,41 @@ type Context interface {
 	LogDir() string
 }
 
-// ControllerDBGetter defines an interface for getting the controller DB.
-type ControllerDBGetter interface {
-	// ControllerDB returns a transaction runner for the controller database.
-	// Deprecated: Use this for only model import/export otherwise use the service factory.
-	ControllerDB() (changestream.WatchableDB, error)
+// ModelExporter defines a interface for exporting models.
+type ModelExporter interface {
+	// ExportModel exports the current model into a description model. This
+	// can be serialized into yaml and then imported.
+	ExportModel(context.Context, map[string]string, objectstore.ObjectStore) (description.Model, error)
+	// ExportModelPartial exports the current model into a partial description
+	// model. This can be serialized into yaml and then imported.
+	ExportModelPartial(context.Context, state.ExportConfig, objectstore.ObjectStore) (description.Model, error)
+}
+
+// LegacyStateExporter describes interface on state required to export a
+// model.
+// Deprecated: This is being replaced with the ModelExporter.
+type LegacyStateExporter interface {
+	// Export generates an abstract representation of a model.
+	Export(map[string]string, objectstore.ObjectStore) (description.Model, error)
+	// ExportPartial produces a partial export based based on the input
+	// config.
+	ExportPartial(state.ExportConfig, objectstore.ObjectStore) (description.Model, error)
+}
+
+// ModelImporter defines an interface for importing models.
+type ModelImporter interface {
+	// ImportModel takes a serialized description model (yaml bytes) and returns
+	// a state model and state state.
+	ImportModel(ctx context.Context, bytes []byte) (*state.Model, *state.State, error)
+}
+
+// ModelMigrationFactory defines an interface for getting a model migrator.
+type ModelMigrationFactory interface {
+	// ModelExporter returns a model exporter for the current model.
+	ModelExporter(LegacyStateExporter) ModelExporter
+
+	// ModelImporter returns a model importer.
+	ModelImporter() ModelImporter
 }
 
 // ServiceFactory defines an interface for accessing all the services.
