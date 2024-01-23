@@ -15,10 +15,10 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain"
 	clouderrors "github.com/juju/juju/domain/cloud/errors"
-	"github.com/juju/juju/domain/model"
 	"github.com/juju/juju/internal/database"
 )
 
@@ -340,9 +340,11 @@ SELECT cloud.uuid, cloud.name, cloud_type_id,
        auth_type.type, cloud_type.type,
        COALESCE((SELECT true
         FROM model_metadata
+		INNER JOIN user
+        ON user.uuid = model_metadata.owner_uuid
         WHERE cloud_uuid = cloud.uuid
-        AND name = ?
-        AND owner_uuid = ?), false) AS controller_cloud
+        AND model_metadata.name = ?
+        AND user.name = ?), false) AS controller_cloud
 FROM   cloud
        LEFT JOIN cloud_auth_type 
             ON cloud.uuid = cloud_auth_type.cloud_uuid
@@ -353,8 +355,8 @@ FROM   cloud
 `
 
 	args := []any{
-		model.ControllerModelName,
-		model.ControllerModelOwner,
+		coremodel.ControllerModelName,
+		coremodel.ControllerModelOwnerUsername,
 	}
 	if name != "" {
 		q = q + "WHERE cloud.name = ?"

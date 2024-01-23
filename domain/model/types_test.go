@@ -10,6 +10,7 @@ import (
 	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/credential"
 )
 
@@ -51,6 +52,8 @@ func (s *typesSuite) TestUUIDValidate(c *gc.C) {
 }
 
 func (s *typesSuite) TestModelCreationArgsValidation(c *gc.C) {
+	userUUID, err := user.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
 	tests := []struct {
 		Args    ModelCreationArgs
 		ErrTest error
@@ -60,7 +63,7 @@ func (s *typesSuite) TestModelCreationArgsValidation(c *gc.C) {
 				Cloud:       "my-cloud",
 				CloudRegion: "my-region",
 				Name:        "",
-				Owner:       "wallyworld-ipv6",
+				Owner:       userUUID,
 				Type:        TypeCAAS,
 			},
 			ErrTest: errors.NotValid,
@@ -80,7 +83,7 @@ func (s *typesSuite) TestModelCreationArgsValidation(c *gc.C) {
 				Cloud:       "my-cloud",
 				CloudRegion: "my-region",
 				Name:        "my-awesome-model",
-				Owner:       "wallyworld-ipv6",
+				Owner:       userUUID,
 				Type:        Type("ipv6-only"),
 			},
 			ErrTest: errors.NotSupported,
@@ -90,7 +93,7 @@ func (s *typesSuite) TestModelCreationArgsValidation(c *gc.C) {
 				Cloud:       "",
 				CloudRegion: "my-region",
 				Name:        "my-awesome-model",
-				Owner:       "wallyworld-ipv6",
+				Owner:       userUUID,
 				Type:        TypeIAAS,
 			},
 			ErrTest: errors.NotValid,
@@ -100,7 +103,7 @@ func (s *typesSuite) TestModelCreationArgsValidation(c *gc.C) {
 				Cloud:       "my-cloud",
 				CloudRegion: "",
 				Name:        "my-awesome-model",
-				Owner:       "wallyworld-ipv6",
+				Owner:       userUUID,
 				Type:        TypeIAAS,
 			},
 			ErrTest: nil,
@@ -113,7 +116,7 @@ func (s *typesSuite) TestModelCreationArgsValidation(c *gc.C) {
 					Owner: "wallyworld",
 				},
 				Name:  "my-awesome-model",
-				Owner: "wallyworld-ipv6",
+				Owner: userUUID,
 				Type:  TypeIAAS,
 			},
 			ErrTest: errors.NotValid,
@@ -123,7 +126,7 @@ func (s *typesSuite) TestModelCreationArgsValidation(c *gc.C) {
 				Cloud:       "my-cloud",
 				CloudRegion: "my-region",
 				Name:        "my-awesome-model",
-				Owner:       "wallyworld-ipv6",
+				Owner:       userUUID,
 				Type:        TypeIAAS,
 			},
 			ErrTest: nil,
@@ -138,7 +141,7 @@ func (s *typesSuite) TestModelCreationArgsValidation(c *gc.C) {
 					Name:  "mycred",
 				},
 				Name:  "my-awesome-model",
-				Owner: "wallyworld-ipv6",
+				Owner: userUUID,
 				Type:  TypeIAAS,
 			},
 			ErrTest: nil,

@@ -220,12 +220,16 @@ func (b *AgentBootstrap) Initialize(ctx stdcontext.Context) (_ *state.Controller
 		controllerModelType = modeldomain.TypeCAAS
 	}
 
+	// Add initial Admin user to the database. This will return Admin user UUID
+	// and a function to insert it into the database.
+	adminUserUUID, addAdminUser := userbootstrap.AddUserWithPassword(b.adminUser.Name(), auth.NewPassword(info.Password))
+
 	controllerUUID := modeldomain.UUID(
 		stateParams.ControllerModelConfig.UUID(),
 	)
 	controllerModelArgs := modeldomain.ModelCreationArgs{
 		Name:        stateParams.ControllerModelConfig.Name(),
-		Owner:       b.adminUser.Name(),
+		Owner:       adminUserUUID,
 		Cloud:       stateParams.ControllerCloud.Name,
 		CloudRegion: stateParams.ControllerCloudRegion,
 		Credential:  credential.IdFromTag(cloudCredTag),
@@ -237,18 +241,16 @@ func (b *AgentBootstrap) Initialize(ctx stdcontext.Context) (_ *state.Controller
 		stateParams.ControllerInheritedConfig,
 		stateParams.RegionInheritedConfig[stateParams.ControllerCloudRegion])
 
-	// Add initial Admin user to the database. This will return Admin user UUID
-	// and a function to insert it into the database.
-	_, addAdminUser := userbootstrap.AddUserWithPassword(b.adminUser.Name(), auth.NewPassword(info.Password))
-
 	databaseBootstrapConcerns := []database.BootstrapConcern{
 		database.BootstrapControllerConcern(
 			ccbootstrap.InsertInitialControllerConfig(stateParams.ControllerConfig),
+			// The admin user needs to be added before everything else that
+			// requires being owned by a Juju user.
 			cloudbootstrap.InsertCloud(stateParams.ControllerCloud),
 			credbootstrap.InsertCredential(credential.IdFromTag(cloudCredTag), cloudCred),
 			cloudbootstrap.SetCloudDefaults(stateParams.ControllerCloud.Name, stateParams.ControllerInheritedConfig),
-			modelbootstrap.CreateModel(controllerUUID, controllerModelArgs),
 			addAdminUser,
+			modelbootstrap.CreateModel(controllerUUID, controllerModelArgs),
 		),
 		database.BootstrapModelConcern(controllerUUID,
 			modelconfigbootstrap.SetModelConfig(stateParams.ControllerModelConfig, controllerModelDefaults),

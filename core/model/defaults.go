@@ -1,7 +1,9 @@
-// Copyright 2023 Canonical Ltd.
+// Copyright 2024 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package model
+
+import "github.com/juju/juju/core/user"
 
 const (
 	// ControllerModelName is the name given to the model that hosts the Juju
@@ -10,8 +12,8 @@ const (
 	// logic to ask questions and calculate defaults in Juju.
 	ControllerModelName = "controller"
 
-	// ControllerModelOwner is the name of the owner that is assigned to the
-	// controller model. This is a static value that we ue for every Juju
-	// deployment.
-	ControllerModelOwner = "admin"
+	// ControllerModelOwnerUsername is the user name of the owner that is
+	// assigned to the controller model. This is a static value that we use for
+	// every Juju deployment.
+	ControllerModelOwnerUsername = user.AdminUserName
 )

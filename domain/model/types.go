@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/v3"
 
+	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/credential"
 )
 
@@ -32,9 +33,8 @@ type ModelCreationArgs struct {
 	// Must not be empty for a valid struct.
 	Name string
 
-	// Owner is the name of the owner for the model.
-	// Must not be empty for a valid struct.
-	Owner string
+	// Owner is the uuid of the user that owns this model in the Juju controller.
+	Owner user.UUID
 
 	// Type is the type of the model.
 	// Type must satisfy IsValid() for a valid struct.
@@ -87,8 +87,8 @@ func (m ModelCreationArgs) Validate() error {
 	if m.Name == "" {
 		return fmt.Errorf("%w name cannot be empty", errors.NotValid)
 	}
-	if m.Owner == "" {
-		return fmt.Errorf("%w owner cannot be empty", errors.NotValid)
+	if err := m.Owner.Validate(); err != nil {
+		return fmt.Errorf("%w owner: %w", errors.NotValid, err)
 	}
 	if !m.Type.IsValid() {
 		return fmt.Errorf("%w model type of %q", errors.NotSupported, m.Type)
