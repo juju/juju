@@ -22,11 +22,17 @@ type ControllerConfigGetter interface {
 	ControllerConfig(context.Context) (controller.Config, error)
 }
 
+// UserService is used to operate with Users from the database.
+type UserService interface {
+	GetUserWithAuth(ctx context.Context, username, password string) (*state.User, error)
+}
+
 // NewStateAuthenticatorFunc is a function type satisfied by
 // NewStateAuthenticator.
 type NewStateAuthenticatorFunc func(
 	statePool *state.StatePool,
 	controllerConfigGetter ControllerConfigGetter,
+	userService UserService,
 	mux *apiserverhttp.Mux,
 	clock clock.Clock,
 	abort <-chan struct{},
@@ -39,11 +45,12 @@ type NewStateAuthenticatorFunc func(
 func NewStateAuthenticator(
 	statePool *state.StatePool,
 	controllerConfigGetter ControllerConfigGetter,
+	userService UserService,
 	mux *apiserverhttp.Mux,
 	clock clock.Clock,
 	abort <-chan struct{},
 ) (macaroon.LocalMacaroonAuthenticator, error) {
-	stateAuthenticator, err := stateauthenticator.NewAuthenticator(statePool, controllerConfigGetter, clock)
+	stateAuthenticator, err := stateauthenticator.NewAuthenticator(statePool, controllerConfigGetter, userService, clock)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -21,6 +21,7 @@ import (
 type workerConfig struct {
 	statePool               *state.StatePool
 	controllerConfigGetter  ControllerConfigGetter
+	userService             UserService
 	mux                     *apiserverhttp.Mux
 	clock                   clock.Clock
 	newStateAuthenticatorFn NewStateAuthenticatorFunc
@@ -50,6 +51,7 @@ type argsWorker struct {
 	cfg                     workerConfig
 	authenticator           macaroon.LocalMacaroonAuthenticator
 	managedCtrlConfigGetter *managedCtrlConfigGetter
+	managedUserService      *managedUserService
 }
 
 func newWorker(cfg workerConfig) (worker.Worker, error) {
@@ -59,6 +61,7 @@ func newWorker(cfg workerConfig) (worker.Worker, error) {
 	w := argsWorker{
 		cfg:                     cfg,
 		managedCtrlConfigGetter: newManagedCtrlConfigGetter(cfg.controllerConfigGetter),
+		managedUserService:      newManagedUserService(cfg.userService),
 	}
 
 	if err := catacomb.Invoke(catacomb.Plan{
@@ -74,6 +77,7 @@ func newWorker(cfg workerConfig) (worker.Worker, error) {
 	authenticator, err := w.cfg.newStateAuthenticatorFn(
 		w.cfg.statePool,
 		w.managedCtrlConfigGetter,
+		w.managedUserService,
 		w.cfg.mux,
 		w.cfg.clock,
 		w.catacomb.Dying(),
@@ -135,5 +139,41 @@ func (b *managedCtrlConfigGetter) Kill() {
 
 // Wait is part of the worker.Worker interface.
 func (b *managedCtrlConfigGetter) Wait() error {
+	return b.tomb.Wait()
+}
+
+// managedUserService is a UserService that wraps another UserService and
+// cancels the context when the tomb is dying. This is because the location
+// of the user request is not cancellable, so we need the ability to cancel
+// the user request when the tomb is dying. This should prevent any lockup
+// when the controller is shutting down.
+type managedUserService struct {
+	tomb        tomb.Tomb
+	userService UserService
+}
+
+func newManagedUserService(userService UserService) *managedUserService {
+	w := &managedUserService{
+		userService: userService,
+	}
+	w.tomb.Go(func() error {
+		<-w.tomb.Dying()
+		return tomb.ErrDying
+	})
+	return w
+}
+
+// GetUserWithAuth is part of the UserService interface.
+func (b *managedUserService) GetUserWithAuth(ctx context.Context, username, password string) (*state.User, error) {
+	return b.userService.GetUserWithAuth(b.tomb.Context(ctx), username, password)
+}
+
+// Kill is part of the worker.Worker interface.
+func (b *managedUserService) Kill() {
+	b.tomb.Kill(nil)
+}
+
+// Wait is part of the worker.Worker interface.
+func (b *managedUserService) Wait() error {
 	return b.tomb.Wait()
 }

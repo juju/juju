@@ -7,13 +7,21 @@ import (
 	"context"
 
 	"github.com/juju/errors"
+	"github.com/juju/names/v5"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/state"
 )
 
 // EntityAuthenticator performs authentication for juju entities.
-type AgentAuthenticator struct{}
+type AgentAuthenticator struct {
+	UserService UserService
+}
+
+// UserService is used to operate with Users from the database.
+type UserService interface {
+	GetUserWithAuth(ctx context.Context, username, password string) (*state.User, error)
+}
 
 var _ EntityAuthenticator = (*AgentAuthenticator)(nil)
 
@@ -24,7 +32,22 @@ type taggedAuthenticator interface {
 
 // Authenticate authenticates the provided entity.
 // It takes an entityfinder and the tag used to find the entity that requires authentication.
-func (*AgentAuthenticator) Authenticate(ctx context.Context, entityFinder EntityFinder, authParams AuthParams) (state.Entity, error) {
+func (a *AgentAuthenticator) Authenticate(ctx context.Context, entityFinder EntityFinder, authParams AuthParams) (state.Entity, error) {
+	switch authParams.AuthTag.Kind() {
+	case names.UserTagKind:
+		user, err := a.UserService.GetUserWithAuth(ctx, authParams.AuthTag.Id(), authParams.Credentials)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return user, nil
+	default:
+		return a.legacy(ctx, entityFinder, authParams)
+	}
+}
+
+// Legacy is used to authenticate entities that are not moved to a Dqlite database. This function should be gone after
+// all entities are moved to the Dqlite database.
+func (*AgentAuthenticator) legacy(ctx context.Context, entityFinder EntityFinder, authParams AuthParams) (state.Entity, error) {
 	entity, err := entityFinder.FindEntity(authParams.AuthTag)
 	if errors.Is(err, errors.NotFound) {
 		logger.Debugf("cannot authenticate unknown entity: %v", authParams.AuthTag)

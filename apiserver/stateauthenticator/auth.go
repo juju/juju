@@ -64,13 +64,14 @@ type ControllerConfigGetter interface {
 func NewAuthenticator(
 	statePool *state.StatePool,
 	controllerConfigGetter ControllerConfigGetter,
+	userService UserService,
 	clock clock.Clock,
 ) (*Authenticator, error) {
 	systemState, err := statePool.SystemState()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	authContext, err := newAuthContext(systemState, controllerConfigGetter, clock)
+	authContext, err := newAuthContext(systemState, controllerConfigGetter, userService, clock)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

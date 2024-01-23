@@ -42,6 +42,7 @@ const (
 type authContext struct {
 	st                     *state.State
 	controllerConfigGetter ControllerConfigGetter
+	userService            UserService
 
 	clock     clock.Clock
 	agentAuth authentication.AgentAuthenticator
@@ -85,12 +86,14 @@ func (OpenLoginAuthorizer) AuthorizeOps(ctx context.Context, authorizedOp bakery
 func newAuthContext(
 	st *state.State,
 	controllerConfigGetter ControllerConfigGetter,
+	userService UserService,
 	clock clock.Clock,
 ) (*authContext, error) {
 	ctxt := &authContext{
 		st:                     st,
 		clock:                  clock,
 		controllerConfigGetter: controllerConfigGetter,
+		userService:            userService,
 		localUserInteractions:  authentication.NewInteractions(),
 	}
 
@@ -188,14 +191,21 @@ func (ctxt *authContext) DischargeCaveats(tag names.UserTag) []checkers.Caveat {
 // authenticator returns an authenticator.Authenticator for the API
 // connection associated with the specified API server host.
 func (ctxt *authContext) authenticator(serverHost string) authenticator {
-	return authenticator{ctxt: ctxt, serverHost: serverHost}
+
+	return authenticator{ctxt: ctxt, serverHost: serverHost, userService: ctxt.userService}
 }
 
 // authenticator implements authenticator.Authenticator, delegating
 // to the appropriate authenticator based on the tag kind.
 type authenticator struct {
-	ctxt       *authContext
-	serverHost string
+	ctxt        *authContext
+	serverHost  string
+	userService UserService
+}
+
+// UserService is used to operate with Users from the database.
+type UserService interface {
+	GetUserWithAuth(ctx context.Context, username, password string) (*state.User, error)
 }
 
 // Authenticate implements authentication.Authenticator
@@ -249,6 +259,9 @@ func (a authenticator) localUserAuth() *authentication.LocalUserAuthenticator {
 		Path:   localUserIdentityLocationPath,
 	}
 	return &authentication.LocalUserAuthenticator{
+		AgentAuthenticator: authentication.AgentAuthenticator{
+			UserService: a.userService,
+		},
 		Bakery:                    a.ctxt.localUserBakery,
 		Clock:                     a.ctxt.clock,
 		LocalUserIdentityLocation: localUserIdentityLocation.String(),
