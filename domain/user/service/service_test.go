@@ -1162,7 +1162,7 @@ func (s *serviceSuite) TestGetUserByAuth(c *gc.C) {
 	err = s.service().SetPassword(context.Background(), uuid, password)
 	c.Assert(err, jc.ErrorIsNil)
 
-	user, err := s.service().GetUserWithAuth(context.Background(), mockState[uuid].name, "password")
+	user, err := s.service().GetUserByAuth(context.Background(), mockState[uuid].name, "password")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(user.Name, gc.Equals, "Jürgen.test")
 	c.Assert(user.DisplayName, gc.Equals, "Old mate 👍")

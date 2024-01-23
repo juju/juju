@@ -175,13 +175,13 @@ func (s *Service) GetUserByName(
 	return usr, nil
 }
 
-// GetUserWithAuth will find and return the user with UUID. If there is no
+// GetUserByAuth will find and return the user with UUID. If there is no
 // user for the name and password, then an error that satisfies
 // usererrors.NotFound will be returned. If supplied with an invalid user name
 // then an error that satisfies usererrors.UsernameNotValid will be returned.
 //
-// GetUserWithAuth will not return users that have been previously removed.
-func (s *Service) GetUserWithAuth(
+// GetUserByAuth will not return users that have been previously removed.
+func (s *Service) GetUserByAuth(
 	ctx context.Context,
 	name string,
 	password string,

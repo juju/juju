@@ -260,13 +260,13 @@ JOIN user_password ON user.uuid = user_password.user_uuid
 WHERE user.name = $M.name AND removed = false
 `
 
-		selectGetUserWithAuthStmt, err := sqlair.Prepare(getUserWithAuthQuery, User{}, sqlair.M{})
+		selectGetUserByAuthStmt, err := sqlair.Prepare(getUserWithAuthQuery, User{}, sqlair.M{})
 		if err != nil {
 			return errors.Annotate(err, "preparing select getUserWithAuth query")
 		}
 
 		var result User
-		err = tx.Query(ctx, selectGetUserWithAuthStmt, sqlair.M{"name": name}).Get(&result)
+		err = tx.Query(ctx, selectGetUserByAuthStmt, sqlair.M{"name": name}).Get(&result)
 		if err != nil && errors.Is(err, sql.ErrNoRows) {
 			return errors.Annotatef(usererrors.NotFound, "%q", name)
 		} else if err != nil {
