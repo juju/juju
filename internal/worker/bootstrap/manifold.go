@@ -98,21 +98,23 @@ type HTTPClient interface {
 	Do(*http.Request) (*http.Response, error)
 }
 
-// BootstrapAddress attemps to use the provided Environ to get the list of
+// BootstrapAddress attempts to use the provided Environ to get the list of
 // instances and its addresses. If the Environ does not implement
 // InstanceListener (this is the case of CAAS for the moment), then we
 // return the hard-coded 'localhost' address.
-func BootstrapAddresses(ctx context.Context, env environs.Environ) (network.ProviderAddresses, error) {
+func BootstrapAddresses(
+	ctx context.Context,
+	env environs.Environ,
+	bootstrapInstanceID instance.Id,
+) (network.ProviderAddresses, error) {
 	callCtx := envcontext.WithoutCredentialInvalidator(ctx)
 	instanceLister, ok := env.(environs.InstanceLister)
 	if !ok {
-		// NOTE(nvinuesa): This will happen on caas providers where
-		// the environ does not implement InstanceListener, in this
-		// we return "localhost" as address.
-		return network.NewMachineAddresses([]string{"localhost"}).AsProviderAddresses(), nil
+		return nil, errors.NotSupportedf("bootstrap address not supported on this environ")
+
 	}
 	// TODO(nvinuesa): which instanceID to use?
-	instances, err := instanceLister.Instances(callCtx, []instance.Id{"0"})
+	instances, err := instanceLister.Instances(callCtx, []instance.Id{bootstrapInstanceID})
 	if err != nil {
 		return nil, errors.Annotate(err, "getting bootstrap instance")
 	}
@@ -139,7 +141,7 @@ type ManifoldConfig struct {
 	PopulateControllerCharm PopulateControllerCharmFunc
 
 	NewEnvironFunc         func(context.Context, environs.OpenParams) (environs.Environ, error)
-	BootstrapAddressesFunc func(ctx context.Context, env environs.Environ) (network.ProviderAddresses, error)
+	BootstrapAddressesFunc func(context.Context, environs.Environ, instance.Id) (network.ProviderAddresses, error)
 
 	LoggerFactory LoggerFactory
 }

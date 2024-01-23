@@ -1102,7 +1102,7 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewEnvironFunc: func(context.Context, environs.OpenParams) (environs.Environ, error) {
 				return nil, errors.NotSupportedf("environ creator function in CAAS")
 			},
-			BootstrapAddressesFunc: func(ctx context.Context, env environs.Environ) (network.ProviderAddresses, error) {
+			BootstrapAddressesFunc: func(ctx context.Context, env environs.Environ, bootstrapInstanceID instance.Id) (network.ProviderAddresses, error) {
 				return nil, errors.NotSupportedf("bootstrap address function in CAAS")
 			},
 

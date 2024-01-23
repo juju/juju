@@ -21,6 +21,7 @@ import (
 	controller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/flags"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/environs"
@@ -115,8 +116,10 @@ func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
 		ControllerCharmDeployer: func(ControllerCharmDeployerConfig) (bootstrap.ControllerCharmDeployer, error) {
 			return nil, nil
 		},
-		NewEnvironFunc:         func(context.Context, environs.OpenParams) (environs.Environ, error) { return nil, nil },
-		BootstrapAddressesFunc: func(context.Context, environs.Environ) (network.ProviderAddresses, error) { return nil, nil },
+		NewEnvironFunc: func(context.Context, environs.OpenParams) (environs.Environ, error) { return nil, nil },
+		BootstrapAddressesFunc: func(context.Context, environs.Environ, instance.Id) (network.ProviderAddresses, error) {
+			return nil, nil
+		},
 	}, s.states)
 	c.Assert(err, jc.ErrorIsNil)
 	return w
