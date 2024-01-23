@@ -17,9 +17,9 @@ type State interface {
 	// If no annotations are found, an empty map is returned.
 	GetAnnotations(ctx context.Context, entity annotations.ID) (map[string]string, error)
 
-	// SetAnnotations adds key/value pairs to the annotations in the corresponding
-	// table for a given entity. If a given annotation already exists for the given entity
-	// in the database, then it will be updated.
+	// SetAnnotations associates key/value annotation pairs with a given entity.
+	// If annotation already exists for the given entity, then it will be updated with
+	// the given value
 	SetAnnotations(ctx context.Context, entity annotations.ID, annotations map[string]string) error
 }
 
