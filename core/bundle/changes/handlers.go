@@ -56,11 +56,7 @@ func (r *resolver) handleApplications() (map[string]string, error) {
 			application.Series = corebase.LegacyKubernetesSeries()
 		}
 		existingApp := existing.GetApplication(name)
-		series, err := getSeries(application, defaultBase)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		computedBase, err := computeBase(application.Base, series, defaultBase)
+		computedBase, err := computeApplicationBase(application, defaultBase)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -1014,11 +1010,7 @@ func (p *unitProcessor) addNewMachine(application *charm.ApplicationSpec, contai
 	if err != nil {
 		return unitPlacement{}, err
 	}
-	series, err := getSeries(application, p.defaultBase)
-	if err != nil {
-		return unitPlacement{}, err
-	}
-	computedBase, err := computeBase(application.Base, series, p.defaultBase)
+	computedBase, err := computeApplicationBase(application, p.defaultBase)
 	if err != nil {
 		return unitPlacement{}, err
 	}
@@ -1110,11 +1102,7 @@ func (p *unitProcessor) addContainer(up unitPlacement, application *charm.Applic
 	if err != nil {
 		return unitPlacement{}, err
 	}
-	series, err := getSeries(application, p.defaultBase)
-	if err != nil {
-		return unitPlacement{}, err
-	}
-	computedBase, err := computeBase(application.Base, series, p.defaultBase)
+	computedBase, err := computeApplicationBase(application, p.defaultBase)
 	if err != nil {
 		return unitPlacement{}, err
 	}
@@ -1272,44 +1260,39 @@ func applicationKey(charm, arch string, base corebase.Base, channel string, revi
 	return fmt.Sprintf("%s:%s:%s:%s:%d", charm, arch, base, channel, revision)
 }
 
-// getSeries retrieves the series of a application from the ApplicationSpec or from the
-// charm path or URL if provided.
-//
-// DEPRECATED: This should be all about bases.
-func getSeries(application *charm.ApplicationSpec, defaultBase corebase.Base) (string, error) {
-	if application.Series != "" {
-		return application.Series, nil
+func computeApplicationBase(application *charm.ApplicationSpec, defaultBase corebase.Base) (corebase.Base, error) {
+	if application.Base != "" {
+		return corebase.ParseBaseFromString(application.Base)
+	} else if application.Series != "" {
+		return corebase.GetBaseFromSeries(application.Series)
 	}
 
-	if charm.IsValidLocalCharmOrBundlePath(application.Charm) {
-		_, charmURL, err := corecharm.NewCharmAtPath(application.Charm, defaultBase)
-		if errors.Is(err, corecharm.MissingBaseError) {
-			// local charm path is valid but the charm doesn't declare a default series.
-			return "", nil
-		} else if corecharm.IsUnsupportedBaseError(err) {
-			// The bundle's default series is not supported by the charm, but we'll
-			// use it anyway. This is no different to the case above where application.Series
-			// is used without checking for potential charm incompatibility.
-			return "", nil
-		} else if err != nil {
-			return "", errors.Trace(err)
-		}
-		// Return the default series from the local charm.
-		return charmURL.Series, nil
+	if !charm.IsValidLocalCharmOrBundlePath(application.Charm) {
+		return defaultBase, nil
 	}
 
-	charmURL, err := charm.ParseURL(application.Charm)
+	ch, err := charm.ReadCharm(application.Charm)
 	if err != nil {
-		return "", errors.Trace(err)
+		return corebase.Base{}, errors.Trace(err)
 	}
-	if charmURL.Series != "" {
-		// Legacy k8s charms - assume ubuntu focal.
-		if charmURL.Series == kubernetes {
-			return corebase.LegacyKubernetesSeries(), nil
-		}
-		return charmURL.Series, nil
+	supportedBases, err := corecharm.ComputedBases(ch)
+	if err != nil {
+		return corebase.Base{}, errors.Trace(err)
 	}
-	return "", nil
+	base, err := corecharm.BaseForCharm(defaultBase, supportedBases)
+	if errors.Is(err, corecharm.MissingBaseError) {
+		// local charm path is valid but the charm doesn't declare a default base.
+		// TODO: In 4.0, all charms must declare a manifest so this case should be removed
+		return defaultBase, nil
+	} else if corecharm.IsUnsupportedBaseError(err) {
+		// The bundle's default base is not supported by the charm, but we'll
+		// use it anyway. This is no different to the case above where application.Base
+		// is used without checking for potential charm incompatibility.
+		return defaultBase, nil
+	} else if err != nil {
+		return corebase.Base{}, errors.Trace(err)
+	}
+	return base, nil
 }
 
 func computeBase(base string, series string, defaultBase corebase.Base) (corebase.Base, error) {
