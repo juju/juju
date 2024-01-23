@@ -85,7 +85,14 @@ func (c ModelConfigCreator) NewModelConfig(
 		// Juju:juju-system-key
 		if parsedKey.Comment == config.JujuSystemKey {
 			// If found, add this key to the attrs.
-			prevAuthKeys := attrs[config.AuthorizedKeysKey].(string)
+			authorizedKeysValue, ok := attrs[config.AuthorizedKeysKey]
+			if !ok {
+				continue
+			}
+			prevAuthKeys, ok := authorizedKeysValue.(string)
+			if !ok {
+				continue
+			}
 			attrs[config.AuthorizedKeysKey] = config.ConcatAuthKeys(prevAuthKeys, key)
 			break
 		}
