@@ -13,7 +13,6 @@ import (
 	"github.com/juju/retry"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
-	"github.com/juju/worker/v4/dependency"
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/objectstore"
@@ -203,11 +202,6 @@ func (w *s3Worker) makeNewClient(ctx context.Context) (objectstore.Session, erro
 	controllerConfig, err := w.config.ControllerService.ControllerConfig(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
-	}
-
-	// We're no longer using S3, so we need to stop this worker.
-	if controllerConfig.ObjectStoreType() != objectstore.S3Backend {
-		return nil, dependency.ErrUninstall
 	}
 
 	client, err := w.config.NewClient(
