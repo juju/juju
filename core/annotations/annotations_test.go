@@ -4,7 +4,10 @@
 package annotations_test
 
 import (
+	"fmt"
+
 	"github.com/juju/errors"
+	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -145,4 +148,15 @@ func (s *annotationsSuite) TestCheckKeysNonEmpty(c *gc.C) {
 	s.annotations.Add("key2", "val2")
 	c.Assert(s.annotations.CheckKeysNonEmpty("key2"), jc.ErrorIsNil)
 	c.Assert(s.annotations.CheckKeysNonEmpty("key1", "key2"), jc.ErrorIs, errors.NotValid)
+}
+
+func (s *annotationsSuite) TestParseID(c *gc.C) {
+	// ParseID happy path
+	id, err := jujuannotations.ParseID(names.NewUnitTag("unit/0"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(id, jc.DeepEquals, jujuannotations.ID{jujuannotations.KindUnit, "unit/0"})
+
+	// ParseID unknown kind
+	_, err = jujuannotations.ParseID(names.NewEnvironTag("env/0"))
+	c.Assert(err, jc.DeepEquals, fmt.Errorf("unknown kind %q", names.EnvironTagKind))
 }
