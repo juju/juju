@@ -281,6 +281,7 @@ func (d *predeployedLocalCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI Dep
 type localCharm struct {
 	deployCharm
 	curl *charm.URL
+	base corebase.Base
 	ch   charm.Charm
 }
 
@@ -305,12 +306,8 @@ func (l *localCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, _
 		return errors.Trace(err)
 	}
 
-	base, err := corebase.GetBaseFromSeries(l.curl.Series)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	platform := utils.MakePlatform(l.constraints, base, l.modelConstraints)
+	platform := utils.MakePlatform(l.constraints, l.base, l.modelConstraints)
+	// Local charms don't need a channel.
 	origin, err := utils.MakeOrigin(charm.Local, curl.Revision, charm.Channel{}, platform)
 	if err != nil {
 		return errors.Trace(err)
@@ -320,7 +317,6 @@ func (l *localCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, _
 	l.id = application.CharmID{
 		URL:    curl,
 		Origin: origin,
-		// Local charms don't need a channel.
 	}
 	return l.deploy(ctx, deployAPI)
 }

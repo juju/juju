@@ -993,8 +993,13 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		unauthenticated: true,
 	}, {
 		pattern: charmsObjectsRoutePrefix,
-		methods: []string{"GET", "PUT"},
+		methods: []string{"GET"},
 		handler: modelObjectsCharmsHTTPHandler,
+	}, {
+		pattern:    charmsObjectsRoutePrefix,
+		methods:    []string{"PUT"},
+		handler:    modelObjectsCharmsHTTPHandler,
+		authorizer: modelCharmsUploadAuthorizer,
 	}}
 	if srv.registerIntrospectionHandlers != nil {
 		add := func(subpath string, h http.Handler) {
