@@ -13,14 +13,14 @@ import (
 
 // State describes retrieval and persistence methods for annotations.
 type State interface {
-	// GetAnnotations retrieves all the annotations associated with a given entity.
+	// GetAnnotations retrieves all the annotations associated with a given ID.
 	// If no annotations are found, an empty map is returned.
-	GetAnnotations(ctx context.Context, entity annotations.ID) (map[string]string, error)
+	GetAnnotations(ctx context.Context, ID annotations.ID) (map[string]string, error)
 
-	// SetAnnotations associates key/value annotation pairs with a given entity.
-	// If annotation already exists for the given entity, then it will be updated with
-	// the given value
-	SetAnnotations(ctx context.Context, entity annotations.ID, annotations map[string]string) error
+	// SetAnnotations associates key/value annotation pairs with a given ID.
+	// If annotation already exists for the given ID, then it will be updated with
+	// the given value.
+	SetAnnotations(ctx context.Context, ID annotations.ID, annotations map[string]string) error
 }
 
 // Service provides the API for working with annotations.
@@ -35,17 +35,17 @@ func NewService(st State) *Service {
 	}
 }
 
-// GetAnnotations retrieves all annotations associated with a given entity.
+// GetAnnotations retrieves all the annotations associated with a given ID.
 // If no annotations are found, an empty map is returned.
-func (s *Service) GetAnnotations(ctx context.Context, entity annotations.ID) (map[string]string, error) {
-	annotations, err := s.st.GetAnnotations(ctx, entity)
+func (s *Service) GetAnnotations(ctx context.Context, ID annotations.ID) (map[string]string, error) {
+	annotations, err := s.st.GetAnnotations(ctx, ID)
 	return annotations, errors.Trace(err)
 }
 
-// SetAnnotations adds key/value pairs to the annotations in the corresponding
-// table for a given entity. If a given annotation already exists for the given entity
-// in the database, then it will be updated.
-func (s *Service) SetAnnotations(ctx context.Context, entity annotations.ID, annotations map[string]string) error {
-	err := s.st.SetAnnotations(ctx, entity, annotations)
+// SetAnnotations associates key/value annotation pairs with a given ID.
+// If annotation already exists for the given ID, then it will be updated with
+// the given value.
+func (s *Service) SetAnnotations(ctx context.Context, ID annotations.ID, annotations map[string]string) error {
+	err := s.st.SetAnnotations(ctx, ID, annotations)
 	return errors.Annotatef(err, "updating annotations for entity")
 }
