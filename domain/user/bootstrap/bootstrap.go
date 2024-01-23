@@ -51,10 +51,8 @@ func AddUserWithPassword(name string, password auth.Password) (user.UUID, func(c
 				ctx,
 				tx,
 				uuid,
-				user.User{
-					Name:        name,
-					DisplayName: name,
-				},
+				name,
+				name,
 				uuid,
 				pwHash,
 				salt,
