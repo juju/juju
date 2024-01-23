@@ -51,6 +51,7 @@ func ControllerDDL() *schema.Schema {
 		changeLogTriggersForTable("object_store_metadata_path", "path", tableObjectStoreMetadata),
 		userSchema,
 		flagSchema,
+		userPermissionSchema,
 	}
 
 	schema := schema.New()
@@ -589,5 +590,85 @@ CREATE TABLE flag (
     value BOOLEAN DEFAULT 0,
     description TEXT NOT NULL
 );
+`)
+}
+
+func userPermissionSchema() schema.Patch {
+	return schema.MakePatch(`
+CREATE TABLE permission_access_type (
+    id     INT PRIMARY KEY,
+    type   TEXT NOT NULL
+);
+
+CREATE UNIQUE INDEX idx_permission_access_type
+ON permission_access_type (type);
+
+-- Maps to the Access type in core/permission package.
+INSERT INTO permission_access_type VALUES
+    (0, 'read'),
+    (1, 'write'),
+    (2, 'consume'),
+    (3, 'admin'),
+    (4, 'login'),
+    (5, 'addmodel'),
+    (6, 'superuser');
+
+CREATE TABLE permission_object_type (
+    id    INT PRIMARY KEY,
+    type  TEXT NOT NULL
+);
+
+CREATE UNIQUE INDEX idx_permission_object_type
+ON permission_object_type (type);
+
+INSERT INTO permission_object_type VALUES
+    (0, 'controller'),
+    (1, 'cloud'),
+    (2, 'model'),
+    (3, 'offer');
+
+CREATE TABLE permission_object_access (
+    id              INT PRIMARY KEY,
+    access_type_id  INT NOT NULL,
+    object_type_id  INT NOT NULL,
+    CONSTRAINT      fk_permission_access_type
+        FOREIGN KEY (access_type_id)
+        REFERENCES  permission_access_type(id),
+    CONSTRAINT      fk_permission_object_type
+        FOREIGN KEY (object_type_id)
+        REFERENCES  permission_object_type(id)
+);
+
+CREATE UNIQUE INDEX idx_permission_object_access
+ON permission_object_access (access_type_id, object_type_id);
+
+INSERT INTO permission_object_access VALUES
+    (0, 4, 0), -- login, controller
+    (1, 6, 0), -- superuser, controller
+    (2, 3, 1), -- admin, cloud
+    (3, 5, 1), -- addmodel, cloud
+    (4, 0, 2), -- read, model
+    (5, 1, 2), -- write, model
+    (6, 3, 2), -- admin, model
+    (7, 0, 3), -- read, offer
+    (8, 2, 3), -- consume, offer
+    (9, 3, 3); -- admin, offer
+
+
+CREATE TABLE user_permission (
+    uuid               TEXT PRIMARY KEY,
+    object_identifier  TEXT NOT NULL, -- name or uuid of the object
+    object_access_id   INT NOT NULL,
+    user_uuid          TEXT NOT NULL,
+    CONSTRAINT         fk_permission_user_uuid
+        FOREIGN KEY    (user_uuid)
+        REFERENCES     user(uuid),
+    CONSTRAINT         fk_permission_object_access
+        FOREIGN KEY    (object_access_id)
+        REFERENCES     permission_object_access(id)
+);
+
+CREATE UNIQUE INDEX idx_user_permission
+ON user_permission (user_uuid, object_identifier);
 `)
 }
