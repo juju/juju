@@ -255,6 +255,10 @@ func (t *s3ObjectStore) get(ctx context.Context, path string) (io.ReadCloser, in
 		return nil, -1, fmt.Errorf("get object: %w", err)
 	}
 
+	if metadata.Size != size {
+		return nil, -1, fmt.Errorf("size mismatch for %q: expected %d, got %d", path, metadata.Size, size)
+	}
+
 	return reader, size, nil
 }
 
@@ -311,7 +315,16 @@ func (t *s3ObjectStore) persistTmpFile(ctx context.Context, tmpFileName string, 
 
 		// Now that we've written the file, we can upload it to the object
 		// store.
-		return s.PutObject(ctx, defaultBucketName, t.filePath(hexEncodedHash), file, base64EncodedHash)
+		err := s.PutObject(ctx, defaultBucketName, t.filePath(hexEncodedHash), file, base64EncodedHash)
+		if err == nil {
+			return nil
+		}
+
+		// If the file already exists, then we can ignore the error.
+		if errors.Is(err, errors.AlreadyExists) {
+			return nil
+		}
+		return errors.Trace(err)
 	}); err != nil {
 		return errors.Trace(err)
 	}
@@ -332,7 +345,14 @@ func (t *s3ObjectStore) remove(ctx context.Context, path string) error {
 		}
 
 		return t.client.Session(ctx, func(ctx context.Context, s objectstore.Session) error {
-			return s.DeleteObject(ctx, defaultBucketName, t.filePath(hash))
+			err := s.DeleteObject(ctx, defaultBucketName, t.filePath(hash))
+			if err == nil {
+				return nil
+			}
+			if errors.Is(err, errors.NotFound) {
+				return nil
+			}
+			return errors.Trace(err)
 		})
 	})
 }

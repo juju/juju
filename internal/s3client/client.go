@@ -227,6 +227,11 @@ var alreadyExistCodes = map[string]struct{}{
 	"BucketAlreadyOwnedByYou": {},
 }
 
+var notFoundCodes = map[string]struct{}{
+	"NoSuchBucket": {},
+	"NoSuchKey":    {},
+}
+
 func handleError(err error) error {
 	if err == nil {
 		return nil
@@ -234,12 +239,16 @@ func handleError(err error) error {
 
 	var ae smithy.APIError
 	if errors.As(err, &ae) {
+		if _, ok := notFoundCodes[ae.ErrorCode()]; ok {
+			return errors.NewNotFound(err, ae.ErrorMessage())
+		}
 		if _, ok := forbiddenErrorCodes[ae.ErrorCode()]; ok {
 			return errors.NewForbidden(err, ae.ErrorMessage())
 		}
 		if _, ok := alreadyExistCodes[ae.ErrorCode()]; ok {
 			return errors.NewAlreadyExists(err, ae.ErrorMessage())
 		}
+
 	}
 
 	return errors.Trace(err)

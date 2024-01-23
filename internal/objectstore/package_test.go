@@ -4,7 +4,11 @@
 package objectstore
 
 import (
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/hex"
 	"io"
+	"strings"
 	stdtesting "testing"
 	"time"
 
@@ -59,4 +63,18 @@ func (s *baseSuite) readFile(c *gc.C, reader io.ReadCloser) string {
 	content, err := io.ReadAll(reader)
 	c.Assert(err, jc.ErrorIsNil)
 	return string(content)
+}
+
+func (s *baseSuite) calculateHexHash(c *gc.C, contents string) string {
+	hasher := sha256.New()
+	_, err := io.Copy(hasher, strings.NewReader(contents))
+	c.Assert(err, jc.ErrorIsNil)
+	return hex.EncodeToString(hasher.Sum(nil))
+}
+
+func (s *baseSuite) calculateBase64Hash(c *gc.C, contents string) string {
+	hasher := sha256.New()
+	_, err := io.Copy(hasher, strings.NewReader(contents))
+	c.Assert(err, jc.ErrorIsNil)
+	return base64.StdEncoding.EncodeToString(hasher.Sum(nil))
 }

@@ -6,8 +6,11 @@ package objectstore
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"os"
+	"strings"
+	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -78,22 +81,344 @@ func (s *S3ObjectStoreSuite) TestGetMetadataAndFileNotFoundThenFound(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	defer workertest.DirtyKill(c, store)
 
-	s.service.EXPECT().GetMetadata(gomock.Any(), fileName).Return(objectstore.Metadata{
-		Hash: hash,
-		Path: fileName,
-		Size: size,
-	}, errors.NotFoundf("not found"))
+	// Ensure we've started up before we start the test.
+	started := s.expectStartup()
+
+	select {
+	case <-started:
+	case <-time.After(jujutesting.LongWait):
+		c.Fatalf("timed out waiting for startup")
+	}
+
+	// We expect that we call GetMetadata twice. We optimistically call it
+	// once, and if it fails, we call it again. We're exercising the code
+	// serialization code here.
+
+	s.expectFailure(fileName, errors.NotFoundf("not found"))
 	s.service.EXPECT().GetMetadata(gomock.Any(), fileName).Return(objectstore.Metadata{
 		Hash: hash,
 		Path: fileName,
 		Size: size,
 	}, nil)
-	s.session.EXPECT().GetObject(gomock.Any(), namespace, hash).Return(reader, size, hash, nil)
+	s.session.EXPECT().GetObject(gomock.Any(), defaultBucketName, filePath(namespace, hash)).Return(reader, size, hash, nil)
 
 	file, fileSize, err := store.Get(context.Background(), fileName)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(size, gc.Equals, fileSize)
 	c.Assert(s.readFile(c, file), gc.Equals, "hello")
+}
+
+func (s *S3ObjectStoreSuite) TestGetMetadataAndFileFoundWithIncorrectSize(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	namespace := "inferi"
+	fileName := "foo"
+	hash := "blah"
+	size := int64(666)
+	reader := io.NopCloser(bytes.NewBufferString("hello"))
+
+	store, err := NewS3ObjectStore(context.Background(), namespace, s.client, s.service, s.claimer, jujutesting.NewCheckLogger(c), clock.WallClock)
+	c.Assert(err, gc.IsNil)
+	defer workertest.DirtyKill(c, store)
+
+	// Ensure we've started up before we start the test.
+	started := s.expectStartup()
+
+	select {
+	case <-started:
+	case <-time.After(jujutesting.LongWait):
+		c.Fatalf("timed out waiting for startup")
+	}
+
+	// We expect that we call GetMetadata twice. We optimistically call it
+	// once, and if it fails, we call it again. We're exercising the code
+	// serialization code here.
+
+	// This size will be incorrect here, which will cause an error.
+
+	s.expectFailure(fileName, errors.NotFoundf("not found"))
+	s.service.EXPECT().GetMetadata(gomock.Any(), fileName).Return(objectstore.Metadata{
+		Hash: hash,
+		Path: fileName,
+		Size: size + 1,
+	}, nil)
+	s.session.EXPECT().GetObject(gomock.Any(), defaultBucketName, filePath(namespace, hash)).Return(reader, size, hash, nil)
+
+	_, _, err = store.Get(context.Background(), fileName)
+	c.Assert(err, gc.ErrorMatches, `.*size mismatch.*`)
+}
+
+func (s *S3ObjectStoreSuite) TestPut(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	content := "some content"
+	hexHash := s.calculateHexHash(c, content)
+	base64Hash := s.calculateBase64Hash(c, content)
+	s.expectClaim(hexHash, 1)
+	s.expectRelease(hexHash, 1)
+
+	namespace := "inferi"
+
+	store, err := NewS3ObjectStore(context.Background(), namespace, s.client, s.service, s.claimer, jujutesting.NewCheckLogger(c), clock.WallClock)
+	c.Assert(err, gc.IsNil)
+	defer workertest.DirtyKill(c, store)
+
+	// Ensure we've started up before we start the test.
+	started := s.expectStartup()
+
+	select {
+	case <-started:
+	case <-time.After(jujutesting.LongWait):
+		c.Fatalf("timed out waiting for startup")
+	}
+
+	s.service.EXPECT().PutMetadata(gomock.Any(), objectstore.Metadata{
+		Hash: hexHash,
+		Path: "foo",
+		Size: 12,
+	}).Return(nil)
+
+	var receivedContent string
+	s.session.EXPECT().PutObject(gomock.Any(), defaultBucketName, filePath(namespace, hexHash), gomock.Any(), base64Hash).DoAndReturn(func(ctx context.Context, bucketName, objectName string, body io.Reader, hash string) error {
+		receivedContent = s.readFile(c, io.NopCloser(body))
+		return nil
+	})
+
+	err = store.Put(context.Background(), "foo", strings.NewReader(content), 12)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(receivedContent, gc.Equals, content)
+}
+
+func (s *S3ObjectStoreSuite) TestPutAndCheckHash(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	content := "some content"
+	hexHash := s.calculateHexHash(c, content)
+	base64Hash := s.calculateBase64Hash(c, content)
+	s.expectClaim(hexHash, 1)
+	s.expectRelease(hexHash, 1)
+
+	namespace := "inferi"
+
+	store, err := NewS3ObjectStore(context.Background(), namespace, s.client, s.service, s.claimer, jujutesting.NewCheckLogger(c), clock.WallClock)
+	c.Assert(err, gc.IsNil)
+	defer workertest.DirtyKill(c, store)
+
+	// Ensure we've started up before we start the test.
+	started := s.expectStartup()
+
+	select {
+	case <-started:
+	case <-time.After(jujutesting.LongWait):
+		c.Fatalf("timed out waiting for startup")
+	}
+
+	s.service.EXPECT().PutMetadata(gomock.Any(), objectstore.Metadata{
+		Hash: hexHash,
+		Path: "foo",
+		Size: 12,
+	}).Return(nil)
+
+	var receivedContent string
+	s.session.EXPECT().PutObject(gomock.Any(), defaultBucketName, filePath(namespace, hexHash), gomock.Any(), base64Hash).DoAndReturn(func(ctx context.Context, bucketName, objectName string, body io.Reader, hash string) error {
+		receivedContent = s.readFile(c, io.NopCloser(body))
+		return nil
+	})
+
+	err = store.PutAndCheckHash(context.Background(), "foo", strings.NewReader(content), 12, hexHash)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(receivedContent, gc.Equals, content)
+}
+
+func (s *S3ObjectStoreSuite) TestPutAndCheckHashWithInvalidHash(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	content := "some content"
+	hexHash := s.calculateHexHash(c, content)
+	fakeHash := fmt.Sprintf("%s0", hexHash)
+
+	namespace := "inferi"
+
+	store, err := NewS3ObjectStore(context.Background(), namespace, s.client, s.service, s.claimer, jujutesting.NewCheckLogger(c), clock.WallClock)
+	c.Assert(err, gc.IsNil)
+	defer workertest.DirtyKill(c, store)
+
+	// Ensure we've started up before we start the test.
+	started := s.expectStartup()
+
+	select {
+	case <-started:
+	case <-time.After(jujutesting.LongWait):
+		c.Fatalf("timed out waiting for startup")
+	}
+
+	err = store.PutAndCheckHash(context.Background(), "foo", strings.NewReader(content), 12, fakeHash)
+	c.Assert(err, gc.ErrorMatches, `.*hash mismatch.*`)
+}
+
+func (s *S3ObjectStoreSuite) TestPutAndCheckHashFileAlreadyExists(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	content := "some content"
+	hexHash := s.calculateHexHash(c, content)
+	base64Hash := s.calculateBase64Hash(c, content)
+	s.expectClaim(hexHash, 2)
+	s.expectRelease(hexHash, 2)
+
+	namespace := "inferi"
+
+	store, err := NewS3ObjectStore(context.Background(), namespace, s.client, s.service, s.claimer, jujutesting.NewCheckLogger(c), clock.WallClock)
+	c.Assert(err, gc.IsNil)
+	defer workertest.DirtyKill(c, store)
+
+	// Ensure we've started up before we start the test.
+	started := s.expectStartup()
+
+	select {
+	case <-started:
+	case <-time.After(jujutesting.LongWait):
+		c.Fatalf("timed out waiting for startup")
+	}
+
+	s.service.EXPECT().PutMetadata(gomock.Any(), objectstore.Metadata{
+		Hash: hexHash,
+		Path: "foo",
+		Size: 12,
+	}).Return(nil).Times(2)
+
+	var receivedContent string
+	s.session.EXPECT().PutObject(gomock.Any(), defaultBucketName, filePath(namespace, hexHash), gomock.Any(), base64Hash).DoAndReturn(func(ctx context.Context, bucketName, objectName string, body io.Reader, hash string) error {
+		receivedContent = s.readFile(c, io.NopCloser(body))
+		return nil
+	})
+	s.session.EXPECT().PutObject(gomock.Any(), defaultBucketName, filePath(namespace, hexHash), gomock.Any(), base64Hash).Return(errors.AlreadyExistsf("already exists"))
+
+	err = store.PutAndCheckHash(context.Background(), "foo", strings.NewReader(content), 12, hexHash)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = store.PutAndCheckHash(context.Background(), "foo", strings.NewReader(content), 12, hexHash)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(receivedContent, gc.Equals, content)
+}
+
+func (s *S3ObjectStoreSuite) TestPutFileOnMetadataFailure(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// If the file is not referenced by another metadata entry, then the file
+	// should be left to cleaned up by the object store later on.
+
+	content := "some content"
+	hexHash := s.calculateHexHash(c, content)
+	base64Hash := s.calculateBase64Hash(c, content)
+	s.expectClaim(hexHash, 1)
+	s.expectRelease(hexHash, 1)
+
+	namespace := "inferi"
+
+	store, err := NewS3ObjectStore(context.Background(), namespace, s.client, s.service, s.claimer, jujutesting.NewCheckLogger(c), clock.WallClock)
+	c.Assert(err, gc.IsNil)
+	defer workertest.DirtyKill(c, store)
+
+	// Ensure we've started up before we start the test.
+	started := s.expectStartup()
+
+	select {
+	case <-started:
+	case <-time.After(jujutesting.LongWait):
+		c.Fatalf("timed out waiting for startup")
+	}
+
+	s.service.EXPECT().PutMetadata(gomock.Any(), objectstore.Metadata{
+		Hash: hexHash,
+		Path: "foo",
+		Size: 12,
+	}).Return(errors.Errorf("boom"))
+	s.session.EXPECT().PutObject(gomock.Any(), defaultBucketName, filePath(namespace, hexHash), gomock.Any(), base64Hash).Return(nil)
+
+	err = store.PutAndCheckHash(context.Background(), "foo", strings.NewReader(content), 12, hexHash)
+	c.Assert(err, gc.ErrorMatches, `.*boom`)
+}
+
+func (s *S3ObjectStoreSuite) TestRemoveFileNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Test that we don't return an error if the file does not exist.
+	// We just want to ensure that we don't return an error after the metadata
+	// is removed.
+
+	content := "some content"
+	hexHash := s.calculateHexHash(c, content)
+
+	s.expectClaim(hexHash, 1)
+	s.expectRelease(hexHash, 1)
+
+	namespace := "inferi"
+	fileName := "foo"
+
+	store, err := NewS3ObjectStore(context.Background(), namespace, s.client, s.service, s.claimer, jujutesting.NewCheckLogger(c), clock.WallClock)
+	c.Assert(err, gc.IsNil)
+	defer workertest.DirtyKill(c, store)
+
+	// Ensure we've started up before we start the test.
+	started := s.expectStartup()
+
+	select {
+	case <-started:
+	case <-time.After(jujutesting.LongWait):
+		c.Fatalf("timed out waiting for startup")
+	}
+
+	s.service.EXPECT().GetMetadata(gomock.Any(), fileName).Return(objectstore.Metadata{
+		Hash: hexHash,
+		Path: fileName,
+		Size: 666,
+	}, nil)
+
+	s.service.EXPECT().RemoveMetadata(gomock.Any(), "foo").Return(nil)
+	s.session.EXPECT().DeleteObject(gomock.Any(), defaultBucketName, filePath(namespace, hexHash)).Return(errors.NotFoundf("foo"))
+
+	err = store.Remove(context.Background(), "foo")
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *S3ObjectStoreSuite) TestRemove(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	content := "some content"
+	hexHash := s.calculateHexHash(c, content)
+
+	s.expectClaim(hexHash, 1)
+	s.expectRelease(hexHash, 1)
+
+	namespace := "inferi"
+
+	store, err := NewS3ObjectStore(context.Background(), namespace, s.client, s.service, s.claimer, jujutesting.NewCheckLogger(c), clock.WallClock)
+	c.Assert(err, gc.IsNil)
+	defer workertest.DirtyKill(c, store)
+
+	// Ensure we've started up before we start the test.
+	started := s.expectStartup()
+
+	select {
+	case <-started:
+	case <-time.After(jujutesting.LongWait):
+		c.Fatalf("timed out waiting for startup")
+	}
+
+	s.service.EXPECT().GetMetadata(gomock.Any(), "foo").Return(objectstore.Metadata{
+		Hash: hexHash,
+		Path: "foo",
+		Size: 12,
+	}, nil)
+
+	s.service.EXPECT().RemoveMetadata(gomock.Any(), "foo").Return(nil)
+	s.session.EXPECT().DeleteObject(gomock.Any(), defaultBucketName, filePath(namespace, hexHash)).Return(nil)
+
+	err = store.Remove(context.Background(), "foo")
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *S3ObjectStoreSuite) setupMocks(c *gc.C) *gomock.Controller {
@@ -105,10 +430,27 @@ func (s *S3ObjectStoreSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
+func (s *S3ObjectStoreSuite) expectStartup() chan struct{} {
+	done := make(chan struct{})
+	s.session.EXPECT().CreateBucket(gomock.Any(), defaultBucketName).DoAndReturn(func(ctx context.Context, bucketName string) error {
+		defer close(done)
+		return nil
+	})
+	return done
+}
+
+func (s *S3ObjectStoreSuite) expectFailure(fileName string, err error) {
+	s.service.EXPECT().GetMetadata(gomock.Any(), fileName).Return(objectstore.Metadata{}, err)
+}
+
 type client struct {
 	session objectstore.Session
 }
 
 func (c *client) Session(ctx context.Context, f func(context.Context, objectstore.Session) error) error {
 	return f(ctx, c.session)
+}
+
+func filePath(namespace, hash string) string {
+	return fmt.Sprintf("%s/%s", namespace, hash)
 }

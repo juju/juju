@@ -149,7 +149,7 @@ func (s *FileObjectStoreSuite) TestGetMetadataAndFileFoundWithIncorrectSize(c *g
 func (s *FileObjectStoreSuite) TestPut(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	hash := s.calculateHash(c, "some content")
+	hash := s.calculateHexHash(c, "some content")
 	s.expectClaim(hash, 1)
 	s.expectRelease(hash, 1)
 
@@ -174,7 +174,7 @@ func (s *FileObjectStoreSuite) TestPut(c *gc.C) {
 func (s *FileObjectStoreSuite) TestPutFileAlreadyExists(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	hash := s.calculateHash(c, "some content")
+	hash := s.calculateHexHash(c, "some content")
 	s.expectClaim(hash, 2)
 	s.expectRelease(hash, 2)
 
@@ -205,7 +205,7 @@ func (s *FileObjectStoreSuite) TestPutCleansUpFileOnMetadataFailure(c *gc.C) {
 	// If the file is not referenced by another metadata entry, then the file
 	// should be left to be cleaned by the object store later on.
 
-	hash := s.calculateHash(c, "some content")
+	hash := s.calculateHexHash(c, "some content")
 	s.expectClaim(hash, 1)
 	s.expectRelease(hash, 1)
 
@@ -236,7 +236,7 @@ func (s *FileObjectStoreSuite) TestPutDoesNotCleansUpFileOnMetadataFailure(c *gc
 	// metadata entry. In this case we need to ensure that the file is not
 	// cleaned up if the metadata service returns an error.
 
-	hash := s.calculateHash(c, "some content")
+	hash := s.calculateHexHash(c, "some content")
 	s.expectClaim(hash, 2)
 	s.expectRelease(hash, 2)
 
@@ -272,7 +272,7 @@ func (s *FileObjectStoreSuite) TestPutDoesNotCleansUpFileOnMetadataFailure(c *gc
 func (s *FileObjectStoreSuite) TestPutAndCheckHash(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	hash := s.calculateHash(c, "some content")
+	hash := s.calculateHexHash(c, "some content")
 	s.expectClaim(hash, 1)
 	s.expectRelease(hash, 1)
 
@@ -297,7 +297,7 @@ func (s *FileObjectStoreSuite) TestPutAndCheckHash(c *gc.C) {
 func (s *FileObjectStoreSuite) TestPutAndCheckHashWithInvalidHash(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	hash := s.calculateHash(c, "some content")
+	hash := s.calculateHexHash(c, "some content")
 	fakeHash := fmt.Sprintf("%s0", hash)
 
 	path := c.MkDir()
@@ -315,7 +315,7 @@ func (s *FileObjectStoreSuite) TestPutAndCheckHashWithInvalidHash(c *gc.C) {
 func (s *FileObjectStoreSuite) TestPutAndCheckHashFileAlreadyExists(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	hash := s.calculateHash(c, "some content")
+	hash := s.calculateHexHash(c, "some content")
 	s.expectClaim(hash, 2)
 	s.expectRelease(hash, 2)
 
@@ -346,7 +346,7 @@ func (s *FileObjectStoreSuite) TestPutAndCheckHashCleansUpFileOnMetadataFailure(
 	// If the file is not referenced by another metadata entry, then the file
 	// should be left to cleaned up by the object store later on.
 
-	hash := s.calculateHash(c, "some content")
+	hash := s.calculateHexHash(c, "some content")
 	s.expectClaim(hash, 1)
 	s.expectRelease(hash, 1)
 
@@ -377,7 +377,7 @@ func (s *FileObjectStoreSuite) TestPutAndCheckHashDoesNotCleansUpFileOnMetadataF
 	// metadata entry. In this case we need to ensure that the file is not
 	// cleaned up if the metadata service returns an error.
 
-	hash := s.calculateHash(c, "some content")
+	hash := s.calculateHexHash(c, "some content")
 	s.expectClaim(hash, 2)
 	s.expectRelease(hash, 2)
 
@@ -390,7 +390,7 @@ func (s *FileObjectStoreSuite) TestPutAndCheckHashDoesNotCleansUpFileOnMetadataF
 	defer workertest.DirtyKill(c, store)
 
 	s.service.EXPECT().PutMetadata(gomock.Any(), objectstore.Metadata{
-		Hash: s.calculateHash(c, "some content"),
+		Hash: s.calculateHexHash(c, "some content"),
 		Path: "foo",
 		Size: 12,
 	}).Return(nil)
@@ -444,7 +444,7 @@ func (s *FileObjectStoreSuite) TestRemoveFileNotFound(c *gc.C) {
 func (s *FileObjectStoreSuite) TestRemove(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	hash := s.calculateHash(c, "some content")
+	hash := s.calculateHexHash(c, "some content")
 	s.expectClaim(hash, 2)
 	s.expectRelease(hash, 2)
 
@@ -511,13 +511,6 @@ func (s *FileObjectStoreSuite) createFile(c *gc.C, path, name, contents string) 
 	c.Assert(err, jc.ErrorIsNil)
 
 	return info.Size(), hash
-}
-
-func (s *FileObjectStoreSuite) calculateHash(c *gc.C, contents string) string {
-	hasher := sha256.New()
-	_, err := io.Copy(hasher, strings.NewReader(contents))
-	c.Assert(err, jc.ErrorIsNil)
-	return hex.EncodeToString(hasher.Sum(nil))
 }
 
 func (s *FileObjectStoreSuite) expectFileDoesNotExist(c *gc.C, path, namespace, hash string) {
