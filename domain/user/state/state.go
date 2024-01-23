@@ -237,10 +237,12 @@ WHERE user.name = $M.name AND removed = false
 	return usr, nil
 }
 
-// GetUserWithAuth will retrieve the user with checking authentication information
-// specified by UUID from the database. If the user does not exist
+// GetUserByAuth will retrieve the user with checking authentication information
+// specified by UUID and password from the database. If the user does not exist
 // an error that satisfies usererrors.NotFound will be returned.
-func (st *State) GetUserWithAuth(ctx context.Context, uuid user.UUID, password string) (user.User, error) {
+// If the user password does not match the supplied password then
+// usererrors.Unauthorized will be returned.
+func (st *State) GetUserByAuth(ctx context.Context, name string, password string) (user.User, error) {
 	db, err := st.DB()
 	if err != nil {
 		return user.User{}, errors.Annotate(err, "getting DB access")
@@ -255,7 +257,7 @@ SELECT (
        ) AS (&User.*)
 FROM user
 JOIN user_password ON user.uuid = user_password.user_uuid
-WHERE user.uuid = $M.uuid AND removed = false
+WHERE user.name = $M.name AND removed = false
 `
 
 		selectGetUserWithAuthStmt, err := sqlair.Prepare(getUserWithAuthQuery, User{}, sqlair.M{})
@@ -264,18 +266,18 @@ WHERE user.uuid = $M.uuid AND removed = false
 		}
 
 		var result User
-		err = tx.Query(ctx, selectGetUserWithAuthStmt, sqlair.M{"uuid": uuid.String()}).Get(&result)
+		err = tx.Query(ctx, selectGetUserWithAuthStmt, sqlair.M{"name": name}).Get(&result)
 		if err != nil && errors.Is(err, sql.ErrNoRows) {
-			return errors.Annotatef(usererrors.NotFound, "%q", uuid)
+			return errors.Annotatef(usererrors.NotFound, "%q", name)
 		} else if err != nil {
-			return errors.Annotatef(err, "getting user with uuid %q", uuid)
+			return errors.Annotatef(err, "getting user with name %q", name)
 		}
 
 		passwordHash, err := auth.HashPassword(auth.NewPassword(password), result.PasswordSalt)
 		if err != nil {
-			return errors.Annotatef(err, "hashing password for user with uuid %q", uuid)
+			return errors.Annotatef(err, "hashing password for user with name %q", name)
 		} else if passwordHash != result.PasswordHash {
-			return errors.Annotatef(usererrors.Unauthorized, "%q", uuid)
+			return errors.Annotatef(usererrors.Unauthorized, "%q", name)
 		}
 
 		usr = result.toCoreUser()
@@ -283,7 +285,7 @@ WHERE user.uuid = $M.uuid AND removed = false
 		return nil
 	})
 	if err != nil {
-		return user.User{}, errors.Annotatef(err, "getting user with uuid %q", uuid)
+		return user.User{}, errors.Annotatef(err, "getting user with name %q", name)
 	}
 
 	return usr, nil

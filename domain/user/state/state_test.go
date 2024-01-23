@@ -425,9 +425,8 @@ func (s *stateSuite) TestGetUserWithAuthInfoByName(c *gc.C) {
 	c.Check(u.Disabled, gc.Equals, false)
 }
 
-// TestGetUserWithAuth asserts that we can get a user with auth info from the
-// database.
-func (s *stateSuite) TestGetUserWithAuth(c *gc.C) {
+// TestGetUserByAuth asserts that we can get a user by auth from the database.
+func (s *stateSuite) TestGetUserByAuth(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	// Add admin user with password hash.
@@ -448,13 +447,40 @@ func (s *stateSuite) TestGetUserWithAuth(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Get the user.
-	u, err := st.GetUserWithAuth(context.Background(), adminUUID, "password")
+	u, err := st.GetUserByAuth(context.Background(), adminUser.Name, "password")
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(u.Name, gc.Equals, "admin")
 	c.Check(u.DisplayName, gc.Equals, "admin")
 	c.Check(u.CreatorUUID, gc.Equals, adminUUID)
 	c.Check(u.CreatedAt, gc.NotNil)
+}
+
+// TestGetUserByAuthWrongPassword asserts that we get an error when we try to
+// get a user by auth with the wrong password.
+func (s *stateSuite) TestGetUserByAuthWrongPassword(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	// Add admin user with password hash.
+	adminUUID, err := user.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	adminUser := user.User{
+		Name:        "admin",
+		DisplayName: "admin",
+	}
+
+	salt, err := auth.NewSalt()
+	c.Assert(err, jc.ErrorIsNil)
+
+	passwordHash, err := auth.HashPassword(auth.NewPassword("password"), salt)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = st.AddUserWithPasswordHash(context.Background(), adminUUID, adminUser, adminUUID, passwordHash, salt)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Get the user.
+	_, err = st.GetUserByAuth(context.Background(), adminUser.Name, "wrongPassword")
+	c.Assert(err, jc.ErrorIs, usererrors.Unauthorized)
 }
 
 // TestRemoveUser asserts that we can remove a user from the database.

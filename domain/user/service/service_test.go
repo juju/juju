@@ -165,22 +165,23 @@ func (s *serviceSuite) setMockState(c *gc.C) map[user.UUID]stateUser {
 		return user.User{}, usererrors.NotFound
 	}).AnyTimes()
 
-	s.state.EXPECT().GetUserWithAuth(
+	s.state.EXPECT().GetUserByAuth(
 		gomock.Any(), gomock.Any(), gomock.Any(),
 	).DoAndReturn(func(
 		_ context.Context,
-		uuid user.UUID,
+		name string,
 		password string) (user.User, error) {
-		stUser, exists := mockState[uuid]
-		if !exists {
-			return user.User{}, usererrors.NotFound
+		for _, usr := range mockState {
+			if usr.name == name && !usr.removed {
+				return user.User{
+					CreatorUUID: usr.creatorUUID,
+					CreatedAt:   usr.createdAt,
+					DisplayName: usr.displayName,
+					Name:        usr.name,
+				}, nil
+			}
 		}
-		return user.User{
-			CreatorUUID: stUser.creatorUUID,
-			CreatedAt:   stUser.createdAt,
-			DisplayName: stUser.displayName,
-			Name:        stUser.name,
-		}, nil
+		return user.User{}, usererrors.NotFound
 	}).AnyTimes()
 
 	s.state.EXPECT().AddUser(
@@ -1143,8 +1144,8 @@ func (s *serviceSuite) TestGetUserWithAuthInfoByName(c *gc.C) {
 	c.Assert(user.Disabled, gc.Equals, true)
 }
 
-// TestGetUserWithAuth is testing the happy path for GetUserWithAuth.
-func (s *serviceSuite) TestGetUserWithAuth(c *gc.C) {
+// TestGetUserByAuth is testing the happy path for GetUserByAuth.
+func (s *serviceSuite) TestGetUserByAuth(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	mockState := s.setMockState(c)
 	uuid, err := user.NewUUID()
@@ -1161,7 +1162,7 @@ func (s *serviceSuite) TestGetUserWithAuth(c *gc.C) {
 	err = s.service().SetPassword(context.Background(), uuid, password)
 	c.Assert(err, jc.ErrorIsNil)
 
-	user, err := s.service().GetUserWithAuth(context.Background(), uuid, "password")
+	user, err := s.service().GetUserWithAuth(context.Background(), mockState[uuid].name, "password")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(user.Name, gc.Equals, "Jürgen.test")
 	c.Assert(user.DisplayName, gc.Equals, "Old mate 👍")
