@@ -9,6 +9,7 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
+	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/domain"
@@ -70,9 +71,14 @@ func Create(
 		return err
 	}
 
+	if err := createModelAgent(ctx, uuid, input.AgentVersion, tx); err != nil {
+		return err
+	}
+
 	if err := createModelMetadata(ctx, uuid, input, tx); err != nil {
 		return err
 	}
+
 	return nil
 }
 
@@ -93,6 +99,46 @@ func createModel(ctx context.Context, uuid model.UUID, tx *sql.Tx) error {
 	} else if num != 1 {
 		return errors.Errorf("expected 1 row to be inserted, got %d", num)
 	}
+	return nil
+}
+
+// createModelAgent is responsible for create a new model's agent record for the
+// given model UUID. If a model agent record already exists for the given model
+// uuid then an error satisfying [modelerrors.AlreadyExists] is returned. If no
+// model exists for the provided UUID then a [modelerrors.NotFound] is returned.
+func createModelAgent(
+	ctx context.Context,
+	modelUUID model.UUID,
+	agentVersion version.Number,
+	tx *sql.Tx,
+) error {
+	stmt := `
+INSERT INTO model_agent (model_uuid, previous_version, target_version)
+    VALUES (?, ?, ?)
+`
+
+	res, err := tx.ExecContext(ctx, stmt, modelUUID, agentVersion.String(), agentVersion.String())
+	if jujudb.IsErrConstraintPrimaryKey(err) {
+		return fmt.Errorf(
+			"%w for uuid %q while setting model agent version",
+			modelerrors.AlreadyExists, modelUUID,
+		)
+	} else if jujudb.IsErrConstraintForeignKey(err) {
+		return fmt.Errorf(
+			"%w for uuid %q while setting model agent version",
+			modelerrors.NotFound,
+			modelUUID,
+		)
+	} else if err != nil {
+		return fmt.Errorf("creating model %q agent information: %w", modelUUID, err)
+	}
+
+	if num, err := res.RowsAffected(); err != nil {
+		return errors.Trace(err)
+	} else if num != 1 {
+		return fmt.Errorf("creating model agent record, expected 1 row to be inserted got %d", num)
+	}
+
 	return nil
 }
 
@@ -155,7 +201,9 @@ FROM model_type
 WHERE model_type.type = ?
 `
 
-	res, err := tx.ExecContext(ctx, stmt, uuid, cloudUUID, input.Name, input.Owner, input.Type)
+	res, err := tx.ExecContext(ctx, stmt,
+		uuid, cloudUUID, input.Name, input.Owner, input.Type,
+	)
 	if jujudb.IsErrConstraintPrimaryKey(err) {
 		return fmt.Errorf("%w for uuid %q", modelerrors.AlreadyExists, uuid)
 	} else if jujudb.IsErrConstraintForeignKey(err) {
@@ -200,10 +248,16 @@ func (s *State) Delete(
 		return errors.Trace(err)
 	}
 
+	deleteModelAgent := "DELETE FROM model_agent WHERE model_uuid = ?"
 	deleteModelMetadata := "DELETE FROM model_metadata WHERE model_uuid = ?"
 	deleteModelList := "DELETE FROM model_list WHERE uuid = ?"
 	return db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, deleteModelMetadata, uuid)
+		_, err := tx.ExecContext(ctx, deleteModelAgent, uuid)
+		if err != nil {
+			return fmt.Errorf("delete model %q agent: %w", uuid, err)
+		}
+
+		_, err = tx.ExecContext(ctx, deleteModelMetadata, uuid)
 		if err != nil {
 			return fmt.Errorf("deleting model %q metadata: %w", uuid, err)
 		}

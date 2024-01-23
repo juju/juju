@@ -8,6 +8,11 @@ import (
 )
 
 const (
+	// AgentVersionNotSupported describes an error that occurs when then agent
+	// version chosen for model is not supported with respect to the currently
+	// running controller.
+	AgentVersionNotSupported = errors.ConstError("agent version not supported")
+
 	// AlreadyExists describes an error that occurs when a model already exists.
 	AlreadyExists = errors.ConstError("model already exists")
 

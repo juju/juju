@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/v3"
+	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/credential"
@@ -16,6 +17,9 @@ import (
 // ModelCreationArgs supplies the information required for instantiating a new
 // model.
 type ModelCreationArgs struct {
+	// AgentVersion is the target version for agents running under this model.
+	AgentVersion version.Number
+
 	// Cloud is the name of the cloud to associate with the model.
 	// Must not be empty for a valid struct.
 	Cloud string
@@ -34,6 +38,7 @@ type ModelCreationArgs struct {
 	Name string
 
 	// Owner is the uuid of the user that owns this model in the Juju controller.
+	// Must not be empty for a valid struct.
 	Owner user.UUID
 
 	// Type is the type of the model.

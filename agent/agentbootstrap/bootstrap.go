@@ -224,16 +224,17 @@ func (b *AgentBootstrap) Initialize(ctx stdcontext.Context) (_ *state.Controller
 	// and a function to insert it into the database.
 	adminUserUUID, addAdminUser := userbootstrap.AddUserWithPassword(b.adminUser.Name(), auth.NewPassword(info.Password))
 
-	controllerUUID := modeldomain.UUID(
+	controllerModelUUID := modeldomain.UUID(
 		stateParams.ControllerModelConfig.UUID(),
 	)
 	controllerModelArgs := modeldomain.ModelCreationArgs{
-		Name:        stateParams.ControllerModelConfig.Name(),
-		Owner:       adminUserUUID,
-		Cloud:       stateParams.ControllerCloud.Name,
-		CloudRegion: stateParams.ControllerCloudRegion,
-		Credential:  credential.IdFromTag(cloudCredTag),
-		Type:        controllerModelType,
+		AgentVersion: stateParams.AgentVersion,
+		Name:         stateParams.ControllerModelConfig.Name(),
+		Owner:        adminUserUUID,
+		Cloud:        stateParams.ControllerCloud.Name,
+		CloudRegion:  stateParams.ControllerCloudRegion,
+		Credential:   credential.IdFromTag(cloudCredTag),
+		Type:         controllerModelType,
 	}
 
 	controllerModelDefaults := modeldefaultsbootstrap.ModelDefaultsProvider(
@@ -250,9 +251,9 @@ func (b *AgentBootstrap) Initialize(ctx stdcontext.Context) (_ *state.Controller
 			credbootstrap.InsertCredential(credential.IdFromTag(cloudCredTag), cloudCred),
 			cloudbootstrap.SetCloudDefaults(stateParams.ControllerCloud.Name, stateParams.ControllerInheritedConfig),
 			addAdminUser,
-			modelbootstrap.CreateModel(controllerUUID, controllerModelArgs),
+			modelbootstrap.CreateModel(controllerModelUUID, controllerModelArgs),
 		),
-		database.BootstrapModelConcern(controllerUUID,
+		database.BootstrapModelConcern(controllerModelUUID,
 			modelconfigbootstrap.SetModelConfig(stateParams.ControllerModelConfig, controllerModelDefaults),
 		),
 	}
@@ -260,7 +261,7 @@ func (b *AgentBootstrap) Initialize(ctx stdcontext.Context) (_ *state.Controller
 	if !isCAAS {
 		// TODO(wallyworld) - this is just a placeholder for now
 		databaseBootstrapConcerns = append(databaseBootstrapConcerns,
-			database.BootstrapModelConcern(controllerUUID,
+			database.BootstrapModelConcern(controllerModelUUID,
 				machinebootstrap.InsertMachine(agent.BootstrapControllerId),
 			))
 	}

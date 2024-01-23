@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/credential"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type typesSuite struct {
@@ -55,10 +56,12 @@ func (s *typesSuite) TestModelCreationArgsValidation(c *gc.C) {
 	userUUID, err := user.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	tests := []struct {
-		Args    ModelCreationArgs
-		ErrTest error
+		TestName string
+		Args     ModelCreationArgs
+		ErrTest  error
 	}{
 		{
+			TestName: "test model creation args with zero value agent version fails",
 			Args: ModelCreationArgs{
 				Cloud:       "my-cloud",
 				CloudRegion: "my-region",
@@ -69,16 +72,19 @@ func (s *typesSuite) TestModelCreationArgsValidation(c *gc.C) {
 			ErrTest: errors.NotValid,
 		},
 		{
+			TestName: "test model creation args with empty name fails",
 			Args: ModelCreationArgs{
-				Cloud:       "my-cloud",
-				CloudRegion: "my-region",
-				Name:        "my-awesome-model",
-				Owner:       "",
-				Type:        TypeCAAS,
+				AgentVersion: jujuversion.Current,
+				Cloud:        "my-cloud",
+				CloudRegion:  "my-region",
+				Name:         "",
+				Owner:        "wallyworld-ipv6",
+				Type:         TypeCAAS,
 			},
 			ErrTest: errors.NotValid,
 		},
 		{
+			TestName: "test model creation args with empty owner fails",
 			Args: ModelCreationArgs{
 				Cloud:       "my-cloud",
 				CloudRegion: "my-region",
@@ -89,6 +95,7 @@ func (s *typesSuite) TestModelCreationArgsValidation(c *gc.C) {
 			ErrTest: errors.NotSupported,
 		},
 		{
+			TestName: "test model creation args with empty cloud fails",
 			Args: ModelCreationArgs{
 				Cloud:       "",
 				CloudRegion: "my-region",
@@ -99,6 +106,7 @@ func (s *typesSuite) TestModelCreationArgsValidation(c *gc.C) {
 			ErrTest: errors.NotValid,
 		},
 		{
+			TestName: "test model creation args with empty cloud region doesn't fail",
 			Args: ModelCreationArgs{
 				Cloud:       "my-cloud",
 				CloudRegion: "",
@@ -109,9 +117,11 @@ func (s *typesSuite) TestModelCreationArgsValidation(c *gc.C) {
 			ErrTest: nil,
 		},
 		{
+			TestName: "test model creation args with invalid credential fails",
 			Args: ModelCreationArgs{
-				Cloud:       "my-cloud",
-				CloudRegion: "my-region",
+				AgentVersion: jujuversion.Current,
+				Cloud:        "my-cloud",
+				CloudRegion:  "my-region",
 				Credential: credential.ID{
 					Owner: "wallyworld",
 				},
@@ -122,6 +132,7 @@ func (s *typesSuite) TestModelCreationArgsValidation(c *gc.C) {
 			ErrTest: errors.NotValid,
 		},
 		{
+			TestName: "test model creation args happy path 1",
 			Args: ModelCreationArgs{
 				Cloud:       "my-cloud",
 				CloudRegion: "my-region",
@@ -132,9 +143,11 @@ func (s *typesSuite) TestModelCreationArgsValidation(c *gc.C) {
 			ErrTest: nil,
 		},
 		{
+			TestName: "test model creation args happy path 2",
 			Args: ModelCreationArgs{
-				Cloud:       "my-cloud",
-				CloudRegion: "my-region",
+				AgentVersion: jujuversion.Current,
+				Cloud:        "my-cloud",
+				CloudRegion:  "my-region",
 				Credential: credential.ID{
 					Cloud: "cloud",
 					Owner: "wallyworld",
@@ -151,9 +164,9 @@ func (s *typesSuite) TestModelCreationArgsValidation(c *gc.C) {
 	for _, test := range tests {
 		err := test.Args.Validate()
 		if test.ErrTest == nil {
-			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(err, jc.ErrorIsNil, gc.Commentf(test.TestName))
 		} else {
-			c.Assert(err, jc.ErrorIs, test.ErrTest)
+			c.Assert(err, jc.ErrorIs, test.ErrTest, gc.Commentf(test.TestName))
 		}
 	}
 }

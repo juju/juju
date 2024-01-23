@@ -22,6 +22,7 @@ import (
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	usererrors "github.com/juju/juju/domain/user/errors"
 	userstate "github.com/juju/juju/domain/user/state"
+	"github.com/juju/juju/version"
 )
 
 type modelSuite struct {
@@ -89,8 +90,9 @@ func (m *modelSuite) SetUpTest(c *gc.C) {
 		context.Background(),
 		m.uuid,
 		model.ModelCreationArgs{
-			Cloud:       "my-cloud",
-			CloudRegion: "my-region",
+			AgentVersion: version.Current,
+			Cloud:        "my-cloud",
+			CloudRegion:  "my-region",
 			Credential: credential.ID{
 				Cloud: "my-cloud",
 				Owner: string(m.userUUID),
@@ -102,6 +104,35 @@ func (m *modelSuite) SetUpTest(c *gc.C) {
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+// TestCreateModelAgentWithNoModel is asserting that if we attempt to make a
+// model agent record where no model already exists that we get back a
+// [modelerrors.NotFound] error.
+func (m *modelSuite) TestCreateModelAgentWithNoModel(c *gc.C) {
+	runner, err := m.TxnRunnerFactory()()
+	c.Assert(err, jc.ErrorIsNil)
+
+	testUUID := modeltesting.GenModelUUID(c)
+	err = runner.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		return createModelAgent(context.Background(), testUUID, version.Current, tx)
+	})
+
+	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
+}
+
+// TestCreateModelAgentAlreadyExists is asserting that if we attempt to make a
+// model agent record when one already exists we get a
+// [modelerrors.AlreadyExists] back.
+func (m *modelSuite) TestCreateModelAgentAlreadyExists(c *gc.C) {
+	runner, err := m.TxnRunnerFactory()()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = runner.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		return createModelAgent(context.Background(), m.uuid, version.Current, tx)
+	})
+
+	c.Assert(err, jc.ErrorIs, modelerrors.AlreadyExists)
 }
 
 func (m *modelSuite) TestCreateModelMetadataWithNoModel(c *gc.C) {
