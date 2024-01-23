@@ -20,7 +20,8 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -package bootstrap -destination state_mock_test.go github.com/juju/juju/internal/worker/state StateTracker
 //go:generate go run go.uber.org/mock/mockgen -package bootstrap -destination objectstore_mock_test.go github.com/juju/juju/core/objectstore ObjectStore
 //go:generate go run go.uber.org/mock/mockgen -package bootstrap -destination lock_mock_test.go github.com/juju/juju/internal/worker/gate Unlocker
-//go:generate go run go.uber.org/mock/mockgen -package bootstrap -destination bootstrap_mock_test.go github.com/juju/juju/internal/worker/bootstrap ControllerConfigService,FlagService,ObjectStoreGetter,SystemState,HTTPClient
+//go:generate go run go.uber.org/mock/mockgen -package bootstrap -destination bootstrap_mock_test.go github.com/juju/juju/internal/worker/bootstrap ControllerConfigService,FlagService,ObjectStoreGetter,SystemState,HTTPClient,CredentialService,CloudService
+//go:generate go run go.uber.org/mock/mockgen -package bootstrap -destination deployer_mock_test.go github.com/juju/juju/internal/bootstrap Model
 
 func TestPackage(t *testing.T) {
 	defer goleak.VerifyNone(t)
@@ -41,8 +42,11 @@ type baseSuite struct {
 	objectStoreGetter       *MockObjectStoreGetter
 	bootstrapUnlocker       *MockUnlocker
 	controllerConfigService *MockControllerConfigService
+	cloudService            *MockCloudService
+	credentialService       *MockCredentialService
 	flagService             *MockFlagService
 	httpClient              *MockHTTPClient
+	stateModel              *MockModel
 
 	logger        Logger
 	loggerFactory LoggerFactory
@@ -61,8 +65,11 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.objectStoreGetter = NewMockObjectStoreGetter(ctrl)
 	s.bootstrapUnlocker = NewMockUnlocker(ctrl)
 	s.controllerConfigService = NewMockControllerConfigService(ctrl)
+	s.cloudService = NewMockCloudService(ctrl)
+	s.credentialService = NewMockCredentialService(ctrl)
 	s.flagService = NewMockFlagService(ctrl)
 	s.httpClient = NewMockHTTPClient(ctrl)
+	s.stateModel = NewMockModel(ctrl)
 
 	s.logger = jujujujutesting.NewCheckLogger(c)
 	s.loggerFactory = loggerFactory{

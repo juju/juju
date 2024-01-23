@@ -12,9 +12,15 @@ import (
 	"github.com/juju/worker/v4/dependency"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/flags"
+	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/domain/credential"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/bootstrap"
 	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/internal/worker/common"
@@ -44,6 +50,18 @@ type Logger interface {
 // controller configuration.
 type ControllerConfigService interface {
 	ControllerConfig(context.Context) (controller.Config, error)
+}
+
+// CredentialService is the interface that is used to get the
+// cloud credential.
+type CredentialService interface {
+	CloudCredential(ctx context.Context, id credential.ID) (cloud.Credential, error)
+}
+
+// CloudService is the interface that is used to interact with the
+// cloud.
+type CloudService interface {
+	Get(context.Context, string) (*cloud.Cloud, error)
 }
 
 // FlagService is the interface that is used to set the value of a
@@ -80,6 +98,33 @@ type HTTPClient interface {
 	Do(*http.Request) (*http.Response, error)
 }
 
+// BootstrapAddress attempts to use the provided Environ to get the list of
+// instances and its addresses. If the Environ does not implement
+// InstanceListener (this is the case of CAAS for the moment), then we
+// return the hard-coded 'localhost' address.
+func BootstrapAddresses(
+	ctx context.Context,
+	env environs.Environ,
+	bootstrapInstanceID instance.Id,
+) (network.ProviderAddresses, error) {
+	callCtx := envcontext.WithoutCredentialInvalidator(ctx)
+	instanceLister, ok := env.(environs.InstanceLister)
+	if !ok {
+		return nil, errors.NotSupportedf("bootstrap address not supported on this environ")
+
+	}
+	// TODO(nvinuesa): which instanceID to use?
+	instances, err := instanceLister.Instances(callCtx, []instance.Id{bootstrapInstanceID})
+	if err != nil {
+		return nil, errors.Annotate(err, "getting bootstrap instance")
+	}
+	addrs, err := instances[0].Addresses(callCtx)
+	if err != nil {
+		return nil, errors.Annotate(err, "getting bootstrap instance addresses")
+	}
+	return addrs, nil
+}
+
 // ManifoldConfig defines the configuration for the trace manifold.
 type ManifoldConfig struct {
 	AgentName              string
@@ -94,7 +139,11 @@ type ManifoldConfig struct {
 	ControllerUnitPassword  ControllerUnitPasswordFunc
 	RequiresBootstrap       RequiresBootstrapFunc
 	PopulateControllerCharm PopulateControllerCharmFunc
-	LoggerFactory           LoggerFactory
+
+	NewEnvironFunc         func(context.Context, environs.OpenParams) (environs.Environ, error)
+	BootstrapAddressesFunc func(context.Context, environs.Environ, instance.Id) (network.ProviderAddresses, error)
+
+	LoggerFactory LoggerFactory
 }
 
 // Validate validates the manifold configuration.
@@ -134,6 +183,12 @@ func (cfg ManifoldConfig) Validate() error {
 	}
 	if cfg.PopulateControllerCharm == nil {
 		return errors.NotValidf("nil PopulateControllerCharm")
+	}
+	if cfg.NewEnvironFunc == nil {
+		return errors.NotValidf("nil NewEnvironsFunc")
+	}
+	if cfg.BootstrapAddressesFunc == nil {
+		return errors.NotValidf("nil BootstrapAddressesFunc")
 	}
 	return nil
 }
@@ -218,6 +273,8 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				Agent:                   a,
 				ObjectStoreGetter:       objectStoreGetter,
 				ControllerConfigService: controllerServiceFactory.ControllerConfig(),
+				CredentialService:       controllerServiceFactory.Credential(),
+				CloudService:            controllerServiceFactory.Cloud(),
 				FlagService:             flagService,
 				SystemState:             &stateShim{State: systemState},
 				BootstrapUnlocker:       bootstrapUnlocker,
@@ -227,6 +284,8 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				CharmhubHTTPClient:      charmhubHTTPClient,
 				UnitPassword:            unitPassword,
 				LoggerFactory:           config.LoggerFactory,
+				NewEnvironFunc:          config.NewEnvironFunc,
+				BootstrapAddressesFunc:  config.BootstrapAddressesFunc,
 			})
 			if err != nil {
 				_ = stTracker.Done()

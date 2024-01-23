@@ -916,6 +916,49 @@ func (m *MockModel) EXPECT() *MockModelMockRecorder {
 	return m.recorder
 }
 
+// CloudCredentialTag mocks base method.
+func (m *MockModel) CloudCredentialTag() (names.CloudCredentialTag, bool) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CloudCredentialTag")
+	ret0, _ := ret[0].(names.CloudCredentialTag)
+	ret1, _ := ret[1].(bool)
+	return ret0, ret1
+}
+
+// CloudCredentialTag indicates an expected call of CloudCredentialTag.
+func (mr *MockModelMockRecorder) CloudCredentialTag() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CloudCredentialTag", reflect.TypeOf((*MockModel)(nil).CloudCredentialTag))
+}
+
+// CloudName mocks base method.
+func (m *MockModel) CloudName() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CloudName")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// CloudName indicates an expected call of CloudName.
+func (mr *MockModelMockRecorder) CloudName() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CloudName", reflect.TypeOf((*MockModel)(nil).CloudName))
+}
+
+// CloudRegion mocks base method.
+func (m *MockModel) CloudRegion() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CloudRegion")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// CloudRegion indicates an expected call of CloudRegion.
+func (mr *MockModelMockRecorder) CloudRegion() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CloudRegion", reflect.TypeOf((*MockModel)(nil).CloudRegion))
+}
+
 // Config mocks base method.
 func (m *MockModel) Config() (*config.Config, error) {
 	m.ctrl.T.Helper()

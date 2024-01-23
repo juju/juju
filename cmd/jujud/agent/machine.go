@@ -660,7 +660,6 @@ func (a *MachineAgent) makeEngineCreator(
 			RegisterIntrospectionHTTPHandlers: registerIntrospectionHandlers,
 			NewModelWorker:                    a.startModelWorkers,
 			MuxShutdownWait:                   1 * time.Minute,
-			NewContainerBrokerFunc:            newCAASBroker,
 			NewBrokerFunc:                     newBroker,
 			IsCaasConfig:                      a.isCaasAgent,
 			UnitEngineConfig: func() dependency.EngineConfig {
@@ -673,6 +672,7 @@ func (a *MachineAgent) makeEngineCreator(
 			DependencyEngineMetrics: metrics,
 			CharmhubHTTPClient:      charmhubHTTPClient,
 			S3HTTPClient:            s3HTTPClient,
+			NewEnvironFunc:          newEnvirons,
 		}
 		manifolds := iaasMachineManifolds(manifoldsCfg)
 		if a.isCaasAgent {
