@@ -79,6 +79,7 @@ func (s *schemaSuite) TestControllerDDLApply(c *gc.C) {
 
 		// Model migration
 		"model_migration",
+		"model_agent",
 		"model_migration_status",
 		"model_migration_user",
 		"model_migration_minion_sync",
