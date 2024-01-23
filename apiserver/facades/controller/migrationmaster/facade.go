@@ -29,6 +29,10 @@ import (
 
 // ModelExporter exports a model to a description.Model.
 type ModelExporter interface {
+	// ExportModel exports a model to a description.Model.
+	// It requires a known set of leaders to be passed in, so that applications
+	// can have their leader set correctly once imported.
+	// The objectstore is used to retrieve charms and resources for export.
 	ExportModel(context.Context, map[string]string, objectstore.ObjectStore) (description.Model, error)
 }
 

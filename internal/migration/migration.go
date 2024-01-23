@@ -49,6 +49,9 @@ type ModelExporter struct {
 	scope modelmigration.Scope
 }
 
+// NewModelExporter returns a new ModelExporter that encapsulates the
+// legacyStateExporter. The legacyStateExporter is being deprecated, only
+// needed until the migration to dqlite is complete.
 func NewModelExporter(legacyStateExporter LegacyStateExporter, scope modelmigration.Scope) *ModelExporter {
 	return &ModelExporter{legacyStateExporter: legacyStateExporter, scope: scope}
 }
@@ -76,7 +79,7 @@ func (e *ModelExporter) ExportModel(ctx context.Context, leaders map[string]stri
 	return e.Export(ctx, model)
 }
 
-// Export serializes a model description from the dataase contents.
+// Export serializes a model description from the database contents.
 func (e *ModelExporter) Export(ctx context.Context, model description.Model) (description.Model, error) {
 	coordinator := modelmigration.NewCoordinator()
 	migrations.ExportOperations(coordinator)
@@ -104,7 +107,9 @@ type ModelImporter struct {
 	scope modelmigration.Scope
 }
 
-// NewModelImporter returns a new ModelImporter.
+// NewModelImporter returns a new ModelImporter that encapsulates the
+// legacyStateImporter. The legacyStateImporter is being deprecated, only
+// needed until the migration to dqlite is complete.
 func NewModelImporter(
 	stateImporter legacyStateImporter,
 	scope modelmigration.Scope,
