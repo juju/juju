@@ -28,9 +28,9 @@ type ID struct {
 	Name string
 }
 
-// ParseID converts the names.Tag into an ID for different names.Kinds of entities,
+// ConvertTagToID converts the names.Tag into an ID for different names.Kinds of entities,
 // registering them as annotations.Kinds of entities.
-func ParseID(n names.Tag) (ID, error) {
+func ConvertTagToID(n names.Tag) (ID, error) {
 	switch n.Kind() {
 	case names.CharmTagKind:
 		return ID{
@@ -68,7 +68,7 @@ func ParseID(n names.Tag) (ID, error) {
 }
 
 func (i ID) String() string {
-	return fmt.Sprintf("%v/%v", i.Kind, i.Name)
+	return fmt.Sprintf("%d/%s", i.Kind, i.Name)
 }
 
 // Annotation extends k8s annotation map.

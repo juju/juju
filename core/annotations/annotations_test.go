@@ -150,13 +150,13 @@ func (s *annotationsSuite) TestCheckKeysNonEmpty(c *gc.C) {
 	c.Assert(s.annotations.CheckKeysNonEmpty("key1", "key2"), jc.ErrorIs, errors.NotValid)
 }
 
-func (s *annotationsSuite) TestParseID(c *gc.C) {
-	// ParseID happy path
-	id, err := jujuannotations.ParseID(names.NewUnitTag("unit/0"))
+func (s *annotationsSuite) TestConvertTagToID(c *gc.C) {
+	// ConvertTagToID happy path
+	id, err := jujuannotations.ConvertTagToID(names.NewUnitTag("unit/0"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(id, jc.DeepEquals, jujuannotations.ID{jujuannotations.KindUnit, "unit/0"})
 
-	// ParseID unknown kind
-	_, err = jujuannotations.ParseID(names.NewEnvironTag("env/0"))
+	// ConvertTagToID unknown kind
+	_, err = jujuannotations.ConvertTagToID(names.NewEnvironTag("env/0"))
 	c.Assert(err, jc.DeepEquals, fmt.Errorf("unknown kind %q", names.EnvironTagKind))
 }
