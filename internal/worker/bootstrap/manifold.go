@@ -64,6 +64,14 @@ type CloudService interface {
 	Get(context.Context, string) (*cloud.Cloud, error)
 }
 
+// SpaceService is the interface that is used to interact with the
+// network spaces.
+type SpaceService interface {
+	Space(ctx context.Context, uuid string) (*network.SpaceInfo, error)
+	SpaceByName(ctx context.Context, name string) (*network.SpaceInfo, error)
+	FilterHostPortsForManagementSpace(ctx context.Context, controllerConfig controller.Config, apiHostPorts []network.SpaceHostPorts) ([]network.SpaceHostPorts, error)
+}
+
 // FlagService is the interface that is used to set the value of a
 // flag.
 type FlagService interface {
@@ -239,6 +247,11 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 
+			var serviceFactoryGetter servicefactory.ServiceFactoryGetter
+			if err := getter.Get(config.ServiceFactoryName, &serviceFactoryGetter); err != nil {
+				return nil, errors.Trace(err)
+			}
+
 			// If the controller application exists, then we don't need to
 			// bootstrap. Uninstall the worker, as we don't need it running
 			// anymore.
@@ -291,6 +304,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				CredentialService:       controllerServiceFactory.Credential(),
 				CloudService:            controllerServiceFactory.Cloud(),
 				FlagService:             flagService,
+				SpaceService:            serviceFactoryGetter.FactoryForModel(systemState.ModelUUID()).Space(),
 				SystemState:             &stateShim{State: systemState},
 				BootstrapUnlocker:       bootstrapUnlocker,
 				AgentBinaryUploader:     config.AgentBinaryUploader,

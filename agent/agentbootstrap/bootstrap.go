@@ -17,9 +17,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/caas"
-	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/controller/modelmanager"
 	coreagent "github.com/juju/juju/core/agent"
 	corebase "github.com/juju/juju/core/base"
@@ -346,16 +344,6 @@ func (b *AgentBootstrap) Initialize(ctx stdcontext.Context) (_ *state.Controller
 		return nil, errors.Trace(err)
 	}
 
-	// Convert the provider addresses that we got from the bootstrap instance
-	// to space ID decorated addresses.
-	if err = b.initAPIHostPorts(
-		st,
-		stateParams.ControllerConfig,
-		filteredBootstrapMachineAddresses,
-		servingInfo.APIPort,
-	); err != nil {
-		return nil, errors.Trace(err)
-	}
 	if err := st.SetStateServingInfo(servingInfo); err != nil {
 		return nil, errors.Errorf("cannot set state serving info: %v", err)
 	}
@@ -379,9 +367,6 @@ func (b *AgentBootstrap) Initialize(ctx stdcontext.Context) (_ *state.Controller
 	if isCAAS {
 		if controllerNode, err = b.initBootstrapNode(st); err != nil {
 			return nil, errors.Annotate(err, "cannot initialize bootstrap controller")
-		}
-		if err := b.initControllerCloudService(ctx, cloudSpec, provider, st); err != nil {
-			return nil, errors.Annotate(err, "cannot initialize cloud service")
 		}
 	} else {
 		if controllerNode, err = b.initBootstrapMachine(st, filteredBootstrapMachineAddresses); err != nil {
@@ -608,17 +593,11 @@ func (b *AgentBootstrap) initBootstrapMachine(
 		return nil, errors.Trace(err)
 	}
 
-	spaceAddrs, err := bootstrapMachineAddresses.ToSpaceAddresses(st)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	base, err := corebase.GetBaseFromSeries(hostSeries)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	m, err := st.AddOneMachine(state.MachineTemplate{
-		Addresses:               spaceAddrs,
 		Base:                    state.Base{OS: base.OS, Channel: base.Channel.String()},
 		Nonce:                   agent.BootstrapNonce,
 		Constraints:             stateParams.BootstrapMachineConstraints,
@@ -644,60 +623,6 @@ func (b *AgentBootstrap) initBootstrapNode(
 		return nil, errors.Annotate(err, "cannot create bootstrap controller in state")
 	}
 	return node, nil
-}
-
-// initControllerCloudService creates cloud service for controller service.
-func (b *AgentBootstrap) initControllerCloudService(
-	ctx stdcontext.Context,
-	cloudSpec environscloudspec.CloudSpec,
-	provider environs.EnvironProvider,
-	st *state.State,
-) error {
-	stateParams := b.stateInitializationParams
-	controllerUUID := stateParams.ControllerConfig.ControllerUUID()
-	env, err := b.getEnviron(ctx, controllerUUID, cloudSpec, stateParams.ControllerModelConfig, provider)
-	if err != nil {
-		return errors.Annotate(err, "getting environ")
-	}
-
-	broker, ok := env.(caas.ServiceManager)
-	if !ok {
-		// this should never happen.
-		return errors.Errorf("environ %T does not implement ServiceManager interface", env)
-	}
-	svc, err := broker.GetService(ctx, k8sconstants.JujuControllerStackName, true)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	if len(svc.Addresses) == 0 {
-		// this should never happen because we have already checked in k8s controller bootstrap stacker.
-		return errors.NotProvisionedf("k8s controller service %q address", svc.Id)
-	}
-	addrs, err := svc.Addresses.ToSpaceAddresses(st)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	svcId := controllerUUID
-	b.logger.Infof("creating cloud service for k8s controller %q", svcId)
-	cloudSvc, err := st.SaveCloudService(state.SaveCloudServiceArgs{
-		Id:         svcId,
-		ProviderId: svc.Id,
-		Addresses:  addrs,
-	})
-	b.logger.Debugf("created cloud service %v for controller", cloudSvc)
-	return errors.Trace(err)
-}
-
-// initAPIHostPorts sets the initial API host/port addresses in state.
-func (b *AgentBootstrap) initAPIHostPorts(st *state.State, controllerConfig controller.Config, pAddrs corenetwork.ProviderAddresses, apiPort int) error {
-	addrs, err := pAddrs.ToSpaceAddresses(st)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	hostPorts := corenetwork.SpaceAddressesWithPort(addrs, apiPort)
-	return st.SetAPIHostPorts(controllerConfig, []corenetwork.SpaceHostPorts{hostPorts})
 }
 
 // machineJobFromParams returns the job corresponding to model.MachineJob.

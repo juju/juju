@@ -18,10 +18,12 @@ import (
 	modelconfigservice "github.com/juju/juju/domain/modelconfig/service"
 	modeldefaultsservice "github.com/juju/juju/domain/modeldefaults/service"
 	modelmanagerservice "github.com/juju/juju/domain/modelmanager/service"
+	networkservice "github.com/juju/juju/domain/network/service"
 	objectstoreservice "github.com/juju/juju/domain/objectstore/service"
 	unitservice "github.com/juju/juju/domain/unit/service"
 	upgradeservice "github.com/juju/juju/domain/upgrade/service"
 	userservice "github.com/juju/juju/domain/user/service"
+	"github.com/juju/juju/internal/servicefactory"
 )
 
 // TestingServiceFactory provides access to the services required by the apiserver.
@@ -116,6 +118,17 @@ func (s *TestingServiceFactory) Machine() *machineservice.Service {
 		return nil
 	}
 	return s.machineServiceGetter()
+}
+
+// Space returns the space service.
+func (s *TestingServiceFactory) Space() *networkservice.SpaceService {
+	return nil
+}
+
+// FactoryForModel returns a service factory for the given model uuid.
+// This will late bind the model service factory to the actual service factory.
+func (s *TestingServiceFactory) FactoryForModel(modelUUID string) servicefactory.ServiceFactory {
+	return s
 }
 
 // WithMachineService returns a service factory which gets its machine service

@@ -359,7 +359,7 @@ func (s *deployerSuite) TestConnectionInfo(c *gc.C) {
 	hostPorts := network.NewSpaceHostPorts(1234, "0.1.2.3", "1.2.3.4")
 	hostPorts[1].Scope = network.ScopeCloudLocal
 
-	err = st.SetAPIHostPorts(controllerConfig, []network.SpaceHostPorts{hostPorts})
+	err = st.SetAPIHostPorts(controllerConfig, []network.SpaceHostPorts{hostPorts}, []network.SpaceHostPorts{hostPorts})
 	c.Assert(err, jc.ErrorIsNil)
 
 	expected := params.DeployerConnectionValues{

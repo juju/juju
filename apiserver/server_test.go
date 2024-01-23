@@ -100,7 +100,7 @@ func (s *serverSuite) TestAPIServerCanListenOnBothIPv4AndIPv6(c *gc.C) {
 
 	st := s.ControllerModel(c).State()
 
-	err = st.SetAPIHostPorts(controllerConfig, nil)
+	err = st.SetAPIHostPorts(controllerConfig, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())

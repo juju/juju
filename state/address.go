@@ -38,7 +38,11 @@ type apiHostPortsDoc struct {
 //     to the controller management space configuration.
 //
 // Each server is represented by one element in the top level slice.
-func (st *State) SetAPIHostPorts(controllerConfig controller.Config, newHostPorts []network.SpaceHostPorts) error {
+func (st *State) SetAPIHostPorts(
+	controllerConfig controller.Config,
+	newHostPorts []network.SpaceHostPorts,
+	newHostPortsForAgents []network.SpaceHostPorts,
+) error {
 	controllers, closer := st.db().GetCollection(controllersC)
 	defer closer()
 
@@ -48,10 +52,6 @@ func (st *State) SetAPIHostPorts(controllerConfig controller.Config, newHostPort
 			return nil, errors.Trace(err)
 		}
 
-		newHostPortsForAgents, err := st.filterHostPortsForManagementSpace(controllerConfig, newHostPorts)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
 		agentAddrOps, err := st.getOpsForHostPortsChange(controllers, apiHostPortsForAgentsKey, newHostPortsForAgents)
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -109,41 +109,6 @@ func (st *State) getOpsForHostPortsChange(
 		logger.Debugf("setting %s: %v", key, newHostPorts)
 	}
 	return ops, nil
-}
-
-// filterHostPortsForManagementSpace filters the collection of API addresses
-// based on the configured management space for the controller.
-// If there is no space configured, or if one of the slices is filtered down
-// to zero elements, just use the unfiltered slice for safety - we do not
-// want to cut off communication to the controller based on erroneous config.
-func (st *State) filterHostPortsForManagementSpace(
-	controllerConfig controller.Config,
-	apiHostPorts []network.SpaceHostPorts,
-) ([]network.SpaceHostPorts, error) {
-	var hostPortsForAgents []network.SpaceHostPorts
-	if mgmtSpace := controllerConfig.JujuManagementSpace(); mgmtSpace != "" {
-		sp, err := st.SpaceByName(mgmtSpace)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		spaceInfo, err := sp.NetworkSpace()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-
-		hostPortsForAgents = make([]network.SpaceHostPorts, len(apiHostPorts))
-		for i := range apiHostPorts {
-			if filtered, ok := apiHostPorts[i].InSpaces(spaceInfo); ok {
-				hostPortsForAgents[i] = filtered
-			} else {
-				hostPortsForAgents[i] = apiHostPorts[i]
-			}
-		}
-	} else {
-		hostPortsForAgents = apiHostPorts
-	}
-
-	return hostPortsForAgents, nil
 }
 
 // APIHostPortsForClients returns the collection of *all* known API addresses.

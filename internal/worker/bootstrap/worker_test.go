@@ -17,6 +17,7 @@ import (
 	gomock "go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cloud"
 	controller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/flags"
@@ -49,6 +50,10 @@ func (s *workerSuite) TestKilled(c *gc.C) {
 	s.expectAgentConfig(c)
 	s.expectObjectStoreGetter(2)
 	s.expectBootstrapFlagSet()
+	s.expectGetEnviron()
+	s.expectFilterHostPortsForManagementSpace()
+	s.expectSetAPIHostPorts()
+	s.expectStaateServingInfo()
 
 	w := s.newWorker(c)
 	defer workertest.DirtyKill(c, w)
@@ -104,6 +109,7 @@ func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
 		ControllerConfigService: s.controllerConfigService,
 		CredentialService:       s.credentialService,
 		CloudService:            s.cloudService,
+		SpaceService:            s.spaceService,
 		FlagService:             s.flagService,
 		PopulateControllerCharm: func(context.Context, bootstrap.ControllerCharmDeployer) error {
 			return nil
@@ -154,7 +160,33 @@ func (s *workerSuite) ensureState(c *gc.C, st string) {
 }
 
 func (s *workerSuite) expectControllerConfig() {
-	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(controller.Config{}, nil)
+	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).
+		Return(controller.Config{
+			controller.ControllerUUIDKey: "test-uuid",
+		}, nil)
+}
+
+func (s *workerSuite) expectStaateServingInfo() {
+	s.agentConfig.EXPECT().StateServingInfo().Return(controller.StateServingInfo{
+		APIPort: 42,
+	}, true)
+}
+
+func (s *workerSuite) expectGetEnviron() {
+	s.state.EXPECT().Model().Return(s.stateModel, nil).AnyTimes()
+	s.stateModel.EXPECT().CloudCredentialTag().AnyTimes()
+	s.stateModel.EXPECT().CloudName().Return("cloud-name").AnyTimes()
+	s.stateModel.EXPECT().CloudRegion().Return("cloud-region").AnyTimes()
+	s.stateModel.EXPECT().Config().Return(&config.Config{}, nil).AnyTimes()
+	cloud := cloud.Cloud{
+		Regions: []cloud.Region{
+			{
+				Name: "cloud-region",
+			},
+		},
+	}
+	s.cloudService.EXPECT().Get(gomock.Any(), "cloud-name").Return(&cloud, nil).AnyTimes()
+	s.state.EXPECT().ControllerModelUUID().AnyTimes()
 }
 
 func (s *workerSuite) expectObjectStoreGetter(num int) {
@@ -164,6 +196,18 @@ func (s *workerSuite) expectObjectStoreGetter(num int) {
 
 func (s *workerSuite) expectBootstrapFlagSet() {
 	s.flagService.EXPECT().SetFlag(gomock.Any(), flags.BootstrapFlag, true, flags.BootstrapFlagDescription).Return(nil)
+}
+
+func (s *workerSuite) expectFilterHostPortsForManagementSpace() {
+	s.spaceService.EXPECT().FilterHostPortsForManagementSpace(gomock.Any(), controller.Config{
+		controller.ControllerUUIDKey: "test-uuid",
+	}, gomock.Any())
+}
+
+func (s *workerSuite) expectSetAPIHostPorts() {
+	s.state.EXPECT().SetAPIHostPorts(controller.Config{
+		controller.ControllerUUIDKey: "test-uuid",
+	}, gomock.Any(), gomock.Any())
 }
 
 func (s *workerSuite) ensureBootstrapParams(c *gc.C) {

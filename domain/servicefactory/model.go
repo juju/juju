@@ -14,6 +14,8 @@ import (
 	machinestate "github.com/juju/juju/domain/machine/state"
 	modelconfigservice "github.com/juju/juju/domain/modelconfig/service"
 	modelconfigstate "github.com/juju/juju/domain/modelconfig/state"
+	networkservice "github.com/juju/juju/domain/network/service"
+	networkstate "github.com/juju/juju/domain/network/state"
 	objectstoreservice "github.com/juju/juju/domain/objectstore/service"
 	objectstorestate "github.com/juju/juju/domain/objectstore/state"
 	unitservice "github.com/juju/juju/domain/unit/service"
@@ -93,5 +95,13 @@ func (s *ModelFactory) Unit() *unitservice.Service {
 		unitstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB),
 			s.logger.Child("unit"),
 		),
+	)
+}
+
+// Space returns the model's space service.
+func (s *ModelFactory) Space() *networkservice.SpaceService {
+	return networkservice.NewSpaceService(
+		networkstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
+		s.logger.Child("space"),
 	)
 }

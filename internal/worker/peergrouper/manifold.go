@@ -107,7 +107,6 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 	w, err := config.NewWorker(Config{
 		State:                StateShim{st},
 		MongoSession:         MongoSessionShim{mongoSession},
-		APIHostPortsSetter:   &CachingAPIHostPortsSetter{APIHostPortsSetter: st},
 		Clock:                clock,
 		Hub:                  config.Hub,
 		MongoPort:            controllerConfig.StatePort(),

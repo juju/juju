@@ -116,12 +116,6 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 		"10.0.4.4", // lxd bridge address filtered.
 		"10.0.4.5", // not a lxd bridge address
 	}).AsProviderAddresses()
-	filteredAddrs := corenetwork.NewSpaceAddresses(
-		"zeroonetwothree",
-		"0.1.2.3",
-		"10.0.3.3",
-		"10.0.4.5",
-	)
 
 	modelAttrs := testing.FakeConfig().Merge(testing.Attrs{
 		"agent-version":  jujuversion.Current.String(),
@@ -289,7 +283,6 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.Base().String(), gc.Equals, base.String())
 	c.Assert(m.CheckProvisioned(agent.BootstrapNonce), jc.IsTrue)
-	c.Assert(m.Addresses(), jc.DeepEquals, filteredAddrs)
 	gotBootstrapConstraints, err := m.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotBootstrapConstraints, gc.DeepEquals, expectBootstrapConstraints)
@@ -297,13 +290,6 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	gotHW, err := m.HardwareCharacteristics()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(*gotHW, gc.DeepEquals, expectHW)
-
-	// Check that the API host ports are initialised correctly.
-	apiHostPorts, err := st.APIHostPortsForClients(controllerCfg)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(apiHostPorts, jc.DeepEquals, []corenetwork.SpaceHostPorts{
-		corenetwork.SpaceAddressesWithPort(filteredAddrs, 1234),
-	})
 
 	// Check that the state serving info is initialised correctly.
 	stateServingInfo, err := st.StateServingInfo()

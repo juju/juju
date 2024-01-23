@@ -117,11 +117,8 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 	c.Assert(config.ControllerId(), gc.Equals, "10")
 	config.ControllerId = nil
 	c.Assert(config, jc.DeepEquals, peergrouper.Config{
-		State:        peergrouper.StateShim{State: s.State},
-		MongoSession: peergrouper.MongoSessionShim{Session: s.State.MongoSession()},
-		APIHostPortsSetter: &peergrouper.CachingAPIHostPortsSetter{
-			APIHostPortsSetter: s.State,
-		},
+		State:                peergrouper.StateShim{State: s.State},
+		MongoSession:         peergrouper.MongoSessionShim{Session: s.State.MongoSession()},
 		Clock:                s.clock,
 		Hub:                  s.hub,
 		MongoPort:            1234,
