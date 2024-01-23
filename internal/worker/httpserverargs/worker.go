@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/apiserver/authentication/macaroon"
 	"github.com/juju/juju/controller"
+	coreuser "github.com/juju/juju/core/user"
 	"github.com/juju/juju/state"
 )
 
@@ -163,9 +164,9 @@ func newManagedUserService(userService UserService) *managedUserService {
 	return w
 }
 
-// GetUserWithAuth is part of the UserService interface.
-func (b *managedUserService) GetUserWithAuth(ctx context.Context, username, password string) (*state.User, error) {
-	return b.userService.GetUserWithAuth(b.tomb.Context(ctx), username, password)
+// GetUserByAuth is part of the UserService interface.
+func (b *managedUserService) GetUserByAuth(ctx context.Context, username, password string) (coreuser.User, error) {
+	return b.userService.GetUserByAuth(b.tomb.Context(ctx), username, password)
 }
 
 // Kill is part of the worker.Worker interface.

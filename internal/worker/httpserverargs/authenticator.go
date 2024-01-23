@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/apiserver/authentication/macaroon"
 	"github.com/juju/juju/apiserver/stateauthenticator"
 	"github.com/juju/juju/controller"
+	coreuser "github.com/juju/juju/core/user"
 	"github.com/juju/juju/state"
 )
 
@@ -24,7 +25,7 @@ type ControllerConfigGetter interface {
 
 // UserService is used to operate with Users from the database.
 type UserService interface {
-	GetUserWithAuth(ctx context.Context, username, password string) (*state.User, error)
+	GetUserByAuth(ctx context.Context, name string, password string) (coreuser.User, error)
 }
 
 // NewStateAuthenticatorFunc is a function type satisfied by

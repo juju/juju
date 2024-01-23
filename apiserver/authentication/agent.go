@@ -5,11 +5,11 @@ package authentication
 
 import (
 	"context"
-
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	coreuser "github.com/juju/juju/core/user"
 	"github.com/juju/juju/state"
 )
 
@@ -20,7 +20,7 @@ type AgentAuthenticator struct {
 
 // UserService is used to operate with Users from the database.
 type UserService interface {
-	GetUserWithAuth(ctx context.Context, username, password string) (*state.User, error)
+	GetUserByAuth(ctx context.Context, name string, password string) (coreuser.User, error)
 }
 
 var _ EntityAuthenticator = (*AgentAuthenticator)(nil)
@@ -30,16 +30,27 @@ type taggedAuthenticator interface {
 	state.Authenticator
 }
 
+type userEntity struct {
+	tag names.UserTag
+}
+
+func (u *userEntity) Tag() names.Tag {
+	return u.tag
+}
+
 // Authenticate authenticates the provided entity.
 // It takes an entityfinder and the tag used to find the entity that requires authentication.
 func (a *AgentAuthenticator) Authenticate(ctx context.Context, entityFinder EntityFinder, authParams AuthParams) (state.Entity, error) {
 	switch authParams.AuthTag.Kind() {
 	case names.UserTagKind:
-		user, err := a.UserService.GetUserWithAuth(ctx, authParams.AuthTag.Id(), authParams.Credentials)
+		user, err := a.UserService.GetUserByAuth(ctx, authParams.AuthTag.Id(), authParams.Credentials)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		return user, nil
+		if !names.IsValidUser(user.Name) {
+			return nil, errors.Trace(apiservererrors.ErrBadCreds)
+		}
+		return &userEntity{tag: names.NewUserTag(user.Name)}, nil
 	default:
 		return a.legacy(ctx, entityFinder, authParams)
 	}

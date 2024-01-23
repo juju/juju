@@ -8,6 +8,7 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/authentication"
@@ -25,11 +26,17 @@ type agentAuthenticatorSuite struct {
 	user            *state.User
 	unit            *state.Unit
 	relation        *state.Relation
+	userService     *MockUserService
 }
 
 var _ = gc.Suite(&agentAuthenticatorSuite{})
 
 func (s *agentAuthenticatorSuite) SetUpTest(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	s.userService = NewMockUserService(ctrl)
+
 	s.ApiServerSuite.SetUpTest(c)
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
@@ -107,8 +114,14 @@ func (s *agentAuthenticatorSuite) TestValidLogins(c *gc.C) {
 
 	st := s.ControllerModel(c).State()
 	for i, t := range testCases {
+		s.userService.EXPECT().GetUserByAuth(gomock.Any(), gomock.Any(), gomock.Any()).Return(s.user, nil)
+
 		c.Logf("test %d: %s", i, t.about)
-		var authenticator authentication.AgentAuthenticator
+		authenticator := &authentication.LocalUserAuthenticator{
+			AgentAuthenticator: authentication.AgentAuthenticator{
+				UserService: s.userService,
+			},
+		}
 		entity, err := authenticator.Authenticate(context.Background(), st, authentication.AuthParams{
 			AuthTag:     t.entity.Tag(),
 			Credentials: t.credentials,
@@ -145,8 +158,14 @@ func (s *agentAuthenticatorSuite) TestInvalidLogins(c *gc.C) {
 
 	st := s.ControllerModel(c).State()
 	for i, t := range testCases {
+		s.userService.EXPECT().GetUserByAuth(gomock.Any(), gomock.Any(), gomock.Any()).Return(s.user, nil)
+
 		c.Logf("test %d: %s", i, t.about)
-		var authenticator authentication.AgentAuthenticator
+		authenticator := &authentication.LocalUserAuthenticator{
+			AgentAuthenticator: authentication.AgentAuthenticator{
+				UserService: s.userService,
+			},
+		}
 		entity, err := authenticator.Authenticate(context.Background(), st, authentication.AuthParams{
 			AuthTag:     t.entity.Tag(),
 			Credentials: t.credentials,

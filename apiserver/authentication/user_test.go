@@ -5,6 +5,7 @@ package authentication_test
 
 import (
 	"context"
+	coreuser "github.com/juju/juju/core/user"
 	"time"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
@@ -18,6 +19,7 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
 
@@ -30,9 +32,19 @@ import (
 
 type userAuthenticatorSuite struct {
 	jujutesting.ApiServerSuite
+	userService *MockUserService
 }
 
 var _ = gc.Suite(&userAuthenticatorSuite{})
+
+func (s *userAuthenticatorSuite) SetUpTest(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	s.userService = NewMockUserService(ctrl)
+
+	s.ApiServerSuite.SetUpTest(c)
+}
 
 func (s *userAuthenticatorSuite) TestMachineLoginFails(c *gc.C) {
 	// add machine for testing machine agent authentication
@@ -85,6 +97,11 @@ func (s *userAuthenticatorSuite) TestUnitLoginFails(c *gc.C) {
 }
 
 func (s *userAuthenticatorSuite) TestValidUserLogin(c *gc.C) {
+	s.userService.EXPECT().GetUserByAuth(gomock.Any(), gomock.Any(), gomock.Any()).Return(coreuser.User{
+		Name:        "bobbrown",
+		DisplayName: "Bob Brown",
+	}, nil).AnyTimes()
+
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 
@@ -95,7 +112,11 @@ func (s *userAuthenticatorSuite) TestValidUserLogin(c *gc.C) {
 	})
 
 	// User login
-	authenticator := &authentication.LocalUserAuthenticator{}
+	authenticator := &authentication.LocalUserAuthenticator{
+		AgentAuthenticator: authentication.AgentAuthenticator{
+			UserService: s.userService,
+		},
+	}
 	_, err := authenticator.Authenticate(context.Background(), s.ControllerModel(c).State(), authentication.AuthParams{
 		AuthTag:     user.Tag(),
 		Credentials: "password",
@@ -107,6 +128,11 @@ func (s *userAuthenticatorSuite) TestUserLoginWrongPassword(c *gc.C) {
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 
+	s.userService.EXPECT().GetUserByAuth(gomock.Any(), gomock.Any(), gomock.Any()).Return(coreuser.User{
+		Name:        "bobbrown",
+		DisplayName: "Bob Brown",
+	}).AnyTimes()
+
 	user := f.MakeUser(c, &factory.UserParams{
 		Name:        "bobbrown",
 		DisplayName: "Bob Brown",
@@ -114,7 +140,11 @@ func (s *userAuthenticatorSuite) TestUserLoginWrongPassword(c *gc.C) {
 	})
 
 	// User login
-	authenticator := &authentication.LocalUserAuthenticator{}
+	authenticator := &authentication.LocalUserAuthenticator{
+		AgentAuthenticator: authentication.AgentAuthenticator{
+			UserService: s.userService,
+		},
+	}
 	_, err := authenticator.Authenticate(context.Background(), s.ControllerModel(c).State(), authentication.AuthParams{
 		AuthTag:     user.Tag(),
 		Credentials: "wrongpassword",

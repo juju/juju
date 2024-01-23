@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/apiserver/bakeryutil"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	coremacaroon "github.com/juju/juju/core/macaroon"
+	coreuser "github.com/juju/juju/core/user"
 	"github.com/juju/juju/state"
 )
 
@@ -205,7 +206,7 @@ type authenticator struct {
 
 // UserService is used to operate with Users from the database.
 type UserService interface {
-	GetUserWithAuth(ctx context.Context, username, password string) (*state.User, error)
+	GetUserByAuth(ctx context.Context, name string, password string) (coreuser.User, error)
 }
 
 // Authenticate implements authentication.Authenticator
