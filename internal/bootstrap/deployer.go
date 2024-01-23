@@ -262,7 +262,7 @@ func (b *baseDeployer) DeployLocalCharm(ctx context.Context, arch string, base c
 		return "", nil, errors.Trace(err)
 	}
 
-	curl, err := addLocalControllerCharm(ctx, b.objectStore, b.charmUploader, base, controllerCharmPath)
+	curl, err := addLocalControllerCharm(ctx, b.objectStore, b.charmUploader, controllerCharmPath)
 	if err != nil {
 		return "", nil, errors.Annotatef(err, "cannot store controller charm at %q", controllerCharmPath)
 	}
@@ -399,7 +399,7 @@ func (b *baseDeployer) AddControllerApplication(ctx context.Context, curl string
 }
 
 // addLocalControllerCharm adds the specified local charm to the controller.
-func addLocalControllerCharm(ctx context.Context, objectStore services.Storage, uploader CharmUploader, base corebase.Base, charmFileName string) (*charm.URL, error) {
+func addLocalControllerCharm(ctx context.Context, objectStore services.Storage, uploader CharmUploader, charmFileName string) (*charm.URL, error) {
 	archive, err := charm.ReadCharmArchive(charmFileName)
 	if err != nil {
 		return nil, errors.Errorf("invalid charm archive: %v", err)
@@ -410,16 +410,11 @@ func addLocalControllerCharm(ctx context.Context, objectStore services.Storage, 
 		return nil, errors.Errorf("unexpected controller charm name %q", name)
 	}
 
-	series, err := corebase.GetSeriesFromBase(base)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	// Reserve a charm URL for it in state.
 	curl := &charm.URL{
 		Schema:   charm.Local.String(),
 		Name:     name,
 		Revision: archive.Revision(),
-		Series:   series,
 	}
 	curl, err = uploader.PrepareLocalCharmUpload(curl.String())
 	if err != nil {

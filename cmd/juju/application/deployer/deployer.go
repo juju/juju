@@ -571,6 +571,7 @@ func (dk *localCharmDeployerKind) CreateDeployer(_ context.Context, d factory) (
 	return &localCharm{
 		deployCharm: d.newDeployCharm(),
 		curl:        dk.curl,
+		base:        dk.base,
 		ch:          dk.ch,
 	}, err
 }

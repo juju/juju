@@ -142,7 +142,7 @@ func (s *deployerSuite) TestDeployLocalCharm(c *gc.C) {
 
 	url, origin, err := deployer.DeployLocalCharm(context.Background(), "arm64", base.MakeDefaultBase("ubuntu", "22.04"))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(url, gc.Equals, "local:arm64/jammy/juju-controller-0")
+	c.Assert(url, gc.Equals, "local:arm64/juju-controller-0")
 	c.Assert(origin, gc.DeepEquals, &corecharm.Origin{
 		Source: corecharm.Local,
 		Type:   "charm",
@@ -317,21 +317,20 @@ func (s *deployerSuite) newBaseDeployer(c *gc.C, cfg BaseDeployerConfig) baseDep
 }
 
 func (s *deployerSuite) expectLocalCharmUpload(c *gc.C) {
-	s.charmUploader.EXPECT().PrepareLocalCharmUpload("local:jammy/juju-controller-0").Return(&charm.URL{
+	s.charmUploader.EXPECT().PrepareLocalCharmUpload("local:juju-controller-0").Return(&charm.URL{
 		Schema:       "local",
 		Name:         "juju-controller",
 		Revision:     0,
-		Series:       "jammy",
 		Architecture: "arm64",
 	}, nil)
 	// Ensure that the charm uploaded to the object store is the one we expect.
 	s.objectStore.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, path string, reader io.Reader, size int64) error {
-		c.Check(strings.HasPrefix(path, "charms/local:arm64/jammy/juju-controller-0"), jc.IsTrue)
+		c.Check(strings.HasPrefix(path, "charms/local:arm64/juju-controller-0"), jc.IsTrue)
 		return nil
 	})
 	s.charmUploader.EXPECT().UpdateUploadedCharm(gomock.Any()).DoAndReturn(func(info state.CharmInfo) (services.UploadedCharm, error) {
-		c.Check(info.ID, gc.Equals, "local:arm64/jammy/juju-controller-0")
-		c.Check(strings.HasPrefix(info.StoragePath, "charms/local:arm64/jammy/juju-controller-0"), jc.IsTrue)
+		c.Check(info.ID, gc.Equals, "local:arm64/juju-controller-0")
+		c.Check(strings.HasPrefix(info.StoragePath, "charms/local:arm64/juju-controller-0"), jc.IsTrue)
 
 		return nil, nil
 	})
