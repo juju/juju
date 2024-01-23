@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain/blockdevice"
+	"github.com/juju/juju/domain/filesystem"
 )
 
 // State defines an interface for interacting with the underlying state.
@@ -69,7 +70,7 @@ func (s *Service) BlockDevices(ctx context.Context, machineId string) ([]blockde
 func (s *Service) UpdateBlockDevices(ctx context.Context, machineId string, devices ...blockdevice.BlockDevice) error {
 	for i := range devices {
 		if devices[i].FilesystemType == "" {
-			devices[i].FilesystemType = "unspecified"
+			devices[i].FilesystemType = filesystem.UnspecifiedType
 		}
 	}
 	return s.st.SetMachineBlockDevices(ctx, machineId, devices...)
