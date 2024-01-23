@@ -10,6 +10,7 @@ import (
 	"github.com/juju/names/v5"
 )
 
+// Kind identifies different kinds of entities that'll get associated with annotations.
 type Kind int
 
 const (
@@ -21,12 +22,14 @@ const (
 	KindFilesystem
 )
 
+// ID reifies annotatable GlobalEntities into an internal representation using annotations.Kind.
 type ID struct {
 	Kind Kind
 	Name string
 }
 
-// ParseID converts the names.Tag into an internal ID for different kinds of entities.
+// ParseID converts the names.Tag into an ID for different names.Kinds of entities,
+// registering them as annotations.Kinds of entities.
 func ParseID(n names.Tag) (ID, error) {
 	switch n.Kind() {
 	case names.CharmTagKind:
