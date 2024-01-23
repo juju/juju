@@ -638,9 +638,7 @@ CREATE TABLE storage_volume_attachment (
     storage_volume_uuid    TEXT NOT NULL,
     net_node_uuid          TEXT NOT NULL,
     life_id                INT NOT NULL,
-    device_name            TEXT,
-    device_link            TEXT,
-    bus_address            TEXT,
+    block_device_uuid      TEXT,
     read_only              BOOLEAN,
     provisioning_status_id INT NOT NULL,
     CONSTRAINT       fk_storage_volume_attachment_vol
@@ -652,6 +650,9 @@ CREATE TABLE storage_volume_attachment (
     CONSTRAINT       fk_storage_volume_attachment_life
         FOREIGN KEY  (life_id)
         REFERENCES   life(id),
+    CONSTRAINT       fk_storage_volume_attachment_block
+        FOREIGN KEY  (block_device_uuid)
+        REFERENCES   block_device(uuid),
     CONSTRAINT       fk_storage_vol_att_provisioning_status
         FOREIGN KEY  (provisioning_status_id)
         REFERENCES   storage_provisioning_status(id)
