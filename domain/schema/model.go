@@ -13,6 +13,7 @@ const (
 	tableModelConfig tableNamespaceID = iota + 1
 	tableModelObjectStoreMetadata
 	tableBlockDeviceMachine
+	tableStorageAttachment
 	tableFileSystem
 	tableFileSystemAttachment
 	tableVolume
@@ -39,6 +40,7 @@ func ModelDDL() *schema.Schema {
 		blockDeviceSchema,
 		changeLogTriggersForTable("block_device", "machine_uuid", tableBlockDeviceMachine),
 		storageSchema,
+		changeLogTriggersForTable("storage_attachment", "storage_instance_uuid", tableStorageAttachment),
 		changeLogTriggersForTable("storage_filesystem", "uuid", tableFileSystem),
 		changeLogTriggersForTable("storage_filesystem_attachment", "uuid", tableFileSystemAttachment),
 		changeLogTriggersForTable("storage_volume", "uuid", tableVolume),
@@ -560,6 +562,10 @@ CREATE TABLE storage_attachment (
         FOREIGN KEY (life_id)
         REFERENCES  life(id)
 );
+
+-- Note that this is not unique; it speeds access by unit.
+CREATE INDEX idx_storage_attachment_unit
+ON storage_attachment (unit_uuid);
 
 CREATE TABLE storage_constraint_type (
     id          INT PRIMARY KEY,
