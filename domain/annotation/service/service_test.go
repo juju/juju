@@ -44,6 +44,7 @@ func (s *serviceSuite) TestGetAnnotations(c *gc.C) {
 	entity1 := annotations.ID{Kind: annotations.KindUnit, Name: "unit1"}
 	entity33 := annotations.ID{Kind: annotations.KindUnit, Name: "unit33"}
 	entity44 := annotations.ID{Kind: annotations.KindUnit, Name: "unit44"}
+	entityNotExist := annotations.ID{Kind: annotations.KindUnit, Name: "unitNoAnnotations"}
 	mockState := map[stateAnnotationKey]string{
 		{entity1, "annotationKey1"}:  "annotationValue1",
 		{entity1, "annotationKey2"}:  "annotationValue2",
@@ -62,13 +63,19 @@ func (s *serviceSuite) TestGetAnnotations(c *gc.C) {
 			}
 			return annotations, nil
 		},
-	)
+	).AnyTimes()
 
 	annotations, err := s.service().GetAnnotations(context.Background(), entity1)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(annotations), gc.Equals, 2)
 	c.Assert(annotations["annotationKey1"], gc.Equals, "annotationValue1")
 	c.Assert(annotations["annotationKey2"], gc.Equals, "annotationValue2")
+
+	// Assert that an empty map (not nil) is returend if no annotations
+	// are associated with a given entity
+	noAnnotations, err := s.service().GetAnnotations(context.Background(), entityNotExist)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(noAnnotations), gc.Equals, 0)
 }
 
 // TestSetAnnotations is testing the happy path for setting annotations for an entity.
