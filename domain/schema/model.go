@@ -13,6 +13,11 @@ const (
 	tableModelConfig tableNamespaceID = iota + 1
 	tableModelObjectStoreMetadata
 	tableBlockDeviceMachine
+	tableFileSystem
+	tableFileSystemAttachment
+	tableVolume
+	tableVolumeAttachment
+	tableVolumeAttachmentPlan
 )
 
 // ModelDDL is used to create model databases.
@@ -34,6 +39,11 @@ func ModelDDL() *schema.Schema {
 		blockDeviceSchema,
 		changeLogTriggersForTable("block_device", "machine_uuid", tableBlockDeviceMachine),
 		storageSchema,
+		changeLogTriggersForTable("storage_filesystem", "uuid", tableFileSystem),
+		changeLogTriggersForTable("storage_filesystem_attachment", "uuid", tableFileSystemAttachment),
+		changeLogTriggersForTable("storage_volume", "uuid", tableVolume),
+		changeLogTriggersForTable("storage_volume_attachment", "uuid", tableVolumeAttachment),
+		changeLogTriggersForTable("storage_volume_attachment_plan", "uuid", tableVolumeAttachmentPlan),
 		annotationSchemaForTable("application"),
 		annotationSchemaForTable("charm"),
 		annotationSchemaForTable("machine"),
