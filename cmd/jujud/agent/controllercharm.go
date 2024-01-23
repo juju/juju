@@ -178,14 +178,14 @@ func populateStoreControllerCharm(st *state.State, charmPath string, channel cha
 
 	// Since we're running on the machine to which the controller charm will be
 	// deployed, we know the exact platform to ask for, not need to review the
-	// supported series.
+	// supported bases.
 	//
-	// We prefer the latest LTS series, if the current series is not one,
+	// We prefer the latest LTS base, if the current base is not one,
 	// charmRepo.ResolveWithPreferredChannel, will return an origin with the
 	// latest LTS based on data provided by charmhub in the revision-not-found
 	// error response.
 	//
-	// The controller charm doesn't have any series specific code.
+	// The controller charm doesn't have any base specific code.
 	curl, origin, _, err = charmRepo.ResolveWithPreferredChannel(curl.Name, origin)
 	if err != nil {
 		return nil, nil, errors.Annotatef(err, "resolving %q", controllerCharmURL)
@@ -236,7 +236,7 @@ func populateLocalControllerCharm(st *state.State, dataDir, arch string, base co
 		return nil, nil, errors.Trace(err)
 	}
 
-	curl, err := addLocalControllerCharm(st, base, controllerCharmPath)
+	curl, err := addLocalControllerCharm(st, controllerCharmPath)
 	if err != nil {
 		return nil, nil, errors.Annotatef(err, "cannot store controller charm at %q", controllerCharmPath)
 	}
@@ -254,7 +254,7 @@ func populateLocalControllerCharm(st *state.State, dataDir, arch string, base co
 }
 
 // addLocalControllerCharm adds the specified local charm to the controller.
-func addLocalControllerCharm(st *state.State, base corebase.Base, charmFileName string) (*charm.URL, error) {
+func addLocalControllerCharm(st *state.State, charmFileName string) (*charm.URL, error) {
 	archive, err := charm.ReadCharmArchive(charmFileName)
 	if err != nil {
 		return nil, errors.Errorf("invalid charm archive: %v", err)
@@ -265,16 +265,11 @@ func addLocalControllerCharm(st *state.State, base corebase.Base, charmFileName 
 		return nil, errors.Errorf("unexpected controller charm name %q", name)
 	}
 
-	series, err := corebase.GetSeriesFromBase(base)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	// Reserve a charm URL for it in state.
 	curl := &charm.URL{
 		Schema:   charm.Local.String(),
 		Name:     name,
 		Revision: archive.Revision(),
-		Series:   series,
 	}
 	curl, err = st.PrepareLocalCharmUpload(curl.String())
 	if err != nil {
