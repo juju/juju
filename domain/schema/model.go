@@ -32,7 +32,7 @@ func ModelDDL() *schema.Schema {
 		spaceSchema,
 		subnetSchema,
 		blockDeviceSchema,
-		changeLogTriggersForTable("block_device_machine", "machine_uuid", tableBlockDeviceMachine),
+		changeLogTriggersForTable("block_device", "machine_uuid", tableBlockDeviceMachine),
 		storageSchema,
 		annotationSchemaForTable("application"),
 		annotationSchemaForTable("charm"),
@@ -96,7 +96,7 @@ func changeLogModelNamespace() schema.Patch {
 INSERT INTO change_log_namespace VALUES
     (1, 'model_config', 'model config changes based on config key'),
     (2, 'object_store_metadata_path', 'object store metadata path changes based on the path'),
-    (3, 'block_device_machine', 'block device for machine changes based on the machine uuid');
+    (3, 'block_device', 'block device changes based on the machine uuid');
 `)
 }
 
@@ -403,6 +403,7 @@ func blockDeviceSchema() schema.Patch {
 	return schema.MakePatch(`
 CREATE TABLE block_device (
     uuid               TEXT PRIMARY KEY,
+    machine_uuid       TEXT NOT NULL,
     name               TEXT NOT NULL,
     label              TEXT,
     device_uuid        TEXT,
@@ -417,10 +418,13 @@ CREATE TABLE block_device (
     CONSTRAINT         fk_filesystem_type
         FOREIGN KEY    (filesystem_type_id)
         REFERENCES     filesystem_type(id)
+    CONSTRAINT         fk_block_device_machine
+        FOREIGN KEY    (machine_uuid)
+        REFERENCES     machine(uuid)
 );
 
 CREATE UNIQUE INDEX idx_block_device_name
-ON block_device (name);
+ON block_device (machine_uuid, name);
 
 CREATE TABLE filesystem_type (
     id   INT PRIMARY KEY,
@@ -431,10 +435,15 @@ CREATE UNIQUE INDEX idx_filesystem_type_name
 ON filesystem_type (name);
 
 INSERT INTO filesystem_type VALUES
-    (0, 'ext4'),
-    (1, 'xfs'),
-    (2, 'btrfs'),
-    (3, 'zfs');
+    (0, 'unspecified'),
+    (1, 'vfat'),
+    (2, 'ext4'),
+    (3, 'xfs'),
+    (4, 'btrfs'),
+    (5, 'zfs'),
+    (6, 'jfs'),
+    (7, 'squashfs'),
+    (8, 'bcachefs');
 
 CREATE TABLE block_device_link_device (
     block_device_uuid TEXT NOT NULL,
@@ -449,20 +458,6 @@ ON block_device_link_device (block_device_uuid, name);
 
 CREATE INDEX idx_block_device_link_device_device
 ON block_device_link_device (block_device_uuid);
-
-CREATE TABLE block_device_machine (
-    block_device_uuid TEXT PRIMARY KEY,
-    machine_uuid    TEXT NOT NULL,
-    CONSTRAINT      fk_block_device_machine_device
-        FOREIGN KEY (block_device_uuid)
-        REFERENCES  block_device(uuid),
-    CONSTRAINT      fk_block_device_machine
-        FOREIGN KEY (machine_uuid)
-        REFERENCES  machine(uuid)
-);
-
-CREATE INDEX idx_block_device_machine
-ON block_device_machine (machine_uuid);
 `)
 }
 

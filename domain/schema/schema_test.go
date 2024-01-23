@@ -167,7 +167,6 @@ func (s *schemaSuite) TestModelDDLApply(c *gc.C) {
 		"block_device",
 		"filesystem_type",
 		"block_device_link_device",
-		"block_device_machine",
 
 		// Storage
 		"storage_pool",
