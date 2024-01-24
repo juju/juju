@@ -447,7 +447,7 @@ func (s *stateSuite) TestGetUserByAuth(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Get the user.
-	u, err := st.GetUserByAuth(context.Background(), adminUser.Name, "password")
+	u, err := st.GetUserByAuth(context.Background(), "admin", "password")
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(u.Name, gc.Equals, "admin")
@@ -464,10 +464,6 @@ func (s *stateSuite) TestGetUserByAuthWrongPassword(c *gc.C) {
 	// Add admin user with password hash.
 	adminUUID, err := user.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
-	adminUser := user.User{
-		Name:        "admin",
-		DisplayName: "admin",
-	}
 
 	salt, err := auth.NewSalt()
 	c.Assert(err, jc.ErrorIsNil)
@@ -475,11 +471,15 @@ func (s *stateSuite) TestGetUserByAuthWrongPassword(c *gc.C) {
 	passwordHash, err := auth.HashPassword(auth.NewPassword("password"), salt)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = st.AddUserWithPasswordHash(context.Background(), adminUUID, adminUser, adminUUID, passwordHash, salt)
+	err = st.AddUserWithPasswordHash(
+		context.Background(), adminUUID,
+		"admin", "admin",
+		adminUUID, passwordHash, salt,
+	)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Get the user.
-	_, err = st.GetUserByAuth(context.Background(), adminUser.Name, "wrongPassword")
+	_, err = st.GetUserByAuth(context.Background(), "admin", "wrongPassword")
 	c.Assert(err, jc.ErrorIs, usererrors.Unauthorized)
 }
 
