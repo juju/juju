@@ -5,6 +5,8 @@ package objectstore
 
 import (
 	"context"
+	"crypto/sha256"
+	"crypto/sha512"
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
@@ -240,6 +242,8 @@ func (t *s3ObjectStore) loop() error {
 }
 
 func (t *s3ObjectStore) get(ctx context.Context, path string) (io.ReadCloser, int64, error) {
+	t.logger.Debugf("getting object %q from file storage", path)
+
 	metadata, err := t.metadataService.GetMetadata(ctx, path)
 	if err != nil {
 		return nil, -1, fmt.Errorf("get metadata: %w", err)
@@ -263,25 +267,42 @@ func (t *s3ObjectStore) get(ctx context.Context, path string) (io.ReadCloser, in
 }
 
 func (t *s3ObjectStore) put(ctx context.Context, path string, r io.Reader, size int64, validator hashValidator) error {
+	t.logger.Debugf("putting object %q to file storage", path)
+
+	// Charms and resources are coded to use the SHA384 hash. It is possible
+	// to move to the more common SHA256 hash, but that would require a
+	// migration of all charms and resources during import.
+	// I can only assume 384 was chosen over 256 and others, is because it's
+	// not susceptible to length extension attacks? In any case, we'll
+	// keep using it for now.
+	fileHash := sha512.New384()
+
+	// We need two hash sets here, because juju wants to use SHA384, but s3
+	// defaults to SHA256. Luckily, we can piggyback on the writing to a tmp
+	// file and create TeeReader with a MultiWriter.
+	s3Hash := sha256.New()
+
 	// We need to write this to a temp file, because if the client retries
 	// then we need seek back to the beginning of the file.
-	fileName, hash, err := t.writeToTmpFile(path, r, size)
+	fileName, err := t.writeToTmpFile(path, io.TeeReader(r, io.MultiWriter(fileHash, s3Hash)), size)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	hexEncodedHash := hex.EncodeToString(hash)
+	// Encode the hashes as strings, so we can use them for file and s3 lookups.
+	fileEncodedHash := hex.EncodeToString(fileHash.Sum(nil))
+	s3EncodedHash := base64.StdEncoding.EncodeToString(s3Hash.Sum(nil))
 
 	// Ensure that the hash of the file matches the expected hash.
-	if expected, ok := validator(hexEncodedHash); !ok {
-		return fmt.Errorf("hash mismatch for %q: expected %q, got %q: %w", path, expected, hexEncodedHash, objectstore.ErrHashMismatch)
+	if expected, ok := validator(fileEncodedHash); !ok {
+		return fmt.Errorf("hash mismatch for %q: expected %q, got %q: %w", path, expected, fileEncodedHash, objectstore.ErrHashMismatch)
 	}
 
-	// Lock the file with the given hash (hexEncodedHash), so that we can't
+	// Lock the file with the given hash (fileEncodedHash), so that we can't
 	// remove the file while we're writing it.
-	return t.withLock(ctx, hexEncodedHash, func(ctx context.Context) error {
+	return t.withLock(ctx, fileEncodedHash, func(ctx context.Context) error {
 		// Persist the temporary file to the final location.
-		if err := t.persistTmpFile(ctx, fileName, hash, hexEncodedHash, size); err != nil {
+		if err := t.persistTmpFile(ctx, fileName, fileEncodedHash, s3EncodedHash, size); err != nil {
 			return errors.Trace(err)
 		}
 
@@ -290,7 +311,7 @@ func (t *s3ObjectStore) put(ctx context.Context, path string, r io.Reader, size 
 		// race where the watch event is emitted before the file is written.
 		if err := t.metadataService.PutMetadata(ctx, objectstore.Metadata{
 			Path: path,
-			Hash: hexEncodedHash,
+			Hash: fileEncodedHash,
 			Size: size,
 		}); err != nil {
 			return errors.Trace(err)
@@ -299,13 +320,11 @@ func (t *s3ObjectStore) put(ctx context.Context, path string, r io.Reader, size 
 	})
 }
 
-func (t *s3ObjectStore) persistTmpFile(ctx context.Context, tmpFileName string, hash []byte, hexEncodedHash string, size int64) error {
+func (t *s3ObjectStore) persistTmpFile(ctx context.Context, tmpFileName, fileEncodedHash, s3EncodedHash string, size int64) error {
 	file, err := os.Open(tmpFileName)
 	if err != nil {
 		return errors.Trace(err)
 	}
-
-	base64EncodedHash := base64.StdEncoding.EncodeToString(hash)
 
 	if err := t.client.Session(ctx, func(ctx context.Context, s objectstore.Session) error {
 		// Seek back to the beginning of the file, so that we can read it again.
@@ -315,7 +334,7 @@ func (t *s3ObjectStore) persistTmpFile(ctx context.Context, tmpFileName string, 
 
 		// Now that we've written the file, we can upload it to the object
 		// store.
-		err := s.PutObject(ctx, defaultBucketName, t.filePath(hexEncodedHash), file, base64EncodedHash)
+		err := s.PutObject(ctx, defaultBucketName, t.filePath(fileEncodedHash), file, s3EncodedHash)
 		if err == nil {
 			return nil
 		}
@@ -333,6 +352,8 @@ func (t *s3ObjectStore) persistTmpFile(ctx context.Context, tmpFileName string, 
 }
 
 func (t *s3ObjectStore) remove(ctx context.Context, path string) error {
+	t.logger.Debugf("removing object %q from file storage", path)
+
 	metadata, err := t.metadataService.GetMetadata(ctx, path)
 	if err != nil {
 		return fmt.Errorf("get metadata: %w", err)

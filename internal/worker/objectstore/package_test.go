@@ -20,6 +20,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -package objectstore -destination claimer_mock_test.go github.com/juju/juju/internal/objectstore Claimer
 //go:generate go run go.uber.org/mock/mockgen -package objectstore -destination state_mock_test.go github.com/juju/juju/internal/worker/state StateTracker
 //go:generate go run go.uber.org/mock/mockgen -package objectstore -destination lease_mock_test.go github.com/juju/juju/core/lease Manager
+//go:generate go run go.uber.org/mock/mockgen -package objectstore -destination client_mock_test.go github.com/juju/juju/core/objectstore Client,Session
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)
@@ -35,6 +36,7 @@ type baseSuite struct {
 	agentConfig  *MockConfig
 	leaseManager *MockManager
 	claimer      *MockClaimer
+	s3Client     *MockClient
 
 	// Deprecated: These are only here for backwards compatibility.
 	stateTracker *MockStateTracker
@@ -53,6 +55,7 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.mongoSession = NewMockMongoSession(ctrl)
 	s.leaseManager = NewMockManager(ctrl)
 	s.claimer = NewMockClaimer(ctrl)
+	s.s3Client = NewMockClient(ctrl)
 
 	s.logger = jujujujutesting.NewCheckLogger(c)
 

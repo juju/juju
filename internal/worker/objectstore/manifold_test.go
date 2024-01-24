@@ -49,6 +49,10 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 	cfg.LeaseManagerName = ""
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
+	cfg = s.getConfig()
+	cfg.S3ClientName = ""
+	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+
 	cfg.Clock = nil
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
@@ -68,6 +72,7 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		TraceName:          "trace",
 		ServiceFactoryName: "service-factory",
 		LeaseManagerName:   "lease-manager",
+		S3ClientName:       "s3-client",
 		Clock:              s.clock,
 		Logger:             s.logger,
 		NewObjectStoreWorker: func(context.Context, objectstore.BackendType, string, ...internalobjectstore.Option) (internalobjectstore.TrackedObjectStore, error) {
@@ -86,11 +91,12 @@ func (s *manifoldSuite) newGetter() dependency.Getter {
 		"state":           s.stateTracker,
 		"service-factory": &stubServiceFactoryGetter{},
 		"lease-manager":   s.leaseManager,
+		"s3-client":       s.s3Client,
 	}
 	return dependencytesting.StubGetter(resources)
 }
 
-var expectedInputs = []string{"agent", "state", "trace", "service-factory", "lease-manager"}
+var expectedInputs = []string{"agent", "state", "trace", "service-factory", "lease-manager", "s3-client"}
 
 func (s *manifoldSuite) TestInputs(c *gc.C) {
 	c.Assert(Manifold(s.getConfig()).Inputs, jc.SameContents, expectedInputs)

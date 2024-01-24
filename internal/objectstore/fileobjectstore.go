@@ -5,6 +5,7 @@ package objectstore
 
 import (
 	"context"
+	"crypto/sha512"
 	"encoding/hex"
 	"fmt"
 	"io"
@@ -271,23 +272,34 @@ func (t *fileObjectStore) get(ctx context.Context, path string) (io.ReadCloser, 
 func (t *fileObjectStore) put(ctx context.Context, path string, r io.Reader, size int64, validator hashValidator) error {
 	t.logger.Debugf("putting object %q to file storage", path)
 
-	tmpFileName, hash, err := t.writeToTmpFile(path, r, size)
+	// Charms and resources are coded to use the SHA384 hash. It is possible
+	// to move to the more common SHA256 hash, but that would require a
+	// migration of all charms and resources during import.
+	// I can only assume 384 was chosen over 256 and others, is because it's
+	// not susceptible to length extension attacks? In any case, we'll
+	// keep using it for now.
+	hasher := sha512.New384()
+
+	tmpFileName, err := t.writeToTmpFile(path, io.TeeReader(r, hasher), size)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	encoded := hex.EncodeToString(hash)
+	// Encode the hash as a hex string. This is what the rest of the juju
+	// codebase expects. Although we should probably use base64.StdEncoding
+	// instead.
+	hash := hex.EncodeToString(hasher.Sum(nil))
 
 	// Ensure that the hash of the file matches the expected hash.
-	if expected, ok := validator(encoded); !ok {
-		return fmt.Errorf("hash mismatch for %q: expected %q, got %q: %w", path, expected, encoded, objectstore.ErrHashMismatch)
+	if expected, ok := validator(hash); !ok {
+		return fmt.Errorf("hash mismatch for %q: expected %q, got %q: %w", path, expected, hash, objectstore.ErrHashMismatch)
 	}
 
 	// Lock the file with the given hash, so that we can't remove the file
 	// while we're writing it.
-	return t.withLock(ctx, encoded, func(ctx context.Context) error {
+	return t.withLock(ctx, hash, func(ctx context.Context) error {
 		// Persist the temporary file to the final location.
-		if err := t.persistTmpFile(ctx, tmpFileName, encoded, size); err != nil {
+		if err := t.persistTmpFile(ctx, tmpFileName, hash, size); err != nil {
 			return errors.Trace(err)
 		}
 
@@ -296,7 +308,7 @@ func (t *fileObjectStore) put(ctx context.Context, path string, r io.Reader, siz
 		// race where the watch event is emitted before the file is written.
 		if err := t.metadataService.PutMetadata(ctx, objectstore.Metadata{
 			Path: path,
-			Hash: encoded,
+			Hash: hash,
 			Size: size,
 		}); err != nil {
 			return errors.Trace(err)

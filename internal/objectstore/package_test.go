@@ -5,6 +5,7 @@ package objectstore
 
 import (
 	"crypto/sha256"
+	"crypto/sha512"
 	"encoding/base64"
 	"encoding/hex"
 	"io"
@@ -66,7 +67,7 @@ func (s *baseSuite) readFile(c *gc.C, reader io.ReadCloser) string {
 }
 
 func (s *baseSuite) calculateHexHash(c *gc.C, contents string) string {
-	hasher := sha256.New()
+	hasher := sha512.New384()
 	_, err := io.Copy(hasher, strings.NewReader(contents))
 	c.Assert(err, jc.ErrorIsNil)
 	return hex.EncodeToString(hasher.Sum(nil))

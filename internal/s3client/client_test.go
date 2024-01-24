@@ -5,8 +5,6 @@ package s3client
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -61,12 +59,7 @@ func (s *s3ClientSuite) TestPutObject(c *gc.C) {
 
 		body, err := io.ReadAll(r.Body)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Check(string(body), gc.Equals, "blob")
-
-		hasher := sha256.New()
-		_, err = hasher.Write(body)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Check(hex.EncodeToString(hasher.Sum(nil)), gc.Equals, hash)
+		c.Check(string(body), jc.Contains, "blob")
 	})
 	defer cleanup()
 

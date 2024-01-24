@@ -5,13 +5,13 @@ package objectstore
 
 import (
 	"context"
-	"crypto/sha256"
 	"io"
 	"os"
 	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/objectstore"
@@ -86,32 +86,31 @@ func (w *baseObjectStore) scopedContext() (context.Context, context.CancelFunc) 
 	return w.tomb.Context(ctx), cancel
 }
 
-func (t *baseObjectStore) writeToTmpFile(path string, r io.Reader, size int64) (string, []byte, error) {
+func (t *baseObjectStore) writeToTmpFile(path string, r io.Reader, size int64) (string, error) {
 	// The following dance is to ensure that we don't end up with a partially
 	// written file if we crash while writing it or if we're attempting to
 	// read it at the same time.
 	tmpFile, err := os.CreateTemp("", "file")
 	if err != nil {
-		return "", nil, errors.Trace(err)
+		return "", errors.Trace(err)
 	}
 	defer func() {
 		_ = tmpFile.Close()
 	}()
 
-	hasher := sha256.New()
-	written, err := io.Copy(tmpFile, io.TeeReader(r, hasher))
+	written, err := io.Copy(tmpFile, r)
 	if err != nil {
 		_ = os.Remove(tmpFile.Name())
-		return "", nil, errors.Trace(err)
+		return "", errors.Trace(err)
 	}
 
 	// Ensure that we write all the data.
 	if written != size {
 		_ = os.Remove(tmpFile.Name())
-		return "", nil, errors.Errorf("partially written data: written %d, expected %d", written, size)
+		return "", errors.Errorf("partially written data: written %d, expected %d", written, size)
 	}
 
-	return tmpFile.Name(), hasher.Sum(nil), nil
+	return tmpFile.Name(), nil
 }
 
 func (w *baseObjectStore) withLock(ctx context.Context, hash string, f func(context.Context) error) error {
@@ -187,6 +186,7 @@ func ignoreHash(string) (string, bool) {
 
 func checkHash(expected string) func(string) (string, bool) {
 	return func(actual string) (string, bool) {
+		loggo.GetLogger("***").Criticalf("checkHash: expected %q, actual %q", expected, actual)
 		return expected, actual == expected
 	}
 }

@@ -87,8 +87,18 @@ func (s *manifoldSuite) TestStart(c *gc.C) {
 
 	s.expectControllerConfig(c, testing.FakeControllerConfig())
 
-	_, err := Manifold(s.getConfig()).Start(context.Background(), s.newGetter())
-	c.Assert(err, jc.ErrorIs, dependency.ErrUninstall)
+	w, err := Manifold(s.getConfig()).Start(context.Background(), s.newGetter())
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.DirtyKill(c, w)
+
+	// This should still be a worker, just a useless one.
+	nw, ok := w.(*noopWorker)
+	c.Assert(ok, jc.IsTrue)
+	err = nw.Session(context.Background(), func(context.Context, objectstore.Session) error {
+		c.Fatalf("unexpected call to Session")
+		return nil
+	})
+	c.Assert(err, jc.ErrorIs, errors.NotSupported)
 }
 
 func (s *manifoldSuite) TestStartS3Backend(c *gc.C) {

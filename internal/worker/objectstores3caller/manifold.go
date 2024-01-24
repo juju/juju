@@ -170,7 +170,12 @@ type noopWorker struct {
 }
 
 func newNoopWorker() worker.Worker {
-	return &noopWorker{}
+	w := &noopWorker{}
+	w.tomb.Go(func() error {
+		<-w.tomb.Dying()
+		return nil
+	})
+	return w
 }
 
 func (w *noopWorker) Kill() {
