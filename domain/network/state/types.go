@@ -9,6 +9,62 @@ import (
 	"github.com/juju/juju/core/network"
 )
 
+// Subnet represents a single row from the subnet table.
+type Subnet struct {
+	// UUID is the subnet's UUID.
+	UUID string `db:"uuid"`
+	// CIDR of the network, in 123.45.67.89/24 format.
+	CIDR string `db:"cidr"`
+	// VLANtag is the subnet's vlan tag.
+	VLANtag int `db:"vlan_tag"`
+	// SpaceUUID is the space UUID.
+	SpaceUUID string `db:"space_uuid"`
+	// SubnetType indicates if the subnet is a fan overlay or a base subnet.
+	SubnetType int `db:"subnet_type_id"`
+}
+
+// ProviderSubnet represents a single row from the provider_subnet table.
+type ProviderSubnet struct {
+	// SubnetUUID is the UUID of the subnet.
+	SubnetUUID string `db:"subnet_uuid"`
+	// ProviderNetworkId is the provider ID of the network
+	// containing this subnet.
+	ProviderNetworkId network.Id `db:"provider_id"`
+}
+
+// ProviderNetwork represents a single row from the provider_network table.
+type ProviderNetwork struct {
+	// ProviderNetworkUUID is the provider network UUID.
+	ProviderNetworkUUID string `db:"uuid"`
+	// ProviderNetworkId is the provider ID of the network.
+	// containing this subnet.
+	ProviderNetworkId network.Id `db:"provider_network_id"`
+}
+
+// ProviderNetworkSubnet represents a single row from the provider_network_subnet mapping table.
+type ProviderNetworkSubnet struct {
+	// SubnetUUID is the UUID of the subnet.
+	SubnetUUID string `db:"subnet_uuid"`
+	// ProviderNetworkUUID is the provider network UUID.
+	ProviderNetworkUUID string `db:"provider_network_uuid"`
+}
+
+// Space represents a single row from the space table.
+type Space struct {
+	// Name is the space name.
+	Name string `db:"name"`
+	// UUID is the unique ID of the space.
+	UUID string `db:"uuid"`
+}
+
+// ProviderSpace represents a single row from the provider_space table.
+type ProviderSpace struct {
+	// SpaceUUID is the unique ID of the space.
+	SpaceUUID string `db:"space_uuid"`
+	// ProviderId is a provider-specific subnet ID.
+	ProviderId network.Id `db:"provider_id"`
+}
+
 // SpaceSubnetRow represents a single row from the database when
 // space is joined with provider_space, subnet, subnet_type,
 // subnet_association, subject_subnet_type_uuid, subnet_association_type,
