@@ -832,16 +832,17 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		})),
 
 		objectStoreName: ifController(objectstore.Manifold(objectstore.ManifoldConfig{
-			AgentName:            agentName,
-			StateName:            stateName,
-			TraceName:            traceName,
-			ServiceFactoryName:   serviceFactoryName,
-			LeaseManagerName:     leaseManagerName,
-			S3ClientName:         objectStoreS3CallerName,
-			Clock:                config.Clock,
-			Logger:               loggo.GetLogger("juju.worker.objectstore"),
-			NewObjectStoreWorker: internalobjectstore.ObjectStoreFactory,
-			GetObjectStoreType:   objectstore.GetObjectStoreType,
+			AgentName:                  agentName,
+			StateName:                  stateName,
+			TraceName:                  traceName,
+			ServiceFactoryName:         serviceFactoryName,
+			LeaseManagerName:           leaseManagerName,
+			S3ClientName:               objectStoreS3CallerName,
+			Clock:                      config.Clock,
+			Logger:                     loggo.GetLogger("juju.worker.objectstore"),
+			NewObjectStoreWorker:       internalobjectstore.ObjectStoreFactory,
+			GetControllerConfigService: objectstore.GetControllerConfigService,
+			GetMetadataService:         objectstore.GetMetadataService,
 		})),
 
 		objectStoreS3CallerName: ifController(objectstores3caller.Manifold(objectstores3caller.ManifoldConfig{

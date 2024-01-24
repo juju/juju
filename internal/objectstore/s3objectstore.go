@@ -20,12 +20,9 @@ import (
 	"github.com/juju/juju/core/objectstore"
 )
 
-const (
-	defaultBucketName = "juju"
-)
-
 // S3ObjectStoreConfig is the configuration for the s3 object store.
 type S3ObjectStoreConfig struct {
+	RootBucket      string
 	Namespace       string
 	Client          objectstore.Client
 	MetadataService objectstore.ObjectStoreMetadata
@@ -36,9 +33,10 @@ type S3ObjectStoreConfig struct {
 
 type s3ObjectStore struct {
 	baseObjectStore
-	client    objectstore.Client
-	namespace string
-	requests  chan request
+	client     objectstore.Client
+	rootBucket string
+	namespace  string
+	requests   chan request
 }
 
 // NewS3ObjectStore returns a new object store worker based on the s3 backing
@@ -51,8 +49,9 @@ func NewS3ObjectStore(ctx context.Context, cfg S3ObjectStoreConfig) (TrackedObje
 			logger:          cfg.Logger,
 			clock:           cfg.Clock,
 		},
-		client:    cfg.Client,
-		namespace: cfg.Namespace,
+		client:     cfg.Client,
+		rootBucket: cfg.RootBucket,
+		namespace:  cfg.Namespace,
 
 		requests: make(chan request),
 	}
@@ -196,7 +195,7 @@ func (t *s3ObjectStore) loop() error {
 
 	// Ensure that we have the base directory.
 	if err := t.client.Session(ctx, func(ctx context.Context, s objectstore.Session) error {
-		err := s.CreateBucket(ctx, defaultBucketName)
+		err := s.CreateBucket(ctx, t.rootBucket)
 		if err != nil && !errors.Is(err, errors.AlreadyExists) {
 			return errors.Trace(err)
 		}
@@ -263,7 +262,7 @@ func (t *s3ObjectStore) get(ctx context.Context, path string) (io.ReadCloser, in
 	var size int64
 	if err := t.client.Session(ctx, func(ctx context.Context, s objectstore.Session) error {
 		var err error
-		reader, size, _, err = s.GetObject(ctx, defaultBucketName, t.filePath(metadata.Hash))
+		reader, size, _, err = s.GetObject(ctx, t.rootBucket, t.filePath(metadata.Hash))
 		return err
 	}); err != nil {
 		return nil, -1, fmt.Errorf("get object: %w", err)
@@ -344,7 +343,7 @@ func (t *s3ObjectStore) persistTmpFile(ctx context.Context, tmpFileName, fileEnc
 
 		// Now that we've written the file, we can upload it to the object
 		// store.
-		err := s.PutObject(ctx, defaultBucketName, t.filePath(fileEncodedHash), file, s3EncodedHash)
+		err := s.PutObject(ctx, t.rootBucket, t.filePath(fileEncodedHash), file, s3EncodedHash)
 		// If the file already exists, then we can ignore the error.
 		if err == nil || errors.Is(err, errors.AlreadyExists) {
 			return nil
@@ -373,7 +372,7 @@ func (t *s3ObjectStore) remove(ctx context.Context, path string) error {
 		}
 
 		return t.client.Session(ctx, func(ctx context.Context, s objectstore.Session) error {
-			err := s.DeleteObject(ctx, defaultBucketName, t.filePath(hash))
+			err := s.DeleteObject(ctx, t.rootBucket, t.filePath(hash))
 			if err == nil {
 				return nil
 			}

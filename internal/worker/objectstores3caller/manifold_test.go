@@ -67,8 +67,8 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		},
 		Logger: s.logger,
 		Clock:  s.clock,
-		GetControllerConfigService: func(getter dependency.Getter, name string) (ControllerService, error) {
-			return s.controllerService, nil
+		GetControllerConfigService: func(getter dependency.Getter, name string) (ControllerConfigService, error) {
+			return s.controllerConfigService, nil
 		},
 		NewWorker: func(cfg workerConfig) (worker.Worker, error) {
 			return newWorker(cfg, s.states)

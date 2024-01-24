@@ -78,8 +78,11 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		NewObjectStoreWorker: func(context.Context, objectstore.BackendType, string, ...internalobjectstore.Option) (internalobjectstore.TrackedObjectStore, error) {
 			return nil, nil
 		},
-		GetObjectStoreType: func(ControllerConfigService) (objectstore.BackendType, error) {
-			return objectstore.StateBackend, nil
+		GetControllerConfigService: func(getter dependency.Getter, name string) (ControllerConfigService, error) {
+			return s.controllerConfigService, nil
+		},
+		GetMetadataService: func(getter dependency.Getter, name string) (MetadataService, error) {
+			return s.metadataService, nil
 		},
 	}
 }

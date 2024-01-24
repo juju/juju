@@ -48,6 +48,13 @@ func WithRootDir(rootDir string) Option {
 	}
 }
 
+// WithRootBucket is the option to set the root bucket to use.
+func WithRootBucket(rootBucket string) Option {
+	return func(o *options) {
+		o.rootBucket = rootBucket
+	}
+}
+
 // WithMongoSession is the option to set the mongo session to use.
 func WithMongoSession(session MongoSession) Option {
 	return func(o *options) {
@@ -92,6 +99,7 @@ func WithClock(clock clock.Clock) Option {
 
 type options struct {
 	rootDir         string
+	rootBucket      string
 	mongoSession    MongoSession
 	s3Client        objectstore.Client
 	metadataService MetadataService
@@ -132,6 +140,7 @@ func ObjectStoreFactory(ctx context.Context, backendType objectstore.BackendType
 		})
 	case objectstore.S3Backend:
 		return NewS3ObjectStore(ctx, S3ObjectStoreConfig{
+			RootBucket:      opts.rootBucket,
 			Namespace:       namespace,
 			Client:          opts.s3Client,
 			MetadataService: opts.metadataService.ObjectStore(),

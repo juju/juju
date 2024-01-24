@@ -30,11 +30,11 @@ type Logger interface {
 }
 
 // NewClientFunc is a function that returns a new S3 client.
-type NewClientFunc func(string, s3client.HTTPClient, s3client.Credentials, s3client.Logger) (objectstore.Session, error)
+type NewClientFunc func(endpoint string, client s3client.HTTPClient, creds s3client.Credentials, logger s3client.Logger) (objectstore.Session, error)
 
 // GetControllerConfigServiceFunc is a helper function that gets a service from
 // the manifold.
-type GetControllerConfigServiceFunc func(getter dependency.Getter, name string) (ControllerService, error)
+type GetControllerConfigServiceFunc func(getter dependency.Getter, name string) (ControllerConfigService, error)
 
 // NewWorkerFunc is a function that returns a new worker.
 type NewWorkerFunc func(workerConfig) (worker.Worker, error)
@@ -114,11 +114,11 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 	}
 
 	return config.NewWorker(workerConfig{
-		ControllerService: controllerConfigService,
-		HTTPClient:        httpClient,
-		NewClient:         config.NewClient,
-		Logger:            config.Logger,
-		Clock:             config.Clock,
+		ControllerConfigService: controllerConfigService,
+		HTTPClient:              httpClient,
+		NewClient:               config.NewClient,
+		Logger:                  config.Logger,
+		Clock:                   config.Clock,
 	})
 }
 
@@ -153,14 +153,14 @@ func outputWorker(in worker.Worker) (objectstore.Client, error) {
 }
 
 // NewS3Client returns a new S3 client based on the supplied dependencies.
-func NewS3Client(url string, client s3client.HTTPClient, creds s3client.Credentials, logger s3client.Logger) (objectstore.Session, error) {
-	return s3client.NewS3Client(url, client, creds, logger)
+func NewS3Client(endpoint string, client s3client.HTTPClient, creds s3client.Credentials, logger s3client.Logger) (objectstore.Session, error) {
+	return s3client.NewS3Client(endpoint, client, creds, logger)
 }
 
 // GetControllerConfigService is a helper function that gets a service from the
 // manifold.
-func GetControllerConfigService(getter dependency.Getter, name string) (ControllerService, error) {
-	return coredependency.GetDependencyByName(getter, name, func(factory servicefactory.ControllerServiceFactory) ControllerService {
+func GetControllerConfigService(getter dependency.Getter, name string) (ControllerConfigService, error) {
+	return coredependency.GetDependencyByName(getter, name, func(factory servicefactory.ControllerServiceFactory) ControllerConfigService {
 		return factory.ControllerConfig()
 	})
 }

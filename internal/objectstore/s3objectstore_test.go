@@ -22,6 +22,10 @@ import (
 	jujutesting "github.com/juju/juju/testing"
 )
 
+const (
+	defaultBucketName = "juju-123"
+)
+
 type s3ObjectStoreSuite struct {
 	baseSuite
 
@@ -436,6 +440,7 @@ func (s *s3ObjectStoreSuite) expectFailure(fileName string, err error) {
 
 func (s *s3ObjectStoreSuite) newS3ObjectStore(c *gc.C) TrackedObjectStore {
 	store, err := NewS3ObjectStore(context.Background(), S3ObjectStoreConfig{
+		RootBucket:      defaultBucketName,
 		Namespace:       "inferi",
 		Client:          s.client,
 		MetadataService: s.service,

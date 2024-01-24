@@ -36,9 +36,9 @@ const (
 	defaultRetryMaxDuration = time.Minute
 )
 
-// ControllerService is the interface that the worker uses to get the
+// ControllerConfigService is the interface that the worker uses to get the
 // controller configuration.
-type ControllerService interface {
+type ControllerConfigService interface {
 	// ControllerConfig returns the current controller configuration.
 	ControllerConfig(context.Context) (controller.Config, error)
 	// Watch returns a watcher that returns keys for any changes to controller
@@ -47,17 +47,17 @@ type ControllerService interface {
 }
 
 type workerConfig struct {
-	ControllerService ControllerService
-	HTTPClient        s3client.HTTPClient
-	NewClient         NewClientFunc
-	Logger            s3client.Logger
-	Clock             clock.Clock
+	ControllerConfigService ControllerConfigService
+	HTTPClient              s3client.HTTPClient
+	NewClient               NewClientFunc
+	Logger                  s3client.Logger
+	Clock                   clock.Clock
 }
 
 // Validate returns an error if the workerConfig is not valid.
 func (cfg workerConfig) Validate() error {
-	if cfg.ControllerService == nil {
-		return errors.NotValidf("nil ControllerService")
+	if cfg.ControllerConfigService == nil {
+		return errors.NotValidf("nil ControllerConfigService")
 	}
 	if cfg.HTTPClient == nil {
 		return errors.NotValidf("nil HTTPClient")
@@ -156,7 +156,7 @@ func (w *s3Worker) Wait() error {
 }
 
 func (w *s3Worker) loop() (err error) {
-	watcher, err := w.config.ControllerService.Watch()
+	watcher, err := w.config.ControllerConfigService.Watch()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -199,7 +199,7 @@ func (w *s3Worker) loop() (err error) {
 func (w *s3Worker) makeNewClient(ctx context.Context) (objectstore.Session, error) {
 	// Attempt to get the controller config. If we can't get it, then
 	// defer the update until the next change or until
-	controllerConfig, err := w.config.ControllerService.ControllerConfig(ctx)
+	controllerConfig, err := w.config.ControllerConfigService.ControllerConfig(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

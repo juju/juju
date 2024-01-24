@@ -5,6 +5,7 @@ package objectstore
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/juju/clock"
@@ -15,6 +16,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/controller"
+	coredependency "github.com/juju/juju/core/dependency"
 	"github.com/juju/juju/core/lease"
 	coreobjectstore "github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/objectstore"
@@ -75,6 +77,21 @@ type MetadataService interface {
 	ObjectStore() coreobjectstore.ObjectStoreMetadata
 }
 
+// ControllerConfigService is the interface that the worker uses to get the
+// controller configuration.
+type ControllerConfigService interface {
+	// ControllerConfig returns the current controller configuration.
+	ControllerConfig(context.Context) (controller.Config, error)
+}
+
+// GetControllerConfigServiceFunc is a helper function that gets a service from
+// the manifold.
+type GetControllerConfigServiceFunc func(getter dependency.Getter, name string) (ControllerConfigService, error)
+
+// GetMetadataServiceFunc is a helper function that gets a service from
+// the manifold.
+type GetMetadataServiceFunc func(getter dependency.Getter, name string) (MetadataService, error)
+
 // ManifoldConfig defines the configuration for the trace manifold.
 type ManifoldConfig struct {
 	AgentName          string
@@ -83,10 +100,11 @@ type ManifoldConfig struct {
 	LeaseManagerName   string
 	S3ClientName       string
 
-	Clock                clock.Clock
-	Logger               Logger
-	NewObjectStoreWorker objectstore.ObjectStoreWorkerFunc
-	GetObjectStoreType   func(ControllerConfigService) (coreobjectstore.BackendType, error)
+	Clock                      clock.Clock
+	Logger                     Logger
+	NewObjectStoreWorker       objectstore.ObjectStoreWorkerFunc
+	GetControllerConfigService GetControllerConfigServiceFunc
+	GetMetadataService         GetMetadataServiceFunc
 
 	// StateName is only here for backwards compatibility. Once we have
 	// the right abstractions in place, and we have a replacement, we can
@@ -104,6 +122,12 @@ func (cfg ManifoldConfig) Validate() error {
 	}
 	if cfg.ServiceFactoryName == "" {
 		return errors.NotValidf("empty ServiceFactoryName")
+	}
+	if cfg.GetControllerConfigService == nil {
+		return errors.NotValidf("nil GetControllerConfigService")
+	}
+	if cfg.GetMetadataService == nil {
+		return errors.NotValidf("nil GetMetadataService")
 	}
 	if cfg.LeaseManagerName == "" {
 		return errors.NotValidf("empty LeaseManagerName")
@@ -150,12 +174,17 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 
-			// Ensure we can support the object store type, before continuing.
-			var controllerServiceFactory servicefactory.ControllerServiceFactory
-			if err := getter.Get(config.ServiceFactoryName, &controllerServiceFactory); err != nil {
+			controllerConfigService, err := config.GetControllerConfigService(getter, config.ServiceFactoryName)
+			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			objectStoreType, err := config.GetObjectStoreType(controllerServiceFactory.ControllerConfig())
+			controllerConfig, err := controllerConfigService.ControllerConfig(ctx)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			objectStoreType := controllerConfig.ObjectStoreType()
+
+			metadataService, err := config.GetMetadataService(getter, config.ServiceFactoryName)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -190,12 +219,13 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			w, err := NewWorker(WorkerConfig{
 				TracerGetter:               tracerGetter,
 				RootDir:                    a.CurrentConfig().DataDir(),
+				RootBucket:                 bucketName(controllerConfig),
 				Clock:                      config.Clock,
 				Logger:                     config.Logger,
 				NewObjectStoreWorker:       config.NewObjectStoreWorker,
 				ObjectStoreType:            objectStoreType,
 				S3Client:                   s3Client,
-				ControllerMetadataService:  controllerMetadataService{factory: controllerServiceFactory},
+				ControllerMetadataService:  metadataService,
 				ModelMetadataServiceGetter: modelMetadataServiceGetter{factoryGetter: modelServiceFactoryGetter},
 				ModelClaimGetter:           modelClaimGetter{manager: leaseManager},
 
@@ -217,25 +247,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	}
 }
 
-// ControllerConfigService is the interface that is used to get the controller
-// config.
-type ControllerConfigService interface {
-	ControllerConfig(context.Context) (controller.Config, error)
-}
-
-// GetObjectStoreType returns the object store type from the controller config
-// service.
-// In reality this is a work around from the fact that we're dealing with
-// a real concrete controller config service, and not an interface.
-func GetObjectStoreType(controllerConfigService ControllerConfigService) (coreobjectstore.BackendType, error) {
-	controllerConfig, err := controllerConfigService.ControllerConfig(context.TODO())
-	if err != nil {
-		return coreobjectstore.BackendType(""), errors.Trace(err)
-	}
-
-	return controllerConfig.ObjectStoreType(), nil
-}
-
 func output(in worker.Worker, out any) error {
 	if w, ok := in.(*common.CleanupWorker); ok {
 		in = w.Worker
@@ -253,6 +264,14 @@ func output(in worker.Worker, out any) error {
 		return errors.Errorf("expected output of ObjectStore, got %T", out)
 	}
 	return nil
+}
+
+func bucketName(config controller.Config) string {
+	name := config.ObjectStoreS3BucketName()
+	if name == "" {
+		return fmt.Sprintf("juju-%s", name)
+	}
+	return name
 }
 
 type shimStatePool struct {
@@ -364,4 +383,22 @@ func (l claimExtender) Extend(ctx context.Context) error {
 // Duration returns the duration of the claim.
 func (l claimExtender) Duration() time.Duration {
 	return defaultClaimDuration
+}
+
+// GetControllerConfigService is a helper function that gets a service from the
+// manifold.
+func GetControllerConfigService(getter dependency.Getter, name string) (ControllerConfigService, error) {
+	return coredependency.GetDependencyByName(getter, name, func(factory servicefactory.ControllerServiceFactory) ControllerConfigService {
+		return factory.ControllerConfig()
+	})
+}
+
+// GetMetadataService is a helper function that gets a service from the
+// manifold.
+func GetMetadataService(getter dependency.Getter, name string) (MetadataService, error) {
+	return coredependency.GetDependencyByName(getter, name, func(factory servicefactory.ControllerServiceFactory) MetadataService {
+		return controllerMetadataService{
+			factory: factory,
+		}
+	})
 }

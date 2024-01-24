@@ -83,7 +83,7 @@ type S3Client struct {
 }
 
 // NewS3Client returns a new s3Caller client for accessing the object store.
-func NewS3Client(baseURL string, httpClient HTTPClient, credentials Credentials, logger Logger) (*S3Client, error) {
+func NewS3Client(endpoint string, httpClient HTTPClient, credentials Credentials, logger Logger) (*S3Client, error) {
 	credentialsProvider, err := getCredentialsProvider(credentials)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot get credentials provider")
@@ -97,7 +97,7 @@ func NewS3Client(baseURL string, httpClient HTTPClient, credentials Credentials,
 		context.Background(),
 		config.WithLogger(awsLogger),
 		config.WithHTTPClient(httpClient),
-		config.WithEndpointResolverWithOptions(&awsEndpointResolver{endpoint: baseURL}),
+		config.WithEndpointResolverWithOptions(&awsEndpointResolver{endpoint: endpoint}),
 		// Standard retryer with custom max attempts. Will retry at most
 		// 10 times with 20s backoff time.
 		config.WithRetryer(func() aws.Retryer {

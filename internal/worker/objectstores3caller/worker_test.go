@@ -290,8 +290,8 @@ func (s *workerSuite) newWorker(c *gc.C) *s3Worker {
 
 func (s *workerSuite) getConfig() workerConfig {
 	return workerConfig{
-		ControllerService: s.controllerService,
-		HTTPClient:        s.httpClient,
+		ControllerConfigService: s.controllerConfigService,
+		HTTPClient:              s.httpClient,
 		NewClient: func(string, s3client.HTTPClient, s3client.Credentials, s3client.Logger) (objectstore.Session, error) {
 			atomic.AddInt64(&s.sessionRefCount, 1)
 			return s.session, nil
@@ -302,7 +302,7 @@ func (s *workerSuite) getConfig() workerConfig {
 }
 
 func (s *workerSuite) expectControllerConfigWithDone(c *gc.C, config controller.Config, done chan struct{}) {
-	s.controllerService.EXPECT().ControllerConfig(gomock.Any()).DoAndReturn(func(context.Context) (controller.Config, error) {
+	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).DoAndReturn(func(context.Context) (controller.Config, error) {
 		defer close(done)
 		return config, nil
 	})

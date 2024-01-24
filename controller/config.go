@@ -306,6 +306,10 @@ const (
 	// object stores.
 	ObjectStoreS3StaticSession = "object-store-s3-static-session"
 
+	// ObjectStoreS3BucketName is the bucket name to use for S3 object stores.
+	// If not set then juju will be used.
+	ObjectStoreS3BucketName = "object-store-s3-bucket-name"
+
 	// SystemSSHKeys returns the set of ssh keys that should be trusted by
 	// agents of this controller regardless of the model.
 	SystemSSHKeys = "system-ssh-keys"
@@ -520,6 +524,7 @@ var (
 		ObjectStoreS3StaticKey,
 		ObjectStoreS3StaticSecret,
 		ObjectStoreS3StaticSession,
+		ObjectStoreS3BucketName,
 		SystemSSHKeys,
 	}
 
@@ -1128,6 +1133,11 @@ func (c Config) ObjectStoreS3StaticSession() string {
 	return c.asString(ObjectStoreS3StaticSession)
 }
 
+// ObjectStoreS3BucketName returns the bucket name to use for S3 object stores.
+func (c Config) ObjectStoreS3BucketName() string {
+	return c.asString(ObjectStoreS3BucketName)
+}
+
 // Validate ensures that config is a valid configuration.
 func Validate(c Config) error {
 	if v, ok := c[IdentityPublicKey].(string); ok {
@@ -1389,6 +1399,14 @@ func Validate(c Config) error {
 		}
 		if _, err := objectstore.ParseObjectStoreType(v); err != nil {
 			return errors.NotValidf("invalid object store type %q", v)
+		}
+	}
+
+	if v, ok := c[ObjectStoreS3BucketName].(string); ok {
+		if v != "" {
+			if _, err := objectstore.ParseObjectStoreBucketName(v); err != nil {
+				return errors.NotValidf("invalid object store s3 bucket name %q", v)
+			}
 		}
 	}
 
