@@ -13,6 +13,12 @@ const (
 	tableModelConfig tableNamespaceID = iota + 1
 	tableModelObjectStoreMetadata
 	tableBlockDeviceMachine
+	tableStorageAttachment
+	tableFileSystem
+	tableFileSystemAttachment
+	tableVolume
+	tableVolumeAttachment
+	tableVolumeAttachmentPlan
 )
 
 // ModelDDL is used to create model databases.
@@ -34,6 +40,12 @@ func ModelDDL() *schema.Schema {
 		blockDeviceSchema,
 		changeLogTriggersForTable("block_device", "machine_uuid", tableBlockDeviceMachine),
 		storageSchema,
+		changeLogTriggersForTable("storage_attachment", "storage_instance_uuid", tableStorageAttachment),
+		changeLogTriggersForTable("storage_filesystem", "uuid", tableFileSystem),
+		changeLogTriggersForTable("storage_filesystem_attachment", "uuid", tableFileSystemAttachment),
+		changeLogTriggersForTable("storage_volume", "uuid", tableVolume),
+		changeLogTriggersForTable("storage_volume_attachment", "uuid", tableVolumeAttachment),
+		changeLogTriggersForTable("storage_volume_attachment_plan", "uuid", tableVolumeAttachmentPlan),
 		annotationSchemaForTable("application"),
 		annotationSchemaForTable("charm"),
 		annotationSchemaForTable("machine"),
@@ -486,16 +498,17 @@ CREATE TABLE storage_pool_attribute (
 );
 
 CREATE TABLE storage_kind (
-    id   INT PRIMARY KEY,
-    kind TEXT
+    id   		INT PRIMARY KEY,
+    kind 		TEXT NOT NULL,
+    description TEXT                     
 );
 
 CREATE UNIQUE INDEX idx_storage_kind
 ON storage_kind (kind);
 
 INSERT INTO storage_kind VALUES
-    (0, 'block'), 
-    (1, 'filesystem');
+    (0, 'block', 'Allows for the creation of raw storage volumes'), 
+    (1, 'filesystem', 'Provides a hierarchical file storage system');
 
 CREATE TABLE storage_instance (
     uuid            TEXT PRIMARY KEY,
@@ -550,18 +563,23 @@ CREATE TABLE storage_attachment (
         REFERENCES  life(id)
 );
 
+-- Note that this is not unique; it speeds access by unit.
+CREATE INDEX idx_storage_attachment_unit
+ON storage_attachment (unit_uuid);
+
 CREATE TABLE storage_constraint_type (
-    id   INT PRIMARY KEY,
-    name TEXT NOT NULL 
+    id          INT PRIMARY KEY,
+    name        TEXT NOT NULL,
+    description TEXT
 );
 
 CREATE UNIQUE INDEX idx_storage_constraint_type
 ON storage_constraint_type (name);
 
 INSERT INTO storage_constraint_type VALUES
-    (0, 'pool'), 
-    (1, 'size'), -- MiB.
-    (2, 'count'); 
+    (0, 'pool', 'The storage pool from which storage must be provisioned'), 
+    (1, 'size', 'Minimum size in MiB'),
+    (2, 'count', 'Number of storage instances required'); 
 
 CREATE TABLE storage_instance_constraint (
     uuid                  TEXT PRIMARY KEY,
@@ -579,14 +597,40 @@ CREATE TABLE storage_instance_constraint (
 CREATE UNIQUE INDEX idx_storage_instance_constraint
 ON storage_instance_constraint (storage_instance_uuid, constraint_type_id);
 
+CREATE TABLE storage_provisioning_status (
+    id          INT PRIMARY KEY,
+    name        TEXT NOT NULL,
+    description TEXT
+);
+
+CREATE UNIQUE INDEX idx_storage_provisioning_status
+ON storage_provisioning_status (name);
+
+INSERT INTO storage_provisioning_status VALUES
+    (0, 'pending', 'Creation or attachment is awaiting completion'), 
+    (1, 'provisioned', 'Requested creation or attachment has been completed'),
+    (2, 'error', 'An error was encountered during creation or attachment'); 
+
 CREATE TABLE storage_volume (
-    uuid    TEXT PRIMARY KEY,
-    life_id INT NOT NULL,
-    name    TEXT NOT NULL,
-    -- TODO (manadart 2023-12-11) info and params.
+    uuid                   TEXT PRIMARY KEY,
+    life_id                INT NOT NULL,
+    name                   TEXT NOT NULL,
+    provider_id            TEXT,
+    storage_pool_uuid      TEXT,
+    size_mib               INT,
+    hardware_id            TEXT,
+    wwn                    TEXT,
+    persistent             BOOLEAN,
+    provisioning_status_id INT NOT NULL,
     CONSTRAINT      fk_storage_instance_life
         FOREIGN KEY (life_id)
-        REFERENCES  life(id)
+        REFERENCES  life(id),
+    CONSTRAINT      fk_storage_volume_pool
+        FOREIGN KEY (storage_pool_uuid)
+        REFERENCES  storage_pool(uuid),
+    CONSTRAINT      fk_storage_vol_provisioning_status
+        FOREIGN KEY (provisioning_status_id)
+        REFERENCES  storage_provisioning_status(id)
 );
 
 -- An instance can have at most one volume.
@@ -606,11 +650,13 @@ CREATE UNIQUE INDEX idx_storage_instance_volume
 ON storage_instance_volume (storage_volume_uuid);
 
 CREATE TABLE storage_volume_attachment (
-    uuid                TEXT PRIMARY KEY,
-    storage_volume_uuid TEXT NOT NULL,
-    net_node_uuid       TEXT NOT NULL,
-    life_id             INT NOT NULL,
-    -- TODO (manadart 2023-12-11) info, params and plans.
+    uuid                   TEXT PRIMARY KEY,
+    storage_volume_uuid    TEXT NOT NULL,
+    net_node_uuid          TEXT NOT NULL,
+    life_id                INT NOT NULL,
+    block_device_uuid      TEXT,
+    read_only              BOOLEAN,
+    provisioning_status_id INT NOT NULL,
     CONSTRAINT       fk_storage_volume_attachment_vol
         FOREIGN KEY  (storage_volume_uuid)
         REFERENCES   storage_volume(uuid),
@@ -619,16 +665,31 @@ CREATE TABLE storage_volume_attachment (
         REFERENCES   net_node(uuid),
     CONSTRAINT       fk_storage_volume_attachment_life
         FOREIGN KEY  (life_id)
-        REFERENCES   life(id)
+        REFERENCES   life(id),
+    CONSTRAINT       fk_storage_volume_attachment_block
+        FOREIGN KEY  (block_device_uuid)
+        REFERENCES   block_device(uuid),
+    CONSTRAINT       fk_storage_vol_att_provisioning_status
+        FOREIGN KEY  (provisioning_status_id)
+        REFERENCES   storage_provisioning_status(id)
 );
 
 CREATE TABLE storage_filesystem (
-    uuid    TEXT PRIMARY KEY,
-    life_id INT NOT NULL,
-    -- TODO (manadart 2023-12-11) info and params.
-    CONSTRAINT      fk_storage_instance_life
-        FOREIGN KEY (life_id)
-        REFERENCES  life(id)
+    uuid                   TEXT PRIMARY KEY,
+    life_id                INT NOT NULL,
+    provider_id            TEXT,
+    storage_pool_uuid      TEXT,
+    size_mib               INT,
+    provisioning_status_id INT NOT NULL,
+    CONSTRAINT       fk_storage_instance_life
+        FOREIGN KEY  (life_id)
+        REFERENCES   life(id),
+    CONSTRAINT       fk_storage_filesystem_pool
+        FOREIGN KEY  (storage_pool_uuid)
+        REFERENCES   storage_pool(uuid),
+    CONSTRAINT       fk_storage_fs_provisioning_status
+        FOREIGN KEY  (provisioning_status_id)
+        REFERENCES   storage_provisioning_status(id)
 );
 
 -- An instance can have at most one filesystem.
@@ -652,7 +713,9 @@ CREATE TABLE storage_filesystem_attachment (
     storage_filesystem_uuid TEXT NOT NULL,
     net_node_uuid           TEXT NOT NULL,
     life_id                 INT NOT NULL,
-    -- TODO (manadart 2023-12-11) info and params.
+    mount_point             TEXT,
+    read_only               BOOLEAN, 
+    provisioning_status_id  INT NOT NULL,
     CONSTRAINT       fk_storage_filesystem_attachment_fs
         FOREIGN KEY  (storage_filesystem_uuid)
         REFERENCES   storage_filesystem(uuid),
@@ -661,7 +724,64 @@ CREATE TABLE storage_filesystem_attachment (
         REFERENCES   net_node(uuid),
     CONSTRAINT       fk_storage_filesystem_attachment_life
         FOREIGN KEY  (life_id)
-        REFERENCES   life(id)
+        REFERENCES   life(id),
+    CONSTRAINT       fk_storage_fs_provisioning_status
+        FOREIGN KEY  (provisioning_status_id)
+        REFERENCES   storage_provisioning_status(id)
 );
+
+CREATE TABLE storage_volume_device_type (
+    id          INT PRIMARY KEY,
+    name        TEXT NOT NULL,
+    description TEXT
+);
+
+CREATE UNIQUE INDEX idx_storage_volume_dev_type
+ON storage_volume_device_type (name);
+
+INSERT INTO storage_volume_device_type VALUES
+    (0, 'local', 'Default device type for on-machine volume attachments'), 
+    (1, 'iscsi', 'iSCSI protocol for linking storage');
+
+CREATE TABLE storage_volume_attachment_plan (
+    uuid                   TEXT PRIMARY KEY,
+    storage_volume_uuid    TEXT NOT NULL,
+    net_node_uuid          TEXT NOT NULL,
+    life_id                INT NOT NULL,
+    device_type_id         INT,
+    block_device_uuid      TEXT,
+    provisioning_status_id INT NOT NULL,
+    CONSTRAINT       fk_storage_volume_attachment_plan_vol
+        FOREIGN KEY  (storage_volume_uuid)
+        REFERENCES   storage_volume(uuid),
+    CONSTRAINT       fk_storage_volume_attachment_plan_node
+        FOREIGN KEY  (net_node_uuid)
+        REFERENCES   net_node(uuid),
+    CONSTRAINT       fk_storage_volume_attachment_plan_life
+        FOREIGN KEY  (life_id)
+        REFERENCES   life(id),
+    CONSTRAINT       fk_storage_volume_attachment_plan_device
+        FOREIGN KEY  (device_type_id)
+        REFERENCES   storage_volume_device_type(id),
+    CONSTRAINT       fk_storage_volume_attachment_plan_block
+        FOREIGN KEY  (block_device_uuid)
+        REFERENCES   block_device(uuid),
+    CONSTRAINT       fk_storage_fs_provisioning_status
+        FOREIGN KEY  (provisioning_status_id)
+        REFERENCES   storage_provisioning_status(id)
+);
+
+CREATE TABLE storage_volume_attachment_plan_attr (
+    uuid                 TEXT PRIMARY KEY, 
+    attachment_plan_uuid TEXT NOT NULL,
+    key                  TEXT NOT NULL,
+    value                TEXT NOT NULL,
+    CONSTRAINT       fk_storage_vol_attach_plan_attr_plan
+        FOREIGN KEY  (attachment_plan_uuid)
+        REFERENCES   storage_volume_attachment_plan(attachment_plan_uuid)
+);
+
+CREATE UNIQUE INDEX idx_storage_vol_attachment_plan_attr
+ON storage_volume_attachment_plan_attr (attachment_plan_uuid, key);
 `)
 }
