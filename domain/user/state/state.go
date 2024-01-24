@@ -239,9 +239,8 @@ WHERE user.name = $M.name AND removed = false
 
 // GetUserByAuth will retrieve the user with checking authentication information
 // specified by UUID and password from the database. If the user does not exist
-// an error that satisfies usererrors.NotFound will be returned.
-// If the user password does not match the supplied password then
-// usererrors.Unauthorized will be returned.
+// or the user does not authenticate an error that satisfies usererrors.Unauthorized
+// will be returned.
 func (st *State) GetUserByAuth(ctx context.Context, name string, password string) (user.User, error) {
 	db, err := st.DB()
 	if err != nil {
@@ -267,10 +266,8 @@ WHERE user.name = $M.name AND removed = false
 
 		var result User
 		err = tx.Query(ctx, selectGetUserByAuthStmt, sqlair.M{"name": name}).Get(&result)
-		if err != nil && errors.Is(err, sql.ErrNoRows) {
-			return errors.Annotatef(usererrors.NotFound, "%q", name)
-		} else if err != nil {
-			return errors.Annotatef(err, "getting user with name %q", name)
+		if err != nil {
+			return errors.Annotatef(usererrors.Unauthorized, "%q", name)
 		}
 
 		passwordHash, err := auth.HashPassword(auth.NewPassword(password), result.PasswordSalt)
