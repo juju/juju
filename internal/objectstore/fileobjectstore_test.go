@@ -25,13 +25,13 @@ import (
 	jujutesting "github.com/juju/juju/testing"
 )
 
-type FileObjectStoreSuite struct {
+type fileObjectStoreSuite struct {
 	baseSuite
 }
 
-var _ = gc.Suite(&FileObjectStoreSuite{})
+var _ = gc.Suite(&fileObjectStoreSuite{})
 
-func (s *FileObjectStoreSuite) TestGetMetadataNotFound(c *gc.C) {
+func (s *fileObjectStoreSuite) TestGetMetadataNotFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	path := c.MkDir()
@@ -46,7 +46,7 @@ func (s *FileObjectStoreSuite) TestGetMetadataNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
-func (s *FileObjectStoreSuite) TestGetMetadataFoundNoFile(c *gc.C) {
+func (s *fileObjectStoreSuite) TestGetMetadataFoundNoFile(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	path := c.MkDir()
@@ -65,7 +65,7 @@ func (s *FileObjectStoreSuite) TestGetMetadataFoundNoFile(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, os.ErrNotExist)
 }
 
-func (s *FileObjectStoreSuite) TestGetMetadataAndFileFound(c *gc.C) {
+func (s *fileObjectStoreSuite) TestGetMetadataAndFileFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	path := c.MkDir()
@@ -90,7 +90,7 @@ func (s *FileObjectStoreSuite) TestGetMetadataAndFileFound(c *gc.C) {
 	c.Assert(s.readFile(c, file), gc.Equals, "some content")
 }
 
-func (s *FileObjectStoreSuite) TestGetMetadataAndFileNotFoundThenFound(c *gc.C) {
+func (s *fileObjectStoreSuite) TestGetMetadataAndFileNotFoundThenFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Attempt to read the file before it exists. This should fail.
@@ -123,7 +123,7 @@ func (s *FileObjectStoreSuite) TestGetMetadataAndFileNotFoundThenFound(c *gc.C) 
 	c.Assert(s.readFile(c, file), gc.Equals, "some content")
 }
 
-func (s *FileObjectStoreSuite) TestGetMetadataAndFileFoundWithIncorrectSize(c *gc.C) {
+func (s *fileObjectStoreSuite) TestGetMetadataAndFileFoundWithIncorrectSize(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	path := c.MkDir()
@@ -146,7 +146,7 @@ func (s *FileObjectStoreSuite) TestGetMetadataAndFileFoundWithIncorrectSize(c *g
 	c.Assert(err, gc.ErrorMatches, `.*size mismatch.*`)
 }
 
-func (s *FileObjectStoreSuite) TestPut(c *gc.C) {
+func (s *fileObjectStoreSuite) TestPut(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	hash := s.calculateHexHash(c, "some content")
@@ -171,7 +171,7 @@ func (s *FileObjectStoreSuite) TestPut(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *FileObjectStoreSuite) TestPutFileAlreadyExists(c *gc.C) {
+func (s *fileObjectStoreSuite) TestPutFileAlreadyExists(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	hash := s.calculateHexHash(c, "some content")
@@ -199,7 +199,7 @@ func (s *FileObjectStoreSuite) TestPutFileAlreadyExists(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *FileObjectStoreSuite) TestPutCleansUpFileOnMetadataFailure(c *gc.C) {
+func (s *fileObjectStoreSuite) TestPutCleansUpFileOnMetadataFailure(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// If the file is not referenced by another metadata entry, then the file
@@ -229,7 +229,7 @@ func (s *FileObjectStoreSuite) TestPutCleansUpFileOnMetadataFailure(c *gc.C) {
 	s.expectFileDoesExist(c, path, namespace, hash)
 }
 
-func (s *FileObjectStoreSuite) TestPutDoesNotCleansUpFileOnMetadataFailure(c *gc.C) {
+func (s *fileObjectStoreSuite) TestPutDoesNotCleansUpFileOnMetadataFailure(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// The file should not be cleaned up if the file is referenced by another
@@ -269,7 +269,7 @@ func (s *FileObjectStoreSuite) TestPutDoesNotCleansUpFileOnMetadataFailure(c *gc
 	s.expectFileDoesExist(c, path, namespace, hash)
 }
 
-func (s *FileObjectStoreSuite) TestPutAndCheckHash(c *gc.C) {
+func (s *fileObjectStoreSuite) TestPutAndCheckHash(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	hash := s.calculateHexHash(c, "some content")
@@ -294,7 +294,7 @@ func (s *FileObjectStoreSuite) TestPutAndCheckHash(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *FileObjectStoreSuite) TestPutAndCheckHashWithInvalidHash(c *gc.C) {
+func (s *fileObjectStoreSuite) TestPutAndCheckHashWithInvalidHash(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	hash := s.calculateHexHash(c, "some content")
@@ -312,7 +312,7 @@ func (s *FileObjectStoreSuite) TestPutAndCheckHashWithInvalidHash(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `.*hash mismatch.*`)
 }
 
-func (s *FileObjectStoreSuite) TestPutAndCheckHashFileAlreadyExists(c *gc.C) {
+func (s *fileObjectStoreSuite) TestPutAndCheckHashFileAlreadyExists(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	hash := s.calculateHexHash(c, "some content")
@@ -340,7 +340,7 @@ func (s *FileObjectStoreSuite) TestPutAndCheckHashFileAlreadyExists(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *FileObjectStoreSuite) TestPutAndCheckHashCleansUpFileOnMetadataFailure(c *gc.C) {
+func (s *fileObjectStoreSuite) TestPutAndCheckHashCleansUpFileOnMetadataFailure(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// If the file is not referenced by another metadata entry, then the file
@@ -370,7 +370,7 @@ func (s *FileObjectStoreSuite) TestPutAndCheckHashCleansUpFileOnMetadataFailure(
 	s.expectFileDoesExist(c, path, namespace, hash)
 }
 
-func (s *FileObjectStoreSuite) TestPutAndCheckHashDoesNotCleansUpFileOnMetadataFailure(c *gc.C) {
+func (s *fileObjectStoreSuite) TestPutAndCheckHashDoesNotCleansUpFileOnMetadataFailure(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// The file should not be cleaned up if the file is referenced by another
@@ -410,7 +410,7 @@ func (s *FileObjectStoreSuite) TestPutAndCheckHashDoesNotCleansUpFileOnMetadataF
 	s.expectFileDoesExist(c, path, namespace, hash)
 }
 
-func (s *FileObjectStoreSuite) TestRemoveFileNotFound(c *gc.C) {
+func (s *fileObjectStoreSuite) TestRemoveFileNotFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Test that we don't return an error if the file does not exist.
@@ -441,7 +441,7 @@ func (s *FileObjectStoreSuite) TestRemoveFileNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *FileObjectStoreSuite) TestRemove(c *gc.C) {
+func (s *fileObjectStoreSuite) TestRemove(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	hash := s.calculateHexHash(c, "some content")
@@ -481,7 +481,7 @@ func (s *FileObjectStoreSuite) TestRemove(c *gc.C) {
 	s.expectFileDoesNotExist(c, path, namespace, hash)
 }
 
-func (s *FileObjectStoreSuite) createFile(c *gc.C, path, name, contents string) (int64, string) {
+func (s *fileObjectStoreSuite) createFile(c *gc.C, path, name, contents string) (int64, string) {
 	// Ensure the directory exists.
 	err := os.MkdirAll(path, 0755)
 	c.Assert(err, jc.ErrorIsNil)
@@ -513,26 +513,26 @@ func (s *FileObjectStoreSuite) createFile(c *gc.C, path, name, contents string) 
 	return info.Size(), hash
 }
 
-func (s *FileObjectStoreSuite) expectFileDoesNotExist(c *gc.C, path, namespace, hash string) {
+func (s *fileObjectStoreSuite) expectFileDoesNotExist(c *gc.C, path, namespace, hash string) {
 	_, err := os.Stat(filepath.Join(path, defaultFileDirectory, namespace, hash))
 	c.Assert(err, jc.Satisfies, os.IsNotExist)
 }
 
-func (s *FileObjectStoreSuite) expectFileDoesExist(c *gc.C, path, namespace, hash string) {
+func (s *fileObjectStoreSuite) expectFileDoesExist(c *gc.C, path, namespace, hash string) {
 	_, err := os.Stat(filepath.Join(path, defaultFileDirectory, namespace, hash))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *FileObjectStoreSuite) expectClaim(hash string, num int) {
+func (s *fileObjectStoreSuite) expectClaim(hash string, num int) {
 	s.claimer.EXPECT().Claim(gomock.Any(), hash).Return(s.claimExtender, nil).Times(num)
 	s.claimExtender.EXPECT().Extend(gomock.Any()).Return(nil).AnyTimes()
 	s.claimExtender.EXPECT().Duration().Return(time.Second).AnyTimes()
 }
 
-func (s *FileObjectStoreSuite) expectRelease(hash string, num int) {
+func (s *fileObjectStoreSuite) expectRelease(hash string, num int) {
 	s.claimer.EXPECT().Release(gomock.Any(), hash).Return(nil).Times(num)
 }
 
-func (s *FileObjectStoreSuite) filePath(path, namespace string) string {
+func (s *fileObjectStoreSuite) filePath(path, namespace string) string {
 	return filepath.Join(path, defaultFileDirectory, namespace)
 }

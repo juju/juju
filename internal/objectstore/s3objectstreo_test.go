@@ -22,16 +22,16 @@ import (
 	gc "gopkg.in/check.v1"
 )
 
-type S3ObjectStoreSuite struct {
+type s3ObjectStoreSuite struct {
 	baseSuite
 
 	session *MockSession
 	client  *client
 }
 
-var _ = gc.Suite(&S3ObjectStoreSuite{})
+var _ = gc.Suite(&s3ObjectStoreSuite{})
 
-func (s *S3ObjectStoreSuite) TestGetMetadataNotFound(c *gc.C) {
+func (s *s3ObjectStoreSuite) TestGetMetadataNotFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	path := c.MkDir()
@@ -46,7 +46,7 @@ func (s *S3ObjectStoreSuite) TestGetMetadataNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
-func (s *S3ObjectStoreSuite) TestGetMetadataFoundNoFile(c *gc.C) {
+func (s *s3ObjectStoreSuite) TestGetMetadataFoundNoFile(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	path := c.MkDir()
@@ -65,7 +65,7 @@ func (s *S3ObjectStoreSuite) TestGetMetadataFoundNoFile(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, os.ErrNotExist)
 }
 
-func (s *S3ObjectStoreSuite) TestGetMetadataAndFileNotFoundThenFound(c *gc.C) {
+func (s *s3ObjectStoreSuite) TestGetMetadataAndFileNotFoundThenFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Attempt to read the file before it exists. This should fail.
@@ -108,7 +108,7 @@ func (s *S3ObjectStoreSuite) TestGetMetadataAndFileNotFoundThenFound(c *gc.C) {
 	c.Assert(s.readFile(c, file), gc.Equals, "hello")
 }
 
-func (s *S3ObjectStoreSuite) TestGetMetadataAndFileFoundWithIncorrectSize(c *gc.C) {
+func (s *s3ObjectStoreSuite) TestGetMetadataAndFileFoundWithIncorrectSize(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	namespace := "inferi"
@@ -148,7 +148,7 @@ func (s *S3ObjectStoreSuite) TestGetMetadataAndFileFoundWithIncorrectSize(c *gc.
 	c.Assert(err, gc.ErrorMatches, `.*size mismatch.*`)
 }
 
-func (s *S3ObjectStoreSuite) TestPut(c *gc.C) {
+func (s *s3ObjectStoreSuite) TestPut(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	content := "some content"
@@ -190,7 +190,7 @@ func (s *S3ObjectStoreSuite) TestPut(c *gc.C) {
 	c.Check(receivedContent, gc.Equals, content)
 }
 
-func (s *S3ObjectStoreSuite) TestPutAndCheckHash(c *gc.C) {
+func (s *s3ObjectStoreSuite) TestPutAndCheckHash(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	content := "some content"
@@ -232,7 +232,7 @@ func (s *S3ObjectStoreSuite) TestPutAndCheckHash(c *gc.C) {
 	c.Check(receivedContent, gc.Equals, content)
 }
 
-func (s *S3ObjectStoreSuite) TestPutAndCheckHashWithInvalidHash(c *gc.C) {
+func (s *s3ObjectStoreSuite) TestPutAndCheckHashWithInvalidHash(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	content := "some content"
@@ -258,7 +258,7 @@ func (s *S3ObjectStoreSuite) TestPutAndCheckHashWithInvalidHash(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `.*hash mismatch.*`)
 }
 
-func (s *S3ObjectStoreSuite) TestPutAndCheckHashFileAlreadyExists(c *gc.C) {
+func (s *s3ObjectStoreSuite) TestPutAndCheckHashFileAlreadyExists(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	content := "some content"
@@ -304,7 +304,7 @@ func (s *S3ObjectStoreSuite) TestPutAndCheckHashFileAlreadyExists(c *gc.C) {
 	c.Check(receivedContent, gc.Equals, content)
 }
 
-func (s *S3ObjectStoreSuite) TestPutFileOnMetadataFailure(c *gc.C) {
+func (s *s3ObjectStoreSuite) TestPutFileOnMetadataFailure(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// If the file is not referenced by another metadata entry, then the file
@@ -342,7 +342,7 @@ func (s *S3ObjectStoreSuite) TestPutFileOnMetadataFailure(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `.*boom`)
 }
 
-func (s *S3ObjectStoreSuite) TestRemoveFileNotFound(c *gc.C) {
+func (s *s3ObjectStoreSuite) TestRemoveFileNotFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Test that we don't return an error if the file does not exist.
@@ -384,7 +384,7 @@ func (s *S3ObjectStoreSuite) TestRemoveFileNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *S3ObjectStoreSuite) TestRemove(c *gc.C) {
+func (s *s3ObjectStoreSuite) TestRemove(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	content := "some content"
@@ -421,7 +421,7 @@ func (s *S3ObjectStoreSuite) TestRemove(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *S3ObjectStoreSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *s3ObjectStoreSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := s.baseSuite.setupMocks(c)
 
 	s.session = NewMockSession(ctrl)
@@ -430,7 +430,7 @@ func (s *S3ObjectStoreSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *S3ObjectStoreSuite) expectStartup() chan struct{} {
+func (s *s3ObjectStoreSuite) expectStartup() chan struct{} {
 	done := make(chan struct{})
 	s.session.EXPECT().CreateBucket(gomock.Any(), defaultBucketName).DoAndReturn(func(ctx context.Context, bucketName string) error {
 		defer close(done)
@@ -439,7 +439,7 @@ func (s *S3ObjectStoreSuite) expectStartup() chan struct{} {
 	return done
 }
 
-func (s *S3ObjectStoreSuite) expectFailure(fileName string, err error) {
+func (s *s3ObjectStoreSuite) expectFailure(fileName string, err error) {
 	s.service.EXPECT().GetMetadata(gomock.Any(), fileName).Return(objectstore.Metadata{}, err)
 }
 
