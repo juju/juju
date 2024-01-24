@@ -17,10 +17,10 @@ type State interface {
 	// If no annotations are found, an empty map is returned.
 	GetAnnotations(ctx context.Context, ID annotations.ID) (map[string]string, error)
 
-	// UpdateAnnotations associates key/value annotation pairs with a given ID.
+	// SetAnnotations associates key/value annotation pairs with a given ID.
 	// If annotation already exists for the given ID, then it will be updated with
 	// the given value.
-	UpdateAnnotations(ctx context.Context, ID annotations.ID, annotations map[string]string) error
+	SetAnnotations(ctx context.Context, ID annotations.ID, annotations map[string]string) error
 }
 
 // Service provides the API for working with annotations.
@@ -42,10 +42,10 @@ func (s *Service) GetAnnotations(ctx context.Context, ID annotations.ID) (map[st
 	return annotations, errors.Trace(err)
 }
 
-// UpdateAnnotations associates key/value annotation pairs with a given ID.
+// SetAnnotations associates key/value annotation pairs with a given ID.
 // If annotation already exists for the given ID, then it will be updated with
 // the given value.
-func (s *Service) UpdateAnnotations(ctx context.Context, ID annotations.ID, annotations map[string]string) error {
-	err := s.st.UpdateAnnotations(ctx, ID, annotations)
+func (s *Service) SetAnnotations(ctx context.Context, ID annotations.ID, annotations map[string]string) error {
+	err := s.st.SetAnnotations(ctx, ID, annotations)
 	return errors.Annotatef(err, "updating annotations for ID: %q", ID.Name)
 }

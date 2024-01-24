@@ -78,8 +78,8 @@ func (s *serviceSuite) TestGetAnnotations(c *gc.C) {
 	c.Assert(len(noAnnotations), gc.Equals, 0)
 }
 
-// TestUpdateAnnotations is testing the happy path for setting annotations for an ID.
-func (s *serviceSuite) TestUpdateAnnotations(c *gc.C) {
+// TestSetAnnotations is testing the happy path for setting annotations for an ID.
+func (s *serviceSuite) TestSetAnnotations(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	id1 := annotations.ID{Kind: annotations.KindUnit, Name: "unit1"}
 	id33 := annotations.ID{Kind: annotations.KindUnit, Name: "unit33"}
@@ -91,7 +91,7 @@ func (s *serviceSuite) TestUpdateAnnotations(c *gc.C) {
 		{id44, "annotationKey4"}: "annotationValue4",
 	}
 
-	s.state.EXPECT().UpdateAnnotations(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+	s.state.EXPECT().SetAnnotations(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 		func(_ context.Context,
 			ID annotations.ID,
 			annotations map[string]string) error {
@@ -102,10 +102,14 @@ func (s *serviceSuite) TestUpdateAnnotations(c *gc.C) {
 		},
 	)
 
-	annotations := map[string]string{"annotationKey5": "annotationValue5"}
+	annotations := map[string]string{
+		"annotationKey5": "annotationValue5",
+		"annotationKey1": "annotationValue1Updated",
+	}
 
-	err := s.service().UpdateAnnotations(context.Background(), id1, annotations)
+	err := s.service().SetAnnotations(context.Background(), id1, annotations)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(mockState), gc.Equals, 5)
 	c.Assert(mockState[stateAnnotationKey{id1, "annotationKey5"}], gc.Equals, "annotationValue5")
+	c.Assert(mockState[stateAnnotationKey{id1, "annotationKey1"}], gc.Equals, "annotationValue1Updated")
 }
