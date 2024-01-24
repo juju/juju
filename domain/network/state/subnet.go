@@ -194,8 +194,8 @@ VALUES ($M.availability_zone_uuid, $M.subnet_uuid)`, sqlair.M{})
 	for _, az := range subnet.AvailabilityZones {
 		// Retrieve the availability zone.
 		m := sqlair.M{}
-
-		if err := tx.Query(ctx, retrieveAvailabilityZoneStmt, sqlair.M{"name": az}).Get(m); err != nil && err != sqlair.ErrNoRows {
+		err := tx.Query(ctx, retrieveAvailabilityZoneStmt, sqlair.M{"name": az}).Get(m)
+		if err != nil && err != sql.ErrNoRows {
 			return errors.Annotatef(err, "retrieving availability zone %q for subnet %q", az, subnetUUID)
 		}
 		azUUIDStr, _ := m["uuid"]
