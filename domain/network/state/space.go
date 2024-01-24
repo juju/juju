@@ -74,20 +74,21 @@ WHERE  subnet_type.is_space_settable = FALSE AND subnet.uuid IN ($S[:])`, sqlair
 		return errors.Trace(err)
 	}
 
+	subnetIDsInS := sqlair.S{}
+	for _, sid := range subnetIDs {
+		subnetIDsInS = append(subnetIDsInS, sid)
+	}
+
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		// We must first check on the provided subnet ids to validate
 		// that are of a type on which the space can be set.
-
-		subnetIDsInS := sqlair.S{}
-		for _, sid := range subnetIDs {
-			subnetIDsInS = append(subnetIDsInS, sid)
-		}
 
 		var nonSettableSubnets []Subnet
 		err := tx.Query(ctx, checkInputSubnetsStmt, subnetIDsInS).GetAll(&nonSettableSubnets)
 		if err != nil {
 			return errors.Annotatef(err, "checking if there are fan subnets for space %q", uuid)
 		}
+
 		// If any row is returned we must fail with the returned fan
 		// subnet uuids.
 		if len(nonSettableSubnets) > 0 {
