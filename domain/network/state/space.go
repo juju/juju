@@ -41,17 +41,16 @@ func (st *State) AddSpace(
 		return errors.Trace(err)
 	}
 
-	insertSpaceStmt, err := sqlair.Prepare(
-		`INSERT INTO space (uuid, name) VALUES ($Space.uuid, $Space.name)`, Space{},
-	)
+	insertSpaceStmt, err := sqlair.Prepare(`
+INSERT INTO space (uuid, name) 
+VALUES ($Space.uuid, $Space.name)`, Space{})
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	insertProviderStmt, err := sqlair.Prepare(
-		`INSERT INTO provider_space (provider_id, space_uuid) VALUES ($ProviderSpace.provider_id, $ProviderSpace.space_uuid)`,
-		ProviderSpace{},
-	)
+	insertProviderStmt, err := sqlair.Prepare(`
+INSERT INTO provider_space (provider_id, space_uuid)
+VALUES ($ProviderSpace.provider_id, $ProviderSpace.space_uuid)`, ProviderSpace{})
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -84,8 +83,7 @@ WHERE  subnet_type.is_space_settable = FALSE AND subnet.uuid IN ($S[:])`, sqlair
 		// that are of a type on which the space can be set.
 
 		var nonSettableSubnets []Subnet
-		err := tx.Query(ctx, checkInputSubnetsStmt, subnetIDsInS).GetAll(&nonSettableSubnets)
-		if err != nil {
+		if err := tx.Query(ctx, checkInputSubnetsStmt, subnetIDsInS).GetAll(&nonSettableSubnets); err != nil {
 			return errors.Annotatef(err, "checking if there are fan subnets for space %q", uuid)
 		}
 

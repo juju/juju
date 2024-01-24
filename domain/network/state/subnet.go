@@ -124,8 +124,8 @@ VALUES ($ProviderNetworkSubnet.provider_network_uuid, $ProviderNetworkSubnet.sub
 	if subnetType == subnetTypeFanOverlaySegment {
 		// Retrieve the underlay subnet uuid.
 		var underlaySubnet Subnet
-		err := tx.Query(ctx, retrieveUnderlaySubnetUUIDStmt, Subnet{CIDR: subnetInfo.FanInfo.FanLocalUnderlay}).Get(&underlaySubnet)
-		if err != nil {
+
+		if err := tx.Query(ctx, retrieveUnderlaySubnetUUIDStmt, Subnet{CIDR: subnetInfo.FanInfo.FanLocalUnderlay}).Get(&underlaySubnet); err != nil {
 			return errors.Annotatef(err, "retrieving underlay subnet %q for subnet %q", subnetInfo.FanInfo.FanLocalUnderlay, uuid)
 		}
 		// Add the association of the underlay and the newly
@@ -194,8 +194,8 @@ VALUES ($M.availability_zone_uuid, $M.subnet_uuid)`, sqlair.M{})
 	for _, az := range subnet.AvailabilityZones {
 		// Retrieve the availability zone.
 		m := sqlair.M{}
-		err := tx.Query(ctx, retrieveAvailabilityZoneStmt, sqlair.M{"name": az}).Get(m)
-		if err != nil && err != sql.ErrNoRows {
+
+		if err := tx.Query(ctx, retrieveAvailabilityZoneStmt, sqlair.M{"name": az}).Get(m); err != nil && err != sqlair.ErrNoRows {
 			return errors.Annotatef(err, "retrieving availability zone %q for subnet %q", az, subnetUUID)
 		}
 		azUUIDStr, _ := m["uuid"]
@@ -394,8 +394,8 @@ WHERE  uuid = $M.uuid;`, sqlair.M{})
 	}
 
 	var outcome sqlair.Outcome
-	err = tx.Query(ctx, updateSubnetSpaceIDStmt, sqlair.M{"space_uuid": spaceID, "uuid": uuid}).Get(&outcome)
-	if err != nil {
+
+	if err = tx.Query(ctx, updateSubnetSpaceIDStmt, sqlair.M{"space_uuid": spaceID, "uuid": uuid}).Get(&outcome); err != nil {
 		return errors.Trace(err)
 	}
 	affected, err := outcome.Result().RowsAffected()
