@@ -19,7 +19,8 @@ type State interface {
 
 	// SetAnnotations associates key/value annotation pairs with a given ID.
 	// If annotation already exists for the given ID, then it will be updated with
-	// the given value.
+	// the given value. Setting a key's value to "" will remove the key from the annotations map
+	// (functionally unsetting the key).
 	SetAnnotations(ctx context.Context, ID annotations.ID, annotations map[string]string) error
 }
 

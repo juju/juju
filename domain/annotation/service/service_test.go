@@ -96,11 +96,15 @@ func (s *serviceSuite) TestSetAnnotations(c *gc.C) {
 			ID annotations.ID,
 			annotations map[string]string) error {
 			for annKey, annVal := range annotations {
-				mockState[stateAnnotationKey{ID, annKey}] = annVal
+				if annVal == "" {
+					delete(mockState, stateAnnotationKey{ID, annKey})
+				} else {
+					mockState[stateAnnotationKey{ID, annKey}] = annVal
+				}
 			}
 			return nil
 		},
-	)
+	).AnyTimes()
 
 	annotations := map[string]string{
 		"annotationKey5": "annotationValue5",
@@ -112,4 +116,11 @@ func (s *serviceSuite) TestSetAnnotations(c *gc.C) {
 	c.Assert(len(mockState), gc.Equals, 5)
 	c.Assert(mockState[stateAnnotationKey{id1, "annotationKey5"}], gc.Equals, "annotationValue5")
 	c.Assert(mockState[stateAnnotationKey{id1, "annotationKey1"}], gc.Equals, "annotationValue1Updated")
+
+	// Unset a key
+	unsetAnnotations := map[string]string{"annotationKey4": ""}
+	err = s.service().SetAnnotations(context.Background(), id44, unsetAnnotations)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(mockState), gc.Equals, 4)
+
 }
