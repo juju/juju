@@ -14,7 +14,6 @@ import (
 	coreDB "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/domain"
-	"github.com/juju/juju/internal/database"
 )
 
 // State represents a type for interacting with the underlying state.
@@ -42,86 +41,77 @@ func (st *State) AddSpace(
 		return errors.Trace(err)
 	}
 
-	insertSpaceStmt := `
-INSERT INTO space (uuid, name)
-VALUES (?, ?)`
+	insertSpaceStmt, err := sqlair.Prepare(`
+INSERT INTO space (uuid, name) 
+VALUES ($Space.uuid, $Space.name)`, Space{})
+	if err != nil {
+		return errors.Trace(err)
+	}
 
-	insertProviderStmt := `
+	insertProviderStmt, err := sqlair.Prepare(`
 INSERT INTO provider_space (provider_id, space_uuid)
-VALUES (?, ?)`
+VALUES ($ProviderSpace.provider_id, $ProviderSpace.space_uuid)`, ProviderSpace{})
+	if err != nil {
+		return errors.Trace(err)
+	}
 
-	subnetBinds, subnetVals := database.SliceToPlaceholder(subnetIDs)
-	findFanSubnetsStmt := fmt.Sprintf(`
-SELECT subject_subnet_uuid
+	findFanSubnetsStmt, err := sqlair.Prepare(`
+SELECT subject_subnet_uuid AS &Subnet.uuid
 FROM   subnet_association
-WHERE  association_type_id = 0 AND associated_subnet_uuid IN (%s)`, subnetBinds)
+WHERE  association_type_id = 0 AND associated_subnet_uuid IN ($S[:])`, sqlair.S{}, Subnet{})
+	if err != nil {
+		return errors.Trace(err)
+	}
 
-	checkInputSubnetsStmt := fmt.Sprintf(`
-SELECT uuid
+	checkInputSubnetsStmt, err := sqlair.Prepare(`
+SELECT &Subnet.uuid
 FROM   subnet
 JOIN   subnet_type
 ON     subnet.subnet_type_id = subnet_type.id
-WHERE  subnet_type.is_space_settable = FALSE AND subnet.uuid IN (%s)`, subnetBinds)
+WHERE  subnet_type.is_space_settable = FALSE AND subnet.uuid IN ($S[:])`, sqlair.S{}, Subnet{})
+	if err != nil {
+		return errors.Trace(err)
+	}
 
-	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+	subnetIDsInS := sqlair.S{}
+	for _, sid := range subnetIDs {
+		subnetIDsInS = append(subnetIDsInS, sid)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		// We must first check on the provided subnet ids to validate
 		// that are of a type on which the space can be set.
-		nonSettableSubnets, err := tx.QueryContext(ctx, checkInputSubnetsStmt, subnetVals...)
-		if err != nil {
+
+		var nonSettableSubnets []Subnet
+		if err := tx.Query(ctx, checkInputSubnetsStmt, subnetIDsInS).GetAll(&nonSettableSubnets); err != nil {
 			return errors.Annotatef(err, "checking if there are fan subnets for space %q", uuid)
 		}
-		defer func() { _ = nonSettableSubnets.Close() }()
+
 		// If any row is returned we must fail with the returned fan
 		// subnet uuids.
-		uniqueErrorSubnetUUIDs := make(map[string]string)
-		var nonSettableUUIDs []string
-		for nonSettableSubnets.Next() {
-			var fanSubnetID string
-			err = nonSettableSubnets.Scan(&fanSubnetID)
-			if err != nil {
-				return errors.Trace(err)
-			}
-			if _, ok := uniqueErrorSubnetUUIDs[fanSubnetID]; !ok {
-				uniqueErrorSubnetUUIDs[fanSubnetID] = fanSubnetID
-				nonSettableUUIDs = append(nonSettableUUIDs, fanSubnetID)
-			}
-		}
-		if len(nonSettableUUIDs) > 0 {
+		if len(nonSettableSubnets) > 0 {
 			return errors.Errorf(
-				"cannot set space for FAN subnet UUIDs %q - it is always inherited from underlay", nonSettableUUIDs)
+				"cannot set space for FAN subnet UUIDs %q - it is always inherited from underlay", uniqueSubnetUUIDs(nonSettableSubnets))
 		}
 
-		if _, err := tx.ExecContext(ctx, insertSpaceStmt, uuid, name); err != nil {
+		if err := tx.Query(ctx, insertSpaceStmt, Space{UUID: uuid, Name: name}).Run(); err != nil {
 			return errors.Annotatef(err, "inserting space uuid %q into space table", uuid)
 		}
 		if providerID != "" {
-			if _, err := tx.ExecContext(ctx, insertProviderStmt, providerID, uuid); err != nil {
+			if err := tx.Query(ctx, insertProviderStmt, ProviderSpace{ProviderId: providerID, SpaceUUID: uuid}).Run(); err != nil {
 				return errors.Annotatef(err, "inserting provider id %q into provider_space table", providerID)
 			}
 		}
 
 		// Retrieve the fan overlays (if any) of the passed subnet ids.
-		rows, err := tx.QueryContext(ctx, findFanSubnetsStmt, subnetVals...)
+		var fanSubnets []Subnet
+		err = tx.Query(ctx, findFanSubnetsStmt, subnetIDsInS).GetAll(&fanSubnets)
 		if err != nil {
 			return errors.Annotatef(err, "retrieving the fan subnets for space %q", uuid)
 		}
-		defer func() { _ = rows.Close() }()
 		// Append the fan subnet (unique) ids (if any) to the provided
 		// subnet ids.
-		uniqueFanSubnetIDs := make(map[string]string)
-		for rows.Next() {
-			var fanSubnetID string
-			err = rows.Scan(&fanSubnetID)
-			if err != nil {
-				return errors.Trace(err)
-			}
-			if _, ok := uniqueFanSubnetIDs[fanSubnetID]; !ok {
-				uniqueFanSubnetIDs[fanSubnetID] = fanSubnetID
-			}
-		}
-		for _, fanSubnetID := range uniqueFanSubnetIDs {
-			subnetIDs = append(subnetIDs, fanSubnetID)
-		}
+		subnetIDs = append(subnetIDs, uniqueSubnetUUIDs(fanSubnets)...)
 
 		// Update all subnets (including their fan overlays) to include
 		// the space uuid.
@@ -331,4 +321,18 @@ func (st *State) DeleteSpace(
 
 		return nil
 	})
+}
+
+// uniqueSubnetUUIDs returns a deduplicated slice of the Subnet uuids.
+func uniqueSubnetUUIDs(subnets []Subnet) []string {
+	subnetUUIDUsed := make(map[string]bool)
+	var uniqueSubnetUUIDs []string
+	for _, subnet := range subnets {
+		uuid := subnet.UUID
+		if _, ok := subnetUUIDUsed[uuid]; !ok {
+			subnetUUIDUsed[uuid] = true
+			uniqueSubnetUUIDs = append(uniqueSubnetUUIDs, uuid)
+		}
+	}
+	return uniqueSubnetUUIDs
 }
