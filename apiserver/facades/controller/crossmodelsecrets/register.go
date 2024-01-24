@@ -34,13 +34,13 @@ func newStateCrossModelSecretsAPI(ctx facade.Context) (*CrossModelSecretsAPI, er
 		return nil, errors.Trace(err)
 	}
 
-	secretBackendConfigGetter := func(modelUUID, backendID string, consumer names.Tag) (*provider.ModelBackendConfigInfo, error) {
+	secretBackendConfigGetter := func(modelUUID string, sameController bool, backendID string, consumer names.Tag) (*provider.ModelBackendConfigInfo, error) {
 		model, closer, err := ctx.StatePool().GetModel(modelUUID)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		defer closer.Release()
-		return secrets.BackendConfigInfo(secrets.SecretsModel(model), []string{backendID}, false, consumer, leadershipChecker)
+		return secrets.BackendConfigInfo(secrets.SecretsModel(model), sameController, []string{backendID}, false, consumer, leadershipChecker)
 	}
 	secretInfoGetter := func(modelUUID string) (SecretsState, SecretsConsumer, func() bool, error) {
 		st, err := ctx.StatePool().Get(modelUUID)
@@ -54,6 +54,7 @@ func newStateCrossModelSecretsAPI(ctx facade.Context) (*CrossModelSecretsAPI, er
 	return NewCrossModelSecretsAPI(
 		ctx.Resources(),
 		authCtxt.(*crossmodel.AuthContext),
+		st.ControllerUUID(),
 		st.ModelUUID(),
 		secretInfoGetter,
 		secretBackendConfigGetter,

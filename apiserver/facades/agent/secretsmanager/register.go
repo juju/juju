@@ -56,7 +56,7 @@ func NewSecretManagerAPI(context facade.Context) (*SecretsManagerAPI, error) {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		return secrets.BackendConfigInfo(secrets.SecretsModel(model), backendIDs, wantAll, context.Auth().GetAuthTag(), leadershipChecker)
+		return secrets.BackendConfigInfo(secrets.SecretsModel(model), true, backendIDs, wantAll, context.Auth().GetAuthTag(), leadershipChecker)
 	}
 	secretBackendAdminConfigGetter := func() (*provider.ModelBackendConfigInfo, error) {
 		model, err := context.State().Model()
@@ -111,6 +111,7 @@ func NewSecretManagerAPI(context facade.Context) (*SecretsManagerAPI, error) {
 		secretsTriggers:     context.State(),
 		secretsConsumer:     context.State(),
 		clock:               clock.WallClock,
+		controllerUUID:      context.State().ControllerUUID(),
 		modelUUID:           context.State().ModelUUID(),
 		backendConfigGetter: secretBackendConfigGetter,
 		adminConfigGetter:   secretBackendAdminConfigGetter,
