@@ -31,29 +31,36 @@ func NewState(factory database.TxnRunnerFactory) *State {
 	}
 }
 
-// AddUser will add a new user to the database. If the user already exists
+// AddUser will add a new user to the database. If the user already exists,
 // an error that satisfies usererrors.AlreadyExists will be returned. If the
-// creator does not exist an error that satisfies
+// creator does not exist, an error that satisfies
 // usererrors.UserCreatorUUIDNotFound will be returned.
-func (st *State) AddUser(ctx context.Context, uuid user.UUID, user user.User, creatorUUID user.UUID) error {
+func (st *State) AddUser(
+	ctx context.Context,
+	uuid user.UUID,
+	name string,
+	displayName string,
+	creatorUUID user.UUID,
+) error {
 	db, err := st.DB()
 	if err != nil {
 		return errors.Annotate(err, "getting DB access")
 	}
 
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		return errors.Trace(addUser(ctx, tx, uuid, user, creatorUUID))
+		return errors.Trace(addUser(ctx, tx, uuid, name, displayName, creatorUUID))
 	})
 }
 
 // AddUserWithPasswordHash will add a new user to the database with the
-// provided password hash and salt. If the user already exists an error that
-// satisfies usererrors.AlreadyExists will be returned. if the creator does
+// provided password hash and salt. If the user already exists, an error that
+// satisfies usererrors.AlreadyExists will be returned. If the creator does
 // not exist that satisfies usererrors.UserCreatorUUIDNotFound will be returned.
 func (st *State) AddUserWithPasswordHash(
 	ctx context.Context,
 	uuid user.UUID,
-	user user.User,
+	name string,
+	displayName string,
 	creatorUUID user.UUID,
 	passwordHash string,
 	salt []byte,
@@ -64,7 +71,7 @@ func (st *State) AddUserWithPasswordHash(
 	}
 
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		return errors.Trace(AddUserWithPassword(ctx, tx, uuid, user, creatorUUID, passwordHash, salt))
+		return errors.Trace(AddUserWithPassword(ctx, tx, uuid, name, displayName, creatorUUID, passwordHash, salt))
 	})
 }
 
@@ -76,7 +83,8 @@ func (st *State) AddUserWithPasswordHash(
 func (st *State) AddUserWithActivationKey(
 	ctx context.Context,
 	uuid user.UUID,
-	user user.User,
+	name string,
+	displayName string,
 	creatorUUID user.UUID,
 	activationKey []byte,
 ) error {
@@ -86,7 +94,7 @@ func (st *State) AddUserWithActivationKey(
 	}
 
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err = addUser(ctx, tx, uuid, user, creatorUUID)
+		err = addUser(ctx, tx, uuid, name, displayName, creatorUUID)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -476,12 +484,13 @@ func AddUserWithPassword(
 	ctx context.Context,
 	tx *sqlair.TX,
 	uuid user.UUID,
-	usr user.User,
+	name string,
+	displayName string,
 	creatorUUID user.UUID,
 	passwordHash string,
 	salt []byte,
 ) error {
-	err := addUser(ctx, tx, uuid, usr, creatorUUID)
+	err := addUser(ctx, tx, uuid, name, displayName, creatorUUID)
 	if err != nil {
 		return errors.Annotatef(err, "adding user with uuid %q", uuid)
 	}
@@ -532,7 +541,7 @@ WHERE user_uuid = $M.uuid
 // that satisfies usererrors.AlreadyExists will be returned. If the creator does
 // not exist an error that satisfies usererrors.UserCreatorUUIDNotFound will be
 // returned.
-func addUser(ctx context.Context, tx *sqlair.TX, uuid user.UUID, usr user.User, creatorUuid user.UUID) error {
+func addUser(ctx context.Context, tx *sqlair.TX, uuid user.UUID, name string, displayName string, creatorUuid user.UUID) error {
 	addUserQuery := `
 INSERT INTO user (uuid, name, display_name, created_by_uuid, created_at) 
 VALUES ($M.uuid, $M.name, $M.display_name, $M.created_by_uuid, $M.created_at)
@@ -545,17 +554,17 @@ VALUES ($M.uuid, $M.name, $M.display_name, $M.created_by_uuid, $M.created_at)
 
 	err = tx.Query(ctx, insertAddUserStmt, sqlair.M{
 		"uuid":            uuid.String(),
-		"name":            usr.Name,
-		"display_name":    usr.DisplayName,
+		"name":            name,
+		"display_name":    displayName,
 		"created_by_uuid": creatorUuid.String(),
 		"created_at":      time.Now(),
 	}).Run()
 	if databaseutils.IsErrConstraintUnique(err) {
-		return errors.Annotatef(usererrors.AlreadyExists, "adding user %q", usr.Name)
+		return errors.Annotatef(usererrors.AlreadyExists, "adding user %q", name)
 	} else if databaseutils.IsErrConstraintForeignKey(err) {
-		return errors.Annotatef(usererrors.UserCreatorUUIDNotFound, "adding user %q", usr.Name)
+		return errors.Annotatef(usererrors.UserCreatorUUIDNotFound, "adding user %q", name)
 	} else if err != nil {
-		return errors.Annotatef(err, "adding user %q", usr.Name)
+		return errors.Annotatef(err, "adding user %q", name)
 	}
 
 	return nil
