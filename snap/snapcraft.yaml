@@ -51,6 +51,7 @@ apps:
       - dot-google
       - dot-kubernetes
       - dot-maas
+      - dot-minikube
       - dot-openstack
       - dot-oracle
       # Needed so that arbitrary cloud/credential yaml files can be read and backups written.
@@ -524,6 +525,11 @@ plugs:
     interface: personal-files
     read:
       - $HOME/.maasrc
+
+  dot-minikube:
+    interface: personal-files
+    read:
+      - $HOME/.minikube
 
   dot-oracle:
     interface: personal-files
