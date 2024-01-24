@@ -40,21 +40,6 @@ func (m *MockVolumeAccess) EXPECT() *MockVolumeAccessMockRecorder {
 	return m.recorder
 }
 
-// BlockDevices mocks base method.
-func (m *MockVolumeAccess) BlockDevices(arg0 names.MachineTag) ([]state.BlockDeviceInfo, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "BlockDevices", arg0)
-	ret0, _ := ret[0].([]state.BlockDeviceInfo)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// BlockDevices indicates an expected call of BlockDevices.
-func (mr *MockVolumeAccessMockRecorder) BlockDevices(arg0 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockDevices", reflect.TypeOf((*MockVolumeAccess)(nil).BlockDevices), arg0)
-}
-
 // StorageInstanceVolume mocks base method.
 func (m *MockVolumeAccess) StorageInstanceVolume(arg0 names.StorageTag) (state.Volume, error) {
 	m.ctrl.T.Helper()

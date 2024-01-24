@@ -4,13 +4,33 @@
 package uniter_test
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 
 	"github.com/juju/juju/apiserver/facades/agent/uniter"
+	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/domain/blockdevice"
 	"github.com/juju/juju/state"
 )
+
+type fakeBlockDevices struct {
+	testing.Stub
+	blockDevices      func(string) ([]blockdevice.BlockDevice, error)
+	watchBlockDevices func(string) watcher.NotifyWatcher
+}
+
+func (s *fakeBlockDevices) BlockDevices(_ context.Context, machineId string) ([]blockdevice.BlockDevice, error) {
+	s.MethodCall(s, "BlockDevices", machineId)
+	return s.blockDevices(machineId)
+}
+
+func (s *fakeBlockDevices) WatchBlockDevices(_ context.Context, machineId string) (watcher.NotifyWatcher, error) {
+	s.MethodCall(s, "WatchBlockDevices", machineId)
+	return s.watchBlockDevices(machineId), nil
+}
 
 type fakeStorage struct {
 	testing.Stub
@@ -20,9 +40,7 @@ type fakeStorage struct {
 	storageInstanceVolume  func(names.StorageTag) (state.Volume, error)
 	volumeAttachment       func(names.Tag, names.VolumeTag) (state.VolumeAttachment, error)
 	volumeAttachmentPlan   func(names.Tag, names.VolumeTag) (state.VolumeAttachmentPlan, error)
-	blockDevices           func(names.MachineTag) ([]state.BlockDeviceInfo, error)
 	watchVolumeAttachment  func(names.Tag, names.VolumeTag) state.NotifyWatcher
-	watchBlockDevices      func(names.MachineTag) state.NotifyWatcher
 	watchStorageAttachment func(names.StorageTag, names.UnitTag) state.NotifyWatcher
 }
 
@@ -46,19 +64,9 @@ func (s *fakeStorage) VolumeAttachmentPlan(host names.Tag, volume names.VolumeTa
 	return s.volumeAttachmentPlan(host, volume)
 }
 
-func (s *fakeStorage) BlockDevices(m names.MachineTag) ([]state.BlockDeviceInfo, error) {
-	s.MethodCall(s, "BlockDevices", m)
-	return s.blockDevices(m)
-}
-
 func (s *fakeStorage) WatchVolumeAttachment(host names.Tag, v names.VolumeTag) state.NotifyWatcher {
 	s.MethodCall(s, "WatchVolumeAttachment", host, v)
 	return s.watchVolumeAttachment(host, v)
-}
-
-func (s *fakeStorage) WatchBlockDevices(m names.MachineTag) state.NotifyWatcher {
-	s.MethodCall(s, "WatchBlockDevices", m)
-	return s.watchBlockDevices(m)
 }
 
 func (s *fakeStorage) WatchStorageAttachment(st names.StorageTag, u names.UnitTag) state.NotifyWatcher {

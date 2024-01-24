@@ -4,6 +4,8 @@
 package storagecommon
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 
@@ -27,7 +29,9 @@ type UnitAssignedMachineFunc func(names.UnitTag) (names.MachineTag, error)
 
 // StorageDetails returns the storage instance as a params StorageDetails.
 func StorageDetails(
+	ctx context.Context,
 	sb DetailsBackend,
+	blockDeviceGetter BlockDeviceGetter,
 	unitToMachine UnitAssignedMachineFunc,
 	si state.StorageInstance,
 ) (*params.StorageDetails, error) {
@@ -68,7 +72,7 @@ func StorageDetails(
 		storageAttachmentDetails = make(map[string]params.StorageAttachmentDetails)
 		for _, a := range storageAttachments {
 			// TODO(caas) - handle attachments to units
-			machineTag, location, err := storageAttachmentInfo(sb, a, unitToMachine)
+			machineTag, location, err := storageAttachmentInfo(ctx, sb, blockDeviceGetter, a, unitToMachine)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -102,7 +106,9 @@ func StorageDetails(
 }
 
 func storageAttachmentInfo(
+	ctx context.Context,
 	sb DetailsBackend,
+	blockDeviceGetter BlockDeviceGetter,
 	a state.StorageAttachment,
 	unitToMachine UnitAssignedMachineFunc,
 ) (_ names.MachineTag, location string, _ error) {
@@ -112,7 +118,7 @@ func storageAttachmentInfo(
 	} else if err != nil {
 		return names.MachineTag{}, "", errors.Trace(err)
 	}
-	info, err := StorageAttachmentInfo(sb, sb, sb, a, machineTag)
+	info, err := StorageAttachmentInfo(ctx, sb, sb, sb, blockDeviceGetter, a, machineTag)
 	if errors.Is(err, errors.NotProvisioned) {
 		return machineTag, "", nil
 	} else if err != nil {

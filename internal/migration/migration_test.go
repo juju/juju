@@ -34,6 +34,7 @@ type ImportSuite struct {
 	testing.IsolationSuite
 
 	controllerConfigService *MockControllerConfigService
+	machineSaver            *MockMachineSaver
 }
 
 var _ = gc.Suite(&ImportSuite{})
@@ -48,7 +49,7 @@ func (s *ImportSuite) TestBadBytes(c *gc.C) {
 	bytes := []byte("not a model")
 	scope := modelmigration.NewScope(nil, nil)
 	controller := &fakeImporter{}
-	importer := migration.NewModelImporter(controller, scope, s.controllerConfigService)
+	importer := migration.NewModelImporter(controller, scope, s.controllerConfigService, s.machineSaver)
 	model, st, err := importer.ImportModel(context.Background(), bytes)
 	c.Check(st, gc.IsNil)
 	c.Check(model, gc.IsNil)
@@ -118,7 +119,7 @@ func (s *ImportSuite) exportImport(c *gc.C, leaders map[string]string) {
 	m := &state.Model{}
 	controller := &fakeImporter{st: st, m: m}
 	scope := modelmigration.NewScope(nil, nil)
-	importer := migration.NewModelImporter(controller, scope, s.controllerConfigService)
+	importer := migration.NewModelImporter(controller, scope, s.controllerConfigService, s.machineSaver)
 	gotM, gotSt, err := importer.ImportModel(context.Background(), bytes)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(controller.model.Tag().Id(), gc.Equals, "bd3fae18-5ea1-4bc5-8837-45400cf1f8f6")
@@ -261,6 +262,8 @@ func (s *ImportSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.controllerConfigService = NewMockControllerConfigService(ctrl)
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(jujutesting.FakeControllerConfig(), nil).AnyTimes()
 
+	s.machineSaver = NewMockMachineSaver(ctrl)
+
 	return ctrl
 }
 
@@ -271,7 +274,7 @@ type fakeImporter struct {
 	controllerConfig controller.Config
 }
 
-func (i *fakeImporter) Import(model description.Model, controllerConfig controller.Config) (*state.Model, *state.State, error) {
+func (i *fakeImporter) Import(model description.Model, controllerConfig controller.Config, machineSaver state.MachineSaver) (*state.Model, *state.State, error) {
 	i.model = model
 	i.controllerConfig = controllerConfig
 	return i.m, i.st, nil

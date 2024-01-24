@@ -13,20 +13,21 @@ import (
 	reflect "reflect"
 
 	service "github.com/juju/juju/domain/autocert/service"
-	service0 "github.com/juju/juju/domain/cloud/service"
-	service1 "github.com/juju/juju/domain/controllerconfig/service"
-	service2 "github.com/juju/juju/domain/controllernode/service"
-	service3 "github.com/juju/juju/domain/credential/service"
-	service4 "github.com/juju/juju/domain/externalcontroller/service"
-	service5 "github.com/juju/juju/domain/flag/service"
-	service6 "github.com/juju/juju/domain/machine/service"
-	service7 "github.com/juju/juju/domain/model/service"
-	service8 "github.com/juju/juju/domain/modelconfig/service"
-	service9 "github.com/juju/juju/domain/modeldefaults/service"
-	service10 "github.com/juju/juju/domain/modelmanager/service"
-	service11 "github.com/juju/juju/domain/objectstore/service"
-	service12 "github.com/juju/juju/domain/upgrade/service"
-	service13 "github.com/juju/juju/domain/user/service"
+	service0 "github.com/juju/juju/domain/blockdevice/service"
+	service1 "github.com/juju/juju/domain/cloud/service"
+	service2 "github.com/juju/juju/domain/controllerconfig/service"
+	service3 "github.com/juju/juju/domain/controllernode/service"
+	service4 "github.com/juju/juju/domain/credential/service"
+	service5 "github.com/juju/juju/domain/externalcontroller/service"
+	service6 "github.com/juju/juju/domain/flag/service"
+	service7 "github.com/juju/juju/domain/machine/service"
+	service8 "github.com/juju/juju/domain/model/service"
+	service9 "github.com/juju/juju/domain/modelconfig/service"
+	service10 "github.com/juju/juju/domain/modeldefaults/service"
+	service11 "github.com/juju/juju/domain/modelmanager/service"
+	service12 "github.com/juju/juju/domain/objectstore/service"
+	service13 "github.com/juju/juju/domain/upgrade/service"
+	service14 "github.com/juju/juju/domain/user/service"
 	servicefactory "github.com/juju/juju/internal/servicefactory"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -55,10 +56,10 @@ func (m *MockControllerServiceFactory) EXPECT() *MockControllerServiceFactoryMoc
 }
 
 // AgentObjectStore mocks base method.
-func (m *MockControllerServiceFactory) AgentObjectStore() *service11.Service {
+func (m *MockControllerServiceFactory) AgentObjectStore() *service12.Service {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AgentObjectStore")
-	ret0, _ := ret[0].(*service11.Service)
+	ret0, _ := ret[0].(*service12.Service)
 	return ret0
 }
 
@@ -83,10 +84,10 @@ func (mr *MockControllerServiceFactoryMockRecorder) AutocertCache() *gomock.Call
 }
 
 // Cloud mocks base method.
-func (m *MockControllerServiceFactory) Cloud() *service0.Service {
+func (m *MockControllerServiceFactory) Cloud() *service1.Service {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Cloud")
-	ret0, _ := ret[0].(*service0.Service)
+	ret0, _ := ret[0].(*service1.Service)
 	return ret0
 }
 
@@ -97,10 +98,10 @@ func (mr *MockControllerServiceFactoryMockRecorder) Cloud() *gomock.Call {
 }
 
 // ControllerConfig mocks base method.
-func (m *MockControllerServiceFactory) ControllerConfig() *service1.Service {
+func (m *MockControllerServiceFactory) ControllerConfig() *service2.Service {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ControllerConfig")
-	ret0, _ := ret[0].(*service1.Service)
+	ret0, _ := ret[0].(*service2.Service)
 	return ret0
 }
 
@@ -111,10 +112,10 @@ func (mr *MockControllerServiceFactoryMockRecorder) ControllerConfig() *gomock.C
 }
 
 // ControllerNode mocks base method.
-func (m *MockControllerServiceFactory) ControllerNode() *service2.Service {
+func (m *MockControllerServiceFactory) ControllerNode() *service3.Service {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ControllerNode")
-	ret0, _ := ret[0].(*service2.Service)
+	ret0, _ := ret[0].(*service3.Service)
 	return ret0
 }
 
@@ -125,10 +126,10 @@ func (mr *MockControllerServiceFactoryMockRecorder) ControllerNode() *gomock.Cal
 }
 
 // Credential mocks base method.
-func (m *MockControllerServiceFactory) Credential() *service3.Service {
+func (m *MockControllerServiceFactory) Credential() *service4.Service {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Credential")
-	ret0, _ := ret[0].(*service3.Service)
+	ret0, _ := ret[0].(*service4.Service)
 	return ret0
 }
 
@@ -139,10 +140,10 @@ func (mr *MockControllerServiceFactoryMockRecorder) Credential() *gomock.Call {
 }
 
 // ExternalController mocks base method.
-func (m *MockControllerServiceFactory) ExternalController() *service4.Service {
+func (m *MockControllerServiceFactory) ExternalController() *service5.Service {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ExternalController")
-	ret0, _ := ret[0].(*service4.Service)
+	ret0, _ := ret[0].(*service5.Service)
 	return ret0
 }
 
@@ -153,10 +154,10 @@ func (mr *MockControllerServiceFactoryMockRecorder) ExternalController() *gomock
 }
 
 // Flag mocks base method.
-func (m *MockControllerServiceFactory) Flag() *service5.Service {
+func (m *MockControllerServiceFactory) Flag() *service6.Service {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Flag")
-	ret0, _ := ret[0].(*service5.Service)
+	ret0, _ := ret[0].(*service6.Service)
 	return ret0
 }
 
@@ -167,10 +168,10 @@ func (mr *MockControllerServiceFactoryMockRecorder) Flag() *gomock.Call {
 }
 
 // Model mocks base method.
-func (m *MockControllerServiceFactory) Model() *service7.Service {
+func (m *MockControllerServiceFactory) Model() *service8.Service {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Model")
-	ret0, _ := ret[0].(*service7.Service)
+	ret0, _ := ret[0].(*service8.Service)
 	return ret0
 }
 
@@ -181,10 +182,10 @@ func (mr *MockControllerServiceFactoryMockRecorder) Model() *gomock.Call {
 }
 
 // ModelDefaults mocks base method.
-func (m *MockControllerServiceFactory) ModelDefaults() *service9.Service {
+func (m *MockControllerServiceFactory) ModelDefaults() *service10.Service {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ModelDefaults")
-	ret0, _ := ret[0].(*service9.Service)
+	ret0, _ := ret[0].(*service10.Service)
 	return ret0
 }
 
@@ -195,10 +196,10 @@ func (mr *MockControllerServiceFactoryMockRecorder) ModelDefaults() *gomock.Call
 }
 
 // ModelManager mocks base method.
-func (m *MockControllerServiceFactory) ModelManager() *service10.Service {
+func (m *MockControllerServiceFactory) ModelManager() *service11.Service {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ModelManager")
-	ret0, _ := ret[0].(*service10.Service)
+	ret0, _ := ret[0].(*service11.Service)
 	return ret0
 }
 
@@ -209,10 +210,10 @@ func (mr *MockControllerServiceFactoryMockRecorder) ModelManager() *gomock.Call 
 }
 
 // Upgrade mocks base method.
-func (m *MockControllerServiceFactory) Upgrade() *service12.Service {
+func (m *MockControllerServiceFactory) Upgrade() *service13.Service {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Upgrade")
-	ret0, _ := ret[0].(*service12.Service)
+	ret0, _ := ret[0].(*service13.Service)
 	return ret0
 }
 
@@ -223,10 +224,10 @@ func (mr *MockControllerServiceFactoryMockRecorder) Upgrade() *gomock.Call {
 }
 
 // User mocks base method.
-func (m *MockControllerServiceFactory) User() *service13.Service {
+func (m *MockControllerServiceFactory) User() *service14.Service {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "User")
-	ret0, _ := ret[0].(*service13.Service)
+	ret0, _ := ret[0].(*service14.Service)
 	return ret0
 }
 
@@ -259,11 +260,25 @@ func (m *MockModelServiceFactory) EXPECT() *MockModelServiceFactoryMockRecorder 
 	return m.recorder
 }
 
+// BlockDevice mocks base method.
+func (m *MockModelServiceFactory) BlockDevice() *service0.Service {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BlockDevice")
+	ret0, _ := ret[0].(*service0.Service)
+	return ret0
+}
+
+// BlockDevice indicates an expected call of BlockDevice.
+func (mr *MockModelServiceFactoryMockRecorder) BlockDevice() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockDevice", reflect.TypeOf((*MockModelServiceFactory)(nil).BlockDevice))
+}
+
 // Config mocks base method.
-func (m *MockModelServiceFactory) Config(arg0 service8.ModelDefaultsProvider) *service8.Service {
+func (m *MockModelServiceFactory) Config(arg0 service9.ModelDefaultsProvider) *service9.Service {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Config", arg0)
-	ret0, _ := ret[0].(*service8.Service)
+	ret0, _ := ret[0].(*service9.Service)
 	return ret0
 }
 
@@ -274,10 +289,10 @@ func (mr *MockModelServiceFactoryMockRecorder) Config(arg0 any) *gomock.Call {
 }
 
 // Machine mocks base method.
-func (m *MockModelServiceFactory) Machine() *service6.Service {
+func (m *MockModelServiceFactory) Machine() *service7.Service {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Machine")
-	ret0, _ := ret[0].(*service6.Service)
+	ret0, _ := ret[0].(*service7.Service)
 	return ret0
 }
 
@@ -288,10 +303,10 @@ func (mr *MockModelServiceFactoryMockRecorder) Machine() *gomock.Call {
 }
 
 // ObjectStore mocks base method.
-func (m *MockModelServiceFactory) ObjectStore() *service11.Service {
+func (m *MockModelServiceFactory) ObjectStore() *service12.Service {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ObjectStore")
-	ret0, _ := ret[0].(*service11.Service)
+	ret0, _ := ret[0].(*service12.Service)
 	return ret0
 }
 
@@ -325,10 +340,10 @@ func (m *MockServiceFactory) EXPECT() *MockServiceFactoryMockRecorder {
 }
 
 // AgentObjectStore mocks base method.
-func (m *MockServiceFactory) AgentObjectStore() *service11.Service {
+func (m *MockServiceFactory) AgentObjectStore() *service12.Service {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AgentObjectStore")
-	ret0, _ := ret[0].(*service11.Service)
+	ret0, _ := ret[0].(*service12.Service)
 	return ret0
 }
 
@@ -352,11 +367,25 @@ func (mr *MockServiceFactoryMockRecorder) AutocertCache() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AutocertCache", reflect.TypeOf((*MockServiceFactory)(nil).AutocertCache))
 }
 
+// BlockDevice mocks base method.
+func (m *MockServiceFactory) BlockDevice() *service0.Service {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BlockDevice")
+	ret0, _ := ret[0].(*service0.Service)
+	return ret0
+}
+
+// BlockDevice indicates an expected call of BlockDevice.
+func (mr *MockServiceFactoryMockRecorder) BlockDevice() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockDevice", reflect.TypeOf((*MockServiceFactory)(nil).BlockDevice))
+}
+
 // Cloud mocks base method.
-func (m *MockServiceFactory) Cloud() *service0.Service {
+func (m *MockServiceFactory) Cloud() *service1.Service {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Cloud")
-	ret0, _ := ret[0].(*service0.Service)
+	ret0, _ := ret[0].(*service1.Service)
 	return ret0
 }
 
@@ -367,10 +396,10 @@ func (mr *MockServiceFactoryMockRecorder) Cloud() *gomock.Call {
 }
 
 // Config mocks base method.
-func (m *MockServiceFactory) Config(arg0 service8.ModelDefaultsProvider) *service8.Service {
+func (m *MockServiceFactory) Config(arg0 service9.ModelDefaultsProvider) *service9.Service {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Config", arg0)
-	ret0, _ := ret[0].(*service8.Service)
+	ret0, _ := ret[0].(*service9.Service)
 	return ret0
 }
 
@@ -381,10 +410,10 @@ func (mr *MockServiceFactoryMockRecorder) Config(arg0 any) *gomock.Call {
 }
 
 // ControllerConfig mocks base method.
-func (m *MockServiceFactory) ControllerConfig() *service1.Service {
+func (m *MockServiceFactory) ControllerConfig() *service2.Service {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ControllerConfig")
-	ret0, _ := ret[0].(*service1.Service)
+	ret0, _ := ret[0].(*service2.Service)
 	return ret0
 }
 
@@ -395,10 +424,10 @@ func (mr *MockServiceFactoryMockRecorder) ControllerConfig() *gomock.Call {
 }
 
 // ControllerNode mocks base method.
-func (m *MockServiceFactory) ControllerNode() *service2.Service {
+func (m *MockServiceFactory) ControllerNode() *service3.Service {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ControllerNode")
-	ret0, _ := ret[0].(*service2.Service)
+	ret0, _ := ret[0].(*service3.Service)
 	return ret0
 }
 
@@ -409,10 +438,10 @@ func (mr *MockServiceFactoryMockRecorder) ControllerNode() *gomock.Call {
 }
 
 // Credential mocks base method.
-func (m *MockServiceFactory) Credential() *service3.Service {
+func (m *MockServiceFactory) Credential() *service4.Service {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Credential")
-	ret0, _ := ret[0].(*service3.Service)
+	ret0, _ := ret[0].(*service4.Service)
 	return ret0
 }
 
@@ -423,10 +452,10 @@ func (mr *MockServiceFactoryMockRecorder) Credential() *gomock.Call {
 }
 
 // ExternalController mocks base method.
-func (m *MockServiceFactory) ExternalController() *service4.Service {
+func (m *MockServiceFactory) ExternalController() *service5.Service {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ExternalController")
-	ret0, _ := ret[0].(*service4.Service)
+	ret0, _ := ret[0].(*service5.Service)
 	return ret0
 }
 
@@ -437,10 +466,10 @@ func (mr *MockServiceFactoryMockRecorder) ExternalController() *gomock.Call {
 }
 
 // Flag mocks base method.
-func (m *MockServiceFactory) Flag() *service5.Service {
+func (m *MockServiceFactory) Flag() *service6.Service {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Flag")
-	ret0, _ := ret[0].(*service5.Service)
+	ret0, _ := ret[0].(*service6.Service)
 	return ret0
 }
 
@@ -451,10 +480,10 @@ func (mr *MockServiceFactoryMockRecorder) Flag() *gomock.Call {
 }
 
 // Machine mocks base method.
-func (m *MockServiceFactory) Machine() *service6.Service {
+func (m *MockServiceFactory) Machine() *service7.Service {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Machine")
-	ret0, _ := ret[0].(*service6.Service)
+	ret0, _ := ret[0].(*service7.Service)
 	return ret0
 }
 
@@ -465,10 +494,10 @@ func (mr *MockServiceFactoryMockRecorder) Machine() *gomock.Call {
 }
 
 // Model mocks base method.
-func (m *MockServiceFactory) Model() *service7.Service {
+func (m *MockServiceFactory) Model() *service8.Service {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Model")
-	ret0, _ := ret[0].(*service7.Service)
+	ret0, _ := ret[0].(*service8.Service)
 	return ret0
 }
 
@@ -479,10 +508,10 @@ func (mr *MockServiceFactoryMockRecorder) Model() *gomock.Call {
 }
 
 // ModelDefaults mocks base method.
-func (m *MockServiceFactory) ModelDefaults() *service9.Service {
+func (m *MockServiceFactory) ModelDefaults() *service10.Service {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ModelDefaults")
-	ret0, _ := ret[0].(*service9.Service)
+	ret0, _ := ret[0].(*service10.Service)
 	return ret0
 }
 
@@ -493,10 +522,10 @@ func (mr *MockServiceFactoryMockRecorder) ModelDefaults() *gomock.Call {
 }
 
 // ModelManager mocks base method.
-func (m *MockServiceFactory) ModelManager() *service10.Service {
+func (m *MockServiceFactory) ModelManager() *service11.Service {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ModelManager")
-	ret0, _ := ret[0].(*service10.Service)
+	ret0, _ := ret[0].(*service11.Service)
 	return ret0
 }
 
@@ -507,10 +536,10 @@ func (mr *MockServiceFactoryMockRecorder) ModelManager() *gomock.Call {
 }
 
 // ObjectStore mocks base method.
-func (m *MockServiceFactory) ObjectStore() *service11.Service {
+func (m *MockServiceFactory) ObjectStore() *service12.Service {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ObjectStore")
-	ret0, _ := ret[0].(*service11.Service)
+	ret0, _ := ret[0].(*service12.Service)
 	return ret0
 }
 
@@ -521,10 +550,10 @@ func (mr *MockServiceFactoryMockRecorder) ObjectStore() *gomock.Call {
 }
 
 // Upgrade mocks base method.
-func (m *MockServiceFactory) Upgrade() *service12.Service {
+func (m *MockServiceFactory) Upgrade() *service13.Service {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Upgrade")
-	ret0, _ := ret[0].(*service12.Service)
+	ret0, _ := ret[0].(*service13.Service)
 	return ret0
 }
 
@@ -535,10 +564,10 @@ func (mr *MockServiceFactoryMockRecorder) Upgrade() *gomock.Call {
 }
 
 // User mocks base method.
-func (m *MockServiceFactory) User() *service13.Service {
+func (m *MockServiceFactory) User() *service14.Service {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "User")
-	ret0, _ := ret[0].(*service13.Service)
+	ret0, _ := ret[0].(*service14.Service)
 	return ret0
 }
 

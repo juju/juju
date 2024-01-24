@@ -4,7 +4,7 @@
 package local
 
 import (
-	"github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/domain/blockdevice"
 	"github.com/juju/juju/internal/storage/plans/common"
 )
 
@@ -14,8 +14,8 @@ func NewLocalPlan() common.Plan {
 
 type localPlan struct{}
 
-func (i *localPlan) AttachVolume(volumeInfo map[string]string) (storage.BlockDevice, error) {
-	return storage.BlockDevice{}, nil
+func (i *localPlan) AttachVolume(volumeInfo map[string]string) (blockdevice.BlockDevice, error) {
+	return blockdevice.BlockDevice{}, nil
 }
 
 func (i *localPlan) DetachVolume(volumeInfo map[string]string) error {

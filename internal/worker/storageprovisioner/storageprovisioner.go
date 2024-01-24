@@ -12,6 +12,7 @@ import (
 	"github.com/juju/worker/v4/catacomb"
 
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/domain/blockdevice"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/internal/worker/storageprovisioner/internal/schedule"
@@ -243,7 +244,7 @@ func (w *storageProvisioner) loop() error {
 		config:                               w.config,
 		volumes:                              make(map[names.VolumeTag]storage.Volume),
 		volumeAttachments:                    make(map[params.MachineStorageId]storage.VolumeAttachment),
-		volumeBlockDevices:                   make(map[names.VolumeTag]storage.BlockDevice),
+		volumeBlockDevices:                   make(map[names.VolumeTag]blockdevice.BlockDevice),
 		filesystems:                          make(map[names.FilesystemTag]storage.Filesystem),
 		filesystemAttachments:                make(map[params.MachineStorageId]storage.FilesystemAttachment),
 		machines:                             make(map[names.MachineTag]*machineWatcher),
@@ -497,7 +498,7 @@ type context struct {
 	// volumeBlockDevices contains information about block devices
 	// corresponding to volumes attached to the scope-machine. This
 	// is only used by the machine-scoped storage provisioner.
-	volumeBlockDevices map[names.VolumeTag]storage.BlockDevice
+	volumeBlockDevices map[names.VolumeTag]blockdevice.BlockDevice
 
 	// filesystems contains information about provisioned filesystems.
 	filesystems map[names.FilesystemTag]storage.Filesystem

@@ -4,6 +4,8 @@
 package uniter_test
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
@@ -13,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/agent/uniter"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
@@ -43,8 +46,9 @@ func (s *storageSuite) TestWatchUnitStorageAttachments(c *gc.C) {
 			return watcher
 		},
 	}
+	blockDeviceService := &mockBlockDeviceService{}
 
-	storage, err := uniter.NewStorageAPI(st, st, resources, getCanAccess)
+	storage, err := uniter.NewStorageAPI(st, st, blockDeviceService, resources, getCanAccess)
 	c.Assert(err, jc.ErrorIsNil)
 	watches, err := storage.WatchUnitStorageAttachments(params.Entities{
 		Entities: []params.Entity{{unitTag.String()}},
@@ -109,16 +113,18 @@ func (s *storageSuite) TestWatchStorageAttachmentVolume(c *gc.C) {
 			c.Assert(v, gc.DeepEquals, volumeTag)
 			return volumeWatcher
 		},
-		watchBlockDevices: func(m names.MachineTag) state.NotifyWatcher {
+	}
+	blockDeviceService := &mockBlockDeviceService{
+		watchBlockDevices: func(machineId string) watcher.NotifyWatcher {
 			calls = append(calls, "WatchBlockDevices")
-			c.Assert(m, gc.DeepEquals, machineTag)
+			c.Assert(machineId, gc.DeepEquals, machineTag.Id())
 			return blockDevicesWatcher
 		},
 	}
 
-	storage, err := uniter.NewStorageAPI(st, st, resources, getCanAccess)
+	storage, err := uniter.NewStorageAPI(st, st, blockDeviceService, resources, getCanAccess)
 	c.Assert(err, jc.ErrorIsNil)
-	watches, err := storage.WatchStorageAttachments(params.StorageAttachmentIds{
+	watches, err := storage.WatchStorageAttachments(context.Background(), params.StorageAttachmentIds{
 		Ids: []params.StorageAttachmentId{{
 			StorageTag: storageTag.String(),
 			UnitTag:    unitTag.String(),
@@ -198,10 +204,11 @@ func (s *storageSuite) assertWatchStorageAttachmentFilesystem(c *gc.C, assignedM
 			return filesystemWatcher
 		},
 	}
+	blockDeviceService := &mockBlockDeviceService{}
 
-	storage, err := uniter.NewStorageAPI(st, st, resources, getCanAccess)
+	storage, err := uniter.NewStorageAPI(st, st, blockDeviceService, resources, getCanAccess)
 	c.Assert(err, jc.ErrorIsNil)
-	watches, err := storage.WatchStorageAttachments(params.StorageAttachmentIds{
+	watches, err := storage.WatchStorageAttachments(context.Background(), params.StorageAttachmentIds{
 		Ids: []params.StorageAttachmentId{{
 			StorageTag: storageTag.String(),
 			UnitTag:    unitTag.String(),
@@ -237,8 +244,9 @@ func (s *storageSuite) TestDestroyUnitStorageAttachments(c *gc.C) {
 			return nil
 		},
 	}
+	blockDeviceService := &mockBlockDeviceService{}
 
-	storage, err := uniter.NewStorageAPI(st, st, resources, getCanAccess)
+	storage, err := uniter.NewStorageAPI(st, st, blockDeviceService, resources, getCanAccess)
 	c.Assert(err, jc.ErrorIsNil)
 	destroyErrors, err := storage.DestroyUnitStorageAttachments(params.Entities{
 		Entities: []params.Entity{{
@@ -277,8 +285,9 @@ func (s *storageSuite) TestRemoveStorageAttachments(c *gc.C) {
 		}
 		return nil
 	})
+	blockDeviceService := &mockBlockDeviceService{}
 
-	storage, err := uniter.NewStorageAPI(st, st, resources, getCanAccess)
+	storage, err := uniter.NewStorageAPI(st, st, blockDeviceService, resources, getCanAccess)
 	c.Assert(err, jc.ErrorIsNil)
 	removeErrors, err := storage.RemoveStorageAttachments(params.StorageAttachmentIds{
 		Ids: []params.StorageAttachmentId{{
@@ -330,6 +339,15 @@ func (u *mockUnit) StorageConstraints() (map[string]state.StorageConstraints, er
 	return u.storageConstraints, nil
 }
 
+type mockBlockDeviceService struct {
+	uniter.BlockDeviceService
+	watchBlockDevices func(string) watcher.NotifyWatcher
+}
+
+func (m *mockBlockDeviceService) WatchBlockDevices(_ context.Context, machineId string) (watcher.NotifyWatcher, error) {
+	return m.watchBlockDevices(machineId), nil
+}
+
 type mockStorageState struct {
 	unitStorageConstraints map[string]state.StorageConstraints
 	assignedMachine        string
@@ -347,7 +365,6 @@ type mockStorageState struct {
 	watchStorageAttachment        func(names.StorageTag, names.UnitTag) state.NotifyWatcher
 	watchFilesystemAttachment     func(names.Tag, names.FilesystemTag) state.NotifyWatcher
 	watchVolumeAttachment         func(names.Tag, names.VolumeTag) state.NotifyWatcher
-	watchBlockDevices             func(names.MachineTag) state.NotifyWatcher
 	addUnitStorageOperation       func(u names.UnitTag, name string, cons state.StorageConstraints) error
 }
 
@@ -399,10 +416,6 @@ func (m *mockStorageState) WatchFilesystemAttachment(hostTag names.Tag, f names.
 
 func (m *mockStorageState) WatchVolumeAttachment(hostTag names.Tag, v names.VolumeTag) state.NotifyWatcher {
 	return m.watchVolumeAttachment(hostTag, v)
-}
-
-func (m *mockStorageState) WatchBlockDevices(mtag names.MachineTag) state.NotifyWatcher {
-	return m.watchBlockDevices(mtag)
 }
 
 func (m *mockStorageState) AddStorageForUnitOperation(tag names.UnitTag, name string, cons state.StorageConstraints) (state.ModelOperation, error) {
@@ -482,6 +495,7 @@ type watchStorageAttachmentSuite struct {
 	st                       *fakeStorage
 	storageInstance          *fakeStorageInstance
 	volume                   *fakeVolume
+	blockDeviceService       *fakeBlockDevices
 	volumeAttachmentWatcher  *apiservertesting.FakeNotifyWatcher
 	blockDevicesWatcher      *apiservertesting.FakeNotifyWatcher
 	storageAttachmentWatcher *apiservertesting.FakeNotifyWatcher
@@ -512,11 +526,13 @@ func (s *watchStorageAttachmentSuite) SetUpTest(c *gc.C) {
 		watchVolumeAttachment: func(names.Tag, names.VolumeTag) state.NotifyWatcher {
 			return s.volumeAttachmentWatcher
 		},
-		watchBlockDevices: func(names.MachineTag) state.NotifyWatcher {
-			return s.blockDevicesWatcher
-		},
 		watchStorageAttachment: func(names.StorageTag, names.UnitTag) state.NotifyWatcher {
 			return s.storageAttachmentWatcher
+		},
+	}
+	s.blockDeviceService = &fakeBlockDevices{
+		watchBlockDevices: func(string) watcher.NotifyWatcher {
+			return s.blockDevicesWatcher
 		},
 	}
 }
@@ -545,16 +561,18 @@ func (s *watchStorageAttachmentSuite) testWatchBlockStorageAttachment(c *gc.C, c
 		"StorageInstance",
 		"StorageInstanceVolume",
 		"WatchVolumeAttachment",
-		"WatchBlockDevices",
 		"WatchStorageAttachment",
 	)
+	s.blockDeviceService.CheckCallNames(c, "WatchBlockDevices")
 }
 
 func (s *watchStorageAttachmentSuite) testWatchStorageAttachment(c *gc.C, change func()) {
 	w, err := uniter.WatchStorageAttachment(
+		context.Background(),
 		s.st,
 		s.st,
 		s.st,
+		s.blockDeviceService,
 		s.storageTag,
 		s.machineTag,
 		s.unitTag,

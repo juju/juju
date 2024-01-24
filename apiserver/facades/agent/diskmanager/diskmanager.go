@@ -11,20 +11,19 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/domain/blockdevice"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
+
+type blockDeviceUpdater interface {
+	UpdateBlockDevices(ctx context.Context, machineId string, devices ...blockdevice.BlockDevice) error
+}
 
 // DiskManagerAPI provides access to the DiskManager API facade.
 type DiskManagerAPI struct {
-	st          stateInterface
-	authorizer  facade.Authorizer
-	getAuthFunc common.GetAuthFunc
-}
-
-var getState = func(st *state.State) stateInterface {
-	return stateShim{st}
+	blockDeviceUpdater blockDeviceUpdater
+	authorizer         facade.Authorizer
+	getAuthFunc        common.GetAuthFunc
 }
 
 func (d *DiskManagerAPI) SetMachineBlockDevices(ctx context.Context, args params.SetMachineBlockDevices) (params.ErrorResults, error) {
@@ -55,31 +54,10 @@ func (d *DiskManagerAPI) SetMachineBlockDevices(ctx context.Context, args params
 			// a race between the volume attachment info being recorded and
 			// the diskmanager publishing block devices and erroneously creating
 			// volumes.
-			err = d.st.SetMachineBlockDevices(tag.Id(), stateBlockDeviceInfo(arg.BlockDevices))
+			err = d.blockDeviceUpdater.UpdateBlockDevices(ctx, tag.Id(), arg.BlockDevices...)
 			// TODO(axw) set volume/filesystem attachment info.
 		}
 		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
-}
-
-func stateBlockDeviceInfo(devices []storage.BlockDevice) []state.BlockDeviceInfo {
-	result := make([]state.BlockDeviceInfo, len(devices))
-	for i, dev := range devices {
-		result[i] = state.BlockDeviceInfo{
-			DeviceName:     dev.DeviceName,
-			DeviceLinks:    dev.DeviceLinks,
-			Label:          dev.Label,
-			UUID:           dev.UUID,
-			HardwareId:     dev.HardwareId,
-			WWN:            dev.WWN,
-			BusAddress:     dev.BusAddress,
-			Size:           dev.Size,
-			FilesystemType: dev.FilesystemType,
-			InUse:          dev.InUse,
-			MountPoint:     dev.MountPoint,
-			SerialId:       dev.SerialId,
-		}
-	}
-	return result
 }

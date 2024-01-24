@@ -97,7 +97,7 @@ func (e *ModelExporter) Export(ctx context.Context, model description.Model) (de
 // legacyStateImporter describes the method needed to import a model
 // into the database.
 type legacyStateImporter interface {
-	Import(description.Model, controller.Config) (*state.Model, *state.State, error)
+	Import(description.Model, controller.Config, state.MachineSaver) (*state.Model, *state.State, error)
 }
 
 // ModelImporter represents a model migration that implements Import.
@@ -106,6 +106,7 @@ type ModelImporter struct {
 	// migration to dqlite is complete.
 	legacyStateImporter     legacyStateImporter
 	controllerConfigService ControllerConfigService
+	machineSaver            state.MachineSaver
 
 	scope modelmigration.Scope
 }
@@ -117,11 +118,13 @@ func NewModelImporter(
 	stateImporter legacyStateImporter,
 	scope modelmigration.Scope,
 	controllerConfigService ControllerConfigService,
+	machineSaver state.MachineSaver,
 ) *ModelImporter {
 	return &ModelImporter{
 		legacyStateImporter:     stateImporter,
 		scope:                   scope,
 		controllerConfigService: controllerConfigService,
+		machineSaver:            machineSaver,
 	}
 }
 
@@ -139,7 +142,7 @@ func (i *ModelImporter) ImportModel(ctx context.Context, bytes []byte) (*state.M
 		return nil, nil, errors.Annotatef(err, "unable to get controller config")
 	}
 
-	dbModel, dbState, err := i.legacyStateImporter.Import(model, ctrlConfig)
+	dbModel, dbState, err := i.legacyStateImporter.Import(model, ctrlConfig, i.machineSaver)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}

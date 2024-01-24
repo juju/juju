@@ -11,7 +11,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/worker/v4"
 
-	"github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/domain/blockdevice"
 	jworker "github.com/juju/juju/internal/worker"
 )
 
@@ -30,12 +30,12 @@ const (
 // BlockDeviceSetter is an interface that is supplied to
 // NewWorker for setting block devices for the local host.
 type BlockDeviceSetter interface {
-	SetMachineBlockDevices([]storage.BlockDevice) error
+	SetMachineBlockDevices([]blockdevice.BlockDevice) error
 }
 
 // ListBlockDevicesFunc is the type of a function that is supplied to
 // NewWorker for listing block devices available on the local host.
-type ListBlockDevicesFunc func() ([]storage.BlockDevice, error)
+type ListBlockDevicesFunc func() ([]blockdevice.BlockDevice, error)
 
 // DefaultListBlockDevices is the default function for listing block
 // devices for the operating system of the local host.
@@ -44,19 +44,19 @@ var DefaultListBlockDevices ListBlockDevicesFunc
 // NewWorker returns a worker that lists block devices
 // attached to the machine, and records them in state.
 var NewWorker = func(l ListBlockDevicesFunc, b BlockDeviceSetter) worker.Worker {
-	var old []storage.BlockDevice
+	var old []blockdevice.BlockDevice
 	f := func(stop <-chan struct{}) error {
 		return doWork(l, b, &old)
 	}
 	return jworker.NewPeriodicWorker(f, listBlockDevicesPeriod, jworker.NewTimer)
 }
 
-func doWork(listf ListBlockDevicesFunc, b BlockDeviceSetter, old *[]storage.BlockDevice) error {
+func doWork(listf ListBlockDevicesFunc, b BlockDeviceSetter, old *[]blockdevice.BlockDevice) error {
 	blockDevices, err := listf()
 	if err != nil {
 		return err
 	}
-	storage.SortBlockDevices(blockDevices)
+	blockdevice.SortBlockDevices(blockDevices)
 	for _, blockDevice := range blockDevices {
 		sort.Strings(blockDevice.DeviceLinks)
 	}

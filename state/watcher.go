@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"hash"
-	"reflect"
 	"regexp"
 	"sort"
 	"strings"
@@ -3444,65 +3443,6 @@ func (m *Machine) WatchForRebootEvent() NotifyWatcher {
 		return false
 	}
 	return newNotifyCollWatcher(m.st, rebootC, filter)
-}
-
-// blockDevicesWatcher notifies about changes to all block devices
-// associated with a machine.
-type blockDevicesWatcher struct {
-	commonWatcher
-	machineId string
-	out       chan struct{}
-}
-
-var _ NotifyWatcher = (*blockDevicesWatcher)(nil)
-
-func newBlockDevicesWatcher(backend modelBackend, machineId string) NotifyWatcher {
-	w := &blockDevicesWatcher{
-		commonWatcher: newCommonWatcher(backend),
-		machineId:     machineId,
-		out:           make(chan struct{}),
-	}
-	w.tomb.Go(func() error {
-		defer close(w.out)
-		return w.loop()
-	})
-	return w
-}
-
-// Changes returns the event channel for w.
-func (w *blockDevicesWatcher) Changes() <-chan struct{} {
-	return w.out
-}
-
-func (w *blockDevicesWatcher) loop() error {
-	docID := w.backend.docID(w.machineId)
-	changes := make(chan watcher.Change)
-	w.watcher.Watch(blockDevicesC, docID, changes)
-	defer w.watcher.Unwatch(blockDevicesC, docID, changes)
-	blockDevices, err := getBlockDevices(w.db, w.machineId)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	out := w.out
-	for {
-		select {
-		case <-w.watcher.Dead():
-			return stateWatcherDeadError(w.watcher.Err())
-		case <-w.tomb.Dying():
-			return tomb.ErrDying
-		case <-changes:
-			newBlockDevices, err := getBlockDevices(w.db, w.machineId)
-			if err != nil {
-				return errors.Trace(err)
-			}
-			if !reflect.DeepEqual(newBlockDevices, blockDevices) {
-				blockDevices = newBlockDevices
-				out = w.out
-			}
-		case out <- struct{}{}:
-			out = nil
-		}
-	}
 }
 
 // WatchForMigration returns a notify watcher which reports when

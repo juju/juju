@@ -364,53 +364,6 @@ func (s *MigrationExportSuite) assertMachinesMigrated(c *gc.C, cons constraints.
 	c.Assert(exAddr.SpaceID(), gc.Equals, "0")
 }
 
-func (s *MigrationExportSuite) TestMachineDevices(c *gc.C) {
-	machine := s.Factory.MakeMachine(c, nil)
-	// Create two devices, first with all fields set, second just to show that
-	// we do both.
-	sda := state.BlockDeviceInfo{
-		DeviceName:     "sda",
-		DeviceLinks:    []string{"some", "data"},
-		Label:          "sda-label",
-		UUID:           "some-uuid",
-		HardwareId:     "magic",
-		WWN:            "drbr",
-		BusAddress:     "bus stop",
-		Size:           16 * 1024 * 1024 * 1024,
-		FilesystemType: "ext4",
-		InUse:          true,
-		MountPoint:     "/",
-	}
-	sdb := state.BlockDeviceInfo{DeviceName: "sdb", MountPoint: "/var/lib/lxd"}
-	err := machine.SetMachineBlockDevices(sda, sdb)
-	c.Assert(err, jc.ErrorIsNil)
-
-	model, err := s.State.Export(map[string]string{}, state.NewObjectStore(c, s.State))
-	c.Assert(err, jc.ErrorIsNil)
-	machines := model.Machines()
-	c.Assert(machines, gc.HasLen, 1)
-	exported := machines[0]
-
-	devices := exported.BlockDevices()
-	c.Assert(devices, gc.HasLen, 2)
-	ex1, ex2 := devices[0], devices[1]
-
-	c.Check(ex1.Name(), gc.Equals, "sda")
-	c.Check(ex1.Links(), jc.DeepEquals, []string{"some", "data"})
-	c.Check(ex1.Label(), gc.Equals, "sda-label")
-	c.Check(ex1.UUID(), gc.Equals, "some-uuid")
-	c.Check(ex1.HardwareID(), gc.Equals, "magic")
-	c.Check(ex1.WWN(), gc.Equals, "drbr")
-	c.Check(ex1.BusAddress(), gc.Equals, "bus stop")
-	c.Check(ex1.Size(), gc.Equals, uint64(16*1024*1024*1024))
-	c.Check(ex1.FilesystemType(), gc.Equals, "ext4")
-	c.Check(ex1.InUse(), jc.IsTrue)
-	c.Check(ex1.MountPoint(), gc.Equals, "/")
-
-	c.Check(ex2.Name(), gc.Equals, "sdb")
-	c.Check(ex2.MountPoint(), gc.Equals, "/var/lib/lxd")
-}
-
 func (s *MigrationExportSuite) TestApplications(c *gc.C) {
 	s.assertMigrateApplications(c, s.State, constraints.MustParse("arch=amd64 mem=8G"))
 }

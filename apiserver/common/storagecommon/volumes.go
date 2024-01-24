@@ -8,6 +8,7 @@ import (
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/domain/blockdevice"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/poolmanager"
@@ -159,8 +160,8 @@ func VolumeAttachmentPlanFromState(v state.VolumeAttachmentPlan) (params.VolumeA
 	}, nil
 }
 
-func VolumeAttachmentPlanBlockInfoFromState(blockInfo state.BlockDeviceInfo) storage.BlockDevice {
-	return storage.BlockDevice{
+func VolumeAttachmentPlanBlockInfoFromState(blockInfo state.BlockDeviceInfo) blockdevice.BlockDevice {
+	return blockdevice.BlockDevice{
 		DeviceName:     blockInfo.DeviceName,
 		DeviceLinks:    blockInfo.DeviceLinks,
 		Label:          blockInfo.Label,
@@ -168,7 +169,7 @@ func VolumeAttachmentPlanBlockInfoFromState(blockInfo state.BlockDeviceInfo) sto
 		HardwareId:     blockInfo.HardwareId,
 		WWN:            blockInfo.WWN,
 		BusAddress:     blockInfo.BusAddress,
-		Size:           blockInfo.Size,
+		SizeMiB:        blockInfo.Size,
 		FilesystemType: blockInfo.FilesystemType,
 		InUse:          blockInfo.InUse,
 		MountPoint:     blockInfo.MountPoint,
@@ -242,7 +243,7 @@ func VolumeAttachmentPlanToState(in params.VolumeAttachmentPlan) (names.MachineT
 	return machineTag, volumeTag, info, blockInfo, nil
 }
 
-func BlockDeviceInfoToState(in storage.BlockDevice) state.BlockDeviceInfo {
+func BlockDeviceInfoToState(in blockdevice.BlockDevice) state.BlockDeviceInfo {
 	return state.BlockDeviceInfo{
 		DeviceName:     in.DeviceName,
 		DeviceLinks:    in.DeviceLinks,
@@ -251,7 +252,7 @@ func BlockDeviceInfoToState(in storage.BlockDevice) state.BlockDeviceInfo {
 		HardwareId:     in.HardwareId,
 		WWN:            in.WWN,
 		BusAddress:     in.BusAddress,
-		Size:           in.Size,
+		Size:           in.SizeMiB,
 		FilesystemType: in.FilesystemType,
 		InUse:          in.InUse,
 		MountPoint:     in.MountPoint,

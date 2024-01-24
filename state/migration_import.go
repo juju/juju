@@ -41,8 +41,13 @@ import (
 	"github.com/juju/juju/state/cloudimagemetadata"
 )
 
+// MachineSaver instances save a machine to dqlite state.
+type MachineSaver interface {
+	Save(context.Context, string) error
+}
+
 // Import the database agnostic model representation into the database.
-func (ctrl *Controller) Import(model description.Model, controllerConfig controller.Config) (_ *Model, _ *State, err error) {
+func (ctrl *Controller) Import(model description.Model, controllerConfig controller.Config, machineSaver MachineSaver) (_ *Model, _ *State, err error) {
 	st, err := ctrl.pool.SystemState()
 	if err != nil {
 		return nil, nil, errors.Trace(err)
@@ -122,10 +127,11 @@ func (ctrl *Controller) Import(model description.Model, controllerConfig control
 
 	// I would have loved to use import, but that is a reserved word.
 	restore := importer{
-		st:      newSt,
-		dbModel: dbModel,
-		model:   model,
-		logger:  logger,
+		st:           newSt,
+		dbModel:      dbModel,
+		model:        model,
+		logger:       logger,
+		machineSaver: machineSaver,
 	}
 	if err := restore.sequences(); err != nil {
 		return nil, nil, errors.Annotate(err, "sequences")
@@ -302,10 +308,11 @@ func (m *ImportStateMigration) Run() error {
 }
 
 type importer struct {
-	st      *State
-	dbModel *Model
-	model   description.Model
-	logger  loggo.Logger
+	st           *State
+	dbModel      *Model
+	model        description.Model
+	logger       loggo.Logger
+	machineSaver MachineSaver
 	// applicationUnits is populated at the end of loading the applications, and is a
 	// map of application name to the units of that application.
 	applicationUnits map[string]map[string]*Unit
@@ -429,6 +436,11 @@ func (i *importer) machines() error {
 			i.logger.Errorf("error importing machine: %s", err)
 			return errors.Annotate(err, m.Id())
 		}
+		// We need skeleton machines in dqlite.
+		if err := i.machineSaver.Save(context.TODO(), m.Id()); err != nil {
+			i.logger.Errorf("error importing machine: %s", err)
+			return errors.Annotate(err, m.Id())
+		}
 	}
 
 	i.logger.Debugf("importing machines succeeded")
@@ -526,9 +538,6 @@ func (i *importer) machine(m description.Machine) error {
 	if err := i.importStatusHistory(machine.globalInstanceKey(), instance.StatusHistory()); err != nil {
 		return errors.Trace(err)
 	}
-	if err := i.importMachineBlockDevices(machine, m); err != nil {
-		return errors.Trace(err)
-	}
 
 	// Now that this machine exists in the database, process each of the
 	// containers in this machine.
@@ -536,30 +545,6 @@ func (i *importer) machine(m description.Machine) error {
 		if err := i.machine(container); err != nil {
 			return errors.Annotate(err, container.Id())
 		}
-	}
-	return nil
-}
-
-func (i *importer) importMachineBlockDevices(machine *Machine, m description.Machine) error {
-	var devices []BlockDeviceInfo
-	for _, device := range m.BlockDevices() {
-		devices = append(devices, BlockDeviceInfo{
-			DeviceName:     device.Name(),
-			DeviceLinks:    device.Links(),
-			Label:          device.Label(),
-			UUID:           device.UUID(),
-			HardwareId:     device.HardwareID(),
-			WWN:            device.WWN(),
-			BusAddress:     device.BusAddress(),
-			Size:           device.Size(),
-			FilesystemType: device.FilesystemType(),
-			InUse:          device.InUse(),
-			MountPoint:     device.MountPoint(),
-		})
-	}
-
-	if err := machine.SetMachineBlockDevices(devices...); err != nil {
-		return errors.Trace(err)
 	}
 	return nil
 }

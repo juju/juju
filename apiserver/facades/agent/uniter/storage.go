@@ -4,6 +4,8 @@
 package uniter
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 
@@ -12,6 +14,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/life"
+	corewatcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
@@ -19,25 +22,28 @@ import (
 
 // StorageAPI provides access to the Storage API facade.
 type StorageAPI struct {
-	backend    backend
-	storage    storageAccess
-	resources  facade.Resources
-	accessUnit common.GetAuthFunc
+	backend            backend
+	storage            storageAccess
+	blockDeviceService blockDeviceService
+	resources          facade.Resources
+	accessUnit         common.GetAuthFunc
 }
 
 // newStorageAPI creates a new server-side Storage API facade.
 func newStorageAPI(
 	backend backend,
 	storage storageAccess,
+	blockDeviceService blockDeviceService,
 	resources facade.Resources,
 	accessUnit common.GetAuthFunc,
 ) (*StorageAPI, error) {
 
 	return &StorageAPI{
-		backend:    backend,
-		storage:    storage,
-		resources:  resources,
-		accessUnit: accessUnit,
+		backend:            backend,
+		storage:            storage,
+		blockDeviceService: blockDeviceService,
+		resources:          resources,
+		accessUnit:         accessUnit,
 	}, nil
 }
 
@@ -111,7 +117,7 @@ func (s *StorageAPI) DestroyUnitStorageAttachments(args params.Entities) (params
 }
 
 // StorageAttachments returns the storage attachments with the specified tags.
-func (s *StorageAPI) StorageAttachments(args params.StorageAttachmentIds) (params.StorageAttachmentResults, error) {
+func (s *StorageAPI) StorageAttachments(ctx context.Context, args params.StorageAttachmentIds) (params.StorageAttachmentResults, error) {
 	canAccess, err := s.accessUnit()
 	if err != nil {
 		return params.StorageAttachmentResults{}, err
@@ -120,7 +126,7 @@ func (s *StorageAPI) StorageAttachments(args params.StorageAttachmentIds) (param
 		Results: make([]params.StorageAttachmentResult, len(args.Ids)),
 	}
 	for i, id := range args.Ids {
-		storageAttachment, err := s.getOneStorageAttachment(canAccess, id)
+		storageAttachment, err := s.getOneStorageAttachment(ctx, canAccess, id)
 		if err == nil {
 			result.Results[i].Result = storageAttachment
 		}
@@ -150,12 +156,12 @@ func (s *StorageAPI) StorageAttachmentLife(args params.StorageAttachmentIds) (pa
 	return result, nil
 }
 
-func (s *StorageAPI) getOneStorageAttachment(canAccess common.AuthFunc, id params.StorageAttachmentId) (params.StorageAttachment, error) {
+func (s *StorageAPI) getOneStorageAttachment(ctx context.Context, canAccess common.AuthFunc, id params.StorageAttachmentId) (params.StorageAttachment, error) {
 	stateStorageAttachment, err := s.getOneStateStorageAttachment(canAccess, id)
 	if err != nil {
 		return params.StorageAttachment{}, err
 	}
-	return s.fromStateStorageAttachment(stateStorageAttachment)
+	return s.fromStateStorageAttachment(ctx, stateStorageAttachment)
 }
 
 func (s *StorageAPI) getOneStateStorageAttachment(canAccess common.AuthFunc, id params.StorageAttachmentId) (state.StorageAttachment, error) {
@@ -173,7 +179,7 @@ func (s *StorageAPI) getOneStateStorageAttachment(canAccess common.AuthFunc, id 
 	return s.storage.StorageAttachment(storageTag, unitTag)
 }
 
-func (s *StorageAPI) fromStateStorageAttachment(stateStorageAttachment state.StorageAttachment) (params.StorageAttachment, error) {
+func (s *StorageAPI) fromStateStorageAttachment(ctx context.Context, stateStorageAttachment state.StorageAttachment) (params.StorageAttachment, error) {
 	var hostTag names.Tag
 	hostTag = stateStorageAttachment.Unit()
 	u, err := s.backend.Unit(hostTag.Id())
@@ -187,8 +193,8 @@ func (s *StorageAPI) fromStateStorageAttachment(stateStorageAttachment state.Sto
 		}
 	}
 
-	info, err := storagecommon.StorageAttachmentInfo(
-		s.storage, s.storage.VolumeAccess(), s.storage.FilesystemAccess(), stateStorageAttachment, hostTag)
+	info, err := storagecommon.StorageAttachmentInfo(ctx,
+		s.storage, s.storage.VolumeAccess(), s.storage.FilesystemAccess(), s.blockDeviceService, stateStorageAttachment, hostTag)
 	if err != nil {
 		return params.StorageAttachment{}, err
 	}
@@ -250,7 +256,7 @@ func (s *StorageAPI) watchOneUnitStorageAttachments(tag string, canAccess func(n
 // WatchStorageAttachments creates watchers for a collection of storage
 // attachments, each of which can be used to watch changes to storage
 // attachment info.
-func (s *StorageAPI) WatchStorageAttachments(args params.StorageAttachmentIds) (params.NotifyWatchResults, error) {
+func (s *StorageAPI) WatchStorageAttachments(ctx context.Context, args params.StorageAttachmentIds) (params.NotifyWatchResults, error) {
 	canAccess, err := s.accessUnit()
 	if err != nil {
 		return params.NotifyWatchResults{}, err
@@ -259,7 +265,7 @@ func (s *StorageAPI) WatchStorageAttachments(args params.StorageAttachmentIds) (
 		Results: make([]params.NotifyWatchResult, len(args.Ids)),
 	}
 	for i, id := range args.Ids {
-		result, err := s.watchOneStorageAttachment(id, canAccess)
+		result, err := s.watchOneStorageAttachment(ctx, id, canAccess)
 		if err == nil {
 			results.Results[i] = result
 		}
@@ -268,7 +274,7 @@ func (s *StorageAPI) WatchStorageAttachments(args params.StorageAttachmentIds) (
 	return results, nil
 }
 
-func (s *StorageAPI) watchOneStorageAttachment(id params.StorageAttachmentId, canAccess func(names.Tag) bool) (params.NotifyWatchResult, error) {
+func (s *StorageAPI) watchOneStorageAttachment(ctx context.Context, id params.StorageAttachmentId, canAccess func(names.Tag) bool) (params.NotifyWatchResult, error) {
 	// Watching a storage attachment is implemented as watching the
 	// underlying volume or filesystem attachment. The only thing
 	// we don't necessarily see in doing this is the lifecycle state
@@ -296,8 +302,8 @@ func (s *StorageAPI) watchOneStorageAttachment(id params.StorageAttachmentId, ca
 			return nothing, err
 		}
 	}
-	watch, err := watchStorageAttachment(
-		s.storage, s.storage.VolumeAccess(), s.storage.FilesystemAccess(), storageTag, hostTag, unitTag)
+	watch, err := watchStorageAttachment(ctx,
+		s.storage, s.storage.VolumeAccess(), s.storage.FilesystemAccess(), s.blockDeviceService, storageTag, hostTag, unitTag)
 	if err != nil {
 		return nothing, errors.Trace(err)
 	}
@@ -393,9 +399,11 @@ func validConstraints(
 // to the VolumeAttachmentInfo or FilesystemAttachmentInfo corresponding to the
 // tags specified.
 func watchStorageAttachment(
+	ctx context.Context,
 	st storageInterface,
 	stVolume storageVolumeInterface,
 	stFile storageFilesystemInterface,
+	blockDeviceService blockDeviceService,
 	storageTag names.StorageTag,
 	hostTag names.Tag,
 	unitTag names.UnitTag,
@@ -430,7 +438,11 @@ func watchStorageAttachment(
 			// have provisioned the volume attachment (cleaner?),
 			// or have the filter ignore changes until the volume
 			// attachment is provisioned.
-			watchers = append(watchers, stVolume.WatchBlockDevices(hostTag.(names.MachineTag)))
+			blockDeviceWatcher, err := blockDeviceService.WatchBlockDevices(ctx, hostTag.(names.MachineTag).Id())
+			if err != nil {
+				return nil, errors.Annotate(err, "getting block device watcher")
+			}
+			watchers = append(watchers, &watcherAdaptor{blockDeviceWatcher})
 		}
 	case state.StorageKindFilesystem:
 		if stFile == nil {
@@ -448,4 +460,23 @@ func watchStorageAttachment(
 	}
 	watchers = append(watchers, st.WatchStorageAttachment(storageTag, unitTag))
 	return common.NewMultiNotifyWatcher(watchers...), nil
+}
+
+// watcherAdaptor adapts a core watcher to a state watcher.
+// TODO(wallyworld) - this will be obsolete once storage is implemented in dqlite.
+type watcherAdaptor struct {
+	corewatcher.NotifyWatcher
+}
+
+func (w *watcherAdaptor) Changes() <-chan struct{} {
+	return w.NotifyWatcher.Changes()
+}
+
+func (w *watcherAdaptor) Stop() error {
+	w.NotifyWatcher.Kill()
+	return nil
+}
+
+func (w *watcherAdaptor) Err() error {
+	return w.NotifyWatcher.Wait()
 }

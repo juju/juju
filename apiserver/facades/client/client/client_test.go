@@ -394,6 +394,7 @@ func (s *findToolsSuite) TestFindToolsIAAS(c *gc.C) {
 	authorizer := mocks.NewMockAuthorizer(ctrl)
 	registryProvider := registrymocks.NewMockRegistry(ctrl)
 	toolsFinder := mocks.NewMockToolsFinder(ctrl)
+	blockDeviceGetter := mocks.NewMockBlockDeviceGetter(ctrl)
 
 	simpleStreams := []*tools.Tools{
 		{Version: version.MustParseBinary("2.9.6-ubuntu-amd64")},
@@ -414,7 +415,7 @@ func (s *findToolsSuite) TestFindToolsIAAS(c *gc.C) {
 
 	api, err := client.NewClient(
 		backend, nil,
-		nil, nil,
+		nil, blockDeviceGetter, nil,
 		authorizer, nil, toolsFinder,
 		nil, nil, nil, nil,
 		func(docker.ImageRepoDetails) (registry.Registry, error) {
@@ -447,6 +448,7 @@ func (s *findToolsSuite) TestFindToolsCAASReleased(c *gc.C) {
 	authorizer := mocks.NewMockAuthorizer(ctrl)
 	registryProvider := registrymocks.NewMockRegistry(ctrl)
 	toolsFinder := mocks.NewMockToolsFinder(ctrl)
+	blockDeviceGetter := mocks.NewMockBlockDeviceGetter(ctrl)
 
 	simpleStreams := []*tools.Tools{
 		{Version: version.MustParseBinary("2.9.9-ubuntu-amd64")},
@@ -493,7 +495,7 @@ func (s *findToolsSuite) TestFindToolsCAASReleased(c *gc.C) {
 
 	api, err := client.NewClient(
 		backend, nil,
-		nil, nil,
+		nil, blockDeviceGetter, nil,
 		authorizer, nil, toolsFinder,
 		nil, nil, nil, nil,
 		func(repo docker.ImageRepoDetails) (registry.Registry, error) {
@@ -527,6 +529,7 @@ func (s *findToolsSuite) TestFindToolsCAASNonReleased(c *gc.C) {
 	authorizer := mocks.NewMockAuthorizer(ctrl)
 	registryProvider := registrymocks.NewMockRegistry(ctrl)
 	toolsFinder := mocks.NewMockToolsFinder(ctrl)
+	blockDeviceGetter := mocks.NewMockBlockDeviceGetter(ctrl)
 
 	simpleStreams := []*tools.Tools{
 		{Version: version.MustParseBinary("2.9.9-ubuntu-amd64")},
@@ -578,7 +581,7 @@ func (s *findToolsSuite) TestFindToolsCAASNonReleased(c *gc.C) {
 
 	api, err := client.NewClient(
 		backend, nil,
-		nil, nil,
+		nil, blockDeviceGetter, nil,
 		authorizer, nil, toolsFinder,
 		nil, nil, nil, nil,
 		func(repo docker.ImageRepoDetails) (registry.Registry, error) {

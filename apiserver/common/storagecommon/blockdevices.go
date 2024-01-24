@@ -8,39 +8,20 @@ import (
 
 	"github.com/juju/loggo"
 
-	"github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/domain/blockdevice"
 	"github.com/juju/juju/state"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.storagecommon")
 
-// BlockDeviceFromState translates a state.BlockDeviceInfo to a
-// storage.BlockDevice.
-func BlockDeviceFromState(in state.BlockDeviceInfo) storage.BlockDevice {
-	return storage.BlockDevice{
-		DeviceName:     in.DeviceName,
-		DeviceLinks:    in.DeviceLinks,
-		Label:          in.Label,
-		UUID:           in.UUID,
-		HardwareId:     in.HardwareId,
-		WWN:            in.WWN,
-		BusAddress:     in.BusAddress,
-		Size:           in.Size,
-		FilesystemType: in.FilesystemType,
-		InUse:          in.InUse,
-		MountPoint:     in.MountPoint,
-		SerialId:       in.SerialId,
-	}
-}
-
 // MatchingVolumeBlockDevice finds the block device that matches the
 // provided volume info and volume attachment info.
 func MatchingVolumeBlockDevice(
-	blockDevices []state.BlockDeviceInfo,
+	blockDevices []blockdevice.BlockDevice,
 	volumeInfo state.VolumeInfo,
 	attachmentInfo state.VolumeAttachmentInfo,
-	planBlockInfo state.BlockDeviceInfo,
-) (*state.BlockDeviceInfo, bool) {
+	planBlockInfo blockdevice.BlockDevice,
+) (*blockdevice.BlockDevice, bool) {
 	return matchingBlockDevice(blockDevices, volumeInfo, attachmentInfo, planBlockInfo, false)
 }
 
@@ -48,21 +29,21 @@ func MatchingVolumeBlockDevice(
 // provided volume info and volume attachment info, preferring a matching
 // device of type partition.
 func MatchingFilesystemBlockDevice(
-	blockDevices []state.BlockDeviceInfo,
+	blockDevices []blockdevice.BlockDevice,
 	volumeInfo state.VolumeInfo,
 	attachmentInfo state.VolumeAttachmentInfo,
-	planBlockInfo state.BlockDeviceInfo,
-) (*state.BlockDeviceInfo, bool) {
+	planBlockInfo blockdevice.BlockDevice,
+) (*blockdevice.BlockDevice, bool) {
 	return matchingBlockDevice(blockDevices, volumeInfo, attachmentInfo, planBlockInfo, true)
 }
 
 func matchingBlockDevice(
-	blockDevices []state.BlockDeviceInfo,
+	blockDevices []blockdevice.BlockDevice,
 	volumeInfo state.VolumeInfo,
 	attachmentInfo state.VolumeAttachmentInfo,
-	planBlockInfo state.BlockDeviceInfo,
+	planBlockInfo blockdevice.BlockDevice,
 	allowPartitions bool,
-) (*state.BlockDeviceInfo, bool) {
+) (*blockdevice.BlockDevice, bool) {
 	logger.Tracef("looking for block device to match one of planBlockInfo %#v volumeInfo %#v attachmentInfo %#v",
 		planBlockInfo, volumeInfo, attachmentInfo)
 
@@ -139,7 +120,7 @@ func matchingBlockDevice(
 	if attachmentInfo.DeviceLink != "" {
 		// We'll prefer to use a mounted partition if available.
 		// This will be the case for filesystem storage; it will be part1.
-		var devWithUUID, parentDev *state.BlockDeviceInfo
+		var devWithUUID, parentDev *blockdevice.BlockDevice
 	devMatch:
 		for _, dev := range blockDevices {
 			for _, link := range dev.DeviceLinks {

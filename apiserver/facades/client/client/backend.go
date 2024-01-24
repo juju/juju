@@ -4,6 +4,7 @@
 package client
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/charm/v12"
@@ -21,6 +22,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/domain/blockdevice"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 )
@@ -258,4 +260,8 @@ var getStorageState = func(st *state.State) (StorageInterface, error) {
 		return nil, err
 	}
 	return sb, nil
+}
+
+type BlockDeviceGetter interface {
+	BlockDevices(ctx context.Context, machineId string) ([]blockdevice.BlockDevice, error)
 }

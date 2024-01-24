@@ -522,15 +522,15 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 	var filesystemDetails []params.FilesystemDetails
 	var volumeDetails []params.VolumeDetails
 	if args.IncludeStorage {
-		storageDetails, err = context.processStorage(c.api.storageAccessor)
+		storageDetails, err = context.processStorage(ctx, c.api.storageAccessor, c.api.blockDeviceGetrer)
 		if err != nil {
 			return noStatus, errors.Annotate(err, "cannot process storage instances")
 		}
-		filesystemDetails, err = context.processFilesystems(c.api.storageAccessor)
+		filesystemDetails, err = context.processFilesystems(ctx, c.api.storageAccessor, c.api.blockDeviceGetrer)
 		if err != nil {
 			return noStatus, errors.Annotate(err, "cannot process filesystems")
 		}
-		volumeDetails, err = context.processVolumes(c.api.storageAccessor)
+		volumeDetails, err = context.processVolumes(ctx, c.api.storageAccessor, c.api.blockDeviceGetrer)
 		if err != nil {
 			return noStatus, errors.Annotate(err, "cannot process volumes")
 		}
@@ -1775,10 +1775,10 @@ func (c *statusContext) unitToMachine(unitTag names.UnitTag) (names.MachineTag, 
 	return names.NewMachineTag(machine), nil
 }
 
-func (c *statusContext) processStorage(storageAccessor StorageInterface) ([]params.StorageDetails, error) {
+func (c *statusContext) processStorage(ctx context.Context, storageAccessor StorageInterface, blockdeviceGetter BlockDeviceGetter) ([]params.StorageDetails, error) {
 	storageDetails := make([]params.StorageDetails, 0, len(c.storageInstances))
 	for _, storageInstance := range c.storageInstances {
-		storageDetail, err := storagecommon.StorageDetails(storageAccessor, c.unitToMachine, storageInstance)
+		storageDetail, err := storagecommon.StorageDetails(ctx, storageAccessor, blockdeviceGetter, c.unitToMachine, storageInstance)
 		if err != nil {
 			return nil, errors.Annotatef(err, "cannot convert storage details for %v", storageInstance.Tag())
 		}
@@ -1787,14 +1787,14 @@ func (c *statusContext) processStorage(storageAccessor StorageInterface) ([]para
 	return storageDetails, nil
 }
 
-func (c *statusContext) processFilesystems(storageAccessor StorageInterface) ([]params.FilesystemDetails, error) {
+func (c *statusContext) processFilesystems(ctx context.Context, storageAccessor StorageInterface, blockDeviceGetter BlockDeviceGetter) ([]params.FilesystemDetails, error) {
 	filesystemDetails := make([]params.FilesystemDetails, 0, len(c.filesystems))
 	for _, filesystem := range c.filesystems {
 		attachments, err := storageAccessor.FilesystemAttachments(filesystem.FilesystemTag())
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		filesystemDetail, err := storagecommon.FilesystemDetails(storageAccessor, c.unitToMachine, filesystem, attachments)
+		filesystemDetail, err := storagecommon.FilesystemDetails(ctx, storageAccessor, blockDeviceGetter, c.unitToMachine, filesystem, attachments)
 		if err != nil {
 			return nil, errors.Annotatef(err, "cannot convert filesystem details for %v", filesystem.Tag())
 		}
@@ -1803,14 +1803,14 @@ func (c *statusContext) processFilesystems(storageAccessor StorageInterface) ([]
 	return filesystemDetails, nil
 }
 
-func (c *statusContext) processVolumes(storageAccessor StorageInterface) ([]params.VolumeDetails, error) {
+func (c *statusContext) processVolumes(ctx context.Context, storageAccessor StorageInterface, blockDeviceGetter BlockDeviceGetter) ([]params.VolumeDetails, error) {
 	volumeDetails := make([]params.VolumeDetails, 0, len(c.volumes))
 	for _, volume := range c.volumes {
 		attachments, err := storageAccessor.VolumeAttachments(volume.VolumeTag())
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		volumeDetail, err := storagecommon.VolumeDetails(storageAccessor, c.unitToMachine, volume, attachments)
+		volumeDetail, err := storagecommon.VolumeDetails(ctx, storageAccessor, blockDeviceGetter, c.unitToMachine, volume, attachments)
 		if err != nil {
 			return nil, errors.Annotatef(err, "cannot convert volume details for %v", volume.Tag())
 		}

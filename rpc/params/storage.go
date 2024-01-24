@@ -7,14 +7,15 @@ import (
 	"time"
 
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/domain/blockdevice"
 	"github.com/juju/juju/internal/storage"
 )
 
 // MachineBlockDevices holds a machine tag and the block devices present
 // on that machine.
 type MachineBlockDevices struct {
-	Machine      string                `json:"machine"`
-	BlockDevices []storage.BlockDevice `json:"block-devices,omitempty"`
+	Machine      string                    `json:"machine"`
+	BlockDevices []blockdevice.BlockDevice `json:"block-devices,omitempty"`
 }
 
 // SetMachineBlockDevices holds the arguments for recording the block
@@ -26,8 +27,8 @@ type SetMachineBlockDevices struct {
 // BlockDeviceResult holds the result of an API call to retrieve details
 // of a block device.
 type BlockDeviceResult struct {
-	Result storage.BlockDevice `json:"result"`
-	Error  *Error              `json:"error,omitempty"`
+	Result blockdevice.BlockDevice `json:"result"`
+	Error  *Error                  `json:"error,omitempty"`
 }
 
 // BlockDeviceResults holds the result of an API call to retrieve details
@@ -39,8 +40,8 @@ type BlockDeviceResults struct {
 // BlockDevicesResult holds the result of an API call to retrieve details
 // of all block devices relating to some entity.
 type BlockDevicesResult struct {
-	Result []storage.BlockDevice `json:"result"`
-	Error  *Error                `json:"error,omitempty"`
+	Result []blockdevice.BlockDevice `json:"result"`
+	Error  *Error                    `json:"error,omitempty"`
 }
 
 // BlockDevicesResults holds the result of an API call to retrieve details
@@ -223,7 +224,7 @@ type VolumeAttachmentPlan struct {
 	// BlockDevice should only be set by machine agents after
 	// the AttachVolume() function is called. It represents the machines
 	// view of the block device represented by the plan.
-	BlockDevice storage.BlockDevice `json:"block-device,omitempty"`
+	BlockDevice blockdevice.BlockDevice `json:"block-device,omitempty"`
 }
 
 type VolumeAttachmentPlans struct {

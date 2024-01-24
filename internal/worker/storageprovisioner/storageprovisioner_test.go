@@ -18,6 +18,7 @@ import (
 
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/domain/blockdevice"
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/worker/storageprovisioner"
@@ -47,7 +48,7 @@ func (s *storageProvisionerSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(
 		storageprovisioner.NewManagedFilesystemSource,
 		func(
-			blockDevices map[names.VolumeTag]storage.BlockDevice,
+			blockDevices map[names.VolumeTag]blockdevice.BlockDevice,
 			filesystems map[names.FilesystemTag]storage.Filesystem,
 		) storage.FilesystemSource {
 			s.managedFilesystemSource = &mockManagedFilesystemSource{
@@ -1095,9 +1096,9 @@ func (s *storageProvisionerSuite) TestCreateVolumeBackedFilesystem(c *gc.C) {
 	args.volumes.blockDevices[params.MachineStorageId{
 		MachineTag:    "machine-0",
 		AttachmentTag: "volume-0-0",
-	}] = storage.BlockDevice{
+	}] = blockdevice.BlockDevice{
 		DeviceName: "xvdf1",
-		Size:       123,
+		SizeMiB:    123,
 	}
 	filesystemAccessor.filesystemsWatcher.changes <- []string{"0/0", "0/1"}
 
@@ -1121,9 +1122,9 @@ func (s *storageProvisionerSuite) TestCreateVolumeBackedFilesystem(c *gc.C) {
 	args.volumes.blockDevices[params.MachineStorageId{
 		MachineTag:    "machine-0",
 		AttachmentTag: "volume-0-1",
-	}] = storage.BlockDevice{
+	}] = blockdevice.BlockDevice{
 		DeviceName: "xvdf2",
-		Size:       246,
+		SizeMiB:    246,
 	}
 	args.volumes.blockDevicesWatcher.changes <- struct{}{}
 	filesystemInfo = waitChannel(
@@ -1169,9 +1170,9 @@ func (s *storageProvisionerSuite) TestAttachVolumeBackedFilesystem(c *gc.C) {
 	args.volumes.blockDevices[params.MachineStorageId{
 		MachineTag:    "machine-0",
 		AttachmentTag: "volume-0-0",
-	}] = storage.BlockDevice{
+	}] = blockdevice.BlockDevice{
 		DeviceName: "xvdf1",
-		Size:       123,
+		SizeMiB:    123,
 	}
 	filesystemAccessor.attachmentsWatcher.changes <- []watcher.MachineStorageID{{
 		MachineTag:    "machine-0",
@@ -1195,9 +1196,9 @@ func (s *storageProvisionerSuite) TestAttachVolumeBackedFilesystem(c *gc.C) {
 	args.volumes.blockDevices[params.MachineStorageId{
 		MachineTag:    "machine-0",
 		AttachmentTag: "volume-0-0",
-	}] = storage.BlockDevice{
+	}] = blockdevice.BlockDevice{
 		DeviceName: "xvdf1",
-		Size:       123,
+		SizeMiB:    123,
 		UUID:       "deadbeaf",
 	}
 	s.managedFilesystemSource.attachedFilesystems = make(chan interface{}, 1)

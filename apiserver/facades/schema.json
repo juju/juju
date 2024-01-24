@@ -17706,7 +17706,7 @@
                         "SerialId": {
                             "type": "string"
                         },
-                        "Size": {
+                        "SizeMiB": {
                             "type": "integer"
                         },
                         "UUID": {
@@ -17725,7 +17725,7 @@
                         "HardwareId",
                         "WWN",
                         "BusAddress",
-                        "Size",
+                        "SizeMiB",
                         "FilesystemType",
                         "InUse",
                         "MountPoint",
@@ -40353,7 +40353,7 @@
                         "SerialId": {
                             "type": "string"
                         },
-                        "Size": {
+                        "SizeMiB": {
                             "type": "integer"
                         },
                         "UUID": {
@@ -40372,7 +40372,7 @@
                         "HardwareId",
                         "WWN",
                         "BusAddress",
-                        "Size",
+                        "SizeMiB",
                         "FilesystemType",
                         "InUse",
                         "MountPoint",

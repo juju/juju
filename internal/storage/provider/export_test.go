@@ -11,6 +11,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/names/v5"
 
+	"github.com/juju/juju/domain/blockdevice"
 	"github.com/juju/juju/internal/storage"
 )
 
@@ -38,7 +39,7 @@ func LoopProvider(
 func NewMockManagedFilesystemSource(
 	etcDir string,
 	run func(string, ...string) (string, error),
-	volumeBlockDevices map[names.VolumeTag]storage.BlockDevice,
+	volumeBlockDevices map[names.VolumeTag]blockdevice.BlockDevice,
 	filesystems map[names.FilesystemTag]storage.Filesystem,
 	fakeMountInfo ...string,
 ) (storage.FilesystemSource, *MockDirFuncs) {

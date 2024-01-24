@@ -32,6 +32,7 @@ type storageMetadataFunc func() (poolmanager.PoolManager, storage.ProviderRegist
 type StorageAPI struct {
 	backend                     backend
 	storageAccess               storageAccess
+	blockDeviceGetter           blockDeviceGetter
 	storageMetadata             storageMetadataFunc
 	authorizer                  facade.Authorizer
 	credentialInvalidatorGetter envcontext.ModelCredentialInvalidatorGetter
@@ -42,6 +43,7 @@ func NewStorageAPI(
 	backend backend,
 	modelType state.ModelType,
 	storageAccess storageAccess,
+	blockDeviceGetter blockDeviceGetter,
 	storageMetadata storageMetadataFunc,
 	authorizer facade.Authorizer,
 	credentialInvalidatorGetter envcontext.ModelCredentialInvalidatorGetter,
@@ -50,6 +52,7 @@ func NewStorageAPI(
 		backend:                     backend,
 		modelType:                   modelType,
 		storageAccess:               storageAccess,
+		blockDeviceGetter:           blockDeviceGetter,
 		storageMetadata:             storageMetadata,
 		authorizer:                  authorizer,
 		credentialInvalidatorGetter: credentialInvalidatorGetter,
@@ -91,7 +94,7 @@ func (a *StorageAPI) StorageDetails(ctx stdcontext.Context, entities params.Enti
 			results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		details, err := storagecommon.StorageDetails(a.storageAccess, a.unitAssignedMachine, storageInstance)
+		details, err := storagecommon.StorageDetails(ctx, a.storageAccess, a.blockDeviceGetter, a.unitAssignedMachine, storageInstance)
 		if err != nil {
 			results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -110,7 +113,7 @@ func (a *StorageAPI) ListStorageDetails(ctx stdcontext.Context, filters params.S
 		Results: make([]params.StorageDetailsListResult, len(filters.Filters)),
 	}
 	for i, filter := range filters.Filters {
-		list, err := a.listStorageDetails(filter)
+		list, err := a.listStorageDetails(ctx, filter)
 		if err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -120,7 +123,7 @@ func (a *StorageAPI) ListStorageDetails(ctx stdcontext.Context, filters params.S
 	return results, nil
 }
 
-func (a *StorageAPI) listStorageDetails(filter params.StorageFilter) ([]params.StorageDetails, error) {
+func (a *StorageAPI) listStorageDetails(ctx stdcontext.Context, filter params.StorageFilter) ([]params.StorageDetails, error) {
 	if filter != (params.StorageFilter{}) {
 		// StorageFilter has no fields at the time of writing, but
 		// check that no fields are set in case we forget to update
@@ -133,7 +136,7 @@ func (a *StorageAPI) listStorageDetails(filter params.StorageFilter) ([]params.S
 	}
 	results := make([]params.StorageDetails, len(stateInstances))
 	for i, stateInstance := range stateInstances {
-		details, err := storagecommon.StorageDetails(a.storageAccess, a.unitAssignedMachine, stateInstance)
+		details, err := storagecommon.StorageDetails(ctx, a.storageAccess, a.blockDeviceGetter, a.unitAssignedMachine, stateInstance)
 		if err != nil {
 			return nil, errors.Annotatef(
 				err, "getting details for %s",
@@ -327,7 +330,7 @@ func (a *StorageAPI) ListVolumes(ctx stdcontext.Context, filters params.VolumeFi
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		details, err := a.createVolumeDetailsList(volumes, volumeAttachments)
+		details, err := a.createVolumeDetailsList(ctx, volumes, volumeAttachments)
 		if err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -393,6 +396,7 @@ func filterVolumes(
 }
 
 func (a *StorageAPI) createVolumeDetailsList(
+	ctx stdcontext.Context,
 	volumes []state.Volume,
 	attachments map[names.VolumeTag][]state.VolumeAttachment,
 ) ([]params.VolumeDetails, error) {
@@ -401,7 +405,7 @@ func (a *StorageAPI) createVolumeDetailsList(
 	}
 	results := make([]params.VolumeDetails, len(volumes))
 	for i, v := range volumes {
-		details, err := storagecommon.VolumeDetails(a.storageAccess, a.unitAssignedMachine, v, attachments[v.VolumeTag()])
+		details, err := storagecommon.VolumeDetails(ctx, a.storageAccess, a.blockDeviceGetter, a.unitAssignedMachine, v, attachments[v.VolumeTag()])
 		if err != nil {
 			return nil, errors.Annotatef(
 				err, "getting details for %s",
@@ -430,7 +434,7 @@ func (a *StorageAPI) ListFilesystems(ctx stdcontext.Context, filters params.File
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		details, err := a.createFilesystemDetailsList(filesystems, filesystemAttachments)
+		details, err := a.createFilesystemDetailsList(ctx, filesystems, filesystemAttachments)
 		if err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -492,6 +496,7 @@ func filterFilesystems(
 }
 
 func (a *StorageAPI) createFilesystemDetailsList(
+	ctx stdcontext.Context,
 	filesystems []state.Filesystem,
 	attachments map[names.FilesystemTag][]state.FilesystemAttachment,
 ) ([]params.FilesystemDetails, error) {
@@ -500,7 +505,7 @@ func (a *StorageAPI) createFilesystemDetailsList(
 	}
 	results := make([]params.FilesystemDetails, len(filesystems))
 	for i, f := range filesystems {
-		details, err := storagecommon.FilesystemDetails(a.storageAccess, a.unitAssignedMachine, f, attachments[f.FilesystemTag()])
+		details, err := storagecommon.FilesystemDetails(ctx, a.storageAccess, a.blockDeviceGetter, a.unitAssignedMachine, f, attachments[f.FilesystemTag()])
 		if err != nil {
 			return nil, errors.Annotatef(
 				err, "getting details for %s",

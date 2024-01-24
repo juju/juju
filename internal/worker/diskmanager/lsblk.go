@@ -18,7 +18,7 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/domain/blockdevice"
 )
 
 var pairsRE = regexp.MustCompile(`([A-Z:]+)=(?:"(.*?)")`)
@@ -35,7 +35,7 @@ func init() {
 	DefaultListBlockDevices = listBlockDevices
 }
 
-func listBlockDevices() ([]storage.BlockDevice, error) {
+func listBlockDevices() ([]blockdevice.BlockDevice, error) {
 	columns := []string{
 		"KNAME",      // kernel name
 		"SIZE",       // size
@@ -60,11 +60,11 @@ func listBlockDevices() ([]storage.BlockDevice, error) {
 		)
 	}
 
-	var devices []storage.BlockDevice
+	var devices []blockdevice.BlockDevice
 	s := bufio.NewScanner(bytes.NewReader(output))
 	for s.Scan() {
 		pairs := pairsRE.FindAllStringSubmatch(s.Text(), -1)
-		var dev storage.BlockDevice
+		var dev blockdevice.BlockDevice
 		var deviceType string
 		var majorMinor string
 		for _, pair := range pairs {
@@ -78,7 +78,7 @@ func listBlockDevices() ([]storage.BlockDevice, error) {
 						"invalid size %q from lsblk: %v", pair[2], err,
 					)
 				} else {
-					dev.Size = size / bytesInMiB
+					dev.SizeMiB = size / bytesInMiB
 				}
 			case "LABEL":
 				dev.Label = pair[2]
@@ -150,7 +150,7 @@ func listBlockDevices() ([]storage.BlockDevice, error) {
 //
 // If the error returned satisfies os.IsNotExists, then
 // the device will be ignored altogether.
-var blockDeviceInUse = func(dev storage.BlockDevice) (bool, error) {
+var blockDeviceInUse = func(dev blockdevice.BlockDevice) (bool, error) {
 	f, err := os.OpenFile("/dev/"+dev.DeviceName, os.O_EXCL, 0)
 	if err == nil {
 		f.Close()
@@ -173,7 +173,7 @@ var blockDeviceInUse = func(dev storage.BlockDevice) (bool, error) {
 
 // addHardwareInfo adds additional information about the hardware, and how it is
 // attached to the machine, to the given BlockDevice.
-func addHardwareInfo(dev *storage.BlockDevice) error {
+func addHardwareInfo(dev *blockdevice.BlockDevice) error {
 	logger.Tracef(`executing "udevadm info" for %s`, dev.DeviceName)
 	output, err := exec.Command(
 		"udevadm", "info",

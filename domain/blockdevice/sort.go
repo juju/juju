@@ -1,9 +1,11 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package storage
+package blockdevice
 
-import "sort"
+import (
+	"sort"
+)
 
 // SortBlockDevices sorts block devices by device name.
 func SortBlockDevices(devices []BlockDevice) {

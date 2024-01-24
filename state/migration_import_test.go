@@ -72,7 +72,7 @@ func (s *MigrationImportSuite) TestExisting(c *gc.C) {
 
 	ctrlCfg := coretesting.FakeControllerConfig()
 
-	_, _, err = s.Controller.Import(out, ctrlCfg)
+	_, _, err = s.Controller.Import(out, ctrlCfg, &mockMachineSaver{})
 	c.Assert(err, jc.ErrorIs, errors.AlreadyExists)
 }
 
@@ -116,7 +116,7 @@ func (s *MigrationImportSuite) importModelDescription(
 
 	ctrlCfg := coretesting.FakeControllerConfig()
 
-	newModel, newSt, err := s.Controller.Import(in, ctrlCfg)
+	newModel, newSt, err := s.Controller.Import(in, ctrlCfg, &mockMachineSaver{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.AddCleanup(func(c *gc.C) {
@@ -161,7 +161,7 @@ func (s *MigrationImportSuite) TestNewModel(c *gc.C) {
 
 	ctrlCfg := coretesting.FakeControllerConfig()
 
-	newModel, newSt, err := s.Controller.Import(in, ctrlCfg)
+	newModel, newSt, err := s.Controller.Import(in, ctrlCfg, &mockMachineSaver{})
 	c.Assert(err, jc.ErrorIsNil)
 	defer newSt.Close()
 
@@ -437,40 +437,6 @@ func (s *MigrationImportSuite) TestMachines(c *gc.C) {
 	characteristics, err := parent.HardwareCharacteristics()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(*characteristics.RootDiskSource, gc.Equals, "bunyan")
-}
-
-func (s *MigrationImportSuite) TestMachineDevices(c *gc.C) {
-	machine := s.Factory.MakeMachine(c, nil)
-	// Create two devices, first with all fields set, second just to show that
-	// we do both.
-	sda := state.BlockDeviceInfo{
-		DeviceName:     "sda",
-		DeviceLinks:    []string{"some", "data"},
-		Label:          "sda-label",
-		UUID:           "some-uuid",
-		HardwareId:     "magic",
-		WWN:            "drbr",
-		BusAddress:     "bus stop",
-		Size:           16 * 1024 * 1024 * 1024,
-		FilesystemType: "ext4",
-		InUse:          true,
-		MountPoint:     "/",
-	}
-	sdb := state.BlockDeviceInfo{DeviceName: "sdb", MountPoint: "/var/lib/lxd"}
-	err := machine.SetMachineBlockDevices(sda, sdb)
-	c.Assert(err, jc.ErrorIsNil)
-
-	_, newSt := s.importModel(c, s.State)
-
-	imported, err := newSt.Machine(machine.Id())
-	c.Assert(err, jc.ErrorIsNil)
-
-	sb, err := state.NewStorageBackend(s.State)
-	c.Assert(err, jc.ErrorIsNil)
-	devices, err := sb.BlockDevices(imported.MachineTag())
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(devices, jc.DeepEquals, []state.BlockDeviceInfo{sda, sdb})
 }
 
 func (s *MigrationImportSuite) TestMachinePortOps(c *gc.C) {
@@ -1027,7 +993,7 @@ func (s *MigrationImportSuite) TestCharmRevSequencesNotImported(c *gc.C) {
 
 	ctrlCfg := coretesting.FakeControllerConfig()
 
-	_, newSt, err := s.Controller.Import(in, ctrlCfg)
+	_, newSt, err := s.Controller.Import(in, ctrlCfg, &mockMachineSaver{})
 	c.Assert(err, jc.ErrorIsNil)
 	defer newSt.Close()
 
@@ -1099,7 +1065,7 @@ func (s *MigrationImportSuite) TestApplicationsSubordinatesAfter(c *gc.C) {
 
 	ctrlCfg := coretesting.FakeControllerConfig()
 
-	_, newSt, err := s.Controller.Import(in, ctrlCfg)
+	_, newSt, err := s.Controller.Import(in, ctrlCfg, &mockMachineSaver{})
 	c.Assert(err, jc.ErrorIsNil)
 	// add the cleanup here to close the model.
 	s.AddCleanup(func(c *gc.C) {
@@ -2627,7 +2593,7 @@ func (s *MigrationImportSuite) TestRemoteApplications(c *gc.C) {
 
 	ctrlCfg := coretesting.FakeControllerConfig()
 
-	_, newSt, err := s.Controller.Import(in, ctrlCfg)
+	_, newSt, err := s.Controller.Import(in, ctrlCfg, &mockMachineSaver{})
 	if err == nil {
 		defer newSt.Close()
 	}
@@ -2699,7 +2665,7 @@ func (s *MigrationImportSuite) TestRemoteApplicationsConsumerProxy(c *gc.C) {
 
 	ctrlCfg := coretesting.FakeControllerConfig()
 
-	_, newSt, err := s.Controller.Import(in, ctrlCfg)
+	_, newSt, err := s.Controller.Import(in, ctrlCfg, &mockMachineSaver{})
 	if err == nil {
 		defer newSt.Close()
 	}
@@ -2911,7 +2877,7 @@ func (s *MigrationImportSuite) TestImportingModelWithBlankType(c *gc.C) {
 		Cloud:              testModel.Cloud(),
 		CloudRegion:        testModel.CloudRegion(),
 	})
-	imported, newSt, err := s.Controller.Import(noTypeModel, ctrlCfg)
+	imported, newSt, err := s.Controller.Import(noTypeModel, ctrlCfg, &mockMachineSaver{})
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() { _ = newSt.Close() }()
 
@@ -2949,7 +2915,7 @@ func (s *MigrationImportSuite) testImportingModelWithDefaultSeries(c *gc.C, tool
 		Cloud:          testModel.Cloud(),
 		CloudRegion:    testModel.CloudRegion(),
 	})
-	imported, newSt, err := s.Controller.Import(importModel, ctrlCfg)
+	imported, newSt, err := s.Controller.Import(importModel, ctrlCfg, &mockMachineSaver{})
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() { _ = newSt.Close() }()
 
@@ -3325,7 +3291,7 @@ func (s *MigrationImportSuite) TestSecretsMissingBackend(c *gc.C) {
 
 	uuid := utils.MustNewUUID().String()
 	in := newModel(out, uuid, "new")
-	_, _, err = s.Controller.Import(in, ctrlCfg)
+	_, _, err = s.Controller.Import(in, ctrlCfg, &mockMachineSaver{})
 	c.Assert(err, gc.ErrorMatches, "secrets: target controller does not have all required secret backends set up")
 }
 
@@ -3348,7 +3314,7 @@ func (s *MigrationImportSuite) TestDefaultSecretBackend(c *gc.C) {
 		Cloud:          testModel.Cloud(),
 		CloudRegion:    testModel.CloudRegion(),
 	})
-	imported, newSt, err := s.Controller.Import(importModel, ctrlCfg)
+	imported, newSt, err := s.Controller.Import(importModel, ctrlCfg, &mockMachineSaver{})
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() { _ = newSt.Close() }()
 
@@ -3445,4 +3411,13 @@ func (m swapModel) Applications() []description.Application {
 	m.c.Assert(len(values), gc.Equals, 2)
 	values[0], values[1] = values[1], values[0]
 	return values
+}
+
+type mockMachineSaver struct {
+	machineIds []string
+}
+
+func (m *mockMachineSaver) Save(_ context.Context, machineId string) error {
+	m.machineIds = append(m.machineIds, machineId)
+	return nil
 }

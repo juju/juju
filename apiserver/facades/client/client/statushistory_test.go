@@ -35,6 +35,7 @@ func (s *statusHistoryTestSuite) SetUpTest(c *gc.C) {
 		s.st,
 		nil, // storage
 		nil, // pool
+		nil, // block device getter
 		nil, // resources
 		authorizer,
 		nil, // presence

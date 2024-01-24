@@ -147,6 +147,22 @@ type volumeAttachmentDoc struct {
 	Params    *VolumeAttachmentParams `bson:"params,omitempty"`
 }
 
+// BlockDeviceInfo describes information about a block device.
+type BlockDeviceInfo struct {
+	DeviceName     string   `bson:"devicename"`
+	DeviceLinks    []string `bson:"devicelinks,omitempty"`
+	Label          string   `bson:"label,omitempty"`
+	UUID           string   `bson:"uuid,omitempty"`
+	HardwareId     string   `bson:"hardwareid,omitempty"`
+	WWN            string   `bson:"wwn,omitempty"`
+	BusAddress     string   `bson:"busaddress,omitempty"`
+	Size           uint64   `bson:"size"`
+	FilesystemType string   `bson:"fstype,omitempty"`
+	InUse          bool     `bson:"inuse"`
+	MountPoint     string   `bson:"mountpoint,omitempty"`
+	SerialId       string   `bson:"serialid,omitempty"`
+}
+
 type volumeAttachmentPlanDoc struct {
 	DocID     string                    `bson:"_id"`
 	ModelUUID string                    `bson:"model-uuid"`

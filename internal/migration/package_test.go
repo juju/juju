@@ -15,6 +15,7 @@ import (
 )
 
 //go:generate go run go.uber.org/mock/mockgen -package migration_test -destination migration_mock_test.go github.com/juju/juju/internal/migration ControllerConfigService,UpgradeService
+//go:generate go run go.uber.org/mock/mockgen -package migration_test -destination state_mock_test.go github.com/juju/juju/state MachineSaver
 
 func TestPackage(t *stdtesting.T) {
 	gc.TestingT(t)

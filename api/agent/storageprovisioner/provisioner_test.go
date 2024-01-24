@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/api/agent/storageprovisioner"
 	"github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/domain/blockdevice"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/rpc/params"
 	coretesting "github.com/juju/juju/testing"
@@ -340,7 +341,7 @@ func (s *provisionerSuite) TestVolumeAttachmentPlans(c *gc.C) {
 					"chap-secret": "supersecretpassword",
 				},
 			},
-			BlockDevice: storage.BlockDevice{
+			BlockDevice: blockdevice.BlockDevice{
 				DeviceName: "sda",
 			},
 		},
@@ -377,10 +378,10 @@ func (s *provisionerSuite) TestVolumeAttachmentPlans(c *gc.C) {
 
 func (s *provisionerSuite) TestVolumeBlockDevices(c *gc.C) {
 	blockDeviceResults := []params.BlockDeviceResult{{
-		Result: storage.BlockDevice{
+		Result: blockdevice.BlockDevice{
 			DeviceName: "xvdf1",
 			HardwareId: "kjlaksjdlasjdklasd123123",
-			Size:       1024,
+			SizeMiB:    1024,
 		},
 	}}
 
@@ -721,7 +722,7 @@ func (s *provisionerSuite) TestCreateVolumeAttachmentPlan(c *gc.C) {
 					"chap-secret": "supersecretpassword",
 				},
 			},
-			BlockDevice: storage.BlockDevice{
+			BlockDevice: blockdevice.BlockDevice{
 				DeviceName: "sda",
 			},
 		},
@@ -747,7 +748,7 @@ func (s *provisionerSuite) TestCreateVolumeAttachmentPlan(c *gc.C) {
 							"chap-secret": "supersecretpassword",
 						},
 					},
-					BlockDevice: storage.BlockDevice{
+					BlockDevice: blockdevice.BlockDevice{
 						DeviceName: "sda",
 					},
 				},
@@ -787,7 +788,7 @@ func (s *provisionerSuite) TestSetVolumeAttachmentPlanBlockInfo(c *gc.C) {
 					"chap-secret": "supersecretpassword",
 				},
 			},
-			BlockDevice: storage.BlockDevice{
+			BlockDevice: blockdevice.BlockDevice{
 				DeviceName: "sda",
 			},
 		},
@@ -813,7 +814,7 @@ func (s *provisionerSuite) TestSetVolumeAttachmentPlanBlockInfo(c *gc.C) {
 							"chap-secret": "supersecretpassword",
 						},
 					},
-					BlockDevice: storage.BlockDevice{
+					BlockDevice: blockdevice.BlockDevice{
 						DeviceName: "sda",
 					},
 				},

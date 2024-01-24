@@ -1193,7 +1193,6 @@ func (m *Machine) removeOps() ([]txn.Op, error) {
 		removeConstraintsOp(m.globalKey()),
 		annotationRemoveOp(m.st, m.globalKey()),
 		removeRebootDocOp(m.st, m.globalKey()),
-		removeMachineBlockDevicesOp(m.Id()),
 		removeModelMachineRefOp(m.st, m.Id()),
 		removeSSHHostKeyOp(m.globalKey()),
 		removeInstanceDataOp(m.doc.DocID),
@@ -2112,11 +2111,6 @@ func (m *Machine) markInvalidContainers() error {
 		}
 	}
 	return nil
-}
-
-// SetMachineBlockDevices sets the block devices visible on the machine.
-func (m *Machine) SetMachineBlockDevices(info ...BlockDeviceInfo) error {
-	return setMachineBlockDevices(m.st, m.Id(), info)
 }
 
 // VolumeAttachments returns the machine's volume attachments.

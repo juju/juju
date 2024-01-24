@@ -5,6 +5,7 @@ package testing
 
 import (
 	autocertcacheservice "github.com/juju/juju/domain/autocert/service"
+	blockdeviceservice "github.com/juju/juju/domain/blockdevice/service"
 	cloudservice "github.com/juju/juju/domain/cloud/service"
 	controllerconfigservice "github.com/juju/juju/domain/controllerconfig/service"
 	controllernodeservice "github.com/juju/juju/domain/controllernode/service"
@@ -120,4 +121,9 @@ func (s *TestingServiceFactory) Machine() *machineservice.Service {
 func (s *TestingServiceFactory) WithMachineService(getter func() *machineservice.Service) *TestingServiceFactory {
 	s.machineServiceGetter = getter
 	return s
+}
+
+// BlockDevice returns the block device service.
+func (s *TestingServiceFactory) BlockDevice() *blockdeviceservice.Service {
+	return nil
 }

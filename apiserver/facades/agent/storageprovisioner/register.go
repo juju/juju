@@ -48,8 +48,10 @@ func newFacadeV4(stdCtx context.Context, ctx facade.Context) (*StorageProvisione
 	}
 	return NewStorageProvisionerAPIv4(
 		stdCtx,
+		ctx.WatcherRegistry(),
 		backend,
 		storageBackend,
+		serviceFactory.BlockDevice(),
 		serviceFactory.ControllerConfig(),
 		ctx.Resources(),
 		ctx.Auth(),
