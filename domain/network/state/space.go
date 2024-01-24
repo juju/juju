@@ -92,17 +92,8 @@ WHERE  subnet_type.is_space_settable = FALSE AND subnet.uuid IN ($S[:])`, sqlair
 		// If any row is returned we must fail with the returned fan
 		// subnet uuids.
 		if len(nonSettableSubnets) > 0 {
-			uniqueErrorSubnetUUIDs := make(map[string]string)
-			var nonSettableUUIDs []string
-			for _, nonSettableSubnet := range nonSettableSubnets {
-				fanSubnetID := nonSettableSubnet.UUID
-				if _, ok := uniqueErrorSubnetUUIDs[fanSubnetID]; !ok {
-					uniqueErrorSubnetUUIDs[fanSubnetID] = fanSubnetID
-					nonSettableUUIDs = append(nonSettableUUIDs, fanSubnetID)
-				}
-			}
 			return errors.Errorf(
-				"cannot set space for FAN subnet UUIDs %q - it is always inherited from underlay", nonSettableUUIDs)
+				"cannot set space for FAN subnet UUIDs %q - it is always inherited from underlay", uniqueSubnetUUIDs(nonSettableSubnets))
 		}
 
 		if err := tx.Query(ctx, insertSpaceStmt, Space{UUID: uuid, Name: name}).Run(); err != nil {
@@ -122,13 +113,7 @@ WHERE  subnet_type.is_space_settable = FALSE AND subnet.uuid IN ($S[:])`, sqlair
 		}
 		// Append the fan subnet (unique) ids (if any) to the provided
 		// subnet ids.
-		uniqueFanSubnetIDs := make(map[string]string)
-		for _, fanSubnet := range fanSubnets {
-			if _, ok := uniqueFanSubnetIDs[fanSubnet.UUID]; !ok {
-				uniqueFanSubnetIDs[fanSubnet.UUID] = fanSubnet.UUID
-				subnetIDs = append(subnetIDs, fanSubnet.UUID)
-			}
-		}
+		subnetIDs = append(subnetIDs, uniqueSubnetUUIDs(fanSubnets)...)
 
 		// Update all subnets (including their fan overlays) to include
 		// the space uuid.
@@ -338,4 +323,18 @@ func (st *State) DeleteSpace(
 
 		return nil
 	})
+}
+
+// uniqueSubnetUUIDs returns a deduplicated slice of the Subnet uuids.
+func uniqueSubnetUUIDs(subnets []Subnet) []string {
+	subnetUUIDUsed := make(map[string]bool)
+	var uniqueSubnetUUIDs []string
+	for _, subnet := range subnets {
+		uuid := subnet.UUID
+		if _, ok := subnetUUIDUsed[uuid]; !ok {
+			subnetUUIDUsed[uuid] = true
+			uniqueSubnetUUIDs = append(uniqueSubnetUUIDs, uuid)
+		}
+	}
+	return uniqueSubnetUUIDs
 }
