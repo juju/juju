@@ -19,7 +19,6 @@ import (
 	"github.com/juju/names/v5"
 	"github.com/juju/retry"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3"
 	"github.com/juju/utils/v3/voyeur"
 	"github.com/juju/version/v2"
 	"github.com/juju/worker/v4"
@@ -35,7 +34,6 @@ import (
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	"github.com/juju/juju/cmd/jujud/agent/mocks"
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/domain/blockdevice"
@@ -169,27 +167,29 @@ func (s *commonMachineSuite) primeAgent(c *gc.C, jobs ...state.MachineJob) (m *s
 	return s.primeAgentVersion(c, vers, jobs...)
 }
 
-func (s *commonMachineSuite) createMachine(c *gc.C, machineId string) string {
-	db := s.DB()
-
-	netNodeUUID := utils.MustNewUUID().String()
-	_, err := db.ExecContext(context.Background(), "INSERT INTO net_node (uuid) VALUES (?)", netNodeUUID)
-	c.Assert(err, jc.ErrorIsNil)
-	machineUUID := utils.MustNewUUID().String()
-	_, err = db.ExecContext(context.Background(), `
-INSERT INTO machine (uuid, life_id, machine_id, net_node_uuid)
-VALUES (?, ?, ?, ?)
-`, machineUUID, life.Alive, machineId, netNodeUUID)
-	c.Assert(err, jc.ErrorIsNil)
-	return machineUUID
-}
+// TODO(wallyworld) - we need the dqlite model database to be available.
+//func (s *commonMachineSuite) createMachine(c *gc.C, machineId string) string {
+//	db := s.DB()
+//
+//	netNodeUUID := utils.MustNewUUID().String()
+//	_, err := db.ExecContext(context.Background(), "INSERT INTO net_node (uuid) VALUES (?)", netNodeUUID)
+//	c.Assert(err, jc.ErrorIsNil)
+//	machineUUID := utils.MustNewUUID().String()
+//	_, err = db.ExecContext(context.Background(), `
+//INSERT INTO machine (uuid, life_id, machine_id, net_node_uuid)
+//VALUES (?, ?, ?, ?)
+//`, machineUUID, life.Alive, machineId, netNodeUUID)
+//	c.Assert(err, jc.ErrorIsNil)
+//	return machineUUID
+//}
 
 // primeAgentVersion is similar to primeAgent, but permits the
 // caller to specify the version.Binary to prime with.
 func (s *commonMachineSuite) primeAgentVersion(c *gc.C, vers version.Binary, jobs ...state.MachineJob) (m *state.Machine, agentConfig agent.ConfigSetterWriter, tools *tools.Tools) {
 	m, err := s.ControllerModel(c).State().AddMachine(state.UbuntuBase("12.10"), jobs...)
 	c.Assert(err, jc.ErrorIsNil)
-	s.createMachine(c, m.Id())
+	// TODO(wallyworld) - we need the dqlite model database to be available.
+	// s.createMachine(c, m.Id())
 	return s.primeAgentWithMachine(c, m, vers)
 }
 
