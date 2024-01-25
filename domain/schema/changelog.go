@@ -65,7 +65,7 @@ CREATE TABLE change_log_witness (
 }
 
 // changeLogTriggersForTable is a helper function to generate the necessary
-// triggers for a table to have it's crud operations tracked in the schemas
+// triggers for a table to have its CRUD operations tracked in the schema's
 // change_log table.
 func changeLogTriggersForTable(table, columnName string, namespaceID tableNamespaceID) func() schema.Patch {
 	return func() schema.Patch {
