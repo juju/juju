@@ -21505,6 +21505,9 @@
                         "revision": {
                             "type": "integer"
                         },
+                        "source-controller-uuid": {
+                            "type": "string"
+                        },
                         "unit-id": {
                             "type": "integer"
                         },
@@ -21514,6 +21517,7 @@
                     },
                     "additionalProperties": false,
                     "required": [
+                        "source-controller-uuid",
                         "application-token",
                         "unit-id",
                         "uri"

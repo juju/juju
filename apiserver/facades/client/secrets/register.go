@@ -53,7 +53,7 @@ func newSecretsAPI(context facade.Context) (*SecretsAPI, error) {
 	backendConfigGetterForUserSecretsWrite := func(backendID string) (*provider.ModelBackendConfigInfo, error) {
 		// User secrets are owned by the model.
 		authTag := model.ModelTag()
-		return secrets.BackendConfigInfo(secrets.SecretsModel(model), []string{backendID}, false, authTag, leadershipChecker)
+		return secrets.BackendConfigInfo(secrets.SecretsModel(model), true, []string{backendID}, false, authTag, leadershipChecker)
 	}
 
 	backendGetter := func(cfg *provider.ModelBackendConfig) (provider.SecretsBackend, error) {
