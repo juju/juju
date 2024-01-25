@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+
 	"github.com/canonical/sqlair"
 
 	"github.com/juju/errors"
@@ -184,6 +185,9 @@ func (st *State) UpdateModelConfig(
 DELETE FROM model_config
 WHERE key IN ($S[:])
 `[1:], sqlair.S{})
+	if err != nil {
+		return errors.Trace(err)
+	}
 
 	upsertStmt, err := sqlair.Prepare(`
 INSERT INTO model_config (key, value) VALUES ($M.key, $M.value)
@@ -191,6 +195,9 @@ ON CONFLICT(key) DO UPDATE
 SET value = excluded.value
 WHERE key = excluded.key
 `[1:], sqlair.M{})
+	if err != nil {
+		return errors.Trace(err)
+	}
 
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if len(removeAttrsSlice) != 0 {
