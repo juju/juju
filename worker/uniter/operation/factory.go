@@ -139,7 +139,7 @@ func (f *factory) NewAction(actionId string) (Operation, error) {
 	if params.IsCodeNotFoundOrCodeUnauthorized(err) {
 		return nil, charmrunner.ErrActionNotAvailable
 	} else if params.IsCodeActionNotAvailable(err) {
-		return nil, charmrunner.ErrActionNotAvailable
+		return f.NewFailAction(actionId)
 	} else if err != nil {
 		return nil, errors.Trace(err)
 	}

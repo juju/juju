@@ -243,9 +243,9 @@ func (s *FactorySuite) TestNewResignLeadershipString(c *gc.C) {
 
 func (s *FactorySuite) TestNewActionNotAvailable(c *gc.C) {
 	s.actionErr = &params.Error{Code: "action no longer available"}
-	rnr, err := s.factory.NewAction("666")
-	c.Assert(rnr, gc.IsNil)
+	op, err := s.factory.NewAction("666")
 	c.Assert(err, gc.Equals, charmrunner.ErrActionNotAvailable)
+	c.Check(op.String(), gc.Equals, "fail action "+someActionId)
 }
 
 func (s *FactorySuite) TestNewActionUnauthorised(c *gc.C) {
