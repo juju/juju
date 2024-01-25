@@ -112,9 +112,9 @@ func (m *MockCrossModelSecretsClient) EXPECT() *MockCrossModelSecretsClientMockR
 }
 
 // GetRemoteSecretContentInfo mocks base method.
-func (m *MockCrossModelSecretsClient) GetRemoteSecretContentInfo(arg0 *secrets.URI, arg1 int, arg2, arg3 bool, arg4 string, arg5 int, arg6 macaroon.Slice) (*secrets0.ContentParams, *provider.ModelBackendConfig, int, bool, error) {
+func (m *MockCrossModelSecretsClient) GetRemoteSecretContentInfo(arg0 *secrets.URI, arg1 int, arg2, arg3 bool, arg4, arg5 string, arg6 int, arg7 macaroon.Slice) (*secrets0.ContentParams, *provider.ModelBackendConfig, int, bool, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetRemoteSecretContentInfo", arg0, arg1, arg2, arg3, arg4, arg5, arg6)
+	ret := m.ctrl.Call(m, "GetRemoteSecretContentInfo", arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7)
 	ret0, _ := ret[0].(*secrets0.ContentParams)
 	ret1, _ := ret[1].(*provider.ModelBackendConfig)
 	ret2, _ := ret[2].(int)
@@ -124,9 +124,9 @@ func (m *MockCrossModelSecretsClient) GetRemoteSecretContentInfo(arg0 *secrets.U
 }
 
 // GetRemoteSecretContentInfo indicates an expected call of GetRemoteSecretContentInfo.
-func (mr *MockCrossModelSecretsClientMockRecorder) GetRemoteSecretContentInfo(arg0, arg1, arg2, arg3, arg4, arg5, arg6 any) *gomock.Call {
+func (mr *MockCrossModelSecretsClientMockRecorder) GetRemoteSecretContentInfo(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRemoteSecretContentInfo", reflect.TypeOf((*MockCrossModelSecretsClient)(nil).GetRemoteSecretContentInfo), arg0, arg1, arg2, arg3, arg4, arg5, arg6)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRemoteSecretContentInfo", reflect.TypeOf((*MockCrossModelSecretsClient)(nil).GetRemoteSecretContentInfo), arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7)
 }
 
 // GetSecretAccessScope mocks base method.
