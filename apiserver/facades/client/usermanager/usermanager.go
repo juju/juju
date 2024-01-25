@@ -5,7 +5,6 @@ package usermanager
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/juju/errors"
@@ -17,12 +16,23 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/permission"
+	coreuser "github.com/juju/juju/core/user"
+	"github.com/juju/juju/internal/auth"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
 
 // UserService defines the methods to operate with the database.
 type UserService interface {
+	GetAllUsers(ctx context.Context) ([]coreuser.User, error)
+	GetUserByName(ctx context.Context, name string) (coreuser.User, error)
+	AddUserWithPassword(ctx context.Context, username, displayName string, createdBy coreuser.UUID, password auth.Password) (coreuser.UUID, error)
+	AddUserWithActivationKey(ctx context.Context, name string, displayName string, creatorUUID coreuser.UUID) ([]byte, coreuser.UUID, error)
+	EnableUserAuthentication(ctx context.Context, uuid coreuser.UUID) error
+	DisableUserAuthentication(ctx context.Context, uuid coreuser.UUID) error
+	SetPassword(ctx context.Context, uuid coreuser.UUID, password auth.Password) error
+	ResetPassword(ctx context.Context, uuid coreuser.UUID) ([]byte, error)
+	RemoveUser(ctx context.Context, uuid coreuser.UUID) error
 }
 
 // UserManagerAPI implements the user manager interface and is the concrete
@@ -87,6 +97,7 @@ func (api *UserManagerAPI) AddUser(ctx context.Context, args params.AddUsers) (p
 	}
 
 	for i, arg := range args.Users {
+		// TODO(anvial): Legacy block to delete when user domain wire up is complete.
 		var user *state.User
 		var err error
 		if arg.Password != "" {
@@ -104,7 +115,34 @@ func (api *UserManagerAPI) AddUser(ctx context.Context, args params.AddUsers) (p
 				SecretKey: user.SecretKey(),
 			}
 		}
+		// End legacy block.
 
+		// Get creator user
+		creator, err := api.userService.GetUserByName(ctx, api.apiUser.Id())
+		if err != nil {
+			err = errors.Annotate(err, "failed to get creator user")
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		// Add new user
+		var newUserUUID coreuser.UUID
+		var activationKey []byte
+		if arg.Password != "" {
+			newUserUUID, err = api.userService.AddUserWithPassword(ctx, arg.Username, arg.DisplayName, creator.UUID, auth.NewPassword(arg.Password))
+		} else {
+			activationKey, newUserUUID, err = api.userService.AddUserWithActivationKey(ctx, arg.Username, arg.DisplayName, creator.UUID)
+		}
+		if err != nil {
+			err = errors.Annotate(err, "failed to create user")
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		} else {
+			result.Results[i] = params.AddUserResult{
+				Tag:       newUserUUID.String(),
+				SecretKey: activationKey,
+			}
+		}
 	}
 	return result, nil
 }
@@ -150,6 +188,8 @@ func (api *UserManagerAPI) RemoveUser(ctx context.Context, entities params.Entit
 				errors.Errorf("cannot delete controller owner %q", user.Name()))
 			continue
 		}
+
+		// TODO(anvial): Legacy block to delete when user domain wire up is complete.
 		err = api.state.RemoveUser(user)
 		if err != nil {
 			if errors.Is(err, errors.UserNotFound) {
@@ -161,6 +201,25 @@ func (api *UserManagerAPI) RemoveUser(ctx context.Context, entities params.Entit
 			continue
 		}
 		deletions.Results[i].Error = nil
+		// End legacy block.
+
+		// Get User
+		usr, err := api.userService.GetUserByName(ctx, user.Name())
+		if err != nil {
+			deletions.Results[i].Error = apiservererrors.ServerError(
+				errors.Annotatef(err, "failed to delete user %q", user.Name()))
+			continue
+		}
+
+		// Remove user
+		err = api.userService.RemoveUser(ctx, usr.UUID)
+		if err != nil {
+			deletions.Results[i].Error = apiservererrors.ServerError(
+				errors.Annotatef(err, "failed to delete user %q", user.Name()))
+			continue
+		}
+		deletions.Results[i].Error = nil
+
 	}
 	return deletions, nil
 }
@@ -170,10 +229,20 @@ func (api *UserManagerAPI) getUser(tag string) (*state.User, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	// TODO(anvial): Legacy block to delete when user domain wire up is complete.
 	user, err := api.state.User(userTag)
 	if err != nil {
 		return nil, errors.Wrap(err, apiservererrors.ErrPerm)
 	}
+	// End legacy block.
+
+	// Get User
+	_, err = api.userService.GetUserByName(context.Background(), userTag.Name())
+	if err != nil {
+		return nil, errors.Wrap(err, apiservererrors.ErrPerm)
+	}
+
 	return user, nil
 }
 
@@ -187,7 +256,7 @@ func (api *UserManagerAPI) EnableUser(ctx context.Context, users params.Entities
 	if err := api.check.ChangeAllowed(ctx); err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
-	return api.enableUserImpl(users, "enable", (*state.User).Enable)
+	return api.enableUserImpl(ctx, users, "enable", (*state.User).Enable)
 }
 
 // DisableUser disables one or more users.  If the user is already disabled,
@@ -200,10 +269,10 @@ func (api *UserManagerAPI) DisableUser(ctx context.Context, users params.Entitie
 	if err := api.check.ChangeAllowed(ctx); err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
-	return api.enableUserImpl(users, "disable", (*state.User).Disable)
+	return api.enableUserImpl(ctx, users, "disable", (*state.User).Disable)
 }
 
-func (api *UserManagerAPI) enableUserImpl(args params.Entities, action string, method func(*state.User) error) (params.ErrorResults, error) {
+func (api *UserManagerAPI) enableUserImpl(ctx context.Context, args params.Entities, action string, method func(*state.User) error) (params.ErrorResults, error) {
 	var result params.ErrorResults
 
 	if len(args.Entities) == 0 {
@@ -220,6 +289,7 @@ func (api *UserManagerAPI) enableUserImpl(args params.Entities, action string, m
 	result.Results = make([]params.ErrorResult, len(args.Entities))
 
 	for i, arg := range args.Entities {
+		// TODO(anvial): Legacy block to delete when user domain wire up is complete.
 		user, err := api.getUser(arg.Tag)
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
@@ -228,6 +298,25 @@ func (api *UserManagerAPI) enableUserImpl(args params.Entities, action string, m
 		err = method(user)
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(errors.Errorf("failed to %s user: %s", action, err))
+		}
+		// End legacy block.
+
+		// Get User
+		usr, err := api.userService.GetUserByName(ctx, arg.Tag)
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(errors.Errorf("failed to %s user: %s", action, err))
+			continue
+		}
+
+		// Enable/Disable user
+		if action == "enable" {
+			err = api.userService.EnableUserAuthentication(ctx, usr.UUID)
+		} else {
+			err = api.userService.DisableUserAuthentication(ctx, usr.UUID)
+		}
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(errors.Errorf("failed to %s user: %s", action, err))
+			continue
 		}
 	}
 	return result, nil
@@ -252,6 +341,7 @@ func (api *UserManagerAPI) UserInfo(ctx context.Context, request params.UserInfo
 		}
 	}
 
+	// TODO(anvial): Legacy block to delete when user domain wire up is complete.
 	var infoForUser = func(user *state.User) params.UserInfoResult {
 		var lastLogin *time.Time
 		userLastLogin, err := user.LastLogin()
@@ -280,9 +370,32 @@ func (api *UserManagerAPI) UserInfo(ctx context.Context, request params.UserInfo
 		}
 		return result
 	}
+	// End legacy block.
+
+	//var infoForUsr = func(usr coreuser.User) params.UserInfoResult {
+	//	result := params.UserInfoResult{
+	//		Result: &params.UserInfo{
+	//			Username:       usr.Name,
+	//			DisplayName:    usr.DisplayName,
+	//			CreatedBy:      usr.CreatorUUID.String(),
+	//			DateCreated:    usr.CreatedAt,
+	//			LastConnection: &usr.LastLogin,
+	//			Disabled:       usr.Disabled,
+	//		},
+	//	}
+	//	if usr.Disabled {
+	//		// disabled users have no access to the controller.
+	//		result.Result.Access = string(permission.NoAccess)
+	//	} else {
+	//		accessForUser(coreuser.UserTag(usr.UUID), &result)
+	//	}
+	//	return result
+	//}
 
 	argCount := len(request.Entities)
 	if argCount == 0 {
+
+		// TODO(anvial): Legacy block to delete when user domain wire up is complete.
 		users, err := api.state.AllUsers(request.IncludeDisabled)
 		if err != nil {
 			return results, errors.Trace(err)
@@ -293,6 +406,20 @@ func (api *UserManagerAPI) UserInfo(ctx context.Context, request params.UserInfo
 			}
 			results.Results = append(results.Results, infoForUser(user))
 		}
+		// End legacy block.
+
+		//// Get all users
+		//usrs, err := api.userService.GetAllUsers(ctx)
+		//if err != nil {
+		//	return results, errors.Trace(err)
+		//}
+		//for _, usr := range usrs {
+		//	if !isAdmin && !api.authorizer.AuthOwner(user.Tag()) {
+		//		continue
+		//	}
+		//	results.Results = append(results.Results, infoForUsr(usr))
+		//}
+
 		return results, nil
 	}
 
@@ -318,12 +445,23 @@ func (api *UserManagerAPI) UserInfo(ctx context.Context, request params.UserInfo
 			results.Results = append(results.Results, result)
 			continue
 		}
+
+		// TODO(anvial): Legacy block to delete when user domain wire up is complete.
 		user, err := api.getUser(arg.Tag)
 		if err != nil {
 			results.Results = append(results.Results, params.UserInfoResult{Error: apiservererrors.ServerError(err)})
 			continue
 		}
 		results.Results = append(results.Results, infoForUser(user))
+		// End legacy block.
+
+		//// Get User
+		//usr, err := api.userService.GetUserByName(ctx, arg.Tag)
+		//if err != nil {
+		//	results.Results = append(results.Results, params.UserInfoResult{Error: apiservererrors.ServerError(err)})
+		//	continue
+		//}
+		//results.Results = append(results.Results, infoForUsr(usr))
 	}
 
 	return results, nil
@@ -396,7 +534,6 @@ func (api *UserManagerAPI) SetPassword(ctx context.Context, args params.EntityPa
 	result.Results = make([]params.ErrorResult, len(args.Changes))
 	for i, arg := range args.Changes {
 		if err := api.setPassword(arg); err != nil {
-			fmt.Println("here 112345")
 			result.Results[i].Error = apiservererrors.ServerError(err)
 		}
 	}
@@ -404,10 +541,12 @@ func (api *UserManagerAPI) SetPassword(ctx context.Context, args params.EntityPa
 }
 
 func (api *UserManagerAPI) setPassword(arg params.EntityPassword) error {
+	// TODO(anvial): Legacy block to delete when user domain wire up is complete.
 	user, err := api.getUser(arg.Tag)
 	if err != nil {
 		return errors.Trace(err)
 	}
+	// End legacy block.
 
 	if !api.isAdmin {
 		if _, err := api.hasControllerAdminAccess(); err != nil && api.apiUser != user.UserTag() {
@@ -418,9 +557,24 @@ func (api *UserManagerAPI) setPassword(arg params.EntityPassword) error {
 	if arg.Password == "" {
 		return errors.New("cannot use an empty password")
 	}
+
+	// TODO(anvial): Legacy block to delete when user domain wire up is complete.
 	if err := user.SetPassword(arg.Password); err != nil {
 		return errors.Annotate(err, "failed to set password")
 	}
+	// End legacy block.
+
+	// Get User
+	usr, err := api.userService.GetUserByName(context.Background(), arg.Tag)
+	if err != nil {
+		return errors.Annotate(err, "failed to set password")
+	}
+
+	// Set password
+	if err := api.userService.SetPassword(context.Background(), usr.UUID, auth.NewPassword(arg.Password)); err != nil {
+		return errors.Annotate(err, "failed to set password")
+	}
+
 	return nil
 }
 
@@ -447,6 +601,8 @@ func (api *UserManagerAPI) ResetPassword(ctx context.Context, args params.Entiti
 	result.Results = make([]params.AddUserResult, len(args.Entities))
 	for i, arg := range args.Entities {
 		result.Results[i] = params.AddUserResult{Tag: arg.Tag}
+
+		// TODO(anvial): Legacy block to delete when user domain wire up is complete.
 		user, err := api.getUser(arg.Tag)
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
@@ -454,6 +610,26 @@ func (api *UserManagerAPI) ResetPassword(ctx context.Context, args params.Entiti
 		}
 		if isSuperUser && api.apiUser != user.Tag() {
 			key, err := user.ResetPassword()
+			if err != nil {
+				result.Results[i].Error = apiservererrors.ServerError(err)
+				continue
+			}
+			result.Results[i].SecretKey = key
+		} else {
+			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+		}
+		// End legacy block.
+
+		// Get User
+		usr, err := api.userService.GetUserByName(ctx, arg.Tag)
+		if err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		// Reset password
+		if isSuperUser && api.apiUser != coreuser.UserTag(usr.UUID) {
+			key, err := api.userService.ResetPassword(ctx, usr.UUID)
 			if err != nil {
 				result.Results[i].Error = apiservererrors.ServerError(err)
 				continue

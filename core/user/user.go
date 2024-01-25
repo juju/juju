@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/juju/names/v5"
 	"github.com/juju/utils/v3"
 )
 
@@ -32,6 +33,11 @@ type User struct {
 
 	// Disabled is true if the user is disabled.
 	Disabled bool
+}
+
+// UserTag is a tag that refers to a user.
+func UserTag(uuid UUID) names.UserTag {
+	return names.NewLocalUserTag(uuid.String())
 }
 
 // UUID is a unique identifier for a user.
