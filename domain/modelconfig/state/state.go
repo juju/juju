@@ -10,6 +10,7 @@ import (
 
 	"github.com/canonical/sqlair"
 
+	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 
 	coredatabase "github.com/juju/juju/core/database"
@@ -58,10 +59,7 @@ func (st *State) ModelConfigHasAttributes(
 		return rval, errors.Trace(err)
 	}
 
-	attrsSlice := make(sqlair.S, len(attrs), len(attrs))
-	for i, attr := range attrs {
-		attrsSlice[i] = attr
-	}
+	attrsSlice := sqlair.S(transform.Slice(attrs, func(s string) any { return any(s) }))
 	stmt, err := sqlair.Prepare(`
 SELECT &Key.key FROM model_config WHERE key IN ($S[:])
 `, sqlair.S{}, Key{})
@@ -177,10 +175,7 @@ func (st *State) UpdateModelConfig(
 		return errors.Trace(err)
 	}
 
-	removeAttrsSlice := make(sqlair.S, len(removeAttrs), len(removeAttrs))
-	for i, removeAttr := range removeAttrs {
-		removeAttrsSlice[i] = removeAttr
-	}
+	removeAttrsSlice := sqlair.S(transform.Slice(removeAttrs, func(s string) any { return any(s) }))
 	deleteStmt, err := sqlair.Prepare(`
 DELETE FROM model_config
 WHERE key IN ($S[:])
