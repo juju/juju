@@ -373,9 +373,9 @@ CREATE TABLE model_metadata (
     CONSTRAINT            fk_model_metadata_model_type_id
         FOREIGN KEY           (model_type_id)
         REFERENCES            model_type(id)
---    CONSTRAINT            fk_model_metadata_XXXX
---        FOREIGN KEY           (owner_uuid)
---        REFERENCES            XXXX(uuid)
+    CONSTRAINT            fk_model_metadata_owner_uuid
+        FOREIGN KEY           (owner_uuid)
+        REFERENCES            user(uuid)
 );
 
 CREATE UNIQUE INDEX idx_model_metadata_name_owner

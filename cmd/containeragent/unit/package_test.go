@@ -115,6 +115,7 @@ func (*importSuite) TestImports(c *gc.C) {
 		"core/secrets",
 		"core/snap",
 		"core/status",
+		"core/user",
 		"core/watcher",
 		"downloader",
 		"environs",

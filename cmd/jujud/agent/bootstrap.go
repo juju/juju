@@ -36,6 +36,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	coreos "github.com/juju/juju/core/os"
+	coreuser "github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/credential"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -63,8 +64,6 @@ var (
 )
 
 type BootstrapAgentFunc func(agentbootstrap.AgentBootstrapArgs) (*agentbootstrap.AgentBootstrap, error)
-
-const adminUserName = "admin"
 
 // BootstrapCommand represents a jujud bootstrap command.
 type BootstrapCommand struct {
@@ -371,7 +370,7 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 		// We shouldn't attempt to dial peers until we have some.
 		dialOpts.Direct = true
 
-		adminTag := names.NewLocalUserTag(adminUserName)
+		adminTag := names.NewLocalUserTag(coreuser.AdminUserName)
 		bootstrap, err := c.BootstrapAgent(agentbootstrap.AgentBootstrapArgs{
 			AgentConfig:               agentConfig,
 			BootstrapEnviron:          env,

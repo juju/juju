@@ -12,6 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/core/user"
 	dbcloud "github.com/juju/juju/domain/cloud/state"
 	"github.com/juju/juju/domain/credential"
 	credentialstate "github.com/juju/juju/domain/credential/state"
@@ -19,11 +20,14 @@ import (
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	modeltesting "github.com/juju/juju/domain/model/testing"
 	schematesting "github.com/juju/juju/domain/schema/testing"
+	usererrors "github.com/juju/juju/domain/user/errors"
+	userstate "github.com/juju/juju/domain/user/state"
 )
 
 type modelSuite struct {
 	schematesting.ControllerSuite
-	uuid model.UUID
+	uuid     model.UUID
+	userUUID user.UUID
 }
 
 var _ = gc.Suite(&modelSuite{})
@@ -31,8 +35,23 @@ var _ = gc.Suite(&modelSuite{})
 func (m *modelSuite) SetUpTest(c *gc.C) {
 	m.ControllerSuite.SetUpTest(c)
 
+	// We need to generate a user in the database so that we can set the model
+	// owner.
+	userUUID, err := user.NewUUID()
+	m.userUUID = userUUID
+	c.Assert(err, jc.ErrorIsNil)
+	userState := userstate.NewState(m.TxnRunnerFactory())
+	err = userState.AddUser(
+		context.Background(),
+		m.userUUID,
+		"test-user",
+		"test user",
+		m.userUUID,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
 	cloudSt := dbcloud.NewState(m.TxnRunnerFactory())
-	err := cloudSt.UpsertCloud(context.Background(), cloud.Cloud{
+	err = cloudSt.UpsertCloud(context.Background(), cloud.Cloud{
 		Name:      "my-cloud",
 		Type:      "ec2",
 		AuthTypes: cloud.AuthTypes{cloud.AccessKeyAuthType, cloud.UserPassAuthType},
@@ -57,7 +76,7 @@ func (m *modelSuite) SetUpTest(c *gc.C) {
 	_, err = credSt.UpsertCloudCredential(
 		context.Background(), credential.ID{
 			Cloud: "my-cloud",
-			Owner: "wallyworld",
+			Owner: string(m.userUUID),
 			Name:  "foobar",
 		},
 		cred,
@@ -74,11 +93,11 @@ func (m *modelSuite) SetUpTest(c *gc.C) {
 			CloudRegion: "my-region",
 			Credential: credential.ID{
 				Cloud: "my-cloud",
-				Owner: "wallyworld",
+				Owner: string(m.userUUID),
 				Name:  "foobar",
 			},
 			Name:  "my-test-model",
-			Owner: "wallyworld",
+			Owner: m.userUUID,
 			Type:  model.TypeIAAS,
 		},
 	)
@@ -98,7 +117,7 @@ func (m *modelSuite) TestCreateModelMetadataWithNoModel(c *gc.C) {
 				Cloud:       "my-cloud",
 				CloudRegion: "my-region",
 				Name:        "fantasticmodel",
-				Owner:       "wallyworld",
+				Owner:       m.userUUID,
 				Type:        model.TypeIAAS,
 			},
 			tx,
@@ -119,7 +138,7 @@ func (m *modelSuite) TestCreateModelMetadataWithExistingMetadata(c *gc.C) {
 				Cloud:       "my-cloud",
 				CloudRegion: "my-region",
 				Name:        "fantasticmodel",
-				Owner:       "wallyworld",
+				Owner:       m.userUUID,
 				Type:        model.TypeIAAS,
 			},
 			tx,
@@ -138,7 +157,7 @@ func (m *modelSuite) TestCreateModelWithSameNameAndOwner(c *gc.C) {
 			Cloud:       "my-cloud",
 			CloudRegion: "my-region",
 			Name:        "my-test-model",
-			Owner:       "wallyworld",
+			Owner:       m.userUUID,
 			Type:        model.TypeIAAS,
 		},
 	)
@@ -155,11 +174,55 @@ func (m *modelSuite) TestCreateModelWithInvalidCloudRegion(c *gc.C) {
 			Cloud:       "my-cloud",
 			CloudRegion: "noexist",
 			Name:        "noregion",
-			Owner:       "wallyworld",
+			Owner:       m.userUUID,
 			Type:        model.TypeIAAS,
 		},
 	)
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
+}
+
+// TestCreateModelWithNonExistentOwner is here to assert that if we try and make
+// a model with a user/owner that does not exist a [usererrors.NotFound] error
+// is returned.
+func (m *modelSuite) TestCreateModelWithNonExistentOwner(c *gc.C) {
+	modelSt := NewState(m.TxnRunnerFactory())
+	testUUID := modeltesting.GenModelUUID(c)
+	err := modelSt.Create(
+		context.Background(),
+		testUUID,
+		model.ModelCreationArgs{
+			Cloud:       "my-cloud",
+			CloudRegion: "noexist",
+			Name:        "noregion",
+			Owner:       user.UUID("noexist"), // does not exist
+			Type:        model.TypeIAAS,
+		},
+	)
+	c.Assert(err, jc.ErrorIs, usererrors.NotFound)
+}
+
+// TestCreateModelWithRemovedOwner is here to test that if we try and create a
+// new model with an owner that has been removed from the Juju user base that
+// the operation fails with a [usererrors.NotFound] error.
+func (m *modelSuite) TestCreateModelWithRemovedOwner(c *gc.C) {
+	userState := userstate.NewState(m.TxnRunnerFactory())
+	err := userState.RemoveUser(context.Background(), m.userUUID)
+	c.Assert(err, jc.ErrorIsNil)
+
+	modelSt := NewState(m.TxnRunnerFactory())
+	testUUID := modeltesting.GenModelUUID(c)
+	err = modelSt.Create(
+		context.Background(),
+		testUUID,
+		model.ModelCreationArgs{
+			Cloud:       "my-cloud",
+			CloudRegion: "noexist",
+			Name:        "noregion",
+			Owner:       m.userUUID,
+			Type:        model.TypeIAAS,
+		},
+	)
+	c.Assert(err, jc.ErrorIs, usererrors.NotFound)
 }
 
 func (m *modelSuite) TestCreateModelWithInvalidCloud(c *gc.C) {
@@ -172,7 +235,7 @@ func (m *modelSuite) TestCreateModelWithInvalidCloud(c *gc.C) {
 			Cloud:       "noexist",
 			CloudRegion: "my-region",
 			Name:        "noregion",
-			Owner:       "wallyworld",
+			Owner:       m.userUUID,
 			Type:        model.TypeIAAS,
 		},
 	)
@@ -206,7 +269,7 @@ func (m *modelSuite) TestUpdateCredentialForDifferentCloud(c *gc.C) {
 	_, err = credSt.UpsertCloudCredential(
 		context.Background(), credential.ID{
 			Cloud: "my-cloud2",
-			Owner: "wallyworld",
+			Owner: string(m.userUUID),
 			Name:  "foobar",
 		},
 		cred,
@@ -219,7 +282,7 @@ func (m *modelSuite) TestUpdateCredentialForDifferentCloud(c *gc.C) {
 		m.uuid,
 		credential.ID{
 			Cloud: "my-cloud2",
-			Owner: "wallyworld",
+			Owner: string(m.userUUID),
 			Name:  "foobar",
 		},
 	)
@@ -253,7 +316,7 @@ func (m *modelSuite) TestSetModelCloudCredentialWithoutRegion(c *gc.C) {
 	_, err = credSt.UpsertCloudCredential(
 		context.Background(), credential.ID{
 			Cloud: "minikube",
-			Owner: "admin",
+			Owner: string(m.userUUID),
 			Name:  "foobar",
 		},
 		cred,
@@ -269,11 +332,11 @@ func (m *modelSuite) TestSetModelCloudCredentialWithoutRegion(c *gc.C) {
 			Cloud: "minikube",
 			Credential: credential.ID{
 				Cloud: "minikube",
-				Owner: "admin",
+				Owner: string(m.userUUID),
 				Name:  "foobar",
 			},
 			Name:  "controller",
-			Owner: "admin",
+			Owner: m.userUUID,
 			Type:  model.TypeCAAS,
 		},
 	)

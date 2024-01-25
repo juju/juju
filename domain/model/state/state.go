@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/domain/credential"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
+	usererrors "github.com/juju/juju/domain/user/errors"
 	jujudb "github.com/juju/juju/internal/database"
 )
 
@@ -108,6 +109,8 @@ func createModel(ctx context.Context, uuid model.UUID, tx *sql.Tx) error {
 // If the ModelCreationArgs contains a non zero value cloud credential this func
 // will also attempt to set the model cloud credential using updateCredential. In
 // this  scenario the errors from updateCredential are also possible.
+// If the model owner does not exist an error satisfying [usererrors.NotFound]
+// will be returned.
 func createModelMetadata(
 	ctx context.Context,
 	uuid model.UUID,
@@ -119,14 +122,26 @@ SELECT uuid
 FROM cloud
 WHERE name = ?
 `
-	var (
-		cloudUUID string
-	)
+	var cloudUUID string
 	err := tx.QueryRowContext(ctx, cloudStmt, input.Cloud).Scan(&cloudUUID)
 	if errors.Is(err, sql.ErrNoRows) {
 		return fmt.Errorf("%w cloud %q", errors.NotFound, input.Cloud)
 	} else if err != nil {
 		return fmt.Errorf("getting cloud %q uuid: %w", input.Cloud, err)
+	}
+
+	userStmt := `
+SELECT uuid
+FROM user
+WHERE uuid = ?
+AND removed = false
+`
+	var userUUID string
+	err = tx.QueryRowContext(ctx, userStmt, input.Owner).Scan(&userUUID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return fmt.Errorf("%w for model owner %q", usererrors.NotFound, input.Owner)
+	} else if err != nil {
+		return fmt.Errorf("getting user uuid for setting model %q owner: %w", input.Name, err)
 	}
 
 	stmt := `

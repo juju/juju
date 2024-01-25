@@ -44,6 +44,8 @@ func NewService(st State) *Service {
 // - modelerrors.AlreadyExists: When the model uuid is already in use or a model
 // with the same name and owner already exists.
 // - errors.NotFound: When the cloud, cloud region, or credential do not exist.
+// - [github.com/juju/juju/domain/user/errors.NotFound] when the owner of the
+// mode cannot be found.
 func (s *Service) CreateModel(
 	ctx context.Context,
 	args model.ModelCreationArgs,

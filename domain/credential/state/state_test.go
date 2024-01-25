@@ -19,24 +19,40 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/core/watcher/watchertest"
 	dbcloud "github.com/juju/juju/domain/cloud/state"
 	"github.com/juju/juju/domain/credential"
 	"github.com/juju/juju/domain/model"
+	userstate "github.com/juju/juju/domain/user/state"
 	changestreamtesting "github.com/juju/juju/internal/changestream/testing"
 	jujutesting "github.com/juju/juju/testing"
 )
 
 type credentialSuite struct {
 	changestreamtesting.ControllerSuite
+	userUUID user.UUID
 }
 
 var _ = gc.Suite(&credentialSuite{})
 
 func (s *credentialSuite) SetUpTest(c *gc.C) {
 	s.ControllerSuite.SetUpTest(c)
+
+	userUUID, err := user.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	s.userUUID = userUUID
+	userState := userstate.NewState(s.TxnRunnerFactory())
+	err = userState.AddUser(
+		context.Background(),
+		s.userUUID,
+		"test-user",
+		"test user",
+		s.userUUID,
+	)
+	c.Assert(err, jc.ErrorIsNil)
 
 	s.addCloud(c, cloud.Cloud{
 		Name:      "stratus",
@@ -547,9 +563,10 @@ func (s *credentialSuite) TestModelsUsingCloudCredential(c *gc.C) {
 		}
 		result, err := tx.ExecContext(ctx, fmt.Sprintf(`
 		INSERT INTO model_metadata (model_uuid, name, owner_uuid, model_type_id, cloud_uuid, cloud_credential_uuid)
-		SELECT %q, %q, "admin", 0,
+		SELECT %q, %q, %q, 0,
 			(SELECT uuid FROM cloud WHERE cloud.name="stratus"),
-			(SELECT uuid FROM cloud_credential cc WHERE cc.name="foobar")`, modelUUID, name),
+			(SELECT uuid FROM cloud_credential cc WHERE cc.name="foobar")`,
+			modelUUID, name, s.userUUID),
 		)
 		if err != nil {
 			return err
