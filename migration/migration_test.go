@@ -194,14 +194,21 @@ func (s *ImportSuite) TestBinariesMigration(c *gc.C) {
 	err := migration.UploadBinaries(config)
 	c.Assert(err, jc.ErrorIsNil)
 
-	expectedCharms := []string{
+	expectedCurls := []string{
 		// Note ordering.
 		"ch:trusty/postgresql-42",
 		"local:trusty/magic-2",
 		"local:trusty/magic-10",
 	}
-	c.Assert(downloader.charms, jc.DeepEquals, expectedCharms)
-	c.Assert(uploader.charms, jc.DeepEquals, expectedCharms)
+	c.Assert(downloader.curls, jc.DeepEquals, expectedCurls)
+	c.Assert(uploader.curls, jc.DeepEquals, expectedCurls)
+
+	expectedRefs := []string{
+		"postgresql-a77196f",
+		"magic-d348864",
+		"magic-5f44d22",
+	}
+	c.Assert(uploader.charmRefs, jc.DeepEquals, expectedRefs)
 
 	c.Assert(downloader.uris, jc.SameContents, []string{
 		"/tools/0",
@@ -237,17 +244,17 @@ func (s *ImportSuite) TestWrongCharmURLAssigned(c *gc.C) {
 	}
 	err := migration.UploadBinaries(config)
 	c.Assert(err, gc.ErrorMatches,
-		"cannot upload charms: charm local:foo/bar-2 unexpectedly assigned local:foo/bar-1")
+		"cannot upload charms: charm local:foo/bar-2 unexpectedly assigned local:foo/bar-100")
 }
 
 type fakeDownloader struct {
-	charms    []string
+	curls     []string
 	uris      []string
 	resources []string
 }
 
 func (d *fakeDownloader) OpenCharm(curl string) (io.ReadCloser, error) {
-	d.charms = append(d.charms, curl)
+	d.curls = append(d.curls, curl)
 	// Return the charm URL string as the fake charm content
 	return io.NopCloser(bytes.NewReader([]byte(curl + " content"))), nil
 }
@@ -269,7 +276,8 @@ func (d *fakeDownloader) OpenResource(app, name string) (io.ReadCloser, error) {
 
 type fakeUploader struct {
 	tools            map[version.Binary]string
-	charms           []string
+	curls            []string
+	charmRefs        []string
 	resources        map[string]string
 	unitResources    []string
 	reassignCharmURL bool
@@ -284,21 +292,22 @@ func (f *fakeUploader) UploadTools(r io.ReadSeeker, v version.Binary) (tools.Lis
 	return tools.List{&tools.Tools{Version: v}}, nil
 }
 
-func (f *fakeUploader) UploadCharm(u *charm.URL, r io.ReadSeeker) (*charm.URL, error) {
+func (f *fakeUploader) UploadCharm(curl string, charmRef string, r io.ReadSeeker) (string, error) {
 	data, err := io.ReadAll(r)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return "", errors.Trace(err)
 	}
-	if string(data) != u.String()+" content" {
-		panic(fmt.Sprintf("unexpected charm body for %s: %s", u.String(), data))
+	if string(data) != curl+" content" {
+		panic(fmt.Sprintf("unexpected charm body for %s: %s", curl, data))
 	}
-	f.charms = append(f.charms, u.String())
+	f.curls = append(f.curls, curl)
+	f.charmRefs = append(f.charmRefs, charmRef)
 
-	outU := *u
+	outU := curl
 	if f.reassignCharmURL {
-		outU.Revision--
+		outU = charm.MustParseURL(outU).WithRevision(100).String()
 	}
-	return &outU, nil
+	return outU, nil
 }
 
 func (f *fakeUploader) UploadResource(res resources.Resource, r io.ReadSeeker) error {

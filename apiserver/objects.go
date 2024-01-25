@@ -58,6 +58,10 @@ type objectsCharmHandler struct {
 	ctxt httpContext
 }
 
+func (h *objectsCharmHandler) ServeUnsupported(w http.ResponseWriter, r *http.Request) error {
+	return errors.Trace(emitUnsupportedMethodErr(r.Method))
+}
+
 // ServeGet serves the GET method for the S3 API. This is the equivalent of the
 // `GetObject` method in the AWS S3 API.
 // Since juju's objects (S3) API only acts as a shim, this method will only
