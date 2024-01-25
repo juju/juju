@@ -57,7 +57,7 @@ microk8s_operator_update() {
 }
 
 juju_version() {
-    (cd "${PROJECT_DIR}" && go run version/helper/main.go)
+    (cd "${PROJECT_DIR}" && GOOS=$(go env GOHOSTOS) GOARCH=$(go env GOHOSTARCH) CGO_ENABLED=0 go run version/helper/main.go)
 }
 
 operator_image_release_path() {

@@ -22,7 +22,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.30.3
 	github.com/aws/smithy-go v1.17.0
 	github.com/bmizerany/pat v0.0.0-20160217103242-c068ca2f0aac
-	github.com/canonical/go-dqlite v1.20.0
+	github.com/canonical/go-dqlite v1.21.0
 	github.com/canonical/lxd v0.0.0-20230712132802-8d2a42545fd0
 	github.com/canonical/pebble v1.4.0
 	github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e
@@ -88,7 +88,7 @@ require (
 	github.com/kr/pretty v0.3.1
 	github.com/lestrrat-go/jwx/v2 v2.0.11
 	github.com/mattn/go-isatty v0.0.19
-	github.com/mattn/go-sqlite3 v1.14.17
+	github.com/mattn/go-sqlite3 v1.14.19
 	github.com/microsoft/kiota-abstractions-go v1.5.3
 	github.com/microsoft/kiota-http-go v1.1.1
 	github.com/microsoftgraph/msgraph-sdk-go v1.25.0
