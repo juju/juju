@@ -49,14 +49,15 @@ func (s *CrossControllerSuite) TestGetRemoteSecretContentInfo(c *gc.C) {
 		c.Check(request, gc.Equals, "GetSecretContentInfo")
 		c.Check(arg, jc.DeepEquals, params.GetRemoteSecretContentArgs{
 			Args: []params.GetRemoteSecretContentArg{{
-				ApplicationToken: "token",
-				UnitId:           666,
-				Revision:         ptr(665),
-				Macaroons:        macs,
-				BakeryVersion:    3,
-				URI:              uri.String(),
-				Refresh:          true,
-				Peek:             true,
+				SourceControllerUUID: coretesting.ControllerTag.Id(),
+				ApplicationToken:     "token",
+				UnitId:               666,
+				Revision:             ptr(665),
+				Macaroons:            macs,
+				BakeryVersion:        3,
+				URI:                  uri.String(),
+				Refresh:              true,
+				Peek:                 true,
 			}},
 		})
 		c.Assert(result, gc.FitsTypeOf, &params.SecretContentResults{})
@@ -84,7 +85,7 @@ func (s *CrossControllerSuite) TestGetRemoteSecretContentInfo(c *gc.C) {
 		return nil
 	})
 	client := crossmodelsecrets.NewClient(apiCaller)
-	content, backend, latestRevision, draining, err := client.GetRemoteSecretContentInfo(uri, 665, true, true, "token", 666, macs)
+	content, backend, latestRevision, draining, err := client.GetRemoteSecretContentInfo(uri, 665, true, true, coretesting.ControllerTag.Id(), "token", 666, macs)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(latestRevision, gc.Equals, 666)
 	c.Assert(draining, jc.IsTrue)
@@ -118,7 +119,7 @@ func (s *CrossControllerSuite) TestControllerInfoError(c *gc.C) {
 		return nil
 	})
 	client := crossmodelsecrets.NewClient(apiCaller)
-	content, backend, _, _, err := client.GetRemoteSecretContentInfo(coresecrets.NewURI(), 665, false, false, "token", 666, nil)
+	content, backend, _, _, err := client.GetRemoteSecretContentInfo(coresecrets.NewURI(), 665, false, false, coretesting.ControllerTag.Id(), "token", 666, nil)
 	c.Assert(err, gc.ErrorMatches, "attempt count exceeded: boom")
 	c.Assert(content, gc.IsNil)
 	c.Assert(backend, gc.IsNil)

@@ -101,7 +101,7 @@ func (s *providerSuite) TestBackendConfigBadClient(c *gc.C) {
 			},
 		},
 	}
-	_, err = p.RestrictedConfig(adminCfg, false, nil, nil, nil)
+	_, err = p.RestrictedConfig(adminCfg, true, false, nil, nil, nil)
 	c.Assert(err, gc.ErrorMatches, "boom")
 }
 
@@ -151,7 +151,7 @@ func (s *providerSuite) TestBackendConfigAdmin(c *gc.C) {
 			},
 		},
 	}
-	cfg, err := p.RestrictedConfig(adminCfg, false, nil, nil, nil)
+	cfg, err := p.RestrictedConfig(adminCfg, true, false, nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.Config["token"], gc.Equals, "foo")
 }
@@ -226,7 +226,7 @@ func (s *providerSuite) TestBackendConfigNonAdmin(c *gc.C) {
 	readRevs := map[string]set.Strings{
 		"read-1": set.NewStrings("read-rev-1"),
 	}
-	cfg, err := p.RestrictedConfig(adminCfg, false, names.NewUnitTag("ubuntu/0"), ownedRevs, readRevs)
+	cfg, err := p.RestrictedConfig(adminCfg, true, false, names.NewUnitTag("ubuntu/0"), ownedRevs, readRevs)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.Config["token"], gc.Equals, "foo")
 }
@@ -311,7 +311,7 @@ func (s *providerSuite) TestBackendConfigForDrain(c *gc.C) {
 	readRevs := map[string]set.Strings{
 		"read-1": set.NewStrings("read-rev-1"),
 	}
-	cfg, err := p.RestrictedConfig(adminCfg, true, names.NewUnitTag("ubuntu/0"), ownedRevs, readRevs)
+	cfg, err := p.RestrictedConfig(adminCfg, true, true, names.NewUnitTag("ubuntu/0"), ownedRevs, readRevs)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.Config["token"], gc.Equals, "foo")
 }
