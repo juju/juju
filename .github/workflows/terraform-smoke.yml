@@ -4,6 +4,7 @@ on:
     branches: [2.9, 3.*]
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
+    branches: [2.9, 3.*]
     paths:
       - '**.go'
       - 'go.mod'
