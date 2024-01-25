@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/usermanager"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/permission"
+	coreuser "github.com/juju/juju/core/user"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -577,6 +578,14 @@ func (s *userManagerSuite) TestUserInfoNonControllerAdmin(c *gc.C) {
 
 	userService := NewMockUserService(ctrl)
 
+	fakeUUID, err := coreuser.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+
+	userService.EXPECT().GetUserByName(gomock.Any(), gomock.Any()).Return(coreuser.User{
+		UUID: fakeUUID,
+		Name: "aardvark",
+	}, nil).AnyTimes()
+
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 	f.MakeUser(c, &factory.UserParams{Name: "foobar", DisplayName: "Foo Bar"})
@@ -828,6 +837,9 @@ func (s *userManagerSuite) TestSetPasswordForSelf(c *gc.C) {
 
 	userService := NewMockUserService(ctrl)
 
+	userService.EXPECT().GetUserByName(gomock.Any(), gomock.Any()).Return(coreuser.User{}, nil).AnyTimes()
+	userService.EXPECT().SetPassword(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 	alex := f.MakeUser(c, &factory.UserParams{Name: "alex", NoModelUser: true})
@@ -871,6 +883,8 @@ func (s *userManagerSuite) TestSetPasswordForOther(c *gc.C) {
 	defer ctrl.Finish()
 
 	userService := NewMockUserService(ctrl)
+
+	userService.EXPECT().GetUserByName(gomock.Any(), gomock.Any()).Return(coreuser.User{}, nil).AnyTimes()
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
@@ -1238,6 +1252,8 @@ func (s *userManagerSuite) TestResetPasswordNotControllerAdmin(c *gc.C) {
 	defer ctrl.Finish()
 
 	userService := NewMockUserService(ctrl)
+
+	userService.EXPECT().GetUserByName(gomock.Any(), gomock.Any()).Return(coreuser.User{}, nil).AnyTimes()
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()

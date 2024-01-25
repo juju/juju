@@ -7,9 +7,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/juju/utils/v4"
-
 	"github.com/juju/juju/internal/uuid"
+	"github.com/juju/names/v5"
 )
 
 // User represents a user in the system.
@@ -36,6 +35,11 @@ type User struct {
 	Disabled bool
 }
 
+// UserTag is a tag that refers to a user.
+func UserTag(uuid UUID) names.UserTag {
+	return names.NewLocalUserTag(uuid.String())
+}
+
 // UUID is a unique identifier for a user.
 type UUID string
 
@@ -53,7 +57,7 @@ func (u UUID) Validate() error {
 	if u == "" {
 		return fmt.Errorf("empty uuid")
 	}
-	if !utils.IsValidUUIDString(string(u)) {
+	if !uuid.IsValidUUIDString(string(u)) {
 		return fmt.Errorf("invalid uuid: %q", u)
 	}
 	return nil

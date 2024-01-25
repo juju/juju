@@ -10,6 +10,11 @@
 package usermanager_test
 
 import (
+	context "context"
+	reflect "reflect"
+
+	user "github.com/juju/juju/core/user"
+	auth "github.com/juju/juju/internal/auth"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -34,4 +39,136 @@ func NewMockUserService(ctrl *gomock.Controller) *MockUserService {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockUserService) EXPECT() *MockUserServiceMockRecorder {
 	return m.recorder
+}
+
+// AddUserWithActivationKey mocks base method.
+func (m *MockUserService) AddUserWithActivationKey(arg0 context.Context, arg1, arg2 string, arg3 user.UUID) ([]byte, user.UUID, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AddUserWithActivationKey", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].([]byte)
+	ret1, _ := ret[1].(user.UUID)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// AddUserWithActivationKey indicates an expected call of AddUserWithActivationKey.
+func (mr *MockUserServiceMockRecorder) AddUserWithActivationKey(arg0, arg1, arg2, arg3 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddUserWithActivationKey", reflect.TypeOf((*MockUserService)(nil).AddUserWithActivationKey), arg0, arg1, arg2, arg3)
+}
+
+// AddUserWithPassword mocks base method.
+func (m *MockUserService) AddUserWithPassword(arg0 context.Context, arg1, arg2 string, arg3 user.UUID, arg4 auth.Password) (user.UUID, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AddUserWithPassword", arg0, arg1, arg2, arg3, arg4)
+	ret0, _ := ret[0].(user.UUID)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AddUserWithPassword indicates an expected call of AddUserWithPassword.
+func (mr *MockUserServiceMockRecorder) AddUserWithPassword(arg0, arg1, arg2, arg3, arg4 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddUserWithPassword", reflect.TypeOf((*MockUserService)(nil).AddUserWithPassword), arg0, arg1, arg2, arg3, arg4)
+}
+
+// DisableUserAuthentication mocks base method.
+func (m *MockUserService) DisableUserAuthentication(arg0 context.Context, arg1 user.UUID) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DisableUserAuthentication", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DisableUserAuthentication indicates an expected call of DisableUserAuthentication.
+func (mr *MockUserServiceMockRecorder) DisableUserAuthentication(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DisableUserAuthentication", reflect.TypeOf((*MockUserService)(nil).DisableUserAuthentication), arg0, arg1)
+}
+
+// EnableUserAuthentication mocks base method.
+func (m *MockUserService) EnableUserAuthentication(arg0 context.Context, arg1 user.UUID) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "EnableUserAuthentication", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// EnableUserAuthentication indicates an expected call of EnableUserAuthentication.
+func (mr *MockUserServiceMockRecorder) EnableUserAuthentication(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnableUserAuthentication", reflect.TypeOf((*MockUserService)(nil).EnableUserAuthentication), arg0, arg1)
+}
+
+// GetAllUsers mocks base method.
+func (m *MockUserService) GetAllUsers(arg0 context.Context) ([]user.User, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetAllUsers", arg0)
+	ret0, _ := ret[0].([]user.User)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetAllUsers indicates an expected call of GetAllUsers.
+func (mr *MockUserServiceMockRecorder) GetAllUsers(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllUsers", reflect.TypeOf((*MockUserService)(nil).GetAllUsers), arg0)
+}
+
+// GetUserByName mocks base method.
+func (m *MockUserService) GetUserByName(arg0 context.Context, arg1 string) (user.User, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetUserByName", arg0, arg1)
+	ret0, _ := ret[0].(user.User)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetUserByName indicates an expected call of GetUserByName.
+func (mr *MockUserServiceMockRecorder) GetUserByName(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUserByName", reflect.TypeOf((*MockUserService)(nil).GetUserByName), arg0, arg1)
+}
+
+// RemoveUser mocks base method.
+func (m *MockUserService) RemoveUser(arg0 context.Context, arg1 user.UUID) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RemoveUser", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RemoveUser indicates an expected call of RemoveUser.
+func (mr *MockUserServiceMockRecorder) RemoveUser(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveUser", reflect.TypeOf((*MockUserService)(nil).RemoveUser), arg0, arg1)
+}
+
+// ResetPassword mocks base method.
+func (m *MockUserService) ResetPassword(arg0 context.Context, arg1 user.UUID) ([]byte, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ResetPassword", arg0, arg1)
+	ret0, _ := ret[0].([]byte)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ResetPassword indicates an expected call of ResetPassword.
+func (mr *MockUserServiceMockRecorder) ResetPassword(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResetPassword", reflect.TypeOf((*MockUserService)(nil).ResetPassword), arg0, arg1)
+}
+
+// SetPassword mocks base method.
+func (m *MockUserService) SetPassword(arg0 context.Context, arg1 user.UUID, arg2 auth.Password) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetPassword", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetPassword indicates an expected call of SetPassword.
+func (mr *MockUserServiceMockRecorder) SetPassword(arg0, arg1, arg2 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetPassword", reflect.TypeOf((*MockUserService)(nil).SetPassword), arg0, arg1, arg2)
 }
