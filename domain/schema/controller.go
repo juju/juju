@@ -10,7 +10,7 @@ import (
 type tableNamespaceID int
 
 const (
-	tableExternalController tableNamespaceID = iota + 1
+	tableExternalController tableNamespaceID = iota
 	tableControllerNode
 	tableControllerConfig
 	tableModelMigrationStatus
@@ -54,12 +54,12 @@ func ControllerDDL() *schema.Schema {
 		userPermissionSchema,
 	}
 
-	schema := schema.New()
+	ctrlSchema := schema.New()
 	for _, fn := range patches {
-		schema.Add(fn())
+		ctrlSchema.Add(fn())
 	}
 
-	return schema
+	return ctrlSchema
 }
 
 func leaseSchema() schema.Patch {
@@ -118,17 +118,17 @@ func changeLogControllerNamespaces() schema.Patch {
 	// constants above.
 	return schema.MakePatch(`
 INSERT INTO change_log_namespace VALUES
-    (1, 'external_controller', 'external controller changes based on the UUID'),
-    (2, 'controller_node', 'controller node changes based on the controller ID'),
-    (3, 'controller_config', 'controller config changes based on the key'),
-    (4, 'model_migration_status', 'model migration status changes based on the UUID'),
-    (5, 'model_migration_minion_sync', 'model migration minion sync changes based on the UUID'),
-    (6, 'upgrade_info', 'upgrade info changes based on the UUID'),
-    (7, 'cloud', 'cloud changes based on the UUID'),
-    (8, 'cloud_credential', 'cloud credential changes based on the UUID'),
-    (9, 'autocert_cache', 'autocert cache changes based on the UUID'),
-    (10, 'upgrade_info_controller_node', 'upgrade info controller node changes based on the upgrade info UUID'),
-    (11, 'object_store_metadata_path', 'object store metadata path changes based on the path')
+    (0, 'external_controller', 'external controller changes based on the UUID'),
+    (1, 'controller_node', 'controller node changes based on the controller ID'),
+    (2, 'controller_config', 'controller config changes based on the key'),
+    (3, 'model_migration_status', 'model migration status changes based on the UUID'),
+    (4, 'model_migration_minion_sync', 'model migration minion sync changes based on the UUID'),
+    (5, 'upgrade_info', 'upgrade info changes based on the UUID'),
+    (6, 'cloud', 'cloud changes based on the UUID'),
+    (7, 'cloud_credential', 'cloud credential changes based on the UUID'),
+    (8, 'autocert_cache', 'autocert cache changes based on the UUID'),
+    (9, 'upgrade_info_controller_node', 'upgrade info controller node changes based on the upgrade info UUID'),
+    (10, 'object_store_metadata_path', 'object store metadata path changes based on the path')
 `)
 }
 

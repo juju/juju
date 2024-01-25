@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	tableModelConfig tableNamespaceID = iota + 1
+	tableModelConfig tableNamespaceID = iota
 	tableModelObjectStoreMetadata
 	tableBlockDeviceMachine
 	tableStorageAttachment
@@ -55,11 +55,11 @@ func ModelDDL() *schema.Schema {
 		annotationSchemaForTable("storage_filesystem"),
 	}
 
-	schema := schema.New()
+	modelSchema := schema.New()
 	for _, fn := range patches {
-		schema.Add(fn())
+		modelSchema.Add(fn())
 	}
-	return schema
+	return modelSchema
 }
 
 func annotationModel() schema.Patch {
@@ -106,9 +106,15 @@ func changeLogModelNamespace() schema.Patch {
 	// constants above.
 	return schema.MakePatch(`
 INSERT INTO change_log_namespace VALUES
-    (1, 'model_config', 'model config changes based on config key'),
-    (2, 'object_store_metadata_path', 'object store metadata path changes based on the path'),
-    (3, 'block_device', 'block device changes based on the machine uuid');
+    (0, 'model_config', 'Model configuration changes based on key'),
+    (1, 'object_store_metadata_path', 'Object store metadata path changes based on the path'),
+    (2, 'block_device', 'Block device changes based on the machine UUID'),
+    (3, 'storage_attachment', 'Storage attachment changes based on the storage instance UUID'),
+    (4, 'storage_filesystem', 'File system changes based on UUID'),
+    (5, 'storage_filesystem_attachment', 'File system attachment changes based on UUID'),
+    (6, 'storage_volume', 'Storage volume changes based on UUID'),
+    (7, 'storage_volume_attachment', 'Volume attachment changes based on UUID'),
+    (8, 'storage_volume_attachment_plan', 'Volume attachment plan changes based on UUID');
 `)
 }
 
