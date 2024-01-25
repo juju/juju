@@ -34,15 +34,12 @@ var _ = gc.Suite(&fileObjectStoreSuite{})
 func (s *fileObjectStoreSuite) TestGetMetadataNotFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	path := c.MkDir()
-
-	store, err := NewFileObjectStore(context.Background(), "inferi", path, s.service, s.claimer, jujutesting.NewCheckLogger(c), clock.WallClock)
-	c.Assert(err, gc.IsNil)
+	store := s.newFileObjectStore(c, c.MkDir())
 	defer workertest.DirtyKill(c, store)
 
 	s.service.EXPECT().GetMetadata(gomock.Any(), "foo").Return(objectstore.Metadata{}, errors.NotFound).Times(2)
 
-	_, _, err = store.Get(context.Background(), "foo")
+	_, _, err := store.Get(context.Background(), "foo")
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
@@ -51,8 +48,7 @@ func (s *fileObjectStoreSuite) TestGetMetadataFoundNoFile(c *gc.C) {
 
 	path := c.MkDir()
 
-	store, err := NewFileObjectStore(context.Background(), "inferi", path, s.service, s.claimer, jujutesting.NewCheckLogger(c), clock.WallClock)
-	c.Assert(err, gc.IsNil)
+	store := s.newFileObjectStore(c, path)
 	defer workertest.DirtyKill(c, store)
 
 	s.service.EXPECT().GetMetadata(gomock.Any(), "foo").Return(objectstore.Metadata{
@@ -61,7 +57,7 @@ func (s *fileObjectStoreSuite) TestGetMetadataFoundNoFile(c *gc.C) {
 		Size: 666,
 	}, nil).Times(2)
 
-	_, _, err = store.Get(context.Background(), "foo")
+	_, _, err := store.Get(context.Background(), "foo")
 	c.Assert(err, jc.ErrorIs, os.ErrNotExist)
 }
 
@@ -74,8 +70,7 @@ func (s *fileObjectStoreSuite) TestGetMetadataAndFileFound(c *gc.C) {
 	fileName := "foo"
 	size, hash := s.createFile(c, s.filePath(path, namespace), fileName, "some content")
 
-	store, err := NewFileObjectStore(context.Background(), namespace, path, s.service, s.claimer, jujutesting.NewCheckLogger(c), clock.WallClock)
-	c.Assert(err, gc.IsNil)
+	store := s.newFileObjectStore(c, path)
 	defer workertest.DirtyKill(c, store)
 
 	s.service.EXPECT().GetMetadata(gomock.Any(), fileName).Return(objectstore.Metadata{
@@ -102,8 +97,7 @@ func (s *fileObjectStoreSuite) TestGetMetadataAndFileNotFoundThenFound(c *gc.C) 
 	fileName := "foo"
 	size, hash := s.createFile(c, s.filePath(path, namespace), fileName, "some content")
 
-	store, err := NewFileObjectStore(context.Background(), namespace, path, s.service, s.claimer, jujutesting.NewCheckLogger(c), clock.WallClock)
-	c.Assert(err, gc.IsNil)
+	store := s.newFileObjectStore(c, path)
 	defer workertest.DirtyKill(c, store)
 
 	s.service.EXPECT().GetMetadata(gomock.Any(), fileName).Return(objectstore.Metadata{
@@ -132,8 +126,7 @@ func (s *fileObjectStoreSuite) TestGetMetadataAndFileFoundWithIncorrectSize(c *g
 	fileName := "foo"
 	size, hash := s.createFile(c, s.filePath(path, namespace), fileName, "some content")
 
-	store, err := NewFileObjectStore(context.Background(), namespace, path, s.service, s.claimer, jujutesting.NewCheckLogger(c), clock.WallClock)
-	c.Assert(err, gc.IsNil)
+	store := s.newFileObjectStore(c, path)
 	defer workertest.DirtyKill(c, store)
 
 	s.service.EXPECT().GetMetadata(gomock.Any(), fileName).Return(objectstore.Metadata{
@@ -142,7 +135,7 @@ func (s *fileObjectStoreSuite) TestGetMetadataAndFileFoundWithIncorrectSize(c *g
 		Size: size + 1,
 	}, nil).Times(2)
 
-	_, _, err = store.Get(context.Background(), fileName)
+	_, _, err := store.Get(context.Background(), fileName)
 	c.Assert(err, gc.ErrorMatches, `.*size mismatch.*`)
 }
 
@@ -155,10 +148,7 @@ func (s *fileObjectStoreSuite) TestPut(c *gc.C) {
 
 	path := c.MkDir()
 
-	namespace := "inferi"
-
-	store, err := NewFileObjectStore(context.Background(), namespace, path, s.service, s.claimer, jujutesting.NewCheckLogger(c), clock.WallClock)
-	c.Assert(err, gc.IsNil)
+	store := s.newFileObjectStore(c, path)
 	defer workertest.DirtyKill(c, store)
 
 	s.service.EXPECT().PutMetadata(gomock.Any(), objectstore.Metadata{
@@ -167,7 +157,7 @@ func (s *fileObjectStoreSuite) TestPut(c *gc.C) {
 		Size: 12,
 	}).Return(nil)
 
-	err = store.Put(context.Background(), "foo", strings.NewReader("some content"), 12)
+	err := store.Put(context.Background(), "foo", strings.NewReader("some content"), 12)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -180,10 +170,7 @@ func (s *fileObjectStoreSuite) TestPutFileAlreadyExists(c *gc.C) {
 
 	path := c.MkDir()
 
-	namespace := "inferi"
-
-	store, err := NewFileObjectStore(context.Background(), namespace, path, s.service, s.claimer, jujutesting.NewCheckLogger(c), clock.WallClock)
-	c.Assert(err, gc.IsNil)
+	store := s.newFileObjectStore(c, path)
 	defer workertest.DirtyKill(c, store)
 
 	s.service.EXPECT().PutMetadata(gomock.Any(), objectstore.Metadata{
@@ -192,7 +179,7 @@ func (s *fileObjectStoreSuite) TestPutFileAlreadyExists(c *gc.C) {
 		Size: 12,
 	}).Return(nil).Times(2)
 
-	err = store.Put(context.Background(), "foo", strings.NewReader("some content"), 12)
+	err := store.Put(context.Background(), "foo", strings.NewReader("some content"), 12)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = store.Put(context.Background(), "foo", strings.NewReader("some content"), 12)
@@ -211,10 +198,7 @@ func (s *fileObjectStoreSuite) TestPutCleansUpFileOnMetadataFailure(c *gc.C) {
 
 	path := c.MkDir()
 
-	namespace := "inferi"
-
-	store, err := NewFileObjectStore(context.Background(), namespace, path, s.service, s.claimer, jujutesting.NewCheckLogger(c), clock.WallClock)
-	c.Assert(err, gc.IsNil)
+	store := s.newFileObjectStore(c, path)
 	defer workertest.DirtyKill(c, store)
 
 	s.service.EXPECT().PutMetadata(gomock.Any(), objectstore.Metadata{
@@ -223,10 +207,10 @@ func (s *fileObjectStoreSuite) TestPutCleansUpFileOnMetadataFailure(c *gc.C) {
 		Size: 12,
 	}).Return(errors.Errorf("boom"))
 
-	err = store.Put(context.Background(), "foo", strings.NewReader("some content"), 12)
+	err := store.Put(context.Background(), "foo", strings.NewReader("some content"), 12)
 	c.Assert(err, gc.ErrorMatches, `.*boom`)
 
-	s.expectFileDoesExist(c, path, namespace, hash)
+	s.expectFileDoesExist(c, path, hash)
 }
 
 func (s *fileObjectStoreSuite) TestPutDoesNotCleansUpFileOnMetadataFailure(c *gc.C) {
@@ -242,10 +226,7 @@ func (s *fileObjectStoreSuite) TestPutDoesNotCleansUpFileOnMetadataFailure(c *gc
 
 	path := c.MkDir()
 
-	namespace := "inferi"
-
-	store, err := NewFileObjectStore(context.Background(), namespace, path, s.service, s.claimer, jujutesting.NewCheckLogger(c), clock.WallClock)
-	c.Assert(err, gc.IsNil)
+	store := s.newFileObjectStore(c, path)
 	defer workertest.DirtyKill(c, store)
 
 	s.service.EXPECT().PutMetadata(gomock.Any(), objectstore.Metadata{
@@ -254,7 +235,7 @@ func (s *fileObjectStoreSuite) TestPutDoesNotCleansUpFileOnMetadataFailure(c *gc
 		Size: 12,
 	}).Return(nil)
 
-	err = store.Put(context.Background(), "foo", strings.NewReader("some content"), 12)
+	err := store.Put(context.Background(), "foo", strings.NewReader("some content"), 12)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.service.EXPECT().PutMetadata(gomock.Any(), objectstore.Metadata{
@@ -266,7 +247,7 @@ func (s *fileObjectStoreSuite) TestPutDoesNotCleansUpFileOnMetadataFailure(c *gc
 	err = store.Put(context.Background(), "foo", strings.NewReader("some content"), 12)
 	c.Assert(err, gc.ErrorMatches, `.*boom`)
 
-	s.expectFileDoesExist(c, path, namespace, hash)
+	s.expectFileDoesExist(c, path, hash)
 }
 
 func (s *fileObjectStoreSuite) TestPutAndCheckHash(c *gc.C) {
@@ -278,10 +259,7 @@ func (s *fileObjectStoreSuite) TestPutAndCheckHash(c *gc.C) {
 
 	path := c.MkDir()
 
-	namespace := "inferi"
-
-	store, err := NewFileObjectStore(context.Background(), namespace, path, s.service, s.claimer, jujutesting.NewCheckLogger(c), clock.WallClock)
-	c.Assert(err, gc.IsNil)
+	store := s.newFileObjectStore(c, path)
 	defer workertest.DirtyKill(c, store)
 
 	s.service.EXPECT().PutMetadata(gomock.Any(), objectstore.Metadata{
@@ -290,7 +268,7 @@ func (s *fileObjectStoreSuite) TestPutAndCheckHash(c *gc.C) {
 		Size: 12,
 	}).Return(nil)
 
-	err = store.PutAndCheckHash(context.Background(), "foo", strings.NewReader("some content"), 12, hash)
+	err := store.PutAndCheckHash(context.Background(), "foo", strings.NewReader("some content"), 12, hash)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -302,13 +280,10 @@ func (s *fileObjectStoreSuite) TestPutAndCheckHashWithInvalidHash(c *gc.C) {
 
 	path := c.MkDir()
 
-	namespace := "inferi"
-
-	store, err := NewFileObjectStore(context.Background(), namespace, path, s.service, s.claimer, jujutesting.NewCheckLogger(c), clock.WallClock)
-	c.Assert(err, gc.IsNil)
+	store := s.newFileObjectStore(c, path)
 	defer workertest.DirtyKill(c, store)
 
-	err = store.PutAndCheckHash(context.Background(), "foo", strings.NewReader("some content"), 12, fakeHash)
+	err := store.PutAndCheckHash(context.Background(), "foo", strings.NewReader("some content"), 12, fakeHash)
 	c.Assert(err, gc.ErrorMatches, `.*hash mismatch.*`)
 }
 
@@ -321,10 +296,7 @@ func (s *fileObjectStoreSuite) TestPutAndCheckHashFileAlreadyExists(c *gc.C) {
 
 	path := c.MkDir()
 
-	namespace := "inferi"
-
-	store, err := NewFileObjectStore(context.Background(), namespace, path, s.service, s.claimer, jujutesting.NewCheckLogger(c), clock.WallClock)
-	c.Assert(err, gc.IsNil)
+	store := s.newFileObjectStore(c, path)
 	defer workertest.DirtyKill(c, store)
 
 	s.service.EXPECT().PutMetadata(gomock.Any(), objectstore.Metadata{
@@ -333,7 +305,7 @@ func (s *fileObjectStoreSuite) TestPutAndCheckHashFileAlreadyExists(c *gc.C) {
 		Size: 12,
 	}).Return(nil).Times(2)
 
-	err = store.PutAndCheckHash(context.Background(), "foo", strings.NewReader("some content"), 12, hash)
+	err := store.PutAndCheckHash(context.Background(), "foo", strings.NewReader("some content"), 12, hash)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = store.PutAndCheckHash(context.Background(), "foo", strings.NewReader("some content"), 12, hash)
@@ -352,10 +324,7 @@ func (s *fileObjectStoreSuite) TestPutAndCheckHashCleansUpFileOnMetadataFailure(
 
 	path := c.MkDir()
 
-	namespace := "inferi"
-
-	store, err := NewFileObjectStore(context.Background(), namespace, path, s.service, s.claimer, jujutesting.NewCheckLogger(c), clock.WallClock)
-	c.Assert(err, gc.IsNil)
+	store := s.newFileObjectStore(c, path)
 	defer workertest.DirtyKill(c, store)
 
 	s.service.EXPECT().PutMetadata(gomock.Any(), objectstore.Metadata{
@@ -364,10 +333,10 @@ func (s *fileObjectStoreSuite) TestPutAndCheckHashCleansUpFileOnMetadataFailure(
 		Size: 12,
 	}).Return(errors.Errorf("boom"))
 
-	err = store.PutAndCheckHash(context.Background(), "foo", strings.NewReader("some content"), 12, hash)
+	err := store.PutAndCheckHash(context.Background(), "foo", strings.NewReader("some content"), 12, hash)
 	c.Assert(err, gc.ErrorMatches, `.*boom`)
 
-	s.expectFileDoesExist(c, path, namespace, hash)
+	s.expectFileDoesExist(c, path, hash)
 }
 
 func (s *fileObjectStoreSuite) TestPutAndCheckHashDoesNotCleansUpFileOnMetadataFailure(c *gc.C) {
@@ -383,10 +352,7 @@ func (s *fileObjectStoreSuite) TestPutAndCheckHashDoesNotCleansUpFileOnMetadataF
 
 	path := c.MkDir()
 
-	namespace := "inferi"
-
-	store, err := NewFileObjectStore(context.Background(), namespace, path, s.service, s.claimer, jujutesting.NewCheckLogger(c), clock.WallClock)
-	c.Assert(err, gc.IsNil)
+	store := s.newFileObjectStore(c, path)
 	defer workertest.DirtyKill(c, store)
 
 	s.service.EXPECT().PutMetadata(gomock.Any(), objectstore.Metadata{
@@ -395,7 +361,7 @@ func (s *fileObjectStoreSuite) TestPutAndCheckHashDoesNotCleansUpFileOnMetadataF
 		Size: 12,
 	}).Return(nil)
 
-	err = store.PutAndCheckHash(context.Background(), "foo", strings.NewReader("some content"), 12, hash)
+	err := store.PutAndCheckHash(context.Background(), "foo", strings.NewReader("some content"), 12, hash)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.service.EXPECT().PutMetadata(gomock.Any(), objectstore.Metadata{
@@ -407,7 +373,7 @@ func (s *fileObjectStoreSuite) TestPutAndCheckHashDoesNotCleansUpFileOnMetadataF
 	err = store.PutAndCheckHash(context.Background(), "foo", strings.NewReader("some content"), 12, hash)
 	c.Assert(err, gc.ErrorMatches, `.*boom`)
 
-	s.expectFileDoesExist(c, path, namespace, hash)
+	s.expectFileDoesExist(c, path, hash)
 }
 
 func (s *fileObjectStoreSuite) TestRemoveFileNotFound(c *gc.C) {
@@ -422,11 +388,9 @@ func (s *fileObjectStoreSuite) TestRemoveFileNotFound(c *gc.C) {
 
 	path := c.MkDir()
 
-	namespace := "inferi"
 	fileName := "foo"
 
-	store, err := NewFileObjectStore(context.Background(), namespace, path, s.service, s.claimer, jujutesting.NewCheckLogger(c), clock.WallClock)
-	c.Assert(err, gc.IsNil)
+	store := s.newFileObjectStore(c, path)
 	defer workertest.DirtyKill(c, store)
 
 	s.service.EXPECT().GetMetadata(gomock.Any(), fileName).Return(objectstore.Metadata{
@@ -437,7 +401,7 @@ func (s *fileObjectStoreSuite) TestRemoveFileNotFound(c *gc.C) {
 
 	s.service.EXPECT().RemoveMetadata(gomock.Any(), "foo").Return(nil)
 
-	err = store.Remove(context.Background(), "foo")
+	err := store.Remove(context.Background(), "foo")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -450,10 +414,7 @@ func (s *fileObjectStoreSuite) TestRemove(c *gc.C) {
 
 	path := c.MkDir()
 
-	namespace := "inferi"
-
-	store, err := NewFileObjectStore(context.Background(), namespace, path, s.service, s.claimer, jujutesting.NewCheckLogger(c), clock.WallClock)
-	c.Assert(err, gc.IsNil)
+	store := s.newFileObjectStore(c, path)
 	defer workertest.DirtyKill(c, store)
 
 	s.service.EXPECT().PutMetadata(gomock.Any(), objectstore.Metadata{
@@ -462,10 +423,10 @@ func (s *fileObjectStoreSuite) TestRemove(c *gc.C) {
 		Size: 12,
 	}).Return(nil)
 
-	err = store.Put(context.Background(), "foo", strings.NewReader("some content"), 12)
+	err := store.Put(context.Background(), "foo", strings.NewReader("some content"), 12)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.expectFileDoesExist(c, path, namespace, hash)
+	s.expectFileDoesExist(c, path, hash)
 
 	s.service.EXPECT().GetMetadata(gomock.Any(), "foo").Return(objectstore.Metadata{
 		Hash: hash,
@@ -478,7 +439,7 @@ func (s *fileObjectStoreSuite) TestRemove(c *gc.C) {
 	err = store.Remove(context.Background(), "foo")
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.expectFileDoesNotExist(c, path, namespace, hash)
+	s.expectFileDoesNotExist(c, path, hash)
 }
 
 func (s *fileObjectStoreSuite) createFile(c *gc.C, path, name, contents string) (int64, string) {
@@ -513,13 +474,13 @@ func (s *fileObjectStoreSuite) createFile(c *gc.C, path, name, contents string) 
 	return info.Size(), hash
 }
 
-func (s *fileObjectStoreSuite) expectFileDoesNotExist(c *gc.C, path, namespace, hash string) {
-	_, err := os.Stat(filepath.Join(path, defaultFileDirectory, namespace, hash))
+func (s *fileObjectStoreSuite) expectFileDoesNotExist(c *gc.C, path, hash string) {
+	_, err := os.Stat(filepath.Join(path, defaultFileDirectory, "inferi", hash))
 	c.Assert(err, jc.Satisfies, os.IsNotExist)
 }
 
-func (s *fileObjectStoreSuite) expectFileDoesExist(c *gc.C, path, namespace, hash string) {
-	_, err := os.Stat(filepath.Join(path, defaultFileDirectory, namespace, hash))
+func (s *fileObjectStoreSuite) expectFileDoesExist(c *gc.C, path, hash string) {
+	_, err := os.Stat(filepath.Join(path, defaultFileDirectory, "inferi", hash))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -535,4 +496,18 @@ func (s *fileObjectStoreSuite) expectRelease(hash string, num int) {
 
 func (s *fileObjectStoreSuite) filePath(path, namespace string) string {
 	return filepath.Join(path, defaultFileDirectory, namespace)
+}
+
+func (s *fileObjectStoreSuite) newFileObjectStore(c *gc.C, path string) TrackedObjectStore {
+	store, err := NewFileObjectStore(context.Background(), FileObjectStoreConfig{
+		Namespace:       "inferi",
+		RootDir:         path,
+		MetadataService: s.service,
+		Claimer:         s.claimer,
+		Logger:          jujutesting.NewCheckLogger(c),
+		Clock:           clock.WallClock,
+	})
+	c.Assert(err, gc.IsNil)
+
+	return store
 }

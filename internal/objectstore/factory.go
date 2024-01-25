@@ -122,7 +122,14 @@ func ObjectStoreFactory(ctx context.Context, backendType objectstore.BackendType
 	case objectstore.StateBackend:
 		return NewStateObjectStore(ctx, namespace, opts.mongoSession, opts.logger)
 	case objectstore.FileBackend:
-		return NewFileObjectStore(ctx, namespace, opts.rootDir, opts.metadataService.ObjectStore(), opts.claimer, opts.logger, opts.clock)
+		return NewFileObjectStore(ctx, FileObjectStoreConfig{
+			Namespace:       namespace,
+			RootDir:         opts.rootDir,
+			MetadataService: opts.metadataService.ObjectStore(),
+			Claimer:         opts.claimer,
+			Logger:          opts.logger,
+			Clock:           opts.clock,
+		})
 	case objectstore.S3Backend:
 		return NewS3ObjectStore(ctx, S3ObjectStoreConfig{
 			Namespace:       namespace,

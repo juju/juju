@@ -24,6 +24,16 @@ const (
 	defaultFileDirectory = "objectstore"
 )
 
+// FileObjectStoreConfig is the configuration for the file object store.
+type FileObjectStoreConfig struct {
+	Namespace       string
+	RootDir         string
+	MetadataService objectstore.ObjectStoreMetadata
+	Claimer         Claimer
+	Logger          Logger
+	Clock           clock.Clock
+}
+
 type fileObjectStore struct {
 	baseObjectStore
 	fs        fs.FS
@@ -34,19 +44,19 @@ type fileObjectStore struct {
 
 // NewFileObjectStore returns a new object store worker based on the file
 // storage.
-func NewFileObjectStore(ctx context.Context, namespace, rootPath string, metadataService objectstore.ObjectStoreMetadata, claimer Claimer, logger Logger, clock clock.Clock) (TrackedObjectStore, error) {
-	path := filepath.Join(rootPath, defaultFileDirectory, namespace)
+func NewFileObjectStore(ctx context.Context, cfg FileObjectStoreConfig) (TrackedObjectStore, error) {
+	path := filepath.Join(cfg.RootDir, defaultFileDirectory, cfg.Namespace)
 
 	s := &fileObjectStore{
 		baseObjectStore: baseObjectStore{
-			claimer:         claimer,
-			metadataService: metadataService,
-			logger:          logger,
-			clock:           clock,
+			claimer:         cfg.Claimer,
+			metadataService: cfg.MetadataService,
+			logger:          cfg.Logger,
+			clock:           cfg.Clock,
 		},
 		fs:        os.DirFS(path),
 		path:      path,
-		namespace: namespace,
+		namespace: cfg.Namespace,
 
 		requests: make(chan request),
 	}
