@@ -140,6 +140,21 @@ func (mr *MockStateMockRecorder) GetUser(arg0, arg1 any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUser", reflect.TypeOf((*MockState)(nil).GetUser), arg0, arg1)
 }
 
+// GetUserByAuth mocks base method.
+func (m *MockState) GetUserByAuth(arg0 context.Context, arg1, arg2 string) (user.User, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetUserByAuth", arg0, arg1, arg2)
+	ret0, _ := ret[0].(user.User)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetUserByAuth indicates an expected call of GetUserByAuth.
+func (mr *MockStateMockRecorder) GetUserByAuth(arg0, arg1, arg2 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUserByAuth", reflect.TypeOf((*MockState)(nil).GetUserByAuth), arg0, arg1, arg2)
+}
+
 // GetUserByName mocks base method.
 func (m *MockState) GetUserByName(arg0 context.Context, arg1 string) (user.User, error) {
 	m.ctrl.T.Helper()
@@ -153,21 +168,6 @@ func (m *MockState) GetUserByName(arg0 context.Context, arg1 string) (user.User,
 func (mr *MockStateMockRecorder) GetUserByName(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUserByName", reflect.TypeOf((*MockState)(nil).GetUserByName), arg0, arg1)
-}
-
-// GetUserWithAuth mocks base method.
-func (m *MockState) GetUserWithAuth(arg0 context.Context, arg1 user.UUID, arg2 string) (user.User, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetUserWithAuth", arg0, arg1, arg2)
-	ret0, _ := ret[0].(user.User)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetUserWithAuth indicates an expected call of GetUserWithAuth.
-func (mr *MockStateMockRecorder) GetUserWithAuth(arg0, arg1, arg2 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUserWithAuth", reflect.TypeOf((*MockState)(nil).GetUserWithAuth), arg0, arg1, arg2)
 }
 
 // RemoveUser mocks base method.

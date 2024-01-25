@@ -53,10 +53,10 @@ type State interface {
 	// usererrors.NotFound will be returned.
 	GetUserByName(ctx context.Context, name string) (user.User, error)
 
-	// GetUserWithAuth will retrieve the user with checking authentication information
-	// specified by UUID from the database. If the user does not exist
+	// GetUserByAuth will retrieve the user with checking authentication information
+	// specified by name and password from the database. If the user does not exist
 	// an error that satisfies usererrors.NotFound will be returned.
-	GetUserWithAuth(context.Context, user.UUID, string) (user.User, error)
+	GetUserByAuth(context.Context, string, string) (user.User, error)
 
 	// RemoveUser marks the user as removed. This obviates the ability of a user
 	// to function, but keeps the user retaining provenance, i.e. auditing.
@@ -175,23 +175,24 @@ func (s *Service) GetUserByName(
 	return usr, nil
 }
 
-// GetUserWithAuth will find and return the user with UUID. If there is no
-// user for the UUID then an error that satisfies usererrors.NotFound will
-// be returned.
+// GetUserByAuth will find and return the user with UUID. If there is no
+// user for the name and password, then an error that satisfies
+// usererrors.NotFound will be returned. If supplied with an invalid user name
+// then an error that satisfies usererrors.UsernameNotValid will be returned.
 //
-// GetUserWithAuth will not return users that have been previously removed.
-func (s *Service) GetUserWithAuth(
+// GetUserByAuth will not return users that have been previously removed.
+func (s *Service) GetUserByAuth(
 	ctx context.Context,
-	uuid user.UUID,
+	name string,
 	password string,
 ) (user.User, error) {
-	if err := uuid.Validate(); err != nil {
-		return user.User{}, errors.Annotatef(usererrors.UUIDNotValid, "validating uuid %q", uuid)
+	if err := ValidateUsername(name); err != nil {
+		return user.User{}, errors.Annotatef(err, "validating username %q", name)
 	}
 
-	usr, err := s.st.GetUserWithAuth(ctx, uuid, password)
+	usr, err := s.st.GetUserByAuth(ctx, name, password)
 	if err != nil {
-		return user.User{}, errors.Annotatef(err, "getting user for uuid %q", uuid)
+		return user.User{}, errors.Annotatef(err, "getting user %q", name)
 	}
 
 	return usr, nil
@@ -199,7 +200,7 @@ func (s *Service) GetUserWithAuth(
 
 // ValidateUsername takes a user name and validates that the user name is
 // conformant to our regex rules defined in usernameValidationRegex. If a
-// user name is not valid an error is returned that satisfies
+// user name is not valid, an error is returned that satisfies
 // usererrors.UsernameNotValid.
 //
 // User names must be one or more runes long, can contain any unicode rune from
