@@ -63,6 +63,7 @@ func NewTestAPI(
 		remoteClientGetter:  remoteClientGetter,
 		crossModelState:     crossModelState,
 		clock:               clock,
+		controllerUUID:      coretesting.ControllerTag.Id(),
 		modelUUID:           coretesting.ModelTag.Id(),
 	}, nil
 }

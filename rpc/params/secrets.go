@@ -406,6 +406,9 @@ type GetRemoteSecretContentArgs struct {
 
 // GetRemoteSecretContentArg holds ares for fetching a remote secret.
 type GetRemoteSecretContentArg struct {
+	// SourceControllerUUID is the UUID of the controller making this API call.
+	SourceControllerUUID string `json:"source-controller-uuid"`
+
 	// ApplicationToken is the application token on the remote model.
 	ApplicationToken string `json:"application-token"`
 
