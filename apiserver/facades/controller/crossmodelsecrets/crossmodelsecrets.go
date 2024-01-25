@@ -24,17 +24,18 @@ import (
 	"github.com/juju/juju/secrets/provider"
 )
 
-type backendConfigGetter func(modelUUID, backendID string, consumer names.Tag) (*provider.ModelBackendConfigInfo, error)
+type backendConfigGetter func(modelUUID string, sameController bool, backendID string, consumer names.Tag) (*provider.ModelBackendConfigInfo, error)
 type secretStateGetter func(modelUUID string) (SecretsState, SecretsConsumer, func() bool, error)
 
 // CrossModelSecretsAPI provides access to the CrossModelSecrets API facade.
 type CrossModelSecretsAPI struct {
 	resources facade.Resources
 
-	ctx       stdcontext.Context
-	mu        sync.Mutex
-	authCtxt  *crossmodel.AuthContext
-	modelUUID string
+	ctx            stdcontext.Context
+	mu             sync.Mutex
+	authCtxt       *crossmodel.AuthContext
+	controllerUUID string
+	modelUUID      string
 
 	secretsStateGetter  secretStateGetter
 	backendConfigGetter backendConfigGetter
@@ -46,6 +47,7 @@ type CrossModelSecretsAPI struct {
 func NewCrossModelSecretsAPI(
 	resources facade.Resources,
 	authContext *crossmodel.AuthContext,
+	controllerUUID string,
 	modelUUID string,
 	secretsStateGetter secretStateGetter,
 	backendConfigGetter backendConfigGetter,
@@ -56,6 +58,7 @@ func NewCrossModelSecretsAPI(
 		ctx:                 stdcontext.Background(),
 		resources:           resources,
 		authCtxt:            authContext,
+		controllerUUID:      controllerUUID,
 		modelUUID:           modelUUID,
 		secretsStateGetter:  secretsStateGetter,
 		backendConfigGetter: backendConfigGetter,
@@ -225,7 +228,13 @@ func (s *CrossModelSecretsAPI) getSecretContent(arg params.GetRemoteSecretConten
 	if err != nil || content.ValueRef == nil {
 		return content, nil, latestRevision, errors.Trace(err)
 	}
-	backend, err := s.getBackend(uri.SourceUUID, content.ValueRef.BackendID, consumer)
+
+	// Older controllers will not set the controller UUID in the arg, which means
+	// that we assume a different controller for consume and offer models.
+	// This breaks single controller microk8s cross model secrets, but not assuming
+	// that breaks everything else.
+	sameController := s.controllerUUID == arg.SourceControllerUUID
+	backend, err := s.getBackend(uri.SourceUUID, sameController, content.ValueRef.BackendID, consumer)
 	return content, backend, latestRevision, errors.Trace(err)
 }
 
@@ -255,8 +264,8 @@ func (s *CrossModelSecretsAPI) updateConsumedRevision(secretsState SecretsState,
 	return md.LatestRevision, nil
 }
 
-func (s *CrossModelSecretsAPI) getBackend(modelUUID string, backendID string, consumer names.Tag) (*params.SecretBackendConfigResult, error) {
-	cfgInfo, err := s.backendConfigGetter(modelUUID, backendID, consumer)
+func (s *CrossModelSecretsAPI) getBackend(modelUUID string, sameController bool, backendID string, consumer names.Tag) (*params.SecretBackendConfigResult, error) {
+	cfgInfo, err := s.backendConfigGetter(modelUUID, sameController, backendID, consumer)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

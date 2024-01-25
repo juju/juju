@@ -183,7 +183,7 @@ func (p vaultProvider) CleanupSecrets(cfg *provider.ModelBackendConfig, tag name
 // secrets backend client restricted to manage the specified
 // owned secrets and read shared secrets for the given entity tag.
 func (p vaultProvider) RestrictedConfig(
-	adminCfg *provider.ModelBackendConfig, forDrain bool, tag names.Tag, owned provider.SecretRevisions, read provider.SecretRevisions,
+	adminCfg *provider.ModelBackendConfig, sameController, forDrain bool, tag names.Tag, owned provider.SecretRevisions, read provider.SecretRevisions,
 ) (*provider.BackendConfig, error) {
 	adminUser := tag == nil
 	// Get an admin backend client so we can set up the policies.

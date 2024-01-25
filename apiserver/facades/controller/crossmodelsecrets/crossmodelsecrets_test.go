@@ -106,7 +106,8 @@ func (s *CrossModelSecretsSuite) setup(c *gc.C) *gomock.Controller {
 	secretsStateGetter := func(modelUUID string) (crossmodelsecrets.SecretsState, crossmodelsecrets.SecretsConsumer, func() bool, error) {
 		return s.secretsState, s.secretsConsumer, func() bool { return false }, nil
 	}
-	backendConfigGetter := func(modelUUID, backendID string, consumer names.Tag) (*provider.ModelBackendConfigInfo, error) {
+	backendConfigGetter := func(modelUUID string, sameController bool, backendID string, consumer names.Tag) (*provider.ModelBackendConfigInfo, error) {
+		c.Assert(sameController, jc.IsFalse)
 		c.Assert(backendID, gc.Equals, "backend-id")
 		c.Assert(consumer.String(), gc.Equals, "unit-remote-app-666")
 		return &provider.ModelBackendConfigInfo{
@@ -128,6 +129,7 @@ func (s *CrossModelSecretsSuite) setup(c *gc.C) *gomock.Controller {
 	s.facade, err = crossmodelsecrets.NewCrossModelSecretsAPI(
 		s.resources,
 		s.authContext,
+		coretesting.ControllerTag.Id(),
 		coretesting.ModelTag.Id(),
 		secretsStateGetter,
 		backendConfigGetter,
@@ -201,23 +203,25 @@ func (s *CrossModelSecretsSuite) assertGetSecretContentInfo(c *gc.C, newConsumer
 
 	args := params.GetRemoteSecretContentArgs{
 		Args: []params.GetRemoteSecretContentArg{{
-			ApplicationToken: "token",
-			UnitId:           666,
-			BakeryVersion:    3,
-			Macaroons:        macaroon.Slice{mac.M()},
-			URI:              uri.String(),
-			Refresh:          true,
+			SourceControllerUUID: "deadbeef-1bad-500d-9000-4b1d0d06f666",
+			ApplicationToken:     "token",
+			UnitId:               666,
+			BakeryVersion:        3,
+			Macaroons:            macaroon.Slice{mac.M()},
+			URI:                  uri.String(),
+			Refresh:              true,
 		}, {
 			URI: coresecrets.NewURI().String(),
 		}, {
 			URI: uri.String(),
 		}, {
-			ApplicationToken: "token2",
-			UnitId:           666,
-			BakeryVersion:    3,
-			Macaroons:        macaroon.Slice{mac.M()},
-			URI:              uri.String(),
-			Refresh:          true,
+			SourceControllerUUID: "deadbeef-1bad-500d-9000-4b1d0d06f666",
+			ApplicationToken:     "token2",
+			UnitId:               666,
+			BakeryVersion:        3,
+			Macaroons:            macaroon.Slice{mac.M()},
+			URI:                  uri.String(),
+			Refresh:              true,
 		}},
 	}
 	results, err := s.facade.GetSecretContentInfo(args)
