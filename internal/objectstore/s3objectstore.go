@@ -115,6 +115,34 @@ func (t *s3ObjectStore) Get(ctx context.Context, path string) (io.ReadCloser, in
 	}
 }
 
+// List returns a list of all paths, namespaced to the model.
+func (t *s3ObjectStore) List(ctx context.Context) ([]objectstore.Metadata, []string, error) {
+	// Sequence the list request with the put and remove requests.
+	response := make(chan response)
+	select {
+	case <-ctx.Done():
+		return nil, nil, ctx.Err()
+	case <-t.tomb.Dying():
+		return nil, nil, tomb.ErrDying
+	case t.requests <- request{
+		op:       opList,
+		response: response,
+	}:
+	}
+
+	select {
+	case <-ctx.Done():
+		return nil, nil, ctx.Err()
+	case <-t.tomb.Dying():
+		return nil, nil, tomb.ErrDying
+	case resp := <-response:
+		if resp.err != nil {
+			return nil, nil, fmt.Errorf("listing blobs: %w", resp.err)
+		}
+		return resp.listMetadata, resp.listObjects, nil
+	}
+}
+
 // Put stores data from reader at path, namespaced to the model.
 func (t *s3ObjectStore) Put(ctx context.Context, path string, r io.Reader, size int64) error {
 	response := make(chan response)
@@ -274,13 +302,30 @@ func (t *s3ObjectStore) loop() error {
 					err: t.remove(ctx, req.path),
 				}:
 				}
+
+			case opList:
+				metadata, objects, err := t.list(ctx)
+
+				select {
+				case <-t.tomb.Dying():
+					return tomb.ErrDying
+
+				case req.response <- response{
+					listMetadata: metadata,
+					listObjects:  objects,
+					err:          err,
+				}:
+				}
+
+			default:
+				return fmt.Errorf("unknown request type %d", req.op)
 			}
 		}
 	}
 }
 
 func (t *s3ObjectStore) get(ctx context.Context, path string) (io.ReadCloser, int64, error) {
-	t.logger.Debugf("getting object %q from file storage", path)
+	t.logger.Debugf("getting object %q from s3 storage", path)
 
 	metadata, err := t.metadataService.GetMetadata(ctx, path)
 	if err != nil {
@@ -304,8 +349,31 @@ func (t *s3ObjectStore) get(ctx context.Context, path string) (io.ReadCloser, in
 	return reader, size, nil
 }
 
+func (t *s3ObjectStore) list(ctx context.Context) ([]objectstore.Metadata, []string, error) {
+	t.logger.Debugf("listing objects from s3 storage")
+
+	metadata, err := t.metadataService.ListMetadata(ctx)
+	if err != nil {
+		return nil, nil, fmt.Errorf("list metadata: %w", err)
+	}
+
+	var objects []string
+	if err := t.client.Session(ctx, func(ctx context.Context, s objectstore.Session) error {
+		var err error
+		objects, err = s.ListObjects(ctx, t.rootBucket)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		return nil
+	}); err != nil {
+		return nil, nil, fmt.Errorf("list objects: %w", err)
+	}
+
+	return metadata, objects, nil
+}
+
 func (t *s3ObjectStore) put(ctx context.Context, path string, r io.Reader, size int64, validator hashValidator) error {
-	t.logger.Debugf("putting object %q to file storage", path)
+	t.logger.Debugf("putting object %q to s3 storage", path)
 
 	// Charms and resources are coded to use the SHA384 hash. It is possible
 	// to move to the more common SHA256 hash, but that would require a
@@ -390,7 +458,7 @@ func (t *s3ObjectStore) persistTmpFile(ctx context.Context, tmpFileName, fileEnc
 }
 
 func (t *s3ObjectStore) remove(ctx context.Context, path string) error {
-	t.logger.Debugf("removing object %q from file storage", path)
+	t.logger.Debugf("removing object %q from s3 storage", path)
 
 	metadata, err := t.metadataService.GetMetadata(ctx, path)
 	if err != nil {

@@ -57,6 +57,21 @@ func (mr *MockObjectStoreMetadataMockRecorder) GetMetadata(arg0, arg1 any) *gomo
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMetadata", reflect.TypeOf((*MockObjectStoreMetadata)(nil).GetMetadata), arg0, arg1)
 }
 
+// ListMetadata mocks base method.
+func (m *MockObjectStoreMetadata) ListMetadata(arg0 context.Context) ([]objectstore.Metadata, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListMetadata", arg0)
+	ret0, _ := ret[0].([]objectstore.Metadata)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListMetadata indicates an expected call of ListMetadata.
+func (mr *MockObjectStoreMetadataMockRecorder) ListMetadata(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListMetadata", reflect.TypeOf((*MockObjectStoreMetadata)(nil).ListMetadata), arg0)
+}
+
 // PutMetadata mocks base method.
 func (m *MockObjectStoreMetadata) PutMetadata(arg0 context.Context, arg1 objectstore.Metadata) error {
 	m.ctrl.T.Helper()
@@ -166,6 +181,21 @@ func (m *MockSession) GetObject(arg0 context.Context, arg1, arg2 string) (io.Rea
 func (mr *MockSessionMockRecorder) GetObject(arg0, arg1, arg2 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetObject", reflect.TypeOf((*MockSession)(nil).GetObject), arg0, arg1, arg2)
+}
+
+// ListObjects mocks base method.
+func (m *MockSession) ListObjects(arg0 context.Context, arg1 string) ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListObjects", arg0, arg1)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListObjects indicates an expected call of ListObjects.
+func (mr *MockSessionMockRecorder) ListObjects(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListObjects", reflect.TypeOf((*MockSession)(nil).ListObjects), arg0, arg1)
 }
 
 // PutObject mocks base method.

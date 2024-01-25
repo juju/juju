@@ -85,6 +85,21 @@ func (mr *MockSessionMockRecorder) GetObject(arg0, arg1, arg2 any) *gomock.Call 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetObject", reflect.TypeOf((*MockSession)(nil).GetObject), arg0, arg1, arg2)
 }
 
+// ListObjects mocks base method.
+func (m *MockSession) ListObjects(arg0 context.Context, arg1 string) ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListObjects", arg0, arg1)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListObjects indicates an expected call of ListObjects.
+func (mr *MockSessionMockRecorder) ListObjects(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListObjects", reflect.TypeOf((*MockSession)(nil).ListObjects), arg0, arg1)
+}
+
 // PutObject mocks base method.
 func (m *MockSession) PutObject(arg0 context.Context, arg1, arg2 string, arg3 io.Reader, arg4 string) error {
 	m.ctrl.T.Helper()

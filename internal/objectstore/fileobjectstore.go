@@ -112,6 +112,34 @@ func (t *fileObjectStore) Get(ctx context.Context, path string) (io.ReadCloser, 
 	}
 }
 
+// List returns a list of all paths, namespaced to the model.
+func (t *fileObjectStore) List(ctx context.Context) ([]objectstore.Metadata, []string, error) {
+	// Sequence the list request with the put and remove requests.
+	response := make(chan response)
+	select {
+	case <-ctx.Done():
+		return nil, nil, ctx.Err()
+	case <-t.tomb.Dying():
+		return nil, nil, tomb.ErrDying
+	case t.requests <- request{
+		op:       opList,
+		response: response,
+	}:
+	}
+
+	select {
+	case <-ctx.Done():
+		return nil, nil, ctx.Err()
+	case <-t.tomb.Dying():
+		return nil, nil, tomb.ErrDying
+	case resp := <-response:
+		if resp.err != nil {
+			return nil, nil, fmt.Errorf("listing blobs: %w", resp.err)
+		}
+		return resp.listMetadata, resp.listObjects, nil
+	}
+}
+
 // Put stores data from reader at path, namespaced to the model.
 func (t *fileObjectStore) Put(ctx context.Context, path string, r io.Reader, size int64) error {
 	response := make(chan response)
@@ -260,6 +288,23 @@ func (t *fileObjectStore) loop() error {
 					err: t.remove(ctx, req.path),
 				}:
 				}
+
+			case opList:
+				metadata, objects, err := t.list(ctx)
+
+				select {
+				case <-t.tomb.Dying():
+					return tomb.ErrDying
+
+				case req.response <- response{
+					listMetadata: metadata,
+					listObjects:  objects,
+					err:          err,
+				}:
+				}
+
+			default:
+				return fmt.Errorf("unknown request type %d", req.op)
 			}
 		}
 	}
@@ -291,6 +336,32 @@ func (t *fileObjectStore) get(ctx context.Context, path string) (io.ReadCloser, 
 	}
 
 	return file, size, nil
+}
+
+func (t *fileObjectStore) list(ctx context.Context) ([]objectstore.Metadata, []string, error) {
+	t.logger.Debugf("listing objects from file storage")
+
+	metadata, err := t.metadataService.ListMetadata(ctx)
+	if err != nil {
+		return nil, nil, fmt.Errorf("list metadata: %w", err)
+	}
+
+	// List all the files in the directory.
+	entries, err := fs.ReadDir(t.fs, ".")
+	if err != nil {
+		return nil, nil, fmt.Errorf("reading directory: %w", err)
+	}
+
+	// Filter out any directories.
+	var files []string
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		files = append(files, entry.Name())
+	}
+
+	return metadata, files, nil
 }
 
 func (t *fileObjectStore) put(ctx context.Context, path string, r io.Reader, size int64, validator hashValidator) error {

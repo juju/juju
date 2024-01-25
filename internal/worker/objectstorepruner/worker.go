@@ -5,13 +5,15 @@ package objectstorepruner
 
 import (
 	"context"
+	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/worker/v4"
 	"gopkg.in/tomb.v2"
+)
 
-	coreobjectstore "github.com/juju/juju/core/objectstore"
+const (
+	pruneInterval = time.Hour * 6
 )
 
 const (
@@ -19,18 +21,13 @@ const (
 	stateStarted = "started"
 )
 
-// TrackedObjectStore is a ObjectStore that is also a worker, to ensure the
-// lifecycle of the objectStore is managed.
-type TrackedObjectStore interface {
-	worker.Worker
-	coreobjectstore.ObjectStore
-}
-
 // WorkerConfig encapsulates the configuration options for the
 // objectStore worker.
 type WorkerConfig struct {
-	Clock  clock.Clock
-	Logger Logger
+	ModelManagerService ModelManagerService
+	ObjectStoreGetter   ObjectStoreGetter
+	Clock               clock.Clock
+	Logger              Logger
 }
 
 // Validate ensures that the config values are valid.
@@ -78,12 +75,25 @@ func (w *objectStorePrunerWorker) loop() (err error) {
 	ctx, cancel := w.scopedContext()
 	defer cancel()
 
-	_ = ctx
+	// Periodically, check if there are any objects to prune.
+	timer := w.cfg.Clock.NewTimer(pruneInterval)
+	defer timer.Stop()
 
 	for {
 		select {
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
+		case <-timer.Chan():
+
+			// The pruner will prune in the following order:
+			//
+			// 1. Prune orphaned models.
+			// 2. Prune orphaned blobs.
+			//
+			// We do 1 first because we don't want to waste cycles pruning blobs
+			// that are associated with models that no longer exist.
+
+			_ = ctx
 		}
 	}
 }

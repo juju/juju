@@ -31,6 +31,8 @@ type Logger interface {
 	Infof(message string, args ...any)
 	Debugf(message string, args ...any)
 	Tracef(message string, args ...any)
+
+	IsTraceEnabled() bool
 }
 
 // ObjectStoreGetter is the interface that is used to get a object store.

@@ -45,6 +45,7 @@ type opType int
 
 const (
 	opGet opType = iota
+	opList
 	opPut
 	opRemove
 )
@@ -59,9 +60,11 @@ type request struct {
 }
 
 type response struct {
-	reader io.ReadCloser
-	size   int64
-	err    error
+	reader       io.ReadCloser
+	size         int64
+	listMetadata []objectstore.Metadata
+	listObjects  []string
+	err          error
 }
 
 type baseObjectStore struct {

@@ -33,12 +33,16 @@ type Client interface {
 type Session interface {
 	ReadSession
 	WriteSession
+	BucketSession
 }
 
 // ReadSession provides read access to the object store.
 type ReadSession interface {
 	// GetObject returns a reader for the specified object.
 	GetObject(ctx context.Context, bucketName, objectName string) (io.ReadCloser, int64, string, error)
+
+	// ListObjects returns a list of objects in the specified bucket.
+	ListObjects(ctx context.Context, bucketName string) ([]string, error)
 }
 
 // WriteSession provides read access to the object store.
@@ -50,7 +54,11 @@ type WriteSession interface {
 	// DeleteObject deletes an object from the object store based on the bucket name
 	// and object name.
 	DeleteObject(ctx context.Context, bucketName, objectName string) error
+}
 
+// BucketSession provides additional access to the object store. This allows
+// the manipulation of buckets.
+type BucketSession interface {
 	// CreateBucket creates a bucket in the object store based on the bucket name.
 	CreateBucket(ctx context.Context, bucketName string) error
 }
@@ -66,6 +74,9 @@ type ReadObjectStore interface {
 	// Get returns an io.ReadCloser for data at path, namespaced to the
 	// model.
 	Get(context.Context, string) (io.ReadCloser, int64, error)
+
+	// List returns a list of all paths, namespaced to the model.
+	List(context.Context) ([]Metadata, []string, error)
 }
 
 // WriteObjectStore represents an object store that can only be written to.

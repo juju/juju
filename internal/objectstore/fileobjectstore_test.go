@@ -139,6 +139,32 @@ func (s *fileObjectStoreSuite) TestGetMetadataAndFileFoundWithIncorrectSize(c *g
 	c.Assert(err, gc.ErrorMatches, `.*size mismatch.*`)
 }
 
+func (s *fileObjectStoreSuite) TestListMetadata(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	path := c.MkDir()
+
+	namespace := "inferi"
+	fileName := "foo"
+	size, hash := s.createFile(c, s.filePath(path, namespace), fileName, "some content")
+
+	store, err := NewFileObjectStore(context.Background(), namespace, path, s.service, s.claimer, jujutesting.NewCheckLogger(c), clock.WallClock)
+	c.Assert(err, gc.IsNil)
+	defer workertest.DirtyKill(c, store)
+
+	s.service.EXPECT().ListMetadata(gomock.Any()).Return([]objectstore.Metadata{{
+		Hash: hash,
+		Path: fileName,
+		Size: size,
+	}}, nil)
+
+	metadata, objects, err := store.List(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(metadata, gc.DeepEquals, []objectstore.Metadata{{Hash: hash, Path: fileName, Size: size}})
+	c.Check(objects, gc.DeepEquals, []string{hash})
+}
+
 func (s *fileObjectStoreSuite) TestPut(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 

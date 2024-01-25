@@ -39,6 +39,9 @@ type ObjectStoreMetadata interface {
 	// RemoveMetadata removes the specified path for the persistence metadata.
 	RemoveMetadata(ctx context.Context, path string) error
 
+	// ListMetadata returns the persistence metadata for all paths.
+	ListMetadata(ctx context.Context) ([]Metadata, error)
+
 	// Watch returns a watcher that emits the path changes that either have been
 	// added or removed.
 	Watch() (watcher.StringsWatcher, error)
