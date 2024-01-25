@@ -48,6 +48,24 @@ func (s *stateSuite) TestGetMetadataFound(c *gc.C) {
 	c.Assert(received, gc.DeepEquals, metadata)
 }
 
+func (s *stateSuite) TestListMetadataFound(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	metadata := objectstore.Metadata{
+		UUID: utils.MustNewUUID().String(),
+		Hash: "hash",
+		Path: "blah-foo",
+		Size: 666,
+	}
+
+	err := st.PutMetadata(context.Background(), metadata)
+	c.Assert(err, jc.ErrorIsNil)
+
+	received, err := st.ListMetadata(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(received, gc.DeepEquals, []objectstore.Metadata{metadata})
+}
+
 func (s *stateSuite) TestPutMetadataConflict(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 

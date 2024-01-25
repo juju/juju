@@ -50,6 +50,32 @@ func (s *serviceSuite) TestGetMetadata(c *gc.C) {
 	c.Assert(p, gc.DeepEquals, metadata)
 }
 
+func (s *serviceSuite) TestListMetadata(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	path := utils.MustNewUUID().String()
+
+	metadata := coreobjectstore.Metadata{
+		Path: path,
+		Hash: utils.MustNewUUID().String(),
+		Size: 666,
+	}
+
+	s.state.EXPECT().ListMetadata(gomock.Any()).Return([]objectstore.Metadata{{
+		Path: metadata.Path,
+		Hash: metadata.Hash,
+		Size: metadata.Size,
+	}}, nil)
+
+	p, err := NewService(s.state, nil).ListMetadata(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(p, gc.DeepEquals, []coreobjectstore.Metadata{{
+		Path: metadata.Path,
+		Size: metadata.Size,
+		Hash: metadata.Hash,
+	}})
+}
+
 func (s *serviceSuite) TestPutMetadata(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
