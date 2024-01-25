@@ -58,7 +58,7 @@ func (s *fileObjectStoreSuite) TestGetMetadataFoundNoFile(c *gc.C) {
 	}, nil).Times(2)
 
 	_, _, err := store.Get(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIs, os.ErrNotExist)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *fileObjectStoreSuite) TestGetMetadataAndFileFound(c *gc.C) {

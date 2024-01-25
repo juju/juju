@@ -97,6 +97,9 @@ func (t *fileObjectStore) Get(ctx context.Context, path string) (io.ReadCloser, 
 		return nil, -1, tomb.ErrDying
 	case resp := <-response:
 		if resp.err != nil {
+			if errors.Is(resp.err, os.ErrNotExist) {
+				return nil, -1, fmt.Errorf("getting blob: %w", errors.NotFoundf("path %q", path))
+			}
 			return nil, -1, fmt.Errorf("getting blob: %w", resp.err)
 		}
 		return resp.reader, resp.size, nil

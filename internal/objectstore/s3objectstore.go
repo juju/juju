@@ -345,14 +345,11 @@ func (t *s3ObjectStore) persistTmpFile(ctx context.Context, tmpFileName, fileEnc
 		// Now that we've written the file, we can upload it to the object
 		// store.
 		err := s.PutObject(ctx, defaultBucketName, t.filePath(fileEncodedHash), file, s3EncodedHash)
-		if err == nil {
+		// If the file already exists, then we can ignore the error.
+		if err == nil || errors.Is(err, errors.AlreadyExists) {
 			return nil
 		}
 
-		// If the file already exists, then we can ignore the error.
-		if errors.Is(err, errors.AlreadyExists) {
-			return nil
-		}
 		return errors.Trace(err)
 	}); err != nil {
 		return errors.Trace(err)
