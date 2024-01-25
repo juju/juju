@@ -124,7 +124,14 @@ func ObjectStoreFactory(ctx context.Context, backendType objectstore.BackendType
 	case objectstore.FileBackend:
 		return NewFileObjectStore(ctx, namespace, opts.rootDir, opts.metadataService.ObjectStore(), opts.claimer, opts.logger, opts.clock)
 	case objectstore.S3Backend:
-		return NewS3ObjectStore(ctx, namespace, opts.s3Client, opts.metadataService.ObjectStore(), opts.claimer, opts.logger, opts.clock)
+		return NewS3ObjectStore(ctx, S3ObjectStoreConfig{
+			Namespace:       namespace,
+			Client:          opts.s3Client,
+			MetadataService: opts.metadataService.ObjectStore(),
+			Claimer:         opts.claimer,
+			Logger:          opts.logger,
+			Clock:           opts.clock,
+		})
 	default:
 		return nil, errors.NotValidf("backend type %q", backendType)
 	}

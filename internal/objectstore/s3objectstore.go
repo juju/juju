@@ -24,6 +24,16 @@ const (
 	defaultBucketName = "juju"
 )
 
+// S3ObjectStoreConfig is the configuration for the s3 object store.
+type S3ObjectStoreConfig struct {
+	Namespace       string
+	Client          objectstore.Client
+	MetadataService objectstore.ObjectStoreMetadata
+	Claimer         Claimer
+	Logger          Logger
+	Clock           clock.Clock
+}
+
 type s3ObjectStore struct {
 	baseObjectStore
 	client    objectstore.Client
@@ -33,16 +43,16 @@ type s3ObjectStore struct {
 
 // NewS3ObjectStore returns a new object store worker based on the s3 backing
 // storage.
-func NewS3ObjectStore(ctx context.Context, namespace string, client objectstore.Client, metadataService objectstore.ObjectStoreMetadata, claimer Claimer, logger Logger, clock clock.Clock) (TrackedObjectStore, error) {
+func NewS3ObjectStore(ctx context.Context, cfg S3ObjectStoreConfig) (TrackedObjectStore, error) {
 	s := &s3ObjectStore{
 		baseObjectStore: baseObjectStore{
-			claimer:         claimer,
-			metadataService: metadataService,
-			logger:          logger,
-			clock:           clock,
+			claimer:         cfg.Claimer,
+			metadataService: cfg.MetadataService,
+			logger:          cfg.Logger,
+			clock:           cfg.Clock,
 		},
-		client:    client,
-		namespace: namespace,
+		client:    cfg.Client,
+		namespace: cfg.Namespace,
 
 		requests: make(chan request),
 	}

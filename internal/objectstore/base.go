@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/objectstore"
@@ -186,7 +185,6 @@ func ignoreHash(string) (string, bool) {
 
 func checkHash(expected string) func(string) (string, bool) {
 	return func(actual string) (string, bool) {
-		loggo.GetLogger("***").Criticalf("checkHash: expected %q, actual %q", expected, actual)
 		return expected, actual == expected
 	}
 }
