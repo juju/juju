@@ -9,6 +9,8 @@ import (
 	"fmt"
 
 	"github.com/canonical/sqlair"
+	"github.com/juju/collections/set"
+	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 
 	coreDB "github.com/juju/juju/core/database"
@@ -90,8 +92,9 @@ WHERE  subnet_type.is_space_settable = FALSE AND subnet.uuid IN ($S[:])`, sqlair
 		// If any row is returned we must fail with the returned fan
 		// subnet uuids.
 		if len(nonSettableSubnets) > 0 {
+			deduplicatedSubnetUUIDs := set.NewStrings(transform.Slice(nonSettableSubnets, func(s Subnet) string { return s.UUID })...).Values()
 			return errors.Errorf(
-				"cannot set space for FAN subnet UUIDs %q - it is always inherited from underlay", uniqueSubnetUUIDs(nonSettableSubnets))
+				"cannot set space for FAN subnet UUIDs %q - it is always inherited from underlay", deduplicatedSubnetUUIDs)
 		}
 
 		if err := tx.Query(ctx, insertSpaceStmt, Space{UUID: uuid, Name: name}).Run(); err != nil {
@@ -111,7 +114,8 @@ WHERE  subnet_type.is_space_settable = FALSE AND subnet.uuid IN ($S[:])`, sqlair
 		}
 		// Append the fan subnet (unique) ids (if any) to the provided
 		// subnet ids.
-		subnetIDs = append(subnetIDs, uniqueSubnetUUIDs(fanSubnets)...)
+		deduplicatedSubnetUUIDs := set.NewStrings(transform.Slice(fanSubnets, func(s Subnet) string { return s.UUID })...).Values()
+		subnetIDs = append(subnetIDs, deduplicatedSubnetUUIDs...)
 
 		// Update all subnets (including their fan overlays) to include
 		// the space uuid.
@@ -321,18 +325,4 @@ func (st *State) DeleteSpace(
 
 		return nil
 	})
-}
-
-// uniqueSubnetUUIDs returns a deduplicated slice of the Subnet uuids.
-func uniqueSubnetUUIDs(subnets []Subnet) []string {
-	subnetUUIDUsed := make(map[string]bool)
-	var uniqueSubnetUUIDs []string
-	for _, subnet := range subnets {
-		uuid := subnet.UUID
-		if _, ok := subnetUUIDUsed[uuid]; !ok {
-			subnetUUIDUsed[uuid] = true
-			uniqueSubnetUUIDs = append(uniqueSubnetUUIDs, uuid)
-		}
-	}
-	return uniqueSubnetUUIDs
 }
