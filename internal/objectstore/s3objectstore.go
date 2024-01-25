@@ -22,13 +22,21 @@ import (
 
 // S3ObjectStoreConfig is the configuration for the s3 object store.
 type S3ObjectStoreConfig struct {
-	RootBucket      string
-	Namespace       string
-	Client          objectstore.Client
+	// RootBucket is the name of the root bucket.
+	RootBucket string
+	// Namespace is the namespace for the object store (typically the
+	// model UUID).
+	Namespace string
+	// Client is the object store client (s3 client).
+	Client objectstore.Client
+	// MetadataService is the metadata service for translating paths to
+	// hashes.
 	MetadataService objectstore.ObjectStoreMetadata
-	Claimer         Claimer
-	Logger          Logger
-	Clock           clock.Clock
+	// Claimer is the claimer for locking files.
+	Claimer Claimer
+
+	Logger Logger
+	Clock  clock.Clock
 }
 
 type s3ObjectStore struct {

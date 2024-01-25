@@ -30,14 +30,14 @@ type Logger interface {
 }
 
 // NewClientFunc is a function that returns a new S3 client.
-type NewClientFunc func(endpoint string, client s3client.HTTPClient, creds s3client.Credentials, logger s3client.Logger) (objectstore.Session, error)
+type NewClientFunc = func(endpoint string, client s3client.HTTPClient, creds s3client.Credentials, logger s3client.Logger) (objectstore.Session, error)
 
 // GetControllerConfigServiceFunc is a helper function that gets a service from
 // the manifold.
-type GetControllerConfigServiceFunc func(getter dependency.Getter, name string) (ControllerConfigService, error)
+type GetControllerConfigServiceFunc = func(getter dependency.Getter, name string) (ControllerConfigService, error)
 
 // NewWorkerFunc is a function that returns a new worker.
-type NewWorkerFunc func(workerConfig) (worker.Worker, error)
+type NewWorkerFunc = func(workerConfig) (worker.Worker, error)
 
 // ManifoldConfig defines a Manifold's dependencies.
 type ManifoldConfig struct {

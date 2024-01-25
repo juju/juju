@@ -423,12 +423,6 @@ var newConfigTests = []struct {
 		controller.ObjectStoreS3StaticSession: 1,
 	},
 	expectError: `object-store-s3-static-session: expected string, got int\(1\)`,
-}, {
-	about: "invalid object store s3 bucket name value",
-	config: controller.Config{
-		controller.ObjectStoreS3BucketName: 1,
-	},
-	expectError: `object-store-s3-bucket-name: expected string, got int\(1\)`,
 }}
 
 func (s *ConfigSuite) TestNewConfig(c *gc.C) {
@@ -1052,18 +1046,6 @@ func (s *ConfigSuite) TestObjectStoreS3Endpoint(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.ObjectStoreS3Endpoint(), gc.Equals, "http://localhost:9000")
-}
-
-func (s *ConfigSuite) TestObjectStoreS3BucketName(c *gc.C) {
-	cfg, err := controller.NewConfig(
-		testing.ControllerTag.Id(),
-		testing.CACert,
-		map[string]interface{}{
-			controller.ObjectStoreS3BucketName: "juju-test-bucket",
-		},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.ObjectStoreS3BucketName(), gc.Equals, "juju-test-bucket")
 }
 
 func (s *ConfigSuite) TestObjectStoreS3Credentials(c *gc.C) {

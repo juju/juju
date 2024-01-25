@@ -216,10 +216,15 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 
+			rootBucketName, err := bucketName(controllerConfig)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+
 			w, err := NewWorker(WorkerConfig{
 				TracerGetter:               tracerGetter,
 				RootDir:                    a.CurrentConfig().DataDir(),
-				RootBucket:                 bucketName(controllerConfig),
+				RootBucket:                 rootBucketName,
 				Clock:                      config.Clock,
 				Logger:                     config.Logger,
 				NewObjectStoreWorker:       config.NewObjectStoreWorker,
@@ -266,12 +271,12 @@ func output(in worker.Worker, out any) error {
 	return nil
 }
 
-func bucketName(config controller.Config) string {
-	name := config.ObjectStoreS3BucketName()
-	if name == "" {
-		return fmt.Sprintf("juju-%s", name)
+func bucketName(config controller.Config) (string, error) {
+	name := fmt.Sprintf("juju-%s", config.ControllerUUID())
+	if _, err := coreobjectstore.ParseObjectStoreBucketName(name); err != nil {
+		return "", errors.Trace(err)
 	}
-	return name
+	return name, nil
 }
 
 type shimStatePool struct {
