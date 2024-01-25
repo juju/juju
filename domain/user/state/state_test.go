@@ -456,9 +456,9 @@ func (s *stateSuite) TestGetUserByAuth(c *gc.C) {
 	c.Check(u.CreatedAt, gc.NotNil)
 }
 
-// TestGetUserByAuthWrongPassword asserts that we get an error when we try to
+// TestGetUserByAuthUnauthorized asserts that we get an error when we try to
 // get a user by auth with the wrong password.
-func (s *stateSuite) TestGetUserByAuthWrongPassword(c *gc.C) {
+func (s *stateSuite) TestGetUserByAuthUnauthorized(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	// Add admin user with password hash.
@@ -481,6 +481,17 @@ func (s *stateSuite) TestGetUserByAuthWrongPassword(c *gc.C) {
 	// Get the user.
 	_, err = st.GetUserByAuth(context.Background(), "admin", "wrongPassword")
 	c.Assert(err, jc.ErrorIs, usererrors.Unauthorized)
+}
+
+// TestGetUserByAutUnexcitingUser asserts that we get an error when we try to
+// get a user by auth that does not exist.
+func (s *stateSuite) TestGetUserByAutUnexcitingUser(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	// Get the user.
+	_, err := st.GetUserByAuth(context.Background(), "admin", "password")
+	c.Assert(err, jc.ErrorIs, usererrors.Unauthorized)
+
 }
 
 // TestRemoveUser asserts that we can remove a user from the database.
