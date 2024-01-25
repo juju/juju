@@ -74,9 +74,6 @@ type ReadObjectStore interface {
 	// Get returns an io.ReadCloser for data at path, namespaced to the
 	// model.
 	Get(context.Context, string) (io.ReadCloser, int64, error)
-
-	// List returns a list of all paths, namespaced to the model.
-	List(context.Context) ([]Metadata, []string, error)
 }
 
 // WriteObjectStore represents an object store that can only be written to.

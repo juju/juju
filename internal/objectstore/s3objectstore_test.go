@@ -163,41 +163,6 @@ func (s *s3ObjectStoreSuite) TestGetMetadataAndFileFoundWithIncorrectSize(c *gc.
 	c.Assert(err, gc.ErrorMatches, `.*size mismatch.*`)
 }
 
-func (s *s3ObjectStoreSuite) TestListMetadata(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	namespace := "inferi"
-	fileName := "foo"
-	hash := "blah"
-	size := int64(666)
-
-	store, err := NewS3ObjectStore(context.Background(), namespace, s.client, s.service, s.claimer, jujutesting.NewCheckLogger(c), clock.WallClock)
-	c.Assert(err, gc.IsNil)
-	defer workertest.DirtyKill(c, store)
-
-	// Ensure we've started up before we start the test.
-	started := s.expectStartup()
-
-	select {
-	case <-started:
-	case <-time.After(jujutesting.LongWait):
-		c.Fatalf("timed out waiting for startup")
-	}
-
-	s.service.EXPECT().ListMetadata(gomock.Any()).Return([]objectstore.Metadata{{
-		Hash: hash,
-		Path: fileName,
-		Size: size,
-	}}, nil)
-	s.session.EXPECT().ListObjects(gomock.Any(), defaultBucketName).Return([]string{hash}, nil)
-
-	metadata, objects, err := store.List(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(metadata, gc.DeepEquals, []objectstore.Metadata{{Hash: hash, Path: fileName, Size: size}})
-	c.Check(objects, gc.DeepEquals, []string{hash})
-}
-
 func (s *s3ObjectStoreSuite) TestPut(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 

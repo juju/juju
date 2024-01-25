@@ -14,7 +14,13 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/tomb.v2"
 
+	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/objectstore"
+)
+
+const (
+	// ErrFileLocked is returned when a file is locked.
+	ErrFileLocked = errors.ConstError("file locked")
 )
 
 // Claimer is the interface that is used to claim an exclusive lock for a
@@ -41,11 +47,17 @@ const (
 	defaultTempDirectoryName = "tmp"
 )
 
+// Pruner is the interface that is used to prune the object store.
+type Pruner interface {
+	// Prune removes any files that are no longer referenced by the metadata
+	// service.
+	Prune(ctx context.Context) error
+}
+
 type opType int
 
 const (
 	opGet opType = iota
-	opList
 	opPut
 	opRemove
 )
@@ -60,11 +72,9 @@ type request struct {
 }
 
 type response struct {
-	reader       io.ReadCloser
-	size         int64
-	listMetadata []objectstore.Metadata
-	listObjects  []string
-	err          error
+	reader io.ReadCloser
+	size   int64
+	err    error
 }
 
 type baseObjectStore struct {
@@ -74,6 +84,7 @@ type baseObjectStore struct {
 	claimer         Claimer
 	logger          Logger
 	clock           clock.Clock
+	pruner          Pruner
 }
 
 // Kill implements the worker.Worker interface.
@@ -137,6 +148,9 @@ func (w *baseObjectStore) withLock(ctx context.Context, hash string, f func(cont
 	// while we're writing it.
 	extender, err := w.claimer.Claim(ctx, hash)
 	if err != nil {
+		if errors.Is(err, lease.ErrClaimDenied) {
+			return ErrFileLocked
+		}
 		return errors.Trace(err)
 	}
 

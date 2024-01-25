@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/juju/domain/model"
 	"gopkg.in/tomb.v2"
 )
 
@@ -85,15 +86,19 @@ func (w *objectStorePrunerWorker) loop() (err error) {
 			return tomb.ErrDying
 		case <-timer.Chan():
 
-			// The pruner will prune in the following order:
-			//
-			// 1. Prune orphaned models.
-			// 2. Prune orphaned blobs.
-			//
-			// We do 1 first because we don't want to waste cycles pruning blobs
-			// that are associated with models that no longer exist.
+			// The pruner will prune any root objects that are no longer
+			// referenced by the model manager.
 
-			_ = ctx
+			modelList, err := w.cfg.ModelManagerService.ModelList(ctx)
+			if err != nil {
+				w.cfg.Logger.Errorf("failed to get model list: %v", err)
+				continue
+			}
+
+			if err := w.pruneObjects(ctx, modelList); err != nil {
+				w.cfg.Logger.Infof("failed to remove models: %v, will try again later", err)
+				continue
+			}
 		}
 	}
 }
@@ -122,4 +127,14 @@ func (w *objectStorePrunerWorker) reportInternalState(state string) {
 	case w.internalStates <- state:
 	default:
 	}
+}
+
+func (w *objectStorePrunerWorker) pruneObjects(ctx context.Context, modelList []model.UUID) error {
+	for _, model := range modelList {
+		if err := w.pruneObject(ctx, model); err != nil {
+			return errors.Trace(err)
+		}
+	}
+
+	return nil
 }

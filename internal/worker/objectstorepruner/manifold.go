@@ -11,6 +11,7 @@ import (
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 
+	"github.com/juju/juju/agent"
 	coredependency "github.com/juju/juju/core/dependency"
 	coreobjectstore "github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/domain/model"
@@ -48,8 +49,11 @@ type GetModelManagerServiceFunc func(getter dependency.Getter, name string) (Mod
 
 // ManifoldConfig defines the configuration for the trace manifold.
 type ManifoldConfig struct {
-	ObjectStoreName    string
+	// Note: we can't use the objectstore directly here, as it might not be
+	// running when we want to prune.
+	AgentName          string
 	ServiceFactoryName string
+	S3ClientName       string
 
 	Clock  clock.Clock
 	Logger Logger
@@ -59,11 +63,14 @@ type ManifoldConfig struct {
 
 // Validate validates the manifold configuration.
 func (cfg ManifoldConfig) Validate() error {
-	if cfg.ObjectStoreName == "" {
-		return errors.NotValidf("empty ObjectStoreName")
+	if cfg.AgentName == "" {
+		return errors.NotValidf("empty AgentName")
 	}
 	if cfg.ServiceFactoryName == "" {
 		return errors.NotValidf("empty ServiceFactoryName")
+	}
+	if cfg.S3ClientName == "" {
+		return errors.NotValidf("empty S3ClientName")
 	}
 	if cfg.Clock == nil {
 		return errors.NotValidf("nil Clock")
@@ -81,16 +88,27 @@ func (cfg ManifoldConfig) Validate() error {
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
-			config.ObjectStoreName,
+			config.AgentName,
 			config.ServiceFactoryName,
+			config.S3ClientName,
 		},
 		Start: func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
 			if err := config.Validate(); err != nil {
 				return nil, errors.Trace(err)
 			}
 
+			var a agent.Agent
+			if err := getter.Get(config.AgentName, &a); err != nil {
+				return nil, err
+			}
+
 			modelManagerService, err := config.GetModelManagerService(getter, config.ServiceFactoryName)
 			if err != nil {
+				return nil, errors.Trace(err)
+			}
+
+			var s3Client coreobjectstore.Client
+			if err := getter.Get(config.S3ClientName, &s3Client); err != nil {
 				return nil, errors.Trace(err)
 			}
 
