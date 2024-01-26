@@ -577,7 +577,7 @@ func (c *refreshCommand) upgradeResources(
 		return nil, errors.Trace(err)
 	}
 	charmsClient := c.NewCharmClient(apiRoot)
-	meta, err := utils.GetMetaResources(chID.URL, charmsClient)
+	meta, err := utils.GetMetaResources(chID.URL.String(), charmsClient)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

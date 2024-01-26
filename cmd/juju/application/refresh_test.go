@@ -1315,7 +1315,7 @@ func (m *mockCharmClient) CharmInfo(curl string) (*apicommoncharms.CharmInfo, er
 	return m.charmInfo, nil
 }
 
-func (m *mockCharmClient) ListCharmResources(curl *charm.URL, origin commoncharm.Origin) ([]charmresource.Resource, error) {
+func (m *mockCharmClient) ListCharmResources(curl string, origin commoncharm.Origin) ([]charmresource.Resource, error) {
 	m.MethodCall(m, "ListCharmResources", curl, origin)
 	if err := m.NextErr(); err != nil {
 		return nil, err

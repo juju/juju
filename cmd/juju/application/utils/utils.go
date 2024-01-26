@@ -29,9 +29,9 @@ import (
 var logger = loggo.GetLogger("juju.cmd.juju.application.utils")
 
 // GetMetaResources retrieves metadata resources for the given
-// charm.URL.
-func GetMetaResources(charmURL *charm.URL, client CharmClient) (map[string]charmresource.Meta, error) {
-	charmInfo, err := client.CharmInfo(charmURL.String())
+// charmURL.
+func GetMetaResources(charmURL string, client CharmClient) (map[string]charmresource.Meta, error) {
+	charmInfo, err := client.CharmInfo(charmURL)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -120,7 +120,7 @@ func getAvailableRepositoryResources(newCharmID application.CharmID, repositoryR
 		// not required for local charms
 		return nil, nil
 	}
-	available, err := repositoryResourceLister.ListCharmResources(newCharmID.URL, newCharmID.Origin)
+	available, err := repositoryResourceLister.ListCharmResources(newCharmID.URL.String(), newCharmID.Origin)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

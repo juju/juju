@@ -870,7 +870,7 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 		numUnits = p.NumUnits
 	}
 
-	if charm.Local.Matches(chID.URL.Schema) {
+	if charm.Local.Matches(curl.Schema) {
 		var (
 			base corebase.Base
 			err  error
@@ -1264,7 +1264,7 @@ func (h *bundleHandler) upgradeCharm(change *bundlechanges.UpgradeCharmChange) e
 }
 
 func (h *bundleHandler) upgradeCharmResources(chID application.CharmID, param bundlechanges.UpgradeCharmParams) (map[string]string, error) {
-	meta, err := utils.GetMetaResources(chID.URL, h.deployAPI)
+	meta, err := utils.GetMetaResources(chID.URL.String(), h.deployAPI)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

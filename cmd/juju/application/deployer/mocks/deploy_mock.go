@@ -453,7 +453,7 @@ func (mr *MockDeployerAPIMockRecorder) HTTPClient() *gomock.Call {
 }
 
 // ListCharmResources mocks base method.
-func (m *MockDeployerAPI) ListCharmResources(arg0 *charm.URL, arg1 charm0.Origin) ([]resource.Resource, error) {
+func (m *MockDeployerAPI) ListCharmResources(arg0 string, arg1 charm0.Origin) ([]resource.Resource, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ListCharmResources", arg0, arg1)
 	ret0, _ := ret[0].([]resource.Resource)

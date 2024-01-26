@@ -4,7 +4,6 @@
 package utils
 
 import (
-	"github.com/juju/charm/v12"
 	charmresource "github.com/juju/charm/v12/resource"
 
 	apicharm "github.com/juju/juju/api/common/charm"
@@ -19,7 +18,7 @@ import (
 // by the upgrade-charm command and to GetMetaResources.
 type CharmClient interface {
 	CharmInfo(string) (*charms.CharmInfo, error)
-	ListCharmResources(curl *charm.URL, origin apicharm.Origin) ([]charmresource.Resource, error)
+	ListCharmResources(curl string, origin apicharm.Origin) ([]charmresource.Resource, error)
 }
 
 // ResourceLister defines a subset of the resources facade, as required

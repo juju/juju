@@ -52,8 +52,8 @@ var _ = gc.Suite(&utilsResourceSuite{})
 func (s *utilsResourceSuite) TestGetMetaResources(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	curl := charm.MustParseURL("local:trusty/multi-series-1")
-	s.expectCharmInfo(curl.String())
+	curl := "local:trusty/multi-series-1"
+	s.expectCharmInfo(curl)
 
 	obtained, err := utils.GetMetaResources(curl, s.charmClient)
 	c.Assert(err, jc.ErrorIsNil)
@@ -123,7 +123,7 @@ func (s *utilsResourceSuite) TestGetUpgradeResourcesLocalCharmNewResources(c *gc
 
 func (s *utilsResourceSuite) TestGetUpgradeResourcesCHCharmNewEmptyRes(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	s.charmClient.EXPECT().ListCharmResources(gomock.AssignableToTypeOf(&charm.URL{}), gomock.AssignableToTypeOf(apicharm.Origin{})).Return(nil, nil)
+	s.charmClient.EXPECT().ListCharmResources(gomock.AssignableToTypeOf(""), gomock.AssignableToTypeOf(apicharm.Origin{})).Return(nil, nil)
 
 	// switching to ch charm, new empty resources will be uploaded.
 	s.assertGetUpgradeResources(c, func(
@@ -161,7 +161,7 @@ func (s *utilsResourceSuite) TestGetUpgradeResourcesLocalCharmError(c *gc.C) {
 
 func (s *utilsResourceSuite) TestGetUpgradeResourcesNotOriginUpload(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	s.charmClient.EXPECT().ListCharmResources(gomock.AssignableToTypeOf(&charm.URL{}), gomock.AssignableToTypeOf(apicharm.Origin{})).Return(nil, nil)
+	s.charmClient.EXPECT().ListCharmResources(gomock.AssignableToTypeOf(""), gomock.AssignableToTypeOf(apicharm.Origin{})).Return(nil, nil)
 
 	// switching to ch charm, empty resource will be upgraded if the existing resource origin was not OriginUpload.
 	s.assertGetUpgradeResources(c, func(
@@ -187,7 +187,7 @@ func (s *utilsResourceSuite) TestGetUpgradeResourcesNotOriginUpload(c *gc.C) {
 
 func (s *utilsResourceSuite) TestGetUpgradeResourcesOriginUpload(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	s.charmClient.EXPECT().ListCharmResources(gomock.AssignableToTypeOf(&charm.URL{}), gomock.AssignableToTypeOf(apicharm.Origin{})).Return(nil, nil)
+	s.charmClient.EXPECT().ListCharmResources(gomock.AssignableToTypeOf(""), gomock.AssignableToTypeOf(apicharm.Origin{})).Return(nil, nil)
 
 	// switching to ch charm and empty resource will NOT be upgraded if the existing resource origin was OriginUpload.
 	s.assertGetUpgradeResources(c, func(
@@ -367,7 +367,7 @@ func (s *utilsResourceSuite) expectListCharmResources(redis, snappass, testfile 
 	availableCharmResources := []charmresource.Resource{
 		r1, r2, r3,
 	}
-	s.charmClient.EXPECT().ListCharmResources(gomock.AssignableToTypeOf(&charm.URL{}), gomock.AssignableToTypeOf(apicharm.Origin{})).Return(availableCharmResources, nil)
+	s.charmClient.EXPECT().ListCharmResources(gomock.AssignableToTypeOf(""), gomock.AssignableToTypeOf(apicharm.Origin{})).Return(availableCharmResources, nil)
 }
 
 func (s *utilsResourceSuite) expectListResources(redis, snappass, testfile int) {
