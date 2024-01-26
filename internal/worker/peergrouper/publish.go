@@ -24,7 +24,7 @@ type CachingAPIHostPortsSetter struct {
 	last []network.SpaceHostPorts
 }
 
-func (s *CachingAPIHostPortsSetter) SetAPIHostPorts(controllerConfig controller.Config, apiServers []network.SpaceHostPorts) error {
+func (s *CachingAPIHostPortsSetter) SetAPIHostPorts(controllerConfig controller.Config, apiServers, agentAddresses []network.SpaceHostPorts) error {
 	if len(apiServers) == 0 {
 		return errors.Errorf("no API servers specified")
 	}
@@ -42,7 +42,7 @@ func (s *CachingAPIHostPortsSetter) SetAPIHostPorts(controllerConfig controller.
 		return nil
 	}
 
-	if err := s.APIHostPortsSetter.SetAPIHostPorts(controllerConfig, sorted); err != nil {
+	if err := s.APIHostPortsSetter.SetAPIHostPorts(controllerConfig, sorted, sorted); err != nil {
 		return errors.Annotate(err, "setting API host ports")
 	}
 	s.last = sorted

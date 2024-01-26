@@ -69,7 +69,7 @@ type MongoSession interface {
 }
 
 type APIHostPortsSetter interface {
-	SetAPIHostPorts(controller.Config, []network.SpaceHostPorts) error
+	SetAPIHostPorts(controller.Config, []network.SpaceHostPorts, []network.SpaceHostPorts) error
 }
 
 var (
@@ -327,17 +327,15 @@ func (w *pgWorker) loop() error {
 		}
 
 		var failed bool
-		// TODO(nvinuesa): This snippet is just commented until we
-		// patch the peergrouper to use the network domain.
-		// cfg, err := w.config.State.ControllerConfig()
-		// if err != nil {
-		// 	logger.Errorf("cannot read controller config: %v", err)
-		// 	failed = true
-		// }
-		// if err := w.config.APIHostPortsSetter.SetAPIHostPorts(cfg, apiHostPorts); err != nil {
-		// 	logger.Errorf("cannot write API server addresses: %v", err)
-		// 	failed = true
-		// }
+		cfg, err := w.config.State.ControllerConfig()
+		if err != nil {
+			logger.Errorf("cannot read controller config: %v", err)
+			failed = true
+		}
+		if err := w.config.APIHostPortsSetter.SetAPIHostPorts(cfg, apiHostPorts, apiHostPorts); err != nil {
+			logger.Errorf("cannot write API server addresses: %v", err)
+			failed = true
+		}
 
 		members, err := w.updateReplicaSet()
 		if err != nil {

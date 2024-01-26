@@ -17,6 +17,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/caas"
+	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller/modelmanager"
 	coreagent "github.com/juju/juju/core/agent"
@@ -368,6 +369,9 @@ func (b *AgentBootstrap) Initialize(ctx stdcontext.Context) (_ *state.Controller
 		if controllerNode, err = b.initBootstrapNode(st); err != nil {
 			return nil, errors.Annotate(err, "cannot initialize bootstrap controller")
 		}
+		if err := b.initControllerCloudService(ctx, cloudSpec, provider, st); err != nil {
+			return nil, errors.Annotate(err, "cannot initialize cloud service")
+		}
 	} else {
 		if controllerNode, err = b.initBootstrapMachine(st, filteredBootstrapMachineAddresses); err != nil {
 			return nil, errors.Annotate(err, "cannot initialize bootstrap machine")
@@ -610,6 +614,60 @@ func (b *AgentBootstrap) initBootstrapMachine(
 		return nil, errors.Annotate(err, "cannot create bootstrap machine in state")
 	}
 	return m, nil
+}
+
+// initControllerCloudService creates cloud service for controller service.
+func (b *AgentBootstrap) initControllerCloudService(
+	ctx stdcontext.Context,
+	cloudSpec environscloudspec.CloudSpec,
+	provider environs.EnvironProvider,
+	st *state.State,
+) error {
+	stateParams := b.stateInitializationParams
+	controllerUUID := stateParams.ControllerConfig.ControllerUUID()
+	env, err := b.getEnviron(ctx, controllerUUID, cloudSpec, stateParams.ControllerModelConfig, provider)
+	if err != nil {
+		return errors.Annotate(err, "getting environ")
+	}
+
+	broker, ok := env.(caas.ServiceManager)
+	if !ok {
+		// this should never happen.
+		return errors.Errorf("environ %T does not implement ServiceManager interface", env)
+	}
+	svc, err := broker.GetService(ctx, k8sconstants.JujuControllerStackName, true)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if len(svc.Addresses) == 0 {
+		// this should never happen because we have already checked in k8s controller bootstrap stacker.
+		return errors.NotProvisionedf("k8s controller service %q address", svc.Id)
+	}
+	addrs := b.getAlphaSpaceAddresses(svc.Addresses)
+
+	svcId := controllerUUID
+	b.logger.Infof("creating cloud service for k8s controller %q", svcId)
+	cloudSvc, err := st.SaveCloudService(state.SaveCloudServiceArgs{
+		Id:         svcId,
+		ProviderId: svc.Id,
+		Addresses:  addrs,
+	})
+	b.logger.Debugf("created cloud service %v for controller", cloudSvc)
+	return errors.Trace(err)
+}
+
+// getAlphaSpaceAddresses returns a SpaceAddresses created from the input
+// providerAddresses and using the alpha space ID as their SpaceID.
+func (b *AgentBootstrap) getAlphaSpaceAddresses(providerAddresses corenetwork.ProviderAddresses) corenetwork.SpaceAddresses {
+	sas := make(corenetwork.SpaceAddresses, len(providerAddresses))
+	for i, pa := range providerAddresses {
+		sas[i] = corenetwork.SpaceAddress{MachineAddress: pa.MachineAddress}
+		if pa.SpaceName != "" {
+			sas[i].SpaceID = corenetwork.AlphaSpaceId
+		}
+	}
+	return sas
 }
 
 // initBootstrapNode initializes the initial caas bootstrap controller in state.

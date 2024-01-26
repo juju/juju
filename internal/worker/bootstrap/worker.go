@@ -13,17 +13,13 @@ import (
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/caas"
-	"github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/flags"
-	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/cloudconfig"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/worker/gate"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/binarystorage"
 )
 
@@ -189,16 +185,13 @@ func (w *bootstrapWorker) loop() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	// Create cloud service.
-	if err := w.initControllerCloudService(ctx, controllerConfig.ControllerUUID(), w.cfg.SystemState); err != nil {
-		return errors.Annotate(err, "cannot initialize cloud service")
-	}
-	if err := w.seedControllerCharm(ctx, dataDir, args, controllerConfig); err != nil {
+	bootstrapArgs, err := w.seedControllerCharm(ctx, dataDir, args)
+	if err != nil {
 		return errors.Trace(err)
 	}
 
 	// Retrieve controller addresses needed to set the API host ports.
-	_, err = w.cfg.BootstrapAddressFinder(ctx, BootstrapAddressesConfig{
+	bootstrapAddresses, err := w.cfg.BootstrapAddressFinder(ctx, BootstrapAddressesConfig{
 		BootstrapInstanceID:    bootstrapArgs.BootstrapMachineInstanceId,
 		SystemState:            w.cfg.SystemState,
 		CloudService:           w.cfg.CloudService,
@@ -257,46 +250,6 @@ func (w *bootstrapWorker) initAPIHostPorts(ctx context.Context, controllerConfig
 	return w.cfg.SystemState.SetAPIHostPorts(controllerConfig, hostPorts, hostPortsForAgents)
 }
 
-// initControllerCloudService creates cloud service for controller service.
-func (w *bootstrapWorker) initControllerCloudService(
-	ctx context.Context,
-	controllerUUID string,
-	st SystemState,
-) error {
-	env, err := w.getEnviron(ctx)
-	if err != nil {
-		return errors.Annotate(err, "getting environ")
-	}
-
-	broker, ok := env.(caas.ServiceManager)
-	if !ok {
-		// This means we are on IAAS environs, so we just return.
-		return nil
-	}
-	svc, err := broker.GetService(ctx, constants.JujuControllerStackName, true)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	if len(svc.Addresses) == 0 {
-		// this should never happen because we have already checked in k8s controller bootstrap stacker.
-		return errors.NotProvisionedf("k8s controller service %q address", svc.Id)
-	}
-	addrs, err := w.providerAddressesToSpaceAddresses(ctx, svc.Addresses)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	svcId := controllerUUID
-	cloudSvc, err := st.SaveCloudService(state.SaveCloudServiceArgs{
-		Id:         svcId,
-		ProviderId: svc.Id,
-		Addresses:  addrs,
-	})
-	w.cfg.LoggerFactory.Child("").Debugf("created cloud service %v for controller", cloudSvc)
-	return errors.Trace(err)
-}
-
 func (w *bootstrapWorker) providerAddressesToSpaceAddresses(ctx context.Context, providerAddresses network.ProviderAddresses) (network.SpaceAddresses, error) {
 	addrs := make(network.SpaceAddresses, len(providerAddresses))
 
@@ -315,28 +268,6 @@ func (w *bootstrapWorker) providerAddressesToSpaceAddresses(ctx context.Context,
 	}
 
 	return addrs, nil
-}
-
-func (w *bootstrapWorker) getBoostrapAddresses(ctx context.Context, bootstrapInstanceID instance.Id) (network.ProviderAddresses, error) {
-
-	// Retrieve controller addresses needed to set the API host ports.
-	var addresses network.ProviderAddresses
-	env, err := w.getEnviron(ctx)
-	if err != nil && !errors.Is(err, errors.NotSupported) {
-		return nil, errors.Trace(err)
-	}
-	if errors.Is(err, errors.NotSupported) {
-		return network.NewMachineAddresses([]string{"localhost"}).AsProviderAddresses(), nil
-	}
-	addresses, err = w.cfg.BootstrapAddressesFunc(ctx, env, bootstrapInstanceID)
-	if err != nil && !errors.Is(err, errors.NotSupported) {
-		return nil, errors.Trace(err)
-	}
-	if errors.Is(err, errors.NotSupported) {
-		addresses = network.NewMachineAddresses([]string{"localhost"}).AsProviderAddresses()
-	}
-
-	return addresses, nil
 }
 
 // scopedContext returns a context that is in the scope of the worker lifetime.
@@ -371,7 +302,7 @@ func (w *bootstrapWorker) seedControllerCharm(ctx context.Context, dataDir strin
 
 	objectStore, err := w.cfg.ObjectStoreGetter.GetObjectStore(ctx, w.cfg.SystemState.ControllerModelUUID())
 	if err != nil {
-		return fmt.Errorf("failed to get object store: %v", err)
+		return instancecfg.StateInitializationParams{}, fmt.Errorf("failed to get object store: %v", err)
 	}
 
 	// Controller charm seeder will populate the charm for the controller.
@@ -388,10 +319,10 @@ func (w *bootstrapWorker) seedControllerCharm(ctx context.Context, dataDir strin
 		LoggerFactory:               w.cfg.LoggerFactory,
 	})
 	if err != nil {
-		return errors.Trace(err)
+		return instancecfg.StateInitializationParams{}, errors.Trace(err)
 	}
 
-	return w.cfg.PopulateControllerCharm(ctx, deployer)
+	return bootstrapArgs, w.cfg.PopulateControllerCharm(ctx, deployer)
 }
 
 func (w *bootstrapWorker) bootstrapParams(ctx context.Context, dataDir string) (instancecfg.StateInitializationParams, error) {

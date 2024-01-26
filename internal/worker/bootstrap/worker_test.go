@@ -17,7 +17,6 @@ import (
 	gomock "go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cloud"
 	controller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/flags"
@@ -50,7 +49,6 @@ func (s *workerSuite) TestKilled(c *gc.C) {
 	s.expectAgentConfig(c)
 	s.expectObjectStoreGetter(2)
 	s.expectBootstrapFlagSet()
-	s.expectGetEnviron()
 	s.expectFilterHostPortsForManagementSpace()
 	s.expectSetAPIHostPorts()
 	s.expectStaateServingInfo()
@@ -163,30 +161,13 @@ func (s *workerSuite) expectControllerConfig() {
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).
 		Return(controller.Config{
 			controller.ControllerUUIDKey: "test-uuid",
-		}, nil)
+		}, nil).Times(2)
 }
 
 func (s *workerSuite) expectStaateServingInfo() {
 	s.agentConfig.EXPECT().StateServingInfo().Return(controller.StateServingInfo{
 		APIPort: 42,
 	}, true)
-}
-
-func (s *workerSuite) expectGetEnviron() {
-	s.state.EXPECT().Model().Return(s.stateModel, nil).AnyTimes()
-	s.stateModel.EXPECT().CloudCredentialTag().AnyTimes()
-	s.stateModel.EXPECT().CloudName().Return("cloud-name").AnyTimes()
-	s.stateModel.EXPECT().CloudRegion().Return("cloud-region").AnyTimes()
-	s.stateModel.EXPECT().Config().Return(&config.Config{}, nil).AnyTimes()
-	cloud := cloud.Cloud{
-		Regions: []cloud.Region{
-			{
-				Name: "cloud-region",
-			},
-		},
-	}
-	s.cloudService.EXPECT().Get(gomock.Any(), "cloud-name").Return(&cloud, nil).AnyTimes()
-	s.state.EXPECT().ControllerModelUUID().AnyTimes()
 }
 
 func (s *workerSuite) expectObjectStoreGetter(num int) {
