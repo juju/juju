@@ -5,6 +5,7 @@ package usermanager
 
 import (
 	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v5"
@@ -284,15 +285,8 @@ func (api *UserManagerAPI) enableUserImpl(ctx context.Context, args params.Entit
 		}
 		// End legacy block.
 
-		// Parse User tag
-		usrTag, err := names.ParseUserTag(arg.Tag)
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-
-		// Get User
-		usr, err := api.userService.GetUserByName(ctx, usrTag.Name())
+		// Get User by tag
+		usr, err := api.getUserByTag(ctx, arg.Tag)
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(errors.Errorf("failed to %s user: %s", action, err))
 			continue
@@ -392,15 +386,8 @@ func (api *UserManagerAPI) UserInfo(ctx context.Context, request params.UserInfo
 			continue
 		}
 
-		// Parse User tag
-		usrTag, err := names.ParseUserTag(arg.Tag)
-		if err != nil {
-			results.Results = append(results.Results, params.UserInfoResult{Error: apiservererrors.ServerError(err)})
-			continue
-		}
-
 		// Get User
-		usr, err := api.userService.GetUserByName(ctx, usrTag.Name())
+		usr, err := api.getUserByTag(ctx, arg.Tag)
 		if err != nil {
 			results.Results = append(results.Results, params.UserInfoResult{Error: apiservererrors.ServerError(err)})
 			continue
@@ -492,19 +479,17 @@ func (api *UserManagerAPI) setPassword(arg params.EntityPassword) error {
 	}
 	// End legacy block.
 
-	// Parse User tag
-	usrTag, err := names.ParseUserTag(arg.Tag)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
 	// Get User
-	usr, err := api.userService.GetUserByName(context.Background(), usrTag.Name())
+	usr, err := api.getUserByTag(context.Background(), arg.Tag)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	if !api.isAdmin {
+		usrTag, err := names.ParseUserTag(arg.Tag)
+		if err != nil {
+			return errors.Trace(err)
+		}
 		if _, err := api.hasControllerAdminAccess(); err != nil && api.apiUser != usrTag {
 			return err
 		}
@@ -521,7 +506,7 @@ func (api *UserManagerAPI) setPassword(arg params.EntityPassword) error {
 	// End legacy block.
 
 	// Get User
-	usr, err = api.userService.GetUserByName(context.Background(), usrTag.Name())
+	usr, err = api.getUserByTag(context.Background(), arg.Tag)
 	if err != nil {
 		return errors.Annotate(err, "failed to set password")
 	}
@@ -600,4 +585,14 @@ func (api *UserManagerAPI) ResetPassword(ctx context.Context, args params.Entiti
 		}
 	}
 	return result, nil
+}
+
+// getUserByTag returns a user by tag. It is a helper function to get a user
+// from the database.
+func (api *UserManagerAPI) getUserByTag(ctx context.Context, tag string) (coreuser.User, error) {
+	userTag, err := names.ParseUserTag(tag)
+	if err != nil {
+		return coreuser.User{}, errors.Trace(err)
+	}
+	return api.userService.GetUserByName(ctx, userTag.Name())
 }
