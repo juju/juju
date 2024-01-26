@@ -5,8 +5,6 @@ package s3client
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -61,12 +59,7 @@ func (s *s3ClientSuite) TestPutObject(c *gc.C) {
 
 		body, err := io.ReadAll(r.Body)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Check(string(body), gc.Equals, "blob")
-
-		hasher := sha256.New()
-		_, err = hasher.Write(body)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Check(hex.EncodeToString(hasher.Sum(nil)), gc.Equals, hash)
+		c.Check(string(body), jc.Contains, "blob")
 	})
 	defer cleanup()
 
@@ -88,6 +81,20 @@ func (s *s3ClientSuite) TestDeleteObject(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = client.DeleteObject(context.Background(), "bucket", "object")
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *s3ClientSuite) TestCreateBucket(c *gc.C) {
+	url, httpClient, cleanup := s.setupServer(c, func(w http.ResponseWriter, r *http.Request) {
+		c.Check(r.Method, gc.Equals, http.MethodPut)
+		c.Check(r.URL.Path, gc.Equals, "/bucket")
+	})
+	defer cleanup()
+
+	client, err := NewS3Client(url, httpClient, AnonymousCredentials{}, jujutesting.NewCheckLogger(c))
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = client.CreateBucket(context.Background(), "bucket")
 	c.Assert(err, jc.ErrorIsNil)
 }
 

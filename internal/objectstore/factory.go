@@ -55,6 +55,13 @@ func WithMongoSession(session MongoSession) Option {
 	}
 }
 
+// WithS3Client is the option to set the s3 client to use.
+func WithS3Client(client objectstore.Client) Option {
+	return func(o *options) {
+		o.s3Client = client
+	}
+}
+
 // WithMetadataService is the option to set the metadata service to use.
 func WithMetadataService(metadataService MetadataService) Option {
 	return func(o *options) {
@@ -86,6 +93,7 @@ func WithClock(clock clock.Clock) Option {
 type options struct {
 	rootDir         string
 	mongoSession    MongoSession
+	s3Client        objectstore.Client
 	metadataService MetadataService
 	claimer         Claimer
 	logger          Logger
@@ -114,7 +122,23 @@ func ObjectStoreFactory(ctx context.Context, backendType objectstore.BackendType
 	case objectstore.StateBackend:
 		return NewStateObjectStore(ctx, namespace, opts.mongoSession, opts.logger)
 	case objectstore.FileBackend:
-		return NewFileObjectStore(ctx, namespace, opts.rootDir, opts.metadataService.ObjectStore(), opts.claimer, opts.logger, opts.clock)
+		return NewFileObjectStore(ctx, FileObjectStoreConfig{
+			Namespace:       namespace,
+			RootDir:         opts.rootDir,
+			MetadataService: opts.metadataService.ObjectStore(),
+			Claimer:         opts.claimer,
+			Logger:          opts.logger,
+			Clock:           opts.clock,
+		})
+	case objectstore.S3Backend:
+		return NewS3ObjectStore(ctx, S3ObjectStoreConfig{
+			Namespace:       namespace,
+			Client:          opts.s3Client,
+			MetadataService: opts.metadataService.ObjectStore(),
+			Claimer:         opts.claimer,
+			Logger:          opts.logger,
+			Clock:           opts.clock,
+		})
 	default:
 		return nil, errors.NotValidf("backend type %q", backendType)
 	}

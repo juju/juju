@@ -838,6 +838,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			TraceName:            traceName,
 			ServiceFactoryName:   serviceFactoryName,
 			LeaseManagerName:     leaseManagerName,
+			S3ClientName:         objectStoreS3CallerName,
 			Clock:                config.Clock,
 			Logger:               loggo.GetLogger("juju.worker.objectstore"),
 			NewObjectStoreWorker: internalobjectstore.ObjectStoreFactory,

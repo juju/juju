@@ -5,6 +5,8 @@ package objectstore
 
 import (
 	"context"
+	"io"
+	"os"
 	"time"
 
 	"github.com/juju/clock"
@@ -34,6 +36,29 @@ type ClaimExtender interface {
 	Duration() time.Duration
 }
 
+type opType int
+
+const (
+	opGet opType = iota
+	opPut
+	opRemove
+)
+
+type request struct {
+	op            opType
+	path          string
+	reader        io.Reader
+	size          int64
+	hashValidator hashValidator
+	response      chan response
+}
+
+type response struct {
+	reader io.ReadCloser
+	size   int64
+	err    error
+}
+
 type baseObjectStore struct {
 	tomb            tomb.Tomb
 	metadataService objectstore.ObjectStoreMetadata
@@ -58,6 +83,33 @@ func (s *baseObjectStore) Wait() error {
 func (w *baseObjectStore) scopedContext() (context.Context, context.CancelFunc) {
 	ctx, cancel := context.WithCancel(context.Background())
 	return w.tomb.Context(ctx), cancel
+}
+
+func (t *baseObjectStore) writeToTmpFile(path string, r io.Reader, size int64) (string, error) {
+	// The following dance is to ensure that we don't end up with a partially
+	// written file if we crash while writing it or if we're attempting to
+	// read it at the same time.
+	tmpFile, err := os.CreateTemp("", "file")
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	defer func() {
+		_ = tmpFile.Close()
+	}()
+
+	written, err := io.Copy(tmpFile, r)
+	if err != nil {
+		_ = os.Remove(tmpFile.Name())
+		return "", errors.Trace(err)
+	}
+
+	// Ensure that we write all the data.
+	if written != size {
+		_ = os.Remove(tmpFile.Name())
+		return "", errors.Errorf("partially written data: written %d, expected %d", written, size)
+	}
+
+	return tmpFile.Name(), nil
 }
 
 func (w *baseObjectStore) withLock(ctx context.Context, hash string, f func(context.Context) error) error {
@@ -122,5 +174,17 @@ func (w *baseObjectStore) withLock(ctx context.Context, hash string, f func(cont
 			return errors.Trace(err)
 		}
 		return tomb.ErrDying
+	}
+}
+
+type hashValidator func(string) (string, bool)
+
+func ignoreHash(string) (string, bool) {
+	return "", true
+}
+
+func checkHash(expected string) func(string) (string, bool) {
+	return func(actual string) (string, bool) {
+		return expected, actual == expected
 	}
 }

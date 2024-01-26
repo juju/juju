@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
+	"gopkg.in/tomb.v2"
 
 	coredependency "github.com/juju/juju/core/dependency"
 	"github.com/juju/juju/core/objectstore"
@@ -104,7 +105,7 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 
 	// If we're not using S3, then we don't need to start this worker.
 	if controllerConfig.ObjectStoreType() != objectstore.S3Backend {
-		return nil, dependency.ErrUninstall
+		return newNoopWorker(), nil
 	}
 
 	var httpClient s3client.HTTPClient
@@ -123,18 +124,32 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 
 // outputFunc extracts a S3 client from a *s3caller.
 func outputFunc(in worker.Worker, out any) error {
-	inWorker, _ := in.(*s3Worker)
-	if inWorker == nil {
-		return errors.Errorf("in should be a %T; got %T", inWorker, in)
+	inWorker, err := outputWorker(in)
+	if err != nil {
+		return errors.Trace(err)
 	}
 
 	switch outPointer := out.(type) {
 	case *objectstore.Client:
 		*outPointer = inWorker
 	default:
-		return errors.Errorf("out should be *s3caller.Session; got %T", out)
+		return errors.Errorf("out should be *s3caller.Client; got %T", out)
 	}
 	return nil
+}
+
+func outputWorker(in worker.Worker) (objectstore.Client, error) {
+	// First check if the worker is a s3Worker, otherwise, it's a noopWorker.
+	// If neither case is true, then return an error.
+	s3w, ok := in.(*s3Worker)
+	if ok && s3w != nil {
+		return s3w, nil
+	}
+	noopw, ok := in.(*noopWorker)
+	if ok && noopw != nil {
+		return noopw, nil
+	}
+	return nil, errors.Errorf("in should be *s3caller.Client; got %T", in)
 }
 
 // NewS3Client returns a new S3 client based on the supplied dependencies.
@@ -148,4 +163,29 @@ func GetControllerConfigService(getter dependency.Getter, name string) (Controll
 	return coredependency.GetDependencyByName(getter, name, func(factory servicefactory.ControllerServiceFactory) ControllerService {
 		return factory.ControllerConfig()
 	})
+}
+
+type noopWorker struct {
+	tomb tomb.Tomb
+}
+
+func newNoopWorker() worker.Worker {
+	w := &noopWorker{}
+	w.tomb.Go(func() error {
+		<-w.tomb.Dying()
+		return nil
+	})
+	return w
+}
+
+func (w *noopWorker) Kill() {
+	w.tomb.Kill(nil)
+}
+
+func (w *noopWorker) Wait() error {
+	return w.tomb.Wait()
+}
+
+func (w *noopWorker) Session(ctx context.Context, f func(context.Context, objectstore.Session) error) error {
+	return errors.NotSupportedf("objectstore backend type is not set to s3: s3 caller")
 }

@@ -39,6 +39,7 @@ type WorkerConfig struct {
 	RootDir                    string
 	Clock                      clock.Clock
 	Logger                     Logger
+	S3Client                   coreobjectstore.Client
 	NewObjectStoreWorker       internalobjectstore.ObjectStoreWorkerFunc
 	ObjectStoreType            coreobjectstore.BackendType
 	ControllerMetadataService  MetadataService
@@ -64,6 +65,9 @@ func (c *WorkerConfig) Validate() error {
 	}
 	if c.Logger == nil {
 		return errors.NotValidf("nil Logger")
+	}
+	if c.S3Client == nil {
+		return errors.NotValidf("nil S3Client")
 	}
 	if c.NewObjectStoreWorker == nil {
 		return errors.NotValidf("nil NewObjectStoreWorker")
@@ -291,11 +295,12 @@ func (w *objectStoreWorker) initObjectStore(namespace string) error {
 			ctx,
 			internalobjectstore.BackendTypeOrDefault(w.cfg.ObjectStoreType),
 			namespace,
-			internalobjectstore.WithMongoSession(state),
-			internalobjectstore.WithLogger(w.cfg.Logger),
-			internalobjectstore.WithMetadataService(metadataService),
 			internalobjectstore.WithRootDir(w.cfg.RootDir),
+			internalobjectstore.WithMongoSession(state),
+			internalobjectstore.WithS3Client(w.cfg.S3Client),
+			internalobjectstore.WithMetadataService(metadataService),
 			internalobjectstore.WithClaimer(claimer),
+			internalobjectstore.WithLogger(w.cfg.Logger),
 		)
 		if err != nil {
 			return nil, errors.Trace(err)

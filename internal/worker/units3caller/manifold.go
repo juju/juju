@@ -6,6 +6,7 @@ package units3caller
 import (
 	context "context"
 	http "net/http"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/worker/v4"
@@ -72,9 +73,7 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		return nil, errors.Trace(err)
 	}
 
-	// Although we get the S3 client, this is the anonymous client which only
-	// provides read access to the object store.
-	session, err := config.NewClient(httpClient.BaseURL, newHTTPClient(httpClient), config.Logger)
+	session, err := config.NewClient(ensureHTTPS(httpClient.BaseURL), newHTTPClient(httpClient), config.Logger)
 	if err != nil {
 		return nil, err
 	}
@@ -106,4 +105,15 @@ func (c *httpClient) Do(req *http.Request) (*http.Response, error) {
 	var res *http.Response
 	err := c.client.Do(req.Context(), req, &res)
 	return res, err
+}
+
+// ensureHTTPS takes a URI and ensures that it is a HTTPS URL.
+func ensureHTTPS(address string) string {
+	if strings.HasPrefix(address, "https://") {
+		return address
+	}
+	if strings.HasPrefix(address, "http://") {
+		return strings.Replace(address, "http://", "https://", 1)
+	}
+	return "https://" + address
 }
