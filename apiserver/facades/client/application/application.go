@@ -67,6 +67,12 @@ type ECService interface {
 	UpdateExternalController(ctx context.Context, ec crossmodel.ControllerInfo) error
 }
 
+// SpaceService defines the methods for handling spaces.
+type SpaceService interface {
+	// AllSpaces returns all spaces for the model.
+	GetAllSpaces(context.Context) (network.SpaceInfos, error)
+}
+
 // APIv19 provides the Application API facade for version 19.
 type APIv19 struct {
 	*APIBase
@@ -90,6 +96,7 @@ type APIBase struct {
 	credentialService  common.CredentialService
 	machineService     MachineSaver
 	applicationService ApplicationSaver
+	spaceService       SpaceService
 
 	resources        facade.Resources
 	leadershipReader leadership.Reader
@@ -200,6 +207,7 @@ func newFacadeBase(stdCtx context.Context, ctx facade.Context) (*APIBase, error)
 		resources,
 		caasBroker,
 		ctx.ObjectStore(),
+		serviceFactory.Space(),
 	)
 }
 
@@ -228,6 +236,7 @@ func NewAPIBase(
 	resources facade.Resources,
 	caasBroker CaasBrokerInterface,
 	store objectstore.ObjectStore,
+	spaceService SpaceService,
 ) (*APIBase, error) {
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm
@@ -246,6 +255,7 @@ func NewAPIBase(
 		credentialService:     credentialService,
 		machineService:        machineService,
 		applicationService:    applicationService,
+		spaceService:          spaceService,
 		leadershipReader:      leadershipReader,
 		stateCharm:            stateCharm,
 		deployApplicationFunc: deployApplication,
@@ -1325,7 +1335,12 @@ func (api *APIBase) Expose(ctx context.Context, args params.ApplicationExpose) e
 		}
 	}
 
-	if err = app.MergeExposeSettings(mappedExposeParams); err != nil {
+	allSpaces, err := api.spaceService.GetAllSpaces(ctx)
+	if err != nil {
+		return apiservererrors.ServerError(err)
+	}
+
+	if err = app.MergeExposeSettings(mappedExposeParams, allSpaces); err != nil {
 		return apiservererrors.ServerError(err)
 	}
 	return nil

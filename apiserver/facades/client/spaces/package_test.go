@@ -19,7 +19,8 @@ import (
 	environmocks "github.com/juju/juju/environs/mocks"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -package spaces -destination package_mock_test.go github.com/juju/juju/apiserver/facades/client/spaces Backing,BlockChecker,Machine,RenameSpace,RenameSpaceState,Settings,OpFactory,RemoveSpace,Constraints,MovingSubnet,MovingSubnetBacking,MoveSubnetsOp,Address,Unit,ReloadSpaces,ReloadSpacesState,ReloadSpacesEnviron,EnvironSpaces,AuthorizerState,Bindings
+//go:generate go run go.uber.org/mock/mockgen -package spaces -destination package_mock_test.go github.com/juju/juju/apiserver/facades/client/spaces Backing,BlockChecker,Machine,RenameSpace,RenameSpaceState,Settings,OpFactory,RemoveSpace,Constraints,MovingSubnet,MovingSubnetBacking,MoveSubnetsOp,Address,Unit,ReloadSpaces,ReloadSpacesState,ReloadSpacesEnviron,EnvironSpaces,AuthorizerState,Bindings,Model
+//go:generate go run go.uber.org/mock/mockgen -package spaces -destination common_mock_test.go github.com/juju/juju/apiserver/common SpaceService
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)
@@ -44,6 +45,7 @@ type APISuite struct {
 	ReloadSpacesState   *MockReloadSpacesState
 	ReloadSpacesEnviron *MockReloadSpacesEnviron
 	ReloadSpacesAPI     *ReloadSpacesAPI
+	SpaceService        *MockSpaceService
 }
 
 var _ = gc.Suite(&APISuite{})
@@ -103,6 +105,7 @@ func (s *APISuite) SetupMocks(c *gc.C, supportSpaces bool, providerSpaces bool) 
 			s.blockChecker,
 			s.AuthorizerState,
 		),
+		s.SpaceService,
 	)
 
 	var err error

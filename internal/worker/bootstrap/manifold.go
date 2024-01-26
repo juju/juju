@@ -73,6 +73,9 @@ type ApplicationSaver interface {
 // SpaceService is the interface that is used to interact with the
 // network spaces.
 type SpaceService interface {
+	AddSpace(ctx context.Context, name string, providerID network.Id, subnetIDs []string) (network.Id, error)
+	SaveProviderSubnets(ctx context.Context, subnets []network.SubnetInfo, spaceUUID network.Id, fans network.FanConfig) error
+	Remove(ctx context.Context, uuid string) error
 	Space(ctx context.Context, uuid string) (*network.SpaceInfo, error)
 	SpaceByName(ctx context.Context, name string) (*network.SpaceInfo, error)
 	GetAllSpaces(ctx context.Context) (network.SpaceInfos, error)

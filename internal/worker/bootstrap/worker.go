@@ -17,6 +17,8 @@ import (
 	"github.com/juju/juju/core/flags"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/environs/envcontext"
+	"github.com/juju/juju/environs/space"
 	"github.com/juju/juju/internal/cloudconfig"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/worker/gate"
@@ -212,6 +214,38 @@ func (w *bootstrapWorker) loop() error {
 	if !ok {
 		return errors.Errorf("state serving information not available")
 	}
+
+	// Fetch spaces from substrate.
+	// We need to do this before setting the API host-ports,
+	// because any space names in the bootstrap machine addresses must be
+	// reconcilable with space IDs at that point.
+	callContext := envcontext.WithoutCredentialInvalidator(ctx)
+	env, err := getEnviron(ctx, w.cfg.SystemState, w.cfg.CloudService, w.cfg.CredentialService, w.cfg.NewEnviron)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	// TODO(nvinuesa): Fans should be retrieved from the model config
+	// service once it's finished instead of legacy state.
+	model, err := w.cfg.SystemState.Model()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	modelConfig, err := model.Config()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	fanConfig, err := modelConfig.FanConfig()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if err = space.ReloadSpaces(callContext, w.cfg.SystemState, w.cfg.SpaceService, env, fanConfig); err != nil {
+		if !errors.Is(err, errors.NotSupported) {
+			return errors.Trace(err)
+		}
+		w.cfg.LoggerFactory.Child("").Debugf("Not performing spaces load on a non-networking environment")
+	}
+
 	// Convert the provider addresses that we got from the bootstrap instance
 	// to space ID decorated addresses.
 	if err := w.initAPIHostPorts(ctx, controllerConfig, bootstrapAddresses, servingInfo.APIPort); err != nil {

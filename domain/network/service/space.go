@@ -147,6 +147,11 @@ func (s *SpaceService) SaveProviderSubnets(
 	return nil
 }
 
+// UpdateSpace updates the space name identified by the passed uuid.
+func (s *SpaceService) UpdateSpace(ctx context.Context, uuid string, name string) error {
+	return errors.Trace(s.st.UpdateSpace(ctx, uuid, name))
+}
+
 // generateFanSubnetID generates a correct ID for a subnet of type fan overlay.
 func generateFanSubnetID(subnetNetwork, providerID string) string {
 	subnetWithDashes := strings.Replace(strings.Replace(subnetNetwork, ".", "-", -1), "/", "-", -1)

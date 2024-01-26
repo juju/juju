@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/envcontext"
+	"github.com/juju/juju/state"
 )
 
 type spacesSuite struct {
@@ -40,9 +41,11 @@ func (s *spacesSuite) TestReloadSpacesUsingSubnets(c *gc.C) {
 	environ.EXPECT().Subnets(ctx, instance.UnknownId, nil).Return(subnets, nil)
 
 	state := NewMockReloadSpacesState(ctrl)
-	state.EXPECT().SaveProviderSubnets(subnets, "")
 
-	err := ReloadSpaces(ctx, state, environ)
+	spaceService := NewMockSpaceService(ctrl)
+	spaceService.EXPECT().SaveProviderSubnets(gomock.Any(), subnets, network.Id("0"), gomock.Any())
+
+	err := ReloadSpaces(ctx, state, spaceService, environ, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -62,9 +65,11 @@ func (s *spacesSuite) TestReloadSpacesUsingSubnetsFailsOnSave(c *gc.C) {
 	environ.EXPECT().Subnets(ctx, instance.UnknownId, nil).Return(subnets, nil)
 
 	state := NewMockReloadSpacesState(ctrl)
-	state.EXPECT().SaveProviderSubnets(subnets, "").Return(errors.New("boom"))
 
-	err := ReloadSpaces(ctx, state, environ)
+	spaceService := NewMockSpaceService(ctrl)
+	spaceService.EXPECT().SaveProviderSubnets(gomock.Any(), subnets, network.Id("0"), gomock.Any()).Return(errors.New("boom"))
+
+	err := ReloadSpaces(ctx, state, spaceService, environ, nil)
 	c.Assert(err, gc.ErrorMatches, "boom")
 }
 
@@ -75,8 +80,9 @@ func (s *spacesSuite) TestReloadSpacesNotNetworkEnviron(c *gc.C) {
 	ctx := envcontext.WithoutCredentialInvalidator(context.Background())
 	state := NewMockReloadSpacesState(ctrl)
 	environ := NewMockBootstrapEnviron(ctrl)
+	spaceService := NewMockSpaceService(ctrl)
 
-	err := ReloadSpaces(ctx, state, environ)
+	err := ReloadSpaces(ctx, state, spaceService, environ, nil)
 	c.Assert(err, gc.ErrorMatches, "spaces discovery in a non-networking environ not supported")
 }
 
@@ -91,6 +97,7 @@ func (s *providerSpacesSuite) TestSaveSpaces(c *gc.C) {
 	defer ctrl.Finish()
 
 	mockState := NewMockReloadSpacesState(ctrl)
+	mockSpaceService := NewMockSpaceService(ctrl)
 	res := []network.SpaceInfo{
 		{
 			ID:         "1",
@@ -98,15 +105,15 @@ func (s *providerSpacesSuite) TestSaveSpaces(c *gc.C) {
 			ProviderId: network.Id("1"),
 		},
 	}
-	mockState.EXPECT().AllSpaces().Return(res, nil)
-	mockState.EXPECT().SaveProviderSubnets([]network.SubnetInfo{{CIDR: "10.0.0.1/12"}}, "1")
+	mockSpaceService.EXPECT().GetAllSpaces(gomock.Any()).Return(res, nil)
+	mockSpaceService.EXPECT().SaveProviderSubnets(gomock.Any(), []network.SubnetInfo{{CIDR: "10.0.0.1/12"}}, network.Id("1"), nil)
 
 	subnets := []network.SpaceInfo{
 		{ProviderId: network.Id("1"), Subnets: []network.SubnetInfo{{CIDR: "10.0.0.1/12"}}},
 	}
 
-	provider := NewProviderSpaces(mockState)
-	err := provider.SaveSpaces(subnets)
+	provider := NewProviderSpaces(context.Background(), mockState, mockSpaceService)
+	err := provider.SaveSpaces(subnets, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(provider.modelSpaceMap, gc.DeepEquals, map[network.Id]network.SpaceInfo{
 		network.Id("1"): res[0],
@@ -118,6 +125,7 @@ func (s *providerSpacesSuite) TestSaveSpacesWithoutProviderId(c *gc.C) {
 	defer ctrl.Finish()
 
 	mockState := NewMockReloadSpacesState(ctrl)
+	mockSpaceService := NewMockSpaceService(ctrl)
 	res := []network.SpaceInfo{
 		{
 			ID:         "1",
@@ -125,21 +133,21 @@ func (s *providerSpacesSuite) TestSaveSpacesWithoutProviderId(c *gc.C) {
 			ProviderId: network.Id("1"),
 		},
 	}
-	mockState.EXPECT().AllSpaces().Return(res, nil)
+	mockSpaceService.EXPECT().GetAllSpaces(gomock.Any()).Return(res, nil)
 	addedSpace := network.SpaceInfo{
 		ID:         "2",
 		ProviderId: network.Id("2"),
 	}
-	mockState.EXPECT().AddSpace("empty", network.Id("2"), []string{}).Return(addedSpace, nil)
-
-	mockState.EXPECT().SaveProviderSubnets([]network.SubnetInfo{{CIDR: "10.0.0.1/12"}}, "2")
+	mockSpaceService.EXPECT().AddSpace(gomock.Any(), "empty", network.Id("2"), []string{}).Return(network.Id(addedSpace.ID), nil)
+	mockSpaceService.EXPECT().Space(gomock.Any(), addedSpace.ID).Return(&addedSpace, nil)
+	mockSpaceService.EXPECT().SaveProviderSubnets(gomock.Any(), []network.SubnetInfo{{CIDR: "10.0.0.1/12"}}, network.Id("2"), nil)
 
 	subnets := []network.SpaceInfo{
 		{ProviderId: network.Id("2"), Subnets: []network.SubnetInfo{{CIDR: "10.0.0.1/12"}}},
 	}
 
-	provider := NewProviderSpaces(mockState)
-	err := provider.SaveSpaces(subnets)
+	provider := NewProviderSpaces(context.Background(), mockState, mockSpaceService)
+	err := provider.SaveSpaces(subnets, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(provider.modelSpaceMap, gc.DeepEquals, map[network.Id]network.SpaceInfo{
 		network.Id("1"): res[0],
@@ -152,8 +160,9 @@ func (s *providerSpacesSuite) TestSaveSpacesDeltaSpaces(c *gc.C) {
 	defer ctrl.Finish()
 
 	mockState := NewMockReloadSpacesState(ctrl)
+	MockSpaceService := NewMockSpaceService(ctrl)
 
-	provider := NewProviderSpaces(mockState)
+	provider := NewProviderSpaces(context.Background(), mockState, MockSpaceService)
 	c.Assert(provider.DeltaSpaces(), gc.DeepEquals, network.MakeIDSet())
 }
 
@@ -162,6 +171,7 @@ func (s *providerSpacesSuite) TestSaveSpacesDeltaSpacesAfterNotUpdated(c *gc.C) 
 	defer ctrl.Finish()
 
 	mockState := NewMockReloadSpacesState(ctrl)
+	mockSpaceService := NewMockSpaceService(ctrl)
 	res := []network.SpaceInfo{
 		{
 			ID:         "1",
@@ -169,21 +179,21 @@ func (s *providerSpacesSuite) TestSaveSpacesDeltaSpacesAfterNotUpdated(c *gc.C) 
 			ProviderId: network.Id("1"),
 		},
 	}
-	mockState.EXPECT().AllSpaces().Return(res, nil)
+	mockSpaceService.EXPECT().GetAllSpaces(gomock.Any()).Return(res, nil)
 	addedSpace := network.SpaceInfo{
 		ID:         "2",
 		ProviderId: network.Id("2"),
 	}
-	mockState.EXPECT().AddSpace("empty", network.Id("2"), []string{}).Return(addedSpace, nil)
-
-	mockState.EXPECT().SaveProviderSubnets([]network.SubnetInfo{{CIDR: "10.0.0.1/12"}}, "2")
+	mockSpaceService.EXPECT().AddSpace(gomock.Any(), "empty", network.Id("2"), []string{}).Return(network.Id(addedSpace.ID), nil)
+	mockSpaceService.EXPECT().Space(gomock.Any(), addedSpace.ID).Return(&addedSpace, nil)
+	mockSpaceService.EXPECT().SaveProviderSubnets(gomock.Any(), []network.SubnetInfo{{CIDR: "10.0.0.1/12"}}, network.Id("2"), nil)
 
 	subnets := []network.SpaceInfo{
 		{ProviderId: network.Id("2"), Subnets: []network.SubnetInfo{{CIDR: "10.0.0.1/12"}}},
 	}
 
-	provider := NewProviderSpaces(mockState)
-	err := provider.SaveSpaces(subnets)
+	provider := NewProviderSpaces(context.Background(), mockState, mockSpaceService)
+	err := provider.SaveSpaces(subnets, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(provider.DeltaSpaces(), gc.DeepEquals, network.MakeIDSet(network.Id("1")))
 }
@@ -193,8 +203,9 @@ func (s *providerSpacesSuite) TestDeleteSpacesWithNoDeltas(c *gc.C) {
 	defer ctrl.Finish()
 
 	mockState := NewMockReloadSpacesState(ctrl)
+	mockSpaceService := NewMockSpaceService(ctrl)
 
-	provider := NewProviderSpaces(mockState)
+	provider := NewProviderSpaces(context.Background(), mockState, mockSpaceService)
 	warnings, err := provider.DeleteSpaces()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(warnings, gc.DeepEquals, []string(nil))
@@ -205,11 +216,13 @@ func (s *providerSpacesSuite) TestDeleteSpaces(c *gc.C) {
 	defer ctrl.Finish()
 
 	mockState := NewMockReloadSpacesState(ctrl)
+	mockSpaceService := NewMockSpaceService(ctrl)
+
 	mockState.EXPECT().AllEndpointBindingsSpaceNames().Return(set.NewStrings(), nil)
 	mockState.EXPECT().ConstraintsBySpaceName("1").Return(nil, nil)
-	mockState.EXPECT().Remove("1").Return(nil)
+	mockSpaceService.EXPECT().Remove(gomock.Any(), "1").Return(nil)
 
-	provider := NewProviderSpaces(mockState)
+	provider := NewProviderSpaces(context.Background(), mockState, mockSpaceService)
 	provider.modelSpaceMap = map[network.Id]network.SpaceInfo{
 		network.Id("1"): {
 			ID:         "1",
@@ -228,9 +241,11 @@ func (s *providerSpacesSuite) TestDeleteSpacesMatchesAlphaSpace(c *gc.C) {
 	defer ctrl.Finish()
 
 	mockState := NewMockReloadSpacesState(ctrl)
+	mockSpaceService := NewMockSpaceService(ctrl)
+
 	mockState.EXPECT().AllEndpointBindingsSpaceNames().Return(set.NewStrings(), nil)
 
-	provider := NewProviderSpaces(mockState)
+	provider := NewProviderSpaces(context.Background(), mockState, mockSpaceService)
 	provider.modelSpaceMap = map[network.Id]network.SpaceInfo{
 		network.Id("1"): {
 			ID:   "1",
@@ -252,9 +267,11 @@ func (s *providerSpacesSuite) TestDeleteSpacesMatchesDefaultBindingSpace(c *gc.C
 	defer ctrl.Finish()
 
 	mockState := NewMockReloadSpacesState(ctrl)
+	mockSpaceService := NewMockSpaceService(ctrl)
+
 	mockState.EXPECT().AllEndpointBindingsSpaceNames().Return(set.NewStrings(), nil)
 
-	provider := NewProviderSpaces(mockState)
+	provider := NewProviderSpaces(context.Background(), mockState, mockSpaceService)
 	provider.modelSpaceMap = map[network.Id]network.SpaceInfo{
 		network.Id("1"): {
 			ID:   "1",
@@ -274,9 +291,11 @@ func (s *providerSpacesSuite) TestDeleteSpacesContainedInAllEndpointBindings(c *
 	defer ctrl.Finish()
 
 	mockState := NewMockReloadSpacesState(ctrl)
+	mockSpaceService := NewMockSpaceService(ctrl)
+
 	mockState.EXPECT().AllEndpointBindingsSpaceNames().Return(set.NewStrings("1"), nil)
 
-	provider := NewProviderSpaces(mockState)
+	provider := NewProviderSpaces(context.Background(), mockState, mockSpaceService)
 	provider.modelSpaceMap = map[network.Id]network.SpaceInfo{
 		network.Id("1"): {
 			ID:   "1",
@@ -296,10 +315,12 @@ func (s *providerSpacesSuite) TestDeleteSpacesContainsConstraintsSpace(c *gc.C) 
 	defer ctrl.Finish()
 
 	mockState := NewMockReloadSpacesState(ctrl)
-	mockState.EXPECT().AllEndpointBindingsSpaceNames().Return(set.NewStrings(), nil)
-	mockState.EXPECT().ConstraintsBySpaceName("1").Return([]Constraints{struct{}{}}, nil)
+	mockSpaceService := NewMockSpaceService(ctrl)
 
-	provider := NewProviderSpaces(mockState)
+	mockState.EXPECT().AllEndpointBindingsSpaceNames().Return(set.NewStrings(), nil)
+	mockState.EXPECT().ConstraintsBySpaceName("1").Return([]*state.Constraints{{}}, nil)
+
+	provider := NewProviderSpaces(context.Background(), mockState, mockSpaceService)
 	provider.modelSpaceMap = map[network.Id]network.SpaceInfo{
 		network.Id("1"): {
 			ID:   "1",
@@ -319,6 +340,8 @@ func (s *providerSpacesSuite) TestProviderSpacesRun(c *gc.C) {
 	defer ctrl.Finish()
 
 	mockState := NewMockReloadSpacesState(ctrl)
+	mockSpaceService := NewMockSpaceService(ctrl)
+
 	res := []network.SpaceInfo{
 		{
 			ID:         "1",
@@ -326,22 +349,22 @@ func (s *providerSpacesSuite) TestProviderSpacesRun(c *gc.C) {
 			ProviderId: network.Id("1"),
 		},
 	}
-	mockState.EXPECT().AllSpaces().Return(res, nil)
+	mockSpaceService.EXPECT().GetAllSpaces(gomock.Any()).Return(res, nil)
 	addedSpace := network.SpaceInfo{
 		ID:         "2",
 		ProviderId: network.Id("2"),
 	}
-	mockState.EXPECT().AddSpace("empty", network.Id("2"), []string{}).Return(addedSpace, nil)
-	mockState.EXPECT().Remove("1").Return(nil)
-
-	mockState.EXPECT().SaveProviderSubnets([]network.SubnetInfo{{CIDR: "10.0.0.1/12"}}, "2")
+	mockSpaceService.EXPECT().AddSpace(gomock.Any(), "empty", network.Id("2"), []string{}).Return(network.Id(addedSpace.ID), nil)
+	mockSpaceService.EXPECT().Space(gomock.Any(), addedSpace.ID).Return(&addedSpace, nil)
+	mockSpaceService.EXPECT().Remove(gomock.Any(), "1").Return(nil)
+	mockSpaceService.EXPECT().SaveProviderSubnets(gomock.Any(), []network.SubnetInfo{{CIDR: "10.0.0.1/12"}}, network.Id("2"), nil)
 
 	subnets := []network.SpaceInfo{
 		{ProviderId: network.Id("2"), Subnets: []network.SubnetInfo{{CIDR: "10.0.0.1/12"}}},
 	}
 
-	provider := NewProviderSpaces(mockState)
-	err := provider.SaveSpaces(subnets)
+	provider := NewProviderSpaces(context.Background(), mockState, mockSpaceService)
+	err := provider.SaveSpaces(subnets, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(provider.modelSpaceMap, gc.DeepEquals, map[network.Id]network.SpaceInfo{
 		network.Id("1"): {

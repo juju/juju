@@ -77,6 +77,7 @@ type ApplicationSuite struct {
 	registry           *mocks.MockProviderRegistry
 	caasBroker         *mocks.MockCaasBrokerInterface
 	store              *mocks.MockObjectStore
+	spaceService       *commonmocks.MockSpaceService
 
 	blockChecker  *mocks.MockBlockChecker
 	changeAllowed error
@@ -228,6 +229,7 @@ func (s *ApplicationSuite) setup(c *gc.C) *gomock.Controller {
 		common.NewResources(),
 		s.caasBroker,
 		s.store,
+		s.spaceService,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api

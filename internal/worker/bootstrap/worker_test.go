@@ -16,7 +16,8 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/controller"
+	"github.com/juju/juju/cloud"
+	controller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/flags"
 	"github.com/juju/juju/core/instance"
@@ -50,7 +51,9 @@ func (s *workerSuite) TestKilled(c *gc.C) {
 	s.expectObjectStoreGetter(2)
 	s.expectBootstrapFlagSet()
 	s.expectSetAPIHostPorts()
+	s.expectGetEnviron()
 	s.expectStaateServingInfo()
+	s.expectFanConfig()
 
 	w := s.newWorker(c)
 	defer workertest.DirtyKill(c, w)
@@ -295,11 +298,39 @@ func (s *workerSuite) expectBootstrapFlagSet() {
 	s.flagService.EXPECT().SetFlag(gomock.Any(), flags.BootstrapFlag, true, flags.BootstrapFlagDescription).Return(nil)
 }
 
+func (s *workerSuite) expectFilterHostPortsForManagementSpace() {
+	s.spaceService.EXPECT().FilterHostPortsForManagementSpace(gomock.Any(), controller.Config{
+		controller.ControllerUUIDKey: "test-uuid",
+	}, gomock.Any())
+}
+
+func (s *workerSuite) expectFanConfig() {
+	s.state.EXPECT().Model().Return(s.stateModel, nil)
+	s.stateModel.EXPECT().Config().Return(&config.Config{}, nil)
+}
+
 func (s *workerSuite) expectSetAPIHostPorts() {
 	s.spaceService.EXPECT().GetAllSpaces(gomock.Any())
 	s.state.EXPECT().SetAPIHostPorts(controller.Config{
 		controller.ControllerUUIDKey: "test-uuid",
 	}, gomock.Any(), gomock.Any())
+}
+
+func (s *workerSuite) expectGetEnviron() {
+	s.state.EXPECT().Model().Return(s.stateModel, nil)
+	s.stateModel.EXPECT().CloudCredentialTag()
+	s.stateModel.EXPECT().CloudName().Return("cloud-name")
+	s.stateModel.EXPECT().CloudRegion().Return("cloud-region")
+	s.stateModel.EXPECT().Config().Return(&config.Config{}, nil)
+	cloud := cloud.Cloud{
+		Regions: []cloud.Region{
+			{
+				Name: "cloud-region",
+			},
+		},
+	}
+	s.cloudService.EXPECT().Get(gomock.Any(), "cloud-name").Return(&cloud, nil)
+	s.state.EXPECT().ControllerModelUUID()
 }
 
 func (s *workerSuite) ensureBootstrapParams(c *gc.C) {

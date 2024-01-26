@@ -16,6 +16,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/envcontext"
 	environmocks "github.com/juju/juju/environs/mocks"
 )
@@ -39,11 +40,16 @@ func (s *ReloadSpacesAPISuite) TestReloadSpaces(c *gc.C) {
 	mockEnvirons.EXPECT().GetEnviron(gomock.Any(), mockEnvirons, gomock.Any()).Return(mockNetworkEnviron, nil)
 
 	mockState := NewMockReloadSpacesState(ctrl)
+	mockSpaceService := NewMockSpaceService(ctrl)
+
+	mockModel := NewMockModel(ctrl)
+	mockState.EXPECT().Model().Return(mockModel, nil)
+	mockModel.EXPECT().Config().Return(&config.Config{}, nil)
 
 	mockEnvironSpaces := NewMockEnvironSpaces(ctrl)
-	mockEnvironSpaces.EXPECT().ReloadSpaces(gomock.Any(), mockState, mockNetworkEnviron).Return(nil)
+	mockEnvironSpaces.EXPECT().ReloadSpaces(gomock.Any(), mockState, mockSpaceService, mockNetworkEnviron, nil).Return(nil)
 
-	spacesAPI := NewReloadSpacesAPI(mockState, mockEnvirons, mockEnvironSpaces, apiservertesting.NoopModelCredentialInvalidatorGetter, authorizer)
+	spacesAPI := NewReloadSpacesAPI(mockState, mockEnvirons, mockEnvironSpaces, apiservertesting.NoopModelCredentialInvalidatorGetter, authorizer, mockSpaceService)
 	err := spacesAPI.ReloadSpaces(envcontext.WithoutCredentialInvalidator(context.Background()))
 	c.Check(err, jc.ErrorIsNil)
 }
@@ -60,10 +66,10 @@ func (s *ReloadSpacesAPISuite) TestReloadSpacesWithNoEnviron(c *gc.C) {
 	mockEnvirons.EXPECT().GetEnviron(gomock.Any(), mockEnvirons, gomock.Any()).Return(mockNetworkEnviron, errors.New("boom"))
 
 	mockState := NewMockReloadSpacesState(ctrl)
-
+	mockSpaceService := NewMockSpaceService(ctrl)
 	mockEnvironSpaces := NewMockEnvironSpaces(ctrl)
 
-	spacesAPI := NewReloadSpacesAPI(mockState, mockEnvirons, mockEnvironSpaces, apiservertesting.NoopModelCredentialInvalidatorGetter, authorizer)
+	spacesAPI := NewReloadSpacesAPI(mockState, mockEnvirons, mockEnvironSpaces, apiservertesting.NoopModelCredentialInvalidatorGetter, authorizer, mockSpaceService)
 	err := spacesAPI.ReloadSpaces(context.Background())
 	c.Check(err, gc.ErrorMatches, "boom")
 }
@@ -80,11 +86,15 @@ func (s *ReloadSpacesAPISuite) TestReloadSpacesWithReloadSpaceError(c *gc.C) {
 	mockEnvirons.EXPECT().GetEnviron(gomock.Any(), mockEnvirons, gomock.Any()).Return(mockNetworkEnviron, nil)
 
 	mockState := NewMockReloadSpacesState(ctrl)
-
+	mockSpaceService := NewMockSpaceService(ctrl)
 	mockEnvironSpaces := NewMockEnvironSpaces(ctrl)
-	mockEnvironSpaces.EXPECT().ReloadSpaces(gomock.Any(), mockState, mockNetworkEnviron).Return(errors.New("boom"))
+	mockEnvironSpaces.EXPECT().ReloadSpaces(gomock.Any(), mockState, mockSpaceService, mockNetworkEnviron, nil).Return(errors.New("boom"))
 
-	spacesAPI := NewReloadSpacesAPI(mockState, mockEnvirons, mockEnvironSpaces, apiservertesting.NoopModelCredentialInvalidatorGetter, authorizer)
+	mockModel := NewMockModel(ctrl)
+	mockState.EXPECT().Model().Return(mockModel, nil)
+	mockModel.EXPECT().Config().Return(&config.Config{}, nil)
+
+	spacesAPI := NewReloadSpacesAPI(mockState, mockEnvirons, mockEnvironSpaces, apiservertesting.NoopModelCredentialInvalidatorGetter, authorizer, mockSpaceService)
 	err := spacesAPI.ReloadSpaces(context.Background())
 	c.Check(err, gc.ErrorMatches, "boom")
 }
