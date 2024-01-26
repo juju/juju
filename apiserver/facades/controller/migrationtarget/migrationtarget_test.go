@@ -54,6 +54,7 @@ type Suite struct {
 
 	controllerConfigService   *MockControllerConfigService
 	externalControllerService *MockExternalControllerService
+	machineSaver              *MockMachineSaver
 	upgradeService            *MockUpgradeService
 	cloudService              *commonmocks.MockCloudService
 	credentialService         *credentialcommon.MockCredentialService
@@ -591,6 +592,8 @@ func (s *Suite) setupMocks(c *gc.C) *gomock.Controller {
 	s.controllerConfigService = NewMockControllerConfigService(ctrl)
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(jujutesting.FakeControllerConfig(), nil).AnyTimes()
 
+	s.machineSaver = NewMockMachineSaver(ctrl)
+
 	s.externalControllerService = NewMockExternalControllerService(ctrl)
 	s.upgradeService = NewMockUpgradeService(ctrl)
 	s.cloudService = commonmocks.NewMockCloudService(ctrl)
@@ -700,7 +703,7 @@ func (s *Suite) expectImportModel(c *gc.C) {
 	s.modelImporter.EXPECT().ImportModel(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, bytes []byte) (*state.Model, *state.State, error) {
 		scope := modelmigration.NewScope(nil, nil)
 		controller := state.NewController(s.StatePool)
-		return migration.NewModelImporter(controller, scope, s.controllerConfigService).ImportModel(ctx, bytes)
+		return migration.NewModelImporter(controller, scope, s.controllerConfigService, s.machineSaver).ImportModel(ctx, bytes)
 	})
 }
 

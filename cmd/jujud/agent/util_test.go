@@ -33,6 +33,7 @@ import (
 	"github.com/juju/juju/cmd/internal/agent/agentconf"
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	"github.com/juju/juju/cmd/jujud/agent/mocks"
+	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/network"
@@ -42,7 +43,6 @@ import (
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/internal/mongo/mongometrics"
 	"github.com/juju/juju/internal/mongo/mongotest"
-	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/internal/upgrades"
 	jworker "github.com/juju/juju/internal/worker"
@@ -90,7 +90,7 @@ func (s *commonMachineSuite) SetUpSuite(c *gc.C) {
 	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	s.PatchValue(&stateWorkerDialOpts, mongotest.DialOpts())
 	s.PatchValue(&authenticationworker.SSHUser, "")
-	s.PatchValue(&diskmanager.DefaultListBlockDevices, func() ([]storage.BlockDevice, error) {
+	s.PatchValue(&diskmanager.DefaultListBlockDevices, func() ([]blockdevice.BlockDevice, error) {
 		return nil, nil
 	})
 	s.PatchValue(&machiner.GetObservedNetworkConfig, func(_ network.ConfigSource) ([]params.NetworkConfig, error) {
@@ -167,11 +167,29 @@ func (s *commonMachineSuite) primeAgent(c *gc.C, jobs ...state.MachineJob) (m *s
 	return s.primeAgentVersion(c, vers, jobs...)
 }
 
+// TODO(wallyworld) - we need the dqlite model database to be available.
+//func (s *commonMachineSuite) createMachine(c *gc.C, machineId string) string {
+//	db := s.DB()
+//
+//	netNodeUUID := utils.MustNewUUID().String()
+//	_, err := db.ExecContext(context.Background(), "INSERT INTO net_node (uuid) VALUES (?)", netNodeUUID)
+//	c.Assert(err, jc.ErrorIsNil)
+//	machineUUID := utils.MustNewUUID().String()
+//	_, err = db.ExecContext(context.Background(), `
+//INSERT INTO machine (uuid, life_id, machine_id, net_node_uuid)
+//VALUES (?, ?, ?, ?)
+//`, machineUUID, life.Alive, machineId, netNodeUUID)
+//	c.Assert(err, jc.ErrorIsNil)
+//	return machineUUID
+//}
+
 // primeAgentVersion is similar to primeAgent, but permits the
 // caller to specify the version.Binary to prime with.
 func (s *commonMachineSuite) primeAgentVersion(c *gc.C, vers version.Binary, jobs ...state.MachineJob) (m *state.Machine, agentConfig agent.ConfigSetterWriter, tools *tools.Tools) {
 	m, err := s.ControllerModel(c).State().AddMachine(state.UbuntuBase("12.10"), jobs...)
 	c.Assert(err, jc.ErrorIsNil)
+	// TODO(wallyworld) - we need the dqlite model database to be available.
+	// s.createMachine(c, m.Id())
 	return s.primeAgentWithMachine(c, m, vers)
 }
 

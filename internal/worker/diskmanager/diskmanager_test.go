@@ -9,7 +9,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/internal/worker/diskmanager"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -22,20 +22,20 @@ type DiskManagerWorkerSuite struct {
 
 func (s *DiskManagerWorkerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.PatchValue(diskmanager.BlockDeviceInUse, func(storage.BlockDevice) (bool, error) {
+	s.PatchValue(diskmanager.BlockDeviceInUse, func(device blockdevice.BlockDevice) (bool, error) {
 		return false, nil
 	})
 }
 
 func (s *DiskManagerWorkerSuite) TestWorker(c *gc.C) {
 	done := make(chan struct{})
-	var setDevices BlockDeviceSetterFunc = func(devices []storage.BlockDevice) error {
+	var setDevices BlockDeviceSetterFunc = func(devices []blockdevice.BlockDevice) error {
 		close(done)
 		return nil
 	}
 
-	var listDevices diskmanager.ListBlockDevicesFunc = func() ([]storage.BlockDevice, error) {
-		return []storage.BlockDevice{{DeviceName: "whatever"}}, nil
+	var listDevices diskmanager.ListBlockDevicesFunc = func() ([]blockdevice.BlockDevice, error) {
+		return []blockdevice.BlockDevice{{DeviceName: "whatever"}}, nil
 	}
 
 	w := diskmanager.NewWorker(listDevices, setDevices)
@@ -50,16 +50,16 @@ func (s *DiskManagerWorkerSuite) TestWorker(c *gc.C) {
 }
 
 func (s *DiskManagerWorkerSuite) TestBlockDeviceChanges(c *gc.C) {
-	var oldDevices []storage.BlockDevice
-	var devicesSet [][]storage.BlockDevice
-	var setDevices BlockDeviceSetterFunc = func(devices []storage.BlockDevice) error {
-		devicesSet = append(devicesSet, append([]storage.BlockDevice{}, devices...))
+	var oldDevices []blockdevice.BlockDevice
+	var devicesSet [][]blockdevice.BlockDevice
+	var setDevices BlockDeviceSetterFunc = func(devices []blockdevice.BlockDevice) error {
+		devicesSet = append(devicesSet, append([]blockdevice.BlockDevice{}, devices...))
 		return nil
 	}
 
-	device := storage.BlockDevice{DeviceName: "sda", DeviceLinks: []string{"a", "b"}}
-	var listDevices diskmanager.ListBlockDevicesFunc = func() ([]storage.BlockDevice, error) {
-		return []storage.BlockDevice{device}, nil
+	device := blockdevice.BlockDevice{DeviceName: "sda", DeviceLinks: []string{"a", "b"}}
+	var listDevices diskmanager.ListBlockDevicesFunc = func() ([]blockdevice.BlockDevice, error) {
+		return []blockdevice.BlockDevice{device}, nil
 	}
 
 	err := diskmanager.DoWork(listDevices, setDevices, &oldDevices)
@@ -78,23 +78,23 @@ func (s *DiskManagerWorkerSuite) TestBlockDeviceChanges(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(devicesSet, gc.HasLen, 2)
 
-	c.Assert(devicesSet[0], gc.DeepEquals, []storage.BlockDevice{{
+	c.Assert(devicesSet[0], gc.DeepEquals, []blockdevice.BlockDevice{{
 		DeviceName: "sda", DeviceLinks: []string{"a", "b"},
 	}})
-	c.Assert(devicesSet[1], gc.DeepEquals, []storage.BlockDevice{{
+	c.Assert(devicesSet[1], gc.DeepEquals, []blockdevice.BlockDevice{{
 		DeviceName: "sdb", DeviceLinks: []string{"a", "b"},
 	}})
 }
 
 func (s *DiskManagerWorkerSuite) TestBlockDevicesSorted(c *gc.C) {
-	var devicesSet [][]storage.BlockDevice
-	var setDevices BlockDeviceSetterFunc = func(devices []storage.BlockDevice) error {
+	var devicesSet [][]blockdevice.BlockDevice
+	var setDevices BlockDeviceSetterFunc = func(devices []blockdevice.BlockDevice) error {
 		devicesSet = append(devicesSet, devices)
 		return nil
 	}
 
-	var listDevices diskmanager.ListBlockDevicesFunc = func() ([]storage.BlockDevice, error) {
-		return []storage.BlockDevice{{
+	var listDevices diskmanager.ListBlockDevicesFunc = func() ([]blockdevice.BlockDevice, error) {
+		return []blockdevice.BlockDevice{{
 			DeviceName: "sdb",
 		}, {
 			DeviceName: "sda",
@@ -102,12 +102,12 @@ func (s *DiskManagerWorkerSuite) TestBlockDevicesSorted(c *gc.C) {
 			DeviceName: "sdc",
 		}}, nil
 	}
-	err := diskmanager.DoWork(listDevices, setDevices, new([]storage.BlockDevice))
+	err := diskmanager.DoWork(listDevices, setDevices, new([]blockdevice.BlockDevice))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// The block Devices should be sorted when passed to the block
 	// device setter.
-	c.Assert(devicesSet, gc.DeepEquals, [][]storage.BlockDevice{{{
+	c.Assert(devicesSet, gc.DeepEquals, [][]blockdevice.BlockDevice{{{
 		DeviceName: "sda",
 	}, {
 		DeviceName: "sdb",
@@ -116,8 +116,8 @@ func (s *DiskManagerWorkerSuite) TestBlockDevicesSorted(c *gc.C) {
 	}}})
 }
 
-type BlockDeviceSetterFunc func([]storage.BlockDevice) error
+type BlockDeviceSetterFunc func([]blockdevice.BlockDevice) error
 
-func (f BlockDeviceSetterFunc) SetMachineBlockDevices(devices []storage.BlockDevice) error {
+func (f BlockDeviceSetterFunc) SetMachineBlockDevices(devices []blockdevice.BlockDevice) error {
 	return f(devices)
 }

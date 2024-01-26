@@ -11,7 +11,7 @@ import (
 	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/domain/blockdevice"
+	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/domain/life"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 )

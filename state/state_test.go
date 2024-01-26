@@ -537,31 +537,6 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 				c.Assert(err, jc.ErrorIsNil)
 			},
 		}, {
-			about: "block devices",
-			getWatcher: func(st *state.State) interface{} {
-				f := factory.NewFactory(st, s.StatePool)
-				m := f.MakeMachine(c, &factory.MachineParams{})
-				c.Assert(m.Id(), gc.Equals, "0")
-				sb, err := state.NewStorageBackend(st)
-				c.Assert(err, jc.ErrorIsNil)
-				return sb.WatchBlockDevices(m.MachineTag())
-			},
-			setUpState: func(st *state.State) bool {
-				m, err := st.Machine("0")
-				c.Assert(err, jc.ErrorIsNil)
-				sdb := state.BlockDeviceInfo{DeviceName: "sdb"}
-				err = m.SetMachineBlockDevices(sdb)
-				c.Assert(err, jc.ErrorIsNil)
-				return true
-			},
-			triggerEvent: func(st *state.State) {
-				m, err := st.Machine("0")
-				c.Assert(err, jc.ErrorIsNil)
-				sdb := state.BlockDeviceInfo{DeviceName: "sdb", Label: "fatty"}
-				err = m.SetMachineBlockDevices(sdb)
-				c.Assert(err, jc.ErrorIsNil)
-			},
-		}, {
 			about: "statuses",
 			getWatcher: func(st *state.State) interface{} {
 				m, err := st.AddMachine(state.UbuntuBase("22.04"), state.JobHostUnits)

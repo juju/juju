@@ -13,6 +13,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
@@ -25,7 +26,7 @@ type managedfsSuite struct {
 	testing.BaseSuite
 	commands     *mockRunCommand
 	dirFuncs     *provider.MockDirFuncs
-	blockDevices map[names.VolumeTag]storage.BlockDevice
+	blockDevices map[names.VolumeTag]blockdevice.BlockDevice
 	filesystems  map[names.FilesystemTag]storage.Filesystem
 	fakeEtcDir   string
 
@@ -34,7 +35,7 @@ type managedfsSuite struct {
 
 func (s *managedfsSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.blockDevices = make(map[names.VolumeTag]storage.BlockDevice)
+	s.blockDevices = make(map[names.VolumeTag]blockdevice.BlockDevice)
 	s.filesystems = make(map[names.FilesystemTag]storage.Filesystem)
 	s.callCtx = envcontext.WithoutCredentialInvalidator(context.Background())
 	s.fakeEtcDir = c.MkDir()
@@ -71,15 +72,15 @@ func (s *managedfsSuite) TestCreateFilesystems(c *gc.C) {
 	// account of ending with a digit.
 	s.commands.expect("mkfs.ext4", "/dev/xvdf1")
 
-	s.blockDevices[names.NewVolumeTag("0")] = storage.BlockDevice{
+	s.blockDevices[names.NewVolumeTag("0")] = blockdevice.BlockDevice{
 		DeviceName: "sda",
 		HardwareId: "capncrunch",
-		Size:       2,
+		SizeMiB:    2,
 	}
-	s.blockDevices[names.NewVolumeTag("1")] = storage.BlockDevice{
+	s.blockDevices[names.NewVolumeTag("1")] = blockdevice.BlockDevice{
 		DeviceName: "xvdf1",
 		HardwareId: "weetbix",
-		Size:       3,
+		SizeMiB:    3,
 	}
 	results, err := source.CreateFilesystems(s.callCtx, []storage.FilesystemParams{{
 		Tag:    names.NewFilesystemTag("0/0"),
@@ -197,10 +198,10 @@ func (s *managedfsSuite) testAttachFilesystems(c *gc.C, readOnly, reattach bool,
 		s.commands.expect("mount", args...)
 	}
 
-	s.blockDevices[names.NewVolumeTag("0")] = storage.BlockDevice{
+	s.blockDevices[names.NewVolumeTag("0")] = blockdevice.BlockDevice{
 		DeviceName: "sda",
 		HardwareId: "capncrunch",
-		Size:       2,
+		SizeMiB:    2,
 		UUID:       UUID,
 	}
 	s.filesystems[names.NewFilesystemTag("0/0")] = storage.Filesystem{

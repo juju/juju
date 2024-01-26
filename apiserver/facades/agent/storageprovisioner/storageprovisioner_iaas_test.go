@@ -12,15 +12,20 @@ import (
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/apiserver/facades/agent/storageprovisioner"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/internal/storage"
@@ -51,8 +56,12 @@ func (s *iaasProvisionerSuite) SetUpTest(c *gc.C) {
 	s.resources = common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
-	serviceFactory := s.ControllerServiceFactory(c)
+	s.api = s.newApi(c, s.DefaultModelServiceFactory(c).BlockDevice(), nil)
+	s.store = jujutesting.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State())
+}
 
+func (s *iaasProvisionerSuite) newApi(c *gc.C, blockDeviceService storageprovisioner.BlockDeviceService, watcherRegistry facade.WatcherRegistry) *storageprovisioner.StorageProvisionerAPIv4 {
+	serviceFactory := s.ControllerServiceFactory(c)
 	env, err := stateenvirons.GetNewEnvironFunc(environs.New)(s.ControllerModel(c), serviceFactory.Cloud(), serviceFactory.Credential())
 	c.Assert(err, jc.ErrorIsNil)
 	registry := stateenvirons.NewStorageProviderRegistry(env)
@@ -66,10 +75,12 @@ func (s *iaasProvisionerSuite) SetUpTest(c *gc.C) {
 	backend, storageBackend, err := storageprovisioner.NewStateBackends(s.st)
 	c.Assert(err, jc.ErrorIsNil)
 	s.storageBackend = storageBackend
-	s.api, err = storageprovisioner.NewStorageProvisionerAPIv4(
+	api, err := storageprovisioner.NewStorageProvisionerAPIv4(
 		context.Background(),
+		watcherRegistry,
 		backend,
 		storageBackend,
+		blockDeviceService,
 		s.ControllerServiceFactory(c).ControllerConfig(),
 		s.resources,
 		s.authorizer,
@@ -78,8 +89,7 @@ func (s *iaasProvisionerSuite) SetUpTest(c *gc.C) {
 		loggo.GetLogger("juju.apiserver.storageprovisioner"),
 	)
 	c.Assert(err, jc.ErrorIsNil)
-
-	s.store = jujutesting.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State())
+	return api
 }
 
 func (s *iaasProvisionerSuite) setupVolumes(c *gc.C) {
@@ -1099,13 +1109,28 @@ func (s *iaasProvisionerSuite) TestWatchBlockDevices(c *gc.C) {
 	f.MakeMachine(c, nil)
 	c.Assert(s.resources.Count(), gc.Equals, 0)
 
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	ch := make(chan struct{}, 1)
+	ch <- struct{}{} // Initial event.
+	watcher := watchertest.NewMockNotifyWatcher(ch)
+	blockDeviceService := NewMockBlockDeviceService(ctrl)
+	blockDeviceService.EXPECT().WatchBlockDevices(gomock.Any(), "0").Return(watcher, nil)
+
+	watcherRegistry := mocks.NewMockWatcherRegistry(ctrl)
+	watcherRegistry.EXPECT().Register(watcher).Return("1", nil)
+
+	api := s.newApi(c, blockDeviceService, watcherRegistry)
+
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "machine-0"},
 		{Tag: "application-mysql"},
 		{Tag: "machine-1"},
 		{Tag: "machine-42"}},
 	}
-	results, err := s.api.WatchBlockDevices(context.Background(), args)
+
+	results, err := api.WatchBlockDevices(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.NotifyWatchResults{
 		Results: []params.NotifyWatchResult{
@@ -1116,23 +1141,9 @@ func (s *iaasProvisionerSuite) TestWatchBlockDevices(c *gc.C) {
 		},
 	})
 
-	// Verify the resources were registered and stop them when done.
-	c.Assert(s.resources.Count(), gc.Equals, 1)
-	watcher := s.resources.Get("1")
-	defer workertest.CleanKill(c, watcher)
-
 	// Check that the Watch has consumed the initial event.
-	wc := statetesting.NewNotifyWatcherC(c, watcher.(state.NotifyWatcher))
+	wc := watchertest.NewNotifyWatcherC(c, watcher)
 	wc.AssertNoChange()
-
-	m, err := s.st.Machine("0")
-	c.Assert(err, jc.ErrorIsNil)
-	err = m.SetMachineBlockDevices(state.BlockDeviceInfo{
-		DeviceName: "sda",
-		Size:       123,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertOneChange()
 }
 
 func (s *iaasProvisionerSuite) TestVolumeBlockDevices(c *gc.C) {
@@ -1150,13 +1161,17 @@ func (s *iaasProvisionerSuite) TestVolumeBlockDevices(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	machine0, err := s.st.Machine("0")
-	c.Assert(err, jc.ErrorIsNil)
-	err = machine0.SetMachineBlockDevices(state.BlockDeviceInfo{
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	blockDeviceService := NewMockBlockDeviceService(ctrl)
+	api := s.newApi(c, blockDeviceService, mocks.NewMockWatcherRegistry(ctrl))
+
+	blockDeviceService.EXPECT().BlockDevices(gomock.Any(), "0").Return([]blockdevice.BlockDevice{{
 		DeviceName: "sda",
-		Size:       123,
+		SizeMiB:    123,
 		HardwareId: "123", // matches volume-0/0
-	})
+	}}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.MachineStorageIds{Ids: []params.MachineStorageId{
@@ -1167,11 +1182,11 @@ func (s *iaasProvisionerSuite) TestVolumeBlockDevices(c *gc.C) {
 		{MachineTag: "machine-42", AttachmentTag: "volume-42"},
 		{MachineTag: "application-mysql", AttachmentTag: "volume-1"},
 	}}
-	results, err := s.api.VolumeBlockDevices(context.Background(), args)
+	results, err := api.VolumeBlockDevices(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.BlockDeviceResults{
 		Results: []params.BlockDeviceResult{
-			{Result: storage.BlockDevice{
+			{Result: params.BlockDevice{
 				DeviceName: "sda",
 				Size:       123,
 				HardwareId: "123",
@@ -1228,23 +1243,27 @@ func (s *iaasProvisionerSuite) TestVolumeBlockDevicesPlanBlockInfoSet(c *gc.C) {
 		names.NewMachineTag("0"), names.NewVolumeTag("0/0"), blockInfo)
 	c.Assert(err, jc.ErrorIsNil)
 
-	machine0, err := s.st.Machine("0")
-	c.Assert(err, jc.ErrorIsNil)
-	err = machine0.SetMachineBlockDevices(state.BlockDeviceInfo{
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	blockDeviceService := NewMockBlockDeviceService(ctrl)
+	api := s.newApi(c, blockDeviceService, mocks.NewMockWatcherRegistry(ctrl))
+
+	blockDeviceService.EXPECT().BlockDevices(gomock.Any(), "0").Return([]blockdevice.BlockDevice{{
 		DeviceName: "sda",
-		Size:       123,
+		SizeMiB:    123,
 		HardwareId: "test-id",
-	})
+	}}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.MachineStorageIds{Ids: []params.MachineStorageId{
 		{MachineTag: "machine-0", AttachmentTag: "volume-0-0"},
 	}}
-	results, err := s.api.VolumeBlockDevices(context.Background(), args)
+	results, err := api.VolumeBlockDevices(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.BlockDeviceResults{
 		Results: []params.BlockDeviceResult{
-			{Result: storage.BlockDevice{
+			{Result: params.BlockDevice{
 				DeviceName: "sda",
 				Size:       123,
 				HardwareId: "test-id",

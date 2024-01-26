@@ -16,6 +16,7 @@ import (
 	"github.com/juju/worker/v4/workertest"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs/envcontext"
@@ -47,7 +48,7 @@ func (s *storageProvisionerSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(
 		storageprovisioner.NewManagedFilesystemSource,
 		func(
-			blockDevices map[names.VolumeTag]storage.BlockDevice,
+			blockDevices map[names.VolumeTag]blockdevice.BlockDevice,
 			filesystems map[names.FilesystemTag]storage.Filesystem,
 		) storage.FilesystemSource {
 			s.managedFilesystemSource = &mockManagedFilesystemSource{
@@ -1095,7 +1096,7 @@ func (s *storageProvisionerSuite) TestCreateVolumeBackedFilesystem(c *gc.C) {
 	args.volumes.blockDevices[params.MachineStorageId{
 		MachineTag:    "machine-0",
 		AttachmentTag: "volume-0-0",
-	}] = storage.BlockDevice{
+	}] = params.BlockDevice{
 		DeviceName: "xvdf1",
 		Size:       123,
 	}
@@ -1121,7 +1122,7 @@ func (s *storageProvisionerSuite) TestCreateVolumeBackedFilesystem(c *gc.C) {
 	args.volumes.blockDevices[params.MachineStorageId{
 		MachineTag:    "machine-0",
 		AttachmentTag: "volume-0-1",
-	}] = storage.BlockDevice{
+	}] = params.BlockDevice{
 		DeviceName: "xvdf2",
 		Size:       246,
 	}
@@ -1169,7 +1170,7 @@ func (s *storageProvisionerSuite) TestAttachVolumeBackedFilesystem(c *gc.C) {
 	args.volumes.blockDevices[params.MachineStorageId{
 		MachineTag:    "machine-0",
 		AttachmentTag: "volume-0-0",
-	}] = storage.BlockDevice{
+	}] = params.BlockDevice{
 		DeviceName: "xvdf1",
 		Size:       123,
 	}
@@ -1195,7 +1196,7 @@ func (s *storageProvisionerSuite) TestAttachVolumeBackedFilesystem(c *gc.C) {
 	args.volumes.blockDevices[params.MachineStorageId{
 		MachineTag:    "machine-0",
 		AttachmentTag: "volume-0-0",
-	}] = storage.BlockDevice{
+	}] = params.BlockDevice{
 		DeviceName: "xvdf1",
 		Size:       123,
 		UUID:       "deadbeaf",

@@ -6,6 +6,8 @@ package servicefactory
 import (
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/domain"
+	blockdeviceservice "github.com/juju/juju/domain/blockdevice/service"
+	blockdevicestate "github.com/juju/juju/domain/blockdevice/state"
 	machineservice "github.com/juju/juju/domain/machine/service"
 	machinestate "github.com/juju/juju/domain/machine/state"
 	modelconfigservice "github.com/juju/juju/domain/modelconfig/service"
@@ -60,5 +62,14 @@ func (s *ModelFactory) ObjectStore() *objectstoreservice.Service {
 func (s *ModelFactory) Machine() *machineservice.Service {
 	return machineservice.NewService(
 		machinestate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), s.logger.Child("machine")),
+	)
+}
+
+// BlockDevice returns the model's block device service.
+func (s *ModelFactory) BlockDevice() *blockdeviceservice.Service {
+	return blockdeviceservice.NewService(
+		blockdevicestate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
+		domain.NewWatcherFactory(s.modelDB, s.logger.Child("blockdevice")),
+		s.logger.Child("blockdevice"),
 	)
 }

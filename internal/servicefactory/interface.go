@@ -5,6 +5,7 @@ package servicefactory
 
 import (
 	autocertcacheservice "github.com/juju/juju/domain/autocert/service"
+	blockdeviceservice "github.com/juju/juju/domain/blockdevice/service"
 	cloudservice "github.com/juju/juju/domain/cloud/service"
 	controllerconfigservice "github.com/juju/juju/domain/controllerconfig/service"
 	controllernodeservice "github.com/juju/juju/domain/controllernode/service"
@@ -63,6 +64,8 @@ type ModelServiceFactory interface {
 	ObjectStore() *objectstoreservice.Service
 	// Machine returns the machine service.
 	Machine() *machineservice.Service
+	// BlockDevice returns the block device service.
+	BlockDevice() *blockdeviceservice.Service
 }
 
 // ServiceFactory provides access to the services required by the apiserver.

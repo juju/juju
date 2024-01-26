@@ -12,12 +12,12 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/v3"
 
+	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain"
-	"github.com/juju/juju/domain/blockdevice"
 	"github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 )

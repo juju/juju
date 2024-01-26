@@ -26,15 +26,17 @@ type (
 	StorageStateInterface      storageInterface
 	StorageVolumeInterface     = storageVolumeInterface
 	StorageFilesystemInterface = storageFilesystemInterface
+	BlockDeviceService         = blockDeviceService
 )
 
 func NewStorageAPI(
 	backend backend,
 	storage storageAccess,
+	blockDeviceService blockDeviceService,
 	resources facade.Resources,
 	accessUnit common.GetAuthFunc,
 ) (*StorageAPI, error) {
-	return newStorageAPI(backend, storage, resources, accessUnit)
+	return newStorageAPI(backend, storage, blockDeviceService, resources, accessUnit)
 }
 
 func SetNewContainerBrokerFunc(api *UniterAPI, newBroker caas.NewContainerBrokerFunc) {

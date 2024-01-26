@@ -63,6 +63,6 @@ func newStorageAPI(ctx facade.Context) (*StorageAPI, error) {
 
 	return NewStorageAPI(
 		stateShim{st}, model.Type(),
-		storageAccessor, storageMetadata, authorizer,
+		storageAccessor, ctx.ServiceFactory().BlockDevice(), storageMetadata, authorizer,
 		credentialcommon.CredentialInvalidatorGetter(ctx)), nil
 }

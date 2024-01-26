@@ -13,7 +13,7 @@ import (
 
 	"github.com/juju/juju/api/agent/diskmanager"
 	"github.com/juju/juju/api/base/testing"
-	"github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/rpc/params"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -25,9 +25,9 @@ type DiskManagerSuite struct {
 }
 
 func (s *DiskManagerSuite) TestSetMachineBlockDevices(c *gc.C) {
-	devices := []storage.BlockDevice{{
+	devices := []blockdevice.BlockDevice{{
 		DeviceName: "sda",
-		Size:       123,
+		SizeMiB:    123,
 	}, {
 		DeviceName: "sdb",
 		UUID:       "asdadasdasdas",
@@ -41,8 +41,14 @@ func (s *DiskManagerSuite) TestSetMachineBlockDevices(c *gc.C) {
 		c.Check(request, gc.Equals, "SetMachineBlockDevices")
 		c.Check(arg, gc.DeepEquals, params.SetMachineBlockDevices{
 			MachineBlockDevices: []params.MachineBlockDevices{{
-				Machine:      "machine-123",
-				BlockDevices: devices,
+				Machine: "machine-123",
+				BlockDevices: []params.BlockDevice{{
+					DeviceName: "sda",
+					Size:       123,
+				}, {
+					DeviceName: "sdb",
+					UUID:       "asdadasdasdas",
+				}},
 			}},
 		})
 		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})

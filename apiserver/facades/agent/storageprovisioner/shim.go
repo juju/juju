@@ -29,9 +29,6 @@ type Backend interface {
 }
 
 type StorageBackend interface {
-	BlockDevices(names.MachineTag) ([]state.BlockDeviceInfo, error)
-
-	WatchBlockDevices(names.MachineTag) state.NotifyWatcher
 	WatchModelFilesystems() state.StringsWatcher
 	WatchModelFilesystemAttachments() state.StringsWatcher
 	WatchMachineFilesystems(names.MachineTag) state.StringsWatcher

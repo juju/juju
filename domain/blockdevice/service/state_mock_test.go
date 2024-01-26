@@ -13,10 +13,10 @@ import (
 	context "context"
 	reflect "reflect"
 
+	blockdevice "github.com/juju/juju/core/blockdevice"
 	changestream "github.com/juju/juju/core/changestream"
 	watcher "github.com/juju/juju/core/watcher"
 	eventsource "github.com/juju/juju/core/watcher/eventsource"
-	blockdevice "github.com/juju/juju/domain/blockdevice"
 	gomock "go.uber.org/mock/gomock"
 )
 

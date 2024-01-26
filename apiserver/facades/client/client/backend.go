@@ -4,6 +4,7 @@
 package client
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/charm/v12"
@@ -15,6 +16,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
@@ -258,4 +260,9 @@ var getStorageState = func(st *state.State) (StorageInterface, error) {
 		return nil, err
 	}
 	return sb, nil
+}
+
+// BlockDeviceGetter instances can fetch block devices for a machine.
+type BlockDeviceGetter interface {
+	BlockDevices(ctx context.Context, machineId string) ([]blockdevice.BlockDevice, error)
 }

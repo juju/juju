@@ -4,6 +4,7 @@
 package storage_test
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/charm/v12"
@@ -11,6 +12,7 @@ import (
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/apiserver/facades/client/storage"
+	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/core/status"
 	jujustorage "github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/state"
@@ -45,6 +47,17 @@ func (m *mockPoolManager) Replace(name, provider string, attrs map[string]interf
 	return m.replacePool(name, provider, attrs)
 }
 
+type mockBlockDeviceGetter struct {
+	blockDevices func(string) ([]blockdevice.BlockDevice, error)
+}
+
+func (b *mockBlockDeviceGetter) BlockDevices(_ context.Context, machineId string) ([]blockdevice.BlockDevice, error) {
+	if b.blockDevices != nil {
+		return b.blockDevices(machineId)
+	}
+	return []blockdevice.BlockDevice{}, nil
+}
+
 type mockStorageAccessor struct {
 	storageInstance                     func(names.StorageTag) (state.StorageInstance, error)
 	removeStoragePool                   func(string) error
@@ -65,7 +78,6 @@ type mockStorageAccessor struct {
 	filesystemAttachments               func(filesystem names.FilesystemTag) ([]state.FilesystemAttachment, error)
 	allFilesystems                      func() ([]state.Filesystem, error)
 	addStorageForUnit                   func(u names.UnitTag, name string, cons state.StorageConstraints) ([]names.StorageTag, error)
-	blockDevices                        func(names.MachineTag) ([]state.BlockDeviceInfo, error)
 	destroyStorageInstance              func(names.StorageTag, bool, bool) error
 	releaseStorageInstance              func(names.StorageTag, bool, bool) error
 	attachStorage                       func(names.StorageTag, names.UnitTag) error
@@ -156,13 +168,6 @@ func (st *mockStorageAccessor) Filesystem(tag names.FilesystemTag) (state.Filesy
 
 func (st *mockStorageAccessor) AddStorageForUnit(u names.UnitTag, name string, cons state.StorageConstraints) ([]names.StorageTag, error) {
 	return st.addStorageForUnit(u, name, cons)
-}
-
-func (st *mockStorageAccessor) BlockDevices(m names.MachineTag) ([]state.BlockDeviceInfo, error) {
-	if st.blockDevices != nil {
-		return st.blockDevices(m)
-	}
-	return []state.BlockDeviceInfo{}, nil
 }
 
 func (st *mockStorageAccessor) AttachStorage(storage names.StorageTag, unit names.UnitTag) error {

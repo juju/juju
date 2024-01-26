@@ -328,12 +328,6 @@ func allCollections() CollectionSchema {
 
 		// -----
 
-		// These collections hold information associated with storage.
-		blockDevicesC: {
-			indexes: []mgo.Index{{
-				Key: []string{"model-uuid", "machineid"},
-			}},
-		},
 		filesystemsC: {
 			indexes: []mgo.Index{{
 				Key: []string{"model-uuid", "storageid"},
@@ -643,7 +637,6 @@ const (
 	autocertCacheC             = "autocertCache"
 	assignUnitC                = "assignUnits"
 	bakeryStorageItemsC        = "bakeryStorageItems"
-	blockDevicesC              = "blockdevices"
 	blocksC                    = "blocks"
 	charmsC                    = "charms"
 	cleanupsC                  = "cleanups"

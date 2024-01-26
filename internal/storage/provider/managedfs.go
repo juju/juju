@@ -16,6 +16,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 
+	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/storage"
 )
@@ -33,7 +34,7 @@ const (
 type managedFilesystemSource struct {
 	run                runCommandFunc
 	dirFuncs           dirFuncs
-	volumeBlockDevices map[names.VolumeTag]storage.BlockDevice
+	volumeBlockDevices map[names.VolumeTag]blockdevice.BlockDevice
 	filesystems        map[names.FilesystemTag]storage.Filesystem
 }
 
@@ -44,7 +45,7 @@ type managedFilesystemSource struct {
 // block devices and filesystems created by the source. The caller must not
 // update the maps during calls to the source's methods.
 func NewManagedFilesystemSource(
-	volumeBlockDevices map[names.VolumeTag]storage.BlockDevice,
+	volumeBlockDevices map[names.VolumeTag]blockdevice.BlockDevice,
 	filesystems map[names.FilesystemTag]storage.Filesystem,
 ) storage.FilesystemSource {
 	return &managedFilesystemSource{
@@ -63,10 +64,10 @@ func (s *managedFilesystemSource) ValidateFilesystemParams(arg storage.Filesyste
 	return nil
 }
 
-func (s *managedFilesystemSource) backingVolumeBlockDevice(v names.VolumeTag) (storage.BlockDevice, error) {
+func (s *managedFilesystemSource) backingVolumeBlockDevice(v names.VolumeTag) (blockdevice.BlockDevice, error) {
 	blockDevice, ok := s.volumeBlockDevices[v]
 	if !ok {
-		return storage.BlockDevice{}, errors.Errorf(
+		return blockdevice.BlockDevice{}, errors.Errorf(
 			"backing-volume %s is not yet attached", v.Id(),
 		)
 	}
@@ -110,7 +111,7 @@ func (s *managedFilesystemSource) createFilesystem(arg storage.FilesystemParams)
 		arg.Volume,
 		storage.FilesystemInfo{
 			arg.Tag.String(),
-			blockDevice.Size,
+			blockDevice.SizeMiB,
 		},
 	}, nil
 }
@@ -445,7 +446,7 @@ func isMounted(dirFuncs dirFuncs, mountPoint string) (bool, string, error) {
 }
 
 // devicePath returns the device path for the given block device.
-func devicePath(dev storage.BlockDevice) string {
+func devicePath(dev blockdevice.BlockDevice) string {
 	return path.Join("/dev", dev.DeviceName)
 }
 

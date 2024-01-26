@@ -3,18 +3,23 @@
 
 package diskmanager
 
-import "github.com/juju/juju/state"
+import (
+	"github.com/juju/names/v5"
 
-type StateInterface stateInterface
+	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facade"
+)
 
-type Patcher interface {
-	PatchValue(ptr, value interface{})
-}
-
-func PatchState(p Patcher, st StateInterface) {
-	p.PatchValue(&getState, func(*state.State) stateInterface {
-		return st
-	})
+func NewDiskManagerAPIForTest(auth facade.Authorizer, blockDeviceUpdater blockDeviceUpdater) *DiskManagerAPI {
+	return &DiskManagerAPI{
+		blockDeviceUpdater: blockDeviceUpdater,
+		authorizer:         auth,
+		getAuthFunc: func() (common.AuthFunc, error) {
+			return func(tag names.Tag) bool {
+				return tag == auth.GetAuthTag()
+			}, nil
+		},
+	}
 }
 
 var (

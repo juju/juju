@@ -607,7 +607,6 @@ func (st *State) baseNewMachineOps(mdoc *machineDoc,
 		createStatusOp(st, globalKey, machineStatusDoc),
 		createStatusOp(st, globalInstanceKey, instanceStatusDoc),
 		createStatusOp(st, globalModificationKey, modificationStatusDoc),
-		createMachineBlockDevicesOp(mdoc.Id),
 		addModelMachineRefOp(st, mdoc.Id),
 	}
 	return prereqOps, machineOp

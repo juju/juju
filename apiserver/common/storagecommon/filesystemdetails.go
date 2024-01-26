@@ -4,6 +4,8 @@
 package storagecommon
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 
@@ -15,7 +17,9 @@ import (
 
 // FilesystemDetails returns the filesystem and its attachments as a params FilesystemDetails.
 func FilesystemDetails(
+	ctx context.Context,
 	sb DetailsBackend,
+	blockDeviceGetter BlockDeviceGetter,
 	unitToMachine UnitAssignedMachineFunc,
 	f state.Filesystem,
 	attachments []state.FilesystemAttachment,
@@ -64,7 +68,7 @@ func FilesystemDetails(
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		storageDetails, err := StorageDetails(sb, unitToMachine, storageInstance)
+		storageDetails, err := StorageDetails(ctx, sb, blockDeviceGetter, unitToMachine, storageInstance)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

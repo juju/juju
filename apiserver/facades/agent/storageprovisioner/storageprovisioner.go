@@ -15,10 +15,13 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/agent/storageprovisioner/internal/filesystemwatcher"
+	"github.com/juju/juju/apiserver/internal"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/core/container"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
+	corewatcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/poolmanager"
 	"github.com/juju/juju/rpc/params"
@@ -31,6 +34,12 @@ type ControllerConfigService interface {
 	ControllerConfig(context.Context) (controller.Config, error)
 }
 
+// BlockDeviceService instances can fetch and watch block devices on a machine.
+type BlockDeviceService interface {
+	BlockDevices(ctx context.Context, machineId string) ([]blockdevice.BlockDevice, error)
+	WatchBlockDevices(ctx context.Context, machineId string) (corewatcher.NotifyWatcher, error)
+}
+
 // StorageProvisionerAPIv4 provides the StorageProvisioner API v4 facade.
 type StorageProvisionerAPIv4 struct {
 	*common.LifeGetter
@@ -38,8 +47,11 @@ type StorageProvisionerAPIv4 struct {
 	*common.InstanceIdGetter
 	*common.StatusSetter
 
+	watcherRegistry facade.WatcherRegistry
+
 	st                       Backend
 	sb                       StorageBackend
+	blockDeviceService       BlockDeviceService
 	resources                facade.Resources
 	authorizer               facade.Authorizer
 	registry                 storage.ProviderRegistry
@@ -57,8 +69,10 @@ type StorageProvisionerAPIv4 struct {
 // NewStorageProvisionerAPIv4 creates a new server-side StorageProvisioner v3 facade.
 func NewStorageProvisionerAPIv4(
 	ctx context.Context,
+	watcherRegistry facade.WatcherRegistry,
 	st Backend,
 	sb StorageBackend,
+	blockDeviceService BlockDeviceService,
 	controllerConfigService ControllerConfigService,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
@@ -228,6 +242,8 @@ func NewStorageProvisionerAPIv4(
 		InstanceIdGetter: common.NewInstanceIdGetter(st, getMachineAuthFunc),
 		StatusSetter:     common.NewStatusSetter(st, getStorageEntityAuthFunc),
 
+		watcherRegistry: watcherRegistry,
+
 		st:                       st,
 		sb:                       sb,
 		resources:                resources,
@@ -239,6 +255,7 @@ func NewStorageProvisionerAPIv4(
 		getAttachmentAuthFunc:    getAttachmentAuthFunc,
 		getMachineAuthFunc:       getMachineAuthFunc,
 		getBlockDevicesAuthFunc:  getBlockDevicesAuthFunc,
+		blockDeviceService:       blockDeviceService,
 		logger:                   logger,
 
 		controllerUUID: controllerUUID,
@@ -267,7 +284,7 @@ func (s *StorageProvisionerAPIv4) WatchBlockDevices(ctx context.Context, args pa
 	results := params.NotifyWatchResults{
 		Results: make([]params.NotifyWatchResult, len(args.Entities)),
 	}
-	one := func(arg params.Entity) (string, error) {
+	one := func(arg params.Entity, watcherRegistry facade.WatcherRegistry) (string, error) {
 		machineTag, err := names.ParseMachineTag(arg.Tag)
 		if err != nil {
 			return "", err
@@ -275,15 +292,16 @@ func (s *StorageProvisionerAPIv4) WatchBlockDevices(ctx context.Context, args pa
 		if !canAccess(machineTag) {
 			return "", apiservererrors.ErrPerm
 		}
-		w := s.sb.WatchBlockDevices(machineTag)
-		if _, ok := <-w.Changes(); ok {
-			return s.resources.Register(w), nil
+		w, err := s.blockDeviceService.WatchBlockDevices(ctx, machineTag.Id())
+		if err != nil {
+			return "", err
 		}
-		return "", watcher.EnsureErr(w)
+		watcherId, _, err := internal.EnsureRegisterWatcher[struct{}](ctx, watcherRegistry, w)
+		return watcherId, err
 	}
 	for i, arg := range args.Entities {
 		var result params.NotifyWatchResult
-		id, err := one(arg)
+		id, err := one(arg, s.watcherRegistry)
 		if err != nil {
 			result.Error = apiservererrors.ServerError(err)
 		} else {
@@ -692,16 +710,9 @@ func (s *StorageProvisionerAPIv4) VolumeBlockDevices(ctx context.Context, args p
 	results := params.BlockDeviceResults{
 		Results: make([]params.BlockDeviceResult, len(args.Ids)),
 	}
-	one := func(arg params.MachineStorageId) (storage.BlockDevice, error) {
-		stateBlockDevice, err := s.oneVolumeBlockDevice(arg, canAccess)
-		if err != nil {
-			return storage.BlockDevice{}, err
-		}
-		return storagecommon.BlockDeviceFromState(stateBlockDevice), nil
-	}
 	for i, arg := range args.Ids {
 		var result params.BlockDeviceResult
-		blockDevice, err := one(arg)
+		blockDevice, err := s.oneVolumeBlockDevice(ctx, arg, canAccess)
 		if err != nil {
 			result.Error = apiservererrors.ServerError(err)
 		} else {
@@ -1224,27 +1235,28 @@ func (s *StorageProvisionerAPIv4) oneVolumeAttachment(
 }
 
 func (s *StorageProvisionerAPIv4) oneVolumeBlockDevice(
+	ctx context.Context,
 	id params.MachineStorageId, canAccess func(names.Tag, names.Tag) bool,
-) (state.BlockDeviceInfo, error) {
+) (params.BlockDevice, error) {
 	volumeAttachment, err := s.oneVolumeAttachment(id, canAccess)
 	if err != nil {
-		return state.BlockDeviceInfo{}, err
+		return params.BlockDevice{}, err
 	}
 	volume, err := s.sb.Volume(volumeAttachment.Volume())
 	if err != nil {
-		return state.BlockDeviceInfo{}, err
+		return params.BlockDevice{}, err
 	}
 	volumeInfo, err := volume.Info()
 	if err != nil {
-		return state.BlockDeviceInfo{}, err
+		return params.BlockDevice{}, err
 	}
 	volumeAttachmentInfo, err := volumeAttachment.Info()
 	if err != nil {
-		return state.BlockDeviceInfo{}, err
+		return params.BlockDevice{}, err
 	}
 	planCanAccess, err := s.getMachineAuthFunc()
 	if err != nil && !errors.Is(err, errors.NotFound) {
-		return state.BlockDeviceInfo{}, err
+		return params.BlockDevice{}, err
 	}
 	var blockDeviceInfo state.BlockDeviceInfo
 
@@ -1254,7 +1266,7 @@ func (s *StorageProvisionerAPIv4) oneVolumeBlockDevice(
 		// Volume attachment plans are optional. We should not err out
 		// if one is missing, and simply return an empty state.BlockDeviceInfo{}
 		if !errors.Is(err, errors.NotFound) {
-			return state.BlockDeviceInfo{}, err
+			return params.BlockDevice{}, err
 		}
 		blockDeviceInfo = state.BlockDeviceInfo{}
 	} else {
@@ -1264,29 +1276,42 @@ func (s *StorageProvisionerAPIv4) oneVolumeBlockDevice(
 			// Volume attachment plans are optional. We should not err out
 			// if one is missing, and simply return an empty state.BlockDeviceInfo{}
 			if !errors.Is(err, errors.NotFound) {
-				return state.BlockDeviceInfo{}, err
+				return params.BlockDevice{}, err
 			}
 			blockDeviceInfo = state.BlockDeviceInfo{}
 		}
 	}
-	blockDevices, err := s.sb.BlockDevices(volumeAttachment.Host().(names.MachineTag))
+	blockDevices, err := s.blockDeviceService.BlockDevices(ctx, volumeAttachment.Host().(names.MachineTag).Id())
 	if err != nil {
-		return state.BlockDeviceInfo{}, err
+		return params.BlockDevice{}, err
 	}
-	blockDevice, ok := storagecommon.MatchingFilesystemBlockDevice(
+	bd, ok := storagecommon.MatchingFilesystemBlockDevice(
 		blockDevices,
 		volumeInfo,
 		volumeAttachmentInfo,
-		blockDeviceInfo,
+		storagecommon.VolumeAttachmentPlanBlockInfoFromState(blockDeviceInfo),
 	)
 	if !ok {
-		return state.BlockDeviceInfo{}, errors.NotFoundf(
+		return params.BlockDevice{}, errors.NotFoundf(
 			"block device for volume %v on %v",
 			volumeAttachment.Volume().Id(),
 			names.ReadableString(volumeAttachment.Host()),
 		)
 	}
-	return *blockDevice, nil
+	return params.BlockDevice{
+		DeviceName:     bd.DeviceName,
+		DeviceLinks:    bd.DeviceLinks,
+		Label:          bd.Label,
+		UUID:           bd.UUID,
+		HardwareId:     bd.HardwareId,
+		WWN:            bd.WWN,
+		BusAddress:     bd.BusAddress,
+		Size:           bd.SizeMiB,
+		FilesystemType: bd.FilesystemType,
+		InUse:          bd.InUse,
+		MountPoint:     bd.MountPoint,
+		SerialId:       bd.SerialId,
+	}, nil
 }
 
 func (s *StorageProvisionerAPIv4) oneFilesystemAttachment(

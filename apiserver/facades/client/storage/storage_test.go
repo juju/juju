@@ -708,7 +708,7 @@ func (s *storageSuite) TestListStorageAsAdminOnNotOwnedModel(c *gc.C) {
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag: names.NewUserTag("superuserfoo"),
 	}
-	s.api = facadestorage.NewStorageAPIForTest(s.state, state.ModelTypeIAAS, s.storageAccessor, s.storageMetadata, s.authorizer, apiservertesting.NoopModelCredentialInvalidatorGetter)
+	s.api = facadestorage.NewStorageAPIForTest(s.state, state.ModelTypeIAAS, s.storageAccessor, nil, s.storageMetadata, s.authorizer, apiservertesting.NoopModelCredentialInvalidatorGetter)
 
 	// Sanity check before running test:
 	// Ensure that the user has NO read access to the model but SuperuserAccess
@@ -728,7 +728,7 @@ func (s *storageSuite) TestListStorageAsNonAdminOnNotOwnedModel(c *gc.C) {
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag: names.NewUserTag("userfoo"),
 	}
-	s.api = facadestorage.NewStorageAPIForTest(s.state, state.ModelTypeIAAS, s.storageAccessor, s.storageMetadata, s.authorizer, apiservertesting.NoopModelCredentialInvalidatorGetter)
+	s.api = facadestorage.NewStorageAPIForTest(s.state, state.ModelTypeIAAS, s.storageAccessor, nil, s.storageMetadata, s.authorizer, apiservertesting.NoopModelCredentialInvalidatorGetter)
 
 	// Sanity check before running test:
 	// Ensure that the user has NO read access to the model and NO SuperuserAccess

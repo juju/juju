@@ -50,11 +50,9 @@ const (
 	MachinesC         = machinesC
 	ModelEntityRefsC  = modelEntityRefsC
 	ApplicationsC     = applicationsC
-	OfferConnectionsC = offerConnectionsC
 	EndpointBindingsC = endpointBindingsC
 	ControllersC      = controllersC
 	UsersC            = usersC
-	BlockDevicesC     = blockDevicesC
 	StorageInstancesC = storageInstancesC
 	GlobalSettingsC   = globalSettingsC
 	SettingsC         = settingsC

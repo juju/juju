@@ -15,9 +15,8 @@ import (
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/agent/diskmanager"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -25,10 +24,10 @@ var _ = gc.Suite(&DiskManagerSuite{})
 
 type DiskManagerSuite struct {
 	coretesting.BaseSuite
-	resources  *common.Resources
-	authorizer *apiservertesting.FakeAuthorizer
-	st         *mockState
-	api        *diskmanager.DiskManagerAPI
+	resources          *common.Resources
+	authorizer         *apiservertesting.FakeAuthorizer
+	blockDeviceUpdater *mockBlockDeviceUpdater
+	api                *diskmanager.DiskManagerAPI
 }
 
 func (s *DiskManagerSuite) SetUpTest(c *gc.C) {
@@ -36,18 +35,12 @@ func (s *DiskManagerSuite) SetUpTest(c *gc.C) {
 	s.resources = common.NewResources()
 	tag := names.NewMachineTag("0")
 	s.authorizer = &apiservertesting.FakeAuthorizer{Tag: tag}
-	s.st = &mockState{}
-	diskmanager.PatchState(s, s.st)
-
-	var err error
-	s.api, err = diskmanager.NewDiskManagerAPI(facadetest.Context{
-		Auth_: s.authorizer,
-	})
-	c.Assert(err, jc.ErrorIsNil)
+	s.blockDeviceUpdater = &mockBlockDeviceUpdater{}
+	s.api = diskmanager.NewDiskManagerAPIForTest(s.authorizer, s.blockDeviceUpdater)
 }
 
 func (s *DiskManagerSuite) TestSetMachineBlockDevices(c *gc.C) {
-	devices := []storage.BlockDevice{{DeviceName: "sda"}, {DeviceName: "sdb"}}
+	devices := []params.BlockDevice{{DeviceName: "sda"}, {DeviceName: "sdb"}}
 	results, err := s.api.SetMachineBlockDevices(context.Background(), params.SetMachineBlockDevices{
 		MachineBlockDevices: []params.MachineBlockDevices{{
 			Machine:      "machine-0",
@@ -95,11 +88,11 @@ func (s *DiskManagerSuite) TestSetMachineBlockDevicesInvalidTags(c *gc.C) {
 			Error: &params.Error{Message: "permission denied", Code: "unauthorized access"},
 		}},
 	})
-	c.Assert(s.st.calls, gc.Equals, 1)
+	c.Assert(s.blockDeviceUpdater.calls, gc.Equals, 1)
 }
 
 func (s *DiskManagerSuite) TestSetMachineBlockDevicesStateError(c *gc.C) {
-	s.st.err = errors.New("boom")
+	s.blockDeviceUpdater.err = errors.New("boom")
 	results, err := s.api.SetMachineBlockDevices(context.Background(), params.SetMachineBlockDevices{
 		MachineBlockDevices: []params.MachineBlockDevices{{
 			Machine: "machine-0",
@@ -113,16 +106,16 @@ func (s *DiskManagerSuite) TestSetMachineBlockDevicesStateError(c *gc.C) {
 	})
 }
 
-type mockState struct {
+type mockBlockDeviceUpdater struct {
 	calls   int
-	devices map[string][]state.BlockDeviceInfo
+	devices map[string][]blockdevice.BlockDevice
 	err     error
 }
 
-func (st *mockState) SetMachineBlockDevices(machineId string, devices []state.BlockDeviceInfo) error {
+func (st *mockBlockDeviceUpdater) UpdateBlockDevices(_ context.Context, machineId string, devices ...blockdevice.BlockDevice) error {
 	st.calls++
 	if st.devices == nil {
-		st.devices = make(map[string][]state.BlockDeviceInfo)
+		st.devices = make(map[string][]blockdevice.BlockDevice)
 	}
 	st.devices[machineId] = devices
 	return st.err

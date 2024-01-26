@@ -26,10 +26,11 @@ type baseStorageSuite struct {
 	resources  *common.Resources
 	authorizer apiservertesting.FakeAuthorizer
 
-	api             *storage.StorageAPI
-	apiCaas         *storage.StorageAPI
-	storageAccessor *mockStorageAccessor
-	state           *mockState
+	api               *storage.StorageAPI
+	apiCaas           *storage.StorageAPI
+	storageAccessor   *mockStorageAccessor
+	state             *mockState
+	blockDeviceGetter *mockBlockDeviceGetter
 
 	storageTag      names.StorageTag
 	storageInstance *mockStorageInstance
@@ -60,14 +61,15 @@ func (s *baseStorageSuite) SetUpTest(c *gc.C) {
 	s.stub.ResetCalls()
 	s.state = s.constructState()
 	s.storageAccessor = s.constructStorageAccessor()
+	s.blockDeviceGetter = &mockBlockDeviceGetter{}
 
 	s.registry = jujustorage.StaticProviderRegistry{map[jujustorage.ProviderType]jujustorage.Provider{}}
 	s.pools = make(map[string]*jujustorage.Config)
 	s.poolManager = s.constructPoolManager()
 	s.poolsInUse = []string{}
 
-	s.api = storage.NewStorageAPIForTest(s.state, state.ModelTypeIAAS, s.storageAccessor, s.storageMetadata, s.authorizer, apiservertesting.NoopModelCredentialInvalidatorGetter)
-	s.apiCaas = storage.NewStorageAPIForTest(s.state, state.ModelTypeCAAS, s.storageAccessor, s.storageMetadata, s.authorizer, apiservertesting.NoopModelCredentialInvalidatorGetter)
+	s.api = storage.NewStorageAPIForTest(s.state, state.ModelTypeIAAS, s.storageAccessor, s.blockDeviceGetter, s.storageMetadata, s.authorizer, apiservertesting.NoopModelCredentialInvalidatorGetter)
+	s.apiCaas = storage.NewStorageAPIForTest(s.state, state.ModelTypeCAAS, s.storageAccessor, s.blockDeviceGetter, s.storageMetadata, s.authorizer, apiservertesting.NoopModelCredentialInvalidatorGetter)
 }
 
 func (s *baseStorageSuite) storageMetadata() (poolmanager.PoolManager, jujustorage.ProviderRegistry, error) {

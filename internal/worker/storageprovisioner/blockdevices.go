@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 
+	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/rpc/params"
 )
@@ -173,7 +174,7 @@ func refreshVolumeBlockDevices(ctx *context, volumeTags []names.VolumeTag) ([]na
 			if ok && existing.UUID == "" && result.Result.UUID != "" {
 				volumesWithUpdatedUUID = append(volumesWithUpdatedUUID, volumeTags[i])
 			}
-			ctx.volumeBlockDevices[volumeTags[i]] = result.Result
+			ctx.volumeBlockDevices[volumeTags[i]] = blockDeviceFromParams(result.Result)
 			for _, params := range ctx.incompleteFilesystemParams {
 				if params.Volume == volumeTags[i] {
 					updatePendingFilesystem(ctx, params)
@@ -202,4 +203,21 @@ func refreshVolumeBlockDevices(ctx *context, volumeTags []names.VolumeTag) ([]na
 		}
 	}
 	return volumesWithUpdatedUUID, nil
+}
+
+func blockDeviceFromParams(in params.BlockDevice) blockdevice.BlockDevice {
+	return blockdevice.BlockDevice{
+		DeviceName:     in.DeviceName,
+		DeviceLinks:    in.DeviceLinks,
+		Label:          in.Label,
+		UUID:           in.UUID,
+		HardwareId:     in.HardwareId,
+		WWN:            in.WWN,
+		BusAddress:     in.BusAddress,
+		SizeMiB:        in.Size,
+		FilesystemType: in.FilesystemType,
+		InUse:          in.InUse,
+		MountPoint:     in.MountPoint,
+		SerialId:       in.SerialId,
+	}
 }

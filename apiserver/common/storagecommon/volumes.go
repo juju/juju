@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 
+	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/storage"
@@ -155,12 +156,12 @@ func VolumeAttachmentPlanFromState(v state.VolumeAttachmentPlan) (params.VolumeA
 		MachineTag:  v.Machine().String(),
 		Life:        life.Value(v.Life().String()),
 		PlanInfo:    VolumeAttachmentPlanInfoFromState(planInfo),
-		BlockDevice: VolumeAttachmentPlanBlockInfoFromState(blockInfo),
+		BlockDevice: VolumeAttachmentPlanBlockParamsFromState(blockInfo),
 	}, nil
 }
 
-func VolumeAttachmentPlanBlockInfoFromState(blockInfo state.BlockDeviceInfo) storage.BlockDevice {
-	return storage.BlockDevice{
+func VolumeAttachmentPlanBlockParamsFromState(blockInfo state.BlockDeviceInfo) params.BlockDevice {
+	return params.BlockDevice{
 		DeviceName:     blockInfo.DeviceName,
 		DeviceLinks:    blockInfo.DeviceLinks,
 		Label:          blockInfo.Label,
@@ -169,6 +170,22 @@ func VolumeAttachmentPlanBlockInfoFromState(blockInfo state.BlockDeviceInfo) sto
 		WWN:            blockInfo.WWN,
 		BusAddress:     blockInfo.BusAddress,
 		Size:           blockInfo.Size,
+		FilesystemType: blockInfo.FilesystemType,
+		InUse:          blockInfo.InUse,
+		MountPoint:     blockInfo.MountPoint,
+	}
+}
+
+func VolumeAttachmentPlanBlockInfoFromState(blockInfo state.BlockDeviceInfo) blockdevice.BlockDevice {
+	return blockdevice.BlockDevice{
+		DeviceName:     blockInfo.DeviceName,
+		DeviceLinks:    blockInfo.DeviceLinks,
+		Label:          blockInfo.Label,
+		UUID:           blockInfo.UUID,
+		HardwareId:     blockInfo.HardwareId,
+		WWN:            blockInfo.WWN,
+		BusAddress:     blockInfo.BusAddress,
+		SizeMiB:        blockInfo.Size,
 		FilesystemType: blockInfo.FilesystemType,
 		InUse:          blockInfo.InUse,
 		MountPoint:     blockInfo.MountPoint,
@@ -242,7 +259,7 @@ func VolumeAttachmentPlanToState(in params.VolumeAttachmentPlan) (names.MachineT
 	return machineTag, volumeTag, info, blockInfo, nil
 }
 
-func BlockDeviceInfoToState(in storage.BlockDevice) state.BlockDeviceInfo {
+func BlockDeviceInfoToState(in params.BlockDevice) state.BlockDeviceInfo {
 	return state.BlockDeviceInfo{
 		DeviceName:     in.DeviceName,
 		DeviceLinks:    in.DeviceLinks,

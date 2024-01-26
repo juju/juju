@@ -8,10 +8,10 @@ import (
 
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
-	"github.com/juju/juju/domain/blockdevice"
 	"github.com/juju/juju/domain/filesystem"
 )
 

@@ -69,8 +69,10 @@ func (s *caasProvisionerSuite) SetUpTest(c *gc.C) {
 	s.storageBackend = storageBackend
 	s.api, err = storageprovisioner.NewStorageProvisionerAPIv4(
 		context.Background(),
+		nil, // tests which need a watcher factory need to create an api with a non nil value.
 		backend,
 		storageBackend,
+		s.DefaultModelServiceFactory(c).BlockDevice(),
 		s.ControllerServiceFactory(c).ControllerConfig(),
 		s.resources,
 		s.authorizer,

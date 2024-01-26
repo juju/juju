@@ -4,10 +4,10 @@
 package common
 
 import (
-	"github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/core/blockdevice"
 )
 
 type Plan interface {
-	AttachVolume(volumeInfo map[string]string) (storage.BlockDevice, error)
+	AttachVolume(volumeInfo map[string]string) (blockdevice.BlockDevice, error)
 	DetachVolume(volumeInfo map[string]string) error
 }

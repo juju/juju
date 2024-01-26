@@ -4,15 +4,28 @@
 package storagecommon_test
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 
 	"github.com/juju/juju/apiserver/common/storagecommon"
+	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/poolmanager"
 	"github.com/juju/juju/state"
 )
+
+type fakeBlockDeviceGetter struct {
+	testing.Stub
+	blockDevices func(string) ([]blockdevice.BlockDevice, error)
+}
+
+func (s *fakeBlockDeviceGetter) BlockDevices(_ context.Context, machineId string) ([]blockdevice.BlockDevice, error) {
+	s.MethodCall(s, "BlockDevices", machineId)
+	return s.blockDevices(machineId)
+}
 
 type fakeStorage struct {
 	testing.Stub
@@ -24,7 +37,6 @@ type fakeStorage struct {
 	volumeAttachment          func(names.Tag, names.VolumeTag) (state.VolumeAttachment, error)
 	volumeAttachmentPlan      func(names.Tag, names.VolumeTag) (state.VolumeAttachmentPlan, error)
 	filesystemAttachment      func(names.Tag, names.FilesystemTag) (state.FilesystemAttachment, error)
-	blockDevices              func(names.MachineTag) ([]state.BlockDeviceInfo, error)
 }
 
 func (s *fakeStorage) StorageInstance(tag names.StorageTag) (state.StorageInstance, error) {
@@ -45,11 +57,6 @@ func (s *fakeStorage) VolumeAttachment(m names.Tag, v names.VolumeTag) (state.Vo
 func (s *fakeStorage) VolumeAttachmentPlan(host names.Tag, volume names.VolumeTag) (state.VolumeAttachmentPlan, error) {
 	s.MethodCall(s, "VolumeAttachmentPlan", host, volume)
 	return s.volumeAttachmentPlan(host, volume)
-}
-
-func (s *fakeStorage) BlockDevices(m names.MachineTag) ([]state.BlockDeviceInfo, error) {
-	s.MethodCall(s, "BlockDevices", m)
-	return s.blockDevices(m)
 }
 
 func (s *fakeStorage) StorageInstanceFilesystem(tag names.StorageTag) (state.Filesystem, error) {

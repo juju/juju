@@ -15,7 +15,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/internal/worker/diskmanager"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -28,14 +28,14 @@ type ListBlockDevicesSuite struct {
 
 func (s *ListBlockDevicesSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.PatchValue(diskmanager.BlockDeviceInUse, func(storage.BlockDevice) (bool, error) {
+	s.PatchValue(diskmanager.BlockDeviceInUse, func(device blockdevice.BlockDevice) (bool, error) {
 		return false, nil
 	})
 	testing.PatchExecutable(c, s, "udevadm", `#!/bin/bash --norc`)
 }
 
 func (s *ListBlockDevicesSuite) TestListBlockDevices(c *gc.C) {
-	s.PatchValue(diskmanager.BlockDeviceInUse, func(dev storage.BlockDevice) (bool, error) {
+	s.PatchValue(diskmanager.BlockDeviceInUse, func(dev blockdevice.BlockDevice) (bool, error) {
 		return dev.DeviceName == "sdb", nil
 	})
 	testing.PatchExecutable(c, s, "lsblk", `#!/bin/bash --norc
@@ -51,25 +51,25 @@ EOF`)
 
 	devices, err := diskmanager.ListBlockDevices()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(devices, jc.DeepEquals, []storage.BlockDevice{{
+	c.Assert(devices, jc.DeepEquals, []blockdevice.BlockDevice{{
 		DeviceName: "sda",
-		Size:       228936,
+		SizeMiB:    228936,
 	}, {
 		DeviceName: "sda1",
-		Size:       243,
+		SizeMiB:    243,
 		UUID:       "7a62bd85-a350-4c09-8944-5b99bf2080c6",
 		MountPoint: "/tmp",
 	}, {
 		DeviceName: "sda2",
-		Size:       0, // truncated
+		SizeMiB:    0, // truncated
 		Label:      "boot",
 	}, {
 		DeviceName: "sdb",
-		Size:       30533,
+		SizeMiB:    30533,
 		InUse:      true,
 	}, {
 		DeviceName:     "sdb1",
-		Size:           30532,
+		SizeMiB:        30532,
 		Label:          "media",
 		UUID:           "2c1c701d-f2ce-43a4-b345-33e2e39f9503",
 		FilesystemType: "ext4",
@@ -81,7 +81,7 @@ func (s *ListBlockDevicesSuite) TestListBlockDevicesWWN(c *gc.C) {
 	// a WWN value.
 	s.testListBlockDevicesExtended(c, `
 ID_WWN=foo
-`, "sda", storage.BlockDevice{WWN: "foo"})
+`, "sda", blockdevice.BlockDevice{WWN: "foo"})
 }
 
 func (s *ListBlockDevicesSuite) TestListBlockDevicesExtendedWWN(c *gc.C) {
@@ -90,7 +90,7 @@ func (s *ListBlockDevicesSuite) TestListBlockDevicesExtendedWWN(c *gc.C) {
 	s.testListBlockDevicesExtended(c, `
 ID_WWN_WITH_EXTENSION=foobar
 ID_WWN=foo
-`, "sda", storage.BlockDevice{WWN: "foobar"})
+`, "sda", blockdevice.BlockDevice{WWN: "foobar"})
 }
 
 func (s *ListBlockDevicesSuite) TestListBlockDevicesBusAddress(c *gc.C) {
@@ -99,7 +99,7 @@ func (s *ListBlockDevicesSuite) TestListBlockDevicesBusAddress(c *gc.C) {
 	s.testListBlockDevicesExtended(c, `
 DEVPATH=/a/b/c/d/1:2:3:4/block/sda
 ID_BUS=scsi
-`, "sda", storage.BlockDevice{BusAddress: "scsi@1:2.3.4"})
+`, "sda", blockdevice.BlockDevice{BusAddress: "scsi@1:2.3.4"})
 }
 
 func (s *ListBlockDevicesSuite) TestListBlockDevicesHardwareId(c *gc.C) {
@@ -108,7 +108,7 @@ func (s *ListBlockDevicesSuite) TestListBlockDevicesHardwareId(c *gc.C) {
 	s.testListBlockDevicesExtended(c, `
 ID_BUS=ata
 ID_SERIAL=0980978987987
-`, "sda", storage.BlockDevice{HardwareId: "ata-0980978987987", SerialId: "0980978987987"})
+`, "sda", blockdevice.BlockDevice{HardwareId: "ata-0980978987987", SerialId: "0980978987987"})
 }
 
 func (s *ListBlockDevicesSuite) TestListBlockDevicesSerialId(c *gc.C) {
@@ -116,7 +116,7 @@ func (s *ListBlockDevicesSuite) TestListBlockDevicesSerialId(c *gc.C) {
 	// a SerialId value.
 	s.testListBlockDevicesExtended(c, `
 ID_SERIAL=0980978987987
-`, "sda", storage.BlockDevice{SerialId: "0980978987987"})
+`, "sda", blockdevice.BlockDevice{SerialId: "0980978987987"})
 }
 
 func (s *ListBlockDevicesSuite) TestListBlockDevicesDeviceLinks(c *gc.C) {
@@ -124,7 +124,7 @@ func (s *ListBlockDevicesSuite) TestListBlockDevicesDeviceLinks(c *gc.C) {
 	// DeviceLinks verbatim.
 	s.testListBlockDevicesExtended(c, `
 DEVLINKS=/dev/disk/by-id/abc /dev/disk/by-id/def
-`, "sda", storage.BlockDevice{
+`, "sda", blockdevice.BlockDevice{
 		DeviceLinks: []string{"/dev/disk/by-id/abc", "/dev/disk/by-id/def"},
 	})
 }
@@ -134,7 +134,7 @@ func (s *ListBlockDevicesSuite) TestListBlockDevicesAll(c *gc.C) {
 DEVPATH=/a/b/c/d/1:2:3:4/block/sda
 ID_BUS=scsi
 ID_SERIAL=0980978987987
-`, "sda", storage.BlockDevice{BusAddress: "scsi@1:2.3.4", HardwareId: "scsi-0980978987987", SerialId: "0980978987987"})
+`, "sda", blockdevice.BlockDevice{BusAddress: "scsi@1:2.3.4", HardwareId: "scsi-0980978987987", SerialId: "0980978987987"})
 }
 
 func (s *ListBlockDevicesSuite) TestListBlockDevicesUnexpectedDevpathFormat(c *gc.C) {
@@ -144,7 +144,7 @@ func (s *ListBlockDevicesSuite) TestListBlockDevicesUnexpectedDevpathFormat(c *g
 DEVPATH=/a/b/c/d/x:y:z:zy/block/sda
 ID_BUS=ata
 ID_SERIAL=0980978987987
-`, "sda", storage.BlockDevice{HardwareId: "ata-0980978987987", SerialId: "0980978987987"})
+`, "sda", blockdevice.BlockDevice{HardwareId: "ata-0980978987987", SerialId: "0980978987987"})
 }
 
 func (s *ListBlockDevicesSuite) TestListBlockDevicesParition(c *gc.C) {
@@ -153,21 +153,21 @@ func (s *ListBlockDevicesSuite) TestListBlockDevicesParition(c *gc.C) {
 DEVPATH=/a/b/c/d/1:2:3:4/block/sda/sda1
 ID_BUS=scsi
 ID_SERIAL=0980978987987
-`, "sda1", storage.BlockDevice{BusAddress: "scsi@1:2.3.4", HardwareId: "scsi-0980978987987", SerialId: "0980978987987"})
+`, "sda1", blockdevice.BlockDevice{BusAddress: "scsi@1:2.3.4", HardwareId: "scsi-0980978987987", SerialId: "0980978987987"})
 }
 
 func (s *ListBlockDevicesSuite) TestListBlockDevicesUnexpectedPropertyFormat(c *gc.C) {
 	// If udevadm outputs in an unexpected format, we won't error;
 	// we only error if some catastrophic error occurs while reading
 	// from the udevadm command's stdout.
-	s.testListBlockDevicesExtended(c, "nonsense", "sda", storage.BlockDevice{})
+	s.testListBlockDevicesExtended(c, "nonsense", "sda", blockdevice.BlockDevice{})
 }
 
 func (s *ListBlockDevicesSuite) testListBlockDevicesExtended(
 	c *gc.C,
 	udevadmInfo string,
 	deviceName string,
-	expect storage.BlockDevice,
+	expect blockdevice.BlockDevice,
 ) {
 	testing.PatchExecutable(c, s, "lsblk", fmt.Sprintf(`#!/bin/bash --norc
 cat <<EOF
@@ -179,11 +179,11 @@ cat <<EOF
 EOF`)
 
 	expect.DeviceName = deviceName
-	expect.Size = 228936
+	expect.SizeMiB = 228936
 
 	devices, err := diskmanager.ListBlockDevices()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(devices, jc.DeepEquals, []storage.BlockDevice{expect})
+	c.Assert(devices, jc.DeepEquals, []blockdevice.BlockDevice{expect})
 }
 
 func (s *ListBlockDevicesSuite) TestListBlockDevicesLsblkError(c *gc.C) {
@@ -194,7 +194,7 @@ func (s *ListBlockDevicesSuite) TestListBlockDevicesLsblkError(c *gc.C) {
 }
 
 func (s *ListBlockDevicesSuite) TestListBlockDevicesBlockDeviceInUseError(c *gc.C) {
-	s.PatchValue(diskmanager.BlockDeviceInUse, func(dev storage.BlockDevice) (bool, error) {
+	s.PatchValue(diskmanager.BlockDeviceInUse, func(dev blockdevice.BlockDevice) (bool, error) {
 		return false, errors.New("badness")
 	})
 	testing.PatchExecutable(c, s, "lsblk", `#!/bin/bash --norc
@@ -206,9 +206,9 @@ EOF`)
 	// to prevent it from being used, but no error will be returned.
 	devices, err := diskmanager.ListBlockDevices()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(devices, jc.DeepEquals, []storage.BlockDevice{{
+	c.Assert(devices, jc.DeepEquals, []blockdevice.BlockDevice{{
 		DeviceName: "sda",
-		Size:       228936,
+		SizeMiB:    228936,
 		InUse:      true,
 	}})
 }
@@ -224,17 +224,17 @@ EOF`)
 
 	devices, err := diskmanager.ListBlockDevices()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(devices, jc.DeepEquals, []storage.BlockDevice{{
+	c.Assert(devices, jc.DeepEquals, []blockdevice.BlockDevice{{
 		DeviceName: "sda",
-		Size:       0,
+		SizeMiB:    0,
 	}, {
 		DeviceName: "sdb",
-		Size:       1,
+		SizeMiB:    1,
 	}})
 }
 
 func (s *ListBlockDevicesSuite) TestListBlockDevicesDeviceNotExist(c *gc.C) {
-	s.PatchValue(diskmanager.BlockDeviceInUse, func(dev storage.BlockDevice) (bool, error) {
+	s.PatchValue(diskmanager.BlockDeviceInUse, func(dev blockdevice.BlockDevice) (bool, error) {
 		return false, os.ErrNotExist
 	})
 	testing.PatchExecutable(c, s, "lsblk", `#!/bin/bash --norc
@@ -260,14 +260,14 @@ EOF`)
 
 	devices, err := diskmanager.ListBlockDevices()
 	c.Assert(err, gc.IsNil)
-	c.Assert(devices, jc.DeepEquals, []storage.BlockDevice{{
+	c.Assert(devices, jc.DeepEquals, []blockdevice.BlockDevice{{
 		DeviceName: "sda",
-		Size:       228936,
+		SizeMiB:    228936,
 	}, {
 		DeviceName: "sda1",
-		Size:       243,
+		SizeMiB:    243,
 	}, {
 		DeviceName: "loop0",
-		Size:       243,
+		SizeMiB:    243,
 	}})
 }

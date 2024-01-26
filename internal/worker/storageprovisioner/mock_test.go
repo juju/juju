@@ -14,6 +14,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/watcher"
@@ -143,7 +144,7 @@ type mockVolumeAccessor struct {
 	provisionedMachines    map[string]instance.Id
 	provisionedVolumes     map[string]params.Volume
 	provisionedAttachments map[params.MachineStorageId]params.VolumeAttachment
-	blockDevices           map[params.MachineStorageId]storage.BlockDevice
+	blockDevices           map[params.MachineStorageId]params.BlockDevice
 
 	setVolumeInfo               func([]params.Volume) ([]params.ErrorResult, error)
 	setVolumeAttachmentInfo     func([]params.VolumeAttachment) ([]params.ErrorResult, error)
@@ -326,7 +327,7 @@ func newMockVolumeAccessor() *mockVolumeAccessor {
 		provisionedMachines:    make(map[string]instance.Id),
 		provisionedVolumes:     make(map[string]params.Volume),
 		provisionedAttachments: make(map[params.MachineStorageId]params.VolumeAttachment),
-		blockDevices:           make(map[params.MachineStorageId]storage.BlockDevice),
+		blockDevices:           make(map[params.MachineStorageId]params.BlockDevice),
 	}
 }
 
@@ -756,7 +757,7 @@ func (s *dummyFilesystemSource) DetachFilesystems(ctx envcontext.ProviderCallCon
 }
 
 type mockManagedFilesystemSource struct {
-	blockDevices        map[names.VolumeTag]storage.BlockDevice
+	blockDevices        map[names.VolumeTag]blockdevice.BlockDevice
 	filesystems         map[names.FilesystemTag]storage.Filesystem
 	attachedFilesystems chan interface{}
 }
@@ -776,7 +777,7 @@ func (s *mockManagedFilesystemSource) CreateFilesystems(ctx envcontext.ProviderC
 		results[i].Filesystem = &storage.Filesystem{
 			Tag: arg.Tag,
 			FilesystemInfo: storage.FilesystemInfo{
-				Size:         blockDevice.Size,
+				Size:         blockDevice.SizeMiB,
 				FilesystemId: blockDevice.DeviceName,
 			},
 		}

@@ -4,9 +4,12 @@
 package storagecommon
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 
+	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/rpc/params"
@@ -39,10 +42,6 @@ type VolumeAccess interface {
 	// VolumeAttachmentPlan returns state.VolumeAttachmentPlan corresponding
 	// to the specified machine and volume
 	VolumeAttachmentPlan(names.Tag, names.VolumeTag) (state.VolumeAttachmentPlan, error)
-
-	// BlockDevices returns information about block devices published
-	// for the specified machine.
-	BlockDevices(names.MachineTag) ([]state.BlockDeviceInfo, error)
 }
 
 // FilesystemAccess is an interface for obtaining information about
@@ -68,9 +67,11 @@ type FilesystemAccess interface {
 // if the storage attachment is not yet fully provisioned and ready for use
 // by a charm.
 func StorageAttachmentInfo(
+	ctx context.Context,
 	st StorageAccess,
 	stVolume VolumeAccess,
 	stFile FilesystemAccess,
+	blockDeviceGetter BlockDeviceGetter,
 	att state.StorageAttachment,
 	hostTag names.Tag,
 ) (*storage.StorageAttachmentInfo, error) {
@@ -83,7 +84,7 @@ func StorageAttachmentInfo(
 		if stVolume == nil {
 			return nil, errors.NotImplementedf("BlockStorage instance")
 		}
-		return volumeStorageAttachmentInfo(stVolume, storageInstance, hostTag)
+		return volumeStorageAttachmentInfo(ctx, stVolume, blockDeviceGetter, storageInstance, hostTag)
 	case state.StorageKindFilesystem:
 		if stFile == nil {
 			return nil, errors.NotImplementedf("FilesystemStorage instance")
@@ -93,8 +94,15 @@ func StorageAttachmentInfo(
 	return nil, errors.Errorf("invalid storage kind %v", storageInstance.Kind())
 }
 
+// BlockDeviceGetter instances can fetch block devices for a machine.
+type BlockDeviceGetter interface {
+	BlockDevices(ctx context.Context, machineId string) ([]blockdevice.BlockDevice, error)
+}
+
 func volumeStorageAttachmentInfo(
+	ctx context.Context,
 	st VolumeAccess,
+	blockDeviceGetter BlockDeviceGetter,
 	storageInstance state.StorageInstance,
 	hostTag names.Tag,
 ) (*storage.StorageAttachmentInfo, error) {
@@ -141,7 +149,7 @@ func volumeStorageAttachmentInfo(
 	if hostTag.Kind() != names.MachineTagKind {
 		return nil, errors.NotProvisionedf("%v", names.ReadableString(storageTag))
 	}
-	blockDevices, err := st.BlockDevices(hostTag.(names.MachineTag))
+	blockDevices, err := blockDeviceGetter.BlockDevices(ctx, hostTag.(names.MachineTag).Id())
 	if err != nil {
 		return nil, errors.Annotate(err, "getting block devices")
 	}
@@ -149,7 +157,7 @@ func volumeStorageAttachmentInfo(
 		blockDevices,
 		volumeInfo,
 		volumeAttachmentInfo,
-		blockDeviceInfo,
+		VolumeAttachmentPlanBlockInfoFromState(blockDeviceInfo),
 	)
 	if !ok {
 		// We must not say that a block-kind storage attachment is
@@ -208,7 +216,7 @@ func filesystemStorageAttachmentInfo(
 func volumeAttachmentDevicePath(
 	volumeInfo state.VolumeInfo,
 	volumeAttachmentInfo state.VolumeAttachmentInfo,
-	blockDevice state.BlockDeviceInfo,
+	blockDevice blockdevice.BlockDevice,
 ) (string, error) {
 	if volumeInfo.HardwareId != "" ||
 		volumeInfo.WWN != "" ||
@@ -228,7 +236,7 @@ func volumeAttachmentDevicePath(
 		} else {
 			deviceName = volumeAttachmentInfo.DeviceName
 		}
-		return storage.BlockDevicePath(storage.BlockDevice{
+		return blockdevice.BlockDevicePath(blockdevice.BlockDevice{
 			HardwareId:  volumeInfo.HardwareId,
 			WWN:         volumeInfo.WWN,
 			UUID:        blockDevice.UUID,
@@ -236,7 +244,7 @@ func volumeAttachmentDevicePath(
 			DeviceLinks: deviceLinks,
 		})
 	}
-	return storage.BlockDevicePath(BlockDeviceFromState(blockDevice))
+	return blockdevice.BlockDevicePath(blockDevice)
 }
 
 // Called by agent/provisioner and storageprovisioner.

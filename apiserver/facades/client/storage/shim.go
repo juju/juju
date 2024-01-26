@@ -4,11 +4,13 @@
 package storage
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/apiserver/common/storagecommon"
+	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/state"
 )
 
@@ -111,6 +113,10 @@ type backend interface {
 	ModelTag() names.ModelTag
 	Unit(string) (Unit, error)
 	GetBlockForType(state.BlockType) (state.Block, bool, error)
+}
+
+type blockDeviceGetter interface {
+	BlockDevices(ctx context.Context, machineId string) ([]blockdevice.BlockDevice, error)
 }
 
 type Unit interface {

@@ -35,12 +35,13 @@ import (
 var logger = loggo.GetLogger("juju.apiserver.client")
 
 type API struct {
-	stateAccessor   Backend
-	pool            Pool
-	storageAccessor StorageInterface
-	auth            facade.Authorizer
-	resources       facade.Resources
-	presence        facade.Presence
+	stateAccessor     Backend
+	pool              Pool
+	storageAccessor   StorageInterface
+	blockDeviceGetrer BlockDeviceGetter
+	auth              facade.Authorizer
+	resources         facade.Resources
+	presence          facade.Presence
 
 	multiwatcherFactory multiwatcher.Factory
 
@@ -152,6 +153,7 @@ func NewFacade(ctx facade.Context) (*Client, error) {
 		&stateShim{st, model, nil},
 		&poolShim{ctx.StatePool()},
 		storageAccessor,
+		ctx.ServiceFactory().BlockDevice(),
 		resources,
 		authorizer,
 		presence,
@@ -169,6 +171,7 @@ func NewClient(
 	backend Backend,
 	pool Pool,
 	storageAccessor StorageInterface,
+	blockDeviceGetter BlockDeviceGetter,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 	presence facade.Presence,
@@ -187,6 +190,7 @@ func NewClient(
 			stateAccessor:       backend,
 			pool:                pool,
 			storageAccessor:     storageAccessor,
+			blockDeviceGetrer:   blockDeviceGetter,
 			auth:                authorizer,
 			resources:           resources,
 			presence:            presence,

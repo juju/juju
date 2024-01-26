@@ -4,11 +4,20 @@
 package uniter
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 
+	"github.com/juju/juju/core/blockdevice"
+	corewatcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/state"
 )
+
+type blockDeviceService interface {
+	BlockDevices(ctx context.Context, machineId string) ([]blockdevice.BlockDevice, error)
+	WatchBlockDevices(ctx context.Context, machineId string) (corewatcher.NotifyWatcher, error)
+}
 
 type storageAccess interface {
 	storageInterface
@@ -29,9 +38,7 @@ type storageInterface interface {
 
 type storageVolumeInterface interface {
 	StorageInstanceVolume(names.StorageTag) (state.Volume, error)
-	BlockDevices(names.MachineTag) ([]state.BlockDeviceInfo, error)
 	WatchVolumeAttachment(names.Tag, names.VolumeTag) state.NotifyWatcher
-	WatchBlockDevices(names.MachineTag) state.NotifyWatcher
 	VolumeAttachment(names.Tag, names.VolumeTag) (state.VolumeAttachment, error)
 	VolumeAttachmentPlan(names.Tag, names.VolumeTag) (state.VolumeAttachmentPlan, error)
 }

@@ -12,8 +12,8 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/core/watcher/watchertest"
-	"github.com/juju/juju/domain/blockdevice"
 )
 
 type serviceSuite struct {

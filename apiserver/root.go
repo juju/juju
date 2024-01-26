@@ -830,6 +830,7 @@ func (ctx *facadeContext) ModelImporter() facade.ModelImporter {
 		state.NewController(pool),
 		ctx.migrationScope(),
 		ctx.ServiceFactory().ControllerConfig(),
+		ctx.ServiceFactory().Machine(),
 	)
 }
 

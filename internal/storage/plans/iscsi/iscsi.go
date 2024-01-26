@@ -19,7 +19,7 @@ import (
 	"github.com/juju/retry"
 	"github.com/juju/utils/v3/exec"
 
-	"github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/internal/storage/plans/common"
 )
 
@@ -50,10 +50,10 @@ func NewiSCSIPlan() common.Plan {
 	return &iscsiPlan{}
 }
 
-func (i *iscsiPlan) AttachVolume(volumeInfo map[string]string) (storage.BlockDevice, error) {
+func (i *iscsiPlan) AttachVolume(volumeInfo map[string]string) (blockdevice.BlockDevice, error) {
 	plan, err := newiSCSIInfo(volumeInfo)
 	if err != nil {
-		return storage.BlockDevice{}, errors.Trace(err)
+		return blockdevice.BlockDevice{}, errors.Trace(err)
 	}
 	return plan.attach()
 }
@@ -84,7 +84,7 @@ var runCommand = func(params []string) (*exec.ExecResponse, error) {
 	return resp, err
 }
 
-func getHardwareInfo(name string) (storage.BlockDevice, error) {
+func getHardwareInfo(name string) (blockdevice.BlockDevice, error) {
 	cmd := []string{
 		"udevadm", "info",
 		"-q", "property",
@@ -93,9 +93,9 @@ func getHardwareInfo(name string) (storage.BlockDevice, error) {
 
 	result, err := runCommand(cmd)
 	if err != nil {
-		return storage.BlockDevice{}, errors.Annotatef(err, "error running udevadm")
+		return blockdevice.BlockDevice{}, errors.Annotatef(err, "error running udevadm")
 	}
-	blockDevice := storage.BlockDevice{
+	blockDevice := blockdevice.BlockDevice{
 		DeviceName: name,
 	}
 	var busId, serialId string
@@ -352,13 +352,13 @@ func (i *iscsiConnectionInfo) delete() error {
 	return nil
 }
 
-func (i *iscsiConnectionInfo) attach() (storage.BlockDevice, error) {
+func (i *iscsiConnectionInfo) attach() (blockdevice.BlockDevice, error) {
 	if err := i.addTarget(); err != nil {
-		return storage.BlockDevice{}, errors.Trace(err)
+		return blockdevice.BlockDevice{}, errors.Trace(err)
 	}
 
 	if err := i.login(); err != nil {
-		return storage.BlockDevice{}, errors.Trace(err)
+		return blockdevice.BlockDevice{}, errors.Trace(err)
 	}
 	// Wait for device to show up
 	err := retry.Call(retry.CallArgs{
@@ -371,12 +371,12 @@ func (i *iscsiConnectionInfo) attach() (storage.BlockDevice, error) {
 		Clock:    clock.WallClock,
 	})
 	if err != nil {
-		return storage.BlockDevice{}, errors.Trace(err)
+		return blockdevice.BlockDevice{}, errors.Trace(err)
 	}
 
 	devName, err := i.deviceName()
 	if err != nil {
-		return storage.BlockDevice{}, errors.Trace(err)
+		return blockdevice.BlockDevice{}, errors.Trace(err)
 	}
 	return getHardwareInfo(devName)
 }
