@@ -59,7 +59,7 @@ func newSecretsAPI(context facade.Context) (*SecretsAPI, error) {
 		// User secrets are owned by the model.
 		authTag := model.ModelTag()
 		return secrets.BackendConfigInfo(
-			ctx, secrets.SecretsModel(model),
+			ctx, secrets.SecretsModel(model), true,
 			serviceFactory.Cloud(), serviceFactory.Credential(),
 			[]string{backendID}, false, authTag, leadershipChecker,
 		)

@@ -63,7 +63,7 @@ func NewSecretManagerAPI(stdCtx context.Context, ctx facade.Context) (*SecretsMa
 	cloudService := serviceFactory.Cloud()
 	credentialSerivce := serviceFactory.Credential()
 	secretBackendConfigGetter := func(stdCtx context.Context, backendIDs []string, wantAll bool) (*provider.ModelBackendConfigInfo, error) {
-		return secrets.BackendConfigInfo(stdCtx, secrets.SecretsModel(model), cloudService, credentialSerivce, backendIDs, wantAll, ctx.Auth().GetAuthTag(), leadershipChecker)
+		return secrets.BackendConfigInfo(stdCtx, secrets.SecretsModel(model), true, cloudService, credentialSerivce, backendIDs, wantAll, ctx.Auth().GetAuthTag(), leadershipChecker)
 	}
 	secretBackendAdminConfigGetter := func(stdCtx context.Context) (*provider.ModelBackendConfigInfo, error) {
 		return secrets.AdminBackendConfigInfo(stdCtx, secrets.SecretsModel(model), cloudService, credentialSerivce)
@@ -111,6 +111,7 @@ func NewSecretManagerAPI(stdCtx context.Context, ctx facade.Context) (*SecretsMa
 		secretsTriggers:     ctx.State(),
 		secretsConsumer:     ctx.State(),
 		clock:               clock.WallClock,
+		controllerUUID:      ctx.State().ControllerUUID(),
 		modelUUID:           ctx.State().ModelUUID(),
 		backendConfigGetter: secretBackendConfigGetter,
 		adminConfigGetter:   secretBackendAdminConfigGetter,

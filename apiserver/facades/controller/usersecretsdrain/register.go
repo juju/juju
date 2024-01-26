@@ -57,7 +57,7 @@ func newUserSecretsDrainAPI(context facade.Context) (*SecretsDrainAPI, error) {
 
 	secretBackendConfigGetter := func(ctx stdcontext.Context, backendIDs []string, wantAll bool) (*provider.ModelBackendConfigInfo, error) {
 		return commonsecrets.BackendConfigInfo(
-			ctx, commonsecrets.SecretsModel(model), cloudService, credentialSerivce,
+			ctx, commonsecrets.SecretsModel(model), true, cloudService, credentialSerivce,
 			backendIDs, wantAll, authTag, leadershipChecker,
 		)
 	}

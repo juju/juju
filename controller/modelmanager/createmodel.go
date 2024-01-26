@@ -51,7 +51,6 @@ func (c ModelConfigCreator) NewModelConfig(
 	base *config.Config,
 	attrs map[string]interface{},
 ) (*config.Config, error) {
-
 	if err := c.checkVersion(base, attrs); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -82,11 +81,26 @@ func (c ModelConfigCreator) NewModelConfig(
 			continue
 		}
 		// system-identity public key must be commented with
-		// Juju:juju-system-key
+		// juju-system-key at this point. Once it is placed in
+		// the authorized_keys files of a juju machine, the
+		// key comment has been prepended with `Juju:`
 		if parsedKey.Comment == config.JujuSystemKey {
-			// If found, add this key to the attrs.
-			prevAuthKeys := attrs[config.AuthorizedKeysKey].(string)
-			attrs[config.AuthorizedKeysKey] = config.ConcatAuthKeys(prevAuthKeys, key)
+			// If found, add this key to the existing authorized keys
+			// in attrs, or add as new authorized keys if they do not
+			// already exist.
+			var keys string
+			prevAuthKeys, ok := attrs[config.AuthorizedKeysKey]
+			if ok {
+				prevAuthKeysString, ok := prevAuthKeys.(string)
+				if !ok {
+					logger.Errorf("%s value is not a string (%+v)", config.AuthorizedKeysKey, prevAuthKeys)
+					continue
+				}
+				keys = config.ConcatAuthKeys(prevAuthKeysString, key)
+			} else {
+				keys = key
+			}
+			attrs[config.AuthorizedKeysKey] = keys
 			break
 		}
 	}
