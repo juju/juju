@@ -12,6 +12,8 @@ type CloudType struct {
 
 type AuthTypes []AuthType
 
+type AuthTypeIds []int
+
 type AuthType struct {
 	ID   int    `db:"id"`
 	Type string `db:"type"`
@@ -43,6 +45,22 @@ type Cloud struct {
 	IsControllerCloud bool `db:"is_controller_cloud"`
 }
 
+// Attrs stores a list of attributes corresponding to keys in the cloud_defaults
+// table.
+type Attrs []string
+
+// CloudDefaults represents a single row from the cloud__defaults table.
+type CloudDefaults struct {
+	// ID holds the cloud uuid.
+	ID string `db:"cloud_uuid"`
+
+	// Key is the key value.
+	Key string `db:"key"`
+
+	// Value is the value associated with key.
+	Value string `db:"value"`
+}
+
 type CloudAuthType struct {
 	// ID holds the cloud auth type document key.
 	ID string `db:"uuid"`
@@ -51,8 +69,12 @@ type CloudAuthType struct {
 	CloudUUID string `db:"cloud_uuid"`
 
 	// AuthTypeID holds the auth type reference.
-	AuthTypeID string `db:"auth_type_id"`
+	AuthTypeID int `db:"auth_type_id"`
 }
+
+// RegionNames stores a list of regions names corresponding to names the
+// cloud_region table.
+type RegionNames []string
 
 type CloudRegion struct {
 	// ID holds the cloud region document key.
@@ -72,6 +94,33 @@ type CloudRegion struct {
 
 	// StorageEndpoint is the region's storage endpoint URL.
 	StorageEndpoint string `db:"storage_endpoint"`
+}
+
+// CloudRegionDefaults represents a single row from the cloud_region_defaults
+// table.
+type CloudRegionDefaults struct {
+	// ID holds the cloud region uuid.
+	ID string `db:"region_uuid"`
+
+	// Key is the key value.
+	Key string `db:"key"`
+
+	// Value is the value associated with key.
+	Value string `db:"value"`
+}
+
+// CloudRegionDefaultValue represents a single row from cloud_region_defaults
+// when joined with cloud_region on cloud_region_uuid. It is used when
+// deserializing defaults for all regions of a cloud.
+type CloudRegionDefaultValue struct {
+	// Name is the name of the region.
+	Name string `db:"name"`
+
+	// Key is the key value.
+	Key string `db:"key"`
+
+	// Value is the value associated with key.
+	Value string `db:"value"`
 }
 
 type CloudCACert struct {
