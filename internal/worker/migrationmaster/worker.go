@@ -10,7 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/charm/v12"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -401,8 +400,8 @@ func (w *uploadWrapper) UploadTools(ctx context.Context, r io.ReadSeeker, vers v
 }
 
 // UploadCharm prepends the model UUID to the args passed to the migration client.
-func (w *uploadWrapper) UploadCharm(ctx context.Context, curl *charm.URL, content io.ReadSeeker) (*charm.URL, error) {
-	return w.client.UploadCharm(ctx, w.modelUUID, curl, content)
+func (w *uploadWrapper) UploadCharm(ctx context.Context, curl string, charmRef string, content io.ReadSeeker) (string, error) {
+	return w.client.UploadCharm(ctx, w.modelUUID, curl, charmRef, content)
 }
 
 // UploadResource prepends the model UUID to the args passed to the migration client.
