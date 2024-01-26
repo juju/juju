@@ -36,8 +36,8 @@ type User struct {
 }
 
 // UserTag is a tag that refers to a user.
-func UserTag(uuid UUID) names.UserTag {
-	return names.NewLocalUserTag(uuid.String())
+func UserTag(name string) names.UserTag {
+	return names.NewLocalUserTag(name)
 }
 
 // UUID is a unique identifier for a user.

@@ -578,12 +578,25 @@ func (s *userManagerSuite) TestUserInfoNonControllerAdmin(c *gc.C) {
 
 	userService := NewMockUserService(ctrl)
 
+	fakeCreatorUUID, err := coreuser.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+
 	fakeUUID, err := coreuser.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 
+	// CreateAt 5 mins ago
+	fakeCreatedAt := time.Now().Add(-5 * time.Minute)
+
+	// LastLogin 2 mins ago
+	fakeLastLogin := time.Now().Add(-2 * time.Minute)
+
 	userService.EXPECT().GetUserByName(gomock.Any(), gomock.Any()).Return(coreuser.User{
-		UUID: fakeUUID,
-		Name: "aardvark",
+		UUID:        fakeUUID,
+		Name:        "aardvark",
+		DisplayName: "Aard Vark",
+		CreatorUUID: fakeCreatorUUID,
+		CreatedAt:   fakeCreatedAt,
+		LastLogin:   fakeLastLogin,
 	}, nil).AnyTimes()
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
@@ -627,9 +640,9 @@ func (s *userManagerSuite) TestUserInfoNonControllerAdmin(c *gc.C) {
 					Username:       "aardvark",
 					DisplayName:    "Aard Vark",
 					Access:         "login",
-					CreatedBy:      s.adminName,
-					DateCreated:    userAardvark.DateCreated(),
-					LastConnection: lastLoginPointer(c, userAardvark),
+					CreatedBy:      fakeCreatorUUID.String(),
+					DateCreated:    fakeCreatedAt,
+					LastConnection: &fakeLastLogin,
 				},
 			}, {
 				Error: &params.Error{
