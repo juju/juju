@@ -13,10 +13,10 @@ import (
 	"github.com/juju/worker/v4/workertest"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain"
-	"github.com/juju/juju/domain/blockdevice"
 	"github.com/juju/juju/domain/blockdevice/service"
 	"github.com/juju/juju/domain/blockdevice/state"
 	"github.com/juju/juju/internal/changestream/testing"

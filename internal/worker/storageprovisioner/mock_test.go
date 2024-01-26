@@ -14,11 +14,11 @@ import (
 	gc "gopkg.in/check.v1"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
-	"github.com/juju/juju/domain/blockdevice"
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/rpc/params"
@@ -144,7 +144,7 @@ type mockVolumeAccessor struct {
 	provisionedMachines    map[string]instance.Id
 	provisionedVolumes     map[string]params.Volume
 	provisionedAttachments map[params.MachineStorageId]params.VolumeAttachment
-	blockDevices           map[params.MachineStorageId]blockdevice.BlockDevice
+	blockDevices           map[params.MachineStorageId]params.BlockDevice
 
 	setVolumeInfo               func([]params.Volume) ([]params.ErrorResult, error)
 	setVolumeAttachmentInfo     func([]params.VolumeAttachment) ([]params.ErrorResult, error)
@@ -327,7 +327,7 @@ func newMockVolumeAccessor() *mockVolumeAccessor {
 		provisionedMachines:    make(map[string]instance.Id),
 		provisionedVolumes:     make(map[string]params.Volume),
 		provisionedAttachments: make(map[params.MachineStorageId]params.VolumeAttachment),
-		blockDevices:           make(map[params.MachineStorageId]blockdevice.BlockDevice),
+		blockDevices:           make(map[params.MachineStorageId]params.BlockDevice),
 	}
 }
 

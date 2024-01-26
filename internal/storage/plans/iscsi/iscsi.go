@@ -19,7 +19,7 @@ import (
 	"github.com/juju/retry"
 	"github.com/juju/utils/v3/exec"
 
-	"github.com/juju/juju/domain/blockdevice"
+	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/internal/storage/plans/common"
 )
 

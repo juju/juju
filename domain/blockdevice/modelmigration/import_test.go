@@ -12,7 +12,7 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/domain/blockdevice"
+	"github.com/juju/juju/core/blockdevice"
 )
 
 type importSuite struct {

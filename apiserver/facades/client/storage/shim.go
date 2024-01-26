@@ -10,7 +10,7 @@ import (
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/apiserver/common/storagecommon"
-	"github.com/juju/juju/domain/blockdevice"
+	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/state"
 )
 

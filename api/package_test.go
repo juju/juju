@@ -48,7 +48,6 @@ func (*ImportSuite) TestImports(c *gc.C) {
 		"core/trace",
 		"core/user",
 		"core/watcher",
-		"domain/blockdevice",
 		"domain/credential", // Imported by environs/envcontext.
 		"environs/envcontext",
 		"internal/feature",

@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 
+	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/watcher"
@@ -119,7 +120,7 @@ func processAliveVolumePlans(ctx *context, volumePlans []params.VolumeAttachment
 		if blockDeviceInfo, err := volPlan.AttachVolume(val.PlanInfo.DeviceAttributes); err != nil {
 			return errors.Trace(err)
 		} else {
-			volumeAttachmentPlans[idx].BlockDevice = blockDeviceInfo
+			volumeAttachmentPlans[idx].BlockDevice = blockDeviceToParams(blockDeviceInfo)
 		}
 	}
 
@@ -134,6 +135,23 @@ func processAliveVolumePlans(ctx *context, volumePlans []params.VolumeAttachment
 	}
 	_, err = refreshVolumeBlockDevices(ctx, volumeTags)
 	return err
+}
+
+func blockDeviceToParams(in blockdevice.BlockDevice) params.BlockDevice {
+	return params.BlockDevice{
+		DeviceName:     in.DeviceName,
+		DeviceLinks:    in.DeviceLinks,
+		Label:          in.Label,
+		UUID:           in.UUID,
+		HardwareId:     in.HardwareId,
+		WWN:            in.WWN,
+		BusAddress:     in.BusAddress,
+		Size:           in.SizeMiB,
+		FilesystemType: in.FilesystemType,
+		InUse:          in.InUse,
+		MountPoint:     in.MountPoint,
+		SerialId:       in.SerialId,
+	}
 }
 
 func processDyingVolumePlans(ctx *context, volumePlans []params.VolumeAttachmentPlanResult) error {

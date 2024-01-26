@@ -14,6 +14,7 @@ import (
 )
 
 //go:generate go run go.uber.org/mock/mockgen -package storageprovisioner_test -destination blockdevice_mock_test.go github.com/juju/juju/apiserver/facades/agent/storageprovisioner BlockDeviceService
+
 func TestAll(t *stdtesting.T) {
 	testing.MgoTestPackage(t)
 }

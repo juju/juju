@@ -16,9 +16,9 @@ import (
 	"github.com/juju/worker/v4/workertest"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/domain/blockdevice"
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/worker/storageprovisioner"
@@ -1096,9 +1096,9 @@ func (s *storageProvisionerSuite) TestCreateVolumeBackedFilesystem(c *gc.C) {
 	args.volumes.blockDevices[params.MachineStorageId{
 		MachineTag:    "machine-0",
 		AttachmentTag: "volume-0-0",
-	}] = blockdevice.BlockDevice{
+	}] = params.BlockDevice{
 		DeviceName: "xvdf1",
-		SizeMiB:    123,
+		Size:       123,
 	}
 	filesystemAccessor.filesystemsWatcher.changes <- []string{"0/0", "0/1"}
 
@@ -1122,9 +1122,9 @@ func (s *storageProvisionerSuite) TestCreateVolumeBackedFilesystem(c *gc.C) {
 	args.volumes.blockDevices[params.MachineStorageId{
 		MachineTag:    "machine-0",
 		AttachmentTag: "volume-0-1",
-	}] = blockdevice.BlockDevice{
+	}] = params.BlockDevice{
 		DeviceName: "xvdf2",
-		SizeMiB:    246,
+		Size:       246,
 	}
 	args.volumes.blockDevicesWatcher.changes <- struct{}{}
 	filesystemInfo = waitChannel(
@@ -1170,9 +1170,9 @@ func (s *storageProvisionerSuite) TestAttachVolumeBackedFilesystem(c *gc.C) {
 	args.volumes.blockDevices[params.MachineStorageId{
 		MachineTag:    "machine-0",
 		AttachmentTag: "volume-0-0",
-	}] = blockdevice.BlockDevice{
+	}] = params.BlockDevice{
 		DeviceName: "xvdf1",
-		SizeMiB:    123,
+		Size:       123,
 	}
 	filesystemAccessor.attachmentsWatcher.changes <- []watcher.MachineStorageID{{
 		MachineTag:    "machine-0",
@@ -1196,9 +1196,9 @@ func (s *storageProvisionerSuite) TestAttachVolumeBackedFilesystem(c *gc.C) {
 	args.volumes.blockDevices[params.MachineStorageId{
 		MachineTag:    "machine-0",
 		AttachmentTag: "volume-0-0",
-	}] = blockdevice.BlockDevice{
+	}] = params.BlockDevice{
 		DeviceName: "xvdf1",
-		SizeMiB:    123,
+		Size:       123,
 		UUID:       "deadbeaf",
 	}
 	s.managedFilesystemSource.attachedFilesystems = make(chan interface{}, 1)

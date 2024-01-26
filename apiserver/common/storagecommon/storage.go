@@ -9,7 +9,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 
-	"github.com/juju/juju/domain/blockdevice"
+	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/rpc/params"
@@ -42,10 +42,6 @@ type VolumeAccess interface {
 	// VolumeAttachmentPlan returns state.VolumeAttachmentPlan corresponding
 	// to the specified machine and volume
 	VolumeAttachmentPlan(names.Tag, names.VolumeTag) (state.VolumeAttachmentPlan, error)
-
-	// BlockDevices returns information about block devices published
-	// for the specified machine.
-	//BlockDevices(names.MachineTag) ([]state.BlockDeviceInfo, error)
 }
 
 // FilesystemAccess is an interface for obtaining information about
@@ -98,6 +94,7 @@ func StorageAttachmentInfo(
 	return nil, errors.Errorf("invalid storage kind %v", storageInstance.Kind())
 }
 
+// BlockDeviceGetter instances can fetch block devices for a machine.
 type BlockDeviceGetter interface {
 	BlockDevices(ctx context.Context, machineId string) ([]blockdevice.BlockDevice, error)
 }

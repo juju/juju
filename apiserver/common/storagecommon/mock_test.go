@@ -11,7 +11,7 @@ import (
 	"github.com/juju/testing"
 
 	"github.com/juju/juju/apiserver/common/storagecommon"
-	"github.com/juju/juju/domain/blockdevice"
+	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/poolmanager"
 	"github.com/juju/juju/state"

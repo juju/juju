@@ -21,11 +21,11 @@ import (
 	"github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/apiserver/facades/agent/storageprovisioner"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/watcher/watchertest"
-	"github.com/juju/juju/domain/blockdevice"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/internal/storage"
@@ -1186,9 +1186,9 @@ func (s *iaasProvisionerSuite) TestVolumeBlockDevices(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.BlockDeviceResults{
 		Results: []params.BlockDeviceResult{
-			{Result: blockdevice.BlockDevice{
+			{Result: params.BlockDevice{
 				DeviceName: "sda",
-				SizeMiB:    123,
+				Size:       123,
 				HardwareId: "123",
 			}},
 			{Error: apiservertesting.ErrUnauthorized},
@@ -1263,9 +1263,9 @@ func (s *iaasProvisionerSuite) TestVolumeBlockDevicesPlanBlockInfoSet(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.BlockDeviceResults{
 		Results: []params.BlockDeviceResult{
-			{Result: blockdevice.BlockDevice{
+			{Result: params.BlockDevice{
 				DeviceName: "sda",
-				SizeMiB:    123,
+				Size:       123,
 				HardwareId: "test-id",
 			}},
 		},

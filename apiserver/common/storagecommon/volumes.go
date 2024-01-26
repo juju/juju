@@ -7,8 +7,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 
+	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/domain/blockdevice"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/poolmanager"
@@ -156,8 +156,24 @@ func VolumeAttachmentPlanFromState(v state.VolumeAttachmentPlan) (params.VolumeA
 		MachineTag:  v.Machine().String(),
 		Life:        life.Value(v.Life().String()),
 		PlanInfo:    VolumeAttachmentPlanInfoFromState(planInfo),
-		BlockDevice: VolumeAttachmentPlanBlockInfoFromState(blockInfo),
+		BlockDevice: VolumeAttachmentPlanBlockParamsFromState(blockInfo),
 	}, nil
+}
+
+func VolumeAttachmentPlanBlockParamsFromState(blockInfo state.BlockDeviceInfo) params.BlockDevice {
+	return params.BlockDevice{
+		DeviceName:     blockInfo.DeviceName,
+		DeviceLinks:    blockInfo.DeviceLinks,
+		Label:          blockInfo.Label,
+		UUID:           blockInfo.UUID,
+		HardwareId:     blockInfo.HardwareId,
+		WWN:            blockInfo.WWN,
+		BusAddress:     blockInfo.BusAddress,
+		Size:           blockInfo.Size,
+		FilesystemType: blockInfo.FilesystemType,
+		InUse:          blockInfo.InUse,
+		MountPoint:     blockInfo.MountPoint,
+	}
 }
 
 func VolumeAttachmentPlanBlockInfoFromState(blockInfo state.BlockDeviceInfo) blockdevice.BlockDevice {
@@ -243,7 +259,7 @@ func VolumeAttachmentPlanToState(in params.VolumeAttachmentPlan) (names.MachineT
 	return machineTag, volumeTag, info, blockInfo, nil
 }
 
-func BlockDeviceInfoToState(in blockdevice.BlockDevice) state.BlockDeviceInfo {
+func BlockDeviceInfoToState(in params.BlockDevice) state.BlockDeviceInfo {
 	return state.BlockDeviceInfo{
 		DeviceName:     in.DeviceName,
 		DeviceLinks:    in.DeviceLinks,
@@ -252,7 +268,7 @@ func BlockDeviceInfoToState(in blockdevice.BlockDevice) state.BlockDeviceInfo {
 		HardwareId:     in.HardwareId,
 		WWN:            in.WWN,
 		BusAddress:     in.BusAddress,
-		Size:           in.SizeMiB,
+		Size:           in.Size,
 		FilesystemType: in.FilesystemType,
 		InUse:          in.InUse,
 		MountPoint:     in.MountPoint,

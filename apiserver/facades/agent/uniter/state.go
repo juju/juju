@@ -9,8 +9,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 
+	"github.com/juju/juju/core/blockdevice"
 	corewatcher "github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/domain/blockdevice"
 	"github.com/juju/juju/state"
 )
 

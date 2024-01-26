@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/loggo"
 
-	"github.com/juju/juju/domain/blockdevice"
+	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/state"
 )
 

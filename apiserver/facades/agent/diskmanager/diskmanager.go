@@ -11,7 +11,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/domain/blockdevice"
+	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -54,10 +54,32 @@ func (d *DiskManagerAPI) SetMachineBlockDevices(ctx context.Context, args params
 			// a race between the volume attachment info being recorded and
 			// the diskmanager publishing block devices and erroneously creating
 			// volumes.
-			err = d.blockDeviceUpdater.UpdateBlockDevices(ctx, tag.Id(), arg.BlockDevices...)
+			blockdevices := blockDevicesFromParams(arg.BlockDevices)
+			err = d.blockDeviceUpdater.UpdateBlockDevices(ctx, tag.Id(), blockdevices...)
 			// TODO(axw) set volume/filesystem attachment info.
 		}
 		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
+}
+
+func blockDevicesFromParams(in []params.BlockDevice) []blockdevice.BlockDevice {
+	out := make([]blockdevice.BlockDevice, len(in))
+	for i, d := range in {
+		out[i] = blockdevice.BlockDevice{
+			DeviceName:     d.DeviceName,
+			DeviceLinks:    d.DeviceLinks,
+			Label:          d.Label,
+			UUID:           d.UUID,
+			HardwareId:     d.HardwareId,
+			WWN:            d.WWN,
+			BusAddress:     d.BusAddress,
+			SizeMiB:        d.Size,
+			FilesystemType: d.FilesystemType,
+			InUse:          d.InUse,
+			MountPoint:     d.MountPoint,
+			SerialId:       d.SerialId,
+		}
+	}
+	return out
 }

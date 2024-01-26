@@ -11,8 +11,8 @@ import (
 	"github.com/juju/testing"
 
 	"github.com/juju/juju/apiserver/facades/agent/uniter"
+	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/domain/blockdevice"
 	"github.com/juju/juju/state"
 )
 

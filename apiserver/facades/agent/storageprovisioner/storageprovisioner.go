@@ -17,11 +17,11 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/storageprovisioner/internal/filesystemwatcher"
 	"github.com/juju/juju/apiserver/internal"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/core/container"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	corewatcher "github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/domain/blockdevice"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/poolmanager"
 	"github.com/juju/juju/rpc/params"
@@ -34,6 +34,7 @@ type ControllerConfigService interface {
 	ControllerConfig(context.Context) (controller.Config, error)
 }
 
+// BlockDeviceService instances can fetch and watch block devices on a machine.
 type BlockDeviceService interface {
 	BlockDevices(ctx context.Context, machineId string) ([]blockdevice.BlockDevice, error)
 	WatchBlockDevices(ctx context.Context, machineId string) (corewatcher.NotifyWatcher, error)
@@ -1236,26 +1237,26 @@ func (s *StorageProvisionerAPIv4) oneVolumeAttachment(
 func (s *StorageProvisionerAPIv4) oneVolumeBlockDevice(
 	ctx context.Context,
 	id params.MachineStorageId, canAccess func(names.Tag, names.Tag) bool,
-) (blockdevice.BlockDevice, error) {
+) (params.BlockDevice, error) {
 	volumeAttachment, err := s.oneVolumeAttachment(id, canAccess)
 	if err != nil {
-		return blockdevice.BlockDevice{}, err
+		return params.BlockDevice{}, err
 	}
 	volume, err := s.sb.Volume(volumeAttachment.Volume())
 	if err != nil {
-		return blockdevice.BlockDevice{}, err
+		return params.BlockDevice{}, err
 	}
 	volumeInfo, err := volume.Info()
 	if err != nil {
-		return blockdevice.BlockDevice{}, err
+		return params.BlockDevice{}, err
 	}
 	volumeAttachmentInfo, err := volumeAttachment.Info()
 	if err != nil {
-		return blockdevice.BlockDevice{}, err
+		return params.BlockDevice{}, err
 	}
 	planCanAccess, err := s.getMachineAuthFunc()
 	if err != nil && !errors.Is(err, errors.NotFound) {
-		return blockdevice.BlockDevice{}, err
+		return params.BlockDevice{}, err
 	}
 	var blockDeviceInfo state.BlockDeviceInfo
 
@@ -1265,7 +1266,7 @@ func (s *StorageProvisionerAPIv4) oneVolumeBlockDevice(
 		// Volume attachment plans are optional. We should not err out
 		// if one is missing, and simply return an empty state.BlockDeviceInfo{}
 		if !errors.Is(err, errors.NotFound) {
-			return blockdevice.BlockDevice{}, err
+			return params.BlockDevice{}, err
 		}
 		blockDeviceInfo = state.BlockDeviceInfo{}
 	} else {
@@ -1275,29 +1276,42 @@ func (s *StorageProvisionerAPIv4) oneVolumeBlockDevice(
 			// Volume attachment plans are optional. We should not err out
 			// if one is missing, and simply return an empty state.BlockDeviceInfo{}
 			if !errors.Is(err, errors.NotFound) {
-				return blockdevice.BlockDevice{}, err
+				return params.BlockDevice{}, err
 			}
 			blockDeviceInfo = state.BlockDeviceInfo{}
 		}
 	}
 	blockDevices, err := s.blockDeviceService.BlockDevices(ctx, volumeAttachment.Host().(names.MachineTag).Id())
 	if err != nil {
-		return blockdevice.BlockDevice{}, err
+		return params.BlockDevice{}, err
 	}
-	blockDevice, ok := storagecommon.MatchingFilesystemBlockDevice(
+	bd, ok := storagecommon.MatchingFilesystemBlockDevice(
 		blockDevices,
 		volumeInfo,
 		volumeAttachmentInfo,
 		storagecommon.VolumeAttachmentPlanBlockInfoFromState(blockDeviceInfo),
 	)
 	if !ok {
-		return blockdevice.BlockDevice{}, errors.NotFoundf(
+		return params.BlockDevice{}, errors.NotFoundf(
 			"block device for volume %v on %v",
 			volumeAttachment.Volume().Id(),
 			names.ReadableString(volumeAttachment.Host()),
 		)
 	}
-	return *blockDevice, nil
+	return params.BlockDevice{
+		DeviceName:     bd.DeviceName,
+		DeviceLinks:    bd.DeviceLinks,
+		Label:          bd.Label,
+		UUID:           bd.UUID,
+		HardwareId:     bd.HardwareId,
+		WWN:            bd.WWN,
+		BusAddress:     bd.BusAddress,
+		Size:           bd.SizeMiB,
+		FilesystemType: bd.FilesystemType,
+		InUse:          bd.InUse,
+		MountPoint:     bd.MountPoint,
+		SerialId:       bd.SerialId,
+	}, nil
 }
 
 func (s *StorageProvisionerAPIv4) oneFilesystemAttachment(

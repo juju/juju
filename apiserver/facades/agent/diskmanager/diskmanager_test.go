@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/agent/diskmanager"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/domain/blockdevice"
+	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/rpc/params"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -40,7 +40,7 @@ func (s *DiskManagerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *DiskManagerSuite) TestSetMachineBlockDevices(c *gc.C) {
-	devices := []blockdevice.BlockDevice{{DeviceName: "sda"}, {DeviceName: "sdb"}}
+	devices := []params.BlockDevice{{DeviceName: "sda"}, {DeviceName: "sdb"}}
 	results, err := s.api.SetMachineBlockDevices(context.Background(), params.SetMachineBlockDevices{
 		MachineBlockDevices: []params.MachineBlockDevices{{
 			Machine:      "machine-0",

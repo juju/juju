@@ -4,7 +4,7 @@
 package common
 
 import (
-	"github.com/juju/juju/domain/blockdevice"
+	"github.com/juju/juju/core/blockdevice"
 )
 
 type Plan interface {

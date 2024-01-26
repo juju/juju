@@ -11,8 +11,8 @@ import (
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
 
+	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/domain/blockdevice"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/internal/worker/storageprovisioner/internal/schedule"
