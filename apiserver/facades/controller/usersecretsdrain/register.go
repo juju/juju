@@ -50,7 +50,7 @@ func newUserSecretsDrainAPI(context facade.Context) (*SecretsDrainAPI, error) {
 	}
 
 	secretBackendConfigGetter := func(backendIDs []string, wantAll bool) (*provider.ModelBackendConfigInfo, error) {
-		return commonsecrets.BackendConfigInfo(commonsecrets.SecretsModel(model), backendIDs, wantAll, authTag, leadershipChecker)
+		return commonsecrets.BackendConfigInfo(commonsecrets.SecretsModel(model), true, backendIDs, wantAll, authTag, leadershipChecker)
 	}
 	secretBackendDrainConfigGetter := func(backendID string) (*provider.ModelBackendConfigInfo, error) {
 		return commonsecrets.DrainBackendConfigInfo(backendID, commonsecrets.SecretsModel(model), authTag, leadershipChecker)
