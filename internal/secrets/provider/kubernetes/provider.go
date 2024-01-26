@@ -131,7 +131,7 @@ func IsBuiltInName(backendName string) bool {
 // owned secrets and read shared secrets for the given entity tag.
 func (p k8sProvider) RestrictedConfig(
 	ctx context.Context,
-	adminCfg *provider.ModelBackendConfig, forDrain bool, consumer names.Tag, owned provider.SecretRevisions, read provider.SecretRevisions,
+	adminCfg *provider.ModelBackendConfig, sameController, forDrain bool, consumer names.Tag, owned provider.SecretRevisions, read provider.SecretRevisions,
 ) (*provider.BackendConfig, error) {
 	logger.Tracef("getting k8s backend config for %q, owned %v, read %v", consumer, owned, read)
 
@@ -153,7 +153,7 @@ func (p k8sProvider) RestrictedConfig(
 	}
 	cloudSpec.Credential = &cred
 
-	if cloudSpec.IsControllerCloud {
+	if sameController && cloudSpec.IsControllerCloud {
 		// The cloudspec used for controller has a fake endpoint (address and port)
 		// because we ignore the endpoint and load the in-cluster credential instead.
 		// So we have to clean up the endpoint here for uniter to use.
@@ -164,6 +164,8 @@ func (p k8sProvider) RestrictedConfig(
 			logger.Tracef("patching endpoint to %q", cloudSpec.Endpoint)
 			cloudSpec.IsControllerCloud = false
 		}
+	} else {
+		cloudSpec.IsControllerCloud = false
 	}
 	return cloudSpecToBackendConfig(cloudSpec)
 }

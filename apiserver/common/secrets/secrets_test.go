@@ -299,9 +299,9 @@ func (s *secretsSuite) assertBackendConfigInfoLeaderUnit(c *gc.C, wanted []strin
 				ValueRef: &coresecrets.ValueRef{BackendID: "backend-id", RevisionID: "read-rev-1"},
 			}}, nil),
 	)
-	p.EXPECT().RestrictedConfig(context.Background(), &adminCfg, false, unitTag, ownedRevs, readRevs).Return(&adminCfg.BackendConfig, nil)
+	p.EXPECT().RestrictedConfig(context.Background(), &adminCfg, true, false, unitTag, ownedRevs, readRevs).Return(&adminCfg.BackendConfig, nil)
 
-	info, err := secrets.BackendConfigInfo(context.Background(), model, cloudService, credentialService, wanted, false, unitTag, leadershipChecker)
+	info, err := secrets.BackendConfigInfo(context.Background(), model, true, cloudService, credentialService, wanted, false, unitTag, leadershipChecker)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, &provider.ModelBackendConfigInfo{
 		ActiveID: "backend-id",
@@ -412,9 +412,9 @@ func (s *secretsSuite) TestBackendConfigInfoNonLeaderUnit(c *gc.C) {
 				ValueRef: &coresecrets.ValueRef{BackendID: "backend-id", RevisionID: "app-owned-rev-3"},
 			}}, nil),
 	)
-	p.EXPECT().RestrictedConfig(context.Background(), &adminCfg, false, unitTag, ownedRevs, readRevs).Return(&adminCfg.BackendConfig, nil)
+	p.EXPECT().RestrictedConfig(context.Background(), &adminCfg, true, false, unitTag, ownedRevs, readRevs).Return(&adminCfg.BackendConfig, nil)
 
-	info, err := secrets.BackendConfigInfo(context.Background(), model, cloudService, credentialService, []string{"backend-id"}, false, unitTag, leadershipChecker)
+	info, err := secrets.BackendConfigInfo(context.Background(), model, true, cloudService, credentialService, []string{"backend-id"}, false, unitTag, leadershipChecker)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, &provider.ModelBackendConfigInfo{
 		ActiveID: "backend-id",
@@ -525,7 +525,7 @@ func (s *secretsSuite) TestDrainBackendConfigInfo(c *gc.C) {
 				ValueRef: &coresecrets.ValueRef{BackendID: "backend-id", RevisionID: "app-owned-rev-3"},
 			}}, nil),
 	)
-	p.EXPECT().RestrictedConfig(context.Background(), &adminCfg, true, unitTag, ownedRevs, readRevs).Return(&adminCfg.BackendConfig, nil)
+	p.EXPECT().RestrictedConfig(context.Background(), &adminCfg, true, true, unitTag, ownedRevs, readRevs).Return(&adminCfg.BackendConfig, nil)
 
 	info, err := secrets.DrainBackendConfigInfo(context.Background(), "backend-id", model, cloudService, credentialService, unitTag, leadershipChecker)
 	c.Assert(err, jc.ErrorIsNil)
@@ -617,9 +617,9 @@ func (s *secretsSuite) TestBackendConfigInfoAppTagLogin(c *gc.C) {
 				ValueRef: &coresecrets.ValueRef{BackendID: "backend-id", RevisionID: "read-rev-1"},
 			}}, nil),
 	)
-	p.EXPECT().RestrictedConfig(context.Background(), &adminCfg, false, appTag, ownedRevs, readRevs).Return(&adminCfg.BackendConfig, nil)
+	p.EXPECT().RestrictedConfig(context.Background(), &adminCfg, true, false, appTag, ownedRevs, readRevs).Return(&adminCfg.BackendConfig, nil)
 
-	info, err := secrets.BackendConfigInfo(context.Background(), model, cloudService, credentialService, []string{"backend-id"}, false, appTag, leadershipChecker)
+	info, err := secrets.BackendConfigInfo(context.Background(), model, true, cloudService, credentialService, []string{"backend-id"}, false, appTag, leadershipChecker)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, &provider.ModelBackendConfigInfo{
 		ActiveID: "backend-id",
@@ -673,7 +673,7 @@ func (s *secretsSuite) TestBackendConfigInfoFailedInvalidAuthTag(c *gc.C) {
 		p.EXPECT().Initialise(gomock.Any()).Return(nil),
 	)
 
-	_, err := secrets.BackendConfigInfo(context.Background(), model, cloudService, credentialService, []string{"some-id"}, false, badTag, leadershipChecker)
+	_, err := secrets.BackendConfigInfo(context.Background(), model, true, cloudService, credentialService, []string{"some-id"}, false, badTag, leadershipChecker)
 	c.Assert(err, gc.ErrorMatches, `login as "user-foo" not supported`)
 }
 

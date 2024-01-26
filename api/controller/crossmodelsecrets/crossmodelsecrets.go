@@ -159,7 +159,7 @@ func (c *Client) GetSecretAccessScope(uri *coresecrets.URI, appToken string, uni
 }
 
 // GetRemoteSecretContentInfo gets secret content from a cross model controller.
-func (c *Client) GetRemoteSecretContentInfo(ctx context.Context, uri *coresecrets.URI, revision int, refresh, peek bool, appToken string, unitId int, macs macaroon.Slice) (
+func (c *Client) GetRemoteSecretContentInfo(ctx context.Context, uri *coresecrets.URI, revision int, refresh, peek bool, sourceControllerUUID, appToken string, unitId int, macs macaroon.Slice) (
 	*secrets.ContentParams, *provider.ModelBackendConfig, int, bool, error,
 ) {
 	if uri == nil {
@@ -167,13 +167,14 @@ func (c *Client) GetRemoteSecretContentInfo(ctx context.Context, uri *coresecret
 	}
 
 	arg := params.GetRemoteSecretContentArg{
-		ApplicationToken: appToken,
-		UnitId:           unitId,
-		URI:              uri.String(),
-		Refresh:          refresh,
-		Peek:             peek,
-		Macaroons:        macs,
-		BakeryVersion:    bakery.LatestVersion,
+		SourceControllerUUID: sourceControllerUUID,
+		ApplicationToken:     appToken,
+		UnitId:               unitId,
+		URI:                  uri.String(),
+		Refresh:              refresh,
+		Peek:                 peek,
+		Macaroons:            macs,
+		BakeryVersion:        bakery.LatestVersion,
 	}
 	if revision > 0 {
 		arg.Revision = &revision

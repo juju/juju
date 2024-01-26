@@ -1304,7 +1304,7 @@ func (s *SecretsManagerSuite) TestGetSecretContentCrossModelExistingConsumerNoRe
 	s.crossModelState.EXPECT().GetRemoteEntity("scope-token").Return(scopeTag, nil)
 	s.crossModelState.EXPECT().GetMacaroon(scopeTag).Return(mac, nil)
 
-	s.remoteClient.EXPECT().GetRemoteSecretContentInfo(gomock.Any(), uri, 665, false, false, "token", 0, macaroon.Slice{mac}).Return(
+	s.remoteClient.EXPECT().GetRemoteSecretContentInfo(gomock.Any(), uri, 665, false, false, coretesting.ControllerTag.Id(), "token", 0, macaroon.Slice{mac}).Return(
 		&secrets.ContentParams{
 			ValueRef: &coresecrets.ValueRef{
 				BackendID:  "backend-id",
@@ -1370,7 +1370,7 @@ func (s *SecretsManagerSuite) TestGetSecretContentCrossModelExistingConsumerNoRe
 	s.crossModelState.EXPECT().GetRemoteEntity("scope-token").Return(scopeTag, nil)
 	s.crossModelState.EXPECT().GetMacaroon(scopeTag).Return(mac, nil)
 
-	s.remoteClient.EXPECT().GetRemoteSecretContentInfo(gomock.Any(), uri, 665, false, false, "token", 0, macaroon.Slice{mac}).Return(
+	s.remoteClient.EXPECT().GetRemoteSecretContentInfo(gomock.Any(), uri, 665, false, false, coretesting.ControllerTag.Id(), "token", 0, macaroon.Slice{mac}).Return(
 		&secrets.ContentParams{
 			ValueRef: &coresecrets.ValueRef{
 				BackendID:  "backend-id",
@@ -1441,7 +1441,7 @@ func (s *SecretsManagerSuite) TestGetSecretContentCrossModelExistingConsumerRefr
 	s.crossModelState.EXPECT().GetRemoteEntity("scope-token").Return(scopeTag, nil)
 	s.crossModelState.EXPECT().GetMacaroon(scopeTag).Return(mac, nil)
 
-	s.remoteClient.EXPECT().GetRemoteSecretContentInfo(gomock.Any(), uri, 665, true, false, "token", 0, macaroon.Slice{mac}).Return(
+	s.remoteClient.EXPECT().GetRemoteSecretContentInfo(gomock.Any(), uri, 665, true, false, coretesting.ControllerTag.Id(), "token", 0, macaroon.Slice{mac}).Return(
 		&secrets.ContentParams{
 			ValueRef: &coresecrets.ValueRef{
 				BackendID:  "backend-id",
@@ -1510,7 +1510,7 @@ func (s *SecretsManagerSuite) TestGetSecretContentCrossModelNewConsumer(c *gc.C)
 	s.crossModelState.EXPECT().GetRemoteEntity("scope-token").Return(scopeTag, nil)
 	s.crossModelState.EXPECT().GetMacaroon(scopeTag).Return(mac, nil)
 
-	s.remoteClient.EXPECT().GetRemoteSecretContentInfo(gomock.Any(), uri, 0, true, false, "token", 0, macaroon.Slice{mac}).Return(
+	s.remoteClient.EXPECT().GetRemoteSecretContentInfo(gomock.Any(), uri, 0, true, false, coretesting.ControllerTag.Id(), "token", 0, macaroon.Slice{mac}).Return(
 		&secrets.ContentParams{
 			ValueRef: &coresecrets.ValueRef{
 				BackendID:  "backend-id",

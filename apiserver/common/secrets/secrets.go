@@ -150,7 +150,7 @@ func DrainBackendConfigInfo(
 	if !ok {
 		return nil, errors.Errorf("missing secret backend %q", backendID)
 	}
-	backendCfg, err := backendConfigInfo(ctx, model, backendID, &cfg, authTag, leadershipChecker, true)
+	backendCfg, err := backendConfigInfo(ctx, model, backendID, &cfg, authTag, leadershipChecker, true, true)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -167,7 +167,8 @@ func DrainBackendConfigInfo(
 // The result includes config for all relevant backends, including the id
 // of the current active backend.
 func BackendConfigInfo(
-	ctx context.Context, model Model, cloudService common.CloudService, credentialService common.CredentialService,
+	ctx context.Context, model Model, sameController bool,
+	cloudService common.CloudService, credentialService common.CredentialService,
 	backendIDs []string, wantAll bool,
 	authTag names.Tag, leadershipChecker leadership.Checker,
 ) (*provider.ModelBackendConfigInfo, error) {
@@ -193,7 +194,7 @@ func BackendConfigInfo(
 		if !ok {
 			return nil, errors.Errorf("missing secret backend %q", backendID)
 		}
-		backendCfg, err := backendConfigInfo(ctx, model, backendID, &cfg, authTag, leadershipChecker, false)
+		backendCfg, err := backendConfigInfo(ctx, model, backendID, &cfg, authTag, leadershipChecker, sameController, false)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -205,7 +206,7 @@ func BackendConfigInfo(
 func backendConfigInfo(
 	ctx context.Context,
 	model Model, backendID string, adminCfg *provider.ModelBackendConfig,
-	authTag names.Tag, leadershipChecker leadership.Checker, forDrain bool,
+	authTag names.Tag, leadershipChecker leadership.Checker, sameController, forDrain bool,
 ) (*provider.ModelBackendConfig, error) {
 	p, err := GetProvider(adminCfg.BackendType)
 	if err != nil {
@@ -272,7 +273,7 @@ func backendConfigInfo(
 	}
 
 	logger.Debugf("secrets for %v:\nowned: %v\nconsumed:%v", authTag.String(), ownedRevisions, readRevisions)
-	cfg, err := p.RestrictedConfig(ctx, adminCfg, forDrain, authTag, ownedRevisions[backendID], readRevisions[backendID])
+	cfg, err := p.RestrictedConfig(ctx, adminCfg, sameController, forDrain, authTag, ownedRevisions[backendID], readRevisions[backendID])
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

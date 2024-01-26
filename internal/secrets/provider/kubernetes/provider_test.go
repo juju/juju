@@ -32,7 +32,7 @@ type providerSuite struct {
 
 var _ = gc.Suite(&providerSuite{})
 
-func (s *providerSuite) assertRestrictedConfigWithTag(c *gc.C, isControllerCloud bool) {
+func (s *providerSuite) assertRestrictedConfigWithTag(c *gc.C, isControllerCloud, sameController bool) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -64,7 +64,7 @@ func (s *providerSuite) assertRestrictedConfigWithTag(c *gc.C, isControllerCloud
 		},
 	}
 
-	backendCfg, err := p.RestrictedConfig(context.Background(), adminCfg, false, tag,
+	backendCfg, err := p.RestrictedConfig(context.Background(), adminCfg, sameController, false, tag,
 		provider.SecretRevisions{"owned-a": set.NewStrings("owned-rev-1")},
 		provider.SecretRevisions{"read-b": set.NewStrings("read-rev-1", "read-rev-2")},
 	)
@@ -78,19 +78,25 @@ func (s *providerSuite) assertRestrictedConfigWithTag(c *gc.C, isControllerCloud
 			"is-controller-cloud": isControllerCloud,
 		},
 	}
-	if isControllerCloud {
+	if isControllerCloud && sameController {
 		expected.Config["endpoint"] = "https://8.6.8.6:8888"
+		expected.Config["is-controller-cloud"] = false
+	} else {
 		expected.Config["is-controller-cloud"] = false
 	}
 	c.Assert(backendCfg, jc.DeepEquals, expected)
 }
 
 func (s *providerSuite) TestRestrictedConfigWithTag(c *gc.C) {
-	s.assertRestrictedConfigWithTag(c, false)
+	s.assertRestrictedConfigWithTag(c, false, false)
 }
 
 func (s *providerSuite) TestRestrictedConfigWithTagWithControllerCloud(c *gc.C) {
-	s.assertRestrictedConfigWithTag(c, true)
+	s.assertRestrictedConfigWithTag(c, true, true)
+}
+
+func (s *providerSuite) TestRestrictedConfigWithTagWithControllerCloudDifferentController(c *gc.C) {
+	s.assertRestrictedConfigWithTag(c, true, false)
 }
 
 func (s *providerSuite) TestCleanupSecrets(c *gc.C) {
