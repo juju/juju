@@ -52,7 +52,7 @@ func (s *stateSuite) TestListMetadataFound(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	metadata := objectstore.Metadata{
-		UUID: utils.MustNewUUID().String(),
+		UUID: uuid.MustNewUUID().String(),
 		Hash: "hash",
 		Path: "blah-foo",
 		Size: 666,

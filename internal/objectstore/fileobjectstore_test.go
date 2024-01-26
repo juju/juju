@@ -442,6 +442,36 @@ func (s *fileObjectStoreSuite) TestRemove(c *gc.C) {
 	s.expectFileDoesNotExist(c, path, hash)
 }
 
+func (s *fileObjectStoreSuite) TestList(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	path := c.MkDir()
+
+	namespace := "inferi"
+	fileName := "foo"
+	size, hash := s.createFile(c, s.filePath(path, namespace), fileName, "some content")
+
+	s.createDirectory(c, s.filePath(path, namespace), "other")
+
+	store := s.newFileObjectStore(c, path).(*fileObjectStore)
+	defer workertest.DirtyKill(c, store)
+
+	s.service.EXPECT().ListMetadata(gomock.Any()).Return([]objectstore.Metadata{{
+		Hash: hash,
+		Path: fileName,
+		Size: size,
+	}}, nil)
+
+	metadata, files, err := store.list(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(metadata, gc.DeepEquals, []objectstore.Metadata{{
+		Hash: hash,
+		Path: fileName,
+		Size: size,
+	}})
+	c.Check(files, gc.DeepEquals, []string{hash})
+}
+
 func (s *fileObjectStoreSuite) createFile(c *gc.C, path, name, contents string) (int64, string) {
 	// Ensure the directory exists.
 	err := os.MkdirAll(path, 0755)
@@ -510,4 +540,9 @@ func (s *fileObjectStoreSuite) newFileObjectStore(c *gc.C, path string) TrackedO
 	c.Assert(err, gc.IsNil)
 
 	return store
+}
+
+func (s *fileObjectStoreSuite) createDirectory(c *gc.C, path, name string) {
+	err := os.MkdirAll(filepath.Join(path, name), 0755)
+	c.Assert(err, jc.ErrorIsNil)
 }

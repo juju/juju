@@ -5,6 +5,7 @@ package testing
 
 import (
 	"context"
+	"sort"
 	"sync"
 	"time"
 
@@ -51,6 +52,11 @@ type objectStore struct {
 	store *store
 }
 
+// ListMetadata returns the persistence metadata for all paths.
+func (s *objectStore) ListMetadata(ctx context.Context) ([]coreobjectstore.Metadata, error) {
+	return s.store.list()
+}
+
 // GetMetadata implements objectstore.ObjectStoreMetadata.
 func (s *objectStore) GetMetadata(ctx context.Context, path string) (coreobjectstore.Metadata, error) {
 	if path == "" {
@@ -88,6 +94,20 @@ func newStore() *store {
 	return &store{
 		metadata: make(map[string]coreobjectstore.Metadata),
 	}
+}
+
+func (s *store) list() ([]coreobjectstore.Metadata, error) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	var metadata []coreobjectstore.Metadata
+	for _, m := range s.metadata {
+		metadata = append(metadata, m)
+	}
+	sort.Slice(metadata, func(i, j int) bool {
+		return metadata[i].Path < metadata[j].Path
+	})
+	return metadata, nil
 }
 
 func (s *store) get(path string) (coreobjectstore.Metadata, error) {

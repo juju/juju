@@ -53,11 +53,11 @@ func (s *serviceSuite) TestGetMetadata(c *gc.C) {
 func (s *serviceSuite) TestListMetadata(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	path := utils.MustNewUUID().String()
+	path := uuid.MustNewUUID().String()
 
 	metadata := coreobjectstore.Metadata{
 		Path: path,
-		Hash: utils.MustNewUUID().String(),
+		Hash: uuid.MustNewUUID().String(),
 		Size: 666,
 	}
 
@@ -67,7 +67,7 @@ func (s *serviceSuite) TestListMetadata(c *gc.C) {
 		Size: metadata.Size,
 	}}, nil)
 
-	p, err := NewService(s.state, nil).ListMetadata(context.Background())
+	p, err := NewService(s.state).ListMetadata(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(p, gc.DeepEquals, []coreobjectstore.Metadata{{
 		Path: metadata.Path,

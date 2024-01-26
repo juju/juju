@@ -416,6 +416,43 @@ func (s *s3ObjectStoreSuite) TestRemove(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *s3ObjectStoreSuite) TestList(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	content := "some content"
+	hexHash := s.calculateHexHash(c, content)
+	fileName := "foo"
+	size := int64(666)
+
+	store := s.newS3ObjectStore(c).(*s3ObjectStore)
+	defer workertest.DirtyKill(c, store)
+
+	// Ensure we've started up before we start the test.
+	started := s.expectStartup()
+
+	select {
+	case <-started:
+	case <-time.After(jujutesting.LongWait):
+		c.Fatalf("timed out waiting for startup")
+	}
+
+	s.service.EXPECT().ListMetadata(gomock.Any()).Return([]objectstore.Metadata{{
+		Hash: hexHash,
+		Path: fileName,
+		Size: size,
+	}}, nil)
+	s.session.EXPECT().ListObjects(gomock.Any(), defaultBucketName).Return([]string{hexHash}, nil)
+
+	metadata, files, err := store.list(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(metadata, gc.DeepEquals, []objectstore.Metadata{{
+		Hash: hexHash,
+		Path: fileName,
+		Size: size,
+	}})
+	c.Check(files, gc.DeepEquals, []string{hexHash})
+}
+
 func (s *s3ObjectStoreSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := s.baseSuite.setupMocks(c)
 

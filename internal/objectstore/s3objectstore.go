@@ -78,9 +78,6 @@ func NewS3ObjectStore(ctx context.Context, cfg S3ObjectStoreConfig) (TrackedObje
 		requests: make(chan request),
 	}
 
-	// Add a pruner to the object store.
-	s.pruner = newPruner(s.logger, s.list, s.withLock, s.deleteObject)
-
 	s.tomb.Go(s.loop)
 
 	return s, nil
@@ -296,7 +293,7 @@ func (t *s3ObjectStore) loop() error {
 			// the loop.
 			timer.Reset(defaultPruneInterval)
 
-			if err := t.pruner.Prune(ctx); err != nil {
+			if err := t.prune(ctx, t.list, t.deleteObject); err != nil {
 				t.logger.Errorf("prune: %v", err)
 				continue
 			}

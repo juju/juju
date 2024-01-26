@@ -14,7 +14,6 @@ import (
 	io "io"
 	reflect "reflect"
 
-	objectstore "github.com/juju/juju/core/objectstore"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -55,22 +54,6 @@ func (m *MockObjectStore) Get(arg0 context.Context, arg1 string) (io.ReadCloser,
 func (mr *MockObjectStoreMockRecorder) Get(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockObjectStore)(nil).Get), arg0, arg1)
-}
-
-// List mocks base method.
-func (m *MockObjectStore) List(arg0 context.Context) ([]objectstore.Metadata, []string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "List", arg0)
-	ret0, _ := ret[0].([]objectstore.Metadata)
-	ret1, _ := ret[1].([]string)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
-}
-
-// List indicates an expected call of List.
-func (mr *MockObjectStoreMockRecorder) List(arg0 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "List", reflect.TypeOf((*MockObjectStore)(nil).List), arg0)
 }
 
 // Put mocks base method.

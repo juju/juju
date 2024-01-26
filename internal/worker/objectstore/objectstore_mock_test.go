@@ -71,22 +71,6 @@ func (mr *MockTrackedObjectStoreMockRecorder) Kill() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Kill", reflect.TypeOf((*MockTrackedObjectStore)(nil).Kill))
 }
 
-// List mocks base method.
-func (m *MockTrackedObjectStore) List(arg0 context.Context) ([]objectstore.Metadata, []string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "List", arg0)
-	ret0, _ := ret[0].([]objectstore.Metadata)
-	ret1, _ := ret[1].([]string)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
-}
-
-// List indicates an expected call of List.
-func (mr *MockTrackedObjectStoreMockRecorder) List(arg0 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "List", reflect.TypeOf((*MockTrackedObjectStore)(nil).List), arg0)
-}
-
 // Put mocks base method.
 func (m *MockTrackedObjectStore) Put(arg0 context.Context, arg1 string, arg2 io.Reader, arg3 int64) error {
 	m.ctrl.T.Helper()
