@@ -29,10 +29,10 @@ func NewState(factory coredatabase.TxnRunnerFactory) *State {
 	}
 }
 
-// Key represents a row from model_config.
+// key represents the key column from a model_config row.
 // Once SQLair supports scalar types the key can be selected directly into a
 // string and this struct will no longer be needed.
-type Key struct {
+type key struct {
 	Key string `db:"key"`
 }
 
@@ -60,21 +60,22 @@ func (st *State) ModelConfigHasAttributes(
 
 	attrsSlice := sqlair.S(transform.Slice(attrs, func(s string) any { return any(s) }))
 	stmt, err := sqlair.Prepare(`
-SELECT &Key.key FROM model_config WHERE key IN ($S[:])
-`, sqlair.S{}, Key{})
+SELECT &key.key FROM model_config WHERE key IN ($S[:])
+`, sqlair.S{}, key{})
 	if err != nil {
 		return rval, errors.Trace(err)
 	}
 
 	return rval, db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		keys := []Key{}
+		var keys []key
 		err := tx.Query(ctx, stmt, attrsSlice).GetAll(&keys)
 		if err != nil {
 			return fmt.Errorf("getting model config attrs set: %w", err)
 		}
 
-		for _, key := range keys {
-			rval = append(rval, key.Key)
+		rval = make([]string, len(keys), len(keys))
+		for i, key := range keys {
+			rval[i] = key.Key
 		}
 		return nil
 	})
