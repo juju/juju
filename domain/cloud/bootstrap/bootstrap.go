@@ -9,7 +9,6 @@ import (
 	"fmt"
 
 	"github.com/canonical/sqlair"
-
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/cloud"
