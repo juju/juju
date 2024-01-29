@@ -450,7 +450,7 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 	chID := application.CharmID{
-		URL:    curl,
+		URL:    curl.String(),
 		Origin: origin,
 	}
 	resourceIDs, err := c.upgradeResources(apiRoot, chID)
@@ -577,7 +577,7 @@ func (c *refreshCommand) upgradeResources(
 		return nil, errors.Trace(err)
 	}
 	charmsClient := c.NewCharmClient(apiRoot)
-	meta, err := utils.GetMetaResources(chID.URL.String(), charmsClient)
+	meta, err := utils.GetMetaResources(chID.URL, charmsClient)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

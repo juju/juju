@@ -263,7 +263,7 @@ func (s *RefreshSuite) TestStorageConstraints(c *gc.C) {
 	s.charmAPIClient.CheckCall(c, 2, "SetCharm", model.GenerationMaster, application.SetCharmConfig{
 		ApplicationName: "foo",
 		CharmID: application.CharmID{
-			URL: s.resolvedCharmURL,
+			URL: s.resolvedCharmURL.String(),
 			Origin: commoncharm.Origin{
 				ID:           "testing",
 				Source:       "charm-hub",
@@ -293,7 +293,7 @@ func (s *RefreshSuite) TestConfigSettings(c *gc.C) {
 	s.charmAPIClient.CheckCall(c, 2, "SetCharm", model.GenerationMaster, application.SetCharmConfig{
 		ApplicationName: "foo",
 		CharmID: application.CharmID{
-			URL: s.resolvedCharmURL,
+			URL: s.resolvedCharmURL.String(),
 			Origin: commoncharm.Origin{
 				ID:           "testing",
 				Source:       "charm-hub",
@@ -316,7 +316,7 @@ func (s *RefreshSuite) TestConfigSettingsWithTrust(c *gc.C) {
 	s.charmAPIClient.CheckCall(c, 2, "SetCharm", model.GenerationMaster, application.SetCharmConfig{
 		ApplicationName: "foo",
 		CharmID: application.CharmID{
-			URL: s.resolvedCharmURL,
+			URL: s.resolvedCharmURL.String(),
 			Origin: commoncharm.Origin{
 				ID:           "testing",
 				Source:       "charm-hub",
@@ -338,7 +338,7 @@ func (s *RefreshSuite) TestConfigSettingsWithTrustFalse(c *gc.C) {
 	s.charmAPIClient.CheckCall(c, 2, "SetCharm", model.GenerationMaster, application.SetCharmConfig{
 		ApplicationName: "foo",
 		CharmID: application.CharmID{
-			URL: s.resolvedCharmURL,
+			URL: s.resolvedCharmURL.String(),
 			Origin: commoncharm.Origin{
 				ID:           "testing",
 				Source:       "charm-hub",
@@ -365,7 +365,7 @@ func (s *RefreshSuite) TestConfigSettingsWithKeyValuesAndFile(c *gc.C) {
 	s.charmAPIClient.CheckCall(c, 2, "SetCharm", model.GenerationMaster, application.SetCharmConfig{
 		ApplicationName: "foo",
 		CharmID: application.CharmID{
-			URL: s.resolvedCharmURL,
+			URL: s.resolvedCharmURL.String(),
 			Origin: commoncharm.Origin{
 				ID:           "testing",
 				Source:       "charm-hub",
@@ -413,7 +413,7 @@ func (s *RefreshSuite) testUpgradeWithBind(c *gc.C, expectedBindings map[string]
 	s.charmAPIClient.CheckCall(c, 2, "SetCharm", model.GenerationMaster, application.SetCharmConfig{
 		ApplicationName: "foo",
 		CharmID: application.CharmID{
-			URL: s.resolvedCharmURL,
+			URL: s.resolvedCharmURL.String(),
 			Origin: commoncharm.Origin{
 				ID:           "testing",
 				Source:       "charm-hub",
@@ -651,7 +651,7 @@ func (s *RefreshSuite) TestUpgradeWithChannel(c *gc.C) {
 	s.charmAPIClient.CheckCall(c, 2, "SetCharm", model.GenerationMaster, application.SetCharmConfig{
 		ApplicationName: "foo",
 		CharmID: application.CharmID{
-			URL: s.resolvedCharmURL,
+			URL: s.resolvedCharmURL.String(),
 			Origin: commoncharm.Origin{
 				ID:           "testing",
 				Source:       "charm-hub",
@@ -678,7 +678,7 @@ func (s *RefreshSuite) TestUpgradeWithChannelNoNewCharmURL(c *gc.C) {
 	s.charmAPIClient.CheckCall(c, 2, "SetCharm", model.GenerationMaster, application.SetCharmConfig{
 		ApplicationName: "foo",
 		CharmID: application.CharmID{
-			URL: s.resolvedCharmURL,
+			URL: s.resolvedCharmURL.String(),
 			Origin: commoncharm.Origin{
 				ID:           "testing",
 				Source:       "charm-hub",
@@ -706,7 +706,7 @@ func (s *RefreshSuite) TestRefreshShouldRespectDeployedChannelByDefault(c *gc.C)
 	s.charmAPIClient.CheckCall(c, 2, "SetCharm", model.GenerationMaster, application.SetCharmConfig{
 		ApplicationName: "foo",
 		CharmID: application.CharmID{
-			URL: s.resolvedCharmURL,
+			URL: s.resolvedCharmURL.String(),
 			Origin: commoncharm.Origin{
 				ID:           "testing",
 				Source:       "charm-hub",
@@ -747,7 +747,7 @@ func (s *RefreshSuite) TestSwitch(c *gc.C) {
 	s.charmAPIClient.CheckCall(c, 2, "SetCharm", model.GenerationMaster, application.SetCharmConfig{
 		ApplicationName: "foo",
 		CharmID: application.CharmID{
-			URL: s.resolvedCharmURL,
+			URL: s.resolvedCharmURL.String(),
 			Origin: commoncharm.Origin{
 				Source:       "charm-hub",
 				Architecture: arch.DefaultArchitecture,
@@ -988,7 +988,7 @@ func (s *RefreshSuite) TestUpgradeSameVersionWithResourceUpload(c *gc.C) {
 	s.charmAPIClient.CheckCall(c, 2, "SetCharm", model.GenerationMaster, application.SetCharmConfig{
 		ApplicationName: "foo",
 		CharmID: application.CharmID{
-			URL: s.resolvedCharmURL,
+			URL: s.resolvedCharmURL.String(),
 			Origin: commoncharm.Origin{
 				ID:           "testing",
 				Source:       "charm-hub",
@@ -1050,7 +1050,7 @@ func (s *RefreshCharmHubSuite) TestUpgradeResourceRevision(c *gc.C) {
 	s.charmAPIClient.CheckCallNames(c, "GetCharmURLOrigin", "Get", "SetCharm")
 	s.charmClient.CheckCallNames(c, "CharmInfo", "ListCharmResources", "CharmInfo")
 	s.CheckCall(c, 9, "DeployResources", "foo", resources.CharmID{
-		URL: s.resolvedCharmURL,
+		URL: s.resolvedCharmURL.String(),
 		Origin: commoncharm.Origin{
 			ID:           "testing",
 			Source:       "charm-hub",
@@ -1093,7 +1093,7 @@ func (s *RefreshCharmHubSuite) TestUpgradeResourceRevisionSupplied(c *gc.C) {
 	s.charmAPIClient.CheckCallNames(c, "GetCharmURLOrigin", "Get", "SetCharm")
 	s.charmClient.CheckCallNames(c, "CharmInfo", "ListCharmResources", "CharmInfo")
 	s.CheckCall(c, 9, "DeployResources", "foo", resources.CharmID{
-		URL: s.resolvedCharmURL,
+		URL: s.resolvedCharmURL.String(),
 		Origin: commoncharm.Origin{
 			ID:           "testing",
 			Source:       "charm-hub",

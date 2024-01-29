@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/charm/v12"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
@@ -274,7 +273,7 @@ func opClientApplicationSetCharm(c *gc.C, st api.Connection, _ *state.State) (fu
 	cfg := application.SetCharmConfig{
 		ApplicationName: "nosuch",
 		CharmID: application.CharmID{
-			URL:    charm.MustParseURL("local:quantal/wordpress"),
+			URL:    "local:wordpress",
 			Origin: apicharm.Origin{Source: "local"},
 		},
 	}

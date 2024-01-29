@@ -7,7 +7,6 @@ import (
 	"io"
 	"strings"
 
-	"github.com/juju/charm/v12"
 	charmresource "github.com/juju/charm/v12/resource"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
@@ -128,7 +127,7 @@ type CharmID struct {
 
 	// URL of the given charm, includes the reference name and a revision.
 	// Old style charm URLs are also supported i.e. charmstore.
-	URL *charm.URL
+	URL string
 
 	// Origin holds the origin of a charm. This includes the source of the
 	// charm, along with the revision and channel to identify where the charm
@@ -195,9 +194,7 @@ func newAddPendingResourcesArgsV2(tag names.ApplicationTag, chID CharmID, resour
 	}
 	args.Tag = tag.String()
 	args.Resources = apiResources
-	if chID.URL != nil {
-		args.URL = chID.URL.String()
-	}
+	args.URL = chID.URL
 	args.CharmOrigin = params.CharmOrigin{
 		Source:       chID.Origin.Source.String(),
 		ID:           chID.Origin.ID,
