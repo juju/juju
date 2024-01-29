@@ -4,9 +4,12 @@
 package waitfor
 
 import (
+	"fmt"
 	"io"
+	"strings"
 	"time"
 
+	"github.com/expr-lang/expr"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -18,7 +21,7 @@ import (
 	"github.com/juju/juju/cmd/juju/waitfor/api"
 	"github.com/juju/juju/cmd/juju/waitfor/query"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/rpc/params"
 )
@@ -73,10 +76,6 @@ type applicationCommand struct {
 	query   string
 	timeout time.Duration
 	summary bool
-
-	appInfo  *params.ApplicationInfo
-	units    map[string]*params.UnitInfo
-	machines map[string]*params.MachineInfo
 }
 
 // Info implements Command.Info.
@@ -119,114 +118,173 @@ func (c *applicationCommand) Init(args []string) (err error) {
 	return nil
 }
 
-func (c *applicationCommand) Run(ctx *cmd.Context) (err error) {
-	scopedContext := MakeScopeContext()
-
-	defer func() {
-		if err != nil || !c.summary || c.appInfo == nil {
-			return
-		}
-
-		switch c.appInfo.Life {
-		case life.Dead:
-			ctx.Infof("Application %q has been removed", c.name)
-		case life.Dying:
-			ctx.Infof("Application %q is being removed", c.name)
-		default:
-			ctx.Infof("Application %q is running", c.name)
-			outputApplicationSummary(ctx.Stdout, scopedContext, c.appInfo, c.units, c.machines)
-		}
-	}()
-
-	strategy := &Strategy{
-		ClientFn: c.newWatchAllAPIFunc,
-		Timeout:  c.timeout,
+func (c *applicationCommand) Run(ctx *cmd.Context) error {
+	env := ApplicationEnv{}
+	program, err := expr.Compile(c.query, expr.Env(env))
+	if err != nil {
+		return errors.Trace(err)
 	}
-	strategy.Subscribe(func(event EventType) {
-		switch event {
-		case WatchAllStarted:
-			c.primeCache()
-		}
-	})
-	err = strategy.Run(ctx, c.name, c.query, c.waitFor(c.query, scopedContext, ctx), emptyNotify)
-	return errors.Trace(err)
-}
 
-func (c *applicationCommand) primeCache() {
-	c.units = make(map[string]*params.UnitInfo)
-	c.machines = make(map[string]*params.MachineInfo)
-}
-
-func (c *applicationCommand) waitFor(input string, ctx ScopeContext, logger Logger) func(string, []params.Delta, query.Query) (bool, error) {
-	run := func(q query.Query) (bool, error) {
-		scope := MakeApplicationScope(ctx, c.appInfo, c.units, c.machines)
-		if done, err := runQuery(input, q, scope); err != nil {
-			return false, errors.Trace(err)
-		} else if done {
-			return true, nil
-		}
-		return c.appInfo.Life == life.Dead, nil
+	api, err := c.newWatchAllAPIFunc()
+	if err != nil {
+		return errors.Trace(err)
 	}
-	return func(name string, deltas []params.Delta, q query.Query) (bool, error) {
-		for _, delta := range deltas {
-			logger.Verbosef("delta %T: %v", delta.Entity, delta.Entity)
 
-			switch entityInfo := delta.Entity.(type) {
+	watcher, err := api.WatchAll()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	var app *params.ApplicationInfo
+	units := make(map[string]*params.UnitInfo)
+	machines := make(map[string]*params.MachineInfo)
+
+	for {
+		delta, err := watcher.Next()
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+	LOOP:
+		for _, entity := range delta {
+			switch entityInfo := entity.Entity.(type) {
 			case *params.ApplicationInfo:
-				if entityInfo.Name != name {
-					break
-				}
-				if delta.Removed {
-					return false, errors.Errorf("application %v removed", name)
+				if entityInfo.Name != c.name {
+					continue LOOP
 				}
 
-				c.appInfo = entityInfo
+				app = entityInfo
 
 			case *params.UnitInfo:
-				if delta.Removed {
-					delete(c.units, entityInfo.Name)
-					break
+				if entityInfo.Application != c.name {
+					continue LOOP
 				}
-				if entityInfo.Application == name {
-					c.units[entityInfo.Name] = entityInfo
-				}
+				units[entityInfo.Name] = entityInfo
 
 			case *params.MachineInfo:
-				if delta.Removed {
-					delete(c.machines, entityInfo.Id)
-					break
+				machines[entityInfo.Id] = entityInfo
+			}
+		}
+
+		for _, machine := range machines {
+			for _, unit := range units {
+				if unit.MachineId == machine.Id {
+					continue
 				}
-				c.machines[entityInfo.Id] = entityInfo
+				delete(machines, machine.Id)
 			}
 		}
 
-		var currentStatus status.Status
-		if c.appInfo != nil {
-			// Store the current status so we can restore it after the query
-			// has been run.
-			currentStatus = c.appInfo.Status.Current
-
-			// This is required because we derive the status from the units
-			// and not the application itself, unless it has been explicitly
-			// set.
-			c.appInfo.Status.Current = deriveApplicationStatus(currentStatus, c.units)
-
-			if found, err := run(q); err != nil {
-				return false, errors.Trace(err)
-			} else if found {
-				return true, nil
-			}
-
-			// Restore the current status of the application.
-			c.appInfo.Status.Current = currentStatus
-		} else {
-			logger.Infof("application %q not found, waiting...", name)
-			return false, nil
+		if app == nil {
+			continue
 		}
 
-		logger.Infof("application %q found with %q, waiting...", name, deriveApplicationStatus(currentStatus, c.units))
-		return false, nil
+		output, err := expr.Run(program, ApplicationEnv{
+			ModelUUID:       app.ModelUUID,
+			Name:            app.Name,
+			Exposed:         app.Exposed,
+			CharmURL:        app.CharmURL,
+			OwnerTag:        app.OwnerTag,
+			Life:            string(app.Life),
+			MinUnits:        app.MinUnits,
+			Constraints:     toConstraints(app.Constraints),
+			Config:          app.Config,
+			Subordinate:     app.Subordinate,
+			Status:          deriveApplicationStatus(app.Status.Current, units).String(),
+			WorkloadVersion: app.WorkloadVersion,
+			Units:           toSlice(units),
+			Machines:        toSlice(machines),
+		})
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		fmt.Println(output)
+
+		if b, ok := output.(bool); ok && b {
+			return nil
+		} else if s, ok := output.(string); ok {
+			if len(strings.TrimSpace(s)) > 0 {
+				return nil
+			}
+		} else if x, ok := output.(int); ok && x > 0 {
+			return nil
+		} else if x, ok := output.(int64); ok && x > 0 {
+			return nil
+		}
 	}
+}
+
+func toSlice[T any](m map[string]T) []T {
+	result := make([]T, 0, len(m))
+	for _, v := range m {
+		result = append(result, v)
+	}
+	return result
+}
+
+func toConstraints(cons constraints.Value) map[string]any {
+	result := make(map[string]any)
+	if cons.HasAllocatePublicIP() {
+		result["AllocatePublicIP"] = *cons.AllocatePublicIP
+	}
+	if cons.HasArch() {
+		result["Arch"] = *cons.Arch
+	}
+	if cons.HasContainer() {
+		result["Container"] = *cons.Container
+	}
+	if cons.HasCpuCores() {
+		result["CpuCores"] = *cons.CpuCores
+	}
+	if cons.HasCpuPower() {
+		result["CpuPower"] = *cons.CpuPower
+	}
+	if cons.HasInstanceType() {
+		result["InstanceType"] = *cons.InstanceType
+	}
+	if cons.HasMem() {
+		result["Mem"] = *cons.Mem
+	}
+	if cons.HasRootDisk() {
+		result["RootDisk"] = *cons.RootDisk
+	}
+	if cons.HasRootDiskSource() {
+		result["RootDiskSource"] = *cons.RootDiskSource
+	}
+	if cons.HasSpaces() {
+		result["Spaces"] = *cons.Spaces
+	}
+	if tags := cons.Tags; tags != nil {
+		result["Tags"] = *cons.Tags
+	}
+	if cons.HasVirtType() {
+		result["VirtType"] = *cons.VirtType
+	}
+	if cons.HasZones() {
+		result["Zones"] = *cons.Zones
+	}
+	if cons.HasInstanceRole() {
+		result["InstanceRole"] = *cons.InstanceRole
+	}
+	return result
+}
+
+type ApplicationEnv struct {
+	ModelUUID       string
+	Name            string
+	Exposed         bool
+	CharmURL        string
+	OwnerTag        string
+	Life            string
+	MinUnits        int
+	Constraints     map[string]any
+	Config          map[string]any
+	Subordinate     bool
+	Status          string
+	WorkloadVersion string
+	Units           []*params.UnitInfo
+	Machines        []*params.MachineInfo
 }
 
 // ApplicationScope allows the query to introspect a application entity.
