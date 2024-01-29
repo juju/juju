@@ -287,6 +287,7 @@ func (s *bindingsSuite) TestMergeBindings(c *gc.C) {
 }
 
 func (s *bindingsSuite) TestMergeWithModelConfigNonDefaultSpace(c *gc.C) {
+	c.Skip("The default space is always alpha due to scaffolding in service of Dqlite migration.")
 	err := s.Model.UpdateModelConfig(map[string]interface{}{"default-space": s.appsSpace.Name()}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -308,20 +309,6 @@ func (s *bindingsSuite) TestMergeWithModelConfigNonDefaultSpace(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(b.Map(), jc.DeepEquals, updated)
 	c.Check(isModified, gc.Equals, true)
-}
-
-func (s *bindingsSuite) TestDefaultEndpointBindingSpaceNotDefault(c *gc.C) {
-	err := s.Model.UpdateModelConfig(map[string]interface{}{"default-space": s.clientSpace.Name()}, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	id, err := s.State.DefaultEndpointBindingSpace()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(id, gc.Equals, s.clientSpace.Id())
-}
-
-func (s *bindingsSuite) TestDefaultEndpointBindingSpaceDefault(c *gc.C) {
-	id, err := s.State.DefaultEndpointBindingSpace()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(id, gc.Equals, network.AlphaSpaceId)
 }
 
 func (s *bindingsSuite) copyMap(input map[string]string) map[string]string {

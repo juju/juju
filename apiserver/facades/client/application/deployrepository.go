@@ -66,7 +66,6 @@ type DeployFromRepositoryState interface {
 	services.StateBackend
 
 	network.SpaceLookup
-	DefaultEndpointBindingSpace() (string, error)
 	Space(id string) (*state.Space, error)
 }
 

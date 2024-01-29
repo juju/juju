@@ -32,9 +32,6 @@ type ReloadSpacesState interface {
 	// ConstraintsBySpaceName returns all Constraints that include a positive
 	// or negative space constraint for the input space name.
 	ConstraintsBySpaceName(string) ([]Constraints, error)
-	// DefaultEndpointBindingSpace returns the current space ID to be used for
-	// the default endpoint binding.
-	DefaultEndpointBindingSpace() (string, error)
 	// AllEndpointBindingsSpaceNames returns a set of spaces names for all the
 	// endpoint bindings.
 	AllEndpointBindingsSpaceNames() (set.Strings, error)
@@ -185,10 +182,10 @@ func (s *ProviderSpaces) DeleteSpaces() ([]string, error) {
 		return nil, nil
 	}
 
-	defaultEndpointBinding, err := s.state.DefaultEndpointBindingSpace()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+	// TODO (manadart 2024-01-29): The alpha space ID here is scaffolding and
+	// should be replaced with the configured model default space upon
+	// migrating this logic to Dqlite.
+	defaultEndpointBinding := network.AlphaSpaceId
 
 	allEndpointBindings, err := s.state.AllEndpointBindingsSpaceNames()
 	if err != nil {
