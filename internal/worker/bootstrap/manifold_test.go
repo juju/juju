@@ -72,6 +72,18 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 	cfg = s.getConfig()
 	cfg.ControllerUnitPassword = nil
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig()
+	cfg.NewEnviron = nil
+	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig()
+	cfg.BootstrapAddresses = nil
+	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig()
+	cfg.BootstrapAddressFinder = nil
+	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 }
 
 func (s *manifoldSuite) getConfig() ManifoldConfig {
@@ -98,8 +110,11 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		RequiresBootstrap: func(context.Context, FlagService) (bool, error) {
 			return false, nil
 		},
-		NewEnvironFunc: func(context.Context, environs.OpenParams) (environs.Environ, error) { return nil, nil },
-		BootstrapAddressesFunc: func(context.Context, environs.Environ, instance.Id) (network.ProviderAddresses, error) {
+		NewEnviron: func(context.Context, environs.OpenParams) (environs.Environ, error) { return nil, nil },
+		BootstrapAddresses: func(context.Context, environs.Environ, instance.Id) (network.ProviderAddresses, error) {
+			return nil, nil
+		},
+		BootstrapAddressFinder: func(context.Context, BootstrapAddressesConfig) (network.ProviderAddresses, error) {
 			return nil, nil
 		},
 	}

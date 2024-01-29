@@ -30,7 +30,6 @@ import (
 	"github.com/juju/juju/core/instance"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machinelock"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/core/presence"
 	coretrace "github.com/juju/juju/core/trace"
@@ -875,8 +874,9 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			PopulateControllerCharm: bootstrap.PopulateControllerCharm,
 			LoggerFactory:           bootstrap.LoggoLoggerFactory(loggo.GetLogger("juju.worker.bootstrap")),
 
-			NewEnvironFunc:         config.NewEnvironFunc,
-			BootstrapAddressesFunc: bootstrap.BootstrapAddresses,
+			NewEnviron:             config.NewEnvironFunc,
+			BootstrapAddresses:     bootstrap.BootstrapAddresses,
+			BootstrapAddressFinder: bootstrap.IAASBootstrapAddressFinder,
 
 			AgentBinaryUploader:     bootstrap.IAASAgentBinaryUploader,
 			ControllerCharmDeployer: bootstrap.IAASControllerCharmUploader,
@@ -1100,12 +1100,9 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			PopulateControllerCharm: bootstrap.PopulateControllerCharm,
 			LoggerFactory:           bootstrap.LoggoLoggerFactory(loggo.GetLogger("juju.worker.bootstrap")),
 
-			NewEnvironFunc: func(context.Context, environs.OpenParams) (environs.Environ, error) {
-				return nil, errors.NotSupportedf("environ creator function in CAAS")
-			},
-			BootstrapAddressesFunc: func(ctx context.Context, env environs.Environ, bootstrapInstanceID instance.Id) (network.ProviderAddresses, error) {
-				return nil, errors.NotSupportedf("bootstrap address function in CAAS")
-			},
+			BootstrapAddressFinder: bootstrap.CAASBootstrapAddressFinder,
+			NewEnviron:             bootstrap.CAASNewEnviron,
+			BootstrapAddresses:     bootstrap.BootstrapAddresses,
 
 			AgentBinaryUploader:     bootstrap.CAASAgentBinaryUploader,
 			ControllerCharmDeployer: bootstrap.CAASControllerCharmUploader,
