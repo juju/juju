@@ -272,21 +272,6 @@ func (mr *MockBackendMockRecorder) ControllerTag() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerTag", reflect.TypeOf((*MockBackend)(nil).ControllerTag))
 }
 
-// DefaultEndpointBindingSpace mocks base method.
-func (m *MockBackend) DefaultEndpointBindingSpace() (string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DefaultEndpointBindingSpace")
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// DefaultEndpointBindingSpace indicates an expected call of DefaultEndpointBindingSpace.
-func (mr *MockBackendMockRecorder) DefaultEndpointBindingSpace() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DefaultEndpointBindingSpace", reflect.TypeOf((*MockBackend)(nil).DefaultEndpointBindingSpace))
-}
-
 // InferActiveRelation mocks base method.
 func (m *MockBackend) InferActiveRelation(arg0 ...string) (application.Relation, error) {
 	m.ctrl.T.Helper()

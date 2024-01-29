@@ -100,21 +100,6 @@ func (mr *MockReloadSpacesStateMockRecorder) ConstraintsBySpaceName(arg0 any) *g
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConstraintsBySpaceName", reflect.TypeOf((*MockReloadSpacesState)(nil).ConstraintsBySpaceName), arg0)
 }
 
-// DefaultEndpointBindingSpace mocks base method.
-func (m *MockReloadSpacesState) DefaultEndpointBindingSpace() (string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DefaultEndpointBindingSpace")
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// DefaultEndpointBindingSpace indicates an expected call of DefaultEndpointBindingSpace.
-func (mr *MockReloadSpacesStateMockRecorder) DefaultEndpointBindingSpace() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DefaultEndpointBindingSpace", reflect.TypeOf((*MockReloadSpacesState)(nil).DefaultEndpointBindingSpace))
-}
-
 // Remove mocks base method.
 func (m *MockReloadSpacesState) Remove(arg0 string) error {
 	m.ctrl.T.Helper()

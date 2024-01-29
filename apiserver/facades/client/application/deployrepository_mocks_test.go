@@ -193,21 +193,6 @@ func (mr *MockDeployFromRepositoryStateMockRecorder) ControllerConfig() *gomock.
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerConfig", reflect.TypeOf((*MockDeployFromRepositoryState)(nil).ControllerConfig))
 }
 
-// DefaultEndpointBindingSpace mocks base method.
-func (m *MockDeployFromRepositoryState) DefaultEndpointBindingSpace() (string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DefaultEndpointBindingSpace")
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// DefaultEndpointBindingSpace indicates an expected call of DefaultEndpointBindingSpace.
-func (mr *MockDeployFromRepositoryStateMockRecorder) DefaultEndpointBindingSpace() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DefaultEndpointBindingSpace", reflect.TypeOf((*MockDeployFromRepositoryState)(nil).DefaultEndpointBindingSpace))
-}
-
 // Machine mocks base method.
 func (m *MockDeployFromRepositoryState) Machine(arg0 string) (Machine, error) {
 	m.ctrl.T.Helper()
