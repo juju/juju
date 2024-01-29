@@ -1413,6 +1413,7 @@ func (c *HookContext) HookVars(
 		vars = append(vars,
 			"JUJU_TRACE_ID="+scope.TraceID(),
 			"JUJU_SPAN_ID="+scope.SpanID(),
+			fmt.Sprintf("JUJU_TRACE_FLAGS=%d", scope.TraceFlags()),
 		)
 	}
 
