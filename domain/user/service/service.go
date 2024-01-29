@@ -21,21 +21,21 @@ type State interface {
 	// AddUser will add a new user to the database. If the user already exists
 	// an error that satisfies usererrors.AlreadyExists will be returned. If the
 	// users creator is set and does not exist then an error that satisfies
-	// usererrors.UserCreatorNotFound will be returned.
+	// usererrors.UserCreatorUUIDNotFound will be returned.
 	AddUser(ctx context.Context, uuid user.UUID, name string, displayName string, creatorUUID user.UUID) error
 
 	// AddUserWithPasswordHash will add a new user to the database with the
 	// provided password hash and salt. If the user already exists an error that
 	// satisfies usererrors.AlreadyExists will be returned. If the users creator
 	// does not exist or has been previously removed an error that satisfies
-	// usererrors.UserCreatorNotFound will be returned.
+	// usererrors.UserCreatorUUIDNotFound will be returned.
 	AddUserWithPasswordHash(ctx context.Context, uuid user.UUID, name string, displayName string, creatorUUID user.UUID, passwordHash string, passwordSalt []byte) error
 
 	// AddUserWithActivationKey will add a new user to the database with the
 	// provided activation key. If the user already exists an error that
 	// satisfies usererrors.AlreadyExists will be returned. if the users creator
 	// does not exist or has been previously removed an error that satisfies
-	// usererrors.UserCreatorNotFound will be returned.
+	// usererrors.UserCreatorUUIDNotFound will be returned.
 	AddUserWithActivationKey(ctx context.Context, uuid user.UUID, name string, displayName string, creatorUUID user.UUID, activationKey []byte) error
 
 	// GetAllUsers will retrieve all users with authentication information
@@ -219,7 +219,7 @@ func ValidateUsername(name string) error {
 // The following error types are possible from this function:
 // - usererrors.UsernameNotValid: When the username supplied is not valid.
 // - usererrors.AlreadyExists: If a user with the supplied name already exists.
-// - usererrors.UserCreatorNotFound: If a creator has been supplied for the user
+// - usererrors.UserCreatorUUIDNotFound: If a creator has been supplied for the user
 // and the creator does not exist.
 func (s *Service) AddUser(ctx context.Context, name string, displayName string, creatorUUID user.UUID) (user.UUID, error) {
 	// Validate user name and creator name
@@ -251,7 +251,7 @@ func (s *Service) AddUser(ctx context.Context, name string, displayName string, 
 // The following error types are possible from this function:
 // - usererrors.UsernameNotValid: When the username supplied is not valid.
 // - usererrors.AlreadyExists: If a user with the supplied name already exists.
-// - usererrors.UserCreatorNotFound: If a creator has been supplied for the user
+// - usererrors.UserCreatorUUIDNotFound: If a creator has been supplied for the user
 // and the creator does not exist.
 // - internal/auth.ErrPasswordDestroyed: If the supplied password has already
 // been destroyed.
@@ -298,7 +298,7 @@ func (s *Service) AddUserWithPassword(ctx context.Context, name string, displayN
 // The following error types are possible from this function:
 // - usererrors.UsernameNotValid: When the username supplied is not valid.
 // - usererrors.AlreadyExists: If a user with the supplied name already exists.
-// - usererrors.UserCreatorNotFound: If a creator has been supplied for the user
+// - usererrors.UserCreatorUUIDNotFound: If a creator has been supplied for the user
 // and the creator does not exist.
 func (s *Service) AddUserWithActivationKey(ctx context.Context, name string, displayName string, creatorUUID user.UUID) ([]byte, user.UUID, error) {
 	// Validate user name and creator name

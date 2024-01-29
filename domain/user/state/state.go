@@ -78,7 +78,7 @@ func (st *State) AddUserWithPasswordHash(
 // AddUserWithActivationKey will add a new user to the database with the
 // provided activation key. If the user already exists an error that
 // satisfies usererrors.AlreadyExists will be returned. if the users creator
-// does not exist an error that satisfies usererrors.UserCreatorNotFound
+// does not exist an error that satisfies usererrors.UserCreatorUUIDNotFound
 // will be returned.
 func (st *State) AddUserWithActivationKey(
 	ctx context.Context,
