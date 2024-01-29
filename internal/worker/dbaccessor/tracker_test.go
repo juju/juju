@@ -23,6 +23,8 @@ import (
 
 type trackedDBWorkerSuite struct {
 	dbBaseSuite
+
+	states chan string
 }
 
 var _ = gc.Suite(&trackedDBWorkerSuite{})
@@ -121,7 +123,7 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDB(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectClock()
-	done := s.expectTimer(1)
+	s.expectTimer(1)
 
 	s.timer.EXPECT().Reset(PollInterval).Times(1)
 	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil)
@@ -136,11 +138,7 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDB(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
-	select {
-	case <-done:
-	case <-time.After(testing.ShortWait):
-		c.Fatal("timed out waiting for DB callback")
-	}
+	s.ensureStartup(c)
 
 	// Attempt to use the new db, note there shouldn't be any leases in this db.
 	tables := readTableNames(c, w)
@@ -155,7 +153,7 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButSucceeds(c *gc.C) 
 	defer s.setupMocks(c).Finish()
 
 	s.expectClock()
-	done := s.expectTimer(1)
+	s.expectTimer(1)
 
 	s.timer.EXPECT().Reset(PollInterval).Times(1)
 
@@ -180,11 +178,7 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButSucceeds(c *gc.C) 
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
-	select {
-	case <-done:
-	case <-time.After(testing.ShortWait):
-		c.Fatal("timed out waiting for DB callback")
-	}
+	s.ensureStartup(c)
 
 	// The db should have changed to the new db.
 	select {
@@ -203,7 +197,7 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBRepeatedly(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectClock()
-	done := s.expectTimer(2)
+	s.expectTimer(2)
 
 	s.timer.EXPECT().Reset(PollInterval).Times(2)
 
@@ -219,11 +213,7 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBRepeatedly(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
-	select {
-	case <-done:
-	case <-time.After(testing.ShortWait):
-		c.Fatal("timed out waiting for DB callback")
-	}
+	s.ensureStartup(c)
 
 	// Attempt to use the new db, note there shouldn't be any leases in this db.
 	tables := readTableNames(c, w)
@@ -238,18 +228,15 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButSucceedsWithDiffer
 	defer s.setupMocks(c).Finish()
 
 	s.expectClock()
-	done := s.expectTimer(1)
+	s.expectTimer(1)
 
 	s.timer.EXPECT().Reset(PollInterval).Times(1)
 
-	dbChange := make(chan struct{})
 	exp := s.dbApp.EXPECT()
 	gomock.InOrder(
 		exp.Open(gomock.Any(), "controller").Return(s.DB(), nil),
 		exp.Open(gomock.Any(), "controller").Return(s.DB(), nil),
 		exp.Open(gomock.Any(), "controller").DoAndReturn(func(_ context.Context, _ string) (*sql.DB, error) {
-			defer close(dbChange)
-
 			_, db := s.OpenDB(c)
 			return db, nil
 		}),
@@ -269,18 +256,8 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButSucceedsWithDiffer
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
-	select {
-	case <-done:
-	case <-time.After(testing.ShortWait):
-		c.Fatal("timed out waiting for DB callback")
-	}
-
-	// Wait for the clean database to have been returned.
-	select {
-	case <-dbChange:
-	case <-time.After(testing.ShortWait):
-		c.Fatal("timed out waiting for DB callback")
-	}
+	s.ensureStartup(c)
+	s.ensureDBReplaced(c)
 
 	// There is a race potential race with the composition here, because
 	// although the ping func may return a new database, it is not instantly
@@ -311,7 +288,7 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButFails(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectClock()
-	done := s.expectTimer(1)
+	s.expectTimer(1)
 
 	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil).Times(DefaultVerifyAttempts)
 
@@ -323,11 +300,7 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButFails(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.DirtyKill(c, w)
 
-	select {
-	case <-done:
-	case <-time.After(testing.ShortWait):
-		c.Fatal("timed out waiting for DB callback")
-	}
+	s.ensureStartup(c)
 
 	c.Assert(w.Wait(), gc.ErrorMatches, "boom")
 
@@ -417,15 +390,44 @@ func (s *trackedDBWorkerSuite) TestWorkerCancelsTxnNoRetry(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "context canceled")
 }
 
+func (s *trackedDBWorkerSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := s.dbBaseSuite.setupMocks(c)
+
+	// Ensure we buffer the channel, this is because we might miss the
+	// event if we're too quick at starting up.
+	s.states = make(chan string, 1)
+
+	return ctrl
+}
+
 func (s *trackedDBWorkerSuite) newTrackedDBWorker(pingFn func(context.Context, *sql.DB) error) (TrackedDB, error) {
 	collector := NewMetricsCollector()
-	return NewTrackedDBWorker(context.Background(),
+	return newTrackedDBWorker(context.Background(),
+		s.states,
 		s.dbApp, "controller",
 		WithClock(s.clock),
 		WithLogger(s.logger),
 		WithPingDBFunc(pingFn),
 		WithMetricsCollector(collector),
 	)
+}
+
+func (s *trackedDBWorkerSuite) ensureStartup(c *gc.C) {
+	select {
+	case state := <-s.states:
+		c.Assert(state, gc.Equals, stateStarted)
+	case <-time.After(testing.ShortWait * 10):
+		c.Fatalf("timed out waiting for startup")
+	}
+}
+
+func (s *trackedDBWorkerSuite) ensureDBReplaced(c *gc.C) {
+	select {
+	case state := <-s.states:
+		c.Assert(state, gc.Equals, stateDBReplaced)
+	case <-time.After(testing.ShortWait * 10):
+		c.Fatalf("timed out waiting for startup")
+	}
 }
 
 func readTableNames(c *gc.C, w coredatabase.TxnRunner) []string {
