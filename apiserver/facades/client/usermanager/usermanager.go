@@ -135,7 +135,7 @@ func (api *UserManagerAPI) AddUser(ctx context.Context, args params.AddUsers) (p
 			continue
 		} else {
 			result.Results[i] = params.AddUserResult{
-				Tag:       coreuser.UserTag(arg.Username).String(),
+				Tag:       api.getUserTag(arg.Username).String(),
 				SecretKey: activationKey,
 			}
 		}
@@ -340,7 +340,7 @@ func (api *UserManagerAPI) UserInfo(ctx context.Context, request params.UserInfo
 			// disabled users have no access to the controller.
 			result.Result.Access = string(permission.NoAccess)
 		} else {
-			accessForUser(coreuser.UserTag(usr.Name), &result)
+			accessForUser(api.getUserTag(usr.Name), &result)
 		}
 		return result
 	}
@@ -354,7 +354,7 @@ func (api *UserManagerAPI) UserInfo(ctx context.Context, request params.UserInfo
 			return results, errors.Trace(err)
 		}
 		for _, usr := range usrs {
-			if !isAdmin && !api.authorizer.AuthOwner(coreuser.UserTag(usr.Name)) {
+			if !isAdmin && !api.authorizer.AuthOwner(api.getUserTag(usr.Name)) {
 				continue
 			}
 			results.Results = append(results.Results, infoForUsr(usr))
@@ -573,7 +573,7 @@ func (api *UserManagerAPI) ResetPassword(ctx context.Context, args params.Entiti
 		}
 
 		// Reset password
-		if isSuperUser && api.apiUser != coreuser.UserTag(usr.Name) {
+		if isSuperUser && api.apiUser != api.getUserTag(usr.Name) {
 			key, err := api.userService.ResetPassword(ctx, usr.UUID)
 			if err != nil {
 				result.Results[i].Error = apiservererrors.ServerError(err)
@@ -595,4 +595,9 @@ func (api *UserManagerAPI) getUserByTag(ctx context.Context, tag string) (coreus
 		return coreuser.User{}, errors.Trace(err)
 	}
 	return api.userService.GetUserByName(ctx, userTag.Name())
+}
+
+// getUserTag returns a user tag. It is a helper function to get a user tag.
+func (api *UserManagerAPI) getUserTag(name string) names.UserTag {
+	return names.NewLocalUserTag(name)
 }
