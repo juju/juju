@@ -13,15 +13,8 @@ import (
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/flags"
-	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
-	"github.com/juju/juju/domain/credential"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/cloudspec"
-	"github.com/juju/juju/internal/bootstrap"
 	"github.com/juju/juju/internal/cloudconfig"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/worker/gate"
@@ -63,8 +56,9 @@ type WorkerConfig struct {
 	PopulateControllerCharm PopulateControllerCharmFunc
 	CharmhubHTTPClient      HTTPClient
 	UnitPassword            string
-	NewEnvironFunc          func(context.Context, environs.OpenParams) (environs.Environ, error)
-	BootstrapAddressesFunc  func(context.Context, environs.Environ, instance.Id) (network.ProviderAddresses, error)
+	NewEnviron              NewEnvironFunc
+	BootstrapAddresses      BootstrapAddressesFunc
+	BootstrapAddressFinder  BootstrapAddressFinderFunc
 	LoggerFactory           LoggerFactory
 
 	// Deprecated: This is only here, until we can remove the state layer.
@@ -112,11 +106,14 @@ func (c *WorkerConfig) Validate() error {
 	if c.SystemState == nil {
 		return errors.NotValidf("nil SystemState")
 	}
-	if c.NewEnvironFunc == nil {
-		return errors.NotValidf("nil NewEnvironFunc")
+	if c.BootstrapAddressFinder == nil {
+		return errors.NotValidf("nil BootstrapAddressFinder")
 	}
-	if c.BootstrapAddressesFunc == nil {
-		return errors.NotValidf("nil BootstrapAddressesFunc")
+	if c.NewEnviron == nil {
+		return errors.NotValidf("nil NewEnviron")
+	}
+	if c.BootstrapAddresses == nil {
+		return errors.NotValidf("nil BootstrapAddresses")
 	}
 	return nil
 }
@@ -183,8 +180,15 @@ func (w *bootstrapWorker) loop() error {
 		return errors.Trace(err)
 	}
 
-	// Retrieve bootstrap addresses for setting API host ports.
-	_, err = w.getBoostrapAddresses(ctx, bootstrapArgs.BootstrapMachineInstanceId)
+	// Retrieve controller addresses needed to set the API host ports.
+	_, err = w.cfg.BootstrapAddressFinder(ctx, BootstrapAddressesConfig{
+		BootstrapInstanceID:    bootstrapArgs.BootstrapMachineInstanceId,
+		SystemState:            w.cfg.SystemState,
+		CloudService:           w.cfg.CloudService,
+		CredentialService:      w.cfg.CredentialService,
+		NewEnvironFunc:         w.cfg.NewEnviron,
+		BootstrapAddressesFunc: w.cfg.BootstrapAddresses,
+	})
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -209,28 +213,6 @@ func (w *bootstrapWorker) reportInternalState(state string) {
 	case w.internalStates <- state:
 	default:
 	}
-}
-
-func (w *bootstrapWorker) getBoostrapAddresses(ctx context.Context, bootstrapInstanceID instance.Id) (network.ProviderAddresses, error) {
-
-	// Retrieve controller addresses needed to set the API host ports.
-	var addresses network.ProviderAddresses
-	env, err := w.getEnviron(ctx)
-	if err != nil && !errors.Is(err, errors.NotSupported) {
-		return nil, errors.Trace(err)
-	}
-	if errors.Is(err, errors.NotSupported) {
-		return network.NewMachineAddresses([]string{"localhost"}).AsProviderAddresses(), nil
-	}
-	addresses, err = w.cfg.BootstrapAddressesFunc(ctx, env, bootstrapInstanceID)
-	if err != nil && !errors.Is(err, errors.NotSupported) {
-		return nil, errors.Trace(err)
-	}
-	if errors.Is(err, errors.NotSupported) {
-		addresses = network.NewMachineAddresses([]string{"localhost"}).AsProviderAddresses()
-	}
-
-	return addresses, nil
 }
 
 // scopedContext returns a context that is in the scope of the worker lifetime.
@@ -258,7 +240,6 @@ func (w *bootstrapWorker) seedAgentBinary(ctx context.Context, dataDir string) (
 }
 
 func (w *bootstrapWorker) seedControllerCharm(ctx context.Context, dataDir string, bootstrapArgs instancecfg.StateInitializationParams) (instancecfg.StateInitializationParams, error) {
-
 	controllerConfig, err := w.cfg.ControllerConfigService.ControllerConfig(ctx)
 	if err != nil {
 		return instancecfg.StateInitializationParams{}, errors.Trace(err)
@@ -299,59 +280,6 @@ func (w *bootstrapWorker) bootstrapParams(ctx context.Context, dataDir string) (
 		return instancecfg.StateInitializationParams{}, errors.Trace(err)
 	}
 	return args, nil
-}
-
-// getEnviron creates a new environ using the provided NewEnvironFunc from the
-// worker config.
-func (w *bootstrapWorker) getEnviron(ctx context.Context) (environs.Environ, error) {
-	controllerModel, err := w.cfg.SystemState.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	cred, err := w.getEnvironCredential(ctx, controllerModel)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	cloud, err := w.cfg.CloudService.Get(ctx, controllerModel.CloudName())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	cloudSpec, err := cloudspec.MakeCloudSpec(*cloud, controllerModel.CloudRegion(), cred)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	controllerModelConfig, err := controllerModel.Config()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return w.cfg.NewEnvironFunc(ctx, environs.OpenParams{
-		ControllerUUID: w.cfg.SystemState.ControllerModelUUID(),
-		Cloud:          cloudSpec,
-		Config:         controllerModelConfig,
-	})
-}
-
-func (w *bootstrapWorker) getEnvironCredential(ctx context.Context, controllerModel bootstrap.Model) (*cloud.Credential, error) {
-	var cred *cloud.Credential
-	if cloudCredentialTag, ok := controllerModel.CloudCredentialTag(); ok {
-		credentialValue, err := w.cfg.CredentialService.CloudCredential(ctx, credential.IdFromTag(cloudCredentialTag))
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		cloudCredential := cloud.NewNamedCredential(
-			credentialValue.Label,
-			credentialValue.AuthType(),
-			credentialValue.Attributes(),
-			credentialValue.Revoked,
-		)
-		cred = &cloudCredential
-	}
-
-	return cred, nil
 }
 
 type agentStorageShim struct {

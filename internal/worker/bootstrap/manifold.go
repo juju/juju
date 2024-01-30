@@ -93,6 +93,17 @@ type ControllerUnitPasswordFunc func(context.Context) (string, error)
 // process has completed.
 type RequiresBootstrapFunc func(context.Context, FlagService) (bool, error)
 
+// NewEnvironFunc is the function that is used to create a new environ.
+type NewEnvironFunc func(context.Context, environs.OpenParams) (environs.Environ, error)
+
+// BootstrapAddressesFunc is the function that is used to get the bootstrap
+// addresses.
+type BootstrapAddressesFunc func(context.Context, environs.Environ, instance.Id) (network.ProviderAddresses, error)
+
+// BootstrapAddressFinderFunc is the function that is used to upload the agent
+// binary.
+type BootstrapAddressFinderFunc func(context.Context, BootstrapAddressesConfig) (network.ProviderAddresses, error)
+
 // HTTPClient is the interface that is used to make HTTP requests.
 type HTTPClient interface {
 	Do(*http.Request) (*http.Response, error)
@@ -140,8 +151,9 @@ type ManifoldConfig struct {
 	RequiresBootstrap       RequiresBootstrapFunc
 	PopulateControllerCharm PopulateControllerCharmFunc
 
-	NewEnvironFunc         func(context.Context, environs.OpenParams) (environs.Environ, error)
-	BootstrapAddressesFunc func(context.Context, environs.Environ, instance.Id) (network.ProviderAddresses, error)
+	BootstrapAddressFinder BootstrapAddressFinderFunc
+	NewEnviron             NewEnvironFunc
+	BootstrapAddresses     BootstrapAddressesFunc
 
 	LoggerFactory LoggerFactory
 }
@@ -184,11 +196,14 @@ func (cfg ManifoldConfig) Validate() error {
 	if cfg.PopulateControllerCharm == nil {
 		return errors.NotValidf("nil PopulateControllerCharm")
 	}
-	if cfg.NewEnvironFunc == nil {
-		return errors.NotValidf("nil NewEnvironsFunc")
+	if cfg.BootstrapAddressFinder == nil {
+		return errors.NotValidf("nil BootstrapAddressFinder")
 	}
-	if cfg.BootstrapAddressesFunc == nil {
-		return errors.NotValidf("nil BootstrapAddressesFunc")
+	if cfg.NewEnviron == nil {
+		return errors.NotValidf("nil NewEnviron")
+	}
+	if cfg.BootstrapAddresses == nil {
+		return errors.NotValidf("nil BootstrapAddresses")
 	}
 	return nil
 }
@@ -284,8 +299,9 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				CharmhubHTTPClient:      charmhubHTTPClient,
 				UnitPassword:            unitPassword,
 				LoggerFactory:           config.LoggerFactory,
-				NewEnvironFunc:          config.NewEnvironFunc,
-				BootstrapAddressesFunc:  config.BootstrapAddressesFunc,
+				NewEnviron:              config.NewEnviron,
+				BootstrapAddresses:      config.BootstrapAddresses,
+				BootstrapAddressFinder:  config.BootstrapAddressFinder,
 			})
 			if err != nil {
 				_ = stTracker.Done()
