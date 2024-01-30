@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"time"
 
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -22,10 +23,6 @@ type s3ClientSuite struct {
 }
 
 var _ = gc.Suite(&s3ClientSuite{})
-
-func (s *s3ClientSuite) SetUpTest(c *gc.C) {
-
-}
 
 func (s *s3ClientSuite) TestGetObject(c *gc.C) {
 	url, httpClient, cleanup := s.setupServer(c, func(w http.ResponseWriter, r *http.Request) {
@@ -57,6 +54,20 @@ func (s *s3ClientSuite) TestPutObject(c *gc.C) {
 		c.Check(r.Method, gc.Equals, http.MethodPut)
 		c.Check(r.URL.Path, gc.Equals, "/bucket/object")
 
+		// Ensure we have the correct object lock headers sent.
+		// This just prevents putting an object that doesn't have object lock
+		// enabled.
+		c.Check(r.Header.Get("x-amz-object-lock-legal-hold"), gc.Equals, "ON")
+		c.Check(r.Header.Get("x-amz-object-lock-mode"), gc.Equals, "GOVERNANCE")
+
+		lockRetentionDateString := r.Header.Get("x-amz-object-lock-retain-until-date")
+		lockRetentionDate, err := time.Parse(time.RFC3339, lockRetentionDateString)
+		c.Assert(err, jc.ErrorIsNil)
+
+		// Ensure the retention date is within 1 hour of the retention lock
+		// date, which is currently set to 20 years.
+		c.Check(lockRetentionDate.After(time.Now().Add(retentionLockDate-time.Hour)), jc.IsTrue)
+
 		body, err := io.ReadAll(r.Body)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Check(string(body), jc.Contains, "blob")
@@ -74,6 +85,9 @@ func (s *s3ClientSuite) TestDeleteObject(c *gc.C) {
 	url, httpClient, cleanup := s.setupServer(c, func(w http.ResponseWriter, r *http.Request) {
 		c.Check(r.Method, gc.Equals, http.MethodDelete)
 		c.Check(r.URL.Path, gc.Equals, "/bucket/object")
+
+		// Ensure that we can delete an object without confirmation.
+		c.Check(r.Header.Get("x-amz-bypass-governance-retention"), gc.Equals, "true")
 	})
 	defer cleanup()
 
@@ -88,6 +102,9 @@ func (s *s3ClientSuite) TestCreateBucket(c *gc.C) {
 	url, httpClient, cleanup := s.setupServer(c, func(w http.ResponseWriter, r *http.Request) {
 		c.Check(r.Method, gc.Equals, http.MethodPut)
 		c.Check(r.URL.Path, gc.Equals, "/bucket")
+
+		// Ensure the bucket is created with object lock enabled.
+		c.Check(r.Header.Get("x-amz-bucket-object-lock-enabled"), gc.Equals, "true")
 	})
 	defer cleanup()
 
