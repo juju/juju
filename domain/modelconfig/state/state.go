@@ -8,6 +8,8 @@ import (
 	"database/sql"
 	"fmt"
 
+	"github.com/canonical/sqlair"
+	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 
 	coredatabase "github.com/juju/juju/core/database"
@@ -25,6 +27,13 @@ func NewState(factory coredatabase.TxnRunnerFactory) *State {
 	return &State{
 		StateBase: domain.NewStateBase(factory),
 	}
+}
+
+// key represents the key column from a model_config row.
+// Once SQLair supports scalar types the key can be selected directly into a
+// string and this struct will no longer be needed.
+type key struct {
+	Key string `db:"key"`
 }
 
 // AllKeysQuery returns a SQL statement that will return all known model config
@@ -49,29 +58,26 @@ func (st *State) ModelConfigHasAttributes(
 		return rval, errors.Trace(err)
 	}
 
-	binds, vals := database.SliceToPlaceholder(attrs)
-	stmt := fmt.Sprintf(`
-SELECT key FROM model_config WHERE key IN (%s)
-`, binds)
+	attrsSlice := sqlair.S(transform.Slice(attrs, func(s string) any { return any(s) }))
+	stmt, err := sqlair.Prepare(`
+SELECT &key.key FROM model_config WHERE key IN ($S[:])
+`, sqlair.S{}, key{})
+	if err != nil {
+		return rval, errors.Trace(err)
+	}
 
-	return rval, db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		rows, err := tx.QueryContext(ctx, stmt, vals...)
+	return rval, db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var keys []key
+		err := tx.Query(ctx, stmt, attrsSlice).GetAll(&keys)
 		if err != nil {
-			return fmt.Errorf("deducing model config attrs set: %w", err)
+			return fmt.Errorf("getting model config attrs set: %w", err)
 		}
-		defer rows.Close()
 
-		var key string
-		for rows.Next() {
-			if err := rows.Scan(&key); err != nil {
-				return fmt.Errorf(
-					"scanning model config attribute into result set: %w",
-					err,
-				)
-			}
-			rval = append(rval, key)
+		rval = make([]string, len(keys), len(keys))
+		for i, key := range keys {
+			rval[i] = key.Key
 		}
-		return rows.Err()
+		return nil
 	})
 }
 
@@ -169,33 +175,37 @@ func (st *State) UpdateModelConfig(
 		return errors.Trace(err)
 	}
 
-	deleteBinds, deleteVals := database.SliceToPlaceholder(removeAttrs)
-	deleteStmt := fmt.Sprintf(`
+	removeAttrsSlice := sqlair.S(transform.Slice(removeAttrs, func(s string) any { return any(s) }))
+	deleteStmt, err := sqlair.Prepare(`
 DELETE FROM model_config
-WHERE key IN (%s)
-`[1:], deleteBinds)
+WHERE key IN ($S[:])
+`[1:], sqlair.S{})
+	if err != nil {
+		return errors.Trace(err)
+	}
 
-	upsertBinds, upsertVals := database.MapToMultiPlaceholder(updateAttrs)
-	upsertStmt := fmt.Sprintf(`
-INSERT INTO model_config (key, value) VALUES %s
+	upsertStmt, err := sqlair.Prepare(`
+INSERT INTO model_config (key, value) VALUES ($M.key, $M.value)
 ON CONFLICT(key) DO UPDATE
 SET value = excluded.value
 WHERE key = excluded.key
-`[1:], upsertBinds)
+`[1:], sqlair.M{})
+	if err != nil {
+		return errors.Trace(err)
+	}
 
-	return db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		if len(deleteVals) != 0 {
-			_, err := tx.ExecContext(ctx, deleteStmt, deleteVals...)
-			if err != nil {
+	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if len(removeAttrsSlice) != 0 {
+			if err := tx.Query(ctx, deleteStmt, removeAttrsSlice).Run(); err != nil {
 				return fmt.Errorf("removing model config keys: %w", err)
 			}
 		}
 
-		if len(upsertVals) == 0 {
-			return nil
+		for k, v := range updateAttrs {
+			if err := tx.Query(ctx, upsertStmt, sqlair.M{"key": k, "value": v}).Run(); err != nil {
+				return errors.Trace(err)
+			}
 		}
-
-		_, err := tx.ExecContext(ctx, upsertStmt, upsertVals...)
-		return errors.Trace(err)
+		return nil
 	})
 }
