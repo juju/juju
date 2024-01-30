@@ -341,6 +341,7 @@ func (api *API) CheckMachines(args params.ModelArgs) (params.ErrorResults, error
 		credentialcommon.NewPersistentBackend(st.State),
 		context.CallContext(st.State),
 		cloud.Type != "manual",
+		true,
 	)
 }
 
