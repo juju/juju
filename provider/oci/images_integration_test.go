@@ -7,6 +7,8 @@ import (
 	"context"
 	"time"
 
+	"github.com/juju/errors"
+	jc "github.com/juju/testing/checkers"
 	ociCore "github.com/oracle/oci-go-sdk/v65/core"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -173,23 +175,59 @@ func (s *imagesSuite) TestNewInstanceImageUbuntu(c *gc.C) {
 	c.Check(arch, gc.Equals, corearch.AMD64)
 }
 
-func (s *imagesSuite) TestNewInstanceImageUbuntuMinimal(c *gc.C) {
-	image := ociCore.Image{
-		CompartmentId:          &s.testCompartment,
-		Id:                     &s.testImageID,
-		OperatingSystem:        makeStringPointer("Canonical Ubuntu"),
-		OperatingSystemVersion: makeStringPointer("22.04 Minimal"),
-		DisplayName:            makeStringPointer("Canonical-Ubuntu-22.04-Minimal-2018.01.11-0"),
+// TestNewInstanceImageUbuntuMinimalNotSupported is testing that if an image
+// passed to the parser is of type minimal we result in a not supported error.
+func (s *imagesSuite) TestNewInstanceImageUbuntuMinimalNotSupported(c *gc.C) {
+	tests := []struct {
+		Name  string
+		Image ociCore.Image
+	}{
+		{
+			Name: "Test minimal image for amd64 in OperatingSystem",
+			Image: ociCore.Image{
+				CompartmentId:          &s.testCompartment,
+				Id:                     &s.testImageID,
+				OperatingSystem:        makeStringPointer("Canonical Ubuntu"),
+				OperatingSystemVersion: makeStringPointer("22.04 Minimal"),
+				DisplayName:            makeStringPointer("Canonical-Ubuntu-22.04-2018.01.11-0"),
+			},
+		},
+		{
+			Name: "Test minimal image for amd64 in DisplayName",
+			Image: ociCore.Image{
+				CompartmentId:          &s.testCompartment,
+				Id:                     &s.testImageID,
+				OperatingSystem:        makeStringPointer("Canonical Ubuntu"),
+				OperatingSystemVersion: makeStringPointer("22.04"),
+				DisplayName:            makeStringPointer("Canonical-Ubuntu-22.04-Minimal-2018.01.11-0"),
+			},
+		},
+		{
+			Name: "Test minimal image for amd64 in OperatingSystem",
+			Image: ociCore.Image{
+				CompartmentId:          &s.testCompartment,
+				Id:                     &s.testImageID,
+				OperatingSystem:        makeStringPointer("Canonical Ubuntu"),
+				OperatingSystemVersion: makeStringPointer("22.04 Minimal aarch64"),
+				DisplayName:            makeStringPointer("Canonical-Ubuntu-22.04-aarch64-2018.01.11-0"),
+			},
+		},
+		{
+			Name: "Test minimal image for amd64 in DisplayName",
+			Image: ociCore.Image{
+				CompartmentId:          &s.testCompartment,
+				Id:                     &s.testImageID,
+				OperatingSystem:        makeStringPointer("Canonical Ubuntu"),
+				OperatingSystemVersion: makeStringPointer("22.04 aarch64"),
+				DisplayName:            makeStringPointer("Canonical-Ubuntu-22.04-Minimal-aarch64-2018.01.11-0"),
+			},
+		},
 	}
 
-	imgType, arch, err := oci.NewInstanceImage(image, &s.testCompartment)
-	c.Assert(err, gc.IsNil)
-	c.Check(imgType.ImageType, gc.Equals, oci.ImageTypeGeneric)
-	c.Check(imgType.Base.DisplayString(), gc.Equals, "ubuntu@22.04")
-	c.Check(imgType.CompartmentId, gc.NotNil)
-	c.Check(*imgType.CompartmentId, gc.Equals, s.testCompartment)
-	c.Check(imgType.Id, gc.Equals, s.testImageID)
-	c.Check(arch, gc.Equals, corearch.AMD64)
+	for _, test := range tests {
+		_, _, err := oci.NewInstanceImage(test.Image, &s.testCompartment)
+		c.Assert(err, jc.ErrorIs, errors.NotSupported, gc.Commentf(test.Name))
+	}
 }
 
 func (s *imagesSuite) TestNewInstanceImageUbuntuAARCH64(c *gc.C) {
@@ -228,19 +266,6 @@ func (s *imagesSuite) TestNewInstanceImageUbuntuAARCH64OnDisplayName(c *gc.C) {
 	c.Check(*imgType.CompartmentId, gc.Equals, s.testCompartment)
 	c.Check(imgType.Id, gc.Equals, s.testImageID)
 	c.Check(arch, gc.Equals, corearch.ARM64)
-}
-
-func (s *imagesSuite) TestNewInstanceImageUbuntuMinimalAARCH64NotSupported(c *gc.C) {
-	image := ociCore.Image{
-		CompartmentId:          &s.testCompartment,
-		Id:                     &s.testImageID,
-		OperatingSystem:        makeStringPointer("Canonical Ubuntu"),
-		OperatingSystemVersion: makeStringPointer("22.04 Minimal aarch64"),
-		DisplayName:            makeStringPointer("Canonical-Ubuntu-22.04-Minimal-aarch64-2018.01.11-0"),
-	}
-
-	_, _, err := oci.NewInstanceImage(image, &s.testCompartment)
-	c.Assert(err, gc.ErrorMatches, "ubuntu minimal aarch64 image Canonical-Ubuntu-22.04-Minimal-aarch64-2018.01.11-0 not supported")
 }
 
 func (s *imagesSuite) TestNewInstanceImageUnknownOS(c *gc.C) {
