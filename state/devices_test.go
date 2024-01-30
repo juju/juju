@@ -62,7 +62,7 @@ func (s *CAASDevicesStateSuite) TestAddApplicationDevicesConstraintsValidation(c
 				OS:      "ubuntu",
 				Channel: "20.04/stable",
 			}},
-		}, mockApplicationSaver{}, state.NewObjectStore(c, s.st))
+		}, mockApplicationSaver{}, state.NewObjectStore(c, s.st.ModelUUID()))
 	}
 	assertErr := func(devices map[string]state.DeviceConstraints, expect string) {
 		_, err := addApplication(devices)

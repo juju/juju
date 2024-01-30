@@ -72,7 +72,7 @@ func (s *getSuite) SetUpTest(c *gc.C) {
 		&mockStorageRegistry{},
 		common.NewResources(),
 		nil, // CAAS Broker not used in this suite.
-		jujutesting.NewObjectStore(c, st.ControllerModelUUID(), st),
+		jujutesting.NewObjectStore(c, st.ControllerModelUUID()),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.applicationAPI = api
@@ -206,7 +206,7 @@ func (s *getSuite) TestClientApplicationGetCAASModelSmokeTest(c *gc.C) {
 		&mockStorageRegistry{},
 		common.NewResources(),
 		nil, // CAAS Broker not used in this suite.
-		jujutesting.NewObjectStore(c, st.ControllerModelUUID(), st),
+		jujutesting.NewObjectStore(c, st.ControllerModelUUID()),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 

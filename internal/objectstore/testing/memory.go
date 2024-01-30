@@ -1,0 +1,190 @@
+// Copyright 2024 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
+package testing
+
+import (
+	"context"
+	"sync"
+	"time"
+
+	"github.com/juju/errors"
+	"github.com/juju/juju/core/lease"
+	coreobjectstore "github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/internal/objectstore"
+	"github.com/juju/utils/v3"
+)
+
+// MemoryMetadataService is an in-memory implementation of the objectstore
+// MetadataService interface.
+// This is purely for testing purposes, until we remove the dependency on
+// state.
+func MemoryMetadataService() objectstore.MetadataService {
+	return &metadataService{
+		store: newStore(),
+	}
+}
+
+// MemoryObjectStore is an in-memory implementation of the objectstore
+// interface.
+// This is purely for testing purposes, until we remove the dependency on
+// state.
+func MemoryObjectStore() coreobjectstore.ObjectStoreMetadata {
+	return &objectStore{
+		store: newStore(),
+	}
+}
+
+type metadataService struct {
+	store *store
+}
+
+func (m *metadataService) ObjectStore() coreobjectstore.ObjectStoreMetadata {
+	return &objectStore{
+		store: m.store,
+	}
+}
+
+type objectStore struct {
+	store *store
+}
+
+// GetMetadata implements objectstore.ObjectStoreMetadata.
+func (s *objectStore) GetMetadata(ctx context.Context, path string) (coreobjectstore.Metadata, error) {
+	if path == "" {
+		return coreobjectstore.Metadata{}, errors.NotValidf("path cannot be empty")
+	}
+
+	return s.store.get(path)
+}
+
+// PutMetadata implements objectstore.ObjectStoreMetadata.
+func (s *objectStore) PutMetadata(ctx context.Context, metadata coreobjectstore.Metadata) error {
+	return s.store.put(metadata)
+}
+
+// RemoveMetadata implements objectstore.ObjectStoreMetadata.
+func (s *objectStore) RemoveMetadata(ctx context.Context, path string) error {
+	if path == "" {
+		return errors.NotValidf("path cannot be empty")
+	}
+
+	return s.store.remove(path)
+}
+
+// Watch implements objectstore.ObjectStoreMetadata.
+func (*objectStore) Watch() (watcher.Watcher[[]string], error) {
+	return nil, errors.NotImplementedf("watching not implemented")
+}
+
+type store struct {
+	mutex    sync.Mutex
+	metadata map[string]coreobjectstore.Metadata
+}
+
+func newStore() *store {
+	return &store{
+		metadata: make(map[string]coreobjectstore.Metadata),
+	}
+}
+
+func (s *store) get(path string) (coreobjectstore.Metadata, error) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	metadata, ok := s.metadata[path]
+	if !ok {
+		return coreobjectstore.Metadata{}, errors.NotFoundf("metadata for %q", path)
+	}
+	return metadata, nil
+}
+
+func (s *store) put(metadata coreobjectstore.Metadata) error {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	s.metadata[metadata.Path] = metadata
+	return nil
+}
+
+func (s *store) remove(path string) error {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	delete(s.metadata, path)
+	return nil
+}
+
+// MemoryClaimer is an in-memory implementation of the objectstore Claimer
+// interface.
+func MemoryClaimer() objectstore.Claimer {
+	return &memoryClaimer{
+		claims: make(map[string]*claim),
+	}
+}
+
+type claim struct {
+	expiry time.Time
+	unique string
+}
+
+type memoryClaimer struct {
+	mutex  sync.Mutex
+	claims map[string]*claim
+}
+
+// Claim implements objectstore.Claimer.
+func (m *memoryClaimer) Claim(ctx context.Context, hash string) (objectstore.ClaimExtender, error) {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+
+	if _, ok := m.claims[hash]; ok {
+		return nil, lease.ErrClaimDenied
+	}
+
+	now := time.Now()
+	unqiue := utils.MustNewUUID().String()
+	m.claims[hash] = &claim{
+		expiry: now.Add(time.Minute),
+		unique: unqiue,
+	}
+	return memoryExtender{fn: func() error {
+		m.mutex.Lock()
+		defer m.mutex.Unlock()
+
+		claim, ok := m.claims[hash]
+		if !ok || claim.unique != unqiue {
+			return lease.ErrNotHeld
+		}
+
+		m.claims[hash].expiry = time.Now().Add(time.Minute)
+
+		return nil
+	}, now: now}, nil
+}
+
+// Release implements objectstore.Claimer.
+func (m *memoryClaimer) Release(ctx context.Context, hash string) error {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+
+	delete(m.claims, hash)
+
+	return nil
+}
+
+type memoryExtender struct {
+	fn  func() error
+	now time.Time
+}
+
+// Duration implements objectstore.ClaimExtender.
+func (m memoryExtender) Duration() time.Duration {
+	return time.Since(m.now)
+}
+
+// Extend implements objectstore.ClaimExtender.
+func (m memoryExtender) Extend(ctx context.Context) error {
+	return m.fn()
+}

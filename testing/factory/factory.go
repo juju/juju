@@ -32,6 +32,7 @@ import (
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/environs/config"
 	internalobjectstore "github.com/juju/juju/internal/objectstore"
+	objectstoretesting "github.com/juju/juju/internal/objectstore/testing"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/state"
@@ -528,7 +529,12 @@ func (factory *Factory) MakeApplicationReturningPassword(c *gc.C, params *Applic
 			}}
 	}
 
-	rSt := factory.st.Resources(NewObjectStore(c, factory.st))
+	objectStore := NewObjectStore(c,
+		factory.st.ModelUUID(),
+		objectstoretesting.MemoryMetadataService(),
+		objectstoretesting.MemoryClaimer(),
+	)
+	rSt := factory.st.Resources(objectStore)
 
 	resourceMap := make(map[string]string)
 	for name, res := range params.Charm.Meta().Resources {
@@ -553,7 +559,7 @@ func (factory *Factory) MakeApplicationReturningPassword(c *gc.C, params *Applic
 		Resources:         resourceMap,
 		EndpointBindings:  params.EndpointBindings,
 		Placement:         params.Placement,
-	}, mockApplicationSaver{}, NewObjectStore(c, factory.st))
+	}, mockApplicationSaver{}, objectStore)
 	c.Assert(err, jc.ErrorIsNil)
 	err = application.SetPassword(params.Password)
 	c.Assert(err, jc.ErrorIsNil)
@@ -892,12 +898,14 @@ func (factory *Factory) currentCfg(c *gc.C) *config.Config {
 	return currentCfg
 }
 
-func NewObjectStore(c *gc.C, st *state.State) objectstore.ObjectStore {
+func NewObjectStore(c *gc.C, modelUUID string, metadataService internalobjectstore.MetadataService, claimer internalobjectstore.Claimer) objectstore.ObjectStore {
 	store, err := internalobjectstore.ObjectStoreFactory(
 		context.Background(),
 		internalobjectstore.DefaultBackendType(),
-		st.ModelUUID(),
-		internalobjectstore.WithMongoSession(st),
+		modelUUID,
+		internalobjectstore.WithRootDir(c.MkDir()),
+		internalobjectstore.WithMetadataService(metadataService),
+		internalobjectstore.WithClaimer(claimer),
 		internalobjectstore.WithLogger(testing.NewCheckLogger(c)),
 	)
 	c.Assert(err, jc.ErrorIsNil)

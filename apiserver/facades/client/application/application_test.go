@@ -68,7 +68,7 @@ func (s *applicationSuite) SetUpTest(c *gc.C) {
 	s.applicationAPI = s.makeAPI(c)
 	s.lastKnownRev = make(map[string]int)
 
-	s.store = jujutesting.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State())
+	s.store = jujutesting.NewObjectStore(c, s.ControllerModelUUID())
 }
 
 func (s *applicationSuite) makeAPI(c *gc.C) *application.APIBase {
@@ -106,7 +106,7 @@ func (s *applicationSuite) makeAPI(c *gc.C) *application.APIBase {
 		registry,
 		common.NewResources(),
 		nil, // CAAS Broker not used in this suite.
-		jujutesting.NewObjectStore(c, st.ModelUUID(), st),
+		jujutesting.NewObjectStore(c, st.ModelUUID()),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	return api

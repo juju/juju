@@ -897,7 +897,7 @@ func (s *modelManagerStateSuite) SetUpTest(c *gc.C) {
 		Tag: jujutesting.AdminUser,
 	}
 
-	s.store = jujutesting.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State())
+	s.store = jujutesting.NewObjectStore(c, s.ControllerModelUUID())
 
 	loggo.GetLogger("juju.apiserver.modelmanager").SetLogLevel(loggo.TRACE)
 }

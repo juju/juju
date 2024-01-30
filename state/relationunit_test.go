@@ -389,7 +389,7 @@ func (s *RelationUnitSuite) TestContainerCreateSubordinate(c *gc.C) {
 	// Set the subordinate to Dying, and enter scope again; because the scope
 	// is already entered, no error is returned.
 	runit := runits[0]
-	err = runit.Destroy(state.NewObjectStore(c, s.State))
+	err = runit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	err = pru.EnterScope(nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -407,7 +407,7 @@ func (s *RelationUnitSuite) TestContainerCreateSubordinate(c *gc.C) {
 	// create a new subordinate.
 	err = runit.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = runit.Remove(state.NewObjectStore(c, s.State))
+	err = runit.Remove(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	assertSubCount(0)
 	assertNotInScope(c, pru)
@@ -432,7 +432,7 @@ func (s *RelationUnitSuite) TestDestroyRelationWithUnitsInScope(c *gc.C) {
 	err = pr.ru1.EnterScope(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	assertJoined(c, pr.ru1)
-	err = pr.app.Destroy(state.NewObjectStore(c, s.State))
+	err = pr.app.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	err = rel.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
@@ -453,12 +453,12 @@ func (s *RelationUnitSuite) TestDestroyRelationWithUnitsInScope(c *gc.C) {
 	err = pr.ru0.LeaveScope()
 	c.Assert(err, jc.ErrorIsNil)
 	assertNotInScope(c, pr.ru0)
-	err = pr.app.Destroy(state.NewObjectStore(c, s.State))
+	err = pr.app.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that unit settings for the original unit still exist, and have
 	// not yet been marked for deletion.
-	err = s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State), fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{})
+	err = s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State.ModelUUID()), fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{})
 	c.Assert(err, jc.ErrorIsNil)
 	assertSettings := func() {
 		settings, err := pr.ru1.ReadSettings("riak/0")
@@ -479,7 +479,7 @@ func (s *RelationUnitSuite) TestDestroyRelationWithUnitsInScope(c *gc.C) {
 	assertSettings()
 
 	// ...but they were scheduled for deletion.
-	err = s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State), fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{})
+	err = s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State.ModelUUID()), fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = pr.ru1.ReadSettings("riak/0")
 	c.Assert(err, gc.ErrorMatches, `cannot read settings for unit "riak/0" in relation "riak:ring": unit "riak/0": settings not found`)
@@ -501,7 +501,7 @@ func (s *RelationUnitSuite) TestAliveRelationScope(c *gc.C) {
 
 	// One unit becomes Dying, then re-enters the scope; this is not an error,
 	// because the state is already as requested.
-	err = pr.u0.Destroy(state.NewObjectStore(c, s.State))
+	err = pr.u0.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	err = pr.ru0.EnterScope(nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -527,7 +527,7 @@ func (s *RelationUnitSuite) TestAliveRelationScope(c *gc.C) {
 	assertJoined(c, pr.ru2)
 
 	// ...but Dying units cannot.
-	err = pr.u3.Destroy(state.NewObjectStore(c, s.State))
+	err = pr.u3.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	assertNotInScope(c, pr.ru3)
 	err = pr.ru3.EnterScope(nil)
@@ -852,7 +852,7 @@ func (s *RelationUnitSuite) testPrepareLeaveScope(c *gc.C, rel *state.Relation, 
 	s.assertNoScopeChange(c, w0)
 	err = rel.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
-	err = rel.Destroy(state.NewObjectStore(c, s.State))
+	err = rel.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	err = rel.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
@@ -860,7 +860,7 @@ func (s *RelationUnitSuite) testPrepareLeaveScope(c *gc.C, rel *state.Relation, 
 	// rru0 really leaves; the relation is cleaned up.
 	err = rru0.LeaveScope()
 	c.Assert(err, jc.ErrorIsNil)
-	err = rel.Destroy(state.NewObjectStore(c, s.State))
+	err = rel.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertNoScopeChange(c, w0)
 	err = rel.Refresh()

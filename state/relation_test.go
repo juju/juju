@@ -84,7 +84,7 @@ func (s *RelationSuite) TestAddRelationErrors(c *gc.C) {
 	// Check that a relation can't be added to a Dying application.
 	_, err = wordpress.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	err = wordpress.Destroy(state.NewObjectStore(c, s.State))
+	err = wordpress.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddRelation(mysqlEP, wordpressEP)
 	c.Assert(err, gc.ErrorMatches, `cannot add relation "wordpress:db mysql:server": application "wordpress" is not alive`)
@@ -353,7 +353,7 @@ func (s *RelationSuite) TestDestroyPeerRelation(c *gc.C) {
 	assertOneRelation(c, riak, 0, riakEP)
 
 	// Check that it is destroyed when the application is destroyed.
-	err = riak.Destroy(state.NewObjectStore(c, s.State))
+	err = riak.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	assertNoRelations(c, riak)
 	err = rel.Refresh()
@@ -1114,7 +1114,7 @@ func (s *RelationSuite) TestDestroyForceSchedulesCleanupForStuckUnits(c *gc.C) {
 	// retrieving it.
 	unit, err := s.State.Unit("mysql/0")
 	c.Assert(err, jc.ErrorIsNil)
-	err = unit.Destroy(state.NewObjectStore(c, s.State))
+	err = unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.Refresh()
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
@@ -1183,7 +1183,7 @@ func (s *RelationSuite) TestDestroyForceStuckRemoteUnits(c *gc.C) {
 	s.assertNeedsCleanup(c)
 
 	// But running cleanup immediately doesn't do it all.
-	err = s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State), fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{})
+	err = s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State.ModelUUID()), fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{})
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertNeedsCleanup(c)
 
@@ -1197,7 +1197,7 @@ func (s *RelationSuite) TestDestroyForceStuckRemoteUnits(c *gc.C) {
 
 	s.Clock.Advance(time.Minute)
 
-	err = s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State), fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{})
+	err = s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State.ModelUUID()), fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	assertNotInScope(c, localRelUnit)
@@ -1225,7 +1225,7 @@ func (s *RelationSuite) TestDestroyForceIsFineIfUnitsAlreadyLeft(c *gc.C) {
 	s.assertNeedsCleanup(c)
 
 	// But running cleanup immediately doesn't do it.
-	err = s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State), fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{})
+	err = s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State.ModelUUID()), fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{})
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertNeedsCleanup(c)
 	for i, ru := range relUnits {
@@ -1248,7 +1248,7 @@ func (s *RelationSuite) TestDestroyForceIsFineIfUnitsAlreadyLeft(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	s.Clock.Advance(30 * time.Second)
 
-	err = s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State), fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{})
+	err = s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State.ModelUUID()), fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// If the cleanup had failed because the relation had gone, it
@@ -1269,7 +1269,7 @@ func (s *RelationSuite) assertRelationCleanedUp(c *gc.C, rel *state.Relation, re
 	s.assertNeedsCleanup(c)
 
 	// But running cleanup immediately doesn't do it.
-	err = s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State), fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{})
+	err = s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State.ModelUUID()), fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{})
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertNeedsCleanup(c)
 	for i, ru := range relUnits {
@@ -1282,7 +1282,7 @@ func (s *RelationSuite) assertRelationCleanedUp(c *gc.C, rel *state.Relation, re
 
 	s.Clock.Advance(time.Minute)
 
-	err = s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State), fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{})
+	err = s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State.ModelUUID()), fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	for i, ru := range relUnits {

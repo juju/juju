@@ -38,9 +38,6 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 	cfg.AgentName = ""
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
-	cfg.StateName = ""
-	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
-
 	cfg.TraceName = ""
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
@@ -70,7 +67,6 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 func (s *manifoldSuite) getConfig() ManifoldConfig {
 	return ManifoldConfig{
 		AgentName:          "agent",
-		StateName:          "state",
 		TraceName:          "trace",
 		ServiceFactoryName: "service-factory",
 		LeaseManagerName:   "lease-manager",

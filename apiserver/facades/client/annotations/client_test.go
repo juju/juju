@@ -45,7 +45,7 @@ func (s *annotationSuite) SetUpTest(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.store = testing.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State())
+	s.store = testing.NewObjectStore(c, s.ControllerModelUUID())
 }
 
 func (s *annotationSuite) TestModelAnnotations(c *gc.C) {
@@ -63,7 +63,7 @@ func (s *annotationSuite) TestMachineAnnotations(c *gc.C) {
 	// on machine removal
 	err := machine.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = machine.Remove(testing.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State()))
+	err = machine.Remove(testing.NewObjectStore(c, s.ControllerModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertAnnotationsRemoval(c, machine.Tag())
 }
@@ -138,7 +138,7 @@ func (s *annotationSuite) TestUnitAnnotations(c *gc.C) {
 	// on unit removal
 	err := unit.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = unit.Remove(testing.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State()))
+	err = unit.Remove(testing.NewObjectStore(c, s.ControllerModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertAnnotationsRemoval(c, wordpress.Tag())
 }

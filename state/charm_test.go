@@ -46,7 +46,7 @@ func (s *CharmSuite) destroy(c *gc.C) {
 
 func (s *CharmSuite) remove(c *gc.C) {
 	s.destroy(c)
-	err := s.charm.Remove(context.Background(), state.NewObjectStore(c, s.State))
+	err := s.charm.Remove(context.Background(), state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -171,7 +171,7 @@ func (s *CharmSuite) TestRemovedCharmNotListed(c *gc.C) {
 }
 
 func (s *CharmSuite) TestRemoveWithoutDestroy(c *gc.C) {
-	err := s.charm.Remove(context.Background(), state.NewObjectStore(c, s.State))
+	err := s.charm.Remove(context.Background(), state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, gc.ErrorMatches, "still alive")
 }
 
@@ -206,7 +206,7 @@ func (s *CharmSuite) dummyCharm(c *gc.C, curlOverride string) state.CharmInfo {
 func (s *CharmSuite) TestRemoveDeletesStorage(c *gc.C) {
 	// We normally don't actually set up charm storage in state
 	// tests, but we need it here.
-	stor := state.NewObjectStore(c, s.State)
+	stor := state.NewObjectStore(c, s.State.ModelUUID())
 	path := s.charm.StoragePath()
 	err := stor.Put(context.Background(), path, strings.NewReader("abc"), 3)
 	c.Assert(err, jc.ErrorIsNil)
@@ -233,7 +233,7 @@ func (s *CharmSuite) TestReferenceDyingCharm(c *gc.C) {
 			Channel: "22.04/stable",
 		}},
 	}
-	_, err := s.State.AddApplication(args, mockApplicationSaver{}, state.NewObjectStore(c, s.State))
+	_, err := s.State.AddApplication(args, mockApplicationSaver{}, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Check(err, gc.ErrorMatches, `cannot add application "blah": charm: not found or not alive`)
 }
 
@@ -251,7 +251,7 @@ func (s *CharmSuite) TestReferenceDyingCharmRace(c *gc.C) {
 			Channel: "22.04/stable",
 		}},
 	}
-	_, err := s.State.AddApplication(args, mockApplicationSaver{}, state.NewObjectStore(c, s.State))
+	_, err := s.State.AddApplication(args, mockApplicationSaver{}, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Check(err, gc.ErrorMatches, `cannot add application "blah": charm: not found or not alive`)
 }
 
@@ -280,7 +280,7 @@ func (s *CharmSuite) TestDestroyUnreferencedCharm(c *gc.C) {
 	app := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Charm: s.charm,
 	})
-	err := app.Destroy(state.NewObjectStore(c, s.State))
+	err := app.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.charm.Destroy()
@@ -300,7 +300,7 @@ func (s *CharmSuite) TestDestroyUnitReferencedCharm(c *gc.C) {
 	info := s.dummyCharm(c, "ch:quantal/dummy-2")
 	newCh, err := s.State.AddCharm(info)
 	c.Assert(err, jc.ErrorIsNil)
-	err = app.SetCharm(state.SetCharmConfig{Charm: newCh, CharmOrigin: defaultCharmOrigin(newCh.URL())}, state.NewObjectStore(c, s.State))
+	err = app.SetCharm(state.SetCharmConfig{Charm: newCh, CharmOrigin: defaultCharmOrigin(newCh.URL())}, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// unit should still reference original charm until updated
@@ -320,7 +320,7 @@ func (s *CharmSuite) TestDestroyFinalUnitReference(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Logf("calling app.Destroy()")
-	c.Assert(app.Destroy(state.NewObjectStore(c, s.State)), jc.ErrorIsNil)
+	c.Assert(app.Destroy(state.NewObjectStore(c, s.State.ModelUUID())), jc.ErrorIsNil)
 	removeUnit(c, s.State, unit)
 
 	assertCleanupCount(c, s.State, 2)

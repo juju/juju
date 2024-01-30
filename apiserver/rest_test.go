@@ -137,7 +137,7 @@ func (s *restSuite) TestGetRemoteApplicationIcon(c *gc.C) {
 		Name:        "mysql",
 		Charm:       mysqlCh,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{OS: "ubuntu", Channel: "22.04/stable"}},
-	}, mockApplicationSaver{}, testing.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State()))
+	}, mockApplicationSaver{}, testing.NewObjectStore(c, s.ControllerModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Add an offer for the application.
@@ -159,7 +159,7 @@ func (s *restSuite) TestGetRemoteApplicationIcon(c *gc.C) {
 		Name:        "dummy",
 		Charm:       dummyCh,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{OS: "ubuntu", Channel: "22.04/stable"}},
-	}, mockApplicationSaver{}, testing.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State()))
+	}, mockApplicationSaver{}, testing.NewObjectStore(c, s.ControllerModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	offer2, err := offers.AddOffer(crossmodel.AddApplicationOfferArgs{
 		OfferName:       "notfound-remote-app-offer",

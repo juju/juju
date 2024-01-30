@@ -52,7 +52,7 @@ func (s *FilesystemStateSuite) TestAddApplicationInvalidPool(c *gc.C) {
 			Channel: "20.04/stable",
 		}},
 		Storage: storage,
-	}, mockApplicationSaver{}, state.NewObjectStore(c, s.st))
+	}, mockApplicationSaver{}, state.NewObjectStore(c, s.st.ModelUUID()))
 	c.Assert(err, gc.ErrorMatches, `.* pool "invalid-pool" not found`)
 }
 
@@ -115,7 +115,7 @@ func (s *FilesystemStateSuite) testAddApplicationDefaultPool(c *gc.C, expectedPo
 		Storage:  storage,
 		NumUnits: numUnits,
 	}
-	app, err := s.st.AddApplication(args, mockApplicationSaver{}, state.NewObjectStore(c, s.st))
+	app, err := s.st.AddApplication(args, mockApplicationSaver{}, state.NewObjectStore(c, s.st.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	cons, err := app.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
@@ -443,7 +443,7 @@ func (s *FilesystemIAASModelSuite) TestWatchModelFilesystems(c *gc.C) {
 	wc.AssertChange("4", "5")
 	wc.AssertNoChange()
 
-	err := u.Destroy(state.NewObjectStore(c, s.State))
+	err := u.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	filesystemTag := names.NewFilesystemTag("0")
 	removeFilesystemStorageInstance(c, s.storageBackend, filesystemTag)
@@ -487,7 +487,7 @@ func (s *FilesystemIAASModelSuite) TestWatchModelFilesystemAttachments(c *gc.C) 
 	wc.AssertChange("1:4", "1:5")
 	wc.AssertNoChange()
 
-	err := u.Destroy(state.NewObjectStore(c, s.State))
+	err := u.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	filesystemTag := names.NewFilesystemTag("0")
 	removeFilesystemStorageInstance(c, s.storageBackend, filesystemTag)
@@ -531,7 +531,7 @@ func (s *FilesystemIAASModelSuite) TestWatchMachineFilesystems(c *gc.C) {
 	// no change, since we're only interested in the one machine.
 	wc.AssertNoChange()
 
-	err := u.Destroy(state.NewObjectStore(c, s.State))
+	err := u.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	filesystemTag := names.NewFilesystemTag("0/2")
 	removeFilesystemStorageInstance(c, s.storageBackend, filesystemTag)
@@ -623,7 +623,7 @@ func (s *FilesystemCAASModelSuite) TestWatchUnitFilesystems(c *gc.C) {
 			Channel: "20.04/stable",
 		}},
 		Storage: storage,
-	}, mockApplicationSaver{}, state.NewObjectStore(c, s.st))
+	}, mockApplicationSaver{}, state.NewObjectStore(c, s.st.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	addUnit := func(app *state.Application) *state.Unit {
@@ -649,13 +649,13 @@ func (s *FilesystemCAASModelSuite) TestWatchUnitFilesystems(c *gc.C) {
 			Channel: "20.04/stable",
 		}},
 		Storage: storage,
-	}, mockApplicationSaver{}, state.NewObjectStore(c, s.st))
+	}, mockApplicationSaver{}, state.NewObjectStore(c, s.st.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	addUnit(app2)
 	// no change, since we're only interested in the one application.
 	wc.AssertNoChange()
 
-	err = u.Destroy(state.NewObjectStore(c, s.State))
+	err = u.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	filesystemTag := names.NewFilesystemTag("mariadb/0/0")
 	removeFilesystemStorageInstance(c, s.storageBackend, filesystemTag)
@@ -695,7 +695,7 @@ func (s *FilesystemCAASModelSuite) TestWatchUnitFilesystemAttachments(c *gc.C) {
 			Channel: "20.04/stable",
 		}},
 		Storage: storage,
-	}, mockApplicationSaver{}, state.NewObjectStore(c, s.st))
+	}, mockApplicationSaver{}, state.NewObjectStore(c, s.st.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	addUnit := func(app *state.Application) *state.Unit {
@@ -722,7 +722,7 @@ func (s *FilesystemCAASModelSuite) TestWatchUnitFilesystemAttachments(c *gc.C) {
 			Channel: "20.04/stable",
 		}},
 		Storage: storage,
-	}, mockApplicationSaver{}, state.NewObjectStore(c, s.st))
+	}, mockApplicationSaver{}, state.NewObjectStore(c, s.st.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	addUnit(app2)
 	// no change, since we're only interested in the one application.
@@ -785,7 +785,7 @@ func (s *FilesystemIAASModelSuite) TestRemoveStorageInstanceDestroysAndUnassigns
 
 	u, err := s.st.Unit(unitTag.Id())
 	c.Assert(err, jc.ErrorIsNil)
-	err = u.Destroy(state.NewObjectStore(c, s.State))
+	err = u.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.storageBackend.DestroyStorageInstance(storageTag, true, false, dontWait)
 	c.Assert(err, jc.ErrorIsNil)
@@ -824,7 +824,7 @@ func (s *FilesystemIAASModelSuite) TestReleaseStorageInstanceFilesystemReleasing
 	err := s.storageBackend.SetFilesystemInfo(filesystem.FilesystemTag(), state.FilesystemInfo{FilesystemId: "vol-123"})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = u.Destroy(state.NewObjectStore(c, s.State))
+	err = u.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.storageBackend.ReleaseStorageInstance(storageTag, true, false, dontWait)
 	c.Assert(err, jc.ErrorIsNil)
@@ -845,7 +845,7 @@ func (s *FilesystemIAASModelSuite) TestReleaseStorageInstanceFilesystemUnreleasa
 	err := s.storageBackend.SetFilesystemInfo(filesystem.FilesystemTag(), state.FilesystemInfo{FilesystemId: "vol-123"})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = u.Destroy(state.NewObjectStore(c, s.State))
+	err = u.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.storageBackend.ReleaseStorageInstance(storageTag, true, false, dontWait)
 	c.Assert(err, gc.ErrorMatches,
@@ -919,7 +919,7 @@ func (s *FilesystemStateSuite) TestDestroyFilesystemStorageAssignedNoForce(c *gc
 	c.Assert(err, gc.ErrorMatches, "destroying filesystem .*0/0: filesystem is assigned to storage data/0")
 
 	// We must destroy the unit before we can remove the storage.
-	err = u.Destroy(state.NewObjectStore(c, s.State))
+	err = u.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	removeStorageInstance(c, s.storageBackend, storageTag)
 	s.assertDestroyFilesystem(c, filesystem.FilesystemTag(), state.Dying)
@@ -1126,9 +1126,9 @@ func (s *FilesystemIAASModelSuite) TestRemoveFilesystemAttachmentAlive(c *gc.C) 
 func (s *FilesystemIAASModelSuite) TestRemoveMachineRemovesFilesystems(c *gc.C) {
 	filesystem, machine := s.setupFilesystemAttachment(c, "rootfs")
 
-	c.Assert(machine.Destroy(state.NewObjectStore(c, s.State)), jc.ErrorIsNil)
+	c.Assert(machine.Destroy(state.NewObjectStore(c, s.State.ModelUUID())), jc.ErrorIsNil)
 	c.Assert(machine.EnsureDead(), jc.ErrorIsNil)
-	c.Assert(machine.Remove(state.NewObjectStore(c, s.State)), jc.ErrorIsNil)
+	c.Assert(machine.Remove(state.NewObjectStore(c, s.State.ModelUUID())), jc.ErrorIsNil)
 
 	// Machine is gone: filesystem should be gone too.
 	_, err := s.storageBackend.Filesystem(filesystem.FilesystemTag())
@@ -1145,7 +1145,7 @@ func (s *FilesystemIAASModelSuite) TestDestroyMachineRemovesNonDetachableFilesys
 	// Destroy the machine and run cleanups, which should cause the
 	// non-detachable filesystems to be destroyed, detached, and
 	// finally removed.
-	c.Assert(machine.Destroy(state.NewObjectStore(c, s.State)), jc.ErrorIsNil)
+	c.Assert(machine.Destroy(state.NewObjectStore(c, s.State.ModelUUID())), jc.ErrorIsNil)
 	assertCleanupRuns(c, s.st)
 
 	_, err := s.storageBackend.Filesystem(filesystem.FilesystemTag())
@@ -1157,7 +1157,7 @@ func (s *FilesystemIAASModelSuite) TestDestroyMachineDetachesDetachableFilesyste
 
 	// Destroy the machine and run cleanups, which should cause the
 	// detachable filesystems to be detached, but not destroyed.
-	c.Assert(machine.Destroy(state.NewObjectStore(c, s.State)), jc.ErrorIsNil)
+	c.Assert(machine.Destroy(state.NewObjectStore(c, s.State.ModelUUID())), jc.ErrorIsNil)
 	assertCleanupRuns(c, s.st)
 	s.testfilesystemDetached(
 		c, machine.MachineTag(), filesystem.FilesystemTag(),
@@ -1210,7 +1210,7 @@ func (s *FilesystemIAASModelSuite) TestDestroyManualMachineDoesntRemoveNonDetach
 	// Destroy the machine and run cleanups, which should cause the
 	// non-detachable filesystems and attachments to be set to Dying,
 	// but not completely removed.
-	c.Assert(machine.Destroy(state.NewObjectStore(c, s.State)), jc.ErrorIsNil)
+	c.Assert(machine.Destroy(state.NewObjectStore(c, s.State.ModelUUID())), jc.ErrorIsNil)
 	assertCleanupRuns(c, s.st)
 
 	filesystem, err = s.storageBackend.Filesystem(filesystem.FilesystemTag())
@@ -1234,7 +1234,7 @@ func (s *FilesystemIAASModelSuite) TestDestroyManualMachineDoesntDetachDetachabl
 	// Destroy the machine and run cleanups, which should cause the
 	// detachable filesystem attachments to be set to Dying, but not
 	// completely removed. The filesystem itself should be left Alive.
-	c.Assert(machine.Destroy(state.NewObjectStore(c, s.State)), jc.ErrorIsNil)
+	c.Assert(machine.Destroy(state.NewObjectStore(c, s.State.ModelUUID())), jc.ErrorIsNil)
 	assertCleanupRuns(c, s.st)
 
 	filesystem, err = s.storageBackend.Filesystem(filesystem.FilesystemTag())
@@ -1255,11 +1255,11 @@ func (s *FilesystemIAASModelSuite) TestFilesystemMachineScoped(c *gc.C) {
 
 	err := s.storageBackend.DetachFilesystem(machine.MachineTag(), filesystem.FilesystemTag())
 	c.Assert(err, gc.ErrorMatches, "detaching filesystem 0/0 from machine 0: filesystem is not detachable")
-	err = machine.Destroy(state.NewObjectStore(c, s.State))
+	err = machine.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = machine.Remove(state.NewObjectStore(c, s.State))
+	err = machine.Remove(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = s.storageBackend.Filesystem(filesystem.FilesystemTag())
@@ -1281,7 +1281,7 @@ func (s *FilesystemStateSuite) TestFilesystemRemoveStorageDestroysFilesystem(c *
 
 	// The filesystem should transition to Dying when the storage is removed.
 	// We must destroy the unit before we can remove the storage.
-	err := u.Destroy(state.NewObjectStore(c, s.State))
+	err := u.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	removeStorageInstance(c, s.storageBackend, storageTag)
 	filesystem = s.filesystem(c, filesystem.FilesystemTag())

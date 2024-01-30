@@ -134,7 +134,7 @@ func (s *deployerSuite) SetUpTest(c *gc.C) {
 		s.unitRemover,
 		s.authorizer,
 		st,
-		testing.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State()),
+		testing.NewObjectStore(c, s.ControllerModelUUID()),
 		s.resources,
 		s.revoker,
 		st,
@@ -221,7 +221,7 @@ func (s *deployerSuite) TestSetPasswords(c *gc.C) {
 	// Remove the subordinate and make sure it's detected.
 	err = s.subordinate0.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.subordinate0.Remove(testing.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State()))
+	err = s.subordinate0.Remove(testing.NewObjectStore(c, s.ControllerModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.subordinate0.Refresh()
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
@@ -269,7 +269,7 @@ func (s *deployerSuite) TestLife(c *gc.C) {
 	// Remove the subordinate and make sure it's detected.
 	err = s.subordinate0.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.subordinate0.Remove(testing.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State()))
+	err = s.subordinate0.Remove(testing.NewObjectStore(c, s.ControllerModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.subordinate0.Refresh()
 	c.Assert(err, jc.ErrorIs, errors.NotFound)

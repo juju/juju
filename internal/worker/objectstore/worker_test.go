@@ -193,7 +193,6 @@ func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
 		Clock:        s.clock,
 		Logger:       s.logger,
 		TracerGetter: &stubTracerGetter{},
-		StatePool:    s.statePool,
 		S3Client:     s.s3Client,
 		NewObjectStoreWorker: func(context.Context, objectstore.BackendType, string, ...internalobjectstore.Option) (internalobjectstore.TrackedObjectStore, error) {
 			atomic.AddInt64(&s.called, 1)

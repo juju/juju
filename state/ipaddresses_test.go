@@ -141,7 +141,7 @@ type ensureDeaderRemover interface {
 func (s *ipAddressesStateSuite) ensureEntityDeadAndRemoved(c *gc.C, entity ensureDeaderRemover) {
 	err := entity.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = entity.Remove(state.NewObjectStore(c, s.State))
+	err = entity.Remove(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 }
 

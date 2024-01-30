@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/core/network"
 	coreobjectstore "github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/objectstore"
+	objectstoretesting "github.com/juju/juju/internal/objectstore/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 )
@@ -81,11 +82,15 @@ func AddCharm(st *state.State, curl string, ch charm.Charm, force bool) (*state.
 		return nil, err
 	}
 
+	rootDir, err := os.MkdirTemp("", "objectstore-test")
+	if err != nil {
+		return nil, err
+	}
 	stor, err := objectstore.ObjectStoreFactory(
 		context.Background(),
 		objectstore.DefaultBackendType(),
 		st.ModelUUID(),
-		objectstore.WithMongoSession(st),
+		objectstore.WithRootDir(rootDir),
 	)
 	if err != nil {
 		return nil, err
@@ -107,14 +112,19 @@ func AddCharm(st *state.State, curl string, ch charm.Charm, force bool) (*state.
 	return sch, nil
 }
 
-func NewObjectStore(c *gc.C, modelUUID string, st objectstore.MongoSession) coreobjectstore.ObjectStore {
+func NewObjectStore(c *gc.C, modelUUID string) coreobjectstore.ObjectStore {
 	// This will be removed when the worker object store is enabled by default.
 	store, err := objectstore.ObjectStoreFactory(
 		context.Background(),
 		objectstore.DefaultBackendType(),
 		modelUUID,
-		objectstore.WithMongoSession(st),
+		objectstore.WithRootDir(c.MkDir()),
 		objectstore.WithLogger(testing.NewCheckLogger(c)),
+
+		// TODO (stickupkid): Swap this over to the real metadata service
+		// when all facades are moved across.
+		objectstore.WithMetadataService(objectstoretesting.MemoryMetadataService()),
+		objectstore.WithClaimer(objectstoretesting.MemoryClaimer()),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	return store

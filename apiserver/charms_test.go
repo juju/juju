@@ -242,7 +242,7 @@ func (s *charmsSuite) TestUploadRespectsLocalRevision(c *gc.C) {
 	c.Assert(sch.IsUploaded(), jc.IsTrue)
 	c.Assert(sch.BundleSha256(), gc.Equals, expectedSHA256)
 
-	store := testing.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State())
+	store := testing.NewObjectStore(c, s.ControllerModelUUID())
 	reader, _, err := store.Get(context.Background(), sch.StoragePath())
 	c.Assert(err, jc.ErrorIsNil)
 	defer reader.Close()
@@ -312,7 +312,7 @@ func (s *charmsSuite) TestUploadRepackagesNestedArchives(c *gc.C) {
 	// Get it from the storage and try to read it as a bundle - it
 	// should succeed, because it was repackaged during upload to
 	// strip nested dirs.
-	store := testing.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State())
+	store := testing.NewObjectStore(c, s.ControllerModelUUID())
 	reader, _, err := store.Get(context.Background(), sch.StoragePath())
 	c.Assert(err, jc.ErrorIsNil)
 	defer reader.Close()

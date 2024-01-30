@@ -165,7 +165,7 @@ var _ = gc.Suite(&toolsSuite{})
 func (s *toolsSuite) SetUpTest(c *gc.C) {
 	s.baseToolsSuite.SetUpTest(c)
 
-	s.store = jujutesting.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State())
+	s.store = jujutesting.NewObjectStore(c, s.ControllerModelUUID())
 }
 
 func (s *toolsSuite) TestToolsUploadedSecurely(c *gc.C) {

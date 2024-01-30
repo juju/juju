@@ -54,7 +54,7 @@ func (s *binaryStorageSuite) SetUpTest(c *gc.C) {
 	s.metadataCollection, closer = mongo.CollectionFromName(catalogue, "binarymetadata")
 	s.addCleanup(func(*gc.C) { closer() })
 
-	s.managedStorage = jujutesting.NewObjectStore(c, "my-uuid", sessionShim{session: s.Session})
+	s.managedStorage = jujutesting.NewObjectStore(c, "my-uuid")
 	s.txnRunner = jujutxn.NewRunner(jujutxn.RunnerParams{
 		Database:                  catalogue,
 		TransactionCollectionName: "txns",

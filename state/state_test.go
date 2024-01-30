@@ -510,14 +510,14 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 				c.Assert(err, jc.ErrorIsNil)
 				r := f.MakeRelation(c, &factory.RelationParams{Endpoints: eps})
 				loggo.GetLogger("juju.state").SetLogLevel(loggo.TRACE)
-				err = r.Destroy(state.NewObjectStore(c, s.State))
+				err = r.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 				c.Assert(err, jc.ErrorIsNil)
 				loggo.GetLogger("juju.state").SetLogLevel(loggo.DEBUG)
 				return true
 			},
 			triggerEvent: func(st *state.State) {
 				loggo.GetLogger("juju.state").SetLogLevel(loggo.TRACE)
-				err := st.Cleanup(context.Background(), state.NewObjectStore(c, st), fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{})
+				err := st.Cleanup(context.Background(), state.NewObjectStore(c, st.ModelUUID()), fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{})
 				c.Assert(err, jc.ErrorIsNil)
 				loggo.GetLogger("juju.state").SetLogLevel(loggo.DEBUG)
 			},
@@ -1397,7 +1397,7 @@ func (s *StateSuite) TestAllMachines(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		err = m.SetAgentVersion(version.MustParseBinary("7.8.9-ubuntu-amd64"))
 		c.Assert(err, jc.ErrorIsNil)
-		err = m.Destroy(state.NewObjectStore(c, s.State))
+		err = m.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	s.AssertMachineCount(c, numInserts)
@@ -1422,7 +1422,7 @@ func (s *StateSuite) TestMachineCountForBase(c *gc.C) {
 		c.Check(err, jc.ErrorIsNil)
 		err = m.SetAgentVersion(version.MustParseBinary("7.8.9-ubuntu-amd64"))
 		c.Check(err, jc.ErrorIsNil)
-		err = m.Destroy(state.NewObjectStore(c, s.State))
+		err = m.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 		c.Check(err, jc.ErrorIsNil)
 	}
 
@@ -1573,7 +1573,7 @@ func (s *StateSuite) TestAliveRelationKeys(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		// Destroy half the relations, to check we only get the ones Alive
 		if i%2 == 0 {
-			_ = r.Destroy(state.NewObjectStore(c, s.State))
+			_ = r.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 		}
 	}
 
@@ -1666,7 +1666,7 @@ func (s *StateSuite) TestAddApplication(c *gc.C) {
 			OS:      "ubuntu",
 			Channel: "22.04/stable",
 		}},
-	}, mockApplicationSaver{}, state.NewObjectStore(c, s.State))
+	}, mockApplicationSaver{}, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, gc.ErrorMatches, `cannot add application "haha/borken": invalid name`)
 	_, err = s.State.Application("haha/borken")
 	c.Assert(err, gc.ErrorMatches, `"haha/borken" is not a valid application name`)
@@ -1678,14 +1678,14 @@ func (s *StateSuite) TestAddApplication(c *gc.C) {
 			OS:      "ubuntu",
 			Channel: "22.04/stable",
 		}},
-	}, mockApplicationSaver{}, state.NewObjectStore(c, s.State))
+	}, mockApplicationSaver{}, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, gc.ErrorMatches, `cannot add application "umadbro": charm is nil`)
 
 	// set that a nil charm origin is handled correctly
 	_, err = s.State.AddApplication(state.AddApplicationArgs{
 		Name:  "umadbro",
 		Charm: ch,
-	}, mockApplicationSaver{}, state.NewObjectStore(c, s.State))
+	}, mockApplicationSaver{}, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, gc.ErrorMatches, `cannot add application "umadbro": charm origin is nil`)
 
 	insettings := charm.Settings{"tuning": "optimized"}
@@ -1706,7 +1706,7 @@ func (s *StateSuite) TestAddApplication(c *gc.C) {
 					Channel: "22.04/stable",
 				},
 			},
-		}, mockApplicationSaver{}, state.NewObjectStore(c, s.State))
+		}, mockApplicationSaver{}, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(wordpress.Name(), gc.Equals, "wordpress")
 	c.Assert(state.GetApplicationHasResources(wordpress), jc.IsFalse)
@@ -1736,7 +1736,7 @@ func (s *StateSuite) TestAddApplication(c *gc.C) {
 		}},
 		Constraints: constraints.Value{Arch: &mysqlArch}},
 		mockApplicationSaver{},
-		state.NewObjectStore(c, s.State),
+		state.NewObjectStore(c, s.State.ModelUUID()),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mysql.Name(), gc.Equals, "mysql")
@@ -1770,7 +1770,7 @@ func (s *StateSuite) TestAddApplicationFailCharmOriginIDOnly(c *gc.C) {
 		Name:        "testme",
 		Charm:       &state.Charm{},
 		CharmOrigin: &state.CharmOrigin{ID: "testing", Platform: &state.Platform{OS: "ubuntu", Channel: "22.04"}},
-	}, mockApplicationSaver{}, state.NewObjectStore(c, s.State))
+	}, mockApplicationSaver{}, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIs, errors.BadRequest)
 }
 
@@ -1779,7 +1779,7 @@ func (s *StateSuite) TestAddApplicationFailCharmOriginHashOnly(c *gc.C) {
 		Name:        "testme",
 		Charm:       &state.Charm{},
 		CharmOrigin: &state.CharmOrigin{Hash: "testing", Platform: &state.Platform{OS: "ubuntu", Channel: "22.04"}},
-	}, mockApplicationSaver{}, state.NewObjectStore(c, s.State))
+	}, mockApplicationSaver{}, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIs, errors.BadRequest)
 }
 
@@ -1801,7 +1801,7 @@ func (s *StateSuite) TestAddCAASApplication(c *gc.C) {
 				Channel: "22.04/stable",
 			}},
 			CharmConfig: insettings, ApplicationConfig: inconfig, NumUnits: 1,
-		}, mockApplicationSaver{}, state.NewObjectStore(c, st))
+		}, mockApplicationSaver{}, state.NewObjectStore(c, st.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gitlab.Name(), gc.Equals, "gitlab")
 	c.Assert(gitlab.GetScale(), gc.Equals, 1)
@@ -1871,7 +1871,7 @@ resources:
 			OS:      "ubuntu",
 			Channel: "22.04/stable",
 		}},
-	}, mockApplicationSaver{}, state.NewObjectStore(c, st))
+	}, mockApplicationSaver{}, state.NewObjectStore(c, st.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	units, err := cockroach.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1908,7 +1908,7 @@ resources:
 			OS:      "ubuntu",
 			Channel: "22.04/stable",
 		}},
-	}, mockApplicationSaver{}, state.NewObjectStore(c, st))
+	}, mockApplicationSaver{}, state.NewObjectStore(c, st.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	units, err := cockroach.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1917,7 +1917,7 @@ resources:
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(unitAssignments), gc.Equals, 0)
 
-	err = cockroach.Destroy(state.NewObjectStore(c, s.State))
+	err = cockroach.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	err = cockroach.ClearResources()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1931,7 +1931,7 @@ resources:
 			OS:      "ubuntu",
 			Channel: "22.04/stable",
 		}},
-	}, mockApplicationSaver{}, state.NewObjectStore(c, st))
+	}, mockApplicationSaver{}, state.NewObjectStore(c, st.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	units, err = cockroach.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1954,7 +1954,7 @@ func (s *StateSuite) TestAddCAASApplicationPlacementNotAllowed(c *gc.C) {
 				Channel: "22.04/stable",
 			}},
 			Placement: placement,
-		}, mockApplicationSaver{}, state.NewObjectStore(c, st))
+		}, mockApplicationSaver{}, state.NewObjectStore(c, st.ModelUUID()))
 	c.Assert(err, gc.ErrorMatches, ".*"+regexp.QuoteMeta(`cannot add application "gitlab": placement directives on k8s models not valid`))
 }
 
@@ -1970,7 +1970,7 @@ func (s *StateSuite) TestAddApplicationWithNilCharmConfigValues(c *gc.C) {
 		}},
 		CharmConfig: insettings},
 		mockApplicationSaver{},
-		state.NewObjectStore(c, s.State),
+		state.NewObjectStore(c, s.State.ModelUUID()),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	outsettings, err := wordpress.CharmConfig(model.GenerationMaster)
@@ -2001,7 +2001,7 @@ func (s *StateSuite) TestAddApplicationModelDying(c *gc.C) {
 			OS:      "ubuntu",
 			Channel: "22.04/stable",
 		}},
-	}, mockApplicationSaver{}, state.NewObjectStore(c, s.State))
+	}, mockApplicationSaver{}, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, gc.ErrorMatches, `cannot add application "s1": model "testmodel" is dying`)
 }
 
@@ -2016,7 +2016,7 @@ func (s *StateSuite) TestAddApplicationModelMigrating(c *gc.C) {
 			OS:      "ubuntu",
 			Channel: "22.04/stable",
 		}},
-	}, mockApplicationSaver{}, state.NewObjectStore(c, s.State))
+	}, mockApplicationSaver{}, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, gc.ErrorMatches, `cannot add application "s1": model "testmodel" is being migrated`)
 }
 
@@ -2031,7 +2031,7 @@ func (s *StateSuite) TestAddApplicationSameRemoteExists(c *gc.C) {
 			OS:      "ubuntu",
 			Channel: "22.04/stable",
 		}},
-	}, mockApplicationSaver{}, state.NewObjectStore(c, s.State))
+	}, mockApplicationSaver{}, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, gc.ErrorMatches, `cannot add application "s1": saas application with same name already exists`)
 }
 
@@ -2051,7 +2051,7 @@ func (s *StateSuite) TestAddApplicationRemoteAddedAfterInitial(c *gc.C) {
 			OS:      "ubuntu",
 			Channel: "22.04/stable",
 		}},
-	}, mockApplicationSaver{}, state.NewObjectStore(c, s.State))
+	}, mockApplicationSaver{}, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, gc.ErrorMatches, `cannot add application "s1": saas application with same name already exists`)
 }
 
@@ -2064,7 +2064,7 @@ func (s *StateSuite) TestAddApplicationSameLocalExists(c *gc.C) {
 			OS:      "ubuntu",
 			Channel: "22.04/stable",
 		}},
-	}, mockApplicationSaver{}, state.NewObjectStore(c, s.State))
+	}, mockApplicationSaver{}, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, gc.ErrorMatches, `cannot add application "s0": application already exists`)
 }
 
@@ -2082,7 +2082,7 @@ func (s *StateSuite) TestAddApplicationLocalAddedAfterInitial(c *gc.C) {
 			OS:      "ubuntu",
 			Channel: "22.04/stable",
 		}},
-	}, mockApplicationSaver{}, state.NewObjectStore(c, s.State))
+	}, mockApplicationSaver{}, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, gc.ErrorMatches, `cannot add application "s1": application already exists`)
 }
 
@@ -2101,7 +2101,7 @@ func (s *StateSuite) TestAddApplicationModelDyingAfterInitial(c *gc.C) {
 			OS:      "ubuntu",
 			Channel: "22.04/stable",
 		}},
-	}, mockApplicationSaver{}, state.NewObjectStore(c, s.State))
+	}, mockApplicationSaver{}, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, gc.ErrorMatches, `cannot add application "s1": model "testmodel" is dying`)
 }
 
@@ -2120,7 +2120,7 @@ func (s *StateSuite) TestAddApplicationWithDefaultBindings(c *gc.C) {
 			OS:      "ubuntu",
 			Channel: "22.04/stable",
 		}},
-	}, mockApplicationSaver{}, state.NewObjectStore(c, s.State))
+	}, mockApplicationSaver{}, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Read them back to verify defaults and given bindings got merged as
@@ -2135,7 +2135,7 @@ func (s *StateSuite) TestAddApplicationWithDefaultBindings(c *gc.C) {
 	})
 
 	// Removing the application also removes its bindings.
-	err = app.Destroy(state.NewObjectStore(c, s.State))
+	err = app.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	err = app.Refresh()
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
@@ -2162,7 +2162,7 @@ func (s *StateSuite) TestAddApplicationWithSpecifiedBindings(c *gc.C) {
 			"client":  clientSpace.Id(),
 			"cluster": dbSpace.Id(),
 		},
-	}, mockApplicationSaver{}, state.NewObjectStore(c, s.State))
+	}, mockApplicationSaver{}, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Read them back to verify defaults and given bindings got merged as
@@ -2231,7 +2231,7 @@ func (s *StateSuite) TestAddApplicationWithInvalidBindings(c *gc.C) {
 				Channel: "22.04/stable",
 			}},
 			EndpointBindings: test.bindings,
-		}, mockApplicationSaver{}, state.NewObjectStore(c, s.State))
+		}, mockApplicationSaver{}, state.NewObjectStore(c, s.State.ModelUUID()))
 		c.Check(err, gc.ErrorMatches, `cannot add application "yoursql": `+test.expectedError)
 		c.Check(err, jc.ErrorIs, test.errIs)
 	}
@@ -2251,7 +2251,7 @@ func (s *StateSuite) TestAddApplicationMachinePlacementInvalidSeries(c *gc.C) {
 		Placement: []*instance.Placement{
 			{instance.MachineScope, m.Id()},
 		},
-	}, mockApplicationSaver{}, state.NewObjectStore(c, s.State))
+	}, mockApplicationSaver{}, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, gc.ErrorMatches, "cannot add application \"wordpress\": cannot deploy to machine .*: base does not match.*")
 }
 
@@ -2265,7 +2265,7 @@ func (s *StateSuite) TestAddApplicationIncompatibleOSWithSeriesInURL(c *gc.C) {
 			OS:      "centos",
 			Channel: "7/stable",
 		}},
-	}, mockApplicationSaver{}, state.NewObjectStore(c, s.State))
+	}, mockApplicationSaver{}, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, gc.ErrorMatches, `cannot add application "wordpress": OS "centos" not supported by charm "dummy", supported OSes are: ubuntu`)
 }
 
@@ -2281,7 +2281,7 @@ func (s *StateSuite) TestAddApplicationCompatibleOSWithSeriesInURL(c *gc.C) {
 			OS:      base.OS,
 			Channel: base.Channel.String(),
 		}},
-	}, mockApplicationSaver{}, state.NewObjectStore(c, s.State))
+	}, mockApplicationSaver{}, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -2294,7 +2294,7 @@ func (s *StateSuite) TestAddApplicationCompatibleOSWithNoExplicitSupportedSeries
 			OS:      "ubuntu",
 			Channel: "12.10/stable",
 		}},
-	}, mockApplicationSaver{}, state.NewObjectStore(c, s.State))
+	}, mockApplicationSaver{}, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -2308,7 +2308,7 @@ func (s *StateSuite) TestAddApplicationOSIncompatibleWithSupportedSeries(c *gc.C
 			OS:      "centos",
 			Channel: "7/stable",
 		}},
-	}, mockApplicationSaver{}, state.NewObjectStore(c, s.State))
+	}, mockApplicationSaver{}, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, gc.ErrorMatches, `cannot add application "wordpress": OS "centos" not supported by charm "multi-series", supported OSes are: ubuntu`)
 }
 
@@ -2325,7 +2325,7 @@ func (s *StateSuite) TestAllApplications(c *gc.C) {
 			OS:      "ubuntu",
 			Channel: "22.04/stable",
 		}},
-	}, mockApplicationSaver{}, state.NewObjectStore(c, s.State))
+	}, mockApplicationSaver{}, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	applications, err = s.State.AllApplications()
 	c.Assert(err, jc.ErrorIsNil)
@@ -2337,7 +2337,7 @@ func (s *StateSuite) TestAllApplications(c *gc.C) {
 			OS:      "ubuntu",
 			Channel: "22.04/stable",
 		}},
-	}, mockApplicationSaver{}, state.NewObjectStore(c, s.State))
+	}, mockApplicationSaver{}, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	applications, err = s.State.AllApplications()
 	c.Assert(err, jc.ErrorIsNil)
@@ -2636,7 +2636,7 @@ func (s *StateSuite) TestWatchModelsBulkEvents(c *gc.C) {
 	wc.AssertChange(alive.UUID(), dying.UUID())
 
 	// Progress dying to dead, alive to dying; and see changes reported.
-	err = app.Destroy(state.NewObjectStore(c, s.State))
+	err = app.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(st1.ProcessDyingModel(), jc.ErrorIsNil)
 	c.Assert(st1.RemoveDyingModel(), jc.ErrorIsNil)
@@ -2671,7 +2671,7 @@ func (s *StateSuite) TestWatchModelsLifecycle(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Remove the model: reported.
-	c.Assert(app.Destroy(state.NewObjectStore(c, s.State)), jc.ErrorIsNil)
+	c.Assert(app.Destroy(state.NewObjectStore(c, s.State.ModelUUID())), jc.ErrorIsNil)
 	c.Assert(st1.ProcessDyingModel(), jc.ErrorIsNil)
 	c.Assert(st1.RemoveDyingModel(), jc.ErrorIsNil)
 	wc.AssertChange(model.UUID())
@@ -2688,12 +2688,12 @@ func (s *StateSuite) TestWatchApplicationsBulkEvents(c *gc.C) {
 	dying := s.AddTestingApplication(c, "application1", dummyCharm)
 	keepDying, err := dying.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	err = dying.Destroy(state.NewObjectStore(c, s.State))
+	err = dying.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Dead application (actually, gone, Dead == removed in this case).
 	gone := s.AddTestingApplication(c, "application2", dummyCharm)
-	err = gone.Destroy(state.NewObjectStore(c, s.State))
+	err = gone.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())
@@ -2705,11 +2705,11 @@ func (s *StateSuite) TestWatchApplicationsBulkEvents(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Remove them all; alive/dying changes reported.
-	err = alive.Destroy(state.NewObjectStore(c, s.State))
+	err = alive.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
-	err = keepDying.Destroy(state.NewObjectStore(c, s.State))
+	err = keepDying.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State), fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{}), jc.ErrorIsNil)
+	c.Assert(s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State.ModelUUID()), fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{}), jc.ErrorIsNil)
 	wc.AssertChange(alive.Name(), dying.Name())
 	wc.AssertNoChange()
 }
@@ -2733,7 +2733,7 @@ func (s *StateSuite) TestWatchApplicationsLifecycle(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Make it Dying: reported.
-	c.Assert(application.Destroy(state.NewObjectStore(c, s.State)), jc.ErrorIsNil)
+	c.Assert(application.Destroy(state.NewObjectStore(c, s.State.ModelUUID())), jc.ErrorIsNil)
 	wc.AssertChange("application")
 	wc.AssertNoChange()
 
@@ -2741,11 +2741,11 @@ func (s *StateSuite) TestWatchApplicationsLifecycle(c *gc.C) {
 	c.Check(application.Life(), gc.Equals, state.Dying)
 
 	// Make it Dead(/removed): reported.
-	c.Assert(keepDying.Destroy(state.NewObjectStore(c, s.State)), jc.ErrorIsNil)
+	c.Assert(keepDying.Destroy(state.NewObjectStore(c, s.State.ModelUUID())), jc.ErrorIsNil)
 	needs, err := s.State.NeedsCleanup()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(needs, jc.IsTrue)
-	c.Assert(s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State), fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{}), jc.ErrorIsNil)
+	c.Assert(s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State.ModelUUID()), fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{}), jc.ErrorIsNil)
 	wc.AssertChange("application")
 	wc.AssertNoChange()
 }
@@ -2774,7 +2774,7 @@ func (s *StateSuite) TestWatchMachinesBulkEvents(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = dying.SetProvisioned(instance.Id("i-blah"), "", "fake-nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	err = dying.Destroy(state.NewObjectStore(c, s.State))
+	err = dying.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Dead machine...
@@ -2788,7 +2788,7 @@ func (s *StateSuite) TestWatchMachinesBulkEvents(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = gone.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = gone.Remove(state.NewObjectStore(c, s.State))
+	err = gone.Remove(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())
@@ -2800,13 +2800,13 @@ func (s *StateSuite) TestWatchMachinesBulkEvents(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Remove them all; alive/dying changes reported; dead never mentioned again.
-	err = alive.Destroy(state.NewObjectStore(c, s.State))
+	err = alive.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	err = dying.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = dying.Remove(state.NewObjectStore(c, s.State))
+	err = dying.Remove(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
-	err = dead.Remove(state.NewObjectStore(c, s.State))
+	err = dead.Remove(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(alive.Id(), dying.Id())
 	wc.AssertNoChange()
@@ -2832,7 +2832,7 @@ func (s *StateSuite) TestWatchMachinesLifecycle(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Make it Dying: reported.
-	err = machine.Destroy(state.NewObjectStore(c, s.State))
+	err = machine.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange("0")
 	wc.AssertNoChange()
@@ -2844,7 +2844,7 @@ func (s *StateSuite) TestWatchMachinesLifecycle(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Remove it: not reported.
-	err = machine.Remove(state.NewObjectStore(c, s.State))
+	err = machine.Remove(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 }
@@ -2893,7 +2893,7 @@ func (s *StateSuite) TestWatchMachinesIgnoresContainers(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Make the container Dying: not reported.
-	err = m.Destroy(state.NewObjectStore(c, s.State))
+	err = m.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
@@ -2903,7 +2903,7 @@ func (s *StateSuite) TestWatchMachinesIgnoresContainers(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Remove the container: not reported.
-	err = m.Remove(state.NewObjectStore(c, s.State))
+	err = m.Remove(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 }
@@ -2976,16 +2976,16 @@ func (s *StateSuite) TestWatchContainerLifecycle(c *gc.C) {
 	wcAll.AssertNoChange()
 
 	// Make the container Dying: cannot because of nested container.
-	err = m.Destroy(state.NewObjectStore(c, s.State))
+	err = m.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, gc.ErrorMatches, `machine .* is hosting containers? ".*"`)
 
 	err = mchild.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = mchild.Remove(state.NewObjectStore(c, s.State))
+	err = mchild.Remove(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Make the container Dying: reported.
-	err = m.Destroy(state.NewObjectStore(c, s.State))
+	err = m.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange("0/lxd/0")
 	wc.AssertNoChange()
@@ -2993,9 +2993,9 @@ func (s *StateSuite) TestWatchContainerLifecycle(c *gc.C) {
 	wcAll.AssertNoChange()
 
 	// Make the other containers Dying: not reported.
-	err = m1.Destroy(state.NewObjectStore(c, s.State))
+	err = m1.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
-	err = m2.Destroy(state.NewObjectStore(c, s.State))
+	err = m2.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 	// But reported by the all watcher.
@@ -3021,7 +3021,7 @@ func (s *StateSuite) TestWatchContainerLifecycle(c *gc.C) {
 	wcAll.AssertNoChange()
 
 	// Remove the container: not reported.
-	err = m.Remove(state.NewObjectStore(c, s.State))
+	err = m.Remove(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 	wcAll.AssertNoChange()
@@ -3636,7 +3636,7 @@ func testSetPassword(c *gc.C, st *state.State, getEntity func() (state.Authentic
 	c.Assert(e2.PasswordValid(alternatePassword), jc.IsTrue)
 
 	if le, ok := e.(lifer); ok {
-		testWhenDying(c, state.NewObjectStore(c, st), le, noErr, deadErr, func() error {
+		testWhenDying(c, state.NewObjectStore(c, st.ModelUUID()), le, noErr, deadErr, func() error {
 			return e.SetPassword("arble-farble-dying-yarble")
 		})
 	}
@@ -3834,21 +3834,21 @@ func (s *StateSuite) TestWatchCleanups(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Destroy one relation, check one change.
-	err = relM.Destroy(state.NewObjectStore(c, s.State))
+	err = relM.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
 	// Handle that cleanup doc and create another, check one change.
-	err = s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State), fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{})
+	err = s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State.ModelUUID()), fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{})
 	c.Assert(err, jc.ErrorIsNil)
 	// TODO(quiescence): these two changes should be one event.
 	wc.AssertOneChange()
-	err = relV.Destroy(state.NewObjectStore(c, s.State))
+	err = relV.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
 	// Clean up final doc, check change.
-	err = s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State), fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{})
+	err = s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State.ModelUUID()), fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
@@ -3884,16 +3884,16 @@ func (s *StateSuite) TestWatchCleanupsBulk(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Destroy them both, check one change.
-	err = riak.Destroy(state.NewObjectStore(c, s.State))
+	err = riak.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	// TODO(quiescence): reimplement some quiescence on the cleanup watcher
 	wc.AssertOneChange()
-	err = allHooks.Destroy(state.NewObjectStore(c, s.State))
+	err = allHooks.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
 	// Clean them both up, check one change.
-	err = s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State), fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{})
+	err = s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State.ModelUUID()), fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertAtleastOneChange()
 }
@@ -3949,7 +3949,7 @@ func (s *StateSuite) TestWatchMinUnits(c *gc.C) {
 	// Destroy a unit of a application with required minimum units.
 	// Also avoid the unit removal. A single change should occur.
 	preventUnitDestroyRemove(c, wordpress0)
-	err = wordpress0.Destroy(state.NewObjectStore(c, s.State))
+	err = wordpress0.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(wordpressName)
 	wc.AssertNoChange()
@@ -3959,23 +3959,23 @@ func (s *StateSuite) TestWatchMinUnits(c *gc.C) {
 	// one time in the change.
 	err = wordpress.SetMinUnits(5)
 	c.Assert(err, jc.ErrorIsNil)
-	err = wordpress1.Destroy(state.NewObjectStore(c, s.State))
+	err = wordpress1.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(wordpressName)
 	wc.AssertNoChange()
 
 	// Destroy a unit of a application not requiring minimum units; expect no changes.
-	err = mysql0.Destroy(state.NewObjectStore(c, s.State))
+	err = mysql0.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
 	// Destroy a application with required minimum units; expect no changes.
-	err = wordpress.Destroy(state.NewObjectStore(c, s.State))
+	err = wordpress.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
 	// Destroy a application not requiring minimum units; expect no changes.
-	err = mysql.Destroy(state.NewObjectStore(c, s.State))
+	err = mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
@@ -4072,7 +4072,7 @@ func (s *StateSuite) TestWatchRemoteRelationsDestroyRelation(c *gc.C) {
 
 	// Destroy the remote relation.
 	// A single change should occur.
-	err := rel.Destroy(state.NewObjectStore(c, s.State))
+	err := rel.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange("wordpress:db mysql:database")
 	wc.AssertNoChange()
@@ -4110,7 +4110,7 @@ func (s *StateSuite) TestWatchRemoteRelationsDestroyLocalApplication(c *gc.C) {
 
 	// Destroy the local application.
 	// A single change should occur.
-	err := app.Destroy(state.NewObjectStore(c, s.State))
+	err := app.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange("wordpress:db mysql:database")
 	wc.AssertNoChange()
@@ -4173,7 +4173,7 @@ func (s *StateSuite) TestSetModelAgentVersionErrors(c *gc.C) {
 			OS:      "ubuntu",
 			Channel: "22.04/stable",
 		}},
-	}, mockApplicationSaver{}, state.NewObjectStore(c, s.State))
+	}, mockApplicationSaver{}, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	unit0, err := application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -4201,7 +4201,7 @@ func (s *StateSuite) TestSetModelAgentVersionErrors(c *gc.C) {
 	for _, machine := range []*state.Machine{machine0, machine1, machine2} {
 		err = machine.EnsureDead()
 		c.Assert(err, jc.ErrorIsNil)
-		err = machine.Remove(state.NewObjectStore(c, s.State))
+		err = machine.Remove(state.NewObjectStore(c, s.State.ModelUUID()))
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
@@ -4235,7 +4235,7 @@ func (s *StateSuite) prepareAgentVersionTests(c *gc.C, st *state.State) (*config
 			OS:      "ubuntu",
 			Channel: "12.10/stable",
 		}},
-	}, mockApplicationSaver{}, state.NewObjectStore(c, st))
+	}, mockApplicationSaver{}, state.NewObjectStore(c, st.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	unit, err := application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)

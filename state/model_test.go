@@ -536,15 +536,15 @@ func (s *ModelSuite) TestMetrics(c *gc.C) {
 	// Add a machine/unit/application and destroy it, to
 	// ensure we're only counting entities that are alive.
 	m := s.Factory.MakeMachine(c, &factory.MachineParams{})
-	err := m.Destroy(state.NewObjectStore(c, s.State))
+	err := m.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	one := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Name: "one",
 	})
 	u := s.Factory.MakeUnit(c, &factory.UnitParams{Application: mysql})
-	err = one.Destroy(state.NewObjectStore(c, s.State))
+	err = one.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
-	err = u.Destroy(state.NewObjectStore(c, s.State))
+	err = u.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	model, err := s.State.Model()
@@ -787,7 +787,7 @@ func (s *ModelSuite) TestDestroyControllerAndHostedModelsWithResources(c *gc.C) 
 			Channel: "12.10/stable",
 		}},
 	}
-	_, err = otherSt.AddApplication(args, mockApplicationSaver{}, state.NewObjectStore(c, otherSt))
+	_, err = otherSt.AddApplication(args, mockApplicationSaver{}, state.NewObjectStore(c, otherSt.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	controllerModel, err := s.State.Model()
@@ -1228,7 +1228,7 @@ func (s *ModelSuite) assertDyingModelTransitionDyingToDead(c *gc.C, st *state.St
 		c.Assert(model.Refresh(), jc.ErrorIsNil)
 		c.Assert(model.Life(), gc.Equals, state.Dying)
 
-		err := app.Destroy(state.NewObjectStore(c, s.State))
+		err := app.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 		c.Assert(err, jc.ErrorIsNil)
 
 		c.Check(model.UniqueIndexExists(), jc.IsTrue)
@@ -1266,7 +1266,7 @@ func (s *ModelSuite) TestProcessDyingModelWithMachinesAndApplicationsNoOp(c *gc.
 			Channel: "12.10/stable",
 		}},
 	}
-	_, err = st.AddApplication(args, mockApplicationSaver{}, state.NewObjectStore(c, st))
+	_, err = st.AddApplication(args, mockApplicationSaver{}, state.NewObjectStore(c, st.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	assertModel := func(life state.Life, expectedMachines, expectedApplications int) {
@@ -1337,7 +1337,7 @@ func (s *ModelSuite) TestProcessDyingModelWithVolumeBackedFilesystems(c *gc.C) {
 	err = sb.RemoveVolumeAttachment(machine.MachineTag(), names.NewVolumeTag("0"), false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machine.EnsureDead(), jc.ErrorIsNil)
-	c.Assert(machine.Remove(state.NewObjectStore(c, s.State)), jc.ErrorIsNil)
+	c.Assert(machine.Remove(state.NewObjectStore(c, s.State.ModelUUID())), jc.ErrorIsNil)
 
 	// The filesystem will be gone, but the volume is persistent and should
 	// not have been removed.
@@ -1385,7 +1385,7 @@ func (s *ModelSuite) TestProcessDyingModelWithVolumes(c *gc.C) {
 	err = sb.RemoveVolumeAttachment(machine.MachineTag(), volumeTag, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machine.EnsureDead(), jc.ErrorIsNil)
-	c.Assert(machine.Remove(state.NewObjectStore(c, s.State)), jc.ErrorIsNil)
+	c.Assert(machine.Remove(state.NewObjectStore(c, s.State.ModelUUID())), jc.ErrorIsNil)
 
 	// The volume is persistent and should not have been removed along with
 	// the machine it was attached to.
@@ -1684,14 +1684,14 @@ func (s *ModelSuite) TestDestroyForceWorksWhenRemoteRelationScopesAreStuck(c *gc
 	c.Assert(err, jc.ErrorIsNil)
 	assertLife(c, remoteApp, state.Dying)
 
-	err = wordpress.Destroy(state.NewObjectStore(c, s.State))
+	err = wordpress.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = localRelUnit.LeaveScope()
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = unit.Remove(state.NewObjectStore(c, s.State))
+	err = unit.Remove(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Cleanups
@@ -1811,7 +1811,7 @@ func (s *ModelCloudValidationSuite) initializeState(
 }
 
 func assertCleanupRuns(c *gc.C, st *state.State) {
-	err := st.Cleanup(context.Background(), state.NewObjectStore(c, st), fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{})
+	err := st.Cleanup(context.Background(), state.NewObjectStore(c, st.ModelUUID()), fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1869,6 +1869,6 @@ func assertAllMachinesDeadAndRemove(c *gc.C, st *state.State) {
 		}
 
 		c.Assert(m.Life(), gc.Equals, state.Dead)
-		c.Assert(m.Remove(state.NewObjectStore(c, st)), jc.ErrorIsNil)
+		c.Assert(m.Remove(state.NewObjectStore(c, st.ModelUUID())), jc.ErrorIsNil)
 	}
 }

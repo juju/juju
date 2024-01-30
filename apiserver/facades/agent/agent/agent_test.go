@@ -74,7 +74,7 @@ func (s *agentSuite) SetUpTest(c *gc.C) {
 		Tag: s.machine1.Tag(),
 	}
 
-	s.store = testing.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State())
+	s.store = testing.NewObjectStore(c, s.ControllerModelUUID())
 }
 
 func (s *agentSuite) agentAPI(c *gc.C, auth facade.Authorizer, credentialService common.CredentialService) (*agent.AgentAPI, error) {
@@ -170,14 +170,14 @@ func (s *agentSuite) TestGetEntitiesNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.container.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.container.Remove(testing.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State()))
+	err = s.container.Remove(testing.NewObjectStore(c, s.ControllerModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.machine1.Destroy(s.store)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.machine1.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.machine1.Remove(testing.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State()))
+	err = s.machine1.Remove(testing.NewObjectStore(c, s.ControllerModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	api, err := s.agentAPI(c, s.authorizer, nil)

@@ -820,7 +820,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 		objectStoreName: ifController(objectstore.Manifold(objectstore.ManifoldConfig{
 			AgentName:                  agentName,
-			StateName:                  stateName,
 			TraceName:                  traceName,
 			ServiceFactoryName:         serviceFactoryName,
 			LeaseManagerName:           leaseManagerName,

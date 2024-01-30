@@ -82,7 +82,7 @@ func (s *upgraderSuite) SetUpTest(c *gc.C) {
 
 	serviceFactory := s.ControllerServiceFactory(c)
 
-	s.store = jujutesting.NewObjectStore(c, s.ControllerModelUUID(), systemState)
+	s.store = jujutesting.NewObjectStore(c, s.ControllerModelUUID())
 
 	s.upgrader, err = upgrader.NewUpgraderAPI(
 		s.controllerConfigGetter, systemState, s.hosted, s.resources, s.authorizer,

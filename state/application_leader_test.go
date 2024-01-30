@@ -211,7 +211,7 @@ func (s *ApplicationLeaderSuite) preventRemove(c *gc.C) {
 func (s *ApplicationLeaderSuite) destroyApplication(c *gc.C) {
 	killApplication, err := s.State.Application(s.application.Name())
 	c.Assert(err, jc.ErrorIsNil)
-	err = killApplication.Destroy(state.NewObjectStore(c, s.State))
+	err = killApplication.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 }
 

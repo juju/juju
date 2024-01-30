@@ -40,10 +40,11 @@ import (
 	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/internal/mongo/utils"
 	internalobjectstore "github.com/juju/juju/internal/objectstore"
+	objectstoretesting "github.com/juju/juju/internal/objectstore/testing"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testcharms/repo"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/testing"
 )
 
 const (
@@ -388,7 +389,7 @@ func addTestingApplication(c *gc.C, params addTestingApplicationParams) *Applica
 		Storage:          params.storage,
 		Devices:          params.devices,
 		NumUnits:         params.numUnits,
-	}, mockApplicationSaver{}, NewObjectStore(c, params.st))
+	}, mockApplicationSaver{}, NewObjectStore(c, params.st.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	return app
 }
@@ -590,7 +591,7 @@ func (m *Model) SetDead() error {
 	ops := []txn.Op{{
 		C:      modelsC,
 		Id:     m.doc.UUID,
-		Update: bson.D{{"$set", bson.D{{"life", Dead}}}},
+		Update: bson.D{{Name: "$set", Value: bson.D{{Name: "life", Value: Dead}}}},
 	}, {
 		C:      usermodelnameC,
 		Id:     m.uniqueIndexID(),
@@ -931,14 +932,14 @@ func GetInternalWorkers(st *State) worker.Worker {
 // ResourceStoragePath returns the path used to store resource content
 // in the managed blob store, given the resource ID.
 func ResourceStoragePath(c *gc.C, st *State, id string) string {
-	p := st.Resources(NewObjectStore(c, st)).(*resourcePersistence)
+	p := st.Resources(NewObjectStore(c, st.ModelUUID())).(*resourcePersistence)
 	_, storagePath, err := p.getResource(id)
 	c.Assert(err, jc.ErrorIsNil)
 	return storagePath
 }
 
 func StagedResourceForTest(c *gc.C, st *State, res resources.Resource) *StagedResource {
-	persist := st.Resources(NewObjectStore(c, st)).(*resourcePersistence)
+	persist := st.Resources(NewObjectStore(c, st.ModelUUID())).(*resourcePersistence)
 	storagePath := storagePath(res.Name, res.ApplicationID, res.PendingID)
 	r, err := persist.stageResource(res, storagePath)
 	c.Assert(err, jc.ErrorIsNil)
@@ -948,7 +949,7 @@ func StagedResourceForTest(c *gc.C, st *State, res resources.Resource) *StagedRe
 // IsBlobStored returns true if a given storage path is in used in the
 // managed blob store.
 func IsBlobStored(c *gc.C, st *State, storagePath string) bool {
-	stor := NewObjectStore(c, st)
+	stor := NewObjectStore(c, st.ModelUUID())
 	r, _, err := stor.Get(context.Background(), storagePath)
 	if err != nil {
 		if errors.Is(err, errors.NotFound) {
@@ -1233,9 +1234,17 @@ func (m *Model) AllActionIDsHasActionNotifications() ([]string, error) {
 	return actionIDs, nil
 }
 
-func NewObjectStore(c *gc.C, st *State) objectstore.ObjectStore {
+// NewObjectStore returns an in-memory object store for testing.
+func NewObjectStore(c *gc.C, namespace string) objectstore.ObjectStore {
 	// This will be removed when the worker object store is enabled by default.
-	store, err := internalobjectstore.NewStateObjectStore(context.Background(), st.ModelUUID(), st, coretesting.NewCheckLogger(c))
+	store, err := internalobjectstore.NewFileObjectStore(context.Background(), internalobjectstore.FileObjectStoreConfig{
+		Namespace:       namespace,
+		RootDir:         c.MkDir(),
+		MetadataService: objectstoretesting.MemoryObjectStore(),
+		Claimer:         objectstoretesting.MemoryClaimer(),
+		Logger:          testing.NewCheckLogger(c),
+		Clock:           clock.WallClock,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	return store
 }

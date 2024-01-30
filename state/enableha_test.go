@@ -351,7 +351,7 @@ func (s *EnableHASuite) progressControllerToDead(c *gc.C, id string) {
 		}
 		err = u.EnsureDead()
 		c.Assert(err, jc.ErrorIsNil)
-		err = u.Remove(state.NewObjectStore(c, s.State))
+		err = u.Remove(state.NewObjectStore(c, s.State.ModelUUID()))
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	m, err := s.State.Machine(id)
@@ -368,7 +368,7 @@ func (s *EnableHASuite) progressControllerToDead(c *gc.C, id string) {
 	// TODO(HA) - no longer need to refresh once HasVote is moved off machine
 	c.Assert(node.Refresh(), jc.ErrorIsNil)
 	c.Assert(s.State.RemoveControllerReference(node), jc.ErrorIsNil)
-	c.Assert(s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State), fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{}), jc.ErrorIsNil)
+	c.Assert(s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State.ModelUUID()), fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{}), jc.ErrorIsNil)
 	c.Assert(m.EnsureDead(), jc.ErrorIsNil)
 }
 

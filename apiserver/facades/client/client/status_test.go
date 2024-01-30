@@ -520,7 +520,7 @@ func (s *statusUnitTestSuite) TestPrincipalUpgradingFrom(c *gc.C) {
 	err = app.SetCharm(state.SetCharmConfig{
 		Charm:       meteredCharmNew,
 		CharmOrigin: defaultCharmOrigin(meteredCharmNew.URL()),
-	}, testing.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State()))
+	}, testing.NewObjectStore(c, s.ControllerModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	status, err = client.Status(nil)
@@ -614,7 +614,7 @@ func (s *statusUnitTestSuite) TestSubordinateUpgradingFrom(c *gc.C) {
 	err = subordApp.SetCharm(state.SetCharmConfig{
 		Charm:       subordCharmNew,
 		CharmOrigin: defaultCharmOrigin(subordCharmNew.URL()),
-	}, testing.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State()))
+	}, testing.NewObjectStore(c, s.ControllerModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	status, err = client.Status(nil)
@@ -1029,7 +1029,7 @@ func (s *statusUpgradeUnitSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.charmrevisionupdater, err = charmrevisionupdater.NewCharmRevisionUpdaterAPIState(
 		state,
-		testing.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State()),
+		testing.NewObjectStore(c, s.ControllerModelUUID()),
 		clock.WallClock,
 		newCharmhubClient, loggo.GetLogger("juju.apiserver.charmrevisionupdater"))
 	c.Assert(err, jc.ErrorIsNil)
@@ -1096,7 +1096,7 @@ func (s *statusUpgradeUnitSuite) AddApplication(c *gc.C, charmName, applicationN
 				Risk:  "stable",
 			},
 		},
-	}, mockApplicationSaver{}, testing.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State()))
+	}, mockApplicationSaver{}, testing.NewObjectStore(c, s.ControllerModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 }
 

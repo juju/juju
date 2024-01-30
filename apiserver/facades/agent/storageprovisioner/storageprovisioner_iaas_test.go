@@ -57,7 +57,7 @@ func (s *iaasProvisionerSuite) SetUpTest(c *gc.C) {
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
 	s.api = s.newApi(c, s.DefaultModelServiceFactory(c).BlockDevice(), nil)
-	s.store = jujutesting.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State())
+	s.store = jujutesting.NewObjectStore(c, s.ControllerModelUUID())
 }
 
 func (s *iaasProvisionerSuite) newApi(c *gc.C, blockDeviceService storageprovisioner.BlockDeviceService, watcherRegistry facade.WatcherRegistry) *storageprovisioner.StorageProvisionerAPIv4 {

@@ -683,7 +683,7 @@ func (s *Suite) mustNewAPIWithModel(c *gc.C, env environs.Environ, broker caas.B
 }
 
 func (s *Suite) makeExportedModel(c *gc.C) (string, []byte) {
-	model, err := s.State.Export(s.leaders, jujujujutesting.NewObjectStore(c, s.State.ModelUUID(), s.State))
+	model, err := s.State.Export(s.leaders, jujujujutesting.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	newUUID := utils.MustNewUUID().String()

@@ -151,7 +151,7 @@ func (s *LifeSuite) prepareFixture(living state.Living, lfix lifeFixture, cached
 }
 
 func (s *LifeSuite) TestLifecycleStateChanges(c *gc.C) {
-	store := state.NewObjectStore(c, s.State)
+	store := state.NewObjectStore(c, s.State.ModelUUID())
 	for i, lfix := range []lifeFixture{&unitLife{st: s.State}, &machineLife{st: s.State}} {
 		c.Logf("fixture %d", i)
 		for j, v := range stateChanges {

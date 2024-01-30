@@ -70,7 +70,7 @@ func (s *MachineSuite) TestDoesNotCreateUpgradeSeriesLockOnDyingMachine(c *gc.C)
 	mach, err := s.State.AddMachine(state.UbuntuBase("12.04"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = mach.Destroy(state.NewObjectStore(c, s.State))
+	err = mach.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = mach.CreateUpgradeSeriesLock([]string{""}, state.UbuntuBase("16.04"))
@@ -142,7 +142,7 @@ func (s *MachineSuite) TestForceMarksSeriesLockUnlocksMachineForCleanup(c *gc.C)
 	// After a forced destroy an upgrade series lock on a machine should be
 	// marked for cleanup and therefore should be cleaned up if anything
 	// should trigger a state cleanup.
-	s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State), fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{})
+	s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State.ModelUUID()), fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{})
 
 	// The machine, since it was destroyed, its lock should have been
 	// cleaned up. Checking to see if the machine is not locked, that is,
