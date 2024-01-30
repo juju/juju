@@ -4,6 +4,7 @@
 package apicaller_test
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/names/v5"
@@ -128,7 +129,7 @@ type mockConnFacade struct {
 	life apiagent.Life
 }
 
-func (mock *mockConnFacade) Life(entity names.Tag) (apiagent.Life, error) {
+func (mock *mockConnFacade) Life(_ context.Context, entity names.Tag) (apiagent.Life, error) {
 	mock.stub.AddCall("Life", entity)
 	if err := mock.stub.NextErr(); err != nil {
 		return "", err
@@ -136,7 +137,7 @@ func (mock *mockConnFacade) Life(entity names.Tag) (apiagent.Life, error) {
 	return mock.life, nil
 }
 
-func (mock *mockConnFacade) SetPassword(entity names.Tag, password string) error {
+func (mock *mockConnFacade) SetPassword(_ context.Context, entity names.Tag, password string) error {
 	mock.stub.AddCall("SetPassword", entity, password)
 	return mock.stub.NextErr()
 }

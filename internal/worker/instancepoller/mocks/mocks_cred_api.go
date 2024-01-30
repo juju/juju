@@ -10,6 +10,7 @@
 package mocks
 
 import (
+	context "context"
 	reflect "reflect"
 
 	gomock "go.uber.org/mock/gomock"
@@ -39,15 +40,15 @@ func (m *MockCredentialAPI) EXPECT() *MockCredentialAPIMockRecorder {
 }
 
 // InvalidateModelCredential mocks base method.
-func (m *MockCredentialAPI) InvalidateModelCredential(arg0 string) error {
+func (m *MockCredentialAPI) InvalidateModelCredential(arg0 context.Context, arg1 string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "InvalidateModelCredential", arg0)
+	ret := m.ctrl.Call(m, "InvalidateModelCredential", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // InvalidateModelCredential indicates an expected call of InvalidateModelCredential.
-func (mr *MockCredentialAPIMockRecorder) InvalidateModelCredential(arg0 any) *gomock.Call {
+func (mr *MockCredentialAPIMockRecorder) InvalidateModelCredential(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InvalidateModelCredential", reflect.TypeOf((*MockCredentialAPI)(nil).InvalidateModelCredential), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InvalidateModelCredential", reflect.TypeOf((*MockCredentialAPI)(nil).InvalidateModelCredential), arg0, arg1)
 }

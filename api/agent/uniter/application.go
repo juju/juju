@@ -54,8 +54,8 @@ func (s *Application) Life() life.Value {
 
 // Refresh refreshes the contents of the application from the underlying
 // state.
-func (s *Application) Refresh() error {
-	life, err := s.client.life(s.tag)
+func (s *Application) Refresh(ctx context.Context) error {
+	life, err := s.client.life(ctx, s.tag)
 	if err != nil {
 		return err
 	}

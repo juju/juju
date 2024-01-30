@@ -154,10 +154,10 @@ func (s *triggerSecretsSuite) TestRotateCommit(c *gc.C) {
 		Kind:      hooks.SecretRotate,
 		SecretURI: uri.String(),
 	}
-	s.mockCallbacks.EXPECT().PrepareHook(hi).Return("", nil)
-	s.mockFactory.EXPECT().NewHookRunner(hi).Return(s.mockRunner, nil)
+	s.mockCallbacks.EXPECT().PrepareHook(gomock.Any(), hi).Return("", nil)
+	s.mockFactory.EXPECT().NewHookRunner(gomock.Any(), hi).Return(s.mockRunner, nil)
 	s.mockRunner.EXPECT().Context().Return(s.mockContext).AnyTimes()
-	s.mockContext.EXPECT().Prepare().Return(nil)
+	s.mockContext.EXPECT().Prepare(context.Background()).Return(nil)
 	s.mockContext.EXPECT().SecretMetadata().Return(map[string]jujuc.SecretMetadata{
 		uri.ID: {
 			LatestRevision: 666,
@@ -166,7 +166,7 @@ func (s *triggerSecretsSuite) TestRotateCommit(c *gc.C) {
 	_, err = op.Prepare(context.Background(), operation.State{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.mockCallbacks.EXPECT().CommitHook(hi).Return(nil)
+	s.mockCallbacks.EXPECT().CommitHook(gomock.Any(), hi).Return(nil)
 	s.mockCallbacks.EXPECT().SetSecretRotated(uri.String(), 666).Return(nil)
 
 	_, err = op.Commit(context.Background(), operation.State{})
@@ -214,14 +214,14 @@ func (s *triggerSecretsSuite) TestExpireCommit(c *gc.C) {
 		SecretURI:      uri.String(),
 		SecretRevision: 666,
 	}
-	s.mockCallbacks.EXPECT().PrepareHook(hi).Return("", nil)
-	s.mockFactory.EXPECT().NewHookRunner(hi).Return(s.mockRunner, nil)
+	s.mockCallbacks.EXPECT().PrepareHook(gomock.Any(), hi).Return("", nil)
+	s.mockFactory.EXPECT().NewHookRunner(context.Background(), hi).Return(s.mockRunner, nil)
 	s.mockRunner.EXPECT().Context().Return(s.mockContext).AnyTimes()
-	s.mockContext.EXPECT().Prepare().Return(nil)
+	s.mockContext.EXPECT().Prepare(gomock.Any()).Return(nil)
 	_, err = op.Prepare(context.Background(), operation.State{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.mockCallbacks.EXPECT().CommitHook(hi).Return(nil)
+	s.mockCallbacks.EXPECT().CommitHook(context.Background(), hi).Return(nil)
 
 	_, err = op.Commit(context.Background(), operation.State{})
 	c.Assert(err, jc.ErrorIsNil)

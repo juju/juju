@@ -5,6 +5,7 @@ package runner
 
 import (
 	"bytes"
+	stdcontext "context"
 	"encoding/base64"
 	"fmt"
 	"io"
@@ -97,13 +98,13 @@ type Runner interface {
 	// RunHook executes the hook with the supplied name and returns back
 	// the type of script handling hook that was used or whether any errors
 	// occurred.
-	RunHook(name string) (HookHandlerType, error)
+	RunHook(ctx stdcontext.Context, name string) (HookHandlerType, error)
 
 	// RunAction executes the action with the supplied name.
-	RunAction(name string) (HookHandlerType, error)
+	RunAction(ctx stdcontext.Context, name string) (HookHandlerType, error)
 
 	// RunCommands executes the supplied script.
-	RunCommands(commands string, runLocation RunLocation) (*utilexec.ExecResponse, error)
+	RunCommands(ctx stdcontext.Context, commands string, runLocation RunLocation) (*utilexec.ExecResponse, error)
 }
 
 // NewRunnerFunc returns a func used to create a Runner backed by the supplied context and paths.
@@ -194,13 +195,13 @@ func (runner *runner) runLocationToMode(runLocation RunLocation) (runMode, error
 }
 
 // RunCommands exists to satisfy the Runner interface.
-func (runner *runner) RunCommands(commands string, runLocation RunLocation) (*utilexec.ExecResponse, error) {
+func (runner *runner) RunCommands(ctx stdcontext.Context, commands string, runLocation RunLocation) (*utilexec.ExecResponse, error) {
 	rMode, err := runner.runLocationToMode(runLocation)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	result, err := runner.runCommandsWithTimeout(commands, 0, clock.WallClock, rMode, nil)
-	return result, runner.context.Flush("run commands", err)
+	return result, runner.context.Flush(ctx, "run commands", err)
 }
 
 // runCommandsWithTimeout is a helper to abstract common code between run commands and
@@ -278,7 +279,7 @@ func (runner *runner) runCommandsWithTimeout(commands string, timeout time.Durat
 }
 
 // runJujuExecAction is the function that executes when a juju-exec action is ran.
-func (runner *runner) runJujuExecAction() (err error) {
+func (runner *runner) runJujuExecAction(ctx stdcontext.Context) (err error) {
 	logger := runner.logger()
 	logger.Debugf("juju-exec action is running")
 	data, err := runner.context.ActionData()
@@ -310,10 +311,10 @@ func (runner *runner) runJujuExecAction() (err error) {
 	results, err := runner.runCommandsWithTimeout(command, time.Duration(timeout), clock.WallClock, rMode, data.Cancel)
 	if results != nil {
 		if err := runner.updateActionResults(results); err != nil {
-			return runner.context.Flush("juju-exec", err)
+			return runner.context.Flush(ctx, "juju-exec", err)
 		}
 	}
-	return runner.context.Flush("juju-exec", err)
+	return runner.context.Flush(ctx, "juju-exec", err)
 }
 
 func encodeBytes(input []byte) (value string, encoding string) {
@@ -359,13 +360,13 @@ func (runner *runner) updateActionResults(results *utilexec.ExecResponse) error 
 }
 
 // RunAction exists to satisfy the Runner interface.
-func (runner *runner) RunAction(actionName string) (HookHandlerType, error) {
+func (runner *runner) RunAction(ctx stdcontext.Context, actionName string) (HookHandlerType, error) {
 	data, err := runner.context.ActionData()
 	if err != nil {
 		return InvalidHookHandler, errors.Trace(err)
 	}
 	if actions.IsJujuExecAction(actionName) {
-		return InvalidHookHandler, runner.runJujuExecAction()
+		return InvalidHookHandler, runner.runJujuExecAction(ctx)
 	}
 	runLocation := Operator
 	if workloadContext, ok := data.Params["workload-context"].(bool); !ok || workloadContext {
@@ -376,15 +377,15 @@ func (runner *runner) RunAction(actionName string) (HookHandlerType, error) {
 		return InvalidHookHandler, errors.Trace(err)
 	}
 	runner.logger().Debugf("running action %q on %v", actionName, rMode)
-	return runner.runCharmHookWithLocation(actionName, "actions", rMode)
+	return runner.runCharmHookWithLocation(ctx, actionName, "actions", rMode)
 }
 
 // RunHook exists to satisfy the Runner interface.
-func (runner *runner) RunHook(hookName string) (HookHandlerType, error) {
-	return runner.runCharmHookWithLocation(hookName, "hooks", runOnLocal)
+func (runner *runner) RunHook(ctx stdcontext.Context, hookName string) (HookHandlerType, error) {
+	return runner.runCharmHookWithLocation(ctx, hookName, "hooks", runOnLocal)
 }
 
-func (runner *runner) runCharmHookWithLocation(hookName, charmLocation string, rMode runMode) (hookHandlerType HookHandlerType, err error) {
+func (runner *runner) runCharmHookWithLocation(ctx stdcontext.Context, hookName, charmLocation string, rMode runMode) (hookHandlerType HookHandlerType, err error) {
 	token := ""
 	if rMode == runOnRemote {
 		token, err = utils.RandomPassword()
@@ -437,7 +438,7 @@ func (runner *runner) runCharmHookWithLocation(hookName, charmLocation string, r
 	env = append(env, "JUJU_DISPATCH_PATH="+charmLocation+"/"+hookName)
 
 	defer func() {
-		err = runner.context.Flush(hookName, err)
+		err = runner.context.Flush(ctx, hookName, err)
 	}()
 
 	logger := runner.logger()

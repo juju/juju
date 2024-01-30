@@ -124,7 +124,7 @@ func (*ManifoldSuite) TestStartNewWorkerError(c *gc.C) {
 	config.NewFacade = func(base.APICaller) (credentialvalidator.Facade, error) {
 		return expectFacade, nil
 	}
-	config.NewWorker = func(workerConfig credentialvalidator.Config) (worker.Worker, error) {
+	config.NewWorker = func(_ context.Context, workerConfig credentialvalidator.Config) (worker.Worker, error) {
 		c.Check(workerConfig.Facade, gc.Equals, expectFacade)
 		return nil, errors.New("snerk")
 	}
@@ -144,7 +144,7 @@ func (*ManifoldSuite) TestStartSuccess(c *gc.C) {
 	config.NewFacade = func(base.APICaller) (credentialvalidator.Facade, error) {
 		return &struct{ credentialvalidator.Facade }{}, nil
 	}
-	config.NewWorker = func(credentialvalidator.Config) (worker.Worker, error) {
+	config.NewWorker = func(context.Context, credentialvalidator.Config) (worker.Worker, error) {
 		return expectWorker, nil
 	}
 	manifold := credentialvalidator.Manifold(config)

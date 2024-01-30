@@ -10,6 +10,7 @@
 package mocks
 
 import (
+	context "context"
 	reflect "reflect"
 
 	instance "github.com/juju/juju/core/instance"
@@ -207,17 +208,17 @@ func (mr *MockMachineProvisionerMockRecorder) ModelAgentVersion() *gomock.Call {
 }
 
 // Refresh mocks base method.
-func (m *MockMachineProvisioner) Refresh() error {
+func (m *MockMachineProvisioner) Refresh(arg0 context.Context) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Refresh")
+	ret := m.ctrl.Call(m, "Refresh", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Refresh indicates an expected call of Refresh.
-func (mr *MockMachineProvisionerMockRecorder) Refresh() *gomock.Call {
+func (mr *MockMachineProvisionerMockRecorder) Refresh(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Refresh", reflect.TypeOf((*MockMachineProvisioner)(nil).Refresh))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Refresh", reflect.TypeOf((*MockMachineProvisioner)(nil).Refresh), arg0)
 }
 
 // Remove mocks base method.

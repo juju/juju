@@ -4,6 +4,7 @@
 package runner_test
 
 import (
+	stdcontext "context"
 	"fmt"
 	"os"
 	"path"
@@ -95,10 +96,10 @@ func (s *ContextSuite) setupUnit(ctrl *gomock.Controller) names.MachineTag {
 func (s *ContextSuite) setupUniter(ctrl *gomock.Controller) names.MachineTag {
 	machineTag := s.setupUnit(ctrl)
 	s.uniter = uniterapi.NewMockUniterClient(ctrl)
-	s.uniter.EXPECT().OpenedMachinePortRangesByEndpoint(machineTag).DoAndReturn(func(_ names.MachineTag) (map[names.UnitTag]network.GroupedPortRanges, error) {
+	s.uniter.EXPECT().OpenedMachinePortRangesByEndpoint(gomock.Any(), machineTag).DoAndReturn(func(_ stdcontext.Context, _ names.MachineTag) (map[names.UnitTag]network.GroupedPortRanges, error) {
 		return nil, nil
 	}).AnyTimes()
-	s.uniter.EXPECT().OpenedPortRangesByEndpoint().Return(nil, nil).AnyTimes()
+	s.uniter.EXPECT().OpenedPortRangesByEndpoint(gomock.Any()).Return(nil, nil).AnyTimes()
 	return machineTag
 }
 
@@ -106,15 +107,15 @@ func (s *ContextSuite) setupFactory(c *gc.C, ctrl *gomock.Controller) {
 	s.setupUniter(ctrl)
 
 	s.unit.EXPECT().PrincipalName().Return("", false, nil).AnyTimes()
-	s.uniter.EXPECT().Model().Return(&model.Model{
+	s.uniter.EXPECT().Model(stdcontext.Background()).Return(&model.Model{
 		Name:      "test-model",
 		UUID:      coretesting.ModelTag.Id(),
 		ModelType: model.IAAS,
 	}, nil).AnyTimes()
 	s.uniter.EXPECT().LeadershipSettings().Return(&stubLeadershipSettingsAccessor{}).AnyTimes()
 	s.uniter.EXPECT().APIAddresses().Return([]string{"10.6.6.6"}, nil).AnyTimes()
-	s.uniter.EXPECT().SLALevel().Return("essential", nil).AnyTimes()
-	s.uniter.EXPECT().CloudAPIVersion().Return("6.6.6", nil).AnyTimes()
+	s.uniter.EXPECT().SLALevel(gomock.Any()).Return("essential", nil).AnyTimes()
+	s.uniter.EXPECT().CloudAPIVersion(gomock.Any()).Return("6.6.6", nil).AnyTimes()
 
 	cfg := coretesting.ModelConfig(c)
 	s.uniter.EXPECT().ModelConfig(gomock.Any()).Return(cfg, nil).AnyTimes()
@@ -122,7 +123,7 @@ func (s *ContextSuite) setupFactory(c *gc.C, ctrl *gomock.Controller) {
 	s.payloads = mocks.NewMockPayloadAPIClient(ctrl)
 	s.payloads.EXPECT().List().Return(nil, nil).AnyTimes()
 
-	contextFactory, err := context.NewContextFactory(context.FactoryConfig{
+	contextFactory, err := context.NewContextFactory(stdcontext.Background(), context.FactoryConfig{
 		Uniter:           s.uniter,
 		Unit:             s.unit,
 		Tracker:          &runnertesting.FakeTracker{},
@@ -139,7 +140,7 @@ func (s *ContextSuite) setupFactory(c *gc.C, ctrl *gomock.Controller) {
 	s.paths = runnertesting.NewRealPaths(c)
 	s.membership = map[int][]string{}
 
-	s.contextFactory, err = context.NewContextFactory(context.FactoryConfig{
+	s.contextFactory, err = context.NewContextFactory(stdcontext.Background(), context.FactoryConfig{
 		Uniter:           s.uniter,
 		Unit:             s.unit,
 		Payloads:         s.payloads,

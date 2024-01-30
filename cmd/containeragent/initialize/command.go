@@ -60,7 +60,7 @@ type initCommand struct {
 
 // ApplicationAPI provides methods for unit introduction.
 type ApplicationAPI interface {
-	UnitIntroduction(podName string, podUUID string) (*caasapplication.UnitConfig, error)
+	UnitIntroduction(ctx context.Context, podName string, podUUID string) (*caasapplication.UnitConfig, error)
 	Close() error
 }
 
@@ -93,9 +93,9 @@ func (c *initCommand) Info() *cmd.Info {
 	})
 }
 
-func (c *initCommand) getApplicationAPI() (ApplicationAPI, error) {
+func (c *initCommand) getApplicationAPI(ctx context.Context) (ApplicationAPI, error) {
 	if c.applicationAPI == nil {
-		connection, err := apicaller.OnlyConnect(c, api.Open, loggo.GetLogger("juju.containeragent"))
+		connection, err := apicaller.OnlyConnect(ctx, c, api.Open, loggo.GetLogger("juju.containeragent"))
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -140,7 +140,7 @@ func (c *initCommand) Run(ctx *cmd.Context) (err error) {
 		return errors.Trace(err)
 	}
 
-	applicationAPI, err := c.getApplicationAPI()
+	applicationAPI, err := c.getApplicationAPI(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -154,7 +154,7 @@ func (c *initCommand) Run(ctx *cmd.Context) (err error) {
 	var unitConfig *caasapplication.UnitConfig
 	err = retry.Call(retry.CallArgs{
 		Func: func() error {
-			unitConfig, err = applicationAPI.UnitIntroduction(identity.PodName, identity.PodUUID)
+			unitConfig, err = applicationAPI.UnitIntroduction(ctx, identity.PodName, identity.PodUUID)
 			return errors.Trace(err)
 		},
 		IsFatalError: func(err error) bool {

@@ -4,6 +4,8 @@
 package jujuc_test
 
 import (
+	"context"
+
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
 	jc "github.com/juju/testing/checkers"
@@ -84,7 +86,7 @@ func (s *statusSetSuite) TestStatus(c *gc.C) {
 		c.Assert(code, gc.Equals, 0)
 		c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
 		c.Assert(bufferString(ctx.Stdout), gc.Equals, "")
-		status, err := hctx.UnitStatus()
+		status, err := hctx.UnitStatus(context.Background())
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(status.Status, gc.Equals, args[0])
 		c.Assert(status.Info, gc.Equals, args[1])
@@ -105,7 +107,7 @@ func (s *statusSetSuite) TestApplicationStatus(c *gc.C) {
 		c.Assert(code, gc.Equals, 0)
 		c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
 		c.Assert(bufferString(ctx.Stdout), gc.Equals, "")
-		status, err := hctx.ApplicationStatus()
+		status, err := hctx.ApplicationStatus(context.Background())
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(status.Application.Status, gc.Equals, args[1])
 		c.Assert(status.Application.Info, gc.Equals, args[2])

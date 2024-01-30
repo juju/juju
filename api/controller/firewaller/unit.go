@@ -36,8 +36,8 @@ func (u *Unit) Life() life.Value {
 }
 
 // Refresh updates the cached local copy of the unit's data.
-func (u *Unit) Refresh() error {
-	life, err := u.client.life(u.tag)
+func (u *Unit) Refresh(ctx context.Context) error {
+	life, err := u.client.life(ctx, u.tag)
 	if err != nil {
 		return err
 	}

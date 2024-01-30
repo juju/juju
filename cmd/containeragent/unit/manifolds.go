@@ -4,6 +4,7 @@
 package unit
 
 import (
+	"context"
 	"os"
 	"time"
 
@@ -75,7 +76,7 @@ type manifoldsConfig struct {
 	// ValidateMigration is called by the migrationminion during the
 	// migration process to check that the agent will be ok when
 	// connected to the new target controller.
-	ValidateMigration func(base.APICaller) error
+	ValidateMigration func(context.Context, base.APICaller) error
 
 	// PreviousAgentVersion passes through the version the unit
 	// agent was running before the current restart.

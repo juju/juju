@@ -10,6 +10,7 @@
 package api
 
 import (
+	context "context"
 	reflect "reflect"
 
 	charm "github.com/juju/charm/v12"
@@ -48,18 +49,18 @@ func (m *MockUnit) EXPECT() *MockUnitMockRecorder {
 }
 
 // Application mocks base method.
-func (m *MockUnit) Application() (Application, error) {
+func (m *MockUnit) Application(arg0 context.Context) (Application, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Application")
+	ret := m.ctrl.Call(m, "Application", arg0)
 	ret0, _ := ret[0].(Application)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Application indicates an expected call of Application.
-func (mr *MockUnitMockRecorder) Application() *gomock.Call {
+func (mr *MockUnitMockRecorder) Application(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Application", reflect.TypeOf((*MockUnit)(nil).Application))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Application", reflect.TypeOf((*MockUnit)(nil).Application), arg0)
 }
 
 // ApplicationName mocks base method.
@@ -399,17 +400,17 @@ func (mr *MockUnitMockRecorder) PublicAddress() *gomock.Call {
 }
 
 // Refresh mocks base method.
-func (m *MockUnit) Refresh() error {
+func (m *MockUnit) Refresh(arg0 context.Context) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Refresh")
+	ret := m.ctrl.Call(m, "Refresh", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Refresh indicates an expected call of Refresh.
-func (mr *MockUnitMockRecorder) Refresh() *gomock.Call {
+func (mr *MockUnitMockRecorder) Refresh(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Refresh", reflect.TypeOf((*MockUnit)(nil).Refresh))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Refresh", reflect.TypeOf((*MockUnit)(nil).Refresh), arg0)
 }
 
 // RelationsStatus mocks base method.
@@ -498,17 +499,17 @@ func (mr *MockUnitMockRecorder) SetState(arg0 any) *gomock.Call {
 }
 
 // SetUnitStatus mocks base method.
-func (m *MockUnit) SetUnitStatus(arg0 status.Status, arg1 string, arg2 map[string]any) error {
+func (m *MockUnit) SetUnitStatus(arg0 context.Context, arg1 status.Status, arg2 string, arg3 map[string]any) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetUnitStatus", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "SetUnitStatus", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SetUnitStatus indicates an expected call of SetUnitStatus.
-func (mr *MockUnitMockRecorder) SetUnitStatus(arg0, arg1, arg2 any) *gomock.Call {
+func (mr *MockUnitMockRecorder) SetUnitStatus(arg0, arg1, arg2, arg3 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetUnitStatus", reflect.TypeOf((*MockUnit)(nil).SetUnitStatus), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetUnitStatus", reflect.TypeOf((*MockUnit)(nil).SetUnitStatus), arg0, arg1, arg2, arg3)
 }
 
 // SetUpgradeSeriesStatus mocks base method.
@@ -555,18 +556,18 @@ func (mr *MockUnitMockRecorder) Tag() *gomock.Call {
 }
 
 // UnitStatus mocks base method.
-func (m *MockUnit) UnitStatus() (params.StatusResult, error) {
+func (m *MockUnit) UnitStatus(arg0 context.Context) (params.StatusResult, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UnitStatus")
+	ret := m.ctrl.Call(m, "UnitStatus", arg0)
 	ret0, _ := ret[0].(params.StatusResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // UnitStatus indicates an expected call of UnitStatus.
-func (mr *MockUnitMockRecorder) UnitStatus() *gomock.Call {
+func (mr *MockUnitMockRecorder) UnitStatus(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnitStatus", reflect.TypeOf((*MockUnit)(nil).UnitStatus))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnitStatus", reflect.TypeOf((*MockUnit)(nil).UnitStatus), arg0)
 }
 
 // UpgradeSeriesStatus mocks base method.
@@ -744,18 +745,18 @@ func (m *MockRelation) EXPECT() *MockRelationMockRecorder {
 }
 
 // Endpoint mocks base method.
-func (m *MockRelation) Endpoint() (*uniter.Endpoint, error) {
+func (m *MockRelation) Endpoint(arg0 context.Context) (*uniter.Endpoint, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Endpoint")
+	ret := m.ctrl.Call(m, "Endpoint", arg0)
 	ret0, _ := ret[0].(*uniter.Endpoint)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Endpoint indicates an expected call of Endpoint.
-func (mr *MockRelationMockRecorder) Endpoint() *gomock.Call {
+func (mr *MockRelationMockRecorder) Endpoint(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Endpoint", reflect.TypeOf((*MockRelation)(nil).Endpoint))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Endpoint", reflect.TypeOf((*MockRelation)(nil).Endpoint), arg0)
 }
 
 // Id mocks base method.
@@ -801,31 +802,31 @@ func (mr *MockRelationMockRecorder) OtherApplication() *gomock.Call {
 }
 
 // Refresh mocks base method.
-func (m *MockRelation) Refresh() error {
+func (m *MockRelation) Refresh(arg0 context.Context) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Refresh")
+	ret := m.ctrl.Call(m, "Refresh", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Refresh indicates an expected call of Refresh.
-func (mr *MockRelationMockRecorder) Refresh() *gomock.Call {
+func (mr *MockRelationMockRecorder) Refresh(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Refresh", reflect.TypeOf((*MockRelation)(nil).Refresh))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Refresh", reflect.TypeOf((*MockRelation)(nil).Refresh), arg0)
 }
 
 // SetStatus mocks base method.
-func (m *MockRelation) SetStatus(arg0 relation.Status) error {
+func (m *MockRelation) SetStatus(arg0 context.Context, arg1 relation.Status) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetStatus", arg0)
+	ret := m.ctrl.Call(m, "SetStatus", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SetStatus indicates an expected call of SetStatus.
-func (mr *MockRelationMockRecorder) SetStatus(arg0 any) *gomock.Call {
+func (mr *MockRelationMockRecorder) SetStatus(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetStatus", reflect.TypeOf((*MockRelation)(nil).SetStatus), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetStatus", reflect.TypeOf((*MockRelation)(nil).SetStatus), arg0, arg1)
 }
 
 // String mocks base method.
@@ -871,18 +872,18 @@ func (mr *MockRelationMockRecorder) Tag() *gomock.Call {
 }
 
 // Unit mocks base method.
-func (m *MockRelation) Unit(arg0 names.UnitTag) (RelationUnit, error) {
+func (m *MockRelation) Unit(arg0 context.Context, arg1 names.UnitTag) (RelationUnit, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Unit", arg0)
+	ret := m.ctrl.Call(m, "Unit", arg0, arg1)
 	ret0, _ := ret[0].(RelationUnit)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Unit indicates an expected call of Unit.
-func (mr *MockRelationMockRecorder) Unit(arg0 any) *gomock.Call {
+func (mr *MockRelationMockRecorder) Unit(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Unit", reflect.TypeOf((*MockRelation)(nil).Unit), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Unit", reflect.TypeOf((*MockRelation)(nil).Unit), arg0, arg1)
 }
 
 // UpdateSuspended mocks base method.
@@ -1090,17 +1091,17 @@ func (mr *MockApplicationMockRecorder) Life() *gomock.Call {
 }
 
 // Refresh mocks base method.
-func (m *MockApplication) Refresh() error {
+func (m *MockApplication) Refresh(arg0 context.Context) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Refresh")
+	ret := m.ctrl.Call(m, "Refresh", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Refresh indicates an expected call of Refresh.
-func (mr *MockApplicationMockRecorder) Refresh() *gomock.Call {
+func (mr *MockApplicationMockRecorder) Refresh(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Refresh", reflect.TypeOf((*MockApplication)(nil).Refresh))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Refresh", reflect.TypeOf((*MockApplication)(nil).Refresh), arg0)
 }
 
 // SetStatus mocks base method.

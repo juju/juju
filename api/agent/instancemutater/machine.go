@@ -25,16 +25,16 @@ import (
 type MutaterMachine interface {
 
 	// InstanceId returns the provider specific instance id for this machine
-	InstanceId() (string, error)
+	InstanceId(context.Context) (string, error)
 
 	// CharmProfilingInfo returns info to update lxd profiles on the machine
-	CharmProfilingInfo() (*UnitProfileInfo, error)
+	CharmProfilingInfo(context.Context) (*UnitProfileInfo, error)
 
 	// ContainerType returns the container type for this machine.
-	ContainerType() (instance.ContainerType, error)
+	ContainerType(context.Context) (instance.ContainerType, error)
 
 	// SetCharmProfiles records the given slice of charm profile names.
-	SetCharmProfiles([]string) error
+	SetCharmProfiles(context.Context, []string) error
 
 	// Tag returns the current machine tag
 	Tag() names.MachineTag
@@ -43,26 +43,26 @@ type MutaterMachine interface {
 	Life() life.Value
 
 	// Refresh updates the cached local copy of the machine's data.
-	Refresh() error
+	Refresh(context.Context) error
 
 	// WatchUnits returns a watcher.StringsWatcher for watching units of a given
 	// machine.
-	WatchUnits() (watcher.StringsWatcher, error)
+	WatchUnits(context.Context) (watcher.StringsWatcher, error)
 
 	// WatchLXDProfileVerificationNeeded returns a NotifyWatcher, notifies when the
 	// following changes happen:
 	//  - application charm URL changes and there is a lxd profile
 	//  - unit is add or removed and there is a lxd profile
-	WatchLXDProfileVerificationNeeded() (watcher.NotifyWatcher, error)
+	WatchLXDProfileVerificationNeeded(context.Context) (watcher.NotifyWatcher, error)
 
 	// WatchContainers returns a watcher.StringsWatcher for watching
 	// containers of a given machine.
-	WatchContainers() (watcher.StringsWatcher, error)
+	WatchContainers(ctx context.Context) (watcher.StringsWatcher, error)
 
 	// SetModificationStatus sets the provider specific modification status
 	// for a machine. Allowing the propagation of status messages to the
 	// operator.
-	SetModificationStatus(status status.Status, info string, data map[string]interface{}) error
+	SetModificationStatus(ctx context.Context, status status.Status, info string, data map[string]interface{}) error
 }
 
 // Machine represents a juju machine as seen by an instancemutater
@@ -75,10 +75,10 @@ type Machine struct {
 }
 
 // ContainerType implements MutaterMachine.ContainerType.
-func (m *Machine) ContainerType() (instance.ContainerType, error) {
+func (m *Machine) ContainerType(ctx context.Context) (instance.ContainerType, error) {
 	var result params.ContainerTypeResult
 	args := params.Entity{Tag: m.tag.String()}
-	err := m.facade.FacadeCall(context.TODO(), "ContainerType", args, &result)
+	err := m.facade.FacadeCall(ctx, "ContainerType", args, &result)
 	if err != nil {
 		return "", err
 	}
@@ -89,12 +89,12 @@ func (m *Machine) ContainerType() (instance.ContainerType, error) {
 }
 
 // InstanceId implements MutaterMachine.InstanceId.
-func (m *Machine) InstanceId() (string, error) {
+func (m *Machine) InstanceId(ctx context.Context) (string, error) {
 	var results params.StringResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: m.tag.String()}},
 	}
-	err := m.facade.FacadeCall(context.TODO(), "InstanceId", args, &results)
+	err := m.facade.FacadeCall(ctx, "InstanceId", args, &results)
 	if err != nil {
 		return "", err
 	}
@@ -109,7 +109,7 @@ func (m *Machine) InstanceId() (string, error) {
 }
 
 // SetCharmProfiles implements MutaterMachine.SetCharmProfiles.
-func (m *Machine) SetCharmProfiles(profiles []string) error {
+func (m *Machine) SetCharmProfiles(ctx context.Context, profiles []string) error {
 	var results params.ErrorResults
 	args := params.SetProfileArgs{
 		Args: []params.SetProfileArg{
@@ -119,7 +119,7 @@ func (m *Machine) SetCharmProfiles(profiles []string) error {
 			},
 		},
 	}
-	err := m.facade.FacadeCall(context.TODO(), "SetCharmProfiles", args, &results)
+	err := m.facade.FacadeCall(ctx, "SetCharmProfiles", args, &results)
 	if err != nil {
 		return err
 	}
@@ -144,8 +144,8 @@ func (m *Machine) Life() life.Value {
 }
 
 // Refresh implements MutaterMachine.Refresh.
-func (m *Machine) Refresh() error {
-	life, err := common.OneLife(m.facade, m.tag)
+func (m *Machine) Refresh(ctx context.Context) error {
+	life, err := common.OneLife(ctx, m.facade, m.tag)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -154,12 +154,12 @@ func (m *Machine) Refresh() error {
 }
 
 // WatchUnits implements MutaterMachine.WatchUnits.
-func (m *Machine) WatchUnits() (watcher.StringsWatcher, error) {
+func (m *Machine) WatchUnits(ctx context.Context) (watcher.StringsWatcher, error) {
 	var results params.StringsWatchResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: m.tag.String()}},
 	}
-	err := m.facade.FacadeCall(context.TODO(), "WatchUnits", args, &results)
+	err := m.facade.FacadeCall(ctx, "WatchUnits", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -175,12 +175,12 @@ func (m *Machine) WatchUnits() (watcher.StringsWatcher, error) {
 }
 
 // WatchLXDProfileVerificationNeeded implements MutaterMachine.WatchLXDProfileVerificationNeeded.
-func (m *Machine) WatchLXDProfileVerificationNeeded() (watcher.NotifyWatcher, error) {
+func (m *Machine) WatchLXDProfileVerificationNeeded(ctx context.Context) (watcher.NotifyWatcher, error) {
 	var results params.NotifyWatchResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: m.tag.String()}},
 	}
-	err := m.facade.FacadeCall(context.TODO(), "WatchLXDProfileVerificationNeeded", args, &results)
+	err := m.facade.FacadeCall(ctx, "WatchLXDProfileVerificationNeeded", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -198,10 +198,10 @@ func (m *Machine) WatchLXDProfileVerificationNeeded() (watcher.NotifyWatcher, er
 }
 
 // WatchContainers returns a StringsWatcher reporting changes to containers.
-func (m *Machine) WatchContainers() (watcher.StringsWatcher, error) {
+func (m *Machine) WatchContainers(ctx context.Context) (watcher.StringsWatcher, error) {
 	var result params.StringsWatchResult
 	arg := params.Entity{Tag: m.tag.String()}
-	err := m.facade.FacadeCall(context.TODO(), "WatchContainers", arg, &result)
+	err := m.facade.FacadeCall(ctx, "WatchContainers", arg, &result)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -229,10 +229,10 @@ type UnitProfileChanges struct {
 }
 
 // CharmProfilingInfo implements MutaterMachine.CharmProfilingInfo.
-func (m *Machine) CharmProfilingInfo() (*UnitProfileInfo, error) {
+func (m *Machine) CharmProfilingInfo(ctx context.Context) (*UnitProfileInfo, error) {
 	var result params.CharmProfilingInfoResult
 	args := params.Entity{Tag: m.tag.String()}
-	err := m.facade.FacadeCall(context.TODO(), "CharmProfilingInfo", args, &result)
+	err := m.facade.FacadeCall(ctx, "CharmProfilingInfo", args, &result)
 	if err != nil {
 		return nil, err
 	}
@@ -268,14 +268,14 @@ func (m *Machine) CharmProfilingInfo() (*UnitProfileInfo, error) {
 }
 
 // SetModificationStatus implements MutaterMachine.SetModificationStatus.
-func (m *Machine) SetModificationStatus(status status.Status, info string, data map[string]interface{}) error {
+func (m *Machine) SetModificationStatus(ctx context.Context, status status.Status, info string, data map[string]interface{}) error {
 	var result params.ErrorResults
 	args := params.SetStatus{
 		Entities: []params.EntityStatusArgs{
 			{Tag: m.tag.String(), Status: status.String(), Info: info, Data: data},
 		},
 	}
-	err := m.facade.FacadeCall(context.TODO(), "SetModificationStatus", args, &result)
+	err := m.facade.FacadeCall(ctx, "SetModificationStatus", args, &result)
 	if err != nil {
 		return err
 	}

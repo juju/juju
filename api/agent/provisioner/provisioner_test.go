@@ -4,6 +4,8 @@
 package provisioner_test
 
 import (
+	"context"
+
 	"github.com/juju/names/v5"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -72,7 +74,7 @@ func (s *provisionerSuite) TestMachines(c *gc.C) {
 	s.expectCall(caller, "Life", args, results)
 
 	client := provisioner.NewClient(caller)
-	result, err := client.Machines(names.NewMachineTag("666"), names.NewMachineTag("42"))
+	result, err := client.Machines(context.Background(), names.NewMachineTag("666"), names.NewMachineTag("42"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.HasLen, 2)
 	c.Assert(result[1].Err.Message, gc.Equals, "FAIL")
@@ -295,7 +297,7 @@ func (s *provisionerSuite) setupMachines(c *gc.C, ctrl *gomock.Controller) (*moc
 	s.expectCall(caller, "Life", args, results)
 
 	client := provisioner.NewClient(caller)
-	result, err := client.Machines(names.NewMachineTag("666"))
+	result, err := client.Machines(context.Background(), names.NewMachineTag("666"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.HasLen, 1)
 	return caller, result[0].Machine
@@ -464,7 +466,7 @@ func (s *provisionerSuite) TestRefresh(c *gc.C) {
 		Results: []params.LifeResult{{Life: "dying"}},
 	}
 	s.expectCall(caller, "Life", args, results)
-	err := machine.Refresh()
+	err := machine.Refresh(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machine.Life(), gc.Equals, life.Dying)
 }

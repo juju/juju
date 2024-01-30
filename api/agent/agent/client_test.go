@@ -4,6 +4,7 @@
 package agent_test
 
 import (
+	"context"
 	stdtesting "testing"
 
 	"github.com/juju/names/v5"
@@ -51,7 +52,7 @@ func (s *clientSuite) TestStateServingInfo(c *gc.C) {
 	})
 	client, err := agent.NewClient(apiCaller)
 	c.Assert(err, jc.ErrorIsNil)
-	info, err := client.StateServingInfo()
+	info, err := client.StateServingInfo(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, controller.StateServingInfo{
 		APIPort:           666,
@@ -66,7 +67,7 @@ func (s *clientSuite) TestStateServingInfo(c *gc.C) {
 }
 
 func (s *clientSuite) TestIsControllerShortCircuits(c *gc.C) {
-	result, err := agent.IsController(nil, names.NewControllerAgentTag("0"))
+	result, err := agent.IsController(context.Background(), nil, names.NewControllerAgentTag("0"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.IsTrue)
 }
@@ -92,7 +93,7 @@ func (s *clientSuite) TestMachineEntity(c *gc.C) {
 	tag := names.NewMachineTag("42")
 	client, err := agent.NewClient(apiCaller)
 	c.Assert(err, jc.ErrorIsNil)
-	m, err := client.Entity(tag)
+	m, err := client.Entity(context.Background(), tag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.Tag(), gc.Equals, tag.String())
 	c.Assert(m.Life(), gc.Equals, life.Alive)

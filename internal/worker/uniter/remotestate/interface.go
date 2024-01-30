@@ -4,6 +4,7 @@
 package remotestate
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/names/v5"
@@ -35,11 +36,11 @@ type UpdateStatusTimerFunc func(duration time.Duration) Waiter
 
 type UniterClient interface {
 	Charm(url string) (api.Charm, error)
-	Relation(tag names.RelationTag) (api.Relation, error)
+	Relation(ctx context.Context, tag names.RelationTag) (api.Relation, error)
 	StorageAttachment(names.StorageTag, names.UnitTag) (params.StorageAttachment, error)
 	StorageAttachmentLife([]params.StorageAttachmentId) ([]params.LifeResult, error)
-	Unit(names.UnitTag) (api.Unit, error)
-	WatchRelationUnits(names.RelationTag, names.UnitTag) (watcher.RelationUnitsWatcher, error)
+	Unit(context.Context, names.UnitTag) (api.Unit, error)
+	WatchRelationUnits(context.Context, names.RelationTag, names.UnitTag) (watcher.RelationUnitsWatcher, error)
 	WatchStorageAttachment(names.StorageTag, names.UnitTag) (watcher.NotifyWatcher, error)
 	WatchUpdateStatusHookInterval() (watcher.NotifyWatcher, error)
 	UpdateStatusHookInterval() (time.Duration, error)

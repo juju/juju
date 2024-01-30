@@ -235,23 +235,23 @@ func (s *mutaterSuite) expectLXDProfileNames(profiles []string, err error) {
 
 func (s *mutaterSuite) expectRefreshLifeAliveStatusIdle() {
 	mExp := s.machine.EXPECT()
-	mExp.Refresh().Return(nil)
+	mExp.Refresh(gomock.Any()).Return(nil)
 	mExp.Life().Return(life.Alive)
-	mExp.SetModificationStatus(status.Idle, "", nil).Return(nil)
+	mExp.SetModificationStatus(gomock.Any(), status.Idle, "", nil).Return(nil)
 }
 
 func (s *mutaterSuite) expectRefreshLifeDead() {
 	mExp := s.machine.EXPECT()
-	mExp.Refresh().Return(nil)
+	mExp.Refresh(gomock.Any()).Return(nil)
 	mExp.Life().Return(life.Dead)
 }
 
 func (s *mutaterSuite) expectModificationStatusApplied() {
-	s.machine.EXPECT().SetModificationStatus(status.Applied, "", nil).Return(nil)
+	s.machine.EXPECT().SetModificationStatus(gomock.Any(), status.Applied, "", nil).Return(nil)
 }
 
 func (s *mutaterSuite) expectModificationStatusError() {
-	s.machine.EXPECT().SetModificationStatus(status.Error, gomock.Any(), gomock.Any()).Return(nil)
+	s.machine.EXPECT().SetModificationStatus(gomock.Any(), status.Error, gomock.Any(), gomock.Any()).Return(nil)
 }
 
 func (s *mutaterSuite) expectAssignLXDProfiles(profiles []string, err error) {
@@ -259,7 +259,7 @@ func (s *mutaterSuite) expectAssignLXDProfiles(profiles []string, err error) {
 }
 
 func (s *mutaterSuite) expectSetCharmProfiles(profiles []string) {
-	s.machine.EXPECT().SetCharmProfiles(profiles)
+	s.machine.EXPECT().SetCharmProfiles(gomock.Any(), profiles)
 }
 
 func (s *mutaterSuite) getRequiredLXDProfiles(modelName string) []string {

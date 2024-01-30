@@ -4,6 +4,7 @@
 package secrets
 
 import (
+	"context"
 	"reflect"
 	"sync"
 
@@ -124,7 +125,7 @@ func (s *Secrets) SecretObsoleteRevisions(uri string) []int {
 }
 
 // PrepareHook implements SecretStateTracker.
-func (s *Secrets) PrepareHook(hi hook.Info) error {
+func (s *Secrets) PrepareHook(_ context.Context, hi hook.Info) error {
 	if !hi.Kind.IsSecret() {
 		return errors.Errorf("not a secret hook: %#v", hi)
 	}
@@ -133,7 +134,7 @@ func (s *Secrets) PrepareHook(hi hook.Info) error {
 }
 
 // CommitHook implements SecretStateTracker.
-func (s *Secrets) CommitHook(hi hook.Info) error {
+func (s *Secrets) CommitHook(_ context.Context, hi hook.Info) error {
 	if !hi.Kind.IsSecret() {
 		return errors.Errorf("not a secret hook: %#v", hi)
 	}

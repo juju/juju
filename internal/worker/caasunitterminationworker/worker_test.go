@@ -4,6 +4,7 @@
 package caasunitterminationworker_test
 
 import (
+	"context"
 	"os"
 	"testing"
 
@@ -105,7 +106,7 @@ type mockState struct {
 	termination caasapplication.UnitTermination
 }
 
-func (s *mockState) UnitTerminating(tag names.UnitTag) (caasapplication.UnitTermination, error) {
+func (s *mockState) UnitTerminating(_ context.Context, tag names.UnitTag) (caasapplication.UnitTermination, error) {
 	s.MethodCall(s, "UnitTerminating", tag)
 	return s.termination, s.NextErr()
 }

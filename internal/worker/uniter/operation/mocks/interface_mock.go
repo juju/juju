@@ -183,18 +183,18 @@ func (mr *MockFactoryMockRecorder) NewAcceptLeadership() *gomock.Call {
 }
 
 // NewAction mocks base method.
-func (m *MockFactory) NewAction(arg0 string) (operation.Operation, error) {
+func (m *MockFactory) NewAction(arg0 context.Context, arg1 string) (operation.Operation, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NewAction", arg0)
+	ret := m.ctrl.Call(m, "NewAction", arg0, arg1)
 	ret0, _ := ret[0].(operation.Operation)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // NewAction indicates an expected call of NewAction.
-func (mr *MockFactoryMockRecorder) NewAction(arg0 any) *gomock.Call {
+func (mr *MockFactoryMockRecorder) NewAction(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewAction", reflect.TypeOf((*MockFactory)(nil).NewAction), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewAction", reflect.TypeOf((*MockFactory)(nil).NewAction), arg0, arg1)
 }
 
 // NewCommands mocks base method.
@@ -416,46 +416,46 @@ func (m *MockCallbacks) EXPECT() *MockCallbacksMockRecorder {
 }
 
 // ActionStatus mocks base method.
-func (m *MockCallbacks) ActionStatus(arg0 string) (string, error) {
+func (m *MockCallbacks) ActionStatus(arg0 context.Context, arg1 string) (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ActionStatus", arg0)
+	ret := m.ctrl.Call(m, "ActionStatus", arg0, arg1)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ActionStatus indicates an expected call of ActionStatus.
-func (mr *MockCallbacksMockRecorder) ActionStatus(arg0 any) *gomock.Call {
+func (mr *MockCallbacksMockRecorder) ActionStatus(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ActionStatus", reflect.TypeOf((*MockCallbacks)(nil).ActionStatus), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ActionStatus", reflect.TypeOf((*MockCallbacks)(nil).ActionStatus), arg0, arg1)
 }
 
 // CommitHook mocks base method.
-func (m *MockCallbacks) CommitHook(arg0 hook.Info) error {
+func (m *MockCallbacks) CommitHook(arg0 context.Context, arg1 hook.Info) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CommitHook", arg0)
+	ret := m.ctrl.Call(m, "CommitHook", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // CommitHook indicates an expected call of CommitHook.
-func (mr *MockCallbacksMockRecorder) CommitHook(arg0 any) *gomock.Call {
+func (mr *MockCallbacksMockRecorder) CommitHook(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CommitHook", reflect.TypeOf((*MockCallbacks)(nil).CommitHook), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CommitHook", reflect.TypeOf((*MockCallbacks)(nil).CommitHook), arg0, arg1)
 }
 
 // FailAction mocks base method.
-func (m *MockCallbacks) FailAction(arg0, arg1 string) error {
+func (m *MockCallbacks) FailAction(arg0 context.Context, arg1, arg2 string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "FailAction", arg0, arg1)
+	ret := m.ctrl.Call(m, "FailAction", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // FailAction indicates an expected call of FailAction.
-func (mr *MockCallbacksMockRecorder) FailAction(arg0, arg1 any) *gomock.Call {
+func (mr *MockCallbacksMockRecorder) FailAction(arg0, arg1, arg2 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FailAction", reflect.TypeOf((*MockCallbacks)(nil).FailAction), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FailAction", reflect.TypeOf((*MockCallbacks)(nil).FailAction), arg0, arg1, arg2)
 }
 
 // GetArchiveInfo mocks base method.
@@ -498,18 +498,18 @@ func (mr *MockCallbacksMockRecorder) NotifyHookFailed(arg0, arg1 any) *gomock.Ca
 }
 
 // PrepareHook mocks base method.
-func (m *MockCallbacks) PrepareHook(arg0 hook.Info) (string, error) {
+func (m *MockCallbacks) PrepareHook(arg0 context.Context, arg1 hook.Info) (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "PrepareHook", arg0)
+	ret := m.ctrl.Call(m, "PrepareHook", arg0, arg1)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // PrepareHook indicates an expected call of PrepareHook.
-func (mr *MockCallbacksMockRecorder) PrepareHook(arg0 any) *gomock.Call {
+func (mr *MockCallbacksMockRecorder) PrepareHook(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrepareHook", reflect.TypeOf((*MockCallbacks)(nil).PrepareHook), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrepareHook", reflect.TypeOf((*MockCallbacks)(nil).PrepareHook), arg0, arg1)
 }
 
 // RemoteInit mocks base method.

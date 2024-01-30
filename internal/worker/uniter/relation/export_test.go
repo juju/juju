@@ -4,6 +4,8 @@
 package relation
 
 import (
+	stdcontext "context"
+
 	"github.com/juju/loggo"
 
 	"github.com/juju/juju/internal/worker/uniter/api"
@@ -41,7 +43,7 @@ func NewStateTrackerForTest(cfg StateTrackerForTestConfig) (RelationStateTracker
 		newRelationer:   cfg.NewRelationerFunc,
 	}
 
-	return rst, rst.loadInitialState()
+	return rst, rst.loadInitialState(stdcontext.Background())
 }
 
 func NewStateTrackerForSyncScopesTest(cfg StateTrackerForTestConfig) (RelationStateTracker, error) {

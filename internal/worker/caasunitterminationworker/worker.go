@@ -4,6 +4,7 @@
 package caasunitterminationworker
 
 import (
+	"context"
 	"os"
 	"os/signal"
 	"syscall"
@@ -41,7 +42,7 @@ type Config struct {
 }
 
 type State interface {
-	UnitTerminating(tag names.UnitTag) (caasapplication.UnitTermination, error)
+	UnitTerminating(ctx context.Context, tag names.UnitTag) (caasapplication.UnitTermination, error)
 }
 
 type UnitTerminator interface {
@@ -80,7 +81,7 @@ func (w *terminationWorker) loop(c <-chan os.Signal) (err error) {
 	select {
 	case <-c:
 		w.logger.Infof("terminating due to SIGTERM")
-		term, err := w.state.UnitTerminating(w.agent.CurrentConfig().Tag().(names.UnitTag))
+		term, err := w.state.UnitTerminating(context.TODO(), w.agent.CurrentConfig().Tag().(names.UnitTag))
 		if err != nil {
 			w.logger.Errorf("error while terminating unit: %v", err)
 			return err

@@ -77,7 +77,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 			// If the machine needs Client, grab the state serving info
 			// over the API and write it to the agent configuration.
-			if controller, err := apiagent.IsController(apiCaller, tag); err != nil {
+			if controller, err := apiagent.IsController(ctx, apiCaller, tag); err != nil {
 				return nil, errors.Annotate(err, "checking controller status")
 			} else if !controller {
 				// Not a controller, nothing to do.
@@ -150,7 +150,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			configOpenTelemetrySampleRatio := controllerConfig.OpenTelemetrySampleRatio()
 			openTelemetrySampleRatioChanged := agentsOpenTelemetrySampleRatio != configOpenTelemetrySampleRatio
 
-			info, err := apiState.StateServingInfo()
+			info, err := apiState.StateServingInfo(ctx)
 			if err != nil {
 				return nil, errors.Annotate(err, "getting state serving info")
 			}

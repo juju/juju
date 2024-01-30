@@ -10,6 +10,7 @@
 package mocks
 
 import (
+	context "context"
 	reflect "reflect"
 
 	watcher "github.com/juju/juju/core/watcher"
@@ -43,18 +44,18 @@ func (m *MockMachiner) EXPECT() *MockMachinerMockRecorder {
 }
 
 // Machine mocks base method.
-func (m *MockMachiner) Machine(arg0 names.MachineTag) (stateconverter.Machine, error) {
+func (m *MockMachiner) Machine(arg0 context.Context, arg1 names.MachineTag) (stateconverter.Machine, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Machine", arg0)
+	ret := m.ctrl.Call(m, "Machine", arg0, arg1)
 	ret0, _ := ret[0].(stateconverter.Machine)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Machine indicates an expected call of Machine.
-func (mr *MockMachinerMockRecorder) Machine(arg0 any) *gomock.Call {
+func (mr *MockMachinerMockRecorder) Machine(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Machine", reflect.TypeOf((*MockMachiner)(nil).Machine), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Machine", reflect.TypeOf((*MockMachiner)(nil).Machine), arg0, arg1)
 }
 
 // MockMachine is a mock of Machine interface.

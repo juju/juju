@@ -33,9 +33,9 @@ type FirewallerAPI interface {
 	WatchModelFirewallRules() (watcher.NotifyWatcher, error)
 	ModelFirewallRules() (firewall.IngressRules, error)
 	ModelConfig(stdcontext.Context) (*config.Config, error)
-	Machine(tag names.MachineTag) (Machine, error)
-	Unit(tag names.UnitTag) (Unit, error)
-	Relation(tag names.RelationTag) (*firewaller.Relation, error)
+	Machine(ctx stdcontext.Context, tag names.MachineTag) (Machine, error)
+	Unit(ctx stdcontext.Context, tag names.UnitTag) (Unit, error)
+	Relation(ctx stdcontext.Context, tag names.RelationTag) (*firewaller.Relation, error)
 	WatchEgressAddressesForRelation(tag names.RelationTag) (watcher.StringsWatcher, error)
 	WatchIngressAddressesForRelation(tag names.RelationTag) (watcher.StringsWatcher, error)
 	ControllerAPIInfoForModel(modelUUID string) (*api.Info, error)
@@ -106,7 +106,7 @@ type Unit interface {
 	Name() string
 	Tag() names.UnitTag
 	Life() life.Value
-	Refresh() error
+	Refresh(ctx stdcontext.Context) error
 	Application() (Application, error)
 	AssignedMachine() (names.MachineTag, error)
 }

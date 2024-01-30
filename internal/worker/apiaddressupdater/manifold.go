@@ -4,6 +4,8 @@
 package apiaddressupdater
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"github.com/juju/worker/v4"
@@ -44,7 +46,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 // newWorker trivially wraps NewAPIAddressUpdater for use in a engine.AgentAPIManifold.
 // It's not tested at the moment, because the scaffolding necessary is too
 // unwieldy/distracting to introduce at this point.
-func (config ManifoldConfig) newWorker(a agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
+func (config ManifoldConfig) newWorker(_ context.Context, a agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
 	tag := a.CurrentConfig().Tag()
 
 	// TODO(fwereade): use appropriate facade!

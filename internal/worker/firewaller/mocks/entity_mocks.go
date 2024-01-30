@@ -10,6 +10,7 @@
 package mocks
 
 import (
+	context "context"
 	reflect "reflect"
 
 	instance "github.com/juju/juju/core/instance"
@@ -216,17 +217,17 @@ func (mr *MockUnitMockRecorder) Name() *gomock.Call {
 }
 
 // Refresh mocks base method.
-func (m *MockUnit) Refresh() error {
+func (m *MockUnit) Refresh(arg0 context.Context) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Refresh")
+	ret := m.ctrl.Call(m, "Refresh", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Refresh indicates an expected call of Refresh.
-func (mr *MockUnitMockRecorder) Refresh() *gomock.Call {
+func (mr *MockUnitMockRecorder) Refresh(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Refresh", reflect.TypeOf((*MockUnit)(nil).Refresh))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Refresh", reflect.TypeOf((*MockUnit)(nil).Refresh), arg0)
 }
 
 // Tag mocks base method.

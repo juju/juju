@@ -4,6 +4,7 @@
 package relation
 
 import (
+	"context"
 	"fmt"
 	"sync"
 
@@ -43,7 +44,7 @@ func (m *stateManager) Relation(id int) (*State, error) {
 // RemoveRelation removes the state for the given id from the
 // manager.  The change to the manager is only made when the
 // data is successfully saved.
-func (m *stateManager) RemoveRelation(id int, unitGetter UnitGetter, knownUnits map[string]bool) error {
+func (m *stateManager) RemoveRelation(ctx context.Context, id int, unitGetter UnitGetter, knownUnits map[string]bool) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	st, ok := m.relationState[id]
@@ -57,7 +58,7 @@ func (m *stateManager) RemoveRelation(id int, unitGetter UnitGetter, knownUnits 
 	for unitName := range st.Members {
 		unitExists, ok := knownUnits[unitName]
 		if !ok {
-			_, err := unitGetter.Unit(names.NewUnitTag(unitName))
+			_, err := unitGetter.Unit(ctx, names.NewUnitTag(unitName))
 			if err != nil && !params.IsCodeNotFoundOrCodeUnauthorized(err) {
 				return errors.Trace(err)
 			}

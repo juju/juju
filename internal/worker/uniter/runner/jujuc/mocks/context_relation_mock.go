@@ -10,6 +10,7 @@
 package mocks
 
 import (
+	context "context"
 	reflect "reflect"
 
 	life "github.com/juju/juju/core/life"
@@ -173,17 +174,17 @@ func (mr *MockContextRelationMockRecorder) RemoteApplicationName() *gomock.Call 
 }
 
 // SetStatus mocks base method.
-func (m *MockContextRelation) SetStatus(arg0 relation.Status) error {
+func (m *MockContextRelation) SetStatus(arg0 context.Context, arg1 relation.Status) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetStatus", arg0)
+	ret := m.ctrl.Call(m, "SetStatus", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SetStatus indicates an expected call of SetStatus.
-func (mr *MockContextRelationMockRecorder) SetStatus(arg0 any) *gomock.Call {
+func (mr *MockContextRelationMockRecorder) SetStatus(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetStatus", reflect.TypeOf((*MockContextRelation)(nil).SetStatus), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetStatus", reflect.TypeOf((*MockContextRelation)(nil).SetStatus), arg0, arg1)
 }
 
 // Settings mocks base method.

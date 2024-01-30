@@ -4,6 +4,7 @@
 package provisioner_test
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/errors"
@@ -56,7 +57,7 @@ func (s *kvmProvisionerSuite) newKvmProvisioner(c *gc.C, ctrl *gomock.Controller
 
 	s.containersCh = make(chan []string)
 	m0 := &testMachine{containersCh: s.containersCh}
-	s.machinesAPI.EXPECT().Machines(mTag).Return([]apiprovisioner.MachineResult{{
+	s.machinesAPI.EXPECT().Machines(gomock.Any(), mTag).Return([]apiprovisioner.MachineResult{{
 		Machine: m0,
 	}}, nil)
 
@@ -110,7 +111,7 @@ func (s *kvmProvisionerSuite) TestContainerStartedAndStopped(c *gc.C) {
 
 	c666 := &testMachine{id: "0/kvm/666"}
 	s.broker.EXPECT().AllRunningInstances(gomock.Any()).Return([]instances.Instance{&testInstance{id: "inst-666"}}, nil).Times(2)
-	s.machinesAPI.EXPECT().Machines(cTag).Return([]apiprovisioner.MachineResult{{
+	s.machinesAPI.EXPECT().Machines(gomock.Any(), cTag).Return([]apiprovisioner.MachineResult{{
 		Machine: c666,
 	}}, nil).Times(2)
 	s.machinesAPI.EXPECT().ProvisioningInfo([]names.MachineTag{cTag}).Return(params.ProvisioningInfoResults{
@@ -164,6 +165,6 @@ func (s *kvmProvisionerSuite) TestKVMProvisionerObservesConfigChangesWorkerCount
 
 type credentialAPIForTest struct{}
 
-func (*credentialAPIForTest) InvalidateModelCredential(reason string) error {
+func (*credentialAPIForTest) InvalidateModelCredential(_ context.Context, reason string) error {
 	return nil
 }

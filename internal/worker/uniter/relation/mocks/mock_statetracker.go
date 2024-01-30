@@ -10,13 +10,14 @@
 package mocks
 
 import (
+	context "context"
 	reflect "reflect"
 
 	life "github.com/juju/juju/core/life"
 	hook "github.com/juju/juju/internal/worker/uniter/hook"
 	relation "github.com/juju/juju/internal/worker/uniter/relation"
 	remotestate "github.com/juju/juju/internal/worker/uniter/remotestate"
-	context "github.com/juju/juju/internal/worker/uniter/runner/context"
+	context0 "github.com/juju/juju/internal/worker/uniter/runner/context"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -44,24 +45,24 @@ func (m *MockRelationStateTracker) EXPECT() *MockRelationStateTrackerMockRecorde
 }
 
 // CommitHook mocks base method.
-func (m *MockRelationStateTracker) CommitHook(arg0 hook.Info) error {
+func (m *MockRelationStateTracker) CommitHook(arg0 context.Context, arg1 hook.Info) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CommitHook", arg0)
+	ret := m.ctrl.Call(m, "CommitHook", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // CommitHook indicates an expected call of CommitHook.
-func (mr *MockRelationStateTrackerMockRecorder) CommitHook(arg0 any) *gomock.Call {
+func (mr *MockRelationStateTrackerMockRecorder) CommitHook(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CommitHook", reflect.TypeOf((*MockRelationStateTracker)(nil).CommitHook), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CommitHook", reflect.TypeOf((*MockRelationStateTracker)(nil).CommitHook), arg0, arg1)
 }
 
 // GetInfo mocks base method.
-func (m *MockRelationStateTracker) GetInfo() map[int]*context.RelationInfo {
+func (m *MockRelationStateTracker) GetInfo() map[int]*context0.RelationInfo {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetInfo")
-	ret0, _ := ret[0].(map[int]*context.RelationInfo)
+	ret0, _ := ret[0].(map[int]*context0.RelationInfo)
 	return ret0
 }
 
@@ -131,9 +132,9 @@ func (mr *MockRelationStateTrackerMockRecorder) IsPeerRelation(arg0 any) *gomock
 }
 
 // LocalUnitAndApplicationLife mocks base method.
-func (m *MockRelationStateTracker) LocalUnitAndApplicationLife() (life.Value, life.Value, error) {
+func (m *MockRelationStateTracker) LocalUnitAndApplicationLife(arg0 context.Context) (life.Value, life.Value, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "LocalUnitAndApplicationLife")
+	ret := m.ctrl.Call(m, "LocalUnitAndApplicationLife", arg0)
 	ret0, _ := ret[0].(life.Value)
 	ret1, _ := ret[1].(life.Value)
 	ret2, _ := ret[2].(error)
@@ -141,9 +142,9 @@ func (m *MockRelationStateTracker) LocalUnitAndApplicationLife() (life.Value, li
 }
 
 // LocalUnitAndApplicationLife indicates an expected call of LocalUnitAndApplicationLife.
-func (mr *MockRelationStateTrackerMockRecorder) LocalUnitAndApplicationLife() *gomock.Call {
+func (mr *MockRelationStateTrackerMockRecorder) LocalUnitAndApplicationLife(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LocalUnitAndApplicationLife", reflect.TypeOf((*MockRelationStateTracker)(nil).LocalUnitAndApplicationLife))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LocalUnitAndApplicationLife", reflect.TypeOf((*MockRelationStateTracker)(nil).LocalUnitAndApplicationLife), arg0)
 }
 
 // LocalUnitName mocks base method.
@@ -262,15 +263,15 @@ func (mr *MockRelationStateTrackerMockRecorder) StateFound(arg0 any) *gomock.Cal
 }
 
 // SynchronizeScopes mocks base method.
-func (m *MockRelationStateTracker) SynchronizeScopes(arg0 remotestate.Snapshot) error {
+func (m *MockRelationStateTracker) SynchronizeScopes(arg0 context.Context, arg1 remotestate.Snapshot) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SynchronizeScopes", arg0)
+	ret := m.ctrl.Call(m, "SynchronizeScopes", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SynchronizeScopes indicates an expected call of SynchronizeScopes.
-func (mr *MockRelationStateTrackerMockRecorder) SynchronizeScopes(arg0 any) *gomock.Call {
+func (mr *MockRelationStateTrackerMockRecorder) SynchronizeScopes(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SynchronizeScopes", reflect.TypeOf((*MockRelationStateTracker)(nil).SynchronizeScopes), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SynchronizeScopes", reflect.TypeOf((*MockRelationStateTracker)(nil).SynchronizeScopes), arg0, arg1)
 }

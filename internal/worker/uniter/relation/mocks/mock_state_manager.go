@@ -10,6 +10,7 @@
 package mocks
 
 import (
+	context "context"
 	reflect "reflect"
 
 	relation "github.com/juju/juju/internal/worker/uniter/relation"
@@ -83,17 +84,17 @@ func (mr *MockStateManagerMockRecorder) RelationFound(arg0 any) *gomock.Call {
 }
 
 // RemoveRelation mocks base method.
-func (m *MockStateManager) RemoveRelation(arg0 int, arg1 relation.UnitGetter, arg2 map[string]bool) error {
+func (m *MockStateManager) RemoveRelation(arg0 context.Context, arg1 int, arg2 relation.UnitGetter, arg3 map[string]bool) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RemoveRelation", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "RemoveRelation", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // RemoveRelation indicates an expected call of RemoveRelation.
-func (mr *MockStateManagerMockRecorder) RemoveRelation(arg0, arg1, arg2 any) *gomock.Call {
+func (mr *MockStateManagerMockRecorder) RemoveRelation(arg0, arg1, arg2, arg3 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveRelation", reflect.TypeOf((*MockStateManager)(nil).RemoveRelation), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveRelation", reflect.TypeOf((*MockStateManager)(nil).RemoveRelation), arg0, arg1, arg2, arg3)
 }
 
 // SetRelation mocks base method.

@@ -4,6 +4,7 @@
 package hostkeyreporter_test
 
 import (
+	"context"
 	"errors"
 
 	"github.com/juju/names/v5"
@@ -42,7 +43,7 @@ func (s *facadeSuite) TestReportKeys(c *gc.C) {
 	})
 	facade := hostkeyreporter.NewFacade(apiCaller)
 
-	err := facade.ReportKeys("42", []string{"rsa", "dsa"})
+	err := facade.ReportKeys(context.Background(), "42", []string{"rsa", "dsa"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	stub.CheckCalls(c, []testing.StubCall{{
@@ -65,7 +66,7 @@ func (s *facadeSuite) TestCallError(c *gc.C) {
 	})
 	facade := hostkeyreporter.NewFacade(apiCaller)
 
-	err := facade.ReportKeys("42", []string{"rsa", "dsa"})
+	err := facade.ReportKeys(context.Background(), "42", []string{"rsa", "dsa"})
 	c.Assert(err, gc.ErrorMatches, "blam")
 }
 
@@ -84,6 +85,6 @@ func (s *facadeSuite) TestInnerError(c *gc.C) {
 	})
 	facade := hostkeyreporter.NewFacade(apiCaller)
 
-	err := facade.ReportKeys("42", []string{"rsa", "dsa"})
+	err := facade.ReportKeys(context.Background(), "42", []string{"rsa", "dsa"})
 	c.Assert(err, gc.ErrorMatches, "blam")
 }

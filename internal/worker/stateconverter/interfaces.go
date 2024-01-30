@@ -4,6 +4,8 @@
 package stateconverter
 
 import (
+	"context"
+
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/core/watcher"
@@ -20,7 +22,7 @@ type Logger interface {
 // Machiner represents necessary methods for this worker from the
 // machiner api.
 type Machiner interface {
-	Machine(tag names.MachineTag) (Machine, error)
+	Machine(ctx context.Context, tag names.MachineTag) (Machine, error)
 }
 
 // Machine represents necessary methods for this worker from the

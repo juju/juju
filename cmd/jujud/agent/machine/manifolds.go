@@ -169,7 +169,7 @@ type ManifoldsConfig struct {
 
 	// MachineStartup is passed to the machine manifold. It does
 	// machine setup work which relies on an API connection.
-	MachineStartup func(api.Connection, Logger) error
+	MachineStartup func(context.Context, api.Connection, Logger) error
 
 	// PreUpgradeSteps is a function that is used by the upgradesteps
 	// worker to ensure that conditions are OK for an upgrade to
@@ -194,7 +194,7 @@ type ManifoldsConfig struct {
 	// ValidateMigration is called by the migrationminion during the
 	// migration process to check that the agent will be ok when
 	// connected to the new target controller.
-	ValidateMigration func(base.APICaller) error
+	ValidateMigration func(context.Context, base.APICaller) error
 
 	// PrometheusRegisterer is a prometheus.Registerer that may be used
 	// by workers to register Prometheus metric collectors.
@@ -220,7 +220,7 @@ type ManifoldsConfig struct {
 	UpdateLoggerConfig func(string) error
 
 	// NewAgentStatusSetter provides upgradesteps.StatusSetter.
-	NewAgentStatusSetter func(base.APICaller) (upgradesteps.StatusSetter, error)
+	NewAgentStatusSetter func(context.Context, base.APICaller) (upgradesteps.StatusSetter, error)
 
 	// ControllerLeaseDuration defines for how long this agent will ask
 	// for controller administration rights.

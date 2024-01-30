@@ -4,6 +4,7 @@
 package context
 
 import (
+	"context"
 	"fmt"
 	"path"
 	"strconv"
@@ -58,8 +59,8 @@ type Context interface {
 	ResetExecutionSetUnitStatus()
 	ModelType() model.ModelType
 
-	Prepare() error
-	Flush(badge string, failure error) error
+	Prepare(ctx context.Context) error
+	Flush(ctx context.Context, badge string, failure error) error
 
 	GetLogger(module string) loggo.Logger
 }
@@ -121,18 +122,18 @@ type HookProcess interface {
 // HookUnit represents the functions needed by a unit in a hook context to
 // call into state.
 type HookUnit interface {
-	Application() (api.Application, error)
+	Application(ctx context.Context) (api.Application, error)
 	ApplicationName() string
 	ConfigSettings() (charm.Settings, error)
 	LogActionMessage(names.ActionTag, string) error
 	Name() string
 	NetworkInfo(bindings []string, relationId *int) (map[string]params.NetworkInfoResult, error)
 	RequestReboot() error
-	SetUnitStatus(unitStatus status.Status, info string, data map[string]interface{}) error
+	SetUnitStatus(ctx context.Context, unitStatus status.Status, info string, data map[string]interface{}) error
 	SetAgentStatus(agentStatus status.Status, info string, data map[string]interface{}) error
 	State() (params.UnitStateResult, error)
 	Tag() names.UnitTag
-	UnitStatus() (params.StatusResult, error)
+	UnitStatus(ctx context.Context) (params.StatusResult, error)
 	CommitHookChanges(params.CommitHookChangesArgs) error
 	PublicAddress() (string, error)
 }
@@ -517,10 +518,10 @@ func (ctx *HookContext) ModelType() model.ModelType {
 
 // UnitStatus will return the status for the current Unit.
 // Implements jujuc.HookContext.ContextStatus, part of runner.Context.
-func (ctx *HookContext) UnitStatus() (*jujuc.StatusInfo, error) {
+func (ctx *HookContext) UnitStatus(stdCtx context.Context) (*jujuc.StatusInfo, error) {
 	if ctx.status == nil {
 		var err error
-		unitStatus, err := ctx.unit.UnitStatus()
+		unitStatus, err := ctx.unit.UnitStatus(stdCtx)
 		if err != nil {
 			return nil, err
 		}
@@ -537,7 +538,7 @@ func (ctx *HookContext) UnitStatus() (*jujuc.StatusInfo, error) {
 // the application to which this context unit belongs, only if this unit is
 // the leader.
 // Implements jujuc.HookContext.ContextStatus, part of runner.Context.
-func (ctx *HookContext) ApplicationStatus() (jujuc.ApplicationStatusInfo, error) {
+func (ctx *HookContext) ApplicationStatus(stdCtx context.Context) (jujuc.ApplicationStatusInfo, error) {
 	var err error
 	isLeader, err := ctx.IsLeader()
 	if err != nil {
@@ -546,7 +547,7 @@ func (ctx *HookContext) ApplicationStatus() (jujuc.ApplicationStatusInfo, error)
 	if !isLeader {
 		return jujuc.ApplicationStatusInfo{}, ErrIsNotLeader
 	}
-	app, err := ctx.unit.Application()
+	app, err := ctx.unit.Application(stdCtx)
 	if err != nil {
 		return jujuc.ApplicationStatusInfo{}, errors.Trace(err)
 	}
@@ -578,10 +579,10 @@ func (ctx *HookContext) ApplicationStatus() (jujuc.ApplicationStatusInfo, error)
 
 // SetUnitStatus will set the given status for this unit.
 // Implements jujuc.HookContext.ContextStatus, part of runner.Context.
-func (ctx *HookContext) SetUnitStatus(unitStatus jujuc.StatusInfo) error {
+func (ctx *HookContext) SetUnitStatus(stdCtx context.Context, unitStatus jujuc.StatusInfo) error {
 	ctx.hasRunStatusSet = true
 	ctx.logger.Tracef("[WORKLOAD-STATUS] %s: %s", unitStatus.Status, unitStatus.Info)
-	return ctx.unit.SetUnitStatus(
+	return ctx.unit.SetUnitStatus(stdCtx,
 		status.Status(unitStatus.Status),
 		unitStatus.Info,
 		unitStatus.Data,
@@ -602,7 +603,7 @@ func (ctx *HookContext) SetAgentStatus(agentStatus jujuc.StatusInfo) error {
 // SetApplicationStatus will set the given status to the application to which this
 // unit's belong, only if this unit is the leader.
 // Implements jujuc.HookContext.ContextStatus, part of runner.Context.
-func (ctx *HookContext) SetApplicationStatus(applicationStatus jujuc.StatusInfo) error {
+func (ctx *HookContext) SetApplicationStatus(stdCtx context.Context, applicationStatus jujuc.StatusInfo) error {
 	ctx.logger.Tracef("[APPLICATION-STATUS] %s: %s", applicationStatus.Status, applicationStatus.Info)
 	isLeader, err := ctx.IsLeader()
 	if err != nil {
@@ -612,7 +613,7 @@ func (ctx *HookContext) SetApplicationStatus(applicationStatus jujuc.StatusInfo)
 		return ErrIsNotLeader
 	}
 
-	app, err := ctx.unit.Application()
+	app, err := ctx.unit.Application(stdCtx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1120,9 +1121,9 @@ func (ctx *HookContext) RevokeSecret(uri *coresecrets.URI, args *jujuc.SecretGra
 
 // GoalState returns the goal state for the current unit.
 // Implements jujuc.HookContext.ContextUnit, part of runner.Context.
-func (ctx *HookContext) GoalState() (*application.GoalState, error) {
+func (ctx *HookContext) GoalState(stdCtx context.Context) (*application.GoalState, error) {
 	var err error
-	ctx.goalState, err = ctx.uniter.GoalState()
+	ctx.goalState, err = ctx.uniter.GoalState(stdCtx)
 	if err != nil {
 		return nil, err
 	}
@@ -1132,12 +1133,12 @@ func (ctx *HookContext) GoalState() (*application.GoalState, error) {
 
 // CloudSpec return the cloud specification for the running unit's model.
 // Implements jujuc.HookContext.ContextUnit, part of runner.Context.
-func (ctx *HookContext) CloudSpec() (*params.CloudSpec, error) {
+func (ctx *HookContext) CloudSpec(stdCtx context.Context) (*params.CloudSpec, error) {
 	if ctx.modelType == model.CAAS {
 		return nil, errors.NotSupportedf("credential-get on a %q model", model.CAAS)
 	}
 	var err error
-	ctx.cloudSpec, err = ctx.uniter.CloudSpec()
+	ctx.cloudSpec, err = ctx.uniter.CloudSpec(stdCtx)
 	if err != nil {
 		return nil, err
 	}
@@ -1438,9 +1439,9 @@ func (ctx *HookContext) handleReboot(ctxErr error) error {
 }
 
 // Prepare implements the runner.Context interface.
-func (ctx *HookContext) Prepare() error {
+func (ctx *HookContext) Prepare(stdCtx context.Context) error {
 	if ctx.actionData != nil {
-		err := ctx.uniter.ActionBegin(ctx.actionData.Tag)
+		err := ctx.uniter.ActionBegin(stdCtx, ctx.actionData.Tag)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -1449,7 +1450,7 @@ func (ctx *HookContext) Prepare() error {
 }
 
 // Flush implements the runner.Context interface.
-func (ctx *HookContext) Flush(process string, ctxErr error) error {
+func (ctx *HookContext) Flush(stdCtx context.Context, process string, ctxErr error) error {
 	// Apply the changes if no error reported while the hook was executing.
 	var flushErr error
 	if ctxErr == nil {
@@ -1462,7 +1463,7 @@ func (ctx *HookContext) Flush(process string, ctxErr error) error {
 		// (ctxErr) and any flush errors to finalizeAction helper
 		// which will figure out if an error needs to be returned back
 		// to the uniter.
-		return ctx.finalizeAction(ctxErr, flushErr)
+		return ctx.finalizeAction(stdCtx, ctxErr, flushErr)
 	}
 
 	// TODO(gsamfira): Just for now, reboot will not be supported in actions.
@@ -1635,7 +1636,7 @@ func (ctx *HookContext) doFlush(process string) error {
 // finalizeAction passes back the final status of an Action hook to state.
 // It wraps any errors which occurred in normal behavior of the Action run;
 // only errors passed in unhandledErr will be returned.
-func (ctx *HookContext) finalizeAction(err, flushErr error) error {
+func (ctx *HookContext) finalizeAction(stdCtx context.Context, err, flushErr error) error {
 	// TODO (binary132): synchronize with gsamfira's reboot logic
 	ctx.actionDataMu.Lock()
 	defer ctx.actionDataMu.Unlock()
@@ -1684,7 +1685,7 @@ func (ctx *HookContext) finalizeAction(err, flushErr error) error {
 		}
 	}
 
-	callErr := ctx.uniter.ActionFinish(tag, actionStatus, results, message)
+	callErr := ctx.uniter.ActionFinish(stdCtx, tag, actionStatus, results, message)
 	// Prevent the unit agent from looping if it's impossible to finalise the action.
 	if params.IsCodeNotFoundOrCodeUnauthorized(callErr) || params.IsCodeAlreadyExists(callErr) {
 		ctx.logger.Warningf("error finalising action %v: %v", tag.Id(), callErr)
@@ -1729,15 +1730,15 @@ func (ctx *HookContext) killCharmHook() error {
 // UnitWorkloadVersion returns the version of the workload reported by
 // the current unit.
 // Implements jujuc.HookContext.ContextVersion, part of runner.Context.
-func (ctx *HookContext) UnitWorkloadVersion() (string, error) {
-	return ctx.uniter.UnitWorkloadVersion(ctx.unit.Tag())
+func (ctx *HookContext) UnitWorkloadVersion(stdCtx context.Context) (string, error) {
+	return ctx.uniter.UnitWorkloadVersion(stdCtx, ctx.unit.Tag())
 }
 
 // SetUnitWorkloadVersion sets the current unit's workload version to
 // the specified value.
 // Implements jujuc.HookContext.ContextVersion, part of runner.Context.
-func (ctx *HookContext) SetUnitWorkloadVersion(version string) error {
-	return ctx.uniter.SetUnitWorkloadVersion(ctx.unit.Tag(), version)
+func (ctx *HookContext) SetUnitWorkloadVersion(stdCtx context.Context, version string) error {
+	return ctx.uniter.SetUnitWorkloadVersion(stdCtx, ctx.unit.Tag(), version)
 }
 
 // NetworkInfo returns the network info for the given bindings on the given relation.

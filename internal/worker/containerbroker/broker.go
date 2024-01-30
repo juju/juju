@@ -4,6 +4,8 @@
 package containerbroker
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"github.com/juju/worker/v4"
@@ -41,7 +43,7 @@ type Config struct {
 // State represents the interaction for the apiserver
 type State interface {
 	broker.APICalls
-	Machines(...names.MachineTag) ([]provisioner.MachineResult, error)
+	Machines(context.Context, ...names.MachineTag) ([]provisioner.MachineResult, error)
 	ContainerManagerConfig(params.ContainerManagerConfigParams) (params.ContainerManagerConfig, error)
 }
 
@@ -67,8 +69,8 @@ func (config Config) Validate() error {
 
 // NewWorkerTracker defines a function that is covariant in the return type
 // so that the manifold can use the covariance of the function as an alias.
-func NewWorkerTracker(config Config) (worker.Worker, error) {
-	return NewTracker(config)
+func NewWorkerTracker(ctx context.Context, config Config) (worker.Worker, error) {
+	return NewTracker(ctx, config)
 }
 
 // Tracker loads a broker, makes it available to clients, and updates
@@ -84,14 +86,14 @@ type Tracker struct {
 //
 // The caller is responsible for Kill()ing the returned Tracker and Wait()ing
 // for any errors it might return.
-func NewTracker(config Config) (*Tracker, error) {
+func NewTracker(ctx context.Context, config Config) (*Tracker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	machineTag := config.AgentConfig.Tag().(names.MachineTag)
 	provisioner := config.NewStateFunc(config.APICaller)
-	result, err := provisioner.Machines(machineTag)
+	result, err := provisioner.Machines(ctx, machineTag)
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot load machine %s from state", machineTag)
 	}

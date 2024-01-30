@@ -99,18 +99,18 @@ func (mr *MockFirewallerAPIMockRecorder) MacaroonForRelation(arg0 any) *gomock.C
 }
 
 // Machine mocks base method.
-func (m *MockFirewallerAPI) Machine(arg0 names.MachineTag) (firewaller0.Machine, error) {
+func (m *MockFirewallerAPI) Machine(arg0 context.Context, arg1 names.MachineTag) (firewaller0.Machine, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Machine", arg0)
+	ret := m.ctrl.Call(m, "Machine", arg0, arg1)
 	ret0, _ := ret[0].(firewaller0.Machine)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Machine indicates an expected call of Machine.
-func (mr *MockFirewallerAPIMockRecorder) Machine(arg0 any) *gomock.Call {
+func (mr *MockFirewallerAPIMockRecorder) Machine(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Machine", reflect.TypeOf((*MockFirewallerAPI)(nil).Machine), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Machine", reflect.TypeOf((*MockFirewallerAPI)(nil).Machine), arg0, arg1)
 }
 
 // ModelConfig mocks base method.
@@ -144,18 +144,18 @@ func (mr *MockFirewallerAPIMockRecorder) ModelFirewallRules() *gomock.Call {
 }
 
 // Relation mocks base method.
-func (m *MockFirewallerAPI) Relation(arg0 names.RelationTag) (*firewaller.Relation, error) {
+func (m *MockFirewallerAPI) Relation(arg0 context.Context, arg1 names.RelationTag) (*firewaller.Relation, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Relation", arg0)
+	ret := m.ctrl.Call(m, "Relation", arg0, arg1)
 	ret0, _ := ret[0].(*firewaller.Relation)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Relation indicates an expected call of Relation.
-func (mr *MockFirewallerAPIMockRecorder) Relation(arg0 any) *gomock.Call {
+func (mr *MockFirewallerAPIMockRecorder) Relation(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Relation", reflect.TypeOf((*MockFirewallerAPI)(nil).Relation), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Relation", reflect.TypeOf((*MockFirewallerAPI)(nil).Relation), arg0, arg1)
 }
 
 // SetRelationStatus mocks base method.
@@ -173,18 +173,18 @@ func (mr *MockFirewallerAPIMockRecorder) SetRelationStatus(arg0, arg1, arg2 any)
 }
 
 // Unit mocks base method.
-func (m *MockFirewallerAPI) Unit(arg0 names.UnitTag) (firewaller0.Unit, error) {
+func (m *MockFirewallerAPI) Unit(arg0 context.Context, arg1 names.UnitTag) (firewaller0.Unit, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Unit", arg0)
+	ret := m.ctrl.Call(m, "Unit", arg0, arg1)
 	ret0, _ := ret[0].(firewaller0.Unit)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Unit indicates an expected call of Unit.
-func (mr *MockFirewallerAPIMockRecorder) Unit(arg0 any) *gomock.Call {
+func (mr *MockFirewallerAPIMockRecorder) Unit(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Unit", reflect.TypeOf((*MockFirewallerAPI)(nil).Unit), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Unit", reflect.TypeOf((*MockFirewallerAPI)(nil).Unit), arg0, arg1)
 }
 
 // WatchEgressAddressesForRelation mocks base method.

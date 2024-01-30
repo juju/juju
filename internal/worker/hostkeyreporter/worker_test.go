@@ -4,6 +4,7 @@
 package hostkeyreporter_test
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -114,7 +115,7 @@ type stubFacade struct {
 	reportErr error
 }
 
-func (c *stubFacade) ReportKeys(machineId string, publicKeys []string) error {
+func (c *stubFacade) ReportKeys(_ context.Context, machineId string, publicKeys []string) error {
 	c.stub.AddCall("ReportKeys", machineId, publicKeys)
 	return c.reportErr
 }

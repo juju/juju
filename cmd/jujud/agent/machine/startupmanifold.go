@@ -25,7 +25,7 @@ type Logger interface {
 // machinestartup manifold.
 type MachineStartupConfig struct {
 	APICallerName  string
-	MachineStartup func(api.Connection, Logger) error
+	MachineStartup func(context.Context, api.Connection, Logger) error
 	Logger         Logger
 }
 
@@ -60,7 +60,7 @@ func MachineStartupManifold(config MachineStartupConfig) dependency.Manifold {
 			if err := getter.Get(config.APICallerName, &apiConn); err != nil {
 				return nil, err
 			}
-			if err := config.MachineStartup(apiConn, config.Logger); err != nil {
+			if err := config.MachineStartup(ctx, apiConn, config.Logger); err != nil {
 				return nil, err
 			}
 			config.Logger.Debugf("Finished machine setup requiring an API connection")

@@ -81,8 +81,8 @@ func NewClient(caller base.APICaller, options ...Option) *Client {
 }
 
 // machineLife requests the lifecycle of the given machine from the server.
-func (st *Client) machineLife(tag names.MachineTag) (life.Value, error) {
-	return common.OneLife(st.facade, tag)
+func (st *Client) machineLife(ctx context.Context, tag names.MachineTag) (life.Value, error) {
+	return common.OneLife(ctx, st.facade, tag)
 }
 
 // ProvisioningInfo implements MachineProvisioner.ProvisioningInfo.
@@ -97,13 +97,13 @@ func (st *Client) ProvisioningInfo(machineTags []names.MachineTag) (params.Provi
 
 // Machines provides access to methods of a state.Machine through the facade
 // for the given tags.
-func (st *Client) Machines(tags ...names.MachineTag) ([]MachineResult, error) {
+func (st *Client) Machines(ctx context.Context, tags ...names.MachineTag) ([]MachineResult, error) {
 	lenTags := len(tags)
 	genericTags := make([]names.Tag, lenTags)
 	for i, t := range tags {
 		genericTags[i] = t
 	}
-	result, err := common.Life(st.facade, genericTags)
+	result, err := common.Life(ctx, st.facade, genericTags)
 	if err != nil {
 		return []MachineResult{}, err
 	}

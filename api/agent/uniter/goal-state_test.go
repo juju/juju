@@ -4,6 +4,7 @@
 package uniter_test
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/names/v5"
@@ -101,7 +102,7 @@ func (s *goalStateSuite) testGoalState(c *gc.C, facadeResult params.GoalStateRes
 	})
 
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
-	goalStateResult, err := client.GoalState()
+	goalStateResult, err := client.GoalState(context.Background())
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(goalStateResult, jc.DeepEquals, apiResult)

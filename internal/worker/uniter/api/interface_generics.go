@@ -22,29 +22,29 @@ import (
 type UniterClient interface {
 	StorageAccessor
 	Charm(curl string) (Charm, error)
-	Unit(tag names.UnitTag) (Unit, error)
-	Action(tag names.ActionTag) (*uniter.Action, error)
-	Application(tag names.ApplicationTag) (Application, error)
-	ActionStatus(tag names.ActionTag) (string, error)
-	Relation(tag names.RelationTag) (Relation, error)
-	RelationById(int) (Relation, error)
-	Model() (*model.Model, error)
+	Unit(ctx context.Context, tag names.UnitTag) (Unit, error)
+	Action(ctx context.Context, tag names.ActionTag) (*uniter.Action, error)
+	Application(ctx context.Context, tag names.ApplicationTag) (Application, error)
+	ActionStatus(ctx context.Context, tag names.ActionTag) (string, error)
+	Relation(ctx context.Context, tag names.RelationTag) (Relation, error)
+	RelationById(context.Context, int) (Relation, error)
+	Model(context.Context) (*model.Model, error)
 	ModelConfig(context.Context) (*config.Config, error)
 	UnitStorageAttachments(unitTag names.UnitTag) ([]params.StorageAttachmentId, error)
 	StorageAttachment(storageTag names.StorageTag, unitTag names.UnitTag) (params.StorageAttachment, error)
-	GoalState() (application.GoalState, error)
-	CloudSpec() (*params.CloudSpec, error)
-	ActionBegin(tag names.ActionTag) error
-	ActionFinish(tag names.ActionTag, status string, results map[string]interface{}, message string) error
-	UnitWorkloadVersion(tag names.UnitTag) (string, error)
-	SetUnitWorkloadVersion(tag names.UnitTag, version string) error
-	OpenedMachinePortRangesByEndpoint(machineTag names.MachineTag) (map[names.UnitTag]network.GroupedPortRanges, error)
-	OpenedPortRangesByEndpoint() (map[names.UnitTag]network.GroupedPortRanges, error)
+	GoalState(context.Context) (application.GoalState, error)
+	CloudSpec(context.Context) (*params.CloudSpec, error)
+	ActionBegin(ctx context.Context, tag names.ActionTag) error
+	ActionFinish(ctx context.Context, tag names.ActionTag, status string, results map[string]interface{}, message string) error
+	UnitWorkloadVersion(ctx context.Context, tag names.UnitTag) (string, error)
+	SetUnitWorkloadVersion(ctx context.Context, tag names.UnitTag, version string) error
+	OpenedMachinePortRangesByEndpoint(ctx context.Context, machineTag names.MachineTag) (map[names.UnitTag]network.GroupedPortRanges, error)
+	OpenedPortRangesByEndpoint(ctx context.Context) (map[names.UnitTag]network.GroupedPortRanges, error)
 	LeadershipSettings() uniter.LeadershipSettingsAccessor
-	SLALevel() (string, error)
-	CloudAPIVersion() (string, error)
+	SLALevel(context.Context) (string, error)
+	CloudAPIVersion(context.Context) (string, error)
 	APIAddresses() ([]string, error)
-	WatchRelationUnits(names.RelationTag, names.UnitTag) (watcher.RelationUnitsWatcher, error)
+	WatchRelationUnits(context.Context, names.RelationTag, names.UnitTag) (watcher.RelationUnitsWatcher, error)
 	WatchStorageAttachment(names.StorageTag, names.UnitTag) (watcher.NotifyWatcher, error)
 	WatchUpdateStatusHookInterval() (watcher.NotifyWatcher, error)
 	UpdateStatusHookInterval() (time.Duration, error)

@@ -4,6 +4,8 @@
 package diskmanager
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"github.com/juju/worker/v4"
@@ -26,7 +28,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 }
 
 // newWorker trivially wraps NewWorker for use in a engine.AgentAPIManifold.
-func newWorker(a agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
+func newWorker(_ context.Context, a agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
 	t := a.CurrentConfig().Tag()
 	tag, ok := t.(names.MachineTag)
 	if !ok {

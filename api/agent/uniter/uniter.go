@@ -102,12 +102,12 @@ func (client *Client) Facade() base.FacadeCaller {
 }
 
 // life requests the lifecycle of the given entity from the server.
-func (client *Client) life(tag names.Tag) (life.Value, error) {
-	return common.OneLife(client.facade, tag)
+func (client *Client) life(ctx context.Context, tag names.Tag) (life.Value, error) {
+	return common.OneLife(ctx, client.facade, tag)
 }
 
 // relation requests relation information from the server.
-func (client *Client) relation(relationTag, unitTag names.Tag) (params.RelationResult, error) {
+func (client *Client) relation(ctx context.Context, relationTag, unitTag names.Tag) (params.RelationResult, error) {
 	nothing := params.RelationResult{}
 	var result params.RelationResults
 	args := params.RelationUnits{
@@ -115,7 +115,7 @@ func (client *Client) relation(relationTag, unitTag names.Tag) (params.RelationR
 			{Relation: relationTag.String(), Unit: unitTag.String()},
 		},
 	}
-	err := client.facade.FacadeCall(context.TODO(), "Relation", args, &result)
+	err := client.facade.FacadeCall(ctx, "Relation", args, &result)
 	if err != nil {
 		return nothing, err
 	}
@@ -128,7 +128,7 @@ func (client *Client) relation(relationTag, unitTag names.Tag) (params.RelationR
 	return result.Results[0], nil
 }
 
-func (client *Client) setRelationStatus(id int, status relation.Status) error {
+func (client *Client) setRelationStatus(ctx context.Context, id int, status relation.Status) error {
 	args := params.RelationStatusArgs{
 		Args: []params.RelationStatusArg{{
 			UnitTag:    client.unitTag.String(),
@@ -137,14 +137,14 @@ func (client *Client) setRelationStatus(id int, status relation.Status) error {
 		}},
 	}
 	var results params.ErrorResults
-	if err := client.facade.FacadeCall(context.TODO(), "SetRelationStatus", args, &results); err != nil {
+	if err := client.facade.FacadeCall(ctx, "SetRelationStatus", args, &results); err != nil {
 		return errors.Trace(err)
 	}
 	return results.OneError()
 }
 
 // getOneAction retrieves a single Action from the controller.
-func (client *Client) getOneAction(tag *names.ActionTag) (params.ActionResult, error) {
+func (client *Client) getOneAction(ctx context.Context, tag *names.ActionTag) (params.ActionResult, error) {
 	nothing := params.ActionResult{}
 
 	args := params.Entities{
@@ -154,7 +154,7 @@ func (client *Client) getOneAction(tag *names.ActionTag) (params.ActionResult, e
 	}
 
 	var results params.ActionResults
-	err := client.facade.FacadeCall(context.TODO(), "Actions", args, &results)
+	err := client.facade.FacadeCall(ctx, "Actions", args, &results)
 	if err != nil {
 		return nothing, err
 	}
@@ -186,7 +186,7 @@ func (client *Client) LeadershipSettings() LeadershipSettingsAccessor {
 }
 
 // ActionStatus provides the status of a single action.
-func (client *Client) ActionStatus(tag names.ActionTag) (string, error) {
+func (client *Client) ActionStatus(ctx context.Context, tag names.ActionTag) (string, error) {
 	args := params.Entities{
 		Entities: []params.Entity{
 			{Tag: tag.String()},
@@ -194,7 +194,7 @@ func (client *Client) ActionStatus(tag names.ActionTag) (string, error) {
 	}
 
 	var results params.StringResults
-	err := client.facade.FacadeCall(context.TODO(), "ActionStatus", args, &results)
+	err := client.facade.FacadeCall(ctx, "ActionStatus", args, &results)
 	if err != nil {
 		return "", err
 	}
@@ -213,12 +213,12 @@ func (client *Client) ActionStatus(tag names.ActionTag) (string, error) {
 }
 
 // Unit provides access to methods of a state.Unit through the facade.
-func (client *Client) Unit(tag names.UnitTag) (*Unit, error) {
+func (client *Client) Unit(ctx context.Context, tag names.UnitTag) (*Unit, error) {
 	unit := &Unit{
 		tag:    tag,
 		client: client,
 	}
-	err := unit.Refresh()
+	err := unit.Refresh(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -226,8 +226,8 @@ func (client *Client) Unit(tag names.UnitTag) (*Unit, error) {
 }
 
 // Application returns an application state by tag.
-func (client *Client) Application(tag names.ApplicationTag) (*Application, error) {
-	life, err := client.life(tag)
+func (client *Client) Application(ctx context.Context, tag names.ApplicationTag) (*Application, error) {
+	life, err := client.life(ctx, tag)
 	if err != nil {
 		return nil, err
 	}
@@ -242,9 +242,9 @@ func (client *Client) Application(tag names.ApplicationTag) (*Application, error
 //
 // TODO(dimitern): We might be able to drop this, once we have machine
 // addresses implemented fully. See also LP bug 1221798.
-func (client *Client) ProviderType() (string, error) {
+func (client *Client) ProviderType(ctx context.Context) (string, error) {
 	var result params.StringResult
-	err := client.facade.FacadeCall(context.TODO(), "ProviderType", nil, &result)
+	err := client.facade.FacadeCall(ctx, "ProviderType", nil, &result)
 	if err != nil {
 		return "", err
 	}
@@ -266,8 +266,8 @@ func (client *Client) Charm(curl string) (*Charm, error) {
 }
 
 // Relation returns the existing relation with the given tag.
-func (client *Client) Relation(relationTag names.RelationTag) (*Relation, error) {
-	result, err := client.relation(relationTag, client.unitTag)
+func (client *Client) Relation(ctx context.Context, relationTag names.RelationTag) (*Relation, error) {
+	result, err := client.relation(ctx, relationTag, client.unitTag)
 	if err != nil {
 		return nil, err
 	}
@@ -282,8 +282,8 @@ func (client *Client) Relation(relationTag names.RelationTag) (*Relation, error)
 }
 
 // Action returns the Action with the given tag.
-func (client *Client) Action(tag names.ActionTag) (*Action, error) {
-	result, err := client.getOneAction(&tag)
+func (client *Client) Action(ctx context.Context, tag names.ActionTag) (*Action, error) {
+	result, err := client.getOneAction(ctx, &tag)
 	if err != nil {
 		return nil, err
 	}
@@ -302,7 +302,7 @@ func (client *Client) Action(tag names.ActionTag) (*Action, error) {
 }
 
 // ActionBegin marks an action as running.
-func (client *Client) ActionBegin(tag names.ActionTag) error {
+func (client *Client) ActionBegin(ctx context.Context, tag names.ActionTag) error {
 	var outcome params.ErrorResults
 
 	args := params.Entities{
@@ -311,7 +311,7 @@ func (client *Client) ActionBegin(tag names.ActionTag) error {
 		},
 	}
 
-	err := client.facade.FacadeCall(context.TODO(), "BeginActions", args, &outcome)
+	err := client.facade.FacadeCall(ctx, "BeginActions", args, &outcome)
 	if err != nil {
 		return err
 	}
@@ -326,7 +326,7 @@ func (client *Client) ActionBegin(tag names.ActionTag) error {
 }
 
 // ActionFinish captures the structured output of an action.
-func (client *Client) ActionFinish(tag names.ActionTag, status string, results map[string]interface{}, message string) error {
+func (client *Client) ActionFinish(ctx context.Context, tag names.ActionTag, status string, results map[string]interface{}, message string) error {
 	var outcome params.ErrorResults
 
 	args := params.ActionExecutionResults{
@@ -340,7 +340,7 @@ func (client *Client) ActionFinish(tag names.ActionTag, status string, results m
 		},
 	}
 
-	err := client.facade.FacadeCall(context.TODO(), "FinishActions", args, &outcome)
+	err := client.facade.FacadeCall(ctx, "FinishActions", args, &outcome)
 	if err != nil {
 		return err
 	}
@@ -355,13 +355,13 @@ func (client *Client) ActionFinish(tag names.ActionTag, status string, results m
 }
 
 // RelationById returns the existing relation with the given id.
-func (client *Client) RelationById(id int) (*Relation, error) {
+func (client *Client) RelationById(ctx context.Context, id int) (*Relation, error) {
 	var results params.RelationResults
 	args := params.RelationIds{
 		RelationIds: []int{id},
 	}
 
-	err := client.facade.FacadeCall(context.TODO(), "RelationById", args, &results)
+	err := client.facade.FacadeCall(ctx, "RelationById", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -384,9 +384,9 @@ func (client *Client) RelationById(id int) (*Relation, error) {
 }
 
 // Model returns the model entity.
-func (client *Client) Model() (*model.Model, error) {
+func (client *Client) Model(ctx context.Context) (*model.Model, error) {
 	var result params.ModelResult
-	err := client.facade.FacadeCall(context.TODO(), "CurrentModel", nil, &result)
+	err := client.facade.FacadeCall(ctx, "CurrentModel", nil, &result)
 	if err != nil {
 		return nil, err
 	}
@@ -432,12 +432,12 @@ func processOpenPortRangesByEndpointResults(results params.OpenPortRangesByEndpo
 
 // OpenedMachinePortRangesByEndpoint returns all port ranges currently open on the given
 // machine, grouped by unit tag and application endpoint.
-func (client *Client) OpenedMachinePortRangesByEndpoint(machineTag names.MachineTag) (map[names.UnitTag]network.GroupedPortRanges, error) {
+func (client *Client) OpenedMachinePortRangesByEndpoint(ctx context.Context, machineTag names.MachineTag) (map[names.UnitTag]network.GroupedPortRanges, error) {
 	var results params.OpenPortRangesByEndpointResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: machineTag.String()}},
 	}
-	err := client.facade.FacadeCall(context.TODO(), "OpenedMachinePortRangesByEndpoint", args, &results)
+	err := client.facade.FacadeCall(ctx, "OpenedMachinePortRangesByEndpoint", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -445,13 +445,13 @@ func (client *Client) OpenedMachinePortRangesByEndpoint(machineTag names.Machine
 }
 
 // OpenedPortRangesByEndpoint returns all port ranges currently opened grouped by unit tag and application endpoint.
-func (client *Client) OpenedPortRangesByEndpoint() (map[names.UnitTag]network.GroupedPortRanges, error) {
+func (client *Client) OpenedPortRangesByEndpoint(ctx context.Context) (map[names.UnitTag]network.GroupedPortRanges, error) {
 	if client.BestAPIVersion() < 18 {
 		// OpenedPortRangesByEndpoint() was introduced in UniterAPIV18.
 		return nil, errors.NotImplementedf("OpenedPortRangesByEndpoint() (need V18+)")
 	}
 	var results params.OpenPortRangesByEndpointResults
-	if err := client.facade.FacadeCall(context.TODO(), "OpenedPortRangesByEndpoint", nil, &results); err != nil {
+	if err := client.facade.FacadeCall(ctx, "OpenedPortRangesByEndpoint", nil, &results); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return processOpenPortRangesByEndpointResults(results, client.unitTag)
@@ -460,6 +460,7 @@ func (client *Client) OpenedPortRangesByEndpoint() (map[names.UnitTag]network.Gr
 // WatchRelationUnits returns a watcher that notifies of changes to the
 // counterpart units in the relation for the given unit.
 func (client *Client) WatchRelationUnits(
+	ctx context.Context,
 	relationTag names.RelationTag,
 	unitTag names.UnitTag,
 ) (watcher.RelationUnitsWatcher, error) {
@@ -470,7 +471,7 @@ func (client *Client) WatchRelationUnits(
 			Unit:     unitTag.String(),
 		}},
 	}
-	err := client.facade.FacadeCall(context.TODO(), "WatchRelationUnits", args, &results)
+	err := client.facade.FacadeCall(ctx, "WatchRelationUnits", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -486,9 +487,9 @@ func (client *Client) WatchRelationUnits(
 }
 
 // SLALevel returns the SLA level set on the model.
-func (client *Client) SLALevel() (string, error) {
+func (client *Client) SLALevel(ctx context.Context) (string, error) {
 	var result params.StringResult
-	err := client.facade.FacadeCall(context.TODO(), "SLALevel", nil, &result)
+	err := client.facade.FacadeCall(ctx, "SLALevel", nil, &result)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -499,9 +500,9 @@ func (client *Client) SLALevel() (string, error) {
 }
 
 // CloudAPIVersion returns the API version of the cloud, if known.
-func (client *Client) CloudAPIVersion() (string, error) {
+func (client *Client) CloudAPIVersion(ctx context.Context) (string, error) {
 	var result params.StringResult
-	err := client.facade.FacadeCall(context.TODO(), "CloudAPIVersion", nil, &result)
+	err := client.facade.FacadeCall(ctx, "CloudAPIVersion", nil, &result)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -513,7 +514,7 @@ func (client *Client) CloudAPIVersion() (string, error) {
 
 // GoalState returns a GoalState struct with the charm's
 // peers and related units information.
-func (client *Client) GoalState() (application.GoalState, error) {
+func (client *Client) GoalState(ctx context.Context) (application.GoalState, error) {
 	var result params.GoalStateResults
 
 	gs := application.GoalState{}
@@ -524,7 +525,7 @@ func (client *Client) GoalState() (application.GoalState, error) {
 		},
 	}
 
-	err := client.facade.FacadeCall(context.TODO(), "GoalStates", args, &result)
+	err := client.facade.FacadeCall(ctx, "GoalStates", args, &result)
 	if err != nil {
 		return gs, err
 	}
@@ -568,10 +569,10 @@ func goalStateFromParams(paramsGoalState *params.GoalState) application.GoalStat
 // application resides in.
 // If the application has not been authorised to access its cloud spec,
 // then an authorisation error will be returned.
-func (client *Client) CloudSpec() (*params.CloudSpec, error) {
+func (client *Client) CloudSpec(ctx context.Context) (*params.CloudSpec, error) {
 	var result params.CloudSpecResult
 
-	err := client.facade.FacadeCall(context.TODO(), "CloudSpec", nil, &result)
+	err := client.facade.FacadeCall(ctx, "CloudSpec", nil, &result)
 	if err != nil {
 		return nil, err
 	}
@@ -583,12 +584,12 @@ func (client *Client) CloudSpec() (*params.CloudSpec, error) {
 
 // UnitWorkloadVersion returns the version of the workload reported by
 // the specified unit.
-func (client *Client) UnitWorkloadVersion(tag names.UnitTag) (string, error) {
+func (client *Client) UnitWorkloadVersion(ctx context.Context, tag names.UnitTag) (string, error) {
 	var results params.StringResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: tag.String()}},
 	}
-	err := client.facade.FacadeCall(context.TODO(), "WorkloadVersion", args, &results)
+	err := client.facade.FacadeCall(ctx, "WorkloadVersion", args, &results)
 	if err != nil {
 		return "", err
 	}
@@ -604,14 +605,14 @@ func (client *Client) UnitWorkloadVersion(tag names.UnitTag) (string, error) {
 
 // SetUnitWorkloadVersion sets the specified unit's workload version to
 // the provided value.
-func (client *Client) SetUnitWorkloadVersion(tag names.UnitTag, version string) error {
+func (client *Client) SetUnitWorkloadVersion(ctx context.Context, tag names.UnitTag, version string) error {
 	var result params.ErrorResults
 	args := params.EntityWorkloadVersions{
 		Entities: []params.EntityWorkloadVersion{
 			{Tag: tag.String(), WorkloadVersion: version},
 		},
 	}
-	err := client.facade.FacadeCall(context.TODO(), "SetWorkloadVersion", args, &result)
+	err := client.facade.FacadeCall(ctx, "SetWorkloadVersion", args, &result)
 	if err != nil {
 		return err
 	}

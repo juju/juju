@@ -188,7 +188,7 @@ type fakeWorker struct {
 
 type fakeCredentialAPI struct{}
 
-func (*fakeCredentialAPI) InvalidateModelCredential(reason string) error {
+func (*fakeCredentialAPI) InvalidateModelCredential(_ context.Context, reason string) error {
 	return nil
 }
 

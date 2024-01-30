@@ -4,6 +4,7 @@
 package deployer_test
 
 import (
+	"context"
 	stdtesting "testing"
 
 	"github.com/juju/names/v5"
@@ -50,7 +51,7 @@ func (s *deployerSuite) TestWatchUnits(c *gc.C) {
 	machineTag := names.NewMachineTag("666")
 	machine, err := client.Machine(machineTag)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = machine.WatchUnits()
+	_, err = machine.WatchUnits(context.Background())
 	c.Assert(err, gc.ErrorMatches, "FAIL")
 }
 
@@ -74,7 +75,7 @@ func (s *deployerSuite) TestUnit(c *gc.C) {
 
 	client := deployer.NewClient(apiCaller)
 	unitTag := names.NewUnitTag("mysql/666")
-	unit, err := client.Unit(unitTag)
+	unit, err := client.Unit(context.Background(), unitTag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unit.Life(), gc.Equals, life.Alive)
 }
@@ -105,9 +106,9 @@ func (s *deployerSuite) TestUnitLifeRefresh(c *gc.C) {
 
 	client := deployer.NewClient(apiCaller)
 	unitTag := names.NewUnitTag("mysql/666")
-	unit, err := client.Unit(unitTag)
+	unit, err := client.Unit(context.Background(), unitTag)
 	c.Assert(err, jc.ErrorIsNil)
-	err = unit.Refresh()
+	err = unit.Refresh(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unit.Life(), gc.Equals, life.Dying)
 	c.Assert(calls, gc.Equals, 2)
@@ -143,9 +144,9 @@ func (s *deployerSuite) TestUnitRemove(c *gc.C) {
 
 	client := deployer.NewClient(apiCaller)
 	unitTag := names.NewUnitTag("mysql/666")
-	unit, err := client.Unit(unitTag)
+	unit, err := client.Unit(context.Background(), unitTag)
 	c.Assert(err, jc.ErrorIsNil)
-	err = unit.Remove()
+	err = unit.Remove(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(calls, gc.Equals, 2)
 }
@@ -185,9 +186,9 @@ func (s *deployerSuite) TestUnitSetPassword(c *gc.C) {
 
 	client := deployer.NewClient(apiCaller)
 	unitTag := names.NewUnitTag("mysql/666")
-	unit, err := client.Unit(unitTag)
+	unit, err := client.Unit(context.Background(), unitTag)
 	c.Assert(err, jc.ErrorIsNil)
-	err = unit.SetPassword("secret")
+	err = unit.SetPassword(context.Background(), "secret")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(calls, gc.Equals, 2)
 }
@@ -226,9 +227,9 @@ func (s *deployerSuite) TestUnitSetStatus(c *gc.C) {
 
 	client := deployer.NewClient(apiCaller)
 	unitTag := names.NewUnitTag("mysql/666")
-	unit, err := client.Unit(unitTag)
+	unit, err := client.Unit(context.Background(), unitTag)
 	c.Assert(err, jc.ErrorIsNil)
-	err = unit.SetStatus(status.Active, "is active", data)
+	err = unit.SetStatus(context.Background(), status.Active, "is active", data)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(calls, gc.Equals, 2)
 }

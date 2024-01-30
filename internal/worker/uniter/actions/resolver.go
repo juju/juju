@@ -96,7 +96,7 @@ func (r *actionsResolver) NextOp(
 	case operation.RunHook:
 		// We can still run actions if the unit is in a hook error state.
 		if localState.Step == operation.Pending && err == nil {
-			return opFactory.NewAction(nextAction)
+			return opFactory.NewAction(ctx, nextAction)
 		}
 	case operation.RunAction:
 		if localState.Hook != nil {
@@ -124,10 +124,10 @@ func (r *actionsResolver) NextOp(
 		// (re)preparing the running operation should move the
 		// uniter's state along safely. Thus, we return the
 		// running action.
-		return opFactory.NewAction(*localState.ActionId)
+		return opFactory.NewAction(ctx, *localState.ActionId)
 	case operation.Continue:
 		if err != resolver.ErrNoOperation {
-			return opFactory.NewAction(nextAction)
+			return opFactory.NewAction(ctx, nextAction)
 		}
 	}
 	return nil, resolver.ErrNoOperation

@@ -4,6 +4,7 @@
 package apicaller_test
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/clock"
@@ -53,7 +54,7 @@ func (s *RetryStrategySuite) TestOnlyConnectSuccess(c *gc.C) {
 		nil,               // success on second strategy attempt
 	)
 	conn, err := strategyTest(stub, strategy, func(apiOpen api.OpenFunc) (api.Connection, error) {
-		return apicaller.OnlyConnect(&mockAgent{stub: stub, entity: testEntity}, apiOpen, loggo.GetLogger("test"))
+		return apicaller.OnlyConnect(context.Background(), &mockAgent{stub: stub, entity: testEntity}, apiOpen, loggo.GetLogger("test"))
 	})
 	checkOpenCalls(c, stub, "new", "new", "new")
 	c.Check(conn, gc.NotNil)
@@ -69,7 +70,7 @@ func (s *RetryStrategySuite) TestOnlyConnectOldPasswordSuccess(c *gc.C) {
 		nil,               // second strategy attempt
 	)
 	conn, err := strategyTest(stub, strategy, func(apiOpen api.OpenFunc) (api.Connection, error) {
-		return apicaller.OnlyConnect(&mockAgent{stub: stub, entity: testEntity}, apiOpen, loggo.GetLogger("test"))
+		return apicaller.OnlyConnect(context.Background(), &mockAgent{stub: stub, entity: testEntity}, apiOpen, loggo.GetLogger("test"))
 	})
 	checkOpenCalls(c, stub, "new", "old", "old", "old")
 	c.Check(err, jc.ErrorIsNil)
@@ -97,7 +98,7 @@ func checkWaitProvisionedError(c *gc.C, connect apicaller.ConnectFunc) (api.Conn
 		errors.New("splat pow"), // third strategy attempt
 	)
 	conn, err := strategyTest(stub, strategy, func(apiOpen api.OpenFunc) (api.Connection, error) {
-		return connect(&mockAgent{stub: stub, entity: testEntity}, apiOpen, loggo.GetLogger("test"))
+		return connect(context.Background(), &mockAgent{stub: stub, entity: testEntity}, apiOpen, loggo.GetLogger("test"))
 	})
 	checkOpenCalls(c, stub, "new", "new", "new", "new")
 	return conn, err
@@ -124,7 +125,7 @@ func checkWaitNeverProvisioned(c *gc.C, connect apicaller.ConnectFunc) (api.Conn
 		errNotProvisioned, // third strategy attempt
 	)
 	conn, err := strategyTest(stub, strategy, func(apiOpen api.OpenFunc) (api.Connection, error) {
-		return connect(&mockAgent{stub: stub, entity: testEntity}, apiOpen, loggo.GetLogger("test"))
+		return connect(context.Background(), &mockAgent{stub: stub, entity: testEntity}, apiOpen, loggo.GetLogger("test"))
 	})
 	checkOpenCalls(c, stub, "new", "new", "new", "new")
 	return conn, err

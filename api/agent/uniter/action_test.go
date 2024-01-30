@@ -4,6 +4,8 @@
 package uniter_test
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
@@ -45,7 +47,7 @@ func (s *actionSuite) TestAction(c *gc.C) {
 	})
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 
-	a, err := client.Action(names.NewActionTag("666"))
+	a, err := client.Action(context.Background(), names.NewActionTag("666"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(a.ID(), gc.Equals, "666")
 	c.Assert(a.Name(), gc.Equals, actionResult.Action.Name)
@@ -69,7 +71,7 @@ func (s *actionSuite) TestActionError(c *gc.C) {
 	})
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 
-	_, err := client.Action(names.NewActionTag("666"))
+	_, err := client.Action(context.Background(), names.NewActionTag("666"))
 	c.Assert(err, gc.ErrorMatches, "boom")
 }
 
@@ -85,7 +87,7 @@ func (s *actionSuite) TestActionBegin(c *gc.C) {
 		return nil
 	})
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
-	err := client.ActionBegin(names.NewActionTag("666"))
+	err := client.ActionBegin(context.Background(), names.NewActionTag("666"))
 	c.Assert(err, gc.ErrorMatches, "boom")
 }
 
@@ -106,7 +108,7 @@ func (s *actionSuite) TestActionFinish(c *gc.C) {
 		return nil
 	})
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
-	err := client.ActionFinish(names.NewActionTag("666"), "failed", map[string]interface{}{"foo": "bar"}, "oops")
+	err := client.ActionFinish(context.Background(), names.NewActionTag("666"), "failed", map[string]interface{}{"foo": "bar"}, "oops")
 	c.Assert(err, gc.ErrorMatches, "boom")
 }
 
@@ -122,7 +124,7 @@ func (s *actionSuite) TestActionStatus(c *gc.C) {
 		return nil
 	})
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
-	status, err := client.ActionStatus(names.NewActionTag("666"))
+	status, err := client.ActionStatus(context.Background(), names.NewActionTag("666"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, gc.Equals, "failed")
 }

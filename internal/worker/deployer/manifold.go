@@ -4,6 +4,8 @@
 package deployer
 
 import (
+	"context"
+
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -52,7 +54,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 //
 // It's not tested at the moment, because the scaffolding
 // necessary is too unwieldy/distracting to introduce at this point.
-func (config ManifoldConfig) newWorker(a agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
+func (config ManifoldConfig) newWorker(_ context.Context, a agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
 	// TODO: run config.Validate()
 	cfg := a.CurrentConfig()
 	// Grab the tag and ensure that it's for a machine.
@@ -95,8 +97,8 @@ func (s *facadeShim) Machine(tag names.MachineTag) (Machine, error) {
 	return machine, nil
 }
 
-func (s *facadeShim) Unit(tag names.UnitTag) (Unit, error) {
-	unit, err := s.st.Unit(tag)
+func (s *facadeShim) Unit(ctx context.Context, tag names.UnitTag) (Unit, error) {
+	unit, err := s.st.Unit(ctx, tag)
 	if err != nil {
 		return nil, err
 	}

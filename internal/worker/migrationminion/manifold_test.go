@@ -4,6 +4,8 @@
 package migrationminion_test
 
 import (
+	"context"
+
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -36,7 +38,7 @@ func (s *ManifoldSuite) validConfig() migrationminion.ManifoldConfig {
 		FortressName:      "fortress",
 		Clock:             struct{ clock.Clock }{},
 		APIOpen:           func(*api.Info, api.DialOpts) (api.Connection, error) { return nil, nil },
-		ValidateMigration: func(base.APICaller) error { return nil },
+		ValidateMigration: func(context.Context, base.APICaller) error { return nil },
 		NewFacade:         func(base.APICaller) (migrationminion.Facade, error) { return nil, nil },
 		NewWorker:         func(migrationminion.Config) (worker.Worker, error) { return nil, nil },
 		Logger:            loggo.GetLogger("test"),

@@ -4,6 +4,7 @@
 package collect
 
 import (
+	stdcontext "context"
 	"fmt"
 	"math/rand"
 	"path"
@@ -79,7 +80,7 @@ func (ctx *hookContext) ModelType() model.ModelType {
 }
 
 // Flush implements runner.Context.
-func (ctx *hookContext) Flush(process string, ctxErr error) (err error) {
+func (ctx *hookContext) Flush(_ stdcontext.Context, process string, ctxErr error) (err error) {
 	return ctx.config.recorder.Close()
 }
 
@@ -125,6 +126,6 @@ func (ctx *hookContext) ResetExecutionSetUnitStatus() {}
 func (ctx *hookContext) Id() string { return ctx.id }
 
 // Prepare implements runner.Context.
-func (ctx *hookContext) Prepare() error {
+func (ctx *hookContext) Prepare(stdcontext.Context) error {
 	return jujuc.ErrRestrictedContext
 }

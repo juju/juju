@@ -4,6 +4,8 @@
 package context_test
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
@@ -67,7 +69,7 @@ func (s *StorageSuite) assertUnitStorageAdded(c *gc.C, ctrl *gomock.Controller, 
 	}}).Return(nil)
 
 	// Flush the context with a success.
-	err := ctx.Flush("success", nil)
+	err := ctx.Flush(context.Background(), "success", nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -87,6 +89,6 @@ func (s *StorageSuite) TestRunHookAddStorageOnFailure(c *gc.C) {
 
 	// Flush the context with an error.
 	msg := "test fail run hook"
-	err = ctx.Flush("test fail run hook", errors.New(msg))
+	err = ctx.Flush(context.Background(), "test fail run hook", errors.New(msg))
 	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
 }

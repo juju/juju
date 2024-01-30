@@ -34,13 +34,13 @@ func NewFacade(caller base.APICaller, options ...Option) *Facade {
 // ReportKeys reports the public SSH host keys for a machine to the
 // controller. The keys should be in the same format as the sshd host
 // key files, one entry per key.
-func (f *Facade) ReportKeys(machineId string, publicKeys []string) error {
+func (f *Facade) ReportKeys(ctx context.Context, machineId string, publicKeys []string) error {
 	args := params.SSHHostKeySet{EntityKeys: []params.SSHHostKeys{{
 		Tag:        names.NewMachineTag(machineId).String(),
 		PublicKeys: publicKeys,
 	}}}
 	var result params.ErrorResults
-	err := f.caller.FacadeCall(context.TODO(), "ReportKeys", args, &result)
+	err := f.caller.FacadeCall(ctx, "ReportKeys", args, &result)
 	if err != nil {
 		return err
 	}

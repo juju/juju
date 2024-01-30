@@ -4,6 +4,7 @@
 package meterstatus
 
 import (
+	stdcontext "context"
 	"fmt"
 	"math/rand"
 	"path"
@@ -101,7 +102,7 @@ func (ctx *limitedContext) ActionData() (*context.ActionData, error) {
 }
 
 // Flush implements runner.Context.
-func (ctx *limitedContext) Flush(_ string, err error) error {
+func (ctx *limitedContext) Flush(_ stdcontext.Context, _ string, err error) error {
 	return err
 }
 
@@ -115,6 +116,6 @@ func (ctx *limitedContext) ResetExecutionSetUnitStatus() {}
 func (ctx *limitedContext) Id() string { return ctx.id }
 
 // Prepare implements runner.Context.
-func (ctx *limitedContext) Prepare() error {
+func (ctx *limitedContext) Prepare(stdcontext.Context) error {
 	return jujuc.ErrRestrictedContext
 }

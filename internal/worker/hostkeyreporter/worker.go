@@ -4,6 +4,7 @@
 package hostkeyreporter
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"time"
@@ -21,7 +22,7 @@ var logger = loggo.GetLogger("juju.worker.hostkeyreporter")
 
 // Facade exposes controller functionality to a Worker.
 type Facade interface {
-	ReportKeys(machineId string, publicKeys []string) error
+	ReportKeys(ctx context.Context, machineId string, publicKeys []string) error
 }
 
 // Config defines the parameters of the hostkeyreporter worker.
@@ -80,7 +81,7 @@ func (w *hostkeyreporter) run() error {
 	if len(keys) < 1 {
 		return errors.New("no SSH host keys found")
 	}
-	err = w.config.Facade.ReportKeys(w.config.MachineId, keys)
+	err = w.config.Facade.ReportKeys(context.TODO(), w.config.MachineId, keys)
 	if err != nil {
 		return errors.Trace(err)
 	}

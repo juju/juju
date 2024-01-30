@@ -300,7 +300,7 @@ func (fw *Firewaller) loop() error {
 				return errors.New("machines watcher closed")
 			}
 			for _, machineId := range change {
-				if err := fw.machineLifeChanged(names.NewMachineTag(machineId)); err != nil {
+				if err := fw.machineLifeChanged(context.TODO(), names.NewMachineTag(machineId)); err != nil {
 					return err
 				}
 			}
@@ -310,7 +310,7 @@ func (fw *Firewaller) loop() error {
 				if fw.globalMode {
 					err = fw.reconcileGlobal()
 				} else {
-					err = fw.reconcileInstances()
+					err = fw.reconcileInstances(context.TODO())
 				}
 				if err != nil {
 					return errors.Trace(err)
@@ -329,7 +329,7 @@ func (fw *Firewaller) loop() error {
 			}
 			for _, portsGlobalKey := range change {
 				machineTag := names.NewMachineTag(portsGlobalKey)
-				if err := fw.openedPortsChanged(machineTag); err != nil {
+				if err := fw.openedPortsChanged(context.TODO(), machineTag); err != nil {
 					return errors.Trace(err)
 				}
 			}
@@ -338,7 +338,7 @@ func (fw *Firewaller) loop() error {
 				return errors.New("remote relations watcher closed")
 			}
 			for _, relationKey := range change {
-				if err := fw.relationLifeChanged(names.NewRelationTag(relationKey)); err != nil {
+				if err := fw.relationLifeChanged(context.TODO(), names.NewRelationTag(relationKey)); err != nil {
 					return err
 				}
 			}
@@ -347,18 +347,18 @@ func (fw *Firewaller) loop() error {
 				return errors.New("subnet watcher closed")
 			}
 
-			if err := fw.subnetsChanged(); err != nil {
+			if err := fw.subnetsChanged(context.TODO()); err != nil {
 				return errors.Trace(err)
 			}
 		case change := <-fw.localRelationsChange:
 			// We have a notification that the remote (consuming) model
 			// has changed egress networks so need to update the local
 			// model to allow those networks through the firewall.
-			if err := fw.relationIngressChanged(change); err != nil {
+			if err := fw.relationIngressChanged(context.TODO(), change); err != nil {
 				return errors.Trace(err)
 			}
 		case change := <-fw.unitsChange:
-			if err := fw.unitsChanged(change); err != nil {
+			if err := fw.unitsChanged(context.TODO(), change); err != nil {
 				return errors.Trace(err)
 			}
 		case change := <-fw.exposedChange:
@@ -368,14 +368,14 @@ func (fw *Firewaller) loop() error {
 			for _, unitd := range change.applicationd.unitds {
 				unitds = append(unitds, unitd)
 			}
-			if err := fw.flushUnits(unitds); err != nil {
+			if err := fw.flushUnits(context.TODO(), unitds); err != nil {
 				return errors.Annotate(err, "cannot change firewall ports")
 			}
 		}
 	}
 }
 
-func (fw *Firewaller) subnetsChanged() error {
+func (fw *Firewaller) subnetsChanged(ctx context.Context) error {
 	// Refresh space topology
 	var err error
 	if fw.spaceInfos, err = fw.firewallerApi.AllSpaceInfos(); err != nil {
@@ -407,13 +407,13 @@ func (fw *Firewaller) subnetsChanged() error {
 		return nil // nothing to do
 	}
 
-	if err := fw.flushUnits(unitds); err != nil {
+	if err := fw.flushUnits(ctx, unitds); err != nil {
 		return errors.Annotate(err, "cannot update unit ingress rules")
 	}
 	return nil
 }
 
-func (fw *Firewaller) relationIngressChanged(change *remoteRelationNetworkChange) error {
+func (fw *Firewaller) relationIngressChanged(ctx context.Context, change *remoteRelationNetworkChange) error {
 	fw.logger.Debugf("process remote relation ingress change for %v", change.relationTag)
 	relData, ok := fw.relationIngress[change.relationTag]
 	if ok {
@@ -429,7 +429,7 @@ func (fw *Firewaller) relationIngressChanged(change *remoteRelationNetworkChange
 	for _, unitd := range appData.unitds {
 		unitds = append(unitds, unitd)
 	}
-	if err := fw.flushUnits(unitds); err != nil {
+	if err := fw.flushUnits(ctx, unitds); err != nil {
 		return errors.Annotate(err, "cannot change firewall ports")
 	}
 	return nil
@@ -437,13 +437,13 @@ func (fw *Firewaller) relationIngressChanged(change *remoteRelationNetworkChange
 
 // startMachine creates a new data value for tracking details of the
 // machine and starts watching the machine for units added or removed.
-func (fw *Firewaller) startMachine(tag names.MachineTag) error {
+func (fw *Firewaller) startMachine(ctx context.Context, tag names.MachineTag) error {
 	machined := &machineData{
 		fw:     fw,
 		tag:    tag,
 		unitds: make(map[names.UnitTag]*unitData),
 	}
-	m, err := machined.machine()
+	m, err := machined.machine(ctx)
 	if params.IsCodeNotFound(err) {
 		fw.logger.Debugf("not watching %q", tag)
 		return nil
@@ -482,7 +482,7 @@ func (fw *Firewaller) startMachine(tag names.MachineTag) error {
 			return errors.New("machine units watcher closed")
 		}
 		fw.machineds[tag] = machined
-		err = fw.unitsChanged(&unitsChange{machined, change})
+		err = fw.unitsChanged(ctx, &unitsChange{machined, change})
 		if err != nil {
 			delete(fw.machineds, tag)
 			return errors.Annotatef(err, "cannot respond to units changes for %q, %q", tag, fw.modelUUID)
@@ -515,7 +515,7 @@ func (fw *Firewaller) startMachine(tag names.MachineTag) error {
 // startUnit creates a new data value for tracking details of the unit
 // The provided machineTag must be the tag for the machine the unit was last
 // observed to be assigned to.
-func (fw *Firewaller) startUnit(unit Unit, machineTag names.MachineTag) error {
+func (fw *Firewaller) startUnit(ctx context.Context, unit Unit, machineTag names.MachineTag) error {
 	application, err := unit.Application()
 	if err != nil {
 		return err
@@ -543,7 +543,7 @@ func (fw *Firewaller) startUnit(unit Unit, machineTag names.MachineTag) error {
 	unitd.applicationd = fw.applicationids[applicationTag]
 	unitd.applicationd.unitds[unitTag] = unitd
 
-	if err = fw.openedPortsChanged(machineTag); err != nil {
+	if err = fw.openedPortsChanged(ctx, machineTag); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -619,11 +619,11 @@ func (fw *Firewaller) reconcileGlobal() error {
 // reconcileInstances compares the initially started watcher for machines,
 // units and applications with the opened and closed ports of the instances and
 // opens and closes the appropriate ports for each instance.
-func (fw *Firewaller) reconcileInstances() error {
+func (fw *Firewaller) reconcileInstances(ctx context.Context) error {
 	for _, machined := range fw.machineds {
-		m, err := machined.machine()
+		m, err := machined.machine(ctx)
 		if params.IsCodeNotFound(err) {
-			if err := fw.forgetMachine(machined); err != nil {
+			if err := fw.forgetMachine(ctx, machined); err != nil {
 				return err
 			}
 			continue
@@ -682,11 +682,11 @@ func (fw *Firewaller) reconcileInstances() error {
 }
 
 // unitsChanged responds to changes to the assigned units.
-func (fw *Firewaller) unitsChanged(change *unitsChange) error {
+func (fw *Firewaller) unitsChanged(ctx context.Context, change *unitsChange) error {
 	changed := []*unitData{}
 	for _, name := range change.units {
 		unitTag := names.NewUnitTag(name)
-		unit, err := fw.firewallerApi.Unit(unitTag)
+		unit, err := fw.firewallerApi.Unit(ctx, unitTag)
 		if err != nil && !params.IsCodeNotFound(err) {
 			return err
 		}
@@ -707,7 +707,7 @@ func (fw *Firewaller) unitsChanged(change *unitsChange) error {
 				fw.logger.Debugf("stopped watching unit %s", name)
 			}
 		} else if unit != nil && unit.Life() != life.Dead && fw.machineds[machineTag] != nil {
-			err = fw.startUnit(unit, machineTag)
+			err = fw.startUnit(ctx, unit, machineTag)
 			if params.IsCodeNotFound(err) {
 				continue
 			}
@@ -718,14 +718,14 @@ func (fw *Firewaller) unitsChanged(change *unitsChange) error {
 			fw.logger.Debugf("started watching %q", unitTag)
 		}
 	}
-	if err := fw.flushUnits(changed); err != nil {
+	if err := fw.flushUnits(ctx, changed); err != nil {
 		return errors.Annotate(err, "cannot change firewall ports")
 	}
 	return nil
 }
 
 // openedPortsChanged handles port change notifications
-func (fw *Firewaller) openedPortsChanged(machineTag names.MachineTag) (err error) {
+func (fw *Firewaller) openedPortsChanged(ctx context.Context, machineTag names.MachineTag) (err error) {
 	defer func() {
 		if params.IsCodeNotFound(err) {
 			err = nil
@@ -741,7 +741,7 @@ func (fw *Firewaller) openedPortsChanged(machineTag names.MachineTag) (err error
 		return nil
 	}
 
-	m, err := machined.machine()
+	m, err := machined.machine(ctx)
 	if err != nil {
 		return err
 	}
@@ -768,7 +768,7 @@ func (fw *Firewaller) openedPortsChanged(machineTag names.MachineTag) (err error
 	}
 
 	machined.openedPortRangesByEndpoint = opendPortRangesByEndpoint
-	return fw.flushMachine(machined)
+	return fw.flushMachine(ctx, machined)
 }
 
 func equalGroupedPortRanges(a, b map[names.UnitTag]network.GroupedPortRanges) bool {
@@ -785,13 +785,13 @@ func equalGroupedPortRanges(a, b map[names.UnitTag]network.GroupedPortRanges) bo
 }
 
 // flushUnits opens and closes ports for the passed unit data.
-func (fw *Firewaller) flushUnits(unitds []*unitData) error {
+func (fw *Firewaller) flushUnits(ctx context.Context, unitds []*unitData) error {
 	machineds := map[names.MachineTag]*machineData{}
 	for _, unitd := range unitds {
 		machineds[unitd.machined.tag] = unitd.machined
 	}
 	for _, machined := range machineds {
-		if err := fw.flushMachine(machined); err != nil {
+		if err := fw.flushMachine(ctx, machined); err != nil {
 			return err
 		}
 	}
@@ -799,7 +799,7 @@ func (fw *Firewaller) flushUnits(unitds []*unitData) error {
 }
 
 // flushMachine opens and closes ports for the passed machine.
-func (fw *Firewaller) flushMachine(machined *machineData) error {
+func (fw *Firewaller) flushMachine(ctx context.Context, machined *machineData) error {
 	defer func() {
 		if fw.flushMachineNotify != nil {
 			fw.flushMachineNotify(machined.tag.Id())
@@ -814,7 +814,7 @@ func (fw *Firewaller) flushMachine(machined *machineData) error {
 	if fw.globalMode {
 		return fw.flushGlobalPorts(toOpen, toClose)
 	}
-	return fw.flushInstancePorts(machined, toOpen, toClose)
+	return fw.flushInstancePorts(ctx, machined, toOpen, toClose)
 }
 
 // gatherIngressRules returns the ingress rules to open and close
@@ -1086,7 +1086,7 @@ func (fw *Firewaller) flushModel() error {
 }
 
 // flushInstancePorts opens and closes ports global on the machine.
-func (fw *Firewaller) flushInstancePorts(machined *machineData, toOpen, toClose firewall.IngressRules) (err error) {
+func (fw *Firewaller) flushInstancePorts(ctx context.Context, machined *machineData, toOpen, toClose firewall.IngressRules) (err error) {
 	defer func() {
 		if params.IsCodeNotFound(err) {
 			err = nil
@@ -1101,7 +1101,7 @@ func (fw *Firewaller) flushInstancePorts(machined *machineData, toOpen, toClose 
 	if len(toOpen) == 0 && len(toClose) == 0 {
 		return nil
 	}
-	m, err := machined.machine()
+	m, err := machined.machine(ctx)
 	if err != nil {
 		return err
 	}
@@ -1114,7 +1114,6 @@ func (fw *Firewaller) flushInstancePorts(machined *machineData, toOpen, toClose 
 	if err != nil {
 		return err
 	}
-	ctx := stdcontext.Background()
 	envInstances, err := fw.environInstances.Instances(fw.cloudCallContextFunc(ctx), []instance.Id{instanceId})
 	if err != nil {
 		return err
@@ -1149,8 +1148,8 @@ func (fw *Firewaller) flushInstancePorts(machined *machineData, toOpen, toClose 
 // machineLifeChanged starts watching new machines when the firewaller
 // is starting, or when new machines come to life, and stops watching
 // machines that are dying.
-func (fw *Firewaller) machineLifeChanged(tag names.MachineTag) error {
-	m, err := fw.firewallerApi.Machine(tag)
+func (fw *Firewaller) machineLifeChanged(ctx context.Context, tag names.MachineTag) error {
+	m, err := fw.firewallerApi.Machine(ctx, tag)
 	found := !params.IsCodeNotFound(err)
 	if found && err != nil {
 		return err
@@ -1158,10 +1157,10 @@ func (fw *Firewaller) machineLifeChanged(tag names.MachineTag) error {
 	dead := !found || m.Life() == life.Dead
 	machined, known := fw.machineds[tag]
 	if known && dead {
-		return fw.forgetMachine(machined)
+		return fw.forgetMachine(ctx, machined)
 	}
 	if !known && !dead {
-		err := fw.startMachine(tag)
+		err := fw.startMachine(ctx, tag)
 		if err != nil {
 			return err
 		}
@@ -1170,11 +1169,11 @@ func (fw *Firewaller) machineLifeChanged(tag names.MachineTag) error {
 }
 
 // forgetMachine cleans the machine data after the machine is removed.
-func (fw *Firewaller) forgetMachine(machined *machineData) error {
+func (fw *Firewaller) forgetMachine(ctx context.Context, machined *machineData) error {
 	for _, unitd := range machined.unitds {
 		fw.forgetUnit(unitd)
 	}
-	if err := fw.flushMachine(machined); err != nil {
+	if err := fw.flushMachine(ctx, machined); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -1244,8 +1243,8 @@ type machineData struct {
 	openedPortRangesByEndpoint map[names.UnitTag]network.GroupedPortRanges
 }
 
-func (md *machineData) machine() (Machine, error) {
-	return md.fw.firewallerApi.Machine(md.tag)
+func (md *machineData) machine(ctx context.Context) (Machine, error) {
+	return md.fw.firewallerApi.Machine(ctx, md.tag)
 }
 
 // watchLoop watches the machine for units added or removed.
@@ -1395,7 +1394,7 @@ func (ad *applicationData) Wait() error {
 
 // relationLifeChanged manages the workers to process ingress changes for
 // the specified relation.
-func (fw *Firewaller) relationLifeChanged(tag names.RelationTag) error {
+func (fw *Firewaller) relationLifeChanged(ctx context.Context, tag names.RelationTag) error {
 	results, err := fw.remoteRelationsApi.Relations([]string{tag.Id()})
 	if err != nil {
 		return errors.Trace(err)
@@ -1420,7 +1419,7 @@ func (fw *Firewaller) relationLifeChanged(tag names.RelationTag) error {
 				localApplicationTag: data.localApplicationTag,
 				ingressRequired:     false,
 			}
-			if err := fw.relationIngressChanged(change); err != nil {
+			if err := fw.relationIngressChanged(ctx, change); err != nil {
 				return errors.Trace(err)
 			}
 		}

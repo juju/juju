@@ -56,7 +56,7 @@ type Machine interface {
 	InstanceStatus() (params.StatusResult, error)
 	SetInstanceStatus(status.Status, string, map[string]interface{}) error
 	String() string
-	Refresh() error
+	Refresh(ctx stdcontext.Context) error
 	Status() (params.StatusResult, error)
 	Life() life.Value
 	IsManual() (bool, error)
@@ -66,7 +66,7 @@ type Machine interface {
 // poller.
 type FacadeAPI interface {
 	WatchModelMachines() (watcher.StringsWatcher, error)
-	Machine(tag names.MachineTag) (Machine, error)
+	Machine(ctx stdcontext.Context, tag names.MachineTag) (Machine, error)
 }
 
 // Config encapsulates the configuration options for instantiating a new
@@ -206,7 +206,7 @@ func (u *updaterWorker) loop() error {
 
 			for i := range ids {
 				tag := names.NewMachineTag(ids[i])
-				if err := u.queueMachineForPolling(tag); err != nil {
+				if err := u.queueMachineForPolling(stdcontext.TODO(), tag); err != nil {
 					return err
 				}
 			}
@@ -228,12 +228,12 @@ func (u *updaterWorker) loop() error {
 	}
 }
 
-func (u *updaterWorker) queueMachineForPolling(tag names.MachineTag) error {
+func (u *updaterWorker) queueMachineForPolling(ctx stdcontext.Context, tag names.MachineTag) error {
 	// If we are already polling this machine, check whether it is still alive
 	// and remove it from its poll group if it is now dead.
 	if entry, groupType := u.lookupPolledMachine(tag); entry != nil {
 		var isDead bool
-		if err := entry.m.Refresh(); err != nil {
+		if err := entry.m.Refresh(ctx); err != nil {
 			// If the machine is not found, this probably means
 			// that it is dead and has been removed from the DB.
 			if !errors.Is(err, errors.NotFound) {
@@ -263,7 +263,7 @@ func (u *updaterWorker) queueMachineForPolling(tag names.MachineTag) error {
 	}
 
 	// Get information about the machine
-	m, err := u.config.Facade.Machine(tag)
+	m, err := u.config.Facade.Machine(ctx, tag)
 	if err != nil {
 		return errors.Trace(err)
 	}

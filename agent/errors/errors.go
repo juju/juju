@@ -4,6 +4,7 @@
 package errors
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/errors"
@@ -108,20 +109,20 @@ func MoreImportantError(err0, err1 error) error {
 
 // Breakable provides a type that exposes an IsBroken check.
 type Breakable interface {
-	IsBroken() bool
+	IsBroken(ctx context.Context) bool
 }
 
 // ConnectionIsFatal returns a function suitable for passing as the
 // isFatal argument to worker.NewRunner, that diagnoses an error as
 // fatal if the connection has failed or if the error is otherwise
 // fatal.
-func ConnectionIsFatal(logger Logger, conns ...Breakable) func(err error) bool {
+func ConnectionIsFatal(ctx context.Context, logger Logger, conns ...Breakable) func(err error) bool {
 	return func(err error) bool {
 		if IsFatal(err) {
 			return true
 		}
 		for _, conn := range conns {
-			if ConnectionIsDead(logger, conn) {
+			if ConnectionIsDead(ctx, logger, conn) {
 				return true
 			}
 		}
@@ -130,8 +131,8 @@ func ConnectionIsFatal(logger Logger, conns ...Breakable) func(err error) bool {
 }
 
 // ConnectionIsDead returns true if the given Breakable is broken.
-var ConnectionIsDead = func(logger Logger, conn Breakable) bool {
-	return conn.IsBroken()
+var ConnectionIsDead = func(ctx context.Context, logger Logger, conn Breakable) bool {
+	return conn.IsBroken(ctx)
 }
 
 // Pinger provides a type that knows how to ping.

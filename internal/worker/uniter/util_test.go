@@ -5,6 +5,7 @@ package uniter_test
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -254,14 +255,14 @@ func (ctx *testContext) sendRelationUnitChange(c *gc.C, msg string, ruc watcher.
 func (ctx *testContext) expectHookContext(c *gc.C) {
 	ctx.payloads.EXPECT().List().Return(nil, nil).AnyTimes()
 	ctx.api.EXPECT().APIAddresses().Return([]string{"10.6.6.6"}, nil).AnyTimes()
-	ctx.api.EXPECT().SLALevel().Return("gold", nil).AnyTimes()
-	ctx.api.EXPECT().CloudAPIVersion().Return("6.6.6", nil).AnyTimes()
+	ctx.api.EXPECT().SLALevel(gomock.Any()).Return("gold", nil).AnyTimes()
+	ctx.api.EXPECT().CloudAPIVersion(gomock.Any()).Return("6.6.6", nil).AnyTimes()
 
 	cfg := coretesting.ModelConfig(c)
 	ctx.api.EXPECT().ModelConfig(gomock.Any()).Return(cfg, nil).AnyTimes()
 	m, err := ctx.unit.AssignedMachine()
 	c.Assert(err, jc.ErrorIsNil)
-	ctx.api.EXPECT().OpenedMachinePortRangesByEndpoint(m).Return(nil, nil).AnyTimes()
+	ctx.api.EXPECT().OpenedMachinePortRangesByEndpoint(gomock.Any(), m).Return(nil, nil).AnyTimes()
 	ctx.secretsClient.EXPECT().SecretMetadata().Return(nil, nil).AnyTimes()
 }
 
@@ -859,7 +860,7 @@ func (s startUniter) setupUniter(c *gc.C, ctx *testContext) {
 	ctx.stateMu.Unlock()
 	tag := names.NewUnitTag(s.unit)
 	ctx.api.EXPECT().UnitStorageAttachments(tag).Return(attachments, nil).AnyTimes()
-	ctx.api.EXPECT().Unit(tag).DoAndReturn(func(tag names.UnitTag) (uniterapi.Unit, error) {
+	ctx.api.EXPECT().Unit(gomock.Any(), tag).DoAndReturn(func(_ context.Context, tag names.UnitTag) (uniterapi.Unit, error) {
 		if tag.Id() != ctx.unit.Tag().Id() {
 			return nil, errors.New("permission denied")
 		}
@@ -876,7 +877,7 @@ func (s startUniter) setupUniter(c *gc.C, ctx *testContext) {
 	}).AnyTimes()
 
 	// Context factory init.
-	ctx.api.EXPECT().Model().Return(&model.Model{
+	ctx.api.EXPECT().Model(gomock.Any()).Return(&model.Model{
 		Name:      "test-model",
 		UUID:      coretesting.ModelTag.Id(),
 		ModelType: model.IAAS,
@@ -903,7 +904,7 @@ func (s startUniter) setupUniter(c *gc.C, ctx *testContext) {
 }
 
 func (s startUniter) setupUniterHookExec(c *gc.C, ctx *testContext) {
-	ctx.api.EXPECT().Application(ctx.app.Tag()).Return(ctx.app, nil).AnyTimes()
+	ctx.api.EXPECT().Application(gomock.Any(), ctx.app.Tag()).Return(ctx.app, nil).AnyTimes()
 	ctx.expectHookContext(c)
 
 	setState := func(unitState params.SetUnitStateArg) error {
@@ -1451,13 +1452,13 @@ func (s addAction) step(c *gc.C, ctx *testContext) {
 	tag := names.NewActionTag(strconv.Itoa(int(ctx.actionCounter.Add(1))))
 	a := apiuniter.NewAction(tag.Id(), s.name, s.params, false, "")
 	ctx.pendingActions = append(ctx.pendingActions, a)
-	ctx.api.EXPECT().Action(tag).Return(a, nil).AnyTimes()
+	ctx.api.EXPECT().Action(gomock.Any(), tag).Return(a, nil).AnyTimes()
 	c.Logf("beginning action %s", tag)
-	ctx.api.EXPECT().ActionBegin(tag).DoAndReturn(func(tag names.ActionTag) error {
+	ctx.api.EXPECT().ActionBegin(gomock.Any(), tag).DoAndReturn(func(_ context.Context, tag names.ActionTag) error {
 		ctx.actionsCh <- []string{tag.Id()}
 		return nil
 	}).MaxTimes(2)
-	ctx.api.EXPECT().ActionStatus(tag).Return("completed", nil).AnyTimes()
+	ctx.api.EXPECT().ActionStatus(gomock.Any(), tag).Return("completed", nil).AnyTimes()
 	ctx.sendStrings(c, ctx.actionsCh, "action begin event", tag.Id())
 }
 
@@ -1601,9 +1602,9 @@ func (s addRelation) step(c *gc.C, ctx *testContext) {
 	ctx.relation = ctx.makeRelation(c, relTag, life.Alive, "mysql")
 
 	ctx.relUnit = ctx.makeRelationUnit(c, ctx.relation, ctx.unit)
-	ctx.relation.EXPECT().Unit(ctx.unit.Tag()).Return(ctx.relUnit, nil).AnyTimes()
+	ctx.relation.EXPECT().Unit(gomock.Any(), ctx.unit.Tag()).Return(ctx.relUnit, nil).AnyTimes()
 
-	ctx.api.EXPECT().WatchRelationUnits(relTag, ctx.unit.Tag()).DoAndReturn(func(_ names.RelationTag, _ names.UnitTag) (watcher.RelationUnitsWatcher, error) {
+	ctx.api.EXPECT().WatchRelationUnits(gomock.Any(), relTag, ctx.unit.Tag()).DoAndReturn(func(_ context.Context, _ names.RelationTag, _ names.UnitTag) (watcher.RelationUnitsWatcher, error) {
 		ctx.stateMu.Lock()
 		defer ctx.stateMu.Unlock()
 
@@ -1705,9 +1706,9 @@ func (s addSubordinateRelation) step(c *gc.C, ctx *testContext) {
 	ctx.subordRelation = ctx.makeRelation(c, relTag, life.Alive, "logging")
 
 	ru := ctx.makeRelationUnit(c, ctx.subordRelation, ctx.unit)
-	ctx.subordRelation.EXPECT().Unit(ctx.unit.Tag()).Return(ru, nil).AnyTimes()
+	ctx.subordRelation.EXPECT().Unit(gomock.Any(), ctx.unit.Tag()).Return(ru, nil).AnyTimes()
 
-	ctx.api.EXPECT().WatchRelationUnits(relTag, ctx.unit.Tag()).DoAndReturn(func(_ names.RelationTag, _ names.UnitTag) (watcher.RelationUnitsWatcher, error) {
+	ctx.api.EXPECT().WatchRelationUnits(gomock.Any(), relTag, ctx.unit.Tag()).DoAndReturn(func(_ context.Context, _ names.RelationTag, _ names.UnitTag) (watcher.RelationUnitsWatcher, error) {
 		changes := watcher.RelationUnitsChange{Changed: make(map[string]watcher.UnitSettings)}
 		changes.AppChanged = map[string]int64{"logging": 0}
 		ctx.sendRelationUnitChange(c, "initial subordinate relation unit change", changes)

@@ -10,6 +10,7 @@
 package mocks
 
 import (
+	context "context"
 	reflect "reflect"
 
 	hook "github.com/juju/juju/internal/worker/uniter/hook"
@@ -40,17 +41,17 @@ func (m *MockSecretStateTracker) EXPECT() *MockSecretStateTrackerMockRecorder {
 }
 
 // CommitHook mocks base method.
-func (m *MockSecretStateTracker) CommitHook(arg0 hook.Info) error {
+func (m *MockSecretStateTracker) CommitHook(arg0 context.Context, arg1 hook.Info) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CommitHook", arg0)
+	ret := m.ctrl.Call(m, "CommitHook", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // CommitHook indicates an expected call of CommitHook.
-func (mr *MockSecretStateTrackerMockRecorder) CommitHook(arg0 any) *gomock.Call {
+func (mr *MockSecretStateTrackerMockRecorder) CommitHook(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CommitHook", reflect.TypeOf((*MockSecretStateTracker)(nil).CommitHook), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CommitHook", reflect.TypeOf((*MockSecretStateTracker)(nil).CommitHook), arg0, arg1)
 }
 
 // ConsumedSecretRevision mocks base method.
@@ -68,17 +69,17 @@ func (mr *MockSecretStateTrackerMockRecorder) ConsumedSecretRevision(arg0 any) *
 }
 
 // PrepareHook mocks base method.
-func (m *MockSecretStateTracker) PrepareHook(arg0 hook.Info) error {
+func (m *MockSecretStateTracker) PrepareHook(arg0 context.Context, arg1 hook.Info) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "PrepareHook", arg0)
+	ret := m.ctrl.Call(m, "PrepareHook", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // PrepareHook indicates an expected call of PrepareHook.
-func (mr *MockSecretStateTrackerMockRecorder) PrepareHook(arg0 any) *gomock.Call {
+func (mr *MockSecretStateTrackerMockRecorder) PrepareHook(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrepareHook", reflect.TypeOf((*MockSecretStateTracker)(nil).PrepareHook), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrepareHook", reflect.TypeOf((*MockSecretStateTracker)(nil).PrepareHook), arg0, arg1)
 }
 
 // Report mocks base method.

@@ -4,6 +4,8 @@
 package identityfilewriter
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
@@ -27,7 +29,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 }
 
 // newWorker trivially wraps NewWorker for use in a engine.AgentAPIManifold.
-func newWorker(a agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
+func newWorker(ctx context.Context, a agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
 	cfg := a.CurrentConfig()
 
 	// Grab the tag and ensure that it's for a controller.
@@ -35,7 +37,7 @@ func newWorker(a agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
 		return nil, errors.New("this manifold may only be used inside a machine or controller agent")
 	}
 
-	isController, err := apiagent.IsController(apiCaller, cfg.Tag())
+	isController, err := apiagent.IsController(ctx, apiCaller, cfg.Tag())
 	if err != nil {
 		return nil, err
 	}

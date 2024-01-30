@@ -260,7 +260,7 @@ type mockOperations struct {
 	err error
 }
 
-func (m *mockOperations) NewAction(id string) (operation.Operation, error) {
+func (m *mockOperations) NewAction(_ context.Context, id string) (operation.Operation, error) {
 	if m.err != nil {
 		return nil, errors.Annotate(m.err, "action error")
 	}

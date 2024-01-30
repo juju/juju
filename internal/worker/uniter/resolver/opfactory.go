@@ -102,8 +102,8 @@ func (s *resolverOpFactory) NewResolvedUpgrade(charmURL string) (operation.Opera
 	return s.wrapUpgradeOp(op, charmURL), nil
 }
 
-func (s *resolverOpFactory) NewAction(id string) (operation.Operation, error) {
-	op, err := s.Factory.NewAction(id)
+func (s *resolverOpFactory) NewAction(ctx context.Context, id string) (operation.Operation, error) {
+	op, err := s.Factory.NewAction(ctx, id)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

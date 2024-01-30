@@ -4,6 +4,7 @@
 package provisioner
 
 import (
+	"context"
 	"sort"
 
 	"github.com/juju/names/v5"
@@ -76,5 +77,5 @@ func SetupToStartMachine(
 func MachineSupportsContainers(
 	cfg ContainerManifoldConfig, pr ContainerMachineGetter, mTag names.MachineTag,
 ) (ContainerMachine, error) {
-	return cfg.machineSupportsContainers(pr, mTag)
+	return cfg.machineSupportsContainers(context.Background(), pr, mTag)
 }

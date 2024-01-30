@@ -10,6 +10,7 @@
 package mocks
 
 import (
+	context "context"
 	reflect "reflect"
 
 	life "github.com/juju/juju/core/life"
@@ -59,18 +60,18 @@ func (mr *MockClientMockRecorder) Machine(arg0 any) *gomock.Call {
 }
 
 // Unit mocks base method.
-func (m *MockClient) Unit(arg0 names.UnitTag) (deployer.Unit, error) {
+func (m *MockClient) Unit(arg0 context.Context, arg1 names.UnitTag) (deployer.Unit, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Unit", arg0)
+	ret := m.ctrl.Call(m, "Unit", arg0, arg1)
 	ret0, _ := ret[0].(deployer.Unit)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Unit indicates an expected call of Unit.
-func (mr *MockClientMockRecorder) Unit(arg0 any) *gomock.Call {
+func (mr *MockClientMockRecorder) Unit(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Unit", reflect.TypeOf((*MockClient)(nil).Unit), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Unit", reflect.TypeOf((*MockClient)(nil).Unit), arg0, arg1)
 }
 
 // MockMachine is a mock of Machine interface.
@@ -97,18 +98,18 @@ func (m *MockMachine) EXPECT() *MockMachineMockRecorder {
 }
 
 // WatchUnits mocks base method.
-func (m *MockMachine) WatchUnits() (watcher.Watcher[[]string], error) {
+func (m *MockMachine) WatchUnits(arg0 context.Context) (watcher.Watcher[[]string], error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchUnits")
+	ret := m.ctrl.Call(m, "WatchUnits", arg0)
 	ret0, _ := ret[0].(watcher.Watcher[[]string])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // WatchUnits indicates an expected call of WatchUnits.
-func (mr *MockMachineMockRecorder) WatchUnits() *gomock.Call {
+func (mr *MockMachineMockRecorder) WatchUnits(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchUnits", reflect.TypeOf((*MockMachine)(nil).WatchUnits))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchUnits", reflect.TypeOf((*MockMachine)(nil).WatchUnits), arg0)
 }
 
 // MockUnit is a mock of Unit interface.
@@ -163,43 +164,43 @@ func (mr *MockUnitMockRecorder) Name() *gomock.Call {
 }
 
 // Remove mocks base method.
-func (m *MockUnit) Remove() error {
+func (m *MockUnit) Remove(arg0 context.Context) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Remove")
+	ret := m.ctrl.Call(m, "Remove", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Remove indicates an expected call of Remove.
-func (mr *MockUnitMockRecorder) Remove() *gomock.Call {
+func (mr *MockUnitMockRecorder) Remove(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Remove", reflect.TypeOf((*MockUnit)(nil).Remove))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Remove", reflect.TypeOf((*MockUnit)(nil).Remove), arg0)
 }
 
 // SetPassword mocks base method.
-func (m *MockUnit) SetPassword(arg0 string) error {
+func (m *MockUnit) SetPassword(arg0 context.Context, arg1 string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetPassword", arg0)
+	ret := m.ctrl.Call(m, "SetPassword", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SetPassword indicates an expected call of SetPassword.
-func (mr *MockUnitMockRecorder) SetPassword(arg0 any) *gomock.Call {
+func (mr *MockUnitMockRecorder) SetPassword(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetPassword", reflect.TypeOf((*MockUnit)(nil).SetPassword), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetPassword", reflect.TypeOf((*MockUnit)(nil).SetPassword), arg0, arg1)
 }
 
 // SetStatus mocks base method.
-func (m *MockUnit) SetStatus(arg0 status.Status, arg1 string, arg2 map[string]any) error {
+func (m *MockUnit) SetStatus(arg0 context.Context, arg1 status.Status, arg2 string, arg3 map[string]any) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetStatus", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "SetStatus", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SetStatus indicates an expected call of SetStatus.
-func (mr *MockUnitMockRecorder) SetStatus(arg0, arg1, arg2 any) *gomock.Call {
+func (mr *MockUnitMockRecorder) SetStatus(arg0, arg1, arg2, arg3 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetStatus", reflect.TypeOf((*MockUnit)(nil).SetStatus), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetStatus", reflect.TypeOf((*MockUnit)(nil).SetStatus), arg0, arg1, arg2, arg3)
 }

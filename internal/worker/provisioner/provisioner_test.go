@@ -290,7 +290,7 @@ func (s *ProvisionerSuite) TestMachineStartedAndStopped(c *gc.C) {
 	m666 := &testMachine{id: "666"}
 
 	s.broker.EXPECT().AllRunningInstances(gomock.Any()).Return([]instances.Instance{&testInstance{id: "inst-666"}}, nil).Times(2)
-	s.machinesAPI.EXPECT().Machines(mTag).Return([]apiprovisioner.MachineResult{{
+	s.machinesAPI.EXPECT().Machines(gomock.Any(), mTag).Return([]apiprovisioner.MachineResult{{
 		Machine: m666,
 	}}, nil).Times(2)
 	s.machinesAPI.EXPECT().ProvisioningInfo([]names.MachineTag{mTag}).Return(params.ProvisioningInfoResults{

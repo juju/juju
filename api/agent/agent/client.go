@@ -51,12 +51,12 @@ func NewClient(caller base.APICaller, options ...Option) (*Client, error) {
 	}, nil
 }
 
-func (st *Client) getEntity(tag names.Tag) (*params.AgentGetEntitiesResult, error) {
+func (st *Client) getEntity(ctx context.Context, tag names.Tag) (*params.AgentGetEntitiesResult, error) {
 	var results params.AgentGetEntitiesResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: tag.String()}},
 	}
-	err := st.facade.FacadeCall(context.TODO(), "GetEntities", args, &results)
+	err := st.facade.FacadeCall(ctx, "GetEntities", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -69,9 +69,9 @@ func (st *Client) getEntity(tag names.Tag) (*params.AgentGetEntitiesResult, erro
 	return &results.Entities[0], nil
 }
 
-func (st *Client) StateServingInfo() (controller.StateServingInfo, error) {
+func (st *Client) StateServingInfo(ctx context.Context) (controller.StateServingInfo, error) {
 	var results params.StateServingInfo
-	err := st.facade.FacadeCall(context.TODO(), "StateServingInfo", nil, &results)
+	err := st.facade.FacadeCall(ctx, "StateServingInfo", nil, &results)
 	if err != nil {
 		return controller.StateServingInfo{}, errors.Trace(err)
 	}
@@ -93,8 +93,8 @@ type Entity struct {
 	doc params.AgentGetEntitiesResult
 }
 
-func (st *Client) Entity(tag names.Tag) (*Entity, error) {
-	doc, err := st.getEntity(tag)
+func (st *Client) Entity(ctx context.Context, tag names.Tag) (*Entity, error) {
+	doc, err := st.getEntity(ctx, tag)
 	if err != nil {
 		return nil, err
 	}
@@ -125,7 +125,7 @@ func (m *Entity) Jobs() []model.MachineJob {
 
 // IsController returns true of the tag is for a controller (machine or agent).
 // TODO(controlleragent) - this method is needed while IAAS controllers are still machines.
-func IsController(caller base.APICaller, tag names.Tag) (bool, error) {
+func IsController(ctx context.Context, caller base.APICaller, tag names.Tag) (bool, error) {
 	if tag.Kind() == names.ControllerAgentTagKind {
 		return true, nil
 	}
@@ -133,7 +133,7 @@ func IsController(caller base.APICaller, tag names.Tag) (bool, error) {
 	if err != nil {
 		return false, errors.Trace(err)
 	}
-	machine, err := apiSt.Entity(tag)
+	machine, err := apiSt.Entity(ctx, tag)
 	if err != nil {
 		return false, errors.Trace(err)
 	}

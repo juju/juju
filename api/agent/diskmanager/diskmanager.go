@@ -38,8 +38,7 @@ func NewState(caller base.APICaller, authTag names.MachineTag, options ...Option
 
 // SetMachineBlockDevices sets the block devices attached to the machine
 // identified by the authenticated machine tag.
-// XXX
-func (st *State) SetMachineBlockDevices(devices []blockdevice.BlockDevice) error {
+func (st *State) SetMachineBlockDevices(ctx context.Context, devices []blockdevice.BlockDevice) error {
 	args := params.SetMachineBlockDevices{
 		MachineBlockDevices: []params.MachineBlockDevices{{
 			Machine:      st.tag.String(),
@@ -47,7 +46,7 @@ func (st *State) SetMachineBlockDevices(devices []blockdevice.BlockDevice) error
 		}},
 	}
 	var results params.ErrorResults
-	err := st.facade.FacadeCall(context.TODO(), "SetMachineBlockDevices", args, &results)
+	err := st.facade.FacadeCall(ctx, "SetMachineBlockDevices", args, &results)
 	if err != nil {
 		return err
 	}

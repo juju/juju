@@ -473,7 +473,7 @@ func (s *MachineLegacySuite) TestManageModelServesAPI(c *gc.C) {
 		st, err := api.Open(apiInfo, fastDialOpts)
 		c.Assert(err, jc.ErrorIsNil)
 		defer st.Close()
-		m, err := apimachiner.NewClient(st).Machine(conf.Tag().(names.MachineTag))
+		m, err := apimachiner.NewClient(st).Machine(context.Background(), conf.Tag().(names.MachineTag))
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(m.Life(), gc.Equals, life.Alive)
 	})
@@ -492,7 +492,7 @@ func (s *MachineLegacySuite) TestIAASControllerPatchUpdateManagerFile(c *gc.C) {
 			st, err := api.Open(apiInfo, fastDialOpts)
 			c.Assert(err, jc.ErrorIsNil)
 			defer func() { _ = st.Close() }()
-			err = a.machineStartup(st, coretesting.NewCheckLogger(c))
+			err = a.machineStartup(context.Background(), st, coretesting.NewCheckLogger(c))
 			c.Assert(err, jc.ErrorIsNil)
 		},
 	)
@@ -511,7 +511,7 @@ func (s *MachineLegacySuite) TestIAASControllerPatchUpdateManagerFileErrored(c *
 			st, err := api.Open(apiInfo, fastDialOpts)
 			c.Assert(err, jc.ErrorIsNil)
 			defer func() { _ = st.Close() }()
-			err = a.machineStartup(st, coretesting.NewCheckLogger(c))
+			err = a.machineStartup(context.Background(), st, coretesting.NewCheckLogger(c))
 			c.Assert(err, gc.ErrorMatches, `unknown error`)
 		},
 	)
@@ -530,7 +530,7 @@ func (s *MachineLegacySuite) TestIAASControllerPatchUpdateManagerFileNonZeroExit
 			st, err := api.Open(apiInfo, fastDialOpts)
 			c.Assert(err, jc.ErrorIsNil)
 			defer func() { _ = st.Close() }()
-			err = a.machineStartup(st, coretesting.NewCheckLogger(c))
+			err = a.machineStartup(context.Background(), st, coretesting.NewCheckLogger(c))
 			c.Assert(err, gc.ErrorMatches, `cannot patch /etc/update-manager/release-upgrades: unknown error`)
 		},
 	)

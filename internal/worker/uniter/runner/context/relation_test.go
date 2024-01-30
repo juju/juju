@@ -4,6 +4,8 @@
 package context_test
 
 import (
+	stdcontext "context"
+
 	"github.com/juju/charm/v12"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -83,10 +85,10 @@ func (s *ContextRelationSuite) TestSuspended(c *gc.C) {
 func (s *ContextRelationSuite) TestSetStatus(c *gc.C) {
 	defer s.setUp(c).Finish()
 
-	s.rel.EXPECT().SetStatus(relation.Suspended).Return(nil)
+	s.rel.EXPECT().SetStatus(gomock.Any(), relation.Suspended).Return(nil)
 
 	ctx := context.NewContextRelation(s.relUnit, nil)
-	err := ctx.SetStatus(relation.Suspended)
+	err := ctx.SetStatus(stdcontext.Background(), relation.Suspended)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

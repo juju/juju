@@ -4,6 +4,8 @@
 package context_test
 
 import (
+	stdcontext "context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
@@ -55,7 +57,7 @@ func (s *FlushContextSuite) TestRunHookRelationFlushingError(c *gc.C) {
 	node1.Set("bar", "2")
 
 	// Flush the context with a failure.
-	err = ctx.Flush("some badge", errors.New("blam pow"))
+	err = ctx.Flush(stdcontext.Background(), "some badge", errors.New("blam pow"))
 	c.Assert(err, gc.ErrorMatches, "blam pow")
 }
 
@@ -97,7 +99,7 @@ func (s *FlushContextSuite) TestRunHookRelationFlushingSuccess(c *gc.C) {
 	}}).Return(nil)
 
 	// Flush the context with a success.
-	err = ctx.Flush("some badge", nil)
+	err = ctx.Flush(stdcontext.Background(), "some badge", nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -113,13 +115,13 @@ func (s *FlushContextSuite) TestRebootAfterHook(c *gc.C) {
 
 	// Flush the context with an error and check that reboot is not triggered.
 	expErr := errors.New("hook execution failed")
-	err = ctx.Flush("some badge", expErr)
+	err = ctx.Flush(stdcontext.Background(), "some badge", expErr)
 	c.Assert(err, gc.Equals, expErr)
 
 	// Flush the context without an error and check that reboot is triggered.
 	s.unit.EXPECT().SetAgentStatus(status.Rebooting, "", nil).Return(nil)
 	s.unit.EXPECT().RequestReboot().Return(nil)
-	err = ctx.Flush("some badge", nil)
+	err = ctx.Flush(stdcontext.Background(), "some badge", nil)
 	c.Assert(err, gc.Equals, context.ErrReboot)
 }
 
@@ -143,7 +145,7 @@ func (s *FlushContextSuite) TestRebootWhenHookFails(c *gc.C) {
 
 	// Flush the context with an error and check that reboot is not triggered.
 	expErr := errors.New("hook execution failed")
-	err = ctx.Flush("some badge", expErr)
+	err = ctx.Flush(stdcontext.Background(), "some badge", expErr)
 	c.Assert(err, gc.ErrorMatches, "hook execution failed")
 }
 
@@ -170,7 +172,7 @@ func (s *FlushContextSuite) TestRebootNowWhenHookFails(c *gc.C) {
 	s.unit.EXPECT().RequestReboot().Return(nil)
 
 	expErr := errors.New("hook execution failed")
-	err = ctx.Flush("some badge", expErr)
+	err = ctx.Flush(stdcontext.Background(), "some badge", expErr)
 	c.Assert(err, gc.Equals, context.ErrRequeueAndReboot)
 }
 
@@ -196,7 +198,7 @@ func (s *FlushContextSuite) TestRebootNow(c *gc.C) {
 	s.unit.EXPECT().SetAgentStatus(status.Rebooting, "", nil).Return(nil)
 	s.unit.EXPECT().RequestReboot().Return(nil)
 
-	err = ctx.Flush("some badge", nil)
+	err = ctx.Flush(stdcontext.Background(), "some badge", nil)
 	c.Assert(err, gc.Equals, context.ErrRequeueAndReboot)
 }
 
@@ -277,7 +279,7 @@ func (s *FlushContextSuite) TestRunHookOpensAndClosesPendingPorts(c *gc.C) {
 	}}).Return(nil)
 
 	// Flush the context with a success.
-	err = ctx.Flush("some badge", nil)
+	err = ctx.Flush(stdcontext.Background(), "some badge", nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -341,7 +343,7 @@ func (s *FlushContextSuite) TestRunHookUpdatesSecrets(c *gc.C) {
 	}}).Return(nil)
 
 	// Flush the context with a success.
-	err = ctx.Flush("some badge", nil)
+	err = ctx.Flush(stdcontext.Background(), "some badge", nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -366,7 +368,7 @@ func (s *FlushContextSuite) TestBuiltinMetricNotGeneratedIfNotDefined(c *gc.C) {
 		paths.GetMetricsSpoolDir(),
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	err = ctx.Flush("some badge", nil)
+	err = ctx.Flush(stdcontext.Background(), "some badge", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	batches, err := reader.Read()
 	c.Assert(err, jc.ErrorIsNil)

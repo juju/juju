@@ -16,7 +16,7 @@ import (
 
 // Life requests the life cycle of the given entities from the given
 // server-side API facade via the given caller.
-func Life(caller base.FacadeCaller, tags []names.Tag) ([]params.LifeResult, error) {
+func Life(ctx context.Context, caller base.FacadeCaller, tags []names.Tag) ([]params.LifeResult, error) {
 	if len(tags) == 0 {
 		return []params.LifeResult{}, nil
 	}
@@ -26,7 +26,7 @@ func Life(caller base.FacadeCaller, tags []names.Tag) ([]params.LifeResult, erro
 		entities[i] = params.Entity{t.String()}
 	}
 	args := params.Entities{Entities: entities}
-	if err := caller.FacadeCall(context.TODO(), "Life", args, &result); err != nil {
+	if err := caller.FacadeCall(ctx, "Life", args, &result); err != nil {
 		return []params.LifeResult{}, err
 	}
 	return result.Results, nil
@@ -34,8 +34,8 @@ func Life(caller base.FacadeCaller, tags []names.Tag) ([]params.LifeResult, erro
 
 // OneLife requests the life cycle of the given entity from the given
 // server-side API facade via the given caller.
-func OneLife(caller base.FacadeCaller, tag names.Tag) (life.Value, error) {
-	result, err := Life(caller, []names.Tag{tag})
+func OneLife(ctx context.Context, caller base.FacadeCaller, tag names.Tag) (life.Value, error) {
+	result, err := Life(ctx, caller, []names.Tag{tag})
 	if err != nil {
 		return "", err
 	}

@@ -4,6 +4,7 @@
 package meterstatus
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/errors"
@@ -118,7 +119,7 @@ func (w *isolatedStatusWorker) loop() error {
 			currentCode := "RED"
 			currentInfo := "unit agent has been disconnected"
 
-			w.applyStatus(currentCode, currentInfo)
+			w.applyStatus(context.TODO(), currentCode, currentInfo)
 			st.Code, st.Info = currentCode, currentInfo
 			st.Disconnected.State = Done
 		case <-amberSignal:
@@ -126,7 +127,7 @@ func (w *isolatedStatusWorker) loop() error {
 			currentCode := "AMBER"
 			currentInfo := "unit agent has been disconnected"
 
-			w.applyStatus(currentCode, currentInfo)
+			w.applyStatus(context.TODO(), currentCode, currentInfo)
 			st.Code, st.Info = currentCode, currentInfo
 			st.Disconnected.State = WaitingRed
 		}
@@ -136,9 +137,9 @@ func (w *isolatedStatusWorker) loop() error {
 	}
 }
 
-func (w *isolatedStatusWorker) applyStatus(code, info string) {
+func (w *isolatedStatusWorker) applyStatus(ctx context.Context, code, info string) {
 	w.config.Logger.Tracef("applying meter status change: %q (%q)", code, info)
-	w.config.Runner.RunHook(code, info, w.tomb.Dying())
+	w.config.Runner.RunHook(ctx, code, info, w.tomb.Dying())
 }
 
 // Kill is part of the worker.Worker interface.

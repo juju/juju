@@ -24,7 +24,7 @@ type Logger interface {
 
 // ConnectFunc is responsible for making and validating an API connection
 // on behalf of an agent.
-type ConnectFunc func(agent.Agent, api.OpenFunc, Logger) (api.Connection, error)
+type ConnectFunc func(context.Context, agent.Agent, api.OpenFunc, Logger) (api.Connection, error)
 
 // ManifoldConfig defines a Manifold's dependencies.
 type ManifoldConfig struct {
@@ -91,7 +91,7 @@ func (config ManifoldConfig) startFunc() dependency.StartFunc {
 			return nil, err
 		}
 
-		conn, err := config.NewConnection(agent, config.APIOpen, config.Logger)
+		conn, err := config.NewConnection(ctx, agent, config.APIOpen, config.Logger)
 		if errors.Cause(err) == ErrChangedPassword {
 			return nil, dependency.ErrBounce
 		} else if err != nil {

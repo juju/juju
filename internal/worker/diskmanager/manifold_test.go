@@ -4,6 +4,8 @@
 package diskmanager_test
 
 import (
+	"context"
+
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
@@ -59,7 +61,7 @@ func (s *manifoldSuite) TestMachineDiskmanager(c *gc.C) {
 		},
 	}
 
-	_, err := diskmanager.NewWorkerFunc(a, apiCaller)
+	_, err := diskmanager.NewWorkerFunc(context.Background(), a, apiCaller)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
 }

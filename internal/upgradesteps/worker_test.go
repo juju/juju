@@ -6,7 +6,7 @@ package upgradesteps
 import (
 	"context"
 	"errors"
-	time "time"
+	"time"
 
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
@@ -130,6 +130,6 @@ type breakableAPICaller struct {
 	broken bool
 }
 
-func (b *breakableAPICaller) IsBroken() bool {
+func (b *breakableAPICaller) IsBroken(_ context.Context) bool {
 	return b.broken
 }

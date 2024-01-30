@@ -45,9 +45,9 @@ func NewClientFromFacade(facadeCaller base.FacadeCaller) *Client {
 
 // WatchModelMachines returns a StringsWatcher reporting changes to machines
 // and not containers.
-func (c *Client) WatchModelMachines() (watcher.StringsWatcher, error) {
+func (c *Client) WatchModelMachines(ctx context.Context) (watcher.StringsWatcher, error) {
 	var result params.StringsWatchResult
-	err := c.facade.FacadeCall(context.TODO(), "WatchModelMachines", nil, &result)
+	err := c.facade.FacadeCall(ctx, "WatchModelMachines", nil, &result)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -59,8 +59,8 @@ func (c *Client) WatchModelMachines() (watcher.StringsWatcher, error) {
 
 // Machine provides access to methods of a state.Machine through the
 // facade.
-func (c *Client) Machine(tag names.MachineTag) (MutaterMachine, error) {
-	life, err := common.OneLife(c.facade, tag)
+func (c *Client) Machine(ctx context.Context, tag names.MachineTag) (MutaterMachine, error) {
+	life, err := common.OneLife(ctx, c.facade, tag)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

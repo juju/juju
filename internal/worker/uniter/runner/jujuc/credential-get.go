@@ -48,7 +48,7 @@ func (c *CredentialGetCommand) Init(args []string) error {
 
 // Run is part of the cmd.Command interface.
 func (c *CredentialGetCommand) Run(ctx *cmd.Context) error {
-	credential, err := c.ctx.CloudSpec()
+	credential, err := c.ctx.CloudSpec(ctx)
 	if err != nil {
 		return errors.Annotatef(err, "cannot access cloud credentials")
 	}

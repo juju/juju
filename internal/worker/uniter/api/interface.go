@@ -4,6 +4,8 @@
 package api
 
 import (
+	stdcontext "context"
+
 	"github.com/juju/charm/v12"
 	"github.com/juju/names/v5"
 
@@ -24,7 +26,7 @@ import (
 // ProviderIDGetter defines the API to get provider ID.
 type ProviderIDGetter interface {
 	ProviderID() string
-	Refresh() error
+	Refresh(ctx stdcontext.Context) error
 	Name() string
 }
 
@@ -32,7 +34,7 @@ type ProviderIDGetter interface {
 type Unit interface {
 	ProviderIDGetter
 	Life() life.Value
-	Refresh() error
+	Refresh(stdcontext.Context) error
 	ApplicationTag() names.ApplicationTag
 	EnsureDead() error
 	ClearResolved() error
@@ -51,12 +53,12 @@ type Unit interface {
 	Name() string
 	NetworkInfo(bindings []string, relationId *int) (map[string]params.NetworkInfoResult, error)
 	RequestReboot() error
-	SetUnitStatus(unitStatus status.Status, info string, data map[string]interface{}) error
+	SetUnitStatus(ctx stdcontext.Context, unitStatus status.Status, info string, data map[string]interface{}) error
 	SetAgentStatus(agentStatus status.Status, info string, data map[string]interface{}) error
 	State() (params.UnitStateResult, error)
 	SetState(unitState params.SetUnitStateArg) error
 	Tag() names.UnitTag
-	UnitStatus() (params.StatusResult, error)
+	UnitStatus(stdcontext.Context) (params.StatusResult, error)
 	CommitHookChanges(params.CommitHookChangesArgs) error
 	PublicAddress() (string, error)
 	PrincipalName() (string, bool, error)
@@ -80,7 +82,7 @@ type Unit interface {
 
 	// Used by relationer.
 
-	Application() (Application, error)
+	Application(stdcontext.Context) (Application, error)
 	RelationsStatus() ([]uniter.RelationStatus, error)
 	Destroy() error
 
@@ -103,21 +105,21 @@ type Application interface {
 
 	WatchLeadershipSettings() (watcher.NotifyWatcher, error)
 	Watch() (watcher.NotifyWatcher, error)
-	Refresh() error
+	Refresh(stdcontext.Context) error
 }
 
 // Relation defines the methods on uniter.api.Relation.
 type Relation interface {
-	Endpoint() (*uniter.Endpoint, error)
+	Endpoint(stdcontext.Context) (*uniter.Endpoint, error)
 	Id() int
 	Life() life.Value
 	OtherApplication() string
-	Refresh() error
-	SetStatus(status2 relation.Status) error
+	Refresh(stdcontext.Context) error
+	SetStatus(ctx stdcontext.Context, status2 relation.Status) error
 	String() string
 	Suspended() bool
 	Tag() names.RelationTag
-	Unit(names.UnitTag) (RelationUnit, error)
+	Unit(stdcontext.Context, names.UnitTag) (RelationUnit, error)
 	UpdateSuspended(bool)
 }
 

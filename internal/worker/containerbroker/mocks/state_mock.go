@@ -10,6 +10,7 @@
 package mocks
 
 import (
+	context "context"
 	reflect "reflect"
 
 	provisioner "github.com/juju/juju/api/agent/provisioner"
@@ -105,10 +106,10 @@ func (mr *MockStateMockRecorder) HostChangesForContainer(arg0 any) *gomock.Call 
 }
 
 // Machines mocks base method.
-func (m *MockState) Machines(arg0 ...names.MachineTag) ([]provisioner.MachineResult, error) {
+func (m *MockState) Machines(arg0 context.Context, arg1 ...names.MachineTag) ([]provisioner.MachineResult, error) {
 	m.ctrl.T.Helper()
-	varargs := []any{}
-	for _, a := range arg0 {
+	varargs := []any{arg0}
+	for _, a := range arg1 {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "Machines", varargs...)
@@ -118,9 +119,10 @@ func (m *MockState) Machines(arg0 ...names.MachineTag) ([]provisioner.MachineRes
 }
 
 // Machines indicates an expected call of Machines.
-func (mr *MockStateMockRecorder) Machines(arg0 ...any) *gomock.Call {
+func (mr *MockStateMockRecorder) Machines(arg0 any, arg1 ...any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Machines", reflect.TypeOf((*MockState)(nil).Machines), arg0...)
+	varargs := append([]any{arg0}, arg1...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Machines", reflect.TypeOf((*MockState)(nil).Machines), varargs...)
 }
 
 // PrepareContainerInterfaceInfo mocks base method.

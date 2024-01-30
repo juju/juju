@@ -4,6 +4,8 @@
 package uniter
 
 import (
+	"context"
+
 	"github.com/juju/charm/v12"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
@@ -70,8 +72,8 @@ func (r *Relation) OtherApplication() string {
 // Refresh refreshes the contents of the relation from the underlying
 // state. It returns an error that satisfies errors.IsNotFound if the
 // relation has been removed.
-func (r *Relation) Refresh() error {
-	result, err := r.client.relation(r.tag, r.client.unitTag)
+func (r *Relation) Refresh(ctx context.Context) error {
+	result, err := r.client.relation(ctx, r.tag, r.client.unitTag)
 	if err != nil {
 		return err
 	}
@@ -85,8 +87,8 @@ func (r *Relation) Refresh() error {
 }
 
 // SetStatus updates the status of the relation.
-func (r *Relation) SetStatus(status relation.Status) error {
-	return r.client.setRelationStatus(r.id, status)
+func (r *Relation) SetStatus(ctx context.Context, status relation.Status) error {
+	return r.client.setRelationStatus(ctx, r.id, status)
 }
 
 func (r *Relation) toCharmRelation(cr params.CharmRelation) charm.Relation {
@@ -102,11 +104,11 @@ func (r *Relation) toCharmRelation(cr params.CharmRelation) charm.Relation {
 
 // Endpoint returns the endpoint of the relation for the application the
 // uniter's managed unit belongs to.
-func (r *Relation) Endpoint() (*Endpoint, error) {
+func (r *Relation) Endpoint(ctx context.Context) (*Endpoint, error) {
 	// NOTE: This differs from state.Relation.Endpoint(), because when
 	// talking to the API, there's already an authenticated entity - the
 	// unit, and we can find out its application name.
-	result, err := r.client.relation(r.tag, r.client.unitTag)
+	result, err := r.client.relation(ctx, r.tag, r.client.unitTag)
 	if err != nil {
 		return nil, err
 	}
@@ -114,12 +116,12 @@ func (r *Relation) Endpoint() (*Endpoint, error) {
 }
 
 // Unit returns a RelationUnit for the supplied unitTag.
-func (r *Relation) Unit(uTag names.UnitTag) (*RelationUnit, error) {
+func (r *Relation) Unit(ctx context.Context, uTag names.UnitTag) (*RelationUnit, error) {
 	appName, err := names.UnitApplication(uTag.Id())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	result, err := r.client.relation(r.tag, uTag)
+	result, err := r.client.relation(ctx, r.tag, uTag)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -4,6 +4,7 @@
 package deployer
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/collections/set"
@@ -38,22 +39,22 @@ type Deployer struct {
 // Client is used to define the methods that the deployer makes.
 type Client interface {
 	Machine(names.MachineTag) (Machine, error)
-	Unit(names.UnitTag) (Unit, error)
+	Unit(context.Context, names.UnitTag) (Unit, error)
 }
 
 // Machine defines the methods that the deployer makes on a machine in
 // the model.
 type Machine interface {
-	WatchUnits() (watcher.StringsWatcher, error)
+	WatchUnits(context.Context) (watcher.StringsWatcher, error)
 }
 
 // Unit defines the methods that the deployer makes on a unit in the model.
 type Unit interface {
 	Life() life.Value
 	Name() string
-	Remove() error
-	SetPassword(password string) error
-	SetStatus(unitStatus status.Status, info string, data map[string]interface{}) error
+	Remove(ctx context.Context) error
+	SetPassword(ctx context.Context, password string) error
+	SetStatus(ctx context.Context, unitStatus status.Status, info string, data map[string]interface{}) error
 }
 
 // Context abstracts away the differences between different unit deployment
@@ -121,7 +122,7 @@ func (d *Deployer) SetUp() (watcher.StringsWatcher, error) {
 		return nil, err
 	}
 	d.logger.Tracef("getting units watcher")
-	machineUnitsWatcher, err := machine.WatchUnits()
+	machineUnitsWatcher, err := machine.WatchUnits(context.TODO())
 	if err != nil {
 		d.logger.Tracef("error: %v", err)
 		return nil, err
@@ -135,7 +136,7 @@ func (d *Deployer) SetUp() (watcher.StringsWatcher, error) {
 	d.logger.Tracef("deployed units: %v", deployed)
 	for _, unitName := range deployed {
 		d.deployed.Add(unitName)
-		if err := d.changed(unitName); err != nil {
+		if err := d.changed(context.TODO(), unitName); err != nil {
 			return nil, err
 		}
 	}
@@ -146,7 +147,7 @@ func (d *Deployer) SetUp() (watcher.StringsWatcher, error) {
 func (d *Deployer) Handle(_ <-chan struct{}, unitNames []string) error {
 	d.logger.Tracef("Handle: %v", unitNames)
 	for _, unitName := range unitNames {
-		if err := d.changed(unitName); err != nil {
+		if err := d.changed(context.TODO(), unitName); err != nil {
 			return err
 		}
 	}
@@ -155,12 +156,12 @@ func (d *Deployer) Handle(_ <-chan struct{}, unitNames []string) error {
 
 // changed ensures that the named unit is deployed, recalled, or removed, as
 // indicated by its state.
-func (d *Deployer) changed(unitName string) error {
+func (d *Deployer) changed(ctx context.Context, unitName string) error {
 	unitTag := names.NewUnitTag(unitName)
 	// Determine unit life state, and whether we're responsible for it.
 	d.logger.Infof("checking unit %q", unitName)
 	var unitLife life.Value
-	unit, err := d.client.Unit(unitTag)
+	unit, err := d.client.Unit(ctx, unitTag)
 	if params.IsCodeNotFoundOrCodeUnauthorized(err) {
 		unitLife = life.Dead
 	} else if err != nil {
@@ -183,9 +184,9 @@ func (d *Deployer) changed(unitName string) error {
 	// of deploying a unit agent purely so it can set itself to Dead.
 	if !d.deployed.Contains(unitName) {
 		if unitLife == life.Alive {
-			return d.deploy(unit)
+			return d.deploy(ctx, unit)
 		} else if unit != nil {
-			return d.remove(unit)
+			return d.remove(ctx, unit)
 		}
 	}
 	return nil
@@ -193,12 +194,12 @@ func (d *Deployer) changed(unitName string) error {
 
 // deploy will deploy the supplied unit with the deployer's manager. It will
 // panic if it observes inconsistent internal state.
-func (d *Deployer) deploy(unit Unit) error {
+func (d *Deployer) deploy(ctx context.Context, unit Unit) error {
 	unitName := unit.Name()
 	if d.deployed.Contains(unit.Name()) {
 		panic("must not re-deploy a deployed unit")
 	}
-	if err := unit.SetStatus(status.Waiting, status.MessageInstallingAgent, nil); err != nil {
+	if err := unit.SetStatus(ctx, status.Waiting, status.MessageInstallingAgent, nil); err != nil {
 		return errors.Trace(err)
 	}
 	d.logger.Infof("deploying unit %q", unitName)
@@ -206,7 +207,7 @@ func (d *Deployer) deploy(unit Unit) error {
 	if err != nil {
 		return err
 	}
-	if err := unit.SetPassword(initialPassword); err != nil {
+	if err := unit.SetPassword(ctx, initialPassword); err != nil {
 		return fmt.Errorf("cannot set password for unit %q: %v", unitName, err)
 	}
 	if err := d.ctx.DeployUnit(unitName, initialPassword); err != nil {
@@ -232,7 +233,7 @@ func (d *Deployer) recall(unitName string) error {
 
 // remove will remove the supplied unit from state. It will panic if it
 // observes inconsistent internal state.
-func (d *Deployer) remove(unit Unit) error {
+func (d *Deployer) remove(ctx context.Context, unit Unit) error {
 	unitName := unit.Name()
 	if d.deployed.Contains(unitName) {
 		panic("must not remove a deployed unit")
@@ -240,7 +241,7 @@ func (d *Deployer) remove(unit Unit) error {
 		panic("must not remove an Alive unit")
 	}
 	d.logger.Infof("removing unit %q", unitName)
-	return unit.Remove()
+	return unit.Remove(ctx)
 }
 
 // TearDown stops the embedded context.

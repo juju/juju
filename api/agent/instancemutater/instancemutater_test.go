@@ -4,6 +4,7 @@
 package instancemutater_test
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/errors"
@@ -48,7 +49,7 @@ func (s *instanceMutaterSuite) TestMachineCallsLife(c *gc.C) {
 	}
 	apiCaller := successAPICaller(c, "Life", entitiesArgs, expectedResults)
 	api := instancemutater.NewClient(apiCaller)
-	m, err := api.Machine(names.NewMachineTag("0"))
+	m, err := api.Machine(context.Background(), names.NewMachineTag("0"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(apiCaller.CallCount, gc.Equals, 1)
 	c.Assert(m.Tag().String(), gc.Equals, s.tag.String())
@@ -61,7 +62,7 @@ func (s *instanceMutaterSuite) TestWatchMachines(c *gc.C) {
 		s.expectWatchModelMachines,
 		s.expectStringsWatcher,
 	)
-	ch, err := api.WatchModelMachines()
+	ch, err := api.WatchModelMachines(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	// watch for the changes
@@ -80,7 +81,7 @@ func (s *instanceMutaterSuite) TestWatchMachinesServerError(c *gc.C) {
 	api := s.clientForScenario(c,
 		s.expectWatchModelMachinesWithError,
 	)
-	_, err := api.WatchModelMachines()
+	_, err := api.WatchModelMachines(context.Background())
 	c.Assert(err, gc.ErrorMatches, "failed")
 }
 

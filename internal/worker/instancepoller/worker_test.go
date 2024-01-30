@@ -4,6 +4,7 @@
 package instancepoller
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -143,7 +144,7 @@ func (s *workerSuite) TestQueueingNewMachineAddsItToShortPollGroup(c *gc.C) {
 	mocked.facadeAPI.addMachine(machineTag, nonManualMachine)
 
 	// Queue machine.
-	err := updWorker.queueMachineForPolling(machineTag)
+	err := updWorker.queueMachineForPolling(context.Background(), machineTag)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(updWorker.pollGroup[shortPollGroup], gc.HasLen, 1, gc.Commentf("machine didn't end up in short poll group"))
@@ -159,7 +160,7 @@ func (s *workerSuite) TestQueueingExistingMachineAlwaysMovesItToShortPollGroup(c
 
 	machineTag := names.NewMachineTag("0")
 	machine := mocks.NewMockMachine(ctrl)
-	machine.EXPECT().Refresh().Return(nil)
+	machine.EXPECT().Refresh(gomock.Any()).Return(nil)
 	machine.EXPECT().Life().Return(life.Alive)
 	updWorker.appendToShortPollGroup(machineTag, machine)
 
@@ -170,7 +171,7 @@ func (s *workerSuite) TestQueueingExistingMachineAlwaysMovesItToShortPollGroup(c
 	delete(updWorker.pollGroup[shortPollGroup], machineTag)
 
 	// Queue machine.
-	err := updWorker.queueMachineForPolling(machineTag)
+	err := updWorker.queueMachineForPolling(context.Background(), machineTag)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(updWorker.pollGroup[shortPollGroup], gc.HasLen, 1, gc.Commentf("machine didn't end up in short poll group"))
@@ -331,7 +332,7 @@ func (s *workerSuite) TestDeadMachineGetsRemoved(c *gc.C) {
 	c.Assert(updWorker.pollGroup[shortPollGroup], gc.HasLen, 1)
 
 	// On next refresh, the machine reports as dead
-	machine.EXPECT().Refresh().Return(nil)
+	machine.EXPECT().Refresh(gomock.Any()).Return(nil)
 	machine.EXPECT().Life().Return(life.Dead)
 
 	// Emit a change for the machine so the queueing code detects the
@@ -359,7 +360,7 @@ func (s *workerSuite) TestReapedMachineIsTreatedAsDeadAndRemoved(c *gc.C) {
 	c.Assert(updWorker.pollGroup[shortPollGroup], gc.HasLen, 1)
 
 	// On next refresh, the machine refresh fails with NotFoudn
-	machine.EXPECT().Refresh().Return(
+	machine.EXPECT().Refresh(gomock.Any()).Return(
 		errors.NotFoundf("this is not the machine you are looking for"),
 	)
 
@@ -674,7 +675,7 @@ func (api *mockFacadeAPI) assertEnqueueChange(c *gc.C, values []string) {
 func (api *mockFacadeAPI) addMachine(tag names.MachineTag, m Machine) { api.machineMap[tag] = m }
 
 func (api *mockFacadeAPI) WatchModelMachines() (watcher.StringsWatcher, error) { return api.sw, nil }
-func (api *mockFacadeAPI) Machine(tag names.MachineTag) (Machine, error) {
+func (api *mockFacadeAPI) Machine(_ context.Context, tag names.MachineTag) (Machine, error) {
 	if found := api.machineMap[tag]; found != nil {
 		return found, nil
 	}

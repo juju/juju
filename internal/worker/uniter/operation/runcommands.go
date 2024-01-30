@@ -43,7 +43,7 @@ func (rc *runCommands) String() string {
 // Prepare ensures the commands can be run. It never returns a state change.
 // Prepare is part of the Operation interface.
 func (rc *runCommands) Prepare(ctx stdcontext.Context, state State) (*State, error) {
-	rnr, err := rc.runnerFactory.NewCommandRunner(context.CommandInfo{
+	rnr, err := rc.runnerFactory.NewCommandRunner(ctx, context.CommandInfo{
 		RelationId:     rc.args.RelationId,
 		RemoteUnitName: rc.args.RemoteUnitName,
 		// TODO(jam): 2019-10-24 include RemoteAppName
@@ -52,7 +52,7 @@ func (rc *runCommands) Prepare(ctx stdcontext.Context, state State) (*State, err
 	if err != nil {
 		return nil, err
 	}
-	err = rnr.Context().Prepare()
+	err = rnr.Context().Prepare(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -70,7 +70,7 @@ func (rc *runCommands) Execute(ctx stdcontext.Context, state State) (*State, err
 		return nil, errors.Trace(err)
 	}
 
-	response, err := rc.runner.RunCommands(rc.args.Commands, rc.args.RunLocation)
+	response, err := rc.runner.RunCommands(ctx, rc.args.Commands, rc.args.RunLocation)
 	switch err {
 	case context.ErrRequeueAndReboot:
 		rc.logger.Warningf("cannot requeue external commands")

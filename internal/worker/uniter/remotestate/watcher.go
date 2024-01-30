@@ -4,6 +4,7 @@
 package remotestate
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"strings"
@@ -341,7 +342,7 @@ func (w *RemoteStateWatcher) RemoveSecretsCompleted(uris []string) {
 	w.current.DeletedSecrets = currentDeleted.Difference(deleted).Values()
 }
 
-func (w *RemoteStateWatcher) setUp(unitTag names.UnitTag) (err error) {
+func (w *RemoteStateWatcher) setUp(ctx context.Context, unitTag names.UnitTag) (err error) {
 	// TODO(axw) move this logic
 	defer func() {
 		cause := errors.Cause(err)
@@ -352,10 +353,10 @@ func (w *RemoteStateWatcher) setUp(unitTag names.UnitTag) (err error) {
 			}
 		}
 	}()
-	if w.unit, err = w.client.Unit(unitTag); err != nil {
+	if w.unit, err = w.client.Unit(ctx, unitTag); err != nil {
 		return errors.Trace(err)
 	}
-	w.application, err = w.unit.Application()
+	w.application, err = w.unit.Application(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -375,7 +376,7 @@ func (w *RemoteStateWatcher) setUp(unitTag names.UnitTag) (err error) {
 }
 
 func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
-	if err := w.setUp(unitTag); err != nil {
+	if err := w.setUp(context.TODO(), unitTag); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -589,7 +590,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			if !ok {
 				return errors.New("unit watcher closed")
 			}
-			if err := w.unitChanged(); err != nil {
+			if err := w.unitChanged(context.TODO()); err != nil {
 				return errors.Trace(err)
 			}
 			observedEvent(&seenUnitChange)
@@ -599,7 +600,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			if !ok {
 				return errors.New("application watcher closed")
 			}
-			if err := w.applicationChanged(); err != nil {
+			if err := w.applicationChanged(context.TODO()); err != nil {
 				return errors.Trace(err)
 			}
 			observedEvent(&seenApplicationChange)
@@ -630,7 +631,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 				return errors.New("running status watcher closed")
 			}
 			if w.current.ProviderID == "" {
-				if err := w.unitChanged(); err != nil {
+				if err := w.unitChanged(context.TODO()); err != nil {
 					return errors.Trace(err)
 				}
 				if w.current.ProviderID == "" {
@@ -713,7 +714,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			if !ok {
 				return errors.New("relations watcher closed")
 			}
-			if err := w.relationsChanged(keys); err != nil {
+			if err := w.relationsChanged(context.TODO(), keys); err != nil {
 				return errors.Trace(err)
 			}
 			observedEvent(&seenRelationsChange)
@@ -912,8 +913,8 @@ func (w *RemoteStateWatcher) retryHookTimerTriggered() {
 }
 
 // unitChanged responds to changes in the unit.
-func (w *RemoteStateWatcher) unitChanged() error {
-	if err := w.unit.Refresh(); err != nil {
+func (w *RemoteStateWatcher) unitChanged(ctx context.Context) error {
+	if err := w.unit.Refresh(ctx); err != nil {
 		return errors.Trace(err)
 	}
 	w.mu.Lock()
@@ -927,8 +928,8 @@ func (w *RemoteStateWatcher) unitChanged() error {
 }
 
 // applicationChanged responds to changes in the application.
-func (w *RemoteStateWatcher) applicationChanged() error {
-	if err := w.application.Refresh(); err != nil {
+func (w *RemoteStateWatcher) applicationChanged(ctx context.Context) error {
+	if err := w.application.Refresh(ctx); err != nil {
 		return errors.Trace(err)
 	}
 	url, force, err := w.application.CharmURL()
@@ -1154,7 +1155,7 @@ func (w *RemoteStateWatcher) expireSecretRevisions(revisions []string) {
 }
 
 // relationsChanged responds to application relation changes.
-func (w *RemoteStateWatcher) relationsChanged(keys []string) error {
+func (w *RemoteStateWatcher) relationsChanged(ctx context.Context, keys []string) error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
@@ -1164,7 +1165,7 @@ func (w *RemoteStateWatcher) relationsChanged(keys []string) error {
 
 	for _, key := range keys {
 		relationTag := names.NewRelationTag(key)
-		rel, err := w.client.Relation(relationTag)
+		rel, err := w.client.Relation(ctx, relationTag)
 		if params.IsCodeNotFoundOrCodeUnauthorized(err) {
 			// If it's actually gone, this unit cannot have entered
 			// scope, and therefore never needs to know about it.
@@ -1175,14 +1176,14 @@ func (w *RemoteStateWatcher) relationsChanged(keys []string) error {
 			}
 		} else if err != nil {
 			return errors.Trace(err)
-		} else if relErr := w.ensureRelationUnits(rel); relErr != nil {
+		} else if relErr := w.ensureRelationUnits(ctx, rel); relErr != nil {
 			return errors.Trace(relErr)
 		}
 	}
 	return nil
 }
 
-func (w *RemoteStateWatcher) ensureRelationUnits(rel api.Relation) error {
+func (w *RemoteStateWatcher) ensureRelationUnits(ctx context.Context, rel api.Relation) error {
 	relationTag := rel.Tag()
 	if _, ok := w.relations[relationTag]; ok {
 		// We're already watching this one, so just update life/suspension status
@@ -1211,14 +1212,14 @@ func (w *RemoteStateWatcher) ensureRelationUnits(rel api.Relation) error {
 	if rel.Suspended() {
 		return nil
 	}
-	return errors.Trace(w.watchRelationUnits(rel))
+	return errors.Trace(w.watchRelationUnits(ctx, rel))
 }
 
 // watchRelationUnits starts watching the relation units for the given
 // relation, waits for its first event, and records the information in
 // the current snapshot.
-func (w *RemoteStateWatcher) watchRelationUnits(rel api.Relation) error {
-	ruw, err := w.client.WatchRelationUnits(rel.Tag(), w.unit.Tag())
+func (w *RemoteStateWatcher) watchRelationUnits(ctx context.Context, rel api.Relation) error {
+	ruw, err := w.client.WatchRelationUnits(ctx, rel.Tag(), w.unit.Tag())
 	// Deal with the race where Relation returned a valid, perhaps dying
 	// relation, but by the time we ask to watch it, we get unauthorized
 	// because it is no longer around.

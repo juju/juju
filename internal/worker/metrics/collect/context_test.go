@@ -4,6 +4,7 @@
 package collect_test
 
 import (
+	stdcontext "context"
 	"time"
 
 	jujucharm "github.com/juju/charm/v12"
@@ -39,7 +40,7 @@ func (s *ContextSuite) TestCtxDeclaredMetric(c *gc.C) {
 	ctx := collect.NewHookContext("u/0", s.recorder)
 	err := ctx.AddMetric("pings", "1", time.Now())
 	c.Assert(err, jc.ErrorIsNil)
-	err = ctx.Flush("", nil)
+	err = ctx.Flush(stdcontext.Background(), "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.recorder.closed, jc.IsTrue)
 	c.Assert(s.recorder.batches, gc.HasLen, 1)

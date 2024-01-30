@@ -61,13 +61,13 @@ func (c *Client) ModelTag() (names.ModelTag, bool) {
 }
 
 // life requests the life cycle of the given entity from the server.
-func (c *Client) life(tag names.Tag) (life.Value, error) {
-	return common.OneLife(c.facade, tag)
+func (c *Client) life(ctx context.Context, tag names.Tag) (life.Value, error) {
+	return common.OneLife(ctx, c.facade, tag)
 }
 
 // Unit provides access to methods of a state.Unit through the facade.
-func (c *Client) Unit(tag names.UnitTag) (*Unit, error) {
-	life, err := c.life(tag)
+func (c *Client) Unit(ctx context.Context, tag names.UnitTag) (*Unit, error) {
+	life, err := c.life(ctx, tag)
 	if err != nil {
 		return nil, err
 	}
@@ -80,8 +80,8 @@ func (c *Client) Unit(tag names.UnitTag) (*Unit, error) {
 
 // Machine provides access to methods of a state.Machine through the
 // facade.
-func (c *Client) Machine(tag names.MachineTag) (*Machine, error) {
-	life, err := c.life(tag)
+func (c *Client) Machine(ctx context.Context, tag names.MachineTag) (*Machine, error) {
+	life, err := c.life(ctx, tag)
 	if err != nil {
 		return nil, err
 	}
@@ -167,8 +167,8 @@ func (c *Client) WatchModelFirewallRules() (watcher.NotifyWatcher, error) {
 
 // Relation provides access to methods of a state.Relation through the
 // facade.
-func (c *Client) Relation(tag names.RelationTag) (*Relation, error) {
-	life, err := c.life(tag)
+func (c *Client) Relation(ctx context.Context, tag names.RelationTag) (*Relation, error) {
+	life, err := c.life(ctx, tag)
 	if err != nil {
 		return nil, err
 	}

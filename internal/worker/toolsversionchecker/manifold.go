@@ -4,6 +4,7 @@
 package toolsversionchecker
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/errors"
@@ -28,13 +29,13 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	return engine.AgentAPIManifold(typedConfig, newWorker)
 }
 
-func newWorker(a agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
+func newWorker(ctx context.Context, a agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
 	tag := a.CurrentConfig().Tag()
 	if tag.Kind() != names.MachineTagKind {
 		return nil, errors.New("this manifold may only be used inside a machine agent")
 	}
 
-	isController, err := apiagent.IsController(apiCaller, tag)
+	isController, err := apiagent.IsController(ctx, apiCaller, tag)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

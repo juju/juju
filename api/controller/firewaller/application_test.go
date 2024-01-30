@@ -4,6 +4,8 @@
 package firewaller_test
 
 import (
+	"context"
+
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -52,7 +54,7 @@ func (s *applicationSuite) TestWatch(c *gc.C) {
 	tag := names.NewUnitTag("mysql/666")
 	client, err := firewaller.NewClient(apiCaller)
 	c.Assert(err, jc.ErrorIsNil)
-	u, err := client.Unit(tag)
+	u, err := client.Unit(context.Background(), tag)
 	c.Assert(err, jc.ErrorIsNil)
 	app, err := u.Application()
 	c.Assert(err, jc.ErrorIsNil)
@@ -100,7 +102,7 @@ func (s *applicationSuite) TestExposeInfo(c *gc.C) {
 	tag := names.NewUnitTag("mysql/666")
 	client, err := firewaller.NewClient(apiCaller)
 	c.Assert(err, jc.ErrorIsNil)
-	u, err := client.Unit(tag)
+	u, err := client.Unit(context.Background(), tag)
 	c.Assert(err, jc.ErrorIsNil)
 	app, err := u.Application()
 	c.Assert(err, jc.ErrorIsNil)

@@ -41,7 +41,7 @@ type MachineProvisioner interface {
 	Life() life.Value
 
 	// Refresh updates the cached local copy of the machine's data.
-	Refresh() error
+	Refresh(context.Context) error
 
 	// SetInstanceStatus sets the status for the provider instance.
 	SetInstanceStatus(status status.Status, message string, data map[string]interface{}) error
@@ -164,8 +164,8 @@ func (m *Machine) Life() life.Value {
 }
 
 // Refresh implements MachineProvisioner.Refresh.
-func (m *Machine) Refresh() error {
-	life, err := m.st.machineLife(m.tag)
+func (m *Machine) Refresh(ctx context.Context) error {
+	life, err := m.st.machineLife(ctx, m.tag)
 	if err != nil {
 		return err
 	}

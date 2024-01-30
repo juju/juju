@@ -10,6 +10,7 @@
 package mocks
 
 import (
+	context "context"
 	reflect "reflect"
 
 	instancemutater "github.com/juju/juju/api/agent/instancemutater"
@@ -42,31 +43,31 @@ func (m *MockInstanceMutaterAPI) EXPECT() *MockInstanceMutaterAPIMockRecorder {
 }
 
 // Machine mocks base method.
-func (m *MockInstanceMutaterAPI) Machine(arg0 names.MachineTag) (instancemutater.MutaterMachine, error) {
+func (m *MockInstanceMutaterAPI) Machine(arg0 context.Context, arg1 names.MachineTag) (instancemutater.MutaterMachine, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Machine", arg0)
+	ret := m.ctrl.Call(m, "Machine", arg0, arg1)
 	ret0, _ := ret[0].(instancemutater.MutaterMachine)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Machine indicates an expected call of Machine.
-func (mr *MockInstanceMutaterAPIMockRecorder) Machine(arg0 any) *gomock.Call {
+func (mr *MockInstanceMutaterAPIMockRecorder) Machine(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Machine", reflect.TypeOf((*MockInstanceMutaterAPI)(nil).Machine), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Machine", reflect.TypeOf((*MockInstanceMutaterAPI)(nil).Machine), arg0, arg1)
 }
 
 // WatchModelMachines mocks base method.
-func (m *MockInstanceMutaterAPI) WatchModelMachines() (watcher.Watcher[[]string], error) {
+func (m *MockInstanceMutaterAPI) WatchModelMachines(arg0 context.Context) (watcher.Watcher[[]string], error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchModelMachines")
+	ret := m.ctrl.Call(m, "WatchModelMachines", arg0)
 	ret0, _ := ret[0].(watcher.Watcher[[]string])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // WatchModelMachines indicates an expected call of WatchModelMachines.
-func (mr *MockInstanceMutaterAPIMockRecorder) WatchModelMachines() *gomock.Call {
+func (mr *MockInstanceMutaterAPIMockRecorder) WatchModelMachines(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchModelMachines", reflect.TypeOf((*MockInstanceMutaterAPI)(nil).WatchModelMachines))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchModelMachines", reflect.TypeOf((*MockInstanceMutaterAPI)(nil).WatchModelMachines), arg0)
 }

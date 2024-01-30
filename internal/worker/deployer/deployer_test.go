@@ -62,18 +62,18 @@ func (s *deployerSuite) TestDeployRecallRemovePrincipals(c *gc.C) {
 
 	ch := make(chan []string)
 	watch := watchertest.NewMockStringsWatcher(ch)
-	machine.EXPECT().WatchUnits().Return(watch, nil)
+	machine.EXPECT().WatchUnits(gomock.Any()).Return(watch, nil)
 
 	dep, err := deployer.NewDeployer(client, loggo.GetLogger("test.deployer"), ctx)
 	c.Assert(err, jc.ErrorIsNil)
 	defer stop(c, dep)
 
 	u0 := mocks.NewMockUnit(ctrl)
-	client.EXPECT().Unit(names.NewUnitTag("mysql/0")).Return(u0, nil)
+	client.EXPECT().Unit(gomock.Any(), names.NewUnitTag("mysql/0")).Return(u0, nil)
 	u0.EXPECT().Name().Return("mysql/0").AnyTimes()
 	u0.EXPECT().Life().Return(life.Alive)
-	u0.EXPECT().SetStatus(status.Waiting, status.MessageInstallingAgent, nil).Return(nil)
-	u0.EXPECT().SetPassword(gomock.Any()).Return(nil)
+	u0.EXPECT().SetStatus(gomock.Any(), status.Waiting, status.MessageInstallingAgent, nil).Return(nil)
+	u0.EXPECT().SetPassword(gomock.Any(), gomock.Any()).Return(nil)
 
 	// Assign one unit, and wait for it to be deployed.
 	s.sendUnitChange(c, ch, "mysql/0")
@@ -81,32 +81,32 @@ func (s *deployerSuite) TestDeployRecallRemovePrincipals(c *gc.C) {
 
 	// Assign another unit, and wait for that to be deployed.
 	u1 := mocks.NewMockUnit(ctrl)
-	client.EXPECT().Unit(names.NewUnitTag("mysql/1")).Return(u1, nil)
+	client.EXPECT().Unit(gomock.Any(), names.NewUnitTag("mysql/1")).Return(u1, nil)
 	u1.EXPECT().Name().Return("mysql/1").AnyTimes()
 	u1.EXPECT().Life().Return(life.Alive)
-	u1.EXPECT().SetStatus(status.Waiting, status.MessageInstallingAgent, nil).Return(nil)
-	u1.EXPECT().SetPassword(gomock.Any()).Return(nil)
+	u1.EXPECT().SetStatus(gomock.Any(), status.Waiting, status.MessageInstallingAgent, nil).Return(nil)
+	u1.EXPECT().SetPassword(gomock.Any(), gomock.Any()).Return(nil)
 	s.sendUnitChange(c, ch, "mysql/1")
 	s.waitFor(c, isDeployed(ctx, u0.Name(), u1.Name()))
 
 	// Cause a unit to become Dying, and check no change.
-	client.EXPECT().Unit(names.NewUnitTag("mysql/1")).Return(u1, nil)
+	client.EXPECT().Unit(gomock.Any(), names.NewUnitTag("mysql/1")).Return(u1, nil)
 	u1.EXPECT().Life().Return(life.Dying)
 	s.sendUnitChange(c, ch, "mysql/1")
 	s.waitFor(c, isDeployed(ctx, u0.Name(), u1.Name()))
 
 	// Cause a unit to become Dead, and check that it is recalled and
 	// removed from state.
-	client.EXPECT().Unit(names.NewUnitTag("mysql/0")).Return(u0, nil)
+	client.EXPECT().Unit(gomock.Any(), names.NewUnitTag("mysql/0")).Return(u0, nil)
 	u0.EXPECT().Life().Return(life.Dead).Times(2)
-	u0.EXPECT().Remove().Return(nil)
+	u0.EXPECT().Remove(gomock.Any()).Return(nil)
 	s.sendUnitChange(c, ch, "mysql/0")
 	s.waitFor(c, isDeployed(ctx, u1.Name()))
 
 	// Remove the Dying unit from the machine, and check that it is recalled...
-	client.EXPECT().Unit(names.NewUnitTag("mysql/1")).Return(u1, nil)
+	client.EXPECT().Unit(gomock.Any(), names.NewUnitTag("mysql/1")).Return(u1, nil)
 	u1.EXPECT().Life().Return(life.Dead).Times(2)
-	u1.EXPECT().Remove().Return(nil)
+	u1.EXPECT().Remove(gomock.Any()).Return(nil)
 	s.sendUnitChange(c, ch, "mysql/1")
 	s.waitFor(c, isDeployed(ctx))
 }
@@ -126,18 +126,18 @@ func (s *deployerSuite) TestInitialStatusMessages(c *gc.C) {
 
 	ch := make(chan []string)
 	watch := watchertest.NewMockStringsWatcher(ch)
-	machine.EXPECT().WatchUnits().Return(watch, nil)
+	machine.EXPECT().WatchUnits(gomock.Any()).Return(watch, nil)
 
 	dep, err := deployer.NewDeployer(client, loggo.GetLogger("test.deployer"), ctx)
 	c.Assert(err, jc.ErrorIsNil)
 	defer stop(c, dep)
 
 	u0 := mocks.NewMockUnit(ctrl)
-	client.EXPECT().Unit(names.NewUnitTag("mysql/0")).Return(u0, nil)
+	client.EXPECT().Unit(gomock.Any(), names.NewUnitTag("mysql/0")).Return(u0, nil)
 	u0.EXPECT().Name().Return("mysql/0").AnyTimes()
 	u0.EXPECT().Life().Return(life.Alive)
-	u0.EXPECT().SetStatus(status.Waiting, status.MessageInstallingAgent, nil).Return(nil)
-	u0.EXPECT().SetPassword(gomock.Any()).Return(nil)
+	u0.EXPECT().SetStatus(gomock.Any(), status.Waiting, status.MessageInstallingAgent, nil).Return(nil)
+	u0.EXPECT().SetPassword(gomock.Any(), gomock.Any()).Return(nil)
 
 	s.sendUnitChange(c, ch, "mysql/0")
 	s.waitFor(c, isDeployed(ctx, u0.Name()))
@@ -159,17 +159,17 @@ func (s *deployerSuite) TestRemoveNonAlivePrincipals(c *gc.C) {
 
 	ch := make(chan []string, 1)
 	watch := watchertest.NewMockStringsWatcher(ch)
-	machine.EXPECT().WatchUnits().Return(watch, nil)
+	machine.EXPECT().WatchUnits(gomock.Any()).Return(watch, nil)
 
 	// Assign a unit which is dead before the deployer starts.
 	u0 := mocks.NewMockUnit(ctrl)
-	client.EXPECT().Unit(names.NewUnitTag("mysql/0")).Return(u0, nil)
+	client.EXPECT().Unit(gomock.Any(), names.NewUnitTag("mysql/0")).Return(u0, nil)
 	u0.EXPECT().Name().Return("mysql/0").AnyTimes()
 	u0.EXPECT().Life().Return(life.Dead).Times(2)
 
 	// Assign another unit which is dying before the deployer starts.
 	u1 := mocks.NewMockUnit(ctrl)
-	client.EXPECT().Unit(names.NewUnitTag("mysql/1")).Return(u1, nil)
+	client.EXPECT().Unit(gomock.Any(), names.NewUnitTag("mysql/1")).Return(u1, nil)
 	u1.EXPECT().Name().Return("mysql/1").AnyTimes()
 	u1.EXPECT().Life().Return(life.Dying).Times(2)
 
@@ -181,17 +181,17 @@ func (s *deployerSuite) TestRemoveNonAlivePrincipals(c *gc.C) {
 
 	s.sendUnitChange(c, ch, "mysql/0", "mysql/1")
 
-	u0.EXPECT().Remove().Return(nil)
-	u1.EXPECT().Remove().Return(nil)
+	u0.EXPECT().Remove(gomock.Any()).Return(nil)
+	u1.EXPECT().Remove(gomock.Any()).Return(nil)
 	s.waitFor(c, isNotDeployed(ctx, "mysql/0", "mysql/1"))
 
 	// Deploy a different unit to give the test something to wait for.
 	u2 := mocks.NewMockUnit(ctrl)
-	client.EXPECT().Unit(names.NewUnitTag("mysql/2")).Return(u2, nil)
+	client.EXPECT().Unit(gomock.Any(), names.NewUnitTag("mysql/2")).Return(u2, nil)
 	u2.EXPECT().Name().Return("mysql/2").AnyTimes()
 	u2.EXPECT().Life().Return(life.Alive)
-	u2.EXPECT().SetStatus(status.Waiting, status.MessageInstallingAgent, nil).Return(nil)
-	u2.EXPECT().SetPassword(gomock.Any()).Return(nil)
+	u2.EXPECT().SetStatus(gomock.Any(), status.Waiting, status.MessageInstallingAgent, nil).Return(nil)
+	u2.EXPECT().SetPassword(gomock.Any(), gomock.Any()).Return(nil)
 
 	s.sendUnitChange(c, ch, "mysql/2")
 

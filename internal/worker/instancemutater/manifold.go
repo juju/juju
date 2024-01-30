@@ -23,7 +23,7 @@ type ModelManifoldConfig struct {
 	AgentName     string
 
 	Logger    Logger
-	NewWorker func(Config) (worker.Worker, error)
+	NewWorker func(context.Context, Config) (worker.Worker, error)
 	NewClient func(base.APICaller) InstanceMutaterAPI
 }
 
@@ -50,7 +50,7 @@ func (config ModelManifoldConfig) Validate() error {
 	return nil
 }
 
-func (config ModelManifoldConfig) newWorker(environ environs.Environ, apiCaller base.APICaller, agent agent.Agent) (worker.Worker, error) {
+func (config ModelManifoldConfig) newWorker(ctx context.Context, environ environs.Environ, apiCaller base.APICaller, agent agent.Agent) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -73,7 +73,7 @@ func (config ModelManifoldConfig) newWorker(environ environs.Environ, apiCaller 
 		Tag:         agentConfig.Tag(),
 	}
 
-	w, err := config.NewWorker(cfg)
+	w, err := config.NewWorker(ctx, cfg)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot start model instance-mutater worker")
 	}
@@ -100,7 +100,7 @@ type EnvironAPIConfig struct {
 
 // EnvironAPIStartFunc encapsulates creation of a worker based on the environ
 // and APICaller.
-type EnvironAPIStartFunc func(environs.Environ, base.APICaller, agent.Agent) (worker.Worker, error)
+type EnvironAPIStartFunc func(context.Context, environs.Environ, base.APICaller, agent.Agent) (worker.Worker, error)
 
 // EnvironAPIManifold returns a dependency.Manifold that calls the supplied
 // start func with the API and envrion resources defined in the config
@@ -125,7 +125,7 @@ func EnvironAPIManifold(config EnvironAPIConfig, start EnvironAPIStartFunc) depe
 			if err := getter.Get(config.APICallerName, &apiCaller); err != nil {
 				return nil, errors.Trace(err)
 			}
-			return start(environ, apiCaller, agent)
+			return start(ctx, environ, apiCaller, agent)
 		},
 	}
 }
@@ -137,7 +137,7 @@ type MachineManifoldConfig struct {
 	AgentName     string
 
 	Logger    Logger
-	NewWorker func(Config) (worker.Worker, error)
+	NewWorker func(context.Context, Config) (worker.Worker, error)
 	NewClient func(base.APICaller) InstanceMutaterAPI
 }
 
@@ -164,7 +164,7 @@ func (config MachineManifoldConfig) Validate() error {
 	return nil
 }
 
-func (config MachineManifoldConfig) newWorker(instanceBroker environs.InstanceBroker, apiCaller base.APICaller, agent agent.Agent) (worker.Worker, error) {
+func (config MachineManifoldConfig) newWorker(ctx context.Context, instanceBroker environs.InstanceBroker, apiCaller base.APICaller, agent agent.Agent) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -192,7 +192,7 @@ func (config MachineManifoldConfig) newWorker(instanceBroker environs.InstanceBr
 		Tag:         tag,
 	}
 
-	w, err := config.NewWorker(cfg)
+	w, err := config.NewWorker(ctx, cfg)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot start machine instancemutater worker")
 	}
@@ -219,7 +219,7 @@ type BrokerAPIConfig struct {
 
 // BrokerAPIStartFunc encapsulates creation of a worker based on the environ
 // and APICaller.
-type BrokerAPIStartFunc func(environs.InstanceBroker, base.APICaller, agent.Agent) (worker.Worker, error)
+type BrokerAPIStartFunc func(context.Context, environs.InstanceBroker, base.APICaller, agent.Agent) (worker.Worker, error)
 
 // BrokerAPIManifold returns a dependency.Manifold that calls the supplied
 // start func with the API and envrion resources defined in the config
@@ -244,7 +244,7 @@ func BrokerAPIManifold(config BrokerAPIConfig, start BrokerAPIStartFunc) depende
 			if err := getter.Get(config.APICallerName, &apiCaller); err != nil {
 				return nil, errors.Trace(err)
 			}
-			return start(broker, apiCaller, agent)
+			return start(ctx, broker, apiCaller, agent)
 		},
 	}
 }

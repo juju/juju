@@ -4,6 +4,8 @@
 package uniter_test
 
 import (
+	"context"
+
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -32,7 +34,7 @@ func (s *slaSuite) TestSLALevel(c *gc.C) {
 		return nil
 	})
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
-	level, err := client.SLALevel()
+	level, err := client.SLALevel(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(level, gc.Equals, "essential")
 }

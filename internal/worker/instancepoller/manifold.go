@@ -38,7 +38,9 @@ type facadeShim struct {
 	api *instancepoller.API
 }
 
-func (s facadeShim) Machine(tag names.MachineTag) (Machine, error) { return s.api.Machine(tag) }
+func (s facadeShim) Machine(ctx context.Context, tag names.MachineTag) (Machine, error) {
+	return s.api.Machine(ctx, tag)
+}
 func (s facadeShim) WatchModelMachines() (watcher.StringsWatcher, error) {
 	return s.api.WatchModelMachines()
 }

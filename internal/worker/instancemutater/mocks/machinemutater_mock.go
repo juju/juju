@@ -10,6 +10,7 @@
 package mocks
 
 import (
+	context "context"
 	reflect "reflect"
 
 	instancemutater "github.com/juju/juju/api/agent/instancemutater"
@@ -45,48 +46,48 @@ func (m *MockMutaterMachine) EXPECT() *MockMutaterMachineMockRecorder {
 }
 
 // CharmProfilingInfo mocks base method.
-func (m *MockMutaterMachine) CharmProfilingInfo() (*instancemutater.UnitProfileInfo, error) {
+func (m *MockMutaterMachine) CharmProfilingInfo(arg0 context.Context) (*instancemutater.UnitProfileInfo, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CharmProfilingInfo")
+	ret := m.ctrl.Call(m, "CharmProfilingInfo", arg0)
 	ret0, _ := ret[0].(*instancemutater.UnitProfileInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // CharmProfilingInfo indicates an expected call of CharmProfilingInfo.
-func (mr *MockMutaterMachineMockRecorder) CharmProfilingInfo() *gomock.Call {
+func (mr *MockMutaterMachineMockRecorder) CharmProfilingInfo(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CharmProfilingInfo", reflect.TypeOf((*MockMutaterMachine)(nil).CharmProfilingInfo))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CharmProfilingInfo", reflect.TypeOf((*MockMutaterMachine)(nil).CharmProfilingInfo), arg0)
 }
 
 // ContainerType mocks base method.
-func (m *MockMutaterMachine) ContainerType() (instance.ContainerType, error) {
+func (m *MockMutaterMachine) ContainerType(arg0 context.Context) (instance.ContainerType, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ContainerType")
+	ret := m.ctrl.Call(m, "ContainerType", arg0)
 	ret0, _ := ret[0].(instance.ContainerType)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ContainerType indicates an expected call of ContainerType.
-func (mr *MockMutaterMachineMockRecorder) ContainerType() *gomock.Call {
+func (mr *MockMutaterMachineMockRecorder) ContainerType(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContainerType", reflect.TypeOf((*MockMutaterMachine)(nil).ContainerType))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContainerType", reflect.TypeOf((*MockMutaterMachine)(nil).ContainerType), arg0)
 }
 
 // InstanceId mocks base method.
-func (m *MockMutaterMachine) InstanceId() (string, error) {
+func (m *MockMutaterMachine) InstanceId(arg0 context.Context) (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "InstanceId")
+	ret := m.ctrl.Call(m, "InstanceId", arg0)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // InstanceId indicates an expected call of InstanceId.
-func (mr *MockMutaterMachineMockRecorder) InstanceId() *gomock.Call {
+func (mr *MockMutaterMachineMockRecorder) InstanceId(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InstanceId", reflect.TypeOf((*MockMutaterMachine)(nil).InstanceId))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InstanceId", reflect.TypeOf((*MockMutaterMachine)(nil).InstanceId), arg0)
 }
 
 // Life mocks base method.
@@ -104,45 +105,45 @@ func (mr *MockMutaterMachineMockRecorder) Life() *gomock.Call {
 }
 
 // Refresh mocks base method.
-func (m *MockMutaterMachine) Refresh() error {
+func (m *MockMutaterMachine) Refresh(arg0 context.Context) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Refresh")
+	ret := m.ctrl.Call(m, "Refresh", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Refresh indicates an expected call of Refresh.
-func (mr *MockMutaterMachineMockRecorder) Refresh() *gomock.Call {
+func (mr *MockMutaterMachineMockRecorder) Refresh(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Refresh", reflect.TypeOf((*MockMutaterMachine)(nil).Refresh))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Refresh", reflect.TypeOf((*MockMutaterMachine)(nil).Refresh), arg0)
 }
 
 // SetCharmProfiles mocks base method.
-func (m *MockMutaterMachine) SetCharmProfiles(arg0 []string) error {
+func (m *MockMutaterMachine) SetCharmProfiles(arg0 context.Context, arg1 []string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetCharmProfiles", arg0)
+	ret := m.ctrl.Call(m, "SetCharmProfiles", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SetCharmProfiles indicates an expected call of SetCharmProfiles.
-func (mr *MockMutaterMachineMockRecorder) SetCharmProfiles(arg0 any) *gomock.Call {
+func (mr *MockMutaterMachineMockRecorder) SetCharmProfiles(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetCharmProfiles", reflect.TypeOf((*MockMutaterMachine)(nil).SetCharmProfiles), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetCharmProfiles", reflect.TypeOf((*MockMutaterMachine)(nil).SetCharmProfiles), arg0, arg1)
 }
 
 // SetModificationStatus mocks base method.
-func (m *MockMutaterMachine) SetModificationStatus(arg0 status.Status, arg1 string, arg2 map[string]any) error {
+func (m *MockMutaterMachine) SetModificationStatus(arg0 context.Context, arg1 status.Status, arg2 string, arg3 map[string]any) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetModificationStatus", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "SetModificationStatus", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SetModificationStatus indicates an expected call of SetModificationStatus.
-func (mr *MockMutaterMachineMockRecorder) SetModificationStatus(arg0, arg1, arg2 any) *gomock.Call {
+func (mr *MockMutaterMachineMockRecorder) SetModificationStatus(arg0, arg1, arg2, arg3 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetModificationStatus", reflect.TypeOf((*MockMutaterMachine)(nil).SetModificationStatus), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetModificationStatus", reflect.TypeOf((*MockMutaterMachine)(nil).SetModificationStatus), arg0, arg1, arg2, arg3)
 }
 
 // Tag mocks base method.
@@ -160,46 +161,46 @@ func (mr *MockMutaterMachineMockRecorder) Tag() *gomock.Call {
 }
 
 // WatchContainers mocks base method.
-func (m *MockMutaterMachine) WatchContainers() (watcher.Watcher[[]string], error) {
+func (m *MockMutaterMachine) WatchContainers(arg0 context.Context) (watcher.Watcher[[]string], error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchContainers")
+	ret := m.ctrl.Call(m, "WatchContainers", arg0)
 	ret0, _ := ret[0].(watcher.Watcher[[]string])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // WatchContainers indicates an expected call of WatchContainers.
-func (mr *MockMutaterMachineMockRecorder) WatchContainers() *gomock.Call {
+func (mr *MockMutaterMachineMockRecorder) WatchContainers(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchContainers", reflect.TypeOf((*MockMutaterMachine)(nil).WatchContainers))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchContainers", reflect.TypeOf((*MockMutaterMachine)(nil).WatchContainers), arg0)
 }
 
 // WatchLXDProfileVerificationNeeded mocks base method.
-func (m *MockMutaterMachine) WatchLXDProfileVerificationNeeded() (watcher.Watcher[struct{}], error) {
+func (m *MockMutaterMachine) WatchLXDProfileVerificationNeeded(arg0 context.Context) (watcher.Watcher[struct{}], error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchLXDProfileVerificationNeeded")
+	ret := m.ctrl.Call(m, "WatchLXDProfileVerificationNeeded", arg0)
 	ret0, _ := ret[0].(watcher.Watcher[struct{}])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // WatchLXDProfileVerificationNeeded indicates an expected call of WatchLXDProfileVerificationNeeded.
-func (mr *MockMutaterMachineMockRecorder) WatchLXDProfileVerificationNeeded() *gomock.Call {
+func (mr *MockMutaterMachineMockRecorder) WatchLXDProfileVerificationNeeded(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchLXDProfileVerificationNeeded", reflect.TypeOf((*MockMutaterMachine)(nil).WatchLXDProfileVerificationNeeded))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchLXDProfileVerificationNeeded", reflect.TypeOf((*MockMutaterMachine)(nil).WatchLXDProfileVerificationNeeded), arg0)
 }
 
 // WatchUnits mocks base method.
-func (m *MockMutaterMachine) WatchUnits() (watcher.Watcher[[]string], error) {
+func (m *MockMutaterMachine) WatchUnits(arg0 context.Context) (watcher.Watcher[[]string], error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchUnits")
+	ret := m.ctrl.Call(m, "WatchUnits", arg0)
 	ret0, _ := ret[0].(watcher.Watcher[[]string])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // WatchUnits indicates an expected call of WatchUnits.
-func (mr *MockMutaterMachineMockRecorder) WatchUnits() *gomock.Call {
+func (mr *MockMutaterMachineMockRecorder) WatchUnits(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchUnits", reflect.TypeOf((*MockMutaterMachine)(nil).WatchUnits))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchUnits", reflect.TypeOf((*MockMutaterMachine)(nil).WatchUnits), arg0)
 }

@@ -4,6 +4,7 @@
 package diskmanager
 
 import (
+	"context"
 	"reflect"
 	"sort"
 	"time"
@@ -30,7 +31,7 @@ const (
 // BlockDeviceSetter is an interface that is supplied to
 // NewWorker for setting block devices for the local host.
 type BlockDeviceSetter interface {
-	SetMachineBlockDevices([]blockdevice.BlockDevice) error
+	SetMachineBlockDevices(context.Context, []blockdevice.BlockDevice) error
 }
 
 // ListBlockDevicesFunc is the type of a function that is supplied to
@@ -46,12 +47,12 @@ var DefaultListBlockDevices ListBlockDevicesFunc
 var NewWorker = func(l ListBlockDevicesFunc, b BlockDeviceSetter) worker.Worker {
 	var old []blockdevice.BlockDevice
 	f := func(stop <-chan struct{}) error {
-		return doWork(l, b, &old)
+		return doWork(context.TODO(), l, b, &old)
 	}
 	return jworker.NewPeriodicWorker(f, listBlockDevicesPeriod, jworker.NewTimer)
 }
 
-func doWork(listf ListBlockDevicesFunc, b BlockDeviceSetter, old *[]blockdevice.BlockDevice) error {
+func doWork(ctx context.Context, listf ListBlockDevicesFunc, b BlockDeviceSetter, old *[]blockdevice.BlockDevice) error {
 	blockDevices, err := listf()
 	if err != nil {
 		return err
@@ -65,7 +66,7 @@ func doWork(listf ListBlockDevicesFunc, b BlockDeviceSetter, old *[]blockdevice.
 		return nil
 	}
 	logger.Infof("block devices changed: %#v", blockDevices)
-	if err := b.SetMachineBlockDevices(blockDevices); err != nil {
+	if err := b.SetMachineBlockDevices(ctx, blockDevices); err != nil {
 		return err
 	}
 	*old = blockDevices

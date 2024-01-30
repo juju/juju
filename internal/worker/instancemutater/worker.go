@@ -4,6 +4,7 @@
 package instancemutater
 
 import (
+	"context"
 	"sync"
 
 	"github.com/juju/errors"
@@ -19,8 +20,8 @@ import (
 )
 
 type InstanceMutaterAPI interface {
-	WatchModelMachines() (watcher.StringsWatcher, error)
-	Machine(tag names.MachineTag) (instancemutater.MutaterMachine, error)
+	WatchModelMachines(ctx context.Context) (watcher.StringsWatcher, error)
+	Machine(ctx context.Context, tag names.MachineTag) (instancemutater.MutaterMachine, error)
 }
 
 // Logger represents the logging methods called.
@@ -50,7 +51,7 @@ type Config struct {
 	// GetMachineWatcher allows the worker to watch different "machines"
 	// depending on whether this work is running with an environ broker
 	// or a container broker.
-	GetMachineWatcher func() (watcher.StringsWatcher, error)
+	GetMachineWatcher func(ctx context.Context) (watcher.StringsWatcher, error)
 
 	// GetRequiredLXDProfiles provides a slice of strings representing the
 	// lxd profiles to be included on every LXD machine used given the
@@ -109,7 +110,7 @@ func (config Config) Validate() error {
 // NewEnvironWorker returns a worker that keeps track of
 // the machines in the state and polls their instance
 // for addition or removal changes.
-func NewEnvironWorker(config Config) (worker.Worker, error) {
+func NewEnvironWorker(ctx context.Context, config Config) (worker.Worker, error) {
 	config.GetMachineWatcher = config.Facade.WatchModelMachines
 	config.GetRequiredLXDProfiles = func(modelName string) []string {
 		return []string{"default", "juju-" + modelName}
@@ -117,18 +118,18 @@ func NewEnvironWorker(config Config) (worker.Worker, error) {
 	config.GetRequiredContext = func(ctx MutaterContext) MutaterContext {
 		return ctx
 	}
-	return newWorker(config)
+	return newWorker(ctx, config)
 }
 
 // NewContainerWorker returns a worker that keeps track of
 // the containers in the state for this machine agent and
 // polls their instance for addition or removal changes.
-func NewContainerWorker(config Config) (worker.Worker, error) {
+func NewContainerWorker(ctx context.Context, config Config) (worker.Worker, error) {
 	if _, ok := config.Tag.(names.MachineTag); !ok {
 		config.Logger.Warningf("cannot start a ContainerWorker on a %q, not restarting", config.Tag.Kind())
 		return nil, dependency.ErrUninstall
 	}
-	m, err := config.Facade.Machine(config.Tag.(names.MachineTag))
+	m, err := config.Facade.Machine(ctx, config.Tag.(names.MachineTag))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -137,14 +138,14 @@ func NewContainerWorker(config Config) (worker.Worker, error) {
 	config.GetRequiredContext = func(ctx MutaterContext) MutaterContext {
 		return ctx
 	}
-	return newWorker(config)
+	return newWorker(ctx, config)
 }
 
-func newWorker(config Config) (*mutaterWorker, error) {
+func newWorker(ctx context.Context, config Config) (*mutaterWorker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	watcher, err := config.GetMachineWatcher()
+	watcher, err := config.GetMachineWatcher(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -202,7 +203,7 @@ func (w *mutaterWorker) loop() error {
 			for i := range ids {
 				tags[i] = names.NewMachineTag(ids[i])
 			}
-			if err := m.startMachines(tags); err != nil {
+			if err := m.startMachines(context.TODO(), tags); err != nil {
 				return err
 			}
 		case d := <-m.machineDead:
@@ -234,8 +235,8 @@ func (w *mutaterWorker) newMachineContext() MachineContext {
 }
 
 // getMachine is part of the MachineContext interface.
-func (w *mutaterWorker) getMachine(tag names.MachineTag) (instancemutater.MutaterMachine, error) {
-	m, err := w.facade.Machine(tag)
+func (w *mutaterWorker) getMachine(ctx context.Context, tag names.MachineTag) (instancemutater.MutaterMachine, error) {
+	m, err := w.facade.Machine(ctx, tag)
 	return m, err
 }
 

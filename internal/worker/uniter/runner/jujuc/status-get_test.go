@@ -4,6 +4,7 @@
 package jujuc_test
 
 import (
+	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -45,7 +46,7 @@ var statusGetTests = []struct {
 }
 
 func setFakeStatus(ctx *Context) {
-	ctx.SetUnitStatus(jujuc.StatusInfo{
+	ctx.SetUnitStatus(context.Background(), jujuc.StatusInfo{
 		Status: statusAttributes["status"].(string),
 		Info:   statusAttributes["message"].(string),
 		Data:   statusAttributes["status-data"].(map[string]interface{}),

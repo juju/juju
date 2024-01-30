@@ -4,6 +4,7 @@
 package provisioner
 
 import (
+	"context"
 	"errors"
 	"sync"
 
@@ -168,7 +169,7 @@ func (s *containerSetupSuite) expectContainerManagerConfig(cType instance.Contai
 
 type credentialAPIForTest struct{}
 
-func (*credentialAPIForTest) InvalidateModelCredential(reason string) error {
+func (*credentialAPIForTest) InvalidateModelCredential(_ context.Context, reason string) error {
 	return nil
 }
 

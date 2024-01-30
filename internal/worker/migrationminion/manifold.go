@@ -32,7 +32,7 @@ type ManifoldConfig struct {
 	FortressName      string
 	Clock             clock.Clock
 	APIOpen           func(*api.Info, api.DialOpts) (api.Connection, error)
-	ValidateMigration func(base.APICaller) error
+	ValidateMigration func(context.Context, base.APICaller) error
 
 	NewFacade func(base.APICaller) (Facade, error)
 	NewWorker func(Config) (worker.Worker, error)

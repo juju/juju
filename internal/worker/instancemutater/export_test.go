@@ -4,9 +4,11 @@
 package instancemutater
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	worker "github.com/juju/worker/v4"
+	"github.com/juju/worker/v4"
 
 	"github.com/juju/juju/api/agent/instancemutater"
 	"github.com/juju/juju/core/lxdprofile"
@@ -41,22 +43,22 @@ func NewEnvironTestWorker(config Config, ctxFn RequiredMutaterContextFunc) (work
 		return []string{"default", "juju-" + modelName}
 	}
 	config.GetRequiredContext = ctxFn
-	return newWorker(config)
+	return newWorker(context.Background(), config)
 }
 
 func NewContainerTestWorker(config Config, ctxFn RequiredMutaterContextFunc) (worker.Worker, error) {
-	m, err := config.Facade.Machine(config.Tag.(names.MachineTag))
+	m, err := config.Facade.Machine(context.Background(), config.Tag.(names.MachineTag))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	config.GetRequiredLXDProfiles = func(_ string) []string { return []string{"default"} }
 	config.GetMachineWatcher = m.WatchContainers
 	config.GetRequiredContext = ctxFn
-	return newWorker(config)
+	return newWorker(context.Background(), config)
 }
 
 func ProcessMachineProfileChanges(m *MutaterMachine, info *instancemutater.UnitProfileInfo) error {
-	return m.processMachineProfileChanges(info)
+	return m.processMachineProfileChanges(context.Background(), info)
 }
 
 func GatherProfileData(m *MutaterMachine, info *instancemutater.UnitProfileInfo) ([]lxdprofile.ProfilePost, error) {

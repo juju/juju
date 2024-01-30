@@ -4,6 +4,8 @@
 package uniter_test
 
 import (
+	"context"
+
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -41,7 +43,7 @@ func (s *cloudNativeUniterSuite) TestCloudSpec(c *gc.C) {
 	})
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("wordpress/0"))
 
-	result, err := client.CloudSpec()
+	result, err := client.CloudSpec(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Name, gc.Equals, "dummy")
 	c.Assert(result.Credential.Attributes, gc.DeepEquals, map[string]string{

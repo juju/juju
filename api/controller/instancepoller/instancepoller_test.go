@@ -34,7 +34,7 @@ func (s *InstancePollerSuite) TestNewAPI(c *gc.C) {
 	c.Check(apiCaller.CallCount, gc.Equals, 0)
 
 	// Nothing happens until we actually call something else.
-	m, err := api.Machine(names.MachineTag{})
+	m, err := api.Machine(context.Background(), names.MachineTag{})
 	c.Assert(err, gc.ErrorMatches, "client error!")
 	c.Assert(m, gc.IsNil)
 	c.Check(apiCaller.CallCount, gc.Equals, 1)
@@ -53,7 +53,7 @@ func (s *InstancePollerSuite) TestMachineCallsLife(c *gc.C) {
 	}
 	apiCaller := successAPICaller(c, "Life", entitiesArgs, expectedResults)
 	api := instancepoller.NewAPI(apiCaller)
-	m, err := api.Machine(names.NewMachineTag("42"))
+	m, err := api.Machine(context.Background(), names.NewMachineTag("42"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(apiCaller.CallCount, gc.Equals, 1)
 	c.Assert(m.Life(), gc.Equals, life.Value("working"))

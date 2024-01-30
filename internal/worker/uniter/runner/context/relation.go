@@ -4,6 +4,7 @@
 package context
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/errors"
@@ -137,8 +138,8 @@ func (ctx *ContextRelation) Suspended() bool {
 }
 
 // SetStatus sets the relation's status.
-func (ctx *ContextRelation) SetStatus(status relation.Status) error {
-	return errors.Trace(ctx.ru.Relation().SetStatus(status))
+func (ctx *ContextRelation) SetStatus(stdCtx context.Context, status relation.Status) error {
+	return errors.Trace(ctx.ru.Relation().SetStatus(stdCtx, status))
 }
 
 // RemoteApplicationName returns the application on the other end of this

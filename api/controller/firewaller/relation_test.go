@@ -4,6 +4,8 @@
 package firewaller_test
 
 import (
+	"context"
+
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -39,7 +41,7 @@ func (s *relationSuite) TestRelation(c *gc.C) {
 	tag := names.NewRelationTag("mysql:db wordpress:db")
 	client, err := firewaller.NewClient(apiCaller)
 	c.Assert(err, jc.ErrorIsNil)
-	r, err := client.Relation(tag)
+	r, err := client.Relation(context.Background(), tag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(r.Life(), gc.Equals, life.Alive)
 	c.Assert(r.Tag(), jc.DeepEquals, tag)

@@ -26,7 +26,7 @@ type ManifoldConfig struct {
 	APICallerName string
 
 	NewFacade func(base.APICaller) (Facade, error)
-	NewWorker func(Config) (worker.Worker, error)
+	NewWorker func(context.Context, Config) (worker.Worker, error)
 	Logger    Logger
 }
 
@@ -48,7 +48,7 @@ func (config ManifoldConfig) Validate() error {
 }
 
 // start is a StartFunc for a Worker manifold.
-func (config ManifoldConfig) start(context context.Context, getter dependency.Getter) (worker.Worker, error) {
+func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -60,7 +60,7 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	w, err := config.NewWorker(Config{
+	w, err := config.NewWorker(ctx, Config{
 		Facade: facade,
 		Logger: config.Logger,
 	})

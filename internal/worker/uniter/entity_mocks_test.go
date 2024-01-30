@@ -4,6 +4,7 @@
 package uniter_test
 
 import (
+	"context"
 	"fmt"
 	"sync"
 
@@ -50,7 +51,7 @@ func (ctx *testContext) makeApplication(appTag names.ApplicationTag) *applicatio
 
 	app.EXPECT().Tag().Return(appTag).AnyTimes()
 	app.EXPECT().Life().Return(life.Alive).AnyTimes()
-	app.EXPECT().Refresh().Return(nil).AnyTimes()
+	app.EXPECT().Refresh(gomock.Any()).Return(nil).AnyTimes()
 	app.EXPECT().CharmURL().DoAndReturn(func() (string, bool, error) {
 		app.mu.Lock()
 		defer app.mu.Unlock()
@@ -104,7 +105,7 @@ func (ctx *testContext) makeUnit(c *gc.C, unitTag names.UnitTag, l life.Value) *
 	u.EXPECT().Name().Return(unitTag.Id()).AnyTimes()
 	u.EXPECT().Tag().Return(unitTag).AnyTimes()
 	u.EXPECT().ApplicationTag().Return(appTag).AnyTimes()
-	u.EXPECT().Refresh().Return(nil).AnyTimes()
+	u.EXPECT().Refresh(gomock.Any()).Return(nil).AnyTimes()
 	u.EXPECT().ProviderID().Return("").AnyTimes()
 	u.EXPECT().UpgradeSeriesStatus().Return(model.UpgradeSeriesNotStarted, "", nil).AnyTimes()
 	u.EXPECT().PrincipalName().Return("u", false, nil).AnyTimes()
@@ -168,7 +169,7 @@ func (ctx *testContext) makeUnit(c *gc.C, unitTag names.UnitTag, l life.Value) *
 		return u.subordinate != nil, nil
 	}).AnyTimes()
 
-	u.EXPECT().SetUnitStatus(gomock.Any(), gomock.Any(), nil).DoAndReturn(func(st status.Status, info string, data map[string]any) error {
+	u.EXPECT().SetUnitStatus(gomock.Any(), gomock.Any(), gomock.Any(), nil).DoAndReturn(func(_ context.Context, st status.Status, info string, data map[string]any) error {
 		u.mu.Lock()
 		u.unitStatus = status.StatusInfo{
 			Status:  st,
@@ -215,7 +216,7 @@ func (ctx *testContext) makeUnit(c *gc.C, unitTag names.UnitTag, l life.Value) *
 		return result, nil
 	}).AnyTimes()
 
-	u.EXPECT().UnitStatus().DoAndReturn(func() (params.StatusResult, error) {
+	u.EXPECT().UnitStatus(gomock.Any()).DoAndReturn(func(context.Context) (params.StatusResult, error) {
 		u.mu.Lock()
 		defer u.mu.Unlock()
 		return params.StatusResult{
@@ -224,7 +225,7 @@ func (ctx *testContext) makeUnit(c *gc.C, unitTag names.UnitTag, l life.Value) *
 		}, nil
 	}).AnyTimes()
 
-	u.EXPECT().Application().DoAndReturn(func() (uniterapi.Application, error) {
+	u.EXPECT().Application(gomock.Any()).DoAndReturn(func(context.Context) (uniterapi.Application, error) {
 		ctx.stateMu.Lock()
 		defer ctx.stateMu.Unlock()
 		return ctx.app, nil
@@ -246,7 +247,7 @@ func (ctx *testContext) makeUnit(c *gc.C, unitTag names.UnitTag, l life.Value) *
 	// Add to model.
 	u.unitStatus.Status = status.Waiting
 	u.unitStatus.Message = status.MessageWaitForMachine
-	u.EXPECT().SetUnitStatus(status.Waiting, status.MessageInitializingAgent, nil).DoAndReturn(func(st status.Status, info string, data map[string]any) error {
+	u.EXPECT().SetUnitStatus(gomock.Any(), status.Waiting, status.MessageInitializingAgent, nil).DoAndReturn(func(_ context.Context, st status.Status, info string, data map[string]any) error {
 		u.mu.Lock()
 		u.unitStatus = status.StatusInfo{
 			Status:  st,
@@ -323,15 +324,15 @@ func (ctx *testContext) makeRelation(c *gc.C, relTag names.RelationTag, l life.V
 		defer r.mu.Unlock()
 		return r.life
 	}).AnyTimes()
-	r.EXPECT().Refresh().Return(nil).AnyTimes()
+	r.EXPECT().Refresh(gomock.Any()).Return(nil).AnyTimes()
 	r.EXPECT().Suspended().Return(false).AnyTimes()
 	r.EXPECT().UpdateSuspended(false).AnyTimes()
-	r.EXPECT().Endpoint().Return(&ep, nil).AnyTimes()
+	r.EXPECT().Endpoint(gomock.Any()).Return(&ep, nil).AnyTimes()
 	r.EXPECT().OtherApplication().Return(otherApp).AnyTimes()
-	r.EXPECT().SetStatus(gomock.Any()).Return(nil).AnyTimes()
+	r.EXPECT().SetStatus(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 
-	ctx.api.EXPECT().Relation(relTag).Return(r, nil).AnyTimes()
-	ctx.api.EXPECT().RelationById(relId).Return(r, nil).AnyTimes()
+	ctx.api.EXPECT().Relation(gomock.Any(), relTag).Return(r, nil).AnyTimes()
+	ctx.api.EXPECT().RelationById(gomock.Any(), relId).Return(r, nil).AnyTimes()
 
 	return r
 }
@@ -346,7 +347,7 @@ func (ctx *testContext) makeRelationUnit(c *gc.C, rel *relation, u *unit) *relat
 	}
 
 	ru.EXPECT().Relation().Return(rel).AnyTimes()
-	ep, err := rel.Endpoint()
+	ep, err := rel.Endpoint(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	ru.EXPECT().Endpoint().Return(*ep).AnyTimes()
 

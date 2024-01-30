@@ -4,6 +4,8 @@
 package relation
 
 import (
+	stdcontext "context"
+
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/core/life"
@@ -22,12 +24,12 @@ type RelationStateTracker interface {
 	// CommitHook persists the state change encoded in the supplied relation
 	// hook, or returns an error if the hook is unknown or invalid given
 	// current relation state.
-	CommitHook(hook.Info) error
+	CommitHook(stdcontext.Context, hook.Info) error
 
 	// SynchronizeScopes ensures that the locally tracked relation scopes
 	// reflect the contents of the remote state snapshot by entering or
 	// exiting scopes as required.
-	SynchronizeScopes(remotestate.Snapshot) error
+	SynchronizeScopes(stdcontext.Context, remotestate.Snapshot) error
 
 	// IsKnown returns true if the relation ID is known by the tracker.
 	IsKnown(int) bool
@@ -71,7 +73,7 @@ type RelationStateTracker interface {
 
 	// LocalUnitAndApplicationLife returns the life values for the local
 	// unit and application.
-	LocalUnitAndApplicationLife() (life.Value, life.Value, error)
+	LocalUnitAndApplicationLife(stdcontext.Context) (life.Value, life.Value, error)
 
 	// Report provides information for the engine report.
 	Report() map[string]interface{}
@@ -102,13 +104,13 @@ type StateManager interface {
 
 	// RemoveRelation removes the state for the given id from the
 	// manager.
-	RemoveRelation(id int, unitGetter UnitGetter, knownUnits map[string]bool) error
+	RemoveRelation(ctx stdcontext.Context, id int, unitGetter UnitGetter, knownUnits map[string]bool) error
 }
 
 // UnitGetter encapsulates methods to get unit info.
 type UnitGetter interface {
 	// Unit returns the existing unit with the given tag.
-	Unit(tag names.UnitTag) (api.Unit, error)
+	Unit(ctx stdcontext.Context, tag names.UnitTag) (api.Unit, error)
 }
 
 // UnitStateReadWriter encapsulates the methods from a state.Unit
@@ -127,13 +129,13 @@ type UnitStateReadWriter interface {
 // required by a relationStateTracker.
 type StateTrackerClient interface {
 	// Unit returns the existing unit with the given tag.
-	Unit(tag names.UnitTag) (api.Unit, error)
+	Unit(ctx stdcontext.Context, tag names.UnitTag) (api.Unit, error)
 
 	// Relation returns the existing relation with the given tag.
-	Relation(tag names.RelationTag) (api.Relation, error)
+	Relation(ctx stdcontext.Context, tag names.RelationTag) (api.Relation, error)
 
 	// RelationById returns the existing relation with the given id.
-	RelationById(int) (api.Relation, error)
+	RelationById(stdcontext.Context, int) (api.Relation, error)
 }
 
 // Application encapsulates the methods from
@@ -145,7 +147,7 @@ type Application interface {
 // Relationer encapsulates the methods from relationer required by a stateTracker.
 type Relationer interface {
 	// CommitHook persists the fact of the supplied hook's completion.
-	CommitHook(hi hook.Info) error
+	CommitHook(ctx stdcontext.Context, hi hook.Info) error
 
 	// ContextInfo returns a representation of the relationer's current state.
 	ContextInfo() *context.RelationInfo
@@ -172,5 +174,5 @@ type Relationer interface {
 	// SetDying informs the relationer that the unit is departing the relation,
 	// and that the only hooks it should send henceforth are -departed hooks,
 	// until the relation is empty, followed by a -broken hook.
-	SetDying() error
+	SetDying(ctx stdcontext.Context) error
 }

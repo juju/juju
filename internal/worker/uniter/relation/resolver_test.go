@@ -125,9 +125,9 @@ func assertNumCalls(c *gc.C, numCalls *int32, expected int32) {
 func (s *relationResolverSuite) newRelationStateTracer(c *gc.C, apiCaller base.APICaller, unitTag names.UnitTag) relation.RelationStateTracker {
 	abort := make(chan struct{})
 	client := apiuniter.NewClient(apiCaller, unitTag)
-	u, err := client.Unit(unitTag)
+	u, err := client.Unit(stdcontext.Background(), unitTag)
 	c.Assert(err, jc.ErrorIsNil)
-	r, err := relation.NewRelationStateTracker(
+	r, err := relation.NewRelationStateTracker(stdcontext.Background(),
 		relation.RelationStateTrackerConfig{
 			Client:            uniterapi.UniterClientShim{client},
 			Unit:              uniterapi.UnitShim{u},
@@ -407,7 +407,7 @@ func (s *relationResolverSuite) assertHookRelationJoined(c *gc.C, numCalls *int3
 
 	_, err = r.PrepareHook(op.(*mockOperation).hookInfo)
 	c.Assert(err, jc.ErrorIsNil)
-	err = r.CommitHook(op.(*mockOperation).hookInfo)
+	err = r.CommitHook(stdcontext.Background(), op.(*mockOperation).hookInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	return r
 }
@@ -442,7 +442,7 @@ func (s *relationResolverSuite) assertHookRelationChanged(
 	// Commit the operation so we save local state for any next operation.
 	_, err = r.PrepareHook(op.(*mockOperation).hookInfo)
 	c.Assert(err, jc.ErrorIsNil)
-	err = r.CommitHook(op.(*mockOperation).hookInfo)
+	err = r.CommitHook(stdcontext.Background(), op.(*mockOperation).hookInfo)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -612,7 +612,7 @@ func (s *relationResolverSuite) assertHookRelationDeparted(c *gc.C, numCalls *in
 	// Commit the operation so we save local state for any next operation.
 	_, err = r.PrepareHook(op.(*mockOperation).hookInfo)
 	c.Assert(err, jc.ErrorIsNil)
-	err = r.CommitHook(op.(*mockOperation).hookInfo)
+	err = r.CommitHook(stdcontext.Background(), op.(*mockOperation).hookInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	return r
 }
@@ -719,7 +719,7 @@ func (s *relationResolverSuite) TestHookRelationBrokenOnlyOnce(c *gc.C) {
 	mockOp, ok := op.(*mockOperation)
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(mockOp.hookInfo.Kind, gc.Equals, hooks.RelationBroken)
-	err = r.CommitHook(mockOp.hookInfo)
+	err = r.CommitHook(stdcontext.Background(), mockOp.hookInfo)
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = relationsResolver.NextOp(stdcontext.Background(), localState, remoteState, &mockOperations{})
@@ -756,7 +756,7 @@ func (s *relationResolverSuite) TestCommitHook(c *gc.C) {
 	)
 	r := s.assertHookRelationJoined(c, &numCalls, apiCalls...)
 
-	err := r.CommitHook(hook.Info{
+	err := r.CommitHook(stdcontext.Background(), hook.Info{
 		Kind:              hooks.RelationChanged,
 		RemoteUnit:        "wordpress/0",
 		RemoteApplication: "wordpress",
@@ -765,7 +765,7 @@ func (s *relationResolverSuite) TestCommitHook(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = r.CommitHook(hook.Info{
+	err = r.CommitHook(stdcontext.Background(), hook.Info{
 		Kind:              hooks.RelationDeparted,
 		RemoteUnit:        "wordpress/0",
 		RemoteApplication: "wordpress",
@@ -1205,7 +1205,7 @@ func (s *relationCreatedResolverSuite) TestCreatedRelationResolverForRelationInS
 	}
 
 	gomock.InOrder(
-		r.EXPECT().SynchronizeScopes(remoteState).Return(nil),
+		r.EXPECT().SynchronizeScopes(gomock.Any(), remoteState).Return(nil),
 		r.EXPECT().IsImplicit(1).Return(false, nil),
 		// Since the relation was already in scope when the state tracker
 		// was initialized, RelationCreated will return true as we will
@@ -1249,7 +1249,7 @@ func (s *relationCreatedResolverSuite) TestCreatedRelationResolverFordRelationNo
 	}
 
 	gomock.InOrder(
-		r.EXPECT().SynchronizeScopes(remoteState).Return(nil),
+		r.EXPECT().SynchronizeScopes(stdcontext.Background(), remoteState).Return(nil),
 		r.EXPECT().IsImplicit(1).Return(false, nil),
 		// Since the relation is not in scope, RelationCreated will
 		// return false
@@ -1649,12 +1649,12 @@ func (s *mockRelationResolverSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 func (s *mockRelationResolverSuite) expectSyncScopesEmpty() {
 	exp := s.mockRelStTracker.EXPECT()
-	exp.SynchronizeScopes(remotestate.Snapshot{}).Return(nil)
+	exp.SynchronizeScopes(stdcontext.Background(), remotestate.Snapshot{}).Return(nil)
 }
 
 func (s *mockRelationResolverSuite) expectSyncScopes(snapshot remotestate.Snapshot) {
 	exp := s.mockRelStTracker.EXPECT()
-	exp.SynchronizeScopes(snapshot).Return(nil)
+	exp.SynchronizeScopes(stdcontext.Background(), snapshot).Return(nil)
 }
 
 func (s *mockRelationResolverSuite) expectIsKnown(id int) {
@@ -1689,7 +1689,7 @@ func (s *mockRelationResolverSuite) expectIsPeerRelationFalse(id int) {
 
 func (s *mockRelationResolverSuite) expectLocalUnitAndApplicationLife() {
 	exp := s.mockRelStTracker.EXPECT()
-	exp.LocalUnitAndApplicationLife().Return(life.Alive, life.Alive, nil)
+	exp.LocalUnitAndApplicationLife(gomock.Any()).Return(life.Alive, life.Alive, nil)
 }
 
 func (s *mockRelationResolverSuite) expectStateFound(id int) {

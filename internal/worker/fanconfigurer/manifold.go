@@ -51,7 +51,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 
 			facade := apifanconfigurer.NewFacade(apiCaller)
 
-			fanconfigurer, err := NewFanConfigurer(FanConfigurerConfig{
+			fanconfigurer, err := NewFanConfigurer(ctx, FanConfigurerConfig{
 				Facade: facade,
 			}, config.Clock)
 			return fanconfigurer, errors.Annotate(err, "creating fanconfigurer orchestrator")

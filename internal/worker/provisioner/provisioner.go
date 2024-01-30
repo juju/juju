@@ -34,7 +34,7 @@ var (
 // Provisioner represents a running provisioner worker.
 type Provisioner interface {
 	worker.Worker
-	getMachineWatcher() (watcher.StringsWatcher, error)
+	getMachineWatcher(context.Context) (watcher.StringsWatcher, error)
 	getRetryWatcher() (watcher.NotifyWatcher, error)
 }
 
@@ -121,10 +121,10 @@ func (p *provisioner) Wait() error {
 }
 
 // getStartTask creates a new worker for the provisioner,
-func (p *provisioner) getStartTask(harvestMode config.HarvestMode, workerCount int) (ProvisionerTask, error) {
+func (p *provisioner) getStartTask(ctx context.Context, harvestMode config.HarvestMode, workerCount int) (ProvisionerTask, error) {
 	// Start responding to changes in machines, and to any further updates
 	// to the environment config.
-	machineWatcher, err := p.getMachineWatcher()
+	machineWatcher, err := p.getMachineWatcher(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -234,7 +234,7 @@ func (p *environProvisioner) loop() error {
 	p.configObserver.notify(modelConfig)
 	harvestMode := modelConfig.ProvisionerHarvestMode()
 	workerCount := modelConfig.NumProvisionWorkers()
-	task, err := p.getStartTask(harvestMode, workerCount)
+	task, err := p.getStartTask(context.TODO(), harvestMode, workerCount)
 	if err != nil {
 		return loggedErrorStack(p.logger, errors.Trace(err))
 	}
@@ -263,7 +263,7 @@ func (p *environProvisioner) loop() error {
 	}
 }
 
-func (p *environProvisioner) getMachineWatcher() (watcher.StringsWatcher, error) {
+func (p *environProvisioner) getMachineWatcher(_ context.Context) (watcher.StringsWatcher, error) {
 	return p.machinesAPI.WatchModelMachines()
 }
 
@@ -338,7 +338,7 @@ func (p *containerProvisioner) loop() error {
 	harvestMode := modelConfig.ProvisionerHarvestMode()
 	workerCount := modelConfig.NumContainerProvisionWorkers()
 
-	task, err := p.getStartTask(harvestMode, workerCount)
+	task, err := p.getStartTask(context.TODO(), harvestMode, workerCount)
 	if err != nil {
 		return loggedErrorStack(p.logger, errors.Trace(err))
 	}
@@ -365,14 +365,14 @@ func (p *containerProvisioner) loop() error {
 	}
 }
 
-func (p *containerProvisioner) getMachine() (apiprovisioner.MachineProvisioner, error) {
+func (p *containerProvisioner) getMachine(ctx context.Context) (apiprovisioner.MachineProvisioner, error) {
 	if p.machine == nil {
 		tag := p.agentConfig.Tag()
 		machineTag, ok := tag.(names.MachineTag)
 		if !ok {
 			return nil, errors.Errorf("expected names.MachineTag, got %T", tag)
 		}
-		result, err := p.machinesAPI.Machines(machineTag)
+		result, err := p.machinesAPI.Machines(ctx, machineTag)
 		if err != nil {
 			p.logger.Errorf("error retrieving %s from state", machineTag)
 			return nil, err
@@ -386,8 +386,8 @@ func (p *containerProvisioner) getMachine() (apiprovisioner.MachineProvisioner, 
 	return p.machine, nil
 }
 
-func (p *containerProvisioner) getMachineWatcher() (watcher.StringsWatcher, error) {
-	machine, err := p.getMachine()
+func (p *containerProvisioner) getMachineWatcher(ctx context.Context) (watcher.StringsWatcher, error) {
+	machine, err := p.getMachine(ctx)
 	if err != nil {
 		return nil, err
 	}

@@ -4,6 +4,8 @@
 package runcommands_test
 
 import (
+	"context"
+
 	"github.com/juju/testing"
 	"github.com/juju/utils/v3/exec"
 
@@ -17,7 +19,7 @@ type mockRunnerFactory struct {
 	newCommandRunner func(runnercontext.CommandInfo) (runner.Runner, error)
 }
 
-func (f *mockRunnerFactory) NewCommandRunner(info runnercontext.CommandInfo) (runner.Runner, error) {
+func (f *mockRunnerFactory) NewCommandRunner(_ context.Context, info runnercontext.CommandInfo) (runner.Runner, error) {
 	return f.newCommandRunner(info)
 }
 
@@ -30,7 +32,7 @@ func (r *mockRunner) Context() runnercontext.Context {
 	return &mockRunnerContext{}
 }
 
-func (r *mockRunner) RunCommands(commands string, runLocation runner.RunLocation) (*exec.ExecResponse, error) {
+func (r *mockRunner) RunCommands(_ context.Context, commands string, runLocation runner.RunLocation) (*exec.ExecResponse, error) {
 	return r.runCommands(commands, runLocation)
 }
 
@@ -38,7 +40,7 @@ type mockRunnerContext struct {
 	runnercontext.Context
 }
 
-func (*mockRunnerContext) Prepare() error {
+func (*mockRunnerContext) Prepare(context.Context) error {
 	return nil
 }
 
