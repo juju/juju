@@ -5,6 +5,7 @@ package oci
 
 import (
 	"context"
+	"fmt"
 	"sort"
 	"strconv"
 	"strings"
@@ -296,7 +297,7 @@ func NewInstanceImage(img ociCore.Image, compartmentID *string) (InstanceImage, 
 // from the OCI sdk.
 func parseUbuntuImage(img ociCore.Image) (corebase.Base, string, error) {
 	var (
-		arch string
+		arch string = corearch.AMD64
 		base corebase.Base
 	)
 	// On some cases, the retrieved OperatingSystemVersion can contain
@@ -318,34 +319,20 @@ func parseUbuntuImage(img ociCore.Image) (corebase.Base, string, error) {
 	//   the previous example. This is an error on OCI's response (or on
 	//   the ubuntu image's metadata) so we need to find a workaround as
 	//   explained in the NOTE a few lines below.
-	channel, postfix, found := strings.Cut(*img.OperatingSystemVersion, " ")
+	channel, postfix, _ := strings.Cut(*img.OperatingSystemVersion, " ")
 	base = corebase.MakeDefaultBase(UbuntuBase, channel)
 	// if not found, means that the OperatingSystemVersion only contained
 	// the channel.
-	if !found {
-		// NOTE(nvinuesa): For some images, the img.OperatingSystemVersion
-		// does not contain the architecture. For example, the
-		// image `Canonical-Ubuntu-22.04-aarch64-2023.08.23`
-		// has OperatingSystemVersion "22.04" instead of "22.04 aarch64".
-		// To solve this, we must also parse the image name (
-		// DisplayName).
-		if strings.Contains(*img.DisplayName, "aarch64") &&
-			!strings.Contains(*img.DisplayName, "Minimal aarch64") {
-			arch = corearch.ARM64
-		} else {
-			arch = corearch.AMD64
-		}
-	} else {
-		if postfix == "aarch64" {
-			arch = corearch.ARM64
-		} else if postfix == "Minimal aarch64" {
-			// Ubuntu minimal is not supported for ARM shapes (https://docs.oracle.com/en-us/iaas/Content/Compute/References/images.htm)
-			// so we ignore the "Minimal aarch64" images.
-			return corebase.Base{}, "", errors.NotSupportedf("ubuntu minimal aarch64 image %s", *img.DisplayName)
-		} else {
-			// Else we assume the architecture is AMD64 by default.
-			arch = corearch.AMD64
-		}
+	if strings.Contains(*img.DisplayName, "Minimal") ||
+		strings.Contains(postfix, "Minimal") {
+		return corebase.Base{}, "", fmt.Errorf(
+			"ubuntu minimal image %q %w", *img.DisplayName, errors.NotSupported,
+		)
+	}
+
+	if strings.Contains(*img.DisplayName, "aarch64") ||
+		strings.Contains(postfix, "aarch64") {
+		arch = corearch.ARM64
 	}
 
 	return base, arch, nil
