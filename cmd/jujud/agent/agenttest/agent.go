@@ -217,9 +217,8 @@ func (s *AgentSuite) PrimeStateAgentVersion(c *gc.C, tag names.Tag, password str
 
 	err = database.BootstrapDqlite(
 		context.Background(),
-		database.NewNodeManager(conf, logger, coredatabase.NoopSlowQueryLogger{}),
+		database.NewNodeManager(conf, true, logger, coredatabase.NoopSlowQueryLogger{}),
 		logger,
-		true,
 		s.InitialDBOps...,
 	)
 	c.Assert(err, jc.ErrorIsNil)

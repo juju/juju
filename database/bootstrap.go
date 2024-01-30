@@ -20,6 +20,10 @@ type bootstrapNodeManager interface {
 	// a path determined by the agent config, then returns that path.
 	EnsureDataDir() (string, error)
 
+	// IsLoopbackPreferred returns true if the Dqlite application should
+	// be bound to the loopback address.
+	IsLoopbackPreferred() bool
+
 	// WithLoopbackAddressOption returns a Dqlite application
 	// Option that will bind Dqlite to the loopback IP.
 	WithLoopbackAddressOption() app.Option
@@ -58,7 +62,6 @@ func BootstrapDqlite(
 	ctx context.Context,
 	mgr bootstrapNodeManager,
 	logger Logger,
-	preferLoopback bool,
 	ops ...func(db *sql.DB) error,
 ) error {
 	dir, err := mgr.EnsureDataDir()
@@ -67,7 +70,7 @@ func BootstrapDqlite(
 	}
 
 	options := []app.Option{mgr.WithLogFuncOption()}
-	if preferLoopback {
+	if mgr.IsLoopbackPreferred() {
 		options = append(options, mgr.WithLoopbackAddressOption())
 	} else {
 		addrOpt, err := mgr.WithPreferredCloudLocalAddressOption(network.DefaultConfigSource())
