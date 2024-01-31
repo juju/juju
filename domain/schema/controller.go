@@ -36,6 +36,7 @@ func ControllerDDL() *schema.Schema {
 		changeLogTriggersForTable("external_controller", "uuid", tableExternalController),
 		modelListSchema,
 		modelMetadataSchema,
+		modelAgentSchema,
 		controllerConfigSchema,
 		changeLogTriggersForTable("controller_config", "key", tableControllerConfig),
 		controllerNodeTable,
@@ -357,7 +358,6 @@ CREATE TABLE model_metadata (
     model_type_id         INT,
     name                  TEXT NOT NULL,
     owner_uuid            TEXT NOT NULL,
-
     CONSTRAINT            fk_model_metadata_model
         FOREIGN KEY           (model_uuid)
         REFERENCES            model_list(uuid),
@@ -381,6 +381,26 @@ CREATE TABLE model_metadata (
 CREATE UNIQUE INDEX idx_model_metadata_name_owner
 ON model_metadata (name, owner_uuid);
 `)
+}
+
+func modelAgentSchema() schema.Patch {
+	return schema.MakePatch(`
+CREATE TABLE model_agent (
+    model_uuid TEXT PRIMARY KEY,
+
+    -- previous_version describes the agent version that was in use before the
+    -- the current target_version.
+    previous_version TEXT NOT NULL,
+
+    -- target_version describes the desired agent version that should be
+    -- being run in this model. It should not be considered "the" version that
+    -- is being run for every agent as each agent needs to upgrade to this
+    -- version.
+    target_version TEXT NOT NULL,
+    CONSTRAINT            fk_model_agent_model
+        FOREIGN KEY           (model_uuid)
+        REFERENCES            model_list(uuid)
+);`)
 }
 
 func controllerConfigSchema() schema.Patch {
