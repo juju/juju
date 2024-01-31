@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"net"
 	"sort"
-	"strconv"
 	"sync"
 	"time"
 
@@ -26,7 +25,6 @@ import (
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/pubsub/apiserver"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
@@ -672,80 +670,6 @@ func (s *workerSuite) TestControllersArePublishedOverHubWithNewVoters(c *gc.C) {
 	}
 }
 
-func haSpaceTestCommonSetup(c *gc.C, ipVersion TestIPVersion, members string) *fakeState {
-	st := NewFakeState()
-	InitState(c, st, 3, ipVersion)
-
-	addrs := network.NewSpaceAddresses(
-		fmt.Sprintf(ipVersion.formatHost, 1),
-		fmt.Sprintf(ipVersion.formatHost, 2),
-		fmt.Sprintf(ipVersion.formatHost, 3),
-	)
-	for i := range addrs {
-		addrs[i].Scope = network.ScopeCloudLocal
-	}
-
-	spaces := []string{"one", "two", "three"}
-	controllers := []int{10, 11, 12}
-	for _, id := range controllers {
-		controller := st.controller(strconv.Itoa(id))
-		err := controller.SetHasVote(true)
-		c.Assert(err, jc.ErrorIsNil)
-		controller.setWantsVote(true)
-
-		// Each controller gets 3 addresses in 3 different spaces.
-		// Space "one" address on controller 10 ends with "10"
-		// Space "two" address ends with "11"
-		// Space "three" address ends with "12"
-		// Space "one" address on controller 20 ends with "20"
-		// Space "two" address ends with "21"
-		// ...
-		addrs := make(network.SpaceAddresses, 3)
-		for i, name := range spaces {
-			addr := network.NewSpaceAddress(
-				fmt.Sprintf(ipVersion.formatHost, i*10+id), network.WithScope(network.ScopeCloudLocal))
-			addr.SpaceID = name
-			addrs[i] = addr
-		}
-		controller.setAddresses(addrs...)
-	}
-
-	err := st.session.Set(mkMembers(members, ipVersion))
-	c.Assert(err, jc.ErrorIsNil)
-	return st
-}
-
-func (s *workerSuite) TestUsesConfiguredHASpaceIPv4(c *gc.C) {
-	s.doTestUsesConfiguredHASpace(c, testIPv4)
-}
-
-func (s *workerSuite) TestUsesConfiguredHASpaceIPv6(c *gc.C) {
-	s.doTestUsesConfiguredHASpace(c, testIPv6)
-}
-
-func (s *workerSuite) doTestUsesConfiguredHASpace(c *gc.C, ipVersion TestIPVersion) {
-	st := haSpaceTestCommonSetup(c, ipVersion, "0v 1v 2v")
-
-	// Set one of the statuses to ensure it is cleared upon determination
-	// of a new peer group.
-	now := time.Now()
-	err := st.controller("11").SetStatus(status.StatusInfo{
-		Status:  status.Started,
-		Message: "You said that would be bad, Egon",
-		Since:   &now,
-	})
-	c.Assert(err, gc.IsNil)
-
-	st.setHASpace("two")
-	s.runUntilPublish(c, st, "")
-	assertMemberAddresses(c, st, ipVersion.formatHost, 2)
-
-	sInfo, err := st.controller("11").Status()
-	c.Assert(err, gc.IsNil)
-	c.Check(sInfo.Status, gc.Equals, status.Started)
-	c.Check(sInfo.Message, gc.Equals, "")
-}
-
 // runUntilPublish runs a worker until addresses are published over the pub/sub
 // hub. Note that the replica-set is updated earlier than the publish,
 // so this sync can be used to check for those changes.
@@ -791,73 +715,6 @@ func assertMemberAddresses(c *gc.C, st *fakeState, addrTemplate string, addrDesi
 	}
 
 	c.Check(obtained, gc.DeepEquals, expected)
-}
-
-func (s *workerSuite) TestErrorAndStatusForNewPeersAndNoHASpaceAndMachinesWithMultiAddrIPv4(c *gc.C) {
-	s.doTestErrorAndStatusForNewPeersAndNoHASpaceAndMachinesWithMultiAddr(c, testIPv4)
-}
-
-func (s *workerSuite) TestErrorAndStatusForNewPeersAndNoHASpaceAndMachinesWithMultiAddrIPv6(c *gc.C) {
-	s.doTestErrorAndStatusForNewPeersAndNoHASpaceAndMachinesWithMultiAddr(c, testIPv6)
-}
-
-func (s *workerSuite) doTestErrorAndStatusForNewPeersAndNoHASpaceAndMachinesWithMultiAddr(
-	c *gc.C, ipVersion TestIPVersion,
-) {
-	st := haSpaceTestCommonSetup(c, ipVersion, "0v")
-	err := s.newWorker(c, st, st.session, nopAPIHostPortsSetter{}, true).Wait()
-	errMsg := `computing desired peer group: updating member addresses: ` +
-		`juju-ha-space is not set and these nodes have more than one usable address: 1[12], 1[12]` +
-		"\nrun \"juju controller-config juju-ha-space=<name>\" to set a space for Mongo peer communication"
-	c.Check(err, gc.ErrorMatches, errMsg)
-
-	for _, id := range []string{"11", "12"} {
-		sInfo, err := st.controller(id).Status()
-		c.Assert(err, gc.IsNil)
-		c.Check(sInfo.Status, gc.Equals, status.Started)
-		c.Check(sInfo.Message, gc.Not(gc.Equals), "")
-	}
-}
-
-func (s *workerSuite) TestErrorAndStatusForHASpaceWithNoAddressesAddrIPv4(c *gc.C) {
-	s.doTestErrorAndStatusForHASpaceWithNoAddresses(c, testIPv4)
-}
-
-func (s *workerSuite) TestErrorAndStatusForHASpaceWithNoAddressesAddrIPv6(c *gc.C) {
-	s.doTestErrorAndStatusForHASpaceWithNoAddresses(c, testIPv6)
-}
-
-func (s *workerSuite) doTestErrorAndStatusForHASpaceWithNoAddresses(
-	c *gc.C, ipVersion TestIPVersion,
-) {
-	st := haSpaceTestCommonSetup(c, ipVersion, "0v")
-	st.setHASpace("nope")
-
-	err := s.newWorker(c, st, st.session, nopAPIHostPortsSetter{}, true).Wait()
-	errMsg := `computing desired peer group: updating member addresses: ` +
-		`no usable Mongo addresses found in configured juju-ha-space "nope" for nodes: 1[012], 1[012], 1[012]`
-	c.Check(err, gc.ErrorMatches, errMsg)
-
-	for _, id := range []string{"10", "11", "12"} {
-		sInfo, err := st.controller(id).Status()
-		c.Assert(err, gc.IsNil)
-		c.Check(sInfo.Status, gc.Equals, status.Started)
-		c.Check(sInfo.Message, gc.Not(gc.Equals), "")
-	}
-}
-
-func (s *workerSuite) TestSamePeersAndNoHASpaceAndMachinesWithMultiAddrIPv4(c *gc.C) {
-	s.doTestSamePeersAndNoHASpaceAndMachinesWithMultiAddr(c, testIPv4)
-}
-
-func (s *workerSuite) TestSamePeersAndNoHASpaceAndMachinesWithMultiAddrIPv6(c *gc.C) {
-	s.doTestSamePeersAndNoHASpaceAndMachinesWithMultiAddr(c, testIPv6)
-}
-
-func (s *workerSuite) doTestSamePeersAndNoHASpaceAndMachinesWithMultiAddr(c *gc.C, ipVersion TestIPVersion) {
-	st := haSpaceTestCommonSetup(c, ipVersion, "0v 1v 2v")
-	s.runUntilPublish(c, st, "")
-	assertMemberAddresses(c, st, ipVersion.formatHost, 1)
 }
 
 func (s *workerSuite) TestWorkerRetriesOnSetAPIHostPortsErrorIPv4(c *gc.C) {
