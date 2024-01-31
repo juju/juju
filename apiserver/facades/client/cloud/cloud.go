@@ -683,6 +683,7 @@ func (api *CloudAPI) validateCredentialForModel(modelUUID string, tag names.Clou
 		tag,
 		credential,
 		false,
+		false,
 	)
 	if err != nil {
 		return append(result, params.ErrorResult{apiservererrors.ServerError(err)})
