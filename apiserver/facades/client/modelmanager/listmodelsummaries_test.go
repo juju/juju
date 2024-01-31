@@ -116,6 +116,32 @@ func (s *ListModelsWithInfoSuite) TestListModelSummaries(c *gc.C) {
 	})
 }
 
+func (s *ListModelsWithInfoSuite) TestListModelSummariesV9(c *gc.C) {
+	api := &modelmanager.ModelManagerAPIV9{s.api}
+	result, err := api.ListModelSummaries(params.ModelSummariesRequest{UserTag: s.adminUser.String()})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, params.ModelSummaryResults{
+		Results: []params.ModelSummaryResult{
+			{
+				Result: &params.ModelSummary{
+					Name:               "only",
+					OwnerTag:           s.adminUser.String(),
+					UUID:               s.st.ModelUUID(),
+					Type:               string(state.ModelTypeIAAS),
+					DefaultSeries:      "jammy",
+					CloudTag:           "some-cloud",
+					CloudRegion:        "some-region",
+					CloudCredentialTag: "cloudcred-some-cloud_bob_some-credential",
+					Life:               "alive",
+					Status:             params.EntityStatus{},
+					Counts:             []params.ModelEntityCount{},
+					SLA:                &params.ModelSLAInfo{"essential", "admin"},
+				},
+			},
+		},
+	})
+}
+
 func (s *ListModelsWithInfoSuite) TestListModelSummariesWithUserAccess(c *gc.C) {
 	s.st.modelDetailsForUser = func() ([]state.ModelSummary, error) {
 		summary := s.st.model.getModelDetails()

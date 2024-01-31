@@ -32206,8 +32206,8 @@
     },
     {
         "Name": "ModelManager",
-        "Description": "ModelManagerAPI implements the model manager interface and is\nthe concrete implementation of the api end point.",
-        "Version": 9,
+        "Description": "ModelManagerAPI implements the model manager interface and is\nthe concrete implementation of the api end point.\nV10 of the facade does not return default-series or default-base\nin model info",
+        "Version": 10,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",

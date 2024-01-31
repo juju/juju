@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/assumes"
+	"github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
@@ -39,7 +40,6 @@ import (
 	"github.com/juju/juju/secrets/provider"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
-	jujuversion "github.com/juju/juju/version"
 )
 
 type modelInfoSuite struct {
@@ -216,8 +216,6 @@ func (s *modelInfoSuite) expectedModelInfo(c *gc.C, credentialValidity *bool) pa
 		CloudTag:           "cloud-some-cloud",
 		CloudRegion:        "some-region",
 		CloudCredentialTag: "cloudcred-some-cloud_bob_some-credential",
-		DefaultSeries:      jujuversion.DefaultSupportedLTS(),
-		DefaultBase:        jujuversion.DefaultSupportedLTSBase().String(),
 		Life:               life.Dying,
 		Status: params.EntityStatus{
 			Status: status.Destroying,
@@ -280,9 +278,35 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 	s.PatchValue(&commonsecrets.GetProvider, func(string) (provider.SecretBackendProvider, error) {
 		return mockSecretProvider{}, nil
 	})
-	info := s.getModelInfo(c, s.st.model.cfg.UUID())
+	info := s.getModelInfo(c, s.modelmanager, s.st.model.cfg.UUID())
 	_true := true
 	s.assertModelInfo(c, info, s.expectedModelInfo(c, &_true))
+	s.st.CheckCalls(c, []jujutesting.StubCall{
+		{"ControllerTag", nil},
+		{"GetBackend", []interface{}{s.st.model.cfg.UUID()}},
+		{"Model", nil},
+		{"IsController", nil},
+		{"AllMachines", nil},
+		{"ControllerNodes", nil},
+		{"HAPrimaryMachine", nil},
+		{"ControllerUUID", nil},
+		{"LatestMigration", nil},
+		{"CloudCredential", []interface{}{names.NewCloudCredentialTag("some-cloud/bob/some-credential")}},
+	})
+}
+
+func (s *modelInfoSuite) TestModelInfoV9(c *gc.C) {
+	s.PatchValue(&commonsecrets.GetProvider, func(string) (provider.SecretBackendProvider, error) {
+		return mockSecretProvider{}, nil
+	})
+	modelManagerV9 := &modelmanager.ModelManagerAPIV9{s.modelmanager}
+	info := s.getModelInfo(c, modelManagerV9, s.st.model.cfg.UUID())
+	_true := true
+	expectedInfo := s.expectedModelInfo(c, &_true)
+	expectedInfo.DefaultSeries = "jammy"
+	expectedInfo.DefaultBase = "ubuntu@22.04/stable"
+	s.assertModelInfo(c, info, expectedInfo)
+
 	s.st.CheckCalls(c, []jujutesting.StubCall{
 		{"ControllerTag", nil},
 		{"GetBackend", []interface{}{s.st.model.cfg.UUID()}},
@@ -332,7 +356,7 @@ func (s *modelInfoSuite) TestModelInfoWriteAccess(c *gc.C) {
 	mary := names.NewUserTag("mary@local")
 	s.authorizer.HasWriteTag = mary
 	s.setAPIUser(c, mary)
-	info := s.getModelInfo(c, s.st.model.cfg.UUID())
+	info := s.getModelInfo(c, s.modelmanager, s.st.model.cfg.UUID())
 	c.Assert(info.Users, gc.HasLen, 1)
 	c.Assert(info.Users[0].UserName, gc.Equals, "mary")
 	c.Assert(info.Machines, gc.HasLen, 2)
@@ -340,14 +364,18 @@ func (s *modelInfoSuite) TestModelInfoWriteAccess(c *gc.C) {
 
 func (s *modelInfoSuite) TestModelInfoNonOwner(c *gc.C) {
 	s.setAPIUser(c, names.NewUserTag("charlotte@local"))
-	info := s.getModelInfo(c, s.st.model.cfg.UUID())
+	info := s.getModelInfo(c, s.modelmanager, s.st.model.cfg.UUID())
 	c.Assert(info.Users, gc.HasLen, 1)
 	c.Assert(info.Users[0].UserName, gc.Equals, "charlotte")
 	c.Assert(info.Machines, gc.HasLen, 0)
 }
 
-func (s *modelInfoSuite) getModelInfo(c *gc.C, modelUUID string) params.ModelInfo {
-	results, err := s.modelmanager.ModelInfo(params.Entities{
+type modelInfo interface {
+	ModelInfo(params.Entities) (params.ModelInfoResults, error)
+}
+
+func (s *modelInfoSuite) getModelInfo(c *gc.C, modelInfo modelInfo, modelUUID string) params.ModelInfo {
+	results, err := modelInfo.ModelInfo(params.Entities{
 		Entities: []params.Entity{{
 			names.NewModelTag(modelUUID).String(),
 		}},
@@ -587,7 +615,7 @@ func (s *modelInfoSuite) assertSuccessWithMissingData(c *gc.C, test incompleteMo
 func (s *modelInfoSuite) assertSuccess(c *gc.C, modelUUID string, desiredLife state.Life, expectedLife life.Value) {
 	s.st.model.life = desiredLife
 	// should get no errors
-	info := s.getModelInfo(c, modelUUID)
+	info := s.getModelInfo(c, s.modelmanager, modelUUID)
 	c.Assert(info.UUID, gc.Equals, modelUUID)
 	c.Assert(info.Life, gc.Equals, expectedLife)
 }
@@ -1301,6 +1329,8 @@ func (m *mockModel) getModelDetails() state.ModelSummary {
 		ControllerUUID:     m.ControllerUUID(),
 		SLALevel:           m.SLALevel(),
 		SLAOwner:           m.SLAOwner(),
+		DefaultSeries:      "jammy",
+		DefaultBase:        base.MustParseBaseFromString("ubuntu@22.04"),
 		CloudTag:           m.CloudName(),
 		CloudRegion:        m.CloudRegion(),
 		CloudCredentialTag: cred.String(),
