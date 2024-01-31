@@ -351,6 +351,20 @@ func (mr *MockNodeManagerMockRecorder) IsLoopbackBound(arg0 any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsLoopbackBound", reflect.TypeOf((*MockNodeManager)(nil).IsLoopbackBound), arg0)
 }
 
+// IsLoopbackPreferred mocks base method.
+func (m *MockNodeManager) IsLoopbackPreferred() bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsLoopbackPreferred")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// IsLoopbackPreferred indicates an expected call of IsLoopbackPreferred.
+func (mr *MockNodeManagerMockRecorder) IsLoopbackPreferred() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsLoopbackPreferred", reflect.TypeOf((*MockNodeManager)(nil).IsLoopbackPreferred))
+}
+
 // SetClusterServers mocks base method.
 func (m *MockNodeManager) SetClusterServers(arg0 context.Context, arg1 []dqlite.NodeInfo) error {
 	m.ctrl.T.Helper()

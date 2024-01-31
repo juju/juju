@@ -107,11 +107,19 @@ func InitializeState(
 	info.Tag = nil
 	info.Password = c.OldPassword()
 
+	isCAAS := cloud.CloudIsCAAS(args.ControllerCloud)
+
+	// If we're running caas, we need to bind to the loopback address
+	// and eschew TLS termination.
+	// This is to prevent dqlite to become all at sea when the controller pod
+	// is rescheduled. This is only a temporary measure until we have HA
+	// dqlite for k8s.
+	isLoopbackPreferred := isCAAS
+
 	if err := database.BootstrapDqlite(
 		stdcontext.TODO(),
-		database.NewNodeManager(c, logger, coredatabase.NoopSlowQueryLogger{}),
+		database.NewNodeManager(c, isLoopbackPreferred, logger, coredatabase.NoopSlowQueryLogger{}),
 		logger,
-		false,
 	); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -129,7 +137,6 @@ func InitializeState(
 
 	logger.Debugf("initializing address %v", info.Addrs)
 
-	isCAAS := cloud.CloudIsCAAS(args.ControllerCloud)
 	modelType := state.ModelTypeIAAS
 	if isCAAS {
 		modelType = state.ModelTypeCAAS
