@@ -45,10 +45,6 @@ func (s StateShim) RemoveControllerReference(c ControllerNode) error {
 	return s.State.RemoveControllerReference(c)
 }
 
-func (s StateShim) Space(name string) (Space, error) {
-	return s.State.SpaceByName(name)
-}
-
 // cloudServiceShim stubs out functionality not yet
 // supported by the k8s service abstraction.
 // We don't yet support HA on k8s.

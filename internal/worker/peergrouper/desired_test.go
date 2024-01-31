@@ -374,7 +374,7 @@ func (s *desiredPeerGroupSuite) doTestDesiredPeerGroup(c *gc.C, ipVersion TestIP
 			trackerMap[m.Id()] = m
 		}
 
-		info, err := newPeerGroupInfo(trackerMap, test.statuses, test.members, mongoPort, network.SpaceInfo{})
+		info, err := newPeerGroupInfo(trackerMap, test.statuses, test.members, mongoPort)
 		c.Assert(err, jc.ErrorIsNil)
 
 		desired, err := desiredPeerGroup(info)
@@ -420,7 +420,7 @@ func (s *desiredPeerGroupSuite) doTestDesiredPeerGroup(c *gc.C, ipVersion TestIP
 
 		// Make sure that when the members are set as required, that there
 		// is no further change if desiredPeerGroup is called again.
-		info, err = newPeerGroupInfo(trackerMap, test.statuses, members, mongoPort, network.SpaceInfo{})
+		info, err = newPeerGroupInfo(trackerMap, test.statuses, members, mongoPort)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(info, gc.NotNil)
 
@@ -465,7 +465,7 @@ func (s *desiredPeerGroupSuite) TestIsPrimary(c *gc.C) {
 	}
 	members := mkMembers("1v 2v 3v", testIPv4)
 	statuses := mkStatuses("1p 2s 3s", testIPv4)
-	info, err := newPeerGroupInfo(trackerMap, statuses, members, mongoPort, network.SpaceInfo{})
+	info, err := newPeerGroupInfo(trackerMap, statuses, members, mongoPort)
 	c.Assert(err, jc.ErrorIsNil)
 	isPrimary, err := info.isPrimary("11")
 	c.Assert(err, jc.ErrorIsNil)
@@ -476,7 +476,7 @@ func (s *desiredPeerGroupSuite) TestIsPrimary(c *gc.C) {
 }
 
 func (s *desiredPeerGroupSuite) TestNewPeerGroupInfoErrWhenNoMembers(c *gc.C) {
-	_, err := newPeerGroupInfo(nil, nil, nil, 666, network.SpaceInfo{})
+	_, err := newPeerGroupInfo(nil, nil, nil, 666)
 	c.Check(err, gc.ErrorMatches, "current member set is empty")
 }
 

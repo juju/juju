@@ -95,31 +95,6 @@ func (c *controllerTracker) Addresses() network.SpaceAddresses {
 	return out
 }
 
-// SelectMongoAddressFromSpace returns the best address on the controller node for MongoDB peer
-// use, using the input space.
-func (c *controllerTracker) SelectMongoAddressFromSpace(port int, space network.SpaceInfo) (string, error) {
-	if space.ID == "" {
-		return "", fmt.Errorf(
-			"empty space supplied as an argument for selecting Mongo address for controller node %q", c.id)
-	}
-
-	c.mu.Lock()
-	hostPorts := network.SpaceAddressesWithPort(c.addresses, port)
-	c.mu.Unlock()
-
-	addrs, ok := hostPorts.InSpaces(space)
-	if ok {
-		addr := network.DialAddress(addrs[0])
-		logger.Debugf("controller node %q selected address %q by space %q from %v", c.id, addr, space.Name, hostPorts)
-		return addr, nil
-	}
-
-	// If we end up here, then there are no addresses available in the
-	// specified space. This should not happen, because the configured
-	// space is used as a constraint when first enabling HA.
-	return "", errors.NotFoundf("addresses for controller node %q in space %q", c.id, space.Name)
-}
-
 // GetPotentialMongoHostPorts simply returns all the available addresses
 // with the Mongo port appended.
 func (c *controllerTracker) GetPotentialMongoHostPorts(port int) network.SpaceHostPorts {

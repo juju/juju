@@ -41,7 +41,6 @@ type peerGroupInfo struct {
 	extra       []replicaset.Member
 	maxMemberId int
 	mongoPort   int
-	haSpace     network.SpaceInfo
 }
 
 // desiredChanges tracks the specific changes we are asking to be made to the peer group.
@@ -78,7 +77,6 @@ func newPeerGroupInfo(
 	statuses []replicaset.MemberStatus,
 	members []replicaset.Member,
 	mongoPort int,
-	haSpace network.SpaceInfo,
 ) (*peerGroupInfo, error) {
 	if len(members) == 0 {
 		return nil, fmt.Errorf("current member set is empty")
@@ -90,7 +88,6 @@ func newPeerGroupInfo(
 		recognised:  make(map[string]replicaset.Member),
 		maxMemberId: -1,
 		mongoPort:   mongoPort,
-		haSpace:     haSpace,
 	}
 
 	// Iterate over the input members and associate them with a controller if
@@ -259,7 +256,7 @@ func (p *peerGroupChanges) computeDesiredPeerGroup() (desiredChanges, error) {
 	// this will trigger a peer group election.
 	p.adjustVotes()
 
-	if err := p.updateAddresses(); err != nil {
+	if err := p.updateAddressesFromInternal(); err != nil {
 		return desiredChanges{}, errors.Trace(err)
 	}
 
@@ -516,21 +513,6 @@ func (p *peerGroupChanges) createNonVotingMember() {
 	}
 }
 
-// updateAddresses updates the member addresses in the new replica-set, using
-// the HA space if one is configured.
-func (p *peerGroupChanges) updateAddresses() error {
-	var err error
-	if p.info.haSpace.Name == "" {
-		err = p.updateAddressesFromInternal()
-	} else {
-		err = p.updateAddressesFromSpace()
-	}
-	return errors.Annotate(err, "updating member addresses")
-}
-
-const multiAddressMessage = "multiple usable addresses found" +
-	"\nrun \"juju controller-config juju-ha-space=<name>\" to set a space for Mongo peer communication"
-
 // updateAddressesFromInternal attempts to update each member with a
 // cloud-local address from the node.
 // If there is a single cloud local address available, it is used.
@@ -538,15 +520,11 @@ const multiAddressMessage = "multiple usable addresses found" +
 //   - the member was previously in the replica-set and;
 //   - the previous address used for replication is still available.
 //
-// If the check is satisfied, then a warning is logged and no change is made.
-// Otherwise an error is returned to indicate that a HA space must be
-// configured in order to proceed. Such nodes have their status set to
-// indicate that they require intervention.
+// If the check is satisfied, no change is made.
+// Otherwise, one single address is selected from the list and the member
+// address is updated.
 func (p *peerGroupChanges) updateAddressesFromInternal() error {
-	var multipleAddresses []string
-
 	ids := p.sortedMemberIds()
-	singleController := len(ids) == 1
 
 	for _, id := range ids {
 		m := p.info.controllers[id]
@@ -580,11 +558,6 @@ func (p *peerGroupChanges) updateAddressesFromInternal() error {
 		if _, ok := p.info.recognised[id]; ok {
 			for _, addr := range addrs {
 				if member.Address == addr {
-					// If this is a single controller with multiple addresses,
-					// avoid warning logs for every peer-group check.
-					if !singleController {
-						logger.Warningf("%s\npreserving member with unchanged address %q", multiAddressMessage, addr)
-					}
 					unchanged = true
 					break
 				}
@@ -595,55 +568,20 @@ func (p *peerGroupChanges) updateAddressesFromInternal() error {
 		// address has changed, we enforce the policy of requiring a
 		// configured HA space when there are multiple cloud-local addresses.
 		if !unchanged {
-			multipleAddresses = append(multipleAddresses, id)
-			if err := m.host.SetStatus(getStatusInfo(multiAddressMessage)); err != nil {
-				return errors.Trace(err)
-			}
-		}
-	}
-
-	if len(multipleAddresses) > 0 {
-		ids := strings.Join(multipleAddresses, ", ")
-		return fmt.Errorf("juju-ha-space is not set and these nodes have more than one usable address: %s"+
-			"\nrun \"juju controller-config juju-ha-space=<name>\" to set a space for Mongo peer communication", ids)
-	}
-	return nil
-}
-
-// updateAddressesFromSpace updates the member addresses based on the
-// configured HA space.
-// If no addresses are available for any of the nodes, then such nodes
-// have their status set and are included in the detail of the returned error.
-func (p *peerGroupChanges) updateAddressesFromSpace() error {
-	space := p.info.haSpace
-	var noAddresses []string
-
-	for _, id := range p.sortedMemberIds() {
-		m := p.info.controllers[id]
-		addr, err := m.SelectMongoAddressFromSpace(p.info.mongoPort, space)
-		if err != nil {
-			if errors.Is(err, errors.NotFound) {
-				noAddresses = append(noAddresses, id)
-				msg := fmt.Sprintf("no addresses in configured juju-ha-space %q", space.Name)
-				if err := m.host.SetStatus(getStatusInfo(msg)); err != nil {
-					return errors.Trace(err)
-				}
-				continue
-			}
-			return errors.Trace(err)
-		}
-		if addr != p.desired.members[id].Address {
-			p.desired.members[id].Address = addr
+			member.Address = selectSingleAddress(addrs)
 			p.desired.isChanged = true
 		}
 	}
 
-	if len(noAddresses) > 0 {
-		ids := strings.Join(noAddresses, ", ")
-		return fmt.Errorf(
-			"no usable Mongo addresses found in configured juju-ha-space %q for nodes: %s", space.Name, ids)
-	}
 	return nil
+}
+
+// selectSingleAddress selects only one address from list of addresses. The
+// selection is done in a consistent fashion.
+func selectSingleAddress(addrs []string) string {
+	// FIXME: this should first sort addresses (or filter them) according
+	// to some criteria (which?).
+	return addrs[0]
 }
 
 // sortedMemberIds returns the list of p.desired.members in integer-sorted order

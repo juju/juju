@@ -46,7 +46,6 @@ var (
 	_ State          = (*fakeState)(nil)
 	_ ControllerNode = (*fakeController)(nil)
 	_ MongoSession   = (*fakeMongoSession)(nil)
-	_ Space          = (*fakeSpace)(nil)
 )
 
 type errorPatterns struct {
@@ -313,22 +312,6 @@ func (st *fakeState) setHASpace(spaceName string) {
 	cfg := st.controllerConfig.Get().(controller.Config)
 	cfg[controller.JujuHASpace] = spaceName
 	st.controllerConfig.Set(cfg)
-}
-
-func (st *fakeState) Space(name string) (Space, error) {
-	// Return a representation of the default space whenever requested.
-	if name == network.AlphaSpaceName {
-		return &fakeSpace{network.SpaceInfo{}}, nil
-	}
-
-	st.mu.Lock()
-	defer st.mu.Unlock()
-
-	space, ok := st.spaces[name]
-	if !ok {
-		return nil, errors.NotFoundf("space %q", name)
-	}
-	return space, nil
 }
 
 type fakeController struct {

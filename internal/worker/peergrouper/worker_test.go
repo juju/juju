@@ -777,54 +777,6 @@ func (s *workerSuite) runUntilPublish(c *gc.C, st *fakeState, errMsg string) {
 	}
 }
 
-func (s *workerSuite) TestDetectsAndUsesHASpaceChangeIPv4(c *gc.C) {
-	s.doTestDetectsAndUsesHASpaceChange(c, testIPv4)
-}
-
-func (s *workerSuite) TestDetectsAndUsesHASpaceChangeIPv6(c *gc.C) {
-	s.doTestDetectsAndUsesHASpaceChange(c, testIPv6)
-}
-
-func (s *workerSuite) doTestDetectsAndUsesHASpaceChange(c *gc.C, ipVersion TestIPVersion) {
-	st := haSpaceTestCommonSetup(c, ipVersion, "0v 1v 2v")
-	st.setHASpace("one")
-
-	// Set up a hub and channel on which to receive notifications.
-	hub := pubsub.NewStructuredHub(nil)
-	event := make(chan apiserver.Details)
-	_, err := hub.Subscribe(apiserver.DetailsTopic, func(topic string, data apiserver.Details, err error) {
-		c.Check(err, jc.ErrorIsNil)
-		event <- data
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	s.hub = hub
-
-	w := s.newWorker(c, st, st.session, nopAPIHostPortsSetter{}, true)
-	defer workertest.CleanKill(c, w)
-
-	select {
-	case <-event:
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("timed out waiting for event")
-	}
-	assertMemberAddresses(c, st, ipVersion.formatHost, 1)
-
-	// Changing the space does not change the API server details, so the
-	// change will not be broadcast via the hub.
-	// We watch the members collection, which *will* change.
-	memberWatcher := st.session.members.Watch()
-	defer memberWatcher.Close()
-
-	s.recordMemberChanges(c, memberWatcher)
-	s.mustNext(c, "initial watch")
-
-	// HA space config change should invoke the worker.
-	// Replica set addresses should change to the new space.
-	st.setHASpace("three")
-	s.mustNext(c, "waiting for members to be updated for space change")
-	assertMemberAddresses(c, st, ipVersion.formatHost, 3)
-}
-
 func assertMemberAddresses(c *gc.C, st *fakeState, addrTemplate string, addrDesignator int) {
 	members, _ := st.session.CurrentMembers()
 	obtained := make([]string, 3)
