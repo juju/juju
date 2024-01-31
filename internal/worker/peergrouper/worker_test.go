@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"sort"
 	"sync"
 	"time"
 
@@ -668,53 +667,6 @@ func (s *workerSuite) TestControllersArePublishedOverHubWithNewVoters(c *gc.C) {
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for event")
 	}
-}
-
-// runUntilPublish runs a worker until addresses are published over the pub/sub
-// hub. Note that the replica-set is updated earlier than the publish,
-// so this sync can be used to check for those changes.
-// If errMsg is not empty, it is used to check for a matching error.
-func (s *workerSuite) runUntilPublish(c *gc.C, st *fakeState, errMsg string) {
-	hub := pubsub.NewStructuredHub(nil)
-	event := make(chan apiserver.Details)
-	_, err := hub.Subscribe(apiserver.DetailsTopic, func(topic string, data apiserver.Details, err error) {
-		c.Check(err, jc.ErrorIsNil)
-		event <- data
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	s.hub = hub
-
-	w := s.newWorker(c, st, st.session, nopAPIHostPortsSetter{}, true)
-	defer func() {
-		if errMsg == "" {
-			workertest.CleanKill(c, w)
-		} else {
-			err := workertest.CheckKill(c, w)
-			c.Assert(err, gc.ErrorMatches, errMsg)
-		}
-	}()
-
-	select {
-	case <-event:
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("timed out waiting for event")
-	}
-}
-
-func assertMemberAddresses(c *gc.C, st *fakeState, addrTemplate string, addrDesignator int) {
-	members, _ := st.session.CurrentMembers()
-	obtained := make([]string, 3)
-	for i, m := range members {
-		obtained[i] = m.Address
-	}
-	sort.Strings(obtained)
-
-	expected := make([]string, 3)
-	for i := 0; i < 3; i++ {
-		expected[i] = net.JoinHostPort(fmt.Sprintf(addrTemplate, 10*addrDesignator+i), fmt.Sprint(mongoPort))
-	}
-
-	c.Check(obtained, gc.DeepEquals, expected)
 }
 
 func (s *workerSuite) TestWorkerRetriesOnSetAPIHostPortsErrorIPv4(c *gc.C) {

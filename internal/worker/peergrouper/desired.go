@@ -5,6 +5,7 @@ package peergrouper
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -564,9 +565,9 @@ func (p *peerGroupChanges) updateAddressesFromInternal() error {
 			}
 		}
 
-		// If this member was not previously in the replica-set, or if its
-		// address has changed, we enforce the policy of requiring a
-		// configured HA space when there are multiple cloud-local addresses.
+		// If this member was not previously in the replica-set, or if
+		// its address has changed, we simply select the first one when
+		// there are multiple cloud-local addresses.
 		if !unchanged {
 			member.Address = selectSingleAddress(addrs)
 			p.desired.isChanged = true
@@ -577,10 +578,10 @@ func (p *peerGroupChanges) updateAddressesFromInternal() error {
 }
 
 // selectSingleAddress selects only one address from list of addresses. The
-// selection is done in a consistent fashion.
+// selection is done in a consistent fashion by simply sorting the list of
+// addresses and then selecting the first one.
 func selectSingleAddress(addrs []string) string {
-	// FIXME: this should first sort addresses (or filter them) according
-	// to some criteria (which?).
+	slices.Sort(addrs)
 	return addrs[0]
 }
 

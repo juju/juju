@@ -39,7 +39,6 @@ type fakeState struct {
 	session          *fakeMongoSession
 	checkMu          sync.Mutex
 	check            func(st *fakeState) error
-	spaces           map[string]*fakeSpace
 }
 
 var (
@@ -297,23 +296,6 @@ func (st *fakeState) RemoveControllerReference(c ControllerNode) error {
 	return nil
 }
 
-func (st *fakeState) setHASpace(spaceName string) {
-	st.mu.Lock()
-	defer st.mu.Unlock()
-
-	// Ensure the configured space always exists in state.
-	if spaceName != network.AlphaSpaceName {
-		if st.spaces == nil {
-			st.spaces = make(map[string]*fakeSpace)
-		}
-		st.spaces[spaceName] = &fakeSpace{network.SpaceInfo{ID: spaceName, Name: network.SpaceName(spaceName)}}
-	}
-
-	cfg := st.controllerConfig.Get().(controller.Config)
-	cfg[controller.JujuHASpace] = spaceName
-	st.controllerConfig.Set(cfg)
-}
-
 type fakeController struct {
 	mu      sync.Mutex
 	errors  *errorPatterns
@@ -439,14 +421,6 @@ func (m *fakeController) advanceLifecycle(life state.Life, wantsVote bool) {
 		doc.life = life
 		doc.wantsVote = wantsVote
 	})
-}
-
-type fakeSpace struct {
-	network.SpaceInfo
-}
-
-func (s *fakeSpace) NetworkSpace() (network.SpaceInfo, error) {
-	return s.SpaceInfo, nil
 }
 
 type fakeMongoSession struct {
