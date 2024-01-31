@@ -4,6 +4,7 @@
 package testing
 
 import (
+	applicationservice "github.com/juju/juju/domain/application/service"
 	autocertcacheservice "github.com/juju/juju/domain/autocert/service"
 	blockdeviceservice "github.com/juju/juju/domain/blockdevice/service"
 	cloudservice "github.com/juju/juju/domain/cloud/service"
@@ -18,6 +19,7 @@ import (
 	modeldefaultsservice "github.com/juju/juju/domain/modeldefaults/service"
 	modelmanagerservice "github.com/juju/juju/domain/modelmanager/service"
 	objectstoreservice "github.com/juju/juju/domain/objectstore/service"
+	unitservice "github.com/juju/juju/domain/unit/service"
 	upgradeservice "github.com/juju/juju/domain/upgrade/service"
 	userservice "github.com/juju/juju/domain/user/service"
 )
@@ -125,5 +127,15 @@ func (s *TestingServiceFactory) WithMachineService(getter func() *machineservice
 
 // BlockDevice returns the block device service.
 func (s *TestingServiceFactory) BlockDevice() *blockdeviceservice.Service {
+	return nil
+}
+
+// Application returns the block device service.
+func (s *TestingServiceFactory) Application() *applicationservice.Service {
+	return nil
+}
+
+// Unit returns the block device service.
+func (s *TestingServiceFactory) Unit() *unitservice.Service {
 	return nil
 }

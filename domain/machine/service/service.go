@@ -18,7 +18,7 @@ type State interface {
 	DeleteMachine(context.Context, string) error
 }
 
-// Service provides the API for working with clouds.
+// Service provides the API for working with machines.
 type Service struct {
 	st State
 }
