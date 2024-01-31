@@ -4,6 +4,8 @@
 package uniter_test
 
 import (
+	"context"
+
 	"github.com/juju/charm/v12"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
@@ -56,14 +58,14 @@ func (s *relationSuite) TestRelation(c *gc.C) {
 	})
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 	tag := names.NewRelationTag("wordpress:db mysql:server")
-	rel, err := client.Relation(tag)
+	rel, err := client.Relation(context.Background(), tag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rel.Id(), gc.Equals, 666)
 	c.Assert(rel.Tag(), gc.Equals, tag)
 	c.Assert(rel.Life(), gc.Equals, life.Alive)
 	c.Assert(rel.String(), gc.Equals, tag.Id())
 	c.Assert(rel.OtherApplication(), gc.Equals, "mysql")
-	ep, err := rel.Endpoint()
+	ep, err := rel.Endpoint(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ep, jc.DeepEquals, &uniter.Endpoint{
 		charm.Relation{
@@ -99,7 +101,7 @@ func (s *relationSuite) TestRefresh(c *gc.C) {
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 	tag := names.NewRelationTag("wordpress:db mysql:server")
 	rel := uniter.CreateRelation(client, tag)
-	err := rel.Refresh()
+	err := rel.Refresh(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rel.Life(), gc.Equals, life.Dying)
 	c.Assert(rel.Suspended(), jc.IsTrue)
@@ -139,7 +141,7 @@ func (s *relationSuite) TestSetStatus(c *gc.C) {
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 	tag := names.NewRelationTag("wordpress:db mysql:server")
 	rel := uniter.CreateRelation(client, tag)
-	err := rel.SetStatus(relation.Suspended)
+	err := rel.SetStatus(context.Background(), relation.Suspended)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(statusSet, jc.IsTrue)
 }
@@ -162,7 +164,7 @@ func (s *relationSuite) TestRelationById(c *gc.C) {
 	})
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 
-	rel, err := client.RelationById(666)
+	rel, err := client.RelationById(context.Background(), 666)
 	c.Assert(rel.Id(), gc.Equals, 666)
 	c.Assert(rel.Tag(), gc.Equals, names.NewRelationTag("wordpress:db mysql:server"))
 	c.Assert(rel.Life(), gc.Equals, life.Alive)

@@ -147,10 +147,10 @@ type ContextUnit interface {
 	ConfigSettings() (charm.Settings, error)
 
 	// GoalState returns the goal state for the current unit.
-	GoalState() (*application.GoalState, error)
+	GoalState(context.Context) (*application.GoalState, error)
 
 	// CloudSpec returns the unit's cloud specification
-	CloudSpec() (*params.CloudSpec, error)
+	CloudSpec(context.Context) (*params.CloudSpec, error)
 }
 
 // SecretCreateArgs specifies args used to create a secret.
@@ -222,17 +222,17 @@ type ContextSecrets interface {
 // ContextStatus is the part of a hook context related to the unit's status.
 type ContextStatus interface {
 	// UnitStatus returns the executing unit's current status.
-	UnitStatus() (*StatusInfo, error)
+	UnitStatus(context.Context) (*StatusInfo, error)
 
 	// SetUnitStatus updates the unit's status.
-	SetUnitStatus(StatusInfo) error
+	SetUnitStatus(context.Context, StatusInfo) error
 
 	// ApplicationStatus returns the executing unit's application status
 	// (including all units).
-	ApplicationStatus() (ApplicationStatusInfo, error)
+	ApplicationStatus(context.Context) (ApplicationStatusInfo, error)
 
 	// SetApplicationStatus updates the status for the unit's application.
-	SetApplicationStatus(StatusInfo) error
+	SetApplicationStatus(context.Context, StatusInfo) error
 }
 
 // RebootPriority is the type used for reboot requests.
@@ -398,7 +398,7 @@ type ContextRelation interface {
 	Suspended() bool
 
 	// SetStatus sets the relation's status.
-	SetStatus(relation.Status) error
+	SetStatus(context.Context, relation.Status) error
 
 	// RemoteApplicationName returns the application on the other end of
 	// the relation from the perspective of this unit.
@@ -430,10 +430,10 @@ type ContextVersion interface {
 
 	// UnitWorkloadVersion returns the currently set workload version for
 	// the unit.
-	UnitWorkloadVersion() (string, error)
+	UnitWorkloadVersion(context.Context) (string, error)
 
 	// SetUnitWorkloadVersion updates the workload version for the unit.
-	SetUnitWorkloadVersion(string) error
+	SetUnitWorkloadVersion(context.Context, string) error
 }
 
 // Settings is implemented by types that manipulate unit settings.

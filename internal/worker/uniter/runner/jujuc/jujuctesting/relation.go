@@ -4,6 +4,7 @@
 package jujuctesting
 
 import (
+	"context"
 	"fmt"
 	"sort"
 
@@ -174,7 +175,7 @@ func (r *ContextRelation) Suspended() bool {
 }
 
 // SetStatus implements jujuc.ContextRelation.
-func (r *ContextRelation) SetStatus(status relation.Status) error {
+func (r *ContextRelation) SetStatus(_ context.Context, status relation.Status) error {
 	return nil
 }
 

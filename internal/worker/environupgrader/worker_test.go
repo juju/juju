@@ -4,6 +4,7 @@
 package environupgrader_test
 
 import (
+	"context"
 	"sync"
 
 	"github.com/juju/errors"
@@ -415,6 +416,6 @@ func (w *mockNotifyWatcher) Wait() error {
 
 type credentialAPIForTest struct{}
 
-func (*credentialAPIForTest) InvalidateModelCredential(reason string) error {
+func (*credentialAPIForTest) InvalidateModelCredential(_ context.Context, reason string) error {
 	return nil
 }

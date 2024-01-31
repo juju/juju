@@ -10,6 +10,7 @@
 package mocks
 
 import (
+	context "context"
 	reflect "reflect"
 
 	instancemutater "github.com/juju/juju/api/agent/instancemutater"
@@ -112,18 +113,18 @@ func (mr *MockMutaterContextMockRecorder) getBroker() *gomock.Call {
 }
 
 // getMachine mocks base method.
-func (m *MockMutaterContext) getMachine(arg0 names.MachineTag) (instancemutater.MutaterMachine, error) {
+func (m *MockMutaterContext) getMachine(arg0 context.Context, arg1 names.MachineTag) (instancemutater.MutaterMachine, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "getMachine", arg0)
+	ret := m.ctrl.Call(m, "getMachine", arg0, arg1)
 	ret0, _ := ret[0].(instancemutater.MutaterMachine)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // getMachine indicates an expected call of getMachine.
-func (mr *MockMutaterContextMockRecorder) getMachine(arg0 any) *gomock.Call {
+func (mr *MockMutaterContextMockRecorder) getMachine(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "getMachine", reflect.TypeOf((*MockMutaterContext)(nil).getMachine), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "getMachine", reflect.TypeOf((*MockMutaterContext)(nil).getMachine), arg0, arg1)
 }
 
 // getRequiredLXDProfiles mocks base method.

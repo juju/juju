@@ -63,14 +63,14 @@ func (u *Unit) Resolved() params.ResolvedMode {
 }
 
 // Refresh updates the cached local copy of the unit's data.
-func (u *Unit) Refresh() error {
+func (u *Unit) Refresh(ctx context.Context) error {
 	var results params.UnitRefreshResults
 	args := params.Entities{
 		Entities: []params.Entity{
 			{Tag: u.tag.String()},
 		},
 	}
-	err := u.client.facade.FacadeCall(context.TODO(), "Refresh", args, &results)
+	err := u.client.facade.FacadeCall(ctx, "Refresh", args, &results)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -94,14 +94,14 @@ func (u *Unit) Refresh() error {
 }
 
 // SetUnitStatus sets the status of the unit.
-func (u *Unit) SetUnitStatus(unitStatus status.Status, info string, data map[string]interface{}) error {
+func (u *Unit) SetUnitStatus(ctx context.Context, unitStatus status.Status, info string, data map[string]interface{}) error {
 	var result params.ErrorResults
 	args := params.SetStatus{
 		Entities: []params.EntityStatusArgs{
 			{Tag: u.tag.String(), Status: unitStatus.String(), Info: info, Data: data},
 		},
 	}
-	err := u.client.facade.FacadeCall(context.TODO(), "SetUnitStatus", args, &result)
+	err := u.client.facade.FacadeCall(ctx, "SetUnitStatus", args, &result)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -109,14 +109,14 @@ func (u *Unit) SetUnitStatus(unitStatus status.Status, info string, data map[str
 }
 
 // UnitStatus gets the status details of the unit.
-func (u *Unit) UnitStatus() (params.StatusResult, error) {
+func (u *Unit) UnitStatus(ctx context.Context) (params.StatusResult, error) {
 	var results params.StatusResults
 	args := params.Entities{
 		Entities: []params.Entity{
 			{Tag: u.tag.String()},
 		},
 	}
-	err := u.client.facade.FacadeCall(context.TODO(), "UnitStatus", args, &results)
+	err := u.client.facade.FacadeCall(ctx, "UnitStatus", args, &results)
 	if err != nil {
 		return params.StatusResult{}, errors.Trace(err)
 	}
@@ -228,14 +228,14 @@ func (u *Unit) WatchRelations() (watcher.StringsWatcher, error) {
 }
 
 // Application returns the unit's application.
-func (u *Unit) Application() (*Application, error) {
+func (u *Unit) Application(ctx context.Context) (*Application, error) {
 	application := &Application{
 		client: u.client,
 		tag:    u.ApplicationTag(),
 	}
 	// Call Refresh() immediately to get the up-to-date
 	// life and other needed locally cached fields.
-	err := application.Refresh()
+	err := application.Refresh(ctx)
 	if err != nil {
 		return nil, err
 	}

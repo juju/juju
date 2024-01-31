@@ -4,6 +4,8 @@
 package credentialvalidator_test
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v5"
@@ -36,7 +38,7 @@ func (m *mockFacade) setupModelHasNoCredential() {
 }
 
 // ModelCredential is part of the credentialvalidator.Facade interface.
-func (m *mockFacade) ModelCredential() (base.StoredCredential, bool, error) {
+func (m *mockFacade) ModelCredential(context.Context) (base.StoredCredential, bool, error) {
 	m.AddCall("ModelCredential")
 	if err := m.NextErr(); err != nil {
 		return base.StoredCredential{}, false, err
@@ -45,7 +47,7 @@ func (m *mockFacade) ModelCredential() (base.StoredCredential, bool, error) {
 }
 
 // WatchCredential is part of the credentialvalidator.Facade interface.
-func (mock *mockFacade) WatchCredential(id string) (watcher.NotifyWatcher, error) {
+func (mock *mockFacade) WatchCredential(_ context.Context, id string) (watcher.NotifyWatcher, error) {
 	mock.AddCall("WatchCredential", id)
 	if err := mock.NextErr(); err != nil {
 		return nil, err
@@ -54,7 +56,7 @@ func (mock *mockFacade) WatchCredential(id string) (watcher.NotifyWatcher, error
 }
 
 // WatchModelCredential is part of the credentialvalidator.Facade interface.
-func (mock *mockFacade) WatchModelCredential() (watcher.NotifyWatcher, error) {
+func (mock *mockFacade) WatchModelCredential(context.Context) (watcher.NotifyWatcher, error) {
 	mock.AddCall("WatchModelCredential")
 	if err := mock.NextErr(); err != nil {
 		return nil, err
@@ -72,7 +74,7 @@ func panicFacade(base.APICaller) (credentialvalidator.Facade, error) {
 }
 
 // panicWorker is a NewWorker that should not be called.
-func panicWorker(credentialvalidator.Config) (worker.Worker, error) {
+func panicWorker(context.Context, credentialvalidator.Config) (worker.Worker, error) {
 	panic("panicWorker")
 }
 
@@ -96,7 +98,7 @@ func checkNotValid(c *gc.C, config credentialvalidator.Config, expect string) {
 	err := config.Validate()
 	check(err)
 
-	worker, err := credentialvalidator.NewWorker(config)
+	worker, err := credentialvalidator.NewWorker(context.Background(), config)
 	c.Check(worker, gc.IsNil)
 	check(err)
 }

@@ -4,6 +4,8 @@
 package operation
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 
@@ -128,13 +130,13 @@ func (f *factory) NewNoOpSecretsRemoved(uris []string) (Operation, error) {
 }
 
 // NewAction is part of the Factory interface.
-func (f *factory) NewAction(actionId string) (Operation, error) {
+func (f *factory) NewAction(ctx context.Context, actionId string) (Operation, error) {
 	if !names.IsValidAction(actionId) {
 		return nil, errors.Errorf("invalid action id %q", actionId)
 	}
 
 	tag := names.NewActionTag(actionId)
-	action, err := f.config.ActionGetter.Action(tag)
+	action, err := f.config.ActionGetter.Action(ctx, tag)
 	if params.IsCodeNotFoundOrCodeUnauthorized(err) {
 		return nil, charmrunner.ErrActionNotAvailable
 	} else if params.IsCodeActionNotAvailable(err) {

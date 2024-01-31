@@ -40,10 +40,10 @@ func NewFacade(caller base.APICaller, options ...Option) *Facade {
 // Some clouds do not require a credential and support the "empty" authentication
 // type. Models on these clouds will have no credentials set, and thus, will return
 // a false as 2nd argument.
-func (c *Facade) ModelCredential() (base.StoredCredential, bool, error) {
+func (c *Facade) ModelCredential(ctx context.Context) (base.StoredCredential, bool, error) {
 	out := params.ModelCredential{}
 	emptyResult := base.StoredCredential{}
-	if err := c.facade.FacadeCall(context.TODO(), "ModelCredential", nil, &out); err != nil {
+	if err := c.facade.FacadeCall(ctx, "ModelCredential", nil, &out); err != nil {
 		return emptyResult, false, errors.Trace(err)
 	}
 
@@ -65,13 +65,13 @@ func (c *Facade) ModelCredential() (base.StoredCredential, bool, error) {
 
 // WatchCredential provides a notify watcher that is responsive to changes
 // to a given cloud credential.
-func (c *Facade) WatchCredential(credentialID string) (watcher.NotifyWatcher, error) {
+func (c *Facade) WatchCredential(ctx context.Context, credentialID string) (watcher.NotifyWatcher, error) {
 	if !names.IsValidCloudCredential(credentialID) {
 		return nil, errors.NotValidf("cloud credential ID %q", credentialID)
 	}
 	in := names.NewCloudCredentialTag(credentialID).String()
 	var result params.NotifyWatchResult
-	err := c.facade.FacadeCall(context.TODO(), "WatchCredential", params.Entity{in}, &result)
+	err := c.facade.FacadeCall(ctx, "WatchCredential", params.Entity{in}, &result)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -84,10 +84,10 @@ func (c *Facade) WatchCredential(credentialID string) (watcher.NotifyWatcher, er
 }
 
 // InvalidateModelCredential invalidates cloud credential for the model that made a connection.
-func (c *Facade) InvalidateModelCredential(reason string) error {
+func (c *Facade) InvalidateModelCredential(ctx context.Context, reason string) error {
 	in := params.InvalidateCredentialArg{reason}
 	var result params.ErrorResult
-	err := c.facade.FacadeCall(context.TODO(), "InvalidateModelCredential", in, &result)
+	err := c.facade.FacadeCall(ctx, "InvalidateModelCredential", in, &result)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -100,9 +100,9 @@ func (c *Facade) InvalidateModelCredential(reason string) error {
 
 // WatchModelCredential provides a notify watcher that is responsive to changes
 // to a given cloud credential.
-func (c *Facade) WatchModelCredential() (watcher.NotifyWatcher, error) {
+func (c *Facade) WatchModelCredential(ctx context.Context) (watcher.NotifyWatcher, error) {
 	var result params.NotifyWatchResult
-	err := c.facade.FacadeCall(context.TODO(), "WatchModelCredential", nil, &result)
+	err := c.facade.FacadeCall(ctx, "WatchModelCredential", nil, &result)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

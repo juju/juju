@@ -33,7 +33,7 @@ func (fa *failAction) Prepare(ctx context.Context, state State) (*State, error) 
 
 // Execute is part of the Operation interface.
 func (fa *failAction) Execute(ctx context.Context, state State) (*State, error) {
-	if err := fa.callbacks.FailAction(fa.actionId, "action terminated"); err != nil {
+	if err := fa.callbacks.FailAction(ctx, fa.actionId, "action terminated"); err != nil {
 		return nil, err
 	}
 

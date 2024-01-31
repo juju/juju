@@ -4,6 +4,7 @@
 package context_test
 
 import (
+	"context"
 	"reflect"
 	"time"
 
@@ -163,10 +164,10 @@ func (s *BaseHookContextSuite) setupUnit(ctrl *gomock.Controller) names.MachineT
 func (s *BaseHookContextSuite) setupUniter(ctrl *gomock.Controller) names.MachineTag {
 	machineTag := s.setupUnit(ctrl)
 	s.uniter = uniterapi.NewMockUniterClient(ctrl)
-	s.uniter.EXPECT().OpenedMachinePortRangesByEndpoint(machineTag).DoAndReturn(func(_ names.MachineTag) (map[names.UnitTag]network.GroupedPortRanges, error) {
+	s.uniter.EXPECT().OpenedMachinePortRangesByEndpoint(gomock.Any(), machineTag).DoAndReturn(func(_ context.Context, _ names.MachineTag) (map[names.UnitTag]network.GroupedPortRanges, error) {
 		return s.machinePortRanges, nil
 	}).AnyTimes()
-	s.uniter.EXPECT().OpenedPortRangesByEndpoint().Return(nil, nil).AnyTimes()
+	s.uniter.EXPECT().OpenedPortRangesByEndpoint(gomock.Any()).Return(nil, nil).AnyTimes()
 	return machineTag
 }
 

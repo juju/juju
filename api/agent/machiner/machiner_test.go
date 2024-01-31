@@ -4,6 +4,7 @@
 package machiner_test
 
 import (
+	"context"
 	stdtesting "testing"
 
 	"github.com/juju/names/v5"
@@ -46,7 +47,7 @@ func (s *machinerSuite) TestMachineAndMachineTag(c *gc.C) {
 	})
 	tag := names.NewMachineTag("666")
 	client := machiner.NewClient(apiCaller)
-	m, err := client.Machine(tag)
+	m, err := client.Machine(context.Background(), tag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.Life(), gc.Equals, life.Alive)
 	c.Assert(m.Tag(), jc.DeepEquals, tag)
@@ -88,7 +89,7 @@ func (s *machinerSuite) TestSetStatus(c *gc.C) {
 	})
 	tag := names.NewMachineTag("666")
 	client := machiner.NewClient(apiCaller)
-	m, err := client.Machine(tag)
+	m, err := client.Machine(context.Background(), tag)
 	c.Assert(err, jc.ErrorIsNil)
 	err = m.SetStatus(status.Error, "failed", data)
 	c.Assert(err, jc.ErrorIsNil)
@@ -122,7 +123,7 @@ func (s *machinerSuite) TestEnsureDead(c *gc.C) {
 	})
 	tag := names.NewMachineTag("666")
 	client := machiner.NewClient(apiCaller)
-	m, err := client.Machine(tag)
+	m, err := client.Machine(context.Background(), tag)
 	c.Assert(err, jc.ErrorIsNil)
 	err = m.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
@@ -151,9 +152,9 @@ func (s *machinerSuite) TestRefresh(c *gc.C) {
 	})
 	tag := names.NewMachineTag("666")
 	client := machiner.NewClient(apiCaller)
-	m, err := client.Machine(tag)
+	m, err := client.Machine(context.Background(), tag)
 	c.Assert(err, jc.ErrorIsNil)
-	err = m.Refresh()
+	err = m.Refresh(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.Life(), gc.Equals, life.Dead)
 	c.Assert(calls, gc.Equals, 2)
@@ -199,7 +200,7 @@ func (s *machinerSuite) TestSetMachineAddresses(c *gc.C) {
 	})
 	tag := names.NewMachineTag("666")
 	client := machiner.NewClient(apiCaller)
-	m, err := client.Machine(tag)
+	m, err := client.Machine(context.Background(), tag)
 	c.Assert(err, jc.ErrorIsNil)
 	err = m.SetMachineAddresses([]network.MachineAddress{{
 		Value:       "10.0.0.1",
@@ -239,7 +240,7 @@ func (s *machinerSuite) TestWatch(c *gc.C) {
 	})
 	tag := names.NewMachineTag("666")
 	client := machiner.NewClient(apiCaller)
-	m, err := client.Machine(tag)
+	m, err := client.Machine(context.Background(), tag)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = m.Watch()
 	c.Assert(err, gc.ErrorMatches, "FAIL")
@@ -281,7 +282,7 @@ func (s *machinerSuite) TestRecordAgentStartInformation(c *gc.C) {
 	})
 	tag := names.NewMachineTag("666")
 	client := machiner.NewClient(apiCaller)
-	m, err := client.Machine(tag)
+	m, err := client.Machine(context.Background(), tag)
 	c.Assert(err, jc.ErrorIsNil)
 	err = m.RecordAgentStartInformation("hostname")
 	c.Assert(err, jc.ErrorIsNil)

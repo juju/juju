@@ -4,6 +4,7 @@
 package instancemutater_test
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/errors"
@@ -53,7 +54,7 @@ func (s *instanceMutaterMachineSuite) TestSetCharmProfiles(c *gc.C) {
 		s.expectSetCharmProfilesFacadeCall,
 	)
 
-	err := m.SetCharmProfiles(s.profiles)
+	err := m.SetCharmProfiles(context.Background(), s.profiles)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -64,7 +65,7 @@ func (s *instanceMutaterMachineSuite) TestSetCharmProfilesError(c *gc.C) {
 		s.expectSetCharmProfilesFacadeCallReturnsError(errors.New("failed")),
 	)
 
-	err := m.SetCharmProfiles(s.profiles)
+	err := m.SetCharmProfiles(context.Background(), s.profiles)
 	c.Assert(err, gc.ErrorMatches, "failed")
 }
 
@@ -75,7 +76,7 @@ func (s *instanceMutaterMachineSuite) TestWatchLXDProfileVerificationNeeded(c *g
 		s.expectWatchLXDProfileVerificationNeeded,
 		s.expectNotifyWatcher,
 	)
-	ch, err := api.WatchLXDProfileVerificationNeeded()
+	ch, err := api.WatchLXDProfileVerificationNeeded(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	// watch for the changes
@@ -94,7 +95,7 @@ func (s *instanceMutaterMachineSuite) TestWatchLXDProfileVerificationNeededServe
 	api := s.machineForScenario(c,
 		s.expectWatchLXDProfileVerificationNeededWithError("", "failed"),
 	)
-	_, err := api.WatchLXDProfileVerificationNeeded()
+	_, err := api.WatchLXDProfileVerificationNeeded(context.Background())
 	c.Assert(err, gc.ErrorMatches, "failed")
 }
 
@@ -104,7 +105,7 @@ func (s *instanceMutaterMachineSuite) TestWatchLXDProfileVerificationNeededNotSu
 	api := s.machineForScenario(c,
 		s.expectWatchLXDProfileVerificationNeededWithError("not supported", "failed"),
 	)
-	_, err := api.WatchLXDProfileVerificationNeeded()
+	_, err := api.WatchLXDProfileVerificationNeeded(context.Background())
 	c.Assert(err, jc.ErrorIs, errors.NotSupported)
 }
 
@@ -115,7 +116,7 @@ func (s *instanceMutaterMachineSuite) TestWatchContainers(c *gc.C) {
 		s.expectWatchContainers,
 		s.expectStringsWatcher,
 	)
-	ch, err := api.WatchContainers()
+	ch, err := api.WatchContainers(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	// watch for the changes
@@ -134,7 +135,7 @@ func (s *instanceMutaterMachineSuite) TestWatchContainersServerError(c *gc.C) {
 	api := s.machineForScenario(c,
 		s.expectWatchContainersWithErrors(errors.New("failed")),
 	)
-	_, err := api.WatchContainers()
+	_, err := api.WatchContainers(context.Background())
 	c.Assert(err, gc.ErrorMatches, "failed")
 }
 
@@ -157,7 +158,7 @@ func (s *instanceMutaterMachineSuite) TestCharmProfilingInfoSuccessChanges(c *gc
 	fExp := s.fCaller.EXPECT()
 	fExp.FacadeCall(gomock.Any(), "CharmProfilingInfo", args, gomock.Any()).SetArg(3, results).Return(nil)
 
-	info, err := s.setupMachine().CharmProfilingInfo()
+	info, err := s.setupMachine().CharmProfilingInfo(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info.InstanceId, gc.Equals, results.InstanceId)
 	c.Assert(info.ModelName, gc.Equals, results.ModelName)
@@ -182,7 +183,7 @@ func (s *instanceMutaterMachineSuite) TestCharmProfilingInfoSuccessChangesWithNo
 	fExp := s.fCaller.EXPECT()
 	fExp.FacadeCall(gomock.Any(), "CharmProfilingInfo", args, gomock.Any()).SetArg(3, results).Return(nil)
 
-	info, err := s.setupMachine().CharmProfilingInfo()
+	info, err := s.setupMachine().CharmProfilingInfo(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info.InstanceId, gc.Equals, results.InstanceId)
 	c.Assert(info.ModelName, gc.Equals, results.ModelName)
@@ -197,7 +198,7 @@ func (s *instanceMutaterMachineSuite) TestSetModificationStatus(c *gc.C) {
 		s.expectSetModificationFacadeCall(status.Applied, "applied", nil),
 	)
 
-	err := m.SetModificationStatus(status.Applied, "applied", nil)
+	err := m.SetModificationStatus(context.Background(), status.Applied, "applied", nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -208,7 +209,7 @@ func (s *instanceMutaterMachineSuite) TestSetModificationStatusReturnsError(c *g
 		s.expectSetModificationFacadeCallReturnsError(errors.New("bad")),
 	)
 
-	err := m.SetModificationStatus(status.Applied, "applied", nil)
+	err := m.SetModificationStatus(context.Background(), status.Applied, "applied", nil)
 	c.Assert(err, gc.ErrorMatches, "bad")
 }
 

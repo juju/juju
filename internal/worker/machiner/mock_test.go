@@ -4,6 +4,8 @@
 package machiner_test
 
 import (
+	"context"
+
 	"github.com/juju/names/v5"
 	jujutesting "github.com/juju/testing"
 
@@ -36,7 +38,7 @@ type mockMachine struct {
 	life    life.Value
 }
 
-func (m *mockMachine) Refresh() error {
+func (m *mockMachine) Refresh(context.Context) error {
 	m.MethodCall(m, "Refresh")
 	return m.NextErr()
 }
@@ -79,7 +81,7 @@ type mockMachineAccessor struct {
 	machine mockMachine
 }
 
-func (a *mockMachineAccessor) Machine(tag names.MachineTag) (machiner.Machine, error) {
+func (a *mockMachineAccessor) Machine(_ context.Context, tag names.MachineTag) (machiner.Machine, error) {
 	a.MethodCall(a, "Machine", tag)
 	if err := a.NextErr(); err != nil {
 		return nil, err

@@ -4,6 +4,8 @@
 package relation_test
 
 import (
+	"context"
+
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -152,7 +154,7 @@ func (s *stateManagerSuite) TestRemove(c *gc.C) {
 
 	mgr, err := relation.NewStateManager(s.mockUnitRW, loggo.GetLogger("test"))
 	c.Assert(err, jc.ErrorIsNil)
-	err = mgr.RemoveRelation(1, s.mockUnitGetter, map[string]bool{})
+	err = mgr.RemoveRelation(context.Background(), 1, s.mockUnitGetter, map[string]bool{})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -164,7 +166,7 @@ func (s *stateManagerSuite) TestRemoveNotFound(c *gc.C) {
 
 	mgr, err := relation.NewStateManager(s.mockUnitRW, loggo.GetLogger("test"))
 	c.Assert(err, jc.ErrorIsNil)
-	err = mgr.RemoveRelation(1, s.mockUnitGetter, map[string]bool{})
+	err = mgr.RemoveRelation(context.Background(), 1, s.mockUnitGetter, map[string]bool{})
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
@@ -173,11 +175,11 @@ func (s *stateManagerSuite) TestRemoveFailHasMembers(c *gc.C) {
 	stateTwo := relation.State{RelationId: 99}
 	stateTwo.Members = map[string]int64{"foo/1": 0}
 	s.expectState(c, stateTwo)
-	s.mockUnitGetter.EXPECT().Unit(names.NewUnitTag("foo/1")).Return(nil, nil)
+	s.mockUnitGetter.EXPECT().Unit(gomock.Any(), names.NewUnitTag("foo/1")).Return(nil, nil)
 
 	mgr, err := relation.NewStateManager(s.mockUnitRW, loggo.GetLogger("test"))
 	c.Assert(err, jc.ErrorIsNil)
-	err = mgr.RemoveRelation(99, s.mockUnitGetter, map[string]bool{})
+	err = mgr.RemoveRelation(context.Background(), 99, s.mockUnitGetter, map[string]bool{})
 	c.Assert(err, gc.ErrorMatches, `*has members: \[foo/1\]`)
 }
 
@@ -187,7 +189,7 @@ func (s *stateManagerSuite) TestRemoveIgnoresMissingUnits(c *gc.C) {
 	stateTwo.Members = map[string]int64{"foo/1": 0}
 	s.expectState(c, stateTwo)
 	s.expectSetStateEmpty(c)
-	s.mockUnitGetter.EXPECT().Unit(names.NewUnitTag("foo/1")).Return(nil, &params.Error{Code: "not found"})
+	s.mockUnitGetter.EXPECT().Unit(gomock.Any(), names.NewUnitTag("foo/1")).Return(nil, &params.Error{Code: "not found"})
 
 	logger := loggo.GetLogger("test")
 	var tw loggo.TestWriter
@@ -195,7 +197,7 @@ func (s *stateManagerSuite) TestRemoveIgnoresMissingUnits(c *gc.C) {
 
 	mgr, err := relation.NewStateManager(s.mockUnitRW, logger)
 	c.Assert(err, jc.ErrorIsNil)
-	err = mgr.RemoveRelation(99, s.mockUnitGetter, map[string]bool{})
+	err = mgr.RemoveRelation(context.Background(), 99, s.mockUnitGetter, map[string]bool{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(tw.Log(), jc.LogMatches, jc.SimpleMessages{{
 		loggo.WARNING,
@@ -211,17 +213,17 @@ func (s *stateManagerSuite) TestRemoveCachesUnits(c *gc.C) {
 	stateThree.Members = map[string]int64{"foo/1": 0}
 	s.expectState(c, stateTwo, stateThree)
 	s.expectSetState(c, stateThree)
-	s.mockUnitGetter.EXPECT().Unit(names.NewUnitTag("foo/1")).Return(nil, &params.Error{Code: "not found"})
+	s.mockUnitGetter.EXPECT().Unit(gomock.Any(), names.NewUnitTag("foo/1")).Return(nil, &params.Error{Code: "not found"})
 
 	mgr, err := relation.NewStateManager(s.mockUnitRW, loggo.GetLogger("test"))
 	c.Assert(err, jc.ErrorIsNil)
 	knownUnits := make(map[string]bool)
-	err = mgr.RemoveRelation(99, s.mockUnitGetter, knownUnits)
+	err = mgr.RemoveRelation(context.Background(), 99, s.mockUnitGetter, knownUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(knownUnits, jc.DeepEquals, map[string]bool{"foo/1": false})
 
 	s.expectSetStateEmpty(c)
-	err = mgr.RemoveRelation(100, s.mockUnitGetter, knownUnits)
+	err = mgr.RemoveRelation(context.Background(), 100, s.mockUnitGetter, knownUnits)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -233,7 +235,7 @@ func (s *stateManagerSuite) TestRemoveFailRequest(c *gc.C) {
 
 	mgr, err := relation.NewStateManager(s.mockUnitRW, loggo.GetLogger("test"))
 	c.Assert(err, jc.ErrorIsNil)
-	err = mgr.RemoveRelation(99, s.mockUnitGetter, map[string]bool{})
+	err = mgr.RemoveRelation(context.Background(), 99, s.mockUnitGetter, map[string]bool{})
 	c.Assert(err, jc.ErrorIs, errors.BadRequest)
 	found := mgr.RelationFound(99)
 	c.Assert(found, jc.IsTrue)

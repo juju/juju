@@ -4,6 +4,7 @@
 package errors_test
 
 import (
+	"context"
 	stderrors "errors"
 	"fmt"
 
@@ -97,7 +98,7 @@ func (s *toolSuite) TestConnectionIsFatal(c *gc.C) {
 	for i, conn := range []*testConn{errConn, okConn} {
 		for j, test := range isFatalTests {
 			c.Logf("test %d.%d: %s", i, j, test.err)
-			fatal := agenterrors.ConnectionIsFatal(s.logger, conn)(test.err)
+			fatal := agenterrors.ConnectionIsFatal(context.Background(), s.logger, conn)(test.err)
 			if test.isFatal {
 				c.Check(fatal, jc.IsTrue)
 			} else {
@@ -113,15 +114,16 @@ func (s *toolSuite) TestConnectionIsFatalWithMultipleConns(c *gc.C) {
 
 	someErr := stderrors.New("foo")
 
-	c.Assert(agenterrors.ConnectionIsFatal(s.logger, okConn, okConn)(someErr),
+	ctx := context.Background()
+	c.Assert(agenterrors.ConnectionIsFatal(ctx, s.logger, okConn, okConn)(someErr),
 		jc.IsFalse)
-	c.Assert(agenterrors.ConnectionIsFatal(s.logger, okConn, okConn, okConn)(someErr),
+	c.Assert(agenterrors.ConnectionIsFatal(ctx, s.logger, okConn, okConn, okConn)(someErr),
 		jc.IsFalse)
-	c.Assert(agenterrors.ConnectionIsFatal(s.logger, okConn, errConn)(someErr),
+	c.Assert(agenterrors.ConnectionIsFatal(ctx, s.logger, okConn, errConn)(someErr),
 		jc.IsTrue)
-	c.Assert(agenterrors.ConnectionIsFatal(s.logger, okConn, okConn, errConn)(someErr),
+	c.Assert(agenterrors.ConnectionIsFatal(ctx, s.logger, okConn, okConn, errConn)(someErr),
 		jc.IsTrue)
-	c.Assert(agenterrors.ConnectionIsFatal(s.logger, errConn, okConn, okConn)(someErr),
+	c.Assert(agenterrors.ConnectionIsFatal(ctx, s.logger, errConn, okConn, okConn)(someErr),
 		jc.IsTrue)
 }
 
@@ -177,7 +179,7 @@ type testConn struct {
 	broken bool
 }
 
-func (c *testConn) IsBroken() bool {
+func (c *testConn) IsBroken(_ context.Context) bool {
 	return c.broken
 }
 

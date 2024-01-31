@@ -188,7 +188,7 @@ func (s *InterfaceSuite) TestUnitStatus(c *gc.C) {
 
 	ctx := s.GetContext(c, ctrl, -1, "", names.StorageTag{})
 	defer context.PatchCachedStatus(ctx.(context.Context), "maintenance", "working", map[string]interface{}{"hello": "world"})()
-	status, err := ctx.UnitStatus()
+	status, err := ctx.UnitStatus(stdcontext.Background())
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(status.Status, gc.Equals, "maintenance")
 	c.Check(status.Info, gc.Equals, "working")
@@ -200,20 +200,20 @@ func (s *InterfaceSuite) TestSetUnitStatus(c *gc.C) {
 	defer ctrl.Finish()
 
 	ctx := s.GetContext(c, ctrl, -1, "", names.StorageTag{})
-	s.unit.EXPECT().SetUnitStatus(status2.Maintenance, "doing work", nil).Return(nil)
+	s.unit.EXPECT().SetUnitStatus(gomock.Any(), status2.Maintenance, "doing work", nil).Return(nil)
 	status := jujuc.StatusInfo{
 		Status: "maintenance",
 		Info:   "doing work",
 	}
-	err := ctx.SetUnitStatus(status)
+	err := ctx.SetUnitStatus(stdcontext.Background(), status)
 	c.Check(err, jc.ErrorIsNil)
 
-	s.unit.EXPECT().UnitStatus().Return(params.StatusResult{
+	s.unit.EXPECT().UnitStatus(stdcontext.Background()).Return(params.StatusResult{
 		Status: "maintenance",
 		Info:   "doing work",
 		Data:   map[string]interface{}{},
 	}, nil)
-	unitStatus, err := ctx.UnitStatus()
+	unitStatus, err := ctx.UnitStatus(stdcontext.Background())
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(unitStatus.Status, gc.Equals, "maintenance")
 	c.Check(unitStatus.Info, gc.Equals, "doing work")
@@ -230,8 +230,8 @@ func (s *InterfaceSuite) TestSetUnitStatusUpdatesFlag(c *gc.C) {
 		Status: "maintenance",
 		Info:   "doing work",
 	}
-	s.unit.EXPECT().SetUnitStatus(status2.Maintenance, "doing work", nil).Return(nil)
-	err := ctx.SetUnitStatus(status)
+	s.unit.EXPECT().SetUnitStatus(gomock.Any(), status2.Maintenance, "doing work", nil).Return(nil)
+	err := ctx.SetUnitStatus(stdcontext.Background(), status)
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(ctx.(context.Context).HasExecutionSetUnitStatus(), jc.IsTrue)
 }
@@ -241,20 +241,20 @@ func (s *InterfaceSuite) TestGetSetWorkloadVersion(c *gc.C) {
 	defer ctrl.Finish()
 
 	ctx := s.GetContext(c, ctrl, -1, "", names.StorageTag{})
-	s.uniter.EXPECT().UnitWorkloadVersion(s.unit.Tag()).Return("", nil)
+	s.uniter.EXPECT().UnitWorkloadVersion(gomock.Any(), s.unit.Tag()).Return("", nil)
 
 	// No workload version set yet.
-	result, err := ctx.UnitWorkloadVersion()
+	result, err := ctx.UnitWorkloadVersion(stdcontext.Background())
 	c.Assert(result, gc.Equals, "")
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.uniter.EXPECT().SetUnitWorkloadVersion(s.unit.Tag(), "Pipey").Return(nil)
-	err = ctx.SetUnitWorkloadVersion("Pipey")
+	s.uniter.EXPECT().SetUnitWorkloadVersion(gomock.Any(), s.unit.Tag(), "Pipey").Return(nil)
+	err = ctx.SetUnitWorkloadVersion(stdcontext.Background(), "Pipey")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Second call does not hit backend.
-	s.uniter.EXPECT().UnitWorkloadVersion(s.unit.Tag()).Return("Pipey", nil)
-	result, err = ctx.UnitWorkloadVersion()
+	s.uniter.EXPECT().UnitWorkloadVersion(gomock.Any(), s.unit.Tag()).Return("Pipey", nil)
+	result, err = ctx.UnitWorkloadVersion(stdcontext.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.Equals, "Pipey")
 }
@@ -264,19 +264,19 @@ func (s *InterfaceSuite) TestUnitStatusCaching(c *gc.C) {
 	defer ctrl.Finish()
 
 	ctx := s.GetContext(c, ctrl, -1, "", names.StorageTag{})
-	s.unit.EXPECT().UnitStatus().Return(params.StatusResult{
+	s.unit.EXPECT().UnitStatus(gomock.Any()).Return(params.StatusResult{
 		Status: "waiting",
 		Info:   "waiting for machine",
 		Data:   map[string]interface{}{},
 	}, nil)
-	unitStatus, err := ctx.UnitStatus()
+	unitStatus, err := ctx.UnitStatus(stdcontext.Background())
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(unitStatus.Status, gc.Equals, "waiting")
 	c.Check(unitStatus.Info, gc.Equals, "waiting for machine")
 	c.Check(unitStatus.Data, gc.DeepEquals, map[string]interface{}{})
 
 	// Second call does not hit backend.
-	unitStatus, err = ctx.UnitStatus()
+	unitStatus, err = ctx.UnitStatus(stdcontext.Background())
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(unitStatus.Status, gc.Equals, "waiting")
 	c.Check(unitStatus.Info, gc.Equals, "waiting for machine")
@@ -359,8 +359,8 @@ func (s *InterfaceSuite) TestGoalState(c *gc.C) {
 	defer ctrl.Finish()
 
 	ctx := s.GetContext(c, ctrl, -1, "", names.StorageTag{})
-	s.uniter.EXPECT().GoalState().Return(goalStateCheck, nil)
-	goalState, err := ctx.GoalState()
+	s.uniter.EXPECT().GoalState(gomock.Any()).Return(goalStateCheck, nil)
+	goalState, err := ctx.GoalState(stdcontext.Background())
 
 	// Mock status Since string
 	goalState.Units = mockUnitSince(goalState.Units)
@@ -889,7 +889,7 @@ func (s *HookContextSuite) TestFlushWithNonDirtyCache(c *gc.C) {
 
 	// Flush the context with a success. As the cache is not dirty we do
 	// not expect a SetState call.
-	err = hookContext.Flush("success", nil)
+	err = hookContext.Flush(stdcontext.Background(), "success", nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -920,11 +920,11 @@ func (s *HookContextSuite) TestSequentialFlushOfCacheValues(c *gc.C) {
 	// the dirty flag
 	err := hookContext.SetCharmStateValue("lorem", "ipsum")
 	c.Assert(err, jc.ErrorIsNil)
-	err = hookContext.Flush("success", nil)
+	err = hookContext.Flush(stdcontext.Background(), "success", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Flush again; as the cache is not dirty, the SetState call is skipped.
-	err = hookContext.Flush("success", nil)
+	err = hookContext.Flush(stdcontext.Background(), "success", nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -952,7 +952,7 @@ func (s *HookContextSuite) TestOpenPortRange(c *gc.C) {
 
 	err := hookContext.OpenPortRange("", network.MustParsePortRange("8080/tcp"))
 	c.Assert(err, jc.ErrorIsNil)
-	err = hookContext.Flush("success", nil)
+	err = hookContext.Flush(stdcontext.Background(), "success", nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1000,7 +1000,7 @@ func (s *HookContextSuite) TestOpenedPortRanges(c *gc.C) {
 	}
 	c.Assert(openedPorts.UniquePortRanges(), gc.DeepEquals, expectedOpenPorts)
 
-	err = hookContext.Flush("success", nil)
+	err = hookContext.Flush(stdcontext.Background(), "success", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// After Flush() opened ports should remain the same.
@@ -1032,7 +1032,7 @@ func (s *HookContextSuite) TestClosePortRange(c *gc.C) {
 
 	err := hookContext.ClosePortRange("", network.MustParsePortRange("8080/tcp"))
 	c.Assert(err, jc.ErrorIsNil)
-	err = hookContext.Flush("success", nil)
+	err = hookContext.Flush(stdcontext.Background(), "success", nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1070,7 +1070,7 @@ func (s *HookContextSuite) TestActionAbort(c *gc.C) {
 		ctrl := s.setupMocks(c)
 		client := api.NewMockUniterClient(ctrl)
 		hookContext := context.NewMockUnitHookContextWithUniter(s.mockUnit, client)
-		client.EXPECT().ActionFinish(names.NewActionTag("2"), test.Status, map[string]any(nil), "failed yo").Return(nil)
+		client.EXPECT().ActionFinish(gomock.Any(), names.NewActionTag("2"), test.Status, map[string]any(nil), "failed yo").Return(nil)
 
 		cancel := make(chan struct{})
 		if test.Cancel {
@@ -1084,7 +1084,7 @@ func (s *HookContextSuite) TestActionAbort(c *gc.C) {
 		actionData, err := hookContext.ActionData()
 		c.Assert(err, jc.ErrorIsNil)
 		c.Check(actionData.Failed, gc.Equals, test.Failed)
-		err = hookContext.Flush("", errors.Errorf("failed yo"))
+		err = hookContext.Flush(stdcontext.Background(), "", errors.Errorf("failed yo"))
 		c.Assert(err, jc.ErrorIsNil)
 		ctrl.Finish()
 	}
@@ -1113,14 +1113,14 @@ func (s *HookContextSuite) TestActionFlushError(c *gc.C) {
 		"stderr":      "flush failed",
 		"return-code": "1",
 	}
-	client.EXPECT().ActionFinish(names.NewActionTag("2"), "failed", resultData, "committing requested changes failed").Return(nil)
+	client.EXPECT().ActionFinish(gomock.Any(), names.NewActionTag("2"), "failed", resultData, "committing requested changes failed").Return(nil)
 	context.SetEnvironmentHookContextSecret(hookContext, coresecrets.NewURI().String(), nil, nil, nil)
 
 	err := hookContext.OpenPortRange("ep", network.PortRange{Protocol: "tcp", FromPort: 666, ToPort: 666})
 	c.Assert(err, jc.ErrorIsNil)
 	cancel := make(chan struct{})
 	context.WithActionContext(hookContext, nil, cancel)
-	err = hookContext.Flush("", nil)
+	err = hookContext.Flush(stdcontext.Background(), "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1130,11 +1130,11 @@ func (s *HookContextSuite) TestMissingAction(c *gc.C) {
 
 	client := api.NewMockUniterClient(ctrl)
 	hookContext := context.NewMockUnitHookContextWithUniter(s.mockUnit, client)
-	client.EXPECT().ActionFinish(names.NewActionTag("2"), "failed", map[string]any(nil),
+	client.EXPECT().ActionFinish(gomock.Any(), names.NewActionTag("2"), "failed", map[string]any(nil),
 		`action not implemented on unit "wordpress/0"`).Return(nil)
 
 	context.WithActionContext(hookContext, nil, nil)
-	err := hookContext.Flush("action", charmrunner.NewMissingHookError("noaction"))
+	err := hookContext.Flush(stdcontext.Background(), "action", charmrunner.NewMissingHookError("noaction"))
 	c.Assert(err, jc.ErrorIsNil)
 }
 

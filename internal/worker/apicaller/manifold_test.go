@@ -45,7 +45,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		APIOpen: func(*api.Info, api.DialOpts) (api.Connection, error) {
 			panic("just a fake")
 		},
-		NewConnection: func(a agent.Agent, apiOpen api.OpenFunc, logger apicaller.Logger) (api.Connection, error) {
+		NewConnection: func(_ context.Context, a agent.Agent, apiOpen api.OpenFunc, logger apicaller.Logger) (api.Connection, error) {
 			c.Check(apiOpen, gc.NotNil) // uncomparable
 			c.Check(logger, gc.NotNil)  // uncomparable
 			s.AddCall("NewConnection", a)

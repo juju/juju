@@ -4,6 +4,7 @@
 package collect
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"time"
@@ -46,7 +47,7 @@ func (l *handler) Handle(c net.Conn, abort <-chan struct{}) error {
 	}
 
 	err = l.config.charmdir.Visit(func() error {
-		return l.do()
+		return l.do(context.TODO())
 	}, abort)
 	if err != nil {
 		_, _ = fmt.Fprintf(c, "error: %v\n", err.Error())
@@ -56,7 +57,7 @@ func (l *handler) Handle(c net.Conn, abort <-chan struct{}) error {
 	return errors.Trace(err)
 }
 
-func (l *handler) do() error {
+func (l *handler) do(ctx context.Context) error {
 	paths := uniter.NewWorkerPaths(l.config.agent.CurrentConfig().DataDir(), l.config.unitTag, "metrics-collect", nil)
 	charmURL, validMetrics, err := readCharm(l.config.unitTag, paths)
 	if err != nil {
@@ -72,7 +73,7 @@ func (l *handler) do() error {
 		return errors.Annotate(err, "failed to create the metric recorder")
 	}
 	defer func() { _ = recorder.Close() }()
-	err = l.config.runner.do(recorder)
+	err = l.config.runner.do(ctx, recorder)
 	if err != nil {
 		return errors.Annotate(err, "failed to collect metrics")
 	}

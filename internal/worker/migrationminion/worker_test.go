@@ -4,6 +4,7 @@
 package migrationminion_test
 
 import (
+	"context"
 	"reflect"
 	"sync"
 	"time"
@@ -63,7 +64,7 @@ func (s *Suite) SetUpTest(c *gc.C) {
 		Agent:   s.agent,
 		Clock:   s.clock,
 		APIOpen: s.apiOpen,
-		ValidateMigration: func(base.APICaller) error {
+		ValidateMigration: func(context.Context, base.APICaller) error {
 			s.stub.AddCall("ValidateMigration")
 			return nil
 		},
@@ -279,7 +280,7 @@ func (s *Suite) TestVALIDATIONFail(c *gc.C) {
 		MigrationId: "id",
 		Phase:       migration.VALIDATION,
 	}
-	s.config.ValidateMigration = func(base.APICaller) error {
+	s.config.ValidateMigration = func(context.Context, base.APICaller) error {
 		s.stub.AddCall("ValidateMigration")
 		return errors.New("boom")
 	}
@@ -311,7 +312,7 @@ func (s *Suite) TestVALIDATIONRetrySucceed(c *gc.C) {
 	}
 	var stub jujutesting.Stub
 	stub.SetErrors(errors.New("nope"), errors.New("not yet"), nil)
-	s.config.ValidateMigration = func(base.APICaller) error {
+	s.config.ValidateMigration = func(context.Context, base.APICaller) error {
 		stub.AddCall("ValidateMigration")
 		return stub.NextErr()
 	}

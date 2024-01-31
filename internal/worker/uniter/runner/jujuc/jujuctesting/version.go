@@ -4,6 +4,8 @@
 package jujuctesting
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 )
 
@@ -19,7 +21,7 @@ type ContextVersion struct {
 }
 
 // UnitWorkloadVersion implements jujuc.ContextVersion.
-func (c *ContextVersion) UnitWorkloadVersion() (string, error) {
+func (c *ContextVersion) UnitWorkloadVersion(_ context.Context) (string, error) {
 	c.stub.AddCall("UnitWorkloadVersion")
 	if err := c.stub.NextErr(); err != nil {
 		return "", errors.Trace(err)
@@ -28,7 +30,7 @@ func (c *ContextVersion) UnitWorkloadVersion() (string, error) {
 }
 
 // SetUnitWorkloadVersion implements jujuc.ContextVersion.
-func (c *ContextVersion) SetUnitWorkloadVersion(version string) error {
+func (c *ContextVersion) SetUnitWorkloadVersion(_ context.Context, version string) error {
 	c.stub.AddCall("SetUnitWorkloadVersion", version)
 	if err := c.stub.NextErr(); err != nil {
 		return errors.Trace(err)

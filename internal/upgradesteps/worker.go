@@ -122,7 +122,7 @@ func (w *BaseWorker) RunUpgradeSteps(ctx context.Context, targets []upgrades.Tar
 				if !ok {
 					return false
 				}
-				return agenterrors.ConnectionIsDead(w.Logger, breakable)
+				return agenterrors.ConnectionIsDead(ctx, w.Logger, breakable)
 			},
 			NotifyFunc: func(lastErr error, attempt int) {
 				w.reportUpgradeFailure(lastErr, attempt == DefaultRetryAttempts)

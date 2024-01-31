@@ -4,6 +4,7 @@
 package relation_test
 
 import (
+	stdcontext "context"
 	"os"
 	"path/filepath"
 	"time"
@@ -218,7 +219,7 @@ func (s *stateTrackerSuite) TestCommitHookOnlyRelationHooks(c *gc.C) {
 		Kind:       hooks.MeterStatusChanged,
 		RelationId: 1,
 	}
-	err = rst.CommitHook(info)
+	err = rst.CommitHook(stdcontext.Background(), info)
 	c.Assert(err, gc.ErrorMatches, "not a relation hook.*")
 }
 
@@ -235,7 +236,7 @@ func (s *stateTrackerSuite) TestCommitHookNotFound(c *gc.C) {
 		Kind:       hooks.RelationCreated,
 		RelationId: 1,
 	}
-	err = rst.CommitHook(info)
+	err = rst.CommitHook(stdcontext.Background(), info)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -253,7 +254,7 @@ func (s *stateTrackerSuite) TestCommitHookRelationCreated(c *gc.C) {
 		Kind:       hooks.RelationCreated,
 		RelationId: 1,
 	}
-	err = rst.CommitHook(info)
+	err = rst.CommitHook(stdcontext.Background(), info)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rst.RelationCreated(1), jc.IsTrue)
 }
@@ -272,7 +273,7 @@ func (s *stateTrackerSuite) TestCommitHookRelationCreatedFail(c *gc.C) {
 		Kind:       hooks.RelationCreated,
 		RelationId: 1,
 	}
-	err = rst.CommitHook(info)
+	err = rst.CommitHook(stdcontext.Background(), info)
 	c.Assert(err, gc.NotNil)
 	c.Assert(rst.RelationCreated(1), jc.IsFalse)
 }
@@ -291,7 +292,7 @@ func (s *stateTrackerSuite) TestCommitHookRelationBroken(c *gc.C) {
 		Kind:       hooks.RelationBroken,
 		RelationId: 1,
 	}
-	err = rst.CommitHook(info)
+	err = rst.CommitHook(stdcontext.Background(), info)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rst.IsKnown(1), jc.IsFalse)
 }
@@ -310,7 +311,7 @@ func (s *stateTrackerSuite) TestCommitHookRelationBrokenFail(c *gc.C) {
 		Kind:       hooks.RelationBroken,
 		RelationId: 1,
 	}
-	err = rst.CommitHook(info)
+	err = rst.CommitHook(stdcontext.Background(), info)
 	c.Assert(err, gc.NotNil)
 	c.Assert(rst.IsKnown(1), jc.IsTrue)
 }
@@ -356,7 +357,7 @@ func (s *syncScopesSuite) TestSynchronizeScopesNoRemoteRelations(c *gc.C) {
 	r := s.newStateTracker(c)
 
 	remote := remotestate.Snapshot{}
-	err := r.SynchronizeScopes(remote)
+	err := r.SynchronizeScopes(stdcontext.Background(), remote)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -381,7 +382,7 @@ func (s *syncScopesSuite) TestSynchronizeScopesNoRemoteRelationsDestroySubordina
 	c.Assert(err, jc.ErrorIsNil)
 
 	remote := remotestate.Snapshot{}
-	err = rst.SynchronizeScopes(remote)
+	err = rst.SynchronizeScopes(stdcontext.Background(), remote)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -424,7 +425,7 @@ func (s *syncScopesSuite) testSynchronizeScopesDying(c *gc.C, implicit bool) rel
 		},
 	}
 
-	err := rst.SynchronizeScopes(remoteState)
+	err := rst.SynchronizeScopes(stdcontext.Background(), remoteState)
 	c.Assert(err, jc.ErrorIsNil)
 	return rst
 }
@@ -462,7 +463,7 @@ func (s *syncScopesSuite) TestSynchronizeScopesSuspendedDying(c *gc.C) {
 		},
 	}
 
-	err := rst.SynchronizeScopes(remoteState)
+	err := rst.SynchronizeScopes(stdcontext.Background(), remoteState)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rst.IsKnown(1), jc.IsFalse)
 }
@@ -511,7 +512,7 @@ func (s *syncScopesSuite) TestSynchronizeScopesJoinRelation(c *gc.C) {
 		},
 	}
 
-	err := rst.SynchronizeScopes(remoteState)
+	err := rst.SynchronizeScopes(stdcontext.Background(), remoteState)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rst.RemoteApplication(1), gc.Equals, "mysql")
 }
@@ -555,7 +556,7 @@ func (s *syncScopesSuite) assertSynchronizeScopesFailImplementedBy(c *gc.C, crea
 		},
 	}
 
-	err := rst.SynchronizeScopes(remoteState)
+	err := rst.SynchronizeScopes(stdcontext.Background(), remoteState)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -595,7 +596,7 @@ func (s *syncScopesSuite) TestSynchronizeScopesSeenNotDying(c *gc.C) {
 		},
 	}
 
-	err := rst.SynchronizeScopes(remoteState)
+	err := rst.SynchronizeScopes(stdcontext.Background(), remoteState)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rst.RemoteApplication(1), gc.Equals, "mysql")
 }
@@ -606,11 +607,11 @@ func (s *baseStateTrackerSuite) expectRelationerPrepareHook() {
 }
 
 func (s *baseStateTrackerSuite) expectRelationerCommitHook() {
-	s.relationer.EXPECT().CommitHook(gomock.Any()).Return(nil)
+	s.relationer.EXPECT().CommitHook(gomock.Any(), gomock.Any()).Return(nil)
 }
 
 func (s *baseStateTrackerSuite) expectRelationerCommitHookFail() {
-	s.relationer.EXPECT().CommitHook(gomock.Any()).Return(errors.NotFoundf("testing"))
+	s.relationer.EXPECT().CommitHook(gomock.Any(), gomock.Any()).Return(errors.NotFoundf("testing"))
 }
 
 func (s *baseStateTrackerSuite) expectRelationerJoin() {
@@ -622,7 +623,7 @@ func (s *baseStateTrackerSuite) expectRelationerRelationUnit() {
 }
 
 func (s *baseStateTrackerSuite) expectRelationerSetDying() {
-	s.relationer.EXPECT().SetDying().Return(nil)
+	s.relationer.EXPECT().SetDying(gomock.Any()).Return(nil)
 }
 
 func (s *baseStateTrackerSuite) expectRelationerIsImplicit(imp bool) {
@@ -640,11 +641,11 @@ func (s *baseStateTrackerSuite) expectRelationUpdateSuspended(suspend bool) {
 }
 
 func (s *baseStateTrackerSuite) expectRelationUnit() {
-	s.relation.EXPECT().Unit(s.unitTag).Return(s.relationUnit, nil).AnyTimes()
+	s.relation.EXPECT().Unit(gomock.Any(), s.unitTag).Return(s.relationUnit, nil).AnyTimes()
 }
 
 func (s *baseStateTrackerSuite) expectRelationSetStatusJoined() {
-	s.relation.EXPECT().SetStatus(corerelation.Joined)
+	s.relation.EXPECT().SetStatus(gomock.Any(), corerelation.Joined)
 }
 
 func (s *baseStateTrackerSuite) expectRelationID(id int) {
@@ -652,7 +653,7 @@ func (s *baseStateTrackerSuite) expectRelationID(id int) {
 }
 
 func (s *baseStateTrackerSuite) expectRelationEndpoint(ep *uniter.Endpoint) {
-	s.relation.EXPECT().Endpoint().Return(ep, nil)
+	s.relation.EXPECT().Endpoint(gomock.Any()).Return(ep, nil)
 }
 
 func (s *syncScopesSuite) expectRelationOtherApplication() {
@@ -665,7 +666,7 @@ func (s *syncScopesSuite) expectString() {
 
 // StateManager
 func (s *baseStateTrackerSuite) expectStateMgrRemoveRelation(id int) {
-	s.stateMgr.EXPECT().RemoveRelation(id, s.client, map[string]bool{}).Return(nil)
+	s.stateMgr.EXPECT().RemoveRelation(gomock.Any(), id, s.client, map[string]bool{}).Return(nil)
 }
 
 func (s *baseStateTrackerSuite) expectStateMgrKnownIDs(ids []int) {
@@ -678,11 +679,11 @@ func (s *baseStateTrackerSuite) expectStateMgrRelationFound(id int) {
 
 // State
 func (s *baseStateTrackerSuite) expectRelation(relTag names.RelationTag) {
-	s.client.EXPECT().Relation(relTag).Return(s.relation, nil)
+	s.client.EXPECT().Relation(gomock.Any(), relTag).Return(s.relation, nil)
 }
 
 func (s *syncScopesSuite) expectRelationById(id int) {
-	s.client.EXPECT().RelationById(id).Return(s.relation, nil)
+	s.client.EXPECT().RelationById(gomock.Any(), id).Return(s.relation, nil)
 }
 
 // Unit

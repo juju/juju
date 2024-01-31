@@ -4,6 +4,7 @@
 package uniter_test
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/charm/v12"
@@ -45,7 +46,7 @@ func (s *unitSuite) TestUnitAndUnitTag(c *gc.C) {
 	})
 	tag := names.NewUnitTag("mysql/0")
 	client := uniter.NewClient(apiCaller, tag)
-	unit, err := client.Unit(tag)
+	unit, err := client.Unit(context.Background(), tag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unit.Name(), gc.Equals, "mysql/0")
 	c.Assert(unit.Tag(), gc.Equals, tag)
@@ -94,7 +95,7 @@ func (s *unitSuite) TestSetUnitStatus(c *gc.C) {
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
-	err := unit.SetUnitStatus(status.Idle, "blah", map[string]interface{}{"foo": "bar"})
+	err := unit.SetUnitStatus(context.Background(), status.Idle, "blah", map[string]interface{}{"foo": "bar"})
 	c.Assert(err, gc.ErrorMatches, "biff")
 }
 
@@ -120,7 +121,7 @@ func (s *unitSuite) TestUnitStatus(c *gc.C) {
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
-	statusInfo, err := unit.UnitStatus()
+	statusInfo, err := unit.UnitStatus(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(statusInfo, gc.DeepEquals, params.StatusResult{
 		Id:     "mysql/0",
@@ -204,7 +205,7 @@ func (s *unitSuite) TestRefresh(c *gc.C) {
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
-	err := unit.Refresh()
+	err := unit.Refresh(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unit.Life(), gc.Equals, life.Dying)
 	c.Assert(unit.Resolved(), gc.Equals, params.ResolvedRetryHooks)

@@ -65,11 +65,11 @@ func (rh *runHook) String() string {
 // Prepare ensures the hook can be executed.
 // Prepare is part of the Operation interface.
 func (rh *runHook) Prepare(ctx stdcontext.Context, state State) (*State, error) {
-	name, err := rh.callbacks.PrepareHook(rh.info)
+	name, err := rh.callbacks.PrepareHook(ctx, rh.info)
 	if err != nil {
 		return nil, err
 	}
-	rnr, err := rh.runnerFactory.NewHookRunner(rh.info)
+	rnr, err := rh.runnerFactory.NewHookRunner(ctx, rh.info)
 	if err != nil {
 		return nil, err
 	}
@@ -101,7 +101,7 @@ func (rh *runHook) Prepare(ctx stdcontext.Context, state State) (*State, error) 
 		}
 	}
 
-	err = rnr.Context().Prepare()
+	err = rnr.Context().Prepare(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -134,7 +134,7 @@ func RunningHookMessage(hookName string, info hook.Info) string {
 // Execute is part of the Operation interface.
 func (rh *runHook) Execute(ctx stdcontext.Context, state State) (*State, error) {
 	message := RunningHookMessage(rh.name, rh.info)
-	if err := rh.beforeHook(state); err != nil {
+	if err := rh.beforeHook(ctx, state); err != nil {
 		return nil, err
 	}
 	// In order to reduce controller load, the uniter no longer
@@ -152,7 +152,7 @@ func (rh *runHook) Execute(ctx stdcontext.Context, state State) (*State, error) 
 	rh.hookFound = true
 	step := Done
 
-	handlerType, err := rh.runner.RunHook(rh.name)
+	handlerType, err := rh.runner.RunHook(ctx, rh.name)
 	cause := errors.Cause(err)
 	switch {
 	case charmrunner.IsMissingHookError(cause):
@@ -192,7 +192,7 @@ func (rh *runHook) Execute(ctx stdcontext.Context, state State) (*State, error) 
 
 	var hasRunStatusSet bool
 	var afterHookErr error
-	if hasRunStatusSet, afterHookErr = rh.afterHook(state); afterHookErr != nil {
+	if hasRunStatusSet, afterHookErr = rh.afterHook(ctx, state); afterHookErr != nil {
 		return nil, afterHookErr
 	}
 	return stateChange{
@@ -204,25 +204,25 @@ func (rh *runHook) Execute(ctx stdcontext.Context, state State) (*State, error) 
 	}.apply(state), err
 }
 
-func (rh *runHook) beforeHook(state State) error {
+func (rh *runHook) beforeHook(ctx stdcontext.Context, state State) error {
 	var err error
 	switch rh.info.Kind {
 	case hooks.Install:
 		// If the charm has already updated the unit status in a previous hook,
 		// then don't overwrite that here.
 		if !state.StatusSet {
-			err = rh.runner.Context().SetUnitStatus(jujuc.StatusInfo{
+			err = rh.runner.Context().SetUnitStatus(ctx, jujuc.StatusInfo{
 				Status: string(status.Maintenance),
 				Info:   status.MessageInstallingCharm,
 			})
 		}
 	case hooks.Stop:
-		err = rh.runner.Context().SetUnitStatus(jujuc.StatusInfo{
+		err = rh.runner.Context().SetUnitStatus(ctx, jujuc.StatusInfo{
 			Status: string(status.Maintenance),
 			Info:   "stopping charm software",
 		})
 	case hooks.Remove:
-		err = rh.runner.Context().SetUnitStatus(jujuc.StatusInfo{
+		err = rh.runner.Context().SetUnitStatus(ctx, jujuc.StatusInfo{
 			Status: string(status.Maintenance),
 			Info:   "cleaning up prior to charm deletion",
 		})
@@ -242,7 +242,7 @@ func (rh *runHook) beforeHook(state State) error {
 // afterHook runs after a hook completes, or after a hook that is
 // not implemented by the charm is expected to have run if it were
 // implemented.
-func (rh *runHook) afterHook(state State) (_ bool, err error) {
+func (rh *runHook) afterHook(stdCtx stdcontext.Context, state State) (_ bool, err error) {
 	defer func() {
 		if err != nil {
 			rh.logger.Errorf("error updating workload status after %v hook: %v", rh.info.Kind, err)
@@ -253,12 +253,12 @@ func (rh *runHook) afterHook(state State) (_ bool, err error) {
 	hasRunStatusSet := ctx.HasExecutionSetUnitStatus() || state.StatusSet
 	switch rh.info.Kind {
 	case hooks.Stop:
-		err = ctx.SetUnitStatus(jujuc.StatusInfo{
+		err = ctx.SetUnitStatus(stdCtx, jujuc.StatusInfo{
 			Status: string(status.Maintenance),
 		})
 	case hooks.Remove:
 		// Charm is no longer of this world.
-		err = ctx.SetUnitStatus(jujuc.StatusInfo{
+		err = ctx.SetUnitStatus(stdCtx, jujuc.StatusInfo{
 			Status: string(status.Terminated),
 		})
 	case hooks.Start:
@@ -268,7 +268,7 @@ func (rh *runHook) afterHook(state State) (_ bool, err error) {
 		rh.logger.Debugf("unit %v has started but has not yet set status", ctx.UnitName())
 		// We've finished the start hook and the charm has not updated its
 		// own status so we'll set it to unknown.
-		err = ctx.SetUnitStatus(jujuc.StatusInfo{
+		err = ctx.SetUnitStatus(stdCtx, jujuc.StatusInfo{
 			Status: string(status.Unknown),
 		})
 	case hooks.RelationBroken:
@@ -279,7 +279,7 @@ func (rh *runHook) afterHook(state State) (_ bool, err error) {
 		}
 		rel, rErr := ctx.Relation(rh.info.RelationId)
 		if rErr == nil && rel.Suspended() {
-			err = rel.SetStatus(relation.Suspended)
+			err = rel.SetStatus(stdCtx, relation.Suspended)
 		}
 	}
 	return hasRunStatusSet && err == nil, err
@@ -298,7 +298,7 @@ func createUpgradeSeriesStatusMessage(name string, hookFound bool) string {
 // Commit is part of the Operation interface.
 func (rh *runHook) Commit(ctx stdcontext.Context, state State) (*State, error) {
 	var err error
-	err = rh.callbacks.CommitHook(rh.info)
+	err = rh.callbacks.CommitHook(ctx, rh.info)
 	if err != nil {
 		return nil, errors.Annotatef(err, "committing hook %q", rh.name)
 	}

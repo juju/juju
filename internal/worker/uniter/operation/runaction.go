@@ -53,9 +53,9 @@ func (ra *runAction) Prepare(ctx context.Context, state State) (*State, error) {
 	ra.changed = make(chan struct{}, 1)
 	ra.cancel = make(chan struct{})
 	actionID := ra.action.ID()
-	rnr, err := ra.runnerFactory.NewActionRunner(ra.action, ra.cancel)
+	rnr, err := ra.runnerFactory.NewActionRunner(ctx, ra.action, ra.cancel)
 	if cause := errors.Cause(err); charmrunner.IsBadActionError(cause) {
-		if err := ra.callbacks.FailAction(actionID, err.Error()); err != nil {
+		if err := ra.callbacks.FailAction(ctx, actionID, err.Error()); err != nil {
 			return nil, err
 		}
 		return nil, ErrSkipExecute
@@ -69,7 +69,7 @@ func (ra *runAction) Prepare(ctx context.Context, state State) (*State, error) {
 		// this should *really* never happen, but let's not panic
 		return nil, errors.Trace(err)
 	}
-	err = rnr.Context().Prepare()
+	err = rnr.Context().Prepare(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -102,7 +102,7 @@ func (ra *runAction) Execute(ctx context.Context, state State) (*State, error) {
 				return
 			case <-ra.changed:
 			}
-			status, err := ra.callbacks.ActionStatus(actionID)
+			status, err := ra.callbacks.ActionStatus(ctx, actionID)
 			if err != nil {
 				ra.logger.Warningf("unable to get action status for %q: %v", actionID, err)
 				continue
@@ -115,7 +115,7 @@ func (ra *runAction) Execute(ctx context.Context, state State) (*State, error) {
 		}
 	}()
 
-	handlerType, err := ra.runner.RunAction(ra.name)
+	handlerType, err := ra.runner.RunAction(ctx, ra.name)
 	close(done)
 	<-wait
 

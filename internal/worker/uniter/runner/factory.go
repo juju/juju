@@ -4,6 +4,8 @@
 package runner
 
 import (
+	stdcontext "context"
+
 	"github.com/juju/charm/v12"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
@@ -21,14 +23,14 @@ type Factory interface {
 
 	// NewCommandRunner returns an execution context suitable for running
 	// an arbitrary script.
-	NewCommandRunner(commandInfo context.CommandInfo) (Runner, error)
+	NewCommandRunner(stdCtx stdcontext.Context, commandInfo context.CommandInfo) (Runner, error)
 
 	// NewHookRunner returns an execution context suitable for running the
 	// supplied hook definition (which must be valid).
-	NewHookRunner(hookInfo hook.Info) (Runner, error)
+	NewHookRunner(stdCtx stdcontext.Context, hookInfo hook.Info) (Runner, error)
 
 	// NewActionRunner returns an execution context suitable for running the action.
-	NewActionRunner(action *uniter.Action, cancel <-chan struct{}) (Runner, error)
+	NewActionRunner(stdCtx stdcontext.Context, action *uniter.Action, cancel <-chan struct{}) (Runner, error)
 }
 
 // NewFactory returns a Factory capable of creating runners for executing
@@ -61,8 +63,8 @@ type factory struct {
 }
 
 // NewCommandRunner exists to satisfy the Factory interface.
-func (f *factory) NewCommandRunner(commandInfo context.CommandInfo) (Runner, error) {
-	ctx, err := f.contextFactory.CommandContext(commandInfo)
+func (f *factory) NewCommandRunner(stdCtx stdcontext.Context, commandInfo context.CommandInfo) (Runner, error) {
+	ctx, err := f.contextFactory.CommandContext(stdCtx, commandInfo)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -71,12 +73,12 @@ func (f *factory) NewCommandRunner(commandInfo context.CommandInfo) (Runner, err
 }
 
 // NewHookRunner exists to satisfy the Factory interface.
-func (f *factory) NewHookRunner(hookInfo hook.Info) (Runner, error) {
+func (f *factory) NewHookRunner(stdCtx stdcontext.Context, hookInfo hook.Info) (Runner, error) {
 	if err := hookInfo.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	ctx, err := f.contextFactory.HookContext(hookInfo)
+	ctx, err := f.contextFactory.HookContext(stdCtx, hookInfo)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -85,7 +87,7 @@ func (f *factory) NewHookRunner(hookInfo hook.Info) (Runner, error) {
 }
 
 // NewActionRunner exists to satisfy the Factory interface.
-func (f *factory) NewActionRunner(action *uniter.Action, cancel <-chan struct{}) (Runner, error) {
+func (f *factory) NewActionRunner(stdCtx stdcontext.Context, action *uniter.Action, cancel <-chan struct{}) (Runner, error) {
 	ch, err := getCharm(f.paths.GetCharmDir())
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -108,7 +110,7 @@ func (f *factory) NewActionRunner(action *uniter.Action, cancel <-chan struct{})
 
 	tag := names.NewActionTag(action.ID())
 	actionData := context.NewActionData(name, &tag, params, cancel)
-	ctx, err := f.contextFactory.ActionContext(actionData)
+	ctx, err := f.contextFactory.ActionContext(stdCtx, actionData)
 	if err != nil {
 		return nil, charmrunner.NewBadActionError(name, err.Error())
 	}

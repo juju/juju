@@ -4,6 +4,7 @@
 package credentialvalidator_test
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/errors"
@@ -56,7 +57,7 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *WorkerSuite) TestStartStop(c *gc.C) {
-	w, err := testWorker(s.config)
+	w, err := testWorker(context.Background(), s.config)
 	c.Assert(err, jc.ErrorIsNil)
 	workertest.CheckAlive(c, w)
 	workertest.CleanKill(c, w)
@@ -72,7 +73,7 @@ func (s *WorkerSuite) TestStartStop(c *gc.C) {
 
 func (s *WorkerSuite) TestStartStopNoCredential(c *gc.C) {
 	s.facade.setupModelHasNoCredential()
-	w, err := testWorker(s.config)
+	w, err := testWorker(context.Background(), s.config)
 	c.Assert(err, jc.ErrorIsNil)
 	workertest.CheckAlive(c, w)
 	workertest.CleanKill(c, w)
@@ -88,7 +89,7 @@ func (s *WorkerSuite) TestStartStopNoCredential(c *gc.C) {
 func (s *WorkerSuite) TestModelCredentialError(c *gc.C) {
 	s.facade.SetErrors(errors.New("mc fail"))
 
-	worker, err := testWorker(s.config)
+	worker, err := testWorker(context.Background(), s.config)
 	c.Check(err, gc.ErrorMatches, "mc fail")
 	c.Assert(worker, gc.IsNil)
 	s.facade.CheckCallNames(c, "ModelCredential")
@@ -99,7 +100,7 @@ func (s *WorkerSuite) TestModelCredentialWatcherError(c *gc.C) {
 		errors.New("mcw fail"), // WatchModelCredential call
 	)
 
-	worker, err := testWorker(s.config)
+	worker, err := testWorker(context.Background(), s.config)
 	c.Check(err, gc.ErrorMatches, "mcw fail")
 	c.Assert(worker, gc.IsNil)
 	s.facade.CheckCallNames(c, "ModelCredential", "WatchModelCredential")
@@ -111,7 +112,7 @@ func (s *WorkerSuite) TestWatchError(c *gc.C) {
 		errors.New("watch fail"), // WatchCredential call
 	)
 
-	worker, err := testWorker(s.config)
+	worker, err := testWorker(context.Background(), s.config)
 	c.Assert(err, gc.ErrorMatches, "watch fail")
 	c.Assert(worker, gc.IsNil)
 	s.facade.CheckCallNames(c, "ModelCredential", "WatchModelCredential", "WatchCredential")
@@ -119,7 +120,7 @@ func (s *WorkerSuite) TestWatchError(c *gc.C) {
 
 func (s *WorkerSuite) TestModelCredentialNotNeeded(c *gc.C) {
 	s.facade.setupModelHasNoCredential()
-	worker, err := testWorker(s.config)
+	worker, err := testWorker(context.Background(), s.config)
 	c.Assert(err, jc.ErrorIsNil)
 
 	workertest.CheckAlive(c, worker)
@@ -128,7 +129,7 @@ func (s *WorkerSuite) TestModelCredentialNotNeeded(c *gc.C) {
 }
 
 func (s *WorkerSuite) TestCredentialChangeToInvalid(c *gc.C) {
-	worker, err := testWorker(s.config)
+	worker, err := testWorker(context.Background(), s.config)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.facade.credential.Valid = false
@@ -141,7 +142,7 @@ func (s *WorkerSuite) TestCredentialChangeToInvalid(c *gc.C) {
 
 func (s *WorkerSuite) TestCredentialChangeFromInvalid(c *gc.C) {
 	s.facade.credential.Valid = false
-	worker, err := testWorker(s.config)
+	worker, err := testWorker(context.Background(), s.config)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.facade.credential.Valid = true
@@ -153,7 +154,7 @@ func (s *WorkerSuite) TestCredentialChangeFromInvalid(c *gc.C) {
 }
 
 func (s *WorkerSuite) TestNoRelevantCredentialChange(c *gc.C) {
-	worker, err := testWorker(s.config)
+	worker, err := testWorker(context.Background(), s.config)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.sendChange(c)
@@ -165,7 +166,7 @@ func (s *WorkerSuite) TestNoRelevantCredentialChange(c *gc.C) {
 }
 
 func (s *WorkerSuite) TestModelCredentialNoChanged(c *gc.C) {
-	worker, err := testWorker(s.config)
+	worker, err := testWorker(context.Background(), s.config)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.sendModelChange(c)
@@ -176,7 +177,7 @@ func (s *WorkerSuite) TestModelCredentialNoChanged(c *gc.C) {
 }
 
 func (s *WorkerSuite) TestModelCredentialChanged(c *gc.C) {
-	worker, err := testWorker(s.config)
+	worker, err := testWorker(context.Background(), s.config)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.facade.credential.CloudCredential = names.NewCloudCredentialTag("cloud/anotheruser/credential").String()

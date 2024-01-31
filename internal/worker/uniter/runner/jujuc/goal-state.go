@@ -45,7 +45,7 @@ func (c *GoalStateCommand) Init(args []string) error {
 }
 
 func (c *GoalStateCommand) Run(ctx *cmd.Context) error {
-	goalState, err := c.ctx.GoalState()
+	goalState, err := c.ctx.GoalState(ctx)
 	if err != nil {
 		return err
 	}

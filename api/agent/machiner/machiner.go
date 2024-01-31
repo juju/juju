@@ -4,6 +4,8 @@
 package machiner
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 
@@ -37,13 +39,13 @@ func NewClient(caller base.APICaller, options ...Option) *Client {
 }
 
 // machineLife requests the lifecycle of the given machine from the server.
-func (c *Client) machineLife(tag names.MachineTag) (life.Value, error) {
-	return common.OneLife(c.facade, tag)
+func (c *Client) machineLife(ctx context.Context, tag names.MachineTag) (life.Value, error) {
+	return common.OneLife(ctx, c.facade, tag)
 }
 
 // Machine provides access to methods of a machine through the facade.
-func (c *Client) Machine(tag names.MachineTag) (*Machine, error) {
-	life, err := c.machineLife(tag)
+func (c *Client) Machine(ctx context.Context, tag names.MachineTag) (*Machine, error) {
+	life, err := c.machineLife(ctx, tag)
 	if err != nil {
 		return nil, errors.Annotate(err, "can't get life for machine")
 	}

@@ -145,7 +145,7 @@ type Factory interface {
 	NewSkipHook(hookInfo hook.Info) (Operation, error)
 
 	// NewAction creates an operation to execute the supplied action.
-	NewAction(actionId string) (Operation, error)
+	NewAction(ctx stdcontext.Context, actionId string) (Operation, error)
 
 	// NewFailAction creates an operation that marks an action as failed.
 	NewFailAction(actionId string) (Operation, error)
@@ -209,8 +209,8 @@ type Callbacks interface {
 	// PrepareHook and CommitHook exist so that we can defer worrying about how
 	// to untangle Uniter.relationers from everything else. They're only used by
 	// RunHook operations.
-	PrepareHook(info hook.Info) (name string, err error)
-	CommitHook(info hook.Info) error
+	PrepareHook(ctx stdcontext.Context, info hook.Info) (name string, err error)
+	CommitHook(ctx stdcontext.Context, info hook.Info) error
 
 	// SetExecutingStatus sets the agent state to "Executing" with a message.
 	SetExecutingStatus(string) error
@@ -226,11 +226,11 @@ type Callbacks interface {
 
 	// FailAction marks the supplied action failed. It's only used by
 	// RunActions operations.
-	FailAction(actionId, message string) error
+	FailAction(ctx stdcontext.Context, actionId, message string) error
 
 	// ActionStatus returns the status of the action required by the action operation for
 	// cancelation.
-	ActionStatus(actionId string) (string, error)
+	ActionStatus(ctx stdcontext.Context, actionId string) (string, error)
 
 	// GetArchiveInfo is used to find out how to download a charm archive. It's
 	// only used by Deploy operations.
@@ -269,5 +269,5 @@ type StorageUpdater interface {
 
 // ActionGetter provides a method to query a given action.
 type ActionGetter interface {
-	Action(tag names.ActionTag) (*uniter.Action, error)
+	Action(ctx stdcontext.Context, tag names.ActionTag) (*uniter.Action, error)
 }

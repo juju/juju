@@ -35,8 +35,8 @@ func (m *Machine) Life() life.Value {
 }
 
 // Refresh updates the cached local copy of the machine's data.
-func (m *Machine) Refresh() error {
-	l, err := m.client.machineLife(m.tag)
+func (m *Machine) Refresh(ctx context.Context) error {
+	l, err := m.client.machineLife(ctx, m.tag)
 	if err != nil {
 		return err
 	}

@@ -70,7 +70,7 @@ func (r *relationsResolver) NextOp(ctx context.Context, localState resolver.Loca
 		return nil, resolver.ErrNoOperation
 	}
 
-	if err := r.stateTracker.SynchronizeScopes(remoteState); err != nil {
+	if err := r.stateTracker.SynchronizeScopes(ctx, remoteState); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -100,7 +100,7 @@ func (r *relationsResolver) NextOp(ctx context.Context, localState resolver.Loca
 			//
 			relState = NewState(relationId)
 		}
-		hInfo, err := r.nextHookForRelation(relState, relationSnapshot, remoteBroken)
+		hInfo, err := r.nextHookForRelation(ctx, relState, relationSnapshot, remoteBroken)
 		if err == resolver.ErrNoOperation {
 			continue
 		}
@@ -139,7 +139,7 @@ func (r *relationsResolver) maybeDestroySubordinates(remoteState remotestate.Sna
 	return nil
 }
 
-func (r *relationsResolver) nextHookForRelation(localState *State, remote remotestate.RelationSnapshot, remoteBroken bool) (hook.Info, error) {
+func (r *relationsResolver) nextHookForRelation(ctx context.Context, localState *State, remote remotestate.RelationSnapshot, remoteBroken bool) (hook.Info, error) {
 	// If there's a guaranteed next hook, return that.
 	relationId := localState.RelationId
 	if localState.ChangedPending != "" {
@@ -201,7 +201,7 @@ func (r *relationsResolver) nextHookForRelation(localState *State, remote remote
 			// figure out if its the localState or the remote unit going
 			// away. Note that if the app is removed, the unit will
 			// still be alive but its parent app will by dying.
-			localUnitLife, localAppLife, err := r.stateTracker.LocalUnitAndApplicationLife()
+			localUnitLife, localAppLife, err := r.stateTracker.LocalUnitAndApplicationLife(ctx)
 			if err != nil {
 				return hook.Info{}, errors.Trace(err)
 			}
@@ -361,7 +361,7 @@ func (r *createdRelationsResolver) NextOp(
 		return nil, resolver.ErrNoOperation
 	}
 
-	if err := r.stateTracker.SynchronizeScopes(remoteState); err != nil {
+	if err := r.stateTracker.SynchronizeScopes(ctx, remoteState); err != nil {
 		return nil, errors.Trace(err)
 	}
 

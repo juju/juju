@@ -4,6 +4,8 @@
 package uniter_test
 
 import (
+	"context"
+
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -34,7 +36,7 @@ func (s *uniterSuite) TestProviderType(c *gc.C) {
 	})
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 
-	providerType, err := client.ProviderType()
+	providerType, err := client.ProviderType(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(providerType, gc.Equals, "somecloud")
 }
@@ -74,7 +76,7 @@ func (s *uniterSuite) TestOpenedMachinePortRangesByEndpoint(c *gc.C) {
 	caller := testing.BestVersionCaller{apiCaller, 17}
 	client := uniter.NewClient(caller, names.NewUnitTag("mysql/0"))
 
-	portRangesMap, err := client.OpenedMachinePortRangesByEndpoint(names.NewMachineTag("42"))
+	portRangesMap, err := client.OpenedMachinePortRangesByEndpoint(context.Background(), names.NewMachineTag("42"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(portRangesMap, jc.DeepEquals, map[names.UnitTag]network.GroupedPortRanges{
 		names.NewUnitTag("mysql/0"): {
@@ -122,7 +124,7 @@ func (s *uniterSuite) TestOpenedPortRangesByEndpoint(c *gc.C) {
 	caller := testing.BestVersionCaller{apiCaller, 18}
 	client := uniter.NewClient(caller, names.NewUnitTag("gitlab/0"))
 
-	result, err := client.OpenedPortRangesByEndpoint()
+	result, err := client.OpenedPortRangesByEndpoint(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, map[names.UnitTag]network.GroupedPortRanges{
 		names.NewUnitTag("mysql/0"): {
@@ -145,7 +147,7 @@ func (s *uniterSuite) TestOpenedPortRangesByEndpointOldAPINotSupported(c *gc.C) 
 	caller := testing.BestVersionCaller{apiCaller, 17}
 	client := uniter.NewClient(caller, names.NewUnitTag("gitlab/0"))
 
-	_, err := client.OpenedPortRangesByEndpoint()
+	_, err := client.OpenedPortRangesByEndpoint(context.Background())
 	c.Assert(err, gc.ErrorMatches, `OpenedPortRangesByEndpoint\(\) \(need V18\+\) not implemented`)
 }
 
@@ -163,7 +165,7 @@ func (s *uniterSuite) TestUnitWorkloadVersion(c *gc.C) {
 	caller := testing.BestVersionCaller{apiCaller, 17}
 	client := uniter.NewClient(caller, names.NewUnitTag("mysql/0"))
 
-	workloadVersion, err := client.UnitWorkloadVersion(names.NewUnitTag("mysql/0"))
+	workloadVersion, err := client.UnitWorkloadVersion(context.Background(), names.NewUnitTag("mysql/0"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(workloadVersion, gc.Equals, "mysql-1.2.3")
 }
@@ -182,6 +184,6 @@ func (s *uniterSuite) TestSetUnitWorkloadVersion(c *gc.C) {
 	caller := testing.BestVersionCaller{apiCaller, 17}
 	client := uniter.NewClient(caller, names.NewUnitTag("mysql/0"))
 
-	err := client.SetUnitWorkloadVersion(names.NewUnitTag("mysql/0"), "mysql-1.2.3")
+	err := client.SetUnitWorkloadVersion(context.Background(), names.NewUnitTag("mysql/0"), "mysql-1.2.3")
 	c.Assert(err, jc.ErrorIsNil)
 }

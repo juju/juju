@@ -141,7 +141,7 @@ func (s *loginSuite) TestBadLogin(c *gc.C) {
 			// operations on the connection before calling Login.
 			st := s.openAPIWithoutLogin(c)
 
-			_, err := apimachiner.NewClient(st).Machine(names.NewMachineTag("0"))
+			_, err := apimachiner.NewClient(st).Machine(context.Background(), names.NewMachineTag("0"))
 			c.Assert(err, gc.NotNil)
 			c.Check(errors.Is(err, errors.NotImplemented), jc.IsTrue)
 			c.Check(strings.Contains(err.Error(), `unknown facade type "Machiner"`), jc.IsTrue)
@@ -151,7 +151,7 @@ func (s *loginSuite) TestBadLogin(c *gc.C) {
 			c.Assert(errors.Cause(err), gc.DeepEquals, t.err)
 			c.Assert(params.ErrCode(err), gc.Equals, t.code)
 
-			_, err = apimachiner.NewClient(st).Machine(names.NewMachineTag("0"))
+			_, err = apimachiner.NewClient(st).Machine(context.Background(), names.NewMachineTag("0"))
 			c.Assert(err, gc.NotNil)
 			c.Check(errors.Is(err, errors.NotImplemented), jc.IsTrue)
 			c.Check(strings.Contains(err.Error(), `unknown facade type "Machiner"`), jc.IsTrue)
@@ -919,7 +919,7 @@ func (s *migrationSuite) TestImportingModel(c *gc.C) {
 
 	// Machines should be able to use the API.
 	machineConn := s.OpenModelAPIAs(c, s.ControllerModelUUID(), m.Tag(), password, "nonce")
-	_, err = apimachiner.NewClient(machineConn).Machine(m.MachineTag())
+	_, err = apimachiner.NewClient(machineConn).Machine(context.Background(), m.MachineTag())
 	c.Check(err, jc.ErrorIsNil)
 }
 

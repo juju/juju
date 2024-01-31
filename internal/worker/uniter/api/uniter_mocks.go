@@ -64,76 +64,76 @@ func (mr *MockUniterClientMockRecorder) APIAddresses() *gomock.Call {
 }
 
 // Action mocks base method.
-func (m *MockUniterClient) Action(tag names.ActionTag) (*uniter.Action, error) {
+func (m *MockUniterClient) Action(ctx context.Context, tag names.ActionTag) (*uniter.Action, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Action", tag)
+	ret := m.ctrl.Call(m, "Action", ctx, tag)
 	ret0, _ := ret[0].(*uniter.Action)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Action indicates an expected call of Action.
-func (mr *MockUniterClientMockRecorder) Action(tag any) *gomock.Call {
+func (mr *MockUniterClientMockRecorder) Action(ctx, tag any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Action", reflect.TypeOf((*MockUniterClient)(nil).Action), tag)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Action", reflect.TypeOf((*MockUniterClient)(nil).Action), ctx, tag)
 }
 
 // ActionBegin mocks base method.
-func (m *MockUniterClient) ActionBegin(tag names.ActionTag) error {
+func (m *MockUniterClient) ActionBegin(ctx context.Context, tag names.ActionTag) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ActionBegin", tag)
+	ret := m.ctrl.Call(m, "ActionBegin", ctx, tag)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // ActionBegin indicates an expected call of ActionBegin.
-func (mr *MockUniterClientMockRecorder) ActionBegin(tag any) *gomock.Call {
+func (mr *MockUniterClientMockRecorder) ActionBegin(ctx, tag any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ActionBegin", reflect.TypeOf((*MockUniterClient)(nil).ActionBegin), tag)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ActionBegin", reflect.TypeOf((*MockUniterClient)(nil).ActionBegin), ctx, tag)
 }
 
 // ActionFinish mocks base method.
-func (m *MockUniterClient) ActionFinish(tag names.ActionTag, status string, results map[string]any, message string) error {
+func (m *MockUniterClient) ActionFinish(ctx context.Context, tag names.ActionTag, status string, results map[string]any, message string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ActionFinish", tag, status, results, message)
+	ret := m.ctrl.Call(m, "ActionFinish", ctx, tag, status, results, message)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // ActionFinish indicates an expected call of ActionFinish.
-func (mr *MockUniterClientMockRecorder) ActionFinish(tag, status, results, message any) *gomock.Call {
+func (mr *MockUniterClientMockRecorder) ActionFinish(ctx, tag, status, results, message any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ActionFinish", reflect.TypeOf((*MockUniterClient)(nil).ActionFinish), tag, status, results, message)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ActionFinish", reflect.TypeOf((*MockUniterClient)(nil).ActionFinish), ctx, tag, status, results, message)
 }
 
 // ActionStatus mocks base method.
-func (m *MockUniterClient) ActionStatus(tag names.ActionTag) (string, error) {
+func (m *MockUniterClient) ActionStatus(ctx context.Context, tag names.ActionTag) (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ActionStatus", tag)
+	ret := m.ctrl.Call(m, "ActionStatus", ctx, tag)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ActionStatus indicates an expected call of ActionStatus.
-func (mr *MockUniterClientMockRecorder) ActionStatus(tag any) *gomock.Call {
+func (mr *MockUniterClientMockRecorder) ActionStatus(ctx, tag any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ActionStatus", reflect.TypeOf((*MockUniterClient)(nil).ActionStatus), tag)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ActionStatus", reflect.TypeOf((*MockUniterClient)(nil).ActionStatus), ctx, tag)
 }
 
 // Application mocks base method.
-func (m *MockUniterClient) Application(tag names.ApplicationTag) (Application, error) {
+func (m *MockUniterClient) Application(ctx context.Context, tag names.ApplicationTag) (Application, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Application", tag)
+	ret := m.ctrl.Call(m, "Application", ctx, tag)
 	ret0, _ := ret[0].(Application)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Application indicates an expected call of Application.
-func (mr *MockUniterClientMockRecorder) Application(tag any) *gomock.Call {
+func (mr *MockUniterClientMockRecorder) Application(ctx, tag any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Application", reflect.TypeOf((*MockUniterClient)(nil).Application), tag)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Application", reflect.TypeOf((*MockUniterClient)(nil).Application), ctx, tag)
 }
 
 // Charm mocks base method.
@@ -152,33 +152,33 @@ func (mr *MockUniterClientMockRecorder) Charm(curl any) *gomock.Call {
 }
 
 // CloudAPIVersion mocks base method.
-func (m *MockUniterClient) CloudAPIVersion() (string, error) {
+func (m *MockUniterClient) CloudAPIVersion(arg0 context.Context) (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CloudAPIVersion")
+	ret := m.ctrl.Call(m, "CloudAPIVersion", arg0)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // CloudAPIVersion indicates an expected call of CloudAPIVersion.
-func (mr *MockUniterClientMockRecorder) CloudAPIVersion() *gomock.Call {
+func (mr *MockUniterClientMockRecorder) CloudAPIVersion(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CloudAPIVersion", reflect.TypeOf((*MockUniterClient)(nil).CloudAPIVersion))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CloudAPIVersion", reflect.TypeOf((*MockUniterClient)(nil).CloudAPIVersion), arg0)
 }
 
 // CloudSpec mocks base method.
-func (m *MockUniterClient) CloudSpec() (*params.CloudSpec, error) {
+func (m *MockUniterClient) CloudSpec(arg0 context.Context) (*params.CloudSpec, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CloudSpec")
+	ret := m.ctrl.Call(m, "CloudSpec", arg0)
 	ret0, _ := ret[0].(*params.CloudSpec)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // CloudSpec indicates an expected call of CloudSpec.
-func (mr *MockUniterClientMockRecorder) CloudSpec() *gomock.Call {
+func (mr *MockUniterClientMockRecorder) CloudSpec(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CloudSpec", reflect.TypeOf((*MockUniterClient)(nil).CloudSpec))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CloudSpec", reflect.TypeOf((*MockUniterClient)(nil).CloudSpec), arg0)
 }
 
 // DestroyUnitStorageAttachments mocks base method.
@@ -196,18 +196,18 @@ func (mr *MockUniterClientMockRecorder) DestroyUnitStorageAttachments(arg0 any) 
 }
 
 // GoalState mocks base method.
-func (m *MockUniterClient) GoalState() (application.GoalState, error) {
+func (m *MockUniterClient) GoalState(arg0 context.Context) (application.GoalState, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GoalState")
+	ret := m.ctrl.Call(m, "GoalState", arg0)
 	ret0, _ := ret[0].(application.GoalState)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GoalState indicates an expected call of GoalState.
-func (mr *MockUniterClientMockRecorder) GoalState() *gomock.Call {
+func (mr *MockUniterClientMockRecorder) GoalState(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GoalState", reflect.TypeOf((*MockUniterClient)(nil).GoalState))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GoalState", reflect.TypeOf((*MockUniterClient)(nil).GoalState), arg0)
 }
 
 // LeadershipSettings mocks base method.
@@ -225,18 +225,18 @@ func (mr *MockUniterClientMockRecorder) LeadershipSettings() *gomock.Call {
 }
 
 // Model mocks base method.
-func (m *MockUniterClient) Model() (*model.Model, error) {
+func (m *MockUniterClient) Model(arg0 context.Context) (*model.Model, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Model")
+	ret := m.ctrl.Call(m, "Model", arg0)
 	ret0, _ := ret[0].(*model.Model)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Model indicates an expected call of Model.
-func (mr *MockUniterClientMockRecorder) Model() *gomock.Call {
+func (mr *MockUniterClientMockRecorder) Model(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Model", reflect.TypeOf((*MockUniterClient)(nil).Model))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Model", reflect.TypeOf((*MockUniterClient)(nil).Model), arg0)
 }
 
 // ModelConfig mocks base method.
@@ -255,63 +255,63 @@ func (mr *MockUniterClientMockRecorder) ModelConfig(arg0 any) *gomock.Call {
 }
 
 // OpenedMachinePortRangesByEndpoint mocks base method.
-func (m *MockUniterClient) OpenedMachinePortRangesByEndpoint(machineTag names.MachineTag) (map[names.UnitTag]network.GroupedPortRanges, error) {
+func (m *MockUniterClient) OpenedMachinePortRangesByEndpoint(ctx context.Context, machineTag names.MachineTag) (map[names.UnitTag]network.GroupedPortRanges, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "OpenedMachinePortRangesByEndpoint", machineTag)
+	ret := m.ctrl.Call(m, "OpenedMachinePortRangesByEndpoint", ctx, machineTag)
 	ret0, _ := ret[0].(map[names.UnitTag]network.GroupedPortRanges)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // OpenedMachinePortRangesByEndpoint indicates an expected call of OpenedMachinePortRangesByEndpoint.
-func (mr *MockUniterClientMockRecorder) OpenedMachinePortRangesByEndpoint(machineTag any) *gomock.Call {
+func (mr *MockUniterClientMockRecorder) OpenedMachinePortRangesByEndpoint(ctx, machineTag any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OpenedMachinePortRangesByEndpoint", reflect.TypeOf((*MockUniterClient)(nil).OpenedMachinePortRangesByEndpoint), machineTag)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OpenedMachinePortRangesByEndpoint", reflect.TypeOf((*MockUniterClient)(nil).OpenedMachinePortRangesByEndpoint), ctx, machineTag)
 }
 
 // OpenedPortRangesByEndpoint mocks base method.
-func (m *MockUniterClient) OpenedPortRangesByEndpoint() (map[names.UnitTag]network.GroupedPortRanges, error) {
+func (m *MockUniterClient) OpenedPortRangesByEndpoint(ctx context.Context) (map[names.UnitTag]network.GroupedPortRanges, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "OpenedPortRangesByEndpoint")
+	ret := m.ctrl.Call(m, "OpenedPortRangesByEndpoint", ctx)
 	ret0, _ := ret[0].(map[names.UnitTag]network.GroupedPortRanges)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // OpenedPortRangesByEndpoint indicates an expected call of OpenedPortRangesByEndpoint.
-func (mr *MockUniterClientMockRecorder) OpenedPortRangesByEndpoint() *gomock.Call {
+func (mr *MockUniterClientMockRecorder) OpenedPortRangesByEndpoint(ctx any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OpenedPortRangesByEndpoint", reflect.TypeOf((*MockUniterClient)(nil).OpenedPortRangesByEndpoint))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OpenedPortRangesByEndpoint", reflect.TypeOf((*MockUniterClient)(nil).OpenedPortRangesByEndpoint), ctx)
 }
 
 // Relation mocks base method.
-func (m *MockUniterClient) Relation(tag names.RelationTag) (Relation, error) {
+func (m *MockUniterClient) Relation(ctx context.Context, tag names.RelationTag) (Relation, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Relation", tag)
+	ret := m.ctrl.Call(m, "Relation", ctx, tag)
 	ret0, _ := ret[0].(Relation)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Relation indicates an expected call of Relation.
-func (mr *MockUniterClientMockRecorder) Relation(tag any) *gomock.Call {
+func (mr *MockUniterClientMockRecorder) Relation(ctx, tag any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Relation", reflect.TypeOf((*MockUniterClient)(nil).Relation), tag)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Relation", reflect.TypeOf((*MockUniterClient)(nil).Relation), ctx, tag)
 }
 
 // RelationById mocks base method.
-func (m *MockUniterClient) RelationById(arg0 int) (Relation, error) {
+func (m *MockUniterClient) RelationById(arg0 context.Context, arg1 int) (Relation, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RelationById", arg0)
+	ret := m.ctrl.Call(m, "RelationById", arg0, arg1)
 	ret0, _ := ret[0].(Relation)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // RelationById indicates an expected call of RelationById.
-func (mr *MockUniterClientMockRecorder) RelationById(arg0 any) *gomock.Call {
+func (mr *MockUniterClientMockRecorder) RelationById(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RelationById", reflect.TypeOf((*MockUniterClient)(nil).RelationById), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RelationById", reflect.TypeOf((*MockUniterClient)(nil).RelationById), arg0, arg1)
 }
 
 // RemoveStorageAttachment mocks base method.
@@ -329,32 +329,32 @@ func (mr *MockUniterClientMockRecorder) RemoveStorageAttachment(arg0, arg1 any) 
 }
 
 // SLALevel mocks base method.
-func (m *MockUniterClient) SLALevel() (string, error) {
+func (m *MockUniterClient) SLALevel(arg0 context.Context) (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SLALevel")
+	ret := m.ctrl.Call(m, "SLALevel", arg0)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // SLALevel indicates an expected call of SLALevel.
-func (mr *MockUniterClientMockRecorder) SLALevel() *gomock.Call {
+func (mr *MockUniterClientMockRecorder) SLALevel(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SLALevel", reflect.TypeOf((*MockUniterClient)(nil).SLALevel))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SLALevel", reflect.TypeOf((*MockUniterClient)(nil).SLALevel), arg0)
 }
 
 // SetUnitWorkloadVersion mocks base method.
-func (m *MockUniterClient) SetUnitWorkloadVersion(tag names.UnitTag, version string) error {
+func (m *MockUniterClient) SetUnitWorkloadVersion(ctx context.Context, tag names.UnitTag, version string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetUnitWorkloadVersion", tag, version)
+	ret := m.ctrl.Call(m, "SetUnitWorkloadVersion", ctx, tag, version)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SetUnitWorkloadVersion indicates an expected call of SetUnitWorkloadVersion.
-func (mr *MockUniterClientMockRecorder) SetUnitWorkloadVersion(tag, version any) *gomock.Call {
+func (mr *MockUniterClientMockRecorder) SetUnitWorkloadVersion(ctx, tag, version any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetUnitWorkloadVersion", reflect.TypeOf((*MockUniterClient)(nil).SetUnitWorkloadVersion), tag, version)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetUnitWorkloadVersion", reflect.TypeOf((*MockUniterClient)(nil).SetUnitWorkloadVersion), ctx, tag, version)
 }
 
 // StorageAttachment mocks base method.
@@ -388,18 +388,18 @@ func (mr *MockUniterClientMockRecorder) StorageAttachmentLife(arg0 any) *gomock.
 }
 
 // Unit mocks base method.
-func (m *MockUniterClient) Unit(tag names.UnitTag) (Unit, error) {
+func (m *MockUniterClient) Unit(ctx context.Context, tag names.UnitTag) (Unit, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Unit", tag)
+	ret := m.ctrl.Call(m, "Unit", ctx, tag)
 	ret0, _ := ret[0].(Unit)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Unit indicates an expected call of Unit.
-func (mr *MockUniterClientMockRecorder) Unit(tag any) *gomock.Call {
+func (mr *MockUniterClientMockRecorder) Unit(ctx, tag any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Unit", reflect.TypeOf((*MockUniterClient)(nil).Unit), tag)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Unit", reflect.TypeOf((*MockUniterClient)(nil).Unit), ctx, tag)
 }
 
 // UnitStorageAttachments mocks base method.
@@ -418,18 +418,18 @@ func (mr *MockUniterClientMockRecorder) UnitStorageAttachments(arg0 any) *gomock
 }
 
 // UnitWorkloadVersion mocks base method.
-func (m *MockUniterClient) UnitWorkloadVersion(tag names.UnitTag) (string, error) {
+func (m *MockUniterClient) UnitWorkloadVersion(ctx context.Context, tag names.UnitTag) (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UnitWorkloadVersion", tag)
+	ret := m.ctrl.Call(m, "UnitWorkloadVersion", ctx, tag)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // UnitWorkloadVersion indicates an expected call of UnitWorkloadVersion.
-func (mr *MockUniterClientMockRecorder) UnitWorkloadVersion(tag any) *gomock.Call {
+func (mr *MockUniterClientMockRecorder) UnitWorkloadVersion(ctx, tag any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnitWorkloadVersion", reflect.TypeOf((*MockUniterClient)(nil).UnitWorkloadVersion), tag)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnitWorkloadVersion", reflect.TypeOf((*MockUniterClient)(nil).UnitWorkloadVersion), ctx, tag)
 }
 
 // UpdateStatusHookInterval mocks base method.
@@ -448,18 +448,18 @@ func (mr *MockUniterClientMockRecorder) UpdateStatusHookInterval() *gomock.Call 
 }
 
 // WatchRelationUnits mocks base method.
-func (m *MockUniterClient) WatchRelationUnits(arg0 names.RelationTag, arg1 names.UnitTag) (watcher.RelationUnitsWatcher, error) {
+func (m *MockUniterClient) WatchRelationUnits(arg0 context.Context, arg1 names.RelationTag, arg2 names.UnitTag) (watcher.RelationUnitsWatcher, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchRelationUnits", arg0, arg1)
+	ret := m.ctrl.Call(m, "WatchRelationUnits", arg0, arg1, arg2)
 	ret0, _ := ret[0].(watcher.RelationUnitsWatcher)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // WatchRelationUnits indicates an expected call of WatchRelationUnits.
-func (mr *MockUniterClientMockRecorder) WatchRelationUnits(arg0, arg1 any) *gomock.Call {
+func (mr *MockUniterClientMockRecorder) WatchRelationUnits(arg0, arg1, arg2 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchRelationUnits", reflect.TypeOf((*MockUniterClient)(nil).WatchRelationUnits), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchRelationUnits", reflect.TypeOf((*MockUniterClient)(nil).WatchRelationUnits), arg0, arg1, arg2)
 }
 
 // WatchStorageAttachment mocks base method.

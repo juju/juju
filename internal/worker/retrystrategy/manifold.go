@@ -5,6 +5,8 @@
 package retrystrategy
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
@@ -47,7 +49,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	return manifold
 }
 
-func (mc ManifoldConfig) start(a agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
+func (mc ManifoldConfig) start(_ context.Context, a agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
 	agentTag := a.CurrentConfig().Tag()
 	retryStrategyFacade := mc.NewFacade(apiCaller)
 	initialRetryStrategy, err := retryStrategyFacade.RetryStrategy(agentTag)

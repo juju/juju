@@ -78,9 +78,9 @@ var NewMachiner = func(cfg Config) (worker.Worker, error) {
 // GetObservedNetworkConfig is patched for testing.
 var GetObservedNetworkConfig = common.GetObservedNetworkConfig
 
-func (mr *Machiner) SetUp(_ context.Context) (watcher.NotifyWatcher, error) {
+func (mr *Machiner) SetUp(ctx context.Context) (watcher.NotifyWatcher, error) {
 	// Find which machine we're responsible for.
-	m, err := mr.config.MachineAccessor.Machine(mr.config.Tag)
+	m, err := mr.config.MachineAccessor.Machine(ctx, mr.config.Tag)
 	if params.IsCodeNotFoundOrCodeUnauthorized(err) {
 		return nil, jworker.ErrTerminateAgent
 	} else if err != nil {
@@ -177,8 +177,8 @@ func setMachineAddresses(tag names.MachineTag, m Machine) error {
 	return m.SetMachineAddresses(machineAddresses)
 }
 
-func (mr *Machiner) Handle(_ context.Context) error {
-	if err := mr.machine.Refresh(); params.IsCodeNotFoundOrCodeUnauthorized(err) {
+func (mr *Machiner) Handle(ctx context.Context) error {
+	if err := mr.machine.Refresh(ctx); params.IsCodeNotFoundOrCodeUnauthorized(err) {
 		// NOTE(axw) we can distinguish between NotFound and CodeUnauthorized,
 		// so we could call NotifyMachineDead here in case the agent failed to
 		// call NotifyMachineDead directly after setting the machine Dead in

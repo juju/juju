@@ -41,13 +41,13 @@ type UnitConfig struct {
 }
 
 // UnitIntroduction introduces the unit and returns an agent config.
-func (c *Client) UnitIntroduction(podName string, podUUID string) (*UnitConfig, error) {
+func (c *Client) UnitIntroduction(ctx context.Context, podName string, podUUID string) (*UnitConfig, error) {
 	var result params.CAASUnitIntroductionResult
 	args := params.CAASUnitIntroductionArgs{
 		PodName: podName,
 		PodUUID: podUUID,
 	}
-	err := c.facade.FacadeCall(context.TODO(), "UnitIntroduction", args, &result)
+	err := c.facade.FacadeCall(ctx, "UnitIntroduction", args, &result)
 	if err != nil {
 		return nil, err
 	}
@@ -74,12 +74,12 @@ type UnitTermination struct {
 
 // UnitTerminating is to be called by the CAASUnitTerminationWorker when the uniter is
 // shutting down.
-func (c *Client) UnitTerminating(unit names.UnitTag) (UnitTermination, error) {
+func (c *Client) UnitTerminating(ctx context.Context, unit names.UnitTag) (UnitTermination, error) {
 	var result params.CAASUnitTerminationResult
 	args := params.Entity{
 		Tag: unit.String(),
 	}
-	err := c.facade.FacadeCall(context.TODO(), "UnitTerminating", args, &result)
+	err := c.facade.FacadeCall(ctx, "UnitTerminating", args, &result)
 	if err != nil {
 		return UnitTermination{}, err
 	}

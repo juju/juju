@@ -63,7 +63,7 @@ type ProvisionerTask interface {
 
 // MachinesAPI describes API methods required to access machine provisioning info.
 type MachinesAPI interface {
-	Machines(...names.MachineTag) ([]apiprovisioner.MachineResult, error)
+	Machines(stdcontext.Context, ...names.MachineTag) ([]apiprovisioner.MachineResult, error)
 	MachinesWithTransientErrors() ([]apiprovisioner.MachineStatusResult, error)
 	WatchMachineErrorRetry() (watcher.NotifyWatcher, error)
 	WatchModelMachines() (watcher.StringsWatcher, error)
@@ -420,7 +420,7 @@ func (task *provisionerTask) populateMachineMaps(ctx envcontext.ProviderCallCont
 	for i, id := range ids {
 		machineTags[i] = names.NewMachineTag(id)
 	}
-	machines, err := task.machinesAPI.Machines(machineTags...)
+	machines, err := task.machinesAPI.Machines(ctx, machineTags...)
 	if err != nil {
 		return errors.Annotatef(err, "getting machines %v", ids)
 	}

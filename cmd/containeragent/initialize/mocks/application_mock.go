@@ -10,6 +10,7 @@
 package mocks
 
 import (
+	context "context"
 	reflect "reflect"
 
 	caasapplication "github.com/juju/juju/api/agent/caasapplication"
@@ -54,16 +55,16 @@ func (mr *MockApplicationAPIMockRecorder) Close() *gomock.Call {
 }
 
 // UnitIntroduction mocks base method.
-func (m *MockApplicationAPI) UnitIntroduction(arg0, arg1 string) (*caasapplication.UnitConfig, error) {
+func (m *MockApplicationAPI) UnitIntroduction(arg0 context.Context, arg1, arg2 string) (*caasapplication.UnitConfig, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UnitIntroduction", arg0, arg1)
+	ret := m.ctrl.Call(m, "UnitIntroduction", arg0, arg1, arg2)
 	ret0, _ := ret[0].(*caasapplication.UnitConfig)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // UnitIntroduction indicates an expected call of UnitIntroduction.
-func (mr *MockApplicationAPIMockRecorder) UnitIntroduction(arg0, arg1 any) *gomock.Call {
+func (mr *MockApplicationAPIMockRecorder) UnitIntroduction(arg0, arg1, arg2 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnitIntroduction", reflect.TypeOf((*MockApplicationAPI)(nil).UnitIntroduction), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnitIntroduction", reflect.TypeOf((*MockApplicationAPI)(nil).UnitIntroduction), arg0, arg1, arg2)
 }

@@ -4,6 +4,8 @@
 package context
 
 import (
+	"context"
+
 	"github.com/juju/charm/v12"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -92,12 +94,12 @@ func NewHookContext(hcParams HookContextParams) (*HookContext, error) {
 	if err != nil {
 		return nil, err
 	}
-	machPorts, err := hcParams.Uniter.OpenedMachinePortRangesByEndpoint(ctx.assignedMachineTag)
+	machPorts, err := hcParams.Uniter.OpenedMachinePortRangesByEndpoint(context.Background(), ctx.assignedMachineTag)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	appPortRanges, err := hcParams.Uniter.OpenedPortRangesByEndpoint()
+	appPortRanges, err := hcParams.Uniter.OpenedPortRangesByEndpoint(context.Background())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

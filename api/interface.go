@@ -259,7 +259,7 @@ type Connection interface {
 	// IsBroken returns whether the connection is broken. It checks
 	// the Broken channel and if that is open, attempts a connection
 	// ping.
-	IsBroken() bool
+	IsBroken(ctx context.Context) bool
 
 	// IsProxied returns weather the connection is proxied.
 	IsProxied() bool

@@ -4,6 +4,7 @@
 package remotestate_test
 
 import (
+	"context"
 	"sync"
 	"time"
 
@@ -129,7 +130,7 @@ func (c *mockCharm) LXDProfileRequired() (bool, error) {
 	return c.required, nil
 }
 
-func (m *mockUniterClient) Relation(tag names.RelationTag) (api.Relation, error) {
+func (m *mockUniterClient) Relation(_ context.Context, tag names.RelationTag) (api.Relation, error) {
 	r, ok := m.relations[tag]
 	if !ok {
 		return nil, &params.Error{Code: params.CodeNotFound}
@@ -173,7 +174,7 @@ func (m *mockUniterClient) StorageAttachmentLife(
 	return results, nil
 }
 
-func (m *mockUniterClient) Unit(tag names.UnitTag) (api.Unit, error) {
+func (m *mockUniterClient) Unit(_ context.Context, tag names.UnitTag) (api.Unit, error) {
 	if tag != m.unit.tag {
 		return nil, &params.Error{Code: params.CodeNotFound}
 	}
@@ -181,7 +182,7 @@ func (m *mockUniterClient) Unit(tag names.UnitTag) (api.Unit, error) {
 }
 
 func (m *mockUniterClient) WatchRelationUnits(
-	relationTag names.RelationTag, unitTag names.UnitTag,
+	_ context.Context, relationTag names.RelationTag, unitTag names.UnitTag,
 ) (watcher.RelationUnitsWatcher, error) {
 	if unitTag != m.unit.tag {
 		return nil, &params.Error{Code: params.CodeNotFound}
@@ -241,7 +242,7 @@ func (u *mockUnit) LXDProfileName() (string, error) {
 	return u.lxdProfileName, nil
 }
 
-func (u *mockUnit) Refresh() error {
+func (u *mockUnit) Refresh(context.Context) error {
 	return nil
 }
 
@@ -253,7 +254,7 @@ func (u *mockUnit) Resolved() params.ResolvedMode {
 	return u.resolved
 }
 
-func (u *mockUnit) Application() (api.Application, error) {
+func (u *mockUnit) Application(context.Context) (api.Application, error) {
 	return &u.application, nil
 }
 
@@ -328,7 +329,7 @@ func (s *mockApplication) Life() life.Value {
 	return s.life
 }
 
-func (s *mockApplication) Refresh() error {
+func (s *mockApplication) Refresh(context.Context) error {
 	return nil
 }
 

@@ -4,6 +4,8 @@
 package meterstatus
 
 import (
+	"context"
+
 	"github.com/juju/charm/v12/hooks"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
@@ -17,7 +19,7 @@ import (
 
 // HookRunner implements the functionality necessary to run a meter-status-changed hook.
 type HookRunner interface {
-	RunHook(string, string, <-chan struct{})
+	RunHook(context.Context, string, string, <-chan struct{})
 }
 
 // hookRunner implements functionality for running a hook.
@@ -63,7 +65,7 @@ func (w *hookRunner) acquireExecutionLock(action string, interrupt <-chan struct
 	return releaser, nil
 }
 
-func (w *hookRunner) RunHook(code, info string, interrupt <-chan struct{}) {
+func (w *hookRunner) RunHook(stdCtx context.Context, code, info string, interrupt <-chan struct{}) {
 	unitTag := w.tag
 	ctx := newLimitedContext(hookConfig{
 		unitName: unitTag.String(),
@@ -82,7 +84,7 @@ func (w *hookRunner) RunHook(code, info string, interrupt <-chan struct{}) {
 		return
 	}
 	defer releaser()
-	handlerType, err := r.RunHook(string(hooks.MeterStatusChanged))
+	handlerType, err := r.RunHook(stdCtx, string(hooks.MeterStatusChanged))
 	cause := errors.Cause(err)
 	switch {
 	case charmrunner.IsMissingHookError(cause):

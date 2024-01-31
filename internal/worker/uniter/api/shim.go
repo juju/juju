@@ -4,6 +4,8 @@
 package api
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 
@@ -21,48 +23,48 @@ func (s UniterClientShim) Charm(curl string) (Charm, error) {
 	return s.Client.Charm(curl)
 }
 
-func (s UniterClientShim) Unit(tag names.UnitTag) (Unit, error) {
-	u, err := s.Client.Unit(tag)
+func (s UniterClientShim) Unit(ctx context.Context, tag names.UnitTag) (Unit, error) {
+	u, err := s.Client.Unit(ctx, tag)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return UnitShim{u}, nil
 }
 
-func (s UniterClientShim) Relation(tag names.RelationTag) (Relation, error) {
-	r, err := s.Client.Relation(tag)
+func (s UniterClientShim) Relation(ctx context.Context, tag names.RelationTag) (Relation, error) {
+	r, err := s.Client.Relation(ctx, tag)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return relationShim{r}, nil
 }
 
-func (s UniterClientShim) RelationById(id int) (Relation, error) {
-	r, err := s.Client.RelationById(id)
+func (s UniterClientShim) RelationById(ctx context.Context, id int) (Relation, error) {
+	r, err := s.Client.RelationById(ctx, id)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return relationShim{r}, nil
 }
 
-func (s UniterClientShim) Application(tag names.ApplicationTag) (Application, error) {
-	return s.Client.Application(tag)
+func (s UniterClientShim) Application(ctx context.Context, tag names.ApplicationTag) (Application, error) {
+	return s.Client.Application(ctx, tag)
 }
 
 type UnitShim struct {
 	*uniter.Unit
 }
 
-func (s UnitShim) Application() (Application, error) {
-	return s.Unit.Application()
+func (s UnitShim) Application(ctx context.Context) (Application, error) {
+	return s.Unit.Application(ctx)
 }
 
 type relationShim struct {
 	*uniter.Relation
 }
 
-func (s relationShim) Unit(tag names.UnitTag) (RelationUnit, error) {
-	ru, err := s.Relation.Unit(tag)
+func (s relationShim) Unit(ctx context.Context, tag names.UnitTag) (RelationUnit, error) {
+	ru, err := s.Relation.Unit(ctx, tag)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

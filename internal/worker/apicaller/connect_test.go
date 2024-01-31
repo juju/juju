@@ -4,6 +4,7 @@
 package apicaller_test
 
 import (
+	"context"
 	"errors"
 
 	"github.com/juju/loggo"
@@ -52,7 +53,7 @@ func testEntityFine(c *gc.C, life apiagent.Life) {
 	// use an entity that doesn't correspond to an agent at all.
 	entity := names.NewApplicationTag("omg")
 	connect := func() (api.Connection, error) {
-		return apicaller.ScaryConnect(&mockAgent{
+		return apicaller.ScaryConnect(context.Background(), &mockAgent{
 			stub:   stub,
 			model:  coretesting.ModelTag,
 			entity: entity,
@@ -81,7 +82,7 @@ func (*ScaryConnectSuite) TestEntityDead(c *gc.C) {
 
 	entity := names.NewApplicationTag("omg")
 	connect := func() (api.Connection, error) {
-		return apicaller.ScaryConnect(&mockAgent{
+		return apicaller.ScaryConnect(context.Background(), &mockAgent{
 			stub:   stub,
 			model:  coretesting.ModelTag,
 			entity: entity,
@@ -110,7 +111,7 @@ func (*ScaryConnectSuite) TestEntityDenied(c *gc.C) {
 
 	entity := names.NewApplicationTag("omg")
 	connect := func() (api.Connection, error) {
-		return apicaller.ScaryConnect(&mockAgent{
+		return apicaller.ScaryConnect(context.Background(), &mockAgent{
 			stub:   stub,
 			model:  coretesting.ModelTag,
 			entity: entity,
@@ -138,7 +139,7 @@ func (*ScaryConnectSuite) TestEntityUnknownLife(c *gc.C) {
 
 	entity := names.NewApplicationTag("omg")
 	connect := func() (api.Connection, error) {
-		return apicaller.ScaryConnect(&mockAgent{
+		return apicaller.ScaryConnect(context.Background(), &mockAgent{
 			stub:   stub,
 			model:  coretesting.ModelTag,
 			entity: entity,
@@ -252,7 +253,7 @@ func checkChangePassword(c *gc.C, stub *testing.Stub) error {
 
 	entity := names.NewApplicationTag("omg")
 	connect := func() (api.Connection, error) {
-		return apicaller.ScaryConnect(&mockAgent{
+		return apicaller.ScaryConnect(context.Background(), &mockAgent{
 			stub:   stub,
 			model:  coretesting.ModelTag,
 			entity: entity,

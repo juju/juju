@@ -4,6 +4,7 @@
 package deployer
 
 import (
+	"context"
 	"sync"
 	"time"
 
@@ -315,14 +316,14 @@ func (a *UnitAgent) CurrentConfig() agent.Config {
 
 // validateMigration is called by the migrationminion to help check
 // that the agent will be ok when connected to a new controller.
-func (a *UnitAgent) validateMigration(apiCaller base.APICaller) error {
+func (a *UnitAgent) validateMigration(ctx context.Context, apiCaller base.APICaller) error {
 	// TODO(mjs) - more extensive checks to come.
 	facade := uniter.NewClient(apiCaller, a.tag)
-	_, err := facade.Unit(a.tag)
+	_, err := facade.Unit(ctx, a.tag)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	model, err := facade.Model()
+	model, err := facade.Model(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}

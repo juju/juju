@@ -4,6 +4,7 @@
 package uniter
 
 import (
+	stdcontext "context"
 	"fmt"
 
 	"github.com/juju/charm/v12/hooks"
@@ -26,7 +27,7 @@ type operationCallbacks struct {
 }
 
 // PrepareHook is part of the operation.Callbacks interface.
-func (opc *operationCallbacks) PrepareHook(hi hook.Info) (string, error) {
+func (opc *operationCallbacks) PrepareHook(ctx stdcontext.Context, hi hook.Info) (string, error) {
 	name := string(hi.Kind)
 	switch {
 	case hi.Kind.IsWorkload():
@@ -49,7 +50,7 @@ func (opc *operationCallbacks) PrepareHook(hi hook.Info) (string, error) {
 		// TODO(axw) if the agent is not installed yet,
 		// set the status to "preparing storage".
 	case hi.Kind.IsSecret():
-		err := opc.u.secretsTracker.PrepareHook(hi)
+		err := opc.u.secretsTracker.PrepareHook(ctx, hi)
 		if err != nil {
 			return "", err
 		}
@@ -64,7 +65,7 @@ func (opc *operationCallbacks) PrepareHook(hi hook.Info) (string, error) {
 }
 
 // CommitHook is part of the operation.Callbacks interface.
-func (opc *operationCallbacks) CommitHook(hi hook.Info) error {
+func (opc *operationCallbacks) CommitHook(ctx stdcontext.Context, hi hook.Info) error {
 	switch {
 	case hi.Kind == hooks.Start:
 		opc.u.Probe.SetHasStarted(true)
@@ -72,11 +73,11 @@ func (opc *operationCallbacks) CommitHook(hi hook.Info) error {
 		opc.u.Probe.SetHasStarted(false)
 	case hi.Kind.IsWorkload():
 	case hi.Kind.IsRelation():
-		return opc.u.relationStateTracker.CommitHook(hi)
+		return opc.u.relationStateTracker.CommitHook(ctx, hi)
 	case hi.Kind.IsStorage():
 		return opc.u.storage.CommitHook(hi)
 	case hi.Kind.IsSecret():
-		return opc.u.secretsTracker.CommitHook(hi)
+		return opc.u.secretsTracker.CommitHook(ctx, hi)
 	}
 	return nil
 }
@@ -110,24 +111,24 @@ func (opc *operationCallbacks) NotifyHookFailed(hook string, ctx context.Context
 }
 
 // FailAction is part of the operation.Callbacks interface.
-func (opc *operationCallbacks) FailAction(actionId, message string) error {
+func (opc *operationCallbacks) FailAction(ctx stdcontext.Context, actionId, message string) error {
 	if !names.IsValidAction(actionId) {
 		return errors.Errorf("invalid action id %q", actionId)
 	}
 	tag := names.NewActionTag(actionId)
-	err := opc.u.client.ActionFinish(tag, params.ActionFailed, nil, message)
+	err := opc.u.client.ActionFinish(ctx, tag, params.ActionFailed, nil, message)
 	if params.IsCodeNotFoundOrCodeUnauthorized(err) || params.IsCodeAlreadyExists(err) {
 		err = nil
 	}
 	return err
 }
 
-func (opc *operationCallbacks) ActionStatus(actionId string) (string, error) {
+func (opc *operationCallbacks) ActionStatus(ctx stdcontext.Context, actionId string) (string, error) {
 	if !names.IsValidAction(actionId) {
 		return "", errors.NotValidf("invalid action id %q", actionId)
 	}
 	tag := names.NewActionTag(actionId)
-	return opc.u.client.ActionStatus(tag)
+	return opc.u.client.ActionStatus(ctx, tag)
 }
 
 // GetArchiveInfo is part of the operation.Callbacks interface.

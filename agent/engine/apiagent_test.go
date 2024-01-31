@@ -38,7 +38,7 @@ func (s *AgentAPIManifoldSuite) SetUpTest(c *gc.C) {
 	}, s.newWorker)
 }
 
-func (s *AgentAPIManifoldSuite) newWorker(a agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
+func (s *AgentAPIManifoldSuite) newWorker(_ context.Context, a agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
 	s.AddCall("newWorker", a, apiCaller)
 	if err := s.NextErr(); err != nil {
 		return nil, err

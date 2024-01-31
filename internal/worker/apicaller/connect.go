@@ -4,6 +4,7 @@
 package apicaller
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/clock"
@@ -47,7 +48,7 @@ var (
 )
 
 // OnlyConnect logs into the API using the supplied agent's credentials.
-func OnlyConnect(a agent.Agent, apiOpen api.OpenFunc, logger Logger) (api.Connection, error) {
+func OnlyConnect(_ context.Context, a agent.Agent, apiOpen api.OpenFunc, logger Logger) (api.Connection, error) {
 	agentConfig := a.CurrentConfig()
 	info, ok := agentConfig.APIInfo()
 	if !ok {
@@ -188,7 +189,7 @@ func shortModelUUID(model names.ModelTag) string {
 // This is clearly a mess but at least now it's a documented and localized
 // mess; it should be used only when making the primary API connection for
 // a machine or unit agent running in its own process.
-func ScaryConnect(a agent.Agent, apiOpen api.OpenFunc, logger Logger) (_ api.Connection, err error) {
+func ScaryConnect(ctx context.Context, a agent.Agent, apiOpen api.OpenFunc, logger Logger) (_ api.Connection, err error) {
 	agentConfig := a.CurrentConfig()
 	info, ok := agentConfig.APIInfo()
 	if !ok {
@@ -235,7 +236,7 @@ func ScaryConnect(a agent.Agent, apiOpen api.OpenFunc, logger Logger) (_ api.Con
 	// First of all, see if we're dead or removed, which will render
 	// any further work pointless.
 	entity := agentConfig.Tag()
-	life, err := facade.Life(entity)
+	life, err := facade.Life(ctx, entity)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -253,7 +254,7 @@ func ScaryConnect(a agent.Agent, apiOpen api.OpenFunc, logger Logger) (_ api.Con
 	// responsibilities in here.
 	if usedOldPassword {
 		logger.Debugf("changing password...")
-		err := changePassword(oldPassword, a, facade)
+		err := changePassword(ctx, oldPassword, a, facade)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -270,7 +271,7 @@ func ScaryConnect(a agent.Agent, apiOpen api.OpenFunc, logger Logger) (_ api.Con
 	// promotion work correctly in the first place.
 	//
 	// Still, can't fix everything at once.
-	if err := facade.SetPassword(entity, info.Password); err != nil {
+	if err := facade.SetPassword(ctx, entity, info.Password); err != nil {
 		return nil, errors.Annotate(err, "can't reset agent password")
 	}
 	return conn, nil
@@ -280,7 +281,7 @@ func ScaryConnect(a agent.Agent, apiOpen api.OpenFunc, logger Logger) (_ api.Con
 // local agent configuration and on the remote state server. The supplied
 // oldPassword -- which must be the current valid password -- is set as a
 // fallback in local config, in case we fail to update the remote password.
-func changePassword(oldPassword string, a agent.Agent, facade apiagent.ConnFacade) error {
+func changePassword(ctx context.Context, oldPassword string, a agent.Agent, facade apiagent.ConnFacade) error {
 	newPassword, err := utils.RandomPassword()
 	if err != nil {
 		return errors.Trace(err)
@@ -295,7 +296,7 @@ func changePassword(oldPassword string, a agent.Agent, facade apiagent.ConnFacad
 	// This has to happen *after* we record the old/new passwords
 	// locally, lest we change it remotely, crash suddenly, and
 	// end up locked out forever.
-	return facade.SetPassword(a.CurrentConfig().Tag(), newPassword)
+	return facade.SetPassword(ctx, a.CurrentConfig().Tag(), newPassword)
 }
 
 // NewExternalControllerConnectionFunc returns a function returning an

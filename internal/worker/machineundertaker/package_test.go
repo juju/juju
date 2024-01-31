@@ -4,6 +4,7 @@
 package machineundertaker_test
 
 import (
+	"context"
 	stdtesting "testing"
 
 	gc "gopkg.in/check.v1"
@@ -15,6 +16,6 @@ func TestPackage(t *stdtesting.T) {
 
 type fakeCredentialAPI struct{}
 
-func (*fakeCredentialAPI) InvalidateModelCredential(reason string) error {
+func (*fakeCredentialAPI) InvalidateModelCredential(_ context.Context, reason string) error {
 	return nil
 }

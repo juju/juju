@@ -99,7 +99,7 @@ func (s *containerManifoldSuite) TestContainerProvisioningManifold(c *gc.C) {
 	retval := []provisioner.ContainerMachineResult{
 		{Machine: s.machine},
 	}
-	s.getter.EXPECT().Machines([]names.MachineTag{tag}).Return(retval, nil)
+	s.getter.EXPECT().Machines(gomock.Any(), []names.MachineTag{tag}).Return(retval, nil)
 	s.machine.EXPECT().SupportedContainers().Return([]instance.ContainerType{instance.LXD}, true, nil)
 	s.machine.EXPECT().Life().Return(life.Alive)
 	cfg := provisioner.ContainerManifoldConfig{
@@ -118,7 +118,7 @@ func (s *containerManifoldSuite) TestContainerProvisioningManifoldContainersNotK
 	retval := []provisioner.ContainerMachineResult{
 		{Machine: s.machine},
 	}
-	s.getter.EXPECT().Machines([]names.MachineTag{tag}).Return(retval, nil)
+	s.getter.EXPECT().Machines(gomock.Any(), []names.MachineTag{tag}).Return(retval, nil)
 	s.machine.EXPECT().SupportedContainers().Return(nil, false, nil)
 	s.machine.EXPECT().Life().Return(life.Alive)
 	cfg := provisioner.ContainerManifoldConfig{
@@ -136,7 +136,7 @@ func (s *containerManifoldSuite) TestContainerProvisioningManifoldNoContainerSup
 	retval := []provisioner.ContainerMachineResult{
 		{Machine: s.machine},
 	}
-	s.getter.EXPECT().Machines([]names.MachineTag{tag}).Return(retval, nil)
+	s.getter.EXPECT().Machines(gomock.Any(), []names.MachineTag{tag}).Return(retval, nil)
 	s.machine.EXPECT().SupportedContainers().Return(nil, true, nil)
 	s.machine.EXPECT().Life().Return(life.Alive)
 	cfg := provisioner.ContainerManifoldConfig{
@@ -154,7 +154,7 @@ func (s *containerManifoldSuite) TestContainerProvisioningManifoldMachineDead(c 
 	retval := []provisioner.ContainerMachineResult{
 		{Machine: s.machine},
 	}
-	s.getter.EXPECT().Machines([]names.MachineTag{tag}).Return(retval, nil)
+	s.getter.EXPECT().Machines(gomock.Any(), []names.MachineTag{tag}).Return(retval, nil)
 	s.machine.EXPECT().Life().Return(life.Dead)
 	cfg := provisioner.ContainerManifoldConfig{
 		Logger:        &noOpLogger{},

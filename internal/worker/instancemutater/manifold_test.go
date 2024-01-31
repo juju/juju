@@ -9,7 +9,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
-	worker "github.com/juju/worker/v4"
+	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -57,7 +57,7 @@ func (s *modelManifoldConfigSuite) TestInvalidConfigValidate(c *gc.C) {
 			description: "Test no new client constructor",
 			config: instancemutater.ModelManifoldConfig{
 				Logger: mocks.NewMockLogger(ctrl),
-				NewWorker: func(cfg instancemutater.Config) (worker.Worker, error) {
+				NewWorker: func(_ context.Context, cfg instancemutater.Config) (worker.Worker, error) {
 					return mocks.NewMockWorker(ctrl), nil
 				},
 			},
@@ -67,7 +67,7 @@ func (s *modelManifoldConfigSuite) TestInvalidConfigValidate(c *gc.C) {
 			description: "Test no agent name",
 			config: instancemutater.ModelManifoldConfig{
 				Logger: mocks.NewMockLogger(ctrl),
-				NewWorker: func(cfg instancemutater.Config) (worker.Worker, error) {
+				NewWorker: func(_ context.Context, cfg instancemutater.Config) (worker.Worker, error) {
 					return mocks.NewMockWorker(ctrl), nil
 				},
 				NewClient: func(base.APICaller) instancemutater.InstanceMutaterAPI {
@@ -80,7 +80,7 @@ func (s *modelManifoldConfigSuite) TestInvalidConfigValidate(c *gc.C) {
 			description: "Test no environ name",
 			config: instancemutater.ModelManifoldConfig{
 				Logger: mocks.NewMockLogger(ctrl),
-				NewWorker: func(cfg instancemutater.Config) (worker.Worker, error) {
+				NewWorker: func(_ context.Context, cfg instancemutater.Config) (worker.Worker, error) {
 					return mocks.NewMockWorker(ctrl), nil
 				},
 				NewClient: func(base.APICaller) instancemutater.InstanceMutaterAPI {
@@ -94,7 +94,7 @@ func (s *modelManifoldConfigSuite) TestInvalidConfigValidate(c *gc.C) {
 			description: "Test no api caller name",
 			config: instancemutater.ModelManifoldConfig{
 				Logger: mocks.NewMockLogger(ctrl),
-				NewWorker: func(cfg instancemutater.Config) (worker.Worker, error) {
+				NewWorker: func(_ context.Context, cfg instancemutater.Config) (worker.Worker, error) {
 					return mocks.NewMockWorker(ctrl), nil
 				},
 				NewClient: func(base.APICaller) instancemutater.InstanceMutaterAPI {
@@ -119,7 +119,7 @@ func (s *modelManifoldConfigSuite) TestValidConfigValidate(c *gc.C) {
 
 	config := instancemutater.ModelManifoldConfig{
 		Logger: mocks.NewMockLogger(ctrl),
-		NewWorker: func(cfg instancemutater.Config) (worker.Worker, error) {
+		NewWorker: func(_ context.Context, cfg instancemutater.Config) (worker.Worker, error) {
 			return mocks.NewMockWorker(ctrl), nil
 		},
 		NewClient: func(base.APICaller) instancemutater.InstanceMutaterAPI {
@@ -172,7 +172,7 @@ func (s *environAPIManifoldSuite) TestStartReturnsWorker(c *gc.C) {
 		APICallerName: "baz",
 		AgentName:     "moon",
 	}
-	manifold := instancemutater.EnvironAPIManifold(config, func(environ environs.Environ, apiCaller base.APICaller, agent agent.Agent) (worker.Worker, error) {
+	manifold := instancemutater.EnvironAPIManifold(config, func(_ context.Context, environ environs.Environ, apiCaller base.APICaller, agent agent.Agent) (worker.Worker, error) {
 		c.Assert(environ, gc.Equals, s.environ)
 		c.Assert(apiCaller, gc.Equals, s.apiCaller)
 		c.Assert(agent, gc.Equals, s.agent)
@@ -196,7 +196,7 @@ func (s *environAPIManifoldSuite) TestMissingEnvironFromContext(c *gc.C) {
 		APICallerName: "baz",
 		AgentName:     "moon",
 	}
-	manifold := instancemutater.EnvironAPIManifold(config, func(environs.Environ, base.APICaller, agent.Agent) (worker.Worker, error) {
+	manifold := instancemutater.EnvironAPIManifold(config, func(context.Context, environs.Environ, base.APICaller, agent.Agent) (worker.Worker, error) {
 		c.Fail()
 		return nil, nil
 	})
@@ -217,7 +217,7 @@ func (s *environAPIManifoldSuite) TestMissingAPICallerFromContext(c *gc.C) {
 		APICallerName: "baz",
 		AgentName:     "moon",
 	}
-	manifold := instancemutater.EnvironAPIManifold(config, func(environs.Environ, base.APICaller, agent.Agent) (worker.Worker, error) {
+	manifold := instancemutater.EnvironAPIManifold(config, func(context.Context, environs.Environ, base.APICaller, agent.Agent) (worker.Worker, error) {
 		c.Fail()
 		return nil, nil
 	})
@@ -269,7 +269,7 @@ func (s *modelManifoldSuite) TestNewWorkerIsCalled(c *gc.C) {
 		APICallerName: "baz",
 		AgentName:     "moon",
 		Logger:        s.logger,
-		NewWorker: func(cfg instancemutater.Config) (worker.Worker, error) {
+		NewWorker: func(_ context.Context, cfg instancemutater.Config) (worker.Worker, error) {
 			return s.worker, nil
 		},
 		NewClient: func(base.APICaller) instancemutater.InstanceMutaterAPI {
@@ -293,7 +293,7 @@ func (s *modelManifoldSuite) TestNewWorkerFromK8sController(c *gc.C) {
 		APICallerName: "baz",
 		AgentName:     "moon",
 		Logger:        s.logger,
-		NewWorker: func(cfg instancemutater.Config) (worker.Worker, error) {
+		NewWorker: func(_ context.Context, cfg instancemutater.Config) (worker.Worker, error) {
 			return s.worker, nil
 		},
 		NewClient: func(base.APICaller) instancemutater.InstanceMutaterAPI {
@@ -317,7 +317,7 @@ func (s *modelManifoldSuite) TestNewWorkerReturnsError(c *gc.C) {
 		APICallerName: "baz",
 		AgentName:     "moon",
 		Logger:        s.logger,
-		NewWorker: func(cfg instancemutater.Config) (worker.Worker, error) {
+		NewWorker: func(_ context.Context, cfg instancemutater.Config) (worker.Worker, error) {
 			return nil, errors.New("errored")
 		},
 		NewClient: func(base.APICaller) instancemutater.InstanceMutaterAPI {
@@ -355,7 +355,7 @@ func (s *modelManifoldSuite) TestConfigValidatesForMissingClient(c *gc.C) {
 		APICallerName: "baz",
 		AgentName:     "moon",
 		Logger:        s.logger,
-		NewWorker: func(cfg instancemutater.Config) (worker.Worker, error) {
+		NewWorker: func(_ context.Context, cfg instancemutater.Config) (worker.Worker, error) {
 			return s.worker, nil
 		},
 	}
@@ -428,7 +428,7 @@ func (s *machineManifoldConfigSuite) TestInvalidConfigValidate(c *gc.C) {
 			description: "Test no new client constructor",
 			config: instancemutater.MachineManifoldConfig{
 				Logger: mocks.NewMockLogger(ctrl),
-				NewWorker: func(cfg instancemutater.Config) (worker.Worker, error) {
+				NewWorker: func(_ context.Context, cfg instancemutater.Config) (worker.Worker, error) {
 					return mocks.NewMockWorker(ctrl), nil
 				},
 			},
@@ -438,7 +438,7 @@ func (s *machineManifoldConfigSuite) TestInvalidConfigValidate(c *gc.C) {
 			description: "Test no agent name",
 			config: instancemutater.MachineManifoldConfig{
 				Logger: mocks.NewMockLogger(ctrl),
-				NewWorker: func(cfg instancemutater.Config) (worker.Worker, error) {
+				NewWorker: func(_ context.Context, cfg instancemutater.Config) (worker.Worker, error) {
 					return mocks.NewMockWorker(ctrl), nil
 				},
 				NewClient: func(base.APICaller) instancemutater.InstanceMutaterAPI {
@@ -451,7 +451,7 @@ func (s *machineManifoldConfigSuite) TestInvalidConfigValidate(c *gc.C) {
 			description: "Test no environ name",
 			config: instancemutater.MachineManifoldConfig{
 				Logger: mocks.NewMockLogger(ctrl),
-				NewWorker: func(cfg instancemutater.Config) (worker.Worker, error) {
+				NewWorker: func(_ context.Context, cfg instancemutater.Config) (worker.Worker, error) {
 					return mocks.NewMockWorker(ctrl), nil
 				},
 				NewClient: func(base.APICaller) instancemutater.InstanceMutaterAPI {
@@ -465,7 +465,7 @@ func (s *machineManifoldConfigSuite) TestInvalidConfigValidate(c *gc.C) {
 			description: "Test no api caller name",
 			config: instancemutater.MachineManifoldConfig{
 				Logger: mocks.NewMockLogger(ctrl),
-				NewWorker: func(cfg instancemutater.Config) (worker.Worker, error) {
+				NewWorker: func(_ context.Context, cfg instancemutater.Config) (worker.Worker, error) {
 					return mocks.NewMockWorker(ctrl), nil
 				},
 				NewClient: func(base.APICaller) instancemutater.InstanceMutaterAPI {
@@ -490,7 +490,7 @@ func (s *machineManifoldConfigSuite) TestValidConfigValidate(c *gc.C) {
 
 	config := instancemutater.MachineManifoldConfig{
 		Logger: mocks.NewMockLogger(ctrl),
-		NewWorker: func(cfg instancemutater.Config) (worker.Worker, error) {
+		NewWorker: func(_ context.Context, cfg instancemutater.Config) (worker.Worker, error) {
 			return mocks.NewMockWorker(ctrl), nil
 		},
 		NewClient: func(base.APICaller) instancemutater.InstanceMutaterAPI {
@@ -543,7 +543,7 @@ func (s *brokerAPIManifoldSuite) TestStartReturnsWorker(c *gc.C) {
 		APICallerName: "baz",
 		AgentName:     "moon",
 	}
-	manifold := instancemutater.BrokerAPIManifold(config, func(broker environs.InstanceBroker, apiCaller base.APICaller, agent agent.Agent) (worker.Worker, error) {
+	manifold := instancemutater.BrokerAPIManifold(config, func(_ context.Context, broker environs.InstanceBroker, apiCaller base.APICaller, agent agent.Agent) (worker.Worker, error) {
 		c.Assert(broker, gc.Equals, s.broker)
 		c.Assert(apiCaller, gc.Equals, s.apiCaller)
 		c.Assert(agent, gc.Equals, s.agent)
@@ -567,7 +567,7 @@ func (s *brokerAPIManifoldSuite) TestMissingBrokerFromContext(c *gc.C) {
 		APICallerName: "baz",
 		AgentName:     "moon",
 	}
-	manifold := instancemutater.BrokerAPIManifold(config, func(environs.InstanceBroker, base.APICaller, agent.Agent) (worker.Worker, error) {
+	manifold := instancemutater.BrokerAPIManifold(config, func(context.Context, environs.InstanceBroker, base.APICaller, agent.Agent) (worker.Worker, error) {
 		c.Fail()
 		return nil, nil
 	})
@@ -588,7 +588,7 @@ func (s *brokerAPIManifoldSuite) TestMissingAPICallerFromContext(c *gc.C) {
 		APICallerName: "baz",
 		AgentName:     "moon",
 	}
-	manifold := instancemutater.BrokerAPIManifold(config, func(environs.InstanceBroker, base.APICaller, agent.Agent) (worker.Worker, error) {
+	manifold := instancemutater.BrokerAPIManifold(config, func(context.Context, environs.InstanceBroker, base.APICaller, agent.Agent) (worker.Worker, error) {
 		c.Fail()
 		return nil, nil
 	})
@@ -640,7 +640,7 @@ func (s *machineManifoldSuite) TestNewWorkerIsCalled(c *gc.C) {
 		APICallerName: "baz",
 		AgentName:     "moon",
 		Logger:        s.logger,
-		NewWorker: func(cfg instancemutater.Config) (worker.Worker, error) {
+		NewWorker: func(_ context.Context, cfg instancemutater.Config) (worker.Worker, error) {
 			return s.worker, nil
 		},
 		NewClient: func(base.APICaller) instancemutater.InstanceMutaterAPI {
@@ -664,7 +664,7 @@ func (s *machineManifoldSuite) TestNewWorkerIsRejectedForK8sController(c *gc.C) 
 		APICallerName: "baz",
 		AgentName:     "moon",
 		Logger:        s.logger,
-		NewWorker: func(cfg instancemutater.Config) (worker.Worker, error) {
+		NewWorker: func(_ context.Context, cfg instancemutater.Config) (worker.Worker, error) {
 			return s.worker, nil
 		},
 		NewClient: func(base.APICaller) instancemutater.InstanceMutaterAPI {
@@ -688,7 +688,7 @@ func (s *machineManifoldSuite) TestNewWorkerReturnsError(c *gc.C) {
 		APICallerName: "baz",
 		AgentName:     "moon",
 		Logger:        s.logger,
-		NewWorker: func(cfg instancemutater.Config) (worker.Worker, error) {
+		NewWorker: func(_ context.Context, cfg instancemutater.Config) (worker.Worker, error) {
 			return nil, errors.New("errored")
 		},
 		NewClient: func(base.APICaller) instancemutater.InstanceMutaterAPI {
@@ -726,7 +726,7 @@ func (s *machineManifoldSuite) TestConfigValidatesForMissingClient(c *gc.C) {
 		APICallerName: "baz",
 		AgentName:     "moon",
 		Logger:        s.logger,
-		NewWorker: func(cfg instancemutater.Config) (worker.Worker, error) {
+		NewWorker: func(_ context.Context, cfg instancemutater.Config) (worker.Worker, error) {
 			return s.worker, nil
 		},
 	}

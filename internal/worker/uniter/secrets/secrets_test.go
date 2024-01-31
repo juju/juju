@@ -4,6 +4,8 @@
 package secrets_test
 
 import (
+	"context"
+
 	"github.com/juju/charm/v12/hooks"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v5"
@@ -84,7 +86,7 @@ func (s *secretsSuite) TestCommitSecretChanged(c *gc.C) {
 		SecretURI:      "secret:9m4e2mr0ui3e8a215n4g",
 		SecretRevision: 666,
 	}
-	err = tracker.CommitHook(info)
+	err = tracker.CommitHook(context.Background(), info)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -126,7 +128,7 @@ func (s *secretsSuite) TestCommitSecretRemove(c *gc.C) {
 		SecretURI:      "secret:9m4e2mr0ui3e8a215n4g",
 		SecretRevision: 666,
 	}
-	err = tracker.CommitHook(info)
+	err = tracker.CommitHook(context.Background(), info)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

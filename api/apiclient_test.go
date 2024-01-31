@@ -1187,7 +1187,7 @@ func (s *apiclientSuite) TestIsBrokenOk(c *gc.C) {
 		RPCConnection: newRPCConnection(),
 		Clock:         new(fakeClock),
 	})
-	c.Assert(conn.IsBroken(), jc.IsFalse)
+	c.Assert(conn.IsBroken(context.Background()), jc.IsFalse)
 }
 
 func (s *apiclientSuite) TestIsBrokenChannelClosed(c *gc.C) {
@@ -1198,7 +1198,7 @@ func (s *apiclientSuite) TestIsBrokenChannelClosed(c *gc.C) {
 		Clock:         new(fakeClock),
 		Broken:        broken,
 	})
-	c.Assert(conn.IsBroken(), jc.IsTrue)
+	c.Assert(conn.IsBroken(context.Background()), jc.IsTrue)
 }
 
 func (s *apiclientSuite) TestIsBrokenPingFailed(c *gc.C) {
@@ -1206,7 +1206,7 @@ func (s *apiclientSuite) TestIsBrokenPingFailed(c *gc.C) {
 		RPCConnection: newRPCConnection(errors.New("no biscuit")),
 		Clock:         new(fakeClock),
 	})
-	c.Assert(conn.IsBroken(), jc.IsTrue)
+	c.Assert(conn.IsBroken(context.Background()), jc.IsTrue)
 }
 
 func (s *apiclientSuite) TestLoginCapturesCLIArgs(c *gc.C) {

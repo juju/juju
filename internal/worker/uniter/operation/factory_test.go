@@ -4,6 +4,8 @@
 package operation_test
 
 import (
+	"context"
+
 	"github.com/juju/charm/v12/hooks"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v5"
@@ -110,13 +112,13 @@ func (s *FactorySuite) TestNewResolvedUpgradeString(c *gc.C) {
 }
 
 func (s *FactorySuite) TestNewActionError(c *gc.C) {
-	op, err := s.factory.NewAction("lol-something")
+	op, err := s.factory.NewAction(context.Background(), "lol-something")
 	c.Check(op, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, `invalid action id "lol-something"`)
 }
 
 func (s *FactorySuite) TestNewActionString(c *gc.C) {
-	op, err := s.factory.NewAction(someActionId)
+	op, err := s.factory.NewAction(context.Background(), someActionId)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(op.String(), gc.Equals, "run action "+someActionId)
 }
@@ -243,14 +245,14 @@ func (s *FactorySuite) TestNewResignLeadershipString(c *gc.C) {
 
 func (s *FactorySuite) TestNewActionNotAvailable(c *gc.C) {
 	s.actionErr = &params.Error{Code: "action no longer available"}
-	rnr, err := s.factory.NewAction("666")
+	rnr, err := s.factory.NewAction(context.Background(), "666")
 	c.Assert(rnr, gc.IsNil)
 	c.Assert(err, gc.Equals, charmrunner.ErrActionNotAvailable)
 }
 
 func (s *FactorySuite) TestNewActionUnauthorised(c *gc.C) {
 	s.actionErr = &params.Error{Code: "unauthorized access"}
-	rnr, err := s.factory.NewAction("666")
+	rnr, err := s.factory.NewAction(context.Background(), "666")
 	c.Assert(rnr, gc.IsNil)
 	c.Assert(err, gc.Equals, charmrunner.ErrActionNotAvailable)
 }

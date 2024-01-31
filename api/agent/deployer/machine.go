@@ -23,12 +23,12 @@ type Machine struct {
 // WatchUnits starts a StringsWatcher to watch all units deployed to
 // the machine, in order to track which ones should be deployed or
 // recalled.
-func (m *Machine) WatchUnits() (watcher.StringsWatcher, error) {
+func (m *Machine) WatchUnits(ctx context.Context) (watcher.StringsWatcher, error) {
 	var results params.StringsWatchResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: m.tag.String()}},
 	}
-	err := m.client.facade.FacadeCall(context.TODO(), "WatchUnits", args, &results)
+	err := m.client.facade.FacadeCall(ctx, "WatchUnits", args, &results)
 	if err != nil {
 		return nil, err
 	}

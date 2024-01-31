@@ -4,6 +4,7 @@
 package unit
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/signal"
@@ -362,7 +363,7 @@ func (c *containerUnitAgent) Run(ctx *cmd.Context) (err error) {
 
 // validateMigration is called by the migrationminion to help check
 // that the agent will be ok when connected to a new controller.
-func (c *containerUnitAgent) validateMigration(apiCaller base.APICaller) error {
+func (c *containerUnitAgent) validateMigration(ctx context.Context, apiCaller base.APICaller) error {
 	// TODO(mjs) - more extensive checks to come.
 	tag := c.CurrentConfig().Tag()
 	unitTag, ok := tag.(names.UnitTag)
@@ -370,11 +371,11 @@ func (c *containerUnitAgent) validateMigration(apiCaller base.APICaller) error {
 		return errors.NotValidf("expected a unit tag; got %q", tag)
 	}
 	facade := uniter.NewClient(apiCaller, unitTag)
-	_, err := facade.Unit(unitTag)
+	_, err := facade.Unit(ctx, unitTag)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	model, err := facade.Model()
+	model, err := facade.Model(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}

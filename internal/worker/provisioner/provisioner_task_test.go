@@ -1116,7 +1116,7 @@ func (s *ProvisionerTaskSuite) TestMachineErrorsRetainInstances(c *gc.C) {
 	instUnknown := &testInstance{id: "unknown"}
 
 	s.instances = []instances.Instance{inst0, instUnknown}
-	s.machinesAPI.EXPECT().Machines(names.NewMachineTag("0")).Return([]apiprovisioner.MachineResult{{
+	s.machinesAPI.EXPECT().Machines(gomock.Any(), names.NewMachineTag("0")).Return([]apiprovisioner.MachineResult{{
 		Err: &params.Error{Code: "some error"},
 	}}, nil).MinTimes(1)
 
@@ -1275,9 +1275,9 @@ func (s *ProvisionerTaskSuite) TestProvisioningDoesNotProvisionTheSameMachineAft
 	exp.AllRunningInstances(s.callCtx).Return(s.instances, nil).MinTimes(1)
 
 	done := make(chan bool)
-	s.machinesAPI.EXPECT().Machines(names.NewMachineTag("0")).Return([]apiprovisioner.MachineResult{{
+	s.machinesAPI.EXPECT().Machines(gomock.Any(), names.NewMachineTag("0")).Return([]apiprovisioner.MachineResult{{
 		Machine: m0,
-	}}, nil).Do(func(_ ...names.MachineTag) {
+	}}, nil).Do(func(_ context.Context, _ ...names.MachineTag) {
 		go func() { done <- true }()
 	})
 
@@ -1508,7 +1508,7 @@ func (s *ProvisionerTaskSuite) expectMachines(machines ...*testMachine) {
 		return apiprovisioner.MachineResult{Machine: m}
 	})
 
-	s.machinesAPI.EXPECT().Machines(tags).Return(mResults, nil).MinTimes(1)
+	s.machinesAPI.EXPECT().Machines(gomock.Any(), tags).Return(mResults, nil).MinTimes(1)
 }
 
 func (s *ProvisionerTaskSuite) expectProvisioningInfo(machines ...*testMachine) {

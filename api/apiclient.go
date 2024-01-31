@@ -1280,13 +1280,16 @@ func (c *conn) Broken() <-chan struct{} {
 }
 
 // IsBroken implements api.Connection.
-func (c *conn) IsBroken() bool {
+func (c *conn) IsBroken(ctx context.Context) bool {
 	select {
 	case <-c.broken:
 		return true
+	case <-ctx.Done():
+		logger.Debugf("connection ping context expired")
+		return true
 	default:
 	}
-	if err := c.ping(context.TODO()); err != nil {
+	if err := c.ping(ctx); err != nil {
 		logger.Debugf("connection ping failed: %v", err)
 		return true
 	}

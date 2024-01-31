@@ -52,5 +52,5 @@ func (c *applicationVersionSetCommand) Init(args []string) error {
 
 // Run is part of the cmd.Command interface.
 func (c *applicationVersionSetCommand) Run(ctx *cmd.Context) error {
-	return c.ctx.SetUnitWorkloadVersion(c.version)
+	return c.ctx.SetUnitWorkloadVersion(ctx, c.version)
 }

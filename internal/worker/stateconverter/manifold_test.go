@@ -78,7 +78,7 @@ func (s *manifoldConfigSuite) TestManifoldStart(c *gc.C) {
 		s.getter.EXPECT().Get(cfg.AgentName, gomock.Any()).SetArg(1, s.agent).Return(nil),
 		s.agent.EXPECT().CurrentConfig().Return(s.config),
 		s.config.EXPECT().Tag().Return(names.NewMachineTag("3")),
-		s.machiner.EXPECT().Machine(names.NewMachineTag("3")).DoAndReturn(func(_ names.MachineTag) (stateconverter.Machine, error) {
+		s.machiner.EXPECT().Machine(gomock.Any(), names.NewMachineTag("3")).DoAndReturn(func(_ context.Context, _ names.MachineTag) (stateconverter.Machine, error) {
 			close(done)
 			return nil, errors.New("nope")
 		}),

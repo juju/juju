@@ -124,18 +124,18 @@ func (mr *MockContextMockRecorder) AddUnitStorage(arg0 any) *gomock.Call {
 }
 
 // ApplicationStatus mocks base method.
-func (m *MockContext) ApplicationStatus() (jujuc.ApplicationStatusInfo, error) {
+func (m *MockContext) ApplicationStatus(arg0 context.Context) (jujuc.ApplicationStatusInfo, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ApplicationStatus")
+	ret := m.ctrl.Call(m, "ApplicationStatus", arg0)
 	ret0, _ := ret[0].(jujuc.ApplicationStatusInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ApplicationStatus indicates an expected call of ApplicationStatus.
-func (mr *MockContextMockRecorder) ApplicationStatus() *gomock.Call {
+func (mr *MockContextMockRecorder) ApplicationStatus(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplicationStatus", reflect.TypeOf((*MockContext)(nil).ApplicationStatus))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplicationStatus", reflect.TypeOf((*MockContext)(nil).ApplicationStatus), arg0)
 }
 
 // AvailabilityZone mocks base method.
@@ -168,18 +168,18 @@ func (mr *MockContextMockRecorder) ClosePortRange(arg0, arg1 any) *gomock.Call {
 }
 
 // CloudSpec mocks base method.
-func (m *MockContext) CloudSpec() (*params.CloudSpec, error) {
+func (m *MockContext) CloudSpec(arg0 context.Context) (*params.CloudSpec, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CloudSpec")
+	ret := m.ctrl.Call(m, "CloudSpec", arg0)
 	ret0, _ := ret[0].(*params.CloudSpec)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // CloudSpec indicates an expected call of CloudSpec.
-func (mr *MockContextMockRecorder) CloudSpec() *gomock.Call {
+func (mr *MockContextMockRecorder) CloudSpec(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CloudSpec", reflect.TypeOf((*MockContext)(nil).CloudSpec))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CloudSpec", reflect.TypeOf((*MockContext)(nil).CloudSpec), arg0)
 }
 
 // ConfigSettings mocks base method.
@@ -242,17 +242,17 @@ func (mr *MockContextMockRecorder) DownloadResource(arg0, arg1 any) *gomock.Call
 }
 
 // Flush mocks base method.
-func (m *MockContext) Flush(arg0 string, arg1 error) error {
+func (m *MockContext) Flush(arg0 context.Context, arg1 string, arg2 error) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Flush", arg0, arg1)
+	ret := m.ctrl.Call(m, "Flush", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Flush indicates an expected call of Flush.
-func (mr *MockContextMockRecorder) Flush(arg0, arg1 any) *gomock.Call {
+func (mr *MockContextMockRecorder) Flush(arg0, arg1, arg2 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Flush", reflect.TypeOf((*MockContext)(nil).Flush), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Flush", reflect.TypeOf((*MockContext)(nil).Flush), arg0, arg1, arg2)
 }
 
 // FlushPayloads mocks base method.
@@ -344,18 +344,18 @@ func (mr *MockContextMockRecorder) GetSecret(arg0, arg1, arg2, arg3 any) *gomock
 }
 
 // GoalState mocks base method.
-func (m *MockContext) GoalState() (*application.GoalState, error) {
+func (m *MockContext) GoalState(arg0 context.Context) (*application.GoalState, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GoalState")
+	ret := m.ctrl.Call(m, "GoalState", arg0)
 	ret0, _ := ret[0].(*application.GoalState)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GoalState indicates an expected call of GoalState.
-func (mr *MockContextMockRecorder) GoalState() *gomock.Call {
+func (mr *MockContextMockRecorder) GoalState(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GoalState", reflect.TypeOf((*MockContext)(nil).GoalState))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GoalState", reflect.TypeOf((*MockContext)(nil).GoalState), arg0)
 }
 
 // GrantSecret mocks base method.
@@ -562,17 +562,17 @@ func (mr *MockContextMockRecorder) OpenedPortRanges() *gomock.Call {
 }
 
 // Prepare mocks base method.
-func (m *MockContext) Prepare() error {
+func (m *MockContext) Prepare(arg0 context.Context) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Prepare")
+	ret := m.ctrl.Call(m, "Prepare", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Prepare indicates an expected call of Prepare.
-func (mr *MockContextMockRecorder) Prepare() *gomock.Call {
+func (mr *MockContextMockRecorder) Prepare(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Prepare", reflect.TypeOf((*MockContext)(nil).Prepare))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Prepare", reflect.TypeOf((*MockContext)(nil).Prepare), arg0)
 }
 
 // PrivateAddress mocks base method.
@@ -763,17 +763,17 @@ func (mr *MockContextMockRecorder) SetActionMessage(arg0 any) *gomock.Call {
 }
 
 // SetApplicationStatus mocks base method.
-func (m *MockContext) SetApplicationStatus(arg0 jujuc.StatusInfo) error {
+func (m *MockContext) SetApplicationStatus(arg0 context.Context, arg1 jujuc.StatusInfo) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetApplicationStatus", arg0)
+	ret := m.ctrl.Call(m, "SetApplicationStatus", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SetApplicationStatus indicates an expected call of SetApplicationStatus.
-func (mr *MockContextMockRecorder) SetApplicationStatus(arg0 any) *gomock.Call {
+func (mr *MockContextMockRecorder) SetApplicationStatus(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetApplicationStatus", reflect.TypeOf((*MockContext)(nil).SetApplicationStatus), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetApplicationStatus", reflect.TypeOf((*MockContext)(nil).SetApplicationStatus), arg0, arg1)
 }
 
 // SetCharmStateValue mocks base method.
@@ -817,31 +817,31 @@ func (mr *MockContextMockRecorder) SetProcess(arg0 any) *gomock.Call {
 }
 
 // SetUnitStatus mocks base method.
-func (m *MockContext) SetUnitStatus(arg0 jujuc.StatusInfo) error {
+func (m *MockContext) SetUnitStatus(arg0 context.Context, arg1 jujuc.StatusInfo) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetUnitStatus", arg0)
+	ret := m.ctrl.Call(m, "SetUnitStatus", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SetUnitStatus indicates an expected call of SetUnitStatus.
-func (mr *MockContextMockRecorder) SetUnitStatus(arg0 any) *gomock.Call {
+func (mr *MockContextMockRecorder) SetUnitStatus(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetUnitStatus", reflect.TypeOf((*MockContext)(nil).SetUnitStatus), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetUnitStatus", reflect.TypeOf((*MockContext)(nil).SetUnitStatus), arg0, arg1)
 }
 
 // SetUnitWorkloadVersion mocks base method.
-func (m *MockContext) SetUnitWorkloadVersion(arg0 string) error {
+func (m *MockContext) SetUnitWorkloadVersion(arg0 context.Context, arg1 string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetUnitWorkloadVersion", arg0)
+	ret := m.ctrl.Call(m, "SetUnitWorkloadVersion", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SetUnitWorkloadVersion indicates an expected call of SetUnitWorkloadVersion.
-func (mr *MockContextMockRecorder) SetUnitWorkloadVersion(arg0 any) *gomock.Call {
+func (mr *MockContextMockRecorder) SetUnitWorkloadVersion(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetUnitWorkloadVersion", reflect.TypeOf((*MockContext)(nil).SetUnitWorkloadVersion), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetUnitWorkloadVersion", reflect.TypeOf((*MockContext)(nil).SetUnitWorkloadVersion), arg0, arg1)
 }
 
 // Storage mocks base method.
@@ -903,33 +903,33 @@ func (mr *MockContextMockRecorder) UnitName() *gomock.Call {
 }
 
 // UnitStatus mocks base method.
-func (m *MockContext) UnitStatus() (*jujuc.StatusInfo, error) {
+func (m *MockContext) UnitStatus(arg0 context.Context) (*jujuc.StatusInfo, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UnitStatus")
+	ret := m.ctrl.Call(m, "UnitStatus", arg0)
 	ret0, _ := ret[0].(*jujuc.StatusInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // UnitStatus indicates an expected call of UnitStatus.
-func (mr *MockContextMockRecorder) UnitStatus() *gomock.Call {
+func (mr *MockContextMockRecorder) UnitStatus(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnitStatus", reflect.TypeOf((*MockContext)(nil).UnitStatus))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnitStatus", reflect.TypeOf((*MockContext)(nil).UnitStatus), arg0)
 }
 
 // UnitWorkloadVersion mocks base method.
-func (m *MockContext) UnitWorkloadVersion() (string, error) {
+func (m *MockContext) UnitWorkloadVersion(arg0 context.Context) (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UnitWorkloadVersion")
+	ret := m.ctrl.Call(m, "UnitWorkloadVersion", arg0)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // UnitWorkloadVersion indicates an expected call of UnitWorkloadVersion.
-func (mr *MockContextMockRecorder) UnitWorkloadVersion() *gomock.Call {
+func (mr *MockContextMockRecorder) UnitWorkloadVersion(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnitWorkloadVersion", reflect.TypeOf((*MockContext)(nil).UnitWorkloadVersion))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnitWorkloadVersion", reflect.TypeOf((*MockContext)(nil).UnitWorkloadVersion), arg0)
 }
 
 // UntrackPayload mocks base method.

@@ -79,8 +79,8 @@ func (c *StatusSetCommand) Run(ctx *cmd.Context) error {
 		Info:   c.message,
 	}
 	if c.application {
-		return c.ctx.SetApplicationStatus(statusInfo)
+		return c.ctx.SetApplicationStatus(ctx, statusInfo)
 	}
-	return c.ctx.SetUnitStatus(statusInfo)
+	return c.ctx.SetUnitStatus(ctx, statusInfo)
 
 }

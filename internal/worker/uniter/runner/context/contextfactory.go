@@ -41,13 +41,13 @@ type CommandInfo struct {
 // relevant to a specific unit.
 type ContextFactory interface {
 	// CommandContext creates a new context for running a juju command.
-	CommandContext(commandInfo CommandInfo) (*HookContext, error)
+	CommandContext(ctx context.Context, commandInfo CommandInfo) (*HookContext, error)
 
 	// HookContext creates a new context for running a juju hook.
-	HookContext(hookInfo hook.Info) (*HookContext, error)
+	HookContext(ctx context.Context, hookInfo hook.Info) (*HookContext, error)
 
 	// ActionContext creates a new context for running a juju action.
-	ActionContext(actionData *ActionData) (*HookContext, error)
+	ActionContext(ctx context.Context, actionData *ActionData) (*HookContext, error)
 }
 
 // StorageContextAccessor is an interface providing access to StorageContexts
@@ -118,8 +118,8 @@ type FactoryConfig struct {
 
 // NewContextFactory returns a ContextFactory capable of creating execution contexts backed
 // by the supplied unit's supplied API connection.
-func NewContextFactory(config FactoryConfig) (ContextFactory, error) {
-	m, err := config.Uniter.Model()
+func NewContextFactory(ctx context.Context, config FactoryConfig) (ContextFactory, error) {
+	m, err := config.Uniter.Model(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -176,7 +176,7 @@ func (f *contextFactory) newId(name string) string {
 }
 
 // coreContext creates a new context with all unspecialised fields filled in.
-func (f *contextFactory) coreContext() (*HookContext, error) {
+func (f *contextFactory) coreContext(stdCtx context.Context) (*HookContext, error) {
 	leadershipContext := NewLeadershipContext(
 		f.client.LeadershipSettings(),
 		f.tracker,
@@ -211,18 +211,18 @@ func (f *contextFactory) coreContext() (*HookContext, error) {
 		return nil, err
 	}
 	ctx.PayloadsHookContext = payloadCtx
-	if err := f.updateContext(ctx); err != nil {
+	if err := f.updateContext(stdCtx, ctx); err != nil {
 		return nil, err
 	}
 	return ctx, nil
 }
 
 // ActionContext is part of the ContextFactory interface.
-func (f *contextFactory) ActionContext(actionData *ActionData) (*HookContext, error) {
+func (f *contextFactory) ActionContext(stdCtx context.Context, actionData *ActionData) (*HookContext, error) {
 	if actionData == nil {
 		return nil, errors.New("nil actionData specified")
 	}
-	ctx, err := f.coreContext()
+	ctx, err := f.coreContext(stdCtx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -232,8 +232,8 @@ func (f *contextFactory) ActionContext(actionData *ActionData) (*HookContext, er
 }
 
 // HookContext is part of the ContextFactory interface.
-func (f *contextFactory) HookContext(hookInfo hook.Info) (*HookContext, error) {
-	ctx, err := f.coreContext()
+func (f *contextFactory) HookContext(stdCtx context.Context, hookInfo hook.Info) (*HookContext, error) {
+	ctx, err := f.coreContext(stdCtx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -308,8 +308,8 @@ func (f *contextFactory) HookContext(hookInfo hook.Info) (*HookContext, error) {
 }
 
 // CommandContext is part of the ContextFactory interface.
-func (f *contextFactory) CommandContext(commandInfo CommandInfo) (*HookContext, error) {
-	ctx, err := f.coreContext()
+func (f *contextFactory) CommandContext(stdCtx context.Context, commandInfo CommandInfo) (*HookContext, error) {
+	ctx, err := f.coreContext(stdCtx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -358,7 +358,7 @@ func (f *contextFactory) getContextRelations() map[int]*ContextRelation {
 // piece of information we expose to the charm but which we fail to report changes
 // to via hooks. Furthermore, the fact that we make multiple API calls at this
 // time, rather than grabbing everything we need in one go, is unforgivably yucky.
-func (f *contextFactory) updateContext(ctx *HookContext) (err error) {
+func (f *contextFactory) updateContext(stdCtx context.Context, ctx *HookContext) (err error) {
 	defer func() { err = errors.Trace(err) }()
 
 	ctx.apiAddrs, err = f.client.APIAddresses()
@@ -366,13 +366,13 @@ func (f *contextFactory) updateContext(ctx *HookContext) (err error) {
 		return err
 	}
 
-	sla, err := f.client.SLALevel()
+	sla, err := f.client.SLALevel(stdCtx)
 	if err != nil {
 		return errors.Annotate(err, "could not retrieve the SLA level")
 	}
 	ctx.slaLevel = sla
 
-	apiVersion, err := f.client.CloudAPIVersion()
+	apiVersion, err := f.client.CloudAPIVersion(stdCtx)
 	if err != nil {
 		f.logger.Warningf("could not retrieve the cloud API version: %v", err)
 	}
@@ -400,7 +400,7 @@ func (f *contextFactory) updateContext(ctx *HookContext) (err error) {
 	var appPortRanges map[names.UnitTag]network.GroupedPortRanges
 	switch f.modelType {
 	case model.IAAS:
-		if machPortRanges, err = f.client.OpenedMachinePortRangesByEndpoint(f.machineTag); err != nil {
+		if machPortRanges, err = f.client.OpenedMachinePortRangesByEndpoint(stdCtx, f.machineTag); err != nil {
 			return errors.Trace(err)
 		}
 
@@ -409,7 +409,7 @@ func (f *contextFactory) updateContext(ctx *HookContext) (err error) {
 			f.logger.Warningf("cannot get legacy private address for %v: %v", f.unit.Name(), err)
 		}
 	case model.CAAS:
-		if appPortRanges, err = f.client.OpenedPortRangesByEndpoint(); err != nil && !errors.Is(err, errors.NotSupported) {
+		if appPortRanges, err = f.client.OpenedPortRangesByEndpoint(stdCtx); err != nil && !errors.Is(err, errors.NotSupported) {
 			return errors.Trace(err)
 		}
 	}

@@ -5,6 +5,7 @@ package jujuc
 
 import (
 	"bytes"
+	stdcontext "context"
 	"fmt"
 	"io"
 	"net"
@@ -193,11 +194,14 @@ func (j *Jujuc) Main(req Request, resp *exec.ExecResponse) error {
 		stdin = noStdinReader{}
 	}
 	var stdout, stderr bytes.Buffer
+	// TODO(wallyworld) - We should not allow direct construction of cmd.Context
+	// since this can result in the embedded context.Context being nil.
 	ctx := &cmd.Context{
-		Dir:    req.Dir,
-		Stdin:  stdin,
-		Stdout: &stdout,
-		Stderr: &stderr,
+		Context: stdcontext.Background(),
+		Dir:     req.Dir,
+		Stdin:   stdin,
+		Stdout:  &stdout,
+		Stderr:  &stderr,
 	}
 	j.mu.Lock()
 	defer j.mu.Unlock()

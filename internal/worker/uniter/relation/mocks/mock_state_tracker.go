@@ -10,6 +10,7 @@
 package mocks
 
 import (
+	context "context"
 	reflect "reflect"
 
 	api "github.com/juju/juju/internal/worker/uniter/api"
@@ -41,46 +42,46 @@ func (m *MockStateTrackerClient) EXPECT() *MockStateTrackerClientMockRecorder {
 }
 
 // Relation mocks base method.
-func (m *MockStateTrackerClient) Relation(arg0 names.RelationTag) (api.Relation, error) {
+func (m *MockStateTrackerClient) Relation(arg0 context.Context, arg1 names.RelationTag) (api.Relation, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Relation", arg0)
+	ret := m.ctrl.Call(m, "Relation", arg0, arg1)
 	ret0, _ := ret[0].(api.Relation)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Relation indicates an expected call of Relation.
-func (mr *MockStateTrackerClientMockRecorder) Relation(arg0 any) *gomock.Call {
+func (mr *MockStateTrackerClientMockRecorder) Relation(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Relation", reflect.TypeOf((*MockStateTrackerClient)(nil).Relation), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Relation", reflect.TypeOf((*MockStateTrackerClient)(nil).Relation), arg0, arg1)
 }
 
 // RelationById mocks base method.
-func (m *MockStateTrackerClient) RelationById(arg0 int) (api.Relation, error) {
+func (m *MockStateTrackerClient) RelationById(arg0 context.Context, arg1 int) (api.Relation, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RelationById", arg0)
+	ret := m.ctrl.Call(m, "RelationById", arg0, arg1)
 	ret0, _ := ret[0].(api.Relation)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // RelationById indicates an expected call of RelationById.
-func (mr *MockStateTrackerClientMockRecorder) RelationById(arg0 any) *gomock.Call {
+func (mr *MockStateTrackerClientMockRecorder) RelationById(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RelationById", reflect.TypeOf((*MockStateTrackerClient)(nil).RelationById), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RelationById", reflect.TypeOf((*MockStateTrackerClient)(nil).RelationById), arg0, arg1)
 }
 
 // Unit mocks base method.
-func (m *MockStateTrackerClient) Unit(arg0 names.UnitTag) (api.Unit, error) {
+func (m *MockStateTrackerClient) Unit(arg0 context.Context, arg1 names.UnitTag) (api.Unit, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Unit", arg0)
+	ret := m.ctrl.Call(m, "Unit", arg0, arg1)
 	ret0, _ := ret[0].(api.Unit)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Unit indicates an expected call of Unit.
-func (mr *MockStateTrackerClientMockRecorder) Unit(arg0 any) *gomock.Call {
+func (mr *MockStateTrackerClientMockRecorder) Unit(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Unit", reflect.TypeOf((*MockStateTrackerClient)(nil).Unit), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Unit", reflect.TypeOf((*MockStateTrackerClient)(nil).Unit), arg0, arg1)
 }

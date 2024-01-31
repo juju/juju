@@ -260,7 +260,7 @@ func (w *collect) Do(stop <-chan struct{}) (err error) {
 	}
 
 	err = w.charmdir.Visit(func() error {
-		return w.runner.do(recorder)
+		return w.runner.do(stdcontext.TODO(), recorder)
 	}, stop)
 	if err == fortress.ErrAborted {
 		w.logger.Tracef("cannot execute collect-metrics: %v", err)
@@ -283,7 +283,7 @@ type hookRunner struct {
 	logger Logger
 }
 
-func (h *hookRunner) do(recorder spool.MetricRecorder) error {
+func (h *hookRunner) do(stdCtx stdcontext.Context, recorder spool.MetricRecorder) error {
 	h.m.Lock()
 	defer h.m.Unlock()
 	h.logger.Debugf("recording metrics")
@@ -300,7 +300,7 @@ func (h *hookRunner) do(recorder spool.MetricRecorder) error {
 	}
 
 	r := runner.NewRunner(ctx, h.paths, nil)
-	handlerType, err := r.RunHook(string(hooks.CollectMetrics))
+	handlerType, err := r.RunHook(stdCtx, string(hooks.CollectMetrics))
 	switch {
 	case charmrunner.IsMissingHookError(errors.Cause(err)):
 		fallthrough

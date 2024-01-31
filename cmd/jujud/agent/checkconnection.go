@@ -4,6 +4,7 @@
 package agent
 
 import (
+	"context"
 	"fmt"
 	"io"
 
@@ -21,12 +22,12 @@ import (
 )
 
 // ConnectFunc connects to the API as the given agent.
-type ConnectFunc func(agent.Agent) (io.Closer, error)
+type ConnectFunc func(context.Context, agent.Agent) (io.Closer, error)
 
 // ConnectAsAgent really connects to the API specified in the agent
 // config. It's extracted so tests can pass something else in.
-func ConnectAsAgent(a agent.Agent) (io.Closer, error) {
-	return apicaller.ScaryConnect(a, api.Open, loggo.GetLogger("juju.agent"))
+func ConnectAsAgent(ctx context.Context, a agent.Agent) (io.Closer, error) {
+	return apicaller.ScaryConnect(ctx, a, api.Open, loggo.GetLogger("juju.agent"))
 }
 
 type checkConnectionCommand struct {
@@ -80,7 +81,7 @@ func (c *checkConnectionCommand) Init(args []string) error {
 
 // Run is part of cmd.Command.
 func (c *checkConnectionCommand) Run(ctx *cmd.Context) error {
-	conn, err := c.connect(c.config)
+	conn, err := c.connect(ctx, c.config)
 	if err != nil {
 		return errors.Annotatef(err, "checking connection for %s", c.agentName)
 	}

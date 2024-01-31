@@ -48,8 +48,8 @@ func (m *Machine) Life() life.Value {
 }
 
 // Refresh updates the cached local copy of the machine's data.
-func (m *Machine) Refresh() error {
-	life, err := common.OneLife(m.facade, m.tag)
+func (m *Machine) Refresh(ctx context.Context) error {
+	life, err := common.OneLife(ctx, m.facade, m.tag)
 	if err != nil {
 		return errors.Trace(err)
 	}

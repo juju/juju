@@ -10,11 +10,12 @@
 package mocks
 
 import (
+	context "context"
 	reflect "reflect"
 
 	api "github.com/juju/juju/internal/worker/uniter/api"
 	hook "github.com/juju/juju/internal/worker/uniter/hook"
-	context "github.com/juju/juju/internal/worker/uniter/runner/context"
+	context0 "github.com/juju/juju/internal/worker/uniter/runner/context"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -42,24 +43,24 @@ func (m *MockRelationer) EXPECT() *MockRelationerMockRecorder {
 }
 
 // CommitHook mocks base method.
-func (m *MockRelationer) CommitHook(arg0 hook.Info) error {
+func (m *MockRelationer) CommitHook(arg0 context.Context, arg1 hook.Info) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CommitHook", arg0)
+	ret := m.ctrl.Call(m, "CommitHook", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // CommitHook indicates an expected call of CommitHook.
-func (mr *MockRelationerMockRecorder) CommitHook(arg0 any) *gomock.Call {
+func (mr *MockRelationerMockRecorder) CommitHook(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CommitHook", reflect.TypeOf((*MockRelationer)(nil).CommitHook), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CommitHook", reflect.TypeOf((*MockRelationer)(nil).CommitHook), arg0, arg1)
 }
 
 // ContextInfo mocks base method.
-func (m *MockRelationer) ContextInfo() *context.RelationInfo {
+func (m *MockRelationer) ContextInfo() *context0.RelationInfo {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ContextInfo")
-	ret0, _ := ret[0].(*context.RelationInfo)
+	ret0, _ := ret[0].(*context0.RelationInfo)
 	return ret0
 }
 
@@ -141,15 +142,15 @@ func (mr *MockRelationerMockRecorder) RelationUnit() *gomock.Call {
 }
 
 // SetDying mocks base method.
-func (m *MockRelationer) SetDying() error {
+func (m *MockRelationer) SetDying(arg0 context.Context) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetDying")
+	ret := m.ctrl.Call(m, "SetDying", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SetDying indicates an expected call of SetDying.
-func (mr *MockRelationerMockRecorder) SetDying() *gomock.Call {
+func (mr *MockRelationerMockRecorder) SetDying(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetDying", reflect.TypeOf((*MockRelationer)(nil).SetDying))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetDying", reflect.TypeOf((*MockRelationer)(nil).SetDying), arg0)
 }

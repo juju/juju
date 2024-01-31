@@ -11,7 +11,6 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/rpc/params"
 )
 
 // Option is a function that can be used to configure a Client.
@@ -37,13 +36,13 @@ func NewClient(caller base.APICaller, options ...Option) *Client {
 }
 
 // unitLife returns the lifecycle state of the given unit.
-func (c *Client) unitLife(tag names.UnitTag) (life.Value, error) {
-	return common.OneLife(c.facade, tag)
+func (c *Client) unitLife(ctx context.Context, tag names.UnitTag) (life.Value, error) {
+	return common.OneLife(ctx, c.facade, tag)
 }
 
 // Unit returns the unit with the given tag.
-func (c *Client) Unit(tag names.UnitTag) (*Unit, error) {
-	life, err := c.unitLife(tag)
+func (c *Client) Unit(ctx context.Context, tag names.UnitTag) (*Unit, error) {
+	life, err := c.unitLife(ctx, tag)
 	if err != nil {
 		return nil, err
 	}
@@ -61,11 +60,4 @@ func (c *Client) Machine(tag names.MachineTag) (*Machine, error) {
 		tag:    tag,
 		client: c,
 	}, nil
-}
-
-// ConnectionInfo returns all the address information that the deployer task
-// needs in one call.
-func (c *Client) ConnectionInfo() (result params.DeployerConnectionValues, err error) {
-	err = c.facade.FacadeCall(context.TODO(), "ConnectionInfo", nil, &result)
-	return result, err
 }

@@ -10,6 +10,7 @@
 package mocks
 
 import (
+	context "context"
 	reflect "reflect"
 
 	api "github.com/juju/juju/internal/worker/uniter/api"
@@ -41,16 +42,16 @@ func (m *MockUnitGetter) EXPECT() *MockUnitGetterMockRecorder {
 }
 
 // Unit mocks base method.
-func (m *MockUnitGetter) Unit(arg0 names.UnitTag) (api.Unit, error) {
+func (m *MockUnitGetter) Unit(arg0 context.Context, arg1 names.UnitTag) (api.Unit, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Unit", arg0)
+	ret := m.ctrl.Call(m, "Unit", arg0, arg1)
 	ret0, _ := ret[0].(api.Unit)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Unit indicates an expected call of Unit.
-func (mr *MockUnitGetterMockRecorder) Unit(arg0 any) *gomock.Call {
+func (mr *MockUnitGetterMockRecorder) Unit(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Unit", reflect.TypeOf((*MockUnitGetter)(nil).Unit), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Unit", reflect.TypeOf((*MockUnitGetter)(nil).Unit), arg0, arg1)
 }

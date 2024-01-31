@@ -4,6 +4,8 @@
 package containerbroker_test
 
 import (
+	"context"
+
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	"go.uber.org/mock/gomock"
@@ -226,7 +228,7 @@ func (s *trackerSuite) withScenario(c *gc.C, expected *broker.Config, behaviours
 	for _, b := range behaviours {
 		b()
 	}
-	return containerbroker.NewTracker(containerbroker.Config{
+	return containerbroker.NewTracker(context.Background(), containerbroker.Config{
 		APICaller:   s.apiCaller,
 		AgentConfig: s.agentConfig,
 		MachineLock: s.machineLock,
@@ -250,18 +252,18 @@ func (s *trackerSuite) expectMachineTag() {
 }
 
 func (s *trackerSuite) expectMachines() {
-	s.state.EXPECT().Machines(s.machineTag).Return([]provisioner.MachineResult{{
+	s.state.EXPECT().Machines(gomock.Any(), s.machineTag).Return([]provisioner.MachineResult{{
 		Machine: s.machine,
 	}}, nil)
 	s.machine.EXPECT().Life().Return(life.Alive)
 }
 
 func (s *trackerSuite) expectNoMachines() {
-	s.state.EXPECT().Machines(s.machineTag).Return([]provisioner.MachineResult{}, nil)
+	s.state.EXPECT().Machines(gomock.Any(), s.machineTag).Return([]provisioner.MachineResult{}, nil)
 }
 
 func (s *trackerSuite) expectDeadMachines() {
-	s.state.EXPECT().Machines(s.machineTag).Return([]provisioner.MachineResult{{
+	s.state.EXPECT().Machines(gomock.Any(), s.machineTag).Return([]provisioner.MachineResult{{
 		Machine: s.machine,
 	}}, nil)
 	s.machine.EXPECT().Life().Return(life.Dead)

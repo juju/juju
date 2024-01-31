@@ -4,6 +4,8 @@
 package machiner
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 
@@ -16,11 +18,11 @@ import (
 )
 
 type MachineAccessor interface {
-	Machine(names.MachineTag) (Machine, error)
+	Machine(context.Context, names.MachineTag) (Machine, error)
 }
 
 type Machine interface {
-	Refresh() error
+	Refresh(context.Context) error
 	Life() life.Value
 	EnsureDead() error
 	SetMachineAddresses(addresses []network.MachineAddress) error
@@ -33,8 +35,8 @@ type APIMachineAccessor struct {
 	State *machiner.Client
 }
 
-func (a APIMachineAccessor) Machine(tag names.MachineTag) (Machine, error) {
-	m, err := a.State.Machine(tag)
+func (a APIMachineAccessor) Machine(ctx context.Context, tag names.MachineTag) (Machine, error) {
+	m, err := a.State.Machine(ctx, tag)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -30,7 +30,7 @@ type RestrictedContext struct{}
 func (*RestrictedContext) ConfigSettings() (charm.Settings, error) { return nil, ErrRestrictedContext }
 
 // GoalState implements hooks.Context.
-func (*RestrictedContext) GoalState() (*application.GoalState, error) {
+func (*RestrictedContext) GoalState(context.Context) (*application.GoalState, error) {
 	return &application.GoalState{}, ErrRestrictedContext
 }
 
@@ -55,25 +55,27 @@ func (*RestrictedContext) SetCharmStateValue(string, string) error {
 }
 
 // UnitStatus implements hooks.Context.
-func (*RestrictedContext) UnitStatus() (*StatusInfo, error) {
+func (*RestrictedContext) UnitStatus(context.Context) (*StatusInfo, error) {
 	return nil, ErrRestrictedContext
 }
 
 // CloudSpec implements hooks.Context.
-func (c *RestrictedContext) CloudSpec() (*params.CloudSpec, error) {
+func (c *RestrictedContext) CloudSpec(context.Context) (*params.CloudSpec, error) {
 	return nil, ErrRestrictedContext
 }
 
 // SetUnitStatus implements hooks.Context.
-func (*RestrictedContext) SetUnitStatus(StatusInfo) error { return ErrRestrictedContext }
+func (*RestrictedContext) SetUnitStatus(context.Context, StatusInfo) error {
+	return ErrRestrictedContext
+}
 
 // ApplicationStatus implements hooks.Context.
-func (*RestrictedContext) ApplicationStatus() (ApplicationStatusInfo, error) {
+func (*RestrictedContext) ApplicationStatus(context.Context) (ApplicationStatusInfo, error) {
 	return ApplicationStatusInfo{}, ErrRestrictedContext
 }
 
 // SetApplicationStatus implements hooks.Context.
-func (*RestrictedContext) SetApplicationStatus(StatusInfo) error {
+func (*RestrictedContext) SetApplicationStatus(context.Context, StatusInfo) error {
 	return ErrRestrictedContext
 }
 
@@ -220,12 +222,12 @@ func (*RestrictedContext) SetActionMessage(string) error { return ErrRestrictedC
 func (*RestrictedContext) SetActionFailed() error { return ErrRestrictedContext }
 
 // UnitWorkloadVersion implements hooks.Context.
-func (*RestrictedContext) UnitWorkloadVersion() (string, error) {
+func (*RestrictedContext) UnitWorkloadVersion(context.Context) (string, error) {
 	return "", ErrRestrictedContext
 }
 
 // SetUnitWorkloadVersion implements hooks.Context.
-func (*RestrictedContext) SetUnitWorkloadVersion(string) error {
+func (*RestrictedContext) SetUnitWorkloadVersion(context.Context, string) error {
 	return ErrRestrictedContext
 }
 

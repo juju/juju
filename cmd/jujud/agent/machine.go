@@ -650,8 +650,8 @@ func (a *MachineAgent) makeEngineCreator(
 			PubSubReporter:       pubsubReporter,
 			PresenceRecorder:     presenceRecorder,
 			UpdateLoggerConfig:   updateAgentConfLogging,
-			NewAgentStatusSetter: func(apiCaller base.APICaller) (upgradesteps.StatusSetter, error) {
-				return a.statusSetter(apiCaller)
+			NewAgentStatusSetter: func(ctx stdcontext.Context, apiCaller base.APICaller) (upgradesteps.StatusSetter, error) {
+				return a.statusSetter(ctx, apiCaller)
 			},
 			ControllerLeaseDuration:           time.Minute,
 			TransactionPruneInterval:          time.Hour,
@@ -745,7 +745,7 @@ var (
 	newBroker     = broker.New
 )
 
-func (a *MachineAgent) machineStartup(apiConn api.Connection, logger machine.Logger) error {
+func (a *MachineAgent) machineStartup(ctx stdcontext.Context, apiConn api.Connection, logger machine.Logger) error {
 	logger.Tracef("machineStartup called")
 	// CAAS agents do not have machines.
 	if a.isCaasAgent {
@@ -756,7 +756,7 @@ func (a *MachineAgent) machineStartup(apiConn api.Connection, logger machine.Log
 	if err != nil {
 		return errors.Trace(err)
 	}
-	entity, err := apiSt.Entity(a.Tag())
+	entity, err := apiSt.Entity(ctx, a.Tag())
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -768,11 +768,11 @@ func (a *MachineAgent) machineStartup(apiConn api.Connection, logger machine.Log
 	if err != nil {
 		return errors.Annotate(err, "getting machine hostname")
 	}
-	if err := a.recordAgentStartInformation(apiConn, hostname); err != nil {
+	if err := a.recordAgentStartInformation(ctx, apiConn, hostname); err != nil {
 		return errors.Annotate(err, "recording agent start information")
 	}
 
-	if err := a.setupContainerSupport(apiConn, logger); err != nil {
+	if err := a.setupContainerSupport(ctx, apiConn, logger); err != nil {
 		return err
 	}
 
@@ -808,16 +808,16 @@ func (a *noopStatusSetter) SetStatus(_ status.Status, _ string, _ map[string]int
 	return nil
 }
 
-func (a *MachineAgent) statusSetter(apiCaller base.APICaller) (upgradesteps.StatusSetter, error) {
+func (a *MachineAgent) statusSetter(ctx stdcontext.Context, apiCaller base.APICaller) (upgradesteps.StatusSetter, error) {
 	if a.isCaasAgent || a.agentTag.Kind() != names.MachineTagKind {
 		// TODO - support set status for controller agents
 		return &noopStatusSetter{}, nil
 	}
 	machinerAPI := apimachiner.NewClient(apiCaller)
-	return machinerAPI.Machine(a.Tag().(names.MachineTag))
+	return machinerAPI.Machine(ctx, a.Tag().(names.MachineTag))
 }
 
-func (a *MachineAgent) machine(apiConn api.Connection) (*apimachiner.Machine, error) {
+func (a *MachineAgent) machine(ctx stdcontext.Context, apiConn api.Connection) (*apimachiner.Machine, error) {
 	machinerAPI := apimachiner.NewClient(apiConn)
 	agentConfig := a.CurrentConfig()
 
@@ -825,11 +825,11 @@ func (a *MachineAgent) machine(apiConn api.Connection) (*apimachiner.Machine, er
 	if !ok {
 		return nil, errors.Errorf("%q is not a machine tag", agentConfig.Tag().String())
 	}
-	return machinerAPI.Machine(tag)
+	return machinerAPI.Machine(ctx, tag)
 }
 
-func (a *MachineAgent) recordAgentStartInformation(apiConn api.Connection, hostname string) error {
-	m, err := a.machine(apiConn)
+func (a *MachineAgent) recordAgentStartInformation(ctx stdcontext.Context, apiConn api.Connection, hostname string) error {
+	m, err := a.machine(ctx, apiConn)
 	if errors.Is(err, errors.NotFound) || err == nil && m.Life() == life.Dead {
 		return jworker.ErrTerminateAgent
 	}
@@ -852,27 +852,27 @@ func (a *MachineAgent) Restart() error {
 
 // validateMigration is called by the migrationminion to help check
 // that the agent will be ok when connected to a new controller.
-func (a *MachineAgent) validateMigration(apiCaller base.APICaller) error {
+func (a *MachineAgent) validateMigration(ctx stdcontext.Context, apiCaller base.APICaller) error {
 	// TODO(mjs) - more extensive checks to come.
 	var err error
 	// TODO(controlleragent) - add k8s controller check.
 	if !a.isCaasAgent {
 		facade := apimachiner.NewClient(apiCaller)
-		_, err = facade.Machine(a.agentTag.(names.MachineTag))
+		_, err = facade.Machine(ctx, a.agentTag.(names.MachineTag))
 	}
 	return errors.Trace(err)
 }
 
 // setupContainerSupport determines what containers can be run on this machine and
 // passes the result to the juju controller.
-func (a *MachineAgent) setupContainerSupport(st api.Connection, logger machine.Logger) error {
+func (a *MachineAgent) setupContainerSupport(ctx stdcontext.Context, st api.Connection, logger machine.Logger) error {
 	logger.Tracef("setupContainerSupport called")
 	pr := apiprovisioner.NewClient(st)
 	mTag, ok := a.CurrentConfig().Tag().(names.MachineTag)
 	if !ok {
 		return errors.New("not a machine")
 	}
-	result, err := pr.Machines(mTag)
+	result, err := pr.Machines(ctx, mTag)
 	if err != nil {
 		return errors.Annotatef(err, "cannot load machine %s from state", mTag)
 	}

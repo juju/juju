@@ -4,6 +4,7 @@
 package relation
 
 import (
+	stdcontext "context"
 	"fmt"
 
 	"github.com/juju/charm/v12/hooks"
@@ -97,10 +98,10 @@ func (r *relationer) Join() error {
 // SetDying informs the relationer that the unit is departing the relation,
 // and that the only hooks it should send henceforth are -departed hooks,
 // until the relation is empty, followed by a -broken hook.
-func (r *relationer) SetDying() error {
+func (r *relationer) SetDying(ctx stdcontext.Context) error {
 	if r.IsImplicit() {
 		r.dying = true
-		return r.die()
+		return r.die(ctx)
 	}
 	r.dying = true
 	return nil
@@ -108,12 +109,12 @@ func (r *relationer) SetDying() error {
 
 // die is run when the relationer has no further responsibilities; it leaves
 // relation scope, and removes relation state.
-func (r *relationer) die() error {
+func (r *relationer) die(ctx stdcontext.Context) error {
 	err := r.ru.LeaveScope()
 	if err != nil && !params.IsCodeNotFoundOrCodeUnauthorized(err) {
 		return errors.Annotatef(err, "leaving scope of relation %q", r.ru.Relation())
 	}
-	return r.stateMgr.RemoveRelation(r.relationId, r.unitGetter, map[string]bool{})
+	return r.stateMgr.RemoveRelation(ctx, r.relationId, r.unitGetter, map[string]bool{})
 }
 
 // PrepareHook checks that the relation is in a state such that it makes
@@ -139,7 +140,7 @@ func (r *relationer) PrepareHook(hi hook.Info) (string, error) {
 }
 
 // CommitHook persists the fact of the supplied hook's completion.
-func (r *relationer) CommitHook(hi hook.Info) error {
+func (r *relationer) CommitHook(ctx stdcontext.Context, hi hook.Info) error {
 	if r.IsImplicit() {
 		// Implicit relations always return ErrNoOperation from
 		// NextOp.  Something broken if we reach here.
@@ -147,7 +148,7 @@ func (r *relationer) CommitHook(hi hook.Info) error {
 		return dependency.ErrBounce
 	}
 	if hi.Kind == hooks.RelationBroken {
-		return r.die()
+		return r.die(ctx)
 	}
 	st, err := r.stateMgr.Relation(hi.RelationId)
 	if err != nil {

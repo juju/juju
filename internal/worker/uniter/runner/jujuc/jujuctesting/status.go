@@ -4,6 +4,8 @@
 package jujuctesting
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/internal/worker/uniter/runner/jujuc"
@@ -30,7 +32,7 @@ type ContextStatus struct {
 }
 
 // UnitStatus implements jujuc.ContextStatus.
-func (c *ContextStatus) UnitStatus() (*jujuc.StatusInfo, error) {
+func (c *ContextStatus) UnitStatus(context.Context) (*jujuc.StatusInfo, error) {
 	c.stub.AddCall("UnitStatus")
 	if err := c.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)
@@ -40,7 +42,7 @@ func (c *ContextStatus) UnitStatus() (*jujuc.StatusInfo, error) {
 }
 
 // SetUnitStatus implements jujuc.ContextStatus.
-func (c *ContextStatus) SetUnitStatus(status jujuc.StatusInfo) error {
+func (c *ContextStatus) SetUnitStatus(_ context.Context, status jujuc.StatusInfo) error {
 	c.stub.AddCall("SetUnitStatus", status)
 	if err := c.stub.NextErr(); err != nil {
 		return errors.Trace(err)
@@ -51,7 +53,7 @@ func (c *ContextStatus) SetUnitStatus(status jujuc.StatusInfo) error {
 }
 
 // ApplicationStatus implements jujuc.ContextStatus.
-func (c *ContextStatus) ApplicationStatus() (jujuc.ApplicationStatusInfo, error) {
+func (c *ContextStatus) ApplicationStatus(context.Context) (jujuc.ApplicationStatusInfo, error) {
 	c.stub.AddCall("ApplicationStatus")
 	if err := c.stub.NextErr(); err != nil {
 		return jujuc.ApplicationStatusInfo{}, errors.Trace(err)
@@ -61,7 +63,7 @@ func (c *ContextStatus) ApplicationStatus() (jujuc.ApplicationStatusInfo, error)
 }
 
 // SetApplicationStatus implements jujuc.ContextStatus.
-func (c *ContextStatus) SetApplicationStatus(status jujuc.StatusInfo) error {
+func (c *ContextStatus) SetApplicationStatus(_ context.Context, status jujuc.StatusInfo) error {
 	c.stub.AddCall("SetApplicationStatus", status)
 	if err := c.stub.NextErr(); err != nil {
 		return errors.Trace(err)

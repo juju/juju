@@ -4,6 +4,8 @@
 package jujuctesting
 
 import (
+	"context"
+
 	"github.com/juju/charm/v12"
 	"github.com/juju/errors"
 
@@ -46,7 +48,7 @@ func (c *ContextUnit) ConfigSettings() (charm.Settings, error) {
 }
 
 // GoalState implements jujuc.ContextUnit.
-func (c *ContextUnit) GoalState() (*application.GoalState, error) {
+func (c *ContextUnit) GoalState(context.Context) (*application.GoalState, error) {
 	c.stub.AddCall("GoalState")
 	if err := c.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)
@@ -54,7 +56,7 @@ func (c *ContextUnit) GoalState() (*application.GoalState, error) {
 	return &c.info.GoalState, nil
 }
 
-func (c *ContextUnit) CloudSpec() (*params.CloudSpec, error) {
+func (c *ContextUnit) CloudSpec(context.Context) (*params.CloudSpec, error) {
 	c.stub.AddCall("CloudSpec")
 	if err := c.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)

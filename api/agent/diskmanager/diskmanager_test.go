@@ -4,6 +4,7 @@
 package diskmanager_test
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
@@ -62,7 +63,7 @@ func (s *DiskManagerSuite) TestSetMachineBlockDevices(c *gc.C) {
 	})
 
 	st := diskmanager.NewState(apiCaller, names.NewMachineTag("123"))
-	err := st.SetMachineBlockDevices(devices)
+	err := st.SetMachineBlockDevices(context.Background(), devices)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(callCount, gc.Equals, 1)
 }
@@ -85,7 +86,7 @@ func (s *DiskManagerSuite) TestSetMachineBlockDevicesNil(c *gc.C) {
 		return nil
 	})
 	st := diskmanager.NewState(apiCaller, names.NewMachineTag("123"))
-	err := st.SetMachineBlockDevices(nil)
+	err := st.SetMachineBlockDevices(context.Background(), nil)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(callCount, gc.Equals, 1)
 }
@@ -95,7 +96,7 @@ func (s *DiskManagerSuite) TestSetMachineBlockDevicesClientError(c *gc.C) {
 		return errors.New("blargh")
 	})
 	st := diskmanager.NewState(apiCaller, names.NewMachineTag("123"))
-	err := st.SetMachineBlockDevices(nil)
+	err := st.SetMachineBlockDevices(context.Background(), nil)
 	c.Check(err, gc.ErrorMatches, "blargh")
 }
 
@@ -109,7 +110,7 @@ func (s *DiskManagerSuite) TestSetMachineBlockDevicesServerError(c *gc.C) {
 		return nil
 	})
 	st := diskmanager.NewState(apiCaller, names.NewMachineTag("123"))
-	err := st.SetMachineBlockDevices(nil)
+	err := st.SetMachineBlockDevices(context.Background(), nil)
 	c.Check(err, gc.ErrorMatches, "MSG")
 }
 
@@ -126,7 +127,7 @@ func (s *DiskManagerSuite) TestSetMachineBlockDevicesResultCountInvalid(c *gc.C)
 			return nil
 		})
 		st := diskmanager.NewState(apiCaller, names.NewMachineTag("123"))
-		err := st.SetMachineBlockDevices(nil)
+		err := st.SetMachineBlockDevices(context.Background(), nil)
 		c.Check(err, gc.ErrorMatches, fmt.Sprintf("expected 1 result, got %d", n))
 	}
 }

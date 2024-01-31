@@ -28,7 +28,7 @@ func (s *MachineStartupSuite) SetUpTest(c *gc.C) {
 	s.startCalled = false
 	s.manifold = machine.MachineStartupManifold(machine.MachineStartupConfig{
 		APICallerName: "api-caller",
-		MachineStartup: func(api.Connection, machine.Logger) error {
+		MachineStartup: func(context.Context, api.Connection, machine.Logger) error {
 			s.startCalled = true
 			return nil
 		},

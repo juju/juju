@@ -4,6 +4,8 @@
 package firewaller_test
 
 import (
+	"context"
+
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -41,7 +43,7 @@ func (s *machineSuite) TestMachine(c *gc.C) {
 	tag := names.NewMachineTag("666")
 	client, err := firewaller.NewClient(apiCaller)
 	c.Assert(err, jc.ErrorIsNil)
-	m, err := client.Machine(tag)
+	m, err := client.Machine(context.Background(), tag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.Life(), gc.Equals, life.Alive)
 	c.Assert(m.Tag(), jc.DeepEquals, tag)
@@ -75,7 +77,7 @@ func (s *machineSuite) TestInstanceId(c *gc.C) {
 	tag := names.NewMachineTag("666")
 	client, err := firewaller.NewClient(apiCaller)
 	c.Assert(err, jc.ErrorIsNil)
-	m, err := client.Machine(tag)
+	m, err := client.Machine(context.Background(), tag)
 	c.Assert(err, jc.ErrorIsNil)
 	id, err := m.InstanceId()
 	c.Assert(err, jc.ErrorIsNil)
@@ -112,7 +114,7 @@ func (s *machineSuite) TestWatchUnits(c *gc.C) {
 	tag := names.NewMachineTag("666")
 	client, err := firewaller.NewClient(apiCaller)
 	c.Assert(err, jc.ErrorIsNil)
-	m, err := client.Machine(tag)
+	m, err := client.Machine(context.Background(), tag)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = m.WatchUnits()
 	c.Assert(err, gc.ErrorMatches, "FAIL")
@@ -147,7 +149,7 @@ func (s *machineSuite) TestIsManual(c *gc.C) {
 	tag := names.NewMachineTag("666")
 	client, err := firewaller.NewClient(apiCaller)
 	c.Assert(err, jc.ErrorIsNil)
-	m, err := client.Machine(tag)
+	m, err := client.Machine(context.Background(), tag)
 	c.Assert(err, jc.ErrorIsNil)
 	result, err := m.IsManual()
 	c.Assert(err, jc.ErrorIsNil)
@@ -214,7 +216,7 @@ func (s *machineSuite) TestOpenedPortRanges(c *gc.C) {
 	tag := names.NewMachineTag("666")
 	client, err := firewaller.NewClient(apiCaller)
 	c.Assert(err, jc.ErrorIsNil)
-	m, err := client.Machine(tag)
+	m, err := client.Machine(context.Background(), tag)
 	c.Assert(err, jc.ErrorIsNil)
 
 	byUnitAndCIDR, byUnitAndEndpoint, err := m.OpenedMachinePortRanges()

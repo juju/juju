@@ -4,6 +4,8 @@
 package hook
 
 import (
+	"context"
+
 	"github.com/juju/charm/v12/hooks"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
@@ -141,7 +143,7 @@ func (hi Info) Validate() error {
 // Committer is an interface that may be used to convey the fact that the
 // specified hook has been successfully executed, and committed.
 type Committer interface {
-	CommitHook(Info) error
+	CommitHook(context.Context, Info) error
 }
 
 // Validator is an interface that may be used to validate a hook execution

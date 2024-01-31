@@ -49,8 +49,8 @@ type wrapper struct {
 
 // Machine implements machiner.Machine and returns a machine from the wrapper
 // api/machiner.
-func (w wrapper) Machine(tag names.MachineTag) (Machine, error) {
-	m, err := w.m.Machine(tag)
+func (w wrapper) Machine(ctx context.Context, tag names.MachineTag) (Machine, error) {
+	m, err := w.m.Machine(ctx, tag)
 	if err != nil {
 		return nil, err
 	}
@@ -59,9 +59,9 @@ func (w wrapper) Machine(tag names.MachineTag) (Machine, error) {
 
 // SetUp implements NotifyWatchHandler's SetUp method. It returns a watcher that
 // checks for changes to the current machine.
-func (c *converter) SetUp(_ context.Context) (watcher.NotifyWatcher, error) {
+func (c *converter) SetUp(ctx context.Context) (watcher.NotifyWatcher, error) {
 	c.logger.Tracef("Calling SetUp for %s", c.machineTag)
-	m, err := c.machiner.Machine(c.machineTag)
+	m, err := c.machiner.Machine(ctx, c.machineTag)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

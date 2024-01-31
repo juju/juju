@@ -4,6 +4,8 @@
 package migrationminion_test
 
 import (
+	"context"
+
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -78,7 +80,7 @@ func validConfig() migrationminion.Config {
 		Facade:            struct{ migrationminion.Facade }{},
 		Clock:             struct{ clock.Clock }{},
 		APIOpen:           func(*api.Info, api.DialOpts) (api.Connection, error) { return nil, nil },
-		ValidateMigration: func(base.APICaller) error { return nil },
+		ValidateMigration: func(context.Context, base.APICaller) error { return nil },
 		Logger:            loggo.GetLogger("test"),
 	}
 }

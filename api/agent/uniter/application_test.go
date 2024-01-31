@@ -4,6 +4,7 @@
 package uniter_test
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/names/v5"
@@ -114,7 +115,7 @@ func (s *applicationSuite) apiCallerFunc(c *gc.C) basetesting.APICallerFunc {
 func (s *applicationSuite) TestNameTagAndString(c *gc.C) {
 	client := uniter.NewClient(s.apiCallerFunc(c), names.NewUnitTag("mysql/0"))
 	tag := names.NewApplicationTag("mysql")
-	app, err := client.Application(tag)
+	app, err := client.Application(context.Background(), tag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(app.Name(), gc.Equals, "mysql")
 	c.Assert(app.String(), gc.Equals, "mysql")
@@ -124,7 +125,7 @@ func (s *applicationSuite) TestNameTagAndString(c *gc.C) {
 
 func (s *applicationSuite) TestWatch(c *gc.C) {
 	client := uniter.NewClient(s.apiCallerFunc(c), names.NewUnitTag("mysql/0"))
-	app, err := client.Application(names.NewApplicationTag("mysql"))
+	app, err := client.Application(context.Background(), names.NewApplicationTag("mysql"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	w, err := app.Watch()
@@ -143,18 +144,18 @@ func (s *applicationSuite) TestWatch(c *gc.C) {
 
 func (s *applicationSuite) TestRefresh(c *gc.C) {
 	client := uniter.NewClient(s.apiCallerFunc(c), names.NewUnitTag("mysql/0"))
-	app, err := client.Application(names.NewApplicationTag("mysql"))
+	app, err := client.Application(context.Background(), names.NewApplicationTag("mysql"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.life = life.Dying
-	err = app.Refresh()
+	err = app.Refresh(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(app.Life(), gc.Equals, life.Dying)
 }
 
 func (s *applicationSuite) TestCharmURL(c *gc.C) {
 	client := uniter.NewClient(s.apiCallerFunc(c), names.NewUnitTag("mysql/0"))
-	app, err := client.Application(names.NewApplicationTag("mysql"))
+	app, err := client.Application(context.Background(), names.NewApplicationTag("mysql"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	curl, force, err := app.CharmURL()
@@ -165,7 +166,7 @@ func (s *applicationSuite) TestCharmURL(c *gc.C) {
 
 func (s *applicationSuite) TestCharmModifiedVersion(c *gc.C) {
 	client := uniter.NewClient(s.apiCallerFunc(c), names.NewUnitTag("mysql/0"))
-	app, err := client.Application(names.NewApplicationTag("mysql"))
+	app, err := client.Application(context.Background(), names.NewApplicationTag("mysql"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	ver, err := app.CharmModifiedVersion()
@@ -175,7 +176,7 @@ func (s *applicationSuite) TestCharmModifiedVersion(c *gc.C) {
 
 func (s *applicationSuite) TestSetApplicationStatus(c *gc.C) {
 	client := uniter.NewClient(s.apiCallerFunc(c), names.NewUnitTag("mysql/0"))
-	app, err := client.Application(names.NewApplicationTag("mysql"))
+	app, err := client.Application(context.Background(), names.NewApplicationTag("mysql"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = app.SetStatus("mysql/0", status.Blocked, "app blocked", map[string]interface{}{"foo": "bar"})
@@ -185,7 +186,7 @@ func (s *applicationSuite) TestSetApplicationStatus(c *gc.C) {
 
 func (s *applicationSuite) TestApplicationStatus(c *gc.C) {
 	client := uniter.NewClient(s.apiCallerFunc(c), names.NewUnitTag("mysql/0"))
-	app, err := client.Application(names.NewApplicationTag("mysql"))
+	app, err := client.Application(context.Background(), names.NewApplicationTag("mysql"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	status, err := app.Status("mysql/0")

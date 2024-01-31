@@ -24,7 +24,7 @@ type ManifoldConfig struct {
 	APICallerName string
 	MachineLock   machinelock.Lock
 	NewBrokerFunc func(broker.Config) (environs.InstanceBroker, error)
-	NewTracker    func(Config) (worker.Worker, error)
+	NewTracker    func(context.Context, Config) (worker.Worker, error)
 }
 
 // Validate validates the manifold configuration.
@@ -69,7 +69,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			if err := getter.Get(config.APICallerName, &apiCaller); err != nil {
 				return nil, errors.Trace(err)
 			}
-			w, err := config.NewTracker(Config{
+			w, err := config.NewTracker(ctx, Config{
 				APICaller:     apiCaller,
 				AgentConfig:   agent.CurrentConfig(),
 				MachineLock:   config.MachineLock,

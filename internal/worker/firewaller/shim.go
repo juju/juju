@@ -36,12 +36,12 @@ type firewallerShim struct {
 	*firewaller.Client
 }
 
-func (s *firewallerShim) Machine(tag names.MachineTag) (Machine, error) {
-	return s.Client.Machine(tag)
+func (s *firewallerShim) Machine(ctx context.Context, tag names.MachineTag) (Machine, error) {
+	return s.Client.Machine(ctx, tag)
 }
 
-func (s *firewallerShim) Unit(tag names.UnitTag) (Unit, error) {
-	u, err := s.Client.Unit(tag)
+func (s *firewallerShim) Unit(ctx context.Context, tag names.UnitTag) (Unit, error) {
+	u, err := s.Client.Unit(ctx, tag)
 	return &unitShim{u}, err
 }
 

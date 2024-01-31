@@ -4,6 +4,7 @@
 package relation
 
 import (
+	stdcontext "context"
 	"os"
 	"strconv"
 	"time"
@@ -56,7 +57,7 @@ type relationStateTracker struct {
 }
 
 // NewRelationStateTracker returns a new RelationStateTracker instance.
-func NewRelationStateTracker(cfg RelationStateTrackerConfig) (RelationStateTracker, error) {
+func NewRelationStateTracker(ctx stdcontext.Context, cfg RelationStateTrackerConfig) (RelationStateTracker, error) {
 	principalName, subordinate, err := cfg.Unit.PrincipalName()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -81,7 +82,7 @@ func NewRelationStateTracker(cfg RelationStateTrackerConfig) (RelationStateTrack
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err := r.loadInitialState(); err != nil {
+	if err := r.loadInitialState(ctx); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return r, nil
@@ -89,7 +90,7 @@ func NewRelationStateTracker(cfg RelationStateTrackerConfig) (RelationStateTrack
 
 // loadInitialState reconciles the local state with the remote
 // state of the corresponding relations.
-func (r *relationStateTracker) loadInitialState() error {
+func (r *relationStateTracker) loadInitialState(ctx stdcontext.Context) error {
 	relationStatus, err := r.unit.RelationsStatus()
 	if err != nil {
 		return errors.Trace(err)
@@ -103,7 +104,7 @@ func (r *relationStateTracker) loadInitialState() error {
 		if !rs.InScope {
 			continue
 		}
-		rel, err := r.client.Relation(rs.Tag)
+		rel, err := r.client.Relation(ctx, rs.Tag)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -125,14 +126,14 @@ func (r *relationStateTracker) loadInitialState() error {
 	for _, id := range r.stateMgr.KnownIDs() {
 		if rel, ok := isScopeRelations[id]; ok {
 			//shouldJoin := localRelState.Members[rel.]
-			if err := r.joinRelation(rel); err != nil {
+			if err := r.joinRelation(ctx, rel); err != nil {
 				return errors.Trace(err)
 			}
 		} else if !relationSuspended[id] {
 			// Relations which are suspended may become active
 			// again so we keep the local state, otherwise we
 			// remove it.
-			if err := r.stateMgr.RemoveRelation(id, r.client, knownUnits); err != nil {
+			if err := r.stateMgr.RemoveRelation(ctx, id, r.client, knownUnits); err != nil {
 				return errors.Trace(err)
 			}
 		}
@@ -143,7 +144,7 @@ func (r *relationStateTracker) loadInitialState() error {
 		if r.stateMgr.RelationFound(id) {
 			continue
 		}
-		if err := r.joinRelation(rel); err != nil {
+		if err := r.joinRelation(ctx, rel); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -161,10 +162,10 @@ func (r *relationStateTracker) relationGone(id int) {
 // store persistent state. It will block until the
 // operation succeeds or fails; or until the abort chan is closed, in which
 // case it will return resolver.ErrLoopAborted.
-func (r *relationStateTracker) joinRelation(rel api.Relation) (err error) {
+func (r *relationStateTracker) joinRelation(ctx stdcontext.Context, rel api.Relation) (err error) {
 	unitName := r.unit.Name()
 	r.logger.Tracef("%q (re-)joining: %q", unitName, rel)
-	ru, err := rel.Unit(r.unit.Tag())
+	ru, err := rel.Unit(ctx, r.unit.Tag())
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -210,7 +211,7 @@ func (r *relationStateTracker) joinRelation(rel api.Relation) (err error) {
 			}
 			r.logger.Debugf("unit %q (leader=%v) entered scope for relation %q", unitName, isLeader, rel)
 			if isLeader {
-				err = rel.SetStatus(relation.Joined)
+				err = rel.SetStatus(ctx, relation.Joined)
 				if err != nil {
 					return errors.Trace(err)
 				}
@@ -221,7 +222,7 @@ func (r *relationStateTracker) joinRelation(rel api.Relation) (err error) {
 	}
 }
 
-func (r *relationStateTracker) SynchronizeScopes(remote remotestate.Snapshot) error {
+func (r *relationStateTracker) SynchronizeScopes(ctx stdcontext.Context, remote remotestate.Snapshot) error {
 	if r.logger.IsTraceEnabled() {
 		r.logger.Tracef("%q synchronise scopes for remote relations %# v", r.unit.Name(), pretty.Formatter(remote.Relations))
 	}
@@ -235,7 +236,7 @@ func (r *relationStateTracker) SynchronizeScopes(remote remotestate.Snapshot) er
 			// differences in settings in nextRelationHook.
 			relr.RelationUnit().Relation().UpdateSuspended(relationSnapshot.Suspended)
 			if relationSnapshot.Life == life.Dying || relationSnapshot.Suspended {
-				if err := r.setDying(id); err != nil {
+				if err := r.setDying(ctx, id); err != nil {
 					return errors.Trace(err)
 				}
 			}
@@ -248,7 +249,7 @@ func (r *relationStateTracker) SynchronizeScopes(remote remotestate.Snapshot) er
 		if relationSnapshot.Life != life.Alive || relationSnapshot.Suspended {
 			continue
 		}
-		rel, err := r.client.RelationById(id)
+		rel, err := r.client.RelationById(ctx, id)
 		if err != nil {
 			if params.IsCodeNotFoundOrCodeUnauthorized(err) {
 				r.relationGone(id)
@@ -258,7 +259,7 @@ func (r *relationStateTracker) SynchronizeScopes(remote remotestate.Snapshot) er
 			return errors.Trace(err)
 		}
 
-		ep, err := rel.Endpoint()
+		ep, err := rel.Endpoint(ctx)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -286,8 +287,8 @@ func (r *relationStateTracker) SynchronizeScopes(remote remotestate.Snapshot) er
 			}
 		}
 
-		if joinErr := r.joinRelation(rel); joinErr != nil {
-			removeErr := r.stateMgr.RemoveRelation(id, r.client, knownUnits)
+		if joinErr := r.joinRelation(ctx, rel); joinErr != nil {
+			removeErr := r.stateMgr.RemoveRelation(ctx, id, r.client, knownUnits)
 			if !params.IsCodeCannotEnterScope(joinErr) {
 				return errors.Trace(joinErr)
 			} else if errors.Is(joinErr, errors.NotFound) {
@@ -328,12 +329,12 @@ func (r *relationStateTracker) maybeSetSubordinateDying() error {
 // setDying notifies the relationer identified by the supplied id that the
 // only hook executions to be requested should be those necessary to cleanly
 // exit the relation.
-func (r *relationStateTracker) setDying(id int) error {
+func (r *relationStateTracker) setDying(ctx stdcontext.Context, id int) error {
 	relationer, found := r.relationers[id]
 	if !found {
 		return nil
 	}
-	if err := relationer.SetDying(); err != nil {
+	if err := relationer.SetDying(ctx); err != nil {
 		return errors.Trace(err)
 	}
 	if relationer.IsImplicit() {
@@ -418,7 +419,7 @@ func (r *relationStateTracker) PrepareHook(hookInfo hook.Info) (string, error) {
 }
 
 // CommitHook is part of the RelationStateTracker interface.
-func (r *relationStateTracker) CommitHook(hookInfo hook.Info) (err error) {
+func (r *relationStateTracker) CommitHook(ctx stdcontext.Context, hookInfo hook.Info) (err error) {
 	defer func() {
 		if err != nil {
 			return
@@ -442,7 +443,7 @@ func (r *relationStateTracker) CommitHook(hookInfo hook.Info) (err error) {
 		r.logger.Warningf("committing hook %v for %v, relation %d has been removed", hookInfo.Kind, r.principalName, hookInfo.RelationId)
 		return nil
 	}
-	return relationer.CommitHook(hookInfo)
+	return relationer.CommitHook(ctx, hookInfo)
 }
 
 // GetInfo is part of the Relations interface.
@@ -470,12 +471,12 @@ func (r *relationStateTracker) LocalUnitName() string {
 
 // LocalUnitAndApplicationLife returns the life values for the local unit and
 // application.
-func (r *relationStateTracker) LocalUnitAndApplicationLife() (life.Value, life.Value, error) {
-	if err := r.unit.Refresh(); err != nil {
+func (r *relationStateTracker) LocalUnitAndApplicationLife(ctx stdcontext.Context) (life.Value, life.Value, error) {
+	if err := r.unit.Refresh(ctx); err != nil {
 		return life.Value(""), life.Value(""), errors.Trace(err)
 	}
 
-	app, err := r.unit.Application()
+	app, err := r.unit.Application(ctx)
 	if err != nil {
 		return life.Value(""), life.Value(""), errors.Trace(err)
 	}

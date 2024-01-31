@@ -71,7 +71,7 @@ func (cfg ContainerManifoldConfig) Validate() error {
 	return nil
 }
 
-func (cfg ContainerManifoldConfig) start(context context.Context, getter dependency.Getter) (worker.Worker, error) {
+func (cfg ContainerManifoldConfig) start(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -96,7 +96,7 @@ func (cfg ContainerManifoldConfig) start(context context.Context, getter depende
 	}
 	pr := apiprovisioner.NewClient(apiCaller)
 
-	machine, err := cfg.machineSupportsContainers(&containerShim{api: pr}, mTag)
+	machine, err := cfg.machineSupportsContainers(ctx, &containerShim{api: pr}, mTag)
 	if err != nil {
 		return nil, err
 	}
@@ -133,7 +133,7 @@ type ContainerMachine interface {
 }
 
 type ContainerMachineGetter interface {
-	Machines(tags ...names.MachineTag) ([]ContainerMachineResult, error)
+	Machines(ctx context.Context, tags ...names.MachineTag) ([]ContainerMachineResult, error)
 }
 
 type ContainerMachineResult struct {
@@ -145,8 +145,8 @@ type containerShim struct {
 	api *apiprovisioner.Client
 }
 
-func (s *containerShim) Machines(tags ...names.MachineTag) ([]ContainerMachineResult, error) {
-	result, err := s.api.Machines(tags...)
+func (s *containerShim) Machines(ctx context.Context, tags ...names.MachineTag) ([]ContainerMachineResult, error) {
+	result, err := s.api.Machines(ctx, tags...)
 	if err != nil {
 		return nil, err
 	}
@@ -160,8 +160,8 @@ func (s *containerShim) Machines(tags ...names.MachineTag) ([]ContainerMachineRe
 	return newResult, nil
 }
 
-func (cfg ContainerManifoldConfig) machineSupportsContainers(pr ContainerMachineGetter, mTag names.MachineTag) (ContainerMachine, error) {
-	result, err := pr.Machines(mTag)
+func (cfg ContainerManifoldConfig) machineSupportsContainers(ctx context.Context, pr ContainerMachineGetter, mTag names.MachineTag) (ContainerMachine, error) {
+	result, err := pr.Machines(ctx, mTag)
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot load machine %s from state", mTag)
 	}

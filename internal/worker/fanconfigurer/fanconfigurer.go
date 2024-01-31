@@ -4,6 +4,7 @@
 package fanconfigurer
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"sync"
@@ -29,8 +30,8 @@ type FanConfigurer struct {
 }
 
 type FanConfigurerFacade interface {
-	FanConfig() (network.FanConfig, error)
-	WatchForFanConfigChanges() (watcher.NotifyWatcher, error)
+	FanConfig(context.Context) (network.FanConfig, error)
+	WatchForFanConfigChanges(context.Context) (watcher.NotifyWatcher, error)
 }
 
 type FanConfigurerConfig struct {
@@ -38,12 +39,12 @@ type FanConfigurerConfig struct {
 }
 
 // processNewConfig acts on a new fan config.
-func (fc *FanConfigurer) processNewConfig() error {
+func (fc *FanConfigurer) processNewConfig(ctx context.Context) error {
 	logger.Debugf("Processing new fan config")
 	fc.mu.Lock()
 	defer fc.mu.Unlock()
 
-	fanConfig, err := fc.config.Facade.FanConfig()
+	fanConfig, err := fc.config.Facade.FanConfig(ctx)
 	if err != nil {
 		return err
 	}
@@ -70,7 +71,7 @@ func (fc *FanConfigurer) processNewConfig() error {
 	return err
 }
 
-func NewFanConfigurer(config FanConfigurerConfig, clock clock.Clock) (*FanConfigurer, error) {
+func NewFanConfigurer(ctx context.Context, config FanConfigurerConfig, clock clock.Clock) (*FanConfigurer, error) {
 	fc := &FanConfigurer{
 		config: config,
 		clock:  clock,
@@ -78,7 +79,7 @@ func NewFanConfigurer(config FanConfigurerConfig, clock clock.Clock) (*FanConfig
 	// We need to launch it once here to make sure that it's configured right away,
 	// so that machiner will have a proper fan device address to report back
 	// to controller.
-	err := fc.processNewConfig()
+	err := fc.processNewConfig(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -93,7 +94,7 @@ func NewFanConfigurer(config FanConfigurerConfig, clock clock.Clock) (*FanConfig
 }
 
 func (fc *FanConfigurer) loop() error {
-	configWatcher, err := fc.config.Facade.WatchForFanConfigChanges()
+	configWatcher, err := fc.config.Facade.WatchForFanConfigChanges(context.TODO())
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -109,7 +110,7 @@ func (fc *FanConfigurer) loop() error {
 			if !ok {
 				return errors.New("FAN configuration watcher closed")
 			}
-			if err = fc.processNewConfig(); err != nil {
+			if err = fc.processNewConfig(context.TODO()); err != nil {
 				return errors.Trace(err)
 			}
 		}

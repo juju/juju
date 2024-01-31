@@ -262,17 +262,17 @@ func (mr *MockConnectionMockRecorder) IPAddr() *gomock.Call {
 }
 
 // IsBroken mocks base method.
-func (m *MockConnection) IsBroken() bool {
+func (m *MockConnection) IsBroken(arg0 context.Context) bool {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "IsBroken")
+	ret := m.ctrl.Call(m, "IsBroken", arg0)
 	ret0, _ := ret[0].(bool)
 	return ret0
 }
 
 // IsBroken indicates an expected call of IsBroken.
-func (mr *MockConnectionMockRecorder) IsBroken() *gomock.Call {
+func (mr *MockConnectionMockRecorder) IsBroken(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsBroken", reflect.TypeOf((*MockConnection)(nil).IsBroken))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsBroken", reflect.TypeOf((*MockConnection)(nil).IsBroken), arg0)
 }
 
 // IsProxied mocks base method.

@@ -4,6 +4,7 @@
 package deployer
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/clock"
@@ -69,7 +70,7 @@ type UnitManifoldsConfig struct {
 	// ValidateMigration is called by the migrationminion during the
 	// migration process to check that the agent will be ok when
 	// connected to the new target controller.
-	ValidateMigration func(base.APICaller) error
+	ValidateMigration func(context.Context, base.APICaller) error
 
 	// UpdateLoggerConfig is a function that will save the specified
 	// config value as the logging config in the agent.conf file.

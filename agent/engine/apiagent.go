@@ -21,7 +21,7 @@ type AgentAPIManifoldConfig struct {
 }
 
 // AgentAPIStartFunc encapsulates the behaviour that varies among AgentAPIManifolds.
-type AgentAPIStartFunc func(agent.Agent, base.APICaller) (worker.Worker, error)
+type AgentAPIStartFunc func(context.Context, agent.Agent, base.APICaller) (worker.Worker, error)
 
 // AgentAPIManifold returns a dependency.Manifold that calls the supplied start
 // func with the API and agent resources defined in the config (once those
@@ -41,7 +41,7 @@ func AgentAPIManifold(config AgentAPIManifoldConfig, start AgentAPIStartFunc) de
 			if err := getter.Get(config.APICallerName, &apiCaller); err != nil {
 				return nil, err
 			}
-			return start(agent, apiCaller)
+			return start(ctx, agent, apiCaller)
 		},
 	}
 }

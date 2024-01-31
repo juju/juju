@@ -4,6 +4,7 @@
 package migrationminion
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/clock"
@@ -51,7 +52,7 @@ type Config struct {
 	Guard             fortress.Guard
 	Clock             clock.Clock
 	APIOpen           func(*api.Info, api.DialOpts) (api.Connection, error)
-	ValidateMigration func(base.APICaller) error
+	ValidateMigration func(context.Context, base.APICaller) error
 	Logger            Logger
 }
 
@@ -131,14 +132,14 @@ func (w *Worker) loop() error {
 			if !ok {
 				return errors.New("watcher channel closed")
 			}
-			if err := w.handle(status); err != nil {
+			if err := w.handle(context.TODO(), status); err != nil {
 				return errors.Trace(err)
 			}
 		}
 	}
 }
 
-func (w *Worker) handle(status watcher.MigrationStatus) error {
+func (w *Worker) handle(ctx context.Context, status watcher.MigrationStatus) error {
 	w.config.Logger.Infof("migration phase is now: %s", status.Phase)
 
 	if !status.Phase.IsRunning() {
@@ -158,7 +159,7 @@ func (w *Worker) handle(status watcher.MigrationStatus) error {
 	case migration.QUIESCE:
 		err = w.doQUIESCE(status)
 	case migration.VALIDATION:
-		err = w.doVALIDATION(status)
+		err = w.doVALIDATION(ctx, status)
 	case migration.SUCCESS:
 		err = w.doSUCCESS(status)
 	default:
@@ -174,7 +175,7 @@ func (w *Worker) doQUIESCE(status watcher.MigrationStatus) error {
 	return w.report(status, true)
 }
 
-func (w *Worker) doVALIDATION(status watcher.MigrationStatus) error {
+func (w *Worker) doVALIDATION(ctx context.Context, status watcher.MigrationStatus) error {
 	attempt := retry.StartWithCancel(
 		retry.LimitCount(maxRetries, retry.Exponential{
 			Initial: initialRetryDelay,
@@ -186,7 +187,7 @@ func (w *Worker) doVALIDATION(status watcher.MigrationStatus) error {
 	)
 	var err error
 	for attempt.Next() {
-		err = w.validate(status)
+		err = w.validate(ctx, status)
 		if err == nil {
 			break
 		}
@@ -208,7 +209,7 @@ func (w *Worker) doVALIDATION(status watcher.MigrationStatus) error {
 	return w.report(status, err == nil)
 }
 
-func (w *Worker) validate(status watcher.MigrationStatus) error {
+func (w *Worker) validate(ctx context.Context, status watcher.MigrationStatus) error {
 	agentConf := w.config.Agent.CurrentConfig()
 	apiInfo, ok := agentConf.APIInfo()
 	if !ok {
@@ -231,7 +232,7 @@ func (w *Worker) validate(status watcher.MigrationStatus) error {
 	defer func() { _ = conn.Close() }()
 
 	// Ask the agent to confirm that things look ok.
-	err = w.config.ValidateMigration(conn)
+	err = w.config.ValidateMigration(ctx, conn)
 	return errors.Trace(err)
 }
 

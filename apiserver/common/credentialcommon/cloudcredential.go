@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/domain/credential"
-	envcontext "github.com/juju/juju/environs/envcontext"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/rpc/params"
 )
 

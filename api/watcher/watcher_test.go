@@ -90,7 +90,7 @@ func (s *watcherSuite) TestWatchMachine(c *gc.C) {
 	caller.EXPECT().APICall(gomock.Any(), "Machiner", 666, "", "Watch", args, gomock.Any()).SetArg(6, initialResults).Return(nil)
 
 	client := machiner.NewClient(caller)
-	m, err := client.Machine(names.NewMachineTag("666"))
+	m, err := client.Machine(context.Background(), names.NewMachineTag("666"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	w, err := m.Watch()
@@ -125,7 +125,7 @@ func (s *watcherSuite) TestNotifyWatcherStopsWithPendingSend(c *gc.C) {
 	caller.EXPECT().APICall(gomock.Any(), "Machiner", 666, "", "Watch", args, gomock.Any()).SetArg(6, initialResults).Return(nil)
 
 	client := machiner.NewClient(caller)
-	m, err := client.Machine(names.NewMachineTag("666"))
+	m, err := client.Machine(context.Background(), names.NewMachineTag("666"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	w, err := m.Watch()
@@ -158,7 +158,7 @@ func (s *watcherSuite) TestWatchUnits(c *gc.C) {
 	m, err := client.Machine(names.NewMachineTag("666"))
 	c.Assert(err, jc.ErrorIsNil)
 
-	w, err := m.WatchUnits()
+	w, err := m.WatchUnits(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
@@ -199,7 +199,7 @@ func (s *watcherSuite) TestStringsWatcherStopsWithPendingSend(c *gc.C) {
 	m, err := client.Machine(names.NewMachineTag("666"))
 	c.Assert(err, jc.ErrorIsNil)
 
-	w, err := m.WatchUnits()
+	w, err := m.WatchUnits(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 

@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/testing"
-	worker "github.com/juju/worker/v4"
+	"github.com/juju/worker/v4"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
@@ -98,7 +98,7 @@ func (s *manifoldConfigSuite) TestValidConfigValidate(c *gc.C) {
 		NewBrokerFunc: func(broker.Config) (environs.InstanceBroker, error) {
 			return mocks.NewMockInstanceBroker(ctrl), nil
 		},
-		NewTracker: func(containerbroker.Config) (worker.Worker, error) {
+		NewTracker: func(context.Context, containerbroker.Config) (worker.Worker, error) {
 			return mocks.NewMockWorker(ctrl), nil
 		},
 	}
@@ -147,7 +147,7 @@ func (s *manifoldSuite) TestNewTrackerIsCalled(c *gc.C) {
 		NewBrokerFunc: func(broker.Config) (environs.InstanceBroker, error) {
 			return s.broker, nil
 		},
-		NewTracker: func(cfg containerbroker.Config) (worker.Worker, error) {
+		NewTracker: func(_ context.Context, cfg containerbroker.Config) (worker.Worker, error) {
 			return s.worker, nil
 		},
 	}
@@ -170,7 +170,7 @@ func (s *manifoldSuite) TestNewTrackerReturnsError(c *gc.C) {
 		NewBrokerFunc: func(broker.Config) (environs.InstanceBroker, error) {
 			return s.broker, nil
 		},
-		NewTracker: func(cfg containerbroker.Config) (worker.Worker, error) {
+		NewTracker: func(_ context.Context, cfg containerbroker.Config) (worker.Worker, error) {
 			return nil, errors.New("errored")
 		},
 	}

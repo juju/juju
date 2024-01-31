@@ -256,7 +256,7 @@ type stubRunner struct {
 	ran  chan struct{}
 }
 
-func (r *stubRunner) RunHook(code, info string, abort <-chan struct{}) {
+func (r *stubRunner) RunHook(_ context.Context, code, info string, abort <-chan struct{}) {
 	r.stub.MethodCall(r, "RunHook", code, info)
 	if r.ran != nil {
 		select {

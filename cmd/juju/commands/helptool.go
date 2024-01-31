@@ -4,6 +4,7 @@
 package commands
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -81,7 +82,7 @@ func (dummyHookContext) StorageInstance(id string) (*storage.StorageInstance, er
 	return nil, errors.NotFoundf("StorageInstance")
 }
 
-func (dummyHookContext) UnitStatus() (*jujuc.StatusInfo, error) {
+func (dummyHookContext) UnitStatus(context.Context) (*jujuc.StatusInfo, error) {
 	return &jujuc.StatusInfo{}, nil
 }
 

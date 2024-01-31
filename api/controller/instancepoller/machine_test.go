@@ -4,6 +4,7 @@
 package instancepoller_test
 
 import (
+	"context"
 	"reflect"
 	"time"
 
@@ -52,7 +53,7 @@ func (s *MachineSuite) TestNonFacadeMethods(c *gc.C) {
 
 // methodWrapper wraps a Machine method call and returns the error,
 // ignoring the result (if any).
-type methodWrapper func(*instancepoller.Machine) error
+type methodWrapper func(*instancepoller.Machine, context.Context) error
 
 // machineErrorTests contains all the necessary information to test
 // how each Machine method handles client- and server-side API errors,
@@ -68,41 +69,41 @@ var machineErrorTests = []struct {
 	resultsRef: params.LifeResults{},
 }, {
 	method: "IsManual",
-	wrapper: func(m *instancepoller.Machine) error {
+	wrapper: func(m *instancepoller.Machine, _ context.Context) error {
 		_, err := m.IsManual()
 		return err
 	},
 	resultsRef: params.BoolResults{},
 }, {
 	method: "InstanceId",
-	wrapper: func(m *instancepoller.Machine) error {
+	wrapper: func(m *instancepoller.Machine, _ context.Context) error {
 		_, err := m.InstanceId()
 		return err
 	},
 	resultsRef: params.StringResults{},
 }, {
 	method: "Status",
-	wrapper: func(m *instancepoller.Machine) error {
+	wrapper: func(m *instancepoller.Machine, _ context.Context) error {
 		_, err := m.Status()
 		return err
 	},
 	resultsRef: params.StatusResults{},
 }, {
 	method: "InstanceStatus",
-	wrapper: func(m *instancepoller.Machine) error {
+	wrapper: func(m *instancepoller.Machine, _ context.Context) error {
 		_, err := m.InstanceStatus()
 		return err
 	},
 	resultsRef: params.StatusResults{},
 }, {
 	method: "SetInstanceStatus",
-	wrapper: func(m *instancepoller.Machine) error {
+	wrapper: func(m *instancepoller.Machine, _ context.Context) error {
 		return m.SetInstanceStatus("", "", nil)
 	},
 	resultsRef: params.ErrorResults{},
 }, {
 	method: "SetProviderNetworkConfig",
-	wrapper: func(m *instancepoller.Machine) error {
+	wrapper: func(m *instancepoller.Machine, _ context.Context) error {
 		_, _, err := m.SetProviderNetworkConfig(nil)
 		return err
 	},
@@ -142,7 +143,7 @@ func (s *MachineSuite) TestRefreshSuccess(c *gc.C) {
 	}
 	apiCaller := successAPICaller(c, "Life", entitiesArgs, results)
 	machine := instancepoller.NewMachine(apiCaller, s.tag, life.Alive)
-	c.Check(machine.Refresh(), jc.ErrorIsNil)
+	c.Check(machine.Refresh(context.Background()), jc.ErrorIsNil)
 	c.Check(machine.Life(), gc.Equals, life.Dying)
 	c.Check(apiCaller.CallCount, gc.Equals, 1)
 }
@@ -251,14 +252,14 @@ func (s *MachineSuite) TestSetProviderNetworkConfigSuccess(c *gc.C) {
 func (s *MachineSuite) CheckClientError(c *gc.C, wf methodWrapper) {
 	apiCaller := clientErrorAPICaller(c, "", nil)
 	machine := instancepoller.NewMachine(apiCaller, s.tag, life.Alive)
-	c.Check(wf(machine), gc.ErrorMatches, "client error!")
+	c.Check(wf(machine, context.Background()), gc.ErrorMatches, "client error!")
 	c.Check(apiCaller.CallCount, gc.Equals, 1)
 }
 
 func (s *MachineSuite) CheckServerError(c *gc.C, wf methodWrapper, expectErr string, serverResults interface{}) {
 	apiCaller := successAPICaller(c, "", nil, serverResults)
 	machine := instancepoller.NewMachine(apiCaller, s.tag, life.Alive)
-	c.Check(wf(machine), gc.ErrorMatches, expectErr)
+	c.Check(wf(machine, context.Background()), gc.ErrorMatches, expectErr)
 	c.Check(apiCaller.CallCount, gc.Equals, 1)
 }
 

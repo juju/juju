@@ -4,6 +4,7 @@
 package relation_test
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/charm/v12"
@@ -51,7 +52,7 @@ func (s *relationerSuite) TestImplicitRelationerCommitHook(c *gc.C) {
 	r := s.newRelationer()
 
 	// Hooks are not allowed.
-	err := r.CommitHook(hook.Info{})
+	err := r.CommitHook(context.Background(), hook.Info{})
 	c.Assert(err, gc.ErrorMatches, `restart immediately`)
 }
 
@@ -66,7 +67,7 @@ func (s *relationerSuite) TestImplicitRelationerSetDying(c *gc.C) {
 
 	// Set it to Dying
 	c.Assert(r.IsDying(), jc.IsFalse)
-	err := r.SetDying()
+	err := r.SetDying(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(r.IsDying(), jc.IsTrue)
 }
@@ -80,7 +81,7 @@ func (s *relationerSuite) TestSetDying(c *gc.C) {
 
 	// Set it to Dying
 	c.Assert(r.IsDying(), jc.IsFalse)
-	err := r.SetDying()
+	err := r.SetDying(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(r.IsDying(), jc.IsTrue)
 }
@@ -93,7 +94,7 @@ func (s *relationerSuite) TestIfDyingFailJoin(c *gc.C) {
 	r := s.newRelationer()
 
 	// Set it to Dying
-	err := r.SetDying()
+	err := r.SetDying(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Try to Join
@@ -110,7 +111,7 @@ func (s *relationerSuite) TestCommitHookRelationBrokenDies(c *gc.C) {
 
 	r := s.newRelationer()
 
-	err := r.CommitHook(hook.Info{Kind: hooks.RelationBroken})
+	err := r.CommitHook(context.Background(), hook.Info{Kind: hooks.RelationBroken})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -123,7 +124,7 @@ func (s *relationerSuite) TestCommitHookRelationRemoved(c *gc.C) {
 
 	r := s.newRelationer()
 
-	err := r.CommitHook(hook.Info{Kind: hooks.RelationBroken})
+	err := r.CommitHook(context.Background(), hook.Info{Kind: hooks.RelationBroken})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -136,7 +137,7 @@ func (s *relationerSuite) TestCommitHook(c *gc.C) {
 
 	r := s.newRelationer()
 
-	err := r.CommitHook(hook.Info{Kind: hooks.RelationJoined, RelationId: 1})
+	err := r.CommitHook(context.Background(), hook.Info{Kind: hooks.RelationJoined, RelationId: 1})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -148,7 +149,7 @@ func (s *relationerSuite) TestCommitHookRelationFail(c *gc.C) {
 
 	r := s.newRelationer()
 
-	err := r.CommitHook(hook.Info{Kind: hooks.RelationJoined, RelationId: 1})
+	err := r.CommitHook(context.Background(), hook.Info{Kind: hooks.RelationJoined, RelationId: 1})
 	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
 }
 
@@ -277,7 +278,7 @@ func (s *relationerSuite) expectRelationId() {
 
 // StateManager
 func (s *relationerSuite) expectRemoveRelation() {
-	s.stateManager.EXPECT().RemoveRelation(1, s.unitGetter, map[string]bool{}).Return(nil)
+	s.stateManager.EXPECT().RemoveRelation(gomock.Any(), 1, s.unitGetter, map[string]bool{}).Return(nil)
 }
 
 func (s *relationerSuite) expectRelationFound(found bool) {

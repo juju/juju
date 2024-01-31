@@ -333,7 +333,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 		u.logger.Infof("unit %q shutting down: %s", unitTag.Id(), errorString)
 	}()
 
-	if err := u.init(unitTag); err != nil {
+	if err := u.init(ctx, unitTag); err != nil {
 		switch cause := errors.Cause(err); cause {
 		case resolver.ErrLoopAborted:
 			return u.catacomb.ErrDying()
@@ -350,7 +350,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 
 	// Check we are running the correct charm version.
 	if u.sidecar && u.enforcedCharmModifiedVersion != -1 {
-		app, err := u.unit.Application()
+		app, err := u.unit.Application(stdcontext.TODO())
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -577,7 +577,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 				localState.HookWasShutdown = true
 				err = nil
 			case errors.Is(err, resolver.ErrUnitDead):
-				err = u.terminate()
+				err = u.terminate(stdcontext.TODO())
 			case errors.Is(err, resolver.ErrRestart):
 				// make sure we update the two values used above in
 				// creating LocalState.
@@ -605,7 +605,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 	return err
 }
 
-func (u *Uniter) verifyCharmProfile(url string) error {
+func (u *Uniter) verifyCharmProfile(ctx stdcontext.Context, url string) error {
 	// NOTE: this is very similar code to verifyCharmProfile.NextOp,
 	// if you make changes here, check to see if they are needed there.
 	ch, err := u.client.Charm(url)
@@ -626,7 +626,7 @@ func (u *Uniter) verifyCharmProfile(url string) error {
 		return errors.Trace(err)
 	}
 	if profile == "" {
-		if err := u.unit.SetUnitStatus(status.Waiting, "required charm profile not yet applied to machine", nil); err != nil {
+		if err := u.unit.SetUnitStatus(ctx, status.Waiting, "required charm profile not yet applied to machine", nil); err != nil {
 			return errors.Trace(err)
 		}
 		u.logger.Debugf("required lxd profile not found on machine")
@@ -642,14 +642,14 @@ func (u *Uniter) verifyCharmProfile(url string) error {
 		return errors.Trace(err)
 	}
 	if rev != curl.Revision {
-		if err := u.unit.SetUnitStatus(status.Waiting, fmt.Sprintf("required charm profile %q not yet applied to machine", profile), nil); err != nil {
+		if err := u.unit.SetUnitStatus(ctx, status.Waiting, fmt.Sprintf("required charm profile %q not yet applied to machine", profile), nil); err != nil {
 			return errors.Trace(err)
 		}
 		u.logger.Debugf("charm is revision %d, charm profile has revision %d", curl.Revision, rev)
 		return errors.NotFoundf("required charm profile, %q, on machine", profile)
 	}
 	u.logger.Debugf("required lxd profile %q FOUND on machine", profile)
-	if err := u.unit.SetUnitStatus(status.Waiting, status.MessageInitializingAgent, nil); err != nil {
+	if err := u.unit.SetUnitStatus(ctx, status.Waiting, status.MessageInitializingAgent, nil); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
@@ -676,7 +676,7 @@ func (u *Uniter) charmState(ctx stdcontext.Context) (bool, string, int, error) {
 		if canApplyCharmProfile {
 			// Note: canApplyCharmProfile will be false for a CAAS model.
 			// Verify the charm profile before proceeding.
-			if err := u.verifyCharmProfile(opState.CharmURL); err != nil {
+			if err := u.verifyCharmProfile(ctx, opState.CharmURL); err != nil {
 				return canApplyCharmProfile, charmURL, charmModifiedVersion, err
 			}
 		}
@@ -696,7 +696,7 @@ func (u *Uniter) charmState(ctx stdcontext.Context) (bool, string, int, error) {
 		return canApplyCharmProfile, charmURL, charmModifiedVersion, errors.Trace(err)
 	}
 	charmURL = curl
-	app, err := u.unit.Application()
+	app, err := u.unit.Application(ctx)
 	if err != nil {
 		return canApplyCharmProfile, charmURL, charmModifiedVersion, errors.Trace(err)
 	}
@@ -713,7 +713,7 @@ func (u *Uniter) charmState(ctx stdcontext.Context) (bool, string, int, error) {
 	return canApplyCharmProfile, charmURL, charmModifiedVersion, nil
 }
 
-func (u *Uniter) terminate() error {
+func (u *Uniter) terminate(ctx stdcontext.Context) error {
 	unitWatcher, err := u.unit.Watch()
 	if err != nil {
 		return errors.Trace(err)
@@ -729,7 +729,7 @@ func (u *Uniter) terminate() error {
 			if !ok {
 				return errors.New("unit watcher closed")
 			}
-			if err := u.unit.Refresh(); err != nil {
+			if err := u.unit.Refresh(ctx); err != nil {
 				return errors.Trace(err)
 			}
 			if hasSubs, err := u.unit.HasSubordinates(); err != nil {
@@ -761,7 +761,7 @@ func (u *Uniter) stopUnitError() error {
 	return jworker.ErrTerminateAgent
 }
 
-func (u *Uniter) init(unitTag names.UnitTag) (err error) {
+func (u *Uniter) init(ctx stdcontext.Context, unitTag names.UnitTag) (err error) {
 	switch u.modelType {
 	case model.IAAS, model.CAAS:
 		// known types, all good
@@ -774,7 +774,7 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 	// complete any operations in progress before detecting it,
 	// but that race is fundamental and inescapable,
 	// whereas this one is not.
-	u.unit, err = u.client.Unit(unitTag)
+	u.unit, err = u.client.Unit(ctx, unitTag)
 	if err != nil {
 		if errors.Is(err, errors.NotFound) {
 			return u.stopUnitError()
@@ -786,7 +786,7 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 	}
 
 	// If initialising for the first time after deploying, update the status.
-	currentStatus, err := u.unit.UnitStatus()
+	currentStatus, err := u.unit.UnitStatus(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -796,14 +796,14 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 	// If the previous status was waiting for machine, we transition to the next step.
 	if currentStatus.Status == string(status.Waiting) &&
 		(currentStatus.Info == status.MessageWaitForMachine || currentStatus.Info == status.MessageInstallingAgent) {
-		if err := u.unit.SetUnitStatus(status.Waiting, status.MessageInitializingAgent, nil); err != nil {
+		if err := u.unit.SetUnitStatus(ctx, status.Waiting, status.MessageInitializingAgent, nil); err != nil {
 			return errors.Trace(err)
 		}
 	}
 	if err := tools.EnsureSymlinks(u.paths.ToolsDir, u.paths.ToolsDir, jujuc.CommandNames()); err != nil {
 		return err
 	}
-	relStateTracker, err := relation.NewRelationStateTracker(
+	relStateTracker, err := relation.NewRelationStateTracker(ctx,
 		relation.RelationStateTrackerConfig{
 			Client:            u.client,
 			Unit:              u.unit,
@@ -851,7 +851,7 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 	if err != nil {
 		return errors.Annotatef(err, "cannot create deployer")
 	}
-	contextFactory, err := context.NewContextFactory(context.FactoryConfig{
+	contextFactory, err := context.NewContextFactory(ctx, context.FactoryConfig{
 		Uniter:               u.client,
 		SecretsClient:        u.secretsClient,
 		SecretsBackendGetter: u.secretsBackendGetter,
@@ -887,7 +887,7 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		Logger:         u.logger.Child("operation"),
 	})
 
-	charmURL, err := u.getApplicationCharmURL()
+	charmURL, err := u.getApplicationCharmURL(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -961,9 +961,9 @@ func (u *Uniter) Wait() error {
 	return u.catacomb.Wait()
 }
 
-func (u *Uniter) getApplicationCharmURL() (string, error) {
+func (u *Uniter) getApplicationCharmURL(ctx stdcontext.Context) (string, error) {
 	// TODO(fwereade): pretty sure there's no reason to make 2 API calls here.
-	app, err := u.client.Application(u.unit.ApplicationTag())
+	app, err := u.client.Application(ctx, u.unit.ApplicationTag())
 	if err != nil {
 		return "", err
 	}

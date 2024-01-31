@@ -61,7 +61,7 @@ type ManifoldConfig struct {
 	ServiceFactoryName   string
 	PreUpgradeSteps      upgrades.PreUpgradeStepsFunc
 	UpgradeSteps         upgrades.UpgradeStepsFunc
-	NewAgentStatusSetter func(base.APICaller) (StatusSetter, error)
+	NewAgentStatusSetter func(context.Context, base.APICaller) (StatusSetter, error)
 	NewMachineWorker     MachineWorkerFunc
 	NewControllerWorker  ControllerWorkerFunc
 	Logger               Logger
@@ -131,14 +131,14 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 
 			agentTag := agent.CurrentConfig().Tag()
-			isController, err := apiagent.IsController(apiCaller, agentTag)
+			isController, err := apiagent.IsController(ctx, apiCaller, agentTag)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
 
 			// Get a component capable of setting machine status
 			// to indicate progress to the user.
-			statusSetter, err := config.NewAgentStatusSetter(apiCaller)
+			statusSetter, err := config.NewAgentStatusSetter(ctx, apiCaller)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
