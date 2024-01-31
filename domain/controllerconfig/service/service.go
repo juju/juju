@@ -10,13 +10,18 @@ import (
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/watcher"
 )
+
+// ModificationValidatorFunc is a function that validates a modification
+// to the controller config.
+type ModificationValidatorFunc = func(map[string]string) error
 
 // State defines an interface for interacting with the underlying state.
 type State interface {
 	ControllerConfig(context.Context) (map[string]string, error)
-	UpdateControllerConfig(ctx context.Context, updateAttrs map[string]string, removeAttrs []string) error
+	UpdateControllerConfig(ctx context.Context, updateAttrs map[string]string, removeAttrs []string, validateModification ModificationValidatorFunc) error
 
 	// AllKeysQuery is used to get the initial state
 	// for the controller configuration watcher.
@@ -87,7 +92,19 @@ func (s *Service) UpdateControllerConfig(ctx context.Context, updateAttrs contro
 	if err != nil {
 		return errors.Trace(err)
 	}
-	err = s.st.UpdateControllerConfig(ctx, coerced, removeAttrs)
+	err = s.st.UpdateControllerConfig(ctx, coerced, removeAttrs, func(current map[string]string) error {
+		// Validate the updateAttrs against the current config.
+		// This is done to ensure that the update config values are allowed
+		// to be modified to the updated ones.
+		//
+		// For example, is it possible to move from filestorage to s3storage.
+		// But it is not possible to move from s3storage to filestorage.
+		if err := validObjectStoreProgression(current, updateAttrs, removeAttrs); err != nil {
+			return errors.Trace(err)
+		}
+
+		return nil
+	})
 	return errors.Annotate(err, "updating controller config state")
 }
 
@@ -156,4 +173,33 @@ func deserializeMap(m map[string]string) (map[string]any, error) {
 		result[key] = v
 	}
 	return result, nil
+}
+
+// validObjectStoreProgression validates that the object store type is allowed
+// to be changed from the current config to the update config.
+func validObjectStoreProgression(current map[string]string, updateAttrs controller.Config, removeAttrs []string) error {
+	if contains(removeAttrs, controller.ObjectStoreType) {
+		return errors.Errorf("can not remove %q", controller.ObjectStoreType)
+	}
+
+	// We should always have a valid object store type in the current config,
+	// so we don't need to check for errors.
+	cur := objectstore.BackendType(current[controller.ObjectStoreType])
+	upd := updateAttrs.ObjectStoreType()
+
+	// We're not changing the object store type, or we're changing from
+	// filestorage to s3storage.
+	if cur == upd || cur == objectstore.FileBackend && upd == objectstore.S3Backend {
+		return nil
+	}
+	return errors.Errorf("can not change %q from %q to %q", controller.ObjectStoreType, cur, upd)
+}
+
+func contains(s []string, e string) bool {
+	for _, a := range s {
+		if a == e {
+			return true
+		}
+	}
+	return false
 }

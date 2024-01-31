@@ -571,6 +571,7 @@ var (
 		PublicDNSAddress,
 		QueryTracingEnabled,
 		QueryTracingThreshold,
+		ObjectStoreType,
 		ObjectStoreS3Endpoint,
 		ObjectStoreS3StaticKey,
 		ObjectStoreS3StaticSecret,
