@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -22,6 +23,11 @@ import (
 
 // S3ObjectStoreConfig is the configuration for the s3 object store.
 type S3ObjectStoreConfig struct {
+	// RootDir is the root directory for the object store. This is the location
+	// where the tmp directory will be created.
+	// This is different than /tmp because the /tmp directory might be
+	// mounted on a different file system.
+	RootDir string
 	// RootBucket is the name of the root bucket.
 	RootBucket string
 	// Namespace is the namespace for the object store (typically the
@@ -50,8 +56,11 @@ type s3ObjectStore struct {
 // NewS3ObjectStore returns a new object store worker based on the s3 backing
 // storage.
 func NewS3ObjectStore(ctx context.Context, cfg S3ObjectStoreConfig) (TrackedObjectStore, error) {
+	path := filepath.Join(cfg.RootDir, defaultFileDirectory, cfg.Namespace)
+
 	s := &s3ObjectStore{
 		baseObjectStore: baseObjectStore{
+			path:            path,
 			claimer:         cfg.Claimer,
 			metadataService: cfg.MetadataService,
 			logger:          cfg.Logger,
@@ -198,6 +207,18 @@ func (t *s3ObjectStore) Remove(ctx context.Context, path string) error {
 }
 
 func (t *s3ObjectStore) loop() error {
+	// Ensure the namespace directory exists, along with the tmp directory.
+	if err := t.ensureDirectories(); err != nil {
+		return errors.Trace(err)
+	}
+
+	// Remove any temporary files that may have been left behind. We don't
+	// provide continuation for these operations, so a retry will be required
+	// if the operation fails.
+	if err := t.cleanupTmpFiles(); err != nil {
+		return errors.Trace(err)
+	}
+
 	ctx, cancel := t.scopedContext()
 	defer cancel()
 
@@ -301,10 +322,13 @@ func (t *s3ObjectStore) put(ctx context.Context, path string, r io.Reader, size 
 
 	// We need to write this to a temp file, because if the client retries
 	// then we need seek back to the beginning of the file.
-	fileName, err := t.writeToTmpFile(path, io.TeeReader(r, io.MultiWriter(fileHash, s3Hash)), size)
+	fileName, tmpFileCleanup, err := t.writeToTmpFile(t.path, io.TeeReader(r, io.MultiWriter(fileHash, s3Hash)), size)
 	if err != nil {
 		return errors.Trace(err)
 	}
+
+	// Ensure that we remove the temporary file if we fail to persist it.
+	defer func() { _ = tmpFileCleanup() }()
 
 	// Encode the hashes as strings, so we can use them for file and s3 lookups.
 	fileEncodedHash := hex.EncodeToString(fileHash.Sum(nil))

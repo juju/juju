@@ -142,6 +142,7 @@ func ObjectStoreFactory(ctx context.Context, backendType objectstore.BackendType
 		return NewS3ObjectStore(ctx, S3ObjectStoreConfig{
 			RootBucket:      opts.rootBucket,
 			Namespace:       namespace,
+			RootDir:         opts.rootDir,
 			Client:          opts.s3Client,
 			MetadataService: opts.metadataService.ObjectStore(),
 			Claimer:         opts.claimer,
