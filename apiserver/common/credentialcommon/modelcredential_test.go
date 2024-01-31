@@ -63,7 +63,7 @@ func (s *CheckMachinesSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *CheckMachinesSuite) TestCheckMachinesSuccess(c *gc.C) {
-	results, err := credentialcommon.CheckMachineInstances(s.backend, s.provider, s.callContext, false, nil)
+	results, err := credentialcommon.CheckMachineInstances(s.backend, s.provider, s.callContext, false, []instances.Instance{s.instance})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{})
 }
@@ -74,7 +74,7 @@ func (s *CheckMachinesSuite) TestCheckMachinesInstancesMissing(c *gc.C) {
 		return []credentialcommon.Machine{s.machine, machine1}, nil
 	}
 
-	results, err := credentialcommon.CheckMachineInstances(s.backend, s.provider, s.callContext, false, nil)
+	results, err := credentialcommon.CheckMachineInstances(s.backend, s.provider, s.callContext, false, []instances.Instance{s.instance})
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(results.Results, gc.HasLen, 1)
@@ -114,7 +114,7 @@ func (s *CheckMachinesSuite) TestCheckMachinesHandlesContainers(c *gc.C) {
 		return []credentialcommon.Machine{s.machine, machine1}, nil
 	}
 
-	results, err := credentialcommon.CheckMachineInstances(s.backend, s.provider, s.callContext, false, nil)
+	results, err := credentialcommon.CheckMachineInstances(s.backend, s.provider, s.callContext, false, []instances.Instance{s.instance})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{})
 }
@@ -126,12 +126,12 @@ func (s *CheckMachinesSuite) TestCheckMachinesHandlesManual(c *gc.C) {
 		return []credentialcommon.Machine{s.machine, machine1}, nil
 	}
 
-	results, err := credentialcommon.CheckMachineInstances(s.backend, s.provider, s.callContext, false, nil)
+	results, err := credentialcommon.CheckMachineInstances(s.backend, s.provider, s.callContext, false, []instances.Instance{s.instance})
 	c.Assert(err, gc.ErrorMatches, "manual retrieval failure")
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{})
 
 	machine1.manualFunc = func() (bool, error) { return true, nil }
-	results, err = credentialcommon.CheckMachineInstances(s.backend, s.provider, s.callContext, false, nil)
+	results, err = credentialcommon.CheckMachineInstances(s.backend, s.provider, s.callContext, false, []instances.Instance{s.instance})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{})
 }
@@ -143,7 +143,7 @@ func (s *CheckMachinesSuite) TestCheckMachinesErrorGettingMachineInstanceId(c *g
 		return []credentialcommon.Machine{s.machine, machine1}, nil
 	}
 
-	results, err := credentialcommon.CheckMachineInstances(s.backend, s.provider, s.callContext, false, nil)
+	results, err := credentialcommon.CheckMachineInstances(s.backend, s.provider, s.callContext, false, []instances.Instance{s.instance})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
@@ -178,7 +178,7 @@ func (s *CheckMachinesSuite) TestCheckMachinesErrorGettingMachineInstanceIdNonFa
 		return []credentialcommon.Machine{s.machine, machine1}, nil
 	}
 
-	results, err := credentialcommon.CheckMachineInstances(s.backend, s.provider, s.callContext, true, nil)
+	results, err := credentialcommon.CheckMachineInstances(s.backend, s.provider, s.callContext, true, []instances.Instance{s.instance})
 	c.Assert(err, jc.ErrorIsNil)
 	// There should be 3 errors here:
 	// * 2 of them because failing to get an instance id from one machine should not stop the processing the rest of the machines;
@@ -201,7 +201,7 @@ func (s *CheckMachinesSuite) TestCheckMachinesNotProvisionedError(c *gc.C) {
 
 	// We should ignore the unprovisioned machine - we wouldn't expect
 	// the cloud to know about it.
-	results, err := credentialcommon.CheckMachineInstances(s.backend, s.provider, s.callContext, false, nil)
+	results, err := credentialcommon.CheckMachineInstances(s.backend, s.provider, s.callContext, false, []instances.Instance{s.instance})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{})
 }
