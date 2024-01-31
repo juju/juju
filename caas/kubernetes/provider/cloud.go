@@ -146,7 +146,7 @@ func (p kubernetesEnvironProvider) FinalizeCloud(ctx environs.FinalizeCloudConte
 
 	var credentials cloud.Credential
 	if cld.Name != k8s.K8sCloudMicrok8s {
-		creds, err := p.RegisterCredentials(ctx, cld)
+		creds, err := p.RegisterCredentials(cld)
 		if err != nil {
 			return cld, err
 		}
@@ -165,7 +165,7 @@ func (p kubernetesEnvironProvider) FinalizeCloud(ctx environs.FinalizeCloudConte
 		}
 		cld = mk8sCloud
 
-		creds, err := p.RegisterCredentials(ctx, cld)
+		creds, err := p.RegisterCredentials(cld)
 		if err != nil {
 			return cld, err
 		}
