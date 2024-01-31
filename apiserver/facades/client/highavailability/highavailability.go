@@ -34,13 +34,19 @@ type NodeService interface {
 	CurateNodes(context.Context, []string, []string) error
 }
 
+// MachineSaver instances save a machine to dqlite state.
+type MachineSaver interface {
+	Save(context.Context, string) error
+}
+
 // HighAvailabilityAPI implements the HighAvailability interface and is the concrete
 // implementation of the api end point.
 type HighAvailabilityAPI struct {
-	st          *state.State
-	nodeService NodeService
-	authorizer  facade.Authorizer
-	logger      loggo.Logger
+	st           *state.State
+	nodeService  NodeService
+	machineSaver MachineSaver
+	authorizer   facade.Authorizer
+	logger       loggo.Logger
 }
 
 // EnableHA adds controller machines as necessary to ensure the
@@ -136,6 +142,13 @@ func (api *HighAvailabilityAPI) enableHASingle(ctx context.Context, spec params.
 	err = api.nodeService.CurateNodes(ctx, append(changes.Added, changes.Converted...), changes.Removed)
 	if err != nil {
 		return params.ControllersChanges{}, err
+	}
+
+	// Add the dqlite records for new machines.
+	for _, m := range changes.Added {
+		if err := api.machineSaver.Save(ctx, m); err != nil {
+			return params.ControllersChanges{}, err
+		}
 	}
 
 	return controllersChanges(changes), nil
