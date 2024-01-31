@@ -53,6 +53,14 @@ type NodeManager struct {
 
 // NewNodeManager returns a new NodeManager reference
 // based on the input agent configuration.
+//
+// If isLoopbackPreferred is true, we bind Dqlite to 127.0.0.1 and eschew TLS
+// termination. This is useful primarily in unit testing and a temporary
+// workaround for CAAS, which does not yet support enable-ha.
+//
+// If it is false, we attempt to identify a unique local-cloud address.
+// If we find one, we use it as the bind address. Otherwise, we fall back
+// to the loopback binding.
 func NewNodeManager(cfg agent.Config, isLoopbackPreferred bool, logger Logger, slowQueryLogger coredatabase.SlowQueryLogger) *NodeManager {
 	m := &NodeManager{
 		cfg:                 cfg,

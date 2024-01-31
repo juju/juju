@@ -111,6 +111,9 @@ func InitializeState(
 
 	// If we're running caas, we need to bind to the loopback address
 	// and eschew TLS termination.
+	// This is to prevent dqlite to become all at sea when the controller pod
+	// is rescheduled. This is only a temporary measure until we have HA
+	// dqlite for k8s.
 	isLoopbackPreferred := isCAAS
 
 	if err := database.BootstrapDqlite(

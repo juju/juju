@@ -575,7 +575,7 @@ func (w *dbWorker) processAPIServerChange(apiDetails apiserver.Details) error {
 			if err != nil {
 				return errors.Trace(err)
 			}
-			// Everything is find, we're bound to the loopback address and
+			// Everything is fine, we're bound to the loopback address and
 			// can return early.
 			if isLoopbackBound {
 				return nil

@@ -52,12 +52,6 @@ type bootstrapNodeManager interface {
 //
 // It accepts an optional list of functions to perform operations on the
 // controller database.
-//
-// If preferLoopback is true, we bind Dqlite to 127.0.0.1 and eschew TLS
-// termination. This is useful primarily in unit testing.
-// If it is false, we attempt to identify a unique local-cloud address.
-// If we find one, we use it as the bind address. Otherwise, we fall back
-// to the loopback binding.
 func BootstrapDqlite(
 	ctx context.Context,
 	mgr bootstrapNodeManager,
