@@ -87,6 +87,10 @@ func (s *serverSuite) TestStop(c *gc.C) {
 	// Check it can be stopped twice.
 	err = s.Server.Stop()
 	c.Assert(err, jc.ErrorIsNil)
+
+	// nil Server to prevent connection cleanup during teardown complaining due
+	// to connection close errors.
+	s.Server = nil
 }
 
 func (s *serverSuite) TestAPIServerCanListenOnBothIPv4AndIPv6(c *gc.C) {

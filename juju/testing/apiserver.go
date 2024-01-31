@@ -536,12 +536,12 @@ func (s *ApiServerSuite) Model(c *gc.C, uuid string) (*state.Model, func() bool)
 
 func (s *ApiServerSuite) tearDownConn(c *gc.C) {
 	testServer := mgotesting.MgoServer.Addr()
-	serverAlive := testServer != ""
+	serverDead := testServer == "" || s.Server == nil
 
 	// Close any api connections we know about first.
 	for _, st := range s.apiConns {
 		err := st.Close()
-		if serverAlive {
+		if !serverDead {
 			c.Check(err, jc.ErrorIsNil)
 		}
 	}
