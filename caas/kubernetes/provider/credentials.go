@@ -22,6 +22,8 @@ type environProviderCredentials struct {
 	builtinCredentialGetter func(context.Context, CommandRunner) (cloud.Credential, error)
 }
 
+var _ environs.ProviderCredentials = (*environProviderCredentials)(nil)
+
 // CredentialSchemas is part of the environs.ProviderCredentials interface.
 func (environProviderCredentials) CredentialSchemas() map[cloud.AuthType]cloud.CredentialSchema {
 	schemas := make(map[cloud.AuthType]cloud.CredentialSchema)
@@ -69,12 +71,12 @@ func (environProviderCredentials) FinalizeCredential(_ environs.FinalizeCredenti
 }
 
 // RegisterCredentials is part of the environs.ProviderCredentialsRegister interface.
-func (p environProviderCredentials) RegisterCredentials(ctx context.Context, cld cloud.Cloud) (map[string]*cloud.CloudCredential, error) {
+func (p environProviderCredentials) RegisterCredentials(cld cloud.Cloud) (map[string]*cloud.CloudCredential, error) {
 	cloudName := cld.Name
 	if cloudName != k8s.K8sCloudMicrok8s {
-		return registerCredentialsKubeConfig(ctx, cld)
+		return registerCredentialsKubeConfig(context.TODO(), cld)
 	}
-	cred, err := p.builtinCredentialGetter(ctx, p.cmdRunner)
+	cred, err := p.builtinCredentialGetter(context.TODO(), p.cmdRunner)
 
 	if err != nil {
 		return nil, errors.Trace(err)
