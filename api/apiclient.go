@@ -1284,6 +1284,9 @@ func (c *conn) IsBroken(ctx context.Context) bool {
 	select {
 	case <-c.broken:
 		return true
+	case <-ctx.Done():
+		logger.Debugf("connection ping context expired")
+		return true
 	default:
 	}
 	if err := c.ping(ctx); err != nil {
