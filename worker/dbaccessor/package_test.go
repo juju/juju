@@ -34,6 +34,7 @@ type baseSuite struct {
 	client               *MockClient
 	trackedDB            *MockTrackedDB
 	prometheusRegisterer *MockRegisterer
+	nodeManager          *MockNodeManager
 }
 
 func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
@@ -47,6 +48,7 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.client = NewMockClient(ctrl)
 	s.trackedDB = NewMockTrackedDB(ctrl)
 	s.prometheusRegisterer = NewMockRegisterer(ctrl)
+	s.nodeManager = NewMockNodeManager(ctrl)
 
 	return ctrl
 }

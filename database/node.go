@@ -42,22 +42,32 @@ const (
 // and emitting configuration for starting its Dqlite `App` based on
 // operational requirements and controller agent config.
 type NodeManager struct {
-	cfg             agent.Config
-	port            int
-	logger          Logger
-	slowQueryLogger coredatabase.SlowQueryLogger
+	cfg                 agent.Config
+	port                int
+	isLoopbackPreferred bool
+	logger              Logger
+	slowQueryLogger     coredatabase.SlowQueryLogger
 
 	dataDir string
 }
 
 // NewNodeManager returns a new NodeManager reference
 // based on the input agent configuration.
-func NewNodeManager(cfg agent.Config, logger Logger, slowQueryLogger coredatabase.SlowQueryLogger) *NodeManager {
+//
+// If isLoopbackPreferred is true, we bind Dqlite to 127.0.0.1 and eschew TLS
+// termination. This is useful primarily in unit testing and a temporary
+// workaround for CAAS, which does not yet support enable-ha.
+//
+// If it is false, we attempt to identify a unique local-cloud address.
+// If we find one, we use it as the bind address. Otherwise, we fall back
+// to the loopback binding.
+func NewNodeManager(cfg agent.Config, isLoopbackPreferred bool, logger Logger, slowQueryLogger coredatabase.SlowQueryLogger) *NodeManager {
 	m := &NodeManager{
-		cfg:             cfg,
-		port:            dqlitePort,
-		logger:          logger,
-		slowQueryLogger: slowQueryLogger,
+		cfg:                 cfg,
+		port:                dqlitePort,
+		isLoopbackPreferred: isLoopbackPreferred,
+		logger:              logger,
+		slowQueryLogger:     slowQueryLogger,
 	}
 	if cfg != nil {
 		if port, ok := cfg.DqlitePort(); ok {
@@ -65,6 +75,14 @@ func NewNodeManager(cfg agent.Config, logger Logger, slowQueryLogger coredatabas
 		}
 	}
 	return m
+}
+
+// IsLoopbackPreferred returns true if we should prefer to bind Dqlite
+// to the loopback IP address.
+// This is currently true for CAAS and unit testing. Once CAAS supports
+// enable-ha we'll have to revisit this.
+func (m *NodeManager) IsLoopbackPreferred() bool {
+	return m.isLoopbackPreferred
 }
 
 // IsLoopbackBound returns true if we are a cluster of one,
