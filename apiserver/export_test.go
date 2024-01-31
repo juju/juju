@@ -104,8 +104,8 @@ func TestingAPIRoot(facades *facade.Registry) rpc.Root {
 
 // TestingAPIHandler gives you an APIHandler that isn't connected to
 // anything real. It's enough to let test some basic functionality though.
-func TestingAPIHandler(c *gc.C, pool *state.StatePool, st *state.State, configGetter stateauthenticator.ControllerConfigGetter) (*apiHandler, *common.Resources) {
-	authenticator, err := stateauthenticator.NewAuthenticator(pool, configGetter, clock.WallClock)
+func TestingAPIHandler(c *gc.C, pool *state.StatePool, st *state.State, configGetter stateauthenticator.ControllerConfigGetter, userService stateauthenticator.UserService) (*apiHandler, *common.Resources) {
+	authenticator, err := stateauthenticator.NewAuthenticator(pool, configGetter, userService, clock.WallClock)
 	c.Assert(err, jc.ErrorIsNil)
 	offerAuthCtxt, err := newOfferAuthcontext(pool)
 	c.Assert(err, jc.ErrorIsNil)
@@ -146,9 +146,10 @@ func TestingAPIHandlerWithEntity(
 	pool *state.StatePool,
 	st *state.State,
 	configGetter stateauthenticator.ControllerConfigGetter,
+	userService stateauthenticator.UserService,
 	entity state.Entity,
 ) (*apiHandler, *common.Resources) {
-	h, hr := TestingAPIHandler(c, pool, st, configGetter)
+	h, hr := TestingAPIHandler(c, pool, st, configGetter, userService)
 	h.authInfo.Entity = entity
 	h.authInfo.Delegator = &stateauthenticator.PermissionDelegator{State: st}
 	return h, hr
@@ -162,10 +163,11 @@ func TestingAPIHandlerWithToken(
 	pool *state.StatePool,
 	st *state.State,
 	configGetter stateauthenticator.ControllerConfigGetter,
+	userService stateauthenticator.UserService,
 	jwt jwt.Token,
 	delegator authentication.PermissionDelegator,
 ) (*apiHandler, *common.Resources) {
-	h, hr := TestingAPIHandler(c, pool, st, configGetter)
+	h, hr := TestingAPIHandler(c, pool, st, configGetter, userService)
 	user, err := names.ParseUserTag(jwt.Subject())
 	c.Assert(err, jc.ErrorIsNil)
 	h.authInfo.Entity = authjwt.TokenEntity{User: user}

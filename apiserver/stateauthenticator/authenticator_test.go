@@ -5,6 +5,7 @@ package stateauthenticator_test
 
 import (
 	"context"
+	coreuser "github.com/juju/juju/core/user"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -26,6 +27,7 @@ type agentAuthenticatorSuite struct {
 	statetesting.StateSuite
 	authenticator          *stateauthenticator.Authenticator
 	controllerConfigGetter *MockControllerConfigGetter
+	userService            *MockUserService
 }
 
 var _ = gc.Suite(&agentAuthenticatorSuite{})
@@ -42,6 +44,11 @@ func (s *agentAuthenticatorSuite) TestAuthenticatorForTag(c *gc.C) {
 
 	user := s.Factory.MakeUser(c, &factory.UserParams{Password: "password"})
 
+	s.userService.EXPECT().GetUserByAuth(gomock.Any(), gomock.Any(), gomock.Any()).Return(coreuser.User{
+		Name:        user.Name(),
+		DisplayName: user.DisplayName(),
+	}, nil)
+
 	authenticator, err := stateauthenticator.EntityAuthenticator(context.Background(), s.authenticator, user.Tag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(authenticator, gc.NotNil)
@@ -53,7 +60,7 @@ func (s *agentAuthenticatorSuite) TestAuthenticatorForTag(c *gc.C) {
 		Nonce:       "nonce",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(entity, gc.DeepEquals, user)
+	c.Assert(entity.Tag(), gc.DeepEquals, user.Tag())
 }
 
 func (s *agentAuthenticatorSuite) TestMachineGetsAgentAuthenticator(c *gc.C) {
@@ -97,7 +104,9 @@ func (s *agentAuthenticatorSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.controllerConfigGetter = NewMockControllerConfigGetter(ctrl)
 	s.controllerConfigGetter.EXPECT().ControllerConfig(gomock.Any()).Return(s.ControllerConfig, nil).AnyTimes()
 
-	authenticator, err := stateauthenticator.NewAuthenticator(s.StatePool, s.controllerConfigGetter, clock.WallClock)
+	s.userService = NewMockUserService(ctrl)
+
+	authenticator, err := stateauthenticator.NewAuthenticator(s.StatePool, s.controllerConfigGetter, s.userService, clock.WallClock)
 	c.Assert(err, jc.ErrorIsNil)
 	s.authenticator = authenticator
 

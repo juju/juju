@@ -35,6 +35,7 @@ type macaroonCommonSuite struct {
 	authenticator          *stateauthenticator.Authenticator
 	clock                  *testclock.Clock
 	controllerConfigGetter *MockControllerConfigGetter
+	userService            *MockUserService
 }
 
 func (s *macaroonCommonSuite) SetUpTest(c *gc.C) {
@@ -55,7 +56,9 @@ func (s *macaroonCommonSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.controllerConfigGetter = NewMockControllerConfigGetter(ctrl)
 	s.controllerConfigGetter.EXPECT().ControllerConfig(gomock.Any()).Return(s.ControllerConfig, nil).AnyTimes()
 
-	authenticator, err := stateauthenticator.NewAuthenticator(s.StatePool, s.controllerConfigGetter, s.clock)
+	s.userService = NewMockUserService(ctrl)
+
+	authenticator, err := stateauthenticator.NewAuthenticator(s.StatePool, s.controllerConfigGetter, s.userService, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
 	s.authenticator = authenticator
 
