@@ -37,6 +37,7 @@ type TrackedObjectStore interface {
 type WorkerConfig struct {
 	TracerGetter               trace.TracerGetter
 	RootDir                    string
+	RootBucket                 string
 	Clock                      clock.Clock
 	Logger                     Logger
 	S3Client                   coreobjectstore.Client
@@ -59,6 +60,9 @@ func (c *WorkerConfig) Validate() error {
 	}
 	if c.RootDir == "" {
 		return errors.NotValidf("empty RootDir")
+	}
+	if c.RootBucket == "" {
+		return errors.NotValidf("empty RootBucket")
 	}
 	if c.Clock == nil {
 		return errors.NotValidf("nil Clock")
@@ -296,6 +300,7 @@ func (w *objectStoreWorker) initObjectStore(namespace string) error {
 			internalobjectstore.BackendTypeOrDefault(w.cfg.ObjectStoreType),
 			namespace,
 			internalobjectstore.WithRootDir(w.cfg.RootDir),
+			internalobjectstore.WithRootBucket(w.cfg.RootBucket),
 			internalobjectstore.WithMongoSession(state),
 			internalobjectstore.WithS3Client(w.cfg.S3Client),
 			internalobjectstore.WithMetadataService(metadataService),

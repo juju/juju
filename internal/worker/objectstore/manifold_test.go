@@ -11,6 +11,7 @@ import (
 	"github.com/juju/worker/v4/dependency"
 	dependencytesting "github.com/juju/worker/v4/dependency/testing"
 	"github.com/juju/worker/v4/workertest"
+	gomock "go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/objectstore"
@@ -19,6 +20,7 @@ import (
 	internalobjectstore "github.com/juju/juju/internal/objectstore"
 	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/testing"
 )
 
 type manifoldSuite struct {
@@ -78,8 +80,11 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		NewObjectStoreWorker: func(context.Context, objectstore.BackendType, string, ...internalobjectstore.Option) (internalobjectstore.TrackedObjectStore, error) {
 			return nil, nil
 		},
-		GetObjectStoreType: func(ControllerConfigService) (objectstore.BackendType, error) {
-			return objectstore.StateBackend, nil
+		GetControllerConfigService: func(getter dependency.Getter, name string) (ControllerConfigService, error) {
+			return s.controllerConfigService, nil
+		},
+		GetMetadataService: func(getter dependency.Getter, name string) (MetadataService, error) {
+			return s.metadataService, nil
 		},
 	}
 }
@@ -107,6 +112,7 @@ func (s *manifoldSuite) TestStart(c *gc.C) {
 
 	s.expectStateTracker()
 	s.expectAgentConfig(c)
+	s.expectControllerConfig()
 
 	w, err := Manifold(s.getConfig()).Start(context.Background(), s.newGetter())
 	c.Assert(err, jc.ErrorIsNil)
@@ -121,6 +127,10 @@ func (s *manifoldSuite) expectStateTracker() {
 func (s *manifoldSuite) expectAgentConfig(c *gc.C) {
 	s.agentConfig.EXPECT().DataDir().Return(c.MkDir())
 	s.agent.EXPECT().CurrentConfig().Return(s.agentConfig)
+}
+
+func (s *manifoldSuite) expectControllerConfig() {
+	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(testing.FakeControllerConfig(), nil)
 }
 
 type stubTracerGetter struct{}

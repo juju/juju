@@ -26,12 +26,19 @@ const (
 
 // FileObjectStoreConfig is the configuration for the file object store.
 type FileObjectStoreConfig struct {
-	Namespace       string
-	RootDir         string
+	// RootDir is the root directory for the file object store.
+	RootDir string
+	// Namespace is the namespace for the file object store (typically the
+	// model UUID)
+	Namespace string
+	// MetadataService is the metadata service for translating paths to
+	// hashes.
 	MetadataService objectstore.ObjectStoreMetadata
-	Claimer         Claimer
-	Logger          Logger
-	Clock           clock.Clock
+	// Claimer is the claimer for the file object store.
+	Claimer Claimer
+
+	Logger Logger
+	Clock  clock.Clock
 }
 
 type fileObjectStore struct {

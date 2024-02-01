@@ -18,7 +18,7 @@ import (
 )
 
 //go:generate go run go.uber.org/mock/mockgen -package objectstores3caller -destination package_mock_test.go github.com/juju/juju/core/objectstore Client,Session
-//go:generate go run go.uber.org/mock/mockgen -package objectstores3caller -destination services_mocks_test.go github.com/juju/juju/internal/worker/objectstores3caller ControllerService
+//go:generate go run go.uber.org/mock/mockgen -package objectstores3caller -destination services_mocks_test.go github.com/juju/juju/internal/worker/objectstores3caller ControllerConfigService
 //go:generate go run go.uber.org/mock/mockgen -package objectstores3caller -destination http_mocks_test.go github.com/juju/juju/internal/s3client HTTPClient
 //go:generate go run go.uber.org/mock/mockgen -package objectstores3caller -destination clock_mocks_test.go github.com/juju/clock Clock
 
@@ -31,10 +31,10 @@ func TestPackage(t *testing.T) {
 type baseSuite struct {
 	states chan string
 
-	session           *MockSession
-	controllerService *MockControllerService
-	httpClient        *MockHTTPClient
-	clock             *MockClock
+	session                 *MockSession
+	controllerConfigService *MockControllerConfigService
+	httpClient              *MockHTTPClient
+	clock                   *MockClock
 
 	logger Logger
 }
@@ -47,7 +47,7 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.session = NewMockSession(ctrl)
-	s.controllerService = NewMockControllerService(ctrl)
+	s.controllerConfigService = NewMockControllerConfigService(ctrl)
 	s.httpClient = NewMockHTTPClient(ctrl)
 	s.clock = NewMockClock(ctrl)
 
@@ -69,11 +69,11 @@ func (s *baseSuite) expectTimeAfter() {
 }
 
 func (s *baseSuite) expectControllerConfig(c *gc.C, config controller.Config) {
-	s.controllerService.EXPECT().ControllerConfig(gomock.Any()).Return(config, nil)
+	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(config, nil)
 }
 
 func (s *baseSuite) expectControllerConfigWatch(c *gc.C) {
-	s.controllerService.EXPECT().Watch().DoAndReturn(func() (watcher.Watcher[[]string], error) {
+	s.controllerConfigService.EXPECT().Watch().DoAndReturn(func() (watcher.Watcher[[]string], error) {
 		ch := make(chan []string)
 		go func() {
 			select {
@@ -87,7 +87,7 @@ func (s *baseSuite) expectControllerConfigWatch(c *gc.C) {
 }
 
 func (s *baseSuite) expectControllerConfigWatchWithChanges(c *gc.C, changes <-chan []string) {
-	s.controllerService.EXPECT().Watch().DoAndReturn(func() (watcher.Watcher[[]string], error) {
+	s.controllerConfigService.EXPECT().Watch().DoAndReturn(func() (watcher.Watcher[[]string], error) {
 		return watchertest.NewMockStringsWatcher(changes), nil
 	})
 }
