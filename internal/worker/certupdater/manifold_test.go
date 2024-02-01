@@ -37,7 +37,7 @@ type ManifoldSuite struct {
 	stateTracker           stubStateTracker
 	addressWatcher         fakeAddressWatcher
 	serviceFactory         servicefactory.ServiceFactory
-	controllerConfigGetter *controllerconfigservice.Service
+	controllerConfigGetter *controllerconfigservice.WatchableService
 	logger                 certupdater.Logger
 
 	stub testing.Stub
@@ -50,7 +50,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 
 	s.agent = &mockAgent{}
 	s.stateTracker = stubStateTracker{}
-	s.controllerConfigGetter = &controllerconfigservice.Service{}
+	s.controllerConfigGetter = &controllerconfigservice.WatchableService{}
 	s.serviceFactory = stubServiceFactory{
 		controllerConfigGetter: s.controllerConfigGetter,
 	}
@@ -231,9 +231,9 @@ type fakeAddressWatcher struct {
 
 type stubServiceFactory struct {
 	servicefactory.ServiceFactory
-	controllerConfigGetter *controllerconfigservice.Service
+	controllerConfigGetter *controllerconfigservice.WatchableService
 }
 
-func (s stubServiceFactory) ControllerConfig() *controllerconfigservice.Service {
+func (s stubServiceFactory) ControllerConfig() *controllerconfigservice.WatchableService {
 	return s.controllerConfigGetter
 }

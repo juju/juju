@@ -41,12 +41,12 @@ func (s *TestingServiceFactory) AutocertCache() *autocertcacheservice.Service {
 }
 
 // Config returns the model config service.
-func (s *TestingServiceFactory) Config(_ modelconfigservice.ModelDefaultsProvider) *modelconfigservice.Service {
+func (s *TestingServiceFactory) Config(_ modelconfigservice.ModelDefaultsProvider) *modelconfigservice.WatchableService {
 	return nil
 }
 
 // ControllerConfig returns the controller configuration service.
-func (s *TestingServiceFactory) ControllerConfig() *controllerconfigservice.Service {
+func (s *TestingServiceFactory) ControllerConfig() *controllerconfigservice.WatchableService {
 	return nil
 }
 
@@ -71,32 +71,32 @@ func (s *TestingServiceFactory) ModelManager() *modelmanagerservice.Service {
 }
 
 // ExternalController returns the external controller service.
-func (s *TestingServiceFactory) ExternalController() *externalcontrollerservice.Service {
+func (s *TestingServiceFactory) ExternalController() *externalcontrollerservice.WatchableService {
 	return nil
 }
 
 // Credential returns the credential service.
-func (s *TestingServiceFactory) Credential() *credentialservice.Service {
+func (s *TestingServiceFactory) Credential() *credentialservice.WatchableService {
 	return nil
 }
 
 // Cloud returns the cloud service.
-func (s *TestingServiceFactory) Cloud() *cloudservice.Service {
+func (s *TestingServiceFactory) Cloud() *cloudservice.WatchableService {
 	return nil
 }
 
 // Upgrade returns the upgrade service.
-func (s *TestingServiceFactory) Upgrade() *upgradeservice.Service {
+func (s *TestingServiceFactory) Upgrade() *upgradeservice.WatchableService {
 	return nil
 }
 
 // AgentObjectStore returns the agent object store service.
-func (s *TestingServiceFactory) AgentObjectStore() *objectstoreservice.Service {
+func (s *TestingServiceFactory) AgentObjectStore() *objectstoreservice.WatchableService {
 	return nil
 }
 
 // ObjectStore returns the object store service.
-func (s *TestingServiceFactory) ObjectStore() *objectstoreservice.Service {
+func (s *TestingServiceFactory) ObjectStore() *objectstoreservice.WatchableService {
 	return nil
 }
 
@@ -126,7 +126,7 @@ func (s *TestingServiceFactory) WithMachineService(getter func() *machineservice
 }
 
 // BlockDevice returns the block device service.
-func (s *TestingServiceFactory) BlockDevice() *blockdeviceservice.Service {
+func (s *TestingServiceFactory) BlockDevice() *blockdeviceservice.WatchableService {
 	return nil
 }
 

@@ -38,15 +38,13 @@ type WatcherFactory interface {
 
 // Service provides the API for working with the coreobjectstore.
 type Service struct {
-	st             State
-	watcherFactory WatcherFactory
+	st State
 }
 
 // NewService returns a new service reference wrapping the input state.
-func NewService(st State, watcherFactory WatcherFactory) *Service {
+func NewService(st State) *Service {
 	return &Service{
-		st:             st,
-		watcherFactory: watcherFactory,
+		st: st,
 	}
 }
 
@@ -91,9 +89,26 @@ func (s *Service) RemoveMetadata(ctx context.Context, path string) error {
 	return nil
 }
 
+// WatchableService provides the API for working with the objectstore
+// and the ability to create watchers.
+type WatchableService struct {
+	Service
+	watcherFactory WatcherFactory
+}
+
+// NewWatchableService returns a new service reference wrapping the input state.
+func NewWatchableService(st State, watcherFactory WatcherFactory) *WatchableService {
+	return &WatchableService{
+		Service: Service{
+			st: st,
+		},
+		watcherFactory: watcherFactory,
+	}
+}
+
 // Watch returns a watcher that emits the path changes that either have been
 // added or removed.
-func (s *Service) Watch() (watcher.StringsWatcher, error) {
+func (s *WatchableService) Watch() (watcher.StringsWatcher, error) {
 	table, stmt := s.st.InitialWatchStatement()
 	return s.watcherFactory.NewNamespaceWatcher(
 		table,

@@ -37,15 +37,13 @@ type WatcherFactory interface {
 
 // Service defines a service for interacting with the underlying state.
 type Service struct {
-	st             State
-	watcherFactory WatcherFactory
+	st State
 }
 
 // NewService returns a new Service for interacting with the underlying state.
-func NewService(st State, wf WatcherFactory) *Service {
+func NewService(st State) *Service {
 	return &Service{
-		st:             st,
-		watcherFactory: wf,
+		st: st,
 	}
 }
 
@@ -106,12 +104,6 @@ func (s *Service) UpdateControllerConfig(ctx context.Context, updateAttrs contro
 		return nil
 	})
 	return errors.Annotate(err, "updating controller config state")
-}
-
-// Watch returns a watcher that returns keys for any changes to controller
-// config.
-func (s *Service) Watch() (watcher.StringsWatcher, error) {
-	return s.watcherFactory.NewNamespaceWatcher("controller_config", changestream.All, s.st.AllKeysQuery())
 }
 
 // validateConfig validates the given updateAttrs and removeAttrs.
@@ -202,4 +194,28 @@ func contains(s []string, e string) bool {
 		}
 	}
 	return false
+}
+
+// WatchableService defines a service for interacting with the underlying state
+// and the ability to create watchers.
+type WatchableService struct {
+	Service
+	watcherFactory WatcherFactory
+}
+
+// NewWatchableService returns a new Service for interacting with the
+// underlying state and the ability to create watchers.
+func NewWatchableService(st State, wf WatcherFactory) *WatchableService {
+	return &WatchableService{
+		Service: Service{
+			st: st,
+		},
+		watcherFactory: wf,
+	}
+}
+
+// Watch returns a watcher that returns keys for any changes to controller
+// config.
+func (s *WatchableService) Watch() (watcher.StringsWatcher, error) {
+	return s.watcherFactory.NewNamespaceWatcher("controller_config", changestream.All, s.st.AllKeysQuery())
 }

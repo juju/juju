@@ -41,8 +41,8 @@ func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *serviceSuite) service() *Service {
-	return NewService(s.state, s.watcherFactory, loggo.GetLogger("test"))
+func (s *serviceSuite) service() *WatchableService {
+	return NewWatchableService(s.state, s.watcherFactory, loggo.GetLogger("test"))
 }
 
 func (s *serviceSuite) TestUpdateCloudCredential(c *gc.C) {

@@ -15,8 +15,13 @@ import (
 
 // State defines a interface for interacting with the underlying state.
 type State interface {
+	// Create takes a model UUID and creates a new model.
 	Create(context.Context, model.UUID) error
+
+	// List returns a list of all model UUIDs.
 	List(context.Context) ([]model.UUID, error)
+
+	// Delete takes a model UUID and deletes the model if it exists.
 	Delete(context.Context, model.UUID) error
 }
 

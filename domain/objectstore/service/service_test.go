@@ -45,7 +45,7 @@ func (s *serviceSuite) TestGetMetadata(c *gc.C) {
 		Hash: metadata.Hash,
 	}, nil)
 
-	p, err := NewService(s.state, nil).GetMetadata(context.Background(), path)
+	p, err := NewService(s.state).GetMetadata(context.Background(), path)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(p, gc.DeepEquals, metadata)
 }
@@ -67,7 +67,7 @@ func (s *serviceSuite) TestPutMetadata(c *gc.C) {
 		return nil
 	})
 
-	err := NewService(s.state, nil).PutMetadata(context.Background(), metadata)
+	err := NewService(s.state).PutMetadata(context.Background(), metadata)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -78,7 +78,7 @@ func (s *serviceSuite) TestRemoveMetadata(c *gc.C) {
 
 	s.state.EXPECT().RemoveMetadata(gomock.Any(), key).Return(nil)
 
-	err := NewService(s.state, nil).RemoveMetadata(context.Background(), key)
+	err := NewService(s.state).RemoveMetadata(context.Background(), key)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -94,7 +94,7 @@ func (s *serviceSuite) TestWatch(c *gc.C) {
 	s.state.EXPECT().InitialWatchStatement().Return(table, stmt)
 	s.watcherFactory.EXPECT().NewNamespaceWatcher(table, changestream.All, stmt).Return(watcher, nil)
 
-	w, err := NewService(s.state, s.watcherFactory).Watch()
+	w, err := NewWatchableService(s.state, s.watcherFactory).Watch()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(w, gc.NotNil)
 }

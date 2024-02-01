@@ -15,20 +15,27 @@ import (
 	"github.com/juju/juju/domain/filesystem"
 )
 
+type getWatcherFunc = func(
+	namespace, changeValue string,
+	changeMask changestream.ChangeType,
+	predicate eventsource.Predicate,
+) (watcher.NotifyWatcher, error)
+
 // State defines an interface for interacting with the underlying state.
 type State interface {
+	// BlockDevices returns the block devices for a specified machine.
 	BlockDevices(ctx context.Context, machineId string) ([]blockdevice.BlockDevice, error)
+
+	// SetMachineBlockDevices updates the block devices for a specified machine.
 	SetMachineBlockDevices(ctx context.Context, machineId string, devices ...blockdevice.BlockDevice) error
+
+	// MachineBlockDevices returns all block devices in the model, keyed on
+	// machine id.
 	MachineBlockDevices(ctx context.Context) ([]blockdevice.MachineBlockDevice, error)
-	WatchBlockDevices(
-		ctx context.Context,
-		getWatcher func(
-			namespace, changeValue string,
-			changeMask changestream.ChangeType,
-			predicate eventsource.Predicate,
-		) (watcher.NotifyWatcher, error),
-		machineId string,
-	) (watcher.NotifyWatcher, error)
+
+	// WatchBlockDevices returns a new NotifyWatcher watching for
+	// changes to block devices associated with the specified machine.
+	WatchBlockDevices(ctx context.Context, getWatcher getWatcherFunc, machineId string) (watcher.NotifyWatcher, error)
 }
 
 // Logger facilitates emitting log messages.
@@ -47,17 +54,15 @@ type WatcherFactory interface {
 
 // Service defines a service for interacting with the underlying state.
 type Service struct {
-	st             State
-	watcherFactory WatcherFactory
-	logger         Logger
+	st     State
+	logger Logger
 }
 
 // NewService returns a new Service for interacting with the underlying state.
-func NewService(st State, wf WatcherFactory, logger Logger) *Service {
+func NewService(st State, logger Logger) *Service {
 	return &Service{
-		st:             st,
-		watcherFactory: wf,
-		logger:         logger,
+		st:     st,
+		logger: logger,
 	}
 }
 
@@ -89,9 +94,28 @@ func (s *Service) AllBlockDevices(ctx context.Context) (map[string]blockdevice.B
 	return result, nil
 }
 
+// WatchableService defines a service for interacting with the underlying state
+// and the ability to create watchers.
+type WatchableService struct {
+	Service
+	watcherFactory WatcherFactory
+}
+
+// NewWatchableService returns a new Service for interacting with the underlying
+// state and the ability to create watchers.
+func NewWatchableService(st State, wf WatcherFactory, logger Logger) *WatchableService {
+	return &WatchableService{
+		Service: Service{
+			st:     st,
+			logger: logger,
+		},
+		watcherFactory: wf,
+	}
+}
+
 // WatchBlockDevices returns a new NotifyWatcher watching for
 // changes to block devices associated with the specified machine.
-func (s *Service) WatchBlockDevices(
+func (s *WatchableService) WatchBlockDevices(
 	ctx context.Context,
 	machineId string,
 ) (watcher.NotifyWatcher, error) {

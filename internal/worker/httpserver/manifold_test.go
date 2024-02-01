@@ -48,7 +48,7 @@ type ManifoldSuite struct {
 	controllerConfig       controller.Config
 	serviceFactory         servicefactory.ServiceFactory
 	autocertCacheGetter    *autocertcacheservice.Service
-	controllerConfigGetter *controllerconfigservice.Service
+	controllerConfigGetter *controllerconfigservice.WatchableService
 
 	stub testing.Stub
 }
@@ -74,7 +74,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	}
 
 	s.autocertCacheGetter = &autocertcacheservice.Service{}
-	s.controllerConfigGetter = &controllerconfigservice.Service{}
+	s.controllerConfigGetter = &controllerconfigservice.WatchableService{}
 	s.serviceFactory = stubServiceFactory{
 		controllerConfigGetter: s.controllerConfigGetter,
 		autocertCacheGetter:    s.autocertCacheGetter,
@@ -259,7 +259,7 @@ func (s *ManifoldSuite) startWorkerClean(c *gc.C) worker.Worker {
 
 type stubServiceFactory struct {
 	servicefactory.ServiceFactory
-	controllerConfigGetter *controllerconfigservice.Service
+	controllerConfigGetter *controllerconfigservice.WatchableService
 	autocertCacheGetter    *autocertcacheservice.Service
 }
 
@@ -267,6 +267,6 @@ func (s stubServiceFactory) AutocertCache() *autocertcacheservice.Service {
 	return s.autocertCacheGetter
 }
 
-func (s stubServiceFactory) ControllerConfig() *controllerconfigservice.Service {
+func (s stubServiceFactory) ControllerConfig() *controllerconfigservice.WatchableService {
 	return s.controllerConfigGetter
 }

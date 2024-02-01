@@ -158,6 +158,6 @@ type stubServiceFactory struct {
 	servicefactory.ServiceFactory
 }
 
-func (s *stubServiceFactory) ControllerConfig() *controllerconfigservice.Service {
+func (s *stubServiceFactory) ControllerConfig() *controllerconfigservice.WatchableService {
 	return nil
 }
