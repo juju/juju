@@ -19,24 +19,49 @@ const (
 	ErrNoRecord = errors.ConstError("record does not exist")
 )
 
-// CoerceError converts an error to a domain error.
+// CoerceError converts an error from a state layer into a domain specific error
+// hiding the existence of any state based errors. If the error to coerce is nil
+// then nil will be returned.
 func CoerceError(err error) error {
-	cause := errors.Cause(err)
-	if database.IsErrConstraintUnique(cause) {
-		return fmt.Errorf("%w%w", maskError{error: err}, ErrDuplicate)
+	if err == nil {
+		return nil
 	}
-	if database.IsErrNotFound(cause) {
-		return fmt.Errorf("%w%w", maskError{error: err}, ErrNoRecord)
+
+	mErr := maskError{err}
+	if database.IsErrConstraintUnique(err) {
+		return fmt.Errorf("%w%w", ErrDuplicate, errors.Hide(mErr))
 	}
-	return errors.Trace(err)
+	if database.IsErrNotFound(err) {
+		return fmt.Errorf("%w%w", ErrNoRecord, errors.Hide(mErr))
+	}
+	return mErr
 }
 
-// maskError is used to mask the error message, yet still allow the
-// error to be identified.
+// maskError is used to mask the existence of sql related errors. It will not
+// hide contents of the error message but it will stop the user from extracting
+// sql error types.
+//
+// The design decision for this is that outside of the state layer in Juju we
+// do not want people checking for the presence of sql errors in a wrapped error
+// chain. It is logic where a typed error should be used instead.
 type maskError struct {
 	error
 }
 
-func (e maskError) Error() string {
-	return ""
+// As implements standard errors As interface. As will check if the target type
+// is a sql error that is trying to be retrieved and return false.
+func (e maskError) As(target any) bool {
+	if database.IsError(target) {
+		return false
+	}
+	return errors.As(e.error, target)
+}
+
+// Is implements standard errors Is interface. Is will check if the target type
+// is a sql error that is trying to be retrieved and return false.
+func (e maskError) Is(target error) bool {
+	if database.IsError(target) {
+		return false
+	}
+	return errors.Is(e.error, target)
 }

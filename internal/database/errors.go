@@ -81,3 +81,23 @@ func isErrCode(err error, code sqlite3.ErrNoExtended) bool {
 	var sqliteErr sqlite3.Error
 	return errors.As(err, &sqliteErr) && sqliteErr.ExtendedCode == code
 }
+
+// IsError reports if the any type passed to it is a database driver error in
+// Juju. The purpose of this function is so that our domain error masking can
+// assert if a specific error needs to be hidden from layers above that of the
+// domain/state.
+func IsError(target any) bool {
+	if _, is := target.(*dqlite.Error); is {
+		return true
+	}
+	if _, is := target.(*sqlite3.Error); is {
+		return true
+	}
+	if _, is := target.(dqlite.Error); is {
+		return true
+	}
+	if _, is := target.(sqlite3.Error); is {
+		return true
+	}
+	return false
+}
