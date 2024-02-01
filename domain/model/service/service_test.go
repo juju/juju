@@ -63,7 +63,7 @@ func (d *dummyState) Create(
 	}
 
 	if !d.users.Contains(args.Owner.String()) {
-		return fmt.Errorf("%w for owner %q", usererrors.NotFound, args.Owner)
+		return fmt.Errorf("%w for owner %q", usererrors.UserNotFound, args.Owner)
 	}
 
 	hasRegion := false
@@ -201,7 +201,7 @@ func (s *serviceSuite) TestModelCreationNoCloudRegion(c *C) {
 }
 
 // TestModelCreationOwnerNotFound is testing that if we make a model with an
-// owner that doesn't exist we get back a [usererrors.NotFound] error.
+// owner that doesn't exist we get back a [usererrors.UserNotFound] error.
 func (s *serviceSuite) TestModelCreationOwnerNotFound(c *C) {
 	s.state.clouds["aws"] = dummyStateCloud{
 		Credentials: map[string]credential.ID{},
@@ -220,7 +220,7 @@ func (s *serviceSuite) TestModelCreationOwnerNotFound(c *C) {
 		Type:        model.TypeIAAS,
 	})
 
-	c.Assert(err, jc.ErrorIs, usererrors.NotFound)
+	c.Assert(err, jc.ErrorIs, usererrors.UserNotFound)
 }
 
 func (s *serviceSuite) TestModelCreationNoCloudCredential(c *C) {

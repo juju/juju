@@ -182,7 +182,7 @@ func (m *modelSuite) TestCreateModelWithInvalidCloudRegion(c *gc.C) {
 }
 
 // TestCreateModelWithNonExistentOwner is here to assert that if we try and make
-// a model with a user/owner that does not exist a [usererrors.NotFound] error
+// a model with a user/owner that does not exist a [usererrors.UserNotFound] error
 // is returned.
 func (m *modelSuite) TestCreateModelWithNonExistentOwner(c *gc.C) {
 	modelSt := NewState(m.TxnRunnerFactory())
@@ -198,12 +198,12 @@ func (m *modelSuite) TestCreateModelWithNonExistentOwner(c *gc.C) {
 			Type:        model.TypeIAAS,
 		},
 	)
-	c.Assert(err, jc.ErrorIs, usererrors.NotFound)
+	c.Assert(err, jc.ErrorIs, usererrors.UserNotFound)
 }
 
 // TestCreateModelWithRemovedOwner is here to test that if we try and create a
 // new model with an owner that has been removed from the Juju user base that
-// the operation fails with a [usererrors.NotFound] error.
+// the operation fails with a [usererrors.UserNotFound] error.
 func (m *modelSuite) TestCreateModelWithRemovedOwner(c *gc.C) {
 	userState := userstate.NewState(m.TxnRunnerFactory())
 	err := userState.RemoveUser(context.Background(), m.userUUID)
@@ -222,7 +222,7 @@ func (m *modelSuite) TestCreateModelWithRemovedOwner(c *gc.C) {
 			Type:        model.TypeIAAS,
 		},
 	)
-	c.Assert(err, jc.ErrorIs, usererrors.NotFound)
+	c.Assert(err, jc.ErrorIs, usererrors.UserNotFound)
 }
 
 func (m *modelSuite) TestCreateModelWithInvalidCloud(c *gc.C) {
