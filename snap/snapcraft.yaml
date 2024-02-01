@@ -41,6 +41,8 @@ apps:
       - network-bind
       - ssh-keys
       - lxd
+      # Needed to read the JAAS plugin binary
+      - jaas-plugin
       # Needed so that juju can still use the real ~/.local/share/juju.
       - dot-local-share-juju
       # Needed to read lxd config.
@@ -489,6 +491,11 @@ plugs:
     interface: content
     content: microk8s
     target: $SNAP_DATA/microk8s
+  
+  jaas-plugin:
+    interface: content
+    content: jaas-plugin
+    target: $SNAP/usr/bin
 
   dot-local-share-juju:
     interface: personal-files
