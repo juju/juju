@@ -245,7 +245,7 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	newConfigAttrs := make(map[string]interface{})
+	controllerModelConfigAttrs := make(map[string]interface{})
 
 	// Check to see if a newer agent version has been requested
 	// by the bootstrap client.
@@ -265,7 +265,7 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 			// Old juju clients will use the version without build number when
 			// selecting the controller OCI image tag. In this case, the current controller
 			// version was the correct version.
-			newConfigAttrs["agent-version"] = jujuversion.Current.String()
+			controllerModelConfigAttrs["agent-version"] = jujuversion.Current.String()
 		} else {
 			// If we have been asked for a newer version, ensure the newer
 			// tools can actually be found, or else bootstrap won't complete.
@@ -285,7 +285,7 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 				// Newer tools not available, so revert to using the tools
 				// matching the current agent version.
 				logger.Warningf("newer agent binaries for %q not available, sticking with version %q", desiredVersion, jujuversion.Current)
-				newConfigAttrs["agent-version"] = jujuversion.Current.String()
+				controllerModelConfigAttrs["agent-version"] = jujuversion.Current.String()
 			} else if toolsErr != nil {
 				logger.Errorf("cannot find newer agent binaries: %v", toolsErr)
 				return errors.Trace(toolsErr)
@@ -301,7 +301,7 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 	if !ok {
 		return fmt.Errorf("bootstrap machine config has no state serving info")
 	}
-	if err := ensureKeys(isCAAS, args, &info, newConfigAttrs); err != nil {
+	if err := ensureKeys(isCAAS, args, &info); err != nil {
 		return errors.Trace(err)
 	}
 	addrs, err := getAddressesForMongo(isCAAS, env, ctx, args)
@@ -348,7 +348,7 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 		return errors.Annotate(err, "failed to start mongo")
 	}
 
-	controllerModelCfg, err := env.Config().Apply(newConfigAttrs)
+	controllerModelCfg, err := env.Config().Apply(controllerModelConfigAttrs)
 	if err != nil {
 		return errors.Annotate(err, "failed to update model config")
 	}
@@ -465,7 +465,6 @@ func ensureKeys(
 	isCAAS bool,
 	args instancecfg.StateInitializationParams,
 	info *controller.StateServingInfo,
-	newConfigAttrs map[string]interface{},
 ) error {
 	if isCAAS {
 		return nil
@@ -479,8 +478,7 @@ func ensureKeys(
 	}
 	info.SystemIdentity = privateKey
 
-	authorizedKeys := config.ConcatAuthKeys(args.ControllerModelConfig.AuthorizedKeys(), publicKey)
-	newConfigAttrs[config.AuthorizedKeysKey] = authorizedKeys
+	args.ControllerConfig[controller.SystemSSHKeys] = publicKey
 
 	// Generate a shared secret for the Mongo replica set, and write it out.
 	sharedSecret, err := mongo.GenerateSharedSecret()

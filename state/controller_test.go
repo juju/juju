@@ -78,6 +78,7 @@ func (s *ControllerSuite) TestControllerAndModelConfigInitialisation(c *gc.C) {
 		controller.PublicDNSAddress,
 		controller.QueryTracingEnabled,
 		controller.QueryTracingThreshold,
+		controller.SystemSSHKeys,
 	)
 	for _, controllerAttr := range controller.ControllerOnlyConfigAttributes {
 		v, ok := controllerSettings.Get(controllerAttr)

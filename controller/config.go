@@ -305,6 +305,10 @@ const (
 	// ObjectStoreS3StaticSession is the static session token to use for S3
 	// object stores.
 	ObjectStoreS3StaticSession = "object-store-s3-static-session"
+
+	// SystemSSHKeys returns the set of ssh keys that should be trusted by
+	// agents of this controller regardless of the model.
+	SystemSSHKeys = "system-ssh-keys"
 )
 
 // Attribute Defaults
@@ -516,6 +520,7 @@ var (
 		ObjectStoreS3StaticKey,
 		ObjectStoreS3StaticSecret,
 		ObjectStoreS3StaticSession,
+		SystemSSHKeys,
 	}
 
 	// For backwards compatibility, we must include "anything", "juju-apiserver"
@@ -996,6 +1001,12 @@ func (c Config) PublicDNSAddress() string {
 // should communicate.
 func (c Config) JujuHASpace() string {
 	return c.asString(JujuHASpace)
+}
+
+// SystemSSHKeys returns the trusted ssh keys that agents of this controller
+// should trust.
+func (c Config) SystemSSHKeys() string {
+	return c.asString(SystemSSHKeys)
 }
 
 // JujuManagementSpace is the network space that agents should use to

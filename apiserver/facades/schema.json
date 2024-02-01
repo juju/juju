@@ -21857,7 +21857,7 @@
                             "$ref": "#/definitions/StringsResults"
                         }
                     },
-                    "description": "AuthorisedKeys reports the authorised ssh keys for the specified machines.\nThe current implementation relies on global authorised keys being stored in the model config.\nThis will change as new user management and authorisation functionality is added."
+                    "description": "AuthorisedKeys reports the authorised ssh keys for the specified machines.\nThe current implementation relies on global authorised keys being stored in\nthe model config and also the Juju system ssh key coming from the controllers\nconfig. This will change as new user management and authorisation\nfunctionality is added."
                 },
                 "WatchAuthorisedKeys": {
                     "type": "object",
@@ -21869,7 +21869,7 @@
                             "$ref": "#/definitions/NotifyWatchResults"
                         }
                     },
-                    "description": "WatchAuthorisedKeys starts a watcher to track changes to the authorised ssh keys\nfor the specified machines.\nThe current implementation relies on global authorised keys being stored in the model config.\nThis will change as new user management and authorisation functionality is added."
+                    "description": "WatchAuthorisedKeys starts a watcher to track changes to the authorised ssh\nkeys for the specified machines.\nThe current implementation relies on global authorised keys being stored in\nthe model config and also the Juju system ssh key coming from the controllers\nconfig. This will change as new user management and authorisation\nfunctionality is added."
                 }
             },
             "definitions": {

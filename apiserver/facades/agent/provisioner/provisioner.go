@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v5"
+	"github.com/juju/utils/v3/ssh"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/credentialcommon"
@@ -42,6 +43,7 @@ import (
 // ControllerConfigService is the interface that the provisioner facade
 // uses to get the controller config.
 type ControllerConfigService interface {
+	// ControllerConfig returns this controllers config.
 	ControllerConfig(stdcontext.Context) (controller.Config, error)
 }
 
@@ -382,13 +384,20 @@ func (api *ProvisionerAPI) ContainerConfig(ctx stdcontext.Context) (params.Conta
 	if err != nil {
 		return result, err
 	}
+	controllerConfig, err := api.controllerConfigService.ControllerConfig(ctx)
+	if err != nil {
+		return result, err
+	}
+
+	authorizedKeys := ssh.ConcatAuthorisedKeys(
+		cfg.AuthorizedKeys(), controllerConfig.SystemSSHKeys())
 
 	result.UpdateBehavior = &params.UpdateBehavior{
 		EnableOSRefreshUpdate: cfg.EnableOSRefreshUpdate(),
 		EnableOSUpgrade:       cfg.EnableOSUpgrade(),
 	}
 	result.ProviderType = cfg.Type()
-	result.AuthorizedKeys = cfg.AuthorizedKeys()
+	result.AuthorizedKeys = authorizedKeys
 	result.SSLHostnameVerification = cfg.SSLHostnameVerification()
 	result.LegacyProxy = cfg.LegacyProxySettings()
 	result.JujuProxy = cfg.JujuProxySettings()

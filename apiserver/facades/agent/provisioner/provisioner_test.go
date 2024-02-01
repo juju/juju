@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/provisioner"
 	"github.com/juju/juju/apiserver/facades/agent/provisioner/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
@@ -69,6 +70,9 @@ func (s *provisionerSuite) SetUpTest(c *gc.C) {
 func (s *provisionerSuite) setUpTest(c *gc.C, withController bool) {
 	if s.ApiServerSuite.ControllerModelConfigAttrs == nil {
 		s.ApiServerSuite.ControllerModelConfigAttrs = make(map[string]any)
+	}
+	s.ApiServerSuite.ControllerConfigAttrs = map[string]any{
+		controller.SystemSSHKeys: "testSystemSSH",
 	}
 	s.ApiServerSuite.ControllerModelConfigAttrs["image-stream"] = "daily"
 	s.ApiServerSuite.SetUpTest(c)
@@ -1585,7 +1589,11 @@ func (s *withoutControllerSuite) TestContainerConfig(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(results.UpdateBehavior, gc.Not(gc.IsNil))
 	c.Check(results.ProviderType, gc.Equals, "dummy")
-	c.Check(results.AuthorizedKeys, gc.Equals, cfg.AuthorizedKeys())
+	// We are looking to see here that the controller config system keys are
+	// being concatenated with the model config authorised keys in the return
+	// value. Because of how controller config works we can only inject these in
+	// SetupTest.
+	c.Check(results.AuthorizedKeys, gc.Equals, cfg.AuthorizedKeys()+"\ntestSystemSSH")
 	c.Check(results.SSLHostnameVerification, jc.IsTrue)
 	c.Check(results.LegacyProxy.HasProxySet(), jc.IsFalse)
 	c.Check(results.JujuProxy, gc.DeepEquals, expectedProxy)
@@ -1630,7 +1638,11 @@ func (s *withoutControllerSuite) TestContainerConfigLegacy(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(results.UpdateBehavior, gc.Not(gc.IsNil))
 	c.Check(results.ProviderType, gc.Equals, "dummy")
-	c.Check(results.AuthorizedKeys, gc.Equals, cfg.AuthorizedKeys())
+	// We are looking to see here that the controller config system keys are
+	// being concatenated with the model config authorised keys in the return
+	// value. Because of how controller config works we can only inject these in
+	// SetupTest.
+	c.Check(results.AuthorizedKeys, gc.Equals, cfg.AuthorizedKeys()+"\ntestSystemSSH")
 	c.Check(results.SSLHostnameVerification, jc.IsTrue)
 	c.Check(results.LegacyProxy, gc.DeepEquals, expectedProxy)
 	c.Check(results.JujuProxy.HasProxySet(), jc.IsFalse)

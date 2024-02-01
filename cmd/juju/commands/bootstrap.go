@@ -1589,6 +1589,9 @@ func (c *bootstrapCommand) bootstrapConfigs(
 		return bootstrapConfigs{}, fmt.Errorf("%q is no longer supported controller configuration",
 			controller.CAASOperatorImagePath)
 	}
+	if _, ok := controllerConfigAttrs[controller.SystemSSHKeys]; ok {
+		return bootstrapConfigs{}, fmt.Errorf("%q is not a user configurable item. Please unset this and continue.", controller.SystemSSHKeys)
+	}
 	if v, ok := controllerConfigAttrs[controller.CAASImageRepo]; ok {
 		if v, ok := v.(string); ok {
 			repoDetails, err := docker.LoadImageRepoDetails(v)
