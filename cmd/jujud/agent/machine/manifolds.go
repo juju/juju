@@ -716,19 +716,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewModelServiceFactory:      workersf.NewModelServiceFactory,
 		}),
 
-		dbAccessorName: ifController(dbaccessor.Manifold(dbaccessor.ManifoldConfig{
-			AgentName:            agentName,
-			QueryLoggerName:      queryLoggerName,
-			Clock:                config.Clock,
-			Hub:                  config.CentralHub,
-			Logger:               loggo.GetLogger("juju.worker.dbaccessor"),
-			LogDir:               agentConfig.LogDir(),
-			PrometheusRegisterer: config.PrometheusRegisterer,
-			NewApp:               dbaccessor.NewApp,
-			NewDBWorker:          config.NewDBWorkerFunc,
-			NewMetricsCollector:  dbaccessor.NewMetricsCollector,
-		})),
-
 		queryLoggerName: ifController(querylogger.Manifold(querylogger.ManifoldConfig{
 			LogDir: agentConfig.LogDir(),
 			Clock:  config.Clock,
@@ -939,7 +926,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			LogDir:               agentConfig.LogDir(),
 			PrometheusRegisterer: config.PrometheusRegisterer,
 			NewApp:               dbaccessor.NewApp,
-			NewDBWorker:          dbaccessor.NewTrackedDBWorker,
+			NewDBWorker:          config.NewDBWorkerFunc,
 			NewMetricsCollector:  dbaccessor.NewMetricsCollector,
 			NewNodeManager:       dbaccessor.IAASNodeManager,
 		})),
@@ -1181,7 +1168,7 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			LogDir:               agentConfig.LogDir(),
 			PrometheusRegisterer: config.PrometheusRegisterer,
 			NewApp:               dbaccessor.NewApp,
-			NewDBWorker:          dbaccessor.NewTrackedDBWorker,
+			NewDBWorker:          config.NewDBWorkerFunc,
 			NewMetricsCollector:  dbaccessor.NewMetricsCollector,
 			NewNodeManager:       dbaccessor.CAASNodeManager,
 		})),
