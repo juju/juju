@@ -659,6 +659,7 @@ func (b *AgentBootstrap) initControllerCloudService(
 
 // getAlphaSpaceAddresses returns a SpaceAddresses created from the input
 // providerAddresses and using the alpha space ID as their SpaceID.
+// We set all the spaces of the output SpaceAddresses to be the alpha space ID.
 func (b *AgentBootstrap) getAlphaSpaceAddresses(providerAddresses corenetwork.ProviderAddresses) corenetwork.SpaceAddresses {
 	sas := make(corenetwork.SpaceAddresses, len(providerAddresses))
 	for i, pa := range providerAddresses {

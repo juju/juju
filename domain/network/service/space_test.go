@@ -13,6 +13,7 @@ import (
 	gomock "go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
 )
 
@@ -323,4 +324,120 @@ func (s *spaceSuite) TestSaveProviderSubnetsIgnoreIPV4LinkLocalUnicast(c *gc.C) 
 	s.st.EXPECT().UpsertSubnets(gomock.Any(), gomock.Any()).Times(0)
 	err := NewSpaceService(s.st, s.logger).SaveProviderSubnets(context.Background(), oneSubnet, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *spaceSuite) TestFilterHostPortsEmptyMgmtSpace(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	controllerConfig := controller.Config{}
+	apiHostPorts := []network.SpaceHostPorts{
+		network.NewSpaceHostPorts(1234, "10.0.0.1"),
+	}
+
+	spaceHostPorts, err := NewSpaceService(s.st, s.logger).
+		FilterHostPortsForManagementSpace(context.Background(), controllerConfig, apiHostPorts)
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(spaceHostPorts, jc.SameContents, apiHostPorts)
+}
+
+func (s *spaceSuite) TestFilterHostPortsFailRetrieveSpace(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	controllerConfig := controller.Config{
+		controller.JujuManagementSpace: "mgmt-space",
+	}
+	apiHostPorts := []network.SpaceHostPorts{
+		network.NewSpaceHostPorts(1234, "10.0.0.1"),
+	}
+
+	s.st.EXPECT().GetSpaceByName(gomock.Any(), "mgmt-space").Return(nil, errors.New("boom"))
+
+	_, err := NewSpaceService(s.st, s.logger).
+		FilterHostPortsForManagementSpace(context.Background(), controllerConfig, apiHostPorts)
+
+	c.Assert(err, gc.ErrorMatches, "boom")
+}
+
+func (s *spaceSuite) TestHostPortsNotInSpaceNoFilter(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	controllerConfig := controller.Config{
+		controller.JujuManagementSpace: "mgmt-space",
+	}
+	apiHostPorts := []network.SpaceHostPorts{
+		network.NewSpaceHostPorts(1234, "10.0.0.1"),
+	}
+
+	s.st.EXPECT().GetSpaceByName(gomock.Any(), "mgmt-space").Return(&network.SpaceInfo{
+		Name: "other-space",
+		Subnets: []network.SubnetInfo{
+			{
+				CIDR: "10.0.0.0/24",
+			},
+		},
+	}, nil)
+
+	filtered, err := NewSpaceService(s.st, s.logger).
+		FilterHostPortsForManagementSpace(context.Background(), controllerConfig, apiHostPorts)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(filtered, jc.SameContents, apiHostPorts)
+}
+
+func (s *spaceSuite) TestHostPortsSameSpaceThenFilter(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	controllerConfig := controller.Config{
+		controller.JujuManagementSpace: "mgmt-space",
+	}
+	spaceHostPorts := []network.SpaceHostPort{
+		{
+			SpaceAddress: network.SpaceAddress{
+				SpaceID: "mgmt-space",
+				MachineAddress: network.MachineAddress{
+					Value: "10.0.0.1",
+				},
+			},
+			NetPort: 1234,
+		},
+		{
+			SpaceAddress: network.SpaceAddress{
+				SpaceID: "other-space",
+				MachineAddress: network.MachineAddress{
+					Value: "10.0.0.2",
+				},
+			},
+			NetPort: 1234,
+		},
+	}
+	apiHostPorts := []network.SpaceHostPorts{
+		spaceHostPorts,
+	}
+
+	s.st.EXPECT().GetSpaceByName(gomock.Any(), "mgmt-space").Return(&network.SpaceInfo{
+		ID: "mgmt-space",
+		Subnets: []network.SubnetInfo{
+			{
+				CIDR: "10.0.0.0/24",
+			},
+		},
+	}, nil)
+
+	expected := []network.SpaceHostPorts{
+		{
+			{
+				SpaceAddress: network.SpaceAddress{
+					SpaceID: "mgmt-space",
+					MachineAddress: network.MachineAddress{
+						Value: "10.0.0.1",
+					},
+				},
+				NetPort: 1234,
+			},
+		},
+	}
+	filtered, err := NewSpaceService(s.st, s.logger).
+		FilterHostPortsForManagementSpace(context.Background(), controllerConfig, apiHostPorts)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(filtered, jc.SameContents, expected)
 }
