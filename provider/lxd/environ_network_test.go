@@ -56,11 +56,8 @@ func (s *environNetSuite) TestSubnetsForServersThatLackRequiredAPIExtensions(c *
 
 	// Try to grab subnet details anyway!
 	srv.EXPECT().GetNetworks().Return(nil, errors.New(`server is missing the required "network" API extension`))
-	srv.EXPECT().GetServer().Return(&lxdapi.Server{
-		Environment: lxdapi.ServerEnvironment{
-			ServerName: "locutus",
-		},
-	}, "", nil)
+	srv.EXPECT().IsClustered().Return(false)
+	srv.EXPECT().Name().Return("locutus")
 	_, err = env.Subnets(ctx, instance.UnknownId, nil)
 	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
 }
@@ -73,11 +70,8 @@ func (s *environNetSuite) TestSubnetsForKnownContainer(c *gc.C) {
 	srv.EXPECT().FilterContainers("woot").Return([]jujulxd.Container{
 		{},
 	}, nil)
-	srv.EXPECT().GetServer().Return(&lxdapi.Server{
-		Environment: lxdapi.ServerEnvironment{
-			ServerName: "locutus",
-		},
-	}, "", nil)
+	srv.EXPECT().IsClustered().Return(false)
+	srv.EXPECT().Name().Return("locutus")
 	srv.EXPECT().GetNetworks().Return([]lxdapi.Network{
 		{
 			Name: "ovs-system",
@@ -145,6 +139,94 @@ func (s *environNetSuite) TestSubnetsForKnownContainer(c *gc.C) {
 	c.Assert(subnets, gc.DeepEquals, expSubnets)
 }
 
+func (s *environNetSuite) TestSubnetsForKnownContainerAndClustered(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	srv := lxd.NewMockServer(ctrl)
+	srv.EXPECT().FilterContainers("woot").Return([]jujulxd.Container{
+		{},
+	}, nil)
+
+	srv.EXPECT().IsClustered().Return(true)
+	srv.EXPECT().GetClusterMembers().Return([]lxdapi.ClusterMember{
+		{
+			ServerName: "server0",
+		},
+		{
+			ServerName: "server1",
+		},
+		{
+			ServerName: "server2",
+		},
+	}, nil)
+
+	srv.EXPECT().GetNetworks().Return([]lxdapi.Network{
+		{
+			Name: "ovs-system",
+			Type: "bridge",
+		},
+		{
+			Name: "lxdbr0",
+			Type: "bridge",
+		},
+		// This should be filtered, as it is not a bridge.
+		{
+			Name: "phys-nic-0",
+			Type: "physical",
+		},
+	}, nil)
+	srv.EXPECT().GetNetworkState("ovs-system").Return(&lxdapi.NetworkState{
+		Type:  "broadcast",
+		State: "down", // should be filtered out because it's down
+	}, nil)
+	srv.EXPECT().GetNetworkState("lxdbr0").Return(&lxdapi.NetworkState{
+		Type:  "broadcast",
+		State: "up",
+		Addresses: []lxdapi.NetworkStateAddress{
+			{
+				Family:  "inet",
+				Address: "10.55.158.1",
+				Netmask: "24",
+				Scope:   "global",
+			},
+			{
+				Family:  "inet",
+				Address: "10.42.42.1",
+				Netmask: "24",
+				Scope:   "global",
+			},
+			{
+				Family:  "inet6",
+				Address: "fe80::c876:d1ff:fe9c:fa46",
+				Netmask: "64",
+				Scope:   "link", // ignored because it has link scope
+			},
+		},
+	}, nil)
+
+	env := s.NewEnviron(c, srv, nil, environscloudspec.CloudSpec{}).(environs.Networking)
+
+	ctx := context.NewEmptyCloudCallContext()
+	subnets, err := env.Subnets(ctx, "woot", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	expSubnets := []network.SubnetInfo{
+		{
+			CIDR:              "10.55.158.0/24",
+			ProviderId:        "subnet-lxdbr0-10.55.158.0/24",
+			ProviderNetworkId: "net-lxdbr0",
+			AvailabilityZones: []string{"server0", "server1", "server2"},
+		},
+		{
+			CIDR:              "10.42.42.0/24",
+			ProviderId:        "subnet-lxdbr0-10.42.42.0/24",
+			ProviderNetworkId: "net-lxdbr0",
+			AvailabilityZones: []string{"server0", "server1", "server2"},
+		},
+	}
+	c.Assert(subnets, gc.DeepEquals, expSubnets)
+}
 func (s *environNetSuite) TestSubnetsForKnownContainerAndSubnetFiltering(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
@@ -153,11 +235,6 @@ func (s *environNetSuite) TestSubnetsForKnownContainerAndSubnetFiltering(c *gc.C
 	srv.EXPECT().FilterContainers("woot").Return([]jujulxd.Container{
 		{},
 	}, nil)
-	srv.EXPECT().GetServer().Return(&lxdapi.Server{
-		Environment: lxdapi.ServerEnvironment{
-			ServerName: "locutus",
-		},
-	}, "", nil)
 	srv.EXPECT().GetNetworks().Return([]lxdapi.Network{{
 		Name: "lxdbr0",
 		Type: "bridge",
@@ -186,6 +263,8 @@ func (s *environNetSuite) TestSubnetsForKnownContainerAndSubnetFiltering(c *gc.C
 			},
 		},
 	}, nil)
+	srv.EXPECT().IsClustered().Return(false)
+	srv.EXPECT().Name().Return("locutus")
 
 	env := s.NewEnviron(c, srv, nil, environscloudspec.CloudSpec{}).(environs.Networking)
 
@@ -211,11 +290,8 @@ func (s *environNetSuite) TestSubnetDiscoveryFallbackForOlderLXDs(c *gc.C) {
 
 	srv := lxd.NewMockServer(ctrl)
 
-	srv.EXPECT().GetServer().Return(&lxdapi.Server{
-		Environment: lxdapi.ServerEnvironment{
-			ServerName: "locutus",
-		},
-	}, "", nil)
+	srv.EXPECT().IsClustered().Return(false)
+	srv.EXPECT().Name().Return("locutus")
 
 	// Even though ovsbr0 is returned by the LXD API, it is *not* bridged
 	// into the container we will be introspecting and so this subnet will
