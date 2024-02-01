@@ -26,6 +26,7 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/network"
+	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/internal/charmhub/transport"
 	"github.com/juju/juju/internal/feature"
 	"github.com/juju/juju/juju/testing"
@@ -1066,6 +1067,12 @@ func (s *statusUpgradeUnitSuite) AddCharmhubCharmWithRevision(c *gc.C, charmName
 	return dummy
 }
 
+type mockApplicationSaver struct{}
+
+func (mockApplicationSaver) Save(context.Context, string, ...applicationservice.AddUnitParams) error {
+	return nil
+}
+
 // AddApplication adds an application for the specified charm to state.
 func (s *statusUpgradeUnitSuite) AddApplication(c *gc.C, charmName, applicationName string) {
 	ch, ok := s.charms[charmName]
@@ -1089,7 +1096,7 @@ func (s *statusUpgradeUnitSuite) AddApplication(c *gc.C, charmName, applicationN
 				Risk:  "stable",
 			},
 		},
-	}, testing.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State()))
+	}, mockApplicationSaver{}, testing.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State()))
 	c.Assert(err, jc.ErrorIsNil)
 }
 

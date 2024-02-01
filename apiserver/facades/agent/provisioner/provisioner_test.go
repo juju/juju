@@ -1018,7 +1018,7 @@ func (s *withoutControllerSuite) TestDistributionGroup(c *gc.C) {
 
 	// Add a few controllers, provision two of them.
 	st := s.ControllerModel(c).State()
-	_, err = st.EnableHA(3, constraints.Value{}, state.UbuntuBase("12.10"), nil)
+	_, _, err = st.EnableHA(3, constraints.Value{}, state.UbuntuBase("12.10"), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	setProvisioned("5")
 	setProvisioned("7")
@@ -1158,7 +1158,7 @@ func (s *withoutControllerSuite) TestDistributionGroupByMachineId(c *gc.C) {
 	setProvisioned("3")
 
 	// Add a few controllers, provision two of them.
-	_, err = s.ControllerModel(c).State().EnableHA(3, constraints.Value{}, state.UbuntuBase("12.10"), nil)
+	_, _, err = s.ControllerModel(c).State().EnableHA(3, constraints.Value{}, state.UbuntuBase("12.10"), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	setProvisioned("5")
 	setProvisioned("7")

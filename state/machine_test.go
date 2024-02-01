@@ -340,7 +340,7 @@ func (s *MachineSuite) TestLifeJobManageModelWithControllerCharm(c *gc.C) {
 	cons := constraints.Value{
 		Mem: newUint64(100),
 	}
-	changes, err := s.State.EnableHA(3, cons, state.UbuntuBase("12.10"), nil)
+	changes, _, err := s.State.EnableHA(3, cons, state.UbuntuBase("12.10"), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(changes.Added, gc.HasLen, 2)
 
@@ -369,7 +369,7 @@ func (s *MachineSuite) TestLifeJobManageModelWithControllerCharm(c *gc.C) {
 		needsCleanup, err := s.State.NeedsCleanup()
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(needsCleanup, jc.IsTrue)
-		err = s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State), fakeMachineRemover{})
+		err = s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State), fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{})
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	needsCleanup, err := s.State.NeedsCleanup()

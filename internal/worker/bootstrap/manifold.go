@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
+	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/credential"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/envcontext"
@@ -62,6 +63,11 @@ type CredentialService interface {
 // cloud.
 type CloudService interface {
 	Get(context.Context, string) (*cloud.Cloud, error)
+}
+
+// ApplicationSaver instances save an application to dqlite state.
+type ApplicationSaver interface {
+	Save(ctx context.Context, name string, units ...applicationservice.AddUnitParams) error
 }
 
 // SpaceService is the interface that is used to interact with the
@@ -296,15 +302,22 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 
+			var serviceFactoryGetter servicefactory.ServiceFactoryGetter
+			if err := getter.Get(config.ServiceFactoryName, &serviceFactoryGetter); err != nil {
+				return nil, errors.Trace(err)
+			}
+			modelServiceFactory := serviceFactoryGetter.FactoryForModel(systemState.ModelUUID())
+
 			w, err := NewWorker(WorkerConfig{
 				Agent:                   a,
 				ObjectStoreGetter:       objectStoreGetter,
-				ControllerConfigService: serviceFactory.ControllerConfig(),
-				CredentialService:       serviceFactory.Credential(),
-				CloudService:            serviceFactory.Cloud(),
+				ControllerConfigService: controllerServiceFactory.ControllerConfig(),
+				CredentialService:       controllerServiceFactory.Credential(),
+				CloudService:            controllerServiceFactory.Cloud(),
+				ApplicationService:      modelServiceFactory.Application(),
 				FlagService:             flagService,
-				SpaceService:            serviceFactory.Space(),
-				SystemState:             &stateShim{State: systemState},
+				SpaceService:            modelServiceFactory.Space(),
+				SystemState:             &stateShim{State: systemState, applicationSaver: modelServiceFactory.Application()},
 				BootstrapUnlocker:       bootstrapUnlocker,
 				AgentBinaryUploader:     config.AgentBinaryUploader,
 				ControllerCharmDeployer: config.ControllerCharmDeployer,

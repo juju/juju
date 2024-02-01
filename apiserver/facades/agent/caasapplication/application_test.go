@@ -63,6 +63,7 @@ func (s *CAASApplicationSuite) SetUpTest(c *gc.C) {
 		s.authorizer,
 		s.st, s.st,
 		s.ControllerServiceFactory(c).ControllerConfig(),
+		s.DefaultModelServiceFactory(c).Application(),
 		s.broker,
 		s.clock,
 		loggo.GetLogger("juju.apiserver.caasaplication"),
@@ -108,7 +109,7 @@ func (s *CAASApplicationSuite) TestAddUnit(c *gc.C) {
 
 	s.st.CheckCallNames(c, "Model", "Application", "APIHostPortsForAgents")
 	s.st.CheckCall(c, 1, "Application", "gitlab")
-	s.st.app.CheckCallNames(c, "Life", "Name", "Name", "UpsertCAASUnit")
+	s.st.app.CheckCallNames(c, "Life", "Name", "Name", "UpsertCAASUnit", "Name")
 
 	mc := jc.NewMultiChecker()
 	mc.AddExpr("_.AddUnitParams.PasswordHash", gc.Not(gc.IsNil))
@@ -181,7 +182,7 @@ func (s *CAASApplicationSuite) TestReuseUnitByName(c *gc.C) {
 
 	s.st.CheckCallNames(c, "Model", "Application", "APIHostPortsForAgents")
 	s.st.CheckCall(c, 1, "Application", "gitlab")
-	s.st.app.CheckCallNames(c, "Life", "Name", "Name", "UpsertCAASUnit")
+	s.st.app.CheckCallNames(c, "Life", "Name", "Name", "UpsertCAASUnit", "Name")
 
 	mc := jc.NewMultiChecker()
 	mc.AddExpr("_.AddUnitParams.PasswordHash", gc.Not(gc.IsNil))

@@ -97,7 +97,7 @@ func (e *ModelExporter) Export(ctx context.Context, model description.Model) (de
 // legacyStateImporter describes the method needed to import a model
 // into the database.
 type legacyStateImporter interface {
-	Import(description.Model, controller.Config, state.MachineSaver) (*state.Model, *state.State, error)
+	Import(description.Model, controller.Config, state.MachineSaver, state.ApplicationSaver) (*state.Model, *state.State, error)
 }
 
 // ModelImporter represents a model migration that implements Import.
@@ -107,6 +107,7 @@ type ModelImporter struct {
 	legacyStateImporter     legacyStateImporter
 	controllerConfigService ControllerConfigService
 	machineSaver            state.MachineSaver
+	applicationSaver        state.ApplicationSaver
 
 	scope modelmigration.Scope
 }
@@ -119,12 +120,14 @@ func NewModelImporter(
 	scope modelmigration.Scope,
 	controllerConfigService ControllerConfigService,
 	machineSaver state.MachineSaver,
+	applicationSaver state.ApplicationSaver,
 ) *ModelImporter {
 	return &ModelImporter{
 		legacyStateImporter:     stateImporter,
 		scope:                   scope,
 		controllerConfigService: controllerConfigService,
 		machineSaver:            machineSaver,
+		applicationSaver:        applicationSaver,
 	}
 }
 
@@ -142,7 +145,7 @@ func (i *ModelImporter) ImportModel(ctx context.Context, bytes []byte) (*state.M
 		return nil, nil, errors.Annotatef(err, "unable to get controller config")
 	}
 
-	dbModel, dbState, err := i.legacyStateImporter.Import(model, ctrlConfig, i.machineSaver)
+	dbModel, dbState, err := i.legacyStateImporter.Import(model, ctrlConfig, i.machineSaver, i.applicationSaver)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}

@@ -36,6 +36,7 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/upgrade"
+	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/state/cloudimagemetadata"
@@ -1151,10 +1152,15 @@ type AddApplicationArgs struct {
 	Resources         map[string]string
 }
 
+// ApplicationSaver instances save an application to dqlite state.
+type ApplicationSaver interface {
+	Save(ctx context.Context, name string, units ...applicationservice.AddUnitParams) error
+}
+
 // AddApplication creates a new application, running the supplied charm, with the
 // supplied name (which must be unique). If the charm defines peer relations,
 // they will be created automatically.
-func (st *State) AddApplication(args AddApplicationArgs, store objectstore.ObjectStore) (_ *Application, err error) {
+func (st *State) AddApplication(args AddApplicationArgs, applicationSaver ApplicationSaver, store objectstore.ObjectStore) (_ *Application, err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot add application %q", args.Name)
 
 	// Sanity checks.
@@ -1355,7 +1361,9 @@ func (st *State) AddApplication(args AddApplicationArgs, store objectstore.Objec
 	removeNils(args.CharmConfig)
 	removeNils(appConfigAttrs)
 
+	var unitNames []string
 	buildTxn := func(attempt int) ([]txn.Op, error) {
+		unitNames = []string{}
 		// If we've tried once already and failed, check that
 		// model may have been destroyed.
 		if attempt > 0 {
@@ -1436,6 +1444,7 @@ func (st *State) AddApplication(args AddApplicationArgs, store objectstore.Objec
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
+			unitNames = append(unitNames, unitName)
 			ops = append(ops, unitOps...)
 			if model.Type() != ModelTypeCAAS {
 				placement := instance.Placement{}
@@ -1451,6 +1460,14 @@ func (st *State) AddApplication(args AddApplicationArgs, store objectstore.Objec
 	_, _ = probablyUpdateStatusHistory(st.db(), app.globalKey(), statusDoc)
 
 	if err = st.db().Run(buildTxn); err == nil {
+		unitArgs := make([]applicationservice.AddUnitParams, len(unitNames))
+		for i := range unitNames {
+			n := unitNames[i]
+			unitArgs[i].UnitName = &n
+		}
+		if err := applicationSaver.Save(context.TODO(), args.Name, unitArgs...); err != nil {
+			return nil, errors.Trace(err)
+		}
 		// Refresh to pick the txn-revno.
 		if err = app.Refresh(); err != nil {
 			return nil, errors.Trace(err)

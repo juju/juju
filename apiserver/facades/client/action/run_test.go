@@ -15,6 +15,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facades/client/action"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	applicationservice "github.com/juju/juju/domain/application/service"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -92,6 +93,12 @@ func (s *runSuite) TestBlockRunMachineAndApplication(c *gc.C) {
 	s.AssertBlocked(c, err, "TestBlockRunMachineAndApplication")
 }
 
+type mockApplicationSaver struct{}
+
+func (mockApplicationSaver) Save(context.Context, string, ...applicationservice.AddUnitParams) error {
+	return nil
+}
+
 func (s *runSuite) TestRunMachineAndApplication(c *gc.C) {
 	// We only test that we create the actions correctly
 	// There is no need to test anything else at this level.
@@ -117,7 +124,7 @@ func (s *runSuite) TestRunMachineAndApplication(c *gc.C) {
 	magic, err := s.ControllerModel(c).State().AddApplication(state.AddApplicationArgs{
 		Name: "magic", Charm: charm,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{OS: "ubuntu", Channel: "20.04/stable"}},
-	}, jujutesting.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State()))
+	}, mockApplicationSaver{}, jujutesting.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State()))
 	c.Assert(err, jc.ErrorIsNil)
 	s.addUnit(c, magic)
 	s.addUnit(c, magic)
@@ -171,7 +178,7 @@ func (s *runSuite) TestRunApplicationWorkload(c *gc.C) {
 	magic, err := s.ControllerModel(c).State().AddApplication(state.AddApplicationArgs{
 		Name: "magic", Charm: charm,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{OS: "ubuntu", Channel: "20.04/stable"}},
-	}, jujutesting.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State()))
+	}, mockApplicationSaver{}, jujutesting.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State()))
 	c.Assert(err, jc.ErrorIsNil)
 	s.addUnit(c, magic)
 	s.addUnit(c, magic)

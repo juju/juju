@@ -32,6 +32,7 @@ import (
 	"github.com/juju/juju/core/payloads"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
+	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/environs/config"
 	secretsprovider "github.com/juju/juju/internal/secrets/provider"
 	"github.com/juju/juju/internal/storage"
@@ -47,7 +48,9 @@ type MachineSaver interface {
 }
 
 // Import the database agnostic model representation into the database.
-func (ctrl *Controller) Import(model description.Model, controllerConfig controller.Config, machineSaver MachineSaver) (_ *Model, _ *State, err error) {
+func (ctrl *Controller) Import(
+	model description.Model, controllerConfig controller.Config, machineSaver MachineSaver, applicationSaver ApplicationSaver,
+) (_ *Model, _ *State, err error) {
 	st, err := ctrl.pool.SystemState()
 	if err != nil {
 		return nil, nil, errors.Trace(err)
@@ -127,11 +130,12 @@ func (ctrl *Controller) Import(model description.Model, controllerConfig control
 
 	// I would have loved to use import, but that is a reserved word.
 	restore := importer{
-		st:           newSt,
-		dbModel:      dbModel,
-		model:        model,
-		logger:       logger,
-		machineSaver: machineSaver,
+		st:               newSt,
+		dbModel:          dbModel,
+		model:            model,
+		logger:           logger,
+		machineSaver:     machineSaver,
+		applicationSaver: applicationSaver,
 	}
 	if err := restore.sequences(); err != nil {
 		return nil, nil, errors.Annotate(err, "sequences")
@@ -308,11 +312,12 @@ func (m *ImportStateMigration) Run() error {
 }
 
 type importer struct {
-	st           *State
-	dbModel      *Model
-	model        description.Model
-	logger       loggo.Logger
-	machineSaver MachineSaver
+	st               *State
+	dbModel          *Model
+	model            description.Model
+	logger           loggo.Logger
+	machineSaver     MachineSaver
+	applicationSaver ApplicationSaver
 	// applicationUnits is populated at the end of loading the applications, and is a
 	// map of application name to the units of that application.
 	applicationUnits map[string]map[string]*Unit
@@ -967,10 +972,16 @@ func (i *importer) application(a description.Application, ctrlCfg controller.Con
 		return errors.Trace(err)
 	}
 
+	var unitArgs []applicationservice.AddUnitParams
 	for _, unit := range a.Units() {
 		if err := i.unit(a, unit, ctrlCfg); err != nil {
 			return errors.Trace(err)
 		}
+		n := unit.Name()
+		unitArgs = append(unitArgs, applicationservice.AddUnitParams{UnitName: &n})
+	}
+	if err := i.applicationSaver.Save(context.TODO(), a.Name(), unitArgs...); err != nil {
+		return errors.Trace(err)
 	}
 
 	if err := i.applicationOffers(a); err != nil {

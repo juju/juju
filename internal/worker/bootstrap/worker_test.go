@@ -7,17 +7,17 @@ import (
 	"context"
 	"os"
 	"path/filepath"
-	time "time"
+	"time"
 
 	"github.com/juju/charm/v12"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
-	gomock "go.uber.org/mock/gomock"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	controller "github.com/juju/juju/controller"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/flags"
 	"github.com/juju/juju/core/instance"
@@ -104,6 +104,7 @@ func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
 		BootstrapUnlocker:       s.bootstrapUnlocker,
 		CharmhubHTTPClient:      s.httpClient,
 		SystemState:             s.state,
+		ApplicationService:      s.applicationSaver,
 		ControllerConfigService: s.controllerConfigService,
 		CredentialService:       s.credentialService,
 		CloudService:            s.cloudService,

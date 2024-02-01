@@ -48,6 +48,6 @@ func (s *uniterAPIErrorSuite) TestGetStorageStateError(c *gc.C) {
 	}
 
 	serviceFactory := s.ControllerServiceFactory(c)
-	_, err := uniter.NewUniterAPIWithServices(context.Background(), facadeContext, serviceFactory.ControllerConfig(), serviceFactory.Cloud(), serviceFactory.Credential())
+	_, err := uniter.NewUniterAPIWithServices(context.Background(), facadeContext, serviceFactory.ControllerConfig(), serviceFactory.Cloud(), serviceFactory.Credential(), serviceFactory.Unit())
 	c.Assert(err, gc.ErrorMatches, "kaboom")
 }

@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
+	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm/services"
@@ -158,10 +159,16 @@ type StateBackend interface {
 	Unit(string) (Unit, error)
 }
 
+// ApplicationSaver instances save an application to dqlite state.
+type ApplicationSaver interface {
+	Save(ctx context.Context, name string, units ...applicationservice.AddUnitParams) error
+}
+
 // BaseDeployerConfig holds the configuration for a baseDeployer.
 type BaseDeployerConfig struct {
 	DataDir             string
 	StateBackend        StateBackend
+	ApplicationSaver    ApplicationSaver
 	CharmUploader       CharmUploader
 	ObjectStore         objectstore.ObjectStore
 	Constraints         constraints.Value
@@ -181,6 +188,9 @@ func (c BaseDeployerConfig) Validate() error {
 	}
 	if c.StateBackend == nil {
 		return errors.NotValidf("StateBackend")
+	}
+	if c.ApplicationSaver == nil {
+		return errors.NotValidf("ApplicationSaver")
 	}
 	if c.CharmUploader == nil {
 		return errors.NotValidf("CharmUploader")
@@ -209,6 +219,7 @@ func (c BaseDeployerConfig) Validate() error {
 type baseDeployer struct {
 	dataDir             string
 	stateBackend        StateBackend
+	applicationSaver    ApplicationSaver
 	charmUploader       CharmUploader
 	objectStore         objectstore.ObjectStore
 	constraints         constraints.Value
@@ -226,6 +237,7 @@ func makeBaseDeployer(config BaseDeployerConfig) baseDeployer {
 	return baseDeployer{
 		dataDir:             config.DataDir,
 		stateBackend:        config.StateBackend,
+		applicationSaver:    config.ApplicationSaver,
 		charmUploader:       config.CharmUploader,
 		objectStore:         config.ObjectStore,
 		constraints:         config.Constraints,
@@ -392,6 +404,11 @@ func (b *baseDeployer) AddControllerApplication(ctx context.Context, curl string
 		ApplicationConfig: appCfg,
 		NumUnits:          1,
 	}, b.objectStore)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	unitName := bootstrap.ControllerApplicationName + "/0"
+	err = b.applicationSaver.Save(ctx, bootstrap.ControllerApplicationName, applicationservice.AddUnitParams{UnitName: &unitName})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

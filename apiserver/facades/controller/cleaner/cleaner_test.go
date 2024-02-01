@@ -17,8 +17,10 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/cleaner"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/objectstore"
+	applicationservice "github.com/juju/juju/domain/application/service"
 	machineservice "github.com/juju/juju/domain/machine/service"
 	servicefactorytesting "github.com/juju/juju/domain/servicefactory/testing"
+	unitservice "github.com/juju/juju/domain/unit/service"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
@@ -27,10 +29,12 @@ import (
 type CleanerSuite struct {
 	coretesting.BaseSuite
 
-	st             *mockState
-	machineService *machineservice.Service
-	api            *cleaner.CleanerAPI
-	authoriser     apiservertesting.FakeAuthorizer
+	st                 *mockState
+	machineService     *machineservice.Service
+	applicationService *applicationservice.Service
+	unitService        *unitservice.Service
+	api                *cleaner.CleanerAPI
+	authoriser         apiservertesting.FakeAuthorizer
 }
 
 var _ = gc.Suite(&CleanerSuite{})
@@ -46,12 +50,21 @@ func (s *CleanerSuite) SetUpTest(c *gc.C) {
 	var err error
 	res := common.NewResources()
 	s.machineService = machineservice.NewService(nil)
+	s.applicationService = applicationservice.NewService(nil)
+	s.unitService = unitservice.NewService(nil)
 	s.api, err = cleaner.NewCleanerAPI(facadetest.Context{
 		Resources_: res,
 		Auth_:      s.authoriser,
-		ServiceFactory_: servicefactorytesting.NewTestingServiceFactory().WithMachineService(func() *machineservice.Service {
-			return s.machineService
-		}),
+		ServiceFactory_: servicefactorytesting.NewTestingServiceFactory().
+			WithMachineService(func() *machineservice.Service {
+				return s.machineService
+			}).
+			WithApplicationService(func() *applicationservice.Service {
+				return s.applicationService
+			}).
+			WithUnitService(func() *unitservice.Service {
+				return s.unitService
+			}),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.api, gc.NotNil)
@@ -90,7 +103,7 @@ func (s *CleanerSuite) TestCleanupSuccess(c *gc.C) {
 	s.st.CheckCallNames(c, "Cleanup")
 	s.st.CheckCalls(c, []testing.StubCall{{
 		FuncName: "Cleanup",
-		Args:     []any{s.machineService},
+		Args:     []any{s.machineService, s.applicationService, s.unitService},
 	}})
 }
 
@@ -144,7 +157,7 @@ func (st *mockState) WatchCleanups() state.NotifyWatcher {
 	return w
 }
 
-func (st *mockState) Cleanup(_ context.Context, _ objectstore.ObjectStore, mr state.MachineRemover) error {
-	st.MethodCall(st, "Cleanup", mr)
+func (st *mockState) Cleanup(_ context.Context, _ objectstore.ObjectStore, mr state.MachineRemover, ar state.ApplicationRemover, ur state.UnitRemover) error {
+	st.MethodCall(st, "Cleanup", mr, ar, ur)
 	return st.NextErr()
 }

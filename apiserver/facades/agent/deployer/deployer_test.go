@@ -60,6 +60,7 @@ type deployerSuite struct {
 	revoker   *mockLeadershipRevoker
 
 	controllerConfigGetter *mocks.MockControllerConfigGetter
+	unitRemover            *mocks.MockUnitRemover
 }
 
 var _ = gc.Suite(&deployerSuite{})
@@ -70,6 +71,7 @@ func (s *deployerSuite) SetUpTest(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	s.controllerConfigGetter = mocks.NewMockControllerConfigGetter(ctrl)
 	s.controllerConfigGetter.EXPECT().ControllerConfig(gomock.Any()).Return(s.ControllerConfigAttrs, nil).AnyTimes()
+	s.unitRemover = mocks.NewMockUnitRemover(ctrl)
 
 	// The two known machines now contain the following units:
 	// machine 0 (not authorized): mysql/1 (principal1)
@@ -129,6 +131,7 @@ func (s *deployerSuite) SetUpTest(c *gc.C) {
 
 	deployer, err := deployer.NewDeployerAPI(
 		s.controllerConfigGetter,
+		s.unitRemover,
 		s.authorizer,
 		st,
 		testing.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State()),

@@ -40,6 +40,7 @@ func NewDeployerFacade(ctx facade.Context) (*DeployerAPI, error) {
 	}
 
 	controllerConfigGetter := ctx.ServiceFactory().ControllerConfig()
+	unitRemover := ctx.ServiceFactory().Unit()
 
-	return NewDeployerAPI(controllerConfigGetter, authorizer, st, ctx.ObjectStore(), resources, leadershipRevoker, systemState)
+	return NewDeployerAPI(controllerConfigGetter, unitRemover, authorizer, st, ctx.ObjectStore(), resources, leadershipRevoker, systemState)
 }

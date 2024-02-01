@@ -95,7 +95,7 @@ func (s *VolumeStateSuite) TestAddApplicationInvalidPool(c *gc.C) {
 			Channel: "20.04/stable",
 		}},
 		Storage: testStorage,
-	}, state.NewObjectStore(c, s.State))
+	}, mockApplicationSaver{}, state.NewObjectStore(c, s.State))
 	c.Assert(err, gc.ErrorMatches, `.* pool "invalid-pool" not found`)
 }
 
@@ -111,7 +111,7 @@ func (s *VolumeStateSuite) TestAddApplicationNoUserDefaultPool(c *gc.C) {
 			Channel: "20.04/stable",
 		}},
 		Storage: testStorage,
-	}, state.NewObjectStore(c, s.State))
+	}, mockApplicationSaver{}, state.NewObjectStore(c, s.State))
 	c.Assert(err, jc.ErrorIsNil)
 	cons, err := app.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)

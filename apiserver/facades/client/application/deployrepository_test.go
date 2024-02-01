@@ -1094,7 +1094,7 @@ func (s *deployRepositorySuite) TestDeployFromRepositoryAPI(c *gc.C) {
 		Resources:        map[string]string{},
 		Storage:          map[string]state.StorageConstraints{},
 	}
-	s.state.EXPECT().AddApplication(addApplicationArgsMatcher{c: c, expectedArgs: addAppArgs}, gomock.Any()).Return(s.application, nil)
+	s.state.EXPECT().AddApplication(addApplicationArgsMatcher{c: c, expectedArgs: addAppArgs}, gomock.Any(), gomock.Any()).Return(s.application, nil)
 
 	deployFromRepositoryAPI := s.getDeployFromRepositoryAPI()
 
@@ -1219,7 +1219,7 @@ func (s *deployRepositorySuite) TestAddPendingResourcesForDeployFromRepositoryAP
 		Resources:        map[string]string{"foo-resource": "3"},
 		Storage:          map[string]state.StorageConstraints{},
 	}
-	s.state.EXPECT().AddApplication(addApplicationArgsMatcher{c: c, expectedArgs: addAppArgs}, gomock.Any()).Return(s.application, nil)
+	s.state.EXPECT().AddApplication(addApplicationArgsMatcher{c: c, expectedArgs: addAppArgs}, gomock.Any(), gomock.Any()).Return(s.application, nil)
 
 	deployFromRepositoryAPI := s.getDeployFromRepositoryAPI()
 
@@ -1313,7 +1313,7 @@ func (s *deployRepositorySuite) TestRemovePendingResourcesWhenDeployErrors(c *gc
 
 	s.state.EXPECT().RemovePendingResources("metadata-name", map[string]string{"foo-resource": "3"}, gomock.Any())
 
-	s.state.EXPECT().AddApplication(addApplicationArgsMatcher{c: c, expectedArgs: addAppArgs}, gomock.Any()).Return(s.application,
+	s.state.EXPECT().AddApplication(addApplicationArgsMatcher{c: c, expectedArgs: addAppArgs}, gomock.Any(), gomock.Any()).Return(s.application,
 		errors.New("fail"))
 
 	deployFromRepositoryAPI := s.getDeployFromRepositoryAPI()

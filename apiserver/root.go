@@ -831,6 +831,7 @@ func (ctx *facadeContext) ModelImporter() facade.ModelImporter {
 		ctx.migrationScope(),
 		ctx.ServiceFactory().ControllerConfig(),
 		ctx.ServiceFactory().Machine(),
+		ctx.ServiceFactory().Application(),
 	)
 }
 
