@@ -166,7 +166,7 @@ func (s *stateSuite) TestAddUserAlreadyExists(c *gc.C) {
 		"admin", "admin",
 		adminCloneUUID,
 	)
-	c.Assert(err, jc.ErrorIs, usererrors.AlreadyExists)
+	c.Assert(err, jc.ErrorIs, usererrors.UserAlreadyExists)
 }
 
 // TestAddUserCreatorNotFound asserts that we get an error when we try
@@ -271,7 +271,7 @@ func (s *stateSuite) TestGetUserNotFound(c *gc.C) {
 
 	// Get the user.
 	_, err = st.GetUser(context.Background(), userUUID)
-	c.Assert(err, jc.ErrorIs, usererrors.NotFound)
+	c.Assert(err, jc.ErrorIs, usererrors.UserNotFound)
 }
 
 // TestGetUserByName asserts that we can get a user by name from the database.
@@ -336,7 +336,7 @@ func (s *stateSuite) TestGetRemovedUserByName(c *gc.C) {
 
 	// Get the user.
 	_, err = st.GetUserByName(context.Background(), "userToRemove")
-	c.Assert(err, jc.ErrorIs, usererrors.NotFound)
+	c.Assert(err, jc.ErrorIs, usererrors.UserNotFound)
 }
 
 // TestGetUserByNameMultipleUsers asserts that we get a non-removed user when we try to
@@ -391,7 +391,7 @@ func (s *stateSuite) TestGetUserByNameNotFound(c *gc.C) {
 
 	// Get the user.
 	_, err := st.GetUserByName(context.Background(), "admin")
-	c.Assert(err, jc.ErrorIs, usererrors.NotFound)
+	c.Assert(err, jc.ErrorIs, usererrors.UserNotFound)
 }
 
 // TestGetUserWithAuthInfoByName asserts that we can get a user with auth info
@@ -480,7 +480,7 @@ func (s *stateSuite) TestGetUserByAuthUnauthorized(c *gc.C) {
 
 	// Get the user.
 	_, err = st.GetUserByAuth(context.Background(), "admin", "wrongPassword")
-	c.Assert(err, jc.ErrorIs, usererrors.Unauthorized)
+	c.Assert(err, jc.ErrorIs, usererrors.UserUnauthorized)
 }
 
 // TestGetUserByAutUnexcitingUser asserts that we get an error when we try to
@@ -490,7 +490,7 @@ func (s *stateSuite) TestGetUserByAutUnexcitingUser(c *gc.C) {
 
 	// Get the user.
 	_, err := st.GetUserByAuth(context.Background(), "admin", "password")
-	c.Assert(err, jc.ErrorIs, usererrors.Unauthorized)
+	c.Assert(err, jc.ErrorIs, usererrors.UserUnauthorized)
 
 }
 
