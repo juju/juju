@@ -178,6 +178,8 @@ func (s *stateSuite) TestAddSubnet(c *gc.C) {
 	ON     availability_zone_uuid = availability_zone.uuid
 	WHERE  subnet_uuid = ?`, uuid.String())
 	c.Assert(err, jc.ErrorIsNil)
+	defer rows.Close()
+
 	var retrievedAZs []string
 	for rows.Next() {
 		var retrievedAZ string

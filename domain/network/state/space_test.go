@@ -67,6 +67,8 @@ func (s *stateSuite) TestAddSpace(c *gc.C) {
 	// Check the subnet ids for that space.
 	rows, err := db.Query("SELECT uuid FROM subnet WHERE space_uuid = ?", uuid.String())
 	c.Assert(err, jc.ErrorIsNil)
+	defer rows.Close()
+
 	i := 0
 	for rows.Next() {
 		var subnetID string

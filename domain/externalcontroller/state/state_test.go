@@ -203,6 +203,7 @@ func (s *stateSuite) TestUpdateExternalControllerNewData(c *gc.C) {
 	// Check the addresses.
 	rows, err := db.Query("SELECT address FROM external_controller_address WHERE controller_uuid = ?", ecUUID)
 	c.Assert(err, jc.ErrorIsNil)
+	defer rows.Close()
 
 	addrs := set.NewStrings()
 	for rows.Next() {
@@ -261,6 +262,7 @@ func (s *stateSuite) TestUpdateExternalControllerUpsertAndReplace(c *gc.C) {
 	// Addresses should have one preserved and one replaced.
 	rows, err := db.Query("SELECT address FROM external_controller_address WHERE controller_uuid = ?", ecUUID)
 	c.Assert(err, jc.ErrorIsNil)
+	defer rows.Close()
 
 	addrs := set.NewStrings()
 	for rows.Next() {

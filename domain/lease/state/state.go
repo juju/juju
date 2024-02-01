@@ -292,6 +292,7 @@ ORDER BY l.uuid;`[1:]
 		if err != nil {
 			return errors.Trace(err)
 		}
+		defer rows.Close()
 
 		seen := set.NewStrings()
 
@@ -302,7 +303,6 @@ ORDER BY l.uuid;`[1:]
 			var entity string
 
 			if err := rows.Scan(&leaseUUID, &key.Namespace, &key.ModelUUID, &key.Lease, &entity); err != nil {
-				_ = rows.Close()
 				return errors.Trace(err)
 			}
 

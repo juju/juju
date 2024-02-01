@@ -264,6 +264,8 @@ VALUES (?, 1, 'some-model-uuid', ?, ?, datetime('now'), datetime('now', ?))`[1:]
 	stmt, err := s.DB().Prepare(q)
 	c.Assert(err, jc.ErrorIsNil)
 
+	defer stmt.Close()
+
 	_, err = stmt.Exec(utils.MustNewUUID().String(), "postgresql", "postgresql/0", "+2 minutes")
 	c.Assert(err, jc.ErrorIsNil)
 
