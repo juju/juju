@@ -44,22 +44,25 @@ func (s *SpaceService) FilterHostPortsForManagementSpace(
 	apiHostPorts []network.SpaceHostPorts,
 ) ([]network.SpaceHostPorts, error) {
 	var hostPortsForAgents []network.SpaceHostPorts
-	if mgmtSpace := controllerConfig.JujuManagementSpace(); mgmtSpace != "" {
-		spaceInfo, err := s.st.GetSpaceByName(ctx, mgmtSpace)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
 
-		hostPortsForAgents = make([]network.SpaceHostPorts, len(apiHostPorts))
-		for i := range apiHostPorts {
-			if filtered, ok := apiHostPorts[i].InSpaces(*spaceInfo); ok {
-				hostPortsForAgents[i] = filtered
-			} else {
-				hostPortsForAgents[i] = apiHostPorts[i]
-			}
+	mgmtSpace := controllerConfig.JujuManagementSpace()
+	if mgmtSpace == "" {
+		return apiHostPorts, nil
+	}
+
+	spaceInfo, err := s.st.GetSpaceByName(ctx, mgmtSpace)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	hostPortsForAgents = make([]network.SpaceHostPorts, len(apiHostPorts))
+	for i := range apiHostPorts {
+		filtered, addrsIsInSpace := apiHostPorts[i].InSpaces(*spaceInfo)
+		if addrsIsInSpace {
+			hostPortsForAgents[i] = filtered
+		} else {
+			hostPortsForAgents[i] = apiHostPorts[i]
 		}
-	} else {
-		hostPortsForAgents = apiHostPorts
 	}
 
 	return hostPortsForAgents, nil

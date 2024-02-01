@@ -302,7 +302,7 @@ func (w *bootstrapWorker) seedControllerCharm(ctx context.Context, dataDir strin
 
 	objectStore, err := w.cfg.ObjectStoreGetter.GetObjectStore(ctx, w.cfg.SystemState.ControllerModelUUID())
 	if err != nil {
-		return instancecfg.StateInitializationParams{}, fmt.Errorf("failed to get object store: %v", err)
+		return instancecfg.StateInitializationParams{}, fmt.Errorf("failed to get object store: %w", err)
 	}
 
 	// Controller charm seeder will populate the charm for the controller.
