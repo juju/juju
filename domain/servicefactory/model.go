@@ -6,6 +6,8 @@ package servicefactory
 import (
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/domain"
+	applicationservice "github.com/juju/juju/domain/application/service"
+	applicationstate "github.com/juju/juju/domain/application/state"
 	blockdeviceservice "github.com/juju/juju/domain/blockdevice/service"
 	blockdevicestate "github.com/juju/juju/domain/blockdevice/state"
 	machineservice "github.com/juju/juju/domain/machine/service"
@@ -14,6 +16,8 @@ import (
 	modelconfigstate "github.com/juju/juju/domain/modelconfig/state"
 	objectstoreservice "github.com/juju/juju/domain/objectstore/service"
 	objectstorestate "github.com/juju/juju/domain/objectstore/state"
+	unitservice "github.com/juju/juju/domain/unit/service"
+	unitstate "github.com/juju/juju/domain/unit/state"
 )
 
 // ModelFactory provides access to the services required by the apiserver.
@@ -71,5 +75,23 @@ func (s *ModelFactory) BlockDevice() *blockdeviceservice.Service {
 		blockdevicestate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
 		domain.NewWatcherFactory(s.modelDB, s.logger.Child("blockdevice")),
 		s.logger.Child("blockdevice"),
+	)
+}
+
+// Application returns the model's application service.
+func (s *ModelFactory) Application() *applicationservice.Service {
+	return applicationservice.NewService(
+		applicationstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB),
+			s.logger.Child("application"),
+		),
+	)
+}
+
+// Unit returns the model's unit service.
+func (s *ModelFactory) Unit() *unitservice.Service {
+	return unitservice.NewService(
+		unitstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB),
+			s.logger.Child("unit"),
+		),
 	)
 }
