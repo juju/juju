@@ -32,6 +32,7 @@ func (s *stateSuite) TestCurateNodes(c *gc.C) {
 
 	rows, err := db.QueryContext(context.Background(), "SELECT controller_id FROM controller_node")
 	c.Assert(err, jc.ErrorIsNil)
+	defer rows.Close()
 
 	ids := set.NewStrings()
 	for rows.Next() {

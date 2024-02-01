@@ -218,6 +218,7 @@ WHERE   cloud.name = ?
 		if err != nil {
 			return fmt.Errorf("fetching cloud %q region defaults: %w", cloudName, err)
 		}
+		defer rows.Close()
 
 		var regionName, key, value string
 		for rows.Next() {
@@ -226,7 +227,7 @@ WHERE   cloud.name = ?
 					"compiling cloud %q region %q defaults: %w",
 					cloudName,
 					regionName,
-					stderrors.Join(err, rows.Close()),
+					stderrors.Join(err, rows.Err()),
 				)
 			}
 			store, has := defaults[regionName]

@@ -71,17 +71,17 @@ func (mr *MockStateMockRecorder) ControllerConfig(arg0 any) *gomock.Call {
 }
 
 // UpdateControllerConfig mocks base method.
-func (m *MockState) UpdateControllerConfig(arg0 context.Context, arg1 map[string]string, arg2 []string) error {
+func (m *MockState) UpdateControllerConfig(arg0 context.Context, arg1 map[string]string, arg2 []string, arg3 func(map[string]string) error) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateControllerConfig", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "UpdateControllerConfig", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // UpdateControllerConfig indicates an expected call of UpdateControllerConfig.
-func (mr *MockStateMockRecorder) UpdateControllerConfig(arg0, arg1, arg2 any) *gomock.Call {
+func (mr *MockStateMockRecorder) UpdateControllerConfig(arg0, arg1, arg2, arg3 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateControllerConfig", reflect.TypeOf((*MockState)(nil).UpdateControllerConfig), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateControllerConfig", reflect.TypeOf((*MockState)(nil).UpdateControllerConfig), arg0, arg1, arg2, arg3)
 }
 
 // MockWatcherFactory is a mock of WatcherFactory interface.

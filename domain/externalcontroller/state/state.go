@@ -242,11 +242,11 @@ WHERE  controller_uuid = ?`
 		if err != nil {
 			return errors.Trace(err)
 		}
+		defer rows.Close()
 
 		for rows.Next() {
 			var modelUUID string
 			if err := rows.Scan(&modelUUID); err != nil {
-				_ = rows.Close()
 				return errors.Trace(err)
 			}
 			modelUUIDs = append(modelUUIDs, modelUUID)

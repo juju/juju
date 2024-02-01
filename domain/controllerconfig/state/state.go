@@ -40,6 +40,7 @@ func (st *State) ControllerConfig(ctx context.Context) (map[string]string, error
 		if err != nil {
 			return errors.Trace(err)
 		}
+		defer rows.Close()
 
 		result, err = controllerConfigFromRows(rows)
 		return errors.Trace(err)
@@ -53,12 +54,15 @@ func (st *State) ControllerConfig(ctx context.Context) (map[string]string, error
 // to the current config, and keys in removeAttrs will be unset (and
 // so revert to their defaults). Only a subset of keys can be changed
 // after bootstrapping.
-func (st *State) UpdateControllerConfig(ctx context.Context, updateAttrs map[string]string, removeAttrs []string) error {
+// ValidateModification is a function that will be called with the current
+// config, and should return an error if the modification is not allowed.
+func (st *State) UpdateControllerConfig(ctx context.Context, updateAttrs map[string]string, removeAttrs []string, validateModification func(map[string]string) error) error {
 	db, err := st.DB()
 	if err != nil {
 		return errors.Trace(err)
 	}
 
+	selectQuery := "SELECT key, value FROM controller_config"
 	deleteQuery := "DELETE FROM controller_config WHERE key = ?"
 	updateQuery := `
 INSERT INTO controller_config (key, value)
@@ -66,6 +70,19 @@ VALUES (?, ?)
   ON CONFLICT(key) DO UPDATE SET value=?`
 
 	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		// Check keys and values are valid between current and new config.
+		rows, err := tx.QueryContext(ctx, selectQuery)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		current, err := controllerConfigFromRows(rows)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if err := validateModification(current); err != nil {
+			return errors.Trace(err)
+		}
+
 		// Remove the attributes
 		for _, r := range removeAttrs {
 			if _, err := tx.ExecContext(ctx, deleteQuery, r); err != nil {
@@ -102,7 +119,6 @@ func controllerConfigFromRows(rows *sql.Rows) (map[string]string, error) {
 		var value string
 
 		if err := rows.Scan(&key, &value); err != nil {
-			_ = rows.Close()
 			return nil, errors.Trace(err)
 		}
 

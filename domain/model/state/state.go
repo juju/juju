@@ -239,6 +239,7 @@ SELECT type FROM model_type;
 		if err != nil {
 			return fmt.Errorf("getting supported model types: %w", err)
 		}
+		defer rows.Close()
 
 		var t model.Type
 		for rows.Next() {

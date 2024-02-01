@@ -40,6 +40,7 @@ linters:
     - unconvert
     - exportloopref
     - unused
+    - sqlclosecheck
 run:
   timeout: 30m
   modules-download-mode: readonly

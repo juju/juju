@@ -81,6 +81,7 @@ LIMIT ?
 		if err != nil {
 			return err
 		}
+		defer rows.Close()
 
 		agentUUIDS := make([]any, 0, agentUpdates)
 
@@ -114,6 +115,7 @@ LIMIT ?
 		if err != nil {
 			return err
 		}
+		defer rows.Close()
 
 		agentUUIDS := make([]any, 0, agents*2)
 		insertStrings := make([]string, 0, agents)
@@ -157,6 +159,7 @@ WHERE model_name = ?
 		if err != nil {
 			return err
 		}
+		defer rows.Close()
 
 		if !rows.Next() {
 			return nil
@@ -194,6 +197,7 @@ WHERE agent.model_name = ?
 		if err != nil {
 			return err
 		}
+		defer rows.Close()
 
 		if !rows.Next() {
 			return nil
