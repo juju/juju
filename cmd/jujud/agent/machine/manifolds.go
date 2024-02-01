@@ -861,6 +861,8 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 // IAASManifolds returns a set of co-configured manifolds covering the
 // various responsibilities of a IAAS machine agent.
 func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
+	agentConfig := config.Agent.CurrentConfig()
+
 	manifolds := dependency.Manifolds{
 		// Bootstrap worker is responsible for setting up the initial machine.
 		bootstrapName: ifDatabaseUpgradeComplete(bootstrap.Manifold(bootstrap.ManifoldConfig{
@@ -924,6 +926,22 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			AgentName:         agentName,
 			APICallerName:     apiCallerName,
 			FanConfigurerName: fanConfigurerName,
+		})),
+
+		// DBAccessor is a manifold that provides a DBAccessor worker
+		// that can be used to access the database.
+		dbAccessorName: ifController(dbaccessor.Manifold(dbaccessor.ManifoldConfig{
+			AgentName:            agentName,
+			QueryLoggerName:      queryLoggerName,
+			Clock:                config.Clock,
+			Hub:                  config.CentralHub,
+			Logger:               loggo.GetLogger("juju.worker.dbaccessor"),
+			LogDir:               agentConfig.LogDir(),
+			PrometheusRegisterer: config.PrometheusRegisterer,
+			NewApp:               dbaccessor.NewApp,
+			NewDBWorker:          dbaccessor.NewTrackedDBWorker,
+			NewMetricsCollector:  dbaccessor.NewMetricsCollector,
+			NewNodeManager:       dbaccessor.IAASNodeManager,
 		})),
 
 		// The diskmanager worker periodically lists block devices on the
@@ -1087,6 +1105,8 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 // CAASManifolds returns a set of co-configured manifolds covering the
 // various responsibilities of a CAAS machine agent.
 func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
+	agentConfig := config.Agent.CurrentConfig()
+
 	return mergeManifolds(config, dependency.Manifolds{
 		// Bootstrap worker is responsible for setting up the initial machine.
 		bootstrapName: ifDatabaseUpgradeComplete(bootstrap.Manifold(bootstrap.ManifoldConfig{
@@ -1149,6 +1169,22 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Logger:        loggo.GetLogger("juju.worker.caasunitsmanager"),
 			Hub:           config.LocalHub,
 		}),
+
+		// DBAccessor is a manifold that provides a DBAccessor worker
+		// that can be used to access the database.
+		dbAccessorName: ifController(dbaccessor.Manifold(dbaccessor.ManifoldConfig{
+			AgentName:            agentName,
+			QueryLoggerName:      queryLoggerName,
+			Clock:                config.Clock,
+			Hub:                  config.CentralHub,
+			Logger:               loggo.GetLogger("juju.worker.dbaccessor"),
+			LogDir:               agentConfig.LogDir(),
+			PrometheusRegisterer: config.PrometheusRegisterer,
+			NewApp:               dbaccessor.NewApp,
+			NewDBWorker:          dbaccessor.NewTrackedDBWorker,
+			NewMetricsCollector:  dbaccessor.NewMetricsCollector,
+			NewNodeManager:       dbaccessor.CAASNodeManager,
+		})),
 	})
 }
 

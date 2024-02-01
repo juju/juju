@@ -89,7 +89,7 @@ func (s *integrationSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	logger := loggo.GetLogger("worker.dbaccessor.test")
-	nodeManager := database.NewNodeManager(agentConfig, logger, coredatabase.NoopSlowQueryLogger{})
+	nodeManager := database.NewNodeManager(agentConfig, false, logger, coredatabase.NoopSlowQueryLogger{})
 
 	db, err := s.DBApp().Open(context.Background(), coredatabase.ControllerNS)
 	c.Assert(err, jc.ErrorIsNil)

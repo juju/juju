@@ -57,7 +57,6 @@ type DqliteInitializerFunc func(
 	ctx stdcontext.Context,
 	mgr database.BootstrapNodeManager,
 	logger database.Logger,
-	preferLoopback bool,
 	concerns ...database.BootstrapConcern,
 ) error
 
@@ -264,11 +263,18 @@ func (b *AgentBootstrap) Initialize(ctx stdcontext.Context) (_ *state.Controller
 				machinebootstrap.InsertMachine(agent.BootstrapControllerId),
 			))
 	}
+
+	// If we're running caas, we need to bind to the loopback address
+	// and eschew TLS termination.
+	// This is to prevent dqlite to become all at sea when the controller pod
+	// is rescheduled. This is only a temporary measure until we have HA
+	// dqlite for k8s.
+	isLoopbackPreferred := isCAAS
+
 	if err := b.bootstrapDqlite(
 		ctx,
-		database.NewNodeManager(b.agentConfig, b.logger, coredatabase.NoopSlowQueryLogger{}),
+		database.NewNodeManager(b.agentConfig, isLoopbackPreferred, b.logger, coredatabase.NoopSlowQueryLogger{}),
 		b.logger,
-		false,
 		databaseBootstrapConcerns...,
 	); err != nil {
 		return nil, errors.Trace(err)

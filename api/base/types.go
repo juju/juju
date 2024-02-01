@@ -71,7 +71,6 @@ type ModelInfo struct {
 	ControllerUUID  string
 	IsController    bool
 	ProviderType    string
-	DefaultBase     string
 	Cloud           string
 	CloudRegion     string
 	CloudCredential string

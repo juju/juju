@@ -707,69 +707,73 @@ func (m *ModelManagerAPI) ListModelSummaries(ctx context.Context, req params.Mod
 	}
 
 	for _, mi := range modelInfos {
-		summary := &params.ModelSummary{
-			Name:           mi.Name,
-			UUID:           mi.UUID,
-			Type:           string(mi.Type),
-			OwnerTag:       names.NewUserTag(mi.Owner).String(),
-			ControllerUUID: mi.ControllerUUID,
-			IsController:   mi.IsController,
-			Life:           life.Value(mi.Life.String()),
-
-			CloudTag:    mi.CloudTag,
-			CloudRegion: mi.CloudRegion,
-
-			CloudCredentialTag: mi.CloudCredentialTag,
-
-			SLA: &params.ModelSLAInfo{
-				Level: mi.SLALevel,
-				Owner: mi.Owner,
-			},
-
-			ProviderType: mi.ProviderType,
-			AgentVersion: mi.AgentVersion,
-
-			Status:             common.EntityStatusFromState(mi.Status),
-			Counts:             []params.ModelEntityCount{},
-			UserLastConnection: mi.UserLastConnection,
-		}
-
-		if mi.MachineCount > 0 {
-			summary.Counts = append(summary.Counts, params.ModelEntityCount{params.Machines, mi.MachineCount})
-		}
-
-		if mi.CoreCount > 0 {
-			summary.Counts = append(summary.Counts, params.ModelEntityCount{params.Cores, mi.CoreCount})
-		}
-
-		if mi.UnitCount > 0 {
-			summary.Counts = append(summary.Counts, params.ModelEntityCount{params.Units, mi.UnitCount})
-		}
-
-		access, err := common.StateToParamsUserAccessPermission(mi.Access)
-		if err == nil {
-			summary.UserAccess = access
-		}
-		if mi.Migration != nil {
-			migration := mi.Migration
-			startTime := migration.StartTime()
-			endTime := new(time.Time)
-			*endTime = migration.EndTime()
-			var zero time.Time
-			if *endTime == zero {
-				endTime = nil
-			}
-
-			summary.Migration = &params.ModelMigrationStatus{
-				Status: migration.StatusMessage(),
-				Start:  &startTime,
-				End:    endTime,
-			}
-		}
-
+		summary := m.makeModelSummary(mi)
 		result.Results = append(result.Results, params.ModelSummaryResult{Result: summary})
 	}
 	return result, nil
+
+}
+
+func (m *ModelManagerAPI) makeModelSummary(mi state.ModelSummary) *params.ModelSummary {
+	summary := &params.ModelSummary{
+		Name:           mi.Name,
+		UUID:           mi.UUID,
+		Type:           string(mi.Type),
+		OwnerTag:       names.NewUserTag(mi.Owner).String(),
+		ControllerUUID: mi.ControllerUUID,
+		IsController:   mi.IsController,
+		Life:           life.Value(mi.Life.String()),
+
+		CloudTag:    mi.CloudTag,
+		CloudRegion: mi.CloudRegion,
+
+		CloudCredentialTag: mi.CloudCredentialTag,
+
+		SLA: &params.ModelSLAInfo{
+			Level: mi.SLALevel,
+			Owner: mi.Owner,
+		},
+
+		ProviderType: mi.ProviderType,
+		AgentVersion: mi.AgentVersion,
+
+		Status:             common.EntityStatusFromState(mi.Status),
+		Counts:             []params.ModelEntityCount{},
+		UserLastConnection: mi.UserLastConnection,
+	}
+	if mi.MachineCount > 0 {
+		summary.Counts = append(summary.Counts, params.ModelEntityCount{params.Machines, mi.MachineCount})
+	}
+
+	if mi.CoreCount > 0 {
+		summary.Counts = append(summary.Counts, params.ModelEntityCount{params.Cores, mi.CoreCount})
+	}
+
+	if mi.UnitCount > 0 {
+		summary.Counts = append(summary.Counts, params.ModelEntityCount{params.Units, mi.UnitCount})
+	}
+
+	access, err := common.StateToParamsUserAccessPermission(mi.Access)
+	if err == nil {
+		summary.UserAccess = access
+	}
+	if mi.Migration != nil {
+		migration := mi.Migration
+		startTime := migration.StartTime()
+		endTime := new(time.Time)
+		*endTime = migration.EndTime()
+		var zero time.Time
+		if *endTime == zero {
+			endTime = nil
+		}
+
+		summary.Migration = &params.ModelMigrationStatus{
+			Status: migration.StatusMessage(),
+			Start:  &startTime,
+			End:    endTime,
+		}
+	}
+	return summary
 }
 
 // fillInStatusBasedOnCloudCredentialValidity fills in the Status on every model (if credential is invalid).
