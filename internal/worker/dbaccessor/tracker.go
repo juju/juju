@@ -22,7 +22,7 @@ import (
 )
 
 const (
-	// States which report the state of the worker.
+	// States that report the state of the worker.
 	stateStarted    = "started"
 	stateDBReplaced = "db-replaced"
 )

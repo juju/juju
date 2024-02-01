@@ -33,7 +33,7 @@ func (s *trackedDBWorkerSuite) TestWorkerStartup(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectClock()
-	s.expectTimer(0)
+	defer s.expectTimer(0)()
 
 	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil)
 
@@ -47,7 +47,7 @@ func (s *trackedDBWorkerSuite) TestWorkerReport(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectClock()
-	s.expectTimer(0)
+	defer s.expectTimer(0)()
 
 	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil)
 
@@ -70,7 +70,7 @@ func (s *trackedDBWorkerSuite) TestWorkerDBIsNotNil(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectClock()
-	s.expectTimer(0)
+	defer s.expectTimer(0)()
 
 	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil)
 
@@ -93,7 +93,7 @@ func (s *trackedDBWorkerSuite) TestWorkerTxnIsNotNil(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectClock()
-	s.expectTimer(0)
+	defer s.expectTimer(0)()
 
 	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil)
 
@@ -123,7 +123,7 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDB(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectClock()
-	s.expectTimer(1)
+	defer s.expectTimer(1)()
 
 	s.timer.EXPECT().Reset(PollInterval).Times(1)
 	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil)
@@ -153,7 +153,7 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButSucceeds(c *gc.C) 
 	defer s.setupMocks(c).Finish()
 
 	s.expectClock()
-	s.expectTimer(1)
+	defer s.expectTimer(1)()
 
 	s.timer.EXPECT().Reset(PollInterval).Times(1)
 
@@ -197,7 +197,7 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBRepeatedly(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectClock()
-	s.expectTimer(2)
+	defer s.expectTimer(2)()
 
 	s.timer.EXPECT().Reset(PollInterval).Times(2)
 
@@ -228,7 +228,7 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButSucceedsWithDiffer
 	defer s.setupMocks(c).Finish()
 
 	s.expectClock()
-	s.expectTimer(1)
+	defer s.expectTimer(1)()
 
 	s.timer.EXPECT().Reset(PollInterval).Times(1)
 
@@ -288,7 +288,7 @@ func (s *trackedDBWorkerSuite) TestWorkerAttemptsToVerifyDBButFails(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectClock()
-	s.expectTimer(1)
+	defer s.expectTimer(1)()
 
 	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil).Times(DefaultVerifyAttempts)
 
@@ -316,7 +316,7 @@ func (s *trackedDBWorkerSuite) TestWorkerCancelsTxn(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectClock()
-	s.expectTimer(0)
+	defer s.expectTimer(0)()
 
 	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil)
 
@@ -355,7 +355,7 @@ func (s *trackedDBWorkerSuite) TestWorkerCancelsTxnNoRetry(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectClock()
-	s.expectTimer(0)
+	defer s.expectTimer(0)()
 
 	s.dbApp.EXPECT().Open(gomock.Any(), "controller").Return(s.DB(), nil)
 
