@@ -96,19 +96,30 @@ func (u *UndertakerAPI) ProcessDyingModel() error {
 
 // RemoveModel removes any records of this model from Juju.
 func (u *UndertakerAPI) RemoveModel() error {
-	secretBackendCfg, err := u.secretBackendConfigGetter()
-	if err != nil {
-		return errors.Annotate(err, "getting secrets backends config")
-	}
-	for _, cfg := range secretBackendCfg.Configs {
-		if err := u.removeModelSecrets(&cfg); err != nil {
-			return errors.Annotatef(err, "cleaning model from inactive secrets provider %q", cfg.BackendType)
-		}
+	if err := u.removeModelSecrets(); err != nil {
+		return errors.Annotate(err, "removing model secrets")
 	}
 	return u.st.RemoveDyingModel()
 }
 
-func (u *UndertakerAPI) removeModelSecrets(cfg *provider.ModelBackendConfig) error {
+func (u *UndertakerAPI) removeModelSecrets() error {
+	secretBackendCfg, err := u.secretBackendConfigGetter()
+	if errors.Is(err, errors.NotFound) {
+		// If backends or settings are missing, then no secrets to remove.
+		return nil
+	}
+	if err != nil {
+		return errors.Annotate(err, "getting secrets backends config")
+	}
+	for _, cfg := range secretBackendCfg.Configs {
+		if err := u.removeModelSecretsForBackend(&cfg); err != nil {
+			return errors.Annotatef(err, "cleaning model from inactive secrets provider %q", cfg.BackendType)
+		}
+	}
+	return nil
+}
+
+func (u *UndertakerAPI) removeModelSecretsForBackend(cfg *provider.ModelBackendConfig) error {
 	p, err := GetProvider(cfg.BackendType)
 	if err != nil {
 		return errors.Trace(err)
