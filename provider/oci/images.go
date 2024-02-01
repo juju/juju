@@ -5,7 +5,6 @@ package oci
 
 import (
 	"context"
-	"fmt"
 	"sort"
 	"strconv"
 	"strings"
@@ -111,6 +110,9 @@ type InstanceImage struct {
 	CompartmentId *string
 	// InstanceTypes holds a list of shapes compatible with this image
 	InstanceTypes []instances.InstanceType
+	// IsMinimal is true when the image is a Minimal image. Can only be
+	// true for ubuntu OS.
+	IsMinimal bool
 }
 
 func (i *InstanceImage) SetInstanceTypes(types []instances.InstanceType) {
@@ -259,9 +261,11 @@ func getImageType(img ociCore.Image) ImageType {
 // struct returned by oci's API, the image's architecture or an error.
 func NewInstanceImage(img ociCore.Image, compartmentID *string) (InstanceImage, string, error) {
 	var (
-		err  error
-		arch string
-		base corebase.Base
+		err       error
+		arch      string
+		base      corebase.Base
+		isMinimal bool
+		imgType   InstanceImage
 	)
 	switch osName := *img.OperatingSystem; osName {
 	case centOS:
@@ -269,20 +273,17 @@ func NewInstanceImage(img ociCore.Image, compartmentID *string) (InstanceImage, 
 		// For the moment, only x86 shapes are supported
 		arch = corearch.AMD64
 	case ubuntuOS:
-		base, arch, err = parseUbuntuImage(img)
-		if err != nil {
-			return InstanceImage{}, "", err
-		}
+		base, arch, isMinimal = parseUbuntuImage(img)
 	default:
 		return InstanceImage{}, "", errors.NotSupportedf("os %s", osName)
 	}
 
-	var imgType InstanceImage
 	imgType.ImageType = getImageType(img)
 	imgType.Id = *img.Id
 	imgType.Base = base
 	imgType.Raw = img
 	imgType.CompartmentId = compartmentID
+	imgType.IsMinimal = isMinimal
 
 	version, err := NewImageVersion(img)
 	if err != nil {
@@ -295,10 +296,11 @@ func NewInstanceImage(img ociCore.Image, compartmentID *string) (InstanceImage, 
 
 // parseUbuntuImage returns the base and architecture of the returned image
 // from the OCI sdk.
-func parseUbuntuImage(img ociCore.Image) (corebase.Base, string, error) {
+func parseUbuntuImage(img ociCore.Image) (corebase.Base, string, bool) {
 	var (
-		arch string = corearch.AMD64
-		base corebase.Base
+		arch      string = corearch.AMD64
+		base      corebase.Base
+		isMinimal bool
 	)
 	// On some cases, the retrieved OperatingSystemVersion can contain
 	// the channel plus some extra information and in some others this
@@ -325,9 +327,7 @@ func parseUbuntuImage(img ociCore.Image) (corebase.Base, string, error) {
 	// the channel.
 	if strings.Contains(*img.DisplayName, "Minimal") ||
 		strings.Contains(postfix, "Minimal") {
-		return corebase.Base{}, "", fmt.Errorf(
-			"ubuntu minimal image %q %w", *img.DisplayName, errors.NotSupported,
-		)
+		isMinimal = true
 	}
 
 	if strings.Contains(*img.DisplayName, "aarch64") ||
@@ -335,7 +335,7 @@ func parseUbuntuImage(img ociCore.Image) (corebase.Base, string, error) {
 		arch = corearch.ARM64
 	}
 
-	return base, arch, nil
+	return base, arch, isMinimal
 }
 
 // instanceTypes will return the list of instanceTypes with information
@@ -462,6 +462,11 @@ func refreshImageCache(cli ComputeClient, compartmentID *string) (*ImageCache, e
 			} else {
 				logger.Debugf("error parsing image %q", err)
 			}
+			continue
+		}
+		// For the moment juju does not support minimal ubuntu
+		if img.IsMinimal {
+			logger.Tracef("ubuntu minimal images (%q), not supported", *val.DisplayName)
 			continue
 		}
 		// Only set the instance types to the images that we correctly
