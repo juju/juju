@@ -466,7 +466,7 @@ func refreshImageCache(cli ComputeClient, compartmentID *string) (*ImageCache, e
 		}
 		// For the moment juju does not support minimal ubuntu
 		if img.IsMinimal {
-			logger.Debugf("ubuntu minimal images (%q), not supported", *val.DisplayName)
+			logger.Tracef("ubuntu minimal images (%q), not supported", *val.DisplayName)
 			continue
 		}
 		// Only set the instance types to the images that we correctly
