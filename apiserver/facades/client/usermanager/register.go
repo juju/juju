@@ -20,12 +20,12 @@ import (
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("UserManager", 3, func(stdCtx context.Context, ctx facade.Context) (facade.Facade, error) {
-		return newUserManagerAPI(ctx) // Adds ModelUserInfo
+		return newUserManagerAPI(stdCtx, ctx) // Adds ModelUserInfo
 	}, reflect.TypeOf((*UserManagerAPI)(nil)))
 }
 
 // newUserManagerAPI provides the signature required for facade registration.
-func newUserManagerAPI(ctx facade.Context) (*UserManagerAPI, error) {
+func newUserManagerAPI(stdCtx context.Context, ctx facade.Context) (*UserManagerAPI, error) {
 	authorizer := ctx.Auth()
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm
@@ -33,7 +33,7 @@ func newUserManagerAPI(ctx facade.Context) (*UserManagerAPI, error) {
 
 	// Since we know this is a user tag (because AuthClient is true),
 	// we just do the type assertion to the UserTag.
-	apiUser, _ := authorizer.GetAuthTag().(names.UserTag)
+	apiUserTag, _ := authorizer.GetAuthTag().(names.UserTag)
 	// Pretty much all of the user manager methods have special casing for admin
 	// users, so look once when we start and remember if the user is an admin.
 	st := ctx.State()
@@ -43,13 +43,23 @@ func newUserManagerAPI(ctx facade.Context) (*UserManagerAPI, error) {
 	}
 	isAdmin := err == nil
 
+	// Get UserService
+	userService := ctx.ServiceFactory().User()
+
+	// Get apiUser UUID
+	apiUser, err := userService.GetUserByName(stdCtx, apiUserTag.Id())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	return NewAPI(
 		st,
-		ctx.ServiceFactory().User(),
+		userService,
 		ctx.StatePool(),
 		authorizer,
 		common.NewBlockChecker(st),
-		apiUser,
+		apiUserTag,
+		apiUser.UUID,
 		isAdmin,
 		ctx.Logger().Child("usermanager"),
 	)

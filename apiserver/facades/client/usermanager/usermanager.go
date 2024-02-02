@@ -43,6 +43,7 @@ type UserManagerAPI struct {
 	authorizer  facade.Authorizer
 	check       *common.BlockChecker
 	apiUser     names.UserTag
+	apiUserUUID coreuser.UUID
 	isAdmin     bool
 	logger      loggo.Logger
 }
@@ -55,6 +56,7 @@ func NewAPI(
 	authorizer facade.Authorizer,
 	check *common.BlockChecker,
 	apiUser names.UserTag,
+	apiUserUUID coreuser.UUID,
 	isAdmin bool,
 	logger loggo.Logger,
 ) (*UserManagerAPI, error) {
@@ -65,6 +67,7 @@ func NewAPI(
 		authorizer:  authorizer,
 		check:       check,
 		apiUser:     apiUser,
+		apiUserUUID: apiUserUUID,
 		isAdmin:     isAdmin,
 		logger:      logger,
 	}, nil
@@ -96,16 +99,9 @@ func (api *UserManagerAPI) AddUser(ctx context.Context, args params.AddUsers) (p
 	}
 
 	for i, arg := range args.Users {
-		// Get creator user
-		creator, err := api.userService.GetUserByName(ctx, api.apiUser.Id())
-		if err != nil {
-			err = errors.Annotate(err, "failed to get creator user")
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-
 		// Add new user
 		var activationKey []byte
+		var err error
 		if arg.Password != "" {
 			// TODO(anvial): Legacy block to delete when user domain wire up is complete.
 			_, err = api.state.AddUser(arg.Username, arg.DisplayName, arg.Password, api.apiUser.Id())
@@ -116,7 +112,7 @@ func (api *UserManagerAPI) AddUser(ctx context.Context, args params.AddUsers) (p
 			}
 			// End legacy block.
 
-			_, err = api.userService.AddUserWithPassword(ctx, arg.Username, arg.DisplayName, creator.UUID, auth.NewPassword(arg.Password))
+			_, err = api.userService.AddUserWithPassword(ctx, arg.Username, arg.DisplayName, api.apiUserUUID, auth.NewPassword(arg.Password))
 		} else {
 			// TODO(anvial): Legacy block to delete when user domain wire up is complete.
 			_, err = api.state.AddUserWithSecretKey(arg.Username, arg.DisplayName, api.apiUser.Id())
@@ -127,7 +123,7 @@ func (api *UserManagerAPI) AddUser(ctx context.Context, args params.AddUsers) (p
 			}
 			// End legacy block.
 
-			activationKey, _, err = api.userService.AddUserWithActivationKey(ctx, arg.Username, arg.DisplayName, creator.UUID)
+			activationKey, _, err = api.userService.AddUserWithActivationKey(ctx, arg.Username, arg.DisplayName, api.apiUserUUID)
 		}
 		if err != nil {
 			err = errors.Annotate(err, "failed to create user")
@@ -285,7 +281,7 @@ func (api *UserManagerAPI) enableUserImpl(ctx context.Context, args params.Entit
 		}
 		// End legacy block.
 
-		// Get User by tag
+		// Get User
 		user, err := api.getLocalUserByTag(ctx, arg.Tag)
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(errors.Errorf("failed to %s legacyUser: %s", action, err))
