@@ -236,7 +236,11 @@ func (w *bootstrapWorker) reportInternalState(state string) {
 
 // initAPIHostPorts sets the initial API host/port addresses in state.
 func (w *bootstrapWorker) initAPIHostPorts(ctx context.Context, controllerConfig controller.Config, pAddrs network.ProviderAddresses, apiPort int) error {
-	addrs, err := w.providerAddressesToSpaceAddresses(ctx, pAddrs)
+	allSpaces, err := w.cfg.SpaceService.GetAllSpaces(ctx)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	addrs, err := pAddrs.ToSpaceAddresses(allSpaces)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -248,26 +252,6 @@ func (w *bootstrapWorker) initAPIHostPorts(ctx context.Context, controllerConfig
 	}
 
 	return w.cfg.SystemState.SetAPIHostPorts(controllerConfig, hostPorts, hostPortsForAgents)
-}
-
-func (w *bootstrapWorker) providerAddressesToSpaceAddresses(ctx context.Context, providerAddresses network.ProviderAddresses) (network.SpaceAddresses, error) {
-	addrs := make(network.SpaceAddresses, len(providerAddresses))
-
-	for i, pa := range providerAddresses {
-		addrs[i] = network.SpaceAddress{MachineAddress: pa.MachineAddress}
-		if pa.SpaceName != "" {
-			spInfo, err := w.cfg.SpaceService.SpaceByName(ctx, string(pa.SpaceName))
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			if spInfo == nil {
-				return nil, errors.NotFoundf("space with name %q", pa.SpaceName)
-			}
-			addrs[i].SpaceID = spInfo.ID
-		}
-	}
-
-	return addrs, nil
 }
 
 // scopedContext returns a context that is in the scope of the worker lifetime.

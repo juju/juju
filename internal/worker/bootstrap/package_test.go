@@ -85,9 +85,10 @@ func (s *baseSuite) expectGateUnlock() {
 	s.bootstrapUnlocker.EXPECT().Unlock()
 }
 
-func (s *baseSuite) expectAgentConfig(c *gc.C) {
+func (s *baseSuite) expectAgentConfig() {
 	s.agentConfig.EXPECT().DataDir().Return(s.dataDir).AnyTimes()
 	s.agentConfig.EXPECT().Controller().Return(names.NewControllerTag(utils.MustNewUUID().String())).AnyTimes()
+	s.agentConfig.EXPECT().Model().Return(names.NewModelTag("test-model")).AnyTimes()
 	s.agent.EXPECT().CurrentConfig().Return(s.agentConfig).AnyTimes()
 }
 

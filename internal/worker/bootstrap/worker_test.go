@@ -46,7 +46,7 @@ func (s *workerSuite) TestKilled(c *gc.C) {
 
 	s.expectGateUnlock()
 	s.expectControllerConfig()
-	s.expectAgentConfig(c)
+	s.expectAgentConfig()
 	s.expectObjectStoreGetter(2)
 	s.expectBootstrapFlagSet()
 	s.expectFilterHostPortsForManagementSpace()
@@ -186,6 +186,7 @@ func (s *workerSuite) expectFilterHostPortsForManagementSpace() {
 }
 
 func (s *workerSuite) expectSetAPIHostPorts() {
+	s.spaceService.EXPECT().GetAllSpaces(gomock.Any())
 	s.state.EXPECT().SetAPIHostPorts(controller.Config{
 		controller.ControllerUUIDKey: "test-uuid",
 	}, gomock.Any(), gomock.Any())

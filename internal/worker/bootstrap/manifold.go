@@ -70,6 +70,7 @@ type SpaceService interface {
 	Space(ctx context.Context, uuid string) (*network.SpaceInfo, error)
 	SpaceByName(ctx context.Context, name string) (*network.SpaceInfo, error)
 	FilterHostPortsForManagementSpace(ctx context.Context, controllerConfig controller.Config, apiHostPorts []network.SpaceHostPorts) ([]network.SpaceHostPorts, error)
+	GetAllSpaces(ctx context.Context) (network.SpaceInfos, error)
 }
 
 // FlagService is the interface that is used to set the value of a
@@ -242,20 +243,18 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, err
 			}
 
-			var controllerServiceFactory servicefactory.ControllerServiceFactory
-			if err := getter.Get(config.ServiceFactoryName, &controllerServiceFactory); err != nil {
-				return nil, errors.Trace(err)
-			}
-
 			var serviceFactoryGetter servicefactory.ServiceFactoryGetter
 			if err := getter.Get(config.ServiceFactoryName, &serviceFactoryGetter); err != nil {
 				return nil, errors.Trace(err)
 			}
+			// Create the service factory using the model uuid
+			// now that we have the system state.
+			serviceFactory := serviceFactoryGetter.FactoryForModel(a.CurrentConfig().Model().Id())
 
 			// If the controller application exists, then we don't need to
 			// bootstrap. Uninstall the worker, as we don't need it running
 			// anymore.
-			flagService := controllerServiceFactory.Flag()
+			flagService := serviceFactory.Flag()
 			if ok, err := config.RequiresBootstrap(ctx, flagService); err != nil {
 				return nil, errors.Trace(err)
 			} else if !ok {
@@ -300,11 +299,11 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			w, err := NewWorker(WorkerConfig{
 				Agent:                   a,
 				ObjectStoreGetter:       objectStoreGetter,
-				ControllerConfigService: controllerServiceFactory.ControllerConfig(),
-				CredentialService:       controllerServiceFactory.Credential(),
-				CloudService:            controllerServiceFactory.Cloud(),
+				ControllerConfigService: serviceFactory.ControllerConfig(),
+				CredentialService:       serviceFactory.Credential(),
+				CloudService:            serviceFactory.Cloud(),
 				FlagService:             flagService,
-				SpaceService:            serviceFactoryGetter.FactoryForModel(systemState.ModelUUID()).Space(),
+				SpaceService:            serviceFactory.Space(),
 				SystemState:             &stateShim{State: systemState},
 				BootstrapUnlocker:       bootstrapUnlocker,
 				AgentBinaryUploader:     config.AgentBinaryUploader,
