@@ -7,6 +7,7 @@ import (
 	"context"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/aws/retry"
@@ -152,6 +153,13 @@ func (c *S3Client) GetObject(ctx context.Context, bucketName, objectName string)
 	return obj.Body, size, hash, nil
 }
 
+const (
+	// retentionLockDate is the date used to set the retention lock on the
+	// object. After that expires, the object can be deleted without
+	// confirmation.
+	retentionLockDate = 20 * 365 * 24 * time.Hour
+)
+
 // PutObject puts an object into the object store based on the bucket name and
 // object name.
 func (c *S3Client) PutObject(ctx context.Context, bucketName, objectName string, body io.Reader, hash string) error {
@@ -163,6 +171,12 @@ func (c *S3Client) PutObject(ctx context.Context, bucketName, objectName string,
 			Key:               aws.String(objectName),
 			Body:              body,
 			ChecksumAlgorithm: types.ChecksumAlgorithmSha256,
+
+			// Prevent the object from being deleted for 10 years.
+			// The lock is only here to prevent deletion when in the console.
+			ObjectLockMode:            types.ObjectLockModeGovernance,
+			ObjectLockLegalHoldStatus: types.ObjectLockLegalHoldStatusOn,
+			ObjectLockRetainUntilDate: aws.Time(time.Now().Add(retentionLockDate)),
 		})
 	if err != nil {
 		if err := handleError(err); err != nil {
@@ -185,6 +199,9 @@ func (c *S3Client) DeleteObject(ctx context.Context, bucketName, objectName stri
 		&s3.DeleteObjectInput{
 			Bucket: aws.String(bucketName),
 			Key:    aws.String(objectName),
+
+			// We know we want to delete it, so we can bypass the retention.
+			BypassGovernanceRetention: aws.Bool(true),
 		})
 	if err != nil {
 		if err := handleError(err); err != nil {
@@ -201,7 +218,8 @@ func (c *S3Client) CreateBucket(ctx context.Context, bucketName string) error {
 
 	_, err := c.client.CreateBucket(ctx,
 		&s3.CreateBucketInput{
-			Bucket: aws.String(bucketName),
+			Bucket:                     aws.String(bucketName),
+			ObjectLockEnabledForBucket: aws.Bool(true),
 		})
 	if err != nil {
 		if err := handleError(err); err != nil {
