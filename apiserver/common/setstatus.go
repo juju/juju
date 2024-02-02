@@ -139,13 +139,29 @@ func NewStatusSetter(st state.EntityFinder, getCanModify GetAuthFunc) *StatusSet
 }
 
 func (s *StatusSetter) setEntityStatus(tag names.Tag, entityStatus status.Status, info string, data map[string]interface{}, updated *time.Time) error {
+	// Check if the entity is a user, in another case, use the legacy method.
+	switch tag.Kind() {
+	case names.UserTagKind:
+		return apiservererrors.NotSupportedError(tag, fmt.Sprintf("setting status for user, %T", tag.Id()))
+	default:
+		err, done := s.legacy(tag, entityStatus, info, data, updated)
+		if done {
+			return err
+		}
+	}
+	return nil
+}
+
+// legacy is used to set the status of entities that are not moved to a Dqlite database.
+// This function should be gone after all entities are moved to Dqlite.
+func (s *StatusSetter) legacy(tag names.Tag, entityStatus status.Status, info string, data map[string]interface{}, updated *time.Time) (error, bool) {
 	entity, err := s.st.FindEntity(tag)
 	if err != nil {
-		return err
+		return err, true
 	}
 	switch entity := entity.(type) {
 	case *state.Application:
-		return apiservererrors.ErrPerm
+		return apiservererrors.ErrPerm, true
 	case status.StatusSetter:
 		sInfo := status.StatusInfo{
 			Status:  entityStatus,
@@ -153,9 +169,9 @@ func (s *StatusSetter) setEntityStatus(tag names.Tag, entityStatus status.Status
 			Data:    data,
 			Since:   updated,
 		}
-		return entity.SetStatus(sInfo)
+		return entity.SetStatus(sInfo), true
 	default:
-		return apiservererrors.NotSupportedError(tag, fmt.Sprintf("setting status, %T", entity))
+		return apiservererrors.NotSupportedError(tag, fmt.Sprintf("setting status, %T", entity)), true
 	}
 }
 

@@ -32,6 +32,18 @@ func NewInstanceIdGetter(st state.EntityFinder, getCanRead GetAuthFunc) *Instanc
 }
 
 func (ig *InstanceIdGetter) getInstanceId(tag names.Tag) (instance.Id, error) {
+	// Check if the entity is a user, in another case, use the legacy method.
+	switch tag.Kind() {
+	case names.UserTagKind:
+		return "", apiservererrors.NotSupportedError(tag, "instance id")
+	default:
+		return ig.legacy(tag)
+	}
+}
+
+// legacy is used to get the instance id of entities that are not moved to a Dqlite database.
+// This function should be gone after all entities are moved to Dqlite.
+func (ig *InstanceIdGetter) legacy(tag names.Tag) (instance.Id, error) {
 	entity0, err := ig.st.FindEntity(tag)
 	if err != nil {
 		return "", err

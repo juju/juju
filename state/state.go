@@ -866,8 +866,6 @@ func (st *State) FindEntity(tag names.Tag) (Entity, error) {
 		return st.Machine(id)
 	case names.UnitTag:
 		return st.Unit(id)
-	case names.UserTag:
-		return st.User(tag)
 	case names.ApplicationTag:
 		return st.Application(id)
 	case names.ModelTag:

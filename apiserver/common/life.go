@@ -31,6 +31,19 @@ func NewLifeGetter(st state.EntityFinder, getCanRead GetAuthFunc) *LifeGetter {
 }
 
 func (lg *LifeGetter) oneLife(tag names.Tag) (life.Value, error) {
+	// Check if the entity is a user, in another case, use the legacy method.
+	switch tag.Kind() {
+	case names.UserTagKind:
+		return "", apiservererrors.NotSupportedError(tag, "life cycles")
+	default:
+		return lg.legacy(tag)
+	}
+
+}
+
+// legacy is used to get the life status of entities that are not moved to a Dqlite database.
+// This function should be gone after all entities are moved to Dqlite.
+func (lg *LifeGetter) legacy(tag names.Tag) (life.Value, error) {
 	entity0, err := lg.st.FindEntity(tag)
 	if err != nil {
 		return "", err

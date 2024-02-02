@@ -41,6 +41,19 @@ func NewRemover(st state.EntityFinder, store objectstore.ObjectStore, afterDead 
 }
 
 func (r *Remover) removeEntity(tag names.Tag) error {
+	// Check if the entity is a user, in another case, use the legacy method.
+	switch tag.Kind() {
+	case names.UserTagKind:
+		return apiservererrors.NotSupportedError(tag, "removal")
+	default:
+		return r.legacy(tag)
+	}
+
+}
+
+// legacy is used to remove entities that are not moved to a Dqlite database.
+// This function should be gone after all entities are moved to Dqlite.
+func (r *Remover) legacy(tag names.Tag) error {
 	entity, err := r.st.FindEntity(tag)
 	if err != nil {
 		return err

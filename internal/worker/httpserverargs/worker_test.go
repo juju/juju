@@ -69,14 +69,16 @@ type workerSuite struct {
 
 	controllerConfigGetter *MockControllerConfigGetter
 
-	stateAuthFunc func(*state.StatePool, ControllerConfigGetter, *apiserverhttp.Mux, clock.Clock, <-chan struct{}) (macaroon.LocalMacaroonAuthenticator, error)
+	userService *MockUserService
+
+	stateAuthFunc func(*state.StatePool, ControllerConfigGetter, UserService, *apiserverhttp.Mux, clock.Clock, <-chan struct{}) (macaroon.LocalMacaroonAuthenticator, error)
 }
 
 var _ = gc.Suite(&workerSuite{})
 
 func (s *workerSuite) TestWorkerStarted(c *gc.C) {
 	started := make(chan struct{})
-	s.stateAuthFunc = func(statePool *state.StatePool, controllerConfigGetter ControllerConfigGetter, mux *apiserverhttp.Mux, clock clock.Clock, abort <-chan struct{}) (macaroon.LocalMacaroonAuthenticator, error) {
+	s.stateAuthFunc = func(statePool *state.StatePool, controllerConfigGetter ControllerConfigGetter, userService UserService, mux *apiserverhttp.Mux, clock clock.Clock, abort <-chan struct{}) (macaroon.LocalMacaroonAuthenticator, error) {
 		defer close(started)
 		return nil, nil
 	}
@@ -99,7 +101,7 @@ func (s *workerSuite) TestWorkerControllerConfigContext(c *gc.C) {
 	s.controllerConfigGetter.EXPECT().ControllerConfig(gomock.Any()).Return(controller.Config{}, nil)
 
 	started := make(chan struct{})
-	s.stateAuthFunc = func(statePool *state.StatePool, controllerConfigGetter ControllerConfigGetter, mux *apiserverhttp.Mux, clock clock.Clock, abort <-chan struct{}) (macaroon.LocalMacaroonAuthenticator, error) {
+	s.stateAuthFunc = func(statePool *state.StatePool, controllerConfigGetter ControllerConfigGetter, userService UserService, mux *apiserverhttp.Mux, clock clock.Clock, abort <-chan struct{}) (macaroon.LocalMacaroonAuthenticator, error) {
 		defer close(started)
 		return nil, nil
 	}
@@ -128,7 +130,7 @@ func (s *workerSuite) TestWorkerControllerConfigContextDeadline(c *gc.C) {
 	})
 
 	started := make(chan struct{})
-	s.stateAuthFunc = func(statePool *state.StatePool, controllerConfigGetter ControllerConfigGetter, mux *apiserverhttp.Mux, clock clock.Clock, abort <-chan struct{}) (macaroon.LocalMacaroonAuthenticator, error) {
+	s.stateAuthFunc = func(statePool *state.StatePool, controllerConfigGetter ControllerConfigGetter, userService UserService, mux *apiserverhttp.Mux, clock clock.Clock, abort <-chan struct{}) (macaroon.LocalMacaroonAuthenticator, error) {
 		defer close(started)
 		return nil, nil
 	}
@@ -160,6 +162,9 @@ func (s *workerSuite) newWorkerConfig(c *gc.C) workerConfig {
 		controllerConfigGetter: &managedCtrlConfigGetter{
 			configGetter: s.controllerConfigGetter,
 		},
+		userService: &managedUserService{
+			userService: s.userService,
+		},
 		mux:                     &apiserverhttp.Mux{},
 		clock:                   clock.WallClock,
 		newStateAuthenticatorFn: s.stateAuthFunc,
@@ -170,6 +175,8 @@ func (s *workerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.controllerConfigGetter = NewMockControllerConfigGetter(ctrl)
+
+	s.userService = NewMockUserService(ctrl)
 
 	return ctrl
 }

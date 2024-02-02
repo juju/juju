@@ -29,6 +29,18 @@ func NewRebootRequester(st state.EntityFinder, auth GetAuthFunc) *RebootRequeste
 }
 
 func (r *RebootRequester) oneRequest(tag names.Tag) error {
+	// Check if the entity is a user, in another case, use the legacy method.
+	switch tag.Kind() {
+	case names.UserTagKind:
+		return apiservererrors.NotSupportedError(tag, "request reboot")
+	default:
+		return r.legacy(tag)
+	}
+}
+
+// legacy is used to request a reboot on entities that are not moved to a Dqlite database.
+// This function should be gone after all entities are moved to Dqlite.
+func (r *RebootRequester) legacy(tag names.Tag) error {
 	entity0, err := r.st.FindEntity(tag)
 	if err != nil {
 		return err
@@ -81,6 +93,19 @@ func NewRebootActionGetter(st state.EntityFinder, auth GetAuthFunc) *RebootActio
 }
 
 func (r *RebootActionGetter) getOneAction(tag names.Tag) (params.RebootAction, error) {
+	// Check if the entity is a user, in another case, use the legacy method.
+	switch tag.Kind() {
+	case names.UserTagKind:
+		return "", apiservererrors.NotSupportedError(tag, "request reboot")
+	default:
+		return r.legacy(tag)
+	}
+
+}
+
+// legacy is used to get the reboot action of entities that are not moved to a Dqlite database.
+// This function should be gone after all entities are moved to Dqlite.
+func (r *RebootActionGetter) legacy(tag names.Tag) (params.RebootAction, error) {
 	entity0, err := r.st.FindEntity(tag)
 	if err != nil {
 		return "", err
@@ -142,6 +167,18 @@ func NewRebootFlagClearer(st state.EntityFinder, auth GetAuthFunc) *RebootFlagCl
 }
 
 func (r *RebootFlagClearer) clearOneFlag(tag names.Tag) error {
+	// Check if the entity is a user, in another case, use the legacy method.
+	switch tag.Kind() {
+	case names.UserTagKind:
+		return apiservererrors.NotSupportedError(tag, "clear reboot flag")
+	default:
+		return r.legacy(tag)
+	}
+}
+
+// legacy is used to clear the reboot flag on entities that are not moved to a Dqlite database.
+// This function should be gone after all entities are moved to Dqlite.
+func (r *RebootFlagClearer) legacy(tag names.Tag) error {
 	entity0, err := r.st.FindEntity(tag)
 	if err != nil {
 		return err

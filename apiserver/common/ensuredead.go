@@ -34,6 +34,19 @@ func NewDeadEnsurer(st state.EntityFinder, afterDead func(names.Tag), getCanModi
 }
 
 func (d *DeadEnsurer) ensureEntityDead(tag names.Tag) error {
+	// Check if the entity is a user, in another case, use the legacy method.
+	switch tag.Kind() {
+	case names.UserTagKind:
+		// We don't support ensuring death of users, because they have no life.
+		return apiservererrors.NotSupportedError(tag, "ensuring death")
+	default:
+		return d.legacy(tag)
+	}
+}
+
+// legacy is used to ensure the death of entities that are not moved to a Dqlite database.
+// This function should be gone after all entities are moved to Dqlite.
+func (d *DeadEnsurer) legacy(tag names.Tag) error {
 	entity0, err := d.st.FindEntity(tag)
 	if err != nil {
 		return err

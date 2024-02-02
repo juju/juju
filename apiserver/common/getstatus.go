@@ -34,6 +34,20 @@ func NewStatusGetter(st state.EntityFinder, getCanAccess GetAuthFunc) *StatusGet
 
 func (s *StatusGetter) getEntityStatus(tag names.Tag) params.StatusResult {
 	var result params.StatusResult
+	// Check if the entity is a user, in another case, use the legacy method.
+	switch tag.Kind() {
+	case names.UserTagKind:
+		result.Error = apiservererrors.ServerError(apiservererrors.NotSupportedError(tag, fmt.Sprintf("getting status for user, %T", tag.Id())))
+		return result
+	default:
+
+	}
+	return s.legacy(tag, result)
+}
+
+// legacy is used to get the status of entities that are not moved to a Dqlite database.
+// This function should be gone after all entities are moved to Dqlite.
+func (s *StatusGetter) legacy(tag names.Tag, result params.StatusResult) params.StatusResult {
 	entity, err := s.st.FindEntity(tag)
 	if err != nil {
 		result.Error = apiservererrors.ServerError(err)

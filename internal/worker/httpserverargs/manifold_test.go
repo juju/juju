@@ -76,11 +76,12 @@ func (s *ManifoldSuite) newGetter(overlay map[string]any) dependency.Getter {
 func (s *ManifoldSuite) newStateAuthenticator(
 	statePool *state.StatePool,
 	controllerConfigGetter httpserverargs.ControllerConfigGetter,
+	userService httpserverargs.UserService,
 	mux *apiserverhttp.Mux,
 	clock clock.Clock,
 	abort <-chan struct{},
 ) (macaroon.LocalMacaroonAuthenticator, error) {
-	s.stub.MethodCall(s, "NewStateAuthenticator", statePool, controllerConfigGetter, mux, clock, abort)
+	s.stub.MethodCall(s, "NewStateAuthenticator", statePool, controllerConfigGetter, userService, mux, clock, abort)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, err
 	}

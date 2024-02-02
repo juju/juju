@@ -10,6 +10,7 @@ import (
 )
 
 //go:generate go run go.uber.org/mock/mockgen -package httpserverargs -destination controller_config_mock_test.go github.com/juju/juju/internal/worker/httpserverargs ControllerConfigGetter
+//go:generate go run go.uber.org/mock/mockgen -package httpserverargs -destination user_service_mock_test.go github.com/juju/juju/internal/worker/httpserverargs UserService
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)

@@ -41,6 +41,9 @@ type LocalUserAuthenticator struct {
 	// to for local users. This always points at the same controller
 	// agent that is servicing the authorisation request.
 	LocalUserIdentityLocation string
+
+	// UserService is used to operate with Users from the database.
+	UserService
 }
 
 const (
@@ -215,14 +218,17 @@ func (u *LocalUserAuthenticator) authenticateMacaroons(
 	if tag.Id() != username {
 		return nil, apiservererrors.ErrPerm
 	}
-	entity, err := entityFinder.FindEntity(tag)
-	if errors.Is(err, errors.NotFound) {
-		logger.Debugf("entity %s not found", tag.String())
-		return nil, errors.Trace(apiservererrors.ErrBadCreds)
-	} else if err != nil {
+	// We already know that tad represents a local user, so we don't need to
+	// check it again, and can use UserService instead FindEntity.
+	user, err := u.UserService.GetUserByAuth(ctx, tag.Id(), authParams.Credentials)
+	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return entity, nil
+	if !names.IsValidUser(user.Name) {
+		return nil, errors.Trace(apiservererrors.ErrBadCreds)
+	}
+	return &userEntity{tag: names.NewUserTag(user.Name)}, nil
+
 }
 
 // ExternalMacaroonAuthenticator performs authentication for external users using

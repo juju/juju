@@ -5,6 +5,7 @@ package authentication
 
 import (
 	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 
@@ -41,6 +42,7 @@ func (u *userEntity) Tag() names.Tag {
 // Authenticate authenticates the provided entity.
 // It takes an entityfinder and the tag used to find the entity that requires authentication.
 func (a *AgentAuthenticator) Authenticate(ctx context.Context, entityFinder EntityFinder, authParams AuthParams) (state.Entity, error) {
+	// Check if the entity is a user, in another case, use the legacy method.
 	switch authParams.AuthTag.Kind() {
 	case names.UserTagKind:
 		user, err := a.UserService.GetUserByAuth(ctx, authParams.AuthTag.Id(), authParams.Credentials)
