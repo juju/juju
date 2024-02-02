@@ -109,7 +109,7 @@ func (s *manifoldSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.agentConfig.EXPECT().Tag().Return(names.NewMachineTag("0")).AnyTimes()
 	s.agentConfig.EXPECT().UpgradedToVersion().Return(version.MustParse("1.0.0")).AnyTimes()
 
-	s.serviceFactory.EXPECT().Upgrade().Return(&upgradeservice.Service{}).AnyTimes()
+	s.serviceFactory.EXPECT().Upgrade().Return(&upgradeservice.WatchableService{}).AnyTimes()
 	s.serviceFactory.EXPECT().ModelManager().Return(&modelmanagerservice.Service{}).AnyTimes()
 	s.serviceFactory.EXPECT().ControllerNode().Return(&controllernodeservice.Service{}).AnyTimes()
 

@@ -36,7 +36,7 @@ func (s *serviceSuite) TestUpdateControllerConfigSuccess(c *gc.C) {
 
 	s.state.EXPECT().UpdateControllerConfig(gomock.Any(), coerced, []string{k1, k2}, gomock.Any()).Return(nil)
 
-	err := NewService(s.state, s.watcherFactory).UpdateControllerConfig(context.Background(), cfg, []string{k1, k2})
+	err := NewWatchableService(s.state, s.watcherFactory).UpdateControllerConfig(context.Background(), cfg, []string{k1, k2})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -47,7 +47,7 @@ func (s *serviceSuite) TestUpdateControllerError(c *gc.C) {
 
 	s.state.EXPECT().UpdateControllerConfig(gomock.Any(), coerced, nil, gomock.Any()).Return(errors.New("boom"))
 
-	err := NewService(s.state, s.watcherFactory).UpdateControllerConfig(context.Background(), cfg, nil)
+	err := NewWatchableService(s.state, s.watcherFactory).UpdateControllerConfig(context.Background(), cfg, nil)
 	c.Assert(err, gc.ErrorMatches, "updating controller config state: boom")
 }
 
@@ -64,7 +64,7 @@ func (s *serviceSuite) TestUpdateControllerValidationNoError(c *gc.C) {
 		return validateModification(current)
 	})
 
-	err := NewService(s.state, s.watcherFactory).UpdateControllerConfig(context.Background(), cfg, nil)
+	err := NewWatchableService(s.state, s.watcherFactory).UpdateControllerConfig(context.Background(), cfg, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -81,7 +81,7 @@ func (s *serviceSuite) TestUpdateControllerValidationError(c *gc.C) {
 		return validateModification(current)
 	})
 
-	err := NewService(s.state, s.watcherFactory).UpdateControllerConfig(context.Background(), cfg, nil)
+	err := NewWatchableService(s.state, s.watcherFactory).UpdateControllerConfig(context.Background(), cfg, nil)
 	c.Assert(err, gc.ErrorMatches, `updating controller config state: can not change "object-store-type" from "s3" to "file"`)
 }
 
@@ -92,7 +92,7 @@ func (s *serviceSuite) TestWatch(c *gc.C) {
 	s.state.EXPECT().AllKeysQuery().Return(q)
 	s.watcherFactory.EXPECT().NewNamespaceWatcher("controller_config", changestream.All, q).Return(s.stringsWatcher, nil)
 
-	w, err := NewService(s.state, s.watcherFactory).Watch()
+	w, err := NewWatchableService(s.state, s.watcherFactory).Watch()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(w, gc.NotNil)
 }

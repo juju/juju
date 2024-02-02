@@ -59,6 +59,13 @@ func (f ModelDefaultsProviderFunc) ModelDefaults(
 	return f(ctx)
 }
 
+// NewService returns a new Service for interacting with model defaults state.
+func NewService(st State) *Service {
+	return &Service{
+		st: st,
+	}
+}
+
 // ModelDefaults will return the default config values to be used for a model
 // and it's config. If no model for uuid is found then a error satisfying
 // [github.com/juju/juju/domain/model/errors.NotFound] will be returned.
@@ -136,12 +143,5 @@ func (s *Service) ModelDefaultsProvider(
 ) ModelDefaultsProviderFunc {
 	return func(ctx context.Context) (modeldefaults.Defaults, error) {
 		return s.ModelDefaults(ctx, uuid)
-	}
-}
-
-// NewService returns a new Service for interacting with model defaults state.
-func NewService(st State) *Service {
-	return &Service{
-		st: st,
 	}
 }

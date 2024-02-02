@@ -39,7 +39,7 @@ type ManifoldSuite struct {
 	stateTracker           stubStateTracker
 	sysLogger              stubLogger
 	serviceFactory         servicefactory.ServiceFactory
-	controllerConfigGetter *controllerconfigservice.Service
+	controllerConfigGetter *controllerconfigservice.WatchableService
 	mux                    *apiserverhttp.Mux
 
 	state *state.State
@@ -60,7 +60,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.state = &state.State{}
 	s.pool = &state.StatePool{}
 	s.stateTracker = stubStateTracker{pool: s.pool, state: s.state}
-	s.controllerConfigGetter = &controllerconfigservice.Service{}
+	s.controllerConfigGetter = &controllerconfigservice.WatchableService{}
 	s.serviceFactory = stubServiceFactory{
 		controllerConfigGetter: s.controllerConfigGetter,
 	}
@@ -229,9 +229,9 @@ type stubLogger struct {
 
 type stubServiceFactory struct {
 	servicefactory.ServiceFactory
-	controllerConfigGetter *controllerconfigservice.Service
+	controllerConfigGetter *controllerconfigservice.WatchableService
 }
 
-func (s stubServiceFactory) ControllerConfig() *controllerconfigservice.Service {
+func (s stubServiceFactory) ControllerConfig() *controllerconfigservice.WatchableService {
 	return s.controllerConfigGetter
 }

@@ -43,8 +43,8 @@ func NewModelFactory(
 // obtained from the controller service factory model defaults service.
 func (s *ModelFactory) Config(
 	defaultsProvider modelconfigservice.ModelDefaultsProvider,
-) *modelconfigservice.Service {
-	return modelconfigservice.NewService(
+) *modelconfigservice.WatchableService {
+	return modelconfigservice.NewWatchableService(
 		defaultsProvider,
 		modelconfigstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
 		domain.NewWatcherFactory(s.modelDB, s.logger.Child("modelconfig")),
@@ -52,8 +52,8 @@ func (s *ModelFactory) Config(
 }
 
 // ObjectStore returns the model's object store service.
-func (s *ModelFactory) ObjectStore() *objectstoreservice.Service {
-	return objectstoreservice.NewService(
+func (s *ModelFactory) ObjectStore() *objectstoreservice.WatchableService {
+	return objectstoreservice.NewWatchableService(
 		objectstorestate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
 		domain.NewWatcherFactory(
 			s.modelDB,
@@ -70,8 +70,8 @@ func (s *ModelFactory) Machine() *machineservice.Service {
 }
 
 // BlockDevice returns the model's block device service.
-func (s *ModelFactory) BlockDevice() *blockdeviceservice.Service {
-	return blockdeviceservice.NewService(
+func (s *ModelFactory) BlockDevice() *blockdeviceservice.WatchableService {
+	return blockdeviceservice.NewWatchableService(
 		blockdevicestate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
 		domain.NewWatcherFactory(s.modelDB, s.logger.Child("blockdevice")),
 		s.logger.Child("blockdevice"),

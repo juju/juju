@@ -28,7 +28,7 @@ import (
 // apiserver.
 type ControllerServiceFactory interface {
 	// ControllerConfig returns the controller configuration service.
-	ControllerConfig() *controllerconfigservice.Service
+	ControllerConfig() *controllerconfigservice.WatchableService
 	// ControllerNode returns the controller node service.
 	ControllerNode() *controllernodeservice.Service
 	// Model returns the model service.
@@ -38,19 +38,19 @@ type ControllerServiceFactory interface {
 	// ModelManager returns the model manager service.
 	ModelManager() *modelmanagerservice.Service
 	// ExternalController returns the external controller service.
-	ExternalController() *externalcontrollerservice.Service
+	ExternalController() *externalcontrollerservice.WatchableService
 	// Credential returns the credential service.
-	Credential() *credentialservice.Service
+	Credential() *credentialservice.WatchableService
 	// AutocertCache returns the autocert cache service.
 	AutocertCache() *autocertcacheservice.Service
 	// Cloud returns the cloud service.
-	Cloud() *cloudservice.Service
+	Cloud() *cloudservice.WatchableService
 	// Upgrade returns the upgrade service.
-	Upgrade() *upgradeservice.Service
+	Upgrade() *upgradeservice.WatchableService
 	// AgentObjectStore returns the object store service.
 	// Primarily used for agent blob store. Although can be used for other
 	// blob related operations.
-	AgentObjectStore() *objectstoreservice.Service
+	AgentObjectStore() *objectstoreservice.WatchableService
 	// Flag returns the flag service.
 	Flag() *flagservice.Service
 	// User returns the user service.
@@ -61,13 +61,13 @@ type ControllerServiceFactory interface {
 // apiserver for a given model.
 type ModelServiceFactory interface {
 	// Config returns the modelconfig service.
-	Config(modelconfigservice.ModelDefaultsProvider) *modelconfigservice.Service
+	Config(modelconfigservice.ModelDefaultsProvider) *modelconfigservice.WatchableService
 	// ObjectStore returns the object store service.
-	ObjectStore() *objectstoreservice.Service
+	ObjectStore() *objectstoreservice.WatchableService
 	// Machine returns the machine service.
 	Machine() *machineservice.Service
 	// BlockDevice returns the block device service.
-	BlockDevice() *blockdeviceservice.Service
+	BlockDevice() *blockdeviceservice.WatchableService
 	// Application returns the machine service.
 	Application() *applicationservice.Service
 	// Unit returns the machine service.

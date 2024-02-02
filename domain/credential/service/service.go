@@ -69,11 +69,10 @@ type Logger interface {
 	Debugf(string, ...interface{})
 }
 
-// Service provides the API for working with external controllers.
+// Service provides the API for working with credentials.
 type Service struct {
-	st             State
-	watcherFactory WatcherFactory
-	logger         Logger
+	st     State
+	logger Logger
 
 	// These are set via options after the service is created.
 
@@ -86,12 +85,11 @@ type Service struct {
 }
 
 // NewService returns a new service reference wrapping the input state.
-func NewService(st State, watcherFactory WatcherFactory, logger Logger) *Service {
+func NewService(st State, logger Logger) *Service {
 	return &Service{
-		st:             st,
-		watcherFactory: watcherFactory,
-		logger:         logger,
-		validator:      NewCredentialValidator(),
+		st:        st,
+		logger:    logger,
+		validator: NewCredentialValidator(),
 	}
 }
 
@@ -210,17 +208,6 @@ func (s *Service) InvalidateCredential(ctx context.Context, id credential.ID, re
 		return errors.Annotatef(err, "invalid id invalidating cloud credential")
 	}
 	return s.st.InvalidateCloudCredential(ctx, id, reason)
-}
-
-// WatchCredential returns a watcher that observes changes to the specified credential.
-func (s *Service) WatchCredential(ctx context.Context, id credential.ID) (watcher.NotifyWatcher, error) {
-	if err := id.Validate(); err != nil {
-		return nil, errors.Annotatef(err, "invalid id watching cloud credential")
-	}
-	if s.watcherFactory != nil {
-		return s.st.WatchCredential(ctx, s.watcherFactory.NewValueWatcher, id)
-	}
-	return nil, errors.NotYetAvailablef("credential watcher")
 }
 
 func (s *Service) modelsUsingCredential(ctx context.Context, id credential.ID) (map[model.UUID]string, error) {
@@ -410,4 +397,56 @@ func modelsPretty(in map[model.UUID]string) string {
 		firstLine,
 		strings.Join(uuids, "\n- "),
 	)
+}
+
+// WatchableService provides the API for working with credentials and the
+// ability to create watchers.
+type WatchableService struct {
+	Service
+	watcherFactory WatcherFactory
+}
+
+// NewWatchableService returns a new service reference wrapping the input state.
+func NewWatchableService(st State, watcherFactory WatcherFactory, logger Logger) *WatchableService {
+	return &WatchableService{
+		Service: Service{
+			st:        st,
+			logger:    logger,
+			validator: NewCredentialValidator(),
+		},
+		watcherFactory: watcherFactory,
+	}
+}
+
+// WatchCredential returns a watcher that observes changes to the specified
+// credential.
+func (s *WatchableService) WatchCredential(ctx context.Context, id credential.ID) (watcher.NotifyWatcher, error) {
+	if err := id.Validate(); err != nil {
+		return nil, errors.Annotatef(err, "invalid id watching cloud credential")
+	}
+	return s.st.WatchCredential(ctx, s.watcherFactory.NewValueWatcher, id)
+}
+
+// WithValidationContextGetter configures the service to use the specified function
+// to get a context used to validate a credential for a specified model.
+// TODO(wallyworld) - remove when models are out of mongo
+func (s *WatchableService) WithValidationContextGetter(validationContextGetter ValidationContextGetter) *WatchableService {
+	s.validationContextGetter = validationContextGetter
+	return s
+}
+
+// WithLegacyUpdater configures the service to use the specified function
+// to update credential details in mongo.
+// TODO(wallyworld) - remove when models are out of mongo
+func (s *WatchableService) WithLegacyUpdater(updater func(tag names.CloudCredentialTag) error) *WatchableService {
+	s.legacyUpdater = updater
+	return s
+}
+
+// WithLegacyRemover configures the service to use the specified function
+// to remove credential details from mongo.
+// TODO(wallyworld) - remove when models are out of mongo
+func (s *WatchableService) WithLegacyRemover(remover func(tag names.CloudCredentialTag) error) *WatchableService {
+	s.legacyRemover = remover
+	return s
 }

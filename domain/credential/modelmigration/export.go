@@ -44,7 +44,7 @@ func (e *exportOperation) Setup(scope modelmigration.Scope) error {
 	// We must not use a watcher during migration, so it's safe to pass a
 	// nil watcher factory.
 	e.service = service.NewService(
-		state.NewState(scope.ControllerDB()), nil, logger)
+		state.NewState(scope.ControllerDB()), logger)
 	return nil
 }
 

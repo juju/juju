@@ -43,13 +43,12 @@ type WatcherFactory interface {
 
 // Service provides the API for working with upgrade info
 type Service struct {
-	st             State
-	watcherFactory WatcherFactory
+	st State
 }
 
 // NewService returns a new Service for interacting with the underlying state.
 func NewService(st State, wf WatcherFactory) *Service {
-	return &Service{st: st, watcherFactory: wf}
+	return &Service{st: st}
 }
 
 // CreateUpgrade creates an upgrade to and from specified versions
@@ -130,38 +129,6 @@ func (s *Service) ActiveUpgrade(ctx context.Context) (domainupgrade.UUID, error)
 	return activeUpgrade, domain.CoerceError(err)
 }
 
-// WatchForUpgradeReady creates a watcher which notifies when all controller
-// nodes have been registered, meaning the upgrade is ready to start.
-func (s *Service) WatchForUpgradeReady(ctx context.Context, upgradeUUID domainupgrade.UUID) (watcher.NotifyWatcher, error) {
-	if err := upgradeUUID.Validate(); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	mask := changestream.Create | changestream.Update
-	predicate := func(ctx context.Context, db coredatabase.TxnRunner, changes []changestream.ChangeEvent) (bool, error) {
-		return s.st.AllProvisionedControllersReady(ctx, upgradeUUID)
-	}
-	return s.watcherFactory.NewValuePredicateWatcher("upgrade_info_controller_node", upgradeUUID.String(), mask, predicate)
-}
-
-// WatchForUpgradeState creates a watcher which notifies when the upgrade
-// has reached the given state.
-func (s *Service) WatchForUpgradeState(ctx context.Context, upgradeUUID domainupgrade.UUID, state upgrade.State) (watcher.NotifyWatcher, error) {
-	if err := upgradeUUID.Validate(); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	mask := changestream.Create | changestream.Update
-	predicate := func(ctx context.Context, db coredatabase.TxnRunner, changes []changestream.ChangeEvent) (bool, error) {
-		info, err := s.st.UpgradeInfo(ctx, upgradeUUID)
-		if err != nil {
-			return false, errors.Trace(err)
-		}
-		return info.State == state, nil
-	}
-	return s.watcherFactory.NewValuePredicateWatcher("upgrade_info", upgradeUUID.String(), mask, predicate)
-}
-
 // UpgradeInfo returns the upgrade info for the supplied upgradeUUID
 func (s *Service) UpgradeInfo(ctx context.Context, upgradeUUID domainupgrade.UUID) (upgrade.Info, error) {
 	if err := upgradeUUID.Validate(); err != nil {
@@ -187,4 +154,52 @@ func (s *Service) IsUpgrading(ctx context.Context) (bool, error) {
 	}
 
 	return false, errors.Trace(err)
+}
+
+// WatchableService provides the API for working with upgrade info
+type WatchableService struct {
+	Service
+	watcherFactory WatcherFactory
+}
+
+// NewWatchableService returns a new WatchableService for interacting with the underlying state.
+func NewWatchableService(st State, wf WatcherFactory) *WatchableService {
+	return &WatchableService{
+		Service: Service{
+			st: st,
+		},
+		watcherFactory: wf,
+	}
+}
+
+// WatchForUpgradeReady creates a watcher which notifies when all controller
+// nodes have been registered, meaning the upgrade is ready to start.
+func (s *WatchableService) WatchForUpgradeReady(ctx context.Context, upgradeUUID domainupgrade.UUID) (watcher.NotifyWatcher, error) {
+	if err := upgradeUUID.Validate(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	mask := changestream.Create | changestream.Update
+	predicate := func(ctx context.Context, db coredatabase.TxnRunner, changes []changestream.ChangeEvent) (bool, error) {
+		return s.st.AllProvisionedControllersReady(ctx, upgradeUUID)
+	}
+	return s.watcherFactory.NewValuePredicateWatcher("upgrade_info_controller_node", upgradeUUID.String(), mask, predicate)
+}
+
+// WatchForUpgradeState creates a watcher which notifies when the upgrade
+// has reached the given state.
+func (s *WatchableService) WatchForUpgradeState(ctx context.Context, upgradeUUID domainupgrade.UUID, state upgrade.State) (watcher.NotifyWatcher, error) {
+	if err := upgradeUUID.Validate(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	mask := changestream.Create | changestream.Update
+	predicate := func(ctx context.Context, db coredatabase.TxnRunner, changes []changestream.ChangeEvent) (bool, error) {
+		info, err := s.st.UpgradeInfo(ctx, upgradeUUID)
+		if err != nil {
+			return false, errors.Trace(err)
+		}
+		return info.State == state, nil
+	}
+	return s.watcherFactory.NewValuePredicateWatcher("upgrade_info", upgradeUUID.String(), mask, predicate)
 }

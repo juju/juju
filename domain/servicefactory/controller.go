@@ -65,8 +65,8 @@ func NewControllerFactory(
 }
 
 // ControllerConfig returns the controller configuration service.
-func (s *ControllerFactory) ControllerConfig() *controllerconfigservice.Service {
-	return controllerconfigservice.NewService(
+func (s *ControllerFactory) ControllerConfig() *controllerconfigservice.WatchableService {
+	return controllerconfigservice.NewWatchableService(
 		controllerconfigstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
 		domain.NewWatcherFactory(
 			s.controllerDB,
@@ -105,8 +105,8 @@ func (s *ControllerFactory) ModelManager() *modelmanagerservice.Service {
 }
 
 // ExternalController returns the external controller service.
-func (s *ControllerFactory) ExternalController() *externalcontrollerservice.Service {
-	return externalcontrollerservice.NewService(
+func (s *ControllerFactory) ExternalController() *externalcontrollerservice.WatchableService {
+	return externalcontrollerservice.NewWatchableService(
 		externalcontrollerstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
 		domain.NewWatcherFactory(
 			s.controllerDB,
@@ -116,8 +116,8 @@ func (s *ControllerFactory) ExternalController() *externalcontrollerservice.Serv
 }
 
 // Credential returns the credential service.
-func (s *ControllerFactory) Credential() *credentialservice.Service {
-	return credentialservice.NewService(
+func (s *ControllerFactory) Credential() *credentialservice.WatchableService {
+	return credentialservice.NewWatchableService(
 		credentialstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
 		domain.NewWatcherFactory(
 			s.controllerDB,
@@ -128,8 +128,8 @@ func (s *ControllerFactory) Credential() *credentialservice.Service {
 }
 
 // Cloud returns the cloud service.
-func (s *ControllerFactory) Cloud() *cloudservice.Service {
-	return cloudservice.NewService(
+func (s *ControllerFactory) Cloud() *cloudservice.WatchableService {
+	return cloudservice.NewWatchableService(
 		cloudstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
 		domain.NewWatcherFactory(
 			s.controllerDB,
@@ -147,8 +147,8 @@ func (s *ControllerFactory) AutocertCache() *autocertcacheservice.Service {
 }
 
 // Upgrade returns the upgrade service.
-func (s *ControllerFactory) Upgrade() *upgradeservice.Service {
-	return upgradeservice.NewService(
+func (s *ControllerFactory) Upgrade() *upgradeservice.WatchableService {
+	return upgradeservice.NewWatchableService(
 		upgradestate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
 		domain.NewWatcherFactory(
 			s.controllerDB,
@@ -158,8 +158,8 @@ func (s *ControllerFactory) Upgrade() *upgradeservice.Service {
 }
 
 // AgentObjectStore returns the object store service.
-func (s *ControllerFactory) AgentObjectStore() *objectstoreservice.Service {
-	return objectstoreservice.NewService(
+func (s *ControllerFactory) AgentObjectStore() *objectstoreservice.WatchableService {
+	return objectstoreservice.NewWatchableService(
 		objectstorestate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
 		domain.NewWatcherFactory(
 			s.controllerDB,

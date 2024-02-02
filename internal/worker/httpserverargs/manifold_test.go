@@ -225,7 +225,7 @@ type stubServiceFactory struct {
 	servicefactory.ControllerServiceFactory
 }
 
-func (s *stubServiceFactory) ControllerConfig() *controllerconfigservice.Service {
+func (s *stubServiceFactory) ControllerConfig() *controllerconfigservice.WatchableService {
 	s.MethodCall(s, "ControllerConfig")
 	return nil
 }
