@@ -4,6 +4,7 @@
 package permission_test
 
 import (
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -223,4 +224,32 @@ func (*accessSuite) TestEqualOrGreaterCloudAccessThan(c *gc.C) {
 	c.Check(addmodel.EqualOrGreaterCloudAccessThan(addmodel), jc.IsTrue)
 	c.Check(addmodel.EqualOrGreaterCloudAccessThan(admin), jc.IsFalse)
 	c.Check(admin.EqualOrGreaterCloudAccessThan(addmodel), jc.IsTrue)
+}
+
+var validateAccessTypeTest = []struct {
+	access     permission.Access
+	accessType permission.AccessType
+	fail       bool
+}{
+	{access: permission.AdminAccess, accessType: permission.Cloud},
+	{access: permission.SuperuserAccess, accessType: permission.Cloud, fail: true},
+	{access: permission.LoginAccess, accessType: permission.Controller},
+	{access: permission.ReadAccess, accessType: permission.Controller, fail: true},
+	{access: permission.ReadAccess, accessType: permission.Model},
+	{access: permission.ConsumeAccess, accessType: permission.Model, fail: true},
+	{access: permission.ConsumeAccess, accessType: permission.Offer},
+	{access: permission.AddModelAccess, accessType: permission.Offer, fail: true},
+}
+
+func (*accessSuite) TestValidateAccessForAccessType(c *gc.C) {
+	size := len(validateAccessTypeTest)
+	for i, test := range validateAccessTypeTest {
+		c.Logf("Running test %d of %d", i, size)
+		err := permission.ValidateAccessForAccessType(test.access, test.accessType)
+		if test.fail {
+			c.Check(errors.Is(err, errors.NotValid), jc.IsTrue, gc.Commentf("test %d", i))
+		} else {
+			c.Check(err, jc.ErrorIsNil, gc.Commentf("test %d", i))
+		}
+	}
 }

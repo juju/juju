@@ -3,7 +3,9 @@
 
 package permission
 
-import "github.com/juju/errors"
+import (
+	"github.com/juju/errors"
+)
 
 // Access represents a level of access.
 type Access string
@@ -49,6 +51,45 @@ func (a Access) Validate() error {
 		return nil
 	}
 	return errors.NotValidf("access level %s", a)
+}
+
+// AccessType represents the object types which have
+// different access levels per user.
+type AccessType string
+
+const (
+	Cloud      AccessType = "cloud"
+	Controller AccessType = "controller"
+	Model      AccessType = "model"
+	Offer      AccessType = "offer"
+)
+
+// Validate returns error if the current is not a valid access type.
+func (a AccessType) Validate() error {
+	switch a {
+	case Cloud, Controller, Model, Offer:
+		return nil
+	}
+	return errors.NotValidf("access level %s", a)
+}
+
+// ValidateAccessForAccessType validates the access value is valid for the
+// access type provided, without the caller knowing what type it is first.
+func ValidateAccessForAccessType(access Access, accessType AccessType) error {
+	var err error
+	switch accessType {
+	case Cloud:
+		err = ValidateCloudAccess(access)
+	case Controller:
+		err = ValidateControllerAccess(access)
+	case Model:
+		err = ValidateModelAccess(access)
+	case Offer:
+		err = ValidateOfferAccess(access)
+	default:
+		err = errors.NotValidf("access type %q", accessType)
+	}
+	return err
 }
 
 // ValidateModelAccess returns error if the passed access is not a valid
