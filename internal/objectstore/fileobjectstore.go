@@ -44,7 +44,6 @@ type FileObjectStoreConfig struct {
 type fileObjectStore struct {
 	baseObjectStore
 	fs        fs.FS
-	path      string
 	namespace string
 	requests  chan request
 }
@@ -56,13 +55,13 @@ func NewFileObjectStore(ctx context.Context, cfg FileObjectStoreConfig) (Tracked
 
 	s := &fileObjectStore{
 		baseObjectStore: baseObjectStore{
+			path:            path,
 			claimer:         cfg.Claimer,
 			metadataService: cfg.MetadataService,
 			logger:          cfg.Logger,
 			clock:           cfg.Clock,
 		},
 		fs:        os.DirFS(path),
-		path:      path,
 		namespace: cfg.Namespace,
 
 		requests: make(chan request),
@@ -205,11 +204,16 @@ func (t *fileObjectStore) Remove(ctx context.Context, path string) error {
 }
 
 func (t *fileObjectStore) loop() error {
-	// Ensure the namespace directory exists.
-	if _, err := os.Stat(t.path); err != nil && errors.Is(err, os.ErrNotExist) {
-		if err := os.MkdirAll(t.path, 0755); err != nil {
-			return errors.Trace(err)
-		}
+	// Ensure the namespace directory exists, along with the tmp directory.
+	if err := t.ensureDirectories(); err != nil {
+		return errors.Trace(err)
+	}
+
+	// Remove any temporary files that may have been left behind. We don't
+	// provide continuation for these operations, so a retry will be required
+	// if the operation fails.
+	if err := t.cleanupTmpFiles(); err != nil {
+		return errors.Trace(err)
 	}
 
 	ctx, cancel := t.scopedContext()
@@ -300,10 +304,13 @@ func (t *fileObjectStore) put(ctx context.Context, path string, r io.Reader, siz
 	// keep using it for now.
 	hasher := sha512.New384()
 
-	tmpFileName, err := t.writeToTmpFile(path, io.TeeReader(r, hasher), size)
+	tmpFileName, tmpFileCleanup, err := t.writeToTmpFile(t.path, io.TeeReader(r, hasher), size)
 	if err != nil {
 		return errors.Trace(err)
 	}
+
+	// Ensure that we remove the temporary file if we fail to persist it.
+	defer func() { _ = tmpFileCleanup() }()
 
 	// Encode the hash as a hex string. This is what the rest of the juju
 	// codebase expects. Although we should probably use base64.StdEncoding

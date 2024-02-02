@@ -7,6 +7,7 @@ import (
 	"context"
 	"io"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/juju/clock"
@@ -36,6 +37,10 @@ type ClaimExtender interface {
 	Duration() time.Duration
 }
 
+const (
+	defaultTempDirectoryName = "tmp"
+)
+
 type opType int
 
 const (
@@ -61,6 +66,7 @@ type response struct {
 
 type baseObjectStore struct {
 	tomb            tomb.Tomb
+	path            string
 	metadataService objectstore.ObjectStoreMetadata
 	claimer         Claimer
 	logger          Logger
@@ -85,13 +91,13 @@ func (w *baseObjectStore) scopedContext() (context.Context, context.CancelFunc) 
 	return w.tomb.Context(ctx), cancel
 }
 
-func (t *baseObjectStore) writeToTmpFile(path string, r io.Reader, size int64) (string, error) {
+func (t *baseObjectStore) writeToTmpFile(path string, r io.Reader, size int64) (string, func() error, error) {
 	// The following dance is to ensure that we don't end up with a partially
 	// written file if we crash while writing it or if we're attempting to
 	// read it at the same time.
-	tmpFile, err := os.CreateTemp("", "file")
+	tmpFile, err := os.CreateTemp(filepath.Join(path, defaultTempDirectoryName), "tmp")
 	if err != nil {
-		return "", errors.Trace(err)
+		return "", nopCloser, errors.Trace(err)
 	}
 	defer func() {
 		_ = tmpFile.Close()
@@ -100,16 +106,21 @@ func (t *baseObjectStore) writeToTmpFile(path string, r io.Reader, size int64) (
 	written, err := io.Copy(tmpFile, r)
 	if err != nil {
 		_ = os.Remove(tmpFile.Name())
-		return "", errors.Trace(err)
+		return "", nopCloser, errors.Trace(err)
 	}
 
 	// Ensure that we write all the data.
 	if written != size {
 		_ = os.Remove(tmpFile.Name())
-		return "", errors.Errorf("partially written data: written %d, expected %d", written, size)
+		return "", nopCloser, errors.Errorf("partially written data: written %d, expected %d", written, size)
 	}
 
-	return tmpFile.Name(), nil
+	return tmpFile.Name(), func() error {
+		if _, err := os.Stat(tmpFile.Name()); err == nil {
+			return os.Remove(tmpFile.Name())
+		}
+		return nil
+	}, nil
 }
 
 func (w *baseObjectStore) withLock(ctx context.Context, hash string, f func(context.Context) error) error {
@@ -177,6 +188,48 @@ func (w *baseObjectStore) withLock(ctx context.Context, hash string, f func(cont
 	}
 }
 
+func (w *baseObjectStore) ensureDirectories() error {
+	if _, err := os.Stat(w.path); err != nil && errors.Is(err, os.ErrNotExist) {
+		if err := os.MkdirAll(w.path, 0755); err != nil {
+			return errors.Trace(err)
+		}
+	}
+
+	tmpPath := filepath.Join(w.path, defaultTempDirectoryName)
+	if _, err := os.Stat(tmpPath); err != nil && errors.Is(err, os.ErrNotExist) {
+		if err := os.MkdirAll(tmpPath, 0755); err != nil {
+			return errors.Trace(err)
+		}
+	}
+
+	return nil
+}
+
+// cleanupTmpFiles removes any temporary files that may have been left behind.
+// As temporary files are per namespace, we don't have to be concerned about
+// removing files that are still being written to by another namespace.
+func (w *baseObjectStore) cleanupTmpFiles() error {
+	tmpPath := filepath.Join(w.path, defaultTempDirectoryName)
+
+	entries, err := os.ReadDir(tmpPath)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	for _, entry := range entries {
+		// Ignore directories, this shouldn't happen, but just in case.
+		if entry.IsDir() {
+			continue
+		}
+
+		if err := os.Remove(filepath.Join(tmpPath, entry.Name())); err != nil {
+			return errors.Trace(err)
+		}
+	}
+
+	return nil
+}
+
 type hashValidator func(string) (string, bool)
 
 func ignoreHash(string) (string, bool) {
@@ -187,4 +240,8 @@ func checkHash(expected string) func(string) (string, bool) {
 	return func(actual string) (string, bool) {
 		return expected, actual == expected
 	}
+}
+
+func nopCloser() error {
+	return nil
 }

@@ -442,6 +442,7 @@ func (s *s3ObjectStoreSuite) newS3ObjectStore(c *gc.C) TrackedObjectStore {
 	store, err := NewS3ObjectStore(context.Background(), S3ObjectStoreConfig{
 		RootBucket:      defaultBucketName,
 		Namespace:       "inferi",
+		RootDir:         c.MkDir(),
 		Client:          s.client,
 		MetadataService: s.service,
 		Claimer:         s.claimer,
