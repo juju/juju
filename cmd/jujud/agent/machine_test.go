@@ -354,7 +354,7 @@ func (s *MachineSuite) TestMachineAgentRunsAPIAddressUpdaterWorker(c *gc.C) {
 	controllerConfig := coretesting.FakeControllerConfig()
 
 	st := s.ControllerModel(c).State()
-	err := st.SetAPIHostPorts(controllerConfig, updatedServers)
+	err := st.SetAPIHostPorts(controllerConfig, updatedServers, updatedServers)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Wait for config to be updated.

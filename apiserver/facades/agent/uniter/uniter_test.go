@@ -2800,7 +2800,7 @@ func (s *uniterSuite) TestAPIAddresses(c *gc.C) {
 	st := s.ControllerModel(c).State()
 	controllerConfig, err := st.ControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	err = st.SetAPIHostPorts(controllerConfig, hostPorts)
+	err = st.SetAPIHostPorts(controllerConfig, hostPorts, hostPorts)
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := s.uniter.APIAddresses(context.Background())

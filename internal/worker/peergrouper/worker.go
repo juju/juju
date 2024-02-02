@@ -69,7 +69,7 @@ type MongoSession interface {
 }
 
 type APIHostPortsSetter interface {
-	SetAPIHostPorts(controller.Config, []network.SpaceHostPorts) error
+	SetAPIHostPorts(controller.Config, []network.SpaceHostPorts, []network.SpaceHostPorts) error
 }
 
 var (
@@ -332,7 +332,7 @@ func (w *pgWorker) loop() error {
 			logger.Errorf("cannot read controller config: %v", err)
 			failed = true
 		}
-		if err := w.config.APIHostPortsSetter.SetAPIHostPorts(cfg, apiHostPorts); err != nil {
+		if err := w.config.APIHostPortsSetter.SetAPIHostPorts(cfg, apiHostPorts, apiHostPorts); err != nil {
 			logger.Errorf("cannot write API server addresses: %v", err)
 			failed = true
 		}

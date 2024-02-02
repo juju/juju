@@ -13,7 +13,9 @@ import (
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/flags"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/cloudconfig"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
@@ -50,6 +52,7 @@ type WorkerConfig struct {
 	CredentialService       CredentialService
 	CloudService            CloudService
 	FlagService             FlagService
+	SpaceService            SpaceService
 	BootstrapUnlocker       gate.Unlocker
 	AgentBinaryUploader     AgentBinaryBootstrapFunc
 	ControllerCharmDeployer ControllerCharmDeployerFunc
@@ -90,6 +93,9 @@ func (c *WorkerConfig) Validate() error {
 	}
 	if c.FlagService == nil {
 		return errors.NotValidf("nil FlagService")
+	}
+	if c.SpaceService == nil {
+		return errors.NotValidf("nil SpaceService")
 	}
 	if c.ControllerCharmDeployer == nil {
 		return errors.NotValidf("nil ControllerCharmDeployer")
@@ -175,13 +181,17 @@ func (w *bootstrapWorker) loop() error {
 	if err != nil {
 		return errors.Annotatef(err, "getting bootstrap params")
 	}
+	controllerConfig, err := w.cfg.ControllerConfigService.ControllerConfig(ctx)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	bootstrapArgs, err := w.seedControllerCharm(ctx, dataDir, args)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	// Retrieve controller addresses needed to set the API host ports.
-	_, err = w.cfg.BootstrapAddressFinder(ctx, BootstrapAddressesConfig{
+	bootstrapAddresses, err := w.cfg.BootstrapAddressFinder(ctx, BootstrapAddressesConfig{
 		BootstrapInstanceID:    bootstrapArgs.BootstrapMachineInstanceId,
 		SystemState:            w.cfg.SystemState,
 		CloudService:           w.cfg.CloudService,
@@ -190,6 +200,15 @@ func (w *bootstrapWorker) loop() error {
 		BootstrapAddressesFunc: w.cfg.BootstrapAddresses,
 	})
 	if err != nil {
+		return errors.Trace(err)
+	}
+	servingInfo, ok := agentConfig.StateServingInfo()
+	if !ok {
+		return errors.Errorf("state serving information not available")
+	}
+	// Convert the provider addresses that we got from the bootstrap instance
+	// to space ID decorated addresses.
+	if err := w.initAPIHostPorts(ctx, controllerConfig, bootstrapAddresses, servingInfo.APIPort); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -213,6 +232,26 @@ func (w *bootstrapWorker) reportInternalState(state string) {
 	case w.internalStates <- state:
 	default:
 	}
+}
+
+// initAPIHostPorts sets the initial API host/port addresses in state.
+func (w *bootstrapWorker) initAPIHostPorts(ctx context.Context, controllerConfig controller.Config, pAddrs network.ProviderAddresses, apiPort int) error {
+	allSpaces, err := w.cfg.SpaceService.GetAllSpaces(ctx)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	addrs, err := pAddrs.ToSpaceAddresses(allSpaces)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	hostPorts := []network.SpaceHostPorts{network.SpaceAddressesWithPort(addrs, apiPort)}
+	hostPortsForAgents, err := w.cfg.SpaceService.FilterHostPortsForManagementSpace(ctx, controllerConfig, hostPorts)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	return w.cfg.SystemState.SetAPIHostPorts(controllerConfig, hostPorts, hostPortsForAgents)
 }
 
 // scopedContext returns a context that is in the scope of the worker lifetime.
@@ -247,7 +286,7 @@ func (w *bootstrapWorker) seedControllerCharm(ctx context.Context, dataDir strin
 
 	objectStore, err := w.cfg.ObjectStoreGetter.GetObjectStore(ctx, w.cfg.SystemState.ControllerModelUUID())
 	if err != nil {
-		return instancecfg.StateInitializationParams{}, fmt.Errorf("failed to get object store: %v", err)
+		return instancecfg.StateInitializationParams{}, fmt.Errorf("failed to get object store: %w", err)
 	}
 
 	// Controller charm seeder will populate the charm for the controller.

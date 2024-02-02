@@ -23,7 +23,7 @@ type mockAPIHostPortsSetter struct {
 	apiHostPorts []network.SpaceHostPorts
 }
 
-func (s *mockAPIHostPortsSetter) SetAPIHostPorts(_ controller.Config, apiHostPorts []network.SpaceHostPorts) error {
+func (s *mockAPIHostPortsSetter) SetAPIHostPorts(_ controller.Config, apiHostPorts, agentAddresses []network.SpaceHostPorts) error {
 	s.calls++
 	s.apiHostPorts = apiHostPorts
 	return nil
@@ -39,7 +39,7 @@ func (s *publishSuite) TestPublisherSetsAPIHostPortsOnce(c *gc.C) {
 	// statePublish.SetAPIHostPorts should not update state a second time.
 	apiServers := []network.SpaceHostPorts{hostPorts1}
 	for i := 0; i < 2; i++ {
-		err := statePublish.SetAPIHostPorts(testing.FakeControllerConfig(), apiServers)
+		err := statePublish.SetAPIHostPorts(testing.FakeControllerConfig(), apiServers, apiServers)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
@@ -48,7 +48,7 @@ func (s *publishSuite) TestPublisherSetsAPIHostPortsOnce(c *gc.C) {
 
 	apiServers = append(apiServers, hostPorts2)
 	for i := 0; i < 2; i++ {
-		err := statePublish.SetAPIHostPorts(testing.FakeControllerConfig(), apiServers)
+		err := statePublish.SetAPIHostPorts(testing.FakeControllerConfig(), apiServers, apiServers)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	c.Assert(mock.calls, gc.Equals, 2)
@@ -63,7 +63,7 @@ func (s *publishSuite) TestPublisherSortsHostPorts(c *gc.C) {
 		var mock mockAPIHostPortsSetter
 		statePublish := &CachingAPIHostPortsSetter{APIHostPortsSetter: &mock}
 		for i := 0; i < 2; i++ {
-			err := statePublish.SetAPIHostPorts(testing.FakeControllerConfig(), []network.SpaceHostPorts{publish})
+			err := statePublish.SetAPIHostPorts(testing.FakeControllerConfig(), []network.SpaceHostPorts{publish}, []network.SpaceHostPorts{publish})
 			c.Assert(err, jc.ErrorIsNil)
 		}
 		c.Assert(mock.calls, gc.Equals, 1)
@@ -77,6 +77,6 @@ func (s *publishSuite) TestPublisherSortsHostPorts(c *gc.C) {
 func (s *publishSuite) TestPublisherRejectsNoServers(c *gc.C) {
 	var mock mockAPIHostPortsSetter
 	statePublish := &CachingAPIHostPortsSetter{APIHostPortsSetter: &mock}
-	err := statePublish.SetAPIHostPorts(testing.FakeControllerConfig(), nil)
+	err := statePublish.SetAPIHostPorts(testing.FakeControllerConfig(), nil, nil)
 	c.Assert(err, gc.ErrorMatches, "no API servers specified")
 }

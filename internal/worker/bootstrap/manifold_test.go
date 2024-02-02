@@ -124,7 +124,7 @@ func (s *manifoldSuite) newGetter() dependency.Getter {
 	resources := map[string]any{
 		"agent":                s.agent,
 		"state":                s.stateTracker,
-		"object-store":         s.objectStore,
+		"object-store":         s.objectStoreGetter,
 		"bootstrap-gate":       s.bootstrapUnlocker,
 		"charmhub-http-client": s.httpClient,
 		"service-factory":      testing.NewTestingServiceFactory(),
@@ -142,7 +142,7 @@ func (s *manifoldSuite) TestStartAlreadyBootstrapped(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectGateUnlock()
-	s.expectAgentConfig(c)
+	s.expectAgentConfig()
 
 	_, err := Manifold(s.getConfig()).Start(context.Background(), s.newGetter())
 	c.Assert(err, jc.ErrorIs, dependency.ErrUninstall)

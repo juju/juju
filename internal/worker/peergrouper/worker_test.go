@@ -485,7 +485,7 @@ func (s *workerSuite) TestSetMembersErrorIsNotFatal(c *gc.C) {
 
 type SetAPIHostPortsFunc func(apiServers []network.SpaceHostPorts) error
 
-func (f SetAPIHostPortsFunc) SetAPIHostPorts(_ controller.Config, apiServers []network.SpaceHostPorts) error {
+func (f SetAPIHostPortsFunc) SetAPIHostPorts(_ controller.Config, apiServers, agentAddresses []network.SpaceHostPorts) error {
 	return f(apiServers)
 }
 
@@ -912,7 +912,7 @@ func mustNextStatus(c *gc.C, w *voyeur.Watcher, context string) *replicaset.Stat
 
 type nopAPIHostPortsSetter struct{}
 
-func (nopAPIHostPortsSetter) SetAPIHostPorts(controller.Config, []network.SpaceHostPorts) error {
+func (nopAPIHostPortsSetter) SetAPIHostPorts(controller.Config, []network.SpaceHostPorts, []network.SpaceHostPorts) error {
 	return nil
 }
 

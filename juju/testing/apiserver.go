@@ -296,7 +296,7 @@ func (s *ApiServerSuite) setupControllerModel(c *gc.C, controllerCfg controller.
 	}}
 	st, err := ctrl.SystemState()
 	c.Assert(err, jc.ErrorIsNil)
-	err = st.SetAPIHostPorts(controllerCfg, sHsPs)
+	err = st.SetAPIHostPorts(controllerCfg, sHsPs, sHsPs)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Allow "dummy" cloud.

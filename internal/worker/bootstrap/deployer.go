@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/controller"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/bootstrap"
 	"github.com/juju/juju/internal/charm/services"
@@ -65,6 +66,15 @@ type SystemState interface {
 	ApplyOperation(*state.UpdateUnitOperation) error
 	// CloudService returns the cloud service for the given cloud.
 	CloudService(string) (bootstrap.CloudService, error)
+	// SetAPIHostPorts sets the addresses, if changed, of two collections:
+	//   - The list of *all* addresses at which the API is accessible.
+	//   - The list of addresses at which the API can be accessed by agents according
+	//     to the controller management space configuration.
+	//
+	// Each server is represented by one element in the top level slice.
+	SetAPIHostPorts(controllerConfig controller.Config, newHostPorts []network.SpaceHostPorts, newHostPortsForAgents []network.SpaceHostPorts) error
+	// SaveCloudService creates a cloud service.
+	SaveCloudService(args state.SaveCloudServiceArgs) (*state.CloudService, error)
 }
 
 // BinaryAgentStorageService is the interface that is used to get the storage

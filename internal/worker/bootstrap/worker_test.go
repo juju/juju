@@ -46,9 +46,12 @@ func (s *workerSuite) TestKilled(c *gc.C) {
 
 	s.expectGateUnlock()
 	s.expectControllerConfig()
-	s.expectAgentConfig(c)
+	s.expectAgentConfig()
 	s.expectObjectStoreGetter(2)
 	s.expectBootstrapFlagSet()
+	s.expectFilterHostPortsForManagementSpace()
+	s.expectSetAPIHostPorts()
+	s.expectStaateServingInfo()
 
 	w := s.newWorker(c)
 	defer workertest.DirtyKill(c, w)
@@ -104,6 +107,7 @@ func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
 		ControllerConfigService: s.controllerConfigService,
 		CredentialService:       s.credentialService,
 		CloudService:            s.cloudService,
+		SpaceService:            s.spaceService,
 		FlagService:             s.flagService,
 		PopulateControllerCharm: func(context.Context, bootstrap.ControllerCharmDeployer) error {
 			return nil
@@ -154,7 +158,16 @@ func (s *workerSuite) ensureState(c *gc.C, st string) {
 }
 
 func (s *workerSuite) expectControllerConfig() {
-	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(controller.Config{}, nil)
+	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).
+		Return(controller.Config{
+			controller.ControllerUUIDKey: "test-uuid",
+		}, nil).Times(2)
+}
+
+func (s *workerSuite) expectStaateServingInfo() {
+	s.agentConfig.EXPECT().StateServingInfo().Return(controller.StateServingInfo{
+		APIPort: 42,
+	}, true)
 }
 
 func (s *workerSuite) expectObjectStoreGetter(num int) {
@@ -164,6 +177,19 @@ func (s *workerSuite) expectObjectStoreGetter(num int) {
 
 func (s *workerSuite) expectBootstrapFlagSet() {
 	s.flagService.EXPECT().SetFlag(gomock.Any(), flags.BootstrapFlag, true, flags.BootstrapFlagDescription).Return(nil)
+}
+
+func (s *workerSuite) expectFilterHostPortsForManagementSpace() {
+	s.spaceService.EXPECT().FilterHostPortsForManagementSpace(gomock.Any(), controller.Config{
+		controller.ControllerUUIDKey: "test-uuid",
+	}, gomock.Any())
+}
+
+func (s *workerSuite) expectSetAPIHostPorts() {
+	s.spaceService.EXPECT().GetAllSpaces(gomock.Any())
+	s.state.EXPECT().SetAPIHostPorts(controller.Config{
+		controller.ControllerUUIDKey: "test-uuid",
+	}, gomock.Any(), gomock.Any())
 }
 
 func (s *workerSuite) ensureBootstrapParams(c *gc.C) {

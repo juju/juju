@@ -1822,7 +1822,7 @@ func (s *withControllerSuite) TestAPIAddresses(c *gc.C) {
 
 	controllerCfg := coretesting.FakeControllerConfig()
 
-	err := st.SetAPIHostPorts(controllerCfg, hostPorts)
+	err := st.SetAPIHostPorts(controllerCfg, hostPorts, hostPorts)
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := s.provisioner.APIAddresses(context.Background())

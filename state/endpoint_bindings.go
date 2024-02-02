@@ -471,6 +471,7 @@ func DefaultEndpointBindingsForCharm(_ EndpointBinding, charmMeta *charm.Meta) (
 type EndpointBinding interface {
 	network.SpaceLookup
 	Space(id string) (*Space, error)
+	AllSpaceInfos() (network.SpaceInfos, error)
 }
 
 // Bindings are EndpointBindings.

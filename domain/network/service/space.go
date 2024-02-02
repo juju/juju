@@ -13,6 +13,7 @@ import (
 	"github.com/juju/names/v5"
 	"github.com/juju/utils/v3"
 
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
 )
 
@@ -30,6 +31,41 @@ func NewSpaceService(st State, logger Logger) *SpaceService {
 		st:     st,
 		logger: logger,
 	}
+}
+
+// FilterHostPortsForManagementSpace filters the collection of API addresses
+// based on the configured management space for the controller.
+// If there is no space configured, or if one of the slices is filtered down
+// to zero elements, just use the unfiltered slice for safety - we do not
+// want to cut off communication to the controller based on erroneous config.
+func (s *SpaceService) FilterHostPortsForManagementSpace(
+	ctx context.Context,
+	controllerConfig controller.Config,
+	apiHostPorts []network.SpaceHostPorts,
+) ([]network.SpaceHostPorts, error) {
+	var hostPortsForAgents []network.SpaceHostPorts
+
+	mgmtSpace := controllerConfig.JujuManagementSpace()
+	if mgmtSpace == "" {
+		return apiHostPorts, nil
+	}
+
+	spaceInfo, err := s.st.GetSpaceByName(ctx, mgmtSpace)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	hostPortsForAgents = make([]network.SpaceHostPorts, len(apiHostPorts))
+	for i := range apiHostPorts {
+		filtered, addrsIsInSpace := apiHostPorts[i].InSpaces(*spaceInfo)
+		if addrsIsInSpace {
+			hostPortsForAgents[i] = filtered
+		} else {
+			hostPortsForAgents[i] = apiHostPorts[i]
+		}
+	}
+
+	return hostPortsForAgents, nil
 }
 
 // AddSpace creates and returns a new space.
