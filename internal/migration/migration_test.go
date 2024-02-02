@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/resources"
 	resourcetesting "github.com/juju/juju/core/resources/testing"
+	domainmodel "github.com/juju/juju/domain/model"
 	"github.com/juju/juju/internal/migration"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/state"
@@ -33,9 +34,10 @@ import (
 type ImportSuite struct {
 	testing.IsolationSuite
 
+	modelManagerService     *MockModelManagerService
 	controllerConfigService *MockControllerConfigService
-	machineSaver            *MockMachineSaver
-	applicationSaver        *MockApplicationSaver
+	serviceFactory          *MockServiceFactory
+	serviceFactoryGetter    *MockServiceFactoryGetter
 }
 
 var _ = gc.Suite(&ImportSuite{})
@@ -45,19 +47,17 @@ func (s *ImportSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *ImportSuite) TestBadBytes(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
 	bytes := []byte("not a model")
-	scope := modelmigration.NewScope(nil, nil)
+	scope := func(string) modelmigration.Scope { return modelmigration.NewScope(nil, nil) }
 	controller := &fakeImporter{}
-	importer := migration.NewModelImporter(controller, scope, s.controllerConfigService, s.machineSaver, s.applicationSaver)
+	importer := migration.NewModelImporter(controller, scope, s.modelManagerService, s.controllerConfigService, s.serviceFactoryGetter)
 	model, st, err := importer.ImportModel(context.Background(), bytes)
 	c.Check(st, gc.IsNil)
 	c.Check(model, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "yaml: unmarshal errors:\n.*")
 }
 
-const model = `
+const modelYaml = `
 cloud: dev
 config:
   name: foo
@@ -115,12 +115,12 @@ version: 1
 `
 
 func (s *ImportSuite) exportImport(c *gc.C, leaders map[string]string) {
-	bytes := []byte(model)
+	bytes := []byte(modelYaml)
 	st := &state.State{}
 	m := &state.Model{}
 	controller := &fakeImporter{st: st, m: m}
-	scope := modelmigration.NewScope(nil, nil)
-	importer := migration.NewModelImporter(controller, scope, s.controllerConfigService, s.machineSaver, s.applicationSaver)
+	scope := func(string) modelmigration.Scope { return modelmigration.NewScope(nil, nil) }
+	importer := migration.NewModelImporter(controller, scope, s.modelManagerService, s.controllerConfigService, s.serviceFactoryGetter)
 	gotM, gotSt, err := importer.ImportModel(context.Background(), bytes)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(controller.model.Tag().Id(), gc.Equals, "bd3fae18-5ea1-4bc5-8837-45400cf1f8f6")
@@ -260,11 +260,16 @@ func (s *ImportSuite) TestWrongCharmURLAssigned(c *gc.C) {
 func (s *ImportSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
+	s.modelManagerService = NewMockModelManagerService(ctrl)
+	s.modelManagerService.EXPECT().Create(gomock.Any(), domainmodel.UUID("bd3fae18-5ea1-4bc5-8837-45400cf1f8f6"))
 	s.controllerConfigService = NewMockControllerConfigService(ctrl)
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(jujutesting.FakeControllerConfig(), nil).AnyTimes()
 
-	s.machineSaver = NewMockMachineSaver(ctrl)
-	s.applicationSaver = NewMockApplicationSaver(ctrl)
+	s.serviceFactory = NewMockServiceFactory(ctrl)
+	s.serviceFactory.EXPECT().Machine().Return(nil)
+	s.serviceFactory.EXPECT().Application().Return(nil)
+	s.serviceFactoryGetter = NewMockServiceFactoryGetter(ctrl)
+	s.serviceFactoryGetter.EXPECT().FactoryForModel("bd3fae18-5ea1-4bc5-8837-45400cf1f8f6").Return(s.serviceFactory)
 
 	return ctrl
 }

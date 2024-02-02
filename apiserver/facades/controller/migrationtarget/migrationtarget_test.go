@@ -30,8 +30,10 @@ import (
 	"github.com/juju/juju/core/facades"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/modelmigration"
+	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/credential"
 	"github.com/juju/juju/domain/credential/service"
+	machineservice "github.com/juju/juju/domain/machine/service"
 	"github.com/juju/juju/domain/model"
 	servicefactorytesting "github.com/juju/juju/domain/servicefactory/testing"
 	"github.com/juju/juju/environs"
@@ -52,10 +54,11 @@ type Suite struct {
 	statetesting.StateSuite
 	authorizer *apiservertesting.FakeAuthorizer
 
+	modelManagerService       *MockModelManagerService
 	controllerConfigService   *MockControllerConfigService
+	serviceFactory            *MockServiceFactory
+	serviceFactoryGetter      *MockServiceFactoryGetter
 	externalControllerService *MockExternalControllerService
-	machineSaver              *MockMachineSaver
-	applicationSaver          *MockApplicationSaver
 	upgradeService            *MockUpgradeService
 	cloudService              *commonmocks.MockCloudService
 	credentialService         *credentialcommon.MockCredentialService
@@ -592,9 +595,10 @@ func (s *Suite) setupMocks(c *gc.C) *gomock.Controller {
 
 	s.controllerConfigService = NewMockControllerConfigService(ctrl)
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(jujutesting.FakeControllerConfig(), nil).AnyTimes()
+	s.modelManagerService = NewMockModelManagerService(ctrl)
 
-	s.machineSaver = NewMockMachineSaver(ctrl)
-	s.applicationSaver = NewMockApplicationSaver(ctrl)
+	s.serviceFactory = NewMockServiceFactory(ctrl)
+	s.serviceFactoryGetter = NewMockServiceFactoryGetter(ctrl)
 
 	s.externalControllerService = NewMockExternalControllerService(ctrl)
 	s.upgradeService = NewMockUpgradeService(ctrl)
@@ -702,10 +706,15 @@ func (s *Suite) controllerVersion(c *gc.C) version.Number {
 }
 
 func (s *Suite) expectImportModel(c *gc.C) {
+	s.serviceFactory.EXPECT().Machine().Return(&machineservice.Service{})
+	s.serviceFactory.EXPECT().Application().Return(&applicationservice.Service{})
+
+	s.modelManagerService.EXPECT().Create(gomock.Any(), gomock.Any())
+	s.serviceFactoryGetter.EXPECT().FactoryForModel(gomock.Any()).Return(s.serviceFactory)
 	s.modelImporter.EXPECT().ImportModel(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, bytes []byte) (*state.Model, *state.State, error) {
-		scope := modelmigration.NewScope(nil, nil)
+		scope := func(string) modelmigration.Scope { return modelmigration.NewScope(nil, nil) }
 		controller := state.NewController(s.StatePool)
-		return migration.NewModelImporter(controller, scope, s.controllerConfigService, s.machineSaver, s.applicationSaver).ImportModel(ctx, bytes)
+		return migration.NewModelImporter(controller, scope, s.modelManagerService, s.controllerConfigService, s.serviceFactoryGetter).ImportModel(ctx, bytes)
 	})
 }
 

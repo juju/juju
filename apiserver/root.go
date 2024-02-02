@@ -52,6 +52,7 @@ type apiHandler struct {
 	model                 *state.Model
 	rpcConn               *rpc.Conn
 	serviceFactory        servicefactory.ServiceFactory
+	serviceFactoryGetter  servicefactory.ServiceFactoryGetter
 	tracer                trace.Tracer
 	objectStore           objectstore.ObjectStore
 	controllerObjectStore objectstore.ObjectStore
@@ -96,6 +97,7 @@ func newAPIHandler(
 	st *state.State,
 	rpcConn *rpc.Conn,
 	serviceFactory servicefactory.ServiceFactory,
+	serviceFactoryGetter servicefactory.ServiceFactoryGetter,
 	tracer trace.Tracer,
 	objectStore objectstore.ObjectStore,
 	controllerObjectStore objectstore.ObjectStore,
@@ -126,6 +128,7 @@ func newAPIHandler(
 	r := &apiHandler{
 		state:                 st,
 		serviceFactory:        serviceFactory,
+		serviceFactoryGetter:  serviceFactoryGetter,
 		tracer:                tracer,
 		objectStore:           objectStore,
 		controllerObjectStore: controllerObjectStore,
@@ -191,6 +194,11 @@ func (r *apiHandler) State() *state.State {
 // ServiceFactory returns the service factory.
 func (r *apiHandler) ServiceFactory() servicefactory.ServiceFactory {
 	return r.serviceFactory
+}
+
+// ServiceFactoryGetter returns the service factory getter.
+func (r *apiHandler) ServiceFactoryGetter() servicefactory.ServiceFactoryGetter {
+	return r.serviceFactoryGetter
 }
 
 // Tracer returns the tracer for opentelemetry.
@@ -375,6 +383,8 @@ type apiRootHandler interface {
 	State() *state.State
 	// ServiceFactory returns the service factory.
 	ServiceFactory() servicefactory.ServiceFactory
+	// ServiceFactoryGetter returns the service factory getter.
+	ServiceFactoryGetter() servicefactory.ServiceFactoryGetter
 	// Tracer returns the tracer for opentelemetry.
 	Tracer() trace.Tracer
 	// ObjectStore returns the object store.
@@ -400,6 +410,7 @@ type apiRoot struct {
 	clock                 clock.Clock
 	state                 *state.State
 	serviceFactory        servicefactory.ServiceFactory
+	serviceFactoryGetter  servicefactory.ServiceFactoryGetter
 	tracer                trace.Tracer
 	objectStore           objectstore.ObjectStore
 	controllerObjectStore objectstore.ObjectStore
@@ -427,6 +438,7 @@ func newAPIRoot(
 		clock:                 clock,
 		state:                 root.State(),
 		serviceFactory:        root.ServiceFactory(),
+		serviceFactoryGetter:  root.ServiceFactoryGetter(),
 		tracer:                root.Tracer(),
 		objectStore:           root.ObjectStore(),
 		controllerObjectStore: root.ControllerObjectStore(),
@@ -819,7 +831,7 @@ func (ctx *facadeContext) HTTPClient(purpose facade.HTTPClientPurpose) facade.HT
 func (ctx *facadeContext) ModelExporter(backend facade.LegacyStateExporter) facade.ModelExporter {
 	return migration.NewModelExporter(
 		backend,
-		ctx.migrationScope(),
+		ctx.migrationScope(ctx.State().ModelUUID()),
 	)
 }
 
@@ -828,16 +840,22 @@ func (ctx *facadeContext) ModelImporter() facade.ModelImporter {
 	pool := ctx.r.shared.statePool
 	return migration.NewModelImporter(
 		state.NewController(pool),
-		ctx.migrationScope(),
+		ctx.migrationScope,
+		ctx.ServiceFactory().ModelManager(),
 		ctx.ServiceFactory().ControllerConfig(),
-		ctx.ServiceFactory().Machine(),
-		ctx.ServiceFactory().Application(),
+		ctx.ServiceFactoryGetter(),
 	)
 }
 
 // ServiceFactory returns the services factory for the current model.
 func (ctx *facadeContext) ServiceFactory() servicefactory.ServiceFactory {
 	return ctx.r.serviceFactory
+}
+
+// ServiceFactoryGetter returns the services factory getter so a service factory
+// for a specific model can get obtained.
+func (ctx *facadeContext) ServiceFactoryGetter() servicefactory.ServiceFactoryGetter {
+	return ctx.r.serviceFactoryGetter
 }
 
 // Tracer returns the tracer for the current model.
@@ -885,20 +903,22 @@ func (ctx *facadeContext) controllerDB() (changestream.WatchableDB, error) {
 }
 
 // modelDB is a protected method, do not expose this directly in to the
-// facade context. It is expect that users of the facade context will use the
+// facade context. It is expected that users of the facade context will use the
 // higher level abstractions.
-func (ctx *facadeContext) modelDB() (changestream.WatchableDB, error) {
-	db, err := ctx.r.shared.dbGetter.GetWatchableDB(ctx.r.state.ModelUUID())
+func (ctx *facadeContext) modelDB(modelUUID string) (changestream.WatchableDB, error) {
+	db, err := ctx.r.shared.dbGetter.GetWatchableDB(modelUUID)
 	return db, errors.Trace(err)
 }
 
 // migrationScope is a protected method, do not expose this directly in to the
 // facade context. It is expect that users of the facade context will use the
 // higher level abstractions.
-func (ctx *facadeContext) migrationScope() modelmigration.Scope {
+func (ctx *facadeContext) migrationScope(modelUUID string) modelmigration.Scope {
 	return modelmigration.NewScope(
 		changestream.NewTxnRunnerFactory(ctx.controllerDB),
-		changestream.NewTxnRunnerFactory(ctx.modelDB),
+		changestream.NewTxnRunnerFactory(func() (changestream.WatchableDB, error) {
+			return ctx.modelDB(modelUUID)
+		}),
 	)
 }
 

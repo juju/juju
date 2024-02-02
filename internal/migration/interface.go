@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/credential"
+	domainmodel "github.com/juju/juju/domain/model"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/state"
@@ -52,6 +53,11 @@ type UpgradeService interface {
 // controller config.
 type ControllerConfigService interface {
 	ControllerConfig(context.Context) (controller.Config, error)
+}
+
+// ModelManagerService describes the method needed to update model metadata.
+type ModelManagerService interface {
+	Create(context.Context, domainmodel.UUID) error
 }
 
 // Pool defines the interface to a StatePool used by the migration

@@ -37,6 +37,7 @@ type Context struct {
 	SingularClaimer_       lease.Claimer
 	CharmhubHTTPClient_    facade.HTTPClient
 	ServiceFactory_        servicefactory.ServiceFactory
+	ServiceFactoryGetter_  servicefactory.ServiceFactoryGetter
 	ModelExporter_         facade.ModelExporter
 	ModelImporter_         facade.ModelImporter
 	ObjectStore_           objectstore.ObjectStore
@@ -171,6 +172,11 @@ func (context Context) HTTPClient(purpose facade.HTTPClientPurpose) facade.HTTPC
 // ServiceFactory implements facade.Context.
 func (context Context) ServiceFactory() servicefactory.ServiceFactory {
 	return context.ServiceFactory_
+}
+
+// ServiceFactoryGetter implements facade.Context.
+func (context Context) ServiceFactoryGetter() servicefactory.ServiceFactoryGetter {
+	return context.ServiceFactoryGetter_
 }
 
 // ModelExporter returns a model exporter for the current model.

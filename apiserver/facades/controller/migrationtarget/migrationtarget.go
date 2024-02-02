@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/domain/credential"
 	credentialservice "github.com/juju/juju/domain/credential/service"
 	"github.com/juju/juju/domain/model"
+	domainmodel "github.com/juju/juju/domain/model"
 	"github.com/juju/juju/environs"
 	environscontext "github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/migration"
@@ -57,6 +58,11 @@ type ExternalControllerService interface {
 type ControllerConfigService interface {
 	// ControllerConfig returns the controller config.
 	ControllerConfig(context.Context) (controller.Config, error)
+}
+
+// ModelManagerService describes the method needed to update model metadata.
+type ModelManagerService interface {
+	Create(context.Context, domainmodel.UUID) error
 }
 
 // UpgradeService provides a subset of the upgrade domain service methods.
