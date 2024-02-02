@@ -84,18 +84,19 @@ func NewService(st State) *Service {
 // returned if the access and access type of the spec are not valid.
 func (s *Service) CreatePermission(ctx context.Context, spec UserAccessSpec) (permission.UserAccess, error) {
 	if err := spec.validate(); err != nil {
-		return permission.UserAccess{}, err
+		return permission.UserAccess{}, errors.Trace(err)
 	}
-	return s.st.CreatePermission(ctx, spec)
+	userAccess, err := s.st.CreatePermission(ctx, spec)
+	return userAccess, errors.Trace(err)
 }
 
 // DeletePermission removes the given user's access to the given target.
 // An error is returned if the given target's access type does not exist.
 func (s *Service) DeletePermission(ctx context.Context, subject names.UserTag, target names.Tag) error {
 	if err := validateTarget(target); err != nil {
-		return err
+		return errors.Trace(err)
 	}
-	return s.st.DeletePermission(ctx, subject, target)
+	return errors.Trace(s.st.DeletePermission(ctx, subject, target))
 }
 
 // ReadUserAccessForTarget returns the user access for the given user on
@@ -103,9 +104,10 @@ func (s *Service) DeletePermission(ctx context.Context, subject names.UserTag, t
 // type does not exist.
 func (s *Service) ReadUserAccessForTarget(ctx context.Context, subject names.UserTag, target names.Tag) (permission.UserAccess, error) {
 	if err := validateTarget(target); err != nil {
-		return permission.UserAccess{}, err
+		return permission.UserAccess{}, errors.Trace(err)
 	}
-	return s.st.ReadUserAccessForTarget(ctx, subject, target)
+	userAccess, err := s.st.ReadUserAccessForTarget(ctx, subject, target)
+	return userAccess, errors.Trace(err)
 }
 
 // ReadUserAccessLevelForTarget returns the user access level for the
@@ -113,9 +115,10 @@ func (s *Service) ReadUserAccessForTarget(ctx context.Context, subject names.Use
 // target's access type does not exist.
 func (s *Service) ReadUserAccessLevelForTarget(ctx context.Context, subject names.UserTag, target names.Tag) (permission.Access, error) {
 	if err := validateTarget(target); err != nil {
-		return "", err
+		return "", errors.Trace(err)
 	}
-	return s.st.ReadUserAccessLevelForTarget(ctx, subject, target)
+	access, err := s.st.ReadUserAccessLevelForTarget(ctx, subject, target)
+	return access, errors.Trace(err)
 }
 
 // ReadAllUserAccessForTarget return a slice of user access for all users
@@ -123,15 +126,17 @@ func (s *Service) ReadUserAccessLevelForTarget(ctx context.Context, subject name
 // target's access type does not exist.
 func (s *Service) ReadAllUserAccessForTarget(ctx context.Context, target names.Tag) ([]permission.UserAccess, error) {
 	if err := validateTarget(target); err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
-	return s.st.ReadAllUserAccessForTarget(ctx, target)
+	userAccess, err := s.st.ReadAllUserAccessForTarget(ctx, target)
+	return userAccess, errors.Trace(err)
 }
 
 // ReadAllUserAccessForUser returns a slice of the user access the given
 // user has for any access type.
 func (s *Service) ReadAllUserAccessForUser(ctx context.Context, subject names.UserTag) ([]permission.UserAccess, error) {
-	return s.st.ReadAllUserAccessForUser(ctx, subject)
+	userAccess, err := s.st.ReadAllUserAccessForUser(ctx, subject)
+	return userAccess, errors.Trace(err)
 }
 
 // ReadAllAccessTypeForUser return a slice of user access for the user
@@ -140,9 +145,10 @@ func (s *Service) ReadAllUserAccessForUser(ctx context.Context, subject names.Us
 // E.G. All clouds the user has access to.
 func (s *Service) ReadAllAccessTypeForUser(ctx context.Context, subject names.UserTag, accessType permission.AccessType) ([]permission.UserAccess, error) {
 	if err := accessType.Validate(); err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
-	return s.st.ReadAllAccessTypeForUser(ctx, subject, accessType)
+	userAccess, err := s.st.ReadAllAccessTypeForUser(ctx, subject, accessType)
+	return userAccess, errors.Trace(err)
 }
 
 // UpdatePermission updates the user's access to the given target to the
@@ -164,9 +170,9 @@ func (s *Service) UpdatePermission(ctx context.Context, subject names.UserTag, t
 		return errors.NotValidf("target tag type %s", target.Kind())
 	}
 	if err := permission.ValidateAccessForAccessType(access, accessType); err != nil {
-		return err
+		return errors.Trace(err)
 	}
-	return s.st.UpdatePermission(ctx, subject, target, access)
+	return errors.Trace(s.st.UpdatePermission(ctx, subject, target, access))
 }
 
 func validateTarget(target names.Tag) error {
