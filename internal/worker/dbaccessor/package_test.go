@@ -83,21 +83,23 @@ func (s *baseSuite) setupTimer(interval time.Duration) chan time.Time {
 	return ch
 }
 
-func (s *baseSuite) expectTick(ch chan time.Time, ticks int) <-chan struct{} {
+func (s *baseSuite) expectTimer(ticks int) func() {
 	done := make(chan struct{})
-	go func() {
-		defer close(done)
 
+	ch := s.setupTimer(PollInterval)
+	go func() {
 		for i := 0; i < ticks; i++ {
-			ch <- time.Now()
+			select {
+			case ch <- time.Now():
+			case <-done:
+				return
+			}
 		}
 	}()
-	return done
-}
 
-func (s *baseSuite) expectTimer(ticks int) <-chan struct{} {
-	ch := s.setupTimer(PollInterval)
-	return s.expectTick(ch, ticks)
+	return func() {
+		close(done)
+	}
 }
 
 // expectNodeStartupAndShutdown encompasses expectations for starting the

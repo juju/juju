@@ -22,6 +22,12 @@ import (
 )
 
 const (
+	// States that report the state of the worker.
+	stateStarted    = "started"
+	stateDBReplaced = "db-replaced"
+)
+
+const (
 	// PollInterval is the amount of time to wait between polling the database.
 	PollInterval = time.Second * 10
 
@@ -70,7 +76,8 @@ func WithMetricsCollector(metrics *Collector) TrackedDBWorkerOption {
 }
 
 type trackedDBWorker struct {
-	tomb tomb.Tomb
+	internalStates chan string
+	tomb           tomb.Tomb
 
 	dbApp     DBApp
 	namespace string
@@ -92,12 +99,19 @@ type trackedDBWorker struct {
 func NewTrackedDBWorker(
 	ctx context.Context, dbApp DBApp, namespace string, opts ...TrackedDBWorkerOption,
 ) (TrackedDB, error) {
+	return newTrackedDBWorker(ctx, nil, dbApp, namespace, opts...)
+}
+
+func newTrackedDBWorker(
+	ctx context.Context, internalStates chan string, dbApp DBApp, namespace string, opts ...TrackedDBWorkerOption,
+) (TrackedDB, error) {
 	w := &trackedDBWorker{
-		dbApp:      dbApp,
-		namespace:  namespace,
-		clock:      clock.WallClock,
-		pingDBFunc: defaultPingDBFunc,
-		report:     &report{},
+		internalStates: internalStates,
+		dbApp:          dbApp,
+		namespace:      namespace,
+		clock:          clock.WallClock,
+		pingDBFunc:     defaultPingDBFunc,
+		report:         &report{},
 	}
 
 	for _, opt := range opts {
@@ -243,6 +257,9 @@ func (w *trackedDBWorker) loop() error {
 		}
 	}()
 
+	// Report the initial started state.
+	w.reportInternalState(stateStarted)
+
 	timer := w.clock.NewTimer(PollInterval)
 	defer timer.Stop()
 
@@ -288,6 +305,10 @@ func (w *trackedDBWorker) loop() error {
 				})
 				w.err = nil
 				w.mutex.Unlock()
+
+				// Notify the internal state channel that the database has been
+				// replaced.
+				w.reportInternalState(stateDBReplaced)
 			}
 
 			timer.Reset(PollInterval)
@@ -370,6 +391,14 @@ func (w *trackedDBWorker) ensureDBAliveAndOpenIfRequired(db *sql.DB) (*sql.DB, e
 		}
 	}
 	return nil, errors.NotValidf("database")
+}
+
+func (w *trackedDBWorker) reportInternalState(state string) {
+	select {
+	case <-w.tomb.Dying():
+	case w.internalStates <- state:
+	default:
+	}
 }
 
 func defaultPingDBFunc(ctx context.Context, db *sql.DB) error {
