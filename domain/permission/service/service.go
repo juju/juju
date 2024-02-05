@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/core/permission"
 )
@@ -16,53 +15,60 @@ import (
 // various targets.
 type State interface {
 	// CreatePermission gives the user access per the provided spec.
+	// It requires the user/target combination has not already been
+	// created.
 	CreatePermission(ctx context.Context, spec UserAccessSpec) (permission.UserAccess, error)
 
-	// DeletePermission removes the given user's access to the given target.
-	DeletePermission(ctx context.Context, subject names.UserTag, target names.Tag) error
+	// DeletePermission removes the given subject's (user) access to the
+	// given target.
+	DeletePermission(ctx context.Context, subject string, target permission.ID) error
 
-	// UpdatePermission updates the user's access to the given target to the
-	// given access.
-	UpdatePermission(ctx context.Context, subject names.UserTag, target names.Tag, access permission.Access) error
+	// UpdatePermission updates the subject's (user) access to the given
+	// target to the given access.
+	UpdatePermission(ctx context.Context, subject string, target permission.ID, access permission.Access) error
 
-	// ReadUserAccessForTarget returns the user access for the given user on
-	// the given target.
-	ReadUserAccessForTarget(ctx context.Context, subject names.UserTag, target names.Tag) (permission.UserAccess, error)
-
-	// ReadUserAccessLevelForTarget returns the user access level for the
+	// ReadUserAccessForTarget returns the subject's (user) access for the
 	// given user on the given target.
-	ReadUserAccessLevelForTarget(ctx context.Context, subject names.UserTag, target names.Tag) (permission.Access, error)
+	ReadUserAccessForTarget(ctx context.Context, subject string, target permission.ID) (permission.UserAccess, error)
+
+	// ReadUserAccessLevelForTarget returns the subject's (user) access level
+	// for the given user on the given target.
+	ReadUserAccessLevelForTarget(ctx context.Context, subject string, target permission.ID) (permission.Access, error)
 
 	// ReadAllUserAccessForUser returns a slice of the user access the given
-	// user has for any access type.
-	ReadAllUserAccessForUser(ctx context.Context, subject names.UserTag) ([]permission.UserAccess, error)
+	// subject's (user) has for any access type.
+	ReadAllUserAccessForUser(ctx context.Context, subject string) ([]permission.UserAccess, error)
 
 	// ReadAllUserAccessForTarget return a slice of user access for all users
 	// with access to the given target.
-	ReadAllUserAccessForTarget(ctx context.Context, target names.Tag) ([]permission.UserAccess, error)
+	ReadAllUserAccessForTarget(ctx context.Context, target permission.ID) ([]permission.UserAccess, error)
 
-	// ReadAllAccessTypeForUser return a slice of user access for the user
-	// specified and of the given access type.
+	// ReadAllAccessTypeForUser return a slice of user access for the subject
+	// (user) specified and of the given access type.
 	// E.G. All clouds the user has access to.
-	ReadAllAccessTypeForUser(ctx context.Context, subject names.UserTag, accessType permission.AccessType) ([]permission.UserAccess, error)
+	ReadAllAccessTypeForUser(ctx context.Context, subject string, accessType permission.ObjectType) ([]permission.UserAccess, error)
 }
 
 // UserAccessSpec defines the attributes that can be set when adding a new
 // user access.
 type UserAccessSpec struct {
-	User       names.UserTag
-	Target     names.Tag
-	Access     permission.Access
-	AccessType permission.AccessType
+	User   string
+	Target permission.ID
+	Access permission.Access
 }
 
-// Validate validates that the access and access type specified in the
-// spec are values allowed.
+// Validate validates that the access and target specified in the
+// spec are values allowed together and that the User is not an
+// empty string. If any of these are untrue, a NotValid error is
+// returned.
 func (u UserAccessSpec) validate() error {
-	if err := validateTarget(u.Target); err != nil {
+	if u.User == "" {
+		return errors.NotValidf("empty user")
+	}
+	if err := u.Target.Validate(); err != nil {
 		return err
 	}
-	if err := permission.ValidateAccessForAccessType(u.Access, u.AccessType); err != nil {
+	if err := u.Target.ValidateAccess(u.Access); err != nil {
 		return err
 	}
 	return nil
@@ -80,8 +86,8 @@ func NewService(st State) *Service {
 	}
 }
 
-// CreatePermission gives the user access per the provided spec. An error is
-// returned if the access and access type of the spec are not valid.
+// CreatePermission gives the user access per the provided spec. All errors
+// are passed through from the spec validation and state layer.
 func (s *Service) CreatePermission(ctx context.Context, spec UserAccessSpec) (permission.UserAccess, error) {
 	if err := spec.validate(); err != nil {
 		return permission.UserAccess{}, errors.Trace(err)
@@ -91,19 +97,27 @@ func (s *Service) CreatePermission(ctx context.Context, spec UserAccessSpec) (pe
 }
 
 // DeletePermission removes the given user's access to the given target.
-// An error is returned if the given target's access type does not exist.
-func (s *Service) DeletePermission(ctx context.Context, subject names.UserTag, target names.Tag) error {
-	if err := validateTarget(target); err != nil {
+// A NotValid error is returned if the subject (user) string is empty, or
+// the target is not valid. Any errors from the state layer are passed through.
+func (s *Service) DeletePermission(ctx context.Context, subject string, target permission.ID) error {
+	if subject == "" {
+		return errors.Trace(errors.NotValidf("empty subject"))
+	}
+	if err := target.Validate(); err != nil {
 		return errors.Trace(err)
 	}
 	return errors.Trace(s.st.DeletePermission(ctx, subject, target))
 }
 
 // ReadUserAccessForTarget returns the user access for the given user on
-// the given target. An error is returned if the given target's access
-// type does not exist.
-func (s *Service) ReadUserAccessForTarget(ctx context.Context, subject names.UserTag, target names.Tag) (permission.UserAccess, error) {
-	if err := validateTarget(target); err != nil {
+// the given target. A NotValid error is returned if the subject (user)
+// string is empty, or the target is not valid. Any errors from the state
+// layer are passed through.
+func (s *Service) ReadUserAccessForTarget(ctx context.Context, subject string, target permission.ID) (permission.UserAccess, error) {
+	if subject == "" {
+		return permission.UserAccess{}, errors.Trace(errors.NotValidf("empty subject"))
+	}
+	if err := target.Validate(); err != nil {
 		return permission.UserAccess{}, errors.Trace(err)
 	}
 	userAccess, err := s.st.ReadUserAccessForTarget(ctx, subject, target)
@@ -111,10 +125,14 @@ func (s *Service) ReadUserAccessForTarget(ctx context.Context, subject names.Use
 }
 
 // ReadUserAccessLevelForTarget returns the user access level for the
-// given user on the given target. An error is returned if the given
-// target's access type does not exist.
-func (s *Service) ReadUserAccessLevelForTarget(ctx context.Context, subject names.UserTag, target names.Tag) (permission.Access, error) {
-	if err := validateTarget(target); err != nil {
+// given user on the given target. A NotValid error is returned if the
+// subject (user) string is empty, or the target is not valid. Any errors
+// from the state layer are passed through.
+func (s *Service) ReadUserAccessLevelForTarget(ctx context.Context, subject string, target permission.ID) (permission.Access, error) {
+	if subject == "" {
+		return "", errors.Trace(errors.NotValidf("empty subject"))
+	}
+	if err := target.Validate(); err != nil {
 		return "", errors.Trace(err)
 	}
 	access, err := s.st.ReadUserAccessLevelForTarget(ctx, subject, target)
@@ -122,10 +140,10 @@ func (s *Service) ReadUserAccessLevelForTarget(ctx context.Context, subject name
 }
 
 // ReadAllUserAccessForTarget return a slice of user access for all users
-// with access to the given target. An error is returned if the given
-// target's access type does not exist.
-func (s *Service) ReadAllUserAccessForTarget(ctx context.Context, target names.Tag) ([]permission.UserAccess, error) {
-	if err := validateTarget(target); err != nil {
+// with access to the given target. A NotValid error is returned if the
+// target is not valid. Any errors from the state layer are passed through.
+func (s *Service) ReadAllUserAccessForTarget(ctx context.Context, target permission.ID) ([]permission.UserAccess, error) {
+	if err := target.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
 	userAccess, err := s.st.ReadAllUserAccessForTarget(ctx, target)
@@ -133,17 +151,26 @@ func (s *Service) ReadAllUserAccessForTarget(ctx context.Context, target names.T
 }
 
 // ReadAllUserAccessForUser returns a slice of the user access the given
-// user has for any access type.
-func (s *Service) ReadAllUserAccessForUser(ctx context.Context, subject names.UserTag) ([]permission.UserAccess, error) {
+// user has for any access type. // A NotValid error is returned if the
+// subject (user) string is empty. Any errors from the state layer are
+// passed through.
+func (s *Service) ReadAllUserAccessForUser(ctx context.Context, subject string) ([]permission.UserAccess, error) {
+	if subject == "" {
+		return nil, errors.Trace(errors.NotValidf("empty subject"))
+	}
 	userAccess, err := s.st.ReadAllUserAccessForUser(ctx, subject)
 	return userAccess, errors.Trace(err)
 }
 
 // ReadAllAccessTypeForUser return a slice of user access for the user
-// specified and of the given access type. An error is returned if the
-// given access type does not exist.
+// specified and of the given access type. A NotValid error is returned if
+// the given access type does not exist, or the subject (user) is an empty
+// string.
 // E.G. All clouds the user has access to.
-func (s *Service) ReadAllAccessTypeForUser(ctx context.Context, subject names.UserTag, accessType permission.AccessType) ([]permission.UserAccess, error) {
+func (s *Service) ReadAllAccessTypeForUser(ctx context.Context, subject string, accessType permission.ObjectType) ([]permission.UserAccess, error) {
+	if subject == "" {
+		return nil, errors.Trace(errors.NotValidf("empty subject"))
+	}
 	if err := accessType.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -152,34 +179,15 @@ func (s *Service) ReadAllAccessTypeForUser(ctx context.Context, subject names.Us
 }
 
 // UpdatePermission updates the user's access to the given target to the
-// given access.
-func (s *Service) UpdatePermission(ctx context.Context, subject names.UserTag, target names.Tag, access permission.Access) error {
-	var accessType permission.AccessType
-	// Unfortunately the tag kind values are not an exact
-	// match for permission access type values. Convert here.
-	switch target.Kind() {
-	case names.CloudTagKind:
-		accessType = permission.Cloud
-	case names.ControllerTagKind:
-		accessType = permission.Controller
-	case names.ModelTagKind:
-		accessType = permission.Model
-	case names.ApplicationOfferTagKind:
-		accessType = permission.Offer
-	default:
-		return errors.NotValidf("target tag type %s", target.Kind())
+// given access. A NotValid error is returned if the subject (user) string
+// is empty, or the target is not valid. Any errors from the state layer
+// are passed through.
+func (s *Service) UpdatePermission(ctx context.Context, subject string, target permission.ID, access permission.Access) error {
+	if subject == "" {
+		return errors.Trace(errors.NotValidf("empty subject"))
 	}
-	if err := permission.ValidateAccessForAccessType(access, accessType); err != nil {
+	if err := target.ValidateAccess(access); err != nil {
 		return errors.Trace(err)
 	}
 	return errors.Trace(s.st.UpdatePermission(ctx, subject, target, access))
-}
-
-func validateTarget(target names.Tag) error {
-	switch target.Kind() {
-	case names.CloudTagKind, names.ControllerTagKind, names.ModelTagKind, names.ApplicationOfferTagKind:
-	default:
-		return errors.NotValidf("target tag type %q", target.Kind())
-	}
-	return nil
 }

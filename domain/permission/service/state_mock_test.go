@@ -14,7 +14,6 @@ import (
 	reflect "reflect"
 
 	permission "github.com/juju/juju/core/permission"
-	names "github.com/juju/names/v5"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -57,7 +56,7 @@ func (mr *MockStateMockRecorder) CreatePermission(arg0, arg1 any) *gomock.Call {
 }
 
 // DeletePermission mocks base method.
-func (m *MockState) DeletePermission(arg0 context.Context, arg1 names.UserTag, arg2 names.Tag) error {
+func (m *MockState) DeletePermission(arg0 context.Context, arg1 string, arg2 permission.ID) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeletePermission", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -71,7 +70,7 @@ func (mr *MockStateMockRecorder) DeletePermission(arg0, arg1, arg2 any) *gomock.
 }
 
 // ReadAllAccessTypeForUser mocks base method.
-func (m *MockState) ReadAllAccessTypeForUser(arg0 context.Context, arg1 names.UserTag, arg2 permission.AccessType) ([]permission.UserAccess, error) {
+func (m *MockState) ReadAllAccessTypeForUser(arg0 context.Context, arg1 string, arg2 permission.ObjectType) ([]permission.UserAccess, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ReadAllAccessTypeForUser", arg0, arg1, arg2)
 	ret0, _ := ret[0].([]permission.UserAccess)
@@ -86,7 +85,7 @@ func (mr *MockStateMockRecorder) ReadAllAccessTypeForUser(arg0, arg1, arg2 any) 
 }
 
 // ReadAllUserAccessForTarget mocks base method.
-func (m *MockState) ReadAllUserAccessForTarget(arg0 context.Context, arg1 names.Tag) ([]permission.UserAccess, error) {
+func (m *MockState) ReadAllUserAccessForTarget(arg0 context.Context, arg1 permission.ID) ([]permission.UserAccess, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ReadAllUserAccessForTarget", arg0, arg1)
 	ret0, _ := ret[0].([]permission.UserAccess)
@@ -101,7 +100,7 @@ func (mr *MockStateMockRecorder) ReadAllUserAccessForTarget(arg0, arg1 any) *gom
 }
 
 // ReadAllUserAccessForUser mocks base method.
-func (m *MockState) ReadAllUserAccessForUser(arg0 context.Context, arg1 names.UserTag) ([]permission.UserAccess, error) {
+func (m *MockState) ReadAllUserAccessForUser(arg0 context.Context, arg1 string) ([]permission.UserAccess, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ReadAllUserAccessForUser", arg0, arg1)
 	ret0, _ := ret[0].([]permission.UserAccess)
@@ -116,7 +115,7 @@ func (mr *MockStateMockRecorder) ReadAllUserAccessForUser(arg0, arg1 any) *gomoc
 }
 
 // ReadUserAccessForTarget mocks base method.
-func (m *MockState) ReadUserAccessForTarget(arg0 context.Context, arg1 names.UserTag, arg2 names.Tag) (permission.UserAccess, error) {
+func (m *MockState) ReadUserAccessForTarget(arg0 context.Context, arg1 string, arg2 permission.ID) (permission.UserAccess, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ReadUserAccessForTarget", arg0, arg1, arg2)
 	ret0, _ := ret[0].(permission.UserAccess)
@@ -131,7 +130,7 @@ func (mr *MockStateMockRecorder) ReadUserAccessForTarget(arg0, arg1, arg2 any) *
 }
 
 // ReadUserAccessLevelForTarget mocks base method.
-func (m *MockState) ReadUserAccessLevelForTarget(arg0 context.Context, arg1 names.UserTag, arg2 names.Tag) (permission.Access, error) {
+func (m *MockState) ReadUserAccessLevelForTarget(arg0 context.Context, arg1 string, arg2 permission.ID) (permission.Access, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ReadUserAccessLevelForTarget", arg0, arg1, arg2)
 	ret0, _ := ret[0].(permission.Access)
@@ -146,7 +145,7 @@ func (mr *MockStateMockRecorder) ReadUserAccessLevelForTarget(arg0, arg1, arg2 a
 }
 
 // UpdatePermission mocks base method.
-func (m *MockState) UpdatePermission(arg0 context.Context, arg1 names.UserTag, arg2 names.Tag, arg3 permission.Access) error {
+func (m *MockState) UpdatePermission(arg0 context.Context, arg1 string, arg2 permission.ID, arg3 permission.Access) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdatePermission", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
