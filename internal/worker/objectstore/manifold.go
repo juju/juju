@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/mgo/v3"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 
@@ -40,22 +39,6 @@ type Logger interface {
 type ObjectStoreGetter interface {
 	// GetObjectStore returns a object store for the given namespace.
 	GetObjectStore(context.Context, string) (coreobjectstore.ObjectStore, error)
-}
-
-// StatePool is the interface to retrieve the mongo session from.
-// Deprecated: is only here for backwards compatibility.
-type StatePool interface {
-	// Get returns a PooledState for a given model, creating a new State instance
-	// if required.
-	// If the State has been marked for removal, an error is returned.
-	Get(string) (MongoSession, error)
-	SystemState() (MongoSession, error)
-}
-
-// MongoSession is the interface that is used to get a mongo session.
-// Deprecated: is only here for backwards compatibility.
-type MongoSession interface {
-	MongoSession() *mgo.Session
 }
 
 // MetadataServiceGetter is the interface that is used to get the

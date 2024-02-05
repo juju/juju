@@ -12,6 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/secrets"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -54,8 +55,8 @@ func SetModelTypeToCAAS(c *gc.C, st *State, m *Model) {
 
 // AddTestingApplicationWithEmptyBindings mimics an application
 // from an old version of Juju, with no bindings entry.
-func AddTestingApplicationWithEmptyBindings(c *gc.C, st *State, name string, ch *Charm) *Application {
-	app := addTestingApplication(c, addTestingApplicationParams{
+func AddTestingApplicationWithEmptyBindings(c *gc.C, st *State, objectStore objectstore.ObjectStore, name string, ch *Charm) *Application {
+	app := addTestingApplication(c, objectStore, addTestingApplicationParams{
 		st:   st,
 		name: name,
 		ch:   ch,

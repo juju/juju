@@ -5118,7 +5118,7 @@ func (s *StateSuite) TestAddRelationCreatesApplicationSettings(c *gc.C) {
 }
 
 func (s *StateSuite) TestPeerRelationCreatesApplicationSettings(c *gc.C) {
-	app := state.AddTestingApplication(c, s.State, "riak", state.AddTestingCharm(c, s.State, "riak"))
+	app := state.AddTestingApplication(c, s.State, s.objectStore, "riak", state.AddTestingCharm(c, s.State, "riak"))
 	ep, err := app.Endpoint("ring")
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.EndpointsRelation(ep)

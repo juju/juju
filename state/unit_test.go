@@ -2798,7 +2798,7 @@ action-b-b:
 
 func (s *UnitSuite) TestWorkloadVersion(c *gc.C) {
 	ch := state.AddTestingCharm(c, s.State, "dummy")
-	app := state.AddTestingApplication(c, s.State, "alexandrite", ch)
+	app := state.AddTestingApplication(c, s.State, s.objectStore, "alexandrite", ch)
 	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -2823,7 +2823,7 @@ func (s *UnitSuite) TestDestroyWithForceWorksOnDyingUnit(c *gc.C) {
 	// Ensure that a cleanup is scheduled if we force destroy a unit
 	// that's already dying.
 	ch := state.AddTestingCharm(c, s.State, "dummy")
-	app := state.AddTestingApplication(c, s.State, "alexandrite", ch)
+	app := state.AddTestingApplication(c, s.State, s.objectStore, "alexandrite", ch)
 	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	// Assign the unit to a machine and set the agent status so
@@ -2867,7 +2867,7 @@ func (s *UnitSuite) TestDestroyWithForceReportsRemoved(c *gc.C) {
 	// Ensure that a cleanup is scheduled if we force destroy a unit
 	// that's already dying.
 	ch := state.AddTestingCharm(c, s.State, "dummy")
-	app := state.AddTestingApplication(c, s.State, "alexandrite", ch)
+	app := state.AddTestingApplication(c, s.State, s.objectStore, "alexandrite", ch)
 	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	removed, opErrs, err := unit.DestroyWithForce(state.NewObjectStore(c, s.State.ModelUUID()), true, dontWait)
@@ -2908,7 +2908,7 @@ func (s *UnitSuite) TestWatchMachineAndEndpointAddressesHash(c *gc.C) {
 
 	// Deploy unit to machine
 	ch := s.AddMetaCharm(c, "mysql", metaExtraEndpoints, 1)
-	app := state.AddTestingApplicationWithBindings(c, s.State, "mysql", ch, map[string]string{
+	app := state.AddTestingApplicationWithBindings(c, s.State, s.objectStore, "mysql", ch, map[string]string{
 		"server": "public",
 		"foo":    "private",
 	})

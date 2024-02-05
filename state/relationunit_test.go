@@ -19,6 +19,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/state"
 	stateerrors "github.com/juju/juju/state/errors"
 	"github.com/juju/juju/state/testing"
@@ -100,7 +101,7 @@ func (s *RelationUnitSuite) TestCounterpartApplicationsContainerScope(c *gc.C) {
 }
 
 func (s *RelationUnitSuite) TestCounterpartApplicationsPeer(c *gc.C) {
-	pr := newPeerRelation(c, s.State)
+	pr := newPeerRelation(c, s.State, s.objectStore)
 	c.Check(pr.ru0.CounterpartApplications(), jc.DeepEquals, []string{"riak"})
 	c.Check(pr.ru1.CounterpartApplications(), jc.DeepEquals, []string{"riak"})
 	c.Check(pr.ru2.CounterpartApplications(), jc.DeepEquals, []string{"riak"})
@@ -108,7 +109,7 @@ func (s *RelationUnitSuite) TestCounterpartApplicationsPeer(c *gc.C) {
 }
 
 func (s *RelationUnitSuite) TestPeerSettings(c *gc.C) {
-	pr := newPeerRelation(c, s.State)
+	pr := newPeerRelation(c, s.State, s.objectStore)
 	rus := RUs{pr.ru0, pr.ru1}
 
 	// Check missing settings cannot be read by any RU.
@@ -418,7 +419,7 @@ func (s *RelationUnitSuite) TestContainerCreateSubordinate(c *gc.C) {
 }
 
 func (s *RelationUnitSuite) TestDestroyRelationWithUnitsInScope(c *gc.C) {
-	pr := newPeerRelation(c, s.State)
+	pr := newPeerRelation(c, s.State, s.objectStore)
 	preventPeerUnitsDestroyRemove(c, pr)
 	rel := pr.ru0.Relation()
 
@@ -486,7 +487,7 @@ func (s *RelationUnitSuite) TestDestroyRelationWithUnitsInScope(c *gc.C) {
 }
 
 func (s *RelationUnitSuite) TestAliveRelationScope(c *gc.C) {
-	pr := newPeerRelation(c, s.State)
+	pr := newPeerRelation(c, s.State, s.objectStore)
 	rel := pr.ru0.Relation()
 
 	// Two units enter...
@@ -537,7 +538,7 @@ func (s *RelationUnitSuite) TestAliveRelationScope(c *gc.C) {
 
 func (s *StateSuite) TestWatchScopeDiesOnStateClose(c *gc.C) {
 	testWatcherDiesWhenStateCloses(c, s.Session, s.modelTag, s.State.ControllerTag(), func(c *gc.C, st *state.State) waiter {
-		pr := newPeerRelation(c, st)
+		pr := newPeerRelation(c, st, s.objectStore)
 		w := pr.ru0.WatchScope()
 		<-w.Changes()
 		return w
@@ -545,7 +546,7 @@ func (s *StateSuite) TestWatchScopeDiesOnStateClose(c *gc.C) {
 }
 
 func (s *RelationUnitSuite) TestPeerWatchScope(c *gc.C) {
-	pr := newPeerRelation(c, s.State)
+	pr := newPeerRelation(c, s.State, s.objectStore)
 
 	// Test empty initial event.
 	w0 := pr.ru0.WatchScope()
@@ -777,7 +778,7 @@ func (s *RelationUnitSuite) TestContainerWatchScope(c *gc.C) {
 func (s *RelationUnitSuite) TestCoalesceWatchScope(c *gc.C) {
 	// TODO(quiescence): fix this test once the watcher has some reliable coalescence.
 	c.Skip("skip until watcher has better coalescing")
-	pr := newPeerRelation(c, s.State)
+	pr := newPeerRelation(c, s.State, s.objectStore)
 
 	// Test empty initial event.
 	w0 := pr.ru0.WatchScope()
@@ -991,8 +992,8 @@ func preventPeerUnitsDestroyRemove(c *gc.C, pr *PeerRelation) {
 	preventUnitDestroyRemove(c, pr.u3)
 }
 
-func newPeerRelation(c *gc.C, st *state.State) *PeerRelation {
-	app := state.AddTestingApplication(c, st, "riak", state.AddTestingCharm(c, st, "riak"))
+func newPeerRelation(c *gc.C, st *state.State, objectStore objectstore.ObjectStore) *PeerRelation {
+	app := state.AddTestingApplication(c, st, objectStore, "riak", state.AddTestingCharm(c, st, "riak"))
 	ep, err := app.Endpoint("ring")
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := st.EndpointsRelation(ep)

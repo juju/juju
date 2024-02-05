@@ -924,7 +924,7 @@ func (s *RelationSuite) TestApplicationSettings(c *gc.C) {
 }
 
 func (s *RelationSuite) TestApplicationSettingsPeer(c *gc.C) {
-	app := state.AddTestingApplication(c, s.State, "riak", state.AddTestingCharm(c, s.State, "riak"))
+	app := state.AddTestingApplication(c, s.State, s.objectStore, "riak", state.AddTestingCharm(c, s.State, "riak"))
 	ep, err := app.Endpoint("ring")
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.EndpointsRelation(ep)
@@ -945,13 +945,13 @@ func (s *RelationSuite) TestApplicationSettingsPeer(c *gc.C) {
 }
 
 func (s *RelationSuite) TestApplicationSettingsErrors(c *gc.C) {
-	app := state.AddTestingApplication(c, s.State, "riak", state.AddTestingCharm(c, s.State, "riak"))
+	app := state.AddTestingApplication(c, s.State, s.objectStore, "riak", state.AddTestingCharm(c, s.State, "riak"))
 	ep, err := app.Endpoint("ring")
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.EndpointsRelation(ep)
 	c.Assert(err, jc.ErrorIsNil)
 
-	state.AddTestingApplication(c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"))
+	state.AddTestingApplication(c, s.State, s.objectStore, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"))
 
 	settings, err := rel.ApplicationSettings("wordpress")
 	c.Assert(err, gc.ErrorMatches, `application "wordpress" is not a member of "riak:ring"`)

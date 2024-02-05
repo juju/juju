@@ -963,7 +963,7 @@ func (s *MigrationExportSuite) TestEndpointBindings(c *gc.C) {
 	oneSpace := s.Factory.MakeSpace(c, &factory.SpaceParams{
 		Name: "one", ProviderID: network.Id("provider")})
 	state.AddTestingApplicationWithBindings(
-		c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"),
+		c, s.State, s.objectStore, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"),
 		map[string]string{"db": oneSpace.Id()})
 
 	model, err := s.State.Export(map[string]string{}, state.NewObjectStore(c, s.State.ModelUUID()))
@@ -1028,8 +1028,8 @@ func (s *MigrationExportSuite) TestRelationNetworks(c *gc.C) {
 }
 
 func (s *MigrationExportSuite) TestRelations(c *gc.C) {
-	wordpress := state.AddTestingApplication(c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"))
-	mysql := state.AddTestingApplication(c, s.State, "mysql", state.AddTestingCharm(c, s.State, "mysql"))
+	wordpress := state.AddTestingApplication(c, s.State, s.objectStore, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"))
+	mysql := state.AddTestingApplication(c, s.State, s.objectStore, "mysql", state.AddTestingCharm(c, s.State, "mysql"))
 	// InferEndpoints will always return provider, requirer
 	eps, err := s.State.InferEndpoints("mysql", "wordpress")
 	c.Assert(err, jc.ErrorIsNil)
@@ -1107,8 +1107,8 @@ func (s *MigrationExportSuite) TestRelations(c *gc.C) {
 }
 
 func (s *MigrationExportSuite) TestSubordinateRelations(c *gc.C) {
-	wordpress := state.AddTestingApplication(c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"))
-	mysql := state.AddTestingApplication(c, s.State, "mysql", state.AddTestingCharm(c, s.State, "mysql"))
+	wordpress := state.AddTestingApplication(c, s.State, s.objectStore, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"))
+	mysql := state.AddTestingApplication(c, s.State, s.objectStore, "mysql", state.AddTestingCharm(c, s.State, "mysql"))
 	wordpress_0 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: wordpress})
 	mysql_0 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: mysql})
 
@@ -1337,8 +1337,8 @@ func (s *MigrationBaseSuite) TestMissingUnitAgentBinariesIgnored(c *gc.C) {
 }
 
 func (s *MigrationBaseSuite) TestRelationScopeSkipped(c *gc.C) {
-	wordpress := state.AddTestingApplication(c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"))
-	mysql := state.AddTestingApplication(c, s.State, "mysql", state.AddTestingCharm(c, s.State, "mysql"))
+	wordpress := state.AddTestingApplication(c, s.State, s.objectStore, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"))
+	mysql := state.AddTestingApplication(c, s.State, s.objectStore, "mysql", state.AddTestingCharm(c, s.State, "mysql"))
 	// InferEndpoints will always return provider, requirer
 	eps, err := s.State.InferEndpoints("mysql", "wordpress")
 	c.Assert(err, jc.ErrorIsNil)
@@ -1356,8 +1356,8 @@ func (s *MigrationBaseSuite) TestRelationScopeSkipped(c *gc.C) {
 }
 
 func (s *MigrationBaseSuite) TestMissingRelationScopeIgnored(c *gc.C) {
-	wordpress := state.AddTestingApplication(c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"))
-	mysql := state.AddTestingApplication(c, s.State, "mysql", state.AddTestingCharm(c, s.State, "mysql"))
+	wordpress := state.AddTestingApplication(c, s.State, s.objectStore, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"))
+	mysql := state.AddTestingApplication(c, s.State, s.objectStore, "mysql", state.AddTestingCharm(c, s.State, "mysql"))
 	// InferEndpoints will always return provider, requirer
 	eps, err := s.State.InferEndpoints("mysql", "wordpress")
 	c.Assert(err, jc.ErrorIsNil)
@@ -2313,7 +2313,7 @@ func (s *MigrationExportSuite) TestRemoteApplications(c *gc.C) {
 		Macaroon: mac,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	state.AddTestingApplication(c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"))
+	state.AddTestingApplication(c, s.State, s.objectStore, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"))
 	eps, err := s.State.InferEndpoints("gravy-rainbow", "wordpress")
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddRelation(eps...)
@@ -2409,8 +2409,8 @@ func (s *MigrationExportSuite) TestRelationWithNoStatus(c *gc.C) {
 	// Importing from a model from before relations had status will
 	// mean that there's no status to export - don't fail to export if
 	// there isn't a status for a relation.
-	wordpress := state.AddTestingApplication(c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"))
-	mysql := state.AddTestingApplication(c, s.State, "mysql", state.AddTestingCharm(c, s.State, "mysql"))
+	wordpress := state.AddTestingApplication(c, s.State, s.objectStore, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"))
+	mysql := state.AddTestingApplication(c, s.State, s.objectStore, "mysql", state.AddTestingCharm(c, s.State, "mysql"))
 	// InferEndpoints will always return provider, requirer
 	eps, err := s.State.InferEndpoints("mysql", "wordpress")
 	c.Assert(err, jc.ErrorIsNil)
@@ -2484,7 +2484,7 @@ func (s *MigrationExportSuite) TestRemoteRelationSettingsForUnitsInCMR(c *gc.C) 
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	wordpress := state.AddTestingApplication(c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"))
+	wordpress := state.AddTestingApplication(c, s.State, s.objectStore, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"))
 	eps, err := s.State.InferEndpoints("gravy-rainbow", "wordpress")
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(eps...)

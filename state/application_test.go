@@ -37,6 +37,7 @@ import (
 	resourcetesting "github.com/juju/juju/core/resources/testing"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
+	objectstoretesting "github.com/juju/juju/internal/objectstore/testing"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/poolmanager"
 	"github.com/juju/juju/internal/storage/provider/dummy"
@@ -575,7 +576,7 @@ func (s *ApplicationSuite) TestSetCharmCharmSettingsInvalid(c *gc.C) {
 
 func (s *ApplicationSuite) TestClientApplicationSetCharmUnsupportedSeries(c *gc.C) {
 	ch := state.AddTestingCharmMultiSeries(c, s.State, "multi-series")
-	app := state.AddTestingApplicationForBase(c, s.State, state.UbuntuBase("12.04"), "application", ch)
+	app := state.AddTestingApplicationForBase(c, s.State, s.objectStore, state.UbuntuBase("12.04"), "application", ch)
 
 	chDifferentSeries := state.AddTestingCharmMultiSeries(c, s.State, "multi-series2")
 	cfg := state.SetCharmConfig{
@@ -588,7 +589,7 @@ func (s *ApplicationSuite) TestClientApplicationSetCharmUnsupportedSeries(c *gc.
 
 func (s *ApplicationSuite) TestClientApplicationSetCharmUnsupportedSeriesForce(c *gc.C) {
 	ch := state.AddTestingCharmMultiSeries(c, s.State, "multi-series")
-	app := state.AddTestingApplicationForBase(c, s.State, state.UbuntuBase("12.04"), "application", ch)
+	app := state.AddTestingApplicationForBase(c, s.State, s.objectStore, state.UbuntuBase("12.04"), "application", ch)
 
 	chDifferentSeries := state.AddTestingCharmMultiSeries(c, s.State, "multi-series2")
 	cfg := state.SetCharmConfig{
@@ -607,7 +608,7 @@ func (s *ApplicationSuite) TestClientApplicationSetCharmUnsupportedSeriesForce(c
 
 func (s *ApplicationSuite) TestClientApplicationSetCharmWrongOS(c *gc.C) {
 	ch := state.AddTestingCharmMultiSeries(c, s.State, "multi-series")
-	app := state.AddTestingApplicationForBase(c, s.State, state.UbuntuBase("12.04"), "application", ch)
+	app := state.AddTestingApplicationForBase(c, s.State, s.objectStore, state.UbuntuBase("12.04"), "application", ch)
 
 	chDifferentSeries := state.AddTestingCharmMultiSeries(c, s.State, "multi-series-centos")
 	cfg := state.SetCharmConfig{
@@ -1689,7 +1690,7 @@ func (s *ApplicationSuite) TestUpdateCharmConfig(c *gc.C) {
 
 func (s *ApplicationSuite) setupCharmForTestUpdateApplicationBase(c *gc.C, name string) *state.Application {
 	ch := state.AddTestingCharmMultiSeries(c, s.State, name)
-	app := state.AddTestingApplicationForBase(c, s.State, state.UbuntuBase("20.04"), name, ch)
+	app := state.AddTestingApplicationForBase(c, s.State, s.objectStore, state.UbuntuBase("20.04"), name, ch)
 
 	rev := ch.Revision()
 	origin := &state.CharmOrigin{
@@ -3574,31 +3575,33 @@ func (s *ApplicationSuite) TestRemoveQueuesLocalCharmCleanup(c *gc.C) {
 func (s *ApplicationSuite) TestDestroyQueuesResourcesCleanup(c *gc.C) {
 	s.assertNoCleanup(c)
 
+	store := state.NewObjectStore(c, s.State.ModelUUID())
+
 	// Add a resource to the application, ensuring it is stored.
-	rSt := s.State.Resources(state.NewObjectStore(c, s.State.ModelUUID()))
+	rSt := s.State.Resources(store)
 	const content = "abc"
 	res := resourcetesting.NewCharmResource(c, "blob", content)
 	outRes, err := rSt.SetResource(s.mysql.Name(), "user", res, strings.NewReader(content), state.IncrementCharmModifiedVersion)
 	c.Assert(err, jc.ErrorIsNil)
 	storagePath := state.ResourceStoragePath(c, s.State, outRes.ID)
-	c.Assert(state.IsBlobStored(c, s.State, storagePath), jc.IsTrue)
+	c.Assert(objectstoretesting.IsBlobStored(c, store, storagePath), jc.IsTrue)
 
 	// Detroy the application.
-	err = s.mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = s.mysql.Destroy(store)
 	c.Assert(err, jc.ErrorIsNil)
 	assertRemoved(c, s.State, s.mysql)
 
 	// Cleanup should be registered but not yet run.
 	s.assertNeedsCleanup(c)
-	c.Assert(state.IsBlobStored(c, s.State, storagePath), jc.IsTrue)
+	c.Assert(objectstoretesting.IsBlobStored(c, store, storagePath), jc.IsTrue)
 
 	// Run the cleanup.
-	err = s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State.ModelUUID()), fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{})
+	err = s.State.Cleanup(context.Background(), store, fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check we're now clean.
 	s.assertNoCleanup(c)
-	c.Assert(state.IsBlobStored(c, s.State, storagePath), jc.IsFalse)
+	c.Assert(objectstoretesting.IsBlobStored(c, store, storagePath), jc.IsFalse)
 }
 
 func (s *ApplicationSuite) TestDestroyWithPlaceholderResources(c *gc.C) {
@@ -5337,7 +5340,7 @@ func (s *CAASApplicationSuite) TestDestroyStaleZeroUnitCount(c *gc.C) {
 
 func (s *CAASApplicationSuite) TestDestroyWithRemovableRelation(c *gc.C) {
 	ch := state.AddTestingCharmForSeries(c, s.caasSt, "focal", "mysql-k8s")
-	mysql := state.AddTestingApplicationForBase(c, s.caasSt, state.UbuntuBase("20.04"), "mysql", ch)
+	mysql := state.AddTestingApplicationForBase(c, s.caasSt, s.objectStore, state.UbuntuBase("20.04"), "mysql", ch)
 	eps, err := s.caasSt.InferEndpoints("gitlab", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.caasSt.AddRelation(eps...)
@@ -5366,14 +5369,14 @@ func (s *CAASApplicationSuite) TestDestroyWithReferencedRelationStaleCount(c *gc
 
 func (s *CAASApplicationSuite) assertDestroyWithReferencedRelation(c *gc.C, refresh bool) {
 	ch := state.AddTestingCharmForSeries(c, s.caasSt, "focal", "mysql-k8s")
-	mysql := state.AddTestingApplicationForBase(c, s.caasSt, state.UbuntuBase("20.04"), "mysql", ch)
+	mysql := state.AddTestingApplicationForBase(c, s.caasSt, s.objectStore, state.UbuntuBase("20.04"), "mysql", ch)
 	eps, err := s.caasSt.InferEndpoints("gitlab", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	rel0, err := s.caasSt.AddRelation(eps...)
 	c.Assert(err, jc.ErrorIsNil)
 
 	ch = state.AddTestingCharmForSeries(c, s.caasSt, "focal", "proxy-k8s")
-	state.AddTestingApplicationForBase(c, s.caasSt, state.UbuntuBase("20.04"), "proxy", ch)
+	state.AddTestingApplicationForBase(c, s.caasSt, s.objectStore, state.UbuntuBase("20.04"), "proxy", ch)
 	eps, err = s.caasSt.InferEndpoints("proxy", "gitlab")
 	c.Assert(err, jc.ErrorIsNil)
 	rel1, err := s.caasSt.AddRelation(eps...)
@@ -5756,7 +5759,7 @@ func (s *CAASApplicationSuite) TestUpsertCAASUnit(c *gc.C) {
 	c.Assert(storageTag.Id(), gc.Equals, "database/0")
 
 	ch := state.AddTestingCharmForSeries(c, st, "quantal", "cockroachdb")
-	cockroachdb := state.AddTestingApplicationWithStorage(c, st, "cockroachdb", ch, map[string]state.StorageConstraints{
+	cockroachdb := state.AddTestingApplicationWithStorage(c, st, s.objectStore, "cockroachdb", ch, map[string]state.StorageConstraints{
 		"database": {
 			Pool:  "kubernetes",
 			Size:  100,

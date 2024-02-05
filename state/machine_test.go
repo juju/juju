@@ -2717,9 +2717,9 @@ func (s *MachineSuite) setupTestUpdateMachineSeries(c *gc.C) *state.Machine {
 	c.Assert(err, jc.ErrorIsNil)
 
 	ch := state.AddTestingCharmMultiSeries(c, s.State, "multi-series")
-	app := state.AddTestingApplicationForBase(c, s.State, state.UbuntuBase("12.04"), "multi-series", ch)
+	app := state.AddTestingApplicationForBase(c, s.State, s.objectStore, state.UbuntuBase("12.04"), "multi-series", ch)
 	subCh := state.AddTestingCharmMultiSeries(c, s.State, "multi-series-subordinate")
-	_ = state.AddTestingApplicationForBase(c, s.State, state.UbuntuBase("12.04"), "multi-series-subordinate", subCh)
+	_ = state.AddTestingApplicationForBase(c, s.State, s.objectStore, state.UbuntuBase("12.04"), "multi-series-subordinate", subCh)
 
 	eps, err := s.State.InferEndpoints("multi-series", "multi-series-subordinate")
 	c.Assert(err, jc.ErrorIsNil)
@@ -2831,9 +2831,9 @@ func (s *MachineSuite) addMachineUnit(c *gc.C, mach *state.Machine) *state.Unit 
 	var app *state.Application
 	if len(units) == 0 {
 		ch := state.AddTestingCharmMultiSeries(c, s.State, "multi-series")
-		app = state.AddTestingApplicationForBase(c, s.State, mach.Base(), "multi-series", ch)
+		app = state.AddTestingApplicationForBase(c, s.State, s.objectStore, mach.Base(), "multi-series", ch)
 		subCh := state.AddTestingCharmMultiSeries(c, s.State, "multi-series-subordinate")
-		_ = state.AddTestingApplicationForBase(c, s.State, mach.Base(), "multi-series-subordinate", subCh)
+		_ = state.AddTestingApplicationForBase(c, s.State, s.objectStore, mach.Base(), "multi-series-subordinate", subCh)
 	} else {
 		app, err = units[0].Application()
 		c.Assert(err, jc.ErrorIsNil)

@@ -104,11 +104,11 @@ func (s *StorageStateSuiteBase) AddTestingCharm(c *gc.C, name string) *state.Cha
 }
 
 func (s *StorageStateSuiteBase) AddTestingApplication(c *gc.C, name string, ch *state.Charm) *state.Application {
-	return state.AddTestingApplicationForBase(c, s.st, s.base, name, ch)
+	return state.AddTestingApplicationForBase(c, s.st, s.objectStore, s.base, name, ch)
 }
 
 func (s *StorageStateSuiteBase) AddTestingApplicationWithStorage(c *gc.C, name string, ch *state.Charm, storage map[string]state.StorageConstraints) *state.Application {
-	return state.AddTestingApplicationWithStorage(c, s.st, name, ch, storage)
+	return state.AddTestingApplicationWithStorage(c, s.st, s.objectStore, name, ch, storage)
 }
 
 func (s *StorageStateSuiteBase) AddMetaCharm(c *gc.C, name, metaYaml string, revision int) *state.Charm {

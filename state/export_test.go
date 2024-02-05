@@ -263,16 +263,16 @@ func AddTestingCharmMultiSeries(c *gc.C, st *State, name string) *Charm {
 	return sch
 }
 
-func AddTestingApplication(c *gc.C, st *State, name string, ch *Charm) *Application {
-	return addTestingApplication(c, addTestingApplicationParams{
+func AddTestingApplication(c *gc.C, st *State, objectStore objectstore.ObjectStore, name string, ch *Charm) *Application {
+	return addTestingApplication(c, objectStore, addTestingApplicationParams{
 		st:   st,
 		name: name,
 		ch:   ch,
 	})
 }
 
-func AddTestingApplicationForBase(c *gc.C, st *State, base Base, name string, ch *Charm) *Application {
-	return addTestingApplication(c, addTestingApplicationParams{
+func AddTestingApplicationForBase(c *gc.C, st *State, objectStore objectstore.ObjectStore, base Base, name string, ch *Charm) *Application {
+	return addTestingApplication(c, objectStore, addTestingApplicationParams{
 		st: st,
 		origin: &CharmOrigin{Platform: &Platform{
 			OS:      base.OS,
@@ -283,8 +283,8 @@ func AddTestingApplicationForBase(c *gc.C, st *State, base Base, name string, ch
 	})
 }
 
-func AddTestingApplicationWithNumUnits(c *gc.C, st *State, numUnits int, name string, ch *Charm) *Application {
-	return addTestingApplication(c, addTestingApplicationParams{
+func AddTestingApplicationWithNumUnits(c *gc.C, st *State, objectStore objectstore.ObjectStore, numUnits int, name string, ch *Charm) *Application {
+	return addTestingApplication(c, objectStore, addTestingApplicationParams{
 		st:       st,
 		numUnits: numUnits,
 		name:     name,
@@ -292,7 +292,7 @@ func AddTestingApplicationWithNumUnits(c *gc.C, st *State, numUnits int, name st
 	})
 }
 
-func AddTestingApplicationWithStorage(c *gc.C, st *State, name string, ch *Charm, storage map[string]StorageConstraints) *Application {
+func AddTestingApplicationWithStorage(c *gc.C, st *State, objectStore objectstore.ObjectStore, name string, ch *Charm, storage map[string]StorageConstraints) *Application {
 	curl := charm.MustParseURL(ch.URL())
 	series := curl.Series
 	base, err := corebase.GetBaseFromSeries(series)
@@ -313,7 +313,7 @@ func AddTestingApplicationWithStorage(c *gc.C, st *State, name string, ch *Charm
 			Channel: base.Channel.String(),
 		},
 	}
-	return addTestingApplication(c, addTestingApplicationParams{
+	return addTestingApplication(c, objectStore, addTestingApplicationParams{
 		st:      st,
 		name:    name,
 		ch:      ch,
@@ -322,8 +322,8 @@ func AddTestingApplicationWithStorage(c *gc.C, st *State, name string, ch *Charm
 	})
 }
 
-func AddTestingApplicationWithDevices(c *gc.C, st *State, name string, ch *Charm, devices map[string]DeviceConstraints) *Application {
-	return addTestingApplication(c, addTestingApplicationParams{
+func AddTestingApplicationWithDevices(c *gc.C, st *State, objectStore objectstore.ObjectStore, name string, ch *Charm, devices map[string]DeviceConstraints) *Application {
+	return addTestingApplication(c, objectStore, addTestingApplicationParams{
 		st:      st,
 		name:    name,
 		ch:      ch,
@@ -331,8 +331,8 @@ func AddTestingApplicationWithDevices(c *gc.C, st *State, name string, ch *Charm
 	})
 }
 
-func AddTestingApplicationWithBindings(c *gc.C, st *State, name string, ch *Charm, bindings map[string]string) *Application {
-	return addTestingApplication(c, addTestingApplicationParams{
+func AddTestingApplicationWithBindings(c *gc.C, st *State, objectStore objectstore.ObjectStore, name string, ch *Charm, bindings map[string]string) *Application {
+	return addTestingApplication(c, objectStore, addTestingApplicationParams{
 		st:       st,
 		name:     name,
 		ch:       ch,
@@ -351,7 +351,7 @@ type addTestingApplicationParams struct {
 	numUnits int
 }
 
-func addTestingApplication(c *gc.C, params addTestingApplicationParams) *Application {
+func addTestingApplication(c *gc.C, objectStore objectstore.ObjectStore, params addTestingApplicationParams) *Application {
 	c.Assert(params.ch, gc.NotNil)
 	origin := params.origin
 	curl := charm.MustParseURL(params.ch.URL())
@@ -389,7 +389,7 @@ func addTestingApplication(c *gc.C, params addTestingApplicationParams) *Applica
 		Storage:          params.storage,
 		Devices:          params.devices,
 		NumUnits:         params.numUnits,
-	}, mockApplicationSaver{}, NewObjectStore(c, params.st.ModelUUID()))
+	}, mockApplicationSaver{}, objectStore)
 	c.Assert(err, jc.ErrorIsNil)
 	return app
 }
@@ -944,22 +944,6 @@ func StagedResourceForTest(c *gc.C, st *State, res resources.Resource) *StagedRe
 	r, err := persist.stageResource(res, storagePath)
 	c.Assert(err, jc.ErrorIsNil)
 	return r
-}
-
-// IsBlobStored returns true if a given storage path is in used in the
-// managed blob store.
-func IsBlobStored(c *gc.C, st *State, storagePath string) bool {
-	stor := NewObjectStore(c, st.ModelUUID())
-	r, _, err := stor.Get(context.Background(), storagePath)
-	if err != nil {
-		if errors.Is(err, errors.NotFound) {
-			return false
-		}
-		c.Fatalf("Get failed: %v", err)
-		return false
-	}
-	r.Close()
-	return true
 }
 
 // AssertNoCleanupsWithKind checks that there are no cleanups

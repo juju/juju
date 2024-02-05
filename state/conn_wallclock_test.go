@@ -10,6 +10,7 @@ import (
 	"github.com/juju/utils/v4"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
 	dummystorage "github.com/juju/juju/internal/storage/provider/dummy"
@@ -34,10 +35,11 @@ type ConnWithWallClockSuite struct {
 	controllers  *mgo.Collection
 	policy       statetesting.MockPolicy
 	modelTag     names.ModelTag
+	objectStore  objectstore.ObjectStore
 }
 
-func (cs *ConnWithWallClockSuite) SetUpTest(c *gc.C) {
-	cs.policy = statetesting.MockPolicy{
+func (s *ConnWithWallClockSuite) SetUpTest(c *gc.C) {
+	s.policy = statetesting.MockPolicy{
 		GetStorageProviderRegistry: func() (storage.ProviderRegistry, error) {
 			return storage.ChainedProviderRegistry{
 				dummystorage.StorageProviders(),
@@ -45,23 +47,25 @@ func (cs *ConnWithWallClockSuite) SetUpTest(c *gc.C) {
 			}, nil
 		},
 	}
-	cs.StateWithWallClockSuite.NewPolicy = func(*state.State) state.Policy {
-		return &cs.policy
+	s.StateWithWallClockSuite.NewPolicy = func(*state.State) state.Policy {
+		return &s.policy
 	}
 
-	cs.StateWithWallClockSuite.SetUpTest(c)
+	s.StateWithWallClockSuite.SetUpTest(c)
 
-	cs.modelTag = cs.Model.ModelTag()
+	s.objectStore = state.NewObjectStore(c, s.State.ModelUUID())
 
-	jujuDB := cs.MgoSuite.Session.DB("juju")
-	cs.annotations = jujuDB.C("annotations")
-	cs.charms = jujuDB.C("charms")
-	cs.machines = jujuDB.C("machines")
-	cs.instanceData = jujuDB.C("instanceData")
-	cs.relations = jujuDB.C("relations")
-	cs.applications = jujuDB.C("applications")
-	cs.units = jujuDB.C("units")
-	cs.controllers = jujuDB.C("controllers")
+	s.modelTag = s.Model.ModelTag()
+
+	jujuDB := s.MgoSuite.Session.DB("juju")
+	s.annotations = jujuDB.C("annotations")
+	s.charms = jujuDB.C("charms")
+	s.machines = jujuDB.C("machines")
+	s.instanceData = jujuDB.C("instanceData")
+	s.relations = jujuDB.C("relations")
+	s.applications = jujuDB.C("applications")
+	s.units = jujuDB.C("units")
+	s.controllers = jujuDB.C("controllers")
 }
 
 func (s *ConnWithWallClockSuite) AddTestingCharm(c *gc.C, name string) *state.Charm {
@@ -69,15 +73,15 @@ func (s *ConnWithWallClockSuite) AddTestingCharm(c *gc.C, name string) *state.Ch
 }
 
 func (s *ConnWithWallClockSuite) AddTestingApplication(c *gc.C, name string, ch *state.Charm) *state.Application {
-	return state.AddTestingApplication(c, s.State, name, ch)
+	return state.AddTestingApplication(c, s.State, s.objectStore, name, ch)
 }
 
 func (s *ConnWithWallClockSuite) AddTestingApplicationWithStorage(c *gc.C, name string, ch *state.Charm, storage map[string]state.StorageConstraints) *state.Application {
-	return state.AddTestingApplicationWithStorage(c, s.State, name, ch, storage)
+	return state.AddTestingApplicationWithStorage(c, s.State, s.objectStore, name, ch, storage)
 }
 
 func (s *ConnWithWallClockSuite) AddTestingApplicationWithBindings(c *gc.C, name string, ch *state.Charm, bindings map[string]string) *state.Application {
-	return state.AddTestingApplicationWithBindings(c, s.State, name, ch, bindings)
+	return state.AddTestingApplicationWithBindings(c, s.State, s.objectStore, name, ch, bindings)
 }
 
 func (s *ConnWithWallClockSuite) AddSeriesCharm(c *gc.C, name, series string) *state.Charm {

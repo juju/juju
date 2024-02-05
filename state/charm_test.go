@@ -17,6 +17,7 @@ import (
 	"github.com/juju/utils/v4"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing/factory"
@@ -44,9 +45,9 @@ func (s *CharmSuite) destroy(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *CharmSuite) remove(c *gc.C) {
+func (s *CharmSuite) remove(c *gc.C, store objectstore.ObjectStore) {
 	s.destroy(c)
-	err := s.charm.Remove(context.Background(), state.NewObjectStore(c, s.State.ModelUUID()))
+	err := s.charm.Remove(context.Background(), store)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -159,12 +160,12 @@ func (s *CharmSuite) TestCharmFromSha256(c *gc.C) {
 }
 
 func (s *CharmSuite) TestRemovedCharmNotFound(c *gc.C) {
-	s.remove(c)
+	s.remove(c, state.NewObjectStore(c, s.State.ModelUUID()))
 	s.checkRemoved(c)
 }
 
 func (s *CharmSuite) TestRemovedCharmNotListed(c *gc.C) {
-	s.remove(c)
+	s.remove(c, state.NewObjectStore(c, s.State.ModelUUID()))
 	charms, err := s.State.AllCharms()
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(charms, gc.HasLen, 0)
@@ -206,18 +207,17 @@ func (s *CharmSuite) dummyCharm(c *gc.C, curlOverride string) state.CharmInfo {
 func (s *CharmSuite) TestRemoveDeletesStorage(c *gc.C) {
 	// We normally don't actually set up charm storage in state
 	// tests, but we need it here.
-	stor := state.NewObjectStore(c, s.State.ModelUUID())
 	path := s.charm.StoragePath()
-	err := stor.Put(context.Background(), path, strings.NewReader("abc"), 3)
+	err := s.objectStore.Put(context.Background(), path, strings.NewReader("abc"), 3)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.destroy(c)
-	closer, _, err := stor.Get(context.Background(), path)
+	closer, _, err := s.objectStore.Get(context.Background(), path)
 	c.Assert(err, jc.ErrorIsNil)
 	closer.Close()
 
-	s.remove(c)
-	_, _, err = stor.Get(context.Background(), path)
+	s.remove(c, s.objectStore)
+	_, _, err = s.objectStore.Get(context.Background(), path)
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
@@ -454,7 +454,7 @@ func (s *CharmSuite) TestPrepareLocalCharmUpload(c *gc.C) {
 func (s *CharmSuite) TestPrepareLocalCharmUploadRemoved(c *gc.C) {
 	// Remove the fixture charm and try to re-add it; it gets a new
 	// revision.
-	s.remove(c)
+	s.remove(c, state.NewObjectStore(c, s.State.ModelUUID()))
 	curl, err := s.State.PrepareLocalCharmUpload(s.curl)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(curl.Revision, gc.Equals, charm.MustParseURL(s.curl).Revision+1)
@@ -767,7 +767,7 @@ func (s *CharmSuite) TestAddCharmMetadataUpdatesPlaceholder(c *gc.C) {
 
 func (s *CharmSuite) TestAllCharmURLs(c *gc.C) {
 	ch2 := state.AddTestingCharmhubCharmForSeries(c, s.State, "jammy", "dummy")
-	state.AddTestingApplication(c, s.State, "testme-jammy", ch2)
+	state.AddTestingApplication(c, s.State, s.objectStore, "testme-jammy", ch2)
 
 	curls, err := s.State.AllCharmURLs()
 	c.Assert(err, jc.ErrorIsNil)

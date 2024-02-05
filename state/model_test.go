@@ -570,7 +570,7 @@ func (s *ModelSuite) TestAllEndpointBindings(c *gc.C) {
 	oneSpace := s.Factory.MakeSpace(c, &factory.SpaceParams{
 		Name: "one", ProviderID: network.Id("provider")})
 	app := state.AddTestingApplicationWithBindings(
-		c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"),
+		c, s.State, s.objectStore, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"),
 		map[string]string{"db": oneSpace.Id()})
 
 	model, err := s.State.Model()
@@ -598,7 +598,7 @@ func (s *ModelSuite) TestAllEndpointBindingsSpaceNames(c *gc.C) {
 	oneSpace := s.Factory.MakeSpace(c, &factory.SpaceParams{
 		Name: "one", ProviderID: network.Id("provider")})
 	state.AddTestingApplicationWithBindings(
-		c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"),
+		c, s.State, s.objectStore, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"),
 		map[string]string{"db": oneSpace.Id()})
 
 	spaceNames, err := s.State.AllEndpointBindingsSpaceNames()
@@ -1653,7 +1653,7 @@ func (s *ModelSuite) TestDestroyForceWorksWhenRemoteRelationScopesAreStuck(c *gc
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	wordpress := state.AddTestingApplication(c, ms, "wordpress", state.AddTestingCharm(c, ms, "wordpress"))
+	wordpress := state.AddTestingApplication(c, ms, s.objectStore, "wordpress", state.AddTestingCharm(c, ms, "wordpress"))
 	eps, err := ms.InferEndpoints("wordpress", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := ms.AddRelation(eps...)

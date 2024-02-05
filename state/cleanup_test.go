@@ -97,9 +97,8 @@ func (s *CleanupSuite) TestCleanupDyingApplicationCharm(c *gc.C) {
 	mysql := s.AddTestingApplication(c, "mysql", ch)
 
 	// Create a dummy archive blob.
-	stateStorage := state.NewObjectStore(c, s.State.ModelUUID())
 	storagePath := "dummy-path"
-	err := stateStorage.Put(context.Background(), storagePath, bytes.NewReader([]byte("data")), 4)
+	err := s.objectStore.Put(context.Background(), storagePath, bytes.NewReader([]byte("data")), 4)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Destroy the application and check that a cleanup has been scheduled.
@@ -109,7 +108,7 @@ func (s *CleanupSuite) TestCleanupDyingApplicationCharm(c *gc.C) {
 
 	// Run the cleanup, and check that the charm is removed.
 	s.assertCleanupRuns(c)
-	_, _, err = stateStorage.Get(context.Background(), storagePath)
+	_, _, err = s.objectStore.Get(context.Background(), storagePath)
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
@@ -225,7 +224,7 @@ func (s *CleanupSuite) testCleanupModelMachines(c *gc.C, force bool) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Create a relation with a unit in scope and assigned to the hosted machine.
-	pr := newPeerRelation(c, s.State)
+	pr := newPeerRelation(c, s.State, s.objectStore)
 	err = pr.u0.AssignToMachine(modelMachine)
 	c.Assert(err, jc.ErrorIsNil)
 	preventPeerUnitsDestroyRemove(c, pr)
@@ -395,7 +394,7 @@ func (s *CleanupSuite) TestCleanupModelOffers(c *gc.C) {
 
 func (s *CleanupSuite) TestCleanupRelationSettings(c *gc.C) {
 	// Create a relation with a unit in scope.
-	pr := newPeerRelation(c, s.State)
+	pr := newPeerRelation(c, s.State, s.objectStore)
 	preventPeerUnitsDestroyRemove(c, pr)
 	rel := pr.ru0.Relation()
 	err := pr.ru0.EnterScope(map[string]interface{}{"some": "settings"})
@@ -543,7 +542,7 @@ func (s *CleanupSuite) TestCleanupForceDestroyedMachineUnit(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Create a relation with a unit in scope and assigned to the machine.
-	pr := newPeerRelation(c, s.State)
+	pr := newPeerRelation(c, s.State, s.objectStore)
 	err = pr.u0.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
 	preventPeerUnitsDestroyRemove(c, pr)
@@ -1214,7 +1213,7 @@ func (s *CleanupSuite) assertCleanupCAASEntityWithStorage(c *gc.C, deleteOp func
 	storCons := map[string]state.StorageConstraints{
 		"data": makeStorageCons("", 1024, 1),
 	}
-	application := state.AddTestingApplicationWithStorage(c, st, "storage-filesystem", ch, storCons)
+	application := state.AddTestingApplicationWithStorage(c, st, s.objectStore, "storage-filesystem", ch, storCons)
 	unit, err := application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(application.Refresh(), jc.ErrorIsNil)
@@ -1347,23 +1346,22 @@ func (s *CleanupSuite) TestCleanupResourceBlob(c *gc.C) {
 	app := s.AddTestingApplication(c, "wp", s.AddTestingCharm(c, "wordpress"))
 	data := "ancient-debris"
 	res := resourcetesting.NewResource(c, nil, "mug", "wp", data).Resource
-	resources := s.State.Resources(state.NewObjectStore(c, s.State.ModelUUID()))
+	resources := s.State.Resources(s.objectStore)
 	_, err := resources.SetResource("wp", res.Username, res.Resource, bytes.NewBufferString(data), state.IncrementCharmModifiedVersion)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = app.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = app.Destroy(s.objectStore)
 	c.Assert(err, jc.ErrorIsNil)
 
 	path := "application-wp/resources/mug"
-	stateStorage := state.NewObjectStore(c, s.State.ModelUUID())
-	closer, _, err := stateStorage.Get(context.Background(), path)
+	closer, _, err := s.objectStore.Get(context.Background(), path)
 	c.Assert(err, jc.ErrorIsNil)
 	err = closer.Close()
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.assertCleanupRuns(c)
 
-	_, _, err = stateStorage.Get(context.Background(), path)
+	_, _, err = s.objectStore.Get(context.Background(), path)
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
@@ -1371,16 +1369,15 @@ func (s *CleanupSuite) TestCleanupResourceBlobHandlesMissing(c *gc.C) {
 	app := s.AddTestingApplication(c, "wp", s.AddTestingCharm(c, "wordpress"))
 	data := "ancient-debris"
 	res := resourcetesting.NewResource(c, nil, "mug", "wp", data).Resource
-	resources := s.State.Resources(state.NewObjectStore(c, s.State.ModelUUID()))
+	resources := s.State.Resources(s.objectStore)
 	_, err := resources.SetResource("wp", res.Username, res.Resource, bytes.NewBufferString(data), state.IncrementCharmModifiedVersion)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = app.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
+	err = app.Destroy(s.objectStore)
 	c.Assert(err, jc.ErrorIsNil)
 
 	path := "application-wp/resources/mug"
-	stateStorage := state.NewObjectStore(c, s.State.ModelUUID())
-	err = stateStorage.Remove(context.Background(), path)
+	err = s.objectStore.Remove(context.Background(), path)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.assertCleanupRuns(c)
@@ -1714,7 +1711,7 @@ func (s *CleanupSuite) TestForceDestroyRelationIncorrectUnitCount(c *gc.C) {
 }
 
 func (s *CleanupSuite) assertCleanupRuns(c *gc.C) {
-	err := s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State.ModelUUID()), fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{})
+	err := s.State.Cleanup(context.Background(), s.objectStore, fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
