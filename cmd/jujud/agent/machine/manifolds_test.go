@@ -1022,7 +1022,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"s3-http-client",
 		"service-factory",
 		"state-config-watcher",
-		"state",
 		"trace",
 	},
 
@@ -1619,7 +1618,6 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"s3-http-client",
 		"service-factory",
 		"state-config-watcher",
-		"state",
 		"trace",
 	},
 

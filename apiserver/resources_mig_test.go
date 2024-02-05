@@ -167,7 +167,7 @@ func (s *resourcesUploadSuite) TestUpload(c *gc.C) {
 	c.Check(outResp.ID, gc.Not(gc.Equals), "")
 	c.Check(outResp.Timestamp.IsZero(), jc.IsFalse)
 
-	store := testing.NewObjectStore(c, s.ControllerModelUUID())
+	store := s.ObjectStore(c, s.ControllerModelUUID())
 	rSt := s.importingState.Resources(store)
 	res, reader, err := rSt.OpenResource(s.appName, "bin")
 	c.Assert(err, jc.ErrorIsNil)

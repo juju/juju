@@ -421,7 +421,7 @@ func (s *applicationSuite) TestApplicationUpdateDoesNotSetMinUnitsWithLXDProfile
 	ch := repo.CharmDir("lxd-profile-fail")
 	ident := fmt.Sprintf("%s-%d", ch.Meta().Name, ch.Revision())
 	curl := charm.MustParseURL(fmt.Sprintf("local:%s/%s", series, ident))
-	_, err := jujutesting.PutCharm(s.ControllerModel(c).State(), curl, ch)
+	_, err := jujutesting.PutCharm(s.ControllerModel(c).State(), s.ObjectStore(c, s.ControllerModelUUID()), curl, ch)
 	c.Assert(err, gc.ErrorMatches, `invalid lxd-profile.yaml: contains device type "unix-disk"`)
 }
 

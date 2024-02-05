@@ -9,11 +9,12 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/v3"
+
 	"github.com/juju/juju/core/lease"
 	coreobjectstore "github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/internal/objectstore"
-	"github.com/juju/utils/v3"
 )
 
 // MemoryMetadataService is an in-memory implementation of the objectstore

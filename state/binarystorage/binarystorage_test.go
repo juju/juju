@@ -12,7 +12,6 @@ import (
 	stdtesting "testing"
 
 	"github.com/juju/errors"
-	"github.com/juju/mgo/v3"
 	mgotesting "github.com/juju/mgo/v3/testing"
 	jc "github.com/juju/testing/checkers"
 	jujutxn "github.com/juju/txn/v3"
@@ -20,6 +19,7 @@ import (
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
+	coreobjectstore "github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/mongo"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state/binarystorage"
@@ -40,6 +40,8 @@ type binaryStorageSuite struct {
 	metadataCollection mongo.Collection
 	txnRunner          jujutxn.Runner
 
+	objectStore coreobjectstore.ObjectStore
+
 	cleanUps []func(*gc.C)
 }
 
@@ -54,6 +56,8 @@ func (s *binaryStorageSuite) SetUpTest(c *gc.C) {
 	s.metadataCollection, closer = mongo.CollectionFromName(catalogue, "binarymetadata")
 	s.addCleanup(func(*gc.C) { closer() })
 
+	s.objectStore = jujutesting.NewObjectStore(c, "my-uuid")
+
 	s.managedStorage = jujutesting.NewObjectStore(c, "my-uuid")
 	s.txnRunner = jujutxn.NewRunner(jujutxn.RunnerParams{
 		Database:                  catalogue,
@@ -65,10 +69,6 @@ func (s *binaryStorageSuite) SetUpTest(c *gc.C) {
 	s.storage = binarystorage.New(s.managedStorage, s.metadataCollection, s.txnRunner)
 }
 
-func (s *binaryStorageSuite) addCleanup(f func(*gc.C)) {
-	s.cleanUps = append(s.cleanUps, f)
-}
-
 func (s *binaryStorageSuite) TearDownTest(c *gc.C) {
 	for _, f := range s.cleanUps {
 		// Ensure to close sessions before IsolatedMgoSuite.TearDownTest here.
@@ -77,7 +77,6 @@ func (s *binaryStorageSuite) TearDownTest(c *gc.C) {
 
 	s.storage = nil
 	s.managedStorage = nil
-	s.metadataCollection = nil
 	s.txnRunner = nil
 	s.IsolatedMgoSuite.TearDownTest(c)
 }
@@ -170,7 +169,7 @@ func (s *binaryStorageSuite) TestOpen(c *gc.C) {
 	s.addMetadataDoc(c, current, 3, "hash(abc)", "path")
 	_, _, err = s.storage.Open(context.Background(), current)
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
-	c.Assert(err, gc.ErrorMatches, `resource at path "buckets/my-uuid/path" not found`)
+	c.Assert(err, gc.ErrorMatches, `resource at "path": .* not found`)
 
 	err = s.managedStorage.Put(context.Background(), "path", strings.NewReader("blah"), 4)
 	c.Assert(err, jc.ErrorIsNil)
@@ -360,6 +359,10 @@ func (s *binaryStorageSuite) addMetadataDoc(c *gc.C, v string, size int64, hash,
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *binaryStorageSuite) addCleanup(f func(*gc.C)) {
+	s.cleanUps = append(s.cleanUps, f)
+}
+
 func (s *binaryStorageSuite) assertMetadataAndContent(c *gc.C, expected binarystorage.Metadata, content string) {
 	metadata, r, err := s.storage.Open(context.Background(), expected.Version)
 	c.Assert(err, jc.ErrorIsNil)
@@ -385,12 +388,4 @@ type errorTransactionRunner struct {
 
 func (errorTransactionRunner) Run(transactions jujutxn.TransactionSource) error {
 	return errors.New("Run fails")
-}
-
-type sessionShim struct {
-	session *mgo.Session
-}
-
-func (s sessionShim) MongoSession() *mgo.Session {
-	return s.session
 }

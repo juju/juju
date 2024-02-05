@@ -47,9 +47,10 @@ func (s *DeployLocalSuite) SetUpSuite(c *gc.C) {
 
 func (s *DeployLocalSuite) SetUpTest(c *gc.C) {
 	s.ApiServerSuite.SetUpTest(c)
+
 	curl := charm.MustParseURL("local:quantal/dummy")
 	ch := testcharms.RepoForSeries("quantal").CharmDir("dummy")
-	charm, err := testing.PutCharm(s.ControllerModel(c).State(), curl, ch)
+	charm, err := testing.PutCharm(s.ControllerModel(c).State(), s.ObjectStore(c, s.ControllerModelUUID()), curl, ch)
 	c.Assert(err, jc.ErrorIsNil)
 	s.charm = charm
 }
@@ -179,7 +180,7 @@ func (s *DeployLocalSuite) addWordpressCharmWithExtraBindings(c *gc.C) *state.Ch
 
 func (s *DeployLocalSuite) addWordpressCharmFromURL(c *gc.C, charmURL *charm.URL) *state.Charm {
 	ch := testcharms.RepoForSeries("quantal").CharmDir(charmURL.Name)
-	wordpressCharm, err := testing.PutCharm(s.ControllerModel(c).State(), charmURL, ch)
+	wordpressCharm, err := testing.PutCharm(s.ControllerModel(c).State(), s.ObjectStore(c, s.ControllerModelUUID()), charmURL, ch)
 	c.Assert(err, jc.ErrorIsNil)
 	return wordpressCharm
 }
@@ -618,7 +619,8 @@ func (s *DeployLocalSuite) TestDeployWithUnmetCharmRequirements(c *gc.C) {
 	curl := charm.MustParseURL("local:focal/juju-qa-test-assumes-v2")
 	ch := testcharms.Hub.CharmDir("juju-qa-test-assumes-v2")
 	st := s.ControllerModel(c).State()
-	charm, err := testing.PutCharm(st, curl, ch)
+	objectStore := s.ObjectStore(c, s.ControllerModelUUID())
+	charm, err := testing.PutCharm(st, objectStore, curl, ch)
 	c.Assert(err, jc.ErrorIsNil)
 
 	var f = fakeDeployer{}
@@ -650,7 +652,8 @@ func (s *DeployLocalSuite) TestDeployWithUnmetCharmRequirementsAndForce(c *gc.C)
 	curl := charm.MustParseURL("local:focal/juju-qa-test-assumes-v2")
 	ch := testcharms.Hub.CharmDir("juju-qa-test-assumes-v2")
 	st := s.ControllerModel(c).State()
-	charm, err := testing.PutCharm(st, curl, ch)
+	objectStore := s.ObjectStore(c, s.ControllerModelUUID())
+	charm, err := testing.PutCharm(st, objectStore, curl, ch)
 	c.Assert(err, jc.ErrorIsNil)
 
 	var f = fakeDeployer{}

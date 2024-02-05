@@ -25,7 +25,6 @@ import (
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/common"
 	apitesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/juju/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -242,7 +241,7 @@ func (s *charmsSuite) TestUploadRespectsLocalRevision(c *gc.C) {
 	c.Assert(sch.IsUploaded(), jc.IsTrue)
 	c.Assert(sch.BundleSha256(), gc.Equals, expectedSHA256)
 
-	store := testing.NewObjectStore(c, s.ControllerModelUUID())
+	store := s.ObjectStore(c, s.ControllerModelUUID())
 	reader, _, err := store.Get(context.Background(), sch.StoragePath())
 	c.Assert(err, jc.ErrorIsNil)
 	defer reader.Close()
@@ -312,7 +311,7 @@ func (s *charmsSuite) TestUploadRepackagesNestedArchives(c *gc.C) {
 	// Get it from the storage and try to read it as a bundle - it
 	// should succeed, because it was repackaged during upload to
 	// strip nested dirs.
-	store := testing.NewObjectStore(c, s.ControllerModelUUID())
+	store := s.ObjectStore(c, s.ControllerModelUUID())
 	reader, _, err := store.Get(context.Background(), sch.StoragePath())
 	c.Assert(err, jc.ErrorIsNil)
 	defer reader.Close()
@@ -697,7 +696,7 @@ func (s *charmsSuite) TestGetWorksForControllerMachines(c *gc.C) {
 
 	curl := "local:quantal/dummy-1"
 	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
-	_, err := jujutesting.AddCharm(newSt, curl, ch, false)
+	_, err := jujutesting.AddCharm(newSt, s.ObjectStore(c, newSt.ModelUUID()), curl, ch, false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Controller machine should be able to download the charm from
@@ -754,7 +753,7 @@ func (s *charmsSuite) TestGetAllowsOtherEnvironment(c *gc.C) {
 
 	curl := "local:quantal/dummy-1"
 	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
-	_, err := jujutesting.AddCharm(newSt, curl, ch, false)
+	_, err := jujutesting.AddCharm(newSt, s.ObjectStore(c, newSt.ModelUUID()), curl, ch, false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	url := s.charmsURL("url=" + curl + "&file=revision")

@@ -62,8 +62,10 @@ import (
 	internalobjectstore "github.com/juju/juju/internal/objectstore"
 	objectstoretesting "github.com/juju/juju/internal/objectstore/testing"
 	"github.com/juju/juju/internal/pubsub/centralhub"
+	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/internal/worker/lease"
 	wmultiwatcher "github.com/juju/juju/internal/worker/multiwatcher"
+	workerobjectstore "github.com/juju/juju/internal/worker/objectstore"
 	"github.com/juju/juju/jujuclient"
 	_ "github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
@@ -130,9 +132,10 @@ type ApiServerSuite struct {
 	ControllerModelConfigAttrs map[string]interface{}
 
 	// These are exposed for the tests to use.
-	Server       *apiserver.Server
-	LeaseManager *lease.Manager
-	Clock        testclock.AdvanceableClock
+	Server            *apiserver.Server
+	LeaseManager      *lease.Manager
+	ObjectStoreGetter workerobjectstore.ObjectStoreGetter
+	Clock             testclock.AdvanceableClock
 
 	// These attributes are set before SetUpTest to indicate we want to
 	// set up the api server with real components instead of stubs.
@@ -340,10 +343,11 @@ func (s *ApiServerSuite) setupApiServer(c *gc.C, controllerCfg controller.Config
 	}
 
 	cfg.ObjectStoreGetter = &stubObjectStoreGetter{
-		rootDir:         c.MkDir(),
-		claimer:         objectstoretesting.MemoryClaimer(),
-		metadataService: objectstoretesting.MemoryMetadataService(),
+		rootDir:              c.MkDir(),
+		claimer:              objectstoretesting.MemoryClaimer(),
+		serviceFactoryGetter: cfg.ServiceFactoryGetter,
 	}
+	s.ObjectStoreGetter = cfg.ObjectStoreGetter
 
 	// Set up auth handler.
 	authenticator, err := stateauthenticator.NewAuthenticator(cfg.StatePool, s.ControllerServiceFactory(c).ControllerConfig(), cfg.Clock)
@@ -418,6 +422,13 @@ func (s *ApiServerSuite) URL(path string, queryParams url.Values) *url.URL {
 	url.Path = path
 	url.RawQuery = queryParams.Encode()
 	return &url
+}
+
+// ObjectStore returns the object store for the given model uuid.
+func (s *ApiServerSuite) ObjectStore(c *gc.C, uuid string) objectstore.ObjectStore {
+	store, err := s.ObjectStoreGetter.GetObjectStore(context.Background(), uuid)
+	c.Assert(err, jc.ErrorIsNil)
+	return store
 }
 
 // openAPIAs opens the API and ensures that the api.Connection returned will be
@@ -658,20 +669,30 @@ func (s *stubTracerGetter) GetTracer(ctx context.Context, namespace trace.Tracer
 }
 
 type stubObjectStoreGetter struct {
-	rootDir         string
-	claimer         internalobjectstore.Claimer
-	metadataService internalobjectstore.MetadataService
+	rootDir              string
+	claimer              internalobjectstore.Claimer
+	serviceFactoryGetter servicefactory.ServiceFactoryGetter
 }
 
 func (s *stubObjectStoreGetter) GetObjectStore(ctx context.Context, namespace string) (objectstore.ObjectStore, error) {
+	serviceFactory := s.serviceFactoryGetter.FactoryForModel(namespace)
+
 	return internalobjectstore.ObjectStoreFactory(ctx,
 		internalobjectstore.DefaultBackendType(),
 		namespace,
 		internalobjectstore.WithRootDir(s.rootDir),
-		internalobjectstore.WithMetadataService(s.metadataService),
+		internalobjectstore.WithMetadataService(&stubMetadataService{serviceFactory: serviceFactory}),
 		internalobjectstore.WithClaimer(s.claimer),
 		internalobjectstore.WithLogger(loggo.GetLogger("juju.objectstore")),
 	)
+}
+
+type stubMetadataService struct {
+	serviceFactory servicefactory.ServiceFactory
+}
+
+func (s *stubMetadataService) ObjectStore() objectstore.ObjectStoreMetadata {
+	return s.serviceFactory.ObjectStore()
 }
 
 type stubWatchableDB struct {
