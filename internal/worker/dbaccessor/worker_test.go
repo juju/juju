@@ -7,7 +7,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
@@ -40,6 +39,7 @@ func (s *workerSuite) TestKilledGetDBErrDying(c *gc.C) {
 	mgrExp.EnsureDataDir().Return(c.MkDir(), nil)
 	mgrExp.IsExistingNode().Return(true, nil).Times(1)
 	mgrExp.IsLoopbackBound(gomock.Any()).Return(true, nil).Times(2)
+	mgrExp.IsLoopbackPreferred().Return(false)
 	mgrExp.WithLogFuncOption().Return(nil)
 	mgrExp.WithTracingOption().Return(nil)
 
@@ -295,7 +295,9 @@ func (s *workerSuite) TestWorkerStartupExistingNode(c *gc.C) {
 func (s *workerSuite) TestWorkerStartupExistingNodeWithLoopbackPreferred(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
+	dbDone := make(chan struct{})
 	s.expectClock()
+	s.expectTrackedDBUpdateNodeAndKill(dbDone)
 
 	mgrExp := s.nodeManager.EXPECT()
 	mgrExp.EnsureDataDir().Return(c.MkDir(), nil)
@@ -320,11 +322,12 @@ func (s *workerSuite) TestWorkerStartupExistingNodeWithLoopbackPreferred(c *gc.C
 	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
 
 	w := s.newWorker(c)
-	defer workertest.DirtyKill(c, w)
+	defer func() {
+		close(dbDone)
+		workertest.CleanKill(c, w)
+	}()
 
 	ensureStartup(c, w.(*dbWorker))
-
-	workertest.CleanKill(c, w)
 }
 
 func (s *workerSuite) TestWorkerStartupAsBootstrapNodeSingleServerNoRebind(c *gc.C) {
@@ -474,7 +477,9 @@ func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
 func (s *workerSuite) TestWorkerStartupAsBootstrapNodeThenReconfigureWithLoopbackPreferred(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
+	dbDone := make(chan struct{})
 	s.expectClock()
+	s.expectTrackedDBUpdateNodeAndKill(dbDone)
 
 	dataDir := c.MkDir()
 	mgrExp := s.nodeManager.EXPECT()
@@ -496,7 +501,11 @@ func (s *workerSuite) TestWorkerStartupAsBootstrapNodeThenReconfigureWithLoopbac
 	s.client.EXPECT().Cluster(gomock.Any()).Return(nil, nil)
 
 	w := s.newWorker(c)
-	defer workertest.DirtyKill(c, w)
+	defer func() {
+		close(dbDone)
+		// We do want a clean kill here, because we're not rebinding.
+		workertest.CleanKill(c, w)
+	}()
 	dbw := w.(*dbWorker)
 
 	ensureStartup(c, dbw)
@@ -512,15 +521,14 @@ func (s *workerSuite) TestWorkerStartupAsBootstrapNodeThenReconfigureWithLoopbac
 	case <-time.After(testing.LongWait):
 		c.Fatal("timed out waiting for cluster change to be processed")
 	}
-
-	// We do want a clean kill here, because we're not rebinding.
-	workertest.CleanKill(c, w)
 }
 
 func (s *workerSuite) TestWorkerStartupAsBootstrapNodeThenReconfigureWithLoopbackPreferredAndNotLoopbackBound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
+	dbDone := make(chan struct{})
 	s.expectClock()
+	s.expectTrackedDBUpdateNodeAndKill(dbDone)
 
 	dataDir := c.MkDir()
 	mgrExp := s.nodeManager.EXPECT()
@@ -545,7 +553,11 @@ func (s *workerSuite) TestWorkerStartupAsBootstrapNodeThenReconfigureWithLoopbac
 	s.client.EXPECT().Cluster(gomock.Any()).Return(nil, nil)
 
 	w := s.newWorker(c)
-	defer workertest.DirtyKill(c, w)
+	defer func() {
+		close(dbDone)
+		err := workertest.CheckKilled(c, w)
+		c.Assert(err, jc.ErrorIs, dependency.ErrBounce)
+	}()
 	dbw := w.(*dbWorker)
 
 	ensureStartup(c, dbw)
@@ -561,9 +573,6 @@ func (s *workerSuite) TestWorkerStartupAsBootstrapNodeThenReconfigureWithLoopbac
 	case <-time.After(testing.LongWait):
 		c.Fatal("timed out waiting for cluster change to be processed")
 	}
-
-	err := workertest.CheckKilled(c, w)
-	c.Assert(errors.Is(err, dependency.ErrBounce), jc.IsTrue)
 }
 
 func (s *workerSuite) setupMocks(c *gc.C) *gomock.Controller {

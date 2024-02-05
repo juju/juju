@@ -48,7 +48,8 @@ func (s *namespaceSuite) TestEnsureNamespaceForModelNotFound(c *gc.C) {
 
 	// If this is an existing node, we do not
 	// invoke the address or cluster options.
-	mgrExp.IsExistingNode().Return(true, nil).Times(1)
+	mgrExp.IsExistingNode().Return(true, nil)
+	mgrExp.IsLoopbackPreferred().Return(false)
 	mgrExp.IsLoopbackBound(gomock.Any()).Return(true, nil).Times(2)
 	mgrExp.WithLogFuncOption().Return(nil)
 	mgrExp.WithTracingOption().Return(nil)
@@ -72,36 +73,10 @@ func (s *namespaceSuite) TestEnsureNamespaceForModelNotFound(c *gc.C) {
 
 	workertest.CleanKill(c, w)
 }
-
-func (s *namespaceSuite) TestEnsureNamespaceForModel(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.expectClock()
-
-	dataDir := c.MkDir()
-	mgrExp := s.nodeManager.EXPECT()
-	mgrExp.EnsureDataDir().Return(dataDir, nil).MinTimes(1)
-
-	// If this is an existing node, we do not
-	// invoke the address or cluster options.
-	mgrExp.IsExistingNode().Return(true, nil)
-	mgrExp.IsLoopbackBound(gomock.Any()).Return(true, nil).Times(2)
-	mgrExp.WithLogFuncOption().Return(nil)
-	mgrExp.WithTracingOption().Return(nil)
-
-	s.client.EXPECT().Cluster(gomock.Any()).Return(nil, nil)
-
-	s.expectNodeStartupAndShutdown()
-
-	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
-
+func (s *namespaceSuite) startWorker(c *gc.C, ctx context.Context) *dbWorker {
 	trackedWorkerDB := newWorkerTrackedDB(s.TxnRunner())
 
 	w := s.newWorkerWithDB(c, trackedWorkerDB)
-	defer workertest.DirtyKill(c, w)
-
-	ctx, cancel := context.WithTimeout(context.Background(), testing.LongWait)
-	defer cancel()
 
 	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		stmt := "INSERT INTO model_list (uuid) VALUES (?);"
@@ -119,10 +94,77 @@ func (s *namespaceSuite) TestEnsureNamespaceForModel(c *gc.C) {
 	dbw := w.(*dbWorker)
 	ensureStartup(c, dbw)
 
-	err = dbw.ensureNamespace("foo")
+	return dbw
+}
+
+func (s *namespaceSuite) TestEnsureNamespaceForModel(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectClock()
+
+	dataDir := c.MkDir()
+	mgrExp := s.nodeManager.EXPECT()
+	mgrExp.EnsureDataDir().Return(dataDir, nil).MinTimes(1)
+
+	// If this is an existing node, we do not
+	// invoke the address or cluster options.
+	mgrExp.IsExistingNode().Return(true, nil)
+	mgrExp.IsLoopbackPreferred().Return(false)
+	mgrExp.IsLoopbackBound(gomock.Any()).Return(true, nil).Times(2)
+	mgrExp.WithLogFuncOption().Return(nil)
+	mgrExp.WithTracingOption().Return(nil)
+
+	s.client.EXPECT().Cluster(gomock.Any()).Return(nil, nil)
+
+	s.expectNodeStartupAndShutdown()
+
+	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
+
+	ctx, cancel := context.WithTimeout(context.Background(), testing.LongWait)
+	defer cancel()
+
+	dbw := s.startWorker(c, ctx)
+	defer workertest.DirtyKill(c, dbw)
+
+	err := dbw.ensureNamespace("foo")
 	c.Assert(err, jc.ErrorIsNil)
 
-	workertest.CleanKill(c, w)
+	workertest.CleanKill(c, dbw)
+}
+
+func (s *namespaceSuite) TestEnsureNamespaceForModelLoopbackPreferred(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectClock()
+
+	dataDir := c.MkDir()
+	mgrExp := s.nodeManager.EXPECT()
+	mgrExp.EnsureDataDir().Return(dataDir, nil).MinTimes(1)
+
+	// If this is an existing node, we do not
+	// invoke the address or cluster options.
+	mgrExp.IsExistingNode().Return(true, nil)
+	mgrExp.IsLoopbackPreferred().Return(true)
+	mgrExp.IsLoopbackBound(gomock.Any()).Return(true, nil).Times(1)
+	mgrExp.WithLogFuncOption().Return(nil)
+	mgrExp.WithTracingOption().Return(nil)
+
+	s.client.EXPECT().Cluster(gomock.Any()).Return(nil, nil)
+
+	s.expectNodeStartupAndShutdown()
+
+	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
+
+	ctx, cancel := context.WithTimeout(context.Background(), testing.LongWait)
+	defer cancel()
+
+	dbw := s.startWorker(c, ctx)
+	defer workertest.DirtyKill(c, dbw)
+
+	err := dbw.ensureNamespace("foo")
+	c.Assert(err, jc.ErrorIsNil)
+
+	workertest.CleanKill(c, dbw)
 }
 
 func (s *namespaceSuite) TestEnsureNamespaceForModelWithCache(c *gc.C) {
@@ -137,6 +179,7 @@ func (s *namespaceSuite) TestEnsureNamespaceForModelWithCache(c *gc.C) {
 	// If this is an existing node, we do not
 	// invoke the address or cluster options.
 	mgrExp.IsExistingNode().Return(true, nil)
+	mgrExp.IsLoopbackPreferred().Return(false)
 	mgrExp.IsLoopbackBound(gomock.Any()).Return(true, nil).Times(2)
 	mgrExp.WithLogFuncOption().Return(nil)
 	mgrExp.WithTracingOption().Return(nil)
@@ -198,6 +241,7 @@ func (s *namespaceSuite) TestCloseDatabaseForController(c *gc.C) {
 	// If this is an existing node, we do not
 	// invoke the address or cluster options.
 	mgrExp.IsExistingNode().Return(true, nil)
+	mgrExp.IsLoopbackPreferred().Return(false)
 	mgrExp.IsLoopbackBound(gomock.Any()).Return(true, nil).Times(2)
 	mgrExp.WithLogFuncOption().Return(nil)
 	mgrExp.WithTracingOption().Return(nil)
@@ -208,34 +252,16 @@ func (s *namespaceSuite) TestCloseDatabaseForController(c *gc.C) {
 
 	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
 
-	trackedWorkerDB := newWorkerTrackedDB(s.TxnRunner())
-
-	w := s.newWorkerWithDB(c, trackedWorkerDB)
-	defer workertest.DirtyKill(c, w)
-
 	ctx, cancel := context.WithTimeout(context.Background(), testing.LongWait)
 	defer cancel()
 
-	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		stmt := "INSERT INTO model_list (uuid) VALUES (?);"
-		result, err := tx.ExecContext(ctx, stmt, "foo")
-		c.Assert(err, jc.ErrorIsNil)
+	dbw := s.startWorker(c, ctx)
+	defer workertest.DirtyKill(c, dbw)
 
-		num, err := result.RowsAffected()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(num, gc.Equals, int64(1))
-
-		return nil
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	dbw := w.(*dbWorker)
-	ensureStartup(c, dbw)
-
-	err = dbw.closeDatabase(database.ControllerNS)
+	err := dbw.closeDatabase(database.ControllerNS)
 	c.Assert(err, gc.ErrorMatches, "cannot close controller database")
 
-	workertest.CleanKill(c, w)
+	workertest.CleanKill(c, dbw)
 }
 
 func (s *namespaceSuite) TestCloseDatabaseForModel(c *gc.C) {
@@ -250,6 +276,7 @@ func (s *namespaceSuite) TestCloseDatabaseForModel(c *gc.C) {
 	// If this is an existing node, we do not
 	// invoke the address or cluster options.
 	mgrExp.IsExistingNode().Return(true, nil)
+	mgrExp.IsLoopbackPreferred().Return(false)
 	mgrExp.IsLoopbackBound(gomock.Any()).Return(true, nil).Times(2)
 	mgrExp.WithLogFuncOption().Return(nil)
 	mgrExp.WithTracingOption().Return(nil)
@@ -260,37 +287,57 @@ func (s *namespaceSuite) TestCloseDatabaseForModel(c *gc.C) {
 
 	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
 
-	trackedWorkerDB := newWorkerTrackedDB(s.TxnRunner())
-
-	w := s.newWorkerWithDB(c, trackedWorkerDB)
-	defer workertest.DirtyKill(c, w)
-
 	ctx, cancel := context.WithTimeout(context.Background(), testing.LongWait)
 	defer cancel()
 
-	err := s.TxnRunner().StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		stmt := "INSERT INTO model_list (uuid) VALUES (?);"
-		result, err := tx.ExecContext(ctx, stmt, "foo")
-		c.Assert(err, jc.ErrorIsNil)
+	dbw := s.startWorker(c, ctx)
+	defer workertest.DirtyKill(c, dbw)
 
-		num, err := result.RowsAffected()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(num, gc.Equals, int64(1))
-
-		return nil
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	dbw := w.(*dbWorker)
-	ensureStartup(c, dbw)
-
-	_, err = dbw.GetDB("foo")
+	_, err := dbw.GetDB("foo")
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = dbw.closeDatabase("foo")
 	c.Assert(err, jc.ErrorIsNil)
 
-	workertest.CleanKill(c, w)
+	workertest.CleanKill(c, dbw)
+}
+
+func (s *namespaceSuite) TestCloseDatabaseForModelLoopbackPreferred(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectClock()
+
+	dataDir := c.MkDir()
+	mgrExp := s.nodeManager.EXPECT()
+	mgrExp.EnsureDataDir().Return(dataDir, nil).MinTimes(1)
+
+	// If this is an existing node, we do not
+	// invoke the address or cluster options.
+	mgrExp.IsExistingNode().Return(true, nil)
+	mgrExp.IsLoopbackPreferred().Return(true)
+	mgrExp.IsLoopbackBound(gomock.Any()).Return(true, nil).Times(1)
+	mgrExp.WithLogFuncOption().Return(nil)
+	mgrExp.WithTracingOption().Return(nil)
+
+	s.client.EXPECT().Cluster(gomock.Any()).Return(nil, nil)
+
+	s.expectNodeStartupAndShutdown()
+
+	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
+
+	ctx, cancel := context.WithTimeout(context.Background(), testing.LongWait)
+	defer cancel()
+
+	dbw := s.startWorker(c, ctx)
+	defer workertest.DirtyKill(c, dbw)
+
+	_, err := dbw.GetDB("foo")
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = dbw.closeDatabase("foo")
+	c.Assert(err, jc.ErrorIsNil)
+
+	workertest.CleanKill(c, dbw)
 }
 
 func (s *namespaceSuite) TestCloseDatabaseForUnknownModel(c *gc.C) {
@@ -305,6 +352,7 @@ func (s *namespaceSuite) TestCloseDatabaseForUnknownModel(c *gc.C) {
 	// If this is an existing node, we do not
 	// invoke the address or cluster options.
 	mgrExp.IsExistingNode().Return(true, nil)
+	mgrExp.IsLoopbackPreferred().Return(false)
 	mgrExp.IsLoopbackBound(gomock.Any()).Return(true, nil).Times(2)
 	mgrExp.WithLogFuncOption().Return(nil)
 	mgrExp.WithTracingOption().Return(nil)
