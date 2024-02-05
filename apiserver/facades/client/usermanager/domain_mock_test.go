@@ -73,7 +73,7 @@ func (mr *MockUserServiceMockRecorder) AddUserWithPassword(arg0, arg1, arg2, arg
 }
 
 // DisableUserAuthentication mocks base method.
-func (m *MockUserService) DisableUserAuthentication(arg0 context.Context, arg1 user.UUID) error {
+func (m *MockUserService) DisableUserAuthentication(arg0 context.Context, arg1 string) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DisableUserAuthentication", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -87,7 +87,7 @@ func (mr *MockUserServiceMockRecorder) DisableUserAuthentication(arg0, arg1 any)
 }
 
 // EnableUserAuthentication mocks base method.
-func (m *MockUserService) EnableUserAuthentication(arg0 context.Context, arg1 user.UUID) error {
+func (m *MockUserService) EnableUserAuthentication(arg0 context.Context, arg1 string) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "EnableUserAuthentication", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -131,7 +131,7 @@ func (mr *MockUserServiceMockRecorder) GetUserByName(arg0, arg1 any) *gomock.Cal
 }
 
 // RemoveUser mocks base method.
-func (m *MockUserService) RemoveUser(arg0 context.Context, arg1 user.UUID) error {
+func (m *MockUserService) RemoveUser(arg0 context.Context, arg1 string) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RemoveUser", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -145,7 +145,7 @@ func (mr *MockUserServiceMockRecorder) RemoveUser(arg0, arg1 any) *gomock.Call {
 }
 
 // ResetPassword mocks base method.
-func (m *MockUserService) ResetPassword(arg0 context.Context, arg1 user.UUID) ([]byte, error) {
+func (m *MockUserService) ResetPassword(arg0 context.Context, arg1 string) ([]byte, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ResetPassword", arg0, arg1)
 	ret0, _ := ret[0].([]byte)
@@ -160,7 +160,7 @@ func (mr *MockUserServiceMockRecorder) ResetPassword(arg0, arg1 any) *gomock.Cal
 }
 
 // SetPassword mocks base method.
-func (m *MockUserService) SetPassword(arg0 context.Context, arg1 user.UUID, arg2 auth.Password) error {
+func (m *MockUserService) SetPassword(arg0 context.Context, arg1 string, arg2 auth.Password) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetPassword", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)

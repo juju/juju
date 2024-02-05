@@ -61,34 +61,34 @@ type State interface {
 	// RemoveUser marks the user as removed. This obviates the ability of a user
 	// to function, but keeps the user retaining provenance, i.e. auditing.
 	// RemoveUser will also remove any credentials and activation codes for the
-	// user. If no user exists for the given UUID then an error that satisfies
+	// user. If no user exists for the given user name then an error that satisfies
 	// usererrors.NotFound will be returned.
-	RemoveUser(context.Context, user.UUID) error
+	RemoveUser(context.Context, string) error
 
 	// SetActivationKey removes any active passwords for the user and sets the
-	// activation key. If no user is found for the supplied UUID an error
+	// activation key. If no user is found for the supplied user name an error
 	// is returned that satisfies usererrors.NotFound.
-	SetActivationKey(context.Context, user.UUID, []byte) error
+	SetActivationKey(context.Context, string, []byte) error
 
 	// SetPasswordHash removes any active activation keys and sets the user
-	// password hash and salt. If no user is found for the supplied UUID an error
+	// password hash and salt. If no user is found for the supplied user name an error
 	// is returned that satisfies usererrors.NotFound.
-	SetPasswordHash(context.Context, user.UUID, string, []byte) error
+	SetPasswordHash(context.Context, string, string, []byte) error
 
 	// EnableUserAuthentication will enable the user for authentication.
-	// If no user is found for the supplied UUID an error is returned that
+	// If no user is found for the supplied user name an error is returned that
 	// satisfies usererrors.NotFound.
-	EnableUserAuthentication(context.Context, user.UUID) error
+	EnableUserAuthentication(context.Context, string) error
 
 	// DisableUserAuthentication will disable the user for authentication.
-	// If no user is found for the supplied UUID an error is returned that
+	// If no user is found for the supplied user name an error is returned that
 	// satisfies usererrors.NotFound.
-	DisableUserAuthentication(context.Context, user.UUID) error
+	DisableUserAuthentication(context.Context, string) error
 
 	// UpdateLastLogin will update the last login time for the user.
-	// If no user is found for the supplied UUID an error is returned that
+	// If no user is found for the supplied user name an error is returned that
 	// satisfies usererrors.NotFound.
-	UpdateLastLogin(context.Context, user.UUID) error
+	UpdateLastLogin(context.Context, string) error
 }
 
 // Service provides the API for working with users.
@@ -305,15 +305,15 @@ func (s *Service) AddUserWithActivationKey(ctx context.Context, name string, dis
 // longer usable in Juju and should never be un removed.
 //
 // The following error types are possible from this function:
-// - usererrors.UserUUIDNotValid: When the UUID supplied is not valid.
+// - usererrors.UsernameNotValid: When the username supplied is not valid.
 // - usererrors.NotFound: If no user by the given UUID exists.
-func (s *Service) RemoveUser(ctx context.Context, uuid user.UUID) error {
-	if err := uuid.Validate(); err != nil {
-		return errors.Annotatef(usererrors.UserUUIDNotValid, "%q", uuid)
+func (s *Service) RemoveUser(ctx context.Context, name string) error {
+	if err := ValidateUsername(name); err != nil {
+		return errors.Annotatef(usererrors.UsernameNotValid, "%q", name)
 	}
 
-	if err := s.st.RemoveUser(ctx, uuid); err != nil {
-		return errors.Annotatef(err, "removing user for uuid %q", uuid)
+	if err := s.st.RemoveUser(ctx, name); err != nil {
+		return errors.Annotatef(err, "removing user for %q", name)
 	}
 	return nil
 }
@@ -323,33 +323,33 @@ func (s *Service) RemoveUser(ctx context.Context, uuid user.UUID) error {
 // will have it's Destroy() function called every time.
 //
 // The following error types are possible from this function:
-// - usererrors.UserUUIDNotValid: When the UUID supplied is not valid.
+// - usererrors.UsernameNotValid: When the username supplied is not valid.
 // - usererrors.NotFound: If no user by the given name exists.
 // - internal/auth.ErrPasswordDestroyed: If the supplied password has already
 // been destroyed.
 // - internal/auth.ErrPasswordNotValid: If the password supplied is not valid.
 func (s *Service) SetPassword(
 	ctx context.Context,
-	uuid user.UUID,
+	name string,
 	password auth.Password,
 ) error {
 	defer password.Destroy()
-	if err := uuid.Validate(); err != nil {
-		return errors.Annotatef(usererrors.UserUUIDNotValid, "%q", uuid)
+	if err := ValidateUsername(name); err != nil {
+		return errors.Annotatef(usererrors.UsernameNotValid, "%q", name)
 	}
 
 	salt, err := auth.NewSalt()
 	if err != nil {
-		return errors.Annotatef(err, "generating password salt for user with uuid %q", uuid)
+		return errors.Annotatef(err, "generating password salt for user %q", name)
 	}
 
 	pwHash, err := auth.HashPassword(password, salt)
 	if err != nil {
-		return errors.Annotatef(err, "hashing password for user with uuid %q", uuid)
+		return errors.Annotatef(err, "hashing password for user %q", name)
 	}
 
-	if err = s.st.SetPasswordHash(ctx, uuid, pwHash, salt); err != nil {
-		return errors.Annotatef(err, "setting password for user with uuid %q", uuid)
+	if err = s.st.SetPasswordHash(ctx, name, pwHash, salt); err != nil {
+		return errors.Annotatef(err, "setting password for user %q", name)
 	}
 	return nil
 }
@@ -358,20 +358,20 @@ func (s *Service) SetPassword(
 // activation key for the user to use to set a new password.
 
 // The following error types are possible from this function:
-// - usererrors.UUIDNitValid: When the UUID supplied is not valid.
+// - usererrors.UsernameNotValid: When the username supplied is not valid.
 // - usererrors.NotFound: If no user by the given UUID exists.
-func (s *Service) ResetPassword(ctx context.Context, uuid user.UUID) ([]byte, error) {
-	if err := uuid.Validate(); err != nil {
-		return nil, errors.Annotatef(usererrors.UserUUIDNotValid, "%q", uuid)
+func (s *Service) ResetPassword(ctx context.Context, name string) ([]byte, error) {
+	if err := ValidateUsername(name); err != nil {
+		return nil, errors.Annotatef(usererrors.UsernameNotValid, "%q", name)
 	}
 
 	activationKey, err := generateActivationKey()
 	if err != nil {
-		return nil, errors.Annotatef(err, "generating activation key for user with uuid %q", uuid)
+		return nil, errors.Annotatef(err, "generating activation key for user %q", name)
 	}
 
-	if err = s.st.SetActivationKey(ctx, uuid, activationKey); err != nil {
-		return nil, errors.Annotatef(err, "setting activation key for user with uuid %q", uuid)
+	if err = s.st.SetActivationKey(ctx, name, activationKey); err != nil {
+		return nil, errors.Annotatef(err, "setting activation key for user %q", name)
 	}
 	return activationKey, nil
 }
@@ -379,15 +379,15 @@ func (s *Service) ResetPassword(ctx context.Context, uuid user.UUID) ([]byte, er
 // EnableUserAuthentication will enable the user for authentication.
 //
 // The following error types are possible from this function:
-// - usererrors.UserUUIDNotValid: When the UUID supplied is not valid.
+// - usererrors.UsernameNotValid: When the username supplied is not valid.
 // - usererrors.NotFound: If no user by the given UUID exists.
-func (s *Service) EnableUserAuthentication(ctx context.Context, uuid user.UUID) error {
-	if err := uuid.Validate(); err != nil {
-		return errors.Annotatef(usererrors.UserUUIDNotValid, "%q", uuid)
+func (s *Service) EnableUserAuthentication(ctx context.Context, name string) error {
+	if err := ValidateUsername(name); err != nil {
+		return errors.Annotatef(usererrors.UsernameNotValid, "%q", name)
 	}
 
-	if err := s.st.EnableUserAuthentication(ctx, uuid); err != nil {
-		return errors.Annotatef(err, "enabling user with uuid %q", uuid)
+	if err := s.st.EnableUserAuthentication(ctx, name); err != nil {
+		return errors.Annotatef(err, "enabling user with uuid %q", name)
 	}
 	return nil
 }
@@ -395,15 +395,15 @@ func (s *Service) EnableUserAuthentication(ctx context.Context, uuid user.UUID) 
 // DisableUserAuthentication will disable the user for authentication.
 //
 // The following error types are possible from this function:
-// - usererrors.UserUUIDNotValid: When the UUID supplied is not valid.
+// - usererrors.UsernameNotValid: When the username supplied is not valid.
 // - usererrors.NotFound: If no user by the given UUID exists.
-func (s *Service) DisableUserAuthentication(ctx context.Context, uuid user.UUID) error {
-	if err := uuid.Validate(); err != nil {
-		return errors.Annotatef(usererrors.UserUUIDNotValid, "%q", uuid)
+func (s *Service) DisableUserAuthentication(ctx context.Context, name string) error {
+	if err := ValidateUsername(name); err != nil {
+		return errors.Annotatef(usererrors.UsernameNotValid, "%q", name)
 	}
 
-	if err := s.st.DisableUserAuthentication(ctx, uuid); err != nil {
-		return errors.Annotatef(err, "disabling user with uuid %q", uuid)
+	if err := s.st.DisableUserAuthentication(ctx, name); err != nil {
+		return errors.Annotatef(err, "disabling user %q", name)
 	}
 	return nil
 }
@@ -413,13 +413,13 @@ func (s *Service) DisableUserAuthentication(ctx context.Context, uuid user.UUID)
 // The following error types are possible from this function:
 // - usererrors.UserUUIDNotValid: When the UUID supplied is not valid.
 // - usererrors.NotFound: If no user by the given UUID exists.
-func (s *Service) UpdateLastLogin(ctx context.Context, uuid user.UUID) error {
-	if err := uuid.Validate(); err != nil {
-		return errors.Annotatef(usererrors.UserUUIDNotValid, "%q", uuid)
+func (s *Service) UpdateLastLogin(ctx context.Context, name string) error {
+	if err := ValidateUsername(name); err != nil {
+		return errors.Annotatef(usererrors.UsernameNotValid, "%q", name)
 	}
 
-	if err := s.st.UpdateLastLogin(ctx, uuid); err != nil {
-		return errors.Annotatef(err, "updating last login for user with uuid %q", uuid)
+	if err := s.st.UpdateLastLogin(ctx, name); err != nil {
+		return errors.Annotatef(err, "updating last login for user %q", name)
 	}
 	return nil
 }

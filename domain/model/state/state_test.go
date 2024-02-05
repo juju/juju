@@ -30,6 +30,7 @@ type modelSuite struct {
 	schematesting.ControllerSuite
 	uuid     model.UUID
 	userUUID user.UUID
+	userName string
 }
 
 var _ = gc.Suite(&modelSuite{})
@@ -41,13 +42,14 @@ func (m *modelSuite) SetUpTest(c *gc.C) {
 	// owner.
 	userUUID, err := user.NewUUID()
 	m.userUUID = userUUID
+	m.userName = "test-user"
 	c.Assert(err, jc.ErrorIsNil)
 	userState := userstate.NewState(m.TxnRunnerFactory())
 	err = userState.AddUser(
 		context.Background(),
 		m.userUUID,
-		"test-user",
-		"test user",
+		m.userName,
+		m.userName,
 		m.userUUID,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -238,7 +240,7 @@ func (m *modelSuite) TestCreateModelWithNonExistentOwner(c *gc.C) {
 // the operation fails with a [usererrors.NotFound] error.
 func (m *modelSuite) TestCreateModelWithRemovedOwner(c *gc.C) {
 	userState := userstate.NewState(m.TxnRunnerFactory())
-	err := userState.RemoveUser(context.Background(), m.userUUID)
+	err := userState.RemoveUser(context.Background(), m.userName)
 	c.Assert(err, jc.ErrorIsNil)
 
 	modelSt := NewState(m.TxnRunnerFactory())

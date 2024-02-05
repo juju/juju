@@ -247,7 +247,7 @@ func (s *stateSuite) TestGetRemovedUser(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Remove userToRemove.
-	err = st.RemoveUser(context.Background(), userToRemoveUUID)
+	err = st.RemoveUser(context.Background(), "userToRemove")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Get the user.
@@ -331,7 +331,7 @@ func (s *stateSuite) TestGetRemovedUserByName(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Remove userToRemove.
-	err = st.RemoveUser(context.Background(), userToRemoveUUID)
+	err = st.RemoveUser(context.Background(), "userToRemove")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Get the user.
@@ -356,7 +356,7 @@ func (s *stateSuite) TestGetUserByNameMultipleUsers(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Remove admin user.
-	err = st.RemoveUser(context.Background(), adminUUID)
+	err = st.RemoveUser(context.Background(), "admin")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Add admin2 user.
@@ -521,7 +521,7 @@ func (s *stateSuite) TestRemoveUser(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Remove userToRemove.
-	err = st.RemoveUser(context.Background(), userToRemoveUUID)
+	err = st.RemoveUser(context.Background(), "userToRemove")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that the user was removed correctly.
@@ -575,7 +575,7 @@ func (s *stateSuite) TestGetAllUsersWihAuthInfo(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Disable admin2 user.
-	err = st.DisableUserAuthentication(context.Background(), admin2UUID)
+	err = st.DisableUserAuthentication(context.Background(), "admin2")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Get all users with auth info.
@@ -618,7 +618,7 @@ func (s *stateSuite) TestUserWithAuthInfo(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Disable admin1 user.
-	err = st.DisableUserAuthentication(context.Background(), adminUUID)
+	err = st.DisableUserAuthentication(context.Background(), "admin")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Get user with auth info.
@@ -654,7 +654,7 @@ func (s *stateSuite) TestSetPasswordHash(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Set password hash.
-	err = st.SetPasswordHash(context.Background(), adminUUID, "passwordHash", salt)
+	err = st.SetPasswordHash(context.Background(), "admin", "passwordHash", salt)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that the password hash was set correctly.
@@ -839,7 +839,7 @@ func (s *stateSuite) TestSetActivationKey(c *gc.C) {
 	// Set activation key.
 	adminActivationKey, err := generateActivationKey()
 	c.Assert(err, jc.ErrorIsNil)
-	err = st.SetActivationKey(context.Background(), adminUUID, adminActivationKey)
+	err = st.SetActivationKey(context.Background(), "admin", adminActivationKey)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that the activation key was set correctly, and the password hash was removed.
@@ -890,7 +890,7 @@ func (s *stateSuite) TestDisableUserAuthentication(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Disable user.
-	err = st.DisableUserAuthentication(context.Background(), adminUUID)
+	err = st.DisableUserAuthentication(context.Background(), "admin")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that the user was disabled correctly.
@@ -930,11 +930,11 @@ func (s *stateSuite) TestEnableUserAuthentication(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Disable user.
-	err = st.DisableUserAuthentication(context.Background(), adminUUID)
+	err = st.DisableUserAuthentication(context.Background(), "admin")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Enable user.
-	err = st.EnableUserAuthentication(context.Background(), adminUUID)
+	err = st.EnableUserAuthentication(context.Background(), "admin")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that the user was enabled correctly.
@@ -975,7 +975,7 @@ func (s *stateSuite) TestUpdateLastLogin(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Update last login.
-	err = st.UpdateLastLogin(context.Background(), adminUUID)
+	err = st.UpdateLastLogin(context.Background(), "admin")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that the last login was updated correctly.
