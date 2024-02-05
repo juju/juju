@@ -12,9 +12,8 @@ package mocks
 import (
 	reflect "reflect"
 
-	charm "github.com/juju/charm/v12"
 	resource "github.com/juju/charm/v12/resource"
-	charm0 "github.com/juju/juju/api/common/charm"
+	charm "github.com/juju/juju/api/common/charm"
 	charms "github.com/juju/juju/api/common/charms"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -58,7 +57,7 @@ func (mr *MockCharmClientMockRecorder) CharmInfo(arg0 any) *gomock.Call {
 }
 
 // ListCharmResources mocks base method.
-func (m *MockCharmClient) ListCharmResources(arg0 *charm.URL, arg1 charm0.Origin) ([]resource.Resource, error) {
+func (m *MockCharmClient) ListCharmResources(arg0 string, arg1 charm.Origin) ([]resource.Resource, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ListCharmResources", arg0, arg1)
 	ret0, _ := ret[0].([]resource.Resource)

@@ -797,7 +797,7 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 	}
 
 	chID := application.CharmID{
-		URL:    curl,
+		URL:    curl.String(),
 		Origin: origin,
 	}
 
@@ -834,7 +834,7 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 		return errors.Trace(err)
 	}
 
-	charmInfo, err := h.deployAPI.CharmInfo(chID.URL.String())
+	charmInfo, err := h.deployAPI.CharmInfo(chID.URL)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -870,7 +870,7 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 		numUnits = p.NumUnits
 	}
 
-	if charm.Local.Matches(chID.URL.Schema) {
+	if charm.Local.Matches(curl.Schema) {
 		var (
 			base corebase.Base
 			err  error
@@ -1239,7 +1239,7 @@ func (h *bundleHandler) upgradeCharm(change *bundlechanges.UpgradeCharmChange) e
 	}
 
 	chID := application.CharmID{
-		URL:    curl,
+		URL:    curl.String(),
 		Origin: origin,
 	}
 

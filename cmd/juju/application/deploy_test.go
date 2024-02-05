@@ -821,7 +821,7 @@ func (s *DeploySuite) TestDeployBundlesRequiringTrust(c *gc.C) {
 
 	dArgs := application.DeployArgs{
 		CharmID: application.CharmID{
-			URL:    &deployURL,
+			URL:    deployURL.String(),
 			Origin: origin,
 		},
 		CharmOrigin:     origin,
@@ -1542,7 +1542,7 @@ func (s *DeploySuite) TestDeployWithChannel(c *gc.C) {
 	)
 	s.fakeAPI.Call("Deploy", application.DeployArgs{
 		CharmID: application.CharmID{
-			URL:    curl,
+			URL:    curl.String(),
 			Origin: originWithSeries,
 		},
 		CharmOrigin:     originWithSeries,
@@ -1785,7 +1785,7 @@ func (s *DeploySuite) TestDeployCharmWithSomeEndpointBindingsSpecifiedSuccess(c 
 	}
 
 	charmID := application.CharmID{
-		URL:    curl,
+		URL:    curl.String(),
 		Origin: origin,
 	}
 
@@ -2576,7 +2576,7 @@ func withCharmDeployableWithDevicesAndStorage(
 	)
 	deployArgs := application.DeployArgs{
 		CharmID: application.CharmID{
-			URL:    &deployURL,
+			URL:    deployURL.String(),
 			Origin: origin,
 		},
 		CharmOrigin:     origin,
@@ -2641,7 +2641,7 @@ func withLocalBundleCharmDeployable(
 	fakeAPI.Call("ListSpaces").Returns([]apiparams.Space{}, error(nil))
 	deployArgs := application.DeployArgs{
 		CharmID: application.CharmID{
-			URL:    url,
+			URL:    url.String(),
 			Origin: commoncharm.Origin{Source: "local"},
 		},
 		CharmOrigin:     commoncharm.Origin{Source: "local", Base: base},

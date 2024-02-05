@@ -259,7 +259,7 @@ func (s *charmSuite) newDeployCharm() *deployCharm {
 			return s.deployResourceIDs, nil
 		},
 		id: application.CharmID{
-			URL:    s.url,
+			URL:    s.url.String(),
 			Origin: commoncharm.Origin{Base: corebase.MakeDefaultBase("ubuntu", "20.04")},
 		},
 		flagSet:  &gnuflag.FlagSet{},

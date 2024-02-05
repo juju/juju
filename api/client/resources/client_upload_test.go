@@ -12,7 +12,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/charm/v12"
 	charmresource "github.com/juju/charm/v12/resource"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -161,7 +160,7 @@ func (s *UploadSuite) TestAddPendingResources(c *gc.C) {
 	}
 	s.mockFacadeCaller.EXPECT().FacadeCall("AddPendingResources", &args, result).SetArg(2, results).Return(nil)
 
-	cURL := charm.MustParseURL("ch:spam")
+	cURL := "ch:spam"
 	pendingIDs, err := s.client.AddPendingResources(resources.AddPendingResourcesArgs{
 		ApplicationID: "a-application",
 		CharmID: resources.CharmID{

@@ -10,7 +10,6 @@ import (
 	"path"
 	"strings"
 
-	"github.com/juju/charm/v12"
 	charmresource "github.com/juju/charm/v12/resource"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
@@ -39,7 +38,7 @@ func (s *DeploySuite) SetUpTest(c *gc.C) {
 
 func (s DeploySuite) TestDeployResourcesWithoutFiles(c *gc.C) {
 	deps := uploadDeps{stub: s.stub}
-	cURL := charm.MustParseURL("spam")
+	cURL := "spam"
 	chID := apiresources.CharmID{
 		URL: cURL,
 	}
@@ -84,7 +83,7 @@ func (s DeploySuite) TestDeployResourcesWithoutFiles(c *gc.C) {
 
 func (s DeploySuite) TestUploadFilesOnly(c *gc.C) {
 	deps := uploadDeps{stub: s.stub, data: []byte("file contents")}
-	cURL := charm.MustParseURL("spam")
+	cURL := "spam"
 	chID := apiresources.CharmID{
 		URL: cURL,
 	}
@@ -138,7 +137,7 @@ func (s DeploySuite) TestUploadFilesOnly(c *gc.C) {
 
 func (s DeploySuite) TestUploadRevisionsOnly(c *gc.C) {
 	deps := uploadDeps{stub: s.stub}
-	cURL := charm.MustParseURL("spam")
+	cURL := "spam"
 	chID := apiresources.CharmID{
 		URL: cURL,
 	}
@@ -187,7 +186,7 @@ func (s DeploySuite) TestUploadRevisionsOnly(c *gc.C) {
 
 func (s DeploySuite) TestUploadFilesAndRevisions(c *gc.C) {
 	deps := uploadDeps{stub: s.stub, data: []byte("file contents")}
-	cURL := charm.MustParseURL("spam")
+	cURL := "spam"
 	chID := apiresources.CharmID{
 		URL: cURL,
 	}
@@ -399,7 +398,7 @@ password: 'hunter2',,
 			deps.data = []byte(t.fileContents)
 		}
 
-		cURL := charm.MustParseURL("mysql-k8s")
+		cURL := "mysql-k8s"
 		chID := apiresources.CharmID{
 			URL: cURL,
 		}

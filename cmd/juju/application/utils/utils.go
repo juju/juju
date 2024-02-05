@@ -9,7 +9,6 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/juju/charm/v12"
 	charmresource "github.com/juju/charm/v12/resource"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
@@ -19,6 +18,7 @@ import (
 	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/api/client/application"
+	apicharm "github.com/juju/juju/api/common/charm"
 	app "github.com/juju/juju/apiserver/facades/client/application"
 	"github.com/juju/juju/cmd/modelcmd"
 	corecharm "github.com/juju/juju/core/charm"
@@ -29,9 +29,9 @@ import (
 var logger = loggo.GetLogger("juju.cmd.juju.application.utils")
 
 // GetMetaResources retrieves metadata resources for the given
-// charm.URL.
-func GetMetaResources(charmURL *charm.URL, client CharmClient) (map[string]charmresource.Meta, error) {
-	charmInfo, err := client.CharmInfo(charmURL.String())
+// charmURL.
+func GetMetaResources(charmURL string, client CharmClient) (map[string]charmresource.Meta, error) {
+	charmInfo, err := client.CharmInfo(charmURL)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -97,7 +97,7 @@ func GetUpgradeResources(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return filterResourcesForUpgrade(newCharmID.URL, meta, current, available, providedResources)
+	return filterResourcesForUpgrade(newCharmID.Origin.Source, meta, current, available, providedResources)
 }
 
 // getCurrentResources gets the current resources for this charm in
@@ -135,7 +135,7 @@ func getAvailableRepositoryResources(newCharmID application.CharmID, repositoryR
 }
 
 func filterResourcesForUpgrade(
-	newCharmURL *charm.URL,
+	source apicharm.OriginSource,
 	meta map[string]charmresource.Meta,
 	current map[string]resources.Resource,
 	available map[string]charmresource.Resource,
@@ -145,7 +145,7 @@ func filterResourcesForUpgrade(
 	for name, res := range meta {
 		var doUpgrade bool
 		var err error
-		if newCharmURL.Schema == charm.Local.String() {
+		if source == apicharm.OriginLocal {
 			doUpgrade, err = shouldUpgradeResourceLocalCharm(res.Name, providedResources, current)
 		} else {
 			doUpgrade, err = shouldUpgradeResource(res.Name, providedResources, current, available)
