@@ -133,7 +133,7 @@ func (s *serviceSuite) setMockState(c *gc.C) map[user.UUID]stateUser {
 		uuid user.UUID) (user.User, error) {
 		stUser, exists := mockState[uuid]
 		if !exists {
-			return user.User{}, usererrors.UserNotFound
+			return user.User{}, usererrors.NotFound
 		}
 		return user.User{
 			CreatorUUID: stUser.creatorUUID,
@@ -162,7 +162,7 @@ func (s *serviceSuite) setMockState(c *gc.C) map[user.UUID]stateUser {
 				}, nil
 			}
 		}
-		return user.User{}, usererrors.UserNotFound
+		return user.User{}, usererrors.NotFound
 	}).AnyTimes()
 
 	s.state.EXPECT().GetUserByAuth(
@@ -181,7 +181,7 @@ func (s *serviceSuite) setMockState(c *gc.C) map[user.UUID]stateUser {
 				}, nil
 			}
 		}
-		return user.User{}, usererrors.UserNotFound
+		return user.User{}, usererrors.NotFound
 	}).AnyTimes()
 
 	s.state.EXPECT().AddUser(
@@ -269,7 +269,7 @@ func (s *serviceSuite) setMockState(c *gc.C) map[user.UUID]stateUser {
 		uuid user.UUID) error {
 		user, exists := mockState[uuid]
 		if !exists {
-			return usererrors.UserNotFound
+			return usererrors.NotFound
 		}
 		user.removed = true
 		user.activationKey = nil
@@ -287,7 +287,7 @@ func (s *serviceSuite) setMockState(c *gc.C) map[user.UUID]stateUser {
 		key []byte) error {
 		user, exists := mockState[uuid]
 		if !exists || user.removed {
-			return usererrors.UserNotFound
+			return usererrors.NotFound
 		}
 		user.passwordHash = ""
 		user.passwordSalt = nil
@@ -306,7 +306,7 @@ func (s *serviceSuite) setMockState(c *gc.C) map[user.UUID]stateUser {
 		salt []byte) error {
 		usr, exists := mockState[uuid]
 		if !exists || usr.removed {
-			return usererrors.UserNotFound
+			return usererrors.NotFound
 		}
 		usr.passwordHash = hash
 		usr.passwordSalt = salt
@@ -323,7 +323,7 @@ func (s *serviceSuite) setMockState(c *gc.C) map[user.UUID]stateUser {
 		uuid user.UUID) error {
 		usr, exists := mockState[uuid]
 		if !exists || usr.removed {
-			return usererrors.UserNotFound
+			return usererrors.NotFound
 		}
 		usr.disabled = false
 		mockState[uuid] = usr
@@ -338,7 +338,7 @@ func (s *serviceSuite) setMockState(c *gc.C) map[user.UUID]stateUser {
 		uuid user.UUID) error {
 		usr, exists := mockState[uuid]
 		if !exists || usr.removed {
-			return usererrors.UserNotFound
+			return usererrors.NotFound
 		}
 		usr.disabled = true
 		mockState[uuid] = usr
@@ -353,7 +353,7 @@ func (s *serviceSuite) setMockState(c *gc.C) map[user.UUID]stateUser {
 		uuid user.UUID) error {
 		usr, exists := mockState[uuid]
 		if !exists || usr.removed {
-			return usererrors.UserNotFound
+			return usererrors.NotFound
 		}
 		usr.lastLogin = time.Now()
 		mockState[uuid] = usr
@@ -805,7 +805,7 @@ func (s *serviceSuite) TestRemoveUserInvalidUUID(c *gc.C) {
 }
 
 // TestRemoveUserNotFound is testing that trying to remove a user that does not
-// exist results in an error that satisfies usererrors.UserNotFound. We also
+// exist results in an error that satisfies usererrors.NotFound. We also
 // check that no state changes occur.
 func (s *serviceSuite) TestRemoveUserNotFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
@@ -814,7 +814,7 @@ func (s *serviceSuite) TestRemoveUserNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.service().RemoveUser(context.Background(), uuid)
-	c.Assert(err, jc.ErrorIs, usererrors.UserNotFound)
+	c.Assert(err, jc.ErrorIs, usererrors.NotFound)
 	c.Assert(len(mockState), gc.Equals, 0)
 }
 
@@ -855,7 +855,7 @@ func (s *serviceSuite) TestSetPasswordInvalidUUID(c *gc.C) {
 }
 
 // TestSetPasswordUserNotFound is testing that when setting a password for a
-// user that doesn't exist we get a user.UserNotFound error and that the password
+// user that doesn't exist we get a user.NotFound error and that the password
 // gets destroyed.
 func (s *serviceSuite) TestSetPasswordUserNotFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
@@ -865,7 +865,7 @@ func (s *serviceSuite) TestSetPasswordUserNotFound(c *gc.C) {
 
 	password := auth.NewPassword("password")
 	err = s.service().SetPassword(context.Background(), uuid, password)
-	c.Assert(err, jc.ErrorIs, usererrors.UserNotFound)
+	c.Assert(err, jc.ErrorIs, usererrors.NotFound)
 	c.Assert(len(mockState), gc.Equals, 0)
 	c.Assert(password.IsDestroyed(), jc.IsTrue)
 }
@@ -931,7 +931,7 @@ func (s *serviceSuite) TestResetPasswordInvalidUserUUID(c *gc.C) {
 }
 
 // TestResetPassword is testing that resting a password for a user that doesn't
-// exist returns a usererrors.UserNotFound error and that no state change occurs.
+// exist returns a usererrors.NotFound error and that no state change occurs.
 func (s *serviceSuite) TestResetPasswordUserNotFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	mockState := s.setMockState(c)
@@ -939,13 +939,13 @@ func (s *serviceSuite) TestResetPasswordUserNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = s.service().ResetPassword(context.Background(), uuid)
-	c.Assert(err, jc.ErrorIs, usererrors.UserNotFound)
+	c.Assert(err, jc.ErrorIs, usererrors.NotFound)
 	c.Assert(len(mockState), gc.Equals, 0)
 }
 
 // TestGetUserNotFound is testing what the service does when we ask for a user
 // that doesn't exist. The expected behaviour is that an error is returned that
-// satisfies usererrors.UserNotFound.
+// satisfies usererrors.NotFound.
 func (s *serviceSuite) TestGetUserNotFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	mockState := s.setMockState(c)
@@ -954,12 +954,12 @@ func (s *serviceSuite) TestGetUserNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = s.service().GetUser(context.Background(), nonExistingUserUUID)
-	c.Assert(err, jc.ErrorIs, usererrors.UserNotFound)
+	c.Assert(err, jc.ErrorIs, usererrors.NotFound)
 	c.Assert(len(mockState), gc.Equals, 0)
 }
 
 // TestGetUserRemoved tests that getting a user by name that has been removed
-// results in an error that satisfies usererrors.UserNotFound. We also want to
+// results in an error that satisfies usererrors.NotFound. We also want to
 // check that no state change occurs.
 func (s *serviceSuite) TestGetUserRemoved(c *gc.C) {
 	defer s.setupMocks(c).Finish()
@@ -978,7 +978,7 @@ func (s *serviceSuite) TestGetUserRemoved(c *gc.C) {
 	c.Assert(removedUser.Name, gc.Equals, "removedUser")
 
 	_, err = s.service().GetUserByName(context.Background(), "removedUser")
-	c.Assert(err, jc.ErrorIs, usererrors.UserNotFound)
+	c.Assert(err, jc.ErrorIs, usererrors.NotFound)
 }
 
 // TestGetUser is asserting the safe path of GetUser in that if we supply a
@@ -1038,13 +1038,13 @@ func (s *serviceSuite) TestGetUserByName(c *gc.C) {
 }
 
 // TestGetUserByNameNotFound is testing that if we ask for a user by name that
-// doesn't exist we get back an error that satisfies usererrors.UserNotFound.
+// doesn't exist we get back an error that satisfies usererrors.NotFound.
 func (s *serviceSuite) TestGetUserByNameNotFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	mockState := s.setMockState(c)
 
 	_, err := s.service().GetUserByName(context.Background(), "test")
-	c.Assert(err, jc.ErrorIs, usererrors.UserNotFound)
+	c.Assert(err, jc.ErrorIs, usererrors.NotFound)
 	c.Assert(len(mockState), gc.Equals, 0)
 }
 

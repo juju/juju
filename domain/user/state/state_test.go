@@ -271,7 +271,7 @@ func (s *stateSuite) TestGetUserNotFound(c *gc.C) {
 
 	// Get the user.
 	_, err = st.GetUser(context.Background(), userUUID)
-	c.Assert(err, jc.ErrorIs, usererrors.UserNotFound)
+	c.Assert(err, jc.ErrorIs, usererrors.NotFound)
 }
 
 // TestGetUserByName asserts that we can get a user by name from the database.
@@ -336,7 +336,7 @@ func (s *stateSuite) TestGetRemovedUserByName(c *gc.C) {
 
 	// Get the user.
 	_, err = st.GetUserByName(context.Background(), "userToRemove")
-	c.Assert(err, jc.ErrorIs, usererrors.UserNotFound)
+	c.Assert(err, jc.ErrorIs, usererrors.NotFound)
 }
 
 // TestGetUserByNameMultipleUsers asserts that we get a non-removed user when we try to
@@ -391,7 +391,7 @@ func (s *stateSuite) TestGetUserByNameNotFound(c *gc.C) {
 
 	// Get the user.
 	_, err := st.GetUserByName(context.Background(), "admin")
-	c.Assert(err, jc.ErrorIs, usererrors.UserNotFound)
+	c.Assert(err, jc.ErrorIs, usererrors.NotFound)
 }
 
 // TestGetUserWithAuthInfoByName asserts that we can get a user with auth info

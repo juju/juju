@@ -8,9 +8,9 @@ import (
 )
 
 const (
-	// UserNotFound describes an error that occurs when the user being requested does
+	// NotFound describes an error that occurs when the user being requested does
 	// not exist.
-	UserNotFound = errors.ConstError("user not found")
+	NotFound = errors.ConstError("user not found")
 
 	// UserCreatorUUIDNotFound describes an error that occurs when a user's creator UUID,
 	// the user that created the user in question, does not exist.
