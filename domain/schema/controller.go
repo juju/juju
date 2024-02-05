@@ -641,9 +641,10 @@ CREATE TABLE permission_object_type (
 CREATE UNIQUE INDEX idx_permission_object_type
 ON permission_object_type (type);
 
+-- Maps to the ObjectType type in core/permission package.
 INSERT INTO permission_object_type VALUES
-    (0, 'controller'),
-    (1, 'cloud'),
+    (0, 'cloud'),
+    (1, 'controller'),
     (2, 'model'),
     (3, 'offer');
 
@@ -663,10 +664,10 @@ CREATE UNIQUE INDEX idx_permission_object_access
 ON permission_object_access (access_type_id, object_type_id);
 
 INSERT INTO permission_object_access VALUES
-    (0, 4, 0), -- login, controller
-    (1, 6, 0), -- superuser, controller
-    (2, 3, 1), -- admin, cloud
-    (3, 5, 1), -- addmodel, cloud
+    (0, 3, 0), -- admin, cloud
+    (1, 5, 0), -- addmodel, cloud
+    (2, 4, 1), -- login, controller
+    (3, 6, 1), -- superuser, controller
     (4, 0, 2), -- read, model
     (5, 1, 2), -- write, model
     (6, 3, 2), -- admin, model
