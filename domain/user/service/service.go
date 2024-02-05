@@ -45,49 +45,49 @@ type State interface {
 
 	// GetUser will retrieve the user with authentication information (last login, disabled)
 	// specified by UUID from the database. If the user does not exist an error that satisfies
-	// usererrors.UserNotFound will be returned.
+	// usererrors.NotFound will be returned.
 	GetUser(context.Context, user.UUID) (user.User, error)
 
 	// GetUserByName will retrieve the user with authentication information (last login, disabled)
 	// specified by name from the database. If the user does not exist an error that satisfies
-	// usererrors.UserNotFound will be returned.
+	// usererrors.NotFound will be returned.
 	GetUserByName(ctx context.Context, name string) (user.User, error)
 
 	// GetUserByAuth will retrieve the user with checking authentication information
 	// specified by name and password from the database. If the user does not exist
-	// an error that satisfies usererrors.UserNotFound will be returned.
+	// an error that satisfies usererrors.NotFound will be returned.
 	GetUserByAuth(context.Context, string, string) (user.User, error)
 
 	// RemoveUser marks the user as removed. This obviates the ability of a user
 	// to function, but keeps the user retaining provenance, i.e. auditing.
 	// RemoveUser will also remove any credentials and activation codes for the
 	// user. If no user exists for the given UUID then an error that satisfies
-	// usererrors.UserNotFound will be returned.
+	// usererrors.NotFound will be returned.
 	RemoveUser(context.Context, user.UUID) error
 
 	// SetActivationKey removes any active passwords for the user and sets the
 	// activation key. If no user is found for the supplied UUID an error
-	// is returned that satisfies usererrors.UserNotFound.
+	// is returned that satisfies usererrors.NotFound.
 	SetActivationKey(context.Context, user.UUID, []byte) error
 
 	// SetPasswordHash removes any active activation keys and sets the user
 	// password hash and salt. If no user is found for the supplied UUID an error
-	// is returned that satisfies usererrors.UserNotFound.
+	// is returned that satisfies usererrors.NotFound.
 	SetPasswordHash(context.Context, user.UUID, string, []byte) error
 
 	// EnableUserAuthentication will enable the user for authentication.
 	// If no user is found for the supplied UUID an error is returned that
-	// satisfies usererrors.UserNotFound.
+	// satisfies usererrors.NotFound.
 	EnableUserAuthentication(context.Context, user.UUID) error
 
 	// DisableUserAuthentication will disable the user for authentication.
 	// If no user is found for the supplied UUID an error is returned that
-	// satisfies usererrors.UserNotFound.
+	// satisfies usererrors.NotFound.
 	DisableUserAuthentication(context.Context, user.UUID) error
 
 	// UpdateLastLogin will update the last login time for the user.
 	// If no user is found for the supplied UUID an error is returned that
-	// satisfies usererrors.UserNotFound.
+	// satisfies usererrors.NotFound.
 	UpdateLastLogin(context.Context, user.UUID) error
 }
 
@@ -122,7 +122,7 @@ func (s *Service) GetAllUsers(ctx context.Context) ([]user.User, error) {
 }
 
 // GetUser will find and return the user with UUID. If there is no
-// user for the UUID then an error that satisfies usererrors.UserNotFound will
+// user for the UUID then an error that satisfies usererrors.NotFound will
 // be returned.
 func (s *Service) GetUser(
 	ctx context.Context,
@@ -141,7 +141,7 @@ func (s *Service) GetUser(
 }
 
 // GetUserByName will find and return the user associated with name. If there is no
-// user for the user name then an error that satisfies usererrors.UserNotFound will
+// user for the user name then an error that satisfies usererrors.NotFound will
 // be returned. If supplied with an invalid user name then an error that satisfies
 // usererrors.UsernameNotValid will be returned.
 //
@@ -164,7 +164,7 @@ func (s *Service) GetUserByName(
 
 // GetUserByAuth will find and return the user with UUID. If there is no
 // user for the name and password, then an error that satisfies
-// usererrors.UserNotFound will be returned. If supplied with an invalid user name
+// usererrors.NotFound will be returned. If supplied with an invalid user name
 // then an error that satisfies usererrors.UsernameNotValid will be returned.
 //
 // GetUserByAuth will not return users that have been previously removed.
@@ -306,7 +306,7 @@ func (s *Service) AddUserWithActivationKey(ctx context.Context, name string, dis
 //
 // The following error types are possible from this function:
 // - usererrors.UserUUIDNotValid: When the UUID supplied is not valid.
-// - usererrors.UserNotFound: If no user by the given UUID exists.
+// - usererrors.NotFound: If no user by the given UUID exists.
 func (s *Service) RemoveUser(ctx context.Context, uuid user.UUID) error {
 	if err := uuid.Validate(); err != nil {
 		return errors.Annotatef(usererrors.UserUUIDNotValid, "%q", uuid)
@@ -324,7 +324,7 @@ func (s *Service) RemoveUser(ctx context.Context, uuid user.UUID) error {
 //
 // The following error types are possible from this function:
 // - usererrors.UserUUIDNotValid: When the UUID supplied is not valid.
-// - usererrors.UserNotFound: If no user by the given name exists.
+// - usererrors.NotFound: If no user by the given name exists.
 // - internal/auth.ErrPasswordDestroyed: If the supplied password has already
 // been destroyed.
 // - internal/auth.ErrPasswordNotValid: If the password supplied is not valid.
@@ -359,7 +359,7 @@ func (s *Service) SetPassword(
 
 // The following error types are possible from this function:
 // - usererrors.UUIDNitValid: When the UUID supplied is not valid.
-// - usererrors.UserNotFound: If no user by the given UUID exists.
+// - usererrors.NotFound: If no user by the given UUID exists.
 func (s *Service) ResetPassword(ctx context.Context, uuid user.UUID) ([]byte, error) {
 	if err := uuid.Validate(); err != nil {
 		return nil, errors.Annotatef(usererrors.UserUUIDNotValid, "%q", uuid)
@@ -380,7 +380,7 @@ func (s *Service) ResetPassword(ctx context.Context, uuid user.UUID) ([]byte, er
 //
 // The following error types are possible from this function:
 // - usererrors.UserUUIDNotValid: When the UUID supplied is not valid.
-// - usererrors.UserNotFound: If no user by the given UUID exists.
+// - usererrors.NotFound: If no user by the given UUID exists.
 func (s *Service) EnableUserAuthentication(ctx context.Context, uuid user.UUID) error {
 	if err := uuid.Validate(); err != nil {
 		return errors.Annotatef(usererrors.UserUUIDNotValid, "%q", uuid)
@@ -396,7 +396,7 @@ func (s *Service) EnableUserAuthentication(ctx context.Context, uuid user.UUID) 
 //
 // The following error types are possible from this function:
 // - usererrors.UserUUIDNotValid: When the UUID supplied is not valid.
-// - usererrors.UserNotFound: If no user by the given UUID exists.
+// - usererrors.NotFound: If no user by the given UUID exists.
 func (s *Service) DisableUserAuthentication(ctx context.Context, uuid user.UUID) error {
 	if err := uuid.Validate(); err != nil {
 		return errors.Annotatef(usererrors.UserUUIDNotValid, "%q", uuid)
@@ -412,7 +412,7 @@ func (s *Service) DisableUserAuthentication(ctx context.Context, uuid user.UUID)
 //
 // The following error types are possible from this function:
 // - usererrors.UserUUIDNotValid: When the UUID supplied is not valid.
-// - usererrors.UserNotFound: If no user by the given UUID exists.
+// - usererrors.NotFound: If no user by the given UUID exists.
 func (s *Service) UpdateLastLogin(ctx context.Context, uuid user.UUID) error {
 	if err := uuid.Validate(); err != nil {
 		return errors.Annotatef(usererrors.UserUUIDNotValid, "%q", uuid)

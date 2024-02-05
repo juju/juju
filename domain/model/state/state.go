@@ -38,7 +38,7 @@ func NewState(
 // Create is responsible for creating a new moddel from start to finish. It will
 // register the model existence and associate all of the model metadata.
 // If a model already exists with the same name and owner then an error
-// satisfying modelerrors.UserAlreadyExists will be returned.
+// satisfying modelerrors.AlreadyExists will be returned.
 // If the model type is not found then an error satisfying errors.NotSupported
 // will be returned.
 func (s *State) Create(
@@ -59,7 +59,7 @@ func (s *State) Create(
 // Create is responsible for creating a new model from start to finish. It will
 // register the model existence and associate all of the model metadata.
 // If a model already exists with the same name and owner then an error
-// satisfying modelerrors.UserAlreadyExists will be returned.
+// satisfying modelerrors.AlreadyExists will be returned.
 // If the model type is not found then an error satisfying errors.NotSupported
 // will be returned.
 func Create(
@@ -85,7 +85,7 @@ func Create(
 
 // createModel is responsible for establishing the existence of a new model
 // without any associated metadata. If a model with the supplied UUID already
-// exists then an error that satisfies modelerrors.UserAlreadyExists is returned.
+// exists then an error that satisfies modelerrors.AlreadyExists is returned.
 func createModel(ctx context.Context, uuid model.UUID, tx *sql.Tx) error {
 	stmt := "INSERT INTO model_list (uuid) VALUES (?);"
 	result, err := tx.ExecContext(ctx, stmt, uuid)
@@ -145,18 +145,18 @@ INSERT INTO model_agent (model_uuid, previous_version, target_version)
 
 // createModelMetadata is responsible for creating a new model metadata record
 // for the given model UUID. If a model metadata record already exists for the
-// given model uuid then an error satisfying modelerrors.UserAlreadyExists is
+// given model uuid then an error satisfying modelerrors.AlreadyExists is
 // returned. Conversely should the owner already have a model that exists with
-// the provided name then a modelerrors.UserAlreadyExists error will be returned. If
+// the provided name then a modelerrors.AlreadyExists error will be returned. If
 // the model type supplied is not found then a errors.NotSupported error is
 // returned.
 //
 // Should the provided cloud and region not be found an error matching
-// errors.UserNotFound will be returned.
+// errors.NotFound will be returned.
 // If the ModelCreationArgs contains a non zero value cloud credential this func
 // will also attempt to set the model cloud credential using updateCredential. In
 // this  scenario the errors from updateCredential are also possible.
-// If the model owner does not exist an error satisfying [usererrors.UserNotFound]
+// If the model owner does not exist an error satisfying [usererrors.NotFound]
 // will be returned.
 func createModelMetadata(
 	ctx context.Context,
@@ -186,7 +186,7 @@ AND removed = false
 	var userUUID string
 	err = tx.QueryRowContext(ctx, userStmt, input.Owner).Scan(&userUUID)
 	if errors.Is(err, sql.ErrNoRows) {
-		return fmt.Errorf("%w for model owner %q", usererrors.UserNotFound, input.Owner)
+		return fmt.Errorf("%w for model owner %q", usererrors.NotFound, input.Owner)
 	} else if err != nil {
 		return fmt.Errorf("getting user uuid for setting model %q owner: %w", input.Name, err)
 	}
@@ -239,7 +239,7 @@ WHERE model_type.type = ?
 
 // Delete will remove all data associated with the provided model uuid removing
 // the models existence from Juju. If the model does not exist then a error
-// satisfying modelerrors.UserNotFound will be returned.
+// satisfying modelerrors.NotFound will be returned.
 func (s *State) Delete(
 	ctx context.Context,
 	uuid model.UUID,
@@ -309,9 +309,9 @@ SELECT type FROM model_type;
 
 // setCloudRegion is responsible for setting a model's cloud region. This
 // operation can only be performed once and will fail with an error that
-// satisfies errors.UserAlreadyExists on subsequent tries.
+// satisfies errors.AlreadyExists on subsequent tries.
 // If no cloud region is found for the model's cloud then an error that satisfies
-// errors.UserNotFound will be returned.
+// errors.NotFound will be returned.
 func setCloudRegion(
 	ctx context.Context,
 	uuid model.UUID,
@@ -378,7 +378,7 @@ AND cloud_region_uuid IS NULL
 
 // UpdateCredential is responsible for updating the cloud credential in use
 // by model. If the cloud credential is not found an error that satisfies
-// errors.UserNotFound is returned.
+// errors.NotFound is returned.
 // If the credential being updated to is not of the same cloud that is currently
 // set for the model then an error that satisfies errors.NotValid is returned.
 func (s *State) UpdateCredential(
@@ -398,7 +398,7 @@ func (s *State) UpdateCredential(
 
 // updateCredential is responsible for updating the cloud credential in use
 // by model. If the cloud credential is not found an error that satisfies
-// errors.UserNotFound is returned.
+// errors.NotFound is returned.
 // If the credential being updated to is not of the same cloud that is currently
 // set for the model then an error that satisfies errors.NotValid is returned.
 func updateCredential(
