@@ -4,6 +4,7 @@
 package modelmanager_test
 
 import (
+	"context"
 	stdcontext "context"
 	"strings"
 	"time"
@@ -289,7 +290,7 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 	s.PatchValue(&commonsecrets.GetProvider, func(string) (provider.SecretBackendProvider, error) {
 		return mockSecretProvider{}, nil
 	})
-	info := s.getModelInfo(c, s.st.model.cfg.UUID())
+	info := s.getModelInfo(c, s.modelmanager, s.st.model.cfg.UUID())
 	_true := true
 	s.assertModelInfo(c, info, s.expectedModelInfo(c, &_true))
 	s.st.CheckCalls(c, []jujutesting.StubCall{
@@ -340,7 +341,7 @@ func (s *modelInfoSuite) TestModelInfoWriteAccess(c *gc.C) {
 	mary := names.NewUserTag("mary@local")
 	s.authorizer.HasWriteTag = mary
 	s.setAPIUser(c, mary)
-	info := s.getModelInfo(c, s.st.model.cfg.UUID())
+	info := s.getModelInfo(c, s.modelmanager, s.st.model.cfg.UUID())
 	c.Assert(info.Users, gc.HasLen, 1)
 	c.Assert(info.Users[0].UserName, gc.Equals, "mary")
 	c.Assert(info.Machines, gc.HasLen, 2)
@@ -348,14 +349,18 @@ func (s *modelInfoSuite) TestModelInfoWriteAccess(c *gc.C) {
 
 func (s *modelInfoSuite) TestModelInfoNonOwner(c *gc.C) {
 	s.setAPIUser(c, names.NewUserTag("charlotte@local"))
-	info := s.getModelInfo(c, s.st.model.cfg.UUID())
+	info := s.getModelInfo(c, s.modelmanager, s.st.model.cfg.UUID())
 	c.Assert(info.Users, gc.HasLen, 1)
 	c.Assert(info.Users[0].UserName, gc.Equals, "charlotte")
 	c.Assert(info.Machines, gc.HasLen, 0)
 }
 
-func (s *modelInfoSuite) getModelInfo(c *gc.C, modelUUID string) params.ModelInfo {
-	results, err := s.modelmanager.ModelInfo(stdcontext.Background(), params.Entities{
+type modelInfo interface {
+	ModelInfo(context.Context, params.Entities) (params.ModelInfoResults, error)
+}
+
+func (s *modelInfoSuite) getModelInfo(c *gc.C, modelInfo modelInfo, modelUUID string) params.ModelInfo {
+	results, err := modelInfo.ModelInfo(context.Background(), params.Entities{
 		Entities: []params.Entity{{
 			names.NewModelTag(modelUUID).String(),
 		}},
@@ -595,7 +600,7 @@ func (s *modelInfoSuite) assertSuccessWithMissingData(c *gc.C, test incompleteMo
 func (s *modelInfoSuite) assertSuccess(c *gc.C, modelUUID string, desiredLife state.Life, expectedLife life.Value) {
 	s.st.model.life = desiredLife
 	// should get no errors
-	info := s.getModelInfo(c, modelUUID)
+	info := s.getModelInfo(c, s.modelmanager, modelUUID)
 	c.Assert(info.UUID, gc.Equals, modelUUID)
 	c.Assert(info.Life, gc.Equals, expectedLife)
 }

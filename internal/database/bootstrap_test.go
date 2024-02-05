@@ -76,7 +76,7 @@ func (s *bootstrapSuite) TestBootstrapSuccess(c *gc.C) {
 		})
 	}
 
-	err := BootstrapDqlite(context.Background(), mgr, stubLogger{}, true, BootstrapControllerConcern(check))
+	err := BootstrapDqlite(context.Background(), mgr, stubLogger{}, BootstrapControllerConcern(check))
 	c.Assert(err, jc.ErrorIsNil)
 
 }
@@ -92,6 +92,10 @@ func (f *testNodeManager) EnsureDataDir() (string, error) {
 		f.dataDir = f.c.MkDir()
 	}
 	return f.dataDir, nil
+}
+
+func (f *testNodeManager) IsLoopbackPreferred() bool {
+	return true
 }
 
 func (f *testNodeManager) WithPreferredCloudLocalAddressOption(network.ConfigSource) (app.Option, error) {

@@ -13,7 +13,7 @@ import (
 	"github.com/juju/worker/v4/dependency"
 	"github.com/prometheus/client_golang/prometheus"
 
-	coreagent "github.com/juju/juju/agent"
+	"github.com/juju/juju/agent"
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/database/app"
@@ -44,6 +44,9 @@ type Hub interface {
 // NewDBWorkerFunc creates a tracked db worker.
 type NewDBWorkerFunc func(context.Context, DBApp, string, ...TrackedDBWorkerOption) (TrackedDB, error)
 
+// NewNodeManagerFunc creates a NodeManager
+type NewNodeManagerFunc func(agent.Config, Logger, coredatabase.SlowQueryLogger) NodeManager
+
 // ManifoldConfig contains:
 // - The names of other manifolds on which the DB accessor depends.
 // - Other dependencies from ManifoldsConfig required by the worker.
@@ -57,6 +60,7 @@ type ManifoldConfig struct {
 	PrometheusRegisterer prometheus.Registerer
 	NewApp               func(string, ...app.Option) (DBApp, error)
 	NewDBWorker          NewDBWorkerFunc
+	NewNodeManager       NewNodeManagerFunc
 	NewMetricsCollector  func() *Collector
 }
 
@@ -88,6 +92,9 @@ func (cfg ManifoldConfig) Validate() error {
 	if cfg.NewDBWorker == nil {
 		return errors.NotValidf("nil NewDBWorker")
 	}
+	if cfg.NewNodeManager == nil {
+		return errors.NotValidf("nil NewNodeManager")
+	}
 	if cfg.NewMetricsCollector == nil {
 		return errors.NotValidf("nil NewMetricsCollector")
 	}
@@ -108,7 +115,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 
-			var agent coreagent.Agent
+			var agent agent.Agent
 			if err := getter.Get(config.AgentName, &agent); err != nil {
 				return nil, err
 			}
@@ -127,7 +134,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 
 			cfg := WorkerConfig{
-				NodeManager:      database.NewNodeManager(agentConfig, config.Logger, slowQueryLogger),
+				NodeManager:      config.NewNodeManager(agentConfig, config.Logger, slowQueryLogger),
 				Clock:            config.Clock,
 				Hub:              config.Hub,
 				ControllerID:     agentConfig.Tag().Id(),
@@ -171,4 +178,16 @@ func dbAccessorOutput(in worker.Worker, out interface{}) error {
 		return errors.Errorf("expected output of *database.DBGetter or *database.DBDeleter, got %T", out)
 	}
 	return nil
+}
+
+// IAASNodeManager returns a NodeManager that is configured to use
+// the cloud-local TLS terminated address for Dqlite.
+func IAASNodeManager(cfg agent.Config, logger Logger, slowQueryLogger coredatabase.SlowQueryLogger) NodeManager {
+	return database.NewNodeManager(cfg, false, logger, slowQueryLogger)
+}
+
+// CAASNodeManager returns a NodeManager that is configured to use
+// the loopback address for Dqlite.
+func CAASNodeManager(cfg agent.Config, logger Logger, slowQueryLogger coredatabase.SlowQueryLogger) NodeManager {
+	return database.NewNodeManager(cfg, true, logger, slowQueryLogger)
 }

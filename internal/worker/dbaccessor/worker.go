@@ -43,6 +43,10 @@ type NodeManager interface {
 	// Dqlite node in the past.
 	IsExistingNode() (bool, error)
 
+	// IsLoopbackPreferred returns true if the Dqlite application should
+	// be bound to the loopback address.
+	IsLoopbackPreferred() bool
+
 	// IsLoopbackBound returns true if we are a cluster of one,
 	// and bound to the loopback IP address.
 	IsLoopbackBound(context.Context) (bool, error)
@@ -504,9 +508,14 @@ func (w *dbWorker) DeleteDB(namespace string) error {
 // startExistingDqliteNode takes care of starting Dqlite
 // when this host has run a node previously.
 func (w *dbWorker) startExistingDqliteNode() error {
-	w.cfg.Logger.Infof("host is configured as a Dqlite node")
-
 	mgr := w.cfg.NodeManager
+	if mgr.IsLoopbackPreferred() {
+		w.cfg.Logger.Infof("host is configured to use loopback address as a Dqlite node")
+
+		return errors.Trace(w.initialiseDqlite())
+	}
+
+	w.cfg.Logger.Infof("host is configured to use cloud-local address as a Dqlite node")
 
 	ctx, cancel := w.scopedContext()
 	defer cancel()
@@ -723,6 +732,30 @@ func (w *dbWorker) processAPIServerChange(apiDetails apiserver.Details) error {
 
 	ctx, cancel := w.scopedContext()
 	defer cancel()
+
+	// If we prefer the loopback address, we shouldn't need to do anything.
+	// We double-check that we are bound to the loopback address, if not,
+	// we bounce the worker and try and resolve that in the next go around.
+	if mgr.IsLoopbackPreferred() {
+		if extant {
+			isLoopbackBound, err := mgr.IsLoopbackBound(ctx)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			// Everything is fine, we're bound to the loopback address and
+			// can return early.
+			if isLoopbackBound {
+				return nil
+			}
+
+			// This should never happen, but we want to be conservative.
+			w.cfg.Logger.Warningf("existing Dqlite node is not bound to loopback; but should be; restarting worker")
+		}
+
+		// We don't have a Dqlite node, but somehow we got here, we should just
+		// bounce the worker and try again.
+		return dependency.ErrBounce
+	}
 
 	if extant {
 		asBootstrapped, err := mgr.IsLoopbackBound(ctx)

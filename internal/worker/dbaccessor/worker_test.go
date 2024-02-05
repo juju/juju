@@ -39,6 +39,7 @@ func (s *workerSuite) TestKilledGetDBErrDying(c *gc.C) {
 	mgrExp.EnsureDataDir().Return(c.MkDir(), nil)
 	mgrExp.IsExistingNode().Return(true, nil).Times(1)
 	mgrExp.IsLoopbackBound(gomock.Any()).Return(true, nil).Times(2)
+	mgrExp.IsLoopbackPreferred().Return(false)
 	mgrExp.WithLogFuncOption().Return(nil)
 	mgrExp.WithTracingOption().Return(nil)
 
@@ -74,6 +75,7 @@ func (s *workerSuite) TestStartupTimeoutSingleControllerReconfigure(c *gc.C) {
 	mgrExp.EnsureDataDir().Return(c.MkDir(), nil)
 	mgrExp.IsExistingNode().Return(true, nil).Times(2)
 	mgrExp.IsLoopbackBound(gomock.Any()).Return(false, nil).Times(3)
+	mgrExp.IsLoopbackPreferred().Return(false).Times(2)
 	mgrExp.WithTLSOption().Return(nil, nil)
 	mgrExp.WithLogFuncOption().Return(nil)
 	mgrExp.WithTracingOption().Return(nil)
@@ -113,6 +115,9 @@ func (s *workerSuite) TestStartupTimeoutMultipleControllerRetry(c *gc.C) {
 	mgrExp.EnsureDataDir().Return(c.MkDir(), nil).Times(2)
 	mgrExp.IsExistingNode().Return(true, nil).Times(2)
 	mgrExp.IsLoopbackBound(gomock.Any()).Return(false, nil).Times(4)
+
+	// We expect 1 attempt to start and 2 attempts to reconfigure.
+	mgrExp.IsLoopbackPreferred().Return(false).Times(3)
 
 	// We expect 2 attempts to start.
 	mgrExp.WithTLSOption().Return(nil, nil).Times(2)
@@ -170,6 +175,9 @@ func (s *workerSuite) TestStartupNotExistingNodeThenCluster(c *gc.C) {
 	mgrExp.WithTLSOption().Return(nil, nil)
 	mgrExp.WithTracingOption().Return(nil)
 	mgrExp.IsLoopbackBound(gomock.Any()).Return(false, nil)
+
+	// Expects 1 attempt to start and 2 attempts to reconfigure.
+	mgrExp.IsLoopbackPreferred().Return(false).Times(3)
 
 	s.client.EXPECT().Cluster(gomock.Any()).Return(nil, nil)
 
@@ -263,6 +271,7 @@ func (s *workerSuite) TestWorkerStartupExistingNode(c *gc.C) {
 	// conditions and then again upon worker shutdown.
 	mgrExp.IsExistingNode().Return(true, nil)
 	mgrExp.IsLoopbackBound(gomock.Any()).Return(false, nil).Times(2)
+	mgrExp.IsLoopbackPreferred().Return(false)
 	mgrExp.WithLogFuncOption().Return(nil)
 	mgrExp.WithTLSOption().Return(nil, nil)
 	mgrExp.WithTracingOption().Return(nil)
@@ -271,6 +280,44 @@ func (s *workerSuite) TestWorkerStartupExistingNode(c *gc.C) {
 
 	s.expectNodeStartupAndShutdown()
 	s.dbApp.EXPECT().Handover(gomock.Any()).Return(nil)
+
+	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
+
+	w := s.newWorker(c)
+	defer func() {
+		close(dbDone)
+		workertest.CleanKill(c, w)
+	}()
+
+	ensureStartup(c, w.(*dbWorker))
+}
+
+func (s *workerSuite) TestWorkerStartupExistingNodeWithLoopbackPreferred(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	dbDone := make(chan struct{})
+	s.expectClock()
+	s.expectTrackedDBUpdateNodeAndKill(dbDone)
+
+	mgrExp := s.nodeManager.EXPECT()
+	mgrExp.EnsureDataDir().Return(c.MkDir(), nil)
+
+	// If this is an existing node, we do not invoke the address or cluster
+	// options, but if the node is not as bootstrapped, we do assume it is
+	// part of a cluster, and does not use the TLS option.
+	// IsBootstrapped node is called twice - once to check the startup
+	// conditions and then again upon worker shutdown.
+	mgrExp.IsExistingNode().Return(true, nil)
+	mgrExp.IsLoopbackBound(gomock.Any()).Return(true, nil).Times(2)
+	mgrExp.IsLoopbackPreferred().Return(false)
+	mgrExp.WithLogFuncOption().Return(nil)
+	mgrExp.WithTracingOption().Return(nil)
+
+	s.client.EXPECT().Cluster(gomock.Any()).Return(nil, nil)
+
+	s.expectNodeStartupAndShutdown()
+
+	// We don't expect a handover, because we're not rebinding.
 
 	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
 
@@ -298,6 +345,7 @@ func (s *workerSuite) TestWorkerStartupAsBootstrapNodeSingleServerNoRebind(c *gc
 	// invoke the address or cluster options.
 	mgrExp.IsExistingNode().Return(true, nil).Times(3)
 	mgrExp.IsLoopbackBound(gomock.Any()).Return(true, nil).Times(4)
+	mgrExp.IsLoopbackPreferred().Return(false).Times(3)
 	mgrExp.WithLogFuncOption().Return(nil)
 	mgrExp.WithTracingOption().Return(nil)
 
@@ -358,6 +406,7 @@ func (s *workerSuite) TestWorkerStartupAsBootstrapNodeThenReconfigure(c *gc.C) {
 	// If this is an existing node, we do not
 	// invoke the address or cluster options.
 	mgrExp.IsExistingNode().Return(true, nil).Times(2)
+	mgrExp.IsLoopbackPreferred().Return(false).Times(2)
 	gomock.InOrder(
 		mgrExp.IsLoopbackBound(gomock.Any()).Return(true, nil).Times(2),
 		// This is the check at shutdown.
@@ -423,6 +472,107 @@ func (s *workerSuite) TestWorkerStartupAsBootstrapNodeThenReconfigure(c *gc.C) {
 
 func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
 	return s.newWorkerWithDB(c, s.trackedDB)
+}
+
+func (s *workerSuite) TestWorkerStartupAsBootstrapNodeThenReconfigureWithLoopbackPreferred(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	dbDone := make(chan struct{})
+	s.expectClock()
+	s.expectTrackedDBUpdateNodeAndKill(dbDone)
+
+	dataDir := c.MkDir()
+	mgrExp := s.nodeManager.EXPECT()
+	mgrExp.EnsureDataDir().Return(dataDir, nil).MinTimes(1)
+	mgrExp.WithLogFuncOption().Return(nil)
+	mgrExp.WithTracingOption().Return(nil)
+
+	// If this is a loopback preferred node, we do not invoke the TLS or
+	// cluster options.
+	mgrExp.IsExistingNode().Return(true, nil).Times(2)
+	mgrExp.IsLoopbackPreferred().Return(true).Times(2)
+	mgrExp.IsLoopbackBound(gomock.Any()).Return(true, nil).Times(2)
+
+	// Ensure that we expect a clean startup and shutdown.
+	s.expectNodeStartupAndShutdown()
+
+	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
+
+	s.client.EXPECT().Cluster(gomock.Any()).Return(nil, nil)
+
+	w := s.newWorker(c)
+	defer func() {
+		close(dbDone)
+		// We do want a clean kill here, because we're not rebinding.
+		workertest.CleanKill(c, w)
+	}()
+	dbw := w.(*dbWorker)
+
+	ensureStartup(c, dbw)
+
+	// At this point we have started successfully.
+	// Push a message onto the API details channel to simulate changes.
+	select {
+	case dbw.apiServerChanges <- apiserver.Details{
+		Servers: map[string]apiserver.APIServer{
+			"0": {ID: "0", InternalAddress: "127.0.0.1:1234"},
+		},
+	}:
+	case <-time.After(testing.LongWait):
+		c.Fatal("timed out waiting for cluster change to be processed")
+	}
+}
+
+func (s *workerSuite) TestWorkerStartupAsBootstrapNodeThenReconfigureWithLoopbackPreferredAndNotLoopbackBound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	dbDone := make(chan struct{})
+	s.expectClock()
+	s.expectTrackedDBUpdateNodeAndKill(dbDone)
+
+	dataDir := c.MkDir()
+	mgrExp := s.nodeManager.EXPECT()
+	mgrExp.EnsureDataDir().Return(dataDir, nil).MinTimes(1)
+	mgrExp.WithLogFuncOption().Return(nil)
+	mgrExp.WithTracingOption().Return(nil)
+
+	// If this is a loopback preferred node, we do not invoke the TLS or
+	// cluster options.
+	mgrExp.IsExistingNode().Return(true, nil).Times(2)
+	mgrExp.IsLoopbackPreferred().Return(true).Times(2)
+	gomock.InOrder(
+		mgrExp.IsLoopbackBound(gomock.Any()).Return(false, nil),
+		mgrExp.IsLoopbackBound(gomock.Any()).Return(true, nil),
+	)
+
+	// Ensure that we expect a clean startup and shutdown.
+	s.expectNodeStartupAndShutdown()
+
+	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
+
+	s.client.EXPECT().Cluster(gomock.Any()).Return(nil, nil)
+
+	w := s.newWorker(c)
+	defer func() {
+		close(dbDone)
+		err := workertest.CheckKilled(c, w)
+		c.Assert(err, jc.ErrorIs, dependency.ErrBounce)
+	}()
+	dbw := w.(*dbWorker)
+
+	ensureStartup(c, dbw)
+
+	// At this point we have started successfully.
+	// Push a message onto the API details channel to simulate changes.
+	select {
+	case dbw.apiServerChanges <- apiserver.Details{
+		Servers: map[string]apiserver.APIServer{
+			"0": {ID: "0", InternalAddress: "127.0.0.1:1234"},
+		},
+	}:
+	case <-time.After(testing.LongWait):
+		c.Fatal("timed out waiting for cluster change to be processed")
+	}
 }
 
 func (s *workerSuite) setupMocks(c *gc.C) *gomock.Controller {

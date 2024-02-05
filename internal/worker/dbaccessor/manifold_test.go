@@ -10,6 +10,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/agent"
+	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/internal/database/app"
 )
 
@@ -61,6 +63,10 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 	cfg = s.getConfig()
 	cfg.NewMetricsCollector = nil
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig()
+	cfg.NewNodeManager = nil
+	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 }
 
 func (s *manifoldSuite) getConfig() ManifoldConfig {
@@ -80,6 +86,9 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		},
 		NewMetricsCollector: func() *Collector {
 			return &Collector{}
+		},
+		NewNodeManager: func(agent.Config, Logger, coredatabase.SlowQueryLogger) NodeManager {
+			return s.nodeManager
 		},
 	}
 }
