@@ -5,6 +5,7 @@ package permission
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/names/v5"
 )
 
 // Access represents a level of access.
@@ -53,31 +54,48 @@ func (a Access) Validate() error {
 	return errors.NotValidf("access level %s", a)
 }
 
-// AccessType represents the object types which have
-// different access levels per user.
-type AccessType string
+// ObjectType is the type of the permission object/
+type ObjectType int
 
+// These values must match the values in the permission_object_type table.
 const (
-	Cloud      AccessType = "cloud"
-	Controller AccessType = "controller"
-	Model      AccessType = "model"
-	Offer      AccessType = "offer"
+	Cloud ObjectType = iota
+	Controller
+	Model
+	Offer
 )
 
-// Validate returns error if the current is not a valid access type.
-func (a AccessType) Validate() error {
-	switch a {
+// Validate returns an error if the object type is not in the
+// list of valid object types above.
+func (o ObjectType) Validate() error {
+	switch o {
 	case Cloud, Controller, Model, Offer:
-		return nil
+	default:
+		return errors.NotValidf("object type")
 	}
-	return errors.NotValidf("access level %s", a)
+	return nil
 }
 
-// ValidateAccessForAccessType validates the access value is valid for the
-// access type provided, without the caller knowing what type it is first.
-func ValidateAccessForAccessType(access Access, accessType AccessType) error {
+// ID identifies the object of a permission, its key and type. Keys
+// are names or uuid depending on the type.
+type ID struct {
+	ObjectType ObjectType
+	Key        string
+}
+
+// Validate returns an error if the key is empty and/or the ObjectType
+// is not in the list.
+func (i ID) Validate() error {
+	if i.Key == "" {
+		return errors.NotValidf("empty key")
+	}
+	return i.ObjectType.Validate()
+}
+
+// ValidateAccess validates the access value is valid for this ID.
+func (i ID) ValidateAccess(access Access) error {
 	var err error
-	switch accessType {
+	switch i.ObjectType {
 	case Cloud:
 		err = ValidateCloudAccess(access)
 	case Controller:
@@ -87,9 +105,31 @@ func ValidateAccessForAccessType(access Access, accessType AccessType) error {
 	case Offer:
 		err = ValidateOfferAccess(access)
 	default:
-		err = errors.NotValidf("access type %q", accessType)
+		err = errors.NotValidf("access type %q", i.ObjectType)
 	}
 	return err
+}
+
+// ParseTagForID returns an ID of a permission object and must
+// conform to the know object types.
+func ParseTagForID(tag names.Tag) (ID, error) {
+	if tag == nil {
+		return ID{}, errors.BadRequestf("nil tag")
+	}
+	id := ID{Key: tag.Id()}
+	switch tag.Kind() {
+	case names.CloudTagKind:
+		id.ObjectType = Cloud
+	case names.ControllerTagKind:
+		id.ObjectType = Controller
+	case names.ModelTagKind:
+		id.ObjectType = Model
+	case names.ApplicationOfferTagKind:
+		id.ObjectType = Offer
+	default:
+		return id, errors.NotValidf("target tag type %s", tag.Kind())
+	}
+	return id, nil
 }
 
 // ValidateModelAccess returns error if the passed access is not a valid

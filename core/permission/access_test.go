@@ -5,6 +5,7 @@ package permission_test
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -226,9 +227,9 @@ func (*accessSuite) TestEqualOrGreaterCloudAccessThan(c *gc.C) {
 	c.Check(admin.EqualOrGreaterCloudAccessThan(addmodel), jc.IsTrue)
 }
 
-var validateAccessTypeTest = []struct {
+var validateObjectTypeTest = []struct {
 	access     permission.Access
-	accessType permission.AccessType
+	accessType permission.ObjectType
 	fail       bool
 }{
 	{access: permission.AdminAccess, accessType: permission.Cloud},
@@ -239,17 +240,32 @@ var validateAccessTypeTest = []struct {
 	{access: permission.ConsumeAccess, accessType: permission.Model, fail: true},
 	{access: permission.ConsumeAccess, accessType: permission.Offer},
 	{access: permission.AddModelAccess, accessType: permission.Offer, fail: true},
+	{access: permission.AddModelAccess, accessType: 5, fail: true},
 }
 
-func (*accessSuite) TestValidateAccessForAccessType(c *gc.C) {
-	size := len(validateAccessTypeTest)
-	for i, test := range validateAccessTypeTest {
+func (*accessSuite) TestValidateAccessForObjectType(c *gc.C) {
+	size := len(validateObjectTypeTest)
+	for i, test := range validateObjectTypeTest {
 		c.Logf("Running test %d of %d", i, size)
-		err := permission.ValidateAccessForAccessType(test.access, test.accessType)
+		id := permission.ID{ObjectType: test.accessType}
+		err := id.ValidateAccess(test.access)
 		if test.fail {
 			c.Check(errors.Is(err, errors.NotValid), jc.IsTrue, gc.Commentf("test %d", i))
 		} else {
 			c.Check(err, jc.ErrorIsNil, gc.Commentf("test %d", i))
 		}
 	}
+}
+
+func (*accessSuite) TestParseTagForID(c *gc.C) {
+	id, err := permission.ParseTagForID(names.NewCloudTag("testcloud"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(id.ObjectType, gc.Equals, permission.Cloud)
+}
+
+func (*accessSuite) TestParseTagForIDFail(c *gc.C) {
+	_, err := permission.ParseTagForID(nil)
+	c.Check(errors.Is(err, errors.BadRequest), jc.IsTrue)
+	_, err = permission.ParseTagForID(names.NewUserTag("testcloud"))
+	c.Assert(errors.Is(err, errors.NotValid), jc.IsTrue)
 }
