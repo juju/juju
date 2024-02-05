@@ -27,11 +27,11 @@ type UserService interface {
 	GetUserByName(ctx context.Context, name string) (coreuser.User, error)
 	AddUserWithPassword(ctx context.Context, username, displayName string, createdBy coreuser.UUID, password auth.Password) (coreuser.UUID, error)
 	AddUserWithActivationKey(ctx context.Context, name string, displayName string, creatorUUID coreuser.UUID) ([]byte, coreuser.UUID, error)
-	EnableUserAuthentication(ctx context.Context, uuid coreuser.UUID) error
-	DisableUserAuthentication(ctx context.Context, uuid coreuser.UUID) error
-	SetPassword(ctx context.Context, uuid coreuser.UUID, password auth.Password) error
-	ResetPassword(ctx context.Context, uuid coreuser.UUID) ([]byte, error)
-	RemoveUser(ctx context.Context, uuid coreuser.UUID) error
+	EnableUserAuthentication(ctx context.Context, name string) error
+	DisableUserAuthentication(ctx context.Context, name string) error
+	SetPassword(ctx context.Context, name string, password auth.Password) error
+	ResetPassword(ctx context.Context, name string) ([]byte, error)
+	RemoveUser(ctx context.Context, name string) error
 }
 
 // UserManagerAPI implements the user manager interface and is the concrete
@@ -189,16 +189,8 @@ func (api *UserManagerAPI) RemoveUser(ctx context.Context, entities params.Entit
 		}
 		// End legacy block.
 
-		// Get User
-		user, err := api.userService.GetUserByName(ctx, userTag.Name())
-		if err != nil {
-			deletions.Results[i].Error = apiservererrors.ServerError(
-				errors.Annotatef(err, "failed to delete user %q", userTag.Name()))
-			continue
-		}
-
 		// Remove userTag
-		err = api.userService.RemoveUser(ctx, user.UUID)
+		err = api.userService.RemoveUser(ctx, userTag.Name())
 		if err != nil {
 			deletions.Results[i].Error = apiservererrors.ServerError(
 				errors.Annotatef(err, "failed to delete user %q", userTag.Name()))
@@ -281,18 +273,18 @@ func (api *UserManagerAPI) enableUserImpl(ctx context.Context, args params.Entit
 		}
 		// End legacy block.
 
-		// Get User
-		user, err := api.getLocalUserByTag(ctx, arg.Tag)
+		// Parse User tag
+		userTag, err := names.ParseUserTag(arg.Tag)
 		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(errors.Errorf("failed to %s legacyUser: %s", action, err))
+			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 
 		// Enable/Disable legacyUser
 		if action == "enable" {
-			err = api.userService.EnableUserAuthentication(ctx, user.UUID)
+			err = api.userService.EnableUserAuthentication(ctx, userTag.Name())
 		} else {
-			err = api.userService.DisableUserAuthentication(ctx, user.UUID)
+			err = api.userService.DisableUserAuthentication(ctx, userTag.Name())
 		}
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(errors.Errorf("failed to %s legacyUser: %s", action, err))
@@ -476,12 +468,6 @@ func (api *UserManagerAPI) setPassword(ctx context.Context, arg params.EntityPas
 	}
 	// End legacy block.
 
-	// Get User
-	user, err := api.getLocalUserByTag(ctx, arg.Tag)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
 	if !api.isAdmin {
 		userTag, err := names.ParseUserTag(arg.Tag)
 		if err != nil {
@@ -502,14 +488,14 @@ func (api *UserManagerAPI) setPassword(ctx context.Context, arg params.EntityPas
 	}
 	// End legacy block.
 
-	// Get User
-	user, err = api.getLocalUserByTag(ctx, arg.Tag)
+	// Parse User tag
+	userTag, err := names.ParseUserTag(arg.Tag)
 	if err != nil {
-		return errors.Annotate(err, "failed to set password")
+		return errors.Trace(err)
 	}
 
 	// Set password
-	if err := api.userService.SetPassword(ctx, user.UUID, auth.NewPassword(arg.Password)); err != nil {
+	if err := api.userService.SetPassword(ctx, userTag.Name(), auth.NewPassword(arg.Password)); err != nil {
 		return errors.Annotate(err, "failed to set password")
 	}
 
@@ -562,16 +548,9 @@ func (api *UserManagerAPI) ResetPassword(ctx context.Context, args params.Entiti
 			continue
 		}
 
-		// Get User
-		user, err := api.userService.GetUserByName(ctx, userTag.Name())
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-
 		// Reset password
 		if isSuperUser && api.apiUser != userTag {
-			key, err := api.userService.ResetPassword(ctx, user.UUID)
+			key, err := api.userService.ResetPassword(ctx, userTag.Name())
 			if err != nil {
 				result.Results[i].Error = apiservererrors.ServerError(err)
 				continue
