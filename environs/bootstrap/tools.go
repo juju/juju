@@ -4,16 +4,13 @@
 package bootstrap
 
 import (
-	"fmt"
 	"os"
 
-	"github.com/juju/errors"
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/arch"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
-	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/environs"
 	envtools "github.com/juju/juju/environs/tools"
 	coretools "github.com/juju/juju/tools"
@@ -35,26 +32,26 @@ func localToolsArch() string {
 // validateUploadAllowed returns an error if an attempt to upload tools should
 // not be allowed.
 func validateUploadAllowed(env environs.ConfigGetter, toolsArch *string, toolsBase *corebase.Base, validator constraints.Validator) error {
-	// Now check that the architecture and series for which we are setting up an
-	// environment matches that from which we are bootstrapping.
-	hostArch := localToolsArch()
-	// We can't build tools for a different architecture if one is specified.
-	if toolsArch != nil && *toolsArch != hostArch {
-		return fmt.Errorf("cannot use agent built for %q using a machine running on %q", *toolsArch, hostArch)
-	}
-	hostOS := coreos.HostOS()
-	if toolsBase != nil {
-		if !coreos.OSTypeForName(toolsBase.OS).EquivalentTo(hostOS) {
-			return errors.Errorf("cannot use agent built for %q using a machine running %q", toolsBase.String(), hostOS)
-		}
-	}
-	// If no architecture is specified, ensure the target provider supports instances matching our architecture.
-	if _, err := validator.Validate(constraints.Value{Arch: &hostArch}); err != nil {
-		return errors.Errorf(
-			"model %q of type %s does not support instances running on %q",
-			env.Config().Name(), env.Config().Type(), hostArch,
-		)
-	}
+	// // Now check that the architecture and series for which we are setting up an
+	// // environment matches that from which we are bootstrapping.
+	// hostArch := localToolsArch()
+	// // We can't build tools for a different architecture if one is specified.
+	// if toolsArch != nil && *toolsArch != hostArch {
+	// 	return fmt.Errorf("cannot use agent built for %q using a machine running on %q", *toolsArch, hostArch)
+	// }
+	// hostOS := coreos.HostOS()
+	// if toolsBase != nil {
+	// 	if !coreos.OSTypeForName(toolsBase.OS).EquivalentTo(hostOS) {
+	// 		return errors.Errorf("cannot use agent built for %q using a machine running %q", toolsBase.String(), hostOS)
+	// 	}
+	// }
+	// // If no architecture is specified, ensure the target provider supports instances matching our architecture.
+	// if _, err := validator.Validate(constraints.Value{Arch: &hostArch}); err != nil {
+	// 	return errors.Errorf(
+	// 		"model %q of type %s does not support instances running on %q",
+	// 		env.Config().Name(), env.Config().Type(), hostArch,
+	// 	)
+	// }
 	return nil
 }
 

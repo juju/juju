@@ -690,7 +690,10 @@ resnap-controller: ${BUILD_DIR}/${GOOS}_${GOARCH}/bin/jujud-controller
 	$(eval BUILD_ARCH = $(subst ppc64el,ppc64le,${GOARCH}))
 	$(eval UNSNAPDIR = $(shell mktemp -d))
 	@unsquashfs -d ${UNSNAPDIR} ${PROJECT_DIR}/jujud-controller_${JUJU_VERSION_CLEAN}_${BUILD_ARCH}.snap
+	@cp ${UNSNAPDIR}/bin/jujud-controller ${UNSNAPDIR}/bin/jujud-controller.old
 	@cp ${BUILD_DIR}/${GOOS}_${GOARCH}/bin/jujud-controller ${UNSNAPDIR}/bin/jujud-controller
+	@patchelf --force-rpath --set-rpath "$$(patchelf --print-rpath ${UNSNAPDIR}/bin/jujud-controller.old)" --set-interpreter "$$(patchelf --print-interpreter ${UNSNAPDIR}/bin/jujud-controller.old)" ${UNSNAPDIR}/bin/jujud-controller
+	@rm ${UNSNAPDIR}/bin/jujud-controller.old
 	@rm ${PROJECT_DIR}/jujud-controller_${JUJU_VERSION}_${BUILD_ARCH}.snap || true
 	@mksquashfs ${UNSNAPDIR}/* ${PROJECT_DIR}/jujud-controller_${JUJU_VERSION}_${BUILD_ARCH}.snap -comp lzo -all-root -noappend
 	@rm -rf ${UNSNAPDIR}
