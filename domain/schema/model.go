@@ -51,8 +51,7 @@ func ModelDDL() *schema.Schema {
 		annotationSchemaForTable("machine"),
 		annotationSchemaForTable("unit"),
 		annotationModel,
-		annotationSchemaForTable("storage_volume"),
-		annotationSchemaForTable("storage_filesystem"),
+		annotationSchemaForTable("storage_instance"),
 	}
 
 	modelSchema := schema.New()

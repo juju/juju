@@ -127,8 +127,7 @@ func (s *schemaSuite) TestModelDDLApply(c *gc.C) {
 		"annotation_machine",
 		"annotation_unit",
 		"annotation_model",
-		"annotation_storage_volume",
-		"annotation_storage_filesystem",
+		"annotation_storage_instance",
 
 		"life",
 

@@ -14,12 +14,12 @@ import (
 type Kind string
 
 const (
-	KindCharm      Kind = "charm"
-	KindMachine    Kind = "machine"
-	KindUnit       Kind = "unit"
-	KindModel      Kind = "model"
-	KindVolume     Kind = "storage_volume"
-	KindFilesystem Kind = "storage_filesystem"
+	KindApplication Kind = "application"
+	KindCharm       Kind = "charm"
+	KindMachine     Kind = "machine"
+	KindUnit        Kind = "unit"
+	KindModel       Kind = "model"
+	KindStorage     Kind = "storage_instance"
 )
 
 // ID reifies annotatable GlobalEntities into an internal representation using annotations.Kind.
@@ -52,14 +52,14 @@ func ConvertTagToID(n names.Tag) (ID, error) {
 			Kind: KindModel,
 			Name: n.Id(),
 		}, nil
-	case names.VolumeTagKind:
+	case names.StorageTagKind:
 		return ID{
-			Kind: KindVolume,
+			Kind: KindStorage,
 			Name: n.Id(),
 		}, nil
-	case names.FilesystemTagKind:
+	case names.ApplicationTagKind:
 		return ID{
-			Kind: KindFilesystem,
+			Kind: KindApplication,
 			Name: n.Id(),
 		}, nil
 	default:

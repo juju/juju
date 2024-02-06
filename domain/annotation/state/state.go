@@ -45,11 +45,14 @@ func (st *State) GetAnnotations(ctx context.Context, ID annotations.ID) (map[str
 	// Prepare query for getting the UUID of ID
 	// No need if kind is model, because we keep annotations per model in the DB.
 	var kindQueryStmt *sqlair.Statement
+	var kindQuery string
 	var kindQueryParam sqlair.M
 
 	if kind != annotations.KindModel {
-		kindQueryParam = sqlair.M{"entity_id": ID.Name}
-		kindQuery := fmt.Sprintf(`SELECT &M.uuid FROM %[1]s WHERE %[1]s_id = $M.entity_id`, kind)
+		kindQuery, kindQueryParam, err = uuidQueryForID(ID)
+		if err != nil {
+			return nil, errors.Annotatef(err, "preparing get annotations query for ID: %q", ID.Name)
+		}
 		kindQueryStmt, err = sqlair.Prepare(kindQuery, sqlair.M{})
 		if err != nil {
 			return nil, errors.Annotatef(err, "preparing get annotations query for ID: %q", ID.Name)
@@ -59,7 +62,7 @@ func (st *State) GetAnnotations(ctx context.Context, ID annotations.ID) (map[str
 	// Prepare query for getting the annotations of ID
 	var getAnnotationsStmt *sqlair.Statement
 	if kind == annotations.KindModel {
-		getAnnotationsStmt, err = sqlair.Prepare(`SELECT (key, value) AS (&Annotation.*) from annotation_model`, sqlair.M{})
+		getAnnotationsStmt, err = sqlair.Prepare(`SELECT (key, value) AS (&Annotation.*) from annotation_model`, Annotation{}, sqlair.M{})
 	} else {
 		getAnnotationsQuery := fmt.Sprintf(`
 SELECT (key, value) AS (&Annotation.*)
@@ -77,7 +80,7 @@ WHERE %[1]s_uuid = $M.uuid
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		// If it's for a model, go ahead and run the query (no parameters needed)
 		if kind == annotations.KindModel {
-			return tx.Query(ctx, getAnnotationsStmt, Annotation{}, sqlair.M{}).GetAll(&annotationsResults)
+			return tx.Query(ctx, getAnnotationsStmt).GetAll(&annotationsResults)
 		}
 		// Looking up the UUID for ID
 		result := sqlair.M{}
@@ -118,4 +121,32 @@ WHERE %[1]s_uuid = $M.uuid
 func (st *State) SetAnnotations(ctx context.Context, ID annotations.ID,
 	annotations map[string]string) error {
 	return nil
+}
+
+// uuidQueryForID is a helper that generates a query and parameters for getting the uuid for a given ID
+// We keep different fields to reference different IDs in separate tables, as follows:
+// machine: TABLE machine, reference field: machine_id
+// unit: TABLE unit, reference field: unit_id
+// application: TABLE application, reference field: name
+// storage_instance: TABLE storage_instance, reference field: name
+// charm: TABLE charm, reference field: url
+func uuidQueryForID(ID annotations.ID) (string, sqlair.M, error) {
+	kind := ID.Kind
+	name := ID.Name
+
+	var query string
+
+	if kind == "machine" || kind == "unit" {
+		// Use field <entity>_id (e.g. unit_id) for machines and units
+		query = fmt.Sprintf(`SELECT &M.uuid FROM %[1]s WHERE %[1]s_id = $M.entity_id`, kind)
+	} else if kind == "application" || kind == "storage_instance" {
+		// Use field name for application and storage_instance
+		query = fmt.Sprintf(`SELECT &M.uuid FROM %s WHERE name = $M.entity_id`, kind)
+	} else if kind == "charm" {
+		// Use field url for charm
+		query = fmt.Sprintf(`SELECT &M.uuid FROM %s WHERE url = $M.entity_id`, kind)
+	} else {
+		return "", nil, errors.Errorf("unable to produce query for ID: %q, unknown kind: %q", name, kind)
+	}
+	return query, sqlair.M{"entity_id": name}, nil
 }
