@@ -3,7 +3,10 @@
 
 package permission
 
-import "github.com/juju/errors"
+import (
+	"github.com/juju/errors"
+	"github.com/juju/names/v5"
+)
 
 // Access represents a level of access.
 type Access string
@@ -49,6 +52,84 @@ func (a Access) Validate() error {
 		return nil
 	}
 	return errors.NotValidf("access level %s", a)
+}
+
+// ObjectType is the type of the permission object/
+type ObjectType string
+
+// These values must match the values in the permission_object_type table.
+const (
+	Cloud      ObjectType = "cloud"
+	Controller ObjectType = "controller"
+	Model      ObjectType = "model"
+	Offer      ObjectType = "offer"
+)
+
+// Validate returns an error if the object type is not in the
+// list of valid object types above.
+func (o ObjectType) Validate() error {
+	switch o {
+	case Cloud, Controller, Model, Offer:
+	default:
+		return errors.NotValidf("object type %q", o)
+	}
+	return nil
+}
+
+// ID identifies the object of a permission, its key and type. Keys
+// are names or uuid depending on the type.
+type ID struct {
+	ObjectType ObjectType
+	Key        string
+}
+
+// Validate returns an error if the key is empty and/or the ObjectType
+// is not in the list.
+func (i ID) Validate() error {
+	if i.Key == "" {
+		return errors.NotValidf("empty key")
+	}
+	return i.ObjectType.Validate()
+}
+
+// ValidateAccess validates the access value is valid for this ID.
+func (i ID) ValidateAccess(access Access) error {
+	var err error
+	switch i.ObjectType {
+	case Cloud:
+		err = ValidateCloudAccess(access)
+	case Controller:
+		err = ValidateControllerAccess(access)
+	case Model:
+		err = ValidateModelAccess(access)
+	case Offer:
+		err = ValidateOfferAccess(access)
+	default:
+		err = errors.NotValidf("access type %q", i.ObjectType)
+	}
+	return err
+}
+
+// ParseTagForID returns an ID of a permission object and must
+// conform to the know object types.
+func ParseTagForID(tag names.Tag) (ID, error) {
+	if tag == nil {
+		return ID{}, errors.NotValidf("nil tag")
+	}
+	id := ID{Key: tag.Id()}
+	switch tag.Kind() {
+	case names.CloudTagKind:
+		id.ObjectType = Cloud
+	case names.ControllerTagKind:
+		id.ObjectType = Controller
+	case names.ModelTagKind:
+		id.ObjectType = Model
+	case names.ApplicationOfferTagKind:
+		id.ObjectType = Offer
+	default:
+		return id, errors.NotSupportedf("target tag type %s", tag.Kind())
+	}
+	return id, nil
 }
 
 // ValidateModelAccess returns error if the passed access is not a valid

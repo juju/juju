@@ -4,6 +4,8 @@
 package permission_test
 
 import (
+	"github.com/juju/errors"
+	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -223,4 +225,47 @@ func (*accessSuite) TestEqualOrGreaterCloudAccessThan(c *gc.C) {
 	c.Check(addmodel.EqualOrGreaterCloudAccessThan(addmodel), jc.IsTrue)
 	c.Check(addmodel.EqualOrGreaterCloudAccessThan(admin), jc.IsFalse)
 	c.Check(admin.EqualOrGreaterCloudAccessThan(addmodel), jc.IsTrue)
+}
+
+var validateObjectTypeTest = []struct {
+	access     permission.Access
+	objectType permission.ObjectType
+	fail       bool
+}{
+	{access: permission.AdminAccess, objectType: permission.Cloud},
+	{access: permission.SuperuserAccess, objectType: permission.Cloud, fail: true},
+	{access: permission.LoginAccess, objectType: permission.Controller},
+	{access: permission.ReadAccess, objectType: permission.Controller, fail: true},
+	{access: permission.ReadAccess, objectType: permission.Model},
+	{access: permission.ConsumeAccess, objectType: permission.Model, fail: true},
+	{access: permission.ConsumeAccess, objectType: permission.Offer},
+	{access: permission.AddModelAccess, objectType: permission.Offer, fail: true},
+	{access: permission.AddModelAccess, objectType: "failme", fail: true},
+}
+
+func (*accessSuite) TestValidateAccessForObjectType(c *gc.C) {
+	size := len(validateObjectTypeTest)
+	for i, test := range validateObjectTypeTest {
+		c.Logf("Running test %d of %d", i, size)
+		id := permission.ID{ObjectType: test.objectType}
+		err := id.ValidateAccess(test.access)
+		if test.fail {
+			c.Assert(err, jc.ErrorIs, errors.NotValid, gc.Commentf("test %d", i))
+		} else {
+			c.Check(err, jc.ErrorIsNil, gc.Commentf("test %d", i))
+		}
+	}
+}
+
+func (*accessSuite) TestParseTagForID(c *gc.C) {
+	id, err := permission.ParseTagForID(names.NewCloudTag("testcloud"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(id.ObjectType, gc.Equals, permission.Cloud)
+}
+
+func (*accessSuite) TestParseTagForIDFail(c *gc.C) {
+	_, err := permission.ParseTagForID(nil)
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
+	_, err = permission.ParseTagForID(names.NewUserTag("testcloud"))
+	c.Assert(err, jc.ErrorIs, errors.NotSupported)
 }

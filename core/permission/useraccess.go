@@ -9,6 +9,11 @@ import (
 	"github.com/juju/names/v5"
 )
 
+// TODO hml 2024-02-05
+// Replace CreatedBy, UserTag and Object with non Tag types once
+// the cut over the permission domain is complete. Is UserTag still
+// necessary if UserName exists?
+
 // UserAccess represents a user access to a target whereas the user
 // could represent a remote user or a user across multiple models the
 // user access always represents a single user for a single target.
