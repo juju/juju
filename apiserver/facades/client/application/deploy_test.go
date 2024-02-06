@@ -67,6 +67,7 @@ func (s *DeployLocalSuite) TestDeployControllerNotAllowed(c *gc.C) {
 		s.ControllerModel(c),
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
+		serviceFactory.Application(),
 		jujutesting.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State()),
 		application.DeployApplicationParams{
 			ApplicationName: "my-controller",
@@ -86,6 +87,7 @@ func (s *DeployLocalSuite) TestDeployMinimal(c *gc.C) {
 		s.ControllerModel(c),
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
+		serviceFactory.Application(),
 		jujutesting.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State()),
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
@@ -111,6 +113,7 @@ func (s *DeployLocalSuite) TestDeployChannel(c *gc.C) {
 		s.ControllerModel(c),
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
+		serviceFactory.Application(),
 		jujutesting.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State()),
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
@@ -137,6 +140,7 @@ func (s *DeployLocalSuite) TestDeployWithImplicitBindings(c *gc.C) {
 		s.ControllerModel(c),
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
+		serviceFactory.Application(),
 		jujutesting.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State()),
 		application.DeployApplicationParams{
 			ApplicationName:  "bob",
@@ -208,6 +212,7 @@ func (s *DeployLocalSuite) TestDeployWithSomeSpecifiedBindings(c *gc.C) {
 		model,
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
+		serviceFactory.Application(),
 		jujutesting.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State()),
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
@@ -258,6 +263,7 @@ func (s *DeployLocalSuite) TestDeployWithBoundRelationNamesAndExtraBindingsNames
 		model,
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
+		serviceFactory.Application(),
 		jujutesting.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State()),
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
@@ -307,6 +313,7 @@ func (s *DeployLocalSuite) TestDeployWithInvalidSpace(c *gc.C) {
 		model,
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
+		serviceFactory.Application(),
 		jujutesting.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State()),
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
@@ -335,6 +342,7 @@ func (s *DeployLocalSuite) TestDeployResources(c *gc.C) {
 		s.ControllerModel(c),
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
+		serviceFactory.Application(),
 		jujutesting.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State()),
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
@@ -362,6 +370,7 @@ func (s *DeployLocalSuite) TestDeploySettings(c *gc.C) {
 		s.ControllerModel(c),
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
+		serviceFactory.Application(),
 		jujutesting.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State()),
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
@@ -390,6 +399,7 @@ func (s *DeployLocalSuite) TestDeploySettingsError(c *gc.C) {
 		s.ControllerModel(c),
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
+		serviceFactory.Application(),
 		jujutesting.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State()),
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
@@ -430,6 +440,7 @@ func (s *DeployLocalSuite) TestDeployWithApplicationConfig(c *gc.C) {
 		s.ControllerModel(c),
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
+		serviceFactory.Application(),
 		jujutesting.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State()),
 		application.DeployApplicationParams{
 			ApplicationName:   "bob",
@@ -459,6 +470,7 @@ func (s *DeployLocalSuite) TestDeployConstraints(c *gc.C) {
 		s.ControllerModel(c),
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
+		serviceFactory.Application(),
 		jujutesting.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State()),
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
@@ -482,6 +494,7 @@ func (s *DeployLocalSuite) TestDeployNumUnits(c *gc.C) {
 		s.ControllerModel(c),
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
+		serviceFactory.Application(),
 		jujutesting.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State()),
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
@@ -510,6 +523,7 @@ func (s *DeployLocalSuite) TestDeployForceMachineId(c *gc.C) {
 		s.ControllerModel(c),
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
+		serviceFactory.Application(),
 		jujutesting.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State()),
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
@@ -541,6 +555,7 @@ func (s *DeployLocalSuite) TestDeployForceMachineIdWithContainer(c *gc.C) {
 		s.ControllerModel(c),
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
+		serviceFactory.Application(),
 		jujutesting.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State()),
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
@@ -577,6 +592,7 @@ func (s *DeployLocalSuite) TestDeploy(c *gc.C) {
 		s.ControllerModel(c),
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
+		serviceFactory.Application(),
 		jujutesting.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State()),
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
@@ -616,6 +632,7 @@ func (s *DeployLocalSuite) TestDeployWithUnmetCharmRequirements(c *gc.C) {
 		model,
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
+		serviceFactory.Application(),
 		jujutesting.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State()),
 		application.DeployApplicationParams{
 			ApplicationName: "assume-metal",
@@ -647,6 +664,7 @@ func (s *DeployLocalSuite) TestDeployWithUnmetCharmRequirementsAndForce(c *gc.C)
 		model,
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
+		serviceFactory.Application(),
 		jujutesting.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State()),
 		application.DeployApplicationParams{
 			ApplicationName: "assume-metal",
@@ -671,6 +689,7 @@ func (s *DeployLocalSuite) TestDeployWithFewerPlacement(c *gc.C) {
 		s.ControllerModel(c),
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
+		serviceFactory.Application(),
 		jujutesting.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State()),
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
@@ -757,8 +776,8 @@ type stateDeployer struct {
 	*state.State
 }
 
-func (d stateDeployer) AddApplication(args state.AddApplicationArgs, store objectstore.ObjectStore) (application.Application, error) {
-	app, err := d.State.AddApplication(args, store)
+func (d stateDeployer) AddApplication(args state.AddApplicationArgs, as application.ApplicationSaver, store objectstore.ObjectStore) (application.Application, error) {
+	app, err := d.State.AddApplication(args, as, store)
 	if err != nil {
 		return nil, err
 	}
@@ -777,7 +796,7 @@ func (f *fakeDeployer) ControllerConfig() (controller.Config, error) {
 	return controller.NewConfig(coretesting.ControllerTag.Id(), coretesting.CACert, map[string]interface{}{})
 }
 
-func (f *fakeDeployer) AddApplication(args state.AddApplicationArgs, store objectstore.ObjectStore) (application.Application, error) {
+func (f *fakeDeployer) AddApplication(args state.AddApplicationArgs, _ application.ApplicationSaver, _ objectstore.ObjectStore) (application.Application, error) {
 	f.args = args
 	return nil, nil
 }

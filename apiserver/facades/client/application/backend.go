@@ -38,7 +38,7 @@ type Backend interface {
 	Application(string) (Application, error)
 	ApplicationOfferForUUID(offerUUID string) (*crossmodel.ApplicationOffer, error)
 	ApplyOperation(state.ModelOperation) error
-	AddApplication(state.AddApplicationArgs, objectstore.ObjectStore) (Application, error)
+	AddApplication(state.AddApplicationArgs, ApplicationSaver, objectstore.ObjectStore) (Application, error)
 	AddPendingResource(string, resource.Resource, objectstore.ObjectStore) (string, error)
 	RemovePendingResources(applicationID string, pendingIDs map[string]string, store objectstore.ObjectStore) error
 	AddCharmMetadata(info state.CharmInfo) (Charm, error)
@@ -307,8 +307,8 @@ func (s stateShim) Application(name string) (Application, error) {
 	return stateApplicationShim{a, s.State}, nil
 }
 
-func (s stateShim) AddApplication(args state.AddApplicationArgs, store objectstore.ObjectStore) (Application, error) {
-	a, err := s.State.AddApplication(args, store)
+func (s stateShim) AddApplication(args state.AddApplicationArgs, applicationSaver ApplicationSaver, store objectstore.ObjectStore) (Application, error) {
+	a, err := s.State.AddApplication(args, applicationSaver, store)
 	if err != nil {
 		return nil, err
 	}

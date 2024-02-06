@@ -25,9 +25,10 @@ import (
 	coreconfig "github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/objectstore"
+	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/environs/bootstrap"
-	services "github.com/juju/juju/internal/charm/services"
-	state "github.com/juju/juju/state"
+	"github.com/juju/juju/internal/charm/services"
+	"github.com/juju/juju/state"
 )
 
 type deployerSuite struct {
@@ -257,8 +258,10 @@ func (s *deployerSuite) TestAddControllerApplication(c *gc.C) {
 
 		return s.application, nil
 	})
+	unitName := bootstrap.ControllerApplicationName + "/0"
 	s.application.EXPECT().Name().Return(bootstrap.ControllerApplicationName)
-	s.stateBackend.EXPECT().Unit(bootstrap.ControllerApplicationName+"/0").Return(s.unit, nil)
+	s.stateBackend.EXPECT().Unit(unitName).Return(s.unit, nil)
+	s.applicationSaver.EXPECT().Save(gomock.Any(), bootstrap.ControllerApplicationName, applicationservice.AddUnitParams{UnitName: &unitName})
 
 	deployer := s.newBaseDeployer(c, cfg)
 

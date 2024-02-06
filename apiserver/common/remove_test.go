@@ -71,7 +71,7 @@ func (*removeSuite) TestRemove(c *gc.C) {
 		afterDeadCalled = true
 	}
 
-	r := common.NewRemover(st, &fakeObjectStore{}, afterDead, true, getCanModify)
+	r := common.NewRemover(st, &fakeObjectStore{}, afterDead, true, getCanModify, fakeUnitRemover{})
 	entities := params.Entities{Entities: []params.Entity{
 		{Tag: "unit-x-0"}, {Tag: "unit-x-1"}, {Tag: "unit-x-2"}, {Tag: "unit-x-3"}, {Tag: "unit-x-4"}, {Tag: "unit-x-5"}, {Tag: "unit-x-6"},
 	}}
@@ -93,7 +93,7 @@ func (*removeSuite) TestRemove(c *gc.C) {
 	// Make sure when callEnsureDead is false EnsureDead() doesn't
 	// get called.
 	afterDeadCalled = false
-	r = common.NewRemover(st, &fakeObjectStore{}, afterDead, false, getCanModify)
+	r = common.NewRemover(st, &fakeObjectStore{}, afterDead, false, getCanModify, fakeUnitRemover{})
 	entities = params.Entities{Entities: []params.Entity{{Tag: "unit-x-0"}, {Tag: "unit-x-1"}}}
 	result, err = r.Remove(context.Background(), entities)
 	c.Assert(err, jc.ErrorIsNil)
@@ -110,7 +110,7 @@ func (*removeSuite) TestRemoveError(c *gc.C) {
 	getCanModify := func() (common.AuthFunc, error) {
 		return nil, fmt.Errorf("pow")
 	}
-	r := common.NewRemover(&fakeState{}, &fakeObjectStore{}, nil, true, getCanModify)
+	r := common.NewRemover(&fakeState{}, &fakeObjectStore{}, nil, true, getCanModify, fakeUnitRemover{})
 	_, err := r.Remove(context.Background(), params.Entities{Entities: []params.Entity{{Tag: "x0"}}})
 	c.Assert(err, gc.ErrorMatches, "pow")
 }
@@ -119,7 +119,7 @@ func (*removeSuite) TestRemoveNoArgsNoError(c *gc.C) {
 	getCanModify := func() (common.AuthFunc, error) {
 		return nil, fmt.Errorf("pow")
 	}
-	r := common.NewRemover(&fakeState{}, &fakeObjectStore{}, nil, true, getCanModify)
+	r := common.NewRemover(&fakeState{}, &fakeObjectStore{}, nil, true, getCanModify, fakeUnitRemover{})
 	result, err := r.Remove(context.Background(), params.Entities{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 0)
@@ -128,3 +128,7 @@ func (*removeSuite) TestRemoveNoArgsNoError(c *gc.C) {
 type fakeObjectStore struct {
 	objectstore.ObjectStore
 }
+
+type fakeUnitRemover struct{}
+
+func (fakeUnitRemover) Delete(context.Context, string) error { return nil }

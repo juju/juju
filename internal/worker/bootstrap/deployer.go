@@ -98,6 +98,7 @@ type AgentBinaryBootstrapFunc func(context.Context, string, BinaryAgentStorageSe
 // ControllerCharmDeployer.
 type ControllerCharmDeployerConfig struct {
 	StateBackend                SystemState
+	ApplicationSaver            ApplicationSaver
 	ObjectStore                 objectstore.ObjectStore
 	ControllerConfig            controller.Config
 	DataDir                     string
@@ -167,6 +168,7 @@ func makeBaseDeployerConfig(cfg ControllerCharmDeployerConfig) bootstrap.BaseDep
 		DataDir:             cfg.DataDir,
 		ObjectStore:         cfg.ObjectStore,
 		StateBackend:        cfg.StateBackend,
+		ApplicationSaver:    cfg.ApplicationSaver,
 		CharmUploader:       cfg.StateBackend,
 		Constraints:         cfg.BootstrapMachineConstraints,
 		ControllerConfig:    cfg.ControllerConfig,
@@ -228,6 +230,7 @@ func (f loggoLoggerFactory) Namespace(name string) LoggerFactory {
 
 type stateShim struct {
 	*state.State
+	applicationSaver ApplicationSaver
 }
 
 func (s *stateShim) PrepareCharmUpload(curl string) (services.UploadedCharm, error) {
@@ -239,7 +242,7 @@ func (s *stateShim) UpdateUploadedCharm(info state.CharmInfo) (services.Uploaded
 }
 
 func (s *stateShim) AddApplication(args state.AddApplicationArgs, objectStore objectstore.ObjectStore) (bootstrap.Application, error) {
-	a, err := s.State.AddApplication(args, objectStore)
+	a, err := s.State.AddApplication(args, s.applicationSaver, objectStore)
 	if err != nil {
 		return nil, err
 	}

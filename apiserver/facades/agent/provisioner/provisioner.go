@@ -168,9 +168,11 @@ func NewProvisionerAPI(stdCtx stdcontext.Context, ctx facade.Context) (*Provisio
 	}
 	urlGetter := common.NewToolsURLGetter(model.UUID(), systemState)
 
+	unitRemover := ctx.ServiceFactory().Unit()
+
 	resources := ctx.Resources()
 	api := &ProvisionerAPI{
-		Remover:              common.NewRemover(st, ctx.ObjectStore(), nil, false, getAuthFunc),
+		Remover:              common.NewRemover(st, ctx.ObjectStore(), nil, false, getAuthFunc, unitRemover),
 		StatusSetter:         common.NewStatusSetter(st, getAuthFunc),
 		StatusGetter:         common.NewStatusGetter(st, getAuthFunc),
 		DeadEnsurer:          common.NewDeadEnsurer(st, nil, getAuthFunc),

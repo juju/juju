@@ -28,7 +28,9 @@ import (
 
 // TestingServiceFactory provides access to the services required by the apiserver.
 type TestingServiceFactory struct {
-	machineServiceGetter func() *machineservice.Service
+	machineServiceGetter     func() *machineservice.Service
+	applicationServiceGetter func() *applicationservice.Service
+	unitServiceGetter        func() *unitservice.Service
 }
 
 // NewTestingServiceFactory returns a new registry which uses the provided controllerDB
@@ -145,10 +147,31 @@ func (s *TestingServiceFactory) BlockDevice() *blockdeviceservice.WatchableServi
 
 // Application returns the block device service.
 func (s *TestingServiceFactory) Application() *applicationservice.Service {
-	return nil
+	if s.applicationServiceGetter == nil {
+		return nil
+	}
+	return s.applicationServiceGetter()
+}
+
+// WithApplicationService returns a service factory which gets its application service
+// using the supplied getter.
+func (s *TestingServiceFactory) WithApplicationService(getter func() *applicationservice.Service) *TestingServiceFactory {
+	s.applicationServiceGetter = getter
+	return s
 }
 
 // Unit returns the block device service.
 func (s *TestingServiceFactory) Unit() *unitservice.Service {
-	return nil
+	if s.unitServiceGetter == nil {
+		return nil
+	}
+	return s.unitServiceGetter()
+
+}
+
+// WithUnitService returns a service factory which gets its unit service
+// using the supplied getter.
+func (s *TestingServiceFactory) WithUnitService(getter func() *unitservice.Service) *TestingServiceFactory {
+	s.unitServiceGetter = getter
+	return s
 }

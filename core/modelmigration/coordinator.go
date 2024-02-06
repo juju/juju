@@ -64,6 +64,9 @@ type Scope struct {
 	modelDB      database.TxnRunnerFactory
 }
 
+// ScopeForModel returns a Scope for the given model UUID.
+type ScopeForModel func(modelUUID string) Scope
+
 // NewScope creates a new scope with the given database txn runners.
 func NewScope(controllerDB, modelDB database.TxnRunnerFactory) Scope {
 	return Scope{

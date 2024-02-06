@@ -18,11 +18,13 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
+	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -39,14 +41,20 @@ type MachineSaver interface {
 	Save(context.Context, string) error
 }
 
+// ApplicationSaver instances save an application to dqlite state.
+type ApplicationSaver interface {
+	Save(ctx context.Context, name string, units ...applicationservice.AddUnitParams) error
+}
+
 // HighAvailabilityAPI implements the HighAvailability interface and is the concrete
 // implementation of the api end point.
 type HighAvailabilityAPI struct {
-	st           *state.State
-	nodeService  NodeService
-	machineSaver MachineSaver
-	authorizer   facade.Authorizer
-	logger       loggo.Logger
+	st                   *state.State
+	nodeService          NodeService
+	machineSaver         MachineSaver
+	applicationSaveSaver ApplicationSaver
+	authorizer           facade.Authorizer
+	logger               loggo.Logger
 }
 
 // EnableHA adds controller machines as necessary to ensure the
@@ -131,7 +139,7 @@ func (api *HighAvailabilityAPI) enableHASingle(ctx context.Context, spec params.
 	}
 
 	// Might be nicer to pass the spec itself to this method.
-	changes, err := st.EnableHA(spec.NumControllers, spec.Constraints, referenceMachine.Base(), spec.Placement)
+	changes, addedUnits, err := st.EnableHA(spec.NumControllers, spec.Constraints, referenceMachine.Base(), spec.Placement)
 	if err != nil {
 		return params.ControllersChanges{}, err
 	}
@@ -147,6 +155,16 @@ func (api *HighAvailabilityAPI) enableHASingle(ctx context.Context, spec params.
 	// Add the dqlite records for new machines.
 	for _, m := range changes.Added {
 		if err := api.machineSaver.Save(ctx, m); err != nil {
+			return params.ControllersChanges{}, err
+		}
+	}
+	if len(addedUnits) > 0 {
+		addUnitArgs := make([]applicationservice.AddUnitParams, len(addedUnits))
+		for i := range addUnitArgs {
+			n := addedUnits[i]
+			addUnitArgs[i].UnitName = &n
+		}
+		if err := api.applicationSaveSaver.Save(ctx, application.ControllerApplicationName, addUnitArgs...); err != nil {
 			return params.ControllersChanges{}, err
 		}
 	}

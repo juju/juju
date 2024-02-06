@@ -787,7 +787,7 @@ func (s *ModelSuite) TestDestroyControllerAndHostedModelsWithResources(c *gc.C) 
 			Channel: "12.10/stable",
 		}},
 	}
-	_, err = otherSt.AddApplication(args, state.NewObjectStore(c, otherSt))
+	_, err = otherSt.AddApplication(args, mockApplicationSaver{}, state.NewObjectStore(c, otherSt))
 	c.Assert(err, jc.ErrorIsNil)
 
 	controllerModel, err := s.State.Model()
@@ -1266,7 +1266,7 @@ func (s *ModelSuite) TestProcessDyingModelWithMachinesAndApplicationsNoOp(c *gc.
 			Channel: "12.10/stable",
 		}},
 	}
-	_, err = st.AddApplication(args, state.NewObjectStore(c, st))
+	_, err = st.AddApplication(args, mockApplicationSaver{}, state.NewObjectStore(c, st))
 	c.Assert(err, jc.ErrorIsNil)
 
 	assertModel := func(life state.Life, expectedMachines, expectedApplications int) {
@@ -1811,7 +1811,7 @@ func (s *ModelCloudValidationSuite) initializeState(
 }
 
 func assertCleanupRuns(c *gc.C, st *state.State) {
-	err := st.Cleanup(context.Background(), state.NewObjectStore(c, st), fakeMachineRemover{})
+	err := st.Cleanup(context.Background(), state.NewObjectStore(c, st), fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{})
 	c.Assert(err, jc.ErrorIsNil)
 }
 

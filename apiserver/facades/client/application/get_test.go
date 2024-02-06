@@ -64,6 +64,7 @@ func (s *getSuite) SetUpTest(c *gc.C) {
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
 		serviceFactory.Machine(),
+		serviceFactory.Application(),
 		nil, // leadership not used in this suite.
 		application.CharmToStateCharm,
 		application.DeployApplication,
@@ -197,6 +198,7 @@ func (s *getSuite) TestClientApplicationGetCAASModelSmokeTest(c *gc.C) {
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
 		serviceFactory.Machine(),
+		serviceFactory.Application(),
 		nil, // leadership not used in this suite.
 		application.CharmToStateCharm,
 		application.DeployApplication,

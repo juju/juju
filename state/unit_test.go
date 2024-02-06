@@ -1004,7 +1004,7 @@ func (s *UnitSuite) destroyMachineTestCases(c *gc.C) []destroyMachineTestCase {
 		tc := destroyMachineTestCase{desc: "host has vote", destroyed: false}
 		tc.host, err = s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 		c.Assert(err, jc.ErrorIsNil)
-		_, err = s.State.EnableHA(1, constraints.Value{}, state.UbuntuBase("12.10"), []string{tc.host.Id()})
+		_, _, err = s.State.EnableHA(1, constraints.Value{}, state.UbuntuBase("12.10"), []string{tc.host.Id()})
 		c.Assert(err, jc.ErrorIsNil)
 		node, err := s.State.ControllerNode(tc.host.Id())
 		c.Assert(err, jc.ErrorIsNil)
@@ -1103,7 +1103,7 @@ func (s *UnitSuite) demoteController(c *gc.C, m *state.Machine) {
 func (s *UnitSuite) TestRemoveUnitMachineThrashed(c *gc.C) {
 	host, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.EnableHA(3, constraints.Value{}, state.UbuntuBase("12.10"), []string{host.Id()})
+	_, _, err = s.State.EnableHA(3, constraints.Value{}, state.UbuntuBase("12.10"), []string{host.Id()})
 	c.Assert(err, jc.ErrorIsNil)
 	err = host.SetProvisioned("inst-id", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1130,7 +1130,7 @@ func (s *UnitSuite) TestRemoveUnitMachineThrashed(c *gc.C) {
 func (s *UnitSuite) TestRemoveUnitMachineRetryVoter(c *gc.C) {
 	host, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.EnableHA(3, constraints.Value{}, state.UbuntuBase("12.10"), []string{host.Id()})
+	_, _, err = s.State.EnableHA(3, constraints.Value{}, state.UbuntuBase("12.10"), []string{host.Id()})
 	c.Assert(err, jc.ErrorIsNil)
 	err = host.SetProvisioned("inst-id", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1149,7 +1149,7 @@ func (s *UnitSuite) TestRemoveUnitMachineRetryVoter(c *gc.C) {
 func (s *UnitSuite) TestRemoveUnitMachineRetryNoVoter(c *gc.C) {
 	host, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.EnableHA(3, constraints.Value{}, state.UbuntuBase("12.10"), []string{host.Id()})
+	_, _, err = s.State.EnableHA(3, constraints.Value{}, state.UbuntuBase("12.10"), []string{host.Id()})
 	c.Assert(err, jc.ErrorIsNil)
 	err = host.SetProvisioned("inst-id", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1197,7 +1197,7 @@ func (s *UnitSuite) TestRemoveUnitMachineRetryContainer(c *gc.C) {
 func (s *UnitSuite) TestRemoveUnitMachineRetryOrCond(c *gc.C) {
 	host, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.EnableHA(1, constraints.Value{}, state.UbuntuBase("12.10"), []string{host.Id()})
+	_, _, err = s.State.EnableHA(1, constraints.Value{}, state.UbuntuBase("12.10"), []string{host.Id()})
 	c.Assert(err, jc.ErrorIsNil)
 	err = host.SetProvisioned("inst-id", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1250,7 +1250,7 @@ func (s *UnitSuite) TestRemoveUnitWRelationLastUnit(c *gc.C) {
 	c.Assert(s.unit.EnsureDead(), jc.ErrorIsNil)
 	assertLife(c, s.application, state.Dying)
 	c.Assert(s.unit.Remove(state.NewObjectStore(c, s.State)), jc.ErrorIsNil)
-	c.Assert(s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State), fakeMachineRemover{}), jc.ErrorIsNil)
+	c.Assert(s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State), fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{}), jc.ErrorIsNil)
 	// Now the application should be gone
 	c.Assert(s.application.Refresh(), jc.ErrorIs, errors.NotFound)
 }
@@ -2453,7 +2453,7 @@ func (s *UnitSuite) TestRemovePathological(c *gc.C) {
 	// ...but when the unit on the other side departs the relation, the
 	// relation and the other application are cleaned up.
 	c.Assert(mysql0ru.LeaveScope(), jc.ErrorIsNil)
-	c.Assert(s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State), fakeMachineRemover{}), jc.ErrorIsNil)
+	c.Assert(s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State), fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{}), jc.ErrorIsNil)
 	c.Assert(wordpress.Refresh(), jc.ErrorIs, errors.NotFound)
 	c.Assert(rel.Refresh(), jc.ErrorIs, errors.NotFound)
 }
@@ -2495,7 +2495,7 @@ func (s *UnitSuite) TestRemovePathologicalWithBuggyUniter(c *gc.C) {
 	// removal causes the relation and the other application to be cleaned up.
 	c.Assert(mysql0.EnsureDead(), jc.ErrorIsNil)
 	c.Assert(mysql0.Remove(state.NewObjectStore(c, s.State)), jc.ErrorIsNil)
-	c.Assert(s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State), fakeMachineRemover{}), jc.ErrorIsNil)
+	c.Assert(s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State), fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{}), jc.ErrorIsNil)
 	c.Assert(wordpress.Refresh(), jc.ErrorIs, errors.NotFound)
 	c.Assert(rel.Refresh(), jc.ErrorIs, errors.NotFound)
 }
@@ -2844,7 +2844,7 @@ func (s *UnitSuite) TestDestroyWithForceWorksOnDyingUnit(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(needsCleanup, gc.Equals, true)
 
-	err = s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State), fakeMachineRemover{})
+	err = s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State), fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{})
 	c.Assert(err, jc.ErrorIsNil)
 	needsCleanup, err = s.State.NeedsCleanup()
 	c.Assert(err, jc.ErrorIsNil)
@@ -2852,14 +2852,28 @@ func (s *UnitSuite) TestDestroyWithForceWorksOnDyingUnit(c *gc.C) {
 
 	// Force-destroying the unit should schedule a cleanup so we get a
 	// chance for the fallback force-cleanup to run.
-	opErrs, err := unit.DestroyWithForce(state.NewObjectStore(c, s.State), true, dontWait)
+	removed, opErrs, err := unit.DestroyWithForce(state.NewObjectStore(c, s.State), true, dontWait)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(opErrs, gc.IsNil)
+	c.Assert(removed, jc.IsFalse)
 
 	// We scheduled the dying unit cleanup again even though the unit was dying already.
 	needsCleanup, err = s.State.NeedsCleanup()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(needsCleanup, gc.Equals, true)
+}
+
+func (s *UnitSuite) TestDestroyWithForceReportsRemoved(c *gc.C) {
+	// Ensure that a cleanup is scheduled if we force destroy a unit
+	// that's already dying.
+	ch := state.AddTestingCharm(c, s.State, "dummy")
+	app := state.AddTestingApplication(c, s.State, "alexandrite", ch)
+	unit, err := app.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	removed, opErrs, err := unit.DestroyWithForce(state.NewObjectStore(c, s.State), true, dontWait)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(opErrs, gc.IsNil)
+	c.Assert(removed, jc.IsTrue)
 }
 
 func (s *UnitSuite) TestWatchMachineAndEndpointAddressesHash(c *gc.C) {

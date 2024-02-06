@@ -121,7 +121,7 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 	c.Assert(err, jc.ErrorIsNil)
 	needController := len(controllerIds) == 0
 	if needController {
-		_, err = st.EnableHA(1, constraints.Value{}, UbuntuBase("20.04"), []string{m.Id()})
+		_, _, err = st.EnableHA(1, constraints.Value{}, UbuntuBase("20.04"), []string{m.Id()})
 		c.Assert(err, jc.ErrorIsNil)
 		node, err := st.ControllerNode(m.Id())
 		c.Assert(err, jc.ErrorIsNil)

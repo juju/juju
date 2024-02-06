@@ -85,10 +85,11 @@ type APIBase struct {
 	updateBase UpdateBase
 	repoDeploy DeployFromRepository
 
-	model             Model
-	cloudService      common.CloudService
-	credentialService common.CredentialService
-	machineService    MachineSaver
+	model              Model
+	cloudService       common.CloudService
+	credentialService  common.CredentialService
+	machineService     MachineSaver
+	applicationService ApplicationSaver
 
 	resources        facade.Resources
 	leadershipReader leadership.Reader
@@ -176,7 +177,7 @@ func newFacadeBase(stdCtx context.Context, ctx facade.Context) (*APIBase, error)
 		state:              state,
 		storagePoolManager: storagePoolManager,
 	}
-	repoDeploy := NewDeployFromRepositoryAPI(state, ctx.ObjectStore(), makeDeployFromRepositoryValidator(stdCtx, validatorCfg))
+	repoDeploy := NewDeployFromRepositoryAPI(state, serviceFactory.Application(), ctx.ObjectStore(), makeDeployFromRepositoryValidator(stdCtx, validatorCfg))
 
 	return NewAPIBase(
 		state,
@@ -190,6 +191,7 @@ func newFacadeBase(stdCtx context.Context, ctx facade.Context) (*APIBase, error)
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
 		serviceFactory.Machine(),
+		serviceFactory.Application(),
 		leadershipReader,
 		stateCharm,
 		DeployApplication,
@@ -202,7 +204,7 @@ func newFacadeBase(stdCtx context.Context, ctx facade.Context) (*APIBase, error)
 }
 
 // DeployApplicationFunc is a function that deploys an application.
-type DeployApplicationFunc = func(context.Context, ApplicationDeployer, Model, common.CloudService, common.CredentialService, objectstore.ObjectStore, DeployApplicationParams) (Application, error)
+type DeployApplicationFunc = func(context.Context, ApplicationDeployer, Model, common.CloudService, common.CredentialService, ApplicationSaver, objectstore.ObjectStore, DeployApplicationParams) (Application, error)
 
 // NewAPIBase returns a new application API facade.
 func NewAPIBase(
@@ -217,6 +219,7 @@ func NewAPIBase(
 	cloudService common.CloudService,
 	credentialService common.CredentialService,
 	machineService MachineSaver,
+	applicationService ApplicationSaver,
 	leadershipReader leadership.Reader,
 	stateCharm func(Charm) *state.Charm,
 	deployApplication DeployApplicationFunc,
@@ -242,6 +245,7 @@ func NewAPIBase(
 		cloudService:          cloudService,
 		credentialService:     credentialService,
 		machineService:        machineService,
+		applicationService:    applicationService,
 		leadershipReader:      leadershipReader,
 		stateCharm:            stateCharm,
 		deployApplicationFunc: deployApplication,
@@ -325,6 +329,7 @@ func (api *APIBase) Deploy(ctx context.Context, args params.ApplicationsDeploy) 
 			api.stateCharm,
 			arg,
 			api.deployApplicationFunc,
+			api.applicationService,
 			api.storagePoolManager,
 			api.registry,
 			api.caasBroker,
@@ -524,6 +529,7 @@ func deployApplication(
 	stateCharm func(Charm) *state.Charm,
 	args params.ApplicationDeploy,
 	deployApplicationFunc DeployApplicationFunc,
+	applicationService ApplicationSaver,
 	storagePoolManager poolmanager.PoolManager,
 	registry storage.ProviderRegistry,
 	caasBroker CaasBrokerInterface,
@@ -594,7 +600,7 @@ func deployApplication(
 	if err != nil {
 		return errors.Trace(err)
 	}
-	_, err = deployApplicationFunc(ctx, backend, model, cloudService, credentialService, store, DeployApplicationParams{
+	_, err = deployApplicationFunc(ctx, backend, model, cloudService, credentialService, applicationService, store, DeployApplicationParams{
 		ApplicationName:   args.ApplicationName,
 		Charm:             stateCharm(ch),
 		CharmOrigin:       origin,
@@ -1417,7 +1423,7 @@ func (api *APIBase) AddUnits(ctx context.Context, args params.AddApplicationUnit
 	if err := api.check.ChangeAllowed(ctx); err != nil {
 		return params.AddApplicationUnitsResults{}, errors.Trace(err)
 	}
-	units, err := addApplicationUnits(ctx, api.machineService, api.backend, api.model.Type(), args)
+	units, err := addApplicationUnits(ctx, api.machineService, api.applicationService, api.backend, api.model.Type(), args)
 	if err != nil {
 		return params.AddApplicationUnitsResults{}, errors.Trace(err)
 	}
@@ -1429,7 +1435,10 @@ func (api *APIBase) AddUnits(ctx context.Context, args params.AddApplicationUnit
 }
 
 // addApplicationUnits adds a given number of units to an application.
-func addApplicationUnits(ctx context.Context, machineService MachineSaver, backend Backend, modelType state.ModelType, args params.AddApplicationUnits) ([]Unit, error) {
+func addApplicationUnits(
+	ctx context.Context, machineService MachineSaver, applicationService ApplicationSaver,
+	backend Backend, modelType state.ModelType, args params.AddApplicationUnits,
+) ([]Unit, error) {
 	if args.NumUnits < 1 {
 		return nil, errors.New("must add at least one unit")
 	}
@@ -1474,6 +1483,7 @@ func addApplicationUnits(ctx context.Context, machineService MachineSaver, backe
 		ctx,
 		oneApplication,
 		machineService,
+		applicationService,
 		args.ApplicationName,
 		args.NumUnits,
 		args.Placement,

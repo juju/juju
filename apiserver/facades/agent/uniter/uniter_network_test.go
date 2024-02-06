@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
+	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/feature"
 	"github.com/juju/juju/juju/testing"
@@ -36,6 +37,12 @@ type uniterNetworkInfoSuite struct {
 }
 
 var _ = gc.Suite(&uniterNetworkInfoSuite{})
+
+type mockApplicationSaver struct{}
+
+func (mockApplicationSaver) Save(context.Context, string, ...applicationservice.AddUnitParams) error {
+	return nil
+}
 
 func (s *uniterNetworkInfoSuite) SetUpTest(c *gc.C) {
 	s.ControllerConfigAttrs = map[string]interface{}{
@@ -96,7 +103,7 @@ func (s *uniterNetworkInfoSuite) SetUpTest(c *gc.C) {
 			"foo-bar":   "layertwo",   // extra-binding to L2
 			"":          "wp-default", // explicitly specified default space
 		},
-	}, testing.NewObjectStore(c, s.st.ModelUUID(), s.st))
+	}, mockApplicationSaver{}, testing.NewObjectStore(c, s.st.ModelUUID(), s.st))
 	c.Assert(err, jc.ErrorIsNil)
 	s.wordpressUnit = f.MakeUnit(c, &factory.UnitParams{
 		Application: s.wordpress,

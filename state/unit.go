@@ -515,16 +515,25 @@ func (op *UpdateUnitOperation) Done(err error) error {
 // to a provisioned machine is Destroyed, it will be removed from state
 // directly.
 func (u *Unit) Destroy(store objectstore.ObjectStore) error {
-	errs, err := u.DestroyWithForce(store, false, time.Duration(0))
+	_, errs, err := u.DestroyWithForce(store, false, time.Duration(0))
 	if len(errs) != 0 {
 		logger.Warningf("operational errors destroying unit %v: %v", u.Name(), errs)
 	}
 	return err
 }
 
+// DestroyMaybeRemove destroys a unit and returns if it was also removed.
+func (u *Unit) DestroyMaybeRemove(store objectstore.ObjectStore) (bool, error) {
+	removed, errs, err := u.DestroyWithForce(store, false, time.Duration(0))
+	if len(errs) != 0 {
+		logger.Warningf("operational errors destroying unit %v: %v", u.Name(), errs)
+	}
+	return removed, err
+}
+
 // DestroyWithForce does the same thing as Destroy() but
 // ignores errors.
-func (u *Unit) DestroyWithForce(store objectstore.ObjectStore, force bool, maxWait time.Duration) (errs []error, err error) {
+func (u *Unit) DestroyWithForce(store objectstore.ObjectStore, force bool, maxWait time.Duration) (removed bool, errs []error, err error) {
 	defer func() {
 		if err == nil {
 			// This is a white lie; the document might actually be removed.
@@ -535,7 +544,7 @@ func (u *Unit) DestroyWithForce(store objectstore.ObjectStore, force bool, maxWa
 	op.Force = force
 	op.MaxWait = maxWait
 	err = u.st.ApplyOperation(op)
-	return op.Errors, err
+	return op.Removed, op.Errors, err
 }
 
 // DestroyOperation returns a model operation that will destroy the unit.
@@ -558,6 +567,9 @@ type DestroyUnitOperation struct {
 	// to the unit is destroyed. If this is false, then detachable
 	// storage will be detached and left in the model.
 	DestroyStorage bool
+
+	// Removed is true if the application is removed during destroy.
+	Removed bool
 
 	// Store is the object store to use for blob access.
 	Store objectstore.ObjectStore
@@ -812,6 +824,7 @@ func (op *DestroyUnitOperation) destroyOps() ([]txn.Op, error) {
 		ops = append(ops, minUnitsOp)
 	}
 	ops = append(ops, removeOps...)
+	op.Removed = true
 	return ops, nil
 }
 

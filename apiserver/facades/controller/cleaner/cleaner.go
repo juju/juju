@@ -23,11 +23,13 @@ type CleanerAPI struct {
 	resources      facade.Resources
 	objectStore    objectstore.ObjectStore
 	machineRemover state.MachineRemover
+	appRemover     state.ApplicationRemover
+	unitRemover    state.UnitRemover
 }
 
 // Cleanup triggers a state cleanup
 func (api *CleanerAPI) Cleanup(ctx context.Context) error {
-	return api.st.Cleanup(ctx, api.objectStore, api.machineRemover)
+	return api.st.Cleanup(ctx, api.objectStore, api.machineRemover, api.appRemover, api.unitRemover)
 }
 
 // WatchCleanups watches for cleanups to be performed in state.

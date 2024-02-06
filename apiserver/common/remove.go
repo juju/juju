@@ -17,6 +17,12 @@ import (
 	"github.com/juju/juju/state"
 )
 
+// UnitRemover deletes a unit from the dqlite database.
+// This allows us to initially weave some dqlite support into the cleanup workflow.
+type UnitRemover interface {
+	Delete(context.Context, string) error
+}
+
 // Remover implements a common Remove method for use by various facades.
 type Remover struct {
 	st             state.EntityFinder
@@ -24,23 +30,25 @@ type Remover struct {
 	afterDead      func(tag names.Tag)
 	callEnsureDead bool
 	getCanModify   GetAuthFunc
+	unitRemover    UnitRemover
 }
 
 // NewRemover returns a new Remover. The callEnsureDead flag specifies
 // whether EnsureDead should be called on an entity before
 // removing. The GetAuthFunc will be used on each invocation of Remove
 // to determine current permissions.
-func NewRemover(st state.EntityFinder, store objectstore.ObjectStore, afterDead func(tag names.Tag), callEnsureDead bool, getCanModify GetAuthFunc) *Remover {
+func NewRemover(st state.EntityFinder, store objectstore.ObjectStore, afterDead func(tag names.Tag), callEnsureDead bool, getCanModify GetAuthFunc, unitRemover UnitRemover) *Remover {
 	return &Remover{
 		st:             st,
 		store:          store,
 		afterDead:      afterDead,
 		callEnsureDead: callEnsureDead,
 		getCanModify:   getCanModify,
+		unitRemover:    unitRemover,
 	}
 }
 
-func (r *Remover) removeEntity(tag names.Tag) error {
+func (r *Remover) removeEntity(ctx context.Context, tag names.Tag) error {
 	entity, err := r.st.FindEntity(tag)
 	if err != nil {
 		return err
@@ -66,7 +74,11 @@ func (r *Remover) removeEntity(tag names.Tag) error {
 		}
 	}
 	// TODO (anastasiamac) this needs to work with force if needed
-	return remover.Remove(r.store)
+	err = remover.Remove(r.store)
+	if err != nil || tag.Kind() != names.UnitTagKind {
+		return err
+	}
+	return r.unitRemover.Delete(ctx, tag.Id())
 }
 
 // Remove removes every given entity from state, calling EnsureDead
@@ -90,7 +102,7 @@ func (r *Remover) Remove(ctx context.Context, args params.Entities) (params.Erro
 		}
 		err = apiservererrors.ErrPerm
 		if canModify(tag) {
-			err = r.removeEntity(tag)
+			err = r.removeEntity(ctx, tag)
 		}
 		result.Results[i].Error = apiservererrors.ServerError(err)
 	}

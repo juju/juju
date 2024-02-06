@@ -23,13 +23,19 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/paths"
+	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
 
-// ControllerState defines the API methods on the ControllerState facade.
+// ControllerConfigService defines the API methods on the ControllerState facade.
 type ControllerConfigService interface {
 	ControllerConfig(context.Context) (controller.Config, error)
+}
+
+// ApplicationSaver instances save an application to dqlite state.
+type ApplicationSaver interface {
+	Save(ctx context.Context, name string, units ...applicationservice.AddUnitParams) error
 }
 
 // Facade defines the API methods on the CAASApplication facade.
@@ -38,6 +44,7 @@ type Facade struct {
 	resources               facade.Resources
 	ctrlSt                  ControllerState
 	controllerConfigService ControllerConfigService
+	applicationSaver        ApplicationSaver
 	state                   State
 	model                   Model
 	clock                   clock.Clock
@@ -52,6 +59,7 @@ func NewFacade(
 	ctrlSt ControllerState,
 	st State,
 	controllerConfigService ControllerConfigService,
+	applicationSaver ApplicationSaver,
 	broker Broker,
 	clock clock.Clock,
 	logger loggo.Logger,
@@ -69,6 +77,7 @@ func NewFacade(
 		ctrlSt:                  ctrlSt,
 		state:                   st,
 		controllerConfigService: controllerConfigService,
+		applicationSaver:        applicationSaver,
 		model:                   model,
 		clock:                   clock,
 		broker:                  broker,
@@ -167,6 +176,9 @@ func (f *Facade) UnitIntroduction(ctx context.Context, args params.CAASUnitIntro
 
 	unit, err := application.UpsertCAASUnit(upsert)
 	if err != nil {
+		return errResp(err)
+	}
+	if err := f.applicationSaver.Save(ctx, application.Name(), applicationservice.AddUnitParams{UnitName: upsert.UnitName}); err != nil {
 		return errResp(err)
 	}
 

@@ -25,7 +25,10 @@ import (
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/resources"
+	domainmodel "github.com/juju/juju/domain/model"
+	modelerrors "github.com/juju/juju/domain/model/errors"
 	migrations "github.com/juju/juju/domain/modelmigration"
+	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/state"
 )
@@ -97,7 +100,7 @@ func (e *ModelExporter) Export(ctx context.Context, model description.Model) (de
 // legacyStateImporter describes the method needed to import a model
 // into the database.
 type legacyStateImporter interface {
-	Import(description.Model, controller.Config, state.MachineSaver) (*state.Model, *state.State, error)
+	Import(description.Model, controller.Config, state.MachineSaver, state.ApplicationSaver) (*state.Model, *state.State, error)
 }
 
 // ModelImporter represents a model migration that implements Import.
@@ -105,10 +108,11 @@ type ModelImporter struct {
 	// TODO(nvinuesa): This is being deprecated, only needed until the
 	// migration to dqlite is complete.
 	legacyStateImporter     legacyStateImporter
+	modelManagerService     ModelManagerService
 	controllerConfigService ControllerConfigService
-	machineSaver            state.MachineSaver
+	serviceFactoryGetter    servicefactory.ServiceFactoryGetter
 
-	scope modelmigration.Scope
+	scope modelmigration.ScopeForModel
 }
 
 // NewModelImporter returns a new ModelImporter that encapsulates the
@@ -116,15 +120,17 @@ type ModelImporter struct {
 // needed until the migration to dqlite is complete.
 func NewModelImporter(
 	stateImporter legacyStateImporter,
-	scope modelmigration.Scope,
+	scope modelmigration.ScopeForModel,
+	modelManagerService ModelManagerService,
 	controllerConfigService ControllerConfigService,
-	machineSaver state.MachineSaver,
+	serviceFactoryGetter servicefactory.ServiceFactoryGetter,
 ) *ModelImporter {
 	return &ModelImporter{
 		legacyStateImporter:     stateImporter,
 		scope:                   scope,
+		modelManagerService:     modelManagerService,
 		controllerConfigService: controllerConfigService,
-		machineSaver:            machineSaver,
+		serviceFactoryGetter:    serviceFactoryGetter,
 	}
 }
 
@@ -142,14 +148,23 @@ func (i *ModelImporter) ImportModel(ctx context.Context, bytes []byte) (*state.M
 		return nil, nil, errors.Annotatef(err, "unable to get controller config")
 	}
 
-	dbModel, dbState, err := i.legacyStateImporter.Import(model, ctrlConfig, i.machineSaver)
+	// Ensure that we place the model in the known model list table on the controller.
+	if err := i.modelManagerService.Create(ctx, domainmodel.UUID(model.Tag().Id())); err != nil {
+		// TODO - on failed migration, this could still exist in target controller
+		if !errors.Is(err, modelerrors.AlreadyExists) {
+			return nil, nil, errors.Annotate(err, "updating model metadata")
+		}
+	}
+
+	serviceFactory := i.serviceFactoryGetter.FactoryForModel(model.Tag().Id())
+	dbModel, dbState, err := i.legacyStateImporter.Import(model, ctrlConfig, serviceFactory.Machine(), serviceFactory.Application())
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
 
 	coordinator := modelmigration.NewCoordinator()
 	migrations.ImportOperations(coordinator, logger)
-	if err := coordinator.Perform(ctx, i.scope, model); err != nil {
+	if err := coordinator.Perform(ctx, i.scope(model.Tag().Id()), model); err != nil {
 		return nil, nil, errors.Trace(err)
 	}
 

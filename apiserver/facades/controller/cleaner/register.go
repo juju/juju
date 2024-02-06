@@ -29,5 +29,7 @@ func newCleanerAPI(ctx facade.Context) (*CleanerAPI, error) {
 		resources:      ctx.Resources(),
 		objectStore:    ctx.ObjectStore(),
 		machineRemover: ctx.ServiceFactory().Machine(),
+		appRemover:     ctx.ServiceFactory().Application(),
+		unitRemover:    ctx.ServiceFactory().Unit(),
 	}, nil
 }

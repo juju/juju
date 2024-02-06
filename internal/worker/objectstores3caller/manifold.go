@@ -4,7 +4,7 @@
 package objectstores3caller
 
 import (
-	context "context"
+	"context"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"

@@ -54,7 +54,7 @@ type DeployFromRepository interface {
 // DeployFromRepositoryState defines a common set of functions for retrieving state
 // objects.
 type DeployFromRepositoryState interface {
-	AddApplication(state.AddApplicationArgs, objectstore.ObjectStore) (Application, error)
+	AddApplication(state.AddApplicationArgs, ApplicationSaver, objectstore.ObjectStore) (Application, error)
 	AddPendingResource(string, resource.Resource, objectstore.ObjectStore) (string, error)
 	RemovePendingResources(applicationID string, pendingIDs map[string]string, store objectstore.ObjectStore) error
 	AddCharmMetadata(info state.CharmInfo) (Charm, error)
@@ -73,19 +73,21 @@ type DeployFromRepositoryState interface {
 // API facade for any given version. It is expected that any API
 // parameter changes should be performed before entering the API.
 type DeployFromRepositoryAPI struct {
-	state      DeployFromRepositoryState
-	store      objectstore.ObjectStore
-	validator  DeployFromRepositoryValidator
-	stateCharm func(Charm) *state.Charm
+	state            DeployFromRepositoryState
+	store            objectstore.ObjectStore
+	validator        DeployFromRepositoryValidator
+	stateCharm       func(Charm) *state.Charm
+	applicationSaver ApplicationSaver
 }
 
 // NewDeployFromRepositoryAPI creates a new DeployFromRepositoryAPI.
-func NewDeployFromRepositoryAPI(state DeployFromRepositoryState, store objectstore.ObjectStore, validator DeployFromRepositoryValidator) DeployFromRepository {
+func NewDeployFromRepositoryAPI(state DeployFromRepositoryState, applicationSaver ApplicationSaver, store objectstore.ObjectStore, validator DeployFromRepositoryValidator) DeployFromRepository {
 	return &DeployFromRepositoryAPI{
-		state:      state,
-		store:      store,
-		validator:  validator,
-		stateCharm: CharmToStateCharm,
+		state:            state,
+		store:            store,
+		validator:        validator,
+		stateCharm:       CharmToStateCharm,
+		applicationSaver: applicationSaver,
 	}
 }
 
@@ -145,7 +147,7 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(ctx context.Context, ar
 		Placement:         dt.placement,
 		Resources:         pendingIDs,
 		Storage:           stateStorageConstraints(dt.storage),
-	}, api.store)
+	}, api.applicationSaver, api.store)
 
 	if addApplicationErr != nil {
 		// Check the pending resources that are added before the AddApplication is called

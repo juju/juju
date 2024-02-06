@@ -37,6 +37,7 @@ type Context struct {
 	SingularClaimer_       lease.Claimer
 	CharmhubHTTPClient_    facade.HTTPClient
 	ServiceFactory_        servicefactory.ServiceFactory
+	ServiceFactoryGetter_  servicefactory.ServiceFactoryGetter
 	ModelExporter_         facade.ModelExporter
 	ModelImporter_         facade.ModelImporter
 	ObjectStore_           objectstore.ObjectStore

@@ -4,6 +4,7 @@
 package apiserver_test
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"mime"
@@ -20,6 +21,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	apitesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/crossmodel"
+	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/juju/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
@@ -107,6 +109,12 @@ func (s *restSuite) charmsURI(query string) string {
 	return url.String()
 }
 
+type mockApplicationSaver struct{}
+
+func (mockApplicationSaver) Save(context.Context, string, ...applicationservice.AddUnitParams) error {
+	return nil
+}
+
 func (s *restSuite) TestGetRemoteApplicationIcon(c *gc.C) {
 	// Setup the charm and mysql application in the default model.
 	ch := testcharms.Repo.CharmArchive(c.MkDir(), "mysql")
@@ -129,7 +137,7 @@ func (s *restSuite) TestGetRemoteApplicationIcon(c *gc.C) {
 		Name:        "mysql",
 		Charm:       mysqlCh,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{OS: "ubuntu", Channel: "22.04/stable"}},
-	}, testing.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State()))
+	}, mockApplicationSaver{}, testing.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Add an offer for the application.
@@ -151,7 +159,7 @@ func (s *restSuite) TestGetRemoteApplicationIcon(c *gc.C) {
 		Name:        "dummy",
 		Charm:       dummyCh,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{OS: "ubuntu", Channel: "22.04/stable"}},
-	}, testing.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State()))
+	}, mockApplicationSaver{}, testing.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State()))
 	c.Assert(err, jc.ErrorIsNil)
 	offer2, err := offers.AddOffer(crossmodel.AddApplicationOfferArgs{
 		OfferName:       "notfound-remote-app-offer",

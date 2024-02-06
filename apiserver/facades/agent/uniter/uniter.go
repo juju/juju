@@ -57,6 +57,12 @@ type CredentialService interface {
 	WatchCredential(ctx context.Context, id credential.ID) (watcher.NotifyWatcher, error)
 }
 
+// UnitRemover deletes a unit from the dqlite database.
+// This allows us to initially weave some dqlite support into the cleanup workflow.
+type UnitRemover interface {
+	Delete(context.Context, string) error
+}
+
 // UniterAPI implements the latest version (v18) of the Uniter API.
 type UniterAPI struct {
 	*common.LifeGetter
@@ -78,6 +84,7 @@ type UniterAPI struct {
 	cloudService            CloudService
 	credentialService       CredentialService
 	controllerConfigService ControllerConfigService
+	unitRemover             UnitRemover
 	clock                   clock.Clock
 	auth                    facade.Authorizer
 	resources               facade.Resources
@@ -458,10 +465,16 @@ func (u *UniterAPI) Destroy(ctx context.Context, args params.Entities) (params.E
 		}
 		err = apiservererrors.ErrPerm
 		if canAccess(tag) {
-			var unit *state.Unit
+			var (
+				unit    *state.Unit
+				removed bool
+			)
 			unit, err = u.getUnit(tag)
 			if err == nil {
-				err = unit.Destroy(u.store)
+				removed, err = unit.DestroyMaybeRemove(u.store)
+				if err == nil && removed {
+					err = u.unitRemover.Delete(ctx, unit.Name())
+				}
 			}
 		}
 		result.Results[i].Error = apiservererrors.ServerError(err)
@@ -489,7 +502,7 @@ func (u *UniterAPI) DestroyAllSubordinates(ctx context.Context, args params.Enti
 			var unit *state.Unit
 			unit, err = u.getUnit(tag)
 			if err == nil {
-				err = u.destroySubordinates(unit)
+				err = u.destroySubordinates(ctx, unit)
 			}
 		}
 		result.Results[i].Error = apiservererrors.ServerError(err)
@@ -1721,15 +1734,21 @@ func (u *UniterAPI) getRemoteRelationAppSettings(rel *state.Relation, appTag nam
 	return rel.ApplicationSettings(appTag.Id())
 }
 
-func (u *UniterAPI) destroySubordinates(principal *state.Unit) error {
+func (u *UniterAPI) destroySubordinates(ctx context.Context, principal *state.Unit) error {
 	subordinates := principal.SubordinateNames()
 	for _, subName := range subordinates {
 		unit, err := u.getUnit(names.NewUnitTag(subName))
 		if err != nil {
 			return err
 		}
-		if err = unit.Destroy(u.store); err != nil {
+		removed, err := unit.DestroyMaybeRemove(u.store)
+		if err != nil {
 			return err
+		}
+		if removed {
+			if err := u.unitRemover.Delete(ctx, subName); err != nil {
+				return err
+			}
 		}
 	}
 	return nil

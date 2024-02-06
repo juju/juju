@@ -51,6 +51,7 @@ type WorkerConfig struct {
 	ControllerConfigService ControllerConfigService
 	CredentialService       CredentialService
 	CloudService            CloudService
+	ApplicationService      ApplicationSaver
 	FlagService             FlagService
 	SpaceService            SpaceService
 	BootstrapUnlocker       gate.Unlocker
@@ -84,6 +85,9 @@ func (c *WorkerConfig) Validate() error {
 	}
 	if c.CloudService == nil {
 		return errors.NotValidf("nil CloudService")
+	}
+	if c.ApplicationService == nil {
+		return errors.NotValidf("nil ApplicationService")
 	}
 	if c.BootstrapUnlocker == nil {
 		return errors.NotValidf("nil BootstrapUnlocker")
@@ -292,6 +296,7 @@ func (w *bootstrapWorker) seedControllerCharm(ctx context.Context, dataDir strin
 	// Controller charm seeder will populate the charm for the controller.
 	deployer, err := w.cfg.ControllerCharmDeployer(ControllerCharmDeployerConfig{
 		StateBackend:                w.cfg.SystemState,
+		ApplicationSaver:            w.cfg.ApplicationService,
 		ObjectStore:                 objectStore,
 		ControllerConfig:            controllerConfig,
 		DataDir:                     dataDir,

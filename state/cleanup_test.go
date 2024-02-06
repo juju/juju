@@ -479,7 +479,7 @@ func (s *CleanupSuite) TestDestroyControllerMachineHAWithControllerCharm(c *gc.C
 	cons := constraints.Value{
 		Mem: newUint64(100),
 	}
-	changes, err := s.State.EnableHA(3, cons, state.UbuntuBase("12.04"), nil)
+	changes, _, err := s.State.EnableHA(3, cons, state.UbuntuBase("12.04"), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(changes.Added, gc.HasLen, 3)
 
@@ -575,7 +575,7 @@ func (s *CleanupSuite) TestCleanupForceDestroyedControllerMachine(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = node.SetHasVote(true)
 	c.Assert(err, jc.ErrorIsNil)
-	changes, err := s.State.EnableHA(3, constraints.Value{}, state.UbuntuBase("12.04"), nil)
+	changes, _, err := s.State.EnableHA(3, constraints.Value{}, state.UbuntuBase("12.04"), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(changes.Added, gc.HasLen, 2)
 	c.Check(changes.Removed, gc.HasLen, 0)
@@ -1186,7 +1186,7 @@ func (s *CleanupSuite) assertCleanupCAASEntityWithStorage(c *gc.C, deleteOp func
 
 	assertCleanups := func(n int) {
 		for i := 0; i < 4; i++ {
-			err := st.Cleanup(context.Background(), state.NewObjectStore(c, s.State), fakeMachineRemover{})
+			err := st.Cleanup(context.Background(), state.NewObjectStore(c, s.State), fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{})
 			c.Assert(err, jc.ErrorIsNil)
 		}
 		state.AssertNoCleanups(c, st)
@@ -1423,7 +1423,7 @@ func (s *CleanupSuite) TestDyingUnitWithForceSchedulesForceFallback(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	opErrs, err := unit.DestroyWithForce(state.NewObjectStore(c, s.State), true, time.Minute)
+	_, opErrs, err := unit.DestroyWithForce(state.NewObjectStore(c, s.State), true, time.Minute)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(opErrs, gc.IsNil)
 
@@ -1471,7 +1471,7 @@ func (s *CleanupSuite) TestForceDestroyUnitDestroysSubordinates(c *gc.C) {
 	unit := prr.pu0
 	subordinate := prr.ru0
 
-	opErrs, err := unit.DestroyWithForce(state.NewObjectStore(c, s.State), true, time.Duration(0))
+	_, opErrs, err := unit.DestroyWithForce(state.NewObjectStore(c, s.State), true, time.Duration(0))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(opErrs, gc.IsNil)
 
@@ -1528,7 +1528,7 @@ func (s *CleanupSuite) TestForceDestroyUnitLeavesRelations(c *gc.C) {
 	}
 
 	unit := prr.pu0
-	opErrs, err := unit.DestroyWithForce(state.NewObjectStore(c, s.State), true, dontWait)
+	_, opErrs, err := unit.DestroyWithForce(state.NewObjectStore(c, s.State), true, dontWait)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(opErrs, gc.IsNil)
 
@@ -1595,7 +1595,7 @@ func (s *CleanupSuite) TestForceDestroyUnitRemovesStorageAttachments(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// destroy unit and run cleanups
-	opErrs, err := u.DestroyWithForce(state.NewObjectStore(c, s.State), true, dontWait)
+	_, opErrs, err := u.DestroyWithForce(state.NewObjectStore(c, s.State), true, dontWait)
 	c.Assert(opErrs, gc.IsNil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertCleanupRuns(c)
@@ -1712,7 +1712,7 @@ func (s *CleanupSuite) TestForceDestroyRelationIncorrectUnitCount(c *gc.C) {
 }
 
 func (s *CleanupSuite) assertCleanupRuns(c *gc.C) {
-	err := s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State), fakeMachineRemover{})
+	err := s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State), fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1783,3 +1783,11 @@ func assertUnitInScope(c *gc.C, unit *state.Unit, rel *state.Relation, expected 
 type fakeMachineRemover struct{}
 
 func (fakeMachineRemover) Delete(context.Context, string) error { return nil }
+
+type fakeUnitRemover struct{}
+
+func (fakeUnitRemover) Delete(context.Context, string) error { return nil }
+
+type fakeAppRemover struct{}
+
+func (fakeAppRemover) Delete(context.Context, string) error { return nil }

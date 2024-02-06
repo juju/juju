@@ -20,7 +20,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -package bootstrap -destination state_mock_test.go github.com/juju/juju/internal/worker/state StateTracker
 //go:generate go run go.uber.org/mock/mockgen -package bootstrap -destination objectstore_mock_test.go github.com/juju/juju/core/objectstore ObjectStore
 //go:generate go run go.uber.org/mock/mockgen -package bootstrap -destination lock_mock_test.go github.com/juju/juju/internal/worker/gate Unlocker
-//go:generate go run go.uber.org/mock/mockgen -package bootstrap -destination bootstrap_mock_test.go github.com/juju/juju/internal/worker/bootstrap ControllerConfigService,FlagService,ObjectStoreGetter,SystemState,HTTPClient,CredentialService,CloudService,SpaceService
+//go:generate go run go.uber.org/mock/mockgen -package bootstrap -destination bootstrap_mock_test.go github.com/juju/juju/internal/worker/bootstrap ControllerConfigService,FlagService,ObjectStoreGetter,SystemState,HTTPClient,CredentialService,CloudService,ApplicationSaver,SpaceService
 //go:generate go run go.uber.org/mock/mockgen -package bootstrap -destination deployer_mock_test.go github.com/juju/juju/internal/bootstrap Model
 
 func TestPackage(t *testing.T) {
@@ -44,6 +44,7 @@ type baseSuite struct {
 	controllerConfigService *MockControllerConfigService
 	cloudService            *MockCloudService
 	credentialService       *MockCredentialService
+	applicationSaver        *MockApplicationSaver
 	spaceService            *MockSpaceService
 	flagService             *MockFlagService
 	httpClient              *MockHTTPClient
@@ -68,6 +69,7 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.controllerConfigService = NewMockControllerConfigService(ctrl)
 	s.cloudService = NewMockCloudService(ctrl)
 	s.credentialService = NewMockCredentialService(ctrl)
+	s.applicationSaver = NewMockApplicationSaver(ctrl)
 	s.spaceService = NewMockSpaceService(ctrl)
 	s.flagService = NewMockFlagService(ctrl)
 	s.httpClient = NewMockHTTPClient(ctrl)

@@ -138,10 +138,10 @@ func (config ManifoldConfig) output(in worker.Worker, out any) error {
 
 	switch out := out.(type) {
 	case *servicefactory.ControllerServiceFactory:
-		var target servicefactory.ControllerServiceFactory = w.ControllerFactory()
+		var target = w.ControllerFactory()
 		*out = target
 	case *servicefactory.ServiceFactoryGetter:
-		var target servicefactory.ServiceFactoryGetter = w.FactoryGetter()
+		var target = w.FactoryGetter()
 		*out = target
 	default:
 		return errors.Errorf("unsupported output type %T", out)

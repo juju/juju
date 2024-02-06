@@ -98,6 +98,7 @@ func (s *applicationSuite) makeAPI(c *gc.C) *application.APIBase {
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
 		serviceFactory.Machine(),
+		serviceFactory.Application(),
 		nil, // leadership not used in these tests.
 		application.CharmToStateCharm,
 		application.DeployApplication,

@@ -57,6 +57,10 @@ func (testingAPIRootHandler) ServiceFactory() servicefactory.ServiceFactory {
 	return nil
 }
 
+func (testingAPIRootHandler) ServiceFactoryGetter() servicefactory.ServiceFactoryGetter {
+	return nil
+}
+
 func (testingAPIRootHandler) Tracer() coretrace.Tracer {
 	return nil
 }
@@ -119,7 +123,7 @@ func TestingAPIHandler(c *gc.C, pool *state.StatePool, st *state.State, configGe
 		},
 		tag: names.NewMachineTag("0"),
 	}
-	h, err := newAPIHandler(srv, st, nil, nil, coretrace.NoopTracer{}, nil, nil, st.ModelUUID(), 6543, "testing.invalid:1234")
+	h, err := newAPIHandler(srv, st, nil, nil, nil, coretrace.NoopTracer{}, nil, nil, st.ModelUUID(), 6543, "testing.invalid:1234")
 	c.Assert(err, jc.ErrorIsNil)
 	return h, h.Resources()
 }

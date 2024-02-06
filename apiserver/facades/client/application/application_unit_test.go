@@ -39,6 +39,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/status"
+	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charmhub"
@@ -68,6 +69,7 @@ type ApplicationSuite struct {
 	cloudService       *commonmocks.MockCloudService
 	credService        *commonmocks.MockCredentialService
 	machineSaver       *mocks.MockMachineSaver
+	applicationSaver   *mocks.MockApplicationSaver
 	storageAccess      *mocks.MockStorageInterface
 	model              *mocks.MockModel
 	leadershipReader   *mocks.MockReader
@@ -165,6 +167,7 @@ func (s *ApplicationSuite) setup(c *gc.C) *gomock.Controller {
 	s.backend.EXPECT().AllSpaceInfos().Return(s.allSpaceInfos, nil).AnyTimes()
 
 	s.machineSaver = mocks.NewMockMachineSaver(ctrl)
+	s.applicationSaver = mocks.NewMockApplicationSaver(ctrl)
 
 	s.ecService = mocks.NewMockECService(ctrl)
 
@@ -211,11 +214,12 @@ func (s *ApplicationSuite) setup(c *gc.C) *gomock.Controller {
 		s.cloudService,
 		s.credService,
 		s.machineSaver,
+		s.applicationSaver,
 		s.leadershipReader,
 		func(application.Charm) *state.Charm {
 			return nil
 		},
-		func(_ context.Context, _ application.ApplicationDeployer, _ application.Model, _ common.CloudService, _ common.CredentialService, _ objectstore.ObjectStore, p application.DeployApplicationParams) (application.Application, error) {
+		func(_ context.Context, _ application.ApplicationDeployer, _ application.Model, _ common.CloudService, _ common.CredentialService, _ application.ApplicationSaver, _ objectstore.ObjectStore, p application.DeployApplicationParams) (application.Application, error) {
 			s.deployParams[p.ApplicationName] = p
 			return nil, nil
 		},
@@ -1988,7 +1992,8 @@ func (s *ApplicationSuite) TestAddUnits(c *gc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
-	newUnit := s.expectUnit(ctrl, "postgresql/99")
+	unitName := "postgresql/99"
+	newUnit := s.expectUnit(ctrl, unitName)
 	newUnit.EXPECT().AssignWithPolicy(state.AssignCleanEmpty)
 
 	app := s.expectDefaultApplication(ctrl)
@@ -1996,6 +2001,7 @@ func (s *ApplicationSuite) TestAddUnits(c *gc.C) {
 	s.backend.EXPECT().Application("postgresql").AnyTimes().Return(app, nil)
 
 	s.machineSaver.EXPECT().Save(gomock.Any(), "99")
+	s.applicationSaver.EXPECT().Save(gomock.Any(), "postgresql", applicationservice.AddUnitParams{UnitName: &unitName})
 
 	results, err := s.api.AddUnits(context.Background(), params.AddApplicationUnits{
 		ApplicationName: "postgresql",
@@ -2023,7 +2029,8 @@ func (s *ApplicationSuite) TestAddUnitsAttachStorage(c *gc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
-	newUnit := s.expectUnit(ctrl, "postgresql/99")
+	unitName := "postgresql/99"
+	newUnit := s.expectUnit(ctrl, unitName)
 	newUnit.EXPECT().AssignWithPolicy(state.AssignCleanEmpty)
 
 	app := s.expectDefaultApplication(ctrl)
@@ -2033,6 +2040,7 @@ func (s *ApplicationSuite) TestAddUnitsAttachStorage(c *gc.C) {
 	s.backend.EXPECT().Application("postgresql").AnyTimes().Return(app, nil)
 
 	s.machineSaver.EXPECT().Save(gomock.Any(), "99")
+	s.applicationSaver.EXPECT().Save(gomock.Any(), "postgresql", applicationservice.AddUnitParams{UnitName: &unitName})
 
 	_, err := s.api.AddUnits(context.Background(), params.AddApplicationUnits{
 		ApplicationName: "postgresql",
