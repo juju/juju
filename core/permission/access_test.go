@@ -229,28 +229,28 @@ func (*accessSuite) TestEqualOrGreaterCloudAccessThan(c *gc.C) {
 
 var validateObjectTypeTest = []struct {
 	access     permission.Access
-	accessType permission.ObjectType
+	objectType permission.ObjectType
 	fail       bool
 }{
-	{access: permission.AdminAccess, accessType: permission.Cloud},
-	{access: permission.SuperuserAccess, accessType: permission.Cloud, fail: true},
-	{access: permission.LoginAccess, accessType: permission.Controller},
-	{access: permission.ReadAccess, accessType: permission.Controller, fail: true},
-	{access: permission.ReadAccess, accessType: permission.Model},
-	{access: permission.ConsumeAccess, accessType: permission.Model, fail: true},
-	{access: permission.ConsumeAccess, accessType: permission.Offer},
-	{access: permission.AddModelAccess, accessType: permission.Offer, fail: true},
-	{access: permission.AddModelAccess, accessType: 5, fail: true},
+	{access: permission.AdminAccess, objectType: permission.Cloud},
+	{access: permission.SuperuserAccess, objectType: permission.Cloud, fail: true},
+	{access: permission.LoginAccess, objectType: permission.Controller},
+	{access: permission.ReadAccess, objectType: permission.Controller, fail: true},
+	{access: permission.ReadAccess, objectType: permission.Model},
+	{access: permission.ConsumeAccess, objectType: permission.Model, fail: true},
+	{access: permission.ConsumeAccess, objectType: permission.Offer},
+	{access: permission.AddModelAccess, objectType: permission.Offer, fail: true},
+	{access: permission.AddModelAccess, objectType: "failme", fail: true},
 }
 
 func (*accessSuite) TestValidateAccessForObjectType(c *gc.C) {
 	size := len(validateObjectTypeTest)
 	for i, test := range validateObjectTypeTest {
 		c.Logf("Running test %d of %d", i, size)
-		id := permission.ID{ObjectType: test.accessType}
+		id := permission.ID{ObjectType: test.objectType}
 		err := id.ValidateAccess(test.access)
 		if test.fail {
-			c.Check(errors.Is(err, errors.NotValid), jc.IsTrue, gc.Commentf("test %d", i))
+			c.Assert(err, jc.ErrorIs, errors.NotValid, gc.Commentf("test %d", i))
 		} else {
 			c.Check(err, jc.ErrorIsNil, gc.Commentf("test %d", i))
 		}
@@ -265,7 +265,7 @@ func (*accessSuite) TestParseTagForID(c *gc.C) {
 
 func (*accessSuite) TestParseTagForIDFail(c *gc.C) {
 	_, err := permission.ParseTagForID(nil)
-	c.Check(errors.Is(err, errors.BadRequest), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
 	_, err = permission.ParseTagForID(names.NewUserTag("testcloud"))
-	c.Assert(errors.Is(err, errors.NotValid), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, errors.NotSupported)
 }

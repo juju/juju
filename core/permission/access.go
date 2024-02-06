@@ -55,14 +55,14 @@ func (a Access) Validate() error {
 }
 
 // ObjectType is the type of the permission object/
-type ObjectType int
+type ObjectType string
 
 // These values must match the values in the permission_object_type table.
 const (
-	Cloud ObjectType = iota
-	Controller
-	Model
-	Offer
+	Cloud      ObjectType = "cloud"
+	Controller ObjectType = "controller"
+	Model      ObjectType = "model"
+	Offer      ObjectType = "offer"
 )
 
 // Validate returns an error if the object type is not in the
@@ -71,7 +71,7 @@ func (o ObjectType) Validate() error {
 	switch o {
 	case Cloud, Controller, Model, Offer:
 	default:
-		return errors.NotValidf("object type")
+		return errors.NotValidf("object type %q", o)
 	}
 	return nil
 }
@@ -114,7 +114,7 @@ func (i ID) ValidateAccess(access Access) error {
 // conform to the know object types.
 func ParseTagForID(tag names.Tag) (ID, error) {
 	if tag == nil {
-		return ID{}, errors.BadRequestf("nil tag")
+		return ID{}, errors.NotValidf("nil tag")
 	}
 	id := ID{Key: tag.Id()}
 	switch tag.Kind() {
@@ -127,7 +127,7 @@ func ParseTagForID(tag names.Tag) (ID, error) {
 	case names.ApplicationOfferTagKind:
 		id.ObjectType = Offer
 	default:
-		return id, errors.NotValidf("target tag type %s", tag.Kind())
+		return id, errors.NotSupportedf("target tag type %s", tag.Kind())
 	}
 	return id, nil
 }

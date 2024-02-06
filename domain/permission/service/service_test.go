@@ -74,10 +74,10 @@ func (s *serviceSuite) TestDeletePermissionError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	err := NewService(s.state).DeletePermission(context.Background(), "testme", permission.ID{
-		ObjectType: 42,
+		ObjectType: "faileme",
 		Key:        "aws",
 	})
-	c.Assert(errors.Is(err, errors.NotValid), jc.IsTrue, gc.Commentf("%+v", err))
+	c.Assert(err, jc.ErrorIs, errors.NotValid, gc.Commentf("%+v", err))
 }
 
 func (s *serviceSuite) TestUpdatePermission(c *gc.C) {
@@ -102,11 +102,11 @@ func (s *serviceSuite) TestUpdatePermissionError(c *gc.C) {
 		context.Background(),
 		"testme",
 		permission.ID{
-			ObjectType: 42,
+			ObjectType: "faileme",
 			Key:        "aws",
 		},
 		permission.AddModelAccess)
-	c.Assert(errors.Is(err, errors.NotValid), jc.IsTrue, gc.Commentf("%+v", err))
+	c.Assert(err, jc.ErrorIs, errors.NotValid, gc.Commentf("%+v", err))
 }
 
 func (s *serviceSuite) TestReadUserAccessForTarget(c *gc.C) {
@@ -130,7 +130,7 @@ func (s *serviceSuite) TestReadUserAccessForTargetError(c *gc.C) {
 		context.Background(),
 		"testme",
 		permission.ID{
-			ObjectType: 42,
+			ObjectType: "faileme",
 			Key:        "aws",
 		})
 	c.Assert(errors.Is(err, errors.NotValid), jc.IsTrue, gc.Commentf("%+v", err))
@@ -157,10 +157,10 @@ func (s *serviceSuite) TestReadUserAccessLevelForTargetError(c *gc.C) {
 		context.Background(),
 		"testme",
 		permission.ID{
-			ObjectType: 42,
+			ObjectType: "faileme",
 			Key:        "aws",
 		})
-	c.Assert(errors.Is(err, errors.NotValid), jc.IsTrue, gc.Commentf("%+v", err))
+	c.Assert(err, jc.ErrorIs, errors.NotValid, gc.Commentf("%+v", err))
 }
 
 func (s *serviceSuite) TestReadAllUserAccessForTarget(c *gc.C) {
@@ -182,10 +182,10 @@ func (s *serviceSuite) TestReadAllUserAccessForTargetError(c *gc.C) {
 	_, err := NewService(s.state).ReadAllUserAccessForTarget(
 		context.Background(),
 		permission.ID{
-			ObjectType: 42,
+			ObjectType: "faileme",
 			Key:        "aws",
 		})
-	c.Assert(errors.Is(err, errors.NotValid), jc.IsTrue, gc.Commentf("%+v", err))
+	c.Assert(err, jc.ErrorIs, errors.NotValid, gc.Commentf("%+v", err))
 }
 
 func (s *serviceSuite) TestReadAllUserAccessForUser(c *gc.C) {
