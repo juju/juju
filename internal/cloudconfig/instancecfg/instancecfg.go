@@ -271,6 +271,10 @@ type SSHKeyPair struct {
 // This structure will be passed to the bootstrap agent. To do so, the
 // Marshal and Unmarshal methods must be used.
 type StateInitializationParams struct {
+	// AgentVersion is the desired agent version to run for models created as
+	// part of state initialization.
+	AgentVersion version.Number
+
 	// ControllerModelConfig holds the initial controller model configuration.
 	ControllerModelConfig *config.Config
 
@@ -351,6 +355,7 @@ type StateInitializationParams struct {
 }
 
 type stateInitializationParamsInternal struct {
+	AgentVersion                            string                            `yaml:"agent-version"`
 	ControllerConfig                        map[string]interface{}            `yaml:"controller-config"`
 	ControllerModelConfig                   map[string]interface{}            `yaml:"controller-model-config"`
 	ControllerModelEnvironVersion           int                               `yaml:"controller-model-version"`
@@ -383,6 +388,7 @@ func (p *StateInitializationParams) Marshal() ([]byte, error) {
 		return nil, errors.Annotate(err, "marshalling cloud definition")
 	}
 	internal := stateInitializationParamsInternal{
+		AgentVersion:                            p.AgentVersion.String(),
 		ControllerConfig:                        p.ControllerConfig,
 		ControllerModelConfig:                   p.ControllerModelConfig.AllAttrs(),
 		ControllerModelEnvironVersion:           p.ControllerModelEnvironVersion,
@@ -425,7 +431,12 @@ func (p *StateInitializationParams) Unmarshal(data []byte) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+	agentVersion, err := version.Parse(internal.AgentVersion)
+	if err != nil {
+		return fmt.Errorf("parsing agent-version in state initialisation params: %w", err)
+	}
 	*p = StateInitializationParams{
+		AgentVersion:                            agentVersion,
 		ControllerConfig:                        internal.ControllerConfig,
 		ControllerModelConfig:                   cfg,
 		ControllerModelEnvironVersion:           internal.ControllerModelEnvironVersion,

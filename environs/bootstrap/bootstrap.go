@@ -787,6 +787,11 @@ func finalizeInstanceBootstrapConfig(
 		return errors.Annotate(err, "encoding default controller cert to pem")
 	}
 
+	agentVersion, has := cfg.AgentVersion()
+	if !has {
+		return errors.New("finalising instance bootstrap config, agent version not set on model config")
+	}
+
 	icfg.Bootstrap.StateServingInfo = controller.StateServingInfo{
 		StatePort:    controllerCfg.StatePort(),
 		APIPort:      controllerCfg.APIPort(),
@@ -794,6 +799,7 @@ func finalizeInstanceBootstrapConfig(
 		PrivateKey:   string(key),
 		CAPrivateKey: args.CAPrivateKey,
 	}
+	icfg.Bootstrap.StateInitializationParams.AgentVersion = agentVersion
 	icfg.Bootstrap.ControllerModelConfig = cfg
 	icfg.Bootstrap.ControllerModelEnvironVersion = environVersion
 	icfg.Bootstrap.CustomImageMetadata = customImageMetadata
