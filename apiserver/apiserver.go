@@ -752,8 +752,8 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		dataDir:           srv.dataDir,
 		objectStoreGetter: srv.shared.objectStoreGetter,
 	}
-	modelRestServer := &RestHTTPHandler{
-		GetHandler: modelRestHandler.ServeGet,
+	modelRestServer := &restHTTPHandler{
+		getHandler: modelRestHandler.ServeGet,
 	}
 	modelCharmsHandler := &charmsHandler{
 		ctxt:              httpCtxt,
@@ -762,16 +762,16 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		objectStoreGetter: srv.shared.objectStoreGetter,
 		logger:            logger.Child("charms-handler"),
 	}
-	modelCharmsHTTPHandler := &CharmsHTTPHandler{
-		PostHandler: modelCharmsHandler.ServePost,
-		GetHandler:  modelCharmsHandler.ServeGet,
+	modelCharmsHTTPHandler := &charmsHTTPHandler{
+		postHandler: modelCharmsHandler.ServePost,
+		getHandler:  modelCharmsHandler.ServeGet,
 	}
 	modelCharmsUploadAuthorizer := tagKindAuthorizer{names.UserTagKind}
 
 	modelObjectsCharmsHTTPHandler := &objectsCharmHTTPHandler{
-		ctxt:                httpCtxt,
-		objectStoreGetter:   srv.shared.objectStoreGetter,
-		LegacyCharmsHandler: modelCharmsHTTPHandler,
+		ctxt:              httpCtxt,
+		objectStoreGetter: srv.shared.objectStoreGetter,
+		LegacyPostHandler: modelCharmsHandler.ServePost,
 	}
 
 	modelToolsUploadHandler := &toolsUploadHandler{
@@ -843,14 +843,14 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		objectStoreGetter: srv.shared.objectStoreGetter,
 		logger:            logger.Child("charms-handler"),
 	}
-	migrateCharmsHTTPHandler := &CharmsHTTPHandler{
-		PostHandler: migrateCharmsHandler.ServePost,
-		GetHandler:  migrateCharmsHandler.ServeUnsupported,
+	migrateCharmsHTTPHandler := &charmsHTTPHandler{
+		postHandler: migrateCharmsHandler.ServePost,
+		getHandler:  migrateCharmsHandler.ServeUnsupported,
 	}
 	migrateObjectsCharmsHTTPHandler := &objectsCharmHTTPHandler{
-		ctxt:                httpCtxt,
-		objectStoreGetter:   srv.shared.objectStoreGetter,
-		LegacyCharmsHandler: migrateCharmsHTTPHandler,
+		ctxt:              httpCtxt,
+		objectStoreGetter: srv.shared.objectStoreGetter,
+		LegacyPostHandler: migrateCharmsHandler.ServePost,
 	}
 	migrateToolsUploadHandler := &toolsUploadHandler{
 		ctxt:          httpCtxt,

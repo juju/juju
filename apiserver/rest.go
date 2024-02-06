@@ -17,17 +17,17 @@ import (
 	"github.com/juju/juju/state"
 )
 
-// RestHTTPHandler creates is a http.Handler which serves ReST requests.
-type RestHTTPHandler struct {
-	GetHandler FailableHandlerFunc
+// restHTTPHandler creates is a http.Handler which serves ReST requests.
+type restHTTPHandler struct {
+	getHandler endpointMethodHandlerFunc
 }
 
 // ServeHTTP is defined on handler.Handler.
-func (h *RestHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (h *restHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var err error
 	switch r.Method {
 	case "GET":
-		err = errors.Annotate(h.GetHandler(w, r), "cannot retrieve model data")
+		err = errors.Annotate(h.getHandler(w, r), "cannot retrieve model data")
 	default:
 		err = emitUnsupportedMethodErr(r.Method)
 	}

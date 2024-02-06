@@ -31,9 +31,7 @@ import (
 	"github.com/juju/juju/state"
 )
 
-type FailableHandlerFunc func(http.ResponseWriter, *http.Request) error
-
-// CharmsHTTPHandler creates is a http.Handler which serves POST
+// charmsHTTPHandler creates is a http.Handler which serves POST
 // requests to a PostHandler and GET requests to a GetHandler.
 //
 // TODO(katco): This is the beginning of inverting the dependencies in
@@ -56,18 +54,18 @@ type FailableHandlerFunc func(http.ResponseWriter, *http.Request) error
 // pipeline.
 //
 // As usual big methods lead to untestable code and it causes testing pain.
-type CharmsHTTPHandler struct {
-	PostHandler FailableHandlerFunc
-	GetHandler  FailableHandlerFunc
+type charmsHTTPHandler struct {
+	postHandler endpointMethodHandlerFunc
+	getHandler  endpointMethodHandlerFunc
 }
 
-func (h *CharmsHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (h *charmsHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var err error
 	switch r.Method {
 	case "POST":
-		err = errors.Annotate(h.PostHandler(w, r), "cannot upload charm")
+		err = errors.Annotate(h.postHandler(w, r), "cannot upload charm")
 	case "GET":
-		err = errors.Annotate(h.GetHandler(w, r), "cannot retrieve charm")
+		err = errors.Annotate(h.getHandler(w, r), "cannot retrieve charm")
 	default:
 		err = emitUnsupportedMethodErr(r.Method)
 	}

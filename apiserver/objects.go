@@ -5,8 +5,6 @@ package apiserver
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"io"
 	"net/http"
@@ -17,9 +15,14 @@ import (
 
 	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
+	"github.com/juju/utils/v4"
 
 	"github.com/juju/juju/core/objectstore"
 )
+
+// endpointMethodHandlerFunc desribes the signature for our functions which handle
+// requests made to a specific endpoint, with a specific method
+type endpointMethodHandlerFunc func(http.ResponseWriter, *http.Request) error
 
 // ObjectStoreGetter is an interface for getting an object store.
 type ObjectStoreGetter interface {
@@ -28,9 +31,9 @@ type ObjectStoreGetter interface {
 }
 
 type objectsCharmHTTPHandler struct {
-	ctxt                httpContext
-	objectStoreGetter   ObjectStoreGetter
-	LegacyCharmsHandler http.Handler
+	ctxt              httpContext
+	objectStoreGetter ObjectStoreGetter
+	LegacyPostHandler endpointMethodHandlerFunc
 }
 
 func (h *objectsCharmHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -42,7 +45,7 @@ func (h *objectsCharmHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Reque
 		err = errors.Annotate(h.ServePut(w, r), "cannot upload charm")
 		if err == nil {
 			// Chain call to legacy (REST API) charms handler
-			h.LegacyCharmsHandler.ServeHTTP(w, r)
+			err = h.LegacyPostHandler(w, r)
 		}
 	default:
 		http.Error(w, fmt.Sprintf("http method %s not implemented", r.Method), http.StatusNotImplemented)
@@ -135,14 +138,18 @@ func (h *objectsCharmHTTPHandler) ServePut(w http.ResponseWriter, r *http.Reques
 	curlStr := r.Header.Get("Juju-Curl")
 	curl, err := charm.ParseURL(curlStr)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.BadRequestf("%q is not a valid charm url", curlStr)
 	}
 	curl.Name = name
 
-	charmSHA, err := hashCharmArchive(charmFileName)
+	charmSHA, _, err := utils.ReadFileSHA256(charmFileName)
 	if err != nil {
 		return errors.Trace(err)
 	}
+	// ReadFileSHA256 returns a full 64 char SHA256. However, charm refs
+	// only use the first 7 chars. So truncate the sha to match
+	charmSHA = charmSHA[0:7]
+
 	if charmSHA != shaFromQuery {
 		return errors.BadRequestf("Uploaded charm sha256 (%v) does not match sha in url (%v)", charmSHA, shaFromQuery)
 	}
@@ -178,19 +185,4 @@ func splitNameAndSHAFromQuery(query url.Values) (string, string, error) {
 	}
 	name, sha := charmObjectID[:splitIndex], charmObjectID[splitIndex+1:]
 	return name, sha, nil
-}
-
-func hashCharmArchive(path string) (string, error) {
-	file, err := os.Open(path)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	defer func() { _ = file.Close() }()
-
-	hash := sha256.New()
-	_, err = io.Copy(hash, file)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	return hex.EncodeToString(hash.Sum(nil))[0:7], nil
 }
