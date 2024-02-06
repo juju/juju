@@ -46,7 +46,7 @@ func newUserManagerAPI(stdCtx context.Context, ctx facade.Context) (*UserManager
 	// Get UserService
 	userService := ctx.ServiceFactory().User()
 
-	// Get apiUser UUID
+	// Get apiUserTag UUID
 	apiUser, err := userService.GetUserByName(stdCtx, apiUserTag.Id())
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -59,7 +59,7 @@ func newUserManagerAPI(stdCtx context.Context, ctx facade.Context) (*UserManager
 		authorizer,
 		common.NewBlockChecker(st),
 		apiUserTag,
-		apiUser.UUID,
+		apiUser,
 		isAdmin,
 		ctx.Logger().Child("usermanager"),
 	)

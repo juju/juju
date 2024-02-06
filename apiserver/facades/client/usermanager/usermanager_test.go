@@ -62,6 +62,12 @@ func (s *userManagerSuite) SetUpTest(c *gc.C) {
 	fakeApiUserUUID, err := coreuser.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 
+	fakeApiUser := coreuser.User{
+		UUID:        fakeApiUserUUID,
+		Name:        "apiuser",
+		DisplayName: "API User",
+	}
+
 	ctx := facadetest.Context{
 		StatePool_: s.StatePool(),
 		State_:     s.ControllerModel(c).State(),
@@ -76,7 +82,7 @@ func (s *userManagerSuite) SetUpTest(c *gc.C) {
 		ctx.Auth(),
 		common.NewBlockChecker(ctx.State()),
 		ctx.Auth().GetAuthTag().(names.UserTag),
-		fakeApiUserUUID,
+		fakeApiUser,
 		true,
 		ctx.Logger(),
 	)
@@ -190,6 +196,12 @@ func (s *userManagerSuite) TestAddUserAsNormalUser(c *gc.C) {
 	fakeApiUserUUID, err := coreuser.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 
+	fakeApiUser := coreuser.User{
+		UUID:        fakeApiUserUUID,
+		Name:        "apiuser",
+		DisplayName: "API User",
+	}
+
 	usermanager, err := usermanager.NewAPI(
 		ctx.State(),
 		userService,
@@ -197,7 +209,7 @@ func (s *userManagerSuite) TestAddUserAsNormalUser(c *gc.C) {
 		ctx.Auth(),
 		common.NewBlockChecker(ctx.State()),
 		ctx.Auth().GetAuthTag().(names.UserTag),
-		fakeApiUserUUID,
+		fakeApiUser,
 		true,
 		ctx.Logger(),
 	)
@@ -376,6 +388,12 @@ func (s *userManagerSuite) TestDisableUserAsNormalUser(c *gc.C) {
 	fakeApiUserUUID, err := coreuser.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 
+	fakeApiUser := coreuser.User{
+		UUID:        fakeApiUserUUID,
+		Name:        "apiuser",
+		DisplayName: "API User",
+	}
+
 	usermanager, err := usermanager.NewAPI(
 		ctx.State(),
 		userService,
@@ -383,7 +401,7 @@ func (s *userManagerSuite) TestDisableUserAsNormalUser(c *gc.C) {
 		ctx.Auth(),
 		common.NewBlockChecker(ctx.State()),
 		ctx.Auth().GetAuthTag().(names.UserTag),
-		fakeApiUserUUID,
+		fakeApiUser,
 		true,
 		ctx.Logger(),
 	)
@@ -421,6 +439,12 @@ func (s *userManagerSuite) TestEnableUserAsNormalUser(c *gc.C) {
 	fakeApiUserUUID, err := coreuser.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 
+	fakeApiUser := coreuser.User{
+		UUID:        fakeApiUserUUID,
+		Name:        "apiuser",
+		DisplayName: "API User",
+	}
+
 	usermanager, err := usermanager.NewAPI(
 		ctx.State(),
 		userService,
@@ -428,7 +452,7 @@ func (s *userManagerSuite) TestEnableUserAsNormalUser(c *gc.C) {
 		ctx.Auth(),
 		common.NewBlockChecker(ctx.State()),
 		ctx.Auth().GetAuthTag().(names.UserTag),
-		fakeApiUserUUID,
+		fakeApiUser,
 		true,
 		ctx.Logger(),
 	)
@@ -633,6 +657,12 @@ func (s *userManagerSuite) TestUserInfoNonControllerAdmin(c *gc.C) {
 	fakeApiUserUUID, err := coreuser.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 
+	fakeApiUser := coreuser.User{
+		UUID:        fakeApiUserUUID,
+		Name:        "apiuser",
+		DisplayName: "API User",
+	}
+
 	usermanager, err := usermanager.NewAPI(
 		ctx.State(),
 		userService,
@@ -640,7 +670,7 @@ func (s *userManagerSuite) TestUserInfoNonControllerAdmin(c *gc.C) {
 		ctx.Auth(),
 		common.NewBlockChecker(ctx.State()),
 		ctx.Auth().GetAuthTag().(names.UserTag),
-		fakeApiUserUUID,
+		fakeApiUser,
 		true,
 		ctx.Logger(),
 	)
@@ -886,6 +916,12 @@ func (s *userManagerSuite) TestSetPasswordForSelf(c *gc.C) {
 	fakeApiUserUUID, err := coreuser.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 
+	fakeApiUser := coreuser.User{
+		UUID:        fakeApiUserUUID,
+		Name:        "apiuser",
+		DisplayName: "API User",
+	}
+
 	usermanager, err := usermanager.NewAPI(
 		ctx.State(),
 		userService,
@@ -893,7 +929,7 @@ func (s *userManagerSuite) TestSetPasswordForSelf(c *gc.C) {
 		ctx.Auth(),
 		common.NewBlockChecker(ctx.State()),
 		ctx.Auth().GetAuthTag().(names.UserTag),
-		fakeApiUserUUID,
+		fakeApiUser,
 		true,
 		ctx.Logger(),
 	)
@@ -937,6 +973,12 @@ func (s *userManagerSuite) TestSetPasswordForOther(c *gc.C) {
 	fakeApiUserUUID, err := coreuser.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 
+	fakeApiUser := coreuser.User{
+		UUID:        fakeApiUserUUID,
+		Name:        "apiuser",
+		DisplayName: "API User",
+	}
+
 	usermanager, err := usermanager.NewAPI(
 		ctx.State(),
 		userService,
@@ -944,7 +986,7 @@ func (s *userManagerSuite) TestSetPasswordForOther(c *gc.C) {
 		ctx.Auth(),
 		common.NewBlockChecker(ctx.State()),
 		ctx.Auth().GetAuthTag().(names.UserTag),
-		fakeApiUserUUID,
+		fakeApiUser,
 		false,
 		ctx.Logger(),
 	)
@@ -1050,6 +1092,12 @@ func (s *userManagerSuite) TestRemoveUserAsNormalUser(c *gc.C) {
 	fakeApiUserUUID, err := coreuser.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 
+	fakeApiUser := coreuser.User{
+		UUID:        fakeApiUserUUID,
+		Name:        "apiuser",
+		DisplayName: "API User",
+	}
+
 	// Authenticate as chuck.
 	usermanager, err := usermanager.NewAPI(
 		ctx.State(),
@@ -1058,7 +1106,7 @@ func (s *userManagerSuite) TestRemoveUserAsNormalUser(c *gc.C) {
 		ctx.Auth(),
 		common.NewBlockChecker(ctx.State()),
 		ctx.Auth().GetAuthTag().(names.UserTag),
-		fakeApiUserUUID,
+		fakeApiUser,
 		true,
 		ctx.Logger(),
 	)
@@ -1104,6 +1152,12 @@ func (s *userManagerSuite) TestRemoveUserSelfAsNormalUser(c *gc.C) {
 	fakeApiUserUUID, err := coreuser.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 
+	fakeApiUser := coreuser.User{
+		UUID:        fakeApiUserUUID,
+		Name:        "apiuser",
+		DisplayName: "API User",
+	}
+
 	usermanager, err := usermanager.NewAPI(
 		ctx.State(),
 		userService,
@@ -1111,7 +1165,7 @@ func (s *userManagerSuite) TestRemoveUserSelfAsNormalUser(c *gc.C) {
 		ctx.Auth(),
 		common.NewBlockChecker(ctx.State()),
 		ctx.Auth().GetAuthTag().(names.UserTag),
-		fakeApiUserUUID,
+		fakeApiUser,
 		true,
 		ctx.Logger(),
 	)
@@ -1321,6 +1375,12 @@ func (s *userManagerSuite) TestResetPasswordNotControllerAdmin(c *gc.C) {
 	fakeApiUserUUID, err := coreuser.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 
+	fakeApiUser := coreuser.User{
+		UUID:        fakeApiUserUUID,
+		Name:        "apiuser",
+		DisplayName: "API User",
+	}
+
 	usermanager, err := usermanager.NewAPI(
 		ctx.State(),
 		userService,
@@ -1328,7 +1388,7 @@ func (s *userManagerSuite) TestResetPasswordNotControllerAdmin(c *gc.C) {
 		ctx.Auth(),
 		common.NewBlockChecker(ctx.State()),
 		ctx.Auth().GetAuthTag().(names.UserTag),
-		fakeApiUserUUID,
+		fakeApiUser,
 		true,
 		ctx.Logger(),
 	)
