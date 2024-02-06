@@ -10,7 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/imagedownloads"
-	. "github.com/juju/juju/internal/container/kvm"
+	"github.com/juju/juju/internal/container/kvm"
 )
 
 // cacheSuite is gocheck boilerplate.
@@ -24,7 +24,7 @@ var _ = gc.Suite(&cacheSuite{})
 func (cacheSuite) TestSyncOnerErrors(c *gc.C) {
 	o := fakeParams{FakeData: nil, Err: errors.New("oner failed")}
 	u := fakeFetcher{}
-	got := Sync(o, u, "", nil)
+	got := kvm.Sync(o, u, "", nil)
 	c.Assert(got, gc.ErrorMatches, "oner failed")
 }
 
@@ -33,21 +33,21 @@ func (cacheSuite) TestSyncOnerExists(c *gc.C) {
 		FakeData: nil,
 		Err:      errors.AlreadyExistsf("exists")}
 	u := fakeFetcher{}
-	got := Sync(o, u, "", nil)
+	got := kvm.Sync(o, u, "", nil)
 	c.Assert(got, jc.ErrorIsNil)
 }
 
 func (cacheSuite) TestSyncUpdaterErrors(c *gc.C) {
 	o := fakeParams{FakeData: &imagedownloads.Metadata{}, Err: nil}
 	u := fakeFetcher{Err: errors.New("updater failed")}
-	got := Sync(o, u, "", nil)
+	got := kvm.Sync(o, u, "", nil)
 	c.Assert(got, gc.ErrorMatches, "updater failed")
 }
 
 func (cacheSuite) TestSyncSucceeds(c *gc.C) {
 	o := fakeParams{FakeData: &imagedownloads.Metadata{}}
 	u := fakeFetcher{}
-	got := Sync(o, u, "", nil)
+	got := kvm.Sync(o, u, "", nil)
 	c.Assert(got, jc.ErrorIsNil)
 }
 

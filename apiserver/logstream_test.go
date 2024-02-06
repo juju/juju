@@ -244,10 +244,10 @@ func (s *LogStreamIntSuite) TestFullRequest(c *gc.C) {
 func (s *LogStreamIntSuite) newReq(c *gc.C, cfg params.LogStreamConfig) *http.Request {
 	attrs, err := query.Values(cfg)
 	c.Assert(err, jc.ErrorIsNil)
-	URL, err := url.Parse("https://a.b.c/logstream")
+	u, err := url.Parse("https://a.b.c/logstream")
 	c.Assert(err, jc.ErrorIsNil)
-	URL.RawQuery = attrs.Encode()
-	req, err := http.NewRequest("GET", URL.String(), nil)
+	u.RawQuery = attrs.Encode()
+	req, err := http.NewRequest("GET", u.String(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	return req
 }

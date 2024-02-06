@@ -267,39 +267,39 @@ func (s *MeterStateSuite) TestMeterStatusMetricsManagerCombinations(c *gc.C) {
 
 func (s *MeterStateSuite) TestMeterStatusCombination(c *gc.C) {
 	var (
-		Red          = state.MeterStatus{state.MeterRed, ""}
-		Amber        = state.MeterStatus{state.MeterAmber, ""}
-		Green        = state.MeterStatus{state.MeterGreen, ""}
-		NotSet       = state.MeterStatus{state.MeterNotSet, ""}
-		NotAvailable = state.MeterStatus{state.MeterNotAvailable, ""}
+		red          = state.MeterStatus{state.MeterRed, ""}
+		amber        = state.MeterStatus{state.MeterAmber, ""}
+		green        = state.MeterStatus{state.MeterGreen, ""}
+		notSet       = state.MeterStatus{state.MeterNotSet, ""}
+		notAvailable = state.MeterStatus{state.MeterNotAvailable, ""}
 	)
-	c.Assert(state.CombineMeterStatus(Red, Red).Code, gc.Equals, Red.Code)
-	c.Assert(state.CombineMeterStatus(Red, Amber).Code, gc.Equals, Red.Code)
-	c.Assert(state.CombineMeterStatus(Red, Green).Code, gc.Equals, Red.Code)
-	c.Assert(state.CombineMeterStatus(Red, NotSet).Code, gc.Equals, Red.Code)
-	c.Assert(state.CombineMeterStatus(Red, NotAvailable).Code, gc.Equals, NotAvailable.Code)
+	c.Assert(state.CombineMeterStatus(red, red).Code, gc.Equals, red.Code)
+	c.Assert(state.CombineMeterStatus(red, amber).Code, gc.Equals, red.Code)
+	c.Assert(state.CombineMeterStatus(red, green).Code, gc.Equals, red.Code)
+	c.Assert(state.CombineMeterStatus(red, notSet).Code, gc.Equals, red.Code)
+	c.Assert(state.CombineMeterStatus(red, notAvailable).Code, gc.Equals, notAvailable.Code)
 
-	c.Assert(state.CombineMeterStatus(Amber, Red).Code, gc.Equals, Red.Code)
-	c.Assert(state.CombineMeterStatus(Amber, Amber).Code, gc.Equals, Amber.Code)
-	c.Assert(state.CombineMeterStatus(Amber, Green).Code, gc.Equals, Amber.Code)
-	c.Assert(state.CombineMeterStatus(Amber, NotSet).Code, gc.Equals, Amber.Code)
-	c.Assert(state.CombineMeterStatus(Amber, NotAvailable).Code, gc.Equals, NotAvailable.Code)
+	c.Assert(state.CombineMeterStatus(amber, red).Code, gc.Equals, red.Code)
+	c.Assert(state.CombineMeterStatus(amber, amber).Code, gc.Equals, amber.Code)
+	c.Assert(state.CombineMeterStatus(amber, green).Code, gc.Equals, amber.Code)
+	c.Assert(state.CombineMeterStatus(amber, notSet).Code, gc.Equals, amber.Code)
+	c.Assert(state.CombineMeterStatus(amber, notAvailable).Code, gc.Equals, notAvailable.Code)
 
-	c.Assert(state.CombineMeterStatus(Green, Red).Code, gc.Equals, Red.Code)
-	c.Assert(state.CombineMeterStatus(Green, Amber).Code, gc.Equals, Amber.Code)
-	c.Assert(state.CombineMeterStatus(Green, Green).Code, gc.Equals, Green.Code)
-	c.Assert(state.CombineMeterStatus(Green, NotSet).Code, gc.Equals, NotSet.Code)
-	c.Assert(state.CombineMeterStatus(Green, NotAvailable).Code, gc.Equals, NotAvailable.Code)
+	c.Assert(state.CombineMeterStatus(green, red).Code, gc.Equals, red.Code)
+	c.Assert(state.CombineMeterStatus(green, amber).Code, gc.Equals, amber.Code)
+	c.Assert(state.CombineMeterStatus(green, green).Code, gc.Equals, green.Code)
+	c.Assert(state.CombineMeterStatus(green, notSet).Code, gc.Equals, notSet.Code)
+	c.Assert(state.CombineMeterStatus(green, notAvailable).Code, gc.Equals, notAvailable.Code)
 
-	c.Assert(state.CombineMeterStatus(NotSet, Red).Code, gc.Equals, Red.Code)
-	c.Assert(state.CombineMeterStatus(NotSet, Amber).Code, gc.Equals, Amber.Code)
-	c.Assert(state.CombineMeterStatus(NotSet, Green).Code, gc.Equals, NotSet.Code)
-	c.Assert(state.CombineMeterStatus(NotSet, NotSet).Code, gc.Equals, NotSet.Code)
-	c.Assert(state.CombineMeterStatus(NotSet, NotAvailable).Code, gc.Equals, NotAvailable.Code)
+	c.Assert(state.CombineMeterStatus(notSet, red).Code, gc.Equals, red.Code)
+	c.Assert(state.CombineMeterStatus(notSet, amber).Code, gc.Equals, amber.Code)
+	c.Assert(state.CombineMeterStatus(notSet, green).Code, gc.Equals, notSet.Code)
+	c.Assert(state.CombineMeterStatus(notSet, notSet).Code, gc.Equals, notSet.Code)
+	c.Assert(state.CombineMeterStatus(notSet, notAvailable).Code, gc.Equals, notAvailable.Code)
 
-	c.Assert(state.CombineMeterStatus(NotAvailable, Red).Code, gc.Equals, NotAvailable.Code)
-	c.Assert(state.CombineMeterStatus(NotAvailable, Amber).Code, gc.Equals, NotAvailable.Code)
-	c.Assert(state.CombineMeterStatus(NotAvailable, Green).Code, gc.Equals, NotAvailable.Code)
-	c.Assert(state.CombineMeterStatus(NotAvailable, NotSet).Code, gc.Equals, NotAvailable.Code)
-	c.Assert(state.CombineMeterStatus(NotAvailable, NotAvailable).Code, gc.Equals, NotAvailable.Code)
+	c.Assert(state.CombineMeterStatus(notAvailable, red).Code, gc.Equals, notAvailable.Code)
+	c.Assert(state.CombineMeterStatus(notAvailable, amber).Code, gc.Equals, notAvailable.Code)
+	c.Assert(state.CombineMeterStatus(notAvailable, green).Code, gc.Equals, notAvailable.Code)
+	c.Assert(state.CombineMeterStatus(notAvailable, notSet).Code, gc.Equals, notAvailable.Code)
+	c.Assert(state.CombineMeterStatus(notAvailable, notAvailable).Code, gc.Equals, notAvailable.Code)
 }

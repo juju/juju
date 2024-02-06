@@ -621,14 +621,14 @@ func (b *BundleAPI) bundleDataMachines(machines []description.Machine, machineId
 }
 
 func bundleDataRemoteApplications(remoteApps []description.RemoteApplication) map[string]*charm.SaasSpec {
-	Saas := make(map[string]*charm.SaasSpec, len(remoteApps))
+	saas := make(map[string]*charm.SaasSpec, len(remoteApps))
 	for _, application := range remoteApps {
 		newSaas := &charm.SaasSpec{
 			URL: application.URL(),
 		}
-		Saas[application.Name()] = newSaas
+		saas[application.Name()] = newSaas
 	}
-	return Saas
+	return saas
 }
 
 func bundleDataRelations(relations []description.Relation) [][]string {

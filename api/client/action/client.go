@@ -67,9 +67,9 @@ func (c *Client) ListOperations(arg OperationQueryArgs) (Operations, error) {
 }
 
 // Operation fetches the operation with the specified ID.
-func (c *Client) Operation(ID string) (Operation, error) {
+func (c *Client) Operation(id string) (Operation, error) {
 	arg := params.Entities{
-		Entities: []params.Entity{{names.NewOperationTag(ID).String()}},
+		Entities: []params.Entity{{Tag: names.NewOperationTag(id).String()}},
 	}
 	var results params.OperationResults
 	err := c.facade.FacadeCall(context.TODO(), "Operations", arg, &results)

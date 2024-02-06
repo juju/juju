@@ -1873,8 +1873,8 @@ func (a *Application) SetDownloadedIDAndHash(id, hash string) error {
 				C:      applicationsC,
 				Id:     a.doc.DocID,
 				Assert: txn.DocExists,
-				Update: bson.D{{"$set", bson.D{
-					{"charm-origin.id", id},
+				Update: bson.D{{Name: "$set", Value: bson.D{
+					{Name: "charm-origin.id", Value: id},
 				}}},
 			})
 		}
@@ -1883,8 +1883,8 @@ func (a *Application) SetDownloadedIDAndHash(id, hash string) error {
 				C:      applicationsC,
 				Id:     a.doc.DocID,
 				Assert: txn.DocExists,
-				Update: bson.D{{"$set", bson.D{
-					{"charm-origin.hash", hash},
+				Update: bson.D{{Name: "$set", Value: bson.D{
+					{Name: "charm-origin.hash", Value: hash},
 				}}},
 			})
 		}
@@ -1903,12 +1903,12 @@ func (a *Application) SetDownloadedIDAndHash(id, hash string) error {
 }
 
 // checkBaseForSetCharm verifies that the
-func checkBaseForSetCharm(currentPlatform *Platform, ch *Charm, ForceBase bool) error {
+func checkBaseForSetCharm(currentPlatform *Platform, ch *Charm, forceBase bool) error {
 	curBase, err := corebase.ParseBase(currentPlatform.OS, currentPlatform.Channel)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if !ForceBase {
+	if !forceBase {
 		return errors.Trace(corecharm.BaseIsCompatibleWithCharm(curBase, ch))
 	}
 	// Even with forceBase=true, we do not allow a charm to be used which is for

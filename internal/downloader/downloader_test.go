@@ -45,9 +45,9 @@ var _ = gc.Suite(&DownloaderSuite{})
 
 func (s *DownloaderSuite) URL(c *gc.C, path string) *url.URL {
 	urlStr := s.HTTPSuite.URL(path)
-	URL, err := url.Parse(urlStr)
+	url, err := url.Parse(urlStr)
 	c.Assert(err, jc.ErrorIsNil)
-	return URL
+	return url
 }
 
 func (s *DownloaderSuite) testStart(c *gc.C, hostnameVerification bool) {

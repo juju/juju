@@ -575,11 +575,11 @@ func (s *MigrationSuite) TestWatchForMigrationMultiModel(c *gc.C) {
 
 	// Create another hosted model to migrate and watch for
 	// migrations.
-	State3 := s.Factory.MakeModel(c, nil)
-	s.AddCleanup(func(*gc.C) { State3.Close() })
+	state3 := s.Factory.MakeModel(c, nil)
+	s.AddCleanup(func(*gc.C) { state3.Close() })
 	// Ensure that all the creation events have flowed through the system.
-	s.WaitForModelWatchersIdle(c, State3.ModelUUID())
-	_, wc3 := s.createMigrationWatcher(c, State3)
+	s.WaitForModelWatchersIdle(c, state3.ModelUUID())
+	_, wc3 := s.createMigrationWatcher(c, state3)
 	wc3.AssertOneChange()
 
 	// Create a migration for 2.
@@ -589,7 +589,7 @@ func (s *MigrationSuite) TestWatchForMigrationMultiModel(c *gc.C) {
 	wc3.AssertNoChange()
 
 	// Create a migration for 3.
-	_, err = State3.CreateMigration(s.stdSpec)
+	_, err = state3.CreateMigration(s.stdSpec)
 	c.Assert(err, jc.ErrorIsNil)
 	wc2.AssertNoChange()
 	wc3.AssertOneChange()
@@ -654,12 +654,12 @@ func (s *MigrationSuite) TestWatchMigrationStatusMultiModel(c *gc.C) {
 
 	// Create another hosted model to migrate and watch for
 	// migrations.
-	State3 := s.Factory.MakeModel(c, nil)
-	s.AddCleanup(func(*gc.C) { State3.Close() })
+	state3 := s.Factory.MakeModel(c, nil)
+	s.AddCleanup(func(*gc.C) { state3.Close() })
 	// Ensure that all the creation events have flowed through the system.
-	s.WaitForModelWatchersIdle(c, State3.ModelUUID())
+	s.WaitForModelWatchersIdle(c, state3.ModelUUID())
 
-	_, wc3 := s.createStatusWatcher(c, State3)
+	_, wc3 := s.createStatusWatcher(c, state3)
 	wc3.AssertOneChange() // initial event
 
 	// Create a migration for 2.
@@ -669,7 +669,7 @@ func (s *MigrationSuite) TestWatchMigrationStatusMultiModel(c *gc.C) {
 	wc3.AssertNoChange()
 
 	// Create a migration for 3.
-	_, err = State3.CreateMigration(s.stdSpec)
+	_, err = state3.CreateMigration(s.stdSpec)
 	c.Assert(err, jc.ErrorIsNil)
 	wc2.AssertNoChange()
 	wc3.AssertOneChange()
@@ -834,9 +834,9 @@ func (s *MigrationSuite) TestWatchMinionReportsMultiModel(c *gc.C) {
 	mig, wc := s.createMigAndWatchReports(c, s.State2)
 	wc.AssertOneChange() // initial event
 
-	State3 := s.Factory.MakeModel(c, nil)
-	s.AddCleanup(func(*gc.C) { State3.Close() })
-	mig3, wc3 := s.createMigAndWatchReports(c, State3)
+	state3 := s.Factory.MakeModel(c, nil)
+	s.AddCleanup(func(*gc.C) { state3.Close() })
+	mig3, wc3 := s.createMigAndWatchReports(c, state3)
 	wc3.AssertOneChange() // initial event
 
 	// Ensure the correct watchers are triggered.

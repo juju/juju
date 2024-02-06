@@ -246,8 +246,8 @@ func (h *logSinkHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			case m, ok := <-logCh:
 				if !ok {
 					h.mu.Lock()
-					defer h.mu.Unlock()
 					h.receiverStopped = true
+					h.mu.Unlock()
 					return
 				}
 
@@ -330,8 +330,8 @@ func (h *logSinkHandler) receiveLogs(socket *websocket.Conn,
 				// has already disconnected from us, this will fail, but we don't
 				// care that much.
 				h.mu.Lock()
-				defer h.mu.Unlock()
 				_ = socket.WriteMessage(gorillaws.CloseMessage, []byte{})
+				h.mu.Unlock()
 				return
 			}
 			h.metrics.LogReadCount(resolvedModelUUID, metricLogReadLabelSuccess).Inc()

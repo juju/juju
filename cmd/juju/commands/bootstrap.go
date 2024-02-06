@@ -953,11 +953,23 @@ to create a new model to deploy %sworkloads.
 		c.controllerName, cloudRegion,
 	)
 
+	// handleBootstrapErrorFunc is a function that will be called to clean up
+	// the environment if the bootstrap process fails.
+	handleBootstrapErrorFunc := func() error {
+		callCtx := envcontext.WithoutCredentialInvalidator(ctx)
+		return environsDestroy(
+			c.controllerName, environ, callCtx, store,
+		)
+	}
+
 	// If we error out for any reason, clean up the environment.
 	defer func() {
-		if resultErr != nil {
-			if c.KeepBrokenEnvironment {
-				ctx.Infof(`
+		if resultErr == nil {
+			return
+		}
+
+		if c.KeepBrokenEnvironment {
+			ctx.Infof(`
 bootstrap failed but --keep-broken was specified.
 This means that cloud resources are left behind, but not registered to
 your local client, as the controller was not successfully created.
@@ -967,20 +979,15 @@ When you are ready to clean up the failed controller, use your cloud console or
 equivalent CLI tools to terminate the instances and remove remaining resources.
 
 See `[1:] + "`juju kill-controller`" + `.`)
-			} else {
-				logger.Errorf("%v", resultErr)
-				logger.Debugf("(error details: %v)", errors.Details(resultErr))
-				// Set resultErr to cmd.ErrSilent to prevent
-				// logging the error twice.
-				resultErr = cmd.ErrSilent
-				handleBootstrapError(ctx, func() error {
-					callCtx := envcontext.WithoutCredentialInvalidator(ctx)
-					return environsDestroy(
-						c.controllerName, environ, callCtx, store,
-					)
-				})
-			}
+			return
 		}
+
+		logger.Errorf("%v", resultErr)
+		logger.Debugf("(error details: %v)", errors.Details(resultErr))
+		// Set resultErr to cmd.ErrSilent to prevent
+		// logging the error twice.
+		resultErr = cmd.ErrSilent
+		handleBootstrapError(ctx, handleBootstrapErrorFunc)
 	}()
 
 	if envMetadataSrc := os.Getenv(constants.EnvJujuMetadataSource); c.MetadataSource == "" && envMetadataSrc != "" {
@@ -1652,13 +1659,12 @@ func (c *bootstrapCommand) InitialModelConfig(
 	userConfigAttrs map[string]interface{},
 	environ environs.ConfigGetter,
 ) map[string]interface{} {
-
-	InitialModelConfig := map[string]interface{}{
+	initialModelConfig := map[string]interface{}{
 		"name":         c.initialModelName,
 		config.UUIDKey: initialModelUUID.String(),
 	}
 	for k, v := range inheritedControllerAttrs {
-		InitialModelConfig[k] = v
+		initialModelConfig[k] = v
 	}
 
 	// We copy across any user supplied attributes to the hosted model config.
@@ -1667,17 +1673,17 @@ func (c *bootstrapCommand) InitialModelConfig(
 	controllerModelConfigAttrs := environ.Config().AllAttrs()
 	for k, v := range userConfigAttrs {
 		if _, ok := controllerModelConfigAttrs[k]; ok {
-			InitialModelConfig[k] = v
+			initialModelConfig[k] = v
 		}
 	}
 	// Ensure that certain config attributes are not included in the hosted
 	// model config. These attributes may be modified during bootstrap; by
 	// removing them from this map, we ensure the modified values are
 	// inherited.
-	delete(InitialModelConfig, config.AuthorizedKeysKey)
-	delete(InitialModelConfig, config.AgentVersionKey)
+	delete(initialModelConfig, config.AuthorizedKeysKey)
+	delete(initialModelConfig, config.AgentVersionKey)
 
-	return InitialModelConfig
+	return initialModelConfig
 }
 
 // runInteractive queries the user about bootstrap config interactively at the

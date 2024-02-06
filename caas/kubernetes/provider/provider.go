@@ -135,9 +135,9 @@ func CloudSpecToK8sRestConfig(cloudSpec environscloudspec.CloudSpec) (*rest.Conf
 		return nil, errors.Errorf("cloud %v has no credential", cloudSpec.Name)
 	}
 
-	var CAData []byte
+	var caData []byte
 	for _, cacert := range cloudSpec.CACertificates {
-		CAData = append(CAData, cacert...)
+		caData = append(caData, cacert...)
 	}
 
 	credentialAttrs := cloudSpec.Credential.Attributes()
@@ -149,7 +149,7 @@ func CloudSpecToK8sRestConfig(cloudSpec environscloudspec.CloudSpec) (*rest.Conf
 		TLSClientConfig: rest.TLSClientConfig{
 			CertData: []byte(credentialAttrs[k8scloud.CredAttrClientCertificateData]),
 			KeyData:  []byte(credentialAttrs[k8scloud.CredAttrClientKeyData]),
-			CAData:   CAData,
+			CAData:   caData,
 			Insecure: cloudSpec.SkipTLSVerify,
 		},
 	}, nil

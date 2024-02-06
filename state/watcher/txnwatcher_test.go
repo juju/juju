@@ -266,18 +266,20 @@ func (s *TxnWatcherSuite) TestTransactionWithMultiple(c *gc.C) {
 }
 
 func (s *TxnWatcherSuite) TestScale(c *gc.C) {
-	const N = 500
-	const T = 10
+	// bN is the number of documents to insert.
+	const bN = 500
+	// bT is the number of documents to insert per transaction.
+	const bT = 10
 
 	s.newRunner(c)
-	_, hub := s.newWatcher(c, N)
+	_, hub := s.newWatcher(c, bN)
 
-	c.Logf("Creating %d documents, %d per transaction...", N, T)
-	ops := make([]txn.Op, T)
-	for i := 0; i < (N / T); i++ {
+	c.Logf("Creating %d documents, %d per transaction...", bN, bT)
+	ops := make([]txn.Op, bT)
+	for i := 0; i < (bN / bT); i++ {
 		ops = ops[:0]
-		for j := 0; j < T && i*T+j < N; j++ {
-			ops = append(ops, txn.Op{C: "test", Id: i*T + j, Insert: M{"n": 1}})
+		for j := 0; j < bT && i*bT+j < bN; j++ {
+			ops = append(ops, txn.Op{C: "test", Id: i*bT + j, Insert: M{"n": 1}})
 		}
 		err := s.runner.Run(func(attempt int) ([]txn.Op, error) {
 			return ops, nil
@@ -288,11 +290,11 @@ func (s *TxnWatcherSuite) TestScale(c *gc.C) {
 	count, err := s.Session.DB("juju").C("test").Count()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Logf("Got %d documents in the collection...", count)
-	c.Assert(count, gc.Equals, N)
+	c.Assert(count, gc.Equals, bN)
 
 	hub.waitForExpected()
 
-	for i := 0; i < N; i++ {
+	for i := 0; i < bN; i++ {
 		c.Assert(hub.values[i].Id, gc.Equals, i)
 	}
 }

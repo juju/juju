@@ -209,7 +209,7 @@ func createFilesystem(run runCommandFunc, devicePath string) error {
 	return nil
 }
 
-func mountFilesystem(run runCommandFunc, dirFuncs dirFuncs, devicePath, UUID, mountPoint string, readOnly bool) error {
+func mountFilesystem(run runCommandFunc, dirFuncs dirFuncs, devicePath, uuid, mountPoint string, readOnly bool) error {
 	logger.Debugf("attempting to mount filesystem on %q at %q", devicePath, mountPoint)
 	if err := dirFuncs.mkDirAll(mountPoint, 0755); err != nil {
 		return errors.Annotate(err, "creating mount point")
@@ -241,7 +241,7 @@ func mountFilesystem(run runCommandFunc, dirFuncs dirFuncs, devicePath, UUID, mo
 	if mtabEntry == "" {
 		return nil
 	}
-	return ensureFstabEntry(etcDir, devicePath, UUID, mountPoint, mtabEntry)
+	return ensureFstabEntry(etcDir, devicePath, uuid, mountPoint, mtabEntry)
 }
 
 // extractMtabEntry returns any /etc/mtab entry for the specified
@@ -273,7 +273,7 @@ func extractMtabEntry(etcDir string, devicePath, mountPoint string) (string, err
 
 // ensureFstabEntry creates an entry in /etc/fstab for the specified
 // device path and mount point so long as there's no existing entry already.
-func ensureFstabEntry(etcDir, devicePath, UUID, mountPoint, entry string) error {
+func ensureFstabEntry(etcDir, devicePath, uuid, mountPoint, entry string) error {
 	f, err := os.Open(filepath.Join(etcDir, "fstab"))
 	if err != nil && !os.IsNotExist(err) {
 		return errors.Annotate(err, "opening /etc/fstab")
@@ -310,7 +310,7 @@ func ensureFstabEntry(etcDir, devicePath, UUID, mountPoint, entry string) error 
 		}
 	}
 
-	uuidField := "UUID=" + UUID
+	uuidField := "UUID=" + uuid
 	addNewEntry := true
 	// Scan all the fstab lines, searching for one
 	// which describes the entry we want to create.
@@ -331,7 +331,7 @@ func ensureFstabEntry(etcDir, devicePath, UUID, mountPoint, entry string) error 
 			goto writeLine
 		}
 		// We have a match, if UUID is not yet known, retain the line.
-		if UUID == "" {
+		if uuid == "" {
 			addNewEntry = false
 			goto writeLine
 		}
@@ -347,7 +347,7 @@ func ensureFstabEntry(etcDir, devicePath, UUID, mountPoint, entry string) error 
 	}
 
 	if addNewEntry {
-		if UUID != "" {
+		if uuid != "" {
 			if len(resultFields) >= 2 { // just being defensive, check should never fail.
 				_, err := newFsTab.WriteString(fmt.Sprintf("# %s was on %s during installation\n", resultFields[1], resultFields[0]))
 				if err != nil {

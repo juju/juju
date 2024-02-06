@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
-	jujutesting "github.com/juju/testing"
 	gc "gopkg.in/check.v1"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -857,7 +856,7 @@ func newMockMachineAccessor(c *gc.C) *mockMachineAccessor {
 }
 
 type mockClock struct {
-	jujutesting.Stub
+	testing.Stub
 	now         time.Time
 	onNow       func() time.Time
 	onAfter     func(time.Duration) <-chan time.Time

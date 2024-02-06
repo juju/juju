@@ -18,19 +18,31 @@ import (
 // ServerCert and ServerKey hold a CA-signed server cert/key.
 // Certs holds the certificates and keys required to make a secure
 // connection to a Mongo database.
+//
+//revive:disable:exported
 var (
+	// CACert and CAKey make up a CA key pair and ServerCert and ServerKey
+	// hold a CA-signed server cert/key.
 	CACert, CAKey, ServerCert, ServerKey = chooseGeneratedCA()
 
+	// CACertX509 and CAKeyRSA hold their parsed equivalents.
 	CACertX509, CAKeyRSA = mustParseCertAndKey(CACert, CAKey)
 
+	// ServerTLSCert is the parsed server certificate.
 	ServerTLSCert = mustParseServerCert(ServerCert, ServerKey)
 
+	// Certs holds the certificates and keys required to make a secure
 	Certs = serverCerts()
 
 	// Other valid test certs different from the default.
-	OtherCACert, OtherCAKey        = chooseGeneratedOtherCA()
+
+	// OtherCACert and OtherCAKey is the other CA certificate and key.
+	OtherCACert, OtherCAKey = chooseGeneratedOtherCA()
+	// OtherCACertX509 and OtherCAKeyRSA hold their parsed equivalents.
 	OtherCACertX509, OtherCAKeyRSA = mustParseCertAndKey(OtherCACert, OtherCAKey)
 )
+
+//revive:enable:exported
 
 func chooseGeneratedCA() (string, string, string, string) {
 	index := rand.Intn(len(generatedCA))

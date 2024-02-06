@@ -11,7 +11,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	. "github.com/juju/juju/internal/container/kvm/libvirt"
+	"github.com/juju/juju/internal/container/kvm/libvirt"
 )
 
 // gocheck boilerplate.
@@ -156,12 +156,12 @@ func (domainXMLSuite) TestNewDomain(c *gc.C) {
 	}
 	for i, test := range table {
 		c.Logf("TestNewDomain: test #%d for %s", i+1, test.arch)
-		ifaces := []InterfaceInfo{
+		ifaces := []libvirt.InterfaceInfo{
 			dummyInterface{
 				mac:    "00:00:00:00:00:00",
 				parent: "parent-dev",
 				name:   "device-name"}}
-		disks := []DiskInfo{
+		disks := []libvirt.DiskInfo{
 			dummyDisk{driver: "qcow2", source: "/some/path"},
 			dummyDisk{driver: "raw", source: "/another/path"},
 		}
@@ -171,7 +171,7 @@ func (domainXMLSuite) TestNewDomain(c *gc.C) {
 			params.loader = "/shared/readonly.fd"
 		}
 
-		d, err := NewDomain(params)
+		d, err := libvirt.NewDomain(params)
 		c.Check(err, jc.ErrorIsNil)
 		ml, err := xml.MarshalIndent(&d, "", "    ")
 		c.Check(err, jc.ErrorIsNil)
@@ -180,7 +180,7 @@ func (domainXMLSuite) TestNewDomain(c *gc.C) {
 }
 
 func (domainXMLSuite) TestNewDomainWithOvsBridge(c *gc.C) {
-	ifaces := []InterfaceInfo{
+	ifaces := []libvirt.InterfaceInfo{
 		dummyInterface{
 			mac:                   "00:00:00:00:00:00",
 			parent:                "parent-dev",
@@ -188,13 +188,13 @@ func (domainXMLSuite) TestNewDomainWithOvsBridge(c *gc.C) {
 			parentVirtualPortType: "openvswitch",
 		},
 	}
-	disks := []DiskInfo{
+	disks := []libvirt.DiskInfo{
 		dummyDisk{driver: "qcow2", source: "/some/path"},
 		dummyDisk{driver: "raw", source: "/another/path"},
 	}
 	params := dummyParams{ifaceInfo: ifaces, diskInfo: disks, memory: 1024, cpuCores: 2, hostname: "juju-someid", arch: "amd64"}
 
-	d, err := NewDomain(params)
+	d, err := libvirt.NewDomain(params)
 	c.Check(err, jc.ErrorIsNil)
 	ml, err := xml.MarshalIndent(&d, "", "    ")
 	c.Check(err, jc.ErrorIsNil)
@@ -202,8 +202,8 @@ func (domainXMLSuite) TestNewDomainWithOvsBridge(c *gc.C) {
 }
 
 func (domainXMLSuite) TestNewDomainError(c *gc.C) {
-	d, err := NewDomain(dummyParams{err: errors.Errorf("boom")})
-	c.Check(d, jc.DeepEquals, Domain{})
+	d, err := libvirt.NewDomain(dummyParams{err: errors.Errorf("boom")})
+	c.Check(d, jc.DeepEquals, libvirt.Domain{})
 	c.Check(err, gc.ErrorMatches, "boom")
 }
 
@@ -211,23 +211,23 @@ type dummyParams struct {
 	err       error
 	arch      string
 	cpuCores  uint64
-	diskInfo  []DiskInfo
+	diskInfo  []libvirt.DiskInfo
 	hostname  string
-	ifaceInfo []InterfaceInfo
+	ifaceInfo []libvirt.InterfaceInfo
 	loader    string
 	memory    uint64
 	nvram     string
 }
 
-func (p dummyParams) Arch() string                 { return p.arch }
-func (p dummyParams) CPUs() uint64                 { return p.cpuCores }
-func (p dummyParams) DiskInfo() []DiskInfo         { return p.diskInfo }
-func (p dummyParams) Host() string                 { return p.hostname }
-func (p dummyParams) Loader() string               { return p.loader }
-func (p dummyParams) NVRAM() string                { return p.nvram }
-func (p dummyParams) NetworkInfo() []InterfaceInfo { return p.ifaceInfo }
-func (p dummyParams) RAM() uint64                  { return p.memory }
-func (p dummyParams) ValidateDomainParams() error  { return p.err }
+func (p dummyParams) Arch() string                         { return p.arch }
+func (p dummyParams) CPUs() uint64                         { return p.cpuCores }
+func (p dummyParams) DiskInfo() []libvirt.DiskInfo         { return p.diskInfo }
+func (p dummyParams) Host() string                         { return p.hostname }
+func (p dummyParams) Loader() string                       { return p.loader }
+func (p dummyParams) NVRAM() string                        { return p.nvram }
+func (p dummyParams) NetworkInfo() []libvirt.InterfaceInfo { return p.ifaceInfo }
+func (p dummyParams) RAM() uint64                          { return p.memory }
+func (p dummyParams) ValidateDomainParams() error          { return p.err }
 
 type dummyDisk struct {
 	source string

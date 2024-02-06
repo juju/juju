@@ -1435,20 +1435,20 @@ func (s *BootstrapSuite) TestMissingToolsError(c *gc.C) {
 	)
 	c.Assert(err, gc.Equals, cmd.ErrSilent)
 	c.Check(s.tw.Log(), jc.LogMatches, []jc.SimpleMessage{{
-		loggo.ERROR,
-		"failed to bootstrap model: Juju cannot bootstrap because no agent binaries are available for your model",
+		Level:   loggo.ERROR,
+		Message: "failed to bootstrap model: Juju cannot bootstrap because no agent binaries are available for your model",
 	}})
 }
 
 func (s *BootstrapSuite) TestMissingToolsUploadFailedError(c *gc.C) {
-	BuildAgentTarballAlwaysFails := func(
+	buildAgentTarballAlwaysFails := func(
 		bool, string, func(version.Number) version.Number,
 	) (*sync.BuiltAgent, error) {
 		return nil, errors.New("an error")
 	}
 
 	s.setupAutoUploadTest(c, "1.7.3", "jammy")
-	s.PatchValue(&sync.BuildAgentTarball, BuildAgentTarballAlwaysFails)
+	s.PatchValue(&sync.BuildAgentTarball, buildAgentTarballAlwaysFails)
 
 	ctx, err := cmdtesting.RunCommand(
 		c, s.newBootstrapCommand(),
@@ -1465,8 +1465,8 @@ No packaged binary found, preparing local Juju agent binary
 `[1:])
 	c.Assert(err, gc.Equals, cmd.ErrSilent)
 	c.Check(s.tw.Log(), jc.LogMatches, []jc.SimpleMessage{{
-		loggo.ERROR,
-		"failed to bootstrap model: cannot package bootstrap agent binary: an error",
+		Level:   loggo.ERROR,
+		Message: "failed to bootstrap model: cannot package bootstrap agent binary: an error",
 	}})
 }
 
@@ -1502,10 +1502,10 @@ func (s *BootstrapSuite) TestBootstrapDestroy(c *gc.C) {
 	c.Assert(opDestroy.Error, gc.ErrorMatches, "dummy.Destroy is broken")
 
 	c.Check(s.tw.Log(), jc.LogMatches, []jc.SimpleMessage{
-		{loggo.ERROR, "failed to bootstrap model: dummy.Bootstrap is broken"},
-		{loggo.DEBUG, "(error details.*)"},
-		{loggo.DEBUG, "cleaning up after failed bootstrap"},
-		{loggo.ERROR, "error cleaning up: dummy.Destroy is broken"},
+		{Level: loggo.ERROR, Message: "failed to bootstrap model: dummy.Bootstrap is broken"},
+		{Level: loggo.DEBUG, Message: "(error details.*)"},
+		{Level: loggo.DEBUG, Message: "cleaning up after failed bootstrap"},
+		{Level: loggo.ERROR, Message: "error cleaning up: dummy.Destroy is broken"},
 	})
 }
 

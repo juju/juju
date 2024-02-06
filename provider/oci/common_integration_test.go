@@ -148,10 +148,10 @@ func makeGetVnicRequestResponse(vnicDetails []ociCore.GetVnicResponse) ([]ociCor
 	return requests, responses
 }
 
-func newFakeOCIInstance(Id, compartment string, state ociCore.InstanceLifecycleStateEnum) *ociCore.Instance {
+func newFakeOCIInstance(id, compartment string, state ociCore.InstanceLifecycleStateEnum) *ociCore.Instance {
 	return &ociCore.Instance{
 		AvailabilityDomain: makeStringPointer("fake-az"),
-		Id:                 &Id,
+		Id:                 &id,
 		CompartmentId:      &compartment,
 		Region:             makeStringPointer("us-phoenix-1"),
 		Shape:              makeStringPointer("VM.Standard1.1"),

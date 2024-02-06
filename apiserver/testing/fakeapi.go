@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/apiserver/observer/fakeobserver"
 	apiwebsocket "github.com/juju/juju/apiserver/websocket"
 	"github.com/juju/juju/core/trace"
-	coretrace "github.com/juju/juju/core/trace"
 	"github.com/juju/juju/internal/rpcreflect"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/jsoncodec"
@@ -133,5 +132,5 @@ func (av allVersions) FindMethod(rootMethodName string, version int, objMethodNa
 }
 
 func (av allVersions) StartTrace(ctx context.Context) (context.Context, trace.Span) {
-	return ctx, coretrace.NoopSpan{}
+	return ctx, trace.NoopSpan{}
 }

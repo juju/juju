@@ -44,20 +44,19 @@ func (s *serviceSuite) TestGetAnnotations(c *gc.C) {
 	id1 := annotations.ID{Kind: annotations.KindUnit, Name: "unit1"}
 	id33 := annotations.ID{Kind: annotations.KindUnit, Name: "unit33"}
 	id44 := annotations.ID{Kind: annotations.KindUnit, Name: "unit44"}
-	IDNotExist := annotations.ID{Kind: annotations.KindUnit, Name: "unitNoAnnotations"}
+	idNotExist := annotations.ID{Kind: annotations.KindUnit, Name: "unitNoAnnotations"}
 	mockState := map[stateAnnotationKey]string{
-		{id1, "annotationKey1"}:  "annotationValue1",
-		{id1, "annotationKey2"}:  "annotationValue2",
-		{id33, "annotationKey3"}: "annotationValue3",
-		{id44, "annotationKey4"}: "annotationValue4",
+		{ID: id1, key: "annotationKey1"}:  "annotationValue1",
+		{ID: id1, key: "annotationKey2"}:  "annotationValue2",
+		{ID: id33, key: "annotationKey3"}: "annotationValue3",
+		{ID: id44, key: "annotationKey4"}: "annotationValue4",
 	}
 
 	s.state.EXPECT().GetAnnotations(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(_ context.Context,
-			ID annotations.ID) (map[string]string, error) {
+		func(_ context.Context, id annotations.ID) (map[string]string, error) {
 			annotations := make(map[string]string)
 			for annKey := range mockState {
-				if annKey.ID == ID {
+				if annKey.ID == id {
 					annotations[annKey.key] = mockState[annKey]
 				}
 			}
@@ -73,7 +72,7 @@ func (s *serviceSuite) TestGetAnnotations(c *gc.C) {
 
 	// Assert that an empty map (not nil) is returend if no annotations
 	// are associated with a given ID
-	noAnnotations, err := s.service().GetAnnotations(context.Background(), IDNotExist)
+	noAnnotations, err := s.service().GetAnnotations(context.Background(), idNotExist)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(noAnnotations), gc.Equals, 0)
 }
@@ -85,21 +84,19 @@ func (s *serviceSuite) TestSetAnnotations(c *gc.C) {
 	id33 := annotations.ID{Kind: annotations.KindUnit, Name: "unit33"}
 	id44 := annotations.ID{Kind: annotations.KindUnit, Name: "unit44"}
 	mockState := map[stateAnnotationKey]string{
-		{id1, "annotationKey1"}:  "annotationValue1",
-		{id1, "annotationKey2"}:  "annotationValue2",
-		{id33, "annotationKey3"}: "annotationValue3",
-		{id44, "annotationKey4"}: "annotationValue4",
+		{ID: id1, key: "annotationKey1"}:  "annotationValue1",
+		{ID: id1, key: "annotationKey2"}:  "annotationValue2",
+		{ID: id33, key: "annotationKey3"}: "annotationValue3",
+		{ID: id44, key: "annotationKey4"}: "annotationValue4",
 	}
 
 	s.state.EXPECT().SetAnnotations(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
-		func(_ context.Context,
-			ID annotations.ID,
-			annotations map[string]string) error {
+		func(_ context.Context, id annotations.ID, annotations map[string]string) error {
 			for annKey, annVal := range annotations {
 				if annVal == "" {
-					delete(mockState, stateAnnotationKey{ID, annKey})
+					delete(mockState, stateAnnotationKey{ID: id, key: annKey})
 				} else {
-					mockState[stateAnnotationKey{ID, annKey}] = annVal
+					mockState[stateAnnotationKey{ID: id, key: annKey}] = annVal
 				}
 			}
 			return nil
@@ -114,8 +111,8 @@ func (s *serviceSuite) TestSetAnnotations(c *gc.C) {
 	err := s.service().SetAnnotations(context.Background(), id1, annotations)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(mockState), gc.Equals, 5)
-	c.Assert(mockState[stateAnnotationKey{id1, "annotationKey5"}], gc.Equals, "annotationValue5")
-	c.Assert(mockState[stateAnnotationKey{id1, "annotationKey1"}], gc.Equals, "annotationValue1Updated")
+	c.Assert(mockState[stateAnnotationKey{ID: id1, key: "annotationKey5"}], gc.Equals, "annotationValue5")
+	c.Assert(mockState[stateAnnotationKey{ID: id1, key: "annotationKey1"}], gc.Equals, "annotationValue1Updated")
 
 	// Unset a key
 	unsetAnnotations := map[string]string{"annotationKey4": ""}

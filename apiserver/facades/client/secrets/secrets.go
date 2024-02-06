@@ -268,8 +268,8 @@ func (s *SecretsAPI) CreateSecrets(ctx context.Context, args params.CreateSecret
 		return result, errors.Trace(err)
 	}
 	for i, arg := range args.Args {
-		ID, err := s.createSecret(ctx, backend, arg)
-		result.Results[i].Result = ID
+		id, err := s.createSecret(ctx, backend, arg)
+		result.Results[i].Result = id
 		if errors.Is(err, state.LabelExists) {
 			err = errors.AlreadyExistsf("secret with name %q", *arg.Label)
 		}

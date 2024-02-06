@@ -18,7 +18,6 @@ import (
 	"github.com/kr/pretty"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/yaml.v2"
-	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/internal/network/netplan"
 	coretesting "github.com/juju/juju/testing"
@@ -35,7 +34,7 @@ func MustNetplanFromYaml(c *gc.C, input string) *netplan.Netplan {
 	if strings.HasPrefix(input, "\n") {
 		input = input[1:]
 	}
-	err := goyaml.UnmarshalStrict([]byte(input), &np)
+	err := yaml.UnmarshalStrict([]byte(input), &np)
 	c.Assert(err, jc.ErrorIsNil)
 	return &np
 }

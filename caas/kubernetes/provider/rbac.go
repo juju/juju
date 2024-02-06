@@ -349,8 +349,8 @@ func (k *kubernetesClient) ensureRoleBinding(ctx context.Context, rb *rbacv1.Rol
 			return existing, cleanups, nil
 		}
 		name := existing.GetName()
-		UID := existing.GetUID()
-		if err := k.deleteRoleBinding(ctx, name, UID); err != nil {
+		uid := existing.GetUID()
+		if err := k.deleteRoleBinding(ctx, name, uid); err != nil {
 			return nil, cleanups, errors.Trace(err)
 		}
 
