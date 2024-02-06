@@ -42,8 +42,8 @@ type UserManagerAPI struct {
 	pool        *state.StatePool
 	authorizer  facade.Authorizer
 	check       *common.BlockChecker
-	apiUser     names.UserTag
-	apiUserUUID coreuser.UUID
+	apiUserTag  names.UserTag
+	apiUser     coreuser.User
 	isAdmin     bool
 	logger      loggo.Logger
 }
@@ -55,8 +55,8 @@ func NewAPI(
 	pool *state.StatePool,
 	authorizer facade.Authorizer,
 	check *common.BlockChecker,
-	apiUser names.UserTag,
-	apiUserUUID coreuser.UUID,
+	apiUserTag names.UserTag,
+	apiUser coreuser.User,
 	isAdmin bool,
 	logger loggo.Logger,
 ) (*UserManagerAPI, error) {
@@ -66,8 +66,8 @@ func NewAPI(
 		pool:        pool,
 		authorizer:  authorizer,
 		check:       check,
+		apiUserTag:  apiUserTag,
 		apiUser:     apiUser,
-		apiUserUUID: apiUserUUID,
 		isAdmin:     isAdmin,
 		logger:      logger,
 	}, nil
@@ -104,7 +104,7 @@ func (api *UserManagerAPI) AddUser(ctx context.Context, args params.AddUsers) (p
 		var err error
 		if arg.Password != "" {
 			// TODO(anvial): Legacy block to delete when user domain wire up is complete.
-			_, err = api.state.AddUser(arg.Username, arg.DisplayName, arg.Password, api.apiUser.Id())
+			_, err = api.state.AddUser(arg.Username, arg.DisplayName, arg.Password, api.apiUserTag.Id())
 			if err != nil {
 				err = errors.Annotate(err, "failed to create user")
 				result.Results[i].Error = apiservererrors.ServerError(err)
@@ -112,10 +112,10 @@ func (api *UserManagerAPI) AddUser(ctx context.Context, args params.AddUsers) (p
 			}
 			// End legacy block.
 
-			_, err = api.userService.AddUserWithPassword(ctx, arg.Username, arg.DisplayName, api.apiUserUUID, auth.NewPassword(arg.Password))
+			_, err = api.userService.AddUserWithPassword(ctx, arg.Username, arg.DisplayName, api.apiUser.UUID, auth.NewPassword(arg.Password))
 		} else {
 			// TODO(anvial): Legacy block to delete when user domain wire up is complete.
-			_, err = api.state.AddUserWithSecretKey(arg.Username, arg.DisplayName, api.apiUser.Id())
+			_, err = api.state.AddUserWithSecretKey(arg.Username, arg.DisplayName, api.apiUserTag.Id())
 			if err != nil {
 				err = errors.Annotate(err, "failed to create user")
 				result.Results[i].Error = apiservererrors.ServerError(err)
@@ -123,7 +123,7 @@ func (api *UserManagerAPI) AddUser(ctx context.Context, args params.AddUsers) (p
 			}
 			// End legacy block.
 
-			activationKey, _, err = api.userService.AddUserWithActivationKey(ctx, arg.Username, arg.DisplayName, api.apiUserUUID)
+			activationKey, _, err = api.userService.AddUserWithActivationKey(ctx, arg.Username, arg.DisplayName, api.apiUser.UUID)
 		}
 		if err != nil {
 			err = errors.Annotate(err, "failed to create user")
@@ -473,7 +473,7 @@ func (api *UserManagerAPI) setPassword(ctx context.Context, arg params.EntityPas
 		if err != nil {
 			return errors.Trace(err)
 		}
-		if _, err := api.hasControllerAdminAccess(); err != nil && api.apiUser != userTag {
+		if _, err := api.hasControllerAdminAccess(); err != nil && api.apiUserTag != userTag {
 			return err
 		}
 	}
@@ -532,7 +532,7 @@ func (api *UserManagerAPI) ResetPassword(ctx context.Context, args params.Entiti
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		if isSuperUser && api.apiUser != legacyUser.Tag() {
+		if isSuperUser && api.apiUserTag != legacyUser.Tag() {
 			_, err := legacyUser.ResetPassword()
 			if err != nil {
 				result.Results[i].Error = apiservererrors.ServerError(err)
@@ -549,7 +549,7 @@ func (api *UserManagerAPI) ResetPassword(ctx context.Context, args params.Entiti
 		}
 
 		// Reset password
-		if isSuperUser && api.apiUser != userTag {
+		if isSuperUser && api.apiUserTag != userTag {
 			key, err := api.userService.ResetPassword(ctx, userTag.Name())
 			if err != nil {
 				result.Results[i].Error = apiservererrors.ServerError(err)
