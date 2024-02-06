@@ -472,7 +472,6 @@ func (u *UniterAPI) Destroy(ctx context.Context, args params.Entities) (params.E
 			unit, err = u.getUnit(tag)
 			if err == nil {
 				removed, err = unit.DestroyMaybeRemove(u.store)
-				u.logger.Criticalf("UNITER DESTROY %q: %v", tag, removed)
 				if err == nil && removed {
 					err = u.unitRemover.Delete(ctx, unit.Name())
 				}

@@ -174,11 +174,6 @@ func (context Context) ServiceFactory() servicefactory.ServiceFactory {
 	return context.ServiceFactory_
 }
 
-// ServiceFactoryGetter implements facade.Context.
-func (context Context) ServiceFactoryGetter() servicefactory.ServiceFactoryGetter {
-	return context.ServiceFactoryGetter_
-}
-
 // ModelExporter returns a model exporter for the current model.
 func (context Context) ModelExporter(facade.LegacyStateExporter) facade.ModelExporter {
 	return context.ModelExporter_

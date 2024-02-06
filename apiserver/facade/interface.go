@@ -194,8 +194,6 @@ type ModelMigrationFactory interface {
 type ServiceFactory interface {
 	// ServiceFactory returns the services factory for the current model.
 	ServiceFactory() servicefactory.ServiceFactory
-
-	ServiceFactoryGetter() servicefactory.ServiceFactoryGetter
 }
 
 // ObjectStoreFactory defines an interface for accessing the object store.

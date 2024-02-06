@@ -843,19 +843,13 @@ func (ctx *facadeContext) ModelImporter() facade.ModelImporter {
 		ctx.migrationScope,
 		ctx.ServiceFactory().ModelManager(),
 		ctx.ServiceFactory().ControllerConfig(),
-		ctx.ServiceFactoryGetter(),
+		ctx.r.serviceFactoryGetter,
 	)
 }
 
 // ServiceFactory returns the services factory for the current model.
 func (ctx *facadeContext) ServiceFactory() servicefactory.ServiceFactory {
 	return ctx.r.serviceFactory
-}
-
-// ServiceFactoryGetter returns the services factory getter so a service factory
-// for a specific model can get obtained.
-func (ctx *facadeContext) ServiceFactoryGetter() servicefactory.ServiceFactoryGetter {
-	return ctx.r.serviceFactoryGetter
 }
 
 // Tracer returns the tracer for the current model.
