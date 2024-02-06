@@ -74,6 +74,7 @@ func (u UserAccessSpec) validate() error {
 	return nil
 }
 
+// Service provides the API for working with permissions.
 type Service struct {
 	st State
 }
