@@ -45,10 +45,8 @@ func InitUbuntuUser(host, login, authorizedKeys string, privateKeys string, know
 
 	var options ssh.Options
 
-	// known hosts was set
-	if knownHostsFile != "" {
-		options.SetKnownHostsFile(knownHostsFile)
-	}
+	// known hosts file was set
+	options.SetKnownHostsFile(knownHostsFile)
 
 	// To avoid unnecessary prompting for the specified login,
 	// initUbuntuUser will first attempt to ssh to the machine
@@ -115,9 +113,7 @@ func detectSeriesAndHardwareCharacteristics(host string, knownHostsFile string) 
 
 	var options ssh.Options
 
-	if knownHostsFile != "" {
-		options.SetKnownHostsFile(knownHostsFile)
-	}
+	options.SetKnownHostsFile(knownHostsFile)
 
 	cmd := ssh.Command("ubuntu@"+host, []string{"/bin/bash"}, &options)
 	var stdout, stderr bytes.Buffer
@@ -191,9 +187,8 @@ func checkProvisioned(host string, knownHostsFile string) (bool, error) {
 	script := service.ListServicesScript()
 
 	var options ssh.Options
-	if knownHostsFile != "" {
-		options.SetKnownHostsFile(knownHostsFile)
-	}
+
+	options.SetKnownHostsFile(knownHostsFile)
 
 	cmd := ssh.Command("ubuntu@"+host, []string{"/bin/bash"}, &options)
 	var stdout, stderr bytes.Buffer
@@ -286,9 +281,8 @@ func gatherMachineParams(hostname string, knownHostsFile string) (*params.AddMac
 
 func runProvisionScript(script, host string, knownHostsFile string, progressWriter io.Writer) error {
 	var options ssh.Options
-	if knownHostsFile != "" {
-		options.SetKnownHostsFile(knownHostsFile)
-	}
+
+	options.SetKnownHostsFile(knownHostsFile)
 
 	params := sshinit.ConfigureParams{
 		Host:           "ubuntu@" + host,
