@@ -5,12 +5,12 @@ package service
 
 import (
 	"context"
-	"fmt"
+
+	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/changestream"
 	coreobjectstore "github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/objectstore"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -25,6 +25,8 @@ type State interface {
 	ListMetadata(ctx context.Context) ([]objectstore.Metadata, error)
 	// RemoveMetadata removes the specified path for the persistence metadata.
 	RemoveMetadata(ctx context.Context, path string) error
+	// ListMetadata returns the persistence metadata.
+	ListMetadata(ctx context.Context) ([]objectstore.Metadata, error)
 	// InitialWatchStatement returns the table and the initial watch statement
 	// for the persistence metadata.
 	InitialWatchStatement() (string, string)
@@ -53,7 +55,7 @@ func NewService(st State) *Service {
 func (s *Service) GetMetadata(ctx context.Context, path string) (coreobjectstore.Metadata, error) {
 	metadata, err := s.st.GetMetadata(ctx, path)
 	if err != nil {
-		return coreobjectstore.Metadata{}, fmt.Errorf("retrieving metadata %s: %w", path, domain.CoerceError(err))
+		return coreobjectstore.Metadata{}, errors.Annotatef(err, "retrieving metadata %s", path)
 	}
 	return coreobjectstore.Metadata{
 		Path: metadata.Path,
@@ -93,7 +95,7 @@ func (s *Service) PutMetadata(ctx context.Context, metadata coreobjectstore.Meta
 		Size: metadata.Size,
 	})
 	if err != nil {
-		return fmt.Errorf("adding path %s: %w", metadata.Path, err)
+		return errors.Annotatef(err, "adding path %s", metadata.Path)
 	}
 	return nil
 }
@@ -102,9 +104,28 @@ func (s *Service) PutMetadata(ctx context.Context, metadata coreobjectstore.Meta
 func (s *Service) RemoveMetadata(ctx context.Context, path string) error {
 	err := s.st.RemoveMetadata(ctx, path)
 	if err != nil {
-		return fmt.Errorf("removing path %s: %w", path, err)
+		return errors.Annotatef(err, "removing path %s", path)
 	}
 	return nil
+}
+
+// ListMetadata returns the persistence metadata.
+func (s *Service) ListMetadata(ctx context.Context) ([]coreobjectstore.Metadata, error) {
+	metadata, err := s.st.ListMetadata(ctx)
+	if err != nil {
+		return nil, errors.Annotatef(err, "listing metadata")
+	}
+
+	result := make([]coreobjectstore.Metadata, len(metadata))
+	for k, m := range metadata {
+		result[k] = coreobjectstore.Metadata{
+			Path: m.Path,
+			Hash: m.Hash,
+			Size: m.Size,
+		}
+	}
+
+	return result, nil
 }
 
 // WatchableService provides the API for working with the objectstore

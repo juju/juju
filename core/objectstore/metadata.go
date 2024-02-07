@@ -29,7 +29,6 @@ type Metadata struct {
 
 // Metadata represents the metadata for an object store.
 type ObjectStoreMetadata interface {
-
 	// GetMetadata returns the persistence metadata for the specified path.
 	GetMetadata(ctx context.Context, path string) (Metadata, error)
 
@@ -39,7 +38,7 @@ type ObjectStoreMetadata interface {
 	// RemoveMetadata removes the specified path for the persistence metadata.
 	RemoveMetadata(ctx context.Context, path string) error
 
-	// ListMetadata returns the persistence metadata for all paths.
+	// ListMetadata returns the persistence metadata.
 	ListMetadata(ctx context.Context) ([]Metadata, error)
 
 	// Watch returns a watcher that emits the path changes that either have been
