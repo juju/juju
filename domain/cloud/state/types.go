@@ -123,6 +123,8 @@ type CloudRegionDefaultValue struct {
 	Value string `db:"value"`
 }
 
+type CloudUUIDs []string
+
 type CloudCACert struct {
 	// ID holds the cloud ca cert document key.
 	ID string `db:"uuid"`

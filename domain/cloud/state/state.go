@@ -107,7 +107,7 @@ func (st *State) ListClouds(ctx context.Context, name string) ([]cloud.Cloud, er
 	}
 
 	var result []cloud.Cloud
-	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
 		result, err = loadClouds(ctx, tx, name)
 		return errors.Trace(err)
@@ -229,7 +229,7 @@ ON CONFLICT(cloud_uuid, key) DO UPDATE
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		cld := Cloud{Name: cloudName}
 		err := tx.Query(ctx, selectStmt, cld).Get(&cld)
-		if errors.Is(err, sql.ErrNoRows) {
+		if errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("cloud %q %w%w", cloudName, errors.NotFound, errors.Hide(err))
 		} else if err != nil {
 			return fmt.Errorf("fetching cloud %q: %w", cloudName, domain.CoerceError(err))
@@ -398,20 +398,20 @@ ON CONFLICT(region_uuid, key) DO UPDATE
 	})
 }
 
-func loadClouds(ctx context.Context, tx *sql.Tx, name string) ([]cloud.Cloud, error) {
+func loadClouds(ctx context.Context, tx *sqlair.TX, name string) ([]cloud.Cloud, error) {
 	// First load the basic cloud info and auth types.
 	q := `
-SELECT cloud.uuid, cloud.name, cloud_type_id, 
-       cloud.endpoint, cloud.identity_endpoint, 
-       cloud.storage_endpoint, skip_tls_verify, 
-       auth_type.type, cloud_type.type,
-       COALESCE((SELECT true
+WITH controllers AS (SELECT model_metadata.cloud_uuid
         FROM model_metadata
 		INNER JOIN user
         ON user.uuid = model_metadata.owner_uuid
-        WHERE cloud_uuid = cloud.uuid
-        AND model_metadata.name = ?
-        AND user.name = ?), false) AS controller_cloud
+        AND model_metadata.name = $M.controller_name
+        AND user.name = $M.controller_user_name)
+SELECT (cloud.uuid, cloud.name, cloud_type_id, 
+       cloud.endpoint, cloud.identity_endpoint, 
+       cloud.storage_endpoint, skip_tls_verify) AS (&Cloud.*),
+       IIF(controllers.cloud_uuid IS NULL, false, true) AS &Cloud.is_controller_cloud,
+       auth_type.type AS &M.cloud_auth_type, cloud_type.type AS &M.cloud_type
 FROM   cloud
        LEFT JOIN cloud_auth_type 
             ON cloud.uuid = cloud_auth_type.cloud_uuid
@@ -419,41 +419,44 @@ FROM   cloud
             ON auth_type.id = cloud_auth_type.auth_type_id
        JOIN cloud_type 
             ON cloud_type.id = cloud.cloud_type_id
+       LEFT JOIN controllers
+            ON controllers.cloud_uuid = cloud.uuid
 `
 
-	args := []any{
-		coremodel.ControllerModelName,
-		coremodel.ControllerModelOwnerUsername,
-	}
 	if name != "" {
-		q = q + "WHERE cloud.name = ?"
-		args = append(args, name)
+		q = q + "WHERE cloud.name = $M.cloud_name"
 	}
 
-	rows, err := tx.QueryContext(ctx, q, args...)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+	loadCloudStmt, err := sqlair.Prepare(q, sqlair.M{}, Cloud{})
+	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	defer func() { _ = rows.Close() }()
+
+	// The cloud_name entry in the map will be ignored if the WHERE clause above
+	// is not in the query.
+	args := sqlair.M{
+		"controller_name":      coremodel.ControllerModelName,
+		"controller_user_name": coremodel.ControllerModelOwnerUsername,
+		"cloud_name":           name,
+	}
+	iter := tx.Query(ctx, loadCloudStmt, args).Iter()
+	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return nil, errors.Trace(err)
+	}
+	defer func() { _ = iter.Close() }()
 
 	clouds := make(map[string]*cloud.Cloud)
-	for rows.Next() {
-		var (
-			dbCloud       Cloud
-			cloudType     string
-			cloudAuthType string
-		)
-		if err := rows.Scan(
-			&dbCloud.ID, &dbCloud.Name, &dbCloud.TypeID, &dbCloud.Endpoint, &dbCloud.IdentityEndpoint,
-			&dbCloud.StorageEndpoint, &dbCloud.SkipTLSVerify, &cloudAuthType, &cloudType, &dbCloud.IsControllerCloud,
-		); err != nil {
+	m := sqlair.M{}
+	for iter.Next() {
+		var dbCloud Cloud
+		if err := iter.Get(&dbCloud, m); err != nil {
 			return nil, errors.Trace(err)
 		}
 		cld, ok := clouds[dbCloud.ID]
 		if !ok {
 			cld = &cloud.Cloud{
 				Name:              dbCloud.Name,
-				Type:              cloudType,
+				Type:              m["cloud_type"].(string),
 				Endpoint:          dbCloud.Endpoint,
 				IdentityEndpoint:  dbCloud.IdentityEndpoint,
 				StorageEndpoint:   dbCloud.StorageEndpoint,
@@ -466,11 +469,12 @@ FROM   cloud
 			}
 			clouds[dbCloud.ID] = cld
 		}
-		if cloudAuthType != "" {
-			cld.AuthTypes = append(cld.AuthTypes, cloud.AuthType(cloudAuthType))
+		// "cloud_auth_type" will be in the map since iter.Get succeeded but may be set to nil.
+		if cloudAuthType := m["cloud_auth_type"]; cloudAuthType != nil {
+			cld.AuthTypes = append(cld.AuthTypes, cloud.AuthType(cloudAuthType.(string)))
 		}
 	}
-	if err := rows.Err(); err != nil {
+	if err := iter.Close(); err != nil {
 		return nil, errors.Trace(domain.CoerceError(err))
 	}
 
@@ -505,63 +509,55 @@ FROM   cloud
 
 // loadCACerts loads the ca certs for the specified clouds, returning
 // a map of results keyed on cloud uuid.
-func loadCACerts(ctx context.Context, tx *sql.Tx, cloudUUIDS []string) (map[string][]string, error) {
-	cloudUUIDBinds, cloudUUIDsVals := database.SliceToPlaceholder(cloudUUIDS)
-	q := fmt.Sprintf(`
-SELECT cloud_uuid, ca_cert
+func loadCACerts(ctx context.Context, tx *sqlair.TX, cloudUUIDs []string) (map[string][]string, error) {
+	loadCACertStmt, err := sqlair.Prepare(`
+SELECT &CloudCACert.*
 FROM   cloud_ca_cert
-WHERE  cloud_uuid IN (%s)
-`, cloudUUIDBinds)
+WHERE  cloud_uuid IN ($CloudUUIDs[:])
+`, CloudUUIDs{}, CloudCACert{})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
-	rows, err := tx.QueryContext(ctx, q, cloudUUIDsVals...)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+	var dbCloudCACerts []CloudCACert
+	err = tx.Query(ctx, loadCACertStmt, CloudUUIDs(cloudUUIDs)).GetAll(&dbCloudCACerts)
+	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 		return nil, errors.Trace(domain.CoerceError(err))
 	}
-	defer func() { _ = rows.Close() }()
 
 	var result = map[string][]string{}
-	for rows.Next() {
-		var (
-			cloudUUID string
-			cert      string
-		)
-		if err := rows.Scan(&cloudUUID, &cert); err != nil {
-			return nil, errors.Trace(err)
-		}
+	for _, dbCloudCACert := range dbCloudCACerts {
+		cloudUUID := dbCloudCACert.CloudUUID
 		_, ok := result[cloudUUID]
 		if !ok {
 			result[cloudUUID] = []string{}
 		}
-		result[cloudUUID] = append(result[cloudUUID], cert)
+		result[cloudUUID] = append(result[cloudUUID], dbCloudCACert.CACert)
 	}
-	return result, rows.Err()
+	return result, nil
 }
 
 // loadRegions loads the regions for the specified clouds, returning
 // a map of results keyed on cloud uuid.
-func loadRegions(ctx context.Context, tx *sql.Tx, cloudUUIDS []string) (map[string][]cloud.Region, error) {
-	cloudUUIDBinds, cloudUUIDSAnyVals := database.SliceToPlaceholder(cloudUUIDS)
-	q := fmt.Sprintf(`
-SELECT cloud_uuid, name, endpoint, identity_endpoint, storage_endpoint
+func loadRegions(ctx context.Context, tx *sqlair.TX, cloudUUIDS []string) (map[string][]cloud.Region, error) {
+	loadRegionsStmt, err := sqlair.Prepare(`
+SELECT &CloudRegion.*
 FROM   cloud_region
-WHERE  cloud_uuid IN (%s)
-		`, cloudUUIDBinds)[1:]
+WHERE  cloud_uuid IN ($CloudUUIDs[:])
+`[1:], CloudUUIDs{}, CloudRegion{})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
-	rows, err := tx.QueryContext(ctx, q, cloudUUIDSAnyVals...)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+	var dbRegions []CloudRegion
+	err = tx.Query(ctx, loadRegionsStmt, CloudUUIDs(cloudUUIDS)).GetAll(&dbRegions)
+	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 		return nil, errors.Trace(domain.CoerceError(err))
 	}
-	defer func() { _ = rows.Close() }()
 
 	var result = map[string][]cloud.Region{}
-	for rows.Next() {
-		var (
-			cloudUUID string
-			dbRegion  CloudRegion
-		)
-		if err := rows.Scan(&cloudUUID, &dbRegion.Name, &dbRegion.Endpoint, &dbRegion.IdentityEndpoint, &dbRegion.StorageEndpoint); err != nil {
-			return nil, errors.Trace(domain.CoerceError(err))
-		}
+	for _, dbRegion := range dbRegions {
+		cloudUUID := dbRegion.CloudUUID
 		_, ok := result[cloudUUID]
 		if !ok {
 			result[cloudUUID] = []cloud.Region{}
@@ -573,7 +569,7 @@ WHERE  cloud_uuid IN (%s)
 			StorageEndpoint:  dbRegion.StorageEndpoint,
 		})
 	}
-	return result, rows.Err()
+	return result, nil
 }
 
 // UpsertCloud inserts or updates the specified cloud.
