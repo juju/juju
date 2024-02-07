@@ -105,14 +105,14 @@ func (st *State) AddUserWithActivationKey(
 // GetUsers will retrieve a list of filtered users with authentication information
 // (last login, disabled) from the database. If no users exist an empty slice
 // will be returned.
-func (st *State) GetUsers(ctx context.Context, filter user.Filter) ([]user.User, error) {
+func (st *State) GetUsers(ctx context.Context, creatorName string) ([]user.User, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Annotate(err, "getting DB access")
 	}
 
 	var usrs []user.User
-	if filter.CreatorName == "" {
+	if creatorName == "" {
 		err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 			getAllUsersQuery := `
 SELECT (
@@ -166,7 +166,7 @@ WHERE removed = false AND user.created_by_uuid = (
 			}
 
 			var results []User
-			err = tx.Query(ctx, selectGetFilteredUsersStmt, sqlair.M{"creator_name": filter.CreatorName}).GetAll(&results)
+			err = tx.Query(ctx, selectGetFilteredUsersStmt, sqlair.M{"creator_name": creatorName}).GetAll(&results)
 			if err != nil {
 				return errors.Annotate(err, "getting query results")
 			}

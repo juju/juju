@@ -579,7 +579,7 @@ func (s *stateSuite) TestGetAllUsersWihAuthInfo(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Get all users with auth info.
-	users, err := st.GetUsers(context.Background(), user.Filter{})
+	users, err := st.GetUsers(context.Background(), "")
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(users, gc.HasLen, 2)
@@ -647,7 +647,7 @@ func (s *stateSuite) TestGetFilteredUsersWihAuthInfo(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Get filtered users with auth info for admin2
-	users, err := st.GetUsers(context.Background(), user.Filter{CreatorName: "admin2"})
+	users, err := st.GetUsers(context.Background(), "admin2")
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(users, gc.HasLen, 1)

@@ -34,11 +34,6 @@ type User struct {
 	Disabled bool
 }
 
-// Filter is used to filter users.
-type Filter struct {
-	CreatorName string
-}
-
 // UUID is a unique identifier for a user.
 type UUID string
 

@@ -156,7 +156,7 @@ func (mr *MockStateMockRecorder) GetUserByName(arg0, arg1 any) *gomock.Call {
 }
 
 // GetUsers mocks base method.
-func (m *MockState) GetUsers(arg0 context.Context, arg1 user.Filter) ([]user.User, error) {
+func (m *MockState) GetUsers(arg0 context.Context, arg1 string) ([]user.User, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetUsers", arg0, arg1)
 	ret0, _ := ret[0].([]user.User)
