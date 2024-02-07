@@ -179,9 +179,10 @@ type addCommand struct {
 	// PublicKey is the path for a file containing a public key required
 	// by the server
 	PublicKey string
-	// KnownHosts is the path for a file containing a set of SSH known hosts
-	// trusted by the client
-	KnownHosts string
+	// KnownHostsFile is the path for a file containing a set of SSH known hosts
+	// trusted by the client. See https://www.man7.org/linux/man-pages/man8/sshd.8.html#SSH_KNOWN_HOSTS_FILE_FORMAT
+	// if KnownHosts is a zero value string then default file in ~/.ssh should be used instead.
+	KnownHostsFile string
 }
 
 func (c *addCommand) Info() *cmd.Info {
@@ -207,7 +208,7 @@ func (c *addCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(disksFlag{&c.Disks}, "disks", "Storage directives for disks to attach to the machine(s)")
 	f.StringVar(&c.PrivateKey, "private-key", "", "Path to the private key to use during the connection")
 	f.StringVar(&c.PublicKey, "public-key", "", "Path to the public key to add to the remote authorized keys")
-	f.StringVar(&c.KnownHosts, "known-hosts", "", "Path to the known hosts file")
+	f.StringVar(&c.KnownHostsFile, "known-hosts", "", "Path to the ssh known hosts file")
 }
 
 func (c *addCommand) Init(args []string) error {
@@ -431,7 +432,7 @@ func (c *addCommand) tryManualProvision(client manual.ProvisioningClientAPI, con
 		Stderr:         ctx.Stderr,
 		AuthorizedKeys: authKeys,
 		PrivateKey:     c.PrivateKey,
-		KnownHosts:     c.KnownHosts,
+		KnownHostsFile: c.KnownHostsFile,
 		UpdateBehavior: &params.UpdateBehavior{
 			EnableOSRefreshUpdate: config.EnableOSRefreshUpdate(),
 			EnableOSUpgrade:       config.EnableOSUpgrade(),
