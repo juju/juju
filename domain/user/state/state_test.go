@@ -166,7 +166,7 @@ func (s *stateSuite) TestAddUserAlreadyExists(c *gc.C) {
 		"admin", "admin",
 		adminCloneUUID,
 	)
-	c.Assert(err, jc.ErrorIs, usererrors.UserAlreadyExists)
+	c.Assert(err, jc.ErrorIs, usererrors.AlreadyExists)
 }
 
 // TestAddUserCreatorNotFound asserts that we get an error when we try
@@ -480,7 +480,7 @@ func (s *stateSuite) TestGetUserByAuthUnauthorized(c *gc.C) {
 
 	// Get the user.
 	_, err = st.GetUserByAuth(context.Background(), "admin", "wrongPassword")
-	c.Assert(err, jc.ErrorIs, usererrors.UserUnauthorized)
+	c.Assert(err, jc.ErrorIs, usererrors.Unauthorized)
 }
 
 // TestGetUserByAutUnexcitingUser asserts that we get an error when we try to
@@ -490,7 +490,7 @@ func (s *stateSuite) TestGetUserByAutUnexcitingUser(c *gc.C) {
 
 	// Get the user.
 	_, err := st.GetUserByAuth(context.Background(), "admin", "password")
-	c.Assert(err, jc.ErrorIs, usererrors.UserUnauthorized)
+	c.Assert(err, jc.ErrorIs, usererrors.Unauthorized)
 
 }
 
