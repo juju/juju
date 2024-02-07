@@ -40,14 +40,14 @@ import (
 //
 // authorizedKeys may be empty, in which case the file
 // will be created and left empty.
-func InitUbuntuUser(host, login, authorizedKeys string, privateKeys string, knownHosts string, read io.Reader, write io.Writer) error {
+func InitUbuntuUser(host, login, authorizedKeys string, privateKeys string, knownHostsFile string, read io.Reader, write io.Writer) error {
 	logger.Infof("initialising %q, user %q", host, login)
 
 	var options ssh.Options
-	
+
 	// known hosts was set
-	if knownHosts != "" {
-		options.SetKnownHostsFile(knownHosts)
+	if knownHostsFile != "" {
+		options.SetKnownHostsFile(knownHostsFile)
 	}
 
 	// To avoid unnecessary prompting for the specified login,
@@ -59,7 +59,7 @@ func InitUbuntuUser(host, login, authorizedKeys string, privateKeys string, know
 	// get a failure if sudo prompts.
 	cmd := ssh.Command("ubuntu@"+host, []string{"sudo", "-n", "true"}, &options)
 	if cmd.Run() == nil {
-		logger.Infof("ubuntu us.Bootstrap(er is already initialised")
+		logger.Infof("ubuntu user is already initialised")
 		return nil
 	}
 
@@ -110,13 +110,13 @@ fi`
 // by connecting to the machine and executing a bash script.
 var DetectSeriesAndHardwareCharacteristics = detectSeriesAndHardwareCharacteristics
 
-func detectSeriesAndHardwareCharacteristics(host string, knownHosts string) (hc instance.HardwareCharacteristics, series string, err error) {
+func detectSeriesAndHardwareCharacteristics(host string, knownHostsFile string) (hc instance.HardwareCharacteristics, series string, err error) {
 	logger.Infof("Detecting series and characteristics on %s", host)
 
 	var options ssh.Options
-	
-	if knownHosts != "" {
-		options.SetKnownHostsFile(knownHosts)
+
+	if knownHostsFile != "" {
+		options.SetKnownHostsFile(knownHostsFile)
 	}
 
 	cmd := ssh.Command("ubuntu@"+host, []string{"/bin/bash"}, &options)
@@ -185,14 +185,14 @@ func detectSeriesAndHardwareCharacteristics(host string, knownHosts string) (hc 
 // exist on the host machine.
 var CheckProvisioned = checkProvisioned
 
-func checkProvisioned(host string, knownHosts string) (bool, error) {
+func checkProvisioned(host string, knownHostsFile string) (bool, error) {
 	logger.Infof("Checking if %s is already provisioned", host)
 
 	script := service.ListServicesScript()
 
 	var options ssh.Options
-	if knownHosts != "" {
-		options.SetKnownHostsFile(knownHosts)
+	if knownHostsFile != "" {
+		options.SetKnownHostsFile(knownHostsFile)
 	}
 
 	cmd := ssh.Command("ubuntu@"+host, []string{"/bin/bash"}, &options)
@@ -232,7 +232,7 @@ cat /proc/cpuinfo`
 // The hostname supplied should not include a username.
 // If we can, we will reverse lookup the hostname by its IP address, and use
 // the DNS resolved name, rather than the name that was supplied
-func gatherMachineParams(hostname string, knownHosts string) (*params.AddMachineParams, error) {
+func gatherMachineParams(hostname string, knownHostsFile string) (*params.AddMachineParams, error) {
 
 	// Generate a unique nonce for the machine.
 	uuid, err := utils.NewUUID()
@@ -245,7 +245,7 @@ func gatherMachineParams(hostname string, knownHosts string) (*params.AddMachine
 		return nil, errors.Annotatef(err, "failed to compute public address for %q", hostname)
 	}
 
-	provisioned, err := checkProvisioned(hostname, knownHosts)
+	provisioned, err := checkProvisioned(hostname, knownHostsFile)
 	if err != nil {
 		return nil, errors.Annotatef(err, "error checking if provisioned")
 	}
@@ -253,7 +253,7 @@ func gatherMachineParams(hostname string, knownHosts string) (*params.AddMachine
 		return nil, manual.ErrProvisioned
 	}
 
-	hc, machineSeries, err := DetectSeriesAndHardwareCharacteristics(hostname, knownHosts)
+	hc, machineSeries, err := DetectSeriesAndHardwareCharacteristics(hostname, knownHostsFile)
 	if err != nil {
 		return nil, errors.Annotatef(err, "error detecting linux hardware characteristics")
 	}
@@ -284,10 +284,10 @@ func gatherMachineParams(hostname string, knownHosts string) (*params.AddMachine
 	return machineParams, nil
 }
 
-func runProvisionScript(script, host string, knownHosts string, progressWriter io.Writer) error {
+func runProvisionScript(script, host string, knownHostsFile string, progressWriter io.Writer) error {
 	var options ssh.Options
-	if knownHosts != "" {
-		options.SetKnownHostsFile(knownHosts)
+	if knownHostsFile != "" {
+		options.SetKnownHostsFile(knownHostsFile)
 	}
 
 	params := sshinit.ConfigureParams{

@@ -51,11 +51,11 @@ var (
 type manualEnviron struct {
 	environs.NoSpaceDiscoveryEnviron
 
-	host string
-	user string
-	knownHosts string
-	mu   sync.Mutex
-	cfg  *environConfig
+	host           string
+	user           string
+	knownHostsFile string
+	mu             sync.Mutex
+	cfg            *environConfig
 	// hw and series are detected by running a script on the
 	// target machine. We cache these, as they should not change.
 	hw     *instance.HardwareCharacteristics
@@ -109,8 +109,8 @@ func (e *manualEnviron) Create(envcontext.ProviderCallContext, environs.CreatePa
 }
 
 // Bootstrap is part of the Environ interface.
-func (e *manualEnviron) Bootstrap(ctx environs.BootstrapContext, callCtx context.ProviderCallContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
-	provisioned, err := sshprovisioner.CheckProvisioned(e.host, e.knownHosts)
+func (e *manualEnviron) Bootstrap(ctx environs.BootstrapContext, callCtx envcontext.ProviderCallContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
+	provisioned, err := sshprovisioner.CheckProvisioned(e.host, e.knownHostsFile)
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to check provisioned status")
 	}
@@ -362,7 +362,7 @@ func (e *manualEnviron) seriesAndHardwareCharacteristics() (_ *instance.Hardware
 	if e.hw != nil {
 		return e.hw, e.series, nil
 	}
-	hw, series, err := sshprovisioner.DetectSeriesAndHardwareCharacteristics(e.host, e.knownHosts)
+	hw, series, err := sshprovisioner.DetectSeriesAndHardwareCharacteristics(e.host, e.knownHostsFile)
 	if err != nil {
 		return nil, "", errors.Trace(err)
 	}
