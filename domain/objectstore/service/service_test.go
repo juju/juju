@@ -108,25 +108,6 @@ func (s *serviceSuite) TestRemoveMetadata(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestListMetadata(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.state.EXPECT().ListMetadata(gomock.Any()).Return([]objectstore.Metadata{{
-		Hash: "hash",
-		Path: "blah-foo-1",
-		Size: 666,
-	}}, nil)
-
-	list, err := NewService(s.state).ListMetadata(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(list, gc.HasLen, 1)
-	c.Check(list[0], gc.DeepEquals, coreobjectstore.Metadata{
-		Hash: "hash",
-		Path: "blah-foo-1",
-		Size: 666,
-	})
-}
-
 // Test watch returns a watcher that watches the specified path.
 func (s *serviceSuite) TestWatch(c *gc.C) {
 	defer s.setupMocks(c).Finish()

@@ -529,7 +529,7 @@ func (s *fileObjectStoreSuite) filePath(path, namespace string) string {
 }
 
 func (s *fileObjectStoreSuite) newFileObjectStore(c *gc.C, path string) TrackedObjectStore {
-	store, err := NewFileObjectStore(context.Background(), FileObjectStoreConfig{
+	store, err := NewFileObjectStore(FileObjectStoreConfig{
 		Namespace:       "inferi",
 		RootDir:         path,
 		MetadataService: s.service,

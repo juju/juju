@@ -476,7 +476,7 @@ func (s *s3ObjectStoreSuite) expectFailure(fileName string, err error) {
 }
 
 func (s *s3ObjectStoreSuite) newS3ObjectStore(c *gc.C) TrackedObjectStore {
-	store, err := NewS3ObjectStore(context.Background(), S3ObjectStoreConfig{
+	store, err := NewS3ObjectStore(S3ObjectStoreConfig{
 		RootBucket:      defaultBucketName,
 		Namespace:       "inferi",
 		RootDir:         c.MkDir(),

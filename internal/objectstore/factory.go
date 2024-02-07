@@ -118,9 +118,10 @@ func ObjectStoreFactory(ctx context.Context, backendType objectstore.BackendType
 	for _, option := range options {
 		option(opts)
 	}
+
 	switch backendType {
 	case objectstore.FileBackend:
-		return NewFileObjectStore(ctx, FileObjectStoreConfig{
+		return NewFileObjectStore(FileObjectStoreConfig{
 			Namespace:       namespace,
 			RootDir:         opts.rootDir,
 			MetadataService: opts.metadataService.ObjectStore(),
@@ -129,7 +130,7 @@ func ObjectStoreFactory(ctx context.Context, backendType objectstore.BackendType
 			Clock:           opts.clock,
 		})
 	case objectstore.S3Backend:
-		return NewS3ObjectStore(ctx, S3ObjectStoreConfig{
+		return NewS3ObjectStore(S3ObjectStoreConfig{
 			RootBucket:      opts.rootBucket,
 			Namespace:       namespace,
 			RootDir:         opts.rootDir,
@@ -138,6 +139,8 @@ func ObjectStoreFactory(ctx context.Context, backendType objectstore.BackendType
 			Claimer:         opts.claimer,
 			Logger:          opts.logger,
 			Clock:           opts.clock,
+
+			FileSystemAccessor: newFileSystemAccessor(namespace, opts.rootDir, opts.logger),
 		})
 	default:
 		return nil, errors.NotValidf("backend type %q", backendType)
