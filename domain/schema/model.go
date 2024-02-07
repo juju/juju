@@ -469,6 +469,7 @@ CREATE TABLE block_device_link_device (
     CONSTRAINT        fk_block_device_link_device
         FOREIGN KEY   (block_device_uuid)
         REFERENCES    block_device(uuid)
+    PRIMARY KEY (block_device_uuid, name)
 );
 
 CREATE UNIQUE INDEX idx_block_device_link_device
