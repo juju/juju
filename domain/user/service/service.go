@@ -41,7 +41,7 @@ type State interface {
 	// GetUsers will retrieve a list of filtered users with authentication information
 	// (last login, disabled) from the database. If no users exist an empty slice
 	// will be returned.
-	GetUsers(context.Context, user.Filter) ([]user.User, error)
+	GetUsers(context.Context, string) ([]user.User, error)
 
 	// GetUser will retrieve the user with authentication information (last login, disabled)
 	// specified by UUID from the database. If the user does not exist an error that satisfies
@@ -113,8 +113,8 @@ func NewService(st State) *Service {
 // GetUsers will retrieve a list of filter users with authentication information
 // (last login, disabled) from the database. If no users exist an empty slice
 // will be returned.
-func (s *Service) GetUsers(ctx context.Context, filter user.Filter) ([]user.User, error) {
-	usrs, err := s.st.GetUsers(ctx, filter)
+func (s *Service) GetUsers(ctx context.Context, creatorName string) ([]user.User, error) {
+	usrs, err := s.st.GetUsers(ctx, creatorName)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting all users with auth info")
 	}

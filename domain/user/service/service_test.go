@@ -68,10 +68,10 @@ func (s *serviceSuite) setMockState(c *gc.C) map[user.UUID]stateUser {
 		gomock.Any(), gomock.Any(),
 	).DoAndReturn(func(
 		_ context.Context,
-		filter user.Filter) ([]user.User, error) {
+		creatorName string) ([]user.User, error) {
 		var users []user.User
 		for _, usr := range mockState {
-			if filter.CreatorName == "" {
+			if creatorName == "" {
 				users = append(users, user.User{
 					CreatorUUID: usr.creatorUUID,
 					CreatedAt:   usr.createdAt,
@@ -83,7 +83,7 @@ func (s *serviceSuite) setMockState(c *gc.C) map[user.UUID]stateUser {
 				continue
 			} else {
 				creator, exists := mockState[usr.creatorUUID]
-				if exists && creator.name == filter.CreatorName {
+				if exists && creator.name == creatorName {
 					users = append(users, user.User{
 						CreatorUUID: usr.creatorUUID,
 						CreatedAt:   usr.createdAt,
@@ -1062,7 +1062,7 @@ func (s *serviceSuite) TestGetAllUsers(c *gc.C) {
 		lastLogin:   lastLogin,
 	}
 
-	users, err := s.service().GetUsers(context.Background(), user.Filter{})
+	users, err := s.service().GetUsers(context.Background(), "")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(users), gc.Equals, 2)
 	c.Check(users[0].Name, gc.Equals, "Jürgen.test")
@@ -1113,7 +1113,7 @@ func (s *serviceSuite) TestGetFilteredUsers(c *gc.C) {
 		creatorUUID: uuid2,
 	}
 
-	users, err := s.service().GetUsers(context.Background(), user.Filter{CreatorName: "杨-test2"})
+	users, err := s.service().GetUsers(context.Background(), "杨-test2")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(users), gc.Equals, 1)
 	c.Check(users[0].Name, gc.Equals, "杨-test3")

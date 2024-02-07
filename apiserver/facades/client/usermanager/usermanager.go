@@ -23,7 +23,7 @@ import (
 
 // UserService defines the methods to operate with the database.
 type UserService interface {
-	GetUsers(ctx context.Context, filter coreuser.Filter) ([]coreuser.User, error)
+	GetUsers(ctx context.Context, creatorName string) ([]coreuser.User, error)
 	GetUserByName(ctx context.Context, name string) (coreuser.User, error)
 	AddUserWithPassword(ctx context.Context, username, displayName string, createdBy coreuser.UUID, password auth.Password) (coreuser.UUID, error)
 	AddUserWithActivationKey(ctx context.Context, name string, displayName string, creatorUUID coreuser.UUID) ([]byte, coreuser.UUID, error)
@@ -339,13 +339,13 @@ func (api *UserManagerAPI) UserInfo(ctx context.Context, request params.UserInfo
 		var users []coreuser.User
 		if isAdmin {
 			// Get all users if isAdmin
-			users, err = api.userService.GetUsers(ctx, coreuser.Filter{})
+			users, err = api.userService.GetUsers(ctx, "")
 			if err != nil {
 				return results, errors.Trace(err)
 			}
 		} else {
 			// Get users filtered by the apiUser name as a creator
-			users, err = api.userService.GetUsers(ctx, coreuser.Filter{CreatorName: api.apiUser.Name})
+			users, err = api.userService.GetUsers(ctx, api.apiUser.Name)
 			if err != nil {
 				return results, errors.Trace(err)
 			}
