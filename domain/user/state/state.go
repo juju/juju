@@ -102,18 +102,19 @@ func (st *State) AddUserWithActivationKey(
 	})
 }
 
-// GetAllUsers will retrieve all users with authentication information
+// GetUsers will retrieve a list of filtered users with authentication information
 // (last login, disabled) from the database. If no users exist an empty slice
 // will be returned.
-func (st *State) GetAllUsers(ctx context.Context) ([]user.User, error) {
+func (st *State) GetUsers(ctx context.Context, filter user.Filter) ([]user.User, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Annotate(err, "getting DB access")
 	}
 
 	var usrs []user.User
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		getAllUsersQuery := `
+	if filter.CreatorName == "" {
+		err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+			getAllUsersQuery := `
 SELECT (
         user.uuid, user.name, user.display_name, user.created_by_uuid, user.created_at,
         user_authentication.last_login, user_authentication.disabled
@@ -123,25 +124,62 @@ JOIN user_authentication ON user.uuid = user_authentication.user_uuid
 WHERE removed = false
 `
 
-		selectGetAllUsersStmt, err := sqlair.Prepare(getAllUsersQuery, User{}, sqlair.M{})
+			selectGetAllUsersStmt, err := sqlair.Prepare(getAllUsersQuery, User{}, sqlair.M{})
+			if err != nil {
+				return errors.Annotate(err, "preparing select getAllUsers query")
+			}
+
+			var results []User
+			err = tx.Query(ctx, selectGetAllUsersStmt).GetAll(&results)
+			if err != nil {
+				return errors.Annotate(err, "getting query results")
+			}
+
+			for _, result := range results {
+				usrs = append(usrs, result.toCoreUser())
+			}
+
+			return nil
+		})
 		if err != nil {
-			return errors.Annotate(err, "preparing select getAllUsers query")
+			return nil, errors.Annotate(err, "getting all users")
 		}
+	} else {
+		err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+			getFilteredUsersQuery := `
+SELECT (
+        user.uuid, user.name, user.display_name, user.created_by_uuid, user.created_at,
+        user_authentication.last_login, user_authentication.disabled
+       ) AS (&User.*)
+FROM user
+JOIN user_authentication ON user.uuid = user_authentication.user_uuid
+WHERE removed = false AND user.created_by_uuid = (
+    SELECT uuid
+    FROM user
+    WHERE name = $M.creator_name
+)
+`
 
-		var results []User
-		err = tx.Query(ctx, selectGetAllUsersStmt).GetAll(&results)
+			selectGetFilteredUsersStmt, err := sqlair.Prepare(getFilteredUsersQuery, User{}, sqlair.M{})
+			if err != nil {
+				return errors.Annotate(err, "preparing select getFilteredUsers query")
+			}
+
+			var results []User
+			err = tx.Query(ctx, selectGetFilteredUsersStmt, sqlair.M{"creator_name": filter.CreatorName}).GetAll(&results)
+			if err != nil {
+				return errors.Annotate(err, "getting query results")
+			}
+
+			for _, result := range results {
+				usrs = append(usrs, result.toCoreUser())
+			}
+
+			return nil
+		})
 		if err != nil {
-			return errors.Annotate(err, "getting query results")
+			return nil, errors.Annotate(err, "getting filtered users")
 		}
-
-		for _, result := range results {
-			usrs = append(usrs, result.toCoreUser())
-		}
-
-		return nil
-	})
-	if err != nil {
-		return nil, errors.Annotate(err, "getting all users")
 	}
 
 	return usrs, nil
