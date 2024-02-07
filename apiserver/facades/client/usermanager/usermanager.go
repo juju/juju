@@ -349,7 +349,6 @@ func (api *UserManagerAPI) UserInfo(ctx context.Context, request params.UserInfo
 			if err != nil {
 				return results, errors.Trace(err)
 			}
-
 		}
 		for _, user := range users {
 			userTag := names.NewLocalUserTag(user.Name)

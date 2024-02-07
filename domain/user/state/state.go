@@ -32,7 +32,7 @@ func NewState(factory database.TxnRunnerFactory) *State {
 }
 
 // AddUser will add a new user to the database. If the user already exists,
-// an error that satisfies usererrors.UserAlreadyExists will be returned. If the
+// an error that satisfies usererrors.AlreadyExists will be returned. If the
 // creator does not exist, an error that satisfies
 // usererrors.UserCreatorUUIDNotFound will be returned.
 func (st *State) AddUser(
@@ -54,7 +54,7 @@ func (st *State) AddUser(
 
 // AddUserWithPasswordHash will add a new user to the database with the
 // provided password hash and salt. If the user already exists, an error that
-// satisfies usererrors.UserAlreadyExists will be returned. If the creator does
+// satisfies usererrors.AlreadyExists will be returned. If the creator does
 // not exist that satisfies usererrors.UserCreatorUUIDNotFound will be returned.
 func (st *State) AddUserWithPasswordHash(
 	ctx context.Context,
@@ -77,7 +77,7 @@ func (st *State) AddUserWithPasswordHash(
 
 // AddUserWithActivationKey will add a new user to the database with the
 // provided activation key. If the user already exists an error that
-// satisfies usererrors.UserAlreadyExists will be returned. if the users creator
+// satisfies usererrors.AlreadyExists will be returned. if the users creator
 // does not exist an error that satisfies usererrors.UserCreatorUUIDNotFound
 // will be returned.
 func (st *State) AddUserWithActivationKey(
@@ -277,7 +277,7 @@ WHERE user.name = $M.name AND removed = false
 
 // GetUserByAuth will retrieve the user with checking authentication information
 // specified by UUID and password from the database. If the user does not exist
-// or the user does not authenticate an error that satisfies usererrors.UserUnauthorized
+// or the user does not authenticate an error that satisfies usererrors.Unauthorized
 // will be returned.
 func (st *State) GetUserByAuth(ctx context.Context, name string, password string) (user.User, error) {
 	db, err := st.DB()
@@ -305,14 +305,14 @@ WHERE user.name = $M.name AND removed = false
 		var result User
 		err = tx.Query(ctx, selectGetUserByAuthStmt, sqlair.M{"name": name}).Get(&result)
 		if err != nil {
-			return errors.Annotatef(usererrors.UserUnauthorized, "%q", name)
+			return errors.Annotatef(usererrors.Unauthorized, "%q", name)
 		}
 
 		passwordHash, err := auth.HashPassword(auth.NewPassword(password), result.PasswordSalt)
 		if err != nil {
 			return errors.Annotatef(err, "hashing password for user with name %q", name)
 		} else if passwordHash != result.PasswordHash {
-			return errors.Annotatef(usererrors.UserUnauthorized, "%q", name)
+			return errors.Annotatef(usererrors.Unauthorized, "%q", name)
 		}
 
 		usr = result.toCoreUser()
@@ -527,7 +527,7 @@ WHERE disabled = false
 
 // AddUserWithPassword adds a new user to the database with the
 // provided password hash and salt. If the user already exists an error that
-// satisfies usererrors.UserAlreadyExists will be returned. if the creator does
+// satisfies usererrors.AlreadyExists will be returned. if the creator does
 // not exist that satisfies usererrors.UserCreatorUUIDNotFound will be returned.
 func AddUserWithPassword(
 	ctx context.Context,
@@ -613,7 +613,7 @@ VALUES ($M.uuid, $M.name, $M.display_name, $M.created_by_uuid, $M.created_at)
 		"created_at":      time.Now(),
 	}).Run()
 	if databaseutils.IsErrConstraintUnique(err) {
-		return errors.Annotatef(usererrors.UserAlreadyExists, "adding user %q", name)
+		return errors.Annotatef(usererrors.AlreadyExists, "adding user %q", name)
 	} else if databaseutils.IsErrConstraintForeignKey(err) {
 		return errors.Annotatef(usererrors.UserCreatorUUIDNotFound, "adding user %q", name)
 	} else if err != nil {

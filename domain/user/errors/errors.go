@@ -26,15 +26,15 @@ const (
 	// valid.
 	UserUUIDNotValid = errors.ConstError("User UUID not valid")
 
-	// UserAlreadyExists describes an error that occurs when the user being
+	// AlreadyExists describes an error that occurs when the user being
 	// created already exists.
-	UserAlreadyExists = errors.ConstError("user already exists")
+	AlreadyExists = errors.ConstError("user already exists")
 
 	// UserAuthenticationDisabled describes an error that occurs when the users
 	// authentication mechanisms are disabled.
 	UserAuthenticationDisabled = errors.ConstError("user authentication disabled")
 
-	// UserUnauthorized describes an error that occurs when the user does not have
+	// Unauthorized describes an error that occurs when the user does not have
 	// the required permissions to perform an action.
-	UserUnauthorized = errors.ConstError("user unauthorized")
+	Unauthorized = errors.ConstError("user unauthorized")
 )
