@@ -106,6 +106,20 @@ func (m *MockCrossModelSecretsClient) EXPECT() *MockCrossModelSecretsClientMockR
 	return m.recorder
 }
 
+// Close mocks base method.
+func (m *MockCrossModelSecretsClient) Close() error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Close")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Close indicates an expected call of Close.
+func (mr *MockCrossModelSecretsClientMockRecorder) Close() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Close", reflect.TypeOf((*MockCrossModelSecretsClient)(nil).Close))
+}
+
 // GetRemoteSecretContentInfo mocks base method.
 func (m *MockCrossModelSecretsClient) GetRemoteSecretContentInfo(arg0 *secrets.URI, arg1 int, arg2, arg3 bool, arg4, arg5 string, arg6 int, arg7 macaroon.Slice) (*secrets0.ContentParams, *provider.ModelBackendConfig, int, bool, error) {
 	m.ctrl.T.Helper()
