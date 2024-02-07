@@ -23,7 +23,7 @@ import (
 
 // UserService defines the methods to operate with the database.
 type UserService interface {
-	GetAllUsers(ctx context.Context) ([]coreuser.User, error)
+	GetUsers(ctx context.Context, filter coreuser.Filter) ([]coreuser.User, error)
 	GetUserByName(ctx context.Context, name string) (coreuser.User, error)
 	AddUserWithPassword(ctx context.Context, username, displayName string, createdBy coreuser.UUID, password auth.Password) (coreuser.UUID, error)
 	AddUserWithActivationKey(ctx context.Context, name string, displayName string, creatorUUID coreuser.UUID) ([]byte, coreuser.UUID, error)
@@ -336,19 +336,25 @@ func (api *UserManagerAPI) UserInfo(ctx context.Context, request params.UserInfo
 	argCount := len(request.Entities)
 	if argCount == 0 {
 
-		// Get all users
-		users, err := api.userService.GetAllUsers(ctx)
-		if err != nil {
-			return results, errors.Trace(err)
+		var users []coreuser.User
+		if isAdmin {
+			// Get all users if isAdmin
+			users, err = api.userService.GetUsers(ctx, coreuser.Filter{})
+			if err != nil {
+				return results, errors.Trace(err)
+			}
+		} else {
+			// Get users filtered by the apiUser name as a creator
+			users, err = api.userService.GetUsers(ctx, coreuser.Filter{CreatorName: api.apiUser.Name})
+			if err != nil {
+				return results, errors.Trace(err)
+			}
+
 		}
 		for _, user := range users {
 			userTag := names.NewLocalUserTag(user.Name)
-			if !isAdmin && !api.authorizer.AuthOwner(userTag) {
-				continue
-			}
 			results.Results = append(results.Results, infoForUser(userTag, user))
 		}
-
 		return results, nil
 	}
 
