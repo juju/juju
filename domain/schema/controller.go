@@ -208,7 +208,6 @@ CREATE TABLE cloud_defaults (
 );
 
 CREATE TABLE cloud_auth_type (
-    uuid              TEXT PRIMARY KEY,
     cloud_uuid        TEXT NOT NULL,
     auth_type_id      INT NOT NULL,
     CONSTRAINT        fk_cloud_auth_type_cloud
@@ -217,6 +216,7 @@ CREATE TABLE cloud_auth_type (
     CONSTRAINT        fk_cloud_auth_type_auth_type
         FOREIGN KEY       (auth_type_id)
         REFERENCES        auth_type(id)
+    PRIMARY KEY (cloud_uuid, auth_type_id)
 );
 
 CREATE UNIQUE INDEX idx_cloud_auth_type_cloud_uuid_auth_type_id
@@ -252,12 +252,12 @@ CREATE TABLE cloud_region_defaults (
 );
 
 CREATE TABLE cloud_ca_cert (
-    uuid              TEXT PRIMARY KEY,
     cloud_uuid        TEXT NOT NULL,
     ca_cert           TEXT NOT NULL,
     CONSTRAINT        fk_cloud_ca_cert_cloud
         FOREIGN KEY       (cloud_uuid)
         REFERENCES        cloud(uuid)
+    PRIMARY KEY (cloud_uuid, ca_cert)
 );
 
 CREATE UNIQUE INDEX idx_cloud_ca_cert_cloud_uuid_ca_cert

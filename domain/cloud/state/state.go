@@ -656,12 +656,12 @@ AND          auth_type_id NOT IN (%s)
 	}
 
 	insertQuery := `
-INSERT INTO cloud_auth_type (uuid, cloud_uuid, auth_type_id)
-VALUES (?, ?, ?)
+INSERT INTO cloud_auth_type (cloud_uuid, auth_type_id)
+VALUES (?, ?)
 ON CONFLICT(cloud_uuid, auth_type_id) DO NOTHING;
 	`
 	for _, a := range authTypeIds {
-		if _, err := tx.ExecContext(ctx, insertQuery, utils.MustNewUUID().String(), cloudUUID, a); err != nil {
+		if _, err := tx.ExecContext(ctx, insertQuery, cloudUUID, a); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -681,12 +681,12 @@ WHERE        cloud_uuid = ?
 	}
 
 	insertQuery := `
-INSERT INTO cloud_ca_cert (uuid, cloud_uuid, ca_cert)
-VALUES (?, ?, ?)
+INSERT INTO cloud_ca_cert (cloud_uuid, ca_cert)
+VALUES (?, ?)
 `
 	for _, cert := range certs {
 
-		if _, err := tx.ExecContext(ctx, insertQuery, utils.MustNewUUID().String(), cloudUUID, cert); err != nil {
+		if _, err := tx.ExecContext(ctx, insertQuery, cloudUUID, cert); err != nil {
 			return errors.Trace(err)
 		}
 	}
