@@ -9,7 +9,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	"github.com/juju/worker/v4"
 
 	"github.com/juju/juju/core/blockdevice"

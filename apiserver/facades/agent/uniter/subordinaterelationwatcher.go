@@ -7,7 +7,7 @@ import (
 	"github.com/juju/charm/v12"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	"github.com/juju/worker/v4/catacomb"
 
 	"github.com/juju/juju/state"

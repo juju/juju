@@ -4,7 +4,7 @@
 package google
 
 import (
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 )
 
 // The various status values used by GCE.

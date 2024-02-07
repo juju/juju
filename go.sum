@@ -517,8 +517,8 @@ github.com/juju/gojsonschema v1.0.0 h1:v0hVxinRWko/SwRYCZ99fBH20Q1JtDqKtplcovXew
 github.com/juju/gojsonschema v1.0.0/go.mod h1:w3BDUH3gGgrcrAyvEbBy3lNb1vmdqG31UMn3njL8oGc=
 github.com/juju/gomaasapi/v2 v2.2.0 h1:vaYeEKr0mQXsM38/zfWqCrYDG8cYhHRkfTQMgkJGHdU=
 github.com/juju/gomaasapi/v2 v2.2.0/go.mod h1:ZsohFbU4xShV1aSQYQ21hR1lKj7naNGY0SPuyelcUmk=
-github.com/juju/http/v2 v2.0.0 h1:xexT4KO4jY0UEkhLZPwQGaEGCfgWWjw3jBPrLRumhKI=
-github.com/juju/http/v2 v2.0.0/go.mod h1:hqjfdSwUaD23PurU7FZyY/rsqVL90RF3w4Xl0iPILRA=
+github.com/juju/http/v2 v2.0.1 h1:cTt8RHvdVv9uZFmAb/7zQrRitT1bgywEDOf8nLpYd8M=
+github.com/juju/http/v2 v2.0.1/go.mod h1:V9dcD7DkT4xkwWjXpFr1C0ZNq7gG+eN9f+Mi2c7GnCs=
 github.com/juju/httpprof v0.0.0-20141217160036-14bf14c30767/go.mod h1:+MaLYz4PumRkkyHYeXJ2G5g5cIW0sli2bOfpmbaMV/g=
 github.com/juju/idmclient/v2 v2.0.0 h1:PsGa092JGy6iFNHZCcao+bigVsTyz1C+tHNRdYmKvuE=
 github.com/juju/idmclient/v2 v2.0.0/go.mod h1:EOiFbPmnkqKvCUS/DHpDRWhL7eKF0AJaTvMjIYlIUak=
@@ -529,6 +529,8 @@ github.com/juju/loggo v0.0.0-20200526014432-9ce3a2e09b5e/go.mod h1:vgyd7OREkbtVE
 github.com/juju/loggo v0.0.0-20210728185423-eebad3a902c4/go.mod h1:NIXFioti1SmKAlKNuUwbMenNdef59IF52+ZzuOmHYkg=
 github.com/juju/loggo v1.0.0 h1:Y6ZMQOGR9Aj3BGkiWx7HBbIx6zNwNkxhVNOHU2i1bl0=
 github.com/juju/loggo v1.0.0/go.mod h1:NIXFioti1SmKAlKNuUwbMenNdef59IF52+ZzuOmHYkg=
+github.com/juju/loggo/v2 v2.0.0 h1:PzyVIn+NgoZ22QUtPgKF/lh+6SnaCOEXhcP+sE4FhOk=
+github.com/juju/loggo/v2 v2.0.0/go.mod h1:647d6WvXBLj5lvka2qBvccr7vMIvF2KFkEH+0ZuFOUM=
 github.com/juju/lru v1.0.0 h1:FP8mBNF3jBnKwGO5PtsR+8iIegx8DREfhRhpcGpYcn4=
 github.com/juju/lru v1.0.0/go.mod h1:YauKGp6PAhOQyGuTOkiFdXVP1jR3vLkp/FI71GcpYcQ=
 github.com/juju/lumberjack/v2 v2.0.2 h1:FlxrR62Vb7FfN7jwpSBqqereyq5bBQUF0LqOhZ2VGeI=
@@ -1159,8 +1161,8 @@ golang.org/x/sys v0.0.0-20220811171246-fbc7d0a398ab/go.mod h1:oPkhp1MJrh7nUepCBc
 golang.org/x/sys v0.1.0/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
 golang.org/x/sys v0.6.0/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
 golang.org/x/sys v0.8.0/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
-golang.org/x/sys v0.15.0 h1:h48lPFYpsTvQJZF4EKyI4aLHaev3CxivZmv7yZig9pc=
-golang.org/x/sys v0.15.0/go.mod h1:/VUhepiaJMQUp4+oa/7Zr1D23ma6VTLIYjOOTFZPUcA=
+golang.org/x/sys v0.16.0 h1:xWw16ngr6ZMtmxDyKyIgsE93KNKz5HKmMa3b8ALHidU=
+golang.org/x/sys v0.16.0/go.mod h1:/VUhepiaJMQUp4+oa/7Zr1D23ma6VTLIYjOOTFZPUcA=
 golang.org/x/term v0.0.0-20201126162022-7de9c90e9dd1/go.mod h1:bj7SfCRtBDWHUb9snDiAeCFNEtKQo2Wmx5Cou7ajbmo=
 golang.org/x/term v0.0.0-20201210144234-2321bbc49cbf/go.mod h1:bj7SfCRtBDWHUb9snDiAeCFNEtKQo2Wmx5Cou7ajbmo=
 golang.org/x/term v0.0.0-20210220032956-6a3ed077a48d/go.mod h1:bj7SfCRtBDWHUb9snDiAeCFNEtKQo2Wmx5Cou7ajbmo=

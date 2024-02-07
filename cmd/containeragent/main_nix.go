@@ -17,7 +17,7 @@ import (
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	proxyutils "github.com/juju/proxy"
 
 	"github.com/juju/juju/agent/introspect"

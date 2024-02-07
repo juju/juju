@@ -13,7 +13,7 @@ import (
 	reflect "reflect"
 
 	jujuc "github.com/juju/juju/internal/worker/uniter/runner/jujuc"
-	loggo "github.com/juju/loggo"
+	loggo "github.com/juju/loggo/v2"
 	gomock "go.uber.org/mock/gomock"
 )
 

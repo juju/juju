@@ -16,7 +16,7 @@ import (
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	"github.com/juju/retry"
 	"golang.org/x/sync/errgroup"
 	"gopkg.in/yaml.v3"

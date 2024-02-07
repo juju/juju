@@ -15,7 +15,7 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 )
 
 var logger = loggo.GetLogger("juju.provider.azure.internal.azuretesting")

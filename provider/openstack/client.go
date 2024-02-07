@@ -14,7 +14,7 @@ import (
 	"github.com/go-goose/goose/v5/nova"
 	"github.com/juju/errors"
 	jujuhttp "github.com/juju/http/v2"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 
 	corelogger "github.com/juju/juju/core/logger"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"

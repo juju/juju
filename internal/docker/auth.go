@@ -15,7 +15,7 @@ import (
 
 	"github.com/docker/distribution/reference"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 )
 
 var logger = loggo.GetLogger("juju.docker")

@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	osseries "github.com/juju/os/v2/series"
 	"github.com/juju/utils/v3"
 	"gopkg.in/yaml.v2"

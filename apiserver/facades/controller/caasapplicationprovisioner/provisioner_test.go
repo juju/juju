@@ -11,7 +11,7 @@ import (
 	charmresource "github.com/juju/charm/v12/resource"
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"

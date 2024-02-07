@@ -17,7 +17,7 @@ import (
 	sqlair "github.com/canonical/sqlair"
 	app "github.com/juju/juju/internal/database/app"
 	dqlite "github.com/juju/juju/internal/database/dqlite"
-	loggo "github.com/juju/loggo"
+	loggo "github.com/juju/loggo/v2"
 	gomock "go.uber.org/mock/gomock"
 )
 

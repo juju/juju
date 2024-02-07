@@ -5,7 +5,7 @@ package meterstatus
 
 import (
 	"github.com/juju/clock"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 )
 
 func NewLimitedContext(unitName string) *limitedContext {

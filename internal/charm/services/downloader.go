@@ -7,7 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 
 	corecharm "github.com/juju/juju/core/charm"
 	charmdownloader "github.com/juju/juju/core/charm/downloader"

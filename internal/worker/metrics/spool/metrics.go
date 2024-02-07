@@ -16,7 +16,7 @@ import (
 
 	jujucharm "github.com/juju/charm/v12"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	"github.com/juju/utils/v3"
 
 	"github.com/juju/juju/internal/worker/uniter/runner/jujuc"

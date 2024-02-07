@@ -3,7 +3,7 @@
 
 package charmhub
 
-import "github.com/juju/loggo"
+import "github.com/juju/loggo/v2"
 
 // LoggerFactory is the interface that is used to create new loggers.
 type LoggerFactory interface {

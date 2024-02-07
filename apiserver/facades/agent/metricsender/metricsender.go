@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	wireformat "github.com/juju/romulus/wireformat/metrics"
 
 	"github.com/juju/juju/state"

@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/juju/charm/v12/hooks"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	"github.com/juju/mutex/v2"
 	envtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"

@@ -6,7 +6,7 @@ package tools
 import (
 	"io"
 
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/internal/tools"

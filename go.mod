@@ -55,10 +55,11 @@ require (
 	github.com/juju/gnuflag v1.0.0
 	github.com/juju/gojsonschema v1.0.0
 	github.com/juju/gomaasapi/v2 v2.2.0
-	github.com/juju/http/v2 v2.0.0
+	github.com/juju/http/v2 v2.0.1
 	github.com/juju/idmclient/v2 v2.0.0
 	github.com/juju/jsonschema v1.0.0
 	github.com/juju/loggo v1.0.0
+	github.com/juju/loggo/v2 v2.0.0
 	github.com/juju/lumberjack/v2 v2.0.2
 	github.com/juju/mgo/v3 v3.0.4
 	github.com/juju/mutex/v2 v2.0.0
@@ -114,7 +115,7 @@ require (
 	golang.org/x/net v0.19.0
 	golang.org/x/oauth2 v0.15.0
 	golang.org/x/sync v0.5.0
-	golang.org/x/sys v0.15.0
+	golang.org/x/sys v0.16.0
 	golang.org/x/tools v0.16.1
 	google.golang.org/api v0.154.0
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c

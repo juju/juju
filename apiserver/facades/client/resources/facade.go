@@ -9,7 +9,7 @@ import (
 	"github.com/juju/charm/v12"
 	charmresource "github.com/juju/charm/v12/resource"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 
 	apiresources "github.com/juju/juju/api/client/resources"

@@ -7,7 +7,7 @@ import (
 	"io"
 
 	charmresource "github.com/juju/charm/v12/resource"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 )
 
 var logger = loggo.GetLogger("juju.resource")

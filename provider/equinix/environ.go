@@ -15,7 +15,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	"github.com/juju/retry"
 	"github.com/juju/schema"
 	"github.com/juju/version/v2"

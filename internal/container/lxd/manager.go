@@ -11,7 +11,7 @@ import (
 
 	"github.com/canonical/lxd/shared/api"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 
 	jujuarch "github.com/juju/juju/core/arch"
 	corebase "github.com/juju/juju/core/base"

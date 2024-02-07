@@ -16,7 +16,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	"github.com/juju/utils/v3"
 	"github.com/juju/utils/v3/parallel"
 	"github.com/juju/utils/v3/shell"

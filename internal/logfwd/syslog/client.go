@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	"github.com/juju/rfc/v2/rfc5424"
 	"github.com/juju/rfc/v2/rfc5424/sdelements"
 

@@ -6,7 +6,7 @@ package charmrevisionupdater_test
 import (
 	"github.com/juju/charm/v12"
 	"github.com/juju/charm/v12/resource"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"

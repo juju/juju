@@ -5,7 +5,7 @@ package caasunitsmanager_test
 
 import (
 	"github.com/juju/clock"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"go.uber.org/mock/gomock"

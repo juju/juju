@@ -18,7 +18,7 @@ import (
 	lxdprofile "github.com/juju/juju/core/lxdprofile"
 	status "github.com/juju/juju/core/status"
 	state "github.com/juju/juju/state"
-	loggo "github.com/juju/loggo"
+	loggo "github.com/juju/loggo/v2"
 	names "github.com/juju/names/v5"
 	gomock "go.uber.org/mock/gomock"
 )

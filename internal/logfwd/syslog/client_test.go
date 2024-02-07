@@ -8,7 +8,7 @@ import (
 	"crypto/x509"
 	"time"
 
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/juju/rfc/v2/rfc5424"
 	"github.com/juju/rfc/v2/rfc5424/sdelements"

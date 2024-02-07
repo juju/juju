@@ -7,7 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/cmd/v3/cmdtesting"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	"github.com/juju/testing"
 	"github.com/juju/utils/v3/ssh"
 	gc "gopkg.in/check.v1"

@@ -4,7 +4,7 @@
 package jujuc_test
 
 import (
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 
 	"github.com/juju/juju/internal/worker/uniter/runner/jujuc"
 )

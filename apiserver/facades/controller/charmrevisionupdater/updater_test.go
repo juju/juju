@@ -11,7 +11,7 @@ import (
 	"github.com/juju/charm/v12/resource"
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"

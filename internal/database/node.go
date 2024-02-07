@@ -19,7 +19,7 @@ import (
 
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	"gopkg.in/yaml.v3"
 
 	"github.com/juju/juju/agent"

@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	jtesting "github.com/juju/testing"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"

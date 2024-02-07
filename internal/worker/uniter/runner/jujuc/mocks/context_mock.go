@@ -21,7 +21,7 @@ import (
 	secrets "github.com/juju/juju/core/secrets"
 	jujuc "github.com/juju/juju/internal/worker/uniter/runner/jujuc"
 	params "github.com/juju/juju/rpc/params"
-	loggo "github.com/juju/loggo"
+	loggo "github.com/juju/loggo/v2"
 	names "github.com/juju/names/v5"
 	gomock "go.uber.org/mock/gomock"
 )

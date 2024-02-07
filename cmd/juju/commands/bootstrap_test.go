@@ -20,7 +20,7 @@ import (
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	jujuos "github.com/juju/os/v2"
 	osseries "github.com/juju/os/v2/series"
 	"github.com/juju/testing"
