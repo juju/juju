@@ -366,7 +366,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 		},
 	}
 
-	APIPort := s.controllerCfg.APIPort()
+	apiPort := s.controllerCfg.APIPort()
 	ns := &core.Namespace{
 		ObjectMeta: v1.ObjectMeta{
 			Name:   s.namespace,
@@ -388,8 +388,8 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 			Ports: []core.ServicePort{
 				{
 					Name:       "api-server",
-					TargetPort: intstr.FromInt(APIPort),
-					Port:       int32(APIPort),
+					TargetPort: intstr.FromInt(apiPort),
+					Port:       int32(apiPort),
 				},
 			},
 			ExternalIPs: []string{"10.0.0.1"},
@@ -410,8 +410,8 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 			Ports: []core.ServicePort{
 				{
 					Name:       "api-server",
-					TargetPort: intstr.FromInt(APIPort),
-					Port:       int32(APIPort),
+					TargetPort: intstr.FromInt(apiPort),
+					Port:       int32(apiPort),
 				},
 			},
 			ClusterIP:   svcPublicIP,

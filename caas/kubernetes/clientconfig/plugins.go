@@ -30,14 +30,14 @@ const (
 	rbacStackPrefix = "juju-credential"
 )
 
-func getRBACLabels(UID string) map[string]string {
+func getRBACLabels(uid string) map[string]string {
 	return map[string]string{
-		rbacStackPrefix: UID,
+		rbacStackPrefix: uid,
 	}
 }
 
-func getRBACResourceName(UID string) string {
-	return fmt.Sprintf("%s-%s", rbacStackPrefix, UID)
+func getRBACResourceName(uid string) string {
+	return fmt.Sprintf("%s-%s", rbacStackPrefix, uid)
 }
 
 type cleanUpFuncs []func()
@@ -58,13 +58,13 @@ func newK8sClientSet(config *clientcmdapi.Config, contextName string) (*kubernet
 func ensureJujuAdminServiceAccount(
 	ctx context.Context,
 	clientset kubernetes.Interface,
-	UID string,
+	uid string,
 	config *clientcmdapi.Config,
 	contextName string,
 	clock jujuclock.Clock,
 ) (_ *clientcmdapi.Config, err error) {
-	labels := getRBACLabels(UID)
-	name := getRBACResourceName(UID)
+	labels := getRBACLabels(uid)
+	name := getRBACResourceName(uid)
 
 	var cleanUps cleanUpFuncs
 	defer func() {
@@ -117,17 +117,17 @@ func ensureJujuAdminServiceAccount(
 }
 
 // RemoveCredentialRBACResources removes all RBAC resources for specific caas credential UID.
-func RemoveCredentialRBACResources(ctx context.Context, config *rest.Config, UID string) error {
+func RemoveCredentialRBACResources(ctx context.Context, config *rest.Config, uid string) error {
 	// TODO(caas): call this in destroy/kill-controller with UID == "microk8s".
 	clientset, err := kubernetes.NewForConfig(config)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return removeJujuAdminServiceAccount(ctx, clientset, UID)
+	return removeJujuAdminServiceAccount(ctx, clientset, uid)
 }
 
-func removeJujuAdminServiceAccount(ctx context.Context, clientset kubernetes.Interface, UID string) error {
-	labels := getRBACLabels(UID)
+func removeJujuAdminServiceAccount(ctx context.Context, clientset kubernetes.Interface, uid string) error {
+	labels := getRBACLabels(uid)
 	for _, api := range []rbacDeleter{
 		// Order matters.
 		clientset.RbacV1().ClusterRoleBindings(),

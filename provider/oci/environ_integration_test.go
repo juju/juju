@@ -1094,10 +1094,10 @@ func (s *environSuite) setupDeleteRouteTableExpectations(vcnId, routeTableId str
 	s.netw.EXPECT().GetRouteTable(context.Background(), requestGet).Return(responseGet, nil).AnyTimes()
 }
 
-func (s *environSuite) setupDeleteInternetGatewayExpectations(vcnId, IgId string, t map[string]string) {
+func (s *environSuite) setupDeleteInternetGatewayExpectations(vcnId, igId string, t map[string]string) {
 	s.setupInternetGatewaysExpectations(vcnId, t, 1)
 	request := ociCore.DeleteInternetGatewayRequest{
-		IgId: &IgId,
+		IgId: &igId,
 	}
 
 	response := ociCore.DeleteInternetGatewayResponse{
@@ -1108,11 +1108,11 @@ func (s *environSuite) setupDeleteInternetGatewayExpectations(vcnId, IgId string
 	s.netw.EXPECT().DeleteInternetGateway(context.Background(), request).Return(response, nil)
 
 	requestGet := ociCore.GetInternetGatewayRequest{
-		IgId: &IgId,
+		IgId: &igId,
 	}
 
 	ig := ociCore.InternetGateway{
-		Id:             &IgId,
+		Id:             &igId,
 		LifecycleState: ociCore.InternetGatewayLifecycleStateTerminated,
 	}
 

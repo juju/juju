@@ -92,19 +92,21 @@ func (s *MuxSuite) TestConcurrentAddHandler(c *gc.C) {
 	// Concurrently add and remove another handler to show that
 	// adding and removing handlers will not race with request
 	// handling.
-	const N = 1000
+
+	// bN is the number of add and remove handlers to make.
+	const bN = 1000
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		for i := 0; i < N; i++ {
+		for i := 0; i < bN; i++ {
 			s.mux.AddHandler("POST", "/", http.NotFoundHandler())
 			s.mux.RemoveHandler("POST", "/")
 		}
 	}()
 	defer wg.Wait()
 
-	for i := 0; i < N; i++ {
+	for i := 0; i < bN; i++ {
 		resp, err := s.client.Get(s.server.URL + "/")
 		c.Assert(err, jc.ErrorIsNil)
 		resp.Body.Close()
@@ -118,14 +120,16 @@ func (s *MuxSuite) TestConcurrentRemoveHandler(c *gc.C) {
 	// Concurrently add and remove another handler to show that
 	// adding and removing handlers will not race with request
 	// handling.
-	const N = 500
+
+	// bN is the number of add and remove handlers to make.
+	const bN = 500
 	var wg sync.WaitGroup
 	wg.Add(1)
 	done := make(chan struct{})
 	go func() {
 		defer wg.Done()
 		defer close(done)
-		for i := 0; i < N; i++ {
+		for i := 0; i < bN; i++ {
 			s.mux.AddHandler("GET", "/", h)
 			// Sleep to give the client a
 			// chance to hit the endpoint.
@@ -140,7 +144,7 @@ func (s *MuxSuite) TestConcurrentRemoveHandler(c *gc.C) {
 out:
 	for {
 		select {
-		case _, _ = <-done:
+		case <-done:
 			break out
 		default:
 		}

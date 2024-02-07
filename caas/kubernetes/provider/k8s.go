@@ -33,7 +33,6 @@ import (
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider/constants"
-	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/caas/kubernetes/provider/resources"
 	"github.com/juju/juju/caas/kubernetes/provider/utils"
 	k8swatcher "github.com/juju/juju/caas/kubernetes/provider/watcher"
@@ -419,7 +418,7 @@ func (k *kubernetesClient) EnsureImageRepoSecret(ctx context.Context, imageRepo 
 }
 
 func (k *kubernetesClient) validateOperatorStorage(ctx context.Context) (string, error) {
-	storageClass, _ := k.Config().AllAttrs()[k8sconstants.OperatorStorageKey].(string)
+	storageClass, _ := k.Config().AllAttrs()[constants.OperatorStorageKey].(string)
 	if storageClass == "" {
 		return "", errors.NewNotValid(nil, "config without operator-storage value not valid.\nRun juju add-k8s to reimport your k8s cluster.")
 	}
@@ -490,7 +489,7 @@ please choose a different initial model name then try again.`, initialModelName)
 		}
 
 		// create configmap, secret, volume, statefulset, etc resources for controller stack.
-		controllerStack, err := newControllerStack(ctx, k8sconstants.JujuControllerStackName, storageClass, k, pcfg)
+		controllerStack, err := newControllerStack(ctx, constants.JujuControllerStackName, storageClass, k, pcfg)
 		if err != nil {
 			return errors.Trace(err)
 		}

@@ -38,15 +38,15 @@ func NewService(st State) *Service {
 
 // GetAnnotations retrieves all the annotations associated with a given ID.
 // If no annotations are found, an empty map is returned.
-func (s *Service) GetAnnotations(ctx context.Context, ID annotations.ID) (map[string]string, error) {
-	annotations, err := s.st.GetAnnotations(ctx, ID)
+func (s *Service) GetAnnotations(ctx context.Context, id annotations.ID) (map[string]string, error) {
+	annotations, err := s.st.GetAnnotations(ctx, id)
 	return annotations, errors.Trace(err)
 }
 
 // SetAnnotations associates key/value annotation pairs with a given ID.
 // If annotation already exists for the given ID, then it will be updated with
 // the given value.
-func (s *Service) SetAnnotations(ctx context.Context, ID annotations.ID, annotations map[string]string) error {
-	err := s.st.SetAnnotations(ctx, ID, annotations)
-	return errors.Annotatef(err, "updating annotations for ID: %q", ID.Name)
+func (s *Service) SetAnnotations(ctx context.Context, id annotations.ID, annotations map[string]string) error {
+	err := s.st.SetAnnotations(ctx, id, annotations)
+	return errors.Annotatef(err, "updating annotations for ID: %q", id.Name)
 }

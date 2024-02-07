@@ -18,7 +18,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	corebase "github.com/juju/juju/core/base"
-	. "github.com/juju/juju/environs/imagedownloads"
+	"github.com/juju/juju/environs/imagedownloads"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
 	streamstesting "github.com/juju/juju/environs/simplestreams/testing"
@@ -31,13 +31,13 @@ type Suite struct {
 var _ = gc.Suite(&Suite{})
 
 func newTestDataSource(factory simplestreams.DataSourceFactory, s string) simplestreams.DataSource {
-	return NewDataSource(factory, s+"/"+imagemetadata.ReleasedImagesPath)
+	return imagedownloads.NewDataSource(factory, s+"/"+imagemetadata.ReleasedImagesPath)
 }
 
 func newTestDataSourceFunc(s string) func() simplestreams.DataSource {
 	ss := simplestreams.NewSimpleStreams(streamstesting.TestDataSourceFactory())
 	return func() simplestreams.DataSource {
-		return NewDataSource(ss, s+"/releases/")
+		return imagedownloads.NewDataSource(ss, s+"/releases/")
 	}
 }
 
@@ -58,7 +58,7 @@ func (s *Suite) SetUpTest(c *gc.C) {
 
 func (*Suite) TestNewSignedImagesSource(c *gc.C) {
 	ss := simplestreams.NewSimpleStreams(streamstesting.TestDataSourceFactory())
-	got := DefaultSource(ss)()
+	got := imagedownloads.DefaultSource(ss)()
 	c.Check(got.Description(), jc.DeepEquals, "ubuntu cloud images")
 	c.Check(got.PublicSigningKey(), jc.DeepEquals, imagemetadata.SimplestreamsImagesPublicKey)
 	c.Check(got.RequireSigned(), jc.IsTrue)
@@ -81,7 +81,7 @@ func (*Suite) TestFetchManyDefaultFilter(c *gc.C) {
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	got, resolveInfo, err := Fetch(context.Background(), ss, tds, constraints, nil)
+	got, resolveInfo, err := imagedownloads.Fetch(context.Background(), ss, tds, constraints, nil)
 	c.Check(resolveInfo.Signed, jc.IsTrue)
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(len(got), jc.DeepEquals, 27)
@@ -108,7 +108,7 @@ func (*Suite) TestFetchManyDefaultFilterAndCustomImageDownloadURL(c *gc.C) {
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	got, resolveInfo, err := Fetch(context.Background(), ss, tds, constraints, nil)
+	got, resolveInfo, err := imagedownloads.Fetch(context.Background(), ss, tds, constraints, nil)
 	c.Check(resolveInfo.Signed, jc.IsTrue)
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(len(got), jc.DeepEquals, 27)
@@ -135,7 +135,7 @@ func (*Suite) TestFetchSingleDefaultFilter(c *gc.C) {
 			Arches:   []string{"ppc64el"},
 			Releases: []string{"16.04"},
 		}}
-	got, resolveInfo, err := Fetch(context.Background(), ss, tds, constraints, nil)
+	got, resolveInfo, err := imagedownloads.Fetch(context.Background(), ss, tds, constraints, nil)
 	c.Check(resolveInfo.Signed, jc.IsTrue)
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(len(got), jc.DeepEquals, 8)
@@ -158,7 +158,7 @@ func (*Suite) TestFetchOneWithFilter(c *gc.C) {
 			Arches:   []string{"ppc64el"},
 			Releases: []string{"16.04"},
 		}}
-	got, resolveInfo, err := Fetch(context.Background(), ss, tds, constraints, Filter("disk1.img"))
+	got, resolveInfo, err := imagedownloads.Fetch(context.Background(), ss, tds, constraints, imagedownloads.Filter("disk1.img"))
 	c.Check(resolveInfo.Signed, jc.IsTrue)
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(len(got), jc.DeepEquals, 1)
@@ -185,7 +185,7 @@ func (*Suite) TestFetchManyWithFilter(c *gc.C) {
 			Arches:   []string{"amd64", "arm64", "ppc64el"},
 			Releases: []string{"16.04"},
 		}}
-	got, resolveInfo, err := Fetch(context.Background(), ss, tds, constraints, Filter("disk1.img"))
+	got, resolveInfo, err := imagedownloads.Fetch(context.Background(), ss, tds, constraints, imagedownloads.Filter("disk1.img"))
 	c.Check(resolveInfo.Signed, jc.IsTrue)
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(len(got), jc.DeepEquals, 3)
@@ -207,9 +207,9 @@ func (*Suite) TestOneAmd64XenialTarGz(c *gc.C) {
 	ss := simplestreams.NewSimpleStreams(streamstesting.TestDataSourceFactory())
 	ts := httptest.NewServer(&sstreamsHandler{})
 	defer ts.Close()
-	got, err := One(context.Background(), ss, "amd64", "16.04", "", "tar.gz", newTestDataSourceFunc(ts.URL))
+	got, err := imagedownloads.One(context.Background(), ss, "amd64", "16.04", "", "tar.gz", newTestDataSourceFunc(ts.URL))
 	c.Check(err, jc.ErrorIsNil)
-	c.Assert(got, jc.DeepEquals, &Metadata{
+	c.Assert(got, jc.DeepEquals, &imagedownloads.Metadata{
 		Arch:    "amd64",
 		Release: "xenial",
 		Version: "16.04",
@@ -224,9 +224,9 @@ func (*Suite) TestOneArm64JammyImg(c *gc.C) {
 	ss := simplestreams.NewSimpleStreams(streamstesting.TestDataSourceFactory())
 	ts := httptest.NewServer(&sstreamsHandler{})
 	defer ts.Close()
-	got, err := One(context.Background(), ss, "arm64", "22.04", "released", "disk1.img", newTestDataSourceFunc(ts.URL))
+	got, err := imagedownloads.One(context.Background(), ss, "arm64", "22.04", "released", "disk1.img", newTestDataSourceFunc(ts.URL))
 	c.Check(err, jc.ErrorIsNil)
-	c.Assert(got, jc.DeepEquals, &Metadata{
+	c.Assert(got, jc.DeepEquals, &imagedownloads.Metadata{
 		Arch:    "arm64",
 		Release: "jammy",
 		Version: "22.04",
@@ -241,9 +241,9 @@ func (*Suite) TestOneArm64FocalImg(c *gc.C) {
 	ss := simplestreams.NewSimpleStreams(streamstesting.TestDataSourceFactory())
 	ts := httptest.NewServer(&sstreamsHandler{})
 	defer ts.Close()
-	got, err := One(context.Background(), ss, "arm64", "20.04", "released", "disk1.img", newTestDataSourceFunc(ts.URL))
+	got, err := imagedownloads.One(context.Background(), ss, "arm64", "20.04", "released", "disk1.img", newTestDataSourceFunc(ts.URL))
 	c.Check(err, jc.ErrorIsNil)
-	c.Assert(got, jc.DeepEquals, &Metadata{
+	c.Assert(got, jc.DeepEquals, &imagedownloads.Metadata{
 		Arch:    "arm64",
 		Release: "focal",
 		Version: "20.04",
@@ -272,7 +272,7 @@ func (*Suite) TestOneErrors(c *gc.C) {
 	defer ts.Close()
 	for i, test := range table {
 		c.Logf("test % 1d: %s\n", i+1, test.description)
-		_, err := One(context.Background(), ss, test.arch, test.version, test.stream, test.ftype, newTestDataSourceFunc(ts.URL))
+		_, err := imagedownloads.One(context.Background(), ss, test.arch, test.version, test.stream, test.ftype, newTestDataSourceFunc(ts.URL))
 		c.Check(err, gc.ErrorMatches, test.errorMatch)
 	}
 }

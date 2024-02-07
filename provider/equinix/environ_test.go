@@ -779,7 +779,7 @@ func (*EquinixUtils) TestGetArchitectureFromPlan(c *gc.C) {
 }
 
 func (*EquinixUtils) TestValidPlan(c *gc.C) {
-	const UNEXPECTED = "unexpected"
+	const unexpected = "unexpected"
 
 	plan := func(f func(*packngo.Plan)) packngo.Plan {
 		p := &packngo.Plan{
@@ -812,7 +812,7 @@ func (*EquinixUtils) TestValidPlan(c *gc.C) {
 		{
 			name: "unexpected.line",
 			plan: plan(func(p *packngo.Plan) {
-				p.Line = UNEXPECTED
+				p.Line = unexpected
 			}),
 			region: "dc",
 			expect: false,
@@ -820,7 +820,7 @@ func (*EquinixUtils) TestValidPlan(c *gc.C) {
 		{
 			plan: plan(func(p *packngo.Plan) {
 				p.Slug = "unexpected.deploymenttype"
-				p.DeploymentTypes[0] = UNEXPECTED
+				p.DeploymentTypes[0] = unexpected
 			}),
 			region: "dc",
 			expect: false,
@@ -828,7 +828,7 @@ func (*EquinixUtils) TestValidPlan(c *gc.C) {
 		{
 			plan: plan(func(p *packngo.Plan) {
 				p.Slug = "unexpected.metro"
-				p.AvailableInMetros[0].Code = UNEXPECTED
+				p.AvailableInMetros[0].Code = unexpected
 			}),
 			region: "dc",
 			expect: false,

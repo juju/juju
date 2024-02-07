@@ -229,8 +229,8 @@ func (s *SecretsManagerAPI) CreateSecrets(ctx context.Context, args params.Creat
 		Results: make([]params.StringResult, len(args.Args)),
 	}
 	for i, arg := range args.Args {
-		ID, err := s.createSecret(arg)
-		result.Results[i].Result = ID
+		id, err := s.createSecret(arg)
+		result.Results[i].Result = id
 		if errors.Is(err, state.LabelExists) {
 			err = errors.AlreadyExistsf("secret with label %q", *arg.Label)
 		}

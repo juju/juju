@@ -16,7 +16,6 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/juju/testing"
-	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing/factory"
@@ -24,7 +23,7 @@ import (
 
 type annotationSuite struct {
 	// TODO(anastasiamac) mock to remove ApiServerSuite
-	jujutesting.ApiServerSuite
+	testing.ApiServerSuite
 
 	annotationsAPI *annotations.API
 	authorizer     apiservertesting.FakeAuthorizer
@@ -37,7 +36,7 @@ var _ = gc.Suite(&annotationSuite{})
 func (s *annotationSuite) SetUpTest(c *gc.C) {
 	s.ApiServerSuite.SetUpTest(c)
 	s.authorizer = apiservertesting.FakeAuthorizer{
-		Tag: jujutesting.AdminUser,
+		Tag: testing.AdminUser,
 	}
 	var err error
 	s.annotationsAPI, err = annotations.NewAPI(facadetest.Context{

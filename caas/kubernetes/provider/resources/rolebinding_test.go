@@ -23,22 +23,22 @@ type roleBindingSuite struct {
 var _ = gc.Suite(&roleBindingSuite{})
 
 func (s *roleBindingSuite) TestApply(c *gc.C) {
-	RoleBinding := &rbacv1.RoleBinding{
+	roleBinding := &rbacv1.RoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "roleBinding1",
 			Namespace: "test",
 		},
 	}
 	// Create.
-	rbResource := resources.NewRoleBinding("roleBinding1", "test", RoleBinding)
+	rbResource := resources.NewRoleBinding("roleBinding1", "test", roleBinding)
 	c.Assert(rbResource.Apply(context.Background(), s.client), jc.ErrorIsNil)
 	result, err := s.client.RbacV1().RoleBindings("test").Get(context.Background(), "roleBinding1", metav1.GetOptions{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(result.GetAnnotations()), gc.Equals, 0)
 
 	// Update.
-	RoleBinding.SetAnnotations(map[string]string{"a": "b"})
-	rbResource = resources.NewRoleBinding("roleBinding1", "test", RoleBinding)
+	roleBinding.SetAnnotations(map[string]string{"a": "b"})
+	rbResource = resources.NewRoleBinding("roleBinding1", "test", roleBinding)
 	c.Assert(rbResource.Apply(context.Background(), s.client), jc.ErrorIsNil)
 
 	result, err = s.client.RbacV1().RoleBindings("test").Get(context.Background(), "roleBinding1", metav1.GetOptions{})

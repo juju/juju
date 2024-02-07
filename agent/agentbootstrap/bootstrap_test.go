@@ -127,7 +127,7 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	controllerCfg := testing.FakeControllerConfig()
 
 	initialModelUUID := utils.MustNewUUID().String()
-	InitialModelConfigAttrs := map[string]interface{}{
+	initialModelConfigAttrs := map[string]interface{}{
 		"name": "hosted",
 		"uuid": initialModelUUID,
 	}
@@ -160,7 +160,7 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 		ControllerModelEnvironVersion: 666,
 		ModelConstraints:              expectModelConstraints,
 		ControllerInheritedConfig:     controllerInheritedConfig,
-		InitialModelConfig:            InitialModelConfigAttrs,
+		InitialModelConfig:            initialModelConfigAttrs,
 		StoragePools: map[string]storage.Attrs{
 			"spool": {
 				"type": "loop",
@@ -424,7 +424,7 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 	modelCfg, err := config.New(config.NoDefaults, modelAttrs)
 	c.Assert(err, jc.ErrorIsNil)
 
-	InitialModelConfigAttrs := map[string]interface{}{
+	initialModelConfigAttrs := map[string]interface{}{
 		"name": "hosted",
 		"uuid": utils.MustNewUUID().String(),
 	}
@@ -440,7 +440,7 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 		},
 		ControllerConfig:      testing.FakeControllerConfig(),
 		ControllerModelConfig: modelCfg,
-		InitialModelConfig:    InitialModelConfigAttrs,
+		InitialModelConfig:    initialModelConfigAttrs,
 	}
 
 	adminUser := names.NewLocalUserTag("agent-admin")

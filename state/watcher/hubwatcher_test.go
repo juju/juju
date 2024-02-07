@@ -224,26 +224,27 @@ func (s *HubWatcherSuite) TestWatchAlreadyRemoved(c *gc.C) {
 }
 
 func (s *HubWatcherSuite) TestWatchUnwatchOnQueue(c *gc.C) {
-	const N = 10
-	for i := 0; i < N; i++ {
+	// bN is the number of changes to publish.
+	const bN = 10
+	for i := 0; i < bN; i++ {
 		s.w.Watch("test", i, s.ch)
 	}
-	for i := 0; i < N; i++ {
+	for i := 0; i < bN; i++ {
 		s.publish(c, watcher.Change{"test", i, int64(i + 3)})
 	}
-	for i := 1; i < N; i += 2 {
+	for i := 1; i < bN; i += 2 {
 		s.w.Unwatch("test", i, s.ch)
 	}
 	seen := make(map[interface{}]bool)
-	for i := 0; i < N/2; i++ {
+	for i := 0; i < bN/2; i++ {
 		select {
 		case change := <-s.ch:
 			seen[change.Id] = true
 		case <-time.After(worstCase):
-			c.Fatalf("not enough changes: got %d, want %d", len(seen), N/2)
+			c.Fatalf("not enough changes: got %d, want %d", len(seen), bN/2)
 		}
 	}
-	c.Assert(len(seen), gc.Equals, N/2)
+	c.Assert(len(seen), gc.Equals, bN/2)
 	assertNoChange(c, s.ch)
 }
 

@@ -29,6 +29,25 @@ linters-settings:
       - unreachable
       - unsafeptr
       - unusedresult
+  revive:
+    rules:
+      - name: unexported-naming
+        severity: error
+        disabled: false
+      - name: exported
+        severity: error
+        disabled: false
+        arguments:
+          - "disableStutteringCheck"
+          - "sayRepetitiveInsteadOfStutters"
+      - name: atomic
+        severity: error
+        disabled: false
+      - name: defer
+        severity: error
+        disabled: false
+        arguments:
+          - [ "return", "recover", "method-call" ]
 linters:
   disable-all: true
   enable:
@@ -41,6 +60,7 @@ linters:
     - exportloopref
     - unused
     - sqlclosecheck
+    - revive
 run:
   timeout: 30m
   modules-download-mode: readonly

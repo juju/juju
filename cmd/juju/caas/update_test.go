@@ -22,10 +22,8 @@ import (
 	k8s "github.com/juju/juju/caas/kubernetes"
 	"github.com/juju/juju/caas/kubernetes/provider/proxy"
 	"github.com/juju/juju/cloud"
-	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/caas"
 	"github.com/juju/juju/jujuclient"
-	// To allow a maas cloud type to be parsed in the test data.
 	_ "github.com/juju/juju/provider/maas"
 	"github.com/juju/juju/rpc/params"
 )
@@ -45,7 +43,7 @@ type fakeUpdateCloudAPI struct {
 	*jujutesting.CallMocker
 	caas.UpdateCloudAPI
 
-	cloud       jujucloud.Cloud
+	cloud       cloud.Cloud
 	modelResult []params.UpdateCredentialModelResult
 	errorResult *params.Error
 }
@@ -64,7 +62,7 @@ func (api *fakeUpdateCloudAPI) Cloud(tag names.CloudTag) (cloud.Cloud, error) {
 	return api.cloud, nil
 }
 
-func (api *fakeUpdateCloudAPI) UpdateCloudsCredentials(cloudCredentials map[string]jujucloud.Credential, force bool) ([]params.UpdateCredentialResult, error) {
+func (api *fakeUpdateCloudAPI) UpdateCloudsCredentials(cloudCredentials map[string]cloud.Credential, force bool) ([]params.UpdateCredentialResult, error) {
 	api.MethodCall(api, "UpdateCloudsCredentials", cloudCredentials, force)
 	var tag string
 	for k := range cloudCredentials {
@@ -140,7 +138,7 @@ func (s *updateCAASSuite) makeCommand() cmd.Command {
 		func() (caas.UpdateCloudAPI, error) {
 			return s.fakeCloudAPI, nil
 		},
-		func(_ context.Context, cloud jujucloud.Cloud, credential jujucloud.Credential) (k8s.ClusterMetadataChecker, error) {
+		func(_ context.Context, cloud cloud.Cloud, credential cloud.Credential) (k8s.ClusterMetadataChecker, error) {
 			return s.fakeK8sClusterMetadataChecker, nil
 		},
 	)
@@ -182,7 +180,7 @@ func (s *updateCAASSuite) assertUpdateCloudResult(
 
 	testRun()
 
-	_, region, err := jujucloud.SplitHostCloudRegion(cloudRegion)
+	_, region, err := cloud.SplitHostCloudRegion(cloudRegion)
 	c.Assert(err, jc.ErrorIsNil)
 	s.fakeK8sClusterMetadataChecker.CheckNoCalls(c)
 	expectedCloudToUpdate := cloud.Cloud{
@@ -250,7 +248,7 @@ func (s *updateCAASSuite) TestLocalOnly(c *gc.C) {
 }
 
 func (s *updateCAASSuite) TestInvalidControllerCloud(c *gc.C) {
-	s.fakeCloudAPI.cloud = jujucloud.Cloud{Type: "maas"}
+	s.fakeCloudAPI.cloud = cloud.Cloud{Type: "maas"}
 	command := s.makeCommand()
 	ctx, err := s.runCommand(c, command, "myk8s", "-c", "foo")
 	c.Assert(err, gc.Equals, cmd.ErrSilent)

@@ -17,7 +17,6 @@ import (
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
-	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 )
 
@@ -234,7 +233,7 @@ func getExternalNeutronNetworksByAZ(e NetworkingBase, azNames set.Strings) ([]st
 }
 
 // CreatePort creates a port for a given network id with a subnet ID.
-func (n *NeutronNetworking) CreatePort(name, networkID string, subnetID corenetwork.Id) (*neutron.PortV2, error) {
+func (n *NeutronNetworking) CreatePort(name, networkID string, subnetID network.Id) (*neutron.PortV2, error) {
 	client := n.neutron()
 
 	// To prevent name clashes to existing ports, generate a unique one from a
@@ -333,23 +332,23 @@ func generateUniquePortName(name string) string {
 	return fmt.Sprintf("juju-%s-%s", name, unique)
 }
 
-func makeSubnetInfo(neutron NetworkingNeutron, subnet neutron.SubnetV2) (corenetwork.SubnetInfo, error) {
+func makeSubnetInfo(neutron NetworkingNeutron, subnet neutron.SubnetV2) (network.SubnetInfo, error) {
 	_, _, err := net.ParseCIDR(subnet.Cidr)
 	if err != nil {
-		return corenetwork.SubnetInfo{}, errors.Annotatef(err, "skipping subnet %q, invalid CIDR", subnet.Cidr)
+		return network.SubnetInfo{}, errors.Annotatef(err, "skipping subnet %q, invalid CIDR", subnet.Cidr)
 	}
 	net, err := neutron.GetNetworkV2(subnet.NetworkId)
 	if err != nil {
-		return corenetwork.SubnetInfo{}, err
+		return network.SubnetInfo{}, err
 	}
 
 	// TODO (hml) 2017-03-20:
 	// With goose updates, VLANTag can be updated to be
 	// network.segmentation_id, if network.network_type equals vlan
-	info := corenetwork.SubnetInfo{
+	info := network.SubnetInfo{
 		CIDR:              subnet.Cidr,
-		ProviderId:        corenetwork.Id(subnet.Id),
-		ProviderNetworkId: corenetwork.Id(subnet.NetworkId),
+		ProviderId:        network.Id(subnet.Id),
+		ProviderNetworkId: network.Id(subnet.NetworkId),
 		VLANTag:           0,
 		AvailabilityZones: net.AvailabilityZones,
 	}
@@ -360,7 +359,7 @@ func makeSubnetInfo(neutron NetworkingNeutron, subnet neutron.SubnetV2) (corenet
 // Subnets returns basic information about the specified subnets known
 // by the provider for the specified instance or list of ids. subnetIds can be
 // empty, in which case all known are returned.
-func (n *NeutronNetworking) Subnets(instId instance.Id, subnetIds []corenetwork.Id) ([]corenetwork.SubnetInfo, error) {
+func (n *NeutronNetworking) Subnets(instId instance.Id, subnetIds []network.Id) ([]network.SubnetInfo, error) {
 	netIds := set.NewStrings()
 	internalNets := n.ecfg().networks()
 
@@ -398,7 +397,7 @@ func (n *NeutronNetworking) Subnets(instId instance.Id, subnetIds []corenetwork.
 		subIdSet.Add(string(subId))
 	}
 
-	var results []corenetwork.SubnetInfo
+	var results []network.SubnetInfo
 	if instId != instance.UnknownId {
 		// TODO(hml): 2017-03-20
 		// Implement Subnets() for case where instId is specified
@@ -453,7 +452,7 @@ func (n *NeutronNetworking) Subnets(instId instance.Id, subnetIds []corenetwork.
 // If only a subset of the instance IDs exist, the result will contain a nil
 // value for the missing instances and a ErrPartialInstances error will be
 // returned.
-func (n *NeutronNetworking) NetworkInterfaces(instanceIDs []instance.Id) ([]corenetwork.InterfaceInfos, error) {
+func (n *NeutronNetworking) NetworkInterfaces(instanceIDs []instance.Id) ([]network.InterfaceInfos, error) {
 	allSubnets, err := n.Subnets(instance.UnknownId, nil)
 	if err != nil {
 		return nil, errors.Annotate(err, "listing subnets")
@@ -492,7 +491,7 @@ func (n *NeutronNetworking) NetworkInterfaces(instanceIDs []instance.Id) ([]core
 		instIfaceMap[devID] = append(instIfaceMap[devID], instPort)
 	}
 
-	res := make([]corenetwork.InterfaceInfos, len(instanceIDs))
+	res := make([]network.InterfaceInfos, len(instanceIDs))
 	var matchCount int
 
 	for resIdx, instID := range instanceIDs {
@@ -517,27 +516,27 @@ func (n *NeutronNetworking) NetworkInterfaces(instanceIDs []instance.Id) ([]core
 func mapInterfaceList(
 	in []neutron.PortV2, subnetIDToCIDR, fixedToFIP map[string]string,
 ) network.InterfaceInfos {
-	var out = make(corenetwork.InterfaceInfos, len(in))
+	var out = make(network.InterfaceInfos, len(in))
 
 	for idx, port := range in {
-		ni := corenetwork.InterfaceInfo{
+		ni := network.InterfaceInfo{
 			DeviceIndex:       idx,
-			ProviderId:        corenetwork.Id(port.Id),
-			ProviderNetworkId: corenetwork.Id(port.NetworkId),
+			ProviderId:        network.Id(port.Id),
+			ProviderNetworkId: network.Id(port.NetworkId),
 			// NOTE(achilleasa): on microstack port.Name is always empty.
 			InterfaceName: port.Name,
 			Disabled:      port.Status != "ACTIVE",
 			NoAutoStart:   false,
-			InterfaceType: corenetwork.EthernetDevice,
-			Origin:        corenetwork.OriginProvider,
-			MACAddress:    corenetwork.NormalizeMACAddress(port.MACAddress),
+			InterfaceType: network.EthernetDevice,
+			Origin:        network.OriginProvider,
+			MACAddress:    network.NormalizeMACAddress(port.MACAddress),
 		}
 
 		for i, ipConf := range port.FixedIPs {
-			providerAddr := corenetwork.NewMachineAddress(
+			providerAddr := network.NewMachineAddress(
 				ipConf.IPAddress,
-				corenetwork.WithConfigType(corenetwork.ConfigStatic),
-				corenetwork.WithCIDR(subnetIDToCIDR[ipConf.SubnetID]),
+				network.WithConfigType(network.ConfigStatic),
+				network.WithCIDR(subnetIDToCIDR[ipConf.SubnetID]),
 			).AsProviderAddress()
 
 			ni.Addresses = append(ni.Addresses, providerAddr)
@@ -545,9 +544,9 @@ func mapInterfaceList(
 			// If there is a FIP associated with this private IP,
 			// add it as a public address.
 			if fip := fixedToFIP[ipConf.IPAddress]; fip != "" {
-				ni.ShadowAddresses = append(ni.ShadowAddresses, corenetwork.NewMachineAddress(
+				ni.ShadowAddresses = append(ni.ShadowAddresses, network.NewMachineAddress(
 					fip,
-					corenetwork.WithScope(corenetwork.ScopePublic),
+					network.WithScope(network.ScopePublic),
 					// TODO (manadart 2022-02-08): Other providers add these
 					// addresses with the DHCP config type.
 					// But this is not really correct.
@@ -558,7 +557,7 @@ func mapInterfaceList(
 
 			// If this is the first address, populate additional NIC details.
 			if i == 0 {
-				ni.ProviderSubnetId = corenetwork.Id(ipConf.SubnetID)
+				ni.ProviderSubnetId = network.Id(ipConf.SubnetID)
 			}
 		}
 

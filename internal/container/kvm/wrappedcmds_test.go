@@ -16,7 +16,7 @@ import (
 	"github.com/juju/juju/environs/imagedownloads"
 	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
-	. "github.com/juju/juju/internal/container/kvm"
+	"github.com/juju/juju/internal/container/kvm"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -70,7 +70,7 @@ func (s *LibVertSuite) TestSyncImagesUtilizesSimpleStreamsSource(c *gc.C) {
 		},
 		success: true,
 	}
-	err := Sync(p, fakeFetcher{}, source, nil)
+	err := kvm.Sync(p, fakeFetcher{}, source, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	url, err := p.sourceURL()
@@ -92,9 +92,9 @@ type commandWrapperSuite struct {
 var _ = gc.Suite(&commandWrapperSuite{})
 
 func (commandWrapperSuite) TestCreateNoHostname(c *gc.C) {
-	stub := NewRunStub("exit before this", nil)
-	p := CreateMachineParams{}
-	err := CreateMachine(p)
+	stub := kvm.NewRunStub("exit before this", nil)
+	p := kvm.CreateMachineParams{}
+	err := kvm.CreateMachine(p)
 	c.Assert(len(stub.Calls()) == 0, jc.IsTrue)
 	c.Assert(err, gc.ErrorMatches, "hostname is required")
 }
@@ -115,7 +115,7 @@ func (s *commandWrapperSuite) TestCreateMachineSuccessOnFocal(c *gc.C) {
 	assertCreateMachineSuccess(c, tmpDir, want)
 }
 func assertCreateMachineSuccess(c *gc.C, tmpDir string, expCommands []string) {
-	stub := NewRunStub("success", nil)
+	stub := kvm.NewRunStub("success", nil)
 
 	err := os.MkdirAll(filepath.Join(tmpDir, "kvm", "guests"), 0755)
 	c.Check(err, jc.ErrorIsNil)
@@ -136,7 +136,7 @@ func assertCreateMachineSuccess(c *gc.C, tmpDir string, expCommands []string) {
 	}
 
 	hostname := "host00"
-	params := CreateMachineParams{
+	params := kvm.CreateMachineParams{
 		Hostname:          hostname,
 		Version:           "20.04",
 		UserDataFile:      cloudInitPath,
@@ -145,8 +145,8 @@ func assertCreateMachineSuccess(c *gc.C, tmpDir string, expCommands []string) {
 		RootDisk:          8,
 	}
 
-	MakeCreateMachineParamsTestable(&params, pathfinder, stub.Run, "arm64")
-	err = CreateMachine(params)
+	kvm.MakeCreateMachineParamsTestable(&params, pathfinder, stub.Run, "arm64")
+	err = kvm.CreateMachine(params)
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = os.Stat(cloudInitPath)
@@ -182,9 +182,9 @@ func (commandWrapperSuite) TestDestroyMachineSuccess(c *gc.C) {
 		return tmpDir
 	}
 
-	stub := NewRunStub("success", nil)
-	container := NewTestContainer("aname", stub.Run, pathfinder)
-	err = DestroyMachine(container)
+	stub := kvm.NewRunStub("success", nil)
+	container := kvm.NewTestContainer("aname", stub.Run, pathfinder)
+	err = kvm.DestroyMachine(container)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(stub.Calls(), jc.DeepEquals, []string{
 		" virsh destroy aname",
@@ -193,9 +193,9 @@ func (commandWrapperSuite) TestDestroyMachineSuccess(c *gc.C) {
 }
 
 func (commandWrapperSuite) TestDestroyMachineFails(c *gc.C) {
-	stub := NewRunStub("", errors.New("Boom"))
-	container := NewTestContainer("aname", stub.Run, nil)
-	err := DestroyMachine(container)
+	stub := kvm.NewRunStub("", errors.New("Boom"))
+	container := kvm.NewTestContainer("aname", stub.Run, nil)
+	err := kvm.DestroyMachine(container)
 	c.Check(stub.Calls(), jc.DeepEquals, []string{
 		" virsh destroy aname",
 		" virsh undefine --nvram aname",
@@ -208,17 +208,17 @@ func (commandWrapperSuite) TestDestroyMachineFails(c *gc.C) {
 }
 
 func (commandWrapperSuite) TestAutostartMachineSuccess(c *gc.C) {
-	stub := NewRunStub("success", nil)
-	container := NewTestContainer("aname", stub.Run, nil)
-	err := AutostartMachine(container)
+	stub := kvm.NewRunStub("success", nil)
+	container := kvm.NewTestContainer("aname", stub.Run, nil)
+	err := kvm.AutostartMachine(container)
 	c.Assert(stub.Calls(), jc.DeepEquals, []string{" virsh autostart aname"})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (commandWrapperSuite) TestAutostartMachineFails(c *gc.C) {
-	stub := NewRunStub("", errors.New("Boom"))
-	container := NewTestContainer("aname", stub.Run, nil)
-	err := AutostartMachine(container)
+	stub := kvm.NewRunStub("", errors.New("Boom"))
+	container := kvm.NewTestContainer("aname", stub.Run, nil)
+	err := kvm.AutostartMachine(container)
 	c.Assert(stub.Calls(), jc.DeepEquals, []string{" virsh autostart aname"})
 	c.Check(err, gc.ErrorMatches, `failed to autostart domain "aname": Boom`)
 }
@@ -230,8 +230,8 @@ func (commandWrapperSuite) TestListMachinesSuccess(c *gc.C) {
  0     Domain-0                       running
  2     ubuntu                         paused
 `[1:]
-	stub := NewRunStub(output, nil)
-	got, err := ListMachines(stub.Run)
+	stub := kvm.NewRunStub(output, nil)
+	got, err := kvm.ListMachines(stub.Run)
 
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(stub.Calls(), jc.DeepEquals, []string{" virsh -q list --all"})
@@ -243,8 +243,8 @@ func (commandWrapperSuite) TestListMachinesSuccess(c *gc.C) {
 }
 
 func (commandWrapperSuite) TestListMachinesFails(c *gc.C) {
-	stub := NewRunStub("", errors.New("Boom"))
-	got, err := ListMachines(stub.Run)
+	stub := kvm.NewRunStub("", errors.New("Boom"))
+	got, err := kvm.ListMachines(stub.Run)
 	c.Check(err, gc.ErrorMatches, "Boom")
 	c.Check(stub.Calls(), jc.DeepEquals, []string{" virsh -q list --all"})
 	c.Assert(got, gc.IsNil)

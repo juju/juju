@@ -225,14 +225,14 @@ func (a *API) addPendingResource(appName string, chRes charmresource.Resource) (
 }
 
 func parseApplicationTag(tagStr string) (names.ApplicationTag, *params.Error) { // note the concrete error type
-	ApplicationTag, err := names.ParseApplicationTag(tagStr)
+	applicationTag, err := names.ParseApplicationTag(tagStr)
 	if err != nil {
-		return ApplicationTag, &params.Error{
+		return applicationTag, &params.Error{
 			Message: err.Error(),
 			Code:    params.CodeBadRequest,
 		}
 	}
-	return ApplicationTag, nil
+	return applicationTag, nil
 }
 
 func errorResult(err error) params.ResourcesResult {

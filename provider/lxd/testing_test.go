@@ -524,8 +524,8 @@ func (conn *StubClient) UpdateContainerProfiles(name string, profiles []string) 
 	return conn.NextErr()
 }
 
-func (conn *StubClient) VerifyNetworkDevice(profile *api.Profile, ETag string) error {
-	conn.AddCall("VerifyNetworkDevice", profile, ETag)
+func (conn *StubClient) VerifyNetworkDevice(profile *api.Profile, etag string) error {
+	conn.AddCall("VerifyNetworkDevice", profile, etag)
 	return conn.NextErr()
 }
 
@@ -534,12 +534,12 @@ func (conn *StubClient) StorageSupported() bool {
 	return conn.StorageIsSupported
 }
 
-func (conn *StubClient) EnsureDefaultStorage(profile *api.Profile, ETag string) error {
-	conn.AddCall("EnsureDefaultStorage", profile, ETag)
+func (conn *StubClient) EnsureDefaultStorage(profile *api.Profile, etag string) error {
+	conn.AddCall("EnsureDefaultStorage", profile, etag)
 	return conn.NextErr()
 }
 
-func (conn *StubClient) GetStoragePool(name string) (pool *api.StoragePool, ETag string, err error) {
+func (conn *StubClient) GetStoragePool(name string) (pool *api.StoragePool, etag string, err error) {
 	conn.AddCall("GetStoragePool", name)
 	return &api.StoragePool{
 		Name:   name,
@@ -597,9 +597,9 @@ func (conn *StubClient) GetStoragePoolVolumes(pool string) ([]api.StorageVolume,
 }
 
 func (conn *StubClient) UpdateStoragePoolVolume(
-	pool string, volType string, name string, volume api.StorageVolumePut, ETag string,
+	pool string, volType string, name string, volume api.StorageVolumePut, etag string,
 ) error {
-	conn.AddCall("UpdateStoragePoolVolume", pool, volType, name, volume, ETag)
+	conn.AddCall("UpdateStoragePoolVolume", pool, volType, name, volume, etag)
 	return conn.NextErr()
 }
 

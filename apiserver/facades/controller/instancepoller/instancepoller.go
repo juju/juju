@@ -268,10 +268,10 @@ func mapNetworkConfigsToProviderAddresses(
 }
 
 func spaceInfoForAddress(
-	spaceInfos network.SpaceInfos, CIDR, providerSubnetID, addr string,
+	spaceInfos network.SpaceInfos, cidr, providerSubnetID, addr string,
 ) (*network.SpaceInfo, error) {
-	if CIDR != "" {
-		return spaceInfos.InferSpaceFromCIDRAndSubnetID(CIDR, providerSubnetID)
+	if cidr != "" {
+		return spaceInfos.InferSpaceFromCIDRAndSubnetID(cidr, providerSubnetID)
 	}
 	return spaceInfos.InferSpaceFromAddress(addr)
 }

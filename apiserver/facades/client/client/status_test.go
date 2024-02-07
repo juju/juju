@@ -240,13 +240,13 @@ func (s *statusSuite) TestFullStatusInterfaceScaling(c *gc.C) {
 			"in the way the addresses are processed"))
 }
 
-func (s *statusSuite) createSpaceAndSubnetWithProviderID(c *gc.C, spaceName, CIDR, providerSubnetID string) {
+func (s *statusSuite) createSpaceAndSubnetWithProviderID(c *gc.C, spaceName, cidr, providerSubnetID string) {
 	st := s.ControllerModel(c).State()
 	space, err := st.AddSpace(spaceName, network.Id(spaceName), nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = st.AddSubnet(network.SubnetInfo{
-		CIDR:       CIDR,
+		CIDR:       cidr,
 		SpaceID:    space.Id(),
 		ProviderId: network.Id(providerSubnetID),
 	})

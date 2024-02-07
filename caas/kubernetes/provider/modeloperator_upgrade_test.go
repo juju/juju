@@ -13,7 +13,6 @@ import (
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 
@@ -78,7 +77,7 @@ func (s *modelUpgraderSuite) TestModelOperatorUpgrade(c *gc.C) {
 					},
 				},
 			},
-		}, v1.CreateOptions{})
+		}, meta.CreateOptions{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(modelOperatorUpgrade(context.Background(), operatorName, version.MustParse("9.9.9"), s.broker), jc.ErrorIsNil)

@@ -158,8 +158,8 @@ func (c client) copyToPod(ctx context.Context, params CopyParams, cancel <-chan 
 
 	go func() {
 		defer writer.Close()
-		err = makeTar(src.Path, dest.Path, writer)
-		if err != nil {
+
+		if err := makeTar(src.Path, dest.Path, writer); err != nil {
 			logger.Errorf("make tar %q failed: %v", src.Path, err)
 		}
 	}()
@@ -270,9 +270,9 @@ func recursiveTar(srcBase, srcFile, destBase, destFile string, tw *tar.Writer) e
 			if err != nil {
 				return err
 			}
-			defer f.Close()
 
 			if _, err := io.Copy(tw, f); err != nil {
+				_ = f.Close()
 				return err
 			}
 			return f.Close()
@@ -329,8 +329,8 @@ func unTarAll(src FileResource, reader io.Reader, destDir, prefix string) error 
 		if err != nil {
 			return errors.Trace(err)
 		}
-		defer outFile.Close()
 		if _, err := io.Copy(outFile, tarReader); err != nil {
+			_ = outFile.Close()
 			return errors.Trace(err)
 		}
 		if err := outFile.Close(); err != nil {

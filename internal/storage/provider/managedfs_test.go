@@ -177,7 +177,7 @@ func (s *managedfsSuite) TestAttachFilesystemsReattach(c *gc.C) {
 	s.testAttachFilesystems(c, true, true, "", mtabEntry, "")
 }
 
-func (s *managedfsSuite) testAttachFilesystems(c *gc.C, readOnly, reattach bool, UUID, mtab, fstab string) {
+func (s *managedfsSuite) testAttachFilesystems(c *gc.C, readOnly, reattach bool, uuid, mtab, fstab string) {
 	mountInfo := ""
 	if reattach {
 		mountInfo = mountInfoLine(666, 0, "/different/to/rootfs", testMountPoint, "/dev/sda1")
@@ -202,7 +202,7 @@ func (s *managedfsSuite) testAttachFilesystems(c *gc.C, readOnly, reattach bool,
 		DeviceName: "sda",
 		HardwareId: "capncrunch",
 		SizeMiB:    2,
-		UUID:       UUID,
+		UUID:       uuid,
 	}
 	s.filesystems[names.NewFilesystemTag("0/0")] = storage.Filesystem{
 		Tag:    names.NewFilesystemTag("0/0"),
@@ -222,9 +222,9 @@ func (s *managedfsSuite) testAttachFilesystems(c *gc.C, readOnly, reattach bool,
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, []storage.AttachFilesystemsResult{{
 		FilesystemAttachment: &storage.FilesystemAttachment{
-			names.NewFilesystemTag("0/0"),
-			names.NewMachineTag("0"),
-			storage.FilesystemAttachmentInfo{
+			Filesystem: names.NewFilesystemTag("0/0"),
+			Machine:    names.NewMachineTag("0"),
+			FilesystemAttachmentInfo: storage.FilesystemAttachmentInfo{
 				Path:     testMountPoint,
 				ReadOnly: readOnly,
 			},

@@ -607,10 +607,10 @@ func (m *Model) Status() (status.StatusInfo, error) {
 
 // localID returns the local id value by stripping off the model uuid prefix
 // if it is there.
-func (m *Model) localID(ID string) string {
-	modelUUID, localID, ok := splitDocID(ID)
+func (m *Model) localID(id string) string {
+	modelUUID, localID, ok := splitDocID(id)
 	if !ok || modelUUID != m.doc.UUID {
-		return ID
+		return id
 	}
 	return localID
 }

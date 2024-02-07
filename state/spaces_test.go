@@ -22,16 +22,16 @@ type SpacesSuite struct {
 
 var _ = gc.Suite(&SpacesSuite{})
 
-func (s *SpacesSuite) addSubnets(c *gc.C, CIDRs []string) []string {
-	return s.addSubnetsForState(c, CIDRs, s.State)
+func (s *SpacesSuite) addSubnets(c *gc.C, cidrs []string) []string {
+	return s.addSubnetsForState(c, cidrs, s.State)
 }
 
-func (s *SpacesSuite) addSubnetsForState(c *gc.C, CIDRs []string, st *state.State) []string {
-	if len(CIDRs) == 0 {
+func (s *SpacesSuite) addSubnetsForState(c *gc.C, cidrs []string, st *state.State) []string {
+	if len(cidrs) == 0 {
 		return nil
 	}
-	subnetIDs := make([]string, len(CIDRs))
-	for i, info := range s.makeSubnetInfosForCIDRs(c, CIDRs) {
+	subnetIDs := make([]string, len(cidrs))
+	for i, info := range s.makeSubnetInfosForCIDRs(c, cidrs) {
 		subnet, err := st.AddSubnet(info)
 		c.Assert(err, jc.ErrorIsNil)
 		subnetIDs[i] = subnet.ID()
@@ -39,9 +39,9 @@ func (s *SpacesSuite) addSubnetsForState(c *gc.C, CIDRs []string, st *state.Stat
 	return subnetIDs
 }
 
-func (s *SpacesSuite) makeSubnetInfosForCIDRs(c *gc.C, CIDRs []string) []network.SubnetInfo {
-	infos := make([]network.SubnetInfo, len(CIDRs))
-	for i, cidr := range CIDRs {
+func (s *SpacesSuite) makeSubnetInfosForCIDRs(c *gc.C, cidrs []string) []network.SubnetInfo {
+	infos := make([]network.SubnetInfo, len(cidrs))
+	for i, cidr := range cidrs {
 		_, _, err := net.ParseCIDR(cidr)
 		c.Assert(err, jc.ErrorIsNil)
 

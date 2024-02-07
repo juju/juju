@@ -79,9 +79,9 @@ func (facade *Facade) rescaleOne(tagString string) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	ApplicationTag, ok := tag.(names.ApplicationTag)
+	applicationTag, ok := tag.(names.ApplicationTag)
 	if !ok {
 		return apiservererrors.ErrPerm
 	}
-	return facade.backend.RescaleService(ApplicationTag.Id())
+	return facade.backend.RescaleService(applicationTag.Id())
 }

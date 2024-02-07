@@ -63,14 +63,14 @@ func (s *URLsSuite) TestImageMetadataURL(c *gc.C) {
 func (s *URLsSuite) TestImageMetadataURLOfficialSource(c *gc.C) {
 	baseURL := imagemetadata.UbuntuCloudImagesURL
 	// Released streams.
-	URL, err := imagemetadata.ImageMetadataURL(baseURL, "")
+	url, err := imagemetadata.ImageMetadataURL(baseURL, "")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(URL, gc.Equals, fmt.Sprintf("%s/%s", baseURL, "releases"))
-	URL, err = imagemetadata.ImageMetadataURL(baseURL, imagemetadata.ReleasedStream)
+	c.Assert(url, gc.Equals, fmt.Sprintf("%s/%s", baseURL, "releases"))
+	url, err = imagemetadata.ImageMetadataURL(baseURL, imagemetadata.ReleasedStream)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(URL, gc.Equals, fmt.Sprintf("%s/%s", baseURL, "releases"))
+	c.Assert(url, gc.Equals, fmt.Sprintf("%s/%s", baseURL, "releases"))
 	// Non-released streams.
-	URL, err = imagemetadata.ImageMetadataURL(baseURL, "daily")
+	url, err = imagemetadata.ImageMetadataURL(baseURL, "daily")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(URL, gc.Equals, fmt.Sprintf("%s/%s", baseURL, "daily"))
+	c.Assert(url, gc.Equals, fmt.Sprintf("%s/%s", baseURL, "daily"))
 }

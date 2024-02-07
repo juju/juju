@@ -31,7 +31,6 @@ import (
 	"github.com/juju/juju/caas/kubernetes/clientconfig"
 	"github.com/juju/juju/caas/kubernetes/provider/proxy"
 	"github.com/juju/juju/cloud"
-	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/caas"
 	"github.com/juju/juju/cmd/juju/caas/mocks"
 	jujucmdcloud "github.com/juju/juju/cmd/juju/cloud"
@@ -379,7 +378,7 @@ func (s *addCAASSuite) makeCommand(c *gc.C, cloudTypeExists, emptyClientConfig, 
 				return c, nil
 			}
 		},
-		func(_ context.Context, cloud jujucloud.Cloud, credential jujucloud.Credential) (k8s.ClusterMetadataChecker, error) {
+		func(_ context.Context, cloud cloud.Cloud, credential cloud.Credential) (k8s.ClusterMetadataChecker, error) {
 			return s.fakeK8sClusterMetadataChecker, nil
 		},
 		caas.FakeCluster(kubeConfigStr),
@@ -788,11 +787,11 @@ func (s *addCAASSuite) assertAddCloudResult(
 
 	if t.client {
 		s.credentialStoreAPI.EXPECT().UpdateCredential(
-			"myk8s", jujucloud.CloudCredential{
-				AuthCredentials: map[string]jujucloud.Credential{
-					"myk8s": jujucloud.NewNamedCredential(
+			"myk8s", cloud.CloudCredential{
+				AuthCredentials: map[string]cloud.Credential{
+					"myk8s": cloud.NewNamedCredential(
 						"myk8s",
-						jujucloud.AuthType("oauth2"),
+						cloud.AuthType("oauth2"),
 						map[string]string{
 							"Token":   "xfdfsdfsdsd",
 							"rbac-id": "9baa5e46",
@@ -806,7 +805,7 @@ func (s *addCAASSuite) assertAddCloudResult(
 
 	testRun()
 
-	_, region, err := jujucloud.SplitHostCloudRegion(cloudRegion)
+	_, region, err := cloud.SplitHostCloudRegion(cloudRegion)
 	c.Assert(err, jc.ErrorIsNil)
 	s.fakeK8sClusterMetadataChecker.CheckCall(c, 0, "GetClusterMetadata")
 	expectedCloudToAdd := cloud.Cloud{
@@ -1125,11 +1124,11 @@ func (s *addCAASSuite) TestCorrectParseFromStdIn(c *gc.C) {
 	defer ctrl.Finish()
 
 	s.credentialStoreAPI.EXPECT().UpdateCredential(
-		"myk8s", jujucloud.CloudCredential{
-			AuthCredentials: map[string]jujucloud.Credential{
-				"myk8s": jujucloud.NewNamedCredential(
+		"myk8s", cloud.CloudCredential{
+			AuthCredentials: map[string]cloud.Credential{
+				"myk8s": cloud.NewNamedCredential(
 					"myk8s",
-					jujucloud.AuthType("userpass"),
+					cloud.AuthType("userpass"),
 					map[string]string{
 						"password": "thepassword",
 						"rbac-id":  "9baa5e46",
@@ -1187,11 +1186,11 @@ func (s *addCAASSuite) TestAddGkeCluster(c *gc.C) {
 	defer ctrl.Finish()
 
 	s.credentialStoreAPI.EXPECT().UpdateCredential(
-		"myk8s", jujucloud.CloudCredential{
-			AuthCredentials: map[string]jujucloud.Credential{
-				"myk8s": jujucloud.NewNamedCredential(
+		"myk8s", cloud.CloudCredential{
+			AuthCredentials: map[string]cloud.Credential{
+				"myk8s": cloud.NewNamedCredential(
 					"myk8s",
-					jujucloud.AuthType("userpass"),
+					cloud.AuthType("userpass"),
 					map[string]string{
 						"password": "thepassword",
 						"rbac-id":  "9baa5e46",

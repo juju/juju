@@ -762,7 +762,7 @@ func (s *linkLayerDevicesStateSuite) TestAddDeviceOpsWithAddresses(c *gc.C) {
 	c.Assert(addrs[0].Value(), gc.Equals, "10.1.1.1")
 }
 
-func (s *linkLayerDevicesStateSuite) createSpaceAndSubnetWithProviderID(c *gc.C, spaceName, CIDR, providerSubnetID string) {
+func (s *linkLayerDevicesStateSuite) createSpaceAndSubnetWithProviderID(c *gc.C, spaceName, cidr, providerSubnetID string) {
 	space, err := s.State.AddSpace(spaceName, corenetwork.Id(spaceName), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	spaceInfo, err := space.NetworkSpace()
@@ -770,7 +770,7 @@ func (s *linkLayerDevicesStateSuite) createSpaceAndSubnetWithProviderID(c *gc.C,
 	s.spaces[spaceName] = spaceInfo
 
 	_, err = s.State.AddSubnet(corenetwork.SubnetInfo{
-		CIDR:       CIDR,
+		CIDR:       cidr,
 		SpaceID:    space.Id(),
 		ProviderId: corenetwork.Id(providerSubnetID),
 	})
