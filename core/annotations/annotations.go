@@ -11,15 +11,15 @@ import (
 )
 
 // Kind identifies different kinds of entities that'll get associated with annotations.
-type Kind string
+type Kind int
 
 const (
-	KindApplication Kind = "application"
-	KindCharm       Kind = "charm"
-	KindMachine     Kind = "machine"
-	KindUnit        Kind = "unit"
-	KindModel       Kind = "model"
-	KindStorage     Kind = "storage_instance"
+	KindApplication Kind = iota
+	KindCharm
+	KindMachine
+	KindUnit
+	KindModel
+	KindStorage
 )
 
 // ID reifies annotatable GlobalEntities into an internal representation using annotations.Kind.
@@ -68,7 +68,7 @@ func ConvertTagToID(n names.Tag) (ID, error) {
 }
 
 func (i ID) String() string {
-	return fmt.Sprintf("%s/%s", i.Kind, i.Name)
+	return fmt.Sprintf("%d/%s", i.Kind, i.Name)
 }
 
 // Annotation extends k8s annotation map.

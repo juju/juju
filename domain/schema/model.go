@@ -325,7 +325,8 @@ ON application (name);
 func charmSchema() schema.Patch {
 	return schema.MakePatch(`
 CREATE TABLE charm (
-    uuid    TEXT PRIMARY KEY
+    uuid    TEXT PRIMARY KEY,
+    url     TEXT NOT NULL
 );
 `)
 }
