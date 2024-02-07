@@ -14,12 +14,12 @@ import (
 type Kind int
 
 const (
-	KindApplication Kind = iota
-	KindCharm
-	KindMachine
-	KindUnit
-	KindModel
-	KindStorage
+	KindApplication Kind = 1
+	KindCharm       Kind = 2
+	KindMachine     Kind = 3
+	KindUnit        Kind = 4
+	KindModel       Kind = 5
+	KindStorage     Kind = 6
 )
 
 // ID reifies annotatable GlobalEntities into an internal representation using annotations.Kind.

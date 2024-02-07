@@ -61,17 +61,17 @@ func (s *stateSuite) TestSetAnnotations(c *gc.C) {
 	// Add a machine into the TABLE machine
 	s.ensureMachine(c, "my-machine", "123")
 
-	ID := annotations.ID{
+	id := annotations.ID{
 		Kind: annotations.KindMachine,
 		Name: "my-machine",
 	}
 
 	// Set annotations bar:6 and foo:15
-	err := st.SetAnnotations(context.Background(), ID, map[string]string{"bar": "6", "foo": "15"})
+	err := st.SetAnnotations(context.Background(), id, map[string]string{"bar": "6", "foo": "15"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check the final annotation set
-	annotations, err := st.GetAnnotations(context.Background(), ID)
+	annotations, err := st.GetAnnotations(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(annotations, gc.DeepEquals, map[string]string{"bar": "6", "foo": "15"})
 }
@@ -186,22 +186,22 @@ func (s *stateSuite) TestSetAnnotationsUnset(c *gc.C) {
 	s.ensureMachine(c, "my-machine", "123")
 	s.ensureAnnotation(c, "machine", "123", "foo", "5")
 
-	ID := annotations.ID{
+	id := annotations.ID{
 		Kind: annotations.KindMachine,
 		Name: "my-machine",
 	}
 
 	// Check that we only have the foo:5
-	annotations1, err := st.GetAnnotations(context.Background(), ID)
+	annotations1, err := st.GetAnnotations(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(annotations1, gc.DeepEquals, map[string]string{"foo": "5"})
 
 	// Unset foo
-	err = st.SetAnnotations(context.Background(), ID, map[string]string{"foo": ""})
+	err = st.SetAnnotations(context.Background(), id, map[string]string{"foo": ""})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check the final annotation set
-	annotations2, err := st.GetAnnotations(context.Background(), ID)
+	annotations2, err := st.GetAnnotations(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(annotations2, gc.HasLen, 0)
 }
