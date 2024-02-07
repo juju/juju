@@ -134,28 +134,6 @@ func (st *State) SetAnnotations(ctx context.Context, id annotations.ID,
 		return errors.Trace(err)
 	}
 
-	kindName, err := kindNameFromID(id)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	// Prepare query for getting the UUID of ID
-	// No need if kind is model, because we keep annotations per model in the DB.
-	var kindQueryStmt *sqlair.Statement
-	var kindQuery string
-	var kindQueryParam sqlair.M
-
-	if id.Kind != annotations.KindModel {
-		kindQuery, kindQueryParam, err = uuidQueryForID(id)
-		if err != nil {
-			return errors.Annotatef(err, "preparing set annotations query for ID: %q", id.Name)
-		}
-		kindQueryStmt, err = sqlair.Prepare(kindQuery, sqlair.M{})
-		if err != nil {
-			return errors.Annotatef(err, "preparing set annotations query for ID: %q", id.Name)
-		}
-	}
-
 	// Separate the annotations that are to be setted vs removed
 	toUpsert := make(map[string]string)
 	var toRemove []string
@@ -168,67 +146,63 @@ func (st *State) SetAnnotations(ctx context.Context, id annotations.ID,
 		}
 	}
 
-	// Prepare query for inserting and deleting annotations for ID
+	if id.Kind == annotations.KindModel {
+		return st.setAnnotationsForModel(ctx, db, id, toUpsert, toRemove)
+	}
+	return st.setAnnotationsForID(ctx, db, id, toUpsert, toRemove)
+}
+
+// setAnnotationsForID associates key/value pairs with the given ID. This is separate from the
+// setAnnotationsForModel because for non-model ID Kinds we need to find the uuid of the id before
+// we add an annotation in the corresponding annotation table.
+func (st *State) setAnnotationsForID(ctx context.Context, db database.TxnRunner, id annotations.ID,
+	toUpsert map[string]string, toRemove []string) error {
+	// extract kindName to use in query generation for kind-specific fields and table names
+	kindName, err := kindNameFromID(id)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// Prepare query for getting the UUID of id.
+	kindQuery, kindQueryParam, err := uuidQueryForID(id)
+	if err != nil {
+		return errors.Annotatef(err, "preparing uuid retrieval query for ID: %q", id.Name)
+	}
+	kindQueryStmt, err := sqlair.Prepare(kindQuery, sqlair.M{})
+	if err != nil {
+		return errors.Annotatef(err, "preparing uuid retrieval query for ID: %q", id.Name)
+	}
+
+	// Prepare query for inserting and deleting annotations for id
 	var setAnnotationsQuery string
 	var deleteAnnotationsQuery string
 
 	var setAnnotationsStmt *sqlair.Statement
 	var deleteAnnotationsStmt *sqlair.Statement
 
-	if id.Kind == annotations.KindModel {
-		// Set query
-		setAnnotationsQuery = `
-INSERT INTO annotation_model (key, value)
-VALUES ($M.key, $M.value)
-  ON CONFLICT(key) DO UPDATE SET value=$M.value`
-		// Delete query
-		deleteAnnotationsQuery = fmt.Sprintf(`DELETE FROM annotation_model WHERE key IN (%s)`, strings.Join(toRemove, ", "))
-	} else {
-		// Set query
-		setAnnotationsQuery = fmt.Sprintf(`
+	// Set query
+	setAnnotationsQuery = fmt.Sprintf(`
 INSERT INTO annotation_%[1]s (%[1]s_uuid, key, value)
 VALUES ($M.uuid, $M.key, $M.value)
-  ON CONFLICT(%[1]s_uuid, key) DO UPDATE SET value=$M.value`, kindName)
-		// Delete query
-		deleteAnnotationsQuery = fmt.Sprintf(`
+ON CONFLICT(%[1]s_uuid, key) DO UPDATE SET value=$M.value`, kindName)
+	// Delete query
+	deleteAnnotationsQuery = fmt.Sprintf(`
 DELETE FROM annotation_%[1]s
 WHERE %[1]s_uuid = $M.uuid AND key IN (%[2]s)`, kindName, strings.Join(toRemove, ", "))
-	}
 
 	// Prepare sqlair statements
 	setAnnotationsStmt, err = sqlair.Prepare(setAnnotationsQuery, Annotation{}, sqlair.M{})
 	if err != nil {
-		return errors.Annotatef(err, "preparing get annotations query for ID: %q", id.Name)
+		return errors.Annotatef(err, "preparing set annotations query for ID: %q", id.Name)
 	}
 	deleteAnnotationsStmt, err = sqlair.Prepare(deleteAnnotationsQuery, Annotation{}, sqlair.M{})
 	if err != nil {
-		return errors.Annotatef(err, "preparing get annotations query for ID: %q", id.Name)
+		return errors.Annotatef(err, "preparing set annotations query for ID: %q", id.Name)
 	}
 
 	// Running transactions using sqlair statements
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-
-		// If it's for a model, go ahead and run the queries (no uuid needed)
-		if id.Kind == annotations.KindModel {
-			// Unset the annotations
-			if err := tx.Query(ctx, deleteAnnotationsStmt).Run(); err != nil {
-				return errors.Annotatef(err, "unsetting annotations for ID: %s", id.Name)
-			}
-
-			// Insert annotations
-			for key, value := range toUpsert {
-				if err := tx.Query(ctx, setAnnotationsStmt, sqlair.M{
-					"key":   key,
-					"value": value,
-				}).Run(); err != nil {
-					return errors.Annotatef(err, "setting annotations for ID: %s", id.Name)
-				}
-			}
-			return nil
-		}
-
-		// For non-model kinds, we need to find the uuid of ID first
-		// Looking up the UUID for ID
+		// We need to find the uuid of ID first, so looking it up
 		result := sqlair.M{}
 		err = tx.Query(ctx, kindQueryStmt, kindQueryParam).Get(result)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
@@ -260,12 +234,67 @@ WHERE %[1]s_uuid = $M.uuid AND key IN (%[2]s)`, kindName, strings.Join(toRemove,
 				return errors.Annotatef(err, "setting annotations for ID: %s", id.Name)
 			}
 		}
-
 		return nil
 	})
 
 	if err != nil {
 		return errors.Annotatef(err, "setting annotations for ID: %q", id.Name)
+	}
+
+	return nil
+}
+
+// setAnnotationsForModel associates key/value annotation pairs with the model referred by the given
+// ID. This is specialized as opposed to the other Kinds because we keep annotations per model, so
+// we don't need to try to find the uuid of the given id (the model).
+func (st *State) setAnnotationsForModel(ctx context.Context, db database.TxnRunner, id annotations.ID,
+	toUpsert map[string]string, toRemove []string) error {
+	var setAnnotationsQuery string
+	var deleteAnnotationsQuery string
+
+	var setAnnotationsStmt *sqlair.Statement
+	var deleteAnnotationsStmt *sqlair.Statement
+
+	// Set query
+	setAnnotationsQuery = `
+INSERT INTO annotation_model (key, value)
+VALUES ($M.key, $M.value)
+	ON CONFLICT(key) DO UPDATE SET value=$M.value`
+
+	// Delete query
+	deleteAnnotationsQuery = fmt.Sprintf(`DELETE FROM annotation_model WHERE key IN (%s)`, strings.Join(toRemove, ", "))
+
+	// Prepare sqlair statements
+	setAnnotationsStmt, err := sqlair.Prepare(setAnnotationsQuery, Annotation{}, sqlair.M{})
+	if err != nil {
+		return errors.Annotatef(err, "preparing get annotations query for ID: %q", id.Name)
+	}
+	deleteAnnotationsStmt, err = sqlair.Prepare(deleteAnnotationsQuery, Annotation{}, sqlair.M{})
+	if err != nil {
+		return errors.Annotatef(err, "preparing get annotations query for ID: %q", id.Name)
+	}
+
+	// Running transactions using sqlair statements
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		// Unset the annotations
+		if err := tx.Query(ctx, deleteAnnotationsStmt).Run(); err != nil {
+			return errors.Annotatef(err, "unsetting annotations for ID: %s", id.Name)
+		}
+
+		// Insert annotations
+		for key, value := range toUpsert {
+			if err := tx.Query(ctx, setAnnotationsStmt, sqlair.M{
+				"key":   key,
+				"value": value,
+			}).Run(); err != nil {
+				return errors.Annotatef(err, "setting annotations for ID: %s", id.Name)
+			}
+		}
+		return nil
+	})
+
+	if err != nil {
+		return errors.Annotatef(err, "setting annotations for model with uuid: %q", id.Name)
 	}
 
 	return nil
