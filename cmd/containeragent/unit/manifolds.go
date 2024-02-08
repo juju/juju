@@ -11,7 +11,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/pubsub/v2"
-	"github.com/juju/utils/v3/voyeur"
+	"github.com/juju/utils/v4/voyeur"
 	"github.com/juju/version/v2"
 	"github.com/juju/worker/v4/dependency"
 	"github.com/prometheus/client_golang/prometheus"

@@ -20,7 +20,7 @@ import (
 	"github.com/juju/names/v5"
 	"github.com/juju/schema"
 	jujutxn "github.com/juju/txn/v3"
-	"github.com/juju/utils/v3"
+	"github.com/juju/utils/v4"
 	"github.com/juju/version/v2"
 	"gopkg.in/juju/environschema.v1"
 

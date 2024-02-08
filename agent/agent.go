@@ -18,8 +18,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
-	"github.com/juju/utils/v3"
-	"github.com/juju/utils/v3/shell"
+	"github.com/juju/utils/v4"
+	"github.com/juju/utils/v4/shell"
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/agent/constants"

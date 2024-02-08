@@ -15,7 +15,7 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v5"
 	"github.com/juju/naturalsort"
-	"github.com/juju/utils/v3"
+	"github.com/juju/utils/v4"
 
 	actionapi "github.com/juju/juju/api/client/action"
 	jujucmd "github.com/juju/juju/cmd"

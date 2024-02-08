@@ -6,7 +6,7 @@ package azure
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/utils/v3"
+	"github.com/juju/utils/v4"
 
 	jujuos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/internal/cloudconfig/cloudinit"

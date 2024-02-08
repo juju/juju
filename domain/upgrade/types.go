@@ -5,7 +5,7 @@ package upgrade
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/utils/v3"
+	"github.com/juju/utils/v4"
 )
 
 // UUID represents a upgrade unique identifier.

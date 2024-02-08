@@ -6,7 +6,7 @@ package testing
 import (
 	"context"
 
-	"github.com/juju/utils/v3"
+	"github.com/juju/utils/v4"
 
 	coretesting "github.com/juju/juju/core/testing"
 )

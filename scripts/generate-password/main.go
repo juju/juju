@@ -11,7 +11,7 @@ import (
 	"strings"
 
 	"github.com/juju/gnuflag"
-	"github.com/juju/utils/v3"
+	"github.com/juju/utils/v4"
 )
 
 func main() {

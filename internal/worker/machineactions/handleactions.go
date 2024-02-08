@@ -12,7 +12,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/utils/v3/exec"
+	"github.com/juju/utils/v4/exec"
 
 	"github.com/juju/juju/core/actions"
 )

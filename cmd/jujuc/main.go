@@ -18,7 +18,7 @@ import (
 	"github.com/juju/featureflag"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
-	"github.com/juju/utils/v3/exec"
+	"github.com/juju/utils/v4/exec"
 
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/juju/sockets"

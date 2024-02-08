@@ -8,7 +8,7 @@ import (
 
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/utils/v3"
+	"github.com/juju/utils/v4"
 	k8slabels "k8s.io/apimachinery/pkg/labels"
 
 	k8s "github.com/juju/juju/caas/kubernetes"

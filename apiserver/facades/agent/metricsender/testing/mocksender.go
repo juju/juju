@@ -8,7 +8,7 @@ import (
 	"fmt"
 
 	wireformat "github.com/juju/romulus/wireformat/metrics"
-	"github.com/juju/utils/v3"
+	"github.com/juju/utils/v4"
 
 	"github.com/juju/juju/state"
 )

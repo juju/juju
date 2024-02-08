@@ -8,7 +8,7 @@ import (
 	"sort"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils/v3/voyeur"
+	"github.com/juju/utils/v4/voyeur"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 	"gopkg.in/tomb.v2"

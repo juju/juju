@@ -5,7 +5,7 @@ package upgrade
 
 import (
 	"github.com/juju/testing"
-	"github.com/juju/utils/v3"
+	"github.com/juju/utils/v4"
 	gc "gopkg.in/check.v1"
 )
 

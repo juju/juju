@@ -16,7 +16,7 @@ import (
 	"github.com/juju/errors"
 	jujuhttp "github.com/juju/http/v2"
 	"github.com/juju/retry"
-	"github.com/juju/utils/v3"
+	"github.com/juju/utils/v4"
 
 	corelogger "github.com/juju/juju/core/logger"
 )

@@ -16,7 +16,7 @@ import (
 	"github.com/juju/cmd/v3"
 	"github.com/juju/gnuflag"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3/exec"
+	"github.com/juju/utils/v4/exec"
 	gc "gopkg.in/check.v1"
 
 	jujucmd "github.com/juju/juju/cmd"

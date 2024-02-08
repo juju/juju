@@ -22,7 +22,7 @@ import (
 	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	proxyutils "github.com/juju/proxy"
-	"github.com/juju/utils/v3/exec"
+	"github.com/juju/utils/v4/exec"
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/agent/addons"

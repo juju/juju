@@ -11,8 +11,8 @@ import (
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/schema"
-	"github.com/juju/utils/v3"
-	"github.com/juju/utils/v3/ssh"
+	"github.com/juju/utils/v4"
+	"github.com/juju/utils/v4/ssh"
 
 	"github.com/juju/juju/environs/config"
 )

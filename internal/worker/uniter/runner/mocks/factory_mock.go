@@ -17,7 +17,7 @@ import (
 	hook "github.com/juju/juju/internal/worker/uniter/hook"
 	runner "github.com/juju/juju/internal/worker/uniter/runner"
 	context0 "github.com/juju/juju/internal/worker/uniter/runner/context"
-	exec "github.com/juju/utils/v3/exec"
+	exec "github.com/juju/utils/v4/exec"
 	gomock "go.uber.org/mock/gomock"
 )
 

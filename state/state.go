@@ -23,7 +23,7 @@ import (
 	"github.com/juju/names/v5"
 	"github.com/juju/pubsub/v2"
 	jujutxn "github.com/juju/txn/v3"
-	"github.com/juju/utils/v3"
+	"github.com/juju/utils/v4"
 	"github.com/juju/version/v2"
 
 	corebase "github.com/juju/juju/core/base"

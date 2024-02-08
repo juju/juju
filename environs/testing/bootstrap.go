@@ -9,7 +9,7 @@ import (
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/testing"
-	"github.com/juju/utils/v3/ssh"
+	"github.com/juju/utils/v4/ssh"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"

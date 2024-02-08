@@ -7,7 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/testing"
-	"github.com/juju/utils/v3/exec"
+	"github.com/juju/utils/v4/exec"
 
 	"github.com/juju/juju/internal/worker/uniter/operation"
 	"github.com/juju/juju/internal/worker/uniter/runner"

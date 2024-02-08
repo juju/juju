@@ -13,7 +13,7 @@ import (
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3/voyeur"
+	"github.com/juju/utils/v4/voyeur"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 

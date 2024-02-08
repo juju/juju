@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils/v3"
+	"github.com/juju/utils/v4"
 )
 
 // IsInternalSecretBackendID returns true if the supplied backend ID is the internal backend ID.

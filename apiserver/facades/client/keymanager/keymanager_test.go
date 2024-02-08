@@ -12,8 +12,8 @@ import (
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3/ssh"
-	sshtesting "github.com/juju/utils/v3/ssh/testing"
+	"github.com/juju/utils/v4/ssh"
+	sshtesting "github.com/juju/utils/v4/ssh/testing"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 

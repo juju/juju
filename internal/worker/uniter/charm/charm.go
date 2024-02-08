@@ -7,7 +7,7 @@ import (
 	"errors"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/utils/v3"
+	"github.com/juju/utils/v4"
 )
 
 // Logger is here to stop the desire of creating a package level Logger.

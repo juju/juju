@@ -13,7 +13,7 @@ import (
 	"github.com/juju/mgo/v3"
 	"github.com/juju/names/v5"
 	utilseries "github.com/juju/os/v2/series"
-	"github.com/juju/utils/v3"
+	"github.com/juju/utils/v4"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/caas"

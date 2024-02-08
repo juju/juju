@@ -5,7 +5,7 @@ package ssh
 
 import (
 	"github.com/juju/retry"
-	"github.com/juju/utils/v3"
+	"github.com/juju/utils/v4"
 
 	k8sexec "github.com/juju/juju/caas/kubernetes/provider/exec"
 	"github.com/juju/juju/core/model"

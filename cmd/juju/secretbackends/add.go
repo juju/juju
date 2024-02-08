@@ -12,7 +12,7 @@ import (
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/utils/v3/keyvalues"
+	"github.com/juju/utils/v4/keyvalues"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/api/client/secretbackends"

@@ -6,7 +6,7 @@ package keymanager
 import (
 	"context"
 
-	"github.com/juju/utils/v3/ssh"
+	"github.com/juju/utils/v4/ssh"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/rpc/params"

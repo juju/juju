@@ -5,7 +5,7 @@ package migrationflag
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/utils/v3"
+	"github.com/juju/utils/v4"
 	"github.com/juju/worker/v4/catacomb"
 
 	"github.com/juju/juju/core/migration"

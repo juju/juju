@@ -17,7 +17,7 @@ import (
 	"github.com/juju/loggo/v2"
 	envtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3/exec"
+	"github.com/juju/utils/v4/exec"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
