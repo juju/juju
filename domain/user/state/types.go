@@ -26,6 +26,9 @@ type User struct {
 	// CreatorUUID is the associated user that created this user.
 	CreatorUUID user.UUID `db:"created_by_uuid"`
 
+	// CreatorName is the name of the user that created this user.
+	CreatorName string `db:"created_by_name"`
+
 	// CreatedAt is the time that the user was created at.
 	CreatedAt time.Time `db:"created_at"`
 
@@ -49,6 +52,7 @@ func (u User) toCoreUser() user.User {
 		Name:        u.Name,
 		DisplayName: u.DisplayName,
 		CreatorUUID: u.CreatorUUID,
+		CreatorName: u.CreatorName,
 		CreatedAt:   u.CreatedAt,
 		LastLogin:   u.LastLogin,
 		Disabled:    u.Disabled,

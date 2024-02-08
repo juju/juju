@@ -118,10 +118,14 @@ func (st *State) GetUsers(ctx context.Context, creatorName string) ([]user.User,
 SELECT (
         user.uuid, user.name, user.display_name, user.created_by_uuid, user.created_at,
         user_authentication.last_login, user_authentication.disabled
-       ) AS (&User.*)
-FROM user
-JOIN user_authentication ON user.uuid = user_authentication.user_uuid
-WHERE removed = false
+       ) AS (&User.*),
+       creator.name AS &User.created_by_name
+FROM   user
+       LEFT JOIN user_authentication 
+       ON        user.uuid = user_authentication.user_uuid
+       LEFT JOIN user AS creator 
+       ON        user.created_by_uuid = creator.uuid
+WHERE user.removed = false 
 `
 
 			selectGetAllUsersStmt, err := sqlair.Prepare(getAllUsersQuery, User{}, sqlair.M{})
@@ -148,16 +152,20 @@ WHERE removed = false
 		err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 			getFilteredUsersQuery := `
 SELECT (
-        user.uuid, user.name, user.display_name, user.created_by_uuid, user.created_at,
+        user.uuid, user.name, user.display_name, 
+        user.created_by_uuid, 
+        user.created_at,
         user_authentication.last_login, user_authentication.disabled
        ) AS (&User.*)
-FROM user
-JOIN user_authentication ON user.uuid = user_authentication.user_uuid
-WHERE removed = false AND user.created_by_uuid = (
-    SELECT uuid
-    FROM user
-    WHERE name = $M.creator_name
-)
+FROM   user
+       LEFT JOIN user_authentication 
+       ON        user.uuid = user_authentication.user_uuid
+WHERE removed = false 
+AND   user.created_by_uuid = (
+         SELECT uuid
+         FROM   user
+         WHERE  name = $M.creator_name
+      )
 `
 
 			selectGetFilteredUsersStmt, err := sqlair.Prepare(getFilteredUsersQuery, User{}, sqlair.M{})
@@ -201,9 +209,10 @@ SELECT (
         user.uuid, user.name, user.display_name, user.created_by_uuid, user.created_at,
         user_authentication.last_login, user_authentication.disabled
        ) AS (&User.*)
-FROM user
-JOIN user_authentication ON user.uuid = user_authentication.user_uuid
-WHERE user.uuid = $M.uuid
+FROM   user
+       LEFT JOIN user_authentication 
+       ON        user.uuid = user_authentication.user_uuid
+WHERE  user.uuid = $M.uuid
 `
 
 		selectGetUserStmt, err := sqlair.Prepare(getUserQuery, User{}, sqlair.M{})
@@ -246,9 +255,11 @@ SELECT (
         user.uuid, user.name, user.display_name, user.created_by_uuid, user.created_at, 
         user_authentication.last_login, user_authentication.disabled
        ) AS (&User.*)
-FROM user
-JOIN user_authentication ON user.uuid = user_authentication.user_uuid
-WHERE user.name = $M.name AND removed = false
+FROM   user
+       LEFT JOIN user_authentication 
+       ON        user.uuid = user_authentication.user_uuid
+WHERE  user.name = $M.name 
+AND    removed = false
 `
 
 		selectGetUserByNameStmt, err := sqlair.Prepare(getUserByNameQuery, User{}, sqlair.M{})
@@ -292,9 +303,11 @@ SELECT (
         user.uuid, user.name, user.display_name, user.created_by_uuid, user.created_at, 
         user_password.password_hash, user_password.password_salt
        ) AS (&User.*)
-FROM user
-JOIN user_password ON user.uuid = user_password.user_uuid
-WHERE user.name = $M.name AND removed = false
+FROM   user
+       LEFT JOIN user_password 
+       ON        user.uuid = user_password.user_uuid
+WHERE  user.name = $M.name 
+AND    removed = false
 `
 
 		selectGetUserByAuthStmt, err := sqlair.Prepare(getUserWithAuthQuery, User{}, sqlair.M{})
@@ -350,7 +363,11 @@ func (st *State) RemoveUser(ctx context.Context, name string) error {
 			return errors.Annotatef(err, "removing activation key for user with uuid %q", name)
 		}
 
-		removeUserQuery := "UPDATE user SET removed = true WHERE name = $M.name"
+		removeUserQuery := `
+UPDATE user 
+SET    removed = true 
+WHERE  name = $M.name
+`
 
 		updateRemoveUserStmt, err := sqlair.Prepare(removeUserQuery, sqlair.M{})
 		if err != nil {
@@ -446,15 +463,18 @@ func (st *State) EnableUserAuthentication(ctx context.Context, name string) erro
 	}
 
 	enableUserQuery := `
-INSERT INTO user_authentication (user_uuid, disabled)  VALUES (
-     (
-      SELECT uuid
-      FROM user
-      WHERE name = $M.name AND removed = false
-     ), $M.disabled
-)
-ON CONFLICT(user_uuid) DO UPDATE SET disabled = excluded.disabled
-WHERE disabled = true
+INSERT INTO user_authentication (user_uuid, disabled)  
+VALUES      (
+                (
+                    SELECT uuid
+                    FROM   user
+                    WHERE  name = $M.name 
+                    AND    removed = false
+                ), 
+                $M.disabled
+             )
+  ON CONFLICT(user_uuid) DO UPDATE SET disabled = excluded.disabled
+WHERE        disabled = true
 `
 
 	insertEnableUserStmt, err := sqlair.Prepare(enableUserQuery, sqlair.M{})
@@ -490,15 +510,18 @@ func (st *State) DisableUserAuthentication(ctx context.Context, name string) err
 	}
 
 	disableUserQuery := `
-INSERT INTO user_authentication (user_uuid, disabled) VALUES (
-     (
-      SELECT uuid
-      FROM user
-      WHERE name = $M.name AND removed = false
-     ), $M.disabled
-)
-ON CONFLICT(user_uuid) DO UPDATE SET disabled = excluded.disabled
-WHERE disabled = false
+INSERT INTO user_authentication (user_uuid, disabled) 
+VALUES      (
+                (
+                    SELECT uuid
+                    FROM   user
+                    WHERE  name = $M.name 
+                    AND    removed = false
+                ), 
+                $M.disabled
+             )
+  ON CONFLICT(user_uuid) DO UPDATE SET disabled = excluded.disabled
+WHERE        disabled = false
 `
 
 	insertDisableUserStmt, err := sqlair.Prepare(disableUserQuery, sqlair.M{})
@@ -558,11 +581,12 @@ func (st *State) UpdateLastLogin(ctx context.Context, name string) error {
 
 	updateLastLoginQuery := `
 UPDATE user_authentication
-SET last_login = $M.last_login
+SET    last_login = $M.last_login
 WHERE user_uuid = (
-    SELECT uuid
-    FROM user
-    WHERE name = $M.name AND removed = false
+          SELECT uuid
+          FROM   user
+          WHERE  name = $M.name 
+          AND    removed = false
 )
 `
 
@@ -597,7 +621,7 @@ WHERE user_uuid = (
 func addUser(ctx context.Context, tx *sqlair.TX, uuid user.UUID, name string, displayName string, creatorUuid user.UUID) error {
 	addUserQuery := `
 INSERT INTO user (uuid, name, display_name, created_by_uuid, created_at) 
-VALUES ($M.uuid, $M.name, $M.display_name, $M.created_by_uuid, $M.created_at)
+VALUES      ($M.uuid, $M.name, $M.display_name, $M.created_by_uuid, $M.created_at)
 `
 
 	insertAddUserStmt, err := sqlair.Prepare(addUserQuery, sqlair.M{})
@@ -635,15 +659,17 @@ func ensureUserAuthentication(
 	name string,
 ) error {
 	defineUserAuthenticationQuery := `
-INSERT INTO user_authentication (user_uuid, disabled) VALUES ( 
-        (
-            SELECT uuid
-            FROM user
-            WHERE name = $M.name AND removed = false
-        ), $M.disabled
-)
-ON CONFLICT(user_uuid) DO UPDATE SET user_uuid = excluded.user_uuid
-WHERE disabled = false
+INSERT INTO user_authentication (user_uuid, disabled) 
+VALUES      ( 
+                (
+                    SELECT uuid
+                    FROM user
+                    WHERE name = $M.name AND removed = false
+                ), 
+                $M.disabled
+            )
+  ON CONFLICT(user_uuid) DO UPDATE SET user_uuid = excluded.user_uuid
+WHERE       disabled = false
 `
 
 	insertDefineUserAuthenticationStmt, err := sqlair.Prepare(defineUserAuthenticationQuery, sqlair.M{})
@@ -688,13 +714,16 @@ func setPasswordHash(ctx context.Context, tx *sqlair.TX, name string, passwordHa
 
 	setPasswordHashQuery := `
 INSERT INTO user_password (user_uuid, password_hash, password_salt) 
-VALUES (
-        (
-         SELECT uuid
-         FROM user
-         WHERE name = $M.name AND removed = false
-        ), $M.password_hash, $M.password_salt
-)
+VALUES      (
+                (
+                    SELECT uuid
+                    FROM   user
+                    WHERE  name = $M.name 
+                    AND    removed = false
+                ), 
+                $M.password_hash, 
+                $M.password_salt
+            )
 ON CONFLICT(user_uuid) DO NOTHING
 `
 
@@ -720,11 +749,12 @@ ON CONFLICT(user_uuid) DO NOTHING
 func removePasswordHash(ctx context.Context, tx *sqlair.TX, name string) error {
 	removePasswordHashQuery := `
 DELETE FROM user_password
-WHERE user_uuid = (
-	SELECT uuid
-	FROM user
-	WHERE name = $M.name AND removed = false
-)
+WHERE       user_uuid = (
+                SELECT uuid
+                FROM user
+                WHERE name = $M.name 
+                AND   removed = false
+            )
 `
 
 	deleteRemovePasswordHashStmt, err := sqlair.Prepare(removePasswordHashQuery, sqlair.M{})
@@ -752,14 +782,16 @@ func setActivationKey(ctx context.Context, tx *sqlair.TX, name string, activatio
 
 	setActivationKeyQuery := `
 INSERT INTO user_activation_key (user_uuid, activation_key)
-VALUES (
-        (
-         SELECT uuid
-         FROM user
-         WHERE name = $M.name AND removed = false
-        ), $M.activation_key
+VALUES      (
+                (
+                    SELECT uuid
+                    FROM   user
+                    WHERE  name = $M.name 
+                    AND    removed = false
+                ), 
+             $M.activation_key
 )
-ON CONFLICT(user_uuid) DO UPDATE SET activation_key = excluded.activation_key
+  ON CONFLICT(user_uuid) DO UPDATE SET activation_key = excluded.activation_key
 `
 
 	insertSetActivationKeyStmt, err := sqlair.Prepare(setActivationKeyQuery, sqlair.M{})
@@ -780,11 +812,12 @@ ON CONFLICT(user_uuid) DO UPDATE SET activation_key = excluded.activation_key
 func removeActivationKey(ctx context.Context, tx *sqlair.TX, name string) error {
 	removeActivationKeyQuery := `
 DELETE FROM user_activation_key
-WHERE user_uuid = (
-	SELECT uuid
-	FROM user
-	WHERE name = $M.name AND removed = false
-)
+WHERE       user_uuid = (
+                SELECT uuid
+                FROM   user
+                WHERE  name = $M.name 
+                AND    removed = false
+            )
 `
 
 	deleteRemoveActivationKeyStmt, err := sqlair.Prepare(removeActivationKeyQuery, sqlair.M{})
@@ -806,8 +839,8 @@ WHERE user_uuid = (
 func (st *State) isRemoved(ctx context.Context, tx *sqlair.TX, name string) (bool, error) {
 	isRemovedQuery := `
 SELECT removed AS &M.removed
-FROM user
-WHERE name = $M.name
+FROM   user
+WHERE  name = $M.name
 `
 
 	selectIsRemovedStmt, err := sqlair.Prepare(isRemovedQuery, sqlair.M{})
