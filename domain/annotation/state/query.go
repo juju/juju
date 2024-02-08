@@ -16,110 +16,64 @@ import (
 // getAnnotationQueryForID provides a query for the given id, based on pre-computed queries for
 // GetAnnotations for different kinds of ids. We keep these static (avoiding dynamically generating
 // table names and fields) to keep things safe.
-func getAnnotationQueryForID(id annotations.ID) string {
+func getAnnotationQueryForID(id annotations.ID) (string, error) {
 	var query string
-	switch id.Kind {
-	case annotations.KindModel:
+
+	if id.Kind == annotations.KindModel {
 		query = `SELECT (key, value) AS (&Annotation.*) from annotation_model`
-	case annotations.KindMachine:
-		query = `
+	} else {
+		kindName, err := kindNameFromID(id)
+		if err != nil {
+			return "", errors.Trace(err)
+		}
+		query = fmt.Sprintf(`
 SELECT (key, value) AS (&Annotation.*)
-FROM annotation_machine
-WHERE machine_uuid = $M.uuid`
-	case annotations.KindUnit:
-		query = `
-SELECT (key, value) AS (&Annotation.*)
-FROM annotation_unit
-WHERE unit_uuid = $M.uuid`
-	case annotations.KindApplication:
-		query = `
-SELECT (key, value) AS (&Annotation.*)
-FROM annotation_application
-WHERE application_uuid = $M.uuid`
-	case annotations.KindStorage:
-		query = `
-SELECT (key, value) AS (&Annotation.*)
-FROM annotation_storage_instance
-WHERE storage_instance_uuid = $M.uuid`
-	case annotations.KindCharm:
-		query = `
-SELECT (key, value) AS (&Annotation.*)
-FROM annotation_charm
-WHERE charm_uuid = $M.uuid`
+FROM annotation_%s
+WHERE uuid = $M.uuid`, kindName)
 	}
-	return query
+
+	return query, nil
 }
 
 // setAnnotationQueryForID provides a query for the given id, based on pre-computed queries for
 // SetAnnotations for different kinds of ids. We keep these static (avoiding dynamically generating
 // table names and fields) to keep things safe.
-func setAnnotationQueryForID(id annotations.ID) string {
+func setAnnotationQueryForID(id annotations.ID) (string, error) {
 	var query string
-	switch id.Kind {
-	case annotations.KindModel:
+
+	if id.Kind == annotations.KindModel {
 		query = `
 INSERT INTO annotation_model (key, value)
 VALUES ($M.key, $M.value)
 	ON CONFLICT(key) DO UPDATE SET value=$M.value`
-	case annotations.KindMachine:
-		query = `
-INSERT INTO annotation_machine (machine_uuid, key, value)
+	} else {
+		kindName, err := kindNameFromID(id)
+		if err != nil {
+			return "", errors.Trace(err)
+		}
+		query = fmt.Sprintf(`
+INSERT INTO annotation_%s (uuid, key, value)
 VALUES ($M.uuid, $M.key, $M.value)
-	ON CONFLICT(machine_uuid, key) DO UPDATE SET value=$M.value`
-	case annotations.KindUnit:
-		query = `
-INSERT INTO annotation_unit (unit_uuid, key, value)
-VALUES ($M.uuid, $M.key, $M.value)
-	ON CONFLICT(unit_uuid, key) DO UPDATE SET value=$M.value`
-	case annotations.KindApplication:
-		query = `
-INSERT INTO annotation_application (application_uuid, key, value)
-VALUES ($M.uuid, $M.key, $M.value)
-	ON CONFLICT(application_uuid, key) DO UPDATE SET value=$M.value`
-	case annotations.KindStorage:
-		query = `
-INSERT INTO annotation_storage_instance (storage_instance_uuid, key, value)
-VALUES ($M.uuid, $M.key, $M.value)
-	ON CONFLICT(storage_instance_uuid, key) DO UPDATE SET value=$M.value`
-	case annotations.KindCharm:
-		query = `
-INSERT INTO annotation_charm (charm_uuid, key, value)
-VALUES ($M.uuid, $M.key, $M.value)
-	ON CONFLICT(charm_uuid, key) DO UPDATE SET value=$M.value`
+	ON CONFLICT(uuid, key) DO UPDATE SET value=$M.value`, kindName)
 	}
-	return query
+
+	return query, nil
 }
 
 // deleteAnnotationQueryForID provides a query for the given id, based on pre-computed queries for
-// SetAnnotations for different kinds of ids. We keep these static (avoiding dynamically generating
-// table names and fields) to keep things safe.
-func deleteAnnotationsQueryForID(id annotations.ID, toRemoveBindings string) string {
-	var query string
-	switch id.Kind {
-	case annotations.KindModel:
-		query = fmt.Sprintf(`DELETE FROM annotation_model WHERE key IN (%s)`, toRemoveBindings)
-	case annotations.KindMachine:
-		query = fmt.Sprintf(`
-DELETE FROM annotation_machine
-WHERE machine_uuid = $M.uuid AND key IN (%s)`, toRemoveBindings)
-	case annotations.KindUnit:
-		query = fmt.Sprintf(`
-DELETE FROM annotation_unit
-WHERE unit_uuid = $M.uuid AND key IN (%s)`, toRemoveBindings)
-	case annotations.KindApplication:
-		query = fmt.Sprintf(`
-DELETE FROM annotation_application
-WHERE application_uuid = $M.uuid AND key IN (%s)`, toRemoveBindings)
-	case annotations.KindStorage:
-		query = fmt.Sprintf(`
-DELETE FROM annotation_storage_instance
-WHERE storage_instance_uuid = $M.uuid AND key IN (%s)`, toRemoveBindings)
-	case annotations.KindCharm:
-		query = fmt.Sprintf(`
-DELETE FROM annotation_charm
-WHERE charm_uuid = $M.uuid AND key IN (%s)`, toRemoveBindings)
+// SetAnnotations for different kinds of ids.
+func deleteAnnotationsQueryForID(id annotations.ID) (string, error) {
+	if id.Kind == annotations.KindModel {
+		return `DELETE FROM annotation_model`, nil
+	} else {
+		kindName, err := kindNameFromID(id)
+		if err != nil {
+			return "", errors.Trace(err)
+		}
+		return fmt.Sprintf(`
+DELETE FROM annotation_%s
+WHERE uuid = $M.uuid`, kindName), nil
 	}
-	return query
 }
 
 // uuidQueryForID generates a query and parameters for getting the uuid for a given ID
@@ -173,7 +127,7 @@ func kindNameFromID(id annotations.ID) (string, error) {
 	case annotations.KindModel:
 		kindName = "model"
 	default:
-		return "", errors.Annotatef(annotationerrors.AnnotationUnknownKind, "%q", id.Kind)
+		return "", errors.Annotatef(annotationerrors.UnknownKind, "%q", id.Kind)
 	}
 	return kindName, nil
 }

@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	// AnnotationUnknwonKind is raised when the Kind of an ID provided to the annotations state
+	// UnknownKind is raised when the Kind of an ID provided to the annotations state
 	// layer is not recognized
-	AnnotationUnknownKind = errors.ConstError("unknown kind")
+	UnknownKind = errors.ConstError("unknown kind")
 )

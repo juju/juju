@@ -197,7 +197,28 @@ func (s *stateSuite) TestSetAnnotationsUnset(c *gc.C) {
 	c.Check(annotations1, gc.DeepEquals, map[string]string{"foo": "5"})
 
 	// Unset foo
-	err = st.SetAnnotations(context.Background(), id, map[string]string{"foo": ""})
+	err = st.SetAnnotations(context.Background(), id, map[string]string{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check the final annotation set
+	annotations2, err := st.GetAnnotations(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(annotations2, gc.HasLen, 0)
+}
+
+// TestSetAnnotationsUnsetModel asserts the happy path, unsets some annotations in the DB for a
+// model ID.
+func (s *stateSuite) TestSetAnnotationsUnsetModel(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	s.ensureAnnotation(c, "model", "", "foo", "5")
+
+	id := annotations.ID{
+		Kind: annotations.KindModel,
+	}
+
+	// Unset foo
+	err := st.SetAnnotations(context.Background(), id, map[string]string{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check the final annotation set
@@ -253,7 +274,7 @@ func (s *stateSuite) TestKindNameFromID(c *gc.C) {
 	c.Check(t6, gc.Equals, "model")
 
 	_, err = kindNameFromID(annotations.ID{Kind: 12, Name: "foo"})
-	c.Assert(err, jc.ErrorIs, annotationerrors.AnnotationUnknownKind)
+	c.Assert(err, jc.ErrorIs, annotationerrors.UnknownKind)
 
 }
 
@@ -276,7 +297,7 @@ func (s *stateSuite) ensureAnnotation(c *gc.C, id, uuid, key, value string) {
 	} else {
 		err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 			_, err := tx.ExecContext(ctx, fmt.Sprintf(`
-				INSERT INTO annotation_%[1]s (%[1]s_uuid, key, value)
+				INSERT INTO annotation_%[1]s (uuid, key, value)
 				VALUES (?, ?, ?)`, id), uuid, key, value)
 			return err
 		})
