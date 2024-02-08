@@ -14,7 +14,7 @@ import (
 
 	"github.com/juju/charm/v13"
 	jujuclock "github.com/juju/clock"
-	"github.com/juju/cmd/v3"
+	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
 	"github.com/juju/gnuflag"

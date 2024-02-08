@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/gosuri/uitable"
-	"github.com/juju/cmd/v3"
+	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v5"

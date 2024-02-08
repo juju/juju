@@ -17,7 +17,7 @@ import (
 
 	charm "github.com/juju/charm/v13"
 	resource "github.com/juju/charm/v13/resource"
-	cmd "github.com/juju/cmd/v3"
+	cmd "github.com/juju/cmd/v4"
 	api "github.com/juju/juju/api"
 	base "github.com/juju/juju/api/base"
 	application "github.com/juju/juju/api/client/application"

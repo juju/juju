@@ -8,7 +8,7 @@ import (
 	"io"
 
 	"github.com/juju/ansiterm"
-	"github.com/juju/cmd/v3"
+	"github.com/juju/cmd/v4"
 
 	"github.com/juju/juju/core/status"
 )

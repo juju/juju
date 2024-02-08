@@ -6,7 +6,7 @@ package testing
 import (
 	"context"
 
-	"github.com/juju/cmd/v3/cmdtesting"
+	"github.com/juju/cmd/v4/cmdtesting"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/testing"
 	"github.com/juju/utils/v4/ssh"

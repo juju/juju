@@ -13,7 +13,7 @@ import (
 	context "context"
 	reflect "reflect"
 
-	cmd "github.com/juju/cmd/v3"
+	cmd "github.com/juju/cmd/v4"
 	deployer "github.com/juju/juju/cmd/juju/application/deployer"
 	gomock "go.uber.org/mock/gomock"
 )

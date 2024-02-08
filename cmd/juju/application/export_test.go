@@ -5,7 +5,7 @@ package application
 
 import (
 	"github.com/juju/charm/v13"
-	"github.com/juju/cmd/v3"
+	"github.com/juju/cmd/v4"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
