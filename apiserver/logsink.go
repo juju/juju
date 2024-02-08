@@ -4,6 +4,7 @@
 package apiserver
 
 import (
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -13,9 +14,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
-	"github.com/juju/version/v2"
 
-	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/logsink"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/worker/syslogger"
@@ -126,7 +125,6 @@ type agentLoggingStrategy struct {
 
 	recordLogger RecordLogger
 	releaser     func()
-	version      version.Number
 	entity       string
 	modelUUID    string
 }
@@ -156,20 +154,7 @@ func (s *agentLoggingStrategy) init(ctxt httpContext, req *http.Request) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	// Note that this endpoint is agent-only. Thus the only
-	// callers will necessarily provide their Juju version.
-	//
-	// This would be a problem if non-Juju clients could use
-	// this endpoint since we require that the *Juju* version
-	// be provided as part of the request. Any attempt to open
-	// this endpoint to broader access must address this caveat
-	// appropriately.
-	ver, err := common.JujuClientVersionFromRequest(req)
-	if err != nil {
-		st.Release()
-		return errors.Trace(err)
-	}
-	s.version = ver
+
 	s.entity = entity.Tag().String()
 	s.modelUUID = st.ModelUUID()
 	s.recordLogger = s.apiServerLoggers.getLogger(st.State)
@@ -201,7 +186,6 @@ func (s *agentLoggingStrategy) WriteLog(m params.LogRecord) error {
 	dbErr := errors.Annotate(s.recordLogger.Log([]corelogger.LogRecord{{
 		Time:      m.Time,
 		Entity:    s.entity,
-		Version:   s.version,
 		Module:    m.Module,
 		Location:  m.Location,
 		Level:     level,
@@ -239,6 +223,11 @@ func (s *agentLoggingStrategy) WriteLog(m params.LogRecord) error {
 
 // logToFile writes a single log message to the logsink log file.
 func logToFile(writer io.Writer, prefix string, m params.LogRecord) error {
+	//TODO(debug-log) - we'll move to newline delimited json
+	var labelsOut []string
+	for k, v := range m.Labels {
+		labelsOut = append(labelsOut, fmt.Sprintf("%s:%s", k, v))
+	}
 	_, err := writer.Write([]byte(strings.Join([]string{
 		prefix,
 		m.Entity,
@@ -247,7 +236,7 @@ func logToFile(writer io.Writer, prefix string, m params.LogRecord) error {
 		m.Module,
 		m.Location,
 		m.Message,
-		strings.Join(m.Labels, ","),
+		strings.Join(labelsOut, ","),
 	}, " ") + "\n"))
 	return err
 }

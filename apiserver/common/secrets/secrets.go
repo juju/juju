@@ -27,7 +27,7 @@ import (
 	"github.com/juju/juju/state"
 )
 
-var logger = loggo.GetLoggerWithLabels("juju.apiserver.common.secrets", corelogger.SECRETS)
+var logger = loggo.GetLoggerWithTags("juju.apiserver.common.secrets", corelogger.SECRETS)
 
 // For testing.
 var (

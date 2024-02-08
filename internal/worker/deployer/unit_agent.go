@@ -288,6 +288,7 @@ func (a *UnitAgent) initLogging() (*loggo.Context, *logsender.BufferedLogWriter,
 	}
 
 	// Add line for starting agent to logging context.
+	// TODO(logging) - add unit labels
 	loggingContext.GetLogger("juju").Infof("Starting unit workers for %q", a.name)
 	a.setupLogging(loggingContext, a.agentConf)
 	return loggingContext, bufferedLogger, closeLogging, nil

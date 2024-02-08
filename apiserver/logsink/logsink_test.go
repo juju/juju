@@ -167,7 +167,7 @@ func (s *logsinkSuite) TestSuccessWithLabels(c *gc.C) {
 		Level:    loggo.INFO.String(),
 		Message:  "all is nice",
 		Entity:   "entity.name",
-		Labels:   []string{"bar"},
+		Labels:   map[string]string{"foo": "bar"},
 	}, {
 		Time:     t0,
 		Module:   "some.where",

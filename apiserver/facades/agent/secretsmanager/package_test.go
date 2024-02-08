@@ -69,6 +69,6 @@ func NewTestAPI(
 		clock:               clock,
 		controllerUUID:      coretesting.ControllerTag.Id(),
 		modelUUID:           coretesting.ModelTag.Id(),
-		logger:              loggo.GetLoggerWithLabels("juju.apiserver.secretsmanager", corelogger.SECRETS),
+		logger:              loggo.GetLoggerWithTags("juju.apiserver.secretsmanager", corelogger.SECRETS),
 	}, nil
 }

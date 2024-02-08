@@ -134,7 +134,7 @@ func NewDataSource(cfg Config) DataSource {
 	client := jujuhttp.NewClient(
 		jujuhttp.WithSkipHostnameVerification(!cfg.HostnameVerification),
 		jujuhttp.WithCACertificates(cfg.CACertificates...),
-		jujuhttp.WithLogger(logger.ChildWithLabels("http", corelogger.HTTP)),
+		jujuhttp.WithLogger(logger.ChildWithTags("http", corelogger.HTTP)),
 	)
 	return NewDataSourceWithClient(cfg, client)
 }

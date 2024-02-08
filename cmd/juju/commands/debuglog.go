@@ -349,7 +349,12 @@ func (c *debugLogCommand) writeLogRecord(w *ansiterm.Writer, r common.LogMessage
 		loggocolor.LocationColor.Fprintf(w, "%s ", r.Location)
 	}
 	if len(r.Labels) > 0 {
-		fmt.Fprintf(w, "%v ", strings.Join(r.Labels, ","))
+		//TODO(debug-log) - we'll move to newline delimited json
+		var labelsOut []string
+		for k, v := range r.Labels {
+			labelsOut = append(labelsOut, fmt.Sprintf("%s:%s", k, v))
+		}
+		fmt.Fprintf(w, "%v ", strings.Join(labelsOut, ","))
 	}
 	fmt.Fprintln(w, r.Message)
 }

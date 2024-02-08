@@ -596,7 +596,7 @@ func (c *registerCommand) secretKeyLogin(
 	httpClient := jujuhttp.NewClient(
 		jujuhttp.WithSkipHostnameVerification(true),
 		jujuhttp.WithCookieJar(cookieJar),
-		jujuhttp.WithLogger(logger.ChildWithLabels("http", corelogger.HTTP)),
+		jujuhttp.WithLogger(logger.ChildWithTags("http", corelogger.HTTP)),
 	)
 	httpResp, err := httpClient.Do(httpReq)
 	if err != nil {

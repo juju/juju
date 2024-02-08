@@ -57,7 +57,7 @@ func newCharmHubClient(st chClientState) (ResourceGetter, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &CharmHubClient{client: chClient, logger: logger.ChildWithLabels("charmhub", corelogger.CHARMHUB)}, nil
+	return &CharmHubClient{client: chClient, logger: logger.ChildWithTags("charmhub", corelogger.CHARMHUB)}, nil
 }
 
 type CharmHubClient struct {

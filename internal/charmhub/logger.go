@@ -8,7 +8,7 @@ import "github.com/juju/loggo/v2"
 // LoggerFactory is the interface that is used to create new loggers.
 type LoggerFactory interface {
 	Child(string) Logger
-	ChildWithLabels(string, ...string) Logger
+	ChildWithTags(string, ...string) Logger
 }
 
 // Logger is the interface to use for logging requests and errors.
@@ -37,6 +37,6 @@ func (f loggoLoggerFactory) Child(name string) Logger {
 	return f.logger.Child(name)
 }
 
-func (f loggoLoggerFactory) ChildWithLabels(name string, labels ...string) Logger {
-	return f.logger.ChildWithLabels(name, labels...)
+func (f loggoLoggerFactory) ChildWithTags(name string, labels ...string) Logger {
+	return f.logger.ChildWithTags(name, labels...)
 }

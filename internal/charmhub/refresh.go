@@ -489,7 +489,7 @@ func ExtractConfigInstanceKey(cfg RefreshConfig) string {
 // the functions that create a RefreshConfig like RefreshOne don't take
 // loggers. This logging can sometimes be quite useful to avoid error sources
 // getting lost across the wire, so leave as is for now.
-var logger = loggo.GetLoggerWithLabels("juju.charmhub", corelogger.CHARMHUB)
+var logger = loggo.GetLoggerWithTags("juju.charmhub", corelogger.CHARMHUB)
 
 func logAndReturnError(err error) error {
 	err = errors.Trace(err)

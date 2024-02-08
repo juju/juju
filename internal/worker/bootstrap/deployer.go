@@ -194,8 +194,8 @@ func (l bootstrapLoggerFactory) Child(name string) charmhub.Logger {
 	return l.loggerFactory.Child(name)
 }
 
-func (l bootstrapLoggerFactory) ChildWithLabels(name string, labels ...string) charmhub.Logger {
-	return l.loggerFactory.ChildWithLabels(name, labels...)
+func (l bootstrapLoggerFactory) ChildWithTags(name string, labels ...string) charmhub.Logger {
+	return l.loggerFactory.ChildWithTags(name, labels...)
 }
 
 func (l bootstrapLoggerFactory) ForNamespace(namespace string) services.LoggerFactory {
@@ -218,8 +218,8 @@ func (f loggoLoggerFactory) Child(name string) Logger {
 	return f.logger.Child(name)
 }
 
-func (f loggoLoggerFactory) ChildWithLabels(name string, labels ...string) Logger {
-	return f.logger.ChildWithLabels(name, labels...)
+func (f loggoLoggerFactory) ChildWithTags(name string, labels ...string) Logger {
+	return f.logger.ChildWithTags(name, labels...)
 }
 
 func (f loggoLoggerFactory) Namespace(name string) LoggerFactory {

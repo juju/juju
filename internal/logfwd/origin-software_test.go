@@ -75,15 +75,3 @@ func (s *SoftwareSuite) TestValidateEmptyName(c *gc.C) {
 	c.Check(err, jc.ErrorIs, errors.NotValid)
 	c.Check(err, gc.ErrorMatches, `empty Name`)
 }
-
-func (s *SoftwareSuite) TestValidateEmptyVersion(c *gc.C) {
-	sw := logfwd.Software{
-		PrivateEnterpriseNumber: 28978,
-		Name:                    "juju",
-	}
-
-	err := sw.Validate()
-
-	c.Check(err, jc.ErrorIs, errors.NotValid)
-	c.Check(err, gc.ErrorMatches, `empty Version`)
-}

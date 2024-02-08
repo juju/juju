@@ -102,7 +102,7 @@ func (f loggerFactory) Child(string) Logger {
 	return f.logger
 }
 
-func (f loggerFactory) ChildWithLabels(string, ...string) Logger {
+func (f loggerFactory) ChildWithTags(string, ...string) Logger {
 	return f.logger
 }
 

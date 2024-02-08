@@ -33,7 +33,7 @@ import (
 // LoggerFactory is the interface that is used to create new loggers.
 type LoggerFactory interface {
 	Child(string) Logger
-	ChildWithLabels(string, ...string) Logger
+	ChildWithTags(string, ...string) Logger
 	Namespace(string) LoggerFactory
 }
 

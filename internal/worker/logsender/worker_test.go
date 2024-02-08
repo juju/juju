@@ -57,7 +57,7 @@ func (s *workerSuite) TestLogSending(c *gc.C) {
 			Location: location,
 			Level:    loggo.INFO.String(),
 			Message:  message,
-			Labels:   []string{"foo", "bar"},
+			Labels:   map[string]string{"foo": "bar"},
 		}).DoAndReturn(func(_ *params.LogRecord) error {
 			wg.Add(-1)
 			return nil
@@ -81,7 +81,7 @@ func (s *workerSuite) TestLogSending(c *gc.C) {
 			Location: location,
 			Level:    loggo.INFO,
 			Message:  message,
-			Labels:   []string{"foo", "bar"},
+			Labels:   map[string]string{"foo": "bar"},
 		}
 	}
 

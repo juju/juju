@@ -413,7 +413,7 @@ func (d downloadLoggerFactory) Child(name string) charmhub.Logger {
 	}
 }
 
-func (d downloadLoggerFactory) ChildWithLabels(name string, labels ...string) charmhub.Logger {
+func (d downloadLoggerFactory) ChildWithTags(name string, labels ...string) charmhub.Logger {
 	return downloadLogger{
 		factory: d,
 	}

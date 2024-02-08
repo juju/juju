@@ -110,7 +110,7 @@ func (c *updatePublicCloudsCommand) Init(args []string) error {
 
 func PublishedPublicClouds(ctx context.Context, url, key string) (map[string]jujucloud.Cloud, error) {
 	client := jujuhttp.NewClient(
-		jujuhttp.WithLogger(logger.ChildWithLabels("http", corelogger.HTTP)),
+		jujuhttp.WithLogger(logger.ChildWithTags("http", corelogger.HTTP)),
 	)
 	resp, err := client.Get(ctx, url)
 	if err != nil {

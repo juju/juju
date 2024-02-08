@@ -214,7 +214,12 @@ func (c *dumpLogsCommand) dumpLogsForEnv(ctx *cmd.Context, statePool *state.Stat
 	return nil
 }
 
-func (c *dumpLogsCommand) format(timestamp time.Time, level loggo.Level, entity, module, message string, labels []string) string {
+func (c *dumpLogsCommand) format(timestamp time.Time, level loggo.Level, entity, module, message string, labels map[string]string) string {
 	ts := timestamp.In(time.UTC).Format("2006-01-02 15:04:05")
-	return fmt.Sprintf("%s: %s %s %s %s %s", entity, ts, level, module, message, strings.Join(labels, ","))
+	//TODO(debug-log) - we'll move to newline delimited json
+	var labelsOut []string
+	for k, v := range labels {
+		labelsOut = append(labelsOut, fmt.Sprintf("%s:%s", k, v))
+	}
+	return fmt.Sprintf("%s: %s %s %s %s %s", entity, ts, level, module, message, strings.Join(labelsOut, ","))
 }

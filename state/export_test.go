@@ -44,7 +44,6 @@ import (
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testcharms/repo"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
 )
 
 const (
@@ -666,13 +665,12 @@ func MakeLogDoc(
 	location string,
 	level loggo.Level,
 	msg string,
-	labels []string,
+	labels map[string]string,
 ) *logDoc {
 	return &logDoc{
 		Id:       bson.NewObjectId(),
 		Time:     t.UnixNano(),
 		Entity:   entity,
-		Version:  version.Current.String(),
 		Module:   module,
 		Location: location,
 		Level:    int(level),

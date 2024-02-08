@@ -95,7 +95,7 @@ func NewClient(config Config) (*Client, error) {
 	if loggerFactory == nil {
 		return nil, errors.NotValidf("nil logger factory")
 	}
-	logger := loggerFactory.ChildWithLabels("client", corelogger.CHARMHUB)
+	logger := loggerFactory.ChildWithTags("client", corelogger.CHARMHUB)
 
 	url := config.URL
 	if url == "" {

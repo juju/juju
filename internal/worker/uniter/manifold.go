@@ -49,7 +49,7 @@ type Logger interface {
 	IsTraceEnabled() bool
 
 	Child(string) loggo.Logger
-	ChildWithLabels(name string, labels ...string) loggo.Logger
+	ChildWithTags(name string, labels ...string) loggo.Logger
 }
 
 // ManifoldConfig defines the names of the manifolds on which a

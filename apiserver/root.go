@@ -120,7 +120,7 @@ func newAPIHandler(
 		}
 	}
 
-	registry, err := registry.NewRegistry(srv.clock, registry.WithLogger(logger.ChildWithLabels("registry", corelogger.WATCHERS)))
+	registry, err := registry.NewRegistry(srv.clock, registry.WithLogger(logger.ChildWithTags("registry", corelogger.WATCHERS)))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

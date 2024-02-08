@@ -137,7 +137,7 @@ func (s *CrossModelSecretsSuite) setup(c *gc.C) *gomock.Controller {
 		backendConfigGetter,
 		s.crossModelState,
 		s.stateBackend,
-		loggo.GetLoggerWithLabels("juju.apiserver.crossmodelsecrets", corelogger.SECRETS),
+		loggo.GetLoggerWithTags("juju.apiserver.crossmodelsecrets", corelogger.SECRETS),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 

@@ -1020,14 +1020,17 @@ type RebootActionResult struct {
 // LogRecord is used to transmit log messages to the logsink API
 // endpoint.  Single character field names are used for serialisation
 // to keep the size down. These messages are going to be sent a lot.
+// The log messages are sent by the log sender worker, used by agents to
+// send logs to the controller.
+// TODO(debug-log) - add compatibility for legacy labels
 type LogRecord struct {
-	Time     time.Time `json:"t"`
-	Module   string    `json:"m"`
-	Location string    `json:"l"`
-	Level    string    `json:"v"`
-	Message  string    `json:"x"`
-	Entity   string    `json:"e,omitempty"`
-	Labels   []string  `json:"c,omitempty"`
+	Time     time.Time         `json:"t"`
+	Module   string            `json:"m"`
+	Location string            `json:"l"`
+	Level    string            `json:"v"`
+	Message  string            `json:"x"`
+	Entity   string            `json:"e,omitempty"`
+	Labels   map[string]string `json:"b,omitempty"`
 }
 
 // PubSubMessage is used to propagate pubsub messages from one api server to the

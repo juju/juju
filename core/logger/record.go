@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/juju/loggo/v2"
-	"github.com/juju/version/v2"
 )
 
 // LogRecord defines a single Juju log message as returned by
@@ -20,12 +19,11 @@ type LogRecord struct {
 	// origin fields
 	ModelUUID string
 	Entity    string
-	Version   version.Number
 
 	// logging-specific fields
 	Level    loggo.Level
 	Module   string
 	Location string
 	Message  string
-	Labels   []string
+	Labels   map[string]string
 }

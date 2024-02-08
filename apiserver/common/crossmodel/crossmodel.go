@@ -26,8 +26,8 @@ import (
 )
 
 var (
-	logger     = loggo.GetLoggerWithLabels("juju.apiserver.common.crossmodel", corelogger.CMR)
-	authlogger = loggo.GetLoggerWithLabels("juju.apiserver.common.crossmodelauth", corelogger.CMR_AUTH)
+	logger     = loggo.GetLoggerWithTags("juju.apiserver.common.crossmodel", corelogger.CMR)
+	authlogger = loggo.GetLoggerWithTags("juju.apiserver.common.crossmodelauth", corelogger.CMR_AUTH)
 )
 
 // PublishRelationChange applies the relation change event to the specified backend.

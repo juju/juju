@@ -74,7 +74,7 @@ func NewCheckLoggerFactory(c *gc.C) *CheckLoggerFactory {
 func (c *CheckLoggerFactory) Child(string) Logger {
 	return NewCheckLogger(c.c)
 }
-func (c *CheckLoggerFactory) ChildWithLabels(string, ...string) Logger {
+func (c *CheckLoggerFactory) ChildWithTags(string, ...string) Logger {
 	return NewCheckLogger(c.c)
 }
 func (c *CheckLoggerFactory) Logger() CheckLogger {

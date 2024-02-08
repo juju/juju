@@ -50,7 +50,7 @@ func NewCharmDownloader(cfg CharmDownloaderConfig) (*charmdownloader.Downloader,
 		}),
 	}
 
-	return charmdownloader.NewDownloader(cfg.LoggerFactory.ChildWithLabels("charmdownloader", corelogger.CHARMHUB), storage, repoFactory), nil
+	return charmdownloader.NewDownloader(cfg.LoggerFactory.ChildWithTags("charmdownloader", corelogger.CHARMHUB), storage, repoFactory), nil
 }
 
 // repoFactoryShim wraps a CharmRepoFactory and is compatible with the
@@ -87,6 +87,6 @@ func (s loggoLoggerFactory) Child(name string) charmhub.Logger {
 	return s.Logger.Child(name)
 }
 
-func (s loggoLoggerFactory) ChildWithLabels(name string, labels ...string) charmhub.Logger {
-	return s.Logger.ChildWithLabels(name, labels...)
+func (s loggoLoggerFactory) ChildWithTags(name string, labels ...string) charmhub.Logger {
+	return s.Logger.ChildWithTags(name, labels...)
 }

@@ -33,7 +33,7 @@ import (
 	"github.com/juju/juju/state"
 )
 
-var logger = loggo.GetLoggerWithLabels("juju.migration", corelogger.MIGRATION)
+var logger = loggo.GetLoggerWithTags("juju.migration", corelogger.MIGRATION)
 
 // LegacyStateExporter describes interface on state required to export a
 // model.

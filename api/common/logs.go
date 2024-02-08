@@ -21,6 +21,7 @@ import (
 // entire log file is sent back starting from the end, and until the user
 // closes the connection.
 type DebugLogParams struct {
+	// TODO(debug-log) - add version field for legacy labels
 	// IncludeEntity lists entity tags to include in the response. Tags may
 	// include '*' wildcards e.g.: unit-mysql-*, machine-2. If
 	// none are set, then all lines are considered included.
@@ -100,7 +101,7 @@ type LogMessage struct {
 	Module    string
 	Location  string
 	Message   string
-	Labels    []string
+	Labels    map[string]string
 }
 
 // StreamDebugLog requests the specified debug log records from the
