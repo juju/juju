@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/charm/v12"
+	"github.com/juju/charm/v13"
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/errors"
 	osseries "github.com/juju/os/v2/series"

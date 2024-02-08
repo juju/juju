@@ -10,7 +10,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/juju/charm/v12"
+	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
 	"github.com/juju/utils/v3"
 

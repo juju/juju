@@ -11,7 +11,7 @@ import (
 	"net/http"
 	"strings"
 
-	charmresource "github.com/juju/charm/v12/resource"
+	charmresource "github.com/juju/charm/v13/resource"
 	"github.com/juju/errors"
 	"gopkg.in/yaml.v2"
 

@@ -14,7 +14,7 @@ import (
 	reflect "reflect"
 	time "time"
 
-	charm "github.com/juju/charm/v12"
+	charm "github.com/juju/charm/v13"
 	application "github.com/juju/juju/core/application"
 	model "github.com/juju/juju/core/model"
 	network "github.com/juju/juju/core/network"

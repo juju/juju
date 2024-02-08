@@ -24,7 +24,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/charm/v12"
+	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
 
 	charmmetrics "github.com/juju/juju/core/charm/metrics"

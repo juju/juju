@@ -9,8 +9,8 @@ import (
 	"sync"
 	"time"
 
-	jujucharm "github.com/juju/charm/v12"
-	"github.com/juju/charm/v12/hooks"
+	jujucharm "github.com/juju/charm/v13"
+	"github.com/juju/charm/v13/hooks"
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"

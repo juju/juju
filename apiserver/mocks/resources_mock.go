@@ -14,7 +14,7 @@ import (
 	reflect "reflect"
 	time "time"
 
-	resource "github.com/juju/charm/v12/resource"
+	resource "github.com/juju/charm/v13/resource"
 	resources "github.com/juju/juju/core/resources"
 	state "github.com/juju/juju/state"
 	gomock "go.uber.org/mock/gomock"

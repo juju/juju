@@ -7,8 +7,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/juju/charm/v12"
-	"github.com/juju/charm/v12/resource"
+	"github.com/juju/charm/v13"
+	"github.com/juju/charm/v13/resource"
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/loggo/v2"

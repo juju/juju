@@ -6,7 +6,7 @@ package leadership
 import (
 	"context"
 
-	"github.com/juju/charm/v12/hooks"
+	"github.com/juju/charm/v13/hooks"
 
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/internal/worker/uniter/hook"

@@ -11,7 +11,7 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/juju/charm/v12/hooks"
+	"github.com/juju/charm/v13/hooks"
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
 	jc "github.com/juju/testing/checkers"

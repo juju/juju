@@ -4,7 +4,7 @@
 package utils
 
 import (
-	"github.com/juju/charm/v12"
+	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
 
 	commoncharm "github.com/juju/juju/api/common/charm"

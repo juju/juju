@@ -6,7 +6,7 @@ package spool
 import (
 	"time"
 
-	jujucharm "github.com/juju/charm/v12"
+	jujucharm "github.com/juju/charm/v13"
 	"github.com/juju/errors"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"

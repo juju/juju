@@ -4,7 +4,7 @@
 package caasapplicationprovisioner_test
 
 import (
-	"github.com/juju/charm/v12"
+	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"

@@ -19,7 +19,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/juju/charm/v12"
+	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
 	ziputil "github.com/juju/utils/v3/zip"
 

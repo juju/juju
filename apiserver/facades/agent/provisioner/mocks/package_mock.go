@@ -12,7 +12,7 @@ package mocks
 import (
 	reflect "reflect"
 
-	charm "github.com/juju/charm/v12"
+	charm "github.com/juju/charm/v13"
 	set "github.com/juju/collections/set"
 	provisioner "github.com/juju/juju/apiserver/facades/agent/provisioner"
 	constraints "github.com/juju/juju/core/constraints"
