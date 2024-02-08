@@ -16,6 +16,7 @@ import (
 	lxd "github.com/canonical/lxd/client"
 	api "github.com/canonical/lxd/shared/api"
 	base "github.com/juju/juju/core/base"
+	instance "github.com/juju/juju/core/instance"
 	network "github.com/juju/juju/core/network"
 	environs "github.com/juju/juju/environs"
 	lxd0 "github.com/juju/juju/internal/container/lxd"
@@ -265,7 +266,7 @@ func (mr *MockServerMockRecorder) FilterContainers(arg0 any, arg1 ...any) *gomoc
 }
 
 // FindImage mocks base method.
-func (m *MockServer) FindImage(arg0 context.Context, arg1 base.Base, arg2 string, arg3 api.InstanceType, arg4 []lxd0.ServerSpec, arg5 bool, arg6 environs.StatusCallbackFunc) (lxd0.SourcedImage, error) {
+func (m *MockServer) FindImage(arg0 context.Context, arg1 base.Base, arg2 string, arg3 instance.VirtType, arg4 []lxd0.ServerSpec, arg5 bool, arg6 environs.StatusCallbackFunc) (lxd0.SourcedImage, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "FindImage", arg0, arg1, arg2, arg3, arg4, arg5, arg6)
 	ret0, _ := ret[0].(lxd0.SourcedImage)

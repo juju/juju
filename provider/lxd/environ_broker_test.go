@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/core/arch"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/envcontext"
@@ -420,7 +421,7 @@ func (s *environBrokerSuite) TestStartInstanceWithConstraintsAndVirtType(c *gc.C
 		if cfg["limits.memory"] != "2048MiB" {
 			return false
 		}
-		return spec.InstanceType == "t2.micro" && spec.VirtType == api.InstanceTypeVM
+		return spec.InstanceType == "t2.micro" && spec.VirtType == instance.InstanceTypeVM
 	}
 
 	exp := svr.EXPECT()

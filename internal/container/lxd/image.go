@@ -218,7 +218,7 @@ func baseLocalAlias(base, arch string, virtType instance.VirtType) string {
 	// for containers to keep backwards compatibility with older versions
 	// of the image aliases.
 	switch virtType {
-	case api.InstanceTypeVM:
+	case instance.InstanceTypeVM:
 		return fmt.Sprintf("juju/%s/%s/vm", base, arch)
 	default:
 		return fmt.Sprintf("juju/%s/%s", base, arch)
@@ -237,7 +237,7 @@ func baseRemoteAliases(base jujubase.Base, arch string) ([]string, error) {
 }
 
 func isCompatibleVirtType(virtType instance.VirtType, instanceType string) bool {
-	if instanceType == "" && (virtType == api.InstanceTypeAny || virtType == api.InstanceTypeContainer) {
+	if instanceType == "" && (virtType.IsAny() || virtType == instance.InstanceTypeContainer) {
 		return true
 	}
 	return string(virtType) == instanceType

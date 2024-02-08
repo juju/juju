@@ -204,7 +204,7 @@ func (m *containerManager) getContainerSpec(
 		return ContainerSpec{}, errors.Trace(err)
 	}
 
-	virtType := api.InstanceTypeContainer
+	virtType := instance.InstanceTypeContainer
 	if cons.HasVirtType() {
 		v, err := instance.ParseVirtType(*cons.VirtType)
 		if err != nil {
