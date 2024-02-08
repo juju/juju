@@ -608,9 +608,9 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 
 	// Ensure that we use the architecture from the add charm change params.
 	var cons constraints.Value
-	if change.Params.Architecture != "" {
+	if chParams.Architecture != "" {
 		cons = constraints.Value{
-			Arch: &change.Params.Architecture,
+			Arch: &chParams.Architecture,
 		}
 	}
 
@@ -624,8 +624,8 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 	}
 
 	revision := -1
-	if change.Params.Revision != nil && *change.Params.Revision >= 0 {
-		revision = *change.Params.Revision
+	if chParams.Revision != nil && *chParams.Revision >= 0 {
+		revision = *chParams.Revision
 	}
 
 	platform := utils.MakePlatform(cons, base, h.modelConstraints)
@@ -662,11 +662,6 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	selectedSeries, err := corebase.GetSeriesFromBase(selectedBase)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	url = url.WithSeries(selectedSeries)
 	resolvedOrigin.Base = selectedBase
 	logger.Tracef("Using channel %s from %v to deploy %v", resolvedOrigin.Base, supportedBases, url)
 

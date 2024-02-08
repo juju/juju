@@ -817,7 +817,6 @@ func (s *DeploySuite) TestDeployBundlesRequiringTrust(c *gc.C) {
 	}
 
 	deployURL := *inURL
-	deployURL.Series = "jammy"
 
 	dArgs := application.DeployArgs{
 		CharmID: application.CharmID{
@@ -2559,9 +2558,6 @@ func withCharmDeployableWithDevicesAndStorage(
 	devices map[string]devices.Constraints,
 ) {
 	deployURL := *url
-	if deployURL.Series == "" {
-		deployURL.Series = "jammy"
-	}
 	fallbackCons := constraints.MustParse("arch=amd64")
 	platform := apputils.MakePlatform(constraints.Value{}, base, fallbackCons)
 	origin, _ := apputils.MakeOrigin(charm.Schema(url.Schema), url.Revision, charm.Channel{}, platform)
