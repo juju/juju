@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -23,6 +24,54 @@ type s3ClientSuite struct {
 }
 
 var _ = gc.Suite(&s3ClientSuite{})
+
+func (s *s3ClientSuite) TestHeadObject(c *gc.C) {
+	url, httpClient, cleanup := s.setupServer(c, func(w http.ResponseWriter, r *http.Request) {
+		c.Check(r.Method, gc.Equals, http.MethodHead)
+		c.Check(r.URL.Path, gc.Equals, "/bucket/object")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte{})
+	})
+	defer cleanup()
+
+	client, err := NewS3Client(url, httpClient, AnonymousCredentials{}, jujutesting.NewCheckLogger(c))
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = client.HeadObject(context.Background(), "bucket", "object")
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *s3ClientSuite) TestHeadObjectNotFound(c *gc.C) {
+	url, httpClient, cleanup := s.setupServer(c, func(w http.ResponseWriter, r *http.Request) {
+		c.Check(r.Method, gc.Equals, http.MethodHead)
+		c.Check(r.URL.Path, gc.Equals, "/bucket/object")
+		w.WriteHeader(http.StatusNotFound)
+		w.Write([]byte{})
+	})
+	defer cleanup()
+
+	client, err := NewS3Client(url, httpClient, AnonymousCredentials{}, jujutesting.NewCheckLogger(c))
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = client.HeadObject(context.Background(), "bucket", "object")
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
+}
+
+func (s *s3ClientSuite) TestHeadObjectForbidden(c *gc.C) {
+	url, httpClient, cleanup := s.setupServer(c, func(w http.ResponseWriter, r *http.Request) {
+		c.Check(r.Method, gc.Equals, http.MethodHead)
+		c.Check(r.URL.Path, gc.Equals, "/bucket/object")
+		w.WriteHeader(http.StatusForbidden)
+		w.Write([]byte{})
+	})
+	defer cleanup()
+
+	client, err := NewS3Client(url, httpClient, AnonymousCredentials{}, jujutesting.NewCheckLogger(c))
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = client.HeadObject(context.Background(), "bucket", "object")
+	c.Assert(err, jc.ErrorIs, errors.Forbidden)
+}
 
 func (s *s3ClientSuite) TestGetObject(c *gc.C) {
 	url, httpClient, cleanup := s.setupServer(c, func(w http.ResponseWriter, r *http.Request) {
