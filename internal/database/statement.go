@@ -36,6 +36,28 @@ func SliceToPlaceholderTransform[T any](in []T, trans func(T) any) (string, []an
 	}), ","), vals
 }
 
+// SliceToSqlairMParams returns a string that can be used in SQL/DML statement as a parameter list
+// for [NOT] IN clause. It encodes the parameters to pass through an sqlair.M struct.
+// Example usage:
+// SliceToSqlairMParams([]int{1, 2, 3]}) returns
+//   - "$M.param1, $M.param2, $M.param3", and
+//   - sqlair.M{
+//     "param1": "1",
+//     "param2": "2",
+//     "param3": "3",
+//     }
+func SliceToSqlairMParams[T any](in []T) (string, sqlair.M) {
+	params := make([]string, len(in))
+	mOut := sqlair.M{}
+
+	for i, inItem := range in {
+		paramName := fmt.Sprintf("param%d", i+1)
+		params[i] = fmt.Sprintf("$M.%s", paramName)
+		mOut[paramName] = fmt.Sprintf("%v", inItem)
+	}
+	return strings.Join(params, ", "), mOut
+}
+
 // MakeBindArgs returns a string of bind args for a given number of columns and
 // rows.
 func MakeBindArgs(columns, rows int) string {

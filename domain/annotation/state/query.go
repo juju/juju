@@ -93,31 +93,31 @@ VALUES ($M.uuid, $M.key, $M.value)
 // deleteAnnotationQueryForID provides a query for the given id, based on pre-computed queries for
 // SetAnnotations for different kinds of ids. We keep these static (avoiding dynamically generating
 // table names and fields) to keep things safe.
-func deleteAnnotationsQueryForID(id annotations.ID, toRemoveKeys string) string {
+func deleteAnnotationsQueryForID(id annotations.ID, toRemoveBindings string) string {
 	var query string
 	switch id.Kind {
 	case annotations.KindModel:
-		query = fmt.Sprintf(`DELETE FROM annotation_model WHERE key IN (%s)`, toRemoveKeys)
+		query = fmt.Sprintf(`DELETE FROM annotation_model WHERE key IN (%s)`, toRemoveBindings)
 	case annotations.KindMachine:
 		query = fmt.Sprintf(`
 DELETE FROM annotation_machine
-WHERE machine_uuid = $M.uuid AND key IN (%s)`, toRemoveKeys)
+WHERE machine_uuid = $M.uuid AND key IN (%s)`, toRemoveBindings)
 	case annotations.KindUnit:
 		query = fmt.Sprintf(`
 DELETE FROM annotation_unit
-WHERE unit_uuid = $M.uuid AND key IN (%s)`, toRemoveKeys)
+WHERE unit_uuid = $M.uuid AND key IN (%s)`, toRemoveBindings)
 	case annotations.KindApplication:
 		query = fmt.Sprintf(`
 DELETE FROM annotation_application
-WHERE application_uuid = $M.uuid AND key IN (%s)`, toRemoveKeys)
+WHERE application_uuid = $M.uuid AND key IN (%s)`, toRemoveBindings)
 	case annotations.KindStorage:
 		query = fmt.Sprintf(`
 DELETE FROM annotation_storage_instance
-WHERE storage_instance_uuid = $M.uuid AND key IN (%s)`, toRemoveKeys)
+WHERE storage_instance_uuid = $M.uuid AND key IN (%s)`, toRemoveBindings)
 	case annotations.KindCharm:
 		query = fmt.Sprintf(`
 DELETE FROM annotation_charm
-WHERE charm_uuid = $M.uuid AND key IN (%s)`, toRemoveKeys)
+WHERE charm_uuid = $M.uuid AND key IN (%s)`, toRemoveBindings)
 	}
 	return query
 }

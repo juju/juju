@@ -56,6 +56,28 @@ func (s *statementSuite) TestNilSliceToPlaceholderTransform(c *gc.C) {
 	c.Check(count, gc.Equals, 0)
 }
 
+func (s *statementSuite) TestSliceToSqlairMParams(c *gc.C) {
+	args := []string{"won", "too", "free", "for"}
+	binds, mOut := SliceToSqlairMParams(args)
+	c.Check(binds, gc.Equals, "$M.param1, $M.param2, $M.param3, $M.param4")
+	c.Check(mOut, gc.DeepEquals, sqlair.M{
+		"param1": "won",
+		"param2": "too",
+		"param3": "free",
+		"param4": "for",
+	})
+
+	args2 := []int{1, 2, 3, 4}
+	binds2, mOut2 := SliceToSqlairMParams(args2)
+	c.Check(binds2, gc.Equals, "$M.param1, $M.param2, $M.param3, $M.param4")
+	c.Check(mOut2, gc.DeepEquals, sqlair.M{
+		"param1": "1",
+		"param2": "2",
+		"param3": "3",
+		"param4": "4",
+	})
+}
+
 func (s *statementSuite) TestMakeBindArgs(c *gc.C) {
 	binds := MakeBindArgs(2, 3)
 	c.Assert(binds, gc.Equals, "(?, ?), (?, ?), (?, ?)")
