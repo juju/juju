@@ -621,6 +621,12 @@ func (s *userManagerSuite) TestUserInfoNonControllerAdmin(c *gc.C) {
 	fakeCreatorUUID, err := coreuser.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 
+	fakeCreator := coreuser.User{
+		UUID:        fakeCreatorUUID,
+		Name:        "creator",
+		DisplayName: "Creator",
+	}
+
 	fakeUUID, err := coreuser.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -635,6 +641,7 @@ func (s *userManagerSuite) TestUserInfoNonControllerAdmin(c *gc.C) {
 		Name:        "aardvark",
 		DisplayName: "Aard Vark",
 		CreatorUUID: fakeCreatorUUID,
+		CreatorName: fakeCreator.Name,
 		CreatedAt:   fakeCreatedAt,
 		LastLogin:   fakeLastLogin,
 	}, nil).AnyTimes()
@@ -690,7 +697,7 @@ func (s *userManagerSuite) TestUserInfoNonControllerAdmin(c *gc.C) {
 					Username:       "aardvark",
 					DisplayName:    "Aard Vark",
 					Access:         "login",
-					CreatedBy:      fakeCreatorUUID.String(),
+					CreatedBy:      fakeCreator.Name,
 					DateCreated:    fakeCreatedAt,
 					LastConnection: &fakeLastLogin,
 				},

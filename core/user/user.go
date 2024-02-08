@@ -24,6 +24,9 @@ type User struct {
 	// CreatorUUID is the associated user that created this user.
 	CreatorUUID UUID
 
+	// CreatorName is the name of the user that created this user.
+	CreatorName string
+
 	// CreatedAt is the time that the user was created at.
 	CreatedAt time.Time
 

@@ -318,7 +318,7 @@ func (api *UserManagerAPI) UserInfo(ctx context.Context, request params.UserInfo
 			Result: &params.UserInfo{
 				Username:       user.Name,
 				DisplayName:    user.DisplayName,
-				CreatedBy:      user.CreatorUUID.String(),
+				CreatedBy:      user.CreatorName,
 				DateCreated:    user.CreatedAt,
 				LastConnection: &user.LastLogin,
 				Disabled:       user.Disabled,
