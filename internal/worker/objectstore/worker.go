@@ -46,6 +46,7 @@ type WorkerConfig struct {
 	ControllerMetadataService  MetadataService
 	ModelMetadataServiceGetter MetadataServiceGetter
 	ModelClaimGetter           ModelClaimGetter
+	AllowDraining              bool
 }
 
 // Validate ensures that the config values are valid.
@@ -286,6 +287,7 @@ func (w *objectStoreWorker) initObjectStore(namespace string) error {
 			internalobjectstore.WithMetadataService(metadataService),
 			internalobjectstore.WithClaimer(claimer),
 			internalobjectstore.WithLogger(w.cfg.Logger),
+			internalobjectstore.WithAllowDraining(w.cfg.AllowDraining),
 		)
 		if err != nil {
 			return nil, errors.Trace(err)

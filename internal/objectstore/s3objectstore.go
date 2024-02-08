@@ -64,6 +64,9 @@ type S3ObjectStoreConfig struct {
 	// FileSystemAccessor is used for draining files from the file backed object
 	// store to the s3 object store.
 	FileSystemAccessor FileSystemAccessor
+	// AllowDraining is a flag to allow draining files from the file backed
+	// object store to the s3 object store.
+	AllowDraining bool
 
 	Logger Logger
 	Clock  clock.Clock
@@ -77,11 +80,11 @@ const (
 	// system accessor for a file if it's not found in the s3 object store.
 	// This can occur when draining files from the file backed object store to
 	// the s3 object store.
-	useFileAccessor getAccessorPattern = iota
+	useFileAccessor getAccessorPattern = 0
 
 	// noFallback denotes that we should not look in the file system accessor
 	// for a file if it's not found in the s3 object store.
-	noFallback
+	noFallback getAccessorPattern = 1
 )
 
 type s3ObjectStore struct {
@@ -95,6 +98,7 @@ type s3ObjectStore struct {
 	// FileSystemAccessor is used for draining files from the file backed object
 	// store to the s3 object store.
 	fileSystemAccessor FileSystemAccessor
+	allowDraining      bool
 }
 
 // NewS3ObjectStore returns a new object store worker based on the s3 backing
@@ -115,6 +119,7 @@ func NewS3ObjectStore(cfg S3ObjectStoreConfig) (TrackedObjectStore, error) {
 		namespace:  cfg.Namespace,
 
 		fileSystemAccessor: cfg.FileSystemAccessor,
+		allowDraining:      cfg.AllowDraining,
 
 		requests:      make(chan request),
 		drainRequests: make(chan drainRequest),
@@ -287,7 +292,9 @@ func (t *s3ObjectStore) loop() error {
 	// This will locate any files from the metadata service that are not
 	// present in the s3 object store and copy them over.
 	// Once done it will terminate the goroutine.
-	t.tomb.Go(t.drainFiles)
+	if t.allowDraining {
+		t.tomb.Go(t.drainFiles)
+	}
 
 	// Sequence the get request with the put, remove requests.
 	for {

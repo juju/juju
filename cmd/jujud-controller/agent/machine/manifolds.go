@@ -5,7 +5,6 @@ package machine
 
 import (
 	"context"
-	stdcontext "context"
 	"net/http"
 	"runtime"
 	"time"
@@ -34,6 +33,7 @@ import (
 	"github.com/juju/juju/core/presence"
 	coretrace "github.com/juju/juju/core/trace"
 	"github.com/juju/juju/environs"
+	internalbootstrap "github.com/juju/juju/internal/bootstrap"
 	containerbroker "github.com/juju/juju/internal/container/broker"
 	"github.com/juju/juju/internal/container/lxd"
 	internallease "github.com/juju/juju/internal/lease"
@@ -166,7 +166,7 @@ type ManifoldsConfig struct {
 
 	// OpenStatePool is function used by the state manifold to create a
 	// *state.StatePool.
-	OpenStatePool func(stdcontext.Context, coreagent.Config, servicefactory.ControllerServiceFactory) (*state.StatePool, error)
+	OpenStatePool func(context.Context, coreagent.Config, servicefactory.ControllerServiceFactory) (*state.StatePool, error)
 
 	// MachineStartup is passed to the machine manifold. It does
 	// machine setup work which relies on an API connection.
@@ -841,6 +841,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewObjectStoreWorker:       internalobjectstore.ObjectStoreFactory,
 			GetControllerConfigService: objectstore.GetControllerConfigService,
 			GetMetadataService:         objectstore.GetMetadataService,
+			IsBootstrapController:      internalbootstrap.IsBootstrapController,
 		})),
 
 		objectStoreS3CallerName: ifController(objectstores3caller.Manifold(objectstores3caller.ManifoldConfig{

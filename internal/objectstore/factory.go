@@ -90,6 +90,13 @@ func WithClock(clock clock.Clock) Option {
 	}
 }
 
+// WithAllowDraining is the option to set the allow draining to use.
+func WithAllowDraining(allowDraining bool) Option {
+	return func(o *options) {
+		o.allowDraining = allowDraining
+	}
+}
+
 type options struct {
 	rootDir         string
 	rootBucket      string
@@ -98,6 +105,7 @@ type options struct {
 	claimer         Claimer
 	logger          Logger
 	clock           clock.Clock
+	allowDraining   bool
 }
 
 func newOptions() *options {
@@ -139,6 +147,7 @@ func ObjectStoreFactory(ctx context.Context, backendType objectstore.BackendType
 			Claimer:         opts.claimer,
 			Logger:          opts.logger,
 			Clock:           opts.clock,
+			AllowDraining:   opts.allowDraining,
 
 			FileSystemAccessor: newFileSystemAccessor(namespace, opts.rootDir, opts.logger),
 		})

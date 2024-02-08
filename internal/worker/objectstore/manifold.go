@@ -67,6 +67,10 @@ type GetControllerConfigServiceFunc func(getter dependency.Getter, name string) 
 // the manifold.
 type GetMetadataServiceFunc func(getter dependency.Getter, name string) (MetadataService, error)
 
+// IsBootstrapControllerFunc is a helper function that checks if the controller
+// is the initial bootstrap controller.
+type IsBootstrapControllerFunc func(dataDir string) bool
+
 // ManifoldConfig defines the configuration for the trace manifold.
 type ManifoldConfig struct {
 	AgentName          string
@@ -80,6 +84,7 @@ type ManifoldConfig struct {
 	NewObjectStoreWorker       objectstore.ObjectStoreWorkerFunc
 	GetControllerConfigService GetControllerConfigServiceFunc
 	GetMetadataService         GetMetadataServiceFunc
+	IsBootstrapController      IsBootstrapControllerFunc
 }
 
 // Validate validates the manifold configuration.
@@ -98,6 +103,9 @@ func (cfg ManifoldConfig) Validate() error {
 	}
 	if cfg.GetMetadataService == nil {
 		return errors.NotValidf("nil GetMetadataService")
+	}
+	if cfg.IsBootstrapController == nil {
+		return errors.NotValidf("nil IsBootstrapController")
 	}
 	if cfg.LeaseManagerName == "" {
 		return errors.NotValidf("empty LeaseManagerName")
@@ -178,9 +186,11 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 
+			dataDir := a.CurrentConfig().DataDir()
+
 			w, err := NewWorker(WorkerConfig{
 				TracerGetter:               tracerGetter,
-				RootDir:                    a.CurrentConfig().DataDir(),
+				RootDir:                    dataDir,
 				RootBucket:                 rootBucketName,
 				Clock:                      config.Clock,
 				Logger:                     config.Logger,
@@ -190,6 +200,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				ControllerMetadataService:  metadataService,
 				ModelMetadataServiceGetter: modelMetadataServiceGetter{factoryGetter: modelServiceFactoryGetter},
 				ModelClaimGetter:           modelClaimGetter{manager: leaseManager},
+				AllowDraining:              config.IsBootstrapController(dataDir),
 			})
 			return w, errors.Trace(err)
 		},

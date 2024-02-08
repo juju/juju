@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"path/filepath"
 
 	"github.com/juju/errors"
 	"gopkg.in/tomb.v2"
@@ -17,7 +16,7 @@ import (
 	"github.com/juju/juju/core/flags"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
-	"github.com/juju/juju/internal/cloudconfig"
+	"github.com/juju/juju/internal/bootstrap"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/worker/gate"
 	"github.com/juju/juju/state/binarystorage"
@@ -350,7 +349,7 @@ func (w *bootstrapWorker) seedControllerCharm(ctx context.Context, dataDir strin
 }
 
 func (w *bootstrapWorker) bootstrapParams(ctx context.Context, dataDir string) (instancecfg.StateInitializationParams, error) {
-	bootstrapParamsData, err := os.ReadFile(filepath.Join(dataDir, cloudconfig.FileNameBootstrapParams))
+	bootstrapParamsData, err := os.ReadFile(bootstrap.BootstrapParamsPath(dataDir))
 	if err != nil {
 		return instancecfg.StateInitializationParams{}, errors.Annotate(err, "reading bootstrap params file")
 	}
