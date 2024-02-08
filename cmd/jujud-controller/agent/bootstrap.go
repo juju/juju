@@ -7,6 +7,7 @@ import (
 	"bytes"
 	stdcontext "context"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"path/filepath"
@@ -100,6 +101,23 @@ func (c *BootstrapCommand) Init(args []string) error {
 	}
 	c.BootstrapParamsFile = args[0]
 	return c.AgentConf.CheckArgs(args[1:])
+}
+
+func copyFile(dest, source string) error {
+	df, err := os.OpenFile(dest, os.O_CREATE|os.O_TRUNC|os.O_RDWR, 0660)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer df.Close()
+
+	f, err := os.Open(source)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer f.Close()
+
+	_, err = io.Copy(df, f)
+	return errors.Trace(err)
 }
 
 func copyFileFromTemplate(to, from string) (err error) {
