@@ -41,6 +41,11 @@ func (a AuthTypes) Contains(t AuthType) bool {
 	return false
 }
 
+// String implements the Stringer interface for AuthType.
+func (a AuthType) String() string {
+	return string(a)
+}
+
 const (
 	// AccessKeyAuthType is an authentication type using a key and secret.
 	AccessKeyAuthType AuthType = "access-key"

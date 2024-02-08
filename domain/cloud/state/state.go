@@ -9,6 +9,7 @@ import (
 	stderrors "errors"
 	"fmt"
 
+	"github.com/canonical/sqlair"
 	"github.com/juju/errors"
 	"github.com/juju/utils/v3"
 
@@ -32,6 +33,69 @@ func NewState(factory coredatabase.TxnRunnerFactory) *State {
 	return &State{
 		StateBase: domain.NewStateBase(factory),
 	}
+}
+
+// CloudSupportsAuthType allows the caller to ask if a given auth type is
+// currently supported by the cloud named by cloudName. If no cloud is found for
+// the provided name an error matching [clouderrors.NotFound] is returned.
+func CloudSupportsAuthType(
+	ctx context.Context,
+	tx *sqlair.TX,
+	cloudName string,
+	authType cloud.AuthType,
+) (bool, error) {
+
+	cloudStmt := `
+SELECT cloud.uuid AS &M.cloudUUID
+FROM cloud
+WHERE cloud.name = $M.cloudName
+`
+
+	selectCloudStmt, err := sqlair.Prepare(cloudStmt, sqlair.M{})
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+
+	var result = sqlair.M{}
+	err = tx.Query(ctx, selectCloudStmt, sqlair.M{"cloudName": cloudName}).Get(&result)
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, fmt.Errorf("%w %q", clouderrors.NotFound, cloudName)
+	} else if err != nil {
+		return false, fmt.Errorf(
+			"determining if cloud %q supports auth type %q: %w",
+			cloudName, authType.String(), domain.CoerceError(err),
+		)
+	}
+
+	authTypeStmt := `
+SELECT auth_type.type AS &M.supports
+FROM cloud
+INNER JOIN cloud_auth_type
+ON cloud.uuid = cloud_auth_type.cloud_uuid
+INNER JOIN auth_type
+ON cloud_auth_type.auth_type_id = auth_type.id
+WHERE cloud.uuid = $M.cloudUUID
+AND auth_type.type = $M.authType
+`
+	selectCloudAuthTypeStmt, err := sqlair.Prepare(authTypeStmt, sqlair.M{})
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+
+	err = tx.Query(ctx, selectCloudAuthTypeStmt, sqlair.M{
+		"cloudUUID": result["cloudUUID"],
+		"authType":  authType.String(),
+	}).Get(&result)
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, nil
+	} else if err != nil {
+		return false, fmt.Errorf(
+			"determining if cloud %q supports auth type %q: %w",
+			cloudName, authType.String(), domain.CoerceError(err),
+		)
+	}
+
+	return true, nil
 }
 
 // ListClouds lists the clouds with the specified filter, if any.
