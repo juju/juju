@@ -46,11 +46,6 @@ type WorkerConfig struct {
 	ControllerMetadataService  MetadataService
 	ModelMetadataServiceGetter MetadataServiceGetter
 	ModelClaimGetter           ModelClaimGetter
-
-	// StatePool is only here for backwards compatibility. Once we have
-	// the right abstractions in place, and we have a replacement, we can
-	// remove this.
-	StatePool StatePool
 }
 
 // Validate ensures that the config values are valid.
@@ -84,9 +79,6 @@ func (c *WorkerConfig) Validate() error {
 	}
 	if c.ModelClaimGetter == nil {
 		return errors.NotValidf("nil ModelClaimGetter")
-	}
-	if c.StatePool == nil {
-		return errors.NotValidf("nil StatePool")
 	}
 	return nil
 }
@@ -277,22 +269,11 @@ func (w *objectStoreWorker) initObjectStore(namespace string) error {
 			return nil, errors.Trace(err)
 		}
 
-		// We can remove the MongoSession once we have the file storage
-		// as the default storage.
-		var state MongoSession
 		var metadataService MetadataService
 		if namespace == database.ControllerNS {
 			metadataService = w.cfg.ControllerMetadataService
-
-			if state, err = w.cfg.StatePool.SystemState(); err != nil {
-				return nil, errors.Trace(err)
-			}
 		} else {
 			metadataService = w.cfg.ModelMetadataServiceGetter.ForModelUUID(namespace)
-
-			if state, err = w.cfg.StatePool.Get(namespace); err != nil {
-				return nil, errors.Trace(err)
-			}
 		}
 
 		objectStore, err := w.cfg.NewObjectStoreWorker(
@@ -301,7 +282,6 @@ func (w *objectStoreWorker) initObjectStore(namespace string) error {
 			namespace,
 			internalobjectstore.WithRootDir(w.cfg.RootDir),
 			internalobjectstore.WithRootBucket(w.cfg.RootBucket),
-			internalobjectstore.WithMongoSession(state),
 			internalobjectstore.WithS3Client(w.cfg.S3Client),
 			internalobjectstore.WithMetadataService(metadataService),
 			internalobjectstore.WithClaimer(claimer),

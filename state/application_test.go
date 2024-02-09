@@ -37,6 +37,7 @@ import (
 	resourcetesting "github.com/juju/juju/core/resources/testing"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
+	objectstoretesting "github.com/juju/juju/internal/objectstore/testing"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/poolmanager"
 	"github.com/juju/juju/internal/storage/provider/dummy"
@@ -102,7 +103,7 @@ func (s *ApplicationSuite) TestSetCharm(c *gc.C) {
 		CharmOrigin: defaultCharmOrigin(sch.URL()),
 		ForceUnits:  true,
 	}
-	err = s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State))
+	err = s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	ch, force, err = s.mysql.Charm()
 	c.Assert(err, jc.ErrorIsNil)
@@ -130,7 +131,7 @@ func (s *ApplicationSuite) TestSetCharmCharmOrigin(c *gc.C) {
 		Charm:       sch,
 		CharmOrigin: origin,
 	}
-	err := s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State))
+	err := s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.mysql.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
@@ -153,14 +154,14 @@ func (s *ApplicationSuite) TestSetCharmUpdateChannelURLNoChange(c *gc.C) {
 		Charm:       sch,
 		CharmOrigin: origin,
 	}
-	err := s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State))
+	err := s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	mOrigin := s.mysql.CharmOrigin()
 	c.Assert(mOrigin.Channel, gc.NotNil)
 	c.Assert(mOrigin.Channel.Risk, gc.DeepEquals, "stable")
 
 	cfg.CharmOrigin.Channel.Risk = "candidate"
-	err = s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State))
+	err = s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.mysql.CharmOrigin().Channel.Risk, gc.DeepEquals, "candidate")
 }
@@ -188,7 +189,7 @@ func (s *ApplicationSuite) TestLXDProfileSetCharm(c *gc.C) {
 		CharmOrigin: defaultCharmOrigin(ch.URL()),
 		ForceUnits:  true,
 	}
-	err = app.SetCharm(cfg, state.NewObjectStore(c, s.State))
+	err = app.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	ch, force, err = app.Charm()
 	c.Assert(err, jc.ErrorIsNil)
@@ -223,7 +224,7 @@ func (s *ApplicationSuite) TestLXDProfileFailSetCharm(c *gc.C) {
 		CharmOrigin: defaultCharmOrigin(ch.URL()),
 		ForceUnits:  true,
 	}
-	err = app.SetCharm(cfg, state.NewObjectStore(c, s.State))
+	err = app.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, gc.ErrorMatches, ".*validating lxd profile: invalid lxd-profile\\.yaml.*")
 }
 
@@ -251,7 +252,7 @@ func (s *ApplicationSuite) TestLXDProfileFailWithForceSetCharm(c *gc.C) {
 		Force:       true,
 		ForceUnits:  true,
 	}
-	err = app.SetCharm(cfg, state.NewObjectStore(c, s.State))
+	err = app.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	ch, force, err = app.Charm()
 	c.Assert(err, jc.ErrorIsNil)
@@ -280,7 +281,7 @@ func (s *ApplicationSuite) TestCAASSetCharm(c *gc.C) {
 		CharmOrigin: defaultCharmOrigin(sch.URL()),
 		ForceUnits:  true,
 	}
-	err := app.SetCharm(cfg, state.NewObjectStore(c, s.State))
+	err := app.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	ch, force, err := app.Charm()
 	c.Assert(err, jc.ErrorIsNil)
@@ -321,7 +322,7 @@ deployment:
 		CharmOrigin: defaultCharmOrigin(newCh.URL()),
 		ForceUnits:  true,
 	}
-	err := app.SetCharm(cfg, state.NewObjectStore(c, s.State))
+	err := app.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "gitlab" to charm "local:focal/focal-gitlab-k8s-2": cannot change a charm's deployment info`)
 }
 
@@ -338,7 +339,7 @@ func (s *ApplicationSuite) TestSetCharmWithNewBindings(c *gc.C) {
 			"events": sp.Name(),
 		},
 	}
-	err := s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State))
+	err := s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	expBindings := map[string]string{
@@ -444,7 +445,7 @@ func (s *ApplicationSuite) TestSetCharmWithNewBindingsAssigneToDefaultSpace(c *g
 		CharmOrigin: defaultCharmOrigin(sch.URL()),
 		ForceUnits:  true,
 	}
-	err := s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State))
+	err := s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	expBindings := map[string]string{
@@ -507,7 +508,7 @@ func (s *ApplicationSuite) TestSetCharmCharmSettings(c *gc.C) {
 		Charm:          newCh,
 		CharmOrigin:    defaultCharmOrigin(newCh.URL()),
 		ConfigSettings: charm.Settings{"key": "value"},
-	}, state.NewObjectStore(c, s.State))
+	}, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	cfg, err := s.mysql.CharmConfig(model.GenerationMaster)
@@ -519,7 +520,7 @@ func (s *ApplicationSuite) TestSetCharmCharmSettings(c *gc.C) {
 		Charm:          newCh,
 		CharmOrigin:    defaultCharmOrigin(newCh.URL()),
 		ConfigSettings: charm.Settings{"other": "one"},
-	}, state.NewObjectStore(c, s.State))
+	}, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	cfg, err = s.mysql.CharmConfig(model.GenerationMaster)
@@ -538,7 +539,7 @@ func (s *ApplicationSuite) TestSetCharmCharmSettingsForBranch(c *gc.C) {
 		Charm:          newCh,
 		CharmOrigin:    defaultCharmOrigin(newCh.URL()),
 		ConfigSettings: charm.Settings{"key": "value"},
-	}, state.NewObjectStore(c, s.State))
+	}, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	cfg, err := s.mysql.CharmConfig(model.GenerationMaster)
@@ -569,26 +570,26 @@ func (s *ApplicationSuite) TestSetCharmCharmSettingsInvalid(c *gc.C) {
 		Charm:          newCh,
 		CharmOrigin:    defaultCharmOrigin(newCh.URL()),
 		ConfigSettings: charm.Settings{"key": 123.45},
-	}, state.NewObjectStore(c, s.State))
+	}, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "mysql" to charm "local:quantal/quantal-mysql-2": validating config settings: option "key" expected string, got 123.45`)
 }
 
 func (s *ApplicationSuite) TestClientApplicationSetCharmUnsupportedSeries(c *gc.C) {
 	ch := state.AddTestingCharmMultiSeries(c, s.State, "multi-series")
-	app := state.AddTestingApplicationForBase(c, s.State, state.UbuntuBase("12.04"), "application", ch)
+	app := state.AddTestingApplicationForBase(c, s.State, s.objectStore, state.UbuntuBase("12.04"), "application", ch)
 
 	chDifferentSeries := state.AddTestingCharmMultiSeries(c, s.State, "multi-series2")
 	cfg := state.SetCharmConfig{
 		Charm:       chDifferentSeries,
 		CharmOrigin: defaultCharmOrigin(chDifferentSeries.URL()),
 	}
-	err := app.SetCharm(cfg, state.NewObjectStore(c, s.State))
+	err := app.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "application" to charm "ch:multi-series2-8": base "ubuntu@12.04" not supported by charm, the charm supported bases are: ubuntu@14.04, ubuntu@15.10`)
 }
 
 func (s *ApplicationSuite) TestClientApplicationSetCharmUnsupportedSeriesForce(c *gc.C) {
 	ch := state.AddTestingCharmMultiSeries(c, s.State, "multi-series")
-	app := state.AddTestingApplicationForBase(c, s.State, state.UbuntuBase("12.04"), "application", ch)
+	app := state.AddTestingApplicationForBase(c, s.State, s.objectStore, state.UbuntuBase("12.04"), "application", ch)
 
 	chDifferentSeries := state.AddTestingCharmMultiSeries(c, s.State, "multi-series2")
 	cfg := state.SetCharmConfig{
@@ -596,7 +597,7 @@ func (s *ApplicationSuite) TestClientApplicationSetCharmUnsupportedSeriesForce(c
 		CharmOrigin: defaultCharmOrigin(chDifferentSeries.URL()),
 		ForceBase:   true,
 	}
-	err := app.SetCharm(cfg, state.NewObjectStore(c, s.State))
+	err := app.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	app, err = s.State.Application("application")
 	c.Assert(err, jc.ErrorIsNil)
@@ -607,7 +608,7 @@ func (s *ApplicationSuite) TestClientApplicationSetCharmUnsupportedSeriesForce(c
 
 func (s *ApplicationSuite) TestClientApplicationSetCharmWrongOS(c *gc.C) {
 	ch := state.AddTestingCharmMultiSeries(c, s.State, "multi-series")
-	app := state.AddTestingApplicationForBase(c, s.State, state.UbuntuBase("12.04"), "application", ch)
+	app := state.AddTestingApplicationForBase(c, s.State, s.objectStore, state.UbuntuBase("12.04"), "application", ch)
 
 	chDifferentSeries := state.AddTestingCharmMultiSeries(c, s.State, "multi-series-centos")
 	cfg := state.SetCharmConfig{
@@ -615,7 +616,7 @@ func (s *ApplicationSuite) TestClientApplicationSetCharmWrongOS(c *gc.C) {
 		CharmOrigin: defaultCharmOrigin(chDifferentSeries.URL()),
 		ForceBase:   true,
 	}
-	err := app.SetCharm(cfg, state.NewObjectStore(c, s.State))
+	err := app.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "application" to charm "ch:multi-series-centos-1": OS "ubuntu" not supported by charm.*`)
 }
 
@@ -625,7 +626,7 @@ func (s *ApplicationSuite) TestSetCharmPreconditions(c *gc.C) {
 		Charm:       logging,
 		CharmOrigin: defaultCharmOrigin(logging.URL()),
 	}
-	err := s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State))
+	err := s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "mysql" to charm "local:quantal/quantal-logging-1": cannot change an application's subordinacy`)
 }
 
@@ -647,7 +648,7 @@ func (s *ApplicationSuite) TestSetCharmUpdatesBindings(c *gc.C) {
 			"":       dbSpace.Id(),
 			"server": dbSpace.Id(),
 			"client": clientSpace.Id(),
-		}}, mockApplicationSaver{}, state.NewObjectStore(c, s.State))
+		}}, mockApplicationSaver{}, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	newCharm := s.AddMetaCharm(c, "mysql", metaExtraEndpoints, 43)
@@ -655,7 +656,7 @@ func (s *ApplicationSuite) TestSetCharmUpdatesBindings(c *gc.C) {
 		Charm:       newCharm,
 		CharmOrigin: defaultCharmOrigin(newCharm.URL()),
 	}
-	err = application.SetCharm(cfg, state.NewObjectStore(c, s.State))
+	err = application.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	updatedBindings, err := application.EndpointBindings()
 	c.Assert(err, jc.ErrorIsNil)
@@ -831,7 +832,7 @@ func (s *ApplicationSuite) TestSetCharmChecksEndpointsWithoutRelations(c *gc.C) 
 		Charm:       ms,
 		CharmOrigin: defaultCharmOrigin(ms.URL()),
 	}
-	err = app.SetCharm(cfg, state.NewObjectStore(c, s.State))
+	err = app.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	for i, t := range setCharmEndpointsTests {
@@ -842,7 +843,7 @@ func (s *ApplicationSuite) TestSetCharmChecksEndpointsWithoutRelations(c *gc.C) 
 			Charm:       newCh,
 			CharmOrigin: defaultCharmOrigin(newCh.URL()),
 		}
-		err = app.SetCharm(cfg, state.NewObjectStore(c, s.State))
+		err = app.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
 		if t.err != "" {
 			c.Assert(err, gc.ErrorMatches, t.err)
 		} else {
@@ -850,7 +851,7 @@ func (s *ApplicationSuite) TestSetCharmChecksEndpointsWithoutRelations(c *gc.C) 
 		}
 	}
 
-	err = app.Destroy(state.NewObjectStore(c, s.State))
+	err = app.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -863,14 +864,14 @@ func (s *ApplicationSuite) TestSetCharmChecksEndpointsWithRelations(c *gc.C) {
 		Charm:       providerCharm,
 		CharmOrigin: defaultCharmOrigin(providerCharm.URL()),
 	}
-	err := providerApp.SetCharm(cfg, state.NewObjectStore(c, s.State))
+	err := providerApp.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	revno++
 	requirerCharm := s.AddMetaCharm(c, "mysql", metaDifferentRequirer, revno)
 	requirerApp := s.AddTestingApplication(c, "myrequirer", requirerCharm)
 	cfg = state.SetCharmConfig{Charm: requirerCharm, CharmOrigin: defaultCharmOrigin(requirerCharm.URL())}
-	err = requirerApp.SetCharm(cfg, state.NewObjectStore(c, s.State))
+	err = requirerApp.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	eps, err := s.State.InferEndpoints("myprovider:kludge", "myrequirer:kludge")
@@ -884,9 +885,9 @@ func (s *ApplicationSuite) TestSetCharmChecksEndpointsWithRelations(c *gc.C) {
 		Charm:       baseCharm,
 		CharmOrigin: defaultCharmOrigin(baseCharm.URL()),
 	}
-	err = providerApp.SetCharm(cfg, state.NewObjectStore(c, s.State))
+	err = providerApp.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "myprovider" to charm "local:quantal/quantal-mysql-4": would break relation "myrequirer:kludge myprovider:kludge"`)
-	err = requirerApp.SetCharm(cfg, state.NewObjectStore(c, s.State))
+	err = requirerApp.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "myrequirer" to charm "local:quantal/quantal-mysql-4": would break relation "myrequirer:kludge myprovider:kludge"`)
 }
 
@@ -986,7 +987,7 @@ func (s *ApplicationSuite) TestSetCharmConfig(c *gc.C) {
 			Charm:       newCh,
 			CharmOrigin: defaultCharmOrigin(newCh.URL()),
 		}
-		err = app.SetCharm(cfg, state.NewObjectStore(c, s.State))
+		err = app.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
 		var expectVals charm.Settings
 		var expectCh *state.Charm
 		if t.err != "" {
@@ -1012,7 +1013,7 @@ func (s *ApplicationSuite) TestSetCharmConfig(c *gc.C) {
 			c.Assert(chConfig, gc.DeepEquals, expected)
 		}
 
-		err = app.Destroy(state.NewObjectStore(c, s.State))
+		err = app.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 		c.Assert(err, jc.ErrorIsNil)
 	}
 }
@@ -1022,7 +1023,7 @@ func (s *ApplicationSuite) TestSetCharmWithDyingApplication(c *gc.C) {
 
 	_, err := s.mysql.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.mysql.Destroy(state.NewObjectStore(c, s.State))
+	err = s.mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	assertLife(c, s.mysql, state.Dying)
 	cfg := state.SetCharmConfig{
@@ -1030,7 +1031,7 @@ func (s *ApplicationSuite) TestSetCharmWithDyingApplication(c *gc.C) {
 		CharmOrigin: defaultCharmOrigin(sch.URL()),
 		ForceUnits:  true,
 	}
-	err = s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State))
+	err = s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1038,9 +1039,9 @@ func (s *ApplicationSuite) TestSequenceUnitIdsAfterDestroy(c *gc.C) {
 	unit, err := s.mysql.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unit.Name(), gc.Equals, "mysql/0")
-	err = unit.Destroy(state.NewObjectStore(c, s.State))
+	err = unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.mysql.Destroy(state.NewObjectStore(c, s.State))
+	err = s.mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	assertRemoved(c, s.State, s.mysql)
 	s.mysql = s.AddTestingApplication(c, "mysql", s.charm)
@@ -1062,9 +1063,9 @@ func (s *ApplicationSuite) TestAssignUnitsRemovedAfterAppDestroy(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(unitAssignments), gc.Equals, 1)
 
-	err = unit.Destroy(state.NewObjectStore(c, s.State))
+	err = unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
-	err = mariadb.Destroy(state.NewObjectStore(c, s.State))
+	err = mariadb.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	assertRemoved(c, s.State, mariadb)
 
@@ -1097,11 +1098,11 @@ resources:
 	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unit.Name(), gc.Equals, "cockroachdb/0")
-	err = unit.Destroy(state.NewObjectStore(c, s.State))
+	err = unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.Refresh()
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
-	err = app.Destroy(state.NewObjectStore(c, s.State))
+	err = app.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	err = app.ClearResources()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1148,7 +1149,7 @@ func (s *ApplicationSuite) TestSetCharmWhenDead(c *gc.C) {
 	defer state.SetBeforeHooks(c, s.State, func() {
 		_, err := s.mysql.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
-		err = s.mysql.Destroy(state.NewObjectStore(c, s.State))
+		err = s.mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 		c.Assert(err, jc.ErrorIsNil)
 		assertLife(c, s.mysql, state.Dying)
 
@@ -1169,14 +1170,14 @@ func (s *ApplicationSuite) TestSetCharmWhenDead(c *gc.C) {
 		CharmOrigin: defaultCharmOrigin(sch.URL()),
 		ForceUnits:  true,
 	}
-	err := s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State))
+	err := s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIs, stateerrors.ErrDead)
 }
 
 func (s *ApplicationSuite) TestSetCharmWithRemovedApplication(c *gc.C) {
 	sch := s.AddMetaCharm(c, "mysql", metaBase, 2)
 
-	err := s.mysql.Destroy(state.NewObjectStore(c, s.State))
+	err := s.mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	assertRemoved(c, s.State, s.mysql)
 
@@ -1186,7 +1187,7 @@ func (s *ApplicationSuite) TestSetCharmWithRemovedApplication(c *gc.C) {
 		ForceUnits:  true,
 	}
 
-	err = s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State))
+	err = s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
@@ -1194,7 +1195,7 @@ func (s *ApplicationSuite) TestSetCharmWhenRemoved(c *gc.C) {
 	sch := s.AddMetaCharm(c, "mysql", metaBase, 2)
 
 	defer state.SetBeforeHooks(c, s.State, func() {
-		err := s.mysql.Destroy(state.NewObjectStore(c, s.State))
+		err := s.mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 		c.Assert(err, jc.ErrorIsNil)
 		assertRemoved(c, s.State, s.mysql)
 	}).Check()
@@ -1204,7 +1205,7 @@ func (s *ApplicationSuite) TestSetCharmWhenRemoved(c *gc.C) {
 		CharmOrigin: defaultCharmOrigin(sch.URL()),
 		ForceUnits:  true,
 	}
-	err := s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State))
+	err := s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
@@ -1214,7 +1215,7 @@ func (s *ApplicationSuite) TestSetCharmWhenDyingIsOK(c *gc.C) {
 	defer state.SetBeforeHooks(c, s.State, func() {
 		_, err := s.mysql.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
-		err = s.mysql.Destroy(state.NewObjectStore(c, s.State))
+		err = s.mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 		c.Assert(err, jc.ErrorIsNil)
 		assertLife(c, s.mysql, state.Dying)
 	}).Check()
@@ -1224,7 +1225,7 @@ func (s *ApplicationSuite) TestSetCharmWhenDyingIsOK(c *gc.C) {
 		CharmOrigin: defaultCharmOrigin(sch.URL()),
 		ForceUnits:  true,
 	}
-	err := s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State))
+	err := s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	assertLife(c, s.mysql, state.Dying)
 }
@@ -1244,7 +1245,7 @@ func (s *ApplicationSuite) TestSetCharmRetriesWithSameCharmURL(c *gc.C) {
 					Charm:       sch,
 					CharmOrigin: defaultCharmOrigin(sch.URL()),
 				}
-				err = s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State))
+				err = s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
 				c.Assert(err, jc.ErrorIsNil)
 			},
 			After: func() {
@@ -1274,7 +1275,7 @@ func (s *ApplicationSuite) TestSetCharmRetriesWithSameCharmURL(c *gc.C) {
 		CharmOrigin: defaultCharmOrigin(sch.URL()),
 		ForceUnits:  true,
 	}
-	err := s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State))
+	err := s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1286,7 +1287,7 @@ func (s *ApplicationSuite) TestSetCharmRetriesWhenOldSettingsChanged(c *gc.C) {
 		Charm:       oldCh,
 		CharmOrigin: defaultCharmOrigin(oldCh.URL()),
 	}
-	err := s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State))
+	err := s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	defer state.SetBeforeHooks(c, s.State,
@@ -1302,7 +1303,7 @@ func (s *ApplicationSuite) TestSetCharmRetriesWhenOldSettingsChanged(c *gc.C) {
 		CharmOrigin: defaultCharmOrigin(newCh.URL()),
 		ForceUnits:  true,
 	}
-	err = s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State))
+	err = s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1326,7 +1327,7 @@ func (s *ApplicationSuite) TestSetCharmRetriesWhenBothOldAndNewSettingsChanged(c
 					Charm:       newCh,
 					CharmOrigin: defaultCharmOrigin(newCh.URL()),
 				}
-				err = s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State))
+				err = s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
 				c.Assert(err, jc.ErrorIsNil)
 				assertSettingsRef(c, s.State, "mysql", newCh, 1)
 				assertNoSettingsRef(c, s.State, "mysql", oldCh)
@@ -1343,7 +1344,7 @@ func (s *ApplicationSuite) TestSetCharmRetriesWhenBothOldAndNewSettingsChanged(c
 					CharmOrigin: defaultCharmOrigin(oldCh.URL()),
 				}
 
-				err = s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State))
+				err = s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
 				c.Assert(err, jc.ErrorIsNil)
 				assertSettingsRef(c, s.State, "mysql", newCh, 1)
 				assertSettingsRef(c, s.State, "mysql", oldCh, 1)
@@ -1376,7 +1377,7 @@ func (s *ApplicationSuite) TestSetCharmRetriesWhenBothOldAndNewSettingsChanged(c
 					CharmOrigin: defaultCharmOrigin(newCh.URL()),
 				}
 
-				err := s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State))
+				err := s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
 				c.Assert(err, jc.ErrorIsNil)
 				assertSettingsRef(c, s.State, "mysql", newCh, 2)
 				assertSettingsRef(c, s.State, "mysql", oldCh, 1)
@@ -1387,7 +1388,7 @@ func (s *ApplicationSuite) TestSetCharmRetriesWhenBothOldAndNewSettingsChanged(c
 					Charm:       oldCh,
 					CharmOrigin: defaultCharmOrigin(oldCh.URL()),
 				}
-				err = s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State))
+				err = s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
 				c.Assert(err, jc.ErrorIsNil)
 				assertSettingsRef(c, s.State, "mysql", newCh, 1)
 				assertSettingsRef(c, s.State, "mysql", oldCh, 2)
@@ -1427,7 +1428,7 @@ func (s *ApplicationSuite) TestSetCharmRetriesWhenBothOldAndNewSettingsChanged(c
 		CharmOrigin: defaultCharmOrigin(newCh.URL()),
 		ForceUnits:  true,
 	}
-	err := s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State))
+	err := s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1441,7 +1442,7 @@ func (s *ApplicationSuite) TestSetCharmRetriesWhenOldBindingsChanged(c *gc.C) {
 		Charm:       oldCharm,
 		CharmOrigin: defaultCharmOrigin(oldCharm.URL()),
 	}
-	err := s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State))
+	err := s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	oldBindings, err := s.mysql.EndpointBindings()
@@ -1506,7 +1507,7 @@ func (s *ApplicationSuite) TestSetCharmRetriesWhenOldBindingsChanged(c *gc.C) {
 		CharmOrigin: defaultCharmOrigin(newCharm.URL()),
 		ForceUnits:  true,
 	}
-	err = s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State))
+	err = s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1551,12 +1552,12 @@ requires:
 		Charm:       wpCharmWithRelLimit,
 		CharmOrigin: defaultCharmOrigin(wpCharmWithRelLimit.URL()),
 	}
-	err = wpApp.SetCharm(cfg, state.NewObjectStore(c, s.State))
+	err = wpApp.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIs, errors.QuotaLimitExceeded, gc.Commentf("expected quota limit error due to max relation mismatch"))
 
 	// Try again with --force
 	cfg.Force = true
-	err = wpApp.SetCharm(cfg, state.NewObjectStore(c, s.State))
+	err = wpApp.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1605,7 +1606,7 @@ func (s *ApplicationSuite) setupSetDownloadedIDAndHash(c *gc.C, origin *state.Ch
 	err = s.mysql.SetCharm(state.SetCharmConfig{
 		Charm:       chOne,
 		CharmOrigin: origin,
-	}, state.NewObjectStore(c, s.State))
+	}, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.mysql.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1682,14 +1683,14 @@ func (s *ApplicationSuite) TestUpdateCharmConfig(c *gc.C) {
 			expected := s.combinedSettings(sch, appConfig)
 			c.Assert(cfg, gc.DeepEquals, expected)
 		}
-		err = app.Destroy(state.NewObjectStore(c, s.State))
+		err = app.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 		c.Assert(err, jc.ErrorIsNil)
 	}
 }
 
 func (s *ApplicationSuite) setupCharmForTestUpdateApplicationBase(c *gc.C, name string) *state.Application {
 	ch := state.AddTestingCharmMultiSeries(c, s.State, name)
-	app := state.AddTestingApplicationForBase(c, s.State, state.UbuntuBase("20.04"), name, ch)
+	app := state.AddTestingApplicationForBase(c, s.State, s.objectStore, state.UbuntuBase("20.04"), name, ch)
 
 	rev := ch.Revision()
 	origin := &state.CharmOrigin{
@@ -1704,7 +1705,7 @@ func (s *ApplicationSuite) setupCharmForTestUpdateApplicationBase(c *gc.C, name 
 		Charm:       ch,
 		CharmOrigin: origin,
 	}
-	err := app.SetCharm(cfg, state.NewObjectStore(c, s.State))
+	err := app.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	err = app.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1766,7 +1767,7 @@ func (s *ApplicationSuite) TestUpdateApplicationSeriesCharmURLChangedSeriesFail(
 					Charm:       v2,
 					CharmOrigin: defaultCharmOrigin(v2.URL()),
 				}
-				err := app.SetCharm(cfg, state.NewObjectStore(c, s.State))
+				err := app.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
 				c.Assert(err, jc.ErrorIsNil)
 			},
 		},
@@ -1793,7 +1794,7 @@ func (s *ApplicationSuite) TestUpdateApplicationSeriesCharmURLChangedSeriesPass(
 					Charm:       v2,
 					CharmOrigin: origin,
 				}
-				err := app.SetCharm(cfg, state.NewObjectStore(c, s.State))
+				err := app.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
 				c.Assert(err, jc.ErrorIsNil)
 			},
 		},
@@ -1984,7 +1985,7 @@ func (s *ApplicationSuite) TestSettingsRefCountWorks(c *gc.C) {
 		Charm:       oldCh,
 		CharmOrigin: defaultCharmOrigin(oldCh.URL()),
 	}
-	err := app.SetCharm(cfg, state.NewObjectStore(c, s.State))
+	err := app.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	assertSettingsRef(c, s.State, appName, oldCh, 1)
 	assertNoSettingsRef(c, s.State, appName, newCh)
@@ -1997,7 +1998,7 @@ func (s *ApplicationSuite) TestSettingsRefCountWorks(c *gc.C) {
 		Charm:       newCh,
 		CharmOrigin: defaultCharmOrigin(newCh.URL()),
 	}
-	err = app.SetCharm(cfg, state.NewObjectStore(c, s.State))
+	err = app.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	assertNoSettingsRef(c, s.State, appName, oldCh)
 	assertSettingsRef(c, s.State, appName, newCh, 1)
@@ -2007,7 +2008,7 @@ func (s *ApplicationSuite) TestSettingsRefCountWorks(c *gc.C) {
 		Charm:       oldCh,
 		CharmOrigin: defaultCharmOrigin(oldCh.URL()),
 	}
-	err = app.SetCharm(cfg, state.NewObjectStore(c, s.State))
+	err = app.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	assertSettingsRef(c, s.State, appName, oldCh, 1)
 	assertNoSettingsRef(c, s.State, appName, newCh)
@@ -2038,14 +2039,14 @@ func (s *ApplicationSuite) TestSettingsRefCountWorks(c *gc.C) {
 	assertNoSettingsRef(c, s.State, appName, newCh)
 
 	// Once the unit is removed, refcount is decremented.
-	err = u.Remove(state.NewObjectStore(c, s.State))
+	err = u.Remove(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	assertSettingsRef(c, s.State, appName, oldCh, 1)
 	assertNoSettingsRef(c, s.State, appName, newCh)
 
 	// Finally, after the application is destroyed and removed (since the
 	// last unit's gone), the refcount is again decremented.
-	err = app.Destroy(state.NewObjectStore(c, s.State))
+	err = app.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	assertNoSettingsRef(c, s.State, appName, oldCh)
 	assertNoSettingsRef(c, s.State, appName, newCh)
@@ -2054,7 +2055,7 @@ func (s *ApplicationSuite) TestSettingsRefCountWorks(c *gc.C) {
 	// invoke them now and check that the charms are cleaned up
 	// correctly -- and that a storm of cleanups for the same
 	// charm are not a problem.
-	err = s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State), fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{})
+	err = s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State.ModelUUID()), fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = oldCh.Refresh()
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
@@ -2081,7 +2082,7 @@ func (s *ApplicationSuite) TestSettingsRefCreateRace(c *gc.C) {
 			Charm:       newCh,
 			CharmOrigin: defaultCharmOrigin(newCh.URL()),
 		}
-		err = app.SetCharm(cfg, state.NewObjectStore(c, s.State))
+		err = app.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	defer state.SetBeforeHooks(c, s.State, dropSettings).Check()
@@ -2111,7 +2112,7 @@ func (s *ApplicationSuite) TestSettingsRefRemoveRace(c *gc.C) {
 		Charm:       newCh,
 		CharmOrigin: defaultCharmOrigin(newCh.URL()),
 	}
-	err = app.SetCharm(cfg, state.NewObjectStore(c, s.State))
+	err = app.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// check refs to both settings exist
@@ -2160,7 +2161,7 @@ func (s *ApplicationSuite) TestOffersRefCountWorks(c *gc.C) {
 
 	// Trying to destroy the app while there is an offer
 	// succeeds when that offer has no connections
-	err = s.mysql.Destroy(state.NewObjectStore(c, s.State))
+	err = s.mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	assertRemoved(c, s.State, s.mysql)
 	assertNoOffersRef(c, s.State, "mysql")
@@ -2189,7 +2190,7 @@ func (s *ApplicationSuite) TestDestroyApplicationRemoveOffers(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	assertOffersRef(c, s.State, "mysql", 2)
 
-	op := s.mysql.DestroyOperation(state.NewObjectStore(c, s.State))
+	op := s.mysql.DestroyOperation(state.NewObjectStore(c, s.State.ModelUUID()))
 	op.RemoveOffers = true
 	err = s.State.ApplyOperation(op)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2214,7 +2215,7 @@ func (s *ApplicationSuite) TestOffersRefRace(c *gc.C) {
 	}
 	defer state.SetBeforeHooks(c, s.State, addOffer).Check()
 
-	err := s.mysql.Destroy(state.NewObjectStore(c, s.State))
+	err := s.mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	assertRemoved(c, s.State, s.mysql)
 	assertNoOffersRef(c, s.State, "mysql")
@@ -2233,7 +2234,7 @@ func (s *ApplicationSuite) TestOffersRefRaceWithForce(c *gc.C) {
 	}
 	defer state.SetBeforeHooks(c, s.State, addOffer).Check()
 
-	op := s.mysql.DestroyOperation(state.NewObjectStore(c, s.State))
+	op := s.mysql.DestroyOperation(state.NewObjectStore(c, s.State.ModelUUID()))
 	op.Force = true
 	err := s.State.ApplyOperation(op)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2286,17 +2287,17 @@ func (s *ApplicationSuite) TestNewPeerRelationsAddedOnUpgrade(c *gc.C) {
 	s.assertApplicationRelations(c, s.mysql)
 
 	cfg := state.SetCharmConfig{Charm: oldCh, CharmOrigin: defaultCharmOrigin(oldCh.URL())}
-	err := s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State))
+	err := s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertApplicationRelations(c, s.mysql, "mysql:cluster")
 
 	cfg = state.SetCharmConfig{Charm: newCh, CharmOrigin: defaultCharmOrigin(newCh.URL())}
-	err = s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State))
+	err = s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	rels := s.assertApplicationRelations(c, s.mysql, "mysql:cluster", "mysql:loadbalancer")
 
 	// Check state consistency by attempting to destroy the application.
-	err = s.mysql.Destroy(state.NewObjectStore(c, s.State))
+	err = s.mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	assertRemoved(c, s.State, s.mysql)
 
@@ -2318,7 +2319,7 @@ func (s *ApplicationSuite) TestStalePeerRelationsRemovedOnUpgrade(c *gc.C) {
 	s.assertApplicationRelations(c, s.mysql)
 
 	cfg := state.SetCharmConfig{Charm: oldCh, CharmOrigin: defaultCharmOrigin(oldCh.URL())}
-	err := s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State))
+	err := s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertApplicationRelations(c, s.mysql, "mysql:cluster")
 
@@ -2331,13 +2332,13 @@ func (s *ApplicationSuite) TestStalePeerRelationsRemovedOnUpgrade(c *gc.C) {
 		CharmOrigin: defaultCharmOrigin(newCh.URL()),
 		ForceUnits:  true,
 	}
-	err = s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State))
+	err = s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	rels := s.assertApplicationRelations(c, s.mysql, "mysql:minion")
 
 	// Check state consistency by attempting to destroy the application.
-	err = s.mysql.Destroy(state.NewObjectStore(c, s.State))
+	err = s.mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	assertRemoved(c, s.State, s.mysql)
 
@@ -2550,7 +2551,7 @@ func (s *ApplicationSuite) TestApplicationRefresh(c *gc.C) {
 		ForceUnits:  true,
 	}
 
-	err = s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State))
+	err = s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	testch, force, err := s1.Charm()
@@ -2565,7 +2566,7 @@ func (s *ApplicationSuite) TestApplicationRefresh(c *gc.C) {
 	c.Assert(force, jc.IsTrue)
 	c.Assert(testch.URL(), gc.DeepEquals, s.charm.URL())
 
-	err = s.mysql.Destroy(state.NewObjectStore(c, s.State))
+	err = s.mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	assertRemoved(c, s.State, s.mysql)
 }
@@ -2605,7 +2606,7 @@ func (s *ApplicationSuite) TestApplicationExposed(c *gc.C) {
 	// TODO(fwereade): maybe application destruction should always unexpose?
 	u, err := s.mysql.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.mysql.Destroy(state.NewObjectStore(c, s.State))
+	err = s.mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	assertLife(c, s.mysql, state.Dying)
 	err = s.mysql.ClearExposed()
@@ -2616,7 +2617,7 @@ func (s *ApplicationSuite) TestApplicationExposed(c *gc.C) {
 	// Remove the application and check that both fail.
 	err = u.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = u.Remove(state.NewObjectStore(c, s.State))
+	err = u.Remove(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.mysql.MergeExposeSettings(nil)
 	c.Assert(err, gc.ErrorMatches, notAliveErr)
@@ -2811,14 +2812,14 @@ func (s *ApplicationSuite) TestAddUnit(c *gc.C) {
 func (s *ApplicationSuite) TestAddUnitWhenNotAlive(c *gc.C) {
 	u, err := s.mysql.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.mysql.Destroy(state.NewObjectStore(c, s.State))
+	err = s.mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	assertLife(c, s.mysql, state.Dying)
 	_, err = s.mysql.AddUnit(state.AddUnitParams{})
 	c.Assert(err, gc.ErrorMatches, `cannot add unit to application "mysql": application is not found or not alive`)
 	c.Assert(u.EnsureDead(), jc.ErrorIsNil)
-	c.Assert(u.Remove(state.NewObjectStore(c, s.State)), jc.ErrorIsNil)
-	c.Assert(s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State), fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{}), jc.ErrorIsNil)
+	c.Assert(u.Remove(state.NewObjectStore(c, s.State.ModelUUID())), jc.ErrorIsNil)
+	c.Assert(s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State.ModelUUID()), fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{}), jc.ErrorIsNil)
 	_, err = s.mysql.AddUnit(state.AddUnitParams{})
 	c.Assert(err, gc.ErrorMatches, `cannot add unit to application "mysql": application "mysql" not found`)
 }
@@ -2944,7 +2945,7 @@ func (s *ApplicationSuite) TestReadUnit(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestReadUnitWhenDying(c *gc.C) {
-	store := state.NewObjectStore(c, s.State)
+	store := state.NewObjectStore(c, s.State.ModelUUID())
 
 	// Test that we can still read units when the application is Dying...
 	unit, err := s.mysql.AddUnit(state.AddUnitParams{})
@@ -2974,7 +2975,7 @@ func (s *ApplicationSuite) TestReadUnitWhenDying(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestDestroySimple(c *gc.C) {
-	err := s.mysql.Destroy(state.NewObjectStore(c, s.State))
+	err := s.mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.mysql.Life(), gc.Equals, state.Dying)
 	err = s.mysql.Refresh()
@@ -2991,7 +2992,7 @@ func (s *ApplicationSuite) TestDestroyRemovesStatusHistory(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(agentInfo), gc.Equals, 2)
 
-	err = s.mysql.Destroy(state.NewObjectStore(c, s.State))
+	err = s.mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	agentInfo, err = s.mysql.StatusHistory(filter)
@@ -3000,9 +3001,11 @@ func (s *ApplicationSuite) TestDestroyRemovesStatusHistory(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestDestroyStillHasUnits(c *gc.C) {
+	objectStore := state.NewObjectStore(c, s.State.ModelUUID())
+
 	unit, err := s.mysql.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.mysql.Destroy(state.NewObjectStore(c, s.State))
+	err = s.mysql.Destroy(objectStore)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.mysql.Life(), gc.Equals, state.Dying)
 
@@ -3010,21 +3013,23 @@ func (s *ApplicationSuite) TestDestroyStillHasUnits(c *gc.C) {
 	c.Assert(s.mysql.Refresh(), jc.ErrorIsNil)
 	c.Assert(s.mysql.Life(), gc.Equals, state.Dying)
 
-	c.Assert(unit.Remove(state.NewObjectStore(c, s.State)), jc.ErrorIsNil)
-	c.Assert(s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State), fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{}), jc.ErrorIsNil)
+	c.Assert(unit.Remove(objectStore), jc.ErrorIsNil)
+	c.Assert(s.State.Cleanup(context.Background(), objectStore, fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{}), jc.ErrorIsNil)
 	err = s.mysql.Refresh()
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *ApplicationSuite) TestDestroyOnceHadUnits(c *gc.C) {
+	objectStore := state.NewObjectStore(c, s.State.ModelUUID())
+
 	unit, err := s.mysql.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = unit.Remove(state.NewObjectStore(c, s.State))
+	err = unit.Remove(objectStore)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.mysql.Destroy(state.NewObjectStore(c, s.State))
+	err = s.mysql.Destroy(objectStore)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.mysql.Life(), gc.Equals, state.Dying)
 	err = s.mysql.Refresh()
@@ -3032,16 +3037,18 @@ func (s *ApplicationSuite) TestDestroyOnceHadUnits(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestDestroyStaleNonZeroUnitCount(c *gc.C) {
+	objectStore := state.NewObjectStore(c, s.State.ModelUUID())
+
 	unit, err := s.mysql.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.mysql.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = unit.Remove(state.NewObjectStore(c, s.State))
+	err = unit.Remove(objectStore)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.mysql.Destroy(state.NewObjectStore(c, s.State))
+	err = s.mysql.Destroy(objectStore)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.mysql.Life(), gc.Equals, state.Dying)
 	err = s.mysql.Refresh()
@@ -3049,10 +3056,12 @@ func (s *ApplicationSuite) TestDestroyStaleNonZeroUnitCount(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestDestroyStaleZeroUnitCount(c *gc.C) {
+	objectStore := state.NewObjectStore(c, s.State.ModelUUID())
+
 	unit, err := s.mysql.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.mysql.Destroy(state.NewObjectStore(c, s.State))
+	err = s.mysql.Destroy(objectStore)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.mysql.Life(), gc.Equals, state.Dying)
 
@@ -3066,8 +3075,8 @@ func (s *ApplicationSuite) TestDestroyStaleZeroUnitCount(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.mysql.Life(), gc.Equals, state.Dying)
 
-	c.Assert(unit.Remove(state.NewObjectStore(c, s.State)), jc.ErrorIsNil)
-	c.Assert(s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State), fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{}), jc.ErrorIsNil)
+	c.Assert(unit.Remove(objectStore), jc.ErrorIsNil)
+	c.Assert(s.State.Cleanup(context.Background(), objectStore, fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{}), jc.ErrorIsNil)
 	err = s.mysql.Refresh()
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
@@ -3081,7 +3090,7 @@ func (s *ApplicationSuite) TestDestroyWithRemovableRelation(c *gc.C) {
 
 	// Destroy a application with no units in relation scope; check application and
 	// unit removed.
-	err = wordpress.Destroy(state.NewObjectStore(c, s.State))
+	err = wordpress.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	err = wordpress.Refresh()
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
@@ -3145,7 +3154,7 @@ func (s *ApplicationSuite) TestDestroyWithRemovableApplicationOpenedPortRanges(c
 
 	err = unit1.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = unit1.Remove(state.NewObjectStore(c, s.State))
+	err = unit1.Remove(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	appPortRanges, err = app.OpenedPortRanges()
@@ -3155,18 +3164,18 @@ func (s *ApplicationSuite) TestDestroyWithRemovableApplicationOpenedPortRanges(c
 	// Remove all units, all opened ports should be removed.
 	err = unit0.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = unit0.Remove(state.NewObjectStore(c, s.State))
+	err = unit0.Remove(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit1.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = unit1.Remove(state.NewObjectStore(c, s.State))
+	err = unit1.Remove(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	appPortRanges, err = app.OpenedPortRanges()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(appPortRanges.UniquePortRanges(), gc.HasLen, 0)
 
-	err = app.Destroy(state.NewObjectStore(c, s.State))
+	err = app.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -3237,14 +3246,14 @@ func (s *ApplicationSuite) TestOpenedPortRanges(c *gc.C) {
 	// openedApplicationportRanges removed.
 	err = unit.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = unit.Remove(state.NewObjectStore(c, s.State))
+	err = unit.Remove(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	appPortRanges, err := app.OpenedPortRanges()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(appPortRanges.UniquePortRanges(), gc.HasLen, 0)
 
-	err = app.Destroy(state.NewObjectStore(c, s.State))
+	err = app.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -3257,6 +3266,8 @@ func (s *ApplicationSuite) TestDestroyWithReferencedRelationStaleCount(c *gc.C) 
 }
 
 func (s *ApplicationSuite) assertDestroyWithReferencedRelation(c *gc.C, refresh bool) {
+	objectStore := state.NewObjectStore(c, s.State.ModelUUID())
+
 	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	eps, err := s.State.InferEndpoints("wordpress", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
@@ -3279,12 +3290,12 @@ func (s *ApplicationSuite) assertDestroyWithReferencedRelation(c *gc.C, refresh 
 
 	// Optionally update the application document to get correct relation counts.
 	if refresh {
-		err = s.mysql.Destroy(state.NewObjectStore(c, s.State))
+		err = s.mysql.Destroy(objectStore)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
 	// Destroy, and check that the first relation becomes Dying...
-	c.Assert(s.mysql.Destroy(state.NewObjectStore(c, s.State)), jc.ErrorIsNil)
+	c.Assert(s.mysql.Destroy(objectStore), jc.ErrorIsNil)
 	err = rel0.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rel0.Life(), gc.Equals, state.Dying)
@@ -3296,7 +3307,7 @@ func (s *ApplicationSuite) assertDestroyWithReferencedRelation(c *gc.C, refresh 
 	// Drop the last reference to the first relation; check the relation and
 	// the application are are both removed.
 	c.Assert(ru.LeaveScope(), jc.ErrorIsNil)
-	c.Assert(s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State), fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{}), jc.ErrorIsNil)
+	c.Assert(s.State.Cleanup(context.Background(), objectStore, fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{}), jc.ErrorIsNil)
 	err = s.mysql.Refresh()
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	err = rel0.Refresh()
@@ -3304,6 +3315,8 @@ func (s *ApplicationSuite) assertDestroyWithReferencedRelation(c *gc.C, refresh 
 }
 
 func (s *ApplicationSuite) TestDestroyQueuesUnitCleanup(c *gc.C) {
+	objectStore := state.NewObjectStore(c, s.State.ModelUUID())
+
 	// Add 5 units; block quick-remove of mysql/1 and mysql/3
 	units := make([]*state.Unit, 5)
 	for i := range units {
@@ -3318,7 +3331,7 @@ func (s *ApplicationSuite) TestDestroyQueuesUnitCleanup(c *gc.C) {
 	s.assertNoCleanup(c)
 
 	// Destroy mysql, and check units are not touched.
-	err := s.mysql.Destroy(state.NewObjectStore(c, s.State))
+	err := s.mysql.Destroy(objectStore)
 	c.Assert(err, jc.ErrorIsNil)
 	assertLife(c, s.mysql, state.Dying)
 	for _, unit := range units {
@@ -3328,7 +3341,7 @@ func (s *ApplicationSuite) TestDestroyQueuesUnitCleanup(c *gc.C) {
 	s.assertNeedsCleanup(c)
 
 	// Run the cleanup and check the units.
-	err = s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State), fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{})
+	err = s.State.Cleanup(context.Background(), objectStore, fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{})
 	c.Assert(err, jc.ErrorIsNil)
 	for i, unit := range units {
 		if i%2 != 0 {
@@ -3340,7 +3353,7 @@ func (s *ApplicationSuite) TestDestroyQueuesUnitCleanup(c *gc.C) {
 
 	// Check for queued unit cleanups, and run them.
 	s.assertNeedsCleanup(c)
-	err = s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State), fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{})
+	err = s.State.Cleanup(context.Background(), objectStore, fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check we're now clean.
@@ -3348,17 +3361,19 @@ func (s *ApplicationSuite) TestDestroyQueuesUnitCleanup(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestRemoveApplicationMachine(c *gc.C) {
+	objectStore := state.NewObjectStore(c, s.State.ModelUUID())
+
 	unit, err := s.mysql.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unit.AssignToMachine(machine), gc.IsNil)
 
-	c.Assert(s.mysql.Destroy(state.NewObjectStore(c, s.State)), gc.IsNil)
+	c.Assert(s.mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID())), gc.IsNil)
 	assertLife(c, s.mysql, state.Dying)
 
 	// Application.Destroy adds units to cleanup, make it happen now.
-	c.Assert(s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State), fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{}), gc.IsNil)
+	c.Assert(s.State.Cleanup(context.Background(), objectStore, fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{}), gc.IsNil)
 
 	c.Assert(unit.Refresh(), jc.ErrorIs, errors.NotFound)
 	assertLife(c, machine, state.Dying)
@@ -3403,7 +3418,7 @@ func (s *ApplicationSuite) TestDestroyRemoveAlsoDeletesSecretPermissions(c *gc.C
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(access, gc.Equals, secrets.RoleView)
 
-	err = s.mysql.Destroy(state.NewObjectStore(c, s.State))
+	err = s.mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.SecretAccess(uri, s.mysql.Tag())
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
@@ -3424,7 +3439,7 @@ func (s *ApplicationSuite) TestDestroyRemoveAlsoDeletesOwnedSecrets(c *gc.C) {
 	_, err := store.CreateSecret(uri, cp)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.mysql.Destroy(state.NewObjectStore(c, s.State))
+	err = s.mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = store.GetSecret(uri)
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
@@ -3462,13 +3477,15 @@ func (s *ApplicationSuite) TestDestroyNoRemoveKeepsOwnedSecrets(c *gc.C) {
 	_, err = store.CreateSecret(uri, cp)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.mysql.Destroy(state.NewObjectStore(c, s.State))
+	err = s.mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = store.GetSecret(uri)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *ApplicationSuite) TestApplicationCleanupRemovesStorageConstraints(c *gc.C) {
+	objectStore := state.NewObjectStore(c, s.State.ModelUUID())
+
 	ch := s.AddTestingCharm(c, "storage-block")
 	storage := map[string]state.StorageConstraints{
 		"data": makeStorageCons("loop", 1024, 1),
@@ -3479,14 +3496,14 @@ func (s *ApplicationSuite) TestApplicationCleanupRemovesStorageConstraints(c *gc
 	err = u.SetCharmURL(ch.URL())
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(app.Destroy(state.NewObjectStore(c, s.State)), gc.IsNil)
+	c.Assert(app.Destroy(objectStore), gc.IsNil)
 	assertLife(c, app, state.Dying)
 	assertCleanupCount(c, s.State, 2)
 
 	// These next API calls are normally done by the uniter.
 	c.Assert(u.EnsureDead(), jc.ErrorIsNil)
-	c.Assert(u.Remove(state.NewObjectStore(c, s.State)), jc.ErrorIsNil)
-	c.Assert(s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State), fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{}), jc.ErrorIsNil)
+	c.Assert(u.Remove(objectStore), jc.ErrorIsNil)
+	c.Assert(s.State.Cleanup(context.Background(), objectStore, fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{}), jc.ErrorIsNil)
 
 	// Ensure storage constraints and settings are now gone.
 	_, err = state.AppStorageConstraints(app)
@@ -3520,7 +3537,7 @@ func (s *ApplicationSuite) TestApplicationCleanupRemovesAppFromActiveBranches(c 
 	c.Assert(ok, jc.IsTrue)
 
 	// destroy the app
-	c.Assert(app.Destroy(state.NewObjectStore(c, s.State)), gc.IsNil)
+	c.Assert(app.Destroy(state.NewObjectStore(c, s.State.ModelUUID())), gc.IsNil)
 	assertRemoved(c, s.State, app)
 
 	// Check the branch
@@ -3532,9 +3549,11 @@ func (s *ApplicationSuite) TestApplicationCleanupRemovesAppFromActiveBranches(c 
 }
 
 func (s *ApplicationSuite) TestRemoveQueuesLocalCharmCleanup(c *gc.C) {
+	objectStore := state.NewObjectStore(c, s.State.ModelUUID())
+
 	s.assertNoCleanup(c)
 
-	err := s.mysql.Destroy(state.NewObjectStore(c, s.State))
+	err := s.mysql.Destroy(objectStore)
 	c.Assert(err, jc.ErrorIsNil)
 	assertRemoved(c, s.State, s.mysql)
 
@@ -3542,7 +3561,7 @@ func (s *ApplicationSuite) TestRemoveQueuesLocalCharmCleanup(c *gc.C) {
 	s.assertNeedsCleanup(c)
 
 	// Run the cleanup
-	err = s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State), fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{})
+	err = s.State.Cleanup(context.Background(), objectStore, fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check charm removed
@@ -3556,45 +3575,47 @@ func (s *ApplicationSuite) TestRemoveQueuesLocalCharmCleanup(c *gc.C) {
 func (s *ApplicationSuite) TestDestroyQueuesResourcesCleanup(c *gc.C) {
 	s.assertNoCleanup(c)
 
+	store := state.NewObjectStore(c, s.State.ModelUUID())
+
 	// Add a resource to the application, ensuring it is stored.
-	rSt := s.State.Resources(state.NewObjectStore(c, s.State))
+	rSt := s.State.Resources(store)
 	const content = "abc"
 	res := resourcetesting.NewCharmResource(c, "blob", content)
 	outRes, err := rSt.SetResource(s.mysql.Name(), "user", res, strings.NewReader(content), state.IncrementCharmModifiedVersion)
 	c.Assert(err, jc.ErrorIsNil)
 	storagePath := state.ResourceStoragePath(c, s.State, outRes.ID)
-	c.Assert(state.IsBlobStored(c, s.State, storagePath), jc.IsTrue)
+	c.Assert(objectstoretesting.IsBlobStored(c, store, storagePath), jc.IsTrue)
 
 	// Detroy the application.
-	err = s.mysql.Destroy(state.NewObjectStore(c, s.State))
+	err = s.mysql.Destroy(store)
 	c.Assert(err, jc.ErrorIsNil)
 	assertRemoved(c, s.State, s.mysql)
 
 	// Cleanup should be registered but not yet run.
 	s.assertNeedsCleanup(c)
-	c.Assert(state.IsBlobStored(c, s.State, storagePath), jc.IsTrue)
+	c.Assert(objectstoretesting.IsBlobStored(c, store, storagePath), jc.IsTrue)
 
 	// Run the cleanup.
-	err = s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State), fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{})
+	err = s.State.Cleanup(context.Background(), store, fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check we're now clean.
 	s.assertNoCleanup(c)
-	c.Assert(state.IsBlobStored(c, s.State, storagePath), jc.IsFalse)
+	c.Assert(objectstoretesting.IsBlobStored(c, store, storagePath), jc.IsFalse)
 }
 
 func (s *ApplicationSuite) TestDestroyWithPlaceholderResources(c *gc.C) {
 	s.assertNoCleanup(c)
 
 	// Add a placeholder resource to the application.
-	rSt := s.State.Resources(state.NewObjectStore(c, s.State))
+	rSt := s.State.Resources(state.NewObjectStore(c, s.State.ModelUUID()))
 	res := resourcetesting.NewPlaceholderResource(c, "blob", s.mysql.Name())
 	outRes, err := rSt.SetResource(s.mysql.Name(), "user", res.Resource, nil, state.IncrementCharmModifiedVersion)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(outRes.IsPlaceholder(), jc.IsTrue)
 
 	// Detroy the application.
-	err = s.mysql.Destroy(state.NewObjectStore(c, s.State))
+	err = s.mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	assertRemoved(c, s.State, s.mysql)
 
@@ -3605,7 +3626,7 @@ func (s *ApplicationSuite) TestDestroyWithPlaceholderResources(c *gc.C) {
 func (s *ApplicationSuite) TestReadUnitWithChangingState(c *gc.C) {
 	// Check that reading a unit after removing the application
 	// fails nicely.
-	err := s.mysql.Destroy(state.NewObjectStore(c, s.State))
+	err := s.mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	assertRemoved(c, s.State, s.mysql)
 	_, err = s.State.Unit("mysql/0")
@@ -3641,7 +3662,7 @@ func (s *ApplicationSuite) TestConstraints(c *gc.C) {
 
 	// Destroy the existing application; there's no way to directly assert
 	// that the constraints are deleted...
-	err = s.mysql.Destroy(state.NewObjectStore(c, s.State))
+	err = s.mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	assertRemoved(c, s.State, s.mysql)
 
@@ -3674,7 +3695,7 @@ func (s *ApplicationSuite) TestArchConstraints(c *gc.C) {
 
 	// Destroy the existing application; there's no way to directly assert
 	// that the constraints are deleted...
-	err = s.mysql.Destroy(state.NewObjectStore(c, s.State))
+	err = s.mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	assertRemoved(c, s.State, s.mysql)
 
@@ -3706,8 +3727,8 @@ func (s *ApplicationSuite) TestSetUnsupportedConstraintsWarning(c *gc.C) {
 	err := s.mysql.SetConstraints(cons)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(tw.Log(), jc.LogMatches, jc.SimpleMessages{{
-		loggo.WARNING,
-		`setting constraints on application "mysql": unsupported constraints: cpu-power`},
+		Level:   loggo.WARNING,
+		Message: `setting constraints on application "mysql": unsupported constraints: cpu-power`},
 	})
 	scons, err := s.mysql.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
@@ -3715,10 +3736,12 @@ func (s *ApplicationSuite) TestSetUnsupportedConstraintsWarning(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestConstraintsLifecycle(c *gc.C) {
+	objectStore := state.NewObjectStore(c, s.State.ModelUUID())
+
 	// Dying.
 	unit, err := s.mysql.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.mysql.Destroy(state.NewObjectStore(c, s.State))
+	err = s.mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	assertLife(c, s.mysql, state.Dying)
 
@@ -3733,8 +3756,8 @@ func (s *ApplicationSuite) TestConstraintsLifecycle(c *gc.C) {
 
 	// Removed (== Dead, for a application).
 	c.Assert(unit.EnsureDead(), jc.ErrorIsNil)
-	c.Assert(unit.Remove(state.NewObjectStore(c, s.State)), jc.ErrorIsNil)
-	c.Assert(s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State), fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{}), jc.ErrorIsNil)
+	c.Assert(unit.Remove(objectStore), jc.ErrorIsNil)
+	c.Assert(s.State.Cleanup(context.Background(), objectStore, fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{}), jc.ErrorIsNil)
 	err = s.mysql.SetConstraints(cons1)
 	c.Assert(err, gc.ErrorMatches, `cannot set constraints: application is not found or not alive`)
 	_, err = s.mysql.Constraints()
@@ -3753,7 +3776,7 @@ func (s *ApplicationSuite) TestSubordinateConstraints(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestWatchUnitsBulkEvents(c *gc.C) {
-	store := state.NewObjectStore(c, s.State)
+	store := state.NewObjectStore(c, s.State.ModelUUID())
 	// Alive unit...
 	alive, err := s.mysql.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -3792,16 +3815,16 @@ func (s *ApplicationSuite) TestWatchUnitsBulkEvents(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = dying.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = dying.Remove(state.NewObjectStore(c, s.State))
+	err = dying.Remove(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
-	err = dead.Remove(state.NewObjectStore(c, s.State))
+	err = dead.Remove(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(alive.Name(), dying.Name())
 	wc.AssertNoChange()
 }
 
 func (s *ApplicationSuite) TestWatchUnitsLifecycle(c *gc.C) {
-	store := state.NewObjectStore(c, s.State)
+	store := state.NewObjectStore(c, s.State.ModelUUID())
 	// Empty initial event when no units.
 	w := s.mysql.WatchUnits()
 	defer workertest.CleanKill(c, w)
@@ -3844,7 +3867,7 @@ func (s *ApplicationSuite) TestWatchUnitsLifecycle(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Remove unit, final change not detected.
-	err = slow.Remove(state.NewObjectStore(c, s.State))
+	err = slow.Remove(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 }
@@ -3952,7 +3975,7 @@ func removeAllUnits(c *gc.C, st *state.State, s *state.Application) {
 	for _, u := range us {
 		err = u.EnsureDead()
 		c.Assert(err, jc.ErrorIsNil)
-		err = u.Remove(state.NewObjectStore(c, st))
+		err = u.Remove(state.NewObjectStore(c, st.ModelUUID()))
 		c.Assert(err, jc.ErrorIsNil)
 	}
 }
@@ -3983,7 +4006,7 @@ func (s *ApplicationSuite) TestWatchApplication(c *gc.C) {
 		CharmOrigin: defaultCharmOrigin(s.charm.URL()),
 		ForceUnits:  true,
 	}
-	err = application.SetCharm(cfg, state.NewObjectStore(c, s.State))
+	err = application.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
@@ -3992,7 +4015,7 @@ func (s *ApplicationSuite) TestWatchApplication(c *gc.C) {
 	wc.AssertClosed()
 
 	// Remove application, start new watch, check single event.
-	err = application.Destroy(state.NewObjectStore(c, s.State))
+	err = application.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	// The destruction needs to have been processed by the txn watcher before the
 	// watcher in the test is started or the destroy notification may come through
@@ -4018,7 +4041,7 @@ func (s *ApplicationSuite) TestMetricCredentialsOnDying(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.mysql.SetMetricCredentials([]byte("set before dying"))
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.mysql.Destroy(state.NewObjectStore(c, s.State))
+	err = s.mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	assertLife(c, s.mysql, state.Dying)
 	err = s.mysql.SetMetricCredentials([]byte("set after dying"))
@@ -4130,7 +4153,7 @@ func (s *ApplicationSuite) setCharmFromMeta(c *gc.C, oldMeta, newMeta string) er
 		Charm:       newCh,
 		CharmOrigin: defaultCharmOrigin(newCh.URL()),
 	}
-	return app.SetCharm(cfg, state.NewObjectStore(c, s.State))
+	return app.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
 }
 
 func (s *ApplicationSuite) TestSetCharmOptionalUnusedStorageRemoved(c *gc.C) {
@@ -4165,7 +4188,7 @@ func (s *ApplicationSuite) TestSetCharmOptionalUsedStorageRemoved(c *gc.C) {
 		Charm:       newCh,
 		CharmOrigin: defaultCharmOrigin(newCh.URL()),
 	}
-	err := app.SetCharm(cfg, state.NewObjectStore(c, s.State))
+	err := app.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "test" to charm "local:quantal/quantal-mysql-3": in-use storage "data1" removed`)
 }
 
@@ -4188,7 +4211,7 @@ func (s *ApplicationSuite) TestSetCharmRequiredStorageAddedDefaultConstraints(c 
 		Charm:       newCh,
 		CharmOrigin: defaultCharmOrigin(newCh.URL()),
 	}
-	err = app.SetCharm(cfg, state.NewObjectStore(c, s.State))
+	err = app.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that the new required storage was added for the unit.
@@ -4213,7 +4236,7 @@ func (s *ApplicationSuite) TestSetCharmStorageAddedUserSpecifiedConstraints(c *g
 			"data1": {Count: 3},
 		},
 	}
-	err = app.SetCharm(cfg, state.NewObjectStore(c, s.State))
+	err = app.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that new storage was added for the unit, based on the
@@ -4308,7 +4331,7 @@ func (s *ApplicationSuite) TestSetCharmStorageWithLocationSingletonToMultipleAdd
 
 func (s *ApplicationSuite) assertApplicationRemovedWithItsBindings(c *gc.C, application *state.Application) {
 	// Removing the application removes the bindings with it.
-	err := application.Destroy(state.NewObjectStore(c, s.State))
+	err := application.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	err = application.Refresh()
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
@@ -4407,7 +4430,7 @@ func (s *ApplicationSuite) TestSetCharmExtraBindingsUseDefaults(c *gc.C) {
 		Charm:       newCharm,
 		CharmOrigin: defaultCharmOrigin(newCharm.URL()),
 	}
-	err = application.SetCharm(cfg, state.NewObjectStore(c, s.State))
+	err = application.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	setBindings, err = application.EndpointBindings()
 	c.Assert(err, jc.ErrorIsNil)
@@ -4439,7 +4462,7 @@ func (s *ApplicationSuite) TestSetCharmHandlesMissingBindingsAsDefaults(c *gc.C)
 		Charm:       newCharm,
 		CharmOrigin: defaultCharmOrigin(newCharm.URL()),
 	}
-	err := app.SetCharm(cfg, state.NewObjectStore(c, s.State))
+	err := app.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	setBindings, err := app.EndpointBindings()
 	c.Assert(err, jc.ErrorIsNil)
@@ -4467,7 +4490,7 @@ peers:
 `
 	originalCharm := s.AddMetaCharm(c, "mysql", originalCharmMeta, 2)
 	cfg := state.SetCharmConfig{Charm: originalCharm, CharmOrigin: defaultCharmOrigin(originalCharm.URL())}
-	err = s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State))
+	err = s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertApplicationRelations(c, s.mysql, "mysql:replication")
 	deployedV = s.mysql.CharmModifiedVersion()
@@ -4486,7 +4509,7 @@ peers:
 	updatedCharm := s.AddMetaCharm(c, "mysql", updatedCharmMeta, 3)
 
 	cfg = state.SetCharmConfig{Charm: updatedCharm, CharmOrigin: defaultCharmOrigin(updatedCharm.URL())}
-	err = s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State))
+	err = s.mysql.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
 	return
 }
 
@@ -4540,7 +4563,7 @@ func (s *ApplicationSuite) TestWatchCharmConfig(c *gc.C) {
 
 	// Change application's charm; nothing detected.
 	newCharm := s.AddConfigCharm(c, "wordpress", stringConfig, 123)
-	err = app.SetCharm(state.SetCharmConfig{Charm: newCharm, CharmOrigin: defaultCharmOrigin(newCharm.URL())}, state.NewObjectStore(c, s.State))
+	err = app.SetCharm(state.SetCharmConfig{Charm: newCharm, CharmOrigin: defaultCharmOrigin(newCharm.URL())}, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
@@ -4620,7 +4643,7 @@ func (s *ApplicationSuite) TestUpdateApplicationConfig(c *gc.C) {
 			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(cfg, gc.DeepEquals, t.expect)
 		}
-		err = app.Destroy(state.NewObjectStore(c, s.State))
+		err = app.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 		c.Assert(err, jc.ErrorIsNil)
 	}
 }
@@ -4702,7 +4725,7 @@ func sampleApplicationConfigSchema() environschema.Fields {
 func (s *ApplicationSuite) TestUpdateApplicationConfigWithDyingApplication(c *gc.C) {
 	_, err := s.mysql.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.mysql.Destroy(state.NewObjectStore(c, s.State))
+	err = s.mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	assertLife(c, s.mysql, state.Dying)
 	err = s.mysql.UpdateApplicationConfig(config.ConfigAttributes{"title": "value"}, nil, sampleApplicationConfigSchema(), nil)
@@ -4717,7 +4740,7 @@ func (s *ApplicationSuite) TestDestroyApplicationRemovesConfig(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(appConfig.Map(), gc.Not(gc.HasLen), 0)
 
-	op := s.mysql.DestroyOperation(state.NewObjectStore(c, s.State))
+	op := s.mysql.DestroyOperation(state.NewObjectStore(c, s.State.ModelUUID()))
 	op.RemoveOffers = true
 	err = s.State.ApplyOperation(op)
 	c.Assert(err, jc.ErrorIsNil)
@@ -4764,12 +4787,12 @@ func (s *CAASApplicationSuite) assertUpdateCAASUnits(c *gc.C, aliveApp bool) {
 	noContainerUnit, err := s.app.AddUnit(state.AddUnitParams{ProviderId: strPtr("never-cloud-container")})
 	c.Assert(err, jc.ErrorIsNil)
 	if !aliveApp {
-		err := s.app.Destroy(state.NewObjectStore(c, s.State))
+		err := s.app.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
 	var updateUnits state.UpdateUnitsOperation
-	updateUnits.Deletes = []*state.DestroyUnitOperation{removedUnit.DestroyOperation(state.NewObjectStore(c, s.caasSt))}
+	updateUnits.Deletes = []*state.DestroyUnitOperation{removedUnit.DestroyOperation(state.NewObjectStore(c, s.caasSt.ModelUUID()))}
 	updateUnits.Adds = []*state.AddUnitOperation{
 		s.app.AddOperation(state.UnitUpdateProperties{
 			ProviderId: strPtr("new-unit-uuid"),
@@ -5021,7 +5044,7 @@ func (s *CAASApplicationSuite) TestRemoveApplicationDeletesServiceInfo(c *gc.C) 
 
 	err := s.app.UpdateCloudService("id", addrs)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.app.Destroy(state.NewObjectStore(c, s.State))
+	err = s.app.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.app.ClearResources()
 	c.Assert(err, jc.ErrorIsNil)
@@ -5113,7 +5136,7 @@ func (s *CAASApplicationSuite) TestWatchScale(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
-	err = s.app.Destroy(state.NewObjectStore(c, s.State))
+	err = s.app.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 }
@@ -5144,7 +5167,7 @@ func (s *CAASApplicationSuite) TestWatchCloudService(c *gc.C) {
 	wc.AssertClosed()
 
 	// Remove service by removing app, start new watch, check single event.
-	err = s.app.Destroy(state.NewObjectStore(c, s.State))
+	err = s.app.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 	w = cloudSvc.Watch()
@@ -5208,7 +5231,7 @@ func (s *CAASApplicationSuite) TestClearResources(c *gc.C) {
 	c.Assert(state.GetApplicationHasResources(s.app), jc.IsTrue)
 	err := s.app.ClearResources()
 	c.Assert(err, gc.ErrorMatches, `application "gitlab" is alive`)
-	err = s.app.Destroy(state.NewObjectStore(c, s.State))
+	err = s.app.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	assertCleanupCount(c, s.caasSt, 1)
 
@@ -5223,7 +5246,7 @@ func (s *CAASApplicationSuite) TestClearResources(c *gc.C) {
 }
 
 func (s *CAASApplicationSuite) TestDestroySimple(c *gc.C) {
-	err := s.app.Destroy(state.NewObjectStore(c, s.State))
+	err := s.app.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	// App not removed since cluster resources not cleaned up yet.
 	c.Assert(s.app.Life(), gc.Equals, state.Dead)
@@ -5233,7 +5256,7 @@ func (s *CAASApplicationSuite) TestDestroySimple(c *gc.C) {
 }
 
 func (s *CAASApplicationSuite) TestForceDestroyQueuesForceCleanup(c *gc.C) {
-	op := s.app.DestroyOperation(state.NewObjectStore(c, s.State))
+	op := s.app.DestroyOperation(state.NewObjectStore(c, s.State.ModelUUID()))
 	op.Force = true
 	err := s.caasSt.ApplyOperation(op)
 	c.Assert(err, jc.ErrorIsNil)
@@ -5250,14 +5273,14 @@ func (s *CAASApplicationSuite) TestForceDestroyQueuesForceCleanup(c *gc.C) {
 func (s *CAASApplicationSuite) TestDestroyStillHasUnits(c *gc.C) {
 	unit, err := s.app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.app.Destroy(state.NewObjectStore(c, s.State))
+	err = s.app.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.app.Life(), gc.Equals, state.Dying)
 
 	c.Assert(unit.EnsureDead(), jc.ErrorIsNil)
 	assertLife(c, s.app, state.Dying)
 
-	c.Assert(unit.Remove(state.NewObjectStore(c, s.State)), jc.ErrorIsNil)
+	c.Assert(unit.Remove(state.NewObjectStore(c, s.State.ModelUUID())), jc.ErrorIsNil)
 	assertCleanupCount(c, s.caasSt, 1)
 	// App not removed since cluster resources not cleaned up yet.
 	assertLife(c, s.app, state.Dead)
@@ -5268,10 +5291,10 @@ func (s *CAASApplicationSuite) TestDestroyOnceHadUnits(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = unit.Remove(state.NewObjectStore(c, s.State))
+	err = unit.Remove(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.app.Destroy(state.NewObjectStore(c, s.State))
+	err = s.app.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.app.Life(), gc.Equals, state.Dead)
 	// App not removed since cluster resources not cleaned up yet.
@@ -5285,10 +5308,10 @@ func (s *CAASApplicationSuite) TestDestroyStaleNonZeroUnitCount(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = unit.Remove(state.NewObjectStore(c, s.State))
+	err = unit.Remove(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.app.Destroy(state.NewObjectStore(c, s.State))
+	err = s.app.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.app.Life(), gc.Equals, state.Dead)
 	// App not removed since cluster resources not cleaned up yet.
@@ -5299,7 +5322,7 @@ func (s *CAASApplicationSuite) TestDestroyStaleZeroUnitCount(c *gc.C) {
 	unit, err := s.app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.app.Destroy(state.NewObjectStore(c, s.State))
+	err = s.app.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.app.Life(), gc.Equals, state.Dying)
 	assertLife(c, s.app, state.Dying)
@@ -5308,7 +5331,7 @@ func (s *CAASApplicationSuite) TestDestroyStaleZeroUnitCount(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	assertLife(c, s.app, state.Dying)
 
-	c.Assert(unit.Remove(state.NewObjectStore(c, s.State)), jc.ErrorIsNil)
+	c.Assert(unit.Remove(state.NewObjectStore(c, s.State.ModelUUID())), jc.ErrorIsNil)
 	assertCleanupCount(c, s.caasSt, 1)
 	c.Assert(err, jc.ErrorIsNil)
 	// App not removed since cluster resources not cleaned up yet.
@@ -5317,7 +5340,7 @@ func (s *CAASApplicationSuite) TestDestroyStaleZeroUnitCount(c *gc.C) {
 
 func (s *CAASApplicationSuite) TestDestroyWithRemovableRelation(c *gc.C) {
 	ch := state.AddTestingCharmForSeries(c, s.caasSt, "focal", "mysql-k8s")
-	mysql := state.AddTestingApplicationForBase(c, s.caasSt, state.UbuntuBase("20.04"), "mysql", ch)
+	mysql := state.AddTestingApplicationForBase(c, s.caasSt, s.objectStore, state.UbuntuBase("20.04"), "mysql", ch)
 	eps, err := s.caasSt.InferEndpoints("gitlab", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.caasSt.AddRelation(eps...)
@@ -5325,7 +5348,7 @@ func (s *CAASApplicationSuite) TestDestroyWithRemovableRelation(c *gc.C) {
 
 	// Destroy a application with no units in relation scope; check application and
 	// unit removed.
-	err = mysql.Destroy(state.NewObjectStore(c, s.State))
+	err = mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	err = mysql.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
@@ -5346,14 +5369,14 @@ func (s *CAASApplicationSuite) TestDestroyWithReferencedRelationStaleCount(c *gc
 
 func (s *CAASApplicationSuite) assertDestroyWithReferencedRelation(c *gc.C, refresh bool) {
 	ch := state.AddTestingCharmForSeries(c, s.caasSt, "focal", "mysql-k8s")
-	mysql := state.AddTestingApplicationForBase(c, s.caasSt, state.UbuntuBase("20.04"), "mysql", ch)
+	mysql := state.AddTestingApplicationForBase(c, s.caasSt, s.objectStore, state.UbuntuBase("20.04"), "mysql", ch)
 	eps, err := s.caasSt.InferEndpoints("gitlab", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	rel0, err := s.caasSt.AddRelation(eps...)
 	c.Assert(err, jc.ErrorIsNil)
 
 	ch = state.AddTestingCharmForSeries(c, s.caasSt, "focal", "proxy-k8s")
-	state.AddTestingApplicationForBase(c, s.caasSt, state.UbuntuBase("20.04"), "proxy", ch)
+	state.AddTestingApplicationForBase(c, s.caasSt, s.objectStore, state.UbuntuBase("20.04"), "proxy", ch)
 	eps, err = s.caasSt.InferEndpoints("proxy", "gitlab")
 	c.Assert(err, jc.ErrorIsNil)
 	rel1, err := s.caasSt.AddRelation(eps...)
@@ -5369,12 +5392,12 @@ func (s *CAASApplicationSuite) assertDestroyWithReferencedRelation(c *gc.C, refr
 
 	// Optionally update the application document to get correct relation counts.
 	if refresh {
-		err = s.app.Destroy(state.NewObjectStore(c, s.State))
+		err = s.app.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
 	// Destroy, and check that the first relation becomes Dying...
-	c.Assert(s.app.Destroy(state.NewObjectStore(c, s.State)), jc.ErrorIsNil)
+	c.Assert(s.app.Destroy(state.NewObjectStore(c, s.State.ModelUUID())), jc.ErrorIsNil)
 	assertLife(c, rel0, state.Dying)
 
 	// ...while the second is removed directly.
@@ -5410,7 +5433,7 @@ func (s *CAASApplicationSuite) TestDestroyQueuesUnitCleanup(c *gc.C) {
 	assertDoesNotNeedCleanup(c, s.caasSt)
 
 	// Destroy gitlab, and check units are not touched.
-	err := s.app.Destroy(state.NewObjectStore(c, s.State))
+	err := s.app.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	assertLife(c, s.app, state.Dying)
 	for _, unit := range units {
@@ -5485,7 +5508,7 @@ func (s *ApplicationSuite) TestCharmLegacyNoOSInvalid(c *gc.C) {
 				Channel: "22.04/stable",
 			},
 		},
-	}, mockApplicationSaver{}, state.NewObjectStore(c, s.State))
+	}, mockApplicationSaver{}, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, gc.ErrorMatches, `.*charm does not define any bases`)
 }
 
@@ -5574,7 +5597,7 @@ func (s *ApplicationSuite) TestWatchApplicationsWithPendingCharms(c *gc.C) {
 	err = s.mysql.SetCharm(state.SetCharmConfig{
 		Charm:       ch2,
 		CharmOrigin: twoOrigin,
-	}, state.NewObjectStore(c, s.State))
+	}, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(s.mysql.Name())
 
@@ -5590,7 +5613,7 @@ func (s *ApplicationSuite) TestWatchApplicationsWithPendingCharms(c *gc.C) {
 	err = s.mysql.SetCharm(state.SetCharmConfig{
 		Charm:       ch3,
 		CharmOrigin: threeOrigin,
-	}, state.NewObjectStore(c, s.State))
+	}, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 	origin := &state.CharmOrigin{
@@ -5606,7 +5629,7 @@ func (s *ApplicationSuite) TestWatchApplicationsWithPendingCharms(c *gc.C) {
 		Name:        "mysql-testing",
 		Charm:       ch3,
 		CharmOrigin: origin,
-	}, mockApplicationSaver{}, state.NewObjectStore(c, s.State))
+	}, mockApplicationSaver{}, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(appSameCharm.Name())
 	origin.ID = "charm-hub-id"
@@ -5614,7 +5637,7 @@ func (s *ApplicationSuite) TestWatchApplicationsWithPendingCharms(c *gc.C) {
 	_ = appSameCharm.SetCharm(state.SetCharmConfig{
 		Charm:       ch3,
 		CharmOrigin: origin,
-	}, state.NewObjectStore(c, s.State))
+	}, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 }
@@ -5736,7 +5759,7 @@ func (s *CAASApplicationSuite) TestUpsertCAASUnit(c *gc.C) {
 	c.Assert(storageTag.Id(), gc.Equals, "database/0")
 
 	ch := state.AddTestingCharmForSeries(c, st, "quantal", "cockroachdb")
-	cockroachdb := state.AddTestingApplicationWithStorage(c, st, "cockroachdb", ch, map[string]state.StorageConstraints{
+	cockroachdb := state.AddTestingApplicationWithStorage(c, st, s.objectStore, "cockroachdb", ch, map[string]state.StorageConstraints{
 		"database": {
 			Pool:  "kubernetes",
 			Size:  100,
@@ -5782,7 +5805,7 @@ func (s *CAASApplicationSuite) TestUpsertCAASUnit(c *gc.C) {
 	c.Assert(containerInfo.Ports(), jc.SameContents, []string{"80", "443"})
 	c.Assert(containerInfo.Address().Value, gc.Equals, "1.2.3.4")
 
-	err = unit.Destroy(state.NewObjectStore(c, s.State))
+	err = unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = sb.DetachStorage(storageTag, unit.UnitTag(), false, 0)
@@ -5805,10 +5828,10 @@ func (s *CAASApplicationSuite) TestUpsertCAASUnit(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `dead unit "cockroachdb/0" already exists`)
 	c.Assert(unit2, gc.IsNil)
 
-	err = unit.Remove(state.NewObjectStore(c, s.State))
+	err = unit.Remove(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = st.Cleanup(context.Background(), state.NewObjectStore(c, s.State), fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{})
+	err = st.Cleanup(context.Background(), state.NewObjectStore(c, s.State.ModelUUID()), fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	unit, err = cockroachdb.UpsertCAASUnit(p)

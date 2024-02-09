@@ -4,12 +4,10 @@
 package testing
 
 import (
-	"bytes"
 	"context"
 	"crypto/tls"
 	"database/sql"
 	"fmt"
-	"io"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -62,9 +60,12 @@ import (
 	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/internal/mongo/mongotest"
 	internalobjectstore "github.com/juju/juju/internal/objectstore"
+	objectstoretesting "github.com/juju/juju/internal/objectstore/testing"
 	"github.com/juju/juju/internal/pubsub/centralhub"
+	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/internal/worker/lease"
 	wmultiwatcher "github.com/juju/juju/internal/worker/multiwatcher"
+	workerobjectstore "github.com/juju/juju/internal/worker/objectstore"
 	"github.com/juju/juju/jujuclient"
 	_ "github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
@@ -131,9 +132,10 @@ type ApiServerSuite struct {
 	ControllerModelConfigAttrs map[string]interface{}
 
 	// These are exposed for the tests to use.
-	Server       *apiserver.Server
-	LeaseManager *lease.Manager
-	Clock        testclock.AdvanceableClock
+	Server            *apiserver.Server
+	LeaseManager      *lease.Manager
+	ObjectStoreGetter workerobjectstore.ObjectStoreGetter
+	Clock             testclock.AdvanceableClock
 
 	// These attributes are set before SetUpTest to indicate we want to
 	// set up the api server with real components instead of stubs.
@@ -314,9 +316,6 @@ func (s *ApiServerSuite) setupApiServer(c *gc.C, controllerCfg controller.Config
 	cfg.ServiceFactoryGetter = s.ServiceFactoryGetter(c)
 	cfg.StatePool = s.controller.StatePool()
 	cfg.PublicDNSName = controllerCfg.AutocertDNSName()
-	cfg.ObjectStoreGetter = &stubObjectStoreGetter{
-		statePool: s.controller.StatePool(),
-	}
 
 	cfg.UpgradeComplete = func() bool {
 		return !s.WithUpgrading
@@ -327,12 +326,6 @@ func (s *ApiServerSuite) setupApiServer(c *gc.C, controllerCfg controller.Config
 		}
 		return auditlog.Config{Enabled: false}
 	}
-	if s.WithLeaseManager {
-		leaseManager, err := leaseManager(coretesting.ControllerTag.Id(), databasetesting.SingularDBGetter(s.TxnRunner()), s.Clock)
-		c.Assert(err, jc.ErrorIsNil)
-		cfg.LeaseManager = leaseManager
-		s.LeaseManager = leaseManager
-	}
 	if s.WithMultiWatcher {
 		cfg.MultiwatcherFactory = multiWatcher(c, cfg.StatePool, s.Clock)
 	}
@@ -342,6 +335,19 @@ func (s *ApiServerSuite) setupApiServer(c *gc.C, controllerCfg controller.Config
 	if s.WithEmbeddedCLICommand != nil {
 		cfg.ExecEmbeddedCommand = s.WithEmbeddedCLICommand
 	}
+	if s.WithLeaseManager {
+		leaseManager, err := leaseManager(coretesting.ControllerTag.Id(), databasetesting.SingularDBGetter(s.TxnRunner()), s.Clock)
+		c.Assert(err, jc.ErrorIsNil)
+		cfg.LeaseManager = leaseManager
+		s.LeaseManager = leaseManager
+	}
+
+	cfg.ObjectStoreGetter = &stubObjectStoreGetter{
+		rootDir:              c.MkDir(),
+		claimer:              objectstoretesting.MemoryClaimer(),
+		serviceFactoryGetter: cfg.ServiceFactoryGetter,
+	}
+	s.ObjectStoreGetter = cfg.ObjectStoreGetter
 
 	// Set up auth handler.
 	authenticator, err := stateauthenticator.NewAuthenticator(cfg.StatePool, s.ControllerServiceFactory(c).ControllerConfig(), cfg.Clock)
@@ -416,6 +422,13 @@ func (s *ApiServerSuite) URL(path string, queryParams url.Values) *url.URL {
 	url.Path = path
 	url.RawQuery = queryParams.Encode()
 	return &url
+}
+
+// ObjectStore returns the object store for the given model uuid.
+func (s *ApiServerSuite) ObjectStore(c *gc.C, uuid string) objectstore.ObjectStore {
+	store, err := s.ObjectStoreGetter.GetObjectStore(context.Background(), uuid)
+	c.Assert(err, jc.ErrorIsNil)
+	return store
 }
 
 // openAPIAs opens the API and ensures that the api.Connection returned will be
@@ -656,41 +669,30 @@ func (s *stubTracerGetter) GetTracer(ctx context.Context, namespace trace.Tracer
 }
 
 type stubObjectStoreGetter struct {
-	statePool *state.StatePool
+	rootDir              string
+	claimer              internalobjectstore.Claimer
+	serviceFactoryGetter servicefactory.ServiceFactoryGetter
 }
 
 func (s *stubObjectStoreGetter) GetObjectStore(ctx context.Context, namespace string) (objectstore.ObjectStore, error) {
-	// If no statePool is provided, then fallback to a stub implementation.
-	if s.statePool == nil {
-		return &stubObjectStore{}, nil
-	}
+	serviceFactory := s.serviceFactoryGetter.FactoryForModel(namespace)
 
-	// If a statePool is provided, use the actual object store logic to
-	// serve the files.
-	state, err := s.statePool.Get(namespace)
-	if err != nil {
-		return nil, err
-	}
-
-	return internalobjectstore.ObjectStoreFactory(ctx, internalobjectstore.DefaultBackendType(), namespace, internalobjectstore.WithMongoSession(state))
+	return internalobjectstore.ObjectStoreFactory(ctx,
+		internalobjectstore.DefaultBackendType(),
+		namespace,
+		internalobjectstore.WithRootDir(s.rootDir),
+		internalobjectstore.WithMetadataService(&stubMetadataService{serviceFactory: serviceFactory}),
+		internalobjectstore.WithClaimer(s.claimer),
+		internalobjectstore.WithLogger(loggo.GetLogger("juju.objectstore")),
+	)
 }
 
-type stubObjectStore struct{}
-
-func (s *stubObjectStore) Get(context.Context, string) (io.ReadCloser, int64, error) {
-	return io.NopCloser(bytes.NewBufferString("")), 0, nil
+type stubMetadataService struct {
+	serviceFactory servicefactory.ServiceFactory
 }
 
-func (s *stubObjectStore) Put(ctx context.Context, path string, r io.Reader, length int64) error {
-	return nil
-}
-
-func (s *stubObjectStore) PutAndCheckHash(ctx context.Context, path string, r io.Reader, size int64, hash string) error {
-	return nil
-}
-
-func (s *stubObjectStore) Remove(ctx context.Context, path string) error {
-	return nil
+func (s *stubMetadataService) ObjectStore() objectstore.ObjectStoreMetadata {
+	return s.serviceFactory.ObjectStore()
 }
 
 type stubWatchableDB struct {

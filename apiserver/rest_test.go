@@ -22,7 +22,6 @@ import (
 	apitesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/crossmodel"
 	applicationservice "github.com/juju/juju/domain/application/service"
-	"github.com/juju/juju/juju/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -130,6 +129,8 @@ func (s *restSuite) TestGetRemoteApplicationIcon(c *gc.C) {
 	})
 	apitesting.AssertResponse(c, resp, http.StatusOK, "application/json")
 
+	store := s.ObjectStore(c, s.ControllerModelUUID())
+
 	curl := fmt.Sprintf("local:quantal/%s-%d", ch.Meta().Name, ch.Revision())
 	mysqlCh, err := s.ControllerModel(c).State().Charm(curl)
 	c.Assert(err, jc.ErrorIsNil)
@@ -137,7 +138,7 @@ func (s *restSuite) TestGetRemoteApplicationIcon(c *gc.C) {
 		Name:        "mysql",
 		Charm:       mysqlCh,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{OS: "ubuntu", Channel: "22.04/stable"}},
-	}, mockApplicationSaver{}, testing.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State()))
+	}, mockApplicationSaver{}, store)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Add an offer for the application.
@@ -159,7 +160,7 @@ func (s *restSuite) TestGetRemoteApplicationIcon(c *gc.C) {
 		Name:        "dummy",
 		Charm:       dummyCh,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{OS: "ubuntu", Channel: "22.04/stable"}},
-	}, mockApplicationSaver{}, testing.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State()))
+	}, mockApplicationSaver{}, store)
 	c.Assert(err, jc.ErrorIsNil)
 	offer2, err := offers.AddOffer(crossmodel.AddApplicationOfferArgs{
 		OfferName:       "notfound-remote-app-offer",

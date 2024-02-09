@@ -106,13 +106,13 @@ func (s *binaryStorage) Add(ctx context.Context, r io.Reader, metadata Metadata)
 				return nil, err
 			}
 			oldPath = oldDoc.Path
-			op.Assert = bson.D{{"path", oldPath}}
+			op.Assert = bson.D{{Name: "path", Value: oldPath}}
 			if oldPath != path {
 				op.Update = bson.D{{
-					"$set", bson.D{
-						{"size", metadata.Size},
-						{"sha256", metadata.SHA256},
-						{"path", path},
+					Name: "$set", Value: bson.D{
+						{Name: "size", Value: metadata.Size},
+						{Name: "sha256", Value: metadata.SHA256},
+						{Name: "path", Value: path},
 					},
 				}}
 			}
@@ -139,11 +139,11 @@ func (s *binaryStorage) Add(ctx context.Context, r io.Reader, metadata Metadata)
 func (s *binaryStorage) Open(ctx context.Context, version string) (Metadata, io.ReadCloser, error) {
 	metadataDoc, err := s.findMetadata(version)
 	if err != nil {
-		return Metadata{}, nil, err
+		return Metadata{}, nil, errors.Trace(err)
 	}
 	r, _, err := s.managedStorage.Get(ctx, metadataDoc.Path)
 	if err != nil {
-		return Metadata{}, nil, err
+		return Metadata{}, nil, errors.Annotatef(err, "resource at %q", metadataDoc.Path)
 	}
 	metadata := Metadata{
 		Version: metadataDoc.Version,

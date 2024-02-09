@@ -19,7 +19,6 @@ import (
 	controllerconfigservice "github.com/juju/juju/domain/controllerconfig/service"
 	internalobjectstore "github.com/juju/juju/internal/objectstore"
 	"github.com/juju/juju/internal/servicefactory"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 )
 
@@ -36,9 +35,6 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 	c.Check(cfg.Validate(), jc.ErrorIsNil)
 
 	cfg.AgentName = ""
-	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
-
-	cfg.StateName = ""
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	cfg.TraceName = ""
@@ -70,7 +66,6 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 func (s *manifoldSuite) getConfig() ManifoldConfig {
 	return ManifoldConfig{
 		AgentName:          "agent",
-		StateName:          "state",
 		TraceName:          "trace",
 		ServiceFactoryName: "service-factory",
 		LeaseManagerName:   "lease-manager",
@@ -93,7 +88,6 @@ func (s *manifoldSuite) newGetter() dependency.Getter {
 	resources := map[string]any{
 		"agent":           s.agent,
 		"trace":           &stubTracerGetter{},
-		"state":           s.stateTracker,
 		"service-factory": &stubServiceFactoryGetter{},
 		"lease-manager":   s.leaseManager,
 		"s3-client":       s.s3Client,
@@ -101,7 +95,7 @@ func (s *manifoldSuite) newGetter() dependency.Getter {
 	return dependencytesting.StubGetter(resources)
 }
 
-var expectedInputs = []string{"agent", "state", "trace", "service-factory", "lease-manager", "s3-client"}
+var expectedInputs = []string{"agent", "trace", "service-factory", "lease-manager", "s3-client"}
 
 func (s *manifoldSuite) TestInputs(c *gc.C) {
 	c.Assert(Manifold(s.getConfig()).Inputs, jc.SameContents, expectedInputs)
@@ -110,18 +104,12 @@ func (s *manifoldSuite) TestInputs(c *gc.C) {
 func (s *manifoldSuite) TestStart(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectStateTracker()
 	s.expectAgentConfig(c)
 	s.expectControllerConfig()
 
 	w, err := Manifold(s.getConfig()).Start(context.Background(), s.newGetter())
 	c.Assert(err, jc.ErrorIsNil)
 	workertest.CleanKill(c, w)
-}
-
-func (s *manifoldSuite) expectStateTracker() {
-	s.stateTracker.EXPECT().Use().Return(&state.StatePool{}, &state.State{}, nil)
-	s.stateTracker.EXPECT().Done()
 }
 
 func (s *manifoldSuite) expectAgentConfig(c *gc.C) {

@@ -167,7 +167,7 @@ func (s *resourcesUploadSuite) TestUpload(c *gc.C) {
 	c.Check(outResp.ID, gc.Not(gc.Equals), "")
 	c.Check(outResp.Timestamp.IsZero(), jc.IsFalse)
 
-	store := testing.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State())
+	store := s.ObjectStore(c, s.ControllerModelUUID())
 	rSt := s.importingState.Resources(store)
 	res, reader, err := rSt.OpenResource(s.appName, "bin")
 	c.Assert(err, jc.ErrorIsNil)
@@ -204,7 +204,7 @@ func (s *resourcesUploadSuite) TestPlaceholder(c *gc.C) {
 	c.Check(outResp.ID, gc.Not(gc.Equals), "")
 	c.Check(outResp.Timestamp.IsZero(), jc.IsTrue)
 
-	store := testing.NewObjectStore(c, s.importingState.ModelUUID(), s.importingState)
+	store := testing.NewObjectStore(c, s.importingState.ModelUUID())
 	rSt := s.importingState.Resources(store)
 	res, err := rSt.GetResource(s.appName, "bin")
 	c.Assert(err, jc.ErrorIsNil)

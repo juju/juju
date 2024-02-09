@@ -69,7 +69,7 @@ func (s *uniterGoalStateSuite) SetUpTest(c *gc.C) {
 
 	s.uniter = s.newUniterAPI(c, s.ControllerModel(c).State(), s.authorizer)
 
-	s.store = testing.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State())
+	s.store = testing.NewObjectStore(c, s.ControllerModelUUID())
 }
 
 var (

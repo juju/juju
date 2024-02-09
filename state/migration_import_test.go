@@ -68,7 +68,7 @@ func (s *MigrationImportSuite) checkStatusHistory(c *gc.C, exported, imported st
 }
 
 func (s *MigrationImportSuite) TestExisting(c *gc.C) {
-	out, err := s.State.Export(map[string]string{}, state.NewObjectStore(c, s.State))
+	out, err := s.State.Export(map[string]string{}, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	ctrlCfg := coretesting.FakeControllerConfig()
@@ -80,7 +80,7 @@ func (s *MigrationImportSuite) TestExisting(c *gc.C) {
 func (s *MigrationImportSuite) importModel(
 	c *gc.C, st *state.State, transform ...func(map[string]interface{}),
 ) (*state.Model, *state.State) {
-	desc, err := st.Export(map[string]string{}, state.NewObjectStore(c, s.State))
+	desc, err := st.Export(map[string]string{}, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	return s.importModelDescription(c, desc, transform...)
 }
@@ -154,7 +154,7 @@ func (s *MigrationImportSuite) TestNewModel(c *gc.C) {
 	err = s.Model.SetAnnotations(original, testAnnotations)
 	c.Assert(err, jc.ErrorIsNil)
 
-	out, err := s.State.Export(map[string]string{}, state.NewObjectStore(c, s.State))
+	out, err := s.State.Export(map[string]string{}, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	uuid := utils.MustNewUUID().String()
@@ -605,7 +605,7 @@ func (s *MigrationImportSuite) assertImportedApplication(
 	// Can't test the constraints directly, so go through the string repr.
 	c.Assert(newCons.String(), gc.Equals, cons.String())
 
-	rSt := newSt.Resources(state.NewObjectStore(c, newSt))
+	rSt := newSt.Resources(state.NewObjectStore(c, newSt.ModelUUID()))
 	resources, err := rSt.ListResources(imported.Name())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(resources.Resources, gc.HasLen, 3)
@@ -984,7 +984,7 @@ func (s *MigrationImportSuite) TestCharmRevSequencesNotImported(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(nextVal, gc.Equals, 3)
 
-	out, err := s.State.Export(map[string]string{}, state.NewObjectStore(c, s.State))
+	out, err := s.State.Export(map[string]string{}, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(len(out.Applications()), gc.Equals, 1)
@@ -1049,7 +1049,7 @@ func (s *MigrationImportSuite) TestApplicationsSubordinatesAfter(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
-	out, err := s.State.Export(map[string]string{}, state.NewObjectStore(c, s.State))
+	out, err := s.State.Export(map[string]string{}, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	apps := out.Applications()
@@ -1308,8 +1308,8 @@ func (s *MigrationImportSuite) TestRelationNetworks(c *gc.C) {
 }
 
 func (s *MigrationImportSuite) TestRelations(c *gc.C) {
-	wordpress := state.AddTestingApplication(c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"))
-	state.AddTestingApplication(c, s.State, "mysql", state.AddTestingCharm(c, s.State, "mysql"))
+	wordpress := state.AddTestingApplication(c, s.State, s.objectStore, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"))
+	state.AddTestingApplication(c, s.State, s.objectStore, "mysql", state.AddTestingCharm(c, s.State, "mysql"))
 	eps, err := s.State.InferEndpoints("mysql", "wordpress")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1368,7 +1368,7 @@ func (s *MigrationImportSuite) TestCMRRemoteRelationScope(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	wordpress := state.AddTestingApplication(c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"))
+	wordpress := state.AddTestingApplication(c, s.State, s.objectStore, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"))
 	eps, err := s.State.InferEndpoints("gravy-rainbow", "wordpress")
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(eps...)
@@ -1407,8 +1407,8 @@ func (s *MigrationImportSuite) TestCMRRemoteRelationScope(c *gc.C) {
 }
 
 func (s *MigrationImportSuite) assertRelationsMissingStatus(c *gc.C, hasUnits bool) {
-	wordpress := state.AddTestingApplication(c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"))
-	state.AddTestingApplication(c, s.State, "mysql", state.AddTestingCharm(c, s.State, "mysql"))
+	wordpress := state.AddTestingApplication(c, s.State, s.objectStore, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"))
+	state.AddTestingApplication(c, s.State, s.objectStore, "mysql", state.AddTestingCharm(c, s.State, "mysql"))
 	eps, err := s.State.InferEndpoints("mysql", "wordpress")
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(eps...)
@@ -1462,7 +1462,7 @@ func (s *MigrationImportSuite) TestEndpointBindings(c *gc.C) {
 	space := s.Factory.MakeSpace(c, &factory.SpaceParams{
 		Name: "one", ProviderID: "provider"})
 	state.AddTestingApplicationWithBindings(
-		c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"),
+		c, s.State, s.objectStore, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"),
 		map[string]string{"db": space.Id()})
 
 	_, newSt := s.importModel(c, s.State)
@@ -1484,7 +1484,7 @@ func (s *MigrationImportSuite) TestIncompleteEndpointBindings(c *gc.C) {
 	space := s.Factory.MakeSpace(c, &factory.SpaceParams{
 		Name: "one", ProviderID: "provider"})
 	state.AddTestingApplicationWithBindings(
-		c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"),
+		c, s.State, s.objectStore, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"),
 		map[string]string{"db": space.Id()})
 
 	_, newSt := s.importModel(c, s.State, func(desc map[string]interface{}) {
@@ -1509,7 +1509,7 @@ func (s *MigrationImportSuite) TestIncompleteEndpointBindings(c *gc.C) {
 
 func (s *MigrationImportSuite) TestNilEndpointBindings(c *gc.C) {
 	app := state.AddTestingApplicationWithEmptyBindings(
-		c, s.State, "dummy", state.AddTestingCharm(c, s.State, "dummy"))
+		c, s.State, s.objectStore, "dummy", state.AddTestingCharm(c, s.State, "dummy"))
 
 	bindings, err := app.EndpointBindings()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1597,7 +1597,7 @@ func (s *MigrationImportSuite) TestFirewallRules(c *gc.C) {
 	saasRule.EXPECT().WellKnownService().Return("juju-application-offer")
 	saasRule.EXPECT().WhitelistCIDRs().Return(saasCIDRs)
 
-	base, err := s.State.Export(map[string]string{}, state.NewObjectStore(c, s.State))
+	base, err := s.State.Export(map[string]string{}, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	uuid := utils.MustNewUUID().String()
 	model := newModel(base, uuid, "new")
@@ -2384,7 +2384,7 @@ func (s *MigrationImportSuite) TestStorage(c *gc.C) {
 
 func (s *MigrationImportSuite) TestStorageDetached(c *gc.C) {
 	_, u, storageTag := s.makeUnitWithStorage(c)
-	err := u.Destroy(state.NewObjectStore(c, s.State))
+	err := u.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	sb, err := state.NewStorageBackend(s.State)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2392,7 +2392,7 @@ func (s *MigrationImportSuite) TestStorageDetached(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = u.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = u.Remove(state.NewObjectStore(c, s.State))
+	err = u.Remove(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.importModel(c, s.State)
@@ -2586,7 +2586,7 @@ func (s *MigrationImportSuite) TestRemoteApplications(c *gc.C) {
 	err = remoteApp.SetStatus(status.StatusInfo{Status: status.Active})
 	c.Assert(err, jc.ErrorIsNil)
 
-	out, err := s.State.Export(map[string]string{}, state.NewObjectStore(c, s.State))
+	out, err := s.State.Export(map[string]string{}, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	uuid := utils.MustNewUUID().String()
@@ -2658,7 +2658,7 @@ func (s *MigrationImportSuite) TestRemoteApplicationsConsumerProxy(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	out, err := s.State.Export(map[string]string{}, state.NewObjectStore(c, s.State))
+	out, err := s.State.Export(map[string]string{}, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	uuid := utils.MustNewUUID().String()
@@ -2765,8 +2765,8 @@ func (s *MigrationImportSuite) TestApplicationsWithNilConfigValues(c *gc.C) {
 func (s *MigrationImportSuite) TestOneSubordinateTwoGuvnors(c *gc.C) {
 	// Check that invalid relationscopes aren't created when importing
 	// a subordinate related to 2 principals.
-	wordpress := state.AddTestingApplication(c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"))
-	mysql := state.AddTestingApplication(c, s.State, "mysql", state.AddTestingCharm(c, s.State, "mysql"))
+	wordpress := state.AddTestingApplication(c, s.State, s.objectStore, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"))
+	mysql := state.AddTestingApplication(c, s.State, s.objectStore, "mysql", state.AddTestingCharm(c, s.State, "mysql"))
 	wordpress0 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: wordpress})
 	mysql0 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: mysql})
 
@@ -2860,7 +2860,7 @@ func (s *MigrationImportSuite) TestOneSubordinateTwoGuvnors(c *gc.C) {
 }
 
 func (s *MigrationImportSuite) TestImportingModelWithBlankType(c *gc.C) {
-	testModel, err := s.State.Export(map[string]string{}, state.NewObjectStore(c, s.State))
+	testModel, err := s.State.Export(map[string]string{}, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	ctrlCfg := coretesting.FakeControllerConfig()
@@ -2897,7 +2897,7 @@ func (s *MigrationImportSuite) TestImportingModelWithDefaultSeriesAfter2935(c *g
 }
 
 func (s *MigrationImportSuite) testImportingModelWithDefaultSeries(c *gc.C, toolsVer version.Number) (string, bool) {
-	testModel, err := s.State.Export(map[string]string{}, state.NewObjectStore(c, s.State))
+	testModel, err := s.State.Export(map[string]string{}, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	ctrlCfg := coretesting.FakeControllerConfig()
@@ -2926,8 +2926,8 @@ func (s *MigrationImportSuite) testImportingModelWithDefaultSeries(c *gc.C, tool
 }
 
 func (s *MigrationImportSuite) TestImportingRelationApplicationSettings(c *gc.C) {
-	state.AddTestingApplication(c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"))
-	state.AddTestingApplication(c, s.State, "mysql", state.AddTestingCharm(c, s.State, "mysql"))
+	state.AddTestingApplication(c, s.State, s.objectStore, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"))
+	state.AddTestingApplication(c, s.State, s.objectStore, "mysql", state.AddTestingCharm(c, s.State, "mysql"))
 	eps, err := s.State.InferEndpoints("mysql", "wordpress")
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(eps...)
@@ -3282,7 +3282,7 @@ func (s *MigrationImportSuite) TestSecretsMissingBackend(c *gc.C) {
 	_, err = store.CreateSecret(uri, p)
 	c.Assert(err, jc.ErrorIsNil)
 
-	out, err := s.State.Export(map[string]string{}, state.NewObjectStore(c, s.State))
+	out, err := s.State.Export(map[string]string{}, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = backendStore.DeleteSecretBackend("foo", true)
@@ -3297,7 +3297,7 @@ func (s *MigrationImportSuite) TestSecretsMissingBackend(c *gc.C) {
 }
 
 func (s *MigrationImportSuite) TestDefaultSecretBackend(c *gc.C) {
-	testModel, err := s.State.Export(map[string]string{}, state.NewObjectStore(c, s.State))
+	testModel, err := s.State.Export(map[string]string{}, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	ctrlCfg := coretesting.FakeControllerConfig()

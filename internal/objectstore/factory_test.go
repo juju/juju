@@ -19,8 +19,6 @@ import (
 
 type objectStoreFactorySuite struct {
 	testing.IsolationSuite
-
-	session *MockMongoSession
 }
 
 var _ = gc.Suite(&objectStoreFactorySuite{})
@@ -30,7 +28,13 @@ func (s *objectStoreFactorySuite) TestNewObjectStore(c *gc.C) {
 
 	// Ensure we can create an object store with the default backend.
 
-	obj, err := ObjectStoreFactory(context.Background(), DefaultBackendType(), "inferi", WithMongoSession(s.session), WithLogger(jujutesting.NewCheckLogger(c)))
+	obj, err := ObjectStoreFactory(
+		context.Background(),
+		DefaultBackendType(),
+		"inferi",
+		WithLogger(jujutesting.NewCheckLogger(c)),
+		WithMetadataService(stubMetadataService{}),
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(obj, gc.NotNil)
 
@@ -40,12 +44,23 @@ func (s *objectStoreFactorySuite) TestNewObjectStore(c *gc.C) {
 func (s *objectStoreFactorySuite) TestNewObjectStoreInvalidBackend(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	_, err := ObjectStoreFactory(context.Background(), objectstore.BackendType("blah"), "inferi", WithMongoSession(s.session), WithLogger(jujutesting.NewCheckLogger(c)))
+	_, err := ObjectStoreFactory(
+		context.Background(),
+		objectstore.BackendType("blah"),
+		"inferi",
+		WithLogger(jujutesting.NewCheckLogger(c)),
+		WithMetadataService(stubMetadataService{}),
+	)
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
 func (s *objectStoreFactorySuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
-	s.session = NewMockMongoSession(ctrl)
 	return ctrl
+}
+
+type stubMetadataService struct{}
+
+func (stubMetadataService) ObjectStore() objectstore.ObjectStoreMetadata {
+	return nil
 }

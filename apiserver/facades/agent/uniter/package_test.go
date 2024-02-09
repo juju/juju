@@ -90,7 +90,7 @@ func (s *uniterSuiteBase) SetUpTest(c *gc.C) {
 	s.uniter = s.newUniterAPI(c, s.ControllerModel(c).State(), s.authorizer)
 	s.PatchValue(&provider.NewK8sClients, k8stesting.NoopFakeK8sClients)
 
-	s.store = testing.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State())
+	s.store = testing.NewObjectStore(c, s.ControllerModelUUID())
 }
 
 // setupState creates 2 machines, 2 services and adds a unit to each service.
@@ -141,7 +141,7 @@ func (s *uniterSuiteBase) facadeContext(c *gc.C) facadetest.Context {
 		Auth_:              s.authorizer,
 		LeadershipChecker_: s.leadershipChecker,
 		ServiceFactory_:    s.DefaultModelServiceFactory(c),
-		ObjectStore_:       testing.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State()),
+		ObjectStore_:       testing.NewObjectStore(c, s.ControllerModelUUID()),
 	}
 }
 

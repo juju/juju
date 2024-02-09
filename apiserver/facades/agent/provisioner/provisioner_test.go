@@ -307,7 +307,7 @@ func (s *withoutControllerSuite) TestLifeAsController(c *gc.C) {
 	})
 
 	// Remove the subordinate and make sure it's detected.
-	err = s.machines[1].Remove(testing.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State()))
+	err = s.machines[1].Remove(testing.NewObjectStore(c, s.ControllerModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.machines[1].Refresh()
 	c.Assert(err, jc.ErrorIs, errors.NotFound)

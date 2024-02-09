@@ -127,8 +127,8 @@ func (s *CAASModelSuite) TestDestroyModelDestroyStorage(c *gc.C) {
 	model, st := s.newCAASModel(c)
 	broker, err := stateenvirons.GetNewCAASBrokerFunc(caas.New)(
 		model,
-		&testing.MockCloudService{&cloud.Cloud{Name: "caascloud", Type: "kubernetes"}},
-		&testing.MockCredentialService{ptr(cloud.NewCredential(cloud.UserPassAuthType, nil))},
+		&testing.MockCloudService{Cloud: &cloud.Cloud{Name: "caascloud", Type: "kubernetes"}},
+		&testing.MockCredentialService{Credential: ptr(cloud.NewCredential(cloud.UserPassAuthType, nil))},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	registry := stateenvirons.NewStorageProviderRegistry(broker)
@@ -177,7 +177,7 @@ func (s *CAASModelSuite) TestDestroyModelDestroyStorage(c *gc.C) {
 	err = unit.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
 	// The deployer or the caasapplicationprovisioner would call this once the unit is Dead.
-	err = unit.Remove(state.NewObjectStore(c, s.State))
+	err = unit.Remove(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	assertNeedsCleanup(c, st)
@@ -291,7 +291,7 @@ func (s *CAASModelSuite) TestDestroyControllerAndHostedCAASModelsWithResources(c
 		}},
 		Charm: ch,
 	}
-	application2, err := otherSt.AddApplication(args, mockApplicationSaver{}, state.NewObjectStore(c, otherSt))
+	application2, err := otherSt.AddApplication(args, mockApplicationSaver{}, state.NewObjectStore(c, otherSt.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	controllerModel, err := s.State.Model()

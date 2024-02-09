@@ -96,7 +96,7 @@ func (s *binaryStorageSuite) SetUpTest(c *gc.C) {
 		s.st.Close()
 	})
 
-	s.store = state.NewObjectStore(c, s.st)
+	s.store = state.NewObjectStore(c, s.st.ModelUUID())
 }
 
 type storageOpener func(objectstore.ObjectStore) (binarystorage.StorageCloser, error)

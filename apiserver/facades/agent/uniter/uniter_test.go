@@ -2506,7 +2506,7 @@ func (s *uniterSuite) TestReadRemoteSettings(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.mysqlUnit.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.mysqlUnit.Remove(testing.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State()))
+	err = s.mysqlUnit.Remove(testing.NewObjectStore(c, s.ControllerModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	result, err = s.uniter.ReadRemoteSettings(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)

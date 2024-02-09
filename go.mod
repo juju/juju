@@ -44,7 +44,6 @@ require (
 	github.com/hashicorp/vault/api v1.10.0
 	github.com/im7mortal/kmutex v1.0.1
 	github.com/juju/ansiterm v1.0.0
-	github.com/juju/blobstore/v3 v3.0.2
 	github.com/juju/charm/v13 v13.0.0
 	github.com/juju/clock v1.0.3
 	github.com/juju/cmd/v4 v4.0.0

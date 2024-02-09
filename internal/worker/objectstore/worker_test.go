@@ -60,7 +60,6 @@ func (s *workerSuite) TestGetObjectStore(c *gc.C) {
 	defer workertest.CleanKill(c, w)
 
 	s.ensureStartup(c)
-	s.expectStatePool("foo")
 
 	done := make(chan struct{})
 	s.trackedObjectStore.EXPECT().Kill().AnyTimes()
@@ -88,9 +87,6 @@ func (s *workerSuite) TestGetObjectStoreIsCached(c *gc.C) {
 	defer workertest.CleanKill(c, w)
 
 	s.ensureStartup(c)
-
-	// This should only ever be called once, as the object store is cached.
-	s.expectStatePool("foo")
 
 	done := make(chan struct{})
 	s.trackedObjectStore.EXPECT().Kill().AnyTimes()
@@ -133,7 +129,6 @@ func (s *workerSuite) TestGetObjectStoreIsNotCachedForDifferentNamespaces(c *gc.
 	worker := w.(*objectStoreWorker)
 	for i := 0; i < 10; i++ {
 		name := fmt.Sprintf("anything-%d", i)
-		s.expectStatePool(name)
 
 		_, err := worker.GetObjectStore(context.Background(), name)
 		c.Assert(err, jc.ErrorIsNil)
@@ -173,8 +168,6 @@ func (s *workerSuite) TestGetObjectStoreConcurrently(c *gc.C) {
 
 			name := fmt.Sprintf("anything-%d", i)
 
-			s.expectStatePool(name)
-
 			_, err := worker.GetObjectStore(context.Background(), name)
 			c.Assert(err, jc.ErrorIsNil)
 		}(i)
@@ -193,7 +186,6 @@ func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
 		Clock:        s.clock,
 		Logger:       s.logger,
 		TracerGetter: &stubTracerGetter{},
-		StatePool:    s.statePool,
 		S3Client:     s.s3Client,
 		NewObjectStoreWorker: func(context.Context, objectstore.BackendType, string, ...internalobjectstore.Option) (internalobjectstore.TrackedObjectStore, error) {
 			atomic.AddInt64(&s.called, 1)
@@ -228,10 +220,6 @@ func (s *workerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.modelClaimGetter.EXPECT().ForModelUUID(gomock.Any()).Return(s.claimer, nil).AnyTimes()
 
 	return ctrl
-}
-
-func (s *workerSuite) expectStatePool(namespace string) {
-	s.statePool.EXPECT().Get(namespace).Return(s.mongoSession, nil)
 }
 
 func (s *workerSuite) ensureStartup(c *gc.C) {

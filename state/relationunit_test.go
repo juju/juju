@@ -19,6 +19,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/state"
 	stateerrors "github.com/juju/juju/state/errors"
 	"github.com/juju/juju/state/testing"
@@ -100,7 +101,7 @@ func (s *RelationUnitSuite) TestCounterpartApplicationsContainerScope(c *gc.C) {
 }
 
 func (s *RelationUnitSuite) TestCounterpartApplicationsPeer(c *gc.C) {
-	pr := newPeerRelation(c, s.State)
+	pr := newPeerRelation(c, s.State, s.objectStore)
 	c.Check(pr.ru0.CounterpartApplications(), jc.DeepEquals, []string{"riak"})
 	c.Check(pr.ru1.CounterpartApplications(), jc.DeepEquals, []string{"riak"})
 	c.Check(pr.ru2.CounterpartApplications(), jc.DeepEquals, []string{"riak"})
@@ -108,7 +109,7 @@ func (s *RelationUnitSuite) TestCounterpartApplicationsPeer(c *gc.C) {
 }
 
 func (s *RelationUnitSuite) TestPeerSettings(c *gc.C) {
-	pr := newPeerRelation(c, s.State)
+	pr := newPeerRelation(c, s.State, s.objectStore)
 	rus := RUs{pr.ru0, pr.ru1}
 
 	// Check missing settings cannot be read by any RU.
@@ -389,7 +390,7 @@ func (s *RelationUnitSuite) TestContainerCreateSubordinate(c *gc.C) {
 	// Set the subordinate to Dying, and enter scope again; because the scope
 	// is already entered, no error is returned.
 	runit := runits[0]
-	err = runit.Destroy(state.NewObjectStore(c, s.State))
+	err = runit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	err = pru.EnterScope(nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -407,7 +408,7 @@ func (s *RelationUnitSuite) TestContainerCreateSubordinate(c *gc.C) {
 	// create a new subordinate.
 	err = runit.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = runit.Remove(state.NewObjectStore(c, s.State))
+	err = runit.Remove(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	assertSubCount(0)
 	assertNotInScope(c, pru)
@@ -418,7 +419,7 @@ func (s *RelationUnitSuite) TestContainerCreateSubordinate(c *gc.C) {
 }
 
 func (s *RelationUnitSuite) TestDestroyRelationWithUnitsInScope(c *gc.C) {
-	pr := newPeerRelation(c, s.State)
+	pr := newPeerRelation(c, s.State, s.objectStore)
 	preventPeerUnitsDestroyRemove(c, pr)
 	rel := pr.ru0.Relation()
 
@@ -432,7 +433,7 @@ func (s *RelationUnitSuite) TestDestroyRelationWithUnitsInScope(c *gc.C) {
 	err = pr.ru1.EnterScope(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	assertJoined(c, pr.ru1)
-	err = pr.app.Destroy(state.NewObjectStore(c, s.State))
+	err = pr.app.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	err = rel.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
@@ -453,12 +454,12 @@ func (s *RelationUnitSuite) TestDestroyRelationWithUnitsInScope(c *gc.C) {
 	err = pr.ru0.LeaveScope()
 	c.Assert(err, jc.ErrorIsNil)
 	assertNotInScope(c, pr.ru0)
-	err = pr.app.Destroy(state.NewObjectStore(c, s.State))
+	err = pr.app.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that unit settings for the original unit still exist, and have
 	// not yet been marked for deletion.
-	err = s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State), fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{})
+	err = s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State.ModelUUID()), fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{})
 	c.Assert(err, jc.ErrorIsNil)
 	assertSettings := func() {
 		settings, err := pr.ru1.ReadSettings("riak/0")
@@ -479,14 +480,14 @@ func (s *RelationUnitSuite) TestDestroyRelationWithUnitsInScope(c *gc.C) {
 	assertSettings()
 
 	// ...but they were scheduled for deletion.
-	err = s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State), fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{})
+	err = s.State.Cleanup(context.Background(), state.NewObjectStore(c, s.State.ModelUUID()), fakeMachineRemover{}, fakeAppRemover{}, fakeUnitRemover{})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = pr.ru1.ReadSettings("riak/0")
 	c.Assert(err, gc.ErrorMatches, `cannot read settings for unit "riak/0" in relation "riak:ring": unit "riak/0": settings not found`)
 }
 
 func (s *RelationUnitSuite) TestAliveRelationScope(c *gc.C) {
-	pr := newPeerRelation(c, s.State)
+	pr := newPeerRelation(c, s.State, s.objectStore)
 	rel := pr.ru0.Relation()
 
 	// Two units enter...
@@ -501,7 +502,7 @@ func (s *RelationUnitSuite) TestAliveRelationScope(c *gc.C) {
 
 	// One unit becomes Dying, then re-enters the scope; this is not an error,
 	// because the state is already as requested.
-	err = pr.u0.Destroy(state.NewObjectStore(c, s.State))
+	err = pr.u0.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	err = pr.ru0.EnterScope(nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -527,7 +528,7 @@ func (s *RelationUnitSuite) TestAliveRelationScope(c *gc.C) {
 	assertJoined(c, pr.ru2)
 
 	// ...but Dying units cannot.
-	err = pr.u3.Destroy(state.NewObjectStore(c, s.State))
+	err = pr.u3.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	assertNotInScope(c, pr.ru3)
 	err = pr.ru3.EnterScope(nil)
@@ -537,7 +538,7 @@ func (s *RelationUnitSuite) TestAliveRelationScope(c *gc.C) {
 
 func (s *StateSuite) TestWatchScopeDiesOnStateClose(c *gc.C) {
 	testWatcherDiesWhenStateCloses(c, s.Session, s.modelTag, s.State.ControllerTag(), func(c *gc.C, st *state.State) waiter {
-		pr := newPeerRelation(c, st)
+		pr := newPeerRelation(c, st, s.objectStore)
 		w := pr.ru0.WatchScope()
 		<-w.Changes()
 		return w
@@ -545,7 +546,7 @@ func (s *StateSuite) TestWatchScopeDiesOnStateClose(c *gc.C) {
 }
 
 func (s *RelationUnitSuite) TestPeerWatchScope(c *gc.C) {
-	pr := newPeerRelation(c, s.State)
+	pr := newPeerRelation(c, s.State, s.objectStore)
 
 	// Test empty initial event.
 	w0 := pr.ru0.WatchScope()
@@ -777,7 +778,7 @@ func (s *RelationUnitSuite) TestContainerWatchScope(c *gc.C) {
 func (s *RelationUnitSuite) TestCoalesceWatchScope(c *gc.C) {
 	// TODO(quiescence): fix this test once the watcher has some reliable coalescence.
 	c.Skip("skip until watcher has better coalescing")
-	pr := newPeerRelation(c, s.State)
+	pr := newPeerRelation(c, s.State, s.objectStore)
 
 	// Test empty initial event.
 	w0 := pr.ru0.WatchScope()
@@ -852,7 +853,7 @@ func (s *RelationUnitSuite) testPrepareLeaveScope(c *gc.C, rel *state.Relation, 
 	s.assertNoScopeChange(c, w0)
 	err = rel.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
-	err = rel.Destroy(state.NewObjectStore(c, s.State))
+	err = rel.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	err = rel.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
@@ -860,7 +861,7 @@ func (s *RelationUnitSuite) testPrepareLeaveScope(c *gc.C, rel *state.Relation, 
 	// rru0 really leaves; the relation is cleaned up.
 	err = rru0.LeaveScope()
 	c.Assert(err, jc.ErrorIsNil)
-	err = rel.Destroy(state.NewObjectStore(c, s.State))
+	err = rel.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertNoScopeChange(c, w0)
 	err = rel.Refresh()
@@ -991,8 +992,8 @@ func preventPeerUnitsDestroyRemove(c *gc.C, pr *PeerRelation) {
 	preventUnitDestroyRemove(c, pr.u3)
 }
 
-func newPeerRelation(c *gc.C, st *state.State) *PeerRelation {
-	app := state.AddTestingApplication(c, st, "riak", state.AddTestingCharm(c, st, "riak"))
+func newPeerRelation(c *gc.C, st *state.State, objectStore objectstore.ObjectStore) *PeerRelation {
+	app := state.AddTestingApplication(c, st, objectStore, "riak", state.AddTestingCharm(c, st, "riak"))
 	ep, err := app.Endpoint("ring")
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := st.EndpointsRelation(ep)

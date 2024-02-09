@@ -55,13 +55,6 @@ func WithRootBucket(rootBucket string) Option {
 	}
 }
 
-// WithMongoSession is the option to set the mongo session to use.
-func WithMongoSession(session MongoSession) Option {
-	return func(o *options) {
-		o.mongoSession = session
-	}
-}
-
 // WithS3Client is the option to set the s3 client to use.
 func WithS3Client(client objectstore.Client) Option {
 	return func(o *options) {
@@ -100,7 +93,6 @@ func WithClock(clock clock.Clock) Option {
 type options struct {
 	rootDir         string
 	rootBucket      string
-	mongoSession    MongoSession
 	s3Client        objectstore.Client
 	metadataService MetadataService
 	claimer         Claimer
@@ -127,8 +119,6 @@ func ObjectStoreFactory(ctx context.Context, backendType objectstore.BackendType
 		option(opts)
 	}
 	switch backendType {
-	case objectstore.StateBackend:
-		return NewStateObjectStore(ctx, namespace, opts.mongoSession, opts.logger)
 	case objectstore.FileBackend:
 		return NewFileObjectStore(ctx, FileObjectStoreConfig{
 			Namespace:       namespace,
@@ -166,5 +156,5 @@ func BackendTypeOrDefault(objectStoreType objectstore.BackendType) objectstore.B
 // DefaultBackendType returns the default backend type for the given object
 // store type or falls back to the default backend type.
 func DefaultBackendType() objectstore.BackendType {
-	return objectstore.StateBackend
+	return objectstore.FileBackend
 }

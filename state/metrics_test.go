@@ -46,7 +46,7 @@ func (s *MetricSuite) TestAddNoMetrics(c *gc.C) {
 
 func removeUnit(c *gc.C, st *state.State, unit *state.Unit) {
 	ensureUnitDead(c, unit)
-	err := unit.Remove(state.NewObjectStore(c, st))
+	err := unit.Remove(state.NewObjectStore(c, st.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -499,7 +499,7 @@ func (s *MetricSuite) TestMetricValidation(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = dyingUnit.SetCharmURL(s.meteredCharm.URL())
 	c.Assert(err, jc.ErrorIsNil)
-	err = dyingUnit.Destroy(state.NewObjectStore(c, s.State))
+	err = dyingUnit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	now := s.Clock.Now()
 	tests := []struct {

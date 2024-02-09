@@ -68,7 +68,7 @@ func (s *applicationSuite) SetUpTest(c *gc.C) {
 	s.applicationAPI = s.makeAPI(c)
 	s.lastKnownRev = make(map[string]int)
 
-	s.store = jujutesting.NewObjectStore(c, s.ControllerModelUUID(), s.ControllerModel(c).State())
+	s.store = jujutesting.NewObjectStore(c, s.ControllerModelUUID())
 }
 
 func (s *applicationSuite) makeAPI(c *gc.C) *application.APIBase {
@@ -106,7 +106,7 @@ func (s *applicationSuite) makeAPI(c *gc.C) *application.APIBase {
 		registry,
 		common.NewResources(),
 		nil, // CAAS Broker not used in this suite.
-		jujutesting.NewObjectStore(c, st.ModelUUID(), st),
+		jujutesting.NewObjectStore(c, st.ModelUUID()),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	return api
@@ -421,7 +421,7 @@ func (s *applicationSuite) TestApplicationUpdateDoesNotSetMinUnitsWithLXDProfile
 	ch := repo.CharmDir("lxd-profile-fail")
 	ident := fmt.Sprintf("%s-%d", ch.Meta().Name, ch.Revision())
 	curl := charm.MustParseURL(fmt.Sprintf("local:%s/%s", series, ident))
-	_, err := jujutesting.PutCharm(s.ControllerModel(c).State(), curl, ch)
+	_, err := jujutesting.PutCharm(s.ControllerModel(c).State(), s.ObjectStore(c, s.ControllerModelUUID()), curl, ch)
 	c.Assert(err, gc.ErrorMatches, `invalid lxd-profile.yaml: contains device type "unix-disk"`)
 }
 
