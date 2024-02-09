@@ -26,8 +26,8 @@ var ErrNoAuthorizedKeys = errors.New("no public ssh keys found")
 // If the attributes contains a non-empty value for "authorized-keys",
 // then it is left alone. If there is an "authorized-keys-path" setting,
 // its contents will be loaded into "authorized-keys". Otherwise, the
-// contents of standard public keys will be used: ~/.ssh/id_dsa.pub,
-// ~/.ssh/id_rsa.pub, and ~/.ssh/identity.pub.
+// contents of standard public keys will be used: ~/.ssh/id_ed25519.pub,
+// ~/.ssh/id_ed25519.pub, and ~/.ssh/identity.pub.
 func FinalizeAuthorizedKeys(ctx *cmd.Context, attrs map[string]interface{}) error {
 	const authorizedKeysPathKey = "authorized-keys-path"
 	checker := schema.FieldMap(schema.Fields{

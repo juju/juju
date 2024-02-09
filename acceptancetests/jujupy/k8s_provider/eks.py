@@ -158,7 +158,7 @@ class EKS(Base):
                 '--nodes-min', 1,
                 '--nodes-max', 3,
                 '--ssh-access',
-                '--ssh-public-key=' + os.path.expanduser('~/.ssh/id_rsa.pub'),
+                '--ssh-public-key=' + os.path.expanduser('~/.ssh/id_ed25519.pub'),
                 '--managed',
             )
             logger.info("cluster %s has been successfully provisioned -> \n%s", self.cluster_name, o)

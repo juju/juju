@@ -111,7 +111,7 @@ func (h *hostKeyChecker) hostKeyCallback(hostname string, remote net.Addr, key s
 	return hostKeyNotInList
 }
 
-// publicKeysToSet converts all the public key values (eg id_rsa.pub) into
+// publicKeysToSet converts all the public key values (eg id_ed25519.pub) into
 // their short hash form. Problems with a key are logged at Warning level, but
 // otherwise ignored.
 func publicKeysToSet(publicKeys []string) set.Strings {

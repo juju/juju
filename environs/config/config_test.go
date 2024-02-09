@@ -685,6 +685,7 @@ func (s *ConfigSuite) TestConfig(c *gc.C) {
 	files := []jujutesting.TestFile{
 		{Name: ".ssh/id_dsa.pub", Data: "dsa"},
 		{Name: ".ssh/id_rsa.pub", Data: "rsa\n"},
+		{Name: ".ssh/id_ed25519.pub", Data: "ed25519\n"},
 		{Name: ".ssh/identity.pub", Data: "identity"},
 		{Name: ".ssh/authorized_keys", Data: "auth0\n# first\nauth1\n\n"},
 		{Name: ".ssh/authorized_keys2", Data: "auth2\nauth3\n"},

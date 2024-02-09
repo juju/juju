@@ -117,7 +117,7 @@ class AKS(Base):
     def _get_parameters(
         self, location, client_id, client_secret,
         kubernetes_version=None,
-        pub_ssh_key_path=os.path.expanduser('~/.ssh/id_rsa.pub'),
+        pub_ssh_key_path=os.path.expanduser('~/.ssh/id_ed25519.pub'),
     ):
         m = self.driver.managed_clusters.models
 
