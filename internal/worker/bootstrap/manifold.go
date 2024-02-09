@@ -75,7 +75,6 @@ type ApplicationSaver interface {
 type SpaceService interface {
 	Space(ctx context.Context, uuid string) (*network.SpaceInfo, error)
 	SpaceByName(ctx context.Context, name string) (*network.SpaceInfo, error)
-	FilterHostPortsForManagementSpace(ctx context.Context, controllerConfig controller.Config, apiHostPorts []network.SpaceHostPorts) ([]network.SpaceHostPorts, error)
 	GetAllSpaces(ctx context.Context) (network.SpaceInfos, error)
 }
 

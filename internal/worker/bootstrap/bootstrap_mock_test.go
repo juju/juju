@@ -579,21 +579,6 @@ func (m *MockSpaceService) EXPECT() *MockSpaceServiceMockRecorder {
 	return m.recorder
 }
 
-// FilterHostPortsForManagementSpace mocks base method.
-func (m *MockSpaceService) FilterHostPortsForManagementSpace(arg0 context.Context, arg1 controller.Config, arg2 []network.SpaceHostPorts) ([]network.SpaceHostPorts, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "FilterHostPortsForManagementSpace", arg0, arg1, arg2)
-	ret0, _ := ret[0].([]network.SpaceHostPorts)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// FilterHostPortsForManagementSpace indicates an expected call of FilterHostPortsForManagementSpace.
-func (mr *MockSpaceServiceMockRecorder) FilterHostPortsForManagementSpace(arg0, arg1, arg2 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FilterHostPortsForManagementSpace", reflect.TypeOf((*MockSpaceService)(nil).FilterHostPortsForManagementSpace), arg0, arg1, arg2)
-}
-
 // GetAllSpaces mocks base method.
 func (m *MockSpaceService) GetAllSpaces(arg0 context.Context) (network.SpaceInfos, error) {
 	m.ctrl.T.Helper()
