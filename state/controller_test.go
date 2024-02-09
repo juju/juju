@@ -70,6 +70,7 @@ func (s *ControllerSuite) TestControllerAndModelConfigInitialisation(c *gc.C) {
 		controller.ApplicationResourceDownloadLimit,
 		controller.QueryTracingEnabled,
 		controller.QueryTracingThreshold,
+		controller.JujudControllerSnapSource,
 	)
 	for _, controllerAttr := range controller.ControllerOnlyConfigAttributes {
 		v, ok := controllerSettings.Get(controllerAttr)
