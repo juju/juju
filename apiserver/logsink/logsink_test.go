@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/apiserver/logsink"
 	"github.com/juju/juju/apiserver/logsink/mocks"
 	"github.com/juju/juju/apiserver/websocket/websockettest"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -253,7 +254,7 @@ func (s *logsinkSuite) TestReceiveErrorBreaksConn(c *gc.C) {
 }
 
 func (s *logsinkSuite) TestRateLimit(c *gc.C) {
-	modelUUID, err := utils.NewUUID()
+	modelUUID, err := uuid.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 
 	metricsCollector, finish := createMockMetrics(c, modelUUID.String())
@@ -328,7 +329,7 @@ func (s *logsinkSuite) TestRateLimit(c *gc.C) {
 func (s *logsinkSuite) TestReceiverStopsWhenAsked(c *gc.C) {
 	myStopCh := make(chan struct{})
 
-	modelUUID, err := utils.NewUUID()
+	modelUUID, err := uuid.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 
 	metricsCollector, finish := createMockMetrics(c, modelUUID.String())
@@ -383,7 +384,7 @@ func (s *logsinkSuite) TestReceiverStopsWhenAsked(c *gc.C) {
 }
 
 func (s *logsinkSuite) TestHandlerClosesStopChannel(c *gc.C) {
-	modelUUID, err := utils.NewUUID()
+	modelUUID, err := uuid.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 
 	metricsCollector, finish := createMockMetrics(c, modelUUID.String())
@@ -451,7 +452,7 @@ func (s *logsinkSuite) createServer(c *gc.C) (*httptest.Server, func()) {
 		s.lastStack = debug.Stack()
 	}
 
-	modelUUID, err := utils.NewUUID()
+	modelUUID, err := uuid.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 
 	metricsCollector, finish := createMockMetrics(c, modelUUID.String())

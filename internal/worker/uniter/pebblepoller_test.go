@@ -14,10 +14,10 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v4"
 	"github.com/juju/worker/v4/workertest"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/internal/worker/uniter"
 	"github.com/juju/juju/internal/worker/uniter/container"
 	"github.com/juju/juju/testing"
@@ -136,7 +136,7 @@ func (c *fakePebbleClient) TriggerStart() {
 	c.mut.Lock()
 	defer c.mut.Unlock()
 	c.err = nil
-	c.sysInfo.BootID = utils.MustNewUUID().String()
+	c.sysInfo.BootID = uuid.MustNewUUID().String()
 }
 
 func (c *fakePebbleClient) CloseIdleConnections() {

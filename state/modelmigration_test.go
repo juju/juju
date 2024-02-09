@@ -10,13 +10,13 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v4"
 	"github.com/juju/worker/v4/workertest"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testing/factory"
@@ -37,7 +37,7 @@ func (s *MigrationSuite) SetUpTest(c *gc.C) {
 	s.State2 = s.Factory.MakeModel(c, nil)
 	s.AddCleanup(func(*gc.C) { s.State2.Close() })
 
-	targetControllerTag := names.NewControllerTag(utils.MustNewUUID().String())
+	targetControllerTag := names.NewControllerTag(uuid.MustNewUUID().String())
 
 	mac, err := macaroon.New([]byte("secret"), []byte("id"), "location", macaroon.LatestVersion)
 	c.Assert(err, jc.ErrorIsNil)

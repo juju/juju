@@ -12,7 +12,6 @@ import (
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v4"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
@@ -25,6 +24,7 @@ import (
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/internal/uuid"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -508,10 +508,10 @@ func (s *remoteRelationsSuite) TestSetRemoteApplicationsStatusTerminated(c *gc.C
 func (s *remoteRelationsSuite) TestUpdateControllersForModels(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	mod1 := utils.MustNewUUID().String()
-	c1Tag := names.NewControllerTag(utils.MustNewUUID().String())
-	mod2 := utils.MustNewUUID().String()
-	c2Tag := names.NewControllerTag(utils.MustNewUUID().String())
+	mod1 := uuid.MustNewUUID().String()
+	c1Tag := names.NewControllerTag(uuid.MustNewUUID().String())
+	mod2 := uuid.MustNewUUID().String()
+	c2Tag := names.NewControllerTag(uuid.MustNewUUID().String())
 
 	c1 := crossmodel.ControllerInfo{
 		ControllerTag: c1Tag,

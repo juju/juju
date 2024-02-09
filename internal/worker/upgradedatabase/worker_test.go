@@ -11,7 +11,6 @@ import (
 	"github.com/juju/errors"
 	names "github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v4"
 	"github.com/juju/version/v2"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
@@ -29,6 +28,7 @@ import (
 	domainupgrade "github.com/juju/juju/domain/upgrade"
 	upgradeerrors "github.com/juju/juju/domain/upgrade/errors"
 	databasetesting "github.com/juju/juju/internal/database/testing"
+	"github.com/juju/juju/internal/uuid"
 	jujuversion "github.com/juju/juju/version"
 )
 
@@ -550,7 +550,7 @@ func (s *workerSuite) TestUpgradeModels(c *gc.C) {
 	s.expectControllerDBUpgrade()
 
 	// Model upgrade.
-	modelUUID := model.UUID(utils.MustNewUUID().String())
+	modelUUID := model.UUID(uuid.MustNewUUID().String())
 	s.expectModelList([]model.UUID{modelUUID})
 	s.expectModelDBUpgrade(c, modelUUID)
 
@@ -605,7 +605,7 @@ func (s *workerSuite) TestUpgradeModelsThatIsAlreadyUpgraded(c *gc.C) {
 	s.expectControllerDBUpgrade()
 
 	// Model upgrade.
-	modelUUID := model.UUID(utils.MustNewUUID().String())
+	modelUUID := model.UUID(uuid.MustNewUUID().String())
 	s.expectModelList([]model.UUID{modelUUID})
 	txnRunner := s.expectModelDBUpgrade(c, modelUUID)
 
@@ -715,7 +715,7 @@ func (s *workerSuite) getConfig() Config {
 func (s *workerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := s.baseSuite.setupMocks(c)
 
-	s.upgradeUUID = domainupgrade.UUID(utils.MustNewUUID().String())
+	s.upgradeUUID = domainupgrade.UUID(uuid.MustNewUUID().String())
 
 	return ctrl
 }

@@ -16,7 +16,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
-	"github.com/juju/utils/v4"
 	"github.com/kr/pretty"
 	"golang.org/x/crypto/pbkdf2"
 
@@ -26,6 +25,7 @@ import (
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/internal/charmhub/path"
 	"github.com/juju/juju/internal/charmhub/transport"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/version"
 )
 
@@ -220,7 +220,7 @@ func RefreshOne(key, id string, revision int, channel string, base RefreshBase) 
 		// This is for compatibility reasons.  With older clients, the
 		// key created in GetCharmURLOrigin will be lost to and from
 		// the client.  Since a key is required, ensure we have one.
-		uuid, err := utils.NewUUID()
+		uuid, err := uuid.NewUUID()
 		if err != nil {
 			return nil, logAndReturnError(err)
 		}
@@ -255,7 +255,7 @@ func InstallOneFromRevision(name string, revision int) (RefreshConfig, error) {
 	if name == "" {
 		return nil, logAndReturnError(errors.NotValidf("empty name"))
 	}
-	uuid, err := utils.NewUUID()
+	uuid, err := uuid.NewUUID()
 	if err != nil {
 		return nil, logAndReturnError(err)
 	}
@@ -311,7 +311,7 @@ func InstallOneFromChannel(name string, channel string, base RefreshBase) (Refre
 	if err := validateBase(base); err != nil {
 		return nil, logAndReturnError(err)
 	}
-	uuid, err := utils.NewUUID()
+	uuid, err := uuid.NewUUID()
 	if err != nil {
 		return nil, logAndReturnError(err)
 	}
@@ -331,7 +331,7 @@ func DownloadOneFromRevision(id string, revision int) (RefreshConfig, error) {
 	if id == "" {
 		return nil, logAndReturnError(errors.NotValidf("empty id"))
 	}
-	uuid, err := utils.NewUUID()
+	uuid, err := uuid.NewUUID()
 	if err != nil {
 		return nil, logAndReturnError(err)
 	}
@@ -350,7 +350,7 @@ func DownloadOneFromRevisionByName(name string, revision int) (RefreshConfig, er
 	if name == "" {
 		return nil, logAndReturnError(errors.NotValidf("empty name"))
 	}
-	uuid, err := utils.NewUUID()
+	uuid, err := uuid.NewUUID()
 	if err != nil {
 		return nil, logAndReturnError(err)
 	}
@@ -372,7 +372,7 @@ func DownloadOneFromChannel(id string, channel string, base RefreshBase) (Refres
 	if err := validateBase(base); err != nil {
 		return nil, logAndReturnError(err)
 	}
-	uuid, err := utils.NewUUID()
+	uuid, err := uuid.NewUUID()
 	if err != nil {
 		return nil, logAndReturnError(err)
 	}
@@ -395,7 +395,7 @@ func DownloadOneFromChannelByName(name string, channel string, base RefreshBase)
 	if err := validateBase(base); err != nil {
 		return nil, logAndReturnError(err)
 	}
-	uuid, err := utils.NewUUID()
+	uuid, err := uuid.NewUUID()
 	if err != nil {
 		return nil, logAndReturnError(err)
 	}

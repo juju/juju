@@ -50,6 +50,7 @@ import (
 	envstorage "github.com/juju/juju/environs/storage"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/internal/worker/charmrevision"
 	"github.com/juju/juju/internal/worker/instancepoller"
 	"github.com/juju/juju/internal/worker/migrationmaster"
@@ -349,7 +350,7 @@ func (s *MachineLegacySuite) TestWorkersForHostedModelWithDeletedCredential(c *g
 func (s *MachineLegacySuite) TestMigratingModelWorkers(c *gc.C) {
 	st, closer := s.setupNewModel(c)
 	defer closer()
-	uuid := st.ModelUUID()
+	modelUUID := st.ModelUUID()
 
 	tracker := agenttest.NewEngineTracker()
 
@@ -371,7 +372,7 @@ func (s *MachineLegacySuite) TestMigratingModelWorkers(c *gc.C) {
 	instrumented := TrackModels(c, tracker, modelManifoldsDisablingMigrationMaster)
 	s.PatchValue(&iaasModelManifolds, instrumented)
 
-	targetControllerTag := names.NewControllerTag(utils.MustNewUUID().String())
+	targetControllerTag := names.NewControllerTag(uuid.MustNewUUID().String())
 	_, err := st.CreateMigration(state.MigrationSpec{
 		InitiatedBy: names.NewUserTag("admin"),
 		TargetInfo: migration.TargetInfo{
@@ -384,7 +385,7 @@ func (s *MachineLegacySuite) TestMigratingModelWorkers(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	matcher := agenttest.NewWorkerMatcher(c, tracker, uuid,
+	matcher := agenttest.NewWorkerMatcher(c, tracker, modelUUID,
 		append(alwaysModelWorkers, migratingModelWorkers...))
 	s.assertJob(c, state.JobManageModel, nil, func(agent.Config, *MachineAgent) {
 		agenttest.WaitMatch(c, matcher.Check, ReallyLongWait)
@@ -880,7 +881,7 @@ func (s *MachineLegacySuite) claimSingularLease(c *gc.C) {
 		q := `
 INSERT INTO lease (uuid, lease_type_id, model_uuid, name, holder, start, expiry)
 VALUES (?, 0, ?, ?, 'machine-999-lxd-99', datetime('now'), datetime('now', '+100 seconds'))`[1:]
-		_, err := tx.ExecContext(ctx, q, utils.MustNewUUID().String(), modelUUID, modelUUID)
+		_, err := tx.ExecContext(ctx, q, uuid.MustNewUUID().String(), modelUUID, modelUUID)
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)

@@ -11,7 +11,6 @@ import (
 	"time"
 
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v4"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
@@ -19,6 +18,7 @@ import (
 
 	"github.com/juju/juju/core/objectstore"
 	internalobjectstore "github.com/juju/juju/internal/objectstore"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/testing"
 )
 
@@ -195,7 +195,7 @@ func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
 		ModelMetadataServiceGetter: s.modelMetadataServiceGetter,
 		ModelClaimGetter:           s.modelClaimGetter,
 		RootDir:                    c.MkDir(),
-		RootBucket:                 utils.MustNewUUID().String(),
+		RootBucket:                 uuid.MustNewUUID().String(),
 	}, s.states)
 	c.Assert(err, jc.ErrorIsNil)
 	return w

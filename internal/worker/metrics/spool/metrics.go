@@ -19,6 +19,7 @@ import (
 	"github.com/juju/loggo/v2"
 	"github.com/juju/utils/v4"
 
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/internal/worker/uniter/runner/jujuc"
 	"github.com/juju/juju/rpc/params"
 )
@@ -48,7 +49,7 @@ func createMetricFile(path string) (*metricFile, error) {
 		return nil, errors.Errorf("not an absolute path: %q", path)
 	}
 
-	workUUID, err := utils.NewUUID()
+	workUUID, err := uuid.NewUUID()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -132,7 +133,7 @@ type JSONMetricRecorder struct {
 	spoolDir     string
 	validMetrics map[string]jujucharm.Metric
 	charmURL     string
-	uuid         utils.UUID
+	uuid         uuid.UUID
 	created      time.Time
 	unitTag      string
 
@@ -152,7 +153,7 @@ type MetricRecorderConfig struct {
 
 // NewJSONMetricRecorder creates a new JSON metrics recorder.
 func NewJSONMetricRecorder(config MetricRecorderConfig) (rec *JSONMetricRecorder, rErr error) {
-	mbUUID, err := utils.NewUUID()
+	mbUUID, err := uuid.NewUUID()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

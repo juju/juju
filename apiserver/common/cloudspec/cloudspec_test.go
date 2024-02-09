@@ -10,7 +10,6 @@ import (
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v4"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
@@ -19,6 +18,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/watcher"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
@@ -88,7 +88,7 @@ func (s *CloudSpecSuite) getTestCloudSpec(cloudWatcher, credentialContentWatcher
 }
 
 func (s *CloudSpecSuite) TestCloudSpec(c *gc.C) {
-	otherModelTag := names.NewModelTag(utils.MustNewUUID().String())
+	otherModelTag := names.NewModelTag(uuid.MustNewUUID().String())
 	machineTag := names.NewMachineTag("42")
 	result, err := s.api.CloudSpec(
 		context.Background(),
@@ -133,7 +133,7 @@ func (s *CloudSpecSuite) TestCloudSpec(c *gc.C) {
 }
 
 func (s *CloudSpecSuite) TestWatchCloudSpecsChanges(c *gc.C) {
-	otherModelTag := names.NewModelTag(utils.MustNewUUID().String())
+	otherModelTag := names.NewModelTag(uuid.MustNewUUID().String())
 	machineTag := names.NewMachineTag("42")
 	result, err := s.api.WatchCloudSpecsChanges(
 		context.Background(),

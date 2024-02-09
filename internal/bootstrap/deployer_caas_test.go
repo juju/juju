@@ -9,11 +9,11 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v4"
 	gomock "go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/version"
 )
@@ -176,6 +176,6 @@ func (s *deployerCAASSuite) newConfig(c *gc.C) CAASDeployerConfig {
 		BaseDeployerConfig: s.baseSuite.newConfig(c),
 		CloudServiceGetter: s.cloudServiceGetter,
 		OperationApplier:   s.operationApplier,
-		UnitPassword:       utils.MustNewUUID().String(),
+		UnitPassword:       uuid.MustNewUUID().String(),
 	}
 }

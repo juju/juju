@@ -11,13 +11,13 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
-	"github.com/juju/utils/v4"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/agent/metricsender"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -174,7 +174,7 @@ func (api *MetricsManagerAPI) AddJujuMachineMetrics(ctx context.Context) error {
 			Time:  t,
 		})
 	}
-	metricUUID, err := utils.NewUUID()
+	metricUUID, err := uuid.NewUUID()
 	if err != nil {
 		return errors.Trace(err)
 	}

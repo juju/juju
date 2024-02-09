@@ -6,13 +6,13 @@ package modelmanager
 import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
-	"github.com/juju/utils/v4"
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/tools"
+	"github.com/juju/juju/internal/uuid"
 )
 
 var (
@@ -61,7 +61,7 @@ func (c ModelConfigCreator) NewModelConfig(
 	// Generate a new UUID for the model as necessary,
 	// and finalize the new config.
 	if _, ok := attrs[config.UUIDKey]; !ok {
-		uuid, err := utils.NewUUID()
+		uuid, err := uuid.NewUUID()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

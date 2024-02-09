@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/charm/v13"
 	jujutesting "github.com/juju/testing"
-	"github.com/juju/utils/v4"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
@@ -16,6 +15,7 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/internal/charm/services"
+	"github.com/juju/juju/internal/uuid"
 	jujujujutesting "github.com/juju/juju/testing"
 )
 
@@ -77,7 +77,7 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 }
 
 func (s *baseSuite) newConfig(c *gc.C) BaseDeployerConfig {
-	controllerUUID := utils.MustNewUUID()
+	controllerUUID := uuid.MustNewUUID()
 
 	return BaseDeployerConfig{
 		DataDir:          c.MkDir(),

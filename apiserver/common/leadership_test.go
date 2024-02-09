@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v4"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
@@ -18,6 +17,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/leadership/mocks"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -40,7 +40,7 @@ var _ = gc.Suite(&LeadershipSuite{})
 func (s *LeadershipSuite) SetUpSuite(c *gc.C) {
 	s.BaseSuite.SetUpSuite(c)
 
-	s.modelTag = names.NewModelTag(utils.MustNewUUID().String())
+	s.modelTag = names.NewModelTag(uuid.MustNewUUID().String())
 	s.machineApps = []string{"mysql", "redis", "wordpress"}
 }
 

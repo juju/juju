@@ -7,7 +7,6 @@ import (
 	"github.com/juju/mgo/v3"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v4"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/controller"
@@ -15,6 +14,7 @@ import (
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
 	dummystorage "github.com/juju/juju/internal/storage/provider/dummy"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testing"
@@ -146,7 +146,7 @@ func (s *ConnSuite) AddMetricsCharm(c *gc.C, name, metricsYaml string, revision 
 func (s *ConnSuite) NewStateForModelNamed(c *gc.C, modelName string) *state.State {
 	cfg := testing.CustomModelConfig(c, testing.Attrs{
 		"name": modelName,
-		"uuid": utils.MustNewUUID().String(),
+		"uuid": uuid.MustNewUUID().String(),
 	})
 	otherOwner := names.NewLocalUserTag("test-admin")
 	_, otherState, err := s.Controller.NewModel(state.ModelArgs{

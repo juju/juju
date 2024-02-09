@@ -5,12 +5,12 @@ package ssh
 
 import (
 	"github.com/juju/retry"
-	"github.com/juju/utils/v4"
 
 	k8sexec "github.com/juju/juju/caas/kubernetes/provider/exec"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/cloudspec"
 	jujussh "github.com/juju/juju/internal/network/ssh"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 )
@@ -107,7 +107,7 @@ func clientStore() jujuclient.ClientStore {
 	store := jujuclienttesting.MinimalStore()
 	models := store.Models["arthur"]
 	models.Models["admin/controller"] = jujuclient.ModelDetails{
-		ModelUUID: utils.MustNewUUID().String(),
+		ModelUUID: uuid.MustNewUUID().String(),
 		ModelType: model.IAAS,
 	}
 	store.Models["arthur"] = models

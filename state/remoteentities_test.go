@@ -5,9 +5,9 @@ package state_test
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v4"
 	gc "gopkg.in/check.v1"
 )
 
@@ -102,7 +102,7 @@ func (s *RemoteEntitiesSuite) TestRemoveRemoteEntity(c *gc.C) {
 func (s *RemoteEntitiesSuite) TestImportRemoteEntity(c *gc.C) {
 	re := s.State.RemoteEntities()
 	entity := names.NewApplicationTag("mysql")
-	token := utils.MustNewUUID().String()
+	token := uuid.MustNewUUID().String()
 	err := re.ImportRemoteEntity(entity, token)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -115,11 +115,11 @@ func (s *RemoteEntitiesSuite) TestImportRemoteEntity(c *gc.C) {
 func (s *RemoteEntitiesSuite) TestImportRemoteEntityOverwrites(c *gc.C) {
 	re := s.State.RemoteEntities()
 	entity := names.NewApplicationTag("mysql")
-	token := utils.MustNewUUID().String()
+	token := uuid.MustNewUUID().String()
 	err := re.ImportRemoteEntity(entity, token)
 	c.Assert(err, jc.ErrorIsNil)
 
-	anotherToken := utils.MustNewUUID().String()
+	anotherToken := uuid.MustNewUUID().String()
 	err = re.ImportRemoteEntity(entity, anotherToken)
 	c.Assert(err, jc.ErrorIsNil)
 

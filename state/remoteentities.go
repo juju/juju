@@ -7,12 +7,12 @@ import (
 	"encoding/json"
 
 	"github.com/juju/errors"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/mgo/v3"
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v5"
 	jujutxn "github.com/juju/txn/v3"
-	"github.com/juju/utils/v4"
 	"gopkg.in/macaroon.v2"
 )
 
@@ -108,7 +108,7 @@ func (r *RemoteEntities) ExportLocalEntity(entity names.Tag) (string, error) {
 		}
 
 		// Generate a unique token within the model.
-		uuid, err := utils.NewUUID()
+		uuid, err := uuid.NewUUID()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

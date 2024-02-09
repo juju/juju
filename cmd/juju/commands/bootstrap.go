@@ -21,7 +21,6 @@ import (
 	"github.com/juju/names/v5"
 	"github.com/juju/naturalsort"
 	"github.com/juju/schema"
-	"github.com/juju/utils/v4"
 	"github.com/juju/utils/v4/keyvalues"
 	"github.com/juju/version/v2"
 
@@ -54,6 +53,7 @@ import (
 	"github.com/juju/juju/internal/proxy"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/poolmanager"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
@@ -599,7 +599,7 @@ func (c *bootstrapCommand) initializeFirstModel(
 		return nil, store.SetCurrentModel(c.controllerName, c.initialModelName)
 	}
 
-	initialModelUUID, err := utils.NewUUID()
+	initialModelUUID, err := uuid.NewUUID()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1431,11 +1431,11 @@ func (c *bootstrapCommand) bootstrapConfigs(
 	error,
 ) {
 
-	controllerModelUUID, err := utils.NewUUID()
+	controllerModelUUID, err := uuid.NewUUID()
 	if err != nil {
 		return bootstrapConfigs{}, errors.Trace(err)
 	}
-	controllerUUID, err := utils.NewUUID()
+	controllerUUID, err := uuid.NewUUID()
 	if err != nil {
 		return bootstrapConfigs{}, errors.Trace(err)
 	}
@@ -1654,7 +1654,7 @@ func (c *bootstrapCommand) bootstrapConfigs(
 }
 
 func (c *bootstrapCommand) InitialModelConfig(
-	initialModelUUID utils.UUID,
+	initialModelUUID uuid.UUID,
 	inheritedControllerAttrs,
 	userConfigAttrs map[string]interface{},
 	environ environs.ConfigGetter,

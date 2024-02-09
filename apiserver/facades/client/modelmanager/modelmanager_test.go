@@ -13,7 +13,6 @@ import (
 	"github.com/juju/names/v5"
 	jtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v4"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
@@ -32,6 +31,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/uuid"
 	jujutesting "github.com/juju/juju/juju/testing"
 	_ "github.com/juju/juju/provider/azure"
 	_ "github.com/juju/juju/provider/ec2"
@@ -1751,7 +1751,7 @@ func (s *modelManagerStateSuite) TestModelInfoForMigratedModel(c *gc.C) {
 	mig, err := modelState.CreateMigration(state.MigrationSpec{
 		InitiatedBy: user,
 		TargetInfo: migration.TargetInfo{
-			ControllerTag:   names.NewControllerTag(utils.MustNewUUID().String()),
+			ControllerTag:   names.NewControllerTag(uuid.MustNewUUID().String()),
 			ControllerAlias: "target",
 			Addrs:           []string{"1.2.3.4:5555"},
 			CACert:          coretesting.CACert,

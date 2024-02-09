@@ -16,7 +16,6 @@ import (
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v4"
 	"github.com/juju/version/v2"
 	"github.com/kr/pretty"
 	"go.uber.org/mock/gomock"
@@ -46,6 +45,7 @@ import (
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/internal/tools"
+	"github.com/juju/juju/internal/uuid"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -2441,7 +2441,7 @@ func (s *ApplicationSuite) TestConsumeIdempotent(c *gc.C) {
 func (s *ApplicationSuite) TestConsumeFromExternalController(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	controllerUUID := utils.MustNewUUID().String()
+	controllerUUID := uuid.MustNewUUID().String()
 
 	s.addRemoteApplicationParams.ExternalControllerUUID = controllerUUID
 
@@ -2537,12 +2537,12 @@ func (s *ApplicationSuite) TestConsumeRemoteAppExistsDifferentSourceModel(c *gc.
 
 	s.backend.EXPECT().RemoteApplication("hosted-mysql").Return(s.expectRemoteApplication(ctrl, state.Alive, status.Active), nil)
 
-	s.consumeApplicationArgs.Args[0].ApplicationOfferDetails.SourceModelTag = names.NewModelTag(utils.MustNewUUID().String()).String()
+	s.consumeApplicationArgs.Args[0].ApplicationOfferDetails.SourceModelTag = names.NewModelTag(uuid.MustNewUUID().String()).String()
 
 	results, err := s.api.Consume(context.Background(), params.ConsumeApplicationArgs{
 		Args: []params.ConsumeApplicationArg{{
 			ApplicationOfferDetails: params.ApplicationOfferDetails{
-				SourceModelTag:         names.NewModelTag(utils.MustNewUUID().String()).String(),
+				SourceModelTag:         names.NewModelTag(uuid.MustNewUUID().String()).String(),
 				OfferName:              "hosted-mysql",
 				OfferUUID:              "hosted-mysql-uuid",
 				ApplicationDescription: "a database",

@@ -12,7 +12,6 @@ import (
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v4"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/agent/uniter"
@@ -21,6 +20,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher/watchertest"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -789,7 +789,7 @@ func (s *unitSuite) TestAddMetricBatch(c *gc.C) {
 	}, {
 		Key: "pongs", Value: "6", Time: time.Now().UTC(), Labels: map[string]string{"foo": "bar"},
 	}}
-	uuid := utils.MustNewUUID().String()
+	uuid := uuid.MustNewUUID().String()
 	batch := params.MetricBatch{
 		UUID:     uuid,
 		CharmURL: "ch:mysql",

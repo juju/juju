@@ -34,6 +34,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	_ "github.com/juju/juju/internal/secrets/provider/all"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -1512,7 +1513,7 @@ func (s *uniterSuite) TestActions(c *gc.C) {
 }
 
 func (s *uniterSuite) TestActionsNotPresent(c *gc.C) {
-	uuid, err := utils.NewUUID()
+	uuid, err := uuid.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	args := params.Entities{
 		Entities: []params.Entity{{

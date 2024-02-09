@@ -63,6 +63,7 @@ import (
 	objectstoretesting "github.com/juju/juju/internal/objectstore/testing"
 	"github.com/juju/juju/internal/pubsub/centralhub"
 	"github.com/juju/juju/internal/servicefactory"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/internal/worker/lease"
 	wmultiwatcher "github.com/juju/juju/internal/worker/multiwatcher"
 	workerobjectstore "github.com/juju/juju/internal/worker/objectstore"
@@ -574,9 +575,9 @@ func (s *ApiServerSuite) SeedCAASCloud(c *gc.C) {
 		},
 	}
 
-	cloudUUID, err := utils.NewUUID()
+	cloudUUID, err := uuid.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
-	credUUID, err := utils.NewUUID()
+	credUUID, err := uuid.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/utils/v4"
 )
 
@@ -39,7 +40,7 @@ type UUID string
 
 // NewUUID returns a new UUID.
 func NewUUID() (UUID, error) {
-	uuid, err := utils.NewUUID()
+	uuid, err := uuid.NewUUID()
 	if err != nil {
 		return UUID(""), err
 	}

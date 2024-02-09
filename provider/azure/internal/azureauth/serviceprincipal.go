@@ -21,9 +21,8 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/retry"
-	"github.com/juju/utils/v4"
 	abstractions "github.com/microsoft/kiota-abstractions-go"
-	"github.com/microsoftgraph/msgraph-sdk-go"
+	msgraphsdkgo "github.com/microsoftgraph/msgraph-sdk-go"
 	"github.com/microsoftgraph/msgraph-sdk-go/models"
 	"github.com/microsoftgraph/msgraph-sdk-go/serviceprincipals"
 )
@@ -355,7 +354,7 @@ func (c *ServicePrincipalCreator) clock() clock.Clock {
 
 func (c *ServicePrincipalCreator) newUUID() (uuid.UUID, error) {
 	if c.NewUUID == nil {
-		u, err := utils.NewUUID()
+		u, err := uuid.NewUUID()
 		if err != nil {
 			return uuid.UUID{}, errors.Trace(err)
 		}

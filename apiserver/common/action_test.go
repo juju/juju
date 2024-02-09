@@ -8,12 +8,12 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v4"
 	"github.com/juju/worker/v4"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
@@ -64,17 +64,17 @@ func (s *actionsSuite) TestTagToActionReceiverFn(c *gc.C) {
 }
 
 func (s *actionsSuite) TestAuthAndActionFromTagFn(c *gc.C) {
-	notFoundActionTag := names.NewActionTag(utils.MustNewUUID().String())
+	notFoundActionTag := names.NewActionTag(uuid.MustNewUUID().String())
 
-	authorizedActionTag := names.NewActionTag(utils.MustNewUUID().String())
+	authorizedActionTag := names.NewActionTag(uuid.MustNewUUID().String())
 	authorizedMachineTag := names.NewMachineTag("1")
 	authorizedAction := fakeAction{name: "action1", receiver: authorizedMachineTag.Id()}
 
-	unauthorizedActionTag := names.NewActionTag(utils.MustNewUUID().String())
+	unauthorizedActionTag := names.NewActionTag(uuid.MustNewUUID().String())
 	unauthorizedMachineTag := names.NewMachineTag("10")
 	unauthorizedAction := fakeAction{name: "action2", receiver: unauthorizedMachineTag.Id()}
 
-	invalidReceiverActionTag := names.NewActionTag(utils.MustNewUUID().String())
+	invalidReceiverActionTag := names.NewActionTag(uuid.MustNewUUID().String())
 	invalidReceiverAction := fakeAction{name: "action2", receiver: "masterexploder"}
 
 	canAccess := makeCanAccess(map[names.Tag]bool{

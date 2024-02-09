@@ -8,7 +8,6 @@ import (
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v4"
 	"github.com/juju/utils/v4/ssh"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
@@ -19,6 +18,7 @@ import (
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charmhub"
+	"github.com/juju/juju/internal/uuid"
 	jujuversion "github.com/juju/juju/version"
 )
 
@@ -116,7 +116,7 @@ func ModelConfig(c *gc.C) *config.Config {
 
 // mustUUID returns a stringified uuid or panics
 func mustUUID() string {
-	uuid, err := utils.NewUUID()
+	uuid, err := uuid.NewUUID()
 	if err != nil {
 		panic(err)
 	}

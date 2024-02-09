@@ -17,7 +17,6 @@ import (
 	"github.com/juju/names/v5"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v4"
 	"github.com/juju/version/v2"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
@@ -33,6 +32,7 @@ import (
 	resourcetesting "github.com/juju/juju/core/resources/testing"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/internal/migration"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/internal/worker/fortress"
 	"github.com/juju/juju/internal/worker/migrationmaster"
 	"github.com/juju/juju/rpc/params"
@@ -177,7 +177,7 @@ func (s *Suite) SetUpTest(c *gc.C) {
 	// The default worker Config used by most of the tests. Tests may
 	// tweak parts of this as needed.
 	s.config = migrationmaster.Config{
-		ModelUUID:       utils.MustNewUUID().String(),
+		ModelUUID:       uuid.MustNewUUID().String(),
 		Facade:          s.facade,
 		Guard:           newStubGuard(s.stub),
 		APIOpen:         s.apiOpen,

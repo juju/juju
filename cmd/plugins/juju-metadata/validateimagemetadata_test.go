@@ -11,7 +11,6 @@ import (
 	"github.com/juju/cmd/v4"
 	"github.com/juju/cmd/v4/cmdtesting"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v4"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/modelcmd"
@@ -22,6 +21,7 @@ import (
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
 	sstestings "github.com/juju/juju/environs/simplestreams/testing"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	coretesting "github.com/juju/juju/testing"
@@ -100,7 +100,7 @@ func (s *ValidateImageMetadataSuite) makeLocalMetadata(id, region string, base c
 }
 
 func cacheTestEnvConfig(c *gc.C, store *jujuclient.MemStore) {
-	ec2UUID := utils.MustNewUUID().String()
+	ec2UUID := uuid.MustNewUUID().String()
 	ec2Config, err := config.New(config.UseDefaults, map[string]interface{}{
 		"name":            "ec2",
 		"type":            "ec2",

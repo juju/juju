@@ -13,7 +13,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
-	"github.com/juju/utils/v4"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common/networkingcommon"
@@ -25,6 +24,7 @@ import (
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/envcontext"
+	"github.com/juju/juju/internal/uuid"
 	providercommon "github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
@@ -392,7 +392,7 @@ func (sb *StubBacking) SetUp(c *gc.C, envName string, withZones, withSpaces, wit
 
 	// Make sure we use the stub provider.
 	extraAttrs := coretesting.Attrs{
-		"uuid": utils.MustNewUUID().String(),
+		"uuid": uuid.MustNewUUID().String(),
 		"type": StubProviderType,
 		"name": envName,
 	}

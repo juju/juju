@@ -10,13 +10,13 @@ import (
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v4"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/internal/worker/metrics/spool"
 	"github.com/juju/juju/internal/worker/uniter/runner/context"
 	"github.com/juju/juju/internal/worker/uniter/runner/jujuc"
@@ -348,7 +348,7 @@ func (s *FlushContextSuite) TestRunHookUpdatesSecrets(c *gc.C) {
 }
 
 func (s *BaseHookContextSuite) context(c *gc.C, ctrl *gomock.Controller) *context.HookContext {
-	uuid, err := utils.NewUUID()
+	uuid, err := uuid.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.AddContextRelation(c, ctrl, "db0")
@@ -361,7 +361,7 @@ func (s *FlushContextSuite) TestBuiltinMetricNotGeneratedIfNotDefined(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	uuid := utils.MustNewUUID()
+	uuid := uuid.MustNewUUID()
 	paths := runnertesting.NewRealPaths(c)
 	ctx := s.getMeteredHookContext(c, ctrl, uuid.String(), -1, "", true, s.metricsDefinition("pings"), paths)
 	reader, err := spool.NewJSONMetricReader(

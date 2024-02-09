@@ -8,11 +8,11 @@ import (
 
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v4"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/agent/metricsadder"
 	"github.com/juju/juju/api/base/testing"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -24,12 +24,12 @@ type metricsAdderSuite struct {
 var _ = gc.Suite(&metricsAdderSuite{})
 
 func (s *metricsAdderSuite) TestAddMetricBatches(c *gc.C) {
-	uuid := utils.MustNewUUID().String()
-	uuid2 := utils.MustNewUUID().String()
+	uuid1 := uuid.MustNewUUID().String()
+	uuid2 := uuid.MustNewUUID().String()
 	batches := []params.MetricBatchParam{{
 		Tag: names.NewUnitTag("test-unit/0").String(),
 		Batch: params.MetricBatch{
-			UUID:     uuid,
+			UUID:     uuid1,
 			CharmURL: "test-charm-url",
 			Created:  time.Now(),
 			Metrics:  []params.Metric{{Key: "pings", Value: "5", Time: time.Now().UTC()}},
@@ -64,7 +64,7 @@ func (s *metricsAdderSuite) TestAddMetricBatches(c *gc.C) {
 	result, err := client.AddMetricBatches(batches)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, map[string]error{
-		uuid:  &params.Error{Message: "FAIL"},
+		uuid1: &params.Error{Message: "FAIL"},
 		uuid2: (*params.Error)(nil),
 	})
 }

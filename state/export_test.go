@@ -24,7 +24,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	jujutxn "github.com/juju/txn/v3"
 	txntesting "github.com/juju/txn/v3/testing"
-	jutils "github.com/juju/utils/v4"
 	"github.com/juju/worker/v4"
 	"github.com/kr/pretty"
 	gc "gopkg.in/check.v1"
@@ -41,6 +40,7 @@ import (
 	"github.com/juju/juju/internal/mongo/utils"
 	internalobjectstore "github.com/juju/juju/internal/objectstore"
 	objectstoretesting "github.com/juju/juju/internal/objectstore/testing"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testcharms/repo"
@@ -865,10 +865,8 @@ func PrimeOperations(c *gc.C, age time.Time, unit *Unit, count, actionsPerOperat
 			Status:    ActionCompleted,
 		})
 		for j := 0; j < actionsPerOperation; j++ {
-			id, err := jutils.NewUUID()
-			c.Assert(err, jc.ErrorIsNil)
 			actionDocs = append(actionDocs, actionDoc{
-				DocId:     id.String(),
+				DocId:     uuid.MustNewUUID().String(),
 				ModelUUID: unit.st.ModelUUID(),
 				Receiver:  unit.Name(),
 				Completed: age,
@@ -913,7 +911,7 @@ func PrimeLegacyActions(c *gc.C, age time.Time, unit *Unit, count int) {
 	err := actionCollectionWriter.Insert(actionDocs...)
 	c.Assert(err, jc.ErrorIsNil)
 	for _, id := range ids {
-		err = actionCollectionWriter.UpdateId(id, bson.D{{"$unset", bson.M{"operation": 1}}})
+		err = actionCollectionWriter.UpdateId(id, bson.D{{Name: "$unset", Value: bson.M{"operation": 1}}})
 		c.Assert(err, jc.ErrorIsNil)
 	}
 }

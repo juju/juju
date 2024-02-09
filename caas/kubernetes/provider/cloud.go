@@ -8,7 +8,6 @@ import (
 
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/utils/v4"
 	k8slabels "k8s.io/apimachinery/pkg/labels"
 
 	k8s "github.com/juju/juju/caas/kubernetes"
@@ -20,6 +19,7 @@ import (
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/uuid"
 )
 
 // ClientConfigFuncGetter returns a function returning az reader that will read a k8s cluster config for a given cluster type
@@ -108,7 +108,7 @@ func UpdateKubeCloudWithStorage(k8sCloud cloud.Cloud, storageParams KubeCloudSto
 func BaseKubeCloudOpenParams(cloud cloud.Cloud, credential cloud.Credential) (environs.OpenParams, error) {
 	// To get a k8s client, we need a config with minimal information.
 	// It's not used unless operating on a real model but we need to supply it.
-	uuid, err := utils.NewUUID()
+	uuid, err := uuid.NewUUID()
 	if err != nil {
 		return environs.OpenParams{}, errors.Trace(err)
 	}

@@ -10,12 +10,12 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v4"
 	gc "gopkg.in/check.v1"
 
 	commontesting "github.com/juju/juju/apiserver/common/testing"
 	"github.com/juju/juju/apiserver/facades/agent/uniter"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing/factory"
@@ -67,7 +67,7 @@ func (s *unitMetricBatchesSuite) SetUpTest(c *gc.C) {
 
 func (s *unitMetricBatchesSuite) TestAddMetricsBatch(c *gc.C) {
 	metrics := []params.Metric{{Key: "pings", Value: "5", Time: time.Now().UTC()}}
-	uuid := utils.MustNewUUID().String()
+	uuid := uuid.MustNewUUID().String()
 
 	result, err := s.uniter.AddMetricBatches(context.Background(), params.MetricBatchParams{
 		Batches: []params.MetricBatchParam{{
@@ -98,7 +98,7 @@ func (s *unitMetricBatchesSuite) TestAddMetricsBatch(c *gc.C) {
 
 func (s *unitMetricBatchesSuite) TestAddMetricsBatchNoCharmURL(c *gc.C) {
 	metrics := []params.Metric{{Key: "pings", Value: "5", Time: time.Now().UTC()}}
-	uuid := utils.MustNewUUID().String()
+	uuid := uuid.MustNewUUID().String()
 
 	result, err := s.uniter.AddMetricBatches(context.Background(), params.MetricBatchParams{
 		Batches: []params.MetricBatchParam{{
@@ -133,7 +133,7 @@ func (s *unitMetricBatchesSuite) TestAddMetricsBatchDiffTag(c *gc.C) {
 	unit2 := f.MakeUnit(c, &factory.UnitParams{Application: s.meteredApplication, SetCharmURL: true})
 
 	metrics := []params.Metric{{Key: "pings", Value: "5", Time: time.Now().UTC()}}
-	uuid := utils.MustNewUUID().String()
+	uuid := uuid.MustNewUUID().String()
 
 	tests := []struct {
 		about  string

@@ -26,7 +26,6 @@ import (
 	"github.com/juju/names/v5"
 	jtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v4"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
@@ -49,6 +48,7 @@ import (
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	jujustorage "github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/tools"
+	"github.com/juju/juju/internal/uuid"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/provider/azure"
 	"github.com/juju/juju/provider/azure/internal/armtemplates"
@@ -1918,7 +1918,7 @@ func (s *environSuite) TestHasRegion(c *gc.C) {
 }
 
 func (s *environSuite) TestDestroyHostedModel(c *gc.C) {
-	env := s.openEnviron(c, testing.Attrs{"controller-uuid": utils.MustNewUUID().String()})
+	env := s.openEnviron(c, testing.Attrs{"controller-uuid": uuid.MustNewUUID().String()})
 	s.sender = azuretesting.Senders{
 		makeSender(".*/resourcegroups/juju-testmodel-"+testing.ModelTag.Id()[:8], nil), // DELETE
 	}
@@ -1930,7 +1930,7 @@ func (s *environSuite) TestDestroyHostedModel(c *gc.C) {
 
 func (s *environSuite) TestDestroyHostedModelCustomResourceGroup(c *gc.C) {
 	env := s.openEnviron(c,
-		testing.Attrs{"controller-uuid": utils.MustNewUUID().String(), "resource-group-name": "foo"})
+		testing.Attrs{"controller-uuid": uuid.MustNewUUID().String(), "resource-group-name": "foo"})
 	res := []*armresources.GenericResourceExpanded{{
 		ID:   to.Ptr("id-0"),
 		Name: to.Ptr("juju-06f00d-0"),
@@ -1984,7 +1984,7 @@ func (s *environSuite) TestDestroyHostedModelCustomResourceGroup(c *gc.C) {
 }
 
 func (s *environSuite) TestDestroyHostedModelWithInvalidCredential(c *gc.C) {
-	env := s.openEnviron(c, testing.Attrs{"controller-uuid": utils.MustNewUUID().String()})
+	env := s.openEnviron(c, testing.Attrs{"controller-uuid": uuid.MustNewUUID().String()})
 	s.createSenderWithUnauthorisedStatusCode(c)
 	c.Assert(s.invalidatedCredential, jc.IsFalse)
 	err := env.Destroy(s.callCtx)

@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v4"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
@@ -27,6 +26,7 @@ import (
 	"github.com/juju/juju/internal/container"
 	"github.com/juju/juju/internal/container/factory"
 	"github.com/juju/juju/internal/container/testing"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/internal/worker/provisioner"
 	"github.com/juju/juju/internal/worker/provisioner/mocks"
 	"github.com/juju/juju/rpc/params"
@@ -37,8 +37,8 @@ import (
 type containerWorkerSuite struct {
 	coretesting.BaseSuite
 
-	modelUUID      utils.UUID
-	controllerUUID utils.UUID
+	modelUUID      uuid.UUID
+	controllerUUID uuid.UUID
 
 	initialiser    *testing.MockInitialiser
 	caller         *apimocks.MockAPICaller
@@ -56,8 +56,8 @@ type containerWorkerSuite struct {
 func (s *containerWorkerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
-	s.modelUUID = utils.MustNewUUID()
-	s.controllerUUID = utils.MustNewUUID()
+	s.modelUUID = uuid.MustNewUUID()
+	s.controllerUUID = uuid.MustNewUUID()
 
 	s.machineLock = &fakeMachineLock{}
 	s.done = make(chan struct{})

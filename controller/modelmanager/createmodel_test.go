@@ -7,7 +7,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v4"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
@@ -17,6 +16,7 @@ import (
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/tools"
+	"github.com/juju/juju/internal/uuid"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -60,7 +60,7 @@ func (s *ModelConfigCreatorSuite) newModelConfig(attrs map[string]interface{}) (
 }
 
 func (s *ModelConfigCreatorSuite) TestCreateModelValidatesConfig(c *gc.C) {
-	newModelUUID := utils.MustNewUUID().String()
+	newModelUUID := uuid.MustNewUUID().String()
 	cfg, err := s.newModelConfig(coretesting.Attrs(
 		s.baseConfig.AllAttrs(),
 	).Merge(coretesting.Attrs{
@@ -111,7 +111,7 @@ func (s *ModelConfigCreatorSuite) TestCreateModelSameAgentVersion(c *gc.C) {
 		s.baseConfig.AllAttrs(),
 	).Merge(coretesting.Attrs{
 		"name": "new-model",
-		"uuid": utils.MustNewUUID().String(),
+		"uuid": uuid.MustNewUUID().String(),
 	}))
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -127,7 +127,7 @@ func (s *ModelConfigCreatorSuite) TestCreateModelGreaterAgentVersion(c *gc.C) {
 		s.baseConfig.AllAttrs(),
 	).Merge(coretesting.Attrs{
 		"name":          "new-model",
-		"uuid":          utils.MustNewUUID().String(),
+		"uuid":          uuid.MustNewUUID().String(),
 		"agent-version": "2.0.1",
 	}))
 	c.Assert(err, gc.ErrorMatches,
@@ -139,7 +139,7 @@ func (s *ModelConfigCreatorSuite) TestCreateModelLesserAgentVersionNoToolsFinder
 		s.baseConfig.AllAttrs(),
 	).Merge(coretesting.Attrs{
 		"name":          "new-model",
-		"uuid":          utils.MustNewUUID().String(),
+		"uuid":          uuid.MustNewUUID().String(),
 		"agent-version": "1.9.9",
 	}))
 	c.Assert(err, gc.ErrorMatches,
@@ -156,7 +156,7 @@ func (s *ModelConfigCreatorSuite) TestCreateModelLesserAgentVersionToolsFinderFo
 		s.baseConfig.AllAttrs(),
 	).Merge(coretesting.Attrs{
 		"name":          "new-model",
-		"uuid":          utils.MustNewUUID().String(),
+		"uuid":          uuid.MustNewUUID().String(),
 		"agent-version": "1.9.9",
 	}))
 	c.Assert(err, jc.ErrorIsNil)
@@ -173,7 +173,7 @@ func (s *ModelConfigCreatorSuite) TestCreateModelLesserAgentVersionToolsFinderNo
 		s.baseConfig.AllAttrs(),
 	).Merge(coretesting.Attrs{
 		"name":          "new-model",
-		"uuid":          utils.MustNewUUID().String(),
+		"uuid":          uuid.MustNewUUID().String(),
 		"agent-version": "1.9.9",
 	}))
 	c.Assert(err, gc.ErrorMatches, "no agent binaries found for version .*")

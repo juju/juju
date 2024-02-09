@@ -40,6 +40,7 @@ import (
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/poolmanager"
 	"github.com/juju/juju/internal/storage/provider"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/state/mocks"
@@ -112,7 +113,7 @@ func (s *MigrationImportSuite) importModelDescription(
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
-	uuid := utils.MustNewUUID().String()
+	uuid := uuid.MustNewUUID().String()
 	in := newModel(desc, uuid, "new")
 
 	ctrlCfg := coretesting.FakeControllerConfig()
@@ -157,7 +158,7 @@ func (s *MigrationImportSuite) TestNewModel(c *gc.C) {
 	out, err := s.State.Export(map[string]string{}, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
-	uuid := utils.MustNewUUID().String()
+	uuid := uuid.MustNewUUID().String()
 	in := newModel(out, uuid, "new")
 
 	ctrlCfg := coretesting.FakeControllerConfig()
@@ -989,7 +990,7 @@ func (s *MigrationImportSuite) TestCharmRevSequencesNotImported(c *gc.C) {
 
 	c.Assert(len(out.Applications()), gc.Equals, 1)
 
-	uuid := utils.MustNewUUID().String()
+	uuid := uuid.MustNewUUID().String()
 	in := newModel(out, uuid, "new")
 
 	ctrlCfg := coretesting.FakeControllerConfig()
@@ -1061,7 +1062,7 @@ func (s *MigrationImportSuite) TestApplicationsSubordinatesAfter(c *gc.C) {
 		out = &swapModel{out, c}
 	}
 
-	uuid := utils.MustNewUUID().String()
+	uuid := uuid.MustNewUUID().String()
 	in := newModel(out, uuid, "new")
 
 	ctrlCfg := coretesting.FakeControllerConfig()
@@ -1599,7 +1600,7 @@ func (s *MigrationImportSuite) TestFirewallRules(c *gc.C) {
 
 	base, err := s.State.Export(map[string]string{}, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
-	uuid := utils.MustNewUUID().String()
+	uuid := uuid.MustNewUUID().String()
 	model := newModel(base, uuid, "new")
 	model.fwRules = []description.FirewallRule{sshRule, saasRule}
 
@@ -2589,7 +2590,7 @@ func (s *MigrationImportSuite) TestRemoteApplications(c *gc.C) {
 	out, err := s.State.Export(map[string]string{}, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
-	uuid := utils.MustNewUUID().String()
+	uuid := uuid.MustNewUUID().String()
 	in := newModel(out, uuid, "new")
 
 	ctrlCfg := coretesting.FakeControllerConfig()
@@ -2661,7 +2662,7 @@ func (s *MigrationImportSuite) TestRemoteApplicationsConsumerProxy(c *gc.C) {
 	out, err := s.State.Export(map[string]string{}, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
-	uuid := utils.MustNewUUID().String()
+	uuid := uuid.MustNewUUID().String()
 	in := newModel(out, uuid, "new")
 
 	ctrlCfg := coretesting.FakeControllerConfig()
@@ -3290,7 +3291,7 @@ func (s *MigrationImportSuite) TestSecretsMissingBackend(c *gc.C) {
 
 	ctrlCfg := coretesting.FakeControllerConfig()
 
-	uuid := utils.MustNewUUID().String()
+	uuid := uuid.MustNewUUID().String()
 	in := newModel(out, uuid, "new")
 	_, _, err = s.Controller.Import(in, ctrlCfg, &mockMachineSaver{}, &mockApplicationSaver{})
 	c.Assert(err, gc.ErrorMatches, "secrets: target controller does not have all required secret backends set up")

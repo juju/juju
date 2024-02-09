@@ -17,7 +17,6 @@ import (
 	"github.com/juju/names/v5"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v4"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/httprequest.v1"
@@ -29,6 +28,7 @@ import (
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	coretesting "github.com/juju/juju/testing"
@@ -78,8 +78,8 @@ func (s *ClientSuite) TestMigrationStatus(c *gc.C) {
 	macsJSON, err := json.Marshal(macs)
 	c.Assert(err, jc.ErrorIsNil)
 
-	modelUUID := utils.MustNewUUID().String()
-	controllerUUID := utils.MustNewUUID().String()
+	modelUUID := uuid.MustNewUUID().String()
+	controllerUUID := uuid.MustNewUUID().String()
 	controllerTag := names.NewControllerTag(controllerUUID)
 	timestamp := time.Date(2016, 6, 22, 16, 42, 44, 0, time.UTC)
 	apiCaller := apitesting.APICallerFunc(func(_ string, _ int, _, _ string, _, result interface{}) error {

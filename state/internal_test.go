@@ -12,7 +12,6 @@ import (
 	mgotesting "github.com/juju/mgo/v3/testing"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v4"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/constraints"
@@ -22,6 +21,7 @@ import (
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/internal/storage/provider/dummy"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/testing"
 )
 
@@ -99,7 +99,7 @@ func (s *internalStateSuite) newState(c *gc.C) *State {
 	s.modelCount++
 	cfg := testing.CustomModelConfig(c, testing.Attrs{
 		"name": fmt.Sprintf("testmodel%d", s.modelCount),
-		"uuid": utils.MustNewUUID().String(),
+		"uuid": uuid.MustNewUUID().String(),
 	})
 	_, st, err := s.controller.NewModel(ModelArgs{
 		Type:        ModelTypeIAAS,
@@ -121,7 +121,7 @@ func (s *internalStateSuite) newCAASState(c *gc.C) *State {
 	s.modelCount++
 	cfg := testing.CustomModelConfig(c, testing.Attrs{
 		"name": fmt.Sprintf("testmodel%d", s.modelCount),
-		"uuid": utils.MustNewUUID().String(),
+		"uuid": uuid.MustNewUUID().String(),
 	})
 	_, st, err := s.controller.NewModel(ModelArgs{
 		Type:        ModelTypeCAAS,

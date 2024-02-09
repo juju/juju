@@ -15,12 +15,12 @@ import (
 	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v4"
 	"github.com/juju/worker/v4/dependency"
 	dt "github.com/juju/worker/v4/dependency/testing"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/internal/worker/fortress"
 	"github.com/juju/juju/internal/worker/metrics/collect"
 	"github.com/juju/juju/internal/worker/metrics/spool"
@@ -330,7 +330,7 @@ func (r *dummyRecorder) AddMetric(
 	then := time.Date(2015, 8, 20, 15, 48, 0, 0, time.UTC)
 	r.batches = append(r.batches, spool.MetricBatch{
 		CharmURL: r.charmURL,
-		UUID:     utils.MustNewUUID().String(),
+		UUID:     uuid.MustNewUUID().String(),
 		Created:  then,
 		Metrics: []jujuc.Metric{{
 			Key:    key,

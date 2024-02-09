@@ -43,6 +43,7 @@ import (
 	"github.com/juju/juju/internal/container/broker"
 	"github.com/juju/juju/internal/storage"
 	coretools "github.com/juju/juju/internal/tools"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/internal/worker/common"
 	"github.com/juju/juju/internal/wrench"
 	providercommon "github.com/juju/juju/provider/common"
@@ -819,7 +820,7 @@ func (task *provisionerTask) constructInstanceConfig(
 	// Generated a nonce for the new instance, with the format: "machine-#:UUID".
 	// The first part is a badge, specifying the tag of the machine the provisioner
 	// is running on, while the second part is a random UUID.
-	uuid, err := utils.NewUUID()
+	uuid, err := uuid.NewUUID()
 	if err != nil {
 		return nil, errors.Annotate(err, "generating nonce for machine "+machine.Id())
 	}

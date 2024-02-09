@@ -7,11 +7,11 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v4"
 	gomock "go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/internal/uuid"
 )
 
 type secretaryFinderSuite struct {
@@ -45,7 +45,7 @@ func (s *secretaryFinderSuite) TestRegister(c *gc.C) {
 }
 
 func (s *secretaryFinderSuite) TestSecretaryFor(c *gc.C) {
-	finder := NewSecretaryFinder(utils.MustNewUUID().String())
+	finder := NewSecretaryFinder(uuid.MustNewUUID().String())
 
 	sec, err := finder.SecretaryFor("foo")
 	c.Assert(err, jc.ErrorIs, errors.NotValid)

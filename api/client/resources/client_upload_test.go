@@ -16,7 +16,6 @@ import (
 	charmresource "github.com/juju/charm/v13/resource"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v4"
 	"github.com/kr/pretty"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -28,6 +27,7 @@ import (
 	corebase "github.com/juju/juju/core/base"
 	coreresources "github.com/juju/juju/core/resources"
 	resourcetesting "github.com/juju/juju/core/resources/testing"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -150,7 +150,7 @@ func (s *UploadSuite) TestAddPendingResources(c *gc.C) {
 		},
 		Resources: []params.CharmResource{apiResult.Resources[0].CharmResource},
 	}
-	uuid, err := utils.NewUUID()
+	uuid, err := uuid.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	expected := []string{uuid.String()}
 	result := new(params.AddPendingResourcesResult)
@@ -186,7 +186,7 @@ func (s *UploadSuite) TestUploadPendingResource(c *gc.C) {
 		Entity:    params.Entity{Tag: "application-a-application"},
 		Resources: []params.CharmResource{apiResult.Resources[0].CharmResource},
 	}
-	uuid, err := utils.NewUUID()
+	uuid, err := uuid.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	expected := uuid.String()
 	results := params.AddPendingResourcesResult{
@@ -222,7 +222,7 @@ func (s *UploadSuite) TestUploadPendingResourceNoFile(c *gc.C) {
 		Entity:    params.Entity{Tag: "application-a-application"},
 		Resources: []params.CharmResource{apiResult.Resources[0].CharmResource},
 	}
-	uuid, err := utils.NewUUID()
+	uuid, err := uuid.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	expected := uuid.String()
 	results := params.AddPendingResourcesResult{
@@ -252,7 +252,7 @@ func (s *UploadSuite) TestUploadPendingResourceFailed(c *gc.C) {
 		Entity:    params.Entity{Tag: "application-a-application"},
 		Resources: []params.CharmResource{apiResult.Resources[0].CharmResource},
 	}
-	uuid, err := utils.NewUUID()
+	uuid, err := uuid.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	expected := uuid.String()
 	results := params.AddPendingResourcesResult{

@@ -37,7 +37,6 @@ import (
 	"github.com/juju/names/v5"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v4"
 	"github.com/juju/utils/v4/ssh"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
@@ -71,6 +70,7 @@ import (
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/storage"
 	coretools "github.com/juju/juju/internal/tools"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/juju/keys"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/jujuclient"
@@ -1003,7 +1003,7 @@ func (s *localServerSuite) TestDestroyEnvironmentDeletesSecurityGroupsFWModeGlob
 }
 
 func (s *localServerSuite) TestDestroyController(c *gc.C) {
-	env := s.openEnviron(c, coretesting.Attrs{"uuid": utils.MustNewUUID().String()})
+	env := s.openEnviron(c, coretesting.Attrs{"uuid": uuid.MustNewUUID().String()})
 	controllerEnv := s.env
 
 	controllerInstanceName := "100"
@@ -1031,7 +1031,7 @@ func (s *localServerSuite) TestDestroyController(c *gc.C) {
 }
 
 func (s *localServerSuite) TestDestroyHostedModel(c *gc.C) {
-	env := s.openEnviron(c, coretesting.Attrs{"uuid": utils.MustNewUUID().String()})
+	env := s.openEnviron(c, coretesting.Attrs{"uuid": uuid.MustNewUUID().String()})
 	controllerEnv := s.env
 
 	controllerInstanceName := "100"
@@ -1059,7 +1059,7 @@ func (s *localServerSuite) TestDestroyHostedModel(c *gc.C) {
 }
 
 func (s *localServerSuite) TestDestroyControllerSpaceConstraints(c *gc.C) {
-	uuid := utils.MustNewUUID().String()
+	uuid := uuid.MustNewUUID().String()
 	env := s.openEnviron(c, coretesting.Attrs{"uuid": uuid})
 	controllerEnv := s.env
 

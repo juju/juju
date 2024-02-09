@@ -17,7 +17,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v4"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
 
@@ -25,6 +24,7 @@ import (
 	"github.com/juju/juju/apiserver/common/crossmodel"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -69,7 +69,7 @@ func (s *authSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *authSuite) TestCheckValidCaveat(c *gc.C) {
-	uuid := utils.MustNewUUID()
+	uuid := uuid.MustNewUUID()
 	permCheckDetails := fmt.Sprintf(`
 source-model-uuid: %v
 username: mary
@@ -89,7 +89,7 @@ permission: consume
 }
 
 func (s *authSuite) TestCheckInvalidCaveatId(c *gc.C) {
-	uuid := utils.MustNewUUID()
+	uuid := uuid.MustNewUUID()
 	permCheckDetails := fmt.Sprintf(`
 source-model-uuid: %v
 username: mary
@@ -118,7 +118,7 @@ permission: consume
 }
 
 func (s *authSuite) TestCheckLocalAccessRequest(c *gc.C) {
-	uuid := utils.MustNewUUID()
+	uuid := uuid.MustNewUUID()
 	st := &mockState{
 		tag: names.NewModelTag(uuid.String()),
 		permissions: map[string]permission.Access{
@@ -147,7 +147,7 @@ permission: consume
 }
 
 func (s *authSuite) TestCheckLocalAccessRequestControllerAdmin(c *gc.C) {
-	uuid := utils.MustNewUUID()
+	uuid := uuid.MustNewUUID()
 	st := &mockState{
 		tag: names.NewModelTag(uuid.String()),
 		permissions: map[string]permission.Access{
@@ -170,7 +170,7 @@ permission: consume
 }
 
 func (s *authSuite) TestCheckLocalAccessRequestModelAdmin(c *gc.C) {
-	uuid := utils.MustNewUUID()
+	uuid := uuid.MustNewUUID()
 	st := &mockState{
 		tag: names.NewModelTag(uuid.String()),
 		permissions: map[string]permission.Access{
@@ -193,7 +193,7 @@ permission: consume
 }
 
 func (s *authSuite) TestCheckLocalAccessRequestNoPermission(c *gc.C) {
-	uuid := utils.MustNewUUID()
+	uuid := uuid.MustNewUUID()
 	st := &mockState{
 		tag:         names.NewModelTag(uuid.String()),
 		permissions: make(map[string]permission.Access),

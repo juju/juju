@@ -13,7 +13,6 @@ import (
 	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v4"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common/crossmodel"
@@ -21,6 +20,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -97,7 +97,7 @@ func (s *offerAccessSuite) setupOffer(modelUUID, modelName, owner, offerName str
 		model:             model,
 	}
 	s.mockStatePool.st[modelUUID] = st
-	uuid := utils.MustNewUUID().String()
+	uuid := uuid.MustNewUUID().String()
 	st.applicationOffers[offerName] = jujucrossmodel.ApplicationOffer{OfferUUID: uuid}
 	return uuid
 }
