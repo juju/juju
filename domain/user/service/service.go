@@ -38,10 +38,10 @@ type State interface {
 	// usererrors.UserCreatorUUIDNotFound will be returned.
 	AddUserWithActivationKey(ctx context.Context, uuid user.UUID, name string, displayName string, creatorUUID user.UUID, activationKey []byte) error
 
-	// GetUsers will retrieve a list of filtered users with authentication information
+	// GetAllUsers will retrieve all users with authentication information
 	// (last login, disabled) from the database. If no users exist an empty slice
 	// will be returned.
-	GetUsers(context.Context, string) ([]user.User, error)
+	GetAllUsers(context.Context) ([]user.User, error)
 
 	// GetUser will retrieve the user with authentication information (last login, disabled)
 	// specified by UUID from the database. If the user does not exist an error that satisfies
@@ -110,11 +110,11 @@ func NewService(st State) *Service {
 	}
 }
 
-// GetUsers will retrieve a list of filter users with authentication information
+// GetAllUsers will retrieve all users with authentication information
 // (last login, disabled) from the database. If no users exist an empty slice
 // will be returned.
-func (s *Service) GetUsers(ctx context.Context, creatorName string) ([]user.User, error) {
-	usrs, err := s.st.GetUsers(ctx, creatorName)
+func (s *Service) GetAllUsers(ctx context.Context) ([]user.User, error) {
+	usrs, err := s.st.GetAllUsers(ctx)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting all users with auth info")
 	}
