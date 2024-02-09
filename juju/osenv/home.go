@@ -9,7 +9,7 @@ import (
 	"runtime"
 	"sync"
 
-	"github.com/juju/utils/v3"
+	"github.com/juju/utils/v4"
 )
 
 // jujuXDGDataHome stores the path to the juju configuration

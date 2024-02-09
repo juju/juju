@@ -6,10 +6,10 @@ package resources
 import (
 	"context"
 
-	"github.com/juju/charm/v12"
-	charmresource "github.com/juju/charm/v12/resource"
+	"github.com/juju/charm/v13"
+	charmresource "github.com/juju/charm/v13/resource"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 
 	apiresources "github.com/juju/juju/api/client/resources"
@@ -79,7 +79,7 @@ func NewFacade(ctx facade.Context) (*API, error) {
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			return repository.NewCharmHubRepository(logger.ChildWithLabels("charmhub", corelogger.CHARMHUB), chClient), nil
+			return repository.NewCharmHubRepository(logger.ChildWithTags("charmhub", corelogger.CHARMHUB), chClient), nil
 
 		case charm.Local.Matches(schema):
 			return &localClient{}, nil

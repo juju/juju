@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/apiserver/common"
@@ -27,7 +27,7 @@ import (
 	"github.com/juju/juju/state"
 )
 
-var logger = loggo.GetLoggerWithLabels("juju.apiserver.common.secrets", corelogger.SECRETS)
+var logger = loggo.GetLoggerWithTags("juju.apiserver.common.secrets", corelogger.SECRETS)
 
 // For testing.
 var (

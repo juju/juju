@@ -7,7 +7,7 @@ import (
 	"github.com/juju/mgo/v3"
 	"github.com/juju/mgo/v3/bson"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3"
+	"github.com/juju/utils/v4"
 	"github.com/kr/pretty"
 	gc "gopkg.in/check.v1"
 

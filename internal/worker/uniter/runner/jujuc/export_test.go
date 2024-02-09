@@ -5,7 +5,7 @@
 package jujuc
 
 import (
-	"github.com/juju/cmd/v3"
+	"github.com/juju/cmd/v4"
 )
 
 func HandleSettingsFile(c *RelationSetCommand, ctx *cmd.Context) error {

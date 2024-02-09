@@ -6,7 +6,7 @@ package operation
 import (
 	"context"
 
-	"github.com/juju/charm/v12/hooks"
+	"github.com/juju/charm/v13/hooks"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/internal/worker/uniter/hook"

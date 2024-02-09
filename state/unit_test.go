@@ -10,9 +10,9 @@ import (
 	"strings"
 	"time" // Only used for time types.
 
-	"github.com/juju/charm/v12"
+	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	jujutxn "github.com/juju/txn/v3"

@@ -8,11 +8,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/charm/v12"
-	"github.com/juju/cmd/v3"
+	"github.com/juju/charm/v13"
+	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/utils/v3/keyvalues"
+	"github.com/juju/utils/v4/keyvalues"
 
 	jujucmd "github.com/juju/juju/cmd"
 )

@@ -7,7 +7,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/juju/cmd/v3"
+	"github.com/juju/cmd/v4"
 
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"

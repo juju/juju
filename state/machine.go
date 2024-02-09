@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/charm/v12"
+	"github.com/juju/charm/v13"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3"
@@ -17,7 +17,7 @@ import (
 	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v5"
 	jujutxn "github.com/juju/txn/v3"
-	"github.com/juju/utils/v3"
+	"github.com/juju/utils/v4"
 	"github.com/juju/version/v2"
 	"github.com/kr/pretty"
 

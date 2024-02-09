@@ -14,7 +14,7 @@ import (
 	reflect "reflect"
 
 	lease "github.com/juju/juju/core/lease"
-	utils "github.com/juju/utils/v3"
+	utils "github.com/juju/utils/v4"
 	gomock "go.uber.org/mock/gomock"
 )
 

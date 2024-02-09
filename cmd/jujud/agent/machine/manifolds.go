@@ -12,10 +12,10 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	"github.com/juju/proxy"
 	"github.com/juju/pubsub/v2"
-	"github.com/juju/utils/v3/voyeur"
+	"github.com/juju/utils/v4/voyeur"
 	"github.com/juju/version/v2"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
@@ -544,7 +544,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			ValidateMigration: config.ValidateMigration,
 			NewFacade:         migrationminion.NewFacade,
 			NewWorker:         migrationminion.NewWorker,
-			Logger:            loggo.GetLoggerWithLabels("juju.worker.migrationminion", corelogger.MIGRATION),
+			Logger:            loggo.GetLoggerWithTags("juju.worker.migrationminion", corelogger.MIGRATION),
 		}),
 
 		// Each controller machine runs a singular worker which will

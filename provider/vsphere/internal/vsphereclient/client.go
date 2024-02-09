@@ -14,7 +14,7 @@ import (
 	"github.com/dustin/go-humanize"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	"github.com/juju/mutex/v2"
 	"github.com/kr/pretty"
 	"github.com/vmware/govmomi"

@@ -6,8 +6,8 @@ package charms
 import (
 	"context"
 
-	"github.com/juju/charm/v12"
-	charmresource "github.com/juju/charm/v12/resource"
+	"github.com/juju/charm/v13"
+	charmresource "github.com/juju/charm/v13/resource"
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 

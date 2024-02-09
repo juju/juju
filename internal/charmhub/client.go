@@ -24,7 +24,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/charm/v12"
+	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
 
 	charmmetrics "github.com/juju/juju/core/charm/metrics"
@@ -95,7 +95,7 @@ func NewClient(config Config) (*Client, error) {
 	if loggerFactory == nil {
 		return nil, errors.NotValidf("nil logger factory")
 	}
-	logger := loggerFactory.ChildWithLabels("client", corelogger.CHARMHUB)
+	logger := loggerFactory.ChildWithTags("client", corelogger.CHARMHUB)
 
 	url := config.URL
 	if url == "" {

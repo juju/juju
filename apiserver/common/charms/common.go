@@ -6,8 +6,8 @@ package charms
 import (
 	"context"
 
-	"github.com/juju/charm/v12"
-	"github.com/juju/charm/v12/resource"
+	"github.com/juju/charm/v13"
+	"github.com/juju/charm/v13/resource"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 

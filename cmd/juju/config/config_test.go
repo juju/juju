@@ -12,7 +12,7 @@ import (
 	"path"
 	stdtesting "testing"
 
-	jujucmd "github.com/juju/cmd/v3"
+	jujucmd "github.com/juju/cmd/v4"
 	"github.com/juju/gnuflag"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"

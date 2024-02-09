@@ -12,7 +12,7 @@ import (
 	"github.com/juju/packaging/v2"
 	"github.com/juju/packaging/v2/config"
 	"github.com/juju/proxy"
-	"github.com/juju/utils/v3"
+	"github.com/juju/utils/v4"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/core/snap"

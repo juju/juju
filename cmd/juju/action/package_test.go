@@ -10,13 +10,13 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
-	"github.com/juju/cmd/v3/cmdtesting"
+	"github.com/juju/cmd/v4/cmdtesting"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3/exec"
+	"github.com/juju/utils/v4/exec"
 	gc "gopkg.in/check.v1"
 
 	actionapi "github.com/juju/juju/api/client/action"

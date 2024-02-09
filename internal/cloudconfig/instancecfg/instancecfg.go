@@ -15,13 +15,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/charm/v12"
+	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/juju/proxy"
-	"github.com/juju/utils/v3/shell"
-	"github.com/juju/utils/v3/ssh"
+	"github.com/juju/utils/v4/shell"
+	"github.com/juju/utils/v4/ssh"
 	"github.com/juju/version/v2"
 	"gopkg.in/yaml.v2"
 

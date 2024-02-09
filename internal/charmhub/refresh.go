@@ -14,9 +14,9 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
-	"github.com/juju/utils/v3"
+	"github.com/juju/utils/v4"
 	"github.com/kr/pretty"
 	"golang.org/x/crypto/pbkdf2"
 
@@ -489,7 +489,7 @@ func ExtractConfigInstanceKey(cfg RefreshConfig) string {
 // the functions that create a RefreshConfig like RefreshOne don't take
 // loggers. This logging can sometimes be quite useful to avoid error sources
 // getting lost across the wire, so leave as is for now.
-var logger = loggo.GetLoggerWithLabels("juju.charmhub", corelogger.CHARMHUB)
+var logger = loggo.GetLoggerWithTags("juju.charmhub", corelogger.CHARMHUB)
 
 func logAndReturnError(err error) error {
 	err = errors.Trace(err)

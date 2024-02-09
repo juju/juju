@@ -12,7 +12,7 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/juju/charm/v12"
+	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
 	"gopkg.in/httprequest.v1"
 

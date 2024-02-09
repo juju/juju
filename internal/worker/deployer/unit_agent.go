@@ -10,10 +10,10 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	"github.com/juju/lumberjack/v2"
 	"github.com/juju/names/v5"
-	"github.com/juju/utils/v3/voyeur"
+	"github.com/juju/utils/v4/voyeur"
 	"github.com/juju/version/v2"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
@@ -288,6 +288,7 @@ func (a *UnitAgent) initLogging() (*loggo.Context, *logsender.BufferedLogWriter,
 	}
 
 	// Add line for starting agent to logging context.
+	// TODO(logging) - add unit labels
 	loggingContext.GetLogger("juju").Infof("Starting unit workers for %q", a.name)
 	a.setupLogging(loggingContext, a.agentConf)
 	return loggingContext, bufferedLogger, closeLogging, nil

@@ -182,16 +182,6 @@ func (s *OriginSuite) TestValidateEmptySoftware(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 }
 
-func (s *OriginSuite) TestValidateBadSoftware(c *gc.C) {
-	origin := validOrigin
-	origin.Software.Version = version.Zero
-
-	err := origin.Validate()
-
-	c.Check(err, jc.ErrorIs, errors.NotValid)
-	c.Check(err, gc.ErrorMatches, `invalid Software: empty Version`)
-}
-
 var validOrigin = logfwd.Origin{
 	ControllerUUID: "9f484882-2f18-4fd2-967d-db9663db7bea",
 	ModelUUID:      "deadbeef-2f18-4fd2-967d-db9663db7bea",

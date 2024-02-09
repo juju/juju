@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	"gopkg.in/yaml.v3"
 
 	"github.com/juju/juju/internal/charmhub"

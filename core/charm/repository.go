@@ -7,8 +7,8 @@ import (
 	"context"
 	"net/url"
 
-	"github.com/juju/charm/v12"
-	charmresource "github.com/juju/charm/v12/resource"
+	"github.com/juju/charm/v13"
+	charmresource "github.com/juju/charm/v13/resource"
 )
 
 // Repository describes an API for querying charm/bundle information and

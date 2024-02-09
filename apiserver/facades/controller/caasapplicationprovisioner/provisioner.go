@@ -11,11 +11,11 @@ import (
 	"sort"
 	"time"
 
-	charmresource "github.com/juju/charm/v12/resource"
+	charmresource "github.com/juju/charm/v13/resource"
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"gopkg.in/yaml.v2"
 

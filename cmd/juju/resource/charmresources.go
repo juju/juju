@@ -4,9 +4,9 @@
 package resource
 
 import (
-	"github.com/juju/charm/v12"
-	charmresource "github.com/juju/charm/v12/resource"
-	"github.com/juju/cmd/v3"
+	"github.com/juju/charm/v13"
+	charmresource "github.com/juju/charm/v13/resource"
+	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 

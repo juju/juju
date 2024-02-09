@@ -13,8 +13,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3/exec"
-	"github.com/juju/utils/v3/shell"
+	"github.com/juju/utils/v4/exec"
+	"github.com/juju/utils/v4/shell"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 

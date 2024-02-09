@@ -14,10 +14,10 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/juju/clock/testclock"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3"
+	"github.com/juju/utils/v4"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
@@ -167,7 +167,7 @@ func (s *logsinkSuite) TestSuccessWithLabels(c *gc.C) {
 		Level:    loggo.INFO.String(),
 		Message:  "all is nice",
 		Entity:   "entity.name",
-		Labels:   []string{"bar"},
+		Labels:   map[string]string{"foo": "bar"},
 	}, {
 		Time:     t0,
 		Module:   "some.where",

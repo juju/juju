@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/cmd/v3"
+	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v5"
@@ -131,15 +131,15 @@ Allocate a machine to the model via SSH:
 	
 Allocate a machine specifying the private key to use during the connection:
 
-	juju add-machine ssh:user@10.10.0.3 --private-key /tmp/id_rsa
+	juju add-machine ssh:user@10.10.0.3 --private-key /tmp/id_ed25519
 	
 Allocate a machine specifying a public key to set in the list of authorized keys in the machine:
 
-	juju add-machine ssh:user@10.10.0.3 --public-key /tmp/id_rsa.pub
+	juju add-machine ssh:user@10.10.0.3 --public-key /tmp/id_ed25519.pub
 	
 Allocate a machine specifying a public key to set in the list of authorized keys and the private key to used during the connection:
 
-	juju add-machine ssh:user@10.10.0.3 --public-key /tmp/id_rsa.pub --private-key /tmp/id_rsa
+	juju add-machine ssh:user@10.10.0.3 --public-key /tmp/id_ed25519.pub --private-key /tmp/id_ed25519
 	
 Allocate a machine to the model. Note: specific to MAAS.
 

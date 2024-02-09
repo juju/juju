@@ -11,12 +11,12 @@ import (
 	"strconv"
 	"time" // Only used for time types.
 
-	"github.com/juju/charm/v12"
+	"github.com/juju/charm/v13"
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/description/v5"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	"github.com/juju/mgo/v3"
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/mgo/v3/txn"
@@ -24,7 +24,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	jujutxn "github.com/juju/txn/v3"
 	txntesting "github.com/juju/txn/v3/testing"
-	jutils "github.com/juju/utils/v3"
+	jutils "github.com/juju/utils/v4"
 	"github.com/juju/worker/v4"
 	"github.com/kr/pretty"
 	gc "gopkg.in/check.v1"
@@ -44,7 +44,6 @@ import (
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testcharms/repo"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
 )
 
 const (
@@ -666,13 +665,12 @@ func MakeLogDoc(
 	location string,
 	level loggo.Level,
 	msg string,
-	labels []string,
+	labels map[string]string,
 ) *logDoc {
 	return &logDoc{
 		Id:       bson.NewObjectId(),
 		Time:     t.UnixNano(),
 		Entity:   entity,
-		Version:  version.Current.String(),
 		Module:   module,
 		Location: location,
 		Level:    int(level),

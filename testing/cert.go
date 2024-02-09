@@ -7,10 +7,10 @@ import (
 	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
+	"fmt"
 	"math/rand"
 
 	mgotesting "github.com/juju/mgo/v3/testing"
-	utilscert "github.com/juju/utils/v3/cert"
 )
 
 // CACert and CAKey make up a CA key pair.
@@ -75,7 +75,22 @@ func mustParseServerCert(srvCert string, srvKey string) *tls.Certificate {
 }
 
 func mustParseCertAndKey(certPEM, keyPEM string) (*x509.Certificate, *rsa.PrivateKey) {
-	cert, key, err := utilscert.ParseCertAndKey(certPEM, keyPEM)
+	tlsCert, err := tls.X509KeyPair([]byte(certPEM), []byte(keyPEM))
+	if err != nil {
+		panic(err)
+	}
+
+	cert, err := x509.ParseCertificate(tlsCert.Certificate[0])
+	if err != nil {
+		panic(err)
+	}
+
+	key, ok := tlsCert.PrivateKey.(*rsa.PrivateKey)
+	if !ok {
+		if err != nil {
+			panic(fmt.Errorf("private key with unexpected type %T", tlsCert.PrivateKey))
+		}
+	}
 	if err != nil {
 		panic(err)
 	}

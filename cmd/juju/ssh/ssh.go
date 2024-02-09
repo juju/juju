@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/juju/clock"
-	"github.com/juju/cmd/v3"
+	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/retry"
@@ -57,7 +57,7 @@ The SSH host keys of the target are verified. The --no-host-key-checks option
 can be used to disable these checks. Use of this option is not recommended as
 it opens up the possibility of a man-in-the-middle attack.
 
-The default identity known to Juju and used by this command is ~/.ssh/id_rsa
+The default identity known to Juju and used by this command is ~/.ssh/id_ed25519
 
 Options can be passed to the local OpenSSH client (ssh) on platforms 
 where it is available. This is done by inserting them between the target and 

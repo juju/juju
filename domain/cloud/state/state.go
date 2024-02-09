@@ -11,7 +11,7 @@ import (
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/errors"
-	"github.com/juju/utils/v3"
+	"github.com/juju/utils/v4"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/changestream"

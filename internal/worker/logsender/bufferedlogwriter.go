@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/collections/deque"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 )
 
 // LogRecord represents a log message in an agent which is to be
@@ -22,7 +22,7 @@ type LogRecord struct {
 	Location string // e.g. "foo.go:42"
 	Level    loggo.Level
 	Message  string
-	Labels   []string
+	Labels   map[string]string
 
 	// Number of messages dropped after this one due to buffer limit.
 	DroppedAfter int

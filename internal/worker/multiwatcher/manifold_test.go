@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
@@ -129,7 +129,7 @@ func (s *ManifoldSuite) TestNewWorkerArgs(c *gc.C) {
 	c.Check(w, gc.NotNil)
 
 	c.Check(config.Validate(), jc.ErrorIsNil)
-	c.Check(config.Logger, gc.Equals, s.config.Logger)
+	c.Check(config.Logger, jc.DeepEquals, s.config.Logger)
 	c.Check(config.PrometheusRegisterer, gc.Equals, s.config.PrometheusRegisterer)
 
 	c.Check(tracker.released, jc.IsFalse)

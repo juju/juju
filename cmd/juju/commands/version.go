@@ -4,7 +4,7 @@
 package commands
 
 import (
-	"github.com/juju/cmd/v3"
+	"github.com/juju/cmd/v4"
 	"github.com/juju/gnuflag"
 	"github.com/juju/version/v2"
 

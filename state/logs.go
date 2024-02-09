@@ -18,11 +18,10 @@ import (
 	"github.com/juju/collections/deque"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	"github.com/juju/mgo/v3"
 	"github.com/juju/mgo/v3/bson"
-	"github.com/juju/utils/v3"
-	"github.com/juju/version/v2"
+	"github.com/juju/utils/v4"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/controller"
@@ -341,17 +340,15 @@ func (logger *LastSentLogTracker) Get() (int64, int64, error) {
 // document includes the field names.
 // (alesstimec) It would be really nice if we could store Time as int64
 // for increased precision.
-// TODO: remove version from this structure: https://pad.lv/1643743
 type logDoc struct {
-	Id       bson.ObjectId `bson:"_id"`
-	Time     int64         `bson:"t"` // unix nano UTC
-	Entity   string        `bson:"n"` // e.g. "machine-0"
-	Version  string        `bson:"r"`
-	Module   string        `bson:"m"` // e.g. "juju.worker.firewaller"
-	Location string        `bson:"l"` // "filename:lineno"
-	Level    int           `bson:"v"`
-	Message  string        `bson:"x"`
-	Labels   []string      `bson:"c,omitempty"` // e.g. http
+	Id       bson.ObjectId     `bson:"_id"`
+	Time     int64             `bson:"t"` // unix nano UTC
+	Entity   string            `bson:"n"` // e.g. "machine-0"
+	Module   string            `bson:"m"` // e.g. "juju.worker.firewaller"
+	Location string            `bson:"l"` // "filename:lineno"
+	Level    int               `bson:"v"`
+	Message  string            `bson:"x"`
+	Labels   map[string]string `bson:"c,omitempty"` // e.g. logger-tags: http
 }
 
 type DbLogger struct {
@@ -383,10 +380,6 @@ func (logger *DbLogger) Log(records []corelogger.LogRecord) error {
 	}
 	bulk := logger.logsColl.Bulk()
 	for _, r := range records {
-		var versionString string
-		if r.Version != version.Zero {
-			versionString = r.Version.String()
-		}
 		bulk.Insert(&logDoc{
 			// TODO(axw) Use a controller-global int
 			// sequence for Id, so we can order by
@@ -394,7 +387,6 @@ func (logger *DbLogger) Log(records []corelogger.LogRecord) error {
 			Id:       bson.NewObjectId(),
 			Time:     r.Time.UnixNano(),
 			Entity:   r.Entity,
-			Version:  versionString,
 			Module:   r.Module,
 			Location: r.Location,
 			Level:    int(r.Level),
@@ -827,15 +819,6 @@ func (s *objectIdSet) Length() int {
 }
 
 func logDocToRecord(modelUUID string, doc *logDoc) (*corelogger.LogRecord, error) {
-	var ver version.Number
-	if doc.Version != "" {
-		parsed, err := version.Parse(doc.Version)
-		if err != nil {
-			return nil, errors.Annotatef(err, "invalid version %q", doc.Version)
-		}
-		ver = parsed
-	}
-
 	level := loggo.Level(doc.Level)
 	if level > loggo.CRITICAL {
 		return nil, errors.Errorf("unrecognized log level %q", doc.Level)
@@ -847,7 +830,6 @@ func logDocToRecord(modelUUID string, doc *logDoc) (*corelogger.LogRecord, error
 
 		ModelUUID: modelUUID,
 		Entity:    doc.Entity,
-		Version:   ver,
 
 		Level:    level,
 		Module:   doc.Module,

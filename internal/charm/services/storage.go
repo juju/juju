@@ -8,7 +8,7 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils/v3"
+	"github.com/juju/utils/v4"
 
 	charmdownloader "github.com/juju/juju/core/charm/downloader"
 	"github.com/juju/juju/state"

@@ -4,7 +4,7 @@
 package gce
 
 import (
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 )
 
 // The metadata keys used when creating new instances.

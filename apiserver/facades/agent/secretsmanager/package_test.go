@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/juju/clock"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	gc "gopkg.in/check.v1"
 
@@ -69,6 +69,6 @@ func NewTestAPI(
 		clock:               clock,
 		controllerUUID:      coretesting.ControllerTag.Id(),
 		modelUUID:           coretesting.ModelTag.Id(),
-		logger:              loggo.GetLoggerWithLabels("juju.apiserver.secretsmanager", corelogger.SECRETS),
+		logger:              loggo.GetLoggerWithTags("juju.apiserver.secretsmanager", corelogger.SECRETS),
 	}, nil
 }

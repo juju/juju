@@ -3,7 +3,7 @@
 
 package httpserver
 
-import "github.com/juju/loggo"
+import "github.com/juju/loggo/v2"
 
 // loggoWrapper is an io.Writer() that forwards the messages to a loggo.Logger.
 // Unfortunately http takes a concrete stdlib log.Logger struct, and not an

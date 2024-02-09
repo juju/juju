@@ -6,10 +6,10 @@ package sshkeys
 import (
 	"strings"
 
-	"github.com/juju/cmd/v3/cmdtesting"
+	"github.com/juju/cmd/v4/cmdtesting"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3/ssh"
-	sshtesting "github.com/juju/utils/v3/ssh/testing"
+	"github.com/juju/utils/v4/ssh"
+	sshtesting "github.com/juju/utils/v4/ssh/testing"
 	gc "gopkg.in/check.v1"
 
 	basetesting "github.com/juju/juju/api/base/testing"

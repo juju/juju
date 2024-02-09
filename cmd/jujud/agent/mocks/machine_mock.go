@@ -12,7 +12,7 @@ package mocks
 import (
 	reflect "reflect"
 
-	exec "github.com/juju/utils/v3/exec"
+	exec "github.com/juju/utils/v4/exec"
 	gomock "go.uber.org/mock/gomock"
 )
 

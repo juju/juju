@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/utils/v3"
+	"github.com/juju/utils/v4"
 
 	coreDB "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/lease"

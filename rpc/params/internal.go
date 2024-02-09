@@ -894,14 +894,18 @@ type SingularClaims struct {
 }
 
 // LogMessage is a structured logging entry.
+// It is used to stream log records to the log streamer client
+// from the api server /logs endpoint.
+// The client is used for model migration and debug-log.
+// TODO(debug-log) - add compatibility for legacy labels
 type LogMessage struct {
-	Entity    string    `json:"tag"`
-	Timestamp time.Time `json:"ts"`
-	Severity  string    `json:"sev"`
-	Module    string    `json:"mod"`
-	Location  string    `json:"loc"`
-	Message   string    `json:"msg"`
-	Labels    []string  `json:"lab"`
+	Entity    string            `json:"tag"`
+	Timestamp time.Time         `json:"ts"`
+	Severity  string            `json:"sev"`
+	Module    string            `json:"mod"`
+	Location  string            `json:"loc"`
+	Message   string            `json:"msg"`
+	Labels    map[string]string `json:"lab"`
 }
 
 // ResourceUploadResult is used to return some details about an

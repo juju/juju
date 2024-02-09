@@ -36,6 +36,6 @@ func newAPI(ctx facade.Context) (*API, error) {
 		externalControllerService,
 		common.NewControllerConfigAPI(systemState, controllerConfigService, externalControllerService),
 		ctx.Resources(), ctx.Auth(),
-		ctx.Logger().ChildWithLabels("remoterelations", corelogger.CMR),
+		ctx.Logger().ChildWithTags("remoterelations", corelogger.CMR),
 	)
 }

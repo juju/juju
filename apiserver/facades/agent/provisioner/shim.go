@@ -4,7 +4,7 @@
 package provisioner
 
 import (
-	jujucharm "github.com/juju/charm/v12"
+	jujucharm "github.com/juju/charm/v13"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/internal/network/containerizer"

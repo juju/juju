@@ -6,9 +6,9 @@ package uniter_test
 import (
 	"path/filepath"
 
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3/exec"
+	"github.com/juju/utils/v4/exec"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/worker/uniter"

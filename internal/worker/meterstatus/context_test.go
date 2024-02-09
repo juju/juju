@@ -5,7 +5,7 @@ package meterstatus_test
 
 import (
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3/keyvalues"
+	"github.com/juju/utils/v4/keyvalues"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/worker/meterstatus"

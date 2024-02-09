@@ -15,7 +15,7 @@ import (
 	gorillaws "github.com/gorilla/websocket"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -26,7 +26,6 @@ import (
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
 )
 
 type LogStreamIntSuite struct {
@@ -104,7 +103,6 @@ func (s *LogStreamIntSuite) TestFullRequest(c *gc.C) {
 	logs := []corelogger.LogRecord{{
 		ID:        10,
 		ModelUUID: "deadbeef-...",
-		Version:   version.Current,
 		Time:      time.Date(2015, 6, 19, 15, 34, 37, 0, time.UTC),
 		Entity:    "machine-99",
 		Module:    "some.where",
@@ -114,7 +112,6 @@ func (s *LogStreamIntSuite) TestFullRequest(c *gc.C) {
 	}, {
 		ID:        20,
 		ModelUUID: "deadbeef-...",
-		Version:   version.Current,
 		Time:      time.Date(2015, 6, 19, 15, 36, 40, 0, time.UTC),
 		Entity:    "unit-foo-2",
 		Module:    "else.where",
@@ -134,7 +131,6 @@ func (s *LogStreamIntSuite) TestFullRequest(c *gc.C) {
 				ID:        rec.ID,
 				ModelUUID: rec.ModelUUID,
 				Entity:    rec.Entity,
-				Version:   version.Current.String(),
 				Timestamp: rec.Time,
 				Module:    rec.Module,
 				Location:  rec.Location,

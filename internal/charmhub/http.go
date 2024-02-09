@@ -64,7 +64,7 @@ type HTTPClient interface {
 // DefaultHTTPClient creates a new HTTPClient with the default configuration.
 func DefaultHTTPClient(logger LoggerFactory) HTTPClient {
 	recorder := loggingRequestRecorder{
-		logger: logger.ChildWithLabels("transport.request-recorder", corelogger.METRICS),
+		logger: logger.ChildWithTags("transport.request-recorder", corelogger.METRICS),
 	}
 	return requestHTTPClient(recorder, defaultRetryPolicy())(logger)
 }
@@ -104,7 +104,7 @@ func requestHTTPClient(recorder jujuhttp.RequestRecorder, policy jujuhttp.RetryP
 		return jujuhttp.NewClient(
 			jujuhttp.WithRequestRecorder(recorder),
 			jujuhttp.WithRequestRetrier(policy),
-			jujuhttp.WithLogger(logger.ChildWithLabels("transport", corelogger.CHARMHUB, corelogger.HTTP)),
+			jujuhttp.WithLogger(logger.ChildWithTags("transport", corelogger.CHARMHUB, corelogger.HTTP)),
 		)
 	}
 }

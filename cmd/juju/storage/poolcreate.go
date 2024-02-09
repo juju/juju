@@ -6,9 +6,9 @@ package storage
 import (
 	"strings"
 
-	"github.com/juju/cmd/v3"
+	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
-	"github.com/juju/utils/v3/keyvalues"
+	"github.com/juju/utils/v4/keyvalues"
 
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	jujucmd "github.com/juju/juju/cmd"

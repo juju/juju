@@ -11,7 +11,7 @@ import (
 	"net/http"
 	"time"
 
-	charmresource "github.com/juju/charm/v12/resource"
+	charmresource "github.com/juju/charm/v13/resource"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"github.com/juju/version/v2"

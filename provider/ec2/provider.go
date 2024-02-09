@@ -10,7 +10,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/juju/errors"
 	"github.com/juju/jsonschema"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/instance"

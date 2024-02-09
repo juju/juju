@@ -9,12 +9,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/charm/v12"
-	"github.com/juju/charm/v12/resource"
+	"github.com/juju/charm/v13"
+	"github.com/juju/charm/v13/resource"
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	corebase "github.com/juju/juju/core/base"

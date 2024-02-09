@@ -12,7 +12,7 @@ package mocks
 import (
 	reflect "reflect"
 
-	charm "github.com/juju/charm/v12"
+	charm "github.com/juju/charm/v13"
 	charms "github.com/juju/juju/apiserver/common/charms"
 	state "github.com/juju/juju/state"
 	names "github.com/juju/names/v5"

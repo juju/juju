@@ -234,7 +234,6 @@ func (h *logStreamRequestHandler) apiFromRecords(records []*corelogger.LogRecord
 		apiRec := params.LogStreamRecord{
 			ID:        rec.ID,
 			ModelUUID: rec.ModelUUID,
-			Version:   rec.Version.String(),
 			Entity:    rec.Entity,
 			Timestamp: rec.Time,
 			Module:    rec.Module,

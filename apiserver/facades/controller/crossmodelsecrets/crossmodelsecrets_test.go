@@ -11,7 +11,7 @@ import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/checkers"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
@@ -137,7 +137,7 @@ func (s *CrossModelSecretsSuite) setup(c *gc.C) *gomock.Controller {
 		backendConfigGetter,
 		s.crossModelState,
 		s.stateBackend,
-		loggo.GetLoggerWithLabels("juju.apiserver.crossmodelsecrets", corelogger.SECRETS),
+		loggo.GetLoggerWithTags("juju.apiserver.crossmodelsecrets", corelogger.SECRETS),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 

@@ -7,11 +7,11 @@ import (
 	"context"
 	"sync"
 
-	"github.com/juju/charm/v12/hooks"
+	"github.com/juju/charm/v13/hooks"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
-	utilexec "github.com/juju/utils/v3/exec"
+	utilexec "github.com/juju/utils/v4/exec"
 
 	"github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/core/model"

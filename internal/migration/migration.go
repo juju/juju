@@ -12,10 +12,10 @@ import (
 	"net/url"
 	"os"
 
-	"github.com/juju/charm/v12"
+	"github.com/juju/charm/v13"
 	"github.com/juju/description/v5"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	"github.com/juju/naturalsort"
 	"github.com/juju/version/v2"
 
@@ -33,7 +33,7 @@ import (
 	"github.com/juju/juju/state"
 )
 
-var logger = loggo.GetLoggerWithLabels("juju.migration", corelogger.MIGRATION)
+var logger = loggo.GetLoggerWithTags("juju.migration", corelogger.MIGRATION)
 
 // LegacyStateExporter describes interface on state required to export a
 // model.

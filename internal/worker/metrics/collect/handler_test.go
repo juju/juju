@@ -11,9 +11,9 @@ import (
 	"strings"
 	"time"
 
-	jujucharm "github.com/juju/charm/v12"
+	jujucharm "github.com/juju/charm/v13"
 	"github.com/juju/clock"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"

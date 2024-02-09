@@ -15,7 +15,7 @@ import (
 	http "net/http"
 	reflect "reflect"
 
-	charm "github.com/juju/charm/v12"
+	charm "github.com/juju/charm/v13"
 	base "github.com/juju/juju/core/base"
 	charm0 "github.com/juju/juju/core/charm"
 	instance "github.com/juju/juju/core/instance"
@@ -271,23 +271,23 @@ func (mr *MockLoggerFactoryMockRecorder) Child(arg0 any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Child", reflect.TypeOf((*MockLoggerFactory)(nil).Child), arg0)
 }
 
-// ChildWithLabels mocks base method.
-func (m *MockLoggerFactory) ChildWithLabels(arg0 string, arg1 ...string) charmhub.Logger {
+// ChildWithTags mocks base method.
+func (m *MockLoggerFactory) ChildWithTags(arg0 string, arg1 ...string) charmhub.Logger {
 	m.ctrl.T.Helper()
 	varargs := []any{arg0}
 	for _, a := range arg1 {
 		varargs = append(varargs, a)
 	}
-	ret := m.ctrl.Call(m, "ChildWithLabels", varargs...)
+	ret := m.ctrl.Call(m, "ChildWithTags", varargs...)
 	ret0, _ := ret[0].(charmhub.Logger)
 	return ret0
 }
 
-// ChildWithLabels indicates an expected call of ChildWithLabels.
-func (mr *MockLoggerFactoryMockRecorder) ChildWithLabels(arg0 any, arg1 ...any) *gomock.Call {
+// ChildWithTags indicates an expected call of ChildWithTags.
+func (mr *MockLoggerFactoryMockRecorder) ChildWithTags(arg0 any, arg1 ...any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]any{arg0}, arg1...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ChildWithLabels", reflect.TypeOf((*MockLoggerFactory)(nil).ChildWithLabels), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ChildWithTags", reflect.TypeOf((*MockLoggerFactory)(nil).ChildWithTags), varargs...)
 }
 
 // ForNamespace mocks base method.

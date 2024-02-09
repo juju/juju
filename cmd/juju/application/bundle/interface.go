@@ -4,7 +4,7 @@
 package bundle
 
 import (
-	"github.com/juju/charm/v12"
+	"github.com/juju/charm/v13"
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/rpc/params"

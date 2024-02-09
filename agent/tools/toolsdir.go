@@ -15,7 +15,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils/v3/symlink"
+	"github.com/juju/utils/v4/symlink"
 	"github.com/juju/version/v2"
 
 	coretools "github.com/juju/juju/internal/tools"

@@ -20,11 +20,11 @@ import (
 	"unicode/utf8"
 
 	"github.com/juju/clock"
-	"github.com/juju/cmd/v3"
+	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
-	"github.com/juju/utils/v3"
-	utilexec "github.com/juju/utils/v3/exec"
+	"github.com/juju/loggo/v2"
+	"github.com/juju/utils/v4"
+	utilexec "github.com/juju/utils/v4/exec"
 	"github.com/kballard/go-shellquote"
 
 	"github.com/juju/juju/core/actions"

@@ -9,9 +9,10 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/base"
@@ -20,7 +21,6 @@ import (
 	"github.com/juju/juju/internal/logfwd"
 	"github.com/juju/juju/rpc/params"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
 )
 
 type LogReaderSuite struct {
@@ -67,7 +67,6 @@ func (s *LogReaderSuite) TestNextOneRecord(c *gc.C) {
 	apiRec := params.LogStreamRecord{
 		ModelUUID: "deadbeef-2f18-4fd2-967d-db9663db7bea",
 		Entity:    "machine-99",
-		Version:   version.Current.String(),
 		Timestamp: ts,
 		Module:    "api.logstream.test",
 		Location:  "test.go:42",
@@ -114,7 +113,7 @@ func (s *LogReaderSuite) TestNextOneRecord(c *gc.C) {
 			Software: logfwd.Software{
 				PrivateEnterpriseNumber: 28978,
 				Name:                    "jujud-machine-agent",
-				Version:                 version.Current,
+				Version:                 version.Zero,
 			},
 		},
 		Timestamp: ts,

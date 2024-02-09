@@ -12,7 +12,7 @@ package mocks
 import (
 	reflect "reflect"
 
-	charm "github.com/juju/charm/v12"
+	charm "github.com/juju/charm/v13"
 	gomock "go.uber.org/mock/gomock"
 )
 

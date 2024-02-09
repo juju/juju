@@ -23,7 +23,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	"github.com/juju/utils/v3/shell"
+	"github.com/juju/utils/v4/shell"
 
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/internal/service/common"

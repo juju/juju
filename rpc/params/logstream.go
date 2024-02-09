@@ -7,7 +7,10 @@ import (
 	"time"
 )
 
-// LogStreamRecord contains a slice of LogStreamRecords.
+// TODO(debug-log) - these structs are used to stream logs to the rsyslog forward worker
+// Delete when the worker is removed.
+
+// LogStreamRecords contains a slice of LogStreamRecords.
 type LogStreamRecords struct {
 	Records []LogStreamRecord `json:"records"`
 }
@@ -15,16 +18,16 @@ type LogStreamRecords struct {
 // LogStreamRecord describes a single log record being streamed from
 // the server.
 type LogStreamRecord struct {
-	ID        int64     `json:"id"`
-	ModelUUID string    `json:"mid"`
-	Entity    string    `json:"ent"`
-	Version   string    `json:"ver,omitempty"`
-	Timestamp time.Time `json:"ts"`
-	Module    string    `json:"mod"`
-	Location  string    `json:"lo"`
-	Level     string    `json:"lv"`
-	Message   string    `json:"msg"`
-	Labels    []string  `json:"lab"`
+	ID           int64             `json:"id"`
+	ModelUUID    string            `json:"mid"`
+	Entity       string            `json:"ent"`
+	Timestamp    time.Time         `json:"ts"`
+	Module       string            `json:"mod"`
+	Location     string            `json:"lo"`
+	Level        string            `json:"lv"`
+	Message      string            `json:"msg"`
+	LegacyLabels []string          `json:"lab,omitempty"`
+	Labels       map[string]string `json:"lbl,omitempty"`
 }
 
 // LogStreamConfig holds all the information necessary to open a

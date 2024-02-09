@@ -10,9 +10,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/juju/cmd/v3"
+	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
-	"github.com/juju/utils/v3"
+	"github.com/juju/utils/v4"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/core/constraints"

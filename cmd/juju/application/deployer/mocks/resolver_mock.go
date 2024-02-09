@@ -13,7 +13,7 @@ import (
 	context "context"
 	reflect "reflect"
 
-	charm "github.com/juju/charm/v12"
+	charm "github.com/juju/charm/v13"
 	charm0 "github.com/juju/juju/api/common/charm"
 	base "github.com/juju/juju/core/base"
 	gomock "go.uber.org/mock/gomock"

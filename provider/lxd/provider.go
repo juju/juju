@@ -119,7 +119,7 @@ func NewProvider() environs.CloudEnvironProvider {
 	configReader := lxcConfigReader{}
 	factory := NewServerFactory(NewHTTPClientFunc(func() *http.Client {
 		return jujuhttp.NewClient(
-			jujuhttp.WithLogger(logger.ChildWithLabels("http", corelogger.HTTP)),
+			jujuhttp.WithLogger(logger.ChildWithTags("http", corelogger.HTTP)),
 		).Client()
 	}))
 

@@ -9,7 +9,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/juju/charm/v12"
+	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
 	"gopkg.in/yaml.v2"
 

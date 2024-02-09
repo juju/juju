@@ -4,7 +4,7 @@
 package charm_test
 
 import (
-	"github.com/juju/charm/v12"
+	"github.com/juju/charm/v13"
 	gc "gopkg.in/check.v1"
 
 	commoncharm "github.com/juju/juju/api/common/charm"

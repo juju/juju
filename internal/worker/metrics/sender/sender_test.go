@@ -13,7 +13,7 @@ import (
 	"path/filepath"
 	"time"
 
-	jujucharm "github.com/juju/charm/v12"
+	jujucharm "github.com/juju/charm/v13"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"

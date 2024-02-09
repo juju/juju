@@ -9,12 +9,12 @@ import (
 	"os"
 	"sync"
 
-	jujucharm "github.com/juju/charm/v12"
+	jujucharm "github.com/juju/charm/v13"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	"github.com/juju/utils/v3"
-	"github.com/juju/utils/v3/exec"
+	"github.com/juju/utils/v4"
+	"github.com/juju/utils/v4/exec"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
 	"gopkg.in/tomb.v2"
@@ -225,14 +225,6 @@ func NewUniter(uniterParams *UniterParams) (*Uniter, error) {
 	startFunc := newUniter(uniterParams)
 	w, err := startFunc()
 	return w.(*Uniter), err
-}
-
-// StartUniter creates a new Uniter and starts it using the specified runner.
-func StartUniter(runner *worker.Runner, params *UniterParams) error {
-	startFunc := newUniter(params)
-	params.Logger.Debugf("starting uniter for %q", params.UnitTag.Id())
-	err := runner.StartWorker(params.UnitTag.Id(), startFunc)
-	return errors.Annotate(err, "error starting uniter worker")
 }
 
 func newUniter(uniterParams *UniterParams) func() (worker.Worker, error) {
@@ -501,16 +493,16 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 				u.logger.Child("leadership"),
 			),
 			CreatedRelations: relation.NewCreatedRelationResolver(
-				u.relationStateTracker, u.logger.ChildWithLabels("relation", corelogger.CMR)),
+				u.relationStateTracker, u.logger.ChildWithTags("relation", corelogger.CMR)),
 			Relations: relation.NewRelationResolver(
-				u.relationStateTracker, u.unit, u.logger.ChildWithLabels("relation", corelogger.CMR)),
+				u.relationStateTracker, u.unit, u.logger.ChildWithTags("relation", corelogger.CMR)),
 			Storage: storage.NewResolver(
 				u.logger.Child("storage"), u.storage, u.modelType),
 			Commands: runcommands.NewCommandsResolver(
 				u.commands, watcher.CommandCompleted,
 			),
 			Secrets: secrets.NewSecretsResolver(
-				u.logger.ChildWithLabels("secrets", corelogger.SECRETS),
+				u.logger.ChildWithTags("secrets", corelogger.SECRETS),
 				u.secretsTracker,
 				watcher.RotateSecretCompleted,
 				watcher.ExpireRevisionCompleted,
@@ -828,7 +820,7 @@ func (u *Uniter) init(ctx stdcontext.Context, unitTag names.UnitTag) (err error)
 	u.storage = storageAttachments
 
 	secretsTracker, err := secrets.NewSecrets(
-		u.secretsClient, unitTag, u.unit, u.logger.ChildWithLabels("secrets", corelogger.SECRETS),
+		u.secretsClient, unitTag, u.unit, u.logger.ChildWithTags("secrets", corelogger.SECRETS),
 	)
 	if err != nil {
 		return errors.Annotatef(err, "cannot create secrets tracker")

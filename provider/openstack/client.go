@@ -14,7 +14,7 @@ import (
 	"github.com/go-goose/goose/v5/nova"
 	"github.com/juju/errors"
 	jujuhttp "github.com/juju/http/v2"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 
 	corelogger "github.com/juju/juju/core/logger"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -254,7 +254,7 @@ func newClient(
 	httpClient := jujuhttp.NewClient(
 		jujuhttp.WithSkipHostnameVerification(opts.skipHostnameVerification),
 		jujuhttp.WithCACertificates(opts.caCertificates...),
-		jujuhttp.WithLogger(logger.ChildWithLabels("http", corelogger.HTTP)),
+		jujuhttp.WithLogger(logger.ChildWithTags("http", corelogger.HTTP)),
 	)
 	return client.NewClient(&cred, authMode, gooseLogger,
 		client.WithHTTPClient(httpClient.Client()),

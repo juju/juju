@@ -12,7 +12,7 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	jujutxn "github.com/juju/txn/v3"
 	"gopkg.in/macaroon.v2"

@@ -11,11 +11,11 @@ import (
 	"time"
 
 	"github.com/juju/clock/testclock"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/replicaset/v3"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3/voyeur"
+	"github.com/juju/utils/v4/voyeur"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 	"github.com/kr/pretty"

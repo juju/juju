@@ -11,12 +11,12 @@ import (
 
 	"github.com/juju/ansiterm"
 	"github.com/juju/clock"
-	"github.com/juju/cmd/v3"
+	"github.com/juju/cmd/v4"
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/loggo"
 	"github.com/juju/loggo/loggocolor"
+	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/juju/retry"
 	"github.com/mattn/go-isatty"
@@ -349,7 +349,12 @@ func (c *debugLogCommand) writeLogRecord(w *ansiterm.Writer, r common.LogMessage
 		loggocolor.LocationColor.Fprintf(w, "%s ", r.Location)
 	}
 	if len(r.Labels) > 0 {
-		fmt.Fprintf(w, "%v ", strings.Join(r.Labels, ","))
+		//TODO(debug-log) - we'll move to newline delimited json
+		var labelsOut []string
+		for k, v := range r.Labels {
+			labelsOut = append(labelsOut, fmt.Sprintf("%s:%s", k, v))
+		}
+		fmt.Fprintf(w, "%v ", strings.Join(labelsOut, ","))
 	}
 	fmt.Fprintln(w, r.Message)
 }

@@ -9,7 +9,7 @@ import (
 	"sync"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/juju/version/v2"
 
@@ -171,10 +171,8 @@ func originFromAPI(apiRec params.LogStreamRecord, controllerUUID string) (logfwd
 		return origin, errors.Annotate(err, "invalid entity")
 	}
 
-	ver, err := version.Parse(apiRec.Version)
-	if err != nil {
-		return origin, errors.Annotatef(err, "invalid version %q", apiRec.Version)
-	}
+	// The log fwd worker is being removed; just use this placeholder till it's gone.
+	ver := version.Zero
 
 	switch tag := tag.(type) {
 	case names.MachineTag:

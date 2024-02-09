@@ -6,7 +6,7 @@ package testing
 import (
 	"fmt"
 
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	gc "gopkg.in/check.v1"
 )
 
@@ -64,7 +64,7 @@ func (c CheckLogger) Logf(level loggo.Level, msg string, args ...any) {
 	c.Log.Logf(fmt.Sprintf("%s: %s", level.String(), msg), args...)
 }
 func (c CheckLogger) Child(name string) CheckLogger { return c }
-func (c CheckLogger) ChildWithLabels(string, ...string) CheckLogger {
+func (c CheckLogger) ChildWithTags(string, ...string) CheckLogger {
 	return c
 }
 
@@ -89,6 +89,6 @@ func NewCheckLoggerFactory(c *gc.C) CheckLoggerFactory {
 func (c CheckLoggerFactory) Child(string) CheckLogger {
 	return NewCheckLogger(c.c)
 }
-func (c CheckLoggerFactory) ChildWithLabels(string, ...string) CheckLogger {
+func (c CheckLoggerFactory) ChildWithTags(string, ...string) CheckLogger {
 	return NewCheckLogger(c.c)
 }

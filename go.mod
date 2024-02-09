@@ -45,9 +45,9 @@ require (
 	github.com/im7mortal/kmutex v1.0.1
 	github.com/juju/ansiterm v1.0.0
 	github.com/juju/blobstore/v3 v3.0.2
-	github.com/juju/charm/v12 v12.0.1
+	github.com/juju/charm/v13 v13.0.0
 	github.com/juju/clock v1.0.3
-	github.com/juju/cmd/v3 v3.0.14
+	github.com/juju/cmd/v4 v4.0.0
 	github.com/juju/collections v1.0.4
 	github.com/juju/description/v5 v5.0.1
 	github.com/juju/errors v1.0.0
@@ -55,10 +55,11 @@ require (
 	github.com/juju/gnuflag v1.0.0
 	github.com/juju/gojsonschema v1.0.0
 	github.com/juju/gomaasapi/v2 v2.2.0
-	github.com/juju/http/v2 v2.0.0
+	github.com/juju/http/v2 v2.0.1
 	github.com/juju/idmclient/v2 v2.0.0
 	github.com/juju/jsonschema v1.0.0
 	github.com/juju/loggo v1.0.0
+	github.com/juju/loggo/v2 v2.0.0
 	github.com/juju/lumberjack/v2 v2.0.2
 	github.com/juju/mgo/v3 v3.0.4
 	github.com/juju/mutex/v2 v2.0.0
@@ -76,9 +77,9 @@ require (
 	github.com/juju/romulus v1.0.0
 	github.com/juju/schema v1.2.0
 	github.com/juju/terms-client/v2 v2.0.0
-	github.com/juju/testing v1.1.0
+	github.com/juju/testing v1.2.0
 	github.com/juju/txn/v3 v3.0.2
-	github.com/juju/utils/v3 v3.1.0
+	github.com/juju/utils/v4 v4.0.1
 	github.com/juju/version/v2 v2.0.1
 	github.com/juju/viddy v0.0.0-beta5
 	github.com/juju/webbrowser v1.0.0
@@ -110,11 +111,11 @@ require (
 	go.opentelemetry.io/otel/trace v1.21.0
 	go.uber.org/goleak v1.3.0
 	go.uber.org/mock v0.4.0
-	golang.org/x/crypto v0.17.0
-	golang.org/x/net v0.19.0
+	golang.org/x/crypto v0.19.0
+	golang.org/x/net v0.21.0
 	golang.org/x/oauth2 v0.15.0
 	golang.org/x/sync v0.5.0
-	golang.org/x/sys v0.15.0
+	golang.org/x/sys v0.17.0
 	golang.org/x/tools v0.16.1
 	google.golang.org/api v0.154.0
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c
@@ -216,6 +217,7 @@ require (
 	github.com/juju/lru v1.0.0 // indirect
 	github.com/juju/mgo/v2 v2.0.2 // indirect
 	github.com/juju/usso v1.0.1 // indirect
+	github.com/juju/utils/v3 v3.1.0 // indirect
 	github.com/juju/version v0.0.0-20210303051006-2015802527a8 // indirect
 	github.com/julienschmidt/httprouter v1.3.0 // indirect
 	github.com/kr/fs v0.1.0 // indirect
@@ -295,7 +297,7 @@ require (
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/exp v0.0.0-20231127185646-65229373498e // indirect
 	golang.org/x/mod v0.14.0 // indirect
-	golang.org/x/term v0.15.0 // indirect
+	golang.org/x/term v0.17.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
 	golang.org/x/time v0.5.0 // indirect
 	google.golang.org/appengine v1.6.8 // indirect

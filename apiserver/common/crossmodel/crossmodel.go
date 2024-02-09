@@ -9,7 +9,7 @@ import (
 	"net"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/apiserver/authentication"
@@ -26,8 +26,8 @@ import (
 )
 
 var (
-	logger     = loggo.GetLoggerWithLabels("juju.apiserver.common.crossmodel", corelogger.CMR)
-	authlogger = loggo.GetLoggerWithLabels("juju.apiserver.common.crossmodelauth", corelogger.CMR_AUTH)
+	logger     = loggo.GetLoggerWithTags("juju.apiserver.common.crossmodel", corelogger.CMR)
+	authlogger = loggo.GetLoggerWithTags("juju.apiserver.common.crossmodelauth", corelogger.CMR_AUTH)
 )
 
 // PublishRelationChange applies the relation change event to the specified backend.

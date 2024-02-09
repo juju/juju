@@ -11,9 +11,9 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/juju/charm/v12"
+	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/juju/schema"
 	"github.com/juju/version/v2"

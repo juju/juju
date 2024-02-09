@@ -16,7 +16,7 @@ import (
 	"github.com/juju/errors"
 	jujuhttp "github.com/juju/http/v2"
 	"github.com/juju/retry"
-	"github.com/juju/utils/v3"
+	"github.com/juju/utils/v4"
 
 	corelogger "github.com/juju/juju/core/logger"
 )
@@ -134,7 +134,7 @@ func NewDataSource(cfg Config) DataSource {
 	client := jujuhttp.NewClient(
 		jujuhttp.WithSkipHostnameVerification(!cfg.HostnameVerification),
 		jujuhttp.WithCACertificates(cfg.CACertificates...),
-		jujuhttp.WithLogger(logger.ChildWithLabels("http", corelogger.HTTP)),
+		jujuhttp.WithLogger(logger.ChildWithTags("http", corelogger.HTTP)),
 	)
 	return NewDataSourceWithClient(cfg, client)
 }

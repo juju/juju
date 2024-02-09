@@ -12,7 +12,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/juju/cmd/v3"
+	"github.com/juju/cmd/v4"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	jujuhttp "github.com/juju/http/v2"
@@ -110,7 +110,7 @@ func (c *updatePublicCloudsCommand) Init(args []string) error {
 
 func PublishedPublicClouds(ctx context.Context, url, key string) (map[string]jujucloud.Cloud, error) {
 	client := jujuhttp.NewClient(
-		jujuhttp.WithLogger(logger.ChildWithLabels("http", corelogger.HTTP)),
+		jujuhttp.WithLogger(logger.ChildWithTags("http", corelogger.HTTP)),
 	)
 	resp, err := client.Get(ctx, url)
 	if err != nil {

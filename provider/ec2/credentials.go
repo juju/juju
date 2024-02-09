@@ -9,7 +9,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/juju/errors"
-	"github.com/juju/utils/v3"
+	"github.com/juju/utils/v4"
 	"gopkg.in/ini.v1"
 
 	"github.com/juju/juju/cloud"

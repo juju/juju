@@ -5,7 +5,7 @@ package collect
 
 import (
 	"github.com/juju/clock"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 
 	"github.com/juju/juju/internal/worker/metrics/spool"
 	"github.com/juju/juju/internal/worker/uniter/runner/context"

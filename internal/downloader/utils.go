@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/errors"
 	jujuhttp "github.com/juju/http/v2"
-	"github.com/juju/utils/v3"
+	"github.com/juju/utils/v4"
 
 	corelogger "github.com/juju/juju/core/logger"
 )
@@ -24,7 +24,7 @@ func NewHTTPBlobOpener(hostnameVerification bool) func(Request) (io.ReadCloser, 
 		// TODO(rog) make the download operation interruptible.
 		client := jujuhttp.NewClient(
 			jujuhttp.WithSkipHostnameVerification(!hostnameVerification),
-			jujuhttp.WithLogger(logger.ChildWithLabels("http", corelogger.HTTP)),
+			jujuhttp.WithLogger(logger.ChildWithTags("http", corelogger.HTTP)),
 		)
 
 		resp, err := client.Get(context.TODO(), req.URL.String())

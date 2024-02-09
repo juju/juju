@@ -8,7 +8,7 @@ import (
 	"fmt"
 
 	"github.com/juju/clock"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	"github.com/juju/testing"
 	"github.com/juju/worker/v4/workertest"
 	gc "gopkg.in/check.v1"

@@ -4,8 +4,8 @@
 package charms
 
 import (
-	"github.com/juju/charm/v12"
-	"github.com/juju/loggo"
+	"github.com/juju/charm/v13"
+	"github.com/juju/loggo/v2"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"

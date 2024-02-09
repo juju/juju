@@ -6,9 +6,9 @@ package bootstrap
 import (
 	"testing"
 
-	"github.com/juju/charm/v12"
+	"github.com/juju/charm/v13"
 	jujutesting "github.com/juju/testing"
-	"github.com/juju/utils/v3"
+	"github.com/juju/utils/v4"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 

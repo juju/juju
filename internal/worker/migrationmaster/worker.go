@@ -12,7 +12,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/juju/version/v2"
 	"github.com/juju/worker/v4/catacomb"
@@ -170,7 +170,7 @@ func New(config Config) (*Worker, error) {
 	// the logs from different migrationmaster insteads using the short
 	// model UUID suffix.
 	loggerName := "juju.worker.migrationmaster." + names.NewModelTag(config.ModelUUID).ShortId()
-	logger := loggo.GetLoggerWithLabels(loggerName, corelogger.MIGRATION)
+	logger := loggo.GetLoggerWithTags(loggerName, corelogger.MIGRATION)
 
 	w := &Worker{
 		config: config,

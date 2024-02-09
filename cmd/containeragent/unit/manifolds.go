@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"github.com/juju/clock"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	"github.com/juju/pubsub/v2"
-	"github.com/juju/utils/v3/voyeur"
+	"github.com/juju/utils/v4/voyeur"
 	"github.com/juju/version/v2"
 	"github.com/juju/worker/v4/dependency"
 	"github.com/prometheus/client_golang/prometheus"
@@ -290,7 +290,7 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 			ValidateMigration: config.ValidateMigration,
 			NewFacade:         migrationminion.NewFacade,
 			NewWorker:         migrationminion.NewWorker,
-			Logger:            loggo.GetLoggerWithLabels("juju.worker.migrationminion", corelogger.MIGRATION),
+			Logger:            loggo.GetLoggerWithTags("juju.worker.migrationminion", corelogger.MIGRATION),
 		}),
 
 		// The proxy config updater is a leaf worker that sets http/https/apt/etc

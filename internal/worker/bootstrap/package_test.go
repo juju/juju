@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/names/v5"
 	jujutesting "github.com/juju/testing"
-	"github.com/juju/utils/v3"
+	"github.com/juju/utils/v4"
 	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -102,7 +102,7 @@ func (f loggerFactory) Child(string) Logger {
 	return f.logger
 }
 
-func (f loggerFactory) ChildWithLabels(string, ...string) Logger {
+func (f loggerFactory) ChildWithTags(string, ...string) Logger {
 	return f.logger
 }
 

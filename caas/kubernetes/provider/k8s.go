@@ -15,7 +15,7 @@ import (
 
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/juju/version/v2"
 	apps "k8s.io/api/apps/v1"

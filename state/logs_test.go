@@ -9,17 +9,15 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	"github.com/juju/mgo/v3"
 	"github.com/juju/mgo/v3/bson"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
-	jujuversion "github.com/juju/juju/version"
 )
 
 type LogCollectionSuite struct {
@@ -691,76 +689,6 @@ func (s *LogTailerSuite) TestIncludeExcludeModule(c *gc.C) {
 	s.checkLogTailerFiltering(c, s.otherState, params, writeLogs, assert)
 }
 
-func (s *LogTailerSuite) TestIncludeLabels(c *gc.C) {
-	mod0 := logTemplate{Labels: []string{"foo_bar"}}
-	mod1 := logTemplate{Labels: []string{"juju_thing"}}
-	subMod1 := logTemplate{Labels: []string{"juju_thing_hai"}}
-	mod2 := logTemplate{Labels: []string{"elsewhere"}}
-	writeLogs := func() {
-		s.writeLogs(c, s.otherUUID, 1, mod0)
-		s.writeLogs(c, s.otherUUID, 1, mod1)
-		s.writeLogs(c, s.otherUUID, 1, mod0)
-		s.writeLogs(c, s.otherUUID, 1, subMod1)
-		s.writeLogs(c, s.otherUUID, 1, mod0)
-		s.writeLogs(c, s.otherUUID, 1, mod2)
-	}
-	params := corelogger.LogTailerParams{
-		IncludeLabel: []string{"juju_thing", "elsewhere"},
-	}
-	assert := func(tailer corelogger.LogTailer) {
-		s.assertTailer(c, tailer, 1, mod1)
-		s.assertTailer(c, tailer, 1, mod2)
-	}
-	s.checkLogTailerFiltering(c, s.otherState, params, writeLogs, assert)
-}
-
-func (s *LogTailerSuite) TestExcludeLabels(c *gc.C) {
-	mod0 := logTemplate{Labels: []string{"foo_bar"}}
-	mod1 := logTemplate{Labels: []string{"juju_thing"}}
-	subMod1 := logTemplate{Labels: []string{"juju_thing_hai"}}
-	mod2 := logTemplate{Labels: []string{"elsewhere"}}
-	writeLogs := func() {
-		s.writeLogs(c, s.otherUUID, 1, mod0)
-		s.writeLogs(c, s.otherUUID, 1, mod1)
-		s.writeLogs(c, s.otherUUID, 1, mod0)
-		s.writeLogs(c, s.otherUUID, 1, subMod1)
-		s.writeLogs(c, s.otherUUID, 1, mod0)
-		s.writeLogs(c, s.otherUUID, 1, mod2)
-	}
-	params := corelogger.LogTailerParams{
-		ExcludeLabel: []string{"juju_thing", "juju_thing_hai", "elsewhere"},
-	}
-	assert := func(tailer corelogger.LogTailer) {
-		s.assertTailer(c, tailer, 2, mod0)
-	}
-	s.checkLogTailerFiltering(c, s.otherState, params, writeLogs, assert)
-}
-
-func (s *LogTailerSuite) TestIncludeExcludeLabels(c *gc.C) {
-	foo := logTemplate{Labels: []string{"foo"}}
-	bar := logTemplate{Labels: []string{"bar"}}
-	barSub := logTemplate{Labels: []string{"bar_thing"}}
-	baz := logTemplate{Labels: []string{"baz"}}
-	qux := logTemplate{Labels: []string{"qux"}}
-	writeLogs := func() {
-		s.writeLogs(c, s.otherUUID, 1, foo)
-		s.writeLogs(c, s.otherUUID, 1, bar)
-		s.writeLogs(c, s.otherUUID, 1, barSub)
-		s.writeLogs(c, s.otherUUID, 1, baz)
-		s.writeLogs(c, s.otherUUID, 1, qux)
-	}
-	params := corelogger.LogTailerParams{
-		IncludeLabel: []string{"foo", "bar", "qux"},
-		ExcludeLabel: []string{"foo", "bar"},
-	}
-	assert := func(tailer corelogger.LogTailer) {
-		// Except just "qux" because "foo" and "bar" were included and
-		// then excluded.
-		s.assertTailer(c, tailer, 1, qux)
-	}
-	s.checkLogTailerFiltering(c, s.otherState, params, writeLogs, assert)
-}
-
 func (s *LogTailerSuite) checkLogTailerFiltering(
 	c *gc.C,
 	st *state.State,
@@ -784,12 +712,11 @@ func (s *LogTailerSuite) checkLogTailerFiltering(
 
 type logTemplate struct {
 	Entity   string
-	Version  version.Number
 	Module   string
 	Location string
 	Level    loggo.Level
 	Message  string
-	Labels   []string
+	Labels   map[string]string
 }
 
 // writeLogs creates count log messages at the current time using
@@ -844,9 +771,6 @@ func (s *LogTailerSuite) normaliseLogTemplate(lt *logTemplate) {
 	if lt.Entity == "" {
 		lt.Entity = "not-a-tag"
 	}
-	if lt.Version == version.Zero {
-		lt.Version = jujuversion.Current
-	}
 	if lt.Module == "" {
 		lt.Module = "module"
 	}
@@ -886,7 +810,6 @@ func (s *LogTailerSuite) assertTailer(c *gc.C, tailer corelogger.LogTailer, expe
 				c.Fatalf("tailer died unexpectedly: %v", tailer.Err())
 			}
 
-			c.Assert(log.Version, gc.Equals, lt.Version)
 			c.Assert(log.Entity, gc.Equals, lt.Entity)
 			c.Assert(log.Module, gc.Equals, lt.Module)
 			c.Assert(log.Location, gc.Equals, lt.Location)

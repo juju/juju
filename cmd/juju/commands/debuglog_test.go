@@ -6,8 +6,8 @@ package commands
 import (
 	"time"
 
-	"github.com/juju/cmd/v3/cmdtesting"
-	"github.com/juju/loggo"
+	"github.com/juju/cmd/v4/cmdtesting"
+	"github.com/juju/loggo/v2"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -214,7 +214,7 @@ func (s *DebugLogSuite) TestLogOutputWithLogs(c *gc.C) {
 				Module:    "test.module",
 				Location:  "somefile.go:123",
 				Message:   "this is the log output",
-				Labels:    []string{"http,foo"},
+				Labels:    map[string]string{"logger-tags": "http,foo"},
 			},
 		}}, nil
 	})
@@ -227,22 +227,22 @@ func (s *DebugLogSuite) TestLogOutputWithLogs(c *gc.C) {
 
 	}
 	checkOutput(
-		"machine-0: 14:15:23 INFO test.module http,foo this is the log output\n")
+		"machine-0: 14:15:23 INFO test.module logger-tags:http,foo this is the log output\n")
 	checkOutput(
 		"--ms",
-		"machine-0: 14:15:23.345 INFO test.module http,foo this is the log output\n")
+		"machine-0: 14:15:23.345 INFO test.module logger-tags:http,foo this is the log output\n")
 	checkOutput(
 		"--utc",
-		"machine-0: 08:15:23 INFO test.module http,foo this is the log output\n")
+		"machine-0: 08:15:23 INFO test.module logger-tags:http,foo this is the log output\n")
 	checkOutput(
 		"--date",
-		"machine-0: 2016-10-09 14:15:23 INFO test.module http,foo this is the log output\n")
+		"machine-0: 2016-10-09 14:15:23 INFO test.module logger-tags:http,foo this is the log output\n")
 	checkOutput(
 		"--utc", "--date",
-		"machine-0: 2016-10-09 08:15:23 INFO test.module http,foo this is the log output\n")
+		"machine-0: 2016-10-09 08:15:23 INFO test.module logger-tags:http,foo this is the log output\n")
 	checkOutput(
 		"--location",
-		"machine-0: 14:15:23 INFO test.module somefile.go:123 http,foo this is the log output\n")
+		"machine-0: 14:15:23 INFO test.module somefile.go:123 logger-tags:http,foo this is the log output\n")
 }
 
 type fakeDebugLogAPI struct {

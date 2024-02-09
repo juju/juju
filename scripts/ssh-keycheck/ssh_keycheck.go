@@ -14,7 +14,7 @@ import (
 	"time"
 
 	"github.com/juju/gnuflag"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	"golang.org/x/crypto/ssh"
 
 	"github.com/juju/juju/core/network"

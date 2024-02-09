@@ -224,8 +224,5 @@ func (sw Software) Validate() error {
 	if sw.Name == "" {
 		return errors.NewNotValid(nil, "empty Name")
 	}
-	if sw.Version == version.Zero {
-		return errors.NewNotValid(nil, "empty Version")
-	}
 	return nil
 }

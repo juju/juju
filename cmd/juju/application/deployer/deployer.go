@@ -12,12 +12,12 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/juju/charm/v12"
-	charmresource "github.com/juju/charm/v12/resource"
+	"github.com/juju/charm/v13"
+	charmresource "github.com/juju/charm/v13/resource"
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 
 	"github.com/juju/juju/api/client/application"
 	commoncharm "github.com/juju/juju/api/common/charm"

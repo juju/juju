@@ -8,7 +8,7 @@ import (
 	"net/http/httputil"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 )
 
 type LoggingPolicy struct {

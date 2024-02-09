@@ -10,8 +10,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/packaging/v2/commands"
 	"github.com/juju/packaging/v2/config"
-	"github.com/juju/utils/v3/shell"
-	"github.com/juju/utils/v3/ssh"
+	"github.com/juju/utils/v4/shell"
+	"github.com/juju/utils/v4/ssh"
 
 	jujupackaging "github.com/juju/juju/internal/packaging"
 )

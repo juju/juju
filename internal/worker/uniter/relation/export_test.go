@@ -6,7 +6,7 @@ package relation
 import (
 	stdcontext "context"
 
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 
 	"github.com/juju/juju/internal/worker/uniter/api"
 	"github.com/juju/juju/internal/worker/uniter/runner/context"

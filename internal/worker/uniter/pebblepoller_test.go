@@ -12,9 +12,9 @@ import (
 	pebbleclient "github.com/canonical/pebble/client"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3"
+	"github.com/juju/utils/v4"
 	"github.com/juju/worker/v4/workertest"
 	gc "gopkg.in/check.v1"
 

@@ -8,9 +8,9 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	"github.com/juju/testing"
-	"github.com/juju/utils/v3"
+	"github.com/juju/utils/v4"
 	"github.com/vmware/govmomi/vim25/methods"
 	"github.com/vmware/govmomi/vim25/soap"
 	"github.com/vmware/govmomi/vim25/types"

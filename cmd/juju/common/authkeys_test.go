@@ -8,10 +8,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/juju/cmd/v3/cmdtesting"
+	"github.com/juju/cmd/v4/cmdtesting"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3"
-	"github.com/juju/utils/v3/ssh"
+	"github.com/juju/utils/v4"
+	"github.com/juju/utils/v4/ssh"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/common"

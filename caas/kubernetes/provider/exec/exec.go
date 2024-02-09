@@ -15,8 +15,8 @@ import (
 
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
-	"github.com/juju/utils/v3"
+	"github.com/juju/loggo/v2"
+	"github.com/juju/utils/v4"
 	"github.com/kballard/go-shellquote"
 	"golang.org/x/crypto/ssh/terminal"
 	core "k8s.io/api/core/v1"

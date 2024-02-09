@@ -6,8 +6,8 @@ package leadership_test
 import (
 	"context"
 
-	"github.com/juju/charm/v12/hooks"
-	"github.com/juju/loggo"
+	"github.com/juju/charm/v13/hooks"
+	"github.com/juju/loggo/v2"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"

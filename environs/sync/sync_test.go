@@ -19,7 +19,7 @@ import (
 	jujuhttp "github.com/juju/http/v2"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3/tar"
+	"github.com/juju/utils/v4/tar"
 	"github.com/juju/version/v2"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"

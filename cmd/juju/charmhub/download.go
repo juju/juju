@@ -13,8 +13,8 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/juju/charm/v12"
-	"github.com/juju/cmd/v3"
+	"github.com/juju/charm/v13"
+	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
@@ -413,7 +413,7 @@ func (d downloadLoggerFactory) Child(name string) charmhub.Logger {
 	}
 }
 
-func (d downloadLoggerFactory) ChildWithLabels(name string, labels ...string) charmhub.Logger {
+func (d downloadLoggerFactory) ChildWithTags(name string, labels ...string) charmhub.Logger {
 	return downloadLogger{
 		factory: d,
 	}

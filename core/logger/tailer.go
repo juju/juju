@@ -6,7 +6,7 @@ package logger
 import (
 	"time"
 
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 )
 
 // LogTailer allows for retrieval of Juju's logs.

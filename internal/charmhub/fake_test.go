@@ -6,7 +6,7 @@ package charmhub
 import (
 	"fmt"
 
-	"github.com/juju/loggo"
+	"github.com/juju/loggo/v2"
 	gc "gopkg.in/check.v1"
 )
 
@@ -74,7 +74,7 @@ func NewCheckLoggerFactory(c *gc.C) *CheckLoggerFactory {
 func (c *CheckLoggerFactory) Child(string) Logger {
 	return NewCheckLogger(c.c)
 }
-func (c *CheckLoggerFactory) ChildWithLabels(string, ...string) Logger {
+func (c *CheckLoggerFactory) ChildWithTags(string, ...string) Logger {
 	return NewCheckLogger(c.c)
 }
 func (c *CheckLoggerFactory) Logger() CheckLogger {

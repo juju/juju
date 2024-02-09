@@ -17,7 +17,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/schema"
-	"github.com/juju/utils/v3"
+	"github.com/juju/utils/v4"
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs/envcontext"

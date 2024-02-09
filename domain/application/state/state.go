@@ -9,7 +9,7 @@ import (
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/errors"
-	"github.com/juju/utils/v3"
+	"github.com/juju/utils/v4"
 
 	coredb "github.com/juju/juju/core/database"
 	"github.com/juju/juju/domain"
