@@ -8,9 +8,8 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/juju/collections/transform"
-
 	"github.com/canonical/sqlair"
+	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/cloud"
@@ -454,9 +453,13 @@ FROM   cloud
 		}
 		cld, ok := clouds[dbCloud.ID]
 		if !ok {
+			cloudType, ok := m["cloud_type"].(string)
+			if !ok {
+				return nil, fmt.Errorf("error getting cloud type from database")
+			}
 			cld = &cloud.Cloud{
 				Name:              dbCloud.Name,
-				Type:              m["cloud_type"].(string),
+				Type:              cloudType,
 				Endpoint:          dbCloud.Endpoint,
 				IdentityEndpoint:  dbCloud.IdentityEndpoint,
 				StorageEndpoint:   dbCloud.StorageEndpoint,
@@ -470,7 +473,9 @@ FROM   cloud
 			clouds[dbCloud.ID] = cld
 		}
 		// "cloud_auth_type" will be in the map since iter.Get succeeded but may be set to nil.
-		if cloudAuthType := m["cloud_auth_type"]; cloudAuthType != nil {
+		if cloudAuthType, ok := m["cloud_auth_type"]; !ok {
+			return nil, fmt.Errorf("error getting cloud type from database")
+		} else if cloudAuthType != nil {
 			cld.AuthTypes = append(cld.AuthTypes, cloud.AuthType(cloudAuthType.(string)))
 		}
 	}

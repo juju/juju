@@ -5,6 +5,7 @@ package state
 
 // These structs represent the persistent cloud entity schema in the database.
 
+// CloudType represents a single row from the cloud_type table.
 type CloudType struct {
 	ID   int    `db:"id"`
 	Type string `db:"type"`
@@ -12,13 +13,18 @@ type CloudType struct {
 
 type AuthTypes []AuthType
 
+// AuthTypeIds represents a list of ids from the database.
 type AuthTypeIds []int
 
+// AuthType represents a single row from the auth_type table.
 type AuthType struct {
 	ID   int    `db:"id"`
 	Type string `db:"type"`
 }
 
+// Cloud represents a row from the cloud table joined with the cloud_type and
+// auth_type tables along with a column built form various tables signalling if
+// the cloud is a controller.
 type Cloud struct {
 	// ID holds the cloud document key.
 	ID string `db:"uuid"`
@@ -62,9 +68,6 @@ type CloudDefaults struct {
 }
 
 type CloudAuthType struct {
-	// ID holds the cloud auth type document key.
-	ID string `db:"uuid"`
-
 	// CloudUUID holds the cloud reference.
 	CloudUUID string `db:"cloud_uuid"`
 
@@ -76,6 +79,7 @@ type CloudAuthType struct {
 // cloud_region table.
 type RegionNames []string
 
+// CloudRegion represents a row in the cloud_region table.
 type CloudRegion struct {
 	// ID holds the cloud region document key.
 	ID string `db:"uuid"`
@@ -123,12 +127,11 @@ type CloudRegionDefaultValue struct {
 	Value string `db:"value"`
 }
 
+// CloudUUIDs is a slice of uuids from the database.
 type CloudUUIDs []string
 
+// CloudCACert represents a single row from the cloud_ca_cert table.
 type CloudCACert struct {
-	// ID holds the cloud ca cert document key.
-	ID string `db:"uuid"`
-
 	// CloudUUID holds the cloud reference.
 	CloudUUID string `db:"cloud_uuid"`
 
