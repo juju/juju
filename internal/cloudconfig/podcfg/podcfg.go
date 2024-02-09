@@ -116,6 +116,7 @@ func (cfg *ControllerPodConfig) AgentConfig(tag names.Tag) (agent.ConfigSetterWr
 		OpenTelemetryInsecure:    cfg.Controller.OpenTelemetryInsecure(),
 		OpenTelemetryStackTraces: cfg.Controller.OpenTelemetryStackTraces(),
 		OpenTelemetrySampleRatio: cfg.Controller.OpenTelemetrySampleRatio(),
+		ObjectStoreType:          cfg.Controller.ObjectStoreType(),
 	}
 	return agent.NewStateMachineConfig(configParams, cfg.Bootstrap.StateServingInfo)
 }

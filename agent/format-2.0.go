@@ -16,6 +16,7 @@ import (
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/objectstore"
 )
 
 var format_2_0 = formatter_2_0{}
@@ -73,6 +74,8 @@ type format_2_0Serialization struct {
 	OpenTelemetryInsecure    bool   `yaml:"opentelemetryinsecure,omitempty"`
 	OpenTelemetryStackTraces bool   `yaml:"opentelemetrystacktraces,omitempty"`
 	OpenTelemetrySampleRatio string `yaml:"opentelemetrysampleratio,omitempty"`
+
+	ObjectStoreType string `yaml:"objectstoretype,omitempty"`
 
 	DqlitePort int `yaml:"dqlite-port,omitempty"`
 }
@@ -168,7 +171,6 @@ func (formatter_2_0) unmarshal(data []byte) (*configInternal, error) {
 			}
 			config.servingInfo.StatePort = statePort
 		}
-
 	}
 
 	if format.MongoMemoryProfile != "" {
@@ -186,6 +188,13 @@ func (formatter_2_0) unmarshal(data []byte) (*configInternal, error) {
 			return nil, errors.Trace(err)
 		}
 		config.openTelemetrySampleRatio = sampleRatio
+	}
+	if format.ObjectStoreType != "" {
+		objectStoreType, err := objectstore.ParseObjectStoreType(format.ObjectStoreType)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		config.objectStoreType = objectStoreType
 	}
 	return config, nil
 }
@@ -247,6 +256,9 @@ func (formatter_2_0) marshal(config *configInternal) ([]byte, error) {
 	}
 	if config.openTelemetrySampleRatio != 0 {
 		format.OpenTelemetrySampleRatio = fmt.Sprintf("%.04f", config.openTelemetrySampleRatio)
+	}
+	if config.objectStoreType != "" {
+		format.ObjectStoreType = config.objectStoreType.String()
 	}
 	return goyaml.Marshal(format)
 }

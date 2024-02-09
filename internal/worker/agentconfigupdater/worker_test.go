@@ -15,6 +15,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/objectstore"
 	controllermsg "github.com/juju/juju/internal/pubsub/controller"
 	jworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/agentconfigupdater"
@@ -281,7 +282,6 @@ func (s *WorkerSuite) TestUpdateOpenTelemetryEnabled(c *gc.C) {
 		c.Fatalf("event not handled")
 	}
 
-	// Query tracing enabled is the same, worker still alive.
 	workertest.CheckAlive(c, w)
 
 	newConfig.Config[controller.OpenTelemetryEnabled] = true
@@ -312,7 +312,6 @@ func (s *WorkerSuite) TestUpdateOpenTelemetryEndpoint(c *gc.C) {
 		c.Fatalf("event not handled")
 	}
 
-	// Query tracing enabled is the same, worker still alive.
 	workertest.CheckAlive(c, w)
 
 	newConfig.Config[controller.OpenTelemetryEndpoint] = "http://foo.bar"
@@ -343,7 +342,6 @@ func (s *WorkerSuite) TestUpdateOpenTelemetryInsecure(c *gc.C) {
 		c.Fatalf("event not handled")
 	}
 
-	// Query tracing enabled is the same, worker still alive.
 	workertest.CheckAlive(c, w)
 
 	newConfig.Config[controller.OpenTelemetryInsecure] = true
@@ -374,7 +372,6 @@ func (s *WorkerSuite) TestUpdateOpenTelemetryStackTraces(c *gc.C) {
 		c.Fatalf("event not handled")
 	}
 
-	// Query tracing enabled is the same, worker still alive.
 	workertest.CheckAlive(c, w)
 
 	newConfig.Config[controller.OpenTelemetryStackTraces] = true
@@ -405,10 +402,39 @@ func (s *WorkerSuite) TestUpdateOpenTelemetrySampleRatio(c *gc.C) {
 		c.Fatalf("event not handled")
 	}
 
-	// Query tracing enabled is the same, worker still alive.
 	workertest.CheckAlive(c, w)
 
 	newConfig.Config[controller.OpenTelemetrySampleRatio] = 0.42
+	handled, err = s.hub.Publish(controllermsg.ConfigChanged, newConfig)
+	c.Assert(err, jc.ErrorIsNil)
+	select {
+	case <-pubsub.Wait(handled):
+	case <-time.After(testing.LongWait):
+		c.Fatalf("event not handled")
+	}
+
+	err = workertest.CheckKilled(c, w)
+
+	c.Assert(err, gc.Equals, jworker.ErrRestartAgent)
+}
+
+func (s *WorkerSuite) TestUpdateObjectStoreType(c *gc.C) {
+	w, err := agentconfigupdater.NewWorker(s.config)
+	c.Assert(w, gc.NotNil)
+	c.Check(err, jc.ErrorIsNil)
+
+	newConfig := s.initialConfigMsg
+	handled, err := s.hub.Publish(controllermsg.ConfigChanged, newConfig)
+	c.Assert(err, jc.ErrorIsNil)
+	select {
+	case <-pubsub.Wait(handled):
+	case <-time.After(testing.LongWait):
+		c.Fatalf("event not handled")
+	}
+
+	workertest.CheckAlive(c, w)
+
+	newConfig.Config[controller.ObjectStoreType] = objectstore.S3Backend
 	handled, err = s.hub.Publish(controllermsg.ConfigChanged, newConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	select {

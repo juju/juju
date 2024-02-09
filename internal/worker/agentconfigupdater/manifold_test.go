@@ -21,6 +21,7 @@ import (
 	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/objectstore"
 	coretrace "github.com/juju/juju/core/trace"
 	"github.com/juju/juju/internal/mongo"
 	jworker "github.com/juju/juju/internal/worker"
@@ -398,6 +399,9 @@ type mockConfig struct {
 
 	openTelemetrySampleRatio    float64
 	openTelemetrySampleRatioSet bool
+
+	objectStoreType    objectstore.BackendType
+	objectStoreTypeSet bool
 }
 
 func (mc *mockConfig) Tag() names.Tag {
@@ -515,6 +519,18 @@ func (mc *mockConfig) OpenTelemetrySampleRatio() float64 {
 func (mc *mockConfig) SetOpenTelemetrySampleRatio(ratio float64) {
 	mc.openTelemetrySampleRatio = ratio
 	mc.openTelemetrySampleRatioSet = true
+}
+
+func (mc *mockConfig) ObjectStoreType() objectstore.BackendType {
+	if mc.objectStoreType == "" {
+		return objectstore.FileBackend
+	}
+	return mc.objectStoreType
+}
+
+func (mc *mockConfig) SetObjectStoreType(value objectstore.BackendType) {
+	mc.objectStoreType = value
+	mc.objectStoreTypeSet = true
 }
 
 func (mc *mockConfig) LogDir() string {

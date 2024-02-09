@@ -18,6 +18,7 @@ import (
 	controller "github.com/juju/juju/controller"
 	model "github.com/juju/juju/core/model"
 	network "github.com/juju/juju/core/network"
+	objectstore "github.com/juju/juju/core/objectstore"
 	mongo "github.com/juju/juju/internal/mongo"
 	names "github.com/juju/names/v5"
 	shell "github.com/juju/utils/v4/shell"
@@ -353,6 +354,20 @@ func (m *MockConfig) Nonce() string {
 func (mr *MockConfigMockRecorder) Nonce() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Nonce", reflect.TypeOf((*MockConfig)(nil).Nonce))
+}
+
+// ObjectStoreType mocks base method.
+func (m *MockConfig) ObjectStoreType() objectstore.BackendType {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ObjectStoreType")
+	ret0, _ := ret[0].(objectstore.BackendType)
+	return ret0
+}
+
+// ObjectStoreType indicates an expected call of ObjectStoreType.
+func (mr *MockConfigMockRecorder) ObjectStoreType() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ObjectStoreType", reflect.TypeOf((*MockConfig)(nil).ObjectStoreType))
 }
 
 // OldPassword mocks base method.
@@ -860,6 +875,20 @@ func (mr *MockConfigSetterMockRecorder) Nonce() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Nonce", reflect.TypeOf((*MockConfigSetter)(nil).Nonce))
 }
 
+// ObjectStoreType mocks base method.
+func (m *MockConfigSetter) ObjectStoreType() objectstore.BackendType {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ObjectStoreType")
+	ret0, _ := ret[0].(objectstore.BackendType)
+	return ret0
+}
+
+// ObjectStoreType indicates an expected call of ObjectStoreType.
+func (mr *MockConfigSetterMockRecorder) ObjectStoreType() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ObjectStoreType", reflect.TypeOf((*MockConfigSetter)(nil).ObjectStoreType))
+}
+
 // OldPassword mocks base method.
 func (m *MockConfigSetter) OldPassword() string {
 	m.ctrl.T.Helper()
@@ -1044,6 +1073,18 @@ func (m *MockConfigSetter) SetMongoMemoryProfile(arg0 mongo.MemoryProfile) {
 func (mr *MockConfigSetterMockRecorder) SetMongoMemoryProfile(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetMongoMemoryProfile", reflect.TypeOf((*MockConfigSetter)(nil).SetMongoMemoryProfile), arg0)
+}
+
+// SetObjectStoreType mocks base method.
+func (m *MockConfigSetter) SetObjectStoreType(arg0 objectstore.BackendType) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetObjectStoreType", arg0)
+}
+
+// SetObjectStoreType indicates an expected call of SetObjectStoreType.
+func (mr *MockConfigSetterMockRecorder) SetObjectStoreType(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetObjectStoreType", reflect.TypeOf((*MockConfigSetter)(nil).SetObjectStoreType), arg0)
 }
 
 // SetOldPassword mocks base method.

@@ -19,6 +19,7 @@ import (
 
 	agentconstants "github.com/juju/juju/agent/constants"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/testing"
 )
 
@@ -106,6 +107,22 @@ func (*format_2_0Suite) TestOpenTelemetry(c *gc.C) {
 	c.Check(newConfig.OpenTelemetryEndpoint(), gc.Equals, "http://foo.bar")
 	c.Check(newConfig.OpenTelemetryInsecure(), jc.IsTrue)
 	c.Check(newConfig.OpenTelemetryStackTraces(), jc.IsTrue)
+}
+
+func (*format_2_0Suite) TestObjectStore(c *gc.C) {
+	config := newTestConfig(c)
+	// configFilePath is not serialized as it is the location of the file.
+	config.configFilePath = ""
+
+	config.SetObjectStoreType(objectstore.FileBackend)
+
+	data, err := format_2_0.marshal(config)
+	c.Assert(err, jc.ErrorIsNil)
+	newConfig, err := format_2_0.unmarshal(data)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(newConfig, gc.DeepEquals, config)
+	c.Check(newConfig.ObjectStoreType(), gc.Equals, objectstore.FileBackend)
 }
 
 var agentConfig2_0Contents = `
