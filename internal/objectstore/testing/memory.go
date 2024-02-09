@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils/v3"
+	"github.com/juju/utils/v4"
 
 	"github.com/juju/juju/core/lease"
 	coreobjectstore "github.com/juju/juju/core/objectstore"
