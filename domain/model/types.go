@@ -10,9 +10,13 @@ import (
 	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
 
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/credential"
 )
+
+// UUID represents a model unique identifier.
+type UUID string
 
 // ModelCreationArgs supplies the information required for instantiating a new
 // model.
@@ -38,40 +42,11 @@ type ModelCreationArgs struct {
 	Name string
 
 	// Owner is the uuid of the user that owns this model in the Juju controller.
-	// Must not be empty for a valid struct.
 	Owner user.UUID
 
 	// Type is the type of the model.
 	// Type must satisfy IsValid() for a valid struct.
-	Type Type
-}
-
-// Type represents the type of a model.
-type Type string
-
-// UUID represents a model unique identifier.
-type UUID string
-
-const (
-	// TypeCAAS is the type used for CAAS models.
-	TypeCAAS Type = "caas"
-
-	// TypeIAAS is the type used for IAAS models.
-	TypeIAAS Type = "iaas"
-)
-
-// IsValid returns true if the value of Type is a known valid type.
-// Currently supported values are:
-// - TypeCAAS
-// - TypeIAAS
-// - TypeNone
-func (t Type) IsValid() bool {
-	switch t {
-	case TypeCAAS,
-		TypeIAAS:
-		return true
-	}
-	return false
+	Type coremodel.ModelType
 }
 
 // NewUUID is a convince function for generating new model uuid id's.
@@ -115,11 +90,6 @@ func (u UUID) Validate() error {
 		return errors.Errorf("invalid uuid %q", u)
 	}
 	return nil
-}
-
-// String implements the stringer interface for Type.
-func (t Type) String() string {
-	return string(t)
 }
 
 // String implements the stringer interface for UUID.

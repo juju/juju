@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common/credentialcommon"
 	"github.com/juju/juju/apiserver/facade"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/domain/credential/service"
 	"github.com/juju/juju/domain/model"
 )
@@ -58,7 +59,7 @@ func newFacadeV7(context facade.Context) (*CloudAPI, error) {
 			ControllerUUID: m.ControllerUUID(),
 			Config:         cfg,
 			MachineService: credentialcommon.NewMachineService(modelState.State),
-			ModelType:      model.Type(m.Type()),
+			ModelType:      coremodel.ModelType(m.Type()),
 			Cloud:          *cld,
 			Region:         m.CloudRegion(),
 		}, nil

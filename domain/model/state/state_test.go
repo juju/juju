@@ -12,6 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/user"
 	dbcloud "github.com/juju/juju/domain/cloud/state"
 	"github.com/juju/juju/domain/credential"
@@ -100,7 +101,7 @@ func (m *modelSuite) SetUpTest(c *gc.C) {
 			},
 			Name:  "my-test-model",
 			Owner: m.userUUID,
-			Type:  model.TypeIAAS,
+			Type:  coremodel.IAAS,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -149,7 +150,7 @@ func (m *modelSuite) TestCreateModelMetadataWithNoModel(c *gc.C) {
 				CloudRegion: "my-region",
 				Name:        "fantasticmodel",
 				Owner:       m.userUUID,
-				Type:        model.TypeIAAS,
+				Type:        coremodel.IAAS,
 			},
 			tx,
 		)
@@ -170,7 +171,7 @@ func (m *modelSuite) TestCreateModelMetadataWithExistingMetadata(c *gc.C) {
 				CloudRegion: "my-region",
 				Name:        "fantasticmodel",
 				Owner:       m.userUUID,
-				Type:        model.TypeIAAS,
+				Type:        coremodel.IAAS,
 			},
 			tx,
 		)
@@ -189,7 +190,7 @@ func (m *modelSuite) TestCreateModelWithSameNameAndOwner(c *gc.C) {
 			CloudRegion: "my-region",
 			Name:        "my-test-model",
 			Owner:       m.userUUID,
-			Type:        model.TypeIAAS,
+			Type:        coremodel.IAAS,
 		},
 	)
 	c.Assert(err, jc.ErrorIs, modelerrors.AlreadyExists)
@@ -206,7 +207,7 @@ func (m *modelSuite) TestCreateModelWithInvalidCloudRegion(c *gc.C) {
 			CloudRegion: "noexist",
 			Name:        "noregion",
 			Owner:       m.userUUID,
-			Type:        model.TypeIAAS,
+			Type:        coremodel.IAAS,
 		},
 	)
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
@@ -226,7 +227,7 @@ func (m *modelSuite) TestCreateModelWithNonExistentOwner(c *gc.C) {
 			CloudRegion: "noexist",
 			Name:        "noregion",
 			Owner:       user.UUID("noexist"), // does not exist
-			Type:        model.TypeIAAS,
+			Type:        coremodel.IAAS,
 		},
 	)
 	c.Assert(err, jc.ErrorIs, usererrors.NotFound)
@@ -250,7 +251,7 @@ func (m *modelSuite) TestCreateModelWithRemovedOwner(c *gc.C) {
 			CloudRegion: "noexist",
 			Name:        "noregion",
 			Owner:       m.userUUID,
-			Type:        model.TypeIAAS,
+			Type:        coremodel.IAAS,
 		},
 	)
 	c.Assert(err, jc.ErrorIs, usererrors.NotFound)
@@ -267,7 +268,7 @@ func (m *modelSuite) TestCreateModelWithInvalidCloud(c *gc.C) {
 			CloudRegion: "my-region",
 			Name:        "noregion",
 			Owner:       m.userUUID,
-			Type:        model.TypeIAAS,
+			Type:        coremodel.IAAS,
 		},
 	)
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
@@ -368,7 +369,7 @@ func (m *modelSuite) TestSetModelCloudCredentialWithoutRegion(c *gc.C) {
 			},
 			Name:  "controller",
 			Owner: m.userUUID,
-			Type:  model.TypeCAAS,
+			Type:  coremodel.CAAS,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)

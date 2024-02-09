@@ -25,6 +25,7 @@ import (
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
+	coremodel "github.com/juju/juju/core/model"
 	corenetwork "github.com/juju/juju/core/network"
 	cloudbootstrap "github.com/juju/juju/domain/cloud/bootstrap"
 	ccbootstrap "github.com/juju/juju/domain/controllerconfig/bootstrap"
@@ -213,9 +214,9 @@ func (b *AgentBootstrap) Initialize(ctx stdcontext.Context) (_ *state.Controller
 		return nil, errors.Annotate(err, "getting cloud credentials from args")
 	}
 
-	controllerModelType := modeldomain.TypeIAAS
+	controllerModelType := coremodel.IAAS
 	if cloud.CloudIsCAAS(stateParams.ControllerCloud) {
-		controllerModelType = modeldomain.TypeCAAS
+		controllerModelType = coremodel.CAAS
 	}
 
 	// Add initial Admin user to the database. This will return Admin user UUID

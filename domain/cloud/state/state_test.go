@@ -604,7 +604,7 @@ func (s *stateSuite) TestCloudIsControllerCloud(c *gc.C) {
 			Cloud: testCloud.Name,
 			Name:  coremodel.ControllerModelName,
 			Owner: userUUID,
-			Type:  model.TypeIAAS,
+			Type:  coremodel.IAAS,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
