@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/facades"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/domain/credential/service"
 	"github.com/juju/juju/domain/model"
 	"github.com/juju/juju/environs"
@@ -85,7 +86,7 @@ func newFacade(ctx facade.Context, facadeVersions facades.FacadeVersions) (*API,
 			ControllerUUID: m.ControllerUUID(),
 			Config:         cfg,
 			MachineService: credentialcommon.NewMachineService(modelState.State),
-			ModelType:      model.Type(m.Type()),
+			ModelType:      coremodel.ModelType(m.Type()),
 			Cloud:          *cld,
 			Region:         m.CloudRegion(),
 		}, nil

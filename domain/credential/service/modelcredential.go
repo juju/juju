@@ -13,8 +13,8 @@ import (
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/instance"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/domain/credential"
-	"github.com/juju/juju/domain/model"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
@@ -58,7 +58,7 @@ type CredentialValidationContext struct {
 	Config         *config.Config
 	MachineService MachineService
 
-	ModelType model.Type
+	ModelType coremodel.ModelType
 	Cloud     cloud.Cloud
 	Region    string
 }
@@ -100,9 +100,9 @@ func (v defaultCredentialValidator) Validate(
 		return nil, errors.Trace(err)
 	}
 	switch validationContext.ModelType {
-	case model.TypeCAAS:
+	case coremodel.CAAS:
 		return checkCAASModelCredential(ctx, openParams)
-	case model.TypeIAAS:
+	case coremodel.IAAS:
 		return checkIAASModelCredential(ctx, validationContext.MachineService, openParams, checkCloudInstances)
 	default:
 		return nil, errors.NotSupportedf("model type %q", validationContext.ModelType)

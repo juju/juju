@@ -12,6 +12,7 @@ import (
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/database"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/credential"
 	"github.com/juju/juju/domain/model"
@@ -276,8 +277,8 @@ func (s *State) Delete(
 }
 
 // GetModelTypes returns the slice of model.Type's supported by state.
-func (s *State) GetModelTypes(ctx context.Context) ([]model.Type, error) {
-	rval := []model.Type{}
+func (s *State) GetModelTypes(ctx context.Context) ([]coremodel.ModelType, error) {
+	rval := []coremodel.ModelType{}
 
 	db, err := s.DB()
 	if err != nil {
@@ -295,7 +296,7 @@ SELECT type FROM model_type;
 		}
 		defer rows.Close()
 
-		var t model.Type
+		var t coremodel.ModelType
 		for rows.Next() {
 			if err := rows.Scan(&t); err != nil {
 				return fmt.Errorf("building model type: %w", err)
