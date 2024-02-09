@@ -23,7 +23,7 @@ import (
 
 // UserService defines the methods to operate with the database.
 type UserService interface {
-	GetUsers(ctx context.Context, creatorName string) ([]coreuser.User, error)
+	GetAllUsers(ctx context.Context) ([]coreuser.User, error)
 	GetUserByName(ctx context.Context, name string) (coreuser.User, error)
 	AddUserWithPassword(ctx context.Context, username, displayName string, createdBy coreuser.UUID, password auth.Password) (coreuser.UUID, error)
 	AddUserWithActivationKey(ctx context.Context, name string, displayName string, creatorUUID coreuser.UUID) ([]byte, coreuser.UUID, error)
@@ -336,24 +336,36 @@ func (api *UserManagerAPI) UserInfo(ctx context.Context, request params.UserInfo
 	argCount := len(request.Entities)
 	if argCount == 0 {
 
-		var users []coreuser.User
 		if isAdmin {
 			// Get all users if isAdmin
-			users, err = api.userService.GetUsers(ctx, "")
+			users, err := api.userService.GetAllUsers(ctx)
 			if err != nil {
 				return results, errors.Trace(err)
 			}
-		} else {
-			// Get users filtered by the apiUser name as a creator
-			users, err = api.userService.GetUsers(ctx, api.apiUser.Name)
-			if err != nil {
-				return results, errors.Trace(err)
+			for _, user := range users {
+				userTag := names.NewLocalUserTag(user.Name)
+				results.Results = append(results.Results, infoForUser(userTag, user))
 			}
+			return results, nil
 		}
-		for _, user := range users {
-			userTag := names.NewLocalUserTag(user.Name)
-			results.Results = append(results.Results, infoForUser(userTag, user))
+
+		// If not admin, get users filtered by the auth tag. We just need to
+		// check if the auth tag is a user tag, and if so, get the users filtered
+		// by the user name.
+		tag := api.authorizer.GetAuthTag()
+		if _, ok := tag.(names.UserTag); !ok {
+			return results, apiservererrors.ErrPerm
 		}
+
+		// Get users filtered by the apiUser name as a creator
+		user, err := api.userService.GetUserByName(ctx, tag.Id())
+		if err != nil {
+			return results, errors.Trace(err)
+		}
+
+		userTag := names.NewLocalUserTag(user.Name)
+		results.Results = append(results.Results, infoForUser(userTag, user))
+
 		return results, nil
 	}
 

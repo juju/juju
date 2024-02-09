@@ -104,36 +104,20 @@ func IsUserNameAlreadyExists(name string, m map[user.UUID]stateUser) bool {
 func (s *serviceSuite) setMockState(c *gc.C) map[user.UUID]stateUser {
 	mockState := map[user.UUID]stateUser{}
 
-	s.state.EXPECT().GetUsers(
-		gomock.Any(), gomock.Any(),
+	s.state.EXPECT().GetAllUsers(
+		gomock.Any(),
 	).DoAndReturn(func(
-		_ context.Context,
-		creatorName string) ([]user.User, error) {
+		_ context.Context) ([]user.User, error) {
 		var users []user.User
 		for _, usr := range mockState {
-			if creatorName == "" {
-				users = append(users, user.User{
-					CreatorUUID: usr.creatorUUID,
-					CreatedAt:   usr.createdAt,
-					DisplayName: usr.displayName,
-					Name:        usr.name,
-					LastLogin:   usr.lastLogin,
-					Disabled:    usr.disabled,
-				})
-				continue
-			} else {
-				creator, exists := mockState[usr.creatorUUID]
-				if exists && creator.name == creatorName {
-					users = append(users, user.User{
-						CreatorUUID: usr.creatorUUID,
-						CreatedAt:   usr.createdAt,
-						DisplayName: usr.displayName,
-						Name:        usr.name,
-						LastLogin:   usr.lastLogin,
-						Disabled:    usr.disabled,
-					})
-				}
-			}
+			users = append(users, user.User{
+				CreatorUUID: usr.creatorUUID,
+				CreatedAt:   usr.createdAt,
+				DisplayName: usr.displayName,
+				Name:        usr.name,
+				LastLogin:   usr.lastLogin,
+				Disabled:    usr.disabled,
+			})
 		}
 
 		// Ensure we return the users in a deterministic order.
@@ -1075,7 +1059,7 @@ func (s *serviceSuite) TestGetUserByNameNotFound(c *gc.C) {
 	c.Assert(len(mockState), gc.Equals, 0)
 }
 
-// TestGetAllUsers tests the happy path for GetUsers.
+// TestGetAllUsers tests the happy path for GetAllUsers.
 func (s *serviceSuite) TestGetAllUsers(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	mockState := s.setMockState(c)
@@ -1102,7 +1086,7 @@ func (s *serviceSuite) TestGetAllUsers(c *gc.C) {
 		lastLogin:   lastLogin,
 	}
 
-	users, err := s.service().GetUsers(context.Background(), "")
+	users, err := s.service().GetAllUsers(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(users), gc.Equals, 2)
 	c.Check(users[0].Name, gc.Equals, "Jürgen.test")
@@ -1111,53 +1095,6 @@ func (s *serviceSuite) TestGetAllUsers(c *gc.C) {
 	c.Check(users[1].Name, gc.Equals, "杨-test")
 	c.Check(users[1].DisplayName, gc.Equals, "test1")
 	c.Check(users[1].LastLogin, gc.Equals, lastLogin)
-}
-
-// TestGetFilteredUsers tests the happy path for GetUsers with a filter.
-func (s *serviceSuite) TestGetFilteredUsers(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-	mockState := s.setMockState(c)
-
-	lastLogin := time.Now().Add(-time.Minute * 2)
-
-	uuid1, err := user.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
-
-	mockState[uuid1] = stateUser{
-		name:        "Jürgen.test",
-		createdAt:   time.Now().Add(-time.Minute * 5),
-		displayName: "Old mate 👍",
-		lastLogin:   lastLogin,
-		creatorUUID: uuid1,
-	}
-
-	uuid2, err := user.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
-
-	mockState[uuid2] = stateUser{
-		name:        "杨-test2",
-		createdAt:   time.Now().Add(-time.Minute * 5),
-		displayName: "test2",
-		lastLogin:   lastLogin,
-		creatorUUID: uuid1,
-	}
-
-	uuid3, err := user.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
-
-	mockState[uuid3] = stateUser{
-		name:        "杨-test3",
-		createdAt:   time.Now().Add(-time.Minute * 5),
-		displayName: "test3",
-		lastLogin:   lastLogin,
-		creatorUUID: uuid2,
-	}
-
-	users, err := s.service().GetUsers(context.Background(), "杨-test2")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(users), gc.Equals, 1)
-	c.Check(users[0].Name, gc.Equals, "杨-test3")
-	c.Check(users[0].DisplayName, gc.Equals, "test3")
 }
 
 // TestGetUserWithAuthInfo tests the happy path for GetUser.
