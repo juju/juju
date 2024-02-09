@@ -155,12 +155,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			controllerConfig, err := controllerConfigService.ControllerConfig(ctx)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			objectStoreType := controllerConfig.ObjectStoreType()
-
 			metadataService, err := config.GetMetadataService(getter, config.ServiceFactoryName)
 			if err != nil {
 				return nil, errors.Trace(err)
@@ -181,6 +175,10 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 
+			controllerConfig, err := controllerConfigService.ControllerConfig(ctx)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
 			rootBucketName, err := bucketName(controllerConfig)
 			if err != nil {
 				return nil, errors.Trace(err)
@@ -195,12 +193,12 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				Clock:                      config.Clock,
 				Logger:                     config.Logger,
 				NewObjectStoreWorker:       config.NewObjectStoreWorker,
-				ObjectStoreType:            objectStoreType,
+				ObjectStoreType:            controllerConfig.ObjectStoreType(),
 				S3Client:                   s3Client,
 				ControllerMetadataService:  metadataService,
 				ModelMetadataServiceGetter: modelMetadataServiceGetter{factoryGetter: modelServiceFactoryGetter},
 				ModelClaimGetter:           modelClaimGetter{manager: leaseManager},
-				AllowDraining:              config.IsBootstrapController(dataDir),
+				AllowDraining:              AllowDraining(controllerConfig, config.IsBootstrapController(dataDir)),
 			})
 			return w, errors.Trace(err)
 		},
@@ -346,4 +344,10 @@ func GetMetadataService(getter dependency.Getter, name string) (MetadataService,
 			factory: factory,
 		}
 	})
+}
+
+// AllowDraining returns true if the worker should allow draining. This
+// currently is only true for the bootstrap controller.
+func AllowDraining(config controller.Config, isBootstrapController bool) bool {
+	return config.ObjectStoreType() == coreobjectstore.S3Backend && isBootstrapController
 }

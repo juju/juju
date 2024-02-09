@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo/v2"
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/changestream"
@@ -179,10 +180,21 @@ func validObjectStoreProgression(current map[string]string, updateAttrs controll
 	cur := objectstore.BackendType(current[controller.ObjectStoreType])
 	upd := updateAttrs.ObjectStoreType()
 
+	loggo.GetLogger("***").Criticalf("validObjectStoreProgression: cur: %v, upd: %v", cur, upd)
+
 	// We're not changing the object store type, or we're changing from
 	// filestorage to s3storage.
-	if cur == upd || cur == objectstore.FileBackend && upd == objectstore.S3Backend {
+	if cur == upd {
 		return nil
+	} else if cur == objectstore.FileBackend && upd == objectstore.S3Backend {
+		// To be 100% sure that we can change from filestorage to s3storage,
+		// we're going to check if the current config has a complete s3 config.
+		// This is rather expensive, but it's the only way to be sure that we
+		// can change from filestorage to s3storage.
+		if controller.HasCompleteS3ControllerConfig(updateAttrs) || hashCompleteS3Config(current) {
+			return nil
+		}
+		return errors.Errorf("can not change %q from %q to %q without complete s3 config", controller.ObjectStoreType, cur, upd)
 	}
 	return errors.Errorf("can not change %q from %q to %q", controller.ObjectStoreType, cur, upd)
 }
@@ -194,6 +206,13 @@ func contains(s []string, e string) bool {
 		}
 	}
 	return false
+}
+
+func hashCompleteS3Config(config map[string]string) bool {
+	endpoint := config[controller.ObjectStoreS3Endpoint]
+	staticKey := config[controller.ObjectStoreS3StaticKey]
+	secretKey := config[controller.ObjectStoreS3StaticSecret]
+	return controller.HasCompleteS3Config(endpoint, staticKey, secretKey)
 }
 
 // WatchableService defines a service for interacting with the underlying state

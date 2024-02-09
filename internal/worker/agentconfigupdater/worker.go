@@ -216,7 +216,7 @@ func (w *agentConfigUpdater) onConfigChanged(topic string, data controllermsg.Co
 
 	// If the object store type is set to "s3" then state that the associated
 	// config also needs to be set.
-	if objectStoreType == objectstore.S3Backend && !hasValidS3Config(data.Config) {
+	if objectStoreType == objectstore.S3Backend && !controller.HasCompleteS3ControllerConfig(data.Config) {
 		w.config.Logger.Warningf("object store type is set to s3 but the endpoint and static key, secret are not set")
 	}
 
@@ -231,11 +231,4 @@ func (w *agentConfigUpdater) Kill() {
 // Wait implements Worker.Wait().
 func (w *agentConfigUpdater) Wait() error {
 	return w.tomb.Wait()
-}
-
-func hasValidS3Config(cfg controller.Config) bool {
-	endpoint := cfg.ObjectStoreS3Endpoint()
-	staticKey := cfg.ObjectStoreS3StaticKey()
-	staticSecret := cfg.ObjectStoreS3StaticSecret()
-	return endpoint != "" && staticKey != "" && staticSecret != ""
 }

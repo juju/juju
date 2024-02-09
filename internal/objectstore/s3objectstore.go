@@ -670,7 +670,17 @@ func (t *s3ObjectStore) drainFile(ctx context.Context, path, hash string, metada
 
 	// We can remove the file from the file backed object store, because it
 	// has been successfully drained to the s3 object store.
-	return t.removeDrainedFile(ctx, hash)
+	if err := t.removeDrainedFile(ctx, hash); err != nil {
+		return errors.Trace(err)
+	}
+
+	// Wait until the tomb is dying before closing this down.
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-t.tomb.Dying():
+		return tomb.ErrDying
+	}
 }
 
 func (t *s3ObjectStore) objectAlreadyExists(ctx context.Context, hash string) error {

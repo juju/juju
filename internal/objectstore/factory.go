@@ -11,6 +11,7 @@ import (
 	"github.com/juju/loggo/v2"
 	"github.com/juju/worker/v4"
 
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/objectstore"
 )
 
@@ -168,5 +169,5 @@ func BackendTypeOrDefault(objectStoreType objectstore.BackendType) objectstore.B
 // DefaultBackendType returns the default backend type for the given object
 // store type or falls back to the default backend type.
 func DefaultBackendType() objectstore.BackendType {
-	return objectstore.FileBackend
+	return controller.DefaultObjectStoreType
 }
