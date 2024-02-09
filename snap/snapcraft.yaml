@@ -534,3 +534,4 @@ plugs:
     interface: personal-files
     read:
       - $HOME/.novarc
+

@@ -32,6 +32,7 @@ var logger = loggo.GetLoggerWithLabels("juju.apiserver.secretsmanager", corelogg
 type CrossModelSecretsClient interface {
 	GetRemoteSecretContentInfo(uri *coresecrets.URI, revision int, refresh, peek bool, sourceControllerUUID, appToken string, unitId int, macs macaroon.Slice) (*secrets.ContentParams, *secretsprovider.ModelBackendConfig, int, bool, error)
 	GetSecretAccessScope(uri *coresecrets.URI, appToken string, unitId int) (string, error)
+	Close() error
 }
 
 // SecretsManagerAPI is the implementation for the SecretsManager facade.
@@ -472,6 +473,8 @@ func (s *SecretsManagerAPI) getRemoteSecretContent(uri *coresecrets.URI, refresh
 	if err != nil {
 		return nil, nil, false, errors.Annotate(err, "creating remote secret client")
 	}
+	defer func() { _ = extClient.Close() }()
+
 	consumerApp := commonsecrets.AuthTagApp(s.authTag)
 	token, err := s.crossModelState.GetToken(names.NewApplicationTag(consumerApp))
 	if err != nil {
