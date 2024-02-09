@@ -373,6 +373,12 @@ var newConfigTests = []struct {
 		controller.QueryTracingThreshold: "-1s",
 	},
 	expectError: `query-tracing-threshold value "-1s" must be a positive duration`,
+}, {
+	about: "invalid jujud-controller-snap-source value",
+	config: controller.Config{
+		controller.JujudControllerSnapSource: "latest/stable",
+	},
+	expectError: `jujud-controller-snap-source value "latest/stable" must be one of legacy, snapstore, local or local-dangerous.`,
 }}
 
 func (s *ConfigSuite) TestNewConfig(c *gc.C) {

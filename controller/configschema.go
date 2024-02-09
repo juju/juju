@@ -58,6 +58,7 @@ var configChecker = schema.FieldMap(schema.Fields{
 	ControllerResourceDownloadLimit:  schema.ForceInt(),
 	QueryTracingEnabled:              schema.Bool(),
 	QueryTracingThreshold:            schema.TimeDuration(),
+	JujudControllerSnapSource:        schema.String(),
 }, schema.Defaults{
 	AgentRateLimitMax:                schema.Omit,
 	AgentRateLimitRate:               schema.Omit,
@@ -105,6 +106,7 @@ var configChecker = schema.FieldMap(schema.Fields{
 	ControllerResourceDownloadLimit:  schema.Omit,
 	QueryTracingEnabled:              DefaultQueryTracingEnabled,
 	QueryTracingThreshold:            DefaultQueryTracingThreshold,
+	JujudControllerSnapSource:        DefaultJujudControllerSnapSource,
 })
 
 // ConfigSchema holds information on all the fields defined by
@@ -301,5 +303,9 @@ Use "caas-image-repo" instead.`,
 		Description: `The minimum duration of a query for it to be traced. The lower the 
 threshold, the more queries will be output. A value of 0 means all queries 
 will be output if tracing is enabled.`,
+	},
+	JujudControllerSnapSource: {
+		Type:        environschema.Tstring,
+		Description: `The source for the jujud-controller snap.`,
 	},
 }
