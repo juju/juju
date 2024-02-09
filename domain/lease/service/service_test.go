@@ -9,11 +9,11 @@ import (
 
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v4"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/internal/uuid"
 )
 
 type serviceSuite struct {
@@ -75,7 +75,7 @@ func (s *serviceSuite) TestClaimLease(c *gc.C) {
 		Duration: time.Minute,
 	}
 
-	s.state.EXPECT().ClaimLease(gomock.Any(), gomock.AssignableToTypeOf(utils.UUID{}), key, req).Return(nil)
+	s.state.EXPECT().ClaimLease(gomock.Any(), gomock.AssignableToTypeOf(uuid.UUID{}), key, req).Return(nil)
 
 	service := NewService(s.state)
 	err := service.ClaimLease(context.Background(), key, req)

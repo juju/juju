@@ -4,8 +4,8 @@
 package upgrade
 
 import (
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/testing"
-	"github.com/juju/utils/v4"
 	gc "gopkg.in/check.v1"
 )
 
@@ -29,7 +29,7 @@ func (s *typesSuite) TestUUIDValidate(c *gc.C) {
 			err:  ptr("invalid uuid.*"),
 		},
 		{
-			uuid: utils.MustNewUUID().String(),
+			uuid: uuid.MustNewUUID().String(),
 		},
 	}
 

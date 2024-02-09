@@ -8,12 +8,12 @@ import (
 	"time"
 
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v4"
 	gc "gopkg.in/check.v1"
 
 	corelease "github.com/juju/juju/core/lease"
 	"github.com/juju/juju/domain/lease/state"
 	schematesting "github.com/juju/juju/domain/schema/testing"
+	"github.com/juju/juju/internal/uuid"
 	jujutesting "github.com/juju/juju/testing"
 )
 
@@ -44,7 +44,7 @@ func (s *stateSuite) TestClaimLeaseSuccessAndLeaseQueries(c *gc.C) {
 	}
 
 	// Add 2 leases.
-	err := s.store.ClaimLease(context.Background(), utils.MustNewUUID(), pgKey, pgReq)
+	err := s.store.ClaimLease(context.Background(), uuid.MustNewUUID(), pgKey, pgReq)
 	c.Assert(err, jc.ErrorIsNil)
 
 	mmKey := pgKey
@@ -53,7 +53,7 @@ func (s *stateSuite) TestClaimLeaseSuccessAndLeaseQueries(c *gc.C) {
 	mmReq := pgReq
 	mmReq.Holder = "mattermost/0"
 
-	err = s.store.ClaimLease(context.Background(), utils.MustNewUUID(), mmKey, mmReq)
+	err = s.store.ClaimLease(context.Background(), uuid.MustNewUUID(), mmKey, mmReq)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check all the leases.
@@ -74,7 +74,7 @@ func (s *stateSuite) TestClaimLeaseSuccessAndLeaseQueries(c *gc.C) {
 	// Add a lease from a different group,
 	// and check that the group returns the application leases.
 	err = s.store.ClaimLease(context.Background(),
-		utils.MustNewUUID(),
+		uuid.MustNewUUID(),
 		corelease.Key{
 			Namespace: "singular-controller",
 			ModelUUID: "controller-model-uuid",
@@ -106,10 +106,10 @@ func (s *stateSuite) TestClaimLeaseAlreadyHeld(c *gc.C) {
 		Duration: time.Minute,
 	}
 
-	err := s.store.ClaimLease(context.Background(), utils.MustNewUUID(), key, req)
+	err := s.store.ClaimLease(context.Background(), uuid.MustNewUUID(), key, req)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.store.ClaimLease(context.Background(), utils.MustNewUUID(), key, req)
+	err = s.store.ClaimLease(context.Background(), uuid.MustNewUUID(), key, req)
 	c.Assert(err, jc.ErrorIs, corelease.ErrHeld)
 }
 
@@ -125,7 +125,7 @@ func (s *stateSuite) TestExtendLeaseSuccess(c *gc.C) {
 		Duration: time.Minute,
 	}
 
-	err := s.store.ClaimLease(context.Background(), utils.MustNewUUID(), key, req)
+	err := s.store.ClaimLease(context.Background(), uuid.MustNewUUID(), key, req)
 	c.Assert(err, jc.ErrorIsNil)
 
 	leases, err := s.store.Leases(context.Background(), key)
@@ -175,7 +175,7 @@ func (s *stateSuite) TestRevokeLeaseSuccess(c *gc.C) {
 		Duration: time.Minute,
 	}
 
-	err := s.store.ClaimLease(context.Background(), utils.MustNewUUID(), key, req)
+	err := s.store.ClaimLease(context.Background(), uuid.MustNewUUID(), key, req)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.store.RevokeLease(context.Background(), key, req.Holder)
@@ -205,7 +205,7 @@ func (s *stateSuite) TestPinUnpinLeaseAndPinQueries(c *gc.C) {
 		Duration: time.Minute,
 	}
 
-	err := s.store.ClaimLease(context.Background(), utils.MustNewUUID(), pgKey, pgReq)
+	err := s.store.ClaimLease(context.Background(), uuid.MustNewUUID(), pgKey, pgReq)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// One entity pins the lease.
@@ -250,7 +250,7 @@ func (s *stateSuite) TestLeaseOperationCancellation(c *gc.C) {
 		Duration: time.Minute,
 	}
 
-	err := s.store.ClaimLease(ctx, utils.MustNewUUID(), key, req)
+	err := s.store.ClaimLease(ctx, uuid.MustNewUUID(), key, req)
 	c.Assert(err, gc.ErrorMatches, "context canceled")
 }
 
@@ -266,10 +266,10 @@ VALUES (?, 1, 'some-model-uuid', ?, ?, datetime('now'), datetime('now', ?))`[1:]
 
 	defer stmt.Close()
 
-	_, err = stmt.Exec(utils.MustNewUUID().String(), "postgresql", "postgresql/0", "+2 minutes")
+	_, err = stmt.Exec(uuid.MustNewUUID().String(), "postgresql", "postgresql/0", "+2 minutes")
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = stmt.Exec(utils.MustNewUUID().String(), "redis", "redis/0", "-2 minutes")
+	_, err = stmt.Exec(uuid.MustNewUUID().String(), "redis", "redis/0", "-2 minutes")
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.store.ExpireLeases(context.Background())

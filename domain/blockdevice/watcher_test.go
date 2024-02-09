@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v4"
 	"github.com/juju/worker/v4/workertest"
 	gc "gopkg.in/check.v1"
 
@@ -20,6 +19,7 @@ import (
 	"github.com/juju/juju/domain/blockdevice/service"
 	"github.com/juju/juju/domain/blockdevice/state"
 	"github.com/juju/juju/internal/changestream/testing"
+	"github.com/juju/juju/internal/uuid"
 	jujutesting "github.com/juju/juju/testing"
 )
 
@@ -32,8 +32,8 @@ var _ = gc.Suite(&watcherSuite{})
 func (s *watcherSuite) createMachine(c *gc.C, name string) string {
 	db := s.TxnRunner()
 
-	netNodeUUID := utils.MustNewUUID().String()
-	machineUUID := utils.MustNewUUID().String()
+	netNodeUUID := uuid.MustNewUUID().String()
+	machineUUID := uuid.MustNewUUID().String()
 
 	queryNetNode := `
 INSERT INTO net_node (uuid) VALUES (?)

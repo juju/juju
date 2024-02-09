@@ -8,12 +8,12 @@ import (
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/errors"
-	"github.com/juju/utils/v4"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/domain/credential"
 	"github.com/juju/juju/domain/credential/state"
+	"github.com/juju/juju/internal/uuid"
 )
 
 // InsertCredential inserts  a cloud credential into dqlite.
@@ -23,7 +23,7 @@ func InsertCredential(id credential.ID, cred cloud.Credential) func(context.Cont
 			return nil
 		}
 
-		credentialUUID, err := utils.NewUUID()
+		credentialUUID, err := uuid.NewUUID()
 		if err != nil {
 			return errors.Trace(err)
 		}

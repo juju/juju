@@ -13,6 +13,7 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/credential"
+	"github.com/juju/juju/internal/uuid"
 )
 
 // UUID represents a model unique identifier.
@@ -51,7 +52,7 @@ type ModelCreationArgs struct {
 
 // NewUUID is a convince function for generating new model uuid id's.
 func NewUUID() (UUID, error) {
-	uuid, err := utils.NewUUID()
+	uuid, err := uuid.NewUUID()
 	if err != nil {
 		return UUID(""), err
 	}

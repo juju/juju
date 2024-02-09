@@ -10,7 +10,6 @@ import (
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/errors"
-	"github.com/juju/utils/v4"
 
 	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
@@ -20,6 +19,7 @@ import (
 	"github.com/juju/juju/domain/credential"
 	"github.com/juju/juju/domain/model"
 	"github.com/juju/juju/internal/database"
+	"github.com/juju/juju/internal/uuid"
 )
 
 // State is used to access the database.
@@ -104,7 +104,7 @@ WHERE   cloud.name = $M.cloud_name AND cloud_credential.name = $M.credential_nam
 			if credential.Invalid || credential.InvalidReason != "" {
 				return fmt.Errorf("adding invalid credential %w", errors.NotSupported)
 			}
-			credentialUUID = utils.MustNewUUID().String()
+			credentialUUID = uuid.MustNewUUID().String()
 		}
 
 		if err := upsertCredential(ctx, tx, credentialUUID, id, credential); err != nil {

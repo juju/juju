@@ -9,11 +9,11 @@ import (
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v4"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/blockdevice"
 	schematesting "github.com/juju/juju/domain/schema/testing"
+	"github.com/juju/juju/internal/uuid"
 	jujutesting "github.com/juju/juju/testing"
 )
 
@@ -84,7 +84,7 @@ func (s *stateSuite) TestDeleteMachine(c *gc.C) {
 		MountPoint:     "mount-666",
 		SerialId:       "serial-666",
 	}
-	bdUUID := utils.MustNewUUID().String()
+	bdUUID := uuid.MustNewUUID().String()
 	s.insertBlockDevice(c, bd, bdUUID, "666")
 
 	err = s.state.DeleteMachine(context.Background(), "666")

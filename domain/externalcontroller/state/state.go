@@ -10,12 +10,12 @@ import (
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/errors"
-	"github.com/juju/utils/v4"
 
 	"github.com/juju/juju/core/crossmodel"
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/internal/database"
+	"github.com/juju/juju/internal/uuid"
 )
 
 // State implements the domain external controller state.
@@ -198,7 +198,7 @@ INSERT INTO external_controller_address (uuid, controller_uuid, address)
 VALUES (?, ?, ?)
   ON CONFLICT(controller_uuid, address) DO NOTHING`
 
-		if _, err := tx.ExecContext(ctx, q, utils.MustNewUUID().String(), cID, addr); err != nil {
+		if _, err := tx.ExecContext(ctx, q, uuid.MustNewUUID().String(), cID, addr); err != nil {
 			return errors.Trace(err)
 		}
 	}

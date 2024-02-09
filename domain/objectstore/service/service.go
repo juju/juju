@@ -7,13 +7,12 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/juju/utils/v4"
-
 	"github.com/juju/juju/core/changestream"
 	coreobjectstore "github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/objectstore"
+	"github.com/juju/juju/internal/uuid"
 )
 
 // State describes retrieval and persistence methods for the coreobjectstore.
@@ -63,7 +62,7 @@ func (s *Service) GetMetadata(ctx context.Context, path string) (coreobjectstore
 
 // PutMetadata adds a new specified path for the persistence metadata.
 func (s *Service) PutMetadata(ctx context.Context, metadata coreobjectstore.Metadata) error {
-	uuid, err := utils.NewUUID()
+	uuid, err := uuid.NewUUID()
 	if err != nil {
 		return err
 	}

@@ -8,12 +8,12 @@ import (
 
 	"github.com/canonical/sqlair"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v4"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/domain/life"
 	schematesting "github.com/juju/juju/domain/schema/testing"
+	"github.com/juju/juju/internal/uuid"
 )
 
 type stateSuite struct {
@@ -35,10 +35,10 @@ func (s *stateSuite) createMachine(c *gc.C, machineId string) string {
 func (s *stateSuite) createMachineWithLife(c *gc.C, name string, life life.Life) string {
 	db := s.DB()
 
-	netNodeUUID := utils.MustNewUUID().String()
+	netNodeUUID := uuid.MustNewUUID().String()
 	_, err := db.ExecContext(context.Background(), "INSERT INTO net_node (uuid) VALUES (?)", netNodeUUID)
 	c.Assert(err, jc.ErrorIsNil)
-	machineUUID := utils.MustNewUUID().String()
+	machineUUID := uuid.MustNewUUID().String()
 	_, err = db.ExecContext(context.Background(), `
 INSERT INTO machine (uuid, life_id, machine_id, net_node_uuid)
 VALUES (?, ?, ?, ?)
@@ -84,7 +84,7 @@ func (s *stateSuite) TestBlockDevicesOne(c *gc.C) {
 		MountPoint:     "mount-666",
 		SerialId:       "serial-666",
 	}
-	blockDeviceUUID := utils.MustNewUUID().String()
+	blockDeviceUUID := uuid.MustNewUUID().String()
 	machineUUID := s.createMachine(c, "666")
 	s.insertBlockDevice(c, bd, blockDeviceUUID, machineUUID)
 
@@ -122,9 +122,9 @@ func (s *stateSuite) TestBlockDevicesMany(c *gc.C) {
 		MountPoint:     "mount-667",
 		SerialId:       "serial-667",
 	}
-	blockDevice1UUID := utils.MustNewUUID().String()
+	blockDevice1UUID := uuid.MustNewUUID().String()
 	s.insertBlockDevice(c, bd1, blockDevice1UUID, machineUUID)
-	blockDevice2UUID := utils.MustNewUUID().String()
+	blockDevice2UUID := uuid.MustNewUUID().String()
 	s.insertBlockDevice(c, bd2, blockDevice2UUID, machineUUID)
 
 	result, err := NewState(s.TxnRunnerFactory()).BlockDevices(context.Background(), "666")
@@ -162,9 +162,9 @@ func (s *stateSuite) TestBlockDevicesFilersOnMachine(c *gc.C) {
 		MountPoint:     "mount-667",
 		SerialId:       "serial-667",
 	}
-	blockDevice1UUID := utils.MustNewUUID().String()
+	blockDevice1UUID := uuid.MustNewUUID().String()
 	s.insertBlockDevice(c, bd1, blockDevice1UUID, machine1UUID)
-	blockDevice2UUID := utils.MustNewUUID().String()
+	blockDevice2UUID := uuid.MustNewUUID().String()
 	s.insertBlockDevice(c, bd2, blockDevice2UUID, machine2UUID)
 
 	result, err := NewState(s.TxnRunnerFactory()).BlockDevices(context.Background(), "667")
@@ -202,9 +202,9 @@ func (s *stateSuite) TestMachineBlockDevices(c *gc.C) {
 		MountPoint:     "mount-667",
 		SerialId:       "serial-667",
 	}
-	blockDevice1UUID := utils.MustNewUUID().String()
+	blockDevice1UUID := uuid.MustNewUUID().String()
 	s.insertBlockDevice(c, bd1, blockDevice1UUID, machine1UUID)
-	blockDevice2UUID := utils.MustNewUUID().String()
+	blockDevice2UUID := uuid.MustNewUUID().String()
 	s.insertBlockDevice(c, bd2, blockDevice2UUID, machine2UUID)
 
 	result, err := NewState(s.TxnRunnerFactory()).MachineBlockDevices(context.Background())
@@ -392,7 +392,7 @@ func (s *stateSuite) TestSetMachineBlockDevicesToEmpty(c *gc.C) {
 		SerialId:       "serial-666",
 	}
 
-	blockDevice1UUID := utils.MustNewUUID().String()
+	blockDevice1UUID := uuid.MustNewUUID().String()
 	s.insertBlockDevice(c, bd, blockDevice1UUID, machineUUID)
 
 	err := NewState(s.TxnRunnerFactory()).SetMachineBlockDevices(context.Background(), "666")
@@ -431,7 +431,7 @@ func (s *stateSuite) TestRemoveMachineBlockDevices(c *gc.C) {
 		SerialId:       "serial-666",
 	}
 
-	blockDevice1UUID := utils.MustNewUUID().String()
+	blockDevice1UUID := uuid.MustNewUUID().String()
 	s.insertBlockDevice(c, bd, blockDevice1UUID, machineUUID)
 
 	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {

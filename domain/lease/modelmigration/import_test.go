@@ -12,12 +12,12 @@ import (
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v4"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/modelmigration"
+	"github.com/juju/juju/internal/uuid"
 	jujutesting "github.com/juju/juju/testing"
 )
 
@@ -69,7 +69,7 @@ func (s *importSuite) TestExecuteWithApplications(c *gc.C) {
 
 	op := s.newImportOperation(c)
 
-	uuid := utils.MustNewUUID().String()
+	uuid := uuid.MustNewUUID().String()
 	model := description.NewModel(description.ModelArgs{
 		Config: map[string]any{
 			"uuid": uuid,
@@ -102,7 +102,7 @@ func (s *importSuite) TestExecuteWithMultipleApplications(c *gc.C) {
 
 	op := s.newImportOperation(c)
 
-	uuid := utils.MustNewUUID().String()
+	uuid := uuid.MustNewUUID().String()
 	model := description.NewModel(description.ModelArgs{
 		Config: map[string]any{
 			"uuid": uuid,
@@ -151,7 +151,7 @@ func (s *importSuite) TestExecuteWithError(c *gc.C) {
 
 	op := s.newImportOperation(c)
 
-	uuid := utils.MustNewUUID().String()
+	uuid := uuid.MustNewUUID().String()
 	model := description.NewModel(description.ModelArgs{
 		Config: map[string]any{
 			"uuid": uuid,

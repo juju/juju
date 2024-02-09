@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v4"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -17,6 +16,7 @@ import (
 	coreobjectstore "github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain/objectstore"
+	"github.com/juju/juju/internal/uuid"
 )
 
 type serviceSuite struct {
@@ -31,11 +31,11 @@ var _ = gc.Suite(&serviceSuite{})
 func (s *serviceSuite) TestGetMetadata(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	path := utils.MustNewUUID().String()
+	path := uuid.MustNewUUID().String()
 
 	metadata := coreobjectstore.Metadata{
 		Path: path,
-		Hash: utils.MustNewUUID().String(),
+		Hash: uuid.MustNewUUID().String(),
 		Size: 666,
 	}
 
@@ -53,10 +53,10 @@ func (s *serviceSuite) TestGetMetadata(c *gc.C) {
 func (s *serviceSuite) TestPutMetadata(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	path := utils.MustNewUUID().String()
+	path := uuid.MustNewUUID().String()
 	metadata := coreobjectstore.Metadata{
 		Path: path,
-		Hash: utils.MustNewUUID().String(),
+		Hash: uuid.MustNewUUID().String(),
 		Size: 666,
 	}
 
@@ -74,7 +74,7 @@ func (s *serviceSuite) TestPutMetadata(c *gc.C) {
 func (s *serviceSuite) TestRemoveMetadata(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	key := utils.MustNewUUID().String()
+	key := uuid.MustNewUUID().String()
 
 	s.state.EXPECT().RemoveMetadata(gomock.Any(), key).Return(nil)
 

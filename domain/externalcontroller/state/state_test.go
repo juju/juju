@@ -10,11 +10,11 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v4"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/crossmodel"
 	schematesting "github.com/juju/juju/domain/schema/testing"
+	"github.com/juju/juju/internal/uuid"
 )
 
 type stateSuite struct {
@@ -175,8 +175,8 @@ func (s *stateSuite) TestRetrieveExternalControllerForModelWithoutAlias(c *gc.C)
 func (s *stateSuite) TestUpdateExternalControllerNewData(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
-	ecUUID := utils.MustNewUUID().String()
-	m1 := utils.MustNewUUID().String()
+	ecUUID := uuid.MustNewUUID().String()
+	m1 := uuid.MustNewUUID().String()
 	ec := crossmodel.ControllerInfo{
 		ControllerTag: names.NewControllerTag(ecUUID),
 		Alias:         "new-external-controller",
@@ -229,7 +229,7 @@ func (s *stateSuite) TestUpdateExternalControllerNewData(c *gc.C) {
 func (s *stateSuite) TestUpdateExternalControllerUpsertAndReplace(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
-	ecUUID := utils.MustNewUUID().String()
+	ecUUID := uuid.MustNewUUID().String()
 	ec := crossmodel.ControllerInfo{
 		ControllerTag: names.NewControllerTag(ecUUID),
 		Alias:         "new-external-controller",
@@ -279,10 +279,10 @@ func (s *stateSuite) TestUpdateExternalControllerUpsertAndReplace(c *gc.C) {
 func (s *stateSuite) TestUpdateExternalControllerUpdateModel(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
-	m1 := utils.MustNewUUID().String()
+	m1 := uuid.MustNewUUID().String()
 	// This is an existing controller with a model reference.
 	ec := crossmodel.ControllerInfo{
-		ControllerTag: names.NewControllerTag(utils.MustNewUUID().String()),
+		ControllerTag: names.NewControllerTag(uuid.MustNewUUID().String()),
 		Alias:         "existing-external-controller",
 		CACert:        "random-cert-string",
 		ModelUUIDs:    []string{m1},
@@ -292,7 +292,7 @@ func (s *stateSuite) TestUpdateExternalControllerUpdateModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Now upload a new controller with the same model
-	ecUUID := utils.MustNewUUID().String()
+	ecUUID := uuid.MustNewUUID().String()
 	ec = crossmodel.ControllerInfo{
 		ControllerTag: names.NewControllerTag(ecUUID),
 		Alias:         "new-external-controller",

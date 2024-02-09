@@ -7,15 +7,15 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils/v4"
 
 	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/internal/uuid"
 )
 
 // State describes retrieval and persistence methods for storage.
 type State interface {
 	Leases(context.Context, ...lease.Key) (map[lease.Key]lease.Info, error)
-	ClaimLease(context.Context, utils.UUID, lease.Key, lease.Request) error
+	ClaimLease(context.Context, uuid.UUID, lease.Key, lease.Request) error
 	ExtendLease(context.Context, lease.Key, lease.Request) error
 	RevokeLease(context.Context, lease.Key, string) error
 	LeaseGroup(context.Context, string, string) (map[lease.Key]lease.Info, error)
@@ -59,7 +59,7 @@ func (s *Service) ClaimLease(ctx context.Context, key lease.Key, req lease.Reque
 	if err := req.Validate(); err != nil {
 		return errors.Trace(err)
 	}
-	uuid, err := utils.NewUUID()
+	uuid, err := uuid.NewUUID()
 	if err != nil {
 		return errors.Trace(err)
 	}

@@ -9,13 +9,13 @@ import (
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/errors"
-	"github.com/juju/utils/v4"
 
 	coredb "github.com/juju/juju/core/database"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
+	"github.com/juju/juju/internal/uuid"
 )
 
 // Logger is the interface used by the state to log messages.
@@ -76,7 +76,7 @@ VALUES ($M.application_uuid, $M.name, $M.life_id)
 			}
 		}
 		if err != nil {
-			applicationUUID, err := utils.NewUUID()
+			applicationUUID, err := uuid.NewUUID()
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -252,11 +252,11 @@ VALUES ($M.unit_uuid, $M.net_node_uuid, $M.unit_id, $M.life_id, $M.application_u
 		if err == nil {
 			return nil
 		}
-		nodeUUID, err := utils.NewUUID()
+		nodeUUID, err := uuid.NewUUID()
 		if err != nil {
 			return errors.Trace(err)
 		}
-		unitUUID, err := utils.NewUUID()
+		unitUUID, err := uuid.NewUUID()
 		if err != nil {
 			return errors.Trace(err)
 		}

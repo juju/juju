@@ -9,7 +9,6 @@ import (
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/errors"
-	"github.com/juju/utils/v4"
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/database"
@@ -17,6 +16,7 @@ import (
 	"github.com/juju/juju/domain"
 	domainupgrade "github.com/juju/juju/domain/upgrade"
 	upgradeerrors "github.com/juju/juju/domain/upgrade/errors"
+	"github.com/juju/juju/internal/uuid"
 )
 
 // State is used to access the database.
@@ -40,7 +40,7 @@ func (st *State) CreateUpgrade(ctx context.Context, previousVersion, targetVersi
 		return "", errors.Trace(err)
 	}
 
-	upgradeUUID, err := utils.NewUUID()
+	upgradeUUID, err := uuid.NewUUID()
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -73,7 +73,7 @@ func (st *State) SetControllerReady(ctx context.Context, upgradeUUID domainupgra
 		return errors.Trace(err)
 	}
 
-	uuid, err := utils.NewUUID()
+	uuid, err := uuid.NewUUID()
 	if err != nil {
 		return errors.Trace(err)
 	}

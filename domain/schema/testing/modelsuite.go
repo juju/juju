@@ -4,11 +4,11 @@
 package testing
 
 import (
-	"github.com/juju/utils/v4"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/domain/schema"
 	"github.com/juju/juju/internal/database/testing"
+	"github.com/juju/juju/internal/uuid"
 )
 
 // ModelSuite is used to provide an in-memory sql.DB reference to tests.
@@ -22,7 +22,7 @@ type ModelSuite struct {
 // SetUpTest is responsible for setting up a testing database suite initialised
 // with the model schema.
 func (s *ModelSuite) SetUpTest(c *gc.C) {
-	s.modelUUID = utils.MustNewUUID().String()
+	s.modelUUID = uuid.MustNewUUID().String()
 
 	s.DqliteSuite.SetUpTest(c)
 	s.DqliteSuite.ApplyDDL(c, &SchemaApplier{
