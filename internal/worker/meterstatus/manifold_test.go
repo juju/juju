@@ -5,6 +5,7 @@ package meterstatus_test
 
 import (
 	"context"
+	stdcontext "context"
 	"sync"
 	"time"
 
@@ -256,7 +257,7 @@ type stubRunner struct {
 	ran  chan struct{}
 }
 
-func (r *stubRunner) RunHook(_ context.Context, code, info string, abort <-chan struct{}) {
+func (r *stubRunner) RunHook(ctx stdcontext.Context, code, info string) {
 	r.stub.MethodCall(r, "RunHook", code, info)
 	if r.ran != nil {
 		select {

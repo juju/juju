@@ -112,7 +112,7 @@ type NewRunnerFunc func(context context.Context, paths context.Paths, remoteExec
 
 // NewRunner returns a Runner backed by the supplied context and paths.
 func NewRunner(context context.Context, paths context.Paths, remoteExecutor ExecFunc) Runner {
-	return &runner{context, paths, remoteExecutor}
+	return &runner{context: context, paths: paths, remoteExecutor: remoteExecutor}
 }
 
 // ExecParams holds all the necessary parameters for ExecFunc.
@@ -200,13 +200,13 @@ func (runner *runner) RunCommands(ctx stdcontext.Context, commands string, runLo
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	result, err := runner.runCommandsWithTimeout(commands, 0, clock.WallClock, rMode, nil)
+	result, err := runner.runCommandsWithTimeout(ctx, commands, 0, clock.WallClock, rMode)
 	return result, runner.context.Flush(ctx, "run commands", err)
 }
 
 // runCommandsWithTimeout is a helper to abstract common code between run commands and
 // juju-exec as an action
-func (runner *runner) runCommandsWithTimeout(commands string, timeout time.Duration, clock clock.Clock, rMode runMode, abort <-chan struct{}) (*utilexec.ExecResponse, error) {
+func (runner *runner) runCommandsWithTimeout(ctx stdcontext.Context, commands string, timeout time.Duration, clock clock.Clock, rMode runMode) (*utilexec.ExecResponse, error) {
 	var err error
 	token := ""
 	if rMode == runOnRemote {
@@ -223,7 +223,7 @@ func (runner *runner) runCommandsWithTimeout(commands string, timeout time.Durat
 
 	environmenter := context.NewHostEnvironmenter()
 	if rMode == runOnRemote {
-		env, err := runner.getRemoteEnviron(abort)
+		env, err := runner.getRemoteEnviron(ctx.Done())
 		if err != nil {
 			return nil, errors.Annotatef(err, "getting remote environ")
 		}
@@ -244,7 +244,7 @@ func (runner *runner) runCommandsWithTimeout(commands string, timeout time.Durat
 			},
 		)
 	}
-	env, err := runner.context.HookVars(runner.paths, rMode == runOnRemote, environmenter)
+	env, err := runner.context.HookVars(ctx, runner.paths, rMode == runOnRemote, environmenter)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -308,13 +308,31 @@ func (runner *runner) runJujuExecAction(ctx stdcontext.Context) (err error) {
 		return errors.Trace(err)
 	}
 
-	results, err := runner.runCommandsWithTimeout(command, time.Duration(timeout), clock.WallClock, rMode, data.Cancel)
+	ctx = scopedActionCancel(ctx, data.Cancel)
+
+	results, err := runner.runCommandsWithTimeout(ctx, command, time.Duration(timeout), clock.WallClock, rMode)
 	if results != nil {
 		if err := runner.updateActionResults(results); err != nil {
 			return runner.context.Flush(ctx, "juju-exec", err)
 		}
 	}
 	return runner.context.Flush(ctx, "juju-exec", err)
+}
+
+// scopedActionCancel returns a context that is cancelled when either the
+// supplied context is cancelled or the supplied abort channel is closed.
+// This is only required until actions are refactored to use a context.
+func scopedActionCancel(ctx stdcontext.Context, abort <-chan struct{}) stdcontext.Context {
+	c, cancel := stdcontext.WithCancel(ctx)
+	go func() {
+		defer cancel()
+
+		select {
+		case <-ctx.Done():
+		case <-abort:
+		}
+	}()
+	return c
 }
 
 func encodeBytes(input []byte) (value string, encoding string) {
@@ -428,7 +446,7 @@ func (runner *runner) runCharmHookWithLocation(ctx stdcontext.Context, hookName,
 		)
 	}
 
-	env, err := runner.context.HookVars(runner.paths, rMode == runOnRemote, environmenter)
+	env, err := runner.context.HookVars(ctx, runner.paths, rMode == runOnRemote, environmenter)
 	if err != nil {
 		return InvalidHookHandler, errors.Trace(err)
 	}

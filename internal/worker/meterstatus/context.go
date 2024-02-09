@@ -42,6 +42,7 @@ func newLimitedContext(config hookConfig) *limitedContext {
 
 // HookVars implements runner.Context.
 func (ctx *limitedContext) HookVars(
+	_ stdcontext.Context,
 	paths context.Paths,
 	remote bool,
 	envVars context.Environmenter,

@@ -4,6 +4,8 @@
 package meterstatus_test
 
 import (
+	stdcontext "context"
+
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4/keyvalues"
 	gc "gopkg.in/check.v1"
@@ -35,7 +37,7 @@ func (*dummyPaths) ComponentDir(name string) string { return "/dummy/" + name }
 func (s *ContextSuite) TestHookContextEnv(c *gc.C) {
 	ctx := meterstatus.NewLimitedContext("u/0")
 	paths := &dummyPaths{}
-	vars, err := ctx.HookVars(paths, false, context.NewRemoteEnvironmenter(
+	vars, err := ctx.HookVars(stdcontext.Background(), paths, false, context.NewRemoteEnvironmenter(
 		func() []string { return []string{} },
 		func(k string) string {
 			switch k {
@@ -75,7 +77,7 @@ func (s *ContextSuite) TestHookContextSetEnv(c *gc.C) {
 	}
 	ctx.SetEnvVars(setVars)
 	paths := &dummyPaths{}
-	vars, err := ctx.HookVars(paths, false, context.NewRemoteEnvironmenter(
+	vars, err := ctx.HookVars(stdcontext.Background(), paths, false, context.NewRemoteEnvironmenter(
 		func() []string { return []string{} },
 		func(k string) string {
 			switch k {
