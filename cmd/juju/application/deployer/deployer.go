@@ -104,8 +104,11 @@ func (d *factory) GetDeployer(ctx context.Context, cfg DeployerConfig, getter Mo
 		return nil, errors.Trace(fileStatErr)
 	}
 
-	if charm.IsValidLocalCharmOrBundlePath(d.charmOrBundle) || isLocalSchema(d.charmOrBundle) {
-		// Local charm or bundle or a pre-deployed local charm
+	maybeCharmOrBundlePath, _ := strings.CutPrefix(d.charmOrBundle, "local:")
+	if charm.IsValidLocalCharmOrBundlePath(maybeCharmOrBundlePath) {
+		// Ensure charmOrBundle for local charms does not include
+		// "local:" prefix
+		d.charmOrBundle = maybeCharmOrBundlePath
 
 		// Go for local bundle
 		var localBundleErr error
@@ -120,13 +123,11 @@ func (d *factory) GetDeployer(ctx context.Context, cfg DeployerConfig, getter Mo
 				return nil, errors.Trace(localCharmErr)
 			}
 		}
-
-		// Go for local pre-deployed charm (if it's not set by the localCharmDeployer above)
-		if dk == nil {
-			var localPreDeployedCharmErr error
-			if dk, localPreDeployedCharmErr = d.localPreDeployedCharmDeployer(); localPreDeployedCharmErr != nil {
-				return nil, errors.Trace(localPreDeployedCharmErr)
-			}
+	} else if isLocalSchema(d.charmOrBundle) {
+		// Go for local pre-deployed charm
+		var localPreDeployedCharmErr error
+		if dk, localPreDeployedCharmErr = d.localPreDeployedCharmDeployer(); localPreDeployedCharmErr != nil {
+			return nil, errors.Trace(localPreDeployedCharmErr)
 		}
 	} else {
 		// Repository charm or bundle
@@ -227,17 +228,13 @@ func (d *factory) localBundleDeployer() (DeployerKind, error) {
 
 func (d *factory) localCharmDeployer(getter ModelConfigGetter) (DeployerKind, error) {
 	// Determine base
-	charmOrBundle := d.charmOrBundle
-	if isLocalSchema(charmOrBundle) {
-		charmOrBundle = charmOrBundle[6:]
-	}
-	base, imageStream, baseErr := d.determineBaseForLocalCharm(charmOrBundle, getter)
+	base, imageStream, baseErr := d.determineBaseForLocalCharm(d.charmOrBundle, getter)
 	if baseErr != nil {
 		return nil, errors.Trace(baseErr)
 	}
 
 	// Charm may have been supplied via a path reference.
-	ch, curl, err := corecharm.NewCharmAtPathForceBase(charmOrBundle, base, d.force)
+	ch, curl, err := corecharm.NewCharmAtPathForceBase(d.charmOrBundle, base, d.force)
 	// We check for several types of known error which indicate
 	// that the supplied reference was indeed a path but there was
 	// an issue reading the charm located there.
@@ -246,9 +243,9 @@ func (d *factory) localCharmDeployer(getter ModelConfigGetter) (DeployerKind, er
 	} else if corecharm.IsUnsupportedBaseError(err) {
 		return nil, errors.Trace(err)
 	} else if errors.Cause(err) == zip.ErrFormat {
-		return nil, errors.Errorf("invalid charm or bundle provided at %q", charmOrBundle)
+		return nil, errors.Errorf("invalid charm or bundle provided at %q", d.charmOrBundle)
 	} else if errors.Is(err, errors.NotFound) {
-		return nil, errors.Wrap(err, errors.NotFoundf("charm or bundle at %q", charmOrBundle))
+		return nil, errors.Wrap(err, errors.NotFoundf("charm or bundle at %q", d.charmOrBundle))
 	} else if errors.Is(err, os.ErrNotExist) {
 		logger.Debugf("cannot interpret as local charm: %v", err)
 		return nil, nil
@@ -256,7 +253,7 @@ func (d *factory) localCharmDeployer(getter ModelConfigGetter) (DeployerKind, er
 		// If we get a "not exists" error then we attempt to interpret
 		// the supplied charm reference as a URL elsewhere, otherwise
 		// we return the error.
-		return nil, errors.Annotatef(err, "attempting to deploy %q", charmOrBundle)
+		return nil, errors.Annotatef(err, "attempting to deploy %q", d.charmOrBundle)
 	}
 	return &localCharmDeployerKind{base, imageStream, ch, curl}, nil
 }
@@ -265,12 +262,9 @@ func (d *factory) localPreDeployedCharmDeployer() (DeployerKind, error) {
 	// If the charm's schema is local, we should definitively attempt
 	// to deploy a charm that's already deployed in the
 	// environment.
-	userCharmURL, resolveCharmErr := resolveCharmURL(d.charmOrBundle, d.defaultCharmSchema)
-	if resolveCharmErr != nil {
-		return nil, errors.Trace(resolveCharmErr)
-	}
-	if !charm.Local.Matches(userCharmURL.Schema) {
-		return nil, errors.Errorf("cannot interpret as a redeployment of a local charm from the controller")
+	userCharmURL, err := charm.ParseURL(d.charmOrBundle)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 	return &localPreDeployerKind{userCharmURL: userCharmURL}, nil
 }
