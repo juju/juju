@@ -675,21 +675,23 @@ INSERT INTO permission_object_access VALUES
     (8, 2, 3), -- consume, offer
     (9, 3, 3); -- admin, offer
 
-
-CREATE TABLE user_permission (
+-- Column grant_to may extend to entities beyond users.
+-- The name of the column is general, but for now we retain the FK constraint.
+-- We will need to remove/replace it in the event of change
+CREATE TABLE permission (
     uuid               TEXT PRIMARY KEY,
-    object_identifier  TEXT NOT NULL, -- name or uuid of the object
-    object_access_id   INT NOT NULL,
-    user_uuid          TEXT NOT NULL,
+    permission_type_id INT NOT NULL,
+    grant_on  		   TEXT NOT NULL, -- name or uuid of the object
+    grant_to           TEXT NOT NULL,
     CONSTRAINT         fk_permission_user_uuid
-        FOREIGN KEY    (user_uuid)
+        FOREIGN KEY    (grant_on)
         REFERENCES     user(uuid),
-    CONSTRAINT         fk_permission_object_access
-        FOREIGN KEY    (object_access_id)
-        REFERENCES     permission_object_access(id)
+    CONSTRAINT         fk_permission_access_type
+        FOREIGN KEY    (permission_type_id)
+        REFERENCES     permission_access_type(id)
 );
 
-CREATE UNIQUE INDEX idx_user_permission
-ON user_permission (user_uuid, object_identifier);
+CREATE UNIQUE INDEX idx_permission_type_to
+ON permission (permission_type_id, grant_on, grant_to);
 `)
 }
