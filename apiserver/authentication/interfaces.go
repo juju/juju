@@ -17,17 +17,6 @@ import (
 	"github.com/juju/juju/state"
 )
 
-// AuthInfoPermissions defined a type for a helper func that can answer
-// questions an entity and what access they have on to a specific subject tag.
-//
-// It is up to the creator of the AuthInfo struct to provide a suitable
-// implementation of this func. It's is for legacy reasons we allow querying of
-// other entities besides the one focused on in the AuthInfo struct.
-//
-// TODO: tlm look at ways to gradually remove the Entity portion of this function
-// so the question can only be asked of the one focuses on in the AuthInfo struct.
-type AuthInfoPermissions func(Entity, names.Tag) (permission.Access, error)
-
 // AuthInfo is returned by Authenticator and RequestAuthInfo.
 type AuthInfo struct {
 	// Delegator is the interface back to the authenticating mechanism for
