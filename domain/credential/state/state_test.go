@@ -13,7 +13,6 @@ import (
 	"github.com/canonical/sqlair"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v4"
 	"github.com/juju/worker/v4/workertest"
 	gc "gopkg.in/check.v1"
 
@@ -28,6 +27,7 @@ import (
 	"github.com/juju/juju/domain/model"
 	userstate "github.com/juju/juju/domain/user/state"
 	changestreamtesting "github.com/juju/juju/internal/changestream/testing"
+	"github.com/juju/juju/internal/uuid"
 	jujutesting "github.com/juju/juju/testing"
 )
 
@@ -579,8 +579,8 @@ func (s *credentialSuite) TestModelsUsingCloudCredential(c *gc.C) {
 		return nil
 	}
 
-	modelUUID := utils.MustNewUUID().String()
-	modelUUID2 := utils.MustNewUUID().String()
+	modelUUID := uuid.MustNewUUID().String()
+	modelUUID2 := uuid.MustNewUUID().String()
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		if err := insertOne(ctx, tx, modelUUID, "mymodel"); err != nil {
 			return err

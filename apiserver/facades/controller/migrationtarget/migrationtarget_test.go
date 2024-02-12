@@ -13,7 +13,6 @@ import (
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v4"
 	"github.com/juju/version/v2"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -40,6 +39,7 @@ import (
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/internal/migration"
+	"github.com/juju/juju/internal/uuid"
 	jujujujutesting "github.com/juju/juju/juju/testing"
 	_ "github.com/juju/juju/provider/manual"
 	"github.com/juju/juju/rpc/params"
@@ -262,7 +262,7 @@ func (s *Suite) TestAbortMissingModel(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	api := s.mustNewAPI(c)
-	newUUID := utils.MustNewUUID().String()
+	newUUID := uuid.MustNewUUID().String()
 	err := api.Abort(context.Background(), params.ModelArgs{ModelTag: names.NewModelTag(newUUID).String()})
 	c.Assert(err, gc.ErrorMatches, `model "`+newUUID+`" not found`)
 }
@@ -341,7 +341,7 @@ func (s *Suite) TestActivateMissingModel(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	api := s.mustNewAPI(c)
-	newUUID := utils.MustNewUUID().String()
+	newUUID := uuid.MustNewUUID().String()
 	err := api.Activate(context.Background(), params.ActivateModelArgs{ModelTag: names.NewModelTag(newUUID).String()})
 	c.Assert(err, gc.ErrorMatches, `model "`+newUUID+`" not found`)
 }
@@ -686,7 +686,7 @@ func (s *Suite) makeExportedModel(c *gc.C) (string, []byte) {
 	model, err := s.State.Export(s.leaders, jujujujutesting.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
-	newUUID := utils.MustNewUUID().String()
+	newUUID := uuid.MustNewUUID().String()
 	model.UpdateConfig(map[string]interface{}{
 		"name": "some-model",
 		"uuid": newUUID,

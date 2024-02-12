@@ -11,12 +11,12 @@ import (
 	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v4"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/uuid"
 )
 
 type MigrationImportTasksSuite struct{}
@@ -27,9 +27,9 @@ func (s *MigrationImportTasksSuite) TestImportApplicationOffers(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	offerUUID, err := utils.NewUUID()
+	offerUUID, err := uuid.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
-	offerUUID2, err := utils.NewUUID()
+	offerUUID2, err := uuid.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 
 	runner := ImportApplicationOfferRunner{
@@ -82,7 +82,7 @@ func (s *MigrationImportTasksSuite) TestImportApplicationOffersTransactionFailur
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	offerUUID, err := utils.NewUUID()
+	offerUUID, err := uuid.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 
 	runner := ImportApplicationOfferRunner{

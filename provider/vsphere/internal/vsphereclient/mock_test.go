@@ -10,10 +10,11 @@ import (
 
 	"github.com/juju/loggo/v2"
 	"github.com/juju/testing"
-	"github.com/juju/utils/v4"
 	"github.com/vmware/govmomi/vim25/methods"
 	"github.com/vmware/govmomi/vim25/soap"
 	"github.com/vmware/govmomi/vim25/types"
+
+	"github.com/juju/juju/internal/uuid"
 )
 
 var logger = loggo.GetLogger("vsphereclient")
@@ -167,7 +168,7 @@ func (r *mockRoundTripper) RoundTrip(ctx context.Context, req, res soap.HasFault
 		res.Res = &types.ExtendVirtualDisk_TaskResponse{Returnval: extendVirtualDiskTask}
 	case *methods.CreatePropertyCollectorBody:
 		r.MethodCall(r, "CreatePropertyCollector")
-		uuid := utils.MustNewUUID().String()
+		uuid := uuid.MustNewUUID().String()
 		r.collectors[uuid] = &collector{}
 		res.Res = &types.CreatePropertyCollectorResponse{
 			Returnval: types.ManagedObjectReference{

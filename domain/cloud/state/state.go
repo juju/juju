@@ -11,7 +11,6 @@ import (
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/errors"
-	"github.com/juju/utils/v4"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/changestream"
@@ -21,6 +20,7 @@ import (
 	"github.com/juju/juju/domain"
 	clouderrors "github.com/juju/juju/domain/cloud/errors"
 	"github.com/juju/juju/internal/database"
+	"github.com/juju/juju/internal/uuid"
 )
 
 // State is used to access the database.
@@ -590,7 +590,7 @@ func (st *State) UpsertCloud(ctx context.Context, cloud cloud.Cloud) error {
 			return errors.Trace(err)
 		}
 		if err != nil {
-			cloudUUID = utils.MustNewUUID().String()
+			cloudUUID = uuid.MustNewUUID().String()
 		}
 
 		if err := upsertCloud(ctx, tx, cloudUUID, cloud); err != nil {
@@ -786,7 +786,7 @@ ON CONFLICT(cloud_uuid, name) DO UPDATE SET name=excluded.name,
 `
 	for _, r := range regions {
 
-		if _, err := tx.ExecContext(ctx, insertQuery, utils.MustNewUUID().String(), cloudUUID,
+		if _, err := tx.ExecContext(ctx, insertQuery, uuid.MustNewUUID().String(), cloudUUID,
 			r.Name, r.Endpoint, r.IdentityEndpoint, r.StorageEndpoint,
 		); err != nil {
 			return errors.Trace(err)

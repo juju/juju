@@ -7,9 +7,9 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils/v4"
 
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/internal/uuid"
 )
 
 // SubnetService provides the API for working with subnets.
@@ -27,7 +27,7 @@ func NewSubnetService(st SubnetState) *SubnetService {
 // AddSubnet creates and returns a new subnet.
 func (s *SubnetService) AddSubnet(ctx context.Context, args network.SubnetInfo) (network.Id, error) {
 	if args.ID == "" {
-		uuid, err := utils.NewUUID()
+		uuid, err := uuid.NewUUID()
 		if err != nil {
 			return "", errors.Annotatef(err, "creating uuid for new subnet with CIDR %q", args.CIDR)
 		}

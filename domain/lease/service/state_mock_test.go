@@ -14,7 +14,7 @@ import (
 	reflect "reflect"
 
 	lease "github.com/juju/juju/core/lease"
-	utils "github.com/juju/utils/v4"
+	uuid "github.com/juju/juju/internal/uuid"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -42,7 +42,7 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 }
 
 // ClaimLease mocks base method.
-func (m *MockState) ClaimLease(arg0 context.Context, arg1 utils.UUID, arg2 lease.Key, arg3 lease.Request) error {
+func (m *MockState) ClaimLease(arg0 context.Context, arg1 uuid.UUID, arg2 lease.Key, arg3 lease.Request) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ClaimLease", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)

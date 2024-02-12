@@ -7,11 +7,11 @@ import (
 	"github.com/juju/mgo/v3"
 	"github.com/juju/mgo/v3/bson"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v4"
 	"github.com/kr/pretty"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/storage/provider"
+	"github.com/juju/juju/internal/uuid"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -63,7 +63,7 @@ func (s *upgradesSuite) assertUpgradedData(c *gc.C, upgrade func(*StatePool) err
 
 //nolint:unused
 func (s *upgradesSuite) makeModel(c *gc.C, name string, attr coretesting.Attrs) *State {
-	uuid := utils.MustNewUUID()
+	uuid := uuid.MustNewUUID()
 	cfg := coretesting.CustomModelConfig(c, coretesting.Attrs{
 		"name": name,
 		"uuid": uuid.String(),

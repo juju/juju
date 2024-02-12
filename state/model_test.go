@@ -16,7 +16,6 @@ import (
 	mgotesting "github.com/juju/mgo/v3/testing"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v4"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
@@ -25,6 +24,7 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/state"
 	stateerrors "github.com/juju/juju/state/errors"
 	"github.com/juju/juju/testing"
@@ -103,7 +103,7 @@ func (s *ModelSuite) TestNewModelSameUserSameNameFails(c *gc.C) {
 
 	// Attempt to create another model with a different UUID but the
 	// same owner and name as the first.
-	newUUID, err := utils.NewUUID()
+	newUUID, err := uuid.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	cfg2 := testing.CustomModelConfig(c, testing.Attrs{
 		"name": cfg.Name(),
@@ -169,7 +169,7 @@ func (s *ModelSuite) TestNewCAASModelDifferentUser(c *gc.C) {
 
 	// Attempt to create another model with a different UUID and owner
 	// but the name as the first.
-	newUUID, err := utils.NewUUID()
+	newUUID, err := uuid.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	cfg2 := testing.CustomModelConfig(c, testing.Attrs{
 		"name": cfg.Name(),
@@ -209,7 +209,7 @@ func (s *ModelSuite) TestNewCAASModelSameUserFails(c *gc.C) {
 
 	// Attempt to create another model with a different UUID but the
 	// same owner and name as the first.
-	newUUID, err := utils.NewUUID()
+	newUUID, err := uuid.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	cfg2 := testing.CustomModelConfig(c, testing.Attrs{
 		"name": cfg.Name(),
@@ -619,7 +619,7 @@ func (s *ModelSuite) createTestModelConfig(c *gc.C) (*config.Config, string) {
 }
 
 func createTestModelConfig(c *gc.C, controllerUUID string) (*config.Config, string) {
-	uuid, err := utils.NewUUID()
+	uuid, err := uuid.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	return testing.CustomModelConfig(c, testing.Attrs{
 		"name": "testing",

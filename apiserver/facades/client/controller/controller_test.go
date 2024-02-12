@@ -16,7 +16,6 @@ import (
 	"github.com/juju/names/v5"
 	"github.com/juju/pubsub/v2"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v4"
 	"github.com/juju/version/v2"
 	"github.com/juju/worker/v4/workertest"
 	"github.com/kr/pretty"
@@ -42,6 +41,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/docker"
 	pscontroller "github.com/juju/juju/internal/pubsub/controller"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/internal/worker/multiwatcher"
 	jujujujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
@@ -695,12 +695,12 @@ func (s *controllerSuite) TestInitiateMigrationPrecheckFail(c *gc.C) {
 }
 
 func randomControllerTag() string {
-	uuid := utils.MustNewUUID().String()
+	uuid := uuid.MustNewUUID().String()
 	return names.NewControllerTag(uuid).String()
 }
 
 func randomModelTag() string {
-	uuid := utils.MustNewUUID().String()
+	uuid := uuid.MustNewUUID().String()
 	return names.NewModelTag(uuid).String()
 }
 

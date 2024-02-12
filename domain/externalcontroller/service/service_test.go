@@ -10,11 +10,11 @@ import (
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v4"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/internal/uuid"
 )
 
 type serviceSuite struct {
@@ -28,11 +28,11 @@ var _ = gc.Suite(&serviceSuite{})
 func (s *serviceSuite) TestUpdateExternalControllerSuccess(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	m1 := utils.MustNewUUID().String()
-	m2 := utils.MustNewUUID().String()
+	m1 := uuid.MustNewUUID().String()
+	m2 := uuid.MustNewUUID().String()
 
 	ec := crossmodel.ControllerInfo{
-		ControllerTag: names.NewControllerTag(utils.MustNewUUID().String()),
+		ControllerTag: names.NewControllerTag(uuid.MustNewUUID().String()),
 		Alias:         "that-other-controller",
 		Addrs:         []string{"10.10.10.10"},
 		CACert:        "random-cert-string",
@@ -49,7 +49,7 @@ func (s *serviceSuite) TestUpdateExternalControllerError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	ec := crossmodel.ControllerInfo{
-		ControllerTag: names.NewControllerTag(utils.MustNewUUID().String()),
+		ControllerTag: names.NewControllerTag(uuid.MustNewUUID().String()),
 		Alias:         "that-other-controller",
 		Addrs:         []string{"10.10.10.10"},
 		CACert:        "random-cert-string",
@@ -64,7 +64,7 @@ func (s *serviceSuite) TestUpdateExternalControllerError(c *gc.C) {
 func (s *serviceSuite) TestRetrieveExternalControllerSuccess(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	ctrlUUID := utils.MustNewUUID().String()
+	ctrlUUID := uuid.MustNewUUID().String()
 	ec := crossmodel.ControllerInfo{
 		ControllerTag: names.NewControllerTag(ctrlUUID),
 		Alias:         "that-other-controller",
@@ -92,7 +92,7 @@ func (s *serviceSuite) TestRetrieveExternalControllerError(c *gc.C) {
 func (s *serviceSuite) TestRetrieveExternalControllerForModelSuccess(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	modelUUID := utils.MustNewUUID().String()
+	modelUUID := uuid.MustNewUUID().String()
 	ec := []crossmodel.ControllerInfo{
 		{
 			ControllerTag: names.NewControllerTag(modelUUID),

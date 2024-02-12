@@ -9,10 +9,10 @@ import (
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/errors"
-	"github.com/juju/utils/v4"
 
 	coreDB "github.com/juju/juju/core/database"
 	"github.com/juju/juju/domain"
+	"github.com/juju/juju/internal/uuid"
 )
 
 // Autocert is a named certificate.
@@ -43,7 +43,7 @@ func (st *State) Put(ctx context.Context, name string, data []byte) error {
 		return errors.Trace(err)
 	}
 
-	uuid, err := utils.NewUUID()
+	uuid, err := uuid.NewUUID()
 	if err != nil {
 		return errors.Trace(err)
 	}

@@ -10,7 +10,6 @@ import (
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/errors"
-	"github.com/juju/utils/v4"
 
 	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/core/changestream"
@@ -20,6 +19,7 @@ import (
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
+	"github.com/juju/juju/internal/uuid"
 )
 
 // State represents database interactions dealing with block devices.
@@ -209,13 +209,13 @@ VALUES (
 		return errors.Trace(err)
 	}
 
-	blockDevicesByUUID := make(map[utils.UUID]blockdevice.BlockDevice, len(devices))
+	blockDevicesByUUID := make(map[uuid.UUID]blockdevice.BlockDevice, len(devices))
 	for _, bd := range devices {
 		fsTypeID, ok := fsTypeByName[bd.FilesystemType]
 		if !ok {
 			return errors.NotValidf("filesystem type %q for block device %q", bd.FilesystemType, bd.DeviceName)
 		}
-		id, err := utils.NewUUID()
+		id, err := uuid.NewUUID()
 		if err != nil {
 			return errors.Trace(err)
 		}

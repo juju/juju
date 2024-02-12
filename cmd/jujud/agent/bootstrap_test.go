@@ -22,7 +22,6 @@ import (
 	"github.com/juju/names/v5"
 	jtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v4"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
@@ -52,6 +51,7 @@ import (
 	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/internal/mongo/mongotest"
 	"github.com/juju/juju/internal/tools"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/juju/keys"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
@@ -560,7 +560,7 @@ func (s *BootstrapSuite) makeTestModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	addr, _ := addresses.OneMatchingScope(network.ScopeMatchPublic)
 	s.bootstrapName = addr.Value
-	s.initialModelUUID = utils.MustNewUUID().String()
+	s.initialModelUUID = uuid.MustNewUUID().String()
 
 	var args instancecfg.StateInitializationParams
 	args.ControllerConfig = controllerCfg

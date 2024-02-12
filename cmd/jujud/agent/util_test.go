@@ -171,10 +171,10 @@ func (s *commonMachineSuite) primeAgent(c *gc.C, jobs ...state.MachineJob) (m *s
 //func (s *commonMachineSuite) createMachine(c *gc.C, machineId string) string {
 //	db := s.DB()
 //
-//	netNodeUUID := utils.MustNewUUID().String()
+//	netNodeUUID := uuid.MustNewUUID().String()
 //	_, err := db.ExecContext(context.Background(), "INSERT INTO net_node (uuid) VALUES (?)", netNodeUUID)
 //	c.Assert(err, jc.ErrorIsNil)
-//	machineUUID := utils.MustNewUUID().String()
+//	machineUUID := uuid.MustNewUUID().String()
 //	_, err = db.ExecContext(context.Background(), `
 //INSERT INTO machine (uuid, life_id, machine_id, net_node_uuid)
 //VALUES (?, ?, ?, ?)

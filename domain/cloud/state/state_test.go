@@ -30,6 +30,7 @@ import (
 	userstate "github.com/juju/juju/domain/user/state"
 	"github.com/juju/juju/internal/changestream/testing"
 	jujudb "github.com/juju/juju/internal/database"
+	"github.com/juju/juju/internal/uuid"
 	jujutesting "github.com/juju/juju/testing"
 )
 
@@ -654,7 +655,7 @@ func (s *stateSuite) TestDeleteCloudInUse(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	s.assertInsertCloud(c, st, testCloud)
 
-	credUUID := utils.MustNewUUID().String()
+	credUUID := uuid.MustNewUUID().String()
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		stmt := `
 INSERT INTO cloud_credential (uuid, name, cloud_uuid, auth_type_id, owner_uuid)

@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/charm/v13"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v4"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
@@ -28,6 +27,7 @@ import (
 	"github.com/juju/juju/internal/bootstrap"
 	"github.com/juju/juju/internal/cloudconfig"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/testing"
 )
 
@@ -172,7 +172,7 @@ func (s *workerSuite) expectStaateServingInfo() {
 }
 
 func (s *workerSuite) expectObjectStoreGetter(num int) {
-	s.state.EXPECT().ControllerModelUUID().Return(utils.MustNewUUID().String()).Times(num)
+	s.state.EXPECT().ControllerModelUUID().Return(uuid.MustNewUUID().String()).Times(num)
 	s.objectStoreGetter.EXPECT().GetObjectStore(gomock.Any(), gomock.Any()).Return(s.objectStore, nil).Times(num)
 }
 

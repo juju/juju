@@ -56,6 +56,7 @@ func (*ImportSuite) TestImports(c *gc.C) {
 		"internal/rpcreflect",
 		"internal/storage",
 		"internal/tools",
+		"internal/uuid",
 		"rpc",
 		"rpc/jsoncodec",
 		"rpc/params",

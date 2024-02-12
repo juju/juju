@@ -14,10 +14,10 @@ import (
 	"github.com/juju/clock/testclock"
 	wireformat "github.com/juju/romulus/wireformat/metrics"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v4"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/facades/agent/metricsender"
+	"github.com/juju/juju/internal/uuid"
 	jujujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing/factory"
@@ -128,7 +128,7 @@ func testHandler(c *gc.C, batches chan<- wireformat.MetricBatch, statusMap Statu
 			default:
 			}
 		}
-		uuid, err := utils.NewUUID()
+		uuid, err := uuid.NewUUID()
 		c.Assert(err, jc.ErrorIsNil)
 		err = enc.Encode(wireformat.Response{
 			UUID:           uuid.String(),

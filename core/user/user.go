@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/juju/utils/v4"
+
+	"github.com/juju/juju/internal/uuid"
 )
 
 // User represents a user in the system.
@@ -39,7 +41,7 @@ type UUID string
 
 // NewUUID returns a new UUID.
 func NewUUID() (UUID, error) {
-	uuid, err := utils.NewUUID()
+	uuid, err := uuid.NewUUID()
 	if err != nil {
 		return UUID(""), err
 	}

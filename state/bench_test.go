@@ -7,9 +7,9 @@ import (
 	"time"
 
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v4"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/state"
 )
 
@@ -90,7 +90,7 @@ func benchmarkAddMetrics(metricsPerBatch, batches int, c *gc.C) {
 		for n := 0; n < batches; n++ {
 			_, err := s.State.AddMetrics(
 				state.BatchParam{
-					UUID:     utils.MustNewUUID().String(),
+					UUID:     uuid.MustNewUUID().String(),
 					Created:  now,
 					CharmURL: *applicationCharmURL,
 					Metrics:  metrics,
@@ -124,7 +124,7 @@ func (*BenchmarkSuite) BenchmarkCleanupMetrics(c *gc.C) {
 		for i := 0; i < numberOfMetrics; i++ {
 			m, err := s.State.AddMetrics(
 				state.BatchParam{
-					UUID:     utils.MustNewUUID().String(),
+					UUID:     uuid.MustNewUUID().String(),
 					Created:  oldTime,
 					CharmURL: *applicationCharmURL,
 					Metrics:  []state.Metric{{}},

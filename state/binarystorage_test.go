@@ -13,7 +13,6 @@ import (
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	jujutxn "github.com/juju/txn/v3"
-	"github.com/juju/utils/v4"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
@@ -21,6 +20,7 @@ import (
 	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/tools"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/binarystorage"
 	"github.com/juju/juju/testing"
@@ -77,7 +77,7 @@ func (s *binaryStorageSuite) SetUpTest(c *gc.C) {
 	s.controllerModelUUID = s.State.ControllerModelUUID()
 
 	// Create a new model and store its UUID.
-	s.modelUUID = utils.MustNewUUID().String()
+	s.modelUUID = uuid.MustNewUUID().String()
 	cfg := testing.CustomModelConfig(c, testing.Attrs{
 		"name": "new-model",
 		"uuid": s.modelUUID,

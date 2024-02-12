@@ -14,7 +14,6 @@ import (
 	"github.com/juju/proxy"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v4"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
@@ -22,6 +21,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/internal/uuid"
 	uniterapi "github.com/juju/juju/internal/worker/uniter/api"
 	runnercontext "github.com/juju/juju/internal/worker/uniter/runner/context"
 	"github.com/juju/juju/internal/worker/uniter/runner/context/mocks"
@@ -125,7 +125,7 @@ func (s *BaseHookContextSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *BaseHookContextSuite) GetContext(c *gc.C, ctrl *gomock.Controller, relId int, remoteName string, storageTag names.StorageTag) jujuc.Context {
-	uuid, err := utils.NewUUID()
+	uuid, err := uuid.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	return s.getHookContext(c, ctrl, uuid.String(), relId, remoteName, storageTag)
 }

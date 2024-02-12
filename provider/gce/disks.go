@@ -10,11 +10,11 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/utils/v4"
 
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/provider/gce/google"
 )
 
@@ -179,7 +179,7 @@ func mibToGib(m uint64) uint64 {
 }
 
 func nameVolume(zone string) (string, error) {
-	volumeUUID, err := utils.NewUUID()
+	volumeUUID, err := uuid.NewUUID()
 	if err != nil {
 		return "", errors.Annotate(err, "cannot generate uuid to name the volume")
 	}

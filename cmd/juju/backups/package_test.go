@@ -14,12 +14,12 @@ import (
 	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v4"
 	gc "gopkg.in/check.v1"
 
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/backups"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
@@ -78,7 +78,7 @@ func (s *BaseBackupsSuite) SetUpTest(c *gc.C) {
 	s.store = jujuclienttesting.MinimalStore()
 	models := s.store.Models["arthur"]
 	models.Models["admin/controller"] = jujuclient.ModelDetails{
-		ModelUUID: utils.MustNewUUID().String(),
+		ModelUUID: uuid.MustNewUUID().String(),
 		ModelType: model.IAAS,
 	}
 	s.store.Models["arthur"] = models

@@ -14,7 +14,6 @@ import (
 	"github.com/juju/names/v5"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v4"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 	gc "gopkg.in/check.v1"
@@ -27,6 +26,7 @@ import (
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/internal/worker/remoterelations"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
@@ -176,7 +176,7 @@ func (s *remoteRelationsSuite) TestExternalControllerError(c *gc.C) {
 }
 
 func (s *remoteRelationsSuite) TestRemoteApplicationWorkersRedirect(c *gc.C) {
-	newControllerTag := names.NewControllerTag(utils.MustNewUUID().String())
+	newControllerTag := names.NewControllerTag(uuid.MustNewUUID().String())
 
 	s.config.NewRemoteModelFacadeFunc = func(info *api.Info) (remoterelations.RemoteModelRelationsFacadeCloser, error) {
 		// If attempting to connect to the remote controller as defined in
@@ -230,7 +230,7 @@ func (s *remoteRelationsSuite) TestRemoteApplicationWorkersRedirect(c *gc.C) {
 func (s *remoteRelationsSuite) TestRemoteApplicationWorkersRedirectControllerUpdateError(c *gc.C) {
 	s.stub.SetErrors(nil, nil, nil, nil, errors.New("busted"))
 
-	newControllerTag := names.NewControllerTag(utils.MustNewUUID().String())
+	newControllerTag := names.NewControllerTag(uuid.MustNewUUID().String())
 
 	s.config.NewRemoteModelFacadeFunc = func(info *api.Info) (remoterelations.RemoteModelRelationsFacadeCloser, error) {
 		// If attempting to connect to the remote controller as defined in

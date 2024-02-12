@@ -9,11 +9,11 @@ import (
 	"github.com/juju/names/v5"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v4"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/agent/machineactions"
 	apitesting "github.com/juju/juju/api/base/testing"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -105,7 +105,7 @@ func (s *ClientSuite) TestWatchResultTooMany(c *gc.C) {
 }
 
 func (s *ClientSuite) TestActionBeginSuccess(c *gc.C) {
-	tag := names.NewActionTag(utils.MustNewUUID().String())
+	tag := names.NewActionTag(uuid.MustNewUUID().String())
 	expectedCalls := []jujutesting.StubCall{{
 		"MachineActions.BeginActions",
 		[]interface{}{"", params.Entities{
@@ -131,7 +131,7 @@ func (s *ClientSuite) TestActionBeginSuccess(c *gc.C) {
 }
 
 func (s *ClientSuite) TestActionBeginError(c *gc.C) {
-	tag := names.NewActionTag(utils.MustNewUUID().String())
+	tag := names.NewActionTag(uuid.MustNewUUID().String())
 	expectedCalls := []jujutesting.StubCall{{
 		"MachineActions.BeginActions",
 		[]interface{}{"", params.Entities{
@@ -154,7 +154,7 @@ func (s *ClientSuite) TestActionBeginError(c *gc.C) {
 }
 
 func (s *ClientSuite) TestActionBeginResultError(c *gc.C) {
-	tag := names.NewActionTag(utils.MustNewUUID().String())
+	tag := names.NewActionTag(uuid.MustNewUUID().String())
 	expectedCalls := []jujutesting.StubCall{{
 		"MachineActions.BeginActions",
 		[]interface{}{"", params.Entities{
@@ -184,7 +184,7 @@ func (s *ClientSuite) TestActionBeginResultError(c *gc.C) {
 }
 
 func (s *ClientSuite) TestActionBeginTooManyResults(c *gc.C) {
-	tag := names.NewActionTag(utils.MustNewUUID().String())
+	tag := names.NewActionTag(uuid.MustNewUUID().String())
 	expectedCalls := []jujutesting.StubCall{{
 		"MachineActions.BeginActions",
 		[]interface{}{"", params.Entities{
@@ -208,7 +208,7 @@ func (s *ClientSuite) TestActionBeginTooManyResults(c *gc.C) {
 }
 
 func (s *ClientSuite) TestActionFinishSuccess(c *gc.C) {
-	tag := names.NewActionTag(utils.MustNewUUID().String())
+	tag := names.NewActionTag(uuid.MustNewUUID().String())
 	status := "stubstatus"
 	actionResults := map[string]interface{}{"stub": "stub"}
 	message := "stubmsg"
@@ -241,7 +241,7 @@ func (s *ClientSuite) TestActionFinishSuccess(c *gc.C) {
 }
 
 func (s *ClientSuite) TestActionFinishError(c *gc.C) {
-	tag := names.NewActionTag(utils.MustNewUUID().String())
+	tag := names.NewActionTag(uuid.MustNewUUID().String())
 	expectedCalls := []jujutesting.StubCall{{
 		"MachineActions.FinishActions",
 		[]interface{}{"", params.ActionExecutionResults{
@@ -269,7 +269,7 @@ func (s *ClientSuite) TestActionFinishError(c *gc.C) {
 }
 
 func (s *ClientSuite) TestActionFinishResultError(c *gc.C) {
-	tag := names.NewActionTag(utils.MustNewUUID().String())
+	tag := names.NewActionTag(uuid.MustNewUUID().String())
 	expectedCalls := []jujutesting.StubCall{{
 		"MachineActions.FinishActions",
 		[]interface{}{"", params.ActionExecutionResults{
@@ -304,7 +304,7 @@ func (s *ClientSuite) TestActionFinishResultError(c *gc.C) {
 }
 
 func (s *ClientSuite) TestActionFinishTooManyResults(c *gc.C) {
-	tag := names.NewActionTag(utils.MustNewUUID().String())
+	tag := names.NewActionTag(uuid.MustNewUUID().String())
 	expectedCalls := []jujutesting.StubCall{{
 		"MachineActions.FinishActions",
 		[]interface{}{"", params.ActionExecutionResults{
@@ -333,7 +333,7 @@ func (s *ClientSuite) TestActionFinishTooManyResults(c *gc.C) {
 }
 
 func (s *ClientSuite) TestGetActionSuccess(c *gc.C) {
-	tag := names.NewActionTag(utils.MustNewUUID().String())
+	tag := names.NewActionTag(uuid.MustNewUUID().String())
 	expectedCalls := []jujutesting.StubCall{{
 		"MachineActions.Actions",
 		[]interface{}{"", params.Entities{
@@ -373,7 +373,7 @@ func (s *ClientSuite) TestGetActionSuccess(c *gc.C) {
 }
 
 func (s *ClientSuite) TestGetActionError(c *gc.C) {
-	tag := names.NewActionTag(utils.MustNewUUID().String())
+	tag := names.NewActionTag(uuid.MustNewUUID().String())
 	expectedCalls := []jujutesting.StubCall{{
 		"MachineActions.Actions",
 		[]interface{}{"", params.Entities{
@@ -397,7 +397,7 @@ func (s *ClientSuite) TestGetActionError(c *gc.C) {
 }
 
 func (s *ClientSuite) TestGetActionResultError(c *gc.C) {
-	tag := names.NewActionTag(utils.MustNewUUID().String())
+	tag := names.NewActionTag(uuid.MustNewUUID().String())
 	expectedCalls := []jujutesting.StubCall{{
 		"MachineActions.Actions",
 		[]interface{}{"", params.Entities{
@@ -429,7 +429,7 @@ func (s *ClientSuite) TestGetActionResultError(c *gc.C) {
 }
 
 func (s *ClientSuite) TestGetActionTooManyResults(c *gc.C) {
-	tag := names.NewActionTag(utils.MustNewUUID().String())
+	tag := names.NewActionTag(uuid.MustNewUUID().String())
 	expectedCalls := []jujutesting.StubCall{{
 		"MachineActions.Actions",
 		[]interface{}{"", params.Entities{
@@ -454,7 +454,7 @@ func (s *ClientSuite) TestGetActionTooManyResults(c *gc.C) {
 }
 
 func (s *ClientSuite) TestRunningActionSuccess(c *gc.C) {
-	tag := names.NewMachineTag(utils.MustNewUUID().String())
+	tag := names.NewMachineTag(uuid.MustNewUUID().String())
 	expectedCalls := []jujutesting.StubCall{{
 		"MachineActions.RunningActions",
 		[]interface{}{"", params.Entities{
@@ -486,7 +486,7 @@ func (s *ClientSuite) TestRunningActionSuccess(c *gc.C) {
 }
 
 func (s *ClientSuite) TestRunningActionsError(c *gc.C) {
-	tag := names.NewMachineTag(utils.MustNewUUID().String())
+	tag := names.NewMachineTag(uuid.MustNewUUID().String())
 	expectedCalls := []jujutesting.StubCall{{
 		"MachineActions.RunningActions",
 		[]interface{}{"", params.Entities{
@@ -510,7 +510,7 @@ func (s *ClientSuite) TestRunningActionsError(c *gc.C) {
 }
 
 func (s *ClientSuite) TestRunningActionsResultError(c *gc.C) {
-	tag := names.NewMachineTag(utils.MustNewUUID().String())
+	tag := names.NewMachineTag(uuid.MustNewUUID().String())
 	expectedCalls := []jujutesting.StubCall{{
 		"MachineActions.RunningActions",
 		[]interface{}{"", params.Entities{
@@ -542,7 +542,7 @@ func (s *ClientSuite) TestRunningActionsResultError(c *gc.C) {
 }
 
 func (s *ClientSuite) TestRunningActionsTooManyResults(c *gc.C) {
-	tag := names.NewMachineTag(utils.MustNewUUID().String())
+	tag := names.NewMachineTag(uuid.MustNewUUID().String())
 	expectedCalls := []jujutesting.StubCall{{
 		"MachineActions.RunningActions",
 		[]interface{}{"", params.Entities{

@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/cloudconfig/sshinit"
 	"github.com/juju/juju/internal/service"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -217,7 +218,7 @@ cat /proc/cpuinfo`
 func gatherMachineParams(hostname string) (*params.AddMachineParams, error) {
 
 	// Generate a unique nonce for the machine.
-	uuid, err := utils.NewUUID()
+	uuid, err := uuid.NewUUID()
 	if err != nil {
 		return nil, err
 	}

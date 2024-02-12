@@ -7,11 +7,11 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v4"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing/factory"
 )
@@ -112,7 +112,7 @@ func (s *ApplicationOfferUserSuite) setupOfferRelation(c *gc.C, offerUUID, user 
 	rel, err := s.State.AddRelation(wordpressEP, mysqlEP)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddOfferConnection(state.AddOfferConnectionParams{
-		SourceModelUUID: utils.MustNewUUID().String(),
+		SourceModelUUID: uuid.MustNewUUID().String(),
 		OfferUUID:       offerUUID,
 		RelationKey:     rel.Tag().Id(),
 		RelationId:      rel.Id(),
@@ -154,7 +154,7 @@ func (s *ApplicationOfferUserSuite) TestUpdateOfferAccessSetsRelationSuspendedRa
 		rel2, err = s.State.AddRelation(wordpressEP, mysqlEP)
 		c.Assert(err, jc.ErrorIsNil)
 		_, err = s.State.AddOfferConnection(state.AddOfferConnectionParams{
-			SourceModelUUID: utils.MustNewUUID().String(),
+			SourceModelUUID: uuid.MustNewUUID().String(),
 			OfferUUID:       offer.OfferUUID,
 			RelationKey:     rel2.Tag().Id(),
 			RelationId:      rel2.Id(),

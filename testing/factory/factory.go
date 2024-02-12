@@ -35,6 +35,7 @@ import (
 	objectstoretesting "github.com/juju/juju/internal/objectstore/testing"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing"
@@ -726,7 +727,7 @@ func (factory *Factory) MakeMetric(c *gc.C, params *MetricParams) *state.MetricB
 
 	metric, err := factory.st.AddMetrics(
 		state.BatchParam{
-			UUID:     utils.MustNewUUID().String(),
+			UUID:     uuid.MustNewUUID().String(),
 			Created:  *params.Time,
 			CharmURL: *chURL,
 			Metrics:  params.Metrics,
@@ -821,7 +822,7 @@ func (factory *Factory) MakeModel(c *gc.C, params *ModelParams) *state.State {
 		cfgType = "kubernetes"
 	}
 
-	uuid, err := utils.NewUUID()
+	uuid, err := uuid.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	cfg := testing.CustomModelConfig(c, testing.Attrs{
 		"name": params.Name,

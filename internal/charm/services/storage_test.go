@@ -12,11 +12,11 @@ import (
 	"github.com/juju/loggo/v2"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v4"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/charm/downloader"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/state"
 	stateerrors "github.com/juju/juju/state/errors"
 )
@@ -30,7 +30,7 @@ type storageTestSuite struct {
 	uploadedCharm  *MockUploadedCharm
 	storageBackend *MockStorage
 	storage        *CharmStorage
-	uuid           utils.UUID
+	uuid           uuid.UUID
 }
 
 func (s *storageTestSuite) TestPrepareToStoreNotYetUploadedCharm(c *gc.C) {
@@ -110,7 +110,7 @@ func (s *storageTestSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.storageBackend = NewMockStorage(ctrl)
 
 	var err error
-	s.uuid, err = utils.NewUUID()
+	s.uuid, err = uuid.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.storage = NewCharmStorage(CharmStorageConfig{
@@ -118,7 +118,7 @@ func (s *storageTestSuite) setupMocks(c *gc.C) *gomock.Controller {
 		StateBackend: s.stateBackend,
 		ObjectStore:  s.storageBackend,
 	})
-	s.storage.uuidGenerator = func() (utils.UUID, error) {
+	s.storage.uuidGenerator = func() (uuid.UUID, error) {
 		return s.uuid, nil
 	}
 

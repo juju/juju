@@ -8,9 +8,9 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils/v4"
 
 	charmdownloader "github.com/juju/juju/core/charm/downloader"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/state"
 	stateerrors "github.com/juju/juju/state/errors"
 )
@@ -32,7 +32,7 @@ type CharmStorage struct {
 	logger        Logger
 	stateBackend  StateBackend
 	objectStore   Storage
-	uuidGenerator func() (utils.UUID, error)
+	uuidGenerator func() (uuid.UUID, error)
 }
 
 // NewCharmStorage creates a new CharmStorage instance with the specified config.
@@ -41,7 +41,7 @@ func NewCharmStorage(cfg CharmStorageConfig) *CharmStorage {
 		logger:        cfg.Logger,
 		stateBackend:  cfg.StateBackend,
 		objectStore:   cfg.ObjectStore,
-		uuidGenerator: utils.NewUUID,
+		uuidGenerator: uuid.NewUUID,
 	}
 }
 

@@ -9,10 +9,10 @@ import (
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v4"
 	gc "gopkg.in/check.v1"
 
 	schematesting "github.com/juju/juju/domain/schema/testing"
+	"github.com/juju/juju/internal/uuid"
 )
 
 type stateSuite struct {
@@ -25,7 +25,7 @@ func (s *stateSuite) TestRetrieveCertX509(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	db := s.DB()
 
-	certUUID := utils.MustNewUUID().String()
+	certUUID := uuid.MustNewUUID().String()
 	x509Cert := `
 	-----BEGIN CERTIFICATE-----
 MIICEjCCAXsCAg36MA0GCSqGSIb3DQEBBQUAMIGbMQswCQYDVQQGEwJKUDEOMAwG
@@ -58,7 +58,7 @@ func (s *stateSuite) TestRetrieveSpecialChars(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	db := s.DB()
 
-	certUUID := utils.MustNewUUID().String()
+	certUUID := uuid.MustNewUUID().String()
 	specialCharsCert := `
 	-----BEGIN CERTIFICATE-----
 abc123!?$*&()'-=@~;\|/"
@@ -145,7 +145,7 @@ func (s *stateSuite) TestDeleteCertX509(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	db := s.DB()
 
-	certUUID := utils.MustNewUUID().String()
+	certUUID := uuid.MustNewUUID().String()
 	x509Cert := `
 	-----BEGIN CERTIFICATE-----
 MIICEjCCAXsCAg36MA0GCSqGSIb3DQEBBQUAMIGbMQswCQYDVQQGEwJKUDEOMAwG
@@ -183,7 +183,7 @@ func (s *stateSuite) TestDeleteSpecialChars(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	db := s.DB()
 
-	certUUID := utils.MustNewUUID().String()
+	certUUID := uuid.MustNewUUID().String()
 	specialCharsCert := `
 	-----BEGIN CERTIFICATE-----
 abc123!?$*&()'-=@~;\|/"

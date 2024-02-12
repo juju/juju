@@ -10,13 +10,13 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v4"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/agent/metricsadder"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/internal/uuid"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -107,7 +107,7 @@ func (s *metricsAdderSuite) TestAddMetricsBatch(c *gc.C) {
 	}, {
 		Key: "pongs", Value: "6", Time: time.Now().UTC(), Labels: map[string]string{"foo": "bar"},
 	}}
-	uuid := utils.MustNewUUID().String()
+	uuid := uuid.MustNewUUID().String()
 
 	result, err := s.adder.AddMetricBatches(context.Background(), params.MetricBatchParams{
 		Batches: []params.MetricBatchParam{{
@@ -143,7 +143,7 @@ func (s *metricsAdderSuite) TestAddMetricsBatch(c *gc.C) {
 
 func (s *metricsAdderSuite) TestAddMetricsBatchNoCharmURL(c *gc.C) {
 	metrics := []params.Metric{{Key: "pings", Value: "5", Time: time.Now().UTC()}}
-	uuid := utils.MustNewUUID().String()
+	uuid := uuid.MustNewUUID().String()
 
 	result, err := s.adder.AddMetricBatches(context.Background(), params.MetricBatchParams{
 		Batches: []params.MetricBatchParam{{
@@ -174,7 +174,7 @@ func (s *metricsAdderSuite) TestAddMetricsBatchNoCharmURL(c *gc.C) {
 
 func (s *metricsAdderSuite) TestAddMetricsBatchDiffTag(c *gc.C) {
 	metrics := []params.Metric{{Key: "pings", Value: "5", Time: time.Now().UTC()}}
-	uuid := utils.MustNewUUID().String()
+	uuid := uuid.MustNewUUID().String()
 
 	tests := []struct {
 		about  string

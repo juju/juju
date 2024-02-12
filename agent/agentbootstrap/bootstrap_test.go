@@ -11,7 +11,6 @@ import (
 	"github.com/juju/names/v5"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v4"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
@@ -36,6 +35,7 @@ import (
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/poolmanager"
 	"github.com/juju/juju/internal/storage/provider"
+	"github.com/juju/juju/internal/uuid"
 	jujujujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
@@ -126,7 +126,7 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	controllerCfg := testing.FakeControllerConfig()
 
-	initialModelUUID := utils.MustNewUUID().String()
+	initialModelUUID := uuid.MustNewUUID().String()
 	initialModelConfigAttrs := map[string]interface{}{
 		"name": "hosted",
 		"uuid": initialModelUUID,
@@ -426,7 +426,7 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 
 	initialModelConfigAttrs := map[string]interface{}{
 		"name": "hosted",
-		"uuid": utils.MustNewUUID().String(),
+		"uuid": uuid.MustNewUUID().String(),
 	}
 
 	args := instancecfg.StateInitializationParams{

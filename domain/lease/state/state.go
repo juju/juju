@@ -11,13 +11,13 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/utils/v4"
 
 	coreDB "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/database/txn"
+	"github.com/juju/juju/internal/uuid"
 )
 
 // Logger is the interface used by the state to log messages.
@@ -89,7 +89,7 @@ AND    l.name = ?`
 // ClaimLease (lease.Store) claims the lease indicated by the input key,
 // for the holder and duration indicated by the input request.
 // The lease must not already be held, otherwise an error is returned.
-func (s *State) ClaimLease(ctx context.Context, uuid utils.UUID, key lease.Key, req lease.Request) error {
+func (s *State) ClaimLease(ctx context.Context, uuid uuid.UUID, key lease.Key, req lease.Request) error {
 	db, err := s.DB()
 	if err != nil {
 		return errors.Trace(err)
@@ -232,7 +232,7 @@ AND    l.model_uuid = ?
 AND    l.name = ?;`[1:]
 
 	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, q, utils.MustNewUUID().String(), entity, key.Namespace, key.ModelUUID, key.Lease)
+		_, err := tx.ExecContext(ctx, q, uuid.MustNewUUID().String(), entity, key.Namespace, key.ModelUUID, key.Lease)
 		return errors.Trace(err)
 	})
 	if database.IsErrConstraintUnique(err) {

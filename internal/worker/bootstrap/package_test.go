@@ -8,11 +8,11 @@ import (
 
 	"github.com/juju/names/v5"
 	jujutesting "github.com/juju/testing"
-	"github.com/juju/utils/v4"
 	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/internal/uuid"
 	jujujujutesting "github.com/juju/juju/testing"
 )
 
@@ -89,7 +89,7 @@ func (s *baseSuite) expectGateUnlock() {
 
 func (s *baseSuite) expectAgentConfig() {
 	s.agentConfig.EXPECT().DataDir().Return(s.dataDir).AnyTimes()
-	s.agentConfig.EXPECT().Controller().Return(names.NewControllerTag(utils.MustNewUUID().String())).AnyTimes()
+	s.agentConfig.EXPECT().Controller().Return(names.NewControllerTag(uuid.MustNewUUID().String())).AnyTimes()
 	s.agentConfig.EXPECT().Model().Return(names.NewModelTag("test-model")).AnyTimes()
 	s.agent.EXPECT().CurrentConfig().Return(s.agentConfig).AnyTimes()
 }

@@ -25,12 +25,12 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils/v4"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/internal/container/kvm/libvirt"
+	"github.com/juju/juju/internal/uuid"
 )
 
 const (
@@ -409,7 +409,7 @@ func writeDomainXML(templateDir string, p CreateMachineParams) (string, error) {
 // cloud-init.
 // See: http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html
 func writeMetadata(dir string) error {
-	data := fmt.Sprintf(`{"instance-id": "%s"}`, utils.MustNewUUID())
+	data := fmt.Sprintf(`{"instance-id": "%s"}`, uuid.MustNewUUID())
 	f, err := os.Create(filepath.Join(dir, metadata))
 	if err != nil {
 		return errors.Trace(err)

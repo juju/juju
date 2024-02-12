@@ -9,11 +9,11 @@ import (
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v4"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/domain/life"
 	schematesting "github.com/juju/juju/domain/schema/testing"
+	"github.com/juju/juju/internal/uuid"
 	jujutesting "github.com/juju/juju/testing"
 )
 
@@ -52,7 +52,7 @@ func (s *stateSuite) TestDeleteUnit(c *gc.C) {
 func (s *stateSuite) insertUnit(c *gc.C, appName string) {
 	db := s.DB()
 
-	applicationUUID := utils.MustNewUUID().String()
+	applicationUUID := uuid.MustNewUUID().String()
 	_, err := db.ExecContext(context.Background(), `
 INSERT INTO application (uuid, name, life_id)
 VALUES (?, ?, ?)
@@ -60,10 +60,10 @@ VALUES (?, ?, ?)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	netNodeUUID := utils.MustNewUUID().String()
+	netNodeUUID := uuid.MustNewUUID().String()
 	_, err = db.ExecContext(context.Background(), "INSERT INTO net_node (uuid) VALUES (?)", netNodeUUID)
 	c.Assert(err, jc.ErrorIsNil)
-	machineUUID := utils.MustNewUUID().String()
+	machineUUID := uuid.MustNewUUID().String()
 	_, err = db.ExecContext(context.Background(), `
 INSERT INTO unit (uuid, life_id, unit_id, net_node_uuid, application_uuid)
 VALUES (?, ?, ?, ?, (SELECT uuid from application WHERE name = ?))

@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v4"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/model"
@@ -22,6 +21,7 @@ import (
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/juju/keys"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/testing"
@@ -86,7 +86,7 @@ func (s *OpenSuite) TestNewDummyEnviron(c *gc.C) {
 func (s *OpenSuite) TestUpdateEnvInfo(c *gc.C) {
 	store := jujuclient.NewMemStore()
 	ctx := envtesting.BootstrapContext(context.Background(), c)
-	uuid := utils.MustNewUUID().String()
+	uuid := uuid.MustNewUUID().String()
 	cfg, err := config.New(config.UseDefaults, map[string]interface{}{
 		"type": "dummy",
 		"name": "admin-model",

@@ -8,7 +8,6 @@ import (
 	"github.com/juju/names/v5"
 	jtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v4"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common/crossmodel"
@@ -18,6 +17,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -72,7 +72,7 @@ func (s *baseSuite) addApplication(c *gc.C, name string) jujucrossmodel.Applicat
 }
 
 func (s *baseSuite) setupOffers(c *gc.C, filterAppName string, filterWithEndpoints bool) string {
-	offerUUID := utils.MustNewUUID().String()
+	offerUUID := uuid.MustNewUUID().String()
 	s.setupOffersForUUID(c, offerUUID, filterAppName, filterWithEndpoints)
 	return offerUUID
 }

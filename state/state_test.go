@@ -24,7 +24,6 @@ import (
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	jujutxn "github.com/juju/txn/v3"
-	"github.com/juju/utils/v4"
 	"github.com/juju/version/v2"
 	"github.com/juju/worker/v4/workertest"
 	"go.uber.org/mock/gomock"
@@ -51,6 +50,7 @@ import (
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/poolmanager"
 	"github.com/juju/juju/internal/storage/provider"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/mocks"
 	statetesting "github.com/juju/juju/state/testing"
@@ -220,7 +220,7 @@ func (s *StateSuite) TestStrictLocalIDWithNoPrefix(c *gc.C) {
 }
 
 func (s *StateSuite) TestOpenControllerRequiresExtantModelTag(c *gc.C) {
-	uuid := utils.MustNewUUID()
+	uuid := uuid.MustNewUUID()
 	params := s.testOpenParams()
 	params.ControllerModelTag = names.NewModelTag(uuid.String())
 	controller, err := state.OpenController(params)

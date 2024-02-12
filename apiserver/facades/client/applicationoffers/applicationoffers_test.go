@@ -16,7 +16,6 @@ import (
 	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v4"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common/crossmodel"
@@ -27,6 +26,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
@@ -432,7 +432,7 @@ func (s *applicationOffersSuite) assertShow(c *gc.C, url, offerUUID string, expe
 }
 
 func (s *applicationOffersSuite) TestShow(c *gc.C) {
-	offerUUID := utils.MustNewUUID().String()
+	offerUUID := uuid.MustNewUUID().String()
 	expected := []params.ApplicationOfferResult{{
 		Result: &params.ApplicationOfferAdminDetails{
 			ApplicationOfferDetails: params.ApplicationOfferDetails{
@@ -478,7 +478,7 @@ func (s *applicationOffersSuite) TestShow(c *gc.C) {
 }
 
 func (s *applicationOffersSuite) TestShowNoPermission(c *gc.C) {
-	offerUUID := utils.MustNewUUID().String()
+	offerUUID := uuid.MustNewUUID().String()
 	s.mockState.users["someone"] = &mockUser{"someone"}
 	user := names.NewUserTag("someone")
 	offer := names.NewApplicationOfferTag(offerUUID)
@@ -493,7 +493,7 @@ func (s *applicationOffersSuite) TestShowNoPermission(c *gc.C) {
 }
 
 func (s *applicationOffersSuite) TestShowPermission(c *gc.C) {
-	offerUUID := utils.MustNewUUID().String()
+	offerUUID := uuid.MustNewUUID().String()
 	user := names.NewUserTag("someone")
 	s.authorizer.Tag = user
 	expected := []params.ApplicationOfferResult{{
@@ -791,7 +791,7 @@ func (s *applicationOffersSuite) TestFind(c *gc.C) {
 func (s *applicationOffersSuite) TestFindNoPermission(c *gc.C) {
 	s.mockState.users["someone"] = &mockUser{"someone"}
 	user := names.NewUserTag("someone")
-	offer := names.NewApplicationOfferTag(utils.MustNewUUID().String())
+	offer := names.NewApplicationOfferTag(uuid.MustNewUUID().String())
 	err := s.mockState.CreateOfferAccess(offer, user, permission.NoAccess)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -855,8 +855,8 @@ func (s *applicationOffersSuite) TestFindRequiresFilter(c *gc.C) {
 }
 
 func (s *applicationOffersSuite) TestFindMulti(c *gc.C) {
-	oneOfferUUID := utils.MustNewUUID().String()
-	twoOfferUUID := utils.MustNewUUID().String()
+	oneOfferUUID := uuid.MustNewUUID().String()
+	twoOfferUUID := uuid.MustNewUUID().String()
 	db2Offer := jujucrossmodel.ApplicationOffer{
 		OfferName:              "hosted-db2",
 		OfferUUID:              oneOfferUUID,
@@ -1387,7 +1387,7 @@ func (s *consumeSuite) setupOffer() string {
 		ApplicationName:        "mysql",
 		ApplicationDescription: "a database",
 		OfferName:              offerName,
-		OfferUUID:              utils.MustNewUUID().String(),
+		OfferUUID:              uuid.MustNewUUID().String(),
 		Endpoints: map[string]charm.Relation{
 			"server": {Name: "database", Interface: "mysql", Role: "provider", Scope: "global"}},
 	}

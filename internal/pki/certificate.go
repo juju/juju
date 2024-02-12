@@ -10,7 +10,8 @@ import (
 	"math/big"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils/v4"
+
+	"github.com/juju/juju/internal/uuid"
 )
 
 // CSRToCertificate copies all fields from a CertificateRequest into a new x509
@@ -31,7 +32,7 @@ func CSRToCertificate(csr *x509.CertificateRequest) *x509.Certificate {
 }
 
 func assetTagCertificate(cert *x509.Certificate) error {
-	uuid, err := utils.NewUUID()
+	uuid, err := uuid.NewUUID()
 	if err != nil {
 		return errors.Annotate(err, "failed to generate new certificate uuid")
 	}

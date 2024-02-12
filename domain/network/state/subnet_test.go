@@ -8,23 +8,23 @@ import (
 	"fmt"
 
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v4"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/internal/uuid"
 )
 
 func (s *stateSuite) TestUpsertSubnets(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
-	spUUID, err := utils.NewUUID()
+	spUUID, err := uuid.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.AddSpace(ctx.Background(), spUUID.String(), "space0", "provider-space-id-1", []string{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	subnetUUID0, err := utils.NewUUID()
+	subnetUUID0, err := uuid.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
-	subnetUUID1, err := utils.NewUUID()
+	subnetUUID1, err := uuid.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	subnetsToUpsert := []network.SubnetInfo{
 		{
@@ -111,12 +111,12 @@ func (s *stateSuite) TestAddSubnet(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	db := s.DB()
 
-	spUUID, err := utils.NewUUID()
+	spUUID, err := uuid.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.AddSpace(ctx.Background(), spUUID.String(), "space0", "foo", []string{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	uuid, err := utils.NewUUID()
+	uuid, err := uuid.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.AddSubnet(
 		ctx.Background(),
@@ -193,12 +193,12 @@ func (s *stateSuite) TestAddSubnet(c *gc.C) {
 func (s *stateSuite) TestFailAddTwoSubnetsSameNetworkID(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
-	spUUID, err := utils.NewUUID()
+	spUUID, err := uuid.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.AddSpace(ctx.Background(), spUUID.String(), "space0", "foo", []string{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	subnetUUID0, err := utils.NewUUID()
+	subnetUUID0, err := uuid.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.AddSubnet(
 		ctx.Background(),
@@ -214,7 +214,7 @@ func (s *stateSuite) TestFailAddTwoSubnetsSameNetworkID(c *gc.C) {
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	subnetUUID1, err := utils.NewUUID()
+	subnetUUID1, err := uuid.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.AddSubnet(
 		ctx.Background(),
@@ -235,12 +235,12 @@ func (s *stateSuite) TestFailAddTwoSubnetsSameNetworkID(c *gc.C) {
 func (s *stateSuite) TestFailAddTwoSubnetsSameProviderID(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
-	spUUID, err := utils.NewUUID()
+	spUUID, err := uuid.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.AddSpace(ctx.Background(), spUUID.String(), "space0", "foo", []string{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	subnetUUID0, err := utils.NewUUID()
+	subnetUUID0, err := uuid.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.AddSubnet(
 		ctx.Background(),
@@ -256,7 +256,7 @@ func (s *stateSuite) TestFailAddTwoSubnetsSameProviderID(c *gc.C) {
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	subnetUUID1, err := utils.NewUUID()
+	subnetUUID1, err := uuid.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.AddSubnet(
 		ctx.Background(),
@@ -278,7 +278,7 @@ func (s *stateSuite) TestRetrieveFanSubnet(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	// Add a subnet of type base.
-	subnetUUID0, err := utils.NewUUID()
+	subnetUUID0, err := uuid.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.AddSubnet(
 		ctx.Background(),
@@ -295,7 +295,7 @@ func (s *stateSuite) TestRetrieveFanSubnet(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	// Add a subnet of type fan.
-	subnetUUID1, err := utils.NewUUID()
+	subnetUUID1, err := uuid.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.AddSubnet(
 		ctx.Background(),
@@ -362,7 +362,7 @@ func (s *stateSuite) TestRetrieveSubnetByUUID(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	// Add a subnet of type base.
-	subnetUUID0, err := utils.NewUUID()
+	subnetUUID0, err := uuid.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.AddSubnet(
 		ctx.Background(),
@@ -379,7 +379,7 @@ func (s *stateSuite) TestRetrieveSubnetByUUID(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	// Add a subnet of type fan.
-	subnetUUID1, err := utils.NewUUID()
+	subnetUUID1, err := uuid.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.AddSubnet(
 		ctx.Background(),
@@ -399,7 +399,7 @@ func (s *stateSuite) TestRetrieveSubnetByUUID(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	// Add a space with subnet base.
-	spUUID, err := utils.NewUUID()
+	spUUID, err := uuid.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.AddSpace(ctx.Background(), spUUID.String(), "space0", "provider-space-id", []string{subnetUUID0.String()})
 	c.Assert(err, jc.ErrorIsNil)
@@ -442,7 +442,7 @@ func (s *stateSuite) TestRetrieveAllSubnets(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	// Add 3 subnets of type base.
-	subnetUUID0, err := utils.NewUUID()
+	subnetUUID0, err := uuid.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.AddSubnet(
 		ctx.Background(),
@@ -458,7 +458,7 @@ func (s *stateSuite) TestRetrieveAllSubnets(c *gc.C) {
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	subnetUUID1, err := utils.NewUUID()
+	subnetUUID1, err := uuid.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.AddSubnet(
 		ctx.Background(),
@@ -474,7 +474,7 @@ func (s *stateSuite) TestRetrieveAllSubnets(c *gc.C) {
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	subnetUUID2, err := utils.NewUUID()
+	subnetUUID2, err := uuid.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.AddSubnet(
 		ctx.Background(),
@@ -500,17 +500,17 @@ func (s *stateSuite) TestUpdateSubnet(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	db := s.DB()
 
-	spUUID, err := utils.NewUUID()
+	spUUID, err := uuid.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.AddSpace(ctx.Background(), spUUID.String(), "space0", "foo", []string{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	uuid, err := utils.NewUUID()
+	subnetUUID, err := uuid.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.AddSubnet(
 		ctx.Background(),
 		network.SubnetInfo{
-			ID:                network.Id(uuid.String()),
+			ID:                network.Id(subnetUUID.String()),
 			CIDR:              "10.0.0.0/24",
 			ProviderId:        "provider-id",
 			ProviderNetworkId: "provider-network-id",
@@ -522,15 +522,15 @@ func (s *stateSuite) TestUpdateSubnet(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	newSpIUUID, err := utils.NewUUID()
+	newSpIUUID, err := uuid.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.AddSpace(ctx.Background(), newSpIUUID.String(), "space1", "bar", []string{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = st.UpdateSubnet(ctx.Background(), uuid.String(), newSpIUUID.String())
+	err = st.UpdateSubnet(ctx.Background(), subnetUUID.String(), newSpIUUID.String())
 	c.Assert(err, jc.ErrorIsNil)
 
-	row := db.QueryRow("SELECT space_uuid FROM subnet WHERE subnet.uuid = ?", uuid.String())
+	row := db.QueryRow("SELECT space_uuid FROM subnet WHERE subnet.uuid = ?", subnetUUID.String())
 	c.Assert(row.Err(), jc.ErrorIsNil)
 	var (
 		retrievedSpaceUUID string
@@ -544,7 +544,7 @@ func (s *stateSuite) TestDeleteSubnet(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	// Add a subnet of type base.
-	subnetUUID0, err := utils.NewUUID()
+	subnetUUID0, err := uuid.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.AddSubnet(
 		ctx.Background(),
@@ -561,7 +561,7 @@ func (s *stateSuite) TestDeleteSubnet(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	// Add a subnet of type fan.
-	subnetUUID1, err := utils.NewUUID()
+	subnetUUID1, err := uuid.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.AddSubnet(
 		ctx.Background(),
@@ -581,7 +581,7 @@ func (s *stateSuite) TestDeleteSubnet(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	// Add another subnet of type fan.
-	subnetUUID2, err := utils.NewUUID()
+	subnetUUID2, err := uuid.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.AddSubnet(
 		ctx.Background(),

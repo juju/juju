@@ -5,8 +5,9 @@ package upgrade
 
 import (
 	"github.com/juju/testing"
-	"github.com/juju/utils/v4"
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/internal/uuid"
 )
 
 type typesSuite struct {
@@ -29,7 +30,7 @@ func (s *typesSuite) TestUUIDValidate(c *gc.C) {
 			err:  ptr("invalid uuid.*"),
 		},
 		{
-			uuid: utils.MustNewUUID().String(),
+			uuid: uuid.MustNewUUID().String(),
 		},
 	}
 

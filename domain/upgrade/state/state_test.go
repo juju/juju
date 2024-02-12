@@ -9,7 +9,6 @@ import (
 
 	"github.com/canonical/sqlair"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v4"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
@@ -18,6 +17,7 @@ import (
 	domainupgrade "github.com/juju/juju/domain/upgrade"
 	upgradeerrors "github.com/juju/juju/domain/upgrade/errors"
 	"github.com/juju/juju/internal/database"
+	"github.com/juju/juju/internal/uuid"
 )
 
 type stateSuite struct {
@@ -130,7 +130,7 @@ func (s *stateSuite) TestSetControllerReady(c *gc.C) {
 }
 
 func (s *stateSuite) TestSetControllerReadyWithoutUpgrade(c *gc.C) {
-	uuid := utils.MustNewUUID().String()
+	uuid := uuid.MustNewUUID().String()
 
 	err := s.st.SetControllerReady(context.Background(), domainupgrade.UUID(uuid), "0")
 	c.Assert(err, gc.NotNil)
@@ -271,7 +271,7 @@ func (s *stateSuite) TestStartUpgradeCalledMultipleTimes(c *gc.C) {
 }
 
 func (s *stateSuite) TestStartUpgradeBeforeCreated(c *gc.C) {
-	uuid := utils.MustNewUUID().String()
+	uuid := uuid.MustNewUUID().String()
 	err := s.st.StartUpgrade(context.Background(), domainupgrade.UUID(uuid))
 	c.Assert(err, jc.ErrorIs, sql.ErrNoRows)
 }

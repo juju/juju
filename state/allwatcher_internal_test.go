@@ -14,7 +14,6 @@ import (
 	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v4"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
@@ -31,6 +30,7 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/testing"
 )
@@ -525,7 +525,7 @@ func addTestingApplicationOffer(
 	err = rel.SetStatus(status.StatusInfo{Status: status.Joined})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = st.AddOfferConnection(AddOfferConnectionParams{
-		SourceModelUUID: utils.MustNewUUID().String(),
+		SourceModelUUID: uuid.MustNewUUID().String(),
 		RelationId:      rel.Id(),
 		Username:        "fred",
 		OfferUUID:       offer.OfferUUID,
@@ -3502,7 +3502,7 @@ func testChangeApplicationOffers(c *gc.C, runChangeTests func(*gc.C, []changeTes
 			rel, err := st.AddRelation(eps...)
 			c.Assert(err, jc.ErrorIsNil)
 			_, err = st.AddOfferConnection(AddOfferConnectionParams{
-				SourceModelUUID: utils.MustNewUUID().String(),
+				SourceModelUUID: uuid.MustNewUUID().String(),
 				RelationId:      rel.Id(),
 				RelationKey:     rel.Tag().Id(),
 				Username:        "fred",

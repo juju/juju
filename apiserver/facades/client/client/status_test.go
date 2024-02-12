@@ -13,7 +13,6 @@ import (
 	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v4"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
@@ -29,6 +28,7 @@ import (
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/internal/charmhub/transport"
 	"github.com/juju/juju/internal/feature"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -746,7 +746,7 @@ func (s *statusUnitTestSuite) TestMigrationInProgress(c *gc.C) {
 	mig, err := state2.CreateMigration(state.MigrationSpec{
 		InitiatedBy: names.NewUserTag("admin"),
 		TargetInfo: migration.TargetInfo{
-			ControllerTag: names.NewControllerTag(utils.MustNewUUID().String()),
+			ControllerTag: names.NewControllerTag(uuid.MustNewUUID().String()),
 			Addrs:         []string{"1.2.3.4:5555", "4.3.2.1:6666"},
 			CACert:        "cert",
 			AuthTag:       names.NewUserTag("user"),

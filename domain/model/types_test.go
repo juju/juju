@@ -6,12 +6,12 @@ package model
 import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v4"
 	gc "gopkg.in/check.v1"
 
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/credential"
+	"github.com/juju/juju/internal/uuid"
 )
 
 type typesSuite struct {
@@ -33,7 +33,7 @@ func (*typesSuite) TestUUIDValidate(c *gc.C) {
 			err:  ptr("invalid uuid.*"),
 		},
 		{
-			uuid: utils.MustNewUUID().String(),
+			uuid: uuid.MustNewUUID().String(),
 		},
 	}
 

@@ -8,10 +8,10 @@ import (
 
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v4"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/internal/uuid"
 )
 
 type commonSuite struct{}
@@ -137,7 +137,7 @@ func u(unit string) names.Tag { return names.NewUnitTag(unit) }
 func (s *commonSuite) TestAuthFuncForTagKind(c *gc.C) {
 	// TODO(dimitern): This list of all supported tags and kinds needs
 	// to live in juju/names.
-	uuid, err := utils.NewUUID()
+	uuid, err := uuid.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 
 	allTags := []names.Tag{

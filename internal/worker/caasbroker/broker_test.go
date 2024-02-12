@@ -10,13 +10,13 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v4"
 	"github.com/juju/worker/v4/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/internal/worker/caasbroker"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -99,7 +99,7 @@ func (s *TrackerSuite) validFixture() *fixture {
 	}
 	cfg := coretesting.FakeConfig()
 	cfg["type"] = "kubernetes"
-	cfg["uuid"] = utils.MustNewUUID().String()
+	cfg["uuid"] = uuid.MustNewUUID().String()
 	return &fixture{initialSpec: cloudSpec, initialConfig: cfg}
 }
 

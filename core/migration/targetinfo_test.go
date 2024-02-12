@@ -7,11 +7,11 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v4"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/core/migration"
+	"github.com/juju/juju/internal/uuid"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -112,7 +112,7 @@ func makeValidTargetInfo(c *gc.C) migration.TargetInfo {
 	mac, err := macaroon.New([]byte("secret"), []byte("id"), "location", macaroon.LatestVersion)
 	c.Assert(err, jc.ErrorIsNil)
 	return migration.TargetInfo{
-		ControllerTag: names.NewControllerTag(utils.MustNewUUID().String()),
+		ControllerTag: names.NewControllerTag(uuid.MustNewUUID().String()),
 		Addrs:         []string{"1.2.3.4:5555"},
 		CACert:        "cert",
 		AuthTag:       names.NewUserTag("user"),

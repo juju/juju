@@ -11,7 +11,6 @@ import (
 	"github.com/juju/names/v5"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v4"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
 
@@ -24,6 +23,7 @@ import (
 	"github.com/juju/juju/core/permission"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	proxyfactory "github.com/juju/juju/internal/proxy/factory"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -275,7 +275,7 @@ func makeSpec() controller.MigrationSpec {
 }
 
 func randomUUID() string {
-	return utils.MustNewUUID().String()
+	return uuid.MustNewUUID().String()
 }
 
 func (s *Suite) TestModelStatusEmpty(c *gc.C) {

@@ -11,7 +11,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v4"
 	"github.com/juju/worker/v4/workertest"
 	gc "gopkg.in/check.v1"
 
@@ -19,6 +18,7 @@ import (
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
@@ -35,7 +35,7 @@ var _ = gc.Suite(&remoteApplicationSuite{})
 
 func (s *remoteApplicationSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
-	s.externalControllerUUID = utils.MustNewUUID().String()
+	s.externalControllerUUID = uuid.MustNewUUID().String()
 	s.makeRemoteApplication(c, "mysql", "me/model.mysql")
 }
 

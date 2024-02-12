@@ -11,10 +11,10 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	"github.com/juju/utils/v4"
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/internal/uuid"
 )
 
 // SpaceService provides the API for working with spaces.
@@ -74,7 +74,7 @@ func (s *SpaceService) AddSpace(ctx context.Context, name string, providerID net
 		return "", errors.NotValidf("space name %q", name)
 	}
 
-	uuid, err := utils.NewUUID()
+	uuid, err := uuid.NewUUID()
 	if err != nil {
 		return "", errors.Annotatef(err, "creating uuid for new space %q", name)
 	}

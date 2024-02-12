@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v4"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
@@ -19,6 +18,7 @@ import (
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/internal/uuid"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -141,7 +141,7 @@ func (s *controllerInfoSuite) TestControllerInfoLocalModel(c *gc.C) {
 }
 
 func (s *controllerInfoSuite) TestControllerInfoExternalModel(c *gc.C) {
-	modelUUID := utils.MustNewUUID().String()
+	modelUUID := uuid.MustNewUUID().String()
 	info := crossmodel.ControllerInfo{
 		ControllerTag: testing.ControllerTag,
 		Addrs:         []string{"192.168.1.1:12345"},
@@ -171,7 +171,7 @@ func (s *controllerInfoSuite) TestControllerInfoMigratedController(c *gc.C) {
 	model, err := modelState.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	targetControllerTag := names.NewControllerTag(utils.MustNewUUID().String())
+	targetControllerTag := names.NewControllerTag(uuid.MustNewUUID().String())
 	defer modelState.Close()
 
 	// Migrate the model and delete it from the state

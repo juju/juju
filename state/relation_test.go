@@ -12,7 +12,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v4"
 	"github.com/juju/worker/v4/workertest"
 	gc "gopkg.in/check.v1"
 
@@ -20,6 +19,7 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
@@ -831,7 +831,7 @@ func (s *RelationSuite) setupRelationStatus(c *gc.C) *state.Relation {
 	c.Assert(err, jc.ErrorIsNil)
 	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "fred", Access: permission.WriteAccess})
 	_, err = s.State.AddOfferConnection(state.AddOfferConnectionParams{
-		SourceModelUUID: utils.MustNewUUID().String(),
+		SourceModelUUID: uuid.MustNewUUID().String(),
 		OfferUUID:       offer.OfferUUID,
 		RelationKey:     rel.Tag().Id(),
 		RelationId:      rel.Id(),
