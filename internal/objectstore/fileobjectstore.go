@@ -206,14 +206,14 @@ func (t *fileObjectStore) Remove(ctx context.Context, path string) error {
 func (t *fileObjectStore) loop() error {
 	// Ensure the namespace directory exists, along with the tmp directory.
 	if err := t.ensureDirectories(); err != nil {
-		return errors.Trace(err)
+		return errors.Annotatef(err, "ensure directory")
 	}
 
 	// Remove any temporary files that may have been left behind. We don't
 	// provide continuation for these operations, so a retry will be required
 	// if the operation fails.
 	if err := t.cleanupTmpFiles(); err != nil {
-		return errors.Trace(err)
+		return errors.Annotatef(err, "cleaning up temp files")
 	}
 
 	ctx, cancel := t.scopedContext()
