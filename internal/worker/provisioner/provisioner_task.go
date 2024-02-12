@@ -14,7 +14,6 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	"github.com/juju/utils/v4"
 	"github.com/juju/version/v2"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
@@ -41,6 +40,7 @@ import (
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/container"
 	"github.com/juju/juju/internal/container/broker"
+	"github.com/juju/juju/internal/password"
 	"github.com/juju/juju/internal/storage"
 	coretools "github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/internal/uuid"
@@ -802,7 +802,7 @@ func (task *provisionerTask) constructInstanceConfig(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	password, err := utils.RandomPassword()
+	password, err := password.RandomPassword()
 	if err != nil {
 		return nil, fmt.Errorf("cannot make password for machine %v: %v", machine, err)
 	}

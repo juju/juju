@@ -15,7 +15,6 @@ import (
 	charmresource "github.com/juju/charm/v13/resource"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v4"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/environschema.v1"
@@ -33,6 +32,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	internalobjectstore "github.com/juju/juju/internal/objectstore"
 	objectstoretesting "github.com/juju/juju/internal/objectstore/testing"
+	"github.com/juju/juju/internal/password"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/internal/uuid"
@@ -285,7 +285,7 @@ func (factory *Factory) paramsFillDefaults(c *gc.C, params *MachineParams) *Mach
 	}
 	if params.Password == "" {
 		var err error
-		params.Password, err = utils.RandomPassword()
+		params.Password, err = password.RandomPassword()
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	if params.Characteristics == nil {
@@ -503,7 +503,7 @@ func (factory *Factory) MakeApplicationReturningPassword(c *gc.C, params *Applic
 	}
 	if params.Password == "" {
 		var err error
-		params.Password, err = utils.RandomPassword()
+		params.Password, err = password.RandomPassword()
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	if params.CharmOrigin == nil {
@@ -653,7 +653,7 @@ func (factory *Factory) MakeUnitReturningPassword(c *gc.C, params *UnitParams) (
 	}
 	if params.Password == "" {
 		var err error
-		params.Password, err = utils.RandomPassword()
+		params.Password, err = password.RandomPassword()
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	unit, err := params.Application.AddUnit(state.AddUnitParams{})

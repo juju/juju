@@ -14,7 +14,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
-	"github.com/juju/utils/v4"
 
 	"github.com/juju/juju/agent"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -24,6 +23,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/paths"
 	applicationservice "github.com/juju/juju/domain/application/service"
+	"github.com/juju/juju/internal/password"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -167,11 +167,11 @@ func (f *Facade) UnitIntroduction(ctx context.Context, args params.CAASUnitIntro
 		upsert.ObservedAttachedVolumeIDs = append(upsert.ObservedAttachedVolumeIDs, fs.Volume.VolumeId)
 	}
 
-	password, err := utils.RandomPassword()
+	pass, err := password.RandomPassword()
 	if err != nil {
 		return errResp(err)
 	}
-	passwordHash := utils.AgentPasswordHash(password)
+	passwordHash := password.AgentPasswordHash(pass)
 	upsert.PasswordHash = &passwordHash
 
 	unit, err := application.UpsertCAASUnit(upsert)
@@ -215,7 +215,7 @@ func (f *Facade) UnitIntroduction(ctx context.Context, args params.CAASUnitIntro
 			Model:             f.model.Tag().(names.ModelTag),
 			APIAddresses:      addrs,
 			CACert:            caCert,
-			Password:          password,
+			Password:          pass,
 			UpgradedToVersion: version,
 		},
 	)

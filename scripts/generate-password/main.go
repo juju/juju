@@ -11,7 +11,8 @@ import (
 	"strings"
 
 	"github.com/juju/gnuflag"
-	"github.com/juju/utils/v4"
+
+	"github.com/juju/juju/internal/password"
 )
 
 func main() {
@@ -36,18 +37,18 @@ func main() {
 			passwd = args[2]
 		} else {
 			var err error
-			passwd, err = utils.RandomPassword()
+			passwd, err = password.RandomPassword()
 			if err != nil {
 				log.Fatal(err)
 			}
 		}
 	}
 	if *user != "" {
-		salt, err := utils.RandomSalt()
+		salt, err := password.RandomSalt()
 		if err != nil {
 			log.Fatal(err)
 		}
-		hash := utils.UserPasswordHash(passwd, salt)
+		hash := password.UserPasswordHash(passwd, salt)
 		fmt.Printf("Password line for ~/.local/share/juju/accounts.yaml\n")
 		fmt.Printf("  password: %s\n", passwd)
 		fmt.Printf(`db.users.update({"_id": "%s"}, {"$set": {"passwordsalt": "%s", "passwordhash": "%s"}})`+"\n",
@@ -64,7 +65,7 @@ func main() {
 		} else {
 			collection = "units"
 		}
-		hash := utils.AgentPasswordHash(passwd)
+		hash := password.AgentPasswordHash(passwd)
 		fmt.Printf("oldpassword: %s\n", passwd)
 		fmt.Printf(`db.%s.update({"_id": "%s:%s"}, {$set: {"passwordhash": "%s"}})`+"\n",
 			collection, modelUUID, agent, hash)

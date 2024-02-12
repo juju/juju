@@ -19,7 +19,6 @@ import (
 	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v4"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
@@ -34,6 +33,7 @@ import (
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/internal/password"
 	"github.com/juju/juju/internal/uuid"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc"
@@ -231,7 +231,7 @@ func (s *loginSuite) setupManagementSpace(c *gc.C) *state.Space {
 func (s *loginSuite) addController(c *gc.C) (state.ControllerNode, string) {
 	node, err := s.ControllerModel(c).State().AddControllerNode()
 	c.Assert(err, jc.ErrorIsNil)
-	password, err := utils.RandomPassword()
+	password, err := password.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)
 	err = node.SetPassword(password)
 	c.Assert(err, jc.ErrorIsNil)

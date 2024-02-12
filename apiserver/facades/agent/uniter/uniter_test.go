@@ -14,7 +14,6 @@ import (
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v4"
 	"github.com/juju/worker/v4/workertest"
 	"github.com/kr/pretty"
 	gc "gopkg.in/check.v1"
@@ -33,6 +32,7 @@ import (
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/password"
 	_ "github.com/juju/juju/internal/secrets/provider/all"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/juju/testing"
@@ -3032,7 +3032,7 @@ func (s *uniterSuite) TestStorageAttachments(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	password, err := utils.RandomPassword()
+	password, err := password.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.SetPassword(password)
 	c.Assert(err, jc.ErrorIsNil)

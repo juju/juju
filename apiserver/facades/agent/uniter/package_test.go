@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/collections/set"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v4"
 	gc "gopkg.in/check.v1"
 
 	apiuniter "github.com/juju/juju/api/agent/uniter"
@@ -25,6 +24,7 @@ import (
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/feature"
+	"github.com/juju/juju/internal/password"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
@@ -202,7 +202,7 @@ func (s *uniterSuiteBase) setupCAASModel(c *gc.C) (*apiuniter.Client, *state.CAA
 		Tag: unit.Tag(),
 	}
 
-	password, err := utils.RandomPassword()
+	password, err := password.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.SetPassword(password)
 	c.Assert(err, jc.ErrorIsNil)

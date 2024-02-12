@@ -14,7 +14,6 @@ import (
 	"github.com/juju/names/v5"
 	"github.com/juju/replicaset/v3"
 	jujutxn "github.com/juju/txn/v3"
-	"github.com/juju/utils/v4"
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/constraints"
@@ -22,6 +21,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/internal/mongo"
+	internalpassword "github.com/juju/juju/internal/password"
 	"github.com/juju/juju/internal/tools"
 	stateerrors "github.com/juju/juju/state/errors"
 )
@@ -587,10 +587,10 @@ func (c *controllerNode) SetMongoPassword(password string) error {
 
 // SetPassword implements Authenticator.
 func (c *controllerNode) SetPassword(password string) error {
-	if len(password) < utils.MinAgentPasswordLength {
+	if len(password) < internalpassword.MinAgentPasswordLength {
 		return errors.Errorf("password is only %d bytes long, and is not a valid Agent password", len(password))
 	}
-	passwordHash := utils.AgentPasswordHash(password)
+	passwordHash := internalpassword.AgentPasswordHash(password)
 	ops := []txn.Op{{
 		C:      controllerNodesC,
 		Id:     c.doc.DocID,
@@ -606,7 +606,7 @@ func (c *controllerNode) SetPassword(password string) error {
 
 // PasswordValid implements Authenticator.
 func (c *controllerNode) PasswordValid(password string) bool {
-	agentHash := utils.AgentPasswordHash(password)
+	agentHash := internalpassword.AgentPasswordHash(password)
 	return agentHash == c.doc.PasswordHash
 }
 

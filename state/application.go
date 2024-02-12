@@ -20,7 +20,6 @@ import (
 	"github.com/juju/names/v5"
 	"github.com/juju/schema"
 	jujutxn "github.com/juju/txn/v3"
-	"github.com/juju/utils/v4"
 	"github.com/juju/version/v2"
 	"gopkg.in/juju/environschema.v1"
 
@@ -36,6 +35,7 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/status"
 	mgoutils "github.com/juju/juju/internal/mongo/utils"
+	internalpassword "github.com/juju/juju/internal/password"
 	"github.com/juju/juju/internal/tools"
 	stateerrors "github.com/juju/juju/state/errors"
 )
@@ -3721,10 +3721,10 @@ func addApplicationOps(mb modelBackend, app *Application, args addApplicationOps
 // SetPassword sets the password for the application's agent.
 // TODO(caas) - consider a separate CAAS application entity
 func (a *Application) SetPassword(password string) error {
-	if len(password) < utils.MinAgentPasswordLength {
+	if len(password) < internalpassword.MinAgentPasswordLength {
 		return fmt.Errorf("password is only %d bytes long, and is not a valid Agent password", len(password))
 	}
-	passwordHash := utils.AgentPasswordHash(password)
+	passwordHash := internalpassword.AgentPasswordHash(password)
 	ops := []txn.Op{{
 		C:      applicationsC,
 		Id:     a.doc.DocID,
@@ -3742,7 +3742,7 @@ func (a *Application) SetPassword(password string) error {
 // PasswordValid returns whether the given password is valid
 // for the given application.
 func (a *Application) PasswordValid(password string) bool {
-	agentHash := utils.AgentPasswordHash(password)
+	agentHash := internalpassword.AgentPasswordHash(password)
 	return agentHash == a.doc.PasswordHash
 }
 

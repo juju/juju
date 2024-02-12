@@ -17,7 +17,6 @@ import (
 	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v5"
 	jujutxn "github.com/juju/txn/v3"
-	"github.com/juju/utils/v4"
 	"github.com/juju/version/v2"
 	"github.com/kr/pretty"
 
@@ -33,6 +32,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/internal/mongo"
+	internalpassword "github.com/juju/juju/internal/password"
 	"github.com/juju/juju/internal/tools"
 	stateerrors "github.com/juju/juju/state/errors"
 )
@@ -584,10 +584,10 @@ func (m *Machine) SetMongoPassword(password string) error {
 
 // SetPassword sets the password for the machine's agent.
 func (m *Machine) SetPassword(password string) error {
-	if len(password) < utils.MinAgentPasswordLength {
+	if len(password) < internalpassword.MinAgentPasswordLength {
 		return errors.Errorf("password is only %d bytes long, and is not a valid Agent password", len(password))
 	}
-	passwordHash := utils.AgentPasswordHash(password)
+	passwordHash := internalpassword.AgentPasswordHash(password)
 	op := m.UpdateOperation()
 	op.PasswordHash = &passwordHash
 	if err := m.st.ApplyOperation(op); err != nil {
@@ -613,7 +613,7 @@ func (m *Machine) setPasswordHashOps(passwordHash string) ([]txn.Op, error) {
 // PasswordValid returns whether the given password is valid
 // for the given machine.
 func (m *Machine) PasswordValid(password string) bool {
-	agentHash := utils.AgentPasswordHash(password)
+	agentHash := internalpassword.AgentPasswordHash(password)
 	return agentHash == m.doc.PasswordHash
 }
 

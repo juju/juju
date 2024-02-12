@@ -7,10 +7,10 @@ import (
 	"context"
 
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v4"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/authentication"
+	internalpassword "github.com/juju/juju/internal/password"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing/factory"
@@ -44,11 +44,11 @@ func (s *agentAuthenticatorSuite) SetUpTest(c *gc.C) {
 	st := s.ControllerModel(c).State()
 	machine, err := st.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	nonce, err := utils.RandomPassword()
+	nonce, err := internalpassword.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetProvisioned("foo", "", nonce, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	password, err := utils.RandomPassword()
+	password, err := internalpassword.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetPassword(password)
 	c.Assert(err, jc.ErrorIsNil)
@@ -64,7 +64,7 @@ func (s *agentAuthenticatorSuite) SetUpTest(c *gc.C) {
 	unit, err := wordpress.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	s.unit = unit
-	password, err = utils.RandomPassword()
+	password, err = internalpassword.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.SetPassword(password)
 	c.Assert(err, jc.ErrorIsNil)

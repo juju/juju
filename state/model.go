@@ -16,7 +16,6 @@ import (
 	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v5"
 	jujutxn "github.com/juju/txn/v3"
-	jujuutils "github.com/juju/utils/v4"
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/controller"
@@ -24,6 +23,7 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
+	internalpassword "github.com/juju/juju/internal/password"
 	"github.com/juju/juju/internal/storage"
 	stateerrors "github.com/juju/juju/state/errors"
 )
@@ -452,10 +452,10 @@ func (m *Model) ModelTag() names.ModelTag {
 
 // SetPassword sets the password for the model's agent.
 func (m *Model) SetPassword(password string) error {
-	if len(password) < jujuutils.MinAgentPasswordLength {
+	if len(password) < internalpassword.MinAgentPasswordLength {
 		return fmt.Errorf("password is only %d bytes long, and is not a valid Agent password", len(password))
 	}
-	passwordHash := jujuutils.AgentPasswordHash(password)
+	passwordHash := internalpassword.AgentPasswordHash(password)
 	ops := []txn.Op{{
 		C:      modelsC,
 		Id:     m.doc.UUID,
@@ -483,7 +483,7 @@ func (m *Model) String() string {
 // PasswordValid returns whether the given password is valid
 // for the given application.
 func (m *Model) PasswordValid(password string) bool {
-	agentHash := jujuutils.AgentPasswordHash(password)
+	agentHash := internalpassword.AgentPasswordHash(password)
 	if agentHash == m.doc.PasswordHash {
 		return true
 	}

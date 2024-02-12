@@ -7,11 +7,11 @@ import (
 	"time"
 
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v4"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/agent/meterstatus"
 	"github.com/juju/juju/core/watcher/watchertest"
+	"github.com/juju/juju/internal/password"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 )
@@ -32,7 +32,7 @@ func (s *MeterStatusIntegrationSuite) SetUpTest(c *gc.C) {
 	defer release()
 	s.unit = f.MakeUnit(c, nil)
 
-	password, err := utils.RandomPassword()
+	password, err := password.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.SetPassword(password)
 	c.Assert(err, jc.ErrorIsNil)

@@ -10,13 +10,13 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	"github.com/juju/utils/v4"
 	"github.com/juju/worker/v4"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/internal/password"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -203,7 +203,7 @@ func (d *Deployer) deploy(ctx context.Context, unit Unit) error {
 		return errors.Trace(err)
 	}
 	d.logger.Infof("deploying unit %q", unitName)
-	initialPassword, err := utils.RandomPassword()
+	initialPassword, err := password.RandomPassword()
 	if err != nil {
 		return err
 	}

@@ -12,10 +12,10 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v4"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/internal/password"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -120,7 +120,7 @@ func (s *UserSuite) TestAddUserSetsSalt(c *gc.C) {
 	salt, hash := state.GetUserPasswordSaltAndHash(user)
 	c.Assert(hash, gc.Not(gc.Equals), "")
 	c.Assert(salt, gc.Not(gc.Equals), "")
-	c.Assert(utils.UserPasswordHash("a-password", salt), gc.Equals, hash)
+	c.Assert(password.UserPasswordHash("a-password", salt), gc.Equals, hash)
 	c.Assert(user.PasswordValid("a-password"), jc.IsTrue)
 }
 
@@ -426,16 +426,16 @@ func (s *UserSuite) activeUsers(c *gc.C) []string {
 func (s *UserSuite) TestSetPasswordHash(c *gc.C) {
 	user := s.Factory.MakeUser(c, nil)
 
-	salt, err := utils.RandomSalt()
+	salt, err := password.RandomSalt()
 	c.Assert(err, jc.ErrorIsNil)
-	err = user.SetPasswordHash(utils.UserPasswordHash("foo", salt), salt)
+	err = user.SetPasswordHash(password.UserPasswordHash("foo", salt), salt)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(user.PasswordValid("foo"), jc.IsTrue)
 	c.Assert(user.PasswordValid("bar"), jc.IsFalse)
 
 	// User passwords should *not* use the fast PasswordHash function
-	hash := utils.AgentPasswordHash("foo-12345678901234567890")
+	hash := password.AgentPasswordHash("foo-12345678901234567890")
 	c.Assert(err, jc.ErrorIsNil)
 	err = user.SetPasswordHash(hash, "")
 	c.Assert(err, jc.ErrorIsNil)
@@ -447,16 +447,16 @@ func (s *UserSuite) TestSetPasswordHashUppercaseName(c *gc.C) {
 	name := "NameWithUppercase"
 	user := s.Factory.MakeUser(c, &factory.UserParams{Name: name})
 
-	salt, err := utils.RandomSalt()
+	salt, err := password.RandomSalt()
 	c.Assert(err, jc.ErrorIsNil)
-	err = user.SetPasswordHash(utils.UserPasswordHash("foo", salt), salt)
+	err = user.SetPasswordHash(password.UserPasswordHash("foo", salt), salt)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(user.PasswordValid("foo"), jc.IsTrue)
 	c.Assert(user.PasswordValid("bar"), jc.IsFalse)
 
 	// User passwords should *not* use the fast PasswordHash function
-	hash := utils.AgentPasswordHash("foo-12345678901234567890")
+	hash := password.AgentPasswordHash("foo-12345678901234567890")
 	c.Assert(err, jc.ErrorIsNil)
 	err = user.SetPasswordHash(hash, "")
 	c.Assert(err, jc.ErrorIsNil)
@@ -467,7 +467,7 @@ func (s *UserSuite) TestSetPasswordHashUppercaseName(c *gc.C) {
 func (s *UserSuite) TestSetPasswordHashWithSalt(c *gc.C) {
 	user := s.Factory.MakeUser(c, nil)
 
-	err := user.SetPasswordHash(utils.UserPasswordHash("foo", "salted"), "salted")
+	err := user.SetPasswordHash(password.UserPasswordHash("foo", "salted"), "salted")
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(user.PasswordValid("foo"), jc.IsTrue)
