@@ -8,12 +8,13 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/testing"
 	"github.com/vmware/govmomi/vim25/methods"
 	"github.com/vmware/govmomi/vim25/soap"
 	"github.com/vmware/govmomi/vim25/types"
+
+	"github.com/juju/juju/internal/uuid"
 )
 
 var logger = loggo.GetLogger("vsphereclient")

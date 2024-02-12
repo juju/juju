@@ -7,13 +7,14 @@ import (
 	"encoding/json"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/mgo/v3"
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v5"
 	jujutxn "github.com/juju/txn/v3"
 	"gopkg.in/macaroon.v2"
+
+	"github.com/juju/juju/internal/uuid"
 )
 
 // RemoteEntity defines a remote entity that has a unique opaque token that

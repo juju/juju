@@ -4,9 +4,10 @@
 package upgrade
 
 import (
-	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/internal/uuid"
 )
 
 type typesSuite struct {

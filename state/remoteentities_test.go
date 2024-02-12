@@ -5,10 +5,11 @@ package state_test
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/internal/uuid"
 )
 
 type RemoteEntitiesSuite struct {

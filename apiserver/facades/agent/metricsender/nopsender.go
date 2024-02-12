@@ -6,8 +6,9 @@ package metricsender
 import (
 	"context"
 
-	"github.com/juju/juju/internal/uuid"
 	wireformat "github.com/juju/romulus/wireformat/metrics"
+
+	"github.com/juju/juju/internal/uuid"
 )
 
 // NopSender is a sender that acts like everything worked fine

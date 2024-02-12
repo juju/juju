@@ -7,8 +7,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/utils/v4"
+
+	"github.com/juju/juju/internal/uuid"
 )
 
 // User represents a user in the system.

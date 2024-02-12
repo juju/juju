@@ -106,6 +106,7 @@ func (*importSuite) TestImports(c *gc.C) {
 		"internal/worker/apicaller",
 		"internal/worker/introspection",
 		"internal/worker/introspection/pprof",
+		"internal/uuid",
 		"juju/osenv",
 		"provider/lxd/lxdnames",
 		"rpc",

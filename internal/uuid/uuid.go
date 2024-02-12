@@ -61,7 +61,7 @@ func MustNewUUID() UUID {
 // NewUUID generates a new version 4 UUID relying only on random numbers.
 func NewUUID() (UUID, error) {
 	uuid := UUID{}
-	if _, err := io.ReadFull(rand.Reader, []byte(uuid[0:16])); err != nil {
+	if _, err := io.ReadFull(rand.Reader, uuid[0:16]); err != nil {
 		return UUID{}, err
 	}
 	// Set version (4) and variant (2) according to RfC 4122.
