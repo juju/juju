@@ -49,7 +49,6 @@ func (s *workerSuite) TestKilled(c *gc.C) {
 	s.expectAgentConfig()
 	s.expectObjectStoreGetter(2)
 	s.expectBootstrapFlagSet()
-	s.expectFilterHostPortsForManagementSpace()
 	s.expectSetAPIHostPorts()
 	s.expectStaateServingInfo()
 
@@ -94,6 +93,122 @@ func (s *workerSuite) TestSeedAgentBinary(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
 	c.Assert(cleanup, gc.NotNil)
+}
+
+func (s *workerSuite) TestFilterHostPortsEmptyMgmtSpace(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	w := &bootstrapWorker{
+		internalStates: s.states,
+		cfg: WorkerConfig{
+			SystemState: s.state,
+		},
+		logger: s.logger,
+	}
+
+	apiHostPorts := []network.SpaceHostPorts{
+		network.NewSpaceHostPorts(1234, "10.0.0.1"),
+	}
+	filteredHostPorts := w.filterHostPortsForManagementSpace("", apiHostPorts, network.SpaceInfos{})
+	c.Check(filteredHostPorts, jc.SameContents, apiHostPorts)
+}
+
+func (s *workerSuite) TestHostPortsNotInSpaceNoFilter(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	w := &bootstrapWorker{
+		internalStates: s.states,
+		cfg: WorkerConfig{
+			SystemState: s.state,
+		},
+		logger: s.logger,
+	}
+
+	apiHostPorts := []network.SpaceHostPorts{
+		network.NewSpaceHostPorts(1234, "10.0.0.1"),
+	}
+	allSpaces := network.SpaceInfos{
+		{
+			Name: "other-space",
+			Subnets: []network.SubnetInfo{
+				{
+					CIDR: "10.0.0.0/24",
+				},
+			},
+		},
+		{
+			ID:   "mgmt-space",
+			Name: "mgmt-space",
+			Subnets: []network.SubnetInfo{
+				{
+					CIDR: "10.1.0.0/24",
+				},
+			},
+		},
+	}
+	filteredHostPorts := w.filterHostPortsForManagementSpace("mgmt-space", apiHostPorts, allSpaces)
+	c.Check(filteredHostPorts, jc.SameContents, apiHostPorts)
+}
+
+func (s *workerSuite) TestHostPortsSameSpaceThenFilter(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	w := &bootstrapWorker{
+		internalStates: s.states,
+		cfg: WorkerConfig{
+			SystemState: s.state,
+		},
+		logger: s.logger,
+	}
+
+	spaceHostPorts := []network.SpaceHostPort{
+		{
+			SpaceAddress: network.SpaceAddress{
+				SpaceID: "mgmt-space",
+				MachineAddress: network.MachineAddress{
+					Value: "10.0.0.1",
+				},
+			},
+			NetPort: 1234,
+		},
+		{
+			SpaceAddress: network.SpaceAddress{
+				SpaceID: "other-space",
+				MachineAddress: network.MachineAddress{
+					Value: "10.0.0.2",
+				},
+			},
+			NetPort: 1234,
+		},
+	}
+	apiHostPorts := []network.SpaceHostPorts{
+		spaceHostPorts,
+	}
+
+	allSpaces := network.SpaceInfos{
+		{
+			ID:   "mgmt-space",
+			Name: "mgmt-space",
+			Subnets: []network.SubnetInfo{
+				{
+					CIDR: "10.0.0.0/24",
+				},
+			},
+		},
+	}
+
+	expected := []network.SpaceHostPorts{
+		{
+			{
+				SpaceAddress: network.SpaceAddress{
+					SpaceID: "mgmt-space",
+					MachineAddress: network.MachineAddress{
+						Value: "10.0.0.1",
+					},
+				},
+				NetPort: 1234,
+			},
+		},
+	}
+	filteredHostPorts := w.filterHostPortsForManagementSpace("mgmt-space", apiHostPorts, allSpaces)
+	c.Check(filteredHostPorts, jc.SameContents, expected)
 }
 
 func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
@@ -178,12 +293,6 @@ func (s *workerSuite) expectObjectStoreGetter(num int) {
 
 func (s *workerSuite) expectBootstrapFlagSet() {
 	s.flagService.EXPECT().SetFlag(gomock.Any(), flags.BootstrapFlag, true, flags.BootstrapFlagDescription).Return(nil)
-}
-
-func (s *workerSuite) expectFilterHostPortsForManagementSpace() {
-	s.spaceService.EXPECT().FilterHostPortsForManagementSpace(gomock.Any(), controller.Config{
-		controller.ControllerUUIDKey: "test-uuid",
-	}, gomock.Any())
 }
 
 func (s *workerSuite) expectSetAPIHostPorts() {
