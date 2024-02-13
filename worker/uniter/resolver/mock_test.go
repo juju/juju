@@ -67,6 +67,11 @@ func (f *mockOpFactory) NewAction(id string) (operation.Operation, error) {
 	return f.op, f.NextErr()
 }
 
+func (f *mockOpFactory) NewFailAction(id string) (operation.Operation, error) {
+	f.MethodCall(f, "NewFailAction", id)
+	return f.op, f.NextErr()
+}
+
 func (f *mockOpFactory) NewRemoteInit(runningStatus remotestate.ContainerRunningStatus) (operation.Operation, error) {
 	f.MethodCall(f, "NewRemoteInit", runningStatus)
 	return f.op, f.NextErr()

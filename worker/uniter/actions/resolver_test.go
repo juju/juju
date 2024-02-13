@@ -112,8 +112,8 @@ func (s *actionsSuite) TestNextActionNotAvailable(c *gc.C) {
 		ActionsPending: []string{"actionA", "actionB"},
 	}
 	op, err := actionResolver.NextOp(localState, remoteState, &mockOperations{err: charmrunner.ErrActionNotAvailable})
-	c.Assert(err, gc.DeepEquals, resolver.ErrNoOperation)
-	c.Assert(op, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(op, jc.DeepEquals, mockFailAction("actionB"))
 }
 
 func (s *actionsSuite) TestNextActionBlockedRemoteInit(c *gc.C) {
