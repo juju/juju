@@ -14,6 +14,7 @@ import (
 	reflect "reflect"
 
 	user "github.com/juju/juju/core/user"
+	service "github.com/juju/juju/domain/user/service"
 	auth "github.com/juju/juju/internal/auth"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -41,35 +42,20 @@ func (m *MockUserService) EXPECT() *MockUserServiceMockRecorder {
 	return m.recorder
 }
 
-// AddUserWithActivationKey mocks base method.
-func (m *MockUserService) AddUserWithActivationKey(arg0 context.Context, arg1, arg2 string, arg3 user.UUID) ([]byte, user.UUID, error) {
+// AddUser mocks base method.
+func (m *MockUserService) AddUser(arg0 context.Context, arg1 service.AddUserArg) (user.UUID, []byte, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddUserWithActivationKey", arg0, arg1, arg2, arg3)
-	ret0, _ := ret[0].([]byte)
-	ret1, _ := ret[1].(user.UUID)
+	ret := m.ctrl.Call(m, "AddUser", arg0, arg1)
+	ret0, _ := ret[0].(user.UUID)
+	ret1, _ := ret[1].([]byte)
 	ret2, _ := ret[2].(error)
 	return ret0, ret1, ret2
 }
 
-// AddUserWithActivationKey indicates an expected call of AddUserWithActivationKey.
-func (mr *MockUserServiceMockRecorder) AddUserWithActivationKey(arg0, arg1, arg2, arg3 any) *gomock.Call {
+// AddUser indicates an expected call of AddUser.
+func (mr *MockUserServiceMockRecorder) AddUser(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddUserWithActivationKey", reflect.TypeOf((*MockUserService)(nil).AddUserWithActivationKey), arg0, arg1, arg2, arg3)
-}
-
-// AddUserWithPassword mocks base method.
-func (m *MockUserService) AddUserWithPassword(arg0 context.Context, arg1, arg2 string, arg3 user.UUID, arg4 auth.Password) (user.UUID, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddUserWithPassword", arg0, arg1, arg2, arg3, arg4)
-	ret0, _ := ret[0].(user.UUID)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// AddUserWithPassword indicates an expected call of AddUserWithPassword.
-func (mr *MockUserServiceMockRecorder) AddUserWithPassword(arg0, arg1, arg2, arg3, arg4 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddUserWithPassword", reflect.TypeOf((*MockUserService)(nil).AddUserWithPassword), arg0, arg1, arg2, arg3, arg4)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddUser", reflect.TypeOf((*MockUserService)(nil).AddUser), arg0, arg1)
 }
 
 // DisableUserAuthentication mocks base method.

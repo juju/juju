@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/permission"
 	coreuser "github.com/juju/juju/core/user"
+	"github.com/juju/juju/domain/user/service"
 	"github.com/juju/juju/internal/auth"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -25,8 +26,7 @@ import (
 type UserService interface {
 	GetAllUsers(ctx context.Context) ([]coreuser.User, error)
 	GetUserByName(ctx context.Context, name string) (coreuser.User, error)
-	AddUserWithPassword(ctx context.Context, username, displayName string, createdBy coreuser.UUID, password auth.Password) (coreuser.UUID, error)
-	AddUserWithActivationKey(ctx context.Context, name string, displayName string, creatorUUID coreuser.UUID) ([]byte, coreuser.UUID, error)
+	AddUser(ctx context.Context, arg service.AddUserArg) (coreuser.UUID, []byte, error)
 	EnableUserAuthentication(ctx context.Context, name string) error
 	DisableUserAuthentication(ctx context.Context, name string) error
 	SetPassword(ctx context.Context, name string, password auth.Password) error
@@ -83,6 +83,10 @@ func (api *UserManagerAPI) hasControllerAdminAccess() (bool, error) {
 func (api *UserManagerAPI) AddUser(ctx context.Context, args params.AddUsers) (params.AddUserResults, error) {
 	var result params.AddUserResults
 
+	if _, err := api.hasControllerAdminAccess(); err != nil {
+		return result, err
+	}
+
 	if err := api.check.ChangeAllowed(ctx); err != nil {
 		return result, errors.Trace(err)
 	}
@@ -91,52 +95,53 @@ func (api *UserManagerAPI) AddUser(ctx context.Context, args params.AddUsers) (p
 		return result, nil
 	}
 
-	// Create the results list to populate.
 	result.Results = make([]params.AddUserResult, len(args.Users))
-
-	if _, err := api.hasControllerAdminAccess(); err != nil {
-		return result, err
-	}
-
 	for i, arg := range args.Users {
-		// Add new user
-		var activationKey []byte
-		var err error
-		if arg.Password != "" {
-			// TODO(anvial): Legacy block to delete when user domain wire up is complete.
-			_, err = api.state.AddUser(arg.Username, arg.DisplayName, arg.Password, api.apiUserTag.Id())
-			if err != nil {
-				err = errors.Annotate(err, "failed to create user")
-				result.Results[i].Error = apiservererrors.ServerError(err)
-				continue
-			}
-			// End legacy block.
-
-			_, err = api.userService.AddUserWithPassword(ctx, arg.Username, arg.DisplayName, api.apiUser.UUID, auth.NewPassword(arg.Password))
-		} else {
-			// TODO(anvial): Legacy block to delete when user domain wire up is complete.
-			_, err = api.state.AddUserWithSecretKey(arg.Username, arg.DisplayName, api.apiUserTag.Id())
-			if err != nil {
-				err = errors.Annotate(err, "failed to create user")
-				result.Results[i].Error = apiservererrors.ServerError(err)
-				continue
-			}
-			// End legacy block.
-
-			activationKey, _, err = api.userService.AddUserWithActivationKey(ctx, arg.Username, arg.DisplayName, api.apiUser.UUID)
-		}
-		if err != nil {
-			err = errors.Annotate(err, "failed to create user")
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		} else {
-			result.Results[i] = params.AddUserResult{
-				Tag:       names.NewLocalUserTag(arg.Username).String(),
-				SecretKey: activationKey,
-			}
-		}
+		result.Results[i] = api.addOneUser(ctx, arg)
 	}
 	return result, nil
+}
+
+func (api *UserManagerAPI) addOneUser(ctx context.Context, arg params.AddUser) params.AddUserResult {
+	var activationKey []byte
+	var err error
+
+	// TODO(anvial): Legacy block to delete when user domain wire up is complete.
+	if arg.Password != "" {
+		_, err = api.state.AddUser(arg.Username, arg.DisplayName, arg.Password, api.apiUserTag.Id())
+		if err != nil {
+			return params.AddUserResult{Error: apiservererrors.ServerError(errors.Annotate(err, "creating user"))}
+		}
+	} else {
+		_, err = api.state.AddUserWithSecretKey(arg.Username, arg.DisplayName, api.apiUserTag.Id())
+		if err != nil {
+			return params.AddUserResult{Error: apiservererrors.ServerError(errors.Annotate(err, "creating user"))}
+		}
+	}
+	if err != nil {
+		return params.AddUserResult{Error: apiservererrors.ServerError(errors.Annotate(err, "creating user"))}
+	}
+	// End legacy block.
+
+	addUserArg := service.AddUserArg{
+		Name:        arg.Username,
+		DisplayName: arg.DisplayName,
+		CreatorUUID: api.apiUser.UUID,
+	}
+	if arg.Password != "" {
+		pass := auth.NewPassword(arg.Password)
+		defer pass.Destroy()
+		addUserArg.Password = &pass
+	}
+
+	if _, activationKey, err = api.userService.AddUser(ctx, addUserArg); err != nil {
+		return params.AddUserResult{Error: apiservererrors.ServerError(errors.Annotate(err, "creating user"))}
+	}
+
+	return params.AddUserResult{
+		Tag:       names.NewLocalUserTag(arg.Username).String(),
+		SecretKey: activationKey,
+	}
 }
 
 // RemoveUser permanently removes a user from the current controller for each
@@ -505,14 +510,15 @@ func (api *UserManagerAPI) setPassword(ctx context.Context, arg params.EntityPas
 	}
 	// End legacy block.
 
-	// Parse User tag
 	userTag, err := names.ParseUserTag(arg.Tag)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	// Set password
-	if err := api.userService.SetPassword(ctx, userTag.Name(), auth.NewPassword(arg.Password)); err != nil {
+	pass := auth.NewPassword(arg.Password)
+	defer pass.Destroy()
+
+	if err := api.userService.SetPassword(ctx, userTag.Name(), pass); err != nil {
 		return errors.Annotate(err, "failed to set password")
 	}
 

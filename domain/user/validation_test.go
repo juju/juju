@@ -16,7 +16,7 @@ type validationSuite struct{}
 var _ = gc.Suite(&validationSuite{})
 
 // TestUsernameValidation exists to assert the regex that is in use by
-// ValidateUsername. We want to pass it a wide range of unicode names with weird
+// ValidateUserName. We want to pass it a wide range of unicode names with weird
 func (s *validationSuite) TestUsernameValidation(c *gc.C) {
 	tests := []struct {
 		Username   string
@@ -38,7 +38,7 @@ func (s *validationSuite) TestUsernameValidation(c *gc.C) {
 	}
 
 	for _, test := range tests {
-		err := ValidateUsername(test.Username)
+		err := ValidateUserName(test.Username)
 		if test.ShouldPass {
 			c.Assert(err, jc.ErrorIsNil, gc.Commentf("test username %q", test.Username))
 		} else {

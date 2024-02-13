@@ -3,7 +3,10 @@
 
 package service
 
-import "github.com/juju/juju/core/user"
+import (
+	"github.com/juju/juju/core/user"
+	"github.com/juju/juju/internal/auth"
+)
 
 // AddUserArg represents the arguments for creating a single user.
 type AddUserArg struct {
@@ -19,7 +22,7 @@ type AddUserArg struct {
 
 	// Password is an optional password for the user.
 	// If it is empty, a one-time key is generated for the user's first login.
-	Password string
+	Password *auth.Password
 
 	// CreatorUUID identifies the user that requested this creation.
 	CreatorUUID user.UUID

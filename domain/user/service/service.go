@@ -21,22 +21,37 @@ type State interface {
 	// AddUser will add a new user to the database. If the user already exists
 	// an error that satisfies usererrors.AlreadyExists will be returned. If the
 	// users creator is set and does not exist then an error that satisfies
-	// usererrors.UserCreatorUUIDNotFound will be returned.
+	// usererrors.CreatorUUIDNotFound will be returned.
 	AddUser(ctx context.Context, uuid user.UUID, name string, displayName string, creatorUUID user.UUID) error
 
 	// AddUserWithPasswordHash will add a new user to the database with the
 	// provided password hash and salt. If the user already exists an error that
 	// satisfies usererrors.AlreadyExists will be returned. If the users creator
 	// does not exist or has been previously removed an error that satisfies
-	// usererrors.UserCreatorUUIDNotFound will be returned.
-	AddUserWithPasswordHash(ctx context.Context, uuid user.UUID, name string, displayName string, creatorUUID user.UUID, passwordHash string, passwordSalt []byte) error
+	// usererrors.CreatorUUIDNotFound will be returned.
+	AddUserWithPasswordHash(
+		ctx context.Context,
+		uuid user.UUID,
+		name string,
+		displayName string,
+		creatorUUID user.UUID,
+		passwordHash string,
+		passwordSalt []byte,
+	) error
 
 	// AddUserWithActivationKey will add a new user to the database with the
 	// provided activation key. If the user already exists an error that
 	// satisfies usererrors.AlreadyExists will be returned. if the users creator
 	// does not exist or has been previously removed an error that satisfies
-	// usererrors.UserCreatorUUIDNotFound will be returned.
-	AddUserWithActivationKey(ctx context.Context, uuid user.UUID, name string, displayName string, creatorUUID user.UUID, activationKey []byte) error
+	// usererrors.CreatorUUIDNotFound will be returned.
+	AddUserWithActivationKey(
+		ctx context.Context,
+		uuid user.UUID,
+		name string,
+		displayName string,
+		creatorUUID user.UUID,
+		activationKey []byte,
+	) error
 
 	// GetAllUsers will retrieve all users with authentication information
 	// (last login, disabled) from the database. If no users exist an empty slice
@@ -56,7 +71,7 @@ type State interface {
 	// GetUserByAuth will retrieve the user with checking authentication information
 	// specified by name and password from the database. If the user does not exist
 	// an error that satisfies usererrors.NotFound will be returned.
-	GetUserByAuth(context.Context, string, string) (user.User, error)
+	GetUserByAuth(context.Context, string, auth.Password) (user.User, error)
 
 	// RemoveUser marks the user as removed. This obviates the ability of a user
 	// to function, but keeps the user retaining provenance, i.e. auditing.
@@ -96,12 +111,6 @@ type Service struct {
 	st State
 }
 
-const (
-	// activationKeyLength is the number of bytes contained with an activation
-	// key.
-	activationKeyLength = 32
-)
-
 // NewService returns a new Service for interacting with the underlying user
 // state.
 func NewService(st State) *Service {
@@ -129,7 +138,7 @@ func (s *Service) GetUser(
 	uuid user.UUID,
 ) (user.User, error) {
 	if err := uuid.Validate(); err != nil {
-		return user.User{}, errors.Annotatef(usererrors.UserUUIDNotValid, "validating uuid %q", uuid)
+		return user.User{}, errors.Annotatef(usererrors.UUIDNotValid, "validating uuid %q", uuid)
 	}
 
 	usr, err := s.st.GetUser(ctx, uuid)
@@ -150,7 +159,7 @@ func (s *Service) GetUserByName(
 	ctx context.Context,
 	name string,
 ) (user.User, error) {
-	if err := domainuser.ValidateUsername(name); err != nil {
+	if err := domainuser.ValidateUserName(name); err != nil {
 		return user.User{}, errors.Annotatef(err, "validating username %q", name)
 	}
 
@@ -166,150 +175,112 @@ func (s *Service) GetUserByName(
 // user for the name and password, then an error that satisfies
 // usererrors.NotFound will be returned. If supplied with an invalid user name
 // then an error that satisfies usererrors.UsernameNotValid will be returned.
-//
-// GetUserByAuth will not return users that have been previously removed.
+// It will not return users that have been previously removed.
+// TODO (manadart 2024-02-13) Should this not accept a typed password?
 func (s *Service) GetUserByAuth(
 	ctx context.Context,
 	name string,
 	password string,
 ) (user.User, error) {
-	if err := domainuser.ValidateUsername(name); err != nil {
+	if err := domainuser.ValidateUserName(name); err != nil {
 		return user.User{}, errors.Annotatef(err, "validating username %q", name)
 	}
 
-	usr, err := s.st.GetUserByAuth(ctx, name, password)
+	pass := auth.NewPassword(password)
+
+	usr, err := s.st.GetUserByAuth(ctx, name, pass)
 	if err != nil {
+		// We only need to ensure destruction on an error.
+		// The happy path hashes the password in state,
+		// and in so doing destroys it.
+		pass.Destroy()
 		return user.User{}, errors.Annotatef(err, "getting user %q", name)
 	}
 
 	return usr, nil
 }
 
-// AddUser will add a new user to the database and return the UUID of the user.
-//
+// AddUser will add a new user to the database and return the UUID of the
+// user if successful. If no password is set in the incoming argument,
+// the user will be added with an activation key.
 // The following error types are possible from this function:
-// - usererrors.UsernameNotValid: When the username supplied is not valid.
-// - usererrors.AlreadyExists: If a user with the supplied name already exists.
-// - usererrors.UserCreatorUUIDNotFound: If a creator has been supplied for the user
-// and the creator does not exist.
-func (s *Service) AddUser(ctx context.Context, name string, displayName string, creatorUUID user.UUID) (user.UUID, error) {
-	// Validate user name and creator name
-	if err := domainuser.ValidateUsername(name); err != nil {
-		return "", errors.Annotatef(err, "validating user name %q", name)
+//   - usererrors.UserNameNotValid: When the username supplied is not valid.
+//   - usererrors.AlreadyExists: If a user with the supplied name already exists.
+//   - usererrors.CreatorUUIDNotFound: If a creator has been supplied for the user
+//     and the creator does not exist.
+//   - auth.ErrPasswordNotValid: If the password supplied is not valid.
+func (s *Service) AddUser(ctx context.Context, arg AddUserArg) (user.UUID, []byte, error) {
+	if err := domainuser.ValidateUserName(arg.Name); err != nil {
+		return "", nil, errors.Annotatef(err, "validating user name %q", arg.Name)
 	}
 
-	// Validate creator UUID
-	if err := creatorUUID.Validate(); err != nil {
-		return "", errors.Annotatef(err, "validating creator uuid %q", creatorUUID)
+	if err := arg.CreatorUUID.Validate(); err != nil {
+		return "", nil, errors.Annotatef(err, "validating creator UUID %q", arg.CreatorUUID)
 	}
 
-	// Generate a UUID for the user.
-	uuid, err := user.NewUUID()
+	if arg.UUID.String() == "" {
+		var err error
+		if arg.UUID, err = user.NewUUID(); err != nil {
+			return "", nil, errors.Annotatef(err, "generating UUID for user %q", arg.Name)
+		}
+	} else if err := arg.UUID.Validate(); err != nil {
+		return "", nil, errors.Annotatef(err, "validating user UUID %q", arg.UUID)
+	}
+
+	var key []byte
+	var err error
+	if arg.Password != nil {
+		err = s.addUserWithPassword(ctx, arg)
+	} else {
+		key, err = s.addUserWithActivationKey(ctx, arg)
+	}
 	if err != nil {
-		return "", errors.Annotatef(err, "generating uuid for user %q", name)
+		return "", nil, errors.Trace(err)
 	}
 
-	if err = s.st.AddUser(ctx, uuid, name, displayName, creatorUUID); err != nil {
-		return "", errors.Annotatef(err, "adding user %q", name)
-	}
-	return uuid, nil
+	return arg.UUID, key, nil
 }
 
-// AddUserWithPassword will add a new user to the database with a password and return
-// the UUID of the user. The password passed to this function will have
-// it's Destroy() function called every time.
-//
-// The following error types are possible from this function:
-// - usererrors.UsernameNotValid: When the username supplied is not valid.
-// - usererrors.AlreadyExists: If a user with the supplied name already exists.
-// - usererrors.UserCreatorUUIDNotFound: If a creator has been supplied for the user
-// and the creator does not exist.
-// - internal/auth.ErrPasswordDestroyed: If the supplied password has already
-// been destroyed.
-// - internal/auth.ErrPasswordNotValid: If the password supplied is not valid.
-func (s *Service) AddUserWithPassword(ctx context.Context, name string, displayName string, creatorUUID user.UUID, password auth.Password) (user.UUID, error) {
-	defer password.Destroy()
-	// Validate user name
-	if err := domainuser.ValidateUsername(name); err != nil {
-		return "", errors.Annotatef(err, "validating user name %q", name)
+func (s *Service) addUserWithPassword(ctx context.Context, arg AddUserArg) error {
+	if err := arg.Password.Validate(); err != nil {
+		return errors.Trace(err)
 	}
 
-	// Validate creator UUID
-	if err := creatorUUID.Validate(); err != nil {
-		return "", errors.Annotatef(err, "validating creator uuid %q", creatorUUID)
-	}
-
-	// Generate a salt for the password.
 	salt, err := auth.NewSalt()
 	if err != nil {
-		return "", errors.Annotatef(err, "generating password salt for user %q", name)
+		return errors.Trace(err)
 	}
 
-	// Hash the password.
-	pwHash, err := auth.HashPassword(password, salt)
+	hash, err := auth.HashPassword(*arg.Password, salt)
 	if err != nil {
-		return "", errors.Annotatef(err, "hashing password for user %q", name)
+		return errors.Trace(err)
 	}
 
-	// Generate a UUID for the user.
-	uuid, err := user.NewUUID()
-	if err != nil {
-		return "", errors.Annotatef(err, "generating uuid for user %q", name)
-	}
-
-	if err = s.st.AddUserWithPasswordHash(ctx, uuid, name, displayName, creatorUUID, pwHash, salt); err != nil {
-		return "", errors.Annotatef(err, "adding user %q with password hash", name)
-	}
-	return uuid, nil
+	err = s.st.AddUserWithPasswordHash(ctx, arg.UUID, arg.Name, arg.DisplayName, arg.CreatorUUID, hash, salt)
+	return errors.Trace(err)
 }
 
-// AddUserWithActivationKey will add a new user to the database with an activation key
-// and return the UUID of the user.
-//
-// The following error types are possible from this function:
-// - usererrors.UsernameNotValid: When the username supplied is not valid.
-// - usererrors.AlreadyExists: If a user with the supplied name already exists.
-// - usererrors.UserCreatorUUIDNotFound: If a creator has been supplied for the user
-// and the creator does not exist.
-func (s *Service) AddUserWithActivationKey(ctx context.Context, name string, displayName string, creatorUUID user.UUID) ([]byte, user.UUID, error) {
-	// Validate user name and creator name
-	if err := domainuser.ValidateUsername(name); err != nil {
-		return nil, "", errors.Annotatef(err, "validating user name %q", name)
-	}
-
-	// Validate creator UUID
-	if err := creatorUUID.Validate(); err != nil {
-		return nil, "", errors.Annotatef(err, "validating creator uuid %q", creatorUUID)
-	}
-
-	// Generate an activation key for the user.
-	activationKey, err := generateActivationKey()
+func (s *Service) addUserWithActivationKey(ctx context.Context, arg AddUserArg) ([]byte, error) {
+	key, err := generateActivationKey()
 	if err != nil {
-		return nil, "", errors.Annotatef(err, "generating activation key for user %q", name)
+		return nil, errors.Trace(err)
 	}
 
-	// Generate a UUID for the user.
-	uuid, err := user.NewUUID()
-	if err != nil {
-		return nil, "", errors.Annotatef(err, "generating uuid for user %q", name)
+	if err = s.st.AddUserWithActivationKey(ctx, arg.UUID, arg.Name, arg.DisplayName, arg.CreatorUUID, key); err != nil {
+		return nil, errors.Trace(err)
 	}
-
-	if err = s.st.AddUserWithActivationKey(ctx, uuid, name, displayName, creatorUUID, activationKey); err != nil {
-		return nil, "", errors.Annotatef(err, "adding user %q with activation key", name)
-	}
-	return activationKey, uuid, nil
+	return key, nil
 }
 
 // RemoveUser marks the user as removed and removes any credentials or
 // activation codes for the current users. Once a user is removed they are no
 // longer usable in Juju and should never be un removed.
-//
 // The following error types are possible from this function:
-// - usererrors.UsernameNotValid: When the username supplied is not valid.
+// - usererrors.UserNameNotValid: When the username supplied is not valid.
 // - usererrors.NotFound: If no user by the given UUID exists.
 func (s *Service) RemoveUser(ctx context.Context, name string) error {
-	if err := ValidateUsername(name); err != nil {
-		return errors.Annotatef(usererrors.UsernameNotValid, "%q", name)
+	if err := domainuser.ValidateUserName(name); err != nil {
+		return errors.Annotatef(usererrors.UserNameNotValid, "%q", name)
 	}
 
 	if err := s.st.RemoveUser(ctx, name); err != nil {
@@ -319,23 +290,18 @@ func (s *Service) RemoveUser(ctx context.Context, name string) error {
 }
 
 // SetPassword changes the users password to the new value and removes any
-// active activation keys for the users. The password passed to this function
-// will have it's Destroy() function called every time.
-//
+// active activation keys for the users.
 // The following error types are possible from this function:
-// - usererrors.UsernameNotValid: When the username supplied is not valid.
-// - usererrors.NotFound: If no user by the given name exists.
-// - internal/auth.ErrPasswordDestroyed: If the supplied password has already
-// been destroyed.
-// - internal/auth.ErrPasswordNotValid: If the password supplied is not valid.
-func (s *Service) SetPassword(
-	ctx context.Context,
-	name string,
-	password auth.Password,
-) error {
-	defer password.Destroy()
-	if err := ValidateUsername(name); err != nil {
-		return errors.Annotatef(usererrors.UsernameNotValid, "%q", name)
+//   - usererrors.UsernameNotValid: When the username supplied is not valid.
+//   - usererrors.NotFound: If no user by the given name exists.
+//   - internal/auth.ErrPasswordNotValid: If the password supplied is not valid.
+func (s *Service) SetPassword(ctx context.Context, name string, pass auth.Password) error {
+	if err := domainuser.ValidateUserName(name); err != nil {
+		return errors.Annotatef(usererrors.UserNameNotValid, "%q", name)
+	}
+
+	if err := pass.Validate(); err != nil {
+		return errors.Trace(err)
 	}
 
 	salt, err := auth.NewSalt()
@@ -343,7 +309,7 @@ func (s *Service) SetPassword(
 		return errors.Annotatef(err, "generating password salt for user %q", name)
 	}
 
-	pwHash, err := auth.HashPassword(password, salt)
+	pwHash, err := auth.HashPassword(pass, salt)
 	if err != nil {
 		return errors.Annotatef(err, "hashing password for user %q", name)
 	}
@@ -356,18 +322,17 @@ func (s *Service) SetPassword(
 
 // ResetPassword will remove any active passwords for a user and generate a new
 // activation key for the user to use to set a new password.
-
 // The following error types are possible from this function:
-// - usererrors.UsernameNotValid: When the username supplied is not valid.
+// - usererrors.UserNameNotValid: When the username supplied is not valid.
 // - usererrors.NotFound: If no user by the given UUID exists.
 func (s *Service) ResetPassword(ctx context.Context, name string) ([]byte, error) {
-	if err := ValidateUsername(name); err != nil {
-		return nil, errors.Annotatef(usererrors.UsernameNotValid, "%q", name)
+	if err := domainuser.ValidateUserName(name); err != nil {
+		return nil, errors.Annotatef(usererrors.UserNameNotValid, "%q", name)
 	}
 
 	activationKey, err := generateActivationKey()
 	if err != nil {
-		return nil, errors.Annotatef(err, "generating activation key for user %q", name)
+		return nil, errors.Trace(err)
 	}
 
 	if err = s.st.SetActivationKey(ctx, name, activationKey); err != nil {
@@ -377,13 +342,12 @@ func (s *Service) ResetPassword(ctx context.Context, name string) ([]byte, error
 }
 
 // EnableUserAuthentication will enable the user for authentication.
-//
 // The following error types are possible from this function:
 // - usererrors.UsernameNotValid: When the username supplied is not valid.
 // - usererrors.NotFound: If no user by the given UUID exists.
 func (s *Service) EnableUserAuthentication(ctx context.Context, name string) error {
-	if err := ValidateUsername(name); err != nil {
-		return errors.Annotatef(usererrors.UsernameNotValid, "%q", name)
+	if err := domainuser.ValidateUserName(name); err != nil {
+		return errors.Annotatef(usererrors.UserNameNotValid, "%q", name)
 	}
 
 	if err := s.st.EnableUserAuthentication(ctx, name); err != nil {
@@ -393,13 +357,12 @@ func (s *Service) EnableUserAuthentication(ctx context.Context, name string) err
 }
 
 // DisableUserAuthentication will disable the user for authentication.
-//
 // The following error types are possible from this function:
 // - usererrors.UsernameNotValid: When the username supplied is not valid.
 // - usererrors.NotFound: If no user by the given UUID exists.
 func (s *Service) DisableUserAuthentication(ctx context.Context, name string) error {
-	if err := ValidateUsername(name); err != nil {
-		return errors.Annotatef(usererrors.UsernameNotValid, "%q", name)
+	if err := domainuser.ValidateUserName(name); err != nil {
+		return errors.Annotatef(usererrors.UserNameNotValid, "%q", name)
 	}
 
 	if err := s.st.DisableUserAuthentication(ctx, name); err != nil {
@@ -409,13 +372,12 @@ func (s *Service) DisableUserAuthentication(ctx context.Context, name string) er
 }
 
 // UpdateLastLogin will update the last login time for the user.
-//
 // The following error types are possible from this function:
-// - usererrors.UserUUIDNotValid: When the UUID supplied is not valid.
+// - usererrors.UUIDNotValid: When the UUID supplied is not valid.
 // - usererrors.NotFound: If no user by the given UUID exists.
 func (s *Service) UpdateLastLogin(ctx context.Context, name string) error {
-	if err := ValidateUsername(name); err != nil {
-		return errors.Annotatef(usererrors.UsernameNotValid, "%q", name)
+	if err := domainuser.ValidateUserName(name); err != nil {
+		return errors.Annotatef(usererrors.UserNameNotValid, "%q", name)
 	}
 
 	if err := s.st.UpdateLastLogin(ctx, name); err != nil {
@@ -423,6 +385,9 @@ func (s *Service) UpdateLastLogin(ctx context.Context, name string) error {
 	}
 	return nil
 }
+
+// activationKeyLength is the number of bytes in an activation key.
+const activationKeyLength = 32
 
 // generateActivationKey is responsible for generating a new activation key that
 // can be used for supplying to a user.
