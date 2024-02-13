@@ -186,7 +186,7 @@ func (s *stateSuite) TestAddUserCreatorNotFound(c *gc.C) {
 		"admin", "admin",
 		nonExistingUUID,
 	)
-	c.Assert(err, jc.ErrorIs, usererrors.UserCreatorUUIDNotFound)
+	c.Assert(err, jc.ErrorIs, usererrors.CreatorUUIDNotFound)
 }
 
 // TestGetUser asserts that we can get a user from the database.
@@ -439,15 +439,11 @@ func (s *stateSuite) TestGetUserByAuth(c *gc.C) {
 	passwordHash, err := auth.HashPassword(auth.NewPassword("password"), salt)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = st.AddUserWithPasswordHash(
-		context.Background(), adminUUID,
-		"admin", "admin",
-		adminUUID, passwordHash, salt,
-	)
+	err = st.AddUserWithPasswordHash(context.Background(), adminUUID, "admin", "admin", adminUUID, passwordHash, salt)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Get the user.
-	u, err := st.GetUserByAuth(context.Background(), "admin", "password")
+	u, err := st.GetUserByAuth(context.Background(), "admin", auth.NewPassword("password"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(u.Name, gc.Equals, "admin")
@@ -479,19 +475,18 @@ func (s *stateSuite) TestGetUserByAuthUnauthorized(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Get the user.
-	_, err = st.GetUserByAuth(context.Background(), "admin", "wrongPassword")
+	_, err = st.GetUserByAuth(context.Background(), "admin", auth.NewPassword("wrong"))
 	c.Assert(err, jc.ErrorIs, usererrors.Unauthorized)
 }
 
 // TestGetUserByAutUnexcitingUser asserts that we get an error when we try to
 // get a user by auth that does not exist.
-func (s *stateSuite) TestGetUserByAutUnexcitingUser(c *gc.C) {
+func (s *stateSuite) TestGetUserByAuthNotExtantUnauthorized(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	// Get the user.
-	_, err := st.GetUserByAuth(context.Background(), "admin", "password")
+	_, err := st.GetUserByAuth(context.Background(), "admin", auth.NewPassword("password"))
 	c.Assert(err, jc.ErrorIs, usererrors.Unauthorized)
-
 }
 
 // TestRemoveUser asserts that we can remove a user from the database.
@@ -758,7 +753,7 @@ func (s *stateSuite) TestAddUserWithPasswordWhichCreatorDoesNotExist(c *gc.C) {
 		"admin", "admin",
 		nonExistedCreatorUuid, "passwordHash", salt,
 	)
-	c.Assert(err, jc.ErrorIs, usererrors.UserCreatorUUIDNotFound)
+	c.Assert(err, jc.ErrorIs, usererrors.CreatorUUIDNotFound)
 }
 
 // TestAddUserWithActivationKey asserts that we can add a user with an
@@ -816,7 +811,7 @@ func (s *stateSuite) TestAddUserWithActivationKeyWhichCreatorDoesNotExist(c *gc.
 		"admin", "admin",
 		nonExistedCreatorUuid, newActivationKey,
 	)
-	c.Assert(err, jc.ErrorIs, usererrors.UserCreatorUUIDNotFound)
+	c.Assert(err, jc.ErrorIs, usererrors.CreatorUUIDNotFound)
 }
 
 // TestSetActivationKey asserts that we can set an activation key for a user.

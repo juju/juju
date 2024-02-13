@@ -53,7 +53,7 @@ const (
 	maxPasswordSizeBytes = 1024 // 1KB is the max we are going to allow.
 )
 
-// HasPassword takes a password and corresponding salt to produce a hash of the
+// HashPassword takes a password and corresponding salt to produce a hash of the
 // password. The resultant hash is safe for persistence and comparison.
 // If the salt provided to password hash is empty then a error satisfying
 // errors.NotValid is returned. If the password does not pass validation a error
