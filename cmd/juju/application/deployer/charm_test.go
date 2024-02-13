@@ -210,6 +210,40 @@ func (s *charmSuite) TestDeployFromRepositoryErrorNoUploadResources(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "failed to deploy charm \"testme\"")
 }
 
+func (s *charmSuite) TestDeployFromPredeployed(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	s.modelCommand.EXPECT().Filesystem().Return(s.filesystem).AnyTimes()
+	s.configFlag.EXPECT().AbsoluteFileNames(gomock.Any()).Return(nil, nil)
+	s.configFlag.EXPECT().ReadConfigPairs(gomock.Any()).Return(nil, nil)
+	s.deployerAPI.EXPECT().Deploy(gomock.Any()).Return(nil)
+
+	dCharm := s.newDeployCharm()
+	dCharm.validateCharmBaseWithName = func(_ corebase.Base, _ string, _ string) error {
+		return nil
+	}
+	dCharm.validateResourcesNeededForLocalDeploy = func(_ *charm.Meta) error {
+		return nil
+	}
+
+	predeployedCharm := &predeployedLocalCharm{
+		deployCharm:  *dCharm,
+		userCharmURL: s.url,
+		base:         corebase.MustParseBaseFromString("ubuntu@22.04"),
+	}
+
+	writer := mocks.NewMockWriter(ctrl)
+	writer.EXPECT().Write(gomock.Any()).Return(0, nil).AnyTimes()
+	ctx := &cmd.Context{
+		Stderr: writer,
+		Stdout: writer,
+	}
+
+	err := predeployedCharm.PrepareAndDeploy(ctx, s.deployerAPI, nil)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *charmSuite) newDeployCharm() *deployCharm {
 	return &deployCharm{
 		configOptions: s.configFlag,

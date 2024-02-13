@@ -51,11 +51,15 @@ type localBundleDeployerKind struct {
 // localPreDeployerKind represents a local pre-deployed charm deployment
 type localPreDeployerKind struct {
 	userCharmURL *charm.URL
+	base         corebase.Base
+	// The simplestreams stream used to identify image ids
+	imageStream string
 }
 
 // localCharmDeployerKind represents a local charm deployment
 type localCharmDeployerKind struct {
-	base        corebase.Base
+	base corebase.Base
+	// The simplestreams stream used to identify image ids
 	imageStream string
 	ch          charm.Charm
 	curl        *charm.URL
@@ -126,7 +130,7 @@ func (d *factory) GetDeployer(ctx context.Context, cfg DeployerConfig, getter Mo
 	} else if isLocalSchema(d.charmOrBundle) {
 		// Go for local pre-deployed charm
 		var localPreDeployedCharmErr error
-		if dk, localPreDeployedCharmErr = d.localPreDeployedCharmDeployer(); localPreDeployedCharmErr != nil {
+		if dk, localPreDeployedCharmErr = d.localPreDeployedCharmDeployer(getter); localPreDeployedCharmErr != nil {
 			return nil, errors.Trace(localPreDeployedCharmErr)
 		}
 	} else {
@@ -258,7 +262,7 @@ func (d *factory) localCharmDeployer(getter ModelConfigGetter) (DeployerKind, er
 	return &localCharmDeployerKind{base, imageStream, ch, curl}, nil
 }
 
-func (d *factory) localPreDeployedCharmDeployer() (DeployerKind, error) {
+func (d *factory) localPreDeployedCharmDeployer(getter ModelConfigGetter) (DeployerKind, error) {
 	// If the charm's schema is local, we should definitively attempt
 	// to deploy a charm that's already deployed in the
 	// environment.
@@ -266,7 +270,11 @@ func (d *factory) localPreDeployedCharmDeployer() (DeployerKind, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &localPreDeployerKind{userCharmURL: userCharmURL}, nil
+	modelCfg, err := getModelConfig(getter)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &localPreDeployerKind{userCharmURL: userCharmURL, base: d.base, imageStream: modelCfg.ImageStream()}, nil
 }
 
 func (d *factory) determineBaseForLocalCharm(charmOrBundle string, getter ModelConfigGetter) (corebase.Base, string, error) {
@@ -545,9 +553,17 @@ func (d *factory) newDeployBundle(_ charm.Schema, ds charm.BundleDataSource) dep
 }
 
 func (dk *localPreDeployerKind) CreateDeployer(_ context.Context, d factory) (Deployer, error) {
+	deployCharm := d.newDeployCharm()
+	if deployCharm.baseFlag.Empty() {
+		return nil, errors.Errorf("must provide a base with the `--base` flag when deploying new copies of local charms already deployed to the model")
+	}
+	if err := d.validateCharmBaseWithName(dk.base, dk.userCharmURL.Name, dk.imageStream); err != nil {
+		return nil, errors.Trace(err)
+	}
 	return &predeployedLocalCharm{
-		deployCharm:  d.newDeployCharm(),
+		deployCharm:  deployCharm,
 		userCharmURL: dk.userCharmURL,
+		base:         deployCharm.baseFlag,
 	}, nil
 }
 
