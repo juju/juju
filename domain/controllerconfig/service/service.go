@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/changestream"
@@ -179,8 +178,6 @@ func validObjectStoreProgression(current map[string]string, updateAttrs controll
 	// so we don't need to check for errors.
 	cur := objectstore.BackendType(current[controller.ObjectStoreType])
 	upd := updateAttrs.ObjectStoreType()
-
-	loggo.GetLogger("***").Criticalf("validObjectStoreProgression: cur: %v, upd: %v", cur, upd)
 
 	// We're not changing the object store type, or we're changing from
 	// filestorage to s3storage.

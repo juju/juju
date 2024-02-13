@@ -4,6 +4,7 @@
 package objectstore
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"crypto/sha512"
@@ -569,12 +570,16 @@ func (t *s3ObjectStore) drainFiles() error {
 		return errors.Annotatef(err, "listing metadata for draining")
 	}
 
+	t.logger.Infof("draining started for %q, processing %d", t.namespace, len(metadata))
+
 	// Process each file in the metadata service, and drain it to the s3 object
 	// store.
 	// Note: we could do this in parallel, but everything is sequenced with
 	// the requests channel, so we don't need to worry about it.
 	for _, m := range metadata {
 		result := make(chan error)
+
+		t.logger.Debugf("draining file %q to s3 object store %q", m.Path, m.Hash)
 
 		select {
 		case <-ctx.Done():
@@ -603,6 +608,8 @@ func (t *s3ObjectStore) drainFiles() error {
 			}
 		}
 	}
+
+	t.logger.Infof("draining completed for %q, processed %d", t.namespace, len(metadata))
 
 	return nil
 }
@@ -645,6 +652,9 @@ func (t *s3ObjectStore) drainFile(ctx context.Context, path, hash string, metada
 		return errors.Annotatef(err, "getting file %q from file object store", path)
 	}
 
+	// Ensure we close the reader when we're done.
+	defer reader.Close()
+
 	// If the file size doesn't match the metadata size, then the file is
 	// potentially corrupt, so we should skip it.
 	if fileSize != metadataSize {
@@ -652,9 +662,18 @@ func (t *s3ObjectStore) drainFile(ctx context.Context, path, hash string, metada
 		return nil
 	}
 
+	// We need to compute the sha256 hash here, juju by default uses SHA384,
+	// but s3 defaults to SHA256.
+	// If the reader is a Seeker, then we can seek back to the beginning of
+	// the file, so that we can read it again.
+	s3Reader, s3EncodedHash, err := t.computeS3Hash(reader)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	// We can drain the file to the s3 object store.
 	err = t.client.Session(ctx, func(ctx context.Context, s objectstore.Session) error {
-		err := s.PutObject(ctx, t.rootBucket, t.filePath(hash), reader, hash)
+		err := s.PutObject(ctx, t.rootBucket, t.filePath(hash), s3Reader, s3EncodedHash)
 		if err != nil {
 			return errors.Annotatef(err, "putting file %q to s3 object store", path)
 		}
@@ -674,13 +693,35 @@ func (t *s3ObjectStore) drainFile(ctx context.Context, path, hash string, metada
 		return errors.Trace(err)
 	}
 
-	// Wait until the tomb is dying before closing this down.
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case <-t.tomb.Dying():
-		return tomb.ErrDying
+	return nil
+}
+
+func (t *s3ObjectStore) computeS3Hash(reader io.Reader) (io.Reader, string, error) {
+	s3Hash := sha256.New()
+
+	// This is an optimization for the case where the reader is a Seeker. We
+	// can seek back to the beginning of the file, so that we can read it
+	// again, without having to copy the entire file into memory.
+	if seekReader, ok := reader.(io.Seeker); ok {
+		if _, err := io.Copy(s3Hash, reader); err != nil {
+			return nil, "", errors.Annotatef(err, "computing hash")
+		}
+
+		if _, err := seekReader.Seek(0, io.SeekStart); err != nil {
+			return nil, "", errors.Annotatef(err, "seeking back to start")
+		}
+
+		return reader, base64.StdEncoding.EncodeToString(s3Hash.Sum(nil)), nil
 	}
+
+	// If the reader is not a Seeker, then we need to copy the entire file
+	// into memory, so that we can compute the hash.
+	memReader := new(bytes.Buffer)
+	if _, err := io.Copy(io.MultiWriter(s3Hash, memReader), reader); err != nil {
+		return nil, "", errors.Annotatef(err, "computing hash")
+	}
+
+	return memReader, base64.StdEncoding.EncodeToString(s3Hash.Sum(nil)), nil
 }
 
 func (t *s3ObjectStore) objectAlreadyExists(ctx context.Context, hash string) error {

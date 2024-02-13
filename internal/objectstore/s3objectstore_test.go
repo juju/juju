@@ -453,6 +453,52 @@ func (s *s3ObjectStoreSuite) TestList(c *gc.C) {
 	c.Check(files, gc.DeepEquals, []string{hexHash})
 }
 
+func (s *s3ObjectStoreSuite) TestComputeS3Hash(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Test that we can compute the hash without having to perform
+	// an intermediary step. This will use the Seeker interface, to rewind
+	// the reader to the start of the file.
+
+	content := "some content"
+	expectedHash := s.calculateBase64Hash(c, content)
+
+	store := &s3ObjectStore{}
+
+	reader, hash, err := store.computeS3Hash(strings.NewReader(content))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(hash, gc.Equals, expectedHash)
+
+	bytes, err := io.ReadAll(reader)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(string(bytes), gc.Equals, content)
+}
+
+func (s *s3ObjectStoreSuite) TestComputeS3HashNoSeekerReader(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Test that we can compute the hash even if we don't have a Seeker
+	// interface. Hopefully this won't be the case for most paths, but
+	// we require that the reader is rewound to the start of the file.
+
+	content := "some content"
+	expectedHash := s.calculateBase64Hash(c, content)
+
+	store := &s3ObjectStore{}
+
+	reader, hash, err := store.computeS3Hash(blockSeek{Reader: strings.NewReader(content)})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(hash, gc.Equals, expectedHash)
+
+	bytes, err := io.ReadAll(reader)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(string(bytes), gc.Equals, content)
+}
+
+type blockSeek struct {
+	io.Reader
+}
+
 func (s *s3ObjectStoreSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := s.baseSuite.setupMocks(c)
 
