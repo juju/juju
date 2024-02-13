@@ -32,7 +32,7 @@ const (
 // The file system accessor is used for draining files from the file backed
 // object store to the s3 object store. It should at no point be used for
 // writing files to the file system.
-type FileSystemAccessor interface {
+type HashFileSystemAccessor interface {
 	// HeadHash checks if the file exists in the file backed object store.
 	HeadHash(ctx context.Context, hash string) error
 
@@ -62,9 +62,9 @@ type S3ObjectStoreConfig struct {
 	MetadataService objectstore.ObjectStoreMetadata
 	// Claimer is the claimer for locking files.
 	Claimer Claimer
-	// FileSystemAccessor is used for draining files from the file backed object
-	// store to the s3 object store.
-	FileSystemAccessor FileSystemAccessor
+	// HashFileSystemAccessor is used for draining files from the file backed
+	// object store to the s3 object store.
+	HashFileSystemAccessor HashFileSystemAccessor
 	// AllowDraining is a flag to allow draining files from the file backed
 	// object store to the s3 object store.
 	AllowDraining bool
@@ -83,28 +83,40 @@ const (
 	// the s3 object store.
 	useFileAccessor getAccessorPattern = 0
 
-	// noFallback denotes that we should not look in the file system accessor
-	// for a file if it's not found in the s3 object store.
-	noFallback getAccessorPattern = 1
+	// noFileFallback denotes that we should not look in the file system
+	// accessor for a file if it's not found in the s3 object store.
+	noFileFallback getAccessorPattern = 1
+)
+
+const (
+	// States which report the state of the worker.
+	stateStarted     = "started"
+	stateDrained     = "drained"
+	stateFileDrained = "file drained: %s"
 )
 
 type s3ObjectStore struct {
 	baseObjectStore
-	client        objectstore.Client
-	rootBucket    string
-	namespace     string
-	requests      chan request
-	drainRequests chan drainRequest
+	internalStates chan string
+	client         objectstore.Client
+	rootBucket     string
+	namespace      string
+	requests       chan request
+	drainRequests  chan drainRequest
 
-	// FileSystemAccessor is used for draining files from the file backed object
-	// store to the s3 object store.
-	fileSystemAccessor FileSystemAccessor
+	// HashFileSystemAccessor is used for draining files from the file backed
+	// object store to the s3 object store.
+	fileSystemAccessor HashFileSystemAccessor
 	allowDraining      bool
 }
 
 // NewS3ObjectStore returns a new object store worker based on the s3 backing
 // storage.
 func NewS3ObjectStore(cfg S3ObjectStoreConfig) (TrackedObjectStore, error) {
+	return newS3ObjectStore(cfg, nil)
+}
+
+func newS3ObjectStore(cfg S3ObjectStoreConfig, internalStates chan string) (*s3ObjectStore, error) {
 	path := filepath.Join(cfg.RootDir, defaultFileDirectory, cfg.Namespace)
 
 	s := &s3ObjectStore{
@@ -115,11 +127,12 @@ func NewS3ObjectStore(cfg S3ObjectStoreConfig) (TrackedObjectStore, error) {
 			logger:          cfg.Logger,
 			clock:           cfg.Clock,
 		},
-		client:     cfg.Client,
-		rootBucket: cfg.RootBucket,
-		namespace:  cfg.Namespace,
+		internalStates: internalStates,
+		client:         cfg.Client,
+		rootBucket:     cfg.RootBucket,
+		namespace:      cfg.Namespace,
 
-		fileSystemAccessor: cfg.FileSystemAccessor,
+		fileSystemAccessor: cfg.HashFileSystemAccessor,
 		allowDraining:      cfg.AllowDraining,
 
 		requests:      make(chan request),
@@ -137,7 +150,7 @@ func (t *s3ObjectStore) Get(ctx context.Context, path string) (io.ReadCloser, in
 	// Optimistically try to get the file from the file system. If it doesn't
 	// exist, then we'll get an error, and we'll try to get it when sequencing
 	// the get request with the put and remove requests.
-	if reader, size, err := t.get(ctx, path, noFallback); err == nil {
+	if reader, size, err := t.get(ctx, path, noFileFallback); err == nil {
 		return reader, size, nil
 	}
 
@@ -260,6 +273,9 @@ func (t *s3ObjectStore) Remove(ctx context.Context, path string) error {
 }
 
 func (t *s3ObjectStore) loop() error {
+	// Report the initial started state.
+	t.reportInternalState(stateStarted)
+
 	// Ensure the namespace directory exists, along with the tmp directory.
 	if err := t.ensureDirectories(); err != nil {
 		return errors.Annotatef(err, "ensure directory")
@@ -293,8 +309,21 @@ func (t *s3ObjectStore) loop() error {
 	// This will locate any files from the metadata service that are not
 	// present in the s3 object store and copy them over.
 	// Once done it will terminate the goroutine.
+	fileFallback := noFileFallback
 	if t.allowDraining {
-		t.tomb.Go(t.drainFiles)
+		// Drain any files from the file object store to the s3 object store.
+		// This will locate any files from the metadata service that are not
+		// present in the s3 object store and copy them over.
+		// Once done it will terminate the goroutine.
+		metadata, err := t.metadataService.ListMetadata(ctx)
+		if err != nil {
+			return errors.Annotatef(err, "listing metadata for draining")
+		}
+
+		t.tomb.Go(t.drainFiles(metadata))
+
+		// If we allow draining, then we can attempt to use the file accessor.
+		fileFallback = useFileAccessor
 	}
 
 	// Sequence the get request with the put, remove requests.
@@ -311,7 +340,7 @@ func (t *s3ObjectStore) loop() error {
 				// during the drain process. As these requests are sequenced
 				// with the drain requests we can at least attempt to get the
 				// file from the file accessor for intermediate content.
-				reader, size, err := t.get(ctx, req.path, useFileAccessor)
+				reader, size, err := t.get(ctx, req.path, fileFallback)
 
 				select {
 				case <-t.tomb.Dying():
@@ -385,7 +414,13 @@ func (t *s3ObjectStore) get(ctx context.Context, path string, useAccessor getAcc
 		return err
 	}); err != nil && !errors.Is(err, errors.NotFound) {
 		return nil, -1, errors.Annotatef(err, "get object")
-	} else if errors.Is(err, errors.NotFound) && useAccessor == useFileAccessor {
+	} else if errors.Is(err, errors.NotFound) {
+		// If we're not allowed to use the file accessor, then we can't
+		// attempt to get the file from the file backed object store.
+		if useAccessor == noFileFallback {
+			return nil, -1, errors.Trace(err)
+		}
+
 		// If we're allowed to use the file accessor, then we can attempt to
 		// get the file from the file backed object store.
 		var newErr error
@@ -561,57 +596,61 @@ type drainRequest struct {
 // The drainFiles method will drain the files from the file object store to the
 // s3 object store. This will locate any files from the metadata service that
 // are not present in the s3 object store and copy them over.
-func (t *s3ObjectStore) drainFiles() error {
-	ctx, cancel := t.scopedContext()
-	defer cancel()
+func (t *s3ObjectStore) drainFiles(metadata []objectstore.Metadata) func() error {
+	// We require the capture closure to ensure that the metadata is captured
+	// at the time of the call, rather than at the time of the execution. This
+	// prevents any data races.
+	return func() error {
+		ctx, cancel := t.scopedContext()
+		defer cancel()
 
-	metadata, err := t.metadataService.ListMetadata(ctx)
-	if err != nil {
-		return errors.Annotatef(err, "listing metadata for draining")
-	}
+		t.logger.Infof("draining started for %q, processing %d", t.namespace, len(metadata))
 
-	t.logger.Infof("draining started for %q, processing %d", t.namespace, len(metadata))
+		// Process each file in the metadata service, and drain it to the s3 object
+		// store.
+		// Note: we could do this in parallel, but everything is sequenced with
+		// the requests channel, so we don't need to worry about it.
+		for _, m := range metadata {
+			result := make(chan error)
 
-	// Process each file in the metadata service, and drain it to the s3 object
-	// store.
-	// Note: we could do this in parallel, but everything is sequenced with
-	// the requests channel, so we don't need to worry about it.
-	for _, m := range metadata {
-		result := make(chan error)
+			t.logger.Debugf("draining file %q to s3 object store %q", m.Path, m.Hash)
 
-		t.logger.Debugf("draining file %q to s3 object store %q", m.Path, m.Hash)
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-t.tomb.Dying():
+				return tomb.ErrDying
+			case t.drainRequests <- drainRequest{
+				path:     m.Path,
+				hash:     m.Hash,
+				size:     m.Size,
+				response: result,
+			}:
+			}
 
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-t.tomb.Dying():
-			return tomb.ErrDying
-		case t.drainRequests <- drainRequest{
-			path:     m.Path,
-			hash:     m.Hash,
-			size:     m.Size,
-			response: result,
-		}:
-		}
-
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-t.tomb.Dying():
-			return tomb.ErrDying
-		case err := <-result:
-			// This will crash the s3ObjectStore worker if this is a fatal
-			// error. We don't want to continue processing if we can't drain
-			// the files to the s3 object store.
-			if err != nil {
-				return errors.Annotatef(err, "draining file %q to s3 object store", m.Path)
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-t.tomb.Dying():
+				return tomb.ErrDying
+			case err := <-result:
+				t.reportInternalState(fmt.Sprintf(stateFileDrained, m.Hash))
+				// This will crash the s3ObjectStore worker if this is a fatal
+				// error. We don't want to continue processing if we can't drain
+				// the files to the s3 object store.
+				if err != nil {
+					return errors.Annotatef(err, "draining file %q to s3 object store", m.Path)
+				}
 			}
 		}
+
+		t.logger.Infof("draining completed for %q, processed %d", t.namespace, len(metadata))
+
+		// Report the drained state completed.
+		t.reportInternalState(stateDrained)
+
+		return nil
 	}
-
-	t.logger.Infof("draining completed for %q, processed %d", t.namespace, len(metadata))
-
-	return nil
 }
 
 func (t *s3ObjectStore) drainFile(ctx context.Context, path, hash string, metadataSize int64) error {
@@ -743,4 +782,12 @@ func (t *s3ObjectStore) removeDrainedFile(ctx context.Context, hash string) erro
 		return nil
 	}
 	return nil
+}
+
+func (t *s3ObjectStore) reportInternalState(state string) {
+	select {
+	case <-t.tomb.Dying():
+	case t.internalStates <- state:
+	default:
+	}
 }

@@ -150,7 +150,7 @@ func ObjectStoreFactory(ctx context.Context, backendType objectstore.BackendType
 			Clock:           opts.clock,
 			AllowDraining:   opts.allowDraining,
 
-			FileSystemAccessor: newFileSystemAccessor(namespace, opts.rootDir, opts.logger),
+			HashFileSystemAccessor: newHashFileSystemAccessor(namespace, opts.rootDir, opts.logger),
 		})
 	default:
 		return nil, errors.NotValidf("backend type %q", backendType)
