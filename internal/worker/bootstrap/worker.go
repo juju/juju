@@ -131,6 +131,7 @@ func (c *WorkerConfig) Validate() error {
 type bootstrapWorker struct {
 	internalStates chan string
 	cfg            WorkerConfig
+	logger         Logger
 	tomb           tomb.Tomb
 }
 
@@ -148,6 +149,7 @@ func newWorker(cfg WorkerConfig, internalStates chan string) (*bootstrapWorker, 
 	w := &bootstrapWorker{
 		internalStates: internalStates,
 		cfg:            cfg,
+		logger:         cfg.LoggerFactory.Child("worker"),
 	}
 	w.tomb.Go(w.loop)
 	return w, nil
@@ -252,7 +254,7 @@ func (w *bootstrapWorker) initAPIHostPorts(ctx context.Context, controllerConfig
 	hostPorts := []network.SpaceHostPorts{network.SpaceAddressesWithPort(addrs, apiPort)}
 
 	mgmtSpace := controllerConfig.JujuManagementSpace()
-	hostPortsForAgents := filterHostPortsForManagementSpace(mgmtSpace, hostPorts, allSpaces)
+	hostPortsForAgents := w.filterHostPortsForManagementSpace(mgmtSpace, hostPorts, allSpaces)
 
 	return w.cfg.SystemState.SetAPIHostPorts(controllerConfig, hostPorts, hostPortsForAgents)
 }
@@ -262,28 +264,30 @@ func (w *bootstrapWorker) initAPIHostPorts(ctx context.Context, controllerConfig
 // If there is no space configured, or if one of the slices is filtered down
 // to zero elements, just use the unfiltered slice for safety - we do not
 // want to cut off communication to the controller based on erroneous config.
-func filterHostPortsForManagementSpace(
+func (w *bootstrapWorker) filterHostPortsForManagementSpace(
 	mgmtSpace string,
 	apiHostPorts []network.SpaceHostPorts,
 	allSpaces network.SpaceInfos,
 ) []network.SpaceHostPorts {
 	var hostPortsForAgents []network.SpaceHostPorts
 
+	w.logger.Errorf("************************")
+
 	if mgmtSpace == "" {
 		hostPortsForAgents = apiHostPorts
 	} else {
-
 		mgmtSpaceInfo := allSpaces.GetByName(mgmtSpace)
 		if mgmtSpaceInfo == nil {
 			return apiHostPorts
 		}
 		hostPortsForAgents = make([]network.SpaceHostPorts, len(apiHostPorts))
-		for i := range apiHostPorts {
-			filtered, addrsIsInSpace := apiHostPorts[i].InSpaces(*mgmtSpaceInfo)
+		for i, apiHostPort := range apiHostPorts {
+			filtered, addrsIsInSpace := apiHostPort.InSpaces(*mgmtSpaceInfo)
 			if addrsIsInSpace {
 				hostPortsForAgents[i] = filtered
 			} else {
-				hostPortsForAgents[i] = apiHostPorts[i]
+				w.logger.Warningf("API addresses %v not in the management space %s", apiHostPort, mgmtSpace)
+				hostPortsForAgents[i] = apiHostPort
 			}
 		}
 	}

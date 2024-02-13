@@ -96,14 +96,32 @@ func (s *workerSuite) TestSeedAgentBinary(c *gc.C) {
 }
 
 func (s *workerSuite) TestFilterHostPortsEmptyMgmtSpace(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	w := &bootstrapWorker{
+		internalStates: s.states,
+		cfg: WorkerConfig{
+			SystemState: s.state,
+		},
+		logger: s.logger,
+	}
+
 	apiHostPorts := []network.SpaceHostPorts{
 		network.NewSpaceHostPorts(1234, "10.0.0.1"),
 	}
-	filteredHostPorts := filterHostPortsForManagementSpace("", apiHostPorts, network.SpaceInfos{})
+	filteredHostPorts := w.filterHostPortsForManagementSpace("", apiHostPorts, network.SpaceInfos{})
 	c.Check(filteredHostPorts, jc.SameContents, apiHostPorts)
 }
 
 func (s *workerSuite) TestHostPortsNotInSpaceNoFilter(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	w := &bootstrapWorker{
+		internalStates: s.states,
+		cfg: WorkerConfig{
+			SystemState: s.state,
+		},
+		logger: s.logger,
+	}
+
 	apiHostPorts := []network.SpaceHostPorts{
 		network.NewSpaceHostPorts(1234, "10.0.0.1"),
 	}
@@ -116,12 +134,30 @@ func (s *workerSuite) TestHostPortsNotInSpaceNoFilter(c *gc.C) {
 				},
 			},
 		},
+		{
+			ID:   "mgmt-space",
+			Name: "mgmt-space",
+			Subnets: []network.SubnetInfo{
+				{
+					CIDR: "10.1.0.0/24",
+				},
+			},
+		},
 	}
-	filteredHostPorts := filterHostPortsForManagementSpace("mgmt-space", apiHostPorts, allSpaces)
+	filteredHostPorts := w.filterHostPortsForManagementSpace("mgmt-space", apiHostPorts, allSpaces)
 	c.Check(filteredHostPorts, jc.SameContents, apiHostPorts)
 }
 
 func (s *workerSuite) TestHostPortsSameSpaceThenFilter(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	w := &bootstrapWorker{
+		internalStates: s.states,
+		cfg: WorkerConfig{
+			SystemState: s.state,
+		},
+		logger: s.logger,
+	}
+
 	spaceHostPorts := []network.SpaceHostPort{
 		{
 			SpaceAddress: network.SpaceAddress{
@@ -171,7 +207,7 @@ func (s *workerSuite) TestHostPortsSameSpaceThenFilter(c *gc.C) {
 			},
 		},
 	}
-	filteredHostPorts := filterHostPortsForManagementSpace("mgmt-space", apiHostPorts, allSpaces)
+	filteredHostPorts := w.filterHostPortsForManagementSpace("mgmt-space", apiHostPorts, allSpaces)
 	c.Check(filteredHostPorts, jc.SameContents, expected)
 }
 
