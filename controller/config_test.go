@@ -972,7 +972,7 @@ func (s *ConfigSuite) TestOpenTelemetrySampleRatio(c *gc.C) {
 }
 
 func (s *ConfigSuite) TestObjectStoreType(c *gc.C) {
-	backendType := "state"
+	backendType := "file"
 	cfg, err := controller.NewConfig(
 		testing.ControllerTag.Id(),
 		testing.CACert,
@@ -981,7 +981,7 @@ func (s *ConfigSuite) TestObjectStoreType(c *gc.C) {
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.ObjectStoreType(), gc.Equals, objectstore.StateBackend)
+	c.Assert(cfg.ObjectStoreType(), gc.Equals, objectstore.FileBackend)
 }
 
 func (s *ConfigSuite) TestObjectStoreS3Endpoint(c *gc.C) {
