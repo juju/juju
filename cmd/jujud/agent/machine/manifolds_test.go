@@ -269,7 +269,6 @@ func (s *ManifoldsSuite) TestMigrationGuardsUsed(c *gc.C) {
 		"is-primary-controller-flag",
 		"lease-expiry",
 		"lease-manager",
-		"log-forwarder",
 		"model-worker-manager",
 		"multiwatcher",
 		"peer-grouper",

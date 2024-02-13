@@ -53,7 +53,6 @@ func (s *ManifoldsSuite) TestIAASNames(c *gc.C) {
 		"instance-mutater",
 		"instance-poller",
 		"is-responsible-flag",
-		"log-forwarder",
 		"logging-config-updater",
 		"machine-undertaker",
 		"metric-worker",
@@ -103,7 +102,6 @@ func (s *ManifoldsSuite) TestCAASNames(c *gc.C) {
 		"environ-upgraded-flag",
 		"environ-upgrader",
 		"is-responsible-flag",
-		"log-forwarder",
 		"logging-config-updater",
 		"migration-fortress",
 		"migration-inactive-flag",
@@ -316,12 +314,6 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 	"clock": {},
 
 	"is-responsible-flag": {"agent", "api-caller"},
-
-	"log-forwarder": {
-		"agent",
-		"api-caller",
-		"is-responsible-flag",
-		"not-dead-flag"},
 
 	"logging-config-updater": {
 		"agent",
@@ -551,13 +543,6 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 	},
 
 	"is-responsible-flag": {"agent", "api-caller"},
-
-	"log-forwarder": {
-		"agent",
-		"api-caller",
-		"is-responsible-flag",
-		"not-dead-flag",
-	},
 
 	"logging-config-updater": {
 		"agent",

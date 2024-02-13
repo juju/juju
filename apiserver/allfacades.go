@@ -93,7 +93,6 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/imagemetadata"
 	"github.com/juju/juju/apiserver/facades/controller/instancepoller"
 	"github.com/juju/juju/apiserver/facades/controller/lifeflag"
-	"github.com/juju/juju/apiserver/facades/controller/logfwd"
 	"github.com/juju/juju/apiserver/facades/controller/machineundertaker"
 	"github.com/juju/juju/apiserver/facades/controller/metricsmanager"
 	"github.com/juju/juju/apiserver/facades/controller/migrationmaster"
@@ -233,7 +232,6 @@ func AllFacades() *facade.Registry {
 	leadership.Register(registry)
 	lifeflag.Register(registry)
 	loggerapi.Register(registry)
-	logfwd.Register(registry)
 	machineactions.Register(registry)
 	machinemanager.Register(registry)
 	machineundertaker.Register(registry)

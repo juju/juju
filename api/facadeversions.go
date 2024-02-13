@@ -74,7 +74,6 @@ var facadeVersions = facades.FacadeVersions{
 	"KeyUpdater":                   {1},
 	"LeadershipService":            {2},
 	"LifeFlag":                     {1},
-	"LogForwarding":                {1},
 	"Logger":                       {1},
 	"MachineActions":               {1},
 	"MachineManager":               {9, 10},

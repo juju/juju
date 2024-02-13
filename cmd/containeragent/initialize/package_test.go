@@ -83,8 +83,6 @@ func (*importSuite) TestImports(c *gc.C) {
 		"internal/charmhub/path",
 		"internal/charmhub/transport",
 		"internal/feature",
-		"internal/logfwd",
-		"internal/logfwd/syslog",
 		"internal/mongo",
 		"internal/network",
 		"internal/network/debinterfaces",

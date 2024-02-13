@@ -31,7 +31,6 @@ import (
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/internal/charmhub"
 	"github.com/juju/juju/internal/feature"
-	"github.com/juju/juju/internal/logfwd/syslog"
 	"github.com/juju/juju/juju/osenv"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -194,24 +193,6 @@ const (
 	// ResourceTagsKey is an optional list or space-separated string
 	// of k=v pairs, defining the tags for ResourceTags.
 	ResourceTagsKey = "resource-tags"
-
-	// LogForwardEnabled determines whether the log forward functionality is enabled.
-	LogForwardEnabled = "logforward-enabled"
-
-	// LogFwdSyslogHost sets the hostname:port of the syslog server.
-	LogFwdSyslogHost = "syslog-host"
-
-	// LogFwdSyslogCACert sets the certificate of the CA that signed the syslog
-	// server certificate.
-	LogFwdSyslogCACert = "syslog-ca-cert"
-
-	// LogFwdSyslogClientCert sets the client certificate for syslog
-	// forwarding.
-	LogFwdSyslogClientCert = "syslog-client-cert"
-
-	// LogFwdSyslogClientKey sets the client key for syslog
-	// forwarding.
-	LogFwdSyslogClientKey = "syslog-client-key"
 
 	// AutomaticallyRetryHooks determines whether the uniter will
 	// automatically retry a hook that has failed
@@ -588,9 +569,6 @@ var defaultConfigValues = map[string]interface{}{
 	ContainerImageStreamKey:      "released",
 	ContainerImageMetadataURLKey: "",
 
-	// Log forward settings.
-	LogForwardEnabled: false,
-
 	// Proxy settings.
 	HTTPProxyKey:      "",
 	HTTPSProxyKey:     "",
@@ -716,12 +694,6 @@ func Validate(cfg, old *Config) error {
 	if v, ok := cfg.defined[LoggingConfigKey].(string); ok {
 		if _, err := loggo.ParseConfigString(v); err != nil {
 			return err
-		}
-	}
-
-	if lfCfg, ok := cfg.LogFwdSyslog(); ok {
-		if err := lfCfg.Validate(); err != nil {
-			return errors.Annotate(err, "invalid syslog forwarding config")
 		}
 	}
 
@@ -1262,42 +1234,6 @@ func (c *Config) SnapStoreProxyURL() string {
 	return c.asString(SnapStoreProxyURLKey)
 }
 
-// LogFwdSyslog returns the syslog forwarding config.
-func (c *Config) LogFwdSyslog() (*syslog.RawConfig, bool) {
-	partial := false
-	var lfCfg syslog.RawConfig
-
-	if s, ok := c.defined[LogForwardEnabled]; ok {
-		partial = true
-		lfCfg.Enabled = s.(bool)
-	}
-
-	if s, ok := c.defined[LogFwdSyslogHost]; ok && s != "" {
-		partial = true
-		lfCfg.Host = s.(string)
-	}
-
-	if s, ok := c.defined[LogFwdSyslogCACert]; ok && s != "" {
-		partial = true
-		lfCfg.CACert = s.(string)
-	}
-
-	if s, ok := c.defined[LogFwdSyslogClientCert]; ok && s != "" {
-		partial = true
-		lfCfg.ClientCert = s.(string)
-	}
-
-	if s, ok := c.defined[LogFwdSyslogClientKey]; ok && s != "" {
-		partial = true
-		lfCfg.ClientKey = s.(string)
-	}
-
-	if !partial {
-		return nil, false
-	}
-	return &lfCfg, true
-}
-
 // FirewallMode returns whether the firewall should
 // manage ports per machine, globally, or not at all.
 // (FwInstance, FwGlobal, or FwNone).
@@ -1812,12 +1748,7 @@ var alwaysOptional = schema.Defaults{
 	AuthorizedKeysKey: schema.Omit,
 	ExtraInfoKey:      schema.Omit,
 
-	LogForwardEnabled:      schema.Omit,
-	LogFwdSyslogHost:       schema.Omit,
-	LogFwdSyslogCACert:     schema.Omit,
-	LogFwdSyslogClientCert: schema.Omit,
-	LogFwdSyslogClientKey:  schema.Omit,
-	LoggingOutputKey:       schema.Omit,
+	LoggingOutputKey: schema.Omit,
 
 	// Storage related config.
 	// Environ providers will specify their own defaults.
@@ -2284,31 +2215,6 @@ global or per instance security groups.`,
 	ResourceTagsKey: {
 		Description: "resource tags",
 		Type:        environschema.Tattrs,
-		Group:       environschema.EnvironGroup,
-	},
-	LogForwardEnabled: {
-		Description: `Whether syslog forwarding is enabled.`,
-		Type:        environschema.Tbool,
-		Group:       environschema.EnvironGroup,
-	},
-	LogFwdSyslogHost: {
-		Description: `The hostname:port of the syslog server.`,
-		Type:        environschema.Tstring,
-		Group:       environschema.EnvironGroup,
-	},
-	LogFwdSyslogCACert: {
-		Description: `The certificate of the CA that signed the syslog server certificate, in PEM format.`,
-		Type:        environschema.Tstring,
-		Group:       environschema.EnvironGroup,
-	},
-	LogFwdSyslogClientCert: {
-		Description: `The syslog client certificate in PEM format.`,
-		Type:        environschema.Tstring,
-		Group:       environschema.EnvironGroup,
-	},
-	LogFwdSyslogClientKey: {
-		Description: `The syslog client key in PEM format.`,
-		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
 	"ssl-hostname-verification": {

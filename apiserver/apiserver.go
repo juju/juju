@@ -717,7 +717,6 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 	httpCtxt := httpContext{srv: srv}
 	mainAPIHandler := http.HandlerFunc(srv.apiHandler)
 	healthHandler := http.HandlerFunc(srv.healthHandler)
-	logStreamHandler := newLogStreamEndpointHandler(httpCtxt)
 	embeddedCLIHandler := newEmbeddedCLIHandler(httpCtxt)
 	debugLogHandler := newDebugLogDBHandler(
 		httpCtxt,
@@ -877,10 +876,6 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		handler:    pubsubHandler,
 		tracked:    true,
 		authorizer: controllerAuthorizer{},
-	}, {
-		pattern: modelRoutePrefix + "/logstream",
-		handler: logStreamHandler,
-		tracked: true,
 	}, {
 		pattern: modelRoutePrefix + "/log",
 		handler: debugLogHandler,

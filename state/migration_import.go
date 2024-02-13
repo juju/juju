@@ -280,6 +280,11 @@ func modelConfig(attrs map[string]interface{}) (*config.Config, error) {
 		attrs[config.SecretBackendKey] = config.DefaultSecretBackend
 	}
 
+	// Remove obsolete and no longer supported syslog forward config.
+	for _, a := range []string{"logforward-enabled", "syslog-host", "syslog-ca-cert", "syslog-client-cert", "syslog-client-key"} {
+		delete(attrs, a)
+	}
+
 	return config.New(config.NoDefaults, attrs)
 }
 

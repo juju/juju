@@ -572,8 +572,6 @@ github.com/juju/retry v0.0.0-20151029024821-62c620325291/go.mod h1:OohPQGsr4pnxw
 github.com/juju/retry v0.0.0-20180821225755-9058e192b216/go.mod h1:OohPQGsr4pnxwD5YljhQ+TZnuVRYpa5irjugL1Yuif4=
 github.com/juju/retry v1.0.0 h1:Tb1hFdDSPGLH/BGdYQOF7utQ9lA0ouVJX2imqgJK6tk=
 github.com/juju/retry v1.0.0/go.mod h1:SssN1eYeK3A2qjnFGTiVMbdzGJ2BfluaJblJXvuvgqA=
-github.com/juju/rfc/v2 v2.0.0 h1:oj3UYJFp+zNNwbhVv4EV1fCvIV+hSTB03l/2/5hmFpI=
-github.com/juju/rfc/v2 v2.0.0/go.mod h1:fhE7z2y6DFUvYdWy93m40oA3lJIs+P3WrK6barpChj0=
 github.com/juju/romulus v1.0.0 h1:THzHnztB7JgFTkr4bmvcpTa2fK6YQTJyKpQwsNoPKRA=
 github.com/juju/romulus v1.0.0/go.mod h1:NTUb3tUldFPZLWbieglCiV4SpccHuiFUNRY+bsIkohA=
 github.com/juju/schema v1.0.0/go.mod h1:Y+ThzXpUJ0E7NYYocAbuvJ7vTivXfrof/IfRPq/0abI=

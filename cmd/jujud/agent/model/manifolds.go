@@ -49,8 +49,6 @@ import (
 	"github.com/juju/juju/internal/worker/instancemutater"
 	"github.com/juju/juju/internal/worker/instancepoller"
 	"github.com/juju/juju/internal/worker/lifeflag"
-	"github.com/juju/juju/internal/worker/logforwarder"
-	"github.com/juju/juju/internal/worker/logforwarder/sinks"
 	"github.com/juju/juju/internal/worker/logger"
 	"github.com/juju/juju/internal/worker/machineundertaker"
 	"github.com/juju/juju/internal/worker/metricworker"
@@ -305,14 +303,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewClient:     actionpruner.NewClient,
 			PruneInterval: config.ActionPrunerInterval,
 			Logger:        config.LoggingContext.GetLogger("juju.worker.pruner.action"),
-		})),
-		logForwarderName: ifNotDead(logforwarder.Manifold(logforwarder.ManifoldConfig{
-			APICallerName: apiCallerName,
-			Sinks: []logforwarder.LogSinkSpec{{
-				Name:   "juju-log-forward",
-				OpenFn: sinks.OpenSyslog,
-			}},
-			Logger: config.LoggingContext.GetLogger("juju.worker.logforwarder"),
 		})),
 		// The environ upgrader runs on all controller agents, and
 		// unlocks the gate when the environ is up-to-date. The
@@ -693,7 +683,6 @@ const (
 	actionPrunerName         = "action-pruner"
 	machineUndertakerName    = "machine-undertaker"
 	remoteRelationsName      = "remote-relations"
-	logForwarderName         = "log-forwarder"
 	loggingConfigUpdaterName = "logging-config-updater"
 	instanceMutaterName      = "instance-mutater"
 
