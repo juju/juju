@@ -271,8 +271,6 @@ func (w *bootstrapWorker) filterHostPortsForManagementSpace(
 ) []network.SpaceHostPorts {
 	var hostPortsForAgents []network.SpaceHostPorts
 
-	w.logger.Errorf("************************")
-
 	if mgmtSpace == "" {
 		hostPortsForAgents = apiHostPorts
 	} else {
