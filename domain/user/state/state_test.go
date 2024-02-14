@@ -983,3 +983,34 @@ WHERE user_uuid = ?
 
 	c.Assert(lastLogin, gc.NotNil)
 }
+
+func (s *stateSuite) TestGetUserUUIDByName(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	uuid, err := user.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = st.AddUser(context.Background(), uuid, "dnuof", "", uuid)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.TxnRunner().Txn(context.Background(),
+		func(ctx context.Context, tx *sqlair.TX) error {
+			_, err := GetUserUUIDByName(ctx, tx, "dnuof")
+			return err
+		},
+	)
+
+	c.Check(err, jc.ErrorIsNil)
+}
+
+// TestGetUserUUIDByNameNotFound is asserting that if try and find the uuid for
+// a user that doesn't exist we get back a [usererrors.NotFound] error.
+func (s *stateSuite) TestGetUserUUIDByNameNotFound(c *gc.C) {
+	err := s.TxnRunner().Txn(context.Background(),
+		func(ctx context.Context, tx *sqlair.TX) error {
+			_, err := GetUserUUIDByName(ctx, tx, "dnuof-ton")
+			return err
+		},
+	)
+
+	c.Check(err, jc.ErrorIs, usererrors.NotFound)
+}

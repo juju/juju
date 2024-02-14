@@ -655,14 +655,26 @@ func (s *stateSuite) TestDeleteCloudInUse(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	s.assertInsertCloud(c, st, testCloud)
 
+	userUUID, err := user.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+
+	userState := userstate.NewState(s.TxnRunnerFactory())
+	err = userState.AddUser(
+		context.Background(), userUUID,
+		coremodel.ControllerModelOwnerUsername,
+		"test user",
+		userUUID,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
 	credUUID := uuid.MustNewUUID().String()
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		stmt := `
 INSERT INTO cloud_credential (uuid, name, cloud_uuid, auth_type_id, owner_uuid)
-SELECT ?, 'default', uuid, 1, 'fred' FROM cloud
+SELECT ?, 'default', uuid, 1, ? FROM cloud
 WHERE cloud.name = ?
 `
-		result, err := tx.ExecContext(ctx, stmt, credUUID, "fluffy")
+		result, err := tx.ExecContext(ctx, stmt, credUUID, userUUID, "fluffy")
 		if err != nil {
 			return err
 		}

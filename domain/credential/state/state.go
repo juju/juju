@@ -18,6 +18,7 @@ import (
 	dbcloud "github.com/juju/juju/domain/cloud/state"
 	"github.com/juju/juju/domain/credential"
 	"github.com/juju/juju/domain/model"
+	userstate "github.com/juju/juju/domain/user/state"
 	"github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -46,7 +47,12 @@ func (st *State) credentialUUID(ctx context.Context, tx *sqlair.TX, id credentia
 	selectQ := `
 SELECT &M.uuid FROM cloud_credential
 WHERE  cloud_credential.name = $M.credential_name
-AND    cloud_credential.owner_uuid = $M.owner
+AND    cloud_credential.owner_uuid = (
+	SELECT user.uuid
+    FROM user
+    WHERE user.name = $M.owner
+    AND user.removed = false
+)
 AND    cloud_credential.cloud_uuid = (
     SELECT uuid FROM cloud
     WHERE name = $M.cloud_name
@@ -66,8 +72,12 @@ AND    cloud_credential.cloud_uuid = (
 	return uuid["uuid"].(string), nil
 }
 
-// UpsertCloudCredential adds or updates a cloud credential with the given name, cloud and owner.
-// If the credential exists already, the existing credential's Invalid value is returned.
+// UpsertCloudCredential adds or updates a cloud credential with the given name,
+// cloud and owner. If the credential exists already, the existing credential's
+// Invalid value is returned.
+//
+// If the owner of the credential can't be found then an error satisfying
+// [usererrors.NotFound] will be returned.
 func (st *State) UpsertCloudCredential(ctx context.Context, id credential.ID, credential credential.CloudCredentialInfo) (*bool, error) {
 	db, err := st.DB()
 	if err != nil {
@@ -77,8 +87,14 @@ func (st *State) UpsertCloudCredential(ctx context.Context, id credential.ID, cr
 	q := `
 SELECT  cloud_credential.uuid AS &M.uuid, cloud_credential.invalid AS &M.invalid
 FROM    cloud_credential
-        JOIN cloud ON cloud_credential.cloud_uuid = cloud.uuid
-WHERE   cloud.name = $M.cloud_name AND cloud_credential.name = $M.credential_name AND cloud_credential.owner_uuid = $M.owner
+INNER JOIN cloud
+ON cloud_credential.cloud_uuid = cloud.uuid
+INNER JOIN user
+ON cloud_credential.owner_uuid = user.uuid
+WHERE   cloud.name = $M.cloud_name
+AND cloud_credential.name = $M.credential_name
+AND user.name = $M.owner
+AND user.removed = false
 `
 	stmt, err := sqlair.Prepare(q, sqlair.M{})
 	if err != nil {
@@ -108,11 +124,11 @@ WHERE   cloud.name = $M.cloud_name AND cloud_credential.name = $M.credential_nam
 		}
 
 		if err := upsertCredential(ctx, tx, credentialUUID, id, credential); err != nil {
-			return errors.Annotate(err, "updating credential")
+			return domain.CoerceError(fmt.Errorf("updating credential: %w", err))
 		}
 
 		if err := updateCredentialAttributes(ctx, tx, credentialUUID, credential.Attributes); err != nil {
-			return errors.Annotate(err, "updating credential attributes")
+			return domain.CoerceError(fmt.Errorf("updating credential %q attributes: %w", id.Name, err))
 		}
 
 		// TODO(wallyworld) - update model status (suspended etc)
@@ -220,17 +236,26 @@ ON CONFLICT(cloud_credential_uuid, key) DO UPDATE SET key=excluded.key,
 	return nil
 }
 
+// dbCredentialFromCredential is responsible for populating a database
+// representation of a cloud credential from a credential id and info structures.
+//
+// If no user is found for the credential owner then an error satisfying
+// [usererrors.NotFound] will be returned.
 func dbCredentialFromCredential(ctx context.Context, tx *sqlair.TX, credentialUUID string, id credential.ID, credential credential.CloudCredentialInfo) (*Credential, error) {
 	cred := &Credential{
-		ID:         credentialUUID,
-		Name:       id.Name,
-		AuthTypeID: -1,
-		// TODO(wallyworld) - implement owner as a FK when users are modelled.
-		OwnerUUID:     id.Owner,
+		ID:            credentialUUID,
+		Name:          id.Name,
+		AuthTypeID:    -1,
 		Revoked:       credential.Revoked,
 		Invalid:       credential.Invalid,
 		InvalidReason: credential.InvalidReason,
 	}
+
+	userUUID, err := userstate.GetUserUUIDByName(ctx, tx, id.Owner)
+	if err != nil {
+		return nil, fmt.Errorf("getting user uuid for credential owner %q: %w", id.Owner, err)
+	}
+	cred.OwnerUUID = userUUID.String()
 
 	q := "SELECT uuid AS &Credential.cloud_uuid FROM cloud WHERE name = $Cloud.name"
 	stmt, err := sqlair.Prepare(q, Credential{}, dbcloud.Cloud{})
@@ -293,8 +318,14 @@ func (st *State) InvalidateCloudCredential(ctx context.Context, id credential.ID
 	q := `
 UPDATE cloud_credential
 SET    invalid = true, invalid_reason = $M.invalid_reason
+FROM cloud
 WHERE  cloud_credential.name = $M.credential_name
-AND    cloud_credential.owner_uuid = $M.owner
+AND    cloud_credential.owner_uuid = (
+    SELECT uuid
+    FROM user
+    WHERE user.name = $M.owner
+	AND user.removed = false
+)
 AND    cloud_credential.cloud_uuid = (
     SELECT uuid FROM cloud
     WHERE name = $M.cloud_name
@@ -387,13 +418,15 @@ SELECT (cc.uuid, cc.name,
 FROM   cloud_credential cc
        JOIN auth_type ON cc.auth_type_id = auth_type.id
        JOIN cloud ON cc.cloud_uuid = cloud.uuid
+	   JOIN user on cc.owner_uuid = user.uuid
        LEFT JOIN cloud_credential_attributes cc_attr ON cc_attr.cloud_credential_uuid = cc.uuid
 `
 
 	condition, args := database.SqlairClauseAnd(map[string]any{
-		"cc.name":       name,
-		"cloud.name":    cloudName,
-		"cc.owner_uuid": owner,
+		"cc.name":      name,
+		"cloud.name":   cloudName,
+		"user.name":    owner,
+		"user.removed": false,
 	})
 	types := []any{
 		Credential{},
@@ -531,15 +564,17 @@ SELECT mm.model_uuid AS &M.model_uuid, mm.name AS &M.name
 FROM   model_metadata mm
 JOIN cloud_credential cc ON cc.uuid = mm.cloud_credential_uuid
 JOIN cloud ON cloud.uuid = cc.cloud_uuid
+JOIN user ON cc.owner_uuid = user.uuid
 `
 
 	types := []any{
 		sqlair.M{},
 	}
 	condition, args := database.SqlairClauseAnd(map[string]any{
-		"cc.name":       id.Name,
-		"cloud.name":    id.Cloud,
-		"cc.owner_uuid": id.Owner,
+		"cc.name":      id.Name,
+		"cloud.name":   id.Cloud,
+		"user.name":    id.Owner,
+		"user.removed": false,
 	})
 	query = query + "WHERE " + condition
 

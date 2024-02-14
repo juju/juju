@@ -910,10 +910,14 @@ DELETE FROM cloud_auth_type
 }
 
 // AllowCloudType is responsible for applying the cloud type to
-// the given database.
+// the given database. If the unique constraint applies the error is masked and
+// returned as NIL.
 func AllowCloudType(ctx context.Context, db coredatabase.TxnRunner, version int, name string) error {
 	return errors.Trace(db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.Exec(`INSERT INTO cloud_type VALUES (?, ?)`, version, name)
+		if database.IsErrConstraintUnique(err) {
+			return nil
+		}
 		return err
 	}))
 }

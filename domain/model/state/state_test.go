@@ -80,7 +80,7 @@ func (m *modelSuite) SetUpTest(c *gc.C) {
 	_, err = credSt.UpsertCloudCredential(
 		context.Background(), credential.ID{
 			Cloud: "my-cloud",
-			Owner: string(m.userUUID),
+			Owner: "test-user",
 			Name:  "foobar",
 		},
 		cred,
@@ -98,7 +98,7 @@ func (m *modelSuite) SetUpTest(c *gc.C) {
 			CloudRegion:  "my-region",
 			Credential: credential.ID{
 				Cloud: "my-cloud",
-				Owner: string(m.userUUID),
+				Owner: "test-user",
 				Name:  "foobar",
 			},
 			Name:  "my-test-model",
@@ -303,8 +303,8 @@ func (m *modelSuite) TestUpdateCredentialForDifferentCloud(c *gc.C) {
 	_, err = credSt.UpsertCloudCredential(
 		context.Background(), credential.ID{
 			Cloud: "my-cloud2",
-			Owner: string(m.userUUID),
-			Name:  "foobar",
+			Owner: "test-user",
+			Name:  "foobar1",
 		},
 		cred,
 	)
@@ -316,8 +316,8 @@ func (m *modelSuite) TestUpdateCredentialForDifferentCloud(c *gc.C) {
 		m.uuid,
 		credential.ID{
 			Cloud: "my-cloud2",
-			Owner: string(m.userUUID),
-			Name:  "foobar",
+			Owner: "test-user",
+			Name:  "foobar1",
 		},
 	)
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
@@ -350,7 +350,7 @@ func (m *modelSuite) TestSetModelCloudCredentialWithoutRegion(c *gc.C) {
 	_, err = credSt.UpsertCloudCredential(
 		context.Background(), credential.ID{
 			Cloud: "minikube",
-			Owner: string(m.userUUID),
+			Owner: "test-user",
 			Name:  "foobar",
 		},
 		cred,
@@ -366,7 +366,7 @@ func (m *modelSuite) TestSetModelCloudCredentialWithoutRegion(c *gc.C) {
 			Cloud: "minikube",
 			Credential: credential.ID{
 				Cloud: "minikube",
-				Owner: string(m.userUUID),
+				Owner: "test-user",
 				Name:  "foobar",
 			},
 			Name:  "controller",

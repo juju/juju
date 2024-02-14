@@ -6,6 +6,7 @@ package state
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"time"
 
 	"github.com/canonical/sqlair"
@@ -189,6 +190,52 @@ WHERE  uuid = $M.uuid`
 	}
 
 	return usr, nil
+}
+
+// GetUserUUIDByName will retrieve the user uuid for the user identifier by name.
+// If the user does not exist an error that satisfies [usererrors.NotFound] will
+// be returned.
+func GetUserUUIDByName(
+	ctx context.Context,
+	tx *sqlair.TX,
+	name string,
+) (user.UUID, error) {
+	stmt := `
+SELECT user.uuid AS &M.userUUID
+FROM user
+WHERE user.name = $M.name
+AND user.removed = false
+`
+
+	selectUserUUIDStmt, err := sqlair.Prepare(stmt, sqlair.M{})
+	if err != nil {
+		return user.UUID(""), errors.Trace(err)
+	}
+
+	var result = sqlair.M{}
+	err = tx.Query(ctx, selectUserUUIDStmt, sqlair.M{"name": name}).Get(&result)
+	if errors.Is(err, sql.ErrNoRows) {
+		return user.UUID(""), fmt.Errorf(
+			"%w when finding user uuid for name %q",
+			usererrors.NotFound,
+			name,
+		)
+	} else if err != nil {
+		return user.UUID(""), fmt.Errorf(
+			"looking up user uuid for name %q: %w",
+			name,
+			err,
+		)
+	}
+
+	if result["userUUID"] == nil {
+		return user.UUID(""), fmt.Errorf(
+			"retrieving user uuid for user name %q, no result provided",
+			name,
+		)
+	}
+
+	return user.UUID(result["userUUID"].(string)), nil
 }
 
 // GetUserByName will retrieve the user with authentication information (last login, disabled)
