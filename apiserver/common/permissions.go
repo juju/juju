@@ -113,5 +113,8 @@ func HasModelAdmin(
 	}
 
 	err = authorizer.HasPermission(permission.AdminAccess, modelTag)
-	return err == nil, err
+	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
+		return false, err
+	}
+	return err == nil, nil
 }
