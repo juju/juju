@@ -8,6 +8,7 @@ import (
 	"database/sql"
 	"fmt"
 
+	"github.com/canonical/sqlair"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/cloud"
@@ -20,11 +21,11 @@ import (
 // InsertCloud inserts the initial cloud during bootstrap.
 func InsertCloud(cloud cloud.Cloud) func(context.Context, database.TxnRunner) error {
 	return func(ctx context.Context, db database.TxnRunner) error {
-		return errors.Trace(db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-			cloudUUID, err := uuid.NewUUID()
-			if err != nil {
-				return errors.Trace(err)
-			}
+		cloudUUID, err := uuid.NewUUID()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		return errors.Trace(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 			if err := state.CreateCloud(ctx, tx, cloudUUID.String(), cloud); err != nil {
 				return errors.Annotate(err, "creating bootstrap cloud")
 			}

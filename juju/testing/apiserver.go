@@ -6,7 +6,6 @@ package testing
 import (
 	"context"
 	"crypto/tls"
-	"database/sql"
 	"fmt"
 	"net"
 	"net/http"
@@ -580,7 +579,7 @@ func (s *ApiServerSuite) SeedCAASCloud(c *gc.C) {
 	credUUID, err := uuid.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		return cloudstate.CreateCloud(ctx, tx, cloudUUID.String(), cloud.Cloud{
 			Name:      "caascloud",
 			Type:      "kubernetes",
