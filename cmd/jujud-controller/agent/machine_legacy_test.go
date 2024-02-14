@@ -43,6 +43,7 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/migration"
 	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/domain/credential"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/envcontext"
@@ -93,6 +94,7 @@ func (s *MachineLegacySuite) SetUpTest(c *gc.C) {
 		// empty.
 		// This test suite is truly horrid!
 		controller.JujuDBSnapChannel: "",
+		controller.ObjectStoreType:   objectstore.FileBackend,
 	}
 	s.ControllerModelConfigAttrs = map[string]interface{}{
 		"agent-version": coretesting.CurrentVersion().Number.String(),

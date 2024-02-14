@@ -17,6 +17,7 @@ import (
 	api "github.com/juju/juju/api"
 	controller "github.com/juju/juju/controller"
 	model "github.com/juju/juju/core/model"
+	objectstore "github.com/juju/juju/core/objectstore"
 	mongo "github.com/juju/juju/internal/mongo"
 	names "github.com/juju/names/v5"
 	shell "github.com/juju/utils/v4/shell"
@@ -352,6 +353,20 @@ func (m *MockConfig) Nonce() string {
 func (mr *MockConfigMockRecorder) Nonce() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Nonce", reflect.TypeOf((*MockConfig)(nil).Nonce))
+}
+
+// ObjectStoreType mocks base method.
+func (m *MockConfig) ObjectStoreType() objectstore.BackendType {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ObjectStoreType")
+	ret0, _ := ret[0].(objectstore.BackendType)
+	return ret0
+}
+
+// ObjectStoreType indicates an expected call of ObjectStoreType.
+func (mr *MockConfigMockRecorder) ObjectStoreType() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ObjectStoreType", reflect.TypeOf((*MockConfig)(nil).ObjectStoreType))
 }
 
 // OldPassword mocks base method.

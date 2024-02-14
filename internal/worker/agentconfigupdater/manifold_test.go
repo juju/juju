@@ -155,6 +155,7 @@ func (s *AgentConfigUpdaterSuite) TestCentralHubMissing(c *gc.C) {
 						controller.OpenTelemetryInsecure:    controller.DefaultOpenTelemetryInsecure,
 						controller.OpenTelemetryStackTraces: controller.DefaultOpenTelemetryStackTraces,
 						controller.OpenTelemetrySampleRatio: controller.DefaultOpenTelemetrySampleRatio,
+						controller.ObjectStoreType:          objectstore.FileBackend.String(),
 					},
 				}
 			default:
@@ -248,6 +249,7 @@ func (s *AgentConfigUpdaterSuite) startManifold(c *gc.C, a agent.Agent, mockAPIP
 						controller.OpenTelemetryInsecure:    controller.DefaultOpenTelemetryInsecure,
 						controller.OpenTelemetryStackTraces: controller.DefaultOpenTelemetryStackTraces,
 						controller.OpenTelemetrySampleRatio: controller.DefaultOpenTelemetrySampleRatio,
+						controller.ObjectStoreType:          objectstore.FileBackend.String(),
 					},
 				}
 			default:

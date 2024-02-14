@@ -81,6 +81,9 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		GetMetadataService: func(getter dependency.Getter, name string) (MetadataService, error) {
 			return s.metadataService, nil
 		},
+		IsBootstrapController: func(dataDir string) bool {
+			return false
+		},
 	}
 }
 

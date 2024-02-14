@@ -39,5 +39,6 @@ func (s *EncodeToStringSuite) TestEncodeToString(c *gc.C) {
 		"audit-log-max-size":        "200M",
 		"audit-log-max-backups":     "5",
 		"query-tracing-threshold":   "1s",
+		"object-store-type":         "file",
 	})
 }

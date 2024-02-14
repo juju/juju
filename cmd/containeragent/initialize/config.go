@@ -164,22 +164,6 @@ func (c *configFromEnv) ObjectStoreType() objectstore.BackendType {
 	panic("not implemented")
 }
 
-func (c *configFromEnv) ObjectStoreS3Endpoint() string {
-	panic("not implemented")
-}
-
-func (c *configFromEnv) ObjectStoreS3StaticKey() string {
-	panic("not implemented")
-}
-
-func (c *configFromEnv) ObjectStoreS3StaticSecret() string {
-	panic("not implemented")
-}
-
-func (c *configFromEnv) ObjectStoreS3StaticSession() string {
-	panic("not implemented")
-}
-
 func (c *configFromEnv) DqlitePort() (int, bool) {
 	panic("not implemented")
 }

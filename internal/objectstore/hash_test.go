@@ -10,11 +10,11 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/juju/errors"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/errors"
 	jujutesting "github.com/juju/juju/testing"
-	jc "github.com/juju/testing/checkers"
 )
 
 type hashFileSystemAccessorSuite struct {

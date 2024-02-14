@@ -787,7 +787,7 @@ func (*suite) TestSetOpenTelemetrySampleRatio(c *gc.C) {
 	c.Assert(queryTracingSampleRatio, gc.Equals, .42, gc.Commentf("open telemetry sample ratio setting not updated"))
 }
 
-func (*suite) TestSetObjectStoType(c *gc.C) {
+func (*suite) TestSetObjectStoreType(c *gc.C) {
 	conf, err := agent.NewAgentConfig(attributeParams)
 	c.Assert(err, jc.ErrorIsNil)
 

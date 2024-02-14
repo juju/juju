@@ -1717,7 +1717,6 @@ func withCharmRepoResolvable(
 			Base:         base,
 			Risk:         risk,
 		}
-		logger.Criticalf("mocking ResolveCharm -- url : %v -- base : %v -- switch : %v", url, origin, false)
 		fakeAPI.Call("ResolveCharm", url, origin, false).Returns(
 			url,
 			origin,
