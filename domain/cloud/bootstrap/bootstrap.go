@@ -21,11 +21,11 @@ import (
 // InsertCloud inserts the initial cloud during bootstrap.
 func InsertCloud(cloud cloud.Cloud) func(context.Context, database.TxnRunner) error {
 	return func(ctx context.Context, db database.TxnRunner) error {
+		cloudUUID, err := uuid.NewUUID()
+		if err != nil {
+			return errors.Trace(err)
+		}
 		return errors.Trace(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-			cloudUUID, err := uuid.NewUUID()
-			if err != nil {
-				return errors.Trace(err)
-			}
 			if err := state.CreateCloud(ctx, tx, cloudUUID.String(), cloud); err != nil {
 				return errors.Annotate(err, "creating bootstrap cloud")
 			}

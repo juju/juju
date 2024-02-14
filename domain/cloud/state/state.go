@@ -423,7 +423,7 @@ FROM   cloud
 `
 
 	if name != "" {
-		q = q + "WHERE cloud.name = $M.cloud_name"
+		q += "WHERE cloud.name = $M.cloud_name"
 	}
 
 	loadCloudStmt, err := sqlair.Prepare(q, sqlair.M{}, Cloud{})
