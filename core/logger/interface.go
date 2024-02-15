@@ -19,17 +19,17 @@ type LoggerCloser interface {
 
 // ModelLogger keeps track of loggers tied to a given model.
 type ModelLogger interface {
+	// Closer provides a Close() method which calls Close() on
+	// each of the tracked loggers.
+	io.Closer
+
 	// GetLogger returns a logger for the given model and keeps
 	// track of it, returning the same one if called again.
-	GetLogger(modelUUID, modelName string) LoggerCloser
+	GetLogger(modelUUID, modelName string) (LoggerCloser, error)
 
 	// RemoveLogger stops tracking the given's model's logger and
 	// calls Close() on the logger.
 	RemoveLogger(modelUUID string) error
-
-	// Closer provides a Close() method which calls Close() on
-	// each of the tracked loggers.
-	io.Closer
 }
 
 // LoggerForModelFunc is a function which returns a logger for a given model.

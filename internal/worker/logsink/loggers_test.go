@@ -53,9 +53,11 @@ func (s *LoggersSuite) TestModelLoggerClose(c *gc.C) {
 		},
 		1, time.Millisecond, testclock.NewDilatedWallClock(time.Millisecond),
 	)
-	ml.GetLogger("uuid1", "l1")
-	ml.GetLogger("uuid2", "l2")
-	err := ml.RemoveLogger("uuid2")
+	_, err := ml.GetLogger("uuid1", "l1")
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = ml.GetLogger("uuid2", "l2")
+	c.Assert(err, jc.ErrorIsNil)
+	err = ml.RemoveLogger("uuid2")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ml.Close(), jc.ErrorIsNil)
 

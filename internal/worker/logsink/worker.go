@@ -12,7 +12,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/worker/v4"
-	"github.com/juju/worker/v4/catacomb"
+	"gopkg.in/tomb.v2"
 
 	corelogger "github.com/juju/juju/core/logger"
 )
@@ -26,8 +26,8 @@ var _ logger = struct{}{}
 // LogSink is a worker which provides access to a log sink
 // which allows log entries to be stored for specified models.
 type LogSink struct {
-	catacomb catacomb.Catacomb
-	logSink  corelogger.ModelLogger
+	tomb    tomb.Tomb
+	logSink corelogger.ModelLogger
 }
 
 // logWriter wraps a io.Writer instance and writes out
@@ -80,25 +80,19 @@ func NewWorker(cfg Config) (worker.Worker, error) {
 	w := &LogSink{
 		logSink: modelLogger,
 	}
-	err := catacomb.Invoke(catacomb.Plan{
-		Site: &w.catacomb,
-		Work: func() error {
-			<-w.catacomb.Dying()
-			return nil
-		},
+	w.tomb.Go(func() error {
+		<-w.tomb.Dying()
+		return tomb.ErrDying
 	})
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	return w, nil
 }
 
 // Kill implements Worker.Kill()
 func (ml *LogSink) Kill() {
-	ml.catacomb.Kill(nil)
+	ml.tomb.Kill(nil)
 }
 
 // Wait implements Worker.Wait()
 func (ml *LogSink) Wait() error {
-	return ml.catacomb.Wait()
+	return ml.tomb.Wait()
 }

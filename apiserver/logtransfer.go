@@ -63,7 +63,9 @@ func (s *migrationLoggingStrategy) init(ctxt httpContext, req *http.Request) err
 		st.Release()
 		return errors.Trace(err)
 	}
-	s.recordLogger = s.modelLogger.GetLogger(st.State.ModelUUID(), m.Name())
+	if s.recordLogger, err = s.modelLogger.GetLogger(st.State.ModelUUID(), m.Name()); err != nil {
+		return errors.Trace(err)
+	}
 	// TODO(debug-log) - remove mongo log tracker
 	s.tracker = newLogTracker(st.State)
 	s.releaser = func() error {
@@ -81,9 +83,9 @@ func (s *migrationLoggingStrategy) Close() error {
 		s.tracker.Close(),
 		"closing last-sent tracker",
 	)
-	err2 := s.releaser()
-	if err2 != nil {
-		return err2
+	releaseErr := s.releaser()
+	if releaseErr != nil {
+		return releaseErr
 	}
 	return err
 }

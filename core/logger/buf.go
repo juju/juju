@@ -46,7 +46,7 @@ func NewBufferedLogger(
 // the specified capacity and duration; after either of which is exceeded,
 // the records will be flushed to the underlying logger.
 // TODO(debug-log) - we may receive log messages slightly out of order.
-// We should ensure hey are sorted on timestamp.
+// We should ensure they are sorted on timestamp.
 func (b *BufferedLogger) Log(in []LogRecord) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()

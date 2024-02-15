@@ -40,6 +40,7 @@ func NewModelLogger(
 		loggerBufferSize:    bufferSize,
 		loggerFlushInterval: flushInterval,
 		loggerForModel:      loggerForModelFunc,
+		modelLoggers:        make(map[string]corelogger.LoggerCloser),
 	}
 }
 
@@ -55,19 +56,16 @@ type modelLogger struct {
 }
 
 // GetLogger implements ModelLogger.
-func (d *modelLogger) GetLogger(modelUUID, modelName string) corelogger.LoggerCloser {
+func (d *modelLogger) GetLogger(modelUUID, modelName string) (corelogger.LoggerCloser, error) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	if l, ok := d.modelLoggers[modelUUID]; ok {
-		return l
-	}
-	if d.modelLoggers == nil {
-		d.modelLoggers = make(map[string]corelogger.LoggerCloser)
+		return l, nil
 	}
 
 	l, err := d.loggerForModel(modelUUID, modelName)
 	if err != nil {
-		panic(err)
+		return nil, errors.Annotatef(err, "getting logger for model %q (%s)", modelName, modelUUID)
 	}
 
 	bufferedLogger := &bufferedLoggerCloser{
@@ -80,7 +78,7 @@ func (d *modelLogger) GetLogger(modelUUID, modelName string) corelogger.LoggerCl
 		closer: l,
 	}
 	d.modelLoggers[modelUUID] = bufferedLogger
-	return bufferedLogger
+	return bufferedLogger, nil
 }
 
 // RemoveLogger implements ModelLogger.

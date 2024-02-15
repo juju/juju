@@ -41,7 +41,8 @@ func (s *ModelLoggerSuite) TestGetLogger(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, ml)
 
-	logger := ml.(*LogSink).logSink.GetLogger(coretesting.ModelTag.Id(), "foo")
+	logger, err := ml.(*LogSink).logSink.GetLogger(coretesting.ModelTag.Id(), "foo")
+	c.Assert(err, jc.ErrorIsNil)
 	rec := []corelogger.LogRecord{{Message: "message1"}, {Message: "message1"}}
 	err = logger.Log(rec)
 	c.Assert(err, jc.ErrorIsNil)

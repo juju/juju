@@ -269,7 +269,10 @@ func (m *modelWorkerManager) starter(cfg NewModelConfig) func() (worker.Worker, 
 		}
 		cfg.ControllerConfig = controllerConfig
 
-		logSink := m.config.LogSink.GetLogger(modelUUID, cfg.ModelName)
+		logSink, err := m.config.LogSink.GetLogger(modelUUID, cfg.ModelName)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 
 		cfg.ModelLogger = newModelLogger(
 			"controller-"+m.config.MachineID,
