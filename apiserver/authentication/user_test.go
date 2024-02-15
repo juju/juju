@@ -17,12 +17,12 @@ import (
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v4"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/apiserver/authentication"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	"github.com/juju/juju/internal/password"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing/factory"
@@ -38,11 +38,11 @@ func (s *userAuthenticatorSuite) TestMachineLoginFails(c *gc.C) {
 	// add machine for testing machine agent authentication
 	machine, err := s.ControllerModel(c).State().AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	nonce, err := utils.RandomPassword()
+	nonce, err := password.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetProvisioned("foo", "", nonce, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	password, err := utils.RandomPassword()
+	password, err := password.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetPassword(password)
 	c.Assert(err, jc.ErrorIsNil)
@@ -69,7 +69,7 @@ func (s *userAuthenticatorSuite) TestUnitLoginFails(c *gc.C) {
 	})
 	unit, err := wordpress.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	password, err := utils.RandomPassword()
+	password, err := password.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.SetPassword(password)
 	c.Assert(err, jc.ErrorIsNil)

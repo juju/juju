@@ -56,7 +56,7 @@ The common finalizer function does the following:
    * populates the machine config with information from the config object
    * checks for CA Cert
    * checks for admin-secret
-   * creates a password hash using the utils.CompatSalt
+   * creates a password hash using the password.CompatSalt
    * uses this password hash for both the APIInfo and MongoInfo passwords.
    * creates the controller cert and key
    * strips the admin-secret and server ca-private-key from the config

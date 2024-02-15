@@ -13,7 +13,6 @@ import (
 	"github.com/juju/mgo/v3"
 	"github.com/juju/names/v5"
 	utilseries "github.com/juju/os/v2/series"
-	"github.com/juju/utils/v4"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/caas"
@@ -47,6 +46,7 @@ import (
 	"github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/internal/network"
+	"github.com/juju/juju/internal/password"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/state"
 )
@@ -396,7 +396,7 @@ func (b *AgentBootstrap) Initialize(ctx stdcontext.Context) (_ *state.Controller
 	// via the API connection).
 	b.logger.Debugf("create new random password for controller %v", controllerNode.Id())
 
-	newPassword, err := utils.RandomPassword()
+	newPassword, err := password.RandomPassword()
 	if err != nil {
 		return nil, err
 	}

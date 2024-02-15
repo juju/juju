@@ -11,12 +11,12 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"github.com/juju/retry"
-	"github.com/juju/utils/v4"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	apiagent "github.com/juju/juju/api/agent/agent"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	"github.com/juju/juju/internal/password"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -282,7 +282,7 @@ func ScaryConnect(ctx context.Context, a agent.Agent, apiOpen api.OpenFunc, logg
 // oldPassword -- which must be the current valid password -- is set as a
 // fallback in local config, in case we fail to update the remote password.
 func changePassword(ctx context.Context, oldPassword string, a agent.Agent, facade apiagent.ConnFacade) error {
-	newPassword, err := utils.RandomPassword()
+	newPassword, err := password.RandomPassword()
 	if err != nil {
 		return errors.Trace(err)
 	}

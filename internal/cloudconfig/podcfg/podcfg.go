@@ -12,7 +12,6 @@ import (
 	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/juju/proxy"
-	"github.com/juju/utils/v4"
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/agent"
@@ -25,6 +24,7 @@ import (
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/mongo"
+	"github.com/juju/juju/internal/password"
 )
 
 var logger = loggo.GetLogger("juju.cloudconfig.podcfg")
@@ -123,7 +123,7 @@ func (cfg *ControllerPodConfig) AgentConfig(tag names.Tag) (agent.ConfigSetterWr
 // UnitAgentConfig returns the agent config file for the controller unit charm.
 // This is created a bootstrap time.
 func (cfg *ControllerPodConfig) UnitAgentConfig() (agent.ConfigSetterWriter, error) {
-	password, err := utils.RandomPassword()
+	password, err := password.RandomPassword()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

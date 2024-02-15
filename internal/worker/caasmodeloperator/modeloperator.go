@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	"github.com/juju/utils/v4"
 	"github.com/juju/version/v2"
 	"github.com/juju/worker/v4/catacomb"
 
@@ -16,6 +15,7 @@ import (
 	"github.com/juju/juju/api/controller/caasmodeloperator"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/internal/password"
 )
 
 type ModelOperatorAPI interface {
@@ -95,7 +95,7 @@ func (m *ModelOperatorManager) update(ctx context.Context) error {
 	}
 
 	setPassword := true
-	password, err := utils.RandomPassword()
+	password, err := password.RandomPassword()
 	if err != nil {
 		return errors.Trace(err)
 	}

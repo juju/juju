@@ -5772,7 +5772,7 @@ func (s *CAASApplicationSuite) TestUpsertCAASUnit(c *gc.C) {
 	address := "1.2.3.4"
 	ports := []string{"80", "443"}
 
-	// output of utils.AgentPasswordHash("juju")
+	// output of internalpassword.AgentPasswordHash("juju")
 	passwordHash := "v+jK3ht5NEdKeoQBfyxmlYe0"
 
 	p := state.UpsertCAASUnitParams{

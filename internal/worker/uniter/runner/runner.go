@@ -23,12 +23,12 @@ import (
 	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
-	"github.com/juju/utils/v4"
 	utilexec "github.com/juju/utils/v4/exec"
 	"github.com/kballard/go-shellquote"
 
 	"github.com/juju/juju/core/actions"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/internal/password"
 	"github.com/juju/juju/internal/worker/common/charmrunner"
 	"github.com/juju/juju/internal/worker/uniter/runner/context"
 	"github.com/juju/juju/internal/worker/uniter/runner/debug"
@@ -210,7 +210,7 @@ func (runner *runner) runCommandsWithTimeout(ctx stdcontext.Context, commands st
 	var err error
 	token := ""
 	if rMode == runOnRemote {
-		token, err = utils.RandomPassword()
+		token, err = password.RandomPassword()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -406,7 +406,7 @@ func (runner *runner) RunHook(ctx stdcontext.Context, hookName string) (HookHand
 func (runner *runner) runCharmHookWithLocation(ctx stdcontext.Context, hookName, charmLocation string, rMode runMode) (hookHandlerType HookHandlerType, err error) {
 	token := ""
 	if rMode == runOnRemote {
-		token, err = utils.RandomPassword()
+		token, err = password.RandomPassword()
 		if err != nil {
 			return InvalidHookHandler, errors.Trace(err)
 		}

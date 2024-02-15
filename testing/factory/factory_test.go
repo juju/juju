@@ -12,11 +12,11 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v4"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/internal/password"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/state"
@@ -233,7 +233,7 @@ func (s *factorySuite) TestMakeMachineNil(c *gc.C) {
 func (s *factorySuite) TestMakeMachine(c *gc.C) {
 	base := state.UbuntuBase("12.10")
 	jobs := []state.MachineJob{state.JobManageModel}
-	password, err := utils.RandomPassword()
+	password, err := password.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)
 	nonce := "some-nonce"
 	id := instance.Id("some-id")

@@ -89,6 +89,7 @@ func (*importSuite) TestImports(c *gc.C) {
 		"internal/network/netplan",
 		"internal/packaging",
 		"internal/packaging/dependency",
+		"internal/password",
 		"internal/pki",
 		"internal/proxy",
 		"internal/proxy/config",

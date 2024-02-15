@@ -17,7 +17,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v4"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/environschema.v1"
@@ -37,6 +36,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/feature"
+	internalpassword "github.com/juju/juju/internal/password"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/poolmanager"
 	"github.com/juju/juju/internal/storage/provider"
@@ -179,7 +179,7 @@ func (s *MigrationExportSuite) TestModelInfo(c *gc.C) {
 	model, err := s.State.Export(map[string]string{}, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(model.PasswordHash(), gc.Equals, utils.AgentPasswordHash("supppperrrrsecret1235556667777"))
+	c.Assert(model.PasswordHash(), gc.Equals, internalpassword.AgentPasswordHash("supppperrrrsecret1235556667777"))
 	c.Assert(model.Type(), gc.Equals, string(s.Model.Type()))
 	c.Assert(model.Tag(), gc.Equals, s.Model.ModelTag())
 	c.Assert(model.Owner(), gc.Equals, s.Model.Owner())

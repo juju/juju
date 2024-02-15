@@ -11,7 +11,6 @@ import (
 	"github.com/juju/mgo/v3"
 	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v5"
-	"github.com/juju/utils/v4"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
@@ -19,6 +18,7 @@ import (
 	"github.com/juju/juju/core/status"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/password"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/poolmanager"
 )
@@ -173,7 +173,7 @@ func Initialize(args InitializeParams) (_ *Controller, err error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	salt, err := utils.RandomSalt()
+	salt, err := password.RandomSalt()
 	if err != nil {
 		return nil, err
 	}

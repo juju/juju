@@ -23,7 +23,6 @@ import (
 	mgotesting "github.com/juju/mgo/v3/testing"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v4"
 	"github.com/prometheus/client_golang/prometheus"
 	gc "gopkg.in/check.v1"
 
@@ -62,6 +61,7 @@ import (
 	"github.com/juju/juju/internal/mongo/mongotest"
 	internalobjectstore "github.com/juju/juju/internal/objectstore"
 	objectstoretesting "github.com/juju/juju/internal/objectstore/testing"
+	"github.com/juju/juju/internal/password"
 	"github.com/juju/juju/internal/pubsub/centralhub"
 	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/internal/uuid"
@@ -502,7 +502,7 @@ func (s *ApiServerSuite) OpenAPIAsNewMachine(c *gc.C, jobs ...state.MachineJob) 
 	st := s.ControllerModel(c).State()
 	machine, err := st.AddMachine(state.UbuntuBase("12.10"), jobs...)
 	c.Assert(err, jc.ErrorIsNil)
-	password, err := utils.RandomPassword()
+	password, err := password.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetPassword(password)
 	c.Assert(err, jc.ErrorIsNil)

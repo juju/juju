@@ -20,7 +20,6 @@ import (
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v4"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
@@ -32,6 +31,7 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
+	"github.com/juju/juju/internal/password"
 	coretools "github.com/juju/juju/internal/tools"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
@@ -194,7 +194,7 @@ func (s *toolsSuite) TestAuthRequiresUser(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetProvisioned("foo", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	password, err := utils.RandomPassword()
+	password, err := password.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetPassword(password)
 	c.Assert(err, jc.ErrorIsNil)

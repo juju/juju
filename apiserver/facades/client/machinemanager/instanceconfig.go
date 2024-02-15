@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/utils/v4"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/common"
@@ -18,6 +17,7 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
+	"github.com/juju/juju/internal/password"
 	"github.com/juju/juju/state/binarystorage"
 	"github.com/juju/juju/state/stateenvirons"
 )
@@ -111,7 +111,7 @@ func InstanceConfig(
 		}
 	}
 
-	password, err := utils.RandomPassword()
+	password, err := password.RandomPassword()
 	if err != nil {
 		return nil, fmt.Errorf("cannot make password for machine %v: %v", machine, err)
 	}

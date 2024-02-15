@@ -10,7 +10,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	"github.com/juju/utils/v4"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
 
@@ -18,6 +17,7 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/internal/password"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -139,7 +139,7 @@ func (a *appWorker) loop() error {
 
 	if !a.statusOnly {
 		// Update the password once per worker start to avoid it changing too frequently.
-		a.password, err = utils.RandomPassword()
+		a.password, err = password.RandomPassword()
 		if err != nil {
 			return errors.Trace(err)
 		}

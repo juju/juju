@@ -11,8 +11,9 @@ import (
 	"testing"
 
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v4"
 	gc "gopkg.in/check.v1"
+
+	internalpassword "github.com/juju/juju/internal/password"
 )
 
 type passwordSuite struct {
@@ -39,7 +40,7 @@ func ExampleHashPassword() {
 
 // TestPasswordEncapsulation is asserting that a wrapped password does not leak
 // the encapsulated plain text password.
-func (_ *passwordSuite) TestPasswordEncapsulation(c *gc.C) {
+func (*passwordSuite) TestPasswordEncapsulation(c *gc.C) {
 	p := NewPassword("topsecret")
 
 	c.Assert(p.String(), gc.Equals, "")
@@ -53,7 +54,7 @@ func (_ *passwordSuite) TestPasswordEncapsulation(c *gc.C) {
 // TestPasswordValidation exists to assert the validation rules we apply to
 // passwords. All passwords in this test are invalid and should cause a
 // ErrPasswordNotValid error.
-func (_ *passwordSuite) TestPasswordValidation(c *gc.C) {
+func (*passwordSuite) TestPasswordValidation(c *gc.C) {
 	tests := []string{
 		"",                        // We don't allow empty passwords
 		strings.Repeat("1", 1025), // We don't allow password over 1KB
@@ -70,7 +71,7 @@ func (_ *passwordSuite) TestPasswordValidation(c *gc.C) {
 // TestPasswordValidationDestroyed asserts that after destroying a password and
 // then validating the password a error that satisfies ErrPasswordDestroyed is
 // returned.
-func (_ *passwordSuite) TestPasswordValidationDestroyed(c *gc.C) {
+func (*passwordSuite) TestPasswordValidationDestroyed(c *gc.C) {
 	p := NewPassword("topsecret")
 	p.Destroy()
 	c.Assert(p.IsDestroyed(), jc.IsTrue)
@@ -80,7 +81,7 @@ func (_ *passwordSuite) TestPasswordValidationDestroyed(c *gc.C) {
 
 // TestPasswordHashing is testing some known password and their respective
 // hashes to make sure we are always getting the same hash output.
-func (_ *passwordSuite) TestPasswordHashing(c *gc.C) {
+func (*passwordSuite) TestPasswordHashing(c *gc.C) {
 	tests := []struct {
 		Password string
 		Salt     string
@@ -135,7 +136,7 @@ func (_ *passwordSuite) TestPasswordHashing(c *gc.C) {
 
 // TestPasswordHashingDestroyed tests that when hashing a destroyed password a
 // error is returned satisfying ErrPasswordDestroyed.
-func (_ *passwordSuite) TestPasswordHashingDestroyed(c *gc.C) {
+func (*passwordSuite) TestPasswordHashingDestroyed(c *gc.C) {
 	p := NewPassword("topsecret")
 	p.Destroy()
 	c.Assert(p.IsDestroyed(), jc.IsTrue)
@@ -147,7 +148,7 @@ func (_ *passwordSuite) TestPasswordHashingDestroyed(c *gc.C) {
 // that of Juju utils. This it to check that both algorithms come to the same
 // conclusion. This test will assert that moving password hashing back into Juju
 // from utils has not broken anything.
-func (_ *passwordSuite) TestPasswordHashWithUtils(c *gc.C) {
+func (*passwordSuite) TestPasswordHashWithUtils(c *gc.C) {
 	tests := []string{
 		"testmctestface",
 		"テストパスワード",
@@ -160,7 +161,7 @@ func (_ *passwordSuite) TestPasswordHashWithUtils(c *gc.C) {
 	salt := "xVwuRk5pzUg"
 
 	for _, test := range tests {
-		utilsHash := utils.UserPasswordHash(test, salt)
+		utilsHash := internalpassword.UserPasswordHash(test, salt)
 		jujuHash, err := HashPassword(NewPassword(test), []byte(salt))
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(utilsHash, gc.Equals, jujuHash,
@@ -172,7 +173,7 @@ func (_ *passwordSuite) TestPasswordHashWithUtils(c *gc.C) {
 
 // TestNewSalt is here to check that a salt can be generated with no errors and
 // the length of the salt is equal to that of what we expect.
-func (_ *passwordSuite) TestNewSalt(c *gc.C) {
+func (*passwordSuite) TestNewSalt(c *gc.C) {
 	salt, err := NewSalt()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(salt) != 0, jc.IsTrue)
@@ -180,7 +181,7 @@ func (_ *passwordSuite) TestNewSalt(c *gc.C) {
 
 // TestDestroyPasswordMultiple checks that we can call Destroy() on a password
 // multiple times and that no panics occur.
-func (_ *passwordSuite) TestDestroyPasswordMultiple(c *gc.C) {
+func (*passwordSuite) TestDestroyPasswordMultiple(c *gc.C) {
 	p := NewPassword("topsecret")
 	// Three times should be plenty
 	p.Destroy()
@@ -209,7 +210,7 @@ func FuzzPasswordHashing(f *testing.F) {
 
 	salt := "xVwuRk5pzUg"
 	f.Fuzz(func(t *testing.T, password string) {
-		utilsHash := utils.UserPasswordHash(password, salt)
+		utilsHash := internalpassword.UserPasswordHash(password, salt)
 		jujuHash, err := HashPassword(NewPassword(password), []byte(salt))
 		// Fuzz testing will give us a string that is all nil chars and that
 		// will cause us to think the error is destroyed. This is perfectly

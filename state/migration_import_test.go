@@ -15,7 +15,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v4"
 	"github.com/juju/version/v2"
 	"github.com/kr/pretty"
 	"go.uber.org/mock/gomock"
@@ -37,6 +36,7 @@ import (
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	internalpassword "github.com/juju/juju/internal/password"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/poolmanager"
 	"github.com/juju/juju/internal/storage/provider"
@@ -167,7 +167,7 @@ func (s *MigrationImportSuite) TestNewModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer newSt.Close()
 
-	c.Assert(newModel.PasswordHash(), gc.Equals, utils.AgentPasswordHash("supersecret1111111111111"))
+	c.Assert(newModel.PasswordHash(), gc.Equals, internalpassword.AgentPasswordHash("supersecret1111111111111"))
 	c.Assert(newModel.Type(), gc.Equals, original.Type())
 	c.Assert(newModel.Owner(), gc.Equals, original.Owner())
 	c.Assert(newModel.LatestToolsVersion(), gc.Equals, latestTools)
