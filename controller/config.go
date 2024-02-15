@@ -958,6 +958,7 @@ func (c Config) ModelLogfileMaxSizeMB() int {
 
 // ModelLogsSizeMB is the size of the capped collection used to store the model
 // logs. Total size on disk will be ModelLogsSizeMB * number of models.
+// TODO(debug-log) - delete me
 func (c Config) ModelLogsSizeMB() int {
 	return c.sizeMBOrDefault(ModelLogsSize, DefaultModelLogsSizeMB)
 }

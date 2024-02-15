@@ -644,7 +644,7 @@ func DefaultServerConfig(c *gc.C, testclock clock.Clock) apiserver.ServerConfig 
 		NewObserver:                func() observer.Observer { return &fakeobserver.Instance{} },
 		MetricsCollector:           apiserver.NewMetricsCollector(),
 		UpgradeComplete:            func() bool { return true },
-		SysLogger:                  noopSysLogger{},
+		LogSink:                    noopLogSink{},
 		CharmhubHTTPClient:         &http.Client{},
 		DBGetter:                   stubDBGetter{},
 		ServiceFactoryGetter:       nil,
@@ -711,9 +711,27 @@ func (stubWatchableDB) Subscribe(...changestream.SubscriptionOption) (changestre
 
 // These mocks are used in place of real components when creating server config.
 
-type noopSysLogger struct{}
+type noopLogger struct{}
 
-func (noopSysLogger) Log([]corelogger.LogRecord) error { return nil }
+func (noopLogger) Log([]corelogger.LogRecord) error { return nil }
+
+func (noopLogger) Close() error { return nil }
+
+type noopLogSink struct{}
+
+func (s noopLogSink) GetLogger(modelUUID, modelName string) corelogger.LoggerCloser {
+	return &noopLogger{}
+}
+
+func (s noopLogSink) RemoveLogger(modelUUID string) error {
+	return nil
+}
+
+func (s noopLogSink) Close() error {
+	return nil
+}
+
+func (noopLogSink) Log([]corelogger.LogRecord) error { return nil }
 
 type fakeMultiwatcherFactory struct {
 	multiwatcher.Factory

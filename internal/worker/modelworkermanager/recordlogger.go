@@ -5,11 +5,9 @@ package modelworkermanager
 
 import (
 	"fmt"
+	"io"
 	"path/filepath"
-	"time"
 
-	"github.com/juju/clock"
-	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
 
 	corelogger "github.com/juju/juju/core/logger"
@@ -21,15 +19,10 @@ func newModelLogger(
 	name string,
 	modelUUID string,
 	reclogger RecordLogger,
-	clock clock.Clock,
 	logger Logger,
 ) *recordLogger {
-	// Write to the database every second, or 1024 entries, whichever comes first.
-	buffered := corelogger.NewBufferedLogger(reclogger, 1024, time.Second, clock)
-
 	return &recordLogger{
 		recordLogger: reclogger,
-		buffer:       buffered,
 		name:         name,
 		modelUUID:    modelUUID,
 		logger:       logger,
@@ -38,10 +31,8 @@ func newModelLogger(
 
 type recordLogger struct {
 	recordLogger RecordLogger
-	buffer       *corelogger.BufferedLogger
+	io.Closer
 
-	// Use struct embedding to get the Close method.
-	corelogger.Logger
 	// "controller-0" for machine-0 in the controller model.
 	name      string
 	modelUUID string
@@ -49,7 +40,7 @@ type recordLogger struct {
 }
 
 func (l *recordLogger) Write(entry loggo.Entry) {
-	err := l.buffer.Log([]corelogger.LogRecord{{
+	err := l.recordLogger.Log([]corelogger.LogRecord{{
 		Time:      entry.Timestamp,
 		Entity:    l.name,
 		Module:    entry.Module,
@@ -66,7 +57,5 @@ func (l *recordLogger) Write(entry loggo.Entry) {
 }
 
 func (l *recordLogger) Close() error {
-	err := errors.Trace(l.buffer.Flush())
-	l.recordLogger.Close()
-	return err
+	return l.recordLogger.Close()
 }

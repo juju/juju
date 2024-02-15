@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/lease"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/internal/servicefactory"
@@ -32,7 +33,6 @@ import (
 	"github.com/juju/juju/internal/worker/gate"
 	"github.com/juju/juju/internal/worker/objectstore"
 	workerstate "github.com/juju/juju/internal/worker/state"
-	"github.com/juju/juju/internal/worker/syslogger"
 	"github.com/juju/juju/internal/worker/trace"
 	"github.com/juju/juju/jujuclient"
 )
@@ -49,7 +49,7 @@ type ManifoldConfig struct {
 	UpgradeGateName        string
 	AuditConfigUpdaterName string
 	LeaseManagerName       string
-	SyslogName             string
+	LogSinkName            string
 	CharmhubHTTPClientName string
 	ChangeStreamName       string
 	ServiceFactoryName     string
@@ -100,8 +100,8 @@ func (config ManifoldConfig) Validate() error {
 	if config.RegisterIntrospectionHTTPHandlers == nil {
 		return errors.NotValidf("nil RegisterIntrospectionHTTPHandlers")
 	}
-	if config.SyslogName == "" {
-		return errors.NotValidf("empty SyslogName")
+	if config.LogSinkName == "" {
+		return errors.NotValidf("empty LogSinkName")
 	}
 	if config.CharmhubHTTPClientName == "" {
 		return errors.NotValidf("empty CharmhubHTTPClientName")
@@ -148,12 +148,12 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.UpgradeGateName,
 			config.AuditConfigUpdaterName,
 			config.LeaseManagerName,
-			config.SyslogName,
 			config.CharmhubHTTPClientName,
 			config.ChangeStreamName,
 			config.ServiceFactoryName,
 			config.TraceName,
 			config.ObjectStoreName,
+			config.LogSinkName,
 		},
 		Start: config.start,
 	}
@@ -210,8 +210,8 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		return nil, errors.Trace(err)
 	}
 
-	var sysLogger syslogger.SysLogger
-	if err := getter.Get(config.SyslogName, &sysLogger); err != nil {
+	var logSink corelogger.ModelLogger
+	if err := getter.Get(config.LogSinkName, &logSink); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -274,7 +274,7 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		NewServer:                         newServerShim,
 		MetricsCollector:                  metricsCollector,
 		EmbeddedCommand:                   execEmbeddedCommand,
-		SysLogger:                         sysLogger,
+		LogSink:                           logSink,
 		CharmhubHTTPClient:                charmhubHTTPClient,
 		DBGetter:                          dbGetter,
 		ServiceFactoryGetter:              serviceFactoryGetter,

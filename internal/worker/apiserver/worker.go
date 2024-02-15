@@ -22,11 +22,11 @@ import (
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/lease"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/internal/worker/objectstore"
-	"github.com/juju/juju/internal/worker/syslogger"
 	"github.com/juju/juju/internal/worker/trace"
 	"github.com/juju/juju/state"
 )
@@ -42,7 +42,7 @@ type Config struct {
 	LocalMacaroonAuthenticator        macaroon.LocalMacaroonAuthenticator
 	StatePool                         *state.StatePool
 	LeaseManager                      lease.Manager
-	SysLogger                         syslogger.SysLogger
+	LogSink                           corelogger.ModelLogger
 	RegisterIntrospectionHTTPHandlers func(func(path string, _ http.Handler))
 	UpgradeComplete                   func() bool
 	GetAuditConfig                    func() auditlog.Config
@@ -98,8 +98,8 @@ func (config Config) Validate() error {
 	if config.RegisterIntrospectionHTTPHandlers == nil {
 		return errors.NotValidf("nil RegisterIntrospectionHTTPHandlers")
 	}
-	if config.SysLogger == nil {
-		return errors.NotValidf("nil SysLogger")
+	if config.LogSink == nil {
+		return errors.NotValidf("nil LogSink")
 	}
 	if config.UpgradeComplete == nil {
 		return errors.NotValidf("nil UpgradeComplete")
@@ -186,7 +186,7 @@ func NewWorker(ctx context.Context, config Config) (worker.Worker, error) {
 		GetAuditConfig:                config.GetAuditConfig,
 		LeaseManager:                  config.LeaseManager,
 		ExecEmbeddedCommand:           config.EmbeddedCommand,
-		SysLogger:                     config.SysLogger,
+		LogSink:                       config.LogSink,
 		CharmhubHTTPClient:            config.CharmhubHTTPClient,
 		DBGetter:                      config.DBGetter,
 		ServiceFactoryGetter:          config.ServiceFactoryGetter,

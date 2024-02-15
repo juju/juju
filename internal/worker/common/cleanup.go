@@ -27,6 +27,11 @@ type CleanupWorker struct {
 	cleanup     func()
 }
 
+// Unwrap exposes the wrapped worker.
+func (c *CleanupWorker) Unwrap() worker.Worker {
+	return c.Worker
+}
+
 // Wait ensures the cleanup func is run after the worker finishes.
 func (w *CleanupWorker) Wait() error {
 	err := w.Worker.Wait()

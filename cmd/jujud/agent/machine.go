@@ -6,7 +6,6 @@ package agent
 import (
 	stdcontext "context"
 	"fmt"
-	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -978,9 +977,6 @@ func (a *MachineAgent) initState(
 func (a *MachineAgent) startModelWorkers(cfg modelworkermanager.NewModelConfig) (worker.Worker, error) {
 	currentConfig := a.CurrentConfig()
 	controllerUUID := currentConfig.Controller().Id()
-	// We look at the model in the agent.conf file to see if we are starting workers
-	// for our model.
-	agentModelUUID := currentConfig.Model().Id()
 	modelAgent, err := model.WrapAgent(a, controllerUUID, cfg.ModelUUID)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -998,47 +994,9 @@ func (a *MachineAgent) startModelWorkers(cfg modelworkermanager.NewModelConfig) 
 		return nil, errors.Trace(err)
 	}
 
-	// Send model logging to a different file on disk to the controller logging
-	// for all models except the controller model.
 	loggingContext := loggo.NewContext(loggo.INFO)
-	var writer io.Writer
-	if agentModelUUID == cfg.ModelUUID {
-		writer = a.ctx.Stderr
-	} else {
-		modelsDir := filepath.Join(currentConfig.LogDir(), "models")
-		if err := os.MkdirAll(modelsDir, 0755); err != nil {
-			return nil, errors.Annotate(err, "unable to create models log directory")
-		}
-		if err := paths.SetSyslogOwner(modelsDir); err != nil && !errors.Is(err, os.ErrPermission) {
-			// If we don't have permission to chown this, it means we are running rootless.
-			return nil, errors.Annotate(err, "unable to set owner for log directory")
-		}
-		if !names.IsValidModel(cfg.ModelUUID) {
-			return nil, errors.NotValidf("model UUID %q", cfg.ModelUUID)
-		}
-		filename := cfg.ModelName + "-" + names.NewModelTag(cfg.ModelUUID).ShortId() + ".log"
-		logFilename := filepath.Join(modelsDir, filename)
-		if err := paths.PrimeLogFile(logFilename); err != nil && !errors.Is(err, os.ErrPermission) {
-			// If we don't have permission to chown this, it means we are running rootless.
-			return nil, errors.Annotate(err, "unable to prime log file")
-		}
-		ljLogger := &lumberjack.Logger{
-			Filename:   logFilename,
-			MaxSize:    cfg.ControllerConfig.ModelLogfileMaxSizeMB(),
-			MaxBackups: cfg.ControllerConfig.ModelLogfileMaxBackups(),
-			Compress:   true,
-		}
-		logger.Debugf("created rotating log file %q with max size %d MB and max backups %d",
-			ljLogger.Filename, ljLogger.MaxSize, ljLogger.MaxBackups)
-		writer = ljLogger
-	}
-	if err := loggingContext.AddWriter(
-		"file", loggo.NewSimpleWriter(writer, loggo.DefaultFormatter)); err != nil {
-		logger.Errorf("unable to configure file logging for model: %v", err)
-	}
-	// Use a standard state logger for the right model.
-	if err := loggingContext.AddWriter("db", cfg.ModelLogger); err != nil {
-		logger.Errorf("unable to configure db logging for model: %v", err)
+	if err := loggingContext.AddWriter("logsink", cfg.ModelLogger); err != nil {
+		logger.Errorf("unable to configure logging for model: %v", err)
 	}
 
 	manifoldsCfg := model.ManifoldsConfig{

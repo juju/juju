@@ -1,15 +1,16 @@
 // Copyright 2022 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package logger_test
+package logger
 
 import (
-	"github.com/juju/testing"
-	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
+	"time"
 
-	"github.com/juju/juju/core/logger"
-	"github.com/juju/juju/core/logger/mocks"
+	"github.com/juju/clock/testclock"
+	"github.com/juju/errors"
+	"github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
+	gc "gopkg.in/check.v1"
 )
 
 type LoggersSuite struct {
@@ -18,57 +19,40 @@ type LoggersSuite struct {
 
 var _ = gc.Suite(&LoggersSuite{})
 
-func (s *LoggersSuite) TestMakeLoggersWithOneLogger(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	mockLogger := mocks.NewMockLoggerCloser(ctrl)
-	mockLogger.EXPECT().Log([]logger.LogRecord{{
-		Message: "hello",
-	}})
-
-	var called bool
-	loggers := logger.MakeLoggers([]string{
-		logger.DatabaseName,
-	}, logger.LoggersConfig{
-		DBLogger: func() logger.Logger {
-			called = true
-			return mockLogger
-		},
-		SysLogger: func() logger.Logger {
-			c.Fail()
-			return nil
-		},
-	})
-	c.Assert(called, gc.Equals, true)
-
-	loggers.Log([]logger.LogRecord{{
-		Message: "hello",
-	}})
+type stubLogger struct {
+	LoggerCloser
+	closed bool
 }
 
-func (s *LoggersSuite) TestMakeLoggersWithMultipleLoggers(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
+func (s *stubLogger) Close() error {
+	s.closed = true
+	return nil
+}
 
-	mockLogger := mocks.NewMockLoggerCloser(ctrl)
-	mockLogger.EXPECT().Log([]logger.LogRecord{{
-		Message: "hello",
-	}}).Times(2)
-
-	loggers := logger.MakeLoggers([]string{
-		logger.DatabaseName,
-		logger.SyslogName,
-	}, logger.LoggersConfig{
-		DBLogger: func() logger.Logger {
-			return mockLogger
+func (s *LoggersSuite) TestModelLoggerClose(c *gc.C) {
+	loggers := map[string]LoggerCloser{
+		"l1": &stubLogger{},
+		"l2": &stubLogger{},
+	}
+	ml := NewModelLogger(
+		func(modelUUID, modelName string) (LoggerCloser, error) {
+			if l, ok := loggers[modelName]; ok {
+				return l, nil
+			}
+			return nil, errors.NotFound
 		},
-		SysLogger: func() logger.Logger {
-			return mockLogger
-		},
-	})
+		1, time.Millisecond, testclock.NewDilatedWallClock(time.Millisecond),
+	)
+	loggerToClose := ml.GetLogger("uuid1", "l1")
+	loggerToRemove := ml.GetLogger("uuid2", "l2")
+	err := ml.RemoveLogger("uuid2")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ml.Close(), jc.ErrorIsNil)
 
-	loggers.Log([]logger.LogRecord{{
-		Message: "hello",
-	}})
+	loggerToCheck, ok := loggerToClose.(*bufferedLoggerCloser).BufferedLogger.l.(*stubLogger)
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(loggerToCheck.closed, jc.IsTrue)
+	loggerToCheck, ok = loggerToRemove.(*bufferedLoggerCloser).BufferedLogger.l.(*stubLogger)
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(loggerToCheck.closed, jc.IsTrue)
 }

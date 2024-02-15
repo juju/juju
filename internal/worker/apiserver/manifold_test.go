@@ -36,7 +36,6 @@ import (
 	"github.com/juju/juju/internal/worker/gate"
 	"github.com/juju/juju/internal/worker/lease"
 	"github.com/juju/juju/internal/worker/objectstore"
-	"github.com/juju/juju/internal/worker/syslogger"
 	"github.com/juju/juju/internal/worker/trace"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
@@ -60,7 +59,7 @@ type ManifoldSuite struct {
 	prometheusRegisterer stubPrometheusRegisterer
 	state                stubStateTracker
 	upgradeGate          stubGateWaiter
-	sysLogger            syslogger.SysLogger
+	logSink              corelogger.ModelLogger
 	charmhubHTTPClient   *http.Client
 	dbGetter             stubWatchableDBGetter
 	serviceFactoryGetter stubServiceFactoryGetter
@@ -85,7 +84,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.auditConfig = stubAuditConfig{}
 	s.multiwatcherFactory = &fakeMultiwatcherFactory{}
 	s.leaseManager = &lease.Manager{}
-	s.sysLogger = &mockSysLogger{}
+	s.logSink = &mockModelLogger{}
 	s.charmhubHTTPClient = &http.Client{}
 	s.stub.ResetCalls()
 
@@ -100,7 +99,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		UpgradeGateName:                   "upgrade",
 		AuditConfigUpdaterName:            "auditconfig-updater",
 		LeaseManagerName:                  "lease-manager",
-		SyslogName:                        "syslog",
+		LogSinkName:                       "log-sink",
 		CharmhubHTTPClientName:            "charmhub-http-client",
 		ServiceFactoryName:                "service-factory",
 		TraceName:                         "trace",
@@ -126,7 +125,7 @@ func (s *ManifoldSuite) newGetter(overlay map[string]interface{}) dependency.Get
 		"upgrade":              &s.upgradeGate,
 		"auditconfig-updater":  s.auditConfig.get,
 		"lease-manager":        s.leaseManager,
-		"syslog":               s.sysLogger,
+		"log-sink":             s.logSink,
 		"charmhub-http-client": s.charmhubHTTPClient,
 		"change-stream":        s.dbGetter,
 		"service-factory":      s.serviceFactoryGetter,
@@ -139,11 +138,11 @@ func (s *ManifoldSuite) newGetter(overlay map[string]interface{}) dependency.Get
 	return dt.StubGetter(resources)
 }
 
-type mockSysLogger struct {
-	syslogger.SysLogger
+type mockModelLogger struct {
+	corelogger.ModelLogger
 }
 
-func (*mockSysLogger) Log([]corelogger.LogRecord) error {
+func (*mockModelLogger) Log([]corelogger.LogRecord) error {
 	return nil
 }
 
@@ -162,8 +161,8 @@ func (s *ManifoldSuite) newMetricsCollector() *coreapiserver.Collector {
 var expectedInputs = []string{
 	"agent", "authenticator", "clock", "multiwatcher", "mux",
 	"state", "upgrade", "auditconfig-updater", "lease-manager",
-	"syslog", "charmhub-http-client", "change-stream", "service-factory",
-	"trace", "object-store",
+	"charmhub-http-client", "change-stream", "service-factory",
+	"trace", "object-store", "log-sink",
 }
 
 func (s *ManifoldSuite) TestInputs(c *gc.C) {
@@ -229,7 +228,7 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 		LeaseManager:               s.leaseManager,
 		MetricsCollector:           s.metricsCollector,
 		Hub:                        &s.hub,
-		SysLogger:                  s.sysLogger,
+		LogSink:                    s.logSink,
 		CharmhubHTTPClient:         s.charmhubHTTPClient,
 		DBGetter:                   s.dbGetter,
 		ServiceFactoryGetter:       s.serviceFactoryGetter,

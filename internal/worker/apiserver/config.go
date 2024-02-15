@@ -16,21 +16,6 @@ import (
 func getLogSinkConfig(cfg agent.Config) (apiserver.LogSinkConfig, error) {
 	result := apiserver.DefaultLogSinkConfig()
 	var err error
-	if v := cfg.Value(agent.LogSinkDBLoggerBufferSize); v != "" {
-		result.DBLoggerBufferSize, err = strconv.Atoi(v)
-		if err != nil {
-			return result, errors.Annotatef(
-				err, "parsing %s", agent.LogSinkDBLoggerBufferSize,
-			)
-		}
-	}
-	if v := cfg.Value(agent.LogSinkDBLoggerFlushInterval); v != "" {
-		if result.DBLoggerFlushInterval, err = time.ParseDuration(v); err != nil {
-			return result, errors.Annotatef(
-				err, "parsing %s", agent.LogSinkDBLoggerFlushInterval,
-			)
-		}
-	}
 	if v := cfg.Value(agent.LogSinkRateLimitBurst); v != "" {
 		result.RateLimitBurst, err = strconv.ParseInt(v, 10, 64)
 		if err != nil {

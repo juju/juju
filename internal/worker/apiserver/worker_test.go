@@ -20,10 +20,10 @@ import (
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/lease"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/internal/worker/apiserver"
-	"github.com/juju/juju/internal/worker/syslogger"
 	"github.com/juju/juju/state"
 )
 
@@ -40,7 +40,7 @@ type workerFixture struct {
 	stub                 testing.Stub
 	metricsCollector     *coreapiserver.Collector
 	multiwatcherFactory  multiwatcher.Factory
-	sysLogger            syslogger.SysLogger
+	logSink              corelogger.ModelLogger
 	charmhubHTTPClient   *http.Client
 	dbGetter             stubWatchableDBGetter
 	serviceFactoryGetter stubServiceFactoryGetter
@@ -65,7 +65,7 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 	s.leaseManager = &struct{ lease.Manager }{}
 	s.metricsCollector = coreapiserver.NewMetricsCollector()
 	s.multiwatcherFactory = &fakeMultiwatcherFactory{}
-	s.sysLogger = &mockSysLogger{}
+	s.logSink = &mockModelLogger{}
 	s.charmhubHTTPClient = &http.Client{}
 	s.stub.ResetCalls()
 
@@ -83,7 +83,7 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 		UpgradeComplete:                   func() bool { return true },
 		NewServer:                         s.newServer,
 		MetricsCollector:                  s.metricsCollector,
-		SysLogger:                         s.sysLogger,
+		LogSink:                           s.logSink,
 		CharmhubHTTPClient:                s.charmhubHTTPClient,
 		DBGetter:                          s.dbGetter,
 		ServiceFactoryGetter:              s.serviceFactoryGetter,
@@ -150,8 +150,8 @@ func (s *WorkerValidationSuite) TestValidateErrors(c *gc.C) {
 		func(cfg *apiserver.Config) { cfg.NewServer = nil },
 		"nil NewServer not valid",
 	}, {
-		func(cfg *apiserver.Config) { cfg.SysLogger = nil },
-		"nil SysLogger not valid",
+		func(cfg *apiserver.Config) { cfg.LogSink = nil },
+		"nil LogSink not valid",
 	}, {
 		func(cfg *apiserver.Config) { cfg.DBGetter = nil },
 		"nil DBGetter not valid",
@@ -184,8 +184,6 @@ func (s *WorkerValidationSuite) testValidateError(c *gc.C, f func(*apiserver.Con
 }
 
 func (s *WorkerValidationSuite) TestValidateLogSinkConfig(c *gc.C) {
-	s.testValidateLogSinkConfig(c, agent.LogSinkDBLoggerBufferSize, "foo", "parsing LOGSINK_DBLOGGER_BUFFER_SIZE: .*")
-	s.testValidateLogSinkConfig(c, agent.LogSinkDBLoggerFlushInterval, "foo", "parsing LOGSINK_DBLOGGER_FLUSH_INTERVAL: .*")
 	s.testValidateLogSinkConfig(c, agent.LogSinkRateLimitBurst, "foo", "parsing LOGSINK_RATELIMIT_BURST: .*")
 	s.testValidateLogSinkConfig(c, agent.LogSinkRateLimitRefill, "foo", "parsing LOGSINK_RATELIMIT_REFILL: .*")
 }

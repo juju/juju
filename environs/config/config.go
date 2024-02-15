@@ -26,7 +26,6 @@ import (
 
 	"github.com/juju/juju/controller"
 	corebase "github.com/juju/juju/core/base"
-	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/internal/charmhub"
@@ -1531,11 +1530,18 @@ func (c *Config) LoggingOutput() ([]string, bool) {
 	return []string{}, false
 }
 
+// These consts are used to define the backend loggers to use.
+// TODO(debug-log) - the database backend needs to be removed.
+const (
+	SyslogName   = "syslog"
+	DatabaseName = "database"
+)
+
 func (c *Config) validateLoggingOutput() error {
 	outputs, _ := c.LoggingOutput()
 	for _, output := range outputs {
 		switch strings.TrimSpace(output) {
-		case corelogger.DatabaseName, corelogger.SyslogName:
+		case DatabaseName, SyslogName:
 		default:
 			return errors.NotValidf("logging-output %q", output)
 		}

@@ -9,7 +9,6 @@ import (
 	"io"
 	"time"
 
-	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
@@ -41,7 +40,6 @@ type ControllerConfigGetter interface {
 // be called to dispose of the model.
 type Controller interface {
 	Model(modelUUID string) (Model, func(), error)
-	RecordLogger(modelUUID string) (RecordLogger, error)
 }
 
 // Model represents a model.
@@ -96,7 +94,6 @@ type NewModelWorkerFunc func(config NewModelConfig) (worker.Worker, error)
 // a model worker manager.
 type Config struct {
 	Authority              pki.Authority
-	Clock                  clock.Clock
 	Logger                 Logger
 	MachineID              string
 	ModelWatcher           ModelWatcher
@@ -106,6 +103,7 @@ type Config struct {
 	ControllerConfigGetter ControllerConfigGetter
 	NewModelWorker         NewModelWorkerFunc
 	ErrorDelay             time.Duration
+	LogSink                corelogger.ModelLogger
 }
 
 // Validate returns an error if config cannot be expected to drive
@@ -113,9 +111,6 @@ type Config struct {
 func (config Config) Validate() error {
 	if config.Authority == nil {
 		return errors.NotValidf("nil authority")
-	}
-	if config.Clock == nil {
-		return errors.NotValidf("nil Clock")
 	}
 	if config.Logger == nil {
 		return errors.NotValidf("nil Logger")
@@ -137,6 +132,9 @@ func (config Config) Validate() error {
 	}
 	if config.NewModelWorker == nil {
 		return errors.NotValidf("nil NewModelWorker")
+	}
+	if config.LogSink == nil {
+		return errors.NotValidf("nil LogSink")
 	}
 	if config.ErrorDelay <= 0 {
 		return errors.NotValidf("non-positive ErrorDelay")
@@ -271,16 +269,12 @@ func (m *modelWorkerManager) starter(cfg NewModelConfig) func() (worker.Worker, 
 		}
 		cfg.ControllerConfig = controllerConfig
 
-		recordLogger, err := m.config.Controller.RecordLogger(modelUUID)
-		if err != nil {
-			return nil, errors.Annotatef(err, "unable to create db logger for %s", modelName)
-		}
+		logSink := m.config.LogSink.GetLogger(modelUUID, cfg.ModelName)
 
 		cfg.ModelLogger = newModelLogger(
 			"controller-"+m.config.MachineID,
 			modelUUID,
-			recordLogger,
-			m.config.Clock,
+			logSink,
 			m.config.Logger,
 		)
 		worker, err := m.config.NewModelWorker(cfg)
