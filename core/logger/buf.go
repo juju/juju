@@ -11,12 +11,6 @@ import (
 	"github.com/juju/errors"
 )
 
-// Logger provides an interface for writing log records.
-type Logger interface {
-	// Log writes the given log records to the logger's storage.
-	Log([]LogRecord) error
-}
-
 // BufferedLogger wraps a Logger, providing a buffer that
 // accumulates log messages, flushing them to the underlying logger
 // when enough messages have been accumulated.

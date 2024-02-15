@@ -71,7 +71,7 @@ type Config struct {
 // NewWorker returns a new worker which provides access to a log sink
 // which allows log entries to be stored for specified models.
 func NewWorker(cfg Config) (worker.Worker, error) {
-	modelLogger := corelogger.NewModelLogger(
+	modelLogger := NewModelLogger(
 		cfg.LoggerForModelFunc,
 		cfg.LogSinkConfig.LoggerBufferSize,
 		cfg.LogSinkConfig.LoggerFlushInterval,

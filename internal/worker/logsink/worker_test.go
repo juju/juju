@@ -23,20 +23,6 @@ type ModelLoggerSuite struct {
 
 var _ = gc.Suite(&ModelLoggerSuite{})
 
-type stubLogger struct {
-	corelogger.LoggerCloser
-	records []corelogger.LogRecord
-}
-
-func (s *stubLogger) Log(rec []corelogger.LogRecord) error {
-	s.records = append(s.records, rec...)
-	return nil
-}
-
-func (s *stubLogger) Close() error {
-	return nil
-}
-
 func (s *ModelLoggerSuite) TestGetLogger(c *gc.C) {
 	testLogger := stubLogger{}
 	ml, err := NewWorker(Config{

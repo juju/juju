@@ -1,7 +1,7 @@
 // Copyright 2022 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package logger
+package logsink
 
 import (
 	"time"
@@ -11,6 +11,8 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+
+	corelogger "github.com/juju/juju/core/logger"
 )
 
 type LoggersSuite struct {
@@ -20,8 +22,14 @@ type LoggersSuite struct {
 var _ = gc.Suite(&LoggersSuite{})
 
 type stubLogger struct {
-	LoggerCloser
-	closed bool
+	corelogger.LoggerCloser
+	records []corelogger.LogRecord
+	closed  bool
+}
+
+func (s *stubLogger) Log(rec []corelogger.LogRecord) error {
+	s.records = append(s.records, rec...)
+	return nil
 }
 
 func (s *stubLogger) Close() error {
@@ -30,29 +38,27 @@ func (s *stubLogger) Close() error {
 }
 
 func (s *LoggersSuite) TestModelLoggerClose(c *gc.C) {
-	loggers := map[string]LoggerCloser{
-		"l1": &stubLogger{},
-		"l2": &stubLogger{},
+	logger1 := &stubLogger{}
+	logger2 := &stubLogger{}
+	loggers := map[string]corelogger.LoggerCloser{
+		"uuid1": logger1,
+		"uuid2": logger2,
 	}
 	ml := NewModelLogger(
-		func(modelUUID, modelName string) (LoggerCloser, error) {
-			if l, ok := loggers[modelName]; ok {
+		func(modelUUID, modelName string) (corelogger.LoggerCloser, error) {
+			if l, ok := loggers[modelUUID]; ok {
 				return l, nil
 			}
 			return nil, errors.NotFound
 		},
 		1, time.Millisecond, testclock.NewDilatedWallClock(time.Millisecond),
 	)
-	loggerToClose := ml.GetLogger("uuid1", "l1")
-	loggerToRemove := ml.GetLogger("uuid2", "l2")
+	ml.GetLogger("uuid1", "l1")
+	ml.GetLogger("uuid2", "l2")
 	err := ml.RemoveLogger("uuid2")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ml.Close(), jc.ErrorIsNil)
 
-	loggerToCheck, ok := loggerToClose.(*bufferedLoggerCloser).BufferedLogger.l.(*stubLogger)
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(loggerToCheck.closed, jc.IsTrue)
-	loggerToCheck, ok = loggerToRemove.(*bufferedLoggerCloser).BufferedLogger.l.(*stubLogger)
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(loggerToCheck.closed, jc.IsTrue)
+	c.Assert(logger1.closed, jc.IsTrue)
+	c.Assert(logger2.closed, jc.IsTrue)
 }
