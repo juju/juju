@@ -46,6 +46,7 @@ import (
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/lease"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/core/resources"
@@ -54,7 +55,6 @@ import (
 	"github.com/juju/juju/internal/resource"
 	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/internal/worker/objectstore"
-	"github.com/juju/juju/internal/worker/syslogger"
 	"github.com/juju/juju/internal/worker/trace"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/jsoncodec"
@@ -86,13 +86,14 @@ type Server struct {
 	httpAuthenticators  []authentication.HTTPAuthenticator
 	loginAuthenticators []authentication.LoginAuthenticator
 
-	offerAuthCtxt          *crossmodel.AuthContext
-	lastConnectionID       uint64
-	newObserver            observer.ObserverFactory
-	allowModelAccess       bool
+	offerAuthCtxt    *crossmodel.AuthContext
+	lastConnectionID uint64
+	newObserver      observer.ObserverFactory
+	allowModelAccess bool
+	// TODO(debug-log) - move into logSink
 	logSinkWriter          io.WriteCloser
 	logsinkRateLimitConfig logsink.RateLimitConfig
-	apiServerLoggers       apiServerLoggers
+	logSink                corelogger.ModelLogger
 	getAuditConfig         func() auditlog.Config
 	upgradeComplete        func() bool
 	mux                    *apiserverhttp.Mux
@@ -192,9 +193,8 @@ type ServerConfig struct {
 	// DefaultLogSinkConfig() will be used.
 	LogSinkConfig *LogSinkConfig
 
-	// SysLogger is a logger that will tee the output from logging
-	// to the local syslog.
-	SysLogger syslogger.SysLogger
+	// LogSink is used to store log records received from connected agents.
+	LogSink corelogger.ModelLogger
 
 	// GetAuditConfig holds a function that returns the current audit
 	// logging config. The function may return updated values, so
@@ -267,8 +267,8 @@ func (c ServerConfig) Validate() error {
 			return errors.Annotate(err, "validating logsink configuration")
 		}
 	}
-	if c.SysLogger == nil {
-		return errors.NotValidf("nil SysLogger")
+	if c.LogSink == nil {
+		return errors.NotValidf("nil LogSink")
 	}
 	if c.MetricsCollector == nil {
 		return errors.NotValidf("missing MetricsCollector")
@@ -317,20 +317,6 @@ func newServer(ctx context.Context, cfg ServerConfig) (_ *Server, err error) {
 	if err != nil {
 		return nil, errors.Annotate(err, "unable to get controller config")
 	}
-
-	systemState, err := cfg.StatePool.SystemState()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	model, err := systemState.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	modelConfig, err := model.Config()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	loggingOutputs, _ := modelConfig.LoggingOutput()
 
 	httpAuthenticators := []authentication.HTTPAuthenticator{cfg.LocalMacaroonAuthenticator}
 	loginAuthenticators := []authentication.LoginAuthenticator{cfg.LocalMacaroonAuthenticator}
@@ -384,14 +370,8 @@ func newServer(ctx context.Context, cfg ServerConfig) (_ *Server, err error) {
 			Burst:  cfg.LogSinkConfig.RateLimitBurst,
 			Clock:  cfg.Clock,
 		},
-		getAuditConfig: cfg.GetAuditConfig,
-		apiServerLoggers: apiServerLoggers{
-			syslogger:           cfg.SysLogger,
-			loggingOutputs:      loggingOutputs,
-			clock:               cfg.Clock,
-			loggerBufferSize:    cfg.LogSinkConfig.DBLoggerBufferSize,
-			loggerFlushInterval: cfg.LogSinkConfig.DBLoggerFlushInterval,
-		},
+		getAuditConfig:      cfg.GetAuditConfig,
+		logSink:             cfg.LogSink,
 		metricsCollector:    cfg.MetricsCollector,
 		execEmbeddedCommand: cfg.ExecEmbeddedCommand,
 
@@ -425,6 +405,14 @@ func newServer(ctx context.Context, cfg ServerConfig) (_ *Server, err error) {
 		return nil, errors.Trace(err)
 	}
 
+	systemState, err := cfg.StatePool.SystemState()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	model, err := systemState.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	if model.Type() == state.ModelTypeCAAS {
 		// CAAS controller writes log to stdout. We should ensure that we don't
 		// close the logSinkWriter when we stopping the tomb, otherwise we get
@@ -445,7 +433,7 @@ func newServer(ctx context.Context, cfg ServerConfig) (_ *Server, err error) {
 
 	ready := make(chan struct{})
 	srv.tomb.Go(func() error {
-		defer srv.apiServerLoggers.dispose()
+		defer srv.logSink.Close()
 		defer srv.logSinkWriter.Close()
 		defer srv.shared.Close()
 		defer unsubscribeControllerConfig()
@@ -730,7 +718,7 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 	)
 	pubsubHandler := newPubSubHandler(httpCtxt, srv.shared.centralHub)
 	logSinkHandler := logsink.NewHTTPHandler(
-		newAgentLogWriteCloserFunc(httpCtxt, srv.logSinkWriter, &srv.apiServerLoggers),
+		newAgentLogWriteCloserFunc(httpCtxt, srv.logSinkWriter, srv.logSink),
 		httpCtxt.stop(),
 		&srv.logsinkRateLimitConfig,
 		logsinkMetricsCollectorWrapper{collector: srv.metricsCollector},
@@ -740,7 +728,7 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 	logTransferHandler := logsink.NewHTTPHandler(
 		// We don't need to save the migrated logs
 		// to a logfile as well as to the DB.
-		newMigrationLogWriteCloserFunc(httpCtxt, &srv.apiServerLoggers),
+		newMigrationLogWriteCloserFunc(httpCtxt, srv.logSink),
 		httpCtxt.stop(),
 		nil, // no rate-limiting
 		logsinkMetricsCollectorWrapper{collector: srv.metricsCollector},

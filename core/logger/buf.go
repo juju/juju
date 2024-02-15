@@ -11,12 +11,6 @@ import (
 	"github.com/juju/errors"
 )
 
-// Logger provides an interface for writing log records.
-type Logger interface {
-	// Log writes the given log records to the logger's storage.
-	Log([]LogRecord) error
-}
-
 // BufferedLogger wraps a Logger, providing a buffer that
 // accumulates log messages, flushing them to the underlying logger
 // when enough messages have been accumulated.
@@ -51,6 +45,8 @@ func NewBufferedLogger(
 // BufferedLogger's Log implementation will buffer log records up to
 // the specified capacity and duration; after either of which is exceeded,
 // the records will be flushed to the underlying logger.
+// TODO(debug-log) - we may receive log messages slightly out of order.
+// We should ensure they are sorted on timestamp.
 func (b *BufferedLogger) Log(in []LogRecord) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()

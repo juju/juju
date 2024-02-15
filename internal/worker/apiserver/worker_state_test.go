@@ -119,7 +119,7 @@ func (s *WorkerStateSuite) TestStart(c *gc.C) {
 		LogSinkConfig:              &logSinkConfig,
 		LeaseManager:               s.leaseManager,
 		MetricsCollector:           s.metricsCollector,
-		SysLogger:                  s.sysLogger,
+		LogSink:                    s.logSink,
 		CharmhubHTTPClient:         s.charmhubHTTPClient,
 		DBGetter:                   s.dbGetter,
 		ServiceFactoryGetter:       s.serviceFactoryGetter,

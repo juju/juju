@@ -618,6 +618,7 @@ func (w *Worker) transferLogs(targetInfo coremigration.TargetInfo, modelUUID str
 		return errors.Annotate(err, "opening source log stream")
 	}
 
+	// TODO(debug-log) - delete old model logs off the source controller after migration
 	logTarget, err := targetClient.OpenLogTransferStream(ctx, modelUUID)
 	if err != nil {
 		return errors.Annotate(err, "opening target log stream")

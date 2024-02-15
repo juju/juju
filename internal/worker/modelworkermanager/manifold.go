@@ -6,19 +6,18 @@ package modelworkermanager
 import (
 	"context"
 
-	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver/apiserverhttp"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/pki"
 	"github.com/juju/juju/internal/servicefactory"
 	jworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/common"
 	workerstate "github.com/juju/juju/internal/worker/state"
-	"github.com/juju/juju/internal/worker/syslogger"
 )
 
 // Logger defines the logging methods used by the worker.
@@ -37,9 +36,8 @@ type ManifoldConfig struct {
 	StateName          string
 	ServiceFactoryName string
 	MuxName            string
-	SyslogName         string
+	LogSinkName        string
 
-	Clock          clock.Clock
 	NewWorker      func(Config) (worker.Worker, error)
 	NewModelWorker NewModelWorkerFunc
 	ModelMetrics   ModelMetrics
@@ -63,8 +61,8 @@ func (config ManifoldConfig) Validate() error {
 	if config.MuxName == "" {
 		return errors.NotValidf("empty MuxName")
 	}
-	if config.SyslogName == "" {
-		return errors.NotValidf("empty SyslogName")
+	if config.LogSinkName == "" {
+		return errors.NotValidf("empty LogSinkName")
 	}
 	if config.NewWorker == nil {
 		return errors.NotValidf("nil NewWorker")
@@ -89,7 +87,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.AuthorityName,
 			config.MuxName,
 			config.StateName,
-			config.SyslogName,
+			config.LogSinkName,
 			config.ServiceFactoryName,
 		},
 		Start: config.start,
@@ -116,8 +114,8 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 		return nil, errors.Trace(err)
 	}
 
-	var sysLogger syslogger.SysLogger
-	if err := getter.Get(config.SyslogName, &sysLogger); err != nil {
+	var logSink corelogger.ModelLogger
+	if err := getter.Get(config.LogSinkName, &logSink); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -139,7 +137,6 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 
 	w, err := config.NewWorker(Config{
 		Authority:    authority,
-		Clock:        config.Clock,
 		Logger:       config.Logger,
 		MachineID:    machineID,
 		ModelWatcher: systemState,
@@ -147,8 +144,8 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 		Mux:          mux,
 		Controller: StatePoolController{
 			StatePool: statePool,
-			SysLogger: sysLogger,
 		},
+		LogSink:                logSink,
 		ControllerConfigGetter: controllerServiceFactory.ControllerConfig(),
 		NewModelWorker:         config.NewModelWorker,
 		ErrorDelay:             jworker.RestartDelay,

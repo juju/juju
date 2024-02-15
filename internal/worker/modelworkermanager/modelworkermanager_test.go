@@ -8,7 +8,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
@@ -21,6 +20,7 @@ import (
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/controller"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/pki"
 	pkitest "github.com/juju/juju/internal/pki/test"
 	"github.com/juju/juju/internal/worker/modelworkermanager"
@@ -195,7 +195,6 @@ func (s *suite) runKillTest(c *gc.C, kill killFunc, test testFunc) {
 	controller := newMockController()
 	config := modelworkermanager.Config{
 		Authority:              s.authority,
-		Clock:                  clock.WallClock,
 		Logger:                 loggo.GetLogger("test"),
 		MachineID:              "1",
 		ModelWatcher:           watcher,
@@ -204,6 +203,7 @@ func (s *suite) runKillTest(c *gc.C, kill killFunc, test testFunc) {
 		NewModelWorker:         s.startModelWorker,
 		ModelMetrics:           dummyModelMetrics{},
 		ErrorDelay:             time.Millisecond,
+		LogSink:                dummyModelLogger{},
 	}
 	w, err := modelworkermanager.New(config)
 	c.Assert(err, jc.ErrorIsNil)
@@ -225,6 +225,14 @@ type dummyMetricSink struct {
 
 func (dummyMetricSink) Unregister() bool {
 	return true
+}
+
+type dummyModelLogger struct {
+	corelogger.ModelLogger
+}
+
+func (dummyModelLogger) GetLogger(modelUUID, modelName string) (corelogger.LoggerCloser, error) {
+	return stubLogger{}, nil
 }
 
 func (s *suite) startModelWorker(config modelworkermanager.NewModelConfig) (worker.Worker, error) {

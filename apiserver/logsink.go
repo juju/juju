@@ -8,123 +8,22 @@ import (
 	"io"
 	"net/http"
 	"strings"
-	"sync"
 	"time"
 
-	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
 
 	"github.com/juju/juju/apiserver/logsink"
 	corelogger "github.com/juju/juju/core/logger"
-	"github.com/juju/juju/internal/worker/syslogger"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
-
-const (
-	defaultLoggerBufferSize    = 1000
-	defaultLoggerFlushInterval = 2 * time.Second
-)
-
-// RecordLogger defines an interface for logging a singular log record.
-type RecordLogger interface {
-	Log([]corelogger.LogRecord) error
-}
-
-// apiServerLoggers contains a map of loggers, either a DB or syslog. Both
-// DB and syslog are wrapped by a buffered logger to prevent flooding of
-// the DB or syslog in TRACE level mode.
-// When one of the logging strategies requires a logger, it uses this to get it.
-// When the State corresponding to the logger is removed from the
-// state pool, the strategies must call the apiServerLoggers.removeLogger
-// method.
-type apiServerLoggers struct {
-	syslogger           syslogger.SysLogger
-	loggingOutputs      []string
-	clock               clock.Clock
-	loggerBufferSize    int
-	loggerFlushInterval time.Duration
-	mu                  sync.Mutex
-	loggers             map[*state.State]*bufferedLogger
-}
-
-func (d *apiServerLoggers) getLogger(st *state.State) RecordLogger {
-	d.mu.Lock()
-	defer d.mu.Unlock()
-	if l, ok := d.loggers[st]; ok {
-		return l
-	}
-	if d.loggers == nil {
-		d.loggers = make(map[*state.State]*bufferedLogger)
-	}
-
-	outputs := d.getLoggers(st)
-
-	bufferedLogger := &bufferedLogger{
-		BufferedLogger: corelogger.NewBufferedLogger(
-			outputs,
-			d.loggerBufferSize,
-			d.loggerFlushInterval,
-			d.clock,
-		),
-		closer: outputs,
-	}
-	d.loggers[st] = bufferedLogger
-	return bufferedLogger
-}
-
-func (d *apiServerLoggers) removeLogger(st *state.State) {
-	d.mu.Lock()
-	defer d.mu.Unlock()
-	if l, ok := d.loggers[st]; ok {
-		l.Close()
-		delete(d.loggers, st)
-	}
-}
-
-func (d *apiServerLoggers) getLoggers(st *state.State) corelogger.LoggerCloser {
-	// If the logging output is empty, then send it to state.
-	if len(d.loggingOutputs) == 0 {
-		return state.NewDbLogger(st)
-	}
-
-	return corelogger.MakeLoggers(d.loggingOutputs, corelogger.LoggersConfig{
-		SysLogger: func() corelogger.Logger {
-			return d.syslogger
-		},
-		DBLogger: func() corelogger.Logger {
-			return state.NewDbLogger(st)
-		},
-	})
-}
-
-// dispose closes all apiServerLoggers in the map, and clears the memory. This
-// must not be called concurrently with any other apiServerLoggers methods.
-func (d *apiServerLoggers) dispose() {
-	for _, l := range d.loggers {
-		_ = l.Close()
-	}
-	d.loggers = nil
-}
-
-type bufferedLogger struct {
-	*corelogger.BufferedLogger
-	closer io.Closer
-}
-
-func (b *bufferedLogger) Close() error {
-	err := errors.Trace(b.BufferedLogger.Flush())
-	_ = b.closer.Close()
-	return err
-}
 
 type agentLoggingStrategy struct {
-	apiServerLoggers *apiServerLoggers
-	fileLogger       io.Writer
+	modelLogger corelogger.ModelLogger
+	fileLogger  io.Writer
 
-	recordLogger RecordLogger
-	releaser     func()
+	recordLogger corelogger.Logger
+	releaser     func() error
 	entity       string
 	modelUUID    string
 }
@@ -135,12 +34,12 @@ type agentLoggingStrategy struct {
 func newAgentLogWriteCloserFunc(
 	ctxt httpContext,
 	fileLogger io.Writer,
-	apiServerLoggers *apiServerLoggers,
+	modelLogger corelogger.ModelLogger,
 ) logsink.NewLogWriteCloserFunc {
 	return func(req *http.Request) (logsink.LogWriteCloser, error) {
 		strategy := &agentLoggingStrategy{
-			apiServerLoggers: apiServerLoggers,
-			fileLogger:       fileLogger,
+			modelLogger: modelLogger,
+			fileLogger:  fileLogger,
 		}
 		if err := strategy.init(ctxt, req); err != nil {
 			return nil, errors.Annotate(err, "initialising agent logsink session")
@@ -157,11 +56,18 @@ func (s *agentLoggingStrategy) init(ctxt httpContext, req *http.Request) error {
 
 	s.entity = entity.Tag().String()
 	s.modelUUID = st.ModelUUID()
-	s.recordLogger = s.apiServerLoggers.getLogger(st.State)
-	s.releaser = func() {
+	m, err := st.Model()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if s.recordLogger, err = s.modelLogger.GetLogger(s.modelUUID, m.Name()); err != nil {
+		return errors.Trace(err)
+	}
+	s.releaser = func() error {
 		if removed := st.Release(); removed {
-			s.apiServerLoggers.removeLogger(st.State)
+			return s.modelLogger.RemoveLogger(s.modelUUID)
 		}
+		return nil
 	}
 	return nil
 }
@@ -176,8 +82,7 @@ func (s *agentLoggingStrategy) filePrefix() string {
 // if the State is closed/removed. The file logger is owned
 // by the apiserver, so it is not closed.
 func (s *agentLoggingStrategy) Close() error {
-	s.releaser()
-	return nil
+	return s.releaser()
 }
 
 // WriteLog is part of the logsink.LogWriteCloser interface.

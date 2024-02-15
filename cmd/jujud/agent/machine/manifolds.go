@@ -80,6 +80,7 @@ import (
 	"github.com/juju/juju/internal/worker/leaseexpiry"
 	"github.com/juju/juju/internal/worker/logger"
 	"github.com/juju/juju/internal/worker/logsender"
+	"github.com/juju/juju/internal/worker/logsink"
 	"github.com/juju/juju/internal/worker/machineactions"
 	"github.com/juju/juju/internal/worker/machiner"
 	"github.com/juju/juju/internal/worker/migrationflag"
@@ -640,12 +641,22 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:            httpserver.NewWorkerShim,
 		}),
 
+		logSinkName: ifController(logsink.Manifold(logsink.ManifoldConfig{
+			ClockName:          clockName,
+			ServiceFactoryName: serviceFactoryName,
+			AgentName:          agentName,
+			StateName:          stateName,
+			SyslogName:         syslogName,
+			DebugLogger:        loggo.GetLogger("juju.worker.logsink"),
+			NewWorker:          logsink.NewWorker,
+		})),
+
 		apiServerName: apiserver.Manifold(apiserver.ManifoldConfig{
 			AgentName:              agentName,
 			AuthenticatorName:      httpServerArgsName,
 			ClockName:              clockName,
 			StateName:              stateName,
-			SyslogName:             syslogName,
+			LogSinkName:            logSinkName,
 			MultiwatcherName:       multiwatcherName,
 			MuxName:                httpServerArgsName,
 			LeaseManagerName:       leaseManagerName,
@@ -687,9 +698,8 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			AgentName:          agentName,
 			AuthorityName:      certificateWatcherName,
 			StateName:          stateName,
-			SyslogName:         syslogName,
+			LogSinkName:        logSinkName,
 			ServiceFactoryName: serviceFactoryName,
-			Clock:              config.Clock,
 			MuxName:            httpServerArgsName,
 			NewWorker:          modelworkermanager.New,
 			NewModelWorker:     config.NewModelWorker,
@@ -1335,7 +1345,9 @@ const (
 	httpServerArgsName = "http-server-args"
 	apiServerName      = "api-server"
 
-	syslogName       = "syslog"
+	syslogName  = "syslog"
+	logSinkName = "log-sink"
+
 	caasUnitsManager = "caas-units-manager"
 
 	validCredentialFlagName = "valid-credential-flag"

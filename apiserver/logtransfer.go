@@ -18,19 +18,19 @@ import (
 )
 
 type migrationLoggingStrategy struct {
-	apiServerLoggers *apiServerLoggers
+	modelLogger corelogger.ModelLogger
 
-	recordLogger RecordLogger
-	releaser     func()
+	recordLogger corelogger.Logger
+	releaser     func() error
 	tracker      *logTracker
 }
 
 // newMigrationLogWriteCloserFunc returns a function that will create a
 // logsink.LoggingStrategy given an *http.Request, that writes log
 // messages to the state database and tracks their migration.
-func newMigrationLogWriteCloserFunc(ctxt httpContext, apiServerLoggers *apiServerLoggers) logsink.NewLogWriteCloserFunc {
+func newMigrationLogWriteCloserFunc(ctxt httpContext, modelLogger corelogger.ModelLogger) logsink.NewLogWriteCloserFunc {
 	return func(req *http.Request) (logsink.LogWriteCloser, error) {
-		strategy := &migrationLoggingStrategy{apiServerLoggers: apiServerLoggers}
+		strategy := &migrationLoggingStrategy{modelLogger: modelLogger}
 		if err := strategy.init(ctxt, req); err != nil {
 			return nil, errors.Annotate(err, "initialising migration logsink session")
 		}
@@ -58,12 +58,21 @@ func (s *migrationLoggingStrategy) init(ctxt httpContext, req *http.Request) err
 		return errors.Trace(err)
 	}
 
-	s.recordLogger = s.apiServerLoggers.getLogger(st.State)
+	m, err := st.Model()
+	if err != nil {
+		st.Release()
+		return errors.Trace(err)
+	}
+	if s.recordLogger, err = s.modelLogger.GetLogger(st.State.ModelUUID(), m.Name()); err != nil {
+		return errors.Trace(err)
+	}
+	// TODO(debug-log) - remove mongo log tracker
 	s.tracker = newLogTracker(st.State)
-	s.releaser = func() {
+	s.releaser = func() error {
 		if removed := st.Release(); removed {
-			s.apiServerLoggers.removeLogger(st.State)
+			return s.modelLogger.RemoveLogger(st.State.ModelUUID())
 		}
+		return nil
 	}
 	return nil
 }
@@ -74,7 +83,10 @@ func (s *migrationLoggingStrategy) Close() error {
 		s.tracker.Close(),
 		"closing last-sent tracker",
 	)
-	s.releaser()
+	releaseErr := s.releaser()
+	if releaseErr != nil {
+		return releaseErr
+	}
 	return err
 }
 
