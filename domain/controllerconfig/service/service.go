@@ -174,6 +174,12 @@ func validObjectStoreProgression(current map[string]string, updateAttrs controll
 		return errors.Errorf("can not remove %q", controller.ObjectStoreType)
 	}
 
+	// If we're not changing the object store type, we don't need to validate
+	// anything.
+	if _, ok := updateAttrs[controller.ObjectStoreType]; !ok {
+		return nil
+	}
+
 	// We should always have a valid object store type in the current config,
 	// so we don't need to check for errors.
 	cur := objectstore.BackendType(current[controller.ObjectStoreType])

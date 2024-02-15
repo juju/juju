@@ -102,6 +102,27 @@ func (s *serviceSuite) TestUpdateControllerValidationError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `updating controller config state: can not change "object-store-type" from "s3" to "file"`)
 }
 
+func (s *serviceSuite) TestUpdateControllerValidationIgnored(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Test that not sending anything doesn't cause the validation to error.
+
+	cfg, coerced := makeDefaultConfig("does not matter")
+	_, current := makeDefaultConfig("file")
+
+	// Remove the object-store-type from the current config, and ensure that
+	// we don't error out.
+	delete(cfg, controller.ObjectStoreType)
+	delete(coerced, controller.ObjectStoreType)
+
+	s.state.EXPECT().UpdateControllerConfig(gomock.Any(), coerced, nil, gomock.Any()).DoAndReturn(func(ctx context.Context, updateAttrs map[string]string, removeAttrs []string, validateModification ModificationValidatorFunc) error {
+		return validateModification(current)
+	})
+
+	err := NewWatchableService(s.state, s.watcherFactory).UpdateControllerConfig(context.Background(), cfg, nil)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *serviceSuite) TestWatch(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
