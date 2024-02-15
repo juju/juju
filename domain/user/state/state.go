@@ -48,7 +48,7 @@ func (st *State) AddUser(
 	}
 
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		return errors.Trace(addUser(ctx, tx, uuid, name, displayName, creatorUUID))
+		return errors.Trace(AddUser(ctx, tx, uuid, name, displayName, creatorUUID))
 	})
 }
 
@@ -94,7 +94,7 @@ func (st *State) AddUserWithActivationKey(
 	}
 
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err = addUser(ctx, tx, uuid, name, displayName, creatorUUID)
+		err = AddUser(ctx, tx, uuid, name, displayName, creatorUUID)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -489,7 +489,7 @@ func AddUserWithPassword(
 	passwordHash string,
 	salt []byte,
 ) error {
-	err := addUser(ctx, tx, uuid, name, displayName, creatorUUID)
+	err := AddUser(ctx, tx, uuid, name, displayName, creatorUUID)
 	if err != nil {
 		return errors.Annotatef(err, "adding user with uuid %q", uuid)
 	}
@@ -536,11 +536,11 @@ WHERE user_uuid = $M.uuid
 	})
 }
 
-// addUser adds a new user to the database. If the user already exists an error
+// AddUser adds a new user to the database. If the user already exists an error
 // that satisfies usererrors.AlreadyExists will be returned. If the creator does
 // not exist an error that satisfies usererrors.UserCreatorUUIDNotFound will be
 // returned.
-func addUser(ctx context.Context, tx *sqlair.TX, uuid user.UUID, name string, displayName string, creatorUuid user.UUID) error {
+func AddUser(ctx context.Context, tx *sqlair.TX, uuid user.UUID, name string, displayName string, creatorUuid user.UUID) error {
 	addUserQuery := `
 INSERT INTO user (uuid, name, display_name, created_by_uuid, created_at) 
 VALUES ($M.uuid, $M.name, $M.display_name, $M.created_by_uuid, $M.created_at)

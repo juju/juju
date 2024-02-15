@@ -19,6 +19,21 @@ type bootstrapSuite struct {
 
 var _ = gc.Suite(&bootstrapSuite{})
 
+func (s *bootstrapSuite) TestAddUser(c *gc.C) {
+	ctx := context.Background()
+	uuid, addAdminUser := AddUser("admin")
+	err := addAdminUser(ctx, s.TxnRunner())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(uuid.Validate(), jc.ErrorIsNil)
+
+	// Check that the user was created.
+	var name string
+	row := s.DB().QueryRow(`
+SELECT name FROM user WHERE name = ?`, "admin")
+	c.Assert(row.Scan(&name), jc.ErrorIsNil)
+	c.Assert(name, gc.Equals, "admin")
+}
+
 func (s *bootstrapSuite) TestAddUserWithPassword(c *gc.C) {
 	ctx := context.Background()
 	uuid, addAdminUser := AddUserWithPassword("admin", auth.NewPassword("password"))

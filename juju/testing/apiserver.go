@@ -46,6 +46,7 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/core/trace"
+	coreuser "github.com/juju/juju/core/user"
 	cloudbootstrap "github.com/juju/juju/domain/cloud/bootstrap"
 	cloudstate "github.com/juju/juju/domain/cloud/state"
 	controllerconfigbootstrap "github.com/juju/juju/domain/controllerconfig/bootstrap"
@@ -54,6 +55,7 @@ import (
 	credentialstate "github.com/juju/juju/domain/credential/state"
 	"github.com/juju/juju/domain/model"
 	servicefactorytesting "github.com/juju/juju/domain/servicefactory/testing"
+	userbootstrap "github.com/juju/juju/domain/user/bootstrap"
 	databasetesting "github.com/juju/juju/internal/database/testing"
 	internallease "github.com/juju/juju/internal/lease"
 	"github.com/juju/juju/internal/mongo"
@@ -600,7 +602,11 @@ func (s *ApiServerSuite) SeedCAASCloud(c *gc.C) {
 // SeedDatabase the database with a supplied controller config, and dummy
 // cloud and dummy credentials.
 func SeedDatabase(c *gc.C, runner database.TxnRunner, controllerConfig controller.Config) {
-	err := controllerconfigbootstrap.InsertInitialControllerConfig(controllerConfig)(context.Background(), runner)
+	_, userAdd := userbootstrap.AddUser(coreuser.AdminUserName)
+	err := userAdd(context.Background(), runner)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = controllerconfigbootstrap.InsertInitialControllerConfig(controllerConfig)(context.Background(), runner)
 	c.Assert(err, jc.ErrorIsNil)
 
 	SeedCloudCredentials(c, runner)
