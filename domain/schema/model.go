@@ -51,8 +51,7 @@ func ModelDDL() *schema.Schema {
 		annotationSchemaForTable("machine"),
 		annotationSchemaForTable("unit"),
 		annotationModel,
-		annotationSchemaForTable("storage_volume"),
-		annotationSchemaForTable("storage_filesystem"),
+		annotationSchemaForTable("storage_instance"),
 	}
 
 	modelSchema := schema.New()
@@ -74,14 +73,14 @@ func annotationSchemaForTable(table string) func() schema.Patch {
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
 CREATE TABLE annotation_%[1]s (
-    %[1]s_uuid          TEXT NOT NULL,
+    uuid                TEXT NOT NULL,
     key                 TEXT NOT NULL,
     value               TEXT NOT NULL,
-    PRIMARY KEY         (%[1]s_uuid, key)
+    PRIMARY KEY         (uuid, key)
     -- Following needs to be uncommented when we do have the
     -- annotatables as real domain entities.
     -- CONSTRAINT          fk_annotation_%[1]s
-    --     FOREIGN KEY     (%[1]s_uuid)
+    --     FOREIGN KEY     (uuid)
     --     REFERENCES      %[1]s(uuid)
 );`[1:], table))
 	}
@@ -326,7 +325,8 @@ ON application (name);
 func charmSchema() schema.Patch {
 	return schema.MakePatch(`
 CREATE TABLE charm (
-    uuid    TEXT PRIMARY KEY
+    uuid    TEXT PRIMARY KEY,
+    url     TEXT NOT NULL
 );
 `)
 }
