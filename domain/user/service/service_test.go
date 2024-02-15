@@ -16,7 +16,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/user"
-	domainuser "github.com/juju/juju/domain/user"
 	usererrors "github.com/juju/juju/domain/user/errors"
 	usertesting "github.com/juju/juju/domain/user/testing"
 	"github.com/juju/juju/internal/auth"
@@ -45,9 +44,6 @@ func (s *serviceSuite) TestAddUserNameNotValid(c *gc.C) {
 	_, _, err := s.service().AddUser(context.Background(), AddUserArg{Name: usertesting.InvalidUsernames[0]})
 	c.Assert(err, jc.ErrorIs, usererrors.UserNameNotValid)
 }
-
-// TODO (manadart): Add a matcher to this test that ensures we still get a UUID
-// when none was supplied.
 
 // TestAddUserAlreadyExists is testing that we cannot add a user with a username
 // that already exists and is active. We expect that in this case we should
@@ -377,41 +373,6 @@ func FuzzGetUser(f *testing.F) {
 			t.Errorf("GetUser() user.name %q != %q", usr.Name, username)
 		}
 	})
-}
-
-// TestUsernameValidation exists to assert the regex that is in use by
-// ValidateUserName. We want to pass it a wide range of unicode names with weird
-func (s *serviceSuite) TestUserNameValidation(c *gc.C) {
-	var tests []struct {
-		Username   string
-		ShouldPass bool
-	}
-
-	for _, valid := range usertesting.ValidUsernames {
-		tests = append(tests, struct {
-			Username   string
-			ShouldPass bool
-		}{valid, true})
-	}
-
-	for _, invalid := range usertesting.InvalidUsernames {
-		tests = append(tests, struct {
-			Username   string
-			ShouldPass bool
-		}{invalid, false})
-	}
-
-	for _, test := range tests {
-		err := domainuser.ValidateUserName(test.Username)
-		if test.ShouldPass {
-			c.Assert(err, jc.ErrorIsNil, gc.Commentf("test username %q", test.Username))
-		} else {
-			c.Assert(
-				err, jc.ErrorIs, usererrors.UserNameNotValid,
-				gc.Commentf("test username %q", test.Username),
-			)
-		}
-	}
 }
 
 // TestUpdateLastLogin tests the happy path for UpdateLastLogin.

@@ -152,7 +152,7 @@ func (s *Service) GetUser(
 // GetUserByName will find and return the user associated with name. If there is no
 // user for the user name then an error that satisfies usererrors.NotFound will
 // be returned. If supplied with an invalid user name then an error that satisfies
-// usererrors.UsernameNotValid will be returned.
+// usererrors.UserNameNotValid will be returned.
 //
 // GetUserByName will not return users that have been previously removed.
 func (s *Service) GetUserByName(
@@ -174,7 +174,7 @@ func (s *Service) GetUserByName(
 // GetUserByAuth will find and return the user with UUID. If there is no
 // user for the name and password, then an error that satisfies
 // usererrors.NotFound will be returned. If supplied with an invalid user name
-// then an error that satisfies usererrors.UsernameNotValid will be returned.
+// then an error that satisfies usererrors.UserNameNotValid will be returned.
 // It will not return users that have been previously removed.
 // TODO (manadart 2024-02-13) Should this not accept a typed password?
 func (s *Service) GetUserByAuth(
@@ -292,7 +292,7 @@ func (s *Service) RemoveUser(ctx context.Context, name string) error {
 // SetPassword changes the users password to the new value and removes any
 // active activation keys for the users.
 // The following error types are possible from this function:
-//   - usererrors.UsernameNotValid: When the username supplied is not valid.
+//   - usererrors.UserNameNotValid: When the username supplied is not valid.
 //   - usererrors.NotFound: If no user by the given name exists.
 //   - internal/auth.ErrPasswordNotValid: If the password supplied is not valid.
 func (s *Service) SetPassword(ctx context.Context, name string, pass auth.Password) error {
@@ -343,7 +343,7 @@ func (s *Service) ResetPassword(ctx context.Context, name string) ([]byte, error
 
 // EnableUserAuthentication will enable the user for authentication.
 // The following error types are possible from this function:
-// - usererrors.UsernameNotValid: When the username supplied is not valid.
+// - usererrors.UserNameNotValid: When the username supplied is not valid.
 // - usererrors.NotFound: If no user by the given UUID exists.
 func (s *Service) EnableUserAuthentication(ctx context.Context, name string) error {
 	if err := domainuser.ValidateUserName(name); err != nil {
@@ -358,7 +358,7 @@ func (s *Service) EnableUserAuthentication(ctx context.Context, name string) err
 
 // DisableUserAuthentication will disable the user for authentication.
 // The following error types are possible from this function:
-// - usererrors.UsernameNotValid: When the username supplied is not valid.
+// - usererrors.UserNameNotValid: When the username supplied is not valid.
 // - usererrors.NotFound: If no user by the given UUID exists.
 func (s *Service) DisableUserAuthentication(ctx context.Context, name string) error {
 	if err := domainuser.ValidateUserName(name); err != nil {
