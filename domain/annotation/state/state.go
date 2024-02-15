@@ -30,11 +30,6 @@ func NewState(factory database.TxnRunnerFactory) *State {
 // GetAnnotations will retrieve all the annotations associated with the given ID from the database.
 // If no annotations are found, an empty map is returned.
 func (st *State) GetAnnotations(ctx context.Context, id annotations.ID) (map[string]string, error) {
-	db, err := st.DB()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	// Prepare query for getting the annotations of ID
 	getAnnotationsQuery, err := getAnnotationQueryForID(id)
 	if err != nil {
@@ -47,19 +42,24 @@ func (st *State) GetAnnotations(ctx context.Context, id annotations.ID) (map[str
 	}
 
 	if id.Kind == annotations.KindModel {
-		return st.getAnnotationsForModel(ctx, db, id, getAnnotationsStmt)
+		return st.getAnnotationsForModel(ctx, id, getAnnotationsStmt)
 	}
-	return st.getAnnotationsForID(ctx, db, id, getAnnotationsStmt)
+	return st.getAnnotationsForID(ctx, id, getAnnotationsStmt)
 }
 
 // getAnnotationsForModel retrieves all annotations aassociated with the given model id from the
 // database. If no annotations are found, an empty map is returned. This is specialized as opposed
 // to the other Kinds because we keep annotations per model, so we don't need to try to find the
 // uuid of the given id (the model).
-func (st *State) getAnnotationsForModel(ctx context.Context, db database.TxnRunner, id annotations.ID, getAnnotationsStmt *sqlair.Statement) (map[string]string, error) {
+func (st *State) getAnnotationsForModel(ctx context.Context, id annotations.ID, getAnnotationsStmt *sqlair.Statement) (map[string]string, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	// Running transactions for getting annotations
 	var annotationsResults []Annotation
-	err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		return tx.Query(ctx, getAnnotationsStmt).GetAll(&annotationsResults)
 	})
 
@@ -83,7 +83,12 @@ func (st *State) getAnnotationsForModel(ctx context.Context, db database.TxnRunn
 // no annotations are found, an empty map is returned. This is separate from the
 // getAnnotationsForModel because for non-model ID Kinds we need to find the uuid of the id before
 // we retrieve annotations from the corresponding annotation table.
-func (st *State) getAnnotationsForID(ctx context.Context, db database.TxnRunner, id annotations.ID, getAnnotationsStmt *sqlair.Statement) (map[string]string, error) {
+func (st *State) getAnnotationsForID(ctx context.Context, id annotations.ID, getAnnotationsStmt *sqlair.Statement) (map[string]string, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	// Prepare queries for looking up the uuid of id
 	kindQuery, kindQueryParam, err := uuidQueryForID(id)
 	if err != nil {
@@ -140,11 +145,6 @@ func (st *State) getAnnotationsForID(ctx context.Context, db database.TxnRunner,
 // deleted, then the given pairs are inserted, so unsetting an annotation is implicit.
 func (st *State) SetAnnotations(ctx context.Context, id annotations.ID,
 	annotationsParam map[string]string) error {
-	db, err := st.DB()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
 	// Separate the annotations that are to be set vs removed
 	toInsert := make(map[string]string)
 
@@ -176,21 +176,24 @@ func (st *State) SetAnnotations(ctx context.Context, id annotations.ID,
 	}
 
 	if id.Kind == annotations.KindModel {
-		return st.setAnnotationsForModel(ctx, db, id, toInsert,
-			setAnnotationsStmt, deleteAnnotationsStmt)
+		return st.setAnnotationsForModel(ctx, id, toInsert, setAnnotationsStmt, deleteAnnotationsStmt)
 	}
-	return st.setAnnotationsForID(ctx, db, id, toInsert,
+	return st.setAnnotationsForID(ctx, id, toInsert,
 		setAnnotationsStmt, deleteAnnotationsStmt)
 }
 
 // setAnnotationsForID associates key/value pairs with the given ID. This is separate from the
 // setAnnotationsForModel because for non-model ID Kinds we need to find the uuid of the id before
 // we add an annotation in the corresponding annotation table.
-func (st *State) setAnnotationsForID(ctx context.Context, db database.TxnRunner, id annotations.ID,
+func (st *State) setAnnotationsForID(ctx context.Context, id annotations.ID,
 	toInsert map[string]string,
 	setAnnotationsStmt *sqlair.Statement,
 	deleteAnnotationsStmt *sqlair.Statement,
 ) error {
+	db, err := st.DB()
+	if err != nil {
+		return errors.Trace(err)
+	}
 
 	// Prepare query for getting the UUID of id.
 	kindQuery, kindQueryParam, err := uuidQueryForID(id)
@@ -248,14 +251,18 @@ func (st *State) setAnnotationsForID(ctx context.Context, db database.TxnRunner,
 // setAnnotationsForModel associates key/value annotation pairs with the model referred by the given
 // ID. This is specialized as opposed to the other Kinds because we keep annotations per model, so
 // we don't need to try to find the uuid of the given id (the model).
-func (st *State) setAnnotationsForModel(ctx context.Context, db database.TxnRunner, id annotations.ID,
+func (st *State) setAnnotationsForModel(ctx context.Context, id annotations.ID,
 	toInsert map[string]string,
 	setAnnotationsStmt *sqlair.Statement,
 	deleteAnnotationsStmt *sqlair.Statement,
 ) error {
+	db, err := st.DB()
+	if err != nil {
+		return errors.Trace(err)
+	}
 
 	// Running transactions using sqlair statements
-	err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		// Unset the annotations for model.
 		if err := tx.Query(ctx, deleteAnnotationsStmt).Run(); err != nil {
 			return errors.Annotatef(err, "unsetting annotations for ID: %s", id.Name)

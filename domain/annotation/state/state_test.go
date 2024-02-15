@@ -308,12 +308,10 @@ func (s *stateSuite) ensureAnnotation(c *gc.C, id, uuid, key, value string) {
 // ensureMachine manually inserts a row into the machine table.
 func (s *stateSuite) ensureMachine(c *gc.C, id, uuid string) {
 	s.ensureNetNode(c, "node2")
-	s.ensureLife(c, "life3", "3")
-
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 		INSERT INTO machine (uuid, net_node_uuid, machine_id, life_id)
-		VALUES (?, "node2", ?, "life3")`, uuid, id)
+		VALUES (?, "node2", ?, "0")`, uuid, id)
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -321,12 +319,10 @@ func (s *stateSuite) ensureMachine(c *gc.C, id, uuid string) {
 
 // ensureApplication manually inserts a row into the application table.
 func (s *stateSuite) ensureApplication(c *gc.C, name, uuid string) {
-	s.ensureLife(c, "life3", "3")
-
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 		INSERT INTO application (uuid, name, life_id)
-		VALUES (?, ?, "life3")`, uuid, name)
+		VALUES (?, ?, "0")`, uuid, name)
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -334,13 +330,13 @@ func (s *stateSuite) ensureApplication(c *gc.C, name, uuid string) {
 
 // ensureUnit manually inserts a row into the unit table.
 func (s *stateSuite) ensureUnit(c *gc.C, unit_id, uuid string) {
-	s.ensureApplication(c, "myapp", "123") // ensureApplication auto inserts life3
+	s.ensureApplication(c, "myapp", "123")
 	s.ensureNetNode(c, "321")
 
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 		INSERT INTO unit (uuid, unit_id, application_uuid, net_node_uuid, life_id)
-		VALUES (?, ?, ?, ?, ?)`, uuid, unit_id, "123", "321", "life3")
+		VALUES (?, ?, ?, ?, ?)`, uuid, unit_id, "123", "321", "0")
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -359,33 +355,10 @@ func (s *stateSuite) ensureCharm(c *gc.C, url, uuid string) {
 
 // ensureStorage inserts a row into the storage_instance table
 func (s *stateSuite) ensureStorage(c *gc.C, name, uuid string) {
-	s.ensureLife(c, "life3", "3")
-
-	// ensure storage_kind
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `
-		INSERT INTO storage_kind (id, kind)
-		VALUES ("storagekind3", "foo")`)
-		return err
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
 		INSERT INTO storage_instance (uuid, storage_kind_id, name, life_id)
-		VALUES (?, ?, ?, ?)`, uuid, "storagekind3", name, "life3")
-		return err
-	})
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-// ensureLife inserts a row into the life table, mostly used as a foreign key for entries in
-// other tables (e.g. application)
-func (s *stateSuite) ensureLife(c *gc.C, id, value string) {
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `
-		INSERT INTO life (id, value)
-		VALUES (?, ?)`, id, value)
+		VALUES (?, ?, ?, ?)`, uuid, "0", name, "0")
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)
