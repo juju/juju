@@ -16,7 +16,7 @@ func TestAll(t *stdtesting.T) {
 	testing.MgoTestPackage(t)
 }
 
-func mustNewUUID() user.UUID {
+func mustNewUserUUID() user.UUID {
 	uuid, err := user.NewUUID()
 	if err != nil {
 		panic(err)

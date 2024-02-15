@@ -6,9 +6,6 @@ package usermanager_test
 import (
 	"context"
 	"fmt"
-	usererrors "github.com/juju/juju/domain/user/errors"
-	"github.com/juju/juju/domain/user/service"
-	"github.com/juju/juju/internal/auth"
 	"sort"
 	"time"
 
@@ -26,6 +23,9 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/permission"
 	coreuser "github.com/juju/juju/core/user"
+	usererrors "github.com/juju/juju/domain/user/errors"
+	"github.com/juju/juju/domain/user/service"
+	"github.com/juju/juju/internal/auth"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -65,7 +65,7 @@ func (s *userManagerSuite) TestAddUser(c *gc.C) {
 		DisplayName: "Foo Bar",
 		Password:    &pass,
 		CreatorUUID: s.apiUser.UUID,
-	}).Return(mustNewUUID(), nil, nil)
+	}).Return(mustNewUserUUID(), nil, nil)
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
@@ -101,7 +101,7 @@ func (s *userManagerSuite) TestAddUserWithSecretKey(c *gc.C) {
 		Name:        "foobar",
 		DisplayName: "Foo Bar",
 		CreatorUUID: s.apiUser.UUID,
-	}).Return(mustNewUUID(), []byte("secret-key"), nil)
+	}).Return(mustNewUserUUID(), []byte("secret-key"), nil)
 
 	args := params.AddUsers{
 		Users: []params.AddUser{{
@@ -373,12 +373,12 @@ func (s *userManagerSuite) TestUserInfo(c *gc.C) {
 	exp := s.userService.EXPECT()
 	a := gomock.Any()
 	exp.GetUserByName(a, "foobar").Return(coreuser.User{
-		UUID:     mustNewUUID(),
+		UUID:     mustNewUserUUID(),
 		Name:     "foobar",
 		Disabled: false,
 	}, nil)
 	exp.GetUserByName(a, "barfoo").Return(coreuser.User{
-		UUID:     mustNewUUID(),
+		UUID:     mustNewUserUUID(),
 		Name:     "barfoo",
 		Disabled: true,
 	}, nil)
@@ -420,12 +420,12 @@ func (s *userManagerSuite) TestUserInfoAll(c *gc.C) {
 
 	users := []coreuser.User{
 		{
-			UUID:     mustNewUUID(),
+			UUID:     mustNewUserUUID(),
 			Name:     "fred",
 			Disabled: false,
 		},
 		{
-			UUID:     mustNewUUID(),
+			UUID:     mustNewUserUUID(),
 			Name:     "nancy",
 			Disabled: false,
 		},
@@ -459,7 +459,7 @@ func (s *userManagerSuite) TestUserInfoNonControllerAdmin(c *gc.C) {
 	s.setAPIUserAndAuth("aardvark")
 	defer s.setUpAPI(c).Finish()
 
-	fakeCreatorUUID := mustNewUUID()
+	fakeCreatorUUID := mustNewUserUUID()
 
 	fakeCreator := coreuser.User{
 		UUID:        fakeCreatorUUID,
@@ -467,7 +467,7 @@ func (s *userManagerSuite) TestUserInfoNonControllerAdmin(c *gc.C) {
 		DisplayName: "Creator",
 	}
 
-	fakeUUID := mustNewUUID()
+	fakeUUID := mustNewUserUUID()
 
 	// CreateAt 5 mins ago
 	fakeCreatedAt := time.Now().Add(-5 * time.Minute)
@@ -1126,7 +1126,7 @@ func (s *userManagerSuite) setAPIUserAndAuth(name string) {
 	}
 
 	s.apiUser = coreuser.User{
-		UUID:        mustNewUUID(),
+		UUID:        mustNewUserUUID(),
 		Name:        tag.Name(),
 		DisplayName: tag.Name(),
 	}

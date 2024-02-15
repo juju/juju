@@ -5,6 +5,7 @@ package usermanager
 
 import (
 	"context"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
@@ -232,7 +233,7 @@ func (api *UserManagerAPI) EnableUser(ctx context.Context, users params.Entities
 	if err := api.check.ChangeAllowed(ctx); err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
-	return api.enableUserImpl(ctx, users, "enable", (*state.User).Enable)
+	return api.enableUser(ctx, users, "enable", (*state.User).Enable)
 }
 
 // DisableUser disables one or more users.  If the user is already disabled,
@@ -245,10 +246,10 @@ func (api *UserManagerAPI) DisableUser(ctx context.Context, users params.Entitie
 	if err := api.check.ChangeAllowed(ctx); err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
-	return api.enableUserImpl(ctx, users, "disable", (*state.User).Disable)
+	return api.enableUser(ctx, users, "disable", (*state.User).Disable)
 }
 
-func (api *UserManagerAPI) enableUserImpl(ctx context.Context, args params.Entities, action string, method func(*state.User) error) (params.ErrorResults, error) {
+func (api *UserManagerAPI) enableUser(ctx context.Context, args params.Entities, action string, method func(*state.User) error) (params.ErrorResults, error) {
 	var result params.ErrorResults
 
 	if len(args.Entities) == 0 {
@@ -500,7 +501,7 @@ func (api *UserManagerAPI) setPassword(ctx context.Context, arg params.EntityPas
 		}
 	}
 
-	if arg.Password == "" {
+	if strings.TrimSpace(arg.Password) == "" {
 		return errors.New("cannot use an empty password")
 	}
 
