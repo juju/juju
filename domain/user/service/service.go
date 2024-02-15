@@ -6,11 +6,11 @@ package service
 import (
 	"context"
 	"crypto/rand"
-	"regexp"
 
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/user"
+	domainuser "github.com/juju/juju/domain/user"
 	usererrors "github.com/juju/juju/domain/user/errors"
 	"github.com/juju/juju/internal/auth"
 )
@@ -100,19 +100,6 @@ const (
 	// activationKeyLength is the number of bytes contained with an activation
 	// key.
 	activationKeyLength = 32
-
-	// usernameValidationRegex is the regex used to validate that user names are
-	// valid for consumption by Juju. User names must be 1 or more runes long,
-	// can contain any unicode rune from the letter/number class and may contain
-	// zero or more of .,+ or - runes as long as they don't appear at the
-	// start or end of the user name. User names can be a maximum of 255
-	// characters long.
-	usernameValidationRegex = "^([\\pL\\pN]|[\\pL\\pN][\\pL\\pN.+-]{0,253}[\\pL\\pN])$"
-)
-
-var (
-	// validUserName is a compiled regex that is used to validate that a user
-	validUserName = regexp.MustCompile(usernameValidationRegex)
 )
 
 // NewService returns a new Service for interacting with the underlying user
@@ -163,7 +150,7 @@ func (s *Service) GetUserByName(
 	ctx context.Context,
 	name string,
 ) (user.User, error) {
-	if err := ValidateUsername(name); err != nil {
+	if err := domainuser.ValidateUsername(name); err != nil {
 		return user.User{}, errors.Annotatef(err, "validating username %q", name)
 	}
 
@@ -186,7 +173,7 @@ func (s *Service) GetUserByAuth(
 	name string,
 	password string,
 ) (user.User, error) {
-	if err := ValidateUsername(name); err != nil {
+	if err := domainuser.ValidateUsername(name); err != nil {
 		return user.User{}, errors.Annotatef(err, "validating username %q", name)
 	}
 
@@ -198,22 +185,6 @@ func (s *Service) GetUserByAuth(
 	return usr, nil
 }
 
-// ValidateUsername takes a user name and validates that the user name is
-// conformant to our regex rules defined in usernameValidationRegex. If a
-// user name is not valid, an error is returned that satisfies
-// usererrors.UsernameNotValid.
-//
-// User names must be one or more runes long, can contain any unicode rune from
-// the letter or number class and may contain zero or more of .,+ or - runes as
-// long as they don't appear at the start or end of the user name. User names can
-// be a maximum length of 255 characters.
-func ValidateUsername(name string) error {
-	if !validUserName.MatchString(name) {
-		return errors.Annotatef(usererrors.UsernameNotValid, "%q", name)
-	}
-	return nil
-}
-
 // AddUser will add a new user to the database and return the UUID of the user.
 //
 // The following error types are possible from this function:
@@ -223,7 +194,7 @@ func ValidateUsername(name string) error {
 // and the creator does not exist.
 func (s *Service) AddUser(ctx context.Context, name string, displayName string, creatorUUID user.UUID) (user.UUID, error) {
 	// Validate user name and creator name
-	if err := ValidateUsername(name); err != nil {
+	if err := domainuser.ValidateUsername(name); err != nil {
 		return "", errors.Annotatef(err, "validating user name %q", name)
 	}
 
@@ -259,7 +230,7 @@ func (s *Service) AddUser(ctx context.Context, name string, displayName string, 
 func (s *Service) AddUserWithPassword(ctx context.Context, name string, displayName string, creatorUUID user.UUID, password auth.Password) (user.UUID, error) {
 	defer password.Destroy()
 	// Validate user name
-	if err := ValidateUsername(name); err != nil {
+	if err := domainuser.ValidateUsername(name); err != nil {
 		return "", errors.Annotatef(err, "validating user name %q", name)
 	}
 
@@ -302,7 +273,7 @@ func (s *Service) AddUserWithPassword(ctx context.Context, name string, displayN
 // and the creator does not exist.
 func (s *Service) AddUserWithActivationKey(ctx context.Context, name string, displayName string, creatorUUID user.UUID) ([]byte, user.UUID, error) {
 	// Validate user name and creator name
-	if err := ValidateUsername(name); err != nil {
+	if err := domainuser.ValidateUsername(name); err != nil {
 		return nil, "", errors.Annotatef(err, "validating user name %q", name)
 	}
 

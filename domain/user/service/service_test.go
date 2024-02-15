@@ -16,6 +16,7 @@ import (
 
 	"github.com/juju/juju/core/user"
 	usererrors "github.com/juju/juju/domain/user/errors"
+	usertesting "github.com/juju/juju/domain/user/testing"
 	"github.com/juju/juju/internal/auth"
 )
 
@@ -37,47 +38,6 @@ type stateUser struct {
 }
 
 var _ = gc.Suite(&serviceSuite{})
-
-var (
-	invalidUsernames = []string{
-		"😱",  // We don't support emoji's
-		"+蓮", // Cannot start with a +
-		"-蓮", // Cannot start with a -
-		".蓮", // Cannot start with a .
-		"蓮+", // Cannot end with a +
-		"蓮-", // Cannot end with a -
-		"蓮.", // Cannot end with a .
-
-		// long username that is valid for the regex but too long.
-		"A1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890.+-1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890.+-1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890.+-1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRa",
-	}
-
-	validUsernames = []string{
-		"蓮", // Ren in Japanese
-		"wallyworld",
-		"r", // username for Rob Pike, fixes lp1620444
-		"Jürgen.test",
-		"Günter+++test",
-		"王",      // Wang in Chinese
-		"杨-test", // Yang in Chinese
-		"اقتدار",
-		"f00-Bar.ram77",
-		// long username that is pushing the boundaries of 255 chars.
-		"1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890.+-1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890.+-1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890.+-1234567890",
-
-		// Some Romanian usernames. Thanks Dora!!!
-		"Alinuța",
-		"Bulișor",
-		"Gheorghiță",
-		"Mărioara",
-		"Vasilică",
-
-		// Some Turkish usernames, Thanks Caner!!!
-		"rüştü",
-		"özlem",
-		"yağız",
-	}
-)
 
 func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
@@ -429,7 +389,7 @@ func (s *serviceSuite) TestAddUserNameNotValid(c *gc.C) {
 		displayName: "Admin",
 	}
 
-	_, err = s.service().AddUser(context.Background(), invalidUsernames[0], "Display", adminUUID)
+	_, err = s.service().AddUser(context.Background(), usertesting.InvalidUsernames[0], "Display", adminUUID)
 	c.Assert(err, jc.ErrorIs, usererrors.UsernameNotValid)
 
 	// We need to check that there were no side effects to state.
@@ -580,7 +540,7 @@ func (s *serviceSuite) TestAddUserWithPasswordInvalidUser(c *gc.C) {
 
 	fakePassword := auth.NewPassword("password")
 
-	_, err = s.service().AddUserWithPassword(context.Background(), invalidUsernames[0], "Display", adminUUID, fakePassword)
+	_, err = s.service().AddUserWithPassword(context.Background(), usertesting.InvalidUsernames[0], "Display", adminUUID, fakePassword)
 	c.Assert(err, jc.ErrorIs, usererrors.UsernameNotValid)
 
 	c.Assert(fakePassword.IsDestroyed(), jc.IsTrue)
@@ -731,7 +691,7 @@ func (s *serviceSuite) TestAddUserWithActivationKeyUsernameNotValid(c *gc.C) {
 		displayName: "Admin",
 	}
 
-	activationKey, _, err := s.service().AddUserWithActivationKey(context.Background(), invalidUsernames[0], "Display", adminUUID)
+	activationKey, _, err := s.service().AddUserWithActivationKey(context.Background(), usertesting.InvalidUsernames[0], "Display", adminUUID)
 	c.Assert(err, jc.ErrorIs, usererrors.UsernameNotValid)
 	c.Assert(len(mockState), gc.Equals, 1)
 	c.Assert(len(activationKey), gc.Equals, 0)
@@ -1115,7 +1075,7 @@ func (s *serviceSuite) TestGetUserWithAuthInfo(c *gc.C) {
 // layer.
 func (s *serviceSuite) TestGetUserByNameInvalidUsername(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	for _, invalid := range invalidUsernames {
+	for _, invalid := range usertesting.InvalidUsernames {
 		_, err := s.service().GetUserByName(context.Background(), invalid)
 		c.Assert(err, jc.ErrorIs, usererrors.UsernameNotValid)
 	}
@@ -1210,7 +1170,7 @@ func (s *serviceSuite) TestDisableUserAuthentication(c *gc.C) {
 // the function to make sure that no panics occur and all input is handled
 // gracefully.
 func FuzzGetUser(f *testing.F) {
-	for _, valid := range validUsernames {
+	for _, valid := range usertesting.ValidUsernames {
 		f.Add(valid)
 	}
 
@@ -1239,41 +1199,6 @@ func FuzzGetUser(f *testing.F) {
 			t.Errorf("GetUser() user.name %q != %q", usr.Name, username)
 		}
 	})
-}
-
-// TestUsernameValidation exists to assert the regex that is in use by
-// ValidateUsername. We want to pass it a wide range of unicode names with weird
-func (s *serviceSuite) TestUsernameValidation(c *gc.C) {
-	tests := []struct {
-		Username   string
-		ShouldPass bool
-	}{}
-
-	for _, valid := range validUsernames {
-		tests = append(tests, struct {
-			Username   string
-			ShouldPass bool
-		}{valid, true})
-	}
-
-	for _, invalid := range invalidUsernames {
-		tests = append(tests, struct {
-			Username   string
-			ShouldPass bool
-		}{invalid, false})
-	}
-
-	for _, test := range tests {
-		err := ValidateUsername(test.Username)
-		if test.ShouldPass {
-			c.Assert(err, jc.ErrorIsNil, gc.Commentf("test username %q", test.Username))
-		} else {
-			c.Assert(
-				err, jc.ErrorIs, usererrors.UsernameNotValid,
-				gc.Commentf("test username %q", test.Username),
-			)
-		}
-	}
 }
 
 // TestUpdateLastLogin tests the happy path for UpdateLastLogin.
