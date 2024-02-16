@@ -37,7 +37,7 @@ func seriesToBase(requestedBase Base, fn func(string) (set.Strings, error)) ([]B
 		var err error
 		requestedSeries, err = GetSeriesFromBase(requestedBase)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, errors.Annotatef(err, "%q is not a valid base", requestedBase.DisplayString())
 		}
 	}
 
