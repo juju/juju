@@ -6,6 +6,7 @@ package service
 import (
 	"testing"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/user"
@@ -17,10 +18,8 @@ func TestPackage(t *testing.T) {
 	gc.TestingT(t)
 }
 
-func mustNewUUID() user.UUID {
+func newUUID(c *gc.C) user.UUID {
 	uuid, err := user.NewUUID()
-	if err != nil {
-		panic(err)
-	}
+	c.Assert(err, jc.ErrorIsNil)
 	return uuid
 }

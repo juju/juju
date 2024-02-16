@@ -58,7 +58,7 @@ func (s *serviceSuite) TestAddUserAlreadyExists(c *gc.C) {
 
 	_, _, err := s.service().AddUser(context.Background(), AddUserArg{
 		Name:        "valid",
-		CreatorUUID: mustNewUUID(),
+		CreatorUUID: newUUID(c),
 	})
 	c.Assert(err, jc.ErrorIs, usererrors.AlreadyExists)
 }
@@ -73,7 +73,7 @@ func (s *serviceSuite) TestAddUserCreatorUUIDNotFound(c *gc.C) {
 
 	_, _, err := s.service().AddUser(context.Background(), AddUserArg{
 		Name:        "valid",
-		CreatorUUID: mustNewUUID(),
+		CreatorUUID: newUUID(c),
 	})
 	c.Assert(err, jc.ErrorIs, usererrors.CreatorUUIDNotFound)
 }
@@ -82,8 +82,8 @@ func (s *serviceSuite) TestAddUserCreatorUUIDNotFound(c *gc.C) {
 func (s *serviceSuite) TestAddUserWithPassword(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	userUUID := mustNewUUID()
-	creatorUUID := mustNewUUID()
+	userUUID := newUUID(c)
+	creatorUUID := newUUID(c)
 
 	s.state.EXPECT().AddUserWithPasswordHash(
 		gomock.Any(), userUUID, "valid", "display", creatorUUID, gomock.Any(), gomock.Any()).Return(nil)
@@ -109,8 +109,8 @@ func (s *serviceSuite) TestAddUserWithPasswordNotValid(c *gc.C) {
 	_, _ = rand.Read(buff)
 	badPass := auth.NewPassword(base64.StdEncoding.EncodeToString(buff))
 
-	userUUID := mustNewUUID()
-	creatorUUID := mustNewUUID()
+	userUUID := newUUID(c)
+	creatorUUID := newUUID(c)
 
 	_, _, err := s.service().AddUser(context.Background(), AddUserArg{
 		UUID:        userUUID,
@@ -223,7 +223,7 @@ func (s *serviceSuite) TestResetPasswordUserNotFound(c *gc.C) {
 func (s *serviceSuite) TestGetUserNotFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	uuid := mustNewUUID()
+	uuid := newUUID(c)
 	s.state.EXPECT().GetUser(gomock.Any(), uuid).Return(user.User{}, usererrors.NotFound)
 
 	_, err := s.service().GetUser(context.Background(), uuid)
@@ -236,7 +236,7 @@ func (s *serviceSuite) TestGetUserNotFound(c *gc.C) {
 func (s *serviceSuite) TestGetUser(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	uuid := mustNewUUID()
+	uuid := newUUID(c)
 	s.state.EXPECT().GetUser(gomock.Any(), uuid).Return(user.User{
 		UUID: uuid,
 		Name: "user",
@@ -251,7 +251,7 @@ func (s *serviceSuite) TestGetUser(c *gc.C) {
 func (s *serviceSuite) TestGetUserByName(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	uuid := mustNewUUID()
+	uuid := newUUID(c)
 	s.state.EXPECT().GetUserByName(gomock.Any(), "name").Return(user.User{
 		UUID: uuid,
 		Name: "user",
@@ -279,11 +279,11 @@ func (s *serviceSuite) TestGetAllUsers(c *gc.C) {
 
 	s.state.EXPECT().GetAllUsers(gomock.Any()).Return([]user.User{
 		{
-			UUID: mustNewUUID(),
+			UUID: newUUID(c),
 			Name: "user0",
 		},
 		{
-			UUID: mustNewUUID(),
+			UUID: newUUID(c),
 			Name: "user1",
 		},
 	}, nil)
@@ -308,7 +308,7 @@ func (s *serviceSuite) TestGetUserByNameInvalidUsername(c *gc.C) {
 func (s *serviceSuite) TestGetUserByAuth(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	uuid := mustNewUUID()
+	uuid := newUUID(c)
 	s.state.EXPECT().GetUserByAuth(gomock.Any(), "name", auth.NewPassword("pass")).Return(user.User{
 		UUID: uuid,
 		Name: "user",

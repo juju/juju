@@ -601,30 +601,26 @@ func (s *stateSuite) TestGetAllUsersWihAuthInfo(c *gc.C) {
 func (s *stateSuite) TestUserWithAuthInfo(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
-	// Add admin1 user with password hash.
-	adminUUID, err := user.NewUUID()
+	uuid, err := user.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
+
+	name := "newguy"
 
 	salt, err := auth.NewSalt()
 	c.Assert(err, jc.ErrorIsNil)
-	err = st.AddUserWithPasswordHash(
-		context.Background(), adminUUID,
-		"admin", "admin",
-		adminUUID, "passwordHash", salt,
-	)
+
+	err = st.AddUserWithPasswordHash(context.Background(), uuid, name, name, uuid, "passwordHash", salt)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Disable admin1 user.
-	err = st.DisableUserAuthentication(context.Background(), "admin")
+	err = st.DisableUserAuthentication(context.Background(), name)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Get user with auth info.
-	u, err := st.GetUser(context.Background(), adminUUID)
+	u, err := st.GetUser(context.Background(), uuid)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(u.Name, gc.Equals, "admin")
-	c.Check(u.DisplayName, gc.Equals, "admin")
-	c.Check(u.CreatorUUID, gc.Equals, adminUUID)
+	c.Check(u.Name, gc.Equals, name)
+	c.Check(u.DisplayName, gc.Equals, name)
+	c.Check(u.CreatorUUID, gc.Equals, uuid)
 	c.Check(u.CreatedAt, gc.NotNil)
 	c.Check(u.LastLogin, gc.NotNil)
 	c.Check(u.Disabled, gc.Equals, true)
@@ -718,11 +714,7 @@ func (s *stateSuite) TestAddUserWithPasswordHash(c *gc.C) {
 	// Check that the password hash was set correctly.
 	db := s.DB()
 
-	row := db.QueryRow(`
-SELECT password_hash
-FROM user_password
-WHERE user_uuid = ?
-	`, adminUUID)
+	row := db.QueryRow(`SELECT password_hash FROM user_password WHERE user_uuid = ?`, adminUUID)
 	c.Assert(row.Err(), jc.ErrorIsNil)
 
 	var passwordHash string
