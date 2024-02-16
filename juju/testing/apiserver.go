@@ -151,6 +151,9 @@ type ApiServerSuite struct {
 	WithUpgrading      bool
 	WithAuditLogConfig *auditlog.Config
 	WithIntrospection  func(func(string, http.Handler))
+
+	// AdminUserUUID is the root user for the controller.
+	AdminUserUUID coreuser.UUID
 }
 
 type noopRegisterer struct {
@@ -307,7 +310,7 @@ func (s *ApiServerSuite) setupControllerModel(c *gc.C, controllerCfg controller.
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Seed the test database with the controller cloud and credential etc.
-	SeedDatabase(c, s.TxnRunner(), controllerCfg)
+	s.AdminUserUUID = SeedDatabase(c, s.TxnRunner(), controllerCfg)
 }
 
 func (s *ApiServerSuite) setupApiServer(c *gc.C, controllerCfg controller.Config) {
@@ -351,7 +354,8 @@ func (s *ApiServerSuite) setupApiServer(c *gc.C, controllerCfg controller.Config
 	s.ObjectStoreGetter = cfg.ObjectStoreGetter
 
 	// Set up auth handler.
-	authenticator, err := stateauthenticator.NewAuthenticator(cfg.StatePool, s.ControllerServiceFactory(c).ControllerConfig(), cfg.Clock)
+	factory := s.ControllerServiceFactory(c)
+	authenticator, err := stateauthenticator.NewAuthenticator(cfg.StatePool, factory.ControllerConfig(), factory.User(), cfg.Clock)
 	c.Assert(err, jc.ErrorIsNil)
 	cfg.LocalMacaroonAuthenticator = authenticator
 	err = authenticator.AddHandlers(s.mux)
@@ -600,19 +604,23 @@ func (s *ApiServerSuite) SeedCAASCloud(c *gc.C) {
 
 // SeedDatabase the database with a supplied controller config, and dummy
 // cloud and dummy credentials.
-func SeedDatabase(c *gc.C, runner database.TxnRunner, controllerConfig controller.Config) {
-	SeedAdminUser(c, runner)
+func SeedDatabase(c *gc.C, runner database.TxnRunner, controllerConfig controller.Config) coreuser.UUID {
+	adminUserUUID := SeedAdminUser(c, runner)
 
 	err := controllerconfigbootstrap.InsertInitialControllerConfig(controllerConfig)(context.Background(), runner)
 	c.Assert(err, jc.ErrorIsNil)
 
 	SeedCloudCredentials(c, runner)
+
+	return adminUserUUID
 }
 
-func SeedAdminUser(c *gc.C, runner database.TxnRunner) {
-	_, userAdd := userbootstrap.AddUser(coreuser.AdminUserName)
+func SeedAdminUser(c *gc.C, runner database.TxnRunner) coreuser.UUID {
+	adminUserUUID, userAdd := userbootstrap.AddUser(coreuser.AdminUserName)
 	err := userAdd(context.Background(), runner)
 	c.Assert(err, jc.ErrorIsNil)
+
+	return adminUserUUID
 }
 
 func SeedCloudCredentials(c *gc.C, runner database.TxnRunner) {

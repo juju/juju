@@ -31,10 +31,11 @@ import (
 
 type macaroonCommonSuite struct {
 	statetesting.StateSuite
-	discharger             *bakerytest.Discharger
-	authenticator          *stateauthenticator.Authenticator
-	clock                  *testclock.Clock
-	controllerConfigGetter *MockControllerConfigGetter
+	discharger              *bakerytest.Discharger
+	authenticator           *stateauthenticator.Authenticator
+	clock                   *testclock.Clock
+	controllerConfigService *MockControllerConfigService
+	userService             *MockUserService
 }
 
 func (s *macaroonCommonSuite) SetUpTest(c *gc.C) {
@@ -52,10 +53,10 @@ func (s *macaroonCommonSuite) TearDownTest(c *gc.C) {
 func (s *macaroonCommonSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.controllerConfigGetter = NewMockControllerConfigGetter(ctrl)
-	s.controllerConfigGetter.EXPECT().ControllerConfig(gomock.Any()).Return(s.ControllerConfig, nil).AnyTimes()
+	s.controllerConfigService = NewMockControllerConfigService(ctrl)
+	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(s.ControllerConfig, nil).AnyTimes()
 
-	authenticator, err := stateauthenticator.NewAuthenticator(s.StatePool, s.controllerConfigGetter, s.clock)
+	authenticator, err := stateauthenticator.NewAuthenticator(s.StatePool, s.controllerConfigService, s.userService, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
 	s.authenticator = authenticator
 

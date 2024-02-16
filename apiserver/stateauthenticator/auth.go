@@ -44,9 +44,9 @@ var AgentTags = []string{
 // This Authenticator only works with requests that have been handled
 // by one of the httpcontext.*ModelHandler handlers.
 type Authenticator struct {
-	statePool              *state.StatePool
-	controllerConfigGetter ControllerConfigGetter
-	authContext            *authContext
+	statePool               *state.StatePool
+	controllerConfigService ControllerConfigService
+	authContext             *authContext
 }
 
 // PermissionDelegator implements authentication.PermissionDelegator
@@ -54,30 +54,31 @@ type PermissionDelegator struct {
 	State *state.State
 }
 
-// ControllerConfigGetter is an interface that can be implemented by
+// ControllerConfigService is an interface that can be implemented by
 // types that can return a controller config.
-type ControllerConfigGetter interface {
+type ControllerConfigService interface {
 	ControllerConfig(context.Context) (controller.Config, error)
 }
 
 // NewAuthenticator returns a new Authenticator using the given StatePool.
 func NewAuthenticator(
 	statePool *state.StatePool,
-	controllerConfigGetter ControllerConfigGetter,
+	controllerConfigService ControllerConfigService,
+	userService UserService,
 	clock clock.Clock,
 ) (*Authenticator, error) {
 	systemState, err := statePool.SystemState()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	authContext, err := newAuthContext(systemState, controllerConfigGetter, clock)
+	authContext, err := newAuthContext(systemState, controllerConfigService, userService, clock)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return &Authenticator{
-		statePool:              statePool,
-		controllerConfigGetter: controllerConfigGetter,
-		authContext:            authContext,
+		statePool:               statePool,
+		controllerConfigService: controllerConfigService,
+		authContext:             authContext,
 	}, nil
 }
 

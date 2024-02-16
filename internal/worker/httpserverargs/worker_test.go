@@ -35,7 +35,8 @@ func (s *workerConfigSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.config = workerConfig{
 		statePool:               &state.StatePool{},
-		controllerConfigGetter:  &managedCtrlConfigGetter{},
+		controllerConfigService: &managedServices{},
+		userService:             &managedServices{},
 		mux:                     &apiserverhttp.Mux{},
 		clock:                   clock.WallClock,
 		newStateAuthenticatorFn: NewStateAuthenticator,
@@ -67,16 +68,17 @@ func (s *workerConfigSuite) TestMissing(c *gc.C) {
 type workerSuite struct {
 	testing.IsolationSuite
 
-	controllerConfigGetter *MockControllerConfigGetter
+	controllerConfigService *MockControllerConfigService
+	userService             *MockUserService
 
-	stateAuthFunc func(*state.StatePool, ControllerConfigGetter, *apiserverhttp.Mux, clock.Clock, <-chan struct{}) (macaroon.LocalMacaroonAuthenticator, error)
+	stateAuthFunc func(*state.StatePool, ControllerConfigService, UserService, *apiserverhttp.Mux, clock.Clock, <-chan struct{}) (macaroon.LocalMacaroonAuthenticator, error)
 }
 
 var _ = gc.Suite(&workerSuite{})
 
 func (s *workerSuite) TestWorkerStarted(c *gc.C) {
 	started := make(chan struct{})
-	s.stateAuthFunc = func(statePool *state.StatePool, controllerConfigGetter ControllerConfigGetter, mux *apiserverhttp.Mux, clock clock.Clock, abort <-chan struct{}) (macaroon.LocalMacaroonAuthenticator, error) {
+	s.stateAuthFunc = func(*state.StatePool, ControllerConfigService, UserService, *apiserverhttp.Mux, clock.Clock, <-chan struct{}) (macaroon.LocalMacaroonAuthenticator, error) {
 		defer close(started)
 		return nil, nil
 	}
@@ -96,10 +98,10 @@ func (s *workerSuite) TestWorkerStarted(c *gc.C) {
 func (s *workerSuite) TestWorkerControllerConfigContext(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.controllerConfigGetter.EXPECT().ControllerConfig(gomock.Any()).Return(controller.Config{}, nil)
+	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(controller.Config{}, nil)
 
 	started := make(chan struct{})
-	s.stateAuthFunc = func(statePool *state.StatePool, controllerConfigGetter ControllerConfigGetter, mux *apiserverhttp.Mux, clock clock.Clock, abort <-chan struct{}) (macaroon.LocalMacaroonAuthenticator, error) {
+	s.stateAuthFunc = func(*state.StatePool, ControllerConfigService, UserService, *apiserverhttp.Mux, clock.Clock, <-chan struct{}) (macaroon.LocalMacaroonAuthenticator, error) {
 		defer close(started)
 		return nil, nil
 	}
@@ -113,7 +115,7 @@ func (s *workerSuite) TestWorkerControllerConfigContext(c *gc.C) {
 		c.Fatalf("timed out waiting for worker to start")
 	}
 
-	config, err := w.(*argsWorker).managedCtrlConfigGetter.ControllerConfig(context.Background())
+	config, err := w.(*argsWorker).managedServices.ControllerConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(config, gc.NotNil)
 
@@ -123,12 +125,12 @@ func (s *workerSuite) TestWorkerControllerConfigContext(c *gc.C) {
 func (s *workerSuite) TestWorkerControllerConfigContextDeadline(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.controllerConfigGetter.EXPECT().ControllerConfig(gomock.Any()).DoAndReturn(func(ctx context.Context) (controller.Config, error) {
+	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).DoAndReturn(func(ctx context.Context) (controller.Config, error) {
 		return nil, ctx.Err()
 	})
 
 	started := make(chan struct{})
-	s.stateAuthFunc = func(statePool *state.StatePool, controllerConfigGetter ControllerConfigGetter, mux *apiserverhttp.Mux, clock clock.Clock, abort <-chan struct{}) (macaroon.LocalMacaroonAuthenticator, error) {
+	s.stateAuthFunc = func(*state.StatePool, ControllerConfigService, UserService, *apiserverhttp.Mux, clock.Clock, <-chan struct{}) (macaroon.LocalMacaroonAuthenticator, error) {
 		defer close(started)
 		return nil, nil
 	}
@@ -144,7 +146,7 @@ func (s *workerSuite) TestWorkerControllerConfigContextDeadline(c *gc.C) {
 
 	workertest.CleanKill(c, w)
 
-	_, err := w.(*argsWorker).managedCtrlConfigGetter.ControllerConfig(context.Background())
+	_, err := w.(*argsWorker).managedServices.ControllerConfig(context.Background())
 	c.Assert(err, gc.Equals, context.Canceled)
 }
 
@@ -155,11 +157,14 @@ func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
 }
 
 func (s *workerSuite) newWorkerConfig(c *gc.C) workerConfig {
+	services := &managedServices{
+		controllerConfigService: s.controllerConfigService,
+		userService:             s.userService,
+	}
 	return workerConfig{
-		statePool: &state.StatePool{},
-		controllerConfigGetter: &managedCtrlConfigGetter{
-			configGetter: s.controllerConfigGetter,
-		},
+		statePool:               &state.StatePool{},
+		controllerConfigService: services,
+		userService:             services,
 		mux:                     &apiserverhttp.Mux{},
 		clock:                   clock.WallClock,
 		newStateAuthenticatorFn: s.stateAuthFunc,
@@ -169,7 +174,8 @@ func (s *workerSuite) newWorkerConfig(c *gc.C) workerConfig {
 func (s *workerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.controllerConfigGetter = NewMockControllerConfigGetter(ctrl)
+	s.controllerConfigService = NewMockControllerConfigService(ctrl)
+	s.userService = NewMockUserService(ctrl)
 
 	return ctrl
 }

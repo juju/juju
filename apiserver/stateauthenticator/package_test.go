@@ -9,7 +9,7 @@ import (
 	coretesting "github.com/juju/juju/testing"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -package stateauthenticator_test -destination controller_config_mock_test.go github.com/juju/juju/apiserver/stateauthenticator ControllerConfigGetter
+//go:generate go run go.uber.org/mock/mockgen -package stateauthenticator_test -destination services_mock_test.go github.com/juju/juju/apiserver/stateauthenticator ControllerConfigService,UserService
 
 func TestPackage(t *testing.T) {
 	coretesting.MgoTestPackage(t)

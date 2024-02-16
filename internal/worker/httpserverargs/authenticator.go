@@ -13,20 +13,31 @@ import (
 	"github.com/juju/juju/apiserver/authentication/macaroon"
 	"github.com/juju/juju/apiserver/stateauthenticator"
 	"github.com/juju/juju/controller"
+	coreuser "github.com/juju/juju/core/user"
 	"github.com/juju/juju/state"
 )
 
-// ControllerConfigGetter is an interface that can be implemented by
+// ControllerConfigService is an interface that can be implemented by
 // types that can return a controller config.
-type ControllerConfigGetter interface {
+type ControllerConfigService interface {
 	ControllerConfig(context.Context) (controller.Config, error)
+}
+
+// UserService is the interface that wraps the methods required to
+// authenticate a user.
+type UserService interface {
+	// GetUserByAuth returns the user with the given name and password.
+	GetUserByAuth(ctx context.Context, name, password string) (coreuser.User, error)
+	// GetUserByName returns the user with the given name.
+	GetUserByName(ctx context.Context, name string) (coreuser.User, error)
 }
 
 // NewStateAuthenticatorFunc is a function type satisfied by
 // NewStateAuthenticator.
 type NewStateAuthenticatorFunc func(
 	statePool *state.StatePool,
-	controllerConfigGetter ControllerConfigGetter,
+	controllerConfigService ControllerConfigService,
+	userService UserService,
 	mux *apiserverhttp.Mux,
 	clock clock.Clock,
 	abort <-chan struct{},
@@ -38,12 +49,13 @@ type NewStateAuthenticatorFunc func(
 // local macaroon logins.
 func NewStateAuthenticator(
 	statePool *state.StatePool,
-	controllerConfigGetter ControllerConfigGetter,
+	controllerConfigService ControllerConfigService,
+	userService UserService,
 	mux *apiserverhttp.Mux,
 	clock clock.Clock,
 	abort <-chan struct{},
 ) (macaroon.LocalMacaroonAuthenticator, error) {
-	stateAuthenticator, err := stateauthenticator.NewAuthenticator(statePool, controllerConfigGetter, clock)
+	stateAuthenticator, err := stateauthenticator.NewAuthenticator(statePool, controllerConfigService, userService, clock)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

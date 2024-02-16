@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/authentication/macaroon"
 	controllerconfigservice "github.com/juju/juju/domain/controllerconfig/service"
+	userservice "github.com/juju/juju/domain/user/service"
 	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/internal/worker/httpserverargs"
 	"github.com/juju/juju/state"
@@ -75,12 +76,13 @@ func (s *ManifoldSuite) newGetter(overlay map[string]any) dependency.Getter {
 
 func (s *ManifoldSuite) newStateAuthenticator(
 	statePool *state.StatePool,
-	controllerConfigGetter httpserverargs.ControllerConfigGetter,
+	controllerConfig httpserverargs.ControllerConfigService,
+	userService httpserverargs.UserService,
 	mux *apiserverhttp.Mux,
 	clock clock.Clock,
 	abort <-chan struct{},
 ) (macaroon.LocalMacaroonAuthenticator, error) {
-	s.stub.MethodCall(s, "NewStateAuthenticator", statePool, controllerConfigGetter, mux, clock, abort)
+	s.stub.MethodCall(s, "NewStateAuthenticator", statePool, controllerConfig, userService, mux, clock, abort)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, err
 	}
@@ -148,8 +150,8 @@ func (s *ManifoldSuite) TestStoppingWorkerClosesAuthenticator(c *gc.C) {
 	w := s.startWorkerClean(c)
 	s.stub.CheckCallNames(c, "NewStateAuthenticator")
 	authArgs := s.stub.Calls()[0].Args
-	c.Assert(authArgs, gc.HasLen, 5)
-	abort := authArgs[4].(<-chan struct{})
+	c.Assert(authArgs, gc.HasLen, 6)
+	abort := authArgs[5].(<-chan struct{})
 
 	// abort should still be open at this point.
 	select {
@@ -184,10 +186,13 @@ func (s *ManifoldSuite) TestValidate(c *gc.C) {
 		f:      func(cfg *httpserverargs.ManifoldConfig) { cfg.NewStateAuthenticator = nil },
 		expect: "nil NewStateAuthenticator not valid",
 	}}
+
 	for i, test := range tests {
 		c.Logf("test #%d (%s)", i, test.expect)
+
 		config := s.config
 		test.f(&config)
+
 		manifold := httpserverargs.Manifold(config)
 		w, err := manifold.Start(context.Background(), s.getter)
 		workertest.CheckNilOrKill(c, w)
@@ -227,5 +232,10 @@ type stubServiceFactory struct {
 
 func (s *stubServiceFactory) ControllerConfig() *controllerconfigservice.WatchableService {
 	s.MethodCall(s, "ControllerConfig")
+	return nil
+}
+
+func (s *stubServiceFactory) User() *userservice.Service {
+	s.MethodCall(s, "User")
 	return nil
 }

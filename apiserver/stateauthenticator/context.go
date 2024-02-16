@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/apiserver/bakeryutil"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	coremacaroon "github.com/juju/juju/core/macaroon"
+	coreuser "github.com/juju/juju/core/user"
 	"github.com/juju/juju/state"
 )
 
@@ -37,11 +38,21 @@ const (
 	localUserIdentityLocationPath = "/auth"
 )
 
+// UserService is the interface that wraps the methods required to
+// authenticate a user.
+type UserService interface {
+	// GetUserByAuth returns the user with the given name and password.
+	GetUserByAuth(ctx context.Context, name, password string) (coreuser.User, error)
+	// GetUserByName returns the user with the given name.
+	GetUserByName(ctx context.Context, name string) (coreuser.User, error)
+}
+
 // authContext holds authentication context shared
 // between all API endpoints.
 type authContext struct {
-	st                     *state.State
-	controllerConfigGetter ControllerConfigGetter
+	st                      *state.State
+	controllerConfigService ControllerConfigService
+	userService             UserService
 
 	clock     clock.Clock
 	agentAuth authentication.AgentAuthenticator
@@ -84,14 +95,16 @@ func (OpenLoginAuthorizer) AuthorizeOps(ctx context.Context, authorizedOp bakery
 // newAuthContext creates a new authentication context for st.
 func newAuthContext(
 	st *state.State,
-	controllerConfigGetter ControllerConfigGetter,
+	controllerConfigService ControllerConfigService,
+	userService UserService,
 	clock clock.Clock,
 ) (*authContext, error) {
 	ctxt := &authContext{
-		st:                     st,
-		clock:                  clock,
-		controllerConfigGetter: controllerConfigGetter,
-		localUserInteractions:  authentication.NewInteractions(),
+		st:                      st,
+		clock:                   clock,
+		controllerConfigService: controllerConfigService,
+		userService:             userService,
+		localUserInteractions:   authentication.NewInteractions(),
 	}
 
 	// Create a bakery for discharging third-party caveats for
@@ -249,6 +262,7 @@ func (a authenticator) localUserAuth() *authentication.LocalUserAuthenticator {
 		Path:   localUserIdentityLocationPath,
 	}
 	return &authentication.LocalUserAuthenticator{
+		UserService:               a.ctxt.userService,
 		Bakery:                    a.ctxt.localUserBakery,
 		Clock:                     a.ctxt.clock,
 		LocalUserIdentityLocation: localUserIdentityLocation.String(),
@@ -259,7 +273,7 @@ func (a authenticator) localUserAuth() *authentication.LocalUserAuthenticator {
 // logins for external users. If it fails once, it will always fail.
 func (ctxt *authContext) externalMacaroonAuth(ctx context.Context, identClient identchecker.IdentityClient) (authentication.EntityAuthenticator, error) {
 	ctxt.macaroonAuthOnce.Do(func() {
-		ctxt._macaroonAuth, ctxt._macaroonAuthError = newExternalMacaroonAuth(ctx, ctxt.st, ctxt.controllerConfigGetter, ctxt.clock, externalLoginExpiryTime, identClient)
+		ctxt._macaroonAuth, ctxt._macaroonAuthError = newExternalMacaroonAuth(ctx, ctxt.st, ctxt.controllerConfigService, ctxt.clock, externalLoginExpiryTime, identClient)
 	})
 	if ctxt._macaroonAuth == nil {
 		return nil, errors.Trace(ctxt._macaroonAuthError)
@@ -270,8 +284,8 @@ func (ctxt *authContext) externalMacaroonAuth(ctx context.Context, identClient i
 // newExternalMacaroonAuth returns an authenticator that can authenticate
 // macaroon-based logins for external users. This is just a helper function
 // for authCtxt.externalMacaroonAuth.
-func newExternalMacaroonAuth(ctx context.Context, st *state.State, controllerConfigGetter ControllerConfigGetter, clock clock.Clock, expiryTime time.Duration, identClient identchecker.IdentityClient) (*authentication.ExternalMacaroonAuthenticator, error) {
-	controllerCfg, err := controllerConfigGetter.ControllerConfig(ctx)
+func newExternalMacaroonAuth(ctx context.Context, st *state.State, controllerConfigService ControllerConfigService, clock clock.Clock, expiryTime time.Duration, identClient identchecker.IdentityClient) (*authentication.ExternalMacaroonAuthenticator, error) {
+	controllerCfg, err := controllerConfigService.ControllerConfig(ctx)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot get controller config")
 	}

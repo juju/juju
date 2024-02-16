@@ -15,17 +15,17 @@ import (
 
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/stateauthenticator"
-	"github.com/juju/juju/state"
+	coreuser "github.com/juju/juju/core/user"
 	statetesting "github.com/juju/juju/state/testing"
-	"github.com/juju/juju/testing/factory"
 )
 
 // TODO update these tests (moved from apiserver) to test
 // via the public interface, and then get rid of export_test.go.
 type agentAuthenticatorSuite struct {
 	statetesting.StateSuite
-	authenticator          *stateauthenticator.Authenticator
-	controllerConfigGetter *MockControllerConfigGetter
+	authenticator           *stateauthenticator.Authenticator
+	controllerConfigService *MockControllerConfigService
+	userService             *MockUserService
 }
 
 var _ = gc.Suite(&agentAuthenticatorSuite{})
@@ -40,20 +40,24 @@ func (s *agentAuthenticatorSuite) TestAuthenticateLoginRequestHandleNotSupported
 func (s *agentAuthenticatorSuite) TestAuthenticatorForTag(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	user := s.Factory.MakeUser(c, &factory.UserParams{Password: "password"})
+	user := coreuser.User{
+		Name: "user",
+	}
+	tag := names.NewUserTag("user")
 
-	authenticator, err := stateauthenticator.EntityAuthenticator(context.Background(), s.authenticator, user.Tag())
+	authenticator, err := stateauthenticator.EntityAuthenticator(context.Background(), s.authenticator, tag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(authenticator, gc.NotNil)
-	userFinder := userFinder{user}
 
-	entity, err := authenticator.Authenticate(context.Background(), userFinder, authentication.AuthParams{
-		AuthTag:     user.Tag(),
+	s.userService.EXPECT().GetUserByAuth(context.Background(), "user", "password").Return(user, nil).AnyTimes()
+
+	entity, err := authenticator.Authenticate(context.Background(), nil, authentication.AuthParams{
+		AuthTag:     tag,
 		Credentials: "password",
 		Nonce:       "nonce",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(entity, gc.DeepEquals, user)
+	c.Assert(entity.Tag(), gc.DeepEquals, tag)
 }
 
 func (s *agentAuthenticatorSuite) TestMachineGetsAgentAuthenticator(c *gc.C) {
@@ -94,20 +98,14 @@ func (s *agentAuthenticatorSuite) TestNotSupportedTag(c *gc.C) {
 func (s *agentAuthenticatorSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.controllerConfigGetter = NewMockControllerConfigGetter(ctrl)
-	s.controllerConfigGetter.EXPECT().ControllerConfig(gomock.Any()).Return(s.ControllerConfig, nil).AnyTimes()
+	s.controllerConfigService = NewMockControllerConfigService(ctrl)
+	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(s.ControllerConfig, nil).AnyTimes()
 
-	authenticator, err := stateauthenticator.NewAuthenticator(s.StatePool, s.controllerConfigGetter, clock.WallClock)
+	s.userService = NewMockUserService(ctrl)
+
+	authenticator, err := stateauthenticator.NewAuthenticator(s.StatePool, s.controllerConfigService, s.userService, clock.WallClock)
 	c.Assert(err, jc.ErrorIsNil)
 	s.authenticator = authenticator
 
 	return ctrl
-}
-
-type userFinder struct {
-	user state.Entity
-}
-
-func (u userFinder) FindEntity(tag names.Tag) (state.Entity, error) {
-	return u.user, nil
 }

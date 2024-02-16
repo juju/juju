@@ -27,7 +27,10 @@ func ServerBakery(ctx context.Context, a *Authenticator, identClient identchecke
 }
 
 func ServerBakeryExpiresImmediately(ctx context.Context, a *Authenticator, identClient identchecker.IdentityClient) (*identchecker.Bakery, error) {
-	auth, err := newExternalMacaroonAuth(ctx, a.authContext.st, a.authContext.controllerConfigGetter, a.authContext.clock, 0, identClient)
+	st := a.authContext.st
+	controllerConfigService := a.authContext.controllerConfigService
+
+	auth, err := newExternalMacaroonAuth(ctx, st, controllerConfigService, a.authContext.clock, 0, identClient)
 	if err != nil {
 		return nil, err
 	}
