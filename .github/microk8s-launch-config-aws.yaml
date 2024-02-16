@@ -7,9 +7,8 @@ addons:
   - name: dns
 containerdRegistryConfigs:
   docker.io: |
-    [host."http://10.0.1.123:80"]
+    [host."https://docker-cache.us-west-2.aws.jujuqa.com:443"]
       capabilities = ["pull", "resolve"]
-      skip_verify = true
   10.152.183.69: |
     [host."https://10.152.183.69:443"]
       capabilities = ["pull", "resolve", "push"]
