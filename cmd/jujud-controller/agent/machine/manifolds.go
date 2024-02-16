@@ -1,4 +1,4 @@
-// Copyright 2015 Canonical Ltd.
+// Copyright 2024 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package machine
@@ -820,10 +820,11 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 		// The controlsocket worker runs on the controller machine.
 		controlSocketName: ifController(controlsocket.Manifold(controlsocket.ManifoldConfig{
-			StateName:  stateName,
-			Logger:     loggo.GetLogger("juju.worker.controlsocket"),
-			NewWorker:  controlsocket.NewWorker,
-			SocketName: paths.ControlSocket(paths.OSUnixLike),
+			StateName:         stateName,
+			Logger:            loggo.GetLogger("juju.worker.controlsocket"),
+			NewWorker:         controlsocket.NewWorker,
+			NewSocketListener: controlsocket.NewSocketListener,
+			SocketName:        paths.ControlSocket(paths.OSUnixLike),
 		})),
 
 		objectStoreName: ifController(objectstore.Manifold(objectstore.ManifoldConfig{
