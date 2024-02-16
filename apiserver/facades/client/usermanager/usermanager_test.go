@@ -49,7 +49,7 @@ var _ = gc.Suite(&userManagerSuite{})
 func (s *userManagerSuite) SetUpTest(c *gc.C) {
 	s.ApiServerSuite.SetUpTest(c)
 
-	s.setAPIUserAndAuth("admin")
+	s.setAPIUserAndAuth(c, "admin")
 	s.resources = common.NewResources()
 
 	s.BlockHelper = commontesting.NewBlockHelper(s.OpenControllerModelAPI(c))
@@ -65,7 +65,7 @@ func (s *userManagerSuite) TestAddUser(c *gc.C) {
 		DisplayName: "Foo Bar",
 		Password:    &pass,
 		CreatorUUID: s.apiUser.UUID,
-	}).Return(mustNewUserUUID(), nil, nil)
+	}).Return(newUserUUID(c), nil, nil)
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
@@ -101,7 +101,7 @@ func (s *userManagerSuite) TestAddUserWithSecretKey(c *gc.C) {
 		Name:        "foobar",
 		DisplayName: "Foo Bar",
 		CreatorUUID: s.apiUser.UUID,
-	}).Return(mustNewUserUUID(), []byte("secret-key"), nil)
+	}).Return(newUserUUID(c), []byte("secret-key"), nil)
 
 	args := params.AddUsers{
 		Users: []params.AddUser{{
@@ -142,7 +142,7 @@ func (s *userManagerSuite) TestBlockAddUser(c *gc.C) {
 }
 
 func (s *userManagerSuite) TestAddUserAsNormalUser(c *gc.C) {
-	s.setAPIUserAndAuth("alex")
+	s.setAPIUserAndAuth(c, "alex")
 	defer s.setUpAPI(c).Finish()
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
@@ -320,7 +320,7 @@ func (s *userManagerSuite) TestBlockEnableUser(c *gc.C) {
 }
 
 func (s *userManagerSuite) TestDisableUserAsNormalUser(c *gc.C) {
-	s.setAPIUserAndAuth("alex")
+	s.setAPIUserAndAuth(c, "alex")
 	defer s.setUpAPI(c).Finish()
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
@@ -341,7 +341,7 @@ func (s *userManagerSuite) TestDisableUserAsNormalUser(c *gc.C) {
 }
 
 func (s *userManagerSuite) TestEnableUserAsNormalUser(c *gc.C) {
-	s.setAPIUserAndAuth("alex")
+	s.setAPIUserAndAuth(c, "alex")
 	defer s.setUpAPI(c).Finish()
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
@@ -373,12 +373,12 @@ func (s *userManagerSuite) TestUserInfo(c *gc.C) {
 	exp := s.userService.EXPECT()
 	a := gomock.Any()
 	exp.GetUserByName(a, "foobar").Return(coreuser.User{
-		UUID:     mustNewUserUUID(),
+		UUID:     newUserUUID(c),
 		Name:     "foobar",
 		Disabled: false,
 	}, nil)
 	exp.GetUserByName(a, "barfoo").Return(coreuser.User{
-		UUID:     mustNewUserUUID(),
+		UUID:     newUserUUID(c),
 		Name:     "barfoo",
 		Disabled: true,
 	}, nil)
@@ -420,12 +420,12 @@ func (s *userManagerSuite) TestUserInfoAll(c *gc.C) {
 
 	users := []coreuser.User{
 		{
-			UUID:     mustNewUserUUID(),
+			UUID:     newUserUUID(c),
 			Name:     "fred",
 			Disabled: false,
 		},
 		{
-			UUID:     mustNewUserUUID(),
+			UUID:     newUserUUID(c),
 			Name:     "nancy",
 			Disabled: false,
 		},
@@ -456,10 +456,10 @@ func (s *userManagerSuite) TestUserInfoAll(c *gc.C) {
 }
 
 func (s *userManagerSuite) TestUserInfoNonControllerAdmin(c *gc.C) {
-	s.setAPIUserAndAuth("aardvark")
+	s.setAPIUserAndAuth(c, "aardvark")
 	defer s.setUpAPI(c).Finish()
 
-	fakeCreatorUUID := mustNewUserUUID()
+	fakeCreatorUUID := newUserUUID(c)
 
 	fakeCreator := coreuser.User{
 		UUID:        fakeCreatorUUID,
@@ -467,7 +467,7 @@ func (s *userManagerSuite) TestUserInfoNonControllerAdmin(c *gc.C) {
 		DisplayName: "Creator",
 	}
 
-	fakeUUID := mustNewUserUUID()
+	fakeUUID := newUserUUID(c)
 
 	// CreateAt 5 mins ago
 	fakeCreatedAt := time.Now().Add(-5 * time.Minute)
@@ -736,7 +736,7 @@ func (s *userManagerSuite) TestSetPasswordForOther(c *gc.C) {
 	alex := f.MakeUser(c, &factory.UserParams{Name: "alex", NoModelUser: true})
 	barb := f.MakeUser(c, &factory.UserParams{Name: "barb", NoModelUser: true})
 
-	s.setAPIUserAndAuth(alex.Name())
+	s.setAPIUserAndAuth(c, alex.Name())
 	defer s.setUpAPI(c).Finish()
 
 	args := params.EntityPasswords{
@@ -811,7 +811,7 @@ func (s *userManagerSuite) TestRemoveUser(c *gc.C) {
 }
 
 func (s *userManagerSuite) TestRemoveUserAsNormalUser(c *gc.C) {
-	s.setAPIUserAndAuth("check")
+	s.setAPIUserAndAuth(c, "check")
 	defer s.setUpAPI(c).Finish()
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
@@ -834,7 +834,7 @@ func (s *userManagerSuite) TestRemoveUserAsNormalUser(c *gc.C) {
 }
 
 func (s *userManagerSuite) TestRemoveUserSelfAsNormalUser(c *gc.C) {
-	s.setAPIUserAndAuth("someguy")
+	s.setAPIUserAndAuth(c, "someguy")
 	defer s.setUpAPI(c).Finish()
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
@@ -1012,7 +1012,7 @@ func (s *userManagerSuite) TestResetPasswordControllerAdminForSelf(c *gc.C) {
 }
 
 func (s *userManagerSuite) TestResetPasswordNotControllerAdmin(c *gc.C) {
-	s.setAPIUserAndAuth("dope")
+	s.setAPIUserAndAuth(c, "dope")
 	defer s.setUpAPI(c).Finish()
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
@@ -1119,14 +1119,14 @@ func (s *userManagerSuite) TestResetPasswordEmpty(c *gc.C) {
 // setAPIUserAndAuth can be called prior to setUpAPI in order to simulate
 // calling the API as the input user. Any name other than "admin" indicates
 // that the caller is not an administrator of the controller.
-func (s *userManagerSuite) setAPIUserAndAuth(name string) {
+func (s *userManagerSuite) setAPIUserAndAuth(c *gc.C, name string) {
 	tag := names.NewUserTag(name)
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag: tag,
 	}
 
 	s.apiUser = coreuser.User{
-		UUID:        mustNewUserUUID(),
+		UUID:        newUserUUID(c),
 		Name:        tag.Name(),
 		DisplayName: tag.Name(),
 	}

@@ -186,7 +186,7 @@ func (api *UserManagerAPI) RemoveUser(ctx context.Context, entities params.Entit
 				errors.Errorf("cannot delete controller owner %q", userTag.Name()))
 			continue
 		}
-		// TODO(anvial): Legacy block to delete when userTag domain wire up is complete.
+		// TODO(anvial): Legacy block to delete when user domain wire up is complete.
 		err = api.state.RemoveUser(userTag)
 		if err != nil {
 			deletions.Results[i].Error = apiservererrors.ServerError(
@@ -195,7 +195,6 @@ func (api *UserManagerAPI) RemoveUser(ctx context.Context, entities params.Entit
 		}
 		// End legacy block.
 
-		// Remove userTag
 		err = api.userService.RemoveUser(ctx, userTag.Name())
 		if err != nil {
 			deletions.Results[i].Error = apiservererrors.ServerError(

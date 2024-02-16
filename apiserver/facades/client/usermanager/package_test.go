@@ -4,9 +4,12 @@
 package usermanager_test
 
 import (
-	"github.com/juju/juju/core/user"
 	stdtesting "testing"
 
+	jc "github.com/juju/testing/checkers"
+	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/testing"
 )
 
@@ -16,10 +19,8 @@ func TestAll(t *stdtesting.T) {
 	testing.MgoTestPackage(t)
 }
 
-func mustNewUserUUID() user.UUID {
+func newUserUUID(c *gc.C) user.UUID {
 	uuid, err := user.NewUUID()
-	if err != nil {
-		panic(err)
-	}
+	c.Assert(err, jc.ErrorIsNil)
 	return uuid
 }
