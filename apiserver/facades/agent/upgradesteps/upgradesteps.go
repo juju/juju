@@ -156,9 +156,6 @@ func (api *UpgradeStepsAPI) WriteAgentState(ctx context.Context, args params.Set
 		if data.StorageState != nil {
 			us.SetStorageState(*data.StorageState)
 		}
-		if data.MeterStatusState != nil {
-			us.SetMeterStatusState(*data.MeterStatusState)
-		}
 
 		op := u.SetStateOperation(
 			us,

@@ -151,7 +151,6 @@ func (s *BaseHookContextSuite) setupUnit(ctrl *gomock.Controller) names.MachineT
 	s.unit = uniterapi.NewMockUnit(ctrl)
 	s.unit.EXPECT().Tag().Return(unitTag).AnyTimes()
 	s.unit.EXPECT().Name().Return(unitTag.Id()).AnyTimes()
-	s.unit.EXPECT().MeterStatus().Return("", "", nil).AnyTimes()
 	s.unit.EXPECT().PublicAddress().Return("u-0.testing.invalid", nil).AnyTimes()
 	s.unit.EXPECT().PrivateAddress().Return("u-0.testing.invalid", nil).AnyTimes()
 	s.unit.EXPECT().AvailabilityZone().Return("a-zone", nil).AnyTimes()
@@ -209,39 +208,6 @@ func (s *BaseHookContextSuite) getHookContext(c *gc.C, ctrl *gomock.Controller, 
 
 	c.Assert(err, jc.ErrorIsNil)
 	return context
-}
-
-func (s *BaseHookContextSuite) getMeteredHookContext(c *gc.C, ctrl *gomock.Controller, uuid string, relid int,
-	remote string, canAddMetrics bool, metrics *charm.Metrics, paths runnertesting.RealPaths) *runnercontext.HookContext {
-	relctxs := map[int]*runnercontext.ContextRelation{}
-
-	s.setupUniter(ctrl)
-
-	context, err := runnercontext.NewHookContext(runnercontext.HookContextParams{
-		Unit:                s.unit,
-		Uniter:              s.uniter,
-		ID:                  "TestCtx",
-		UUID:                uuid,
-		ModelName:           "test-model",
-		RelationID:          relid,
-		RemoteUnitName:      remote,
-		Relations:           relctxs,
-		APIAddrs:            apiAddrs,
-		LegacyProxySettings: noProxies,
-		JujuProxySettings:   noProxies,
-		CanAddMetrics:       canAddMetrics,
-		CharmMetrics:        metrics,
-		ActionData:          nil,
-		AssignedMachineTag:  names.NewMachineTag("0"),
-		Paths:               paths,
-		Clock:               s.clock,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	return context
-}
-
-func (s *BaseHookContextSuite) metricsDefinition(name string) *charm.Metrics {
-	return &charm.Metrics{Metrics: map[string]charm.Metric{name: {Type: charm.MetricTypeGauge, Description: "generated metric"}}}
 }
 
 func (s *BaseHookContextSuite) AssertCoreContext(c *gc.C, ctx *runnercontext.HookContext) {

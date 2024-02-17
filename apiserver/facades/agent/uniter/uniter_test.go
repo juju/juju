@@ -2892,39 +2892,6 @@ func (s *uniterSuite) TestWatchCAASUnitAddressesHash(c *gc.C) {
 	wc.AssertNoChange()
 }
 
-func (s *uniterSuite) TestGetMeterStatusUnauthenticated(c *gc.C) {
-	args := params.Entities{Entities: []params.Entity{{s.mysqlUnit.Tag().String()}}}
-	result, err := s.uniter.GetMeterStatus(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0].Error, gc.ErrorMatches, "permission denied")
-	c.Assert(result.Results[0].Code, gc.Equals, "")
-	c.Assert(result.Results[0].Info, gc.Equals, "")
-}
-
-func (s *uniterSuite) TestGetMeterStatusBadTag(c *gc.C) {
-	tags := []string{
-		"user-admin",
-		"unit-nosuchunit",
-		"thisisnotatag",
-		"machine-0",
-		"model-blah",
-	}
-	args := params.Entities{Entities: make([]params.Entity, len(tags))}
-	for i, tag := range tags {
-		args.Entities[i] = params.Entity{Tag: tag}
-	}
-	result, err := s.uniter.GetMeterStatus(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, len(tags))
-	for i, result := range result.Results {
-		c.Logf("checking result %d", i)
-		c.Assert(result.Code, gc.Equals, "")
-		c.Assert(result.Info, gc.Equals, "")
-		c.Assert(result.Error, gc.ErrorMatches, "permission denied")
-	}
-}
-
 func (s *uniterSuite) addRelatedApplication(c *gc.C, firstSvc, relatedApp string, unit *state.Unit) (*state.Relation, *state.Application, *state.Unit) {
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
@@ -3189,15 +3156,6 @@ func (s *uniterSuite) TestOpenedMachinePortRangesByEndpoint(c *gc.C) {
 			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
-}
-
-func (s *uniterSuite) TestSLALevel(c *gc.C) {
-	err := s.ControllerModel(c).State().SetSLA("essential", "bob", []byte("creds"))
-	c.Assert(err, jc.ErrorIsNil)
-
-	result, err := s.uniter.SLALevel(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.StringResult{Result: "essential"})
 }
 
 func (s *uniterSuite) setupRemoteRelationScenario(c *gc.C) (names.Tag, *state.RelationUnit) {

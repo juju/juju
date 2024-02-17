@@ -2586,51 +2586,6 @@ func (st *State) networkEntityGlobalKey(globalKey string, providerId corenetwork
 	return st.docID(globalKey + ":" + string(providerId))
 }
 
-// SetSLA sets the SLA on the current connected model.
-func (st *State) SetSLA(level, owner string, credentials []byte) error {
-	model, err := st.Model()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return model.SetSLA(level, owner, credentials)
-}
-
-// SetModelMeterStatus sets the meter status for the current connected model.
-func (st *State) SetModelMeterStatus(status, info string) error {
-	model, err := st.Model()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return model.SetMeterStatus(status, info)
-}
-
-// ModelMeterStatus returns the meter status for the current connected model.
-func (st *State) ModelMeterStatus() (MeterStatus, error) {
-	model, err := st.Model()
-	if err != nil {
-		return MeterStatus{MeterNotAvailable, ""}, errors.Trace(err)
-	}
-	return model.MeterStatus(), nil
-}
-
-// SLALevel returns the SLA level of the current connected model.
-func (st *State) SLALevel() (string, error) {
-	model, err := st.Model()
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	return model.SLALevel(), nil
-}
-
-// SLACredential returns the SLA credential of the current connected model.
-func (st *State) SLACredential() ([]byte, error) {
-	model, err := st.Model()
-	if err != nil {
-		return []byte{}, errors.Trace(err)
-	}
-	return model.SLACredential(), nil
-}
-
 var tagPrefix = map[byte]string{
 	'm': names.MachineTagKind + "-",
 	'a': names.ApplicationTagKind + "-",

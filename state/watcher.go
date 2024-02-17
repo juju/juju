@@ -2103,20 +2103,6 @@ func (u *Unit) WatchApplicationConfigSettingsHash() (StringsWatcher, error) {
 	return newSettingsHashWatcher(u.st, applicationConfigKey), nil
 }
 
-// WatchMeterStatus returns a watcher observing changes that affect the meter status
-// of a unit.
-func (u *Unit) WatchMeterStatus() NotifyWatcher {
-	return newDocWatcher(u.st, []docKey{
-		{
-			meterStatusC,
-			u.st.docID(u.globalMeterStatusKey()),
-		}, {
-			meterStatusC,
-			metricsManagerKey(u.st),
-		},
-	})
-}
-
 // WatchLXDProfileUpgradeNotifications returns a watcher that observes the status
 // of a lxd profile upgrade by monitoring changes on the unit machine's lxd profile
 // upgrade completed field that is specific to an application name.  Used by

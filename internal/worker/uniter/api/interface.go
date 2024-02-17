@@ -64,7 +64,6 @@ type Unit interface {
 	PrincipalName() (string, bool, error)
 	AssignedMachine() (names.MachineTag, error)
 	AvailabilityZone() (string, error)
-	MeterStatus() (statusCode, statusInfo string, rErr error)
 	PrivateAddress() (string, error)
 	Resolved() params.ResolvedMode
 

@@ -210,11 +210,6 @@ func (u *Unit) globalAgentKey() string {
 	return unitAgentGlobalKey(u.doc.Name)
 }
 
-// globalMeterStatusKey returns the global database key for the meter status of the unit.
-func (u *Unit) globalMeterStatusKey() string {
-	return unitAgentGlobalKey(u.doc.Name)
-}
-
 // globalKey returns the global database key for the unit.
 func (u *Unit) globalKey() string {
 	return unitGlobalKey(u.doc.Name)
@@ -3024,7 +3019,6 @@ type addUnitOpsArgs struct {
 	agentStatusDoc     statusDoc
 	workloadStatusDoc  *statusDoc
 	workloadVersionDoc *statusDoc
-	meterStatusDoc     *meterStatusDoc
 }
 
 // addUnitOps returns the operations required to add a unit to the units
@@ -3049,7 +3043,6 @@ func addUnitOps(st *State, args addUnitOpsArgs) ([]txn.Op, error) {
 	prereqOps = append(prereqOps,
 		createStatusOp(st, agentGlobalKey, args.agentStatusDoc),
 		createStatusOp(st, unitGlobalKey(name), *args.workloadStatusDoc),
-		createMeterStatusOp(st, agentGlobalKey, args.meterStatusDoc),
 		createStatusOp(st, globalWorkloadVersionKey(name), *args.workloadVersionDoc),
 	)
 

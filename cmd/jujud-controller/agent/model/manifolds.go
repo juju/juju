@@ -51,7 +51,6 @@ import (
 	"github.com/juju/juju/internal/worker/lifeflag"
 	"github.com/juju/juju/internal/worker/logger"
 	"github.com/juju/juju/internal/worker/machineundertaker"
-	"github.com/juju/juju/internal/worker/metricworker"
 	"github.com/juju/juju/internal/worker/migrationflag"
 	"github.com/juju/juju/internal/worker/migrationmaster"
 	"github.com/juju/juju/internal/worker/provisioner"
@@ -437,10 +436,6 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Logger:                       config.LoggingContext.GetLogger("juju.worker.instancepoller"),
 			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
 		})),
-		metricWorkerName: ifNotMigrating(metricworker.Manifold(metricworker.ManifoldConfig{
-			APICallerName: apiCallerName,
-			Logger:        config.LoggingContext.GetLogger("juju.worker.metricworker"),
-		})),
 		machineUndertakerName: ifNotMigrating(machineundertaker.Manifold(machineundertaker.ManifoldConfig{
 			APICallerName:                apiCallerName,
 			EnvironName:                  environTrackerName,
@@ -677,7 +672,6 @@ const (
 	applicationScalerName    = "application-scaler"
 	instancePollerName       = "instance-poller"
 	charmRevisionUpdaterName = "charm-revision-updater"
-	metricWorkerName         = "metric-worker"
 	stateCleanerName         = "state-cleaner"
 	statusHistoryPrunerName  = "status-history-pruner"
 	actionPrunerName         = "action-pruner"

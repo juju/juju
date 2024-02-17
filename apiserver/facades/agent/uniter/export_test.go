@@ -6,7 +6,6 @@ package uniter
 import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/apiserver/facades/agent/meterstatus"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/state"
 )
@@ -17,8 +16,6 @@ var (
 
 	NewUniterAPI             = newUniterAPI
 	NewUniterAPIWithServices = newUniterAPIWithServices
-
-	_ meterstatus.MeterStatus = (*UniterAPI)(nil)
 )
 
 type (

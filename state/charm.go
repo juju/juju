@@ -667,11 +667,6 @@ func (c *Charm) Manifest() *charm.Manifest {
 	return c.doc.Manifest
 }
 
-// Metrics returns the metrics declared for the charm.
-func (c *Charm) Metrics() *charm.Metrics {
-	return c.doc.Metrics
-}
-
 // Actions returns the actions definition of the charm.
 func (c *Charm) Actions() *charm.Actions {
 	return c.doc.Actions

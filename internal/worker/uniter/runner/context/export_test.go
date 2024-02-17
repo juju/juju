@@ -107,14 +107,6 @@ func NewHookContext(hcParams HookContextParams) (*HookContext, error) {
 
 	ctx.secretChanges = newSecretsChangeRecorder(ctx.logger)
 
-	statusCode, statusInfo, err := hcParams.Unit.MeterStatus()
-	if err != nil {
-		return nil, errors.Annotate(err, "could not retrieve meter status for unit")
-	}
-	ctx.meterStatus = &meterStatus{
-		code: statusCode,
-		info: statusInfo,
-	}
 	return ctx, nil
 }
 
@@ -240,10 +232,6 @@ type ModelHookContextParams struct {
 	ModelName string
 	UnitName  string
 
-	MeterCode string
-	MeterInfo string
-	SLALevel  string
-
 	AvailZone    string
 	APIAddresses []string
 
@@ -260,22 +248,17 @@ type ModelHookContextParams struct {
 // The returned value is not otherwise valid.
 func NewModelHookContext(p ModelHookContextParams) *HookContext {
 	return &HookContext{
-		id:                  p.ID,
-		hookName:            p.HookName,
-		unitName:            p.UnitName,
-		uuid:                p.ModelUUID,
-		modelName:           p.ModelName,
-		apiAddrs:            p.APIAddresses,
-		legacyProxySettings: p.LegacyProxySettings,
-		jujuProxySettings:   p.JujuProxySettings,
-		meterStatus: &meterStatus{
-			code: p.MeterCode,
-			info: p.MeterInfo,
-		},
+		id:                     p.ID,
+		hookName:               p.HookName,
+		unitName:               p.UnitName,
+		uuid:                   p.ModelUUID,
+		modelName:              p.ModelName,
+		apiAddrs:               p.APIAddresses,
+		legacyProxySettings:    p.LegacyProxySettings,
+		jujuProxySettings:      p.JujuProxySettings,
 		relationId:             -1,
 		assignedMachineTag:     p.MachineTag,
 		availabilityZone:       p.AvailZone,
-		slaLevel:               p.SLALevel,
 		principal:              p.UnitName,
 		cloudAPIVersion:        "6.66",
 		logger:                 loggo.GetLogger("test"),
@@ -325,10 +308,6 @@ func CachedAppSettings(cf0 ContextFactory, relId int, appName string) (params.Se
 	cf := cf0.(*contextFactory)
 	settings, found := cf.relationCaches[relId].applications[appName]
 	return settings, found
-}
-
-func (ctx *HookContext) SLALevel() string {
-	return ctx.slaLevel
 }
 
 func (ctx *HookContext) PendingSecretRemoves() map[string]uniter.SecretDeleteArg {

@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 	"regexp"
-	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
@@ -451,51 +450,6 @@ func (s *factorySuite) TestMakeRelation(c *gc.C) {
 	c.Assert(saved.Tag(), gc.Equals, relation.Tag())
 	c.Assert(saved.Life(), gc.Equals, relation.Life())
 	c.Assert(saved.Endpoints(), gc.DeepEquals, relation.Endpoints())
-}
-
-func (s *factorySuite) TestMakeMetricNil(c *gc.C) {
-	metric := s.Factory.MakeMetric(c, nil)
-	c.Assert(metric, gc.NotNil)
-
-	saved, err := s.State.MetricBatch(metric.UUID())
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(saved.UUID(), gc.Equals, metric.UUID())
-	c.Assert(saved.Unit(), gc.Equals, metric.Unit())
-	c.Assert(saved.Sent(), gc.Equals, metric.Sent())
-	c.Assert(saved.CharmURL(), gc.Equals, metric.CharmURL())
-	c.Assert(saved.Sent(), gc.Equals, metric.Sent())
-	c.Assert(saved.Metrics(), gc.HasLen, 1)
-	c.Assert(saved.Metrics()[0].Key, gc.Equals, metric.Metrics()[0].Key)
-	c.Assert(saved.Metrics()[0].Value, gc.Equals, metric.Metrics()[0].Value)
-	c.Assert(saved.Metrics()[0].Time.Equal(metric.Metrics()[0].Time), jc.IsTrue)
-}
-
-func (s *factorySuite) TestMakeMetric(c *gc.C) {
-	now := time.Now().Round(time.Second).UTC()
-	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "ch:quantal/metered"})
-	meteredApplication := s.Factory.MakeApplication(c, &factory.ApplicationParams{Charm: meteredCharm})
-	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: meteredApplication, SetCharmURL: true})
-	metric := s.Factory.MakeMetric(c, &factory.MetricParams{
-		Unit:    unit,
-		Time:    &now,
-		Sent:    true,
-		Metrics: []state.Metric{{Key: "pings", Value: "1", Time: now}},
-	})
-	c.Assert(metric, gc.NotNil)
-
-	saved, err := s.State.MetricBatch(metric.UUID())
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(saved.UUID(), gc.Equals, metric.UUID())
-	c.Assert(saved.Unit(), gc.Equals, metric.Unit())
-	c.Assert(saved.CharmURL(), gc.Equals, metric.CharmURL())
-	c.Assert(metric.Sent(), jc.IsTrue)
-	c.Assert(saved.Sent(), jc.IsTrue)
-	c.Assert(saved.Metrics(), gc.HasLen, 1)
-	c.Assert(saved.Metrics()[0].Key, gc.Equals, "pings")
-	c.Assert(saved.Metrics()[0].Value, gc.Equals, "1")
-	c.Assert(saved.Metrics()[0].Time.Equal(now), jc.IsTrue)
 }
 
 func (s *factorySuite) TestMakeModelNil(c *gc.C) {

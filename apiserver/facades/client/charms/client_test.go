@@ -58,32 +58,6 @@ func (s *charmsSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *charmsSuite) TestMeteredCharmInfo(c *gc.C) {
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-	meteredCharm := f.MakeCharm(
-		c, &factory.CharmParams{Name: "metered", URL: "ch:amd64/xenial/metered"})
-	info, err := s.api.CharmInfo(context.Background(), params.CharmURL{
-		URL: meteredCharm.URL(),
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	expected := &params.CharmMetrics{
-		Plan: params.CharmPlan{
-			Required: true,
-		},
-		Metrics: map[string]params.CharmMetric{
-			"pings": {
-				Type:        "gauge",
-				Description: "Description of the metric."},
-			"pongs": {
-				Type:        "gauge",
-				Description: "Description of the metric."},
-			"juju-units": {
-				Type:        "",
-				Description: ""}}}
-	c.Assert(info.Metrics, jc.DeepEquals, expected)
-}
-
 func (s *charmsSuite) TestListCharmsNoFilter(c *gc.C) {
 	s.assertListCharms(c, []string{"dummy"}, []string{}, []string{"local:quantal/dummy-1"})
 }
@@ -108,28 +82,6 @@ func (s *charmsSuite) assertListCharms(c *gc.C, someCharms, args, expected []str
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(found.CharmURLs, gc.HasLen, len(expected))
 	c.Check(found.CharmURLs, jc.DeepEquals, expected)
-}
-
-func (s *charmsSuite) TestIsMeteredFalse(c *gc.C) {
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-	charm := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
-	metered, err := s.api.IsMetered(context.Background(), params.CharmURL{
-		URL: charm.URL(),
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(metered.Metered, jc.IsFalse)
-}
-
-func (s *charmsSuite) TestIsMeteredTrue(c *gc.C) {
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-	meteredCharm := f.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "ch:amd64/quantal/metered"})
-	metered, err := s.api.IsMetered(context.Background(), params.CharmURL{
-		URL: meteredCharm.URL(),
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(metered.Metered, jc.IsTrue)
 }
 
 type charmsMockSuite struct {

@@ -54,8 +54,6 @@ type ModelStatusInfo struct {
 	Version          string         `json:"version"`
 	AvailableVersion string         `json:"available-version"`
 	ModelStatus      DetailedStatus `json:"model-status"`
-	MeterStatus      MeterStatus    `json:"meter-status"`
-	SLA              string         `json:"sla"`
 }
 
 // NetworkInterface holds a /etc/network/interfaces-type data and the
@@ -155,7 +153,6 @@ type ApplicationStatus struct {
 	CanUpgradeTo     string                     `json:"can-upgrade-to"`
 	SubordinateTo    []string                   `json:"subordinate-to"`
 	Units            map[string]UnitStatus      `json:"units"`
-	MeterStatuses    map[string]MeterStatus     `json:"meter-statuses"`
 	Status           DetailedStatus             `json:"status"`
 	WorkloadVersion  string                     `json:"workload-version"`
 	EndpointBindings map[string]string          `json:"endpoint-bindings"`
@@ -186,12 +183,6 @@ type ApplicationOfferStatus struct {
 	Endpoints            map[string]RemoteEndpoint `json:"endpoints"`
 	ActiveConnectedCount int                       `json:"active-connected-count"`
 	TotalConnectedCount  int                       `json:"total-connected-count"`
-}
-
-// MeterStatus represents the meter status of a unit.
-type MeterStatus struct {
-	Color   string `json:"color"`
-	Message string `json:"message"`
 }
 
 // UnitStatus holds status info about a unit.

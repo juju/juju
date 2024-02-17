@@ -143,7 +143,6 @@ func (s *StatusSuite) newContext() *context {
 					Type:        "iaas",
 					CloudTag:    "cloud-dummy",
 					CloudRegion: "dummy-region",
-					SLA:         "unsupported",
 					Version:     currentVersion.String(),
 					ModelStatus: params.DetailedStatus{
 						Status: status.Available.String(),
@@ -2550,9 +2549,6 @@ var statusTests = []testCase{
 		setAgentStatus{"applicationwithmeterstatus/2", status.Idle, "", nil},
 		setUnitStatus{"applicationwithmeterstatus/2", status.Active, "", nil},
 
-		setUnitMeterStatus{"applicationwithmeterstatus/1", "GREEN", "test green status"},
-		setUnitMeterStatus{"applicationwithmeterstatus/2", "RED", "test red status"},
-
 		expect{
 			what: "simulate just the two applications and a bootstrap node",
 			output: M{
@@ -2620,10 +2616,7 @@ var statusTests = []testCase{
 									"current": "idle",
 									"since":   "01 Apr 15 01:23+10:00",
 								},
-								"meter-status": M{
-									"color":   "green",
-									"message": "test green status",
-								},
+
 								"public-address": "10.0.3.1",
 							},
 							"applicationwithmeterstatus/2": M{
@@ -2635,10 +2628,6 @@ var statusTests = []testCase{
 								"juju-status": M{
 									"current": "idle",
 									"since":   "01 Apr 15 01:23+10:00",
-								},
-								"meter-status": M{
-									"color":   "red",
-									"message": "test red status",
 								},
 								"public-address": "10.0.4.1",
 							},
@@ -3011,69 +3000,6 @@ var statusTests = []testCase{
 			},
 		},
 	),
-	test( // 24
-		"set meter status on the model",
-		setSLA{"advanced"},
-		setModelMeterStatus{"RED", "status message"},
-		expect{
-			what: "simulate just the two applications and a bootstrap node",
-			output: M{
-				"model": M{
-					"name":       "controller",
-					"type":       "iaas",
-					"controller": "kontroll",
-					"cloud":      "dummy",
-					"region":     "dummy-region",
-					"version":    "1.2.3",
-					"model-status": M{
-						"current": "available",
-						"since":   "01 Apr 15 01:23+10:00",
-					},
-					"meter-status": M{
-						"color":   "red",
-						"message": "status message",
-					},
-					"sla": "advanced",
-				},
-				"machines":     M{},
-				"applications": M{},
-				"storage":      M{},
-				"controller": M{
-					"timestamp": "15:04:05+07:00",
-				},
-			},
-			stderr: "\nModel \"controller\" is empty.\n",
-		},
-	),
-	test( // 25
-		"set sla on the model",
-		setSLA{"advanced"},
-		expect{
-			what: "set sla on the model",
-			output: M{
-				"model": M{
-					"name":       "controller",
-					"type":       "iaas",
-					"controller": "kontroll",
-					"cloud":      "dummy",
-					"region":     "dummy-region",
-					"version":    "1.2.3",
-					"model-status": M{
-						"current": "available",
-						"since":   "01 Apr 15 01:23+10:00",
-					},
-					"sla": "advanced",
-				},
-				"machines":     M{},
-				"applications": M{},
-				"storage":      M{},
-				"controller": M{
-					"timestamp": "15:04:05+07:00",
-				},
-			},
-			stderr: "\nModel \"controller\" is empty.\n",
-		},
-	),
 	test( //26
 		"deploy application with endpoint bound to space",
 		addMachine{machineId: "0", job: coremodel.JobManageModel},
@@ -3272,14 +3198,6 @@ func composeCharms(origin, extras M) M {
 		result[key] = value
 	}
 	return result
-}
-
-type setSLA struct {
-	level string
-}
-
-func (s setSLA) step(c *gc.C, ctx *context) {
-	ctx.api.result.Model.SLA = s.level
 }
 
 type setModelSuspended struct {
@@ -3723,7 +3641,6 @@ func (as addApplication) step(c *gc.C, ctx *context) {
 		Units:            make(map[string]params.UnitStatus),
 		Relations:        make(map[string][]string),
 		EndpointBindings: make(map[string]string),
-		MeterStatuses:    make(map[string]params.MeterStatus),
 	}
 	if as.charm == "lxd-profile" {
 		app.CharmProfile = "juju-controller-lxd-profile-1"
@@ -4009,36 +3926,6 @@ func (aau addAliveUnit) step(c *gc.C, ctx *context) {
 		}
 	}
 	ctx.api.result.Applications[aau.applicationName] = app
-}
-
-type setUnitMeterStatus struct {
-	unitName string
-	color    string
-	message  string
-}
-
-func (s setUnitMeterStatus) step(c *gc.C, ctx *context) {
-	appName, _ := names.UnitApplication(s.unitName)
-	app, ok := ctx.api.result.Applications[appName]
-	c.Assert(ok, jc.IsTrue)
-
-	app.MeterStatuses[s.unitName] = params.MeterStatus{
-		Color:   strings.ToLower(s.color),
-		Message: s.message,
-	}
-	ctx.api.result.Applications[appName] = app
-}
-
-type setModelMeterStatus struct {
-	color   string
-	message string
-}
-
-func (s setModelMeterStatus) step(c *gc.C, ctx *context) {
-	ctx.api.result.Model.MeterStatus = params.MeterStatus{
-		Color:   strings.ToLower(s.color),
-		Message: s.message,
-	}
 }
 
 type setUnitAsLeader struct {
@@ -4922,8 +4809,8 @@ func (s *StatusSuite) prepareTabularData(c *gc.C) *context {
 }
 
 var expectedTabularStatus = `
-Model       Controller  Cloud/Region        Version  SLA          Timestamp       Notes
-controller  kontroll    dummy/dummy-region  1.2.3    unsupported  15:04:05+07:00  upgrade available: 1.2.4
+Model       Controller  Cloud/Region        Version  Timestamp       Notes
+controller  kontroll    dummy/dummy-region  1.2.3    15:04:05+07:00  upgrade available: 1.2.4
 
 SAAS         Status   Store  URL
 hosted-riak  unknown  local  me/model.riak
@@ -5318,10 +5205,6 @@ foo/0  waiting   allocating  10.0.0.1  80,1555-1559/TCP
 
 func (s *StatusSuite) TestFormatTabularTruncateMessage(c *gc.C) {
 	longMessage := "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum."
-	longMeterStatus := meterStatus{
-		Color:   "blue",
-		Message: longMessage,
-	}
 	longStatusInfo := statusInfoContents{
 		Current: status.Active,
 		Message: longMessage,
@@ -5329,12 +5212,11 @@ func (s *StatusSuite) TestFormatTabularTruncateMessage(c *gc.C) {
 
 	status := formattedStatus{
 		Model: modelStatus{
-			Name:        "m",
-			Controller:  "c",
-			Cloud:       "localhost",
-			Version:     "3.0.0",
-			Status:      longStatusInfo,
-			MeterStatus: &longMeterStatus,
+			Name:       "m",
+			Controller: "c",
+			Cloud:      "localhost",
+			Version:    "3.0.0",
+			Status:     longStatusInfo,
 		},
 		Applications: map[string]applicationStatus{
 			"foo": {
@@ -5347,14 +5229,12 @@ func (s *StatusSuite) TestFormatTabularTruncateMessage(c *gc.C) {
 						JujuStatusInfo:     longStatusInfo,
 						Machine:            "0",
 						PublicAddress:      "10.53.62.100",
-						MeterStatus:        &longMeterStatus,
 						Subordinates: map[string]unitStatus{
 							"foo/1": {
 								WorkloadStatusInfo: longStatusInfo,
 								JujuStatusInfo:     longStatusInfo,
 								Machine:            "0/lxd/0",
 								PublicAddress:      "10.53.62.101",
-								MeterStatus:        &longMeterStatus,
 							},
 						},
 					},
@@ -5420,10 +5300,6 @@ Unit     Workload  Agent   Machine  Public address  Ports  Message
 foo/0    active    active  0        10.53.62.100           Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna a...
   foo/1  active    active  0/lxd/0  10.53.62.101           Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna a...
 
-Entity  Meter status  Message
-model   blue          Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna a...  
-foo/0   blue          Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna a...  
-
 Machine  State   Address       Inst id  Base          AZ  Message
 0        active  10.53.62.100           ubuntu@22.04      Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna a...
 0/lxd/0  active  10.53.62.101           ubuntu@22.04      Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna a...
@@ -5440,47 +5316,6 @@ func (s *StatusSuite) TestStatusWithNilStatusAPI(c *gc.C) {
 	code, _, stderr := runStatus(c, ctx, "--no-color", "--format", "tabular")
 	c.Check(code, gc.Equals, 1)
 	c.Check(stderr, gc.Equals, "ERROR unable to obtain the current status\n")
-}
-
-func (s *StatusSuite) TestFormatTabularMetering(c *gc.C) {
-	status := formattedStatus{
-		Applications: map[string]applicationStatus{
-			"foo": {
-				Units: map[string]unitStatus{
-					"foo/0": {
-						MeterStatus: &meterStatus{
-							Color:   "strange",
-							Message: "warning: stable strangelets",
-						},
-					},
-					"foo/1": {
-						MeterStatus: &meterStatus{
-							Color:   "up",
-							Message: "things are looking up",
-						},
-					},
-				},
-			},
-		},
-	}
-	out := &bytes.Buffer{}
-	err := FormatTabular(out, false, status)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(out.String(), gc.Equals, `
-Model  Controller  Cloud/Region  Version
-                                 
-
-App  Version  Status  Scale  Charm  Channel  Rev  Exposed  Message
-foo                     0/2                    0  no       
-
-Unit   Workload  Agent  Machine  Public address  Ports  Message
-foo/0                                                   
-foo/1                                                   
-
-Entity  Meter status  Message
-foo/0   strange       warning: stable strangelets  
-foo/1   up            things are looking up        
-`[1:])
 }
 
 // Filtering Feature
@@ -5945,8 +5780,8 @@ func (s *StatusSuite) TestStatusFormatTabularEmptyModel(c *gc.C) {
 	c.Check(code, gc.Equals, 0)
 	c.Check(stderr, gc.Equals, "\nModel \"controller\" is empty.\n")
 	expected := `
-Model       Controller  Cloud/Region        Version  SLA          Timestamp
-controller  kontroll    dummy/dummy-region  1.2.3    unsupported  15:04:05+07:00
+Model       Controller  Cloud/Region        Version  Timestamp
+controller  kontroll    dummy/dummy-region  1.2.3    15:04:05+07:00
 `[1:]
 	output := substituteFakeTimestamp(c, stdout, false)
 	c.Assert(output, gc.Equals, expected)
@@ -5958,8 +5793,8 @@ func (s *StatusSuite) TestStatusFormatTabularForUnmatchedFilter(c *gc.C) {
 	c.Check(code, gc.Equals, 0)
 	c.Check(stderr, gc.Equals, "Nothing matched specified filter.\n")
 	expected := `
-Model       Controller  Cloud/Region        Version  SLA          Timestamp
-controller  kontroll    dummy/dummy-region  1.2.3    unsupported  15:04:05+07:00
+Model       Controller  Cloud/Region        Version  Timestamp
+controller  kontroll    dummy/dummy-region  1.2.3    15:04:05+07:00
 `[1:]
 	output := substituteFakeTimestamp(c, stdout, false)
 	c.Assert(output, gc.Equals, expected)

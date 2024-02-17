@@ -278,12 +278,6 @@ func (c *Client) ListModelSummaries(user string, all bool) ([]base.UserModelSumm
 				EndTime:   summary.Migration.End,
 			}
 		}
-		if summary.SLA != nil {
-			summaries[i].SLA = &base.SLASummary{
-				Level: summary.SLA.Level,
-				Owner: summary.SLA.Owner,
-			}
-		}
 	}
 	return summaries, nil
 }

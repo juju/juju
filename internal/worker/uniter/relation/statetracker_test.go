@@ -199,7 +199,7 @@ func (s *stateTrackerSuite) TestPrepareHookOnlyRelationHooks(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	info := hook.Info{
-		Kind:       hooks.MeterStatusChanged,
+		Kind:       hooks.PebbleCustomNotice,
 		RelationId: 1,
 	}
 	_, err = rst.PrepareHook(info)
@@ -216,7 +216,7 @@ func (s *stateTrackerSuite) TestCommitHookOnlyRelationHooks(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	info := hook.Info{
-		Kind:       hooks.MeterStatusChanged,
+		Kind:       hooks.PebbleCustomNotice,
 		RelationId: 1,
 	}
 	err = rst.CommitHook(stdcontext.Background(), info)

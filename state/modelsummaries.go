@@ -50,10 +50,6 @@ type ModelSummary struct {
 	CloudRegion        string
 	CloudCredentialTag string
 
-	// SLA contains the information about the SLA for the model, if set.
-	SLALevel string
-	SLAOwner string
-
 	// Needs Config()
 	ProviderType string
 	DefaultBase  corebase.Base
@@ -109,8 +105,6 @@ func newProcessorFromModelDocs(st *State, modelDocs []modelDoc, user names.UserT
 			Owner:              doc.Owner,
 			ControllerUUID:     doc.ControllerUUID,
 			IsController:       doc.UUID == st.modelTag.Id(),
-			SLALevel:           string(doc.SLA.Level),
-			SLAOwner:           doc.SLA.Owner,
 			CloudTag:           names.NewCloudTag(doc.Cloud).String(),
 			CloudRegion:        doc.CloudRegion,
 			CloudCredentialTag: cloudCred,

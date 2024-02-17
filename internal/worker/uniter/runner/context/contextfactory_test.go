@@ -54,7 +54,6 @@ func (s *ContextFactorySuite) setupContextFactory(c *gc.C, ctrl *gomock.Controll
 	}, nil)
 	s.uniter.EXPECT().LeadershipSettings().Return(&stubLeadershipSettingsAccessor{}).AnyTimes()
 	s.uniter.EXPECT().APIAddresses().Return([]string{"10.6.6.6"}, nil).AnyTimes()
-	s.uniter.EXPECT().SLALevel(gomock.Any()).Return("essential", nil).AnyTimes()
 	s.uniter.EXPECT().CloudAPIVersion(gomock.Any()).Return("6.6.6", nil).AnyTimes()
 
 	cfg := coretesting.ModelConfig(c)
@@ -115,16 +114,6 @@ func (s *ContextFactorySuite) getRelationInfos() map[int]*context.RelationInfo {
 		}
 	}
 	return info
-}
-
-func (s *ContextFactorySuite) TestNewHookContextRetrievesSLALevel(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-	s.setupContextFactory(c, ctrl)
-
-	ctx, err := s.factory.HookContext(stdcontext.Background(), hook.Info{Kind: hooks.ConfigChanged})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ctx.SLALevel(), gc.Equals, "essential")
 }
 
 func (s *ContextFactorySuite) TestRelationHookContext(c *gc.C) {

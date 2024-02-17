@@ -63,11 +63,6 @@ func FormatTabular(writer io.Writer, forceColor bool, value interface{}) error {
 	values := []interface{}{fs.Model.Name, fs.Model.Controller, cloudRegion}
 	// Optional table output if values exist
 	message := getModelMessage(fs.Model)
-	if fs.Model.SLA != "" {
-		header = append(header, "SLA")
-		values = append(values, fs.Model.SLA)
-
-	}
 	if cs := fs.Controller; cs != nil && cs.Timestamp != "" {
 		header = append(header, "Timestamp")
 		values = append(values, cs.Timestamp)
@@ -143,7 +138,6 @@ func printApplications(tw *ansiterm.TabWriter, fs formattedStatus) {
 	}
 	truncatedWidth := maxVersionWidth - len(ellipsis)
 
-	metering := fs.Model.MeterStatus != nil
 	units := make(map[string]unitStatus)
 	var w *output.Wrapper
 	if fs.Model.Type == caasModelType {
@@ -236,9 +230,6 @@ func printApplications(tw *ansiterm.TabWriter, fs formattedStatus) {
 		w.Println()
 		for un, u := range app.Units {
 			units[un] = u
-			if u.MeterStatus != nil {
-				metering = true
-			}
 		}
 	}
 	endSection(tw)
@@ -292,28 +283,6 @@ func printApplications(tw *ansiterm.TabWriter, fs formattedStatus) {
 		endSection(tw)
 	}
 
-	if !metering {
-		return
-	}
-
-	startSection(tw, false, "Entity", "Meter status", "Message")
-	if fs.Model.MeterStatus != nil {
-		w.Print("model")
-		outputColor := fromMeterStatusColor(fs.Model.MeterStatus.Color)
-		w.PrintColor(outputColor, fs.Model.MeterStatus.Color)
-		w.PrintColor(outputColor, truncateMessage(fs.Model.MeterStatus.Message))
-		w.Println()
-	}
-	for _, name := range naturalsort.Sort(stringKeysFromMap(units)) {
-		u := units[name]
-		if u.MeterStatus != nil {
-			w.Print(name)
-			outputColor := fromMeterStatusColor(u.MeterStatus.Color)
-			w.PrintColor(outputColor, u.MeterStatus.Color)
-			w.PrintColor(outputColor, truncateMessage(u.MeterStatus.Message))
-			w.Println()
-		}
-	}
 	endSection(tw)
 }
 
@@ -566,18 +535,6 @@ func printOffers(tw *ansiterm.TabWriter, offers map[string]offerStatus) error {
 		}
 	}
 	endSection(tw)
-	return nil
-}
-
-func fromMeterStatusColor(msColor string) *ansiterm.Context {
-	switch msColor {
-	case "green":
-		return output.GoodHighlight
-	case "amber":
-		return output.WarningHighlight
-	case "red":
-		return output.ErrorHighlight
-	}
 	return nil
 }
 

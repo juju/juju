@@ -787,13 +787,11 @@ func assertCustomCharm(
 	series string,
 	meta *charm.Meta,
 	config *charm.Config,
-	metrics *charm.Metrics,
 	revision int,
 ) {
 	// Check Charm interface method results.
 	c.Assert(ch.Meta(), gc.DeepEquals, meta)
 	c.Assert(ch.Config(), gc.DeepEquals, config)
-	c.Assert(ch.Metrics(), gc.DeepEquals, metrics)
 	c.Assert(ch.Revision(), gc.DeepEquals, revision)
 
 	// Test URL matches charm and expected series.
@@ -818,14 +816,13 @@ func (s *CharmTestHelperSuite) TestSimple(c *gc.C) {
 		chd := testcharms.Repo.CharmDir(name)
 		meta := chd.Meta()
 		config := chd.Config()
-		metrics := chd.Metrics()
 		revision := chd.Revision()
 
 		ch := s.AddTestingCharm(c, name)
-		assertCustomCharm(c, ch, "quantal", meta, config, metrics, revision)
+		assertCustomCharm(c, ch, "quantal", meta, config, revision)
 
 		ch = s.AddSeriesCharm(c, name, "bionic")
-		assertCustomCharm(c, ch, "bionic", meta, config, metrics, revision)
+		assertCustomCharm(c, ch, "bionic", meta, config, revision)
 	})
 }
 
@@ -844,9 +841,8 @@ func (s *CharmTestHelperSuite) TestConfigCharm(c *gc.C) {
 	forEachStandardCharm(c, func(name string) {
 		chd := testcharms.Repo.CharmDir(name)
 		meta := chd.Meta()
-		metrics := chd.Metrics()
 		ch := s.AddConfigCharm(c, name, configYaml, 123)
-		assertCustomCharm(c, ch, "quantal", meta, config, metrics, 123)
+		assertCustomCharm(c, ch, "quantal", meta, config, 123)
 	})
 }
 
@@ -869,27 +865,6 @@ func (s *CharmTestHelperSuite) TestActionsCharm(c *gc.C) {
 	})
 }
 
-var metricsYaml = `
-metrics:
-  blips:
-    description: A custom metric.
-    type: gauge
-`
-
-func (s *CharmTestHelperSuite) TestMetricsCharm(c *gc.C) {
-	metrics, err := charm.ReadMetrics(bytes.NewBuffer([]byte(metricsYaml)))
-	c.Assert(err, jc.ErrorIsNil)
-
-	forEachStandardCharm(c, func(name string) {
-		chd := testcharms.Repo.CharmDir(name)
-		meta := chd.Meta()
-		config := chd.Config()
-
-		ch := s.AddMetricsCharm(c, name, metricsYaml, 123)
-		assertCustomCharm(c, ch, "quantal", meta, config, metrics, 123)
-	})
-}
-
 var metaYamlSnippet = `
 summary: blah
 description: blah blah
@@ -899,13 +874,12 @@ func (s *CharmTestHelperSuite) TestMetaCharm(c *gc.C) {
 	forEachStandardCharm(c, func(name string) {
 		chd := testcharms.Repo.CharmDir(name)
 		config := chd.Config()
-		metrics := chd.Metrics()
 		metaYaml := "name: " + name + metaYamlSnippet
 		meta, err := charm.ReadMeta(bytes.NewBuffer([]byte(metaYaml)))
 		c.Assert(err, jc.ErrorIsNil)
 
 		ch := s.AddMetaCharm(c, name, metaYaml, 123)
-		assertCustomCharm(c, ch, "quantal", meta, config, metrics, 123)
+		assertCustomCharm(c, ch, "quantal", meta, config, 123)
 	})
 }
 
@@ -958,10 +932,13 @@ func (s *CharmTestHelperSuite) TestManifestCharm(c *gc.C) {
 	})
 }
 
-func (s *CharmTestHelperSuite) TestTestingCharm(c *gc.C) {
-	added := state.AddTestingCharmFromRepo(c, s.State, "metered", testcharms.CharmRepo())
-	c.Assert(added.Metrics(), gc.NotNil)
+func removeUnit(c *gc.C, st *state.State, unit *state.Unit) {
+	ensureUnitDead(c, unit)
+	err := unit.Remove(state.NewObjectStore(c, st.ModelUUID()))
+	c.Assert(err, jc.ErrorIsNil)
+}
 
-	charmDir := testcharms.CharmRepo().CharmDir("metered")
-	c.Assert(charmDir.Metrics(), gc.DeepEquals, added.Metrics())
+func ensureUnitDead(c *gc.C, unit *state.Unit) {
+	err := unit.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
 }

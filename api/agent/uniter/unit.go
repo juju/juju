@@ -145,47 +145,6 @@ func (u *Unit) SetAgentStatus(agentStatus status.Status, info string, data map[s
 	return result.OneError()
 }
 
-// AddMetrics adds the metrics for the unit.
-func (u *Unit) AddMetrics(metrics []params.Metric) error {
-	var result params.ErrorResults
-	args := params.MetricsParams{
-		Metrics: []params.MetricsParam{{
-			Tag:     u.tag.String(),
-			Metrics: metrics,
-		}},
-	}
-	err := u.client.facade.FacadeCall(context.TODO(), "AddMetrics", args, &result)
-	if err != nil {
-		return errors.Annotate(err, "unable to add metric")
-	}
-	return result.OneError()
-}
-
-// AddMetricBatches makes an api call to the uniter requesting it to store metrics batches in state.
-func (u *Unit) AddMetricBatches(batches []params.MetricBatch) (map[string]error, error) {
-	p := params.MetricBatchParams{
-		Batches: make([]params.MetricBatchParam, len(batches)),
-	}
-
-	batchResults := make(map[string]error, len(batches))
-
-	for i, batch := range batches {
-		p.Batches[i].Tag = u.tag.String()
-		p.Batches[i].Batch = batch
-
-		batchResults[batch.UUID] = nil
-	}
-	results := new(params.ErrorResults)
-	err := u.client.facade.FacadeCall(context.TODO(), "AddMetricBatches", p, results)
-	if err != nil {
-		return nil, errors.Annotate(err, "failed to send metric batches")
-	}
-	for i, result := range results.Results {
-		batchResults[batches[i].UUID] = result.Error
-	}
-	return batchResults, nil
-}
-
 // EnsureDead sets the unit lifecycle to Dead if it is Alive or
 // Dying. It does nothing otherwise.
 func (u *Unit) EnsureDead() error {
@@ -675,48 +634,6 @@ func (u *Unit) RelationsStatus() ([]RelationStatus, error) {
 		})
 	}
 	return statusResult, nil
-}
-
-// MeterStatus returns the meter status of the unit.
-func (u *Unit) MeterStatus() (statusCode, statusInfo string, rErr error) {
-	var results params.MeterStatusResults
-	args := params.Entities{
-		Entities: []params.Entity{{Tag: u.tag.String()}},
-	}
-	err := u.client.facade.FacadeCall(context.TODO(), "GetMeterStatus", args, &results)
-	if err != nil {
-		return "", "", errors.Trace(err)
-	}
-	if len(results.Results) != 1 {
-		return "", "", errors.Errorf("expected 1 result, got %d", len(results.Results))
-	}
-	result := results.Results[0]
-	if result.Error != nil {
-		return "", "", errors.Trace(result.Error)
-	}
-	return result.Code, result.Info, nil
-}
-
-// WatchMeterStatus returns a watcher for observing changes to the
-// unit's meter status.
-func (u *Unit) WatchMeterStatus() (watcher.NotifyWatcher, error) {
-	var results params.NotifyWatchResults
-	args := params.Entities{
-		Entities: []params.Entity{{Tag: u.tag.String()}},
-	}
-	err := u.client.facade.FacadeCall(context.TODO(), "WatchMeterStatus", args, &results)
-	if err != nil {
-		return nil, err
-	}
-	if len(results.Results) != 1 {
-		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
-	}
-	result := results.Results[0]
-	if result.Error != nil {
-		return nil, result.Error
-	}
-	w := apiwatcher.NewNotifyWatcher(u.client.facade.RawAPICaller(), result)
-	return w, nil
 }
 
 // WatchStorage returns a watcher for observing changes to the

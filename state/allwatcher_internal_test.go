@@ -109,9 +109,6 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 			Data:    modelStatus.Data,
 			Since:   modelStatus.Since,
 		},
-		SLA: multiwatcher.ModelSLAInfo{
-			Level: "unsupported",
-		},
 		UserPermissions: map[string]permission.Access{
 			"test-admin": permission.AdminAccess,
 		},
@@ -1234,8 +1231,6 @@ func (s *allModelWatcherStateSuite) TestChangeModels(c *gc.C) {
 		func(c *gc.C, st *State, objectStore objectstore.ObjectStore) changeTestCase {
 			model, err := st.Model()
 			c.Assert(err, jc.ErrorIsNil)
-			err = model.SetSLA("essential", "test-sla-owner", nil)
-			c.Assert(err, jc.ErrorIsNil)
 			cfg, err := model.Config()
 			c.Assert(err, jc.ErrorIsNil)
 			status, err := model.Status()
@@ -1271,10 +1266,6 @@ func (s *allModelWatcherStateSuite) TestChangeModels(c *gc.C) {
 							Data:    status.Data,
 							Since:   status.Since,
 						},
-						SLA: multiwatcher.ModelSLAInfo{
-							Level: "essential",
-							Owner: "test-sla-owner",
-						},
 						UserPermissions: map[string]permission.Access{
 							"test-admin": permission.AdminAccess,
 						},
@@ -1305,9 +1296,6 @@ func (s *allModelWatcherStateSuite) TestChangeModels(c *gc.C) {
 							Data:    status.Data,
 							Since:   status.Since,
 						},
-						SLA: multiwatcher.ModelSLAInfo{
-							Level: "unsupported",
-						},
 						UserPermissions: map[string]permission.Access{
 							"test-admin": permission.AdminAccess,
 						},
@@ -1335,9 +1323,6 @@ func (s *allModelWatcherStateSuite) TestChangeModels(c *gc.C) {
 							Message: status.Message,
 							Data:    status.Data,
 							Since:   status.Since,
-						},
-						SLA: multiwatcher.ModelSLAInfo{
-							Level: "unsupported",
 						},
 						UserPermissions: map[string]permission.Access{
 							"test-admin": permission.AdminAccess,
@@ -1469,7 +1454,6 @@ func testChangePermissions(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)
 					Cloud:           model.CloudName(),
 					CloudRegion:     model.CloudRegion(),
 					CloudCredential: credential.Id(),
-					SLA:             multiwatcher.ModelSLAInfo{Level: "unsupported"},
 					UserPermissions: map[string]permission.Access{
 						"bob":  permission.ReadAccess,
 						"mary": permission.AdminAccess,

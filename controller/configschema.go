@@ -6,7 +6,6 @@ package controller
 import (
 	"fmt"
 
-	"github.com/juju/romulus"
 	"github.com/juju/schema"
 	"gopkg.in/juju/environschema.v1"
 )
@@ -49,7 +48,6 @@ var configChecker = schema.FieldMap(schema.Fields{
 	CAASOperatorImagePath:            schema.String(),
 	CAASImageRepo:                    schema.String(),
 	Features:                         schema.String(),
-	MeteringURL:                      schema.String(),
 	MaxCharmStateSize:                schema.ForceInt(),
 	MaxAgentStateSize:                schema.ForceInt(),
 	MigrationMinionWaitMax:           schema.TimeDurationString(),
@@ -106,7 +104,6 @@ var configChecker = schema.FieldMap(schema.Fields{
 	CAASOperatorImagePath:            schema.Omit,
 	CAASImageRepo:                    schema.Omit,
 	Features:                         schema.Omit,
-	MeteringURL:                      romulus.DefaultAPIRoot,
 	MaxCharmStateSize:                DefaultMaxCharmStateSize,
 	MaxAgentStateSize:                DefaultMaxAgentStateSize,
 	MigrationMinionWaitMax:           DefaultMigrationMinionWaitMax,
@@ -291,10 +288,6 @@ Use "caas-image-repo" instead.`,
 	Features: {
 		Type:        environschema.Tstring,
 		Description: `A comma-delimited list of runtime changeable features to be updated`,
-	},
-	MeteringURL: {
-		Type:        environschema.Tstring,
-		Description: `The url for metrics`,
 	},
 	MaxCharmStateSize: {
 		Type:        environschema.Tint,

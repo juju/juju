@@ -41,7 +41,6 @@ type UniterClient interface {
 	OpenedMachinePortRangesByEndpoint(ctx context.Context, machineTag names.MachineTag) (map[names.UnitTag]network.GroupedPortRanges, error)
 	OpenedPortRangesByEndpoint(ctx context.Context) (map[names.UnitTag]network.GroupedPortRanges, error)
 	LeadershipSettings() uniter.LeadershipSettingsAccessor
-	SLALevel(context.Context) (string, error)
 	CloudAPIVersion(context.Context) (string, error)
 	APIAddresses() ([]string, error)
 	WatchRelationUnits(context.Context, names.RelationTag, names.UnitTag) (watcher.RelationUnitsWatcher, error)

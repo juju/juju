@@ -101,7 +101,6 @@ type Application interface {
 	SetConstraints(constraints.Value) error
 	MergeExposeSettings(map[string]state.ExposedEndpoint) error
 	UnsetExposeSettings([]string) error
-	SetMetricCredentials([]byte) error
 	SetMinUnits(int) error
 	UpdateApplicationBase(state.Base, bool) error
 	UpdateCharmConfig(string, charm.Settings) error
@@ -129,7 +128,6 @@ type Bindings interface {
 type Charm interface {
 	CharmMeta
 	Config() *charm.Config
-	Metrics() *charm.Metrics
 	Actions() *charm.Actions
 	Revision() int
 	IsUploaded() bool

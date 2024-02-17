@@ -215,14 +215,10 @@ func (aw allWatcherDeltaTranslater) TranslateModel(info multiwatcher.EntityInfo)
 		Config:         orig.Config,
 		Status:         aw.translateStatus(orig.Status),
 		Constraints:    orig.Constraints,
-		SLA: params.ModelSLAInfo{
-			Level: orig.SLA.Level,
-			Owner: orig.SLA.Owner,
-		},
-		Type:        orig.Type.String(),
-		Cloud:       orig.Cloud,
-		CloudRegion: orig.CloudRegion,
-		Version:     version,
+		Type:           orig.Type.String(),
+		Cloud:          orig.Cloud,
+		CloudRegion:    orig.CloudRegion,
+		Version:        version,
 	}
 }
 

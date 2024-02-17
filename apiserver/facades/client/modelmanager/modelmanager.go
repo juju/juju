@@ -729,11 +729,6 @@ func (m *ModelManagerAPI) makeModelSummary(mi state.ModelSummary) *params.ModelS
 
 		CloudCredentialTag: mi.CloudCredentialTag,
 
-		SLA: &params.ModelSLAInfo{
-			Level: mi.SLALevel,
-			Owner: mi.Owner,
-		},
-
 		ProviderType: mi.ProviderType,
 		AgentVersion: mi.AgentVersion,
 
@@ -993,12 +988,6 @@ func (m *ModelManagerAPI) getModelInfo(ctx context.Context, tag names.ModelTag, 
 
 	if cloudCredentialTag, ok := model.CloudCredentialTag(); ok {
 		info.CloudCredentialTag = cloudCredentialTag.String()
-	}
-
-	// All users with access to the model can see the SLA information.
-	info.SLA = &params.ModelSLAInfo{
-		Level: model.SLALevel(),
-		Owner: model.SLAOwner(),
 	}
 
 	// If model is not alive - dying or dead - or if it is being imported,

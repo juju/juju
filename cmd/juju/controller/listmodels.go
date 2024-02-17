@@ -241,8 +241,6 @@ type ModelSummary struct {
 	// Counts is the map of different counts where key is the entity that was counted
 	// and value is the number, for e.g. {"machines":10,"cores":3, "units:4}.
 	Counts       map[string]int64 `json:"-" yaml:"-"`
-	SLA          string           `json:"sla,omitempty" yaml:"sla,omitempty"`
-	SLAOwner     string           `json:"sla-owner,omitempty" yaml:"sla-owner,omitempty"`
 	AgentVersion string           `json:"agent-version,omitempty" yaml:"agent-version,omitempty"`
 }
 
@@ -307,10 +305,6 @@ func (c *modelsCommand) modelSummaryFromParams(apiSummary base.UserModelSummary,
 		}
 	} else {
 		summary.UserLastConnection = "never connected"
-	}
-	if apiSummary.SLA != nil {
-		summary.SLA = apiSummary.SLA.Level
-		summary.SLAOwner = apiSummary.SLA.Owner
 	}
 	summary.Counts = map[string]int64{}
 	for _, v := range apiSummary.Counts {

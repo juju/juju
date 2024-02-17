@@ -244,9 +244,6 @@ type HookContext struct {
 	// that the uniter knows about.
 	jujuProxySettings proxy.Settings
 
-	// meterStatus is the status of the unit's metering.
-	meterStatus *meterStatus
-
 	// a helper for recording requests to open/close port ranges for this unit.
 	portRangeChanges *portRangeChangeRecorder
 
@@ -290,9 +287,6 @@ type HookContext struct {
 	clock Clock
 
 	logger loggo.Logger
-
-	// slaLevel contains the current SLA level.
-	slaLevel string
 
 	// The cloud specification
 	cloudSpec *params.CloudSpec
@@ -1310,7 +1304,6 @@ func (c *HookContext) HookVars(
 		"JUJU_MODEL_UUID="+c.uuid,
 		"JUJU_MODEL_NAME="+c.modelName,
 		"JUJU_API_ADDRESSES="+strings.Join(c.apiAddrs, " "),
-		"JUJU_SLA="+c.slaLevel,
 		"JUJU_MACHINE_ID="+c.assignedMachineTag.Id(),
 		"JUJU_PRINCIPAL_UNIT="+c.principal,
 		"JUJU_AVAILABILITY_ZONE="+c.availabilityZone,
@@ -1327,13 +1320,6 @@ func (c *HookContext) HookVars(
 		vars = append(vars,
 			"JUJU_AGENT_CA_CERT="+path.Join(paths.GetBaseDir(), caas.CACertFile),
 		)
-	}
-	if c.meterStatus != nil {
-		vars = append(vars,
-			"JUJU_METER_STATUS="+c.meterStatus.code,
-			"JUJU_METER_INFO="+c.meterStatus.info,
-		)
-
 	}
 	if r, err := c.HookRelation(); err == nil {
 		vars = append(vars,

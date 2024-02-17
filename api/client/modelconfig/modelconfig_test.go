@@ -97,42 +97,6 @@ func (s *modelconfigSuite) TestModelUnset(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *modelconfigSuite) TestSetSupport(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	var res interface{}
-	args := params.ModelSLA{
-		ModelSLAInfo: params.ModelSLAInfo{
-			Level: "foobar",
-			Owner: "bob",
-		},
-		Credentials: []byte("creds"),
-	}
-	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "SetSLALevel", args, res).Return(nil)
-	client := modelconfig.NewClientFromCaller(mockFacadeCaller)
-	err := client.SetSLALevel("foobar", "bob", []byte("creds"))
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *modelconfigSuite) TestGetSupport(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	var args interface{}
-	res := new(params.StringResult)
-	results := params.StringResult{
-		Result: "level",
-	}
-	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "SLALevel", args, res).SetArg(3, results).Return(nil)
-	client := modelconfig.NewClientFromCaller(mockFacadeCaller)
-	level, err := client.SLALevel()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(level, gc.Equals, "level")
-}
-
 func (s *modelconfigSuite) TestSequences(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

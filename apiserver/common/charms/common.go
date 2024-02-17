@@ -33,7 +33,6 @@ type Charm interface {
 	Meta() *charm.Meta
 	Config() *charm.Config
 	Manifest() *charm.Manifest
-	Metrics() *charm.Metrics
 	Actions() *charm.Actions
 	LXDProfile() *state.LXDProfile
 }
@@ -125,7 +124,6 @@ func convertCharm(ch Charm) params.Charm {
 		Config:   params.ToCharmOptionMap(ch.Config()),
 		Meta:     convertCharmMeta(ch.Meta()),
 		Actions:  convertCharmActions(ch.Actions()),
-		Metrics:  convertCharmMetrics(ch.Metrics()),
 		Manifest: convertCharmManifest(ch.Manifest()),
 	}
 
@@ -287,41 +285,6 @@ func convertCharmActionSpec(spec charm.ActionSpec) params.CharmActionSpec {
 	return params.CharmActionSpec{
 		Description: spec.Description,
 		Params:      spec.Params,
-	}
-}
-
-func convertCharmMetrics(metrics *charm.Metrics) *params.CharmMetrics {
-	if metrics == nil {
-		return nil
-	}
-	return &params.CharmMetrics{
-		Metrics: convertCharmMetricMap(metrics.Metrics),
-		Plan:    convertCharmPlan(metrics.Plan),
-	}
-}
-
-func convertCharmPlan(plan *charm.Plan) params.CharmPlan {
-	if plan == nil {
-		return params.CharmPlan{Required: false}
-	}
-	return params.CharmPlan{Required: plan.Required}
-}
-
-func convertCharmMetricMap(metrics map[string]charm.Metric) map[string]params.CharmMetric {
-	if len(metrics) == 0 {
-		return nil
-	}
-	result := make(map[string]params.CharmMetric)
-	for key, value := range metrics {
-		result[key] = convertCharmMetric(value)
-	}
-	return result
-}
-
-func convertCharmMetric(metric charm.Metric) params.CharmMetric {
-	return params.CharmMetric{
-		Type:        string(metric.Type),
-		Description: metric.Description,
 	}
 }
 

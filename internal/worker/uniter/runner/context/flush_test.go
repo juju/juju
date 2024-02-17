@@ -17,10 +17,8 @@ import (
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/uuid"
-	"github.com/juju/juju/internal/worker/metrics/spool"
 	"github.com/juju/juju/internal/worker/uniter/runner/context"
 	"github.com/juju/juju/internal/worker/uniter/runner/jujuc"
-	runnertesting "github.com/juju/juju/internal/worker/uniter/runner/testing"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -355,22 +353,4 @@ func (s *BaseHookContextSuite) context(c *gc.C, ctrl *gomock.Controller) *contex
 	s.AddContextRelation(c, ctrl, "db1")
 
 	return s.getHookContext(c, ctrl, uuid.String(), -1, "", names.StorageTag{})
-}
-
-func (s *FlushContextSuite) TestBuiltinMetricNotGeneratedIfNotDefined(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	uuid := uuid.MustNewUUID()
-	paths := runnertesting.NewRealPaths(c)
-	ctx := s.getMeteredHookContext(c, ctrl, uuid.String(), -1, "", true, s.metricsDefinition("pings"), paths)
-	reader, err := spool.NewJSONMetricReader(
-		paths.GetMetricsSpoolDir(),
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	err = ctx.Flush(stdcontext.Background(), "some badge", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	batches, err := reader.Read()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(batches, gc.HasLen, 0)
 }

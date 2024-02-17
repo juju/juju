@@ -366,12 +366,6 @@ func (f *contextFactory) updateContext(stdCtx context.Context, ctx *HookContext)
 		return err
 	}
 
-	sla, err := f.client.SLALevel(stdCtx)
-	if err != nil {
-		return errors.Annotate(err, "could not retrieve the SLA level")
-	}
-	ctx.slaLevel = sla
-
 	apiVersion, err := f.client.CloudAPIVersion(stdCtx)
 	if err != nil {
 		f.logger.Warningf("could not retrieve the cloud API version: %v", err)
@@ -386,15 +380,6 @@ func (f *contextFactory) updateContext(stdCtx context.Context, ctx *HookContext)
 	}
 	ctx.legacyProxySettings = modelConfig.LegacyProxySettings()
 	ctx.jujuProxySettings = modelConfig.JujuProxySettings()
-
-	statusCode, statusInfo, err := f.unit.MeterStatus()
-	if err != nil {
-		return errors.Annotate(err, "could not retrieve meter status for unit")
-	}
-	ctx.meterStatus = &meterStatus{
-		code: statusCode,
-		info: statusInfo,
-	}
 
 	var machPortRanges map[names.UnitTag]network.GroupedPortRanges
 	var appPortRanges map[names.UnitTag]network.GroupedPortRanges

@@ -2847,13 +2847,6 @@ func (s *ApplicationSuite) TestAddCAASUnit(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(version, gc.Equals, "3.combined")
 
-	err = unitZero.SetMeterStatus(state.MeterGreen.String(), "all good")
-	c.Assert(err, jc.ErrorIsNil)
-	ms, err := unitZero.GetMeterStatus()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ms.Code, gc.Equals, state.MeterGreen)
-	c.Assert(ms.Info, gc.Equals, "all good")
-
 	// But they do have status.
 	us, err := unitZero.Status()
 	c.Assert(err, jc.ErrorIsNil)
@@ -4024,28 +4017,6 @@ func (s *ApplicationSuite) TestWatchApplication(c *gc.C) {
 	w = s.mysql.Watch()
 	defer workertest.CleanKill(c, w)
 	testing.NewNotifyWatcherC(c, w).AssertOneChange()
-}
-
-func (s *ApplicationSuite) TestMetricCredentials(c *gc.C) {
-	err := s.mysql.SetMetricCredentials([]byte("hello there"))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.mysql.MetricCredentials(), gc.DeepEquals, []byte("hello there"))
-
-	application, err := s.State.Application(s.mysql.Name())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(application.MetricCredentials(), gc.DeepEquals, []byte("hello there"))
-}
-
-func (s *ApplicationSuite) TestMetricCredentialsOnDying(c *gc.C) {
-	_, err := s.mysql.AddUnit(state.AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.mysql.SetMetricCredentials([]byte("set before dying"))
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
-	c.Assert(err, jc.ErrorIsNil)
-	assertLife(c, s.mysql, state.Dying)
-	err = s.mysql.SetMetricCredentials([]byte("set after dying"))
-	c.Assert(err, gc.ErrorMatches, "cannot update metric credentials: application is not found or not alive")
 }
 
 const oneRequiredStorageMeta = `

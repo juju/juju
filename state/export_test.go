@@ -62,7 +62,6 @@ const (
 var (
 	BinarystorageNew              = &binarystorageNew
 	MachineIdLessThan             = machineIdLessThan
-	CombineMeterStatus            = combineMeterStatus
 	ApplicationGlobalKey          = applicationGlobalKey
 	CloudGlobalKey                = cloudGlobalKey
 	ModelGlobalKey                = modelGlobalKey
@@ -990,11 +989,6 @@ func GetPopulatedSettings(cfg map[string]interface{}) *Settings {
 		disk: copyMap(cfg, nil),
 		core: copyMap(cfg, nil),
 	}
-}
-
-// NewSLALevel returns a new SLA level.
-func NewSLALevel(level string) (slaLevel, error) {
-	return newSLALevel(level)
 }
 
 func AppStorageConstraints(app *Application) (map[string]StorageConstraints, error) {

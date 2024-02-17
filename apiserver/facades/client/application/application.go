@@ -265,33 +265,6 @@ func (api *APIBase) checkCanWrite() error {
 	return api.authorizer.HasPermission(permission.WriteAccess, api.model.ModelTag())
 }
 
-// SetMetricCredentials sets credentials on the application.
-// TODO (cderici) only used for metered charms in cmd MeteredDeployAPI,
-// kept for client compatibility, remove in juju 4.0
-func (api *APIBase) SetMetricCredentials(ctx context.Context, args params.ApplicationMetricCredentials) (params.ErrorResults, error) {
-	if err := api.checkCanWrite(); err != nil {
-		return params.ErrorResults{}, errors.Trace(err)
-	}
-	result := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(args.Creds)),
-	}
-	if len(args.Creds) == 0 {
-		return result, nil
-	}
-	for i, a := range args.Creds {
-		oneApplication, err := api.backend.Application(a.ApplicationName)
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		err = oneApplication.SetMetricCredentials(a.MetricCredentials)
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-		}
-	}
-	return result, nil
-}
-
 // Deploy fetches the charms from the charm store and deploys them
 // using the specified placement directives.
 func (api *APIBase) Deploy(ctx context.Context, args params.ApplicationsDeploy) (params.ErrorResults, error) {

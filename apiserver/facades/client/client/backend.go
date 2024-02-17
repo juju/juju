@@ -97,10 +97,7 @@ type Model interface {
 	AddUser(state.UserAccessSpec) (permission.UserAccess, error)
 	Users() ([]permission.UserAccess, error)
 	StatusHistory(status.StatusHistoryFilter) ([]status.StatusInfo, error)
-	SLAOwner() string
-	SLALevel() string
 	LatestToolsVersion() version.Number
-	MeterStatus() state.MeterStatus
 	Status() (status.StatusInfo, error)
 }
 
@@ -203,7 +200,7 @@ func (s stateShim) Model() (Model, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &modelShim{m}, nil
+	return &modelShim{Model: m}, nil
 }
 
 func (s stateShim) ControllerNodes() ([]state.ControllerNode, error) {

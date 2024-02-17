@@ -136,7 +136,6 @@ type UserModelSummary struct {
 	AgentVersion       *version.Number
 	Error              error
 	Migration          *MigrationSummary
-	SLA                *SLASummary
 }
 
 // EntityCount holds a count for a particular entity, for example machines or core count.
@@ -151,12 +150,6 @@ type MigrationSummary struct {
 	Status    string
 	StartTime *time.Time
 	EndTime   *time.Time
-}
-
-// SLASummary holds information about SLA.
-type SLASummary struct {
-	Level string
-	Owner string
 }
 
 // StoredCredential contains information about the cloud credential stored on the controller

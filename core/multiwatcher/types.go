@@ -551,15 +551,8 @@ type ModelInfo struct {
 	Config          map[string]interface{}
 	Status          StatusInfo
 	Constraints     constraints.Value
-	SLA             ModelSLAInfo
 
 	UserPermissions map[string]permission.Access
-}
-
-// ModelSLAInfo describes the SLA info for a model.
-type ModelSLAInfo struct {
-	Level string
-	Owner string
 }
 
 // EntityID returns a unique identifier for a model.

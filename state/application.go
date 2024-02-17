@@ -95,7 +95,6 @@ type applicationDoc struct {
 	MinUnits             int          `bson:"minunits"`
 	Tools                *tools.Tools `bson:",omitempty"`
 	TxnRevno             int64        `bson:"txn-revno"`
-	MetricCredentials    []byte       `bson:"metric-credentials"`
 
 	// Exposed is set to true when the application is exposed.
 	Exposed bool `bson:"exposed"`
@@ -2477,7 +2476,6 @@ func (a *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string
 		StatusInfo: status.MessageInstallingAgent,
 		Updated:    now.UnixNano(),
 	}
-	meterStatus := &meterStatusDoc{Code: MeterNotSet.String()}
 
 	workloadVersionDoc := &statusDoc{
 		Status:  status.Unknown,
@@ -2512,7 +2510,6 @@ func (a *Application) addUnitOpsWithCons(args applicationAddUnitOpsArgs) (string
 		agentStatusDoc:     agentStatusDoc,
 		workloadStatusDoc:  unitStatusDoc,
 		workloadVersionDoc: workloadVersionDoc,
-		meterStatusDoc:     meterStatus,
 	})
 	if err != nil {
 		return "", nil, errors.Trace(err)
@@ -2954,7 +2951,6 @@ func (a *Application) removeUnitOps(store objectstore.ObjectStore, u *Unit, asse
 			Assert: append(observedFieldsMatch, asserts...),
 			Remove: true,
 		},
-		removeMeterStatusOp(a.st, u.globalMeterStatusKey()),
 		removeStatusOp(a.st, u.globalAgentKey()),
 		removeStatusOp(a.st, u.globalKey()),
 		removeStatusOp(a.st, u.globalWorkloadVersionKey()),
@@ -3438,39 +3434,6 @@ func (a *Application) defaultEndpointBindings() (map[string]string, error) {
 	}
 
 	return DefaultEndpointBindingsForCharm(a.st, appCharm.Meta())
-}
-
-// MetricCredentials returns any metric credentials associated with this application.
-func (a *Application) MetricCredentials() []byte {
-	return a.doc.MetricCredentials
-}
-
-// SetMetricCredentials updates the metric credentials associated with this application.
-func (a *Application) SetMetricCredentials(b []byte) error {
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		if attempt > 0 {
-			alive, err := isAlive(a.st, applicationsC, a.doc.DocID)
-			if err != nil {
-				return nil, errors.Trace(err)
-			} else if !alive {
-				return nil, applicationNotAliveErr
-			}
-		}
-		ops := []txn.Op{
-			{
-				C:      applicationsC,
-				Id:     a.doc.DocID,
-				Assert: isAliveDoc,
-				Update: bson.M{"$set": bson.M{"metric-credentials": b}},
-			},
-		}
-		return ops, nil
-	}
-	if err := a.st.db().Run(buildTxn); err != nil {
-		return errors.Annotatef(err, "cannot update metric credentials")
-	}
-	a.doc.MetricCredentials = b
-	return nil
 }
 
 // StorageConstraints returns the storage constraints for the application.

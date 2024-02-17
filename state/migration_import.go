@@ -217,22 +217,6 @@ func (ctrl *Controller) Import(
 	// we don't start model workers for it before the migration process
 	// is complete.
 
-	// Update the sequences to match that the source.
-
-	if err := dbModel.SetSLA(
-		model.SLA().Level(),
-		model.SLA().Owner(),
-		[]byte(model.SLA().Credentials()),
-	); err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-
-	if MeterStatusFromString(model.MeterStatus().Code()).String() != MeterNotAvailable.String() {
-		if err := dbModel.SetMeterStatus(model.MeterStatus().Code(), model.MeterStatus().Info()); err != nil {
-			return nil, nil, errors.Trace(err)
-		}
-	}
-
 	logger.Debugf("import success")
 	return dbModel, newSt, nil
 }
@@ -1188,11 +1172,7 @@ func (i *importer) unit(s description.Application, u description.Unit, ctrlCfg c
 		agentStatusDoc:     agentStatusDoc,
 		workloadStatusDoc:  &workloadStatusDoc,
 		workloadVersionDoc: &workloadVersionDoc,
-		meterStatusDoc: &meterStatusDoc{
-			Code: u.MeterStatusCode(),
-			Info: u.MeterStatusInfo(),
-		},
-		containerDoc: cloudContainer,
+		containerDoc:       cloudContainer,
 	})
 	if err != nil {
 		return errors.Trace(err)
@@ -1274,9 +1254,6 @@ func (i *importer) importUnitState(unit *Unit, u description.Unit, ctrlCfg contr
 	if storageState := u.StorageState(); storageState != "" {
 		us.SetStorageState(storageState)
 	}
-	if meterStatusState := u.MeterStatusState(); meterStatusState != "" {
-		us.SetMeterStatusState(meterStatusState)
-	}
 
 	// No state to persist.
 	if !us.Modified() {
@@ -1352,7 +1329,6 @@ func (i *importer) makeApplicationDoc(a description.Application) (*applicationDo
 		ExposedEndpoints:     exposedEndpoints,
 		MinUnits:             a.MinUnits(),
 		Tools:                agentTools,
-		MetricCredentials:    a.MetricsCredentials(),
 		DesiredScale:         a.DesiredScale(),
 		Placement:            a.Placement(),
 		HasResources:         a.HasResources(),

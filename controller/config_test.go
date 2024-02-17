@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/loggo/v2"
-	"github.com/juju/romulus"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -704,29 +703,6 @@ func (s *ConfigSuite) TestControllerNameSetGet(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(cfg.ControllerName(), gc.Equals, "test")
-}
-
-func (s *ConfigSuite) TestMeteringURLDefault(c *gc.C) {
-	cfg, err := controller.NewConfig(
-		testing.ControllerTag.Id(),
-		testing.CACert,
-		map[string]interface{}{},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(cfg.MeteringURL(), gc.Equals, romulus.DefaultAPIRoot)
-}
-
-func (s *ConfigSuite) TestMeteringURLSettingValue(c *gc.C) {
-	mURL := "http://homestarrunner.com/metering"
-	cfg, err := controller.NewConfig(
-		testing.ControllerTag.Id(),
-		testing.CACert,
-		map[string]interface{}{
-			controller.MeteringURL: mURL,
-		},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.MeteringURL(), gc.Equals, mURL)
 }
 
 func (s *ConfigSuite) TestMaxDebugLogDuration(c *gc.C) {

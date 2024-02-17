@@ -255,7 +255,6 @@ func (ctx *testContext) sendRelationUnitChange(c *gc.C, msg string, ruc watcher.
 func (ctx *testContext) expectHookContext(c *gc.C) {
 	ctx.payloads.EXPECT().List().Return(nil, nil).AnyTimes()
 	ctx.api.EXPECT().APIAddresses().Return([]string{"10.6.6.6"}, nil).AnyTimes()
-	ctx.api.EXPECT().SLALevel(gomock.Any()).Return("gold", nil).AnyTimes()
 	ctx.api.EXPECT().CloudAPIVersion(gomock.Any()).Return("6.6.6", nil).AnyTimes()
 
 	cfg := coretesting.ModelConfig(c)
