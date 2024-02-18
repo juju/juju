@@ -35,9 +35,9 @@ func (s *CreateSecretSuite) TestKeyValues(c *gc.C) {
 }
 
 func (s *CreateSecretSuite) TestKeyContentTooLarge(c *gc.C) {
-	content := strings.Repeat("a", 8*1024)
+	content := strings.Repeat("a", 9*1024)
 	_, err := secrets.CreateSecretData([]string{"foo=" + content})
-	c.Assert(err, gc.ErrorMatches, `secret content for key "foo" too large: 8192 bytes`)
+	c.Assert(err, gc.ErrorMatches, `secret content for key "foo" too large: 9216 bytes`)
 }
 
 func (s *CreateSecretSuite) TestTotalContentTooLarge(c *gc.C) {
