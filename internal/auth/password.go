@@ -53,7 +53,7 @@ const (
 	maxPasswordSizeBytes = 1024 // 1KB is the max we are going to allow.
 )
 
-// HasPassword takes a password and corresponding salt to produce a hash of the
+// HashPassword takes a password and corresponding salt to produce a hash of the
 // password. The resultant hash is safe for persistence and comparison.
 // If the salt provided to password hash is empty then a error satisfying
 // errors.NotValid is returned. If the password does not pass validation a error
@@ -131,7 +131,7 @@ func (p Password) IsDestroyed() bool {
 }
 
 // Validate will check the wrapped password to make sure that it meets our
-// validation requirements. Passwords must not be empty and less then 1KB in
+// validation requirements. Passwords must not be empty and less than 1KB in
 // size. All validation errors will satisfy ErrPasswordNotValid.
 // If the password has been destroyed a error of type ErrPasswordDestroyed
 // will be returned.

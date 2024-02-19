@@ -14,6 +14,7 @@ import (
 	reflect "reflect"
 
 	user "github.com/juju/juju/core/user"
+	auth "github.com/juju/juju/internal/auth"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -83,7 +84,7 @@ func (mr *MockStateMockRecorder) AddUserWithPasswordHash(arg0, arg1, arg2, arg3,
 }
 
 // DisableUserAuthentication mocks base method.
-func (m *MockState) DisableUserAuthentication(arg0 context.Context, arg1 user.UUID) error {
+func (m *MockState) DisableUserAuthentication(arg0 context.Context, arg1 string) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DisableUserAuthentication", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -97,7 +98,7 @@ func (mr *MockStateMockRecorder) DisableUserAuthentication(arg0, arg1 any) *gomo
 }
 
 // EnableUserAuthentication mocks base method.
-func (m *MockState) EnableUserAuthentication(arg0 context.Context, arg1 user.UUID) error {
+func (m *MockState) EnableUserAuthentication(arg0 context.Context, arg1 string) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "EnableUserAuthentication", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -141,7 +142,7 @@ func (mr *MockStateMockRecorder) GetUser(arg0, arg1 any) *gomock.Call {
 }
 
 // GetUserByAuth mocks base method.
-func (m *MockState) GetUserByAuth(arg0 context.Context, arg1, arg2 string) (user.User, error) {
+func (m *MockState) GetUserByAuth(arg0 context.Context, arg1 string, arg2 auth.Password) (user.User, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetUserByAuth", arg0, arg1, arg2)
 	ret0, _ := ret[0].(user.User)
@@ -171,7 +172,7 @@ func (mr *MockStateMockRecorder) GetUserByName(arg0, arg1 any) *gomock.Call {
 }
 
 // RemoveUser mocks base method.
-func (m *MockState) RemoveUser(arg0 context.Context, arg1 user.UUID) error {
+func (m *MockState) RemoveUser(arg0 context.Context, arg1 string) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RemoveUser", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -185,7 +186,7 @@ func (mr *MockStateMockRecorder) RemoveUser(arg0, arg1 any) *gomock.Call {
 }
 
 // SetActivationKey mocks base method.
-func (m *MockState) SetActivationKey(arg0 context.Context, arg1 user.UUID, arg2 []byte) error {
+func (m *MockState) SetActivationKey(arg0 context.Context, arg1 string, arg2 []byte) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetActivationKey", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -199,7 +200,7 @@ func (mr *MockStateMockRecorder) SetActivationKey(arg0, arg1, arg2 any) *gomock.
 }
 
 // SetPasswordHash mocks base method.
-func (m *MockState) SetPasswordHash(arg0 context.Context, arg1 user.UUID, arg2 string, arg3 []byte) error {
+func (m *MockState) SetPasswordHash(arg0 context.Context, arg1, arg2 string, arg3 []byte) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetPasswordHash", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
@@ -213,7 +214,7 @@ func (mr *MockStateMockRecorder) SetPasswordHash(arg0, arg1, arg2, arg3 any) *go
 }
 
 // UpdateLastLogin mocks base method.
-func (m *MockState) UpdateLastLogin(arg0 context.Context, arg1 user.UUID) error {
+func (m *MockState) UpdateLastLogin(arg0 context.Context, arg1 string) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateLastLogin", arg0, arg1)
 	ret0, _ := ret[0].(error)

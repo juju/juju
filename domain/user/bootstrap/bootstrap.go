@@ -26,7 +26,7 @@ import (
 // If the username passed to this function is invalid an error satisfying
 // [github.com/juju/juju/domain/user/errors.UsernameNotValid] is returned.
 func AddUser(name string) (user.UUID, func(context.Context, database.TxnRunner) error) {
-	if err := domainuser.ValidateUsername(name); err != nil {
+	if err := domainuser.ValidateUserName(name); err != nil {
 		return user.UUID(""), func(context.Context, database.TxnRunner) error {
 			return fmt.Errorf("validating bootstrap add user %q: %w", name, err)
 		}
@@ -60,7 +60,7 @@ func AddUser(name string) (user.UUID, func(context.Context, database.TxnRunner) 
 func AddUserWithPassword(name string, password auth.Password) (user.UUID, func(context.Context, database.TxnRunner) error) {
 	defer password.Destroy()
 
-	if err := domainuser.ValidateUsername(name); err != nil {
+	if err := domainuser.ValidateUserName(name); err != nil {
 		return user.UUID(""), func(context.Context, database.TxnRunner) error {
 			return fmt.Errorf("validating bootstrap add user %q with password: %w", name, err)
 		}

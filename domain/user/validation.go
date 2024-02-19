@@ -26,18 +26,18 @@ var (
 	validUserName = regexp.MustCompile(usernameValidationRegex)
 )
 
-// ValidateUsername takes a user name and validates that the user name is
-// conformant to our regex rules defined in usernameValidationRegex. If a
-// user name is not valid, an error is returned that satisfies
-// usererrors.UsernameNotValid.
+// ValidateUserName takes a user name and validates that it is
+// conformant to our regex rules defined in usernameValidationRegex.
+// If a user name is not valid, an error is returned that satisfies
+// usererrors.UserNameNotValid.
 //
 // User names must be one or more runes long, can contain any unicode rune from
 // the letter or number class and may contain zero or more of .,+ or - runes as
 // long as they don't appear at the start or end of the user name. User names can
 // be a maximum length of 255 characters.
-func ValidateUsername(name string) error {
+func ValidateUserName(name string) error {
 	if !validUserName.MatchString(name) {
-		return errors.Annotatef(usererrors.UsernameNotValid, "%q", name)
+		return errors.Annotatef(usererrors.UserNameNotValid, "%q", name)
 	}
 	return nil
 }

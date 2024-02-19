@@ -600,7 +600,19 @@ CREATE TABLE user_activation_key (
     CONSTRAINT      fk_user_activation_key_user
         FOREIGN KEY (user_uuid)
     REFERENCES      user_authentication(user_uuid)
-);`)
+);
+
+CREATE VIEW v_user_auth AS
+SELECT u.uuid, 
+       u.name, 
+       u.display_name, 
+       u.removed,
+       u.created_by_uuid, 
+       u.created_at,
+       a.last_login, 
+       a.disabled
+FROM   user u LEFT JOIN user_authentication a on u.uuid = a.user_uuid;
+`)
 }
 
 func flagSchema() schema.Patch {

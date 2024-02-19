@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/juju/utils/v4"
+	"github.com/juju/errors"
 
 	"github.com/juju/juju/internal/uuid"
 )
@@ -26,6 +26,9 @@ type User struct {
 	// CreatorUUID is the associated user that created this user.
 	CreatorUUID UUID
 
+	// CreatorName is the name of the user that created this user.
+	CreatorName string
+
 	// CreatedAt is the time that the user was created at.
 	CreatedAt time.Time
 
@@ -43,7 +46,7 @@ type UUID string
 func NewUUID() (UUID, error) {
 	uuid, err := uuid.NewUUID()
 	if err != nil {
-		return UUID(""), err
+		return "", errors.Trace(err)
 	}
 	return UUID(uuid.String()), nil
 }
@@ -53,7 +56,7 @@ func (u UUID) Validate() error {
 	if u == "" {
 		return fmt.Errorf("empty uuid")
 	}
-	if !utils.IsValidUUIDString(string(u)) {
+	if !uuid.IsValidUUIDString(string(u)) {
 		return fmt.Errorf("invalid uuid: %q", u)
 	}
 	return nil

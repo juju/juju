@@ -99,6 +99,7 @@ func (s *schemaSuite) TestControllerDDLApply(c *gc.C) {
 		"user_authentication",
 		"user_password",
 		"user_activation_key",
+		"v_user_auth",
 
 		// Flags
 		"flag",
