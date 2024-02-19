@@ -26,6 +26,7 @@ import (
 
 	"github.com/juju/juju/controller"
 	corelogger "github.com/juju/juju/core/logger"
+	corelogtailer "github.com/juju/juju/core/logtailer"
 	"github.com/juju/juju/internal/mongo"
 )
 
@@ -449,8 +450,8 @@ type LogTailerState interface {
 // NewLogTailer returns a LogTailer which filters according to the
 // parameters given.
 func NewLogTailer(
-	st LogTailerState, params corelogger.LogTailerParams, opLog *mgo.Collection,
-) (corelogger.LogTailer, error) {
+	st LogTailerState, params corelogtailer.LogTailerParams, opLog *mgo.Collection,
+) (corelogtailer.LogTailer, error) {
 	session := st.MongoSession().Copy()
 
 	if opLog == nil {
@@ -482,7 +483,7 @@ type logTailer struct {
 	session         *mgo.Session
 	logsColl        *mgo.Collection
 	opLog           *mgo.Collection
-	params          corelogger.LogTailerParams
+	params          corelogtailer.LogTailerParams
 	logCh           chan *corelogger.LogRecord
 	lastID          int64
 	lastTime        time.Time
@@ -713,7 +714,7 @@ func (t *logTailer) tailOplog() error {
 	}
 }
 
-func (t *logTailer) paramsToSelector(params corelogger.LogTailerParams, prefix string) bson.D {
+func (t *logTailer) paramsToSelector(params corelogtailer.LogTailerParams, prefix string) bson.D {
 	sel := bson.D{}
 	if !params.StartTime.IsZero() {
 		sel = append(sel, bson.DocElem{"t", bson.M{"$gte": params.StartTime.UnixNano()}})

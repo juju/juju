@@ -26,6 +26,7 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/internal/agent/agentconf"
 	corelogger "github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/logtailer"
 	"github.com/juju/juju/internal/mongo"
 	corenames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/state"
@@ -198,7 +199,7 @@ func (c *dumpLogsCommand) dumpLogsForEnv(ctx *cmd.Context, statePool *state.Stat
 	modelOwnerAndName := corelogger.ModelFilePrefix(m.Owner().Id(), m.Name())
 
 	fileName := corelogger.ModelLogFile(c.agentConfig.CurrentConfig().LogDir(), st.ModelUUID(), modelOwnerAndName)
-	tailer, err := corelogger.NewLogTailer(st.ControllerModelUUID(), fileName, corelogger.LogTailerParams{NoTail: true})
+	tailer, err := logtailer.NewLogTailer(st.ControllerModelUUID(), fileName, logtailer.LogTailerParams{NoTail: true})
 	if err != nil {
 		return errors.Annotate(err, "failed to create a log tailer")
 	}

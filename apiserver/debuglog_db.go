@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/apiserver/authentication"
 	corelogger "github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/logtailer"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -70,8 +71,8 @@ func handleDebugLogDBRequest(
 	}
 }
 
-func makeLogTailerParams(reqParams debugLogParams) corelogger.LogTailerParams {
-	tailerParams := corelogger.LogTailerParams{
+func makeLogTailerParams(reqParams debugLogParams) logtailer.LogTailerParams {
+	tailerParams := logtailer.LogTailerParams{
 		MinLevel:      reqParams.filterLevel,
 		NoTail:        reqParams.noTail,
 		StartTime:     reqParams.startTime,
@@ -103,11 +104,11 @@ func formatLogRecord(r *corelogger.LogRecord) *params.LogMessage {
 
 var newLogTailer = _newLogTailer // For replacing in tests
 
-func _newLogTailer(st state.LogTailerState, logDir string, params corelogger.LogTailerParams) (corelogger.LogTailer, error) {
+func _newLogTailer(st state.LogTailerState, logDir string, params logtailer.LogTailerParams) (logtailer.LogTailer, error) {
 	m, err := st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	modelOwnerAndName := corelogger.ModelFilePrefix(m.Owner().Id(), m.Name())
-	return corelogger.NewLogTailer(st.ModelUUID(), corelogger.ModelLogFile(logDir, st.ModelUUID(), modelOwnerAndName), params)
+	return logtailer.NewLogTailer(st.ModelUUID(), corelogger.ModelLogFile(logDir, st.ModelUUID(), modelOwnerAndName), params)
 }

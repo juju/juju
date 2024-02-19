@@ -1,7 +1,7 @@
 // Copyright 2024 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package logger
+package logtailer
 
 import (
 	"fmt"
@@ -16,6 +16,8 @@ import (
 	"github.com/juju/loggo/v2"
 	"github.com/vallerion/rscanner"
 	"gopkg.in/tomb.v2"
+
+	corelogger "github.com/juju/juju/core/logger"
 )
 
 var logger = loggo.GetLogger("logger.tailer")
@@ -26,7 +28,7 @@ var logger = loggo.GetLogger("logger.tailer")
 type LogTailer interface {
 	// Logs returns the channel through which the LogTailer returns Juju logs.
 	// It will be closed when the tailer stops.
-	Logs() <-chan *LogRecord
+	Logs() <-chan *corelogger.LogRecord
 
 	// Dying returns a channel which will be closed as the LogTailer stops.
 	Dying() <-chan struct{}
@@ -69,7 +71,7 @@ func NewLogTailer(
 	t := &logTailer{
 		modelUUID:       modelUUID,
 		params:          params,
-		logCh:           make(chan *LogRecord),
+		logCh:           make(chan *corelogger.LogRecord),
 		maxInitialLines: maxInitialLines,
 		logFile:         logFile,
 	}
@@ -85,7 +87,7 @@ type logTailer struct {
 	tomb            tomb.Tomb
 	modelUUID       string
 	params          LogTailerParams
-	logCh           chan *LogRecord
+	logCh           chan *corelogger.LogRecord
 	lastTime        time.Time
 	maxInitialLines int
 
@@ -93,7 +95,7 @@ type logTailer struct {
 }
 
 // Logs implements the LogTailer interface.
-func (t *logTailer) Logs() <-chan *LogRecord {
+func (t *logTailer) Logs() <-chan *corelogger.LogRecord {
 	return t.logCh
 }
 
@@ -156,7 +158,7 @@ func (t *logTailer) processInitialLines() (int64, error) {
 	}
 	scanner := rscanner.NewScanner(f, fs.Size())
 
-	queue := make([]*LogRecord, t.params.InitialLines)
+	queue := make([]*corelogger.LogRecord, t.params.InitialLines)
 	cur := t.params.InitialLines
 
 	deserialisationFailures := 0
@@ -216,39 +218,39 @@ func (t *logTailer) processInitialLines() (int64, error) {
 type loggerAdaptor struct{}
 
 func (l loggerAdaptor) Fatal(args ...interface{}) {
-	logger.Criticalf(fmt.Sprint(args))
+	logger.Criticalf(fmt.Sprint(args...))
 }
 
 func (l loggerAdaptor) Fatalf(msg string, args ...interface{}) {
-	logger.Criticalf(msg, args)
+	logger.Criticalf(msg, args...)
 }
 
 func (l loggerAdaptor) Fatalln(args ...interface{}) {
-	logger.Criticalf(fmt.Sprint(args))
+	logger.Criticalf(fmt.Sprint(args...))
 }
 
 func (l loggerAdaptor) Panic(args ...interface{}) {
-	logger.Criticalf(fmt.Sprint(args))
+	logger.Criticalf(fmt.Sprint(args...))
 }
 
 func (l loggerAdaptor) Panicf(msg string, args ...interface{}) {
-	logger.Criticalf(msg, args)
+	logger.Criticalf(msg, args...)
 }
 
 func (l loggerAdaptor) Panicln(args ...interface{}) {
-	logger.Criticalf(fmt.Sprint(args))
+	logger.Criticalf(fmt.Sprint(args...))
 }
 
 func (l loggerAdaptor) Print(args ...interface{}) {
-	logger.Infof(fmt.Sprint(args))
+	logger.Infof(fmt.Sprint(args...))
 }
 
 func (l loggerAdaptor) Printf(msg string, args ...interface{}) {
-	logger.Infof(msg, args)
+	logger.Infof(msg, args...)
 }
 
 func (l loggerAdaptor) Println(args ...interface{}) {
-	logger.Infof(fmt.Sprint(args))
+	logger.Infof(fmt.Sprint(args...))
 }
 
 func (t *logTailer) tailFile(seekTo *tail.SeekInfo) (err error) {
@@ -307,7 +309,7 @@ func (t *logTailer) tailFile(seekTo *tail.SeekInfo) (err error) {
 	}
 }
 
-func (t *logTailer) includeRecord(rec *LogRecord) bool {
+func (t *logTailer) includeRecord(rec *corelogger.LogRecord) bool {
 	if rec.Time.Before(t.params.StartTime) {
 		return false
 	}
@@ -366,7 +368,7 @@ func makeModulePattern(modules []string) string {
 	return `^(` + strings.Join(patterns, "|") + `)(\..+)?$`
 }
 
-func logLineToRecord(modelUUID string, line string) (*LogRecord, error) {
+func logLineToRecord(modelUUID string, line string) (*corelogger.LogRecord, error) {
 	parts := strings.SplitN(line, " ", 7)
 	if len(parts) < 7 {
 		return nil, errors.Errorf("invalid log line %q", line)
@@ -381,7 +383,7 @@ func logLineToRecord(modelUUID string, line string) (*LogRecord, error) {
 		return nil, errors.Annotatef(err, "invalid log timestamp %q", timeStr)
 	}
 
-	rec := &LogRecord{
+	rec := &corelogger.LogRecord{
 		Time: timeStamp.UTC(), // not worth preserving TZ
 
 		ModelUUID: modelUUID,
