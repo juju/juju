@@ -715,6 +715,7 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 			names.UserTagKind,
 			names.ApplicationTagKind,
 		},
+		srv.logDir,
 	)
 	pubsubHandler := newPubSubHandler(httpCtxt, srv.shared.centralHub)
 	logSinkHandler := logsink.NewHTTPHandler(

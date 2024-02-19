@@ -60,7 +60,7 @@ func (s *agentLoggingStrategy) init(ctxt httpContext, req *http.Request) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if s.recordLogger, err = s.modelLogger.GetLogger(s.modelUUID, m.Name()); err != nil {
+	if s.recordLogger, err = s.modelLogger.GetLogger(s.modelUUID, m.Name(), m.Owner().Id()); err != nil {
 		return errors.Trace(err)
 	}
 	s.releaser = func() error {

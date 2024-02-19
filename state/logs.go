@@ -441,6 +441,9 @@ type LogTailerState interface {
 
 	// IsController indicates whether or not the model is the admin model.
 	IsController() bool
+
+	// Model returns the current model.
+	Model() (*Model, error)
 }
 
 // NewLogTailer returns a LogTailer which filters according to the

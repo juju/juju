@@ -191,7 +191,14 @@ func (c *dumpLogsCommand) dumpLogsForEnv(ctx *cmd.Context, statePool *state.Stat
 	writer := bufio.NewWriter(file)
 	defer writer.Flush()
 
-	tailer, err := state.NewLogTailer(st, corelogger.LogTailerParams{NoTail: true}, nil)
+	m, err := st.Model()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	modelOwnerAndName := corelogger.ModelFilePrefix(m.Owner().Id(), m.Name())
+
+	fileName := corelogger.ModelLogFile(c.agentConfig.CurrentConfig().LogDir(), st.ModelUUID(), modelOwnerAndName)
+	tailer, err := corelogger.NewLogTailer(st.ControllerModelUUID(), fileName, corelogger.LogTailerParams{NoTail: true})
 	if err != nil {
 		return errors.Annotate(err, "failed to create a log tailer")
 	}

@@ -56,16 +56,17 @@ type modelLogger struct {
 }
 
 // GetLogger implements ModelLogger.
-func (d *modelLogger) GetLogger(modelUUID, modelName string) (corelogger.LoggerCloser, error) {
+func (d *modelLogger) GetLogger(modelUUID, modelName, modelOwner string) (corelogger.LoggerCloser, error) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	if l, ok := d.modelLoggers[modelUUID]; ok {
 		return l, nil
 	}
 
-	l, err := d.loggerForModel(modelUUID, modelName)
+	modelPrefix := corelogger.ModelFilePrefix(modelOwner, modelName)
+	l, err := d.loggerForModel(modelUUID, modelPrefix)
 	if err != nil {
-		return nil, errors.Annotatef(err, "getting logger for model %q (%s)", modelName, modelUUID)
+		return nil, errors.Annotatef(err, "getting logger for model %q (%s)", modelPrefix, modelUUID)
 	}
 
 	bufferedLogger := &bufferedLoggerCloser{

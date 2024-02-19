@@ -231,7 +231,7 @@ type dummyModelLogger struct {
 	corelogger.ModelLogger
 }
 
-func (dummyModelLogger) GetLogger(modelUUID, modelName string) (corelogger.LoggerCloser, error) {
+func (dummyModelLogger) GetLogger(modelUUID, modelName, modelOwner string) (corelogger.LoggerCloser, error) {
 	return stubLogger{}, nil
 }
 

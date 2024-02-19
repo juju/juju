@@ -148,7 +148,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 					controllerCfg.ModelLogfileMaxSizeMB(),
 					controllerCfg.ModelLogfileMaxBackups(),
 					config.DebugLogger,
-					modelsDir,
+					currentCfg.LogDir(),
 				),
 			})
 			if err != nil {
@@ -181,13 +181,12 @@ func outputFunc(in worker.Worker, out interface{}) error {
 
 // getLoggerForModelFunc returns a function which can be called to get a logger which can store
 // logs for a specified model.
-func getLoggerForModelFunc(pool *state.StatePool, sysLogger syslogger.SysLogger, maxSize, maxBackups int, debugLogger Logger, modelsDir string) corelogger.LoggerForModelFunc {
+func getLoggerForModelFunc(pool *state.StatePool, sysLogger syslogger.SysLogger, maxSize, maxBackups int, debugLogger Logger, logDir string) corelogger.LoggerForModelFunc {
 	return func(modelUUID, modelName string) (corelogger.LoggerCloser, error) {
 		if !names.IsValidModel(modelUUID) {
 			return nil, errors.NotValidf("model UUID %q", modelUUID)
 		}
-		filename := modelName + "-" + names.NewModelTag(modelUUID).ShortId() + ".log"
-		logFilename := filepath.Join(modelsDir, filename)
+		logFilename := corelogger.ModelLogFile(logDir, modelUUID, modelName)
 		if err := paths.PrimeLogFile(logFilename); err != nil && !errors.Is(err, os.ErrPermission) {
 			// If we don't have permission to chown this, it means we are running rootless.
 			return nil, errors.Annotate(err, "unable to prime log file")

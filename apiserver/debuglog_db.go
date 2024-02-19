@@ -20,8 +20,9 @@ func newDebugLogDBHandler(
 	ctxt httpContext,
 	authenticator authentication.HTTPAuthenticator,
 	authorizer authentication.Authorizer,
+	logDir string,
 ) http.Handler {
-	return newDebugLogHandler(ctxt, authenticator, authorizer, handleDebugLogDBRequest)
+	return newDebugLogHandler(ctxt, authenticator, authorizer, logDir, handleDebugLogDBRequest)
 }
 
 func handleDebugLogDBRequest(
@@ -30,10 +31,11 @@ func handleDebugLogDBRequest(
 	st state.LogTailerState,
 	reqParams debugLogParams,
 	socket debugLogSocket,
+	logDir string,
 	stop <-chan struct{},
 ) error {
 	tailerParams := makeLogTailerParams(reqParams)
-	tailer, err := newLogTailer(st, tailerParams)
+	tailer, err := newLogTailer(st, logDir, tailerParams)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -101,6 +103,11 @@ func formatLogRecord(r *corelogger.LogRecord) *params.LogMessage {
 
 var newLogTailer = _newLogTailer // For replacing in tests
 
-func _newLogTailer(st state.LogTailerState, params corelogger.LogTailerParams) (corelogger.LogTailer, error) {
-	return state.NewLogTailer(st, params, nil)
+func _newLogTailer(st state.LogTailerState, logDir string, params corelogger.LogTailerParams) (corelogger.LogTailer, error) {
+	m, err := st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	modelOwnerAndName := corelogger.ModelFilePrefix(m.Owner().Id(), m.Name())
+	return corelogger.NewLogTailer(st.ModelUUID(), corelogger.ModelLogFile(logDir, st.ModelUUID(), modelOwnerAndName), params)
 }
