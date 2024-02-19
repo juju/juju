@@ -450,6 +450,39 @@ func (s *stateSuite) TestGetUserByAuth(c *gc.C) {
 	c.Check(u.DisplayName, gc.Equals, "admin")
 	c.Check(u.CreatorUUID, gc.Equals, adminUUID)
 	c.Check(u.CreatedAt, gc.NotNil)
+	c.Check(u.Disabled, jc.IsFalse)
+}
+
+// TestGetUserByAuthDisabled asserts that we can get a user by auth from the
+// database and has the correct disabled flag.
+func (s *stateSuite) TestGetUserByAuthDisabled(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	// Add admin user with password hash.
+	adminUUID, err := user.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+
+	salt, err := auth.NewSalt()
+	c.Assert(err, jc.ErrorIsNil)
+
+	passwordHash, err := auth.HashPassword(auth.NewPassword("password"), salt)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = st.AddUserWithPasswordHash(context.Background(), adminUUID, "admin", "admin", adminUUID, passwordHash, salt)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = st.DisableUserAuthentication(context.Background(), "admin")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Get the user.
+	u, err := st.GetUserByAuth(context.Background(), "admin", auth.NewPassword("password"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(u.Name, gc.Equals, "admin")
+	c.Check(u.DisplayName, gc.Equals, "admin")
+	c.Check(u.CreatorUUID, gc.Equals, adminUUID)
+	c.Check(u.CreatedAt, gc.NotNil)
+	c.Check(u.Disabled, jc.IsTrue)
 }
 
 // TestGetUserByAuthUnauthorized asserts that we get an error when we try to

@@ -293,12 +293,15 @@ func (st *State) GetUserByAuth(ctx context.Context, name string, password auth.P
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		getUserWithAuthQuery := `
 SELECT (
-        user.uuid, user.name, user.display_name, user.created_by_uuid, user.created_at, 
+        user.uuid, user.name, user.display_name, user.created_by_uuid, user.created_at,
+		user_authentication.disabled,
         user_password.password_hash, user_password.password_salt
        ) AS (&User.*)
 FROM   user
        LEFT JOIN user_password 
        ON        user.uuid = user_password.user_uuid
+	   LEFT JOIN user_authentication
+	   ON        user.uuid = user_authentication.user_uuid
 WHERE  user.name = $M.name 
 AND    removed = false
 `
