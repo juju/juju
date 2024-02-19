@@ -91,7 +91,7 @@ func NewSalt() ([]byte, error) {
 
 // NewPassword returns a Password struct wrapping the plain text password.
 func NewPassword(p string) Password {
-	return Password{[]byte(p)}
+	return Password{password: []byte(p)}
 }
 
 // String implements the stringer interface always returning an empty string and

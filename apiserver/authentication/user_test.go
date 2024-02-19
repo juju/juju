@@ -22,6 +22,7 @@ import (
 
 	"github.com/juju/juju/apiserver/authentication"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	"github.com/juju/juju/domain/user/service"
 	"github.com/juju/juju/internal/auth"
 	"github.com/juju/juju/internal/password"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -87,7 +88,12 @@ func (s *userAuthenticatorSuite) TestUnitLoginFails(c *gc.C) {
 
 func (s *userAuthenticatorSuite) TestValidUserLogin(c *gc.C) {
 	userService := s.ControllerServiceFactory(c).User()
-	_, err := userService.AddUserWithPassword(context.Background(), "bobbrown", "Bob Brown", s.AdminUserUUID, auth.NewPassword("password"))
+	_, _, err := userService.AddUser(context.Background(), service.AddUserArg{
+		Name:        "bobbrown",
+		DisplayName: "Bob Brown",
+		CreatorUUID: s.AdminUserUUID,
+		Password:    ptr(auth.NewPassword("password")),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// User login
@@ -103,12 +109,15 @@ func (s *userAuthenticatorSuite) TestValidUserLogin(c *gc.C) {
 }
 
 func (s *userAuthenticatorSuite) TestDisabledUserLogin(c *gc.C) {
-	c.Skip("This test should be failing, but we don't get disabled out from the service!")
-
 	userService := s.ControllerServiceFactory(c).User()
-	uuid, err := userService.AddUserWithPassword(context.Background(), "bobbrown", "Bob Brown", s.AdminUserUUID, auth.NewPassword("password"))
+	_, _, err := userService.AddUser(context.Background(), service.AddUserArg{
+		Name:        "bobbrown",
+		DisplayName: "Bob Brown",
+		CreatorUUID: s.AdminUserUUID,
+		Password:    ptr(auth.NewPassword("password")),
+	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = userService.DisableUserAuthentication(context.Background(), uuid)
+	err = userService.DisableUserAuthentication(context.Background(), "bobbrown")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// User login
@@ -124,9 +133,14 @@ func (s *userAuthenticatorSuite) TestDisabledUserLogin(c *gc.C) {
 
 func (s *userAuthenticatorSuite) TestRemovedUserLogin(c *gc.C) {
 	userService := s.ControllerServiceFactory(c).User()
-	uuid, err := userService.AddUserWithPassword(context.Background(), "bobbrown", "Bob Brown", s.AdminUserUUID, auth.NewPassword("password"))
+	_, _, err := userService.AddUser(context.Background(), service.AddUserArg{
+		Name:        "bobbrown",
+		DisplayName: "Bob Brown",
+		CreatorUUID: s.AdminUserUUID,
+		Password:    ptr(auth.NewPassword("password")),
+	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = userService.RemoveUser(context.Background(), uuid)
+	err = userService.RemoveUser(context.Background(), "bobbrown")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// User login
@@ -142,7 +156,12 @@ func (s *userAuthenticatorSuite) TestRemovedUserLogin(c *gc.C) {
 
 func (s *userAuthenticatorSuite) TestUserLoginWrongPassword(c *gc.C) {
 	userService := s.ControllerServiceFactory(c).User()
-	_, err := userService.AddUserWithPassword(context.Background(), "bobbrown", "Bob Brown", s.AdminUserUUID, auth.NewPassword("password"))
+	_, _, err := userService.AddUser(context.Background(), service.AddUserArg{
+		Name:        "bobbrown",
+		DisplayName: "Bob Brown",
+		CreatorUUID: s.AdminUserUUID,
+		Password:    ptr(auth.NewPassword("password")),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// User login
@@ -158,9 +177,11 @@ func (s *userAuthenticatorSuite) TestUserLoginWrongPassword(c *gc.C) {
 
 func (s *userAuthenticatorSuite) TestValidMacaroonUserLogin(c *gc.C) {
 	userService := s.ControllerServiceFactory(c).User()
-	// TODO (stickupkid): This should be AddUser, but the user service isn't
-	// correct. This is a temporary fix until we can fix the user service.
-	_, err := userService.AddUserWithPassword(context.Background(), "bob", "Bob Brown", s.AdminUserUUID, auth.NewPassword("password"))
+	_, _, err := userService.AddUser(context.Background(), service.AddUserArg{
+		Name:        "bob",
+		DisplayName: "Bob Brown",
+		CreatorUUID: s.AdminUserUUID,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	mac, err := macaroon.New(nil, nil, "", macaroon.LatestVersion)
@@ -191,9 +212,11 @@ func (s *userAuthenticatorSuite) TestValidMacaroonUserLogin(c *gc.C) {
 
 func (s *userAuthenticatorSuite) TestInvalidMacaroonUserLogin(c *gc.C) {
 	userService := s.ControllerServiceFactory(c).User()
-	// TODO (stickupkid): This should be AddUser, but the user service isn't
-	// correct. This is a temporary fix until we can fix the user service.
-	_, err := userService.AddUserWithPassword(context.Background(), "bob", "Bob Brown", s.AdminUserUUID, auth.NewPassword("password"))
+	_, _, err := userService.AddUser(context.Background(), service.AddUserArg{
+		Name:        "bobbrown",
+		DisplayName: "Bob Brown",
+		CreatorUUID: s.AdminUserUUID,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	mac, err := macaroon.New(nil, nil, "", macaroon.LatestVersion)
@@ -218,11 +241,13 @@ func (s *userAuthenticatorSuite) TestInvalidMacaroonUserLogin(c *gc.C) {
 
 func (s *userAuthenticatorSuite) TestDisabledMacaroonUserLogin(c *gc.C) {
 	userService := s.ControllerServiceFactory(c).User()
-	// TODO (stickupkid): This should be AddUser, but the user service isn't
-	// correct. This is a temporary fix until we can fix the user service.
-	uuid, err := userService.AddUserWithPassword(context.Background(), "bob", "Bob Brown", s.AdminUserUUID, auth.NewPassword("password"))
+	_, _, err := userService.AddUser(context.Background(), service.AddUserArg{
+		Name:        "bobbrown",
+		DisplayName: "Bob Brown",
+		CreatorUUID: s.AdminUserUUID,
+	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = userService.DisableUserAuthentication(context.Background(), uuid)
+	err = userService.DisableUserAuthentication(context.Background(), "bobbrown")
 	c.Assert(err, jc.ErrorIsNil)
 
 	mac, err := macaroon.New(nil, nil, "", macaroon.LatestVersion)
@@ -247,11 +272,13 @@ func (s *userAuthenticatorSuite) TestDisabledMacaroonUserLogin(c *gc.C) {
 
 func (s *userAuthenticatorSuite) TestRemovedMacaroonUserLogin(c *gc.C) {
 	userService := s.ControllerServiceFactory(c).User()
-	// TODO (stickupkid): This should be AddUser, but the user service isn't
-	// correct. This is a temporary fix until we can fix the user service.
-	uuid, err := userService.AddUserWithPassword(context.Background(), "bob", "Bob Brown", s.AdminUserUUID, auth.NewPassword("password"))
+	_, _, err := userService.AddUser(context.Background(), service.AddUserArg{
+		Name:        "bobbrown",
+		DisplayName: "Bob Brown",
+		CreatorUUID: s.AdminUserUUID,
+	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = userService.RemoveUser(context.Background(), uuid)
+	err = userService.RemoveUser(context.Background(), "bobbrown")
 	c.Assert(err, jc.ErrorIsNil)
 
 	mac, err := macaroon.New(nil, nil, "", macaroon.LatestVersion)
@@ -511,4 +538,8 @@ type simpleEntity struct {
 
 func (e *simpleEntity) Tag() names.Tag {
 	return e.tag
+}
+
+func ptr[T any](t T) *T {
+	return &t
 }
