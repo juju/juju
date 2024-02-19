@@ -152,6 +152,12 @@ func (b *managedServices) GetUserByName(ctx context.Context, name string) (coreu
 	return b.userService.GetUserByName(b.tomb.Context(ctx), name)
 }
 
+// UpdateLastLogin updates the last login time for the user with the
+// given name.
+func (b *managedServices) UpdateLastLogin(ctx context.Context, name string) error {
+	return b.userService.UpdateLastLogin(b.tomb.Context(ctx), name)
+}
+
 // Kill is part of the worker.Worker interface.
 func (b *managedServices) Kill() {
 	b.tomb.Kill(nil)

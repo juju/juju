@@ -51,7 +51,7 @@ func (s *agentAuthenticatorSuite) TestAuthenticatorForTag(c *gc.C) {
 
 	s.userService.EXPECT().GetUserByAuth(context.Background(), "user", "password").Return(user, nil).AnyTimes()
 
-	entity, err := authenticator.Authenticate(context.Background(), nil, authentication.AuthParams{
+	entity, err := authenticator.Authenticate(context.Background(), authentication.AuthParams{
 		AuthTag:     tag,
 		Credentials: "password",
 		Nonce:       "nonce",

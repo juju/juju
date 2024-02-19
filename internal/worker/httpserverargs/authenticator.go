@@ -30,6 +30,9 @@ type UserService interface {
 	GetUserByAuth(ctx context.Context, name, password string) (coreuser.User, error)
 	// GetUserByName returns the user with the given name.
 	GetUserByName(ctx context.Context, name string) (coreuser.User, error)
+	// UpdateLastLogin updates the last login time for the user with the
+	// given name.
+	UpdateLastLogin(ctx context.Context, name string) error
 }
 
 // NewStateAuthenticatorFunc is a function type satisfied by

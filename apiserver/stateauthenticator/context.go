@@ -45,6 +45,9 @@ type UserService interface {
 	GetUserByAuth(ctx context.Context, name, password string) (coreuser.User, error)
 	// GetUserByName returns the user with the given name.
 	GetUserByName(ctx context.Context, name string) (coreuser.User, error)
+	// UpdateLastLogin updates the last login time for the user with the
+	// given name.
+	UpdateLastLogin(ctx context.Context, name string) error
 }
 
 // authContext holds authentication context shared
@@ -55,7 +58,7 @@ type authContext struct {
 	userService             UserService
 
 	clock     clock.Clock
-	agentAuth authentication.AgentAuthenticator
+	agentAuth *authentication.AgentAuthenticator
 
 	// localUserBakery is the bakery.Bakery used by the controller
 	// for authenticating local users. In time, we may want to use this for
@@ -105,6 +108,7 @@ func newAuthContext(
 		controllerConfigService: controllerConfigService,
 		userService:             userService,
 		localUserInteractions:   authentication.NewInteractions(),
+		agentAuth:               authentication.NewAgentAuthenticator(userService, st, logger),
 	}
 
 	// Create a bakery for discharging third-party caveats for
@@ -216,14 +220,13 @@ type authenticator struct {
 // tag.
 func (a authenticator) Authenticate(
 	ctx context.Context,
-	entityFinder authentication.EntityFinder,
 	authParams authentication.AuthParams,
 ) (state.Entity, error) {
 	auth, err := a.authenticatorForTag(ctx, authParams.AuthTag)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return auth.Authenticate(ctx, entityFinder, authParams)
+	return auth.Authenticate(ctx, authParams)
 }
 
 // authenticatorForTag returns the authenticator appropriate
@@ -247,7 +250,7 @@ func (a authenticator) authenticatorForTag(ctx context.Context, tag names.Tag) (
 	}
 	for _, agentKind := range AgentTags {
 		if tag.Kind() == agentKind {
-			return &a.ctxt.agentAuth, nil
+			return a.ctxt.agentAuth, nil
 		}
 	}
 	return nil, errors.Annotatef(apiservererrors.ErrBadRequest, "unexpected login entity tag")

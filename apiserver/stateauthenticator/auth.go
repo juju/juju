@@ -108,13 +108,8 @@ func (a *Authenticator) CreateLocalLoginMacaroon(ctx context.Context, tag names.
 // AddHandlers adds the handlers to the given mux for handling local
 // macaroon logins.
 func (a *Authenticator) AddHandlers(mux *apiserverhttp.Mux) error {
-	systemState, err := a.statePool.SystemState()
-	if err != nil {
-		return errors.Trace(err)
-	}
 	h := &localLoginHandlers{
 		authCtxt:   a.authContext,
-		finder:     systemState,
 		userTokens: map[string]string{},
 	}
 	h.AddHandlers(mux)
@@ -229,14 +224,7 @@ func (a *Authenticator) checkCreds(
 	userLogin bool,
 	authenticator authentication.EntityAuthenticator,
 ) (authentication.AuthInfo, error) {
-	var entityFinder authentication.EntityFinder = st
-	if userLogin {
-		// When looking up model users, use a custom
-		// entity finder that looks up both the local user (if the user
-		// tag is in the local domain) and the model user.
-		entityFinder = modelUserEntityFinder{st}
-	}
-	entity, err := authenticator.Authenticate(ctx, entityFinder, authParams)
+	entity, err := authenticator.Authenticate(ctx, authParams)
 	if err != nil {
 		return authentication.AuthInfo{}, errors.Trace(err)
 	}
@@ -245,22 +233,112 @@ func (a *Authenticator) checkCreds(
 		Delegator: &PermissionDelegator{State: st},
 		Entity:    entity,
 	}
+
+	switch entity.Tag().Kind() {
+	case names.UserTagKind:
+		// TODO (stickupkid): This is incorrect. We should only be updating the
+		// last login time if they've been authorized (not just authenticated).
+		// For now we'll leave it as is, but we should fix this.
+		userTag := entity.Tag().(names.UserTag)
+
+		st := a.authContext.st
+		model, err := st.Model()
+		if err != nil {
+			return authentication.AuthInfo{}, errors.Trace(err)
+		}
+		modelAccess, err := st.UserAccess(userTag, model.ModelTag())
+		if err != nil && !errors.Is(err, errors.NotFound) {
+			return authentication.AuthInfo{}, errors.Trace(err)
+		}
+
+		// This is permission checking at the wrong level, but we can keep it
+		// here for now.
+		if err := a.checkPerms(ctx, modelAccess, userTag); err != nil {
+			return authentication.AuthInfo{}, errors.Trace(err)
+		}
+
+		if err := a.updateUserLastLogin(ctx, modelAccess, userTag, model); err != nil {
+			return authentication.AuthInfo{}, errors.Trace(err)
+		}
+
+	case names.MachineTagKind, names.ControllerAgentTagKind:
+		// Currently only machines and controller agents are managers in the
+		// context of a controller.
+		authInfo.Controller = a.isManager(entity)
+	}
+
+	return authInfo, nil
+}
+
+func (a *Authenticator) checkPerms(ctx context.Context, modelAccess permission.UserAccess, userTag names.UserTag) error {
+	// No model user found, so see if the user has been granted
+	// access to the controller.
+	if permission.IsEmptyUserAccess(modelAccess) {
+		st := a.authContext.st
+		controllerAccess, err := state.ControllerAccess(st, userTag)
+		if err != nil && !errors.Is(err, errors.NotFound) {
+			return errors.Trace(err)
+		}
+		// TODO(perrito666) remove the following section about everyone group
+		// when groups are implemented, this accounts only for the lack of a local
+		// ControllerUser when logging in from an external user that has not been granted
+		// permissions on the controller but there are permissions for the special
+		// everyone group.
+		if permission.IsEmptyUserAccess(controllerAccess) && !userTag.IsLocal() {
+			everyoneTag := names.NewUserTag(common.EveryoneTagName)
+			controllerAccess, err = st.UserAccess(everyoneTag, st.ControllerTag())
+			if err != nil && !errors.Is(err, errors.NotFound) {
+				return errors.Annotatef(err, "obtaining ControllerUser for everyone group")
+			}
+		}
+		if permission.IsEmptyUserAccess(controllerAccess) {
+			return errors.NotFoundf("model or controller user")
+		}
+	}
+	return nil
+}
+
+func (a *Authenticator) updateUserLastLogin(ctx context.Context, modelAccess permission.UserAccess, userTag names.UserTag, model *state.Model) error {
+	updateLastLogin := func() error {
+		if err := a.authContext.userService.UpdateLastLogin(ctx, userTag.Name()); err != nil {
+			return errors.Trace(err)
+		}
+		return nil
+	}
+
+	if !permission.IsEmptyUserAccess(modelAccess) {
+		if modelAccess.Object.Kind() != names.ModelTagKind {
+			return errors.NotValidf("%s as model user", modelAccess.Object.Kind())
+		}
+
+		if err := model.UpdateLastModelConnection(modelAccess.UserTag); err != nil {
+			// Attempt to update the users last login data, if the update
+			// fails, then just report it as a log message and return the
+			// original error message.
+			if err := updateLastLogin(); err != nil {
+				logger.Warningf("updating last login time for %v, %v", userTag, err)
+			}
+			return errors.Trace(err)
+		}
+	}
+
+	if err := updateLastLogin(); err != nil {
+		logger.Warningf("updating last login time for %v, %v", userTag, err)
+	}
+
+	return nil
+}
+
+func (a *Authenticator) isManager(entity state.Entity) bool {
 	type withIsManager interface {
 		IsManager() bool
 	}
-	if entity, ok := entity.(withIsManager); ok {
-		authInfo.Controller = entity.IsManager()
-	}
 
-	type withLogin interface {
-		UpdateLastLogin() error
+	m, ok := entity.(withIsManager)
+	if !ok {
+		return false
 	}
-	if entity, ok := entity.(withLogin); ok {
-		if err := entity.UpdateLastLogin(); err != nil {
-			logger.Warningf("updating last login time for %v", authParams.AuthTag)
-		}
-	}
-	return authInfo, nil
+	return m.IsManager()
 }
 
 // LoginRequest extracts basic auth login details from an http.Request.

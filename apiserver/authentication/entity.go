@@ -4,6 +4,7 @@
 package authentication
 
 import (
+	coreuser "github.com/juju/juju/core/user"
 	"github.com/juju/names/v5"
 )
 
@@ -21,4 +22,28 @@ func (t *tagWrapper) Tag() names.Tag {
 // TagToEntity takes a name names.Tag and concerts it an authentication Entity.
 func TagToEntity(t names.Tag) Entity {
 	return &tagWrapper{t}
+}
+
+// TaggedUser is a user that has been tagged with a names.Tag.
+type taggedUser struct {
+	coreuser.User
+	tag names.Tag
+}
+
+// TaggedUser returns a user that has been tagged with a names.Tag.
+func TaggedUser(u coreuser.User, t names.Tag) Entity {
+	return taggedUser{u, t}
+}
+
+// Tag returns the tag of the user.
+func (u taggedUser) Tag() names.Tag {
+	return u.tag
+}
+
+type externalUser struct {
+	tag names.Tag
+}
+
+func (e externalUser) Tag() names.Tag {
+	return e.tag
 }

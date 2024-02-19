@@ -20,12 +20,10 @@ import (
 
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/apiserver/authentication"
-	"github.com/juju/juju/state"
 )
 
 type localLoginHandlers struct {
 	authCtxt   *authContext
-	finder     state.EntityFinder
 	userTokens map[string]string
 }
 
@@ -88,7 +86,7 @@ func (h *localLoginHandlers) formHandler(w http.ResponseWriter, req *http.Reques
 	}
 
 	authenticator := h.authCtxt.authenticator(req.Host)
-	if _, err := authenticator.Authenticate(ctx, h.finder, authentication.AuthParams{
+	if _, err := authenticator.Authenticate(ctx, authentication.AuthParams{
 		AuthTag:     userTag,
 		Credentials: password,
 	}); err != nil {

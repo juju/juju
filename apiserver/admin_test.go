@@ -33,6 +33,8 @@ import (
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/domain/user/service"
+	"github.com/juju/juju/internal/auth"
 	"github.com/juju/juju/internal/password"
 	"github.com/juju/juju/internal/uuid"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -846,32 +848,42 @@ func (s *loginSuite) assertRemoteModel(c *gc.C, conn api.Connection, expected na
 }
 
 func (s *loginSuite) TestLoginUpdatesLastLoginAndConnection(c *gc.C) {
-	now := s.Clock.Now().UTC()
+	userService := s.ControllerServiceFactory(c).User()
+	uuid, _, err := userService.AddUser(context.Background(), service.AddUserArg{
+		Name:        "bobbrown",
+		DisplayName: "Bob Brown",
+		CreatorUUID: s.AdminUserUUID,
+		Password:    ptr(auth.NewPassword("password")),
+	})
+	c.Assert(err, jc.ErrorIsNil)
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
-	password := "shhh..."
-	user := f.MakeUser(c, &factory.UserParams{
-		Password: password,
+
+	f.MakeUser(c, &factory.UserParams{
+		Name:        "bobbrown",
+		DisplayName: "Bob Brown",
+		Password:    "password",
 	})
 
+	now := s.Clock.Now().UTC()
+
 	info := s.ControllerModelApiInfo()
-	info.Tag = user.Tag()
-	info.Password = password
+	info.Tag = names.NewUserTag("bobbrown")
+	info.Password = "password"
+
 	apiState, err := api.Open(info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	defer apiState.Close()
 
 	// The user now has last login updated.
-	err = user.Refresh()
+	user, err := userService.GetUser(context.Background(), uuid)
 	c.Assert(err, jc.ErrorIsNil)
-	lastLogin, err := user.LastLogin()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(lastLogin, jc.Almost, now)
+	c.Check(user.LastLogin, jc.Almost, now)
 
 	// The model user is also updated.
 	model := s.ControllerModel(c)
-	modelUser, err := model.State().UserAccess(user.UserTag(), model.ModelTag())
+	modelUser, err := model.State().UserAccess(names.NewUserTag("bobbrown"), model.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 	when, err := model.LastModelConnection(modelUser.UserTag)
 	c.Assert(err, jc.ErrorIsNil)
@@ -970,21 +982,22 @@ func (s *loginV3Suite) TestClientLoginToController(c *gc.C) {
 }
 
 func (s *loginV3Suite) TestClientLoginToControllerNoAccessToControllerModel(c *gc.C) {
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-	password := "shhh..."
-	user := f.MakeUser(c, &factory.UserParams{
-		NoModelUser: true,
-		Password:    password,
+	userService := s.ControllerServiceFactory(c).User()
+	uuid, _, err := userService.AddUser(context.Background(), service.AddUserArg{
+		Name:        "bobbrown",
+		DisplayName: "Bob Brown",
+		CreatorUUID: s.AdminUserUUID,
+		Password:    ptr(auth.NewPassword("password")),
 	})
+	c.Assert(err, jc.ErrorIsNil)
 
-	s.OpenControllerAPIAs(c, user.Tag(), password)
-	// The user now has last login updated.
-	err := user.Refresh()
+	now := s.Clock.Now().UTC()
+
+	s.OpenControllerAPIAs(c, names.NewUserTag("bobbrown"), "password")
+
+	user, err := userService.GetUser(context.Background(), uuid)
 	c.Assert(err, jc.ErrorIsNil)
-	lastLogin, err := user.LastLogin()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(lastLogin, gc.NotNil)
+	c.Check(user.LastLogin, jc.Almost, now)
 }
 
 func (s *loginV3Suite) TestClientLoginToRootOldClient(c *gc.C) {
@@ -1028,4 +1041,8 @@ func (t errorTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		}, nil
 	}
 	return t.fallback.RoundTrip(req)
+}
+
+func ptr[T any](v T) *T {
+	return &v
 }

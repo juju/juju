@@ -78,6 +78,7 @@ func (ctxt *httpContext) stateForRequestAuthenticated(r *http.Request) (
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
+	fmt.Println("LOLZ", st, err)
 	return st, authInfo.Entity, nil
 }
 
@@ -168,6 +169,7 @@ func (ctxt *httpContext) stateForRequestAuthenticatedTag(r *http.Request, kinds 
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
+	fmt.Println("st, entity, err", st, entity, err)
 	if ok, err := checkPermissions(entity.Tag(), common.AuthAny(funcs...)); !ok {
 		st.Release()
 		return nil, nil, err

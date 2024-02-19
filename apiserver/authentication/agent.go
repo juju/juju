@@ -7,13 +7,32 @@ import (
 	"context"
 
 	"github.com/juju/errors"
+	"github.com/juju/names/v5"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/state"
 )
 
+// Logger is the minimal logging interface required by the authenticator.
+type Logger interface {
+	Debugf(string, ...interface{})
+}
+
 // EntityAuthenticator performs authentication for juju entities.
-type AgentAuthenticator struct{}
+type AgentAuthenticator struct {
+	userService UserService
+	legacyState *state.State
+	logger      Logger
+}
+
+// NewAgentAuthenticator returns a new authenticator.
+func NewAgentAuthenticator(userService UserService, legacyState *state.State, logger Logger) *AgentAuthenticator {
+	return &AgentAuthenticator{
+		userService: userService,
+		legacyState: legacyState,
+		logger:      logger,
+	}
+}
 
 var _ EntityAuthenticator = (*AgentAuthenticator)(nil)
 
@@ -24,8 +43,17 @@ type taggedAuthenticator interface {
 
 // Authenticate authenticates the provided entity.
 // It takes an entityfinder and the tag used to find the entity that requires authentication.
-func (*AgentAuthenticator) Authenticate(ctx context.Context, entityFinder EntityFinder, authParams AuthParams) (state.Entity, error) {
-	entity, err := entityFinder.FindEntity(authParams.AuthTag)
+func (a *AgentAuthenticator) Authenticate(ctx context.Context, authParams AuthParams) (state.Entity, error) {
+	switch authParams.AuthTag.Kind() {
+	case names.UserTagKind:
+		return nil, errors.Trace(apiservererrors.ErrBadRequest)
+	default:
+		return a.fallbackAuth(ctx, authParams)
+	}
+}
+
+func (a *AgentAuthenticator) fallbackAuth(ctx context.Context, authParams AuthParams) (state.Entity, error) {
+	entity, err := a.legacyState.FindEntity(authParams.AuthTag)
 	if errors.Is(err, errors.NotFound) {
 		logger.Debugf("cannot authenticate unknown entity: %v", authParams.AuthTag)
 		return nil, errors.Trace(apiservererrors.ErrBadCreds)

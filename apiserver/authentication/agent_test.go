@@ -6,13 +6,17 @@ package authentication_test
 import (
 	"context"
 
+	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/authentication"
+	"github.com/juju/juju/domain/user/service"
+	"github.com/juju/juju/internal/auth"
 	internalpassword "github.com/juju/juju/internal/password"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
+	jujutesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
 
@@ -22,7 +26,7 @@ type agentAuthenticatorSuite struct {
 	machineNonce    string
 	unitPassword    string
 	machine         *state.Machine
-	user            *state.User
+	user            state.Entity
 	unit            *state.Unit
 	relation        *state.Relation
 }
@@ -32,13 +36,20 @@ var _ = gc.Suite(&agentAuthenticatorSuite{})
 func (s *agentAuthenticatorSuite) SetUpTest(c *gc.C) {
 	s.ApiServerSuite.SetUpTest(c)
 
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-	s.user = f.MakeUser(c, &factory.UserParams{
+	userService := s.ControllerServiceFactory(c).User()
+	userUUID, _, err := userService.AddUser(context.Background(), service.AddUserArg{
 		Name:        "bobbrown",
 		DisplayName: "Bob Brown",
-		Password:    "password",
+		Password:    ptr(auth.NewPassword("password")),
+		CreatorUUID: s.AdminUserUUID,
 	})
+	c.Assert(err, jc.ErrorIsNil)
+	user, err := userService.GetUser(context.Background(), userUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	s.user = authentication.TaggedUser(user, names.NewUserTag("bobbrown"))
+
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
 
 	// add machine for testing machine agent authentication
 	st := s.ControllerModel(c).State()
@@ -108,8 +119,12 @@ func (s *agentAuthenticatorSuite) TestValidLogins(c *gc.C) {
 	st := s.ControllerModel(c).State()
 	for i, t := range testCases {
 		c.Logf("test %d: %s", i, t.about)
-		var authenticator authentication.AgentAuthenticator
-		entity, err := authenticator.Authenticate(context.Background(), st, authentication.AuthParams{
+		authenticator := authentication.NewAgentAuthenticator(
+			s.ControllerServiceFactory(c).User(),
+			st,
+			jujutesting.NewCheckLogger(c),
+		)
+		entity, err := authenticator.Authenticate(context.Background(), authentication.AuthParams{
 			AuthTag:     t.entity.Tag(),
 			Credentials: t.credentials,
 			Nonce:       t.nonce,
@@ -146,8 +161,12 @@ func (s *agentAuthenticatorSuite) TestInvalidLogins(c *gc.C) {
 	st := s.ControllerModel(c).State()
 	for i, t := range testCases {
 		c.Logf("test %d: %s", i, t.about)
-		var authenticator authentication.AgentAuthenticator
-		entity, err := authenticator.Authenticate(context.Background(), st, authentication.AuthParams{
+		authenticator := authentication.NewAgentAuthenticator(
+			s.ControllerServiceFactory(c).User(),
+			st,
+			jujutesting.NewCheckLogger(c),
+		)
+		entity, err := authenticator.Authenticate(context.Background(), authentication.AuthParams{
 			AuthTag:     t.entity.Tag(),
 			Credentials: t.credentials,
 			Nonce:       t.nonce,

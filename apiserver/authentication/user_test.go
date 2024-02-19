@@ -52,7 +52,7 @@ func (s *userAuthenticatorSuite) TestMachineLoginFails(c *gc.C) {
 
 	// attempt machine login
 	authenticator := &authentication.LocalUserAuthenticator{}
-	_, err = authenticator.Authenticate(context.Background(), nil, authentication.AuthParams{
+	_, err = authenticator.Authenticate(context.Background(), authentication.AuthParams{
 		AuthTag:     machine.Tag(),
 		Credentials: machinePassword,
 		Nonce:       nonce,
@@ -79,7 +79,7 @@ func (s *userAuthenticatorSuite) TestUnitLoginFails(c *gc.C) {
 
 	// Attempt unit login
 	authenticator := &authentication.LocalUserAuthenticator{}
-	_, err = authenticator.Authenticate(context.Background(), nil, authentication.AuthParams{
+	_, err = authenticator.Authenticate(context.Background(), authentication.AuthParams{
 		AuthTag:     unit.UnitTag(),
 		Credentials: unitPassword,
 	})
@@ -100,7 +100,7 @@ func (s *userAuthenticatorSuite) TestValidUserLogin(c *gc.C) {
 	authenticator := &authentication.LocalUserAuthenticator{
 		UserService: s.ControllerServiceFactory(c).User(),
 	}
-	entity, err := authenticator.Authenticate(context.Background(), s.ControllerModel(c).State(), authentication.AuthParams{
+	entity, err := authenticator.Authenticate(context.Background(), authentication.AuthParams{
 		AuthTag:     names.NewUserTag("bobbrown"),
 		Credentials: "password",
 	})
@@ -124,7 +124,7 @@ func (s *userAuthenticatorSuite) TestDisabledUserLogin(c *gc.C) {
 	authenticator := &authentication.LocalUserAuthenticator{
 		UserService: s.ControllerServiceFactory(c).User(),
 	}
-	_, err = authenticator.Authenticate(context.Background(), s.ControllerModel(c).State(), authentication.AuthParams{
+	_, err = authenticator.Authenticate(context.Background(), authentication.AuthParams{
 		AuthTag:     names.NewUserTag("bobbrown"),
 		Credentials: "password",
 	})
@@ -147,7 +147,7 @@ func (s *userAuthenticatorSuite) TestRemovedUserLogin(c *gc.C) {
 	authenticator := &authentication.LocalUserAuthenticator{
 		UserService: s.ControllerServiceFactory(c).User(),
 	}
-	_, err = authenticator.Authenticate(context.Background(), s.ControllerModel(c).State(), authentication.AuthParams{
+	_, err = authenticator.Authenticate(context.Background(), authentication.AuthParams{
 		AuthTag:     names.NewUserTag("bobbrown"),
 		Credentials: "password",
 	})
@@ -168,7 +168,7 @@ func (s *userAuthenticatorSuite) TestUserLoginWrongPassword(c *gc.C) {
 	authenticator := &authentication.LocalUserAuthenticator{
 		UserService: s.ControllerServiceFactory(c).User(),
 	}
-	_, err = authenticator.Authenticate(context.Background(), s.ControllerModel(c).State(), authentication.AuthParams{
+	_, err = authenticator.Authenticate(context.Background(), authentication.AuthParams{
 		AuthTag:     names.NewUserTag("bobbrown"),
 		Credentials: "wrongpassword",
 	})
@@ -197,7 +197,7 @@ func (s *userAuthenticatorSuite) TestValidMacaroonUserLogin(c *gc.C) {
 		Bakery:      &bakeryService,
 		Clock:       testclock.NewClock(time.Time{}),
 	}
-	entity, err := authenticator.Authenticate(context.Background(), s.ControllerModel(c).State(), authentication.AuthParams{
+	entity, err := authenticator.Authenticate(context.Background(), authentication.AuthParams{
 		AuthTag:   names.NewUserTag("bob"),
 		Macaroons: macaroons,
 	})
@@ -232,7 +232,7 @@ func (s *userAuthenticatorSuite) TestInvalidMacaroonUserLogin(c *gc.C) {
 		Bakery:      &bakeryService,
 		Clock:       testclock.NewClock(time.Time{}),
 	}
-	_, err = authenticator.Authenticate(context.Background(), s.ControllerModel(c).State(), authentication.AuthParams{
+	_, err = authenticator.Authenticate(context.Background(), authentication.AuthParams{
 		AuthTag:   names.NewUserTag("bob"),
 		Macaroons: macaroons,
 	})
@@ -263,7 +263,7 @@ func (s *userAuthenticatorSuite) TestDisabledMacaroonUserLogin(c *gc.C) {
 		Bakery:      &bakeryService,
 		Clock:       testclock.NewClock(time.Time{}),
 	}
-	_, err = authenticator.Authenticate(context.Background(), s.ControllerModel(c).State(), authentication.AuthParams{
+	_, err = authenticator.Authenticate(context.Background(), authentication.AuthParams{
 		AuthTag:   names.NewUserTag("bob"),
 		Macaroons: macaroons,
 	})
@@ -294,7 +294,7 @@ func (s *userAuthenticatorSuite) TestRemovedMacaroonUserLogin(c *gc.C) {
 		Bakery:      &bakeryService,
 		Clock:       testclock.NewClock(time.Time{}),
 	}
-	_, err = authenticator.Authenticate(context.Background(), s.ControllerModel(c).State(), authentication.AuthParams{
+	_, err = authenticator.Authenticate(context.Background(), authentication.AuthParams{
 		AuthTag:   names.NewUserTag("bob"),
 		Macaroons: macaroons,
 	})
@@ -320,7 +320,7 @@ func (s *userAuthenticatorSuite) TestInvalidRelationLogin(c *gc.C) {
 
 	// Attempt relation login
 	authenticator := &authentication.LocalUserAuthenticator{}
-	_, err = authenticator.Authenticate(context.Background(), nil, authentication.AuthParams{
+	_, err = authenticator.Authenticate(context.Background(), authentication.AuthParams{
 		AuthTag:     relation.Tag(),
 		Credentials: "dummy-secret",
 	})
@@ -354,7 +354,6 @@ func (s *userAuthenticatorSuite) TestAuthenticateLocalLoginMacaroon(c *gc.C) {
 	service.SetErrors(nil, &bakery.VerificationError{})
 	_, err := authenticator.Authenticate(
 		context.Background(),
-		authentication.EntityFinder(nil),
 		authentication.AuthParams{
 			AuthTag: names.NewUserTag("bobbrown"),
 		},
@@ -434,33 +433,24 @@ var _ = gc.Suite(&macaroonAuthenticatorSuite{})
 var authenticateSuccessTests = []struct {
 	about              string
 	dischargedUsername string
-	finder             authentication.EntityFinder
 	expectTag          string
 	expectError        string
 }{{
 	about:              "user that can be found",
 	dischargedUsername: "bobbrown@somewhere",
 	expectTag:          "user-bobbrown@somewhere",
-	finder:             simpleEntityFinder{},
 }, {
 	about:              "user with no @ domain",
 	dischargedUsername: "bobbrown",
-	finder: simpleEntityFinder{
-		"user-bobbrown@external": true,
-	},
-	expectTag: "user-bobbrown@external",
+	expectTag:          "user-bobbrown@external",
 }, {
 	about:              "invalid user name",
 	dischargedUsername: "--",
-	finder:             simpleEntityFinder{},
 	expectError:        `"--" is an invalid user name`,
 }, {
 	about:              "ostensibly local name",
 	dischargedUsername: "cheat@local",
-	finder: simpleEntityFinder{
-		"cheat@local": true,
-	},
-	expectError: `external identity provider has provided ostensibly local name "cheat@local"`,
+	expectError:        `external identity provider has provided ostensibly local name "cheat@local"`,
 }}
 
 type alwaysIdent struct {
@@ -496,7 +486,7 @@ func (s *macaroonAuthenticatorSuite) TestMacaroonAuthentication(c *gc.C) {
 		}
 
 		// Authenticate once to obtain the macaroon to be discharged.
-		_, err := authenticator.Authenticate(context.Background(), test.finder, authentication.AuthParams{})
+		_, err := authenticator.Authenticate(context.Background(), authentication.AuthParams{})
 
 		// Discharge the macaroon.
 		dischargeErr := errors.Cause(err).(*apiservererrors.DischargeRequiredError)
@@ -505,7 +495,7 @@ func (s *macaroonAuthenticatorSuite) TestMacaroonAuthentication(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 
 		// Authenticate again with the discharged macaroon.
-		entity, err := authenticator.Authenticate(context.Background(), test.finder, authentication.AuthParams{
+		entity, err := authenticator.Authenticate(context.Background(), authentication.AuthParams{
 			Macaroons: []macaroon.Slice{ms},
 		})
 		if test.expectError != "" {
@@ -516,28 +506,6 @@ func (s *macaroonAuthenticatorSuite) TestMacaroonAuthentication(c *gc.C) {
 			c.Assert(entity.Tag().String(), gc.Equals, test.expectTag)
 		}
 	}
-}
-
-type simpleEntityFinder map[string]bool
-
-func (f simpleEntityFinder) FindEntity(tag names.Tag) (state.Entity, error) {
-	if utag, ok := tag.(names.UserTag); ok {
-		// It's a user tag which we need to be in canonical form
-		// so we can look it up unambiguously.
-		tag = names.NewUserTag(utag.Id())
-	}
-	if f[tag.String()] {
-		return &simpleEntity{tag}, nil
-	}
-	return nil, errors.NotFoundf("entity %q", tag)
-}
-
-type simpleEntity struct {
-	tag names.Tag
-}
-
-func (e *simpleEntity) Tag() names.Tag {
-	return e.tag
 }
 
 func ptr[T any](t T) *T {

@@ -73,7 +73,7 @@ type PermissionDelegator interface {
 // implement to authenticate juju entities.
 type EntityAuthenticator interface {
 	// Authenticate authenticates the given entity.
-	Authenticate(ctx context.Context, entityFinder EntityFinder, authParams AuthParams) (state.Entity, error)
+	Authenticate(ctx context.Context, authParams AuthParams) (state.Entity, error)
 }
 
 // Authorizer is a function type for authorizing a request.
@@ -87,11 +87,6 @@ type Authorizer interface {
 // authenticated.
 type Entity interface {
 	Tag() names.Tag
-}
-
-// EntityFinder finds the entity described by the tag.
-type EntityFinder interface {
-	FindEntity(tag names.Tag) (state.Entity, error)
 }
 
 // HTTPAuthenticator provides an interface for authenticating a raw http request

@@ -53,12 +53,6 @@ func (s *factorySuite) TestMakeUserNil(c *gc.C) {
 	c.Assert(saved.CreatedBy(), gc.Equals, user.CreatedBy())
 	c.Assert(saved.DateCreated(), gc.Equals, user.DateCreated())
 	c.Assert(saved.IsDisabled(), gc.Equals, user.IsDisabled())
-
-	savedLastLogin, err := saved.LastLogin()
-	c.Assert(err, jc.Satisfies, state.IsNeverLoggedInError)
-	lastLogin, err := user.LastLogin()
-	c.Assert(err, jc.Satisfies, state.IsNeverLoggedInError)
-	c.Assert(savedLastLogin, gc.Equals, lastLogin)
 }
 
 func (s *factorySuite) TestMakeUserParams(c *gc.C) {
@@ -86,12 +80,6 @@ func (s *factorySuite) TestMakeUserParams(c *gc.C) {
 	c.Assert(saved.CreatedBy(), gc.Equals, user.CreatedBy())
 	c.Assert(saved.DateCreated(), gc.Equals, user.DateCreated())
 	c.Assert(saved.IsDisabled(), gc.Equals, user.IsDisabled())
-
-	savedLastLogin, err := saved.LastLogin()
-	c.Assert(err, jc.Satisfies, state.IsNeverLoggedInError)
-	lastLogin, err := user.LastLogin()
-	c.Assert(err, jc.Satisfies, state.IsNeverLoggedInError)
-	c.Assert(savedLastLogin, gc.Equals, lastLogin)
 
 	_, err = s.State.UserAccess(user.UserTag(), s.Model.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
