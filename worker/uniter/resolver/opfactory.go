@@ -126,6 +126,23 @@ func trimCompletedActions(pendingActions []string, completedActions map[string]s
 	return newCompletedActions
 }
 
+// NewFailAction is part of the factory interface.
+func (s *resolverOpFactory) NewFailAction(actionId string) (operation.Operation, error) {
+	op, err := s.Factory.NewFailAction(actionId)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	f := func(*operation.State) {
+		if s.LocalState.CompletedActions == nil {
+			s.LocalState.CompletedActions = make(map[string]struct{})
+		}
+		s.LocalState.CompletedActions[actionId] = struct{}{}
+		s.LocalState.CompletedActions = trimCompletedActions(s.RemoteState.ActionsPending, s.LocalState.CompletedActions)
+	}
+	op = onCommitWrapper{op, f}
+	return op, nil
+}
+
 func (s *resolverOpFactory) wrapUpgradeOp(op operation.Operation, charmURL string) operation.Operation {
 	charmModifiedVersion := s.RemoteState.CharmModifiedVersion
 	return onCommitWrapper{op, func(*operation.State) {
