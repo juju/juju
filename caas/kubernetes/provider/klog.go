@@ -5,20 +5,11 @@ package provider
 
 import (
 	"strings"
+	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/juju/loggo"
-)
-
-type KlogMessagePrefixes []string
-
-var (
-	klogIgnorePrefixes = KlogMessagePrefixes{
-		"lost connection to pod",
-		"an error occurred forwarding",
-		"error copying from remote stream to local connection",
-		"error copying from local connection to remote stream",
-	}
+	"golang.org/x/time/rate"
 )
 
 // klogAdapter is an adapter for Kubernetes logger onto juju loggo. We use this
@@ -34,8 +25,7 @@ func newKlogAdapter() logr.Logger {
 	})
 }
 
-func (k *klogAdapter) Init(info logr.RuntimeInfo) {
-}
+func (k *klogAdapter) Init(info logr.RuntimeInfo) {}
 
 // Enabled see https://pkg.go.dev/github.com/go-logr/logr#Logger
 func (k *klogAdapter) Enabled(level int) bool {
@@ -43,7 +33,7 @@ func (k *klogAdapter) Enabled(level int) bool {
 }
 
 // Error see https://pkg.go.dev/github.com/go-logr/logr#Logger
-func (k *klogAdapter) Error(err error, msg string, keysAndValues ...interface{}) {
+func (k *klogAdapter) Error(err error, msg string, keysAndValues ...any) {
 	if err != nil {
 		k.Logger.Errorf(msg+": "+err.Error(), keysAndValues...)
 		return
@@ -56,17 +46,13 @@ func (k *klogAdapter) Error(err error, msg string, keysAndValues ...interface{})
 }
 
 // Info see https://pkg.go.dev/github.com/go-logr/logr#Logger
-func (k *klogAdapter) Info(level int, msg string, keysAndValues ...interface{}) {
-	k.Logger.Infof(msg, keysAndValues...)
-}
-
-func (k KlogMessagePrefixes) Matches(log string) bool {
-	for _, v := range k {
-		if strings.HasPrefix(log, v) {
-			return true
-		}
+func (k *klogAdapter) Info(level int, msg string, keysAndValues ...any) {
+	if prefix, ok := klogSuppressedPrefixes.Matches(msg); ok && prefix != nil {
+		prefix.Do(k.Logger.Infof, msg, keysAndValues...)
+		return
 	}
-	return false
+
+	k.Logger.Infof(msg, keysAndValues...)
 }
 
 // V see https://pkg.go.dev/github.com/go-logr/logr#Logger
@@ -75,11 +61,86 @@ func (k *klogAdapter) V(level int) logr.LogSink {
 }
 
 // WithValues see https://pkg.go.dev/github.com/go-logr/logr#Logger
-func (k *klogAdapter) WithValues(keysAndValues ...interface{}) logr.LogSink {
+func (k *klogAdapter) WithValues(keysAndValues ...any) logr.LogSink {
 	return k
 }
 
 // WithName see https://pkg.go.dev/github.com/go-logr/logr#Logger
 func (k *klogAdapter) WithName(name string) logr.LogSink {
 	return k
+}
+
+// klogMessagePrefixes is a list of prefixes to ignore.
+type klogMessagePrefixes []string
+
+var (
+	klogIgnorePrefixes = klogMessagePrefixes{
+		"lost connection to pod",
+		"an error occurred forwarding",
+		"error copying from remote stream to local connection",
+		"error copying from local connection to remote stream",
+	}
+)
+
+func (k klogMessagePrefixes) Matches(log string) bool {
+	for _, v := range k {
+		if strings.HasPrefix(log, v) {
+			return true
+		}
+	}
+	return false
+}
+
+// klogSuppressMessagePrefix is a log suppression type that suppresses log
+// messages with a given prefix at a given rate. If the rate is nil, the
+// suppression is disabled.
+type klogSuppressMessagePrefix struct {
+	prefix string
+	rate   *rate.Sometimes
+}
+
+// Do calls the logger function if the rate allows it. If the rate is nil, the
+// function is called directly, thus bypassing the rate.
+func (k klogSuppressMessagePrefix) Do(loggerFn func(string, ...any), msg string, args ...any) {
+	// If we don't have a rate, just call the function directly.
+	if k.rate == nil {
+		loggerFn(msg, args)
+		return
+	}
+
+	// If we have a rate, use it to suppress the message.
+	k.rate.Do(func() {
+		loggerFn(msg, args)
+	})
+}
+
+// klogSuppressMessagePrefixes is a list of prefixes to suppress and their
+// suppression rates.
+type klogSuppressMessagePrefixes []*klogSuppressMessagePrefix
+
+var (
+	klogSuppressedPrefixes = klogSuppressMessagePrefixes{
+		&klogSuppressMessagePrefix{
+			prefix: "Use tokens from the TokenRequest API or manually created secret-based tokens instead of auto-generated secret-based tokens",
+			// We suppress the message at a rate of 1 per 5 minute, but we
+			// allow the first message to go through.
+			rate: &rate.Sometimes{
+				First:    1,
+				Interval: time.Minute * 5,
+			},
+		},
+	}
+)
+
+// Matches returns the prefix and whether it matches the log message.
+func (k klogSuppressMessagePrefixes) Matches(log string) (*klogSuppressMessagePrefix, bool) {
+	for _, p := range k {
+		if p == nil {
+			continue
+		}
+		if strings.HasPrefix(log, p.prefix) {
+			return p, true
+		}
+	}
+	return nil, false
 }
