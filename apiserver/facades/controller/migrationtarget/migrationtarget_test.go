@@ -91,10 +91,12 @@ func (s *Suite) TestFacadeRegistered(c *gc.C) {
 	aFactory, err := apiserver.AllFacades().GetFactory("MigrationTarget", 3)
 	c.Assert(err, jc.ErrorIsNil)
 
-	api, err := aFactory(context.Background(), &facadetest.Context{
-		State_:          s.State,
-		Auth_:           s.authorizer,
-		ServiceFactory_: servicefactorytesting.NewTestingServiceFactory(),
+	api, err := aFactory(context.Background(), &facadetest.ModelContext{
+		Context: facadetest.Context{
+			State_:          s.State,
+			Auth_:           s.authorizer,
+			ServiceFactory_: servicefactorytesting.NewTestingServiceFactory(),
+		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(api, gc.FitsTypeOf, new(migrationtarget.API))
@@ -106,10 +108,12 @@ func (s *Suite) TestFacadeRegisteredV2(c *gc.C) {
 	aFactory, err := apiserver.AllFacades().GetFactory("MigrationTarget", 2)
 	c.Assert(err, jc.ErrorIsNil)
 
-	api, err := aFactory(context.Background(), &facadetest.Context{
-		State_:          s.State,
-		Auth_:           s.authorizer,
-		ServiceFactory_: servicefactorytesting.NewTestingServiceFactory(),
+	api, err := aFactory(context.Background(), &facadetest.ModelContext{
+		Context: facadetest.Context{
+			State_:          s.State,
+			Auth_:           s.authorizer,
+			ServiceFactory_: servicefactorytesting.NewTestingServiceFactory(),
+		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(api, gc.FitsTypeOf, new(migrationtarget.APIV2))

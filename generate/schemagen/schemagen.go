@@ -152,7 +152,7 @@ type defaultLinker struct {
 	watcherRegistry facade.WatcherRegistry
 }
 
-func (l defaultLinker) Links(facadeName string, factory facade.Factory) []string {
+func (l defaultLinker) Links(facadeName string, factory facade.ModelFactory) []string {
 	var a []string
 	for i, kindStr := range kinds {
 		if l.isAvailable(facadeName, factory, entityKind(i)) {
@@ -162,7 +162,7 @@ func (l defaultLinker) Links(facadeName string, factory facade.Factory) []string
 	return a
 }
 
-func (l defaultLinker) isAvailable(facadeName string, factory facade.Factory, kind entityKind) (ok bool) {
+func (l defaultLinker) isAvailable(facadeName string, factory facade.ModelFactory, kind entityKind) (ok bool) {
 	if factory == nil {
 		// Admin facade only.
 		return true
@@ -213,7 +213,7 @@ var kinds = []string{
 }
 
 type context struct {
-	facade.Context
+	facade.ModelContext
 	auth            authorizer
 	watcherRegistry facade.WatcherRegistry
 }

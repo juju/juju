@@ -33,6 +33,7 @@ import (
 	"github.com/juju/juju/internal/migration"
 	"github.com/juju/juju/internal/rpcreflect"
 	"github.com/juju/juju/internal/servicefactory"
+	workerobjectstore "github.com/juju/juju/internal/worker/objectstore"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -55,6 +56,7 @@ type apiHandler struct {
 	serviceFactoryGetter  servicefactory.ServiceFactoryGetter
 	tracer                trace.Tracer
 	objectStore           objectstore.ObjectStore
+	objectStoreGetter     workerobjectstore.ObjectStoreGetter
 	controllerObjectStore objectstore.ObjectStore
 	watcherRegistry       facade.WatcherRegistry
 	shared                *sharedServerContext
@@ -100,6 +102,7 @@ func newAPIHandler(
 	serviceFactoryGetter servicefactory.ServiceFactoryGetter,
 	tracer trace.Tracer,
 	objectStore objectstore.ObjectStore,
+	objectStoreGetter workerobjectstore.ObjectStoreGetter,
 	controllerObjectStore objectstore.ObjectStore,
 	modelUUID string,
 	connectionID uint64,
@@ -131,6 +134,7 @@ func newAPIHandler(
 		serviceFactoryGetter:  serviceFactoryGetter,
 		tracer:                tracer,
 		objectStore:           objectStore,
+		objectStoreGetter:     objectStoreGetter,
 		controllerObjectStore: controllerObjectStore,
 		model:                 m,
 		resources:             common.NewResources(),
@@ -209,6 +213,11 @@ func (r *apiHandler) Tracer() trace.Tracer {
 // ObjectStore returns the object store.
 func (r *apiHandler) ObjectStore() objectstore.ObjectStore {
 	return r.objectStore
+}
+
+// ObjectStoreGetter returns the object store getter.
+func (r *apiHandler) ObjectStoreGetter() workerobjectstore.ObjectStoreGetter {
+	return r.objectStoreGetter
 }
 
 // ControllerObjectStore returns the controller object store. The primary
@@ -389,6 +398,8 @@ type apiRootHandler interface {
 	Tracer() trace.Tracer
 	// ObjectStore returns the object store.
 	ObjectStore() objectstore.ObjectStore
+	// ObjectStoreGetter returns the object store getter.
+	ObjectStoreGetter() workerobjectstore.ObjectStoreGetter
 	// ControllerObjectStore returns the controller object store. The primary
 	// use case for this is agent tools.
 	ControllerObjectStore() objectstore.ObjectStore
@@ -413,6 +424,7 @@ type apiRoot struct {
 	serviceFactoryGetter  servicefactory.ServiceFactoryGetter
 	tracer                trace.Tracer
 	objectStore           objectstore.ObjectStore
+	objectStoreGetter     workerobjectstore.ObjectStoreGetter
 	controllerObjectStore objectstore.ObjectStore
 	shared                *sharedServerContext
 	facades               *facade.Registry
@@ -441,6 +453,7 @@ func newAPIRoot(
 		serviceFactoryGetter:  root.ServiceFactoryGetter(),
 		tracer:                root.Tracer(),
 		objectStore:           root.ObjectStore(),
+		objectStoreGetter:     root.ObjectStoreGetter(),
 		controllerObjectStore: root.ControllerObjectStore(),
 		shared:                root.SharedContext(),
 		facades:               facades,
@@ -914,6 +927,17 @@ func (ctx *facadeContext) migrationScope(modelUUID string) modelmigration.Scope 
 			return ctx.modelDB(modelUUID)
 		}),
 	)
+}
+
+// ServiceFactoryForModel returns the services factory for a given
+// model uuid.
+func (ctx *facadeContext) ServiceFactoryForModel(modelUUID string) servicefactory.ServiceFactory {
+	return ctx.r.serviceFactoryGetter.FactoryForModel(modelUUID)
+}
+
+// ObjectStoreForModel returns the object store for a given model uuid.
+func (ctx *facadeContext) ObjectStoreForModel(stdCtx context.Context, modelUUID string) (objectstore.ObjectStore, error) {
+	return ctx.r.objectStoreGetter.GetObjectStore(stdCtx, modelUUID)
 }
 
 // DescribeFacades returns the list of available Facades and their Versions

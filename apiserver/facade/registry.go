@@ -4,6 +4,7 @@
 package facade
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	"sort"
@@ -13,7 +14,7 @@ import (
 
 // record represents an entry in a Registry.
 type record struct {
-	factory    Factory
+	factory    ModelFactory
 	facadeType reflect.Type
 }
 
@@ -32,6 +33,17 @@ type FacadeRegistry interface {
 	// the API, and it must exactly match the actual object returned by the
 	// factory.
 	MustRegister(string, int, Factory, reflect.Type)
+
+	// MustRegisterForModel adds a single named facade for a model at a given
+	// version to the registry. This allows the facade to be registered with
+	// a factory that takes a ModelContext instead of a Context.
+	// ModelFactory will be called when someone wants to instantiate an object
+	// of this facade, and facadeType defines the concrete type that the
+	// returned object will be.
+	// The Type information is used to define what methods will be exported in
+	// the API, and it must exactly match the actual object returned by the
+	// factory.
+	MustRegisterForModel(string, int, ModelFactory, reflect.Type)
 }
 
 // Registry describes the API facades exposed by some API server.
@@ -46,6 +58,12 @@ type Registry struct {
 // The Type information is used to define what methods will be exported in the
 // API, and it must exactly match the actual object returned by the factory.
 func (f *Registry) Register(name string, version int, factory Factory, facadeType reflect.Type) error {
+	return f.RegisterForModel(name, version, callFactory(factory), facadeType)
+}
+
+// RegisterForModel adds a single named facade at a given version to the
+// registry.
+func (f *Registry) RegisterForModel(name string, version int, factory ModelFactory, facadeType reflect.Type) error {
 	if f.facades == nil {
 		f.facades = make(map[string]versions, 1)
 	}
@@ -74,6 +92,14 @@ func (f *Registry) MustRegister(name string, version int, factory Factory, facad
 	}
 }
 
+// MustRegisterForModel adds a single named facade for a model at a given
+// version to the registry and panics if it fails.
+func (f *Registry) MustRegisterForModel(name string, version int, factory ModelFactory, facadeType reflect.Type) {
+	if err := f.RegisterForModel(name, version, factory, facadeType); err != nil {
+		panic(err)
+	}
+}
+
 // lookup translates a facade name and version into a record.
 func (f *Registry) lookup(name string, version int) (record, error) {
 	if versions, ok := f.facades[name]; ok {
@@ -86,7 +112,7 @@ func (f *Registry) lookup(name string, version int) (record, error) {
 
 // GetFactory returns just the Factory for a given Facade name and version.
 // See also GetType for getting the type information instead of the creation factory.
-func (f *Registry) GetFactory(name string, version int) (Factory, error) {
+func (f *Registry) GetFactory(name string, version int) (ModelFactory, error) {
 	record, err := f.lookup(name, version)
 	if err != nil {
 		return nil, err
@@ -152,7 +178,7 @@ type Details struct {
 	Version int
 	// Factory holds the factory function for making
 	// instances of the facade.
-	Factory Factory
+	Factory ModelFactory
 	// Type holds the type of object that the Factory
 	// will return. This can be used to find out
 	// details of the facade without actually creating
@@ -190,5 +216,11 @@ func (f *Registry) Discard(name string, version int) {
 		if len(versions) == 0 {
 			delete(f.facades, name)
 		}
+	}
+}
+
+func callFactory(factory Factory) ModelFactory {
+	return func(stdCtx context.Context, facadeCtx ModelContext) (Facade, error) {
+		return factory(stdCtx, facadeCtx)
 	}
 }

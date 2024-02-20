@@ -38,6 +38,18 @@ func (s *RegistrySuite) TestRegister(c *gc.C) {
 	c.Check(val, gc.Equals, "myobject")
 }
 
+func (s *RegistrySuite) TestRegisterForModel(c *gc.C) {
+	registry := &facade.Registry{}
+	err := registry.RegisterForModel("myfacade", 123, testFacadeModel, interfaceType)
+	c.Assert(err, jc.ErrorIsNil)
+
+	factory, err := registry.GetFactory("myfacade", 123)
+	c.Assert(err, jc.ErrorIsNil)
+	val, err := factory(context.Background(), nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(val, gc.Equals, "myobject")
+}
+
 func (s *RegistrySuite) TestListDetails(c *gc.C) {
 	registry := &facade.Registry{}
 	err := registry.Register("f2", 6, testFacade, interfaceType)
@@ -197,6 +209,10 @@ func assertRegisterFlag(c *gc.C, registry *facade.Registry, name string, version
 }
 
 func testFacade(_ context.Context, _ facade.Context) (facade.Facade, error) {
+	return "myobject", nil
+}
+
+func testFacadeModel(_ context.Context, _ facade.ModelContext) (facade.Facade, error) {
 	return "myobject", nil
 }
 

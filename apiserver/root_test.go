@@ -238,6 +238,39 @@ func (r *rootSuite) TestFindMethodCachesFacades(c *gc.C) {
 	assertCallResult(c, caller, "", "ALT-2")
 }
 
+func (r *rootSuite) TestFindMethodForModelCachesFacades(c *gc.C) {
+	registry := new(facade.Registry)
+	var count int64
+	newCounter := func(context.Context, facade.ModelContext) (facade.Facade, error) {
+		count += 1
+		return &countingType{count: count, id: ""}, nil
+	}
+	facadeType := reflect.TypeOf((*countingType)(nil))
+	registry.MustRegisterForModel("my-counting-facade", 0, newCounter, facadeType)
+	registry.MustRegisterForModel("my-counting-facade", 1, newCounter, facadeType)
+	srvRoot := apiserver.TestingAPIRoot(registry)
+
+	// The first time we call FindMethod, it should lookup a facade, and
+	// request a new object.
+	caller, err := srvRoot.FindMethod("my-counting-facade", 0, "Count")
+	c.Assert(err, jc.ErrorIsNil)
+	assertCallResult(c, caller, "", "1")
+	// The second time we ask for a method on the same facade, it should
+	// reuse that object, rather than creating another instance
+	caller, err = srvRoot.FindMethod("my-counting-facade", 0, "AltCount")
+	c.Assert(err, jc.ErrorIsNil)
+	assertCallResult(c, caller, "", "ALT-1")
+	// But when we ask for a different version, we should get a new
+	// instance
+	caller, err = srvRoot.FindMethod("my-counting-facade", 1, "Count")
+	c.Assert(err, jc.ErrorIsNil)
+	assertCallResult(c, caller, "", "2")
+	// But it, too, should be cached
+	caller, err = srvRoot.FindMethod("my-counting-facade", 1, "AltCount")
+	c.Assert(err, jc.ErrorIsNil)
+	assertCallResult(c, caller, "", "ALT-2")
+}
+
 func (r *rootSuite) TestFindMethodCachesFacadesWithId(c *gc.C) {
 	var count int64
 	// like newCounter, but also tracks the "id" that was requested for

@@ -31,6 +31,9 @@ type Facade interface{}
 // Factory is a callback used to create a Facade.
 type Factory func(stdCtx context.Context, facadeCtx Context) (Facade, error)
 
+// ModelFactory is a callback used to create a Facade.
+type ModelFactory func(stdCtx context.Context, facadeCtx ModelContext) (Facade, error)
+
 // LeadershipContext describes factory methods for objects that deliver
 // specific lease-related capabilities
 type LeadershipContext interface {
@@ -58,6 +61,19 @@ type LeadershipContext interface {
 	// SingularClaimer returns a lease.Claimer for singular leases for
 	// this context's model.
 	SingularClaimer() (lease.Claimer, error)
+}
+
+// ModelContext is a context that is aware of the model it is
+// operating on.
+type ModelContext interface {
+	Context
+
+	// ServiceFactoryForModel returns the services factory for a given
+	// model uuid.
+	ServiceFactoryForModel(modelUUID string) servicefactory.ServiceFactory
+
+	// ObjectStoreForModel returns the object store for a given model uuid.
+	ObjectStoreForModel(ctx context.Context, modelUUID string) (objectstore.ObjectStore, error)
 }
 
 // Context exposes useful capabilities to a Facade.

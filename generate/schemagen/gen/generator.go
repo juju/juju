@@ -38,7 +38,7 @@ type PackageRegistry interface {
 }
 
 type Linker interface {
-	Links(string, facade.Factory) []string
+	Links(string, facade.ModelFactory) []string
 }
 
 // Option to be passed to Connect to customize the resulting instance.

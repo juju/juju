@@ -1142,7 +1142,20 @@ func (srv *Server) serveConn(
 	st, err := statePool.Get(resolvedModelUUID)
 	if err == nil {
 		defer st.Release()
-		handler, err = newAPIHandler(srv, st.State, conn, serviceFactory, srv.shared.serviceFactoryGetter, tracer, objectStore, controllerObjectStore, modelUUID, connectionID, host)
+		handler, err = newAPIHandler(
+			srv,
+			st.State,
+			conn,
+			serviceFactory,
+			srv.shared.serviceFactoryGetter,
+			tracer,
+			objectStore,
+			srv.shared.objectStoreGetter,
+			controllerObjectStore,
+			modelUUID,
+			connectionID,
+			host,
+		)
 	}
 	if errors.Is(err, errors.NotFound) {
 		err = fmt.Errorf("%w: %q", apiservererrors.UnknownModelError, resolvedModelUUID)
