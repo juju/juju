@@ -157,18 +157,6 @@ var newConfigTests = []struct {
 	},
 	expectError: `invalid audit log exclude methods: should be a list of "Facade.Method" names \(or "ReadOnlyMethods"\), got "Sharon Jones" at position 3`,
 }, {
-	about: "invalid model log max size",
-	config: controller.Config{
-		controller.ModelLogsSize: "abcd",
-	},
-	expectError: `invalid model logs size in configuration: expected a non-negative number, got "abcd"`,
-}, {
-	about: "zero model log max size",
-	config: controller.Config{
-		controller.ModelLogsSize: "0",
-	},
-	expectError: "model logs size less than 1 MB not valid",
-}, {
 	about: "negative controller-api-port",
 	config: controller.Config{
 		controller.ControllerAPIPort: -5,
@@ -443,12 +431,6 @@ func (s *ConfigSuite) TestAPIPortDefaults(c *gc.C) {
 	c.Assert(cfg.APIPortOpenDelay(), gc.Equals, 2*time.Second)
 }
 
-func (s *ConfigSuite) TestLogConfigDefaults(c *gc.C) {
-	cfg, err := controller.NewConfig(testing.ControllerTag.Id(), testing.CACert, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.ModelLogsSizeMB(), gc.Equals, 20)
-}
-
 func (s *ConfigSuite) TestResourceDownloadLimits(c *gc.C) {
 	cfg, err := controller.NewConfig(
 		testing.ControllerTag.Id(),
@@ -461,22 +443,6 @@ func (s *ConfigSuite) TestResourceDownloadLimits(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.ApplicationResourceDownloadLimit(), gc.Equals, 42)
 	c.Assert(cfg.ControllerResourceDownloadLimit(), gc.Equals, 666)
-}
-
-func (s *ConfigSuite) TestLogConfigValues(c *gc.C) {
-	c.Assert(controller.AllowedUpdateConfigAttributes.Contains(controller.ModelLogsSize), jc.IsTrue)
-
-	cfg, err := controller.NewConfig(
-		testing.ControllerTag.Id(),
-		testing.CACert,
-		map[string]interface{}{
-			"max-logs-size":   "8G",
-			"max-logs-age":    "96h",
-			"model-logs-size": "35M",
-		},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg.ModelLogsSizeMB(), gc.Equals, 35)
 }
 
 func (s *ConfigSuite) TestTxnLogConfigDefault(c *gc.C) {

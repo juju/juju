@@ -30,7 +30,6 @@ type BackendState interface {
 	UpdateUploadedCharm(info state.CharmInfo) (services.UploadedCharm, error)
 	PrepareCharmUpload(curl string) (services.UploadedCharm, error)
 	Machine(string) (Machine, error)
-	state.MongoSessioner
 	ModelUUID() string
 	ModelConstraints() (constraints.Value, error)
 }

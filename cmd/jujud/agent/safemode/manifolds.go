@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/internal/worker/logsender"
 	"github.com/juju/juju/internal/worker/querylogger"
 	"github.com/juju/juju/internal/worker/stateconfigwatcher"
-	"github.com/juju/juju/internal/worker/syslogger"
 	"github.com/juju/juju/internal/worker/terminationworker"
 )
 
@@ -140,33 +139,13 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 // IAASManifolds returns a set of co-configured manifolds covering the
 // various responsibilities of a IAAS machine agent.
 func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
-	manifolds := dependency.Manifolds{
-		syslogName: syslogger.Manifold(syslogger.ManifoldConfig{
-			NewWorker: syslogger.NewWorker,
-			NewLogger: syslogger.NewSyslog,
-		}),
-	}
-
-	return mergeManifolds(config, manifolds)
+	return commonManifolds(config)
 }
 
 // CAASManifolds returns a set of co-configured manifolds covering the
 // various responsibilities of a CAAS machine agent.
 func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
-	return mergeManifolds(config, dependency.Manifolds{
-		syslogName: syslogger.Manifold(syslogger.ManifoldConfig{
-			NewWorker: syslogger.NewWorker,
-			NewLogger: syslogger.NewDiscard,
-		}),
-	})
-}
-
-func mergeManifolds(config ManifoldsConfig, manifolds dependency.Manifolds) dependency.Manifolds {
-	result := commonManifolds(config)
-	for name, manifold := range manifolds {
-		result[name] = manifold
-	}
-	return result
+	return commonManifolds(config)
 }
 
 func clockManifold(clock clock.Clock) dependency.Manifold {
@@ -186,7 +165,6 @@ var ifController = engine.Housing{
 
 const (
 	agentName              = "agent"
-	agentConfigUpdaterName = "agent-config-updater"
 	terminationName        = "termination-signal-handler"
 	stateConfigWatcherName = "state-config-watcher"
 	clockName              = "clock"
@@ -194,12 +172,8 @@ const (
 	isControllerFlagName      = "is-controller-flag"
 	controllerAgentConfigName = "controller-agent-config"
 
-	dbAccessorName        = "db-accessor"
-	queryLoggerName       = "query-logger"
-	fileNotifyWatcherName = "file-notify-watcher"
-
-	syslogName       = "syslog"
-	caasUnitsManager = "caas-units-manager"
+	dbAccessorName  = "db-accessor"
+	queryLoggerName = "query-logger"
 )
 
 type noopPrometheusRegisterer struct{}

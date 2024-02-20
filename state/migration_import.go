@@ -281,7 +281,10 @@ func modelConfig(attrs map[string]interface{}) (*config.Config, error) {
 	}
 
 	// Remove obsolete and no longer supported syslog forward config.
-	for _, a := range []string{"logforward-enabled", "syslog-host", "syslog-ca-cert", "syslog-client-cert", "syslog-client-key"} {
+	for _, a := range []string{
+		"logforward-enabled", "syslog-host", "syslog-ca-cert", "syslog-client-cert", "syslog-client-key",
+		"logging-output",
+	} {
 		delete(attrs, a)
 	}
 

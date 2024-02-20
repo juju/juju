@@ -14,25 +14,24 @@ import (
 
 const (
 	defaultLoggerBufferSize    = 1000
-	defaultLoggerFlushInterval = 2 * time.Second
+	defaultLoggerFlushInterval = 1 * time.Second
 )
 
 func getLogSinkConfig(cfg agent.Config) (LogSinkConfig, error) {
 	result := DefaultLogSinkConfig()
 	var err error
-	// TODO(debug-log) - these attributes are used for the mongo logger
-	if v := cfg.Value(agent.LogSinkDBLoggerBufferSize); v != "" {
+	if v := cfg.Value(agent.LogSinkLoggerBufferSize); v != "" {
 		result.LoggerBufferSize, err = strconv.Atoi(v)
 		if err != nil {
 			return result, errors.Annotatef(
-				err, "parsing %s", agent.LogSinkDBLoggerBufferSize,
+				err, "parsing %s", agent.LogSinkLoggerBufferSize,
 			)
 		}
 	}
-	if v := cfg.Value(agent.LogSinkDBLoggerFlushInterval); v != "" {
+	if v := cfg.Value(agent.LogSinkLoggerFlushInterval); v != "" {
 		if result.LoggerFlushInterval, err = time.ParseDuration(v); err != nil {
 			return result, errors.Annotatef(
-				err, "parsing %s", agent.LogSinkDBLoggerFlushInterval,
+				err, "parsing %s", agent.LogSinkLoggerFlushInterval,
 			)
 		}
 	}

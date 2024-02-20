@@ -107,7 +107,6 @@ var (
 		"migration-inactive-flag",
 		"migration-minion",
 		"state-config-watcher",
-		"syslog",
 		"termination-signal-handler",
 		"trace",
 		"upgrade-check-flag",

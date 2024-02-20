@@ -26410,7 +26410,7 @@
                             "format": "date-time"
                         }
                     },
-                    "description": "LatestLogTime returns the time of the most recent log record\nreceived by the logtransfer endpoint. This can be used as the start\npoint for streaming logs from the source if the transfer was\ninterrupted.\n\nFor performance reasons, not every time is tracked, so if the\ntarget controller died during the transfer the latest log time\nmight be up to 2 minutes earlier. If the transfer was interrupted\nin some other way (like the source controller going away or a\nnetwork partition) the time will be up-to-date.\n\nLog messages are assumed to be sent in time order (which is how\ndebug-log emits them). If that isn't the case then this mechanism\ncan't be used to avoid duplicates when logtransfer is restarted.\n\nReturns the zero time if no logs have been transferred."
+                    "description": "LatestLogTime returns the time of the most recent log record\nreceived by the logtransfer endpoint. This can be used as the start\npoint for streaming logs from the source if the transfer was\ninterrupted.\n\nLog messages are assumed to be sent in time order (which is how\ndebug-log emits them). If that isn't the case then this mechanism\ncan't be used to avoid duplicates when logtransfer is restarted.\n\nReturns the zero time if no logs have been transferred."
                 },
                 "Prechecks": {
                     "type": "object",

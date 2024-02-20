@@ -61,7 +61,6 @@ func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *gc.C) {
 			"is-controller-flag",
 			"query-logger",
 			"state-config-watcher",
-			"syslog",
 			"termination-signal-handler",
 		},
 	)
@@ -80,7 +79,6 @@ func (s *ManifoldsSuite) TestManifoldNamesCAAS(c *gc.C) {
 			"is-controller-flag",
 			"query-logger",
 			"state-config-watcher",
-			"syslog",
 			"termination-signal-handler",
 		},
 	)
@@ -200,8 +198,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 
 	"state-config-watcher": {"agent"},
 
-	"syslog": {},
-
 	"termination-signal-handler": {},
 }
 
@@ -233,8 +229,6 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 	},
 
 	"state-config-watcher": {"agent"},
-
-	"syslog": {},
 
 	"termination-signal-handler": {},
 }

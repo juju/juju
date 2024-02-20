@@ -326,9 +326,6 @@ func (st *State) removeAllModelDocs(modelAssertion bson.D) error {
 		}
 	}
 
-	// Logs are in a separate database so don't get caught by that loop.
-	_ = removeModelLogs(st.MongoSession(), modelUUID)
-
 	// Now remove the model.
 	model, err := st.Model()
 	if err != nil {

@@ -6,10 +6,13 @@ package migrationtarget
 import (
 	"context"
 	"fmt"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
+	"github.com/vallerion/rscanner"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/credentialcommon"
@@ -19,6 +22,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/facades"
+	corelogger "github.com/juju/juju/core/logger"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
@@ -89,6 +93,8 @@ type API struct {
 	getEnviron                      stateenvirons.NewEnvironFunc
 	getCAASBroker                   stateenvirons.NewCAASBrokerFunc
 	requiredMigrationFacadeVersions facades.FacadeVersions
+
+	logDir string
 }
 
 // APIV1 implements the V1 version of the API facade.
@@ -117,6 +123,7 @@ func NewAPI(
 	getEnviron stateenvirons.NewEnvironFunc,
 	getCAASBroker stateenvirons.NewCAASBrokerFunc,
 	requiredMigrationFacadeVersions facades.FacadeVersions,
+	logDir string,
 ) (*API, error) {
 	return &API{
 		state:                           ctx.State(),
@@ -134,6 +141,7 @@ func NewAPI(
 		getEnviron:                      getEnviron,
 		getCAASBroker:                   getCAASBroker,
 		requiredMigrationFacadeVersions: requiredMigrationFacadeVersions,
+		logDir:                          logDir,
 	}, nil
 }
 
@@ -348,12 +356,6 @@ func (api *API) Activate(ctx context.Context, args params.ActivateModelArgs) err
 // point for streaming logs from the source if the transfer was
 // interrupted.
 //
-// For performance reasons, not every time is tracked, so if the
-// target controller died during the transfer the latest log time
-// might be up to 2 minutes earlier. If the transfer was interrupted
-// in some other way (like the source controller going away or a
-// network partition) the time will be up-to-date.
-//
 // Log messages are assumed to be sent in time order (which is how
 // debug-log emits them). If that isn't the case then this mechanism
 // can't be used to avoid duplicates when logtransfer is restarted.
@@ -366,16 +368,53 @@ func (api *API) LatestLogTime(ctx context.Context, args params.ModelArgs) (time.
 	}
 	defer release()
 
-	tracker := state.NewLastSentLogTracker(api.state, model.UUID(), "migration-logtransfer")
-	defer tracker.Close()
-	_, timestamp, err := tracker.Get()
-	if errors.Cause(err) == state.ErrNeverForwarded {
+	// Look up the last line in the model log file and get the timestamp.
+	modelOwnerAndName := corelogger.ModelFilePrefix(model.Owner().Id(), model.Name())
+	modelLogFile := corelogger.ModelLogFile(api.logDir, model.UUID(), modelOwnerAndName)
+
+	f, err := os.Open(modelLogFile)
+	if err != nil && !os.IsNotExist(err) {
+		return time.Time{}, errors.Annotatef(err, "opening file %q", modelLogFile)
+	} else if err != nil {
 		return time.Time{}, nil
 	}
+	defer func() {
+		_ = f.Close()
+	}()
+
+	fs, err := f.Stat()
 	if err != nil {
 		return time.Time{}, errors.Trace(err)
 	}
-	return time.Unix(0, timestamp).In(time.UTC), nil
+	scanner := rscanner.NewScanner(f, fs.Size())
+
+	var lastTimestamp time.Time
+	for scanner.Scan() {
+		line := scanner.Text()
+		if len(line) == 0 {
+			continue
+		}
+		var err error
+		lastTimestamp, err = logLineTimestamp(line)
+		if err == nil {
+			break
+		}
+
+	}
+	return lastTimestamp, nil
+}
+
+func logLineTimestamp(line string) (time.Time, error) {
+	parts := strings.SplitN(line, " ", 7)
+	if len(parts) < 7 {
+		return time.Time{}, errors.Errorf("invalid log line %q", line)
+	}
+	timeStr := parts[1] + " " + parts[2]
+	timeStamp, err := time.Parse("2006-01-02 15:04:05", timeStr)
+	if err != nil {
+		return time.Time{}, errors.Annotatef(err, "invalid log timestamp %q", timeStr)
+	}
+	return timeStamp, nil
 }
 
 // AdoptResources asks the cloud provider to update the controller

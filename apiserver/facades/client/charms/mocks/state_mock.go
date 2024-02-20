@@ -21,7 +21,6 @@ import (
 	config "github.com/juju/juju/environs/config"
 	services "github.com/juju/juju/internal/charm/services"
 	state "github.com/juju/juju/state"
-	mgo "github.com/juju/mgo/v3"
 	names "github.com/juju/names/v5"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -165,20 +164,6 @@ func (m *MockBackendState) ModelUUID() string {
 func (mr *MockBackendStateMockRecorder) ModelUUID() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelUUID", reflect.TypeOf((*MockBackendState)(nil).ModelUUID))
-}
-
-// MongoSession mocks base method.
-func (m *MockBackendState) MongoSession() *mgo.Session {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "MongoSession")
-	ret0, _ := ret[0].(*mgo.Session)
-	return ret0
-}
-
-// MongoSession indicates an expected call of MongoSession.
-func (mr *MockBackendStateMockRecorder) MongoSession() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MongoSession", reflect.TypeOf((*MockBackendState)(nil).MongoSession))
 }
 
 // PrepareCharmUpload mocks base method.

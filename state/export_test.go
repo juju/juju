@@ -16,7 +16,6 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/description/v5"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/mgo/v3"
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/mgo/v3/txn"
@@ -658,32 +657,6 @@ func AssertHostPortConversion(c *gc.C, netHostPort network.SpaceHostPort) {
 	c.Assert(netHostsPorts, gc.DeepEquals, newNetHostsPorts)
 }
 
-// MakeLogDoc creates a database document for a single log message.
-func MakeLogDoc(
-	entity string,
-	t time.Time,
-	module string,
-	location string,
-	level loggo.Level,
-	msg string,
-	labels map[string]string,
-) *logDoc {
-	return &logDoc{
-		Id:       bson.NewObjectId(),
-		Time:     t.UnixNano(),
-		Entity:   entity,
-		Module:   module,
-		Location: location,
-		Level:    int(level),
-		Message:  msg,
-		Labels:   labels,
-	}
-}
-
-func SpaceDoc(s *Space) spaceDoc {
-	return s.doc
-}
-
 func ForceDestroyMachineOps(m *Machine) ([]txn.Op, error) {
 	// For test we do not want to wait for the force.
 	return m.forceDestroyOps(time.Duration(0))
@@ -1194,10 +1167,6 @@ var (
 
 func (st *State) ScheduleForceCleanup(kind cleanupKind, name string, maxWait time.Duration) {
 	st.scheduleForceCleanup(kind, name, maxWait)
-}
-
-func GetCollectionCappedInfo(coll *mgo.Collection) (bool, int, error) {
-	return getCollectionCappedInfo(coll)
 }
 
 func (m *Model) AllActionIDsHasActionNotifications() ([]string, error) {

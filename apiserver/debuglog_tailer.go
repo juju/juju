@@ -15,29 +15,29 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/logtailer"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
-func newDebugLogDBHandler(
+func newDebugLogTailerHandler(
 	ctxt httpContext,
 	authenticator authentication.HTTPAuthenticator,
 	authorizer authentication.Authorizer,
 	logDir string,
 ) http.Handler {
-	return newDebugLogHandler(ctxt, authenticator, authorizer, logDir, handleDebugLogDBRequest)
+	return newDebugLogHandler(ctxt, authenticator, authorizer, logDir, handleDebugLogRequest)
 }
 
-func handleDebugLogDBRequest(
+type logTailerFunc func(logtailer.LogTailerParams) (logtailer.LogTailer, error)
+
+func handleDebugLogRequest(
 	clock clock.Clock,
 	maxDuration time.Duration,
-	st state.LogTailerState,
 	reqParams debugLogParams,
 	socket debugLogSocket,
-	logDir string,
+	logTailerFunc logTailerFunc,
 	stop <-chan struct{},
 ) error {
 	tailerParams := makeLogTailerParams(reqParams)
-	tailer, err := newLogTailer(st, logDir, tailerParams)
+	tailer, err := logTailerFunc(tailerParams)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -103,15 +103,4 @@ func formatLogRecord(r *corelogger.LogRecord) *params.LogMessage {
 		Message:   r.Message,
 		Labels:    r.Labels,
 	}
-}
-
-var newLogTailer = _newLogTailer // For replacing in tests
-
-func _newLogTailer(st state.LogTailerState, logDir string, params logtailer.LogTailerParams) (logtailer.LogTailer, error) {
-	m, err := st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	modelOwnerAndName := corelogger.ModelFilePrefix(m.Owner().Id(), m.Name())
-	return logtailer.NewLogTailer(st.ModelUUID(), corelogger.ModelLogFile(logDir, st.ModelUUID(), modelOwnerAndName), params)
 }

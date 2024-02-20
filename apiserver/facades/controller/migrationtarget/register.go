@@ -112,5 +112,6 @@ func newFacade(ctx facade.Context, facadeVersions facades.FacadeVersions) (*API,
 		stateenvirons.GetNewEnvironFunc(environs.New),
 		stateenvirons.GetNewCAASBrokerFunc(caas.New),
 		facadeVersions,
+		ctx.LogDir(),
 	)
 }
