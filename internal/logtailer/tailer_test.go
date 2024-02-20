@@ -14,10 +14,11 @@ import (
 	"github.com/juju/loggo/v2"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/worker/v4/workertest"
 	gc "gopkg.in/check.v1"
 
 	corelogger "github.com/juju/juju/core/logger"
-	"github.com/juju/juju/core/logtailer"
+	"github.com/juju/juju/internal/logtailer"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -409,9 +410,7 @@ func (s *LogFilterSuite) checkLogTailerFiltering(
 	logFile := writeLogs()
 	tailer, err := logtailer.NewLogTailer(coretesting.ModelTag.Id(), logFile, params)
 	c.Assert(err, jc.ErrorIsNil)
-	defer func() {
-		_ = tailer.Stop()
-	}()
+	defer workertest.CleanKill(c, tailer)
 	assertTailer(tailer)
 }
 
@@ -423,7 +422,7 @@ func (s *LogFilterSuite) assertTailer(c *gc.C, tailer logtailer.LogTailer, templ
 		select {
 		case log, ok := <-tailer.Logs():
 			if !ok {
-				c.Fatalf("tailer died unexpectedly: %v", tailer.Err())
+				c.Fatalf("tailer died unexpectedly: %v", tailer.Wait())
 			}
 			rec := s.normaliseLogTemplate(template[0])
 			template = template[1:]

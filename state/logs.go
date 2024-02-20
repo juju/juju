@@ -26,7 +26,7 @@ import (
 
 	"github.com/juju/juju/controller"
 	corelogger "github.com/juju/juju/core/logger"
-	corelogtailer "github.com/juju/juju/core/logtailer"
+	"github.com/juju/juju/internal/logtailer"
 	"github.com/juju/juju/internal/mongo"
 )
 
@@ -450,8 +450,8 @@ type LogTailerState interface {
 // NewLogTailer returns a LogTailer which filters according to the
 // parameters given.
 func NewLogTailer(
-	st LogTailerState, params corelogtailer.LogTailerParams, opLog *mgo.Collection,
-) (corelogtailer.LogTailer, error) {
+	st LogTailerState, params logtailer.LogTailerParams, opLog *mgo.Collection,
+) (logtailer.LogTailer, error) {
 	session := st.MongoSession().Copy()
 
 	if opLog == nil {
@@ -483,7 +483,7 @@ type logTailer struct {
 	session         *mgo.Session
 	logsColl        *mgo.Collection
 	opLog           *mgo.Collection
-	params          corelogtailer.LogTailerParams
+	params          logtailer.LogTailerParams
 	logCh           chan *corelogger.LogRecord
 	lastID          int64
 	lastTime        time.Time
@@ -501,15 +501,14 @@ func (t *logTailer) Dying() <-chan struct{} {
 	return t.tomb.Dying()
 }
 
-// Stop implements the LogTailer interface.
-func (t *logTailer) Stop() error {
+// Kill implements worker.Kill.
+func (t *logTailer) Kill() {
 	t.tomb.Kill(nil)
-	return t.tomb.Wait()
 }
 
-// Err implements the LogTailer interface.
-func (t *logTailer) Err() error {
-	return t.tomb.Err()
+// Wait implements worker.Wait.
+func (t *logTailer) Wait() error {
+	return t.tomb.Wait()
 }
 
 func (t *logTailer) loop() error {
@@ -714,7 +713,7 @@ func (t *logTailer) tailOplog() error {
 	}
 }
 
-func (t *logTailer) paramsToSelector(params corelogtailer.LogTailerParams, prefix string) bson.D {
+func (t *logTailer) paramsToSelector(params logtailer.LogTailerParams, prefix string) bson.D {
 	sel := bson.D{}
 	if !params.StartTime.IsZero() {
 		sel = append(sel, bson.DocElem{"t", bson.M{"$gte": params.StartTime.UnixNano()}})

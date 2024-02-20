@@ -21,12 +21,13 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
+	"github.com/juju/worker/v4"
 
 	"github.com/juju/juju/agent"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/internal/agent/agentconf"
 	corelogger "github.com/juju/juju/core/logger"
-	"github.com/juju/juju/core/logtailer"
+	"github.com/juju/juju/internal/logtailer"
 	"github.com/juju/juju/internal/mongo"
 	corenames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/state"
@@ -203,6 +204,10 @@ func (c *dumpLogsCommand) dumpLogsForEnv(ctx *cmd.Context, statePool *state.Stat
 	if err != nil {
 		return errors.Annotate(err, "failed to create a log tailer")
 	}
+	defer func() {
+		_ = worker.Stop(tailer)
+	}()
+
 	logs := tailer.Logs()
 	for {
 		rec, ok := <-logs

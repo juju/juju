@@ -4,7 +4,6 @@
 package logtailer
 
 import (
-	"fmt"
 	"io"
 	"os"
 	"regexp"
@@ -33,13 +32,11 @@ type LogTailer interface {
 	// Dying returns a channel which will be closed as the LogTailer stops.
 	Dying() <-chan struct{}
 
-	// Stop is used to request that the LogTailer stops.
-	// It blocks until the LogTailer has stopped.
-	Stop() error
+	// Kill implements worker.Kill.
+	Kill()
 
-	// Err returns the error that caused the LogTailer to stopped.
-	// If it hasn't stopped or stopped without error nil will be returned.
-	Err() error
+	// Wait implements worker.Wait.
+	Wait() error
 }
 
 // LogTailerParams specifies the filtering a LogTailer should
@@ -104,22 +101,17 @@ func (t *logTailer) Dying() <-chan struct{} {
 	return t.tomb.Dying()
 }
 
-// Stop implements the LogTailer interface.
-func (t *logTailer) Stop() error {
+// Kill implements worker.Kill.
+func (t *logTailer) Kill() {
 	t.tomb.Kill(nil)
+}
+
+// Wait implements worker.Wait.
+func (t *logTailer) Wait() error {
 	return t.tomb.Wait()
 }
 
-// Err implements the LogTailer interface.
-func (t *logTailer) Err() error {
-	return t.tomb.Err()
-}
-
 func (t *logTailer) loop() error {
-	// NOTE: don't trace or annotate the errors returned
-	// from this method as the error may be tomb.ErrDying, and
-	// the tomb code is sensitive about equality.
-
 	var seekTo *tail.SeekInfo
 	if t.params.InitialLines > 0 {
 		seekOffset, err := t.processInitialLines()
@@ -185,7 +177,7 @@ func (t *logTailer) processInitialLines() (int64, error) {
 		}
 		select {
 		case <-t.tomb.Dying():
-			return -1, errors.Trace(tomb.ErrDying)
+			return -1, tomb.ErrDying
 		default:
 		}
 		cur--
@@ -215,50 +207,11 @@ func (t *logTailer) processInitialLines() (int64, error) {
 	return seekTo, nil
 }
 
-type loggerAdaptor struct{}
-
-func (l loggerAdaptor) Fatal(args ...interface{}) {
-	logger.Criticalf(fmt.Sprint(args...))
-}
-
-func (l loggerAdaptor) Fatalf(msg string, args ...interface{}) {
-	logger.Criticalf(msg, args...)
-}
-
-func (l loggerAdaptor) Fatalln(args ...interface{}) {
-	logger.Criticalf(fmt.Sprint(args...))
-}
-
-func (l loggerAdaptor) Panic(args ...interface{}) {
-	logger.Criticalf(fmt.Sprint(args...))
-}
-
-func (l loggerAdaptor) Panicf(msg string, args ...interface{}) {
-	logger.Criticalf(msg, args...)
-}
-
-func (l loggerAdaptor) Panicln(args ...interface{}) {
-	logger.Criticalf(fmt.Sprint(args...))
-}
-
-func (l loggerAdaptor) Print(args ...interface{}) {
-	logger.Infof(fmt.Sprint(args...))
-}
-
-func (l loggerAdaptor) Printf(msg string, args ...interface{}) {
-	logger.Infof(msg, args...)
-}
-
-func (l loggerAdaptor) Println(args ...interface{}) {
-	logger.Infof(fmt.Sprint(args...))
-}
-
 func (t *logTailer) tailFile(seekTo *tail.SeekInfo) (err error) {
 	follow := !t.params.NoTail
 	tailer, err := tail.TailFile(t.logFile, tail.Config{
 		Location: seekTo,
 		ReOpen:   follow,
-		Poll:     true,
 		Follow:   follow,
 		Logger:   loggerAdaptor{},
 	})
@@ -266,7 +219,20 @@ func (t *logTailer) tailFile(seekTo *tail.SeekInfo) (err error) {
 		return errors.Annotate(err, "running file tailer")
 	}
 	defer func() {
-		_ = tailer.Killf("parent log tailer dying")
+		_ = tailer.Killf("parent logger dying")
+		// The tailer will send to its Line channel without checking
+		// if the tomb is dying so we need to drain the channel here
+		// just to be sure the tailer can exit,
+		for {
+			select {
+			case _, ok := <-tailer.Lines:
+				if !ok {
+					return
+				}
+			case <-tailer.Dying():
+				return
+			}
+		}
 	}()
 
 	// If we get a deserialisation error, write out the first failure,
@@ -384,7 +350,7 @@ func logLineToRecord(modelUUID string, line string) (*corelogger.LogRecord, erro
 	}
 
 	rec := &corelogger.LogRecord{
-		Time: timeStamp.UTC(), // not worth preserving TZ
+		Time: timeStamp,
 
 		ModelUUID: modelUUID,
 		Entity:    parts[0],

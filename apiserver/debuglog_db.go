@@ -9,10 +9,11 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/worker/v4"
 
 	"github.com/juju/juju/apiserver/authentication"
 	corelogger "github.com/juju/juju/core/logger"
-	"github.com/juju/juju/core/logtailer"
+	"github.com/juju/juju/internal/logtailer"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -40,7 +41,9 @@ func handleDebugLogDBRequest(
 	if err != nil {
 		return errors.Trace(err)
 	}
-	defer func() { _ = tailer.Stop() }()
+	defer func() {
+		_ = worker.Stop(tailer)
+	}()
 
 	// Indicate that all is well.
 	socket.sendOk()
@@ -56,7 +59,7 @@ func handleDebugLogDBRequest(
 			return nil
 		case rec, ok := <-tailer.Logs():
 			if !ok {
-				return errors.Annotate(tailer.Err(), "tailer stopped")
+				return errors.Annotate(tailer.Wait(), "tailer stopped")
 			}
 
 			if err := socket.sendLogRecord(formatLogRecord(rec)); err != nil {
