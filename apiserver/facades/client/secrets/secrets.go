@@ -59,8 +59,14 @@ func (s *SecretsAPI) checkCanWrite() error {
 }
 
 func (s *SecretsAPI) checkCanAdmin() error {
-	_, err := common.HasModelAdmin(s.authorizer, names.NewControllerTag(s.controllerUUID), names.NewModelTag(s.modelUUID))
-	return err
+	isAdmin, err := common.HasModelAdmin(s.authorizer, names.NewControllerTag(s.controllerUUID), names.NewModelTag(s.modelUUID))
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if isAdmin {
+		return nil
+	}
+	return apiservererrors.ErrPerm
 }
 
 // ListSecrets lists available secrets.

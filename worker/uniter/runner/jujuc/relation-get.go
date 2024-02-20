@@ -104,13 +104,19 @@ func (c *RelationGetCommand) determineUnitOrAppName(args *[]string) error {
 				c.UnitOrAppName = appName
 			}
 		} else {
+			if !names.IsValidUnit(userSupplied) {
+				if names.IsValidApplication(userSupplied) {
+					return fmt.Errorf("expected unit name, got application name %q", userSupplied)
+				}
+				return fmt.Errorf("invalid unit name %q", userSupplied)
+			}
 			c.UnitOrAppName = userSupplied
 		}
 		return nil
 	}
 	if c.Application {
 		name, err := c.ctx.RemoteApplicationName()
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			return fmt.Errorf("no unit or application specified")
 		} else if err != nil {
 			return errors.Trace(err)

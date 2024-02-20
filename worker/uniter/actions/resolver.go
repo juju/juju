@@ -73,7 +73,7 @@ func (r *actionsResolver) NextOp(
 	// error signaling such here, we must first check to see if an action is
 	// already running (that has been interrupted) before we declare that
 	// there is nothing to do.
-	nextAction, err := nextAction(remoteState.ActionsPending, localState.CompletedActions)
+	nextActionId, err := nextAction(remoteState.ActionsPending, localState.CompletedActions)
 	if err != nil && err != resolver.ErrNoOperation {
 		return nil, err
 	}
@@ -81,8 +81,11 @@ func (r *actionsResolver) NextOp(
 	defer func() {
 		if errors.Cause(err) == charmrunner.ErrActionNotAvailable {
 			if localState.Step == operation.Pending && localState.ActionId != nil {
-				r.logger.Infof("found missing action %v; ignoring", *localState.ActionId)
+				r.logger.Infof("found missing not yet started action %v; running fail action", *localState.ActionId)
 				op, err = opFactory.NewFailAction(*localState.ActionId)
+			} else if nextActionId != "" {
+				r.logger.Infof("found missing incomplete action %v; running fail action", nextActionId)
+				op, err = opFactory.NewFailAction(nextActionId)
 			} else {
 				err = resolver.ErrNoOperation
 			}
@@ -92,8 +95,8 @@ func (r *actionsResolver) NextOp(
 	switch localState.Kind {
 	case operation.RunHook:
 		// We can still run actions if the unit is in a hook error state.
-		if localState.Step == operation.Pending && err == nil {
-			return opFactory.NewAction(nextAction)
+		if localState.Step == operation.Pending && nextActionId != "" {
+			return opFactory.NewAction(nextActionId)
 		}
 	case operation.RunAction:
 		if localState.Hook != nil {
@@ -110,7 +113,7 @@ func (r *actionsResolver) NextOp(
 		// the action was completed. The only safe thing to do
 		// is fail the action, since rerunning an arbitrary
 		// command can potentially be hazardous.
-		if nextAction == *localState.ActionId {
+		if nextActionId == *localState.ActionId {
 			return opFactory.NewFailAction(*localState.ActionId)
 		}
 
@@ -123,8 +126,8 @@ func (r *actionsResolver) NextOp(
 		// running action.
 		return opFactory.NewAction(*localState.ActionId)
 	case operation.Continue:
-		if err != resolver.ErrNoOperation {
-			return opFactory.NewAction(nextAction)
+		if nextActionId != "" {
+			return opFactory.NewAction(nextActionId)
 		}
 	}
 	return nil, resolver.ErrNoOperation
