@@ -4,6 +4,7 @@
 package servicefactory
 
 import (
+	annotationService "github.com/juju/juju/domain/annotation/service"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	autocertcacheservice "github.com/juju/juju/domain/autocert/service"
 	blockdeviceservice "github.com/juju/juju/domain/blockdevice/service"
@@ -75,6 +76,8 @@ type ModelServiceFactory interface {
 	Unit() *unitservice.Service
 	// Space returns the space service.
 	Space() *networkservice.SpaceService
+	// Annotation returns the annotation service.
+	Annotation() *annotationService.Service
 }
 
 // ServiceFactory provides access to the services required by the apiserver.
