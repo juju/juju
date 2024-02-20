@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/domain/servicefactory/testing"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/bootstrap"
+	"github.com/juju/juju/internal/servicefactory"
 )
 
 type manifoldSuite struct {
@@ -84,6 +85,14 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 	cfg = s.getConfig()
 	cfg.BootstrapAddressFinder = nil
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig()
+	cfg.SpaceServiceGetter = nil
+	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig()
+	cfg.SubnetServiceGetter = nil
+	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 }
 
 func (s *manifoldSuite) getConfig() ManifoldConfig {
@@ -116,6 +125,12 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		},
 		BootstrapAddressFinder: func(context.Context, BootstrapAddressesConfig) (network.ProviderAddresses, error) {
 			return nil, nil
+		},
+		SpaceServiceGetter: func(getter servicefactory.ServiceFactory) SpaceService {
+			return nil
+		},
+		SubnetServiceGetter: func(getter servicefactory.ServiceFactory) SubnetService {
+			return nil
 		},
 	}
 }

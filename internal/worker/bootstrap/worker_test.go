@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/internal/bootstrap"
 	"github.com/juju/juju/internal/cloudconfig"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
+	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/testing"
 )
@@ -224,6 +225,10 @@ func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
 		CredentialService:       s.credentialService,
 		CloudService:            s.cloudService,
 		SpaceService:            s.spaceService,
+		SubnetService:           s.subnetService,
+		ServiceFactoryGetter:    s.serviceFactoryGetter,
+		SpaceServiceGetter:      func(getter servicefactory.ServiceFactory) SpaceService { return nil },
+		SubnetServiceGetter:     func(getter servicefactory.ServiceFactory) SubnetService { return nil },
 		FlagService:             s.flagService,
 		PopulateControllerCharm: func(context.Context, bootstrap.ControllerCharmDeployer) error {
 			return nil

@@ -76,6 +76,15 @@ type SpaceService interface {
 	Space(ctx context.Context, uuid string) (*network.SpaceInfo, error)
 	SpaceByName(ctx context.Context, name string) (*network.SpaceInfo, error)
 	GetAllSpaces(ctx context.Context) (network.SpaceInfos, error)
+	AddSpace(ctx context.Context, name string, providerID network.Id, subnetIDs []string) (network.Id, error)
+}
+
+// SubnetService is the interface that is used to interact with the
+// network subnets.
+type SubnetService interface {
+	Subnet(ctx context.Context, uuid string) (*network.SubnetInfo, error)
+	AddSubnet(ctx context.Context, args network.SubnetInfo) (network.Id, error)
+	UpdateSubnet(ctx context.Context, uuid, spaceUUID string) error
 }
 
 // FlagService is the interface that is used to set the value of a
@@ -123,6 +132,26 @@ type HTTPClient interface {
 	Do(*http.Request) (*http.Response, error)
 }
 
+// GetSpaceServiceFunc provides an abstraction layer to get the space service
+// from the service factory and be able to mock it.
+type GetSpaceServiceFunc func(getter servicefactory.ServiceFactory) SpaceService
+
+// GetSpaceService is a helper function that gets a service from the
+// manifold.
+func GetSpaceService(getter servicefactory.ServiceFactory) SpaceService {
+	return getter.Space()
+}
+
+// GetSubnetServiceFunc provides an abstraction layer to get the subnet service
+// from the service factory and be able to mock it.
+type GetSubnetServiceFunc func(getter servicefactory.ServiceFactory) SubnetService
+
+// GetSubnetService is a helper function that gets a service from the
+// manifold.
+func GetSubnetService(getter servicefactory.ServiceFactory) SubnetService {
+	return getter.Subnet()
+}
+
 // BootstrapAddress attempts to use the provided Environ to get the list of
 // instances and its addresses. If the Environ does not implement
 // InstanceListener (this is the case of CAAS for the moment), then we
@@ -138,7 +167,6 @@ func BootstrapAddresses(
 		return nil, errors.NotSupportedf("bootstrap address not supported on this environ")
 
 	}
-	// TODO(nvinuesa): which instanceID to use?
 	instances, err := instanceLister.Instances(callCtx, []instance.Id{bootstrapInstanceID})
 	if err != nil {
 		return nil, errors.Annotate(err, "getting bootstrap instance")
@@ -168,6 +196,9 @@ type ManifoldConfig struct {
 	BootstrapAddressFinder BootstrapAddressFinderFunc
 	NewEnviron             NewEnvironFunc
 	BootstrapAddresses     BootstrapAddressesFunc
+
+	SpaceServiceGetter  GetSpaceServiceFunc
+	SubnetServiceGetter GetSubnetServiceFunc
 
 	LoggerFactory LoggerFactory
 }
@@ -218,6 +249,12 @@ func (cfg ManifoldConfig) Validate() error {
 	}
 	if cfg.BootstrapAddresses == nil {
 		return errors.NotValidf("nil BootstrapAddresses")
+	}
+	if cfg.SpaceServiceGetter == nil {
+		return errors.NotValidf("nil SpaceServiceGetter")
+	}
+	if cfg.SubnetServiceGetter == nil {
+		return errors.NotValidf("nil SubnetServiceGetter")
 	}
 	return nil
 }
@@ -313,6 +350,10 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				ApplicationService:      modelServiceFactory.Application(),
 				FlagService:             flagService,
 				SpaceService:            modelServiceFactory.Space(),
+				SubnetService:           modelServiceFactory.Subnet(),
+				ServiceFactoryGetter:    serviceFactoryGetter,
+				SpaceServiceGetter:      config.SpaceServiceGetter,
+				SubnetServiceGetter:     config.SubnetServiceGetter,
 				SystemState:             &stateShim{State: systemState, applicationSaver: modelServiceFactory.Application()},
 				BootstrapUnlocker:       bootstrapUnlocker,
 				AgentBinaryUploader:     config.AgentBinaryUploader,

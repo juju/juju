@@ -880,6 +880,9 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			AgentBinaryUploader:     bootstrap.IAASAgentBinaryUploader,
 			ControllerCharmDeployer: bootstrap.IAASControllerCharmUploader,
 			ControllerUnitPassword:  bootstrap.IAASControllerUnitPassword,
+
+			SpaceServiceGetter:  bootstrap.GetSpaceService,
+			SubnetServiceGetter: bootstrap.GetSubnetService,
 		})),
 
 		toolsVersionCheckerName: ifNotMigrating(toolsversionchecker.Manifold(toolsversionchecker.ManifoldConfig{
@@ -1124,6 +1127,9 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			AgentBinaryUploader:     bootstrap.CAASAgentBinaryUploader,
 			ControllerCharmDeployer: bootstrap.CAASControllerCharmUploader,
 			ControllerUnitPassword:  bootstrap.CAASControllerUnitPassword,
+
+			SpaceServiceGetter:  bootstrap.GetSpaceService,
+			SubnetServiceGetter: bootstrap.GetSubnetService,
 		})),
 
 		// TODO(caas) - when we support HA, only want this on primary

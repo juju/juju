@@ -127,6 +127,11 @@ func (s *TestingServiceFactory) Space() *networkservice.SpaceService {
 	return nil
 }
 
+// Subnet returns the subnet service.
+func (s *TestingServiceFactory) Subnet() *networkservice.SubnetService {
+	return nil
+}
+
 // FactoryForModel returns a service factory for the given model uuid.
 // This will late bind the model service factory to the actual service factory.
 func (s *TestingServiceFactory) FactoryForModel(modelUUID string) servicefactory.ServiceFactory {

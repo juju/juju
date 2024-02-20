@@ -17,8 +17,10 @@ import (
 	"github.com/juju/juju/core/flags"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/cloudconfig"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
+	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/internal/worker/gate"
 	"github.com/juju/juju/state/binarystorage"
 )
@@ -54,6 +56,10 @@ type WorkerConfig struct {
 	ApplicationService      ApplicationSaver
 	FlagService             FlagService
 	SpaceService            SpaceService
+	SubnetService           SubnetService
+	ServiceFactoryGetter    servicefactory.ServiceFactoryGetter
+	SpaceServiceGetter      GetSpaceServiceFunc
+	SubnetServiceGetter     GetSubnetServiceFunc
 	BootstrapUnlocker       gate.Unlocker
 	AgentBinaryUploader     AgentBinaryBootstrapFunc
 	ControllerCharmDeployer ControllerCharmDeployerFunc
@@ -100,6 +106,18 @@ func (c *WorkerConfig) Validate() error {
 	}
 	if c.SpaceService == nil {
 		return errors.NotValidf("nil SpaceService")
+	}
+	if c.SubnetService == nil {
+		return errors.NotValidf("nil SubnetService")
+	}
+	if c.ServiceFactoryGetter == nil {
+		return errors.NotValidf("nil ServiceFactoryGetter")
+	}
+	if c.SpaceServiceGetter == nil {
+		return errors.NotValidf("nil SpaceServiceGetter")
+	}
+	if c.SubnetServiceGetter == nil {
+		return errors.NotValidf("nil SubnetServiceGetter")
 	}
 	if c.ControllerCharmDeployer == nil {
 		return errors.NotValidf("nil ControllerCharmDeployer")
@@ -216,6 +234,22 @@ func (w *bootstrapWorker) loop() error {
 	// to space ID decorated addresses.
 	if err := w.initAPIHostPorts(ctx, controllerConfig, bootstrapAddresses, servingInfo.APIPort); err != nil {
 		return errors.Trace(err)
+	}
+
+	// Make sure that the initial model (if any) contains the spaces and
+	// subnets that were already loaded from the provider for the controller
+	// model.
+	if len(args.InitialModelConfig) > 0 {
+		if initialModelUUID, ok := args.InitialModelConfig[config.UUIDKey]; ok {
+			initialModelUUIDStr, ok := initialModelUUID.(string)
+			if ok {
+				if err := w.ensureInitialModelSpaces(ctx, initialModelUUIDStr, controllerConfig); err != nil {
+					return errors.Trace(err)
+				}
+			} else {
+				w.logger.Warningf("initial model UUID %+v not correctly formatted")
+			}
+		}
 	}
 
 	// Set the bootstrap flag, to indicate that the bootstrap has completed.

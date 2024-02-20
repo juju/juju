@@ -20,8 +20,9 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -package bootstrap -destination state_mock_test.go github.com/juju/juju/internal/worker/state StateTracker
 //go:generate go run go.uber.org/mock/mockgen -package bootstrap -destination objectstore_mock_test.go github.com/juju/juju/core/objectstore ObjectStore
 //go:generate go run go.uber.org/mock/mockgen -package bootstrap -destination lock_mock_test.go github.com/juju/juju/internal/worker/gate Unlocker
-//go:generate go run go.uber.org/mock/mockgen -package bootstrap -destination bootstrap_mock_test.go github.com/juju/juju/internal/worker/bootstrap ControllerConfigService,FlagService,ObjectStoreGetter,SystemState,HTTPClient,CredentialService,CloudService,ApplicationSaver,SpaceService
+//go:generate go run go.uber.org/mock/mockgen -package bootstrap -destination bootstrap_mock_test.go github.com/juju/juju/internal/worker/bootstrap ControllerConfigService,FlagService,ObjectStoreGetter,SystemState,HTTPClient,CredentialService,CloudService,ApplicationSaver,SpaceService,SubnetService
 //go:generate go run go.uber.org/mock/mockgen -package bootstrap -destination deployer_mock_test.go github.com/juju/juju/internal/bootstrap Model
+//go:generate go run go.uber.org/mock/mockgen -package bootstrap -destination servicefactory_mock_test.go github.com/juju/juju/internal/servicefactory ServiceFactoryGetter
 
 func TestPackage(t *testing.T) {
 	defer goleak.VerifyNone(t)
@@ -46,9 +47,14 @@ type baseSuite struct {
 	credentialService       *MockCredentialService
 	applicationSaver        *MockApplicationSaver
 	spaceService            *MockSpaceService
+	subnetService           *MockSubnetService
 	flagService             *MockFlagService
 	httpClient              *MockHTTPClient
 	stateModel              *MockModel
+
+	serviceFactoryGetter      *MockServiceFactoryGetter
+	initialModelSpaceService  *MockSpaceService
+	initialModelSubnetService *MockSubnetService
 
 	logger        Logger
 	loggerFactory LoggerFactory
@@ -71,9 +77,14 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.credentialService = NewMockCredentialService(ctrl)
 	s.applicationSaver = NewMockApplicationSaver(ctrl)
 	s.spaceService = NewMockSpaceService(ctrl)
+	s.subnetService = NewMockSubnetService(ctrl)
 	s.flagService = NewMockFlagService(ctrl)
 	s.httpClient = NewMockHTTPClient(ctrl)
 	s.stateModel = NewMockModel(ctrl)
+
+	s.serviceFactoryGetter = NewMockServiceFactoryGetter(ctrl)
+	s.initialModelSpaceService = NewMockSpaceService(ctrl)
+	s.initialModelSubnetService = NewMockSubnetService(ctrl)
 
 	s.logger = jujujujutesting.NewCheckLogger(c)
 	s.loggerFactory = loggerFactory{
