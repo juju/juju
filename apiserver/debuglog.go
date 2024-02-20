@@ -32,6 +32,7 @@ type debugLogHandler struct {
 	authenticator authentication.HTTPAuthenticator
 	authorizer    authentication.Authorizer
 	handle        debugLogHandlerFunc
+	logDir        string
 }
 
 type debugLogHandlerFunc func(
@@ -40,6 +41,7 @@ type debugLogHandlerFunc func(
 	state.LogTailerState,
 	debugLogParams,
 	debugLogSocket,
+	string,
 	<-chan struct{},
 ) error
 
@@ -47,6 +49,7 @@ func newDebugLogHandler(
 	ctxt httpContext,
 	authenticator authentication.HTTPAuthenticator,
 	authorizer authentication.Authorizer,
+	logDir string,
 	handle debugLogHandlerFunc,
 ) *debugLogHandler {
 	return &debugLogHandler{
@@ -54,6 +57,7 @@ func newDebugLogHandler(
 		authenticator: authenticator,
 		authorizer:    authorizer,
 		handle:        handle,
+		logDir:        logDir,
 	}
 }
 
@@ -119,7 +123,7 @@ func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		clock := h.ctxt.srv.clock
 		maxDuration := h.ctxt.srv.shared.maxDebugLogDuration()
 
-		if err := h.handle(clock, maxDuration, st, params, socket, h.ctxt.stop()); err != nil {
+		if err := h.handle(clock, maxDuration, st.State, params, socket, h.logDir, h.ctxt.stop()); err != nil {
 			if isBrokenPipe(err) {
 				logger.Tracef("debug-log handler stopped (client disconnected)")
 			} else {

@@ -63,7 +63,7 @@ func (s *migrationLoggingStrategy) init(ctxt httpContext, req *http.Request) err
 		st.Release()
 		return errors.Trace(err)
 	}
-	if s.recordLogger, err = s.modelLogger.GetLogger(st.State.ModelUUID(), m.Name()); err != nil {
+	if s.recordLogger, err = s.modelLogger.GetLogger(st.State.ModelUUID(), m.Name(), m.Owner().Id()); err != nil {
 		return errors.Trace(err)
 	}
 	// TODO(debug-log) - remove mongo log tracker

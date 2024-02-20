@@ -21,11 +21,13 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
+	"github.com/juju/worker/v4"
 
 	"github.com/juju/juju/agent"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/internal/agent/agentconf"
 	corelogger "github.com/juju/juju/core/logger"
+	"github.com/juju/juju/internal/logtailer"
 	"github.com/juju/juju/internal/mongo"
 	corenames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/state"
@@ -191,10 +193,21 @@ func (c *dumpLogsCommand) dumpLogsForEnv(ctx *cmd.Context, statePool *state.Stat
 	writer := bufio.NewWriter(file)
 	defer writer.Flush()
 
-	tailer, err := state.NewLogTailer(st, corelogger.LogTailerParams{NoTail: true}, nil)
+	m, err := st.Model()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	modelOwnerAndName := corelogger.ModelFilePrefix(m.Owner().Id(), m.Name())
+
+	fileName := corelogger.ModelLogFile(c.agentConfig.CurrentConfig().LogDir(), st.ModelUUID(), modelOwnerAndName)
+	tailer, err := logtailer.NewLogTailer(st.ControllerModelUUID(), fileName, logtailer.LogTailerParams{NoTail: true})
 	if err != nil {
 		return errors.Annotate(err, "failed to create a log tailer")
 	}
+	defer func() {
+		_ = worker.Stop(tailer)
+	}()
+
 	logs := tailer.Logs()
 	for {
 		rec, ok := <-logs

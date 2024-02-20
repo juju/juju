@@ -3,7 +3,13 @@
 
 package logger
 
-import "io"
+import (
+	"fmt"
+	"io"
+	"path/filepath"
+
+	"github.com/juju/names/v5"
+)
 
 // Logger provides an interface for writing log records.
 type Logger interface {
@@ -25,7 +31,7 @@ type ModelLogger interface {
 
 	// GetLogger returns a logger for the given model and keeps
 	// track of it, returning the same one if called again.
-	GetLogger(modelUUID, modelName string) (LoggerCloser, error)
+	GetLogger(modelUUID, modelName, modelOwner string) (LoggerCloser, error)
 
 	// RemoveLogger stops tracking the given's model's logger and
 	// calls Close() on the logger.
@@ -34,3 +40,14 @@ type ModelLogger interface {
 
 // LoggerForModelFunc is a function which returns a logger for a given model.
 type LoggerForModelFunc func(modelUUID, modelName string) (LoggerCloser, error)
+
+// ModelFilePrefix makes a log file prefix from the model owner and name.
+func ModelFilePrefix(owner, name string) string {
+	return fmt.Sprintf("%s-%s", owner, name)
+}
+
+// ModelLogFile makes an absolute model log file path.
+func ModelLogFile(logDir, modelUUID, modelOwnerAndName string) string {
+	filename := modelOwnerAndName + "-" + names.NewModelTag(modelUUID).ShortId() + ".log"
+	return filepath.Join(logDir, "models", filename)
+}

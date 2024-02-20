@@ -1,6 +1,6 @@
 module github.com/juju/juju
 
-go 1.21
+go 1.21.6
 
 require (
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.9.1
@@ -41,6 +41,7 @@ require (
 	github.com/gorilla/websocket v1.5.1
 	github.com/gosuri/uitable v0.0.4
 	github.com/hashicorp/vault/api v1.10.0
+	github.com/hpcloud/tail v1.0.0
 	github.com/im7mortal/kmutex v1.0.1
 	github.com/juju/ansiterm v1.0.0
 	github.com/juju/charm/v13 v13.0.0
@@ -99,6 +100,7 @@ require (
 	github.com/prometheus/client_golang v1.18.0
 	github.com/prometheus/client_model v0.5.0
 	github.com/rs/xid v1.5.0
+	github.com/vallerion/rscanner v0.0.0-20230822073625-4f90454447a3
 	github.com/vishvananda/netlink v1.2.1-beta.2
 	github.com/vmware/govmomi v0.34.1
 	go.opentelemetry.io/otel v1.21.0
@@ -304,6 +306,7 @@ require (
 	google.golang.org/grpc v1.59.0 // indirect
 	google.golang.org/protobuf v1.31.0 // indirect
 	gopkg.in/errgo.v1 v1.0.1 // indirect
+	gopkg.in/fsnotify.v1 v1.4.7 // indirect
 	gopkg.in/gobwas/glob.v0 v0.2.3 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/square/go-jose.v2 v2.6.0 // indirect

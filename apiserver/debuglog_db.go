@@ -9,9 +9,11 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/worker/v4"
 
 	"github.com/juju/juju/apiserver/authentication"
 	corelogger "github.com/juju/juju/core/logger"
+	"github.com/juju/juju/internal/logtailer"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -20,8 +22,9 @@ func newDebugLogDBHandler(
 	ctxt httpContext,
 	authenticator authentication.HTTPAuthenticator,
 	authorizer authentication.Authorizer,
+	logDir string,
 ) http.Handler {
-	return newDebugLogHandler(ctxt, authenticator, authorizer, handleDebugLogDBRequest)
+	return newDebugLogHandler(ctxt, authenticator, authorizer, logDir, handleDebugLogDBRequest)
 }
 
 func handleDebugLogDBRequest(
@@ -30,14 +33,17 @@ func handleDebugLogDBRequest(
 	st state.LogTailerState,
 	reqParams debugLogParams,
 	socket debugLogSocket,
+	logDir string,
 	stop <-chan struct{},
 ) error {
 	tailerParams := makeLogTailerParams(reqParams)
-	tailer, err := newLogTailer(st, tailerParams)
+	tailer, err := newLogTailer(st, logDir, tailerParams)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	defer func() { _ = tailer.Stop() }()
+	defer func() {
+		_ = worker.Stop(tailer)
+	}()
 
 	// Indicate that all is well.
 	socket.sendOk()
@@ -53,7 +59,7 @@ func handleDebugLogDBRequest(
 			return nil
 		case rec, ok := <-tailer.Logs():
 			if !ok {
-				return errors.Annotate(tailer.Err(), "tailer stopped")
+				return errors.Annotate(tailer.Wait(), "tailer stopped")
 			}
 
 			if err := socket.sendLogRecord(formatLogRecord(rec)); err != nil {
@@ -68,8 +74,8 @@ func handleDebugLogDBRequest(
 	}
 }
 
-func makeLogTailerParams(reqParams debugLogParams) corelogger.LogTailerParams {
-	tailerParams := corelogger.LogTailerParams{
+func makeLogTailerParams(reqParams debugLogParams) logtailer.LogTailerParams {
+	tailerParams := logtailer.LogTailerParams{
 		MinLevel:      reqParams.filterLevel,
 		NoTail:        reqParams.noTail,
 		StartTime:     reqParams.startTime,
@@ -101,6 +107,11 @@ func formatLogRecord(r *corelogger.LogRecord) *params.LogMessage {
 
 var newLogTailer = _newLogTailer // For replacing in tests
 
-func _newLogTailer(st state.LogTailerState, params corelogger.LogTailerParams) (corelogger.LogTailer, error) {
-	return state.NewLogTailer(st, params, nil)
+func _newLogTailer(st state.LogTailerState, logDir string, params logtailer.LogTailerParams) (logtailer.LogTailer, error) {
+	m, err := st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	modelOwnerAndName := corelogger.ModelFilePrefix(m.Owner().Id(), m.Name())
+	return logtailer.NewLogTailer(st.ModelUUID(), corelogger.ModelLogFile(logDir, st.ModelUUID(), modelOwnerAndName), params)
 }

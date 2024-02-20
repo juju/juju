@@ -76,7 +76,8 @@ type ModelMetrics interface {
 // to start the workers for the specified model
 type NewModelConfig struct {
 	Authority        pki.Authority
-	ModelName        string // Use a fully qualified name "<namespace>-<name>"
+	ModelName        string
+	ModelOwner       string
 	ModelUUID        string
 	ModelType        state.ModelType
 	ModelLogger      ModelLogger
@@ -219,7 +220,8 @@ func (m *modelWorkerManager) loop() error {
 
 		cfg := NewModelConfig{
 			Authority:    m.config.Authority,
-			ModelName:    fmt.Sprintf("%s-%s", model.Owner().Id(), model.Name()),
+			ModelName:    model.Name(),
+			ModelOwner:   model.Owner().Id(),
 			ModelUUID:    modelUUID,
 			ModelType:    model.Type(),
 			ModelMetrics: m.config.ModelMetrics.ForModel(names.NewModelTag(modelUUID)),
@@ -256,7 +258,7 @@ func (m *modelWorkerManager) ensure(cfg NewModelConfig) error {
 func (m *modelWorkerManager) starter(cfg NewModelConfig) func() (worker.Worker, error) {
 	return func() (worker.Worker, error) {
 		modelUUID := cfg.ModelUUID
-		modelName := fmt.Sprintf("%q (%s)", cfg.ModelName, cfg.ModelUUID)
+		modelName := fmt.Sprintf("%q (%s)", corelogger.ModelFilePrefix(cfg.ModelOwner, cfg.ModelName), cfg.ModelUUID)
 		m.config.Logger.Debugf("starting workers for model %s", modelName)
 
 		// Get the controller config for the model worker so that we correctly
@@ -269,7 +271,7 @@ func (m *modelWorkerManager) starter(cfg NewModelConfig) func() (worker.Worker, 
 		}
 		cfg.ControllerConfig = controllerConfig
 
-		logSink, err := m.config.LogSink.GetLogger(modelUUID, cfg.ModelName)
+		logSink, err := m.config.LogSink.GetLogger(modelUUID, cfg.ModelName, cfg.ModelOwner)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
