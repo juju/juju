@@ -4,6 +4,7 @@
 package testing
 
 import (
+	annotationservice "github.com/juju/juju/domain/annotation/service"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	autocertcacheservice "github.com/juju/juju/domain/autocert/service"
 	blockdeviceservice "github.com/juju/juju/domain/blockdevice/service"
@@ -124,6 +125,11 @@ func (s *TestingServiceFactory) Machine() *machineservice.Service {
 
 // Space returns the space service.
 func (s *TestingServiceFactory) Space() *networkservice.SpaceService {
+	return nil
+}
+
+// Annotation returns the annotation service.
+func (s *TestingServiceFactory) Annotation() *annotationservice.Service {
 	return nil
 }
 
