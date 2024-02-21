@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/agent"
 	apiagent "github.com/juju/juju/api/agent/agent"
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/internal/upgrades"
 	"github.com/juju/juju/internal/upgradesteps"
@@ -29,12 +28,6 @@ type Logger interface {
 	Debugf(string, ...any)
 }
 
-// StatusSetter defines the single method required to set an agent's
-// status.
-type StatusSetter interface {
-	SetStatus(setableStatus status.Status, info string, data map[string]any) error
-}
-
 // MachineWorkerFunc defines a function that returns a worker.Worker
 // which runs the upgrade steps for a machine.
 type MachineWorkerFunc func(gate.Lock, agent.Agent, base.APICaller, upgrades.PreUpgradeStepsFunc, upgrades.UpgradeStepsFunc, upgradesteps.StatusSetter, upgradesteps.Logger, clock.Clock) worker.Worker
@@ -47,7 +40,7 @@ type ControllerWorkerFunc func(
 	UpgradeService,
 	upgrades.PreUpgradeStepsFunc,
 	upgrades.UpgradeStepsFunc,
-	StatusSetter,
+	upgradesteps.StatusSetter,
 	Logger,
 	clock.Clock,
 ) (worker.Worker, error)
@@ -61,7 +54,7 @@ type ManifoldConfig struct {
 	ServiceFactoryName   string
 	PreUpgradeSteps      upgrades.PreUpgradeStepsFunc
 	UpgradeSteps         upgrades.UpgradeStepsFunc
-	NewAgentStatusSetter func(context.Context, base.APICaller) (StatusSetter, error)
+	NewAgentStatusSetter func(context.Context, base.APICaller) (upgradesteps.StatusSetter, error)
 	NewMachineWorker     MachineWorkerFunc
 	NewControllerWorker  ControllerWorkerFunc
 	Logger               Logger
@@ -100,13 +93,16 @@ func (c ManifoldConfig) Validate() error {
 // Manifold returns a dependency manifold that runs an upgrader
 // worker, using the resource names defined in the supplied config.
 func Manifold(config ManifoldConfig) dependency.Manifold {
+	inputs := []string{
+		config.AgentName,
+		config.APICallerName,
+		config.UpgradeStepsGateName,
+	}
+	if config.ServiceFactoryName != "" {
+		inputs = append(inputs, config.ServiceFactoryName)
+	}
 	return dependency.Manifold{
-		Inputs: []string{
-			config.AgentName,
-			config.APICallerName,
-			config.UpgradeStepsGateName,
-			config.ServiceFactoryName,
-		},
+		Inputs: inputs,
 		Start: func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
 			if err := config.Validate(); err != nil {
 				return nil, errors.Trace(err)

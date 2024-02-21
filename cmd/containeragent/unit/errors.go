@@ -11,8 +11,8 @@ import (
 )
 
 // ErrRemoved may be returned by some worker started from Manifolds to
-// indicate that the model under management no longer exists.
-const ErrRemoved = errors.ConstError("model removed")
+// indicate that the unit under management no longer exists.
+const ErrRemoved = errors.ConstError("unit removed")
 
 // LifeFilter is used with the lifeflag manifolds -- which do not depend
 // on runFlag -- to return appropriate errors for consumption by the

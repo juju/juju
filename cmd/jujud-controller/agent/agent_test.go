@@ -14,7 +14,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cmd/internal/agent/agentconf"
-	"github.com/juju/juju/cmd/jujud/agent/agenttest"
+	"github.com/juju/juju/cmd/jujud-controller/agent/agenttest"
 	"github.com/juju/juju/core/network"
 	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
 	"github.com/juju/juju/internal/worker/proxyupdater"
@@ -51,6 +51,7 @@ type AgentSuite struct {
 
 func (s *AgentSuite) SetUpTest(c *gc.C) {
 	s.AgentSuite.SetUpTest(c)
+	agenttest.InstallFakeEnsureMongo(s, s.DataDir)
 	// Set API host ports so FindTools/Tools API calls succeed.
 	hostPorts := []network.SpaceHostPorts{
 		network.NewSpaceHostPorts(1234, "0.1.2.3"),

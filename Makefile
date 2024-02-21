@@ -20,6 +20,7 @@ GOHOSTOS=$(shell go env GOHOSTOS)
 GOHOSTARCH=$(shell go env GOHOSTARCH)
 GO_MOD_VERSION=$(shell grep "^go" go.mod | awk '{print $$2}')
 GO_INSTALLED_VERSION=$(shell go version | awk '{print $$3}' | sed -e /.*go/s///)
+GO_INSTALL_PATH=$(if $(value GOBIN),$(value GOBIN),$(shell go env GOPATH)/bin)
 
 # Build number passed in must be a monotonic int representing
 # the build.
@@ -104,6 +105,7 @@ GIT_TREE_STATE = $(if $(shell git -C $(PROJECT_DIR) rev-parse --is-inside-work-t
 #   compile for at the moment.
 define BUILD_AGENT_TARGETS
 	$(call tool_platform_paths,jujuc,$(filter-out windows%,${AGENT_PACKAGE_PLATFORMS})) \
+	$(call tool_platform_paths,jujud,$(filter linux%,${AGENT_PACKAGE_PLATFORMS})) \
 	$(call tool_platform_paths,containeragent,$(filter-out windows%,${AGENT_PACKAGE_PLATFORMS})) \
 	$(call tool_platform_paths,pebble,$(filter linux%,${AGENT_PACKAGE_PLATFORMS}))
 endef
@@ -112,7 +114,7 @@ endef
 # under the category of Juju agents, that are CGO. These targets are also the
 # ones we are more then likely wanting to cross compile.
 define BUILD_CGO_AGENT_TARGETS
-	$(call tool_platform_paths,jujud,$(filter linux%,${AGENT_PACKAGE_PLATFORMS}))
+	$(call tool_platform_paths,jujud-controller,$(filter linux%,${AGENT_PACKAGE_PLATFORMS}))
 endef
 
 define BUILD_CGO_BENCH_TARGETS
@@ -141,6 +143,7 @@ define INSTALL_TARGETS
 	juju \
 	jujuc \
 	jujud \
+	jujud-controller \
 	containeragent \
 	juju-metadata
 endef
@@ -312,9 +315,17 @@ jujuc:
 
 .PHONY: jujud
 jujud: PACKAGE = github.com/juju/juju/cmd/jujud
-jujud: musl-install-if-missing dqlite-install-if-missing
+jujud:
+## jujud: Install jujud without updating dependencies
+	${run_go_install}
+	mv $(GO_INSTALL_PATH)/jujud $(GO_INSTALL_PATH)/jujud-junk
+
+.PHONY: jujud-controller
+jujud-controller: PACKAGE = github.com/juju/juju/cmd/jujud-controller
+jujud-controller: musl-install-if-missing dqlite-install-if-missing
 ## jujud: Install jujud without updating dependencies
 	${run_cgo_install}
+	mv $(GO_INSTALL_PATH)/jujud-controller $(GO_INSTALL_PATH)/jujud
 
 .PHONY: containeragent
 containeragent: PACKAGE = github.com/juju/juju/cmd/containeragent
@@ -354,9 +365,22 @@ ${BUILD_DIR}/%/bin/jujuc: phony_explicit
 	$(run_go_build)
 
 ${BUILD_DIR}/%/bin/jujud: PACKAGE = github.com/juju/juju/cmd/jujud
-${BUILD_DIR}/%/bin/jujud: phony_explicit musl-install-if-missing dqlite-install-if-missing
+${BUILD_DIR}/%/bin/jujud: phony_explicit
 # build for jujud
+	$(run_go_build)
+	$(eval OS = $(word 1,$(subst _, ,$*)))
+	$(eval ARCH = $(word 2,$(subst _, ,$*)))
+	$(eval BBIN_DIR = ${BUILD_DIR}/${OS}_${ARCH}/bin)
+	mv ${BBIN_DIR}/jujud ${BBIN_DIR}/jujud-junk
+
+${BUILD_DIR}/%/bin/jujud-controller: PACKAGE = github.com/juju/juju/cmd/jujud-controller
+${BUILD_DIR}/%/bin/jujud-controller: phony_explicit musl-install-if-missing dqlite-install-if-missing
+# build for jujud-controller
 	$(run_cgo_build)
+	$(eval OS = $(word 1,$(subst _, ,$*)))
+	$(eval ARCH = $(word 2,$(subst _, ,$*)))
+	$(eval BBIN_DIR = ${BUILD_DIR}/${OS}_${ARCH}/bin)
+	mv ${BBIN_DIR}/jujud-controller ${BBIN_DIR}/jujud
 
 ${BUILD_DIR}/%/bin/containeragent: PACKAGE = github.com/juju/juju/cmd/containeragent
 ${BUILD_DIR}/%/bin/containeragent: phony_explicit

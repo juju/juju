@@ -29,12 +29,20 @@ import (
 	"github.com/juju/juju/agent/addons"
 	agentconfig "github.com/juju/juju/agent/config"
 	agenterrors "github.com/juju/juju/agent/errors"
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/internal/agent/agentconf"
-	"github.com/juju/juju/cmd/jujud/agent/mocks"
+	"github.com/juju/juju/cmd/jujud-controller/agent/agenttest"
+	"github.com/juju/juju/cmd/jujud-controller/agent/mocks"
 	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/envcontext"
+	"github.com/juju/juju/environs/instances"
+	"github.com/juju/juju/internal/mongo/mongometrics"
+	"github.com/juju/juju/internal/mongo/mongotest"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/internal/upgrades"
 	jworker "github.com/juju/juju/internal/worker"
@@ -57,7 +65,13 @@ const (
 	initialMachinePassword = "machine-password-1234567890"
 )
 
+var fastDialOpts = api.DialOpts{
+	Timeout:    coretesting.LongWait,
+	RetryDelay: coretesting.ShortWait,
+}
+
 type commonMachineSuite struct {
+	fakeEnsureMongo *agenttest.FakeEnsureMongo
 	AgentSuite
 	// FakeJujuXDGDataHomeSuite is needed only because the
 	// authenticationworker writes to ~/.ssh.
@@ -74,6 +88,7 @@ func (s *commonMachineSuite) SetUpSuite(c *gc.C) {
 
 	// Stub out executables etc used by workers.
 	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
+	s.PatchValue(&stateWorkerDialOpts, mongotest.DialOpts())
 	s.PatchValue(&authenticationworker.SSHUser, "")
 	s.PatchValue(&diskmanager.DefaultListBlockDevices, func() ([]blockdevice.BlockDevice, error) {
 		return nil, nil
@@ -94,6 +109,17 @@ func (s *commonMachineSuite) SetUpTest(c *gc.C) {
 	// mock out the start method so we can fake install services without sudo
 	fakeCmd(filepath.Join(testpath, "start"))
 	fakeCmd(filepath.Join(testpath, "stop"))
+
+	s.fakeEnsureMongo = agenttest.InstallFakeEnsureMongo(s, s.DataDir)
+}
+
+func (s *commonMachineSuite) assertChannelActive(c *gc.C, aChannel chan struct{}, intent string) {
+	// Wait for channel to be active.
+	select {
+	case <-aChannel:
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timeout while waiting for %v", intent)
+	}
 }
 
 func fakeCmd(path string) {
@@ -140,6 +166,22 @@ func (s *commonMachineSuite) primeAgent(c *gc.C, jobs ...state.MachineJob) (m *s
 	vers := coretesting.CurrentVersion()
 	return s.primeAgentVersion(c, vers, jobs...)
 }
+
+// TODO(wallyworld) - we need the dqlite model database to be available.
+//func (s *commonMachineSuite) createMachine(c *gc.C, machineId string) string {
+//	db := s.DB()
+//
+//	netNodeUUID := uuid.MustNewUUID().String()
+//	_, err := db.ExecContext(context.Background(), "INSERT INTO net_node (uuid) VALUES (?)", netNodeUUID)
+//	c.Assert(err, jc.ErrorIsNil)
+//	machineUUID := uuid.MustNewUUID().String()
+//	_, err = db.ExecContext(context.Background(), `
+//INSERT INTO machine (uuid, life_id, machine_id, net_node_uuid)
+//VALUES (?, ?, ?, ?)
+//`, machineUUID, life.Alive, machineId, netNodeUUID)
+//	c.Assert(err, jc.ErrorIsNil)
+//	return machineUUID
+//}
 
 // primeAgentVersion is similar to primeAgent, but permits the
 // caller to specify the version.Binary to prime with.
@@ -226,8 +268,11 @@ func NewTestMachineAgentFactory(
 			rootDir:                     rootDir,
 			initialUpgradeCheckComplete: gate.NewLock(),
 			loopDeviceManager:           &mockLoopDeviceManager{},
+			newDBWorkerFunc:             newDBWorkerFunc,
 			newIntrospectionSocketName:  addons.DefaultIntrospectionSocketName,
 			prometheusRegistry:          prometheusRegistry,
+			mongoTxnCollector:           mongometrics.NewTxnCollector(),
+			mongoDialCollector:          mongometrics.NewDialCollector(),
 			preUpgradeSteps:             preUpgradeSteps,
 			upgradeSteps:                upgradeSteps,
 			isCaasAgent:                 isCAAS,
@@ -391,3 +436,43 @@ func (FakeAgentConfig) ChangeConfig(mutate agent.ConfigMutator) error {
 }
 
 func (FakeAgentConfig) CheckArgs([]string) error { return nil }
+
+// minModelWorkersEnviron implements just enough of environs.Environ
+// to allow model workers to run.
+type minModelWorkersEnviron struct {
+	environs.Environ
+	environs.LXDProfiler
+}
+
+func (e *minModelWorkersEnviron) Config() *config.Config {
+	attrs := coretesting.FakeConfig()
+	cfg, err := config.New(config.UseDefaults, attrs)
+	if err != nil {
+		panic(err)
+	}
+	return cfg
+}
+
+func (e *minModelWorkersEnviron) SetConfig(*config.Config) error {
+	return nil
+}
+
+func (e *minModelWorkersEnviron) AllRunningInstances(envcontext.ProviderCallContext) ([]instances.Instance, error) {
+	return nil, nil
+}
+
+func (e *minModelWorkersEnviron) Instances(ctx envcontext.ProviderCallContext, ids []instance.Id) ([]instances.Instance, error) {
+	return nil, environs.ErrNoInstances
+}
+
+func (*minModelWorkersEnviron) MaybeWriteLXDProfile(pName string, put lxdprofile.Profile) error {
+	return nil
+}
+
+func (*minModelWorkersEnviron) LXDProfileNames(containerName string) ([]string, error) {
+	return nil, nil
+}
+
+func (*minModelWorkersEnviron) AssignLXDProfiles(instId string, profilesNames []string, profilePosts []lxdprofile.ProfilePost) (current []string, err error) {
+	return profilesNames, nil
+}

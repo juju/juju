@@ -16,7 +16,7 @@ import (
 
 	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/engine"
-	"github.com/juju/juju/cmd/jujud/util"
+	"github.com/juju/juju/cmd/jujud-controller/util"
 	"github.com/juju/juju/internal/worker/agent"
 	"github.com/juju/juju/internal/worker/controlleragentconfig"
 	"github.com/juju/juju/internal/worker/dbaccessor"
