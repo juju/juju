@@ -25,10 +25,12 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/status"
 	coretrace "github.com/juju/juju/core/trace"
 	"github.com/juju/juju/internal/observability/probe"
 	proxy "github.com/juju/juju/internal/proxy/config"
 	"github.com/juju/juju/internal/upgrades"
+	"github.com/juju/juju/internal/upgradesteps"
 	jworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/agent"
 	"github.com/juju/juju/internal/worker/apiaddressupdater"
@@ -261,8 +263,11 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 			UpgradeStepsGateName: upgradeStepsGateName,
 			PreUpgradeSteps:      config.PreUpgradeSteps,
 			UpgradeSteps:         config.UpgradeSteps,
-			Logger:               loggo.GetLogger("juju.worker.upgradestepsmachine"),
-			Clock:                config.Clock,
+			NewAgentStatusSetter: func(ctx context.Context, a base.APICaller) (upgradesteps.StatusSetter, error) {
+				return noopStatusSetter{}, nil
+			},
+			Logger: loggo.GetLogger("juju.worker.upgradestepsmachine"),
+			Clock:  config.Clock,
 		})),
 
 		// The migration workers collaborate to run migrations;
@@ -492,3 +497,9 @@ const (
 	deadFlagName    = "dead-flag"
 	notDeadFlagName = "not-dead-flag"
 )
+
+type noopStatusSetter struct{}
+
+func (noopStatusSetter) SetStatus(setableStatus status.Status, info string, data map[string]any) error {
+	return nil
+}

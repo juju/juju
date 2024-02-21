@@ -55,7 +55,7 @@ func NewControllerWorker(
 	upgradeService UpgradeService,
 	preUpgradeSteps upgrades.PreUpgradeStepsFunc,
 	performUpgradeSteps upgrades.UpgradeStepsFunc,
-	entity StatusSetter,
+	entity upgradesteps.StatusSetter,
 	logger Logger,
 	clock clock.Clock,
 ) (worker.Worker, error) {

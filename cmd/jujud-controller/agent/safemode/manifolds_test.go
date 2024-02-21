@@ -14,7 +14,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/agenttest"
-	"github.com/juju/juju/cmd/jujud/agent/safemode"
+	"github.com/juju/juju/cmd/jujud-controller/agent/safemode"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/testing"
 )

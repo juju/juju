@@ -5,6 +5,7 @@ package agent
 
 import (
 	stdcontext "context"
+	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -18,6 +19,7 @@ import (
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/v4/cert"
 	"github.com/juju/utils/v4/ssh"
 	sshtesting "github.com/juju/utils/v4/ssh/testing"
 	"github.com/juju/version/v2"
@@ -28,8 +30,8 @@ import (
 	"github.com/juju/juju/agent/engine"
 	agenterrors "github.com/juju/juju/agent/errors"
 	"github.com/juju/juju/cmd/internal/agent/agentconf"
-	"github.com/juju/juju/cmd/jujud/agent/agenttest"
-	"github.com/juju/juju/cmd/jujud/agent/mocks"
+	"github.com/juju/juju/cmd/jujud-controller/agent/agenttest"
+	"github.com/juju/juju/cmd/jujud-controller/agent/mocks"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/blockdevice"
@@ -56,6 +58,15 @@ import (
 	jujuversion "github.com/juju/juju/version"
 )
 
+const (
+	// Use a longer wait in tests that are dependent on leases - sometimes
+	// the raft workers can take a bit longer to spin up.
+	longerWait = 2 * coretesting.LongWait
+
+	// This is the address that the raft workers will use for the server.
+	serverAddress = "localhost:17070"
+)
+
 type MachineSuite struct {
 	commonMachineSuite
 
@@ -63,6 +74,15 @@ type MachineSuite struct {
 }
 
 var _ = gc.Suite(&MachineSuite{})
+
+// noopRevisionUpdater creates a stub to prevent outbound requests to the
+// charmhub store and the charmstore. As these are meant to be unit tests, we
+// should strive to remove outbound calls to external services.
+type noopRevisionUpdater struct{}
+
+func (noopRevisionUpdater) UpdateLatestRevisions() error {
+	return nil
+}
 
 // DefaultVersions returns a slice of unique 'versions' for the current
 // environment's host architecture. Additionally, it ensures that 'versions'
@@ -417,6 +437,59 @@ func (s *MachineSuite) TestMachineAgentRunsMachineStorageWorker(c *gc.C) {
 	started.assertTriggered(c, "storage worker to start")
 }
 
+func (s *MachineSuite) TestCertificateDNSUpdated(c *gc.C) {
+	m, _, _ := s.primeAgent(c, state.JobManageModel)
+	ctrl, a := s.newAgent(c, m)
+	defer ctrl.Finish()
+	s.testCertificateDNSUpdated(c, a)
+}
+
+func (s *MachineSuite) TestCertificateDNSUpdatedInvalidPrivateKey(c *gc.C) {
+	m, agentConfig, _ := s.primeAgent(c, state.JobManageModel)
+
+	// Write out config with an invalid private key. This should
+	// cause the agent to rewrite the cert and key.
+	si, ok := agentConfig.StateServingInfo()
+	c.Assert(ok, jc.IsTrue)
+	si.PrivateKey = "foo"
+	agentConfig.SetStateServingInfo(si)
+	err := agentConfig.Write()
+	c.Assert(err, jc.ErrorIsNil)
+
+	ctrl, a := s.newAgent(c, m)
+	defer ctrl.Finish()
+	s.testCertificateDNSUpdated(c, a)
+}
+
+func (s *MachineSuite) testCertificateDNSUpdated(c *gc.C, a *MachineAgent) {
+	// Set up a channel which fires when State is opened.
+	started := make(chan struct{}, 16)
+	s.PatchValue(&reportOpenedState, func(*state.State) {
+		started <- struct{}{}
+	})
+
+	// Start the agent.
+	go func() { c.Check(a.Run(cmdtesting.Context(c)), jc.ErrorIsNil) }()
+	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
+
+	// Wait for State to be opened. Once this occurs we know that the
+	// agent's initial startup has happened.
+	s.assertChannelActive(c, started, "agent to start up")
+
+	// Check that certificate was updated when the agent started.
+	stateInfo, _ := a.CurrentConfig().StateServingInfo()
+	srvCert, _, err := cert.ParseCertAndKey(stateInfo.Cert, stateInfo.PrivateKey)
+	c.Assert(err, jc.ErrorIsNil)
+	expectedDnsNames := set.NewStrings("localhost", "juju-apiserver", "juju-mongodb")
+	certDnsNames := set.NewStrings(srvCert.DNSNames...)
+	c.Check(expectedDnsNames.Difference(certDnsNames).IsEmpty(), jc.IsTrue)
+
+	// Check the mongo certificate file too.
+	pemContent, err := os.ReadFile(filepath.Join(s.DataDir, "server.pem"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(string(pemContent), gc.Equals, stateInfo.Cert+"\n"+stateInfo.PrivateKey)
+}
+
 func (s *MachineSuite) setupIgnoreAddresses(c *gc.C, expectedIgnoreValue bool) chan bool {
 	ignoreAddressCh := make(chan bool, 1)
 	s.AgentSuite.PatchValue(&machiner.NewMachiner, func(cfg machiner.Config) (worker.Worker, error) {
@@ -522,6 +595,20 @@ func (s *MachineSuite) TestMachineWorkers(c *gc.C) {
 	s.PatchValue(&kvm.IsKVMSupported, func() (bool, error) { return true, nil })
 
 	agenttest.WaitMatch(c, matcher.Check, coretesting.LongWait)
+}
+
+func (s *MachineSuite) TestReplicasetInitForNewController(c *gc.C) {
+	m, _, _ := s.primeAgent(c, state.JobManageModel)
+	ctrl, a := s.newAgent(c, m)
+	defer ctrl.Finish()
+
+	agentConfig := a.CurrentConfig()
+
+	err := a.ensureMongoServer(stdcontext.Background(), agentConfig)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(s.fakeEnsureMongo.EnsureCount, gc.Equals, 1)
+	c.Assert(s.fakeEnsureMongo.InitiateCount, gc.Equals, 0)
 }
 
 func (s *MachineSuite) waitStopped(c *gc.C, job state.MachineJob, a *MachineAgent, done chan error) {

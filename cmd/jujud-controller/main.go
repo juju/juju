@@ -32,13 +32,15 @@ import (
 	"github.com/juju/juju/cmd/internal/agent/agentconf"
 	"github.com/juju/juju/cmd/internal/dumplogs"
 	"github.com/juju/juju/cmd/internal/run"
-	agentcmd "github.com/juju/juju/cmd/jujud/agent"
+	agentcmd "github.com/juju/juju/cmd/jujud-controller/agent"
+	jujudagentcmd "github.com/juju/juju/cmd/jujud/agent"
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/machinelock"
 	coreos "github.com/juju/juju/core/os"
 	proxy "github.com/juju/juju/internal/proxy/config"
 	_ "github.com/juju/juju/internal/secrets/provider/all" // Import the secret providers.
 	"github.com/juju/juju/internal/upgrades"
+	"github.com/juju/juju/internal/worker/dbaccessor"
 	"github.com/juju/juju/internal/worker/logsender"
 	"github.com/juju/juju/internal/worker/uniter/runner/jujuc"
 	jujunames "github.com/juju/juju/juju/names"
@@ -254,8 +256,9 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 		return &jujudWriter{target: target}
 	}
 
-	jujud.Register(agentcmd.NewCAASUnitInitCommand())
-	jujud.Register(agentcmd.NewModelCommand(bufferedLogger))
+	jujud.Register(jujudagentcmd.NewCAASUnitInitCommand())
+	jujud.Register(jujudagentcmd.NewModelCommand(bufferedLogger))
+	jujud.Register(agentcmd.NewBootstrapCommand())
 
 	// TODO(katco-): AgentConf type is doing too much. The
 	// MachineAgent type has called out the separate concerns; the
@@ -264,6 +267,7 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 	machineAgentFactory := agentcmd.MachineAgentFactoryFn(
 		agentConf,
 		bufferedLogger,
+		dbaccessor.NewTrackedDBWorker,
 		addons.DefaultIntrospectionSocketName,
 		func(mt state.ModelType) upgrades.PreUpgradeStepsFunc {
 			if mt == state.ModelTypeCAAS {
@@ -276,6 +280,15 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 	)
 	jujud.Register(agentcmd.NewMachineAgentCommand(ctx, machineAgentFactory, agentConf, agentConf))
 
+	safeModeMachineAgentFactory := agentcmd.SafeModeMachineAgentFactoryFn(
+		agentConf,
+		bufferedLogger,
+		dbaccessor.NewTrackedDBWorker,
+		addons.DefaultIntrospectionSocketName,
+		"",
+	)
+
+	jujud.Register(agentcmd.NewSafeModeAgentCommand(ctx, safeModeMachineAgentFactory, agentConf, agentConf))
 	jujud.Register(agentcmd.NewCheckConnectionCommand(agentConf, agentcmd.ConnectAsAgent))
 
 	code = cmd.Main(jujud, ctx, args[1:])
@@ -313,6 +326,8 @@ func Main(args []string) int {
 	commandName := filepath.Base(args[0])
 	switch commandName {
 	case jujunames.Jujud:
+		code, err = jujuDMain(args, ctx)
+	case jujunames.JujudController:
 		code, err = jujuDMain(args, ctx)
 	case jujunames.JujuExec:
 		lock, err := machinelock.New(machinelock.Config{

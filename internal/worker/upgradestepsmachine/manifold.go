@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/upgrades"
+	"github.com/juju/juju/internal/upgradesteps"
 	"github.com/juju/juju/internal/worker/gate"
 )
 
@@ -45,6 +46,7 @@ type ManifoldConfig struct {
 	UpgradeStepsGateName string
 	PreUpgradeSteps      upgrades.PreUpgradeStepsFunc
 	UpgradeSteps         upgrades.UpgradeStepsFunc
+	NewAgentStatusSetter func(context.Context, base.APICaller) (upgradesteps.StatusSetter, error)
 	Logger               Logger
 	Clock                clock.Clock
 }
@@ -107,6 +109,13 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 
+			// Get a component capable of setting machine status
+			// to indicate progress to the user.
+			statusSetter, err := config.NewAgentStatusSetter(ctx, apiCaller)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+
 			// Create a new machine worker. As this is purely a
 			// machine worker, we don't need to worry about the
 			// upgrade service.
@@ -116,17 +125,11 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				apiCaller,
 				config.PreUpgradeSteps,
 				config.UpgradeSteps,
-				noopStatusSetter{},
+				statusSetter,
 				config.Logger,
 				config.Clock,
 			), nil
 
 		},
 	}
-}
-
-type noopStatusSetter struct{}
-
-func (noopStatusSetter) SetStatus(setableStatus status.Status, info string, data map[string]any) error {
-	return nil
 }
