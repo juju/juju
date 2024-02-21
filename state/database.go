@@ -216,6 +216,22 @@ func (schema CollectionSchema) Create(
 
 const codeNamespaceExists = 48
 
+func mgoAlreadyExistsErr(err error) bool {
+	err = errors.Cause(err)
+	queryError, ok := err.(*mgo.QueryError)
+	if !ok {
+		return false
+	}
+	// Mongo doesn't provide a list of all error codes in their documentation,
+	// but we can review their source code. Weirdly already exists error comes
+	// up as namespace exists.
+	//
+	// See the following links:
+	//  - Error codes document:  https://github.com/mongodb/mongo/blob/2eefd197e50c5d90b3ec0e0ad9ac15a8b14e3331/src/mongo/base/error_codes.yml#L84
+	//  - Mongo returning the NS error: https://github.com/mongodb/mongo/blob/8c9fa5aa62c28280f35494b091f1ae5b810d349b/src/mongo/db/catalog/create_collection.cpp#L245-L246
+	return queryError.Code == 48
+}
+
 // createCollection swallows collection-already-exists errors.
 func createCollection(raw *mgo.Collection, spec *mgo.CollectionInfo) error {
 	err := raw.Create(spec)

@@ -37,7 +37,6 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
-	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	coreos "github.com/juju/juju/core/os"
@@ -3372,118 +3371,6 @@ func (s *StateSuite) createOffer(c *gc.C) {
 	}
 	_, err := sd.AddOffer(offerArgs)
 	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *StateSuite) TestRemoveExportingModelDocsRemovesLogs(c *gc.C) {
-	st := s.Factory.MakeModel(c, nil)
-	defer st.Close()
-
-	model, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = model.SetMigrationMode(state.MigrationModeExporting)
-	c.Assert(err, jc.ErrorIsNil)
-
-	writeLogs(c, st, 5)
-	writeLogs(c, s.State, 5)
-
-	err = st.RemoveExportingModelDocs()
-	c.Assert(err, jc.ErrorIsNil)
-
-	assertLogCount(c, s.State, 5)
-	assertLogCount(c, st, 0)
-}
-
-func (s *StateSuite) TestRemoveImportingModelDocsRemovesLogs(c *gc.C) {
-	st := s.Factory.MakeModel(c, nil)
-	defer st.Close()
-
-	model, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = model.SetMigrationMode(state.MigrationModeImporting)
-	c.Assert(err, jc.ErrorIsNil)
-
-	writeLogs(c, st, 5)
-	writeLogs(c, s.State, 5)
-
-	err = st.RemoveImportingModelDocs()
-	c.Assert(err, jc.ErrorIsNil)
-
-	assertLogCount(c, s.State, 5)
-	assertLogCount(c, st, 0)
-}
-
-func (s *StateSuite) TestRemoveModelRemovesLogs(c *gc.C) {
-	st := s.Factory.MakeModel(c, nil)
-	defer st.Close()
-
-	model, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	err = model.SetDead()
-	c.Assert(err, jc.ErrorIsNil)
-
-	writeLogs(c, st, 5)
-	writeLogs(c, s.State, 5)
-
-	err = st.RemoveDyingModel()
-	c.Assert(err, jc.ErrorIsNil)
-
-	assertLogCount(c, s.State, 5)
-	assertLogCount(c, st, 0)
-}
-
-func (s *StateSuite) TestRemoveExportingModelDocsRemovesLogTrackers(c *gc.C) {
-	st := s.Factory.MakeModel(c, nil)
-	defer st.Close()
-
-	model, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = model.SetMigrationMode(state.MigrationModeExporting)
-	c.Assert(err, jc.ErrorIsNil)
-
-	t1 := state.NewLastSentLogTracker(st, model.UUID(), "go-away")
-	defer t1.Close()
-	t2 := state.NewLastSentLogTracker(st, s.State.ModelUUID(), "stay")
-	defer t2.Close()
-
-	c.Assert(t1.Set(100, 100), jc.ErrorIsNil)
-	c.Assert(t2.Set(100, 100), jc.ErrorIsNil)
-
-	err = st.RemoveExportingModelDocs()
-	c.Assert(err, jc.ErrorIsNil)
-
-	_, _, err = t1.Get()
-	c.Check(err, jc.ErrorIs, state.ErrNeverForwarded)
-
-	id, count, err := t2.Get()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(id, gc.Equals, int64(100))
-	c.Check(count, gc.Equals, int64(100))
-}
-
-func writeLogs(c *gc.C, st *state.State, n int) {
-	dbLogger := state.NewDbLogger(st)
-	defer dbLogger.Close()
-	for i := 0; i < n; i++ {
-		err := dbLogger.Log([]corelogger.LogRecord{{
-			Time:     time.Now(),
-			Entity:   "application-van-occupanther",
-			Module:   "chasing after deer",
-			Location: "in a log house",
-			Level:    loggo.INFO,
-			Message:  "why are your fingers like that of a hedge in winter?",
-		}})
-		c.Assert(err, jc.ErrorIsNil)
-	}
-}
-
-func assertLogCount(c *gc.C, st *state.State, expected int) {
-	logColl := st.MongoSession().DB("logs").C("logs." + st.ModelUUID())
-	actual, err := logColl.Count()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(actual, gc.Equals, expected)
 }
 
 func (s *StateSuite) TestWatchForModelConfigChanges(c *gc.C) {

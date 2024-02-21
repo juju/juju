@@ -103,7 +103,6 @@ import (
 	"github.com/juju/juju/internal/worker/stateconfigwatcher"
 	"github.com/juju/juju/internal/worker/stateconverter"
 	"github.com/juju/juju/internal/worker/storageprovisioner"
-	"github.com/juju/juju/internal/worker/syslogger"
 	"github.com/juju/juju/internal/worker/terminationworker"
 	"github.com/juju/juju/internal/worker/toolsversionchecker"
 	"github.com/juju/juju/internal/worker/trace"
@@ -645,8 +644,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			ClockName:          clockName,
 			ServiceFactoryName: serviceFactoryName,
 			AgentName:          agentName,
-			StateName:          stateName,
-			SyslogName:         syslogName,
 			DebugLogger:        loggo.GetLogger("juju.worker.logsink"),
 			NewWorker:          logsink.NewWorker,
 		})),
@@ -1059,10 +1056,6 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewClient:     instancemutater.NewClient,
 			NewWorker:     instancemutater.NewContainerWorker,
 		})),
-		syslogName: syslogger.Manifold(syslogger.ManifoldConfig{
-			NewWorker: syslogger.NewWorker,
-			NewLogger: syslogger.NewSyslog,
-		}),
 		// The machineSetupName manifold runs small tasks required
 		// to setup a machine, but requires the machine agent's API
 		// connection. Once its work is complete, it stops.
@@ -1151,11 +1144,6 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewControllerWorker:  upgradesteps.NewControllerWorker,
 			Logger:               loggo.GetLogger("juju.worker.upgradesteps"),
 			Clock:                config.Clock,
-		}),
-
-		syslogName: syslogger.Manifold(syslogger.ManifoldConfig{
-			NewWorker: syslogger.NewWorker,
-			NewLogger: syslogger.NewDiscard,
 		}),
 
 		// The CAAS units manager worker runs on CAAS agent and subscribes and handles unit topics on the localhub.
@@ -1345,7 +1333,6 @@ const (
 	httpServerArgsName = "http-server-args"
 	apiServerName      = "api-server"
 
-	syslogName  = "syslog"
 	logSinkName = "log-sink"
 
 	caasUnitsManager = "caas-units-manager"

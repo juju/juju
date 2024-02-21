@@ -41,7 +41,6 @@ var configChecker = schema.FieldMap(schema.Fields{
 	AgentLogfileMaxSize:              schema.String(),
 	ModelLogfileMaxBackups:           schema.ForceInt(),
 	ModelLogfileMaxSize:              schema.String(),
-	ModelLogsSize:                    schema.String(),
 	PruneTxnQueryCount:               schema.ForceInt(),
 	PruneTxnSleepTime:                schema.TimeDurationString(),
 	PublicDNSAddress:                 schema.String(),
@@ -99,7 +98,6 @@ var configChecker = schema.FieldMap(schema.Fields{
 	AgentLogfileMaxSize:              fmt.Sprintf("%vM", DefaultAgentLogfileMaxSize),
 	ModelLogfileMaxBackups:           DefaultModelLogfileMaxBackups,
 	ModelLogfileMaxSize:              fmt.Sprintf("%vM", DefaultModelLogfileMaxSize),
-	ModelLogsSize:                    fmt.Sprintf("%vM", DefaultModelLogsSizeMB),
 	PruneTxnQueryCount:               DefaultPruneTxnQueryCount,
 	PruneTxnSleepTime:                DefaultPruneTxnSleepTime,
 	PublicDNSAddress:                 schema.Omit,
@@ -260,10 +258,6 @@ they don't have any access rights to the controller itself`,
 	ModelLogfileMaxSize: {
 		Type:        environschema.Tstring,
 		Description: `The maximum size of the log file written out by the controller on behalf of workers running for a model`,
-	},
-	ModelLogsSize: {
-		Type:        environschema.Tstring,
-		Description: `The size of the capped collections used to hold the logs for the models`,
 	},
 	PruneTxnQueryCount: {
 		Type:        environschema.Tint,

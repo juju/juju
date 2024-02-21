@@ -5,6 +5,7 @@ package state
 
 import (
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/dustin/go-humanize"
@@ -156,6 +157,63 @@ func (p *collectionPruner) pruneByAge(stop <-chan struct{}) error {
 		logger.Debugf("%s age pruning (%s): %d rows deleted", p.coll.Name, modelName, deleted)
 	}
 	return errors.Trace(iter.Close())
+}
+
+func collStats(coll *mgo.Collection) (bson.M, error) {
+	var result bson.M
+	err := coll.Database.Run(bson.D{
+		{"collStats", coll.Name},
+		{"scale", humanize.KiByte},
+	}, &result)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	// For mongo > 4.4, if the collection exists,
+	// there will be a "capped" attribute.
+	_, ok := result["capped"]
+	if !ok {
+		return nil, errors.NotFoundf("Collection [%s.%s]", coll.Database.Name, coll.Name)
+	}
+	return result, nil
+}
+
+// dbCollectionSizeToInt processes the result of Database.collStats()
+func dbCollectionSizeToInt(result bson.M, collectionName string) (int, error) {
+	size, ok := result["size"]
+	if !ok {
+		logger.Warningf("mongo collStats did not return a size field for %q", collectionName)
+		// this wasn't considered an error in the past, just treat it as size 0
+		return 0, nil
+	}
+	if asint, ok := size.(int); ok {
+		if asint < 0 {
+			return 0, errors.Errorf("mongo collStats for %q returned a negative value: %v", collectionName, size)
+		}
+		return asint, nil
+	}
+	if asint64, ok := size.(int64); ok {
+		// 2billion megabytes is 2 petabytes, which is outside our range anyway.
+		if asint64 > math.MaxInt32 {
+			return math.MaxInt32, nil
+		}
+		if asint64 < 0 {
+			return 0, errors.Errorf("mongo collStats for %q returned a negative value: %v", collectionName, size)
+		}
+		return int(asint64), nil
+	}
+	return 0, errors.Errorf(
+		"mongo collStats for %q did not return an int or int64 for size, returned %T: %v",
+		collectionName, size, size)
+}
+
+// getCollectionKB returns the size of a MongoDB collection (in
+// kilobytes), excluding space used by indexes.
+func getCollectionKB(coll *mgo.Collection) (int, error) {
+	stats, err := collStats(coll)
+	if err != nil {
+		return 0, errors.Trace(err)
+	}
+	return dbCollectionSizeToInt(stats, coll.Name)
 }
 
 func (*collectionPruner) toDeleteCalculator(coll *mgo.Collection, maxSizeMB int, countRatio float64) (int, error) {

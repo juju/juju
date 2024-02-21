@@ -166,10 +166,10 @@ const (
 	// precidence for the agent.
 	LoggingOverride = "LOGGING_OVERRIDE"
 
-	LogSinkDBLoggerBufferSize    = "LOGSINK_DBLOGGER_BUFFER_SIZE"
-	LogSinkDBLoggerFlushInterval = "LOGSINK_DBLOGGER_FLUSH_INTERVAL"
-	LogSinkRateLimitBurst        = "LOGSINK_RATELIMIT_BURST"
-	LogSinkRateLimitRefill       = "LOGSINK_RATELIMIT_REFILL"
+	LogSinkLoggerBufferSize    = "LOGSINK_LOGGER_BUFFER_SIZE"
+	LogSinkLoggerFlushInterval = "LOGSINK_LOGGER_FLUSH_INTERVAL"
+	LogSinkRateLimitBurst      = "LOGSINK_RATELIMIT_BURST"
+	LogSinkRateLimitRefill     = "LOGSINK_RATELIMIT_REFILL"
 
 	// These values are used to override various aspects of worker behaviour.
 	// They are used for debugging or testing purposes.

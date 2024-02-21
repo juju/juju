@@ -285,10 +285,6 @@ const (
 	// models will be done.
 	DisableTelemetryKey = "disable-telemetry"
 
-	// LoggingOutputKey is a key for determining the destination of output for
-	// logging.
-	LoggingOutputKey = "logging-output"
-
 	// DefaultBaseKey is a key for determining the base a model should
 	// explicitly use for charms unless otherwise provided.
 	DefaultBaseKey = "default-base"
@@ -541,7 +537,6 @@ var defaultConfigValues = map[string]interface{}{
 	NumContainerProvisionWorkersKey: 4,
 	ResourceTagsKey:                 "",
 	LoggingConfigKey:                "",
-	LoggingOutputKey:                "",
 	AutomaticallyRetryHooks:         true,
 	"enable-os-refresh-update":      true,
 	"enable-os-upgrade":             true,
@@ -842,10 +837,6 @@ func Validate(cfg, old *Config) error {
 	}
 
 	if err := cfg.validateCIDRs(cfg.SAASIngressAllow(), false); err != nil {
-		return errors.Trace(err)
-	}
-
-	if err := cfg.validateLoggingOutput(); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -1508,47 +1499,6 @@ func (c *Config) validateCIDRs(cidrs []string, allowEmpty bool) error {
 	return nil
 }
 
-// LoggingOutput is a for determining the destination of output for
-// logging.
-func (c *Config) LoggingOutput() ([]string, bool) {
-	outputs, ok := c.defined[LoggingOutputKey]
-	if !ok {
-		return []string{}, false
-	}
-	if m, ok := outputs.(string); ok {
-		s := set.NewStrings()
-		for _, v := range strings.Split(strings.TrimSpace(m), ",") {
-			if v == "" {
-				continue
-			}
-			s.Add(strings.TrimSpace(v))
-		}
-		if s.Size() > 0 {
-			return s.SortedValues(), true
-		}
-	}
-	return []string{}, false
-}
-
-// These consts are used to define the backend loggers to use.
-// TODO(debug-log) - the database backend needs to be removed.
-const (
-	SyslogName   = "syslog"
-	DatabaseName = "database"
-)
-
-func (c *Config) validateLoggingOutput() error {
-	outputs, _ := c.LoggingOutput()
-	for _, output := range outputs {
-		switch strings.TrimSpace(output) {
-		case DatabaseName, SyslogName:
-		default:
-			return errors.NotValidf("logging-output %q", output)
-		}
-	}
-	return nil
-}
-
 // DisableNetworkManagement reports whether Juju is allowed to
 // configure and manage networking inside the environment.
 func (c *Config) DisableNetworkManagement() (bool, bool) {
@@ -1753,8 +1703,6 @@ var alwaysOptional = schema.Defaults{
 	AgentVersionKey:   schema.Omit,
 	AuthorizedKeysKey: schema.Omit,
 	ExtraInfoKey:      schema.Omit,
-
-	LoggingOutputKey: schema.Omit,
 
 	// Storage related config.
 	// Environ providers will specify their own defaults.
@@ -2367,11 +2315,6 @@ CIDRs specifying what ingress can be applied to offers in this model.`,
 	},
 	CharmHubURLKey: {
 		Description: `The url for CharmHub API calls`,
-		Type:        environschema.Tstring,
-		Group:       environschema.EnvironGroup,
-	},
-	LoggingOutputKey: {
-		Description: `The logging output destination: database and/or syslog. (default "")`,
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},

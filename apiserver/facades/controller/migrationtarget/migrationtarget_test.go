@@ -6,6 +6,8 @@ package migrationtarget_test
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/juju/description/v5"
@@ -28,6 +30,7 @@ import (
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/facades"
 	"github.com/juju/juju/core/instance"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/modelmigration"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/credential"
@@ -122,7 +125,7 @@ func (s *Suite) importModel(c *gc.C, api *migrationtarget.API) names.ModelTag {
 func (s *Suite) TestCACert(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	api := s.mustNewAPI(c)
+	api := s.mustNewAPI(c, c.MkDir())
 	r, err := api.CACert(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(r.Result), gc.Equals, jujutesting.CACert)
@@ -133,7 +136,7 @@ func (s *Suite) TestPrechecks(c *gc.C) {
 
 	s.upgradeService.EXPECT().IsUpgrading(gomock.Any()).Return(false, nil)
 
-	api := s.mustNewAPI(c)
+	api := s.mustNewAPI(c, c.MkDir())
 	args := params.MigrationModelInfo{
 		UUID:                   "uuid",
 		Name:                   "some-model",
@@ -150,7 +153,7 @@ func (s *Suite) TestPrechecksIsUpgrading(c *gc.C) {
 
 	s.upgradeService.EXPECT().IsUpgrading(gomock.Any()).Return(true, nil)
 
-	api := s.mustNewAPI(c)
+	api := s.mustNewAPI(c, c.MkDir())
 	args := params.MigrationModelInfo{
 		UUID:                   "uuid",
 		Name:                   "some-model",
@@ -171,7 +174,7 @@ func (s *Suite) TestPrechecksFail(c *gc.C) {
 	modelVersion := controllerVersion
 	modelVersion.Minor++
 
-	api := s.mustNewAPI(c)
+	api := s.mustNewAPI(c, c.MkDir())
 	args := params.MigrationModelInfo{
 		AgentVersion: modelVersion,
 	}
@@ -223,7 +226,7 @@ func (s *Suite) TestImport(c *gc.C) {
 
 	s.expectImportModel(c)
 
-	api := s.mustNewAPI(c)
+	api := s.mustNewAPI(c, c.MkDir())
 	tag := s.importModel(c, api)
 	// Check the model was imported.
 	model, ph, err := s.StatePool.GetModel(tag.Id())
@@ -238,7 +241,7 @@ func (s *Suite) TestAbort(c *gc.C) {
 
 	s.expectImportModel(c)
 
-	api := s.mustNewAPI(c)
+	api := s.mustNewAPI(c, c.MkDir())
 	tag := s.importModel(c, api)
 
 	err := api.Abort(context.Background(), params.ModelArgs{ModelTag: tag.String()})
@@ -253,7 +256,7 @@ func (s *Suite) TestAbort(c *gc.C) {
 func (s *Suite) TestAbortNotATag(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	api := s.mustNewAPI(c)
+	api := s.mustNewAPI(c, c.MkDir())
 	err := api.Abort(context.Background(), params.ModelArgs{ModelTag: "not-a-tag"})
 	c.Assert(err, gc.ErrorMatches, `"not-a-tag" is not a valid tag`)
 }
@@ -261,7 +264,7 @@ func (s *Suite) TestAbortNotATag(c *gc.C) {
 func (s *Suite) TestAbortMissingModel(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	api := s.mustNewAPI(c)
+	api := s.mustNewAPI(c, c.MkDir())
 	newUUID := uuid.MustNewUUID().String()
 	err := api.Abort(context.Background(), params.ModelArgs{ModelTag: names.NewModelTag(newUUID).String()})
 	c.Assert(err, gc.ErrorMatches, `model "`+newUUID+`" not found`)
@@ -275,7 +278,7 @@ func (s *Suite) TestAbortNotImportingModel(c *gc.C) {
 	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	api := s.mustNewAPI(c)
+	api := s.mustNewAPI(c, c.MkDir())
 	err = api.Abort(context.Background(), params.ModelArgs{ModelTag: model.ModelTag().String()})
 	c.Assert(err, gc.ErrorMatches, `migration mode for the model is not importing`)
 }
@@ -290,7 +293,7 @@ func (s *Suite) TestActivate(c *gc.C) {
 		Name: "foo", SourceModel: names.NewModelTag(sourceModel),
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	api := s.mustNewAPI(c)
+	api := s.mustNewAPI(c, c.MkDir())
 	tag := s.importModel(c, api)
 
 	expectedCI := crossmodel.ControllerInfo{
@@ -332,7 +335,7 @@ func (s *Suite) TestActivate(c *gc.C) {
 func (s *Suite) TestActivateNotATag(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	api := s.mustNewAPI(c)
+	api := s.mustNewAPI(c, c.MkDir())
 	err := api.Activate(context.Background(), params.ActivateModelArgs{ModelTag: "not-a-tag"})
 	c.Assert(err, gc.ErrorMatches, `"not-a-tag" is not a valid tag`)
 }
@@ -340,7 +343,7 @@ func (s *Suite) TestActivateNotATag(c *gc.C) {
 func (s *Suite) TestActivateMissingModel(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	api := s.mustNewAPI(c)
+	api := s.mustNewAPI(c, c.MkDir())
 	newUUID := uuid.MustNewUUID().String()
 	err := api.Activate(context.Background(), params.ActivateModelArgs{ModelTag: names.NewModelTag(newUUID).String()})
 	c.Assert(err, gc.ErrorMatches, `model "`+newUUID+`" not found`)
@@ -354,7 +357,7 @@ func (s *Suite) TestActivateNotImportingModel(c *gc.C) {
 	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	api := s.mustNewAPI(c)
+	api := s.mustNewAPI(c, c.MkDir())
 	err = api.Activate(context.Background(), params.ActivateModelArgs{ModelTag: model.ModelTag().String()})
 	c.Assert(err, gc.ErrorMatches, `migration mode for the model is not importing`)
 }
@@ -367,13 +370,16 @@ func (s *Suite) TestLatestLogTime(c *gc.C) {
 	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	t := time.Date(2016, 11, 30, 18, 14, 0, 100, time.UTC)
-	tracker := state.NewLastSentLogTracker(st, model.UUID(), "migration-logtransfer")
-	defer tracker.Close()
-	err = tracker.Set(0, t.UnixNano())
+	logDir := c.MkDir()
+	t := time.Date(2024, 02, 18, 06, 23, 24, 0, time.UTC)
+	logFile := corelogger.ModelLogFile(logDir, model.UUID(), corelogger.ModelFilePrefix(model.Owner().Id(), model.Name()))
+	err = os.MkdirAll(filepath.Dir(logFile), 0755)
+	c.Assert(err, jc.ErrorIsNil)
+	// {"timestamp":"2024-02-20T06:01:19.101184262Z","model-uuid":"05756e0f-e5b8-47d3-8093-bf7d53d92589","entity":"machine-0","level":2,"module":"juju.worker.dependency","location":"engine.go:598","message":"\"charmhub-http-client\" manifold worker started at 2024-02-20 06:01:19.10118362 +0000 UTC","labels":null}
+	err = os.WriteFile(logFile, []byte("machine-0 2024-02-18 05:00:00 INFO juju.worker worker.go:200 test first\nmachine-0 2024-02-18 06:23:24 INFO juju.worker worker.go:518 test\n bad line"), 0755)
 	c.Assert(err, jc.ErrorIsNil)
 
-	api := s.mustNewAPI(c)
+	api := s.mustNewAPI(c, logDir)
 	latest, err := api.LatestLogTime(context.Background(), params.ModelArgs{ModelTag: model.ModelTag().String()})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(latest, gc.Equals, t)
@@ -387,7 +393,7 @@ func (s *Suite) TestLatestLogTimeNeverSet(c *gc.C) {
 	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	api := s.mustNewAPI(c)
+	api := s.mustNewAPI(c, c.MkDir())
 	latest, err := api.LatestLogTime(context.Background(), params.ModelArgs{ModelTag: model.ModelTag().String()})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(latest, gc.Equals, time.Time{})
@@ -405,7 +411,7 @@ func (s *Suite) TestAdoptIAASResources(c *gc.C) {
 		return &env, nil
 	}, func(model stateenvirons.Model, _ stateenvirons.CloudService, _ stateenvirons.CredentialService) (caas.Broker, error) {
 		return nil, errors.New("should not be called")
-	}, facades.FacadeVersions{})
+	}, facades.FacadeVersions{}, c.MkDir())
 	c.Assert(err, jc.ErrorIsNil)
 
 	m, err := st.Model()
@@ -436,7 +442,7 @@ func (s *Suite) TestAdoptCAASResources(c *gc.C) {
 	}, func(model stateenvirons.Model, _ stateenvirons.CloudService, _ stateenvirons.CredentialService) (caas.Broker, error) {
 		c.Assert(model.ModelTag().Id(), gc.Equals, st.ModelUUID())
 		return &broker, nil
-	}, facades.FacadeVersions{})
+	}, facades.FacadeVersions{}, c.MkDir())
 	c.Assert(err, jc.ErrorIsNil)
 
 	m, err := st.Model()
@@ -631,7 +637,7 @@ func (s *Suite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *Suite) newAPI(environFunc stateenvirons.NewEnvironFunc, brokerFunc stateenvirons.NewCAASBrokerFunc, versions facades.FacadeVersions) (*migrationtarget.API, error) {
+func (s *Suite) newAPI(environFunc stateenvirons.NewEnvironFunc, brokerFunc stateenvirons.NewCAASBrokerFunc, versions facades.FacadeVersions, logDir string) (*migrationtarget.API, error) {
 	return migrationtarget.NewAPI(
 		&s.facadeContext,
 		s.authorizer,
@@ -652,22 +658,23 @@ func (s *Suite) newAPI(environFunc stateenvirons.NewEnvironFunc, brokerFunc stat
 		environFunc,
 		brokerFunc,
 		versions,
+		logDir,
 	)
 }
 
-func (s *Suite) mustNewAPI(c *gc.C) *migrationtarget.API {
-	api, err := s.newAPI(nil, nil, facades.FacadeVersions{})
+func (s *Suite) mustNewAPI(c *gc.C, logDir string) *migrationtarget.API {
+	api, err := s.newAPI(nil, nil, facades.FacadeVersions{}, logDir)
 	c.Assert(err, jc.ErrorIsNil)
 	return api
 }
 
-func (s *Suite) newAPIWithFacadeVersions(environFunc stateenvirons.NewEnvironFunc, brokerFunc stateenvirons.NewCAASBrokerFunc, versions facades.FacadeVersions) (*migrationtarget.API, error) {
-	api, err := s.newAPI(environFunc, brokerFunc, versions)
+func (s *Suite) newAPIWithFacadeVersions(environFunc stateenvirons.NewEnvironFunc, brokerFunc stateenvirons.NewCAASBrokerFunc, versions facades.FacadeVersions, logDir string) (*migrationtarget.API, error) {
+	api, err := s.newAPI(environFunc, brokerFunc, versions, logDir)
 	return api, err
 }
 
 func (s *Suite) mustNewAPIWithFacadeVersions(c *gc.C, versions facades.FacadeVersions) *migrationtarget.API {
-	api, err := s.newAPIWithFacadeVersions(nil, nil, versions)
+	api, err := s.newAPIWithFacadeVersions(nil, nil, versions, c.MkDir())
 	c.Assert(err, jc.ErrorIsNil)
 	return api
 }
@@ -677,7 +684,7 @@ func (s *Suite) mustNewAPIWithModel(c *gc.C, env environs.Environ, broker caas.B
 		return env, nil
 	}, func(stateenvirons.Model, stateenvirons.CloudService, stateenvirons.CredentialService) (caas.Broker, error) {
 		return broker, nil
-	}, facades.FacadeVersions{})
+	}, facades.FacadeVersions{}, c.MkDir())
 	c.Assert(err, jc.ErrorIsNil)
 	return api
 }

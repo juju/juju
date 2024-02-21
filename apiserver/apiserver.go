@@ -706,7 +706,7 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 	mainAPIHandler := http.HandlerFunc(srv.apiHandler)
 	healthHandler := http.HandlerFunc(srv.healthHandler)
 	embeddedCLIHandler := newEmbeddedCLIHandler(httpCtxt)
-	debugLogHandler := newDebugLogDBHandler(
+	debugLogHandler := newDebugLogTailerHandler(
 		httpCtxt,
 		httpAuthenticator,
 		tagKindAuthorizer{

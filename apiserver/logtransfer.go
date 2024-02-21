@@ -5,7 +5,6 @@ package apiserver
 
 import (
 	"net/http"
-	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
@@ -22,7 +21,6 @@ type migrationLoggingStrategy struct {
 
 	recordLogger corelogger.Logger
 	releaser     func() error
-	tracker      *logTracker
 }
 
 // newMigrationLogWriteCloserFunc returns a function that will create a
@@ -66,8 +64,6 @@ func (s *migrationLoggingStrategy) init(ctxt httpContext, req *http.Request) err
 	if s.recordLogger, err = s.modelLogger.GetLogger(st.State.ModelUUID(), m.Name(), m.Owner().Id()); err != nil {
 		return errors.Trace(err)
 	}
-	// TODO(debug-log) - remove mongo log tracker
-	s.tracker = newLogTracker(st.State)
 	s.releaser = func() error {
 		if removed := st.Release(); removed {
 			return s.modelLogger.RemoveLogger(st.State.ModelUUID())
@@ -79,15 +75,7 @@ func (s *migrationLoggingStrategy) init(ctxt httpContext, req *http.Request) err
 
 // Close is part of the logsink.LogWriteCloser interface.
 func (s *migrationLoggingStrategy) Close() error {
-	err := errors.Annotate(
-		s.tracker.Close(),
-		"closing last-sent tracker",
-	)
-	releaseErr := s.releaser()
-	if releaseErr != nil {
-		return releaseErr
-	}
-	return err
+	return s.releaser()
 }
 
 // WriteLog is part of the logsink.LogWriteCloser interface.
@@ -102,48 +90,5 @@ func (s *migrationLoggingStrategy) WriteLog(m params.LogRecord) error {
 		Message:  m.Message,
 		Labels:   m.Labels,
 	}})
-	if err == nil {
-		err = s.tracker.Track(m.Time)
-	}
-	return errors.Annotate(err, "logging to DB failed")
-}
-
-// trackingPeriod is used to limit the number of database writes
-// made in order to record the ID of the log record last persisted.
-const trackingPeriod = 2 * time.Minute
-
-func newLogTracker(st *state.State) *logTracker {
-	return &logTracker{
-		tracker: state.NewLastSentLogTracker(
-			st, st.ModelUUID(), "migration-logtransfer",
-		),
-	}
-}
-
-// logTracker assumes that log messages are sent in time order (which
-// is how they come from debug-log). If not, this won't give
-// meaningful values, and transferring logs could produce large
-// numbers of duplicates if restarted.
-type logTracker struct {
-	tracker     *state.LastSentLogTracker
-	trackedTime time.Time
-	seenTime    time.Time
-}
-
-func (l *logTracker) Track(t time.Time) error {
-	l.seenTime = t
-	if t.Sub(l.trackedTime) < trackingPeriod {
-		return nil
-	}
-	l.trackedTime = t
-	return errors.Trace(l.tracker.Set(0, t.UnixNano()))
-}
-
-func (l *logTracker) Close() error {
-	err := l.tracker.Set(0, l.seenTime.UnixNano())
-	if err != nil {
-		l.tracker.Close()
-		return errors.Trace(err)
-	}
-	return errors.Trace(l.tracker.Close())
+	return errors.Annotate(err, "writing model logs failed")
 }

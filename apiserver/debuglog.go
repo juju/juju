@@ -18,8 +18,9 @@ import (
 
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/websocket"
+	corelogger "github.com/juju/juju/core/logger"
+	"github.com/juju/juju/internal/logtailer"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 // debugLogHandler takes requests to watch the debug log.
@@ -38,10 +39,9 @@ type debugLogHandler struct {
 type debugLogHandlerFunc func(
 	clock.Clock,
 	time.Duration,
-	state.LogTailerState,
 	debugLogParams,
 	debugLogSocket,
-	string,
+	logTailerFunc,
 	<-chan struct{},
 ) error
 
@@ -123,7 +123,15 @@ func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		clock := h.ctxt.srv.clock
 		maxDuration := h.ctxt.srv.shared.maxDebugLogDuration()
 
-		if err := h.handle(clock, maxDuration, st.State, params, socket, h.logDir, h.ctxt.stop()); err != nil {
+		logTailerFunc := func(p logtailer.LogTailerParams) (logtailer.LogTailer, error) {
+			m, err := st.Model()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			modelOwnerAndName := corelogger.ModelFilePrefix(m.Owner().Id(), m.Name())
+			return logtailer.NewLogTailer(m.UUID(), corelogger.ModelLogFile(h.logDir, m.UUID(), modelOwnerAndName), p)
+		}
+		if err := h.handle(clock, maxDuration, params, socket, logTailerFunc, h.ctxt.stop()); err != nil {
 			if isBrokenPipe(err) {
 				logger.Tracef("debug-log handler stopped (client disconnected)")
 			} else {

@@ -459,18 +459,6 @@ var configTests = []configTest{
 			"mode": "strict,requires-prompts",
 		}),
 	}, {
-		about:       "Logging output flag specified",
-		useDefaults: config.UseDefaults,
-		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"logging-output": "database",
-		}),
-	}, {
-		about:       "Logging output multiple flag specified",
-		useDefaults: config.UseDefaults,
-		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"logging-output": "database,syslog",
-		}),
-	}, {
 		about:       "valid uuid",
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
@@ -1222,44 +1210,6 @@ func (s *ConfigSuite) TestApplicationOfferAllowList(c *gc.C) {
 	})
 	_, err := config.New(config.UseDefaults, attrs)
 	c.Assert(err, gc.ErrorMatches, "empty cidrs not valid")
-}
-
-func (s *ConfigSuite) TestLoggingOutput(c *gc.C) {
-	config := newTestConfig(c, testing.Attrs{})
-	loggingOutput, ok := config.LoggingOutput()
-	c.Assert(ok, jc.IsFalse)
-	c.Assert(loggingOutput, gc.DeepEquals, []string{})
-
-	config = newTestConfig(c, testing.Attrs{
-		"logging-output": "database,syslog",
-	})
-	loggingOutput, ok = config.LoggingOutput()
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(loggingOutput, gc.DeepEquals, []string{"database", "syslog"})
-
-	// Space doesn't matter
-	config = newTestConfig(c, testing.Attrs{
-		"logging-output": " database,                   syslog",
-	})
-	loggingOutput, ok = config.LoggingOutput()
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(loggingOutput, gc.DeepEquals, []string{"database", "syslog"})
-
-	// Test order doesn't matter
-	config = newTestConfig(c, testing.Attrs{
-		"logging-output": "syslog,database",
-	})
-	loggingOutput, ok = config.LoggingOutput()
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(loggingOutput, gc.DeepEquals, []string{"database", "syslog"})
-
-	// Test singular
-	config = newTestConfig(c, testing.Attrs{
-		"logging-output": "syslog",
-	})
-	loggingOutput, ok = config.LoggingOutput()
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(loggingOutput, gc.DeepEquals, []string{"syslog"})
 }
 
 func (s *ConfigSuite) TestCharmHubURLSettingValue(c *gc.C) {

@@ -42,8 +42,6 @@ type LogTailer interface {
 // LogTailerParams specifies the filtering a LogTailer should
 // apply to log records in order to decide which to return.
 type LogTailerParams struct {
-	// TODO(debug-log) - remove StartID
-	StartID       int64
 	StartTime     time.Time
 	MinLevel      loggo.Level
 	InitialLines  int

@@ -97,7 +97,7 @@ func (s *agentLoggingStrategy) WriteLog(m params.LogRecord) error {
 		Message:   m.Message,
 		Labels:    m.Labels,
 		ModelUUID: s.modelUUID,
-	}}), "logging to DB failed")
+	}}), "writing model logs failed")
 
 	// If the log entries cannot be inserted to the DB log out an error
 	// to let users know. See LP1930899.

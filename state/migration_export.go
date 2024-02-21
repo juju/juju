@@ -453,23 +453,6 @@ func (e *exporter) loadMachineInstanceData() (map[string]instanceData, error) {
 	return instances, nil
 }
 
-// XXXXX
-//func (e *exporter) loadMachineBlockDevices() (map[string][]BlockDeviceInfo, error) {
-//	coll, closer := e.st.db().GetCollection(blockDevicesC)
-//	defer closer()
-//
-//	var deviceData []blockDevicesDoc
-//	result := make(map[string][]BlockDeviceInfo)
-//	if err := coll.Find(nil).All(&deviceData); err != nil {
-//		return nil, errors.Annotate(err, "block devices")
-//	}
-//	e.logger.Debugf("found %d block device records", len(deviceData))
-//	for _, data := range deviceData {
-//		result[data.Machine] = data.BlockDevices
-//	}
-//	return result, nil
-//}
-
 func (e *exporter) newMachine(exParent description.Machine, machine *Machine, instances map[string]instanceData, portsData map[string]*machinePortRanges, blockDevices map[string][]BlockDeviceInfo) (description.Machine, error) {
 	args := description.MachineArgs{
 		Id:            machine.MachineTag(),

@@ -183,10 +183,6 @@ const (
 	// log files to keep (compressed).
 	ModelLogfileMaxBackups = "model-logfile-max-backups"
 
-	// ModelLogsSize is the size of the capped collections used to hold the
-	// logs for the models, eg "20M". Size is per model.
-	ModelLogsSize = "model-logs-size"
-
 	// MaxTxnLogSize is the maximum size the of capped txn log collection, eg "10M"
 	MaxTxnLogSize = "max-txn-log-size"
 
@@ -397,10 +393,6 @@ const (
 	// log files to keep (compressed).
 	DefaultModelLogfileMaxBackups = 2
 
-	// DefaultModelLogsSizeMB is the size in MB of the capped logs collection
-	// for each model.
-	DefaultModelLogsSizeMB = 20
-
 	// DefaultPruneTxnQueryCount is the number of transactions
 	// to read in a single query.
 	DefaultPruneTxnQueryCount = 1000
@@ -488,7 +480,6 @@ var (
 		AgentLogfileMaxSize,
 		ModelLogfileMaxBackups,
 		ModelLogfileMaxSize,
-		ModelLogsSize,
 		PruneTxnQueryCount,
 		PruneTxnSleepTime,
 		PublicDNSAddress,
@@ -564,7 +555,6 @@ var (
 		MigrationMinionWaitMax,
 		ModelLogfileMaxBackups,
 		ModelLogfileMaxSize,
-		ModelLogsSize,
 		MongoMemoryProfile,
 		OpenTelemetryEnabled,
 		OpenTelemetryEndpoint,
@@ -956,13 +946,6 @@ func (c Config) ModelLogfileMaxSizeMB() int {
 	return c.sizeMBOrDefault(ModelLogfileMaxSize, DefaultModelLogfileMaxSize)
 }
 
-// ModelLogsSizeMB is the size of the capped collection used to store the model
-// logs. Total size on disk will be ModelLogsSizeMB * number of models.
-// TODO(debug-log) - delete me
-func (c Config) ModelLogsSizeMB() int {
-	return c.sizeMBOrDefault(ModelLogsSize, DefaultModelLogsSizeMB)
-}
-
 // MaxDebugLogDuration is the maximum time a debug-log session is allowed
 // to run before it is terminated by the server.
 func (c Config) MaxDebugLogDuration() time.Duration {
@@ -1218,16 +1201,6 @@ func Validate(c Config) error {
 	} else if err == nil {
 		if v == 0 {
 			return errors.Errorf("%s cannot be zero", MaxDebugLogDuration)
-		}
-	}
-
-	if v, ok := c[ModelLogsSize].(string); ok {
-		mb, err := utils.ParseSize(v)
-		if err != nil {
-			return errors.Annotate(err, "invalid model logs size in configuration")
-		}
-		if mb < 1 {
-			return errors.NotValidf("model logs size less than 1 MB")
 		}
 	}
 

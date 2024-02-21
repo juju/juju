@@ -18,12 +18,8 @@ import (
 	"github.com/juju/juju/agent"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/paths"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/internal/worker/common"
-	workerstate "github.com/juju/juju/internal/worker/state"
-	"github.com/juju/juju/internal/worker/syslogger"
-	"github.com/juju/juju/state"
 )
 
 // Logger represents the methods used by the worker to log details.
@@ -47,8 +43,6 @@ type ManifoldConfig struct {
 	ClockName          string
 	ServiceFactoryName string
 	AgentName          string
-	StateName          string
-	SyslogName         string
 }
 
 // Validate validates the manifold configuration.
@@ -68,12 +62,6 @@ func (config ManifoldConfig) Validate() error {
 	if config.AgentName == "" {
 		return errors.NotValidf("empty AgentName")
 	}
-	if config.StateName == "" {
-		return errors.NotValidf("empty StateName")
-	}
-	if config.SyslogName == "" {
-		return errors.NotValidf("empty SyslogName")
-	}
 
 	return nil
 }
@@ -86,8 +74,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.ServiceFactoryName,
 			config.AgentName,
 			config.ClockName,
-			config.StateName,
-			config.SyslogName,
 		},
 		Output: outputFunc,
 		Start: func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
@@ -115,11 +101,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Annotate(err, "getting log sink config")
 			}
 
-			var sysLogger syslogger.SysLogger
-			if err := getter.Get(config.SyslogName, &sysLogger); err != nil {
-				return nil, errors.Trace(err)
-			}
-
 			modelsDir := filepath.Join(currentCfg.LogDir(), "models")
 			if err := os.MkdirAll(modelsDir, 0755); err != nil {
 				return nil, errors.Annotate(err, "unable to create models log directory")
@@ -129,22 +110,11 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Annotate(err, "unable to set owner for log directory")
 			}
 
-			var stTracker workerstate.StateTracker
-			if err := getter.Get(config.StateName, &stTracker); err != nil {
-				return nil, errors.Trace(err)
-			}
-			pool, _, err := stTracker.Use()
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-
 			w, err := config.NewWorker(Config{
 				Logger:        config.DebugLogger,
 				Clock:         clock,
 				LogSinkConfig: logSinkConfig,
 				LoggerForModelFunc: getLoggerForModelFunc(
-					pool,
-					sysLogger,
 					controllerCfg.ModelLogfileMaxSizeMB(),
 					controllerCfg.ModelLogfileMaxBackups(),
 					config.DebugLogger,
@@ -152,10 +122,9 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				),
 			})
 			if err != nil {
-				_ = stTracker.Done()
 				return nil, errors.Trace(err)
 			}
-			return common.NewCleanupWorker(w, func() { _ = stTracker.Done() }), nil
+			return w, nil
 		},
 	}
 }
@@ -181,7 +150,7 @@ func outputFunc(in worker.Worker, out interface{}) error {
 
 // getLoggerForModelFunc returns a function which can be called to get a logger which can store
 // logs for a specified model.
-func getLoggerForModelFunc(pool *state.StatePool, sysLogger syslogger.SysLogger, maxSize, maxBackups int, debugLogger Logger, logDir string) corelogger.LoggerForModelFunc {
+func getLoggerForModelFunc(maxSize, maxBackups int, debugLogger Logger, logDir string) corelogger.LoggerForModelFunc {
 	return func(modelUUID, modelName string) (corelogger.LoggerCloser, error) {
 		if !names.IsValidModel(modelUUID) {
 			return nil, errors.NotValidf("model UUID %q", modelUUID)
@@ -200,56 +169,6 @@ func getLoggerForModelFunc(pool *state.StatePool, sysLogger syslogger.SysLogger,
 		debugLogger.Debugf("created rotating log file %q with max size %d MB and max backups %d",
 			ljLogger.Filename, ljLogger.MaxSize, ljLogger.MaxBackups)
 		modelFileLogger := &logWriter{ljLogger}
-
-		st, err := pool.Get(modelUUID)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		defer st.Release()
-
-		m, err := st.Model()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		cfg, err := m.Config()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		loggingOutputs, _ := cfg.LoggingOutput()
-		modelLoggers, err := getLoggers(loggingOutputs, st, sysLogger)
-		if err != nil {
-			return nil, errors.Annotate(err, "getting legacy loggers")
-		}
-		modelLoggers = append(modelLoggers, modelFileLogger)
-
-		return corelogger.NewTeeLogger(modelLoggers...), nil
+		return modelFileLogger, nil
 	}
-}
-
-// TODO(debug-log) - we retain the db logger for now; it will be removed.
-func getLoggers(loggingOutputs []string, st state.ModelSessioner, sysLogger syslogger.SysLogger) ([]corelogger.Logger, error) {
-	results := make(map[string]corelogger.Logger)
-	// If the logging output is empty, then send it to state.
-	if len(loggingOutputs) == 0 {
-		results[config.DatabaseName] = state.NewDbLogger(st)
-	}
-loop:
-	for _, output := range loggingOutputs {
-		switch output {
-		case config.SyslogName:
-			results[config.SyslogName] = sysLogger
-		default:
-			// We only ever want one db logger.
-			if _, ok := results[config.DatabaseName]; ok {
-				continue loop
-			}
-			results[config.DatabaseName] = state.NewDbLogger(st)
-		}
-	}
-
-	var loggers []corelogger.Logger
-	for _, l := range results {
-		loggers = append(loggers, l)
-	}
-	return loggers, nil
 }

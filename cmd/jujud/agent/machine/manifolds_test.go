@@ -129,7 +129,6 @@ func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *gc.C) {
 			"state-converter",
 			"state",
 			"storage-provisioner",
-			"syslog",
 			"termination-signal-handler",
 			"tools-version-checker",
 			"trace",
@@ -203,7 +202,6 @@ func (s *ManifoldsSuite) TestManifoldNamesCAAS(c *gc.C) {
 			"ssh-identity-writer",
 			"state-config-watcher",
 			"state",
-			"syslog",
 			"termination-signal-handler",
 			"trace",
 			"upgrade-check-flag",
@@ -285,7 +283,6 @@ func (s *ManifoldsSuite) TestMigrationGuardsUsed(c *gc.C) {
 		"state",
 		"state-config-watcher",
 		"service-factory",
-		"syslog",
 		"termination-signal-handler",
 		"trace",
 		"migration-fortress",
@@ -541,7 +538,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"service-factory",
 		"state-config-watcher",
 		"state",
-		"syslog",
 		"trace",
 		"upgrade-steps-gate",
 	},
@@ -762,7 +758,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"service-factory",
 		"state-config-watcher",
 		"state",
-		"syslog",
 		"trace",
 		"upgrade-steps-gate",
 	},
@@ -879,9 +874,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"is-controller-flag",
 		"query-logger",
 		"service-factory",
-		"state",
 		"state-config-watcher",
-		"syslog",
 	},
 
 	"kvm-container-provisioner": {
@@ -971,7 +964,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"service-factory",
 		"state",
 		"state-config-watcher",
-		"syslog",
 		"upgrade-check-flag",
 		"upgrade-check-gate",
 		"upgrade-steps-flag",
@@ -1170,8 +1162,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"valid-credential-flag",
 	},
 
-	"syslog": {},
-
 	"termination-signal-handler": {},
 
 	"tools-version-checker": {
@@ -1305,7 +1295,6 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"service-factory",
 		"state-config-watcher",
 		"state",
-		"syslog",
 		"trace",
 		"upgrade-steps-gate",
 	},
@@ -1451,7 +1440,6 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"service-factory",
 		"state-config-watcher",
 		"state",
-		"syslog",
 		"trace",
 		"upgrade-steps-gate",
 	},
@@ -1529,9 +1517,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"is-controller-flag",
 		"query-logger",
 		"service-factory",
-		"state",
 		"state-config-watcher",
-		"syslog",
 	},
 
 	"logging-config-updater": {
@@ -1584,7 +1570,6 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"service-factory",
 		"state",
 		"state-config-watcher",
-		"syslog",
 		"upgrade-check-flag",
 		"upgrade-check-gate",
 		"upgrade-steps-flag",
@@ -1731,8 +1716,6 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 	},
 
 	"state-config-watcher": {"agent"},
-
-	"syslog": {},
 
 	"termination-signal-handler": {},
 
