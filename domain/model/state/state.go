@@ -413,8 +413,11 @@ SELECT cloud_credential.uuid,
 FROM cloud_credential
 INNER JOIN cloud
 ON cloud.uuid = cloud_credential.cloud_uuid
+INNER JOIN user
+ON cloud_credential.owner_uuid = user.uuid
 WHERE cloud.name = ?
-AND cloud_credential.owner_uuid = ?
+AND user.name = ?
+AND user.removed = false
 AND cloud_credential.name = ?
 `
 

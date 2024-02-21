@@ -602,18 +602,25 @@ func (s *ApiServerSuite) SeedCAASCloud(c *gc.C) {
 // SeedDatabase the database with a supplied controller config, and dummy
 // cloud and dummy credentials.
 func SeedDatabase(c *gc.C, runner database.TxnRunner, controllerConfig controller.Config) {
-	_, userAdd := userbootstrap.AddUser(coreuser.AdminUserName)
-	err := userAdd(context.Background(), runner)
-	c.Assert(err, jc.ErrorIsNil)
+	SeedAdminUser(c, runner)
 
-	err = controllerconfigbootstrap.InsertInitialControllerConfig(controllerConfig)(context.Background(), runner)
+	err := controllerconfigbootstrap.InsertInitialControllerConfig(controllerConfig)(context.Background(), runner)
 	c.Assert(err, jc.ErrorIsNil)
 
 	SeedCloudCredentials(c, runner)
 }
 
+func SeedAdminUser(c *gc.C, runner database.TxnRunner) {
+	_, userAdd := userbootstrap.AddUser(coreuser.AdminUserName)
+	err := userAdd(context.Background(), runner)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func SeedCloudCredentials(c *gc.C, runner database.TxnRunner) {
-	err := cloudbootstrap.InsertCloud(DefaultCloud)(context.Background(), runner)
+	err := InsertDummyCloudType(context.Background(), runner)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = cloudbootstrap.InsertCloud(DefaultCloud)(context.Background(), runner)
 	c.Assert(err, jc.ErrorIsNil)
 
 	id := credential.ID{

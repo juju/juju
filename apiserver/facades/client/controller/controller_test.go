@@ -35,7 +35,6 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/watcher/registry"
 	servicefactorytesting "github.com/juju/juju/domain/servicefactory/testing"
-	domaintesting "github.com/juju/juju/domain/testing"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
@@ -85,11 +84,10 @@ func (s *controllerSuite) SetUpTest(c *gc.C) {
 		controllerCfg[key] = value
 	}
 
-	s.ServiceFactorySuite.SetUpTest(c)
-	domaintesting.SeedControllerConfig(c, controllerCfg, s)
-
 	s.StateSuite.ControllerConfig = controllerCfg
 	s.StateSuite.SetUpTest(c)
+	s.ServiceFactorySuite.SetUpTest(c)
+	jujujujutesting.SeedDatabase(c, s.ControllerSuite.TxnRunner(), controllerCfg)
 
 	allWatcherBacking, err := state.NewAllWatcherBacking(s.StatePool)
 	c.Assert(err, jc.ErrorIsNil)
@@ -116,10 +114,6 @@ func (s *controllerSuite) SetUpTest(c *gc.C) {
 		Tag:      s.Owner,
 		AdminTag: s.Owner,
 	}
-
-	err = jujujujutesting.InsertDummyCloudType(context.Background(), s.ControllerSuite.TxnRunner())
-	c.Assert(err, jc.ErrorIsNil)
-	jujujujutesting.SeedCloudCredentials(c, s.ControllerSuite.TxnRunner())
 
 	s.context = facadetest.Context{
 		State_:               s.State,

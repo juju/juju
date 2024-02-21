@@ -279,9 +279,9 @@ CREATE TABLE cloud_credential (
         CONSTRAINT          fk_cloud_credential_auth_type
             FOREIGN KEY         (auth_type_id)
             REFERENCES          auth_type(id)
---        CONSTRAINT          fk_cloud_credential_XXXX
---            FOREIGN KEY         (owner_uuid)
---            REFERENCES          XXXX(uuid)
+        CONSTRAINT          fk_cloud_credential_user
+            FOREIGN KEY         (owner_uuid)
+            REFERENCES          user(uuid)
 );
 
 CREATE UNIQUE INDEX idx_cloud_credential_cloud_uuid_owner_uuid
