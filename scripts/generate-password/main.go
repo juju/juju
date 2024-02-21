@@ -16,7 +16,7 @@ import (
 
 func main() {
 	gnuflag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "Usage: %s <modeluuid> <agent> [<password>] | --user <username>\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "Usage: %s <modeluuid> <agent> [<password>] | --user <username> [password]\n", os.Args[0])
 		gnuflag.PrintDefaults()
 	}
 	user := gnuflag.String("user", "", "supply a username to generate a password instead of modeluuid and agent")
@@ -40,6 +40,16 @@ func main() {
 			if err != nil {
 				log.Fatal(err)
 			}
+		}
+	} else {
+		if len(args) < 1 {
+			var err error
+			passwd, err = utils.RandomPassword()
+			if err != nil {
+				log.Fatal(err)
+			}
+		} else {
+			passwd = args[0]
 		}
 	}
 	if *user != "" {
