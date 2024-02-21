@@ -19,8 +19,10 @@ import (
 	commoncharm "github.com/juju/juju/api/common/charm"
 	apicharms "github.com/juju/juju/api/common/charms"
 	"github.com/juju/juju/cmd/juju/application/utils"
+	"github.com/juju/juju/cmd/juju/common"
 	coreapplication "github.com/juju/juju/core/application"
 	corebase "github.com/juju/juju/core/base"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
@@ -74,7 +76,7 @@ func (d *deployCharm) deploy(
 	deployAPI DeployerAPI,
 ) (rErr error) {
 	id := d.id
-	charmInfo, err := deployAPI.CharmInfo(id.URL.String())
+	charmInfo, err := deployAPI.CharmInfo(id.URL)
 	if err != nil {
 		return err
 	}
@@ -102,9 +104,10 @@ func (d *deployCharm) deploy(
 			return errors.New("cannot use --num-units or --to with subordinate application")
 		}
 	}
+	charmName := charmInfo.Meta.Name
 	applicationName := d.applicationName
 	if applicationName == "" {
-		applicationName = charmInfo.Meta.Name
+		applicationName = charmName
 	}
 
 	// Process the --config args.
@@ -117,7 +120,7 @@ func (d *deployCharm) deploy(
 		delete(appConfig, coreapplication.TrustConfigOptionName)
 	}
 
-	if id.URL != nil && id.URL.Schema != "local" && len(charmInfo.Meta.Terms) > 0 {
+	if len(charmInfo.Meta.Terms) > 0 {
 		ctx.Infof("Deployment under prior agreement to terms: %s",
 			strings.Join(charmInfo.Meta.Terms, " "))
 	}
@@ -142,7 +145,7 @@ func (d *deployCharm) deploy(
 		appConfig = nil
 	}
 
-	ctx.Infof(d.formatDeployingText())
+	ctx.Infof(d.formatDeployingText(applicationName, charmName))
 	args := applicationapi.DeployArgs{
 		CharmID:          id,
 		CharmOrigin:      id.Origin,
@@ -190,20 +193,19 @@ func (d *deployCharm) validateCharmFlags() error {
 	return nil
 }
 
-func (d *deployCharm) formatDeployingText() string {
-	curl := d.id.URL
-	name := d.applicationName
-	if name == "" {
-		name = curl.Name
-	}
+func (d *deployCharm) formatDeployingText(applicationName, charmName string) string {
 	origin := d.id.Origin
 	channel := origin.CharmChannel().String()
 	if channel != "" {
 		channel = fmt.Sprintf(" in channel %s", channel)
 	}
+	var revision int
+	if origin.Revision != nil {
+		revision = *origin.Revision
+	}
 
 	return fmt.Sprintf("Deploying %q from %s charm %q, revision %d%s on %s",
-		name, origin.Source, curl.Name, curl.Revision, channel, origin.Base.String())
+		applicationName, origin.Source, charmName, revision, channel, origin.Base.String())
 }
 
 type predeployedLocalCharm struct {
@@ -272,7 +274,7 @@ func (d *predeployedLocalCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI Dep
 	}
 
 	d.id = application.CharmID{
-		URL:    d.userCharmURL,
+		URL:    d.userCharmURL.String(),
 		Origin: origin,
 	}
 	return d.deploy(ctx, deployAPI)
@@ -315,7 +317,7 @@ func (l *localCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, _
 
 	ctx.Infof(formatLocatedText(curl, origin))
 	l.id = application.CharmID{
-		URL:    curl,
+		URL:    curl.String(),
 		Origin: origin,
 	}
 	return l.deploy(ctx, deployAPI)
@@ -425,6 +427,150 @@ func formatDeployedText(dryRun bool, charmName string, info application.DeployIn
 	}
 	return fmt.Sprintf("Deployed %q from charm-hub charm %q, revision %d in channel %s on %s",
 		info.Name, charmName, info.Revision, info.Channel, info.Base.String())
+}
+
+// compatibilityPrepareAndDeploy deploys repository charms to controllers
+// which do not have application facade 19 or greater.
+func (c *repositoryCharm) compatibilityPrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, resolver Resolver) error {
+	userRequestedURL := c.userRequestedURL
+	location := "charmhub"
+
+	ctx.Verbosef("Preparing to deploy %q from the %s", userRequestedURL.Name, location)
+
+	modelCfg, err := getModelConfig(deployAPI)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// Charm or bundle has been supplied as a URL so we resolve and
+	// deploy using the store but pass in the origin command line
+	// argument so users can target a specific origin.
+	origin := c.id.Origin
+	var usingDefaultBase bool
+	if defaultBase, ok := modelCfg.DefaultBase(); ok && origin.Base.Channel.Empty() {
+		base, err := corebase.ParseBaseFromString(defaultBase)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		origin.Base = base
+		usingDefaultBase = true
+	}
+	storeCharmOrBundleURL, origin, supportedBases, err := resolver.ResolveCharm(userRequestedURL, origin, false) // no --switch possible.
+	if charm.IsUnsupportedSeriesError(err) {
+		msg := fmt.Sprintf("%v. Use --force to deploy the charm anyway.", err)
+		if usingDefaultBase {
+			msg += " Used the default-base."
+		}
+		return errors.Errorf(msg)
+	} else if err != nil {
+		return errors.Trace(err)
+	}
+	if err := c.validateCharmFlags(); err != nil {
+		return errors.Trace(err)
+	}
+
+	imageStream := modelCfg.ImageStream()
+	workloadBases, err := SupportedJujuBases(c.clock.Now(), c.baseFlag, imageStream)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	baseSelector, err := corecharm.ConfigureBaseSelector(corecharm.SelectorConfig{
+		Config:              modelCfg,
+		Force:               c.force,
+		Logger:              logger,
+		RequestedBase:       c.baseFlag,
+		SupportedCharmBases: supportedBases,
+		WorkloadBases:       workloadBases,
+		UsingImageID:        (c.constraints.HasImageID() || c.modelConstraints.HasImageID()),
+	})
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// Get the base to use.
+	base, err := baseSelector.CharmBase()
+	logger.Tracef("Using base %q from %v to deploy %v", base, supportedBases, userRequestedURL)
+	if corecharm.IsUnsupportedBaseError(err) {
+		msg := fmt.Sprintf("%v. Use --force to deploy the charm anyway.", err)
+		if usingDefaultBase {
+			msg += " Used the default-base."
+		}
+		return errors.Errorf(msg)
+	}
+	if validationErr := charmValidationError(storeCharmOrBundleURL.Name, errors.Trace(err)); validationErr != nil {
+		return errors.Trace(validationErr)
+	}
+
+	// Ensure we save the origin.
+	origin = origin.WithBase(&base)
+
+	// In-order for the url to represent the following updates to the origin
+	// and machine, we need to ensure that the series is actually correct as
+	// well in the url.
+	curl := storeCharmOrBundleURL
+	if charm.CharmHub.Matches(storeCharmOrBundleURL.Schema) {
+		series, err := corebase.GetSeriesFromBase(origin.Base)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		curl = storeCharmOrBundleURL.WithSeries(series)
+	}
+
+	if c.dryRun {
+		name := c.applicationName
+		if name == "" {
+			name = curl.Name
+		}
+		channel := origin.CharmChannel().String()
+		if channel != "" {
+			channel = fmt.Sprintf(" in channel %s", channel)
+		}
+
+		ctx.Infof(fmt.Sprintf("%q from %s charm %q, revision %d%s on %s would be deployed",
+			name, origin.Source, curl.Name, curl.Revision, channel, origin.Base.DisplayString()))
+		return nil
+	}
+
+	// Store the charm in the controller
+	csOrigin, err := deployAPI.AddCharm(curl, origin, c.force)
+	if err != nil {
+		if termErr, ok := errors.Cause(err).(*common.TermsRequiredError); ok {
+			return errors.Trace(termErr.UserErr())
+		}
+		if origin.Source != commoncharm.OriginLocal && origin.Source != commoncharm.OriginCharmHub {
+			// The following error raise is an assumption. If we have an alternative source at some point,
+			// then this error will have to change. The proper way to do this is to have a separate
+			// error type that's raised in AddCharmWithAuthorizationFromURL above for unsupported schema.
+			return errors.Annotatef(err, "schema %q not supported", origin.Source)
+		}
+		return errors.Annotatef(err, "storing charm %q", curl.Name)
+	}
+	ctx.Infof(formatLocatedText(curl, csOrigin))
+
+	// If the original base was empty, so we couldn't validate the original
+	// charm base, but the charm url wasn't nil, we can check and validate
+	// what that one says.
+	//
+	// Note: it's interesting that the charm url and the series can diverge and
+	// tell different things when deploying a charm and in sake of understanding
+	// what we deploy, we should converge the two so that both report identical
+	// values.
+	if curl != nil && base.Empty() {
+		b, err := corebase.GetBaseFromSeries(curl.Series)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if err := c.validateCharmBaseWithName(b, curl.Name, imageStream); err != nil {
+			return errors.Trace(err)
+		}
+	}
+
+	c.id = application.CharmID{
+		URL:    curl.String(),
+		Origin: csOrigin,
+	}
+	return c.deploy(ctx, deployAPI)
 }
 
 func isEmptyOrigin(origin commoncharm.Origin, source commoncharm.OriginSource) bool {

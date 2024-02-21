@@ -56,6 +56,7 @@ import (
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/rpc/params"
 	apiparams "github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
@@ -439,7 +440,292 @@ func (s *DeploySuite) TestStorage(c *gc.C) {
 		},
 	)
 
-	err := s.runDeploy(c, charmDir.Path, "--storage", "data=machinescoped,1G", "--base", "ubuntu@22.04")
+	err := s.runDeployForState(c, charmDir.Path, "--storage", "data=machinescoped,1G", "--base", "ubuntu@22.04")
+	c.Assert(err, jc.ErrorIsNil)
+	app, _ := s.AssertApplication(c, "storage-block", curl.String(), 1, 0)
+
+	cons, err := app.StorageConstraints()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cons, jc.DeepEquals, map[string]state.StorageConstraints{
+		"data": {
+			Pool:  "machinescoped",
+			Count: 1,
+			Size:  1024,
+		},
+		"allecto": {
+			Pool:  "loop",
+			Count: 0,
+			Size:  1024,
+		},
+	})
+}
+
+func (s *DeploySuite) TestErrorDeployingBundlesRequiringTrust(c *gc.C) {
+	specs := []struct {
+		descr      string
+		bundle     string
+		expAppList []string
+	}{
+		{
+			descr:      "bundle with a single app with the trust field set to true",
+			bundle:     "aws-integrator-trust-single",
+			expAppList: []string{"aws-integrator"},
+		},
+		{
+			descr:      "bundle with a multiple apps with the trust field set to true",
+			bundle:     "aws-integrator-trust-multi",
+			expAppList: []string{"aws-integrator", "gcp-integrator"},
+		},
+		{
+			descr:      "bundle with a single app with a 'trust: true' config option",
+			bundle:     "aws-integrator-trust-conf-param",
+			expAppList: []string{"aws-integrator"},
+		},
+	}
+
+	for specIndex, spec := range specs {
+		c.Logf("[spec %d] %s", specIndex, spec.descr)
+
+		expErr := fmt.Sprintf(`Bundle cannot be deployed without trusting applications with your cloud credentials.
+Please repeat the deploy command with the --trust argument if you consent to trust the following application(s):
+  - %s`, strings.Join(spec.expAppList, "\n  - "))
+
+		bundlePath := testcharms.RepoWithSeries("bionic").ClonedBundleDirPath(c.MkDir(), spec.bundle)
+		err := s.runDeploy(c, bundlePath)
+		c.Assert(err, gc.Not(gc.IsNil))
+		c.Assert(err.Error(), gc.Equals, expErr)
+	}
+}
+
+func (s *DeploySuite) TestDeployBundleWithChannel(c *gc.C) {
+	withAllWatcher(s.fakeAPI)
+
+	// The second charm from the bundle does not require trust so no
+	// additional configuration should be injected
+	ubURL := charm.MustParseURL("ch:ubuntu")
+	withCharmRepoResolvable(s.fakeAPI, ubURL, "")
+
+	withCharmDeployable(
+		s.fakeAPI, ubURL, defaultBase,
+		&charm.Meta{Name: "ubuntu"},
+		nil, false, false, 0, nil, nil,
+	)
+
+	s.fakeAPI.Call("AddUnits", application.AddUnitsParams{
+		ApplicationName: "ubuntu",
+		NumUnits:        1,
+	}).Returns([]string{"ubuntu/0"}, error(nil))
+
+	s.fakeAPI.Call("ListSpaces").Returns([]params.Space{{Name: "alpha", Id: "0"}}, error(nil))
+
+	deploy := s.deployCommand()
+	bundlePath := testcharms.RepoWithSeries("bionic").ClonedBundleDirPath(c.MkDir(), "basic")
+	_, err := cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), bundlePath, "--channel", "edge")
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *DeploySuite) TestDeployBundlesRequiringTrust(c *gc.C) {
+	withAllWatcher(s.fakeAPI)
+
+	inURL := charm.MustParseURL("ch:aws-integrator")
+	withCharmRepoResolvable(s.fakeAPI, inURL, "jammy")
+	withCharmRepoResolvable(s.fakeAPI, inURL, "")
+
+	// The aws-integrator charm requires trust and since the operator passes
+	// --trust we expect to see a "trust: true" config value in the yaml
+	// config passed to deploy.
+	//
+	// As withCharmDeployable does not support passing a "ConfigYAML"
+	// it's easier to just invoke it to set up all other calls and then
+	// explicitly Deploy here.
+	withCharmDeployable(
+		s.fakeAPI, inURL, defaultBase,
+		&charm.Meta{Name: "aws-integrator", Series: []string{"jammy"}},
+		nil, false, false, 0, nil, nil,
+	)
+
+	origin := commoncharm.Origin{
+		Source:       commoncharm.OriginCharmHub,
+		Architecture: arch.DefaultArchitecture,
+		Base:         corebase.MakeDefaultBase("ubuntu", "22.04"),
+	}
+
+	deployURL := *inURL
+
+	dArgs := application.DeployArgs{
+		CharmID: application.CharmID{
+			URL:    deployURL.String(),
+			Origin: origin,
+		},
+		CharmOrigin:     origin,
+		ApplicationName: inURL.Name,
+		ConfigYAML:      "aws-integrator:\n  trust: \"true\"\n",
+	}
+
+	s.fakeAPI.Call("Deploy", dArgs).Returns(error(nil))
+	s.fakeAPI.Call("AddUnits", application.AddUnitsParams{
+		ApplicationName: "aws-integrator",
+		NumUnits:        1,
+	}).Returns([]string{"aws-integrator/0"}, error(nil))
+
+	s.fakeAPI.Call("ListSpaces").Returns([]params.Space{{Name: "alpha", Id: "0"}}, error(nil))
+
+	// The second charm from the bundle does not require trust so no
+	// additional configuration should be injected
+	ubURL := charm.MustParseURL("ch:ubuntu")
+	withCharmRepoResolvable(s.fakeAPI, ubURL, "jammy")
+	withCharmRepoResolvable(s.fakeAPI, ubURL, "")
+	withCharmDeployable(
+		s.fakeAPI, ubURL, defaultBase,
+		&charm.Meta{Name: "ubuntu", Series: []string{"jammy"}},
+		nil, false, false, 0, nil, nil,
+	)
+
+	s.fakeAPI.Call("AddUnits", application.AddUnitsParams{
+		ApplicationName: "ubuntu",
+		NumUnits:        1,
+	}).Returns([]string{"ubuntu/0"}, error(nil))
+
+	deploy := s.deployCommand()
+	bundlePath := testcharms.RepoWithSeries("bionic").ClonedBundleDirPath(c.MkDir(), "aws-integrator-trust-single")
+	_, err := cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), bundlePath, "--trust")
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *DeploySuite) TestDeployBundleWithOffers(c *gc.C) {
+	withAllWatcher(s.fakeAPI)
+
+	inURL := charm.MustParseURL("ch:apache2")
+	withCharmRepoResolvable(s.fakeAPI, inURL, "jammy")
+	withCharmRepoResolvable(s.fakeAPI, inURL, "")
+
+	withCharmDeployable(
+		s.fakeAPI, inURL, defaultBase,
+		&charm.Meta{Name: "apache2", Series: []string{"jammy"}},
+		nil, false, false, 0, nil, nil,
+	)
+
+	s.fakeAPI.Call("AddUnits", application.AddUnitsParams{
+		ApplicationName: "apache2",
+		NumUnits:        1,
+	}).Returns([]string{"apache2/0"}, error(nil))
+
+	s.fakeAPI.Call("Offer",
+		"deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		"apache2",
+		[]string{"apache-website", "website-cache"},
+		"admin",
+		"my-offer",
+		"",
+	).Returns([]params.ErrorResult{}, nil)
+
+	s.fakeAPI.Call("Offer",
+		"deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		"apache2",
+		[]string{"apache-website"},
+		"admin",
+		"my-other-offer",
+		"",
+	).Returns([]params.ErrorResult{}, nil)
+
+	s.fakeAPI.Call("GrantOffer",
+		"admin",
+		"admin",
+		[]string{"controller.my-offer"},
+	).Returns(errors.New(`cannot grant admin access to user admin on offer admin/controller.my-offer: user already has "admin" access or greater`))
+	s.fakeAPI.Call("GrantOffer",
+		"bar",
+		"consume",
+		[]string{"controller.my-offer"},
+	).Returns(nil)
+
+	s.fakeAPI.Call("ListSpaces").Returns([]params.Space{{Name: "alpha", Id: "0"}}, error(nil))
+
+	deploy := s.deployCommand()
+	bundlePath := testcharms.RepoWithSeries("bionic").ClonedBundleDirPath(c.MkDir(), "apache2-with-offers-legacy")
+	_, err := cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), bundlePath)
+	c.Assert(err, jc.ErrorIsNil)
+
+	var offerCallCount int
+	var grantOfferCallCount int
+	for _, call := range s.fakeAPI.Calls() {
+		switch call.FuncName {
+		case "Offer":
+			offerCallCount++
+		case "GrantOffer":
+			grantOfferCallCount++
+		}
+	}
+	c.Assert(offerCallCount, gc.Equals, 2)
+	c.Assert(grantOfferCallCount, gc.Equals, 2)
+}
+
+func (s *DeploySuite) TestDeployBundleWithSAAS(c *gc.C) {
+	withAllWatcher(s.fakeAPI)
+
+	inURL := charm.MustParseURL("ch:wordpress")
+	withCharmRepoResolvable(s.fakeAPI, inURL, "jammy")
+	withCharmRepoResolvable(s.fakeAPI, inURL, "")
+
+	withCharmDeployable(
+		s.fakeAPI, inURL, defaultBase,
+		&charm.Meta{Name: "wordpress", Series: []string{"jammy"}},
+		nil, false, false, 0, nil, nil,
+	)
+
+	mac, err := apitesting.NewMacaroon("id")
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.fakeAPI.Call("AddUnits", application.AddUnitsParams{
+		ApplicationName: "wordpress",
+		NumUnits:        1,
+	}).Returns([]string{"wordpress/0"}, error(nil))
+
+	s.fakeAPI.Call("GetConsumeDetails",
+		"admin/default.mysql",
+	).Returns(params.ConsumeOfferDetails{
+		Offer: &params.ApplicationOfferDetails{
+			OfferName: "mysql",
+			OfferURL:  "admin/default.mysql",
+		},
+		Macaroon: mac,
+		ControllerInfo: &params.ExternalControllerInfo{
+			ControllerTag: coretesting.ControllerTag.String(),
+			Addrs:         []string{"192.168.1.0"},
+			Alias:         "controller-alias",
+			CACert:        coretesting.CACert,
+		},
+	}, nil)
+
+	s.fakeAPI.Call("Consume",
+		crossmodel.ConsumeApplicationArgs{
+			Offer: params.ApplicationOfferDetails{
+				OfferName: "mysql",
+				OfferURL:  "test:admin/default.mysql",
+			},
+			ApplicationAlias: "mysql",
+			Macaroon:         mac,
+			ControllerInfo: &crossmodel.ControllerInfo{
+				ControllerTag: coretesting.ControllerTag,
+				Alias:         "controller-alias",
+				Addrs:         []string{"192.168.1.0"},
+				CACert:        coretesting.CACert,
+			},
+		},
+	).Returns("mysql", nil)
+
+	s.fakeAPI.Call("AddRelation",
+		[]interface{}{"wordpress:db", "mysql:db"}, []interface{}{},
+	).Returns(
+		&params.AddRelationResults{},
+		error(nil),
+	)
+
+	s.fakeAPI.Call("ListSpaces").Returns([]params.Space{{Name: "alpha", Id: "0"}}, error(nil))
+
+	deploy := s.deployCommand()
+	bundlePath := testcharms.RepoWithSeries("bionic").ClonedBundleDirPath(c.MkDir(), "wordpress-with-saas")
+	_, err = cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), bundlePath)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -806,18 +1092,15 @@ func (s *DeploySuite) TestDeployWithChannel(c *gc.C) {
 		[]corebase.Base{corebase.MustParseBaseFromString("ubuntu@22.04")}, // Supported bases
 		error(nil),
 	)
-	s.fakeAPI.Call("DeployFromRepository", application.DeployFromRepositoryArg{
-		CharmName:  "dummy",
-		Channel:    ptr("beta"),
-		ConfigYAML: "dummy: {}\n",
-		NumUnits:   ptr(1),
-	}).Returns(application.DeployInfo{
-		Architecture: "amd64",
-		Base:         corebase.Base{OS: "ubuntu", Channel: corebase.Channel{Track: "22.04"}},
-		Channel:      "beta",
-		Name:         "dummy",
-		Revision:     666,
-	}, []application.PendingResourceUpload(nil), nil)
+	s.fakeAPI.Call("Deploy", application.DeployArgs{
+		CharmID: application.CharmID{
+			URL:    curl.String(),
+			Origin: originWithSeries,
+		},
+		CharmOrigin:     originWithSeries,
+		ApplicationName: curl.Name,
+		NumUnits:        1,
+	}).Returns(error(nil))
 	s.fakeAPI.Call("AddCharm", curl, originWithSeries, false).Returns(originWithSeries, error(nil))
 	withCharmDeployable(
 		s.fakeAPI, curl, defaultBase,
@@ -842,7 +1125,7 @@ func (s *DeploySuite) TestDeployCharmWithSomeEndpointBindingsSpecifiedSuccess(c 
 	}
 
 	charmID := application.CharmID{
-		URL:    curl,
+		URL:    curl.String(),
 		Origin: origin,
 	}
 
@@ -1700,9 +1983,6 @@ func withCharmDeployableWithDevicesAndStorage(
 	devices map[string]devices.Constraints,
 ) {
 	deployURL := *url
-	if deployURL.Series == "" {
-		deployURL.Series = "jammy"
-	}
 	fallbackCons := constraints.MustParse("arch=amd64")
 	platform := apputils.MakePlatform(constraints.Value{}, base, fallbackCons)
 	origin, _ := apputils.MakeOrigin(charm.Schema(url.Schema), url.Revision, charm.Channel{}, platform)
@@ -1721,7 +2001,7 @@ func withCharmDeployableWithDevicesAndStorage(
 	}
 	deployArgs := application.DeployArgs{
 		CharmID: application.CharmID{
-			URL:    &deployURL,
+			URL:    deployURL.String(),
 			Origin: origin,
 		},
 		CharmOrigin:     origin,
@@ -1790,7 +2070,7 @@ func withLocalBundleCharmDeployable(
 	fakeAPI.Call("ListSpaces").Returns([]apiparams.Space{}, error(nil))
 	deployArgs := application.DeployArgs{
 		CharmID: application.CharmID{
-			URL:    url,
+			URL:    url.String(),
 			Origin: commoncharm.Origin{Source: "local"},
 		},
 		CharmOrigin:     commoncharm.Origin{Source: "local", Base: base},

@@ -9,15 +9,12 @@ import (
 	"github.com/juju/loggo/v2"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v4"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cmd/internal/agent/agentconf"
 	"github.com/juju/juju/cmd/jujud-controller/agent/agenttest"
 	"github.com/juju/juju/core/network"
-	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
-	"github.com/juju/juju/internal/worker/proxyupdater"
 )
 
 type acCreator func() (cmd.Command, agentconf.AgentConf)
@@ -61,12 +58,6 @@ func (s *AgentSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.SetAPIHostPorts(controllerConfig, hostPorts, hostPorts)
 	c.Assert(err, jc.ErrorIsNil)
-	s.PatchValue(&proxyupdater.NewWorker, func(proxyupdater.Config) (worker.Worker, error) {
-		return newDummyWorker(), nil
-	})
-
-	// Tests should not try to use internet. Ensure base url is empty.
-	imagetesting.PatchOfficialDataSources(&s.CleanupSuite, "")
 }
 
 type agentLoggingSuite struct {

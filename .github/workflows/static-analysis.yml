@@ -21,7 +21,7 @@ jobs:
       uses: actions/checkout@v3
 
     - name: Determine which tests to run
-      uses: dorny/paths-filter@v2
+      uses: dorny/paths-filter@v3
       id: filter
       with:
         filters: |
@@ -104,7 +104,7 @@ jobs:
       uses: actions/checkout@v3
 
     - name: Check if there is anything to test
-      uses: dorny/paths-filter@v2
+      uses: dorny/paths-filter@v3
       id: filter
       with:
         filters: |

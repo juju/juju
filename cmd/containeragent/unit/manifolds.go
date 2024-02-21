@@ -203,8 +203,10 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 		}),
 
 		deadFlagName: lifeflag.Manifold(lifeflag.ManifoldConfig{
-			APICallerName: apiCallerName,
-
+			APICallerName:  apiCallerName,
+			AgentName:      agentName,
+			Result:         life.IsDead,
+			Filter:         LifeFilter,
 			NotFoundIsDead: true,
 			NewFacade: func(b base.APICaller) (lifeflag.Facade, error) {
 				return agentlifeflag.NewClient(b), nil

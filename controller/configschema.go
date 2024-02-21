@@ -68,6 +68,7 @@ var configChecker = schema.FieldMap(schema.Fields{
 	ObjectStoreS3StaticSecret:        schema.String(),
 	ObjectStoreS3StaticSession:       schema.String(),
 	SystemSSHKeys:                    schema.String(),
+	JujudControllerSnapSource:        schema.String(),
 }, schema.Defaults{
 	AgentRateLimitMax:                schema.Omit,
 	AgentRateLimitRate:               schema.Omit,
@@ -125,6 +126,7 @@ var configChecker = schema.FieldMap(schema.Fields{
 	ObjectStoreS3StaticSecret:        schema.Omit,
 	ObjectStoreS3StaticSession:       schema.Omit,
 	SystemSSHKeys:                    schema.Omit,
+	JujudControllerSnapSource:        DefaultJujudControllerSnapSource,
 })
 
 // ConfigSchema holds information on all the fields defined by
@@ -361,5 +363,9 @@ will be output if tracing is enabled.`,
 	SystemSSHKeys: {
 		Type:        environschema.Tstring,
 		Description: `Defines the system ssh keys`,
+	},
+	JujudControllerSnapSource: {
+		Type:        environschema.Tstring,
+		Description: `The source for the jujud-controller snap.`,
 	},
 }

@@ -11,6 +11,7 @@ import (
 
 	lxdapi "github.com/canonical/lxd/shared/api"
 	"github.com/juju/collections/set"
+	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 
@@ -39,13 +40,10 @@ func (e *environ) Subnets(ctx envcontext.ProviderCallContext, inst instance.Id, 
 		}
 	}
 
-	// Query the lxd server name; we will use that as the AZ name for any
-	// subnets that we report.
-	serverInfo, _, err := srv.GetServer()
+	availabilityZones, err := e.AvailabilityZones(ctx)
 	if err != nil {
-		return nil, errors.Annotate(err, "looking up lxd server details")
+		return nil, errors.Annotate(err, "retrieving lxd availability zones")
 	}
-	azName := serverInfo.Environment.ServerName
 
 	networks, err := srv.GetNetworks()
 	if err != nil {
@@ -80,7 +78,7 @@ func (e *environ) Subnets(ctx envcontext.ProviderCallContext, inst instance.Id, 
 			// so this call will fail. If that's the case then
 			// use a fallback method for detecting subnets.
 			if isErrMissingAPIExtension(err, "network_state") {
-				return e.subnetDetectionFallback(srv, inst, keepList, azName)
+				return e.subnetDetectionFallback(srv, inst, keepList, availabilityZones)
 			}
 			return nil, errors.Annotatef(err, "querying lxd server for state of network %q", networkName)
 		}
@@ -108,7 +106,7 @@ func (e *environ) Subnets(ctx envcontext.ProviderCallContext, inst instance.Id, 
 			}
 
 			uniqueSubnetIDs.Add(subnetID)
-			subnets = append(subnets, makeSubnetInfo(network.Id(subnetID), makeNetworkID(networkName), cidr, azName))
+			subnets = append(subnets, makeSubnetInfo(network.Id(subnetID), makeNetworkID(networkName), cidr, availabilityZones))
 		}
 	}
 
@@ -127,7 +125,7 @@ func (e *environ) Subnets(ctx envcontext.ProviderCallContext, inst instance.Id, 
 // Caveat: this method offers lower data fidelity compared to Subnets() as it
 // cannot accurately detect the CIDRs for any host devices that are not bridged
 // into the container.
-func (e *environ) subnetDetectionFallback(srv Server, inst instance.Id, keepSubnetIDs set.Strings, azName string) ([]network.SubnetInfo, error) {
+func (e *environ) subnetDetectionFallback(srv Server, inst instance.Id, keepSubnetIDs set.Strings, availabilityZones network.AvailabilityZones) ([]network.SubnetInfo, error) {
 	logger.Warningf("falling back to subnet discovery via introspection of devices bridged to the controller container; consider upgrading to a newer LXD version and running 'juju reload-spaces' to get full subnet discovery for the LXD host")
 
 	// If no instance ID is specified, list the alive containers, query the
@@ -184,7 +182,7 @@ func (e *environ) subnetDetectionFallback(srv Server, inst instance.Id, keepSubn
 			}
 
 			uniqueSubnetIDs.Add(subnetID)
-			subnets = append(subnets, makeSubnetInfo(network.Id(subnetID), makeNetworkID(hostNetworkName), cidr, azName))
+			subnets = append(subnets, makeSubnetInfo(network.Id(subnetID), makeNetworkID(hostNetworkName), cidr, availabilityZones))
 		}
 	}
 
@@ -206,13 +204,14 @@ func makeSubnetIDForNetwork(networkName, address, mask string) (string, string, 
 	return subnetID, cidr, nil
 }
 
-func makeSubnetInfo(subnetID network.Id, networkID network.Id, cidr, azName string) network.SubnetInfo {
+func makeSubnetInfo(subnetID network.Id, networkID network.Id, cidr string, availabilityZones network.AvailabilityZones) network.SubnetInfo {
+	azNames := transform.Slice(availabilityZones, func(az network.AvailabilityZone) string { return az.Name() })
 	return network.SubnetInfo{
 		ProviderId:        subnetID,
 		ProviderNetworkId: networkID,
 		CIDR:              cidr,
 		VLANTag:           0,
-		AvailabilityZones: []string{azName},
+		AvailabilityZones: azNames,
 	}
 }
 
