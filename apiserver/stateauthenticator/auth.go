@@ -161,7 +161,7 @@ func (a *Authenticator) AuthenticateLoginRequest(
 	defer st.Release()
 
 	authenticator := a.authContext.authenticator(serverHost)
-	authInfo, err := a.checkCreds(ctx, st.State, authParams, true, authenticator)
+	authInfo, err := a.checkCreds(ctx, st.State, authParams, authenticator)
 	if err == nil {
 		return authInfo, err
 	}
@@ -184,7 +184,7 @@ func (a *Authenticator) AuthenticateLoginRequest(
 		authInfo, err2 = a.checkCreds(
 			ctx,
 			systemState,
-			authParams, false, authenticator,
+			authParams, authenticator,
 		)
 		if err2 == nil && authInfo.Controller {
 			err = nil
@@ -193,7 +193,7 @@ func (a *Authenticator) AuthenticateLoginRequest(
 	if err != nil {
 		return authentication.AuthInfo{}, errors.NewUnauthorized(err, "")
 	}
-	authInfo.Delegator = &PermissionDelegator{systemState}
+	authInfo.Delegator = &PermissionDelegator{State: systemState}
 	return authInfo, nil
 }
 
@@ -221,7 +221,6 @@ func (a *Authenticator) checkCreds(
 	ctx context.Context,
 	st *state.State,
 	authParams authentication.AuthParams,
-	userLogin bool,
 	authenticator authentication.EntityAuthenticator,
 ) (authentication.AuthInfo, error) {
 	entity, err := authenticator.Authenticate(ctx, authParams)
@@ -300,6 +299,12 @@ func (a *Authenticator) checkPerms(ctx context.Context, modelAccess permission.U
 
 func (a *Authenticator) updateUserLastLogin(ctx context.Context, modelAccess permission.UserAccess, userTag names.UserTag, model *state.Model) error {
 	updateLastLogin := func() error {
+		// If the user is not local, we don't update the last login time.
+		if !userTag.IsLocal() {
+			return nil
+		}
+
+		// Update the last login time for the user.
 		if err := a.authContext.userService.UpdateLastLogin(ctx, userTag.Name()); err != nil {
 			return errors.Trace(err)
 		}

@@ -116,7 +116,7 @@ func connectFallback(
 	if !didFallback {
 		logger.Debugf("connecting with current password")
 		tryConnect()
-		if params.IsCodeUnauthorized(err) || errors.Cause(err) == apiservererrors.ErrBadCreds {
+		if params.IsCodeUnauthorized(err) || errors.Cause(err) == apiservererrors.ErrUnauthorized {
 			didFallback = true
 
 		}

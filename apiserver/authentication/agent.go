@@ -56,7 +56,7 @@ func (a *AgentAuthenticator) fallbackAuth(ctx context.Context, authParams AuthPa
 	entity, err := a.legacyState.FindEntity(authParams.AuthTag)
 	if errors.Is(err, errors.NotFound) {
 		logger.Debugf("cannot authenticate unknown entity: %v", authParams.AuthTag)
-		return nil, errors.Trace(apiservererrors.ErrBadCreds)
+		return nil, errors.Trace(apiservererrors.ErrUnauthorized)
 	}
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -66,7 +66,7 @@ func (a *AgentAuthenticator) fallbackAuth(ctx context.Context, authParams AuthPa
 		return nil, errors.Trace(apiservererrors.ErrBadRequest)
 	}
 	if !authenticator.PasswordValid(authParams.Credentials) {
-		return nil, errors.Trace(apiservererrors.ErrBadCreds)
+		return nil, errors.Trace(apiservererrors.ErrUnauthorized)
 	}
 
 	// If this is a machine agent connecting, we need to check the

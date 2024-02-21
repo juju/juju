@@ -134,11 +134,11 @@ func (u *LocalUserAuthenticator) Authenticate(
 	user, err := u.UserService.GetUserByAuth(ctx, userTag.Name(), authParams.Credentials)
 	if errors.Is(err, usererrors.NotFound) || errors.Is(err, usererrors.Unauthorized) {
 		logger.Debugf("user %s not found", userTag.String())
-		return nil, errors.Trace(apiservererrors.ErrBadCreds)
+		return nil, errors.Trace(apiservererrors.ErrUnauthorized)
 	} else if err != nil {
 		return nil, errors.Trace(err)
 	} else if user.Disabled {
-		return nil, errors.Trace(apiservererrors.ErrBadCreds)
+		return nil, errors.Trace(apiservererrors.ErrUnauthorized)
 	}
 
 	// StateEntity requires the user to be returned as a state.Entity.
@@ -166,7 +166,7 @@ func (u *LocalUserAuthenticator) authenticateMacaroons(ctx context.Context, user
 	// Locate the user name from the macaroon.
 	index := macaroonAuthInfo.OpIndexes[identchecker.LoginOp]
 	if index < 0 || index > len(macaroonAuthInfo.Macaroons) {
-		return nil, errors.Trace(apiservererrors.ErrBadCreds)
+		return nil, errors.Trace(apiservererrors.ErrUnauthorized)
 	}
 	loginMac := macaroonAuthInfo.Macaroons[index]
 	declared := checkers.InferDeclared(coremacaroon.MacaroonNamespace, loginMac)
@@ -182,11 +182,11 @@ func (u *LocalUserAuthenticator) authenticateMacaroons(ctx context.Context, user
 	user, err := u.UserService.GetUserByName(ctx, userTag.Name())
 	if errors.Is(err, usererrors.NotFound) || errors.Is(err, usererrors.Unauthorized) {
 		logger.Debugf("user %s not found", userTag.String())
-		return nil, errors.Trace(apiservererrors.ErrBadCreds)
+		return nil, errors.Trace(apiservererrors.ErrUnauthorized)
 	} else if err != nil {
 		return nil, errors.Trace(err)
 	} else if user.Disabled {
-		return nil, errors.Trace(apiservererrors.ErrBadCreds)
+		return nil, errors.Trace(apiservererrors.ErrUnauthorized)
 	}
 
 	// StateEntity requires the user to be returned as a state.Entity.

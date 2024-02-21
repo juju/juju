@@ -204,7 +204,7 @@ func (s *ScaryConnectSuite) TestChangePasswordSuccessAfterUnauthorisedError(c *g
 
 func (s *ScaryConnectSuite) TestChangePasswordSuccessAfterBadCurrentPasswordError(c *gc.C) {
 	// This will try to login with old password if current one fails.
-	stub := createPasswordCheckStub(apiservererrors.ErrBadCreds)
+	stub := createPasswordCheckStub(apiservererrors.ErrUnauthorized)
 	s.assertChangePasswordSuccess(c, stub)
 }
 

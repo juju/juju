@@ -238,9 +238,9 @@ AND user.removed = false
 	return user.UUID(result["userUUID"].(string)), nil
 }
 
-// GetUserByName will retrieve the user with authentication information (last login, disabled)
-// specified by name from the database. If the user does not exist an error that satisfies
-// usererrors.NotFound will be returned.
+// GetUserByName will retrieve the user with authentication information
+// (last login, disabled) specified by name from the database. If the user does
+// not exist an error that satisfies usererrors.NotFound will be returned.
 func (st *State) GetUserByName(ctx context.Context, name string) (user.User, error) {
 	db, err := st.DB()
 	if err != nil {
@@ -262,7 +262,7 @@ AND    removed = false`
 
 		var result User
 		err = tx.Query(ctx, selectGetUserByNameStmt, sqlair.M{"name": name}).Get(&result)
-		if err != nil && errors.Is(err, sql.ErrNoRows) {
+		if errors.Is(err, sql.ErrNoRows) {
 			return errors.Annotatef(usererrors.NotFound, "%q", name)
 		} else if err != nil {
 			return errors.Annotatef(err, "getting user with name %q", name)
@@ -281,8 +281,8 @@ AND    removed = false`
 
 // GetUserByAuth will retrieve the user with checking authentication
 // information specified by UUID and password from the database.
-// If the user does not exist or the user does not authenticate an
-// error that satisfies usererrors.Unauthorized will be returned.
+// If the user does not exist an error that satisfies usererrors.NotFound will
+// be returned, otherwise unauthorized will be returned.
 func (st *State) GetUserByAuth(ctx context.Context, name string, password auth.Password) (user.User, error) {
 	db, err := st.DB()
 	if err != nil {
@@ -294,14 +294,12 @@ func (st *State) GetUserByAuth(ctx context.Context, name string, password auth.P
 		getUserWithAuthQuery := `
 SELECT (
         user.uuid, user.name, user.display_name, user.created_by_uuid, user.created_at,
-		user_authentication.disabled,
+		user.disabled,
         user_password.password_hash, user_password.password_salt
        ) AS (&User.*)
-FROM   user
+FROM   v_user_auth AS user
        LEFT JOIN user_password 
        ON        user.uuid = user_password.user_uuid
-	   LEFT JOIN user_authentication
-	   ON        user.uuid = user_authentication.user_uuid
 WHERE  user.name = $M.name 
 AND    removed = false
 `
@@ -312,8 +310,10 @@ AND    removed = false
 		}
 
 		err = tx.Query(ctx, selectGetUserByAuthStmt, sqlair.M{"name": name}).Get(&result)
-		if err != nil {
-			return errors.Annotatef(usererrors.Unauthorized, "%q", name)
+		if errors.Is(err, sql.ErrNoRows) {
+			return errors.Annotatef(usererrors.NotFound, "%q", name)
+		} else if err != nil {
+			return errors.Annotatef(err, "getting user with name %q", name)
 		}
 
 		return nil
@@ -323,7 +323,11 @@ AND    removed = false
 	}
 
 	passwordHash, err := auth.HashPassword(password, result.PasswordSalt)
-	if err != nil {
+	if errors.Is(err, errors.NotValid) {
+		// If the user has no salt, then they don't have a password correctly
+		// set. In this case, we should return an unauthorized error.
+		return user.User{}, errors.Annotatef(usererrors.Unauthorized, "%q", name)
+	} else if err != nil {
 		return user.User{}, errors.Annotatef(err, "hashing password for user with name %q", name)
 	} else if passwordHash != result.PasswordHash {
 		return user.User{}, errors.Annotatef(usererrors.Unauthorized, "%q", name)

@@ -453,6 +453,27 @@ func (s *stateSuite) TestGetUserByAuth(c *gc.C) {
 	c.Check(u.Disabled, jc.IsFalse)
 }
 
+// TestGetUserByAuthWithInvalidSalt asserts that we correctly send an
+// unauthorized error if the user doesn't have a valid salt.
+func (s *stateSuite) TestGetUserByAuthWithInvalidSalt(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	// Add admin user.
+	adminUUID, err := user.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = st.AddUserWithPasswordHash(
+		context.Background(), adminUUID,
+		"admin", "admin",
+		adminUUID, "passwordHash", []byte{},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Get the user.
+	_, err = st.GetUserByAuth(context.Background(), "admin", auth.NewPassword("passwordHash"))
+	c.Assert(err, jc.ErrorIs, usererrors.Unauthorized)
+}
+
 // TestGetUserByAuthDisabled asserts that we can get a user by auth from the
 // database and has the correct disabled flag.
 func (s *stateSuite) TestGetUserByAuthDisabled(c *gc.C) {
@@ -512,14 +533,14 @@ func (s *stateSuite) TestGetUserByAuthUnauthorized(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, usererrors.Unauthorized)
 }
 
-// TestGetUserByAutUnexcitingUser asserts that we get an error when we try to
+// TestGetUserByAuthDoesNotExist asserts that we get an error when we try to
 // get a user by auth that does not exist.
-func (s *stateSuite) TestGetUserByAuthNotExtantUnauthorized(c *gc.C) {
+func (s *stateSuite) TestGetUserByAuthDoesNotExist(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	// Get the user.
 	_, err := st.GetUserByAuth(context.Background(), "admin", auth.NewPassword("password"))
-	c.Assert(err, jc.ErrorIs, usererrors.Unauthorized)
+	c.Assert(err, jc.ErrorIs, usererrors.NotFound)
 }
 
 // TestRemoveUser asserts that we can remove a user from the database.

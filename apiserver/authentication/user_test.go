@@ -128,7 +128,7 @@ func (s *userAuthenticatorSuite) TestDisabledUserLogin(c *gc.C) {
 		AuthTag:     names.NewUserTag("bobbrown"),
 		Credentials: "password",
 	})
-	c.Assert(err, jc.ErrorIs, apiservererrors.ErrBadCreds)
+	c.Assert(err, jc.ErrorIs, apiservererrors.ErrUnauthorized)
 }
 
 func (s *userAuthenticatorSuite) TestRemovedUserLogin(c *gc.C) {
@@ -151,7 +151,7 @@ func (s *userAuthenticatorSuite) TestRemovedUserLogin(c *gc.C) {
 		AuthTag:     names.NewUserTag("bobbrown"),
 		Credentials: "password",
 	})
-	c.Assert(err, jc.ErrorIs, apiservererrors.ErrBadCreds)
+	c.Assert(err, jc.ErrorIs, apiservererrors.ErrUnauthorized)
 }
 
 func (s *userAuthenticatorSuite) TestUserLoginWrongPassword(c *gc.C) {
@@ -172,7 +172,7 @@ func (s *userAuthenticatorSuite) TestUserLoginWrongPassword(c *gc.C) {
 		AuthTag:     names.NewUserTag("bobbrown"),
 		Credentials: "wrongpassword",
 	})
-	c.Assert(err, jc.ErrorIs, apiservererrors.ErrBadCreds)
+	c.Assert(err, jc.ErrorIs, apiservererrors.ErrUnauthorized)
 }
 
 func (s *userAuthenticatorSuite) TestValidMacaroonUserLogin(c *gc.C) {
@@ -267,7 +267,7 @@ func (s *userAuthenticatorSuite) TestDisabledMacaroonUserLogin(c *gc.C) {
 		AuthTag:   names.NewUserTag("bob"),
 		Macaroons: macaroons,
 	})
-	c.Assert(err, jc.ErrorIs, apiservererrors.ErrBadCreds)
+	c.Assert(err, jc.ErrorIs, apiservererrors.ErrUnauthorized)
 }
 
 func (s *userAuthenticatorSuite) TestRemovedMacaroonUserLogin(c *gc.C) {
@@ -298,7 +298,7 @@ func (s *userAuthenticatorSuite) TestRemovedMacaroonUserLogin(c *gc.C) {
 		AuthTag:   names.NewUserTag("bob"),
 		Macaroons: macaroons,
 	})
-	c.Assert(err, jc.ErrorIs, apiservererrors.ErrBadCreds)
+	c.Assert(err, jc.ErrorIs, apiservererrors.ErrUnauthorized)
 }
 
 func (s *userAuthenticatorSuite) TestInvalidRelationLogin(c *gc.C) {

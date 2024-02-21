@@ -91,7 +91,7 @@ var errorTransformTests = []struct {
 		return errors.Is(e, apiservererrors.NoAddressSetError)
 	},
 }, {
-	err:        apiservererrors.ErrBadCreds,
+	err:        apiservererrors.ErrUnauthorized,
 	code:       params.CodeUnauthorized,
 	status:     http.StatusUnauthorized,
 	helperFunc: params.IsCodeUnauthorized,
