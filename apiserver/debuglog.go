@@ -4,11 +4,13 @@
 package apiserver
 
 import (
+	"fmt"
 	"net"
 	"net/http"
 	"net/url"
 	"os"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -163,7 +165,7 @@ type debugLogSocket interface {
 	sendError(err error)
 
 	// sendLogRecord sends record JSON encoded.
-	sendLogRecord(record *params.LogMessage) error
+	sendLogRecord(record *params.LogMessage, version int) error
 }
 
 // debugLogSocketImpl implements the debugLogSocket interface. It
@@ -187,12 +189,28 @@ func (s *debugLogSocketImpl) sendError(err error) {
 	}
 }
 
-func (s *debugLogSocketImpl) sendLogRecord(record *params.LogMessage) error {
+func (s *debugLogSocketImpl) sendLogRecord(record *params.LogMessage, version int) (err error) {
+	if version == 1 {
+		// Older clients expect just logger tags as an array.
+		recordv1 := &params.LogMessageV1{
+			Entity:    record.Entity,
+			Timestamp: record.Timestamp,
+			Severity:  record.Severity,
+			Module:    record.Module,
+			Location:  record.Location,
+			Message:   record.Message,
+		}
+		if loggerTags, ok := record.Labels[loggo.LoggerTags]; ok {
+			recordv1.Labels = strings.Split(loggerTags, ",")
+		}
+		return s.conn.WriteJSON(recordv1)
+	}
 	return s.conn.WriteJSON(record)
 }
 
 // debugLogParams contains the parsed debuglog API request parameters.
 type debugLogParams struct {
+	version       int
 	startTime     time.Time
 	maxLines      uint
 	fromTheStart  bool
@@ -203,12 +221,20 @@ type debugLogParams struct {
 	excludeEntity []string
 	includeModule []string
 	excludeModule []string
-	includeLabel  []string
-	excludeLabel  []string
+	includeLabels map[string]string
+	excludeLabels map[string]string
 }
 
 func readDebugLogParams(queryMap url.Values) (debugLogParams, error) {
-	var params debugLogParams
+	params := debugLogParams{version: 1}
+
+	if value := queryMap.Get("version"); value != "" {
+		vers, err := strconv.Atoi(value)
+		if err != nil {
+			return params, errors.Errorf("version value %q is not a valid number", value)
+		}
+		params.version = vers
+	}
 
 	if value := queryMap.Get("maxLines"); value != "" {
 		num, err := strconv.ParseUint(value, 10, 64)
@@ -265,12 +291,31 @@ func readDebugLogParams(queryMap url.Values) (debugLogParams, error) {
 	params.includeModule = queryMap["includeModule"]
 	params.excludeModule = queryMap["excludeModule"]
 
-	if label, ok := queryMap["includeLabel"]; ok {
-		params.includeLabel = label
+	params.includeLabels = make(map[string]string)
+	if labels, ok := queryMap["includeLabels"]; ok {
+		for _, label := range labels {
+			parts := strings.Split(label, "=")
+			if len(parts) < 2 {
+				return debugLogParams{}, fmt.Errorf("include label key value %q %w", label, errors.NotValid)
+			}
+			params.includeLabels[parts[0]] = parts[1]
+		}
+	} else if loggerTags, ok := queryMap["includeLabel"]; ok {
+		// For compatibility with older clients.
+		params.includeLabels[loggo.LoggerTags] = strings.Join(loggerTags, ",")
 	}
-	if label, ok := queryMap["excludeLabel"]; ok {
-		params.excludeLabel = label
+	params.excludeLabels = make(map[string]string)
+	if labels, ok := queryMap["excludeLabels"]; ok {
+		for _, label := range labels {
+			parts := strings.Split(label, "=")
+			if len(parts) < 2 {
+				return debugLogParams{}, fmt.Errorf("exclude label key value %q %w", label, errors.NotValid)
+			}
+			params.excludeLabels[parts[0]] = parts[1]
+		}
+	} else if loggerTags, ok := queryMap["excludeLabel"]; ok {
+		// For compatibility with older clients.
+		params.excludeLabels[loggo.LoggerTags] = strings.Join(loggerTags, ",")
 	}
-
 	return params, nil
 }

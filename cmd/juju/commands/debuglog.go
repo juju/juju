@@ -5,6 +5,7 @@ package commands
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"time"
@@ -24,6 +25,7 @@ import (
 	"github.com/juju/juju/api/common"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/jujuclient"
 )
 
@@ -55,17 +57,17 @@ The '--include-module' and '--exclude-module' options filter by (dotted)
 logging module name. The module name can be truncated such that all loggers
 with the prefix will match.
 
-The '--include-label' and '--exclude-label' options filter by logging label. 
+The '--include-labels' and '--exclude-labels' options filter by logging labels. 
 
 The filtering options combine as follows:
 * All --include options are logically ORed together.
 * All --exclude options are logically ORed together.
 * All --include-module options are logically ORed together.
 * All --exclude-module options are logically ORed together.
-* All --include-label options are logically ORed together.
-* All --exclude-label options are logically ORed together.
+* All --include-labels options are logically ORed together.
+* All --exclude-labels options are logically ORed together.
 * The combined --include, --exclude, --include-module, --exclude-module,
-  --include-label and --exclude-label selections are logically ANDed to form
+  --include-labels and --exclude-labels selections are logically ANDed to form
   the complete filter.
 
 `
@@ -133,6 +135,9 @@ func newDebugLogCommandTZ(store jujuclient.ClientStore, tz *time.Location) cmd.C
 type debugLogCommand struct {
 	modelcmd.ModelCommandBase
 
+	tw  *ansiterm.Writer
+	out cmd.Output
+
 	level  string
 	params common.DebugLogParams
 
@@ -150,6 +155,9 @@ type debugLogCommand struct {
 
 	format string
 	tz     *time.Location
+
+	includeLabels []string
+	excludeLabels []string
 }
 
 func (c *debugLogCommand) SetFlags(f *gnuflag.FlagSet) {
@@ -160,8 +168,8 @@ func (c *debugLogCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(cmd.NewAppendStringsValue(&c.params.ExcludeEntity), "exclude", "Do not show log messages for these entities")
 	f.Var(cmd.NewAppendStringsValue(&c.params.IncludeModule), "include-module", "Only show log messages for these logging modules")
 	f.Var(cmd.NewAppendStringsValue(&c.params.ExcludeModule), "exclude-module", "Do not show log messages for these logging modules")
-	f.Var(cmd.NewAppendStringsValue(&c.params.IncludeLabel), "include-label", "Only show log messages for these logging labels")
-	f.Var(cmd.NewAppendStringsValue(&c.params.ExcludeLabel), "exclude-label", "Do not show log messages for these logging labels")
+	f.Var(cmd.NewAppendStringsValue(&c.includeLabels), "include-labels", "Only show log messages for these logging label key values")
+	f.Var(cmd.NewAppendStringsValue(&c.excludeLabels), "exclude-labels", "Do not show log messages for these logging label key values")
 
 	f.StringVar(&c.level, "l", "", "Log level to show, one of [TRACE, DEBUG, INFO, WARNING, ERROR]")
 	f.StringVar(&c.level, "level", "", "")
@@ -182,6 +190,11 @@ func (c *debugLogCommand) SetFlags(f *gnuflag.FlagSet) {
 
 	f.BoolVar(&c.retry, "retry", false, "Retry connection on failure")
 	f.DurationVar(&c.retryDelay, "retry-delay", 1*time.Second, "Retry delay between connection failure retries")
+
+	c.out.AddFlags(f, "text", map[string]cmd.Formatter{
+		"json": cmd.FormatJson,
+		"text": c.writeText,
+	})
 }
 
 func (c *debugLogCommand) Init(args []string) error {
@@ -215,6 +228,28 @@ func (c *debugLogCommand) Init(args []string) error {
 	}
 	c.params.IncludeEntity = transform.Slice(c.params.IncludeEntity, c.parseEntity)
 	c.params.ExcludeEntity = transform.Slice(c.params.ExcludeEntity, c.parseEntity)
+
+	for _, label := range c.includeLabels {
+		parts := strings.Split(label, "=")
+		if len(parts) < 2 {
+			return fmt.Errorf("include label key value %q %w", label, errors.NotValid)
+		}
+		if c.params.IncludeLabels == nil {
+			c.params.IncludeLabels = make(map[string]string)
+		}
+		c.params.IncludeLabels[parts[0]] = parts[1]
+	}
+	for _, label := range c.excludeLabels {
+		parts := strings.Split(label, "=")
+		if len(parts) < 2 {
+			return fmt.Errorf("exclude label key value %q %w", label, errors.NotValid)
+		}
+		if c.params.ExcludeLabels == nil {
+			c.params.ExcludeLabels = make(map[string]string)
+		}
+		c.params.ExcludeLabels[parts[0]] = parts[1]
+	}
+
 	return cmd.CheckEmpty(args)
 }
 
@@ -268,11 +303,6 @@ func (c *debugLogCommand) Run(ctx *cmd.Context) error {
 		c.params.NoTail = !isTerminal(ctx.Stdout)
 	}
 
-	writer := ansiterm.NewWriter(ctx.Stdout)
-	if c.color {
-		writer.SetColorCapable(true)
-	}
-
 	err := retry.Call(retry.CallArgs{
 		Func: func() error {
 			client, err := getDebugLogAPI(c)
@@ -291,7 +321,17 @@ func (c *debugLogCommand) Run(ctx *cmd.Context) error {
 				if !ok {
 					return ErrConnectionClosed
 				}
-				c.writeLogRecord(writer, msg)
+				level, _ := loggo.ParseLevel(msg.Severity)
+				logRecord := &corelogger.LogRecord{
+					Time:     msg.Timestamp,
+					Entity:   msg.Entity,
+					Level:    level,
+					Module:   msg.Module,
+					Location: msg.Location,
+					Message:  msg.Message,
+					Labels:   msg.Labels,
+				}
+				_ = c.out.Write(ctx, logRecord)
 			}
 		},
 		IsFatalError: func(err error) bool {
@@ -328,33 +368,43 @@ func (c *debugLogCommand) Run(ctx *cmd.Context) error {
 // is closed.
 var ErrConnectionClosed = errors.ConstError("connection closed")
 
-var SeverityColor = map[string]*ansiterm.Context{
-	"TRACE":   ansiterm.Foreground(ansiterm.Default),
-	"DEBUG":   ansiterm.Foreground(ansiterm.Green),
-	"INFO":    ansiterm.Foreground(ansiterm.BrightBlue),
-	"WARNING": ansiterm.Foreground(ansiterm.Yellow),
-	"ERROR":   ansiterm.Foreground(ansiterm.BrightRed),
-	"CRITICAL": {
+var SeverityColor = map[loggo.Level]*ansiterm.Context{
+	loggo.TRACE:   ansiterm.Foreground(ansiterm.Default),
+	loggo.DEBUG:   ansiterm.Foreground(ansiterm.Green),
+	loggo.INFO:    ansiterm.Foreground(ansiterm.BrightBlue),
+	loggo.WARNING: ansiterm.Foreground(ansiterm.Yellow),
+	loggo.ERROR:   ansiterm.Foreground(ansiterm.BrightRed),
+	loggo.CRITICAL: {
 		Foreground: ansiterm.White,
 		Background: ansiterm.Red,
 	},
 }
 
-func (c *debugLogCommand) writeLogRecord(w *ansiterm.Writer, r common.LogMessage) {
-	ts := r.Timestamp.In(c.tz).Format(c.format)
+func (c *debugLogCommand) writeText(w io.Writer, v interface{}) error {
+	if c.tw == nil {
+		c.tw = ansiterm.NewWriter(w)
+		if c.color {
+			c.tw.SetColorCapable(true)
+		}
+	}
+	r, ok := v.(*corelogger.LogRecord)
+	if !ok {
+		return fmt.Errorf("expected log message of type %T, got %t", common.LogMessage{}, v)
+	}
+	ts := r.Time.In(c.tz).Format(c.format)
 	fmt.Fprintf(w, "%s: %s ", r.Entity, ts)
-	SeverityColor[r.Severity].Fprintf(w, r.Severity)
+	SeverityColor[r.Level].Fprintf(c.tw, r.Level.String())
 	fmt.Fprintf(w, " %s ", r.Module)
 	if c.location {
-		loggocolor.LocationColor.Fprintf(w, "%s ", r.Location)
+		loggocolor.LocationColor.Fprintf(c.tw, "%s ", r.Location)
 	}
 	if len(r.Labels) > 0 {
-		//TODO(debug-log) - we'll move to newline delimited json
 		var labelsOut []string
 		for k, v := range r.Labels {
 			labelsOut = append(labelsOut, fmt.Sprintf("%s:%s", k, v))
 		}
 		fmt.Fprintf(w, "%v ", strings.Join(labelsOut, ","))
 	}
-	fmt.Fprintln(w, r.Message)
+	fmt.Fprintln(c.tw, r.Message)
+	return nil
 }

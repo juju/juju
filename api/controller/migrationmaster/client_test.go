@@ -607,15 +607,14 @@ func (s *ClientSuite) TestStreamModelLogs(c *gc.C) {
 
 	c.Assert(*caller.path, gc.Equals, "/log")
 	c.Assert(*caller.attrs, gc.DeepEquals, url.Values{
+		"version":       {"2"},
 		"replay":        {"true"},
 		"noTail":        {"true"},
 		"startTime":     {"2016-12-02T10:24:01.001Z"},
 		"includeEntity": nil,
 		"includeModule": nil,
-		"includeLabel":  nil,
 		"excludeEntity": nil,
 		"excludeModule": nil,
-		"excludeLabel":  nil,
 	})
 }
 

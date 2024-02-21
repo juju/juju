@@ -4,10 +4,10 @@
 package apiserver
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/juju/errors"
@@ -128,20 +128,24 @@ func (s *agentLoggingStrategy) WriteLog(m params.LogRecord) error {
 
 // logToFile writes a single log message to the logsink log file.
 func logToFile(writer io.Writer, prefix string, m params.LogRecord) error {
-	//TODO(debug-log) - we'll move to newline delimited json
-	var labelsOut []string
-	for k, v := range m.Labels {
-		labelsOut = append(labelsOut, fmt.Sprintf("%s:%s", k, v))
+	level, ok := loggo.ParseLevel(m.Level)
+	if !ok {
+		return fmt.Errorf("lovel level %q %w", m.Level, errors.NotValid)
 	}
-	_, err := writer.Write([]byte(strings.Join([]string{
-		prefix,
-		m.Entity,
-		m.Time.In(time.UTC).Format("2006-01-02 15:04:05"),
-		m.Level,
-		m.Module,
-		m.Location,
-		m.Message,
-		strings.Join(labelsOut, ","),
-	}, " ") + "\n"))
+	rec := &corelogger.LogRecord{
+		Time:      m.Time,
+		ModelUUID: m.Module,
+		Entity:    m.Entity,
+		Level:     level,
+		Module:    m.Module,
+		Location:  m.Location,
+		Message:   m.Message,
+		Labels:    m.Labels,
+	}
+	line, err := json.Marshal(rec)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	_, err = writer.Write([]byte(fmt.Sprintf("%s %s\n", prefix, line)))
 	return err
 }

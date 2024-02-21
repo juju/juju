@@ -90,16 +90,16 @@ func (s *DebugLogSuite) TestArgParsing(c *gc.C) {
 				Backlog:       10,
 			},
 		}, {
-			args: []string{"--include-label", "http", "--include-label", "apiserver"},
+			args: []string{"--include-labels", "logger-tags=http,apiserver"},
 			expected: common.DebugLogParams{
-				IncludeLabel: []string{"http", "apiserver"},
-				Backlog:      10,
+				IncludeLabels: map[string]string{"logger-tags": "http,apiserver"},
+				Backlog:       10,
 			},
 		}, {
-			args: []string{"--exclude-label", "http", "--exclude-label", "apiserver"},
+			args: []string{"--exclude-labels", "logger-tags=http,apiserver"},
 			expected: common.DebugLogParams{
-				ExcludeLabel: []string{"http", "apiserver"},
-				Backlog:      10,
+				ExcludeLabels: map[string]string{"logger-tags": "http,apiserver"},
+				Backlog:       10,
 			},
 		}, {
 			args: []string{"--replay"},
@@ -200,6 +200,9 @@ func (s *DebugLogSuite) TestLogOutput(c *gc.C) {
 	checkOutput(
 		"--location",
 		"machine-0: 14:15:23 INFO test.module somefile.go:123 this is the log output\n")
+	checkOutput(
+		"--format", "json",
+		`{"timestamp":"2016-10-09T08:15:23.345Z","entity":"machine-0","level":"INFO","module":"test.module","location":"somefile.go:123","message":"this is the log output"}`+"\n")
 }
 
 func (s *DebugLogSuite) TestLogOutputWithLogs(c *gc.C) {

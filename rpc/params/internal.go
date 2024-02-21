@@ -4,8 +4,13 @@
 package params
 
 import (
+	"encoding/json"
+	"fmt"
+	"strings"
 	"time"
 
+	"github.com/juju/errors"
+	"github.com/juju/loggo/v2"
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/constraints"
@@ -897,7 +902,6 @@ type SingularClaims struct {
 // It is used to stream log records to the log streamer client
 // from the api server /logs endpoint.
 // The client is used for model migration and debug-log.
-// TODO(debug-log) - add compatibility for legacy labels
 type LogMessage struct {
 	Entity    string            `json:"tag"`
 	Timestamp time.Time         `json:"ts"`
@@ -905,7 +909,70 @@ type LogMessage struct {
 	Module    string            `json:"mod"`
 	Location  string            `json:"loc"`
 	Message   string            `json:"msg"`
-	Labels    map[string]string `json:"lab"`
+	Labels    map[string]string `json:"lab,omitempty"`
+}
+
+// LogMessageV1 is a structured logging entry
+// for older clients expecting an array of labels.
+type LogMessageV1 struct {
+	Entity    string    `json:"tag"`
+	Timestamp time.Time `json:"ts"`
+	Severity  string    `json:"sev"`
+	Module    string    `json:"mod"`
+	Location  string    `json:"loc"`
+	Message   string    `json:"msg"`
+	Labels    []string  `json:"lab"`
+}
+
+type logMessageJSON struct {
+	Entity    string    `json:"tag"`
+	Timestamp time.Time `json:"ts"`
+	Severity  string    `json:"sev"`
+	Module    string    `json:"mod"`
+	Location  string    `json:"loc"`
+	Message   string    `json:"msg"`
+	Labels    any       `json:"lab,omitempty"`
+}
+
+// UnmarshalJSON unmarshalls an incoming log message
+// in either v1 or later format.
+func (m *LogMessage) UnmarshalJSON(data []byte) error {
+	var jm logMessageJSON
+	if err := json.Unmarshal(data, &jm); err != nil {
+		return errors.Trace(err)
+	}
+	m.Timestamp = jm.Timestamp
+	m.Entity = jm.Entity
+	m.Severity = jm.Severity
+	m.Module = jm.Module
+	m.Location = jm.Location
+	m.Message = jm.Message
+	m.Labels = unmarshallLogLabels(jm.Labels)
+	return nil
+}
+
+func unmarshallLogLabels(in any) map[string]string {
+	var result map[string]string
+	switch lab := in.(type) {
+	case []any:
+		if len(lab) > 0 {
+			out := make([]string, len(lab))
+			for i, v := range lab {
+				out[i] = fmt.Sprint(v)
+			}
+			result = map[string]string{
+				loggo.LoggerTags: strings.Join(out, ","),
+			}
+		}
+	case map[string]any:
+		result = map[string]string{}
+		for k, v := range lab {
+			result[k] = fmt.Sprint(v)
+		}
+	default:
+		// Either missing or not supported.
+	}
+	return result
 }
 
 // ResourceUploadResult is used to return some details about an

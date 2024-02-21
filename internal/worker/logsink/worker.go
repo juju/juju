@@ -4,10 +4,9 @@
 package logsink
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
-	"strings"
-	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -39,20 +38,11 @@ type logWriter struct {
 // Log implements logger.Log.
 func (lw *logWriter) Log(records []corelogger.LogRecord) error {
 	for _, r := range records {
-		//TODO(debug-log) - we'll move to newline delimited json
-		var labelsOut []string
-		for k, v := range r.Labels {
-			labelsOut = append(labelsOut, fmt.Sprintf("%s:%s", k, v))
+		line, err := json.Marshal(&r)
+		if err != nil {
+			return errors.Annotatef(err, "marshalling log record")
 		}
-		_, err := lw.Write([]byte(strings.Join([]string{
-			r.Entity,
-			r.Time.In(time.UTC).Format("2006-01-02 15:04:05"),
-			r.Level.String(),
-			r.Module,
-			r.Location,
-			r.Message,
-			strings.Join(labelsOut, ","),
-		}, " ") + "\n"))
+		_, err = lw.Write([]byte(fmt.Sprintf("%s\n", line)))
 		if err != nil {
 			return errors.Annotatef(err, "writing log record")
 		}

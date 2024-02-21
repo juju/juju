@@ -4,6 +4,7 @@
 package logtailer
 
 import (
+	"encoding/json"
 	"io"
 	"os"
 	"regexp"
@@ -50,8 +51,8 @@ type LogTailerParams struct {
 	ExcludeEntity []string
 	IncludeModule []string
 	ExcludeModule []string
-	IncludeLabel  []string
-	ExcludeLabel  []string
+	IncludeLabels map[string]string
+	ExcludeLabels map[string]string
 }
 
 // maxInitialLines limits the number of documents we will load into memory
@@ -304,10 +305,29 @@ func (t *logTailer) includeRecord(rec *corelogger.LogRecord) bool {
 			return false
 		}
 	}
-	// TODO(debug-log) - implement label filtering when json formatting is added
-	if len(t.params.IncludeLabel) > 0 {
+	if len(t.params.IncludeLabels) > 0 {
+		anyMatch := false
+		for k, v := range t.params.IncludeLabels {
+			if val, ok := rec.Labels[k]; ok && v == val {
+				anyMatch = true
+				break
+			}
+		}
+		if !anyMatch {
+			return false
+		}
 	}
-	if len(t.params.ExcludeLabel) > 0 {
+	if len(t.params.ExcludeLabels) > 0 {
+		anyMatch := false
+		for k, v := range t.params.IncludeLabels {
+			if val, ok := rec.Labels[k]; ok && v == val {
+				anyMatch = true
+				break
+			}
+		}
+		if anyMatch {
+			return false
+		}
 	}
 	return true
 }
@@ -333,32 +353,11 @@ func makeModulePattern(modules []string) string {
 }
 
 func logLineToRecord(modelUUID string, line string) (*corelogger.LogRecord, error) {
-	parts := strings.SplitN(line, " ", 7)
-	if len(parts) < 7 {
+	var result corelogger.LogRecord
+	err := json.Unmarshal([]byte(line), &result)
+	if err != nil {
 		return nil, errors.Errorf("invalid log line %q", line)
 	}
-	level, ok := loggo.ParseLevel(parts[3])
-	if !ok {
-		return nil, errors.Errorf("unrecognized log level %q", parts[3])
-	}
-	timeStr := parts[1] + " " + parts[2]
-	timeStamp, err := time.Parse("2006-01-02 15:04:05", timeStr)
-	if err != nil {
-		return nil, errors.Annotatef(err, "invalid log timestamp %q", timeStr)
-	}
-
-	rec := &corelogger.LogRecord{
-		Time: timeStamp,
-
-		ModelUUID: modelUUID,
-		Entity:    parts[0],
-
-		Level:    level,
-		Module:   parts[4],
-		Location: parts[5],
-		Message:  parts[6],
-		// TODO(debug-log) - add labels when log lines are json formatted
-		//Labels:   doc.Labels,
-	}
-	return rec, nil
+	result.ModelUUID = modelUUID
+	return &result, nil
 }

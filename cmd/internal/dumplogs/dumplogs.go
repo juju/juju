@@ -9,17 +9,15 @@ package dumplogs
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
-	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/juju/worker/v4"
 
@@ -214,25 +212,12 @@ func (c *dumpLogsCommand) dumpLogsForEnv(ctx *cmd.Context, statePool *state.Stat
 		if !ok {
 			break
 		}
-		_, _ = writer.WriteString(c.format(
-			rec.Time,
-			rec.Level,
-			rec.Entity,
-			rec.Module,
-			rec.Message,
-			rec.Labels,
-		) + "\n")
+		line, err := json.Marshal(rec)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		_, _ = writer.WriteString(fmt.Sprintf("%s\n", line))
 	}
 
 	return nil
-}
-
-func (c *dumpLogsCommand) format(timestamp time.Time, level loggo.Level, entity, module, message string, labels map[string]string) string {
-	ts := timestamp.In(time.UTC).Format("2006-01-02 15:04:05")
-	//TODO(debug-log) - we'll move to newline delimited json
-	var labelsOut []string
-	for k, v := range labels {
-		labelsOut = append(labelsOut, fmt.Sprintf("%s:%s", k, v))
-	}
-	return fmt.Sprintf("%s: %s %s %s %s %s", entity, ts, level, module, message, strings.Join(labelsOut, ","))
 }
