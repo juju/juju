@@ -1,7 +1,7 @@
 // Copyright 2018 Canonical Ltd. All rights reserved.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package stateauthenticator_test
+package stateauthenticator
 
 import (
 	"context"
@@ -19,9 +19,10 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
 
-	"github.com/juju/juju/apiserver/stateauthenticator"
+	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/controller"
 	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/testing"
 )
 
 // TODO(babbageclunk): These have been extracted pretty mechanically
@@ -32,7 +33,7 @@ import (
 type macaroonCommonSuite struct {
 	statetesting.StateSuite
 	discharger              *bakerytest.Discharger
-	authenticator           *stateauthenticator.Authenticator
+	authenticator           *Authenticator
 	clock                   *testclock.Clock
 	controllerConfigService *MockControllerConfigService
 	userService             *MockUserService
@@ -56,7 +57,9 @@ func (s *macaroonCommonSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.controllerConfigService = NewMockControllerConfigService(ctrl)
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(s.ControllerConfig, nil).AnyTimes()
 
-	authenticator, err := stateauthenticator.NewAuthenticator(s.StatePool, s.controllerConfigService, s.userService, s.clock)
+	agentAuthFactory := authentication.NewAgentAuthenticatorFactory(s.userService, s.State, testing.NewCheckLogger(c))
+
+	authenticator, err := NewAuthenticator(s.StatePool, s.State, s.controllerConfigService, s.userService, agentAuthFactory, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
 	s.authenticator = authenticator
 
@@ -105,7 +108,7 @@ func (s *macaroonAuthSuite) TestServerBakery(c *gc.C) {
 		return nil, errors.New("unexpected caveat")
 	})
 
-	bsvc, err := stateauthenticator.ServerBakery(context.Background(), s.authenticator, &alwaysIdent{IdentityLocation: discharger.Location()})
+	bsvc, err := ServerBakery(context.Background(), s.authenticator, &alwaysIdent{IdentityLocation: discharger.Location()})
 	c.Assert(err, gc.IsNil)
 
 	cav := []checkers.Caveat{
@@ -136,7 +139,7 @@ func (s *macaroonAuthSuite) TestServerBakery(c *gc.C) {
 func (s *macaroonAuthSuite) TestExpiredKey(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	bsvc, err := stateauthenticator.ServerBakeryExpiresImmediately(context.Background(), s.authenticator, &alwaysIdent{})
+	bsvc, err := ServerBakeryExpiresImmediately(context.Background(), s.authenticator, &alwaysIdent{})
 	c.Assert(err, gc.IsNil)
 
 	cav := []checkers.Caveat{
@@ -214,6 +217,6 @@ func (s *macaroonNoURLSuite) TestNoBakeryWhenNoIdentityURL(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// By default, when there is no identity location, no bakery is created.
-	_, err := stateauthenticator.ServerBakery(context.Background(), s.authenticator, nil)
+	_, err := ServerBakery(context.Background(), s.authenticator, nil)
 	c.Assert(err, gc.ErrorMatches, "macaroon authentication is not configured")
 }

@@ -177,8 +177,10 @@ func (s *loginSuite) TestLoginAsDeactivatedUser(c *gc.C) {
 
 	// Since these are user login tests, the nonce is empty.
 	err = st.Login(context.Background(), u.Tag(), password, "", nil)
+
+	// The error message should not leak that the user is disabled.
 	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
-		Message: fmt.Sprintf("user %q is disabled", u.Tag().Id()),
+		Message: "invalid entity name or password",
 		Code:    "unauthorized access",
 	})
 
@@ -207,7 +209,7 @@ func (s *loginSuite) TestLoginAsDeletedUser(c *gc.C) {
 	// Since these are user login tests, the nonce is empty.
 	err = st.Login(context.Background(), u.Tag(), password, "", nil)
 	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
-		Message: fmt.Sprintf("user %q is permanently deleted", u.Tag().Id()),
+		Message: "invalid entity name or password",
 		Code:    "unauthorized access",
 	})
 
@@ -398,14 +400,30 @@ func (s *loginSuite) infoForNewUser(c *gc.C, info *api.Info) *api.Info {
 	// Make a copy
 	newInfo := *info
 
+	userTag := names.NewUserTag("charlie")
+	password := "shhh..."
+
+	userService := s.ControllerServiceFactory(c).User()
+	_, _, err := userService.AddUser(context.Background(), service.AddUserArg{
+		Name:        userTag.Name(),
+		DisplayName: "Charlie Brown",
+		CreatorUUID: s.AdminUserUUID,
+		Password:    ptr(auth.NewPassword(password)),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// TODO (stickupkid): Remove the make user call when permissions are
+	// written to state.
 	f, release := s.NewFactory(c, info.ModelTag.Id())
 	defer release()
-	password := "shhh..."
-	user := f.MakeUser(c, &factory.UserParams{
-		Password: password,
+
+	f.MakeUser(c, &factory.UserParams{
+		Name:        userTag.Name(),
+		DisplayName: "Charlie Brown",
+		Password:    password,
 	})
 
-	newInfo.Tag = user.Tag()
+	newInfo.Tag = userTag
 	newInfo.Password = password
 	return &newInfo
 }
@@ -632,19 +650,34 @@ func (s *loginSuite) TestInvalidModel(c *gc.C) {
 }
 
 func (s *loginSuite) TestOtherModel(c *gc.C) {
+	userTag := names.NewUserTag("charlie")
+	password := "shhh..."
+
+	userService := s.ControllerServiceFactory(c).User()
+	_, _, err := userService.AddUser(context.Background(), service.AddUserArg{
+		Name:        userTag.Name(),
+		DisplayName: "Charlie Brown",
+		CreatorUUID: s.AdminUserUUID,
+		Password:    ptr(auth.NewPassword(password)),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
-	modelOwner := f.MakeUser(c, nil)
+	f.MakeUser(c, &factory.UserParams{
+		Name: userTag.Name(),
+	})
 	modelState := f.MakeModel(c, &factory.ModelParams{
-		Owner: modelOwner.UserTag(),
+		Owner: userTag,
 	})
 	defer modelState.Close()
+
 	model, err := modelState.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
 	st := s.openModelAPIWithoutLogin(c, model.UUID())
 
-	err = st.Login(context.Background(), modelOwner.UserTag(), "password", "", nil)
+	err = st.Login(context.Background(), userTag, password, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertRemoteModel(c, st, model.ModelTag())
 }
@@ -782,32 +815,48 @@ func (s *loginSuite) TestOtherModelWhenNotController(c *gc.C) {
 	assertInvalidEntityPassword(c, err)
 }
 
-func (s *loginSuite) loginLocalUser(c *gc.C, info *api.Info) (*state.User, params.LoginResult) {
+func (s *loginSuite) loginLocalUser(c *gc.C, info *api.Info) (names.UserTag, params.LoginResult) {
+	userTag := names.NewUserTag("charlie")
+	password := "shhh..."
+
+	userService := s.ControllerServiceFactory(c).User()
+	_, _, err := userService.AddUser(context.Background(), service.AddUserArg{
+		Name:        userTag.Name(),
+		DisplayName: "Charlie Brown",
+		CreatorUUID: s.AdminUserUUID,
+		Password:    ptr(auth.NewPassword(password)),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// TODO (stickupkid): Remove the make user call when permissions are
+	// written to state.
 	f, release := s.NewFactory(c, info.ModelTag.Id())
 	defer release()
-	password := "shhh..."
-	user := f.MakeUser(c, &factory.UserParams{
+
+	f.MakeUser(c, &factory.UserParams{
+		Name:     userTag.Name(),
 		Password: password,
 	})
+
 	conn := s.openAPIWithoutLogin(c)
 
 	var result params.LoginResult
 	request := &params.LoginRequest{
-		AuthTag:       user.Tag().String(),
+		AuthTag:       userTag.String(),
 		Credentials:   password,
 		ClientVersion: jujuversion.Current.String(),
 	}
-	err := conn.APICall(context.Background(), "Admin", 3, "", "Login", request, &result)
+	err = conn.APICall(context.Background(), "Admin", 3, "", "Login", request, &result)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.UserInfo, gc.NotNil)
-	return user, result
+	return userTag, result
 }
 
 func (s *loginSuite) TestLoginResultLocalUser(c *gc.C) {
 	info := s.ControllerModelApiInfo()
 
-	user, result := s.loginLocalUser(c, info)
-	c.Check(result.UserInfo.Identity, gc.Equals, user.Tag().String())
+	userTag, result := s.loginLocalUser(c, info)
+	c.Check(result.UserInfo.Identity, gc.Equals, userTag.String())
 	c.Check(result.UserInfo.ControllerAccess, gc.Equals, "login")
 	c.Check(result.UserInfo.ModelAccess, gc.Equals, "admin")
 }
@@ -817,8 +866,8 @@ func (s *loginSuite) TestLoginResultLocalUserEveryoneCreateOnlyNonLocal(c *gc.C)
 
 	setEveryoneAccess(c, s.ControllerModel(c).State(), jujutesting.AdminUser, permission.SuperuserAccess)
 
-	user, result := s.loginLocalUser(c, info)
-	c.Check(result.UserInfo.Identity, gc.Equals, user.Tag().String())
+	userTag, result := s.loginLocalUser(c, info)
+	c.Check(result.UserInfo.Identity, gc.Equals, userTag.String())
 	c.Check(result.UserInfo.ControllerAccess, gc.Equals, "login")
 	c.Check(result.UserInfo.ModelAccess, gc.Equals, "admin")
 }

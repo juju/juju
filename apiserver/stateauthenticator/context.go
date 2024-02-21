@@ -50,6 +50,16 @@ type UserService interface {
 	UpdateLastLogin(ctx context.Context, name string) error
 }
 
+// AgentAuthenticatorFactory is a factory for creating authenticators, which
+// can create authenticators for a given state.
+type AgentAuthenticatorFactory interface {
+	// Authenticator returns an authenticator using the factory's state.
+	Authenticator() authentication.EntityAuthenticator
+
+	// AuthenticatorForState returns an authenticator for the given state.
+	AuthenticatorForState(st *state.State) authentication.EntityAuthenticator
+}
+
 // authContext holds authentication context shared
 // between all API endpoints.
 type authContext struct {
@@ -57,8 +67,8 @@ type authContext struct {
 	controllerConfigService ControllerConfigService
 	userService             UserService
 
-	clock     clock.Clock
-	agentAuth *authentication.AgentAuthenticator
+	clock            clock.Clock
+	agentAuthFactory AgentAuthenticatorFactory
 
 	// localUserBakery is the bakery.Bakery used by the controller
 	// for authenticating local users. In time, we may want to use this for
@@ -100,6 +110,7 @@ func newAuthContext(
 	st *state.State,
 	controllerConfigService ControllerConfigService,
 	userService UserService,
+	agentAuthFactory AgentAuthenticatorFactory,
 	clock clock.Clock,
 ) (*authContext, error) {
 	ctxt := &authContext{
@@ -108,7 +119,7 @@ func newAuthContext(
 		controllerConfigService: controllerConfigService,
 		userService:             userService,
 		localUserInteractions:   authentication.NewInteractions(),
-		agentAuth:               authentication.NewAgentAuthenticator(userService, st, logger),
+		agentAuthFactory:        agentAuthFactory,
 	}
 
 	// Create a bakery for discharging third-party caveats for
@@ -202,17 +213,32 @@ func (ctxt *authContext) DischargeCaveats(tag names.UserTag) []checkers.Caveat {
 	return authentication.DischargeCaveats(tag, ctxt.clock)
 }
 
+// authenticatorForState returns an authenticator.Authenticator for the API
+// connection associated with the specified API server host and state.
+func (ctxt *authContext) authenticatorForState(serverHost string, st *state.State) authenticator {
+	return authenticator{
+		ctxt:               ctxt,
+		serverHost:         serverHost,
+		agentAuthenticator: ctxt.agentAuthFactory.AuthenticatorForState(st),
+	}
+}
+
 // authenticator returns an authenticator.Authenticator for the API
 // connection associated with the specified API server host.
 func (ctxt *authContext) authenticator(serverHost string) authenticator {
-	return authenticator{ctxt: ctxt, serverHost: serverHost}
+	return authenticator{
+		ctxt:               ctxt,
+		serverHost:         serverHost,
+		agentAuthenticator: ctxt.agentAuthFactory.Authenticator(),
+	}
 }
 
 // authenticator implements authenticator.Authenticator, delegating
 // to the appropriate authenticator based on the tag kind.
 type authenticator struct {
-	ctxt       *authContext
-	serverHost string
+	ctxt               *authContext
+	serverHost         string
+	agentAuthenticator authentication.EntityAuthenticator
 }
 
 // Authenticate implements authentication.Authenticator
@@ -248,9 +274,13 @@ func (a authenticator) authenticatorForTag(ctx context.Context, tag names.Tag) (
 		}
 		return auth, nil
 	}
-	for _, agentKind := range AgentTags {
-		if tag.Kind() == agentKind {
-			return a.ctxt.agentAuth, nil
+	// If the tag is not a user tag, it must be an agent tag, attempt to locate
+	// it.
+	// TODO (stickupkid): This should just be a switch. We don't need to loop
+	// through all the agent tags, it's pointless.
+	for _, kind := range AgentTags {
+		if tag.Kind() == kind {
+			return a.agentAuthenticator, nil
 		}
 	}
 	return nil, errors.Annotatef(apiservererrors.ErrBadRequest, "unexpected login entity tag")

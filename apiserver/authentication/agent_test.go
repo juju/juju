@@ -102,10 +102,6 @@ type testCase struct {
 
 func (s *agentAuthenticatorSuite) TestValidLogins(c *gc.C) {
 	testCases := []testCase{{
-		entity:      s.user,
-		credentials: "password",
-		about:       "user login",
-	}, {
 		entity:      s.machine,
 		credentials: s.machinePassword,
 		nonce:       s.machineNonce,
@@ -119,12 +115,12 @@ func (s *agentAuthenticatorSuite) TestValidLogins(c *gc.C) {
 	st := s.ControllerModel(c).State()
 	for i, t := range testCases {
 		c.Logf("test %d: %s", i, t.about)
-		authenticator := authentication.NewAgentAuthenticator(
+		factory := authentication.NewAgentAuthenticatorFactory(
 			s.ControllerServiceFactory(c).User(),
 			st,
 			jujutesting.NewCheckLogger(c),
 		)
-		entity, err := authenticator.Authenticate(context.Background(), authentication.AuthParams{
+		entity, err := factory.Authenticator().Authenticate(context.Background(), authentication.AuthParams{
 			AuthTag:     t.entity.Tag(),
 			Credentials: t.credentials,
 			Nonce:       t.nonce,
@@ -136,6 +132,11 @@ func (s *agentAuthenticatorSuite) TestValidLogins(c *gc.C) {
 
 func (s *agentAuthenticatorSuite) TestInvalidLogins(c *gc.C) {
 	testCases := []testCase{{
+		entity:       s.user,
+		credentials:  "password",
+		about:        "user login",
+		errorMessage: "invalid request",
+	}, {
 		entity:       s.relation,
 		credentials:  "dummy-secret",
 		about:        "relation login",
@@ -144,7 +145,7 @@ func (s *agentAuthenticatorSuite) TestInvalidLogins(c *gc.C) {
 		entity:       s.user,
 		credentials:  "wrongpassword",
 		about:        "user login for nonexistant user",
-		errorMessage: "invalid entity name or password",
+		errorMessage: "invalid request",
 	}, {
 		entity:       s.machine,
 		credentials:  s.machinePassword,
@@ -155,18 +156,18 @@ func (s *agentAuthenticatorSuite) TestInvalidLogins(c *gc.C) {
 		entity:       s.user,
 		credentials:  "wrong-secret",
 		about:        "user login for nonexistant user",
-		errorMessage: "invalid entity name or password",
+		errorMessage: "invalid request",
 	}}
 
 	st := s.ControllerModel(c).State()
 	for i, t := range testCases {
 		c.Logf("test %d: %s", i, t.about)
-		authenticator := authentication.NewAgentAuthenticator(
+		factory := authentication.NewAgentAuthenticatorFactory(
 			s.ControllerServiceFactory(c).User(),
 			st,
 			jujutesting.NewCheckLogger(c),
 		)
-		entity, err := authenticator.Authenticate(context.Background(), authentication.AuthParams{
+		entity, err := factory.Authenticator().Authenticate(context.Background(), authentication.AuthParams{
 			AuthTag:     t.entity.Tag(),
 			Credentials: t.credentials,
 			Nonce:       t.nonce,

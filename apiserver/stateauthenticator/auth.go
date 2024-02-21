@@ -63,15 +63,13 @@ type ControllerConfigService interface {
 // NewAuthenticator returns a new Authenticator using the given StatePool.
 func NewAuthenticator(
 	statePool *state.StatePool,
+	systemState *state.State,
 	controllerConfigService ControllerConfigService,
 	userService UserService,
+	agentAuthFactory AgentAuthenticatorFactory,
 	clock clock.Clock,
 ) (*Authenticator, error) {
-	systemState, err := statePool.SystemState()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	authContext, err := newAuthContext(systemState, controllerConfigService, userService, clock)
+	authContext, err := newAuthContext(systemState, controllerConfigService, userService, agentAuthFactory, clock)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -160,10 +158,11 @@ func (a *Authenticator) AuthenticateLoginRequest(
 	}
 	defer st.Release()
 
-	authenticator := a.authContext.authenticator(serverHost)
+	authenticator := a.authContext.authenticatorForState(serverHost, st.State)
 	authInfo, err := a.checkCreds(ctx, st.State, authParams, authenticator)
 	if err == nil {
-		return authInfo, err
+
+		return authInfo, nil
 	}
 
 	var dischargeRequired *apiservererrors.DischargeRequiredError
@@ -172,14 +171,16 @@ func (a *Authenticator) AuthenticateLoginRequest(
 		return authentication.AuthInfo{}, errors.Trace(err)
 	}
 
-	_, isMachineTag := authParams.AuthTag.(names.MachineTag)
-	_, isControllerAgentTag := authParams.AuthTag.(names.ControllerAgentTag)
 	systemState, errS := a.statePool.SystemState()
 	if errS != nil {
 		return authentication.AuthInfo{}, errors.Trace(err)
 	}
+
+	_, isMachineTag := authParams.AuthTag.(names.MachineTag)
+	_, isControllerAgentTag := authParams.AuthTag.(names.ControllerAgentTag)
 	if (isMachineTag || isControllerAgentTag) && !st.IsController() {
 		// Controller agents are allowed to log into any model.
+		authenticator := a.authContext.authenticator(serverHost)
 		var err2 error
 		authInfo, err2 = a.checkCreds(
 			ctx,
@@ -193,6 +194,7 @@ func (a *Authenticator) AuthenticateLoginRequest(
 	if err != nil {
 		return authentication.AuthInfo{}, errors.NewUnauthorized(err, "")
 	}
+
 	authInfo.Delegator = &PermissionDelegator{State: systemState}
 	return authInfo, nil
 }

@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/apiserverhttp"
+	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/authentication/macaroon"
 	"github.com/juju/juju/apiserver/stateauthenticator"
 	"github.com/juju/juju/controller"
@@ -58,7 +59,12 @@ func NewStateAuthenticator(
 	clock clock.Clock,
 	abort <-chan struct{},
 ) (macaroon.LocalMacaroonAuthenticator, error) {
-	stateAuthenticator, err := stateauthenticator.NewAuthenticator(statePool, controllerConfigService, userService, clock)
+	systemState, err := statePool.SystemState()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	agentAuthFactory := authentication.NewAgentAuthenticatorFactory(userService, systemState, nil)
+	stateAuthenticator, err := stateauthenticator.NewAuthenticator(statePool, systemState, controllerConfigService, userService, agentAuthFactory, clock)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/apiserverhttp"
+	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/authentication/macaroon"
 	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/observer/fakeobserver"
@@ -55,6 +56,7 @@ import (
 	credentialstate "github.com/juju/juju/domain/credential/state"
 	servicefactorytesting "github.com/juju/juju/domain/servicefactory/testing"
 	userbootstrap "github.com/juju/juju/domain/user/bootstrap"
+	"github.com/juju/juju/internal/auth"
 	databasetesting "github.com/juju/juju/internal/database/testing"
 	internallease "github.com/juju/juju/internal/lease"
 	"github.com/juju/juju/internal/mongo"
@@ -355,7 +357,12 @@ func (s *ApiServerSuite) setupApiServer(c *gc.C, controllerCfg controller.Config
 
 	// Set up auth handler.
 	factory := s.ControllerServiceFactory(c)
-	authenticator, err := stateauthenticator.NewAuthenticator(cfg.StatePool, factory.ControllerConfig(), factory.User(), cfg.Clock)
+
+	systemState, err := cfg.StatePool.SystemState()
+	c.Assert(err, jc.ErrorIsNil)
+	agentAuthFactory := authentication.NewAgentAuthenticatorFactory(factory.User(), systemState, nil)
+
+	authenticator, err := stateauthenticator.NewAuthenticator(cfg.StatePool, systemState, factory.ControllerConfig(), factory.User(), agentAuthFactory, cfg.Clock)
 	c.Assert(err, jc.ErrorIsNil)
 	cfg.LocalMacaroonAuthenticator = authenticator
 	err = authenticator.AddHandlers(s.mux)
@@ -616,7 +623,7 @@ func SeedDatabase(c *gc.C, runner database.TxnRunner, controllerConfig controlle
 }
 
 func SeedAdminUser(c *gc.C, runner database.TxnRunner) coreuser.UUID {
-	adminUserUUID, userAdd := userbootstrap.AddUser(coreuser.AdminUserName)
+	adminUserUUID, userAdd := userbootstrap.AddUserWithPassword(coreuser.AdminUserName, auth.NewPassword(AdminSecret))
 	err := userAdd(context.Background(), runner)
 	c.Assert(err, jc.ErrorIsNil)
 
