@@ -1028,30 +1028,6 @@ func (s *DeployUnitTestSuite) TestDeployLocalCharm(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 }
 
-func (s *DeployUnitTestSuite) TestAddMetricCredentialsDefaultForUnmeteredCharm(c *gc.C) {
-	charmDir := s.makeCharmDir(c, "multi-series")
-	multiSeriesURL := charm.MustParseURL("local:jammy/multi-series-1")
-
-	defer s.setupMocks(c).Finish()
-	cfg := basicDeployerConfig(charmDir.Path)
-	cfg.Base = defaultBase
-	s.expectDeployer(c, cfg)
-
-	fakeAPI := s.fakeAPI()
-	withLocalCharmDeployable(fakeAPI, multiSeriesURL, charmDir, false)
-	withCharmDeployable(fakeAPI, multiSeriesURL, defaultBase, charmDir.Meta(), false, 1, nil, nil)
-
-	_, err := s.runDeploy(c, fakeAPI, charmDir.Path, "--base", "ubuntu@22.04")
-	c.Assert(err, jc.ErrorIsNil)
-
-	// We never attempt to set metric credentials
-	for _, call := range fakeAPI.Calls() {
-		if call.FuncName == "FacadeCall" {
-			c.Assert(call.Args[0], gc.Not(gc.Matches), "SetMetricCredentials")
-		}
-	}
-}
-
 func (s *DeployUnitTestSuite) TestRedeployLocalCharmSucceedsWhenDeployed(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	cfg := basicDeployerConfig("local:jammy/dummy-0")

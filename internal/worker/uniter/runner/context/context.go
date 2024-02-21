@@ -109,12 +109,6 @@ type Clock interface {
 
 var ErrIsNotLeader = errors.Errorf("this unit is not the leader")
 
-// meterStatus describes the unit's meter status.
-type meterStatus struct {
-	code string
-	info string
-}
-
 // HookProcess is an interface representing a process running a hook.
 type HookProcess interface {
 	Pid() int

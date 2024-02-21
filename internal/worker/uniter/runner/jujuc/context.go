@@ -45,7 +45,6 @@ type HookContext interface {
 	ContextInstance
 	ContextNetworking
 	ContextLeadership
-	ContextMetrics
 	ContextStorage
 	ContextResources
 	ContextPayloads
@@ -290,14 +289,6 @@ type ContextLeadership interface {
 	// WriteLeaderSettings writes the supplied settings directly to state, or
 	// fails if the local unit is not the application's leader.
 	WriteLeaderSettings(map[string]string) error
-}
-
-// ContextMetrics is the part of a hook context related to metrics.
-type ContextMetrics interface {
-	// AddMetric records a metric to return after hook execution.
-	AddMetric(string, string, time.Time) error
-	// AddMetricLabels records a metric with tags to return after hook execution.
-	AddMetricLabels(string, string, time.Time, map[string]string) error
 }
 
 // ContextStorage is the part of a hook context related to storage

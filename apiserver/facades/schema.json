@@ -2277,18 +2277,6 @@
                     },
                     "description": "SetConstraints sets the constraints for a given application."
                 },
-                "SetMetricCredentials": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/ApplicationMetricCredentials"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/ErrorResults"
-                        }
-                    },
-                    "description": "SetMetricCredentials sets credentials on the application.\nTODO (cderici) only used for metered charms in cmd MeteredDeployAPI,\nkept for client compatibility, remove in juju 4.0"
-                },
                 "SetRelationsSuspended": {
                     "type": "object",
                     "properties": {
@@ -2785,40 +2773,6 @@
                     "additionalProperties": false,
                     "required": [
                         "args"
-                    ]
-                },
-                "ApplicationMetricCredential": {
-                    "type": "object",
-                    "properties": {
-                        "application": {
-                            "type": "string"
-                        },
-                        "metrics-credentials": {
-                            "type": "array",
-                            "items": {
-                                "type": "integer"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "application",
-                        "metrics-credentials"
-                    ]
-                },
-                "ApplicationMetricCredentials": {
-                    "type": "object",
-                    "properties": {
-                        "creds": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/ApplicationMetricCredential"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "creds"
                     ]
                 },
                 "ApplicationOfferDetails": {
@@ -7146,9 +7100,6 @@
                         "meta": {
                             "$ref": "#/definitions/CharmMeta"
                         },
-                        "metrics": {
-                            "$ref": "#/definitions/CharmMetrics"
-                        },
                         "revision": {
                             "type": "integer"
                         },
@@ -7460,43 +7411,6 @@
                         "subordinate"
                     ]
                 },
-                "CharmMetric": {
-                    "type": "object",
-                    "properties": {
-                        "description": {
-                            "type": "string"
-                        },
-                        "type": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "type",
-                        "description"
-                    ]
-                },
-                "CharmMetrics": {
-                    "type": "object",
-                    "properties": {
-                        "metrics": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "$ref": "#/definitions/CharmMetric"
-                                }
-                            }
-                        },
-                        "plan": {
-                            "$ref": "#/definitions/CharmPlan"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "metrics",
-                        "plan"
-                    ]
-                },
                 "CharmMount": {
                     "type": "object",
                     "properties": {
@@ -7542,18 +7456,6 @@
                     "required": [
                         "name",
                         "type"
-                    ]
-                },
-                "CharmPlan": {
-                    "type": "object",
-                    "properties": {
-                        "required": {
-                            "type": "boolean"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "required"
                     ]
                 },
                 "CharmRelation": {
@@ -8826,9 +8728,6 @@
                         "meta": {
                             "$ref": "#/definitions/CharmMeta"
                         },
-                        "metrics": {
-                            "$ref": "#/definitions/CharmMetrics"
-                        },
                         "revision": {
                             "type": "integer"
                         },
@@ -9140,43 +9039,6 @@
                         "subordinate"
                     ]
                 },
-                "CharmMetric": {
-                    "type": "object",
-                    "properties": {
-                        "description": {
-                            "type": "string"
-                        },
-                        "type": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "type",
-                        "description"
-                    ]
-                },
-                "CharmMetrics": {
-                    "type": "object",
-                    "properties": {
-                        "metrics": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "$ref": "#/definitions/CharmMetric"
-                                }
-                            }
-                        },
-                        "plan": {
-                            "$ref": "#/definitions/CharmPlan"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "metrics",
-                        "plan"
-                    ]
-                },
                 "CharmMount": {
                     "type": "object",
                     "properties": {
@@ -9222,18 +9084,6 @@
                     "required": [
                         "name",
                         "type"
-                    ]
-                },
-                "CharmPlan": {
-                    "type": "object",
-                    "properties": {
-                        "required": {
-                            "type": "boolean"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "required"
                     ]
                 },
                 "CharmRelation": {
@@ -10763,18 +10613,6 @@
                     },
                     "description": "GetDownloadInfos attempts to get the bundle corresponding to the charm url\nand origin."
                 },
-                "IsMetered": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/CharmURL"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/IsMeteredResult"
-                        }
-                    },
-                    "description": "IsMetered returns whether or not the charm is metered.\nTODO (cderici) only used for metered charms in cmd MeteredDeployAPI,\nkept for client compatibility, remove in juju 4.0"
-                },
                 "List": {
                     "type": "object",
                     "properties": {
@@ -10902,9 +10740,6 @@
                         },
                         "meta": {
                             "$ref": "#/definitions/CharmMeta"
-                        },
-                        "metrics": {
-                            "$ref": "#/definitions/CharmMetrics"
                         },
                         "revision": {
                             "type": "integer"
@@ -11217,43 +11052,6 @@
                         "subordinate"
                     ]
                 },
-                "CharmMetric": {
-                    "type": "object",
-                    "properties": {
-                        "description": {
-                            "type": "string"
-                        },
-                        "type": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "type",
-                        "description"
-                    ]
-                },
-                "CharmMetrics": {
-                    "type": "object",
-                    "properties": {
-                        "metrics": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "$ref": "#/definitions/CharmMetric"
-                                }
-                            }
-                        },
-                        "plan": {
-                            "$ref": "#/definitions/CharmPlan"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "metrics",
-                        "plan"
-                    ]
-                },
                 "CharmMount": {
                     "type": "object",
                     "properties": {
@@ -11358,18 +11156,6 @@
                     "required": [
                         "name",
                         "type"
-                    ]
-                },
-                "CharmPlan": {
-                    "type": "object",
-                    "properties": {
-                        "required": {
-                            "type": "boolean"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "required"
                     ]
                 },
                 "CharmRelation": {
@@ -11759,18 +11545,6 @@
                         "Expression"
                     ]
                 },
-                "IsMeteredResult": {
-                    "type": "object",
-                    "properties": {
-                        "metered": {
-                            "type": "boolean"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "metered"
-                    ]
-                },
                 "Macaroon": {
                     "type": "object",
                     "additionalProperties": false
@@ -12085,14 +11859,6 @@
                         "life": {
                             "type": "string"
                         },
-                        "meter-statuses": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "$ref": "#/definitions/MeterStatus"
-                                }
-                            }
-                        },
                         "provider-id": {
                             "type": "string"
                         },
@@ -12143,7 +11909,6 @@
                         "can-upgrade-to",
                         "subordinate-to",
                         "units",
-                        "meter-statuses",
                         "status",
                         "workload-version",
                         "endpoint-bindings",
@@ -12761,22 +12526,6 @@
                         "wants-vote"
                     ]
                 },
-                "MeterStatus": {
-                    "type": "object",
-                    "properties": {
-                        "color": {
-                            "type": "string"
-                        },
-                        "message": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "color",
-                        "message"
-                    ]
-                },
                 "ModelStatusInfo": {
                     "type": "object",
                     "properties": {
@@ -12786,9 +12535,6 @@
                         "cloud-tag": {
                             "type": "string"
                         },
-                        "meter-status": {
-                            "$ref": "#/definitions/MeterStatus"
-                        },
                         "model-status": {
                             "$ref": "#/definitions/DetailedStatus"
                         },
@@ -12796,9 +12542,6 @@
                             "type": "string"
                         },
                         "region": {
-                            "type": "string"
-                        },
-                        "sla": {
                             "type": "string"
                         },
                         "type": {
@@ -12815,9 +12558,7 @@
                         "cloud-tag",
                         "version",
                         "available-version",
-                        "model-status",
-                        "meter-status",
-                        "sla"
+                        "model-status"
                     ]
                 },
                 "NetworkInterface": {
@@ -24625,817 +24366,6 @@
         }
     },
     {
-        "Name": "MeterStatus",
-        "Description": "MeterStatusAPI implements the MeterStatus interface and is the concrete\nimplementation of the API endpoint. Additionally, it embeds\ncommon.UnitStateAPI to allow meter status workers to access their\ncontroller-backed internal state.",
-        "Version": 2,
-        "AvailableTo": [
-            "controller-machine-agent",
-            "machine-agent",
-            "unit-agent",
-            "model-user"
-        ],
-        "Schema": {
-            "type": "object",
-            "properties": {
-                "GetMeterStatus": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/Entities"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/MeterStatusResults"
-                        }
-                    },
-                    "description": "GetMeterStatus returns meter status information for each unit."
-                },
-                "SetState": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/SetUnitStateArgs"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/ErrorResults"
-                        }
-                    },
-                    "description": "SetState sets the state persisted by the charm running in this unit\nand the state internal to the uniter for this unit."
-                },
-                "State": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/Entities"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/UnitStateResults"
-                        }
-                    },
-                    "description": "State returns the state persisted by the charm running in this unit\nand the state internal to the uniter for this unit."
-                },
-                "WatchMeterStatus": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/Entities"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/NotifyWatchResults"
-                        }
-                    },
-                    "description": "WatchMeterStatus returns a NotifyWatcher for observing changes\nto each unit's meter status."
-                }
-            },
-            "definitions": {
-                "Entities": {
-                    "type": "object",
-                    "properties": {
-                        "entities": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/Entity"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "entities"
-                    ]
-                },
-                "Entity": {
-                    "type": "object",
-                    "properties": {
-                        "tag": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "tag"
-                    ]
-                },
-                "Error": {
-                    "type": "object",
-                    "properties": {
-                        "code": {
-                            "type": "string"
-                        },
-                        "info": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "type": "object",
-                                    "additionalProperties": true
-                                }
-                            }
-                        },
-                        "message": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "message",
-                        "code"
-                    ]
-                },
-                "ErrorResult": {
-                    "type": "object",
-                    "properties": {
-                        "error": {
-                            "$ref": "#/definitions/Error"
-                        }
-                    },
-                    "additionalProperties": false
-                },
-                "ErrorResults": {
-                    "type": "object",
-                    "properties": {
-                        "results": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/ErrorResult"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "results"
-                    ]
-                },
-                "MeterStatusResult": {
-                    "type": "object",
-                    "properties": {
-                        "code": {
-                            "type": "string"
-                        },
-                        "error": {
-                            "$ref": "#/definitions/Error"
-                        },
-                        "info": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "code",
-                        "info"
-                    ]
-                },
-                "MeterStatusResults": {
-                    "type": "object",
-                    "properties": {
-                        "results": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/MeterStatusResult"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "results"
-                    ]
-                },
-                "NotifyWatchResult": {
-                    "type": "object",
-                    "properties": {
-                        "NotifyWatcherId": {
-                            "type": "string"
-                        },
-                        "error": {
-                            "$ref": "#/definitions/Error"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "NotifyWatcherId"
-                    ]
-                },
-                "NotifyWatchResults": {
-                    "type": "object",
-                    "properties": {
-                        "results": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/NotifyWatchResult"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "results"
-                    ]
-                },
-                "SetUnitStateArg": {
-                    "type": "object",
-                    "properties": {
-                        "charm-state": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "type": "string"
-                                }
-                            }
-                        },
-                        "meter-status-state": {
-                            "type": "string"
-                        },
-                        "relation-state": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "type": "string"
-                                }
-                            }
-                        },
-                        "secret-state": {
-                            "type": "string"
-                        },
-                        "storage-state": {
-                            "type": "string"
-                        },
-                        "tag": {
-                            "type": "string"
-                        },
-                        "uniter-state": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "tag"
-                    ]
-                },
-                "SetUnitStateArgs": {
-                    "type": "object",
-                    "properties": {
-                        "args": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/SetUnitStateArg"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "args"
-                    ]
-                },
-                "UnitStateResult": {
-                    "type": "object",
-                    "properties": {
-                        "charm-state": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "type": "string"
-                                }
-                            }
-                        },
-                        "error": {
-                            "$ref": "#/definitions/Error"
-                        },
-                        "meter-status-state": {
-                            "type": "string"
-                        },
-                        "relation-state": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "type": "string"
-                                }
-                            }
-                        },
-                        "secret-state": {
-                            "type": "string"
-                        },
-                        "storage-state": {
-                            "type": "string"
-                        },
-                        "uniter-state": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false
-                },
-                "UnitStateResults": {
-                    "type": "object",
-                    "properties": {
-                        "results": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/UnitStateResult"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "results"
-                    ]
-                }
-            }
-        }
-    },
-    {
-        "Name": "MetricsAdder",
-        "Description": "MetricsAdderAPI implements the metrics adder interface and is the concrete\nimplementation of the API end point.",
-        "Version": 2,
-        "AvailableTo": [
-            "controller-machine-agent",
-            "machine-agent",
-            "unit-agent"
-        ],
-        "Schema": {
-            "type": "object",
-            "properties": {
-                "AddMetricBatches": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/MetricBatchParams"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/ErrorResults"
-                        }
-                    },
-                    "description": "AddMetricBatches implements the MetricsAdder interface."
-                }
-            },
-            "definitions": {
-                "Error": {
-                    "type": "object",
-                    "properties": {
-                        "code": {
-                            "type": "string"
-                        },
-                        "info": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "type": "object",
-                                    "additionalProperties": true
-                                }
-                            }
-                        },
-                        "message": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "message",
-                        "code"
-                    ]
-                },
-                "ErrorResult": {
-                    "type": "object",
-                    "properties": {
-                        "error": {
-                            "$ref": "#/definitions/Error"
-                        }
-                    },
-                    "additionalProperties": false
-                },
-                "ErrorResults": {
-                    "type": "object",
-                    "properties": {
-                        "results": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/ErrorResult"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "results"
-                    ]
-                },
-                "Metric": {
-                    "type": "object",
-                    "properties": {
-                        "key": {
-                            "type": "string"
-                        },
-                        "labels": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "type": "string"
-                                }
-                            }
-                        },
-                        "time": {
-                            "type": "string",
-                            "format": "date-time"
-                        },
-                        "value": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "key",
-                        "value",
-                        "time"
-                    ]
-                },
-                "MetricBatch": {
-                    "type": "object",
-                    "properties": {
-                        "charm-url": {
-                            "type": "string"
-                        },
-                        "created": {
-                            "type": "string",
-                            "format": "date-time"
-                        },
-                        "metrics": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/Metric"
-                            }
-                        },
-                        "uuid": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "uuid",
-                        "charm-url",
-                        "created",
-                        "metrics"
-                    ]
-                },
-                "MetricBatchParam": {
-                    "type": "object",
-                    "properties": {
-                        "batch": {
-                            "$ref": "#/definitions/MetricBatch"
-                        },
-                        "tag": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "tag",
-                        "batch"
-                    ]
-                },
-                "MetricBatchParams": {
-                    "type": "object",
-                    "properties": {
-                        "batches": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/MetricBatchParam"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "batches"
-                    ]
-                }
-            }
-        }
-    },
-    {
-        "Name": "MetricsDebug",
-        "Description": "MetricsDebugAPI implements the metricsdebug interface and is the concrete\nimplementation of the api end point.",
-        "Version": 2,
-        "AvailableTo": [
-            "model-user"
-        ],
-        "Schema": {
-            "type": "object",
-            "properties": {
-                "GetMetrics": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/Entities"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/MetricResults"
-                        }
-                    },
-                    "description": "GetMetrics returns all metrics stored by the state server."
-                },
-                "SetMeterStatus": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/MeterStatusParams"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/ErrorResults"
-                        }
-                    },
-                    "description": "SetMeterStatus sets meter statuses for entities."
-                }
-            },
-            "definitions": {
-                "Entities": {
-                    "type": "object",
-                    "properties": {
-                        "entities": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/Entity"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "entities"
-                    ]
-                },
-                "Entity": {
-                    "type": "object",
-                    "properties": {
-                        "tag": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "tag"
-                    ]
-                },
-                "EntityMetrics": {
-                    "type": "object",
-                    "properties": {
-                        "error": {
-                            "$ref": "#/definitions/Error"
-                        },
-                        "metrics": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/MetricResult"
-                            }
-                        }
-                    },
-                    "additionalProperties": false
-                },
-                "Error": {
-                    "type": "object",
-                    "properties": {
-                        "code": {
-                            "type": "string"
-                        },
-                        "info": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "type": "object",
-                                    "additionalProperties": true
-                                }
-                            }
-                        },
-                        "message": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "message",
-                        "code"
-                    ]
-                },
-                "ErrorResult": {
-                    "type": "object",
-                    "properties": {
-                        "error": {
-                            "$ref": "#/definitions/Error"
-                        }
-                    },
-                    "additionalProperties": false
-                },
-                "ErrorResults": {
-                    "type": "object",
-                    "properties": {
-                        "results": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/ErrorResult"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "results"
-                    ]
-                },
-                "MeterStatusParam": {
-                    "type": "object",
-                    "properties": {
-                        "code": {
-                            "type": "string"
-                        },
-                        "info": {
-                            "type": "string"
-                        },
-                        "tag": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "tag",
-                        "code"
-                    ]
-                },
-                "MeterStatusParams": {
-                    "type": "object",
-                    "properties": {
-                        "statues": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/MeterStatusParam"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "statues"
-                    ]
-                },
-                "MetricResult": {
-                    "type": "object",
-                    "properties": {
-                        "key": {
-                            "type": "string"
-                        },
-                        "labels": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "type": "string"
-                                }
-                            }
-                        },
-                        "time": {
-                            "type": "string",
-                            "format": "date-time"
-                        },
-                        "unit": {
-                            "type": "string"
-                        },
-                        "value": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "time",
-                        "key",
-                        "value",
-                        "unit",
-                        "labels"
-                    ]
-                },
-                "MetricResults": {
-                    "type": "object",
-                    "properties": {
-                        "results": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/EntityMetrics"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "results"
-                    ]
-                }
-            }
-        }
-    },
-    {
-        "Name": "MetricsManager",
-        "Description": "MetricsManagerAPI implements the metrics manager interface and is the concrete\nimplementation of the api end point.",
-        "Version": 1,
-        "AvailableTo": [
-            "controller-machine-agent"
-        ],
-        "Schema": {
-            "type": "object",
-            "properties": {
-                "AddJujuMachineMetrics": {
-                    "type": "object",
-                    "description": "AddJujuMachineMetrics adds a metric that counts the number of\nnon-container machines in the current model."
-                },
-                "CleanupOldMetrics": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/Entities"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/ErrorResults"
-                        }
-                    },
-                    "description": "CleanupOldMetrics removes old metrics from the collection.\nThe single arg params is expected to contain and model uuid.\nEven though the call will delete all metrics across models\nit serves to validate that the connection has access to at least one model."
-                },
-                "SendMetrics": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/Entities"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/ErrorResults"
-                        }
-                    },
-                    "description": "SendMetrics will send any unsent metrics onto the metric collection service."
-                }
-            },
-            "definitions": {
-                "Entities": {
-                    "type": "object",
-                    "properties": {
-                        "entities": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/Entity"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "entities"
-                    ]
-                },
-                "Entity": {
-                    "type": "object",
-                    "properties": {
-                        "tag": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "tag"
-                    ]
-                },
-                "Error": {
-                    "type": "object",
-                    "properties": {
-                        "code": {
-                            "type": "string"
-                        },
-                        "info": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "type": "object",
-                                    "additionalProperties": true
-                                }
-                            }
-                        },
-                        "message": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "message",
-                        "code"
-                    ]
-                },
-                "ErrorResult": {
-                    "type": "object",
-                    "properties": {
-                        "error": {
-                            "$ref": "#/definitions/Error"
-                        }
-                    },
-                    "additionalProperties": false
-                },
-                "ErrorResults": {
-                    "type": "object",
-                    "properties": {
-                        "results": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/ErrorResult"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "results"
-                    ]
-                }
-            }
-        }
-    },
-    {
         "Name": "MigrationFlag",
         "Description": "Facade lets clients watch and get models' migration phases.",
         "Version": 1,
@@ -26801,15 +25731,6 @@
                     },
                     "description": "ModelUnset implements the server-side part of the\nset-model-config CLI command."
                 },
-                "SLALevel": {
-                    "type": "object",
-                    "properties": {
-                        "Result": {
-                            "$ref": "#/definitions/StringResult"
-                        }
-                    },
-                    "description": "SLALevel returns the current sla level for the model."
-                },
                 "Sequences": {
                     "type": "object",
                     "properties": {
@@ -26827,15 +25748,6 @@
                         }
                     },
                     "description": "SetModelConstraints sets the constraints for the model."
-                },
-                "SetSLALevel": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/ModelSLA"
-                        }
-                    },
-                    "description": "SetSLALevel sets the sla level on the model."
                 }
             },
             "definitions": {
@@ -26854,31 +25766,6 @@
                     "required": [
                         "value",
                         "source"
-                    ]
-                },
-                "Error": {
-                    "type": "object",
-                    "properties": {
-                        "code": {
-                            "type": "string"
-                        },
-                        "info": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "type": "object",
-                                    "additionalProperties": true
-                                }
-                            }
-                        },
-                        "message": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "message",
-                        "code"
                     ]
                 },
                 "GetConstraintsResults": {
@@ -26908,49 +25795,6 @@
                     "additionalProperties": false,
                     "required": [
                         "config"
-                    ]
-                },
-                "ModelSLA": {
-                    "type": "object",
-                    "properties": {
-                        "ModelSLAInfo": {
-                            "$ref": "#/definitions/ModelSLAInfo"
-                        },
-                        "creds": {
-                            "type": "array",
-                            "items": {
-                                "type": "integer"
-                            }
-                        },
-                        "level": {
-                            "type": "string"
-                        },
-                        "owner": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "level",
-                        "owner",
-                        "ModelSLAInfo",
-                        "creds"
-                    ]
-                },
-                "ModelSLAInfo": {
-                    "type": "object",
-                    "properties": {
-                        "level": {
-                            "type": "string"
-                        },
-                        "owner": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "level",
-                        "owner"
                     ]
                 },
                 "ModelSequencesResult": {
@@ -27017,21 +25861,6 @@
                     "required": [
                         "application",
                         "constraints"
-                    ]
-                },
-                "StringResult": {
-                    "type": "object",
-                    "properties": {
-                        "error": {
-                            "$ref": "#/definitions/Error"
-                        },
-                        "result": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "result"
                     ]
                 },
                 "Value": {
@@ -28146,9 +26975,6 @@
                                 "$ref": "#/definitions/SecretBackendResult"
                             }
                         },
-                        "sla": {
-                            "$ref": "#/definitions/ModelSLAInfo"
-                        },
                         "status": {
                             "$ref": "#/definitions/EntityStatus"
                         },
@@ -28184,7 +27010,6 @@
                         "users",
                         "machines",
                         "secret-backends",
-                        "sla",
                         "agent-version"
                     ]
                 },
@@ -28270,22 +27095,6 @@
                     "required": [
                         "status",
                         "start"
-                    ]
-                },
-                "ModelSLAInfo": {
-                    "type": "object",
-                    "properties": {
-                        "level": {
-                            "type": "string"
-                        },
-                        "owner": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "level",
-                        "owner"
                     ]
                 },
                 "ModelStatus": {
@@ -28427,9 +27236,6 @@
                         "provider-type": {
                             "type": "string"
                         },
-                        "sla": {
-                            "$ref": "#/definitions/ModelSLAInfo"
-                        },
                         "status": {
                             "$ref": "#/definitions/EntityStatus"
                         },
@@ -28456,7 +27262,6 @@
                         "user-access",
                         "last-connection",
                         "counts",
-                        "sla",
                         "agent-version"
                     ]
                 },
@@ -42315,18 +41120,6 @@
                     },
                     "description": "Actions returns the Actions by Tags passed and ensures that the Unit asking\nfor them is the same Unit that has the Actions."
                 },
-                "AddMetricBatches": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/MetricBatchParams"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/ErrorResults"
-                        }
-                    },
-                    "description": "AddMetricBatches adds the metrics for the specified unit."
-                },
                 "ApplicationStatus": {
                     "type": "object",
                     "properties": {
@@ -42593,17 +41386,6 @@
                         }
                     },
                     "description": "GetConsumerSecretsRevisionInfo returns the latest secret revisions for the specified secrets.\nThis facade method is used for remote watcher to get the latest secret revisions and labels for a secret changed hook."
-                },
-                "GetMeterStatus": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/Entities"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/MeterStatusResults"
-                        }
-                    }
                 },
                 "GetPrincipal": {
                     "type": "object",
@@ -42977,15 +41759,6 @@
                     },
                     "description": "Resolved returns the current resolved setting for each given unit."
                 },
-                "SLALevel": {
-                    "type": "object",
-                    "properties": {
-                        "Result": {
-                            "$ref": "#/definitions/StringResult"
-                        }
-                    },
-                    "description": "SLALevel returns the model's SLA level."
-                },
                 "SecretsGrant": {
                     "type": "object",
                     "properties": {
@@ -43315,17 +42088,6 @@
                         }
                     },
                     "description": "WatchLeadershipSettings will block the caller until leadership settings\nfor the given service ID change."
-                },
-                "WatchMeterStatus": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/Entities"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/NotifyWatchResults"
-                        }
-                    }
                 },
                 "WatchObsolete": {
                     "type": "object",
@@ -44827,128 +43589,6 @@
                         "settings"
                     ]
                 },
-                "MeterStatusResult": {
-                    "type": "object",
-                    "properties": {
-                        "code": {
-                            "type": "string"
-                        },
-                        "error": {
-                            "$ref": "#/definitions/Error"
-                        },
-                        "info": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "code",
-                        "info"
-                    ]
-                },
-                "MeterStatusResults": {
-                    "type": "object",
-                    "properties": {
-                        "results": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/MeterStatusResult"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "results"
-                    ]
-                },
-                "Metric": {
-                    "type": "object",
-                    "properties": {
-                        "key": {
-                            "type": "string"
-                        },
-                        "labels": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "type": "string"
-                                }
-                            }
-                        },
-                        "time": {
-                            "type": "string",
-                            "format": "date-time"
-                        },
-                        "value": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "key",
-                        "value",
-                        "time"
-                    ]
-                },
-                "MetricBatch": {
-                    "type": "object",
-                    "properties": {
-                        "charm-url": {
-                            "type": "string"
-                        },
-                        "created": {
-                            "type": "string",
-                            "format": "date-time"
-                        },
-                        "metrics": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/Metric"
-                            }
-                        },
-                        "uuid": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "uuid",
-                        "charm-url",
-                        "created",
-                        "metrics"
-                    ]
-                },
-                "MetricBatchParam": {
-                    "type": "object",
-                    "properties": {
-                        "batch": {
-                            "$ref": "#/definitions/MetricBatch"
-                        },
-                        "tag": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "tag",
-                        "batch"
-                    ]
-                },
-                "MetricBatchParams": {
-                    "type": "object",
-                    "properties": {
-                        "batches": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/MetricBatchParam"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "batches"
-                    ]
-                },
                 "ModelConfigResult": {
                     "type": "object",
                     "properties": {
@@ -45899,9 +44539,6 @@
                                 }
                             }
                         },
-                        "meter-status-state": {
-                            "type": "string"
-                        },
                         "relation-state": {
                             "type": "object",
                             "patternProperties": {
@@ -46365,9 +45002,6 @@
                         },
                         "error": {
                             "$ref": "#/definitions/Error"
-                        },
-                        "meter-status-state": {
-                            "type": "string"
                         },
                         "relation-state": {
                             "type": "object",
@@ -47235,9 +45869,6 @@
                                     "type": "string"
                                 }
                             }
-                        },
-                        "meter-status-state": {
-                            "type": "string"
                         },
                         "relation-state": {
                             "type": "object",

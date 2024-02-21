@@ -860,20 +860,6 @@ func (mr *MockModelMockRecorder) Life() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Life", reflect.TypeOf((*MockModel)(nil).Life))
 }
 
-// MeterStatus mocks base method.
-func (m *MockModel) MeterStatus() state.MeterStatus {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "MeterStatus")
-	ret0, _ := ret[0].(state.MeterStatus)
-	return ret0
-}
-
-// MeterStatus indicates an expected call of MeterStatus.
-func (mr *MockModelMockRecorder) MeterStatus() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MeterStatus", reflect.TypeOf((*MockModel)(nil).MeterStatus))
-}
-
 // Name mocks base method.
 func (m *MockModel) Name() string {
 	m.ctrl.T.Helper()
@@ -900,34 +886,6 @@ func (m *MockModel) Owner() names.UserTag {
 func (mr *MockModelMockRecorder) Owner() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Owner", reflect.TypeOf((*MockModel)(nil).Owner))
-}
-
-// SLALevel mocks base method.
-func (m *MockModel) SLALevel() string {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SLALevel")
-	ret0, _ := ret[0].(string)
-	return ret0
-}
-
-// SLALevel indicates an expected call of SLALevel.
-func (mr *MockModelMockRecorder) SLALevel() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SLALevel", reflect.TypeOf((*MockModel)(nil).SLALevel))
-}
-
-// SLAOwner mocks base method.
-func (m *MockModel) SLAOwner() string {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SLAOwner")
-	ret0, _ := ret[0].(string)
-	return ret0
-}
-
-// SLAOwner indicates an expected call of SLAOwner.
-func (mr *MockModelMockRecorder) SLAOwner() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SLAOwner", reflect.TypeOf((*MockModel)(nil).SLAOwner))
 }
 
 // Status mocks base method.

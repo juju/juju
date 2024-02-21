@@ -104,7 +104,7 @@ var debugHooksTests = []struct {
 }, {
 	info:  `invalid hook`,
 	args:  []string{"mysql/0", "invalid-hook"},
-	error: `unit "mysql/0" contains neither hook nor action "invalid-hook", valid actions are [anotherfakeaction fakeaction] and valid hooks are [collect-metrics config-changed install juju-info-relation-broken juju-info-relation-changed juju-info-relation-created juju-info-relation-departed juju-info-relation-joined leader-deposed leader-elected leader-settings-changed meter-status-changed metrics-client-relation-broken metrics-client-relation-changed metrics-client-relation-created metrics-client-relation-departed metrics-client-relation-joined post-series-upgrade pre-series-upgrade remove secret-changed secret-expired secret-remove secret-rotate server-admin-relation-broken server-admin-relation-changed server-admin-relation-created server-admin-relation-departed server-admin-relation-joined server-relation-broken server-relation-changed server-relation-created server-relation-departed server-relation-joined start stop update-status upgrade-charm]`,
+	error: `unit "mysql/0" contains neither hook nor action "invalid-hook", valid actions are \[anotherfakeaction fakeaction\] and valid hooks are .*`,
 }, {
 	info:  `no args at all`,
 	args:  nil,
@@ -113,9 +113,8 @@ var debugHooksTests = []struct {
 
 var meta = charm.Meta{
 	Provides: map[string]charm.Relation{
-		"metrics-client": {Name: "metrics-client", Interface: "metrics", Role: charm.RoleProvider},
-		"server":         {Name: "server", Interface: "mysql", Role: charm.RoleProvider},
-		"server-admin":   {Name: "server", Interface: "mysql", Role: charm.RoleProvider},
+		"server":       {Name: "server", Interface: "mysql", Role: charm.RoleProvider},
+		"server-admin": {Name: "server", Interface: "mysql", Role: charm.RoleProvider},
 	},
 }
 
@@ -159,7 +158,7 @@ func (s *DebugHooksSuite) TestDebugHooksCommand(c *gc.C) {
 
 		ctx, err := cmdtesting.RunCommand(c, modelcmd.Wrap(hooksCmd), t.args...)
 		if t.error != "" {
-			c.Check(err, gc.ErrorMatches, regexp.QuoteMeta(t.error))
+			c.Check(err, gc.ErrorMatches, t.error)
 		} else {
 			c.Check(err, jc.ErrorIsNil)
 			if t.expected != nil {

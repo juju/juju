@@ -109,20 +109,6 @@ func (mr *MockCharmArchiveMockRecorder) Meta() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Meta", reflect.TypeOf((*MockCharmArchive)(nil).Meta))
 }
 
-// Metrics mocks base method.
-func (m *MockCharmArchive) Metrics() *charm.Metrics {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Metrics")
-	ret0, _ := ret[0].(*charm.Metrics)
-	return ret0
-}
-
-// Metrics indicates an expected call of Metrics.
-func (mr *MockCharmArchiveMockRecorder) Metrics() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Metrics", reflect.TypeOf((*MockCharmArchive)(nil).Metrics))
-}
-
 // Revision mocks base method.
 func (m *MockCharmArchive) Revision() int {
 	m.ctrl.T.Helper()

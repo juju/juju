@@ -55,9 +55,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/imagemetadatamanager"
 	"github.com/juju/juju/apiserver/facades/client/keymanager"     // ModelUser Write
 	"github.com/juju/juju/apiserver/facades/client/machinemanager" // ModelUser Write
-
-	// ModelUser Write
-	"github.com/juju/juju/apiserver/facades/client/modelconfig" // ModelUser Write
+	"github.com/juju/juju/apiserver/facades/client/modelconfig"    // ModelUser Write
 	"github.com/juju/juju/apiserver/facades/client/modelgeneration"
 	"github.com/juju/juju/apiserver/facades/client/modelmanager" // ModelUser Write
 	"github.com/juju/juju/apiserver/facades/client/modelupgrader"

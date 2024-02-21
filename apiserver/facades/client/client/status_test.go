@@ -307,8 +307,8 @@ func (s *statusUnitTestSuite) TestProcessMachinesWithEmbeddedContainers(c *gc.C)
 func (s *statusUnitTestSuite) TestApplicationWithExposedEndpoints(c *gc.C) {
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	release()
-	meteredCharm := f.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "ch:amd64/quantal/metered"})
-	app := f.MakeApplication(c, &factory.ApplicationParams{Charm: meteredCharm})
+	charm := f.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "ch:amd64/quantal/metered"})
+	app := f.MakeApplication(c, &factory.ApplicationParams{Charm: charm})
 	err := app.MergeExposeSettings(map[string]state.ExposedEndpoint{
 		"": {
 			ExposeToSpaceIDs: []string{network.AlphaSpaceId},
@@ -336,9 +336,9 @@ func (s *statusUnitTestSuite) TestApplicationWithExposedEndpoints(c *gc.C) {
 func (s *statusUnitTestSuite) TestPrincipalUpgradingFrom(c *gc.C) {
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	release()
-	meteredCharm := f.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "ch:amd64/quantal/metered-3"})
-	meteredCharmNew := f.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "ch:amd64/quantal/metered-5"})
-	app := f.MakeApplication(c, &factory.ApplicationParams{Charm: meteredCharm})
+	charm := f.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "ch:amd64/quantal/metered-3"})
+	charmNew := f.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "ch:amd64/quantal/metered-5"})
+	app := f.MakeApplication(c, &factory.ApplicationParams{Charm: charm})
 	u := f.MakeUnit(c, &factory.UnitParams{
 		Application: app,
 		SetCharmURL: true,
@@ -353,8 +353,8 @@ func (s *statusUnitTestSuite) TestPrincipalUpgradingFrom(c *gc.C) {
 	c.Assert(unitStatus.Charm, gc.Equals, "")
 
 	err = app.SetCharm(state.SetCharmConfig{
-		Charm:       meteredCharmNew,
-		CharmOrigin: defaultCharmOrigin(meteredCharmNew.URL()),
+		Charm:       charmNew,
+		CharmOrigin: defaultCharmOrigin(charmNew.URL()),
 	}, testing.NewObjectStore(c, s.ControllerModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 

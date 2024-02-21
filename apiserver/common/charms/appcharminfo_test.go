@@ -46,7 +46,6 @@ func (s *appCharmInfoSuite) TestBasic(c *gc.C) {
 	ch.EXPECT().Config().Return(&charm.Config{})
 	ch.EXPECT().Meta().Return(&charm.Meta{Name: "foo"})
 	ch.EXPECT().Actions().Return(&charm.Actions{})
-	ch.EXPECT().Metrics().Return(&charm.Metrics{})
 	ch.EXPECT().Manifest().Return(&charm.Manifest{})
 	ch.EXPECT().LXDProfile().Return(&state.LXDProfile{})
 

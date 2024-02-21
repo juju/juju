@@ -172,7 +172,6 @@ var (
 			"current": "available",
 			"since":   "01 Apr 15 01:23+10:00",
 		},
-		"sla": "unsupported",
 	}
 
 	machine0 = M{
@@ -2495,153 +2494,6 @@ var statusTests = []testCase{
 		},
 	),
 	test( // 17
-		"deploy two applications; set meter statuses on one",
-		addMachine{machineId: "0", job: coremodel.JobManageModel},
-		setAddresses{"0", network.NewSpaceAddresses("10.0.0.1")},
-		startAliveMachine{"0", ""},
-		setMachineStatus{"0", status.Started, ""},
-
-		addMachine{machineId: "1", job: coremodel.JobHostUnits},
-		recordAgentStartInformation{machineId: "1", hostname: "eldritch-octopii"},
-		setAddresses{"1", network.NewSpaceAddresses("10.0.1.1")},
-		startAliveMachine{"1", ""},
-		setMachineStatus{"1", status.Started, ""},
-
-		addMachine{machineId: "2", job: coremodel.JobHostUnits},
-		recordAgentStartInformation{machineId: "2", hostname: "titanium-shoelace"},
-		setAddresses{"2", network.NewSpaceAddresses("10.0.2.1")},
-		startAliveMachine{"2", ""},
-		setMachineStatus{"2", status.Started, ""},
-
-		addMachine{machineId: "3", job: coremodel.JobHostUnits},
-		recordAgentStartInformation{machineId: "3", hostname: "loud-silence"},
-		setAddresses{"3", network.NewSpaceAddresses("10.0.3.1")},
-		startAliveMachine{"3", ""},
-		setMachineStatus{"3", status.Started, ""},
-		setMachineInstanceStatus{"3", status.Started, "I am number three"},
-
-		addMachine{machineId: "4", job: coremodel.JobHostUnits},
-		setAddresses{"4", network.NewSpaceAddresses("10.0.4.1")},
-		recordAgentStartInformation{machineId: "4", hostname: "antediluvian-furniture"},
-		startAliveMachine{"4", ""},
-		setMachineStatus{"4", status.Started, ""},
-
-		addCharmHubCharm{"mysql"},
-		addApplication{name: "mysql", charm: "mysql"},
-		setApplicationExposed{"mysql", true},
-
-		addCharmHubCharm{"metered"},
-		addApplication{name: "applicationwithmeterstatus", charm: "metered"},
-
-		addAliveUnit{"mysql", "1"},
-		addAliveUnit{"applicationwithmeterstatus", "2"},
-		addAliveUnit{"applicationwithmeterstatus", "3"},
-		addAliveUnit{"applicationwithmeterstatus", "4"},
-
-		setApplicationExposed{"mysql", true},
-
-		setAgentStatus{"mysql/0", status.Idle, "", nil},
-		setUnitStatus{"mysql/0", status.Active, "", nil},
-		setAgentStatus{"applicationwithmeterstatus/0", status.Idle, "", nil},
-		setUnitStatus{"applicationwithmeterstatus/0", status.Active, "", nil},
-		setAgentStatus{"applicationwithmeterstatus/1", status.Idle, "", nil},
-		setUnitStatus{"applicationwithmeterstatus/1", status.Active, "", nil},
-		setAgentStatus{"applicationwithmeterstatus/2", status.Idle, "", nil},
-		setUnitStatus{"applicationwithmeterstatus/2", status.Active, "", nil},
-
-		expect{
-			what: "simulate just the two applications and a bootstrap node",
-			output: M{
-				"model": model,
-				"machines": M{
-					"0": machine0,
-					"1": machine1,
-					"2": machine2,
-					"3": machine3,
-					"4": machine4,
-				},
-				"applications": M{
-					"mysql": mysqlCharm(M{
-						"exposed": true,
-						"application-status": M{
-							"current": "active",
-							"since":   "01 Apr 15 01:23+10:00",
-						},
-						"units": M{
-							"mysql/0": M{
-								"machine": "1",
-								"workload-status": M{
-									"current": "active",
-									"since":   "01 Apr 15 01:23+10:00",
-								},
-								"juju-status": M{
-									"current": "idle",
-									"since":   "01 Apr 15 01:23+10:00",
-								},
-								"public-address": "10.0.1.1",
-							},
-						},
-						"endpoint-bindings": M{
-							"":               network.AlphaSpaceName,
-							"server":         network.AlphaSpaceName,
-							"server-admin":   network.AlphaSpaceName,
-							"metrics-client": network.AlphaSpaceName,
-						},
-					}),
-					"applicationwithmeterstatus": meteredCharm(M{
-						"application-status": M{
-							"current": "active",
-							"since":   "01 Apr 15 01:23+10:00",
-						},
-						"units": M{
-							"applicationwithmeterstatus/0": M{
-								"machine": "2",
-								"workload-status": M{
-									"current": "active",
-									"since":   "01 Apr 15 01:23+10:00",
-								},
-								"juju-status": M{
-									"current": "idle",
-									"since":   "01 Apr 15 01:23+10:00",
-								},
-								"public-address": "10.0.2.1",
-							},
-							"applicationwithmeterstatus/1": M{
-								"machine": "3",
-								"workload-status": M{
-									"current": "active",
-									"since":   "01 Apr 15 01:23+10:00",
-								},
-								"juju-status": M{
-									"current": "idle",
-									"since":   "01 Apr 15 01:23+10:00",
-								},
-
-								"public-address": "10.0.3.1",
-							},
-							"applicationwithmeterstatus/2": M{
-								"machine": "4",
-								"workload-status": M{
-									"current": "active",
-									"since":   "01 Apr 15 01:23+10:00",
-								},
-								"juju-status": M{
-									"current": "idle",
-									"since":   "01 Apr 15 01:23+10:00",
-								},
-								"public-address": "10.0.4.1",
-							},
-						},
-					}),
-				},
-				"storage": M{},
-				"controller": M{
-					"timestamp": "15:04:05+07:00",
-				},
-			},
-		},
-	),
-	test( // 18
 		"upgrade available",
 		setToolsUpgradeAvailable{},
 		expect{
@@ -2659,7 +2511,6 @@ var statusTests = []testCase{
 						"current": "available",
 						"since":   "01 Apr 15 01:23+10:00",
 					},
-					"sla": "unsupported",
 				},
 				"machines":     M{},
 				"applications": M{},
@@ -2671,7 +2522,7 @@ var statusTests = []testCase{
 			stderr: "\nModel \"controller\" is empty.\n",
 		},
 	),
-	test( // 19
+	test( // 18
 		"consistent workload version",
 		addMachine{machineId: "0", job: coremodel.JobManageModel},
 		setAddresses{"0", network.NewSpaceAddresses("10.0.0.1")},
@@ -2735,7 +2586,7 @@ var statusTests = []testCase{
 			},
 		},
 	),
-	test( // 20
+	test( // 19
 		"mixed workload version",
 		addMachine{machineId: "0", job: coremodel.JobManageModel},
 		setAddresses{"0", network.NewSpaceAddresses("10.0.0.1")},
@@ -2821,7 +2672,7 @@ var statusTests = []testCase{
 			},
 		},
 	),
-	test( // 21
+	test( // 20
 		"instance with localhost addresses",
 		addMachine{machineId: "0", job: coremodel.JobManageModel},
 		setAddresses{"0", []network.SpaceAddress{
@@ -2849,7 +2700,7 @@ var statusTests = []testCase{
 			},
 		},
 	),
-	test( // 22
+	test( // 21
 		"instance with IPv6 addresses",
 		addMachine{machineId: "0", cons: machineCons, job: coremodel.JobManageModel},
 		setAddresses{"0", []network.SpaceAddress{
@@ -2903,7 +2754,7 @@ var statusTests = []testCase{
 			},
 		},
 	),
-	test( // 23
+	test( // 22
 		"a remote application",
 		addMachine{machineId: "0", job: coremodel.JobManageModel},
 		setAddresses{"0", network.NewSpaceAddresses("10.0.0.1")},
@@ -3000,7 +2851,7 @@ var statusTests = []testCase{
 			},
 		},
 	),
-	test( //26
+	test( // 23
 		"deploy application with endpoint bound to space",
 		addMachine{machineId: "0", job: coremodel.JobManageModel},
 		setAddresses{"0", network.NewSpaceAddresses("10.0.0.1")},
@@ -3021,7 +2872,7 @@ var statusTests = []testCase{
 		addApplication{name: "wordpress", charm: "wordpress", binding: map[string]string{"db-client": "", "logging-dir": "", "cache": "", "db": "myspace1", "monitoring-port": "", "url": "", "admin-api": "", "foo-bar": ""}},
 		addAliveUnit{"wordpress", "1"},
 	),
-	test( // 27
+	test( // 24
 		"application with lxd profiles",
 		addMachine{machineId: "0", job: coremodel.JobManageModel},
 		setAddresses{"0", network.NewSpaceAddresses("10.0.0.1")},
@@ -3092,7 +2943,7 @@ var statusTests = []testCase{
 			},
 		},
 	),
-	test( // 28
+	test( // 25
 		"suspended model",
 		setModelSuspended{"invalid credential", "bad password"},
 		expect{
@@ -3111,7 +2962,6 @@ var statusTests = []testCase{
 						"reason":  "bad password",
 						"since":   "01 Apr 15 01:23+10:00",
 					},
-					"sla": "unsupported",
 				},
 				"machines":     M{},
 				"applications": M{},
@@ -3146,19 +2996,6 @@ func localMysqlCharm(extras M) M {
 		"charm-rev":    1,
 		"base":         M{"name": "ubuntu", "channel": "12.10"},
 		"exposed":      true,
-	}
-	return composeCharms(charm, extras)
-}
-
-func meteredCharm(extras M) M {
-	charm := M{
-		"charm":         "metered",
-		"charm-origin":  "charmhub",
-		"charm-name":    "metered",
-		"charm-rev":     1,
-		"charm-channel": "stable",
-		"base":          M{"name": "ubuntu", "channel": "12.10"},
-		"exposed":       false,
 	}
 	return composeCharms(charm, extras)
 }
@@ -5484,7 +5321,6 @@ var statusTimeTest = test(
 					"current": "available",
 					"since":   "01 Apr 15 01:23+10:00",
 				},
-				"sla": "unsupported",
 			},
 			"machines": M{
 				"0": machine0,
@@ -5523,12 +5359,10 @@ var statusTimeTest = test(
 )
 
 func (s *StatusSuite) TestIsoTimeFormat(c *gc.C) {
-	func(t testCase) {
-		// Prepare context and run all steps to setup.
-		ctx := s.newContext()
-		ctx.expectIsoTime = true
-		ctx.run(c, t.steps)
-	}(statusTimeTest)
+	// Prepare context and run all steps to setup.
+	ctx := s.newContext()
+	ctx.expectIsoTime = true
+	ctx.run(c, statusTimeTest.steps)
 }
 
 func (s *StatusSuite) TestFormatProvisioningError(c *gc.C) {

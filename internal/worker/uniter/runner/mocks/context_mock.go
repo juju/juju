@@ -12,7 +12,6 @@ package mocks
 import (
 	context "context"
 	reflect "reflect"
-	time "time"
 
 	charm "github.com/juju/charm/v13"
 	application "github.com/juju/juju/core/application"
@@ -79,34 +78,6 @@ func (m *MockContext) ActionParams() (map[string]any, error) {
 func (mr *MockContextMockRecorder) ActionParams() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ActionParams", reflect.TypeOf((*MockContext)(nil).ActionParams))
-}
-
-// AddMetric mocks base method.
-func (m *MockContext) AddMetric(arg0, arg1 string, arg2 time.Time) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddMetric", arg0, arg1, arg2)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// AddMetric indicates an expected call of AddMetric.
-func (mr *MockContextMockRecorder) AddMetric(arg0, arg1, arg2 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddMetric", reflect.TypeOf((*MockContext)(nil).AddMetric), arg0, arg1, arg2)
-}
-
-// AddMetricLabels mocks base method.
-func (m *MockContext) AddMetricLabels(arg0, arg1 string, arg2 time.Time, arg3 map[string]string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddMetricLabels", arg0, arg1, arg2, arg3)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// AddMetricLabels indicates an expected call of AddMetricLabels.
-func (mr *MockContextMockRecorder) AddMetricLabels(arg0, arg1, arg2, arg3 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddMetricLabels", reflect.TypeOf((*MockContext)(nil).AddMetricLabels), arg0, arg1, arg2, arg3)
 }
 
 // AddUnitStorage mocks base method.

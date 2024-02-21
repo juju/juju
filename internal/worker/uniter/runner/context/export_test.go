@@ -6,7 +6,6 @@ package context
 import (
 	"context"
 
-	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
@@ -33,8 +32,6 @@ type HookContextParams struct {
 	APIAddrs            []string
 	LegacyProxySettings proxy.Settings
 	JujuProxySettings   proxy.Settings
-	CanAddMetrics       bool
-	CharmMetrics        *charm.Metrics
 	ActionData          *ActionData
 	AssignedMachineTag  names.MachineTag
 	StorageTag          names.StorageTag

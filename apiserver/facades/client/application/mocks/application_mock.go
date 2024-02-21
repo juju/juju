@@ -1354,20 +1354,6 @@ func (mr *MockApplicationMockRecorder) SetConstraints(arg0 any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetConstraints", reflect.TypeOf((*MockApplication)(nil).SetConstraints), arg0)
 }
 
-// SetMetricCredentials mocks base method.
-func (m *MockApplication) SetMetricCredentials(arg0 []byte) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetMetricCredentials", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// SetMetricCredentials indicates an expected call of SetMetricCredentials.
-func (mr *MockApplicationMockRecorder) SetMetricCredentials(arg0 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetMetricCredentials", reflect.TypeOf((*MockApplication)(nil).SetMetricCredentials), arg0)
-}
-
 // SetMinUnits mocks base method.
 func (m *MockApplication) SetMinUnits(arg0 int) error {
 	m.ctrl.T.Helper()
@@ -1708,20 +1694,6 @@ func (m *MockCharm) Meta() *charm.Meta {
 func (mr *MockCharmMockRecorder) Meta() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Meta", reflect.TypeOf((*MockCharm)(nil).Meta))
-}
-
-// Metrics mocks base method.
-func (m *MockCharm) Metrics() *charm.Metrics {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Metrics")
-	ret0, _ := ret[0].(*charm.Metrics)
-	return ret0
-}
-
-// Metrics indicates an expected call of Metrics.
-func (mr *MockCharmMockRecorder) Metrics() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Metrics", reflect.TypeOf((*MockCharm)(nil).Metrics))
 }
 
 // Revision mocks base method.

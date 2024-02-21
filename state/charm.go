@@ -178,7 +178,6 @@ type charmDoc struct {
 	Config     *charm.Config   `bson:"config"`
 	Manifest   *charm.Manifest `bson:"manifest"`
 	Actions    *charm.Actions  `bson:"actions"`
-	Metrics    *charm.Metrics  `bson:"metrics"`
 	LXDProfile *LXDProfile     `bson:"lxd-profile"`
 }
 
@@ -244,7 +243,6 @@ func insertCharmOps(mb modelBackend, info CharmInfo) ([]txn.Op, error) {
 		Meta:          info.Charm.Meta(),
 		Config:        safeConfig(info.Charm),
 		Manifest:      info.Charm.Manifest(),
-		Metrics:       info.Charm.Metrics(),
 		Actions:       info.Charm.Actions(),
 		BundleSha256:  info.SHA256,
 		StoragePath:   info.StoragePath,
@@ -353,7 +351,6 @@ func updateCharmOps(mb modelBackend, info CharmInfo, assert bson.D) ([]txn.Op, e
 		{"config", safeConfig(info.Charm)},
 		{"actions", info.Charm.Actions()},
 		{"manifest", info.Charm.Manifest()},
-		{"metrics", info.Charm.Metrics()},
 		{"storagepath", info.StoragePath},
 		{"bundlesha256", info.SHA256},
 		{"pendingupload", pendingUpload},
