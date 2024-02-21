@@ -1,6 +1,10 @@
 // Copyright 2024 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
+// Package socketlistener provides a worker that will listen on a specified unix
+// socket identified by a file descriptor. Handlers are provided to the worker
+// that specify endpoints and define the action to be taken when they are
+// reached.
 package socketlistener
 
 import (
@@ -24,10 +28,15 @@ type Logger interface {
 
 // Config represents configuration for the socketlistener worker.
 type Config struct {
-	Logger           Logger
-	SocketName       string
+	Logger Logger
+	// SocketName is the socket file descriptor.
+	SocketName string
+	// RegisterHandlers should register handlers on the router with
+	// router.HandlerFunc or similar.
 	RegisterHandlers func(router *mux.Router)
-	ShutdownTimeout  time.Duration
+	// ShutdownTimeout is how long the socketlistener has to gracefully shutdown
+	// when Kill is called on the worker.
+	ShutdownTimeout time.Duration
 }
 
 // Validate returns an error if config cannot drive the SocketListener.
@@ -78,10 +87,12 @@ func NewSocketListener(config Config) (*SocketListener, error) {
 	return sl, nil
 }
 
+// Kill is part of the Worker.worker interface.
 func (sl *SocketListener) Kill() {
 	sl.tomb.Kill(nil)
 }
 
+// Wait is part of the Worker.worker interface.
 func (sl *SocketListener) Wait() error {
 	return sl.tomb.Wait()
 }

@@ -48,9 +48,11 @@ type Logger interface {
 
 // Config represents configuration for the controlsocket worker.
 type Config struct {
-	State             State
-	Logger            Logger
-	SocketName        string
+	State  State
+	Logger Logger
+	// SocketName is the socket file descriptor.
+	SocketName string
+	// NewSocketListener is the function that creates a new socket listener.
 	NewSocketListener func(socketlistener.Config) (SocketListener, error)
 }
 

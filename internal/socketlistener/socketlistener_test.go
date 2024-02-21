@@ -48,6 +48,7 @@ func (s *socketListenerSuite) TestStartStopWorker(c *gc.C) {
 		Logger:           s.logger,
 		SocketName:       socket,
 		RegisterHandlers: registerTestHandlers,
+		ShutdownTimeout:  coretesting.LongWait,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -84,6 +85,8 @@ func (s *socketListenerSuite) TestStartStopWorker(c *gc.C) {
 	}
 }
 
+// TestEnsureShutdown checks that a slow handler does not return an error if the
+// socket listener is shutdown as it handles.
 func (s *socketListenerSuite) TestEnsureShutdown(c *gc.C) {
 	tmpDir := c.MkDir()
 	socket := path.Join(tmpDir, "test.socket")
@@ -93,24 +96,28 @@ func (s *socketListenerSuite) TestEnsureShutdown(c *gc.C) {
 		Logger:     s.logger,
 		SocketName: socket,
 		RegisterHandlers: func(r *mux.Router) {
-			r.HandleFunc("/test-endpoint", func(resp http.ResponseWriter, req *http.Request) {
+			r.HandleFunc("/slow-handler", func(resp http.ResponseWriter, req *http.Request) {
+				// Signal that the handler has started.
 				close(start)
 				time.Sleep(time.Second)
 				resp.WriteHeader(http.StatusOK)
 			}).Methods(http.MethodGet)
 		},
+		ShutdownTimeout: coretesting.LongWait,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.DirtyKill(c, sl)
 	done := make(chan struct{})
 	go func() {
-		// Check server is up.
+		// Send request to slow handler and ensure it does not return error,
+		// even though server is shut down as soon as it starts.
 		cl := client(socket)
-		_, err := cl.Get("http://localhost:8080/test-endpoint")
+		_, err := cl.Get("http://localhost:8080/slow-handler")
 		c.Assert(err, jc.ErrorIsNil)
 	}()
 
 	go func() {
+		// Kill socket listener once handler has started.
 		select {
 		case <-start:
 		case <-time.After(coretesting.ShortWait):
@@ -119,6 +126,7 @@ func (s *socketListenerSuite) TestEnsureShutdown(c *gc.C) {
 		workertest.CleanKill(c, sl)
 		close(done)
 	}()
+	// Wait for server to cleanly shutdown
 	select {
 	case <-done:
 	case <-time.After(coretesting.LongWait):

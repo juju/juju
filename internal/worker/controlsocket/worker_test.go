@@ -16,13 +16,12 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
+	jc "github.com/juju/testing/checkers"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/state"
 	stateerrors "github.com/juju/juju/state/errors"
-
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 )
 
 type workerSuite struct {
@@ -446,34 +445,4 @@ func client(socketPath string) *http.Client {
 			},
 		},
 	}
-}
-
-type fakeLogger struct {
-	entries []logEntry
-}
-
-type logEntry struct{ level, msg string }
-
-func (f *fakeLogger) write(level string, format string, args ...any) {
-	f.entries = append(f.entries, logEntry{level, fmt.Sprintf(format, args...)})
-}
-
-func (f *fakeLogger) Errorf(format string, args ...any) {
-	f.write("ERROR", format, args...)
-}
-
-func (f *fakeLogger) Warningf(format string, args ...any) {
-	f.write("WARNING", format, args...)
-}
-
-func (f *fakeLogger) Infof(format string, args ...any) {
-	f.write("INFO", format, args...)
-}
-
-func (f *fakeLogger) Debugf(format string, args ...any) {
-	f.write("DEBUG", format, args...)
-}
-
-func (f *fakeLogger) Tracef(format string, args ...any) {
-	f.write("TRACE", format, args...)
 }
