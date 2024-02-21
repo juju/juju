@@ -33,6 +33,7 @@ import (
 	"github.com/juju/juju/cmd/internal/dumplogs"
 	"github.com/juju/juju/cmd/internal/run"
 	agentcmd "github.com/juju/juju/cmd/jujud-controller/agent"
+	jujudagentcmd "github.com/juju/juju/cmd/jujud/agent"
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/machinelock"
 	coreos "github.com/juju/juju/core/os"
@@ -255,6 +256,8 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 		return &jujudWriter{target: target}
 	}
 
+	jujud.Register(jujudagentcmd.NewCAASUnitInitCommand())
+	jujud.Register(jujudagentcmd.NewModelCommand(bufferedLogger))
 	jujud.Register(agentcmd.NewBootstrapCommand())
 
 	// TODO(katco-): AgentConf type is doing too much. The
