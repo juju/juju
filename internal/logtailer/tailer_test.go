@@ -4,6 +4,7 @@
 package logtailer_test
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -154,10 +155,10 @@ func (s *TailerSuite) TestProcessReverseTail(c *gc.C) {
 }
 
 var logContent = `
-machine-0 2024-02-15 06:23:22 DEBUG juju.worker.dependency engine.go:598 "db-accessor" manifold worker started at 2024-02-15 06:23:23.006402802 +0000 UTC
-machine-0 2024-02-15 06:23:23 INFO juju.worker.dbaccessor worker.go:518 host is configured to use cloud-local address as a Dqlite node
-machine-1 2024-02-15 06:23:24 WARNING juju.worker.dependency engine.go:598 "lease-manager" manifold worker started at 2024-02-15 06:23:23.016373586 +0000 UTC
-machine-0 2024-02-15 06:23:25 CRITICAL juju.worker.dependency engine.go:598 "change-stream" manifold worker started at 2024-02-15 06:23:23.01677874 +0000 UTC`[1:]
+{"timestamp":"2024-02-15T06:23:22.00000000Z","entity":"machine-0","level":"DEBUG","module":"juju.worker.dependency","location":"engine.go:598","message":"\"db-accessor\" manifold worker started at 2024-02-15 06:23:23.006402802 +0000 UTC"}
+{"timestamp":"2024-02-15T06:23:23.00000000Z","entity":"machine-0","level":"INFO","module":"juju.worker.dbaccessor","location":"worker.go:518","message":"host is configured to use cloud-local address as a Dqlite node"}
+{"timestamp":"2024-02-15T06:23:24.00000000Z","entity":"machine-1","level":"WARNING","module":"juju.worker.dependency","location":"engine.go:598","message":"\"lease-manager\" manifold worker started at 2024-02-15 06:23:23.016373586 +0000 UTC"}
+{"timestamp":"2024-02-15T06:23:25.00000000Z","entity":"machine-0","level":"CRITICAL","module":"juju.worker.dependency","location":"engine.go:598","message":"\"change-stream\" manifold worker started at 2024-02-15 06:23:23.01677874 +0000 UTC"}`[1:]
 
 var logRecords = []*corelogger.LogRecord{
 	{
@@ -443,7 +444,7 @@ func (s *LogFilterSuite) assertTailer(c *gc.C, tailer logtailer.LogTailer, templ
 	}
 }
 
-func (s *LogFilterSuite) normaliseLogTemplate(template *corelogger.LogRecord) corelogger.LogRecord {
+func (s *LogFilterSuite) normaliseLogTemplate(template *corelogger.LogRecord) *corelogger.LogRecord {
 	rec := *template
 	if rec.Entity == "" {
 		rec.Entity = "not-a-tag"
@@ -460,11 +461,7 @@ func (s *LogFilterSuite) normaliseLogTemplate(template *corelogger.LogRecord) co
 	if rec.Message == "" {
 		rec.Message = "message"
 	}
-	var labelsOut []string
-	for k, v := range rec.Labels {
-		labelsOut = append(labelsOut, fmt.Sprintf("%s:%s", k, v))
-	}
-	return rec
+	return &rec
 }
 
 // writeLogs creates count log messages at the current time using
@@ -487,17 +484,9 @@ func (s *LogFilterSuite) writeLogsT(c *gc.C, logFile string, startTime, endTime 
 	t := startTime
 	for i := 0; i < count; i++ {
 		rec := s.normaliseLogTemplate(template)
-		line := strings.Join([]string{
-			rec.Entity,
-			rec.Time.In(time.UTC).Format("2006-01-02 15:04:05"),
-			rec.Level.String(),
-			rec.Module,
-			rec.Location,
-			rec.Message,
-			// TODO(debug-log) - implement label filtering when json formatting is added
-			//strings.Join(labelsOut, ","),
-		}, " ")
-		_, err = f.WriteString(line + "\n")
+		line, err := json.Marshal(rec)
+		c.Assert(err, jc.ErrorIsNil)
+		_, err = f.WriteString(fmt.Sprintf("%s\n", line))
 		c.Assert(err, jc.ErrorIsNil)
 		t = t.Add(interval)
 	}

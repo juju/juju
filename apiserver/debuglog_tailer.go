@@ -62,7 +62,7 @@ func handleDebugLogRequest(
 				return errors.Annotate(tailer.Wait(), "tailer stopped")
 			}
 
-			if err := socket.sendLogRecord(formatLogRecord(rec)); err != nil {
+			if err := socket.sendLogRecord(formatLogRecord(rec), reqParams.version); err != nil {
 				return errors.Annotate(err, "sending failed")
 			}
 
@@ -84,8 +84,8 @@ func makeLogTailerParams(reqParams debugLogParams) logtailer.LogTailerParams {
 		ExcludeEntity: reqParams.excludeEntity,
 		IncludeModule: reqParams.includeModule,
 		ExcludeModule: reqParams.excludeModule,
-		IncludeLabel:  reqParams.includeLabel,
-		ExcludeLabel:  reqParams.excludeLabel,
+		IncludeLabels: reqParams.includeLabels,
+		ExcludeLabels: reqParams.excludeLabels,
 	}
 	if reqParams.fromTheStart {
 		tailerParams.InitialLines = 0

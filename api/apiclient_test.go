@@ -1372,10 +1372,10 @@ func (s *apiclientSuite) TestWatchDebugLogParamsEncoded(c *gc.C) {
 	params := common.DebugLogParams{
 		IncludeEntity: []string{"a", "b"},
 		IncludeModule: []string{"c", "d"},
-		IncludeLabel:  []string{"e", "f"},
+		IncludeLabels: map[string]string{"e": "f"},
 		ExcludeEntity: []string{"g", "h"},
 		ExcludeModule: []string{"i", "j"},
-		ExcludeLabel:  []string{"k", "l"},
+		ExcludeLabels: map[string]string{"k": "l"},
 		Limit:         100,
 		Backlog:       200,
 		Level:         loggo.ERROR,
@@ -1385,12 +1385,13 @@ func (s *apiclientSuite) TestWatchDebugLogParamsEncoded(c *gc.C) {
 	}
 
 	urlValues := url.Values{
+		"version":       []string{"2"},
 		"includeEntity": params.IncludeEntity,
 		"includeModule": params.IncludeModule,
-		"includeLabel":  params.IncludeLabel,
+		"includeLabels": []string{"e=f"},
 		"excludeEntity": params.ExcludeEntity,
 		"excludeModule": params.ExcludeModule,
-		"excludeLabel":  params.ExcludeLabel,
+		"excludeLabels": []string{"k=l"},
 		"maxLines":      {"100"},
 		"backlog":       {"200"},
 		"level":         {"ERROR"},
