@@ -135,14 +135,16 @@ build_push_operator_image() {
             ${output} \
             "${BUILD_DIR}"
     elif [[ "${OCI_BUILDER}" = "podman" ]]; then
+        "$DOCKER_BIN" manifest rm "$(operator_image_path)" || true
+        "$DOCKER_BIN" manifest create "$(operator_image_path)"
         "$DOCKER_BIN" build \
             --jobs "4" \
             -f "${WORKDIR}/Dockerfile" \
-            -t "$(operator_image_path)" \
+            --manifest "$(operator_image_path)" \
             --platform="$build_multi_osarch" \
             "${BUILD_DIR}"
         if [[ "$push_image" = true ]]; then
-            "$DOCKER_BIN" push "$(operator_image_path)"
+            "$DOCKER_BIN" manifest push "$(operator_image_path)" "docker://$(operator_image_path)"
         fi
     else
         echo "unknown OCI_BUILDER=${OCI_BUILDER} expected docker or podman"

@@ -335,14 +335,14 @@ func (s *charmsMockSuite) TestListCharmResources(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	curl := charm.MustParseURL("a-charm")
+	curl := "a-charm"
 	noChannelParamsOrigin := params.CharmOrigin{Source: "charm-hub"}
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 
 	facadeArgs := params.CharmURLAndOrigins{
 		Entities: []params.CharmURLAndOrigin{
-			{CharmURL: curl.String(), Origin: noChannelParamsOrigin},
+			{CharmURL: curl, Origin: noChannelParamsOrigin},
 		},
 	}
 

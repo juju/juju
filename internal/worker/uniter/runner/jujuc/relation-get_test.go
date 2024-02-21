@@ -444,26 +444,38 @@ var relationGetInitTests = []relationGetInitTest{
 		unit:        "u",
 		application: true,
 	}, {
-		summary:     "app name but overridden by args",
+		summary:     "app name in context but overridden by args",
 		ctxunit:     "",
 		ctxapp:      "u",
 		unit:        "mysql/0",
 		args:        []string{"-", "mysql/0"},
 		application: false,
 	}, {
-		summary: "app name but overridden by unit args",
-		ctxunit: "",
-		ctxapp:  "u",
-		unit:    "mysql",
-		args:    []string{"-", "mysql"},
-		// This doesn't get auto set if we didn't pull it from the context
-		application: false,
-	}, {
 		summary: "extra arguments",
 		ctxunit: "u/0",
 		ctxapp:  "u",
-		args:    []string{"-", "mysql", "args"},
+		args:    []string{"-", "--app", "mysql", "args"},
 		err:     `unrecognized args: \["args"\]`,
+	}, {
+		summary: "app name in context but overridden by app args",
+		ctxunit: "",
+		ctxapp:  "u",
+		unit:    "mysql",
+		args:    []string{"-", "--app", "mysql"},
+		// This doesn't get auto set if we didn't pull it from the context
+		application: true,
+	}, {
+		summary: "application name with no --app",
+		ctxunit: "u/0",
+		ctxapp:  "u",
+		args:    []string{"-", "mysql"},
+		err:     `expected unit name, got application name "mysql"`,
+	}, {
+		summary: "invalid unit name",
+		ctxunit: "u/0",
+		ctxapp:  "u",
+		args:    []string{"-", "unit//0"},
+		err:     `invalid unit name "unit//0"`,
 	},
 }
 

@@ -260,3 +260,34 @@ func (s *ResolverOpFactorySuite) TestActionsTrimming(c *gc.C) {
 		"d": {},
 	})
 }
+
+func (s *ResolverOpFactorySuite) TestFailActionsCommit(c *gc.C) {
+	f := resolver.NewResolverOpFactory(s.opFactory)
+	f.RemoteState.ActionsPending = []string{"action 1", "action 2", "action 3"}
+	f.LocalState.CompletedActions = map[string]struct{}{}
+	op, err := f.NewFailAction("action 1")
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = op.Commit(operation.State{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(f.LocalState.CompletedActions, gc.DeepEquals, map[string]struct{}{
+		"action 1": {},
+	})
+}
+
+func (s *ResolverOpFactorySuite) TestFailActionsTrimming(c *gc.C) {
+	f := resolver.NewResolverOpFactory(s.opFactory)
+	f.RemoteState.ActionsPending = []string{"c", "d"}
+	f.LocalState.CompletedActions = map[string]struct{}{
+		"a": {},
+		"b": {},
+		"c": {},
+	}
+	op, err := f.NewFailAction("d")
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = op.Commit(operation.State{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(f.LocalState.CompletedActions, gc.DeepEquals, map[string]struct{}{
+		"c": {},
+		"d": {},
+	})
+}

@@ -104,6 +104,12 @@ func (c *RelationGetCommand) determineUnitOrAppName(args *[]string) error {
 				c.UnitOrAppName = appName
 			}
 		} else {
+			if !names.IsValidUnit(userSupplied) {
+				if names.IsValidApplication(userSupplied) {
+					return fmt.Errorf("expected unit name, got application name %q", userSupplied)
+				}
+				return fmt.Errorf("invalid unit name %q", userSupplied)
+			}
 			c.UnitOrAppName = userSupplied
 		}
 		return nil

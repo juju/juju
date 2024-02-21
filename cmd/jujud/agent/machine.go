@@ -52,7 +52,6 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/paths"
-	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/charmhub"
@@ -75,7 +74,6 @@ import (
 	"github.com/juju/juju/internal/worker/introspection"
 	"github.com/juju/juju/internal/worker/logsender"
 	"github.com/juju/juju/internal/worker/logsender/logsendermetrics"
-	psworker "github.com/juju/juju/internal/worker/pubsub"
 	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -529,8 +527,6 @@ func (a *MachineAgent) makeEngineCreator(
 		localHub := pubsub.NewSimpleHub(&pubsub.SimpleHubConfig{
 			Logger: loggo.GetLogger("juju.localhub"),
 		})
-		pubsubReporter := psworker.NewReporter()
-		presenceRecorder := presence.New(clock.WallClock)
 		updateAgentConfLogging := func(loggingConfig string) error {
 			return a.AgentConfigWriter.ChangeConfig(func(setter agent.ConfigSetter) error {
 				setter.SetLoggingConfig(loggingConfig)
@@ -567,8 +563,6 @@ func (a *MachineAgent) makeEngineCreator(
 			ValidateMigration:                 a.validateMigration,
 			PrometheusRegisterer:              a.prometheusRegistry,
 			LocalHub:                          localHub,
-			PubSubReporter:                    pubsubReporter,
-			PresenceRecorder:                  presenceRecorder,
 			UpdateLoggerConfig:                updateAgentConfLogging,
 			NewAgentStatusSetter:              a.statusSetter,
 			MachineLock:                       a.machineLock,
@@ -601,11 +595,9 @@ func (a *MachineAgent) makeEngineCreator(
 			AgentTag:           a.CurrentConfig().Tag(),
 			Engine:             eng,
 			StatePoolReporter:  nil,
-			PubSubReporter:     pubsubReporter,
 			MachineLock:        a.machineLock,
 			NewSocketName:      a.newIntrospectionSocketName,
 			PrometheusGatherer: a.prometheusRegistry,
-			PresenceRecorder:   presenceRecorder,
 			WorkerFunc:         introspection.NewWorker,
 			Clock:              clock.WallClock,
 			LocalHub:           localHub,
