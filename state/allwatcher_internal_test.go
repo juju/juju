@@ -47,7 +47,6 @@ var (
 	_ backingEntityDoc = (*backingRemoteApplication)(nil)
 	_ backingEntityDoc = (*backingApplicationOffer)(nil)
 	_ backingEntityDoc = (*backingRelation)(nil)
-	_ backingEntityDoc = (*backingAnnotation)(nil)
 	_ backingEntityDoc = (*backingStatus)(nil)
 	_ backingEntityDoc = (*backingConstraints)(nil)
 	_ backingEntityDoc = (*backingSettings)(nil)
@@ -222,8 +221,6 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 			Since:   &now,
 		},
 	})
-	err = model.SetAnnotations(wordpress, pairs)
-	c.Assert(err, jc.ErrorIsNil)
 	add(&multiwatcher.AnnotationInfo{
 		ModelUUID:   modelUUID,
 		Tag:         "application-wordpress",
@@ -304,8 +301,6 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 				Since:   &now,
 			},
 		})
-		err = model.SetAnnotations(wu, pairs)
-		c.Assert(err, jc.ErrorIsNil)
 		add(&multiwatcher.AnnotationInfo{
 			ModelUUID:   modelUUID,
 			Tag:         fmt.Sprintf("unit-wordpress-%d", i),
@@ -652,10 +647,6 @@ func (s *allWatcherStateSuite) performChangeTestCases(c *gc.C, changeTestFuncs [
 
 func (s *allWatcherStateSuite) TestChangePermissions(c *gc.C) {
 	testChangePermissions(c, s.performChangeTestCases)
-}
-
-func (s *allWatcherStateSuite) TestChangeAnnotations(c *gc.C) {
-	testChangeAnnotations(c, s.performChangeTestCases)
 }
 
 func (s *allWatcherStateSuite) TestChangeMachines(c *gc.C) {
@@ -1182,10 +1173,6 @@ func (s *allModelWatcherStateSuite) TestChangePermissions(c *gc.C) {
 	testChangePermissions(c, s.performChangeTestCases)
 }
 
-func (s *allModelWatcherStateSuite) TestChangeAnnotations(c *gc.C) {
-	testChangeAnnotations(c, s.performChangeTestCases)
-}
-
 func (s *allModelWatcherStateSuite) TestChangeMachines(c *gc.C) {
 	testChangeMachines(c, s.performChangeTestCases)
 }
@@ -1584,116 +1571,6 @@ func testChangePermissions(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)
 						"mary": permission.AdminAccess,
 					},
 				}}}
-		},
-	}
-	runChangeTests(c, changeTestFuncs)
-}
-
-func testChangeAnnotations(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)) {
-	changeTestFuncs := []changeTestFunc{
-		func(c *gc.C, st *State, objectStore objectstore.ObjectStore) changeTestCase {
-			return changeTestCase{
-				about: "no annotation in state, no annotation in store -> do nothing",
-				change: watcher.Change{
-					C:  "annotations",
-					Id: st.docID("m#0"),
-				}}
-		},
-		func(c *gc.C, st *State, objectStore objectstore.ObjectStore) changeTestCase {
-			return changeTestCase{
-				about: "annotation is removed if it's not in backing",
-				initialContents: []multiwatcher.EntityInfo{&multiwatcher.AnnotationInfo{
-					ModelUUID: st.ModelUUID(),
-					Tag:       "machine-0",
-				}},
-				change: watcher.Change{
-					C:  "annotations",
-					Id: st.docID("m#0"),
-				}}
-		},
-		func(c *gc.C, st *State, objectStore objectstore.ObjectStore) changeTestCase {
-			m, err := st.AddMachine(testInstancePrechecker{}, UbuntuBase("12.10"), JobHostUnits)
-			c.Assert(err, jc.ErrorIsNil)
-			model, err := st.Model()
-			c.Assert(err, jc.ErrorIsNil)
-			err = model.SetAnnotations(m, map[string]string{"foo": "bar", "arble": "baz"})
-			c.Assert(err, jc.ErrorIsNil)
-
-			return changeTestCase{
-				about: "annotation is added if it's in backing but not in Store",
-				initialContents: []multiwatcher.EntityInfo{
-					&multiwatcher.MachineInfo{
-						ModelUUID: st.ModelUUID(),
-						ID:        "0",
-					},
-				},
-				change: watcher.Change{
-					C:  "annotations",
-					Id: st.docID("m#0"),
-				},
-				expectContents: []multiwatcher.EntityInfo{
-					&multiwatcher.MachineInfo{
-						ModelUUID:   st.ModelUUID(),
-						ID:          "0",
-						Annotations: map[string]string{"foo": "bar", "arble": "baz"},
-					},
-					&multiwatcher.AnnotationInfo{
-						ModelUUID:   st.ModelUUID(),
-						Tag:         "machine-0",
-						Annotations: map[string]string{"foo": "bar", "arble": "baz"},
-					}}}
-		},
-		func(c *gc.C, st *State, objectStore objectstore.ObjectStore) changeTestCase {
-			m, err := st.AddMachine(testInstancePrechecker{}, UbuntuBase("12.10"), JobHostUnits)
-			c.Assert(err, jc.ErrorIsNil)
-			model, err := st.Model()
-			c.Assert(err, jc.ErrorIsNil)
-			err = model.SetAnnotations(m, map[string]string{
-				"arble":  "khroomph",
-				"pretty": "",
-				"new":    "attr",
-			})
-			c.Assert(err, jc.ErrorIsNil)
-
-			return changeTestCase{
-				about: "annotation is updated if it's in backing and in multiwatcher.Store",
-				initialContents: []multiwatcher.EntityInfo{
-					&multiwatcher.MachineInfo{
-						ModelUUID: st.ModelUUID(),
-						ID:        "0",
-						Annotations: map[string]string{
-							"arble":  "baz",
-							"foo":    "bar",
-							"pretty": "polly",
-						}},
-					&multiwatcher.AnnotationInfo{
-						ModelUUID: st.ModelUUID(),
-						Tag:       "machine-0",
-						Annotations: map[string]string{
-							"arble":  "baz",
-							"foo":    "bar",
-							"pretty": "polly",
-						},
-					}},
-				change: watcher.Change{
-					C:  "annotations",
-					Id: st.docID("m#0"),
-				},
-				expectContents: []multiwatcher.EntityInfo{
-					&multiwatcher.MachineInfo{
-						ModelUUID: st.ModelUUID(),
-						ID:        "0",
-						Annotations: map[string]string{
-							"arble": "khroomph",
-							"new":   "attr",
-						}},
-					&multiwatcher.AnnotationInfo{
-						ModelUUID: st.ModelUUID(),
-						Tag:       "machine-0",
-						Annotations: map[string]string{
-							"arble": "khroomph",
-							"new":   "attr",
-						}}}}
 		},
 	}
 	runChangeTests(c, changeTestFuncs)

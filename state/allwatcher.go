@@ -78,8 +78,6 @@ func makeAllWatcherCollectionInfo(collNames []string) map[string]allWatcherState
 			collection.docType = reflect.TypeOf(backingAction{})
 		case relationsC:
 			collection.docType = reflect.TypeOf(backingRelation{})
-		case annotationsC:
-			collection.docType = reflect.TypeOf(backingAnnotation{})
 			// TODO: this should be a subsidiary too.
 		case blocksC:
 			collection.docType = reflect.TypeOf(backingBlock{})
@@ -169,9 +167,6 @@ func (e *backingModel) updated(ctx *allWatcherContext) error {
 		}
 
 		info.Config = cfg.AllAttrs()
-
-		// Annotations are optional, so may not be there.
-		info.Annotations = ctx.getAnnotations(modelGlobalKey)
 
 		c, err := ctx.readConstraints(modelGlobalKey)
 		if e.isNotFoundAndModelDead(err) {
@@ -387,9 +382,6 @@ func (m *backingMachine) updated(ctx *allWatcherContext) error {
 			return errors.Annotatef(err, "reading machine instance for key %s", key)
 		}
 		info.InstanceStatus = instanceStatus
-
-		// Annotations are optional, so may not be there.
-		info.Annotations = ctx.getAnnotations(key)
 	} else {
 		// The entry already exists, so preserve the current status and
 		// instance data. These will be updated as necessary as the status and instance data
@@ -539,9 +531,6 @@ func (u *backingUnit) updated(ctx *allWatcherContext) error {
 	if oldInfo == nil {
 		allWatcherLogger.Debugf("new unit %q added to backing state", u.Name)
 
-		// Annotations are optional, so may not be there.
-		info.Annotations = ctx.getAnnotations(unitGlobalKey(u.Name))
-
 		// We're adding the entry for the first time,
 		// so fetch the associated unit status and opened ports.
 		err := u.unitAndAgentStatus(ctx, info)
@@ -661,8 +650,6 @@ func (app *backingApplication) updated(ctx *allWatcherContext) error {
 	if oldInfo == nil {
 		allWatcherLogger.Debugf("new application %q added to backing state", app.Name)
 		key := applicationGlobalKey(app.Name)
-		// Annotations are optional, so may not be there.
-		info.Annotations = ctx.getAnnotations(key)
 		// We're adding the entry for the first time,
 		// so fetch the associated child documents.
 		c, err := ctx.readConstraints(key)
@@ -995,73 +982,6 @@ func (r *backingRelation) removed(ctx *allWatcherContext) error {
 
 func (r *backingRelation) mongoID() string {
 	return r.Key
-}
-
-type backingAnnotation annotatorDoc
-
-func (a *backingAnnotation) updated(ctx *allWatcherContext) error {
-	allWatcherLogger.Tracef(`annotation "%s:%s" updated`, ctx.modelUUID, ctx.id)
-	info := &multiwatcher.AnnotationInfo{
-		ModelUUID:   a.ModelUUID,
-		Tag:         a.Tag,
-		Annotations: a.Annotations,
-	}
-	ctx.store.Update(info)
-	// Also update the annotations on the associated type.
-	// When we can kill the old Watch API where annotations are separate
-	// entries, we'd only update the associated type.
-	parentID, _, ok := ctx.entityIDForGlobalKey(ctx.id)
-	if !ok {
-		return nil
-	}
-	info0 := ctx.store.Get(parentID)
-	switch info := info0.(type) {
-	case nil:
-		// The parent info doesn't exist. Ignore the annotation until it does.
-		return nil
-	case *multiwatcher.UnitInfo:
-		newInfo := *info
-		newInfo.Annotations = a.Annotations
-		info0 = &newInfo
-	case *multiwatcher.ModelInfo:
-		newInfo := *info
-		newInfo.Annotations = a.Annotations
-		info0 = &newInfo
-	case *multiwatcher.ApplicationInfo:
-		newInfo := *info
-		newInfo.Annotations = a.Annotations
-		info0 = &newInfo
-	case *multiwatcher.MachineInfo:
-		newInfo := *info
-		newInfo.Annotations = a.Annotations
-		info0 = &newInfo
-	default:
-		// We really don't care about this type yet.
-		return nil
-	}
-	ctx.store.Update(info0)
-	return nil
-}
-
-func (a *backingAnnotation) removed(ctx *allWatcherContext) error {
-	// Annotations are only removed when the entity is removed.
-	// So no work is needed for the assocated entity type.
-	allWatcherLogger.Tracef(`annotation "%s:%s" removed`, ctx.modelUUID, ctx.id)
-	// UGH, TODO, use the global key as the entity id.
-	tag, ok := tagForGlobalKey(ctx.id)
-	if !ok {
-		return errors.Errorf("could not parse global key: %q", ctx.id)
-	}
-	ctx.store.Remove(multiwatcher.EntityID{
-		Kind:      multiwatcher.AnnotationKind,
-		ModelUUID: ctx.modelUUID,
-		ID:        tag,
-	})
-	return nil
-}
-
-func (a *backingAnnotation) mongoID() string {
-	return a.GlobalKey
 }
 
 type backingBlock blockDoc
@@ -1571,7 +1491,6 @@ func NewAllWatcherBacking(pool *StatePool) (AllWatcherBacking, error) {
 		unitsC,
 		// The rest don't really matter.
 		actionsC,
-		annotationsC,
 		applicationOffersC,
 		blocksC,
 		charmsC,
@@ -1837,9 +1756,6 @@ func (ctx *allWatcherContext) loadSubsidiaryCollections() error {
 	if err := ctx.loadSettings(); err != nil {
 		return errors.Annotatef(err, "cache settings")
 	}
-	if err := ctx.loadAnnotations(); err != nil {
-		return errors.Annotatef(err, "cache annotations")
-	}
 	if err := ctx.loadConstraints(); err != nil {
 		return errors.Annotatef(err, "cache constraints")
 	}
@@ -1871,24 +1787,6 @@ func (ctx *allWatcherContext) loadSettings() error {
 	for _, doc := range docs {
 		docCopy := doc
 		ctx.settings[doc.DocID] = &docCopy
-	}
-
-	return nil
-}
-
-func (ctx *allWatcherContext) loadAnnotations() error {
-	col, closer := ctx.state.db().GetCollection(annotationsC)
-	defer closer()
-
-	var docs []annotatorDoc
-	if err := col.Find(nil).All(&docs); err != nil {
-		return errors.Annotate(err, "cannot read all annotations")
-	}
-
-	ctx.annotations = make(map[string]map[string]string)
-	for _, doc := range docs {
-		key := ensureModelUUID(doc.ModelUUID, doc.GlobalKey)
-		ctx.annotations[key] = doc.Annotations
 	}
 
 	return nil
@@ -2000,26 +1898,6 @@ func (ctx *allWatcherContext) removeFromStore(kind string) {
 		ModelUUID: ctx.modelUUID,
 		ID:        ctx.id,
 	})
-}
-
-func (ctx *allWatcherContext) getAnnotations(key string) map[string]string {
-	gKey := ensureModelUUID(ctx.modelUUID, key)
-	if ctx.annotations != nil {
-		// It is entirely possible and fine for there to be no annotations.
-		return ctx.annotations[gKey]
-	}
-
-	annotations, closer := ctx.state.db().GetCollection(annotationsC)
-	defer closer()
-
-	var doc annotatorDoc
-	err := annotations.FindId(gKey).One(&doc)
-	if err != nil {
-		// We really don't care what the error is. Anything substantial
-		// will be caught by other queries.
-		return nil
-	}
-	return doc.Annotations
 }
 
 func (ctx *allWatcherContext) getSettings(key string) (map[string]interface{}, error) {

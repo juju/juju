@@ -157,11 +157,9 @@ func (s *MigrationExportSuite) checkStatusHistory(c *gc.C, history []description
 }
 
 func (s *MigrationExportSuite) TestModelInfo(c *gc.C) {
-	err := s.Model.SetAnnotations(s.Model, testAnnotations)
-	c.Assert(err, jc.ErrorIsNil)
 	latestTools := version.MustParse("2.0.1")
 	s.setLatestTools(c, latestTools)
-	err = s.State.SetModelConstraints(constraints.MustParse("arch=amd64 mem=8G"))
+	err := s.State.SetModelConstraints(constraints.MustParse("arch=amd64 mem=8G"))
 	c.Assert(err, jc.ErrorIsNil)
 	machineSeq := s.setRandSequenceValue(c, "machine")
 	fooSeq := s.setRandSequenceValue(c, "application-foo")
@@ -282,8 +280,6 @@ func (s *MigrationExportSuite) assertMachinesMigrated(c *gc.C, cons constraints.
 	})
 	nested := s.Factory.MakeMachineNested(c, machine1.Id(), nil)
 
-	err := s.Model.SetAnnotations(machine1, testAnnotations)
-	c.Assert(err, jc.ErrorIsNil)
 	s.primeStatusHistory(c, machine1, status.Started, addedHistoryCount)
 
 	model, err := s.State.Export(map[string]string{}, state.NewObjectStore(c, s.State.ModelUUID()))
@@ -399,7 +395,8 @@ func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, st *state.Stat
 		"leader": "true",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = dbModel.SetAnnotations(application, testAnnotations)
+
+	err = application.SetMetricCredentials([]byte("sekrit"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	if dbModel.Type() == state.ModelTypeCAAS {
@@ -540,7 +537,8 @@ func (s *MigrationExportSuite) TestMalformedApplications(c *gc.C) {
 		"leader": "true",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = dbModel.SetAnnotations(application, testAnnotations)
+
+	err = application.SetMetricCredentials([]byte("sekrit"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	agentVer, err := version.ParseBinary("2.9.1-ubuntu-amd64")
@@ -795,8 +793,6 @@ func (s *MigrationExportSuite) assertMigrateUnits(c *gc.C, st *state.State, unit
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
-	err = dbModel.SetAnnotations(unit, testAnnotations)
-	c.Assert(err, jc.ErrorIsNil)
 	s.primeStatusHistory(c, unit, status.Active, addedHistoryCount)
 	s.primeStatusHistory(c, unit.Agent(), status.Idle, addedHistoryCount)
 

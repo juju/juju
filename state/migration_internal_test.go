@@ -17,7 +17,6 @@ var _ = gc.Suite(&MigrationSuite{})
 
 func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 	completedCollections := set.NewStrings(
-		annotationsC,
 		blocksC,
 		cloudimagemetadataC,
 		constraintsC,
@@ -485,18 +484,6 @@ func (s *MigrationSuite) TestRelationScopeDocFields(c *gc.C) {
 		"Departing",
 	)
 	s.AssertExportedFields(c, relationScopeDoc{}, fields)
-}
-
-func (s *MigrationSuite) TestAnnotatorDocFields(c *gc.C) {
-	fields := set.NewStrings(
-		// ModelUUID shouldn't be exported, and is inherited
-		// from the model definition.
-		"ModelUUID",
-		"GlobalKey",
-		"Tag",
-		"Annotations",
-	)
-	s.AssertExportedFields(c, annotatorDoc{}, fields)
 }
 
 func (s *MigrationSuite) TestBlockDocFields(c *gc.C) {

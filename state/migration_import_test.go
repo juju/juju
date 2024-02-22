@@ -127,12 +127,6 @@ func (s *MigrationImportSuite) importModelDescription(
 	return newModel, newSt
 }
 
-func (s *MigrationImportSuite) assertAnnotations(c *gc.C, model *state.Model, entity state.GlobalEntity) {
-	annotations, err := model.Annotations(entity)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(annotations, jc.DeepEquals, testAnnotations)
-}
-
 func (s *MigrationImportSuite) TestNewModel(c *gc.C) {
 	cons := constraints.MustParse("arch=amd64 mem=8G")
 	latestTools := version.MustParse("2.0.1")
@@ -150,9 +144,6 @@ func (s *MigrationImportSuite) TestNewModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = original.SetPassword("supersecret1111111111111")
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = s.Model.SetAnnotations(original, testAnnotations)
 	c.Assert(err, jc.ErrorIsNil)
 
 	out, err := s.State.Export(map[string]string{}, state.NewObjectStore(c, s.State.ModelUUID()))
@@ -173,7 +164,6 @@ func (s *MigrationImportSuite) TestNewModel(c *gc.C) {
 	c.Assert(newModel.LatestToolsVersion(), gc.Equals, latestTools)
 	c.Assert(newModel.MigrationMode(), gc.Equals, state.MigrationModeImporting)
 	c.Assert(newModel.EnvironVersion(), gc.Equals, environVersion)
-	s.assertAnnotations(c, newModel, newModel)
 
 	statusInfo, err := newModel.Status()
 	c.Check(err, jc.ErrorIsNil)
@@ -343,8 +333,6 @@ func (s *MigrationImportSuite) TestMachines(c *gc.C) {
 		DisplayName: displayName,
 		Addresses:   network.SpaceAddresses{addr},
 	})
-	err := s.Model.SetAnnotations(machine1, testAnnotations)
-	c.Assert(err, jc.ErrorIsNil)
 	s.primeStatusHistory(c, machine1, status.Started, 5)
 
 	// machine1 should have some instance data.
@@ -358,7 +346,7 @@ func (s *MigrationImportSuite) TestMachines(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(allMachines, gc.HasLen, 2)
 
-	newModel, newSt := s.importModel(c, s.State)
+	_, newSt := s.importModel(c, s.State)
 
 	importedMachines, err := newSt.AllMachines()
 	c.Assert(err, jc.ErrorIsNil)
@@ -379,7 +367,6 @@ func (s *MigrationImportSuite) TestMachines(c *gc.C) {
 	c.Assert(parentId, gc.Equals, parent.Id())
 	c.Assert(isContainer, jc.IsTrue)
 
-	s.assertAnnotations(c, newModel, parent)
 	s.checkStatusHistory(c, machine1, parent, 5)
 
 	newCons, err := parent.Constraints()
@@ -501,8 +488,6 @@ func (s *MigrationImportSuite) setupSourceApplications(
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = testModel.SetAnnotations(application, testAnnotations)
-	c.Assert(err, jc.ErrorIsNil)
 	if testModel.Type() == state.ModelTypeCAAS {
 		application.SetOperatorStatus(status.StatusInfo{Status: status.Running})
 	}
@@ -549,7 +534,6 @@ func (s *MigrationImportSuite) assertImportedApplication(
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(importedLeaderSettings, jc.DeepEquals, exportedLeaderSettings)
 
-	s.assertAnnotations(c, newModel, imported)
 	if checkStatusHistory {
 		s.checkStatusHistory(c, application, imported, 5)
 	}
@@ -1109,8 +1093,6 @@ func (s *MigrationImportSuite) assertUnitsMigrated(c *gc.C, st *state.State, con
 	c.Assert(err, jc.ErrorIsNil)
 	testModel, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	err = testModel.SetAnnotations(exported, testAnnotations)
-	c.Assert(err, jc.ErrorIsNil)
 	us := state.NewUnitState()
 	us.SetCharmState(map[string]string{"payload": "0xb4c0ffee"})
 	us.SetRelationState(map[int]string{42: "magic"})
@@ -1182,7 +1164,9 @@ func (s *MigrationImportSuite) assertUnitsMigrated(c *gc.C, st *state.State, con
 		c.Assert(containerInfo.Address(), jc.DeepEquals, &addr)
 	}
 
-	s.assertAnnotations(c, newModel, imported)
+	meterStatus, err := imported.GetMeterStatus()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(meterStatus, gc.Equals, state.MeterStatus{state.MeterGreen, "some info"})
 	s.checkStatusHistory(c, exported, imported, 5)
 	s.checkStatusHistory(c, exported.Agent(), imported.Agent(), 5)
 	s.checkStatusHistory(c, exported.WorkloadVersionHistory(), imported.WorkloadVersionHistory(), 1)

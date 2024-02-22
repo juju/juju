@@ -437,14 +437,6 @@ func allCollections() CollectionSchema {
 		// it's meant to imply "global within an model", because it was
 		// named before multi-model support.
 
-		// This collection holds user annotations for various entities. They
-		// shouldn't be written or interpreted by juju.
-		annotationsC: {
-			indexes: []mgo.Index{{
-				Key: []string{"model-uuid"},
-			}},
-		},
-
 		// This collection in particular holds an astounding number of
 		// different sorts of data: application config settings by charm version,
 		// unit relation settings, model config, etc etc etc.
@@ -614,7 +606,6 @@ const (
 	actionNotificationsC       = "actionnotifications"
 	actionresultsC             = "actionresults"
 	actionsC                   = "actions"
-	annotationsC               = "annotations"
 	autocertCacheC             = "autocertCache"
 	assignUnitC                = "assignUnits"
 	bakeryStorageItemsC        = "bakeryStorageItems"
