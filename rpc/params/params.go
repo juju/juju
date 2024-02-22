@@ -971,6 +971,19 @@ type ControllersChangeResults struct {
 	Results []ControllersChangeResult `json:"results"`
 }
 
+// ControllerDetailsResults contains the results
+// of a call to fetch controller config details.
+type ControllerDetailsResults struct {
+	Results []ControllerDetails `json:"results"`
+}
+
+// ControllerDetails contains the details about a controller.
+type ControllerDetails struct {
+	ControllerId string   `json:"controller-id"`
+	APIAddresses []string `json:"api-addresses"`
+	Error        *Error   `json:"error,omitempty"`
+}
+
 // ControllersChanges lists the servers
 // that have been added, removed or maintained in the
 // pool as a result of an enable-ha operation.

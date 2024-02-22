@@ -396,13 +396,19 @@ func (c *ModelCommandBase) modelFromStore(controllerName, modelIdentifier string
 // NewAPIRoot returns a new connection to the API server for the environment
 // directed to the model specified on the command line.
 func (c *ModelCommandBase) NewAPIRoot() (api.Connection, error) {
+	return c.NewAPIRootWithAddressOverride(nil)
+}
+
+// NewAPIRootWithAddressOverride returns a new connection to the API server for the environment
+// directed to the model specified on the command line, using any address overrides.
+func (c *ModelCommandBase) NewAPIRootWithAddressOverride(addresses []string) (api.Connection, error) {
 	// We need to call ModelDetails() here and not just ModelName() to force
 	// a refresh of the internal model details if those are not yet stored locally.
 	modelName, _, err := c.ModelDetails()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	conn, err := c.newAPIRoot(modelName, nil)
+	conn, err := c.newAPIRoot(modelName, nil, addresses)
 	return conn, errors.Trace(err)
 }
 
@@ -416,7 +422,7 @@ func (c *ModelCommandBase) NewAPIRootWithDialOpts(dialOpts *api.DialOpts) (api.C
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	conn, err := c.newAPIRoot(modelName, dialOpts)
+	conn, err := c.newAPIRoot(modelName, dialOpts, nil)
 	return conn, errors.Trace(err)
 }
 
@@ -425,17 +431,17 @@ func (c *ModelCommandBase) NewAPIRootWithDialOpts(dialOpts *api.DialOpts) (api.C
 // This is for the use of model-centered commands that still want
 // to talk to controller-only APIs.
 func (c *ModelCommandBase) NewControllerAPIRoot() (api.Connection, error) {
-	return c.newAPIRoot("", nil)
+	return c.newAPIRoot("", nil, nil)
 }
 
 // newAPIRoot is the internal implementation of NewAPIRoot and NewControllerAPIRoot;
 // if modelName is empty, it makes a controller-only connection.
-func (c *ModelCommandBase) newAPIRoot(modelName string, dialOpts *api.DialOpts) (api.Connection, error) {
+func (c *ModelCommandBase) newAPIRoot(modelName string, dialOpts *api.DialOpts, addressOverride []string) (api.Connection, error) {
 	controllerName, err := c.ControllerName()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	conn, err := c.CommandBase.NewAPIRootWithDialOpts(c.store, controllerName, modelName, dialOpts)
+	conn, err := c.CommandBase.NewAPIRootWithDialOpts(c.store, controllerName, modelName, addressOverride, dialOpts)
 	return conn, errors.Trace(err)
 }
 

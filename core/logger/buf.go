@@ -4,6 +4,7 @@
 package logger
 
 import (
+	"sort"
 	"sync"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 // BufferedLogger wraps a Logger, providing a buffer that
 // accumulates log messages, flushing them to the underlying logger
 // when enough messages have been accumulated.
+// The emitted records are sorted by timestamp.
 type BufferedLogger struct {
 	l             Logger
 	clock         clock.Clock
@@ -40,23 +42,42 @@ func NewBufferedLogger(
 	}
 }
 
+func insertSorted(recs []LogRecord, in []LogRecord) []LogRecord {
+	for _, r := range in {
+		i := sort.Search(len(recs), func(i int) bool { return recs[i].Time.After(r.Time) })
+		if len(recs) == i {
+			recs = append(recs, r)
+			continue
+		}
+		copy(recs[:i+1], recs[i:])
+		recs[i] = r
+	}
+	return recs
+}
+
 // Log is part of the Logger interface.
 //
 // BufferedLogger's Log implementation will buffer log records up to
 // the specified capacity and duration; after either of which is exceeded,
 // the records will be flushed to the underlying logger.
-// TODO(debug-log) - we may receive log messages slightly out of order.
-// We should ensure they are sorted on timestamp.
 func (b *BufferedLogger) Log(in []LogRecord) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
+
+	// Sort incoming records.
+	// We only use the first N so they need
+	// to be sorted first up.
+	sort.Slice(in, func(i, j int) bool {
+		return in[i].Time.Before(in[j].Time)
+	})
+
 	for len(in) > 0 {
 		r := cap(b.buf) - len(b.buf)
 		n := len(in)
 		if n > r {
 			n = r
 		}
-		b.buf = append(b.buf, in[:n]...)
+		b.buf = insertSorted(b.buf, in[:n])
 		in = in[n:]
 		if len(b.buf) >= cap(b.buf) {
 			if err := b.flush(); err != nil {

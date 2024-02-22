@@ -181,6 +181,21 @@ func (s *NewAPIClientSuite) TestWithMacaroons(c *gc.C) {
 	c.Assert(info.Macaroons, gc.DeepEquals, []macaroon.Slice{{mac}})
 }
 
+func (s *NewAPIClientSuite) TestWithAddressOverride(c *gc.C) {
+	store := newClientStore(c, "controllername")
+	ad, err := store.AccountDetails("controllername")
+	c.Assert(err, jc.ErrorIsNil)
+
+	info, _, err := juju.ConnectionInfo(juju.NewAPIConnectionParams{
+		ControllerName: "controllername",
+		Store:          store,
+		AccountDetails: ad,
+		APIEndpoints:   []string{"address-override"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info.Addrs, gc.DeepEquals, []string{"address-override"})
+}
+
 func (s *NewAPIClientSuite) TestWithRedirect(c *gc.C) {
 	store := newClientStore(c, "ctl")
 	err := store.UpdateController("ctl", jujuclient.ControllerDetails{

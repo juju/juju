@@ -46,6 +46,11 @@ type ApplicationSaver interface {
 	Save(ctx context.Context, name string, units ...applicationservice.AddUnitParams) error
 }
 
+// ControllerConfigGetter instances read the controller config.
+type ControllerConfigGetter interface {
+	ControllerConfig(ctx context.Context) (controller.Config, error)
+}
+
 // HighAvailabilityAPI implements the HighAvailability interface and is the concrete
 // implementation of the api end point.
 type HighAvailabilityAPI struct {
@@ -53,8 +58,14 @@ type HighAvailabilityAPI struct {
 	nodeService          NodeService
 	machineSaver         MachineSaver
 	applicationSaveSaver ApplicationSaver
+	controllerConfig     ControllerConfigGetter
 	authorizer           facade.Authorizer
 	logger               loggo.Logger
+}
+
+// HighAvailabilityAPIV2 implements v2 of the high availability facade.
+type HighAvailabilityAPIV2 struct {
+	HighAvailabilityAPI
 }
 
 // EnableHA adds controller machines as necessary to ensure the
@@ -315,4 +326,67 @@ func machineIdsToTags(ids ...string) []string {
 		result = append(result, names.NewMachineTag(id).String())
 	}
 	return result
+}
+
+// ControllerDetails is only available on V3 or later.
+func (api *HighAvailabilityAPIV2) ControllerDetails(_ struct{}) {}
+
+// ControllerDetails returns details about each controller node.
+func (api *HighAvailabilityAPI) ControllerDetails(
+	ctx context.Context,
+) (params.ControllerDetailsResults, error) {
+	results := params.ControllerDetailsResults{}
+
+	err := api.authorizer.HasPermission(permission.LoginAccess, api.st.ControllerTag())
+	if err != nil {
+		return results, apiservererrors.ServerError(apiservererrors.ErrPerm)
+	}
+
+	cfg, err := api.controllerConfig.ControllerConfig(ctx)
+	if err != nil {
+		return results, apiservererrors.ServerError(err)
+	}
+	apiPort := cfg.APIPort()
+
+	nodes, err := api.st.ControllerNodes()
+	if err != nil {
+		return results, apiservererrors.ServerError(err)
+	}
+
+	for _, n := range nodes {
+		m, err := api.st.Machine(n.Id())
+		if err != nil {
+			return results, apiservererrors.ServerError(err)
+		}
+		addr, err := m.PublicAddress()
+		if err != nil {
+			// Usually this indicates that no addresses have been set on the
+			// machine yet.
+			addr = network.SpaceAddress{}
+		}
+		mAddrs := m.Addresses()
+		if len(mAddrs) == 0 {
+			// At least give it the newly created DNSName address, if it exists.
+			if addr.Value != "" {
+				mAddrs = append(mAddrs, addr)
+			}
+		}
+		hp := make(network.HostPorts, len(mAddrs))
+		for i, addr := range mAddrs {
+			hp[i] = network.MachineHostPort{
+				MachineAddress: addr.MachineAddress,
+				NetPort:        network.NetPort(apiPort),
+			}
+		}
+		hp = hp.FilterUnusable().Unique()
+		results.Results = append(results.Results, params.ControllerDetails{
+			ControllerId: m.Id(),
+			APIAddresses: hp.Strings(),
+		})
+		// Sort for testing.
+		sort.Slice(results.Results, func(i, j int) bool {
+			return results.Results[i].ControllerId < results.Results[j].ControllerId
+		})
+	}
+	return results, nil
 }
