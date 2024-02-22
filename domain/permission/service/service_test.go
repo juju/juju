@@ -13,6 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/domain/permission/state"
 )
 
 type serviceSuite struct {
@@ -31,7 +32,7 @@ func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 func (s *serviceSuite) TestCreatePermission(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	s.state.EXPECT().CreatePermission(gomock.Any(), gomock.AssignableToTypeOf(UserAccessSpec{})).Return(permission.UserAccess{}, nil)
+	s.state.EXPECT().CreatePermission(gomock.Any(), gomock.AssignableToTypeOf(state.UserAccessSpec{})).Return(permission.UserAccess{}, nil)
 
 	spec := UserAccessSpec{
 		User: "testme",
@@ -80,33 +81,56 @@ func (s *serviceSuite) TestDeletePermissionError(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, errors.NotValid, gc.Commentf("%+v", err))
 }
 
-func (s *serviceSuite) TestUpdatePermission(c *gc.C) {
+func (s *serviceSuite) TestUpsertPermission(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	s.state.EXPECT().UpdatePermission(gomock.Any(), "testme", gomock.AssignableToTypeOf(permission.ID{}), permission.AddModelAccess).Return(nil)
+	s.state.EXPECT().UpsertPermission(gomock.Any(), gomock.AssignableToTypeOf(state.UpsertPermissionArgs{})).Return(nil)
 
-	err := NewService(s.state).UpdatePermission(
+	err := NewService(s.state).UpsertPermission(
 		context.Background(),
-		"testme",
-		permission.ID{
-			ObjectType: permission.Cloud,
-			Key:        "aws",
+		UpsertPermissionArgs{
+			Access:  permission.AddModelAccess,
+			AddUser: false,
+			ApiUser: "admin",
+			Change:  Grant,
+			Subject: "testme",
+			Target: permission.ID{
+				ObjectType: permission.Cloud,
+				Key:        "aws",
+			},
 		},
-		permission.AddModelAccess)
+	)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestUpdatePermissionError(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	err := NewService(s.state).UpdatePermission(
-		context.Background(),
-		"testme",
-		permission.ID{
-			ObjectType: "faileme",
-			Key:        "aws",
-		},
-		permission.AddModelAccess)
-	c.Assert(err, jc.ErrorIs, errors.NotValid, gc.Commentf("%+v", err))
+func (s *serviceSuite) TestUpsertPermissionArgsValidationFail(c *gc.C) {
+	argsToTest := []UpsertPermissionArgs{
+		{}, { // Missing Subject
+			ApiUser: "admin",
+		}, { // Missing Target
+			ApiUser: "admin",
+			Subject: "testme",
+		}, { // Target and Access don't mesh
+			Access:  permission.AddModelAccess,
+			ApiUser: "admin",
+			Subject: "testme",
+			Target: permission.ID{
+				ObjectType: permission.Cloud,
+				Key:        "aws",
+			},
+		}, { // Invalid Change
+			Access:  permission.AddModelAccess,
+			ApiUser: "admin",
+			Change:  "testing",
+			Subject: "testme",
+			Target: permission.ID{
+				ObjectType: permission.Model,
+				Key:        "aws",
+			},
+		}}
+	for i, args := range argsToTest {
+		c.Logf("Test %d", i)
+		c.Check(args.validate(), jc.ErrorIs, errors.NotValid)
+	}
 }
 
 func (s *serviceSuite) TestReadUserAccessForTarget(c *gc.C) {

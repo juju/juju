@@ -15,10 +15,10 @@ type UserAccessSpec struct {
 	Access permission.Access
 }
 
-// UpdateMaybeCreatePermissionArgs defines the attributes necessary to
+// UpsertPermissionArgs defines the attributes necessary to
 // Grant or Revoke permissions of a Subject (user) on a Target where
 // a new user may be created to satisfy granting of permissions.
-type UpdateMaybeCreatePermissionArgs struct {
+type UpsertPermissionArgs struct {
 	// Access is what the permission access should change to.
 	Access permission.Access
 	// AddUser will add the subject if the user does not exist.

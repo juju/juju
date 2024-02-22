@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/domain/permission/state"
 )
 
 // State describes retrieval and persistence methods for user permission on
@@ -17,15 +18,17 @@ type State interface {
 	// CreatePermission gives the user access per the provided spec.
 	// It requires the user/target combination has not already been
 	// created.
-	CreatePermission(ctx context.Context, spec UserAccessSpec) (permission.UserAccess, error)
+	CreatePermission(ctx context.Context, spec state.UserAccessSpec) (permission.UserAccess, error)
 
 	// DeletePermission removes the given subject's (user) access to the
 	// given target.
 	DeletePermission(ctx context.Context, subject string, target permission.ID) error
 
-	// UpdatePermission updates the subject's (user) access to the given
-	// target to the given access.
-	UpdatePermission(ctx context.Context, subject string, target permission.ID, access permission.Access) error
+	// UpsertPermission updates the permission on the target for the given
+	// subject (user). The api user must have Admin permission on the target. If a
+	// subject does not exist, it is created using the subject and api user. Access
+	// can be granted or revoked.
+	UpsertPermission(ctx context.Context, args state.UpsertPermissionArgs) error
 
 	// ReadUserAccessForTarget returns the subject's (user) access for the
 	// given user on the given target.
@@ -93,7 +96,11 @@ func (s *Service) CreatePermission(ctx context.Context, spec UserAccessSpec) (pe
 	if err := spec.validate(); err != nil {
 		return permission.UserAccess{}, errors.Trace(err)
 	}
-	userAccess, err := s.st.CreatePermission(ctx, spec)
+	userAccess, err := s.st.CreatePermission(ctx, state.UserAccessSpec{
+		User:   spec.User,
+		Target: permission.ID{ObjectType: spec.Target.ObjectType, Key: spec.Target.Key},
+		Access: spec.Access,
+	})
 	return userAccess, errors.Trace(err)
 }
 
@@ -179,16 +186,56 @@ func (s *Service) ReadAllAccessTypeForUser(ctx context.Context, subject string, 
 	return userAccess, errors.Trace(err)
 }
 
-// UpdatePermission updates the user's access to the given target to the
-// given access. A NotValid error is returned if the subject (user) string
-// is empty, or the target is not valid. Any errors from the state layer
-// are passed through.
-func (s *Service) UpdatePermission(ctx context.Context, subject string, target permission.ID, access permission.Access) error {
-	if subject == "" {
+type AccessChange string
+
+const (
+	Grant  AccessChange = "grant"
+	Revoke AccessChange = "revoke"
+)
+
+// UpsertPermissionArgs are necessary arguments to run
+// UpdatePermissionOnTarget.
+type UpsertPermissionArgs struct {
+	// Access is what the permission access should change to.
+	Access permission.Access
+	// AddUser will add the subject if the user does not exist.
+	AddUser bool
+	// ApiUser is the user requesting the change, they must have
+	// permission to do it as well.
+	ApiUser string
+	// What type of change to access is needed, grant or revoke?
+	Change AccessChange
+	// Subject is the subject of the permission, e.g. user.
+	Subject string
+	// Target is the thing the subject's permission to is being
+	// updated on.
+	Target permission.ID
+}
+
+func (args UpsertPermissionArgs) validate() error {
+	if args.ApiUser == "" {
+		return errors.Trace(errors.NotValidf("empty api user"))
+	}
+	if args.Subject == "" {
 		return errors.Trace(errors.NotValidf("empty subject"))
 	}
-	if err := target.ValidateAccess(access); err != nil {
+	if err := args.Target.ValidateAccess(args.Access); err != nil {
 		return errors.Trace(err)
 	}
-	return errors.Trace(s.st.UpdatePermission(ctx, subject, target, access))
+	if args.Change != Grant && args.Change != Revoke {
+		return errors.Trace(errors.NotValidf("change %q", args.Change))
+	}
+	return nil
+}
+
+// UpsertPermission updates the permission on the target for the given
+// subject (user). The api user must have Admin permission on the target. If a
+// subject does not exist, it is created using the subject and api user. Access
+// can be granted or revoked. Revoking the permission on a user which does not
+// exist, is a no-op, AddUser will be ignored.
+func (s *Service) UpsertPermission(ctx context.Context, args UpsertPermissionArgs) error {
+	if err := args.validate(); err != nil {
+		return errors.Trace(err)
+	}
+	return errors.Trace(s.st.UpsertPermission(ctx, state.UpsertPermissionArgs{}))
 }
