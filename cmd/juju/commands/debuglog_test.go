@@ -297,7 +297,7 @@ func (s *DebugLogSuite) TestAllControllers(c *gc.C) {
 		}
 	}
 	checkOutput(
-		"--all",
+		"--controller", "all",
 		"machine-1: 14:15:20 INFO test.module this is the log output for 1\nmachine-0: 14:15:23 INFO test.module this is the log output for 0\n")
 }
 

@@ -120,7 +120,7 @@ Use juju show-controller to see the available controller numbers.
 You can also stream messages from all controllers - a best effort will be made to correctly
 interleave them so they are ordered by timestamp.
 
-    juju debug-log --all
+    juju debug-log --controller all
 `
 
 func (c *debugLogCommand) Info() *cmd.Info {
@@ -173,8 +173,7 @@ type debugLogCommand struct {
 	includeLabels []string
 	excludeLabels []string
 
-	controllerID   string
-	allControllers bool
+	controllerIdOrAll string
 }
 
 func (c *debugLogCommand) SetFlags(f *gnuflag.FlagSet) {
@@ -188,8 +187,7 @@ func (c *debugLogCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(cmd.NewAppendStringsValue(&c.includeLabels), "include-labels", "Only show log messages for these logging label key values")
 	f.Var(cmd.NewAppendStringsValue(&c.excludeLabels), "exclude-labels", "Do not show log messages for these logging label key values")
 
-	f.StringVar(&c.controllerID, "controller", "", "A specific controller from which to display logs.")
-	f.BoolVar(&c.allControllers, "all", false, "Display logs form all controllers.")
+	f.StringVar(&c.controllerIdOrAll, "controller", "", "A specific controller from which to display logs, or 'all' for interleaved logs from all controllers.")
 
 	f.StringVar(&c.level, "l", "", "Log level to show, one of [TRACE, DEBUG, INFO, WARNING, ERROR]")
 	f.StringVar(&c.level, "level", "", "")
@@ -337,32 +335,34 @@ func (f logFunc) Log(r []corelogger.LogRecord) error {
 }
 
 func (c *debugLogCommand) getControllerAddresses() ([][]string, error) {
-	var controllerDetails map[string]highavailability.ControllerDetails
-	if c.controllerID != "" || c.allControllers {
-		api, err := getControllerDetailsClient(c)
-		if err != nil {
-			return nil, errors.Annotate(err, "getting controller HA client")
-		}
-		if api.BestAPIVersion() < 3 {
-			return nil, fmt.Errorf("debug log controller selection not supported with this version of Juju")
-		}
-		controllerDetails, err = api.ControllerDetails()
-		if err != nil {
-			return nil, errors.Annotate(err, "getting controller details")
-		}
+	if c.controllerIdOrAll == "" {
+		return nil, nil
+	}
+
+	api, err := getControllerDetailsClient(c)
+	if err != nil {
+		return nil, errors.Annotate(err, "getting controller HA client")
+	}
+	if api.BestAPIVersion() < 3 {
+		return nil, fmt.Errorf("debug log controller selection not supported with this version of Juju")
+	}
+	controllerDetails, err := api.ControllerDetails()
+	if err != nil {
+		return nil, errors.Annotate(err, "getting controller details")
 	}
 
 	var controllerAddr [][]string
-	if c.controllerID != "" {
-		ctrl, ok := controllerDetails[c.controllerID]
-		if !ok {
-			return nil, fmt.Errorf("controller %q %w", c.controllerID, errors.NotFound)
-		}
-		controllerAddr = append(controllerAddr, ctrl.APIEndpoints)
-	} else if c.allControllers {
+	if c.controllerIdOrAll == "all" {
 		for _, ctrl := range controllerDetails {
 			controllerAddr = append(controllerAddr, ctrl.APIEndpoints)
 		}
+
+	} else {
+		ctrl, ok := controllerDetails[c.controllerIdOrAll]
+		if !ok {
+			return nil, fmt.Errorf("controller %q %w", c.controllerIdOrAll, errors.NotFound)
+		}
+		controllerAddr = append(controllerAddr, ctrl.APIEndpoints)
 	}
 	return controllerAddr, nil
 }
