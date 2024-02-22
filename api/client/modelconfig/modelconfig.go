@@ -94,28 +94,6 @@ func (c *Client) SetModelConstraints(constraints constraints.Value) error {
 	return c.facade.FacadeCall(context.TODO(), "SetModelConstraints", params, nil)
 }
 
-// SetSLALevel sets the support level for the given model.
-func (c *Client) SetSLALevel(level, owner string, creds []byte) error {
-	args := params.ModelSLA{
-		ModelSLAInfo: params.ModelSLAInfo{
-			Level: level,
-			Owner: owner,
-		},
-		Credentials: creds,
-	}
-	return c.facade.FacadeCall(context.TODO(), "SetSLALevel", args, nil)
-}
-
-// SLALevel gets the support level for the given model.
-func (c *Client) SLALevel() (string, error) {
-	var result params.StringResult
-	err := c.facade.FacadeCall(context.TODO(), "SLALevel", nil, &result)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	return result.Result, nil
-}
-
 // Sequences returns all sequence names and next values.
 func (c *Client) Sequences() (map[string]int, error) {
 	var result params.ModelSequencesResult

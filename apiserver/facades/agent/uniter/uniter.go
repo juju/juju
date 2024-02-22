@@ -21,7 +21,6 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	leadershipapiserver "github.com/juju/juju/apiserver/facades/agent/leadership"
-	"github.com/juju/juju/apiserver/facades/agent/meterstatus"
 	"github.com/juju/juju/apiserver/facades/agent/secretsmanager"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloud"
@@ -76,7 +75,6 @@ type UniterAPI struct {
 	*common.UnitStateAPI
 	*leadershipapiserver.LeadershipSettingsAccessor
 	*secretsmanager.SecretsManagerAPI
-	meterstatus.MeterStatus
 
 	lxdProfileAPI           *LXDProfileAPIv2
 	m                       *state.Model
@@ -1870,61 +1868,10 @@ func leadershipSettingsAccessorFactory(
 	)
 }
 
-// AddMetricBatches adds the metrics for the specified unit.
-func (u *UniterAPI) AddMetricBatches(ctx context.Context, args params.MetricBatchParams) (params.ErrorResults, error) {
-	result := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(args.Batches)),
-	}
-	canAccess, err := u.accessUnit()
-	if err != nil {
-		u.logger.Warningf("failed to check unit access: %v", err)
-		return params.ErrorResults{}, apiservererrors.ErrPerm
-	}
-	for i, batch := range args.Batches {
-		tag, err := names.ParseUnitTag(batch.Tag)
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		if !canAccess(tag) {
-			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
-			continue
-		}
-		metrics := make([]state.Metric, len(batch.Batch.Metrics))
-		for j, metric := range batch.Batch.Metrics {
-			metrics[j] = state.Metric{
-				Key:    metric.Key,
-				Value:  metric.Value,
-				Time:   metric.Time,
-				Labels: metric.Labels,
-			}
-		}
-		_, err = u.st.AddMetrics(state.BatchParam{
-			UUID:     batch.Batch.UUID,
-			Created:  batch.Batch.Created,
-			CharmURL: batch.Batch.CharmURL,
-			Metrics:  metrics,
-			Unit:     tag,
-		})
-		result.Results[i].Error = apiservererrors.ServerError(err)
-	}
-	return result, nil
-}
-
 // V4 specific methods.
 
-//  specific methods - the new SLALevel, NetworkInfo and
+//  specific methods - the new NetworkInfo and
 // WatchUnitRelations methods.
-
-// SLALevel returns the model's SLA level.
-func (u *UniterAPI) SLALevel(ctx context.Context) (params.StringResult, error) {
-	result := params.StringResult{}
-	sla, err := u.st.SLALevel()
-	if err == nil {
-		result.Result = sla
-	}
-	return result, err
-}
 
 // NetworkInfo returns network interfaces/addresses for specified bindings.
 func (u *UniterAPI) NetworkInfo(ctx context.Context, args params.NetworkInfoParams) (params.NetworkInfoResults, error) {
@@ -2579,9 +2526,6 @@ func (u *UniterAPI) commitHookChangesForOneUnit(ctx context.Context, unitTag nam
 		}
 		if changes.SetUnitState.SecretState != nil {
 			newUS.SetSecretState(*changes.SetUnitState.SecretState)
-		}
-		if changes.SetUnitState.MeterStatusState != nil {
-			newUS.SetMeterStatusState(*changes.SetUnitState.MeterStatusState)
 		}
 
 		modelOp := unit.SetStateOperation(

@@ -131,7 +131,6 @@ func (u *UnitStateAPI) State(ctx context.Context, args params.Entities) (params.
 		res[i].RelationState, _ = unitState.RelationState()
 		res[i].StorageState, _ = unitState.StorageState()
 		res[i].SecretState, _ = unitState.SecretState()
-		res[i].MeterStatusState, _ = unitState.MeterStatusState()
 	}
 
 	return params.UnitStateResults{Results: res}, nil
@@ -184,9 +183,6 @@ func (u *UnitStateAPI) SetState(ctx context.Context, args params.SetUnitStateArg
 		}
 		if arg.SecretState != nil {
 			unitState.SetSecretState(*arg.SecretState)
-		}
-		if arg.MeterStatusState != nil {
-			unitState.SetMeterStatusState(*arg.MeterStatusState)
 		}
 
 		ops := unit.SetStateOperation(

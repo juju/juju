@@ -294,22 +294,6 @@ func (mr *MockUnitMockRecorder) LogActionMessage(arg0, arg1 any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LogActionMessage", reflect.TypeOf((*MockUnit)(nil).LogActionMessage), arg0, arg1)
 }
 
-// MeterStatus mocks base method.
-func (m *MockUnit) MeterStatus() (string, string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "MeterStatus")
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(string)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
-}
-
-// MeterStatus indicates an expected call of MeterStatus.
-func (mr *MockUnitMockRecorder) MeterStatus() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MeterStatus", reflect.TypeOf((*MockUnit)(nil).MeterStatus))
-}
-
 // Name mocks base method.
 func (m *MockUnit) Name() string {
 	m.ctrl.T.Helper()

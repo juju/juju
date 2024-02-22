@@ -498,24 +498,6 @@ func (a *API) getCharmRepository(ctx context.Context, src corecharm.Source) (cor
 	return repoFactory.GetCharmRepository(ctx, src)
 }
 
-// IsMetered returns whether or not the charm is metered.
-// TODO (cderici) only used for metered charms in cmd MeteredDeployAPI,
-// kept for client compatibility, remove in juju 4.0
-func (a *API) IsMetered(ctx context.Context, args params.CharmURL) (params.IsMeteredResult, error) {
-	if err := a.checkCanRead(); err != nil {
-		return params.IsMeteredResult{}, errors.Trace(err)
-	}
-
-	aCharm, err := a.backendState.Charm(args.URL)
-	if err != nil {
-		return params.IsMeteredResult{Metered: false}, errors.Trace(err)
-	}
-	if aCharm.Metrics() != nil && len(aCharm.Metrics().Metrics) > 0 {
-		return params.IsMeteredResult{Metered: true}, nil
-	}
-	return params.IsMeteredResult{Metered: false}, nil
-}
-
 // CheckCharmPlacement checks if a charm is allowed to be placed with in a
 // given application.
 func (a *API) CheckCharmPlacement(ctx context.Context, args params.ApplicationCharmPlacements) (params.ErrorResults, error) {

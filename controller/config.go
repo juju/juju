@@ -15,7 +15,6 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	"github.com/juju/romulus"
 	"github.com/juju/utils/v4"
 	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/yaml.v2"
@@ -248,9 +247,6 @@ const (
 
 	// Features allows a list of runtime changeable features to be updated.
 	Features = "features"
-
-	// MeteringURL is the URL to use for metrics.
-	MeteringURL = "metering-url"
 
 	// PublicDNSAddress is the public DNS address (and port) of the controller.
 	PublicDNSAddress = "public-dns-address"
@@ -493,7 +489,6 @@ var (
 		CAASOperatorImagePath,
 		CAASImageRepo,
 		Features,
-		MeteringURL,
 		MaxCharmStateSize,
 		MaxAgentStateSize,
 		MigrationMinionWaitMax,
@@ -1011,15 +1006,6 @@ func (c Config) CAASOperatorImagePath() string {
 // used for the jujud operator and mongo images.
 func (c Config) CAASImageRepo() string {
 	return c.asString(CAASImageRepo)
-}
-
-// MeteringURL returns the URL to use for metering api calls.
-func (c Config) MeteringURL() string {
-	url := c.asString(MeteringURL)
-	if url == "" {
-		return romulus.DefaultAPIRoot
-	}
-	return url
 }
 
 // MaxCharmStateSize returns the max size (in bytes) of charm-specific state

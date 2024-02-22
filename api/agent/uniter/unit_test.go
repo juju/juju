@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/juju/charm/v13"
-	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -20,7 +19,6 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher/watchertest"
-	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -733,12 +731,11 @@ func (s *unitSuite) TestRelationStatus(c *gc.C) {
 
 func (s *unitSuite) TestUnitState(c *gc.C) {
 	unitState := params.UnitStateResult{
-		MeterStatusState: "meter",
-		StorageState:     "storage",
-		SecretState:      "secret",
-		UniterState:      "uniter",
-		CharmState:       map[string]string{"foo": "bar"},
-		RelationState:    map[int]string{666: "666"},
+		StorageState:  "storage",
+		SecretState:   "secret",
+		UniterState:   "uniter",
+		CharmState:    map[string]string{"foo": "bar"},
+		RelationState: map[int]string{666: "666"},
 	}
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Assert(objType, gc.Equals, "Uniter")
@@ -781,124 +778,6 @@ func (s *unitSuite) TestSetState(c *gc.C) {
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 	err := unit.SetState(unitState)
 	c.Assert(err, gc.ErrorMatches, "biff")
-}
-
-func (s *unitSuite) TestAddMetricBatch(c *gc.C) {
-	metrics := []params.Metric{{
-		Key: "pings", Value: "5", Time: time.Now().UTC(),
-	}, {
-		Key: "pongs", Value: "6", Time: time.Now().UTC(), Labels: map[string]string{"foo": "bar"},
-	}}
-	uuid := uuid.MustNewUUID().String()
-	batch := params.MetricBatch{
-		UUID:     uuid,
-		CharmURL: "ch:mysql",
-		Created:  time.Now(),
-		Metrics:  metrics,
-	}
-
-	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Assert(objType, gc.Equals, "Uniter")
-		c.Assert(request, gc.Equals, "AddMetricBatches")
-		c.Assert(arg, gc.DeepEquals, params.MetricBatchParams{
-			Batches: []params.MetricBatchParam{{
-				Tag:   "unit-mysql-0",
-				Batch: batch,
-			}},
-		})
-		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
-		*(result.(*params.ErrorResults)) = params.ErrorResults{
-			Results: []params.ErrorResult{{&params.Error{Message: "biff"}}},
-		}
-		return nil
-	})
-	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
-
-	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
-	result, err := unit.AddMetricBatches([]params.MetricBatch{batch})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, map[string]error{
-		uuid: &params.Error{Message: "biff"},
-	})
-}
-
-func (s *unitSuite) TestAddMetrics(c *gc.C) {
-	metrics := []params.Metric{{
-		Key: "A", Value: "23", Time: time.Now(),
-	}, {
-		Key: "B", Value: "27.0", Time: time.Now(), Labels: map[string]string{"foo": "bar"},
-	}}
-	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Assert(objType, gc.Equals, "Uniter")
-		c.Assert(request, gc.Equals, "AddMetrics")
-		c.Assert(arg, gc.DeepEquals, params.MetricsParams{
-			Metrics: []params.MetricsParam{{
-				Tag:     "unit-mysql-0",
-				Metrics: metrics,
-			}},
-		})
-		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
-		*(result.(*params.ErrorResults)) = params.ErrorResults{
-			Results: []params.ErrorResult{{&params.Error{Message: "biff"}}},
-		}
-		return nil
-	})
-	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
-
-	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
-	err := unit.AddMetrics(metrics)
-	c.Assert(err, gc.ErrorMatches, "biff")
-}
-
-func (s *unitSuite) TestAddMetricsError(c *gc.C) {
-	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		return errors.New("boom")
-	})
-	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
-
-	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
-	err := unit.AddMetrics(nil)
-	c.Assert(err, gc.ErrorMatches, "unable to add metric: boom")
-}
-
-func (s *unitSuite) TestMeterStatus(c *gc.C) {
-	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Assert(objType, gc.Equals, "Uniter")
-		c.Assert(request, gc.Equals, "GetMeterStatus")
-		c.Assert(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}})
-		c.Assert(result, gc.FitsTypeOf, &params.MeterStatusResults{})
-		*(result.(*params.MeterStatusResults)) = params.MeterStatusResults{
-			Results: []params.MeterStatusResult{{
-				Code: "code",
-				Info: "info",
-			}},
-		}
-		return nil
-	})
-	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
-
-	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
-	code, info, err := unit.MeterStatus()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(code, gc.Equals, "code")
-	c.Assert(info, gc.Equals, "info")
-}
-
-func (s *unitSuite) TestMeterStatusResultError(c *gc.C) {
-	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Assert(result, gc.FitsTypeOf, &params.MeterStatusResults{})
-		*(result.(*params.MeterStatusResults)) = params.MeterStatusResults{
-			Results: []params.MeterStatusResult{{
-				Error: &params.Error{Message: "pow"},
-			}},
-		}
-		return nil
-	})
-	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
-
-	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
-	_, _, err := unit.MeterStatus()
-	c.Assert(err, gc.ErrorMatches, "pow")
 }
 
 func (s *unitSuite) TestWatchInstanceData(c *gc.C) {

@@ -23,8 +23,6 @@ import (
 	loggerapi "github.com/juju/juju/apiserver/facades/agent/logger"
 	"github.com/juju/juju/apiserver/facades/agent/machine"
 	"github.com/juju/juju/apiserver/facades/agent/machineactions"
-	"github.com/juju/juju/apiserver/facades/agent/meterstatus"
-	"github.com/juju/juju/apiserver/facades/agent/metricsadder"
 	"github.com/juju/juju/apiserver/facades/agent/migrationflag"
 	"github.com/juju/juju/apiserver/facades/agent/migrationminion"
 	"github.com/juju/juju/apiserver/facades/agent/payloadshookcontext"
@@ -57,7 +55,6 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/imagemetadatamanager"
 	"github.com/juju/juju/apiserver/facades/client/keymanager"     // ModelUser Write
 	"github.com/juju/juju/apiserver/facades/client/machinemanager" // ModelUser Write
-	"github.com/juju/juju/apiserver/facades/client/metricsdebug"   // ModelUser Write
 	"github.com/juju/juju/apiserver/facades/client/modelconfig"    // ModelUser Write
 	"github.com/juju/juju/apiserver/facades/client/modelgeneration"
 	"github.com/juju/juju/apiserver/facades/client/modelmanager" // ModelUser Write
@@ -94,7 +91,6 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/instancepoller"
 	"github.com/juju/juju/apiserver/facades/controller/lifeflag"
 	"github.com/juju/juju/apiserver/facades/controller/machineundertaker"
-	"github.com/juju/juju/apiserver/facades/controller/metricsmanager"
 	"github.com/juju/juju/apiserver/facades/controller/migrationmaster"
 	"github.com/juju/juju/apiserver/facades/controller/migrationtarget"
 	"github.com/juju/juju/apiserver/facades/controller/remoterelations"
@@ -143,8 +139,6 @@ func requiredMigrationFacadeVersions() facades.FacadeVersions {
 	loggerapi.Register(registry)
 	machine.Register(registry)
 	machineactions.Register(registry)
-	meterstatus.Register(registry)
-	metricsadder.Register(registry)
 	migrationflag.Register(registry)
 	migrationminion.Register(registry)
 	payloadshookcontext.Register(registry)
@@ -236,10 +230,6 @@ func AllFacades() *facade.Registry {
 	machinemanager.Register(registry)
 	machineundertaker.Register(registry)
 	machine.Register(registry)
-	meterstatus.Register(registry)
-	metricsadder.Register(registry)
-	metricsdebug.Register(registry)
-	metricsmanager.Register(registry)
 	migrationflag.Register(registry)
 	migrationmaster.Register(registry)
 	migrationminion.Register(registry)

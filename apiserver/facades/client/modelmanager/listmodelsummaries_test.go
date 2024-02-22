@@ -108,8 +108,6 @@ func (s *ListModelsWithInfoSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	s.api = modelmanager
 }
 
-// TODO (anastasiamac 2017-11-24) add test with migration and SLA
-
 func (s *ListModelsWithInfoSuite) TestListModelSummaries(c *gc.C) {
 	result, err := s.api.ListModelSummaries(stdcontext.Background(), params.ModelSummariesRequest{UserTag: s.adminUser.String()})
 	c.Assert(err, jc.ErrorIsNil)
@@ -127,7 +125,6 @@ func (s *ListModelsWithInfoSuite) TestListModelSummaries(c *gc.C) {
 					Life:               "alive",
 					Status:             params.EntityStatus{},
 					Counts:             []params.ModelEntityCount{},
-					SLA:                &params.ModelSLAInfo{"essential", "admin"},
 				},
 			},
 		},
@@ -204,7 +201,6 @@ func (s *ListModelsWithInfoSuite) TestListModelSummariesWithMachineAndUserDetail
 					CloudCredentialTag: "cloudcred-dummy_bob_some-credential",
 					Life:               "alive",
 					Status:             params.EntityStatus{},
-					SLA:                &params.ModelSLAInfo{"essential", "admin"},
 					UserAccess:         params.ModelAdminAccess,
 					UserLastConnection: &now,
 					Counts: []params.ModelEntityCount{

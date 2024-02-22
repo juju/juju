@@ -115,12 +115,6 @@ func (f *fakeModelMgrAPIClient) ListModelSummaries(user string, all bool) ([]bas
 				EndTime:   migration.End,
 			}
 		}
-		if info.Result.SLA != nil {
-			results[i].SLA = &base.SLASummary{
-				Level: info.Result.SLA.Level,
-				Owner: info.Result.SLA.Owner,
-			}
-		}
 		if len(info.Result.Users) > 0 {
 			for _, u := range info.Result.Users {
 				if u.UserName == user {

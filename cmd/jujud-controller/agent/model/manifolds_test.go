@@ -55,7 +55,6 @@ func (s *ManifoldsSuite) TestIAASNames(c *gc.C) {
 		"is-responsible-flag",
 		"logging-config-updater",
 		"machine-undertaker",
-		"metric-worker",
 		"migration-fortress",
 		"migration-inactive-flag",
 		"migration-master",
@@ -567,16 +566,6 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 		"not-dead-flag",
 		"valid-credential-flag",
 	},
-
-	"metric-worker": {
-		"agent",
-		"api-caller",
-		"is-responsible-flag",
-		"migration-fortress",
-		"migration-inactive-flag",
-		"environ-upgrade-gate",
-		"environ-upgraded-flag",
-		"not-dead-flag"},
 
 	"migration-fortress": {
 		"agent",

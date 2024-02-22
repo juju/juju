@@ -115,7 +115,6 @@ func (ctx *testContext) makeUnit(c *gc.C, unitTag names.UnitTag, l life.Value) *
 		u.mu.Unlock()
 		return nil
 	}).AnyTimes()
-	u.EXPECT().MeterStatus().Return("", "", nil).AnyTimes()
 	u.EXPECT().PrivateAddress().Return(dummyPrivateAddress.Value, nil).AnyTimes()
 	u.EXPECT().PublicAddress().Return(dummyPublicAddress.Value, nil).AnyTimes()
 	u.EXPECT().AvailabilityZone().Return("zone-1", nil).AnyTimes()

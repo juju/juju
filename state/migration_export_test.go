@@ -252,32 +252,6 @@ func (s *MigrationExportSuite) TestModelUsers(c *gc.C) {
 	c.Assert(exportedBob.Access(), gc.Equals, "read")
 }
 
-func (s *MigrationExportSuite) TestSLAs(c *gc.C) {
-	err := s.State.SetSLA("essential", "bob", []byte("creds"))
-	c.Assert(err, jc.ErrorIsNil)
-
-	model, err := s.State.Export(map[string]string{}, state.NewObjectStore(c, s.State.ModelUUID()))
-	c.Assert(err, jc.ErrorIsNil)
-
-	sla := model.SLA()
-
-	c.Assert(sla.Level(), gc.Equals, "essential")
-	c.Assert(sla.Credentials(), gc.DeepEquals, "creds")
-}
-
-func (s *MigrationExportSuite) TestMeterStatus(c *gc.C) {
-	err := s.State.SetModelMeterStatus("RED", "red info message")
-	c.Assert(err, jc.ErrorIsNil)
-
-	model, err := s.State.Export(map[string]string{}, state.NewObjectStore(c, s.State.ModelUUID()))
-	c.Assert(err, jc.ErrorIsNil)
-
-	sla := model.MeterStatus()
-
-	c.Assert(sla.Code(), gc.Equals, "RED")
-	c.Assert(sla.Info(), gc.Equals, "red info message")
-}
-
 func (s *MigrationExportSuite) TestMachines(c *gc.C) {
 	s.assertMachinesMigrated(c, constraints.MustParse("arch=amd64 mem=8G tags=foo,bar spaces=dmz"))
 }
@@ -425,8 +399,6 @@ func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, st *state.Stat
 		"leader": "true",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = application.SetMetricCredentials([]byte("sekrit"))
-	c.Assert(err, jc.ErrorIsNil)
 	err = dbModel.SetAnnotations(application, testAnnotations)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -483,7 +455,6 @@ func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, st *state.Stat
 	c.Assert(exported.LeadershipSettings(), jc.DeepEquals, map[string]interface{}{
 		"leader": "true",
 	})
-	c.Assert(exported.MetricsCredentials(), jc.DeepEquals, []byte("sekrit"))
 
 	constraints := exported.Constraints()
 	c.Assert(constraints, gc.NotNil)
@@ -568,8 +539,6 @@ func (s *MigrationExportSuite) TestMalformedApplications(c *gc.C) {
 	err = application.UpdateLeaderSettings(&goodToken{}, map[string]string{
 		"leader": "true",
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	err = application.SetMetricCredentials([]byte("sekrit"))
 	c.Assert(err, jc.ErrorIsNil)
 	err = dbModel.SetAnnotations(application, testAnnotations)
 	c.Assert(err, jc.ErrorIsNil)
@@ -791,10 +760,8 @@ func (s *MigrationExportSuite) TestCAASUnits(c *gc.C) {
 }
 
 func (s *MigrationExportSuite) assertMigrateUnits(c *gc.C, st *state.State, unit *state.Unit) {
-	err := unit.SetMeterStatus("GREEN", "some info")
-	c.Assert(err, jc.ErrorIsNil)
 	for _, version := range []string{"garnet", "amethyst", "pearl", "steven"} {
-		err = unit.SetWorkloadVersion(version)
+		err := unit.SetWorkloadVersion(version)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	us := state.NewUnitState()
@@ -802,8 +769,7 @@ func (s *MigrationExportSuite) assertMigrateUnits(c *gc.C, st *state.State, unit
 	us.SetRelationState(map[int]string{42: "magic"})
 	us.SetUniterState("uniter state")
 	us.SetStorageState("storage state")
-	us.SetMeterStatusState("meter status state")
-	err = unit.SetState(us, state.UnitStateSizeLimits{})
+	err := unit.SetState(us, state.UnitStateSizeLimits{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	dbModel, err := st.Model()
@@ -849,15 +815,12 @@ func (s *MigrationExportSuite) assertMigrateUnits(c *gc.C, st *state.State, unit
 	c.Assert(exported.Name(), gc.Equals, unit.Name())
 	c.Assert(exported.Tag(), gc.Equals, unit.UnitTag())
 	c.Assert(exported.Validate(), jc.ErrorIsNil)
-	c.Assert(exported.MeterStatusCode(), gc.Equals, "GREEN")
-	c.Assert(exported.MeterStatusInfo(), gc.Equals, "some info")
 	c.Assert(exported.WorkloadVersion(), gc.Equals, "steven")
 	c.Assert(exported.Annotations(), jc.DeepEquals, testAnnotations)
 	c.Assert(exported.CharmState(), jc.DeepEquals, map[string]string{"payload": "b4dc0ffee"})
 	c.Assert(exported.RelationState(), jc.DeepEquals, map[int]string{42: "magic"})
 	c.Assert(exported.UniterState(), gc.Equals, "uniter state")
 	c.Assert(exported.StorageState(), gc.Equals, "storage state")
-	c.Assert(exported.MeterStatusState(), gc.Equals, "meter status state")
 	obtainedConstraints := exported.Constraints()
 	c.Assert(obtainedConstraints, gc.NotNil)
 	c.Assert(obtainedConstraints.Architecture(), gc.Equals, "amd64")

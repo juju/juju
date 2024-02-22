@@ -1179,18 +1179,6 @@ type MongoVersion struct {
 	StorageEngine string `json:"engine"`
 }
 
-// MeterStatusParam holds meter status information to be set for the specified tag.
-type MeterStatusParam struct {
-	Tag  string `json:"tag"`
-	Code string `json:"code"`
-	Info string `json:"info,omitempty"`
-}
-
-// MeterStatusParams holds parameters for making SetMeterStatus calls.
-type MeterStatusParams struct {
-	Statuses []MeterStatusParam `json:"statues"`
-}
-
 // MacaroonResults contains a set of MacaroonResults.
 type MacaroonResults struct {
 	Results []MacaroonResult `json:"results"`

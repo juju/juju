@@ -16,9 +16,7 @@ import (
 	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/engine"
 	"github.com/juju/juju/api"
-	msapi "github.com/juju/juju/api/agent/meterstatus"
 	"github.com/juju/juju/api/base"
-	commonapi "github.com/juju/juju/api/common"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/model"
@@ -32,10 +30,6 @@ import (
 	"github.com/juju/juju/internal/worker/leadership"
 	loggerworker "github.com/juju/juju/internal/worker/logger"
 	"github.com/juju/juju/internal/worker/logsender"
-	"github.com/juju/juju/internal/worker/meterstatus"
-	"github.com/juju/juju/internal/worker/metrics/collect"
-	"github.com/juju/juju/internal/worker/metrics/sender"
-	"github.com/juju/juju/internal/worker/metrics/spool"
 	"github.com/juju/juju/internal/worker/migrationflag"
 	"github.com/juju/juju/internal/worker/migrationminion"
 	"github.com/juju/juju/internal/worker/retrystrategy"
@@ -256,43 +250,6 @@ func UnitManifolds(config UnitManifoldsConfig) dependency.Manifolds {
 			Kind:            coretrace.KindUnit,
 		}),
 
-		// TODO (mattyw) should be added to machine agent.
-		metricSpoolName: ifNotMigrating(spool.Manifold(spool.ManifoldConfig{
-			AgentName: agentName,
-		})),
-
-		// The metric collect worker executes the collect-metrics hook in a
-		// restricted context that can safely run concurrently with other hooks.
-		metricCollectName: ifNotMigrating(collect.Manifold(collect.ManifoldConfig{
-			AgentName:       agentName,
-			MetricSpoolName: metricSpoolName,
-			CharmDirName:    charmDirName,
-			Clock:           config.Clock,
-			Logger:          config.LoggingContext.GetLogger("juju.worker.metrics.collect"),
-		})),
-
-		// The meter status worker executes the meter-status-changed hook when it detects
-		// that the meter status has changed.
-		meterStatusName: ifNotMigrating(meterstatus.Manifold(meterstatus.ManifoldConfig{
-			AgentName:                agentName,
-			APICallerName:            apiCallerName,
-			MachineLock:              config.MachineLock,
-			Clock:                    config.Clock,
-			Logger:                   config.LoggingContext.GetLogger("juju.worker.meterstatus"),
-			NewHookRunner:            meterstatus.NewHookRunner,
-			NewMeterStatusAPIClient:  msapi.NewClient,
-			NewUniterStateAPIClient:  commonapi.NewUniterStateAPI,
-			NewConnectedStatusWorker: meterstatus.NewConnectedStatusWorker,
-			NewIsolatedStatusWorker:  meterstatus.NewIsolatedStatusWorker,
-		})),
-
-		// The metric sender worker periodically sends accumulated metrics to the controller.
-		metricSenderName: ifNotMigrating(sender.Manifold(sender.ManifoldConfig{
-			AgentName:       agentName,
-			APICallerName:   apiCallerName,
-			MetricSpoolName: metricSpoolName,
-		})),
-
 		// For the nested deployer, the upgrade worker is only used to record
 		// the running agent version for the unit. It then stops.
 		upgraderName: upgrader.Manifold(upgrader.ManifoldConfig{
@@ -340,11 +297,6 @@ const (
 	uniterName            = "uniter"
 	upgraderName          = "upgrader"
 	traceName             = "trace"
-
-	metricSpoolName   = "metric-spool"
-	meterStatusName   = "meter-status"
-	metricCollectName = "metric-collect"
-	metricSenderName  = "metric-sender"
 
 	secretDrainWorker = "secret-drain-worker"
 )

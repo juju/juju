@@ -87,7 +87,6 @@ func (sf *statusFormatter) Format() (formattedStatus, error) {
 			Version:          sf.status.Model.Version,
 			AvailableVersion: sf.status.Model.AvailableVersion,
 			Status:           sf.getStatusInfoContents(sf.status.Model.ModelStatus),
-			SLA:              sf.status.Model.SLA,
 		},
 		Machines:           make(map[string]machineStatus),
 		Applications:       make(map[string]applicationStatus),
@@ -95,12 +94,6 @@ func (sf *statusFormatter) Format() (formattedStatus, error) {
 		Offers:             make(map[string]offerStatus),
 		Relations:          make([]relationStatus, len(sf.relations)),
 		Branches:           make(map[string]branchStatus),
-	}
-	if sf.status.Model.MeterStatus.Color != "" {
-		out.Model.MeterStatus = &meterStatus{
-			Color:   sf.status.Model.MeterStatus.Color,
-			Message: sf.status.Model.MeterStatus.Message,
-		}
 	}
 	if sf.status.ControllerTimestamp != nil {
 		out.Controller = &controllerStatus{
@@ -291,7 +284,6 @@ func (sf *statusFormatter) formatApplication(name string, application params.App
 			unit:            m,
 			unitName:        k,
 			applicationName: name,
-			meterStatuses:   application.MeterStatuses,
 			branchRef:       sf.branchRefForUnit(k),
 		})
 	}
@@ -465,7 +457,6 @@ type unitFormatInfo struct {
 	unit            params.UnitStatus
 	unitName        string
 	applicationName string
-	meterStatuses   map[string]params.MeterStatus
 	branchRef       string
 }
 
@@ -487,19 +478,11 @@ func (sf *statusFormatter) formatUnit(info unitFormatInfo) unitStatus {
 		Branch:             info.branchRef,
 	}
 
-	if ms, ok := info.meterStatuses[info.unitName]; ok {
-		out.MeterStatus = &meterStatus{
-			Color:   ms.Color,
-			Message: ms.Message,
-		}
-	}
-
 	for k, m := range info.unit.Subordinates {
 		out.Subordinates[k] = sf.formatUnit(unitFormatInfo{
 			unit:            m,
 			unitName:        k,
 			applicationName: info.applicationName,
-			meterStatuses:   info.meterStatuses,
 			branchRef:       sf.branchRefForUnit(k),
 		})
 	}

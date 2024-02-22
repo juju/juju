@@ -44,7 +44,7 @@ require (
 	github.com/hpcloud/tail v1.0.0
 	github.com/im7mortal/kmutex v1.0.1
 	github.com/juju/ansiterm v1.0.0
-	github.com/juju/charm/v13 v13.0.0
+	github.com/juju/charm/v13 v13.0.1
 	github.com/juju/clock v1.0.3
 	github.com/juju/cmd/v4 v4.0.0
 	github.com/juju/collections v1.0.4
@@ -72,7 +72,6 @@ require (
 	github.com/juju/ratelimit v1.0.2
 	github.com/juju/replicaset/v3 v3.0.1
 	github.com/juju/retry v1.0.0
-	github.com/juju/romulus v1.0.0
 	github.com/juju/schema v1.2.0
 	github.com/juju/terms-client/v2 v2.0.0
 	github.com/juju/testing v1.2.0

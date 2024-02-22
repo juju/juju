@@ -38,8 +38,6 @@ type ModelInfo struct {
 	Users          map[string]ModelUserInfo     `json:"users,omitempty" yaml:"users,omitempty"`
 	Machines       map[string]ModelMachineInfo  `json:"machines,omitempty" yaml:"machines,omitempty"`
 	SecretBackends map[string]SecretBackendInfo `json:"secret-backends,omitempty" yaml:"secret-backends,omitempty"`
-	SLA            string                       `json:"sla,omitempty" yaml:"sla,omitempty"`
-	SLAOwner       string                       `json:"sla-owner,omitempty" yaml:"sla-owner,omitempty"`
 	AgentVersion   string                       `json:"agent-version,omitempty" yaml:"agent-version,omitempty"`
 	Credential     *ModelCredential             `json:"credential,omitempty" yaml:"credential,omitempty"`
 
@@ -172,10 +170,6 @@ func ModelInfoFromParams(info params.ModelInfo, now time.Time) (ModelInfo, error
 	if len(info.SecretBackends) != 0 {
 		modelInfo.SecretBackends = ModelSecretBackendInfoFromParams(info.SecretBackends)
 	}
-	if info.SLA != nil {
-		modelInfo.SLA = ModelSLAFromParams(info.SLA)
-		modelInfo.SLAOwner = ModelSLAOwnerFromParams(info.SLA)
-	}
 
 	if info.CloudCredentialTag != "" {
 		credTag, err := names.ParseCloudCredentialTag(info.CloudCredentialTag)
@@ -249,20 +243,6 @@ func ModelUserInfoFromParams(users []params.ModelUserInfo, now time.Time) map[st
 		output[names.NewUserTag(info.UserName).Id()] = outInfo
 	}
 	return output
-}
-
-func ModelSLAFromParams(sla *params.ModelSLAInfo) string {
-	if sla == nil {
-		return ""
-	}
-	return sla.Level
-}
-
-func ModelSLAOwnerFromParams(sla *params.ModelSLAInfo) string {
-	if sla == nil {
-		return ""
-	}
-	return sla.Owner
 }
 
 // OwnerQualifiedModelName returns the model name qualified with the

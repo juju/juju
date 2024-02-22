@@ -113,7 +113,7 @@ func (hi Info) Validate() error {
 		}
 		return nil
 	case hooks.Install, hooks.Remove, hooks.Start, hooks.ConfigChanged, hooks.UpgradeCharm, hooks.Stop,
-		hooks.RelationCreated, hooks.RelationBroken, hooks.CollectMetrics, hooks.MeterStatusChanged, hooks.UpdateStatus,
+		hooks.RelationCreated, hooks.RelationBroken, hooks.UpdateStatus,
 		hooks.PostSeriesUpgrade:
 		return nil
 	case hooks.Action:

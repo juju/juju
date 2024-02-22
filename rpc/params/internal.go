@@ -269,8 +269,6 @@ type UnitStateResult struct {
 	StorageState string `json:"storage-state,omitempty"`
 	// SecretState is internal secret state for this unit.
 	SecretState string `json:"secret-state,omitempty"`
-	// MeterStatusState encodes the meter status state for this unit.
-	MeterStatusState string `json:"meter-status-state,omitempty"`
 }
 
 // UnitStateResults holds multiple unit state maps or errors.
@@ -292,13 +290,12 @@ type SetUnitStateArgs struct {
 // to be evaluated for changes to the persisted data.  A pointer to nil or
 // empty data will cause the persisted data to be deleted.
 type SetUnitStateArg struct {
-	Tag              string             `json:"tag"`
-	CharmState       *map[string]string `json:"charm-state,omitempty"`
-	UniterState      *string            `json:"uniter-state,omitempty"`
-	RelationState    *map[int]string    `json:"relation-state,omitempty"`
-	StorageState     *string            `json:"storage-state,omitempty"`
-	SecretState      *string            `json:"secret-state,omitempty"`
-	MeterStatusState *string            `json:"meter-status-state,omitempty"`
+	Tag           string             `json:"tag"`
+	CharmState    *map[string]string `json:"charm-state,omitempty"`
+	UniterState   *string            `json:"uniter-state,omitempty"`
+	RelationState *map[int]string    `json:"relation-state,omitempty"`
+	StorageState  *string            `json:"storage-state,omitempty"`
+	SecretState   *string            `json:"secret-state,omitempty"`
 }
 
 // CommitHookChangesArgs serves as a container for CommitHookChangesArg objects
@@ -833,56 +830,6 @@ type ProvisioningInfoResult struct {
 // ProvisioningInfoResults holds multiple machine provisioning info results.
 type ProvisioningInfoResults struct {
 	Results []ProvisioningInfoResult `json:"results"`
-}
-
-// Metric holds a single metric.
-type Metric struct {
-	Key    string            `json:"key"`
-	Value  string            `json:"value"`
-	Time   time.Time         `json:"time"`
-	Labels map[string]string `json:"labels,omitempty"`
-}
-
-// MetricsParam contains the metrics for a single unit.
-type MetricsParam struct {
-	Tag     string   `json:"tag"`
-	Metrics []Metric `json:"metrics"`
-}
-
-// MetricsParams contains the metrics for multiple units.
-type MetricsParams struct {
-	Metrics []MetricsParam `json:"metrics"`
-}
-
-// MetricBatch is a list of metrics with metadata.
-type MetricBatch struct {
-	UUID     string    `json:"uuid"`
-	CharmURL string    `json:"charm-url"`
-	Created  time.Time `json:"created"`
-	Metrics  []Metric  `json:"metrics"`
-}
-
-// MetricBatchParam contains a single metric batch.
-type MetricBatchParam struct {
-	Tag   string      `json:"tag"`
-	Batch MetricBatch `json:"batch"`
-}
-
-// MetricBatchParams contains multiple metric batches.
-type MetricBatchParams struct {
-	Batches []MetricBatchParam `json:"batches"`
-}
-
-// MeterStatusResult holds unit meter status or error.
-type MeterStatusResult struct {
-	Code  string `json:"code"`
-	Info  string `json:"info"`
-	Error *Error `json:"error,omitempty"`
-}
-
-// MeterStatusResults holds meter status results for multiple units.
-type MeterStatusResults struct {
-	Results []MeterStatusResult `json:"results"`
 }
 
 // SingularClaim represents a request for exclusive administrative access

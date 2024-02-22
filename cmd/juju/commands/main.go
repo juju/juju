@@ -32,13 +32,11 @@ import (
 	"github.com/juju/juju/cmd/juju/dashboard"
 	"github.com/juju/juju/cmd/juju/firewall"
 	"github.com/juju/juju/cmd/juju/machine"
-	"github.com/juju/juju/cmd/juju/metricsdebug"
 	"github.com/juju/juju/cmd/juju/model"
 	"github.com/juju/juju/cmd/juju/payload"
 	"github.com/juju/juju/cmd/juju/resource"
 	"github.com/juju/juju/cmd/juju/secretbackends"
 	"github.com/juju/juju/cmd/juju/secrets"
-	"github.com/juju/juju/cmd/juju/setmeterstatus"
 	"github.com/juju/juju/cmd/juju/space"
 	"github.com/juju/juju/cmd/juju/ssh"
 	"github.com/juju/juju/cmd/juju/sshkeys"
@@ -531,11 +529,6 @@ func registerCommands(r commandRegistry) {
 	r.Register(controller.NewEnableDestroyControllerCommand())
 	r.Register(controller.NewShowControllerCommand())
 	r.Register(controller.NewConfigCommand())
-
-	// Debug Metrics
-	r.Register(metricsdebug.New())
-	r.Register(metricsdebug.NewCollectMetricsCommand())
-	r.Register(setmeterstatus.New())
 
 	// Manage clouds and credentials
 	r.Register(cloud.NewUpdateCloudCommand(&cloudToCommandAdaptor{}))

@@ -136,18 +136,6 @@ func allCollections() CollectionSchema {
 		// are inherited and then forked by new models.
 		globalSettingsC: {global: true},
 
-		// This collection holds workload metrics reported by certain charms
-		// for passing onward to other tools.
-		metricsC: {
-			global: true,
-			indexes: []mgo.Index{{
-				Key: []string{"model-uuid", "sent"},
-			}},
-		},
-
-		// This collection holds persistent state for the metrics manager.
-		metricsManagerC: {global: true},
-
 		// This collection was deprecated before multi-model support
 		// was implemented.
 		actionresultsC: {global: true},
@@ -252,13 +240,6 @@ func allCollections() CollectionSchema {
 		// to be assigned to machines. It is used exclusively by the
 		// AssignUnitWorker.
 		assignUnitC: {},
-
-		// meterStatusC is the collection used to store meter status information.
-		meterStatusC: {
-			indexes: []mgo.Index{{
-				Key: []string{"model-uuid"},
-			}},
-		},
 
 		// These collections hold reference counts which are used
 		// by the nsRefcounts struct.
@@ -658,9 +639,6 @@ const (
 	machinesC                  = "machines"
 	machineRemovalsC           = "machineremovals"
 	machineUpgradeSeriesLocksC = "machineUpgradeSeriesLocks"
-	meterStatusC               = "meterStatus"
-	metricsC                   = "metrics"
-	metricsManagerC            = "metricsmanager"
 	minUnitsC                  = "minunits"
 	migrationsActiveC          = "migrations.active"
 	migrationsC                = "migrations"

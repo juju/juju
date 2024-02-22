@@ -345,14 +345,6 @@ func (s *modelconfigSuite) TestModelUnsetMissing(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *modelconfigSuite) TestSetSupportCredentals(c *gc.C) {
-	err := s.api.SetSLALevel(context.Background(), params.ModelSLA{
-		ModelSLAInfo: params.ModelSLAInfo{Level: "level", Owner: "bob"},
-		Credentials:  []byte("foobar"),
-	})
-	c.Assert(err, jc.ErrorIsNil)
-}
-
 func (s *modelconfigSuite) TestClientSetModelConstraints(c *gc.C) {
 	// Set constraints for the model.
 	cons, err := constraints.Parse("mem=4096", "cores=2")
@@ -447,14 +439,6 @@ func (m *mockBackend) ModelTag() names.ModelTag {
 
 func (m *mockBackend) ControllerTag() names.ControllerTag {
 	return names.NewControllerTag("deadbeef-babe-4fd2-967d-db9663db7bea")
-}
-
-func (m *mockBackend) SetSLA(level, owner string, credentials []byte) error {
-	return nil
-}
-
-func (m *mockBackend) SLALevel() (string, error) {
-	return "mock-level", nil
 }
 
 func (m *mockBackend) SpaceByName(string) error {

@@ -83,7 +83,6 @@ func (s *ContextSuite) setupUnit(ctrl *gomock.Controller) names.MachineTag {
 	s.unit = uniterapi.NewMockUnit(ctrl)
 	s.unit.EXPECT().Tag().Return(unitTag).AnyTimes()
 	s.unit.EXPECT().Name().Return(unitTag.Id()).AnyTimes()
-	s.unit.EXPECT().MeterStatus().Return("", "", nil).AnyTimes()
 	s.unit.EXPECT().PublicAddress().Return("u-0.testing.invalid", nil).AnyTimes()
 	s.unit.EXPECT().PrivateAddress().Return("u-0.testing.invalid", nil).AnyTimes()
 	s.unit.EXPECT().AvailabilityZone().Return("a-zone", nil).AnyTimes()
@@ -114,7 +113,6 @@ func (s *ContextSuite) setupFactory(c *gc.C, ctrl *gomock.Controller) {
 	}, nil).AnyTimes()
 	s.uniter.EXPECT().LeadershipSettings().Return(&stubLeadershipSettingsAccessor{}).AnyTimes()
 	s.uniter.EXPECT().APIAddresses().Return([]string{"10.6.6.6"}, nil).AnyTimes()
-	s.uniter.EXPECT().SLALevel(gomock.Any()).Return("essential", nil).AnyTimes()
 	s.uniter.EXPECT().CloudAPIVersion(gomock.Any()).Return("6.6.6", nil).AnyTimes()
 
 	cfg := coretesting.ModelConfig(c)

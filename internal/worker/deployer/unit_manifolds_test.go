@@ -54,10 +54,6 @@ func (s *ManifoldsSuite) TestManifoldNames(c *gc.C) {
 		"leadership-tracker",
 		"log-sender",
 		"logging-config-updater",
-		"meter-status",
-		"metric-collect",
-		"metric-sender",
-		"metric-spool",
 		"migration-fortress",
 		"migration-inactive-flag",
 		"migration-minion",
@@ -157,41 +153,6 @@ var expectedUnitManifoldsWithDependencies = map[string][]string{
 	"log-sender": {"agent", "api-caller", "api-config-watcher"},
 
 	"logging-config-updater": {
-		"agent",
-		"api-caller",
-		"api-config-watcher",
-		"migration-fortress",
-		"migration-inactive-flag",
-	},
-
-	"meter-status": {
-		"agent",
-		"api-caller",
-		"api-config-watcher",
-		"migration-fortress",
-		"migration-inactive-flag",
-	},
-
-	"metric-collect": {
-		"agent",
-		"api-caller",
-		"api-config-watcher",
-		"charm-dir",
-		"metric-spool",
-		"migration-fortress",
-		"migration-inactive-flag",
-	},
-
-	"metric-sender": {
-		"agent",
-		"api-caller",
-		"api-config-watcher",
-		"metric-spool",
-		"migration-fortress",
-		"migration-inactive-flag",
-	},
-
-	"metric-spool": {
 		"agent",
 		"api-caller",
 		"api-config-watcher",

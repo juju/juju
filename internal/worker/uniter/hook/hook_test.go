@@ -68,8 +68,6 @@ var validateTests = []struct {
 	{hook.Info{Kind: hooks.Install}, ""},
 	{hook.Info{Kind: hooks.Start}, ""},
 	{hook.Info{Kind: hooks.ConfigChanged}, ""},
-	{hook.Info{Kind: hooks.CollectMetrics}, ""},
-	{hook.Info{Kind: hooks.MeterStatusChanged}, ""},
 	{hook.Info{Kind: hooks.Action}, "hooks.Kind Action is deprecated"},
 	{hook.Info{Kind: hooks.UpgradeCharm}, ""},
 	{hook.Info{Kind: hooks.Stop}, ""},

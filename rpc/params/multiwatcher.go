@@ -403,7 +403,6 @@ type ModelUpdate struct {
 	Config         map[string]interface{} `json:"config,omitempty"`
 	Status         StatusInfo             `json:"status"`
 	Constraints    constraints.Value      `json:"constraints"`
-	SLA            ModelSLAInfo           `json:"sla"`
 	Type           string                 `json:"type"`
 	Cloud          string                 `json:"cloud"`
 	CloudRegion    string                 `json:"cloud-region"`

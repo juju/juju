@@ -104,7 +104,6 @@ var scenarioStatus = &params.FullStatus{
 		ModelStatus: params.DetailedStatus{
 			Status: "available",
 		},
-		SLA: "unsupported",
 	},
 	Machines: map[string]params.MachineStatus{
 		"0": {

@@ -486,19 +486,6 @@ func (client *Client) WatchRelationUnits(
 	return w, nil
 }
 
-// SLALevel returns the SLA level set on the model.
-func (client *Client) SLALevel(ctx context.Context) (string, error) {
-	var result params.StringResult
-	err := client.facade.FacadeCall(ctx, "SLALevel", nil, &result)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	if err := result.Error; err != nil {
-		return "", errors.Trace(err)
-	}
-	return result.Result, nil
-}
-
 // CloudAPIVersion returns the API version of the cloud, if known.
 func (client *Client) CloudAPIVersion(ctx context.Context) (string, error) {
 	var result params.StringResult

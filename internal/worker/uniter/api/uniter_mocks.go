@@ -328,21 +328,6 @@ func (mr *MockUniterClientMockRecorder) RemoveStorageAttachment(arg0, arg1 any) 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveStorageAttachment", reflect.TypeOf((*MockUniterClient)(nil).RemoveStorageAttachment), arg0, arg1)
 }
 
-// SLALevel mocks base method.
-func (m *MockUniterClient) SLALevel(arg0 context.Context) (string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SLALevel", arg0)
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// SLALevel indicates an expected call of SLALevel.
-func (mr *MockUniterClientMockRecorder) SLALevel(arg0 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SLALevel", reflect.TypeOf((*MockUniterClient)(nil).SLALevel), arg0)
-}
-
 // SetUnitWorkloadVersion mocks base method.
 func (m *MockUniterClient) SetUnitWorkloadVersion(ctx context.Context, tag names.UnitTag, version string) error {
 	m.ctrl.T.Helper()

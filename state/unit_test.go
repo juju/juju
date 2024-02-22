@@ -173,9 +173,6 @@ func (s *UnitSuite) TestUnitStateNotSet(c *gc.C) {
 	sst, found := uState.StorageState()
 	c.Assert(sst, gc.Equals, "")
 	c.Assert(found, jc.IsFalse)
-	mst, found := uState.MeterStatusState()
-	c.Assert(mst, gc.Equals, "")
-	c.Assert(found, jc.IsFalse)
 }
 
 func (s *UnitSuite) TestUnitStateExistingDocAddNewRelationData(c *gc.C) {
@@ -212,7 +209,6 @@ func (s *UnitSuite) TestUnitStateMutateState(c *gc.C) {
 	assertUnitStateUniterState(c, uState, initState.uniterState)
 	assertUnitStateRelationState(c, uState, initState.relationState)
 	assertUnitStateStorageState(c, uState, initState.storageState)
-	assertUnitStateMeterStatusState(c, uState, initState.meterStatusState)
 }
 
 func (s *UnitSuite) TestUnitStateMutateUniterState(c *gc.C) {
@@ -235,7 +231,6 @@ func (s *UnitSuite) TestUnitStateMutateUniterState(c *gc.C) {
 	assertUnitStateCharmState(c, uState, initState.charmState)
 	assertUnitStateRelationState(c, uState, initState.relationState)
 	assertUnitStateStorageState(c, uState, initState.storageState)
-	assertUnitStateMeterStatusState(c, uState, initState.meterStatusState)
 }
 
 func (s *UnitSuite) TestUnitStateMutateChangeRelationState(c *gc.C) {
@@ -284,7 +279,6 @@ func (s *UnitSuite) TestUnitStateMutateDeleteRelationState(c *gc.C) {
 	assertUnitStateCharmState(c, uState, initState.charmState)
 	assertUnitStateUniterState(c, uState, initState.uniterState)
 	assertUnitStateStorageState(c, uState, initState.storageState)
-	assertUnitStateMeterStatusState(c, uState, initState.meterStatusState)
 }
 
 func (s *UnitSuite) TestUnitStateMutateStorageState(c *gc.C) {
@@ -307,30 +301,6 @@ func (s *UnitSuite) TestUnitStateMutateStorageState(c *gc.C) {
 	assertUnitStateCharmState(c, uState, initState.charmState)
 	assertUnitStateUniterState(c, uState, initState.uniterState)
 	assertUnitStateRelationState(c, uState, initState.relationState)
-	assertUnitStateMeterStatusState(c, uState, initState.meterStatusState)
-}
-
-func (s *UnitSuite) TestUnitStateMutateMeterStatusState(c *gc.C) {
-	// Set initial state; this should create a new unitstate doc
-	initState := s.testUnitSuite(c)
-
-	// Mutate meter status state again with an existing state doc
-	newMeterStatusState := "GREEN"
-	newUS := state.NewUnitState()
-	newUS.SetMeterStatusState(newMeterStatusState)
-	err := s.unit.SetState(newUS, state.UnitStateSizeLimits{})
-	c.Assert(err, gc.IsNil)
-
-	// Ensure meter status state changed
-	uState, err := s.unit.State()
-	c.Assert(err, gc.IsNil)
-	assertUnitStateMeterStatusState(c, uState, newMeterStatusState)
-
-	// Ensure the other state did not.
-	assertUnitStateCharmState(c, uState, initState.charmState)
-	assertUnitStateUniterState(c, uState, initState.uniterState)
-	assertUnitStateRelationState(c, uState, initState.relationState)
-	assertUnitStateStorageState(c, uState, initState.storageState)
 }
 
 func (s *UnitSuite) TestUnitStateDeleteState(c *gc.C) {
@@ -353,7 +323,6 @@ func (s *UnitSuite) TestUnitStateDeleteState(c *gc.C) {
 	assertUnitStateUniterState(c, uState, initState.uniterState)
 	assertUnitStateRelationState(c, uState, initState.relationState)
 	assertUnitStateStorageState(c, uState, initState.storageState)
-	assertUnitStateMeterStatusState(c, uState, initState.meterStatusState)
 }
 
 func (s *UnitSuite) TestUnitStateDeleteRelationState(c *gc.C) {
@@ -376,15 +345,13 @@ func (s *UnitSuite) TestUnitStateDeleteRelationState(c *gc.C) {
 	assertUnitStateCharmState(c, uState, initState.charmState)
 	assertUnitStateUniterState(c, uState, initState.uniterState)
 	assertUnitStateStorageState(c, uState, initState.storageState)
-	assertUnitStateMeterStatusState(c, uState, initState.meterStatusState)
 }
 
 type initialUnitState struct {
-	charmState       map[string]string
-	uniterState      string
-	relationState    map[int]string
-	storageState     string
-	meterStatusState string
+	charmState    map[string]string
+	uniterState   string
+	relationState map[int]string
+	storageState  string
 }
 
 func (s *UnitSuite) testUnitSuite(c *gc.C) initialUnitState {
@@ -400,14 +367,12 @@ func (s *UnitSuite) testUnitSuite(c *gc.C) initialUnitState {
 		2: "two",
 	}
 	initialStorageState := "gnitset"
-	initialMeterStatusState := "RED"
 
 	us := state.NewUnitState()
 	us.SetCharmState(initialCharmState)
 	us.SetUniterState(initialUniterState)
 	us.SetRelationState(initialRelationState)
 	us.SetStorageState(initialStorageState)
-	us.SetMeterStatusState(initialMeterStatusState)
 	err := s.unit.SetState(us, state.UnitStateSizeLimits{})
 	c.Assert(err, gc.IsNil)
 
@@ -426,16 +391,12 @@ func (s *UnitSuite) testUnitSuite(c *gc.C) initialUnitState {
 	obtainedStorageState, found := uState.StorageState()
 	c.Assert(found, jc.IsTrue)
 	c.Assert(obtainedStorageState, gc.Equals, initialStorageState)
-	obtainedMeterStatusState, found := uState.MeterStatusState()
-	c.Assert(found, jc.IsTrue)
-	c.Assert(obtainedMeterStatusState, gc.Equals, initialMeterStatusState)
 
 	return initialUnitState{
-		charmState:       initialCharmState,
-		uniterState:      initialUniterState,
-		relationState:    initialRelationState,
-		storageState:     initialStorageState,
-		meterStatusState: initialMeterStatusState,
+		charmState:    initialCharmState,
+		uniterState:   initialUniterState,
+		relationState: initialRelationState,
+		storageState:  initialStorageState,
 	}
 }
 
@@ -459,12 +420,6 @@ func assertUnitStateRelationState(c *gc.C, uState *state.UnitState, expected map
 
 func assertUnitStateStorageState(c *gc.C, uState *state.UnitState, expected string) {
 	obtained, found := uState.StorageState()
-	c.Assert(found, jc.IsTrue)
-	c.Assert(obtained, gc.Equals, expected)
-}
-
-func assertUnitStateMeterStatusState(c *gc.C, uState *state.UnitState, expected string) {
-	obtained, found := uState.MeterStatusState()
 	c.Assert(found, jc.IsTrue)
 	c.Assert(obtained, gc.Equals, expected)
 }
@@ -2668,9 +2623,10 @@ snapshot:
 		"snapshot": charm.ActionSpec{
 			Description: "No description",
 			Params: map[string]interface{}{
-				"type":        "object",
-				"title":       "snapshot",
-				"description": "No description",
+				"type":                 "object",
+				"title":                "snapshot",
+				"description":          "No description",
+				"additionalProperties": false,
 				"properties": map[string]interface{}{
 					"outfile": map[string]interface{}{
 						"type":    "string",

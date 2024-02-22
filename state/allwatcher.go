@@ -150,10 +150,6 @@ func (e *backingModel) updated(ctx *allWatcherContext) error {
 		Cloud:           e.Cloud,
 		CloudRegion:     e.CloudRegion,
 		CloudCredential: e.CloudCredential,
-		SLA: multiwatcher.ModelSLAInfo{
-			Level: e.SLA.Level.String(),
-			Owner: e.SLA.Owner,
-		},
 	}
 
 	oldInfo := ctx.store.Get(info.EntityID())

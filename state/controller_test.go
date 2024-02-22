@@ -58,7 +58,6 @@ func (s *ControllerSuite) TestControllerAndModelConfigInitialisation(c *gc.C) {
 		controller.MaxDebugLogDuration,
 		controller.MaxPruneTxnBatchSize,
 		controller.MaxPruneTxnPasses,
-		controller.MeteringURL,
 		controller.MigrationMinionWaitMax,
 		controller.ModelLogfileMaxBackups,
 		controller.ModelLogfileMaxSize,

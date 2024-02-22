@@ -45,8 +45,6 @@ type modelStatus struct {
 	Version          string             `json:"version" yaml:"version"`
 	AvailableVersion string             `json:"upgrade-available,omitempty" yaml:"upgrade-available,omitempty"`
 	Status           statusInfoContents `json:"model-status,omitempty" yaml:"model-status,omitempty"`
-	MeterStatus      *meterStatus       `json:"meter-status,omitempty" yaml:"meter-status,omitempty"`
-	SLA              string             `json:"sla,omitempty" yaml:"sla,omitempty"`
 }
 
 type controllerStatus struct {
@@ -224,16 +222,10 @@ func (s offerStatus) MarshalYAML() (interface{}, error) {
 	return offerStatusNoMarshal(s), nil
 }
 
-type meterStatus struct {
-	Color   string `json:"color,omitempty" yaml:"color,omitempty"`
-	Message string `json:"message,omitempty" yaml:"message,omitempty"`
-}
-
 type unitStatus struct {
 	// New Juju Health Status fields.
 	WorkloadStatusInfo statusInfoContents `json:"workload-status,omitempty" yaml:"workload-status,omitempty"`
 	JujuStatusInfo     statusInfoContents `json:"juju-status,omitempty" yaml:"juju-status,omitempty"`
-	MeterStatus        *meterStatus       `json:"meter-status,omitempty" yaml:"meter-status,omitempty"`
 
 	Leader        bool                  `json:"leader,omitempty" yaml:"leader,omitempty"`
 	Charm         string                `json:"upgrading-from,omitempty" yaml:"upgrading-from,omitempty"`
