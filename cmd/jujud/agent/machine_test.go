@@ -14,6 +14,7 @@ import (
 	"github.com/juju/cmd/v4/cmdtesting"
 	"github.com/juju/collections/set"
 	"github.com/juju/lumberjack/v2"
+	"github.com/juju/mgo/v3"
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -23,7 +24,6 @@ import (
 	"github.com/juju/worker/v4"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/agent/engine"
 	agenterrors "github.com/juju/juju/agent/errors"
