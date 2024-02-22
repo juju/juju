@@ -328,17 +328,17 @@ func (l claimExtender) Duration() time.Duration {
 // GetControllerConfigService is a helper function that gets a service from the
 // manifold.
 func GetControllerConfigService(getter dependency.Getter, name string) (ControllerConfigService, error) {
-	return coredependency.GetDependencyByName(getter, name, func(factory servicefactory.ControllerServiceFactory) ControllerConfigService {
-		return factory.ControllerConfig()
+	return coredependency.GetDependencyByName(getter, name, func(factory servicefactory.ControllerServiceFactory) (ControllerConfigService, error) {
+		return factory.ControllerConfig(), nil
 	})
 }
 
 // GetMetadataService is a helper function that gets a service from the
 // manifold.
 func GetMetadataService(getter dependency.Getter, name string) (MetadataService, error) {
-	return coredependency.GetDependencyByName(getter, name, func(factory servicefactory.ControllerServiceFactory) MetadataService {
+	return coredependency.GetDependencyByName(getter, name, func(factory servicefactory.ControllerServiceFactory) (MetadataService, error) {
 		return controllerMetadataService{
 			factory: factory,
-		}
+		}, nil
 	})
 }

@@ -21,8 +21,8 @@ func (s *dependencySuite) TestGetDependencyByName(c *gc.C) {
 		"foo": foo{},
 	})
 
-	result, err := GetDependencyByName[foo, bar](getter, "foo", func(foo foo) bar {
-		return foo.Bar()
+	result, err := GetDependencyByName[foo, bar](getter, "foo", func(foo foo) (bar, error) {
+		return foo.Bar(), nil
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result, gc.FitsTypeOf, bar{})
@@ -33,9 +33,9 @@ func (s *dependencySuite) TestGetDependencyByNameNotFound(c *gc.C) {
 		"foo": foo{},
 	})
 
-	_, err := GetDependencyByName[foo, bar](getter, "inferi", func(foo foo) bar {
+	_, err := GetDependencyByName[foo, bar](getter, "inferi", func(foo foo) (bar, error) {
 		c.Fatalf("should not be called")
-		return bar{}
+		return bar{}, nil
 	})
 	c.Assert(err, gc.ErrorMatches, `unexpected resource name: inferi`)
 }

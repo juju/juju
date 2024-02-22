@@ -334,10 +334,10 @@ func (mr *MockModelServiceFactoryMockRecorder) ObjectStore() *gomock.Call {
 }
 
 // Space mocks base method.
-func (m *MockModelServiceFactory) Space() *service13.SpaceService {
+func (m *MockModelServiceFactory) Space() *service13.EnvironSpaceService {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Space")
-	ret0, _ := ret[0].(*service13.SpaceService)
+	ret0, _ := ret[0].(*service13.EnvironSpaceService)
 	return ret0
 }
 
@@ -609,10 +609,10 @@ func (mr *MockServiceFactoryMockRecorder) ObjectStore() *gomock.Call {
 }
 
 // Space mocks base method.
-func (m *MockServiceFactory) Space() *service13.SpaceService {
+func (m *MockServiceFactory) Space() *service13.EnvironSpaceService {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Space")
-	ret0, _ := ret[0].(*service13.SpaceService)
+	ret0, _ := ret[0].(*service13.EnvironSpaceService)
 	return ret0
 }
 

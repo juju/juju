@@ -9,6 +9,17 @@ import (
 	"github.com/juju/juju/core/network"
 )
 
+// Environ provides access to the environment.
+type Environ interface {
+}
+
+// EnvironFactory provides access to the environment identified by the
+// environment UUID.
+type EnvironFactory interface {
+	// Environ returns the environment identified by the passed uuid.
+	Environ(ctx context.Context) (Environ, error)
+}
+
 // State describes retrieval and persistence methods needed for the network
 // domain service.
 type State interface {

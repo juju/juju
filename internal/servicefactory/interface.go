@@ -74,7 +74,7 @@ type ModelServiceFactory interface {
 	// Unit returns the machine service.
 	Unit() *unitservice.Service
 	// Space returns the space service.
-	Space() *networkservice.SpaceService
+	Space() *networkservice.EnvironSpaceService
 }
 
 // ServiceFactory provides access to the services required by the apiserver.

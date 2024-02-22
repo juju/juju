@@ -33,6 +33,9 @@ type ServiceFactorySuite struct {
 	// DefaultModelUUID is the unique id for the default model. If not set
 	// will be set during test set up.
 	DefaultModelUUID model.UUID
+
+	// EnvironFactory is the factory for creating environment instances.
+	EnvironFactory domainservicefactory.EnvironFactory
 }
 
 type stubDBDeleter struct {
@@ -72,6 +75,7 @@ func (s *ServiceFactorySuite) ServiceFactoryGetter(c *gc.C) ServiceFactoryGetter
 			databasetesting.ConstFactory(s.TxnRunner()),
 			databasetesting.ConstFactory(s.ModelTxnRunner(c, modelUUID)),
 			stubDBDeleter{DB: s.DB()},
+			s.EnvironFactory,
 			NewCheckLogger(c),
 		)
 	}

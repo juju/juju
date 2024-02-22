@@ -20,6 +20,7 @@ func NewServiceFactory(
 	controllerDB changestream.WatchableDBFactory,
 	modelDB changestream.WatchableDBFactory,
 	deleterDB database.DBDeleter,
+	environFactory EnvironFactory,
 	logger Logger,
 ) *ServiceFactory {
 	controllerFactory := NewControllerFactory(controllerDB, deleterDB, logger)
@@ -27,6 +28,7 @@ func NewServiceFactory(
 		ControllerFactory: controllerFactory,
 		ModelFactory: NewModelFactory(
 			modelDB,
+			environFactory,
 			logger,
 		),
 	}

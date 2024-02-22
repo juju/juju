@@ -147,6 +147,24 @@ func (s *SpaceService) SaveProviderSubnets(
 	return nil
 }
 
+// EnvironSpaceService provides access to the environment space service.
+type EnvironSpaceService struct {
+	SpaceService
+	environ Environ
+}
+
+// NewEnvironSpaceService returns a new service reference wrapping the input
+// state and environ.
+func NewEnvironSpaceService(st State, environ Environ, logger Logger) *EnvironSpaceService {
+	return &EnvironSpaceService{
+		SpaceService: SpaceService{
+			st:     st,
+			logger: logger,
+		},
+		environ: environ,
+	}
+}
+
 // generateFanSubnetID generates a correct ID for a subnet of type fan overlay.
 func generateFanSubnetID(subnetNetwork, providerID string) string {
 	subnetWithDashes := strings.Replace(strings.Replace(subnetNetwork, ".", "-", -1), "/", "-", -1)

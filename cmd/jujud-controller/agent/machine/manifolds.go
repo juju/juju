@@ -98,7 +98,7 @@ import (
 	"github.com/juju/juju/internal/worker/querylogger"
 	"github.com/juju/juju/internal/worker/reboot"
 	"github.com/juju/juju/internal/worker/secretbackendrotate"
-	workersf "github.com/juju/juju/internal/worker/servicefactory"
+	workerservicefactory "github.com/juju/juju/internal/worker/servicefactory"
 	"github.com/juju/juju/internal/worker/singular"
 	workerstate "github.com/juju/juju/internal/worker/state"
 	"github.com/juju/juju/internal/worker/stateconfigwatcher"
@@ -714,16 +714,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:            peergrouper.New,
 		})),
 
-		serviceFactoryName: workersf.Manifold(workersf.ManifoldConfig{
-			DBAccessorName:              dbAccessorName,
-			ChangeStreamName:            changeStreamName,
-			Logger:                      workersf.NewLogger("juju.worker.servicefactory"),
-			NewWorker:                   workersf.NewWorker,
-			NewServiceFactoryGetter:     workersf.NewServiceFactoryGetter,
-			NewControllerServiceFactory: workersf.NewControllerServiceFactory,
-			NewModelServiceFactory:      workersf.NewModelServiceFactory,
-		}),
-
 		queryLoggerName: ifController(querylogger.Manifold(querylogger.ManifoldConfig{
 			LogDir: agentConfig.LogDir(),
 			Clock:  config.Clock,
@@ -938,6 +928,22 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewMetricsCollector:  dbaccessor.NewMetricsCollector,
 			NewNodeManager:       dbaccessor.IAASNodeManager,
 		})),
+
+		// ServiceFactory is a manifold that provides a ServiceFactory worker
+		// that can be used to create services.
+		serviceFactoryName: workerservicefactory.Manifold(workerservicefactory.ManifoldConfig{
+			StateName:                   stateName,
+			DBAccessorName:              dbAccessorName,
+			ChangeStreamName:            changeStreamName,
+			Logger:                      workerservicefactory.NewLogger("juju.worker.servicefactory"),
+			NewWorker:                   workerservicefactory.NewWorker,
+			NewServiceFactoryGetter:     workerservicefactory.NewServiceFactoryGetter,
+			NewControllerServiceFactory: workerservicefactory.NewControllerServiceFactory,
+			NewModelServiceFactory:      workerservicefactory.NewModelServiceFactory,
+			NewEnvironConfig:            workerservicefactory.NewEnvironConfig,
+			GetSystemState:              workerservicefactory.GetSystemState,
+			NewEnviron:                  config.NewEnvironFunc,
+		}),
 
 		// The diskmanager worker periodically lists block devices on the
 		// machine it runs on. This worker will be run on all Juju-managed
@@ -1171,6 +1177,22 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewMetricsCollector:  dbaccessor.NewMetricsCollector,
 			NewNodeManager:       dbaccessor.CAASNodeManager,
 		})),
+
+		// ServiceFactory is a manifold that provides a ServiceFactory worker
+		// that can be used to create services.
+		serviceFactoryName: workerservicefactory.Manifold(workerservicefactory.ManifoldConfig{
+			StateName:                   stateName,
+			DBAccessorName:              dbAccessorName,
+			ChangeStreamName:            changeStreamName,
+			Logger:                      workerservicefactory.NewLogger("juju.worker.servicefactory"),
+			NewWorker:                   workerservicefactory.NewWorker,
+			NewServiceFactoryGetter:     workerservicefactory.NewServiceFactoryGetter,
+			NewControllerServiceFactory: workerservicefactory.NewControllerServiceFactory,
+			NewModelServiceFactory:      workerservicefactory.NewModelServiceFactory,
+			NewEnvironConfig:            workerservicefactory.NewEnvironConfig,
+			GetSystemState:              workerservicefactory.GetSystemState,
+			NewEnviron:                  workerservicefactory.CAASNewEnviron,
+		}),
 	})
 }
 

@@ -29,6 +29,7 @@ type Config struct {
 	NewServiceFactoryGetter     ServiceFactoryGetterFn
 	NewControllerServiceFactory ControllerServiceFactoryFn
 	NewModelServiceFactory      ModelServiceFactoryFn
+	EnvironConfig               EnvironConfig
 }
 
 // Validate validates the service factory configuration.
@@ -61,9 +62,11 @@ func NewWorker(config Config) (worker.Worker, error) {
 	}
 
 	ctrlFactory := config.NewControllerServiceFactory(config.DBGetter, config.DBDeleter, config.Logger)
+	environFactory := config.EnvironConfig.WithControllerServiceFactory(controllerServiceShim{ControllerServiceFactory: ctrlFactory})
+
 	w := &serviceFactoryWorker{
 		ctrlFactory:   ctrlFactory,
-		factoryGetter: config.NewServiceFactoryGetter(ctrlFactory, config.DBGetter, config.Logger, config.NewModelServiceFactory),
+		factoryGetter: config.NewServiceFactoryGetter(ctrlFactory, config.DBGetter, environFactory, config.Logger, config.NewModelServiceFactory),
 	}
 	w.tomb.Go(func() error {
 		<-w.tomb.Dying()
@@ -121,6 +124,7 @@ type serviceFactory struct {
 type serviceFactoryGetter struct {
 	ctrlFactory            servicefactory.ControllerServiceFactory
 	dbGetter               changestream.WatchableDBGetter
+	environFactory         domainservicefactory.EnvironFactory
 	logger                 Logger
 	newModelServiceFactory ModelServiceFactoryFn
 }
@@ -131,7 +135,7 @@ func (s *serviceFactoryGetter) FactoryForModel(modelUUID string) servicefactory.
 	return &serviceFactory{
 		ControllerServiceFactory: s.ctrlFactory,
 		ModelServiceFactory: s.newModelServiceFactory(
-			model.UUID(modelUUID), s.dbGetter, s.logger,
+			model.UUID(modelUUID), s.dbGetter, s.environFactory, s.logger,
 		),
 	}
 }
@@ -168,4 +172,16 @@ type serviceFactoryLogger struct {
 // Child returns a child logger that satisfies the domainservicefactory.Logger.
 func (c serviceFactoryLogger) Child(name string) domainservicefactory.Logger {
 	return c
+}
+
+type controllerServiceShim struct {
+	servicefactory.ControllerServiceFactory
+}
+
+func (s controllerServiceShim) Credential() CredentialService {
+	return s.ControllerServiceFactory.Credential()
+}
+
+func (s controllerServiceShim) Cloud() CloudService {
+	return s.ControllerServiceFactory.Cloud()
 }

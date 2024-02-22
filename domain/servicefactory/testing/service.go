@@ -123,7 +123,7 @@ func (s *TestingServiceFactory) Machine() *machineservice.Service {
 }
 
 // Space returns the space service.
-func (s *TestingServiceFactory) Space() *networkservice.SpaceService {
+func (s *TestingServiceFactory) Space() *networkservice.EnvironSpaceService {
 	return nil
 }
 
