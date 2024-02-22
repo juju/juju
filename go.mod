@@ -100,7 +100,6 @@ require (
 	github.com/prometheus/client_golang v1.18.0
 	github.com/prometheus/client_model v0.5.0
 	github.com/rs/xid v1.5.0
-	github.com/scaleway/scaleway-sdk-go v1.0.0-beta.24
 	github.com/vallerion/rscanner v0.0.0-20230822073625-4f90454447a3
 	github.com/vishvananda/netlink v1.2.1-beta.2
 	github.com/vmware/govmomi v0.34.1
