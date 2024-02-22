@@ -203,6 +203,7 @@ func (s *ActionSuite) TestAddActionInsertsDefaults(c *gc.C) {
 	schemas := map[string]string{
 		"simple": `
 act:
+  additionalProperties: true
   params:
     val:
       type: string
@@ -210,6 +211,7 @@ act:
 `[1:],
 		"complicated": `
 act:
+  additionalProperties: true
   params:
     val:
       type: object

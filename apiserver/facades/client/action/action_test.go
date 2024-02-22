@@ -132,9 +132,10 @@ func (s *actionSuite) TestActions(c *gc.C) {
 
 	emptyActionTag := names.ActionTag{}
 	for i, got := range r.Actions {
+		c.Assert(got.Error, gc.Equals, (*params.Error)(nil), gc.Commentf("action %d, %v", i, got.Error))
 		c.Assert(got.Action, gc.NotNil)
+
 		c.Logf("check index %d (%s: %s)", i, got.Action.Tag, arg.Actions[i].Name)
-		c.Assert(got.Error, gc.Equals, (*params.Error)(nil))
 		c.Assert(got.Action, gc.Not(gc.Equals), (*params.Action)(nil))
 		c.Assert(got.Action.Tag, gc.Not(gc.Equals), emptyActionTag)
 		c.Assert(got.Action.Name, gc.Equals, arg.Actions[i].Name)
@@ -275,9 +276,10 @@ func (s *actionSuite) TestAbort(c *gc.C) {
 func (s *actionSuite) TestApplicationsCharmsActions(c *gc.C) {
 	actionSchemas := map[string]map[string]interface{}{
 		"snapshot": {
-			"type":        "object",
-			"title":       "snapshot",
-			"description": "Take a snapshot of the database.",
+			"type":                 "object",
+			"title":                "snapshot",
+			"description":          "Take a snapshot of the database.",
+			"additionalProperties": true,
 			"properties": map[string]interface{}{
 				"outfile": map[string]interface{}{
 					"description": "The file to write out to.",
@@ -287,10 +289,11 @@ func (s *actionSuite) TestApplicationsCharmsActions(c *gc.C) {
 			},
 		},
 		"fakeaction": {
-			"type":        "object",
-			"title":       "fakeaction",
-			"description": "No description",
-			"properties":  map[string]interface{}{},
+			"type":                 "object",
+			"title":                "fakeaction",
+			"description":          "No description",
+			"additionalProperties": true,
+			"properties":           map[string]interface{}{},
 		},
 	}
 	tests := []struct {

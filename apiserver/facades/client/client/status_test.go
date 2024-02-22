@@ -307,7 +307,7 @@ func (s *statusUnitTestSuite) TestProcessMachinesWithEmbeddedContainers(c *gc.C)
 func (s *statusUnitTestSuite) TestApplicationWithExposedEndpoints(c *gc.C) {
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	release()
-	charm := f.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "ch:amd64/quantal/metered"})
+	charm := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress", URL: "ch:amd64/quantal/wordpress"})
 	app := f.MakeApplication(c, &factory.ApplicationParams{Charm: charm})
 	err := app.MergeExposeSettings(map[string]state.ExposedEndpoint{
 		"": {
@@ -331,39 +331,6 @@ func (s *statusUnitTestSuite) TestApplicationWithExposedEndpoints(c *gc.C) {
 			ExposeToCIDRs:  []string{"10.0.0.0/24", "192.168.0.0/24"},
 		},
 	})
-}
-
-func (s *statusUnitTestSuite) TestPrincipalUpgradingFrom(c *gc.C) {
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	release()
-	charm := f.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "ch:amd64/quantal/metered-3"})
-	charmNew := f.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "ch:amd64/quantal/metered-5"})
-	app := f.MakeApplication(c, &factory.ApplicationParams{Charm: charm})
-	u := f.MakeUnit(c, &factory.UnitParams{
-		Application: app,
-		SetCharmURL: true,
-	})
-	conn := s.OpenControllerModelAPI(c)
-	client := apiclient.NewClient(conn, coretesting.NoopLogger{})
-	status, err := client.Status(nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.NotNil)
-	unitStatus, ok := status.Applications[app.Name()].Units[u.Name()]
-	c.Assert(ok, gc.Equals, true)
-	c.Assert(unitStatus.Charm, gc.Equals, "")
-
-	err = app.SetCharm(state.SetCharmConfig{
-		Charm:       charmNew,
-		CharmOrigin: defaultCharmOrigin(charmNew.URL()),
-	}, testing.NewObjectStore(c, s.ControllerModelUUID()))
-	c.Assert(err, jc.ErrorIsNil)
-
-	status, err = client.Status(nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(status, gc.NotNil)
-	unitStatus, ok = status.Applications[app.Name()].Units[u.Name()]
-	c.Assert(ok, gc.Equals, true)
-	c.Assert(unitStatus.Charm, gc.Equals, "ch:amd64/quantal/metered-3")
 }
 
 func defaultCharmOrigin(curlStr string) *state.CharmOrigin {

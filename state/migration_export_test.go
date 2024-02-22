@@ -455,7 +455,6 @@ func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, st *state.Stat
 	c.Assert(exported.LeadershipSettings(), jc.DeepEquals, map[string]interface{}{
 		"leader": "true",
 	})
-	c.Assert(exported.MetricsCredentials(), jc.DeepEquals, []byte("sekrit"))
 
 	constraints := exported.Constraints()
 	c.Assert(constraints, gc.NotNil)

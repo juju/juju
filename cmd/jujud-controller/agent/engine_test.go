@@ -43,7 +43,6 @@ var (
 		"instance-poller",
 		"logging-config-updater",  // tertiary dependency: will be inactive because migration workers will be inactive
 		"machine-undertaker",      // tertiary dependency: will be inactive because migration workers will be inactive
-		"metric-worker",           // tertiary dependency: will be inactive because migration workers will be inactive
 		"migration-fortress",      // secondary dependency: will be inactive because depends on environ-upgrader
 		"migration-inactive-flag", // secondary dependency: will be inactive because depends on environ-upgrader
 		"migration-master",        // secondary dependency: will be inactive because depends on environ-upgrader
@@ -68,7 +67,6 @@ var (
 		"instance-poller",
 		"logging-config-updater",
 		"machine-undertaker",
-		"metric-worker",
 		"migration-fortress",
 		"migration-inactive-flag",
 		"migration-master",

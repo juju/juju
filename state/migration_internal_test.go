@@ -389,7 +389,6 @@ func (s *MigrationSuite) TestApplicationDocFields(c *gc.C) {
 		"Exposed",
 		"ExposedEndpoints",
 		"MinUnits",
-		"MetricCredentials",
 		"PasswordHash",
 		"Tools",
 		"DesiredScale",

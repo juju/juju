@@ -2623,9 +2623,10 @@ snapshot:
 		"snapshot": charm.ActionSpec{
 			Description: "No description",
 			Params: map[string]interface{}{
-				"type":        "object",
-				"title":       "snapshot",
-				"description": "No description",
+				"type":                 "object",
+				"title":                "snapshot",
+				"description":          "No description",
+				"additionalProperties": false,
 				"properties": map[string]interface{}{
 					"outfile": map[string]interface{}{
 						"type":    "string",

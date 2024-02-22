@@ -100,9 +100,10 @@ func (s *CharmSuite) testCharm(c *gc.C) {
 		charm.ActionSpec{
 			Description: "Take a snapshot of the database.",
 			Params: map[string]interface{}{
-				"type":        "object",
-				"title":       "snapshot",
-				"description": "Take a snapshot of the database.",
+				"type":                 "object",
+				"title":                "snapshot",
+				"description":          "Take a snapshot of the database.",
+				"additionalProperties": true,
 				"properties": map[string]interface{}{
 					"outfile": map[string]interface{}{
 						"description": "The file to write out to.",
@@ -145,9 +146,10 @@ func (s *CharmSuite) TestCharmFromSha256(c *gc.C) {
 		charm.ActionSpec{
 			Description: "Take a snapshot of the database.",
 			Params: map[string]interface{}{
-				"type":        "object",
-				"title":       "snapshot",
-				"description": "Take a snapshot of the database.",
+				"type":                 "object",
+				"title":                "snapshot",
+				"description":          "Take a snapshot of the database.",
+				"additionalProperties": true,
 				"properties": map[string]interface{}{
 					"outfile": map[string]interface{}{
 						"description": "The file to write out to.",
