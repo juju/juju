@@ -607,3 +607,25 @@ func (s *clientSuite) TestHighAvailabilityCAASFails(c *gc.C) {
 	})
 	c.Assert(err, gc.ErrorMatches, "high availability on kubernetes controllers not supported")
 }
+
+func (s *clientSuite) TestControllerDetails(c *gc.C) {
+	cfg, err := s.ControllerServiceFactory(c).ControllerConfig().ControllerConfig(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	apiPort := cfg.APIPort()
+
+	_, err = s.enableHA(c, 3, emptyCons, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	d, err := s.haServer.ControllerDetails(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(d, jc.DeepEquals, params.ControllerDetailsResults{
+		Results: []params.ControllerDetails{
+			{ControllerId: "0", APIAddresses: []string{
+				fmt.Sprintf("cloud-local0.internal:%d", apiPort),
+				fmt.Sprintf("[fc00::0]:%d", apiPort)}},
+			// No addresses for machines 1 and 2 yet.
+			{ControllerId: "1"},
+			{ControllerId: "2"},
+		},
+	})
+}

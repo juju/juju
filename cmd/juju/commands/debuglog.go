@@ -4,10 +4,12 @@
 package commands
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/juju/ansiterm"
@@ -22,6 +24,8 @@ import (
 	"github.com/juju/retry"
 	"github.com/mattn/go-isatty"
 
+	apiclient "github.com/juju/juju/api/client/client"
+	"github.com/juju/juju/api/client/highavailability"
 	"github.com/juju/juju/api/common"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -107,6 +111,16 @@ To see all WARNING and ERROR messages and then continue showing any
 new WARNING and ERROR messages as they are logged:
 
     juju debug-log --replay --level WARNING
+
+In the HA case, debug-log can be configured to stream messages from a selected controller.
+Use juju show-controller to see the available controller numbers.
+
+    juju debug-log --controller 2
+
+You can also stream messages from all controllers - a best effort will be made to correctly
+interleave them so they are ordered by timestamp.
+
+    juju debug-log --controller all
 `
 
 func (c *debugLogCommand) Info() *cmd.Info {
@@ -158,6 +172,8 @@ type debugLogCommand struct {
 
 	includeLabels []string
 	excludeLabels []string
+
+	controllerIdOrAll string
 }
 
 func (c *debugLogCommand) SetFlags(f *gnuflag.FlagSet) {
@@ -170,6 +186,8 @@ func (c *debugLogCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(cmd.NewAppendStringsValue(&c.params.ExcludeModule), "exclude-module", "Do not show log messages for these logging modules")
 	f.Var(cmd.NewAppendStringsValue(&c.includeLabels), "include-labels", "Only show log messages for these logging label key values")
 	f.Var(cmd.NewAppendStringsValue(&c.excludeLabels), "exclude-labels", "Do not show log messages for these logging label key values")
+
+	f.StringVar(&c.controllerIdOrAll, "controller", "", "A specific controller from which to display logs, or 'all' for interleaved logs from all controllers.")
 
 	f.StringVar(&c.level, "l", "", "Log level to show, one of [TRACE, DEBUG, INFO, WARNING, ERROR]")
 	f.StringVar(&c.level, "level", "", "")
@@ -274,13 +292,32 @@ func (c *debugLogCommand) parseEntity(entity string) string {
 	}
 }
 
+// DebugLogAPI provides access to the client facade.
 type DebugLogAPI interface {
 	WatchDebugLog(params common.DebugLogParams) (<-chan common.LogMessage, error)
 	Close() error
 }
 
-var getDebugLogAPI = func(c *debugLogCommand) (DebugLogAPI, error) {
-	return c.NewAPIClient()
+// ControllerDetailsAPI provides access to the high availability facade.
+type ControllerDetailsAPI interface {
+	ControllerDetails() (map[string]highavailability.ControllerDetails, error)
+	BestAPIVersion() int
+}
+
+var getDebugLogAPI = func(c *debugLogCommand, addr []string) (DebugLogAPI, error) {
+	root, err := c.NewAPIRootWithAddressOverride(addr)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return apiclient.NewClient(root, logger), nil
+}
+
+var getControllerDetailsClient = func(c *debugLogCommand) (ControllerDetailsAPI, error) {
+	root, err := c.NewAPIRoot()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return highavailability.NewClient(root), nil
 }
 
 func isTerminal(f interface{}) bool {
@@ -289,6 +326,45 @@ func isTerminal(f interface{}) bool {
 		return false
 	}
 	return isatty.IsTerminal(f_.Fd())
+}
+
+type logFunc func([]corelogger.LogRecord) error
+
+func (f logFunc) Log(r []corelogger.LogRecord) error {
+	return f(r)
+}
+
+func (c *debugLogCommand) getControllerAddresses() ([][]string, error) {
+	if c.controllerIdOrAll == "" {
+		return nil, nil
+	}
+
+	api, err := getControllerDetailsClient(c)
+	if err != nil {
+		return nil, errors.Annotate(err, "getting controller HA client")
+	}
+	if api.BestAPIVersion() < 3 {
+		return nil, fmt.Errorf("debug log controller selection not supported with this version of Juju")
+	}
+	controllerDetails, err := api.ControllerDetails()
+	if err != nil {
+		return nil, errors.Annotate(err, "getting controller details")
+	}
+
+	var controllerAddr [][]string
+	if c.controllerIdOrAll == "all" {
+		for _, ctrl := range controllerDetails {
+			controllerAddr = append(controllerAddr, ctrl.APIEndpoints)
+		}
+
+	} else {
+		ctrl, ok := controllerDetails[c.controllerIdOrAll]
+		if !ok {
+			return nil, fmt.Errorf("controller %q %w", c.controllerIdOrAll, errors.NotFound)
+		}
+		controllerAddr = append(controllerAddr, ctrl.APIEndpoints)
+	}
+	return controllerAddr, nil
 }
 
 // Run retrieves the debug log via the API.
@@ -303,9 +379,89 @@ func (c *debugLogCommand) Run(ctx *cmd.Context) error {
 		c.params.NoTail = !isTerminal(ctx.Stdout)
 	}
 
+	// Get the controller addresses to connect to.
+	controllerAddr, err := c.getControllerAddresses()
+	if err != nil {
+		return err
+	}
+
+	// The default log buffer size is 1 for a single controller
+	// (stream log entries as they arrive).
+	bufferSize := 1
+	// If we are connecting to multiple controllers, adjust the buffer size so that
+	// we have a chance of ordering incoming records by timestamp.
+	// Replaying the logs will likely stream many initially so use a larger buffer size
+	// to account for controllers having potentially divergent log entry timestamps.
+	// This is best effort so it's ok if some log entries are printed out of order.
+	// Ideally we'd have a variable flush timeout depending on the rate of incoming messages
+	// but the buffered logger doesn't support that.
+	if len(controllerAddr) > 1 {
+		if c.params.Replay || c.params.NoTail {
+			bufferSize = 500
+		} else {
+			bufferSize = 5
+		}
+	}
+
+	buf := corelogger.NewBufferedLogger(logFunc(func(recs []corelogger.LogRecord) error {
+		for _, r := range recs {
+			_ = c.out.Write(ctx, &r)
+		}
+		return nil
+	}), bufferSize, time.Second, clock.WallClock)
+
+	// Start one log streamer per controller.
+	numStreams := 1
+	if n := len(controllerAddr); n > 0 {
+		numStreams = n
+	}
+	// Size of errors channel and wait group needs to match the number of debug log streams.
+	var (
+		errs = make(chan error, numStreams)
+		wg   sync.WaitGroup
+	)
+	wg.Add(numStreams)
+
+	pollCtx, cancel := context.WithCancel(ctx)
+	if len(controllerAddr) == 0 {
+		go func() {
+			c.streamLogs(pollCtx, nil, buf, errs)
+			wg.Done()
+		}()
+	} else {
+		for _, addr := range controllerAddr {
+			go func(addr []string) {
+				c.streamLogs(pollCtx, addr, buf, errs)
+				wg.Done()
+			}(addr)
+		}
+	}
+
+	// Wait for the streams to exit.
+	var pollErr error
+loop:
+	for {
+		select {
+		case <-ctx.Done():
+			break loop
+		case pollErr = <-errs:
+			// Exit on the first error.
+			break loop
+		}
+	}
+	// Cancel the message polling before flushing the buffer.
+	cancel()
+	wg.Wait()
+	_ = buf.Flush()
+	return pollErr
+}
+
+// streamLogs watches debug logs from the specified controller and logs any results
+// into the supplied buffered logger. Any error is reported to the errors channel.
+func (c *debugLogCommand) streamLogs(ctx context.Context, controllerAddr []string, buf *corelogger.BufferedLogger, errs chan error) {
 	err := retry.Call(retry.CallArgs{
 		Func: func() error {
-			client, err := getDebugLogAPI(c)
+			client, err := getDebugLogAPI(c, controllerAddr)
 			if err != nil {
 				return err
 			}
@@ -322,7 +478,7 @@ func (c *debugLogCommand) Run(ctx *cmd.Context) error {
 					return ErrConnectionClosed
 				}
 				level, _ := loggo.ParseLevel(msg.Severity)
-				logRecord := &corelogger.LogRecord{
+				logRecord := corelogger.LogRecord{
 					Time:     msg.Timestamp,
 					Entity:   msg.Entity,
 					Level:    level,
@@ -331,7 +487,9 @@ func (c *debugLogCommand) Run(ctx *cmd.Context) error {
 					Message:  msg.Message,
 					Labels:   msg.Labels,
 				}
-				_ = c.out.Write(ctx, logRecord)
+				if err := buf.Log([]corelogger.LogRecord{logRecord}); err != nil {
+					return err
+				}
 			}
 		},
 		IsFatalError: func(err error) bool {
@@ -356,12 +514,11 @@ func (c *debugLogCommand) Run(ctx *cmd.Context) error {
 	// user. As this is a synthetic error that is used to signal that the
 	// connection is retried, we don't want to show this to the user.
 	if errors.Is(err, ErrConnectionClosed) {
-		return nil
+		err = nil
 	}
-
 	// Unwrap the retry call error trace for all errors. We don't want to show
 	// that to the user as part of the error message.
-	return errors.Cause(err)
+	errs <- errors.Cause(err)
 }
 
 // ErrConnectionClosed is a sentinel error used to signal that the connection

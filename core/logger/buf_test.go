@@ -10,6 +10,7 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/kr/pretty"
 	gc "gopkg.in/check.v1"
 
 	corelogger "github.com/juju/juju/core/logger"
@@ -29,6 +30,7 @@ func (s *BufferedLoggerSuite) SetUpTest(c *gc.C) {
 func (s *BufferedLoggerSuite) waitFlush(c *gc.C, mock *mockLogger) []corelogger.LogRecord {
 	select {
 	case records := <-mock.called:
+		c.Log("REC: " + pretty.Sprint(records))
 		return records
 	case <-time.After(coretesting.LongWait):
 	}
@@ -184,6 +186,47 @@ func (s *BufferedLoggerSuite) TestLogOverCapacity(c *gc.C) {
 	mock.CheckCalls(c, []testing.StubCall{
 		{"Log", []interface{}{in[:bufsz]}},
 		{"Log", []interface{}{in[bufsz:]}},
+	})
+}
+
+func (s *BufferedLoggerSuite) TestFlushSorts(c *gc.C) {
+	const bufsz = 2
+	const flushInterval = time.Minute
+	mock := mockLogger{called: make(chan []corelogger.LogRecord, 1)}
+	clock := testclock.NewClock(time.Time{})
+
+	// The buffer has a capacity of 2, so writing 3 logs will
+	// cause 2 to be flushed, with 1 remaining in the buffer
+	// until the timer triggers.
+	now := time.Now()
+	r1 := corelogger.LogRecord{
+		Time:    now.Add(2 * time.Second),
+		Entity:  "not-a-tag",
+		Message: "foo",
+	}
+	r2 := corelogger.LogRecord{
+		Time:    now.Add(time.Second),
+		Entity:  "not-a-tag",
+		Message: "bar",
+	}
+	r3 := corelogger.LogRecord{
+		Time:    now,
+		Entity:  "not-a-tag",
+		Message: "baz",
+	}
+	b := corelogger.NewBufferedLogger(&mock, bufsz, flushInterval, clock)
+	in := []corelogger.LogRecord{r1, r2, r3}
+
+	err := b.Log(in)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.waitFlush(c, &mock), jc.DeepEquals, []corelogger.LogRecord{r3, r2})
+
+	clock.WaitAdvance(time.Minute, coretesting.LongWait, 1)
+	c.Assert(s.waitFlush(c, &mock), jc.DeepEquals, []corelogger.LogRecord{r1})
+
+	mock.CheckCalls(c, []testing.StubCall{
+		{"Log", []interface{}{[]corelogger.LogRecord{r3, r2}}},
+		{"Log", []interface{}{[]corelogger.LogRecord{r1}}},
 	})
 }
 

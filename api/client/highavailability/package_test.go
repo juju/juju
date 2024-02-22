@@ -15,8 +15,9 @@ func TestAll(t *testing.T) {
 	gc.TestingT(t)
 }
 
-func NewClientFromCaller(caller base.FacadeCaller) *Client {
+func NewClientFromCaller(caller base.FacadeCaller, facade base.ClientFacade) *Client {
 	return &Client{
-		facade: caller,
+		ClientFacade: facade,
+		facade:       caller,
 	}
 }

@@ -17,8 +17,20 @@ import (
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("HighAvailability", 2, func(stdCtx context.Context, ctx facade.Context) (facade.Facade, error) {
+		return newHighAvailabilityAPIV2(ctx)
+	}, reflect.TypeOf((*HighAvailabilityAPIV2)(nil)))
+	registry.MustRegister("HighAvailability", 3, func(stdCtx context.Context, ctx facade.Context) (facade.Facade, error) {
 		return newHighAvailabilityAPI(ctx)
 	}, reflect.TypeOf((*HighAvailabilityAPI)(nil)))
+}
+
+// newHighAvailabilityAPI creates a new server-side highavailability API end point.
+func newHighAvailabilityAPIV2(ctx facade.Context) (*HighAvailabilityAPIV2, error) {
+	v3, err := newHighAvailabilityAPI(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &HighAvailabilityAPIV2{*v3}, nil
 }
 
 // newHighAvailabilityAPI creates a new server-side highavailability API end point.
@@ -43,6 +55,7 @@ func newHighAvailabilityAPI(ctx facade.Context) (*HighAvailabilityAPI, error) {
 		nodeService:          ctx.ServiceFactory().ControllerNode(),
 		machineSaver:         ctx.ServiceFactory().Machine(),
 		applicationSaveSaver: ctx.ServiceFactory().Application(),
+		controllerConfig:     ctx.ServiceFactory().ControllerConfig(),
 		authorizer:           authorizer,
 		logger:               ctx.Logger().Child("highavailability"),
 	}, nil

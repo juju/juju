@@ -19810,7 +19810,7 @@
     {
         "Name": "HighAvailability",
         "Description": "HighAvailabilityAPI implements the HighAvailability interface and is the concrete\nimplementation of the api end point.",
-        "Version": 2,
+        "Version": 3,
         "AvailableTo": [
             "controller-user",
             "model-user"
@@ -19818,6 +19818,15 @@
         "Schema": {
             "type": "object",
             "properties": {
+                "ControllerDetails": {
+                    "type": "object",
+                    "properties": {
+                        "Result": {
+                            "$ref": "#/definitions/ControllerDetailsResults"
+                        }
+                    },
+                    "description": "ControllerDetails returns details about each controller node."
+                },
                 "EnableHA": {
                     "type": "object",
                     "properties": {
@@ -19832,6 +19841,43 @@
                 }
             },
             "definitions": {
+                "ControllerDetails": {
+                    "type": "object",
+                    "properties": {
+                        "api-addresses": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "controller-id": {
+                            "type": "string"
+                        },
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "controller-id",
+                        "api-addresses"
+                    ]
+                },
+                "ControllerDetailsResults": {
+                    "type": "object",
+                    "properties": {
+                        "results": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/ControllerDetails"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "results"
+                    ]
+                },
                 "ControllersChangeResult": {
                     "type": "object",
                     "properties": {

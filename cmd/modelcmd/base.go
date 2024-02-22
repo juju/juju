@@ -211,7 +211,7 @@ func (c *CommandBase) NewAPIRoot(
 	store jujuclient.ClientStore,
 	controllerName, modelName string,
 ) (api.Connection, error) {
-	return c.NewAPIRootWithDialOpts(store, controllerName, modelName, nil)
+	return c.NewAPIRootWithDialOpts(store, controllerName, modelName, nil, nil)
 }
 
 // NewAPIRootWithDialOpts returns a new connection to the API server for the
@@ -220,6 +220,7 @@ func (c *CommandBase) NewAPIRoot(
 func (c *CommandBase) NewAPIRootWithDialOpts(
 	store jujuclient.ClientStore,
 	controllerName, modelName string,
+	addressOverride []string,
 	dialOpts *api.DialOpts,
 ) (api.Connection, error) {
 	c.assertRunStarted()
@@ -255,6 +256,7 @@ func (c *CommandBase) NewAPIRootWithDialOpts(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	param.APIEndpoints = addressOverride
 	if dialOpts != nil {
 		param.DialOpts = *dialOpts
 	}
