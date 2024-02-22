@@ -87,5 +87,6 @@ func newFacadeV10(ctx facade.Context) (*ModelManagerAPI, error) {
 		common.NewBlockChecker(backend),
 		auth,
 		model,
+		serviceFactory.Space(),
 	)
 }

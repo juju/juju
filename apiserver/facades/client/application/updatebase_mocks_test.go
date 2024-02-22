@@ -17,6 +17,7 @@ import (
 	base "github.com/juju/juju/core/base"
 	config "github.com/juju/juju/core/config"
 	constraints "github.com/juju/juju/core/constraints"
+	network "github.com/juju/juju/core/network"
 	objectstore "github.com/juju/juju/core/objectstore"
 	charmhub "github.com/juju/juju/internal/charmhub"
 	transport "github.com/juju/juju/internal/charmhub/transport"
@@ -372,17 +373,17 @@ func (mr *MockApplicationMockRecorder) MergeBindings(arg0, arg1 any) *gomock.Cal
 }
 
 // MergeExposeSettings mocks base method.
-func (m *MockApplication) MergeExposeSettings(arg0 map[string]state.ExposedEndpoint) error {
+func (m *MockApplication) MergeExposeSettings(arg0 map[string]state.ExposedEndpoint, arg1 network.SpaceInfos) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "MergeExposeSettings", arg0)
+	ret := m.ctrl.Call(m, "MergeExposeSettings", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // MergeExposeSettings indicates an expected call of MergeExposeSettings.
-func (mr *MockApplicationMockRecorder) MergeExposeSettings(arg0 any) *gomock.Call {
+func (mr *MockApplicationMockRecorder) MergeExposeSettings(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MergeExposeSettings", reflect.TypeOf((*MockApplication)(nil).MergeExposeSettings), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MergeExposeSettings", reflect.TypeOf((*MockApplication)(nil).MergeExposeSettings), arg0, arg1)
 }
 
 // Name mocks base method.

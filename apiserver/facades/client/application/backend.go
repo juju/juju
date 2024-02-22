@@ -99,7 +99,7 @@ type Application interface {
 	Life() state.Life
 	SetCharm(state.SetCharmConfig, objectstore.ObjectStore) error
 	SetConstraints(constraints.Value) error
-	MergeExposeSettings(map[string]state.ExposedEndpoint) error
+	MergeExposeSettings(map[string]state.ExposedEndpoint, network.SpaceInfos) error
 	UnsetExposeSettings([]string) error
 	SetMinUnits(int) error
 	UpdateApplicationBase(state.Base, bool) error

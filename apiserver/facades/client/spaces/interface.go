@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 )
 
@@ -22,6 +23,11 @@ import (
 type ReloadSpaces interface {
 	// ReloadSpaces refreshes spaces from the substrate.
 	ReloadSpaces(context.Context) error
+}
+
+// Model is the interface that is used to get information about a model.
+type Model interface {
+	Config() (*config.Config, error)
 }
 
 // BlockChecker defines the block-checking functionality required by

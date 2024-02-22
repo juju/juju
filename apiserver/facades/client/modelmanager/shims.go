@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/environs/space"
+	"github.com/juju/juju/state"
 )
 
 type spaceStateShim struct {
@@ -45,17 +45,8 @@ func (s spaceStateShim) AddSpace(name string, providerId network.Id, subnetIds [
 	return spaceInfo, nil
 }
 
-func (s spaceStateShim) ConstraintsBySpaceName(name string) ([]space.Constraints, error) {
-	constraints, err := s.ModelManagerBackend.ConstraintsBySpaceName(name)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	results := make([]space.Constraints, len(constraints))
-	for i, constraint := range constraints {
-		results[i] = constraint
-	}
-	return results, nil
+func (s spaceStateShim) ConstraintsBySpaceName(name string) ([]*state.Constraints, error) {
+	return s.ModelManagerBackend.ConstraintsBySpaceName(name)
 }
 
 func (s spaceStateShim) Remove(spaceID string) error {

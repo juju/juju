@@ -133,6 +133,36 @@ func validateConfig(updateAttrs map[string]string, removeAttrs []string) error {
 }
 
 // validateConfigField checks that the given field is a valid controller config.
+// TODO(nvinuesa): Must check that all machine controller addresses are in
+// the HA space or in the mgmt space (see checkValidControllerConfig()):
+// 	controllerIds, err := st.ControllerIds()
+// 	if err != nil {
+// 		return errors.Annotate(err, "cannot get controller info")
+// 	}
+
+// 	space, err := st.SpaceByName(spaceName)
+// 	if err != nil {
+// 		return errors.Trace(err)
+// 	}
+// 	netSpace, err := space.NetworkSpace()
+// 	if err != nil {
+// 		return errors.Annotate(err, "getting network space")
+// 	}
+
+// 	var missing []string
+// 	for _, id := range controllerIds {
+// 		m, err := st.Machine(id)
+// 		if err != nil {
+// 			return errors.Annotate(err, "cannot get machine")
+// 		}
+// 		if _, ok := m.Addresses().InSpaces(netSpace); !ok {
+// 			missing = append(missing, id)
+// 		}
+// 	}
+
+//	if len(missing) > 0 {
+//		return errors.Errorf("machines with no addresses in this space: %s", strings.Join(missing, ", "))
+//	}
 func validateConfigField(name string) error {
 	if !controller.ControllerOnlyAttribute(name) {
 		return errors.Errorf("unknown controller config setting %q", name)

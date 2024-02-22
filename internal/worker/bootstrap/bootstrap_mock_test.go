@@ -15,6 +15,7 @@ import (
 	reflect "reflect"
 
 	charm "github.com/juju/charm/v13"
+	set "github.com/juju/collections/set"
 	cloud "github.com/juju/juju/cloud"
 	controller "github.com/juju/juju/controller"
 	network "github.com/juju/juju/core/network"
@@ -194,6 +195,21 @@ func (mr *MockSystemStateMockRecorder) AddApplication(arg0, arg1 any) *gomock.Ca
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddApplication", reflect.TypeOf((*MockSystemState)(nil).AddApplication), arg0, arg1)
 }
 
+// AllEndpointBindingsSpaceNames mocks base method.
+func (m *MockSystemState) AllEndpointBindingsSpaceNames() (set.Strings, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AllEndpointBindingsSpaceNames")
+	ret0, _ := ret[0].(set.Strings)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AllEndpointBindingsSpaceNames indicates an expected call of AllEndpointBindingsSpaceNames.
+func (mr *MockSystemStateMockRecorder) AllEndpointBindingsSpaceNames() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllEndpointBindingsSpaceNames", reflect.TypeOf((*MockSystemState)(nil).AllEndpointBindingsSpaceNames))
+}
+
 // ApplyOperation mocks base method.
 func (m *MockSystemState) ApplyOperation(arg0 *state.UpdateUnitOperation) error {
 	m.ctrl.T.Helper()
@@ -236,6 +252,21 @@ func (m *MockSystemState) CloudService(arg0 string) (bootstrap.CloudService, err
 func (mr *MockSystemStateMockRecorder) CloudService(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CloudService", reflect.TypeOf((*MockSystemState)(nil).CloudService), arg0)
+}
+
+// ConstraintsBySpaceName mocks base method.
+func (m *MockSystemState) ConstraintsBySpaceName(arg0 string) ([]*state.Constraints, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ConstraintsBySpaceName", arg0)
+	ret0, _ := ret[0].([]*state.Constraints)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ConstraintsBySpaceName indicates an expected call of ConstraintsBySpaceName.
+func (mr *MockSystemStateMockRecorder) ConstraintsBySpaceName(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConstraintsBySpaceName", reflect.TypeOf((*MockSystemState)(nil).ConstraintsBySpaceName), arg0)
 }
 
 // ControllerModelUUID mocks base method.
@@ -579,6 +610,21 @@ func (m *MockSpaceService) EXPECT() *MockSpaceServiceMockRecorder {
 	return m.recorder
 }
 
+// AddSpace mocks base method.
+func (m *MockSpaceService) AddSpace(arg0 context.Context, arg1 string, arg2 network.Id, arg3 []string) (network.Id, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AddSpace", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(network.Id)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AddSpace indicates an expected call of AddSpace.
+func (mr *MockSpaceServiceMockRecorder) AddSpace(arg0, arg1, arg2, arg3 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddSpace", reflect.TypeOf((*MockSpaceService)(nil).AddSpace), arg0, arg1, arg2, arg3)
+}
+
 // GetAllSpaces mocks base method.
 func (m *MockSpaceService) GetAllSpaces(arg0 context.Context) (network.SpaceInfos, error) {
 	m.ctrl.T.Helper()
@@ -592,6 +638,34 @@ func (m *MockSpaceService) GetAllSpaces(arg0 context.Context) (network.SpaceInfo
 func (mr *MockSpaceServiceMockRecorder) GetAllSpaces(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllSpaces", reflect.TypeOf((*MockSpaceService)(nil).GetAllSpaces), arg0)
+}
+
+// Remove mocks base method.
+func (m *MockSpaceService) Remove(arg0 context.Context, arg1 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Remove", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Remove indicates an expected call of Remove.
+func (mr *MockSpaceServiceMockRecorder) Remove(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Remove", reflect.TypeOf((*MockSpaceService)(nil).Remove), arg0, arg1)
+}
+
+// SaveProviderSubnets mocks base method.
+func (m *MockSpaceService) SaveProviderSubnets(arg0 context.Context, arg1 []network.SubnetInfo, arg2 network.Id, arg3 network.FanConfig) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SaveProviderSubnets", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SaveProviderSubnets indicates an expected call of SaveProviderSubnets.
+func (mr *MockSpaceServiceMockRecorder) SaveProviderSubnets(arg0, arg1, arg2, arg3 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveProviderSubnets", reflect.TypeOf((*MockSpaceService)(nil).SaveProviderSubnets), arg0, arg1, arg2, arg3)
 }
 
 // Space mocks base method.

@@ -11,8 +11,10 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/space"
 	"github.com/juju/juju/state"
@@ -22,6 +24,27 @@ import (
 // ReloadSpacesState contains all the methods required to execute the API.
 type ReloadSpacesState interface {
 	space.ReloadSpacesState
+	Model() (Model, error)
+}
+
+type reloadSpacesStateShim struct {
+	*state.State
+}
+
+func (s reloadSpacesStateShim) Model() (Model, error) {
+	m, err := s.State.Model()
+	if err != nil {
+		return nil, err
+	}
+	return &modelShim{Model: m}, nil
+}
+
+type modelShim struct {
+	*state.Model
+}
+
+func (s modelShim) Config() (*config.Config, error) {
+	return s.Config()
 }
 
 // ReloadSpacesEnviron contains the methods for requesting environ data.
@@ -38,7 +61,7 @@ type EnvironSpaces interface {
 	// ReloadSpaces loads spaces and subnets from provider specified by environ
 	// into state.
 	// Currently it's an append-only operation, no spaces/subnets are deleted.
-	ReloadSpaces(envcontext.ProviderCallContext, ReloadSpacesState, environs.BootstrapEnviron) error
+	ReloadSpaces(envcontext.ProviderCallContext, ReloadSpacesState, space.SpaceService, environs.BootstrapEnviron, network.FanConfig) error
 }
 
 // ReloadSpacesAPI provides the reload spaces API facade for version.
@@ -48,14 +71,17 @@ type ReloadSpacesAPI struct {
 	spaces                      EnvironSpaces
 	credentialInvalidatorGetter envcontext.ModelCredentialInvalidatorGetter
 	authorize                   ReloadSpacesAuthorizer
+	spaceService                common.SpaceService
 }
 
 // NewReloadSpacesAPI creates a new ReloadSpacesAPI.
-func NewReloadSpacesAPI(state ReloadSpacesState,
+func NewReloadSpacesAPI(
+	state ReloadSpacesState,
 	environs ReloadSpacesEnviron,
 	spaces EnvironSpaces,
 	credentialInvalidatorGetter envcontext.ModelCredentialInvalidatorGetter,
 	authorizer ReloadSpacesAuthorizer,
+	spaceService common.SpaceService,
 ) *ReloadSpacesAPI {
 	return &ReloadSpacesAPI{
 		state:                       state,
@@ -63,6 +89,7 @@ func NewReloadSpacesAPI(state ReloadSpacesState,
 		spaces:                      spaces,
 		credentialInvalidatorGetter: credentialInvalidatorGetter,
 		authorize:                   authorizer,
+		spaceService:                spaceService,
 	}
 }
 
@@ -80,7 +107,22 @@ func (api *ReloadSpacesAPI) ReloadSpaces(ctx stdcontext.Context) error {
 		return errors.Trace(err)
 	}
 	callCtx := envcontext.WithCredentialInvalidator(ctx, invalidatorFunc)
-	return errors.Trace(api.spaces.ReloadSpaces(callCtx, api.state, env))
+
+	// TODO(nvinuesa): Fans should be retrieved from the model config
+	// service once it's finished instead of legacy state.
+	model, err := api.state.Model()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	modelConfig, err := model.Config()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	fanConfig, err := modelConfig.FanConfig()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return errors.Trace(api.spaces.ReloadSpaces(callCtx, api.state, api.spaceService, env, fanConfig))
 }
 
 // ReloadSpacesAuthorizer represents a way to authorize reload spaces.
@@ -145,6 +187,12 @@ type EnvironSpacesAdaptor struct{}
 // ReloadSpaces loads spaces and subnets from provider specified by environ
 // into state.
 // Currently it's an append-only operation, no spaces/subnets are deleted.
-func (EnvironSpacesAdaptor) ReloadSpaces(ctx envcontext.ProviderCallContext, st ReloadSpacesState, env environs.BootstrapEnviron) error {
-	return space.ReloadSpaces(ctx, st, env)
+func (EnvironSpacesAdaptor) ReloadSpaces(
+	ctx envcontext.ProviderCallContext,
+	st ReloadSpacesState,
+	spaceService space.SpaceService,
+	env environs.BootstrapEnviron,
+	fanConfig network.FanConfig,
+) error {
+	return space.ReloadSpaces(ctx, st, spaceService, env, fanConfig)
 }

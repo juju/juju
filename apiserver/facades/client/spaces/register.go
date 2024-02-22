@@ -12,7 +12,6 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/credentialcommon"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/environs/space"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -44,11 +43,12 @@ func newAPI(ctx facade.Context) (*API, error) {
 	auth := ctx.Auth()
 	reloadSpacesAuth := DefaultReloadSpacesAuthorizer(auth, check, stateShim)
 	reloadSpacesAPI := NewReloadSpacesAPI(
-		space.NewState(st),
+		reloadSpacesStateShim{st},
 		reloadSpacesEnvirons,
 		EnvironSpacesAdaptor{},
 		credentialInvalidatorGetter,
 		reloadSpacesAuth,
+		ctx.ServiceFactory().Space(),
 	)
 
 	return newAPIWithBacking(apiConfig{

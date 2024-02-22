@@ -9,6 +9,7 @@ import (
 	"os"
 
 	"github.com/juju/charm/v13"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
 
@@ -75,6 +76,12 @@ type SystemState interface {
 	SetAPIHostPorts(controllerConfig controller.Config, newHostPorts []network.SpaceHostPorts, newHostPortsForAgents []network.SpaceHostPorts) error
 	// SaveCloudService creates a cloud service.
 	SaveCloudService(args state.SaveCloudServiceArgs) (*state.CloudService, error)
+	// AllEndpointBindingsSpaceNames returns a set of spaces names for all the
+	// endpoint bindings.
+	AllEndpointBindingsSpaceNames() (set.Strings, error)
+	// ConstraintsBySpaceName returns all Constraints that include a positive
+	// or negative space constraint for the input space name.
+	ConstraintsBySpaceName(spaceName string) ([]*state.Constraints, error)
 }
 
 // BinaryAgentStorageService is the interface that is used to get the storage

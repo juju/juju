@@ -17,7 +17,7 @@ func TestAll(t *stdtesting.T) {
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/state_mock.go github.com/juju/juju/state StorageAttachment,StorageInstance,MachinePortRanges,UnitPortRanges,CloudContainer
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/storage_mock.go github.com/juju/juju/internal/storage ProviderRegistry
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/poolmanager_mock.go github.com/juju/juju/internal/storage/poolmanager PoolManager
-//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/leadership_mock.go github.com/juju/juju/core/leadership Reader
+//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mapiserver/facades/client/application/application_unit_test.gopiocks/leadership_mock.go github.com/juju/juju/core/leadership Reader
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/application_mock.go github.com/juju/juju/apiserver/facades/client/application Backend,StorageInterface,BlockChecker,Model,CaasBrokerInterface,Application,RemoteApplication,Charm,Relation,Unit,RelationUnit,Machine,Generation,Bindings,Resources,ECService
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/offer_mock.go github.com/juju/juju/apiserver/facades/client/application OfferConnection
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/objectstore_mock.go github.com/juju/juju/core/objectstore ObjectStore

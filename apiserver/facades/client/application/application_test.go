@@ -106,7 +106,8 @@ func (s *applicationSuite) makeAPI(c *gc.C) *application.APIBase {
 		registry,
 		common.NewResources(),
 		nil, // CAAS Broker not used in this suite.
-		jujutesting.NewObjectStore(c, st.ModelUUID()),
+		jujutesting.NewObjectStore(c, st.ModelUUID(), st),
+		serviceFactory.Space(),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	return api
@@ -696,7 +697,7 @@ func (s *applicationSuite) TestApplicationExpose(c *gc.C) {
 		})
 		c.Assert(apps[i].IsExposed(), jc.IsFalse)
 	}
-	err = apps[1].MergeExposeSettings(nil)
+	err = apps[1].MergeExposeSettings(nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(apps[1].IsExposed(), jc.IsTrue)
 
@@ -773,7 +774,7 @@ func (s *applicationSuite) setupApplicationExpose(c *gc.C) {
 		})
 		c.Assert(apps[i].IsExposed(), jc.IsFalse)
 	}
-	err = apps[1].MergeExposeSettings(nil)
+	err = apps[1].MergeExposeSettings(nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(apps[1].IsExposed(), jc.IsTrue)
 }
@@ -964,7 +965,7 @@ func (s *applicationSuite) TestApplicationUnexpose(c *gc.C) {
 			Charm: charm,
 		})
 		if len(t.initial) != 0 {
-			err := app.MergeExposeSettings(t.initial)
+			err := app.MergeExposeSettings(t.initial, nil)
 			c.Assert(err, jc.ErrorIsNil)
 		}
 		c.Assert(app.IsExposed(), gc.Equals, len(t.initial) != 0)
@@ -992,7 +993,7 @@ func (s *applicationSuite) setupApplicationUnexpose(c *gc.C) *state.Application 
 		Name:  "dummy-application",
 		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "dummy"}),
 	})
-	err := app.MergeExposeSettings(nil)
+	err := app.MergeExposeSettings(nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(app.IsExposed(), gc.Equals, true)
 	return app

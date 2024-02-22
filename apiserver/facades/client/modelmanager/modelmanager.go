@@ -26,6 +26,7 @@ import (
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller/modelmanager"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/domain/credential"
@@ -85,6 +86,23 @@ type StateBackend interface {
 	InvalidateModelCredential(string) error
 }
 
+// SpaceService defines the methods for handling spaces.
+type SpaceService interface {
+	// AllSpaces returns all spaces for the model.
+	GetAllSpaces(context.Context) (network.SpaceInfos, error)
+	// AddSpace creates and returns a new space.
+	AddSpace(ctx context.Context, name string, providerID network.Id, subnetIDs []string) (network.Id, error)
+	// Space returns a space from state that matches the input ID.
+	// An error is returned if the space does not exist or if there was a problem
+	// accessing its information.
+	Space(ctx context.Context, uuid string) (*network.SpaceInfo, error)
+	// SaveProviderSubnets loads subnets into state.
+	SaveProviderSubnets(ctx context.Context, subnets []network.SubnetInfo, spaceUUID network.Id, fans network.FanConfig) error
+	// Remove removes a Dead space. If the space is not Dead or it is already
+	// removed, an error is returned.
+	Remove(context.Context, string) error
+}
+
 // ModelManagerAPI implements the model manager interface and is
 // the concrete implementation of the api end point.
 type ModelManagerAPI struct {
@@ -104,6 +122,7 @@ type ModelManagerAPI struct {
 	isAdmin             bool
 	model               common.Model
 	getBroker           newCaasBrokerFunc
+	spaceService        SpaceService
 }
 
 // NewModelManagerAPI creates a new api server endpoint for managing
@@ -122,6 +141,7 @@ func NewModelManagerAPI(
 	blockChecker common.BlockCheckerInterface,
 	authorizer facade.Authorizer,
 	m common.Model,
+	spaceService SpaceService,
 ) (*ModelManagerAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm
@@ -154,6 +174,7 @@ func NewModelManagerAPI(
 		isAdmin:             isAdmin,
 		model:               m,
 		modelService:        modelService,
+		spaceService:        spaceService,
 	}, nil
 }
 
@@ -554,9 +575,20 @@ func (m *ModelManagerAPI) newModel(
 		return nil, errors.Trace(err)
 	}
 	callCtx = environsContext.WithCredentialInvalidator(ctx, invalidatorFunc)
+
+	// TODO(nvinuesa): Fans should be retrieved from the model config
+	// service once it's finished instead of legacy state.
+	modelConfig, err := model.Config()
+	if err != nil {
+		return nil, errors.Annotatef(err, "Failed to retrieve model config for reloading spaces")
+	}
+	fanConfig, err := modelConfig.FanConfig()
+	if err != nil {
+		return nil, errors.Annotatef(err, "Failed to fan config for reloading spaces")
+	}
 	if err = space.ReloadSpaces(callCtx, spaceStateShim{
 		ModelManagerBackend: st,
-	}, env); err != nil {
+	}, m.spaceService, env, fanConfig); err != nil {
 		if errors.Is(err, errors.NotSupported) {
 			logger.Debugf("Not performing spaces load on a non-networking environment")
 		} else {

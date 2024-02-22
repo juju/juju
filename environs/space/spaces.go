@@ -4,6 +4,7 @@
 package space
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/collections/set"
@@ -14,6 +15,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/envcontext"
+	"github.com/juju/juju/state"
 )
 
 var logger = loggo.GetLogger("juju.environs.space")
@@ -23,26 +25,40 @@ type Constraints interface{}
 
 // ReloadSpacesState defines an in situ point of use type for ReloadSpaces
 type ReloadSpacesState interface {
-	// AllSpaces returns all spaces for the model.
-	AllSpaces() ([]network.SpaceInfo, error)
-	// AddSpace creates and returns a new space.
-	AddSpace(string, network.Id, []string) (network.SpaceInfo, error)
-	// SaveProviderSubnets loads subnets into state.
-	SaveProviderSubnets([]network.SubnetInfo, string) error
 	// ConstraintsBySpaceName returns all Constraints that include a positive
 	// or negative space constraint for the input space name.
-	ConstraintsBySpaceName(string) ([]Constraints, error)
+	ConstraintsBySpaceName(string) ([]*state.Constraints, error)
 	// AllEndpointBindingsSpaceNames returns a set of spaces names for all the
 	// endpoint bindings.
 	AllEndpointBindingsSpaceNames() (set.Strings, error)
+}
+
+// SpaceService defines the methods for handling spaces.
+type SpaceService interface {
+	// AllSpaces returns all spaces for the model.
+	GetAllSpaces(context.Context) (network.SpaceInfos, error)
+	// AddSpace creates and returns a new space.
+	AddSpace(ctx context.Context, name string, providerID network.Id, subnetIDs []string) (network.Id, error)
+	// Space returns a space from state that matches the input ID.
+	// An error is returned if the space does not exist or if there was a problem
+	// accessing its information.
+	Space(ctx context.Context, uuid string) (*network.SpaceInfo, error)
+	// SaveProviderSubnets loads subnets into state.
+	SaveProviderSubnets(ctx context.Context, subnets []network.SubnetInfo, spaceUUID network.Id, fans network.FanConfig) error
 	// Remove removes a Dead space. If the space is not Dead or it is already
 	// removed, an error is returned.
-	Remove(spaceID string) error
+	Remove(context.Context, string) error
 }
 
 // ReloadSpaces loads spaces and subnets from provider specified by environ into state.
 // Currently it's an append-only operation, no spaces/subnets are deleted.
-func ReloadSpaces(ctx envcontext.ProviderCallContext, state ReloadSpacesState, environ environs.BootstrapEnviron) error {
+func ReloadSpaces(
+	ctx envcontext.ProviderCallContext,
+	state ReloadSpacesState,
+	spaceService SpaceService,
+	environ environs.BootstrapEnviron,
+	fanConfig network.FanConfig,
+) error {
 	netEnviron, ok := environs.SupportsNetworking(environ)
 	if !ok || netEnviron == nil {
 		return errors.NotSupportedf("spaces discovery in a non-networking environ")
@@ -61,8 +77,8 @@ func ReloadSpaces(ctx envcontext.ProviderCallContext, state ReloadSpacesState, e
 
 		logger.Infof("discovered spaces: %s", spaces.String())
 
-		providerSpaces := NewProviderSpaces(state)
-		if err := providerSpaces.SaveSpaces(spaces); err != nil {
+		providerSpaces := NewProviderSpaces(ctx, state, spaceService)
+		if err := providerSpaces.SaveSpaces(spaces, fanConfig); err != nil {
 			return errors.Trace(err)
 		}
 		warnings, err := providerSpaces.DeleteSpaces()
@@ -80,24 +96,27 @@ func ReloadSpaces(ctx envcontext.ProviderCallContext, state ReloadSpacesState, e
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return errors.Trace(state.SaveProviderSubnets(subnets, ""))
+	return errors.Trace(spaceService.SaveProviderSubnets(ctx.Context, subnets, network.AlphaSpaceId, fanConfig))
 }
 
 // ProviderSpaces defines a set of operations to perform when dealing with
 // provider spaces. SaveSpaces, DeleteSpaces are operations for setting state
 // in the persistence layer.
 type ProviderSpaces struct {
+	ctx           context.Context
 	state         ReloadSpacesState
+	spaceService  SpaceService
 	modelSpaceMap map[network.Id]network.SpaceInfo
 	updatedSpaces network.IDSet
 }
 
 // NewProviderSpaces creates a new ProviderSpaces to perform a series of
 // operations.
-func NewProviderSpaces(st ReloadSpacesState) *ProviderSpaces {
+func NewProviderSpaces(ctx context.Context, st ReloadSpacesState, spaceService SpaceService) *ProviderSpaces {
 	return &ProviderSpaces{
-		state: st,
-
+		ctx:           ctx,
+		state:         st,
+		spaceService:  spaceService,
 		modelSpaceMap: make(map[network.Id]network.SpaceInfo),
 		updatedSpaces: network.MakeIDSet(),
 	}
@@ -105,8 +124,8 @@ func NewProviderSpaces(st ReloadSpacesState) *ProviderSpaces {
 
 // SaveSpaces consumes provider spaces and saves the spaces as subnets on a
 // provider.
-func (s *ProviderSpaces) SaveSpaces(providerSpaces []network.SpaceInfo) error {
-	stateSpaces, err := s.state.AllSpaces()
+func (s *ProviderSpaces) SaveSpaces(providerSpaces []network.SpaceInfo, fanConfig network.FanConfig) error {
+	stateSpaces, err := s.spaceService.GetAllSpaces(context.TODO())
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -119,30 +138,33 @@ func (s *ProviderSpaces) SaveSpaces(providerSpaces []network.SpaceInfo) error {
 	for _, spaceInfo := range providerSpaces {
 		// Check if the space is already in state,
 		// in which case we know its name.
-		var spaceID string
+		var spaceID network.Id
 		stateSpace, ok := s.modelSpaceMap[spaceInfo.ProviderId]
 		if ok {
-			spaceID = stateSpace.ID
+			spaceID = network.Id(stateSpace.ID)
 		} else {
 			// The space is new, we need to create a valid name for it in state.
 			// Convert the name into a valid name that is not already in use.
 			spaceName := network.ConvertSpaceName(string(spaceInfo.Name), spaceNames)
 
 			logger.Debugf("Adding space %s from provider %s", spaceName, string(spaceInfo.ProviderId))
-			space, err := s.state.AddSpace(spaceName, spaceInfo.ProviderId, []string{})
+			spaceID, err = s.spaceService.AddSpace(s.ctx, spaceName, spaceInfo.ProviderId, []string{})
+			if err != nil {
+				return errors.Trace(err)
+			}
+			spaceNames.Add(spaceName)
+
+			space, err := s.spaceService.Space(s.ctx, spaceID.String())
 			if err != nil {
 				return errors.Trace(err)
 			}
 
-			spaceNames.Add(spaceName)
-			spaceID = space.ID
-
 			// To ensure that we can remove spaces, we back-fill the new spaces
 			// onto the modelSpaceMap.
-			s.modelSpaceMap[space.ProviderId] = space
+			s.modelSpaceMap[space.ProviderId] = *space
 		}
 
-		err = s.state.SaveProviderSubnets(spaceInfo.Subnets, spaceID)
+		err = s.spaceService.SaveProviderSubnets(s.ctx, spaceInfo.Subnets, spaceID, fanConfig)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -200,8 +222,7 @@ func (s *ProviderSpaces) DeleteSpaces() ([]string, error) {
 		if !ok {
 			// No warning here, the space was just not found.
 			continue
-		} else if space.Name == network.AlphaSpaceName ||
-			space.ID == defaultEndpointBinding {
+		} else if space.Name == network.AlphaSpaceName || space.ID == defaultEndpointBinding {
 
 			warning := fmt.Sprintf("Unable to delete space %q. Space is used as the default space.", space.Name)
 			warnings = append(warnings, warning)
@@ -224,7 +245,7 @@ func (s *ProviderSpaces) DeleteSpaces() ([]string, error) {
 			continue
 		}
 
-		if err := s.state.Remove(space.ID); err != nil {
+		if err := s.spaceService.Remove(s.ctx, space.ID); err != nil {
 			return warnings, errors.Trace(err)
 		}
 	}
