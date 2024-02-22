@@ -54,6 +54,7 @@ func (s *deployerSuite) SetUpTest(_ *gc.C) {
 
 func (s *deployerSuite) TestGetDeployerPredeployedLocalCharm(c *gc.C) {
 	defer s.setupMocks(c).Finish()
+	s.expectModelGet(c)
 	s.expectModelType()
 
 	cfg := s.basicDeployerConfig()

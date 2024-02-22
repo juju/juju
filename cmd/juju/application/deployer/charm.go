@@ -209,6 +209,7 @@ func (d *deployCharm) formatDeployingText() string {
 type predeployedLocalCharm struct {
 	deployCharm
 	userCharmURL *charm.URL
+	base         corebase.Base
 }
 
 // String returns a string description of the deployer.
@@ -234,20 +235,6 @@ func (d *predeployedLocalCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI Dep
 		ctx.Infof("ignoring dry-run flag for local charms")
 	}
 
-	modelCfg, err := getModelConfig(deployAPI)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	// Avoid deploying charm if it's not valid for the model.
-	base, err := corebase.GetBaseFromSeries(d.userCharmURL.Series)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if err := d.validateCharmBaseWithName(base, userCharmURL.Name, modelCfg.ImageStream()); err != nil {
-		return errors.Trace(err)
-	}
-
 	if err := d.validateCharmFlags(); err != nil {
 		return errors.Trace(err)
 	}
@@ -265,7 +252,7 @@ func (d *predeployedLocalCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI Dep
 		return errors.Trace(err)
 	}
 
-	platform := utils.MakePlatform(d.constraints, base, d.modelConstraints)
+	platform := utils.MakePlatform(d.constraints, d.base, d.modelConstraints)
 	origin, err := utils.MakeOrigin(charm.Local, userCharmURL.Revision, charm.Channel{}, platform)
 	if err != nil {
 		return errors.Trace(err)
