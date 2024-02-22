@@ -39,7 +39,6 @@ type Backend interface {
 	AllLinkLayerDevices() ([]*state.LinkLayerDevice, error)
 	AllRelations() ([]*state.Relation, error)
 	AllSubnets() ([]*state.Subnet, error)
-	Annotations(state.GlobalEntity) (map[string]string, error)
 	Application(string) (Application, error)
 	ControllerConfig() (controller.Config, error)
 	ControllerNodes() ([]state.ControllerNode, error)
@@ -110,14 +109,6 @@ type stateShim struct {
 
 func (s stateShim) UpdateModelConfig(u map[string]interface{}, r []string, a ...state.ValidateConfigFunc) error {
 	return s.model.UpdateModelConfig(u, r, a...)
-}
-
-func (s *stateShim) Annotations(entity state.GlobalEntity) (map[string]string, error) {
-	return s.model.Annotations(entity)
-}
-
-func (s *stateShim) SetAnnotations(entity state.GlobalEntity, ann map[string]string) error {
-	return s.model.SetAnnotations(entity, ann)
 }
 
 func (s *stateShim) Application(name string) (Application, error) {
