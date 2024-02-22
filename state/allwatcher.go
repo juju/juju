@@ -1741,7 +1741,6 @@ type allWatcherContext struct {
 	modelType_ ModelType
 
 	settings    map[string]*settingsDoc
-	annotations map[string]map[string]string
 	constraints map[string]constraints.Value
 	statuses    map[string]status.StatusInfo
 	instances   map[string]instanceData

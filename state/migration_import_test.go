@@ -1164,9 +1164,6 @@ func (s *MigrationImportSuite) assertUnitsMigrated(c *gc.C, st *state.State, con
 		c.Assert(containerInfo.Address(), jc.DeepEquals, &addr)
 	}
 
-	meterStatus, err := imported.GetMeterStatus()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(meterStatus, gc.Equals, state.MeterStatus{state.MeterGreen, "some info"})
 	s.checkStatusHistory(c, exported, imported, 5)
 	s.checkStatusHistory(c, exported.Agent(), imported.Agent(), 5)
 	s.checkStatusHistory(c, exported.WorkloadVersionHistory(), imported.WorkloadVersionHistory(), 1)

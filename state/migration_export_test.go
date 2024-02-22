@@ -396,9 +396,6 @@ func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, st *state.Stat
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = application.SetMetricCredentials([]byte("sekrit"))
-	c.Assert(err, jc.ErrorIsNil)
-
 	if dbModel.Type() == state.ModelTypeCAAS {
 		_, err = application.AddUnit(state.AddUnitParams{ProviderId: strPtr("provider-id1")})
 		c.Assert(err, jc.ErrorIsNil)
@@ -536,9 +533,6 @@ func (s *MigrationExportSuite) TestMalformedApplications(c *gc.C) {
 	err = application.UpdateLeaderSettings(&goodToken{}, map[string]string{
 		"leader": "true",
 	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = application.SetMetricCredentials([]byte("sekrit"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	agentVer, err := version.ParseBinary("2.9.1-ubuntu-amd64")
