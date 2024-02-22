@@ -267,7 +267,7 @@ func (s *ResolverOpFactorySuite) TestFailActionsCommit(c *gc.C) {
 	f.LocalState.CompletedActions = map[string]struct{}{}
 	op, err := f.NewFailAction("action 1")
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = op.Commit(operation.State{})
+	_, err = op.Commit(context.Background(), operation.State{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(f.LocalState.CompletedActions, gc.DeepEquals, map[string]struct{}{
 		"action 1": {},
@@ -284,7 +284,7 @@ func (s *ResolverOpFactorySuite) TestFailActionsTrimming(c *gc.C) {
 	}
 	op, err := f.NewFailAction("d")
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = op.Commit(operation.State{})
+	_, err = op.Commit(context.Background(), operation.State{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(f.LocalState.CompletedActions, gc.DeepEquals, map[string]struct{}{
 		"c": {},

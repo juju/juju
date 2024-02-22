@@ -614,7 +614,6 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleDevices(c *gc.C) {
 }
 
 func (s *BundleDeployRepositorySuite) expectCharmhubK8sCharm(curl *charm.URL) *charm.URL {
-	fullCurl := curl.WithSeries("focal")
 	// Called from resolveCharmsAndEndpoints & resolveCharmChannelAndRevision && addCharm
 	s.bundleResolver.EXPECT().ResolveCharm(
 		curl,

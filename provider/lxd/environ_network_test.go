@@ -209,7 +209,7 @@ func (s *environNetSuite) TestSubnetsForKnownContainerAndClustered(c *gc.C) {
 
 	env := s.NewEnviron(c, srv, nil, environscloudspec.CloudSpec{}).(environs.Networking)
 
-	ctx := context.NewEmptyCloudCallContext()
+	ctx := envcontext.WithoutCredentialInvalidator(context.Background())
 	subnets, err := env.Subnets(ctx, "woot", nil)
 	c.Assert(err, jc.ErrorIsNil)
 

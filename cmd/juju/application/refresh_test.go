@@ -488,7 +488,7 @@ func (s *RefreshSuite) TestLocalRevisionUnchanged(c *gc.C) {
 	s.charmAPIClient.CheckCall(c, 2, "SetCharm", model.GenerationMaster, application.SetCharmConfig{
 		ApplicationName: "riak",
 		CharmID: application.CharmID{
-			URL: charm.MustParseURL("local:bionic/riak-7"),
+			URL: "local:bionic/riak-7",
 			Origin: commoncharm.Origin{
 				Base:     s.charmAPIClient.charmOrigin.Base,
 				Source:   "local",
@@ -685,7 +685,7 @@ func (s *RefreshSuite) TestRespectsLocalRevisionWhenPossible(c *gc.C) {
 	s.charmAPIClient.CheckCall(c, 2, "SetCharm", model.GenerationMaster, application.SetCharmConfig{
 		ApplicationName: "riak",
 		CharmID: application.CharmID{
-			URL: charm.MustParseURL("local:bionic/riak-42"),
+			URL: "local:bionic/riak-42",
 			Origin: commoncharm.Origin{
 				Base:     s.charmAPIClient.charmOrigin.Base,
 				Source:   "local",
@@ -733,7 +733,7 @@ func (s *RefreshSuite) TestForcedSeriesUpgrade(c *gc.C) {
 	s.charmAPIClient.CheckCall(c, 2, "SetCharm", model.GenerationMaster, application.SetCharmConfig{
 		ApplicationName: "multi-series",
 		CharmID: application.CharmID{
-			URL: charm.MustParseURL("local:bionic/multi-series-1"),
+			URL: "local:bionic/multi-series-1",
 			Origin: commoncharm.Origin{
 				Base:         s.charmAPIClient.charmOrigin.Base,
 				Source:       "local",
@@ -760,7 +760,7 @@ func (s *RefreshSuite) TestForcedUnitsUpgrade(c *gc.C) {
 	s.charmAPIClient.CheckCall(c, 2, "SetCharm", model.GenerationMaster, application.SetCharmConfig{
 		ApplicationName: "riak",
 		CharmID: application.CharmID{
-			URL: charm.MustParseURL("local:bionic/riak-7"),
+			URL: "local:bionic/riak-7",
 			Origin: commoncharm.Origin{
 				Base:     s.charmAPIClient.charmOrigin.Base,
 				Source:   "local",
@@ -803,7 +803,7 @@ func (s *RefreshSuite) TestCharmPathNoRevUpgrade(c *gc.C) {
 	s.charmAPIClient.CheckCall(c, 2, "SetCharm", model.GenerationMaster, application.SetCharmConfig{
 		ApplicationName: "riak",
 		CharmID: application.CharmID{
-			URL: charm.MustParseURL("local:bionic/riak-7"),
+			URL: "local:bionic/riak-7",
 			Origin: commoncharm.Origin{
 				Base:     s.charmAPIClient.charmOrigin.Base,
 				Source:   "local",
@@ -868,7 +868,7 @@ devices: {}
 	s.charmAPIClient.CheckCall(c, 2, "SetCharm", model.GenerationMaster, application.SetCharmConfig{
 		ApplicationName: "lxd-profile-alt",
 		CharmID: application.CharmID{
-			URL: charm.MustParseURL("local:bionic/lxd-profile-alt-0"),
+			URL: "local:bionic/lxd-profile-alt-0",
 			Origin: commoncharm.Origin{
 				Base:         s.charmAPIClient.charmOrigin.Base,
 				Source:       "local",
