@@ -206,10 +206,10 @@ func (c *Client) CheckCharmPlacement(applicationName string, curl *charm.URL) er
 }
 
 // ListCharmResources returns a list of associated resources for a given charm.
-func (c *Client) ListCharmResources(curl *charm.URL, origin apicharm.Origin) ([]charmresource.Resource, error) {
+func (c *Client) ListCharmResources(curl string, origin apicharm.Origin) ([]charmresource.Resource, error) {
 	args := params.CharmURLAndOrigins{
 		Entities: []params.CharmURLAndOrigin{{
-			CharmURL: curl.String(),
+			CharmURL: curl,
 			Origin:   origin.ParamsCharmOrigin(),
 		}},
 	}

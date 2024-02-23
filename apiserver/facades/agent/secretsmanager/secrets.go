@@ -31,6 +31,7 @@ import (
 type CrossModelSecretsClient interface {
 	GetRemoteSecretContentInfo(ctx context.Context, uri *coresecrets.URI, revision int, refresh, peek bool, sourceControllerUUID, appToken string, unitId int, macs macaroon.Slice) (*secrets.ContentParams, *secretsprovider.ModelBackendConfig, int, bool, error)
 	GetSecretAccessScope(uri *coresecrets.URI, appToken string, unitId int) (string, error)
+	Close() error
 }
 
 // SecretsManagerAPI is the implementation for the SecretsManager facade.
@@ -474,6 +475,8 @@ func (s *SecretsManagerAPI) getRemoteSecretContent(ctx context.Context, uri *cor
 	if err != nil {
 		return nil, nil, false, errors.Annotate(err, "creating remote secret client")
 	}
+	defer func() { _ = extClient.Close() }()
+
 	consumerApp := commonsecrets.AuthTagApp(s.authTag)
 	token, err := s.crossModelState.GetToken(names.NewApplicationTag(consumerApp))
 	if err != nil {

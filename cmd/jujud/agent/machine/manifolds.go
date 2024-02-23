@@ -27,7 +27,6 @@ import (
 	"github.com/juju/juju/core/instance"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machinelock"
-	"github.com/juju/juju/core/presence"
 	coretrace "github.com/juju/juju/core/trace"
 	"github.com/juju/juju/environs"
 	containerbroker "github.com/juju/juju/internal/container/broker"
@@ -62,7 +61,6 @@ import (
 	"github.com/juju/juju/internal/worker/migrationminion"
 	"github.com/juju/juju/internal/worker/provisioner"
 	"github.com/juju/juju/internal/worker/proxyupdater"
-	psworker "github.com/juju/juju/internal/worker/pubsub"
 	"github.com/juju/juju/internal/worker/reboot"
 	"github.com/juju/juju/internal/worker/stateconverter"
 	"github.com/juju/juju/internal/worker/storageprovisioner"
@@ -147,13 +145,6 @@ type ManifoldsConfig struct {
 	// messaging only. This is used for interactions between workers
 	// and the introspection worker.
 	LocalHub *pubsub.SimpleHub
-
-	// PubSubReporter is the introspection reporter for the pubsub forwarding
-	// worker.
-	PubSubReporter psworker.Reporter
-
-	// PresenceRecorder
-	PresenceRecorder presence.Recorder
 
 	// UpdateLoggerConfig is a function that will save the specified
 	// config value as the logging config in the agent.conf file.

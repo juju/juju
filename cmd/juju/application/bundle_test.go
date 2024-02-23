@@ -453,7 +453,7 @@ func (s *BundleDeploySuite) TestDeployBundleLocalDeploymentWithBundleOverlay(c *
 	)
 	deployArgs := application.DeployArgs{
 		CharmID: application.CharmID{
-			URL:    wordpressURL,
+			URL:    wordpressURL.String(),
 			Origin: commoncharm.Origin{Source: "local"},
 		},
 		CharmOrigin:     commoncharm.Origin{Source: "local", Base: defaultBase},
@@ -534,7 +534,7 @@ func (s *BundleDeploySuite) TestDeployBundleLocalAndCharmhubCharms(c *gc.C) {
 	base := base.MustParseBaseFromString("ubuntu@20.04/stable")
 	deployArgs := application.DeployArgs{
 		CharmID: application.CharmID{
-			URL:    wordpressURL,
+			URL:    wordpressURL.String(),
 			Origin: commoncharm.Origin{Source: "charm-hub", Base: base, Architecture: "amd64", Risk: "stable"},
 		},
 		CharmOrigin:     commoncharm.Origin{Source: "charm-hub", Base: base, Architecture: "amd64", Risk: "stable"},
@@ -659,11 +659,10 @@ func (s *BundleDeploySuite) TestDeployBundlesRequiringTrust(c *gc.C) {
 	}
 
 	deployURL := *inURL
-	deployURL.Series = "jammy"
 
 	dArgs := application.DeployArgs{
 		CharmID: application.CharmID{
-			URL:    &deployURL,
+			URL:    deployURL.String(),
 			Origin: origin,
 		},
 		CharmOrigin:     origin,

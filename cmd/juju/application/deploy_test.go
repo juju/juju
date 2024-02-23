@@ -842,7 +842,7 @@ func (s *DeploySuite) TestDeployCharmWithSomeEndpointBindingsSpecifiedSuccess(c 
 	}
 
 	charmID := application.CharmID{
-		URL:    curl,
+		URL:    curl.String(),
 		Origin: origin,
 	}
 
@@ -1661,9 +1661,6 @@ func withCharmDeployableWithDevicesAndStorage(
 	devices map[string]devices.Constraints,
 ) {
 	deployURL := *url
-	if deployURL.Series == "" {
-		deployURL.Series = "jammy"
-	}
 	fallbackCons := constraints.MustParse("arch=amd64")
 	platform := apputils.MakePlatform(constraints.Value{}, base, fallbackCons)
 	origin, _ := apputils.MakeOrigin(charm.Schema(url.Schema), url.Revision, charm.Channel{}, platform)
@@ -1681,7 +1678,7 @@ func withCharmDeployableWithDevicesAndStorage(
 	}
 	deployArgs := application.DeployArgs{
 		CharmID: application.CharmID{
-			URL:    &deployURL,
+			URL:    deployURL.String(),
 			Origin: origin,
 		},
 		CharmOrigin:     origin,
@@ -1750,7 +1747,7 @@ func withLocalBundleCharmDeployable(
 	fakeAPI.Call("ListSpaces").Returns([]apiparams.Space{}, error(nil))
 	deployArgs := application.DeployArgs{
 		CharmID: application.CharmID{
-			URL:    url,
+			URL:    url.String(),
 			Origin: commoncharm.Origin{Source: "local"},
 		},
 		CharmOrigin:     commoncharm.Origin{Source: "local", Base: base},

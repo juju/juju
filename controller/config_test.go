@@ -410,6 +410,12 @@ var newConfigTests = []struct {
 		controller.ObjectStoreS3StaticSession: 1,
 	},
 	expectError: `object-store-s3-static-session: expected string, got int\(1\)`,
+}, {
+	about: "invalid jujud-controller-snap-source value",
+	config: controller.Config{
+		controller.JujudControllerSnapSource: "latest/stable",
+	},
+	expectError: `jujud-controller-snap-source value "latest/stable" must be one of legacy, snapstore, local or local-dangerous.`,
 }}
 
 func (s *ConfigSuite) TestNewConfig(c *gc.C) {

@@ -513,7 +513,6 @@ func upgradeCertificateDNSNames(config agent.ConfigSetter) error {
 func (a *MachineAgent) Run(ctx *cmd.Context) (err error) {
 	defer a.Done(err)
 	a.ctx = ctx
-
 	if err := a.ReadConfig(a.Tag().String()); err != nil {
 		return errors.Errorf("cannot read agent configuration: %v", err)
 	}
