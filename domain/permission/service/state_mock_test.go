@@ -14,6 +14,7 @@ import (
 	reflect "reflect"
 
 	permission "github.com/juju/juju/core/permission"
+	permission0 "github.com/juju/juju/domain/permission"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -41,7 +42,7 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 }
 
 // CreatePermission mocks base method.
-func (m *MockState) CreatePermission(arg0 context.Context, arg1 UserAccessSpec) (permission.UserAccess, error) {
+func (m *MockState) CreatePermission(arg0 context.Context, arg1 permission0.UserAccessSpec) (permission.UserAccess, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreatePermission", arg0, arg1)
 	ret0, _ := ret[0].(permission.UserAccess)
@@ -144,16 +145,16 @@ func (mr *MockStateMockRecorder) ReadUserAccessLevelForTarget(arg0, arg1, arg2 a
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadUserAccessLevelForTarget", reflect.TypeOf((*MockState)(nil).ReadUserAccessLevelForTarget), arg0, arg1, arg2)
 }
 
-// UpdatePermission mocks base method.
-func (m *MockState) UpdatePermission(arg0 context.Context, arg1 string, arg2 permission.ID, arg3 permission.Access) error {
+// UpsertPermission mocks base method.
+func (m *MockState) UpsertPermission(arg0 context.Context, arg1 permission0.UpsertPermissionArgs) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdatePermission", arg0, arg1, arg2, arg3)
+	ret := m.ctrl.Call(m, "UpsertPermission", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// UpdatePermission indicates an expected call of UpdatePermission.
-func (mr *MockStateMockRecorder) UpdatePermission(arg0, arg1, arg2, arg3 any) *gomock.Call {
+// UpsertPermission indicates an expected call of UpsertPermission.
+func (mr *MockStateMockRecorder) UpsertPermission(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdatePermission", reflect.TypeOf((*MockState)(nil).UpdatePermission), arg0, arg1, arg2, arg3)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpsertPermission", reflect.TypeOf((*MockState)(nil).UpsertPermission), arg0, arg1)
 }

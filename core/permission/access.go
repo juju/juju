@@ -8,6 +8,13 @@ import (
 	"github.com/juju/names/v5"
 )
 
+type AccessChange string
+
+const (
+	Grant  AccessChange = "grant"
+	Revoke AccessChange = "revoke"
+)
+
 // Access represents a level of access.
 type Access string
 
