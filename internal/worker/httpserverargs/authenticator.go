@@ -63,7 +63,7 @@ func NewStateAuthenticator(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	agentAuthFactory := authentication.NewAgentAuthenticatorFactory(userService, systemState, nil)
+	agentAuthFactory := authentication.NewAgentAuthenticatorFactory(systemState, nil)
 	stateAuthenticator, err := stateauthenticator.NewAuthenticator(statePool, systemState, controllerConfigService, userService, agentAuthFactory, clock)
 	if err != nil {
 		return nil, errors.Trace(err)

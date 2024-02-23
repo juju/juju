@@ -360,7 +360,7 @@ func (s *ApiServerSuite) setupApiServer(c *gc.C, controllerCfg controller.Config
 
 	systemState, err := cfg.StatePool.SystemState()
 	c.Assert(err, jc.ErrorIsNil)
-	agentAuthFactory := authentication.NewAgentAuthenticatorFactory(factory.User(), systemState, nil)
+	agentAuthFactory := authentication.NewAgentAuthenticatorFactory(systemState, nil)
 
 	authenticator, err := stateauthenticator.NewAuthenticator(cfg.StatePool, systemState, factory.ControllerConfig(), factory.User(), agentAuthFactory, cfg.Clock)
 	c.Assert(err, jc.ErrorIsNil)

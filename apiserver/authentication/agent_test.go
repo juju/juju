@@ -116,7 +116,6 @@ func (s *agentAuthenticatorSuite) TestValidLogins(c *gc.C) {
 	for i, t := range testCases {
 		c.Logf("test %d: %s", i, t.about)
 		factory := authentication.NewAgentAuthenticatorFactory(
-			s.ControllerServiceFactory(c).User(),
 			st,
 			jujutesting.NewCheckLogger(c),
 		)
@@ -163,7 +162,6 @@ func (s *agentAuthenticatorSuite) TestInvalidLogins(c *gc.C) {
 	for i, t := range testCases {
 		c.Logf("test %d: %s", i, t.about)
 		factory := authentication.NewAgentAuthenticatorFactory(
-			s.ControllerServiceFactory(c).User(),
 			st,
 			jujutesting.NewCheckLogger(c),
 		)

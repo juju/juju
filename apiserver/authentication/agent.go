@@ -21,16 +21,14 @@ type Logger interface {
 // AgentAuthenticatorFactory is a factory for creating authenticators, which
 // can create authenticators for a given state.
 type AgentAuthenticatorFactory struct {
-	userService UserService
 	legacyState *state.State
 	logger      Logger
 }
 
 // NewAgentAuthenticatorFactory returns a new agent authenticator factory, for
 // a known state.
-func NewAgentAuthenticatorFactory(userService UserService, legacyState *state.State, logger Logger) AgentAuthenticatorFactory {
+func NewAgentAuthenticatorFactory(legacyState *state.State, logger Logger) AgentAuthenticatorFactory {
 	return AgentAuthenticatorFactory{
-		userService: userService,
 		legacyState: legacyState,
 		logger:      logger,
 	}
@@ -39,25 +37,22 @@ func NewAgentAuthenticatorFactory(userService UserService, legacyState *state.St
 // Authenticator returns an authenticator using the factory's state.
 func (f AgentAuthenticatorFactory) Authenticator() EntityAuthenticator {
 	return agentAuthenticator{
-		userService: f.userService,
-		state:       f.legacyState,
-		logger:      f.logger,
+		state:  f.legacyState,
+		logger: f.logger,
 	}
 }
 
 // AuthenticatorForState returns an authenticator for the given state.
 func (f AgentAuthenticatorFactory) AuthenticatorForState(st *state.State) EntityAuthenticator {
 	return agentAuthenticator{
-		userService: f.userService,
-		state:       st,
-		logger:      f.logger,
+		state:  st,
+		logger: f.logger,
 	}
 }
 
 type agentAuthenticator struct {
-	userService UserService
-	state       *state.State
-	logger      Logger
+	state  *state.State
+	logger Logger
 }
 
 var _ EntityAuthenticator = (*agentAuthenticator)(nil)

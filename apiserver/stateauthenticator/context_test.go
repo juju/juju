@@ -57,7 +57,7 @@ func (s *macaroonCommonSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.controllerConfigService = NewMockControllerConfigService(ctrl)
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(s.ControllerConfig, nil).AnyTimes()
 
-	agentAuthFactory := authentication.NewAgentAuthenticatorFactory(s.userService, s.State, testing.NewCheckLogger(c))
+	agentAuthFactory := authentication.NewAgentAuthenticatorFactory(s.State, testing.NewCheckLogger(c))
 
 	authenticator, err := NewAuthenticator(s.StatePool, s.State, s.controllerConfigService, s.userService, agentAuthFactory, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
