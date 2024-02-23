@@ -11,7 +11,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/database"
-	"github.com/juju/juju/domain/model"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/domain/modelmanager/state"
 )
 
@@ -21,7 +21,7 @@ import (
 // exists with a database attached to it. The following errors can occur:
 // - errors.NotValid: If the model uuid provided is not valid.
 // - modelerrors.AlreadyExists: If the model uuid has already been registered.
-func RegisterModel(uuid model.UUID) func(context.Context, database.TxnRunner) error {
+func RegisterModel(uuid coremodel.UUID) func(context.Context, database.TxnRunner) error {
 	return func(ctx context.Context, db database.TxnRunner) error {
 		if err := uuid.Validate(); err != nil {
 			return fmt.Errorf("model uuid is %w", errors.NotValid)

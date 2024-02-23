@@ -18,13 +18,13 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/changestream"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/core/watcher/watchertest"
 	dbcloud "github.com/juju/juju/domain/cloud/state"
 	"github.com/juju/juju/domain/credential"
-	"github.com/juju/juju/domain/model"
 	userstate "github.com/juju/juju/domain/user/state"
 	changestreamtesting "github.com/juju/juju/internal/changestream/testing"
 	"github.com/juju/juju/internal/uuid"
@@ -606,8 +606,8 @@ func (s *credentialSuite) TestModelsUsingCloudCredential(c *gc.C) {
 		Name:  "foobar",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, map[model.UUID]string{
-		model.UUID(modelUUID):  "mymodel",
-		model.UUID(modelUUID2): "mymodel2",
+	c.Assert(result, jc.DeepEquals, map[coremodel.UUID]string{
+		coremodel.UUID(modelUUID):  "mymodel",
+		coremodel.UUID(modelUUID2): "mymodel2",
 	})
 }

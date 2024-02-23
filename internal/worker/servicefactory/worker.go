@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
-	"github.com/juju/juju/domain/model"
+	coremodel "github.com/juju/juju/core/model"
 	domainservicefactory "github.com/juju/juju/domain/servicefactory"
 	"github.com/juju/juju/internal/servicefactory"
 )
@@ -131,7 +131,7 @@ func (s *serviceFactoryGetter) FactoryForModel(modelUUID string) servicefactory.
 	return &serviceFactory{
 		ControllerServiceFactory: s.ctrlFactory,
 		ModelServiceFactory: s.newModelServiceFactory(
-			model.UUID(modelUUID), s.dbGetter, s.logger,
+			coremodel.UUID(modelUUID), s.dbGetter, s.logger,
 		),
 	}
 }

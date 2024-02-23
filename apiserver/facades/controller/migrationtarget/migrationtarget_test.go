@@ -31,12 +31,12 @@ import (
 	"github.com/juju/juju/core/facades"
 	"github.com/juju/juju/core/instance"
 	corelogger "github.com/juju/juju/core/logger"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/modelmigration"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/credential"
 	"github.com/juju/juju/domain/credential/service"
 	machineservice "github.com/juju/juju/domain/machine/service"
-	"github.com/juju/juju/domain/model"
 	servicefactorytesting "github.com/juju/juju/domain/servicefactory/testing"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/envcontext"
@@ -647,7 +647,7 @@ func (s *Suite) newAPI(environFunc stateenvirons.NewEnvironFunc, brokerFunc stat
 		s.cloudService,
 		s.credentialService,
 		s.credentialValidator,
-		func(ctx context.Context, modelUUID model.UUID) (service.CredentialValidationContext, error) {
+		func(ctx context.Context, modelUUID coremodel.UUID) (service.CredentialValidationContext, error) {
 			return service.CredentialValidationContext{}, nil
 		},
 		func() (envcontext.ModelCredentialInvalidatorFunc, error) {

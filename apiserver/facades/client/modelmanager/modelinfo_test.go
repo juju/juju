@@ -29,13 +29,13 @@ import (
 	"github.com/juju/juju/core/assumes"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/domain/model"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
@@ -1295,17 +1295,17 @@ func (m *mockMigration) EndTime() time.Time {
 
 type mockModelManagerService struct{}
 
-func (mockModelManagerService) Create(_ stdcontext.Context, _ model.UUID) error {
+func (mockModelManagerService) Create(_ stdcontext.Context, _ coremodel.UUID) error {
 	return nil
 }
 
-func (mockModelManagerService) Delete(_ stdcontext.Context, _ model.UUID) error {
+func (mockModelManagerService) Delete(_ stdcontext.Context, _ coremodel.UUID) error {
 	return nil
 }
 
 type mockModelService struct{}
 
-func (mockModelService) DeleteModel(_ stdcontext.Context, _ model.UUID) error {
+func (mockModelService) DeleteModel(_ stdcontext.Context, _ coremodel.UUID) error {
 	return nil
 }
 

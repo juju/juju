@@ -223,7 +223,7 @@ func (b *AgentBootstrap) Initialize(ctx stdcontext.Context) (_ *state.Controller
 	// and a function to insert it into the database.
 	adminUserUUID, addAdminUser := userbootstrap.AddUserWithPassword(b.adminUser.Name(), auth.NewPassword(info.Password))
 
-	controllerModelUUID := modeldomain.UUID(
+	controllerModelUUID := coremodel.UUID(
 		stateParams.ControllerModelConfig.UUID(),
 	)
 	controllerModelArgs := modeldomain.ModelCreationArgs{

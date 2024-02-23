@@ -21,10 +21,10 @@ import (
 
 	"github.com/juju/juju/controller"
 	coremigration "github.com/juju/juju/core/migration"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/resources"
 	resourcetesting "github.com/juju/juju/core/resources/testing"
-	domainmodel "github.com/juju/juju/domain/model"
 	"github.com/juju/juju/internal/migration"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/state"
@@ -261,7 +261,7 @@ func (s *ImportSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.modelManagerService = NewMockModelManagerService(ctrl)
-	s.modelManagerService.EXPECT().Create(gomock.Any(), domainmodel.UUID("bd3fae18-5ea1-4bc5-8837-45400cf1f8f6"))
+	s.modelManagerService.EXPECT().Create(gomock.Any(), coremodel.UUID("bd3fae18-5ea1-4bc5-8837-45400cf1f8f6"))
 	s.controllerConfigService = NewMockControllerConfigService(ctrl)
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(jujutesting.FakeControllerConfig(), nil).AnyTimes()
 

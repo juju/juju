@@ -13,9 +13,9 @@ import (
 	context "context"
 	reflect "reflect"
 
+	model "github.com/juju/juju/core/model"
 	upgrade "github.com/juju/juju/core/upgrade"
 	watcher "github.com/juju/juju/core/watcher"
-	model "github.com/juju/juju/domain/model"
 	upgrade0 "github.com/juju/juju/domain/upgrade"
 	version "github.com/juju/version/v2"
 	gomock "go.uber.org/mock/gomock"

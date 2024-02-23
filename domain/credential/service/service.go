@@ -14,10 +14,10 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/changestream"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/credential"
 	credentialerrors "github.com/juju/juju/domain/credential/errors"
-	"github.com/juju/juju/domain/model"
 )
 
 // WatcherFactory instances return a watcher for a specified credential UUID,
@@ -58,11 +58,11 @@ type State interface {
 	) (watcher.NotifyWatcher, error)
 
 	// ModelsUsingCloudCredential returns a map of uuid->name for models which use the credential.
-	ModelsUsingCloudCredential(ctx context.Context, id credential.ID) (map[model.UUID]string, error)
+	ModelsUsingCloudCredential(ctx context.Context, id credential.ID) (map[coremodel.UUID]string, error)
 }
 
 // ValidationContextGetter returns the artefacts for a specified model, used to make credential validation calls.
-type ValidationContextGetter func(ctx context.Context, modelUUID model.UUID) (CredentialValidationContext, error)
+type ValidationContextGetter func(ctx context.Context, modelUUID coremodel.UUID) (CredentialValidationContext, error)
 
 // Logger facilitates emitting log messages.
 type Logger interface {
@@ -210,7 +210,7 @@ func (s *Service) InvalidateCredential(ctx context.Context, id credential.ID, re
 	return s.st.InvalidateCloudCredential(ctx, id, reason)
 }
 
-func (s *Service) modelsUsingCredential(ctx context.Context, id credential.ID) (map[model.UUID]string, error) {
+func (s *Service) modelsUsingCredential(ctx context.Context, id credential.ID) (map[coremodel.UUID]string, error) {
 	models, err := s.st.ModelsUsingCloudCredential(ctx, id)
 	if err != nil && !errors.Is(err, errors.NotFound) {
 		return nil, errors.Trace(err)
@@ -218,7 +218,7 @@ func (s *Service) modelsUsingCredential(ctx context.Context, id credential.ID) (
 	return models, nil
 }
 
-func (s *Service) validateCredentialForModel(ctx context.Context, modelUUID model.UUID, id credential.ID, cred *cloud.Credential) ([]error, error) {
+func (s *Service) validateCredentialForModel(ctx context.Context, modelUUID coremodel.UUID, id credential.ID, cred *cloud.Credential) ([]error, error) {
 	if s.validator == nil || s.validationContextGetter == nil {
 		return nil, errors.Errorf("missing validation helpers")
 	}
@@ -239,7 +239,7 @@ func (s *Service) validateCredentialForModel(ctx context.Context, modelUUID mode
 // errors encountered validating the credential.
 type UpdateCredentialModelResult struct {
 	// ModelUUID contains model's UUID.
-	ModelUUID model.UUID
+	ModelUUID coremodel.UUID
 
 	// ModelName contains model name.
 	ModelName string
@@ -379,7 +379,7 @@ func plural(length int) string {
 	return "s"
 }
 
-func modelsPretty(in map[model.UUID]string) string {
+func modelsPretty(in map[coremodel.UUID]string) string {
 	// map keys are notoriously randomly ordered
 	uuids := []string{}
 	for uuid := range in {

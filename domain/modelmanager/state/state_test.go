@@ -9,10 +9,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	coremodel "github.com/juju/juju/core/model"
+	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/domain"
-	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
-	modeltesting "github.com/juju/juju/domain/model/testing"
 	"github.com/juju/juju/domain/modelmanager/state"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 )
@@ -68,13 +68,13 @@ func (s *stateSuite) TestStateList(c *gc.C) {
 
 	models, err := st.List(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(models, gc.DeepEquals, []model.UUID{uuid})
+	c.Check(models, gc.DeepEquals, []coremodel.UUID{uuid})
 }
 
 func (s *stateSuite) TestStateListMultipleItems(c *gc.C) {
 	st := state.NewState(s.TxnRunnerFactory())
 
-	var uuids []model.UUID
+	var uuids []coremodel.UUID
 	for i := 0; i < 10; i++ {
 		uuid := modeltesting.GenModelUUID(c)
 

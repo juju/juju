@@ -17,10 +17,10 @@ import (
 
 	"github.com/juju/juju/agent"
 	coredatabase "github.com/juju/juju/core/database"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/upgrade"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
-	"github.com/juju/juju/domain/model"
 	"github.com/juju/juju/domain/schema"
 	domainupgrade "github.com/juju/juju/domain/upgrade"
 	upgradeerrors "github.com/juju/juju/domain/upgrade/errors"
@@ -66,7 +66,7 @@ type ModelManagerService interface {
 	// ModelList returns a list of all model UUIDs.
 	// This only includes active models from the perspective of dqlite. These
 	// are not the same as alive models.
-	ModelList(context.Context) ([]model.UUID, error)
+	ModelList(context.Context) ([]coremodel.UUID, error)
 }
 
 // Config holds the configuration for the worker.
@@ -472,7 +472,7 @@ func (w *upgradeDBWorker) upgradeModels(ctx context.Context) error {
 	return nil
 }
 
-func (w *upgradeDBWorker) upgradeModel(ctx context.Context, modelUUID model.UUID) error {
+func (w *upgradeDBWorker) upgradeModel(ctx context.Context, modelUUID coremodel.UUID) error {
 	db, err := w.dbGetter.GetDB(modelUUID.String())
 	if err != nil {
 		return errors.Annotatef(err, "model db %s", modelUUID)

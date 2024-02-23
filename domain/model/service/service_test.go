@@ -15,11 +15,11 @@ import (
 	. "gopkg.in/check.v1"
 
 	coremodel "github.com/juju/juju/core/model"
+	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/credential"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
-	modeltesting "github.com/juju/juju/domain/model/testing"
 	usererrors "github.com/juju/juju/domain/user/errors"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -31,14 +31,14 @@ type dummyStateCloud struct {
 
 type dummyState struct {
 	clouds map[string]dummyStateCloud
-	models map[model.UUID]model.ModelCreationArgs
+	models map[coremodel.UUID]model.ModelCreationArgs
 	users  set.Strings
 }
 
 type serviceSuite struct {
 	testing.IsolationSuite
 
-	modelUUID model.UUID
+	modelUUID coremodel.UUID
 	userUUID  user.UUID
 	state     *dummyState
 }
@@ -47,7 +47,7 @@ var _ = Suite(&serviceSuite{})
 
 func (d *dummyState) Create(
 	_ context.Context,
-	uuid model.UUID,
+	uuid coremodel.UUID,
 	args model.ModelCreationArgs,
 ) error {
 	if _, exists := d.models[uuid]; exists {
@@ -91,7 +91,7 @@ func (d *dummyState) Create(
 
 func (d *dummyState) Delete(
 	_ context.Context,
-	uuid model.UUID,
+	uuid coremodel.UUID,
 ) error {
 	if _, exists := d.models[uuid]; !exists {
 		return fmt.Errorf("%w %q", modelerrors.NotFound, uuid)
@@ -102,7 +102,7 @@ func (d *dummyState) Delete(
 
 func (d *dummyState) UpdateCredential(
 	_ context.Context,
-	uuid model.UUID,
+	uuid coremodel.UUID,
 	credentialId credential.ID,
 ) error {
 	info, exists := d.models[uuid]
@@ -133,7 +133,7 @@ func (s *serviceSuite) SetUpTest(c *C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.state = &dummyState{
 		clouds: map[string]dummyStateCloud{},
-		models: map[model.UUID]model.ModelCreationArgs{},
+		models: map[coremodel.UUID]model.ModelCreationArgs{},
 		users:  set.NewStrings(s.userUUID.String()),
 	}
 }
@@ -282,11 +282,10 @@ func (s *serviceSuite) TestModelCreationNameOwnerConflict(c *C) {
 }
 
 func (s *serviceSuite) TestUpdateModelCredentialForInvalidModel(c *C) {
-	id, err := model.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	id := modeltesting.GenModelUUID(c)
 
 	svc := NewService(s.state, DefaultAgentBinaryFinder())
-	err = svc.UpdateCredential(context.Background(), id, credential.ID{
+	err := svc.UpdateCredential(context.Background(), id, credential.ID{
 		Owner: s.userUUID.String(),
 		Name:  "foo",
 		Cloud: "aws",

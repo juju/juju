@@ -13,7 +13,7 @@ import (
 	context "context"
 	reflect "reflect"
 
-	model "github.com/juju/juju/domain/model"
+	model "github.com/juju/juju/core/model"
 	gomock "go.uber.org/mock/gomock"
 )
 

@@ -14,9 +14,9 @@ import (
 	reflect "reflect"
 
 	changestream "github.com/juju/juju/core/changestream"
+	model "github.com/juju/juju/core/model"
 	watcher "github.com/juju/juju/core/watcher"
 	credential "github.com/juju/juju/domain/credential"
-	model "github.com/juju/juju/domain/model"
 	gomock "go.uber.org/mock/gomock"
 )
 

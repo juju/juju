@@ -14,7 +14,7 @@ import (
 	reflect "reflect"
 
 	controller "github.com/juju/juju/controller"
-	model "github.com/juju/juju/domain/model"
+	model "github.com/juju/juju/core/model"
 	gomock "go.uber.org/mock/gomock"
 )
 

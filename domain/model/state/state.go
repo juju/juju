@@ -43,7 +43,7 @@ func NewState(
 // will be returned.
 func (s *State) Create(
 	ctx context.Context,
-	uuid model.UUID,
+	uuid coremodel.UUID,
 	input model.ModelCreationArgs,
 ) error {
 	db, err := s.DB()
@@ -64,7 +64,7 @@ func (s *State) Create(
 // will be returned.
 func Create(
 	ctx context.Context,
-	uuid model.UUID,
+	uuid coremodel.UUID,
 	input model.ModelCreationArgs,
 	tx *sql.Tx,
 ) error {
@@ -86,7 +86,7 @@ func Create(
 // createModel is responsible for establishing the existence of a new model
 // without any associated metadata. If a model with the supplied UUID already
 // exists then an error that satisfies modelerrors.AlreadyExists is returned.
-func createModel(ctx context.Context, uuid model.UUID, tx *sql.Tx) error {
+func createModel(ctx context.Context, uuid coremodel.UUID, tx *sql.Tx) error {
 	stmt := "INSERT INTO model_list (uuid) VALUES (?);"
 	result, err := tx.ExecContext(ctx, stmt, uuid)
 	if jujudb.IsErrConstraintPrimaryKey(err) {
@@ -109,7 +109,7 @@ func createModel(ctx context.Context, uuid model.UUID, tx *sql.Tx) error {
 // model exists for the provided UUID then a [modelerrors.NotFound] is returned.
 func createModelAgent(
 	ctx context.Context,
-	modelUUID model.UUID,
+	modelUUID coremodel.UUID,
 	agentVersion version.Number,
 	tx *sql.Tx,
 ) error {
@@ -160,7 +160,7 @@ INSERT INTO model_agent (model_uuid, previous_version, target_version)
 // will be returned.
 func createModelMetadata(
 	ctx context.Context,
-	uuid model.UUID,
+	uuid coremodel.UUID,
 	input model.ModelCreationArgs,
 	tx *sql.Tx,
 ) error {
@@ -242,7 +242,7 @@ WHERE model_type.type = ?
 // satisfying modelerrors.NotFound will be returned.
 func (s *State) Delete(
 	ctx context.Context,
-	uuid model.UUID,
+	uuid coremodel.UUID,
 ) error {
 	db, err := s.DB()
 	if err != nil {
@@ -314,7 +314,7 @@ SELECT type FROM model_type;
 // errors.NotFound will be returned.
 func setCloudRegion(
 	ctx context.Context,
-	uuid model.UUID,
+	uuid coremodel.UUID,
 	region string,
 	tx *sql.Tx,
 ) error {
@@ -383,7 +383,7 @@ AND cloud_region_uuid IS NULL
 // set for the model then an error that satisfies errors.NotValid is returned.
 func (s *State) UpdateCredential(
 	ctx context.Context,
-	uuid model.UUID,
+	uuid coremodel.UUID,
 	id credential.ID,
 ) error {
 	db, err := s.DB()
@@ -403,7 +403,7 @@ func (s *State) UpdateCredential(
 // set for the model then an error that satisfies errors.NotValid is returned.
 func updateCredential(
 	ctx context.Context,
-	uuid model.UUID,
+	uuid coremodel.UUID,
 	id credential.ID,
 	tx *sql.Tx,
 ) error {

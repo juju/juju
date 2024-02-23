@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/core/facades"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/domain/credential/service"
-	"github.com/juju/juju/domain/model"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/state/stateenvirons"
 )
@@ -61,7 +60,7 @@ func newFacade(ctx facade.Context, facadeVersions facades.FacadeVersions) (*API,
 		return nil, errors.Trace(err)
 	}
 
-	credentialCallContextGetter := func(stdctx context.Context, modelUUID model.UUID) (service.CredentialValidationContext, error) {
+	credentialCallContextGetter := func(stdctx context.Context, modelUUID coremodel.UUID) (service.CredentialValidationContext, error) {
 		modelState, err := ctx.StatePool().Get(string(modelUUID))
 		if err != nil {
 			return service.CredentialValidationContext{}, err

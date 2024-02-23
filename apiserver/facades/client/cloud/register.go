@@ -13,7 +13,6 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/domain/credential/service"
-	"github.com/juju/juju/domain/model"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -34,8 +33,8 @@ func newFacadeV7(context facade.Context) (*CloudAPI, error) {
 		WithLegacyUpdater(systemState.CloudCredentialUpdated).
 		WithLegacyRemover(systemState.RemoveModelsCredential)
 
-	credentialCallContextGetter := func(ctx stdcontext.Context, modelUUID model.UUID) (service.CredentialValidationContext, error) {
-		modelState, err := context.StatePool().Get(string(modelUUID))
+	credentialCallContextGetter := func(ctx stdcontext.Context, modelUUID coremodel.UUID) (service.CredentialValidationContext, error) {
+		modelState, err := context.StatePool().Get(modelUUID.String())
 		if err != nil {
 			return service.CredentialValidationContext{}, err
 		}

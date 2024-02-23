@@ -24,12 +24,11 @@ import (
 	"github.com/juju/juju/core/facades"
 	corelogger "github.com/juju/juju/core/logger"
 	coremigration "github.com/juju/juju/core/migration"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/credential"
 	credentialservice "github.com/juju/juju/domain/credential/service"
-	"github.com/juju/juju/domain/model"
-	domainmodel "github.com/juju/juju/domain/model"
 	"github.com/juju/juju/environs"
 	environscontext "github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/migration"
@@ -66,7 +65,7 @@ type ControllerConfigService interface {
 
 // ModelManagerService describes the method needed to update model metadata.
 type ModelManagerService interface {
-	Create(context.Context, domainmodel.UUID) error
+	Create(context.Context, coremodel.UUID) error
 }
 
 // UpgradeService provides a subset of the upgrade domain service methods.
@@ -495,7 +494,7 @@ func (api *API) CheckMachines(ctx context.Context, args params.ModelArgs) (param
 		return params.ErrorResults{}, errors.NotValidf("credential %q", storedCredential.Label)
 	}
 
-	callCtx, err := api.credentialCallContextGetter(ctx, model.UUID(m.UUID()))
+	callCtx, err := api.credentialCallContextGetter(ctx, coremodel.UUID(m.UUID()))
 	if err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}

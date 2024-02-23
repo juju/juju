@@ -13,13 +13,13 @@ import (
 
 	"github.com/juju/juju/cloud"
 	coremodel "github.com/juju/juju/core/model"
+	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/user"
 	dbcloud "github.com/juju/juju/domain/cloud/state"
 	"github.com/juju/juju/domain/credential"
 	credentialstate "github.com/juju/juju/domain/credential/state"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
-	modeltesting "github.com/juju/juju/domain/model/testing"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	usererrors "github.com/juju/juju/domain/user/errors"
 	userstate "github.com/juju/juju/domain/user/state"
@@ -28,7 +28,7 @@ import (
 
 type modelSuite struct {
 	schematesting.ControllerSuite
-	uuid     model.UUID
+	uuid     coremodel.UUID
 	userUUID user.UUID
 	userName string
 }
