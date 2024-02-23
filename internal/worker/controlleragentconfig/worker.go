@@ -193,11 +193,6 @@ func (w *configWorker) loop() error {
 		case <-w.reloadRequested:
 			w.reportInternalState(stateReload)
 
-			// Empty channel of extra reload requests.
-			for len(w.reloadRequested) > 0 {
-				<-w.reloadRequested
-			}
-
 			w.cfg.Logger.Infof("reload config request received, reloading config")
 
 			for _, name := range w.runner.WorkerNames() {
