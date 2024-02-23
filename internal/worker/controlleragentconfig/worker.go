@@ -143,8 +143,11 @@ func (w *configWorker) registerHandlers(r *mux.Router) {
 func (w *configWorker) reloadHandler(resp http.ResponseWriter, req *http.Request) {
 	select {
 	case <-w.catacomb.Dying():
+		resp.WriteHeader(http.StatusInternalServerError)
 	case <-req.Context().Done():
+		resp.WriteHeader(http.StatusInternalServerError)
 	case w.reloadRequested <- struct{}{}:
+		resp.WriteHeader(http.StatusNoContent)
 	}
 }
 

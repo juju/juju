@@ -372,7 +372,7 @@ func (s *workerSuite) ensureReload(c *gc.C, states chan string) {
 func (s *workerSuite) requestReload(c *gc.C, socket string) {
 	resp, err := newRequest(c, socket, "/reload")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(resp.StatusCode, gc.Equals, http.StatusOK)
+	c.Assert(resp.StatusCode, gc.Equals, http.StatusNoContent)
 }
 
 func (s *workerSuite) ensureReloadRequestRefused(c *gc.C, socket string) {
