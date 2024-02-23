@@ -41,12 +41,12 @@ import (
 	"github.com/juju/juju/internal/container"
 	"github.com/juju/juju/internal/container/broker"
 	"github.com/juju/juju/internal/password"
+	providercommon "github.com/juju/juju/internal/provider/common"
 	"github.com/juju/juju/internal/storage"
 	coretools "github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/internal/worker/common"
 	"github.com/juju/juju/internal/wrench"
-	providercommon "github.com/juju/juju/provider/common"
 	"github.com/juju/juju/rpc/params"
 )
 

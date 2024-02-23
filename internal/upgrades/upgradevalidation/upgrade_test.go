@@ -12,9 +12,9 @@ import (
 	gc "gopkg.in/check.v1"
 
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
+	"github.com/juju/juju/internal/provider/lxd"
 	"github.com/juju/juju/internal/upgrades/upgradevalidation"
 	"github.com/juju/juju/internal/upgrades/upgradevalidation/mocks"
-	"github.com/juju/juju/provider/lxd"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 )

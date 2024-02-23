@@ -37,6 +37,7 @@ import (
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/machinelock"
 	coreos "github.com/juju/juju/core/os"
+	_ "github.com/juju/juju/internal/provider/all" // Import the providers.
 	proxy "github.com/juju/juju/internal/proxy/config"
 	_ "github.com/juju/juju/internal/secrets/provider/all" // Import the secret providers.
 	"github.com/juju/juju/internal/upgrades"
@@ -46,7 +47,6 @@ import (
 	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/juju/sockets"
-	_ "github.com/juju/juju/provider/all" // Import the providers.
 	"github.com/juju/juju/state"
 	jujuversion "github.com/juju/juju/version"
 )

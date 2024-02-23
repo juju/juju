@@ -11,7 +11,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/provider/lxd/lxdnames"
+	"github.com/juju/juju/internal/provider/lxd/lxdnames"
 )
 
 // WhiteList contains a cloud compatibility matrix:

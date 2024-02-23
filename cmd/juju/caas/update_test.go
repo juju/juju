@@ -23,8 +23,8 @@ import (
 	"github.com/juju/juju/caas/kubernetes/provider/proxy"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/caas"
+	_ "github.com/juju/juju/internal/provider/maas"
 	"github.com/juju/juju/jujuclient"
-	_ "github.com/juju/juju/provider/maas"
 	"github.com/juju/juju/rpc/params"
 )
 

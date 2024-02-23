@@ -20,7 +20,7 @@ import (
 	network "github.com/juju/juju/core/network"
 	environs "github.com/juju/juju/environs"
 	lxd0 "github.com/juju/juju/internal/container/lxd"
-	lxd1 "github.com/juju/juju/provider/lxd"
+	lxd1 "github.com/juju/juju/internal/provider/lxd"
 	gomock "go.uber.org/mock/gomock"
 )
 

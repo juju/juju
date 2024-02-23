@@ -25,8 +25,8 @@ import (
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/envcontext"
+	_ "github.com/juju/juju/internal/provider/dummy"
 	"github.com/juju/juju/jujuclient"
-	_ "github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/testing"
 )

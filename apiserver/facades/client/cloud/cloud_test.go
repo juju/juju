@@ -25,7 +25,7 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/domain/credential"
 	credentialservice "github.com/juju/juju/domain/credential/service"
-	_ "github.com/juju/juju/provider/dummy"
+	_ "github.com/juju/juju/internal/provider/dummy"
 	"github.com/juju/juju/rpc/params"
 	coretesting "github.com/juju/juju/testing"
 )

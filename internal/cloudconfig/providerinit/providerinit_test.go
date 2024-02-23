@@ -24,8 +24,8 @@ import (
 	"github.com/juju/juju/internal/cloudconfig/cloudinit"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/cloudconfig/providerinit"
+	"github.com/juju/juju/internal/provider/openstack"
 	"github.com/juju/juju/internal/tools"
-	"github.com/juju/juju/provider/openstack"
 	"github.com/juju/juju/testing"
 )
 
