@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"sort"
 
-	charmresource "github.com/juju/charm/v13/resource"
 	"github.com/juju/errors"
+	charmresource "github.com/juju/juju/charm/resource"
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/core/resources"

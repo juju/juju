@@ -4,8 +4,8 @@
 package bundle
 
 import (
-	"github.com/juju/charm/v13"
 	"github.com/juju/description/v5"
+	"github.com/juju/juju/charm"
 
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/state"

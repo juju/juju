@@ -11,8 +11,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
+	"github.com/juju/juju/charm"
 	"github.com/juju/schema"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"

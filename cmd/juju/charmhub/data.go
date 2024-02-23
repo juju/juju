@@ -4,7 +4,7 @@
 package charmhub
 
 import (
-	"github.com/juju/charm/v13"
+	"github.com/juju/juju/charm"
 )
 
 const (

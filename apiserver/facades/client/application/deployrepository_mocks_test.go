@@ -13,7 +13,7 @@ import (
 	context "context"
 	reflect "reflect"
 
-	resource "github.com/juju/charm/v13/resource"
+	resource "github.com/juju/juju/charm/resource"
 	controller "github.com/juju/juju/controller"
 	constraints "github.com/juju/juju/core/constraints"
 	instance "github.com/juju/juju/core/instance"

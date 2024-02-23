@@ -9,8 +9,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/juju/charm/v13/resource"
 	"github.com/juju/errors"
+	"github.com/juju/juju/charm/resource"
 	"github.com/juju/loggo/v2"
 
 	"github.com/juju/juju/core/charm/metrics"

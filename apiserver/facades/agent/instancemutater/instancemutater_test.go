@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
+	"github.com/juju/juju/charm"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	coretesting "github.com/juju/testing"

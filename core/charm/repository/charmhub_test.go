@@ -9,10 +9,10 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/juju/charm/v13"
-	charmresource "github.com/juju/charm/v13/resource"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/juju/charm"
+	charmresource "github.com/juju/juju/charm/resource"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4/hash"

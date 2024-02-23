@@ -4,7 +4,7 @@
 package ssh
 
 import (
-	"github.com/juju/charm/v13"
+	"github.com/juju/juju/charm"
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/api/client/application"

@@ -6,7 +6,7 @@ package application_test
 import (
 	"fmt"
 
-	"github.com/juju/charm/v13"
+	"github.com/juju/juju/charm"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/environschema.v1"

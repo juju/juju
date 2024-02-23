@@ -7,8 +7,8 @@ import (
 	"context"
 	"net/url"
 
-	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
+	"github.com/juju/juju/charm"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"

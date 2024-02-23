@@ -8,8 +8,8 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/juju/charm/v13"
 	"github.com/juju/clock/testclock"
+	"github.com/juju/juju/charm"
 	"github.com/juju/names/v5"
 	"github.com/juju/proxy"
 	jujutesting "github.com/juju/testing"

@@ -14,7 +14,7 @@ import (
 	url "net/url"
 	reflect "reflect"
 
-	charm "github.com/juju/charm/v13"
+	charm "github.com/juju/juju/charm"
 	charm0 "github.com/juju/juju/core/charm"
 	gomock "go.uber.org/mock/gomock"
 )

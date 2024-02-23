@@ -6,8 +6,8 @@ package settings
 import (
 	"fmt"
 
-	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
+	"github.com/juju/juju/charm"
 )
 
 const (

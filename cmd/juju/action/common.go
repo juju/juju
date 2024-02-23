@@ -16,12 +16,12 @@ import (
 	"time"
 
 	"github.com/juju/ansiterm"
-	"github.com/juju/charm/v13"
 	"github.com/juju/clock"
 	"github.com/juju/cmd/v4"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/juju/charm"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/mattn/go-isatty"

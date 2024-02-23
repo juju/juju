@@ -8,9 +8,9 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/juju/charm/v13/hooks"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/juju/charm/hooks"
 	utilexec "github.com/juju/utils/v4/exec"
 
 	"github.com/juju/juju/core/status"

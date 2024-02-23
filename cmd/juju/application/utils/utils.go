@@ -9,10 +9,10 @@ import (
 	"os"
 	"strconv"
 
-	charmresource "github.com/juju/charm/v13/resource"
 	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	charmresource "github.com/juju/juju/charm/resource"
 	"github.com/juju/loggo/v2"
 	"github.com/mattn/go-isatty"
 	goyaml "gopkg.in/yaml.v2"

@@ -7,8 +7,8 @@ import (
 	"context"
 	"strconv"
 
-	charmresource "github.com/juju/charm/v13/resource"
 	"github.com/juju/errors"
+	charmresource "github.com/juju/juju/charm/resource"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/client/application"

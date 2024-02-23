@@ -7,8 +7,8 @@ import (
 	"context"
 	"sync"
 
-	"github.com/juju/charm/v13/hooks"
 	"github.com/juju/errors"
+	"github.com/juju/juju/charm/hooks"
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	utilexec "github.com/juju/utils/v4/exec"

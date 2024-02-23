@@ -7,8 +7,8 @@ import (
 	"context"
 	"net/url"
 
-	charmresource "github.com/juju/charm/v13/resource"
 	"github.com/juju/errors"
+	charmresource "github.com/juju/juju/charm/resource"
 	"github.com/kr/pretty"
 
 	corelogger "github.com/juju/juju/core/logger"

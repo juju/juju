@@ -6,9 +6,9 @@ package resources
 import (
 	"context"
 
-	"github.com/juju/charm/v13"
-	charmresource "github.com/juju/charm/v13/resource"
 	"github.com/juju/errors"
+	"github.com/juju/juju/charm"
+	charmresource "github.com/juju/juju/charm/resource"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 

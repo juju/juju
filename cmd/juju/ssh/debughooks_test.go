@@ -9,10 +9,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/charm/v13"
 	"github.com/juju/clock"
 	"github.com/juju/cmd/v4/cmdtesting"
 	"github.com/juju/errors"
+	"github.com/juju/juju/charm"
 	"github.com/juju/retry"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"

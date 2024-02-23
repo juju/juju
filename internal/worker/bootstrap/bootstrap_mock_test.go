@@ -14,7 +14,7 @@ import (
 	http "net/http"
 	reflect "reflect"
 
-	charm "github.com/juju/charm/v13"
+	charm "github.com/juju/juju/charm"
 	cloud "github.com/juju/juju/cloud"
 	controller "github.com/juju/juju/controller"
 	network "github.com/juju/juju/core/network"

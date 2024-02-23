@@ -6,8 +6,8 @@ package machinemanager_test
 import (
 	"context"
 
-	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
+	"github.com/juju/juju/charm"
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"

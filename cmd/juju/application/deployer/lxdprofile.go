@@ -4,7 +4,7 @@
 package deployer
 
 import (
-	"github.com/juju/charm/v13"
+	"github.com/juju/juju/charm"
 
 	apicharms "github.com/juju/juju/api/common/charms"
 	"github.com/juju/juju/core/lxdprofile"

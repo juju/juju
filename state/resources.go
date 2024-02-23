@@ -12,10 +12,10 @@ import (
 	"strings"
 	"time"
 
-	charmresource "github.com/juju/charm/v13/resource"
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	charmresource "github.com/juju/juju/charm/resource"
 	"github.com/juju/mgo/v3"
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/mgo/v3/txn"

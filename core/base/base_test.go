@@ -4,7 +4,7 @@
 package base
 
 import (
-	"github.com/juju/charm/v13"
+	"github.com/juju/juju/charm"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"

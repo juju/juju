@@ -8,8 +8,8 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/juju/charm/v13/hooks"
 	"github.com/juju/errors"
+	"github.com/juju/juju/charm/hooks"
 
 	"github.com/juju/juju/internal/worker/uniter/hook"
 	"github.com/juju/juju/internal/worker/uniter/operation"

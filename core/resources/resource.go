@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/juju/charm/v13/resource"
 	"github.com/juju/errors"
+	"github.com/juju/juju/charm/resource"
 )
 
 // Resource defines a single resource within a Juju model.

@@ -7,8 +7,8 @@ import (
 	stdcontext "context"
 	"time"
 
-	"github.com/juju/charm/v13/hooks"
 	"github.com/juju/clock/testclock"
+	"github.com/juju/juju/charm/hooks"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"

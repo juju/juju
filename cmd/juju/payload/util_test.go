@@ -6,7 +6,7 @@ package payload
 import (
 	"fmt"
 
-	"github.com/juju/charm/v13"
+	"github.com/juju/juju/charm"
 
 	"github.com/juju/juju/core/payloads"
 )

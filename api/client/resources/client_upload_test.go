@@ -12,8 +12,8 @@ import (
 	"strings"
 	"time"
 
-	charmresource "github.com/juju/charm/v13/resource"
 	"github.com/juju/errors"
+	charmresource "github.com/juju/juju/charm/resource"
 	jc "github.com/juju/testing/checkers"
 	"github.com/kr/pretty"
 	"go.uber.org/mock/gomock"

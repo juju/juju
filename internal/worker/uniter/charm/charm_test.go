@@ -8,8 +8,8 @@ import (
 	"os"
 	"path/filepath"
 
-	jujucharm "github.com/juju/charm/v13"
 	"github.com/juju/collections/set"
+	jujucharm "github.com/juju/juju/charm"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 

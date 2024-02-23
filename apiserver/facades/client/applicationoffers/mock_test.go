@@ -11,8 +11,8 @@ import (
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/checkers"
-	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
+	"github.com/juju/juju/charm"
 	"github.com/juju/names/v5"
 	jtesting "github.com/juju/testing"
 	"gopkg.in/macaroon.v2"

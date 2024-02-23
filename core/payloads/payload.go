@@ -4,8 +4,8 @@
 package payloads
 
 import (
-	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
+	"github.com/juju/juju/charm"
 )
 
 // Payload holds information about a charm payload.

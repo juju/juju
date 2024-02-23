@@ -6,7 +6,7 @@ package resource
 import (
 	"time"
 
-	"github.com/juju/charm/v13"
+	"github.com/juju/juju/charm"
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/state"

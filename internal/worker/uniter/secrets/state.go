@@ -4,9 +4,9 @@
 package secrets
 
 import (
-	"github.com/juju/charm/v13/hooks"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/juju/charm/hooks"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/internal/worker/uniter/hook"

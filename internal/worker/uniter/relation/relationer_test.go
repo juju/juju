@@ -7,9 +7,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/juju/charm/v13"
-	"github.com/juju/charm/v13/hooks"
 	"github.com/juju/errors"
+	"github.com/juju/juju/charm"
+	"github.com/juju/juju/charm/hooks"
 	"github.com/juju/loggo/v2"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"

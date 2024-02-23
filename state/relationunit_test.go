@@ -9,9 +9,9 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/juju/charm/v13"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/juju/charm"
 	"github.com/juju/loggo/v2"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"

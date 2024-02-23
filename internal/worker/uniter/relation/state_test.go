@@ -6,7 +6,7 @@ package relation_test
 import (
 	"fmt"
 
-	"github.com/juju/charm/v13/hooks"
+	"github.com/juju/juju/charm/hooks"
 	"github.com/juju/loggo/v2"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"

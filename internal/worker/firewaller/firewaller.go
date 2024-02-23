@@ -11,10 +11,10 @@ import (
 
 	"github.com/EvilSuperstars/go-cidrman"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
-	"github.com/juju/charm/v13"
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/juju/charm"
 	"github.com/juju/names/v5"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"

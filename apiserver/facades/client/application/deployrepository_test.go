@@ -7,9 +7,9 @@ import (
 	"context"
 	"reflect"
 
-	"github.com/juju/charm/v13"
-	"github.com/juju/charm/v13/resource"
 	"github.com/juju/errors"
+	"github.com/juju/juju/charm"
+	"github.com/juju/juju/charm/resource"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"github.com/kr/pretty"

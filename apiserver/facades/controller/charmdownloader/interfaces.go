@@ -6,7 +6,7 @@ package charmdownloader
 import (
 	"context"
 
-	"github.com/juju/charm/v13"
+	"github.com/juju/juju/charm"
 	"github.com/juju/worker/v4"
 
 	"github.com/juju/juju/controller"

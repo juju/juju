@@ -4,8 +4,8 @@
 package operation_test
 
 import (
-	"github.com/juju/charm/v13/hooks"
 	"github.com/juju/errors"
+	"github.com/juju/juju/charm/hooks"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"

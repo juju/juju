@@ -10,9 +10,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/charm/v13"
-	"github.com/juju/charm/v13/assumes"
 	"github.com/juju/errors"
+	"github.com/juju/juju/charm"
+	"github.com/juju/juju/charm/assumes"
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"

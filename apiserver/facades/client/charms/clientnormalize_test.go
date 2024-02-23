@@ -4,7 +4,7 @@
 package charms
 
 import (
-	"github.com/juju/charm/v13"
+	"github.com/juju/juju/charm"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"

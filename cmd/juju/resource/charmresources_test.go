@@ -6,8 +6,8 @@ package resource_test
 import (
 	"strings"
 
-	"github.com/juju/charm/v13"
-	charmresource "github.com/juju/charm/v13/resource"
+	"github.com/juju/juju/charm"
+	charmresource "github.com/juju/juju/charm/resource"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"

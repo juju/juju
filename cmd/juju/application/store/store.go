@@ -4,8 +4,8 @@
 package store
 
 import (
-	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
+	"github.com/juju/juju/charm"
 
 	commoncharm "github.com/juju/juju/api/common/charm"
 	"github.com/juju/juju/rpc/params"

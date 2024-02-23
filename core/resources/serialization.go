@@ -4,8 +4,8 @@
 package resources
 
 import (
-	"github.com/juju/charm/v13/resource"
 	"github.com/juju/errors"
+	"github.com/juju/juju/charm/resource"
 )
 
 // DeserializeFingerprint converts the serialized fingerprint back into

@@ -11,11 +11,11 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/juju/charm/v13"
-	"github.com/juju/charm/v13/resource"
 	"github.com/juju/collections/set"
 	"github.com/juju/description/v5"
 	"github.com/juju/errors"
+	"github.com/juju/juju/charm"
+	"github.com/juju/juju/charm/resource"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"gopkg.in/yaml.v2"

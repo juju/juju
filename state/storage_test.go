@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/juju/charm/v13"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/juju/charm"
 	"github.com/juju/mgo/v3"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"

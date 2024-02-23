@@ -8,8 +8,8 @@ import (
 	"io"
 	"os"
 
-	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
+	"github.com/juju/juju/charm"
 	"github.com/juju/loggo/v2"
 
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"

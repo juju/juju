@@ -12,11 +12,11 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/juju/charm/v13"
 	"github.com/juju/clock"
 	"github.com/juju/cmd/v4"
 	"github.com/juju/cmd/v4/cmdtesting"
 	"github.com/juju/errors"
+	"github.com/juju/juju/charm"
 	"github.com/juju/mgo/v3"
 	mgotesting "github.com/juju/mgo/v3/testing"
 	"github.com/juju/names/v5"

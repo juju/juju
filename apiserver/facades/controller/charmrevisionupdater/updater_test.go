@@ -7,10 +7,10 @@ import (
 	"context"
 	"time"
 
-	"github.com/juju/charm/v13"
-	"github.com/juju/charm/v13/resource"
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
+	"github.com/juju/juju/charm"
+	"github.com/juju/juju/charm/resource"
 	"github.com/juju/loggo/v2"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
