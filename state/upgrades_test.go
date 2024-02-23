@@ -154,3 +154,104 @@ func (s *upgradesSuite) TestConvertApplicationOfferTokenKeys(c *gc.C) {
 	expectedData := upgradedData(remoteEntitiesColl, expected)
 	s.assertUpgradedData(c, ConvertApplicationOfferTokenKeys, expectedData)
 }
+
+func (s *upgradesSuite) TestFillInEmptyCharmhubTracks(c *gc.C) {
+	st := s.state
+
+	// AddTestingApplicationWithChannel(c, st, &Channel{Track: "8.0", Risk: "stable"}, "mysql", AddTestingCharm(c, st, "mysql"))
+	addTestingApplication(c, addTestingApplicationParams{
+		st: st,
+		origin: &CharmOrigin{
+			Source:  "charm-hub",
+			Channel: &Channel{Risk: "stable"},
+			Platform: &Platform{
+				OS:      "ubuntu",
+				Channel: "22.04",
+			},
+		},
+		name: "wordpress",
+		ch:   AddTestingCharm(c, st, "wordpress"),
+	})
+	addTestingApplication(c, addTestingApplicationParams{
+		st: st,
+		origin: &CharmOrigin{
+			Source:  "charm-hub",
+			Channel: &Channel{Risk: "stable", Track: "8.0"},
+			Platform: &Platform{
+				OS:      "ubuntu",
+				Channel: "22.04",
+			},
+		},
+		name: "mysql",
+		ch:   AddTestingCharm(c, st, "mysql"),
+	})
+
+	var expected bsonMById
+	expected = append(expected, bson.M{
+		"_id":         ensureModelUUID(st.ModelUUID(), "wordpress"),
+		"name":        "wordpress",
+		"model-uuid":  st.ModelUUID(),
+		"subordinate": false,
+		"charmurl":    "local:quantal/quantal-wordpress-3",
+		"charm-origin": bson.M{
+			"source": "charm-hub",
+			"channel": bson.M{
+				"track": "latest",
+				"risk":  "stable",
+			},
+			"hash": "",
+			"id":   "",
+			"platform": bson.M{
+				"os":      "ubuntu",
+				"channel": "22.04",
+			},
+		},
+		"charmmodifiedversion": 0,
+		"forcecharm":           false,
+		"life":                 0,
+		"unitcount":            0,
+		"relationcount":        0,
+		"minunits":             0,
+		"metric-credentials":   []byte{},
+		"exposed":              false,
+		"scale":                0,
+		"passwordhash":         "",
+		"provisioning-state":   nil,
+	}, bson.M{
+		"_id":         ensureModelUUID(st.ModelUUID(), "mysql"),
+		"name":        "mysql",
+		"model-uuid":  st.ModelUUID(),
+		"subordinate": false,
+		"charmurl":    "local:quantal/quantal-mysql-1",
+		"charm-origin": bson.M{
+			"source": "charm-hub",
+			"channel": bson.M{
+				"track": "8.0",
+				"risk":  "stable",
+			},
+			"hash": "",
+			"id":   "",
+			"platform": bson.M{
+				"os":      "ubuntu",
+				"channel": "22.04",
+			},
+		},
+		"charmmodifiedversion": 0,
+		"forcecharm":           false,
+		"life":                 0,
+		"unitcount":            0,
+		"relationcount":        0,
+		"minunits":             0,
+		"metric-credentials":   []byte{},
+		"exposed":              false,
+		"scale":                0,
+		"passwordhash":         "",
+		"provisioning-state":   nil,
+	})
+	sort.Sort(expected)
+
+	applications, closer := st.db().GetRawCollection(ApplicationsC)
+	defer closer()
+	expectedData := upgradedData(applications, expected)
+	s.assertUpgradedData(c, FillInEmptyCharmhubTracks, expectedData)
+}

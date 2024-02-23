@@ -170,3 +170,33 @@ func (s *sanitizeCharmOriginSuite) TestSanitizeWithRequestedEmptyValuesOSVersusC
 		},
 	})
 }
+
+func (s *sanitizeCharmOriginSuite) TestSanitizeChannel(c *gc.C) {
+	ch := corecharm.MustParseChannel("stable")
+	received := corecharm.Origin{
+		Channel: &ch,
+	}
+	got, err := sanitizeCharmOrigin(received, corecharm.Origin{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(*got.Channel, gc.Equals, corecharm.MustParseChannel("latest/stable"))
+}
+
+func (s *sanitizeCharmOriginSuite) TestSanitizeChannelNop(c *gc.C) {
+	ch := corecharm.MustParseChannel("latest/stable")
+	received := corecharm.Origin{
+		Channel: &ch,
+	}
+	got, err := sanitizeCharmOrigin(received, corecharm.Origin{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(*got.Channel, gc.Equals, corecharm.MustParseChannel("latest/stable"))
+}
+
+func (s *sanitizeCharmOriginSuite) TestSanitizeChannelNopOtherTrack(c *gc.C) {
+	ch := corecharm.MustParseChannel("5/stable")
+	received := corecharm.Origin{
+		Channel: &ch,
+	}
+	got, err := sanitizeCharmOrigin(received, corecharm.Origin{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(*got.Channel, gc.Equals, corecharm.MustParseChannel("5/stable"))
+}
