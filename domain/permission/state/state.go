@@ -27,7 +27,7 @@ type UpsertPermissionArgs struct {
 	// permission to do it as well.
 	ApiUser string
 	// What type of change to access is needed, grant or revoke?
-	Change string
+	Change permission.AccessChange
 	// Subject is the subject of the permission, e.g. user.
 	Subject string
 	// Target is the thing the subject's permission to is being

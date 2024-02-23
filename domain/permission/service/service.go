@@ -186,13 +186,6 @@ func (s *Service) ReadAllAccessTypeForUser(ctx context.Context, subject string, 
 	return userAccess, errors.Trace(err)
 }
 
-type AccessChange string
-
-const (
-	Grant  AccessChange = "grant"
-	Revoke AccessChange = "revoke"
-)
-
 // UpsertPermissionArgs are necessary arguments to run
 // UpdatePermissionOnTarget.
 type UpsertPermissionArgs struct {
@@ -204,7 +197,7 @@ type UpsertPermissionArgs struct {
 	// permission to do it as well.
 	ApiUser string
 	// What type of change to access is needed, grant or revoke?
-	Change AccessChange
+	Change permission.AccessChange
 	// Subject is the subject of the permission, e.g. user.
 	Subject string
 	// Target is the thing the subject's permission to is being
@@ -222,7 +215,7 @@ func (args UpsertPermissionArgs) validate() error {
 	if err := args.Target.ValidateAccess(args.Access); err != nil {
 		return errors.Trace(err)
 	}
-	if args.Change != Grant && args.Change != Revoke {
+	if args.Change != permission.Grant && args.Change != permission.Revoke {
 		return errors.Trace(errors.NotValidf("change %q", args.Change))
 	}
 	return nil

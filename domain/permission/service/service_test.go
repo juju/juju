@@ -91,7 +91,7 @@ func (s *serviceSuite) TestUpsertPermission(c *gc.C) {
 			Access:  permission.AddModelAccess,
 			AddUser: false,
 			ApiUser: "admin",
-			Change:  Grant,
+			Change:  permission.Grant,
 			Subject: "testme",
 			Target: permission.ID{
 				ObjectType: permission.Cloud,
