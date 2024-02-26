@@ -17,7 +17,7 @@ import (
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
-	"github.com/juju/juju/provider/common"
+	"github.com/juju/juju/internal/provider/common"
 )
 
 var logger = loggo.GetLogger("juju.environs.testing")

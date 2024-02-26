@@ -20,9 +20,9 @@ import (
 	"github.com/juju/juju/domain/credential"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/internal/migration"
+	"github.com/juju/juju/internal/provider/lxd"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/internal/upgrades/upgradevalidation"
-	"github.com/juju/juju/provider/lxd"
 	"github.com/juju/juju/state"
 )
 

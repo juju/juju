@@ -23,9 +23,9 @@ import (
 	"github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/environs"
 	environsTesting "github.com/juju/juju/environs/testing"
+	_ "github.com/juju/juju/internal/provider/dummy"
+	_ "github.com/juju/juju/internal/provider/gce"
 	"github.com/juju/juju/jujuclient"
-	_ "github.com/juju/juju/provider/dummy"
-	_ "github.com/juju/juju/provider/gce"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/testing"
 )

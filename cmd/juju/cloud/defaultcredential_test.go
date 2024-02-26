@@ -13,8 +13,8 @@ import (
 
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/cloud"
+	_ "github.com/juju/juju/internal/provider/lxd"
 	"github.com/juju/juju/jujuclient"
-	_ "github.com/juju/juju/provider/lxd"
 	"github.com/juju/juju/testing"
 )
 

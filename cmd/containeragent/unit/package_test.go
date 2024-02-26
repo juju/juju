@@ -144,6 +144,7 @@ func (*importSuite) TestImports(c *gc.C) {
 		"internal/packaging/dependency",
 		"internal/pki",
 		"internal/pki/tls",
+		"internal/provider/lxd/lxdnames",
 		"internal/proxy",
 		"internal/proxy/config",
 		"internal/pubsub/agent",
@@ -163,7 +164,6 @@ func (*importSuite) TestImports(c *gc.C) {
 		"juju/sockets",
 		"jujuclient",
 		"mongo", // TODO: move mongo dependency from JUJU CLI if we decide to split the `agent.Config` for controller and machineagent/unitagent/containeragent.
-		"provider/lxd/lxdnames",
 		"rpc",
 		"rpc/jsoncodec",
 		"rpc/params",

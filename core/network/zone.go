@@ -7,8 +7,6 @@ import "github.com/juju/errors"
 
 // AvailabilityZone describes the common methods
 // for general interaction with an AZ.
-//
-//go:generate go run go.uber.org/mock/mockgen -package mocks -destination ../../provider/common/mocks/availability_zone.go github.com/juju/juju/core/network AvailabilityZone
 type AvailabilityZone interface {
 	// Name returns the name of the availability zone.
 	Name() string

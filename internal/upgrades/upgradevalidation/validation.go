@@ -17,8 +17,8 @@ import (
 	corebase "github.com/juju/juju/core/base"
 	corelogger "github.com/juju/juju/core/logger"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
-	"github.com/juju/juju/provider/lxd"
-	"github.com/juju/juju/provider/lxd/lxdnames"
+	"github.com/juju/juju/internal/provider/lxd"
+	"github.com/juju/juju/internal/provider/lxd/lxdnames"
 	"github.com/juju/juju/state"
 )
 

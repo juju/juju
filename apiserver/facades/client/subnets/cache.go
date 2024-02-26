@@ -14,7 +14,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/envcontext"
-	providercommon "github.com/juju/juju/provider/common"
+	providercommon "github.com/juju/juju/internal/provider/common"
 	"github.com/juju/juju/rpc/params"
 )
 

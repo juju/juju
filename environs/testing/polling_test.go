@@ -13,7 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/provider/common"
+	"github.com/juju/juju/internal/provider/common"
 )
 
 func TestPackage(t *stdtesting.T) {
