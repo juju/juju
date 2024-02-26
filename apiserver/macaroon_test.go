@@ -112,7 +112,7 @@ func (s *macaroonLoginSuite) login(c *gc.C, info *api.Info) (params.LoginResult,
 	return result, err
 }
 
-func (s *macaroonLoginSuite) TestremoteUserLoginToControllerNoAccess(c *gc.C) {
+func (s *macaroonLoginSuite) TestRemoteUserLoginToControllerNoAccess(c *gc.C) {
 	s.DischargerLogin = func() string {
 		return remoteUser
 	}
@@ -124,7 +124,7 @@ func (s *macaroonLoginSuite) TestremoteUserLoginToControllerNoAccess(c *gc.C) {
 	assertPermissionDenied(c, err)
 }
 
-func (s *macaroonLoginSuite) TestremoteUserLoginToControllerLoginAccess(c *gc.C) {
+func (s *macaroonLoginSuite) TestRemoteUserLoginToControllerLoginAccess(c *gc.C) {
 	setEveryoneAccess(c, s.ControllerModel(c).State(), jujutesting.AdminUser, permission.LoginAccess)
 	var remoteUserTag = names.NewUserTag(remoteUser)
 

@@ -18,6 +18,7 @@ import (
 	"path/filepath"
 
 	"github.com/juju/charm/v13"
+	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4"
 	gc "gopkg.in/check.v1"
@@ -25,6 +26,8 @@ import (
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/common"
 	apitesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/domain/user/service"
+	"github.com/juju/juju/internal/auth"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -518,15 +521,30 @@ func (s *charmsSuite) TestMigrateCharmNotMigrating(c *gc.C) {
 }
 
 func (s *charmsSuite) TestMigrateCharmUnauthorized(c *gc.C) {
+	userService := s.ControllerServiceFactory(c).User()
+	userTag := names.NewUserTag("bobbrown")
+	_, _, err := userService.AddUser(context.Background(), service.AddUserArg{
+		Name:        userTag.Name(),
+		DisplayName: "Bob Brown",
+		CreatorUUID: s.AdminUserUUID,
+		Password:    ptr(auth.NewPassword("hunter2")),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// TODO (stickupkid): Permissions: This is only required to insert admin
+	// permissions into the state, remove when permissions are written to state.
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
-	user := f.MakeUser(c, &factory.UserParams{Password: "hunter2"})
+	f.MakeUser(c, &factory.UserParams{
+		Name: userTag.Name(),
+	})
+
 	url := s.charmsURL("series=quantal")
 	url.Path = "/migrate/charms"
 	resp := apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{
 		Method:   "POST",
 		URL:      url.String(),
-		Tag:      user.Tag().String(),
+		Tag:      userTag.String(),
 		Password: "hunter2",
 	})
 	body := apitesting.AssertResponse(c, resp, http.StatusForbidden, "text/plain; charset=utf-8")

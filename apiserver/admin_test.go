@@ -1040,13 +1040,21 @@ func (s *loginV3Suite) TestClientLoginToControllerNoAccessToControllerModel(c *g
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
+	// TODO (stickupkid): Permissions: This is only required to insert admin
+	// permissions into the state, remove when permissions are written to state.
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+	f.MakeUser(c, &factory.UserParams{
+		Name: "bobbrown",
+	})
+
 	now := s.Clock.Now().UTC()
 
 	s.OpenControllerAPIAs(c, names.NewUserTag("bobbrown"), "password")
 
 	user, err := userService.GetUser(context.Background(), uuid)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(user.LastLogin, jc.Almost, now)
+	c.Check(user.LastLogin, jc.After, now)
 }
 
 func (s *loginV3Suite) TestClientLoginToRootOldClient(c *gc.C) {

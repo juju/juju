@@ -161,7 +161,6 @@ func (a *Authenticator) AuthenticateLoginRequest(
 	authenticator := a.authContext.authenticatorForState(serverHost, st.State)
 	authInfo, err := a.checkCreds(ctx, st.State, authParams, authenticator)
 	if err == nil {
-
 		return authInfo, nil
 	}
 
@@ -272,6 +271,12 @@ func (a *Authenticator) checkCreds(
 }
 
 func (a *Authenticator) checkPerms(ctx context.Context, modelAccess permission.UserAccess, userTag names.UserTag) error {
+	// If the user tag is not local, we don't need to check for the model user
+	// permissions. This is generally the case for macaroon-based logins.
+	if !userTag.IsLocal() {
+		return nil
+	}
+
 	// No model user found, so see if the user has been granted
 	// access to the controller.
 	if permission.IsEmptyUserAccess(modelAccess) {
