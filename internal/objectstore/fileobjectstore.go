@@ -436,8 +436,10 @@ func (t *fileObjectStore) list(ctx context.Context) ([]objectstore.Metadata, []s
 func (t *fileObjectStore) deleteObject(ctx context.Context, hash string) error {
 	filePath := t.filePath(hash)
 
-	// File doesn't exist, return early, nothing we can do in this case.
+	// File doesn't exist. It was probably already removed. Return early,
+	// nothing we can do in this case.
 	if _, err := os.Stat(filePath); err != nil && errors.Is(err, os.ErrNotExist) {
+		t.logger.Debugf("file %q doesn't exist, nothing to do", filePath)
 		return nil
 	}
 

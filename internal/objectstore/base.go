@@ -240,10 +240,10 @@ func (w *baseObjectStore) cleanupTmpFiles() error {
 
 // Define the functions that are used to prune the object store.
 type (
-	// PruneListFunc is the function that is used to list the objects in the
+	// pruneListFunc is the function that is used to list the objects in the
 	// object store. This includes the metadata and the objects themselves.
 	pruneListFunc func(ctx context.Context) ([]objectstore.Metadata, []string, error)
-	// PruneDeleteFunc is the function that is used to delete an object from
+	// pruneDeleteFunc is the function that is used to delete an object from
 	// the object store.
 	pruneDeleteFunc func(ctx context.Context, hash string) error
 )
@@ -275,7 +275,7 @@ func (w *baseObjectStore) prune(ctx context.Context, list pruneListFunc, delete 
 		// Attempt to acquire a lock on the object. If we can't acquire
 		// the lock, then we'll try again later.
 		if err := w.withLock(ctx, object, func(ctx context.Context) error {
-			return delete(ctx, object)
+			return errors.Trace(delete(ctx, object))
 		}); err != nil {
 			w.logger.Infof("failed to remove unreferenced object %q: %v, will try again later", object, err)
 			continue
