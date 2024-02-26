@@ -20,13 +20,13 @@ const (
 	tableVolumeAttachment
 	tableVolumeAttachmentPlan
 	tableSecretAutoPrune
+	tableSecretRotation
 	tableSecretRevisionObsolete
+	tableSecretRevisionExpire
 	tableSecretApplicationConsumerCurrentRevision
 	tableSecretUnitConsumerCurrentRevision
 	tableSecretRemoteApplicationConsumerCurrentRevision
 	tableSecretRemoteUnitConsumerCurrentRevision
-	tableSecretRevisionExpire
-	tableSecretRotation
 )
 
 // ModelDDL is used to create model databases.
@@ -146,7 +146,15 @@ INSERT INTO change_log_namespace VALUES
     (5, 'storage_filesystem_attachment', 'File system attachment changes based on UUID'),
     (6, 'storage_volume', 'Storage volume changes based on UUID'),
     (7, 'storage_volume_attachment', 'Volume attachment changes based on UUID'),
-    (8, 'storage_volume_attachment_plan', 'Volume attachment plan changes based on UUID');
+    (8, 'storage_volume_attachment_plan', 'Volume attachment plan changes based on UUID'),
+    (9, 'secret', 'Secret auto prune changes based on UUID'),
+    (10, 'secret_rotation', 'Secret rotation changes based on UUID'),
+    (11, 'secret_revision', 'Secret revision obsolete changes based on UUID'),
+    (12, 'secret_revision_expire', 'Secret revision next expire time changes based on UUID'),
+    (13, 'secret_application_consumer', 'Secret application consumer current revision changes based on UUID'),
+    (14, 'secret_unit_consumer', 'Secret unit consumer current revision changes based on UUID'),
+    (15, 'secret_remote_application_consumer', 'Secret remote application consumer current revision changes based on UUID'),
+    (16, 'secret_remote_unit_consumer', 'Secret remote unit consumer current revision changes based on UUID');
 `)
 }
 
@@ -438,6 +446,9 @@ CREATE TABLE unit (
         FOREIGN KEY  (life_id)
         REFERENCES   life(id)
 );
+
+CREATE UNIQUE INDEX idx_unit_id
+ON unit (unit_id);
 
 CREATE INDEX idx_unit_application
 ON unit (application_uuid);

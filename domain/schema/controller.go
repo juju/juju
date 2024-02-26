@@ -135,7 +135,8 @@ INSERT INTO change_log_namespace VALUES
     (7, 'cloud_credential', 'cloud credential changes based on the UUID'),
     (8, 'autocert_cache', 'autocert cache changes based on the UUID'),
     (9, 'upgrade_info_controller_node', 'upgrade info controller node changes based on the upgrade info UUID'),
-    (10, 'object_store_metadata_path', 'object store metadata path changes based on the path')
+    (10, 'object_store_metadata_path', 'object store metadata path changes based on the path'),
+    (11, 'secret_backend_rotation', 'secret backend rotation changes based on the backend UUID and next rotation time');
 `)
 }
 

@@ -440,16 +440,16 @@ func (s *schemaSuite) TestControllerChangeLogTriggersForSecretBackends(c *gc.C) 
 	s.assertChangeLogCount(c, 2, tableSecretBackendRotation, 0)
 	s.assertChangeLogCount(c, 4, tableSecretBackendRotation, 0)
 
-	backend_uuid := utils.MustNewUUID().String()
+	backendUUID := utils.MustNewUUID().String()
 
-	s.execSQL(c, "INSERT INTO secret_backend (uuid, name, backend_type) VALUES (?, 'myVault', 'vault');", backend_uuid)
-	s.execSQL(c, "INSERT INTO secret_backend_rotation (backend_uuid, next_rotation_time) VALUES (?, datetime('now', '+1 day'));", backend_uuid)
+	s.execSQL(c, "INSERT INTO secret_backend (uuid, name, backend_type) VALUES (?, 'myVault', 'vault');", backendUUID)
+	s.execSQL(c, "INSERT INTO secret_backend_rotation (backend_uuid, next_rotation_time) VALUES (?, datetime('now', '+1 day'));", backendUUID)
+	s.execSQL(c, `UPDATE secret_backend_rotation SET next_rotation_time = datetime('now', '+2 day') WHERE backend_uuid = ?;`, backendUUID)
+	s.execSQL(c, `DELETE FROM secret_backend_rotation WHERE backend_uuid = ?;`, backendUUID)
 
-	s.execSQL(c, `UPDATE secret_backend_rotation SET next_rotation_time = datetime('now', '+2 day') WHERE uuid = ?;`, backend_uuid)
-
-	s.assertChangeLogCount(c, 1, tableSecretBackendRotation, 1)
 	s.assertChangeLogCount(c, 1, tableSecretBackendRotation, 1)
 	s.assertChangeLogCount(c, 2, tableSecretBackendRotation, 1)
+	s.assertChangeLogCount(c, 4, tableSecretBackendRotation, 1)
 }
 
 func (s *schemaSuite) execSQL(c *gc.C, q string, args ...any) {
@@ -469,15 +469,10 @@ func (s *schemaSuite) TestModelChangeLogTriggersForSecretTables(c *gc.C) {
 	s.assertChangeLogCount(c, 4, tableSecretAutoPrune, 0)
 
 	secretUUID := utils.MustNewUUID().String()
-	s.execSQL(c, `
-INSERT INTO secret (uuid, description) VALUES
-	(?, 'mySecret');
-`, secretUUID)
-
+	s.execSQL(c, `INSERT INTO secret (uuid, description) VALUES (?, 'mySecret');`, secretUUID)
 	s.execSQL(c, `UPDATE secret SET auto_prune = true WHERE uuid = ?;`, secretUUID)
 	s.execSQL(c, `DELETE FROM secret WHERE uuid = ?;`, secretUUID)
 
-	s.assertChangeLogCount(c, 1, tableSecretAutoPrune, 1)
 	s.assertChangeLogCount(c, 1, tableSecretAutoPrune, 1)
 	s.assertChangeLogCount(c, 2, tableSecretAutoPrune, 1)
 	s.assertChangeLogCount(c, 4, tableSecretAutoPrune, 1)
@@ -487,15 +482,11 @@ INSERT INTO secret (uuid, description) VALUES
 	s.assertChangeLogCount(c, 2, tableSecretRotation, 0)
 	s.assertChangeLogCount(c, 4, tableSecretRotation, 0)
 
-	s.execSQL(c, `
-INSERT INTO secret_rotation (secret_uuid, next_rotation_time) VALUES
-	(?, datetime('now', '+1 day'));
-`, secretUUID)
-
+	s.execSQL(c, `INSERT INTO secret (uuid, description) VALUES (?, 'mySecret');`, secretUUID)
+	s.execSQL(c, `INSERT INTO secret_rotation (secret_uuid, next_rotation_time) VALUES (?, datetime('now', '+1 day'));`, secretUUID)
 	s.execSQL(c, `UPDATE secret_rotation SET next_rotation_time = datetime('now', '+2 day') WHERE secret_uuid = ?;`, secretUUID)
 	s.execSQL(c, `DELETE FROM secret_rotation WHERE secret_uuid = ?;`, secretUUID)
 
-	s.assertChangeLogCount(c, 1, tableSecretRotation, 1)
 	s.assertChangeLogCount(c, 1, tableSecretRotation, 1)
 	s.assertChangeLogCount(c, 2, tableSecretRotation, 1)
 	s.assertChangeLogCount(c, 4, tableSecretRotation, 1)
@@ -506,15 +497,10 @@ INSERT INTO secret_rotation (secret_uuid, next_rotation_time) VALUES
 	s.assertChangeLogCount(c, 2, tableSecretRevisionObsolete, 0)
 	s.assertChangeLogCount(c, 4, tableSecretRevisionObsolete, 0)
 
-	s.execSQL(c, `
-INSERT INTO secret_revision (uuid, secret_uuid, revision) VALUES
-	(?, ?, 1);
-`, revisionUUID, secretUUID)
-
+	s.execSQL(c, `INSERT INTO secret_revision (uuid, secret_uuid, revision) VALUES (?, ?, 1);`, revisionUUID, secretUUID)
 	s.execSQL(c, `UPDATE secret_revision SET obsolete = true WHERE uuid = ?;`, revisionUUID)
 	s.execSQL(c, `DELETE FROM secret_revision WHERE uuid = ?;`, revisionUUID)
 
-	s.assertChangeLogCount(c, 1, tableSecretRevisionObsolete, 1)
 	s.assertChangeLogCount(c, 1, tableSecretRevisionObsolete, 1)
 	s.assertChangeLogCount(c, 2, tableSecretRevisionObsolete, 1)
 	s.assertChangeLogCount(c, 4, tableSecretRevisionObsolete, 1)
@@ -524,33 +510,22 @@ INSERT INTO secret_revision (uuid, secret_uuid, revision) VALUES
 	s.assertChangeLogCount(c, 2, tableSecretRevisionExpire, 0)
 	s.assertChangeLogCount(c, 4, tableSecretRevisionExpire, 0)
 
-	s.execSQL(c, `
-INSERT INTO secret_revision_expire (revision_uuid, next_expire_time) VALUES
-	(?, datetime('now', '+1 day'));
-`, revisionUUID)
-
+	s.execSQL(c, `INSERT INTO secret_revision (uuid, secret_uuid, revision) VALUES (?, ?, 1);`, revisionUUID, secretUUID)
+	s.execSQL(c, `INSERT INTO secret_revision_expire (revision_uuid, next_expire_time) VALUES (?, datetime('now', '+1 day'));`, revisionUUID)
 	s.execSQL(c, `UPDATE secret_revision_expire SET next_expire_time = datetime('now', '+2 day') WHERE revision_uuid = ?;`, revisionUUID)
 	s.execSQL(c, `DELETE FROM secret_revision_expire WHERE revision_uuid = ?;`, revisionUUID)
 
-	s.assertChangeLogCount(c, 1, tableSecretRevisionExpire, 1)
 	s.assertChangeLogCount(c, 1, tableSecretRevisionExpire, 1)
 	s.assertChangeLogCount(c, 2, tableSecretRevisionExpire, 1)
 	s.assertChangeLogCount(c, 4, tableSecretRevisionExpire, 1)
 
 	appUUID := utils.MustNewUUID().String()
-	s.execSQL(c, `
-INSERT INTO application (uuid, name, life_id) VALUES
-	(?, 'mysql', 0);
-`, appUUID)
+	s.execSQL(c, `INSERT INTO application (uuid, name, life_id) VALUES (?, 'mysql', 0);`, appUUID)
 
 	netNodeUUID := utils.MustNewUUID().String()
 	s.execSQL(c, `INSERT INTO net_node (uuid) VALUES (?);`, netNodeUUID)
-
 	unitUUID := utils.MustNewUUID().String()
-	s.execSQL(c, `
-INSERT INTO unit (uuid, unit_id, application_uuid, net_node_uuid, life_id) VALUES
-	(?, 0, ?, ?, 0);
-`, unitUUID, appUUID, netNodeUUID)
+	s.execSQL(c, `INSERT INTO unit (uuid, unit_id, application_uuid, net_node_uuid, life_id) VALUES (?, 0, ?, ?, 0);`, unitUUID, appUUID, netNodeUUID)
 
 	// secret_application_consumer table triggers.
 	applicationConsumerUUID := utils.MustNewUUID().String()
@@ -562,11 +537,9 @@ INSERT INTO unit (uuid, unit_id, application_uuid, net_node_uuid, life_id) VALUE
 INSERT INTO secret_application_consumer (uuid, secret_uuid, application_uuid, current_revision) VALUES
 	(?, ?, ?, 1);
 `, applicationConsumerUUID, secretUUID, appUUID)
-
 	s.execSQL(c, `UPDATE secret_application_consumer SET current_revision = 2 WHERE uuid = ?;`, applicationConsumerUUID)
 	s.execSQL(c, `DELETE FROM secret_application_consumer WHERE uuid = ?;`, applicationConsumerUUID)
 
-	s.assertChangeLogCount(c, 1, tableSecretApplicationConsumerCurrentRevision, 1)
 	s.assertChangeLogCount(c, 1, tableSecretApplicationConsumerCurrentRevision, 1)
 	s.assertChangeLogCount(c, 2, tableSecretApplicationConsumerCurrentRevision, 1)
 	s.assertChangeLogCount(c, 4, tableSecretApplicationConsumerCurrentRevision, 1)
@@ -577,15 +550,10 @@ INSERT INTO secret_application_consumer (uuid, secret_uuid, application_uuid, cu
 	s.assertChangeLogCount(c, 2, tableSecretUnitConsumerCurrentRevision, 0)
 	s.assertChangeLogCount(c, 4, tableSecretUnitConsumerCurrentRevision, 0)
 
-	s.execSQL(c, `
-INSERT INTO secret_unit_consumer (uuid, secret_uuid, unit_uuid, current_revision) VALUES
-	(?, ?, ?, 1);
-`, unitConsumerUUID, secretUUID, unitUUID)
-
+	s.execSQL(c, `INSERT INTO secret_unit_consumer (uuid, secret_uuid, unit_uuid, current_revision) VALUES (?, ?, ?, 1);`, unitConsumerUUID, secretUUID, unitUUID)
 	s.execSQL(c, `UPDATE secret_unit_consumer SET current_revision = 2 WHERE uuid = ?;`, unitConsumerUUID)
 	s.execSQL(c, `DELETE FROM secret_unit_consumer WHERE uuid = ?;`, unitConsumerUUID)
 
-	s.assertChangeLogCount(c, 1, tableSecretUnitConsumerCurrentRevision, 1)
 	s.assertChangeLogCount(c, 1, tableSecretUnitConsumerCurrentRevision, 1)
 	s.assertChangeLogCount(c, 2, tableSecretUnitConsumerCurrentRevision, 1)
 	s.assertChangeLogCount(c, 4, tableSecretUnitConsumerCurrentRevision, 1)
@@ -596,15 +564,10 @@ INSERT INTO secret_unit_consumer (uuid, secret_uuid, unit_uuid, current_revision
 	s.assertChangeLogCount(c, 2, tableSecretRemoteApplicationConsumerCurrentRevision, 0)
 	s.assertChangeLogCount(c, 4, tableSecretRemoteApplicationConsumerCurrentRevision, 0)
 
-	s.execSQL(c, `
-INSERT INTO secret_remote_application_consumer (uuid, secret_uuid, application_uuid, current_revision) VALUES
-	(?, ?, ?, 1);
-`, remoteAppConsumerUUID, secretUUID, appUUID)
-
+	s.execSQL(c, `INSERT INTO secret_remote_application_consumer (uuid, secret_uuid, application_uuid, current_revision) VALUES (?, ?, ?, 1);`, remoteAppConsumerUUID, secretUUID, appUUID)
 	s.execSQL(c, `UPDATE secret_remote_application_consumer SET current_revision = 2 WHERE uuid = ?;`, remoteAppConsumerUUID)
 	s.execSQL(c, `DELETE FROM secret_remote_application_consumer WHERE uuid = ?;`, remoteAppConsumerUUID)
 
-	s.assertChangeLogCount(c, 1, tableSecretRemoteApplicationConsumerCurrentRevision, 1)
 	s.assertChangeLogCount(c, 1, tableSecretRemoteApplicationConsumerCurrentRevision, 1)
 	s.assertChangeLogCount(c, 2, tableSecretRemoteApplicationConsumerCurrentRevision, 1)
 	s.assertChangeLogCount(c, 4, tableSecretRemoteApplicationConsumerCurrentRevision, 1)
@@ -615,15 +578,10 @@ INSERT INTO secret_remote_application_consumer (uuid, secret_uuid, application_u
 	s.assertChangeLogCount(c, 2, tableSecretRemoteUnitConsumerCurrentRevision, 0)
 	s.assertChangeLogCount(c, 4, tableSecretRemoteUnitConsumerCurrentRevision, 0)
 
-	s.execSQL(c, `
-INSERT INTO secret_remote_unit_consumer (uuid, secret_uuid, unit_uuid, current_revision) VALUES
-	(?, ?, ?, 1);
-`, remoteUnitConsumerUUID, secretUUID, unitUUID)
-
+	s.execSQL(c, `INSERT INTO secret_remote_unit_consumer (uuid, secret_uuid, unit_uuid, current_revision) VALUES(?, ?, ?, 1);`, remoteUnitConsumerUUID, secretUUID, unitUUID)
 	s.execSQL(c, `UPDATE secret_remote_unit_consumer SET current_revision = 2 WHERE uuid = ?;`, remoteUnitConsumerUUID)
 	s.execSQL(c, `DELETE FROM secret_remote_unit_consumer WHERE uuid = ?;`, remoteUnitConsumerUUID)
 
-	s.assertChangeLogCount(c, 1, tableSecretRemoteUnitConsumerCurrentRevision, 1)
 	s.assertChangeLogCount(c, 1, tableSecretRemoteUnitConsumerCurrentRevision, 1)
 	s.assertChangeLogCount(c, 2, tableSecretRemoteUnitConsumerCurrentRevision, 1)
 	s.assertChangeLogCount(c, 4, tableSecretRemoteUnitConsumerCurrentRevision, 1)
