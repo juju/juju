@@ -360,12 +360,8 @@ func (s *configCommandSuite) TestSetSameValue(c *gc.C) {
 		"username": "hello",
 		"outlook":  "hello@world.tld",
 	})
-	s.assertSetWarning(c, s.dir, []string{
-		"username=hello",
-	}, "the configuration setting \"username\" already has the value \"hello\"")
-	s.assertSetWarning(c, s.dir, []string{
-		"outlook=hello@world.tld",
-	}, "the configuration setting \"outlook\" already has the value \"hello@world.tld\"")
+	s.assertNoWarning(c, s.dir, []string{"username=hello"})
+	s.assertNoWarning(c, s.dir, []string{"outlook=hello@world.tld"})
 
 }
 
@@ -546,12 +542,12 @@ func (s *configCommandSuite) assertSetFail(c *gc.C, dir string, args []string, e
 	c.Assert(err, gc.ErrorMatches, expectErr)
 }
 
-func (s *configCommandSuite) assertSetWarning(c *gc.C, dir string, args []string, w string) {
+func (s *configCommandSuite) assertNoWarning(c *gc.C, dir string, args []string) {
 	cmd := application.NewConfigCommandForTest(s.fake, s.store)
 	cmd.SetClientStore(jujuclienttesting.MinimalStore())
 	_, err := cmdtesting.RunCommandInDir(c, cmd, append([]string{"dummy-application"}, args...), dir)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(strings.Replace(c.GetTestLog(), "\n", " ", -1), gc.Matches, ".*WARNING.*"+w+".*")
+	c.Assert(strings.Replace(c.GetTestLog(), "\n", " ", -1), gc.Not(gc.Matches), ".*WARNING.*")
 }
 
 // setupValueFile creates a file containing one value for testing
