@@ -16,8 +16,7 @@ import (
 
 // InstanceConfigurator describes methods for manipulating firewall
 // rules directly on a single instance.
-//
-//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/instance_configurator.go github.com/juju/juju/provider/common InstanceConfigurator
+
 type InstanceConfigurator interface {
 
 	// DropAllPorts denies access to all ports.

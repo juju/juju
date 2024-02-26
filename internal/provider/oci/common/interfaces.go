@@ -13,7 +13,7 @@ import (
 // that cloud for compute, storage and virtual networking.  This is due to abstracting away
 // pagination required by most List methods.
 
-//go:generate go run go.uber.org/mock/mockgen -package testing -destination ../testing/mocks_clientcompute.go -write_package_comment=false github.com/juju/juju/provider/oci/common OCIComputeClient
+//go:generate go run go.uber.org/mock/mockgen -package testing -destination ../testing/mocks_clientcompute.go -write_package_comment=false github.com/juju/juju/internal/provider/oci/common OCIComputeClient
 type OCIComputeClient interface {
 	ListVnicAttachments(ctx context.Context, request ociCore.ListVnicAttachmentsRequest) (ociCore.ListVnicAttachmentsResponse, error)
 	TerminateInstance(ctx context.Context, request ociCore.TerminateInstanceRequest) (ociCore.TerminateInstanceResponse, error)
@@ -28,7 +28,7 @@ type OCIComputeClient interface {
 	AttachVolume(ctx context.Context, request ociCore.AttachVolumeRequest) (ociCore.AttachVolumeResponse, error)
 }
 
-//go:generate go run go.uber.org/mock/mockgen -package testing -destination ../testing/mocks_clientnetworking.go -write_package_comment=false github.com/juju/juju/provider/oci/common OCIVirtualNetworkingClient
+//go:generate go run go.uber.org/mock/mockgen -package testing -destination ../testing/mocks_clientnetworking.go -write_package_comment=false github.com/juju/juju/internal/provider/oci/common OCIVirtualNetworkingClient
 type OCIVirtualNetworkingClient interface {
 	CreateVcn(ctx context.Context, request ociCore.CreateVcnRequest) (ociCore.CreateVcnResponse, error)
 	DeleteVcn(ctx context.Context, request ociCore.DeleteVcnRequest) (ociCore.DeleteVcnResponse, error)
@@ -58,7 +58,7 @@ type OCIVirtualNetworkingClient interface {
 	GetSecurityList(ctx context.Context, request ociCore.GetSecurityListRequest) (ociCore.GetSecurityListResponse, error)
 }
 
-//go:generate go run go.uber.org/mock/mockgen -package testing -destination ../testing/mocks_clientstorage.go -write_package_comment=false github.com/juju/juju/provider/oci/common OCIStorageClient
+//go:generate go run go.uber.org/mock/mockgen -package testing -destination ../testing/mocks_clientstorage.go -write_package_comment=false github.com/juju/juju/internal/provider/oci/common OCIStorageClient
 type OCIStorageClient interface {
 	CreateVolume(ctx context.Context, request ociCore.CreateVolumeRequest) (ociCore.CreateVolumeResponse, error)
 	ListVolumes(ctx context.Context, request ociCore.ListVolumesRequest) (response ociCore.ListVolumesResponse, err error)

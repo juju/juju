@@ -13,8 +13,6 @@ import (
 )
 
 // ZonedEnviron is an environs.Environ that has support for availability zones.
-//
-//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/zoned_environ.go github.com/juju/juju/provider/common ZonedEnviron
 type ZonedEnviron interface {
 	environs.Environ
 

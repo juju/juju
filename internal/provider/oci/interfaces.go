@@ -16,12 +16,10 @@ import (
 // the provider in the clients provided by common, covering the ComputeClient,
 // NetworkingClient, StorageClient and FirewallClient interfaces.
 
-//go:generate go run go.uber.org/mock/mockgen -package testing -destination testing/mocks_identity.go -write_package_comment=false github.com/juju/juju/provider/oci IdentityClient
 type IdentityClient interface {
 	ListAvailabilityDomains(ctx context.Context, request ociIdentity.ListAvailabilityDomainsRequest) (ociIdentity.ListAvailabilityDomainsResponse, error)
 }
 
-//go:generate go run go.uber.org/mock/mockgen -package testing -destination testing/mocks_compute.go -write_package_comment=false github.com/juju/juju/provider/oci ComputeClient
 type ComputeClient interface {
 	ListVnicAttachments(ctx context.Context, compartmentID, instID *string) ([]ociCore.VnicAttachment, error)
 	TerminateInstance(ctx context.Context, request ociCore.TerminateInstanceRequest) (ociCore.TerminateInstanceResponse, error)
@@ -36,7 +34,6 @@ type ComputeClient interface {
 	AttachVolume(ctx context.Context, request ociCore.AttachVolumeRequest) (ociCore.AttachVolumeResponse, error)
 }
 
-//go:generate go run go.uber.org/mock/mockgen -package testing -destination testing/mocks_networking.go -write_package_comment=false github.com/juju/juju/provider/oci NetworkingClient
 type NetworkingClient interface {
 	CreateVcn(ctx context.Context, request ociCore.CreateVcnRequest) (ociCore.CreateVcnResponse, error)
 	DeleteVcn(ctx context.Context, request ociCore.DeleteVcnRequest) (ociCore.DeleteVcnResponse, error)
@@ -61,7 +58,6 @@ type NetworkingClient interface {
 	GetVnic(ctx context.Context, request ociCore.GetVnicRequest) (ociCore.GetVnicResponse, error)
 }
 
-//go:generate go run go.uber.org/mock/mockgen -package testing -destination testing/mocks_firewall.go -write_package_comment=false github.com/juju/juju/provider/oci FirewallClient
 type FirewallClient interface {
 	CreateSecurityList(ctx context.Context, request ociCore.CreateSecurityListRequest) (ociCore.CreateSecurityListResponse, error)
 	ListSecurityLists(ctx context.Context, compartmentID, vcnID *string) ([]ociCore.SecurityList, error)
@@ -69,7 +65,6 @@ type FirewallClient interface {
 	GetSecurityList(ctx context.Context, request ociCore.GetSecurityListRequest) (ociCore.GetSecurityListResponse, error)
 }
 
-//go:generate go run go.uber.org/mock/mockgen -package testing -destination testing/mocks_storage.go -write_package_comment=false github.com/juju/juju/provider/oci StorageClient
 type StorageClient interface {
 	CreateVolume(ctx context.Context, request ociCore.CreateVolumeRequest) (ociCore.CreateVolumeResponse, error)
 	ListVolumes(ctx context.Context, compartmentID *string) ([]ociCore.Volume, error)
