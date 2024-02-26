@@ -4,6 +4,7 @@
 package client_test
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -20,7 +21,9 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/domain/user/service"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/auth"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -390,23 +393,41 @@ var scenarioStatus = &params.FullStatus{
 // controller (bootstrap machine), so is
 // hopefully easier to remember as such.
 func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
+	st := s.ControllerModel(c).State()
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+
+	userService := s.ControllerServiceFactory(c).User()
+
 	add := func(e state.Entity) {
 		entities = append(entities, e.Tag())
 	}
-	st := s.ControllerModel(c).State()
-	u, err := st.User(testing.AdminUser)
+
+	// Add the admin user.
+	adminPassword := defaultPassword(testing.AdminUser)
+	err := userService.SetPassword(context.Background(), testing.AdminUser.Name(), auth.NewPassword(adminPassword))
 	c.Assert(err, jc.ErrorIsNil)
-	setDefaultPassword(c, u)
-	add(u)
+	add(taggedUser{tag: testing.AdminUser})
+
 	err = s.ControllerModel(c).UpdateModelConfig(map[string]interface{}{
 		config.AgentVersionKey: "2.0.0"}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-	u = f.MakeUser(c, &factory.UserParams{Name: "other"})
-	setDefaultPassword(c, u)
-	add(u)
+	// Add another user.
+	userTag := names.NewUserTag("other")
+	userPassword := defaultPassword(userTag)
+	_, _, err = userService.AddUser(context.Background(), service.AddUserArg{
+		Name:        userTag.Name(),
+		DisplayName: "Bob Brown",
+		CreatorUUID: s.AdminUserUUID,
+		Password:    ptr(auth.NewPassword(userPassword)),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// TODO (stickupkid): Permissions: This is only required to insert admin
+	// permissions into the state, remove when permissions are written to state.
+	f.MakeUser(c, &factory.UserParams{Name: userTag.Name()})
+	add(taggedUser{tag: userTag})
 
 	m, err := st.AddMachine(state.UbuntuBase("12.10"), state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
@@ -545,4 +566,16 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 		add(lu)
 	}
 	return
+}
+
+type taggedUser struct {
+	tag names.Tag
+}
+
+func (u taggedUser) Tag() names.Tag {
+	return u.tag
+}
+
+func ptr[T any](t T) *T {
+	return &t
 }

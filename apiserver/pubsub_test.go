@@ -4,6 +4,7 @@
 package apiserver_test
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -20,6 +21,8 @@ import (
 
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/websocket/websockettest"
+	"github.com/juju/juju/domain/user/service"
+	"github.com/juju/juju/internal/auth"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -61,11 +64,26 @@ func (s *pubsubSuite) TestNoAuth(c *gc.C) {
 }
 
 func (s *pubsubSuite) TestRejectsUserLogins(c *gc.C) {
+	userService := s.ControllerServiceFactory(c).User()
+	userTag := names.NewUserTag("bobbrown")
+	_, _, err := userService.AddUser(context.Background(), service.AddUserArg{
+		Name:        userTag.Name(),
+		DisplayName: "Bob Brown",
+		CreatorUUID: s.AdminUserUUID,
+		Password:    ptr(auth.NewPassword("hunter2")),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// TODO (stickupkid): Permissions: This is only required to insert admin
+	// permissions into the state, remove when permissions are written to state.
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
-	user := f.MakeUser(c, &factory.UserParams{Password: "sekrit"})
-	header := jujuhttp.BasicAuthHeader(user.Tag().String(), "sekrit")
-	s.checkAuthFails(c, header, http.StatusForbidden, "authorization failed: user username-.* is not a controller")
+	f.MakeUser(c, &factory.UserParams{
+		Name: userTag.Name(),
+	})
+
+	header := jujuhttp.BasicAuthHeader(userTag.String(), "hunter2")
+	s.checkAuthFails(c, header, http.StatusForbidden, "authorization failed: user .* is not a controller")
 }
 
 func (s *pubsubSuite) TestRejectsNonServerMachineLogins(c *gc.C) {

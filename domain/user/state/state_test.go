@@ -745,6 +745,51 @@ WHERE user_uuid = ?
 	c.Assert(err, jc.ErrorIs, sql.ErrNoRows)
 }
 
+// TestSetPasswordHash asserts that we can set a password hash for a user twice.
+func (s *stateSuite) TestSetPasswordHashTwice(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	// Add admin user with activation key.
+	adminUUID, err := user.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+
+	newActivationKey, err := generateActivationKey()
+	c.Assert(err, jc.ErrorIsNil)
+	err = st.AddUserWithActivationKey(
+		context.Background(), adminUUID,
+		"admin", "admin",
+		adminUUID, newActivationKey,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	salt, err := auth.NewSalt()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Set password hash.
+	err = st.SetPasswordHash(context.Background(), "admin", "passwordHash", salt)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Set password hash again
+	err = st.SetPasswordHash(context.Background(), "admin", "passwordHashAgain", salt)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check that the password hash was set correctly.
+	db := s.DB()
+
+	row := db.QueryRow(`
+SELECT password_hash
+FROM user_password
+WHERE user_uuid = ?
+	`, adminUUID)
+	c.Assert(row.Err(), jc.ErrorIsNil)
+
+	var passwordHash string
+	err = row.Scan(&passwordHash)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(passwordHash, gc.Equals, "passwordHashAgain")
+}
+
 // TestAddUserWithPasswordHash asserts that we can add a user with a password
 // hash.
 func (s *stateSuite) TestAddUserWithPasswordHash(c *gc.C) {

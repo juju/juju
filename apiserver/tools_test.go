@@ -19,18 +19,21 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	apitesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/domain/user/service"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
+	"github.com/juju/juju/internal/auth"
 	"github.com/juju/juju/internal/password"
 	coretools "github.com/juju/juju/internal/tools"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -334,16 +337,31 @@ func (s *toolsSuite) TestMigrateToolsNotMigrating(c *gc.C) {
 	)
 }
 
-func (s *toolsSuite) TestMigrateToolsUnauth(c *gc.C) {
+func (s *toolsSuite) TestMigrateToolsForUser(c *gc.C) {
 	// Try uploading as a non controller admin.
+	userService := s.ControllerServiceFactory(c).User()
+	userTag := names.NewUserTag("bobbrown")
+	_, _, err := userService.AddUser(context.Background(), service.AddUserArg{
+		Name:        userTag.Name(),
+		DisplayName: "Bob Brown",
+		CreatorUUID: s.AdminUserUUID,
+		Password:    ptr(auth.NewPassword("hunter2")),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// TODO (stickupkid): Permissions: This is only required to insert admin
+	// permissions into the state, remove when permissions are written to state.
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
+	f.MakeUser(c, &factory.UserParams{
+		Name: userTag.Name(),
+	})
+
 	url := s.URL("/migrate/tools", nil).String()
-	user := f.MakeUser(c, &factory.UserParams{Password: "hunter2"})
 	resp := apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{
 		Method:   "POST",
 		URL:      url,
-		Tag:      user.Tag().String(),
+		Tag:      userTag.String(),
 		Password: "hunter2",
 	})
 	s.assertPlainErrorResponse(

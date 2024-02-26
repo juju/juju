@@ -289,26 +289,26 @@ func (st *State) GetUserByAuth(ctx context.Context, name string, password auth.P
 		return user.User{}, errors.Annotate(err, "getting DB access")
 	}
 
+	getUserWithAuthQuery := `
+	SELECT (
+			user.uuid, user.name, user.display_name, user.created_by_uuid, user.created_at,
+			user.disabled,
+			user_password.password_hash, user_password.password_salt
+		   ) AS (&User.*)
+	FROM   v_user_auth AS user
+		   LEFT JOIN user_password 
+		   ON        user.uuid = user_password.user_uuid
+	WHERE  user.name = $M.name 
+	AND    removed = false
+	`
+
+	selectGetUserByAuthStmt, err := sqlair.Prepare(getUserWithAuthQuery, User{}, sqlair.M{})
+	if err != nil {
+		return user.User{}, errors.Annotate(err, "preparing select getUserWithAuth query")
+	}
+
 	var result User
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		getUserWithAuthQuery := `
-SELECT (
-        user.uuid, user.name, user.display_name, user.created_by_uuid, user.created_at,
-		user.disabled,
-        user_password.password_hash, user_password.password_salt
-       ) AS (&User.*)
-FROM   v_user_auth AS user
-       LEFT JOIN user_password 
-       ON        user.uuid = user_password.user_uuid
-WHERE  user.name = $M.name 
-AND    removed = false
-`
-
-		selectGetUserByAuthStmt, err := sqlair.Prepare(getUserWithAuthQuery, User{}, sqlair.M{})
-		if err != nil {
-			return errors.Annotate(err, "preparing select getUserWithAuth query")
-		}
-
 		err = tx.Query(ctx, selectGetUserByAuthStmt, sqlair.M{"name": name}).Get(&result)
 		if errors.Is(err, sql.ErrNoRows) {
 			return errors.Annotatef(usererrors.NotFound, "%q", name)
@@ -709,7 +709,7 @@ INSERT INTO user_password (user_uuid, password_hash, password_salt)
     FROM   user
     WHERE  name = $M.name 
     AND    removed = false
-ON CONFLICT(user_uuid) DO NOTHING`
+ON CONFLICT(user_uuid) DO UPDATE SET password_hash = excluded.password_hash, password_salt = excluded.password_salt`
 
 	insertSetPasswordHashStmt, err := sqlair.Prepare(setPasswordHashQuery, sqlair.M{})
 	if err != nil {
