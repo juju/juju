@@ -388,7 +388,14 @@ func (t *s3ObjectStore) loop() error {
 				continue
 			}
 
-		case req := <-t.drainRequests:
+		case req, ok := <-t.drainRequests:
+			if !ok {
+				// File draining has completed, so we can stop processing
+				// requests to the file backed object store.
+				fileFallback = noFileFallback
+				continue
+			}
+
 			select {
 			case <-t.tomb.Dying():
 				return tomb.ErrDying
@@ -643,6 +650,10 @@ func (t *s3ObjectStore) drainFiles(metadata []objectstore.Metadata) func() error
 				}
 			}
 		}
+
+		// Ensure we close the drain requests channel, so that we can prevent
+		// any further requests to the local file system.
+		close(t.drainRequests)
 
 		t.logger.Infof("draining completed for %q, processed %d", t.namespace, len(metadata))
 

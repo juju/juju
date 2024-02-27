@@ -375,18 +375,19 @@ func (s *s3ObjectStoreSuite) TestList(c *gc.C) {
 	fileName := "foo"
 	size := int64(666)
 
-	store := s.newS3ObjectStore(c).(*s3ObjectStore)
-	defer workertest.DirtyKill(c, store)
-
-	// Ensure we've started up before we start the test.
-	s.expectStartup(c)
-
+	s.session.EXPECT().CreateBucket(gomock.Any(), defaultBucketName).Return(nil)
 	s.service.EXPECT().ListMetadata(gomock.Any()).Return([]objectstore.Metadata{{
 		Hash: hexHash,
 		Path: fileName,
 		Size: size,
 	}}, nil)
 	s.session.EXPECT().ListObjects(gomock.Any(), defaultBucketName).Return([]string{hexHash}, nil)
+
+	store := s.newS3ObjectStore(c).(*s3ObjectStore)
+	defer workertest.DirtyKill(c, store)
+
+	// Ensure we've started up before we start the test.
+	s.expectStartup(c)
 
 	metadata, files, err := store.list(context.Background())
 	c.Assert(err, jc.ErrorIsNil)

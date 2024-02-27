@@ -5,10 +5,7 @@ package objectstore
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -470,38 +467,6 @@ func (s *fileObjectStoreSuite) TestList(c *gc.C) {
 		Size: size,
 	}})
 	c.Check(files, gc.DeepEquals, []string{hash})
-}
-
-func (s *fileObjectStoreSuite) createFile(c *gc.C, path, name, contents string) (int64, string) {
-	// Ensure the directory exists.
-	err := os.MkdirAll(path, 0755)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Create a file in a temporary directory.
-	dir := c.MkDir()
-
-	f, err := os.Create(filepath.Join(dir, name))
-	c.Assert(err, jc.ErrorIsNil)
-	defer f.Close()
-
-	// Create a hash of the contents when writing the file. The hash will
-	// be used as the file name on disk.
-	hasher := sha256.New()
-	size, err := io.Copy(f, io.TeeReader(strings.NewReader(contents), hasher))
-	c.Assert(err, jc.ErrorIsNil)
-
-	info, err := f.Stat()
-	c.Assert(err, jc.ErrorIsNil)
-
-	if info.Size() != size {
-		c.Fatalf("file size %d does not match expected size %d", info.Size(), size)
-	}
-
-	hash := hex.EncodeToString(hasher.Sum(nil))
-	err = os.Rename(filepath.Join(dir, name), filepath.Join(path, hash))
-	c.Assert(err, jc.ErrorIsNil)
-
-	return info.Size(), hash
 }
 
 func (s *fileObjectStoreSuite) expectFileDoesNotExist(c *gc.C, path, hash string) {
