@@ -7,7 +7,8 @@ run_secrets() {
 	juju --show-log add-model "$model_name" --config secret-backend=auto
 
 	juju --show-log deploy hello-kubecon hello
-	juju --show-log deploy nginx-ingress-integrator nginx
+	# TODO(wallyworld) - sadly we need to pin or else the latest charm breaks with hello-kubecon
+	juju --show-log deploy --channel latest/edge --revision 83 nginx-ingress-integrator nginx
 	juju --show-log integrate nginx hello
 	juju --show-log trust nginx --scope=cluster
 
