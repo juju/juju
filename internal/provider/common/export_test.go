@@ -4,7 +4,6 @@
 package common
 
 var (
-	ConnectSSH                          = &connectSSH
-	InternalAvailabilityZoneAllocations = &internalAvailabilityZoneAllocations
-	FormatHardware                      = formatHardware
+	ConnectSSH     = &connectSSH
+	FormatHardware = formatHardware
 )
