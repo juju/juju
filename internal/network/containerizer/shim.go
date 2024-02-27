@@ -4,6 +4,8 @@
 package containerizer
 
 import (
+	"context"
+
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 
@@ -13,11 +15,10 @@ import (
 	"github.com/juju/juju/state"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -package containerizer -destination bridgepolicy_mock_test.go github.com/juju/juju/internal/network/containerizer Container,Address,Subnet,LinkLayerDevice
-
-// SpaceBacking describes the retrieval of all spaces from the DB.
-type SpaceBacking interface {
-	AllSpaceInfos() (network.SpaceInfos, error)
+// SpaceService is the interface that is used to interact with the
+// network spaces.
+type SpaceService interface {
+	GetAllSpaces(ctx context.Context) (network.SpaceInfos, error)
 }
 
 // LinkLayerDevice is an indirection for state.LinkLayerDevice.
