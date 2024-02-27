@@ -21,10 +21,12 @@ import (
 	modelmanagerservice "github.com/juju/juju/domain/modelmanager/service"
 	networkservice "github.com/juju/juju/domain/network/service"
 	objectstoreservice "github.com/juju/juju/domain/objectstore/service"
+	storageservice "github.com/juju/juju/domain/storage/service"
 	unitservice "github.com/juju/juju/domain/unit/service"
 	upgradeservice "github.com/juju/juju/domain/upgrade/service"
 	userservice "github.com/juju/juju/domain/user/service"
 	"github.com/juju/juju/internal/servicefactory"
+	"github.com/juju/juju/internal/storage"
 )
 
 // TestingServiceFactory provides access to the services required by the apiserver.
@@ -130,6 +132,11 @@ func (s *TestingServiceFactory) Space() *networkservice.SpaceService {
 
 // Annotation returns the annotation service.
 func (s *TestingServiceFactory) Annotation() *annotationservice.Service {
+	return nil
+}
+
+// Storage returns the storage service.
+func (s *TestingServiceFactory) Storage(storage.ProviderRegistry) *storageservice.Service {
 	return nil
 }
 

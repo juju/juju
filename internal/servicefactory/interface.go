@@ -21,9 +21,11 @@ import (
 	modelmanagerservice "github.com/juju/juju/domain/modelmanager/service"
 	networkservice "github.com/juju/juju/domain/network/service"
 	objectstoreservice "github.com/juju/juju/domain/objectstore/service"
+	storageservice "github.com/juju/juju/domain/storage/service"
 	unitservice "github.com/juju/juju/domain/unit/service"
 	upgradeservice "github.com/juju/juju/domain/upgrade/service"
 	userservice "github.com/juju/juju/domain/user/service"
+	"github.com/juju/juju/internal/storage"
 )
 
 // ControllerServiceFactory provides access to the services required by the
@@ -78,6 +80,8 @@ type ModelServiceFactory interface {
 	Space() *networkservice.SpaceService
 	// Annotation returns the annotation service.
 	Annotation() *annotationService.Service
+	// Storage returns the storage service.
+	Storage(registry storage.ProviderRegistry) *storageservice.Service
 }
 
 // ServiceFactory provides access to the services required by the apiserver.
