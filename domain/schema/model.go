@@ -19,6 +19,14 @@ const (
 	tableVolume
 	tableVolumeAttachment
 	tableVolumeAttachmentPlan
+	tableSecretAutoPrune
+	tableSecretRotation
+	tableSecretRevisionObsolete
+	tableSecretRevisionExpire
+	tableSecretApplicationConsumerCurrentRevision
+	tableSecretUnitConsumerCurrentRevision
+	tableSecretRemoteApplicationConsumerCurrentRevision
+	tableSecretRemoteUnitConsumerCurrentRevision
 )
 
 // ModelDDL is used to create model databases.
@@ -26,11 +34,9 @@ func ModelDDL() *schema.Schema {
 	patches := []func() schema.Patch{
 		lifeSchema,
 		changeLogSchema,
-		changeLogModelNamespace,
-		modelConfig,
-		changeLogTriggersForTable("model_config", "key", tableModelConfig),
+		changeLogModelNamespaceSchema,
+		modelConfigSchema,
 		objectStoreMetadataSchema,
-		changeLogTriggersForTable("object_store_metadata_path", "path", tableModelObjectStoreMetadata),
 		applicationSchema,
 		charmSchema,
 		nodeSchema,
@@ -38,21 +44,48 @@ func ModelDDL() *schema.Schema {
 		spaceSchema,
 		subnetSchema,
 		blockDeviceSchema,
-		changeLogTriggersForTable("block_device", "machine_uuid", tableBlockDeviceMachine),
 		storageSchema,
+		secretSchema,
+		annotationModelSchema,
+	}
+
+	patches = append(patches,
+		changeLogTriggersForTable("block_device", "machine_uuid", tableBlockDeviceMachine),
+		changeLogTriggersForTable("model_config", "key", tableModelConfig),
+		changeLogTriggersForTable("object_store_metadata_path", "path", tableModelObjectStoreMetadata),
 		changeLogTriggersForTable("storage_attachment", "storage_instance_uuid", tableStorageAttachment),
 		changeLogTriggersForTable("storage_filesystem", "uuid", tableFileSystem),
 		changeLogTriggersForTable("storage_filesystem_attachment", "uuid", tableFileSystemAttachment),
 		changeLogTriggersForTable("storage_volume", "uuid", tableVolume),
 		changeLogTriggersForTable("storage_volume_attachment", "uuid", tableVolumeAttachment),
 		changeLogTriggersForTable("storage_volume_attachment_plan", "uuid", tableVolumeAttachmentPlan),
+		changeLogTriggersForTableOnColumn(
+			"secret", "uuid", "auto_prune", tableSecretAutoPrune),
+		changeLogTriggersForTableOnColumn(
+			"secret_rotation", "secret_uuid", "next_rotation_time", tableSecretRotation),
+		changeLogTriggersForTableOnColumn(
+			"secret_revision", "uuid", "obsolete", tableSecretRevisionObsolete),
+		changeLogTriggersForTableOnColumn(
+			"secret_revision_expire", "revision_uuid", "next_expire_time", tableSecretRevisionExpire),
+		changeLogTriggersForTableOnColumn(
+			"secret_application_consumer", "uuid", "current_revision", tableSecretApplicationConsumerCurrentRevision),
+		changeLogTriggersForTableOnColumn(
+			"secret_unit_consumer", "uuid", "current_revision", tableSecretUnitConsumerCurrentRevision),
+		changeLogTriggersForTableOnColumn(
+			"secret_remote_application_consumer", "uuid", "current_revision", tableSecretRemoteApplicationConsumerCurrentRevision),
+		changeLogTriggersForTableOnColumn(
+			"secret_remote_unit_consumer", "uuid", "current_revision", tableSecretRemoteUnitConsumerCurrentRevision),
+	)
+
+	patches = append(patches,
 		annotationSchemaForTable("application"),
 		annotationSchemaForTable("charm"),
 		annotationSchemaForTable("machine"),
 		annotationSchemaForTable("unit"),
-		annotationModel,
 		annotationSchemaForTable("storage_instance"),
-	}
+		annotationSchemaForTable("storage_volume"),
+		annotationSchemaForTable("storage_filesystem"),
+	)
 
 	modelSchema := schema.New()
 	for _, fn := range patches {
@@ -61,7 +94,7 @@ func ModelDDL() *schema.Schema {
 	return modelSchema
 }
 
-func annotationModel() schema.Patch {
+func annotationModelSchema() schema.Patch {
 	return schema.MakePatch(`
 CREATE TABLE annotation_model (
     key                 TEXT PRIMARY KEY,
@@ -100,7 +133,7 @@ INSERT INTO life VALUES
 `)
 }
 
-func changeLogModelNamespace() schema.Patch {
+func changeLogModelNamespaceSchema() schema.Patch {
 	// Note: These should match exactly the values of the tableNamespaceID
 	// constants above.
 	return schema.MakePatch(`
@@ -113,11 +146,19 @@ INSERT INTO change_log_namespace VALUES
     (5, 'storage_filesystem_attachment', 'File system attachment changes based on UUID'),
     (6, 'storage_volume', 'Storage volume changes based on UUID'),
     (7, 'storage_volume_attachment', 'Volume attachment changes based on UUID'),
-    (8, 'storage_volume_attachment_plan', 'Volume attachment plan changes based on UUID');
+    (8, 'storage_volume_attachment_plan', 'Volume attachment plan changes based on UUID'),
+    (9, 'secret', 'Secret auto prune changes based on UUID'),
+    (10, 'secret_rotation', 'Secret rotation changes based on UUID'),
+    (11, 'secret_revision', 'Secret revision obsolete changes based on UUID'),
+    (12, 'secret_revision_expire', 'Secret revision next expire time changes based on UUID'),
+    (13, 'secret_application_consumer', 'Secret application consumer current revision changes based on UUID'),
+    (14, 'secret_unit_consumer', 'Secret unit consumer current revision changes based on UUID'),
+    (15, 'secret_remote_application_consumer', 'Secret remote application consumer current revision changes based on UUID'),
+    (16, 'secret_remote_unit_consumer', 'Secret remote unit consumer current revision changes based on UUID');
 `)
 }
 
-func modelConfig() schema.Patch {
+func modelConfigSchema() schema.Patch {
 	return schema.MakePatch(`
 CREATE TABLE model_config (
     key   TEXT PRIMARY KEY,
