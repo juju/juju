@@ -816,6 +816,14 @@ func Validate(cfg, old *Config) error {
 		return errors.Trace(err)
 	}
 
+	if err := cfg.validateNumProvisionWorkers(); err != nil {
+		return errors.Trace(err)
+	}
+
+	if err := cfg.validateNumContainerProvisionWorkers(); err != nil {
+		return errors.Trace(err)
+	}
+
 	if old != nil {
 		// Check the immutable config values.  These can't change
 		for _, attr := range immutableAttributes {
@@ -1335,11 +1343,42 @@ func (c *Config) NumProvisionWorkers() int {
 	return value
 }
 
+const (
+	MaxNumProvisionWorkers          = 100
+	MaxNumContainerProvisionWorkers = 25
+)
+
+// validateNumProvisionWorkers ensures the number cannot be set to
+// more than 100.
+// TODO: (hml) 26-Feb-2024
+// Once we can better link the controller config and the model config,
+// allow the max value to be set in the controller config.
+func (c *Config) validateNumProvisionWorkers() error {
+	value, ok := c.defined[NumProvisionWorkersKey].(int)
+	if ok && value > MaxNumProvisionWorkers {
+		return errors.Errorf("%s: must be less than %d", NumProvisionWorkersKey, MaxNumProvisionWorkers)
+	}
+	return nil
+}
+
 // NumContainerProvisionWorkers returns the number of container provisioner
 // workers to use.
 func (c *Config) NumContainerProvisionWorkers() int {
 	value, _ := c.defined[NumContainerProvisionWorkersKey].(int)
 	return value
+}
+
+// validateNumContainerProvisionWorkers ensures the number cannot be set to
+// more than 25.
+// TODO: (hml) 26-Feb-2024
+// Once we can better link the controller config and the model config,
+// allow the max value to be set in the controller config.
+func (c *Config) validateNumContainerProvisionWorkers() error {
+	value, ok := c.defined[NumContainerProvisionWorkersKey].(int)
+	if ok && value > MaxNumContainerProvisionWorkers {
+		return errors.Errorf("%s: must be less than %d", NumContainerProvisionWorkersKey, MaxNumContainerProvisionWorkers)
+	}
+	return nil
 }
 
 // ImageStream returns the simplestreams stream
@@ -1355,7 +1394,7 @@ func (c *Config) ImageStream() string {
 
 // AgentStream returns the simplestreams stream
 // used to identify which tools to use when
-// when bootstrapping or upgrading an environment.
+// bootstrapping or upgrading an environment.
 func (c *Config) AgentStream() string {
 	v, _ := c.defined[AgentStreamKey].(string)
 	if v != "" {
@@ -1376,7 +1415,7 @@ func (c *Config) ContainerImageStream() string {
 
 // GUIStream returns the simplestreams stream
 // used to identify which gui to use when
-// when fetching a gui tarball.
+// fetching a gui tarball.
 func (c *Config) GUIStream() string {
 	v, _ := c.defined[GUIStreamKey].(string)
 	if v != "" {

@@ -118,7 +118,7 @@ func (s *CommonProvisionerSuite) assertProvisionerObservesConfigChangesWorkerCou
 	// Switch to reaping on All machines.
 	attrs := map[string]interface{}{}
 	if container {
-		attrs[config.NumContainerProvisionWorkersKey] = 42
+		attrs[config.NumContainerProvisionWorkersKey] = 10
 	} else {
 		attrs[config.NumProvisionWorkersKey] = 42
 	}

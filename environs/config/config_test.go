@@ -347,15 +347,31 @@ var configTests = []configTest{
 		}),
 		err: `provisioner-harvest-mode: expected one of \[all none unknown destroyed], got "yes please"`,
 	}, {
-		about: fmt.Sprintf(
-			"%s: %d",
-			"num-provision-workers",
-			42,
-		),
+		about:       fmt.Sprintf("num-provision-workers: 42"),
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"num-provision-workers": "42",
+			"num-provision-workers": 42,
 		}),
+	}, {
+		about:       fmt.Sprintf("num-provision-workers: over max"),
+		useDefaults: config.UseDefaults,
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
+			"num-provision-workers": 101,
+		}),
+		err: `num-provision-workers: must be less than 100`,
+	}, {
+		about:       fmt.Sprintf("num-container-provision-workers: 17"),
+		useDefaults: config.UseDefaults,
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
+			"num-container-provision-workers": 17,
+		}),
+	}, {
+		about:       fmt.Sprintf("num-container-provision-workers: over max"),
+		useDefaults: config.UseDefaults,
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
+			"num-container-provision-workers": 26,
+		}),
+		err: `num-container-provision-workers: must be less than 25`,
 	}, {
 		about:       "default image stream",
 		useDefaults: config.UseDefaults,
