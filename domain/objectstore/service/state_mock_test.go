@@ -72,6 +72,21 @@ func (mr *MockStateMockRecorder) InitialWatchStatement() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InitialWatchStatement", reflect.TypeOf((*MockState)(nil).InitialWatchStatement))
 }
 
+// ListMetadata mocks base method.
+func (m *MockState) ListMetadata(arg0 context.Context) ([]objectstore.Metadata, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListMetadata", arg0)
+	ret0, _ := ret[0].([]objectstore.Metadata)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListMetadata indicates an expected call of ListMetadata.
+func (mr *MockStateMockRecorder) ListMetadata(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListMetadata", reflect.TypeOf((*MockState)(nil).ListMetadata), arg0)
+}
+
 // PutMetadata mocks base method.
 func (m *MockState) PutMetadata(arg0 context.Context, arg1 objectstore.Metadata) error {
 	m.ctrl.T.Helper()

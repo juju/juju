@@ -13,12 +13,17 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/objectstore"
+)
+
+const (
+	defaultPruneInterval = time.Hour * 6
 )
 
 // S3ObjectStoreConfig is the configuration for the s3 object store.
@@ -233,6 +238,9 @@ func (t *s3ObjectStore) loop() error {
 		return errors.Trace(err)
 	}
 
+	timer := t.clock.NewTimer(jitter(defaultPruneInterval))
+	defer timer.Stop()
+
 	// Sequence the get request with the put, remove requests.
 	for {
 		select {
@@ -274,13 +282,27 @@ func (t *s3ObjectStore) loop() error {
 					err: t.remove(ctx, req.path),
 				}:
 				}
+
+			default:
+				return fmt.Errorf("unknown request type %d", req.op)
+			}
+
+		case <-timer.Chan():
+
+			// Reset the timer, as we've jittered the interval at the start of
+			// the loop.
+			timer.Reset(defaultPruneInterval)
+
+			if err := t.prune(ctx, t.list, t.deleteObject); err != nil {
+				t.logger.Errorf("prune: %v", err)
+				continue
 			}
 		}
 	}
 }
 
 func (t *s3ObjectStore) get(ctx context.Context, path string) (io.ReadCloser, int64, error) {
-	t.logger.Debugf("getting object %q from file storage", path)
+	t.logger.Debugf("getting object %q from s3 storage", path)
 
 	metadata, err := t.metadataService.GetMetadata(ctx, path)
 	if err != nil {
@@ -305,7 +327,7 @@ func (t *s3ObjectStore) get(ctx context.Context, path string) (io.ReadCloser, in
 }
 
 func (t *s3ObjectStore) put(ctx context.Context, path string, r io.Reader, size int64, validator hashValidator) error {
-	t.logger.Debugf("putting object %q to file storage", path)
+	t.logger.Debugf("putting object %q to s3 storage", path)
 
 	// Charms and resources are coded to use the SHA384 hash. It is possible
 	// to move to the more common SHA256 hash, but that would require a
@@ -390,7 +412,7 @@ func (t *s3ObjectStore) persistTmpFile(ctx context.Context, tmpFileName, fileEnc
 }
 
 func (t *s3ObjectStore) remove(ctx context.Context, path string) error {
-	t.logger.Debugf("removing object %q from file storage", path)
+	t.logger.Debugf("removing object %q from s3 storage", path)
 
 	metadata, err := t.metadataService.GetMetadata(ctx, path)
 	if err != nil {
@@ -403,19 +425,43 @@ func (t *s3ObjectStore) remove(ctx context.Context, path string) error {
 			return fmt.Errorf("remove metadata: %w", err)
 		}
 
-		return t.client.Session(ctx, func(ctx context.Context, s objectstore.Session) error {
-			err := s.DeleteObject(ctx, t.rootBucket, t.filePath(hash))
-			if err == nil {
-				return nil
-			}
-			if errors.Is(err, errors.NotFound) {
-				return nil
-			}
-			return errors.Trace(err)
-		})
+		return t.deleteObject(ctx, hash)
 	})
 }
 
 func (t *s3ObjectStore) filePath(hash string) string {
 	return fmt.Sprintf("%s/%s", t.namespace, hash)
+}
+
+func (t *s3ObjectStore) list(ctx context.Context) ([]objectstore.Metadata, []string, error) {
+	t.logger.Debugf("listing objects from s3 storage")
+
+	metadata, err := t.metadataService.ListMetadata(ctx)
+	if err != nil {
+		return nil, nil, fmt.Errorf("list metadata: %w", err)
+	}
+
+	var objects []string
+	if err := t.client.Session(ctx, func(ctx context.Context, s objectstore.Session) error {
+		var err error
+		objects, err = s.ListObjects(ctx, t.rootBucket)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		return nil
+	}); err != nil {
+		return nil, nil, fmt.Errorf("list objects: %w", err)
+	}
+
+	return metadata, objects, nil
+}
+
+func (t *s3ObjectStore) deleteObject(ctx context.Context, hash string) error {
+	return t.client.Session(ctx, func(ctx context.Context, s objectstore.Session) error {
+		err := s.DeleteObject(ctx, t.rootBucket, t.filePath(hash))
+		if err == nil || errors.Is(err, errors.NotFound) {
+			return nil
+		}
+		return errors.Trace(err)
+	})
 }

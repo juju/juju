@@ -153,6 +153,31 @@ func (c *S3Client) GetObject(ctx context.Context, bucketName, objectName string)
 	return obj.Body, size, hash, nil
 }
 
+// ListObjects returns a list of objects in the specified bucket.
+func (c *S3Client) ListObjects(ctx context.Context, bucketName string) ([]string, error) {
+	c.logger.Tracef("listing objects in bucket %s from s3 storage", bucketName)
+
+	objs, err := c.client.ListObjectsV2(ctx,
+		&s3.ListObjectsV2Input{
+			Bucket: aws.String(bucketName),
+		})
+	if err != nil {
+		if err := handleError(err); err != nil {
+			return nil, errors.Trace(err)
+		}
+		return nil, errors.Annotatef(err, "listing objects on bucket %s using S3 client", bucketName)
+	}
+
+	var objects []string
+	for _, obj := range objs.Contents {
+		if obj.Key == nil {
+			continue
+		}
+		objects = append(objects, *obj.Key)
+	}
+	return objects, nil
+}
+
 const (
 	// retentionLockDate is the date used to set the retention lock on the
 	// object. After that expires, the object can be deleted without

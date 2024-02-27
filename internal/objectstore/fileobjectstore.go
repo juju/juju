@@ -219,6 +219,9 @@ func (t *fileObjectStore) loop() error {
 	ctx, cancel := t.scopedContext()
 	defer cancel()
 
+	timer := t.clock.NewTimer(jitter(defaultPruneInterval))
+	defer timer.Stop()
+
 	// Sequence the get request with the put, remove requests.
 	for {
 		select {
@@ -260,6 +263,20 @@ func (t *fileObjectStore) loop() error {
 					err: t.remove(ctx, req.path),
 				}:
 				}
+
+			default:
+				return fmt.Errorf("unknown request type %d", req.op)
+			}
+
+		case <-timer.Chan():
+
+			// Reset the timer, as we've jittered the interval at the start of
+			// the loop.
+			timer.Reset(defaultPruneInterval)
+
+			if err := t.prune(ctx, t.list, t.deleteObject); err != nil {
+				t.logger.Errorf("prune: %v", err)
+				continue
 			}
 		}
 	}
@@ -382,25 +399,56 @@ func (t *fileObjectStore) remove(ctx context.Context, path string) error {
 		if err := t.metadataService.RemoveMetadata(ctx, path); err != nil {
 			return fmt.Errorf("remove metadata: %w", err)
 		}
-
-		filePath := t.filePath(hash)
-
-		// File doesn't exist, return early, nothing we can do in this case.
-		if _, err := os.Stat(filePath); err != nil && errors.Is(err, os.ErrNotExist) {
-			return nil
-		}
-
-		// If we fail to remove the file, we don't want to return an error, as
-		// the metadata has already been removed. Manual intervention will be
-		// required to remove the file. We may in the future want to prune the
-		// file store of files that are no longer referenced by metadata.
-		if err := os.Remove(filePath); err != nil {
-			t.logger.Errorf("failed to remove file %q for path %q: %v", filePath, path, err)
-		}
-		return nil
+		return t.deleteObject(ctx, hash)
 	})
 }
 
 func (t *fileObjectStore) filePath(hash string) string {
 	return filepath.Join(t.path, hash)
+}
+
+func (t *fileObjectStore) list(ctx context.Context) ([]objectstore.Metadata, []string, error) {
+	t.logger.Debugf("listing objects from file storage")
+
+	metadata, err := t.metadataService.ListMetadata(ctx)
+	if err != nil {
+		return nil, nil, fmt.Errorf("list metadata: %w", err)
+	}
+
+	// List all the files in the directory.
+	entries, err := fs.ReadDir(t.fs, ".")
+	if err != nil {
+		return nil, nil, fmt.Errorf("reading directory: %w", err)
+	}
+
+	// Filter out any directories.
+	var files []string
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		files = append(files, entry.Name())
+	}
+
+	return metadata, files, nil
+}
+
+func (t *fileObjectStore) deleteObject(ctx context.Context, hash string) error {
+	filePath := t.filePath(hash)
+
+	// File doesn't exist. It was probably already removed. Return early,
+	// nothing we can do in this case.
+	if _, err := os.Stat(filePath); err != nil && errors.Is(err, os.ErrNotExist) {
+		t.logger.Debugf("file %q doesn't exist, nothing to do", filePath)
+		return nil
+	}
+
+	// If we fail to remove the file, we don't want to return an error, as
+	// the metadata has already been removed. Manual intervention will be
+	// required to remove the file. We may in the future want to prune the
+	// file store of files that are no longer referenced by metadata.
+	if err := os.Remove(filePath); err != nil {
+		t.logger.Errorf("failed to remove file %q: %v", filePath, err)
+	}
+	return nil
 }

@@ -13,6 +13,9 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/tomb.v2"
+
+	"github.com/juju/juju/core/objectstore"
+	jujutesting "github.com/juju/juju/testing"
 )
 
 type baseObjectStoreSuite struct {
@@ -217,6 +220,109 @@ func (s *baseObjectStoreSuite) TestLockingForTombKill(c *gc.C) {
 	case <-time.After(testing.LongWait):
 		c.Fatal("timed out waiting for complete state")
 	}
+}
+
+func (s *baseObjectStoreSuite) TestPruneWithNoData(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Ensure that we don't panic if we have no data to prune.
+
+	w := &baseObjectStore{
+		logger:  jujutesting.NewCheckLogger(c),
+		claimer: s.claimer,
+		clock:   clock.WallClock,
+	}
+
+	list := func(ctx context.Context) ([]objectstore.Metadata, []string, error) {
+		return nil, nil, nil
+	}
+	delete := func(ctx context.Context, hash string) error {
+		c.Fatalf("failed if called")
+		return nil
+	}
+
+	err := w.prune(context.Background(), list, delete)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *baseObjectStoreSuite) TestPruneWithJustMetadata(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// If we only have metadata and no objects, we expect no pruning to occur.
+
+	w := &baseObjectStore{
+		logger:  jujutesting.NewCheckLogger(c),
+		claimer: s.claimer,
+		clock:   clock.WallClock,
+	}
+
+	list := func(ctx context.Context) ([]objectstore.Metadata, []string, error) {
+		return []objectstore.Metadata{{
+			Hash: "hash",
+		}}, nil, nil
+	}
+	delete := func(ctx context.Context, hash string) error {
+		c.Fatalf("failed if called")
+		return nil
+	}
+
+	err := w.prune(context.Background(), list, delete)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *baseObjectStoreSuite) TestPruneWithJustObjects(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Expect that we delete the objects if we have no metadata.
+
+	s.expectClaimRelease("foo")
+	s.expectExtendDuration(time.Second)
+
+	w := &baseObjectStore{
+		logger:  jujutesting.NewCheckLogger(c),
+		claimer: s.claimer,
+		clock:   clock.WallClock,
+	}
+
+	list := func(ctx context.Context) ([]objectstore.Metadata, []string, error) {
+		return nil, []string{"foo"}, nil
+	}
+	delete := func(ctx context.Context, hash string) error {
+		c.Check(hash, gc.Equals, "foo")
+		return nil
+	}
+
+	err := w.prune(context.Background(), list, delete)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *baseObjectStoreSuite) TestPruneWithMatches(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Expect that we delete the objects if we have no metadata and ignore
+	// the ones that do.
+
+	s.expectClaimRelease("foo")
+	s.expectExtendDuration(time.Second)
+
+	w := &baseObjectStore{
+		logger:  jujutesting.NewCheckLogger(c),
+		claimer: s.claimer,
+		clock:   clock.WallClock,
+	}
+
+	list := func(ctx context.Context) ([]objectstore.Metadata, []string, error) {
+		return []objectstore.Metadata{{
+			Hash: "bar",
+		}}, []string{"bar", "foo"}, nil
+	}
+	delete := func(ctx context.Context, hash string) error {
+		c.Check(hash, gc.Equals, "foo")
+		return nil
+	}
+
+	err := w.prune(context.Background(), list, delete)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *baseObjectStoreSuite) setupMocks(c *gc.C) *gomock.Controller {

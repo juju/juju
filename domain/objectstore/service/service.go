@@ -21,6 +21,8 @@ type State interface {
 	GetMetadata(ctx context.Context, path string) (objectstore.Metadata, error)
 	// PutMetadata adds a new specified path for the persistence metadata.
 	PutMetadata(ctx context.Context, metadata objectstore.Metadata) error
+	// ListMetadata returns the persistence metadata for all paths.
+	ListMetadata(ctx context.Context) ([]objectstore.Metadata, error)
 	// RemoveMetadata removes the specified path for the persistence metadata.
 	RemoveMetadata(ctx context.Context, path string) error
 	// InitialWatchStatement returns the table and the initial watch statement
@@ -58,6 +60,23 @@ func (s *Service) GetMetadata(ctx context.Context, path string) (coreobjectstore
 		Hash: metadata.Hash,
 		Size: metadata.Size,
 	}, nil
+}
+
+// ListMetadata returns the persistence metadata for all paths.
+func (s *Service) ListMetadata(ctx context.Context) ([]coreobjectstore.Metadata, error) {
+	metadata, err := s.st.ListMetadata(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("retrieving metadata: %w", domain.CoerceError(err))
+	}
+	m := make([]coreobjectstore.Metadata, len(metadata))
+	for i, v := range metadata {
+		m[i] = coreobjectstore.Metadata{
+			Path: v.Path,
+			Hash: v.Hash,
+			Size: v.Size,
+		}
+	}
+	return m, nil
 }
 
 // PutMetadata adds a new specified path for the persistence metadata.

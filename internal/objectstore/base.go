@@ -6,6 +6,7 @@ package objectstore
 import (
 	"context"
 	"io"
+	"math/rand"
 	"os"
 	"path/filepath"
 	"time"
@@ -14,7 +15,13 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/tomb.v2"
 
+	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/objectstore"
+)
+
+const (
+	// ErrFileLocked is returned when a file is locked.
+	ErrFileLocked = errors.ConstError("file locked")
 )
 
 // Claimer is the interface that is used to claim an exclusive lock for a
@@ -134,6 +141,9 @@ func (w *baseObjectStore) withLock(ctx context.Context, hash string, f func(cont
 	// while we're writing it.
 	extender, err := w.claimer.Claim(ctx, hash)
 	if err != nil {
+		if errors.Is(err, lease.ErrClaimDenied) {
+			return ErrFileLocked
+		}
 		return errors.Trace(err)
 	}
 
@@ -215,7 +225,6 @@ func (w *baseObjectStore) cleanupTmpFiles() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-
 	for _, entry := range entries {
 		// Ignore directories, this shouldn't happen, but just in case.
 		if entry.IsDir() {
@@ -225,6 +234,54 @@ func (w *baseObjectStore) cleanupTmpFiles() error {
 		if err := os.Remove(filepath.Join(tmpPath, entry.Name())); err != nil {
 			return errors.Trace(err)
 		}
+	}
+	return nil
+}
+
+// Define the functions that are used to prune the object store.
+type (
+	// pruneListFunc is the function that is used to list the objects in the
+	// object store. This includes the metadata and the objects themselves.
+	pruneListFunc func(ctx context.Context) ([]objectstore.Metadata, []string, error)
+	// pruneDeleteFunc is the function that is used to delete an object from
+	// the object store.
+	pruneDeleteFunc func(ctx context.Context, hash string) error
+)
+
+// prune is used to prune any potential stale objects from the object store.
+func (w *baseObjectStore) prune(ctx context.Context, list pruneListFunc, delete pruneDeleteFunc) error {
+	w.logger.Debugf("pruning objects from storage")
+
+	metadata, objects, err := list(ctx)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	// Create a map of all the hashes that we know about in the metadata
+	// database.
+	hashes := make(map[string]struct{})
+	for _, m := range metadata {
+		hashes[m.Hash] = struct{}{}
+	}
+
+	// Remove any objects that we don't know about.
+	for _, object := range objects {
+		if _, ok := hashes[object]; ok {
+			w.logger.Tracef("object %q is referenced", object)
+			continue
+		}
+
+		w.logger.Debugf("attempting to remove unreferenced object %q", object)
+
+		// Attempt to acquire a lock on the object. If we can't acquire
+		// the lock, then we'll try again later.
+		if err := w.withLock(ctx, object, func(ctx context.Context) error {
+			return errors.Trace(delete(ctx, object))
+		}); err != nil {
+			w.logger.Infof("failed to remove unreferenced object %q: %v, will try again later", object, err)
+			continue
+		}
+
+		w.logger.Debugf("removed unreferenced object %q", object)
 	}
 
 	return nil
@@ -244,4 +301,11 @@ func checkHash(expected string) func(string) (string, bool) {
 
 func nopCloser() error {
 	return nil
+}
+
+// jitter returns a random duration between 0.5 and 1 times the given duration.
+func jitter(d time.Duration) time.Duration {
+	h := float64(d) * 0.5
+	r := rand.Float64() * h
+	return time.Duration(r + h)
 }
