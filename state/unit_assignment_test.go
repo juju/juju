@@ -241,29 +241,6 @@ func (s *UnitAssignmentSuite) TestAssignUnitWithPlacementDirective(c *gc.C) {
 	c.Assert(machine.Placement(), gc.Equals, "zone=test")
 }
 
-func (s *UnitAssignmentSuite) TestAssignUnitCleanMachineUpgradeSeriesLockError(c *gc.C) {
-	s.addLockedMachine(c, true)
-
-	charm := s.AddTestingCharm(c, "dummy")
-	app, err := s.State.AddApplication(state.AddApplicationArgs{
-		Name:  "dummy",
-		Charm: charm,
-		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
-			OS:      "ubuntu",
-			Channel: "22.04/stable",
-		}},
-		NumUnits: 1,
-	}, mockApplicationSaver{}, state.NewObjectStore(c, s.State.ModelUUID()))
-	c.Assert(err, jc.ErrorIsNil)
-	units, err := app.AllUnits()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(units, gc.HasLen, 1)
-
-	unit := units[0]
-	_, err = unit.AssignToCleanEmptyMachine()
-	c.Assert(err, gc.ErrorMatches, eligibleMachinesInUse)
-}
-
 func (s *UnitAssignmentSuite) TestAssignUnitMachinePlacementUpgradeSeriesLockError(c *gc.C) {
 	machine, _ := s.addLockedMachine(c, false)
 	// As in --to 0

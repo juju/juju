@@ -1125,7 +1125,7 @@ func (s *CleanupSuite) TestCleanupMachineStorage(c *gc.C) {
 	application := s.AddTestingApplicationWithStorage(c, "storage-block", ch, storage)
 	unit, err := application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.AssignUnit(unit, state.AssignCleanEmpty)
+	err = s.State.AssignUnit(unit, state.AssignNew)
 	c.Assert(err, jc.ErrorIsNil)
 	machineId, err := unit.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1414,7 +1414,7 @@ func (s *CleanupSuite) TestDyingUnitWithForceSchedulesForceFallback(c *gc.C) {
 	application := s.AddTestingApplication(c, "mysql", ch)
 	unit, err := application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.AssignUnit(unit, state.AssignCleanEmpty)
+	err = s.State.AssignUnit(unit, state.AssignNew)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = unit.SetAgentStatus(status.StatusInfo{
@@ -1457,7 +1457,7 @@ func (s *CleanupSuite) TestForceDestroyUnitDestroysSubordinates(c *gc.C) {
 	prr := newProReqRelation(c, &s.ConnSuite, charm.ScopeContainer)
 	prr.allEnterScope(c)
 	for _, principal := range []*state.Unit{prr.pu0, prr.pu1} {
-		err := s.State.AssignUnit(principal, state.AssignCleanEmpty)
+		err := s.State.AssignUnit(principal, state.AssignNew)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	for _, unit := range []*state.Unit{prr.pu0, prr.pu1, prr.ru0, prr.ru1} {
@@ -1518,7 +1518,7 @@ func (s *CleanupSuite) TestForceDestroyUnitLeavesRelations(c *gc.C) {
 	prr := newProReqRelation(c, &s.ConnSuite, charm.ScopeGlobal)
 	prr.allEnterScope(c)
 	for _, unit := range []*state.Unit{prr.pu0, prr.pu1, prr.ru0, prr.ru1} {
-		err := s.State.AssignUnit(unit, state.AssignCleanEmpty)
+		err := s.State.AssignUnit(unit, state.AssignNew)
 		c.Assert(err, jc.ErrorIsNil)
 		err = unit.SetAgentStatus(status.StatusInfo{
 			Status: status.Idle,

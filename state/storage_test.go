@@ -130,7 +130,7 @@ func (s *StorageStateSuiteBase) setupSingleStorage(c *gc.C, kind, pool string) (
 }
 
 func (s *StorageStateSuiteBase) provisionStorageVolume(c *gc.C, u *state.Unit, storageTag names.StorageTag) {
-	err := s.st.AssignUnit(u, state.AssignCleanEmpty)
+	err := s.st.AssignUnit(u, state.AssignNew)
 	c.Assert(err, jc.ErrorIsNil)
 	machine := unitMachine(c, s.st, u)
 	volume := s.storageInstanceVolume(c, storageTag)
@@ -903,7 +903,7 @@ func (s *StorageStateSuite) TestRemoveStorageAttachmentsDisownsUnitOwnedInstance
 	// volume attachment. When the storage is detached from
 	// the unit, the volume should be detached from the
 	// machine.
-	err = s.st.AssignUnit(u, state.AssignCleanEmpty)
+	err = s.st.AssignUnit(u, state.AssignNew)
 	c.Assert(err, jc.ErrorIsNil)
 	machineId, err := u.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
@@ -978,7 +978,7 @@ func (s *StorageStateSuite) TestAttachStorageAssignedMachine(c *gc.C) {
 	// attach the storage to the unit, it will create a volume
 	// and volume attachment.
 	defer state.SetBeforeHooks(c, s.st, func() {
-		err = s.st.AssignUnit(u2, state.AssignCleanEmpty)
+		err = s.st.AssignUnit(u2, state.AssignNew)
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
 
@@ -1006,7 +1006,7 @@ func (s *StorageStateSuite) TestAttachStorageAssignedMachineExistingVolume(c *gc
 	// the storage from the first unit, the volume and
 	// filesystem should be detached from their assigned
 	// machine.
-	err = s.st.AssignUnit(u, state.AssignCleanEmpty)
+	err = s.st.AssignUnit(u, state.AssignNew)
 	c.Assert(err, jc.ErrorIsNil)
 	oldMachineId, err := u.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1026,7 +1026,7 @@ func (s *StorageStateSuite) TestAttachStorageAssignedMachineExistingVolume(c *gc
 	// attach the storage to the unit, it will attach the
 	// existing volume/filesystem to the machine.
 	defer state.SetBeforeHooks(c, s.st, func() {
-		err = s.st.AssignUnit(u2, state.AssignCleanEmpty)
+		err = s.st.AssignUnit(u2, state.AssignNew)
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
 
@@ -1051,13 +1051,13 @@ func (s *StorageStateSuite) TestAttachStorageAssignedMachineExistingVolumeAttach
 	// volume and volume attachment initially. When we detach
 	// the storage from the first unit, the volume should be
 	// detached from its assigned machine.
-	err = s.st.AssignUnit(u, state.AssignCleanEmpty)
+	err = s.st.AssignUnit(u, state.AssignNew)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Assign the second unit to a machine so that when we
 	// attach the storage to the unit, it will attach the
 	// existing volume to the machine.
-	err = s.st.AssignUnit(u2, state.AssignCleanEmpty)
+	err = s.st.AssignUnit(u2, state.AssignNew)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Detach, but do not destroy, the storage. Leave the volume attachment
@@ -1469,7 +1469,7 @@ func (s *StorageStateSuite) testStorageLocationConflict(c *gc.C, first, second, 
 
 	u1, err := app1.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.st.AssignUnit(u1, state.AssignCleanEmpty)
+	err = s.st.AssignUnit(u1, state.AssignNew)
 	c.Assert(err, jc.ErrorIsNil)
 
 	machineId, err := u1.AssignedMachineId()
@@ -1665,13 +1665,13 @@ func (s *StorageSubordinateStateSuite) TestSubordinateStoragePrincipalUnassigned
 
 	// Assigning the principal unit to a machine should cause the subordinate
 	// unit's machine storage to be created.
-	err = s.st.AssignUnit(s.mysqlUnit, state.AssignCleanEmpty)
+	err = s.st.AssignUnit(s.mysqlUnit, state.AssignNew)
 	c.Assert(err, jc.ErrorIsNil)
 	_ = s.storageInstanceFilesystem(c, storageTag)
 }
 
 func (s *StorageSubordinateStateSuite) TestSubordinateStoragePrincipalAssigned(c *gc.C) {
-	err := s.st.AssignUnit(s.mysqlUnit, state.AssignCleanEmpty)
+	err := s.st.AssignUnit(s.mysqlUnit, state.AssignNew)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.mysqlRelunit.EnterScope(nil)
@@ -1698,7 +1698,7 @@ func (s *StorageSubordinateStateSuite) TestSubordinateStoragePrincipalAssignRace
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
 
-	err := s.st.AssignUnit(s.mysqlUnit, state.AssignCleanEmpty)
+	err := s.st.AssignUnit(s.mysqlUnit, state.AssignNew)
 	c.Assert(err, jc.ErrorIsNil)
 	_ = s.storageInstanceFilesystem(c, names.NewStorageTag("data/0"))
 }
