@@ -110,12 +110,11 @@ func (w *argsWorker) loop() error {
 	return w.catacomb.ErrDying()
 }
 
-// managedServices is a ControllerConfigService that wraps another
-// ControllerConfigService and cancels the context when the tomb is dying.
-// This is because the location of the controller config request is not
-// cancellable, so we need the ability to cancel the controller config
-// request when the tomb is dying. This should prevent any lockup when the
-// controller is shutting down.
+// managedServices is a ControllerConfigService and a UserService that wraps
+// the underlying services and cancels the context when the tomb is dying.
+// This is because the location of the request is not cancellable, so we need
+// the ability to cancel the request when the tomb is dying. This should
+// prevent any lockup when the controller is shutting down.
 type managedServices struct {
 	tomb                    tomb.Tomb
 	controllerConfigService ControllerConfigService

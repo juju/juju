@@ -55,8 +55,6 @@ type agentAuthenticator struct {
 	logger Logger
 }
 
-var _ EntityAuthenticator = (*agentAuthenticator)(nil)
-
 type taggedAuthenticator interface {
 	state.Entity
 	state.Authenticator
