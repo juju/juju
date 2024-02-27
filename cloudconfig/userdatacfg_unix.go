@@ -83,6 +83,9 @@ rm -rf /var/lib/juju/tools/*
 echo "removing /var/lib/juju/db/*"
 rm -rf /var/lib/juju/db/*
 
+echo "removing /var/lib/juju/dqlite/*"
+rm -rf /var/lib/juju/dqlite/*
+
 echo "removing /var/lib/juju/raft/*"
 rm -rf /var/lib/juju/raft/*
 
