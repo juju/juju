@@ -9,7 +9,8 @@ import (
 	"github.com/juju/juju/core/user"
 )
 
-// User represents a user in the state layer with the associated fields in the database.
+// User represents a user in the state layer with the associated fields in the
+// database.
 type User struct {
 	// UUID is the unique identifier for the user.
 	UUID user.UUID `db:"uuid"`
@@ -57,4 +58,10 @@ func (u User) toCoreUser() user.User {
 		LastLogin:   u.LastLogin,
 		Disabled:    u.Disabled,
 	}
+}
+
+// ActivationKey represents an activation key in the state layer with the
+// associated fields in the database.
+type ActivationKey struct {
+	ActivationKey string `db:"activation_key"`
 }

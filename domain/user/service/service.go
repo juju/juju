@@ -6,8 +6,10 @@ package service
 import (
 	"context"
 	"crypto/rand"
+	"encoding/json"
 
 	"github.com/juju/errors"
+	"golang.org/x/crypto/nacl/secretbox"
 
 	"github.com/juju/juju/core/user"
 	domainuser "github.com/juju/juju/domain/user"
@@ -84,6 +86,11 @@ type State interface {
 	// activation key. If no user is found for the supplied user name an error
 	// is returned that satisfies usererrors.NotFound.
 	SetActivationKey(context.Context, string, []byte) error
+
+	// GetActivationKey will retrieve the activation key for the user.
+	// If no user is found for the supplied user name an error is returned that
+	// satisfies usererrors.NotFound.
+	GetActivationKey(context.Context, string) ([]byte, error)
 
 	// SetPasswordHash removes any active activation keys and sets the user
 	// password hash and salt. If no user is found for the supplied user name an error
@@ -304,20 +311,8 @@ func (s *Service) SetPassword(ctx context.Context, name string, pass auth.Passwo
 		return errors.Trace(err)
 	}
 
-	salt, err := auth.NewSalt()
-	if err != nil {
-		return errors.Annotatef(err, "generating password salt for user %q", name)
-	}
-
-	pwHash, err := auth.HashPassword(pass, salt)
-	if err != nil {
-		return errors.Annotatef(err, "hashing password for user %q", name)
-	}
-
-	if err = s.st.SetPasswordHash(ctx, name, pwHash, salt); err != nil {
-		return errors.Annotatef(err, "setting password for user %q", name)
-	}
-	return nil
+	err := s.setPassword(ctx, name, pass)
+	return errors.Trace(err)
 }
 
 // ResetPassword will remove any active passwords for a user and generate a new
@@ -397,4 +392,100 @@ func generateActivationKey() ([]byte, error) {
 		return nil, errors.Annotate(err, "generating activation key")
 	}
 	return activationKey[:], nil
+}
+
+// activationBoxNonceLength is the number of bytes in the nonce for the
+// activation box.
+const activationBoxNonceLength = 24
+
+// Sealer is an interface that can be used to seal a byte slice.
+// This will use the nonce and box for a given user to seal the payload.
+type Sealer interface {
+	// Seal will seal the payload using the nonce and box for the user.
+	Seal(nonce, payload []byte) ([]byte, error)
+}
+
+// SetPasswordWithActivationKey will use the activation key from the user. To
+// then apply the payload password. If the user does not exist an error that
+// satisfies usererrors.NotFound will be return. If the nonce is not the
+// correct length an error that satisfies errors.NotValid will be returned.
+//
+// This will use the NaCl secretbox to open the box and then unmarshal the
+// payload to set the new password for the user. If the payload cannot be
+// unmarshalled an error will be returned.
+// To prevent the leaking of the key and nonce (which can unbox the secret),
+// a Sealer will be returned that can be used to seal the response payload.
+func (s *Service) SetPasswordWithActivationKey(ctx context.Context, name string, nonce, box []byte) (Sealer, error) {
+	if len(nonce) != activationBoxNonceLength {
+		return nil, errors.NotValidf("nonce")
+	}
+
+	// Get the activation key for the user.
+	key, err := s.st.GetActivationKey(ctx, name)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// Copy the nonce and the key to arrays which can be used for the secretbox.
+	var sbKey [activationKeyLength]byte
+	var sbNonce [activationBoxNonceLength]byte
+	copy(sbKey[:], key)
+	copy(sbNonce[:], nonce)
+
+	// The box is the payload that has been sealed with the nonce and key, so
+	// let's open it.
+	boxPayloadBytes, ok := secretbox.Open(nil, box, &sbNonce, &sbKey)
+	if !ok {
+		return nil, usererrors.ActivationKeyNotValid
+	}
+
+	// We expect the payload to be a JSON object with a password field.
+	var payload struct {
+		// Password is the new password to set for the user.
+		Password string `json:"password"`
+	}
+	if err := json.Unmarshal(boxPayloadBytes, &payload); err != nil {
+		return nil, errors.Annotate(err, "cannot unmarshal payload")
+	}
+
+	if err := s.setPassword(ctx, name, auth.NewPassword(payload.Password)); err != nil {
+		return nil, errors.Annotate(err, "setting new password")
+	}
+
+	return boxSealer{
+		key: sbKey,
+	}, nil
+}
+
+func (s *Service) setPassword(ctx context.Context, name string, pass auth.Password) error {
+	salt, err := auth.NewSalt()
+	if err != nil {
+		return errors.Annotatef(err, "generating password salt for user %q", name)
+	}
+
+	pwHash, err := auth.HashPassword(pass, salt)
+	if err != nil {
+		return errors.Annotatef(err, "hashing password for user %q", name)
+	}
+
+	if err = s.st.SetPasswordHash(ctx, name, pwHash, salt); err != nil {
+		return errors.Annotatef(err, "setting password for user %q", name)
+	}
+
+	return nil
+}
+
+// boxSealer is a Sealer that uses the NaCl secretbox to seal a payload.
+type boxSealer struct {
+	key [activationKeyLength]byte
+}
+
+func (s boxSealer) Seal(nonce, payload []byte) ([]byte, error) {
+	if len(nonce) != activationBoxNonceLength {
+		return nil, errors.NotValidf("nonce")
+	}
+
+	var sbNonce [activationBoxNonceLength]byte
+	copy(sbNonce[:], nonce)
+	return secretbox.Seal(nil, payload, &sbNonce, &s.key), nil
 }

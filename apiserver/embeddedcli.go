@@ -23,7 +23,6 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/httpcontext"
 	"github.com/juju/juju/apiserver/websocket"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/feature"
@@ -232,12 +231,6 @@ func newLineReader(r io.Reader) *linereader.Reader {
 	}
 	go result.Run()
 	return result
-}
-
-// ControllerConfigService defines the methods required to get the controller
-// configuration.
-type ControllerConfigService interface {
-	ControllerConfig(context.Context) (controller.Config, error)
 }
 
 // ExecEmbeddedCommandFunc defines a function which runs a named Juju command

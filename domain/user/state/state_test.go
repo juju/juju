@@ -866,20 +866,31 @@ func (s *stateSuite) TestAddUserWithActivationKey(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that the activation key was set correctly.
-	db := s.DB()
-
-	row := db.QueryRow(`
-SELECT activation_key
-FROM user_activation_key
-WHERE user_uuid = ?
-	`, adminUUID)
-	c.Assert(row.Err(), jc.ErrorIsNil)
-
-	var activationKey string
-	err = row.Scan(&activationKey)
+	activationKey, err := st.GetActivationKey(context.Background(), "admin")
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(activationKey, gc.Equals, string(adminActivationKey))
+	c.Check(activationKey, gc.DeepEquals, adminActivationKey)
+}
+
+// TestGetActivationKeyNotFound asserts that if we try to get an activation key
+// for a user that does not exist, we get an error.
+func (s *stateSuite) TestGetActivationKeyNotFound(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	// Add admin user.
+	adminUUID, err := user.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = st.AddUser(
+		context.Background(), adminUUID,
+		"admin", "admin",
+		adminUUID,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check that the activation key was set correctly.
+	_, err = st.GetActivationKey(context.Background(), "admin")
+	c.Assert(err, jc.ErrorIs, usererrors.ActivationKeyNotFound)
 }
 
 // TestAddUserWithActivationKeyWhichCreatorDoesNotExist asserts that we get an

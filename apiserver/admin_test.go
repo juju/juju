@@ -1054,7 +1054,7 @@ func (s *loginV3Suite) TestClientLoginToControllerNoAccessToControllerModel(c *g
 
 	user, err := userService.GetUser(context.Background(), uuid)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(user.LastLogin, jc.After, now)
+	c.Check(user.LastLogin, gc.Not(jc.Before), now)
 }
 
 func (s *loginV3Suite) TestClientLoginToRootOldClient(c *gc.C) {

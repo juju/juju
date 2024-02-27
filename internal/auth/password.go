@@ -148,7 +148,3 @@ func (p Password) Validate() error {
 	}
 	return nil
 }
-
-func (p Password) RAW() string {
-	return string(p.password)
-}

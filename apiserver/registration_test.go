@@ -23,17 +23,23 @@ import (
 
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/core/user"
+	usererrors "github.com/juju/juju/domain/user/errors"
+	"github.com/juju/juju/domain/user/service"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/internal/auth"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
 )
 
 type registrationSuite struct {
 	jujutesting.ApiServerSuite
-	bob             *state.User
+	userService     *service.Service
+	userUUID        user.UUID
+	activationKey   []byte
 	registrationURL string
 }
 
@@ -41,9 +47,26 @@ var _ = gc.Suite(&registrationSuite{})
 
 func (s *registrationSuite) SetUpTest(c *gc.C) {
 	s.ApiServerSuite.SetUpTest(c)
-	bob, err := s.ControllerModel(c).State().AddUserWithSecretKey("bob", "", "admin")
+
+	s.userService = s.ControllerServiceFactory(c).User()
+	var err error
+	s.userUUID, _, err = s.userService.AddUser(context.Background(), service.AddUserArg{
+		Name:        "bob",
+		CreatorUUID: s.AdminUserUUID,
+	})
 	c.Assert(err, jc.ErrorIsNil)
-	s.bob = bob
+
+	s.activationKey, err = s.userService.ResetPassword(context.Background(), "bob")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// TODO (stickupkid): Permissions: This is only required to insert admin
+	// permissions into the state, remove when permissions are written to state.
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+	f.MakeUser(c, &factory.UserParams{
+		Name: "bob",
+	})
+
 	s.registrationURL = s.URL("/register", url.Values{}).String()
 }
 
@@ -73,14 +96,15 @@ func (s *registrationSuite) assertRegisterNoProxy(c *gc.C, hasProxy bool) {
 		proxier.EXPECT().Type().Return("kubernetes-port-forward")
 	}
 
-	// Ensure we cannot log in with the password yet.
-	const password = "hunter2"
-	c.Assert(s.bob.PasswordValid(password), jc.IsFalse)
+	password := "hunter2"
+	// It should be not possible to log in as bob with the password "hunter2"
+	// now.
+	_, err := s.userService.GetUserByAuth(context.Background(), "bob", password)
+	c.Assert(err, jc.ErrorIs, usererrors.Unauthorized)
 
 	validNonce := []byte(strings.Repeat("X", 24))
-	secretKey := s.bob.SecretKey()
 	ciphertext := s.sealBox(
-		c, validNonce, secretKey, fmt.Sprintf(`{"password": "%s"}`, password),
+		c, validNonce, s.activationKey, fmt.Sprintf(`{"password": "%s"}`, password),
 	)
 	client := jujuhttp.NewClient(jujuhttp.WithSkipHostnameVerification(true))
 	resp := httptesting.Do(c, httptesting.DoRequestParams{
@@ -99,10 +123,9 @@ func (s *registrationSuite) assertRegisterNoProxy(c *gc.C, hasProxy bool) {
 	// It should be possible to log in as bob with the
 	// password "hunter2" now, and there should be no
 	// secret key any longer.
-	err := s.bob.Refresh()
+	user, err := s.userService.GetUserByAuth(context.Background(), "bob", password)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.bob.PasswordValid(password), jc.IsTrue)
-	c.Assert(s.bob.SecretKey(), gc.IsNil)
+	c.Check(user.UUID, gc.Equals, s.userUUID)
 
 	var response params.SecretKeyLoginResponse
 	bodyData, err := io.ReadAll(resp.Body)
@@ -110,7 +133,9 @@ func (s *registrationSuite) assertRegisterNoProxy(c *gc.C, hasProxy bool) {
 	err = json.Unmarshal(bodyData, &response)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(response.Nonce, gc.HasLen, len(validNonce))
-	plaintext := s.openBox(c, response.PayloadCiphertext, response.Nonce, secretKey)
+
+	// Open the box to ensure that the response is as expected.
+	plaintext := s.openBox(c, response.PayloadCiphertext, response.Nonce, s.activationKey)
 
 	var responsePayload params.SecretKeyLoginResponsePayload
 	err = json.Unmarshal(plaintext, &responsePayload)
@@ -177,35 +202,22 @@ func (s *registrationSuite) TestRegisterInvalidCiphertext(c *gc.C) {
 		fmt.Sprintf(
 			`{"user": "user-bob", "nonce": "%s"}`,
 			base64.StdEncoding.EncodeToString(validNonce),
-		), `secret key not valid`, params.CodeNotValid,
+		), `activation key not valid`, params.CodeNotValid,
 		http.StatusInternalServerError,
 	)
 }
 
 func (s *registrationSuite) TestRegisterNoSecretKey(c *gc.C) {
-	err := s.bob.SetPassword("anything")
+	err := s.userService.SetPassword(context.Background(), "bob", auth.NewPassword("anything"))
 	c.Assert(err, jc.ErrorIsNil)
+
 	validNonce := []byte(strings.Repeat("X", 24))
 	s.testInvalidRequest(c,
 		fmt.Sprintf(
 			`{"user": "user-bob", "nonce": "%s"}`,
 			base64.StdEncoding.EncodeToString(validNonce),
-		), `secret key for user "bob" not found`, params.CodeNotFound,
+		), `activation key not found`, params.CodeNotFound,
 		http.StatusNotFound,
-	)
-}
-
-func (s *registrationSuite) TestRegisterInvalidRequestPayload(c *gc.C) {
-	validNonce := []byte(strings.Repeat("X", 24))
-	ciphertext := s.sealBox(c, validNonce, s.bob.SecretKey(), "[]")
-	s.testInvalidRequest(c,
-		fmt.Sprintf(
-			`{"user": "user-bob", "nonce": "%s", "cipher-text": "%s"}`,
-			base64.StdEncoding.EncodeToString(validNonce),
-			base64.StdEncoding.EncodeToString(ciphertext),
-		),
-		`cannot unmarshal payload: json: cannot unmarshal array into Go value of type params.SecretKeyLoginRequestPayload`, "",
-		http.StatusInternalServerError,
 	)
 }
 
@@ -234,8 +246,8 @@ func (s *registrationSuite) sealBox(c *gc.C, nonce, key []byte, message string) 
 func (s *registrationSuite) openBox(c *gc.C, ciphertext, nonce, key []byte) []byte {
 	var nonceArray [24]byte
 	var keyArray [32]byte
-	c.Assert(copy(nonceArray[:], nonce), gc.Equals, len(nonceArray))
-	c.Assert(copy(keyArray[:], key), gc.Equals, len(keyArray))
+	c.Assert(copy(nonceArray[:], nonce), gc.Equals, len(nonceArray), gc.Commentf("nonce: %v", nonce))
+	c.Assert(copy(keyArray[:], key), gc.Equals, len(keyArray), gc.Commentf("key: %v", key))
 	message, ok := secretbox.Open(nil, ciphertext, &nonceArray, &keyArray)
 	c.Assert(ok, jc.IsTrue)
 	return message

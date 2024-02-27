@@ -37,4 +37,12 @@ const (
 	// Unauthorized describes an error that occurs when the user does not have
 	// the required permissions to perform an action.
 	Unauthorized = errors.ConstError("user unauthorized")
+
+	// ActivationKeyNotFound describes an error that occurs when the activation
+	// key is not found.
+	ActivationKeyNotFound = errors.ConstError("activation key not found")
+
+	// ActivationKeyNotValid describes an error that occurs when the activation
+	// key is not valid.
+	ActivationKeyNotValid = errors.ConstError("activation key not valid")
 )
