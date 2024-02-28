@@ -143,7 +143,7 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 
 	resources := ctx.Resources()
 
-	leadershipReader, err := ctx.LeadershipReader(ctx.State().ModelUUID())
+	leadershipReader, err := ctx.LeadershipReader()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -56,7 +56,7 @@ func NewLeadershipPinningFromContext(ctx facade.ModelContext) (*LeadershipPinnin
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	pinner, err := ctx.LeadershipPinner(model.UUID())
+	pinner, err := ctx.LeadershipPinner()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

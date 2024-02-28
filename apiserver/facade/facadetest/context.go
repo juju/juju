@@ -130,28 +130,28 @@ func (c ModelContext) ModelPresence(modelUUID string) facade.ModelPresence {
 }
 
 // LeadershipClaimer implements facade.ModelContext.
-func (c ModelContext) LeadershipClaimer(modelUUID string) (leadership.Claimer, error) {
+func (c ModelContext) LeadershipClaimer() (leadership.Claimer, error) {
 	return c.LeadershipClaimer_, nil
 }
 
 // LeadershipRevoker implements facade.ModelContext.
-func (c ModelContext) LeadershipRevoker(modelUUID string) (leadership.Revoker, error) {
+func (c ModelContext) LeadershipRevoker() (leadership.Revoker, error) {
 	return c.LeadershipRevoker_, nil
+}
+
+// LeadershipPinner implements facade.ModelContext.
+func (c ModelContext) LeadershipPinner() (leadership.Pinner, error) {
+	return c.LeadershipPinner_, nil
+}
+
+// LeadershipReader implements facade.ModelContext.
+func (c ModelContext) LeadershipReader() (leadership.Reader, error) {
+	return c.LeadershipReader_, nil
 }
 
 // LeadershipChecker implements facade.ModelContext.
 func (c ModelContext) LeadershipChecker() (leadership.Checker, error) {
 	return c.LeadershipChecker_, nil
-}
-
-// LeadershipPinner implements facade.ModelContext.
-func (c ModelContext) LeadershipPinner(modelUUID string) (leadership.Pinner, error) {
-	return c.LeadershipPinner_, nil
-}
-
-// LeadershipReader implements facade.ModelContext.
-func (c ModelContext) LeadershipReader(modelUUID string) (leadership.Reader, error) {
-	return c.LeadershipReader_, nil
 }
 
 // SingularClaimer implements facade.ModelContext.

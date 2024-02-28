@@ -37,7 +37,7 @@ func newMigrationMasterFacade(ctx facade.ModelContext) (*API, error) {
 		return nil, errors.Annotate(err, "creating precheck backend")
 	}
 
-	leadership, err := ctx.LeadershipReader(modelState.ModelUUID())
+	leadership, err := ctx.LeadershipReader()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

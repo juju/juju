@@ -29,7 +29,7 @@ func NewDeployerFacade(ctx facade.ModelContext) (*DeployerAPI, error) {
 
 	st := ctx.State()
 	resources := ctx.Resources()
-	leadershipRevoker, err := ctx.LeadershipRevoker(st.ModelUUID())
+	leadershipRevoker, err := ctx.LeadershipRevoker()
 	if err != nil {
 		return nil, errors.Annotate(err, "getting leadership client")
 	}

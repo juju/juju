@@ -787,30 +787,6 @@ func (ctx *facadeContext) RequestRecorder() facade.RequestRecorder {
 	return ctx.r.requestRecorder
 }
 
-// LeadershipClaimer is part of the facade.ModelContext interface.
-func (ctx *facadeContext) LeadershipClaimer(modelUUID string) (leadership.Claimer, error) {
-	claimer, err := ctx.r.shared.leaseManager.Claimer(
-		lease.ApplicationLeadershipNamespace,
-		modelUUID,
-	)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return leadershipClaimer{claimer: claimer}, nil
-}
-
-// LeadershipRevoker is part of the facade.ModelContext interface.
-func (ctx *facadeContext) LeadershipRevoker(modelUUID string) (leadership.Revoker, error) {
-	revoker, err := ctx.r.shared.leaseManager.Revoker(
-		lease.ApplicationLeadershipNamespace,
-		modelUUID,
-	)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return leadershipRevoker{claimer: revoker}, nil
-}
-
 // LeadershipChecker is part of the facade.ModelContext interface.
 func (ctx *facadeContext) LeadershipChecker() (leadership.Checker, error) {
 	checker, err := ctx.r.shared.leaseManager.Checker(
@@ -823,12 +799,44 @@ func (ctx *facadeContext) LeadershipChecker() (leadership.Checker, error) {
 	return leadershipChecker{checker: checker}, nil
 }
 
+// SingularClaimer is part of the facade.ModelContext interface.
+func (ctx *facadeContext) SingularClaimer() (lease.Claimer, error) {
+	return ctx.r.shared.leaseManager.Claimer(
+		lease.SingularControllerNamespace,
+		ctx.State().ModelUUID(),
+	)
+}
+
+// LeadershipClaimer is part of the facade.ModelContext interface.
+func (ctx *facadeContext) LeadershipClaimer() (leadership.Claimer, error) {
+	claimer, err := ctx.r.shared.leaseManager.Claimer(
+		lease.ApplicationLeadershipNamespace,
+		ctx.State().ModelUUID(),
+	)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return leadershipClaimer{claimer: claimer}, nil
+}
+
+// LeadershipRevoker is part of the facade.ModelContext interface.
+func (ctx *facadeContext) LeadershipRevoker() (leadership.Revoker, error) {
+	revoker, err := ctx.r.shared.leaseManager.Revoker(
+		lease.ApplicationLeadershipNamespace,
+		ctx.State().ModelUUID(),
+	)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return leadershipRevoker{claimer: revoker}, nil
+}
+
 // LeadershipPinner is part of the facade.ModelContext interface.
 // Pinning functionality is only available with the Raft leases implementation.
-func (ctx *facadeContext) LeadershipPinner(modelUUID string) (leadership.Pinner, error) {
+func (ctx *facadeContext) LeadershipPinner() (leadership.Pinner, error) {
 	pinner, err := ctx.r.shared.leaseManager.Pinner(
 		lease.ApplicationLeadershipNamespace,
-		modelUUID,
+		ctx.State().ModelUUID(),
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -839,23 +847,15 @@ func (ctx *facadeContext) LeadershipPinner(modelUUID string) (leadership.Pinner,
 // LeadershipReader is part of the facade.ModelContext interface.
 // It returns a reader that can be used to return all application leaders
 // in the model.
-func (ctx *facadeContext) LeadershipReader(modelUUID string) (leadership.Reader, error) {
+func (ctx *facadeContext) LeadershipReader() (leadership.Reader, error) {
 	reader, err := ctx.r.shared.leaseManager.Reader(
 		lease.ApplicationLeadershipNamespace,
-		modelUUID,
+		ctx.State().ModelUUID(),
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return leadershipReader{reader: reader}, nil
-}
-
-// SingularClaimer is part of the facade.ModelContext interface.
-func (ctx *facadeContext) SingularClaimer() (lease.Claimer, error) {
-	return ctx.r.shared.leaseManager.Claimer(
-		lease.SingularControllerNamespace,
-		ctx.State().ModelUUID(),
-	)
 }
 
 func (ctx *facadeContext) HTTPClient(purpose facade.HTTPClientPurpose) facade.HTTPClient {

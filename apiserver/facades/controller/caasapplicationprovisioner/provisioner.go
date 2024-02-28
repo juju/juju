@@ -130,7 +130,7 @@ func NewStateCAASApplicationProvisionerAPI(ctx facade.ModelContext) (*APIGroup, 
 		return nil, errors.Trace(err)
 	}
 
-	leadershipRevoker, err := ctx.LeadershipRevoker(ctx.State().ModelUUID())
+	leadershipRevoker, err := ctx.LeadershipRevoker()
 	if err != nil {
 		return nil, errors.Annotate(err, "getting leadership client")
 	}

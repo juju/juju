@@ -28,7 +28,7 @@ func newFacade(ctx facade.ModelContext) (*Facade, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	leadershipReader, err := ctx.LeadershipReader(m.UUID())
+	leadershipReader, err := ctx.LeadershipReader()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

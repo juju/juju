@@ -57,7 +57,7 @@ func newUniterAPIWithServices(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	leadershipRevoker, err := context.LeadershipRevoker(st.ModelUUID())
+	leadershipRevoker, err := context.LeadershipRevoker()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

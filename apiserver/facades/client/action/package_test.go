@@ -53,6 +53,6 @@ func (l FakeLeadership) Leaders() (map[string]string, error) {
 	return l.AppLeaders, nil
 }
 
-func LeaderFactory(reader leadership.Reader) func(string) (leadership.Reader, error) {
-	return func(string) (leadership.Reader, error) { return reader, nil }
+func LeaderFactory(reader leadership.Reader) func() (leadership.Reader, error) {
+	return func() (leadership.Reader, error) { return reader, nil }
 }

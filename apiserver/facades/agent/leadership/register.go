@@ -22,7 +22,7 @@ func Register(registry facade.FacadeRegistry) {
 // newLeadershipServiceFacade constructs a new LeadershipService and presents
 // a signature that can be used for facade registration.
 func newLeadershipServiceFacade(context facade.ModelContext) (LeadershipService, error) {
-	claimer, err := context.LeadershipClaimer(context.State().ModelUUID())
+	claimer, err := context.LeadershipClaimer()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

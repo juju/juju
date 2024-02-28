@@ -34,29 +34,27 @@ type Factory func(stdCtx context.Context, modelCtx ModelContext) (Facade, error)
 // MultiModelFactory is a callback used to create a Facade.
 type MultiModelFactory func(stdCtx context.Context, modelCtx MultiModelContext) (Facade, error)
 
-// LeadershipContext describes factory methods for objects that deliver
-// specific lease-related capabilities
-type LeadershipContext interface {
+// LeadershipModelContext
+type LeadershipModelContext interface {
+	// LeadershipClaimer returns a leadership.Claimer for this
+	// context's model.
+	LeadershipClaimer() (leadership.Claimer, error)
 
-	// LeadershipClaimer returns a leadership.Claimer tied to a
-	// specific model.
-	LeadershipClaimer(modelUUID string) (leadership.Claimer, error)
+	// LeadershipRevoker returns a leadership.Revoker for this
+	// context's model.
+	LeadershipRevoker() (leadership.Revoker, error)
 
-	// LeadershipRevoker returns a leadership.Revoker tied to a
-	// specific model.
-	LeadershipRevoker(modelUUID string) (leadership.Revoker, error)
+	// LeadershipPinner returns a leadership.Pinner for this
+	// context's model.
+	LeadershipPinner() (leadership.Pinner, error)
+
+	// LeadershipReader returns a leadership.Reader for this
+	// context's model.
+	LeadershipReader() (leadership.Reader, error)
 
 	// LeadershipChecker returns a leadership.Checker for this
 	// context's model.
 	LeadershipChecker() (leadership.Checker, error)
-
-	// LeadershipPinner returns a leadership.Pinner for this
-	// context's model.
-	LeadershipPinner(modelUUID string) (leadership.Pinner, error)
-
-	// LeadershipReader returns a leadership.Reader for this
-	// context's model.
-	LeadershipReader(modelUUID string) (leadership.Reader, error)
 
 	// SingularClaimer returns a lease.Claimer for singular leases for
 	// this context's model.
@@ -82,7 +80,7 @@ type ModelContext interface {
 	// contents of the LeadershipContext.
 	// Context should have a single responsibility, and that's access to other
 	// types/objects.
-	LeadershipContext
+	LeadershipModelContext
 	ModelMigrationFactory
 	ServiceFactory
 	ObjectStoreFactory
