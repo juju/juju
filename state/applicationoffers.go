@@ -534,10 +534,17 @@ func (s *applicationOffers) validateOfferArgs(offer crossmodel.AddApplicationOff
 	if err != nil {
 		return errors.Trace(err)
 	}
-	_, err = getApplicationEndpoints(app, offer.Endpoints)
+
+	eps, err := getApplicationEndpoints(app, offer.Endpoints)
 	if err != nil {
 		return errors.Trace(err)
 	}
+	for _, ep := range eps {
+		if ep.Scope != charm.ScopeGlobal {
+			return fmt.Errorf("can only offer endpoints with global scope, provided scope %q", ep.Scope)
+		}
+	}
+
 	return nil
 }
 
