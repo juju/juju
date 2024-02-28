@@ -136,7 +136,7 @@ func (s *CommonProvisionerSuite) assertProvisionerObservesConfigChangesWorkerCou
 		select {
 		case newCfg := <-cfgObserver:
 			if container {
-				if newCfg.NumContainerProvisionWorkers() == 42 {
+				if newCfg.NumContainerProvisionWorkers() == 10 {
 					return
 				}
 				received = append(received, newCfg.NumContainerProvisionWorkers())

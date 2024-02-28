@@ -676,9 +676,9 @@ func (test configTest) check(c *gc.C) {
 		c.Check(err, gc.ErrorMatches, test.err)
 		return
 	}
-	c.Check(err, jc.ErrorIsNil, gc.Commentf("config.New failed"))
-	if err != nil {
-		// As we have a Check not an Assert so the test
+	if !c.Check(err, jc.ErrorIsNil, gc.Commentf("config.New failed")) {
+		// As we have a Check not an Assert so the test should not
+		// continue from here as it will result in a nil pointer panic.
 		return
 	}
 
@@ -730,8 +730,9 @@ func (test configTest) check(c *gc.C) {
 
 	lfCfg, hasLogCfg := cfg.LogFwdSyslog()
 	if v, ok := test.attrs["logforward-enabled"].(bool); ok {
-		c.Check(hasLogCfg, jc.IsTrue)
-		c.Check(lfCfg.Enabled, gc.Equals, v)
+		if c.Check(hasLogCfg, jc.IsTrue) {
+			c.Check(lfCfg.Enabled, gc.Equals, v)
+		}
 	}
 	if v, ok := test.attrs["syslog-ca-cert"].(string); v != "" {
 		c.Check(hasLogCfg, jc.IsTrue)
