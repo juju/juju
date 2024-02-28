@@ -1994,7 +1994,7 @@ func (s *ApplicationSuite) TestAddUnits(c *gc.C) {
 
 	unitName := "postgresql/99"
 	newUnit := s.expectUnit(ctrl, unitName)
-	newUnit.EXPECT().AssignWithPolicy(state.AssignCleanEmpty)
+	newUnit.EXPECT().AssignWithPolicy(state.AssignNew)
 
 	app := s.expectDefaultApplication(ctrl)
 	app.EXPECT().AddUnit(state.AddUnitParams{AttachStorage: []names.StorageTag{}}).Return(newUnit, nil)
@@ -2031,7 +2031,7 @@ func (s *ApplicationSuite) TestAddUnitsAttachStorage(c *gc.C) {
 
 	unitName := "postgresql/99"
 	newUnit := s.expectUnit(ctrl, unitName)
-	newUnit.EXPECT().AssignWithPolicy(state.AssignCleanEmpty)
+	newUnit.EXPECT().AssignWithPolicy(state.AssignNew)
 
 	app := s.expectDefaultApplication(ctrl)
 	app.EXPECT().AddUnit(state.AddUnitParams{

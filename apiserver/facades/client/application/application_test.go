@@ -261,6 +261,7 @@ func (s *applicationSuite) TestApplicationDeployToMachine(c *gc.C) {
 			ApplicationName: "application-name",
 			NumUnits:        1,
 			ConfigYAML:      "application-name:\n  username: fred",
+			Placement:       []*instance.Placement{instance.MustParsePlacement("0")},
 		}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
@@ -309,6 +310,7 @@ func (s *applicationSuite) TestApplicationDeployToMachineWithLXDProfile(c *gc.C)
 			CharmOrigin:     createCharmOriginFromURL(curl),
 			ApplicationName: "application-name",
 			NumUnits:        1,
+			Placement:       []*instance.Placement{instance.MustParsePlacement("0")},
 		}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
@@ -364,6 +366,7 @@ func (s *applicationSuite) TestApplicationDeployToMachineWithInvalidLXDProfileAn
 			CharmOrigin:     createCharmOriginFromURL(curl),
 			ApplicationName: "application-name",
 			NumUnits:        1,
+			Placement:       []*instance.Placement{instance.MustParsePlacement("0")},
 		}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)

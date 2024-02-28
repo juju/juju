@@ -352,7 +352,6 @@ type Environ struct {
 var _ environs.Environ = (*Environ)(nil)
 var _ environs.NetworkingEnviron = (*Environ)(nil)
 var _ simplestreams.HasRegion = (*Environ)(nil)
-var _ envcontext.Distributor = (*Environ)(nil)
 var _ environs.InstanceTagger = (*Environ)(nil)
 
 type openstackInstance struct {
@@ -1049,18 +1048,6 @@ func (e *Environ) assignPublicIP(fip *string, serverId string) (err error) {
 		}
 	}
 	return err
-}
-
-// DistributeInstances implements the state.InstanceDistributor policy.
-func (e *Environ) DistributeInstances(
-	ctx envcontext.ProviderCallContext, candidates, distributionGroup []instance.Id, limitZones []string,
-) ([]instance.Id, error) {
-	valid, err := common.DistributeInstances(e, ctx, candidates, distributionGroup, limitZones)
-	if err != nil {
-		handleCredentialError(err, ctx)
-		return valid, err
-	}
-	return valid, nil
 }
 
 // StartInstance is specified in the InstanceBroker interface.

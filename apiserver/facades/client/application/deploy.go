@@ -157,8 +157,7 @@ func addUnits(
 	assignUnits bool,
 ) ([]Unit, error) {
 	units := make([]Unit, n)
-	// Hard code for now till we implement a different approach.
-	policy := state.AssignCleanEmpty
+	policy := state.AssignNew
 	// TODO what do we do if we fail half-way through this process?
 	for i := 0; i < n; i++ {
 		unit, err := unitAdder.AddUnit(state.AddUnitParams{

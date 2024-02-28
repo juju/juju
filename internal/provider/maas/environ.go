@@ -642,13 +642,6 @@ func (env *maasEnviron) acquireNode(
 	}, nil
 }
 
-// DistributeInstances implements the state.InstanceDistributor policy.
-func (env *maasEnviron) DistributeInstances(
-	ctx envcontext.ProviderCallContext, candidates, distributionGroup []instance.Id, limitZones []string,
-) ([]instance.Id, error) {
-	return common.DistributeInstances(env, ctx, candidates, distributionGroup, limitZones)
-}
-
 // StartInstance is specified in the InstanceBroker interface.
 func (env *maasEnviron) StartInstance(
 	ctx envcontext.ProviderCallContext,

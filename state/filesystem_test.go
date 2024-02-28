@@ -193,7 +193,7 @@ func (s *FilesystemStateSuite) maybeAssignUnit(c *gc.C, u *state.Unit) names.Tag
 	if m.Type() == state.ModelTypeCAAS {
 		return u.UnitTag()
 	}
-	err = s.st.AssignUnit(u, state.AssignCleanEmpty)
+	err = s.st.AssignUnit(u, state.AssignNew)
 	c.Assert(err, jc.ErrorIsNil)
 	machineId, err := u.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
@@ -341,7 +341,7 @@ func (s *FilesystemStateSuite) addUnitWithFilesystemUnprovisioned(c *gc.C, pool 
 
 func (s *FilesystemIAASModelSuite) TestWatchFilesystemAttachment(c *gc.C) {
 	_, u, storageTag := s.setupSingleStorage(c, "filesystem", "rootfs")
-	err := s.st.AssignUnit(u, state.AssignCleanEmpty)
+	err := s.st.AssignUnit(u, state.AssignNew)
 	c.Assert(err, jc.ErrorIsNil)
 	assignedMachineId, err := u.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
@@ -410,7 +410,7 @@ func (s *FilesystemStateSuite) TestFilesystemInfo(c *gc.C) {
 
 func (s *FilesystemIAASModelSuite) TestVolumeBackedFilesystemScope(c *gc.C) {
 	_, unit, storageTag := s.setupSingleStorage(c, "filesystem", "modelscoped-block")
-	err := s.st.AssignUnit(unit, state.AssignCleanEmpty)
+	err := s.st.AssignUnit(unit, state.AssignNew)
 	c.Assert(err, jc.ErrorIsNil)
 
 	filesystem := s.storageInstanceFilesystem(c, storageTag)
@@ -425,7 +425,7 @@ func (s *FilesystemIAASModelSuite) TestWatchModelFilesystems(c *gc.C) {
 	addUnit := func() *state.Unit {
 		u, err := app.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
-		err = s.st.AssignUnit(u, state.AssignCleanEmpty)
+		err = s.st.AssignUnit(u, state.AssignNew)
 		c.Assert(err, jc.ErrorIsNil)
 		return u
 	}
@@ -469,7 +469,7 @@ func (s *FilesystemIAASModelSuite) TestWatchModelFilesystemAttachments(c *gc.C) 
 	addUnit := func() *state.Unit {
 		u, err := app.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
-		err = s.st.AssignUnit(u, state.AssignCleanEmpty)
+		err = s.st.AssignUnit(u, state.AssignNew)
 		c.Assert(err, jc.ErrorIsNil)
 		return u
 	}
@@ -513,7 +513,7 @@ func (s *FilesystemIAASModelSuite) TestWatchMachineFilesystems(c *gc.C) {
 	addUnit := func() *state.Unit {
 		u, err := app.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
-		err = s.st.AssignUnit(u, state.AssignCleanEmpty)
+		err = s.st.AssignUnit(u, state.AssignNew)
 		c.Assert(err, jc.ErrorIsNil)
 		return u
 	}
@@ -569,7 +569,7 @@ func (s *FilesystemIAASModelSuite) TestWatchMachineFilesystemAttachments(c *gc.C
 			c.Assert(err, jc.ErrorIsNil)
 			return u, to
 		}
-		err = s.st.AssignUnit(u, state.AssignCleanEmpty)
+		err = s.st.AssignUnit(u, state.AssignNew)
 		c.Assert(err, jc.ErrorIsNil)
 		m = unitMachine(c, s.st, u)
 		return u, m
@@ -1462,7 +1462,7 @@ func (s *FilesystemStateSuite) TestFilesystemAttachmentParamsLocationStorageDir(
 	unit, err := app.AddUnit(state.AddUnitParams{})
 	if s.series != "focal" {
 		c.Assert(err, jc.ErrorIsNil)
-		err = s.State.AssignUnit(unit, state.AssignCleanEmpty)
+		err = s.State.AssignUnit(unit, state.AssignNew)
 	}
 	c.Assert(err, gc.ErrorMatches, `.*`+
 		`getting filesystem mount point for storage data: `+

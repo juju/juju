@@ -317,10 +317,6 @@ func (statePolicy) ConstraintsValidator(envcontext.ProviderCallContext) (constra
 	return nil, errors.NotImplementedf("ConstraintsValidator")
 }
 
-func (statePolicy) InstanceDistributor() (envcontext.Distributor, error) {
-	return nil, errors.NotImplementedf("InstanceDistributor")
-}
-
 func (statePolicy) StorageProviderRegistry() (storage.ProviderRegistry, error) {
 	return storage.ChainedProviderRegistry{
 		dummystorage.StorageProviders(),

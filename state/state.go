@@ -1700,7 +1700,7 @@ func (st *State) assignStagedUnit(a UnitAssignment) error {
 		return errors.Trace(err)
 	}
 	if a.Scope == "" && a.Directive == "" {
-		return errors.Trace(st.AssignUnit(u, AssignCleanEmpty))
+		return errors.Trace(st.AssignUnit(u, AssignNew))
 	}
 
 	placement := &instance.Placement{Scope: a.Scope, Directive: a.Directive}
@@ -2520,16 +2520,6 @@ func (st *State) AssignUnit(u *Unit, policy AssignmentPolicy) (err error) {
 			return errors.Trace(err)
 		}
 		return u.AssignToMachine(m)
-	case AssignClean:
-		if _, err = u.AssignToCleanMachine(); errors.Cause(err) != noCleanMachines {
-			return errors.Trace(err)
-		}
-		return u.AssignToNewMachineOrContainer()
-	case AssignCleanEmpty:
-		if _, err = u.AssignToCleanEmptyMachine(); errors.Cause(err) != noCleanMachines {
-			return errors.Trace(err)
-		}
-		return u.AssignToNewMachineOrContainer()
 	case AssignNew:
 		return errors.Trace(u.AssignToNewMachine())
 	}

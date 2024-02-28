@@ -121,31 +121,6 @@ func (p *environStatePolicy) ConstraintsValidator(ctx envcontext.ProviderCallCon
 	return checker.ConstraintsValidator(ctx)
 }
 
-// InstanceDistributor implements state.Policy.
-func (p *environStatePolicy) InstanceDistributor() (envcontext.Distributor, error) {
-	if p.credentialService == nil {
-		return nil, errors.NotSupportedf("InstanceDistributor check without credential service")
-	}
-	model, err := p.st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if model.Type() != state.ModelTypeIAAS {
-		// Only IAAS models support machines, hence distribution.
-		return nil, errors.NotImplementedf("InstanceDistributor")
-	}
-	// DistributeInstances doesn't make any calls to fetch instance types,
-	// so it doesn't help to use getDeployChecker() here.
-	env, err := p.getEnviron(model, p.cloudService, p.credentialService)
-	if err != nil {
-		return nil, err
-	}
-	if d, ok := env.(envcontext.Distributor); ok {
-		return d, nil
-	}
-	return nil, errors.NotImplementedf("InstanceDistributor")
-}
-
 // StorageProviderRegistry implements state.Policy.
 func (p *environStatePolicy) StorageProviderRegistry() (storage.ProviderRegistry, error) {
 	if p.credentialService == nil {

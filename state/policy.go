@@ -45,9 +45,6 @@ type Policy interface {
 	// ConstraintsValidator returns a constraints.Validator or an error.
 	ConstraintsValidator(envcontext.ProviderCallContext) (constraints.Validator, error)
 
-	// InstanceDistributor returns an envcontext.Distributor or an error.
-	InstanceDistributor() (envcontext.Distributor, error)
-
 	// StorageProviderRegistry returns a storage.ProviderRegistry or an error.
 	StorageProviderRegistry() (storage.ProviderRegistry, error)
 }

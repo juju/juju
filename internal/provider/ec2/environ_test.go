@@ -29,7 +29,6 @@ var (
 	_ environs.NetworkingEnviron = (*environ)(nil)
 	_ config.ConfigSchemaSource  = (*environProvider)(nil)
 	_ simplestreams.HasRegion    = (*environ)(nil)
-	_ envcontext.Distributor     = (*environ)(nil)
 )
 
 type Suite struct{}

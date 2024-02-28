@@ -24,7 +24,6 @@ type MockPolicy struct {
 	GetConfigValidator            func() (config.Validator, error)
 	GetProviderConfigSchemaSource func(cloudName string) (config.ConfigSchemaSource, error)
 	GetConstraintsValidator       func() (constraints.Validator, error)
-	GetInstanceDistributor        func() (envcontext.Distributor, error)
 	GetStorageProviderRegistry    func() (storage.ProviderRegistry, error)
 }
 
@@ -47,13 +46,6 @@ func (p *MockPolicy) ConstraintsValidator(ctx envcontext.ProviderCallContext) (c
 		return p.GetConstraintsValidator()
 	}
 	return nil, errors.NotImplementedf("ConstraintsValidator")
-}
-
-func (p *MockPolicy) InstanceDistributor() (envcontext.Distributor, error) {
-	if p.GetInstanceDistributor != nil {
-		return p.GetInstanceDistributor()
-	}
-	return nil, errors.NotImplementedf("InstanceDistributor")
 }
 
 func (p *MockPolicy) StorageProviderRegistry() (storage.ProviderRegistry, error) {

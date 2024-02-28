@@ -539,13 +539,6 @@ const (
 	ssdStorage = "ssd"
 )
 
-// DistributeInstances implements the state.InstanceDistributor policy.
-func (e *environ) DistributeInstances(
-	ctx envcontext.ProviderCallContext, candidates, distributionGroup []instance.Id, limitZones []string,
-) ([]instance.Id, error) {
-	return common.DistributeInstances(e, ctx, candidates, distributionGroup, limitZones)
-}
-
 // resourceName returns the string to use for a resource's Name tag,
 // to help users identify Juju-managed resources in the AWS console.
 func resourceName(tag names.Tag, envName string) string {

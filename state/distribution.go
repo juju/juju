@@ -4,47 +4,11 @@
 package state
 
 import (
-	stdcontext "context"
-	"fmt"
-
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/environs/envcontext"
 )
-
-// distributeUnit takes a unit and set of clean, possibly empty, instances
-// and asks the InstanceDistributor policy (if any) which ones are suitable
-// for assigning the unit to. If there is no InstanceDistributor, or the
-// distribution group is empty, then all of the candidates will be returned.
-func distributeUnit(u *Unit, candidates []instance.Id, limitZones []string) ([]instance.Id, error) {
-	if len(candidates) == 0 {
-		return nil, nil
-	}
-	if u.st.policy == nil {
-		return candidates, nil
-	}
-
-	distributor, err := u.st.policy.InstanceDistributor()
-	if errors.Is(err, errors.NotImplemented) {
-		return candidates, nil
-	} else if err != nil {
-		return nil, err
-	}
-	if distributor == nil {
-		return nil, fmt.Errorf("policy returned nil instance distributor without an error")
-	}
-
-	distributionGroup, err := ApplicationInstances(u.st, u.doc.Application)
-	if err != nil {
-		return nil, err
-	}
-	if len(distributionGroup) == 0 {
-		return candidates, nil
-	}
-	return distributor.DistributeInstances(envcontext.WithoutCredentialInvalidator(stdcontext.Background()), candidates, distributionGroup, limitZones)
-}
 
 // ApplicationInstances returns the instance IDs of provisioned
 // machines that are assigned units of the specified application.
