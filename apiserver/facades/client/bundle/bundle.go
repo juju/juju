@@ -56,7 +56,7 @@ type BundleAPI struct {
 }
 
 // NewFacade provides the required signature for facade registration.
-func newFacade(ctx facade.Context) (*BundleAPI, error) {
+func newFacade(ctx facade.ModelContext) (*BundleAPI, error) {
 	authorizer := ctx.Auth()
 	st := ctx.State()
 

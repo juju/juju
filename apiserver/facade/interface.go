@@ -29,45 +29,58 @@ import (
 type Facade interface{}
 
 // Factory is a callback used to create a Facade.
-type Factory func(stdCtx context.Context, facadeCtx Context) (Facade, error)
+type Factory func(stdCtx context.Context, modelCtx ModelContext) (Facade, error)
 
-// LeadershipContext describes factory methods for objects that deliver
-// specific lease-related capabilities
-type LeadershipContext interface {
+// MultiModelFactory is a callback used to create a Facade.
+type MultiModelFactory func(stdCtx context.Context, modelCtx MultiModelContext) (Facade, error)
 
-	// LeadershipClaimer returns a leadership.Claimer tied to a
-	// specific model.
-	LeadershipClaimer(modelUUID string) (leadership.Claimer, error)
+// LeadershipModelContext
+type LeadershipModelContext interface {
+	// LeadershipClaimer returns a leadership.Claimer for this
+	// context's model.
+	LeadershipClaimer() (leadership.Claimer, error)
 
-	// LeadershipRevoker returns a leadership.Revoker tied to a
-	// specific model.
-	LeadershipRevoker(modelUUID string) (leadership.Revoker, error)
+	// LeadershipRevoker returns a leadership.Revoker for this
+	// context's model.
+	LeadershipRevoker() (leadership.Revoker, error)
+
+	// LeadershipPinner returns a leadership.Pinner for this
+	// context's model.
+	LeadershipPinner() (leadership.Pinner, error)
+
+	// LeadershipReader returns a leadership.Reader for this
+	// context's model.
+	LeadershipReader() (leadership.Reader, error)
 
 	// LeadershipChecker returns a leadership.Checker for this
 	// context's model.
 	LeadershipChecker() (leadership.Checker, error)
-
-	// LeadershipPinner returns a leadership.Pinner for this
-	// context's model.
-	LeadershipPinner(modelUUID string) (leadership.Pinner, error)
-
-	// LeadershipReader returns a leadership.Reader for this
-	// context's model.
-	LeadershipReader(modelUUID string) (leadership.Reader, error)
 
 	// SingularClaimer returns a lease.Claimer for singular leases for
 	// this context's model.
 	SingularClaimer() (lease.Claimer, error)
 }
 
-// Context exposes useful capabilities to a Facade.
-type Context interface {
+// MultiModelContext is a context that can operate on multiple models at once.
+type MultiModelContext interface {
+	ModelContext
+
+	// ServiceFactoryForModel returns the services factory for a given
+	// model uuid.
+	ServiceFactoryForModel(modelUUID string) servicefactory.ServiceFactory
+
+	// ObjectStoreForModel returns the object store for a given model uuid.
+	ObjectStoreForModel(ctx context.Context, modelUUID string) (objectstore.ObjectStore, error)
+}
+
+// ModelContext exposes useful capabilities to a Facade for a given model.
+type ModelContext interface {
 	// TODO (stickupkid): This shouldn't be embedded, instead this should be
 	// in the form of `context.Leadership() Leadership`, which returns the
 	// contents of the LeadershipContext.
 	// Context should have a single responsibility, and that's access to other
 	// types/objects.
-	LeadershipContext
+	LeadershipModelContext
 	ModelMigrationFactory
 	ServiceFactory
 	ObjectStoreFactory

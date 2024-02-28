@@ -57,7 +57,7 @@ func (s *CredentialManagerSuite) TestInvalidateModelCredentialUnauthorized(c *gc
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag: names.NewMachineTag("0"),
 	}
-	ctx := facadetest.Context{
+	ctx := facadetest.ModelContext{
 		Auth_: s.authorizer,
 	}
 	_, err := credentialmanager.NewCredentialManagerAPI(ctx)

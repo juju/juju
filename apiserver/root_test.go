@@ -129,7 +129,7 @@ func (r *rootSuite) TestFindMethodUnknownFacade(c *gc.C) {
 
 func (r *rootSuite) TestFindMethodUnknownVersion(c *gc.C) {
 	registry := new(facade.Registry)
-	myGoodFacade := func(context.Context, facade.Context) (facade.Facade, error) {
+	myGoodFacade := func(context.Context, facade.ModelContext) (facade.Facade, error) {
 		return &testingType{}, nil
 	}
 	registry.MustRegister("my-testing-facade", 0, myGoodFacade, reflect.TypeOf((*testingType)(nil)).Elem())
@@ -141,13 +141,13 @@ func (r *rootSuite) TestFindMethodUnknownVersion(c *gc.C) {
 }
 
 func (r *rootSuite) TestFindMethodEnsuresTypeMatch(c *gc.C) {
-	myBadFacade := func(context.Context, facade.Context) (facade.Facade, error) {
+	myBadFacade := func(context.Context, facade.ModelContext) (facade.Facade, error) {
 		return &badType{}, nil
 	}
-	myGoodFacade := func(context.Context, facade.Context) (facade.Facade, error) {
+	myGoodFacade := func(context.Context, facade.ModelContext) (facade.Facade, error) {
 		return &testingType{}, nil
 	}
-	myErrFacade := func(_ context.Context, context facade.Context) (facade.Facade, error) {
+	myErrFacade := func(_ context.Context, context facade.ModelContext) (facade.Facade, error) {
 		return nil, fmt.Errorf("you shall not pass")
 	}
 	expectedType := reflect.TypeOf((*testingType)(nil))
@@ -208,7 +208,7 @@ func assertCallResult(c *gc.C, caller rpcreflect.MethodCaller, id string, expect
 func (r *rootSuite) TestFindMethodCachesFacades(c *gc.C) {
 	registry := new(facade.Registry)
 	var count int64
-	newCounter := func(context.Context, facade.Context) (facade.Facade, error) {
+	newCounter := func(context.Context, facade.ModelContext) (facade.Facade, error) {
 		count += 1
 		return &countingType{count: count, id: ""}, nil
 	}
@@ -236,13 +236,50 @@ func (r *rootSuite) TestFindMethodCachesFacades(c *gc.C) {
 	caller, err = srvRoot.FindMethod("my-counting-facade", 1, "AltCount")
 	c.Assert(err, jc.ErrorIsNil)
 	assertCallResult(c, caller, "", "ALT-2")
+
+	c.Check(count, gc.Equals, int64(2))
+}
+
+func (r *rootSuite) TestFindMethodForMultiModelCachesFacades(c *gc.C) {
+	registry := new(facade.Registry)
+	var count int64
+	newCounter := func(context.Context, facade.MultiModelContext) (facade.Facade, error) {
+		count += 1
+		return &countingType{count: count, id: ""}, nil
+	}
+	facadeType := reflect.TypeOf((*countingType)(nil))
+	registry.MustRegisterForMultiModel("my-counting-facade", 0, newCounter, facadeType)
+	registry.MustRegisterForMultiModel("my-counting-facade", 1, newCounter, facadeType)
+	srvRoot := apiserver.TestingAPIRoot(registry)
+
+	// The first time we call FindMethod, it should lookup a facade, and
+	// request a new object.
+	caller, err := srvRoot.FindMethod("my-counting-facade", 0, "Count")
+	c.Assert(err, jc.ErrorIsNil)
+	assertCallResult(c, caller, "", "1")
+	// The second time we ask for a method on the same facade, it should
+	// reuse that object, rather than creating another instance
+	caller, err = srvRoot.FindMethod("my-counting-facade", 0, "AltCount")
+	c.Assert(err, jc.ErrorIsNil)
+	assertCallResult(c, caller, "", "ALT-1")
+	// But when we ask for a different version, we should get a new
+	// instance
+	caller, err = srvRoot.FindMethod("my-counting-facade", 1, "Count")
+	c.Assert(err, jc.ErrorIsNil)
+	assertCallResult(c, caller, "", "2")
+	// But it, too, should be cached
+	caller, err = srvRoot.FindMethod("my-counting-facade", 1, "AltCount")
+	c.Assert(err, jc.ErrorIsNil)
+	assertCallResult(c, caller, "", "ALT-2")
+
+	c.Check(count, gc.Equals, int64(2))
 }
 
 func (r *rootSuite) TestFindMethodCachesFacadesWithId(c *gc.C) {
 	var count int64
 	// like newCounter, but also tracks the "id" that was requested for
 	// this counter
-	newIdCounter := func(_ context.Context, context facade.Context) (facade.Facade, error) {
+	newIdCounter := func(_ context.Context, context facade.ModelContext) (facade.Facade, error) {
 		count += 1
 		return &countingType{count: count, id: context.ID()}, nil
 	}
@@ -273,7 +310,7 @@ func (r *rootSuite) TestFindMethodCachesFacadesWithId(c *gc.C) {
 
 func (r *rootSuite) TestFindMethodCacheRaceSafe(c *gc.C) {
 	var count int64
-	newIdCounter := func(_ context.Context, context facade.Context) (facade.Facade, error) {
+	newIdCounter := func(_ context.Context, context facade.ModelContext) (facade.Facade, error) {
 		count += 1
 		return &countingType{count: count, id: context.ID()}, nil
 	}
@@ -325,10 +362,10 @@ func (*secondImpl) OneMethod() stringVar {
 
 func (r *rootSuite) TestFindMethodHandlesInterfaceTypes(c *gc.C) {
 	registry := new(facade.Registry)
-	registry.MustRegister("my-interface-facade", 0, func(_ context.Context, _ facade.Context) (facade.Facade, error) {
+	registry.MustRegister("my-interface-facade", 0, func(_ context.Context, _ facade.ModelContext) (facade.Facade, error) {
 		return &firstImpl{}, nil
 	}, reflect.TypeOf((*smallInterface)(nil)).Elem())
-	registry.MustRegister("my-interface-facade", 1, func(_ context.Context, _ facade.Context) (facade.Facade, error) {
+	registry.MustRegister("my-interface-facade", 1, func(_ context.Context, _ facade.ModelContext) (facade.Facade, error) {
 		return &secondImpl{}, nil
 	}, reflect.TypeOf((*smallInterface)(nil)).Elem())
 	srvRoot := apiserver.TestingAPIRoot(registry)

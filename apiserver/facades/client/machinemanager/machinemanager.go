@@ -107,7 +107,7 @@ type MachineManagerV9 struct {
 
 // NewFacadeV9 create a new server-side MachineManager API facade. This
 // is used for facade registration.
-func NewFacadeV9(ctx facade.Context) (*MachineManagerV9, error) {
+func NewFacadeV9(ctx facade.ModelContext) (*MachineManagerV9, error) {
 	api, err := NewFacadeV10(ctx)
 	if err != nil {
 		return nil, err
@@ -119,7 +119,7 @@ func NewFacadeV9(ctx facade.Context) (*MachineManagerV9, error) {
 
 // NewFacadeV10 create a new server-side MachineManager API facade. This
 // is used for facade registration.
-func NewFacadeV10(ctx facade.Context) (*MachineManagerAPI, error) {
+func NewFacadeV10(ctx facade.ModelContext) (*MachineManagerAPI, error) {
 	st := ctx.State()
 	model, err := st.Model()
 	if err != nil {

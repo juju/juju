@@ -172,10 +172,10 @@ func (charmhubMetricsMatcher) String() string {
 }
 
 type facadeContextShim struct {
-	facade.Context // Make it fulfil the interface, but we only define a couple of methods
-	state          *state.State
-	authorizer     facade.Authorizer
-	logger         loggo.Logger
+	facade.ModelContext // Make it fulfil the interface, but we only define a couple of methods
+	state               *state.State
+	authorizer          facade.Authorizer
+	logger              loggo.Logger
 }
 
 func (s facadeContextShim) Auth() facade.Authorizer {

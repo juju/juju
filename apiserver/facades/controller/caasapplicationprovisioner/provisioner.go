@@ -75,7 +75,7 @@ type API struct {
 }
 
 // NewStateCAASApplicationProvisionerAPI provides the signature required for facade registration.
-func NewStateCAASApplicationProvisionerAPI(ctx facade.Context) (*APIGroup, error) {
+func NewStateCAASApplicationProvisionerAPI(ctx facade.ModelContext) (*APIGroup, error) {
 	authorizer := ctx.Auth()
 
 	st := ctx.State()
@@ -130,7 +130,7 @@ func NewStateCAASApplicationProvisionerAPI(ctx facade.Context) (*APIGroup, error
 		return nil, errors.Trace(err)
 	}
 
-	leadershipRevoker, err := ctx.LeadershipRevoker(ctx.State().ModelUUID())
+	leadershipRevoker, err := ctx.LeadershipRevoker()
 	if err != nil {
 		return nil, errors.Annotate(err, "getting leadership client")
 	}

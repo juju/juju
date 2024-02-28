@@ -35,12 +35,6 @@ type Logger interface {
 	IsTraceEnabled() bool
 }
 
-// ObjectStoreGetter is the interface that is used to get a object store.
-type ObjectStoreGetter interface {
-	// GetObjectStore returns a object store for the given namespace.
-	GetObjectStore(context.Context, string) (coreobjectstore.ObjectStore, error)
-}
-
 // MetadataServiceGetter is the interface that is used to get the
 // MetadataService for a given model UUID.
 type MetadataServiceGetter interface {
@@ -212,8 +206,8 @@ func output(in worker.Worker, out any) error {
 	}
 
 	switch out := out.(type) {
-	case *ObjectStoreGetter:
-		var target ObjectStoreGetter = w
+	case *coreobjectstore.ObjectStoreGetter:
+		var target coreobjectstore.ObjectStoreGetter = w
 		*out = target
 	default:
 		return errors.Errorf("expected output of ObjectStore, got %T", out)

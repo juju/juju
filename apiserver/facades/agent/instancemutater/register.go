@@ -12,13 +12,13 @@ import (
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	registry.MustRegister("InstanceMutater", 3, func(stdCtx context.Context, ctx facade.Context) (facade.Facade, error) {
+	registry.MustRegister("InstanceMutater", 3, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newFacadeV3(ctx)
 	}, reflect.TypeOf((*InstanceMutaterAPI)(nil)))
 }
 
 // newFacadeV3 is used for API registration.
-func newFacadeV3(ctx facade.Context) (*InstanceMutaterAPI, error) {
+func newFacadeV3(ctx facade.ModelContext) (*InstanceMutaterAPI, error) {
 	st := &instanceMutaterStateShim{State: ctx.State()}
 
 	watcher := &instanceMutatorWatcher{st: st}

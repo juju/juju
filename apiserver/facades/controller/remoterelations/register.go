@@ -17,13 +17,13 @@ import (
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	registry.MustRegister("RemoteRelations", 2, func(stdCtx context.Context, ctx facade.Context) (facade.Facade, error) {
+	registry.MustRegister("RemoteRelations", 2, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newAPI(ctx) // Adds UpdateControllersForModels and WatchLocalRelationChanges.
 	}, reflect.TypeOf((*API)(nil)))
 }
 
 // newAPI creates a new server-side API facade backed by global state.
-func newAPI(ctx facade.Context) (*API, error) {
+func newAPI(ctx facade.ModelContext) (*API, error) {
 	systemState, err := ctx.StatePool().SystemState()
 	if err != nil {
 		return nil, errors.Trace(err)

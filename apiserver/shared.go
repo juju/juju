@@ -17,10 +17,10 @@ import (
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/multiwatcher"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/internal/pubsub/controller"
 	"github.com/juju/juju/internal/servicefactory"
-	"github.com/juju/juju/internal/worker/objectstore"
 	"github.com/juju/juju/internal/worker/trace"
 	"github.com/juju/juju/state"
 )
@@ -34,7 +34,7 @@ type SharedHub interface {
 }
 
 // sharedServerContext contains a number of components that are unchangeable in the API server.
-// These components need to be exposed through the facade.Context. Instead of having the methods
+// These components need to be exposed through the facade.ModelContext. Instead of having the methods
 // of newAPIHandler and newAPIRoot take ever-increasing numbers of parameters, they will instead
 // have a pointer to the sharedServerContext.
 //

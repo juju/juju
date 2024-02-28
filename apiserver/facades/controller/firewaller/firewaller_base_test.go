@@ -96,11 +96,11 @@ func (s *firewallerBaseSuite) setUpTest(c *gc.C) {
 
 func (s *firewallerBaseSuite) testFirewallerFailsWithNonControllerUser(
 	c *gc.C,
-	factory func(_ facade.Context) error,
+	factory func(_ facade.ModelContext) error,
 ) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Controller = false
-	ctx := facadetest.Context{
+	ctx := facadetest.ModelContext{
 		Auth_:           anAuthorizer,
 		Resources_:      s.resources,
 		State_:          s.ControllerModel(c).State(),

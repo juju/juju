@@ -86,7 +86,7 @@ type ProvisionerAPI struct {
 }
 
 // NewProvisionerAPI creates a new server-side ProvisionerAPI facade.
-func NewProvisionerAPI(stdCtx stdcontext.Context, ctx facade.Context) (*ProvisionerAPI, error) {
+func NewProvisionerAPI(stdCtx stdcontext.Context, ctx facade.ModelContext) (*ProvisionerAPI, error) {
 	authorizer := ctx.Auth()
 	if !authorizer.AuthMachineAgent() && !authorizer.AuthController() {
 		return nil, apiservererrors.ErrPerm

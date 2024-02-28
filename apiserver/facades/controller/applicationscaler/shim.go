@@ -16,7 +16,7 @@ import (
 // *trivially* correct, you would be Doing It Wrong.
 
 // newAPI provides the required signature for facade registration.
-func newAPI(ctx facade.Context) (*Facade, error) {
+func newAPI(ctx facade.ModelContext) (*Facade, error) {
 	return NewFacade(backendShim{ctx.State()}, ctx.Resources(), ctx.Auth())
 }
 

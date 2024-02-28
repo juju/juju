@@ -66,18 +66,20 @@ func (s *watcherSuite) getFacade(
 	return facade
 }
 
-func (s *watcherSuite) facadeContext(c *gc.C, id string, dispose func()) facadetest.Context {
-	return facadetest.Context{
-		Resources_:       s.resources,
-		WatcherRegistry_: s.watcherRegistry,
-		Auth_:            s.authorizer,
-		ServiceFactory_:  s.ControllerServiceFactory(c),
-		ID_:              id,
-		Dispose_:         dispose,
+func (s *watcherSuite) facadeContext(c *gc.C, id string, dispose func()) facadetest.MultiModelContext {
+	return facadetest.MultiModelContext{
+		ModelContext: facadetest.ModelContext{
+			Resources_:       s.resources,
+			WatcherRegistry_: s.watcherRegistry,
+			Auth_:            s.authorizer,
+			ServiceFactory_:  s.ControllerServiceFactory(c),
+			ID_:              id,
+			Dispose_:         dispose,
+		},
 	}
 }
 
-func getFacadeFactory(c *gc.C, name string, version int) facade.Factory {
+func getFacadeFactory(c *gc.C, name string, version int) facade.MultiModelFactory {
 	factory, err := apiserver.AllFacades().GetFactory(name, version)
 	c.Assert(err, jc.ErrorIsNil)
 	return factory
@@ -163,10 +165,12 @@ func (s *watcherSuite) TestMigrationStatusWatcherNotAgent(c *gc.C) {
 
 	factory, err := apiserver.AllFacades().GetFactory("MigrationStatusWatcher", 1)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = factory(context.Background(), facadetest.Context{
-		Resources_: s.resources,
-		Auth_:      s.authorizer,
-		ID_:        id,
+	_, err = factory(context.Background(), facadetest.MultiModelContext{
+		ModelContext: facadetest.ModelContext{
+			Resources_: s.resources,
+			Auth_:      s.authorizer,
+			ID_:        id,
+		},
 	})
 	c.Assert(err, gc.Equals, apiservererrors.ErrPerm)
 }

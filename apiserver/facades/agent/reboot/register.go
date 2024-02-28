@@ -12,12 +12,12 @@ import (
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	registry.MustRegister("Reboot", 2, func(stdCtx context.Context, ctx facade.Context) (facade.Facade, error) {
+	registry.MustRegister("Reboot", 2, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newFacade(ctx)
 	}, reflect.TypeOf((*RebootAPI)(nil)))
 }
 
 // newFacade creates a new server-side RebootAPI facade.
-func newFacade(ctx facade.Context) (*RebootAPI, error) {
+func newFacade(ctx facade.ModelContext) (*RebootAPI, error) {
 	return NewRebootAPI(ctx)
 }

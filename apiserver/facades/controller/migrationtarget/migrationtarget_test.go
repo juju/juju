@@ -68,7 +68,7 @@ type Suite struct {
 	credentialValidator       *MockCredentialValidator
 	modelImporter             *MockModelImporter
 
-	facadeContext facadetest.Context
+	facadeContext facadetest.ModelContext
 	callContext   envcontext.ProviderCallContext
 	leaders       map[string]string
 }
@@ -91,10 +91,12 @@ func (s *Suite) TestFacadeRegistered(c *gc.C) {
 	aFactory, err := apiserver.AllFacades().GetFactory("MigrationTarget", 3)
 	c.Assert(err, jc.ErrorIsNil)
 
-	api, err := aFactory(context.Background(), &facadetest.Context{
-		State_:          s.State,
-		Auth_:           s.authorizer,
-		ServiceFactory_: servicefactorytesting.NewTestingServiceFactory(),
+	api, err := aFactory(context.Background(), &facadetest.MultiModelContext{
+		ModelContext: facadetest.ModelContext{
+			State_:          s.State,
+			Auth_:           s.authorizer,
+			ServiceFactory_: servicefactorytesting.NewTestingServiceFactory(),
+		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(api, gc.FitsTypeOf, new(migrationtarget.API))
@@ -106,10 +108,12 @@ func (s *Suite) TestFacadeRegisteredV2(c *gc.C) {
 	aFactory, err := apiserver.AllFacades().GetFactory("MigrationTarget", 2)
 	c.Assert(err, jc.ErrorIsNil)
 
-	api, err := aFactory(context.Background(), &facadetest.Context{
-		State_:          s.State,
-		Auth_:           s.authorizer,
-		ServiceFactory_: servicefactorytesting.NewTestingServiceFactory(),
+	api, err := aFactory(context.Background(), &facadetest.MultiModelContext{
+		ModelContext: facadetest.ModelContext{
+			State_:          s.State,
+			Auth_:           s.authorizer,
+			ServiceFactory_: servicefactorytesting.NewTestingServiceFactory(),
+		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(api, gc.FitsTypeOf, new(migrationtarget.APIV2))
@@ -625,7 +629,7 @@ func (s *Suite) setupMocks(c *gc.C) *gomock.Controller {
 		AdminTag: s.Owner,
 	}
 	s.callContext = envcontext.WithoutCredentialInvalidator(context.Background())
-	s.facadeContext = facadetest.Context{
+	s.facadeContext = facadetest.ModelContext{
 		State_:         s.State,
 		StatePool_:     s.StatePool,
 		Auth_:          s.authorizer,

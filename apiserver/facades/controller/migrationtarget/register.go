@@ -22,20 +22,20 @@ import (
 // Register is called to expose a package of facades onto a given registry.
 func Register(requiredMigrationFacadeVersions facades.FacadeVersions) func(registry facade.FacadeRegistry) {
 	return func(registry facade.FacadeRegistry) {
-		registry.MustRegister("MigrationTarget", 1, func(stdCtx context.Context, ctx facade.Context) (facade.Facade, error) {
+		registry.MustRegister("MigrationTarget", 1, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 			return newFacadeV1(ctx)
 		}, reflect.TypeOf((*APIV1)(nil)))
-		registry.MustRegister("MigrationTarget", 2, func(stdCtx context.Context, ctx facade.Context) (facade.Facade, error) {
+		registry.MustRegister("MigrationTarget", 2, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 			return newFacadeV2(ctx)
 		}, reflect.TypeOf((*APIV2)(nil)))
-		registry.MustRegister("MigrationTarget", 3, func(stdCtx context.Context, ctx facade.Context) (facade.Facade, error) {
+		registry.MustRegister("MigrationTarget", 3, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 			return newFacade(ctx, requiredMigrationFacadeVersions)
 		}, reflect.TypeOf((*API)(nil)))
 	}
 }
 
 // newFacadeV1 is used for APIV1 registration.
-func newFacadeV1(ctx facade.Context) (*APIV1, error) {
+func newFacadeV1(ctx facade.ModelContext) (*APIV1, error) {
 	api, err := newFacade(ctx, facades.FacadeVersions{})
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -44,7 +44,7 @@ func newFacadeV1(ctx facade.Context) (*APIV1, error) {
 }
 
 // newFacadeV2 is used for APIV2 registration.
-func newFacadeV2(ctx facade.Context) (*APIV2, error) {
+func newFacadeV2(ctx facade.ModelContext) (*APIV2, error) {
 	api, err := newFacade(ctx, facades.FacadeVersions{})
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -53,7 +53,7 @@ func newFacadeV2(ctx facade.Context) (*APIV2, error) {
 }
 
 // newFacade is used for API registration.
-func newFacade(ctx facade.Context, facadeVersions facades.FacadeVersions) (*API, error) {
+func newFacade(ctx facade.ModelContext, facadeVersions facades.FacadeVersions) (*API, error) {
 	auth := ctx.Auth()
 	st := ctx.State()
 	if err := checkAuth(auth, st); err != nil {

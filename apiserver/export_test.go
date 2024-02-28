@@ -20,11 +20,10 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/stateauthenticator"
 	"github.com/juju/juju/controller"
-	coreobjectstore "github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
 	coretrace "github.com/juju/juju/core/trace"
 	"github.com/juju/juju/internal/servicefactory"
-	"github.com/juju/juju/internal/worker/objectstore"
 	"github.com/juju/juju/internal/worker/trace"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
@@ -65,11 +64,15 @@ func (testingAPIRootHandler) Tracer() coretrace.Tracer {
 	return nil
 }
 
-func (testingAPIRootHandler) ObjectStore() coreobjectstore.ObjectStore {
+func (testingAPIRootHandler) ObjectStore() objectstore.ObjectStore {
 	return nil
 }
 
-func (testingAPIRootHandler) ControllerObjectStore() coreobjectstore.ObjectStore {
+func (testingAPIRootHandler) ObjectStoreGetter() objectstore.ObjectStoreGetter {
+	return nil
+}
+
+func (testingAPIRootHandler) ControllerObjectStore() objectstore.ObjectStore {
 	return nil
 }
 
@@ -123,7 +126,7 @@ func TestingAPIHandler(c *gc.C, pool *state.StatePool, st *state.State, configGe
 		},
 		tag: names.NewMachineTag("0"),
 	}
-	h, err := newAPIHandler(srv, st, nil, nil, nil, coretrace.NoopTracer{}, nil, nil, st.ModelUUID(), 6543, "testing.invalid:1234")
+	h, err := newAPIHandler(srv, st, nil, nil, nil, coretrace.NoopTracer{}, nil, nil, nil, st.ModelUUID(), 6543, "testing.invalid:1234")
 	c.Assert(err, jc.ErrorIsNil)
 	return h, h.Resources()
 }

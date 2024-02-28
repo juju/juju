@@ -111,7 +111,7 @@ type CaasBrokerInterface interface {
 	Version() (*version.Number, error)
 }
 
-func newFacadeBase(stdCtx context.Context, ctx facade.Context) (*APIBase, error) {
+func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, error) {
 	m, err := ctx.State().Model()
 	if err != nil {
 		return nil, errors.Annotate(err, "getting model")
@@ -143,7 +143,7 @@ func newFacadeBase(stdCtx context.Context, ctx facade.Context) (*APIBase, error)
 
 	resources := ctx.Resources()
 
-	leadershipReader, err := ctx.LeadershipReader(ctx.State().ModelUUID())
+	leadershipReader, err := ctx.LeadershipReader()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

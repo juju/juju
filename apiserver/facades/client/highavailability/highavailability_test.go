@@ -53,7 +53,7 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 	}
 	st := s.ControllerModel(c).State()
 	var err error
-	s.haServer, err = highavailability.NewHighAvailabilityAPI(facadetest.Context{
+	s.haServer, err = highavailability.NewHighAvailabilityAPI(facadetest.ModelContext{
 		State_:          st,
 		Auth_:           s.authorizer,
 		ServiceFactory_: s.ControllerServiceFactory(c),
@@ -538,7 +538,7 @@ func (s *clientSuite) TestEnableHAHostedModelErrors(c *gc.C) {
 	st2 := f.MakeModel(c, &factory.ModelParams{ConfigAttrs: coretesting.Attrs{"controller": false}})
 	defer st2.Close()
 
-	haServer, err := highavailability.NewHighAvailabilityAPI(facadetest.Context{
+	haServer, err := highavailability.NewHighAvailabilityAPI(facadetest.ModelContext{
 		State_:          st2,
 		Auth_:           s.authorizer,
 		ServiceFactory_: s.ControllerServiceFactory(c),
@@ -600,7 +600,7 @@ func (s *clientSuite) TestHighAvailabilityCAASFails(c *gc.C) {
 	st := f.MakeCAASModel(c, nil)
 	defer st.Close()
 
-	_, err := highavailability.NewHighAvailabilityAPI(facadetest.Context{
+	_, err := highavailability.NewHighAvailabilityAPI(facadetest.ModelContext{
 		State_:          st,
 		Auth_:           s.authorizer,
 		ServiceFactory_: s.ControllerServiceFactory(c),

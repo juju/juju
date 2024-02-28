@@ -16,16 +16,16 @@ import (
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	registry.MustRegister("HighAvailability", 2, func(stdCtx context.Context, ctx facade.Context) (facade.Facade, error) {
+	registry.MustRegister("HighAvailability", 2, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newHighAvailabilityAPIV2(ctx)
 	}, reflect.TypeOf((*HighAvailabilityAPIV2)(nil)))
-	registry.MustRegister("HighAvailability", 3, func(stdCtx context.Context, ctx facade.Context) (facade.Facade, error) {
+	registry.MustRegister("HighAvailability", 3, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newHighAvailabilityAPI(ctx)
 	}, reflect.TypeOf((*HighAvailabilityAPI)(nil)))
 }
 
 // newHighAvailabilityAPI creates a new server-side highavailability API end point.
-func newHighAvailabilityAPIV2(ctx facade.Context) (*HighAvailabilityAPIV2, error) {
+func newHighAvailabilityAPIV2(ctx facade.ModelContext) (*HighAvailabilityAPIV2, error) {
 	v3, err := newHighAvailabilityAPI(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -34,7 +34,7 @@ func newHighAvailabilityAPIV2(ctx facade.Context) (*HighAvailabilityAPIV2, error
 }
 
 // newHighAvailabilityAPI creates a new server-side highavailability API end point.
-func newHighAvailabilityAPI(ctx facade.Context) (*HighAvailabilityAPI, error) {
+func newHighAvailabilityAPI(ctx facade.ModelContext) (*HighAvailabilityAPI, error) {
 	// Only clients can access the high availability facade.
 	authorizer := ctx.Auth()
 	if !authorizer.AuthClient() {

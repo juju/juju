@@ -52,7 +52,7 @@ func (s *CleanerSuite) SetUpTest(c *gc.C) {
 	s.machineService = machineservice.NewService(nil)
 	s.applicationService = applicationservice.NewService(nil)
 	s.unitService = unitservice.NewService(nil)
-	s.api, err = cleaner.NewCleanerAPI(facadetest.Context{
+	s.api, err = cleaner.NewCleanerAPI(facadetest.ModelContext{
 		Resources_: res,
 		Auth_:      s.authoriser,
 		ServiceFactory_: servicefactorytesting.NewTestingServiceFactory().
@@ -73,7 +73,7 @@ func (s *CleanerSuite) SetUpTest(c *gc.C) {
 func (s *CleanerSuite) TestNewCleanerAPIRequiresController(c *gc.C) {
 	anAuthoriser := s.authoriser
 	anAuthoriser.Controller = false
-	api, err := cleaner.NewCleanerAPI(facadetest.Context{
+	api, err := cleaner.NewCleanerAPI(facadetest.ModelContext{
 		Auth_: anAuthoriser,
 	})
 	c.Assert(api, gc.IsNil)

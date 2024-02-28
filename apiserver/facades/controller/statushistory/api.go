@@ -21,7 +21,7 @@ type API struct {
 }
 
 // Model returns the model for a context (override for tests).
-var Model = func(ctx facade.Context) (state.ModelAccessor, error) {
+var Model = func(ctx facade.ModelContext) (state.ModelAccessor, error) {
 	return ctx.State().Model()
 }
 

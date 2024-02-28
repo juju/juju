@@ -17,13 +17,13 @@ import (
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	registry.MustRegister("SecretBackendsManager", 1, func(stdCtx context.Context, ctx facade.Context) (facade.Facade, error) {
+	registry.MustRegister("SecretBackendsManager", 1, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return NewSecretBackendsManagerAPI(ctx)
 	}, reflect.TypeOf((*SecretBackendsManagerAPI)(nil)))
 }
 
 // NewSecretBackendsManagerAPI creates a SecretBackendsManagerAPI.
-func NewSecretBackendsManagerAPI(context facade.Context) (*SecretBackendsManagerAPI, error) {
+func NewSecretBackendsManagerAPI(context facade.ModelContext) (*SecretBackendsManagerAPI, error) {
 	if !context.Auth().AuthController() {
 		return nil, apiservererrors.ErrPerm
 	}

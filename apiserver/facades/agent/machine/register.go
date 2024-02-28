@@ -14,13 +14,13 @@ import (
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	registry.MustRegister("Machiner", 5, func(stdCtx context.Context, ctx facade.Context) (facade.Facade, error) {
+	registry.MustRegister("Machiner", 5, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newMachinerAPI(stdCtx, ctx) // Adds RecordAgentHostAndStartTime.
 	}, reflect.TypeOf((*MachinerAPI)(nil)))
 }
 
 // newMachinerAPI creates a new instance of the Machiner API.
-func newMachinerAPI(stdCtx context.Context, ctx facade.Context) (*MachinerAPI, error) {
+func newMachinerAPI(stdCtx context.Context, ctx facade.ModelContext) (*MachinerAPI, error) {
 	systemState, err := ctx.StatePool().SystemState()
 	if err != nil {
 		return nil, errors.Trace(err)

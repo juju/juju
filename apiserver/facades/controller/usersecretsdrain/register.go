@@ -18,13 +18,13 @@ import (
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	registry.MustRegister("UserSecretsDrain", 1, func(stdCtx stdcontext.Context, ctx facade.Context) (facade.Facade, error) {
+	registry.MustRegister("UserSecretsDrain", 1, func(stdCtx stdcontext.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newUserSecretsDrainAPI(ctx)
 	}, reflect.TypeOf((*SecretsDrainAPI)(nil)))
 }
 
 // newUserSecretsDrainAPI creates a SecretsDrainAPI for draining user secrets.
-func newUserSecretsDrainAPI(context facade.Context) (*SecretsDrainAPI, error) {
+func newUserSecretsDrainAPI(context facade.ModelContext) (*SecretsDrainAPI, error) {
 	if !context.Auth().AuthController() {
 		return nil, apiservererrors.ErrPerm
 	}

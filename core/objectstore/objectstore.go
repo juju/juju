@@ -63,6 +63,12 @@ type BucketSession interface {
 	CreateBucket(ctx context.Context, bucketName string) error
 }
 
+// ObjectStoreGetter is the interface that is used to get a object store.
+type ObjectStoreGetter interface {
+	// GetObjectStore returns a object store for the given namespace.
+	GetObjectStore(context.Context, string) (ObjectStore, error)
+}
+
 // ObjectStore represents a full object store for both read and write access.
 type ObjectStore interface {
 	ReadObjectStore

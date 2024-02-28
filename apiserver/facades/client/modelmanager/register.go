@@ -19,13 +19,13 @@ import (
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	registry.MustRegister("ModelManager", 10, func(stdCtx context.Context, ctx facade.Context) (facade.Facade, error) {
+	registry.MustRegisterForMultiModel("ModelManager", 10, func(stdCtx context.Context, ctx facade.MultiModelContext) (facade.Facade, error) {
 		return newFacadeV10(ctx)
 	}, reflect.TypeOf((*ModelManagerAPI)(nil)))
 }
 
 // newFacadeV10 is used for API registration.
-func newFacadeV10(ctx facade.Context) (*ModelManagerAPI, error) {
+func newFacadeV10(ctx facade.ModelContext) (*ModelManagerAPI, error) {
 	st := ctx.State()
 	pool := ctx.StatePool()
 	ctlrSt, err := pool.SystemState()

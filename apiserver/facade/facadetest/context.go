@@ -16,8 +16,8 @@ import (
 	"github.com/juju/juju/state"
 )
 
-// Context implements facade.Context in the simplest possible way.
-type Context struct {
+// ModelContext implements facade.ModelContext in the simplest possible way.
+type ModelContext struct {
 	Auth_                facade.Authorizer
 	Dispose_             func()
 	Hub_                 facade.Hub
@@ -48,157 +48,157 @@ type Context struct {
 	DataDir_    string
 	LogDir_     string
 
-	// Identity is not part of the facade.Context interface, but is instead
+	// Identity is not part of the facade.ModelContext interface, but is instead
 	// used to make sure that the context objects are the same.
 	Identity string
 }
 
-// Auth is part of the facade.Context interface.
-func (context Context) Auth() facade.Authorizer {
-	return context.Auth_
+// Auth is part of the facade.ModelContext interface.
+func (c ModelContext) Auth() facade.Authorizer {
+	return c.Auth_
 }
 
-// Dispose is part of the facade.Context interface.
-func (context Context) Dispose() {
-	context.Dispose_()
+// Dispose is part of the facade.ModelContext interface.
+func (c ModelContext) Dispose() {
+	c.Dispose_()
 }
 
-// Hub is part of the facade.Context interface.
-func (context Context) Hub() facade.Hub {
-	return context.Hub_
+// Hub is part of the facade.ModelContext interface.
+func (c ModelContext) Hub() facade.Hub {
+	return c.Hub_
 }
 
-// MultiwatcherFactory is part of the facade.Context interface.
-func (context Context) MultiwatcherFactory() multiwatcher.Factory {
-	return context.MultiwatcherFactory_
+// MultiwatcherFactory is part of the facade.ModelContext interface.
+func (c ModelContext) MultiwatcherFactory() multiwatcher.Factory {
+	return c.MultiwatcherFactory_
 }
 
-// Resources is part of the facade.Context interface.
+// Resources is part of the facade.ModelContext interface.
 // Deprecated: Resources are deprecated. Use WatcherRegistry instead.
-func (context Context) Resources() facade.Resources {
-	return context.Resources_
+func (c ModelContext) Resources() facade.Resources {
+	return c.Resources_
 }
 
-// WatcherRegistry returns the watcher registry for this context. The
+// WatcherRegistry returns the watcher registry for this c. The
 // watchers are per-connection, and are cleaned up when the connection
 // is closed.
-func (context Context) WatcherRegistry() facade.WatcherRegistry {
-	return context.WatcherRegistry_
+func (c ModelContext) WatcherRegistry() facade.WatcherRegistry {
+	return c.WatcherRegistry_
 }
 
-// ObjectStore is part of the facade.Context interface.
-// It returns the object store for this context.
-func (context Context) ObjectStore() objectstore.ObjectStore {
-	return context.ObjectStore_
+// ObjectStore is part of the facade.ModelContext interface.
+// It returns the object store for this c.
+func (c ModelContext) ObjectStore() objectstore.ObjectStore {
+	return c.ObjectStore_
 }
 
-// ControllerObjectStore is part of the facade.Context interface.
-// It returns the object store for this context.
-func (context Context) ControllerObjectStore() objectstore.ObjectStore {
-	return context.ControllerObjectStore_
+// ControllerObjectStore is part of the facade.ModelContext interface.
+// It returns the object store for this c.
+func (c ModelContext) ControllerObjectStore() objectstore.ObjectStore {
+	return c.ControllerObjectStore_
 }
 
-// State is part of the facade.Context interface.
-func (context Context) State() *state.State {
-	return context.State_
+// State is part of the facade.ModelContext interface.
+func (c ModelContext) State() *state.State {
+	return c.State_
 }
 
-// StatePool is part of the facade.Context interface.
-func (context Context) StatePool() *state.StatePool {
-	return context.StatePool_
+// StatePool is part of the facade.ModelContext interface.
+func (c ModelContext) StatePool() *state.StatePool {
+	return c.StatePool_
 }
 
-// ID is part of the facade.Context interface.
-func (context Context) ID() string {
-	return context.ID_
+// ID is part of the facade.ModelContext interface.
+func (c ModelContext) ID() string {
+	return c.ID_
 }
 
 // RequestRecorder defines a metrics collector for outbound requests.
-func (context Context) RequestRecorder() facade.RequestRecorder {
-	return context.RequestRecorder_
+func (c ModelContext) RequestRecorder() facade.RequestRecorder {
+	return c.RequestRecorder_
 }
 
-// Presence implements facade.Context.
-func (context Context) Presence() facade.Presence {
-	return context
+// Presence implements facade.ModelContext.
+func (c ModelContext) Presence() facade.Presence {
+	return c
 }
 
 // ModelPresence implements facade.Presence.
-func (context Context) ModelPresence(modelUUID string) facade.ModelPresence {
+func (c ModelContext) ModelPresence(modelUUID string) facade.ModelPresence {
 	// Potentially may need to add stuff here at some stage.
 	return nil
 }
 
-// LeadershipClaimer implements facade.Context.
-func (context Context) LeadershipClaimer(modelUUID string) (leadership.Claimer, error) {
-	return context.LeadershipClaimer_, nil
+// LeadershipClaimer implements facade.ModelContext.
+func (c ModelContext) LeadershipClaimer() (leadership.Claimer, error) {
+	return c.LeadershipClaimer_, nil
 }
 
-// LeadershipRevoker implements facade.Context.
-func (context Context) LeadershipRevoker(modelUUID string) (leadership.Revoker, error) {
-	return context.LeadershipRevoker_, nil
+// LeadershipRevoker implements facade.ModelContext.
+func (c ModelContext) LeadershipRevoker() (leadership.Revoker, error) {
+	return c.LeadershipRevoker_, nil
 }
 
-// LeadershipChecker implements facade.Context.
-func (context Context) LeadershipChecker() (leadership.Checker, error) {
-	return context.LeadershipChecker_, nil
+// LeadershipPinner implements facade.ModelContext.
+func (c ModelContext) LeadershipPinner() (leadership.Pinner, error) {
+	return c.LeadershipPinner_, nil
 }
 
-// LeadershipPinner implements facade.Context.
-func (context Context) LeadershipPinner(modelUUID string) (leadership.Pinner, error) {
-	return context.LeadershipPinner_, nil
+// LeadershipReader implements facade.ModelContext.
+func (c ModelContext) LeadershipReader() (leadership.Reader, error) {
+	return c.LeadershipReader_, nil
 }
 
-// LeadershipReader implements facade.Context.
-func (context Context) LeadershipReader(modelUUID string) (leadership.Reader, error) {
-	return context.LeadershipReader_, nil
+// LeadershipChecker implements facade.ModelContext.
+func (c ModelContext) LeadershipChecker() (leadership.Checker, error) {
+	return c.LeadershipChecker_, nil
 }
 
-// SingularClaimer implements facade.Context.
-func (context Context) SingularClaimer() (lease.Claimer, error) {
-	return context.SingularClaimer_, nil
+// SingularClaimer implements facade.ModelContext.
+func (c ModelContext) SingularClaimer() (lease.Claimer, error) {
+	return c.SingularClaimer_, nil
 }
 
-// HTTPClient implements facade.Context.
-func (context Context) HTTPClient(purpose facade.HTTPClientPurpose) facade.HTTPClient {
+// HTTPClient implements facade.ModelContext.
+func (c ModelContext) HTTPClient(purpose facade.HTTPClientPurpose) facade.HTTPClient {
 	switch purpose {
 	case facade.CharmhubHTTPClient:
-		return context.CharmhubHTTPClient_
+		return c.CharmhubHTTPClient_
 	default:
 		return nil
 	}
 }
 
-// ServiceFactory implements facade.Context.
-func (context Context) ServiceFactory() servicefactory.ServiceFactory {
-	return context.ServiceFactory_
+// ServiceFactory implements facade.ModelContext.
+func (c ModelContext) ServiceFactory() servicefactory.ServiceFactory {
+	return c.ServiceFactory_
 }
 
 // ModelExporter returns a model exporter for the current model.
-func (context Context) ModelExporter(facade.LegacyStateExporter) facade.ModelExporter {
-	return context.ModelExporter_
+func (c ModelContext) ModelExporter(facade.LegacyStateExporter) facade.ModelExporter {
+	return c.ModelExporter_
 }
 
 // ModelImporter returns a model importer.
-func (context Context) ModelImporter() facade.ModelImporter {
-	return context.ModelImporter_
+func (c ModelContext) ModelImporter() facade.ModelImporter {
+	return c.ModelImporter_
 }
 
 // MachineTag returns the current machine tag.
-func (context Context) MachineTag() names.Tag {
-	return context.MachineTag_
+func (c ModelContext) MachineTag() names.Tag {
+	return c.MachineTag_
 }
 
 // DataDir returns the data directory.
-func (context Context) DataDir() string {
-	return context.DataDir_
+func (c ModelContext) DataDir() string {
+	return c.DataDir_
 }
 
 // LogDir returns the log directory.
-func (context Context) LogDir() string {
-	return context.LogDir_
+func (c ModelContext) LogDir() string {
+	return c.LogDir_
 }
 
-func (context Context) Logger() loggo.Logger {
-	return context.Logger_
+func (c ModelContext) Logger() loggo.Logger {
+	return c.Logger_
 }

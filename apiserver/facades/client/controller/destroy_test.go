@@ -62,7 +62,7 @@ func (s *destroyControllerSuite) SetUpTest(c *gc.C) {
 	}
 	testController, err := controller.NewControllerAPIv11(
 		context.Background(),
-		facadetest.Context{
+		facadetest.ModelContext{
 			State_:          s.ControllerModel(c).State(),
 			StatePool_:      s.StatePool(),
 			Resources_:      s.resources,

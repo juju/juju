@@ -15,13 +15,13 @@ import (
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	registry.MustRegister("CredentialManager", 1, func(stdCtx context.Context, ctx facade.Context) (facade.Facade, error) {
+	registry.MustRegister("CredentialManager", 1, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return NewCredentialManagerAPI(ctx)
 	}, reflect.TypeOf((*CredentialManagerAPI)(nil)))
 }
 
 // NewCredentialManagerAPI creates a new CredentialManager API endpoint on server-side.
-func NewCredentialManagerAPI(ctx facade.Context) (*CredentialManagerAPI, error) {
+func NewCredentialManagerAPI(ctx facade.ModelContext) (*CredentialManagerAPI, error) {
 	if ctx.Auth().GetAuthTag() == nil || !ctx.Auth().AuthClient() {
 		return nil, apiservererrors.ErrPerm
 	}

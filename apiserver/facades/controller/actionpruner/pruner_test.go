@@ -24,14 +24,14 @@ var _ = gc.Suite(&ActionPrunerSuite{})
 type ActionPrunerSuite struct {
 	coretesting.BaseSuite
 
-	context facadetest.Context
+	context facadetest.ModelContext
 	api     *actionpruner.API
 }
 
 func (s *ActionPrunerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
-	s.PatchValue(&actionpruner.Model, func(_ facade.Context) (state.ModelAccessor, error) {
+	s.PatchValue(&actionpruner.Model, func(_ facade.ModelContext) (state.ModelAccessor, error) {
 		return nil, nil
 	})
 	s.context.Auth_ = testing.FakeAuthorizer{Controller: true}

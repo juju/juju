@@ -48,16 +48,47 @@ type objectKey struct {
 // after it has logged in. It contains an rpc.Root which it
 // uses to dispatch API calls appropriately.
 type apiHandler struct {
-	state                 *state.State
-	model                 *state.Model
-	rpcConn               *rpc.Conn
-	serviceFactory        servicefactory.ServiceFactory
-	serviceFactoryGetter  servicefactory.ServiceFactoryGetter
-	tracer                trace.Tracer
-	objectStore           objectstore.ObjectStore
+	state   *state.State
+	model   *state.Model
+	rpcConn *rpc.Conn
+
+	// TODO (stickupkid): The "shared" concept is an abomination, we should
+	// remove this and pass the dependencies in directly.
+	shared *sharedServerContext
+
+	// tracer is the tracing worker (OTEL) for the resolved model UUID. This
+	// is either the request model UUID, or it's the system state model UUID, if
+	// the request model UUID is empty.
+	tracer trace.Tracer
+
+	// serviceFactory is the service factory for the resolved model UUID. This
+	// is either the request model UUID, or it's the system state model UUID, if
+	// the request model UUID is empty.
+	serviceFactory servicefactory.ServiceFactory
+
+	// serviceFactoryGetter allows the retrieval of an service factory for a
+	// given model UUID. This should not be used unless you're sure you need to
+	// access a different model's service factory.
+	serviceFactoryGetter servicefactory.ServiceFactoryGetter
+
+	// objectStore is the object store for the resolved model UUID. This is
+	// either the request model UUID, or it's the system state model UUID, if
+	// the request model UUID is empty.
+	objectStore objectstore.ObjectStore
+
+	// objectStoreGetter allows the retrieval of an object store for a given
+	// model UUID. This should not be used unless you're sure you need to
+	// access a different model's object store.
+	objectStoreGetter objectstore.ObjectStoreGetter
+
+	// controllerObjectStore is the object store for the controller namespace.
+	// This is the global namespace and is used for agent binaries and other
+	// controller-wide binary data.
 	controllerObjectStore objectstore.ObjectStore
-	watcherRegistry       facade.WatcherRegistry
-	shared                *sharedServerContext
+
+	// watcherRegistry is the registry for tracking watchers between API calls
+	// for a given model UUID.
+	watcherRegistry facade.WatcherRegistry
 
 	// authInfo represents the authentication info established with this client
 	// connection.
@@ -100,6 +131,7 @@ func newAPIHandler(
 	serviceFactoryGetter servicefactory.ServiceFactoryGetter,
 	tracer trace.Tracer,
 	objectStore objectstore.ObjectStore,
+	objectStoreGetter objectstore.ObjectStoreGetter,
 	controllerObjectStore objectstore.ObjectStore,
 	modelUUID string,
 	connectionID uint64,
@@ -131,6 +163,7 @@ func newAPIHandler(
 		serviceFactoryGetter:  serviceFactoryGetter,
 		tracer:                tracer,
 		objectStore:           objectStore,
+		objectStoreGetter:     objectStoreGetter,
 		controllerObjectStore: controllerObjectStore,
 		model:                 m,
 		resources:             common.NewResources(),
@@ -209,6 +242,11 @@ func (r *apiHandler) Tracer() trace.Tracer {
 // ObjectStore returns the object store.
 func (r *apiHandler) ObjectStore() objectstore.ObjectStore {
 	return r.objectStore
+}
+
+// ObjectStoreGetter returns the object store getter.
+func (r *apiHandler) ObjectStoreGetter() objectstore.ObjectStoreGetter {
+	return r.objectStoreGetter
 }
 
 // ControllerObjectStore returns the controller object store. The primary
@@ -389,6 +427,8 @@ type apiRootHandler interface {
 	Tracer() trace.Tracer
 	// ObjectStore returns the object store.
 	ObjectStore() objectstore.ObjectStore
+	// ObjectStoreGetter returns the object store getter.
+	ObjectStoreGetter() objectstore.ObjectStoreGetter
 	// ControllerObjectStore returns the controller object store. The primary
 	// use case for this is agent tools.
 	ControllerObjectStore() objectstore.ObjectStore
@@ -413,6 +453,7 @@ type apiRoot struct {
 	serviceFactoryGetter  servicefactory.ServiceFactoryGetter
 	tracer                trace.Tracer
 	objectStore           objectstore.ObjectStore
+	objectStoreGetter     objectstore.ObjectStoreGetter
 	controllerObjectStore objectstore.ObjectStore
 	shared                *sharedServerContext
 	facades               *facade.Registry
@@ -441,6 +482,7 @@ func newAPIRoot(
 		serviceFactoryGetter:  root.ServiceFactoryGetter(),
 		tracer:                root.Tracer(),
 		objectStore:           root.ObjectStore(),
+		objectStoreGetter:     root.ObjectStoreGetter(),
 		controllerObjectStore: root.ControllerObjectStore(),
 		shared:                root.SharedContext(),
 		facades:               facades,
@@ -678,34 +720,34 @@ func (r *adminRoot) FindMethod(rootName string, version int, methodName string) 
 	}
 }
 
-// facadeContext implements facade.Context
+// facadeContext implements facade.ModelContext
 type facadeContext struct {
 	r   *apiRoot
 	key objectKey
 }
 
-// Auth is part of the facade.Context interface.
+// Auth is part of the facade.ModelContext interface.
 func (ctx *facadeContext) Auth() facade.Authorizer {
 	return ctx.r.authorizer
 }
 
-// Dispose is part of the facade.Context interface.
+// Dispose is part of the facade.ModelContext interface.
 func (ctx *facadeContext) Dispose() {
 	ctx.r.dispose(ctx.key)
 }
 
-// Resources is part of the facade.Context interface.
+// Resources is part of the facade.ModelContext interface.
 // Deprecated: Resources are deprecated. Use WatcherRegistry instead.
 func (ctx *facadeContext) Resources() facade.Resources {
 	return ctx.r.resources
 }
 
-// WatcherRegistry is part of the facade.Context interface.
+// WatcherRegistry is part of the facade.ModelContext interface.
 func (ctx *facadeContext) WatcherRegistry() facade.WatcherRegistry {
 	return ctx.r.watcherRegistry
 }
 
-// Presence implements facade.Context.
+// Presence implements facade.ModelContext.
 func (ctx *facadeContext) Presence() facade.Presence {
 	return ctx
 }
@@ -715,27 +757,27 @@ func (ctx *facadeContext) ModelPresence(modelUUID string) facade.ModelPresence {
 	return ctx.r.shared.presence.Connections().ForModel(modelUUID)
 }
 
-// Hub implements facade.Context.
+// Hub implements facade.ModelContext.
 func (ctx *facadeContext) Hub() facade.Hub {
 	return ctx.r.shared.centralHub
 }
 
-// State is part of the facade.Context interface.
+// State is part of the facade.ModelContext interface.
 func (ctx *facadeContext) State() *state.State {
 	return ctx.r.state
 }
 
-// StatePool is part of the facade.Context interface.
+// StatePool is part of the facade.ModelContext interface.
 func (ctx *facadeContext) StatePool() *state.StatePool {
 	return ctx.r.shared.statePool
 }
 
-// MultiwatcherFactory is part of the facade.Context interface.
+// MultiwatcherFactory is part of the facade.ModelContext interface.
 func (ctx *facadeContext) MultiwatcherFactory() multiwatcher.Factory {
 	return ctx.r.shared.multiwatcherFactory
 }
 
-// ID is part of the facade.Context interface.
+// ID is part of the facade.ModelContext interface.
 func (ctx *facadeContext) ID() string {
 	return ctx.key.objId
 }
@@ -745,31 +787,7 @@ func (ctx *facadeContext) RequestRecorder() facade.RequestRecorder {
 	return ctx.r.requestRecorder
 }
 
-// LeadershipClaimer is part of the facade.Context interface.
-func (ctx *facadeContext) LeadershipClaimer(modelUUID string) (leadership.Claimer, error) {
-	claimer, err := ctx.r.shared.leaseManager.Claimer(
-		lease.ApplicationLeadershipNamespace,
-		modelUUID,
-	)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return leadershipClaimer{claimer: claimer}, nil
-}
-
-// LeadershipRevoker is part of the facade.Context interface.
-func (ctx *facadeContext) LeadershipRevoker(modelUUID string) (leadership.Revoker, error) {
-	revoker, err := ctx.r.shared.leaseManager.Revoker(
-		lease.ApplicationLeadershipNamespace,
-		modelUUID,
-	)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return leadershipRevoker{claimer: revoker}, nil
-}
-
-// LeadershipChecker is part of the facade.Context interface.
+// LeadershipChecker is part of the facade.ModelContext interface.
 func (ctx *facadeContext) LeadershipChecker() (leadership.Checker, error) {
 	checker, err := ctx.r.shared.leaseManager.Checker(
 		lease.ApplicationLeadershipNamespace,
@@ -781,12 +799,44 @@ func (ctx *facadeContext) LeadershipChecker() (leadership.Checker, error) {
 	return leadershipChecker{checker: checker}, nil
 }
 
-// LeadershipPinner is part of the facade.Context interface.
+// SingularClaimer is part of the facade.ModelContext interface.
+func (ctx *facadeContext) SingularClaimer() (lease.Claimer, error) {
+	return ctx.r.shared.leaseManager.Claimer(
+		lease.SingularControllerNamespace,
+		ctx.State().ModelUUID(),
+	)
+}
+
+// LeadershipClaimer is part of the facade.ModelContext interface.
+func (ctx *facadeContext) LeadershipClaimer() (leadership.Claimer, error) {
+	claimer, err := ctx.r.shared.leaseManager.Claimer(
+		lease.ApplicationLeadershipNamespace,
+		ctx.State().ModelUUID(),
+	)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return leadershipClaimer{claimer: claimer}, nil
+}
+
+// LeadershipRevoker is part of the facade.ModelContext interface.
+func (ctx *facadeContext) LeadershipRevoker() (leadership.Revoker, error) {
+	revoker, err := ctx.r.shared.leaseManager.Revoker(
+		lease.ApplicationLeadershipNamespace,
+		ctx.State().ModelUUID(),
+	)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return leadershipRevoker{claimer: revoker}, nil
+}
+
+// LeadershipPinner is part of the facade.ModelContext interface.
 // Pinning functionality is only available with the Raft leases implementation.
-func (ctx *facadeContext) LeadershipPinner(modelUUID string) (leadership.Pinner, error) {
+func (ctx *facadeContext) LeadershipPinner() (leadership.Pinner, error) {
 	pinner, err := ctx.r.shared.leaseManager.Pinner(
 		lease.ApplicationLeadershipNamespace,
-		modelUUID,
+		ctx.State().ModelUUID(),
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -794,26 +844,18 @@ func (ctx *facadeContext) LeadershipPinner(modelUUID string) (leadership.Pinner,
 	return leadershipPinner{pinner: pinner}, nil
 }
 
-// LeadershipReader is part of the facade.Context interface.
+// LeadershipReader is part of the facade.ModelContext interface.
 // It returns a reader that can be used to return all application leaders
 // in the model.
-func (ctx *facadeContext) LeadershipReader(modelUUID string) (leadership.Reader, error) {
+func (ctx *facadeContext) LeadershipReader() (leadership.Reader, error) {
 	reader, err := ctx.r.shared.leaseManager.Reader(
 		lease.ApplicationLeadershipNamespace,
-		modelUUID,
+		ctx.State().ModelUUID(),
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return leadershipReader{reader: reader}, nil
-}
-
-// SingularClaimer is part of the facade.Context interface.
-func (ctx *facadeContext) SingularClaimer() (lease.Claimer, error) {
-	return ctx.r.shared.leaseManager.Claimer(
-		lease.SingularControllerNamespace,
-		ctx.State().ModelUUID(),
-	)
 }
 
 func (ctx *facadeContext) HTTPClient(purpose facade.HTTPClientPurpose) facade.HTTPClient {
@@ -914,6 +956,17 @@ func (ctx *facadeContext) migrationScope(modelUUID string) modelmigration.Scope 
 			return ctx.modelDB(modelUUID)
 		}),
 	)
+}
+
+// ServiceFactoryForModel returns the services factory for a given
+// model uuid.
+func (ctx *facadeContext) ServiceFactoryForModel(modelUUID string) servicefactory.ServiceFactory {
+	return ctx.r.serviceFactoryGetter.FactoryForModel(modelUUID)
+}
+
+// ObjectStoreForModel returns the object store for a given model uuid.
+func (ctx *facadeContext) ObjectStoreForModel(stdCtx context.Context, modelUUID string) (objectstore.ObjectStore, error) {
+	return ctx.r.objectStoreGetter.GetObjectStore(stdCtx, modelUUID)
 }
 
 // DescribeFacades returns the list of available Facades and their Versions

@@ -27,17 +27,17 @@ import (
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	registry.MustRegister("SecretsManager", 1, func(stdCtx context.Context, ctx facade.Context) (facade.Facade, error) {
+	registry.MustRegister("SecretsManager", 1, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return NewSecretManagerAPIV1(stdCtx, ctx)
 	}, reflect.TypeOf((*SecretsManagerAPIV1)(nil)))
-	registry.MustRegister("SecretsManager", 2, func(stdCtx context.Context, ctx facade.Context) (facade.Facade, error) {
+	registry.MustRegister("SecretsManager", 2, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return NewSecretManagerAPI(stdCtx, ctx)
 	}, reflect.TypeOf((*SecretsManagerAPI)(nil)))
 }
 
 // NewSecretManagerAPIV1 creates a SecretsManagerAPIV1.
 // TODO - drop when we no longer support juju 3.1.x
-func NewSecretManagerAPIV1(stdCtx context.Context, context facade.Context) (*SecretsManagerAPIV1, error) {
+func NewSecretManagerAPIV1(stdCtx context.Context, context facade.ModelContext) (*SecretsManagerAPIV1, error) {
 	api, err := NewSecretManagerAPI(stdCtx, context)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -46,7 +46,7 @@ func NewSecretManagerAPIV1(stdCtx context.Context, context facade.Context) (*Sec
 }
 
 // NewSecretManagerAPI creates a SecretsManagerAPI.
-func NewSecretManagerAPI(stdCtx context.Context, ctx facade.Context) (*SecretsManagerAPI, error) {
+func NewSecretManagerAPI(stdCtx context.Context, ctx facade.ModelContext) (*SecretsManagerAPI, error) {
 	if !ctx.Auth().AuthUnitAgent() && !ctx.Auth().AuthApplicationAgent() {
 		return nil, apiservererrors.ErrPerm
 	}

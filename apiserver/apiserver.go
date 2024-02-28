@@ -48,13 +48,13 @@ import (
 	"github.com/juju/juju/core/lease"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/multiwatcher"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/core/resources"
 	coretrace "github.com/juju/juju/core/trace"
 	controllermsg "github.com/juju/juju/internal/pubsub/controller"
 	"github.com/juju/juju/internal/resource"
 	"github.com/juju/juju/internal/servicefactory"
-	"github.com/juju/juju/internal/worker/objectstore"
 	"github.com/juju/juju/internal/worker/trace"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/jsoncodec"
@@ -1142,7 +1142,20 @@ func (srv *Server) serveConn(
 	st, err := statePool.Get(resolvedModelUUID)
 	if err == nil {
 		defer st.Release()
-		handler, err = newAPIHandler(srv, st.State, conn, serviceFactory, srv.shared.serviceFactoryGetter, tracer, objectStore, controllerObjectStore, modelUUID, connectionID, host)
+		handler, err = newAPIHandler(
+			srv,
+			st.State,
+			conn,
+			serviceFactory,
+			srv.shared.serviceFactoryGetter,
+			tracer,
+			objectStore,
+			srv.shared.objectStoreGetter,
+			controllerObjectStore,
+			modelUUID,
+			connectionID,
+			host,
+		)
 	}
 	if errors.Is(err, errors.NotFound) {
 		err = fmt.Errorf("%w: %q", apiservererrors.UnknownModelError, resolvedModelUUID)

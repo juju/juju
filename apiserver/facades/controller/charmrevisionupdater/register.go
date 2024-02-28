@@ -16,13 +16,13 @@ import (
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	registry.MustRegister("CharmRevisionUpdater", 2, func(stdCtx context.Context, ctx facade.Context) (facade.Facade, error) {
+	registry.MustRegister("CharmRevisionUpdater", 2, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newCharmRevisionUpdaterAPI(ctx)
 	}, reflect.TypeOf((*CharmRevisionUpdaterAPI)(nil)))
 }
 
 // newCharmRevisionUpdaterAPI creates a new server-side charmrevisionupdater API end point.
-func newCharmRevisionUpdaterAPI(ctx facade.Context) (*CharmRevisionUpdaterAPI, error) {
+func newCharmRevisionUpdaterAPI(ctx facade.ModelContext) (*CharmRevisionUpdaterAPI, error) {
 	if !ctx.Auth().AuthController() {
 		return nil, apiservererrors.ErrPerm
 	}

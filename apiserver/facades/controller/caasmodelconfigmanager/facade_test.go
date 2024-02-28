@@ -26,7 +26,7 @@ func (s *caasmodelconfigmanagerSuite) TestAuth(c *gc.C) {
 	authorizer := mocks.NewMockAuthorizer(ctrl)
 	authorizer.EXPECT().AuthController().Return(false)
 
-	_, err := caasmodelconfigmanager.NewFacade(facadetest.Context{
+	_, err := caasmodelconfigmanager.NewFacade(facadetest.ModelContext{
 		Auth_: authorizer,
 	})
 	c.Assert(err, gc.ErrorMatches, `permission denied`)

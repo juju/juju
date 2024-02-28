@@ -31,7 +31,7 @@ var _ ProxyUpdaterV2 = (*API)(nil)
 
 // newFacadeBase provides the signature required for facade registration
 // and creates a v2 facade.
-func newFacadeBase(ctx facade.Context) (*API, error) {
+func newFacadeBase(ctx facade.ModelContext) (*API, error) {
 	st := ctx.State()
 	model, err := st.Model()
 	if err != nil {

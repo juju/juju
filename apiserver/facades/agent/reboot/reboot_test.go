@@ -52,7 +52,7 @@ func (s *rebootSuite) setUpMachine(c *gc.C, machine *state.Machine) *machines {
 
 	resources := common.NewResources()
 
-	rebootAPI, err := reboot.NewRebootAPI(facadetest.Context{
+	rebootAPI, err := reboot.NewRebootAPI(facadetest.ModelContext{
 		State_:     s.ControllerModel(c).State(),
 		Resources_: resources,
 		Auth_:      authorizer,

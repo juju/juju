@@ -19,13 +19,13 @@ import (
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	registry.MustRegister("Uniter", 19, func(stdCtx context.Context, ctx facade.Context) (facade.Facade, error) {
+	registry.MustRegister("Uniter", 19, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newUniterAPI(stdCtx, ctx)
 	}, reflect.TypeOf((*UniterAPI)(nil)))
 }
 
 // newUniterAPI creates a new instance of the core Uniter API.
-func newUniterAPI(stdCtx context.Context, context facade.Context) (*UniterAPI, error) {
+func newUniterAPI(stdCtx context.Context, context facade.ModelContext) (*UniterAPI, error) {
 	serviceFactory := context.ServiceFactory()
 	return newUniterAPIWithServices(
 		stdCtx,
@@ -40,7 +40,7 @@ func newUniterAPI(stdCtx context.Context, context facade.Context) (*UniterAPI, e
 // newUniterAPIWithServices creates a new instance using the services.
 func newUniterAPIWithServices(
 	stdCtx context.Context,
-	context facade.Context,
+	context facade.ModelContext,
 	controllerConfigService ControllerConfigService,
 	cloudService CloudService,
 	credentialService CredentialService,
@@ -57,7 +57,7 @@ func newUniterAPIWithServices(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	leadershipRevoker, err := context.LeadershipRevoker(st.ModelUUID())
+	leadershipRevoker, err := context.LeadershipRevoker()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

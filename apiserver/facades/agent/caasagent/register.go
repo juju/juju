@@ -17,14 +17,14 @@ import (
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	registry.MustRegister("CAASAgent", 2, func(stdCtx context.Context, ctx facade.Context) (facade.Facade, error) {
+	registry.MustRegister("CAASAgent", 2, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newStateFacadeV2(ctx)
 	}, reflect.TypeOf((*FacadeV2)(nil)))
 }
 
 // newStateFacadeV2 provides the signature required for facade registration of
 // caas agent v2
-func newStateFacadeV2(ctx facade.Context) (*FacadeV2, error) {
+func newStateFacadeV2(ctx facade.ModelContext) (*FacadeV2, error) {
 	authorizer := ctx.Auth()
 	if !authorizer.AuthMachineAgent() && !authorizer.AuthModelAgent() {
 		return nil, apiservererrors.ErrPerm

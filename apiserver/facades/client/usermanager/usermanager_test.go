@@ -1137,7 +1137,7 @@ func (s *userManagerSuite) setUpAPI(c *gc.C) *gomock.Controller {
 
 	s.userService = NewMockUserService(ctrl)
 
-	ctx := facadetest.Context{
+	ctx := facadetest.ModelContext{
 		StatePool_: s.StatePool(),
 		State_:     s.ControllerModel(c).State(),
 		Resources_: s.resources,

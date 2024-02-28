@@ -193,7 +193,7 @@ func (m *MockLinker) EXPECT() *MockLinkerMockRecorder {
 }
 
 // Links mocks base method.
-func (m *MockLinker) Links(arg0 string, arg1 facade.Factory) []string {
+func (m *MockLinker) Links(arg0 string, arg1 facade.MultiModelFactory) []string {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Links", arg0, arg1)
 	ret0, _ := ret[0].([]string)
