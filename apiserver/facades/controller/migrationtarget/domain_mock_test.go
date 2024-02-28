@@ -15,7 +15,7 @@ import (
 
 	controller "github.com/juju/juju/controller"
 	crossmodel "github.com/juju/juju/core/crossmodel"
-	model "github.com/juju/juju/domain/model"
+	model "github.com/juju/juju/core/model"
 	state "github.com/juju/juju/state"
 	gomock "go.uber.org/mock/gomock"
 )

@@ -7,17 +7,12 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils/v4"
 	"github.com/juju/version/v2"
 
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/credential"
-	"github.com/juju/juju/internal/uuid"
 )
-
-// UUID represents a model unique identifier.
-type UUID string
 
 // ModelCreationArgs supplies the information required for instantiating a new
 // model.
@@ -50,15 +45,6 @@ type ModelCreationArgs struct {
 	Type coremodel.ModelType
 }
 
-// NewUUID is a convince function for generating new model uuid id's.
-func NewUUID() (UUID, error) {
-	uuid, err := uuid.NewUUID()
-	if err != nil {
-		return UUID(""), err
-	}
-	return UUID(uuid.String()), nil
-}
-
 // Validate is responsible for checking all of the fields of ModelCreationArgs
 // are in a set state that is valid for use.
 func (m ModelCreationArgs) Validate() error {
@@ -80,20 +66,4 @@ func (m ModelCreationArgs) Validate() error {
 		}
 	}
 	return nil
-}
-
-// Validate ensures the consistency of the UUID.
-func (u UUID) Validate() error {
-	if u == "" {
-		return errors.New("empty uuid")
-	}
-	if !utils.IsValidUUIDString(string(u)) {
-		return errors.Errorf("invalid uuid %q", u)
-	}
-	return nil
-}
-
-// String implements the stringer interface for UUID.
-func (u UUID) String() string {
-	return string(u)
 }

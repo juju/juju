@@ -9,20 +9,20 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/database"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/domain"
-	"github.com/juju/juju/domain/model"
 )
 
 // State defines a interface for interacting with the underlying state.
 type State interface {
 	// Create takes a model UUID and creates a new model.
-	Create(context.Context, model.UUID) error
+	Create(context.Context, coremodel.UUID) error
 
 	// List returns a list of all model UUIDs.
-	List(context.Context) ([]model.UUID, error)
+	List(context.Context) ([]coremodel.UUID, error)
 
 	// Delete takes a model UUID and deletes the model if it exists.
-	Delete(context.Context, model.UUID) error
+	Delete(context.Context, coremodel.UUID) error
 }
 
 // Service defines a service for interacting with the underlying state.
@@ -40,7 +40,7 @@ func NewService(st State, dbDeleter database.DBDeleter) *Service {
 }
 
 // Create takes a model UUID and creates a new model.
-func (s *Service) Create(ctx context.Context, uuid model.UUID) error {
+func (s *Service) Create(ctx context.Context, uuid coremodel.UUID) error {
 	if err := uuid.Validate(); err != nil {
 		return errors.Annotatef(err, "validating model uuid %q", uuid)
 	}
@@ -55,7 +55,7 @@ func (s *Service) Create(ctx context.Context, uuid model.UUID) error {
 // Note: This shouldn't be used as a proxy for alive models. This hasn't got
 // the same guarantees. Instead this should only be used for managing models
 // from a dqlite perspective.
-func (s *Service) ModelList(ctx context.Context) ([]model.UUID, error) {
+func (s *Service) ModelList(ctx context.Context) ([]coremodel.UUID, error) {
 	uuids, err := s.st.List(ctx)
 	if err != nil {
 		return nil, errors.Annotatef(err, "retrieving model list")
@@ -64,7 +64,7 @@ func (s *Service) ModelList(ctx context.Context) ([]model.UUID, error) {
 }
 
 // Delete takes a model UUID and deletes the model if it exists.
-func (s *Service) Delete(ctx context.Context, uuid model.UUID) error {
+func (s *Service) Delete(ctx context.Context, uuid coremodel.UUID) error {
 	if err := uuid.Validate(); err != nil {
 		return errors.Annotatef(err, "validating model uuid %q", uuid)
 	}

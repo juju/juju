@@ -11,6 +11,7 @@ import (
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/database"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/domain/model/state"
@@ -32,7 +33,7 @@ import (
 // - errors.NotValid: When the model uuid is not valid.
 // - [modelerrors.AgentVersionNotSupported]
 func CreateModel(
-	uuid model.UUID,
+	uuid coremodel.UUID,
 	args model.ModelCreationArgs,
 ) func(context.Context, database.TxnRunner) error {
 	return func(ctx context.Context, db database.TxnRunner) error {

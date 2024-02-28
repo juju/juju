@@ -12,8 +12,8 @@ import (
 
 	coredatabase "github.com/juju/juju/core/database"
 	coreschema "github.com/juju/juju/core/database/schema"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/domain/model"
 	"github.com/juju/juju/domain/schema"
 	"github.com/juju/juju/internal/database/app"
 	"github.com/juju/juju/internal/database/pragma"
@@ -83,7 +83,7 @@ func BootstrapControllerConcern(ops ...BootstrapOpt) BootstrapConcern {
 
 // BootstrapModelConcern is a BootstrapConcern type that will run the
 // provided BootstrapOpts on the specified model database.
-func BootstrapModelConcern(uuid model.UUID, ops ...BootstrapOpt) BootstrapConcern {
+func BootstrapModelConcern(uuid coremodel.UUID, ops ...BootstrapOpt) BootstrapConcern {
 	return bootstrapDBConcern(uuid.String(), schema.ModelDDL(), EmptyInit, ops...)
 }
 

@@ -12,7 +12,7 @@ import (
 
 	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
-	"github.com/juju/juju/domain/model"
+	coremodel "github.com/juju/juju/core/model"
 	domainservicefactory "github.com/juju/juju/domain/servicefactory"
 	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/internal/worker/common"
@@ -56,7 +56,7 @@ type ControllerServiceFactoryFn func(
 
 // ModelServiceFactoryFn is a function that returns a model service factory.
 type ModelServiceFactoryFn func(
-	model.UUID,
+	coremodel.UUID,
 	changestream.WatchableDBGetter,
 	Logger,
 ) servicefactory.ModelServiceFactory
@@ -166,12 +166,12 @@ func NewControllerServiceFactory(
 
 // NewModelServiceFactory returns a new model service factory.
 func NewModelServiceFactory(
-	modelUUID model.UUID,
+	modelUUID coremodel.UUID,
 	dbGetter changestream.WatchableDBGetter,
 	logger Logger,
 ) servicefactory.ModelServiceFactory {
 	return domainservicefactory.NewModelFactory(
-		changestream.NewWatchableDBFactoryForNamespace(dbGetter.GetWatchableDB, string(modelUUID)),
+		changestream.NewWatchableDBFactoryForNamespace(dbGetter.GetWatchableDB, modelUUID.String()),
 		serviceFactoryLogger{
 			Logger: logger,
 		},

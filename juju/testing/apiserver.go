@@ -40,6 +40,7 @@ import (
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
 	corelogger "github.com/juju/juju/core/logger"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
@@ -52,7 +53,6 @@ import (
 	"github.com/juju/juju/domain/credential"
 	credentialbootstrap "github.com/juju/juju/domain/credential/bootstrap"
 	credentialstate "github.com/juju/juju/domain/credential/state"
-	"github.com/juju/juju/domain/model"
 	servicefactorytesting "github.com/juju/juju/domain/servicefactory/testing"
 	userbootstrap "github.com/juju/juju/domain/user/bootstrap"
 	databasetesting "github.com/juju/juju/internal/database/testing"
@@ -256,7 +256,7 @@ func (s *ApiServerSuite) setupControllerModel(c *gc.C, controllerCfg controller.
 		modelAttrs[k] = v
 	}
 	controllerModelCfg := coretesting.CustomModelConfig(c, modelAttrs)
-	s.ServiceFactorySuite.ControllerModelUUID = model.UUID(controllerModelCfg.UUID())
+	s.ServiceFactorySuite.ControllerModelUUID = coremodel.UUID(controllerModelCfg.UUID())
 	s.ServiceFactorySuite.SetUpTest(c)
 
 	modelType := state.ModelTypeIAAS

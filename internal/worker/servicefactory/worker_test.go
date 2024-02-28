@@ -12,7 +12,7 @@ import (
 
 	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
-	"github.com/juju/juju/domain/model"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/servicefactory"
 )
 
@@ -64,7 +64,7 @@ func (s *workerSuite) getConfig() Config {
 		NewControllerServiceFactory: func(changestream.WatchableDBGetter, coredatabase.DBDeleter, Logger) servicefactory.ControllerServiceFactory {
 			return s.controllerServiceFactory
 		},
-		NewModelServiceFactory: func(model.UUID, changestream.WatchableDBGetter, Logger) servicefactory.ModelServiceFactory {
+		NewModelServiceFactory: func(coremodel.UUID, changestream.WatchableDBGetter, Logger) servicefactory.ModelServiceFactory {
 			return s.modelServiceFactory
 		},
 	}

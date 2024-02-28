@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/domain/model"
+	coremodel "github.com/juju/juju/core/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/environs/config"
 )
@@ -19,15 +19,15 @@ import (
 type State struct {
 	// CloudDefaults represents the cloud defaults on a per model basis and is
 	// what is returned.
-	CloudDefaults map[model.UUID]map[string]string
+	CloudDefaults map[coremodel.UUID]map[string]string
 
 	// CloudRegionDefaults represents the defaults set for a models cloud region
 	// and is what is returned for ModelCloudRegionDefaults.
-	CloudRegionDefaults map[model.UUID]map[string]string
+	CloudRegionDefaults map[coremodel.UUID]map[string]string
 
 	// ProviderConfigSchema represents the provider defaults returned for a given
 	// model and is what is returned in ModelProviderconfigSchema.
-	ProviderConfigSchema map[model.UUID]config.ConfigSchemaSource
+	ProviderConfigSchema map[coremodel.UUID]config.ConfigSchemaSource
 
 	// Defaults is the values returned for ConfigDefaults. If this value is nil
 	// then the defaults recorded in environs config is returned.
@@ -43,7 +43,7 @@ func (s *State) ConfigDefaults(_ context.Context) map[string]any {
 }
 
 // ModelCloudDefaults returns the defaults associated with the model's cloud.
-func (s *State) ModelCloudDefaults(_ context.Context, uuid model.UUID) (map[string]string, error) {
+func (s *State) ModelCloudDefaults(_ context.Context, uuid coremodel.UUID) (map[string]string, error) {
 	defaults, exists := s.CloudDefaults[uuid]
 	if !exists {
 		return map[string]string{}, fmt.Errorf("%w %q", modelerrors.NotFound, uuid)
@@ -53,7 +53,7 @@ func (s *State) ModelCloudDefaults(_ context.Context, uuid model.UUID) (map[stri
 
 // ModelCloudRegionDefaults returns the defaults associated with the models
 // set cloud region.
-func (s *State) ModelCloudRegionDefaults(_ context.Context, uuid model.UUID) (map[string]string, error) {
+func (s *State) ModelCloudRegionDefaults(_ context.Context, uuid coremodel.UUID) (map[string]string, error) {
 	if defaults, exists := s.CloudRegionDefaults[uuid]; exists {
 		return defaults, nil
 	}
@@ -62,7 +62,7 @@ func (s *State) ModelCloudRegionDefaults(_ context.Context, uuid model.UUID) (ma
 
 // ModelProviderConfigSchema returns the providers config schema source based on
 // the cloud set for the model.
-func (s *State) ModelProviderConfigSchema(_ context.Context, uuid model.UUID) (config.ConfigSchemaSource, error) {
+func (s *State) ModelProviderConfigSchema(_ context.Context, uuid coremodel.UUID) (config.ConfigSchemaSource, error) {
 	if schemaSource, exists := s.ProviderConfigSchema[uuid]; exists {
 		return schemaSource, nil
 	}

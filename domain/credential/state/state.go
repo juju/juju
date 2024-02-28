@@ -13,11 +13,11 @@ import (
 
 	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain"
 	dbcloud "github.com/juju/juju/domain/cloud/state"
 	"github.com/juju/juju/domain/credential"
-	"github.com/juju/juju/domain/model"
 	userstate "github.com/juju/juju/domain/user/state"
 	"github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/uuid"
@@ -553,7 +553,7 @@ func (st *State) WatchCredential(
 }
 
 // ModelsUsingCloudCredential returns a map of uuid->name for models which use the credential.
-func (st *State) ModelsUsingCloudCredential(ctx context.Context, id credential.ID) (map[model.UUID]string, error) {
+func (st *State) ModelsUsingCloudCredential(ctx context.Context, id credential.ID) (map[coremodel.UUID]string, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -590,11 +590,11 @@ JOIN user ON cc.owner_uuid = user.uuid
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	result := make(map[model.UUID]string)
+	result := make(map[coremodel.UUID]string)
 	for _, m := range info {
 		name, _ := m["name"].(string)
 		uuid, _ := m["model_uuid"].(string)
-		result[model.UUID(uuid)] = name
+		result[coremodel.UUID(uuid)] = name
 	}
 	return result, nil
 }

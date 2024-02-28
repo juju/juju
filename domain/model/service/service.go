@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/version/v2"
 
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/domain/credential"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
@@ -18,13 +19,13 @@ import (
 // State is the model state required by this service.
 type State interface {
 	// Create creates a new model with all of its associated metadata.
-	Create(context.Context, model.UUID, model.ModelCreationArgs) error
+	Create(context.Context, coremodel.UUID, model.ModelCreationArgs) error
 
 	// Delete removes a model and all of it's associated data from Juju.
-	Delete(context.Context, model.UUID) error
+	Delete(context.Context, coremodel.UUID) error
 
 	// UpdateCredential updates a model's cloud credential.
-	UpdateCredential(context.Context, model.UUID, credential.ID) error
+	UpdateCredential(context.Context, coremodel.UUID, credential.ID) error
 }
 
 // Service defines a service for interacting with the underlying state based
@@ -98,9 +99,9 @@ func agentVersionSelector() version.Number {
 func (s *Service) CreateModel(
 	ctx context.Context,
 	args model.ModelCreationArgs,
-) (model.UUID, error) {
+) (coremodel.UUID, error) {
 	if err := args.Validate(); err != nil {
-		return model.UUID(""), err
+		return coremodel.UUID(""), err
 	}
 
 	agentVersion := args.AgentVersion
@@ -109,16 +110,16 @@ func (s *Service) CreateModel(
 	}
 
 	if err := validateAgentVersion(agentVersion, s.agentBinaryFinder); err != nil {
-		return model.UUID(""), fmt.Errorf(
+		return coremodel.UUID(""), fmt.Errorf(
 			"creating model %q with agent version %q: %w",
 			args.Name, agentVersion, err,
 		)
 	}
 
 	args.AgentVersion = agentVersion
-	uuid, err := model.NewUUID()
+	uuid, err := coremodel.NewUUID()
 	if err != nil {
-		return model.UUID(""), fmt.Errorf("generating new model uuid: %w", err)
+		return coremodel.UUID(""), fmt.Errorf("generating new model uuid: %w", err)
 	}
 
 	return uuid, s.st.Create(ctx, uuid, args)
@@ -130,7 +131,7 @@ func (s *Service) CreateModel(
 // - modelerrors.ModelNotFound: When the model does not exist.
 func (s *Service) DeleteModel(
 	ctx context.Context,
-	uuid model.UUID,
+	uuid coremodel.UUID,
 ) error {
 	if err := uuid.Validate(); err != nil {
 		return fmt.Errorf("delete model, uuid: %w", err)
@@ -149,7 +150,7 @@ func (s *Service) DeleteModel(
 // model or the model uuid is not valid.
 func (s *Service) UpdateCredential(
 	ctx context.Context,
-	uuid model.UUID,
+	uuid coremodel.UUID,
 	id credential.ID,
 ) error {
 	if err := uuid.Validate(); err != nil {
