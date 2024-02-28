@@ -255,10 +255,9 @@ func opClientGetAnnotations(c *gc.C, st api.Connection, _ *state.State) (func(),
 	if err != nil {
 		return func() {}, err
 	}
-	c.Assert(ann, gc.DeepEquals, []params.AnnotationsGetResult{{
-		EntityTag:   "application-wordpress",
-		Annotations: map[string]string{},
-	}})
+	c.Assert(ann, gc.HasLen, 1)
+	c.Assert(ann[0].EntityTag, gc.Equals, "application-wordpress")
+	c.Assert(ann[0].Annotations, gc.DeepEquals, map[string]string(nil))
 	return func() {}, nil
 }
 
