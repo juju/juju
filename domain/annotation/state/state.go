@@ -6,6 +6,7 @@ package state
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/errors"
@@ -149,6 +150,9 @@ func (st *State) SetAnnotations(ctx context.Context, id annotations.ID,
 	toInsert := make(map[string]string)
 
 	for key, value := range annotationsParam {
+		if strings.Contains(key, ".") {
+			return errors.Errorf("invalid key %q", key)
+		}
 		if value != "" {
 			toInsert[key] = value
 		}

@@ -5,6 +5,7 @@ package annotations_test
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 
 	"github.com/juju/names/v5"
@@ -17,12 +18,9 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/testing/factory"
 )
 
 type annotationSuite struct {
-	// TODO(anastasiamac) mock to remove ApiServerSuite
 	testing.ApiServerSuite
 
 	annotationsAPI *annotations.API
@@ -35,13 +33,15 @@ var _ = gc.Suite(&annotationSuite{})
 
 func (s *annotationSuite) SetUpTest(c *gc.C) {
 	s.ApiServerSuite.SetUpTest(c)
+
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag: testing.AdminUser,
 	}
 	var err error
 	s.annotationsAPI, err = annotations.NewAPI(facadetest.ModelContext{
-		State_: s.ControllerModel(c).State(),
-		Auth_:  s.authorizer,
+		State_:          s.ControllerModel(c).State(),
+		ServiceFactory_: s.DefaultModelServiceFactory(c),
+		Auth_:           s.authorizer,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -53,52 +53,21 @@ func (s *annotationSuite) TestModelAnnotations(c *gc.C) {
 }
 
 func (s *annotationSuite) TestMachineAnnotations(c *gc.C) {
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-	machine := f.MakeMachine(c, &factory.MachineParams{
-		Jobs: []state.MachineJob{state.JobHostUnits},
-	})
-	s.testSetGetEntitiesAnnotations(c, machine.Tag())
-
-	// on machine removal
-	err := machine.EnsureDead()
-	c.Assert(err, jc.ErrorIsNil)
-	err = machine.Remove(testing.NewObjectStore(c, s.ControllerModelUUID()))
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertAnnotationsRemoval(c, machine.Tag())
+	// TODO (cderici): replace ensureMachine when Machines are added.
+	s.ensureMachine(c, "0", "123")
+	s.testSetGetEntitiesAnnotations(c, names.NewMachineTag("0"))
 }
 
 func (s *annotationSuite) TestCharmAnnotations(c *gc.C) {
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-	charm := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress", URL: "local:wordpress-1"})
-	s.testSetGetEntitiesAnnotations(c, charm.Tag())
+	// TODO (cderici): replace ensureCharm when Charm are added.
+	s.ensureCharm(c, "local:wordpress-1", "234")
+	s.testSetGetEntitiesAnnotations(c, names.NewCharmTag("local:wordpress-1"))
 }
 
 func (s *annotationSuite) TestApplicationAnnotations(c *gc.C) {
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-	charm := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
-	wordpress := f.MakeApplication(c, &factory.ApplicationParams{
-		Charm: charm,
-	})
-	s.testSetGetEntitiesAnnotations(c, wordpress.Tag())
-
-	// on application removal
-	err := wordpress.Destroy(s.store)
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertAnnotationsRemoval(c, wordpress.Tag())
-}
-
-func (s *annotationSuite) assertAnnotationsRemoval(c *gc.C, tag names.Tag) {
-	entity := tag.String()
-	entities := params.Entities{[]params.Entity{{entity}}}
-	ann := s.annotationsAPI.Get(context.Background(), entities)
-	c.Assert(ann.Results, gc.HasLen, 1)
-
-	aResult := ann.Results[0]
-	c.Assert(aResult.EntityTag, gc.DeepEquals, entity)
-	c.Assert(aResult.Annotations, gc.HasLen, 0)
+	// TODO (cderici): replace ensureApplication when Applications are added.
+	s.ensureApplication(c, "wordpress", "3")
+	s.testSetGetEntitiesAnnotations(c, names.NewApplicationTag("wordpress"))
 }
 
 func (s *annotationSuite) TestInvalidEntityAnnotations(c *gc.C) {
@@ -109,73 +78,26 @@ func (s *annotationSuite) TestInvalidEntityAnnotations(c *gc.C) {
 	setResult := s.annotationsAPI.Set(
 		context.Background(),
 		params.AnnotationsSet{Annotations: constructSetParameters([]string{entity}, annotations)})
-	c.Assert(setResult.OneError().Error(), gc.Matches, ".*permission denied.*")
+	c.Assert(setResult.OneError().Error(), gc.Matches, ".*unable to find UUID for ID.*")
 
 	got := s.annotationsAPI.Get(context.Background(), entities)
 	c.Assert(got.Results, gc.HasLen, 1)
 
 	aResult := got.Results[0]
 	c.Assert(aResult.EntityTag, gc.DeepEquals, entity)
-	c.Assert(aResult.Error.Error.Error(), gc.Matches, ".*permission denied.*")
+	c.Assert(aResult.Error.Error.Error(), gc.Matches, ".*unable to find UUID for ID.*")
 }
 
 func (s *annotationSuite) TestUnitAnnotations(c *gc.C) {
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-	machine := f.MakeMachine(c, &factory.MachineParams{
-		Jobs: []state.MachineJob{state.JobHostUnits},
-	})
-	charm := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
-	wordpress := f.MakeApplication(c, &factory.ApplicationParams{
-		Charm: charm,
-	})
-	unit := f.MakeUnit(c, &factory.UnitParams{
-		Application: wordpress,
-		Machine:     machine,
-	})
-	s.testSetGetEntitiesAnnotations(c, unit.Tag())
-
-	// on unit removal
-	err := unit.EnsureDead()
-	c.Assert(err, jc.ErrorIsNil)
-	err = unit.Remove(testing.NewObjectStore(c, s.ControllerModelUUID()))
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertAnnotationsRemoval(c, wordpress.Tag())
-}
-
-func (s *annotationSuite) makeRelation(c *gc.C) (*state.Application, *state.Relation) {
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-	s1 := f.MakeApplication(c, &factory.ApplicationParams{
-		Name: "application1",
-		Charm: f.MakeCharm(c, &factory.CharmParams{
-			Name: "wordpress",
-		}),
-	})
-	e1, err := s1.Endpoint("db")
-	c.Assert(err, jc.ErrorIsNil)
-
-	s2 := f.MakeApplication(c, &factory.ApplicationParams{
-		Name: "application2",
-		Charm: f.MakeCharm(c, &factory.CharmParams{
-			Name: "mysql",
-		}),
-	})
-	e2, err := s2.Endpoint("server")
-	c.Assert(err, jc.ErrorIsNil)
-
-	relation := f.MakeRelation(c, &factory.RelationParams{
-		Endpoints: []state.Endpoint{e1, e2},
-	})
-	c.Assert(relation, gc.NotNil)
-	return s1, relation
+	// TODO (cderici): replace ensureUnit when Units are added.
+	s.ensureUnit(c, "wordpress/3", "12")
+	s.testSetGetEntitiesAnnotations(c, names.NewUnitTag("wordpress/3"))
 }
 
 // Cannot annotate relations...
 func (s *annotationSuite) TestRelationAnnotations(c *gc.C) {
-	_, relation := s.makeRelation(c)
 
-	tag := relation.Tag().String()
+	tag := names.NewRelationTag("app:rel").String()
 	entity := params.Entity{tag}
 	entities := params.Entities{[]params.Entity{entity}}
 	annotations := map[string]string{"mykey": "myvalue"}
@@ -183,14 +105,14 @@ func (s *annotationSuite) TestRelationAnnotations(c *gc.C) {
 	setResult := s.annotationsAPI.Set(
 		context.Background(),
 		params.AnnotationsSet{Annotations: constructSetParameters([]string{tag}, annotations)})
-	c.Assert(setResult.OneError().Error(), gc.Matches, ".*does not support annotations.*")
+	c.Assert(setResult.OneError().Error(), gc.Matches, ".*unknown kind.*")
 
 	got := s.annotationsAPI.Get(context.Background(), entities)
 	c.Assert(got.Results, gc.HasLen, 1)
 
 	aResult := got.Results[0]
 	c.Assert(aResult.EntityTag, gc.DeepEquals, tag)
-	c.Assert(aResult.Error.Error.Error(), gc.Matches, ".*does not support annotations.*")
+	c.Assert(aResult.Error.Error.Error(), gc.Matches, ".*unknown kind.*")
 }
 
 func constructSetParameters(
@@ -208,11 +130,10 @@ func constructSetParameters(
 }
 
 func (s *annotationSuite) TestMultipleEntitiesAnnotations(c *gc.C) {
-	s1, relation := s.makeRelation(c)
-
-	rTag := relation.Tag()
+	s.ensureApplication(c, "app", "123")
+	rTag := names.NewRelationTag("app:rel")
 	rEntity := rTag.String()
-	sTag := s1.Tag()
+	sTag := names.NewApplicationTag("app")
 	sEntity := sTag.String()
 
 	entities := []string{
@@ -229,7 +150,7 @@ func (s *annotationSuite) TestMultipleEntitiesAnnotations(c *gc.C) {
 	oneError := setResult.Results[0].Error.Error()
 	// Only attempt at annotate relation should have erred
 	c.Assert(oneError, gc.Matches, fmt.Sprintf(".*%q.*", rTag))
-	c.Assert(oneError, gc.Matches, ".*does not support annotations.*")
+	c.Assert(oneError, gc.Matches, ".*unknown kind.*")
 
 	got := s.annotationsAPI.Get(context.Background(), params.Entities{[]params.Entity{
 		{rEntity},
@@ -240,7 +161,7 @@ func (s *annotationSuite) TestMultipleEntitiesAnnotations(c *gc.C) {
 	for _, aResult := range got.Results {
 		if aResult.EntityTag == rTag.String() {
 			rGet = true
-			c.Assert(aResult.Error.Error.Error(), gc.Matches, ".*does not support annotations.*")
+			c.Assert(aResult.Error.Error.Error(), gc.Matches, ".*unknown kind.*")
 		} else {
 			sGet = true
 			c.Assert(aResult.EntityTag, gc.DeepEquals, sEntity)
@@ -348,4 +269,68 @@ var clientAnnotationsTests = []struct {
 		input: map[string]string{"invalid.key": "myvalue"},
 		err:   `.*: invalid key "invalid.key"`,
 	},
+}
+
+// TODO (cderici): The section below that adds entities into the DB for testing purposes by raw SQL
+// should be replaced with actual makers from actual services corresponding to entities whenever
+// those entities are implemented.
+
+// ensureApplication manually inserts a row into the application table.
+func (s *annotationSuite) ensureApplication(c *gc.C, name, uuid string) {
+	err := s.ModelTxnRunner(c, s.ControllerModelUUID()).StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+		INSERT INTO application (uuid, name, life_id)
+		VALUES (?, ?, "0")`, uuid, name)
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+// ensureNetNode inserts a row into the net_node table, mostly used as a foreign key for entries in
+// other tables (e.g. machine)
+func (s *annotationSuite) ensureNetNode(c *gc.C, uuid string) {
+	err := s.ModelTxnRunner(c, s.ControllerModelUUID()).StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+		INSERT INTO net_node (uuid)
+		VALUES (?)`, uuid)
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+// ensureUnit manually inserts a row into the unit table.
+func (s *annotationSuite) ensureUnit(c *gc.C, unit_id, uuid string) {
+	s.ensureApplication(c, "myapp", "123")
+	s.ensureNetNode(c, "321")
+
+	err := s.ModelTxnRunner(c, s.ControllerModelUUID()).StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+		INSERT INTO unit (uuid, unit_id, application_uuid, net_node_uuid, life_id)
+		VALUES (?, ?, ?, ?, ?)`, uuid, unit_id, "123", "321", "0")
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+// ensureMachine manually inserts a row into the machine table.
+func (s *annotationSuite) ensureMachine(c *gc.C, id, uuid string) {
+	s.ensureNetNode(c, "node2")
+	err := s.ModelTxnRunner(c, s.ControllerModelUUID()).StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+		INSERT INTO machine (uuid, net_node_uuid, machine_id, life_id)
+		VALUES (?, "node2", ?, "0")`, uuid, id)
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+// ensureCharm manually inserts a row into the charm table.
+func (s *annotationSuite) ensureCharm(c *gc.C, url, uuid string) {
+	err := s.ModelTxnRunner(c, s.ControllerModelUUID()).StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+		INSERT INTO charm (uuid, url)
+		VALUES (?, ?)`, uuid, url)
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
 }

@@ -6,6 +6,8 @@ package servicefactory
 import (
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/domain"
+	annotationService "github.com/juju/juju/domain/annotation/service"
+	annotationState "github.com/juju/juju/domain/annotation/state"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	applicationstate "github.com/juju/juju/domain/application/state"
 	blockdeviceservice "github.com/juju/juju/domain/blockdevice/service"
@@ -103,5 +105,12 @@ func (s *ModelFactory) Space() *networkservice.SpaceService {
 	return networkservice.NewSpaceService(
 		networkstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
 		s.logger.Child("space"),
+	)
+}
+
+// Annotation returns the model's annotation service.
+func (s *ModelFactory) Annotation() *annotationService.Service {
+	return annotationService.NewService(
+		annotationState.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
 	)
 }

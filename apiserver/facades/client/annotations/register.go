@@ -33,7 +33,8 @@ func newAPI(ctx facade.ModelContext) (*API, error) {
 	}
 
 	return &API{
-		access:     getState(st, m),
-		authorizer: authorizer,
+		modelTag:          m.ModelTag(),
+		annotationService: ctx.ServiceFactory().Annotation(),
+		authorizer:        authorizer,
 	}, nil
 }
