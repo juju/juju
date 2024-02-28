@@ -91,7 +91,7 @@ func (s *Suite) TestFacadeRegistered(c *gc.C) {
 	aFactory, err := apiserver.AllFacades().GetFactory("MigrationTarget", 3)
 	c.Assert(err, jc.ErrorIsNil)
 
-	api, err := aFactory(context.Background(), &facadetest.ModelContext{
+	api, err := aFactory(context.Background(), &facadetest.MultiModelContext{
 		Context: facadetest.Context{
 			State_:          s.State,
 			Auth_:           s.authorizer,
@@ -108,7 +108,7 @@ func (s *Suite) TestFacadeRegisteredV2(c *gc.C) {
 	aFactory, err := apiserver.AllFacades().GetFactory("MigrationTarget", 2)
 	c.Assert(err, jc.ErrorIsNil)
 
-	api, err := aFactory(context.Background(), &facadetest.ModelContext{
+	api, err := aFactory(context.Background(), &facadetest.MultiModelContext{
 		Context: facadetest.Context{
 			State_:          s.State,
 			Auth_:           s.authorizer,

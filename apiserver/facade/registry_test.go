@@ -38,9 +38,9 @@ func (s *RegistrySuite) TestRegister(c *gc.C) {
 	c.Check(val, gc.Equals, "myobject")
 }
 
-func (s *RegistrySuite) TestRegisterForModel(c *gc.C) {
+func (s *RegistrySuite) TestRegisterForMultiModel(c *gc.C) {
 	registry := &facade.Registry{}
-	err := registry.RegisterForModel("myfacade", 123, testFacadeModel, interfaceType)
+	err := registry.RegisterForMultiModel("myfacade", 123, testFacadeModel, interfaceType)
 	c.Assert(err, jc.ErrorIsNil)
 
 	factory, err := registry.GetFactory("myfacade", 123)
@@ -212,7 +212,7 @@ func testFacade(_ context.Context, _ facade.Context) (facade.Facade, error) {
 	return "myobject", nil
 }
 
-func testFacadeModel(_ context.Context, _ facade.ModelContext) (facade.Facade, error) {
+func testFacadeModel(_ context.Context, _ facade.MultiModelContext) (facade.Facade, error) {
 	return "myobject", nil
 }
 

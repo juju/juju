@@ -66,8 +66,8 @@ func (s *watcherSuite) getFacade(
 	return facade
 }
 
-func (s *watcherSuite) facadeContext(c *gc.C, id string, dispose func()) facadetest.ModelContext {
-	return facadetest.ModelContext{
+func (s *watcherSuite) facadeContext(c *gc.C, id string, dispose func()) facadetest.MultiModelContext {
+	return facadetest.MultiModelContext{
 		Context: facadetest.Context{
 			Resources_:       s.resources,
 			WatcherRegistry_: s.watcherRegistry,
@@ -79,7 +79,7 @@ func (s *watcherSuite) facadeContext(c *gc.C, id string, dispose func()) facadet
 	}
 }
 
-func getFacadeFactory(c *gc.C, name string, version int) facade.ModelFactory {
+func getFacadeFactory(c *gc.C, name string, version int) facade.MultiModelFactory {
 	factory, err := apiserver.AllFacades().GetFactory(name, version)
 	c.Assert(err, jc.ErrorIsNil)
 	return factory
@@ -165,7 +165,7 @@ func (s *watcherSuite) TestMigrationStatusWatcherNotAgent(c *gc.C) {
 
 	factory, err := apiserver.AllFacades().GetFactory("MigrationStatusWatcher", 1)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = factory(context.Background(), facadetest.ModelContext{
+	_, err = factory(context.Background(), facadetest.MultiModelContext{
 		Context: facadetest.Context{
 			Resources_: s.resources,
 			Auth_:      s.authorizer,

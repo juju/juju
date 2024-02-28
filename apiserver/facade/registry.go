@@ -14,7 +14,7 @@ import (
 
 // record represents an entry in a Registry.
 type record struct {
-	factory    ModelFactory
+	factory    MultiModelFactory
 	facadeType reflect.Type
 }
 
@@ -34,16 +34,16 @@ type FacadeRegistry interface {
 	// factory.
 	MustRegister(string, int, Factory, reflect.Type)
 
-	// MustRegisterForModel adds a single named facade for a model at a given
-	// version to the registry. This allows the facade to be registered with
-	// a factory that takes a ModelContext instead of a Context.
-	// ModelFactory will be called when someone wants to instantiate an object
-	// of this facade, and facadeType defines the concrete type that the
+	// MustRegisterForMultiModel adds a single named facade for a model at a
+	// given version to the registry. This allows the facade to be registered
+	// with a factory that takes a MultiModelContext instead of a Context.
+	// MultiModelFactory will be called when someone wants to instantiate an
+	// object of this facade, and facadeType defines the concrete type that the
 	// returned object will be.
 	// The Type information is used to define what methods will be exported in
 	// the API, and it must exactly match the actual object returned by the
 	// factory.
-	MustRegisterForModel(string, int, ModelFactory, reflect.Type)
+	MustRegisterForMultiModel(string, int, MultiModelFactory, reflect.Type)
 }
 
 // Registry describes the API facades exposed by some API server.
@@ -58,12 +58,12 @@ type Registry struct {
 // The Type information is used to define what methods will be exported in the
 // API, and it must exactly match the actual object returned by the factory.
 func (f *Registry) Register(name string, version int, factory Factory, facadeType reflect.Type) error {
-	return f.RegisterForModel(name, version, callFactory(factory), facadeType)
+	return f.RegisterForMultiModel(name, version, downcastFactory(factory), facadeType)
 }
 
-// RegisterForModel adds a single named facade at a given version to the
-// registry.
-func (f *Registry) RegisterForModel(name string, version int, factory ModelFactory, facadeType reflect.Type) error {
+// RegisterForMultiModel adds a single named facade for operating and
+// accessing multiple models at a given version to the registry.
+func (f *Registry) RegisterForMultiModel(name string, version int, factory MultiModelFactory, facadeType reflect.Type) error {
 	if f.facades == nil {
 		f.facades = make(map[string]versions, 1)
 	}
@@ -92,10 +92,11 @@ func (f *Registry) MustRegister(name string, version int, factory Factory, facad
 	}
 }
 
-// MustRegisterForModel adds a single named facade for a model at a given
-// version to the registry and panics if it fails.
-func (f *Registry) MustRegisterForModel(name string, version int, factory ModelFactory, facadeType reflect.Type) {
-	if err := f.RegisterForModel(name, version, factory, facadeType); err != nil {
+// MustRegisterForMultiModel adds a single named facade for operating and
+// accessing multiple models at a given version to the registry and panics if
+// it fails.
+func (f *Registry) MustRegisterForMultiModel(name string, version int, factory MultiModelFactory, facadeType reflect.Type) {
+	if err := f.RegisterForMultiModel(name, version, factory, facadeType); err != nil {
 		panic(err)
 	}
 }
@@ -112,7 +113,7 @@ func (f *Registry) lookup(name string, version int) (record, error) {
 
 // GetFactory returns just the Factory for a given Facade name and version.
 // See also GetType for getting the type information instead of the creation factory.
-func (f *Registry) GetFactory(name string, version int) (ModelFactory, error) {
+func (f *Registry) GetFactory(name string, version int) (MultiModelFactory, error) {
 	record, err := f.lookup(name, version)
 	if err != nil {
 		return nil, err
@@ -178,7 +179,9 @@ type Details struct {
 	Version int
 	// Factory holds the factory function for making
 	// instances of the facade.
-	Factory ModelFactory
+	// This is a full multi-model factory, so we can downcast to facades
+	// that are specific to a single model.
+	Factory MultiModelFactory
 	// Type holds the type of object that the Factory
 	// will return. This can be used to find out
 	// details of the facade without actually creating
@@ -219,8 +222,12 @@ func (f *Registry) Discard(name string, version int) {
 	}
 }
 
-func callFactory(factory Factory) ModelFactory {
-	return func(stdCtx context.Context, facadeCtx ModelContext) (Facade, error) {
+// downcastFactory that takes a Factory and returns a MultiModelFactory that
+// will downcast the facade to a single model facade.
+// Downcast can be thought of a sub-type of the original facade, and so it
+// should be safe to use the downcasted facade in place of the original facade.
+func downcastFactory(factory Factory) MultiModelFactory {
+	return func(stdCtx context.Context, facadeCtx MultiModelContext) (Facade, error) {
 		return factory(stdCtx, facadeCtx)
 	}
 }

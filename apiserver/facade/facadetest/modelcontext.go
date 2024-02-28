@@ -10,8 +10,9 @@ import (
 	"github.com/juju/juju/internal/servicefactory"
 )
 
-// ModelContext implements facade.ModelContext in the simplest possible way.
-type ModelContext struct {
+// MultiModelContext implements facade.MultiModelContext in the simplest
+// possible way.
+type MultiModelContext struct {
 	Context
 
 	ServiceFactoryForModel_ servicefactory.ServiceFactory
@@ -20,11 +21,11 @@ type ModelContext struct {
 
 // ServiceFactoryForModel returns the services factory for a given
 // model uuid.
-func (c ModelContext) ServiceFactoryForModel(modelUUID string) servicefactory.ServiceFactory {
+func (c MultiModelContext) ServiceFactoryForModel(modelUUID string) servicefactory.ServiceFactory {
 	return c.ServiceFactoryForModel_
 }
 
 // ObjectStoreForModel returns the object store for a given model uuid.
-func (c ModelContext) ObjectStoreForModel(ctx context.Context, modelUUID string) (objectstore.ObjectStore, error) {
+func (c MultiModelContext) ObjectStoreForModel(ctx context.Context, modelUUID string) (objectstore.ObjectStore, error) {
 	return c.ObjectStoreForModel_, nil
 }

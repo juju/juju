@@ -236,18 +236,20 @@ func (r *rootSuite) TestFindMethodCachesFacades(c *gc.C) {
 	caller, err = srvRoot.FindMethod("my-counting-facade", 1, "AltCount")
 	c.Assert(err, jc.ErrorIsNil)
 	assertCallResult(c, caller, "", "ALT-2")
+
+	c.Check(count, gc.Equals, int64(2))
 }
 
-func (r *rootSuite) TestFindMethodForModelCachesFacades(c *gc.C) {
+func (r *rootSuite) TestFindMethodForMultiModelCachesFacades(c *gc.C) {
 	registry := new(facade.Registry)
 	var count int64
-	newCounter := func(context.Context, facade.ModelContext) (facade.Facade, error) {
+	newCounter := func(context.Context, facade.MultiModelContext) (facade.Facade, error) {
 		count += 1
 		return &countingType{count: count, id: ""}, nil
 	}
 	facadeType := reflect.TypeOf((*countingType)(nil))
-	registry.MustRegisterForModel("my-counting-facade", 0, newCounter, facadeType)
-	registry.MustRegisterForModel("my-counting-facade", 1, newCounter, facadeType)
+	registry.MustRegisterForMultiModel("my-counting-facade", 0, newCounter, facadeType)
+	registry.MustRegisterForMultiModel("my-counting-facade", 1, newCounter, facadeType)
 	srvRoot := apiserver.TestingAPIRoot(registry)
 
 	// The first time we call FindMethod, it should lookup a facade, and
@@ -269,6 +271,8 @@ func (r *rootSuite) TestFindMethodForModelCachesFacades(c *gc.C) {
 	caller, err = srvRoot.FindMethod("my-counting-facade", 1, "AltCount")
 	c.Assert(err, jc.ErrorIsNil)
 	assertCallResult(c, caller, "", "ALT-2")
+
+	c.Check(count, gc.Equals, int64(2))
 }
 
 func (r *rootSuite) TestFindMethodCachesFacadesWithId(c *gc.C) {
