@@ -1140,7 +1140,7 @@ func (s *remoteApplicationSuite) TestAddApplicationModelDying(c *gc.C) {
 
 func (s *remoteApplicationSuite) TestAddApplicationSameLocalExists(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
-	_, err := s.State.AddApplication(state.AddApplicationArgs{
+	_, err := s.State.AddApplication(defaultInstancePrechecker, state.AddApplicationArgs{
 		Name: "s1", Charm: charm,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
 			OS:      "ubuntu",
@@ -1159,7 +1159,7 @@ func (s *remoteApplicationSuite) TestAddApplicationLocalAddedAfterInitial(c *gc.
 	// there is no conflict initially but a local application is added
 	// before the transaction is run.
 	defer state.SetBeforeHooks(c, s.State, func() {
-		_, err := s.State.AddApplication(state.AddApplicationArgs{
+		_, err := s.State.AddApplication(defaultInstancePrechecker, state.AddApplicationArgs{
 			Name: "s1", Charm: charm,
 			CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
 				OS:      "ubuntu",

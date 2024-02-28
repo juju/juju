@@ -1195,7 +1195,7 @@ func (s *WatchRelationUnitsSuite) TestPeer(c *gc.C) {
 	addUnit := func(i int) *state.RelationUnit {
 		unit, err := riak.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
-		err = unit.AssignToNewMachine()
+		err = unit.AssignToNewMachine(defaultInstancePrechecker)
 		c.Assert(err, jc.ErrorIsNil)
 		mId, err := unit.AssignedMachineId()
 		c.Assert(err, jc.ErrorIsNil)

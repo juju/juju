@@ -61,6 +61,8 @@ import (
 var goodPassword = "foo-12345678901234567890"
 var alternatePassword = "bar-12345678901234567890"
 
+var defaultInstancePrechecker = state.NoopInstancePrechecker{}
+
 // preventUnitDestroyRemove sets a non-allocating status on the unit, and hence
 // prevents it from being unceremoniously removed from state on Destroy. This
 // is useful because several tests go through a unit's lifecycle step by step,
@@ -71,7 +73,7 @@ func preventUnitDestroyRemove(c *gc.C, u *state.Unit) {
 	// be assigned to a machine.
 	_, err := u.AssignedMachineId()
 	if errors.Is(err, errors.NotAssigned) {
-		err = u.AssignToNewMachine()
+		err = u.AssignToNewMachine(defaultInstancePrechecker)
 	}
 	c.Assert(err, jc.ErrorIsNil)
 	now := time.Now()
@@ -538,7 +540,7 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 		}, {
 			about: "statuses",
 			getWatcher: func(st *state.State) interface{} {
-				m, err := st.AddMachine(state.UbuntuBase("22.04"), state.JobHostUnits)
+				m, err := st.AddMachine(defaultInstancePrechecker, state.UbuntuBase("22.04"), state.JobHostUnits)
 				c.Assert(err, jc.ErrorIsNil)
 				c.Assert(m.Id(), gc.Equals, "0")
 				// Ensure that all the creation events have flowed through the system.
@@ -735,9 +737,9 @@ func (tw *TestWatcherC) Stop() {
 func (s *StateSuite) TestAddresses(c *gc.C) {
 	var err error
 	machines := make([]*state.Machine, 4)
-	machines[0], err = s.State.AddMachine(state.UbuntuBase("12.10"), state.JobManageModel, state.JobHostUnits)
+	machines[0], err = s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobManageModel, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	machines[1], err = s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	machines[1], err = s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	node, err := s.State.ControllerNode(machines[0].Id())
@@ -745,7 +747,7 @@ func (s *StateSuite) TestAddresses(c *gc.C) {
 	err = node.SetHasVote(true)
 	c.Assert(err, jc.ErrorIsNil)
 
-	changes, _, err := s.State.EnableHA(3, constraints.Value{}, state.UbuntuBase("12.10"), nil)
+	changes, _, err := s.State.EnableHA(defaultInstancePrechecker, 3, constraints.Value{}, state.UbuntuBase("12.10"), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(changes.Added, gc.DeepEquals, []string{"2", "3"})
 	c.Assert(changes.Maintained, gc.DeepEquals, []string{machines[0].Id()})
@@ -798,11 +800,11 @@ func (s *StateSuite) TestJobString(c *gc.C) {
 }
 
 func (s *StateSuite) TestAddMachineErrors(c *gc.C) {
-	_, err := s.State.AddMachine(state.Base{})
+	_, err := s.State.AddMachine(defaultInstancePrechecker, state.Base{})
 	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: no base specified")
-	_, err = s.State.AddMachine(state.UbuntuBase("12.10"))
+	_, err = s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"))
 	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: no jobs specified")
-	_, err = s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits, state.JobHostUnits)
+	_, err = s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits, state.JobHostUnits)
 	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: duplicate job: .*")
 }
 
@@ -811,7 +813,7 @@ func (s *StateSuite) TestAddMachine(c *gc.C) {
 		state.JobHostUnits,
 		state.JobManageModel,
 	}
-	m0, err := s.State.AddMachine(state.UbuntuBase("12.10"), allJobs...)
+	m0, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), allJobs...)
 	c.Assert(err, jc.ErrorIsNil)
 	check := func(m *state.Machine, id string, base state.Base, jobs []state.MachineJob) {
 		c.Assert(m.Id(), gc.Equals, id)
@@ -825,7 +827,7 @@ func (s *StateSuite) TestAddMachine(c *gc.C) {
 	check(m0, "0", state.UbuntuBase("12.10"), allJobs)
 
 	oneJob := []state.MachineJob{state.JobHostUnits}
-	m1, err := s.State.AddMachine(state.UbuntuBase("22.04"), oneJob...)
+	m1, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("22.04"), oneJob...)
 	c.Assert(err, jc.ErrorIsNil)
 	check(m1, "1", state.UbuntuBase("22.04"), oneJob)
 
@@ -841,7 +843,7 @@ func (s *StateSuite) TestAddMachine(c *gc.C) {
 
 	st2 := s.Factory.MakeModel(c, nil)
 	defer st2.Close()
-	_, err = st2.AddMachine(state.UbuntuBase("12.10"), state.JobManageModel)
+	_, err = st2.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobManageModel)
 	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: controller jobs specified but not allowed")
 }
 
@@ -858,7 +860,7 @@ func (s *StateSuite) TestAddMachines(c *gc.C) {
 		Nonce:                   "nonce",
 		Jobs:                    oneJob,
 	}
-	machines, err := s.State.AddMachines(machineTemplate)
+	machines, err := s.State.AddMachines(defaultInstancePrechecker, machineTemplate)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machines, gc.HasLen, 1)
 	m, err := s.State.Machine(machines[0].Id())
@@ -881,7 +883,7 @@ func (s *StateSuite) TestAddMachinesModelDying(c *gc.C) {
 	err := s.Model.Destroy(state.DestroyModelParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	// Check that machines cannot be added if the model is initially Dying.
-	_, err = s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	_, err = s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, gc.ErrorMatches, `cannot add a new machine: model "testmodel" is dying`)
 }
 
@@ -892,7 +894,7 @@ func (s *StateSuite) TestAddMachinesModelDyingAfterInitial(c *gc.C) {
 		c.Assert(s.Model.Life(), gc.Equals, state.Alive)
 		c.Assert(s.Model.Destroy(state.DestroyModelParams{}), gc.IsNil)
 	}).Check()
-	_, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	_, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, gc.ErrorMatches, `cannot add a new machine: model "testmodel" is dying`)
 }
 
@@ -900,7 +902,7 @@ func (s *StateSuite) TestAddMachinesModelMigrating(c *gc.C) {
 	err := s.Model.SetMigrationMode(state.MigrationModeExporting)
 	c.Assert(err, jc.ErrorIsNil)
 	// Check that machines cannot be added if the model is initially Dying.
-	_, err = s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	_, err = s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, gc.ErrorMatches, `cannot add a new machine: model "testmodel" is being migrated`)
 }
 
@@ -909,7 +911,7 @@ func (s *StateSuite) TestAddMachineExtraConstraints(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	oneJob := []state.MachineJob{state.JobHostUnits}
 	extraCons := constraints.MustParse("cores=4")
-	m, err := s.State.AddOneMachine(state.MachineTemplate{
+	m, err := s.State.AddOneMachine(defaultInstancePrechecker, state.MachineTemplate{
 		DisplayName: "test-display-name",
 		Base:        state.UbuntuBase("12.10"),
 		Constraints: extraCons,
@@ -937,7 +939,7 @@ func (s *StateSuite) TestAddMachinePlacementIgnoresModelConstraints(c *gc.C) {
 	err := s.State.SetModelConstraints(constraints.MustParse("mem=4G tags=foo"))
 	c.Assert(err, jc.ErrorIsNil)
 	oneJob := []state.MachineJob{state.JobHostUnits}
-	m, err := s.State.AddOneMachine(state.MachineTemplate{
+	m, err := s.State.AddOneMachine(defaultInstancePrechecker, state.MachineTemplate{
 		DisplayName: "test-display-name",
 		Base:        state.UbuntuBase("12.10"),
 		Jobs:        oneJob,
@@ -998,7 +1000,7 @@ func (s *StateSuite) TestAddMachineWithVolumes(c *gc.C) {
 			volume1, volumeAttachment1,
 		}},
 	}
-	machines, err := s.State.AddMachines(machineTemplate)
+	machines, err := s.State.AddMachines(defaultInstancePrechecker, machineTemplate)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machines, gc.HasLen, 1)
 	m, err := s.State.Machine(machines[0].Id())
@@ -1054,7 +1056,7 @@ func (s *StateSuite) TestAddContainerToNewMachine(c *gc.C) {
 		Base: state.UbuntuBase("20.04"),
 		Jobs: oneJob,
 	}
-	m, err := s.State.AddMachineInsideNewMachine(template, parentTemplate, instance.LXD)
+	m, err := s.State.AddMachineInsideNewMachine(defaultInstancePrechecker, template, parentTemplate, instance.LXD)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.Id(), gc.Equals, "0/lxd/0")
 	c.Assert(m.Base().DisplayString(), gc.Equals, "ubuntu@12.10")
@@ -1077,9 +1079,9 @@ func (s *StateSuite) TestAddContainerToNewMachine(c *gc.C) {
 
 func (s *StateSuite) TestAddContainerToExistingMachine(c *gc.C) {
 	oneJob := []state.MachineJob{state.JobHostUnits}
-	m0, err := s.State.AddMachine(state.UbuntuBase("12.10"), oneJob...)
+	m0, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), oneJob...)
 	c.Assert(err, jc.ErrorIsNil)
-	m1, err := s.State.AddMachine(state.UbuntuBase("12.10"), oneJob...)
+	m1, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), oneJob...)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Add first container.
@@ -1118,7 +1120,7 @@ func (s *StateSuite) TestAddContainerToExistingMachine(c *gc.C) {
 
 func (s *StateSuite) TestAddContainerToMachineWithKnownSupportedContainers(c *gc.C) {
 	oneJob := []state.MachineJob{state.JobHostUnits}
-	host, err := s.State.AddMachine(state.UbuntuBase("12.10"), oneJob...)
+	host, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), oneJob...)
 	c.Assert(err, jc.ErrorIsNil)
 	err = host.SetSupportedContainers([]instance.ContainerType{instance.KVM})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1134,7 +1136,7 @@ func (s *StateSuite) TestAddContainerToMachineWithKnownSupportedContainers(c *gc
 
 func (s *StateSuite) TestAddInvalidContainerToMachineWithKnownSupportedContainers(c *gc.C) {
 	oneJob := []state.MachineJob{state.JobHostUnits}
-	host, err := s.State.AddMachine(state.UbuntuBase("12.10"), oneJob...)
+	host, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), oneJob...)
 	c.Assert(err, jc.ErrorIsNil)
 	err = host.SetSupportedContainers([]instance.ContainerType{instance.KVM})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1149,7 +1151,7 @@ func (s *StateSuite) TestAddInvalidContainerToMachineWithKnownSupportedContainer
 
 func (s *StateSuite) TestAddContainerToMachineSupportingNoContainers(c *gc.C) {
 	oneJob := []state.MachineJob{state.JobHostUnits}
-	host, err := s.State.AddMachine(state.UbuntuBase("12.10"), oneJob...)
+	host, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), oneJob...)
 	c.Assert(err, jc.ErrorIsNil)
 	err = host.SupportsNoContainers()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1164,7 +1166,7 @@ func (s *StateSuite) TestAddContainerToMachineSupportingNoContainers(c *gc.C) {
 
 func (s *StateSuite) TestAddContainerToMachineLockedForSeriesUpgrade(c *gc.C) {
 	oneJob := []state.MachineJob{state.JobHostUnits}
-	host, err := s.State.AddMachine(state.UbuntuBase("12.10"), oneJob...)
+	host, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), oneJob...)
 	c.Assert(err, jc.ErrorIsNil)
 	err = host.CreateUpgradeSeriesLock(nil, state.UbuntuBase("18.04"))
 	c.Assert(err, jc.ErrorIsNil)
@@ -1190,16 +1192,16 @@ func (s *StateSuite) TestInvalidAddMachineParams(c *gc.C) {
 	_, err := s.State.AddMachineInsideMachine(instIdTemplate, "0", instance.LXD)
 	c.Check(err, gc.ErrorMatches, "cannot add a new machine: cannot specify instance id for a new container")
 
-	_, err = s.State.AddMachineInsideNewMachine(instIdTemplate, normalTemplate, instance.LXD)
+	_, err = s.State.AddMachineInsideNewMachine(defaultInstancePrechecker, instIdTemplate, normalTemplate, instance.LXD)
 	c.Check(err, gc.ErrorMatches, "cannot add a new machine: cannot specify instance id for a new container")
 
-	_, err = s.State.AddMachineInsideNewMachine(normalTemplate, instIdTemplate, instance.LXD)
+	_, err = s.State.AddMachineInsideNewMachine(defaultInstancePrechecker, normalTemplate, instIdTemplate, instance.LXD)
 	c.Check(err, gc.ErrorMatches, "cannot add a new machine: cannot specify instance id for a new container")
 
-	_, err = s.State.AddOneMachine(instIdTemplate)
+	_, err = s.State.AddOneMachine(defaultInstancePrechecker, instIdTemplate)
 	c.Check(err, gc.ErrorMatches, "cannot add a new machine: cannot add a machine with an instance id and no nonce")
 
-	_, err = s.State.AddOneMachine(state.MachineTemplate{
+	_, err = s.State.AddOneMachine(defaultInstancePrechecker, state.MachineTemplate{
 		Base:       state.UbuntuBase("12.10"),
 		Jobs:       []state.MachineJob{state.JobHostUnits, state.JobHostUnits},
 		InstanceId: "i-foo",
@@ -1210,13 +1212,13 @@ func (s *StateSuite) TestInvalidAddMachineParams(c *gc.C) {
 	noSeriesTemplate := state.MachineTemplate{
 		Jobs: []state.MachineJob{state.JobHostUnits, state.JobHostUnits},
 	}
-	_, err = s.State.AddOneMachine(noSeriesTemplate)
+	_, err = s.State.AddOneMachine(defaultInstancePrechecker, noSeriesTemplate)
 	c.Check(err, gc.ErrorMatches, "cannot add a new machine: no base specified")
 
-	_, err = s.State.AddMachineInsideNewMachine(noSeriesTemplate, normalTemplate, instance.LXD)
+	_, err = s.State.AddMachineInsideNewMachine(defaultInstancePrechecker, noSeriesTemplate, normalTemplate, instance.LXD)
 	c.Check(err, gc.ErrorMatches, "cannot add a new machine: no base specified")
 
-	_, err = s.State.AddMachineInsideNewMachine(normalTemplate, noSeriesTemplate, instance.LXD)
+	_, err = s.State.AddMachineInsideNewMachine(defaultInstancePrechecker, normalTemplate, noSeriesTemplate, instance.LXD)
 	c.Check(err, gc.ErrorMatches, "cannot add a new machine: no base specified")
 
 	_, err = s.State.AddMachineInsideMachine(noSeriesTemplate, "0", instance.LXD)
@@ -1236,7 +1238,7 @@ func (s *StateSuite) TestAddContainerErrors(c *gc.C) {
 
 func (s *StateSuite) TestInjectMachineErrors(c *gc.C) {
 	injectMachine := func(base state.Base, instanceId instance.Id, nonce string, jobs ...state.MachineJob) error {
-		_, err := s.State.AddOneMachine(state.MachineTemplate{
+		_, err := s.State.AddOneMachine(defaultInstancePrechecker, state.MachineTemplate{
 			Base:       base,
 			Jobs:       jobs,
 			InstanceId: instanceId,
@@ -1275,7 +1277,7 @@ func (s *StateSuite) TestInjectMachine(c *gc.C) {
 			Tags:           &tags,
 		},
 	}
-	m, err := s.State.AddOneMachine(template)
+	m, err := s.State.AddOneMachine(defaultInstancePrechecker, template)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.Jobs(), gc.DeepEquals, template.Jobs)
 	instanceId, err := m.InstanceId()
@@ -1300,7 +1302,7 @@ func (s *StateSuite) TestAddContainerToInjectedMachine(c *gc.C) {
 		Nonce:      agent.BootstrapNonce,
 		Jobs:       []state.MachineJob{state.JobHostUnits, state.JobManageModel},
 	}
-	m0, err := s.State.AddOneMachine(template)
+	m0, err := s.State.AddOneMachine(defaultInstancePrechecker, template)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Add first container.
@@ -1335,7 +1337,7 @@ func (s *StateSuite) TestAddMachineCanOnlyAddControllerForMachine0(c *gc.C) {
 		Jobs: []state.MachineJob{state.JobManageModel},
 	}
 	// Check that we can add the bootstrap machine.
-	m, err := s.State.AddOneMachine(template)
+	m, err := s.State.AddOneMachine(defaultInstancePrechecker, template)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.Id(), gc.Equals, "0")
 	node, err := s.State.ControllerNode(m.Id())
@@ -1349,18 +1351,18 @@ func (s *StateSuite) TestAddMachineCanOnlyAddControllerForMachine0(c *gc.C) {
 	c.Assert(controllerIds, gc.DeepEquals, []string{"0"})
 
 	const errCannotAdd = "cannot add a new machine: controller jobs specified but not allowed"
-	m, err = s.State.AddOneMachine(template)
+	m, err = s.State.AddOneMachine(defaultInstancePrechecker, template)
 	c.Assert(err, gc.ErrorMatches, errCannotAdd)
 
 	m, err = s.State.AddMachineInsideMachine(template, "0", instance.LXD)
 	c.Assert(err, gc.ErrorMatches, errCannotAdd)
 
-	m, err = s.State.AddMachineInsideNewMachine(template, template, instance.LXD)
+	m, err = s.State.AddMachineInsideNewMachine(defaultInstancePrechecker, template, template, instance.LXD)
 	c.Assert(err, gc.ErrorMatches, errCannotAdd)
 }
 
 func (s *StateSuite) TestReadMachine(c *gc.C) {
-	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedId := machine.Id()
 	machine, err = s.State.Machine(expectedId)
@@ -1390,7 +1392,7 @@ func (s *StateSuite) TestMachineIdLessThan(c *gc.C) {
 func (s *StateSuite) TestAllMachines(c *gc.C) {
 	numInserts := 42
 	for i := 0; i < numInserts; i++ {
-		m, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+		m, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
 		c.Assert(err, jc.ErrorIsNil)
 		err = m.SetProvisioned(instance.Id(fmt.Sprintf("foo-%d", i)), "", "fake_nonce", nil)
 		c.Assert(err, jc.ErrorIsNil)
@@ -1415,7 +1417,7 @@ func (s *StateSuite) TestAllMachines(c *gc.C) {
 
 func (s *StateSuite) TestMachineCountForBase(c *gc.C) {
 	add_machine := func(base state.Base) {
-		m, err := s.State.AddMachine(base, state.JobHostUnits)
+		m, err := s.State.AddMachine(defaultInstancePrechecker, base, state.JobHostUnits)
 		c.Check(err, jc.ErrorIsNil)
 		err = m.SetProvisioned(instance.Id(fmt.Sprintf("foo-%s", base.String())), "", "fake_nonce", nil)
 		c.Check(err, jc.ErrorIsNil)
@@ -1454,7 +1456,7 @@ func (s *StateSuite) TestMachineCountForBase(c *gc.C) {
 }
 
 func (s *StateSuite) TestInferActiveRelations(c *gc.C) {
-	_, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	_, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	wp := s.AddTestingApplication(c, "wp", s.AddTestingCharm(c, "wordpress"))
 	_, err = wp.AddUnit(state.AddUnitParams{})
@@ -1481,7 +1483,7 @@ func (s *StateSuite) TestInferActiveRelations(c *gc.C) {
 }
 
 func (s *StateSuite) TestInferActiveRelationsNoRelations(c *gc.C) {
-	_, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	_, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	wp := s.AddTestingApplication(c, "wp", s.AddTestingCharm(c, "wordpress"))
 	_, err = wp.AddUnit(state.AddUnitParams{})
@@ -1498,7 +1500,7 @@ func (s *StateSuite) TestInferActiveRelationsNoRelations(c *gc.C) {
 }
 
 func (s *StateSuite) TestInferActiveRelationsAmbiguous(c *gc.C) {
-	_, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	_, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	wp := s.AddTestingApplication(c, "wp", s.AddTestingCharm(c, "wordpress-nolimit"))
 	_, err = wp.AddUnit(state.AddUnitParams{})
@@ -1527,7 +1529,7 @@ func (s *StateSuite) TestInferActiveRelationsAmbiguous(c *gc.C) {
 
 func (s *StateSuite) TestAllRelations(c *gc.C) {
 	const numRelations = 32
-	_, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	_, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	_, err = mysql.AddUnit(state.AddUnitParams{})
@@ -1555,7 +1557,7 @@ func (s *StateSuite) TestAllRelations(c *gc.C) {
 
 func (s *StateSuite) TestAliveRelationKeys(c *gc.C) {
 	const numRelations = 12
-	_, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	_, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	_, err = mysql.AddUnit(state.AddUnitParams{})
@@ -1659,7 +1661,7 @@ func (s *StateSuite) TestSaveCloudServiceChangeProviderId(c *gc.C) {
 
 func (s *StateSuite) TestAddApplication(c *gc.C) {
 	ch := s.AddTestingCharm(c, "dummy")
-	_, err := s.State.AddApplication(state.AddApplicationArgs{
+	_, err := s.State.AddApplication(defaultInstancePrechecker, state.AddApplicationArgs{
 		Name: "haha/borken", Charm: ch,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
 			OS:      "ubuntu",
@@ -1671,7 +1673,7 @@ func (s *StateSuite) TestAddApplication(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `"haha/borken" is not a valid application name`)
 
 	// set that a nil charm is handled correctly
-	_, err = s.State.AddApplication(state.AddApplicationArgs{
+	_, err = s.State.AddApplication(defaultInstancePrechecker, state.AddApplicationArgs{
 		Name: "umadbro",
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
 			OS:      "ubuntu",
@@ -1681,7 +1683,7 @@ func (s *StateSuite) TestAddApplication(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `cannot add application "umadbro": charm is nil`)
 
 	// set that a nil charm origin is handled correctly
-	_, err = s.State.AddApplication(state.AddApplicationArgs{
+	_, err = s.State.AddApplication(defaultInstancePrechecker, state.AddApplicationArgs{
 		Name:  "umadbro",
 		Charm: ch,
 	}, mockApplicationSaver{}, state.NewObjectStore(c, s.State.ModelUUID()))
@@ -1691,7 +1693,7 @@ func (s *StateSuite) TestAddApplication(c *gc.C) {
 	inconfig, err := coreconfig.NewConfig(coreconfig.ConfigAttributes{"outlook": "good"}, sampleApplicationConfigSchema(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	wordpress, err := s.State.AddApplication(
+	wordpress, err := s.State.AddApplication(defaultInstancePrechecker,
 		state.AddApplicationArgs{
 			Name:              "wordpress",
 			Charm:             ch,
@@ -1727,7 +1729,7 @@ func (s *StateSuite) TestAddApplication(c *gc.C) {
 	})
 
 	mysqlArch := arch.ARM64
-	mysql, err := s.State.AddApplication(state.AddApplicationArgs{
+	mysql, err := s.State.AddApplication(defaultInstancePrechecker, state.AddApplicationArgs{
 		Name: "mysql", Charm: ch,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
 			OS:      "ubuntu",
@@ -1765,7 +1767,7 @@ func (s *StateSuite) TestAddApplication(c *gc.C) {
 }
 
 func (s *StateSuite) TestAddApplicationFailCharmOriginIDOnly(c *gc.C) {
-	_, err := s.State.AddApplication(state.AddApplicationArgs{
+	_, err := s.State.AddApplication(defaultInstancePrechecker, state.AddApplicationArgs{
 		Name:        "testme",
 		Charm:       &state.Charm{},
 		CharmOrigin: &state.CharmOrigin{ID: "testing", Platform: &state.Platform{OS: "ubuntu", Channel: "22.04"}},
@@ -1774,7 +1776,7 @@ func (s *StateSuite) TestAddApplicationFailCharmOriginIDOnly(c *gc.C) {
 }
 
 func (s *StateSuite) TestAddApplicationFailCharmOriginHashOnly(c *gc.C) {
-	_, err := s.State.AddApplication(state.AddApplicationArgs{
+	_, err := s.State.AddApplication(defaultInstancePrechecker, state.AddApplicationArgs{
 		Name:        "testme",
 		Charm:       &state.Charm{},
 		CharmOrigin: &state.CharmOrigin{Hash: "testing", Platform: &state.Platform{OS: "ubuntu", Channel: "22.04"}},
@@ -1792,7 +1794,7 @@ func (s *StateSuite) TestAddCAASApplication(c *gc.C) {
 	inconfig, err := coreconfig.NewConfig(coreconfig.ConfigAttributes{"outlook": "good"}, sampleApplicationConfigSchema(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	gitlab, err := st.AddApplication(
+	gitlab, err := st.AddApplication(defaultInstancePrechecker,
 		state.AddApplicationArgs{
 			Name: "gitlab", Charm: ch,
 			CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
@@ -1864,7 +1866,7 @@ resources:
 	ch := state.AddCustomCharmWithManifest(c, st, "cockroach", "metadata.yaml", charmDef, "focal", 1)
 	// A charm with supported series can only be force-deployed to series
 	// of the same operating systems as the supported series.
-	cockroach, err := st.AddApplication(state.AddApplicationArgs{
+	cockroach, err := st.AddApplication(defaultInstancePrechecker, state.AddApplicationArgs{
 		Name: "mysql", Charm: ch, NumUnits: 1,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
 			OS:      "ubuntu",
@@ -1901,7 +1903,7 @@ resources:
 	ch := state.AddCustomCharmWithManifest(c, st, "cockroach", "metadata.yaml", charmDef, "focal", 1)
 	// A charm with supported series can only be force-deployed to series
 	// of the same operating systems as the supported series.
-	cockroach, err := st.AddApplication(state.AddApplicationArgs{
+	cockroach, err := st.AddApplication(defaultInstancePrechecker, state.AddApplicationArgs{
 		Name: "cockroach", Charm: ch, NumUnits: 1,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
 			OS:      "ubuntu",
@@ -1924,7 +1926,7 @@ resources:
 	assertCleanupCount(c, st, 2)
 
 	ch = state.AddCustomCharmWithManifest(c, st, "cockroach", "metadata.yaml", charmDef, "focal", 1)
-	cockroach, err = st.AddApplication(state.AddApplicationArgs{
+	cockroach, err = st.AddApplication(defaultInstancePrechecker, state.AddApplicationArgs{
 		Name: "cockroach", Charm: ch, NumUnits: 1,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
 			OS:      "ubuntu",
@@ -1945,7 +1947,7 @@ func (s *StateSuite) TestAddCAASApplicationPlacementNotAllowed(c *gc.C) {
 	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab-k8s", Series: "focal"})
 
 	placement := []*instance.Placement{instance.MustParsePlacement("#:2")}
-	_, err := st.AddApplication(
+	_, err := st.AddApplication(defaultInstancePrechecker,
 		state.AddApplicationArgs{
 			Name: "gitlab", Charm: ch,
 			CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
@@ -1961,7 +1963,7 @@ func (s *StateSuite) TestAddApplicationWithNilCharmConfigValues(c *gc.C) {
 	ch := s.AddTestingCharm(c, "dummy")
 	insettings := charm.Settings{"tuning": nil}
 
-	wordpress, err := s.State.AddApplication(state.AddApplicationArgs{
+	wordpress, err := s.State.AddApplication(defaultInstancePrechecker, state.AddApplicationArgs{
 		Name: "wordpress", Charm: ch,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
 			OS:      "ubuntu",
@@ -1994,7 +1996,7 @@ func (s *StateSuite) TestAddApplicationModelDying(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = model.Destroy(state.DestroyModelParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddApplication(state.AddApplicationArgs{
+	_, err = s.State.AddApplication(defaultInstancePrechecker, state.AddApplicationArgs{
 		Name: "s1", Charm: charm,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
 			OS:      "ubuntu",
@@ -2009,7 +2011,7 @@ func (s *StateSuite) TestAddApplicationModelMigrating(c *gc.C) {
 	// Check that applications cannot be added if the model is initially Dying.
 	err := s.Model.SetMigrationMode(state.MigrationModeExporting)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddApplication(state.AddApplicationArgs{
+	_, err = s.State.AddApplication(defaultInstancePrechecker, state.AddApplicationArgs{
 		Name: "s1", Charm: charm,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
 			OS:      "ubuntu",
@@ -2024,7 +2026,7 @@ func (s *StateSuite) TestAddApplicationSameRemoteExists(c *gc.C) {
 	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name: "s1", SourceModel: s.Model.ModelTag()})
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddApplication(state.AddApplicationArgs{
+	_, err = s.State.AddApplication(defaultInstancePrechecker, state.AddApplicationArgs{
 		Name: "s1", Charm: charm,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
 			OS:      "ubuntu",
@@ -2044,7 +2046,7 @@ func (s *StateSuite) TestAddApplicationRemoteAddedAfterInitial(c *gc.C) {
 			Name: "s1", SourceModel: s.Model.ModelTag()})
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
-	_, err := s.State.AddApplication(state.AddApplicationArgs{
+	_, err := s.State.AddApplication(defaultInstancePrechecker, state.AddApplicationArgs{
 		Name: "s1", Charm: charm,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
 			OS:      "ubuntu",
@@ -2057,7 +2059,7 @@ func (s *StateSuite) TestAddApplicationRemoteAddedAfterInitial(c *gc.C) {
 func (s *StateSuite) TestAddApplicationSameLocalExists(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
 	s.AddTestingApplication(c, "s0", charm)
-	_, err := s.State.AddApplication(state.AddApplicationArgs{
+	_, err := s.State.AddApplication(defaultInstancePrechecker, state.AddApplicationArgs{
 		Name: "s0", Charm: charm,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
 			OS:      "ubuntu",
@@ -2075,7 +2077,7 @@ func (s *StateSuite) TestAddApplicationLocalAddedAfterInitial(c *gc.C) {
 	defer state.SetBeforeHooks(c, s.State, func() {
 		s.AddTestingApplication(c, "s1", charm)
 	}).Check()
-	_, err := s.State.AddApplication(state.AddApplicationArgs{
+	_, err := s.State.AddApplication(defaultInstancePrechecker, state.AddApplicationArgs{
 		Name: "s1", Charm: charm,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
 			OS:      "ubuntu",
@@ -2094,7 +2096,7 @@ func (s *StateSuite) TestAddApplicationModelDyingAfterInitial(c *gc.C) {
 		c.Assert(s.Model.Life(), gc.Equals, state.Alive)
 		c.Assert(s.Model.Destroy(state.DestroyModelParams{}), gc.IsNil)
 	}).Check()
-	_, err := s.State.AddApplication(state.AddApplicationArgs{
+	_, err := s.State.AddApplication(defaultInstancePrechecker, state.AddApplicationArgs{
 		Name: "s1", Charm: charm,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
 			OS:      "ubuntu",
@@ -2112,7 +2114,7 @@ func (s *StateSuite) TestApplicationNotFound(c *gc.C) {
 
 func (s *StateSuite) TestAddApplicationWithDefaultBindings(c *gc.C) {
 	ch := s.AddMetaCharm(c, "mysql", metaBase, 42)
-	app, err := s.State.AddApplication(state.AddApplicationArgs{
+	app, err := s.State.AddApplication(defaultInstancePrechecker, state.AddApplicationArgs{
 		Name:  "yoursql",
 		Charm: ch,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
@@ -2150,7 +2152,7 @@ func (s *StateSuite) TestAddApplicationWithSpecifiedBindings(c *gc.C) {
 
 	// Specify some bindings, but not all when adding the application.
 	ch := s.AddMetaCharm(c, "mysql", metaBase, 43)
-	app, err := s.State.AddApplication(state.AddApplicationArgs{
+	app, err := s.State.AddApplication(defaultInstancePrechecker, state.AddApplicationArgs{
 		Name:  "yoursql",
 		Charm: ch,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
@@ -2222,7 +2224,7 @@ func (s *StateSuite) TestAddApplicationWithInvalidBindings(c *gc.C) {
 	}} {
 		c.Logf("test #%d: %s", i, test.about)
 
-		_, err := s.State.AddApplication(state.AddApplicationArgs{
+		_, err := s.State.AddApplication(defaultInstancePrechecker, state.AddApplicationArgs{
 			Name:  "yoursql",
 			Charm: charm,
 			CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
@@ -2237,11 +2239,11 @@ func (s *StateSuite) TestAddApplicationWithInvalidBindings(c *gc.C) {
 }
 
 func (s *StateSuite) TestAddApplicationMachinePlacementInvalidSeries(c *gc.C) {
-	m, err := s.State.AddMachine(state.UbuntuBase("22.04"), state.JobHostUnits)
+	m, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("22.04"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	charm := s.AddTestingCharm(c, "dummy")
-	_, err = s.State.AddApplication(state.AddApplicationArgs{
+	_, err = s.State.AddApplication(defaultInstancePrechecker, state.AddApplicationArgs{
 		Name: "wordpress", Charm: charm,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
 			OS:      "ubuntu",
@@ -2258,7 +2260,7 @@ func (s *StateSuite) TestAddApplicationIncompatibleOSWithSeriesInURL(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
 	// A charm with a series in its URL is implicitly supported by that
 	// series only.
-	_, err := s.State.AddApplication(state.AddApplicationArgs{
+	_, err := s.State.AddApplication(defaultInstancePrechecker, state.AddApplicationArgs{
 		Name: "wordpress", Charm: charm,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
 			OS:      "centos",
@@ -2274,7 +2276,7 @@ func (s *StateSuite) TestAddApplicationCompatibleOSWithSeriesInURL(c *gc.C) {
 	// series only.
 	base, err := corebase.GetBaseFromSeries(charm.MustParseURL(ch.URL()).Series)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddApplication(state.AddApplicationArgs{
+	_, err = s.State.AddApplication(defaultInstancePrechecker, state.AddApplicationArgs{
 		Name: "wordpress", Charm: ch,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
 			OS:      base.OS,
@@ -2287,7 +2289,7 @@ func (s *StateSuite) TestAddApplicationCompatibleOSWithSeriesInURL(c *gc.C) {
 func (s *StateSuite) TestAddApplicationCompatibleOSWithNoExplicitSupportedSeries(c *gc.C) {
 	// If a charm doesn't declare any series, we can add it with any series we choose.
 	charm := s.AddSeriesCharm(c, "dummy", "bionic")
-	_, err := s.State.AddApplication(state.AddApplicationArgs{
+	_, err := s.State.AddApplication(defaultInstancePrechecker, state.AddApplicationArgs{
 		Name: "wordpress", Charm: charm,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
 			OS:      "ubuntu",
@@ -2301,7 +2303,7 @@ func (s *StateSuite) TestAddApplicationOSIncompatibleWithSupportedSeries(c *gc.C
 	charm := state.AddTestingCharmMultiSeries(c, s.State, "multi-series")
 	// A charm with supported series can only be force-deployed to series
 	// of the same operating systems as the supported series.
-	_, err := s.State.AddApplication(state.AddApplicationArgs{
+	_, err := s.State.AddApplication(defaultInstancePrechecker, state.AddApplicationArgs{
 		Name: "wordpress", Charm: charm,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
 			OS:      "centos",
@@ -2318,7 +2320,7 @@ func (s *StateSuite) TestAllApplications(c *gc.C) {
 	c.Assert(len(applications), gc.Equals, 0)
 
 	// Check that after adding applications the result is ok.
-	_, err = s.State.AddApplication(state.AddApplicationArgs{
+	_, err = s.State.AddApplication(defaultInstancePrechecker, state.AddApplicationArgs{
 		Name: "wordpress", Charm: charm,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
 			OS:      "ubuntu",
@@ -2330,7 +2332,7 @@ func (s *StateSuite) TestAllApplications(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(applications), gc.Equals, 1)
 
-	_, err = s.State.AddApplication(state.AddApplicationArgs{
+	_, err = s.State.AddApplication(defaultInstancePrechecker, state.AddApplicationArgs{
 		Name: "mysql", Charm: charm,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
 			OS:      "ubuntu",
@@ -2765,11 +2767,11 @@ func (s *StateSuite) TestWatchApplicationsDiesOnStateClose(c *gc.C) {
 
 func (s *StateSuite) TestWatchMachinesBulkEvents(c *gc.C) {
 	// Alive machine...
-	alive, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	alive, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Dying machine...
-	dying, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	dying, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = dying.SetProvisioned(instance.Id("i-blah"), "", "fake-nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2777,13 +2779,13 @@ func (s *StateSuite) TestWatchMachinesBulkEvents(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Dead machine...
-	dead, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	dead, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = dead.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Gone machine.
-	gone, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	gone, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = gone.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
@@ -2820,7 +2822,7 @@ func (s *StateSuite) TestWatchMachinesLifecycle(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Add a machine: reported.
-	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange("0")
 	wc.AssertNoChange()
@@ -2851,7 +2853,7 @@ func (s *StateSuite) TestWatchMachinesLifecycle(c *gc.C) {
 func (s *StateSuite) TestWatchMachinesIncludesOldMachines(c *gc.C) {
 	// Older versions of juju do not write the "containertype" field.
 	// This has caused machines to not be detected in the initial event.
-	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.machines.Update(
 		bson.D{{"_id", state.DocID(s.State, machine.Id())}},
@@ -2879,7 +2881,7 @@ func (s *StateSuite) TestWatchMachinesIgnoresContainers(c *gc.C) {
 		Base: state.UbuntuBase("12.10"),
 		Jobs: []state.MachineJob{state.JobHostUnits},
 	}
-	machines, err := s.State.AddMachines(template)
+	machines, err := s.State.AddMachines(defaultInstancePrechecker, template)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machines, gc.HasLen, 1)
 	machine := machines[0]
@@ -2913,10 +2915,10 @@ func (s *StateSuite) TestWatchContainerLifecycle(c *gc.C) {
 		Base: state.UbuntuBase("12.10"),
 		Jobs: []state.MachineJob{state.JobHostUnits},
 	}
-	machine, err := s.State.AddOneMachine(template)
+	machine, err := s.State.AddOneMachine(defaultInstancePrechecker, template)
 	c.Assert(err, jc.ErrorIsNil)
 
-	otherMachine, err := s.State.AddOneMachine(template)
+	otherMachine, err := s.State.AddOneMachine(defaultInstancePrechecker, template)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Initial event is empty when no containers.
@@ -3028,7 +3030,7 @@ func (s *StateSuite) TestWatchContainerLifecycle(c *gc.C) {
 
 func (s *StateSuite) TestWatchMachineHardwareCharacteristics(c *gc.C) {
 	// Add a machine: reported.
-	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 	w := machine.WatchInstanceData()
@@ -3424,7 +3426,7 @@ func (s *StateSuite) TestAddAndGetEquivalence(c *gc.C) {
 	// before, so this testing at least ensures we're conscious
 	// about such changes.
 
-	m1, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	m1, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	m2, err := s.State.Machine(m1.Id())
 	c.Assert(err, jc.ErrorIsNil)
@@ -3581,7 +3583,7 @@ var entityTypes = map[string]interface{}{
 
 func (s *StateSuite) TestFindEntity(c *gc.C) {
 	s.Factory.MakeUser(c, &factory.UserParams{Name: "eric"})
-	_, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	_, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddControllerNode()
 	c.Assert(err, jc.ErrorIsNil)
@@ -3639,7 +3641,7 @@ func (s *StateSuite) TestParseNilTagReturnsAnError(c *gc.C) {
 }
 
 func (s *StateSuite) TestParseMachineTag(c *gc.C) {
-	m, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	m, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	coll, id, err := state.ConvertTagToCollectionNameAndId(s.State, m.Tag())
 	c.Assert(err, jc.ErrorIsNil)
@@ -4030,17 +4032,17 @@ func (s *StateSuite) TestSetModelAgentVersionErrors(c *gc.C) {
 	// Add 4 machines: one with a different version, one with an
 	// empty version, one with the current version, and one with
 	// the new version.
-	machine0, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine0, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine0.SetAgentVersion(version.MustParseBinary("9.9.9-ubuntu-amd64"))
 	c.Assert(err, jc.ErrorIsNil)
-	machine1, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine1, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	machine2, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine2, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine2.SetAgentVersion(version.MustParseBinary(stringVersion + "-ubuntu-amd64"))
 	c.Assert(err, jc.ErrorIsNil)
-	machine3, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine3, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine3.SetAgentVersion(version.MustParseBinary("4.5.6-ubuntu-amd64"))
 	c.Assert(err, jc.ErrorIsNil)
@@ -4054,7 +4056,7 @@ func (s *StateSuite) TestSetModelAgentVersionErrors(c *gc.C) {
 	// Add a application and 4 units: one with a different version, one
 	// with an empty version, one with the current version, and one
 	// with the new version.
-	application, err := s.State.AddApplication(state.AddApplicationArgs{
+	application, err := s.State.AddApplication(defaultInstancePrechecker, state.AddApplicationArgs{
 		Name: "wordpress", Charm: s.AddTestingCharm(c, "wordpress"),
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
 			OS:      "ubuntu",
@@ -4114,9 +4116,9 @@ func (s *StateSuite) prepareAgentVersionTests(c *gc.C, st *state.State) (*config
 	currentVersion := agentVersion.String()
 
 	// Add a machine and a unit with the current version.
-	machine, err := st.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := st.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	application, err := st.AddApplication(state.AddApplicationArgs{
+	application, err := st.AddApplication(defaultInstancePrechecker, state.AddApplicationArgs{
 		Name: "wordpress", Charm: s.AddTestingCharm(c, "wordpress"),
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
 			OS:      "ubuntu",
@@ -4309,7 +4311,7 @@ func (s *StateSuite) TestSetModelAgentVersionFailsIfUpgrading(c *gc.C) {
 	agentVersion, ok := modelConfig.AgentVersion()
 	c.Assert(ok, jc.IsTrue)
 
-	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobManageModel)
+	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetAgentVersion(version.MustParseBinary(agentVersion.String() + "-ubuntu-amd64"))
 	c.Assert(err, jc.ErrorIsNil)
@@ -4339,7 +4341,7 @@ func (s *StateSuite) TestSetModelAgentVersionFailsReportsCorrectError(c *gc.C) {
 	agentVersion, ok := modelConfig.AgentVersion()
 	c.Assert(ok, jc.IsTrue)
 
-	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobManageModel)
+	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetAgentVersion(version.MustParseBinary("9.9.9-ubuntu-amd64"))
 	c.Assert(err, jc.ErrorIsNil)

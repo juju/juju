@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	applicationservice "github.com/juju/juju/domain/application/service"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	internalobjectstore "github.com/juju/juju/internal/objectstore"
 	objectstoretesting "github.com/juju/juju/internal/objectstore/testing"
@@ -46,16 +47,27 @@ const (
 )
 
 type Factory struct {
-	pool *state.StatePool
-	st   *state.State
+	pool       *state.StatePool
+	st         *state.State
+	prechecker environs.InstancePrechecker
 }
 
 var index uint32
 
 func NewFactory(st *state.State, pool *state.StatePool) *Factory {
 	return &Factory{
-		st:   st,
-		pool: pool,
+		st:         st,
+		pool:       pool,
+		prechecker: state.NoopInstancePrechecker{},
+	}
+}
+
+// NewFactoryWithPrechecker returns a new factory with the given prechecker.
+func NewFactoryWithPrechecker(st *state.State, pool *state.StatePool, prechecker environs.InstancePrechecker) *Factory {
+	return &Factory{
+		st:         st,
+		pool:       pool,
+		prechecker: prechecker,
 	}
 }
 
@@ -365,7 +377,7 @@ func (factory *Factory) makeMachineReturningPassword(c *gc.C, params *MachinePar
 	if params.Characteristics != nil {
 		machineTemplate.HardwareCharacteristics = *params.Characteristics
 	}
-	machine, err := factory.st.AddOneMachine(machineTemplate)
+	machine, err := factory.st.AddOneMachine(factory.prechecker, machineTemplate)
 	c.Assert(err, jc.ErrorIsNil)
 	if setProvisioned {
 		err = machine.SetProvisioned(params.InstanceId, params.DisplayName, params.Nonce, params.Characteristics)
@@ -540,7 +552,7 @@ func (factory *Factory) MakeApplicationReturningPassword(c *gc.C, params *Applic
 
 	appConfig, err := coreconfig.NewConfig(params.ApplicationConfig, params.ApplicationConfigFields, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	application, err := factory.st.AddApplication(state.AddApplicationArgs{
+	application, err := factory.st.AddApplication(factory.prechecker, state.AddApplicationArgs{
 		Name:              params.Name,
 		Charm:             params.Charm,
 		CharmOrigin:       params.CharmOrigin,

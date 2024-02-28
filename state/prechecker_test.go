@@ -33,7 +33,7 @@ type mockPrechecker struct {
 	precheckInstanceArgs  environs.PrecheckInstanceParams
 }
 
-func (p *mockPrechecker) PrecheckInstance(ctx envcontext.ProviderCallContext, args environs.PrecheckInstanceParams) error {
+func (p mockPrechecker) PrecheckInstance(ctx envcontext.ProviderCallContext, args environs.PrecheckInstanceParams) error {
 	p.precheckInstanceArgs = args
 	return p.precheckInstanceError
 }
@@ -130,7 +130,7 @@ func (s *PrecheckerSuite) addMachine(c *gc.C, modelCons constraints.Value, place
 		Jobs:        oneJob,
 		Placement:   placement,
 	}
-	machine, err := s.State.AddOneMachine(template)
+	machine, err := s.State.AddOneMachine(s.prechecker, template)
 	return machine, template, err
 }
 
@@ -142,7 +142,7 @@ func (s *PrecheckerSuite) TestPrecheckInstanceInjectMachine(c *gc.C) {
 		Jobs:       []state.MachineJob{state.JobManageModel},
 		Placement:  "anyoldthing",
 	}
-	_, err := s.State.AddOneMachine(template)
+	_, err := s.State.AddOneMachine(s.prechecker, template)
 	c.Assert(err, jc.ErrorIsNil)
 	// PrecheckInstance should not have been called, as we've
 	// injected a machine with an existing instance.
@@ -158,7 +158,7 @@ func (s *PrecheckerSuite) TestPrecheckContainerNewMachine(c *gc.C) {
 		Jobs:      []state.MachineJob{state.JobHostUnits},
 		Placement: "intertubes",
 	}
-	_, err := s.State.AddMachineInsideNewMachine(template, template, instance.LXD)
+	_, err := s.State.AddMachineInsideNewMachine(s.prechecker, template, template, instance.LXD)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.prechecker.precheckInstanceArgs.Base.String(), gc.Equals, template.Base.String())
 	c.Assert(s.prechecker.precheckInstanceArgs.Placement, gc.Equals, template.Placement)
@@ -170,7 +170,7 @@ func (s *PrecheckerSuite) TestPrecheckAddApplication(c *gc.C) {
 	// the storage, so that it can be attached to a new
 	// application unit.
 	ch := s.AddTestingCharm(c, "storage-block")
-	app, err := s.State.AddApplication(state.AddApplicationArgs{
+	app, err := s.State.AddApplication(s.prechecker, state.AddApplicationArgs{
 		Name:  "storage-block",
 		Charm: ch,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
@@ -187,7 +187,7 @@ func (s *PrecheckerSuite) TestPrecheckAddApplication(c *gc.C) {
 
 	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	err = unit.AssignToNewMachine()
+	err = unit.AssignToNewMachine(s.prechecker)
 	c.Assert(err, jc.ErrorIsNil)
 	machineId, err := unit.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
@@ -229,7 +229,7 @@ func (s *PrecheckerSuite) TestPrecheckAddApplication(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
-	_, err = s.State.AddApplication(state.AddApplicationArgs{
+	_, err = s.State.AddApplication(s.prechecker, state.AddApplicationArgs{
 		Name:  "storage-block-the-second",
 		Charm: ch,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
@@ -261,7 +261,7 @@ func (s *PrecheckerSuite) TestPrecheckAddApplication(c *gc.C) {
 func (s *PrecheckerSuite) TestPrecheckAddApplicationNoPlacement(c *gc.C) {
 	s.prechecker.precheckInstanceError = errors.Errorf("failed for some reason")
 	ch := s.AddTestingCharm(c, "wordpress")
-	_, err := s.State.AddApplication(state.AddApplicationArgs{
+	_, err := s.State.AddApplication(s.prechecker, state.AddApplicationArgs{
 		Name:  "wordpress",
 		Charm: ch,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
@@ -288,7 +288,7 @@ func (s *PrecheckerSuite) TestPrecheckAddApplicationAllMachinePlacement(c *gc.C)
 	s.prechecker.precheckInstanceError = errors.Errorf("boom!")
 
 	ch := s.AddTestingCharm(c, "wordpress")
-	_, err = s.State.AddApplication(state.AddApplicationArgs{
+	_, err = s.State.AddApplication(s.prechecker, state.AddApplicationArgs{
 		Name: "wordpress",
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
 			OS:      "ubuntu",
@@ -314,7 +314,7 @@ func (s *PrecheckerSuite) TestPrecheckAddApplicationMixedPlacement(c *gc.C) {
 
 	s.prechecker.precheckInstanceError = errors.Errorf("hey now")
 	ch := s.AddTestingCharm(c, "wordpress")
-	_, err = s.State.AddApplication(state.AddApplicationArgs{
+	_, err = s.State.AddApplication(s.prechecker, state.AddApplicationArgs{
 		Name: "wordpress",
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
 			OS:      "ubuntu",

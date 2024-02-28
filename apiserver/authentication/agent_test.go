@@ -53,7 +53,7 @@ func (s *agentAuthenticatorSuite) SetUpTest(c *gc.C) {
 
 	// add machine for testing machine agent authentication
 	st := s.ControllerModel(c).State()
-	machine, err := st.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := st.AddMachine(state.NoopInstancePrechecker{}, state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	nonce, err := internalpassword.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)

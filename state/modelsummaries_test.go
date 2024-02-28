@@ -380,30 +380,30 @@ func (s *ModelSummariesSuite) TestContainsMachineInformation(c *gc.C) {
 	onecore := uint64(1)
 	twocores := uint64(2)
 	threecores := uint64(3)
-	m0, err := shared.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	m0, err := shared.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m0.Life(), gc.Equals, state.Alive)
 	err = m0.SetInstanceInfo("i-12345", "", "nonce", &instance.HardwareCharacteristics{
 		CpuCores: &onecore,
 	}, nil, nil, nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	m1, err := shared.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	m1, err := shared.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = m1.SetInstanceInfo("i-45678", "", "nonce", &instance.HardwareCharacteristics{
 		CpuCores: &twocores,
 	}, nil, nil, nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	m2, err := shared.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	m2, err := shared.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = m2.SetInstanceInfo("i-78901", "", "nonce", &instance.HardwareCharacteristics{
 		CpuCores: &threecores,
 	}, nil, nil, nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	// No instance
-	_, err = shared.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	_, err = shared.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	// Dying instance, should not count to Cores or Machine count
-	mDying, err := shared.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	mDying, err := shared.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = mDying.SetInstanceInfo("i-78901", "", "nonce", &instance.HardwareCharacteristics{
 		CpuCores: &threecores,
@@ -412,7 +412,7 @@ func (s *ModelSummariesSuite) TestContainsMachineInformation(c *gc.C) {
 	err = mDying.Destroy(state.NewObjectStore(c, shared.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	// Instance data, but no core count
-	m4, err := shared.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	m4, err := shared.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	arch := arch.DefaultArchitecture
 	err = m4.SetInstanceInfo("i-78901", "", "nonce", &instance.HardwareCharacteristics{

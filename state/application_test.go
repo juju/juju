@@ -468,7 +468,7 @@ func (s *ApplicationSuite) assignUnitOnMachineWithSpaceToApplication(c *gc.C, a 
 	sp, err := s.State.AddSpace(spaceName, "", []string{sn1.ID()})
 	c.Assert(err, gc.IsNil)
 
-	m1, err := s.State.AddOneMachine(state.MachineTemplate{
+	m1, err := s.State.AddOneMachine(defaultInstancePrechecker, state.MachineTemplate{
 		Base:        state.UbuntuBase("12.10"),
 		Jobs:        []state.MachineJob{state.JobHostUnits},
 		Constraints: constraints.MustParse("spaces=isolated"),
@@ -637,7 +637,7 @@ func (s *ApplicationSuite) TestSetCharmUpdatesBindings(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	oldCharm := s.AddMetaCharm(c, "mysql", metaBase, 44)
 
-	application, err := s.State.AddApplication(state.AddApplicationArgs{
+	application, err := s.State.AddApplication(defaultInstancePrechecker, state.AddApplicationArgs{
 		Name:  "yoursql",
 		Charm: oldCharm,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
@@ -1734,7 +1734,7 @@ func (s *ApplicationSuite) TestUpdateApplicationSeriesSamesSeriesAfterStart(c *g
 			Before: func() {
 				unit, err := app.AddUnit(state.AddUnitParams{})
 				c.Assert(err, jc.ErrorIsNil)
-				err = unit.AssignToNewMachine()
+				err = unit.AssignToNewMachine(defaultInstancePrechecker)
 				c.Assert(err, jc.ErrorIsNil)
 
 				ops := []txn.Op{{
@@ -1809,7 +1809,7 @@ func (s *ApplicationSuite) TestUpdateApplicationSeriesCharmURLChangedSeriesPass(
 func (s *ApplicationSuite) setupMultiSeriesUnitSubordinate(c *gc.C, app *state.Application, name string) *state.Application {
 	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	err = unit.AssignToNewMachine()
+	err = unit.AssignToNewMachine(defaultInstancePrechecker)
 	c.Assert(err, jc.ErrorIsNil)
 	return s.setupMultiSeriesUnitSubordinateGivenUnit(c, app, unit, name)
 }
@@ -2773,7 +2773,7 @@ func (s *ApplicationSuite) TestAddUnit(c *gc.C) {
 	c.Assert(unitOne.SubordinateNames(), gc.HasLen, 0)
 
 	// Assign the principal unit to a machine.
-	m, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	m, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = unitZero.AssignToMachine(m)
 	c.Assert(err, jc.ErrorIsNil)
@@ -3358,7 +3358,7 @@ func (s *ApplicationSuite) TestRemoveApplicationMachine(c *gc.C) {
 
 	unit, err := s.mysql.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unit.AssignToMachine(machine), gc.IsNil)
 
@@ -5469,7 +5469,7 @@ func (s *ApplicationSuite) TestCharmLegacyOnlySupportsOneSeries(c *gc.C) {
 
 func (s *ApplicationSuite) TestCharmLegacyNoOSInvalid(c *gc.C) {
 	ch := state.AddTestingCharmForSeries(c, s.State, "precise", "sample-fail-no-os")
-	_, err := s.State.AddApplication(state.AddApplicationArgs{
+	_, err := s.State.AddApplication(defaultInstancePrechecker, state.AddApplicationArgs{
 		Name:  "sample-fail-no-os",
 		Charm: ch,
 		CharmOrigin: &state.CharmOrigin{
@@ -5596,7 +5596,7 @@ func (s *ApplicationSuite) TestWatchApplicationsWithPendingCharms(c *gc.C) {
 	}
 	// Simulate a bundle deploying multiple applications from a single
 	// charm. The watcher needs to notify on the secondary applications.
-	appSameCharm, err := s.State.AddApplication(state.AddApplicationArgs{
+	appSameCharm, err := s.State.AddApplication(defaultInstancePrechecker, state.AddApplicationArgs{
 		Name:        "mysql-testing",
 		Charm:       ch3,
 		CharmOrigin: origin,

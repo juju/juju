@@ -28,7 +28,7 @@ func (s *AnnotationsSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
 
 	var err error
-	s.testEntity, err = s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	s.testEntity, err = s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

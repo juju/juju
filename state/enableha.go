@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/controller"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/internal/mongo"
 	internalpassword "github.com/juju/juju/internal/password"
@@ -90,6 +91,7 @@ func (st *State) maintainControllersOps(newIds []string, bootstrapOnly bool) ([]
 // exhausted; thereafter any new machines are started according to the constraints and series.
 // MachineID is the id of the machine where the apiserver is running.
 func (st *State) EnableHA(
+	prechecker environs.InstancePrechecker,
 	numControllers int, cons constraints.Value, base Base, placement []string,
 ) (ControllersChanges, []string, error) {
 
@@ -148,7 +150,7 @@ func (st *State) EnableHA(
 		logger.Infof("%d new machines; converting %v", intent.newCount, intent.convert)
 
 		var ops []txn.Op
-		ops, change, addedUnits, err = st.enableHAIntentionOps(intent, cons, base)
+		ops, change, addedUnits, err = st.enableHAIntentionOps(prechecker, intent, cons, base)
 		return ops, err
 	}
 	if err := st.db().Run(buildTxn); err != nil {
@@ -168,6 +170,7 @@ type ControllersChanges struct {
 
 // enableHAIntentionOps returns operations to fulfil the desired intent.
 func (st *State) enableHAIntentionOps(
+	prechecker environs.InstancePrechecker,
 	intent *enableHAIntent,
 	cons constraints.Value,
 	base Base,
@@ -241,7 +244,7 @@ func (st *State) enableHAIntentionOps(
 			template.Dirty = true
 			template.principals = []string{controllerUnitName}
 		}
-		mdoc, addOps, err := st.addMachineOps(template)
+		mdoc, addOps, err := st.addMachineOps(prechecker, template)
 		if err != nil {
 			return nil, ControllersChanges{}, nil, errors.Trace(err)
 		}

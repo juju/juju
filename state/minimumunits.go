@@ -5,6 +5,7 @@ package state
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/juju/environs"
 	"github.com/juju/mgo/v3"
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/mgo/v3/txn"
@@ -146,7 +147,7 @@ func (a *Application) MinUnits() int {
 
 // EnsureMinUnits adds new units if the application's MinUnits value is greater
 // than the number of alive units.
-func (a *Application) EnsureMinUnits() (err error) {
+func (a *Application) EnsureMinUnits(prechecker environs.InstancePrechecker) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot ensure minimum units for application %q", a)
 	app := &Application{st: a.st, doc: a.doc}
 	for {
@@ -180,7 +181,7 @@ func (a *Application) EnsureMinUnits() (err error) {
 			if err != nil {
 				return err
 			}
-			if err := app.st.AssignUnit(unit, AssignNew); err != nil {
+			if err := app.st.AssignUnit(prechecker, unit, AssignNew); err != nil {
 				return err
 			}
 			// No need to proceed and refresh the application if this was the

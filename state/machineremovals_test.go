@@ -125,7 +125,7 @@ func (s *MachineRemovalSuite) createRemovalWatcher(c *gc.C, st *state.State) (
 }
 
 func (s *MachineRemovalSuite) makeMachine(c *gc.C, deadAlready bool) *state.Machine {
-	m, err := s.State.AddMachine(state.UbuntuBase("16.04"), state.JobHostUnits)
+	m, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("16.04"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	if deadAlready {
 		deadenMachine(c, m)

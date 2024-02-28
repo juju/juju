@@ -175,7 +175,7 @@ func (s *MachineStatusSuite) TestSetStatusPendingProvisioned(c *gc.C) {
 }
 
 func (s *MachineStatusSuite) TestSetStatusPendingUnprovisioned(c *gc.C) {
-	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	now := testing.ZeroTime()
 	sInfo := status.StatusInfo{

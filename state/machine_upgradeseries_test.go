@@ -40,7 +40,7 @@ func (s *MachineSuite) TestCreateUpgradeSeriesLock(c *gc.C) {
 }
 
 func (s *MachineSuite) TestIsParentLockedForSeriesUpgrade(c *gc.C) {
-	parent, err := s.State.AddMachine(state.UbuntuBase("16.04"), state.JobHostUnits)
+	parent, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("16.04"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	template := state.MachineTemplate{
@@ -67,7 +67,7 @@ func (s *MachineSuite) TestCreateUpgradeSeriesLockErrorsIfLockExists(c *gc.C) {
 }
 
 func (s *MachineSuite) TestDoesNotCreateUpgradeSeriesLockOnDyingMachine(c *gc.C) {
-	mach, err := s.State.AddMachine(state.UbuntuBase("12.04"), state.JobHostUnits)
+	mach, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.04"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = mach.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
@@ -78,7 +78,7 @@ func (s *MachineSuite) TestDoesNotCreateUpgradeSeriesLockOnDyingMachine(c *gc.C)
 }
 
 func (s *MachineSuite) TestDoesNotCreateUpgradeSeriesLockOnSameSeries(c *gc.C) {
-	mach, err := s.State.AddMachine(state.UbuntuBase("16.04"), state.JobHostUnits)
+	mach, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("16.04"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = mach.CreateUpgradeSeriesLock([]string{""}, state.UbuntuBase("16.04"))
@@ -105,7 +105,7 @@ func (s *MachineSuite) TestUpgradeSeriesTarget(c *gc.C) {
 }
 
 func (s *MachineSuite) TestRemoveUpgradeSeriesLockUnlocksMachine(c *gc.C) {
-	mach, err := s.State.AddMachine(state.UbuntuBase("12.04"), state.JobHostUnits)
+	mach, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.04"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	AssertMachineIsNOTLockedForPrepare(c, mach)
 
@@ -119,7 +119,7 @@ func (s *MachineSuite) TestRemoveUpgradeSeriesLockUnlocksMachine(c *gc.C) {
 }
 
 func (s *MachineSuite) TestRemoveUpgradeSeriesLockIsNoOpIfMachineIsNotLocked(c *gc.C) {
-	mach, err := s.State.AddMachine(state.UbuntuBase("12.04"), state.JobHostUnits)
+	mach, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.04"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	AssertMachineIsNOTLockedForPrepare(c, mach)
 
@@ -128,7 +128,7 @@ func (s *MachineSuite) TestRemoveUpgradeSeriesLockIsNoOpIfMachineIsNotLocked(c *
 }
 
 func (s *MachineSuite) TestForceMarksSeriesLockUnlocksMachineForCleanup(c *gc.C) {
-	mach, err := s.State.AddMachine(state.UbuntuBase("12.04"), state.JobHostUnits)
+	mach, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.04"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	AssertMachineIsNOTLockedForPrepare(c, mach)
 
@@ -239,7 +239,7 @@ func (s *MachineSuite) TestUnitsHaveChangedTrue(c *gc.C) {
 }
 
 func (s *MachineSuite) TestUnitsHaveChangedFalseNoUnits(c *gc.C) {
-	mach, err := s.State.AddMachine(state.UbuntuBase("16.04"), state.JobHostUnits)
+	mach, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("16.04"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	changed, err := state.UnitsHaveChanged(mach, []string{})
 	c.Assert(err, jc.ErrorIsNil)
