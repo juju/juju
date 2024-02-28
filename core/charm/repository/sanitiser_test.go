@@ -11,11 +11,11 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 )
 
-type sanitizeCharmOriginSuite struct{}
+type sanitiseCharmOriginSuite struct{}
 
-var _ = gc.Suite(&sanitizeCharmOriginSuite{})
+var _ = gc.Suite(&sanitiseCharmOriginSuite{})
 
-func (s *sanitizeCharmOriginSuite) TestSanitize(c *gc.C) {
+func (s *sanitiseCharmOriginSuite) TestSanitise(c *gc.C) {
 	received := corecharm.Origin{
 		Platform: corecharm.Platform{
 			Architecture: "all",
@@ -30,7 +30,7 @@ func (s *sanitizeCharmOriginSuite) TestSanitize(c *gc.C) {
 			Channel:      "20.04",
 		},
 	}
-	got, err := sanitizeCharmOrigin(received, requested)
+	got, err := sanitiseCharmOrigin(received, requested)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(got, gc.DeepEquals, corecharm.Origin{
 		Platform: corecharm.Platform{
@@ -41,7 +41,7 @@ func (s *sanitizeCharmOriginSuite) TestSanitize(c *gc.C) {
 	})
 }
 
-func (s *sanitizeCharmOriginSuite) TestSanitizeWithValues(c *gc.C) {
+func (s *sanitiseCharmOriginSuite) TestSanitiseWithValues(c *gc.C) {
 	received := corecharm.Origin{
 		Platform: corecharm.Platform{
 			Architecture: "arm64",
@@ -56,7 +56,7 @@ func (s *sanitizeCharmOriginSuite) TestSanitizeWithValues(c *gc.C) {
 			Channel:      "20.04",
 		},
 	}
-	got, err := sanitizeCharmOrigin(received, requested)
+	got, err := sanitiseCharmOrigin(received, requested)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(got, gc.DeepEquals, corecharm.Origin{
 		Platform: corecharm.Platform{
@@ -67,7 +67,7 @@ func (s *sanitizeCharmOriginSuite) TestSanitizeWithValues(c *gc.C) {
 	})
 }
 
-func (s *sanitizeCharmOriginSuite) TestSanitizeWithEmptyValues(c *gc.C) {
+func (s *sanitiseCharmOriginSuite) TestSanitiseWithEmptyValues(c *gc.C) {
 	received := corecharm.Origin{
 		Platform: corecharm.Platform{
 			Architecture: "",
@@ -82,7 +82,7 @@ func (s *sanitizeCharmOriginSuite) TestSanitizeWithEmptyValues(c *gc.C) {
 			Channel:      "20.04",
 		},
 	}
-	got, err := sanitizeCharmOrigin(received, requested)
+	got, err := sanitiseCharmOrigin(received, requested)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(got, gc.DeepEquals, corecharm.Origin{
 		Platform: corecharm.Platform{
@@ -93,7 +93,7 @@ func (s *sanitizeCharmOriginSuite) TestSanitizeWithEmptyValues(c *gc.C) {
 	})
 }
 
-func (s *sanitizeCharmOriginSuite) TestSanitizeWithRequestedEmptyValues(c *gc.C) {
+func (s *sanitiseCharmOriginSuite) TestSanitiseWithRequestedEmptyValues(c *gc.C) {
 	received := corecharm.Origin{
 		Platform: corecharm.Platform{
 			Architecture: "all",
@@ -108,7 +108,7 @@ func (s *sanitizeCharmOriginSuite) TestSanitizeWithRequestedEmptyValues(c *gc.C)
 			Channel:      "",
 		},
 	}
-	got, err := sanitizeCharmOrigin(received, requested)
+	got, err := sanitiseCharmOrigin(received, requested)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(got, gc.DeepEquals, corecharm.Origin{
 		Platform: corecharm.Platform{
@@ -119,7 +119,7 @@ func (s *sanitizeCharmOriginSuite) TestSanitizeWithRequestedEmptyValues(c *gc.C)
 	})
 }
 
-func (s *sanitizeCharmOriginSuite) TestSanitizeWithRequestedEmptyValuesAlt(c *gc.C) {
+func (s *sanitiseCharmOriginSuite) TestSanitiseWithRequestedEmptyValuesAlt(c *gc.C) {
 	received := corecharm.Origin{
 		Platform: corecharm.Platform{
 			Architecture: "all",
@@ -134,7 +134,7 @@ func (s *sanitizeCharmOriginSuite) TestSanitizeWithRequestedEmptyValuesAlt(c *gc
 			Channel:      "",
 		},
 	}
-	got, err := sanitizeCharmOrigin(received, requested)
+	got, err := sanitiseCharmOrigin(received, requested)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(got, gc.DeepEquals, corecharm.Origin{
 		Platform: corecharm.Platform{
@@ -145,7 +145,7 @@ func (s *sanitizeCharmOriginSuite) TestSanitizeWithRequestedEmptyValuesAlt(c *gc
 	})
 }
 
-func (s *sanitizeCharmOriginSuite) TestSanitizeWithRequestedEmptyValuesOSVersusChannel(c *gc.C) {
+func (s *sanitiseCharmOriginSuite) TestSanitiseWithRequestedEmptyValuesOSVersusChannel(c *gc.C) {
 	received := corecharm.Origin{
 		Platform: corecharm.Platform{
 			Architecture: "all",
@@ -160,7 +160,7 @@ func (s *sanitizeCharmOriginSuite) TestSanitizeWithRequestedEmptyValuesOSVersusC
 			Channel:      "",
 		},
 	}
-	got, err := sanitizeCharmOrigin(received, requested)
+	got, err := sanitiseCharmOrigin(received, requested)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(got, gc.DeepEquals, corecharm.Origin{
 		Platform: corecharm.Platform{
@@ -171,32 +171,32 @@ func (s *sanitizeCharmOriginSuite) TestSanitizeWithRequestedEmptyValuesOSVersusC
 	})
 }
 
-func (s *sanitizeCharmOriginSuite) TestSanitizeChannel(c *gc.C) {
+func (s *sanitiseCharmOriginSuite) TestSanitiseChannel(c *gc.C) {
 	ch := corecharm.MustParseChannel("stable")
 	received := corecharm.Origin{
 		Channel: &ch,
 	}
-	got, err := sanitizeCharmOrigin(received, corecharm.Origin{})
+	got, err := sanitiseCharmOrigin(received, corecharm.Origin{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(*got.Channel, gc.Equals, corecharm.MustParseChannel("latest/stable"))
 }
 
-func (s *sanitizeCharmOriginSuite) TestSanitizeChannelNop(c *gc.C) {
+func (s *sanitiseCharmOriginSuite) TestSanitiseChannelNop(c *gc.C) {
 	ch := corecharm.MustParseChannel("latest/stable")
 	received := corecharm.Origin{
 		Channel: &ch,
 	}
-	got, err := sanitizeCharmOrigin(received, corecharm.Origin{})
+	got, err := sanitiseCharmOrigin(received, corecharm.Origin{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(*got.Channel, gc.Equals, corecharm.MustParseChannel("latest/stable"))
 }
 
-func (s *sanitizeCharmOriginSuite) TestSanitizeChannelNopOtherTrack(c *gc.C) {
+func (s *sanitiseCharmOriginSuite) TestSanitiseChannelNopOtherTrack(c *gc.C) {
 	ch := corecharm.MustParseChannel("5/stable")
 	received := corecharm.Origin{
 		Channel: &ch,
 	}
-	got, err := sanitizeCharmOrigin(received, corecharm.Origin{})
+	got, err := sanitiseCharmOrigin(received, corecharm.Origin{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(*got.Channel, gc.Equals, corecharm.MustParseChannel("5/stable"))
 }

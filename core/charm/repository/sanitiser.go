@@ -9,9 +9,9 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 )
 
-// sanitizeCharmOrigin attempts to ensure that any fields we receive from
+// sanitiseCharmOrigin attempts to ensure that any fields we receive from
 // the API are valid and juju knows about them.
-func sanitizeCharmOrigin(received, requested corecharm.Origin) (corecharm.Origin, error) {
+func sanitiseCharmOrigin(received, requested corecharm.Origin) (corecharm.Origin, error) {
 	// Platform is generally the problem at hand. We want to ensure if they
 	// send "all" back for Architecture, OS or Release that we either use the
 	// requested origin using that as the hint or we unset it from the requested
