@@ -33,20 +33,12 @@ type LocalCharmClient struct {
 // NewLocalCharmClient creates a client which can be used to
 // upload local charms to the server
 func NewLocalCharmClient(st base.APICallCloser) (*LocalCharmClient, error) {
-	httpPutter, err := newHTTPPutter(st)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	s3Putter, err := newS3Putter(st)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	fallbackPutter, err := newFallbackPutter(s3Putter, httpPutter)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	frontend, backend := base.NewClientFacade(st, "Charms")
-	return &LocalCharmClient{ClientFacade: frontend, facade: backend, charmPutter: fallbackPutter}, nil
+	return &LocalCharmClient{ClientFacade: frontend, facade: backend, charmPutter: s3Putter}, nil
 }
 
 // AddLocalCharm prepares the given charm with a local: schema in its
