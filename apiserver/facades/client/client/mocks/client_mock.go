@@ -206,21 +206,6 @@ func (mr *MockBackendMockRecorder) AllSubnets() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllSubnets", reflect.TypeOf((*MockBackend)(nil).AllSubnets))
 }
 
-// Annotations mocks base method.
-func (m *MockBackend) Annotations(arg0 state.GlobalEntity) (map[string]string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Annotations", arg0)
-	ret0, _ := ret[0].(map[string]string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Annotations indicates an expected call of Annotations.
-func (mr *MockBackendMockRecorder) Annotations(arg0 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Annotations", reflect.TypeOf((*MockBackend)(nil).Annotations), arg0)
-}
-
 // Application mocks base method.
 func (m *MockBackend) Application(arg0 string) (client.Application, error) {
 	m.ctrl.T.Helper()
