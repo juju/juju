@@ -141,3 +141,11 @@ func (s *typesSuite) TestPreferSetApplyStrategy(c *gc.C) {
 	c.Check(strategy.Apply("default", "set"), gc.Equals, "set")
 	c.Check(strategy.Apply(nil, nil), gc.IsNil)
 }
+
+func (s *typesSuite) TestPreferDefaultApplyStrategy(c *gc.C) {
+	strategy := PreferDefaultApplyStrategy{}
+	c.Check(strategy.Apply(nil, "test"), gc.Equals, "test")
+	c.Check(strategy.Apply("default", nil), gc.Equals, "default")
+	c.Check(strategy.Apply("default", "set"), gc.Equals, "default")
+	c.Check(strategy.Apply(nil, nil), gc.IsNil)
+}
