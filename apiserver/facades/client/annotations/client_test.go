@@ -53,16 +53,19 @@ func (s *annotationSuite) TestModelAnnotations(c *gc.C) {
 }
 
 func (s *annotationSuite) TestMachineAnnotations(c *gc.C) {
+	// TODO (cderici): replace ensureMachine when Machines are added.
 	s.ensureMachine(c, "0", "123")
 	s.testSetGetEntitiesAnnotations(c, names.NewMachineTag("0"))
 }
 
 func (s *annotationSuite) TestCharmAnnotations(c *gc.C) {
+	// TODO (cderici): replace ensureCharm when Charm are added.
 	s.ensureCharm(c, "local:wordpress-1", "234")
 	s.testSetGetEntitiesAnnotations(c, names.NewCharmTag("local:wordpress-1"))
 }
 
 func (s *annotationSuite) TestApplicationAnnotations(c *gc.C) {
+	// TODO (cderici): replace ensureApplication when Applications are added.
 	s.ensureApplication(c, "wordpress", "3")
 	s.testSetGetEntitiesAnnotations(c, names.NewApplicationTag("wordpress"))
 }
@@ -86,6 +89,7 @@ func (s *annotationSuite) TestInvalidEntityAnnotations(c *gc.C) {
 }
 
 func (s *annotationSuite) TestUnitAnnotations(c *gc.C) {
+	// TODO (cderici): replace ensureUnit when Units are added.
 	s.ensureUnit(c, "wordpress/3", "12")
 	s.testSetGetEntitiesAnnotations(c, names.NewUnitTag("wordpress/3"))
 }
@@ -266,6 +270,10 @@ var clientAnnotationsTests = []struct {
 		err:   `.*: invalid key "invalid.key"`,
 	},
 }
+
+// TODO (cderici): The section below that adds entities into the DB for testing purposes by raw SQL
+// should be replaced with actual makers from actual services corresponding to entities whenever
+// those entities are implemented.
 
 // ensureApplication manually inserts a row into the application table.
 func (s *annotationSuite) ensureApplication(c *gc.C, name, uuid string) {
