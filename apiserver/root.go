@@ -48,17 +48,47 @@ type objectKey struct {
 // after it has logged in. It contains an rpc.Root which it
 // uses to dispatch API calls appropriately.
 type apiHandler struct {
-	state                 *state.State
-	model                 *state.Model
-	rpcConn               *rpc.Conn
-	serviceFactory        servicefactory.ServiceFactory
-	serviceFactoryGetter  servicefactory.ServiceFactoryGetter
-	tracer                trace.Tracer
-	objectStore           objectstore.ObjectStore
-	objectStoreGetter     objectstore.ObjectStoreGetter
+	state   *state.State
+	model   *state.Model
+	rpcConn *rpc.Conn
+
+	// TODO (stickupkid): The "shared" concept is an abomination, we should
+	// remove this and pass the dependencies in directly.
+	shared *sharedServerContext
+
+	// tracer is the tracing worker (OTEL) for the resolved model UUID. This
+	// is either the request model UUID, or it's the system state model UUID, if
+	// the request model UUID is empty.
+	tracer trace.Tracer
+
+	// serviceFactory is the service factory for the resolved model UUID. This
+	// is either the request model UUID, or it's the system state model UUID, if
+	// the request model UUID is empty.
+	serviceFactory servicefactory.ServiceFactory
+
+	// serviceFactoryGetter allows the retrieval of an service factory for a
+	// given model UUID. This should not be used unless you're sure you need to
+	// access a different model's service factory.
+	serviceFactoryGetter servicefactory.ServiceFactoryGetter
+
+	// objectStore is the object store for the resolved model UUID. This is
+	// either the request model UUID, or it's the system state model UUID, if
+	// the request model UUID is empty.
+	objectStore objectstore.ObjectStore
+
+	// objectStoreGetter allows the retrieval of an object store for a given
+	// model UUID. This should not be used unless you're sure you need to
+	// access a different model's object store.
+	objectStoreGetter objectstore.ObjectStoreGetter
+
+	// controllerObjectStore is the object store for the controller namespace.
+	// This is the global namespace and is used for agent binaries and other
+	// controller-wide binary data.
 	controllerObjectStore objectstore.ObjectStore
-	watcherRegistry       facade.WatcherRegistry
-	shared                *sharedServerContext
+
+	// watcherRegistry is the registry for tracking watchers between API calls
+	// for a given model UUID.
+	watcherRegistry facade.WatcherRegistry
 
 	// authInfo represents the authentication info established with this client
 	// connection.
