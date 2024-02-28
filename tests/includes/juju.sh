@@ -23,8 +23,15 @@ jujud_version() {
 	echo "${version}"
 }
 
-# ensure will check if there is a bootstrapped controller that it can take
-# advantage of, failing that it will bootstrap a new controller for you.
+# ensure will bootstrap a controller if there are none available. It will then
+# add the named model to the controller. If the model already exists it will
+# fail.
+#
+# TODO (aflynn50 2024-02-15): Implement the expected behaviour:
+# ensure should check if there is a bootstrapped controller that it can take
+# advantage of, failing that it should bootstrap a new controller for you.
+# It should then check if the expected model present on the controller and add it
+# if not.
 #
 # ```
 # ensure <model name> <file to output logs>
@@ -42,9 +49,15 @@ ensure() {
 	bootstrap "${model}" "${output}"
 }
 
-# bootstrap will attempt to bootstrap a controller on the correct cloud.
-# It will check if there is an existing controller with the same name and bail,
-# if there is.
+# bootstrap creates a new controller with a random name and then adds the
+# specified model to it.
+#
+# If BOOTSTRAP_REUSE is set it should reuse the
+# controller named in BOOTSTRAP_REUSE_LOCAL, if this is blank it will use any
+# existing test controller.
+#
+# If BOOTSTRAP_PROVIDER is set to "manual" then <cloud-name> should be provided
+# as the first arg.
 #
 # The name of the controller is randomised, but the model name is used to
 # override the default model name for that controller. That way we have a
@@ -52,10 +65,9 @@ ensure() {
 # This helps with providing encapsulated tests without having to bootstrap a
 # controller for every test in a suite.
 #
-# The stdout of the file can be piped to an optional output file.
-#
+# The stdout is piped to the specified log file.
 # ```
-# bootstrap <cloud name> <controller name> <file to output logs> <model name>
+# bootstrap <model name> <file to output logs>
 # ```
 bootstrap() {
 	local cloud name output model bootstrapped_name
