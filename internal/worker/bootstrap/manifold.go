@@ -26,7 +26,6 @@ import (
 	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/internal/worker/common"
 	"github.com/juju/juju/internal/worker/gate"
-	workerobjectstore "github.com/juju/juju/internal/worker/objectstore"
 	workerstate "github.com/juju/juju/internal/worker/state"
 )
 
@@ -270,7 +269,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 
-			var objectStoreGetter workerobjectstore.ObjectStoreGetter
+			var objectStoreGetter objectstore.ObjectStoreGetter
 			if err := getter.Get(config.ObjectStoreName, &objectStoreGetter); err != nil {
 				return nil, errors.Trace(err)
 			}

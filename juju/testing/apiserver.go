@@ -68,7 +68,6 @@ import (
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/internal/worker/lease"
 	wmultiwatcher "github.com/juju/juju/internal/worker/multiwatcher"
-	workerobjectstore "github.com/juju/juju/internal/worker/objectstore"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
@@ -136,7 +135,7 @@ type ApiServerSuite struct {
 	// These are exposed for the tests to use.
 	Server            *apiserver.Server
 	LeaseManager      *lease.Manager
-	ObjectStoreGetter workerobjectstore.ObjectStoreGetter
+	ObjectStoreGetter objectstore.ObjectStoreGetter
 	Clock             testclock.AdvanceableClock
 
 	// These attributes are set before SetUpTest to indicate we want to

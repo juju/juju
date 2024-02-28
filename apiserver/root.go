@@ -33,7 +33,6 @@ import (
 	"github.com/juju/juju/internal/migration"
 	"github.com/juju/juju/internal/rpcreflect"
 	"github.com/juju/juju/internal/servicefactory"
-	workerobjectstore "github.com/juju/juju/internal/worker/objectstore"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -56,7 +55,7 @@ type apiHandler struct {
 	serviceFactoryGetter  servicefactory.ServiceFactoryGetter
 	tracer                trace.Tracer
 	objectStore           objectstore.ObjectStore
-	objectStoreGetter     workerobjectstore.ObjectStoreGetter
+	objectStoreGetter     objectstore.ObjectStoreGetter
 	controllerObjectStore objectstore.ObjectStore
 	watcherRegistry       facade.WatcherRegistry
 	shared                *sharedServerContext
@@ -102,7 +101,7 @@ func newAPIHandler(
 	serviceFactoryGetter servicefactory.ServiceFactoryGetter,
 	tracer trace.Tracer,
 	objectStore objectstore.ObjectStore,
-	objectStoreGetter workerobjectstore.ObjectStoreGetter,
+	objectStoreGetter objectstore.ObjectStoreGetter,
 	controllerObjectStore objectstore.ObjectStore,
 	modelUUID string,
 	connectionID uint64,
@@ -216,7 +215,7 @@ func (r *apiHandler) ObjectStore() objectstore.ObjectStore {
 }
 
 // ObjectStoreGetter returns the object store getter.
-func (r *apiHandler) ObjectStoreGetter() workerobjectstore.ObjectStoreGetter {
+func (r *apiHandler) ObjectStoreGetter() objectstore.ObjectStoreGetter {
 	return r.objectStoreGetter
 }
 
@@ -399,7 +398,7 @@ type apiRootHandler interface {
 	// ObjectStore returns the object store.
 	ObjectStore() objectstore.ObjectStore
 	// ObjectStoreGetter returns the object store getter.
-	ObjectStoreGetter() workerobjectstore.ObjectStoreGetter
+	ObjectStoreGetter() objectstore.ObjectStoreGetter
 	// ControllerObjectStore returns the controller object store. The primary
 	// use case for this is agent tools.
 	ControllerObjectStore() objectstore.ObjectStore
@@ -424,7 +423,7 @@ type apiRoot struct {
 	serviceFactoryGetter  servicefactory.ServiceFactoryGetter
 	tracer                trace.Tracer
 	objectStore           objectstore.ObjectStore
-	objectStoreGetter     workerobjectstore.ObjectStoreGetter
+	objectStoreGetter     objectstore.ObjectStoreGetter
 	controllerObjectStore objectstore.ObjectStore
 	shared                *sharedServerContext
 	facades               *facade.Registry

@@ -24,9 +24,9 @@ import (
 	"github.com/juju/juju/core/lease"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/multiwatcher"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/internal/servicefactory"
-	"github.com/juju/juju/internal/worker/objectstore"
 	"github.com/juju/juju/internal/worker/trace"
 	"github.com/juju/juju/state"
 )
