@@ -14,14 +14,14 @@ import (
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	registry.MustRegister("CAASModelOperator", 1, func(stdCtx context.Context, ctx facade.Context) (facade.Facade, error) {
+	registry.MustRegister("CAASModelOperator", 1, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newAPIFromContext(ctx)
 	}, reflect.TypeOf((*API)(nil)))
 }
 
 // newAPIFromContext creates a new controller model facade from the supplied
 // context.
-func newAPIFromContext(ctx facade.Context) (*API, error) {
+func newAPIFromContext(ctx facade.ModelContext) (*API, error) {
 	authorizer := ctx.Auth()
 	resources := ctx.Resources()
 	systemState, err := ctx.StatePool().SystemState()

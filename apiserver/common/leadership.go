@@ -50,7 +50,7 @@ func (s leadershipPinningBackend) Machine(name string) (LeadershipMachine, error
 // NewLeadershipPinningFromContext creates and returns a new leadership from
 // a facade context.
 // This signature is suitable for facade registration.
-func NewLeadershipPinningFromContext(ctx facade.Context) (*LeadershipPinning, error) {
+func NewLeadershipPinningFromContext(ctx facade.ModelContext) (*LeadershipPinning, error) {
 	st := ctx.State()
 	model, err := st.Model()
 	if err != nil {

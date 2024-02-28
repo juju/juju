@@ -16,14 +16,14 @@ import (
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	registry.MustRegister("MigrationMaster", 3, func(stdCtx context.Context, ctx facade.Context) (facade.Facade, error) {
+	registry.MustRegister("MigrationMaster", 3, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newMigrationMasterFacade(ctx) // Adds MinionReportTimeout.
 	}, reflect.TypeOf((*API)(nil)))
 }
 
 // newMigrationMasterFacade exists to provide the required signature for API
 // registration, converting st to backend.
-func newMigrationMasterFacade(ctx facade.Context) (*API, error) {
+func newMigrationMasterFacade(ctx facade.ModelContext) (*API, error) {
 	pool := ctx.StatePool()
 	modelState := ctx.State()
 

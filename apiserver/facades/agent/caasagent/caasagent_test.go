@@ -38,6 +38,6 @@ func (s *caasagentSuite) TestPermission(c *gc.C) {
 	s.authorizer = &apiservertesting.FakeAuthorizer{
 		Tag: names.NewApplicationTag("someapp"),
 	}
-	_, err := caasagent.NewStateFacadeV2(facadetest.Context{Auth_: s.authorizer})
+	_, err := caasagent.NewStateFacadeV2(facadetest.ModelContext{Auth_: s.authorizer})
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }

@@ -13,13 +13,13 @@ import (
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	registry.MustRegister("Cleaner", 2, func(stdCtx context.Context, ctx facade.Context) (facade.Facade, error) {
+	registry.MustRegister("Cleaner", 2, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newCleanerAPI(ctx)
 	}, reflect.TypeOf((*CleanerAPI)(nil)))
 }
 
 // newCleanerAPI creates a new instance of the Cleaner API.
-func newCleanerAPI(ctx facade.Context) (*CleanerAPI, error) {
+func newCleanerAPI(ctx facade.ModelContext) (*CleanerAPI, error) {
 	authorizer := ctx.Auth()
 	if !authorizer.AuthController() {
 		return nil, apiservererrors.ErrPerm

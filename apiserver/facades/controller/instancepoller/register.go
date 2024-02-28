@@ -15,13 +15,13 @@ import (
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	registry.MustRegister("InstancePoller", 4, func(stdCtx context.Context, ctx facade.Context) (facade.Facade, error) {
+	registry.MustRegister("InstancePoller", 4, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newFacade(ctx)
 	}, reflect.TypeOf((*InstancePollerAPI)(nil)))
 }
 
 // newFacade wraps NewInstancePollerAPI for facade registration.
-func newFacade(ctx facade.Context) (*InstancePollerAPI, error) {
+func newFacade(ctx facade.ModelContext) (*InstancePollerAPI, error) {
 	st := ctx.State()
 	m, err := st.Model()
 	if err != nil {

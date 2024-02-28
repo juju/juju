@@ -36,7 +36,7 @@ type watcherCommon struct {
 	dispose         func()
 }
 
-func newWatcherCommon(context facade.Context) watcherCommon {
+func newWatcherCommon(context facade.ModelContext) watcherCommon {
 	return watcherCommon{
 		id:              context.ID(),
 		resources:       context.Resources(),
@@ -76,7 +76,7 @@ type SrvAllWatcher struct {
 	deltaTranslater DeltaTranslater
 }
 
-func newAllWatcher(context facade.Context, deltaTranslater DeltaTranslater) (*SrvAllWatcher, error) {
+func newAllWatcher(context facade.ModelContext, deltaTranslater DeltaTranslater) (*SrvAllWatcher, error) {
 	auth := context.Auth()
 	if !auth.AuthClient() {
 		// Note that we don't need to check specific permissions
@@ -109,7 +109,7 @@ func newAllWatcher(context facade.Context, deltaTranslater DeltaTranslater) (*Sr
 
 // NewAllWatcher returns a new API server endpoint for interacting
 // with a watcher created by the WatchAll and WatchAllModels API calls.
-func NewAllWatcher(_ context.Context, context facade.Context) (facade.Facade, error) {
+func NewAllWatcher(_ context.Context, context facade.ModelContext) (facade.Facade, error) {
 	return newAllWatcher(context, newAllWatcherDeltaTranslater())
 }
 
@@ -569,7 +569,7 @@ func isAgentOrUser(auth facade.Authorizer) bool {
 	return isAgent(auth) || auth.AuthClient()
 }
 
-func newNotifyWatcher(_ context.Context, context facade.Context) (facade.Facade, error) {
+func newNotifyWatcher(_ context.Context, context facade.ModelContext) (facade.Facade, error) {
 	auth := context.Auth()
 	// TODO(wallyworld) - enhance this watcher to support
 	// anonymous api calls with macaroons.
@@ -615,7 +615,7 @@ type srvStringsWatcher struct {
 	watcher corewatcher.StringsWatcher
 }
 
-func newStringsWatcher(_ context.Context, context facade.Context) (facade.Facade, error) {
+func newStringsWatcher(_ context.Context, context facade.ModelContext) (facade.Facade, error) {
 	auth := context.Auth()
 	// TODO(wallyworld) - enhance this watcher to support
 	// anonymous api calls with macaroons.
@@ -657,7 +657,7 @@ type srvRelationUnitsWatcher struct {
 	watcher common.RelationUnitsWatcher
 }
 
-func newRelationUnitsWatcher(_ context.Context, context facade.Context) (facade.Facade, error) {
+func newRelationUnitsWatcher(_ context.Context, context facade.ModelContext) (facade.Facade, error) {
 	auth := context.Auth()
 	// TODO(wallyworld) - enhance this watcher to support
 	// anonymous api calls with macaroons.
@@ -701,7 +701,7 @@ type srvRemoteRelationWatcher struct {
 	watcher *crossmodel.WrappedUnitsWatcher
 }
 
-func newRemoteRelationWatcher(_ context.Context, context facade.Context) (facade.Facade, error) {
+func newRemoteRelationWatcher(_ context.Context, context facade.ModelContext) (facade.Facade, error) {
 	auth := context.Auth()
 	// TODO(wallyworld) - enhance this watcher to support
 	// anonymous api calls with macaroons.
@@ -752,7 +752,7 @@ type srvRelationStatusWatcher struct {
 	watcher corewatcher.StringsWatcher
 }
 
-func newRelationStatusWatcher(_ context.Context, context facade.Context) (facade.Facade, error) {
+func newRelationStatusWatcher(_ context.Context, context facade.ModelContext) (facade.Facade, error) {
 	auth := context.Auth()
 	// TODO(wallyworld) - enhance this watcher to support
 	// anonymous api calls with macaroons.
@@ -805,7 +805,7 @@ type srvOfferStatusWatcher struct {
 	watcher crossmodelrelations.OfferWatcher
 }
 
-func newOfferStatusWatcher(_ context.Context, context facade.Context) (facade.Facade, error) {
+func newOfferStatusWatcher(_ context.Context, context facade.ModelContext) (facade.Facade, error) {
 	auth := context.Auth()
 	// TODO(wallyworld) - enhance this watcher to support
 	// anonymous api calls with macaroons.
@@ -869,21 +869,21 @@ type srvMachineStorageIdsWatcher struct {
 	parser  func([]string) ([]params.MachineStorageId, error)
 }
 
-func newVolumeAttachmentsWatcher(_ context.Context, context facade.Context) (facade.Facade, error) {
+func newVolumeAttachmentsWatcher(_ context.Context, context facade.ModelContext) (facade.Facade, error) {
 	return newMachineStorageIdsWatcher(
 		context,
 		storagecommon.ParseVolumeAttachmentIds,
 	)
 }
 
-func newVolumeAttachmentPlansWatcher(_ context.Context, context facade.Context) (facade.Facade, error) {
+func newVolumeAttachmentPlansWatcher(_ context.Context, context facade.ModelContext) (facade.Facade, error) {
 	return newMachineStorageIdsWatcher(
 		context,
 		storagecommon.ParseVolumeAttachmentIds,
 	)
 }
 
-func newFilesystemAttachmentsWatcher(_ context.Context, context facade.Context) (facade.Facade, error) {
+func newFilesystemAttachmentsWatcher(_ context.Context, context facade.ModelContext) (facade.Facade, error) {
 	return newMachineStorageIdsWatcher(
 		context,
 		storagecommon.ParseFilesystemAttachmentIds,
@@ -891,7 +891,7 @@ func newFilesystemAttachmentsWatcher(_ context.Context, context facade.Context) 
 }
 
 func newMachineStorageIdsWatcher(
-	context facade.Context,
+	context facade.ModelContext,
 	parser func([]string) ([]params.MachineStorageId, error),
 ) (facade.Facade, error) {
 	auth := context.Auth()
@@ -955,7 +955,7 @@ type srvEntitiesWatcher struct {
 	watcher EntitiesWatcher
 }
 
-func newEntitiesWatcher(_ context.Context, context facade.Context) (facade.Facade, error) {
+func newEntitiesWatcher(_ context.Context, context facade.ModelContext) (facade.Facade, error) {
 	auth := context.Auth()
 	if !isAgent(auth) {
 		return nil, apiservererrors.ErrPerm
@@ -1014,7 +1014,7 @@ type controllerBackend interface {
 	APIHostPortsForClients(controller.Config) ([]network.SpaceHostPorts, error)
 }
 
-func newMigrationStatusWatcher(_ context.Context, context facade.Context) (facade.Facade, error) {
+func newMigrationStatusWatcher(_ context.Context, context facade.ModelContext) (facade.Facade, error) {
 	auth := context.Auth()
 	if !isAgent(auth) {
 		return nil, apiservererrors.ErrPerm
@@ -1132,14 +1132,14 @@ var getControllerCACert = func(controllerConfig controller.Config) (string, erro
 // newModelSummaryWatcher exists solely to be registered with regRaw.
 // Standard registration doesn't handle watcher types (it checks for
 // and empty ID in the context).
-func newModelSummaryWatcher(_ context.Context, context facade.Context) (facade.Facade, error) {
+func newModelSummaryWatcher(_ context.Context, context facade.ModelContext) (facade.Facade, error) {
 	return NewModelSummaryWatcher(context)
 }
 
 // NewModelSummaryWatcher returns a new API server endpoint for interacting with
 // a watcher created by the WatchModelSummaries and WatchAllModelSummaries API
 // calls.
-func NewModelSummaryWatcher(context facade.Context) (*SrvModelSummaryWatcher, error) {
+func NewModelSummaryWatcher(context facade.ModelContext) (*SrvModelSummaryWatcher, error) {
 	var (
 		id              = context.ID()
 		auth            = context.Auth()
@@ -1250,7 +1250,7 @@ type srvSecretTriggerWatcher struct {
 	watcher corewatcher.SecretTriggerWatcher
 }
 
-func newSecretsTriggerWatcher(_ context.Context, context facade.Context) (facade.Facade, error) {
+func newSecretsTriggerWatcher(_ context.Context, context facade.ModelContext) (facade.Facade, error) {
 	auth := context.Auth()
 	if !isAgent(auth) {
 		return nil, apiservererrors.ErrPerm
@@ -1304,7 +1304,7 @@ type srvSecretBackendsRotateWatcher struct {
 	watcher corewatcher.SecretBackendRotateWatcher
 }
 
-func newSecretBackendsRotateWatcher(_ context.Context, context facade.Context) (facade.Facade, error) {
+func newSecretBackendsRotateWatcher(_ context.Context, context facade.ModelContext) (facade.Facade, error) {
 	auth := context.Auth()
 	if !isAgent(auth) {
 		return nil, apiservererrors.ErrPerm
@@ -1358,7 +1358,7 @@ type srvSecretsRevisionWatcher struct {
 	watcher corewatcher.StringsWatcher
 }
 
-func newSecretsRevisionWatcher(_ context.Context, context facade.Context) (facade.Facade, error) {
+func newSecretsRevisionWatcher(_ context.Context, context facade.ModelContext) (facade.Facade, error) {
 	auth := context.Auth()
 
 	// TODO(wallyworld) - enhance this watcher to support

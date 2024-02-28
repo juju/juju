@@ -68,7 +68,7 @@ type Suite struct {
 	credentialValidator       *MockCredentialValidator
 	modelImporter             *MockModelImporter
 
-	facadeContext facadetest.Context
+	facadeContext facadetest.ModelContext
 	callContext   envcontext.ProviderCallContext
 	leaders       map[string]string
 }
@@ -92,7 +92,7 @@ func (s *Suite) TestFacadeRegistered(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	api, err := aFactory(context.Background(), &facadetest.MultiModelContext{
-		Context: facadetest.Context{
+		ModelContext: facadetest.ModelContext{
 			State_:          s.State,
 			Auth_:           s.authorizer,
 			ServiceFactory_: servicefactorytesting.NewTestingServiceFactory(),
@@ -109,7 +109,7 @@ func (s *Suite) TestFacadeRegisteredV2(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	api, err := aFactory(context.Background(), &facadetest.MultiModelContext{
-		Context: facadetest.Context{
+		ModelContext: facadetest.ModelContext{
 			State_:          s.State,
 			Auth_:           s.authorizer,
 			ServiceFactory_: servicefactorytesting.NewTestingServiceFactory(),
@@ -629,7 +629,7 @@ func (s *Suite) setupMocks(c *gc.C) *gomock.Controller {
 		AdminTag: s.Owner,
 	}
 	s.callContext = envcontext.WithoutCredentialInvalidator(context.Background())
-	s.facadeContext = facadetest.Context{
+	s.facadeContext = facadetest.ModelContext{
 		State_:         s.State,
 		StatePool_:     s.StatePool,
 		Auth_:          s.authorizer,

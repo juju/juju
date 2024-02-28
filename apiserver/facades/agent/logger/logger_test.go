@@ -53,7 +53,7 @@ func (s *loggerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *loggerSuite) makeLoggerAPI(auth facade.Authorizer) (*logger.LoggerAPI, error) {
-	ctx := facadetest.Context{
+	ctx := facadetest.ModelContext{
 		Auth_:      auth,
 		Resources_: s.resources,
 		State_:     s.State,

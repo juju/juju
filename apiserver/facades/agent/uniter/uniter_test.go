@@ -3585,7 +3585,7 @@ func (s *uniterSuite) TestCommitHookChangesWithPortsSidecarApplication(c *gc.C) 
 	req, _ := b.Build()
 
 	s.authorizer = apiservertesting.FakeAuthorizer{Tag: unit.Tag()}
-	uniterAPI, err := uniter.NewUniterAPI(context.Background(), facadetest.Context{
+	uniterAPI, err := uniter.NewUniterAPI(context.Background(), facadetest.ModelContext{
 		State_:             cm.State(),
 		StatePool_:         s.StatePool(),
 		Resources_:         s.resources,

@@ -62,7 +62,7 @@ func (s *DiskManagerSuite) TestSetMachineBlockDevicesEmptyArgs(c *gc.C) {
 func (s *DiskManagerSuite) TestNewDiskManagerAPINonMachine(c *gc.C) {
 	tag := names.NewUnitTag("mysql/0")
 	s.authorizer = &apiservertesting.FakeAuthorizer{Tag: tag}
-	_, err := diskmanager.NewDiskManagerAPI(facadetest.Context{
+	_, err := diskmanager.NewDiskManagerAPI(facadetest.ModelContext{
 		Auth_: s.authorizer,
 	})
 	c.Assert(err, gc.ErrorMatches, "permission denied")

@@ -13,7 +13,7 @@ import (
 // MultiModelContext implements facade.MultiModelContext in the simplest
 // possible way.
 type MultiModelContext struct {
-	Context
+	ModelContext
 
 	ServiceFactoryForModel_ servicefactory.ServiceFactory
 	ObjectStoreForModel_    objectstore.ObjectStore

@@ -720,34 +720,34 @@ func (r *adminRoot) FindMethod(rootName string, version int, methodName string) 
 	}
 }
 
-// facadeContext implements facade.Context
+// facadeContext implements facade.ModelContext
 type facadeContext struct {
 	r   *apiRoot
 	key objectKey
 }
 
-// Auth is part of the facade.Context interface.
+// Auth is part of the facade.ModelContext interface.
 func (ctx *facadeContext) Auth() facade.Authorizer {
 	return ctx.r.authorizer
 }
 
-// Dispose is part of the facade.Context interface.
+// Dispose is part of the facade.ModelContext interface.
 func (ctx *facadeContext) Dispose() {
 	ctx.r.dispose(ctx.key)
 }
 
-// Resources is part of the facade.Context interface.
+// Resources is part of the facade.ModelContext interface.
 // Deprecated: Resources are deprecated. Use WatcherRegistry instead.
 func (ctx *facadeContext) Resources() facade.Resources {
 	return ctx.r.resources
 }
 
-// WatcherRegistry is part of the facade.Context interface.
+// WatcherRegistry is part of the facade.ModelContext interface.
 func (ctx *facadeContext) WatcherRegistry() facade.WatcherRegistry {
 	return ctx.r.watcherRegistry
 }
 
-// Presence implements facade.Context.
+// Presence implements facade.ModelContext.
 func (ctx *facadeContext) Presence() facade.Presence {
 	return ctx
 }
@@ -757,27 +757,27 @@ func (ctx *facadeContext) ModelPresence(modelUUID string) facade.ModelPresence {
 	return ctx.r.shared.presence.Connections().ForModel(modelUUID)
 }
 
-// Hub implements facade.Context.
+// Hub implements facade.ModelContext.
 func (ctx *facadeContext) Hub() facade.Hub {
 	return ctx.r.shared.centralHub
 }
 
-// State is part of the facade.Context interface.
+// State is part of the facade.ModelContext interface.
 func (ctx *facadeContext) State() *state.State {
 	return ctx.r.state
 }
 
-// StatePool is part of the facade.Context interface.
+// StatePool is part of the facade.ModelContext interface.
 func (ctx *facadeContext) StatePool() *state.StatePool {
 	return ctx.r.shared.statePool
 }
 
-// MultiwatcherFactory is part of the facade.Context interface.
+// MultiwatcherFactory is part of the facade.ModelContext interface.
 func (ctx *facadeContext) MultiwatcherFactory() multiwatcher.Factory {
 	return ctx.r.shared.multiwatcherFactory
 }
 
-// ID is part of the facade.Context interface.
+// ID is part of the facade.ModelContext interface.
 func (ctx *facadeContext) ID() string {
 	return ctx.key.objId
 }
@@ -787,7 +787,7 @@ func (ctx *facadeContext) RequestRecorder() facade.RequestRecorder {
 	return ctx.r.requestRecorder
 }
 
-// LeadershipClaimer is part of the facade.Context interface.
+// LeadershipClaimer is part of the facade.ModelContext interface.
 func (ctx *facadeContext) LeadershipClaimer(modelUUID string) (leadership.Claimer, error) {
 	claimer, err := ctx.r.shared.leaseManager.Claimer(
 		lease.ApplicationLeadershipNamespace,
@@ -799,7 +799,7 @@ func (ctx *facadeContext) LeadershipClaimer(modelUUID string) (leadership.Claime
 	return leadershipClaimer{claimer: claimer}, nil
 }
 
-// LeadershipRevoker is part of the facade.Context interface.
+// LeadershipRevoker is part of the facade.ModelContext interface.
 func (ctx *facadeContext) LeadershipRevoker(modelUUID string) (leadership.Revoker, error) {
 	revoker, err := ctx.r.shared.leaseManager.Revoker(
 		lease.ApplicationLeadershipNamespace,
@@ -811,7 +811,7 @@ func (ctx *facadeContext) LeadershipRevoker(modelUUID string) (leadership.Revoke
 	return leadershipRevoker{claimer: revoker}, nil
 }
 
-// LeadershipChecker is part of the facade.Context interface.
+// LeadershipChecker is part of the facade.ModelContext interface.
 func (ctx *facadeContext) LeadershipChecker() (leadership.Checker, error) {
 	checker, err := ctx.r.shared.leaseManager.Checker(
 		lease.ApplicationLeadershipNamespace,
@@ -823,7 +823,7 @@ func (ctx *facadeContext) LeadershipChecker() (leadership.Checker, error) {
 	return leadershipChecker{checker: checker}, nil
 }
 
-// LeadershipPinner is part of the facade.Context interface.
+// LeadershipPinner is part of the facade.ModelContext interface.
 // Pinning functionality is only available with the Raft leases implementation.
 func (ctx *facadeContext) LeadershipPinner(modelUUID string) (leadership.Pinner, error) {
 	pinner, err := ctx.r.shared.leaseManager.Pinner(
@@ -836,7 +836,7 @@ func (ctx *facadeContext) LeadershipPinner(modelUUID string) (leadership.Pinner,
 	return leadershipPinner{pinner: pinner}, nil
 }
 
-// LeadershipReader is part of the facade.Context interface.
+// LeadershipReader is part of the facade.ModelContext interface.
 // It returns a reader that can be used to return all application leaders
 // in the model.
 func (ctx *facadeContext) LeadershipReader(modelUUID string) (leadership.Reader, error) {
@@ -850,7 +850,7 @@ func (ctx *facadeContext) LeadershipReader(modelUUID string) (leadership.Reader,
 	return leadershipReader{reader: reader}, nil
 }
 
-// SingularClaimer is part of the facade.Context interface.
+// SingularClaimer is part of the facade.ModelContext interface.
 func (ctx *facadeContext) SingularClaimer() (lease.Claimer, error) {
 	return ctx.r.shared.leaseManager.Claimer(
 		lease.SingularControllerNamespace,

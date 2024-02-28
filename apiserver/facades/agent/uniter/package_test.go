@@ -133,8 +133,8 @@ func (s *uniterSuiteBase) setupState(c *gc.C) {
 	})
 }
 
-func (s *uniterSuiteBase) facadeContext(c *gc.C) facadetest.Context {
-	return facadetest.Context{
+func (s *uniterSuiteBase) facadeContext(c *gc.C) facadetest.ModelContext {
+	return facadetest.ModelContext{
 		State_:             s.ControllerModel(c).State(),
 		StatePool_:         s.StatePool(),
 		Resources_:         s.resources,

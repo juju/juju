@@ -112,7 +112,7 @@ func (c *Client) checkIsAdmin() error {
 // NewFacade creates a Client facade to handle API requests.
 // Changes:
 // - FindTools deals with CAAS models now;
-func NewFacade(ctx facade.Context) (*Client, error) {
+func NewFacade(ctx facade.ModelContext) (*Client, error) {
 	st := ctx.State()
 	resources := ctx.Resources()
 	authorizer := ctx.Auth()

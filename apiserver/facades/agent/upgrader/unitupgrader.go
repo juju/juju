@@ -28,7 +28,7 @@ type UnitUpgraderAPI struct {
 }
 
 // NewUnitUpgraderAPI creates a new server-side UnitUpgraderAPI facade.
-func NewUnitUpgraderAPI(ctx facade.Context) (*UnitUpgraderAPI, error) {
+func NewUnitUpgraderAPI(ctx facade.ModelContext) (*UnitUpgraderAPI, error) {
 	authorizer := ctx.Auth()
 	if !authorizer.AuthUnitAgent() {
 		return nil, apiservererrors.ErrPerm

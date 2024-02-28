@@ -34,7 +34,7 @@ type SharedHub interface {
 }
 
 // sharedServerContext contains a number of components that are unchangeable in the API server.
-// These components need to be exposed through the facade.Context. Instead of having the methods
+// These components need to be exposed through the facade.ModelContext. Instead of having the methods
 // of newAPIHandler and newAPIRoot take ever-increasing numbers of parameters, they will instead
 // have a pointer to the sharedServerContext.
 //

@@ -129,7 +129,7 @@ func (r *rootSuite) TestFindMethodUnknownFacade(c *gc.C) {
 
 func (r *rootSuite) TestFindMethodUnknownVersion(c *gc.C) {
 	registry := new(facade.Registry)
-	myGoodFacade := func(context.Context, facade.Context) (facade.Facade, error) {
+	myGoodFacade := func(context.Context, facade.ModelContext) (facade.Facade, error) {
 		return &testingType{}, nil
 	}
 	registry.MustRegister("my-testing-facade", 0, myGoodFacade, reflect.TypeOf((*testingType)(nil)).Elem())
@@ -141,13 +141,13 @@ func (r *rootSuite) TestFindMethodUnknownVersion(c *gc.C) {
 }
 
 func (r *rootSuite) TestFindMethodEnsuresTypeMatch(c *gc.C) {
-	myBadFacade := func(context.Context, facade.Context) (facade.Facade, error) {
+	myBadFacade := func(context.Context, facade.ModelContext) (facade.Facade, error) {
 		return &badType{}, nil
 	}
-	myGoodFacade := func(context.Context, facade.Context) (facade.Facade, error) {
+	myGoodFacade := func(context.Context, facade.ModelContext) (facade.Facade, error) {
 		return &testingType{}, nil
 	}
-	myErrFacade := func(_ context.Context, context facade.Context) (facade.Facade, error) {
+	myErrFacade := func(_ context.Context, context facade.ModelContext) (facade.Facade, error) {
 		return nil, fmt.Errorf("you shall not pass")
 	}
 	expectedType := reflect.TypeOf((*testingType)(nil))
@@ -208,7 +208,7 @@ func assertCallResult(c *gc.C, caller rpcreflect.MethodCaller, id string, expect
 func (r *rootSuite) TestFindMethodCachesFacades(c *gc.C) {
 	registry := new(facade.Registry)
 	var count int64
-	newCounter := func(context.Context, facade.Context) (facade.Facade, error) {
+	newCounter := func(context.Context, facade.ModelContext) (facade.Facade, error) {
 		count += 1
 		return &countingType{count: count, id: ""}, nil
 	}
@@ -279,7 +279,7 @@ func (r *rootSuite) TestFindMethodCachesFacadesWithId(c *gc.C) {
 	var count int64
 	// like newCounter, but also tracks the "id" that was requested for
 	// this counter
-	newIdCounter := func(_ context.Context, context facade.Context) (facade.Facade, error) {
+	newIdCounter := func(_ context.Context, context facade.ModelContext) (facade.Facade, error) {
 		count += 1
 		return &countingType{count: count, id: context.ID()}, nil
 	}
@@ -310,7 +310,7 @@ func (r *rootSuite) TestFindMethodCachesFacadesWithId(c *gc.C) {
 
 func (r *rootSuite) TestFindMethodCacheRaceSafe(c *gc.C) {
 	var count int64
-	newIdCounter := func(_ context.Context, context facade.Context) (facade.Facade, error) {
+	newIdCounter := func(_ context.Context, context facade.ModelContext) (facade.Facade, error) {
 		count += 1
 		return &countingType{count: count, id: context.ID()}, nil
 	}
@@ -362,10 +362,10 @@ func (*secondImpl) OneMethod() stringVar {
 
 func (r *rootSuite) TestFindMethodHandlesInterfaceTypes(c *gc.C) {
 	registry := new(facade.Registry)
-	registry.MustRegister("my-interface-facade", 0, func(_ context.Context, _ facade.Context) (facade.Facade, error) {
+	registry.MustRegister("my-interface-facade", 0, func(_ context.Context, _ facade.ModelContext) (facade.Facade, error) {
 		return &firstImpl{}, nil
 	}, reflect.TypeOf((*smallInterface)(nil)).Elem())
-	registry.MustRegister("my-interface-facade", 1, func(_ context.Context, _ facade.Context) (facade.Facade, error) {
+	registry.MustRegister("my-interface-facade", 1, func(_ context.Context, _ facade.ModelContext) (facade.Facade, error) {
 		return &secondImpl{}, nil
 	}, reflect.TypeOf((*smallInterface)(nil)).Elem())
 	srvRoot := apiserver.TestingAPIRoot(registry)

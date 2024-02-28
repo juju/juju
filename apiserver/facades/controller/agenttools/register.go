@@ -16,13 +16,13 @@ import (
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	registry.MustRegister("AgentTools", 1, func(stdCtx context.Context, ctx facade.Context) (facade.Facade, error) {
+	registry.MustRegister("AgentTools", 1, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newFacade(ctx)
 	}, reflect.TypeOf((*AgentToolsAPI)(nil)))
 }
 
 // newFacade is used to register the facade.
-func newFacade(ctx facade.Context) (*AgentToolsAPI, error) {
+func newFacade(ctx facade.ModelContext) (*AgentToolsAPI, error) {
 	st := ctx.State()
 	model, err := st.Model()
 	if err != nil {

@@ -64,8 +64,8 @@ func (api *CredentialManagerAPI) InvalidateModelCredential(ctx context.Context, 
 
 // CredentialInvalidatorGetter returns a getter for a function used to invalidate the cloud credential
 // for the model associated with the facade context.
-func CredentialInvalidatorGetter(ctx facade.Context) envcontext.ModelCredentialInvalidatorGetter {
-	return ModelCredentialInvalidatorGetter(ctx.ServiceFactory().Credential(), stateShim{ctx.State()})
+func CredentialInvalidatorGetter(ctx facade.ModelContext) envcontext.ModelCredentialInvalidatorGetter {
+	return ModelCredentialInvalidatorGetter(ctx.ServiceFactory().Credential(), stateShim{State: ctx.State()})
 }
 
 // ModelCredentialInvalidatorGetter returns a getter for a function used to invalidate the cloud credential

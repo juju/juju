@@ -147,7 +147,7 @@ func (s *deployerSuite) TestDeployerFailsWithNonMachineAgentUser(c *gc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = testing.AdminUser
 	aDeployer, err := deployer.NewDeployerFacade(
-		facadetest.Context{
+		facadetest.ModelContext{
 			Auth_:              anAuthorizer,
 			LeadershipRevoker_: s.revoker,
 			Resources_:         s.resources,

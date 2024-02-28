@@ -21,14 +21,14 @@ import (
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	registry.MustRegister("CrossModelSecrets", 1, func(stdCtx context.Context, ctx facade.Context) (facade.Facade, error) {
+	registry.MustRegister("CrossModelSecrets", 1, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newStateCrossModelSecretsAPI(stdCtx, ctx)
 	}, reflect.TypeOf((*CrossModelSecretsAPI)(nil)))
 }
 
 // newStateCrossModelSecretsAPI creates a new server-side CrossModelSecrets API facade
 // backed by global state.
-func newStateCrossModelSecretsAPI(stdCtx context.Context, ctx facade.Context) (*CrossModelSecretsAPI, error) {
+func newStateCrossModelSecretsAPI(stdCtx context.Context, ctx facade.ModelContext) (*CrossModelSecretsAPI, error) {
 	authCtxt := ctx.Resources().Get("offerAccessAuthContext").(*common.ValueResource).Value
 
 	leadershipChecker, err := ctx.LeadershipChecker()

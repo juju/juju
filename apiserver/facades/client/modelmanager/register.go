@@ -25,7 +25,7 @@ func Register(registry facade.FacadeRegistry) {
 }
 
 // newFacadeV10 is used for API registration.
-func newFacadeV10(ctx facade.Context) (*ModelManagerAPI, error) {
+func newFacadeV10(ctx facade.ModelContext) (*ModelManagerAPI, error) {
 	st := ctx.State()
 	pool := ctx.StatePool()
 	ctlrSt, err := pool.SystemState()

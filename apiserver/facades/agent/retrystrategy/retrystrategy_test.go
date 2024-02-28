@@ -63,7 +63,7 @@ func (s *retryStrategySuite) SetUpTest(c *gc.C) {
 	s.resources = common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
-	strategy, err := retrystrategy.NewRetryStrategyAPI(facadetest.Context{
+	strategy, err := retrystrategy.NewRetryStrategyAPI(facadetest.ModelContext{
 		State_:     s.ControllerModel(c).State(),
 		Resources_: s.resources,
 		Auth_:      s.authorizer,
@@ -116,7 +116,7 @@ func (s *retryStrategySuite) TestRetryStrategyApplication(c *gc.C) {
 		Tag: app.Tag(),
 	}
 
-	strategy, err := retrystrategy.NewRetryStrategyAPI(facadetest.Context{
+	strategy, err := retrystrategy.NewRetryStrategyAPI(facadetest.ModelContext{
 		State_:     s.ControllerModel(c).State(),
 		Resources_: s.resources,
 		Auth_:      s.authorizer,

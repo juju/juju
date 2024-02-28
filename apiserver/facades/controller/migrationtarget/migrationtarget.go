@@ -110,7 +110,7 @@ type APIV2 struct {
 // NewAPI returns a new APIV1. Accepts a NewEnvironFunc and envcontext.ProviderCallContext
 // for testing purposes.
 func NewAPI(
-	ctx facade.Context,
+	ctx facade.ModelContext,
 	authorizer facade.Authorizer,
 	controllerConfigService ControllerConfigService,
 	externalControllerService ExternalControllerService,

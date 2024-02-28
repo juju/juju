@@ -13,13 +13,13 @@ import (
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	registry.MustRegister("UnitAssigner", 1, func(stdCtx context.Context, ctx facade.Context) (facade.Facade, error) {
+	registry.MustRegister("UnitAssigner", 1, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newFacade(ctx)
 	}, reflect.TypeOf((*API)(nil)))
 }
 
 // newFacade returns a new unitAssigner api instance.
-func newFacade(ctx facade.Context) (*API, error) {
+func newFacade(ctx facade.ModelContext) (*API, error) {
 	st := ctx.State()
 	setter := common.NewStatusSetter(&common.UnitAgentFinder{EntityFinder: st}, common.AuthAlways())
 	return &API{

@@ -15,13 +15,13 @@ import (
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	registry.MustRegister("Deployer", 1, func(stdCtx context.Context, ctx facade.Context) (facade.Facade, error) {
+	registry.MustRegister("Deployer", 1, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return NewDeployerFacade(ctx)
 	}, reflect.TypeOf((*DeployerAPI)(nil)))
 }
 
 // NewDeployerFacade creates a new server-side DeployerAPI facade.
-func NewDeployerFacade(ctx facade.Context) (*DeployerAPI, error) {
+func NewDeployerFacade(ctx facade.ModelContext) (*DeployerAPI, error) {
 	authorizer := ctx.Auth()
 	if !authorizer.AuthMachineAgent() {
 		return nil, apiservererrors.ErrPerm

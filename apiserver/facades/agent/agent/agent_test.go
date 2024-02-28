@@ -92,7 +92,7 @@ func (s *agentSuite) agentAPI(c *gc.C, auth facade.Authorizer, credentialService
 func (s *agentSuite) TestAgentFailsWithNonAgent(c *gc.C) {
 	auth := s.authorizer
 	auth.Tag = names.NewUserTag("admin")
-	ctx := facadetest.Context{
+	ctx := facadetest.ModelContext{
 		Auth_: auth,
 	}
 	_, err := agent.NewAgentAPIV3(ctx)

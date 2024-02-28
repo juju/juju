@@ -15,14 +15,14 @@ import (
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	registry.MustRegister("CrossController", 1, func(stdCtx context.Context, ctx facade.Context) (facade.Facade, error) {
+	registry.MustRegister("CrossController", 1, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newStateCrossControllerAPI(ctx)
 	}, reflect.TypeOf((*CrossControllerAPI)(nil)))
 }
 
 // newStateCrossControllerAPI creates a new server-side CrossModelRelations API facade
 // backed by global state.
-func newStateCrossControllerAPI(ctx facade.Context) (*CrossControllerAPI, error) {
+func newStateCrossControllerAPI(ctx facade.ModelContext) (*CrossControllerAPI, error) {
 	st := ctx.State()
 	serviceFactory := ctx.ServiceFactory()
 	return NewCrossControllerAPI(

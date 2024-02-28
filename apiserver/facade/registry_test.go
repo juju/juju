@@ -128,7 +128,7 @@ func (*RegistrySuite) TestRegisterAndListMultiple(c *gc.C) {
 func (*RegistrySuite) TestRegisterAlreadyPresent(c *gc.C) {
 	registry := &facade.Registry{}
 	assertRegister(c, registry, "name", 0)
-	secondIdFactory := func(_ context.Context, context facade.Context) (facade.Facade, error) {
+	secondIdFactory := func(_ context.Context, context facade.ModelContext) (facade.Facade, error) {
 		var i = 200
 		return &i, nil
 	}
@@ -208,7 +208,7 @@ func assertRegisterFlag(c *gc.C, registry *facade.Registry, name string, version
 	c.Assert(err, gc.IsNil)
 }
 
-func testFacade(_ context.Context, _ facade.Context) (facade.Facade, error) {
+func testFacade(_ context.Context, _ facade.ModelContext) (facade.Facade, error) {
 	return "myobject", nil
 }
 
@@ -216,7 +216,7 @@ func testFacadeModel(_ context.Context, _ facade.MultiModelContext) (facade.Faca
 	return "myobject", nil
 }
 
-func validIdFactory(_ context.Context, _ facade.Context) (facade.Facade, error) {
+func validIdFactory(_ context.Context, _ facade.ModelContext) (facade.Facade, error) {
 	var i = 100
 	return &i, nil
 }

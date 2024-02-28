@@ -51,7 +51,7 @@ func (s *charmsSuite) SetUpTest(c *gc.C) {
 	}
 
 	var err error
-	s.api, err = charms.NewFacade(facadetest.Context{
+	s.api, err = charms.NewFacade(facadetest.ModelContext{
 		Auth_:  s.auth,
 		State_: s.ControllerModel(c).State(),
 	})

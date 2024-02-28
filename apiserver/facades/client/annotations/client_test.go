@@ -39,7 +39,7 @@ func (s *annotationSuite) SetUpTest(c *gc.C) {
 		Tag: testing.AdminUser,
 	}
 	var err error
-	s.annotationsAPI, err = annotations.NewAPI(facadetest.Context{
+	s.annotationsAPI, err = annotations.NewAPI(facadetest.ModelContext{
 		State_: s.ControllerModel(c).State(),
 		Auth_:  s.authorizer,
 	})

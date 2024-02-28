@@ -17,13 +17,13 @@ import (
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	registry.MustRegister("ResourcesHookContext", 1, func(stdCtx context.Context, ctx facade.Context) (facade.Facade, error) {
+	registry.MustRegister("ResourcesHookContext", 1, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newStateFacade(ctx)
 	}, reflect.TypeOf((*UnitFacade)(nil)))
 }
 
 // newStateFacade provides the signature to register this resource facade
-func newStateFacade(ctx facade.Context) (*UnitFacade, error) {
+func newStateFacade(ctx facade.ModelContext) (*UnitFacade, error) {
 	authorizer := ctx.Auth()
 	st := ctx.State()
 

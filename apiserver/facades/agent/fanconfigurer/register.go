@@ -12,13 +12,13 @@ import (
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	registry.MustRegister("FanConfigurer", 1, func(stdCtx context.Context, ctx facade.Context) (facade.Facade, error) {
+	registry.MustRegister("FanConfigurer", 1, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newFanConfigurerAPI(ctx)
 	}, reflect.TypeOf((*FanConfigurerAPI)(nil)))
 }
 
 // newFanConfigurerAPI creates a new FanConfigurer API endpoint on server-side.
-func newFanConfigurerAPI(ctx facade.Context) (*FanConfigurerAPI, error) {
+func newFanConfigurerAPI(ctx facade.ModelContext) (*FanConfigurerAPI, error) {
 	model, err := ctx.State().Model()
 	if err != nil {
 		return nil, err

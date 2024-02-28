@@ -16,13 +16,13 @@ import (
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	registry.MustRegister("RetryStrategy", 1, func(stdCtx context.Context, ctx facade.Context) (facade.Facade, error) {
+	registry.MustRegister("RetryStrategy", 1, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newRetryStrategyAPI(ctx)
 	}, reflect.TypeOf((*RetryStrategyAPI)(nil)))
 }
 
 // newRetryStrategyAPI creates a new API endpoint for getting retry strategies.
-func newRetryStrategyAPI(ctx facade.Context) (*RetryStrategyAPI, error) {
+func newRetryStrategyAPI(ctx facade.ModelContext) (*RetryStrategyAPI, error) {
 	authorizer := ctx.Auth()
 	if !authorizer.AuthUnitAgent() && !authorizer.AuthApplicationAgent() {
 		return nil, apiservererrors.ErrPerm

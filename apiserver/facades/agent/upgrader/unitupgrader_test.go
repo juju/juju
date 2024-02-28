@@ -76,7 +76,7 @@ func (s *unitUpgraderSuite) SetUpTest(c *gc.C) {
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag: s.rawUnit.Tag(),
 	}
-	s.upgrader, err = upgrader.NewUnitUpgraderAPI(facadetest.Context{
+	s.upgrader, err = upgrader.NewUnitUpgraderAPI(facadetest.ModelContext{
 		State_:     st,
 		Resources_: s.resources,
 		Auth_:      s.authorizer,
@@ -124,7 +124,7 @@ func (s *unitUpgraderSuite) TestWatchAPIVersion(c *gc.C) {
 func (s *unitUpgraderSuite) TestUpgraderAPIRefusesNonUnitAgent(c *gc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewMachineTag("7")
-	anUpgrader, err := upgrader.NewUnitUpgraderAPI(facadetest.Context{
+	anUpgrader, err := upgrader.NewUnitUpgraderAPI(facadetest.ModelContext{
 		State_:     s.ControllerModel(c).State(),
 		Resources_: s.resources,
 		Auth_:      anAuthorizer,
@@ -138,7 +138,7 @@ func (s *unitUpgraderSuite) TestWatchAPIVersionRefusesWrongAgent(c *gc.C) {
 	// We are a unit agent, but not the one we are trying to track
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewUnitTag("wordpress/12354")
-	anUpgrader, err := upgrader.NewUnitUpgraderAPI(facadetest.Context{
+	anUpgrader, err := upgrader.NewUnitUpgraderAPI(facadetest.ModelContext{
 		State_:     s.ControllerModel(c).State(),
 		Resources_: s.resources,
 		Auth_:      anAuthorizer,
@@ -165,7 +165,7 @@ func (s *unitUpgraderSuite) TestToolsNothing(c *gc.C) {
 func (s *unitUpgraderSuite) TestToolsRefusesWrongAgent(c *gc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewUnitTag("wordpress/12354")
-	anUpgrader, err := upgrader.NewUnitUpgraderAPI(facadetest.Context{
+	anUpgrader, err := upgrader.NewUnitUpgraderAPI(facadetest.ModelContext{
 		State_:     s.ControllerModel(c).State(),
 		Resources_: s.resources,
 		Auth_:      anAuthorizer,
@@ -215,7 +215,7 @@ func (s *unitUpgraderSuite) TestSetToolsNothing(c *gc.C) {
 func (s *unitUpgraderSuite) TestSetToolsRefusesWrongAgent(c *gc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewUnitTag("wordpress/12354")
-	anUpgrader, err := upgrader.NewUnitUpgraderAPI(facadetest.Context{
+	anUpgrader, err := upgrader.NewUnitUpgraderAPI(facadetest.ModelContext{
 		State_:     s.ControllerModel(c).State(),
 		Resources_: s.resources,
 		Auth_:      anAuthorizer,
@@ -277,7 +277,7 @@ func (s *unitUpgraderSuite) TestDesiredVersionNothing(c *gc.C) {
 func (s *unitUpgraderSuite) TestDesiredVersionRefusesWrongAgent(c *gc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewUnitTag("wordpress/12354")
-	anUpgrader, err := upgrader.NewUnitUpgraderAPI(facadetest.Context{
+	anUpgrader, err := upgrader.NewUnitUpgraderAPI(facadetest.ModelContext{
 		State_:     s.ControllerModel(c).State(),
 		Resources_: s.resources,
 		Auth_:      anAuthorizer,

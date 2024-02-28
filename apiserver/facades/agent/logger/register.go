@@ -15,13 +15,13 @@ import (
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	registry.MustRegister("Logger", 1, func(stdCtx context.Context, ctx facade.Context) (facade.Facade, error) {
+	registry.MustRegister("Logger", 1, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newLoggerAPI(ctx)
 	}, reflect.TypeOf((*LoggerAPI)(nil)))
 }
 
 // newLoggerAPI creates a new server-side logger API end point.
-func newLoggerAPI(ctx facade.Context) (*LoggerAPI, error) {
+func newLoggerAPI(ctx facade.ModelContext) (*LoggerAPI, error) {
 	model, err := ctx.State().Model()
 	if err != nil {
 		return nil, errors.Trace(err)

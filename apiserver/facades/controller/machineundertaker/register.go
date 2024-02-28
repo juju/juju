@@ -12,12 +12,12 @@ import (
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	registry.MustRegister("MachineUndertaker", 1, func(stdCtx context.Context, ctx facade.Context) (facade.Facade, error) {
+	registry.MustRegister("MachineUndertaker", 1, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newFacade(ctx)
 	}, reflect.TypeOf((*API)(nil)))
 }
 
 // newFacade provides the signature required for facade registration.
-func newFacade(ctx facade.Context) (*API, error) {
+func newFacade(ctx facade.ModelContext) (*API, error) {
 	return NewAPI(&backendShim{ctx.State()}, ctx.Resources(), ctx.Auth(), ctx.ServiceFactory().Machine())
 }

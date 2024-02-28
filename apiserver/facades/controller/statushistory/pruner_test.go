@@ -24,14 +24,14 @@ var _ = gc.Suite(&StatusHistoryPrunerSuite{})
 type StatusHistoryPrunerSuite struct {
 	coretesting.BaseSuite
 
-	context facadetest.Context
+	context facadetest.ModelContext
 	api     *statushistory.API
 }
 
 func (s *StatusHistoryPrunerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
-	s.PatchValue(&statushistory.Model, func(_ facade.Context) (state.ModelAccessor, error) {
+	s.PatchValue(&statushistory.Model, func(_ facade.ModelContext) (state.ModelAccessor, error) {
 		return nil, nil
 	})
 	s.context.Auth_ = testing.FakeAuthorizer{Controller: true}

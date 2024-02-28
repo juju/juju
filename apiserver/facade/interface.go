@@ -29,10 +29,10 @@ import (
 type Facade interface{}
 
 // Factory is a callback used to create a Facade.
-type Factory func(stdCtx context.Context, facadeCtx Context) (Facade, error)
+type Factory func(stdCtx context.Context, modelCtx ModelContext) (Facade, error)
 
 // MultiModelFactory is a callback used to create a Facade.
-type MultiModelFactory func(stdCtx context.Context, facadeCtx MultiModelContext) (Facade, error)
+type MultiModelFactory func(stdCtx context.Context, modelCtx MultiModelContext) (Facade, error)
 
 // LeadershipContext describes factory methods for objects that deliver
 // specific lease-related capabilities
@@ -65,7 +65,7 @@ type LeadershipContext interface {
 
 // MultiModelContext is a context that can operate on multiple models at once.
 type MultiModelContext interface {
-	Context
+	ModelContext
 
 	// ServiceFactoryForModel returns the services factory for a given
 	// model uuid.
@@ -75,8 +75,8 @@ type MultiModelContext interface {
 	ObjectStoreForModel(ctx context.Context, modelUUID string) (objectstore.ObjectStore, error)
 }
 
-// Context exposes useful capabilities to a Facade.
-type Context interface {
+// ModelContext exposes useful capabilities to a Facade for a given model.
+type ModelContext interface {
 	// TODO (stickupkid): This shouldn't be embedded, instead this should be
 	// in the form of `context.Leadership() Leadership`, which returns the
 	// contents of the LeadershipContext.
