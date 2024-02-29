@@ -13,8 +13,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	corecharm "github.com/juju/juju/core/charm"
-	"github.com/juju/juju/core/charm/repository"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/charm/repository"
 )
 
 var _ = gc.Suite(&repoFactoryTestSuite{})

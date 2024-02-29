@@ -10,8 +10,8 @@ import (
 	"github.com/juju/errors"
 
 	corecharm "github.com/juju/juju/core/charm"
-	charmrepo "github.com/juju/juju/core/charm/repository"
 	corelogger "github.com/juju/juju/core/logger"
+	charmrepo "github.com/juju/juju/internal/charm/repository"
 	"github.com/juju/juju/internal/charmhub"
 )
 

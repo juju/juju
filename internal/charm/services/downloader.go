@@ -10,8 +10,8 @@ import (
 	"github.com/juju/loggo/v2"
 
 	corecharm "github.com/juju/juju/core/charm"
-	charmdownloader "github.com/juju/juju/core/charm/downloader"
 	corelogger "github.com/juju/juju/core/logger"
+	charmdownloader "github.com/juju/juju/internal/charm/downloader"
 	"github.com/juju/juju/internal/charmhub"
 )
 

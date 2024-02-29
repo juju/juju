@@ -21,7 +21,7 @@ import (
 
 	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
-	"github.com/juju/juju/core/charm/repository/mocks"
+	"github.com/juju/juju/internal/charm/repository/mocks"
 	"github.com/juju/juju/internal/charmhub"
 	"github.com/juju/juju/internal/charmhub/transport"
 )

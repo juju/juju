@@ -15,7 +15,7 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/charm/downloader"
+	"github.com/juju/juju/internal/charm/downloader"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/state"
 	stateerrors "github.com/juju/juju/state/errors"
