@@ -25,7 +25,6 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	charmsinterfaces "github.com/juju/juju/apiserver/facades/client/charms/interfaces"
 	"github.com/juju/juju/core/arch"
-	"github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/permission"
@@ -35,21 +34,8 @@ import (
 )
 
 // APIv7 provides the Charms API facade for version 7.
-// v7 guarantees SupportedBases will be provided in ResolveCharms
 type APIv7 struct {
 	*API
-}
-
-// APIv6 provides the Charms API facade for version 6.
-// It removes the AddCharmWithAuthorization function, as
-// we no longer support macaroons.
-type APIv6 struct {
-	*APIv7
-}
-
-// APIv5 provides the Charms API facade for version 5.
-type APIv5 struct {
-	*APIv6
 }
 
 // API implements the charms interface and is the concrete
@@ -249,17 +235,6 @@ func (a *API) AddCharm(ctx context.Context, args params.AddCharmWithOrigin) (par
 	})
 }
 
-// AddCharmWithAuthorization adds the given charm URL (which must include
-// revision) to the environment, if it does not exist yet. Local charms are
-// not supported, only charm hub URLs. See also AddLocalCharm().
-//
-// Since the charm macaroons are no longer supported, this is the same as
-// AddCharm. We keep it for backwards compatibility in APIv5.
-func (a *APIv5) AddCharmWithAuthorization(ctx context.Context, args params.AddCharmWithAuth) (params.CharmOriginResult, error) {
-	a.logger.Tracef("AddCharmWithAuthorization %+v", args)
-	return a.addCharmWithAuthorization(ctx, args)
-}
-
 func (a *API) addCharmWithAuthorization(ctx context.Context, args params.AddCharmWithAuth) (params.CharmOriginResult, error) {
 	if commoncharm.OriginSource(args.Origin.Source) != commoncharm.OriginCharmHub {
 		return params.CharmOriginResult{}, errors.Errorf("unknown schema for charm URL %q", args.URL)
@@ -417,37 +392,6 @@ func (a *API) resolveOneCharm(ctx context.Context, arg params.ResolveCharmWithCh
 	result.SupportedBases = transform.Slice(resolvedBases, convertCharmBase)
 
 	return result
-}
-
-// ResolveCharms resolves the given charm URLs with an optionally specified
-// preferred channel.  Channel provided via CharmOrigin.
-// We need to include SupportedSeries in facade version 6
-func (a *APIv6) ResolveCharms(ctx context.Context, args params.ResolveCharmsWithChannel) (params.ResolveCharmWithChannelResultsV6, error) {
-	res, err := a.API.ResolveCharms(ctx, args)
-	if err != nil {
-		return params.ResolveCharmWithChannelResultsV6{}, errors.Trace(err)
-	}
-	results, err := transform.SliceOrErr(res.Results, func(result params.ResolveCharmWithChannelResult) (params.ResolveCharmWithChannelResultV6, error) {
-		supportedSeries, err := transform.SliceOrErr(result.SupportedBases, func(pBase params.Base) (string, error) {
-			b, err := base.ParseBase(pBase.Name, pBase.Channel)
-			if err != nil {
-				return "", err
-			}
-			return base.GetSeriesFromBase(b)
-		})
-		if err != nil {
-			return params.ResolveCharmWithChannelResultV6{}, err
-		}
-		return params.ResolveCharmWithChannelResultV6{
-			URL:             result.URL,
-			Origin:          result.Origin,
-			Error:           result.Error,
-			SupportedSeries: supportedSeries,
-		}, nil
-	})
-	return params.ResolveCharmWithChannelResultsV6{
-		Results: results,
-	}, err
 }
 
 func convertCharmBase(in corecharm.Platform) params.Base {

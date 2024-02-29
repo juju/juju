@@ -18,12 +18,6 @@ import (
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	registry.MustRegister("Charms", 5, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
-		return newFacadeV5(ctx)
-	}, reflect.TypeOf((*APIv5)(nil)))
-	registry.MustRegister("Charms", 6, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
-		return newFacadeV6(ctx)
-	}, reflect.TypeOf((*APIv6)(nil)))
 	registry.MustRegister("Charms", 7, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newFacadeV7(ctx)
 	}, reflect.TypeOf((*APIv7)(nil)))
@@ -35,22 +29,6 @@ func newFacadeV7(ctx facade.ModelContext) (*APIv7, error) {
 		return nil, errors.Trace(err)
 	}
 	return &APIv7{api}, nil
-}
-
-func newFacadeV6(ctx facade.ModelContext) (*APIv6, error) {
-	api, err := newFacadeV7(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &APIv6{api}, nil
-}
-
-func newFacadeV5(ctx facade.ModelContext) (*APIv5, error) {
-	api, err := newFacadeV6(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &APIv5{api}, nil
 }
 
 // newFacadeBase provides the signature required for facade registration.
