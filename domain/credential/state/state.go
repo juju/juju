@@ -45,18 +45,12 @@ func credentialKeyMap(id credential.ID) sqlair.M {
 
 func (st *State) credentialUUID(ctx context.Context, tx *sqlair.TX, id credential.ID) (string, error) {
 	selectQ := `
-SELECT &M.uuid FROM cloud_credential
-WHERE  cloud_credential.name = $M.credential_name
-AND    cloud_credential.owner_uuid = (
-	SELECT user.uuid
-    FROM user
-    WHERE user.name = $M.owner
-    AND user.removed = false
-)
-AND    cloud_credential.cloud_uuid = (
-    SELECT uuid FROM cloud
-    WHERE name = $M.cloud_name
-)`
+SELECT &M.uuid
+FROM v_cloud_credential
+WHERE name = $M.credential_name
+AND owner_name = $M.owner
+AND cloud_name = $M.cloud_name
+`
 
 	selectStmt, err := sqlair.Prepare(selectQ, sqlair.M{})
 	if err != nil {
@@ -85,16 +79,12 @@ func (st *State) UpsertCloudCredential(ctx context.Context, id credential.ID, cr
 	}
 
 	q := `
-SELECT  cloud_credential.uuid AS &M.uuid, cloud_credential.invalid AS &M.invalid
-FROM    cloud_credential
-INNER JOIN cloud
-ON cloud_credential.cloud_uuid = cloud.uuid
-INNER JOIN user
-ON cloud_credential.owner_uuid = user.uuid
-WHERE   cloud.name = $M.cloud_name
-AND cloud_credential.name = $M.credential_name
-AND user.name = $M.owner
-AND user.removed = false
+SELECT  uuid AS &M.uuid,
+        invalid AS &M.invalid
+FROM v_cloud_credential
+WHERE cloud_name = $M.cloud_name
+AND name = $M.credential_name
+AND owner_name = $M.owner
 `
 	stmt, err := sqlair.Prepare(q, sqlair.M{})
 	if err != nil {
