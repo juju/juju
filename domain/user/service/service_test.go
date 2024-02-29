@@ -7,12 +7,14 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"testing"
 
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
+	"golang.org/x/crypto/nacl/secretbox"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/user"
@@ -337,7 +339,88 @@ func (s *serviceSuite) TestDisableUserAuthentication(c *gc.C) {
 
 	err := s.service().DisableUserAuthentication(context.Background(), "name")
 	c.Assert(err, jc.ErrorIsNil)
+}
 
+// TestSetPasswordWithActivationKey tests setting a password with an activation
+// key.
+func (s *serviceSuite) TestSetPasswordWithActivationKey(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	password := "password123"
+
+	// Create a key for the activation box.
+	key := make([]byte, activationKeyLength)
+	_, err := rand.Read(key)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.state.EXPECT().GetActivationKey(gomock.Any(), "name").Return(key, nil)
+	s.state.EXPECT().SetPasswordHash(gomock.Any(), "name", gomock.Any(), gomock.Any()).Return(nil)
+
+	// Create a nonce for the activation box.
+	nonce := make([]byte, activationBoxNonceLength)
+	_, err = rand.Read(nonce)
+	c.Assert(err, jc.ErrorIsNil)
+
+	type payload struct {
+		Password string `json:"password"`
+	}
+	p := payload{
+		Password: password,
+	}
+	payloadBytes, err := json.Marshal(p)
+	c.Assert(err, jc.ErrorIsNil)
+
+	box := s.sealBox(c, key, nonce, payloadBytes)
+
+	_, err = s.service().SetPasswordWithActivationKey(context.Background(), "name", nonce, box)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+// TestSetPasswordWithActivationKeyWithInvalidKey tests setting a password
+// with an invalid activation key.
+func (s *serviceSuite) TestSetPasswordWithActivationKeyWithInvalidKey(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	password := "password123"
+
+	// Create a key for the activation box.
+	key := make([]byte, activationKeyLength)
+	_, err := rand.Read(key)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.state.EXPECT().GetActivationKey(gomock.Any(), "name").Return(key, nil)
+
+	// Create a nonce for the activation box.
+	nonce := make([]byte, activationBoxNonceLength)
+	_, err = rand.Read(nonce)
+	c.Assert(err, jc.ErrorIsNil)
+
+	type payload struct {
+		Password string `json:"password"`
+	}
+	p := payload{
+		Password: password,
+	}
+	payloadBytes, err := json.Marshal(p)
+	c.Assert(err, jc.ErrorIsNil)
+
+	box := s.sealBox(c, key, nonce, payloadBytes)
+
+	// Replace the nonce with a different nonce.
+	_, err = rand.Read(nonce)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.service().SetPasswordWithActivationKey(context.Background(), "name", nonce, box)
+	c.Assert(err, jc.ErrorIs, usererrors.ActivationKeyNotValid)
+}
+
+func (s *serviceSuite) sealBox(c *gc.C, key, nonce, payload []byte) []byte {
+	var sbKey [activationKeyLength]byte
+	var sbNonce [activationBoxNonceLength]byte
+	copy(sbKey[:], key)
+	copy(sbNonce[:], nonce)
+
+	return secretbox.Seal(nil, payload, &sbNonce, &sbKey)
 }
 
 // FuzzGetUser is a fuzz test for GetUser() that stresses the username input of

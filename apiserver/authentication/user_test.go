@@ -22,6 +22,8 @@ import (
 
 	"github.com/juju/juju/apiserver/authentication"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	"github.com/juju/juju/domain/user/service"
+	"github.com/juju/juju/internal/auth"
 	"github.com/juju/juju/internal/password"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
@@ -50,7 +52,7 @@ func (s *userAuthenticatorSuite) TestMachineLoginFails(c *gc.C) {
 
 	// attempt machine login
 	authenticator := &authentication.LocalUserAuthenticator{}
-	_, err = authenticator.Authenticate(context.Background(), nil, authentication.AuthParams{
+	_, err = authenticator.Authenticate(context.Background(), authentication.AuthParams{
 		AuthTag:     machine.Tag(),
 		Credentials: machinePassword,
 		Nonce:       nonce,
@@ -77,7 +79,7 @@ func (s *userAuthenticatorSuite) TestUnitLoginFails(c *gc.C) {
 
 	// Attempt unit login
 	authenticator := &authentication.LocalUserAuthenticator{}
-	_, err = authenticator.Authenticate(context.Background(), nil, authentication.AuthParams{
+	_, err = authenticator.Authenticate(context.Background(), authentication.AuthParams{
 		AuthTag:     unit.UnitTag(),
 		Credentials: unitPassword,
 	})
@@ -85,42 +87,218 @@ func (s *userAuthenticatorSuite) TestUnitLoginFails(c *gc.C) {
 }
 
 func (s *userAuthenticatorSuite) TestValidUserLogin(c *gc.C) {
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-
-	user := f.MakeUser(c, &factory.UserParams{
+	userService := s.ControllerServiceFactory(c).User()
+	_, _, err := userService.AddUser(context.Background(), service.AddUserArg{
 		Name:        "bobbrown",
 		DisplayName: "Bob Brown",
-		Password:    "password",
+		CreatorUUID: s.AdminUserUUID,
+		Password:    ptr(auth.NewPassword("password")),
 	})
+	c.Assert(err, jc.ErrorIsNil)
 
 	// User login
-	authenticator := &authentication.LocalUserAuthenticator{}
-	_, err := authenticator.Authenticate(context.Background(), s.ControllerModel(c).State(), authentication.AuthParams{
-		AuthTag:     user.Tag(),
+	authenticator := &authentication.LocalUserAuthenticator{
+		UserService: s.ControllerServiceFactory(c).User(),
+	}
+	entity, err := authenticator.Authenticate(context.Background(), authentication.AuthParams{
+		AuthTag:     names.NewUserTag("bobbrown"),
 		Credentials: "password",
 	})
 	c.Assert(err, jc.ErrorIsNil)
+	c.Check(entity.Tag(), gc.Equals, names.NewUserTag("bobbrown"))
+}
+
+func (s *userAuthenticatorSuite) TestDisabledUserLogin(c *gc.C) {
+	userService := s.ControllerServiceFactory(c).User()
+	_, _, err := userService.AddUser(context.Background(), service.AddUserArg{
+		Name:        "bobbrown",
+		DisplayName: "Bob Brown",
+		CreatorUUID: s.AdminUserUUID,
+		Password:    ptr(auth.NewPassword("password")),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = userService.DisableUserAuthentication(context.Background(), "bobbrown")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// User login
+	authenticator := &authentication.LocalUserAuthenticator{
+		UserService: s.ControllerServiceFactory(c).User(),
+	}
+	_, err = authenticator.Authenticate(context.Background(), authentication.AuthParams{
+		AuthTag:     names.NewUserTag("bobbrown"),
+		Credentials: "password",
+	})
+	c.Assert(err, jc.ErrorIs, apiservererrors.ErrUnauthorized)
+}
+
+func (s *userAuthenticatorSuite) TestRemovedUserLogin(c *gc.C) {
+	userService := s.ControllerServiceFactory(c).User()
+	_, _, err := userService.AddUser(context.Background(), service.AddUserArg{
+		Name:        "bobbrown",
+		DisplayName: "Bob Brown",
+		CreatorUUID: s.AdminUserUUID,
+		Password:    ptr(auth.NewPassword("password")),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = userService.RemoveUser(context.Background(), "bobbrown")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// User login
+	authenticator := &authentication.LocalUserAuthenticator{
+		UserService: s.ControllerServiceFactory(c).User(),
+	}
+	_, err = authenticator.Authenticate(context.Background(), authentication.AuthParams{
+		AuthTag:     names.NewUserTag("bobbrown"),
+		Credentials: "password",
+	})
+	c.Assert(err, jc.ErrorIs, apiservererrors.ErrUnauthorized)
 }
 
 func (s *userAuthenticatorSuite) TestUserLoginWrongPassword(c *gc.C) {
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-
-	user := f.MakeUser(c, &factory.UserParams{
+	userService := s.ControllerServiceFactory(c).User()
+	_, _, err := userService.AddUser(context.Background(), service.AddUserArg{
 		Name:        "bobbrown",
 		DisplayName: "Bob Brown",
-		Password:    "password",
+		CreatorUUID: s.AdminUserUUID,
+		Password:    ptr(auth.NewPassword("password")),
 	})
+	c.Assert(err, jc.ErrorIsNil)
 
 	// User login
-	authenticator := &authentication.LocalUserAuthenticator{}
-	_, err := authenticator.Authenticate(context.Background(), s.ControllerModel(c).State(), authentication.AuthParams{
-		AuthTag:     user.Tag(),
+	authenticator := &authentication.LocalUserAuthenticator{
+		UserService: s.ControllerServiceFactory(c).User(),
+	}
+	_, err = authenticator.Authenticate(context.Background(), authentication.AuthParams{
+		AuthTag:     names.NewUserTag("bobbrown"),
 		Credentials: "wrongpassword",
 	})
-	c.Assert(err, gc.ErrorMatches, "invalid entity name or password")
+	c.Assert(err, jc.ErrorIs, apiservererrors.ErrUnauthorized)
+}
 
+func (s *userAuthenticatorSuite) TestValidMacaroonUserLogin(c *gc.C) {
+	userService := s.ControllerServiceFactory(c).User()
+	_, _, err := userService.AddUser(context.Background(), service.AddUserArg{
+		Name:        "bob",
+		DisplayName: "Bob Brown",
+		CreatorUUID: s.AdminUserUUID,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	mac, err := macaroon.New(nil, nil, "", macaroon.LatestVersion)
+	c.Assert(err, jc.ErrorIsNil)
+	err = mac.AddFirstPartyCaveat([]byte("declared username bob"))
+	c.Assert(err, jc.ErrorIsNil)
+	macaroons := []macaroon.Slice{{mac}}
+	bakeryService := mockBakeryService{}
+
+	// User login
+	authenticator := &authentication.LocalUserAuthenticator{
+		UserService: s.ControllerServiceFactory(c).User(),
+		Bakery:      &bakeryService,
+		Clock:       testclock.NewClock(time.Time{}),
+	}
+	entity, err := authenticator.Authenticate(context.Background(), authentication.AuthParams{
+		AuthTag:   names.NewUserTag("bob"),
+		Macaroons: macaroons,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	bakeryService.CheckCallNames(c, "Auth")
+	call := bakeryService.Calls()[0]
+	c.Assert(call.Args, gc.HasLen, 1)
+	c.Assert(call.Args[0], jc.DeepEquals, macaroons)
+	c.Check(entity.Tag(), gc.Equals, names.NewUserTag("bob"))
+}
+
+func (s *userAuthenticatorSuite) TestInvalidMacaroonUserLogin(c *gc.C) {
+	userService := s.ControllerServiceFactory(c).User()
+	_, _, err := userService.AddUser(context.Background(), service.AddUserArg{
+		Name:        "bobbrown",
+		DisplayName: "Bob Brown",
+		CreatorUUID: s.AdminUserUUID,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	mac, err := macaroon.New(nil, nil, "", macaroon.LatestVersion)
+	c.Assert(err, jc.ErrorIsNil)
+	err = mac.AddFirstPartyCaveat([]byte("declared username fred"))
+	c.Assert(err, jc.ErrorIsNil)
+	macaroons := []macaroon.Slice{{mac}}
+	bakeryService := mockBakeryService{}
+
+	// User login
+	authenticator := &authentication.LocalUserAuthenticator{
+		UserService: s.ControllerServiceFactory(c).User(),
+		Bakery:      &bakeryService,
+		Clock:       testclock.NewClock(time.Time{}),
+	}
+	_, err = authenticator.Authenticate(context.Background(), authentication.AuthParams{
+		AuthTag:   names.NewUserTag("bob"),
+		Macaroons: macaroons,
+	})
+	c.Assert(err, jc.ErrorIs, authentication.ErrInvalidLoginMacaroon)
+}
+
+func (s *userAuthenticatorSuite) TestDisabledMacaroonUserLogin(c *gc.C) {
+	userService := s.ControllerServiceFactory(c).User()
+	_, _, err := userService.AddUser(context.Background(), service.AddUserArg{
+		Name:        "bobbrown",
+		DisplayName: "Bob Brown",
+		CreatorUUID: s.AdminUserUUID,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = userService.DisableUserAuthentication(context.Background(), "bobbrown")
+	c.Assert(err, jc.ErrorIsNil)
+
+	mac, err := macaroon.New(nil, nil, "", macaroon.LatestVersion)
+	c.Assert(err, jc.ErrorIsNil)
+	err = mac.AddFirstPartyCaveat([]byte("declared username bob"))
+	c.Assert(err, jc.ErrorIsNil)
+	macaroons := []macaroon.Slice{{mac}}
+	bakeryService := mockBakeryService{}
+
+	// User login
+	authenticator := &authentication.LocalUserAuthenticator{
+		UserService: s.ControllerServiceFactory(c).User(),
+		Bakery:      &bakeryService,
+		Clock:       testclock.NewClock(time.Time{}),
+	}
+	_, err = authenticator.Authenticate(context.Background(), authentication.AuthParams{
+		AuthTag:   names.NewUserTag("bob"),
+		Macaroons: macaroons,
+	})
+	c.Assert(err, jc.ErrorIs, apiservererrors.ErrUnauthorized)
+}
+
+func (s *userAuthenticatorSuite) TestRemovedMacaroonUserLogin(c *gc.C) {
+	userService := s.ControllerServiceFactory(c).User()
+	_, _, err := userService.AddUser(context.Background(), service.AddUserArg{
+		Name:        "bobbrown",
+		DisplayName: "Bob Brown",
+		CreatorUUID: s.AdminUserUUID,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = userService.RemoveUser(context.Background(), "bobbrown")
+	c.Assert(err, jc.ErrorIsNil)
+
+	mac, err := macaroon.New(nil, nil, "", macaroon.LatestVersion)
+	c.Assert(err, jc.ErrorIsNil)
+	err = mac.AddFirstPartyCaveat([]byte("declared username bob"))
+	c.Assert(err, jc.ErrorIsNil)
+	macaroons := []macaroon.Slice{{mac}}
+	bakeryService := mockBakeryService{}
+
+	// User login
+	authenticator := &authentication.LocalUserAuthenticator{
+		UserService: s.ControllerServiceFactory(c).User(),
+		Bakery:      &bakeryService,
+		Clock:       testclock.NewClock(time.Time{}),
+	}
+	_, err = authenticator.Authenticate(context.Background(), authentication.AuthParams{
+		AuthTag:   names.NewUserTag("bob"),
+		Macaroons: macaroons,
+	})
+	c.Assert(err, jc.ErrorIs, apiservererrors.ErrUnauthorized)
 }
 
 func (s *userAuthenticatorSuite) TestInvalidRelationLogin(c *gc.C) {
@@ -142,39 +320,11 @@ func (s *userAuthenticatorSuite) TestInvalidRelationLogin(c *gc.C) {
 
 	// Attempt relation login
 	authenticator := &authentication.LocalUserAuthenticator{}
-	_, err = authenticator.Authenticate(context.Background(), nil, authentication.AuthParams{
+	_, err = authenticator.Authenticate(context.Background(), authentication.AuthParams{
 		AuthTag:     relation.Tag(),
 		Credentials: "dummy-secret",
 	})
 	c.Assert(err, gc.ErrorMatches, "invalid request")
-}
-
-func (s *userAuthenticatorSuite) TestValidMacaroonUserLogin(c *gc.C) {
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-
-	user := f.MakeUser(c, &factory.UserParams{
-		Name: "bob",
-	})
-	mac, err := macaroon.New(nil, nil, "", macaroon.LatestVersion)
-	c.Assert(err, jc.ErrorIsNil)
-	err = mac.AddFirstPartyCaveat([]byte("declared username bob"))
-	c.Assert(err, jc.ErrorIsNil)
-	macaroons := []macaroon.Slice{{mac}}
-	service := mockBakeryService{}
-
-	// User login
-	authenticator := &authentication.LocalUserAuthenticator{Bakery: &service, Clock: testclock.NewClock(time.Time{})}
-	_, err = authenticator.Authenticate(context.Background(), s.ControllerModel(c).State(), authentication.AuthParams{
-		AuthTag:   user.Tag(),
-		Macaroons: macaroons,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	service.CheckCallNames(c, "Auth")
-	call := service.Calls()[0]
-	c.Assert(call.Args, gc.HasLen, 1)
-	c.Assert(call.Args[0], jc.DeepEquals, macaroons)
 }
 
 func (s *userAuthenticatorSuite) TestCreateLocalLoginMacaroon(c *gc.C) {
@@ -204,7 +354,6 @@ func (s *userAuthenticatorSuite) TestAuthenticateLocalLoginMacaroon(c *gc.C) {
 	service.SetErrors(nil, &bakery.VerificationError{})
 	_, err := authenticator.Authenticate(
 		context.Background(),
-		authentication.EntityFinder(nil),
 		authentication.AuthParams{
 			AuthTag: names.NewUserTag("bobbrown"),
 		},
@@ -284,33 +433,24 @@ var _ = gc.Suite(&macaroonAuthenticatorSuite{})
 var authenticateSuccessTests = []struct {
 	about              string
 	dischargedUsername string
-	finder             authentication.EntityFinder
 	expectTag          string
 	expectError        string
 }{{
 	about:              "user that can be found",
 	dischargedUsername: "bobbrown@somewhere",
 	expectTag:          "user-bobbrown@somewhere",
-	finder:             simpleEntityFinder{},
 }, {
 	about:              "user with no @ domain",
 	dischargedUsername: "bobbrown",
-	finder: simpleEntityFinder{
-		"user-bobbrown@external": true,
-	},
-	expectTag: "user-bobbrown@external",
+	expectTag:          "user-bobbrown@external",
 }, {
 	about:              "invalid user name",
 	dischargedUsername: "--",
-	finder:             simpleEntityFinder{},
 	expectError:        `"--" is an invalid user name`,
 }, {
 	about:              "ostensibly local name",
 	dischargedUsername: "cheat@local",
-	finder: simpleEntityFinder{
-		"cheat@local": true,
-	},
-	expectError: `external identity provider has provided ostensibly local name "cheat@local"`,
+	expectError:        `external identity provider has provided ostensibly local name "cheat@local"`,
 }}
 
 type alwaysIdent struct {
@@ -346,7 +486,7 @@ func (s *macaroonAuthenticatorSuite) TestMacaroonAuthentication(c *gc.C) {
 		}
 
 		// Authenticate once to obtain the macaroon to be discharged.
-		_, err := authenticator.Authenticate(context.Background(), test.finder, authentication.AuthParams{})
+		_, err := authenticator.Authenticate(context.Background(), authentication.AuthParams{})
 
 		// Discharge the macaroon.
 		dischargeErr := errors.Cause(err).(*apiservererrors.DischargeRequiredError)
@@ -355,7 +495,7 @@ func (s *macaroonAuthenticatorSuite) TestMacaroonAuthentication(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 
 		// Authenticate again with the discharged macaroon.
-		entity, err := authenticator.Authenticate(context.Background(), test.finder, authentication.AuthParams{
+		entity, err := authenticator.Authenticate(context.Background(), authentication.AuthParams{
 			Macaroons: []macaroon.Slice{ms},
 		})
 		if test.expectError != "" {
@@ -368,24 +508,6 @@ func (s *macaroonAuthenticatorSuite) TestMacaroonAuthentication(c *gc.C) {
 	}
 }
 
-type simpleEntityFinder map[string]bool
-
-func (f simpleEntityFinder) FindEntity(tag names.Tag) (state.Entity, error) {
-	if utag, ok := tag.(names.UserTag); ok {
-		// It's a user tag which we need to be in canonical form
-		// so we can look it up unambiguously.
-		tag = names.NewUserTag(utag.Id())
-	}
-	if f[tag.String()] {
-		return &simpleEntity{tag}, nil
-	}
-	return nil, errors.NotFoundf("entity %q", tag)
-}
-
-type simpleEntity struct {
-	tag names.Tag
-}
-
-func (e *simpleEntity) Tag() names.Tag {
-	return e.tag
+func ptr[T any](t T) *T {
+	return &t
 }

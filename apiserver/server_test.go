@@ -272,7 +272,7 @@ func (s *serverSuite) TestAPIHandlerHasPermissionLogin(c *gc.C) {
 	serviceFactory := s.ControllerServiceFactory(c)
 
 	st := s.ControllerModel(c).State()
-	handler, _ := apiserver.TestingAPIHandlerWithEntity(c, s.StatePool(), st, serviceFactory.ControllerConfig(), u)
+	handler, _ := apiserver.TestingAPIHandlerWithEntity(c, s.StatePool(), st, serviceFactory.ControllerConfig(), serviceFactory.User(), u)
 	defer handler.Kill()
 
 	apiserver.AssertHasPermission(c, handler, permission.LoginAccess, ctag, true)
@@ -286,7 +286,7 @@ func (s *serverSuite) TestAPIHandlerHasPermissionSuperUser(c *gc.C) {
 	serviceFactory := s.ControllerServiceFactory(c)
 
 	st := s.ControllerModel(c).State()
-	handler, _ := apiserver.TestingAPIHandlerWithEntity(c, s.StatePool(), st, serviceFactory.ControllerConfig(), u)
+	handler, _ := apiserver.TestingAPIHandlerWithEntity(c, s.StatePool(), st, serviceFactory.ControllerConfig(), serviceFactory.User(), u)
 	defer handler.Kill()
 
 	ua, err := st.SetUserAccess(user, ctag, permission.SuperuserAccess)
@@ -313,7 +313,7 @@ func (s *serverSuite) TestAPIHandlerHasPermissionLoginToken(c *gc.C) {
 
 	delegator := &jwt.PermissionDelegator{Token: token}
 	st := s.ControllerModel(c).State()
-	handler, _ := apiserver.TestingAPIHandlerWithToken(c, s.StatePool(), st, serviceFactory.ControllerConfig(), token, delegator)
+	handler, _ := apiserver.TestingAPIHandlerWithToken(c, s.StatePool(), st, serviceFactory.ControllerConfig(), serviceFactory.User(), token, delegator)
 	defer handler.Kill()
 
 	apiserver.AssertHasPermission(c, handler, permission.LoginAccess, coretesting.ControllerTag, true)
@@ -337,7 +337,7 @@ func (s *serverSuite) TestAPIHandlerMissingPermissionLoginToken(c *gc.C) {
 
 	delegator := &jwt.PermissionDelegator{token}
 	st := s.ControllerModel(c).State()
-	handler, _ := apiserver.TestingAPIHandlerWithToken(c, s.StatePool(), st, serviceFactory.ControllerConfig(), token, delegator)
+	handler, _ := apiserver.TestingAPIHandlerWithToken(c, s.StatePool(), st, serviceFactory.ControllerConfig(), serviceFactory.User(), token, delegator)
 	defer handler.Kill()
 	err = handler.HasPermission(permission.AdminAccess, coretesting.ModelTag)
 	var reqError *errors.AccessRequiredError
@@ -369,7 +369,7 @@ func (s *serverSuite) TestAPIHandlerConnectedModel(c *gc.C) {
 
 	serviceFactory := s.ControllerServiceFactory(c)
 
-	handler, _ := apiserver.TestingAPIHandler(c, s.StatePool(), otherState, serviceFactory.ControllerConfig())
+	handler, _ := apiserver.TestingAPIHandler(c, s.StatePool(), otherState, serviceFactory.ControllerConfig(), serviceFactory.User())
 	defer handler.Kill()
 	c.Check(handler.ConnectedModel(), gc.Equals, otherState.ModelUUID())
 }
@@ -428,7 +428,7 @@ func assertStateBecomesClosed(c *gc.C, st *state.State) {
 func (s *serverSuite) checkAPIHandlerTeardown(c *gc.C, st *state.State) {
 	serviceFactory := s.ControllerServiceFactory(c)
 
-	handler, resources := apiserver.TestingAPIHandler(c, s.StatePool(), st, serviceFactory.ControllerConfig())
+	handler, resources := apiserver.TestingAPIHandler(c, s.StatePool(), st, serviceFactory.ControllerConfig(), serviceFactory.User())
 	resource := new(fakeResource)
 	resources.Register(resource)
 

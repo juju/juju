@@ -489,26 +489,6 @@ func (u *User) UserTag() names.UserTag {
 	return names.NewLocalUserTag(name)
 }
 
-// LastLogin returns when this User last connected through the API in UTC.
-// The resulting time will be nil if the user has never logged in.  In the
-// normal case, the LastLogin is the last time that the user connected through
-// the API server.
-func (u *User) LastLogin() (time.Time, error) {
-	lastLogins, closer := u.st.db().GetRawCollection(userLastLoginC)
-	defer closer()
-
-	var lastLogin userLastLoginDoc
-	err := lastLogins.FindId(u.doc.DocID).Select(bson.D{{"last-login", 1}}).One(&lastLogin)
-	if err != nil {
-		if err == mgo.ErrNotFound {
-			err = errors.Wrap(err, newNeverLoggedInError(u.UserTag().Name()))
-		}
-		return time.Time{}, errors.Trace(err)
-	}
-
-	return lastLogin.LastLogin.UTC(), nil
-}
-
 // UpdateLastLogin sets the LastLogin time of the user to be now (to the
 // nearest second).
 func (u *User) UpdateLastLogin() (err error) {

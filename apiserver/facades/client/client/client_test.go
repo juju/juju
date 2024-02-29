@@ -10,6 +10,7 @@ import (
 	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
+	"github.com/juju/names/v5"
 	jtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
@@ -30,8 +31,10 @@ import (
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/domain/user/service"
 	"github.com/juju/juju/environs/config"
 	envtools "github.com/juju/juju/environs/tools"
+	"github.com/juju/juju/internal/auth"
 	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/internal/docker/registry"
 	"github.com/juju/juju/internal/docker/registry/image"
@@ -180,10 +183,21 @@ func (s *clientWatchSuite) TestClientWatchAllReadPermission(c *gc.C) {
 	err = m.SetProvisioned("i-0", "", agent.BootstrapNonce, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
+	userService := s.ControllerServiceFactory(c).User()
+	userTag := names.NewUserTag("fred")
+	_, _, err = userService.AddUser(context.Background(), service.AddUserArg{
+		Name:        userTag.Name(),
+		DisplayName: "Fred Flintstone",
+		CreatorUUID: s.AdminUserUUID,
+		Password:    ptr(auth.NewPassword("ro-password")),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 	user := f.MakeUser(c, &factory.UserParams{
-		Password: "ro-password",
+		Name:   userTag.Name(),
+		Access: permission.ReadAccess,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	conn := s.OpenModelAPIAs(c, s.ControllerModelUUID(), user.UserTag(), "ro-password", "")

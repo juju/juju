@@ -52,6 +52,8 @@ import (
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/core/resources"
 	coretrace "github.com/juju/juju/core/trace"
+	coreuser "github.com/juju/juju/core/user"
+	userservice "github.com/juju/juju/domain/user/service"
 	controllermsg "github.com/juju/juju/internal/pubsub/controller"
 	"github.com/juju/juju/internal/resource"
 	"github.com/juju/juju/internal/servicefactory"
@@ -64,6 +66,23 @@ import (
 var logger = loggo.GetLogger("juju.apiserver")
 
 var defaultHTTPMethods = []string{"GET", "POST", "HEAD", "PUT", "DELETE", "OPTIONS"}
+
+// ControllerConfigService defines the methods required to get the controller
+// configuration.
+type ControllerConfigService interface {
+	ControllerConfig(context.Context) (controller.Config, error)
+}
+
+// UserService defines the methods required to get user details.
+type UserService interface {
+	// GetUserByName returns the user with the given name.
+	GetUserByName(context.Context, string) (coreuser.User, error)
+	// SetPasswordWithActivationKey will use the activation key from the user. To
+	// then apply the payload password. If the user does not exist an error that
+	// satisfies usererrors.NotFound will be return. If the nonce is not the
+	// correct length an error that satisfies errors.NotValid will be returned.
+	SetPasswordWithActivationKey(ctx context.Context, name string, nonce, box []byte) (userservice.Sealer, error)
+}
 
 // Server holds the server side of the API.
 type Server struct {

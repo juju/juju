@@ -450,6 +450,60 @@ func (s *stateSuite) TestGetUserByAuth(c *gc.C) {
 	c.Check(u.DisplayName, gc.Equals, "admin")
 	c.Check(u.CreatorUUID, gc.Equals, adminUUID)
 	c.Check(u.CreatedAt, gc.NotNil)
+	c.Check(u.Disabled, jc.IsFalse)
+}
+
+// TestGetUserByAuthWithInvalidSalt asserts that we correctly send an
+// unauthorized error if the user doesn't have a valid salt.
+func (s *stateSuite) TestGetUserByAuthWithInvalidSalt(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	// Add admin user.
+	adminUUID, err := user.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = st.AddUserWithPasswordHash(
+		context.Background(), adminUUID,
+		"admin", "admin",
+		adminUUID, "passwordHash", []byte{},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Get the user.
+	_, err = st.GetUserByAuth(context.Background(), "admin", auth.NewPassword("passwordHash"))
+	c.Assert(err, jc.ErrorIs, usererrors.Unauthorized)
+}
+
+// TestGetUserByAuthDisabled asserts that we can get a user by auth from the
+// database and has the correct disabled flag.
+func (s *stateSuite) TestGetUserByAuthDisabled(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	// Add admin user with password hash.
+	adminUUID, err := user.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+
+	salt, err := auth.NewSalt()
+	c.Assert(err, jc.ErrorIsNil)
+
+	passwordHash, err := auth.HashPassword(auth.NewPassword("password"), salt)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = st.AddUserWithPasswordHash(context.Background(), adminUUID, "admin", "admin", adminUUID, passwordHash, salt)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = st.DisableUserAuthentication(context.Background(), "admin")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Get the user.
+	u, err := st.GetUserByAuth(context.Background(), "admin", auth.NewPassword("password"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(u.Name, gc.Equals, "admin")
+	c.Check(u.DisplayName, gc.Equals, "admin")
+	c.Check(u.CreatorUUID, gc.Equals, adminUUID)
+	c.Check(u.CreatedAt, gc.NotNil)
+	c.Check(u.Disabled, jc.IsTrue)
 }
 
 // TestGetUserByAuthUnauthorized asserts that we get an error when we try to
@@ -479,14 +533,14 @@ func (s *stateSuite) TestGetUserByAuthUnauthorized(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, usererrors.Unauthorized)
 }
 
-// TestGetUserByAutUnexcitingUser asserts that we get an error when we try to
+// TestGetUserByAuthDoesNotExist asserts that we get an error when we try to
 // get a user by auth that does not exist.
-func (s *stateSuite) TestGetUserByAuthNotExtantUnauthorized(c *gc.C) {
+func (s *stateSuite) TestGetUserByAuthDoesNotExist(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	// Get the user.
 	_, err := st.GetUserByAuth(context.Background(), "admin", auth.NewPassword("password"))
-	c.Assert(err, jc.ErrorIs, usererrors.Unauthorized)
+	c.Assert(err, jc.ErrorIs, usererrors.NotFound)
 }
 
 // TestRemoveUser asserts that we can remove a user from the database.
@@ -691,6 +745,51 @@ WHERE user_uuid = ?
 	c.Assert(err, jc.ErrorIs, sql.ErrNoRows)
 }
 
+// TestSetPasswordHash asserts that we can set a password hash for a user twice.
+func (s *stateSuite) TestSetPasswordHashTwice(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	// Add admin user with activation key.
+	adminUUID, err := user.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+
+	newActivationKey, err := generateActivationKey()
+	c.Assert(err, jc.ErrorIsNil)
+	err = st.AddUserWithActivationKey(
+		context.Background(), adminUUID,
+		"admin", "admin",
+		adminUUID, newActivationKey,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	salt, err := auth.NewSalt()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Set password hash.
+	err = st.SetPasswordHash(context.Background(), "admin", "passwordHash", salt)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Set password hash again
+	err = st.SetPasswordHash(context.Background(), "admin", "passwordHashAgain", salt)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check that the password hash was set correctly.
+	db := s.DB()
+
+	row := db.QueryRow(`
+SELECT password_hash
+FROM user_password
+WHERE user_uuid = ?
+	`, adminUUID)
+	c.Assert(row.Err(), jc.ErrorIsNil)
+
+	var passwordHash string
+	err = row.Scan(&passwordHash)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(passwordHash, gc.Equals, "passwordHashAgain")
+}
+
 // TestAddUserWithPasswordHash asserts that we can add a user with a password
 // hash.
 func (s *stateSuite) TestAddUserWithPasswordHash(c *gc.C) {
@@ -767,20 +866,31 @@ func (s *stateSuite) TestAddUserWithActivationKey(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that the activation key was set correctly.
-	db := s.DB()
-
-	row := db.QueryRow(`
-SELECT activation_key
-FROM user_activation_key
-WHERE user_uuid = ?
-	`, adminUUID)
-	c.Assert(row.Err(), jc.ErrorIsNil)
-
-	var activationKey string
-	err = row.Scan(&activationKey)
+	activationKey, err := st.GetActivationKey(context.Background(), "admin")
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(activationKey, gc.Equals, string(adminActivationKey))
+	c.Check(activationKey, gc.DeepEquals, adminActivationKey)
+}
+
+// TestGetActivationKeyNotFound asserts that if we try to get an activation key
+// for a user that does not exist, we get an error.
+func (s *stateSuite) TestGetActivationKeyNotFound(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	// Add admin user.
+	adminUUID, err := user.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = st.AddUser(
+		context.Background(), adminUUID,
+		"admin", "admin",
+		adminUUID,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check that the activation key was set correctly.
+	_, err = st.GetActivationKey(context.Background(), "admin")
+	c.Assert(err, jc.ErrorIs, usererrors.ActivationKeyNotFound)
 }
 
 // TestAddUserWithActivationKeyWhichCreatorDoesNotExist asserts that we get an

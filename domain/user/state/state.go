@@ -212,7 +212,7 @@ AND user.removed = false
 		return user.UUID(""), errors.Trace(err)
 	}
 
-	var result = sqlair.M{}
+	result := sqlair.M{}
 	err = tx.Query(ctx, selectUserUUIDStmt, sqlair.M{"name": name}).Get(&result)
 	if errors.Is(err, sql.ErrNoRows) {
 		return user.UUID(""), fmt.Errorf(
@@ -238,9 +238,9 @@ AND user.removed = false
 	return user.UUID(result["userUUID"].(string)), nil
 }
 
-// GetUserByName will retrieve the user with authentication information (last login, disabled)
-// specified by name from the database. If the user does not exist an error that satisfies
-// usererrors.NotFound will be returned.
+// GetUserByName will retrieve the user with authentication information
+// (last login, disabled) specified by name from the database. If the user does
+// not exist an error that satisfies usererrors.NotFound will be returned.
 func (st *State) GetUserByName(ctx context.Context, name string) (user.User, error) {
 	db, err := st.DB()
 	if err != nil {
@@ -262,7 +262,7 @@ AND    removed = false`
 
 		var result User
 		err = tx.Query(ctx, selectGetUserByNameStmt, sqlair.M{"name": name}).Get(&result)
-		if err != nil && errors.Is(err, sql.ErrNoRows) {
+		if errors.Is(err, sql.ErrNoRows) {
 			return errors.Annotatef(usererrors.NotFound, "%q", name)
 		} else if err != nil {
 			return errors.Annotatef(err, "getting user with name %q", name)
@@ -281,36 +281,39 @@ AND    removed = false`
 
 // GetUserByAuth will retrieve the user with checking authentication
 // information specified by UUID and password from the database.
-// If the user does not exist or the user does not authenticate an
-// error that satisfies usererrors.Unauthorized will be returned.
+// If the user does not exist an error that satisfies usererrors.NotFound will
+// be returned, otherwise unauthorized will be returned.
 func (st *State) GetUserByAuth(ctx context.Context, name string, password auth.Password) (user.User, error) {
 	db, err := st.DB()
 	if err != nil {
 		return user.User{}, errors.Annotate(err, "getting DB access")
 	}
 
-	var result User
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		getUserWithAuthQuery := `
+	getUserWithAuthQuery := `
 SELECT (
-        user.uuid, user.name, user.display_name, user.created_by_uuid, user.created_at, 
-        user_password.password_hash, user_password.password_salt
-       ) AS (&User.*)
-FROM   user
-       LEFT JOIN user_password 
-       ON        user.uuid = user_password.user_uuid
+		user.uuid, user.name, user.display_name, user.created_by_uuid, user.created_at,
+		user.disabled,
+		user_password.password_hash, user_password.password_salt
+		) AS (&User.*)
+FROM   v_user_auth AS user
+		LEFT JOIN user_password 
+		ON        user.uuid = user_password.user_uuid
 WHERE  user.name = $M.name 
 AND    removed = false
-`
+	`
 
-		selectGetUserByAuthStmt, err := sqlair.Prepare(getUserWithAuthQuery, User{}, sqlair.M{})
-		if err != nil {
-			return errors.Annotate(err, "preparing select getUserWithAuth query")
-		}
+	selectGetUserByAuthStmt, err := sqlair.Prepare(getUserWithAuthQuery, User{}, sqlair.M{})
+	if err != nil {
+		return user.User{}, errors.Annotate(err, "preparing select getUserWithAuth query")
+	}
 
+	var result User
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err = tx.Query(ctx, selectGetUserByAuthStmt, sqlair.M{"name": name}).Get(&result)
-		if err != nil {
-			return errors.Annotatef(usererrors.Unauthorized, "%q", name)
+		if errors.Is(err, sql.ErrNoRows) {
+			return errors.Annotatef(usererrors.NotFound, "%q", name)
+		} else if err != nil {
+			return errors.Annotatef(err, "getting user with name %q", name)
 		}
 
 		return nil
@@ -320,7 +323,11 @@ AND    removed = false
 	}
 
 	passwordHash, err := auth.HashPassword(password, result.PasswordSalt)
-	if err != nil {
+	if errors.Is(err, errors.NotValid) {
+		// If the user has no salt, then they don't have a password correctly
+		// set. In this case, we should return an unauthorized error.
+		return user.User{}, errors.Annotatef(usererrors.Unauthorized, "%q", name)
+	} else if err != nil {
 		return user.User{}, errors.Annotatef(err, "hashing password for user with name %q", name)
 	} else if passwordHash != result.PasswordHash {
 		return user.User{}, errors.Annotatef(usererrors.Unauthorized, "%q", name)
@@ -420,6 +427,51 @@ func (st *State) SetActivationKey(ctx context.Context, name string, activationKe
 
 		return errors.Trace(setActivationKey(ctx, tx, name, activationKey))
 	})
+}
+
+// GetActivationKey retrieves the activation key for the user with the supplied
+// user name. If the user does not exist an error that satisfies
+// usererrors.NotFound will be returned.
+func (st *State) GetActivationKey(ctx context.Context, name string) ([]byte, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Annotate(err, "getting DB access")
+	}
+
+	uuidStmt, err := st.getActiveUUIDStmt()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	m := make(sqlair.M, 1)
+
+	selectKeyStmt, err := sqlair.Prepare("SELECT (*) AS (&ActivationKey.*) FROM user_activation_key WHERE user_uuid = $M.uuid", m, ActivationKey{})
+	if err != nil {
+		return nil, errors.Annotate(err, "preparing activation get query")
+	}
+
+	var key ActivationKey
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		uuid, err := st.uuidForName(ctx, tx, uuidStmt, name)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		if err := tx.Query(ctx, selectKeyStmt, sqlair.M{"uuid": uuid}).Get(&key); err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return errors.Annotatef(usererrors.ActivationKeyNotFound, "activation key for %q", name)
+			}
+			return errors.Annotatef(err, "selecting activation key for %q", name)
+		}
+		return errors.Trace(err)
+	})
+	if err != nil {
+		return nil, errors.Annotatef(err, "getting activation key for %q", name)
+	}
+	if len(key.ActivationKey) == 0 {
+		return nil, errors.Annotatef(usererrors.ActivationKeyNotValid, "activation key for %q", name)
+	}
+	return []byte(key.ActivationKey), nil
 }
 
 // SetPasswordHash removes any active activation keys and sets the user
@@ -702,7 +754,7 @@ INSERT INTO user_password (user_uuid, password_hash, password_salt)
     FROM   user
     WHERE  name = $M.name 
     AND    removed = false
-ON CONFLICT(user_uuid) DO NOTHING`
+ON CONFLICT(user_uuid) DO UPDATE SET password_hash = excluded.password_hash, password_salt = excluded.password_salt`
 
 	insertSetPasswordHashStmt, err := sqlair.Prepare(setPasswordHashQuery, sqlair.M{})
 	if err != nil {

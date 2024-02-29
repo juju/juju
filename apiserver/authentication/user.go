@@ -21,15 +21,58 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	coremacaroon "github.com/juju/juju/core/macaroon"
+	coreuser "github.com/juju/juju/core/user"
+	usererrors "github.com/juju/juju/domain/user/errors"
 	"github.com/juju/juju/state"
+)
+
+const (
+	// ErrInvalidLoginMacaroon is returned when a macaroon is not valid for
+	// a local login request.
+	ErrInvalidLoginMacaroon = errors.ConstError("invalid login macaroon")
 )
 
 var logger = loggo.GetLogger("juju.apiserver.authentication")
 
+// UserService is the interface that wraps the methods required to
+// authenticate a user.
+type UserService interface {
+	// GetUserByAuth returns the user with the given name and password.
+	GetUserByAuth(ctx context.Context, name, password string) (coreuser.User, error)
+	// GetUserByName returns the user with the given name.
+	GetUserByName(ctx context.Context, name string) (coreuser.User, error)
+}
+
+// Bakery defines the subset of bakery.Bakery that we require for authentication.
+type Bakery interface {
+	MacaroonMinter
+	MacaroonChecker
+}
+
+// MacaroonChecker exposes the methods needed from bakery.Checker.
+type MacaroonChecker interface {
+	Auth(ctx context.Context, mss ...macaroon.Slice) *bakery.AuthChecker
+}
+
+// MacaroonMinter exposes the methods needed from bakery.Oven.
+type MacaroonMinter interface {
+	NewMacaroon(ctx context.Context, version bakery.Version, caveats []checkers.Caveat, ops ...bakery.Op) (*bakery.Macaroon, error)
+}
+
+// ExpirableStorageBakery extends Bakery
+// with the ExpireStorageAfter method so that root keys are
+// removed from storage at that time.
+type ExpirableStorageBakery interface {
+	Bakery
+
+	// ExpireStorageAfter returns a new ExpirableStorageBakery with
+	// a store that will expire items added to it at the specified time.
+	ExpireStorageAfter(time.Duration) (ExpirableStorageBakery, error)
+}
+
 // LocalUserAuthenticator performs authentication for local users. If a password
 type LocalUserAuthenticator struct {
-	AgentAuthenticator
-
+	UserService UserService
 	// Bakery holds the bakery that is used to mint and verify macaroons.
 	Bakery ExpirableStorageBakery
 
@@ -68,8 +111,10 @@ var _ EntityAuthenticator = (*LocalUserAuthenticator)(nil)
 // If and only if no password is supplied, then Authenticate will check for any
 // valid macaroons. Otherwise, password authentication will be performed.
 func (u *LocalUserAuthenticator) Authenticate(
-	ctx context.Context, entityFinder EntityFinder, authParams AuthParams,
+	ctx context.Context, authParams AuthParams,
 ) (state.Entity, error) {
+	// We know this is a user tag and can be nothing but. With those assumptions
+	// made, we don't need a full AgentAuthenticator.
 	userTag, ok := authParams.AuthTag.(names.UserTag)
 	if !ok {
 		return nil, errors.Errorf("invalid request")
@@ -77,10 +122,199 @@ func (u *LocalUserAuthenticator) Authenticate(
 	if !userTag.IsLocal() {
 		return nil, errors.Errorf("invalid request - expected local user")
 	}
+
+	// Empty credentials, will attempt to authenticate with macaroons.
 	if authParams.Credentials == "" {
-		return u.authenticateMacaroons(ctx, entityFinder, userTag, authParams)
+		return u.authenticateMacaroons(ctx, userTag, authParams)
 	}
-	return u.AgentAuthenticator.Authenticate(ctx, entityFinder, authParams)
+
+	// We believe we've got a password, so we'll try to authenticate with it.
+	// This will check the user service for the user, ensuring that the user
+	// isn't disabled or deleted.
+	user, err := u.UserService.GetUserByAuth(ctx, userTag.Name(), authParams.Credentials)
+	if errors.Is(err, usererrors.NotFound) || errors.Is(err, usererrors.Unauthorized) {
+		logger.Debugf("user %s not found", userTag.String())
+		return nil, errors.Trace(apiservererrors.ErrUnauthorized)
+	} else if err != nil {
+		return nil, errors.Trace(err)
+	} else if user.Disabled {
+		return nil, errors.Trace(apiservererrors.ErrUnauthorized)
+	}
+
+	// StateEntity requires the user to be returned as a state.Entity.
+	return TaggedUser(user, userTag), nil
+}
+
+func (u *LocalUserAuthenticator) authenticateMacaroons(ctx context.Context, userTag names.UserTag, authParams AuthParams) (state.Entity, error) {
+	// Check for a valid request macaroon.
+	if logger.IsTraceEnabled() {
+		mac, _ := json.Marshal(authParams.Macaroons)
+		logger.Tracef("authentication macaroons for %s: %s", userTag, mac)
+	}
+
+	// Attempt to authenticate the user using the macaroons provided.
+	a := u.Bakery.Auth(ctx, authParams.Macaroons...)
+	macaroonAuthInfo, err := a.Allow(ctx, identchecker.LoginOp)
+	if err != nil {
+		return nil, u.handleDischargeRequiredError(ctx, userTag, authParams.BakeryVersion, err)
+	} else if macaroonAuthInfo != nil && len(macaroonAuthInfo.Conditions()) == 0 {
+		return nil, u.handleDischargeRequiredError(ctx, userTag, authParams.BakeryVersion, ErrInvalidLoginMacaroon)
+	}
+
+	logger.Tracef("authenticated conditions: %v", macaroonAuthInfo.Conditions())
+
+	// Locate the user name from the macaroon.
+	index := macaroonAuthInfo.OpIndexes[identchecker.LoginOp]
+	if index < 0 || index > len(macaroonAuthInfo.Macaroons) {
+		return nil, errors.Trace(apiservererrors.ErrUnauthorized)
+	}
+	loginMac := macaroonAuthInfo.Macaroons[index]
+	declared := checkers.InferDeclared(coremacaroon.MacaroonNamespace, loginMac)
+	username := declared[usernameKey]
+
+	// If the userTag id is not the same as the username, then the user is not
+	// authenticated.
+	if userTag.Id() != username {
+		return nil, apiservererrors.ErrPerm
+	}
+
+	// We've got a valid macaroon, so we can return the user.
+	user, err := u.UserService.GetUserByName(ctx, userTag.Name())
+	if errors.Is(err, usererrors.NotFound) || errors.Is(err, usererrors.Unauthorized) {
+		logger.Debugf("user %s not found", userTag.String())
+		return nil, errors.Trace(apiservererrors.ErrUnauthorized)
+	} else if err != nil {
+		return nil, errors.Trace(err)
+	} else if user.Disabled {
+		return nil, errors.Trace(apiservererrors.ErrUnauthorized)
+	}
+
+	// StateEntity requires the user to be returned as a state.Entity.
+	return TaggedUser(user, userTag), nil
+}
+
+func (u *LocalUserAuthenticator) handleDischargeRequiredError(ctx context.Context, userTag names.UserTag, bakeryVersion bakery.Version, cause error) error {
+	logger.Debugf("local-login macaroon authentication failed: %v", cause)
+
+	// The root keys for these macaroons are stored in MongoDB.
+	// Expire the documents after after a set amount of time.
+	expiryTime := u.Clock.Now().Add(localLoginExpiryTime)
+	bakery, err := u.Bakery.ExpireStorageAfter(localLoginExpiryTime)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// Make a new macaroon with a caveat for login operation.
+	macaroon, err := bakery.NewMacaroon(
+		ctx,
+		bakeryVersion,
+		[]checkers.Caveat{
+			checkers.TimeBeforeCaveat(expiryTime),
+			checkers.NeedDeclaredCaveat(
+				checkers.Caveat{
+					Location:  u.LocalUserIdentityLocation,
+					Condition: "is-authenticated-user " + userTag.Id(),
+				},
+				usernameKey,
+			),
+		},
+		identchecker.LoginOp,
+	)
+	if err != nil {
+		return errors.Annotate(err, "cannot create macaroon")
+	}
+
+	return &apiservererrors.DischargeRequiredError{
+		Cause:          cause,
+		LegacyMacaroon: macaroon.M(),
+		Macaroon:       macaroon,
+	}
+}
+
+// ExternalMacaroonAuthenticator performs authentication for external users using
+// macaroons. If the authentication fails because provided macaroons are invalid,
+// and macaroon authentiction is enabled, it will return a *apiservererrors.DischargeRequiredError
+// holding a macaroon to be discharged.
+type ExternalMacaroonAuthenticator struct {
+	// Bakery holds the bakery that is
+	// used to verify macaroon authorization.
+	Bakery *identchecker.Bakery
+
+	// IdentityLocation holds the URL of the trusted third party
+	// that is used to address the is-authenticated-user
+	// third party caveat to.
+	IdentityLocation string
+
+	// Clock is used to set macaroon expiry time.
+	Clock clock.Clock
+}
+
+var _ EntityAuthenticator = (*ExternalMacaroonAuthenticator)(nil)
+
+// Authenticate authenticates the provided entity. If there is no macaroon provided, it will
+// return a *DischargeRequiredError containing a macaroon that can be used to grant access.
+func (m *ExternalMacaroonAuthenticator) Authenticate(ctx context.Context, authParams AuthParams) (state.Entity, error) {
+	authChecker := m.Bakery.Checker.Auth(authParams.Macaroons...)
+	ai, identErr := authChecker.Allow(ctx, identchecker.LoginOp)
+	if de, ok := errors.Cause(identErr).(*bakery.DischargeRequiredError); ok {
+		if dcMac, err := m.Bakery.Oven.NewMacaroon(ctx, authParams.BakeryVersion, de.Caveats, de.Ops...); err != nil {
+			return nil, errors.Annotatef(err, "cannot create macaroon")
+		} else {
+			return nil, &apiservererrors.DischargeRequiredError{
+				Cause:    identErr,
+				Macaroon: dcMac,
+			}
+		}
+	}
+	if identErr != nil {
+		return nil, errors.Trace(identErr)
+	}
+	username := ai.Identity.Id()
+	logger.Debugf("authenticated external user %q", username)
+	var tag names.UserTag
+	if names.IsValidUserName(username) {
+		// The name is a local name without an explicit @local suffix.
+		// In this case, for compatibility with 3rd parties that don't
+		// care to add their own domain, we add an @external domain
+		// to ensure there is no confusion between local and external
+		// users.
+		// TODO(rog) remove this logic when deployed dischargers
+		// always add an @ domain.
+		tag = names.NewLocalUserTag(username).WithDomain("external")
+	} else {
+		// We have a name with an explicit domain (or an invalid user name).
+		if !names.IsValidUser(username) {
+			return nil, errors.Errorf("%q is an invalid user name", username)
+		}
+		tag = names.NewUserTag(username)
+		if tag.IsLocal() {
+			return nil, errors.Errorf("external identity provider has provided ostensibly local name %q", username)
+		}
+	}
+	return externalUser{tag: tag}, nil
+}
+
+// IdentityFromContext implements IdentityClient.IdentityFromContext.
+func (m *ExternalMacaroonAuthenticator) IdentityFromContext(ctx context.Context) (identchecker.Identity, []checkers.Caveat, error) {
+	expiryTime := m.Clock.Now().Add(externalLoginExpiryTime)
+	return nil, []checkers.Caveat{
+		checkers.TimeBeforeCaveat(expiryTime),
+		checkers.NeedDeclaredCaveat(
+			checkers.Caveat{
+				Location:  m.IdentityLocation,
+				Condition: "is-authenticated-user",
+			},
+			usernameKey,
+		),
+	}, nil
+}
+
+// DeclaredIdentity implements IdentityClient.DeclaredIdentity.
+func (ExternalMacaroonAuthenticator) DeclaredIdentity(ctx context.Context, declared map[string]string) (identchecker.Identity, error) {
+	if username, ok := declared[usernameKey]; ok {
+		return identchecker.SimpleIdentity(username), nil
+	}
+	return nil, errors.New("no identity declared")
 }
 
 // CreateLocalLoginMacaroon creates a macaroon that may be provided to a
@@ -102,7 +336,6 @@ func CreateLocalLoginMacaroon(
 		{Condition: "is-authenticated-user " + tag.Id()},
 		checkers.TimeBeforeCaveat(clock.Now().Add(LocalLoginInteractionTimeout)),
 	}, identchecker.LoginOp)
-
 }
 
 // CheckLocalLoginCaveat parses and checks that the given caveat string is
@@ -157,191 +390,4 @@ func DischargeCaveats(tag names.UserTag, clock clock.Clock) []checkers.Caveat {
 		checkers.TimeBeforeCaveat(clock.Now().Add(localLoginExpiryTime)),
 	}
 	return firstPartyCaveats
-}
-
-func (u *LocalUserAuthenticator) authenticateMacaroons(
-	ctx context.Context, entityFinder EntityFinder, tag names.UserTag, authParams AuthParams,
-) (state.Entity, error) {
-	// Check for a valid request macaroon.
-	if logger.IsTraceEnabled() {
-		mac, _ := json.Marshal(authParams.Macaroons)
-		logger.Tracef("authentication macaroons for %s: %s", tag, mac)
-	}
-	a := u.Bakery.Auth(ctx, authParams.Macaroons...)
-	ai, err := a.Allow(ctx, identchecker.LoginOp)
-	if err == nil {
-		logger.Tracef("authenticated conditions: %v", ai.Conditions())
-	}
-	if err != nil || len(ai.Conditions()) == 0 {
-		logger.Debugf("local-login macaroon authentication failed: %v", err)
-		cause := err
-		if cause == nil {
-			cause = errors.New("invalid login macaroon")
-		}
-		// The root keys for these macaroons are stored in MongoDB.
-		// Expire the documents after after a set amount of time.
-		expiryTime := u.Clock.Now().Add(localLoginExpiryTime)
-		bakery, err := u.Bakery.ExpireStorageAfter(localLoginExpiryTime)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-
-		m, err := bakery.NewMacaroon(
-			ctx,
-			authParams.BakeryVersion,
-			[]checkers.Caveat{
-				checkers.TimeBeforeCaveat(expiryTime),
-				checkers.NeedDeclaredCaveat(
-					checkers.Caveat{
-						Location:  u.LocalUserIdentityLocation,
-						Condition: "is-authenticated-user " + tag.Id(),
-					},
-					usernameKey,
-				),
-			}, identchecker.LoginOp)
-
-		if err != nil {
-			return nil, errors.Annotate(err, "cannot create macaroon")
-		}
-		return nil, &apiservererrors.DischargeRequiredError{
-			Cause:          cause,
-			LegacyMacaroon: m.M(),
-			Macaroon:       m,
-		}
-	}
-	loginMac := ai.Macaroons[ai.OpIndexes[identchecker.LoginOp]]
-	declared := checkers.InferDeclared(coremacaroon.MacaroonNamespace, loginMac)
-	username := declared[usernameKey]
-	if tag.Id() != username {
-		return nil, apiservererrors.ErrPerm
-	}
-	entity, err := entityFinder.FindEntity(tag)
-	if errors.Is(err, errors.NotFound) {
-		logger.Debugf("entity %s not found", tag.String())
-		return nil, errors.Trace(apiservererrors.ErrBadCreds)
-	} else if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return entity, nil
-}
-
-// ExternalMacaroonAuthenticator performs authentication for external users using
-// macaroons. If the authentication fails because provided macaroons are invalid,
-// and macaroon authentiction is enabled, it will return a *apiservererrors.DischargeRequiredError
-// holding a macaroon to be discharged.
-type ExternalMacaroonAuthenticator struct {
-	// Bakery holds the bakery that is
-	// used to verify macaroon authorization.
-	Bakery *identchecker.Bakery
-
-	// IdentityLocation holds the URL of the trusted third party
-	// that is used to address the is-authenticated-user
-	// third party caveat to.
-	IdentityLocation string
-
-	// Clock is used to set macaroon expiry time.
-	Clock clock.Clock
-}
-
-var _ EntityAuthenticator = (*ExternalMacaroonAuthenticator)(nil)
-
-// Authenticate authenticates the provided entity. If there is no macaroon provided, it will
-// return a *DischargeRequiredError containing a macaroon that can be used to grant access.
-func (m *ExternalMacaroonAuthenticator) Authenticate(ctx context.Context, _ EntityFinder, authParams AuthParams) (state.Entity, error) {
-	authChecker := m.Bakery.Checker.Auth(authParams.Macaroons...)
-	ai, identErr := authChecker.Allow(ctx, identchecker.LoginOp)
-	if de, ok := errors.Cause(identErr).(*bakery.DischargeRequiredError); ok {
-		if dcMac, err := m.Bakery.Oven.NewMacaroon(ctx, authParams.BakeryVersion, de.Caveats, de.Ops...); err != nil {
-			return nil, errors.Annotatef(err, "cannot create macaroon")
-		} else {
-			return nil, &apiservererrors.DischargeRequiredError{
-				Cause:    identErr,
-				Macaroon: dcMac,
-			}
-		}
-	}
-	if identErr != nil {
-		return nil, errors.Trace(identErr)
-	}
-	username := ai.Identity.Id()
-	logger.Debugf("authenticated external user %q", username)
-	var tag names.UserTag
-	if names.IsValidUserName(username) {
-		// The name is a local name without an explicit @local suffix.
-		// In this case, for compatibility with 3rd parties that don't
-		// care to add their own domain, we add an @external domain
-		// to ensure there is no confusion between local and external
-		// users.
-		// TODO(rog) remove this logic when deployed dischargers
-		// always add an @ domain.
-		tag = names.NewLocalUserTag(username).WithDomain("external")
-	} else {
-		// We have a name with an explicit domain (or an invalid user name).
-		if !names.IsValidUser(username) {
-			return nil, errors.Errorf("%q is an invalid user name", username)
-		}
-		tag = names.NewUserTag(username)
-		if tag.IsLocal() {
-			return nil, errors.Errorf("external identity provider has provided ostensibly local name %q", username)
-		}
-	}
-	return externalUser{tag}, nil
-}
-
-type externalUser struct {
-	tag names.Tag
-}
-
-func (e externalUser) Tag() names.Tag {
-	return e.tag
-}
-
-// IdentityFromContext implements IdentityClient.IdentityFromContext.
-func (m *ExternalMacaroonAuthenticator) IdentityFromContext(ctx context.Context) (identchecker.Identity, []checkers.Caveat, error) {
-	expiryTime := m.Clock.Now().Add(externalLoginExpiryTime)
-	return nil, []checkers.Caveat{
-		checkers.TimeBeforeCaveat(expiryTime),
-		checkers.NeedDeclaredCaveat(
-			checkers.Caveat{
-				Location:  m.IdentityLocation,
-				Condition: "is-authenticated-user",
-			},
-			usernameKey,
-		),
-	}, nil
-}
-
-// DeclaredIdentity implements IdentityClient.DeclaredIdentity.
-func (ExternalMacaroonAuthenticator) DeclaredIdentity(ctx context.Context, declared map[string]string) (identchecker.Identity, error) {
-	if username, ok := declared[usernameKey]; ok {
-		return identchecker.SimpleIdentity(username), nil
-	}
-	return nil, errors.New("no identity declared")
-}
-
-// Bakery defines the subset of bakery.Bakery that we require for authentication.
-type Bakery interface {
-	MacaroonMinter
-	MacaroonChecker
-}
-
-// MacaroonChecker exposes the methods needed from bakery.Checker.
-type MacaroonChecker interface {
-	Auth(ctx context.Context, mss ...macaroon.Slice) *bakery.AuthChecker
-}
-
-// MacaroonMinter exposes the methods needed from bakery.Oven.
-type MacaroonMinter interface {
-	NewMacaroon(ctx context.Context, version bakery.Version, caveats []checkers.Caveat, ops ...bakery.Op) (*bakery.Macaroon, error)
-}
-
-// ExpirableStorageBakery extends Bakery
-// with the ExpireStorageAfter method so that root keys are
-// removed from storage at that time.
-type ExpirableStorageBakery interface {
-	Bakery
-
-	// ExpireStorageAfter returns a new ExpirableStorageBakery with
-	// a store that will expire items added to it at the specified time.
-	ExpireStorageAfter(time.Duration) (ExpirableStorageBakery, error)
 }

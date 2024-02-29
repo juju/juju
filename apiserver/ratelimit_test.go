@@ -4,14 +4,18 @@
 package apiserver_test
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/clock/testclock"
+	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
 	corecontroller "github.com/juju/juju/controller"
+	"github.com/juju/juju/domain/user/service"
+	"github.com/juju/juju/internal/auth"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
@@ -29,37 +33,6 @@ func (s *rateLimitSuite) SetUpTest(c *gc.C) {
 		corecontroller.AgentRateLimitRate: (60 * time.Second).String(),
 	}
 	s.ApiServerSuite.SetUpTest(c)
-}
-
-func (s *rateLimitSuite) infoForNewMachine(c *gc.C, info *api.Info) *api.Info {
-	// Make a copy
-	newInfo := *info
-
-	f, release := s.NewFactory(c, info.ModelTag.Id())
-	defer release()
-	machine, password := f.MakeMachineReturningPassword(
-		c, &factory.MachineParams{Nonce: "fake_nonce"})
-
-	newInfo.Tag = machine.Tag()
-	newInfo.Password = password
-	newInfo.Nonce = "fake_nonce"
-	return &newInfo
-}
-
-func (s *rateLimitSuite) infoForNewUser(c *gc.C, info *api.Info) *api.Info {
-	// Make a copy
-	newInfo := *info
-
-	f, release := s.NewFactory(c, info.ModelTag.Id())
-	defer release()
-	password := "shhh..."
-	user := f.MakeUser(c, &factory.UserParams{
-		Password: password,
-	})
-
-	newInfo.Tag = user.Tag()
-	newInfo.Password = password
-	return &newInfo
 }
 
 func (s *rateLimitSuite) TestRateLimitAgents(c *gc.C) {
@@ -102,13 +75,54 @@ func (s *rateLimitSuite) TestRateLimitNotApplicableToUsers(c *gc.C) {
 	defer conn1.Close()
 
 	// User connections are fine.
-	user := s.infoForNewUser(c, info)
+	user := s.infoForNewUser(c, info, "fredrikthordendal")
 	conn2, err := api.Open(user, fastDialOpts)
 	c.Assert(err, jc.ErrorIsNil)
 	defer conn2.Close()
 
-	user2 := s.infoForNewUser(c, info)
+	user2 := s.infoForNewUser(c, info, "jenskidman")
 	conn3, err := api.Open(user2, fastDialOpts)
 	c.Assert(err, jc.ErrorIsNil)
 	defer conn3.Close()
+}
+
+func (s *rateLimitSuite) infoForNewMachine(c *gc.C, info *api.Info) *api.Info {
+	// Make a copy
+	newInfo := *info
+
+	f, release := s.NewFactory(c, info.ModelTag.Id())
+	defer release()
+	machine, password := f.MakeMachineReturningPassword(
+		c, &factory.MachineParams{Nonce: "fake_nonce"})
+
+	newInfo.Tag = machine.Tag()
+	newInfo.Password = password
+	newInfo.Nonce = "fake_nonce"
+	return &newInfo
+}
+
+func (s *rateLimitSuite) infoForNewUser(c *gc.C, info *api.Info, name string) *api.Info {
+	// Make a copy
+	newInfo := *info
+
+	userService := s.ControllerServiceFactory(c).User()
+	userTag := names.NewUserTag(name)
+	_, _, err := userService.AddUser(context.Background(), service.AddUserArg{
+		Name:        userTag.Name(),
+		CreatorUUID: s.AdminUserUUID,
+		Password:    ptr(auth.NewPassword("hunter2")),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// TODO (stickupkid): Permissions: This is only required to insert admin
+	// permissions into the state, remove when permissions are written to state.
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+	f.MakeUser(c, &factory.UserParams{
+		Name: userTag.Name(),
+	})
+
+	newInfo.Tag = userTag
+	newInfo.Password = "hunter2"
+	return &newInfo
 }
