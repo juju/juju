@@ -106,6 +106,8 @@ func run(c *gc.C, sockPath sockets.Socket, contextId string, exit int, stdin []b
 		fmt.Sprintf("JUJU_AGENT_SOCKET_ADDRESS=%s", sockPath.Address),
 		fmt.Sprintf("JUJU_AGENT_SOCKET_NETWORK=%s", sockPath.Network),
 		fmt.Sprintf("JUJU_CONTEXT_ID=%s", contextId),
+		// See: https://go.dev/doc/build-cover
+		fmt.Sprintf("GOCOVERDIR=%s", ps.Dir),
 		// Code that imports github.com/juju/juju/testing needs to
 		// be able to find that module at runtime (via build.Import),
 		// so we have to preserve that env variable.
@@ -225,5 +227,5 @@ func (s *HookToolMainSuite) TestStdin(c *gc.C) {
 		c.Skip("issue 1403084: test panics on CryptAcquireContext on windows")
 	}
 	output := run(c, s.sockPath, "bill", 0, []byte("some standard input"), "remote")
-	c.Assert(output, gc.Equals, "some standard input")
+	c.Assert(output, jc.Contains, "some standard input")
 }
