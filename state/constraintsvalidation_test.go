@@ -166,7 +166,7 @@ var setConstraintsTests = []struct {
 	effectiveMachineCons:     "cpu-power= tags= spaces=bar",
 }, {
 	about:        "container type can only be used for deployment, not provisioning",
-	consToSet:    "container=kvm arch=amd64",
+	consToSet:    "container=lxd arch=amd64",
 	consFallback: "container=lxd mem=8G",
 
 	// application deployment constraints are transformed into machine
@@ -175,33 +175,33 @@ var setConstraintsTests = []struct {
 	// when merging application/model deployment constraints into
 	// effective machine provisioning constraints.
 	effectiveModelCons:       "container=lxd mem=8G",
-	effectiveApplicationCons: "container=kvm arch=amd64",
-	effectiveUnitCons:        "container=kvm mem=8G arch=amd64",
+	effectiveApplicationCons: "container=lxd arch=amd64",
+	effectiveUnitCons:        "container=lxd mem=8G arch=amd64",
 	effectiveMachineCons:     "mem=8G arch=amd64",
 }, {
 	about:        "specify image virt-type when deploying applications on multi-hypervisor aware openstack",
-	consToSet:    "virt-type=kvm",
+	consToSet:    "virt-type=lxd",
 	consFallback: "",
 
 	// application deployment constraints are transformed into machine
 	// provisioning constraints. Unit constraints must also have virt-type set
 	// to ensure consistency in scalability.
 	effectiveModelCons:       "",
-	effectiveApplicationCons: "virt-type=kvm",
-	effectiveUnitCons:        "arch=amd64 virt-type=kvm",
-	effectiveMachineCons:     "virt-type=kvm",
+	effectiveApplicationCons: "virt-type=lxd",
+	effectiveUnitCons:        "arch=amd64 virt-type=lxd",
+	effectiveMachineCons:     "virt-type=lxd",
 }, {
 	about:        "ensure model and application constraints are separate",
-	consToSet:    "virt-type=kvm",
+	consToSet:    "virt-type=lxd",
 	consFallback: "mem=2G",
 
 	// application deployment constraints are transformed into machine
 	// provisioning constraints. Unit constraints must also have virt-type set
 	// to ensure consistency in scalability.
 	effectiveModelCons:       "mem=2G",
-	effectiveApplicationCons: "virt-type=kvm",
-	effectiveUnitCons:        "arch=amd64 mem=2G virt-type=kvm",
-	effectiveMachineCons:     "mem=2G virt-type=kvm",
+	effectiveApplicationCons: "virt-type=lxd",
+	effectiveUnitCons:        "arch=amd64 mem=2G virt-type=lxd",
+	effectiveMachineCons:     "mem=2G virt-type=lxd",
 }}
 
 func (s *constraintsValidationSuite) TestMachineConstraints(c *gc.C) {
@@ -275,7 +275,7 @@ func (s *applicationConstraintsSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
 	s.policy.GetConstraintsValidator = func() (constraints.Validator, error) {
 		validator := constraints.NewValidator()
-		validator.RegisterVocabulary(constraints.VirtType, []string{"kvm"})
+		validator.RegisterVocabulary(constraints.VirtType, []string{"lxd"})
 		return validator, nil
 	}
 	s.applicationName = "wordpress"
@@ -293,11 +293,11 @@ func (s *applicationConstraintsSuite) TestAddApplicationInvalidConstraints(c *gc
 		Charm:       s.testCharm,
 		Constraints: cons,
 	}, state.NewObjectStore(c, s.State.ModelUUID()))
-	c.Assert(errors.Cause(err), gc.ErrorMatches, regexp.QuoteMeta("invalid constraint value: virt-type=blah\nvalid values are: [kvm]"))
+	c.Assert(errors.Cause(err), gc.ErrorMatches, regexp.QuoteMeta("invalid constraint value: virt-type=blah\nvalid values are: [lxd]"))
 }
 
 func (s *applicationConstraintsSuite) TestAddApplicationValidConstraints(c *gc.C) {
-	cons := constraints.MustParse("virt-type=kvm")
+	cons := constraints.MustParse("virt-type=lxd")
 	application, err := s.State.AddApplication(defaultInstancePrechecker, state.AddApplicationArgs{
 		Name: s.applicationName,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{

@@ -27,9 +27,6 @@ func (*factorySuite) TestNewContainerManager(c *gc.C) {
 		containerType: instance.LXD,
 		valid:         true,
 	}, {
-		containerType: instance.KVM,
-		valid:         true,
-	}, {
 		containerType: instance.NONE,
 		valid:         false,
 	}, {

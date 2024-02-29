@@ -57,7 +57,6 @@ import (
 	"github.com/juju/juju/internal/charmhub"
 	"github.com/juju/juju/internal/container"
 	"github.com/juju/juju/internal/container/broker"
-	"github.com/juju/juju/internal/container/kvm"
 	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/internal/mongo/mongometrics"
 	"github.com/juju/juju/internal/pki"
@@ -763,13 +762,6 @@ func (a *MachineAgent) setupContainerSupport(ctx stdcontext.Context, st api.Conn
 		supportedContainers = append(supportedContainers, instance.LXD)
 	}
 
-	supportsKvm, err := kvm.IsKVMSupported()
-	if err != nil {
-		logger.Warningf("determining kvm support: %v\nno kvm containers possible", err)
-	}
-	if err == nil && supportsKvm {
-		supportedContainers = append(supportedContainers, instance.KVM)
-	}
 	logger.Debugf("Supported container types %q", supportedContainers)
 
 	if len(supportedContainers) == 0 {

@@ -73,9 +73,6 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 				"10.0.4.1",
 				"10.0.4.4",
 			}, nil
-		} else if name == network.DefaultKVMBridge {
-			// claim we don't have a virbr0 bridge
-			return nil, nil
 		}
 		c.Fatalf("unknown bridge in testing: %v", name)
 		return nil, nil

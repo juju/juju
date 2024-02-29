@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/container"
 	"github.com/juju/juju/internal/container/broker"
-	"github.com/juju/juju/internal/container/kvm"
 	"github.com/juju/juju/internal/container/lxd"
 	workercommon "github.com/juju/juju/internal/worker/common"
 	"github.com/juju/juju/rpc/params"
@@ -94,11 +93,14 @@ func (cs *ContainerSetup) initContainerDependencies(abort <-chan struct{}, manag
 	snapChannels := map[string]string{
 		"lxd": managerCfg.PopValue(config.LXDSnapChannel),
 	}
-	initialiser := getContainerInitialiser(
+	initialiser, err := getContainerInitialiser(
 		cs.containerType,
 		snapChannels,
 		managerCfg.PopValue(config.ContainerNetworkingMethod),
 	)
+	if err != nil {
+		return errors.Annotate(err, "initialising container infrastructure on host machine")
+	}
 
 	releaser, err := cs.acquireLock(abort, fmt.Sprintf("%s container initialisation", cs.containerType))
 	if err != nil {
@@ -145,12 +147,11 @@ var getContainerInitialiser = func(
 	ct instance.ContainerType,
 	snapChannels map[string]string,
 	containerNetworkingMethod string,
-) container.Initialiser {
-
-	if ct == instance.LXD {
-		return lxd.NewContainerInitialiser(snapChannels["lxd"], containerNetworkingMethod)
+) (container.Initialiser, error) {
+	if ct != instance.LXD {
+		return nil, errors.NotSupportedf("container type %q", ct)
 	}
-	return kvm.NewContainerInitialiser()
+	return lxd.NewContainerInitialiser(snapChannels["lxd"], containerNetworkingMethod), nil
 }
 
 func (cs *ContainerSetup) initialiseContainerProvisioner() (Provisioner, error) {

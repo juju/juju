@@ -15,8 +15,6 @@ import (
 
 	"github.com/juju/juju/apiserver/facades/agent/upgradesteps"
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	jujutesting "github.com/juju/juju/testing"
@@ -31,78 +29,6 @@ type upgradeStepsSuite struct {
 	resources        *MockResources
 	state            *MockUpgradeStepsState
 	ctrlConfigGetter *MockControllerConfigGetter
-}
-
-type machineUpgradeStepsSuite struct {
-	upgradeStepsSuite
-
-	tag     names.Tag
-	arg     params.Entity
-	machine *MockMachine
-}
-
-var _ = gc.Suite(&machineUpgradeStepsSuite{})
-
-func (s *machineUpgradeStepsSuite) SetUpTest(c *gc.C) {
-	s.tag = names.NewMachineTag("0/kvm/0")
-	s.arg = params.Entity{Tag: s.tag.String()}
-	s.BaseSuite.SetUpTest(c)
-}
-
-func (s *machineUpgradeStepsSuite) TestResetKVMMachineModificationStatusIdle(c *gc.C) {
-	defer s.setup(c).Finish()
-
-	s.expectContainerType(instance.KVM)
-	s.expectModificationStatus(status.Error)
-	s.expectSetModificationStatus(nil)
-
-	s.setupFacadeAPI(c)
-
-	result, err := s.api.ResetKVMMachineModificationStatusIdle(context.Background(), s.arg)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.ErrorResult{})
-}
-
-func (s *machineUpgradeStepsSuite) TestResetKVMMachineModificationStatusIdleSetError(c *gc.C) {
-	defer s.setup(c).Finish()
-
-	s.expectContainerType(instance.KVM)
-	s.expectModificationStatus(status.Error)
-	s.expectSetModificationStatus(errors.NotFoundf("testing"))
-
-	s.setupFacadeAPI(c)
-
-	result, err := s.api.ResetKVMMachineModificationStatusIdle(context.Background(), s.arg)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.ErrorResult{
-		Error: &params.Error{
-			Message: "testing not found",
-			Code:    "not found",
-		},
-	})
-}
-
-func (s *machineUpgradeStepsSuite) TestResetKVMMachineModificationStatusIdleKVMIdle(c *gc.C) {
-	defer s.setup(c).Finish()
-
-	s.expectContainerType(instance.KVM)
-	s.expectModificationStatus(status.Idle)
-
-	s.setupFacadeAPI(c)
-
-	_, err := s.api.ResetKVMMachineModificationStatusIdle(context.Background(), s.arg)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *machineUpgradeStepsSuite) TestResetKVMMachineModificationStatusIdleLXD(c *gc.C) {
-	defer s.setup(c).Finish()
-
-	s.expectContainerType(instance.LXD)
-
-	s.setupFacadeAPI(c)
-
-	_, err := s.api.ResetKVMMachineModificationStatusIdle(context.Background(), s.arg)
-	c.Assert(err, jc.ErrorIsNil)
 }
 
 type unitUpgradeStepsSuite struct {
@@ -198,49 +124,6 @@ func (s *upgradeStepsSuite) setupFacadeAPI(c *gc.C) {
 	s.api = api
 }
 
-func (s *machineUpgradeStepsSuite) setup(c *gc.C) *gomock.Controller {
-	ctlr := s.upgradeStepsSuite.setup(c)
-	s.machine = NewMockMachine(ctlr)
-
-	s.expectAuthCalls()
-	s.expectFindEntityMachine()
-
-	return ctlr
-}
-
-func (s *machineUpgradeStepsSuite) expectAuthCalls() {
-	s.upgradeStepsSuite.expectAuthCalls()
-	aExp := s.authorizer.EXPECT()
-	aExp.GetAuthTag().Return(s.tag).AnyTimes()
-}
-
-func (s *machineUpgradeStepsSuite) expectFindEntityMachine() {
-	mEntity := machineEntityShim{
-		Machine: s.machine,
-		Entity:  s.entity,
-	}
-	s.state.EXPECT().FindEntity(s.tag.(names.MachineTag)).Return(mEntity, nil)
-}
-
-func (s *machineUpgradeStepsSuite) expectContainerType(cType instance.ContainerType) {
-	mExp := s.machine.EXPECT()
-	mExp.ContainerType().Return(cType)
-}
-
-func (s *machineUpgradeStepsSuite) expectModificationStatus(sValue status.Status) {
-	mExp := s.machine.EXPECT()
-	mExp.ModificationStatus().Return(status.StatusInfo{Status: sValue}, nil)
-}
-
-func (s *machineUpgradeStepsSuite) expectSetModificationStatus(err error) {
-	mExp := s.machine.EXPECT()
-	mExp.SetModificationStatus(status.StatusInfo{
-		Status:  status.Idle,
-		Message: "",
-		Data:    nil,
-	}).Return(err)
-}
-
 func (s *unitUpgradeStepsSuite) setup(c *gc.C) *gomock.Controller {
 	ctlr := s.upgradeStepsSuite.setup(c)
 	s.unit1 = NewMockUnit(ctlr)
@@ -299,11 +182,6 @@ func (s *unitUpgradeStepsSuite) expectSetAndApplyStateOperation(err1, err2 error
 	op2 := dummyOp{}
 	s.unit2.EXPECT().SetStateOperation(us, expLimits).Return(op2)
 	s.state.EXPECT().ApplyOperation(op2).Return(err2)
-}
-
-type machineEntityShim struct {
-	upgradesteps.Machine
-	state.Entity
 }
 
 type unitEntityShim struct {

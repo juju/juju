@@ -1869,7 +1869,7 @@ func (s *environSuite) TestStopInstancesDeploymentNotFound(c *gc.C) {
 func (s *environSuite) TestConstraintsValidatorUnsupported(c *gc.C) {
 	validator := s.constraintsValidator(c)
 	unsupported, err := validator.Validate(constraints.MustParse(
-		"arch=amd64 tags=foo cpu-power=100 virt-type=kvm",
+		"arch=amd64 tags=foo cpu-power=100 virt-type=lxd",
 	))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unsupported, jc.SameContents, []string{"tags", "cpu-power", "virt-type"})

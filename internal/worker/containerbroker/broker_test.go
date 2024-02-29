@@ -212,18 +212,6 @@ func (s *trackerSuite) TestNewTrackerWithNoDeterminedContainers(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "no container types determined")
 }
 
-func (s *trackerSuite) TestNewTrackerWithKVMContainers(c *gc.C) {
-	defer s.setup(c).Finish()
-
-	_, err := s.withScenario(c,
-		nil,
-		s.expectMachineTag,
-		s.expectMachines,
-		s.expectKVMSupportedContainers,
-	)
-	c.Assert(err, gc.ErrorMatches, "resource permanently unavailable")
-}
-
 func (s *trackerSuite) withScenario(c *gc.C, expected *broker.Config, behaviours ...func()) (*containerbroker.Tracker, error) {
 	for _, b := range behaviours {
 		b()
@@ -283,12 +271,6 @@ func (s *trackerSuite) expectNoDeterminedSupportedContainers() {
 	s.machine.EXPECT().SupportedContainers().Return([]instance.ContainerType{
 		instance.LXD,
 	}, false, nil)
-}
-
-func (s *trackerSuite) expectKVMSupportedContainers() {
-	s.machine.EXPECT().SupportedContainers().Return([]instance.ContainerType{
-		instance.KVM,
-	}, true, nil)
 }
 
 func (s *trackerSuite) expectContainerConfig() {

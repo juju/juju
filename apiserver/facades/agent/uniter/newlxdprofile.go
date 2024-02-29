@@ -301,9 +301,6 @@ func (u *LXDProfileAPIv2) getOneCanApplyLXDProfile(machine LXDProfileMachineV2, 
 		return true, nil
 	}
 	switch machine.ContainerType() {
-	case instance.KVM:
-		// charm profiles cannot be applied to KVM containers.
-		return false, nil
 	case instance.LXD:
 		return true, nil
 	}

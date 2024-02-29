@@ -83,13 +83,13 @@ func (m *mutater) startMachines(ctx context.Context, tags []names.MachineTag) er
 			}
 			id := api.Tag().Id()
 
-			// Ensure we do not watch any KVM containers.
+			// Ensure we do not watch any containers that aren't LXD.
 			containerType, err := api.ContainerType(ctx)
 			if err != nil {
 				return errors.Trace(err)
 			}
-			if containerType == instance.KVM {
-				m.logger.Tracef("ignoring KVM container machine-%s", id)
+			if containerType != instance.LXD {
+				m.logger.Tracef("ignoring %q container machine-%s", containerType, id)
 				continue
 			}
 

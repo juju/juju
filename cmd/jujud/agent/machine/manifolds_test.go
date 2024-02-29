@@ -76,7 +76,6 @@ func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *gc.C) {
 			"fan-configurer",
 			"host-key-reporter",
 			"instance-mutater",
-			"kvm-container-provisioner",
 			"log-sender",
 			"logging-config-updater",
 			"lxd-container-provisioner",
@@ -527,18 +526,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 	},
 
 	"lxd-container-provisioner": {
-		"agent",
-		"api-caller",
-		"api-config-watcher",
-		"migration-fortress",
-		"migration-inactive-flag",
-		"upgrade-check-flag",
-		"upgrade-check-gate",
-		"upgrade-steps-flag",
-		"upgrade-steps-gate",
-	},
-
-	"kvm-container-provisioner": {
 		"agent",
 		"api-caller",
 		"api-config-watcher",

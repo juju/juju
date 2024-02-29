@@ -102,7 +102,7 @@ func (s *rebootSuite) SetUpTest(c *gc.C) {
 	container, err := st.AddMachineInsideMachine(template, machine.Id(), instance.LXD)
 	c.Assert(err, jc.ErrorIsNil)
 
-	nestedContainer, err := st.AddMachineInsideMachine(template, container.Id(), instance.KVM)
+	nestedContainer, err := st.AddMachineInsideMachine(template, container.Id(), instance.LXD)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.machine = s.setUpMachine(c, machine)

@@ -45811,7 +45811,7 @@
     {
         "Name": "UpgradeSteps",
         "Description": "UpgradeStepsAPI implements version 2 of the Upgrade Steps API,\nwhich adds WriteUniterState.",
-        "Version": 2,
+        "Version": 3,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
@@ -45821,18 +45821,6 @@
         "Schema": {
             "type": "object",
             "properties": {
-                "ResetKVMMachineModificationStatusIdle": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/Entity"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/ErrorResult"
-                        }
-                    },
-                    "description": "ResetKVMMachineModificationStatusIdle sets the modification status\nof a kvm machine to idle if it is in an error state before upgrade.\nRelated to lp:1829393."
-                },
                 "WriteAgentState": {
                     "type": "object",
                     "properties": {
@@ -45847,18 +45835,6 @@
                 }
             },
             "definitions": {
-                "Entity": {
-                    "type": "object",
-                    "properties": {
-                        "tag": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "tag"
-                    ]
-                },
                 "Error": {
                     "type": "object",
                     "properties": {

@@ -36,13 +36,6 @@ func (s *PlacementSuite) TestParsePlacement(c *gc.C) {
 		arg: "lxd:x",
 		err: `invalid value "x" for "lxd" scope: expected machine-id`,
 	}, {
-		arg: "kvm:x",
-		err: `invalid value "x" for "kvm" scope: expected machine-id`,
-	}, {
-		arg:             "kvm:123",
-		expectScope:     string(instance.KVM),
-		expectDirective: "123",
-	}, {
 		arg:         "lxd",
 		expectScope: string(instance.LXD),
 	}, {

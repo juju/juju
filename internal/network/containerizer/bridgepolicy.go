@@ -13,7 +13,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
 
-	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/network"
@@ -24,7 +23,6 @@ var logger = loggo.GetLogger("juju.network.containerizer")
 
 var skippedDeviceNames = set.NewStrings(
 	network.DefaultLXDBridge,
-	network.DefaultKVMBridge,
 )
 
 // namedNICsBySpace is a type alias for a map of link-layer devices
@@ -529,9 +527,6 @@ func (p *BridgePolicy) PopulateContainerLinkLayerDevices(
 		p.containerNetworkingMethod == "local" {
 
 		localBridgeName := network.DefaultLXDBridge
-		if guest.ContainerType() == instance.KVM {
-			localBridgeName = network.DefaultKVMBridge
-		}
 
 		for _, hostDevice := range devicesPerSpace[corenetwork.AlphaSpaceId] {
 			name := hostDevice.Name()

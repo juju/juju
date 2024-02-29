@@ -53,10 +53,6 @@ func (s *containerSetupSuite) SetUpTest(c *gc.C) {
 
 var _ = gc.Suite(&containerSetupSuite{})
 
-func (s *containerSetupSuite) TestInitialiseContainersKVM(c *gc.C) {
-	s.testInitialiseContainers(c, instance.KVM)
-}
-
 func (s *containerSetupSuite) TestInitialiseContainersLXD(c *gc.C) {
 	s.testInitialiseContainers(c, instance.LXD)
 }
@@ -78,10 +74,6 @@ func (s *containerSetupSuite) testInitialiseContainers(c *gc.C, containerType in
 	close(abort)
 	err := cs.initialiseContainers(abort)
 	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *containerSetupSuite) TestInitialiseContainerProvisionerKVM(c *gc.C) {
-	s.testInitialiseContainers(c, instance.KVM)
 }
 
 func (s *containerSetupSuite) TestInitialiseContainerProvisonerLXD(c *gc.C) {
@@ -148,8 +140,8 @@ func (s *containerSetupSuite) patch(c *gc.C) *gomock.Controller {
 
 	s.machine.EXPECT().MachineTag().Return(names.NewMachineTag("0")).AnyTimes()
 
-	s.PatchValue(GetContainerInitialiser, func(instance.ContainerType, map[string]string, string) container.Initialiser {
-		return s.initialiser
+	s.PatchValue(GetContainerInitialiser, func(instance.ContainerType, map[string]string, string) (container.Initialiser, error) {
+		return s.initialiser, nil
 	})
 
 	return ctrl

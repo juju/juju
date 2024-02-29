@@ -35,5 +35,4 @@ func (s *ContainerSuite) TestParentId(c *gc.C) {
 func (s *ContainerSuite) TestContainerTypeFromId(c *gc.C) {
 	c.Assert(container.ContainerTypeFromId("0"), gc.Equals, instance.ContainerType(""))
 	c.Assert(container.ContainerTypeFromId("0/lxd/1"), gc.Equals, instance.LXD)
-	c.Assert(container.ContainerTypeFromId("0/lxd/1/kvm/0"), gc.Equals, instance.KVM)
 }

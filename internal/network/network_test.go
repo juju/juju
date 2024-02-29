@@ -114,10 +114,6 @@ func (s *NetworkSuite) TestFilterBridgeAddresses(c *gc.C) {
 				"10.0.4.1",
 				"10.0.5.1/24",
 			}, nil
-		} else if name == network.DefaultKVMBridge {
-			return []string{
-				"192.168.122.1",
-			}, nil
 		}
 		c.Fatalf("unknown bridge name: %q", name)
 		return nil, nil
@@ -140,6 +136,7 @@ func (s *NetworkSuite) TestFilterBridgeAddresses(c *gc.C) {
 		"2001:db8::1",
 		"10.0.0.1",
 		"10.0.6.10",
+		"192.168.122.1",
 		"192.168.123.42",
 		"localhost",
 		"252.16.134.1",

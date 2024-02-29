@@ -1372,7 +1372,7 @@ const unitColocationWithUnitBundle = `
                    - mem/0
                    - lxd:mem/1
                    - lxd:mem/2
-                   - kvm:ror
+                   - lxd:ror
            ror:
                charm: ch:rails
                series: focal
@@ -1397,8 +1397,8 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleUnitColocationWithUnit(c *
 	s.expectAddMachine("3", "20.04")
 	s.expectAddContainer("1", "1/lxd/0", "20.04", "lxd")
 	s.expectAddContainer("2", "2/lxd/0", "20.04", "lxd")
-	s.expectAddContainer("3", "3/kvm/0", "20.04", "kvm")
-	s.expectAddContainer("0", "0/kvm/0", "20.04", "kvm")
+	s.expectAddContainer("3", "3/lxd/0", "20.04", "lxd")
+	s.expectAddContainer("0", "0/lxd/0", "20.04", "lxd")
 
 	// Setup for mem charm
 	memCurl := charm.MustParseURL("ch:mem")
@@ -1433,8 +1433,8 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleUnitColocationWithUnit(c *
 	s.expectAddOneUnit("django", "0", "0")
 	s.expectAddOneUnit("django", "1/lxd/0", "1")
 	s.expectAddOneUnit("django", "2/lxd/0", "2")
-	s.expectAddOneUnit("django", "3/kvm/0", "3")
-	s.expectAddOneUnit("django", "0/kvm/0", "4")
+	s.expectAddOneUnit("django", "3/lxd/0", "3")
+	s.expectAddOneUnit("django", "0/lxd/0", "4")
 
 	// Setup for rails charm
 	railsCurl := charm.MustParseURL("ch:rails")
@@ -1691,14 +1691,14 @@ func (s *BundleDeployRepositorySuite) testDeployBundleUnitPlacedToMachines(c *gc
 	s.expectAddMachine("0", "22.04")
 	s.expectAddContainer("0", "0/lxd/0", "22.04", "lxd")
 	s.expectAddMachine("1", "22.04")
-	s.expectAddContainer("1", "1/kvm/0", "22.04", "kvm")
+	s.expectAddContainer("1", "1/lxd/0", "22.04", "lxd")
 	s.expectAddMachine("2", "22.04")
 	s.expectAddContainer("", "3/lxd/0", "22.04", "lxd")
 	s.expectAddContainer("", "4/lxd/0", "22.04", "lxd")
 	s.expectAddContainer("", "5/lxd/0", "22.04", "lxd")
 	s.expectAddOneUnit("wp", "2", "0")
 	s.expectAddOneUnit("wp", "0", "1")
-	s.expectAddOneUnit("wp", "1/kvm/0", "2")
+	s.expectAddOneUnit("wp", "1/lxd/0", "2")
 	s.expectAddOneUnit("wp", "0/lxd/0", "3")
 	s.expectAddOneUnit("wp", "3/lxd/0", "4")
 	s.expectAddOneUnit("wp", "4/lxd/0", "5")
@@ -1713,7 +1713,7 @@ applications:
         to:
             - new
             - 4
-            - kvm:8
+            - lxd:8
             - lxd:4
             - lxd:new
 machines:
@@ -1731,14 +1731,14 @@ machines:
 		"- add new machine 0 (bundle machine 4)\n"+
 		"- add new machine 1 (bundle machine 8)\n"+
 		"- add new machine 2\n"+
-		"- add kvm container 1/kvm/0 on new machine 1\n"+
+		"- add lxd container 1/lxd/0 on new machine 1\n"+
 		"- add lxd container 0/lxd/0 on new machine 0\n"+
 		"- add lxd container 3/lxd/0 on new machine 3\n"+
 		"- add lxd container 4/lxd/0 on new machine 4\n"+
 		"- add lxd container 5/lxd/0 on new machine 5\n"+
 		"- add unit wp/0 to new machine 2\n"+
 		"- add unit wp/1 to new machine 0\n"+
-		"- add unit wp/2 to 1/kvm/0\n"+
+		"- add unit wp/2 to 1/lxd/0\n"+
 		"- add unit wp/3 to 0/lxd/0\n"+
 		"- add unit wp/4 to 3/lxd/0\n"+
 		"- add unit wp/5 to 4/lxd/0\n"+

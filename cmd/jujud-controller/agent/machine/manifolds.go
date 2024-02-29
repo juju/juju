@@ -1069,14 +1069,6 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			MachineStartup: config.MachineStartup,
 			Logger:         loggo.GetLogger("juju.worker.machinesetup"),
 		})),
-		kvmContainerProvisioner: ifNotMigrating(provisioner.ContainerProvisioningManifold(provisioner.ContainerManifoldConfig{
-			AgentName:                    agentName,
-			APICallerName:                apiCallerName,
-			Logger:                       loggo.GetLogger("juju.worker.kvmprovisioner"),
-			MachineLock:                  config.MachineLock,
-			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
-			ContainerType:                instance.KVM,
-		})),
 		lxdContainerProvisioner: ifNotMigrating(provisioner.ContainerProvisioningManifold(provisioner.ContainerManifoldConfig{
 			AgentName:                    agentName,
 			APICallerName:                apiCallerName,
@@ -1323,7 +1315,6 @@ const (
 	stateConverterName            = "state-converter"
 	serviceFactoryName            = "service-factory"
 	lxdContainerProvisioner       = "lxd-container-provisioner"
-	kvmContainerProvisioner       = "kvm-container-provisioner"
 	controllerAgentConfigName     = "controller-agent-config"
 	objectStoreName               = "object-store"
 	objectStoreS3CallerName       = "object-store-s3-caller"

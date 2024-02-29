@@ -29,15 +29,15 @@ import (
 	jujuversion "github.com/juju/juju/version"
 )
 
-type kvmProvisionerSuite struct {
+type lxdProvisionerSuite struct {
 	CommonProvisionerSuite
 
 	containersCh chan []string
 }
 
-var _ = gc.Suite(&kvmProvisionerSuite{})
+var _ = gc.Suite(&lxdProvisionerSuite{})
 
-func (s *kvmProvisionerSuite) newKvmProvisioner(c *gc.C, ctrl *gomock.Controller) provisioner.Provisioner {
+func (s *lxdProvisionerSuite) newLXDProvisioner(c *gc.C, ctrl *gomock.Controller) provisioner.Provisioner {
 	mTag := names.NewMachineTag("0")
 	defaultPaths := agent.DefaultPaths
 	defaultPaths.DataDir = c.MkDir()
@@ -63,7 +63,7 @@ func (s *kvmProvisionerSuite) newKvmProvisioner(c *gc.C, ctrl *gomock.Controller
 
 	toolsFinder := &mockToolsFinder{}
 	w, err := provisioner.NewContainerProvisioner(
-		instance.KVM, s.controllerAPI, s.machinesAPI, loggo.GetLogger("test"),
+		instance.LXD, s.controllerAPI, s.machinesAPI, loggo.GetLogger("test"),
 		cfg, s.broker,
 		toolsFinder, &mockDistributionGroupFinder{}, &credentialAPIForTest{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -72,19 +72,19 @@ func (s *kvmProvisionerSuite) newKvmProvisioner(c *gc.C, ctrl *gomock.Controller
 	return w
 }
 
-func (s *kvmProvisionerSuite) TestProvisionerStartStop(c *gc.C) {
+func (s *lxdProvisionerSuite) TestProvisionerStartStop(c *gc.C) {
 	ctrl := s.setUpMocks(c)
 	defer ctrl.Finish()
 
-	p := s.newKvmProvisioner(c, ctrl)
+	p := s.newLXDProvisioner(c, ctrl)
 	workertest.CleanKill(c, p)
 }
 
-func (s *kvmProvisionerSuite) TestDoesNotHaveRetryWatcher(c *gc.C) {
+func (s *lxdProvisionerSuite) TestDoesNotHaveRetryWatcher(c *gc.C) {
 	ctrl := s.setUpMocks(c)
 	defer ctrl.Finish()
 
-	p := s.newKvmProvisioner(c, ctrl)
+	p := s.newLXDProvisioner(c, ctrl)
 	defer workertest.CleanKill(c, p)
 
 	w, err := provisioner.GetRetryWatcher(p)
@@ -92,7 +92,7 @@ func (s *kvmProvisionerSuite) TestDoesNotHaveRetryWatcher(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
 }
 
-func (s *kvmProvisionerSuite) sendMachineContainersChange(c *gc.C, ids ...string) {
+func (s *lxdProvisionerSuite) sendMachineContainersChange(c *gc.C, ids ...string) {
 	select {
 	case s.containersCh <- ids:
 	case <-time.After(coretesting.LongWait):
@@ -100,16 +100,16 @@ func (s *kvmProvisionerSuite) sendMachineContainersChange(c *gc.C, ids ...string
 	}
 }
 
-func (s *kvmProvisionerSuite) TestContainerStartedAndStopped(c *gc.C) {
+func (s *lxdProvisionerSuite) TestContainerStartedAndStopped(c *gc.C) {
 	ctrl := s.setUpMocks(c)
 	defer ctrl.Finish()
 
-	p := s.newKvmProvisioner(c, ctrl)
+	p := s.newLXDProvisioner(c, ctrl)
 	defer workertest.CleanKill(c, p)
 
-	cTag := names.NewMachineTag("0/kvm/666")
+	cTag := names.NewMachineTag("0/lxd/666")
 
-	c666 := &testMachine{id: "0/kvm/666"}
+	c666 := &testMachine{id: "0/lxd/666"}
 	s.broker.EXPECT().AllRunningInstances(gomock.Any()).Return([]instances.Instance{&testInstance{id: "inst-666"}}, nil).Times(2)
 	s.machinesAPI.EXPECT().Machines(gomock.Any(), cTag).Return([]apiprovisioner.MachineResult{{
 		Machine: c666,
@@ -143,21 +143,21 @@ func (s *kvmProvisionerSuite) TestContainerStartedAndStopped(c *gc.C) {
 	s.waitForRemovalMark(c, c666)
 }
 
-func (s *kvmProvisionerSuite) TestKVMProvisionerObservesConfigChanges(c *gc.C) {
+func (s *lxdProvisionerSuite) TestKVMProvisionerObservesConfigChanges(c *gc.C) {
 	ctrl := s.setUpMocks(c)
 	defer ctrl.Finish()
 
-	p := s.newKvmProvisioner(c, ctrl)
+	p := s.newLXDProvisioner(c, ctrl)
 	defer workertest.CleanKill(c, p)
 
 	s.assertProvisionerObservesConfigChanges(c, p, true)
 }
 
-func (s *kvmProvisionerSuite) TestKVMProvisionerObservesConfigChangesWorkerCount(c *gc.C) {
+func (s *lxdProvisionerSuite) TestKVMProvisionerObservesConfigChangesWorkerCount(c *gc.C) {
 	ctrl := s.setUpMocks(c)
 	defer ctrl.Finish()
 
-	p := s.newKvmProvisioner(c, ctrl)
+	p := s.newLXDProvisioner(c, ctrl)
 	defer workertest.CleanKill(c, p)
 
 	s.assertProvisionerObservesConfigChangesWorkerCount(c, p, true)

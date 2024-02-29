@@ -248,7 +248,6 @@ func (m *NodeManager) WithPreferredCloudLocalAddressOption(source corenetwork.Co
 		name := nic.Name()
 		if nic.Type() == corenetwork.LoopbackDevice ||
 			name == network.DefaultLXDBridge ||
-			name == network.DefaultKVMBridge ||
 			name == network.DefaultDockerBridge {
 			continue
 		}

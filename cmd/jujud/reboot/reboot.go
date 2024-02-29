@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
@@ -40,8 +41,11 @@ var tmpFile = func() (*os.File, error) {
 type Reboot struct {
 	acfg   AgentConfig
 	reboot RebootWaiter
+	clock  clock.Clock
 }
 
+// NewRebootWaiter creates a new Reboot command that waits for all containers
+// to shut down before executing a reboot.
 func NewRebootWaiter(acfg agent.Config) (*Reboot, error) {
 	// ensure we're only running on a machine agent.
 	if _, ok := acfg.Tag().(names.MachineTag); !ok {
@@ -50,6 +54,7 @@ func NewRebootWaiter(acfg agent.Config) (*Reboot, error) {
 	return &Reboot{
 		acfg:   &agentConfigShim{aCfg: acfg},
 		reboot: rebootWaiterShim{},
+		clock:  clock.WallClock,
 	}, nil
 }
 
@@ -143,13 +148,18 @@ func (r *Reboot) waitForContainersOrTimeout() error {
 					return
 				}
 				logger.Warningf("Waiting for containers to shutdown: %v", containers)
-				time.Sleep(1 * time.Second)
+				select {
+				case <-quit:
+					c <- nil
+					return
+				case <-r.clock.After(time.Second):
+				}
 			}
 		}
 	}()
 
 	select {
-	case <-time.After(timeout):
+	case <-r.clock.After(timeout):
 		// TODO(fwereade): 2016-03-17 lp:1558657
 		// Containers are still up after timeout. C'est la vie
 		quit <- true

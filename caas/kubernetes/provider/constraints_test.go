@@ -61,10 +61,10 @@ func (s *ConstraintsSuite) TestConstraintsValidatorUnsupported(c *gc.C) {
 		"instance-type=some-type",
 		"cores=2",
 		"cpu-power=250",
-		"virt-type=kvm",
+		"virt-type=lxd",
 		"root-disk=10M",
 		"spaces=foo",
-		"container=kvm",
+		"container=lxd",
 	}, " "))
 	unsupported, err := validator.Validate(cons)
 	c.Assert(err, jc.ErrorIsNil)

@@ -665,7 +665,7 @@ func (s *provisionerSuite) TestSetSupportedContainers(c *gc.C) {
 	args := params.MachineContainersParams{
 		Params: []params.MachineContainers{{
 			MachineTag:     "machine-666",
-			ContainerTypes: []instance.ContainerType{"lxd", "kvm"},
+			ContainerTypes: []instance.ContainerType{"lxd"},
 		}},
 	}
 	results := params.ErrorResults{
@@ -673,7 +673,7 @@ func (s *provisionerSuite) TestSetSupportedContainers(c *gc.C) {
 	}
 	s.expectCall(caller, "SetSupportedContainers", args, results)
 
-	err := machine.SetSupportedContainers([]instance.ContainerType{"lxd", "kvm"}...)
+	err := machine.SetSupportedContainers([]instance.ContainerType{"lxd"}...)
 	c.Assert(err, jc.ErrorIsNil)
 
 }
@@ -688,14 +688,14 @@ func (s *provisionerSuite) TestSupportedContainers(c *gc.C) {
 		Entities: []params.Entity{{Tag: "machine-666"}},
 	}
 	results := params.MachineContainerResults{
-		Results: []params.MachineContainerResult{{ContainerTypes: []instance.ContainerType{"lxd", "kvm"}, Determined: true}},
+		Results: []params.MachineContainerResult{{ContainerTypes: []instance.ContainerType{"lxd"}, Determined: true}},
 	}
 
 	s.expectCall(caller, "SupportedContainers", args, results)
 
 	result, determined, err := machine.SupportedContainers()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.SameContents, []instance.ContainerType{"lxd", "kvm"})
+	c.Assert(result, jc.SameContents, []instance.ContainerType{"lxd"})
 	c.Assert(determined, jc.IsTrue)
 }
 

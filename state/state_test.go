@@ -330,7 +330,7 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 						Jobs: []state.MachineJob{state.JobHostUnits},
 					},
 					m.Id(),
-					instance.KVM,
+					instance.LXD,
 				)
 				c.Assert(err, jc.ErrorIsNil)
 			},
@@ -1122,30 +1122,30 @@ func (s *StateSuite) TestAddContainerToMachineWithKnownSupportedContainers(c *gc
 	oneJob := []state.MachineJob{state.JobHostUnits}
 	host, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), oneJob...)
 	c.Assert(err, jc.ErrorIsNil)
-	err = host.SetSupportedContainers([]instance.ContainerType{instance.KVM})
+	err = host.SetSupportedContainers([]instance.ContainerType{instance.LXD})
 	c.Assert(err, jc.ErrorIsNil)
 
 	m, err := s.State.AddMachineInsideMachine(state.MachineTemplate{
 		Base: state.UbuntuBase("12.10"),
 		Jobs: []state.MachineJob{state.JobHostUnits},
-	}, "0", instance.KVM)
+	}, "0", instance.LXD)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m.Id(), gc.Equals, "0/kvm/0")
-	s.assertMachineContainers(c, host, []string{"0/kvm/0"})
+	c.Assert(m.Id(), gc.Equals, "0/lxd/0")
+	s.assertMachineContainers(c, host, []string{"0/lxd/0"})
 }
 
 func (s *StateSuite) TestAddInvalidContainerToMachineWithKnownSupportedContainers(c *gc.C) {
 	oneJob := []state.MachineJob{state.JobHostUnits}
 	host, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), oneJob...)
 	c.Assert(err, jc.ErrorIsNil)
-	err = host.SetSupportedContainers([]instance.ContainerType{instance.KVM})
+	err = host.SetSupportedContainers([]instance.ContainerType{instance.LXD})
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = s.State.AddMachineInsideMachine(state.MachineTemplate{
 		Base: state.UbuntuBase("12.10"),
 		Jobs: []state.MachineJob{state.JobHostUnits},
-	}, "0", instance.LXD)
-	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: machine 0 cannot host lxd containers")
+	}, "0", instance.ContainerType("abc"))
+	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: machine 0 cannot host abc containers")
 	s.assertMachineContainers(c, host, nil)
 }
 
@@ -1351,13 +1351,13 @@ func (s *StateSuite) TestAddMachineCanOnlyAddControllerForMachine0(c *gc.C) {
 	c.Assert(controllerIds, gc.DeepEquals, []string{"0"})
 
 	const errCannotAdd = "cannot add a new machine: controller jobs specified but not allowed"
-	m, err = s.State.AddOneMachine(defaultInstancePrechecker, template)
+	_, err = s.State.AddOneMachine(defaultInstancePrechecker, template)
 	c.Assert(err, gc.ErrorMatches, errCannotAdd)
 
-	m, err = s.State.AddMachineInsideMachine(template, "0", instance.LXD)
+	_, err = s.State.AddMachineInsideMachine(template, "0", instance.LXD)
 	c.Assert(err, gc.ErrorMatches, errCannotAdd)
 
-	m, err = s.State.AddMachineInsideNewMachine(defaultInstancePrechecker, template, template, instance.LXD)
+	_, err = s.State.AddMachineInsideNewMachine(defaultInstancePrechecker, template, template, instance.LXD)
 	c.Assert(err, gc.ErrorMatches, errCannotAdd)
 }
 
@@ -1386,7 +1386,7 @@ func (s *StateSuite) TestMachineIdLessThan(c *gc.C) {
 	c.Assert(state.MachineIdLessThan("1", "0/lxd/0"), jc.IsFalse)
 	c.Assert(state.MachineIdLessThan("0/lxd/0", "1"), jc.IsTrue)
 	c.Assert(state.MachineIdLessThan("0/lxd/0/lxd/1", "0/lxd/0"), jc.IsFalse)
-	c.Assert(state.MachineIdLessThan("0/kvm/0", "0/lxd/0"), jc.IsTrue)
+	c.Assert(state.MachineIdLessThan("0/lxd/0", "0/lxd/0"), jc.IsFalse)
 }
 
 func (s *StateSuite) TestAllMachines(c *gc.C) {
@@ -2941,14 +2941,6 @@ func (s *StateSuite) TestWatchContainerLifecycle(c *gc.C) {
 	wcAll.AssertChange("0/lxd/0")
 	wcAll.AssertNoChange()
 
-	// Add a container of a different type: not reported.
-	m1, err := s.State.AddMachineInsideMachine(template, machine.Id(), instance.KVM)
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertNoChange()
-	// But reported by the all watcher.
-	wcAll.AssertChange("0/kvm/0")
-	wcAll.AssertNoChange()
-
 	// Add a nested container of the right type: not reported.
 	mchild, err := s.State.AddMachineInsideMachine(template, m.Id(), instance.LXD)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2956,7 +2948,7 @@ func (s *StateSuite) TestWatchContainerLifecycle(c *gc.C) {
 	wcAll.AssertNoChange()
 
 	// Add a container of a different machine: not reported.
-	m2, err := s.State.AddMachineInsideMachine(template, otherMachine.Id(), instance.LXD)
+	m1, err := s.State.AddMachineInsideMachine(template, otherMachine.Id(), instance.LXD)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 	workertest.CleanKill(c, w)
@@ -2971,7 +2963,7 @@ func (s *StateSuite) TestWatchContainerLifecycle(c *gc.C) {
 	wcAll = statetesting.NewStringsWatcherC(c, wAll)
 	wc.AssertChange("0/lxd/0")
 	wc.AssertNoChange()
-	wcAll.AssertChange("0/kvm/0", "0/lxd/0")
+	wcAll.AssertChange("0/lxd/0")
 	wcAll.AssertNoChange()
 
 	// Make the container Dying: cannot because of nested container.
@@ -2994,12 +2986,7 @@ func (s *StateSuite) TestWatchContainerLifecycle(c *gc.C) {
 	// Make the other containers Dying: not reported.
 	err = m1.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
-	err = m2.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
-	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
-	// But reported by the all watcher.
-	wcAll.AssertChange("0/kvm/0")
-	wcAll.AssertNoChange()
 
 	// Make the container Dead: reported.
 	err = m.EnsureDead()
@@ -3012,12 +2999,7 @@ func (s *StateSuite) TestWatchContainerLifecycle(c *gc.C) {
 	// Make the other containers Dead: not reported.
 	err = m1.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	err = m2.EnsureDead()
-	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
-	// But reported by the all watcher.
-	wcAll.AssertChange("0/kvm/0")
-	wcAll.AssertNoChange()
 
 	// Remove the container: not reported.
 	err = m.Remove(state.NewObjectStore(c, s.State.ModelUUID()))

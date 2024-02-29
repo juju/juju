@@ -6,6 +6,7 @@ package reboot_test
 import (
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -27,13 +28,14 @@ type NewRebootSuite struct {
 	model            *mocks.MockModel
 	rebootWaiter     *mocks.MockRebootWaiter
 	service          *mocks.MockService
+	clock            *mocks.MockClock
 }
 
 var _ = gc.Suite(&NewRebootSuite{})
 
 func (s *NewRebootSuite) TestExecuteReboot(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	s.expectManagerIsInitialized(false, false)
+	s.expectManagerIsInitialized(false, 1)
 	s.expectListServices()
 	s.expectStopDeployedUnits()
 	s.expectScheduleAction()
@@ -44,8 +46,7 @@ func (s *NewRebootSuite) TestExecuteReboot(c *gc.C) {
 
 func (s *NewRebootSuite) TestExecuteRebootWaitForContainers(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	s.expectManagerIsInitialized(true, false)
-	s.expectManagerIsInitialized(true, false)
+	s.expectManagerIsInitialized(true, 2)
 	s.expectListContainers()
 	s.expectListServices()
 	s.expectStopDeployedUnits()
@@ -56,7 +57,7 @@ func (s *NewRebootSuite) TestExecuteRebootWaitForContainers(c *gc.C) {
 }
 
 func (s *NewRebootSuite) newRebootWaiter() *reboot.Reboot {
-	return reboot.NewRebootForTest(s.agentConfig, s.rebootWaiter)
+	return reboot.NewRebootForTest(s.agentConfig, s.rebootWaiter, s.clock)
 }
 
 func (s *NewRebootSuite) setupMocks(c *gc.C) *gomock.Controller {
@@ -72,12 +73,22 @@ func (s *NewRebootSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.model.EXPECT().Id().Return("model-uuid").AnyTimes()
 
 	s.rebootWaiter.EXPECT().NewContainerManager(gomock.Any(), gomock.Any()).Return(s.containerManager, nil).AnyTimes()
+
+	s.clock = mocks.NewMockClock(ctrl)
+	s.clock.EXPECT().After(time.Minute * 10).DoAndReturn(func(time.Duration) <-chan time.Time {
+		ch := make(chan time.Time)
+		return ch
+	})
+	s.clock.EXPECT().After(time.Second).DoAndReturn(func(time.Duration) <-chan time.Time {
+		ch := make(chan time.Time)
+		close(ch)
+		return ch
+	}).AnyTimes()
 	return ctrl
 }
 
-func (s *NewRebootSuite) expectManagerIsInitialized(lxd, kvm bool) {
-	s.containerManager.EXPECT().IsInitialized().Return(lxd)
-	s.containerManager.EXPECT().IsInitialized().Return(kvm)
+func (s *NewRebootSuite) expectManagerIsInitialized(lxd bool, times int) {
+	s.containerManager.EXPECT().IsInitialized().Return(lxd).Times(times)
 }
 
 func (s *NewRebootSuite) expectListServices() {
@@ -141,7 +152,7 @@ func (s *NixRebootSuite) TestReboot(c *gc.C) {
 	err := reboot.ScheduleAction(params.ShouldReboot, 15)
 	c.Assert(err, jc.ErrorIsNil)
 	testing.AssertEchoArgs(c, rebootBin, expectedParams...)
-	ft.File{s.rebootScriptName, expectedRebootScript, 0755}.Check(c, s.tmpDir)
+	ft.File{Path: s.rebootScriptName, Data: expectedRebootScript, Perm: 0755}.Check(c, s.tmpDir)
 }
 
 func (s *NixRebootSuite) TestShutdownNoContainers(c *gc.C) {
@@ -150,7 +161,7 @@ func (s *NixRebootSuite) TestShutdownNoContainers(c *gc.C) {
 	err := reboot.ScheduleAction(params.ShouldShutdown, 15)
 	c.Assert(err, jc.ErrorIsNil)
 	testing.AssertEchoArgs(c, rebootBin, expectedParams...)
-	ft.File{s.rebootScriptName, expectedShutdownScript, 0755}.Check(c, s.tmpDir)
+	ft.File{Path: s.rebootScriptName, Data: expectedShutdownScript, Perm: 0755}.Check(c, s.tmpDir)
 }
 
 func (s *NixRebootSuite) rebootScript() string {

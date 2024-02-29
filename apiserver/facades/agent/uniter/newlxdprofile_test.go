@@ -179,22 +179,6 @@ func (s *newLxdProfileSuite) TestCanApplyLXDProfileCAAS(c *gc.C) {
 	s.testCanApplyLXDProfile(c, false)
 }
 
-func (s *newLxdProfileSuite) TestCanApplyLXDProfileIAASMAASNotManualKVM(c *gc.C) {
-	// model type: IAAS
-	// provider type: maas
-	// manual: false
-	// container: KVM
-	defer s.setupMocks(c).Finish()
-	s.expectUnitAndMachine()
-	s.expectModel()
-	s.expectModelTypeIAAS()
-	s.expectProviderType(c, "maas")
-	s.expectManual(false)
-	s.expectContainerType(instance.KVM)
-
-	s.testCanApplyLXDProfile(c, false)
-}
-
 func (s *newLxdProfileSuite) TestCanApplyLXDProfileIAASMAASNotManualLXD(c *gc.C) {
 	// model type: IAAS
 	// provider type: maas

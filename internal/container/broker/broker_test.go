@@ -27,7 +27,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/environs/instances/instancetest"
 	"github.com/juju/juju/internal/cloudconfig"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/container"
@@ -291,20 +290,6 @@ nameserver ns2.dummy
 	err := os.WriteFile(fakeResolvConf, []byte(fakeConf), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 	s.PatchValue(broker.ResolvConfFiles, []string{fakeResolvConf})
-}
-
-func instancesFromResults(results ...*environs.StartInstanceResult) []instances.Instance {
-	instances := make([]instances.Instance, len(results))
-	for i := range results {
-		instances[i] = results[i].Instance
-	}
-	return instances
-}
-
-func assertInstancesStarted(c *gc.C, broker environs.InstanceBroker, results ...*environs.StartInstanceResult) {
-	allInstances, err := broker.AllRunningInstances(envcontext.WithoutCredentialInvalidator(context.Background()))
-	c.Assert(err, jc.ErrorIsNil)
-	instancetest.MatchInstances(c, allInstances, instancesFromResults(results...)...)
 }
 
 func makeInstanceConfig(c *gc.C, s patcher, machineId string) *instancecfg.InstanceConfig {

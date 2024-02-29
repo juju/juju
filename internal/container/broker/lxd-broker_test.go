@@ -20,11 +20,13 @@ import (
 	"github.com/juju/juju/agent"
 	apiprovisioner "github.com/juju/juju/api/agent/provisioner"
 	"github.com/juju/juju/core/arch"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lxdprofile"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/envcontext"
+	"github.com/juju/juju/internal/cloudconfig"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/container"
 	"github.com/juju/juju/internal/container/broker"
@@ -34,6 +36,19 @@ import (
 	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 )
+
+type blankMachineInitReader struct {
+	cloudconfig.InitReader
+}
+
+func (r *blankMachineInitReader) GetInitConfig() (map[string]interface{}, error) {
+	return nil, nil
+}
+
+var newBlankMachineInitReader = func(base corebase.Base) (cloudconfig.InitReader, error) {
+	r, err := cloudconfig.NewMachineInitReader(base)
+	return &blankMachineInitReader{r}, err
+}
 
 type lxdBrokerSuite struct {
 	coretesting.BaseSuite

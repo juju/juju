@@ -199,7 +199,7 @@ def parse_args():
                               default="jammy")
     pass_through.add_argument("--machine-type", "--virt", dest="machine_type",
                               help="Virtualisation technology for machine (only relevant for container_networking, constraints tests) [default: lxd]",
-                              choices=["lxc", "lxd", "kvm"], default="lxd")
+                              choices=["lxc", "lxd"], default="lxd")
     pass_through.add_argument("--space-constraint", metavar="C",
                               help="Adds --constraints spaces=C to the underlying hypervisor (only relevant for container_networking test). ")
     pass_through.add_argument("--secondary-env", metavar="ENV",
@@ -454,9 +454,6 @@ def main():
         testrun_argv.extend(["--machine-type", args.machine_type])
         if args.space_constraint:
             testrun_argv.extend(["--space-constraint", args.space_constraint])
-    elif assess == "constraints":
-        if args.machine_type == "kvm":
-            testrun_argv.append("--with-virttype-kvm")
     elif assess == "cross_model_relations":
         if args.secondary_env:
             testrun_argv.extend(["--secondary-env", args.secondary_env])

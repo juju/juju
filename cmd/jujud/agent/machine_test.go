@@ -41,7 +41,6 @@ import (
 	envstorage "github.com/juju/juju/environs/storage"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
-	"github.com/juju/juju/internal/container/kvm"
 	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/internal/tools"
 	jworker "github.com/juju/juju/internal/worker"
@@ -517,10 +516,6 @@ func (s *MachineSuite) TestMachineWorkers(c *gc.C) {
 	// Wait for it to stabilise, running as normal.
 	matcher := agenttest.NewWorkerMatcher(c, tracker, a.Tag().String(),
 		append(alwaysMachineWorkers, notMigratingMachineWorkers...))
-
-	// Indicate that this machine supports KVM containers rather than doing
-	// detection that may return true/false based on the machine running tests.
-	s.PatchValue(&kvm.IsKVMSupported, func() (bool, error) { return true, nil })
 
 	agenttest.WaitMatch(c, matcher.Check, coretesting.LongWait)
 }
