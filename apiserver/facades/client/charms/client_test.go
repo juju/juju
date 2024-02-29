@@ -106,7 +106,7 @@ func (s *charmsMockSuite) TestResolveCharms(c *gc.C) {
 	api := s.api(c)
 
 	curl := "ch:testme"
-	seriesCurl := "ch:amd64/focal/testme"
+	fullCurl := "ch:amd64/testme"
 
 	edgeOrigin := params.CharmOrigin{
 		Source:       corecharm.CharmHub.String(),
@@ -128,13 +128,13 @@ func (s *charmsMockSuite) TestResolveCharms(c *gc.C) {
 				Architecture: "amd64",
 			}},
 			{Reference: curl, Origin: stableOrigin},
-			{Reference: seriesCurl, Origin: edgeOrigin},
+			{Reference: fullCurl, Origin: edgeOrigin},
 		},
 	}
 
 	expected := []params.ResolveCharmWithChannelResult{
 		{
-			URL:    seriesCurl,
+			URL:    fullCurl,
 			Origin: stableOrigin,
 			SupportedBases: []params.Base{
 				{Name: "ubuntu", Channel: "18.04"},
@@ -142,7 +142,7 @@ func (s *charmsMockSuite) TestResolveCharms(c *gc.C) {
 				{Name: "ubuntu", Channel: "16.04"},
 			},
 		}, {
-			URL:    seriesCurl,
+			URL:    fullCurl,
 			Origin: stableOrigin,
 			SupportedBases: []params.Base{
 				{Name: "ubuntu", Channel: "18.04"},
@@ -151,7 +151,7 @@ func (s *charmsMockSuite) TestResolveCharms(c *gc.C) {
 			},
 		},
 		{
-			URL:    seriesCurl,
+			URL:    fullCurl,
 			Origin: edgeOrigin,
 			SupportedBases: []params.Base{
 				{Name: "ubuntu", Channel: "18.04"},
@@ -180,64 +180,6 @@ func (s *charmsMockSuite) TestResolveCharmsUnknownSchema(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
 	c.Assert(result.Results[0].Error, gc.ErrorMatches, `unknown schema for charm URL "local:testme"`)
-}
-
-func (s *charmsMockSuite) TestResolveCharmV6(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-	s.expectResolveWithPreferredChannel(3, nil)
-	apiv6 := charms.APIv6{
-		&charms.APIv7{
-			API: s.api(c),
-		},
-	}
-
-	curl := "ch:testme"
-	seriesCurl := "ch:amd64/focal/testme"
-
-	edgeOrigin := params.CharmOrigin{
-		Source:       corecharm.CharmHub.String(),
-		Type:         "charm",
-		Risk:         "edge",
-		Architecture: "amd64",
-	}
-	stableOrigin := params.CharmOrigin{
-		Source:       corecharm.CharmHub.String(),
-		Type:         "charm",
-		Risk:         "stable",
-		Architecture: "amd64",
-	}
-
-	args := params.ResolveCharmsWithChannel{
-		Resolve: []params.ResolveCharmWithChannel{
-			{Reference: curl, Origin: params.CharmOrigin{
-				Source:       corecharm.CharmHub.String(),
-				Architecture: "amd64",
-			}},
-			{Reference: curl, Origin: stableOrigin},
-			{Reference: seriesCurl, Origin: edgeOrigin},
-		},
-	}
-
-	expected := []params.ResolveCharmWithChannelResultV6{
-		{
-			URL:             seriesCurl,
-			Origin:          stableOrigin,
-			SupportedSeries: []string{"bionic", "focal", "xenial"},
-		}, {
-			URL:             seriesCurl,
-			Origin:          stableOrigin,
-			SupportedSeries: []string{"bionic", "focal", "xenial"},
-		},
-		{
-			URL:             seriesCurl,
-			Origin:          edgeOrigin,
-			SupportedSeries: []string{"bionic", "focal", "xenial"},
-		},
-	}
-	result, err := apiv6.ResolveCharms(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 3)
-	c.Assert(result.Results, jc.DeepEquals, expected)
 }
 
 func (s *charmsMockSuite) TestAddCharmWithLocalSource(c *gc.C) {
@@ -607,7 +549,6 @@ func (s *charmsMockSuite) expectResolveWithPreferredChannel(times int, err error
 			curl := &charm.URL{
 				Schema:       "ch",
 				Name:         name,
-				Series:       "focal",
 				Architecture: "amd64",
 				Revision:     -1,
 			}
