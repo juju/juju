@@ -294,6 +294,27 @@ CREATE TABLE cloud_credential (
 CREATE UNIQUE INDEX idx_cloud_credential_cloud_uuid_owner_uuid
 ON cloud_credential (cloud_uuid, owner_uuid, name);
 
+-- view_cloud_credential provides a convenience view for accessing a
+-- credentials uuid baseD on the natural key used to display the credential to
+-- users.
+CREATE VIEW v_cloud_credential
+AS
+SELECT cc.uuid,
+       cc.cloud_uuid,
+       cc.auth_type_id,
+       cc.owner_uuid,
+       cc.name,
+       cc.revoked,
+       cc.invalid,
+       cc.invalid_reason,
+       c.name AS cloud_name,
+       u.name AS owner_name
+FROM cloud_credential AS cc
+INNER JOIN cloud c
+ON c.uuid = cc.cloud_uuid
+INNER JOIN user u
+ON u.uuid = cc.owner_uuid;
+
 CREATE TABLE cloud_credential_attributes (
     cloud_credential_uuid TEXT NOT NULL,
     key TEXT NOT NULL,

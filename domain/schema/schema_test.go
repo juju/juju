@@ -181,6 +181,9 @@ func (s *schemaSuite) TestControllerViews(c *gc.C) {
 	expected := set.NewStrings(
 		// Users
 		"v_user_auth",
+
+		// Credentials
+		"v_cloud_credential",
 	)
 	c.Assert(readEntityNames(c, s.DB(), "view"), jc.SameContents, expected.SortedValues())
 }
