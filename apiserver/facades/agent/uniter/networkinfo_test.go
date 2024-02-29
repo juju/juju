@@ -56,13 +56,14 @@ func (s *networkInfoSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *networkInfoSuite) TestNetworksForRelation(c *gc.C) {
+	st := s.ControllerModel(c).State()
+
 	prr := s.newProReqRelation(c, charm.ScopeGlobal)
-	err := prr.pu0.AssignToNewMachine()
+	err := prr.pu0.AssignToNewMachine(s.InstancePrechecker(c, st))
 	c.Assert(err, jc.ErrorIsNil)
 	id, err := prr.pu0.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
 
-	st := s.ControllerModel(c).State()
 	machine, err := st.Machine(id)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -140,7 +141,7 @@ func (s *networkInfoSuite) TestProcessAPIRequestForBinding(c *gc.C) {
 
 	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(unit.AssignToNewMachine(), jc.ErrorIsNil)
+	c.Assert(unit.AssignToNewMachine(s.InstancePrechecker(c, st)), jc.ErrorIsNil)
 
 	id, err := unit.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
@@ -200,7 +201,7 @@ func (s *networkInfoSuite) TestProcessAPIRequestBridgeWithSameIPOverNIC(c *gc.C)
 
 	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(unit.AssignToNewMachine(), jc.ErrorIsNil)
+	c.Assert(unit.AssignToNewMachine(s.InstancePrechecker(c, st)), jc.ErrorIsNil)
 
 	id, err := unit.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
@@ -250,8 +251,10 @@ func (s *networkInfoSuite) TestProcessAPIRequestBridgeWithSameIPOverNIC(c *gc.C)
 }
 
 func (s *networkInfoSuite) TestAPIRequestForRelationIAASHostNameIngressNoEgress(c *gc.C) {
+	st := s.ControllerModel(c).State()
+
 	prr := s.newProReqRelation(c, charm.ScopeGlobal)
-	err := prr.pu0.AssignToNewMachine()
+	err := prr.pu0.AssignToNewMachine(s.InstancePrechecker(c, st))
 	c.Assert(err, jc.ErrorIsNil)
 	id, err := prr.pu0.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
@@ -261,8 +264,6 @@ func (s *networkInfoSuite) TestAPIRequestForRelationIAASHostNameIngressNoEgress(
 	// The only address is a host-name, resolvable to the IP below.
 	host := "host.at.somewhere"
 	ip := "100.2.3.4"
-
-	st := s.ControllerModel(c).State()
 
 	controllerConfig, err := st.ControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
@@ -374,13 +375,14 @@ func (s *networkInfoSuite) TestNetworksForRelationWithSpaces(c *gc.C) {
 		"server":       "space-2",
 	}
 
+	st := s.ControllerModel(c).State()
+
 	prr := s.newProReqRelationWithBindings(c, charm.ScopeGlobal, bindings, nil)
-	err := prr.pu0.AssignToNewMachine()
+	err := prr.pu0.AssignToNewMachine(s.InstancePrechecker(c, st))
 	c.Assert(err, jc.ErrorIsNil)
 	id, err := prr.pu0.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
 
-	st := s.ControllerModel(c).State()
 	machine, err := st.Machine(id)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -416,13 +418,13 @@ func (s *networkInfoSuite) TestNetworksForRelationWithSpaces(c *gc.C) {
 }
 
 func (s *networkInfoSuite) TestNetworksForRelationRemoteRelation(c *gc.C) {
+	st := s.ControllerModel(c).State()
 	prr := s.newRemoteProReqRelation(c)
-	err := prr.ru0.AssignToNewMachine()
+	err := prr.ru0.AssignToNewMachine(s.InstancePrechecker(c, st))
 	c.Assert(err, jc.ErrorIsNil)
 	id, err := prr.ru0.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
 
-	st := s.ControllerModel(c).State()
 	machine, err := st.Machine(id)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -447,13 +449,14 @@ func (s *networkInfoSuite) TestNetworksForRelationRemoteRelation(c *gc.C) {
 }
 
 func (s *networkInfoSuite) TestNetworksForRelationRemoteRelationNoPublicAddr(c *gc.C) {
+	st := s.ControllerModel(c).State()
+
 	prr := s.newRemoteProReqRelation(c)
-	err := prr.ru0.AssignToNewMachine()
+	err := prr.ru0.AssignToNewMachine(s.InstancePrechecker(c, st))
 	c.Assert(err, jc.ErrorIsNil)
 	id, err := prr.ru0.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
 
-	st := s.ControllerModel(c).State()
 	machine, err := st.Machine(id)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -477,13 +480,14 @@ func (s *networkInfoSuite) TestNetworksForRelationRemoteRelationNoPublicAddr(c *
 }
 
 func (s *networkInfoSuite) TestNetworksForRelationRemoteRelationDelayedPublicAddress(c *gc.C) {
+	st := s.ControllerModel(c).State()
+
 	prr := s.newRemoteProReqRelation(c)
-	err := prr.ru0.AssignToNewMachine()
+	err := prr.ru0.AssignToNewMachine(s.InstancePrechecker(c, st))
 	c.Assert(err, jc.ErrorIsNil)
 	id, err := prr.ru0.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
 
-	st := s.ControllerModel(c).State()
 	machine, err := st.Machine(id)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -519,13 +523,14 @@ func (s *networkInfoSuite) TestNetworksForRelationRemoteRelationDelayedPublicAdd
 }
 
 func (s *networkInfoSuite) TestNetworksForRelationRemoteRelationDelayedPrivateAddress(c *gc.C) {
+	st := s.ControllerModel(c).State()
+
 	prr := s.newRemoteProReqRelation(c)
-	err := prr.ru0.AssignToNewMachine()
+	err := prr.ru0.AssignToNewMachine(s.InstancePrechecker(c, st))
 	c.Assert(err, jc.ErrorIsNil)
 	id, err := prr.ru0.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
 
-	st := s.ControllerModel(c).State()
 	machine, err := st.Machine(id)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -768,7 +773,7 @@ func (s *networkInfoSuite) TestMachineNetworkInfos(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	st := s.ControllerModel(c).State()
-	machine, err := st.AddOneMachine(state.MachineTemplate{
+	machine, err := st.AddOneMachine(s.InstancePrechecker(c, st), state.MachineTemplate{
 		Base: state.UbuntuBase("12.10"),
 		Jobs: []state.MachineJob{state.JobHostUnits},
 	})
@@ -840,7 +845,7 @@ func (s *networkInfoSuite) TestMachineNetworkInfosAlphaNoSubnets(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	st := s.ControllerModel(c).State()
-	machine, err := st.AddOneMachine(state.MachineTemplate{
+	machine, err := st.AddOneMachine(s.InstancePrechecker(c, st), state.MachineTemplate{
 		Base: state.UbuntuBase("12.10"),
 		Jobs: []state.MachineJob{state.JobHostUnits},
 	})

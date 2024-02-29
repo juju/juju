@@ -16,6 +16,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 	statewatcher "github.com/juju/juju/state/watcher"
@@ -46,6 +47,7 @@ type StateSuite struct {
 	Clock                     testclock.AdvanceableClock
 	modelWatcherIdle          chan string
 	modelWatcherMutex         *sync.Mutex
+	InstancePrechecker        func(*gc.C, *state.State) environs.InstancePrechecker
 }
 
 func (s *StateSuite) SetUpSuite(c *gc.C) {
@@ -96,6 +98,10 @@ func (s *StateSuite) SetUpTest(c *gc.C) {
 	s.Model = model
 
 	s.Factory = factory.NewFactory(s.State, s.StatePool)
+
+	s.InstancePrechecker = func(c *gc.C, st *state.State) environs.InstancePrechecker {
+		return state.NoopInstancePrechecker{}
+	}
 }
 
 func (s *StateSuite) TearDownTest(c *gc.C) {

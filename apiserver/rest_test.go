@@ -132,9 +132,10 @@ func (s *restSuite) TestGetRemoteApplicationIcon(c *gc.C) {
 	store := s.ObjectStore(c, s.ControllerModelUUID())
 
 	curl := fmt.Sprintf("local:quantal/%s-%d", ch.Meta().Name, ch.Revision())
-	mysqlCh, err := s.ControllerModel(c).State().Charm(curl)
+	st := s.ControllerModel(c).State()
+	mysqlCh, err := st.Charm(curl)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.ControllerModel(c).State().AddApplication(state.AddApplicationArgs{
+	_, err = st.AddApplication(s.InstancePrechecker(c, st), state.AddApplicationArgs{
 		Name:        "mysql",
 		Charm:       mysqlCh,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{OS: "ubuntu", Channel: "22.04/stable"}},
@@ -142,7 +143,7 @@ func (s *restSuite) TestGetRemoteApplicationIcon(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Add an offer for the application.
-	offers := state.NewApplicationOffers(s.ControllerModel(c).State())
+	offers := state.NewApplicationOffers(st)
 	offer, err := offers.AddOffer(crossmodel.AddApplicationOfferArgs{
 		OfferName:       "remote-app-offer",
 		ApplicationName: "mysql",
@@ -156,7 +157,7 @@ func (s *restSuite) TestGetRemoteApplicationIcon(c *gc.C) {
 		Name: "dummy",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.ControllerModel(c).State().AddApplication(state.AddApplicationArgs{
+	_, err = st.AddApplication(s.InstancePrechecker(c, st), state.AddApplicationArgs{
 		Name:        "dummy",
 		Charm:       dummyCh,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{OS: "ubuntu", Channel: "22.04/stable"}},

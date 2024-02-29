@@ -32,6 +32,7 @@ import (
 	"github.com/juju/juju/internal/charmhub/transport"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/stateenvirons"
 )
 
 var ClassifyDetachedStorage = storagecommon.ClassifyDetachedStorage
@@ -125,7 +126,17 @@ func NewFacadeV10(ctx facade.ModelContext) (*MachineManagerAPI, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	backend := &stateShim{State: st}
+	serviceFactory := ctx.ServiceFactory()
+
+	prechecker, err := stateenvirons.NewInstancePrechecker(st, serviceFactory.Cloud(), serviceFactory.Credential())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	backend := &stateShim{
+		State:     st,
+		prechcker: prechecker,
+	}
 	storageAccess, err := getStorageState(st)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -153,8 +164,6 @@ func NewFacadeV10(ctx facade.ModelContext) (*MachineManagerAPI, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
-	serviceFactory := ctx.ServiceFactory()
 
 	controllerConfigService := serviceFactory.ControllerConfig()
 

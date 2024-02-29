@@ -40,7 +40,7 @@ func (s *loggerSuite) SetUpTest(c *gc.C) {
 
 	// Create a machine to work with
 	var err error
-	s.rawMachine, err = s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	s.rawMachine, err = s.State.AddMachine(s.InstancePrechecker(c, s.State), state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// The default auth is as the machine agent

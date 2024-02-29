@@ -25,7 +25,7 @@ func newFacadeV6(ctx facade.ModelContext) (*ClientV6, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &ClientV6{client}, nil
+	return &ClientV6{Client: client}, nil
 }
 
 func newFacadeV7(ctx facade.ModelContext) (*Client, error) {

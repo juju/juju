@@ -48,9 +48,9 @@ func (s *authorisedKeysSuite) SetUpTest(c *gc.C) {
 	st := s.ControllerModel(c).State()
 	// Create machines to work with
 	var err error
-	s.rawMachine, err = st.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	s.rawMachine, err = st.AddMachine(s.InstancePrechecker(c, st), state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	s.unrelatedMachine, err = st.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	s.unrelatedMachine, err = st.AddMachine(s.InstancePrechecker(c, st), state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// The default auth is as a controller

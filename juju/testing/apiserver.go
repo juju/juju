@@ -56,6 +56,7 @@ import (
 	credentialstate "github.com/juju/juju/domain/credential/state"
 	servicefactorytesting "github.com/juju/juju/domain/servicefactory/testing"
 	userbootstrap "github.com/juju/juju/domain/user/bootstrap"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/auth"
 	databasetesting "github.com/juju/juju/internal/database/testing"
 	internallease "github.com/juju/juju/internal/lease"
@@ -156,6 +157,10 @@ type ApiServerSuite struct {
 
 	// AdminUserUUID is the root user for the controller.
 	AdminUserUUID coreuser.UUID
+
+	// InstancePrechecker is used to validate instance creation.
+	// DEPRECATED: This will be removed in the future.
+	InstancePrechecker func(*gc.C, *state.State) environs.InstancePrechecker
 }
 
 type noopRegisterer struct {
@@ -378,6 +383,10 @@ func (s *ApiServerSuite) setupApiServer(c *gc.C, controllerCfg controller.Config
 
 func (s *ApiServerSuite) SetUpTest(c *gc.C) {
 	s.MgoSuite.SetUpTest(c)
+
+	s.InstancePrechecker = func(c *gc.C, s *state.State) environs.InstancePrechecker {
+		return state.NoopInstancePrechecker{}
+	}
 
 	if s.Clock == nil {
 		s.Clock = testclock.NewClock(time.Now())

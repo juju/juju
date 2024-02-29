@@ -24,5 +24,5 @@ func newFacadeV19(stdCtx context.Context, ctx facade.ModelContext) (*APIv19, err
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &APIv19{api}, nil
+	return &APIv19{APIBase: api}, nil
 }

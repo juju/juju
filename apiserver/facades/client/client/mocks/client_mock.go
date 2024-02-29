@@ -18,9 +18,7 @@ import (
 	client "github.com/juju/juju/apiserver/facades/client/client"
 	controller "github.com/juju/juju/controller"
 	blockdevice "github.com/juju/juju/core/blockdevice"
-	constraints "github.com/juju/juju/core/constraints"
 	crossmodel "github.com/juju/juju/core/crossmodel"
-	instance "github.com/juju/juju/core/instance"
 	network "github.com/juju/juju/core/network"
 	permission "github.com/juju/juju/core/permission"
 	status "github.com/juju/juju/core/status"
@@ -52,81 +50,6 @@ func NewMockBackend(ctrl *gomock.Controller) *MockBackend {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockBackend) EXPECT() *MockBackendMockRecorder {
 	return m.recorder
-}
-
-// APIHostPortsForClients mocks base method.
-func (m *MockBackend) APIHostPortsForClients(arg0 controller.Config) ([]network.SpaceHostPorts, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "APIHostPortsForClients", arg0)
-	ret0, _ := ret[0].([]network.SpaceHostPorts)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// APIHostPortsForClients indicates an expected call of APIHostPortsForClients.
-func (mr *MockBackendMockRecorder) APIHostPortsForClients(arg0 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "APIHostPortsForClients", reflect.TypeOf((*MockBackend)(nil).APIHostPortsForClients), arg0)
-}
-
-// AddControllerUser mocks base method.
-func (m *MockBackend) AddControllerUser(arg0 state.UserAccessSpec) (permission.UserAccess, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddControllerUser", arg0)
-	ret0, _ := ret[0].(permission.UserAccess)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// AddControllerUser indicates an expected call of AddControllerUser.
-func (mr *MockBackendMockRecorder) AddControllerUser(arg0 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddControllerUser", reflect.TypeOf((*MockBackend)(nil).AddControllerUser), arg0)
-}
-
-// AddMachineInsideMachine mocks base method.
-func (m *MockBackend) AddMachineInsideMachine(arg0 state.MachineTemplate, arg1 string, arg2 instance.ContainerType) (*state.Machine, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddMachineInsideMachine", arg0, arg1, arg2)
-	ret0, _ := ret[0].(*state.Machine)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// AddMachineInsideMachine indicates an expected call of AddMachineInsideMachine.
-func (mr *MockBackendMockRecorder) AddMachineInsideMachine(arg0, arg1, arg2 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddMachineInsideMachine", reflect.TypeOf((*MockBackend)(nil).AddMachineInsideMachine), arg0, arg1, arg2)
-}
-
-// AddMachineInsideNewMachine mocks base method.
-func (m *MockBackend) AddMachineInsideNewMachine(arg0, arg1 state.MachineTemplate, arg2 instance.ContainerType) (*state.Machine, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddMachineInsideNewMachine", arg0, arg1, arg2)
-	ret0, _ := ret[0].(*state.Machine)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// AddMachineInsideNewMachine indicates an expected call of AddMachineInsideNewMachine.
-func (mr *MockBackendMockRecorder) AddMachineInsideNewMachine(arg0, arg1, arg2 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddMachineInsideNewMachine", reflect.TypeOf((*MockBackend)(nil).AddMachineInsideNewMachine), arg0, arg1, arg2)
-}
-
-// AddOneMachine mocks base method.
-func (m *MockBackend) AddOneMachine(arg0 state.MachineTemplate) (*state.Machine, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddOneMachine", arg0)
-	ret0, _ := ret[0].(*state.Machine)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// AddOneMachine indicates an expected call of AddOneMachine.
-func (mr *MockBackendMockRecorder) AddOneMachine(arg0 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddOneMachine", reflect.TypeOf((*MockBackend)(nil).AddOneMachine), arg0)
 }
 
 // AddRelation mocks base method.
@@ -223,21 +146,6 @@ func (mr *MockBackendMockRecorder) AllMachines() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllMachines", reflect.TypeOf((*MockBackend)(nil).AllMachines))
 }
 
-// AllModelUUIDs mocks base method.
-func (m *MockBackend) AllModelUUIDs() ([]string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AllModelUUIDs")
-	ret0, _ := ret[0].([]string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// AllModelUUIDs indicates an expected call of AllModelUUIDs.
-func (mr *MockBackendMockRecorder) AllModelUUIDs() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllModelUUIDs", reflect.TypeOf((*MockBackend)(nil).AllModelUUIDs))
-}
-
 // AllRelations mocks base method.
 func (m *MockBackend) AllRelations() ([]*state.Relation, error) {
 	m.ctrl.T.Helper()
@@ -328,21 +236,6 @@ func (mr *MockBackendMockRecorder) Application(arg0 any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Application", reflect.TypeOf((*MockBackend)(nil).Application), arg0)
 }
 
-// Charm mocks base method.
-func (m *MockBackend) Charm(arg0 string) (*state.Charm, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Charm", arg0)
-	ret0, _ := ret[0].(*state.Charm)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Charm indicates an expected call of Charm.
-func (mr *MockBackendMockRecorder) Charm(arg0 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Charm", reflect.TypeOf((*MockBackend)(nil).Charm), arg0)
-}
-
 // ControllerConfig mocks base method.
 func (m *MockBackend) ControllerConfig() (controller.Config, error) {
 	m.ctrl.T.Helper()
@@ -402,40 +295,6 @@ func (mr *MockBackendMockRecorder) ControllerTimestamp() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerTimestamp", reflect.TypeOf((*MockBackend)(nil).ControllerTimestamp))
 }
 
-// EndpointsRelation mocks base method.
-func (m *MockBackend) EndpointsRelation(arg0 ...state.Endpoint) (*state.Relation, error) {
-	m.ctrl.T.Helper()
-	varargs := []any{}
-	for _, a := range arg0 {
-		varargs = append(varargs, a)
-	}
-	ret := m.ctrl.Call(m, "EndpointsRelation", varargs...)
-	ret0, _ := ret[0].(*state.Relation)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// EndpointsRelation indicates an expected call of EndpointsRelation.
-func (mr *MockBackendMockRecorder) EndpointsRelation(arg0 ...any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EndpointsRelation", reflect.TypeOf((*MockBackend)(nil).EndpointsRelation), arg0...)
-}
-
-// FindEntity mocks base method.
-func (m *MockBackend) FindEntity(arg0 names.Tag) (state.Entity, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "FindEntity", arg0)
-	ret0, _ := ret[0].(state.Entity)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// FindEntity indicates an expected call of FindEntity.
-func (mr *MockBackendMockRecorder) FindEntity(arg0 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindEntity", reflect.TypeOf((*MockBackend)(nil).FindEntity), arg0)
-}
-
 // HAPrimaryMachine mocks base method.
 func (m *MockBackend) HAPrimaryMachine() (names.MachineTag, error) {
 	m.ctrl.T.Helper()
@@ -449,54 +308,6 @@ func (m *MockBackend) HAPrimaryMachine() (names.MachineTag, error) {
 func (mr *MockBackendMockRecorder) HAPrimaryMachine() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HAPrimaryMachine", reflect.TypeOf((*MockBackend)(nil).HAPrimaryMachine))
-}
-
-// InferEndpoints mocks base method.
-func (m *MockBackend) InferEndpoints(arg0 ...string) ([]state.Endpoint, error) {
-	m.ctrl.T.Helper()
-	varargs := []any{}
-	for _, a := range arg0 {
-		varargs = append(varargs, a)
-	}
-	ret := m.ctrl.Call(m, "InferEndpoints", varargs...)
-	ret0, _ := ret[0].([]state.Endpoint)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// InferEndpoints indicates an expected call of InferEndpoints.
-func (mr *MockBackendMockRecorder) InferEndpoints(arg0 ...any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InferEndpoints", reflect.TypeOf((*MockBackend)(nil).InferEndpoints), arg0...)
-}
-
-// IsController mocks base method.
-func (m *MockBackend) IsController() bool {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "IsController")
-	ret0, _ := ret[0].(bool)
-	return ret0
-}
-
-// IsController indicates an expected call of IsController.
-func (mr *MockBackendMockRecorder) IsController() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsController", reflect.TypeOf((*MockBackend)(nil).IsController))
-}
-
-// LatestMigration mocks base method.
-func (m *MockBackend) LatestMigration() (state.ModelMigration, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "LatestMigration")
-	ret0, _ := ret[0].(state.ModelMigration)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// LatestMigration indicates an expected call of LatestMigration.
-func (mr *MockBackendMockRecorder) LatestMigration() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LatestMigration", reflect.TypeOf((*MockBackend)(nil).LatestMigration))
 }
 
 // LatestPlaceholderCharm mocks base method.
@@ -559,21 +370,6 @@ func (mr *MockBackendMockRecorder) ModelConfig() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelConfig", reflect.TypeOf((*MockBackend)(nil).ModelConfig))
 }
 
-// ModelConstraints mocks base method.
-func (m *MockBackend) ModelConstraints() (constraints.Value, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ModelConstraints")
-	ret0, _ := ret[0].(constraints.Value)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ModelConstraints indicates an expected call of ModelConstraints.
-func (mr *MockBackendMockRecorder) ModelConstraints() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelConstraints", reflect.TypeOf((*MockBackend)(nil).ModelConstraints))
-}
-
 // ModelTag mocks base method.
 func (m *MockBackend) ModelTag() names.ModelTag {
 	m.ctrl.T.Helper()
@@ -600,20 +396,6 @@ func (m *MockBackend) ModelUUID() string {
 func (mr *MockBackendMockRecorder) ModelUUID() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelUUID", reflect.TypeOf((*MockBackend)(nil).ModelUUID))
-}
-
-// MongoSession mocks base method.
-func (m *MockBackend) MongoSession() client.MongoSession {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "MongoSession")
-	ret0, _ := ret[0].(client.MongoSession)
-	return ret0
-}
-
-// MongoSession indicates an expected call of MongoSession.
-func (mr *MockBackendMockRecorder) MongoSession() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MongoSession", reflect.TypeOf((*MockBackend)(nil).MongoSession))
 }
 
 // RemoteApplication mocks base method.
@@ -646,62 +428,6 @@ func (mr *MockBackendMockRecorder) RemoteConnectionStatus(arg0 any) *gomock.Call
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoteConnectionStatus", reflect.TypeOf((*MockBackend)(nil).RemoteConnectionStatus), arg0)
 }
 
-// RemoveUserAccess mocks base method.
-func (m *MockBackend) RemoveUserAccess(arg0 names.UserTag, arg1 names.Tag) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RemoveUserAccess", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// RemoveUserAccess indicates an expected call of RemoveUserAccess.
-func (mr *MockBackendMockRecorder) RemoveUserAccess(arg0, arg1 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveUserAccess", reflect.TypeOf((*MockBackend)(nil).RemoveUserAccess), arg0, arg1)
-}
-
-// SetAnnotations mocks base method.
-func (m *MockBackend) SetAnnotations(arg0 state.GlobalEntity, arg1 map[string]string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetAnnotations", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// SetAnnotations indicates an expected call of SetAnnotations.
-func (mr *MockBackendMockRecorder) SetAnnotations(arg0, arg1 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetAnnotations", reflect.TypeOf((*MockBackend)(nil).SetAnnotations), arg0, arg1)
-}
-
-// SetModelAgentVersion mocks base method.
-func (m *MockBackend) SetModelAgentVersion(arg0 version.Number, arg1 *string, arg2 bool, arg3 state.Upgrader) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetModelAgentVersion", arg0, arg1, arg2, arg3)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// SetModelAgentVersion indicates an expected call of SetModelAgentVersion.
-func (mr *MockBackendMockRecorder) SetModelAgentVersion(arg0, arg1, arg2, arg3 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetModelAgentVersion", reflect.TypeOf((*MockBackend)(nil).SetModelAgentVersion), arg0, arg1, arg2, arg3)
-}
-
-// SetModelConstraints mocks base method.
-func (m *MockBackend) SetModelConstraints(arg0 constraints.Value) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetModelConstraints", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// SetModelConstraints indicates an expected call of SetModelConstraints.
-func (mr *MockBackendMockRecorder) SetModelConstraints(arg0 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetModelConstraints", reflect.TypeOf((*MockBackend)(nil).SetModelConstraints), arg0)
-}
-
 // Unit mocks base method.
 func (m *MockBackend) Unit(arg0 string) (client.Unit, error) {
 	m.ctrl.T.Helper()
@@ -715,25 +441,6 @@ func (m *MockBackend) Unit(arg0 string) (client.Unit, error) {
 func (mr *MockBackendMockRecorder) Unit(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Unit", reflect.TypeOf((*MockBackend)(nil).Unit), arg0)
-}
-
-// UpdateModelConfig mocks base method.
-func (m *MockBackend) UpdateModelConfig(arg0 map[string]any, arg1 []string, arg2 ...state.ValidateConfigFunc) error {
-	m.ctrl.T.Helper()
-	varargs := []any{arg0, arg1}
-	for _, a := range arg2 {
-		varargs = append(varargs, a)
-	}
-	ret := m.ctrl.Call(m, "UpdateModelConfig", varargs...)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// UpdateModelConfig indicates an expected call of UpdateModelConfig.
-func (mr *MockBackendMockRecorder) UpdateModelConfig(arg0, arg1 any, arg2 ...any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	varargs := append([]any{arg0, arg1}, arg2...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateModelConfig", reflect.TypeOf((*MockBackend)(nil).UpdateModelConfig), varargs...)
 }
 
 // MockModel is a mock of Model interface.

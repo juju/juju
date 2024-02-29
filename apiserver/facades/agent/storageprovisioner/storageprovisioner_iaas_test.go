@@ -131,7 +131,7 @@ func (s *iaasProvisionerSuite) setupVolumes(c *gc.C) {
 	// Make an unprovisioned machine with storage for tests to use.
 	// TODO(axw) extend testing/factory to allow creating unprovisioned
 	// machines.
-	_, err = s.st.AddOneMachine(state.MachineTemplate{
+	_, err = s.st.AddOneMachine(s.InstancePrechecker(c, s.st), state.MachineTemplate{
 		Base: state.UbuntuBase("12.10"),
 		Jobs: []state.MachineJob{state.JobHostUnits},
 		Volumes: []state.HostVolumeParams{
@@ -178,7 +178,7 @@ func (s *iaasProvisionerSuite) setupFilesystems(c *gc.C) {
 	// Make an unprovisioned machine with storage for tests to use.
 	// TODO(axw) extend testing/factory to allow creating unprovisioned
 	// machines.
-	_, err = s.st.AddOneMachine(state.MachineTemplate{
+	_, err = s.st.AddOneMachine(s.InstancePrechecker(c, s.st), state.MachineTemplate{
 		Base: state.UbuntuBase("12.10"),
 		Jobs: []state.MachineJob{state.JobHostUnits},
 		Filesystems: []state.HostFilesystemParams{{

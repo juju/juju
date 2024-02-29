@@ -53,7 +53,7 @@ func (s *getSuite) SetUpTest(c *gc.C) {
 	serviceFactory := s.DefaultModelServiceFactory(c)
 
 	api, err := application.NewAPIBase(
-		application.GetState(st),
+		application.GetState(st, state.NoopInstancePrechecker{}),
 		nil,
 		storageAccess,
 		s.authorizer,
@@ -187,7 +187,7 @@ func (s *getSuite) TestClientApplicationGetCAASModelSmokeTest(c *gc.C) {
 	serviceFactory := s.DefaultModelServiceFactory(c)
 
 	api, err := application.NewAPIBase(
-		application.GetState(st),
+		application.GetState(st, state.NoopInstancePrechecker{}),
 		nil,
 		storageAccess,
 		s.authorizer,

@@ -194,7 +194,8 @@ func (s *firewallerSuite) TestWatchOpenedPorts(c *gc.C) {
 func (s *firewallerSuite) TestAreManuallyProvisioned(c *gc.C) {
 	defer s.ctrl.Finish()
 
-	m, err := s.ControllerModel(c).State().AddOneMachine(state.MachineTemplate{
+	st := s.ControllerModel(c).State()
+	m, err := st.AddOneMachine(s.InstancePrechecker(c, st), state.MachineTemplate{
 		Base:       state.UbuntuBase("12.10"),
 		Jobs:       []state.MachineJob{state.JobHostUnits},
 		InstanceId: "2",

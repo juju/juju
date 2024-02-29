@@ -87,7 +87,7 @@ func (s *provisionerSuite) setUpTest(c *gc.C, withController bool) {
 		s.machines = append(s.machines, testing.AddControllerMachine(c, st))
 	}
 	for i := 0; i < 5; i++ {
-		machine, err := st.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+		machine, err := st.AddMachine(state.NoopInstancePrechecker{}, state.UbuntuBase("12.10"), state.JobHostUnits)
 		c.Check(err, jc.ErrorIsNil)
 		s.machines = append(s.machines, machine)
 	}
@@ -1018,7 +1018,7 @@ func (s *withoutControllerSuite) TestDistributionGroup(c *gc.C) {
 
 	// Add a few controllers, provision two of them.
 	st := s.ControllerModel(c).State()
-	_, _, err = st.EnableHA(3, constraints.Value{}, state.UbuntuBase("12.10"), nil)
+	_, _, err = st.EnableHA(state.NoopInstancePrechecker{}, 3, constraints.Value{}, state.UbuntuBase("12.10"), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	setProvisioned("5")
 	setProvisioned("7")
@@ -1158,7 +1158,7 @@ func (s *withoutControllerSuite) TestDistributionGroupByMachineId(c *gc.C) {
 	setProvisioned("3")
 
 	// Add a few controllers, provision two of them.
-	_, _, err = s.ControllerModel(c).State().EnableHA(3, constraints.Value{}, state.UbuntuBase("12.10"), nil)
+	_, _, err = s.ControllerModel(c).State().EnableHA(s.InstancePrechecker(c, s.ControllerModel(c).State()), 3, constraints.Value{}, state.UbuntuBase("12.10"), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	setProvisioned("5")
 	setProvisioned("7")
@@ -1252,7 +1252,7 @@ func (s *withoutControllerSuite) TestConstraints(c *gc.C) {
 		Jobs:        []state.MachineJob{state.JobHostUnits},
 		Constraints: cons,
 	}
-	consMachine, err := s.ControllerModel(c).State().AddOneMachine(template)
+	consMachine, err := s.ControllerModel(c).State().AddOneMachine(s.InstancePrechecker(c, s.ControllerModel(c).State()), template)
 	c.Assert(err, jc.ErrorIsNil)
 
 	machine0Constraints, err := s.machines[0].Constraints()
@@ -1296,7 +1296,7 @@ func (s *withoutControllerSuite) TestSetInstanceInfo(c *gc.C) {
 	err = s.machines[0].SetInstanceInfo("i-am", "", "fake_nonce", &hwChars, nil, nil, nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	volumesMachine, err := st.AddOneMachine(state.MachineTemplate{
+	volumesMachine, err := st.AddOneMachine(s.InstancePrechecker(c, s.ControllerModel(c).State()), state.MachineTemplate{
 		Base: state.UbuntuBase("12.10"),
 		Jobs: []state.MachineJob{state.JobHostUnits},
 		Volumes: []state.HostVolumeParams{{

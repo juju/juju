@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/internal/worker/common"
 	"github.com/juju/juju/internal/worker/gate"
 	workerstate "github.com/juju/juju/internal/worker/state"
+	"github.com/juju/juju/state/stateenvirons"
 )
 
 // LoggerFactory is the interface that is used to create new loggers.
@@ -299,9 +300,18 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 
 			var serviceFactoryGetter servicefactory.ServiceFactoryGetter
 			if err := getter.Get(config.ServiceFactoryName, &serviceFactoryGetter); err != nil {
+				_ = stTracker.Done()
 				return nil, errors.Trace(err)
 			}
 			modelServiceFactory := serviceFactoryGetter.FactoryForModel(systemState.ModelUUID())
+
+			// TODO (stickupkid): This should be removed once we get rid of
+			// the policy and move it into the service factory.
+			prechecker, err := stateenvirons.NewInstancePrechecker(systemState, modelServiceFactory.Cloud(), modelServiceFactory.Credential())
+			if err != nil {
+				_ = stTracker.Done()
+				return nil, errors.Trace(err)
+			}
 
 			w, err := NewWorker(WorkerConfig{
 				Agent:                   a,
@@ -312,7 +322,11 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				ApplicationService:      modelServiceFactory.Application(),
 				FlagService:             flagService,
 				SpaceService:            modelServiceFactory.Space(),
-				SystemState:             &stateShim{State: systemState, applicationSaver: modelServiceFactory.Application()},
+				SystemState: &stateShim{
+					State:            systemState,
+					applicationSaver: modelServiceFactory.Application(),
+					prechecker:       prechecker,
+				},
 				BootstrapUnlocker:       bootstrapUnlocker,
 				AgentBinaryUploader:     config.AgentBinaryUploader,
 				ControllerCharmDeployer: config.ControllerCharmDeployer,

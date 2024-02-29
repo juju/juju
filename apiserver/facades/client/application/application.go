@@ -148,7 +148,12 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 		return nil, errors.Trace(err)
 	}
 
-	state := &stateShim{ctx.State()}
+	prechecker, err := stateenvirons.NewInstancePrechecker(ctx.State(), serviceFactory.Cloud(), serviceFactory.Credential())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	state := &stateShim{State: ctx.State(), prechecker: prechecker}
 
 	modelCfg, err := model.Config()
 	if err != nil {

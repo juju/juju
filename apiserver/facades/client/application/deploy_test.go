@@ -751,7 +751,7 @@ func (s *DeployLocalSuite) assertMachines(c *gc.C, app application.Application, 
 	st := s.ControllerModel(c).State()
 	for _, unit := range units {
 		id := unit.UnitTag().Id()
-		res, err := st.AssignStagedUnits([]string{id})
+		res, err := st.AssignStagedUnits(state.NoopInstancePrechecker{}, []string{id})
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(res[0].Error, jc.ErrorIsNil)
 		c.Assert(res[0].Unit, gc.Equals, id)
@@ -780,11 +780,11 @@ type stateDeployer struct {
 }
 
 func (d stateDeployer) AddApplication(args state.AddApplicationArgs, as application.ApplicationSaver, store objectstore.ObjectStore) (application.Application, error) {
-	app, err := d.State.AddApplication(args, as, store)
+	app, err := d.State.AddApplication(state.NoopInstancePrechecker{}, args, as, store)
 	if err != nil {
 		return nil, err
 	}
-	return application.NewStateApplication(d.State, app), nil
+	return application.NewStateApplication(d.State, state.NoopInstancePrechecker{}, app), nil
 }
 
 type fakeDeployer struct {
