@@ -1,4 +1,4 @@
-// Copyright 2024 Canonical Ltd.
+// Copyright 2023 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 //go:build linux
@@ -210,7 +210,7 @@ func (w *Worker) addMetricsUser(username, password string) (int, error) {
 		}()
 
 	default:
-		return http.StatusInternalServerError, errors.Annotatef(err, "failed to create user %q: %v", username, err)
+		return http.StatusInternalServerError, errors.Annotatef(err, "creating user %q: %v", username, err)
 	}
 
 	// Give the new user permission to access the metrics endpoint.

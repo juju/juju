@@ -1,4 +1,4 @@
-// Copyright 2024 Canonical Ltd.
+// Copyright 2023 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package controlleragentconfig
@@ -397,7 +397,7 @@ func ensureDone(c *gc.C, watcher ConfigWatcher) {
 func newRequest(c *gc.C, socket, method string) (*http.Response, error) {
 	serverURL := "http://localhost:8080" + method
 	req, err := http.NewRequest(
-		http.MethodGet,
+		http.MethodPost,
 		serverURL,
 		nil,
 	)

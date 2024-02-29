@@ -1,4 +1,4 @@
-// Copyright 2024 Canonical Ltd.
+// Copyright 2023 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 // Package controlleragentconfig provides a worker that listens on the "/reload"
@@ -135,7 +135,7 @@ func newWorker(cfg WorkerConfig, internalStates chan string) (*configWorker, err
 
 func (w *configWorker) registerHandlers(r *mux.Router) {
 	r.HandleFunc("/reload", w.reloadHandler).
-		Methods(http.MethodGet)
+		Methods(http.MethodPost)
 }
 
 // reloadHandler sends a signal to the configWorker when a config reload is

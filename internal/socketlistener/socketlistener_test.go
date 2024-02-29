@@ -1,7 +1,7 @@
 // Copyright 2024 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package socketlistener
+package socketlistener_test
 
 import (
 	"context"
@@ -19,6 +19,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	coretesting "github.com/juju/juju/core/testing"
+	"github.com/juju/juju/internal/socketlistener"
 )
 
 type socketListenerSuite struct {
@@ -44,7 +45,7 @@ func (s *socketListenerSuite) TestStartStopWorker(c *gc.C) {
 	tmpDir := c.MkDir()
 	socket := path.Join(tmpDir, "test.socket")
 
-	sl, err := NewSocketListener(Config{
+	sl, err := socketlistener.NewSocketListener(socketlistener.Config{
 		Logger:           s.logger,
 		SocketName:       socket,
 		RegisterHandlers: registerTestHandlers,
@@ -92,7 +93,7 @@ func (s *socketListenerSuite) TestEnsureShutdown(c *gc.C) {
 	socket := path.Join(tmpDir, "test.socket")
 
 	start := make(chan struct{})
-	sl, err := NewSocketListener(Config{
+	sl, err := socketlistener.NewSocketListener(socketlistener.Config{
 		Logger:     s.logger,
 		SocketName: socket,
 		RegisterHandlers: func(r *mux.Router) {
