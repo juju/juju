@@ -202,7 +202,6 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 	err = wordpress.SetConstraints(constraints.MustParse("mem=100M"))
 	c.Assert(err, jc.ErrorIsNil)
 	setApplicationConfigAttr(c, wordpress, "blog-title", "boring")
-	pairs := map[string]string{"x": "12", "y": "99"}
 	add(&multiwatcher.ApplicationInfo{
 		ModelUUID:   modelUUID,
 		Name:        "wordpress",
@@ -211,7 +210,6 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 		Life:        life.Alive,
 		MinUnits:    units,
 		Constraints: constraints.MustParse("mem=100M"),
-		Annotations: pairs,
 		Config:      charm.Settings{"blog-title": "boring"},
 		Subordinate: false,
 		Status: multiwatcher.StatusInfo{
@@ -220,11 +218,6 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 			Data:    map[string]interface{}{},
 			Since:   &now,
 		},
-	})
-	add(&multiwatcher.AnnotationInfo{
-		ModelUUID:   modelUUID,
-		Tag:         "application-wordpress",
-		Annotations: pairs,
 	})
 
 	add(&multiwatcher.CharmInfo{
@@ -278,7 +271,6 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(m.Tag().String(), gc.Equals, fmt.Sprintf("machine-%d", i+1))
 
-		pairs := map[string]string{"name": fmt.Sprintf("bar %d", i)}
 		add(&multiwatcher.UnitInfo{
 			ModelUUID:   modelUUID,
 			Name:        fmt.Sprintf("wordpress/%d", i),
@@ -286,7 +278,6 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 			Base:        "ubuntu@12.10",
 			Life:        life.Alive,
 			MachineID:   m.Id(),
-			Annotations: pairs,
 			Subordinate: false,
 			WorkloadStatus: multiwatcher.StatusInfo{
 				Current: "waiting",
@@ -300,11 +291,6 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 				Data:    map[string]interface{}{},
 				Since:   &now,
 			},
-		})
-		add(&multiwatcher.AnnotationInfo{
-			ModelUUID:   modelUUID,
-			Tag:         fmt.Sprintf("unit-wordpress-%d", i),
-			Annotations: pairs,
 		})
 		err = m.SetProvisioned(instance.Id("i-"+m.Tag().String()), "", "fake_nonce", nil)
 		c.Assert(err, jc.ErrorIsNil)

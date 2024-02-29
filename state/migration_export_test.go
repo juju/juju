@@ -56,11 +56,6 @@ const (
 	expectedHistoryCount = addedHistoryCount + 1
 )
 
-var testAnnotations = map[string]string{
-	"string":  "value",
-	"another": "one",
-}
-
 type MigrationBaseSuite struct {
 	ConnWithWallClockSuite
 }
@@ -190,7 +185,6 @@ func (s *MigrationExportSuite) TestModelInfo(c *gc.C) {
 	c.Assert(modelCfg, jc.DeepEquals, modelAttrs)
 	c.Assert(model.LatestToolsVersion(), gc.Equals, latestTools)
 	c.Assert(model.EnvironVersion(), gc.Equals, environVersion)
-	c.Assert(model.Annotations(), jc.DeepEquals, testAnnotations)
 	constraints := model.Constraints()
 	c.Assert(constraints, gc.NotNil)
 	c.Assert(constraints.Architecture(), gc.Equals, "amd64")
@@ -291,7 +285,6 @@ func (s *MigrationExportSuite) assertMachinesMigrated(c *gc.C, cons constraints.
 	exported := machines[0]
 	c.Assert(exported.Tag(), gc.Equals, machine1.MachineTag())
 	c.Assert(exported.Base(), gc.Equals, machine1.Base().String())
-	c.Assert(exported.Annotations(), jc.DeepEquals, testAnnotations)
 
 	expCons := exported.Constraints()
 	c.Assert(expCons, gc.NotNil)
@@ -434,7 +427,6 @@ func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, st *state.Stat
 	c.Assert(exported.Name(), gc.Equals, application.Name())
 	c.Assert(exported.Tag(), gc.Equals, application.ApplicationTag())
 	c.Assert(exported.Type(), gc.Equals, string(dbModel.Type()))
-	c.Assert(exported.Annotations(), jc.DeepEquals, testAnnotations)
 
 	origin := exported.CharmOrigin()
 	c.Assert(origin.Channel(), gc.Equals, "beta")
@@ -557,7 +549,6 @@ func (s *MigrationExportSuite) TestMalformedApplications(c *gc.C) {
 	c.Assert(exported.Name(), gc.Equals, application.Name())
 	c.Assert(exported.Tag(), gc.Equals, application.ApplicationTag())
 	c.Assert(exported.Type(), gc.Equals, string(dbModel.Type()))
-	c.Assert(exported.Annotations(), jc.DeepEquals, testAnnotations)
 
 	origin := exported.CharmOrigin()
 	c.Assert(origin.Channel(), gc.Equals, "stable")
@@ -806,7 +797,6 @@ func (s *MigrationExportSuite) assertMigrateUnits(c *gc.C, st *state.State, unit
 	c.Assert(exported.Tag(), gc.Equals, unit.UnitTag())
 	c.Assert(exported.Validate(), jc.ErrorIsNil)
 	c.Assert(exported.WorkloadVersion(), gc.Equals, "steven")
-	c.Assert(exported.Annotations(), jc.DeepEquals, testAnnotations)
 	c.Assert(exported.CharmState(), jc.DeepEquals, map[string]string{"payload": "b4dc0ffee"})
 	c.Assert(exported.RelationState(), jc.DeepEquals, map[int]string{42: "magic"})
 	c.Assert(exported.UniterState(), gc.Equals, "uniter state")
