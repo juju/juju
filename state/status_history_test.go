@@ -29,7 +29,7 @@ func (s *StatusHistorySuite) SetUpTest(c *gc.C) {
 }
 
 func (s *StatusHistorySuite) TestPruneStatusHistoryBySize(c *gc.C) {
-	application := s.Factory.MakeApplication(c, nil)
+	application := s.Factory.MakeApplication(c, nil, nil)
 
 	initialHistory := 20000
 	filter := status.StatusHistoryFilter{Size: 25000}
@@ -71,7 +71,7 @@ func (s *StatusHistorySuite) TestPruneStatusBySizeOnlyForController(c *gc.C) {
 	defer st.Close()
 
 	localFactory := factory.NewFactory(st, s.StatePool)
-	application := localFactory.MakeApplication(c, nil)
+	application := localFactory.MakeApplication(c, nil, nil)
 	unit := localFactory.MakeUnit(c, &factory.UnitParams{Application: application})
 	state.PrimeUnitStatusHistory(c, s.Clock, unit, status.Active, 20000, 1000, nil)
 
@@ -105,7 +105,7 @@ func (s *StatusHistorySuite) TestPruneStatusHistoryByDate(c *gc.C) {
 	const count = 3
 	units := make([]*state.Unit, count)
 	agents := make([]*state.UnitAgent, count)
-	application := s.Factory.MakeApplication(c, nil)
+	application := s.Factory.MakeApplication(c, nil, nil)
 	for i := 0; i < count; i++ {
 		units[i] = s.Factory.MakeUnit(c, &factory.UnitParams{Application: application})
 		agents[i] = units[i].Agent()
@@ -185,7 +185,7 @@ func (s *StatusHistorySuite) TestPruneStatusHistoryByDate(c *gc.C) {
 }
 
 func (s *StatusHistorySuite) TestStatusHistoryFilterRunningUpdateStatusHook(c *gc.C) {
-	application := s.Factory.MakeApplication(c, nil)
+	application := s.Factory.MakeApplication(c, nil, nil)
 	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: application})
 	agent := unit.Agent()
 
@@ -204,7 +204,7 @@ func (s *StatusHistorySuite) TestStatusHistoryFilterRunningUpdateStatusHook(c *g
 }
 
 func (s *StatusHistorySuite) TestStatusHistoryFilterRunningUpdateStatusHookFiltered(c *gc.C) {
-	application := s.Factory.MakeApplication(c, nil)
+	application := s.Factory.MakeApplication(c, nil, nil)
 	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: application})
 	agent := unit.Agent()
 
@@ -221,7 +221,7 @@ func (s *StatusHistorySuite) TestStatusHistoryFilterRunningUpdateStatusHookFilte
 func (s *StatusHistorySuite) TestStatusHistoryFiltersByDateAndDelta(c *gc.C) {
 	// TODO(perrito666) setup should be extracted into a fixture and the
 	// 6 or 7 test cases each get their own method.
-	application := s.Factory.MakeApplication(c, nil)
+	application := s.Factory.MakeApplication(c, nil, nil)
 	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: application})
 
 	twoDaysBack := time.Hour * 48
@@ -306,7 +306,7 @@ func (s *StatusHistorySuite) TestStatusHistoryFiltersByDateAndDelta(c *gc.C) {
 }
 
 func (s *StatusHistorySuite) TestSameValueNotRepeated(c *gc.C) {
-	application := s.Factory.MakeApplication(c, nil)
+	application := s.Factory.MakeApplication(c, nil, nil)
 	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: application})
 
 	now := s.Clock.Now()

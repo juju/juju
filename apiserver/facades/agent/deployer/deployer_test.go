@@ -87,12 +87,12 @@ func (s *deployerSuite) SetUpTest(c *gc.C) {
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
-	s.service0 = f.MakeApplication(c, nil)
+	s.service0 = f.MakeApplication(c, nil, nil)
 
 	f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "logging",
 		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "logging"}),
-	})
+	}, nil)
 	eps, err := st.InferEndpoints("mysql", "logging")
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := st.AddRelation(eps...)

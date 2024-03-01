@@ -105,11 +105,11 @@ func (s *StorageStateSuiteBase) AddTestingCharm(c *gc.C, name string) *state.Cha
 }
 
 func (s *StorageStateSuiteBase) AddTestingApplication(c *gc.C, name string, ch *state.Charm) *state.Application {
-	return state.AddTestingApplicationForBase(c, s.st, s.objectStore, s.base, name, ch)
+	return state.AddTestingApplicationForBase(c, s.st, s.objectStore, s.base, name, ch, nil)
 }
 
 func (s *StorageStateSuiteBase) AddTestingApplicationWithStorage(c *gc.C, name string, ch *state.Charm, storage map[string]state.StorageConstraints) *state.Application {
-	return state.AddTestingApplicationWithStorage(c, s.st, s.objectStore, name, ch, storage)
+	return state.AddTestingApplicationWithStorage(c, s.st, s.objectStore, name, ch, storage, nil)
 }
 
 func (s *StorageStateSuiteBase) AddMetaCharm(c *gc.C, name, metaYaml string, revision int) *state.Charm {
@@ -477,7 +477,7 @@ func (s *StorageStateSuite) TestBlockStorageNotSupportedOnCAAS(c *gc.C) {
 			OS:      "ubuntu",
 			Channel: "20.04/stable",
 		}},
-	}, state.NewObjectStore(c, st.ModelUUID()))
+	}, state.NewObjectStore(c, st.ModelUUID()), nil)
 	c.Assert(err, gc.ErrorMatches, `cannot add application "storage-block": block storage on a container model not supported`)
 }
 
@@ -489,7 +489,7 @@ func (s *StorageStateSuite) TestAddApplicationStorageConstraintsDefault(c *gc.C)
 			OS:      "ubuntu",
 			Channel: "22.04/stable",
 		}},
-	}, state.NewObjectStore(c, s.st.ModelUUID()))
+	}, state.NewObjectStore(c, s.st.ModelUUID()), state.DefaultSpacesWithAlpha())
 	c.Assert(err, jc.ErrorIsNil)
 	constraints, err := storageBlock.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
@@ -513,7 +513,7 @@ func (s *StorageStateSuite) TestAddApplicationStorageConstraintsDefault(c *gc.C)
 			OS:      "ubuntu",
 			Channel: "22.04/stable",
 		}},
-	}, state.NewObjectStore(c, s.st.ModelUUID()))
+	}, state.NewObjectStore(c, s.st.ModelUUID()), state.DefaultSpacesWithAlpha())
 	c.Assert(err, jc.ErrorIsNil)
 	constraints, err = storageFilesystem.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
@@ -544,7 +544,7 @@ func (s *StorageStateSuite) TestAddApplicationStorageConstraintsValidation(c *gc
 				Channel: "22.04/stable",
 			}},
 			Storage: storage,
-		}, state.NewObjectStore(c, s.st.ModelUUID()))
+		}, state.NewObjectStore(c, s.st.ModelUUID()), state.DefaultSpacesWithAlpha())
 	}
 	assertErr := func(storage map[string]state.StorageConstraints, expect string) {
 		_, err := addApplication(storage)
@@ -583,7 +583,7 @@ func (s *StorageStateSuite) assertAddApplicationStorageConstraintsDefaults(c *gc
 			Channel: "22.04/stable",
 		}},
 		Storage: cons,
-	}, state.NewObjectStore(c, s.st.ModelUUID()))
+	}, state.NewObjectStore(c, s.st.ModelUUID()), state.DefaultSpacesWithAlpha())
 	c.Assert(err, jc.ErrorIsNil)
 	savedCons, err := app.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
@@ -662,7 +662,7 @@ func (s *StorageStateSuite) TestAddApplicationStorageConstraintsDefaultSizeFromC
 			Channel: "22.04/stable",
 		}},
 		Storage: storageCons,
-	}, state.NewObjectStore(c, s.st.ModelUUID()))
+	}, state.NewObjectStore(c, s.st.ModelUUID()), state.DefaultSpacesWithAlpha())
 	c.Assert(err, jc.ErrorIsNil)
 	savedCons, err := app.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
@@ -679,7 +679,7 @@ func (s *StorageStateSuite) TestProviderFallbackToType(c *gc.C) {
 				Channel: "22.04/stable",
 			}},
 			Storage: storage,
-		}, state.NewObjectStore(c, s.st.ModelUUID()))
+		}, state.NewObjectStore(c, s.st.ModelUUID()), state.DefaultSpacesWithAlpha())
 	}
 	storageCons := map[string]state.StorageConstraints{
 		"data": makeStorageCons("loop", 1024, 1),
@@ -1073,7 +1073,7 @@ func (s *StorageStateSuite) TestAddApplicationAttachStorage(c *gc.C) {
 		},
 		AttachStorage: []names.StorageTag{storageTag},
 		NumUnits:      1,
-	}, state.NewObjectStore(c, s.st.ModelUUID()))
+	}, state.NewObjectStore(c, s.st.ModelUUID()), state.DefaultSpacesWithAlpha())
 	c.Assert(err, jc.ErrorIsNil)
 	app2Units, err := app2.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1102,7 +1102,7 @@ func (s *StorageStateSuite) TestAddApplicationAttachStorageMultipleUnits(c *gc.C
 		Charm:         ch,
 		AttachStorage: []names.StorageTag{storageTag},
 		NumUnits:      2,
-	}, state.NewObjectStore(c, s.st.ModelUUID()))
+	}, state.NewObjectStore(c, s.st.ModelUUID()), nil)
 	c.Assert(err, gc.ErrorMatches, `cannot add application "secondwind": AttachStorage is non-empty but NumUnits is 2, must be 1`)
 }
 
@@ -1142,7 +1142,7 @@ func (s *StorageStateSuite) TestAddApplicationAttachStorageTooMany(c *gc.C) {
 		},
 		AttachStorage: storageTags,
 		NumUnits:      1,
-	}, state.NewObjectStore(c, s.st.ModelUUID()))
+	}, state.NewObjectStore(c, s.st.ModelUUID()), state.DefaultSpacesWithAlpha())
 	c.Assert(err, gc.ErrorMatches,
 		`cannot add application "secondwind": `+
 			`attaching 3 storage instances brings the total to 3, exceeding the maximum of 2`)
@@ -1490,7 +1490,7 @@ func (s *StorageStateSuiteCaas) TestDeployWrongStorageType(c *gc.C) {
 			"data": {Pool: "loop"},
 		},
 	}
-	_, err := s.st.AddApplication(defaultInstancePrechecker, args, state.NewObjectStore(c, s.st.ModelUUID()))
+	_, err := s.st.AddApplication(defaultInstancePrechecker, args, state.NewObjectStore(c, s.st.ModelUUID()), nil)
 	c.Assert(err, gc.ErrorMatches, `cannot add application "foo": invalid storage config: storage provider type "loop" not valid`)
 }
 

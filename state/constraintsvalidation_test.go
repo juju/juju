@@ -292,7 +292,7 @@ func (s *applicationConstraintsSuite) TestAddApplicationInvalidConstraints(c *gc
 		}},
 		Charm:       s.testCharm,
 		Constraints: cons,
-	}, state.NewObjectStore(c, s.State.ModelUUID()))
+	}, state.NewObjectStore(c, s.State.ModelUUID()), state.DefaultSpacesWithAlpha())
 	c.Assert(errors.Cause(err), gc.ErrorMatches, regexp.QuoteMeta("invalid constraint value: virt-type=blah\nvalid values are: [lxd]"))
 }
 
@@ -306,35 +306,45 @@ func (s *applicationConstraintsSuite) TestAddApplicationValidConstraints(c *gc.C
 		}},
 		Charm:       s.testCharm,
 		Constraints: cons,
-	}, state.NewObjectStore(c, s.State.ModelUUID()))
+	}, state.NewObjectStore(c, s.State.ModelUUID()), state.DefaultSpacesWithAlpha())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(application, gc.NotNil)
 }
 
 func (s *applicationConstraintsSuite) TestConstraintsRetrieval(c *gc.C) {
 	posCons := constraints.MustParse("arch=amd64 spaces=db")
-	application, err := s.State.AddApplication(defaultInstancePrechecker, state.AddApplicationArgs{
-		Name: s.applicationName,
-		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
-			OS:      "ubuntu",
-			Channel: "20.04/stable",
-		}},
-		Charm:       s.testCharm,
-		Constraints: posCons,
-	}, state.NewObjectStore(c, s.State.ModelUUID()))
+	application, err := s.State.AddApplication(
+		defaultInstancePrechecker,
+		state.AddApplicationArgs{
+			Name: s.applicationName,
+			CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
+				OS:      "ubuntu",
+				Channel: "20.04/stable",
+			}},
+			Charm:       s.testCharm,
+			Constraints: posCons,
+		},
+		state.NewObjectStore(c, s.State.ModelUUID()),
+		state.DefaultSpacesWithAlpha(),
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(application, gc.NotNil)
 
 	negCons := constraints.MustParse("arch=amd64 spaces=^db2")
-	negApplication, err := s.State.AddApplication(defaultInstancePrechecker, state.AddApplicationArgs{
-		Name: "unimportant",
-		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
-			OS:      "ubuntu",
-			Channel: "20.04/stable",
-		}},
-		Charm:       s.testCharm,
-		Constraints: negCons,
-	}, state.NewObjectStore(c, s.State.ModelUUID()))
+	negApplication, err := s.State.AddApplication(
+		defaultInstancePrechecker,
+		state.AddApplicationArgs{
+			Name: "unimportant",
+			CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
+				OS:      "ubuntu",
+				Channel: "20.04/stable",
+			}},
+			Charm:       s.testCharm,
+			Constraints: negCons,
+		},
+		state.NewObjectStore(c, s.State.ModelUUID()),
+		state.DefaultSpacesWithAlpha(),
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(negApplication, gc.NotNil)
 
@@ -363,15 +373,20 @@ func (s *applicationConstraintsSuite) TestConstraintsRetrieval(c *gc.C) {
 
 func (s *applicationConstraintsSuite) TestConstraintsSpaceNameChangeOps(c *gc.C) {
 	posCons := constraints.MustParse("spaces=db")
-	application, err := s.State.AddApplication(defaultInstancePrechecker, state.AddApplicationArgs{
-		Name: s.applicationName,
-		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
-			OS:      "ubuntu",
-			Channel: "20.04/stable",
-		}},
-		Charm:       s.testCharm,
-		Constraints: posCons,
-	}, state.NewObjectStore(c, s.State.ModelUUID()))
+	application, err := s.State.AddApplication(
+		defaultInstancePrechecker,
+		state.AddApplicationArgs{
+			Name: s.applicationName,
+			CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
+				OS:      "ubuntu",
+				Channel: "20.04/stable",
+			}},
+			Charm:       s.testCharm,
+			Constraints: posCons,
+		},
+		state.NewObjectStore(c, s.State.ModelUUID()),
+		state.DefaultSpacesWithAlpha(),
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(application, gc.NotNil)
 

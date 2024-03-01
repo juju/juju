@@ -508,7 +508,7 @@ func (s *UnitSuite) TestConfigSettingsReflectCharm(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	newCharm := s.AddConfigCharm(c, "wordpress", "options: {}", 123)
 	cfg := state.SetCharmConfig{Charm: newCharm, CharmOrigin: defaultCharmOrigin(newCharm.URL())}
-	err = s.application.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
+	err = s.application.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()), state.DefaultSpacesWithAlpha())
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Settings still reflect charm set on unit.
@@ -559,7 +559,7 @@ func (s *UnitSuite) TestWatchConfigSettings(c *gc.C) {
 	// Change application's charm; nothing detected.
 	newCharm := s.AddConfigCharm(c, "wordpress", floatConfig, 123)
 	cfg := state.SetCharmConfig{Charm: newCharm, CharmOrigin: defaultCharmOrigin(newCharm.URL())}
-	err = s.application.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
+	err = s.application.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()), state.DefaultSpacesWithAlpha())
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
@@ -579,7 +579,7 @@ func (s *UnitSuite) TestWatchConfigSettings(c *gc.C) {
 func (s *UnitSuite) TestWatchConfigSettingsHash(c *gc.C) {
 	newCharm := s.AddConfigCharm(c, "wordpress", sortableConfig, 123)
 	cfg := state.SetCharmConfig{Charm: newCharm, CharmOrigin: defaultCharmOrigin(newCharm.URL())}
-	err := s.application.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
+	err := s.application.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()), state.DefaultSpacesWithAlpha())
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.SetCharmURL(newCharm.URL())
 	c.Assert(err, jc.ErrorIsNil)
@@ -633,7 +633,7 @@ func (s *UnitSuite) TestWatchConfigSettingsHash(c *gc.C) {
 	// Change application's charm; nothing detected.
 	newCharm = s.AddConfigCharm(c, "wordpress", floatConfig, 125)
 	cfg = state.SetCharmConfig{Charm: newCharm, CharmOrigin: defaultCharmOrigin(newCharm.URL())}
-	err = s.application.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
+	err = s.application.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()), state.DefaultSpacesWithAlpha())
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
@@ -672,7 +672,7 @@ func (s *UnitSuite) TestConfigHashesDifferentForDifferentCharms(c *gc.C) {
 
 	newCharm := s.AddConfigCharm(c, "wordpress", wordpressConfig, 125)
 	cfg := state.SetCharmConfig{Charm: newCharm, CharmOrigin: defaultCharmOrigin(newCharm.URL())}
-	err = s.application.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
+	err = s.application.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()), state.DefaultSpacesWithAlpha())
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Logf("new charm url %s", newCharm.URL())
@@ -1309,7 +1309,7 @@ func (s *UnitSuite) TestSetCharmURLRetriesWithDifferentURL(c *gc.C) {
 				// the application, so the settings are created, then on
 				// the unit.
 				cfg := state.SetCharmConfig{Charm: sch, CharmOrigin: defaultCharmOrigin(sch.URL())}
-				err := s.application.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
+				err := s.application.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()), state.DefaultSpacesWithAlpha())
 				c.Assert(err, jc.ErrorIsNil)
 				err = s.unit.SetCharmURL(sch.URL())
 				c.Assert(err, jc.ErrorIsNil)
@@ -1318,7 +1318,7 @@ func (s *UnitSuite) TestSetCharmURLRetriesWithDifferentURL(c *gc.C) {
 				// Set back the same charm on the application, so the
 				// settings refcount is correct..
 				cfg := state.SetCharmConfig{Charm: s.charm, CharmOrigin: defaultCharmOrigin(s.charm.URL())}
-				err := s.application.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
+				err := s.application.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()), state.DefaultSpacesWithAlpha())
 				c.Assert(err, jc.ErrorIsNil)
 			},
 		},
@@ -1376,7 +1376,7 @@ func (s *UnitSuite) TestDestroyChangeCharmRetry(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	newCharm := s.AddConfigCharm(c, "mysql", "options: {}", 99)
 	cfg := state.SetCharmConfig{Charm: newCharm, CharmOrigin: defaultCharmOrigin(newCharm.URL())}
-	err = s.application.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
+	err = s.application.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()), state.DefaultSpacesWithAlpha())
 	c.Assert(err, jc.ErrorIsNil)
 
 	defer state.SetRetryHooks(c, s.State, func() {
@@ -2019,7 +2019,7 @@ func (s *UnitSuite) TestDestroyAlsoDeletesSecretPermissions(c *gc.C) {
 		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{
 			Name: "logging",
 		}),
-	})
+	}, nil)
 	endpoint2, err := application2.Endpoint("info")
 	c.Assert(err, jc.ErrorIsNil)
 	rel := s.Factory.MakeRelation(c, &factory.RelationParams{
@@ -2239,7 +2239,7 @@ func (s *UnitSuite) TestConstraintsDefaultArchNotRelevant(c *gc.C) {
 			OS:           "ubuntu",
 			Channel:      "22.04",
 		}},
-	})
+	}, nil)
 	err := app.SetConstraints(constraints.MustParse("instance-type=big"))
 	c.Assert(err, jc.ErrorIsNil)
 	unit0, err := app.AddUnit(state.AddUnitParams{})
@@ -2256,7 +2256,7 @@ func (s *UnitSuite) TestConstraintsDefaultArchNotRelevant(c *gc.C) {
 			Channel:      "22.04",
 		}},
 		Constraints: constraints.MustParse("arch=s390x"),
-	})
+	}, nil)
 	unit1, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	cons, err = unit1.Constraints()
@@ -2272,7 +2272,7 @@ func (s *UnitSuite) TestConstraintsDefaultArch(c *gc.C) {
 			OS:           "ubuntu",
 			Channel:      "22.04",
 		}},
-	})
+	}, nil)
 	err := app.SetConstraints(constraints.MustParse("mem=4G"))
 	c.Assert(err, jc.ErrorIsNil)
 	unit0, err := app.AddUnit(state.AddUnitParams{})
@@ -2754,7 +2754,7 @@ action-b-b:
 
 func (s *UnitSuite) TestWorkloadVersion(c *gc.C) {
 	ch := state.AddTestingCharm(c, s.State, "dummy")
-	app := state.AddTestingApplication(c, s.State, s.objectStore, "alexandrite", ch)
+	app := state.AddTestingApplication(c, s.State, s.objectStore, "alexandrite", ch, nil)
 	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -2779,7 +2779,7 @@ func (s *UnitSuite) TestDestroyWithForceWorksOnDyingUnit(c *gc.C) {
 	// Ensure that a cleanup is scheduled if we force destroy a unit
 	// that's already dying.
 	ch := state.AddTestingCharm(c, s.State, "dummy")
-	app := state.AddTestingApplication(c, s.State, s.objectStore, "alexandrite", ch)
+	app := state.AddTestingApplication(c, s.State, s.objectStore, "alexandrite", ch, nil)
 	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	// Assign the unit to a machine and set the agent status so
@@ -2823,7 +2823,7 @@ func (s *UnitSuite) TestDestroyWithForceReportsRemoved(c *gc.C) {
 	// Ensure that a cleanup is scheduled if we force destroy a unit
 	// that's already dying.
 	ch := state.AddTestingCharm(c, s.State, "dummy")
-	app := state.AddTestingApplication(c, s.State, s.objectStore, "alexandrite", ch)
+	app := state.AddTestingApplication(c, s.State, s.objectStore, "alexandrite", ch, nil)
 	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	removed, opErrs, err := unit.DestroyWithForce(state.NewObjectStore(c, s.State.ModelUUID()), true, dontWait)
@@ -2839,10 +2839,15 @@ func (s *UnitSuite) TestWatchMachineAndEndpointAddressesHash(c *gc.C) {
 	sn2, err := s.State.AddSubnet(network.SubnetInfo{CIDR: "10.0.254.0/24"})
 	c.Assert(err, gc.IsNil)
 
-	_, err = s.State.AddSpace("public", "", []string{sn1.ID()})
+	sp1, err := s.State.AddSpace("public", "", []string{sn1.ID()})
 	c.Assert(err, gc.IsNil)
-	_, err = s.State.AddSpace("private", "", []string{sn2.ID()})
+	sp1Info, err := sp1.NetworkSpace()
 	c.Assert(err, gc.IsNil)
+	sp2, err := s.State.AddSpace("private", "", []string{sn2.ID()})
+	c.Assert(err, gc.IsNil)
+	sp2Info, err := sp2.NetworkSpace()
+	c.Assert(err, gc.IsNil)
+	allSpaces := state.DefaultSpacesWithAlpha(sp1Info, sp2Info)
 
 	// Create machine with 2 interfaces on the above spaces
 	m1, err := s.State.AddOneMachine(defaultInstancePrechecker, state.MachineTemplate{
@@ -2867,14 +2872,14 @@ func (s *UnitSuite) TestWatchMachineAndEndpointAddressesHash(c *gc.C) {
 	app := state.AddTestingApplicationWithBindings(c, s.State, s.objectStore, "mysql", ch, map[string]string{
 		"server": "public",
 		"foo":    "private",
-	})
+	}, allSpaces)
 	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, gc.IsNil)
 	err = unit.AssignToMachine(m1)
 	c.Assert(err, gc.IsNil)
 
 	// Create watcher
-	w, err := unit.WatchMachineAndEndpointAddressesHash()
+	w, err := unit.WatchMachineAndEndpointAddressesHash(allSpaces)
 	c.Assert(err, gc.IsNil)
 	defer func() { _ = w.Stop() }()
 
@@ -2906,7 +2911,7 @@ func (s *UnitSuite) TestWatchMachineAndEndpointAddressesHash(c *gc.C) {
 			"server": "private",
 		},
 	}
-	err = app.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
+	err = app.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()), allSpaces)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange("c895e8b57123efd2194d48b74db431e4db4c3ae4fa75f55aa6f32c7f39f29abd")
 }
@@ -2941,7 +2946,7 @@ func (s *CAASUnitSuite) SetUpTest(c *gc.C) {
 	s.application = f.MakeApplication(c, &factory.ApplicationParams{
 		Name: "gitlab", Charm: ch,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{OS: "ubuntu", Channel: "20.04/stable"}},
-	})
+	}, nil)
 
 	basicActions := `
 snapshot:
@@ -2951,7 +2956,7 @@ snapshot:
       default: "abcd"
 `[1:]
 	ch = state.AddCustomCharm(c, st, "elastic-operator", "actions.yaml", basicActions, "focal", 1)
-	s.operatorApp = f.MakeApplication(c, &factory.ApplicationParams{Charm: ch})
+	s.operatorApp = f.MakeApplication(c, &factory.ApplicationParams{Charm: ch}, nil)
 }
 
 func (s *CAASUnitSuite) TestShortCircuitDestroyUnit(c *gc.C) {

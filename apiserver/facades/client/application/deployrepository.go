@@ -54,7 +54,7 @@ type DeployFromRepository interface {
 // DeployFromRepositoryState defines a common set of functions for retrieving state
 // objects.
 type DeployFromRepositoryState interface {
-	AddApplication(state.AddApplicationArgs, objectstore.ObjectStore) (Application, error)
+	AddApplication(state.AddApplicationArgs, objectstore.ObjectStore, network.SpaceInfos) (Application, error)
 	AddPendingResource(string, resource.Resource, objectstore.ObjectStore) (string, error)
 	RemovePendingResources(applicationID string, pendingIDs map[string]string, store objectstore.ObjectStore) error
 	AddCharmMetadata(info state.CharmInfo) (Charm, error)
@@ -64,9 +64,6 @@ type DeployFromRepositoryState interface {
 	ModelConstraints() (constraints.Value, error)
 
 	services.StateBackend
-
-	network.SpaceLookup
-	Space(id string) (*state.Space, error)
 
 	ReadSequence(name string) (int, error)
 }
@@ -80,12 +77,14 @@ type DeployFromRepositoryAPI struct {
 	validator          DeployFromRepositoryValidator
 	stateCharm         func(Charm) *state.Charm
 	applicationService ApplicationService
+	spaceService       SpaceService
 }
 
 // NewDeployFromRepositoryAPI creates a new DeployFromRepositoryAPI.
 func NewDeployFromRepositoryAPI(
 	state DeployFromRepositoryState, applicationService ApplicationService,
 	store objectstore.ObjectStore, validator DeployFromRepositoryValidator,
+	spaceService SpaceService,
 ) DeployFromRepository {
 	return &DeployFromRepositoryAPI{
 		state:              state,
@@ -93,6 +92,7 @@ func NewDeployFromRepositoryAPI(
 		validator:          validator,
 		stateCharm:         CharmToStateCharm,
 		applicationService: applicationService,
+		spaceService:       spaceService,
 	}
 }
 
@@ -145,6 +145,10 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(ctx context.Context, ar
 		return params.DeployFromRepositoryInfo{}, nil, []error{errors.Trace(err)}
 	}
 
+	allSpaces, err := api.spaceService.GetAllSpaces(ctx)
+	if err != nil {
+		return params.DeployFromRepositoryInfo{}, nil, []error{errors.Trace(err)}
+	}
 	_, addApplicationErr := api.state.AddApplication(state.AddApplicationArgs{
 		ApplicationConfig: dt.applicationConfig,
 		AttachStorage:     dt.attachStorage,
@@ -159,7 +163,7 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(ctx context.Context, ar
 		Placement:         dt.placement,
 		Resources:         pendingIDs,
 		Storage:           stateStorageDirectives(dt.storage),
-	}, api.store)
+	}, api.store, allSpaces)
 
 	if addApplicationErr == nil {
 		unitArgs := make([]applicationservice.AddUnitParams, dt.numUnits)
@@ -289,6 +293,7 @@ type validatorConfig struct {
 	registry           storage.ProviderRegistry
 	state              DeployFromRepositoryState
 	storagePoolGetter  StoragePoolGetter
+	spaceService       SpaceService
 }
 
 func makeDeployFromRepositoryValidator(ctx context.Context, cfg validatorConfig) DeployFromRepositoryValidator {
@@ -298,11 +303,12 @@ func makeDeployFromRepositoryValidator(ctx context.Context, cfg validatorConfig)
 		cloudService:       cfg.cloudService,
 		credentialService:  cfg.credentialService,
 		state:              cfg.state,
+		spaceService:       cfg.spaceService,
 		newRepoFactory: func(cfg services.CharmRepoFactoryConfig) corecharm.RepositoryFactory {
 			return services.NewCharmRepoFactory(cfg)
 		},
-		newStateBindings: func(st state.EndpointBinding, givenMap map[string]string) (Bindings, error) {
-			return state.NewBindings(st, givenMap)
+		newStateBindings: func(allSpaces network.SpaceInfos, givenMap map[string]string) (Bindings, error) {
+			return state.NewBindings(allSpaces, givenMap)
 		},
 	}
 	if cfg.model.Type() == state.ModelTypeCAAS {
@@ -338,6 +344,7 @@ type deployFromRepositoryValidator struct {
 	cloudService      common.CloudService
 	credentialService common.CredentialService
 	state             DeployFromRepositoryState
+	spaceService      SpaceService
 
 	mu          sync.Mutex
 	repoFactory corecharm.RepositoryFactory
@@ -346,7 +353,7 @@ type deployFromRepositoryValidator struct {
 	charmhubHTTPClient facade.HTTPClient
 
 	// For testing using mocks.
-	newStateBindings func(st state.EndpointBinding, givenMap map[string]string) (Bindings, error)
+	newStateBindings func(allSpaces network.SpaceInfos, givenMap map[string]string) (Bindings, error)
 }
 
 // Validating arguments to deploy a charm.
@@ -407,7 +414,11 @@ func (v *deployFromRepositoryValidator) validate(ctx context.Context, arg params
 	dt.placement = arg.Placement
 	dt.storage = arg.Storage
 	if len(arg.EndpointBindings) > 0 {
-		bindings, err := v.newStateBindings(v.state, arg.EndpointBindings)
+		allSpaces, err := v.spaceService.GetAllSpaces(ctx)
+		if err != nil {
+			errs = append(errs, err)
+		}
+		bindings, err := v.newStateBindings(allSpaces, arg.EndpointBindings)
 		if err != nil {
 			errs = append(errs, err)
 		}

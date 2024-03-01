@@ -326,7 +326,7 @@ func (s *factorySuite) TestMakeCharm(c *gc.C) {
 }
 
 func (s *factorySuite) TestMakeApplicationNil(c *gc.C) {
-	application := s.Factory.MakeApplication(c, nil)
+	application := s.Factory.MakeApplication(c, nil, nil)
 	c.Assert(application, gc.NotNil)
 
 	saved, err := s.State.Application(application.Name())
@@ -341,7 +341,7 @@ func (s *factorySuite) TestMakeApplication(c *gc.C) {
 	charm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
 	application := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Charm: charm,
-	})
+	}, nil)
 	c.Assert(application, gc.NotNil)
 
 	c.Assert(application.Name(), gc.Equals, "wordpress")
@@ -370,7 +370,7 @@ func (s *factorySuite) TestMakeUnitNil(c *gc.C) {
 }
 
 func (s *factorySuite) TestMakeUnit(c *gc.C) {
-	application := s.Factory.MakeApplication(c, nil)
+	application := s.Factory.MakeApplication(c, nil, nil)
 	unit := s.Factory.MakeUnit(c, &factory.UnitParams{
 		Application: application,
 		SetCharmURL: true,
@@ -413,7 +413,7 @@ func (s *factorySuite) TestMakeRelation(c *gc.C) {
 		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{
 			Name: "wordpress",
 		}),
-	})
+	}, nil)
 	e1, err := s1.Endpoint("db")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -422,7 +422,7 @@ func (s *factorySuite) TestMakeRelation(c *gc.C) {
 		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{
 			Name: "mysql",
 		}),
-	})
+	}, nil)
 	e2, err := s2.Endpoint("server")
 	c.Assert(err, jc.ErrorIsNil)
 

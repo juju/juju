@@ -13,6 +13,7 @@ import (
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	unitassignerapi "github.com/juju/juju/api/agent/unitassigner"
@@ -47,19 +48,28 @@ type applicationSuite struct {
 	authorizer     *apiservertesting.FakeAuthorizer
 	lastKnownRev   map[string]int
 
-	store objectstore.ObjectStore
+	store        objectstore.ObjectStore
+	spaceService *application.MockSpaceService
 }
 
 var _ = gc.Suite(&applicationSuite{})
 
+func (s *applicationSuite) setUpMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
+	s.spaceService = application.NewMockSpaceService(ctrl)
+	return ctrl
+}
+
 func (s *applicationSuite) SetUpTest(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
 	s.ApiServerSuite.SetUpTest(c)
 	s.BlockHelper = commontesting.NewBlockHelper(s.OpenControllerModelAPI(c))
 	s.AddCleanup(func(*gc.C) { s.BlockHelper.Close() })
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
-	s.application = f.MakeApplication(c, nil)
+	s.application = f.MakeApplication(c, nil, nil)
 
 	s.authorizer = &apiservertesting.FakeAuthorizer{
 		Tag: jujutesting.AdminUser,
@@ -112,6 +122,7 @@ func (s *applicationSuite) makeAPI(c *gc.C) *application.APIBase {
 		common.NewResources(),
 		nil, // CAAS Broker not used in this suite.
 		jujutesting.NewObjectStore(c, st.ModelUUID()),
+		s.spaceService,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	return api
@@ -467,12 +478,14 @@ var clientAddApplicationUnitsTests = []struct {
 }
 
 func (s *applicationSuite) TestClientAddApplicationUnits(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 	f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "dummy",
 		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "dummy"}),
-	})
+	}, nil)
 	for i, t := range clientAddApplicationUnitsTests {
 		c.Logf("test %d. %s", i, t.about)
 		applicationName := t.application
@@ -508,7 +521,7 @@ func (s *applicationSuite) TestAddApplicationUnitsToNewContainer(c *gc.C) {
 	app := f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "dummy",
 		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "dummy"}),
-	})
+	}, nil)
 	st := s.ControllerModel(c).State()
 	machine, err := st.AddMachine(s.InstancePrechecker(c, st), state.UbuntuBase("22.04"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
@@ -559,7 +572,7 @@ func (s *applicationSuite) TestAddApplicationUnits(c *gc.C) {
 	f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "dummy",
 		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "dummy"}),
-	})
+	}, nil)
 
 	// Add a machine for the units to be placed on.
 	st := s.ControllerModel(c).State()
@@ -614,11 +627,11 @@ func (s *applicationSuite) TestApplicationCharmRelations(c *gc.C) {
 	f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "wordpress",
 		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"}),
-	})
+	}, nil)
 	f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "logging",
 		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "logging"}),
-	})
+	}, nil)
 
 	st := s.ControllerModel(c).State()
 	eps, err := st.InferEndpoints("logging", "wordpress")
@@ -650,7 +663,7 @@ func (s *applicationSuite) TestBlockDestroyAddApplicationUnits(c *gc.C) {
 	f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "dummy",
 		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "dummy"}),
-	})
+	}, nil)
 	s.BlockDestroyModel(c, "TestBlockDestroyAddApplicationUnits")
 	s.assertAddApplicationUnits(c)
 }
@@ -661,7 +674,7 @@ func (s *applicationSuite) TestBlockRemoveAddApplicationUnits(c *gc.C) {
 	f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "dummy",
 		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "dummy"}),
-	})
+	}, nil)
 	s.BlockRemoveObject(c, "TestBlockRemoveAddApplicationUnits")
 	s.assertAddApplicationUnits(c)
 }
@@ -672,7 +685,7 @@ func (s *applicationSuite) TestBlockChangeAddApplicationUnits(c *gc.C) {
 	f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "dummy",
 		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "dummy"}),
-	})
+	}, nil)
 	s.BlockAllChanges(c, "TestBlockChangeAddApplicationUnits")
 	s.assertAddApplicationUnitsBlocked(c, "TestBlockChangeAddApplicationUnits")
 }
@@ -683,7 +696,7 @@ func (s *applicationSuite) TestAddUnitToMachineNotFound(c *gc.C) {
 	f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "dummy",
 		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "dummy"}),
-	})
+	}, nil)
 	_, err := s.applicationAPI.AddUnits(context.Background(), params.AddApplicationUnits{
 		ApplicationName: "dummy",
 		NumUnits:        3,
@@ -703,7 +716,7 @@ func (s *applicationSuite) TestApplicationExpose(c *gc.C) {
 		apps[i] = f.MakeApplication(c, &factory.ApplicationParams{
 			Name:  name,
 			Charm: charm,
-		})
+		}, nil)
 		c.Assert(apps[i].IsExposed(), jc.IsFalse)
 	}
 	err = apps[1].MergeExposeSettings(nil)
@@ -719,7 +732,7 @@ func (s *applicationSuite) TestApplicationExposeEndpoints(c *gc.C) {
 	app := f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "wordpress",
 		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"}),
-	})
+	}, nil)
 	c.Assert(app.IsExposed(), jc.IsFalse)
 
 	err := s.applicationAPI.Expose(context.Background(), params.ApplicationExpose{
@@ -748,7 +761,7 @@ func (s *applicationSuite) TestApplicationExposeEndpointsWithPre29Client(c *gc.C
 	app := f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "wordpress",
 		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"}),
-	})
+	}, nil)
 	c.Assert(app.IsExposed(), jc.IsFalse)
 
 	err := s.applicationAPI.Expose(context.Background(), params.ApplicationExpose{
@@ -780,7 +793,7 @@ func (s *applicationSuite) setupApplicationExpose(c *gc.C) {
 		apps[i] = f.MakeApplication(c, &factory.ApplicationParams{
 			Name:  name,
 			Charm: charm,
-		})
+		}, nil)
 		c.Assert(apps[i].IsExposed(), jc.IsFalse)
 	}
 	err = apps[1].MergeExposeSettings(nil)
@@ -972,7 +985,7 @@ func (s *applicationSuite) TestApplicationUnexpose(c *gc.C) {
 		app := f.MakeApplication(c, &factory.ApplicationParams{
 			Name:  "dummy-application",
 			Charm: charm,
-		})
+		}, nil)
 		if len(t.initial) != 0 {
 			err := app.MergeExposeSettings(t.initial)
 			c.Assert(err, jc.ErrorIsNil)
@@ -1001,7 +1014,7 @@ func (s *applicationSuite) setupApplicationUnexpose(c *gc.C) *state.Application 
 	app := f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "dummy-application",
 		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "dummy"}),
-	})
+	}, nil)
 	err := app.MergeExposeSettings(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(app.IsExposed(), gc.Equals, true)
@@ -1048,7 +1061,7 @@ func (s *applicationSuite) TestClientSetApplicationConstraints(c *gc.C) {
 	app := f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "dummy",
 		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "dummy"}),
-	})
+	}, nil)
 
 	// Update constraints for the application.
 	cons, err := constraints.Parse("mem=4096", "cores=2")
@@ -1068,7 +1081,7 @@ func (s *applicationSuite) setupSetApplicationConstraints(c *gc.C) (*state.Appli
 	app := f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "dummy",
 		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "dummy"}),
-	})
+	}, nil)
 	// Update constraints for the application.
 	cons, err := constraints.Parse("mem=4096", "cores=2")
 	c.Assert(err, jc.ErrorIsNil)
@@ -1114,12 +1127,12 @@ func (s *applicationSuite) TestClientGetApplicationConstraints(c *gc.C) {
 	f.MakeApplication(c, &factory.ApplicationParams{
 		Name:        "foo",
 		Constraints: fooConstraints,
-	})
+	}, nil)
 	barConstraints := constraints.MustParse("arch=amd64", "mem=128G", "cores=64")
 	f.MakeApplication(c, &factory.ApplicationParams{
 		Name:        "bar",
 		Constraints: barConstraints,
-	})
+	}, nil)
 
 	results, err := s.applicationAPI.GetConstraints(context.Background(), params.Entities{
 		Entities: []params.Entity{
@@ -1174,11 +1187,11 @@ func (s *applicationSuite) setupRelationScenario(c *gc.C) {
 	f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "wordpress",
 		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"}),
-	})
+	}, nil)
 	f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "logging",
 		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "logging"}),
-	})
+	}, nil)
 	eps, err := s.ControllerModel(c).State().InferEndpoints("logging", "wordpress")
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.ControllerModel(c).State().AddRelation(eps...)
@@ -1244,7 +1257,7 @@ func (s *applicationSuite) TestBlockChangesAddRelation(c *gc.C) {
 	f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "wordpress",
 		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"}),
-	})
+	}, nil)
 	s.BlockAllChanges(c, "TestBlockChangesAddRelation")
 	_, err := s.applicationAPI.AddRelation(context.Background(), params.AddRelation{Endpoints: []string{"wordpress", "mysql"}})
 	s.AssertBlocked(c, err, "TestBlockChangesAddRelation")
@@ -1264,7 +1277,7 @@ func (s *applicationSuite) TestCallWithOnlyOneEndpoint(c *gc.C) {
 	f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "wordpress",
 		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"}),
-	})
+	}, nil)
 	endpoints := []string{"wordpress"}
 	_, err := s.applicationAPI.AddRelation(context.Background(), params.AddRelation{Endpoints: endpoints})
 	c.Assert(err, gc.ErrorMatches, "no relations found")
@@ -1276,11 +1289,11 @@ func (s *applicationSuite) TestCallWithOneEndpointTooMany(c *gc.C) {
 	f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "wordpress",
 		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"}),
-	})
+	}, nil)
 	f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "logging",
 		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "logging"}),
-	})
+	}, nil)
 	endpoints := []string{"wordpress", "mysql", "logging"}
 	_, err := s.applicationAPI.AddRelation(context.Background(), params.AddRelation{Endpoints: endpoints})
 	c.Assert(err, gc.ErrorMatches, "cannot relate 3 endpoints")
@@ -1292,7 +1305,7 @@ func (s *applicationSuite) TestAddAlreadyAddedRelation(c *gc.C) {
 	f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "wordpress",
 		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"}),
-	})
+	}, nil)
 	// Add a relation between wordpress and mysql.
 	st := s.ControllerModel(c).State()
 	endpoints := []string{"wordpress", "mysql"}
@@ -1371,7 +1384,7 @@ func (s *applicationSuite) TestRemoteRelationInvalidEndpoint(c *gc.C) {
 	f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "wordpress",
 		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"}),
-	})
+	}, nil)
 
 	endpoints := []string{"wordpress", "hosted-mysql:nope"}
 	_, err := s.applicationAPI.AddRelation(context.Background(), params.AddRelation{Endpoints: endpoints})
@@ -1399,7 +1412,7 @@ func (s *applicationSuite) TestRemoteRelationNoMatchingEndpoint(c *gc.C) {
 	f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "wordpress",
 		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"}),
-	})
+	}, nil)
 	endpoints := []string{"wordpress", "hosted-db2"}
 	_, err = s.applicationAPI.AddRelation(context.Background(), params.AddRelation{Endpoints: endpoints})
 	c.Assert(err, gc.ErrorMatches, "no relations found")
@@ -1411,7 +1424,7 @@ func (s *applicationSuite) TestRemoteRelationApplicationNotFound(c *gc.C) {
 	f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "wordpress",
 		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"}),
-	})
+	}, nil)
 	endpoints := []string{"wordpress", "unknown"}
 	_, err := s.applicationAPI.AddRelation(context.Background(), params.AddRelation{Endpoints: endpoints})
 	c.Assert(err, gc.ErrorMatches, `application "unknown" not found`)

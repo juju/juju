@@ -78,6 +78,7 @@ type ApplicationSuite struct {
 	registry           *mocks.MockProviderRegistry
 	caasBroker         *mocks.MockCaasBrokerInterface
 	store              *mocks.MockObjectStore
+	spaceService       *application.MockSpaceService
 
 	blockChecker  *mocks.MockBlockChecker
 	changeAllowed error
@@ -164,10 +165,10 @@ func (s *ApplicationSuite) setup(c *gc.C) *gomock.Controller {
 		controller.NewConfig(coretesting.ControllerTag.Id(), coretesting.CACert, map[string]interface{}{}),
 	).AnyTimes()
 	s.backend.EXPECT().ControllerTag().Return(coretesting.ControllerTag).AnyTimes()
-	s.backend.EXPECT().AllSpaceInfos().Return(s.allSpaceInfos, nil).AnyTimes()
 
 	s.machineService = application.NewMockMachineService(ctrl)
 	s.applicationService = application.NewMockApplicationService(ctrl)
+	s.spaceService = application.NewMockSpaceService(ctrl)
 
 	s.ecService = mocks.NewMockECService(ctrl)
 
@@ -219,7 +220,7 @@ func (s *ApplicationSuite) setup(c *gc.C) *gomock.Controller {
 		func(application.Charm) *state.Charm {
 			return nil
 		},
-		func(_ context.Context, _ application.ApplicationDeployer, _ application.Model, _ common.CloudService, _ common.CredentialService, _ application.ApplicationService, _ objectstore.ObjectStore, p application.DeployApplicationParams) (application.Application, error) {
+		func(_ context.Context, _ application.ApplicationDeployer, _ application.Model, _ common.CloudService, _ common.CredentialService, _ application.ApplicationService, _ objectstore.ObjectStore, p application.DeployApplicationParams, _ application.SpaceService) (application.Application, error) {
 			s.deployParams[p.ApplicationName] = p
 			return nil, nil
 		},
@@ -228,6 +229,7 @@ func (s *ApplicationSuite) setup(c *gc.C) *gomock.Controller {
 		common.NewResources(),
 		s.caasBroker,
 		s.store,
+		s.spaceService,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api
@@ -319,7 +321,7 @@ func (s *ApplicationSuite) TestSetCharm(c *gc.C) {
 
 	app := s.expectDefaultApplication(ctrl)
 	cfg := state.SetCharmConfig{CharmOrigin: createStateCharmOriginFromURL(curl)}
-	app.EXPECT().SetCharm(setCharmConfigMatcher{c: c, expected: cfg}, s.store)
+	app.EXPECT().SetCharm(setCharmConfigMatcher{c: c, expected: cfg}, s.store, nil)
 	s.backend.EXPECT().Application("postgresql").Return(app, nil)
 
 	s.applicationService.EXPECT().UpdateApplicationCharm(gomock.Any(), "postgresql", applicationservice.UpdateCharmParams{
@@ -327,6 +329,7 @@ func (s *ApplicationSuite) TestSetCharm(c *gc.C) {
 		Storage: nil,
 	}).Return(nil)
 
+	s.spaceService.EXPECT().GetAllSpaces(gomock.Any())
 	err := s.api.SetCharm(context.Background(), params.ApplicationSetCharmV2{
 		ApplicationName: "postgresql",
 		CharmURL:        curl,
@@ -348,7 +351,7 @@ func (s *ApplicationSuite) TestSetCharmEverything(c *gc.C) {
 		CharmOrigin:    createStateCharmOriginFromURL(curl),
 		ConfigSettings: charm.Settings{"stringOption": "foo", "intOption": int64(666)},
 	}
-	app.EXPECT().SetCharm(setCharmConfigMatcher{c: c, expected: cfg}, s.store)
+	app.EXPECT().SetCharm(setCharmConfigMatcher{c: c, expected: cfg}, s.store, nil)
 
 	schemaFields, defaults, err := application.ConfigSchema()
 	c.Assert(err, jc.ErrorIsNil)
@@ -360,6 +363,7 @@ func (s *ApplicationSuite) TestSetCharmEverything(c *gc.C) {
 		Storage: nil,
 	}).Return(nil)
 
+	s.spaceService.EXPECT().GetAllSpaces(gomock.Any())
 	err = s.api.SetCharm(context.Background(), params.ApplicationSetCharmV2{
 		ApplicationName:    "postgresql",
 		CharmURL:           curl,
@@ -413,8 +417,9 @@ func (s *ApplicationSuite) TestSetCharmForceUnits(c *gc.C) {
 		CharmOrigin: createStateCharmOriginFromURL(curl),
 		ForceUnits:  true,
 	}
-	app.EXPECT().SetCharm(setCharmConfigMatcher{c: c, expected: cfg}, s.store)
+	app.EXPECT().SetCharm(setCharmConfigMatcher{c: c, expected: cfg}, s.store, nil)
 
+	s.spaceService.EXPECT().GetAllSpaces(gomock.Any()).Return(nil, nil)
 	s.backend.EXPECT().Application("postgresql").Return(app, nil)
 
 	s.applicationService.EXPECT().UpdateApplicationCharm(gomock.Any(), "postgresql", applicationservice.UpdateCharmParams{
@@ -470,7 +475,7 @@ func (s *ApplicationSuite) TestSetCharmStorageDirectives(c *gc.C) {
 			"d": {Count: 456},
 		},
 	}
-	app.EXPECT().SetCharm(setCharmConfigMatcher{c: c, expected: cfg}, s.store)
+	app.EXPECT().SetCharm(setCharmConfigMatcher{c: c, expected: cfg}, s.store, nil)
 
 	s.backend.EXPECT().Application("postgresql").Return(app, nil)
 
@@ -487,6 +492,7 @@ func (s *ApplicationSuite) TestSetCharmStorageDirectives(c *gc.C) {
 	toUint64Ptr := func(v uint64) *uint64 {
 		return &v
 	}
+	s.spaceService.EXPECT().GetAllSpaces(gomock.Any())
 	err := s.api.SetCharm(context.Background(), params.ApplicationSetCharmV2{
 		ApplicationName: "postgresql",
 		CharmURL:        "ch:postgresql",
@@ -555,7 +561,7 @@ func (s *ApplicationSuite) TestSetCharmConfigSettings(c *gc.C) {
 	app.EXPECT().SetCharm(state.SetCharmConfig{
 		CharmOrigin:    createStateCharmOriginFromURL(curl),
 		ConfigSettings: charm.Settings{"stringOption": "value"},
-	}, gomock.Any()).Return(nil)
+	}, gomock.Any(), nil).Return(nil)
 	s.backend.EXPECT().Application("postgresql").Return(app, nil)
 
 	s.applicationService.EXPECT().UpdateApplicationCharm(gomock.Any(), "postgresql", applicationservice.UpdateCharmParams{
@@ -563,6 +569,7 @@ func (s *ApplicationSuite) TestSetCharmConfigSettings(c *gc.C) {
 		Storage: nil,
 	}).Return(nil)
 
+	s.spaceService.EXPECT().GetAllSpaces(gomock.Any())
 	err := s.api.SetCharm(context.Background(), params.ApplicationSetCharmV2{
 		ApplicationName: "postgresql",
 		CharmURL:        "ch:postgresql",
@@ -604,7 +611,7 @@ func (s *ApplicationSuite) TestSetCharmConfigSettingsYAML(c *gc.C) {
 	app.EXPECT().SetCharm(state.SetCharmConfig{
 		CharmOrigin:    createStateCharmOriginFromURL(curl),
 		ConfigSettings: charm.Settings{"stringOption": "value"},
-	}, gomock.Any()).Return(nil)
+	}, gomock.Any(), nil).Return(nil)
 	s.backend.EXPECT().Application("postgresql").Return(app, nil)
 
 	s.applicationService.EXPECT().UpdateApplicationCharm(gomock.Any(), "postgresql", applicationservice.UpdateCharmParams{
@@ -612,6 +619,7 @@ func (s *ApplicationSuite) TestSetCharmConfigSettingsYAML(c *gc.C) {
 		Storage: nil,
 	}).Return(nil)
 
+	s.spaceService.EXPECT().GetAllSpaces(gomock.Any())
 	err := s.api.SetCharm(context.Background(), params.ApplicationSetCharmV2{
 		ApplicationName: "postgresql",
 		CharmURL:        curl,
@@ -646,8 +654,9 @@ func (s *ApplicationSuite) TestLXDProfileSetCharmWithNewerAgentVersion(c *gc.C) 
 	app.EXPECT().SetCharm(state.SetCharmConfig{
 		CharmOrigin:    createStateCharmOriginFromURL(curl),
 		ConfigSettings: charm.Settings{"stringOption": "value"},
-	}, gomock.Any()).Return(nil)
+	}, gomock.Any(), nil).Return(nil)
 	s.backend.EXPECT().Application("postgresql").Return(app, nil)
+	s.spaceService.EXPECT().GetAllSpaces(gomock.Any())
 
 	s.model.EXPECT().AgentVersion().Return(version.Number{Major: 2, Minor: 6, Patch: 0}, nil)
 
@@ -704,8 +713,9 @@ func (s *ApplicationSuite) TestLXDProfileSetCharmWithEmptyProfile(c *gc.C) {
 	app.EXPECT().SetCharm(state.SetCharmConfig{
 		CharmOrigin:    createStateCharmOriginFromURL(curl),
 		ConfigSettings: charm.Settings{"stringOption": "value"},
-	}, gomock.Any()).Return(nil)
+	}, gomock.Any(), nil).Return(nil)
 	s.backend.EXPECT().Application("postgresql").Return(app, nil)
+	s.spaceService.EXPECT().GetAllSpaces(gomock.Any())
 
 	s.model.EXPECT().AgentVersion().Return(version.Number{Major: 2, Minor: 6, Patch: 0}, nil)
 
@@ -792,8 +802,9 @@ func (s *ApplicationSuite) TestSetCharmAssumesNotSatisfiedWithForce(c *gc.C) {
 	curl := "ch:postgresql"
 	s.backend.EXPECT().Charm(curl).Return(ch, nil)
 
+	s.spaceService.EXPECT().GetAllSpaces(gomock.Any())
 	app := s.expectDefaultApplication(ctrl)
-	app.EXPECT().SetCharm(gomock.Any(), gomock.Any()).Return(nil)
+	app.EXPECT().SetCharm(gomock.Any(), gomock.Any(), nil).Return(nil)
 	s.backend.EXPECT().Application("postgresql").Return(app, nil)
 
 	s.applicationService.EXPECT().UpdateApplicationCharm(gomock.Any(), "postgresql", applicationservice.UpdateCharmParams{
@@ -1341,6 +1352,8 @@ func (s *ApplicationSuite) TestDeployAttachStorage(c *gc.C) {
 	s.backend.EXPECT().Charm(gomock.Any()).Return(ch, nil).Times(3)
 	s.model.EXPECT().UUID().Return("").AnyTimes()
 
+	s.spaceService.EXPECT().GetAllSpaces(gomock.Any())
+
 	args := params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			ApplicationName: "foo",
@@ -1406,6 +1419,8 @@ func (s *ApplicationSuite) TestDeployCharmOrigin(c *gc.C) {
 			NumUnits: 1,
 		}},
 	}
+
+	s.spaceService.EXPECT().GetAllSpaces(gomock.Any()).Times(2)
 	results, err := s.api.Deploy(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 3)
@@ -1453,6 +1468,7 @@ func (s *ApplicationSuite) TestApplicationDeployWithStorage(c *gc.C) {
 	s.backend.EXPECT().Charm(curl).Return(ch, nil)
 	s.model.EXPECT().UUID().Return("")
 
+	s.spaceService.EXPECT().GetAllSpaces(gomock.Any())
 	storageDirectives := map[string]storage.Directive{
 		"data": {
 			Count: 1,
@@ -1489,6 +1505,7 @@ func (s *ApplicationSuite) TestApplicationDeployDefaultFilesystemStorage(c *gc.C
 	s.backend.EXPECT().Charm(curl).Return(ch, nil)
 	s.model.EXPECT().UUID().Return("")
 
+	s.spaceService.EXPECT().GetAllSpaces(gomock.Any())
 	args := params.ApplicationDeploy{
 		ApplicationName: "my-app",
 		CharmURL:        curl,
@@ -1518,6 +1535,7 @@ func (s *ApplicationSuite) TestApplicationDeployPlacement(c *gc.C) {
 	s.backend.EXPECT().Machine("valid").Return(machine, nil)
 	s.model.EXPECT().UUID().Return("")
 
+	s.spaceService.EXPECT().GetAllSpaces(gomock.Any())
 	placement := []*instance.Placement{
 		{Scope: "deadbeef-0bad-400d-8000-4b1d0d06f00d", Directive: "valid"},
 	}
@@ -1551,6 +1569,7 @@ func (s *ApplicationSuite) TestApplicationDeployPlacementModelUUIDSubstitute(c *
 	s.backend.EXPECT().Charm(curl).Return(ch, nil)
 	s.model.EXPECT().UUID().Return("deadbeef-0bad-400d-8000-4b1d0d06f00d")
 
+	s.spaceService.EXPECT().GetAllSpaces(gomock.Any())
 	placement := []*instance.Placement{
 		{Scope: "model-uuid", Directive: "0"},
 	}
@@ -1670,6 +1689,7 @@ func (s *ApplicationSuite) TestApplicationDeploymentTrust(c *gc.C) {
 	s.backend.EXPECT().Charm(curl).Return(ch, nil).MinTimes(1)
 	s.model.EXPECT().UUID().Return("")
 
+	s.spaceService.EXPECT().GetAllSpaces(gomock.Any())
 	withTrust := map[string]string{"trust": "true"}
 	args := params.ApplicationDeploy{
 		ApplicationName: "my-app",
@@ -1718,6 +1738,8 @@ func (s *ApplicationSuite) TestClientApplicationsDeployWithBindings(c *gc.C) {
 			"endpoint": "42",
 		},
 	}}
+
+	s.spaceService.EXPECT().GetAllSpaces(gomock.Any()).Times(2).Return(s.allSpaceInfos, nil)
 	results, err := s.api.Deploy(context.Background(), params.ApplicationsDeploy{
 		Applications: args,
 	})
@@ -1827,6 +1849,7 @@ func (s *ApplicationSuite) TestDeployCAASModel(c *gc.C) {
 			Placement:       []*instance.Placement{{}, {}},
 		}},
 	}
+	s.spaceService.EXPECT().GetAllSpaces(gomock.Any())
 	results, err := s.api.Deploy(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 3)
@@ -1921,6 +1944,7 @@ func (s *ApplicationSuite) TestDeployCAASModelCharmNeedsNoOperatorStorage(c *gc.
 	s.model.EXPECT().ModelConfig(gomock.Any()).Return(config.New(config.UseDefaults, attrs)).MinTimes(1)
 	s.model.EXPECT().UUID().Return("")
 
+	s.spaceService.EXPECT().GetAllSpaces(gomock.Any())
 	args := params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			ApplicationName: "foo",
@@ -1950,6 +1974,7 @@ func (s *ApplicationSuite) TestDeployCAASModelSidecarCharmNeedsNoOperatorStorage
 	s.model.EXPECT().ModelConfig(gomock.Any()).Return(config.New(config.UseDefaults, attrs)).MinTimes(1)
 	s.model.EXPECT().UUID().Return("").AnyTimes()
 
+	s.spaceService.EXPECT().GetAllSpaces(gomock.Any())
 	args := params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			ApplicationName: "foo",
@@ -1985,6 +2010,8 @@ func (s *ApplicationSuite) TestDeployCAASModelDefaultOperatorStorageClass(c *gc.
 			NumUnits:        1,
 		}},
 	}
+
+	s.spaceService.EXPECT().GetAllSpaces(gomock.Any())
 	result, err := s.api.Deploy(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
@@ -2075,6 +2102,7 @@ func (s *ApplicationSuite) TestDeployCAASModelDefaultStorageClass(c *gc.C) {
 	s.caasBroker.EXPECT().ValidateStorageClass(gomock.Any(), gomock.Any()).Return(nil)
 	s.model.EXPECT().UUID().Return("")
 
+	s.spaceService.EXPECT().GetAllSpaces(gomock.Any())
 	args := params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			ApplicationName: "foo",
@@ -2906,9 +2934,11 @@ func (s *ApplicationSuite) TestApplicationsInfoOne(c *gc.C) {
 
 	bindings := mocks.NewMockBindings(ctrl)
 	bindings.EXPECT().MapWithSpaceNames(gomock.Any()).Return(map[string]string{"juju-info": "myspace"}, nil).MinTimes(1)
-	app.EXPECT().EndpointBindings().Return(bindings, nil).MinTimes(1)
+	app.EXPECT().EndpointBindings(nil).Return(bindings, nil).MinTimes(1)
 	app.EXPECT().ExposedEndpoints().Return(nil).MinTimes(1)
 	s.backend.EXPECT().Application("postgresql").Return(app, nil).MinTimes(1)
+
+	s.spaceService.EXPECT().GetAllSpaces(gomock.Any()).Times(2)
 
 	entities := []params.Entity{{Tag: "application-postgresql"}}
 	result, err := s.api.ApplicationsInfo(context.Background(), params.Entities{Entities: entities})
@@ -2942,7 +2972,8 @@ func (s *ApplicationSuite) TestApplicationsInfoOneWithExposedEndpoints(c *gc.C) 
 
 	bindings := mocks.NewMockBindings(ctrl)
 	bindings.EXPECT().MapWithSpaceNames(gomock.Any()).Return(map[string]string{"juju-info": "myspace"}, nil).MinTimes(1)
-	app.EXPECT().EndpointBindings().Return(bindings, nil).MinTimes(1)
+	s.spaceService.EXPECT().GetAllSpaces(gomock.Any()).Times(3).Return(s.allSpaceInfos, nil)
+	app.EXPECT().EndpointBindings(s.allSpaceInfos).Return(bindings, nil).MinTimes(1)
 	app.EXPECT().ExposedEndpoints().Return(map[string]state.ExposedEndpoint{
 		"server": {
 			ExposeToSpaceIDs: []string{"42"},
@@ -2955,6 +2986,7 @@ func (s *ApplicationSuite) TestApplicationsInfoOneWithExposedEndpoints(c *gc.C) 
 	result, err := s.api.ApplicationsInfo(context.Background(), params.Entities{Entities: entities})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, len(entities))
+	c.Assert(result.Results[0].Error, gc.IsNil)
 	c.Assert(*result.Results[0].Result, gc.DeepEquals, params.ApplicationResult{
 		Tag:         "application-postgresql",
 		Charm:       "charm-postgresql",
@@ -2982,6 +3014,8 @@ func (s *ApplicationSuite) TestApplicationsInfoDetailsErr(c *gc.C) {
 	app.EXPECT().CharmConfig("master").Return(nil, errors.Errorf("boom"))
 	s.backend.EXPECT().Application("postgresql").Return(app, nil).MinTimes(1)
 
+	s.spaceService.EXPECT().GetAllSpaces(gomock.Any())
+
 	entities := []params.Entity{{Tag: "application-postgresql"}}
 	result, err := s.api.ApplicationsInfo(context.Background(), params.Entities{Entities: entities})
 	c.Assert(err, jc.ErrorIsNil)
@@ -2996,8 +3030,10 @@ func (s *ApplicationSuite) TestApplicationsInfoBindingsErr(c *gc.C) {
 	app := s.expectDefaultApplication(ctrl)
 	app.EXPECT().ApplicationConfig().Return(coreconfig.ConfigAttributes{}, nil).MinTimes(1)
 	app.EXPECT().CharmConfig("master").Return(map[string]interface{}{"stringOption": "", "intOption": int(123)}, nil).MinTimes(1)
-	app.EXPECT().EndpointBindings().Return(nil, errors.Errorf("boom")).MinTimes(1)
+	app.EXPECT().EndpointBindings(nil).Return(nil, errors.Errorf("boom")).MinTimes(1)
 	s.backend.EXPECT().Application("postgresql").Return(app, nil).MinTimes(1)
+
+	s.spaceService.EXPECT().GetAllSpaces(gomock.Any()).Times(2)
 
 	entities := []params.Entity{{Tag: "application-postgresql"}}
 	result, err := s.api.ApplicationsInfo(context.Background(), params.Entities{Entities: entities})
@@ -3020,7 +3056,7 @@ func (s *ApplicationSuite) TestApplicationsInfoMany(c *gc.C) {
 
 	bindings := mocks.NewMockBindings(ctrl)
 	bindings.EXPECT().MapWithSpaceNames(gomock.Any()).Return(map[string]string{"juju-info": "myspace"}, nil).MinTimes(1)
-	app.EXPECT().EndpointBindings().Return(bindings, nil).MinTimes(1)
+	app.EXPECT().EndpointBindings(nil).Return(bindings, nil).MinTimes(1)
 	app.EXPECT().ExposedEndpoints().Return(map[string]state.ExposedEndpoint{}).MinTimes(1)
 	s.backend.EXPECT().Application("postgresql").Return(app, nil).MinTimes(1)
 
@@ -3028,6 +3064,8 @@ func (s *ApplicationSuite) TestApplicationsInfoMany(c *gc.C) {
 	s.backend.EXPECT().Application("wordpress").Return(nil, errors.NotFoundf(`application "wordpress"`))
 
 	entities := []params.Entity{{Tag: "application-postgresql"}, {Tag: "application-wordpress"}, {Tag: "unit-postgresql-0"}}
+
+	s.spaceService.EXPECT().GetAllSpaces(gomock.Any()).Times(2)
 	result, err := s.api.ApplicationsInfo(context.Background(), params.Entities{Entities: entities})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, len(entities))
@@ -3051,9 +3089,10 @@ func (s *ApplicationSuite) TestApplicationMergeBindingsErr(c *gc.C) {
 	defer ctrl.Finish()
 
 	app := s.expectDefaultApplication(ctrl)
-	app.EXPECT().MergeBindings(gomock.Any(), gomock.Any()).Return(errors.Errorf("boom"))
+	app.EXPECT().MergeBindings(gomock.Any(), gomock.Any(), nil).Return(errors.Errorf("boom"))
 	s.backend.EXPECT().Application("postgresql").Return(app, nil)
 
+	s.spaceService.EXPECT().GetAllSpaces(gomock.Any())
 	req := params.ApplicationMergeBindingsArgs{
 		Args: []params.ApplicationMergeBindings{
 			{

@@ -28,7 +28,7 @@ var _ = gc.Suite(&EnableHASuite{})
 func (s *EnableHASuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
 	state.AddTestingApplicationForBase(c, s.State, s.objectStore, state.UbuntuBase("20.04"), "controller",
-		state.AddTestingCharmMultiSeries(c, s.State, "juju-controller"))
+		state.AddTestingCharmMultiSeries(c, s.State, "juju-controller"), nil)
 }
 
 func (s *EnableHASuite) TestHasVote(c *gc.C) {

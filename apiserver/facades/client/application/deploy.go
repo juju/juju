@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/environs/bootstrap"
@@ -58,7 +59,7 @@ type DeployApplicationParams struct {
 }
 
 type ApplicationDeployer interface {
-	AddApplication(state.AddApplicationArgs, objectstore.ObjectStore) (Application, error)
+	AddApplication(state.AddApplicationArgs, objectstore.ObjectStore, network.SpaceInfos) (Application, error)
 	ControllerConfig() (controller.Config, error)
 
 	// ReadSequence is a stop gap to allow the next unit number to be read from mongo
@@ -89,6 +90,7 @@ func DeployApplication(
 	applicationService ApplicationService,
 	store objectstore.ObjectStore,
 	args DeployApplicationParams,
+	spaceService SpaceService,
 ) (Application, error) {
 	charmConfig, err := args.Charm.Config().ValidateSettings(args.CharmConfig)
 	if err != nil {
@@ -159,8 +161,11 @@ func DeployApplication(
 		n := fmt.Sprintf("%s/%d", args.ApplicationName, nextUnitNum+i)
 		unitArgs[i].UnitName = &n
 	}
-	app, err := st.AddApplication(asa, store)
-
+	allSpaces, err := spaceService.GetAllSpaces(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	app, err := st.AddApplication(asa, store, allSpaces)
 	// Dual write storage directives to dqlite.
 	if err == nil {
 		err = applicationService.CreateApplication(ctx, args.ApplicationName, applicationservice.AddApplicationParams{
@@ -181,6 +186,7 @@ func (api *APIBase) addUnits(
 	placement []*instance.Placement,
 	attachStorage []names.StorageTag,
 	assignUnits bool,
+	spaceService SpaceService,
 ) ([]Unit, error) {
 	units := make([]Unit, n)
 	policy := state.AssignNew
@@ -207,7 +213,11 @@ func (api *APIBase) addUnits(
 				return nil, errors.Trace(err)
 			}
 		} else {
-			if err := unit.AssignWithPlacement(placement[i]); err != nil {
+			allSpaces, err := spaceService.GetAllSpaces(ctx)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			if err := unit.AssignWithPlacement(placement[i], allSpaces); err != nil {
 				return nil, errors.Annotatef(err, "acquiring machine to host unit %q", unit.UnitTag().Id())
 			}
 		}

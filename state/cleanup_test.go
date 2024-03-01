@@ -169,7 +169,7 @@ func (s *CleanupSuite) TestCleanupControllerModels(c *gc.C) {
 	// Create a non-empty hosted model.
 	otherSt := s.Factory.MakeModel(c, nil)
 	defer otherSt.Close()
-	factory.NewFactory(otherSt, s.StatePool).MakeApplication(c, nil)
+	factory.NewFactory(otherSt, s.StatePool).MakeApplication(c, nil, nil)
 	otherModel, err := otherSt.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1213,7 +1213,7 @@ func (s *CleanupSuite) assertCleanupCAASEntityWithStorage(c *gc.C, deleteOp func
 	storCons := map[string]state.StorageConstraints{
 		"data": makeStorageCons("", 1024, 1),
 	}
-	application := state.AddTestingApplicationWithStorage(c, st, s.objectStore, "storage-filesystem", ch, storCons)
+	application := state.AddTestingApplicationWithStorage(c, st, s.objectStore, "storage-filesystem", ch, storCons, nil)
 	unit, err := application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(application.Refresh(), jc.ErrorIsNil)

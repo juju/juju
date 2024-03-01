@@ -16,6 +16,8 @@ type spaceStateShim struct {
 	common.ModelManagerBackend
 }
 
+// TODO(nvinuesa): This method can be safely removed once we completed the
+// migration of ReloadSpaces to dqlite.
 func (s spaceStateShim) AllSpaces() ([]network.SpaceInfo, error) {
 	spaces, err := s.ModelManagerBackend.AllSpaces()
 	if err != nil {
@@ -33,6 +35,8 @@ func (s spaceStateShim) AllSpaces() ([]network.SpaceInfo, error) {
 	return results, nil
 }
 
+// TODO(nvinuesa): This method can be safely removed once we completed the
+// migration of ReloadSpaces to dqlite.
 func (s spaceStateShim) AddSpace(name string, providerId network.Id, subnetIds []string) (network.SpaceInfo, error) {
 	result, err := s.ModelManagerBackend.AddSpace(name, providerId, subnetIds)
 	if err != nil {

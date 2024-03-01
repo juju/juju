@@ -363,8 +363,9 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				FlagService:             flagService,
 				SpaceService:            modelServiceFactory.Space(),
 				SystemState: &stateShim{
-					State:      systemState,
-					prechecker: prechecker,
+					State:          systemState,
+					prechecker:     prechecker,
+					spaceRetriever: modelServiceFactory.Space(),
 				},
 				BootstrapUnlocker:       bootstrapUnlocker,
 				AgentBinaryUploader:     config.AgentBinaryUploader,

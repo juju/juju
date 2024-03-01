@@ -111,7 +111,7 @@ func (s *retryStrategySuite) TestRetryStrategyApplication(c *gc.C) {
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 
-	app := f.MakeApplication(c, &jujufactory.ApplicationParams{Name: "app"})
+	app := f.MakeApplication(c, &jujufactory.ApplicationParams{Name: "app"}, nil)
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag: app.Tag(),
 	}

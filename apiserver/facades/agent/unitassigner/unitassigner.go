@@ -11,6 +11,7 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
@@ -20,7 +21,7 @@ import (
 // for testing.
 type assignerState interface {
 	WatchForUnitAssignment() state.StringsWatcher
-	AssignStagedUnits(ids []string) ([]state.UnitAssignmentResult, error)
+	AssignStagedUnits(ids []string, spaceInfos network.SpaceInfos) ([]state.UnitAssignmentResult, error)
 	AssignedMachineId(unit string) (string, error)
 }
 
@@ -32,12 +33,19 @@ type machineService interface {
 	CreateMachine(context.Context, string) error
 }
 
+// SpaceService is the interface that is used to interact with the
+// network spaces.
+type SpaceService interface {
+	GetAllSpaces(ctx context.Context) (network.SpaceInfos, error)
+}
+
 // API implements the functionality for assigning units to machines.
 type API struct {
 	st             assignerState
 	res            facade.Resources
 	statusSetter   statusSetter
 	machineService machineService
+	spaceService   SpaceService
 }
 
 // AssignUnits assigns the units with the given ids to the correct machine. The
@@ -57,7 +65,11 @@ func (a *API) AssignUnits(ctx context.Context, args params.Entities) (params.Err
 		ids[i] = tag.Id()
 	}
 
-	res, err := a.st.AssignStagedUnits(ids)
+	allSpaces, err := a.spaceService.GetAllSpaces(ctx)
+	if err != nil {
+		return result, apiservererrors.ServerError(err)
+	}
+	res, err := a.st.AssignStagedUnits(ids, allSpaces)
 	if err != nil {
 		return result, apiservererrors.ServerError(err)
 	}

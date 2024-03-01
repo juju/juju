@@ -4,6 +4,7 @@
 package application_test
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/charm/v13"
@@ -81,6 +82,7 @@ func (s *getSuite) SetUpTest(c *gc.C) {
 		common.NewResources(),
 		nil, // CAAS Broker not used in this suite.
 		jujutesting.NewObjectStore(c, st.ControllerModelUUID()),
+		serviceFactory.Space(),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.applicationAPI = api
@@ -92,9 +94,9 @@ func (s *getSuite) TestClientApplicationGetIAASModelSmokeTest(c *gc.C) {
 	f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "wordpress",
 		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"}),
-	})
+	}, nil)
 
-	results, err := s.applicationAPI.Get(params.ApplicationGet{ApplicationName: "wordpress"})
+	results, err := s.applicationAPI.Get(context.Background(), params.ApplicationGet{ApplicationName: "wordpress"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.ApplicationGetResults{
 		Application: "wordpress",
@@ -145,7 +147,7 @@ func (s *getSuite) TestClientApplicationGetCAASModelSmokeTest(c *gc.C) {
 	app := f2.MakeApplication(c, &factory.ApplicationParams{
 		Name: "dashboard4miner", Charm: ch,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{OS: "ubuntu", Channel: "22.04/stable"}},
-	})
+	}, nil)
 
 	schemaFields, defaults, err := application.ConfigSchema()
 	c.Assert(err, jc.ErrorIsNil)
@@ -221,10 +223,11 @@ func (s *getSuite) TestClientApplicationGetCAASModelSmokeTest(c *gc.C) {
 		common.NewResources(),
 		nil, // CAAS Broker not used in this suite.
 		jujutesting.NewObjectStore(c, st.ControllerModelUUID()),
+		serviceFactory.Space(),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	results, err := api.Get(params.ApplicationGet{ApplicationName: "dashboard4miner"})
+	results, err := api.Get(context.Background(), params.ApplicationGet{ApplicationName: "dashboard4miner"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.ApplicationGetResults{
 		Application: "dashboard4miner",
@@ -249,7 +252,7 @@ func (s *getSuite) TestClientApplicationGetCAASModelSmokeTest(c *gc.C) {
 }
 
 func (s *getSuite) TestApplicationGetUnknownApplication(c *gc.C) {
-	_, err := s.applicationAPI.Get(params.ApplicationGet{ApplicationName: "unknown"})
+	_, err := s.applicationAPI.Get(context.Background(), params.ApplicationGet{ApplicationName: "unknown"})
 	c.Assert(err, gc.ErrorMatches, `application "unknown" not found`)
 }
 
@@ -454,7 +457,7 @@ func (s *getSuite) TestApplicationGet(c *gc.C) {
 			Name:        fmt.Sprintf("test%d", i),
 			Charm:       ch,
 			CharmOrigin: t.origin,
-		})
+		}, nil)
 		var constraintsv constraints.Value
 		if t.constraints != "" {
 			constraintsv = constraints.MustParse(t.constraints)
@@ -492,7 +495,7 @@ func (s *getSuite) TestGetMaxResolutionInt(c *gc.C) {
 	app := f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "test-application",
 		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "dummy"}),
-	})
+	}, nil)
 
 	err := app.UpdateCharmConfig(model.GenerationMaster, map[string]interface{}{"skill-level": nonFloatInt})
 	c.Assert(err, jc.ErrorIsNil)

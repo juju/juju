@@ -8,12 +8,10 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/mocks"
 )
 
 type bindingsSuite struct {
@@ -28,6 +26,7 @@ type bindingsSuite struct {
 	appsSpace   *state.Space
 	barbSpace   *state.Space
 	dbSpace     *state.Space
+	allSpaces   network.SpaceInfos
 }
 
 var _ = gc.Suite(&bindingsSuite{})
@@ -96,12 +95,21 @@ peers:
 	var err error
 	s.clientSpace, err = s.State.AddSpace("client", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
+	clientSpaceInfo, err := s.clientSpace.NetworkSpace()
+	c.Assert(err, jc.ErrorIsNil)
 	s.appsSpace, err = s.State.AddSpace("apps", "", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	appsSpaceInfo, err := s.appsSpace.NetworkSpace()
 	c.Assert(err, jc.ErrorIsNil)
 	s.dbSpace, err = s.State.AddSpace("db", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
+	dbSpaceInfo, err := s.dbSpace.NetworkSpace()
+	c.Assert(err, jc.ErrorIsNil)
 	s.barbSpace, err = s.State.AddSpace("barb3", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
+	barbSpaceInfo, err := s.barbSpace.NetworkSpace()
+	c.Assert(err, jc.ErrorIsNil)
+	s.allSpaces = append(state.DefaultSpacesWithAlpha(), clientSpaceInfo, appsSpaceInfo, dbSpaceInfo, barbSpaceInfo)
 }
 
 func (s *bindingsSuite) TestMergeBindings(c *gc.C) {
@@ -277,7 +285,7 @@ func (s *bindingsSuite) TestMergeBindings(c *gc.C) {
 		modified: true,
 	}} {
 		c.Logf("test #%d: %s", i, test.about)
-		b, err := state.NewBindings(s.State, test.currentMap)
+		b, err := state.NewBindings(s.allSpaces, test.currentMap)
 		c.Assert(err, jc.ErrorIsNil)
 		isModified, err := b.Merge(test.mergeWithMap, test.meta)
 		c.Check(err, jc.ErrorIsNil)
@@ -303,7 +311,7 @@ func (s *bindingsSuite) TestMergeWithModelConfigNonDefaultSpace(c *gc.C) {
 		"one-extra": s.appsSpace.Id(),
 	}
 
-	b, err := state.NewBindings(s.State, currentMap)
+	b, err := state.NewBindings(nil, currentMap)
 	c.Assert(err, jc.ErrorIsNil)
 	isModified, err := b.Merge(nil, s.oldMeta)
 	c.Check(err, jc.ErrorIsNil)
@@ -323,31 +331,23 @@ var _ = gc.Suite(&bindingsMockSuite{})
 
 type bindingsMockSuite struct {
 	testing.IsolationSuite
-
-	endpointBinding *mocks.MockEndpointBinding
 }
 
 func (s *bindingsMockSuite) TestNewBindingsNilMap(c *gc.C) {
-	defer s.setup(c).Finish()
-	s.expectAllSpaceInfos(s.expectedSpaceInfos())
-
-	binding, err := state.NewBindings(s.endpointBinding, nil)
+	binding, err := state.NewBindings(s.expectedSpaceInfos(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(binding, gc.NotNil)
 	c.Assert(binding.Map(), gc.DeepEquals, map[string]string{})
 }
 
 func (s *bindingsMockSuite) TestNewBindingsByID(c *gc.C) {
-	defer s.setup(c).Finish()
-	s.expectAllSpaceInfos(s.expectedSpaceInfos())
-
 	initial := map[string]string{
 		"db":      "2",
 		"testing": "5",
 		"empty":   network.AlphaSpaceId,
 	}
 
-	binding, err := state.NewBindings(s.endpointBinding, initial)
+	binding, err := state.NewBindings(s.expectedSpaceInfos(), initial)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(binding, gc.NotNil)
 
@@ -355,16 +355,13 @@ func (s *bindingsMockSuite) TestNewBindingsByID(c *gc.C) {
 }
 
 func (s *bindingsMockSuite) TestNewBindingsByName(c *gc.C) {
-	defer s.setup(c).Finish()
-	s.expectAllSpaceInfos(s.expectedSpaceInfos())
-
 	initial := map[string]string{
 		"db":      "two",
 		"testing": "42",
 		"empty":   network.AlphaSpaceName,
 	}
 
-	binding, err := state.NewBindings(s.endpointBinding, initial)
+	binding, err := state.NewBindings(s.expectedSpaceInfos(), initial)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(binding, gc.NotNil)
 
@@ -378,24 +375,19 @@ func (s *bindingsMockSuite) TestNewBindingsByName(c *gc.C) {
 }
 
 func (s *bindingsMockSuite) TestNewBindingsNotFound(c *gc.C) {
-	defer s.setup(c).Finish()
-	s.expectAllSpaceInfos(s.expectedSpaceInfos())
 	initial := map[string]string{
 		"db":      "2",
 		"testing": "three",
 		"empty":   network.AlphaSpaceId,
 	}
 
-	binding, err := state.NewBindings(s.endpointBinding, initial)
+	binding, err := state.NewBindings(s.expectedSpaceInfos(), initial)
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	c.Assert(binding, gc.IsNil)
 }
 
 func (s *bindingsMockSuite) TestMapWithSpaceNames(c *gc.C) {
-	defer s.setup(c).Finish()
-
 	infos := s.expectedSpaceInfos()
-	s.expectAllSpaceInfos(infos)
 
 	initial := map[string]string{
 		"db":      "2",
@@ -403,7 +395,7 @@ func (s *bindingsMockSuite) TestMapWithSpaceNames(c *gc.C) {
 		"empty":   network.AlphaSpaceId,
 	}
 
-	binding, err := state.NewBindings(s.endpointBinding, initial)
+	binding, err := state.NewBindings(s.expectedSpaceInfos(), initial)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(binding, gc.NotNil)
 	withSpaceNames, err := binding.MapWithSpaceNames(infos)
@@ -418,17 +410,13 @@ func (s *bindingsMockSuite) TestMapWithSpaceNames(c *gc.C) {
 }
 
 func (s *bindingsMockSuite) TestMapWithSpaceNamesWithNoLookup(c *gc.C) {
-	defer s.setup(c).Finish()
-
-	s.expectAllSpaceInfos(s.expectedSpaceInfos())
-
 	initial := map[string]string{
 		"db":      "2",
 		"testing": "3",
 		"empty":   network.AlphaSpaceId,
 	}
 
-	binding, err := state.NewBindings(s.endpointBinding, initial)
+	binding, err := state.NewBindings(s.expectedSpaceInfos(), initial)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(binding, gc.NotNil)
 	_, err = binding.MapWithSpaceNames(nil)
@@ -436,13 +424,9 @@ func (s *bindingsMockSuite) TestMapWithSpaceNamesWithNoLookup(c *gc.C) {
 }
 
 func (s *bindingsMockSuite) TestMapWithSpaceNamesWithNoBindings(c *gc.C) {
-	defer s.setup(c).Finish()
-
-	s.expectAllSpaceInfos(s.expectedSpaceInfos())
-
 	initial := map[string]string{}
 
-	binding, err := state.NewBindings(s.endpointBinding, initial)
+	binding, err := state.NewBindings(s.expectedSpaceInfos(), initial)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(binding, gc.NotNil)
 	withSpaceNames, err := binding.MapWithSpaceNames(make(network.SpaceInfos, 0))
@@ -451,9 +435,6 @@ func (s *bindingsMockSuite) TestMapWithSpaceNamesWithNoBindings(c *gc.C) {
 }
 
 func (s *bindingsMockSuite) TestMapWithSpaceNamesWithEmptyBindings(c *gc.C) {
-	defer s.setup(c).Finish()
-
-	s.expectAllSpaceInfos(s.expectedSpaceInfos())
 
 	initial := map[string]string{
 		"db":      "2",
@@ -461,7 +442,7 @@ func (s *bindingsMockSuite) TestMapWithSpaceNamesWithEmptyBindings(c *gc.C) {
 		"empty":   network.AlphaSpaceId,
 	}
 
-	binding, err := state.NewBindings(s.endpointBinding, initial)
+	binding, err := state.NewBindings(s.expectedSpaceInfos(), initial)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(binding, gc.NotNil)
 	_, err = binding.MapWithSpaceNames(make(network.SpaceInfos, 0))
@@ -477,14 +458,4 @@ func (s *bindingsMockSuite) expectedSpaceInfos() network.SpaceInfos {
 		{ID: "4", Name: "four"},
 		{ID: "5", Name: "42"},
 	}
-}
-
-func (s *bindingsMockSuite) expectAllSpaceInfos(infos network.SpaceInfos) {
-	s.endpointBinding.EXPECT().AllSpaceInfos().Return(infos, nil)
-}
-
-func (s *bindingsMockSuite) setup(c *gc.C) *gomock.Controller {
-	ctrl := gomock.NewController(c)
-	s.endpointBinding = mocks.NewMockEndpointBinding(ctrl)
-	return ctrl
 }

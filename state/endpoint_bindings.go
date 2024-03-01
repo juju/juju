@@ -84,13 +84,13 @@ func (b bindingsMap) GetBSON() (interface{}, error) {
 func (b *Bindings) Merge(mergeWith map[string]string, meta *charm.Meta) (bool, error) {
 	// Verify the bindings to be merged, and ensure we're merging with
 	// space ids.
-	merge, err := NewBindings(b.st, mergeWith)
+	merge, err := NewBindings(b.allSpaces, mergeWith)
 	if err != nil {
 		return false, errors.Trace(err)
 	}
 	mergeMap := merge.Map()
 
-	defaultsMap, err := DefaultEndpointBindingsForCharm(b.st, meta)
+	defaultsMap, err := DefaultEndpointBindingsForCharm(meta)
 	if err != nil {
 		return false, errors.Trace(err)
 	}
@@ -240,16 +240,13 @@ func (b *Bindings) updateOps(txnRevno int64, newMap map[string]string, newMeta *
 	// Ensure that the spaceIDs needed for the bindings exist.
 	spIdMap := set.NewStrings()
 	for _, spID := range b.Map() {
-		sp, err := b.st.Space(spID)
-		if err != nil {
-			return ops, errors.Trace(err)
-		}
+		sp := b.allSpaces.GetByID(spID)
 		if spIdMap.Contains(spID) {
 			continue
 		}
 		ops = append(ops, txn.Op{
 			C:      spacesC,
-			Id:     sp.doc.DocId,
+			Id:     sp.ID,
 			Assert: txn.DocExists,
 		})
 		spIdMap.Add(spID)
@@ -359,12 +356,8 @@ func (b *Bindings) validateForMachines() error {
 }
 
 func (b *Bindings) spaceNotFeasibleError(msg, id string) error {
-	space, err := b.st.Space(id)
-	if err != nil {
-		logger.Errorf(msg, id)
-		return errors.Annotatef(err, "cannot get space name for id %q", id)
-	}
-	return errors.Errorf(msg, space.Name())
+	space := b.allSpaces.GetByID(id)
+	return errors.Errorf(msg, space.Name)
 }
 
 // removeEndpointBindingsOp returns an op removing the bindings for the given
@@ -416,12 +409,7 @@ func (b *Bindings) validateForCharm(charmMeta *charm.Meta) error {
 		return errors.NotValidf("nil charm metadata")
 	}
 
-	spaceInfos, err := b.st.AllSpaceInfos()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	allBindings, err := DefaultEndpointBindingsForCharm(b.st, charmMeta)
+	allBindings, err := DefaultEndpointBindingsForCharm(charmMeta)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -439,7 +427,7 @@ func (b *Bindings) validateForCharm(charmMeta *charm.Meta) error {
 		if endpoint != defaultEndpointName && !endpointsNamesSet.Contains(endpoint) {
 			return errors.NotValidf("unknown endpoint %q", endpoint)
 		}
-		if !spaceInfos.ContainsID(space) {
+		if !b.allSpaces.ContainsID(space) {
 			return errors.NotValidf("unknown space %q", space)
 		}
 	}
@@ -452,7 +440,7 @@ func (b *Bindings) validateForCharm(charmMeta *charm.Meta) error {
 // TODO (manadart 2024-01-29): The alpha space ID here is scaffolding and
 // should be replaced with the configured model default space upon
 // migrating this logic to Dqlite.
-func DefaultEndpointBindingsForCharm(_ EndpointBinding, charmMeta *charm.Meta) (map[string]string, error) {
+func DefaultEndpointBindingsForCharm(charmMeta *charm.Meta) (map[string]string, error) {
 	allRelations := charmMeta.CombinedRelations()
 	bindings := make(map[string]string, len(allRelations)+len(charmMeta.ExtraBindings))
 	for name := range allRelations {
@@ -464,43 +452,30 @@ func DefaultEndpointBindingsForCharm(_ EndpointBinding, charmMeta *charm.Meta) (
 	return bindings, nil
 }
 
-// EndpointBinding are the methods necessary for exported methods of
-// Bindings to work.
-//
-//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/endpointbinding_mock.go github.com/juju/juju/state EndpointBinding
-type EndpointBinding interface {
-	network.SpaceLookup
-	Space(id string) (*Space, error)
-	AllSpaceInfos() (network.SpaceInfos, error)
-}
-
 // Bindings are EndpointBindings.
 type Bindings struct {
-	st  EndpointBinding
-	app *Application
+	allSpaces network.SpaceInfos
+	app       *Application
 	bindingsMap
 }
 
 // NewBindings returns a bindings guaranteed to be in space id format.
-func NewBindings(st EndpointBinding, givenMap map[string]string) (*Bindings, error) {
-	// namesErr and idError are only problems if both are not nil.
-	spaceInfos, err := st.AllSpaceInfos()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
+func NewBindings(allSpaces network.SpaceInfos, givenMap map[string]string) (*Bindings, error) {
 	// If givenMap contains space names empty values are allowed (e.g. they
 	// may be present when migrating a model from a 2.6.x controller).
-	namesErr := allOfOne(spaceInfos.ContainsName, givenMap, true)
+	namesErr := allOfOne(allSpaces.ContainsName, givenMap, true)
 
 	// If givenMap contains empty values then the map most probably contains
 	// space names. Therefore, we want allOfOne to be strict and bail out
 	// if it sees any empty values.
-	idErr := allOfOne(spaceInfos.ContainsID, givenMap, false)
+	idErr := allOfOne(allSpaces.ContainsID, givenMap, false)
 
 	// Ensure the spaces values are all names OR ids in the
 	// given map.
-	var newMap map[string]string
+	var (
+		newMap map[string]string
+		err    error
+	)
 	switch {
 	case namesErr == nil && idErr == nil:
 		// The givenMap is empty or has empty endpoints
@@ -511,16 +486,16 @@ func NewBindings(st EndpointBinding, givenMap map[string]string) (*Bindings, err
 		newMap = make(map[string]string, len(givenMap))
 
 	case namesErr == nil && idErr != nil:
-		newMap, err = newBindingsFromNames(spaceInfos, givenMap)
+		newMap, err = newBindingsFromNames(allSpaces, givenMap)
 	case idErr == nil && namesErr != nil:
-		newMap, err = newBindingsFromIDs(spaceInfos, givenMap)
+		newMap, err = newBindingsFromIDs(allSpaces, givenMap)
 	default:
 		logger.Errorf("%s", namesErr)
 		logger.Errorf("%s", idErr)
 		return nil, errors.NotFoundf("space")
 	}
 
-	return &Bindings{st: st, bindingsMap: newMap}, err
+	return &Bindings{allSpaces: allSpaces, bindingsMap: newMap}, err
 }
 
 func allOfOne(foundValue func(string) bool, givenMap map[string]string, allowEmptyValues bool) error {

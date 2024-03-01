@@ -14,6 +14,7 @@ import (
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"github.com/kr/pretty"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/facades/client/bundle"
@@ -21,22 +22,33 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
+	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	coretesting "github.com/juju/juju/testing"
 )
 
 type bundleSuite struct {
 	coretesting.BaseSuite
-	auth     *apiservertesting.FakeAuthorizer
-	facade   *bundle.APIv8
-	st       *mockState
-	store    *mockObjectStore
-	modelTag names.ModelTag
+	auth         *apiservertesting.FakeAuthorizer
+	facade       *bundle.APIv8
+	st           *mockState
+	store        *mockObjectStore
+	modelTag     names.ModelTag
+	spaceService *MockSpaceService
 }
 
 var _ = gc.Suite(&bundleSuite{})
 
+func (s *bundleSuite) setUpMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+	s.spaceService = NewMockSpaceService(ctrl)
+	return ctrl
+}
+
 func (s *bundleSuite) SetUpTest(c *gc.C) {
+	ctrl := s.setUpMocks(c)
+	defer ctrl.Finish()
+
 	s.BaseSuite.SetUpTest(c)
 	s.auth = &apiservertesting.FakeAuthorizer{
 		Tag: names.NewUserTag("read"),
@@ -53,6 +65,7 @@ func (s *bundleSuite) makeAPI(c *gc.C) *bundle.APIv8 {
 		s.store,
 		s.auth,
 		s.modelTag,
+		s.spaceService,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	return &bundle.APIv8{api}
@@ -236,6 +249,9 @@ func (s *bundleSuite) TestGetChangesMapArgsSuccessCharmHubRevision(c *gc.C) {
                     channel: candidate
         `,
 	}
+
+	s.spaceService.EXPECT().GetAllSpaces(gomock.Any()).
+		Return(testing.DefaultSpacesWithAlpha(), nil)
 	r, err := s.facade.GetChangesMapArgs(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(r.Changes, jc.DeepEquals, []*params.BundleChangesMapArgs{{
@@ -393,8 +409,6 @@ func (s *bundleSuite) minimalApplicationArgs(modelType string) description.Appli
 }
 
 func (s *bundleSuite) minimalApplicationArgsWithCharmConfig(modelType string, charmConfig map[string]interface{}) description.ApplicationArgs {
-	s.st.Spaces["1"] = "vlan2"
-	s.st.Spaces[network.AlphaSpaceId] = network.AlphaSpaceName
 	result := description.ApplicationArgs{
 		Tag:                  names.NewApplicationTag("ubuntu"),
 		Type:                 modelType,
@@ -460,6 +474,13 @@ func (s *bundleSuite) TestExportBundleWithApplication(c *gc.C) {
 
 	s.st.model.SetStatus(description.StatusArgs{Value: "available"})
 
+	s.spaceService.EXPECT().GetAllSpaces(gomock.Any()).
+		Return(testing.DefaultSpacesWithAlpha(
+			network.SpaceInfo{
+				ID:   "1",
+				Name: "vlan2",
+			},
+		), nil)
 	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	expectedResult := params.StringResult{Result: `
@@ -508,7 +529,13 @@ func (s *bundleSuite) TestExportBundleWithApplicationResources(c *gc.C) {
 	u.SetAgentStatus(minimalStatusArgs())
 
 	s.st.model.SetStatus(description.StatusArgs{Value: "available"})
-
+	s.spaceService.EXPECT().GetAllSpaces(gomock.Any()).
+		Return(testing.DefaultSpacesWithAlpha(
+			network.SpaceInfo{
+				ID:   "1",
+				Name: "vlan2",
+			},
+		), nil)
 	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	expectedResult := params.StringResult{Result: `
@@ -563,6 +590,13 @@ func (s *bundleSuite) TestExportBundleWithApplicationStorage(c *gc.C) {
 
 	s.st.model.SetStatus(description.StatusArgs{Value: "available"})
 
+	s.spaceService.EXPECT().GetAllSpaces(gomock.Any()).
+		Return(testing.DefaultSpacesWithAlpha(
+			network.SpaceInfo{
+				ID:   "1",
+				Name: "vlan2",
+			},
+		), nil)
 	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	expectedResult := params.StringResult{Result: `
@@ -608,6 +642,13 @@ func (s *bundleSuite) TestExportBundleWithTrustedApplication(c *gc.C) {
 
 	s.st.model.SetStatus(description.StatusArgs{Value: "available"})
 
+	s.spaceService.EXPECT().GetAllSpaces(gomock.Any()).
+		Return(testing.DefaultSpacesWithAlpha(
+			network.SpaceInfo{
+				ID:   "1",
+				Name: "vlan2",
+			},
+		), nil)
 	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	expectedResult := params.StringResult{Result: `
@@ -670,6 +711,13 @@ func (s *bundleSuite) TestExportBundleWithApplicationOffers(c *gc.C) {
 	app2.SetStatus(minimalStatusArgs())
 
 	s.st.model.SetStatus(description.StatusArgs{Value: "available"})
+	s.spaceService.EXPECT().GetAllSpaces(gomock.Any()).
+		Return(testing.DefaultSpacesWithAlpha(
+			network.SpaceInfo{
+				ID:   "1",
+				Name: "vlan2",
+			},
+		), nil)
 
 	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -817,6 +865,13 @@ UGNmDMvj8tUYI7+SvffHrTBwBPvcGeXa7XP4Au+GoJUN0jHspCeik/04KwanRCmu
 	app2.SetStatus(minimalStatusArgs())
 
 	s.st.model.SetStatus(description.StatusArgs{Value: "available"})
+	s.spaceService.EXPECT().GetAllSpaces(gomock.Any()).
+		Return(testing.DefaultSpacesWithAlpha(
+			network.SpaceInfo{
+				ID:   "1",
+				Name: "vlan2",
+			},
+		), nil)
 
 	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -944,7 +999,13 @@ func (s *bundleSuite) TestExportBundleWithSaas(c *gc.C) {
 	u.SetAgentStatus(minimalStatusArgs())
 
 	s.st.model.SetStatus(description.StatusArgs{Value: "available"})
-
+	s.spaceService.EXPECT().GetAllSpaces(gomock.Any()).
+		Return(testing.DefaultSpacesWithAlpha(
+			network.SpaceInfo{
+				ID:   "1",
+				Name: "vlan2",
+			},
+		), nil)
 	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	expectedResult := params.StringResult{Result: `
@@ -1055,6 +1116,8 @@ func (s *bundleSuite) TestExportBundleModelWithSettingsRelations(c *gc.C) {
 	model := s.newModel("iaas", "wordpress", "mysql")
 	model.SetStatus(description.StatusArgs{Value: "available"})
 
+	s.spaceService.EXPECT().GetAllSpaces(gomock.Any()).
+		Return(testing.DefaultSpacesWithAlpha(), nil)
 	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1098,6 +1161,8 @@ func (s *bundleSuite) TestExportBundleModelWithCharmDefaults(c *gc.C) {
 	})
 	app.SetCharmOrigin(description.CharmOriginArgs{Platform: "amd64/ubuntu/20.04/stable"})
 
+	s.spaceService.EXPECT().GetAllSpaces(gomock.Any()).
+		Return(testing.DefaultSpacesWithAlpha(), nil)
 	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{IncludeCharmDefaults: true})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1174,6 +1239,8 @@ func (s *bundleSuite) TestExportBundleModelRelationsWithSubordinates(c *gc.C) {
 	s.setEndpointSettings(mysqlEndpoint, "mysql/0")
 	s.setEndpointSettings(loggingEndpoint, "logging/2")
 
+	s.spaceService.EXPECT().GetAllSpaces(gomock.Any()).
+		Return(testing.DefaultSpacesWithAlpha(), nil)
 	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1208,12 +1275,18 @@ relations:
 }
 
 func (s *bundleSuite) TestExportBundleSubordinateApplication(c *gc.C) {
+
 	s.st.model = description.NewModel(description.ModelArgs{Owner: names.NewUserTag("magic"),
 		Config:      coretesting.FakeConfig(),
 		CloudRegion: "some-region"})
 
-	s.st.Spaces[network.AlphaSpaceId] = network.AlphaSpaceName
-	s.st.Spaces["2"] = "some-space"
+	s.spaceService.EXPECT().GetAllSpaces(gomock.Any()).
+		Return(testing.DefaultSpacesWithAlpha(
+			network.SpaceInfo{
+				ID:   "2",
+				Name: "some-space",
+			},
+		), nil)
 	application := s.st.model.AddApplication(description.ApplicationArgs{
 		Tag:                  names.NewApplicationTag("magic"),
 		Subordinate:          true,
@@ -1297,6 +1370,9 @@ func (s *bundleSuite) setupExportBundleEndpointBindingsPrinted(all, oneOff strin
 
 func (s *bundleSuite) TestExportBundleNoEndpointBindingsPrinted(c *gc.C) {
 	s.setupExportBundleEndpointBindingsPrinted("0", "0")
+
+	s.spaceService.EXPECT().GetAllSpaces(gomock.Any()).
+		Return(testing.DefaultSpacesWithAlpha(), nil)
 	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1319,6 +1395,13 @@ applications:
 
 func (s *bundleSuite) TestExportBundleEndpointBindingsPrinted(c *gc.C) {
 	s.setupExportBundleEndpointBindingsPrinted("0", "1")
+	s.spaceService.EXPECT().GetAllSpaces(gomock.Any()).
+		Return(testing.DefaultSpacesWithAlpha(
+			network.SpaceInfo{
+				ID:   "1",
+				Name: "vlan2",
+			},
+		), nil)
 	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1365,6 +1448,8 @@ func (s *bundleSuite) TestExportBundleSubordinateApplicationAndMachine(c *gc.C) 
 
 	s.addMinimalMachineWithConstraints(s.st.model, "0")
 
+	s.spaceService.EXPECT().GetAllSpaces(gomock.Any()).
+		Return(testing.DefaultSpacesWithAlpha(), nil)
 	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1417,6 +1502,8 @@ func (s *bundleSuite) TestExportBundleModelWithConstraints(c *gc.C) {
 
 	model.SetStatus(description.StatusArgs{Value: "available"})
 
+	s.spaceService.EXPECT().GetAllSpaces(gomock.Any()).
+		Return(testing.DefaultSpacesWithAlpha(), nil)
 	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	expectedResult := params.StringResult{Result: `
@@ -1473,6 +1560,8 @@ func (s *bundleSuite) TestExportBundleModelWithAnnotations(c *gc.C) {
 
 	model.SetStatus(description.StatusArgs{Value: "available"})
 
+	s.spaceService.EXPECT().GetAllSpaces(gomock.Any()).
+		Return(testing.DefaultSpacesWithAlpha(), nil)
 	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	expectedResult := params.StringResult{Result: `
@@ -1559,6 +1648,8 @@ func (s *bundleSuite) TestExportBundleWithContainers(c *gc.C) {
 	})
 	ut.SetAgentStatus(minimalStatusArgs())
 
+	s.spaceService.EXPECT().GetAllSpaces(gomock.Any()).
+		Return(testing.DefaultSpacesWithAlpha(), nil)
 	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	expectedResult := params.StringResult{Result: `
@@ -1620,6 +1711,8 @@ func (s *bundleSuite) TestMixedSeries(c *gc.C) {
 		Base: "ubuntu@22.04",
 	})
 
+	s.spaceService.EXPECT().GetAllSpaces(gomock.Any()).
+		Return(testing.DefaultSpacesWithAlpha(), nil)
 	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1685,6 +1778,8 @@ func (s *bundleSuite) TestMixedSeriesNoDefaultSeries(c *gc.C) {
 		Id:   names.NewMachineTag("1"),
 		Base: "ubuntu@22.04",
 	})
+	s.spaceService.EXPECT().GetAllSpaces(gomock.Any()).
+		Return(testing.DefaultSpacesWithAlpha(), nil)
 
 	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1718,6 +1813,8 @@ func (s *bundleSuite) TestExportKubernetesBundle(c *gc.C) {
 	model := s.newModel("caas", "wordpress", "mysql")
 	model.SetStatus(description.StatusArgs{Value: "available"})
 
+	s.spaceService.EXPECT().GetAllSpaces(gomock.Any()).
+		Return(testing.DefaultSpacesWithAlpha(), nil)
 	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1744,6 +1841,13 @@ func (s *bundleSuite) TestExportCharmhubBundle(c *gc.C) {
 	model := s.newModel("iaas", "ch:wordpress", "ch:mysql")
 	model.SetStatus(description.StatusArgs{Value: "available"})
 
+	s.spaceService.EXPECT().GetAllSpaces(gomock.Any()).
+		Return(testing.DefaultSpacesWithAlpha(
+			network.SpaceInfo{
+				ID:   "1",
+				Name: "vlan2",
+			},
+		), nil)
 	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1780,6 +1884,13 @@ func (s *bundleSuite) TestExportLocalBundle(c *gc.C) {
 	model := s.newModel("iaas", "local:wordpress", "local:mysql")
 	model.SetStatus(description.StatusArgs{Value: "available"})
 
+	s.spaceService.EXPECT().GetAllSpaces(gomock.Any()).
+		Return(testing.DefaultSpacesWithAlpha(
+			network.SpaceInfo{
+				ID:   "1",
+				Name: "vlan2",
+			},
+		), nil)
 	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1811,9 +1922,12 @@ relations:
 }
 
 func (s *bundleSuite) TestExportLocalBundleWithSeries(c *gc.C) {
+
 	model := s.newModel("iaas", "local:focal/wordpress", "local:mysql")
 	model.SetStatus(description.StatusArgs{Value: "available"})
 
+	s.spaceService.EXPECT().GetAllSpaces(gomock.Any()).
+		Return(testing.DefaultSpacesWithAlpha(), nil)
 	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1933,8 +2047,13 @@ applications:
 			Config:      coretesting.FakeConfig(),
 			CloudRegion: "some-region"},
 		)
-		s.st.Spaces[network.AlphaSpaceId] = network.AlphaSpaceName
-		s.st.Spaces["2"] = "some-space"
+		s.spaceService.EXPECT().GetAllSpaces(gomock.Any()).
+			Return(testing.DefaultSpacesWithAlpha(
+				network.SpaceInfo{
+					ID:   "2",
+					Name: "some-space",
+				},
+			), nil)
 
 		application := s.st.model.AddApplication(description.ApplicationArgs{
 			Tag:                  names.NewApplicationTag("magic"),

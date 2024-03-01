@@ -34,6 +34,7 @@ type uniterNetworkInfoSuite struct {
 	uniterSuiteBase
 	mysqlCharm *state.Charm
 	st         *state.State
+	allSpaces  network.SpaceInfos
 }
 
 var _ = gc.Suite(&uniterNetworkInfoSuite{})
@@ -64,19 +65,22 @@ func (s *uniterNetworkInfoSuite) SetUpTest(c *gc.C) {
 		"layertwo":   nil,
 	}
 
+	spaceService := serviceFactory.Space()
 	s.st = s.ControllerModel(c).State()
 	for spaceName, cidrs := range net {
-		space, err := s.st.AddSpace(spaceName, "", nil)
+		spID, err := spaceService.AddSpace(context.Background(), spaceName, "", nil)
 		c.Assert(err, jc.ErrorIsNil)
 
 		for _, cidr := range cidrs {
 			_, err = s.st.AddSubnet(network.SubnetInfo{
 				CIDR:    cidr,
-				SpaceID: space.Id(),
+				SpaceID: spID.String(),
 			})
 			c.Assert(err, jc.ErrorIsNil)
 		}
 	}
+	s.allSpaces, err = spaceService.GetAllSpaces(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
 
 	s.machine0 = s.addProvisionedMachineWithDevicesAndAddresses(c, 10, s.InstancePrechecker(c, s.st))
 
@@ -97,7 +101,7 @@ func (s *uniterNetworkInfoSuite) SetUpTest(c *gc.C) {
 			"foo-bar":   "layertwo",   // extra-binding to L2
 			"":          "wp-default", // explicitly specified default space
 		},
-	}, testing.NewObjectStore(c, s.st.ModelUUID()))
+	}, testing.NewObjectStore(c, s.st.ModelUUID()), s.allSpaces)
 	c.Assert(err, jc.ErrorIsNil)
 	s.wordpressUnit = f.MakeUnit(c, &factory.UnitParams{
 		Application: s.wordpress,
@@ -115,7 +119,7 @@ func (s *uniterNetworkInfoSuite) SetUpTest(c *gc.C) {
 		EndpointBindings: map[string]string{
 			"server": "database",
 		},
-	})
+	}, s.allSpaces)
 	s.wordpressUnit = f.MakeUnit(c, &factory.UnitParams{
 		Application: s.wordpress,
 		Machine:     s.machine0,
@@ -572,7 +576,7 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoUsesRelationAddressDefaultBindin
 	s.mysql = f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "mysql-default",
 		Charm: s.mysqlCharm,
-	})
+	}, s.allSpaces)
 	s.mysqlUnit = f.MakeUnit(c, &factory.UnitParams{
 		Application: s.mysql,
 		Machine:     s.machine1,

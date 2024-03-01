@@ -6,18 +6,15 @@ package testing
 import (
 	stdcontext "context"
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
@@ -26,7 +23,6 @@ import (
 	"github.com/juju/juju/environs/envcontext"
 	providercommon "github.com/juju/juju/internal/provider/common"
 	"github.com/juju/juju/internal/uuid"
-	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -136,93 +132,6 @@ func (s StubNetwork) SetUpSuite(c *gc.C) {
 	environs.RegisterProvider(StubProviderType, ProviderInstance)
 }
 
-type errReturner func() error
-
-// FakeSpace implements networkingcommon.BackingSpace for testing.
-type FakeSpace struct {
-	SpaceId   string
-	SpaceName string
-	SubnetIds []string
-	NextErr   errReturner
-}
-
-var _ networkingcommon.BackingSpace = (*FakeSpace)(nil)
-
-func (f *FakeSpace) Id() string {
-	return f.SpaceId
-}
-
-func (f *FakeSpace) Name() string {
-	return f.SpaceName
-}
-
-func (f *FakeSpace) NetworkSpace() (network.SpaceInfo, error) {
-	if err := f.NextErr(); err != nil {
-		return network.SpaceInfo{}, err
-	}
-
-	outputSpaceInfo := network.SpaceInfo{
-		ID:   f.SpaceId,
-		Name: network.SpaceName(f.SpaceName),
-	}
-
-	outputSpaceInfo.Subnets = make(network.SubnetInfos, len(f.SubnetIds))
-	for i, subnetId := range f.SubnetIds {
-		providerId := network.Id("provider-" + subnetId)
-
-		// Pick the third element of the IP address and use this to
-		// decide how we construct the Subnet. It provides variation of
-		// test data.
-		first, err := strconv.Atoi(strings.Split(subnetId, ".")[2])
-		if err != nil {
-			return outputSpaceInfo, err
-		}
-		vlantag := 0
-		zones := []string{"foo"}
-		if first%2 == 1 {
-			vlantag = 23
-			zones = []string{"bar", "bam"}
-		}
-
-		backing := network.SubnetInfo{
-			CIDR:              subnetId,
-			SpaceID:           f.SpaceId,
-			SpaceName:         f.SpaceName,
-			ProviderId:        providerId,
-			VLANTag:           vlantag,
-			AvailabilityZones: zones,
-		}
-		outputSpaceInfo.Subnets[i] = backing
-	}
-
-	return outputSpaceInfo, nil
-}
-
-func (f *FakeSpace) ProviderId() (netID network.Id) {
-	return
-}
-
-func (f *FakeSpace) Zones() []string {
-	return []string{""}
-}
-
-func (f *FakeSpace) Life() (life life.Value) {
-	return
-}
-
-func (f *FakeSpace) EnsureDead() error {
-	return nil
-}
-
-func (f *FakeSpace) Remove() error {
-	return nil
-}
-
-// GoString implements fmt.GoStringer.
-func (f *FakeSpace) GoString() string {
-	return fmt.Sprintf("&FakeSpace{%q}", f.SpaceName)
-}
-
 // StubMethodCall is like testing.StubCall, but includes the receiver
 // as well.
 type StubMethodCall struct {
@@ -304,55 +213,6 @@ func (f *FakeZone) GoString() string {
 	return fmt.Sprintf("&FakeZone{%q, %v}", f.ZoneName, f.ZoneAvailable)
 }
 
-// FakeSubnet implements networkingcommon.BackingSubnet for testing.
-type FakeSubnet struct {
-	Info networkingcommon.BackingSubnetInfo
-	id   string
-}
-
-var _ networkingcommon.BackingSubnet = (*FakeSubnet)(nil)
-
-// GoString implements fmt.GoStringer.
-func (f *FakeSubnet) GoString() string {
-	return fmt.Sprintf("&FakeSubnet{%#v}", f.Info)
-}
-
-func (f *FakeSubnet) CIDR() string {
-	return f.Info.CIDR
-}
-
-func (f *FakeSubnet) ID() string {
-	return f.id
-}
-
-func (f *FakeSubnet) AvailabilityZones() []string {
-	return f.Info.AvailabilityZones
-}
-
-func (f *FakeSubnet) ProviderId() network.Id {
-	return f.Info.ProviderId
-}
-
-func (f *FakeSubnet) ProviderNetworkId() network.Id {
-	return f.Info.ProviderNetworkId
-}
-
-func (f *FakeSubnet) VLANTag() int {
-	return f.Info.VLANTag
-}
-
-func (f *FakeSubnet) SpaceName() string {
-	return f.Info.SpaceName
-}
-
-func (f *FakeSubnet) SpaceID() string {
-	return f.Info.SpaceID
-}
-
-func (f *FakeSubnet) Life() state.Life {
-	return state.LifeFromValue(f.Info.Life)
-}
-
 // ResetStub resets all recorded calls and errors of the given stub.
 func ResetStub(stub *testing.Stub) {
 	*stub = testing.Stub{}
@@ -366,9 +226,9 @@ type StubBacking struct {
 	EnvConfig *config.Config
 	Cloud     environscloudspec.CloudSpec
 
-	Zones   network.AvailabilityZones
-	Spaces  []networkingcommon.BackingSpace
-	Subnets []networkingcommon.BackingSubnet
+	Zones network.AvailabilityZones
+	// Spaces  []networkingcommon.BackingSpace
+	// Subnets []networkingcommon.BackingSubnet
 }
 
 var _ networkingcommon.NetworkBacking = (*StubBacking)(nil)
@@ -409,70 +269,6 @@ func (sb *StubBacking) SetUp(c *gc.C, envName string, withZones, withSpaces, wit
 		sb.Zones = make(network.AvailabilityZones, len(ProviderInstance.Zones))
 		copy(sb.Zones, ProviderInstance.Zones)
 	}
-	sb.Spaces = []networkingcommon.BackingSpace{}
-	if withSpaces {
-		// Note that full subnet data is generated from the SubnetIds in
-		// FakeSpace.Subnets().
-		sb.Spaces = []networkingcommon.BackingSpace{
-			&FakeSpace{
-				SpaceId:   "1",
-				SpaceName: "default",
-				SubnetIds: []string{"192.168.0.0/24", "192.168.3.0/24"},
-				NextErr:   sb.NextErr},
-			&FakeSpace{
-				SpaceId:   "2",
-				SpaceName: "dmz",
-				SubnetIds: []string{"192.168.1.0/24"},
-				NextErr:   sb.NextErr},
-			&FakeSpace{
-				SpaceId:   "3",
-				SpaceName: "private",
-				SubnetIds: []string{"192.168.2.0/24"},
-				NextErr:   sb.NextErr},
-			&FakeSpace{
-				SpaceId:   "4",
-				SpaceName: "private",
-				SubnetIds: []string{"192.168.2.0/24"},
-				NextErr:   sb.NextErr}, // duplicates are ignored when caching spaces.
-		}
-	}
-	sb.Subnets = []networkingcommon.BackingSubnet{}
-	if withSubnets {
-		info0 := networkingcommon.BackingSubnetInfo{
-			CIDR:              ProviderInstance.Subnets[0].CIDR,
-			ProviderId:        ProviderInstance.Subnets[0].ProviderId,
-			ProviderNetworkId: ProviderInstance.Subnets[0].ProviderNetworkId,
-			AvailabilityZones: ProviderInstance.Subnets[0].AvailabilityZones,
-			SpaceName:         "private",
-			SpaceID:           "3",
-		}
-		info1 := networkingcommon.BackingSubnetInfo{
-			CIDR:              ProviderInstance.Subnets[1].CIDR,
-			ProviderId:        ProviderInstance.Subnets[1].ProviderId,
-			ProviderNetworkId: ProviderInstance.Subnets[1].ProviderNetworkId,
-			AvailabilityZones: ProviderInstance.Subnets[1].AvailabilityZones,
-			SpaceName:         "dmz",
-			SpaceID:           "2",
-		}
-		sb.Subnets = []networkingcommon.BackingSubnet{
-			&FakeSubnet{Info: info0, id: info0.SpaceID},
-			&FakeSubnet{Info: info1, id: info1.SpaceID},
-		}
-	}
-}
-
-func (sb *StubBacking) AdditionalSubnets() {
-	for i, info := range ProviderInstance.Subnets[10:] {
-		sb.Subnets = append(sb.Subnets, &FakeSubnet{
-			Info: networkingcommon.BackingSubnetInfo{
-				CIDR:              info.CIDR,
-				ProviderId:        info.ProviderId,
-				ProviderNetworkId: info.ProviderNetworkId,
-				AvailabilityZones: info.AvailabilityZones},
-			id: strconv.Itoa(i + 30),
-		},
-		)
-	}
 }
 
 func (sb *StubBacking) ModelConfig(_ stdcontext.Context) (*config.Config, error) {
@@ -506,77 +302,6 @@ func (sb *StubBacking) AvailabilityZones() (network.AvailabilityZones, error) {
 func (sb *StubBacking) SetAvailabilityZones(zones network.AvailabilityZones) error {
 	sb.MethodCall(sb, "SetAvailabilityZones", zones)
 	return sb.NextErr()
-}
-
-func (sb *StubBacking) AllSpaces() ([]networkingcommon.BackingSpace, error) {
-	sb.MethodCall(sb, "AllSpaces")
-	if err := sb.NextErr(); err != nil {
-		return nil, err
-	}
-
-	// Filter duplicates.
-	seen := set.Strings{}
-	output := []networkingcommon.BackingSpace{}
-	for _, space := range sb.Spaces {
-		if seen.Contains(space.Name()) {
-			continue
-		}
-		seen.Add(space.Name())
-		output = append(output, space)
-	}
-	return output, nil
-}
-
-func (sb *StubBacking) AllSubnets() ([]networkingcommon.BackingSubnet, error) {
-	sb.MethodCall(sb, "AllSubnets")
-	if err := sb.NextErr(); err != nil {
-		return nil, err
-	}
-
-	// Filter duplicates.
-	seen := set.Strings{}
-	output := []networkingcommon.BackingSubnet{}
-	for _, subnet := range sb.Subnets {
-		if seen.Contains(subnet.CIDR()) {
-			continue
-		}
-		seen.Add(subnet.CIDR())
-		output = append(output, subnet)
-	}
-	return output, nil
-}
-
-func (sb *StubBacking) SubnetByCIDR(cidr string) (networkingcommon.BackingSubnet, error) {
-	sb.MethodCall(sb, "SubnetByCIDR", cidr)
-	if err := sb.NextErr(); err != nil {
-		return nil, err
-	}
-	for _, subnet := range sb.Subnets {
-		if subnet.CIDR() == cidr {
-			return subnet, nil
-		}
-	}
-	return nil, errors.NewNotFound(nil, fmt.Sprintf("subnet %q", cidr))
-}
-
-func (sb *StubBacking) AddSubnet(subnetInfo networkingcommon.BackingSubnetInfo) (networkingcommon.BackingSubnet, error) {
-	sb.MethodCall(sb, "AddSubnet", subnetInfo)
-	if err := sb.NextErr(); err != nil {
-		return nil, err
-	}
-	fs := &FakeSubnet{Info: subnetInfo}
-	sb.Subnets = append(sb.Subnets, fs)
-	return fs, nil
-}
-
-func (sb *StubBacking) AddSpace(name string, providerId network.Id, subnets []string) (networkingcommon.BackingSpace, error) {
-	sb.MethodCall(sb, "AddSpace", name, providerId, subnets)
-	if err := sb.NextErr(); err != nil {
-		return nil, err
-	}
-	fs := &FakeSpace{SpaceName: name, SubnetIds: subnets}
-	sb.Spaces = append(sb.Spaces, fs)
-	return fs, nil
 }
 
 func (sb *StubBacking) SaveProviderSubnets(subnets []network.SubnetInfo, spaceID string) error {

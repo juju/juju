@@ -32,6 +32,7 @@ import (
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/network"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
@@ -1155,7 +1156,7 @@ type AddApplicationArgs struct {
 // AddApplication creates a new application, running the supplied charm, with the
 // supplied name (which must be unique). If the charm defines peer relations,
 // they will be created automatically.
-func (st *State) AddApplication(prechecker environs.InstancePrechecker, args AddApplicationArgs, store objectstore.ObjectStore) (_ *Application, err error) {
+func (st *State) AddApplication(prechecker environs.InstancePrechecker, args AddApplicationArgs, store objectstore.ObjectStore, allSpaces network.SpaceInfos) (_ *Application, err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot add application %q", args.Name)
 
 	// Sanity checks.
@@ -1327,7 +1328,7 @@ func (st *State) AddApplication(prechecker environs.InstancePrechecker, args Add
 	app := newApplication(st, appDoc)
 
 	// The app has no existing bindings yet.
-	b, err := app.bindingsForOps(nil)
+	b, err := app.bindingsForOps(nil, allSpaces)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1644,7 +1645,7 @@ func assignUnitOps(unitName string, placement instance.Placement) []txn.Op {
 
 // AssignStagedUnits gets called by the UnitAssigner worker, and runs the given
 // assignments.
-func (st *State) AssignStagedUnits(prechecker environs.InstancePrechecker, ids []string) ([]UnitAssignmentResult, error) {
+func (st *State) AssignStagedUnits(prechecker environs.InstancePrechecker, ids []string, allSpaces network.SpaceInfos) ([]UnitAssignmentResult, error) {
 	query := bson.D{{"_id", bson.D{{"$in", ids}}}}
 	unitAssignments, err := st.unitAssignments(query)
 	if err != nil {
@@ -1652,7 +1653,7 @@ func (st *State) AssignStagedUnits(prechecker environs.InstancePrechecker, ids [
 	}
 	results := make([]UnitAssignmentResult, len(unitAssignments))
 	for i, a := range unitAssignments {
-		err := st.assignStagedUnit(prechecker, a)
+		err := st.assignStagedUnit(prechecker, a, allSpaces)
 		results[i].Unit = a.Unit
 		results[i].Error = err
 	}
@@ -1691,7 +1692,7 @@ func removeStagedAssignmentOp(id string) txn.Op {
 	}
 }
 
-func (st *State) assignStagedUnit(prechecker environs.InstancePrechecker, a UnitAssignment) error {
+func (st *State) assignStagedUnit(prechecker environs.InstancePrechecker, a UnitAssignment, allSpaces network.SpaceInfos) error {
 	u, err := st.Unit(a.Unit)
 	if err != nil {
 		return errors.Trace(err)
@@ -1702,12 +1703,12 @@ func (st *State) assignStagedUnit(prechecker environs.InstancePrechecker, a Unit
 
 	placement := &instance.Placement{Scope: a.Scope, Directive: a.Directive}
 
-	return errors.Trace(st.AssignUnitWithPlacement(prechecker, u, placement))
+	return errors.Trace(st.AssignUnitWithPlacement(prechecker, u, placement, allSpaces))
 }
 
 // AssignUnitWithPlacement chooses a machine using the given placement directive
 // and then assigns the unit to it.
-func (st *State) AssignUnitWithPlacement(prechecker environs.InstancePrechecker, unit *Unit, placement *instance.Placement) error {
+func (st *State) AssignUnitWithPlacement(prechecker environs.InstancePrechecker, unit *Unit, placement *instance.Placement, allSpaces network.SpaceInfos) error {
 	// TODO(natefinch) this should be done as a single transaction, not two.
 	// Mark https://launchpad.net/bugs/1506994 fixed when done.
 
@@ -1719,7 +1720,7 @@ func (st *State) AssignUnitWithPlacement(prechecker environs.InstancePrechecker,
 		return unit.assignToNewMachine(prechecker, data.directive)
 	}
 
-	m, err := st.addMachineWithPlacement(prechecker, unit, data)
+	m, err := st.addMachineWithPlacement(prechecker, unit, data, allSpaces)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1774,7 +1775,7 @@ func (st *State) parsePlacement(placement *instance.Placement) (*placementData, 
 
 // addMachineWithPlacement finds a machine that matches the given
 // placement directive for the given unit.
-func (st *State) addMachineWithPlacement(prechecker environs.InstancePrechecker, unit *Unit, data *placementData) (*Machine, error) {
+func (st *State) addMachineWithPlacement(prechecker environs.InstancePrechecker, unit *Unit, data *placementData, allSpaces network.SpaceInfos) (*Machine, error) {
 	unitCons, err := unit.Constraints()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -1791,7 +1792,7 @@ func (st *State) addMachineWithPlacement(prechecker environs.InstancePrechecker,
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	bindings, err := app.EndpointBindings()
+	bindings, err := app.EndpointBindings(allSpaces)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

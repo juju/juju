@@ -308,7 +308,7 @@ func (s *statusUnitTestSuite) TestApplicationWithExposedEndpoints(c *gc.C) {
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	release()
 	charm := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress", URL: "ch:amd64/quantal/wordpress"})
-	app := f.MakeApplication(c, &factory.ApplicationParams{Charm: charm})
+	app := f.MakeApplication(c, &factory.ApplicationParams{Charm: charm}, nil)
 	err := app.MergeExposeSettings(map[string]state.ExposedEndpoint{
 		"": {
 			ExposeToSpaceIDs: []string{network.AlphaSpaceId},
@@ -378,7 +378,7 @@ func (s *statusUnitTestSuite) TestSubordinateUpgradingFrom(c *gc.C) {
 	app := f.MakeApplication(c, &factory.ApplicationParams{
 		Charm: principalCharm,
 		Name:  "principal",
-	})
+	}, nil)
 	pu := f.MakeUnit(c, &factory.UnitParams{
 		Application: app,
 	})
@@ -386,7 +386,7 @@ func (s *statusUnitTestSuite) TestSubordinateUpgradingFrom(c *gc.C) {
 		Charm:       subordCharm,
 		CharmOrigin: defaultCharmOrigin(subordCharm.URL()),
 		Name:        "subord",
-	})
+	}, nil)
 
 	subEndpoint, err := subordApp.Endpoint("info")
 	c.Assert(err, jc.ErrorIsNil)
@@ -416,7 +416,7 @@ func (s *statusUnitTestSuite) TestSubordinateUpgradingFrom(c *gc.C) {
 	err = subordApp.SetCharm(state.SetCharmConfig{
 		Charm:       subordCharmNew,
 		CharmOrigin: defaultCharmOrigin(subordCharmNew.URL()),
-	}, testing.NewObjectStore(c, s.ControllerModelUUID()))
+	}, testing.NewObjectStore(c, s.ControllerModelUUID()), testing.DefaultSpacesWithAlpha())
 	c.Assert(err, jc.ErrorIsNil)
 
 	status, err = client.Status(nil)
@@ -461,7 +461,7 @@ func checkUnitVersion(c *gc.C, appStatus params.ApplicationStatus, unit *state.U
 func (s *statusUnitTestSuite) TestWorkloadVersionLastWins(c *gc.C) {
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	release()
-	application := f.MakeApplication(c, nil)
+	application := f.MakeApplication(c, nil, nil)
 	unit1 := addUnitWithVersion(c, application, "voltron")
 	unit2 := addUnitWithVersion(c, application, "voltron")
 	unit3 := addUnitWithVersion(c, application, "zarkon")
@@ -475,7 +475,7 @@ func (s *statusUnitTestSuite) TestWorkloadVersionLastWins(c *gc.C) {
 func (s *statusUnitTestSuite) TestWorkloadVersionSimple(c *gc.C) {
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	release()
-	application := f.MakeApplication(c, nil)
+	application := f.MakeApplication(c, nil, nil)
 	unit1 := addUnitWithVersion(c, application, "voltron")
 
 	appStatus := s.checkAppVersion(c, application, "voltron")
@@ -485,7 +485,7 @@ func (s *statusUnitTestSuite) TestWorkloadVersionSimple(c *gc.C) {
 func (s *statusUnitTestSuite) TestWorkloadVersionBlanksCanWin(c *gc.C) {
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	release()
-	application := f.MakeApplication(c, nil)
+	application := f.MakeApplication(c, nil, nil)
 	unit1 := addUnitWithVersion(c, application, "voltron")
 	unit2 := addUnitWithVersion(c, application, "")
 
@@ -497,14 +497,14 @@ func (s *statusUnitTestSuite) TestWorkloadVersionBlanksCanWin(c *gc.C) {
 func (s *statusUnitTestSuite) TestWorkloadVersionNoUnits(c *gc.C) {
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	release()
-	application := f.MakeApplication(c, nil)
+	application := f.MakeApplication(c, nil, nil)
 	s.checkAppVersion(c, application, "")
 }
 
 func (s *statusUnitTestSuite) TestWorkloadVersionOkWithUnset(c *gc.C) {
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	release()
-	application := f.MakeApplication(c, nil)
+	application := f.MakeApplication(c, nil, nil)
 	unit, err := application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	appStatus := s.checkAppVersion(c, application, "")
@@ -579,7 +579,7 @@ func (s *statusUnitTestSuite) TestRelationFiltered(c *gc.C) {
 		Charm: f.MakeCharm(c, &factory.CharmParams{
 			Name: "wordpress",
 		}),
-	})
+	}, nil)
 	e1, err := a1.Endpoint("db")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -589,7 +589,7 @@ func (s *statusUnitTestSuite) TestRelationFiltered(c *gc.C) {
 		Charm: f.MakeCharm(c, &factory.CharmParams{
 			Name: "mysql",
 		}),
-	})
+	}, nil)
 	e2, err := a2.Endpoint("server")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -602,7 +602,7 @@ func (s *statusUnitTestSuite) TestRelationFiltered(c *gc.C) {
 	// create another application 3 with an endpoint 3
 	a3 := f.MakeApplication(c, &factory.ApplicationParams{
 		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "logging"}),
-	})
+	}, nil)
 	e3, err := a3.Endpoint("info")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -645,7 +645,7 @@ func (s *statusUnitTestSuite) TestApplicationFilterIndependentOfAlphabeticUnitOr
 			Name: "mysql",
 		}),
 		Name: "abc",
-	})
+	}, nil)
 
 	// Application B will have a unit on the same machine as a unit of an application A
 	// and will have a relation to an application C.
@@ -654,7 +654,7 @@ func (s *statusUnitTestSuite) TestApplicationFilterIndependentOfAlphabeticUnitOr
 			Name: "wordpress",
 		}),
 		Name: "def",
-	})
+	}, nil)
 
 	// Put a unit from each, application A and B, on the same machine.
 	// This will be enough to ensure that the application B qualifies to be
@@ -703,7 +703,7 @@ func (s *statusUnitTestSuite) TestFilterOutRelationsForRelatedApplicationsThatDo
 		Charm: f.MakeCharm(c, &factory.CharmParams{
 			Name: "mysql",
 		}),
-	})
+	}, nil)
 
 	// Application B will have a unit on the same machine as a unit of an application A
 	// and will have a relation to an application C.
@@ -711,7 +711,7 @@ func (s *statusUnitTestSuite) TestFilterOutRelationsForRelatedApplicationsThatDo
 		Charm: f.MakeCharm(c, &factory.CharmParams{
 			Name: "wordpress",
 		}),
-	})
+	}, nil)
 	endpoint1, err := applicationB.Endpoint("juju-info")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -719,7 +719,7 @@ func (s *statusUnitTestSuite) TestFilterOutRelationsForRelatedApplicationsThatDo
 	// an application A.
 	applicationC := f.MakeApplication(c, &factory.ApplicationParams{
 		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "logging"}),
-	})
+	}, nil)
 	endpoint2, err := applicationC.Endpoint("info")
 	c.Assert(err, jc.ErrorIsNil)
 	f.MakeRelation(c, &factory.RelationParams{
@@ -876,27 +876,31 @@ func (s *statusUpgradeUnitSuite) AddApplication(c *gc.C, charmName, applicationN
 	c.Assert(ok, jc.IsTrue)
 	revision := ch.Revision()
 
-	st := s.ControllerModel(c).State()
-	_, err := st.AddApplication(s.InstancePrechecker(c, st), state.AddApplicationArgs{
-		Name:  applicationName,
-		Charm: ch,
-		CharmOrigin: &state.CharmOrigin{
-			ID:     "mycharmhubid",
-			Hash:   "mycharmhash",
-			Source: "charm-hub",
-			Platform: &state.Platform{
-				Architecture: "amd64",
-				OS:           "ubuntu",
-				Channel:      "12.10/stable",
-			},
-			Revision: &revision,
-			Channel: &state.Channel{
-				Track: "latest",
-				Risk:  "stable",
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	release()
+	f.MakeApplication(
+		c,
+		&factory.ApplicationParams{
+			Name:  applicationName,
+			Charm: ch,
+			CharmOrigin: &state.CharmOrigin{
+				ID:     "mycharmhubid",
+				Hash:   "mycharmhash",
+				Source: "charm-hub",
+				Platform: &state.Platform{
+					Architecture: "amd64",
+					OS:           "ubuntu",
+					Channel:      "12.10/stable",
+				},
+				Revision: &revision,
+				Channel: &state.Channel{
+					Track: "latest",
+					Risk:  "stable",
+				},
 			},
 		},
-	}, testing.NewObjectStore(c, s.ControllerModelUUID()))
-	c.Assert(err, jc.ErrorIsNil)
+		nil,
+	)
 }
 
 // AddUnit adds a new unit for application to the specified machine.
@@ -1002,7 +1006,7 @@ func (s *filteringBranchesSuite) SetUpTest(c *gc.C) {
 		Charm: f.MakeCharm(c, &factory.CharmParams{
 			Name: s.appA,
 		}),
-	})
+	}, nil)
 
 	// Application B will have a unit on the same machine as a unit of an application A
 	// and will have a relation to an application C.
@@ -1010,7 +1014,7 @@ func (s *filteringBranchesSuite) SetUpTest(c *gc.C) {
 		Charm: f.MakeCharm(c, &factory.CharmParams{
 			Name: s.appB,
 		}),
-	})
+	}, nil)
 	endpoint1, err := applicationB.Endpoint("juju-info")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1025,7 +1029,7 @@ func (s *filteringBranchesSuite) SetUpTest(c *gc.C) {
 	// an application A.
 	applicationC := f.MakeApplication(c, &factory.ApplicationParams{
 		Charm: f.MakeCharm(c, &factory.CharmParams{Name: s.subB}),
-	})
+	}, nil)
 	endpoint2, err := applicationC.Endpoint("info")
 	c.Assert(err, jc.ErrorIsNil)
 	rel := f.MakeRelation(c, &factory.RelationParams{

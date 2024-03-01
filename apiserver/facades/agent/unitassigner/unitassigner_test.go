@@ -7,9 +7,11 @@ import (
 	"context"
 
 	jc "github.com/juju/testing/checkers"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -19,12 +21,18 @@ var _ = gc.Suite(testsuite{})
 type testsuite struct{}
 
 func (testsuite) TestAssignUnits(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	spaceService := NewMockSpaceService(ctrl)
+	spaceService.EXPECT().GetAllSpaces(gomock.Any())
+
 	f := &fakeState{
 		unitMachines: map[string]string{"foo/0": "1/lxd/2"},
 	}
 	f.results = []state.UnitAssignmentResult{{Unit: "foo/0"}}
 	a := &fakeMachineService{}
-	api := API{st: f, res: common.NewResources(), machineService: a}
+	api := API{st: f, res: common.NewResources(), machineService: a, spaceService: spaceService}
 	args := params.Entities{Entities: []params.Entity{{Tag: "unit-foo-0"}, {Tag: "unit-bar-1"}}}
 	res, err := api.AssignUnits(context.Background(), args)
 	c.Assert(f.ids, gc.DeepEquals, []string{"foo/0", "bar/1"})
@@ -83,7 +91,7 @@ func (f *fakeState) WatchForUnitAssignment() state.StringsWatcher {
 	return fakeWatcher{f.ids}
 }
 
-func (f *fakeState) AssignStagedUnits(ids []string) ([]state.UnitAssignmentResult, error) {
+func (f *fakeState) AssignStagedUnits(ids []string, allSpaces network.SpaceInfos) ([]state.UnitAssignmentResult, error) {
 	f.ids = ids
 	return f.results, f.err
 }

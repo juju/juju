@@ -68,7 +68,13 @@ func (s *CAASProvisionerSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&jujuversion.OfficialBuild, 0)
 
 	facade, err := caasunitprovisioner.NewFacade(
-		s.resources, s.authorizer, s.st, s.clock, loggo.GetLogger("juju.apiserver.controller.caasunitprovisioner"))
+		s.resources,
+		s.authorizer,
+		s.st,
+		s.clock,
+		loggo.GetLogger("juju.apiserver.controller.caasunitprovisioner"),
+		nil,
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.facade = facade
 }
@@ -78,11 +84,18 @@ func (s *CAASProvisionerSuite) TestPermission(c *gc.C) {
 		Tag: names.NewMachineTag("0"),
 	}
 	_, err := caasunitprovisioner.NewFacade(
-		s.resources, s.authorizer, s.st, s.clock, loggo.GetLogger("juju.apiserver.controller.caasunitprovisioner"))
+		s.resources,
+		s.authorizer,
+		s.st,
+		s.clock,
+		loggo.GetLogger("juju.apiserver.controller.caasunitprovisioner"),
+		nil,
+	)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
 func (s *CAASProvisionerSuite) TestWatchApplicationsScale(c *gc.C) {
+
 	s.scaleChanges <- struct{}{}
 
 	results, err := s.facade.WatchApplicationsScale(context.Background(), params.Entities{

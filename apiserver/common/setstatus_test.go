@@ -110,7 +110,7 @@ func (s *statusSetterSuite) TestSetServiceStatus(c *gc.C) {
 	// here.
 	service := s.Factory.MakeApplication(c, &factory.ApplicationParams{Status: &status.StatusInfo{
 		Status: status.Maintenance,
-	}})
+	}}, nil)
 	result, err := s.setter.SetStatus(context.Background(), params.SetStatus{Entities: []params.EntityStatusArgs{{
 		Tag:    service.Tag().String(),
 		Status: status.Active.String(),
@@ -207,7 +207,7 @@ func (s *serviceStatusSetterSuite) TestSetServiceStatus(c *gc.C) {
 	// and able to set the service status. However, that is for another day.
 	service := s.Factory.MakeApplication(c, &factory.ApplicationParams{Status: &status.StatusInfo{
 		Status: status.Maintenance,
-	}})
+	}}, nil)
 	result, err := s.setter.SetStatus(context.Background(), params.SetStatus{Entities: []params.EntityStatusArgs{{
 		Tag:    service.Tag().String(),
 		Status: status.Active.String(),
@@ -238,7 +238,7 @@ func (s *serviceStatusSetterSuite) TestSetUnitStatusNotLeader(c *gc.C) {
 func (s *serviceStatusSetterSuite) TestSetUnitStatusIsLeader(c *gc.C) {
 	service := s.Factory.MakeApplication(c, &factory.ApplicationParams{Status: &status.StatusInfo{
 		Status: status.Maintenance,
-	}})
+	}}, nil)
 	unit := s.Factory.MakeUnit(c, &factory.UnitParams{
 		Application: service,
 		Status: &status.StatusInfo{

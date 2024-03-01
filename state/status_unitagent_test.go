@@ -80,7 +80,7 @@ func (s *StatusUnitAgentSuite) TestSetAllocatingStatusAlreadyAssigned(c *gc.C) {
 }
 
 func (s *StatusUnitAgentSuite) TestSetStatusUnassigned(c *gc.C) {
-	app := s.Factory.MakeApplication(c, &factory.ApplicationParams{Name: "foo"})
+	app := s.Factory.MakeApplication(c, &factory.ApplicationParams{Name: "foo"}, nil)
 	u, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	agent := u.Agent()
@@ -99,7 +99,7 @@ func (s *StatusUnitAgentSuite) TestSetStatusUnassigned(c *gc.C) {
 }
 
 func (s *StatusUnitAgentSuite) TestSetStatusRunningNonCAAS(c *gc.C) {
-	app := s.Factory.MakeApplication(c, &factory.ApplicationParams{Name: "foo"})
+	app := s.Factory.MakeApplication(c, &factory.ApplicationParams{Name: "foo"}, nil)
 	u, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	agent := u.Agent()

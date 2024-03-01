@@ -128,3 +128,10 @@ func (s *ModelFactory) Storage(registry storage.ProviderRegistry) *storageservic
 		registry,
 	)
 }
+
+// Subnet returns the model's subnet service.
+func (s *ModelFactory) Subnet() *networkservice.SubnetService {
+	return networkservice.NewSubnetService(
+		networkstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
+	)
+}

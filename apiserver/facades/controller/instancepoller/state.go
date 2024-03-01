@@ -34,7 +34,6 @@ type StateInterface interface {
 	state.ModelAccessor
 	state.ModelMachinesWatcher
 	state.EntityFinder
-	network.SpaceLookup
 
 	Machine(id string) (StateMachine, error)
 

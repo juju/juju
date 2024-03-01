@@ -23,7 +23,7 @@ var _ = gc.Suite(&ApplicationStatusSuite{})
 
 func (s *ApplicationStatusSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
-	s.application = s.Factory.MakeApplication(c, nil)
+	s.application = s.Factory.MakeApplication(c, nil, nil)
 }
 
 func (s *ApplicationStatusSuite) TestInitialStatus(c *gc.C) {

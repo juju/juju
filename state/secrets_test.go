@@ -40,12 +40,12 @@ var _ = gc.Suite(&SecretsSuite{})
 func (s *SecretsSuite) SetUpTest(c *gc.C) {
 	s.StateSuite.SetUpTest(c)
 	s.store = state.NewSecrets(s.State)
-	s.owner = s.Factory.MakeApplication(c, nil)
+	s.owner = s.Factory.MakeApplication(c, nil, nil)
 	s.ownerUnit = s.Factory.MakeUnit(c, &factory.UnitParams{Application: s.owner})
 	app2 := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "wordpress",
 		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{Name: "wordpress"}),
-	})
+	}, nil)
 	ep1, err := s.owner.Endpoint("server")
 	c.Assert(err, jc.ErrorIsNil)
 	ep2, err := app2.Endpoint("db")
@@ -368,7 +368,7 @@ func (s *SecretsSuite) TestListByOwner(c *gc.C) {
 
 	another := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{Name: "mariadb"}),
-	})
+	}, nil)
 	now2 := s.Clock.Now().Round(time.Second).UTC()
 	uri2 := secrets.NewURI()
 	p2 := state.CreateSecretParams{
@@ -676,7 +676,7 @@ func (s *SecretsSuite) newCAASState(c *gc.C) *state.State {
 	s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "gitlab-k8s",
 		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{Name: "gitlab-k8s"}),
-	})
+	}, nil)
 	return st
 }
 
@@ -2215,7 +2215,7 @@ var _ = gc.Suite(&SecretsRotationWatcherSuite{})
 func (s *SecretsRotationWatcherSuite) SetUpTest(c *gc.C) {
 	s.StateSuite.SetUpTest(c)
 	s.store = state.NewSecrets(s.State)
-	s.ownerApp = s.Factory.MakeApplication(c, nil)
+	s.ownerApp = s.Factory.MakeApplication(c, nil, nil)
 	s.ownerUnit = s.Factory.MakeUnit(c, &factory.UnitParams{Application: s.ownerApp})
 }
 
@@ -2461,7 +2461,7 @@ var _ = gc.Suite(&SecretsExpiryWatcherSuite{})
 func (s *SecretsExpiryWatcherSuite) SetUpTest(c *gc.C) {
 	s.StateSuite.SetUpTest(c)
 	s.store = state.NewSecrets(s.State)
-	s.ownerApp = s.Factory.MakeApplication(c, nil)
+	s.ownerApp = s.Factory.MakeApplication(c, nil, nil)
 	s.ownerUnit = s.Factory.MakeUnit(c, &factory.UnitParams{Application: s.ownerApp})
 }
 
@@ -2737,7 +2737,7 @@ var _ = gc.Suite(&SecretsConsumedWatcherSuite{})
 func (s *SecretsConsumedWatcherSuite) SetUpTest(c *gc.C) {
 	s.StateSuite.SetUpTest(c)
 	s.store = state.NewSecrets(s.State)
-	s.owner = s.Factory.MakeApplication(c, nil)
+	s.owner = s.Factory.MakeApplication(c, nil, nil)
 }
 
 func (s *SecretsConsumedWatcherSuite) TestWatcherInitialEvent(c *gc.C) {
@@ -2894,7 +2894,7 @@ var _ = gc.Suite(&SecretsRemoteConsumerWatcherSuite{})
 func (s *SecretsRemoteConsumerWatcherSuite) SetUpTest(c *gc.C) {
 	s.StateSuite.SetUpTest(c)
 	s.store = state.NewSecrets(s.State)
-	s.owner = s.Factory.MakeApplication(c, nil)
+	s.owner = s.Factory.MakeApplication(c, nil, nil)
 }
 
 func (s *SecretsRemoteConsumerWatcherSuite) TestWatcherInitialEvent(c *gc.C) {
@@ -3052,7 +3052,7 @@ var _ = gc.Suite(&SecretsObsoleteWatcherSuite{})
 func (s *SecretsObsoleteWatcherSuite) SetUpTest(c *gc.C) {
 	s.StateSuite.SetUpTest(c)
 	s.store = state.NewSecrets(s.State)
-	s.ownerApp = s.Factory.MakeApplication(c, nil)
+	s.ownerApp = s.Factory.MakeApplication(c, nil, nil)
 	s.ownerUnit = s.Factory.MakeUnit(c, &factory.UnitParams{Application: s.ownerApp})
 }
 
@@ -3215,7 +3215,7 @@ func (s *SecretsObsoleteWatcherSuite) TestWatchOwnedDeleted(c *gc.C) {
 		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{
 			Name: "wordpress",
 		}),
-	})
+	}, nil)
 	uri2 := secrets.NewURI()
 	cp := state.CreateSecretParams{
 		Version: 1,

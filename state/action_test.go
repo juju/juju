@@ -1290,7 +1290,7 @@ func (s *ActionPruningSuite) TestPruneOperationsBySize(c *gc.C) {
 	clock := testclock.NewClock(coretesting.NonZeroTime())
 	err := s.State.SetClockForTesting(clock)
 	c.Assert(err, jc.ErrorIsNil)
-	application := s.Factory.MakeApplication(c, nil)
+	application := s.Factory.MakeApplication(c, nil, nil)
 	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: application})
 
 	// PrimeOperations generates the operations and tasks to be pruned.
@@ -1328,7 +1328,7 @@ func (s *ActionPruningSuite) TestPruneOperationsBySizeOldestFirst(c *gc.C) {
 	clock := testclock.NewClock(coretesting.NonZeroTime())
 	err := s.State.SetClockForTesting(clock)
 	c.Assert(err, jc.ErrorIsNil)
-	application := s.Factory.MakeApplication(c, nil)
+	application := s.Factory.MakeApplication(c, nil, nil)
 	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: application})
 
 	const numOperationEntriesOlder = 5
@@ -1386,7 +1386,7 @@ func (s *ActionPruningSuite) TestPruneOperationsBySizeKeepsIncomplete(c *gc.C) {
 	clock := testclock.NewClock(coretesting.NonZeroTime())
 	err := s.State.SetClockForTesting(clock)
 	c.Assert(err, jc.ErrorIsNil)
-	application := s.Factory.MakeApplication(c, nil)
+	application := s.Factory.MakeApplication(c, nil, nil)
 	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: application})
 
 	const numOperationEntriesOlder = 5
@@ -1450,7 +1450,7 @@ func (s *ActionPruningSuite) TestPruneOperationsByAge(c *gc.C) {
 	clock := testclock.NewClock(time.Now())
 	err := s.State.SetClockForTesting(clock)
 	c.Assert(err, jc.ErrorIsNil)
-	application := s.Factory.MakeApplication(c, nil)
+	application := s.Factory.MakeApplication(c, nil, nil)
 	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: application})
 
 	const numCurrentOperationEntries = 5
@@ -1488,7 +1488,7 @@ func (s *ActionPruningSuite) TestDoNotPruneIncompleteOperations(c *gc.C) {
 	clock := testclock.NewClock(time.Now())
 	err := s.State.SetClockForTesting(clock)
 	c.Assert(err, jc.ErrorIsNil)
-	application := s.Factory.MakeApplication(c, nil)
+	application := s.Factory.MakeApplication(c, nil, nil)
 	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: application})
 
 	// Completed times with the zero value are designated not complete
@@ -1518,7 +1518,7 @@ func (s *ActionPruningSuite) TestPruneLegacyActions(c *gc.C) {
 	clock := testclock.NewClock(time.Now())
 	err := s.State.SetClockForTesting(clock)
 	c.Assert(err, jc.ErrorIsNil)
-	application := s.Factory.MakeApplication(c, nil)
+	application := s.Factory.MakeApplication(c, nil, nil)
 	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: application})
 
 	const numCurrentOperationEntries = 5

@@ -87,7 +87,7 @@ func (s *MigrationBaseSuite) makeApplicationWithUnits(c *gc.C, applicationName s
 		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{
 			Name: applicationName,
 		}),
-	})
+	}, nil)
 	for i := 0; i < count; i++ {
 		units[i] = s.Factory.MakeUnit(c, &factory.UnitParams{
 			Application: application,
@@ -375,7 +375,7 @@ func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, st *state.Stat
 			"app foo": environschema.Attr{Type: environschema.Tstring}},
 		Constraints:  cons,
 		DesiredScale: 3,
-	})
+	}, nil)
 
 	err = application.UpdateLeaderSettings(&goodToken{}, map[string]string{
 		"leader": "true",
@@ -513,7 +513,7 @@ func (s *MigrationExportSuite) TestMalformedApplications(c *gc.C) {
 		ApplicationConfigFields: environschema.Fields{
 			"app foo": environschema.Attr{Type: environschema.Tstring}},
 		DesiredScale: 3,
-	})
+	}, nil)
 
 	err = application.UpdateLeaderSettings(&goodToken{}, map[string]string{
 		"leader": "true",
@@ -549,9 +549,9 @@ func (s *MigrationExportSuite) TestMalformedApplications(c *gc.C) {
 }
 
 func (s *MigrationExportSuite) TestMultipleApplications(c *gc.C) {
-	s.Factory.MakeApplication(c, &factory.ApplicationParams{Name: "first"})
-	s.Factory.MakeApplication(c, &factory.ApplicationParams{Name: "second"})
-	s.Factory.MakeApplication(c, &factory.ApplicationParams{Name: "third"})
+	s.Factory.MakeApplication(c, &factory.ApplicationParams{Name: "first"}, nil)
+	s.Factory.MakeApplication(c, &factory.ApplicationParams{Name: "second"}, nil)
+	s.Factory.MakeApplication(c, &factory.ApplicationParams{Name: "third"}, nil)
 
 	model, err := s.State.Export(map[string]string{}, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
@@ -563,12 +563,16 @@ func (s *MigrationExportSuite) TestMultipleApplications(c *gc.C) {
 func (s *MigrationExportSuite) TestApplicationExposeParameters(c *gc.C) {
 	serverSpace, err := s.State.AddSpace("server", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
+	serverSpaceInfo, err := serverSpace.NetworkSpace()
+	c.Assert(err, jc.ErrorIsNil)
+	allSpaces := state.DefaultSpacesWithAlpha(serverSpaceInfo)
 
 	app := s.AddTestingApplicationWithBindings(c, "mysql",
 		s.AddTestingCharm(c, "mysql"),
 		map[string]string{
 			"server": serverSpace.Id(),
 		},
+		allSpaces,
 	)
 
 	err = app.MergeExposeSettings(map[string]state.ExposedEndpoint{
@@ -597,7 +601,11 @@ func (s *MigrationExportSuite) TestApplicationExposingOffers(c *gc.C) {
 	fooUser := s.Factory.MakeUser(c, &factory.UserParams{Name: "foo"})
 	serverSpace, err := s.State.AddSpace("server", "", nil)
 	c.Assert(err, jc.ErrorIsNil)
+	serverSpaceInfo, err := serverSpace.NetworkSpace()
+	c.Assert(err, jc.ErrorIsNil)
 	adminSpace, err := s.State.AddSpace("server-admin", "", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	adminSpaceInfo, err := adminSpace.NetworkSpace()
 	c.Assert(err, jc.ErrorIsNil)
 
 	app := s.AddTestingApplicationWithBindings(c, "mysql",
@@ -606,6 +614,7 @@ func (s *MigrationExportSuite) TestApplicationExposingOffers(c *gc.C) {
 			"server":       serverSpace.Id(),
 			"server-admin": adminSpace.Id(),
 		},
+		state.DefaultSpacesWithAlpha(serverSpaceInfo, adminSpaceInfo),
 	)
 
 	stOffers := state.NewApplicationOffers(s.State)
@@ -728,7 +737,7 @@ func (s *MigrationExportSuite) TestCAASUnits(c *gc.C) {
 	f := factory.NewFactory(caasSt, s.StatePool)
 	app := f.MakeApplication(c, &factory.ApplicationParams{
 		Constraints: constraints.MustParse("arch=amd64 mem=8G"),
-	})
+	}, nil)
 	unit := f.MakeUnit(c, &factory.UnitParams{
 		Application: app,
 	})
@@ -898,9 +907,12 @@ func (s *MigrationExportSuite) TestUnitOpenPortRanges(c *gc.C) {
 func (s *MigrationExportSuite) TestEndpointBindings(c *gc.C) {
 	oneSpace := s.Factory.MakeSpace(c, &factory.SpaceParams{
 		Name: "one", ProviderID: network.Id("provider")})
+	oneSpaceInfo, err := oneSpace.NetworkSpace()
+	c.Assert(err, jc.ErrorIsNil)
+
 	state.AddTestingApplicationWithBindings(
 		c, s.State, s.objectStore, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"),
-		map[string]string{"db": oneSpace.Id()})
+		map[string]string{"db": oneSpace.Id()}, state.DefaultSpacesWithAlpha(oneSpaceInfo))
 
 	model, err := s.State.Export(map[string]string{}, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
@@ -964,8 +976,8 @@ func (s *MigrationExportSuite) TestRelationNetworks(c *gc.C) {
 }
 
 func (s *MigrationExportSuite) TestRelations(c *gc.C) {
-	wordpress := state.AddTestingApplication(c, s.State, s.objectStore, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"))
-	mysql := state.AddTestingApplication(c, s.State, s.objectStore, "mysql", state.AddTestingCharm(c, s.State, "mysql"))
+	wordpress := state.AddTestingApplication(c, s.State, s.objectStore, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"), nil)
+	mysql := state.AddTestingApplication(c, s.State, s.objectStore, "mysql", state.AddTestingCharm(c, s.State, "mysql"), nil)
 	// InferEndpoints will always return provider, requirer
 	eps, err := s.State.InferEndpoints("mysql", "wordpress")
 	c.Assert(err, jc.ErrorIsNil)
@@ -1043,8 +1055,8 @@ func (s *MigrationExportSuite) TestRelations(c *gc.C) {
 }
 
 func (s *MigrationExportSuite) TestSubordinateRelations(c *gc.C) {
-	wordpress := state.AddTestingApplication(c, s.State, s.objectStore, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"))
-	mysql := state.AddTestingApplication(c, s.State, s.objectStore, "mysql", state.AddTestingCharm(c, s.State, "mysql"))
+	wordpress := state.AddTestingApplication(c, s.State, s.objectStore, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"), nil)
+	mysql := state.AddTestingApplication(c, s.State, s.objectStore, "mysql", state.AddTestingCharm(c, s.State, "mysql"), nil)
 	wordpress_0 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: wordpress})
 	mysql_0 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: mysql})
 
@@ -1240,7 +1252,7 @@ func (s *MigrationBaseSuite) TestMissingMachineAgentBinariesIgnored(c *gc.C) {
 
 func (s *MigrationBaseSuite) TestUnitAgentBinariesSkipped(c *gc.C) {
 	dummyCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "dummy"})
-	application := s.Factory.MakeApplication(c, &factory.ApplicationParams{Name: "dummy", Charm: dummyCharm})
+	application := s.Factory.MakeApplication(c, &factory.ApplicationParams{Name: "dummy", Charm: dummyCharm}, nil)
 
 	_, err := application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1257,7 +1269,7 @@ func (s *MigrationBaseSuite) TestUnitAgentBinariesSkipped(c *gc.C) {
 
 func (s *MigrationBaseSuite) TestMissingUnitAgentBinariesIgnored(c *gc.C) {
 	dummyCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "dummy"})
-	application := s.Factory.MakeApplication(c, &factory.ApplicationParams{Name: "dummy", Charm: dummyCharm})
+	application := s.Factory.MakeApplication(c, &factory.ApplicationParams{Name: "dummy", Charm: dummyCharm}, nil)
 
 	_, err := application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1273,8 +1285,8 @@ func (s *MigrationBaseSuite) TestMissingUnitAgentBinariesIgnored(c *gc.C) {
 }
 
 func (s *MigrationBaseSuite) TestRelationScopeSkipped(c *gc.C) {
-	wordpress := state.AddTestingApplication(c, s.State, s.objectStore, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"))
-	mysql := state.AddTestingApplication(c, s.State, s.objectStore, "mysql", state.AddTestingCharm(c, s.State, "mysql"))
+	wordpress := state.AddTestingApplication(c, s.State, s.objectStore, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"), nil)
+	mysql := state.AddTestingApplication(c, s.State, s.objectStore, "mysql", state.AddTestingCharm(c, s.State, "mysql"), nil)
 	// InferEndpoints will always return provider, requirer
 	eps, err := s.State.InferEndpoints("mysql", "wordpress")
 	c.Assert(err, jc.ErrorIsNil)
@@ -1292,8 +1304,8 @@ func (s *MigrationBaseSuite) TestRelationScopeSkipped(c *gc.C) {
 }
 
 func (s *MigrationBaseSuite) TestMissingRelationScopeIgnored(c *gc.C) {
-	wordpress := state.AddTestingApplication(c, s.State, s.objectStore, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"))
-	mysql := state.AddTestingApplication(c, s.State, s.objectStore, "mysql", state.AddTestingCharm(c, s.State, "mysql"))
+	wordpress := state.AddTestingApplication(c, s.State, s.objectStore, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"), nil)
+	mysql := state.AddTestingApplication(c, s.State, s.objectStore, "mysql", state.AddTestingCharm(c, s.State, "mysql"), nil)
 	// InferEndpoints will always return provider, requirer
 	eps, err := s.State.InferEndpoints("mysql", "wordpress")
 	c.Assert(err, jc.ErrorIsNil)
@@ -2054,7 +2066,7 @@ func (s *MigrationExportSuite) TestPayloads(c *gc.C) {
 }
 
 func (s *MigrationExportSuite) TestResources(c *gc.C) {
-	app := s.Factory.MakeApplication(c, nil)
+	app := s.Factory.MakeApplication(c, nil, nil)
 	unit1 := s.Factory.MakeUnit(c, &factory.UnitParams{
 		Application: app,
 	})
@@ -2187,7 +2199,7 @@ func (s *MigrationExportSuite) TestRemoteApplications(c *gc.C) {
 		Macaroon: mac,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	state.AddTestingApplication(c, s.State, s.objectStore, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"))
+	state.AddTestingApplication(c, s.State, s.objectStore, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"), nil)
 	eps, err := s.State.InferEndpoints("gravy-rainbow", "wordpress")
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddRelation(eps...)
@@ -2250,8 +2262,8 @@ func (s *MigrationExportSuite) TestRelationWithNoStatus(c *gc.C) {
 	// Importing from a model from before relations had status will
 	// mean that there's no status to export - don't fail to export if
 	// there isn't a status for a relation.
-	wordpress := state.AddTestingApplication(c, s.State, s.objectStore, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"))
-	mysql := state.AddTestingApplication(c, s.State, s.objectStore, "mysql", state.AddTestingCharm(c, s.State, "mysql"))
+	wordpress := state.AddTestingApplication(c, s.State, s.objectStore, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"), nil)
+	mysql := state.AddTestingApplication(c, s.State, s.objectStore, "mysql", state.AddTestingCharm(c, s.State, "mysql"), nil)
 	// InferEndpoints will always return provider, requirer
 	eps, err := s.State.InferEndpoints("mysql", "wordpress")
 	c.Assert(err, jc.ErrorIsNil)
@@ -2307,7 +2319,7 @@ func (s *MigrationExportSuite) TestRemoteRelationSettingsForUnitsInCMR(c *gc.C) 
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	wordpress := state.AddTestingApplication(c, s.State, s.objectStore, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"))
+	wordpress := state.AddTestingApplication(c, s.State, s.objectStore, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"), nil)
 	eps, err := s.State.InferEndpoints("gravy-rainbow", "wordpress")
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(eps...)
@@ -2349,7 +2361,7 @@ func (s *MigrationExportSuite) TestRemoteRelationSettingsForUnitsInCMR(c *gc.C) 
 func (s *MigrationExportSuite) TestSecrets(c *gc.C) {
 	store := state.NewSecrets(s.State)
 	backendStore := state.NewSecretBackends(s.State)
-	owner := s.Factory.MakeApplication(c, nil)
+	owner := s.Factory.MakeApplication(c, nil, nil)
 	uri := secrets.NewURI()
 	createTime := time.Now().UTC().Round(time.Second)
 	next := createTime.Add(time.Minute).Round(time.Second).UTC()
@@ -2406,7 +2418,7 @@ func (s *MigrationExportSuite) TestSecrets(c *gc.C) {
 		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{
 			Name: "wordpress",
 		}),
-	})
+	}, nil)
 	err = s.State.SaveSecretConsumer(uri, consumer.Tag(), &secrets.SecretConsumerMetadata{
 		Label:           "consumer label",
 		CurrentRevision: 666,
@@ -2472,12 +2484,12 @@ func (s *MigrationExportSuite) TestSecrets(c *gc.C) {
 
 func (s *MigrationExportSuite) TestRemoteSecrets(c *gc.C) {
 	store := state.NewSecrets(s.State)
-	owner := s.Factory.MakeApplication(c, nil)
+	owner := s.Factory.MakeApplication(c, nil, nil)
 	consumer := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{
 			Name: "wordpress",
 		}),
-	})
+	}, nil)
 	localURI := secrets.NewURI()
 	p := state.CreateSecretParams{
 		Version: 1,

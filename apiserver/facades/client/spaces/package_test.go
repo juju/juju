@@ -19,7 +19,7 @@ import (
 	environmocks "github.com/juju/juju/environs/mocks"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -package spaces -destination package_mock_test.go github.com/juju/juju/apiserver/facades/client/spaces Backing,BlockChecker,Machine,RenameSpace,RenameSpaceState,Settings,OpFactory,RemoveSpace,Constraints,MovingSubnet,MovingSubnetBacking,MoveSubnetsOp,Address,Unit,ReloadSpaces,ReloadSpacesState,ReloadSpacesEnviron,EnvironSpaces,AuthorizerState,Bindings
+//go:generate go run go.uber.org/mock/mockgen -package spaces -destination package_mock_test.go github.com/juju/juju/apiserver/facades/client/spaces Backing,BlockChecker,Machine,RenameSpace,RenameSpaceState,Settings,OpFactory,Constraints,Address,Unit,ReloadSpaces,ReloadSpacesState,ReloadSpacesEnviron,EnvironSpaces,AuthorizerState,Bindings,SpaceService,SubnetService
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)
@@ -44,6 +44,8 @@ type APISuite struct {
 	ReloadSpacesState   *MockReloadSpacesState
 	ReloadSpacesEnviron *MockReloadSpacesEnviron
 	ReloadSpacesAPI     *ReloadSpacesAPI
+	SpaceService        *MockSpaceService
+	SubnetService       *MockSubnetService
 }
 
 var _ = gc.Suite(&APISuite{})
@@ -104,6 +106,8 @@ func (s *APISuite) SetupMocks(c *gc.C, supportSpaces bool, providerSpaces bool) 
 			s.AuthorizerState,
 		),
 	)
+	s.SpaceService = NewMockSpaceService(ctrl)
+	s.SubnetService = NewMockSubnetService(ctrl)
 
 	var err error
 	s.API, err = newAPIWithBacking(apiConfig{
@@ -114,6 +118,8 @@ func (s *APISuite) SetupMocks(c *gc.C, supportSpaces bool, providerSpaces bool) 
 		Resources:                   s.resource,
 		Authorizer:                  s.authorizer,
 		Factory:                     s.OpFactory,
+		SpaceService:                s.SpaceService,
+		SubnetService:               s.SubnetService,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 

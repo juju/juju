@@ -1195,7 +1195,7 @@ func (s *uniterSuite) TestWatchSubordinateUnitRelations(c *gc.C) {
 	loggingApp := f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "logging",
 		Charm: loggingCharm,
-	})
+	}, nil)
 
 	mysqlRel := s.makeSubordinateRelation(c, loggingApp, s.mysql, s.mysqlUnit)
 	wpRel := s.makeSubordinateRelation(c, loggingApp, s.wordpress, s.wordpressUnit)
@@ -1255,7 +1255,7 @@ func (s *uniterSuite) TestWatchUnitRelationsSubordinateWithGlobalEndpoint(c *gc.
 	loggingApp := f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "logging",
 		Charm: loggingCharm,
-	})
+	}, nil)
 
 	uiCharm := f.MakeCharm(c, &factory.CharmParams{
 		Name: "logging-frontend",
@@ -1264,7 +1264,7 @@ func (s *uniterSuite) TestWatchUnitRelationsSubordinateWithGlobalEndpoint(c *gc.
 	uiApp := f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "logging-frontend",
 		Charm: uiCharm,
-	})
+	}, nil)
 
 	_ = s.makeSubordinateRelation(c, loggingApp, s.mysql, s.mysqlUnit)
 	mysqlLogUnit := findSubordinateUnit(c, loggingApp, s.mysqlUnit)
@@ -1316,7 +1316,7 @@ func (s *uniterSuite) TestWatchUnitRelationsWithSubSubRelation(c *gc.C) {
 	loggingApp := f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "logging",
 		Charm: loggingCharm,
-	})
+	}, nil)
 	monitoringCharm := f.MakeCharm(c, &factory.CharmParams{
 		Name: "monitoring",
 		URL:  "ch:amd64/quantal/monitoring-1",
@@ -1324,7 +1324,7 @@ func (s *uniterSuite) TestWatchUnitRelationsWithSubSubRelation(c *gc.C) {
 	monitoringApp := f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "monitoring",
 		Charm: monitoringCharm,
-	})
+	}, nil)
 
 	s.makeSubordinateRelation(c, loggingApp, s.mysql, s.mysqlUnit)
 	mysqlMonitoring := s.makeSubordinateRelation(c, monitoringApp, s.mysql, s.mysqlUnit)
@@ -1861,7 +1861,7 @@ func (s *uniterSuite) TestEnterScopeIgnoredForInvalidPrincipals(c *gc.C) {
 	logging := f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "logging",
 		Charm: loggingCharm,
-	})
+	}, nil)
 	mysqlRel := s.addRelation(c, "logging", "mysql")
 	wpRel := s.addRelation(c, "logging", "wordpress")
 
@@ -1991,7 +1991,7 @@ func (s *uniterSuite) TestRelationsSuspended(c *gc.C) {
 	f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "logging",
 		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "logging"}),
-	})
+	}, nil)
 
 	rel2 := s.addRelation(c, "wordpress", "logging")
 	err = rel2.SetSuspended(true, "")
@@ -2070,7 +2070,7 @@ func (s *uniterSuite) TestSetRelationsStatusLeader(c *gc.C) {
 	f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "logging",
 		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "logging"}),
-	})
+	}, nil)
 	rel2 := s.addRelation(c, "wordpress", "logging")
 	err = rel2.SetSuspended(true, "")
 	c.Assert(err, jc.ErrorIsNil)
@@ -2080,7 +2080,7 @@ func (s *uniterSuite) TestSetRelationsStatusLeader(c *gc.C) {
 	f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "wp2",
 		Charm: s.wpCharm,
-	})
+	}, nil)
 	rel3 := s.addRelation(c, "wp2", "logging")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -2210,7 +2210,7 @@ func (s *uniterSuite) TestReadSettingsForApplicationInPeerRelation(c *gc.C) {
 	riak := f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "riak",
 		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "riak"}),
-	})
+	}, nil)
 	ep, err := riak.Endpoint("ring")
 	c.Assert(err, jc.ErrorIsNil)
 	st := s.ControllerModel(c).State()
@@ -2309,7 +2309,7 @@ func (s *uniterSuite) TestReadLocalApplicationSettingsInPeerRelation(c *gc.C) {
 	riak := f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "riak",
 		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "riak"}),
-	})
+	}, nil)
 	ep, err := riak.Endpoint("ring")
 	c.Assert(err, jc.ErrorIsNil)
 	st := s.ControllerModel(c).State()
@@ -2354,7 +2354,7 @@ func (s *uniterSuite) TestReadLocalApplicationSettingsInPeerRelationAsAnOperator
 	riak := f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "riak",
 		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "riak"}),
-	})
+	}, nil)
 	ep, err := riak.Endpoint("ring")
 	c.Assert(err, jc.ErrorIsNil)
 	st := s.ControllerModel(c).State()
@@ -2521,7 +2521,7 @@ func (s *uniterSuite) TestReadRemoteSettingsForApplication(c *gc.C) {
 	f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "logging",
 		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "logging"}),
-	})
+	}, nil)
 	rel := s.addRelation(c, "wordpress", "mysql")
 	relUnit, err := rel.Unit(s.wordpressUnit)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2600,7 +2600,7 @@ func (s *uniterSuite) TestReadRemoteApplicationSettingsForPeerRelation(c *gc.C) 
 	riak := f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "riak",
 		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "riak"}),
-	})
+	}, nil)
 	ep, err := riak.Endpoint("ring")
 	c.Assert(err, jc.ErrorIsNil)
 	st := s.ControllerModel(c).State()
@@ -2899,7 +2899,7 @@ func (s *uniterSuite) addRelatedApplication(c *gc.C, firstSvc, relatedApp string
 	relatedApplication := f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  relatedApp,
 		Charm: f.MakeCharm(c, &factory.CharmParams{Name: relatedApp}),
-	})
+	}, nil)
 	rel := s.addRelation(c, firstSvc, relatedApp)
 	relUnit, err := rel.Unit(unit)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2966,7 +2966,7 @@ func (s *uniterSuite) TestStorageAttachments(c *gc.C) {
 		Name:    "storage-block",
 		Charm:   f.MakeCharm(c, &factory.CharmParams{Name: "storage-block"}),
 		Storage: sCons,
-	})
+	}, nil)
 	unit, err := application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	st := s.ControllerModel(c).State()
@@ -3516,7 +3516,7 @@ func (s *uniterSuite) TestCommitHookChangesWithStorage(c *gc.C) {
 	application := f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "storage-block2",
 		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "storage-block2"}),
-	})
+	}, nil)
 	unit, err := application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	st := s.ControllerModel(c).State()
@@ -3653,7 +3653,7 @@ func (s *uniterSuite) TestNetworkInfoCAASModelRelation(c *gc.C) {
 
 	st := cm.State()
 	ch := f.MakeCharm(c, &factory.CharmParams{Name: "mariadb-k8s", Series: "focal"})
-	f.MakeApplication(c, &factory.ApplicationParams{Name: "mariadb", Charm: ch})
+	f.MakeApplication(c, &factory.ApplicationParams{Name: "mariadb", Charm: ch}, nil)
 	eps, err := st.InferEndpoints("gitlab", "mariadb")
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := st.AddRelation(eps...)
@@ -3710,7 +3710,7 @@ func (s *uniterSuite) TestNetworkInfoCAASModelNoRelation(c *gc.C) {
 	defer release()
 
 	ch := f.MakeCharm(c, &factory.CharmParams{Name: "mariadb-k8s", Series: "focal"})
-	_ = f.MakeApplication(c, &factory.ApplicationParams{Name: "mariadb", Charm: ch})
+	_ = f.MakeApplication(c, &factory.ApplicationParams{Name: "mariadb", Charm: ch}, nil)
 
 	var updateUnits state.UpdateUnitsOperation
 	addr := "10.0.0.1"

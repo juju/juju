@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	apitesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/core/network"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -123,6 +124,12 @@ func (s *restSuite) TestGetRemoteApplicationIcon(c *gc.C) {
 
 	store := s.ObjectStore(c, s.ControllerModelUUID())
 
+	allSpaces := network.SpaceInfos{
+		{
+			ID:   network.AlphaSpaceId,
+			Name: network.AlphaSpaceName,
+		},
+	}
 	curl := fmt.Sprintf("local:quantal/%s-%d", ch.Meta().Name, ch.Revision())
 	st := s.ControllerModel(c).State()
 	mysqlCh, err := st.Charm(curl)
@@ -131,7 +138,7 @@ func (s *restSuite) TestGetRemoteApplicationIcon(c *gc.C) {
 		Name:        "mysql",
 		Charm:       mysqlCh,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{OS: "ubuntu", Channel: "22.04/stable"}},
-	}, store)
+	}, store, allSpaces)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Add an offer for the application.
@@ -153,7 +160,7 @@ func (s *restSuite) TestGetRemoteApplicationIcon(c *gc.C) {
 		Name:        "dummy",
 		Charm:       dummyCh,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{OS: "ubuntu", Channel: "22.04/stable"}},
-	}, store)
+	}, store, allSpaces)
 	c.Assert(err, jc.ErrorIsNil)
 	offer2, err := offers.AddOffer(crossmodel.AddApplicationOfferArgs{
 		OfferName:       "notfound-remote-app-offer",

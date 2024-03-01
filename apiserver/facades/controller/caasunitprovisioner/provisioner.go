@@ -14,15 +14,23 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	coreapplication "github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state/watcher"
 )
 
+// SpaceService is the interface that is used to interact with the
+// network spaces.
+type SpaceService interface {
+	GetAllSpaces(ctx context.Context) (network.SpaceInfos, error)
+}
+
 type Facade struct {
-	resources facade.Resources
-	state     CAASUnitProvisionerState
-	clock     clock.Clock
-	logger    loggo.Logger
+	resources    facade.Resources
+	state        CAASUnitProvisionerState
+	clock        clock.Clock
+	logger       loggo.Logger
+	spaceService SpaceService
 }
 
 // NewFacade returns a new CAAS unit provisioner Facade facade.
@@ -32,15 +40,17 @@ func NewFacade(
 	st CAASUnitProvisionerState,
 	clock clock.Clock,
 	logger loggo.Logger,
+	spaceService SpaceService,
 ) (*Facade, error) {
 	if !authorizer.AuthController() {
 		return nil, apiservererrors.ErrPerm
 	}
 	return &Facade{
-		resources: resources,
-		state:     st,
-		clock:     clock,
-		logger:    logger,
+		resources:    resources,
+		state:        st,
+		clock:        clock,
+		logger:       logger,
+		spaceService: spaceService,
 	}, nil
 }
 
@@ -196,7 +206,16 @@ func (f *Facade) UpdateApplicationsService(ctx context.Context, args params.Upda
 			continue
 		}
 
-		sAddrs, err := params.ToProviderAddresses(appUpdate.Addresses...).ToSpaceAddresses(f.state)
+		var allSpaces network.SpaceInfos
+		pas := params.ToProviderAddresses(appUpdate.Addresses...)
+		if len(pas) > 0 {
+			allSpaces, err = f.spaceService.GetAllSpaces(ctx)
+			if err != nil {
+				result.Results[i].Error = apiservererrors.ServerError(err)
+				continue
+			}
+		}
+		sAddrs, err := pas.ToSpaceAddresses(allSpaces)
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue

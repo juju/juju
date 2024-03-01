@@ -98,7 +98,7 @@ func (s *caasProvisionerSuite) setupFilesystems(c *gc.C) {
 			"data":  {Count: 1, Size: 1024},
 			"cache": {Count: 2, Size: 1024},
 		},
-	})
+	}, nil)
 	f.MakeUnit(c, &factory.UnitParams{Application: app})
 
 	// Only provision the first and third backing volumes.
@@ -156,7 +156,7 @@ func (s *caasProvisionerSuite) TestWatchApplications(c *gc.C) {
 		Storage: map[string]state.StorageConstraints{
 			"data": {Count: 1, Size: 1024},
 		},
-	})
+	}, nil)
 
 	result, err := s.api.WatchApplications(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
@@ -170,7 +170,7 @@ func (s *caasProvisionerSuite) TestWatchApplications(c *gc.C) {
 		Storage: map[string]state.StorageConstraints{
 			"data": {Count: 1, Size: 1024},
 		},
-	})
+	}, nil)
 	wc := statetesting.NewStringsWatcherC(c, w)
 	wc.AssertChange("mysql")
 }

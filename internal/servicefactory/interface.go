@@ -79,6 +79,8 @@ type ModelServiceFactory interface {
 	Annotation() *annotationService.Service
 	// Storage returns the storage service.
 	Storage(registry storage.ProviderRegistry) *storageservice.Service
+	// Subnet returns the subnet service.
+	Subnet() *networkservice.SubnetService
 }
 
 // ServiceFactory provides access to the services required by the apiserver.

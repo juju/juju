@@ -196,7 +196,7 @@ func (s *destroyControllerSuite) TestDestroyControllerDestroyStorageNotSpecified
 			Storage: map[string]state.StorageConstraints{
 				"data": {Pool: "modelscoped"},
 			},
-		}),
+		}, nil),
 	})
 
 	err := s.controller.DestroyController(context.Background(), params.DestroyControllerArgs{
@@ -217,7 +217,7 @@ func (s *destroyControllerSuite) TestDestroyControllerDestroyStorageSpecified(c 
 			Storage: map[string]state.StorageConstraints{
 				"data": {Pool: "modelscoped"},
 			},
-		}),
+		}, nil),
 	})
 
 	destroyStorage := false

@@ -140,7 +140,7 @@ func (s *upgraderSuite) TestWatchAPIVersionApplication(c *gc.C) {
 	f, release := s.NewFactory(c, s.hosted.ModelUUID())
 	defer release()
 
-	app := f.MakeApplication(c, nil)
+	app := f.MakeApplication(c, nil, nil)
 	authorizer := apiservertesting.FakeAuthorizer{
 		Tag: app.Tag(),
 	}
@@ -184,7 +184,7 @@ func (s *upgraderSuite) TestWatchAPIVersionUnit(c *gc.C) {
 	f, release := s.NewFactory(c, s.hosted.ModelUUID())
 	defer release()
 
-	app := f.MakeApplication(c, nil)
+	app := f.MakeApplication(c, nil, nil)
 	providerId := "provider-id1"
 	unit, err := app.AddUnit(state.AddUnitParams{ProviderId: &providerId})
 	c.Assert(err, jc.ErrorIsNil)

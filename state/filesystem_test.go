@@ -45,14 +45,19 @@ func (s *FilesystemStateSuite) TestAddApplicationInvalidPool(c *gc.C) {
 	storage := map[string]state.StorageConstraints{
 		"data": makeStorageCons("invalid-pool", 1024, 1),
 	}
-	_, err := s.st.AddApplication(defaultInstancePrechecker, state.AddApplicationArgs{
-		Name: "storage-filesystem", Charm: ch,
-		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
-			OS:      "ubuntu",
-			Channel: "20.04/stable",
-		}},
-		Storage: storage,
-	}, state.NewObjectStore(c, s.st.ModelUUID()))
+	_, err := s.st.AddApplication(
+		defaultInstancePrechecker,
+		state.AddApplicationArgs{
+			Name: "storage-filesystem", Charm: ch,
+			CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
+				OS:      "ubuntu",
+				Channel: "20.04/stable",
+			}},
+			Storage: storage,
+		},
+		state.NewObjectStore(c, s.st.ModelUUID()),
+		state.DefaultSpacesWithAlpha(),
+	)
 	c.Assert(err, gc.ErrorMatches, `.* pool "invalid-pool" not found`)
 }
 
@@ -115,7 +120,12 @@ func (s *FilesystemStateSuite) testAddApplicationDefaultPool(c *gc.C, expectedPo
 		Storage:  storage,
 		NumUnits: numUnits,
 	}
-	app, err := s.st.AddApplication(defaultInstancePrechecker, args, state.NewObjectStore(c, s.st.ModelUUID()))
+	app, err := s.st.AddApplication(
+		defaultInstancePrechecker,
+		args,
+		state.NewObjectStore(c, s.st.ModelUUID()),
+		state.DefaultSpacesWithAlpha(),
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	cons, err := app.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
@@ -616,14 +626,19 @@ func (s *FilesystemCAASModelSuite) TestWatchUnitFilesystems(c *gc.C) {
 		"data":  {Count: 1, Size: 1024, Pool: "kubernetes"},
 		"cache": {Count: 1, Size: 1024, Pool: "rootfs"},
 	}
-	app, err := s.st.AddApplication(defaultInstancePrechecker, state.AddApplicationArgs{
-		Name: "mariadb", Charm: ch,
-		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
-			OS:      "ubuntu",
-			Channel: "20.04/stable",
-		}},
-		Storage: storage,
-	}, state.NewObjectStore(c, s.st.ModelUUID()))
+	app, err := s.st.AddApplication(
+		defaultInstancePrechecker,
+		state.AddApplicationArgs{
+			Name: "mariadb", Charm: ch,
+			CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
+				OS:      "ubuntu",
+				Channel: "20.04/stable",
+			}},
+			Storage: storage,
+		},
+		state.NewObjectStore(c, s.st.ModelUUID()),
+		state.DefaultSpacesWithAlpha(),
+	)
 	c.Assert(err, jc.ErrorIsNil)
 
 	addUnit := func(app *state.Application) *state.Unit {
@@ -642,14 +657,19 @@ func (s *FilesystemCAASModelSuite) TestWatchUnitFilesystems(c *gc.C) {
 	wc.AssertChange("mariadb/0/0") // initial
 	wc.AssertNoChange()
 
-	app2, err := s.st.AddApplication(defaultInstancePrechecker, state.AddApplicationArgs{
-		Name: "another", Charm: ch,
-		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
-			OS:      "ubuntu",
-			Channel: "20.04/stable",
-		}},
-		Storage: storage,
-	}, state.NewObjectStore(c, s.st.ModelUUID()))
+	app2, err := s.st.AddApplication(
+		defaultInstancePrechecker,
+		state.AddApplicationArgs{
+			Name: "another", Charm: ch,
+			CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
+				OS:      "ubuntu",
+				Channel: "20.04/stable",
+			}},
+			Storage: storage,
+		},
+		state.NewObjectStore(c, s.st.ModelUUID()),
+		state.DefaultSpacesWithAlpha(),
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	addUnit(app2)
 	// no change, since we're only interested in the one application.
@@ -688,14 +708,19 @@ func (s *FilesystemCAASModelSuite) TestWatchUnitFilesystemAttachments(c *gc.C) {
 		"data":  {Count: 1, Size: 1024, Pool: "kubernetes"},
 		"cache": {Count: 1, Size: 1024, Pool: "rootfs"},
 	}
-	app, err := s.st.AddApplication(defaultInstancePrechecker, state.AddApplicationArgs{
-		Name: "mariadb", Charm: ch,
-		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
-			OS:      "ubuntu",
-			Channel: "20.04/stable",
-		}},
-		Storage: storage,
-	}, state.NewObjectStore(c, s.st.ModelUUID()))
+	app, err := s.st.AddApplication(
+		defaultInstancePrechecker,
+		state.AddApplicationArgs{
+			Name: "mariadb", Charm: ch,
+			CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
+				OS:      "ubuntu",
+				Channel: "20.04/stable",
+			}},
+			Storage: storage,
+		},
+		state.NewObjectStore(c, s.st.ModelUUID()),
+		state.DefaultSpacesWithAlpha(),
+	)
 	c.Assert(err, jc.ErrorIsNil)
 
 	addUnit := func(app *state.Application) *state.Unit {
@@ -715,14 +740,19 @@ func (s *FilesystemCAASModelSuite) TestWatchUnitFilesystemAttachments(c *gc.C) {
 	wc.AssertChange("mariadb/0:mariadb/0/0") // initial
 	wc.AssertNoChange()
 
-	app2, err := s.st.AddApplication(defaultInstancePrechecker, state.AddApplicationArgs{
-		Name: "another", Charm: ch,
-		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
-			OS:      "ubuntu",
-			Channel: "20.04/stable",
-		}},
-		Storage: storage,
-	}, state.NewObjectStore(c, s.st.ModelUUID()))
+	app2, err := s.st.AddApplication(
+		defaultInstancePrechecker,
+		state.AddApplicationArgs{
+			Name: "another", Charm: ch,
+			CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
+				OS:      "ubuntu",
+				Channel: "20.04/stable",
+			}},
+			Storage: storage,
+		},
+		state.NewObjectStore(c, s.st.ModelUUID()),
+		state.DefaultSpacesWithAlpha(),
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	addUnit(app2)
 	// no change, since we're only interested in the one application.

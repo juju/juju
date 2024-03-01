@@ -486,7 +486,7 @@ func (s *applicationOffersSuite) TestUpdateApplicationOfferDifferentApp(c *gc.C)
 		Owner:           owner.Name(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	s.Factory.MakeApplication(c, &factory.ApplicationParams{Name: "foo"})
+	s.Factory.MakeApplication(c, &factory.ApplicationParams{Name: "foo"}, nil)
 	offer, err := sd.UpdateOffer(crossmodel.AddApplicationOfferArgs{
 		OfferName:       "hosted-mysql",
 		ApplicationName: "foo",

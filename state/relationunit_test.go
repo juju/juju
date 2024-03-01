@@ -993,7 +993,7 @@ func preventPeerUnitsDestroyRemove(c *gc.C, pr *PeerRelation) {
 }
 
 func newPeerRelation(c *gc.C, st *state.State, objectStore objectstore.ObjectStore) *PeerRelation {
-	app := state.AddTestingApplication(c, st, objectStore, "riak", state.AddTestingCharm(c, st, "riak"))
+	app := state.AddTestingApplication(c, st, objectStore, "riak", state.AddTestingCharm(c, st, "riak"), nil)
 	ep, err := app.Endpoint("ring")
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := st.EndpointsRelation(ep)

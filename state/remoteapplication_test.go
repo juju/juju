@@ -819,7 +819,7 @@ func (s *remoteApplicationSuite) TestDestroyAlsoDeletesSecretPermissions(c *gc.C
 		IsConsumerProxy: true,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	mysql := s.Factory.MakeApplication(c, &factory.ApplicationParams{Name: "mysqldb"})
+	mysql := s.Factory.MakeApplication(c, &factory.ApplicationParams{Name: "mysqldb"}, nil)
 
 	store := state.NewSecrets(s.State)
 	uri := secrets.NewURI()
@@ -1008,7 +1008,7 @@ func (s *remoteApplicationSuite) TestAddApplicationSameLocalExists(c *gc.C) {
 			OS:      "ubuntu",
 			Channel: "20.04/stable",
 		}},
-	}, state.NewObjectStore(c, s.State.ModelUUID()))
+	}, state.NewObjectStore(c, s.State.ModelUUID()), state.DefaultSpacesWithAlpha())
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name: "s1", SourceModel: s.Model.ModelTag()})
@@ -1027,7 +1027,7 @@ func (s *remoteApplicationSuite) TestAddApplicationLocalAddedAfterInitial(c *gc.
 				OS:      "ubuntu",
 				Channel: "20.04/stable",
 			}},
-		}, state.NewObjectStore(c, s.State.ModelUUID()))
+		}, state.NewObjectStore(c, s.State.ModelUUID()), state.DefaultSpacesWithAlpha())
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
 	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{

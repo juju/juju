@@ -73,7 +73,7 @@ func (s *agentAuthenticatorSuite) SetUpTest(c *gc.C) {
 	wordpress := f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "wordpress",
 		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"}),
-	})
+	}, nil)
 	unit, err := wordpress.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	s.unit = unit
@@ -86,7 +86,7 @@ func (s *agentAuthenticatorSuite) SetUpTest(c *gc.C) {
 	// add relation
 	wordpressEP, err := wordpress.Endpoint("db")
 	c.Assert(err, jc.ErrorIsNil)
-	mysql := f.MakeApplication(c, nil)
+	mysql := f.MakeApplication(c, nil, nil)
 	mysqlEP, err := mysql.Endpoint("server")
 	c.Assert(err, jc.ErrorIsNil)
 	s.relation, err = s.ControllerModel(c).State().AddRelation(wordpressEP, mysqlEP)

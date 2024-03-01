@@ -221,7 +221,7 @@ func (s *deployerSuite) TestAddControllerApplication(c *gc.C) {
 	charmName := "obscura"
 
 	s.stateBackend.EXPECT().Charm(charmName).Return(s.charm, nil)
-	s.stateBackend.EXPECT().AddApplication(gomock.Any(), s.objectStore).DoAndReturn(func(args state.AddApplicationArgs, store objectstore.ObjectStore) (Application, error) {
+	s.stateBackend.EXPECT().AddApplication(gomock.Any(), gomock.Any(), s.objectStore).DoAndReturn(func(ctx context.Context, args state.AddApplicationArgs, store objectstore.ObjectStore) (Application, error) {
 		appCfg, err := coreconfig.NewConfig(nil, configSchema, schema.Defaults{
 			coreapplication.TrustConfigOptionName: true,
 		})

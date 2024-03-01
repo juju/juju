@@ -55,12 +55,12 @@ func SetModelTypeToCAAS(c *gc.C, st *State, m *Model) {
 
 // AddTestingApplicationWithEmptyBindings mimics an application
 // from an old version of Juju, with no bindings entry.
-func AddTestingApplicationWithEmptyBindings(c *gc.C, st *State, objectStore objectstore.ObjectStore, name string, ch *Charm) *Application {
+func AddTestingApplicationWithEmptyBindings(c *gc.C, st *State, objectStore objectstore.ObjectStore, name string, ch *Charm, allSpaces network.SpaceInfos) *Application {
 	app := addTestingApplication(c, objectStore, addTestingApplicationParams{
 		st:   st,
 		name: name,
 		ch:   ch,
-	})
+	}, allSpaces)
 
 	RunTransaction(c, st, []txn.Op{removeEndpointBindingsOp(app.globalKey())})
 	return app
@@ -94,6 +94,22 @@ func MustOpenUnitPortRanges(c *gc.C, st *State, machine *Machine, unitName, endp
 // for the specified unit and endpoint combination on the provided machine.
 func MustCloseUnitPortRange(c *gc.C, st *State, machine *Machine, unitName, endpointName string, portRange network.PortRange) {
 	MustCloseUnitPortRanges(c, st, machine, unitName, endpointName, []network.PortRange{portRange})
+}
+
+// DefaultSpacesWithAlpha returns a list of space infos containing appended
+// to the passed spaces, used for testing.
+func DefaultSpacesWithAlpha(spaces ...network.SpaceInfo) network.SpaceInfos {
+	return append(network.SpaceInfos{
+		{
+			ID:   network.AlphaSpaceId,
+			Name: network.AlphaSpaceName,
+			Subnets: network.SubnetInfos{
+				{
+					CIDR: "10.0.0.0/24",
+				},
+			},
+		},
+	}, spaces...)
 }
 
 // MustCloseUnitPortRanges ensures that the provided port ranges are closed

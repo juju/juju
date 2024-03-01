@@ -713,13 +713,13 @@ func (s *MigrationSuite) TestMinionReportsCAAS(c *gc.C) {
 		Name:   "snappass-test",
 		Series: "quantal",
 	})
-	a0 := factory2.MakeApplication(c, &factory.ApplicationParams{Name: "a0", Charm: ch})
+	a0 := factory2.MakeApplication(c, &factory.ApplicationParams{Name: "a0", Charm: ch}, nil)
 	u1a0, err := a0.AddUnit(state.AddUnitParams{ProviderId: strPtr("provider-id0")})
 	c.Assert(err, jc.ErrorIsNil)
-	a1 := factory2.MakeApplication(c, &factory.ApplicationParams{Name: "a1", Charm: ch})
+	a1 := factory2.MakeApplication(c, &factory.ApplicationParams{Name: "a1", Charm: ch}, nil)
 	u1a1, err := a1.AddUnit(state.AddUnitParams{ProviderId: strPtr("provider-id1")})
 	c.Assert(err, jc.ErrorIsNil)
-	a2 := factory2.MakeApplication(c, &factory.ApplicationParams{Name: "a2", Charm: ch})
+	a2 := factory2.MakeApplication(c, &factory.ApplicationParams{Name: "a2", Charm: ch}, nil)
 	u1a2, err := a2.AddUnit(state.AddUnitParams{ProviderId: strPtr("provider-id2")})
 	c.Assert(err, jc.ErrorIsNil)
 

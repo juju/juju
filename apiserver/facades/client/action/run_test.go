@@ -15,6 +15,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facades/client/action"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
@@ -122,7 +123,7 @@ func (s *runSuite) TestRunMachineAndApplication(c *gc.C) {
 	magic, err := st.AddApplication(prechecker, state.AddApplicationArgs{
 		Name: "magic", Charm: charm,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{OS: "ubuntu", Channel: "20.04/stable"}},
-	}, jujutesting.NewObjectStore(c, s.ControllerModelUUID()))
+	}, jujutesting.NewObjectStore(c, s.ControllerModelUUID()), network.SpaceInfos{{ID: "0"}})
 	c.Assert(err, jc.ErrorIsNil)
 	s.addUnit(c, magic, prechecker)
 	s.addUnit(c, magic, prechecker)
@@ -179,7 +180,7 @@ func (s *runSuite) TestRunApplicationWorkload(c *gc.C) {
 	magic, err := st.AddApplication(prechecker, state.AddApplicationArgs{
 		Name: "magic", Charm: charm,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{OS: "ubuntu", Channel: "20.04/stable"}},
-	}, jujutesting.NewObjectStore(c, s.ControllerModelUUID()))
+	}, jujutesting.NewObjectStore(c, s.ControllerModelUUID()), network.SpaceInfos{{ID: "0"}})
 	c.Assert(err, jc.ErrorIsNil)
 	s.addUnit(c, magic, prechecker)
 	s.addUnit(c, magic, prechecker)

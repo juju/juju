@@ -11,6 +11,7 @@ import (
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
+	gomock "go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
@@ -28,11 +29,19 @@ import (
 type machinerSuite struct {
 	commonSuite
 
-	resources *common.Resources
-	machiner  *machine.MachinerAPI
+	resources    *common.Resources
+	machiner     *machine.MachinerAPI
+	spaceService *MockSpaceService
 }
 
 var _ = gc.Suite(&machinerSuite{})
+
+func (s *machinerSuite) setUpMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
+	s.spaceService = NewMockSpaceService(ctrl)
+	return ctrl
+}
 
 func (s *machinerSuite) SetUpTest(c *gc.C) {
 	s.commonSuite.SetUpTest(c)
@@ -51,12 +60,15 @@ func (s *machinerSuite) SetUpTest(c *gc.C) {
 		apiservertesting.ConstCloudGetter(&testing.DefaultCloud),
 		s.resources,
 		s.authorizer,
+		s.spaceService,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.machiner = machiner
 }
 
 func (s *machinerSuite) TestMachinerFailsWithNonMachineAgentUser(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewUnitTag("ubuntu/1")
 	st := s.ControllerModel(c).State()
@@ -66,7 +78,10 @@ func (s *machinerSuite) TestMachinerFailsWithNonMachineAgentUser(c *gc.C) {
 		st,
 		s.ControllerServiceFactory(c).ControllerConfig(),
 		nil,
-		s.resources, anAuthorizer)
+		s.resources,
+		anAuthorizer,
+		s.spaceService,
+	)
 	c.Assert(err, gc.NotNil)
 	c.Assert(aMachiner, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")

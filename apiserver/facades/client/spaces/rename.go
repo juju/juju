@@ -89,7 +89,7 @@ func (o *spaceRenameModelOp) Build(attempt int) ([]txn.Op, error) {
 		}
 	}
 
-	ops := o.space.RenameSpaceOps(o.toName)
+	var ops []txn.Op
 
 	constraintsWithSpace, err := o.st.ConstraintsBySpaceName(o.space.Name())
 	if err != nil {
@@ -161,7 +161,7 @@ func (api *API) RenameSpace(ctx context.Context, args params.RenameSpacesParams)
 			result.Results[i].Error = apiservererrors.ServerError(errors.Trace(err))
 			continue
 		}
-		toSpace, err := api.backing.SpaceByName(toTag.Id())
+		toSpace, err := api.spaceService.SpaceByName(ctx, toTag.Id())
 		if err != nil && !errors.Is(err, errors.NotFound) {
 			newErr := errors.Annotatef(err, "retrieving space %q", toTag.Id())
 			result.Results[i].Error = apiservererrors.ServerError(errors.Trace(newErr))
@@ -172,6 +172,18 @@ func (api *API) RenameSpace(ctx context.Context, args params.RenameSpacesParams)
 			result.Results[i].Error = apiservererrors.ServerError(errors.Trace(newErr))
 			continue
 		}
+		fromSpace, err := api.spaceService.SpaceByName(ctx, fromTag.Id())
+		if err != nil {
+			newErr := errors.Annotatef(err, "retrieving space %q", fromTag.Id())
+			result.Results[i].Error = apiservererrors.ServerError(errors.Trace(newErr))
+			continue
+		}
+		if err := api.spaceService.UpdateSpace(ctx, fromSpace.ID, toTag.Id()); err != nil {
+			newErr := errors.Annotatef(err, "updating space %q", fromTag.Id())
+			result.Results[i].Error = apiservererrors.ServerError(errors.Trace(newErr))
+			continue
+		}
+
 		operation, err := api.opFactory.NewRenameSpaceOp(fromTag.Id(), toTag.Id())
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(errors.Trace(err))

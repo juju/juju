@@ -32,8 +32,6 @@ func StateBackend1(st *state.State, prechecker environs.InstancePrechecker) Back
 }
 
 type Backend interface {
-	network.SpaceLookup
-
 	// Application returns a application state by name.
 	Application(string) (Application, error)
 	Machine(string) (Machine, error)

@@ -10,6 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
@@ -77,27 +78,27 @@ func (s *ConnSuite) AddTestingCharmWithSeries(c *gc.C, name string, series strin
 }
 
 func (s *ConnSuite) AddTestingApplication(c *gc.C, name string, ch *state.Charm) *state.Application {
-	return state.AddTestingApplication(c, s.State, s.objectStore, name, ch)
+	return state.AddTestingApplication(c, s.State, s.objectStore, name, ch, nil)
 }
 
 func (s *ConnSuite) AddTestingApplicationForBase(c *gc.C, base state.Base, name string, ch *state.Charm) *state.Application {
-	return state.AddTestingApplicationForBase(c, s.State, s.objectStore, base, name, ch)
+	return state.AddTestingApplicationForBase(c, s.State, s.objectStore, base, name, ch, nil)
 }
 
 func (s *ConnSuite) AddTestingApplicationWithNumUnits(c *gc.C, numUnits int, name string, ch *state.Charm) *state.Application {
-	return state.AddTestingApplicationWithNumUnits(c, s.State, s.objectStore, numUnits, name, ch)
+	return state.AddTestingApplicationWithNumUnits(c, s.State, s.objectStore, numUnits, name, ch, nil)
 }
 
 func (s *ConnSuite) AddTestingApplicationWithStorage(c *gc.C, name string, ch *state.Charm, storage map[string]state.StorageConstraints) *state.Application {
-	return state.AddTestingApplicationWithStorage(c, s.State, s.objectStore, name, ch, storage)
+	return state.AddTestingApplicationWithStorage(c, s.State, s.objectStore, name, ch, storage, nil)
 }
 
 func (s *ConnSuite) AddTestingApplicationWithDevices(c *gc.C, name string, ch *state.Charm, devs map[string]state.DeviceConstraints) *state.Application {
-	return state.AddTestingApplicationWithDevices(c, s.State, s.objectStore, name, ch, devs)
+	return state.AddTestingApplicationWithDevices(c, s.State, s.objectStore, name, ch, devs, nil)
 }
 
-func (s *ConnSuite) AddTestingApplicationWithBindings(c *gc.C, name string, ch *state.Charm, bindings map[string]string) *state.Application {
-	return state.AddTestingApplicationWithBindings(c, s.State, s.objectStore, name, ch, bindings)
+func (s *ConnSuite) AddTestingApplicationWithBindings(c *gc.C, name string, ch *state.Charm, bindings map[string]string, allSpaces network.SpaceInfos) *state.Application {
+	return state.AddTestingApplicationWithBindings(c, s.State, s.objectStore, name, ch, bindings, allSpaces)
 }
 
 func (s *ConnSuite) AddSeriesCharm(c *gc.C, name, series string) *state.Charm {

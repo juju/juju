@@ -259,15 +259,15 @@ func AddTestingCharmMultiSeries(c *gc.C, st *State, name string) *Charm {
 	return sch
 }
 
-func AddTestingApplication(c *gc.C, st *State, objectStore objectstore.ObjectStore, name string, ch *Charm) *Application {
+func AddTestingApplication(c *gc.C, st *State, objectStore objectstore.ObjectStore, name string, ch *Charm, allSpaces network.SpaceInfos) *Application {
 	return addTestingApplication(c, objectStore, addTestingApplicationParams{
 		st:   st,
 		name: name,
 		ch:   ch,
-	})
+	}, allSpaces)
 }
 
-func AddTestingApplicationForBase(c *gc.C, st *State, objectStore objectstore.ObjectStore, base Base, name string, ch *Charm) *Application {
+func AddTestingApplicationForBase(c *gc.C, st *State, objectStore objectstore.ObjectStore, base Base, name string, ch *Charm, allSpaces network.SpaceInfos) *Application {
 	return addTestingApplication(c, objectStore, addTestingApplicationParams{
 		st: st,
 		origin: &CharmOrigin{Platform: &Platform{
@@ -276,19 +276,19 @@ func AddTestingApplicationForBase(c *gc.C, st *State, objectStore objectstore.Ob
 		}},
 		name: name,
 		ch:   ch,
-	})
+	}, allSpaces)
 }
 
-func AddTestingApplicationWithNumUnits(c *gc.C, st *State, objectStore objectstore.ObjectStore, numUnits int, name string, ch *Charm) *Application {
+func AddTestingApplicationWithNumUnits(c *gc.C, st *State, objectStore objectstore.ObjectStore, numUnits int, name string, ch *Charm, allSpaces network.SpaceInfos) *Application {
 	return addTestingApplication(c, objectStore, addTestingApplicationParams{
 		st:       st,
 		numUnits: numUnits,
 		name:     name,
 		ch:       ch,
-	})
+	}, allSpaces)
 }
 
-func AddTestingApplicationWithStorage(c *gc.C, st *State, objectStore objectstore.ObjectStore, name string, ch *Charm, storage map[string]StorageConstraints) *Application {
+func AddTestingApplicationWithStorage(c *gc.C, st *State, objectStore objectstore.ObjectStore, name string, ch *Charm, storage map[string]StorageConstraints, allSpaces network.SpaceInfos) *Application {
 	curl := charm.MustParseURL(ch.URL())
 	series := curl.Series
 	base, err := corebase.GetBaseFromSeries(series)
@@ -315,25 +315,25 @@ func AddTestingApplicationWithStorage(c *gc.C, st *State, objectStore objectstor
 		ch:      ch,
 		origin:  origin,
 		storage: storage,
-	})
+	}, allSpaces)
 }
 
-func AddTestingApplicationWithDevices(c *gc.C, st *State, objectStore objectstore.ObjectStore, name string, ch *Charm, devices map[string]DeviceConstraints) *Application {
+func AddTestingApplicationWithDevices(c *gc.C, st *State, objectStore objectstore.ObjectStore, name string, ch *Charm, devices map[string]DeviceConstraints, allSpaces network.SpaceInfos) *Application {
 	return addTestingApplication(c, objectStore, addTestingApplicationParams{
 		st:      st,
 		name:    name,
 		ch:      ch,
 		devices: devices,
-	})
+	}, allSpaces)
 }
 
-func AddTestingApplicationWithBindings(c *gc.C, st *State, objectStore objectstore.ObjectStore, name string, ch *Charm, bindings map[string]string) *Application {
+func AddTestingApplicationWithBindings(c *gc.C, st *State, objectStore objectstore.ObjectStore, name string, ch *Charm, bindings map[string]string, allSpaces network.SpaceInfos) *Application {
 	return addTestingApplication(c, objectStore, addTestingApplicationParams{
 		st:       st,
 		name:     name,
 		ch:       ch,
 		bindings: bindings,
-	})
+	}, allSpaces)
 }
 
 type addTestingApplicationParams struct {
@@ -347,7 +347,7 @@ type addTestingApplicationParams struct {
 	numUnits int
 }
 
-func addTestingApplication(c *gc.C, objectStore objectstore.ObjectStore, params addTestingApplicationParams) *Application {
+func addTestingApplication(c *gc.C, objectStore objectstore.ObjectStore, params addTestingApplicationParams, allSpaces network.SpaceInfos) *Application {
 	c.Assert(params.ch, gc.NotNil)
 	origin := params.origin
 	curl := charm.MustParseURL(params.ch.URL())
@@ -377,6 +377,8 @@ func addTestingApplication(c *gc.C, objectStore objectstore.ObjectStore, params 
 			},
 		}
 	}
+	// Always append the alpha space which is already inserted in dqlite.
+	allSpaces = append(allSpaces, DefaultSpacesWithAlpha()...)
 	app, err := params.st.AddApplication(testInstancePrechecker{}, AddApplicationArgs{
 		Name:             params.name,
 		Charm:            params.ch,
@@ -385,7 +387,7 @@ func addTestingApplication(c *gc.C, objectStore objectstore.ObjectStore, params 
 		Storage:          params.storage,
 		Devices:          params.devices,
 		NumUnits:         params.numUnits,
-	}, objectStore)
+	}, objectStore, allSpaces)
 	c.Assert(err, jc.ErrorIsNil)
 	return app
 }

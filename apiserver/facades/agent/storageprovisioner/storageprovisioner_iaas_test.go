@@ -452,7 +452,7 @@ func (s *iaasProvisionerSuite) TestRemoveVolumeParams(c *gc.C) {
 				Pool:  "modelscoped",
 			},
 		},
-	})
+	}, nil)
 	unit := f.MakeUnit(c, &factory.UnitParams{
 		Application: application,
 	})
@@ -579,7 +579,7 @@ func (s *iaasProvisionerSuite) TestRemoveFilesystemParams(c *gc.C) {
 				Pool:  "modelscoped",
 			},
 		},
-	})
+	}, nil)
 	unit := f.MakeUnit(c, &factory.UnitParams{
 		Application: application,
 	})

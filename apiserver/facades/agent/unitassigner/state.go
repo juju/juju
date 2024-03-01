@@ -6,6 +6,7 @@ package unitassigner
 import (
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/state"
 )
@@ -15,8 +16,8 @@ type stateShim struct {
 	prechecker environs.InstancePrechecker
 }
 
-func (s stateShim) AssignStagedUnits(ids []string) ([]state.UnitAssignmentResult, error) {
-	return s.State.AssignStagedUnits(s.prechecker, ids)
+func (s stateShim) AssignStagedUnits(ids []string, allSpaces network.SpaceInfos) ([]state.UnitAssignmentResult, error) {
+	return s.State.AssignStagedUnits(s.prechecker, ids, allSpaces)
 }
 
 func (s stateShim) AssignedMachineId(unit string) (string, error) {

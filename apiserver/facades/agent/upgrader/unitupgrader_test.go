@@ -65,7 +65,7 @@ func (s *unitUpgraderSuite) SetUpTest(c *gc.C) {
 	app := f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "wordpress",
 		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"}),
-	})
+	}, nil)
 	s.rawUnit, err = app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	// Assign the unit to the machine.

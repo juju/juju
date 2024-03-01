@@ -44,9 +44,9 @@ type FirewallerAPI struct {
 	accessMachine     common.GetAuthFunc
 	accessModel       common.GetAuthFunc
 	logger            loggo.Logger
+	spaceService      SpaceService
 
 	// Fetched on demand and memoized
-	spaceInfos          network.SpaceInfos
 	appEndpointBindings map[string]map[string]string
 }
 
@@ -58,6 +58,7 @@ func NewStateFirewallerAPI(
 	cloudSpecAPI cloudspec.CloudSpecer,
 	controllerConfigAPI ControllerConfigAPI,
 	logger loggo.Logger,
+	spaceService SpaceService,
 ) (*FirewallerAPI, error) {
 	if !authorizer.AuthController() {
 		// Firewaller must run as a controller.
@@ -123,6 +124,7 @@ func NewStateFirewallerAPI(
 		accessMachine:        accessMachine,
 		accessModel:          accessModel,
 		logger:               logger,
+		spaceService:         spaceService,
 	}, nil
 }
 
@@ -248,27 +250,12 @@ func (f *FirewallerAPI) GetAssignedMachine(ctx context.Context, args params.Enti
 	return result, nil
 }
 
-// getSpaceInfos returns the cached SpaceInfos or retrieves them from state
-// and memoizes it for future invocations.
-func (f *FirewallerAPI) getSpaceInfos() (network.SpaceInfos, error) {
-	if f.spaceInfos != nil {
-		return f.spaceInfos, nil
-	}
-
-	si, err := f.st.SpaceInfos()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return si, nil
-}
-
 // getApplicationBindings returns the cached endpoint bindings for all model
 // applications grouped by app name. If the application endpoints have not yet
 // been retrieved they will be retrieved and memoized for future calls.
-func (f *FirewallerAPI) getApplicationBindings() (map[string]map[string]string, error) {
+func (f *FirewallerAPI) getApplicationBindings(allSpaces network.SpaceInfos) (map[string]map[string]string, error) {
 	if f.appEndpointBindings == nil {
-		bindings, err := f.st.AllEndpointBindings()
+		bindings, err := f.st.AllEndpointBindings(allSpaces)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -452,7 +439,7 @@ func (f *FirewallerAPI) OpenedMachinePortRanges(ctx context.Context, args params
 			continue
 		}
 
-		unitPortRanges, err := f.openedPortRangesForOneMachine(machine)
+		unitPortRanges, err := f.openedPortRangesForOneMachine(ctx, machine)
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -463,7 +450,7 @@ func (f *FirewallerAPI) OpenedMachinePortRanges(ctx context.Context, args params
 	return result, nil
 }
 
-func (f *FirewallerAPI) openedPortRangesForOneMachine(machine firewall.Machine) (map[string][]params.OpenUnitPortRanges, error) {
+func (f *FirewallerAPI) openedPortRangesForOneMachine(ctx context.Context, machine firewall.Machine) (map[string][]params.OpenUnitPortRanges, error) {
 	machPortRanges, err := machine.OpenedPortRanges()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -475,11 +462,11 @@ func (f *FirewallerAPI) openedPortRangesForOneMachine(machine firewall.Machine) 
 	}
 
 	// Look up space to subnet mappings
-	spaceInfos, err := f.getSpaceInfos()
+	allSpaces, err := f.spaceService.GetAllSpaces(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	subnetCIDRsBySpaceID := spaceInfos.SubnetCIDRsBySpaceID()
+	subnetCIDRsBySpaceID := allSpaces.SubnetCIDRsBySpaceID()
 
 	// Fetch application endpoint bindings
 	allApps := set.NewStrings()
@@ -490,7 +477,7 @@ func (f *FirewallerAPI) openedPortRangesForOneMachine(machine firewall.Machine) 
 		}
 		allApps.Add(appName)
 	}
-	allAppBindings, err := f.getApplicationBindings()
+	allAppBindings, err := f.getApplicationBindings(allSpaces)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -616,7 +603,7 @@ func (f *FirewallerAPI) SpaceInfos(ctx context.Context, args params.SpaceInfosPa
 		return params.SpaceInfos{}, apiservererrors.ServerError(apiservererrors.ErrPerm)
 	}
 
-	allSpaceInfos, err := f.getSpaceInfos()
+	allSpaceInfos, err := f.spaceService.GetAllSpaces(ctx)
 	if err != nil {
 		return params.SpaceInfos{}, apiservererrors.ServerError(err)
 	}

@@ -77,6 +77,12 @@ type APIv19 struct {
 	*APIv20
 }
 
+// SpaceService is the interface that is used to interact with the
+// network spaces.
+type SpaceService interface {
+	GetAllSpaces(ctx context.Context) (network.SpaceInfos, error)
+}
+
 // APIBase implements the shared application interface and is the concrete
 // implementation of the api end point.
 type APIBase struct {
@@ -95,6 +101,7 @@ type APIBase struct {
 	credentialService  common.CredentialService
 	machineService     MachineService
 	applicationService ApplicationService
+	spaceService       SpaceService
 
 	resources        facade.Resources
 	leadershipReader leadership.Reader
@@ -178,6 +185,8 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 		return nil, errors.Trace(err)
 	}
 
+	spaceService := serviceFactory.Space()
+
 	updateBase := NewUpdateBaseAPI(state, makeUpdateSeriesValidator(chClient))
 	validatorCfg := validatorConfig{
 		charmhubHTTPClient: charmhubHTTPClient,
@@ -188,9 +197,10 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 		registry:           registry,
 		state:              state,
 		storagePoolGetter:  storagePoolGetter,
+		spaceService:       spaceService,
 	}
 	applicationService := serviceFactory.Application(registry)
-	repoDeploy := NewDeployFromRepositoryAPI(state, applicationService, ctx.ObjectStore(), makeDeployFromRepositoryValidator(stdCtx, validatorCfg))
+	repoDeploy := NewDeployFromRepositoryAPI(state, applicationService, ctx.ObjectStore(), makeDeployFromRepositoryValidator(stdCtx, validatorCfg), spaceService)
 
 	return NewAPIBase(
 		state,
@@ -213,11 +223,12 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 		resources,
 		caasBroker,
 		ctx.ObjectStore(),
+		spaceService,
 	)
 }
 
 // DeployApplicationFunc is a function that deploys an application.
-type DeployApplicationFunc = func(context.Context, ApplicationDeployer, Model, common.CloudService, common.CredentialService, ApplicationService, objectstore.ObjectStore, DeployApplicationParams) (Application, error)
+type DeployApplicationFunc = func(context.Context, ApplicationDeployer, Model, common.CloudService, common.CredentialService, ApplicationService, objectstore.ObjectStore, DeployApplicationParams, SpaceService) (Application, error)
 
 // NewAPIBase returns a new application API facade.
 func NewAPIBase(
@@ -241,6 +252,7 @@ func NewAPIBase(
 	resources facade.Resources,
 	caasBroker CaasBrokerInterface,
 	store objectstore.ObjectStore,
+	spaceService SpaceService,
 ) (*APIBase, error) {
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm
@@ -259,6 +271,7 @@ func NewAPIBase(
 		credentialService:     credentialService,
 		machineService:        machineService,
 		applicationService:    applicationService,
+		spaceService:          spaceService,
 		leadershipReader:      leadershipReader,
 		stateCharm:            stateCharm,
 		deployApplicationFunc: deployApplication,
@@ -553,7 +566,11 @@ func (api *APIBase) deployApplication(
 		attachStorage[i] = tag
 	}
 
-	bindings, err := state.NewBindings(api.backend, args.EndpointBindings)
+	allSpaces, err := api.spaceService.GetAllSpaces(ctx)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	bindings, err := state.NewBindings(allSpaces, args.EndpointBindings)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -576,7 +593,7 @@ func (api *APIBase) deployApplication(
 		EndpointBindings:  bindings.Map(),
 		Resources:         args.Resources,
 		Force:             args.Force,
-	})
+	}, api.spaceService)
 	return errors.Trace(err)
 }
 
@@ -1152,8 +1169,12 @@ func (api *APIBase) applicationSetCharm(
 		return errors.New("cannot downgrade from v2 charm format to v1")
 	}
 
+	allSpaces, err := api.spaceService.GetAllSpaces(ctx)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	// TODO(dqlite) - remove SetCharm (replaced below with UpdateApplicationCharm).
-	if err := params.Application.SetCharm(cfg, api.store); err != nil {
+	if err := params.Application.SetCharm(cfg, api.store, allSpaces); err != nil {
 		return errors.Annotate(err, "updating charm config")
 	}
 
@@ -1308,7 +1329,7 @@ func (api *APIBase) Expose(ctx context.Context, args params.ApplicationExpose) e
 	}
 
 	// Map space names to space IDs before calling SetExposed
-	mappedExposeParams, err := api.mapExposedEndpointParams(args.ExposedEndpoints)
+	mappedExposeParams, err := api.mapExposedEndpointParams(ctx, args.ExposedEndpoints)
 	if err != nil {
 		return apiservererrors.ServerError(err)
 	}
@@ -1329,7 +1350,7 @@ func (api *APIBase) Expose(ctx context.Context, args params.ApplicationExpose) e
 	return nil
 }
 
-func (api *APIBase) mapExposedEndpointParams(params map[string]params.ExposedEndpoint) (map[string]state.ExposedEndpoint, error) {
+func (api *APIBase) mapExposedEndpointParams(ctx context.Context, params map[string]params.ExposedEndpoint) (map[string]state.ExposedEndpoint, error) {
 	if len(params) == 0 {
 		return nil, nil
 	}
@@ -1348,7 +1369,7 @@ func (api *APIBase) mapExposedEndpointParams(params map[string]params.ExposedEnd
 		if len(exposeDetails.ExposeToSpaces) != 0 {
 			// Lazily fetch SpaceInfos
 			if spaceInfos == nil {
-				if spaceInfos, err = api.backend.AllSpaceInfos(); err != nil {
+				if spaceInfos, err = api.spaceService.GetAllSpaces(ctx); err != nil {
 					return nil, err
 				}
 			}
@@ -1485,6 +1506,7 @@ func (api *APIBase) addApplicationUnits(
 		args.Placement,
 		attachStorage,
 		assignUnits,
+		api.spaceService,
 	)
 }
 
@@ -2382,7 +2404,7 @@ func (api *APIBase) ResolveUnitErrors(ctx context.Context, p params.UnitsResolve
 // ApplicationsInfo returns applications information.
 func (api *APIBase) ApplicationsInfo(ctx context.Context, in params.Entities) (params.ApplicationInfoResults, error) {
 	// Get all the space infos before iterating over the application infos.
-	allSpaceInfosLookup, err := api.backend.AllSpaceInfos()
+	allSpaceInfosLookup, err := api.spaceService.GetAllSpaces(ctx)
 	if err != nil {
 		return params.ApplicationInfoResults{}, apiservererrors.ServerError(err)
 	}
@@ -2400,13 +2422,13 @@ func (api *APIBase) ApplicationsInfo(ctx context.Context, in params.Entities) (p
 			continue
 		}
 
-		details, err := api.getConfig(params.ApplicationGet{ApplicationName: tag.Name}, describe)
+		details, err := api.getConfig(ctx, params.ApplicationGet{ApplicationName: tag.Name}, describe)
 		if err != nil {
 			out[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 
-		bindings, err := app.EndpointBindings()
+		bindings, err := app.EndpointBindings(allSpaceInfosLookup)
 		if err != nil {
 			out[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -2418,7 +2440,7 @@ func (api *APIBase) ApplicationsInfo(ctx context.Context, in params.Entities) (p
 			continue
 		}
 
-		exposedEndpoints, err := api.mapExposedEndpointsFromState(app.ExposedEndpoints())
+		exposedEndpoints, err := api.mapExposedEndpointsFromState(ctx, app.ExposedEndpoints())
 		if err != nil {
 			out[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -2452,7 +2474,7 @@ func (api *APIBase) ApplicationsInfo(ctx context.Context, in params.Entities) (p
 	}, nil
 }
 
-func (api *APIBase) mapExposedEndpointsFromState(exposedEndpoints map[string]state.ExposedEndpoint) (map[string]params.ExposedEndpoint, error) {
+func (api *APIBase) mapExposedEndpointsFromState(ctx context.Context, exposedEndpoints map[string]state.ExposedEndpoint) (map[string]params.ExposedEndpoint, error) {
 	if len(exposedEndpoints) == 0 {
 		return nil, nil
 	}
@@ -2471,7 +2493,7 @@ func (api *APIBase) mapExposedEndpointsFromState(exposedEndpoints map[string]sta
 		if len(exposeDetails.ExposeToSpaceIDs) != 0 {
 			// Lazily fetch SpaceInfos
 			if spaceInfos == nil {
-				if spaceInfos, err = api.backend.AllSpaceInfos(); err != nil {
+				if spaceInfos, err = api.spaceService.GetAllSpaces(ctx); err != nil {
 					return nil, err
 				}
 			}
@@ -2518,13 +2540,18 @@ func (api *APIBase) MergeBindings(ctx context.Context, in params.ApplicationMerg
 			continue
 		}
 
-		bindings, err := state.NewBindings(api.backend, arg.Bindings)
+		allSpaces, err := api.spaceService.GetAllSpaces(ctx)
+		if err != nil {
+			res[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		bindings, err := state.NewBindings(allSpaces, arg.Bindings)
 		if err != nil {
 			res[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 
-		if err := app.MergeBindings(bindings, arg.Force); err != nil {
+		if err := app.MergeBindings(bindings, arg.Force, allSpaces); err != nil {
 			res[i].Error = apiservererrors.ServerError(err)
 		}
 	}

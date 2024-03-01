@@ -40,6 +40,7 @@ type applicationOffersSuite struct {
 var _ = gc.Suite(&applicationOffersSuite{})
 
 func (s *applicationOffersSuite) SetUpTest(c *gc.C) {
+
 	s.baseSuite.SetUpTest(c)
 	s.applicationOffers = &stubApplicationOffers{
 		// Ensure that calls to "Offer" made by the test suite call
@@ -64,9 +65,16 @@ func (s *applicationOffersSuite) SetUpTest(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	api, err := applicationoffers.CreateOffersAPI(
-		getApplicationOffers, getEnviron, getFakeControllerInfo,
-		s.mockState, s.mockStatePool, s.authorizer, s.authContext, apiservertesting.NoopModelCredentialInvalidatorGetter,
-		c.MkDir(), loggo.GetLogger("juju.apiserver.applicationoffers"),
+		getApplicationOffers,
+		getEnviron,
+		getFakeControllerInfo,
+		s.mockState,
+		s.mockStatePool,
+		s.authorizer,
+		s.authContext,
+		apiservertesting.NoopModelCredentialInvalidatorGetter,
+		c.MkDir(),
+		loggo.GetLogger("juju.apiserver.applicationoffers"),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api
@@ -1081,9 +1089,15 @@ func (s *consumeSuite) SetUpTest(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	api, err := applicationoffers.CreateOffersAPI(
-		getApplicationOffers, getEnviron, getFakeControllerInfo,
-		s.mockState, s.mockStatePool, s.authorizer, s.authContext,
-		apiservertesting.NoopModelCredentialInvalidatorGetter, c.MkDir(),
+		getApplicationOffers,
+		getEnviron,
+		getFakeControllerInfo,
+		s.mockState,
+		s.mockStatePool,
+		s.authorizer,
+		s.authContext,
+		apiservertesting.NoopModelCredentialInvalidatorGetter,
+		c.MkDir(),
 		loggo.GetLogger("juju.apiserver.applicationoffers"),
 	)
 	c.Assert(err, jc.ErrorIsNil)

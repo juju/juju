@@ -44,7 +44,7 @@ type SystemState interface {
 	// metadata in the "juju" database "toolsmetadata" collection.
 	ToolsStorage(store objectstore.ObjectStore) (binarystorage.StorageCloser, error)
 	// AddApplication adds an application to the model.
-	AddApplication(state.AddApplicationArgs, objectstore.ObjectStore) (bootstrap.Application, error)
+	AddApplication(context.Context, state.AddApplicationArgs, objectstore.ObjectStore) (bootstrap.Application, error)
 	// Charm returns the charm with the given name.
 	Charm(string) (bootstrap.Charm, error)
 	// Model returns the model.
@@ -231,7 +231,8 @@ func (f loggoLoggerFactory) Namespace(name string) LoggerFactory {
 
 type stateShim struct {
 	*state.State
-	prechecker environs.InstancePrechecker
+	prechecker     environs.InstancePrechecker
+	spaceRetriever SpaceService
 }
 
 func (s *stateShim) PrepareCharmUpload(curl string) (services.UploadedCharm, error) {
@@ -242,8 +243,12 @@ func (s *stateShim) UpdateUploadedCharm(info state.CharmInfo) (services.Uploaded
 	return s.State.UpdateUploadedCharm(info)
 }
 
-func (s *stateShim) AddApplication(args state.AddApplicationArgs, objectStore objectstore.ObjectStore) (bootstrap.Application, error) {
-	a, err := s.State.AddApplication(s.prechecker, args, objectStore)
+func (s *stateShim) AddApplication(ctx context.Context, args state.AddApplicationArgs, objectStore objectstore.ObjectStore) (bootstrap.Application, error) {
+	allSpaces, err := s.spaceRetriever.GetAllSpaces(ctx)
+	if err != nil {
+		return nil, err
+	}
+	a, err := s.State.AddApplication(s.prechecker, args, objectStore, allSpaces)
 	if err != nil {
 		return nil, err
 	}

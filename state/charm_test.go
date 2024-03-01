@@ -17,6 +17,7 @@ import (
 	"github.com/juju/utils/v4"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
@@ -235,7 +236,19 @@ func (s *CharmSuite) TestReferenceDyingCharm(c *gc.C) {
 			Channel: "22.04/stable",
 		}},
 	}
-	_, err := s.State.AddApplication(defaultInstancePrechecker, args, state.NewObjectStore(c, s.State.ModelUUID()))
+	allSpaces := network.SpaceInfos{
+		{
+			ID:   network.AlphaSpaceId,
+			Name: network.AlphaSpaceName,
+			Subnets: network.SubnetInfos{
+				{
+					ID:   network.Id("0"),
+					CIDR: "10.0.0.0/24",
+				},
+			},
+		},
+	}
+	_, err := s.State.AddApplication(defaultInstancePrechecker, args, state.NewObjectStore(c, s.State.ModelUUID()), allSpaces)
 	c.Check(err, gc.ErrorMatches, `cannot add application "blah": charm: not found or not alive`)
 }
 
@@ -253,14 +266,26 @@ func (s *CharmSuite) TestReferenceDyingCharmRace(c *gc.C) {
 			Channel: "22.04/stable",
 		}},
 	}
-	_, err := s.State.AddApplication(defaultInstancePrechecker, args, state.NewObjectStore(c, s.State.ModelUUID()))
+	allSpaces := network.SpaceInfos{
+		{
+			ID:   network.AlphaSpaceId,
+			Name: network.AlphaSpaceName,
+			Subnets: network.SubnetInfos{
+				{
+					ID:   network.Id("0"),
+					CIDR: "10.0.0.0/24",
+				},
+			},
+		},
+	}
+	_, err := s.State.AddApplication(defaultInstancePrechecker, args, state.NewObjectStore(c, s.State.ModelUUID()), allSpaces)
 	c.Check(err, gc.ErrorMatches, `cannot add application "blah": charm: not found or not alive`)
 }
 
 func (s *CharmSuite) TestDestroyReferencedCharm(c *gc.C) {
 	s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Charm: s.charm,
-	})
+	}, nil)
 
 	err := s.charm.Destroy()
 	c.Check(err, gc.ErrorMatches, "charm in use")
@@ -271,7 +296,7 @@ func (s *CharmSuite) TestDestroyReferencedCharmRace(c *gc.C) {
 	defer state.SetBeforeHooks(c, s.State, func() {
 		s.Factory.MakeApplication(c, &factory.ApplicationParams{
 			Charm: s.charm,
-		})
+		}, nil)
 	}).Check()
 
 	err := s.charm.Destroy()
@@ -281,7 +306,7 @@ func (s *CharmSuite) TestDestroyReferencedCharmRace(c *gc.C) {
 func (s *CharmSuite) TestDestroyUnreferencedCharm(c *gc.C) {
 	app := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Charm: s.charm,
-	})
+	}, nil)
 	err := app.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -292,7 +317,7 @@ func (s *CharmSuite) TestDestroyUnreferencedCharm(c *gc.C) {
 func (s *CharmSuite) TestDestroyUnitReferencedCharm(c *gc.C) {
 	app := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Charm: s.charm,
-	})
+	}, nil)
 	unit := s.Factory.MakeUnit(c, &factory.UnitParams{
 		Application: app,
 		SetCharmURL: true,
@@ -302,7 +327,7 @@ func (s *CharmSuite) TestDestroyUnitReferencedCharm(c *gc.C) {
 	info := s.dummyCharm(c, "ch:quantal/dummy-2")
 	newCh, err := s.State.AddCharm(info)
 	c.Assert(err, jc.ErrorIsNil)
-	err = app.SetCharm(state.SetCharmConfig{Charm: newCh, CharmOrigin: defaultCharmOrigin(newCh.URL())}, state.NewObjectStore(c, s.State.ModelUUID()))
+	err = app.SetCharm(state.SetCharmConfig{Charm: newCh, CharmOrigin: defaultCharmOrigin(newCh.URL())}, state.NewObjectStore(c, s.State.ModelUUID()), state.DefaultSpacesWithAlpha())
 	c.Assert(err, jc.ErrorIsNil)
 
 	// unit should still reference original charm until updated
@@ -317,7 +342,7 @@ func (s *CharmSuite) TestDestroyUnitReferencedCharm(c *gc.C) {
 func (s *CharmSuite) TestDestroyFinalUnitReference(c *gc.C) {
 	app := s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Charm: s.charm,
-	})
+	}, nil)
 	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -769,7 +794,7 @@ func (s *CharmSuite) TestAddCharmMetadataUpdatesPlaceholder(c *gc.C) {
 
 func (s *CharmSuite) TestAllCharmURLs(c *gc.C) {
 	ch2 := state.AddTestingCharmhubCharmForSeries(c, s.State, "jammy", "dummy")
-	state.AddTestingApplication(c, s.State, s.objectStore, "testme-jammy", ch2)
+	state.AddTestingApplication(c, s.State, s.objectStore, "testme-jammy", ch2, nil)
 
 	curls, err := s.State.AllCharmURLs()
 	c.Assert(err, jc.ErrorIsNil)

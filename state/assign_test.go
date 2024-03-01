@@ -717,7 +717,7 @@ func (s *assignSuite) TestAssignUnitWithNonDynamicStorageAndMachinePlacementDire
 	placement := &instance.Placement{
 		instance.MachineScope, clean.Id(),
 	}
-	err = s.State.AssignUnitWithPlacement(defaultInstancePrechecker, unit, placement)
+	err = s.State.AssignUnitWithPlacement(defaultInstancePrechecker, unit, placement, nil)
 	c.Assert(
 		err, gc.ErrorMatches,
 		`cannot assign unit "storage-filesystem/0" to machine 0: "static" storage provider does not support dynamic storage`,
@@ -742,7 +742,7 @@ func (s *assignSuite) TestAssignUnitWithNonDynamicStorageAndZonePlacementDirecti
 	placement := &instance.Placement{
 		s.State.ModelUUID(), "zone=test",
 	}
-	err = s.State.AssignUnitWithPlacement(defaultInstancePrechecker, unit, placement)
+	err = s.State.AssignUnitWithPlacement(defaultInstancePrechecker, unit, placement, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check the machine on the unit is set.
