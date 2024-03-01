@@ -1,19 +1,19 @@
-// Copyright 2023 Canonical Ltd.
+// Copyright 2024 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package upgrades
 
-func stepsFor331() []Step {
+func stepsFor341() []Step {
 	return []Step{}
 }
 
-func stateStepsFor331() []Step {
+func stateStepsFor341() []Step {
 	return []Step{
 		&upgradeStep{
-			description: "convert application offer token keys",
+			description: "fill in empty charmhub charm origin tracks to latest",
 			targets:     []Target{DatabaseMaster},
 			run: func(context Context) error {
-				return context.State().ConvertApplicationOfferTokenKeys()
+				return context.State().FillInEmptyCharmhubTracks()
 			},
 		},
 	}

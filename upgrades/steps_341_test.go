@@ -1,4 +1,4 @@
-// Copyright 2023 Canonical Ltd.
+// Copyright 2024 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package upgrades_test
@@ -12,15 +12,15 @@ import (
 	"github.com/juju/juju/upgrades"
 )
 
-var v331 = version.MustParse("3.3.1")
+var v341 = version.MustParse("3.4.1")
 
-type steps331Suite struct {
+type steps341Suite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&steps331Suite{})
+var _ = gc.Suite(&steps341Suite{})
 
-func (s *steps331Suite) TestConvertApplicationOfferTokenKeys(c *gc.C) {
-	step := findStateStep(c, v331, "convert application offer token keys")
+func (s *steps341Suite) TestFillInEmptyCharmhubTracks(c *gc.C) {
+	step := findStateStep(c, v341, "fill in empty charmhub charm origin tracks to latest")
 	c.Assert(step.Targets(), jc.DeepEquals, []upgrades.Target{upgrades.DatabaseMaster})
 }

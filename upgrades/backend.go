@@ -11,7 +11,7 @@ import (
 
 // StateBackend provides an interface for upgrading the global state database.
 type StateBackend interface {
-	ConvertApplicationOfferTokenKeys() error
+	FillInEmptyCharmhubTracks() error
 }
 
 // Model is an interface providing access to the details of a model within the
@@ -30,6 +30,6 @@ type stateBackend struct {
 	pool *state.StatePool
 }
 
-func (s stateBackend) ConvertApplicationOfferTokenKeys() error {
-	return state.ConvertApplicationOfferTokenKeys(s.pool)
+func (s stateBackend) FillInEmptyCharmhubTracks() error {
+	return state.FillInEmptyCharmhubTracks(s.pool)
 }

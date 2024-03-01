@@ -128,7 +128,7 @@ func (s *containerSetupSuite) setUpContainerSetup(c *gc.C, containerType instanc
 		Config:        cfg,
 		MachineLock:   s.machineLock,
 		CredentialAPI: &credentialAPIForTest{},
-		GetNetConfig: func(_ network.ConfigSource) ([]params.NetworkConfig, error) {
+		GetNetConfig: func(_ network.ConfigSource) (network.InterfaceInfos, error) {
 			return nil, nil
 		},
 	}

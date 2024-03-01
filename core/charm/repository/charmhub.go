@@ -213,7 +213,7 @@ func (c *CharmHubRepository) resolveWithPreferredChannel(charmName string, reque
 		InstanceKey: requestedOrigin.InstanceKey,
 	}
 
-	outputOrigin, err := sanitizeCharmOrigin(resOrigin, requestedOrigin)
+	outputOrigin, err := sanitiseCharmOrigin(resOrigin, requestedOrigin)
 	if err != nil {
 		return nil, corecharm.Origin{}, nil, transport.RefreshResponse{}, errors.Trace(err)
 	}
@@ -408,7 +408,7 @@ func (c *CharmHubRepository) GetDownloadURL(charmName string, requestedOrigin co
 	if err != nil {
 		return nil, corecharm.Origin{}, errors.Trace(err)
 	}
-	outputOrigin, err := sanitizeCharmOrigin(resOrigin, requestedOrigin)
+	outputOrigin, err := sanitiseCharmOrigin(resOrigin, requestedOrigin)
 	return durl, outputOrigin, errors.Trace(err)
 }
 

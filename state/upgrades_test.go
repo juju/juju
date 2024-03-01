@@ -13,7 +13,6 @@ import (
 	"github.com/kr/pretty"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/storage/provider"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -95,62 +94,103 @@ func (x bsonMById) Less(i, j int) bool {
 	return x[i]["_id"].(string) < x[j]["_id"].(string)
 }
 
-func (s *upgradesSuite) TestConvertApplicationOfferTokenKeys(c *gc.C) {
+func (s *upgradesSuite) TestFillInEmptyCharmhubTracks(c *gc.C) {
 	st := s.state
-	remoteEntitiesColl, closer := st.db().GetRawCollection(remoteEntitiesC)
-	defer closer()
 
-	_, err := st.AddUser("bob", "", "shhhh", "admin")
-	c.Assert(err, jc.ErrorIsNil)
-	app := AddTestingApplication(c, st, "mysql", AddTestingCharm(c, st, "mysql"))
-	offer1, err := NewApplicationOffers(st).AddOffer(crossmodel.AddApplicationOfferArgs{
-		OfferName:       "myoffer1",
-		Owner:           "bob",
-		ApplicationName: app.Name(),
+	// AddTestingApplicationWithChannel(c, st, &Channel{Track: "8.0", Risk: "stable"}, "mysql", AddTestingCharm(c, st, "mysql"))
+	addTestingApplication(c, addTestingApplicationParams{
+		st: st,
+		origin: &CharmOrigin{
+			Source:  "charm-hub",
+			Channel: &Channel{Risk: "stable"},
+			Platform: &Platform{
+				OS:      "ubuntu",
+				Channel: "22.04",
+			},
+		},
+		name: "wordpress",
+		ch:   AddTestingCharm(c, st, "wordpress"),
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	offer2, err := NewApplicationOffers(st).AddOffer(crossmodel.AddApplicationOfferArgs{
-		OfferName:       "myoffer2",
-		Owner:           "bob",
-		ApplicationName: app.Name(),
+	addTestingApplication(c, addTestingApplicationParams{
+		st: st,
+		origin: &CharmOrigin{
+			Source:  "charm-hub",
+			Channel: &Channel{Risk: "stable", Track: "8.0"},
+			Platform: &Platform{
+				OS:      "ubuntu",
+				Channel: "22.04",
+			},
+		},
+		name: "mysql",
+		ch:   AddTestingCharm(c, st, "mysql"),
 	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = remoteEntitiesColl.Insert(bson.M{
-		"_id":        ensureModelUUID(st.ModelUUID(), "applicationoffer-myoffer1"),
-		"model-uuid": st.ModelUUID(),
-		"token":      "token1",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	err = remoteEntitiesColl.Insert(bson.M{
-		"_id":        ensureModelUUID(st.ModelUUID(), "applicationoffer-myoffer2"),
-		"model-uuid": st.ModelUUID(),
-		"token":      "token2",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	err = remoteEntitiesColl.Insert(bson.M{
-		"_id":        ensureModelUUID(st.ModelUUID(), "application-myapp1"),
-		"model-uuid": st.ModelUUID(),
-		"token":      "apptoken1",
-	})
-	c.Assert(err, jc.ErrorIsNil)
 
 	var expected bsonMById
 	expected = append(expected, bson.M{
-		"_id":        ensureModelUUID(st.ModelUUID(), "applicationoffer-"+offer1.OfferUUID),
-		"model-uuid": st.ModelUUID(),
-		"token":      "token1",
+		"_id":         ensureModelUUID(st.ModelUUID(), "wordpress"),
+		"name":        "wordpress",
+		"model-uuid":  st.ModelUUID(),
+		"subordinate": false,
+		"charmurl":    "local:quantal/quantal-wordpress-3",
+		"charm-origin": bson.M{
+			"source": "charm-hub",
+			"channel": bson.M{
+				"track": "latest",
+				"risk":  "stable",
+			},
+			"hash": "",
+			"id":   "",
+			"platform": bson.M{
+				"os":      "ubuntu",
+				"channel": "22.04",
+			},
+		},
+		"charmmodifiedversion": 0,
+		"forcecharm":           false,
+		"life":                 0,
+		"unitcount":            0,
+		"relationcount":        0,
+		"minunits":             0,
+		"metric-credentials":   []byte{},
+		"exposed":              false,
+		"scale":                0,
+		"passwordhash":         "",
+		"provisioning-state":   nil,
 	}, bson.M{
-		"_id":        ensureModelUUID(st.ModelUUID(), "applicationoffer-"+offer2.OfferUUID),
-		"model-uuid": st.ModelUUID(),
-		"token":      "token2",
-	}, bson.M{
-		"_id":        ensureModelUUID(st.ModelUUID(), "application-myapp1"),
-		"model-uuid": st.ModelUUID(),
-		"token":      "apptoken1",
+		"_id":         ensureModelUUID(st.ModelUUID(), "mysql"),
+		"name":        "mysql",
+		"model-uuid":  st.ModelUUID(),
+		"subordinate": false,
+		"charmurl":    "local:quantal/quantal-mysql-1",
+		"charm-origin": bson.M{
+			"source": "charm-hub",
+			"channel": bson.M{
+				"track": "8.0",
+				"risk":  "stable",
+			},
+			"hash": "",
+			"id":   "",
+			"platform": bson.M{
+				"os":      "ubuntu",
+				"channel": "22.04",
+			},
+		},
+		"charmmodifiedversion": 0,
+		"forcecharm":           false,
+		"life":                 0,
+		"unitcount":            0,
+		"relationcount":        0,
+		"minunits":             0,
+		"metric-credentials":   []byte{},
+		"exposed":              false,
+		"scale":                0,
+		"passwordhash":         "",
+		"provisioning-state":   nil,
 	})
-
 	sort.Sort(expected)
-	expectedData := upgradedData(remoteEntitiesColl, expected)
-	s.assertUpgradedData(c, ConvertApplicationOfferTokenKeys, expectedData)
+
+	applications, closer := st.db().GetRawCollection(ApplicationsC)
+	defer closer()
+	expectedData := upgradedData(applications, expected)
+	s.assertUpgradedData(c, FillInEmptyCharmhubTracks, expectedData)
 }
