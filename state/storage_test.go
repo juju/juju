@@ -5,7 +5,6 @@ package state_test
 
 import (
 	"fmt"
-	"sort"
 
 	"github.com/juju/charm/v13"
 	"github.com/juju/collections/set"
@@ -20,15 +19,14 @@ import (
 	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
 	k8stesting "github.com/juju/juju/caas/kubernetes/provider/testing"
 	"github.com/juju/juju/cloud"
+	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/internal/storage"
-	"github.com/juju/juju/internal/storage/poolmanager"
 	"github.com/juju/juju/internal/storage/provider"
 	dummystorage "github.com/juju/juju/internal/storage/provider/dummy"
 	"github.com/juju/juju/state"
 	stateerrors "github.com/juju/juju/state/errors"
 	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/state/testing"
-	"github.com/juju/juju/testing/factory"
 )
 
 type StorageStateSuiteBase struct {
@@ -38,7 +36,6 @@ type StorageStateSuiteBase struct {
 	base           state.Base
 	st             *state.State
 	storageBackend *state.StorageBackend
-	pm             poolmanager.PoolManager
 }
 
 func (s *StorageStateSuiteBase) SetUpTest(c *gc.C) {
@@ -76,25 +73,29 @@ func (s *StorageStateSuiteBase) SetUpTest(c *gc.C) {
 	}
 
 	// Create a default pool for block devices.
-	s.pm = poolmanager.New(state.NewStateSettings(s.st), registry)
-	_, err := s.pm.Create("loop-pool", provider.LoopProviderType, map[string]interface{}{})
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.pm.Create("tmpfs-pool", provider.TmpfsProviderType, map[string]interface{}{})
-	c.Assert(err, jc.ErrorIsNil)
+	s.policy.Providers = map[string]domainstorage.StoragePoolDetails{
+		"loop-pool":  {Name: "loop-pool", Provider: "loop"},
+		"tmpfs-pool": {Name: "tmpfs-pool", Provider: "tmpfs"},
+	}
 
 	if s.series != "focal" {
 		// Create a pool that creates persistent block devices.
-		_, err = s.pm.Create("persistent-block", "modelscoped-block", map[string]interface{}{
-			"persistent": true,
-		})
-		c.Assert(err, jc.ErrorIsNil)
+		s.policy.Providers["persistent-block"] = domainstorage.StoragePoolDetails{
+			Name:     "persistent-block",
+			Provider: "modelscoped-block",
+			Attrs: map[string]string{
+				"persistent": "true",
+			},
+		}
 	} else {
 		// Create the operator-storage
-		_, err = s.pm.Create("k8s-operator-storage", provider.LoopProviderType, map[string]interface{}{})
-		c.Assert(err, jc.ErrorIsNil)
-
+		s.policy.Providers["k8s-operator-storage"] = domainstorage.StoragePoolDetails{
+			Name:     "k8s-operator-storage",
+			Provider: "loop",
+		}
 	}
 
+	var err error
 	s.storageBackend, err = state.NewStorageBackend(s.st)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -530,6 +531,10 @@ func (s *StorageStateSuite) TestAddApplicationStorageConstraintsDefault(c *gc.C)
 }
 
 func (s *StorageStateSuite) TestAddApplicationStorageConstraintsValidation(c *gc.C) {
+	s.policy.Providers = map[string]domainstorage.StoragePoolDetails{
+		"loop-pool": {Name: "loop-pool", Provider: "loop"},
+	}
+
 	ch := s.AddTestingCharm(c, "storage-block2")
 	addApplication := func(storage map[string]state.StorageConstraints) (*state.Application, error) {
 		return s.st.AddApplication(defaultInstancePrechecker, state.AddApplicationArgs{
@@ -557,7 +562,7 @@ func (s *StorageStateSuite) TestAddApplicationStorageConstraintsValidation(c *gc
 	storageCons["multi1to10"] = makeStorageCons("loop-pool", 1024, 11)
 	assertErr(storageCons, `cannot add application "storage-block2": charm "storage-block2" store "multi1to10": at most 10 instances supported, 11 specified`)
 	storageCons["multi1to10"] = makeStorageCons("ebs-fast", 1024, 10)
-	assertErr(storageCons, `cannot add application "storage-block2": pool "ebs-fast" not found`)
+	assertErr(storageCons, `cannot add application "storage-block2": storage pool "ebs-fast" not found`)
 	storageCons["multi1to10"] = makeStorageCons("loop-pool", 1024, 10)
 	_, err := addApplication(storageCons)
 	c.Assert(err, jc.ErrorIsNil)
@@ -739,34 +744,6 @@ func (s *StorageStateSuite) TestAllStorageInstances(c *gc.C) {
 		c.Assert(ok, jc.IsTrue)
 		c.Assert(ownerSet.Contains(owner.String()), jc.IsTrue)
 	}
-}
-
-func (s *StorageStateSuite) TestRemoveStoragePool(c *gc.C) {
-	poolName := "loop-pool"
-	_, err := s.pm.Get(poolName)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = s.storageBackend.RemoveStoragePool(poolName)
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.pm.Get(poolName)
-	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("pool %q not found", poolName))
-}
-
-func (s *StorageStateSuite) TestRemoveStoragePoolInUse(c *gc.C) {
-	poolName := "loop-pool"
-	s.assertStorageUnitsAdded(c)
-	_, err := s.pm.Get(poolName)
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.storageBackend.RemoveStoragePool(poolName)
-	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("storage pool %q in use", poolName))
-	pool, err := s.pm.Get(poolName)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(pool.Name(), gc.Equals, poolName)
-
-	_, err = s.pm.Get("nope-pool")
-	c.Assert(err, gc.ErrorMatches, `pool "nope-pool" not found`)
-	err = s.storageBackend.RemoveStoragePool("nope-pool")
-	c.Assert(err, gc.ErrorMatches, `storage pool "nope-pool" not found`)
 }
 
 func (s *StorageStateSuite) TestStorageAttachments(c *gc.C) {
@@ -1487,44 +1464,6 @@ func (s *StorageStateSuite) testStorageLocationConflict(c *gc.C, first, second, 
 	}
 }
 
-func mustStorageConfig(name string, provider storage.ProviderType, attrs map[string]interface{}) *storage.Config {
-	cfg, err := storage.NewConfig(name, provider, attrs)
-	if err != nil {
-		panic(err)
-	}
-	return cfg
-}
-
-var testingStorageProviders = storage.StaticProviderRegistry{
-	map[storage.ProviderType]storage.Provider{
-		"dummy": &dummystorage.StorageProvider{
-			DefaultPools_: []*storage.Config{radiancePool},
-		},
-		"lancashire": &dummystorage.StorageProvider{
-			DefaultPools_: []*storage.Config{blackPool},
-		},
-	},
-}
-
-var radiancePool = mustStorageConfig("radiance", "dummy", map[string]interface{}{"k": "v"})
-var blackPool = mustStorageConfig("black", "lancashire", map[string]interface{}{})
-
-func (s *StorageStateSuite) TestNewModelDefaultPools(c *gc.C) {
-	st := s.Factory.MakeModel(c, &factory.ModelParams{
-		StorageProviderRegistry: testingStorageProviders,
-	})
-	s.AddCleanup(func(*gc.C) { st.Close() })
-
-	// When a model is created, it is populated with the default
-	// pools of each storage provider supported by the model's
-	// cloud provider.
-	pm := poolmanager.New(state.NewStateSettings(st), testingStorageProviders)
-	listed, err := pm.List()
-	c.Assert(err, jc.ErrorIsNil)
-	sort.Sort(byStorageConfigName(listed))
-	c.Assert(listed, jc.DeepEquals, []*storage.Config{blackPool, radiancePool})
-}
-
 type StorageStateSuiteCaas struct {
 	StorageStateSuiteBase
 }
@@ -1535,47 +1474,6 @@ func (s *StorageStateSuiteCaas) SetUpTest(c *gc.C) {
 	// Use focal for k8s charms (quantal for machine charms).
 	s.series = "focal"
 	s.StorageStateSuiteBase.SetUpTest(c)
-}
-
-func (s *StorageStateSuiteCaas) TestRemoveStoragePool(c *gc.C) {
-	poolName := "k8s-operator-storage"
-	_, err := s.pm.Get(poolName)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = s.storageBackend.RemoveStoragePool(poolName)
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.pm.Get(poolName)
-	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("pool %q not found", poolName))
-}
-
-func (s *StorageStateSuiteCaas) TestRemoveStoragePoolInUse(c *gc.C) {
-	model, err := s.st.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	err = model.UpdateModelConfig(state.NoopConfigSchemaSource, map[string]interface{}{"operator-storage": "k8s-operator-storage"}, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	poolName := "k8s-operator-storage"
-	_, err = s.pm.Get(poolName)
-	c.Assert(err, jc.ErrorIsNil)
-
-	appPoolName := "tmpfs-pool"
-	_, err = s.pm.Get(poolName)
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.setupSingleStorage(c, "filesystem", "tmpfs-pool")
-
-	err = s.storageBackend.RemoveStoragePool(poolName)
-	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("storage pool %q in use", poolName))
-	pool, err := s.pm.Get(poolName)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(pool.Name(), gc.Equals, poolName)
-
-	err = s.storageBackend.RemoveStoragePool(appPoolName)
-	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("storage pool %q in use", appPoolName))
-	pool, err = s.pm.Get(poolName)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(pool.Name(), gc.Equals, poolName)
 }
 
 func (s *StorageStateSuiteCaas) TestDeployWrongStorageType(c *gc.C) {
@@ -1594,20 +1492,6 @@ func (s *StorageStateSuiteCaas) TestDeployWrongStorageType(c *gc.C) {
 	}
 	_, err := s.st.AddApplication(defaultInstancePrechecker, args, state.NewObjectStore(c, s.st.ModelUUID()))
 	c.Assert(err, gc.ErrorMatches, `cannot add application "foo": invalid storage config: storage provider type "loop" not valid`)
-}
-
-type byStorageConfigName []*storage.Config
-
-func (c byStorageConfigName) Len() int {
-	return len(c)
-}
-
-func (c byStorageConfigName) Less(a, b int) bool {
-	return c[a].Name() < c[b].Name()
-}
-
-func (c byStorageConfigName) Swap(a, b int) {
-	c[a], c[b] = c[b], c[a]
 }
 
 // TODO(axw) the following require shared storage support to test:

@@ -3,6 +3,22 @@
 
 package storage
 
+import (
+	"fmt"
+
+	"github.com/juju/collections/transform"
+	"github.com/juju/errors"
+
+	"github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/internal/storage/provider"
+)
+
+// Pool configuration attribute names.
+const (
+	StoragePoolName     = "name"
+	StorageProviderType = "type"
+)
+
 // Attrs defines storage attributes.
 type Attrs map[string]string
 
@@ -20,4 +36,52 @@ type StoragePoolFilter struct {
 	Names []string
 	// Providers are pool's storage provider types to filter on.
 	Providers []string
+}
+
+// BuiltInStoragePools returns the built in providers common to all.
+func BuiltInStoragePools() ([]StoragePoolDetails, error) {
+	providerTypes, err := provider.CommonStorageProviders().StorageProviderTypes()
+	if err != nil {
+		return nil, errors.Annotate(err, "getting built in storage provider types")
+	}
+	result := make([]StoragePoolDetails, len(providerTypes))
+	for i, pType := range providerTypes {
+		result[i] = StoragePoolDetails{
+			Name:     string(pType),
+			Provider: string(pType),
+		}
+	}
+	return result, nil
+}
+
+// DefaultStoragePools returns the default storage pools to add to a new model
+// for a given provider registry.
+func DefaultStoragePools(registry storage.ProviderRegistry) ([]StoragePoolDetails, error) {
+	result, err := BuiltInStoragePools()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	providerTypes, err := registry.StorageProviderTypes()
+	if err != nil {
+		return nil, errors.Annotate(err, "getting storage provider types")
+	}
+	for _, providerType := range providerTypes {
+		p, err := registry.StorageProvider(providerType)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		for _, pool := range p.DefaultPools() {
+			var attr map[string]string
+			if len(pool.Attrs()) > 0 {
+				attr = transform.Map(pool.Attrs(), func(k string, v any) (string, string) { return k, fmt.Sprint(v) })
+			}
+			result = append(result, StoragePoolDetails{
+				Name:     pool.Name(),
+				Provider: string(pool.Provider()),
+				Attrs:    attr,
+			})
+		}
+	}
+	return result, nil
 }

@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/password"
 	"github.com/juju/juju/internal/storage"
-	"github.com/juju/juju/internal/storage/poolmanager"
 )
 
 // InitializeParams contains the parameters for initializing the state database.
@@ -170,10 +169,6 @@ func Initialize(args InitializeParams, providerConfigSchemaGetter config.ConfigS
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	storagePoolOps, err := st.createCustomStoragePoolsOps(args.ControllerModelArgs.StorageProviderRegistry, args.StoragePools)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	salt, err := password.RandomSalt()
 	if err != nil {
 		return nil, err
@@ -240,7 +235,6 @@ func Initialize(args InitializeParams, providerConfigSchemaGetter config.ConfigS
 	)
 
 	ops = append(ops, modelOps...)
-	ops = append(ops, storagePoolOps...)
 
 	if err := st.db().RunTransaction(ops); err != nil {
 		return nil, errors.Trace(err)
@@ -295,15 +289,6 @@ func (st *State) modelSetupOps(controllerUUID string, providerConfigSchemaGetter
 	// Inc ref count for hosted models.
 	if controllerModelUUID != modelUUID {
 		ops = append(ops, incHostedModelCountOp())
-	}
-
-	// Create the default storage pools for the model.
-	if args.StorageProviderRegistry != nil {
-		defaultStoragePoolsOps, err := st.createDefaultStoragePoolsOps(args.StorageProviderRegistry)
-		if err != nil {
-			return nil, modelStatusDoc, errors.Trace(err)
-		}
-		ops = append(ops, defaultStoragePoolsOps...)
 	}
 
 	// Create the final map of config attributes for the model.
@@ -361,53 +346,4 @@ func (st *State) modelSetupOps(controllerUUID string, providerConfigSchemaGetter
 	)
 	ops = append(ops, modelUserOps...)
 	return ops, modelStatusDoc, nil
-}
-
-func (st *State) createDefaultStoragePoolsOps(registry storage.ProviderRegistry) ([]txn.Op, error) {
-	m := poolmanager.MemSettings{make(map[string]map[string]interface{})}
-	pm := poolmanager.New(m, registry)
-	providerTypes, err := registry.StorageProviderTypes()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	for _, providerType := range providerTypes {
-		p, err := registry.StorageProvider(providerType)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		if err := poolmanager.AddDefaultStoragePools(p, pm); err != nil {
-			return nil, errors.Annotatef(
-				err, "adding default storage pools for %q", providerType,
-			)
-		}
-	}
-
-	var ops []txn.Op
-	for key, settings := range m.Settings {
-		ops = append(ops, createSettingsOp(settingsC, key, settings))
-	}
-	return ops, nil
-}
-
-func (st *State) createCustomStoragePoolsOps(registry storage.ProviderRegistry, storagePools map[string]storage.Attrs) ([]txn.Op, error) {
-	m := poolmanager.MemSettings{make(map[string]map[string]interface{})}
-	pm := poolmanager.New(m, registry)
-	for name, attrs := range storagePools {
-		pType, _ := attrs[poolmanager.Type].(string)
-		if pType == "" {
-			return nil, errors.Errorf("missing provider type for storage pool %q", name)
-		}
-		providerType := storage.ProviderType(pType)
-		if _, err := pm.Create(name, providerType, attrs); err != nil {
-			return nil, errors.Annotatef(
-				err, "adding custom storage pool %q", name,
-			)
-		}
-	}
-
-	var ops []txn.Op
-	for key, settings := range m.Settings {
-		ops = append(ops, createSettingsOp(settingsC, key, settings))
-	}
-	return ops, nil
 }

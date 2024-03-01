@@ -36,7 +36,6 @@ import (
 	environtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/internal/container"
 	"github.com/juju/juju/internal/storage"
-	"github.com/juju/juju/internal/storage/poolmanager"
 	"github.com/juju/juju/internal/storage/provider"
 	dummystorage "github.com/juju/juju/internal/storage/provider/dummy"
 	"github.com/juju/juju/juju/testing"
@@ -1279,12 +1278,15 @@ func (s *withoutControllerSuite) TestConstraints(c *gc.C) {
 }
 
 func (s *withoutControllerSuite) TestSetInstanceInfo(c *gc.C) {
-	st := s.ControllerModel(c).State()
-	pm := poolmanager.New(state.NewStateSettings(st), storage.ChainedProviderRegistry{
+	registry := storage.ChainedProviderRegistry{
 		dummystorage.StorageProviders(),
 		provider.CommonStorageProviders(),
-	})
-	_, err := pm.Create("static-pool", "static", map[string]any{"foo": "bar"})
+	}
+	serviceFactoryGetter := s.ServiceFactoryGetter(c)
+
+	st := s.ControllerModel(c).State()
+	storageService := serviceFactoryGetter.FactoryForModel(st.ModelUUID()).Storage(registry)
+	err := storageService.CreateStoragePool(context.Background(), "static-pool", "static", map[string]any{"foo": "bar"})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.ControllerModel(c).UpdateModelConfig(s.ConfigSchemaSourceGetter(c), map[string]any{
 		"storage-default-block-source": "static-pool",

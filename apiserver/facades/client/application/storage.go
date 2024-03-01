@@ -4,25 +4,33 @@
 package application
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
+	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/internal/storage"
-	"github.com/juju/juju/internal/storage/poolmanager"
 	"github.com/juju/juju/rpc/params"
 )
+
+// StoragePoolGetter instances get a storage pool by name.
+type StoragePoolGetter interface {
+	GetStoragePoolByName(ctx context.Context, name string) (*storage.Config, error)
+}
 
 // charmStorageParams returns filesystem parameters needed
 // to provision storage used for a charm operator or workload.
 func charmStorageParams(
+	ctx context.Context,
 	controllerUUID string,
 	storageClassName string,
 	modelCfg *config.Config,
 	poolName string,
-	poolManager poolmanager.PoolManager,
+	storagePoolGetter StoragePoolGetter,
 	registry storage.ProviderRegistry,
 ) (*params.KubernetesFilesystemParams, error) {
 	// The defaults here are for operator storage.
@@ -55,8 +63,8 @@ func charmStorageParams(
 		maybePoolName = storageClassName
 	}
 
-	providerType, attrs, err := poolStorageProvider(poolManager, registry, maybePoolName)
-	if err != nil && (!errors.Is(err, errors.NotFound) || poolName != "") {
+	providerType, attrs, err := poolStorageProvider(ctx, storagePoolGetter, registry, maybePoolName)
+	if err != nil && (!errors.Is(err, storageerrors.PoolNotFoundError) || poolName != "") {
 		return nil, errors.Trace(err)
 	}
 	if err == nil {
@@ -71,9 +79,9 @@ func charmStorageParams(
 	return result, nil
 }
 
-func poolStorageProvider(poolManager poolmanager.PoolManager, registry storage.ProviderRegistry, poolName string) (storage.ProviderType, map[string]interface{}, error) {
-	pool, err := poolManager.Get(poolName)
-	if errors.Is(err, errors.NotFound) {
+func poolStorageProvider(ctx context.Context, storagePoolGetter StoragePoolGetter, registry storage.ProviderRegistry, poolName string) (storage.ProviderType, map[string]interface{}, error) {
+	pool, err := storagePoolGetter.GetStoragePoolByName(ctx, poolName)
+	if errors.Is(err, storageerrors.PoolNotFoundError) {
 		// If there's no pool called poolName, maybe a provider type
 		// has been specified directly.
 		providerType := storage.ProviderType(poolName)

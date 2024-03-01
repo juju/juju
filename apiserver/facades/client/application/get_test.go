@@ -68,7 +68,7 @@ func (s *getSuite) SetUpTest(c *gc.C) {
 		nil, // leadership not used in this suite.
 		application.CharmToStateCharm,
 		application.DeployApplication,
-		&mockStoragePoolManager{},
+		&mockStoragePoolGetter{},
 		&mockStorageRegistry{},
 		common.NewResources(),
 		nil, // CAAS Broker not used in this suite.
@@ -202,7 +202,7 @@ func (s *getSuite) TestClientApplicationGetCAASModelSmokeTest(c *gc.C) {
 		nil, // leadership not used in this suite.
 		application.CharmToStateCharm,
 		application.DeployApplication,
-		&mockStoragePoolManager{},
+		&mockStoragePoolGetter{},
 		&mockStorageRegistry{},
 		common.NewResources(),
 		nil, // CAAS Broker not used in this suite.

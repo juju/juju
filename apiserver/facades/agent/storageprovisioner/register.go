@@ -12,8 +12,6 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/internal/storage/poolmanager"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 )
 
@@ -40,7 +38,6 @@ func newFacadeV4(stdCtx context.Context, ctx facade.ModelContext) (*StorageProvi
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	pm := poolmanager.New(state.NewStateSettings(st), registry)
 
 	backend, storageBackend, err := NewStateBackends(st)
 	if err != nil {
@@ -56,7 +53,7 @@ func newFacadeV4(stdCtx context.Context, ctx facade.ModelContext) (*StorageProvi
 		ctx.Resources(),
 		ctx.Auth(),
 		registry,
-		pm,
+		serviceFactory.Storage(registry),
 		ctx.Logger().Child("storageprovisioner"),
 	)
 }

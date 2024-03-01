@@ -4,20 +4,20 @@
 package application_test
 
 import (
+	"context"
+
 	jtesting "github.com/juju/testing"
 
 	"github.com/juju/juju/internal/storage"
-	"github.com/juju/juju/internal/storage/poolmanager"
 )
 
-type mockStoragePoolManager struct {
+type mockStoragePoolGetter struct {
 	jtesting.Stub
-	poolmanager.PoolManager
 	storageType storage.ProviderType
 }
 
-func (m *mockStoragePoolManager) Get(name string) (*storage.Config, error) {
-	m.MethodCall(m, "Get", name)
+func (m *mockStoragePoolGetter) GetStoragePoolByName(_ context.Context, name string) (*storage.Config, error) {
+	m.MethodCall(m, "GetStoragePoolByName", name)
 	if err := m.NextErr(); err != nil {
 		return nil, err
 	}

@@ -13,10 +13,8 @@ import (
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/internal/storage"
-	"github.com/juju/juju/internal/storage/poolmanager"
-	"github.com/juju/juju/internal/storage/provider"
-	dummystorage "github.com/juju/juju/internal/storage/provider/dummy"
 	"github.com/juju/juju/state"
 	stateerrors "github.com/juju/juju/state/errors"
 	"github.com/juju/juju/state/testing"
@@ -131,13 +129,11 @@ func (s *VolumeStateSuite) TestAddApplicationNoUserDefaultPool(c *gc.C) {
 
 func (s *VolumeStateSuite) TestAddApplicationDefaultPool(c *gc.C) {
 	// Register a default pool.
-	pm := poolmanager.New(state.NewStateSettings(s.State), storage.ChainedProviderRegistry{
-		dummystorage.StorageProviders(),
-		provider.CommonStorageProviders(),
-	})
-	_, err := pm.Create("default-block", provider.LoopProviderType, map[string]interface{}{})
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.Model.UpdateModelConfig(state.NoopConfigSchemaSource, map[string]interface{}{
+	s.policy.Providers = map[string]domainstorage.StoragePoolDetails{
+		"default-block": {Name: "default-block", Provider: "loop"},
+	}
+
+	err := s.Model.UpdateModelConfig(state.NoopConfigSchemaSource, map[string]interface{}{
 		"storage-default-block-source": "default-block",
 	}, nil)
 	c.Assert(err, jc.ErrorIsNil)

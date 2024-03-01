@@ -14,8 +14,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/container"
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/internal/storage/poolmanager"
-	"github.com/juju/juju/internal/storage/provider"
+	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/state"
 )
 
@@ -648,9 +647,9 @@ func (s *assignSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
 	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	s.wordpress = wordpress
-	pm := poolmanager.New(state.NewStateSettings(s.State), provider.CommonStorageProviders())
-	_, err := pm.Create("loop-pool", provider.LoopProviderType, map[string]interface{}{})
-	c.Assert(err, jc.ErrorIsNil)
+	s.ConnSuite.policy.Providers = map[string]domainstorage.StoragePoolDetails{
+		"loop-pool": {Name: "loop-pool", Provider: "loop"},
+	}
 }
 
 func (s *assignSuite) setupSingleStorage(c *gc.C, kind, pool string) (*state.Application, *state.Unit, names.StorageTag) {

@@ -153,11 +153,12 @@ func (internalStatePolicy) ConstraintsValidator(envcontext.ProviderCallContext) 
 	return nil, errors.NotImplementedf("ConstraintsValidator")
 }
 
-func (internalStatePolicy) StorageProviderRegistry() (storage.ProviderRegistry, error) {
-	return storage.ChainedProviderRegistry{
+func (p internalStatePolicy) StorageServices() (StoragePoolService, storage.ProviderRegistry, error) {
+	registry := storage.ChainedProviderRegistry{
 		dummy.StorageProviders(),
 		provider.CommonStorageProviders(),
-	}, nil
+	}
+	return nil, registry, nil
 }
 
 func (internalStatePolicy) ProviderConfigSchemaSource(cloudName string) (config.ConfigSchemaSource, error) {

@@ -29,7 +29,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/internal/storage"
-	"github.com/juju/juju/internal/storage/poolmanager"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -66,7 +65,8 @@ func (s *iaasProvisionerSuite) newApi(c *gc.C, blockDeviceService storageprovisi
 	c.Assert(err, jc.ErrorIsNil)
 	registry := stateenvirons.NewStorageProviderRegistry(env)
 	s.st = s.ControllerModel(c).State()
-	pm := poolmanager.New(state.NewStateSettings(s.st), registry)
+	serviceFactoryGetter := s.ServiceFactoryGetter(c)
+	storageService := serviceFactoryGetter.FactoryForModel(s.st.ModelUUID()).Storage(registry)
 
 	s.authorizer = &apiservertesting.FakeAuthorizer{
 		Tag:        names.NewMachineTag("0"),
@@ -85,7 +85,7 @@ func (s *iaasProvisionerSuite) newApi(c *gc.C, blockDeviceService storageprovisi
 		s.resources,
 		s.authorizer,
 		registry,
-		pm,
+		storageService,
 		loggo.GetLogger("juju.apiserver.storageprovisioner"),
 	)
 	c.Assert(err, jc.ErrorIsNil)

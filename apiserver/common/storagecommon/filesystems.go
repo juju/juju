@@ -4,12 +4,13 @@
 package storagecommon
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/storage"
-	"github.com/juju/juju/internal/storage/poolmanager"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -17,11 +18,12 @@ import (
 // FilesystemParams returns the parameters for creating or destroying the
 // given filesystem.
 func FilesystemParams(
+	ctx context.Context,
 	f state.Filesystem,
 	storageInstance state.StorageInstance,
 	modelUUID, controllerUUID string,
 	environConfig *config.Config,
-	poolManager poolmanager.PoolManager,
+	storagePoolGetter StoragePoolGetter,
 	registry storage.ProviderRegistry,
 ) (params.FilesystemParams, error) {
 
@@ -44,7 +46,7 @@ func FilesystemParams(
 		return params.FilesystemParams{}, errors.Annotate(err, "computing storage tags")
 	}
 
-	providerType, cfg, err := StoragePoolConfig(pool, poolManager, registry)
+	providerType, cfg, err := StoragePoolConfig(ctx, pool, storagePoolGetter, registry)
 	if err != nil {
 		return params.FilesystemParams{}, errors.Trace(err)
 	}

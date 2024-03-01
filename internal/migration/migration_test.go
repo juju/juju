@@ -27,6 +27,8 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/migration"
+	"github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/state"
 	jujutesting "github.com/juju/juju/testing"
@@ -68,7 +70,10 @@ func (s *ImportSuite) TestBadBytes(c *gc.C) {
 	configSchemaSource := func(environs.CloudService) config.ConfigSchemaSourceGetter {
 		return state.NoopConfigSchemaSource
 	}
-	importer := migration.NewModelImporter(controller, scope, s.controllerConfigService, s.serviceFactoryGetter, configSchemaSource)
+	importer := migration.NewModelImporter(
+		controller, scope, s.controllerConfigService, s.serviceFactoryGetter, configSchemaSource,
+		func() (storage.ProviderRegistry, error) { return provider.CommonStorageProviders(), nil },
+	)
 	model, st, err := importer.ImportModel(context.Background(), bytes)
 	c.Check(st, gc.IsNil)
 	c.Check(model, gc.IsNil)
@@ -141,7 +146,10 @@ func (s *ImportSuite) exportImport(c *gc.C, leaders map[string]string) {
 	configSchemaSource := func(environs.CloudService) config.ConfigSchemaSourceGetter {
 		return state.NoopConfigSchemaSource
 	}
-	importer := migration.NewModelImporter(controller, scope, s.controllerConfigService, s.serviceFactoryGetter, configSchemaSource)
+	importer := migration.NewModelImporter(
+		controller, scope, s.controllerConfigService, s.serviceFactoryGetter, configSchemaSource,
+		func() (storage.ProviderRegistry, error) { return provider.CommonStorageProviders(), nil },
+	)
 	gotM, gotSt, err := importer.ImportModel(context.Background(), bytes)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(controller.model.Tag().Id(), gc.Equals, "bd3fae18-5ea1-4bc5-8837-45400cf1f8f6")
@@ -285,7 +293,8 @@ func (s *ImportSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(jujutesting.FakeControllerConfig(), nil).AnyTimes()
 
 	s.serviceFactory = NewMockServiceFactory(ctrl)
-	s.serviceFactory.EXPECT().Cloud().Return(nil)
+	s.serviceFactory.EXPECT().Cloud().Return(nil).AnyTimes()
+	s.serviceFactory.EXPECT().Credential().Return(nil).AnyTimes()
 	s.serviceFactory.EXPECT().Machine().Return(nil)
 	s.serviceFactory.EXPECT().Application().Return(nil)
 	s.serviceFactoryGetter = NewMockServiceFactoryGetter(ctrl)

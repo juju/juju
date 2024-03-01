@@ -4,6 +4,8 @@
 package storage_test
 
 import (
+	"fmt"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
@@ -13,8 +15,8 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/client/storage"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	storageerrors "github.com/juju/juju/domain/storage/errors"
 	jujustorage "github.com/juju/juju/internal/storage"
-	"github.com/juju/juju/internal/storage/poolmanager"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
@@ -46,10 +48,10 @@ type baseStorageSuite struct {
 	filesystemAttachment *mockFilesystemAttachment
 	stub                 testing.Stub
 
-	registry    jujustorage.StaticProviderRegistry
-	poolManager *mockPoolManager
-	pools       map[string]*jujustorage.Config
-	poolsInUse  []string
+	storagePoolService *mockPoolService
+	registry           jujustorage.StaticProviderRegistry
+	pools              map[string]*jujustorage.Config
+	poolsInUse         []string
 
 	blocks map[state.BlockType]state.Block
 }
@@ -65,15 +67,15 @@ func (s *baseStorageSuite) SetUpTest(c *gc.C) {
 
 	s.registry = jujustorage.StaticProviderRegistry{map[jujustorage.ProviderType]jujustorage.Provider{}}
 	s.pools = make(map[string]*jujustorage.Config)
-	s.poolManager = s.constructPoolManager()
+	s.storagePoolService = s.constructPoolService()
 	s.poolsInUse = []string{}
 
 	s.api = storage.NewStorageAPIForTest(s.state, state.ModelTypeIAAS, s.storageAccessor, s.blockDeviceGetter, s.storageMetadata, s.authorizer, apiservertesting.NoopModelCredentialInvalidatorGetter)
 	s.apiCaas = storage.NewStorageAPIForTest(s.state, state.ModelTypeCAAS, s.storageAccessor, s.blockDeviceGetter, s.storageMetadata, s.authorizer, apiservertesting.NoopModelCredentialInvalidatorGetter)
 }
 
-func (s *baseStorageSuite) storageMetadata() (poolmanager.PoolManager, jujustorage.ProviderRegistry, error) {
-	return s.poolManager, s.registry, nil
+func (s *baseStorageSuite) storageMetadata() (storage.StorageService, jujustorage.ProviderRegistry, error) {
+	return s.storagePoolService, s.registry, nil
 }
 
 // TODO(axw) get rid of assertCalls, use stub directly everywhere.
@@ -83,7 +85,6 @@ func (s *baseStorageSuite) assertCalls(c *gc.C, expectedCalls []string) {
 
 const (
 	allStorageInstancesCall                 = "allStorageInstances"
-	removeStoragePoolCall                   = "removeStoragePool"
 	storageInstanceAttachmentsCall          = "storageInstanceAttachments"
 	storageInstanceCall                     = "StorageInstance"
 	storageInstanceFilesystemCall           = "StorageInstanceFilesystem"
@@ -170,15 +171,6 @@ func (s *baseStorageSuite) constructStorageAccessor() *mockStorageAccessor {
 		allStorageInstances: func() ([]state.StorageInstance, error) {
 			s.stub.AddCall(allStorageInstancesCall)
 			return []state.StorageInstance{s.storageInstance}, nil
-		},
-		removeStoragePool: func(poolName string) error {
-			s.stub.AddCall(removeStoragePoolCall)
-			for _, p := range s.poolsInUse {
-				if p == poolName {
-					return errors.Errorf("storage pool %q in use", poolName)
-				}
-			}
-			return s.poolManager.Delete(poolName)
 		},
 		storageInstance: func(sTag names.StorageTag) (state.StorageInstance, error) {
 			s.stub.AddCall(storageInstanceCall, sTag)
@@ -342,18 +334,18 @@ func (s *baseStorageSuite) assertBlocked(c *gc.C, err error, msg string) {
 	c.Assert(err, gc.ErrorMatches, msg)
 }
 
-func (s *baseStorageSuite) constructPoolManager() *mockPoolManager {
-	return &mockPoolManager{
+func (s *baseStorageSuite) constructPoolService() *mockPoolService {
+	return &mockPoolService{
 		getPool: func(name string) (*jujustorage.Config, error) {
 			if one, ok := s.pools[name]; ok {
 				return one, nil
 			}
-			return nil, errors.NotFoundf("mock pool manager: get pool %v", name)
+			return nil, fmt.Errorf("storage pool %q not found%w", name, errors.Hide(storageerrors.PoolNotFoundError))
 		},
-		createPool: func(name string, providerType jujustorage.ProviderType, attrs map[string]interface{}) (*jujustorage.Config, error) {
+		createPool: func(name string, providerType jujustorage.ProviderType, attrs map[string]interface{}) error {
 			pool, err := jujustorage.NewConfig(name, providerType, attrs)
 			s.pools[name] = pool
-			return pool, err
+			return err
 		},
 		removePool: func(name string) error {
 			delete(s.pools, name)
@@ -368,11 +360,11 @@ func (s *baseStorageSuite) constructPoolManager() *mockPoolManager {
 			}
 			return result, nil
 		},
-		replacePool: func(name, provider string, attrs map[string]interface{}) error {
+		replacePool: func(name string, provider jujustorage.ProviderType, attrs map[string]interface{}) error {
 			if p, ok := s.pools[name]; ok {
 				providerType := p.Provider()
 				if provider != "" {
-					providerType = jujustorage.ProviderType(provider)
+					providerType = provider
 				}
 				newPool, err := jujustorage.NewConfig(name, providerType, attrs)
 				s.pools[name] = newPool

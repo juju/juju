@@ -5,6 +5,7 @@ package storagecommon_test
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
@@ -12,8 +13,8 @@ import (
 
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/core/blockdevice"
+	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/internal/storage"
-	"github.com/juju/juju/internal/storage/poolmanager"
 	"github.com/juju/juju/state"
 )
 
@@ -155,12 +156,10 @@ func (p *fakeVolumeAttachmentPlan) BlockDeviceInfo() (state.BlockDeviceInfo, err
 	return *p.blockInfo, p.err
 }
 
-type fakePoolManager struct {
-	poolmanager.PoolManager
-}
+type fakeStoragePoolGetter struct{}
 
-func (pm *fakePoolManager) Get(name string) (*storage.Config, error) {
-	return nil, errors.NotFoundf("pool")
+func (pm *fakeStoragePoolGetter) GetStoragePoolByName(ctx context.Context, name string) (*storage.Config, error) {
+	return nil, fmt.Errorf("storage pool %q not found%w", name, errors.Hide(storageerrors.PoolNotFoundError))
 }
 
 type fakeFilesystem struct {

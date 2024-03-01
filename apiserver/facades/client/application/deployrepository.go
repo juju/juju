@@ -33,7 +33,6 @@ import (
 	environsconfig "github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm/services"
 	"github.com/juju/juju/internal/storage"
-	"github.com/juju/juju/internal/storage/poolmanager"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	jujuversion "github.com/juju/juju/version"
@@ -286,7 +285,7 @@ type validatorConfig struct {
 	credentialService  common.CredentialService
 	registry           storage.ProviderRegistry
 	state              DeployFromRepositoryState
-	storagePoolManager poolmanager.PoolManager
+	storagePoolGetter  StoragePoolGetter
 }
 
 func makeDeployFromRepositoryValidator(ctx context.Context, cfg validatorConfig) DeployFromRepositoryValidator {
@@ -305,10 +304,10 @@ func makeDeployFromRepositoryValidator(ctx context.Context, cfg validatorConfig)
 	}
 	if cfg.model.Type() == state.ModelTypeCAAS {
 		return &caasDeployFromRepositoryValidator{
-			caasBroker:         cfg.caasBroker,
-			registry:           cfg.registry,
-			storagePoolManager: cfg.storagePoolManager,
-			validator:          v,
+			caasBroker:        cfg.caasBroker,
+			registry:          cfg.registry,
+			storagePoolGetter: cfg.storagePoolGetter,
+			validator:         v,
 			caasPrecheckFunc: func(dt deployTemplate) error {
 				attachStorage := make([]string, len(dt.attachStorage))
 				for i, tag := range dt.attachStorage {
@@ -322,7 +321,7 @@ func makeDeployFromRepositoryValidator(ctx context.Context, cfg validatorConfig)
 					placement:       dt.placement,
 					storage:         dt.storage,
 				}
-				return cdp.precheck(ctx, v.model, cfg.storagePoolManager, cfg.registry, cfg.caasBroker)
+				return cdp.precheck(ctx, v.model, cfg.storagePoolGetter, cfg.registry, cfg.caasBroker)
 			},
 		}
 	}
@@ -519,9 +518,9 @@ func (v *deployFromRepositoryValidator) resolvedCharmValidation(ctx context.Cont
 type caasDeployFromRepositoryValidator struct {
 	validator *deployFromRepositoryValidator
 
-	caasBroker         CaasBrokerInterface
-	registry           storage.ProviderRegistry
-	storagePoolManager poolmanager.PoolManager
+	caasBroker        CaasBrokerInterface
+	registry          storage.ProviderRegistry
+	storagePoolGetter StoragePoolGetter
 
 	// Needed for testing. caasDeployTemplate precheck functionality tested
 	// elsewhere

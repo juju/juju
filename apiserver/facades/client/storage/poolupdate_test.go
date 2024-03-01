@@ -10,6 +10,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/rpc/params"
@@ -56,7 +57,7 @@ func (s *poolUpdateSuite) TestUpdatePool(c *gc.C) {
 	expected, err := storage.NewConfig(poolName, provider.LoopProviderType, newAttrs)
 	c.Assert(err, jc.ErrorIsNil)
 
-	pools, err := s.poolManager.List()
+	pools, err := s.storagePoolService.ListStoragePools(context.Background(), domainstorage.StoragePoolFilter{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(pools, gc.HasLen, 1)
 	c.Assert(pools[0], gc.DeepEquals, expected)

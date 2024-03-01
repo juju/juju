@@ -18,8 +18,6 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/storage"
-	"github.com/juju/juju/internal/storage/poolmanager"
-	"github.com/juju/juju/internal/storage/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 )
@@ -374,65 +372,4 @@ func (s *InitializeSuite) TestCloudConfigWithForbiddenValues(c *gc.C) {
 		_, err := state.Initialize(args, state.NoopConfigSchemaSource)
 		c.Assert(err, gc.ErrorMatches, "local cloud config cannot contain .*")
 	}
-}
-
-func (s *InitializeSuite) TestInitializeWithStoragePool(c *gc.C) {
-	cfg := testing.ModelConfig(c)
-	uuid := cfg.UUID()
-
-	owner := names.NewLocalUserTag("initialize-admin")
-	controllerCfg := testing.FakeControllerConfig()
-
-	staticProvider := &dummy.StorageProvider{
-		IsDynamic:    true,
-		StorageScope: storage.ScopeEnviron,
-		SupportsFunc: func(storage.StorageKind) bool {
-			return false
-		},
-	}
-	registry := storage.StaticProviderRegistry{
-		Providers: map[storage.ProviderType]storage.Provider{
-			"dummy": staticProvider,
-		},
-	}
-	ctlr, err := state.Initialize(state.InitializeParams{
-		Clock:            clock.WallClock,
-		ControllerConfig: controllerCfg,
-		ControllerModelArgs: state.ModelArgs{
-			Type:                    state.ModelTypeIAAS,
-			CloudName:               "dummy",
-			Owner:                   owner,
-			Config:                  cfg,
-			StorageProviderRegistry: registry,
-		},
-		CloudName:     "dummy",
-		MongoSession:  s.Session,
-		AdminPassword: "dummy-secret",
-		StoragePools: map[string]storage.Attrs{
-			"spool": {
-				"type": "dummy",
-				"foo":  "bar",
-			},
-		},
-	}, state.NoopConfigSchemaSource)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ctlr, gc.NotNil)
-	sysState, err := ctlr.SystemState()
-	c.Assert(err, jc.ErrorIsNil)
-	m, err := sysState.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	modelTag := m.ModelTag()
-	c.Assert(modelTag.Id(), gc.Equals, uuid)
-
-	err = ctlr.Close()
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.openState(c, modelTag)
-
-	pm := poolmanager.New(state.NewStateSettings(s.State), registry)
-	storageCfg, err := pm.Get("spool")
-	c.Assert(err, jc.ErrorIsNil)
-	expectedCfg, err := storage.NewConfig("spool", "dummy", map[string]interface{}{"foo": "bar"})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(storageCfg, jc.DeepEquals, expectedCfg)
 }

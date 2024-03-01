@@ -5,7 +5,9 @@ package testing
 
 import (
 	stdcontext "context"
+	"fmt"
 
+	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/schema"
 	"gopkg.in/juju/environschema.v1"
@@ -13,15 +15,21 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/domain/credential"
+	domainstorage "github.com/juju/juju/domain/storage"
+	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/internal/storage/provider"
+	"github.com/juju/juju/state"
 )
 
 type MockPolicy struct {
 	GetConfigValidator         func() (config.Validator, error)
 	GetConstraintsValidator    func() (constraints.Validator, error)
 	GetStorageProviderRegistry func() (storage.ProviderRegistry, error)
+
+	Providers map[string]domainstorage.StoragePoolDetails
 }
 
 func (p *MockPolicy) ConfigValidator() (config.Validator, error) {
@@ -38,11 +46,39 @@ func (p *MockPolicy) ConstraintsValidator(ctx envcontext.ProviderCallContext) (c
 	return nil, errors.NotImplementedf("ConstraintsValidator")
 }
 
-func (p *MockPolicy) StorageProviderRegistry() (storage.ProviderRegistry, error) {
-	if p.GetStorageProviderRegistry != nil {
-		return p.GetStorageProviderRegistry()
+type mockStoragePoolService struct {
+	state.StoragePoolService
+	Providers map[string]domainstorage.StoragePoolDetails
+}
+
+func (m *mockStoragePoolService) GetStoragePoolByName(_ stdcontext.Context, name string) (*storage.Config, error) {
+	p, ok := m.Providers[name]
+	if !ok {
+		return nil, fmt.Errorf("storage pool %q not found%w", name, errors.Hide(storageerrors.PoolNotFoundError))
 	}
-	return nil, errors.NotImplementedf("StorageProviderRegistry")
+	attrs := transform.Map(p.Attrs, func(k, v string) (string, any) { return k, v })
+	return storage.NewConfig(name, storage.ProviderType(p.Provider), attrs)
+}
+
+func (m *mockStoragePoolService) ListStoragePools(_ stdcontext.Context, _ domainstorage.StoragePoolFilter) ([]*storage.Config, error) {
+	sp, err := storage.NewConfig(string(provider.LoopProviderType), provider.LoopProviderType, nil)
+	return []*storage.Config{sp}, err
+}
+
+type noopStoragePoolGetter struct {
+	state.StoragePoolService
+}
+
+func (noopStoragePoolGetter) GetStoragePoolByName(ctx stdcontext.Context, name string) (*storage.Config, error) {
+	return nil, fmt.Errorf("storage pool %q not found%w", name, errors.Hide(storageerrors.PoolNotFoundError))
+}
+
+func (p *MockPolicy) StorageServices() (state.StoragePoolService, storage.ProviderRegistry, error) {
+	if p.GetStorageProviderRegistry != nil {
+		registry, err := p.GetStorageProviderRegistry()
+		return &mockStoragePoolService{Providers: p.Providers}, registry, err
+	}
+	return noopStoragePoolGetter{}, nil, errors.NotImplementedf("StorageProviderRegistry")
 }
 
 type MockConfigSchemaSource struct {

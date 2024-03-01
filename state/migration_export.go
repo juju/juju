@@ -28,7 +28,6 @@ import (
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/internal/feature"
 	secretsprovider "github.com/juju/juju/internal/secrets/provider"
-	"github.com/juju/juju/internal/storage/poolmanager"
 	"github.com/juju/juju/state/migrations"
 )
 
@@ -2365,9 +2364,6 @@ func (e *exporter) storage() error {
 	if err := e.storageInstances(); err != nil {
 		return errors.Trace(err)
 	}
-	if err := e.storagePools(); err != nil {
-		return errors.Trace(err)
-	}
 	return nil
 }
 
@@ -2711,26 +2707,6 @@ func (e *exporter) readStorageAttachments() (map[string][]names.UnitTag, error) 
 	return result, nil
 }
 
-func (e *exporter) storagePools() error {
-	registry, err := e.st.storageProviderRegistry()
-	if err != nil {
-		return errors.Annotate(err, "getting provider registry")
-	}
-	pm := poolmanager.New(storagePoolSettingsManager{e: e}, registry)
-	poolConfigs, err := pm.List()
-	if err != nil {
-		return errors.Annotate(err, "listing pools")
-	}
-	for _, cfg := range poolConfigs {
-		e.model.AddStoragePool(description.StoragePoolArgs{
-			Name:       cfg.Name(),
-			Provider:   string(cfg.Provider()),
-			Attributes: cfg.Attrs(),
-		})
-	}
-	return nil
-}
-
 func (e *exporter) groupOffersByApplicationName() (map[string][]*crossmodel.ApplicationOffer, error) {
 	if e.cfg.SkipApplicationOffers {
 		return nil, nil
@@ -2750,20 +2726,4 @@ func (e *exporter) groupOffersByApplicationName() (map[string][]*crossmodel.Appl
 		appMap[offer.ApplicationName] = append(appMap[offer.ApplicationName], offer)
 	}
 	return appMap, nil
-}
-
-type storagePoolSettingsManager struct {
-	poolmanager.SettingsManager
-	e *exporter
-}
-
-func (m storagePoolSettingsManager) ListSettings(keyPrefix string) (map[string]map[string]interface{}, error) {
-	result := make(map[string]map[string]interface{})
-	for key, doc := range m.e.modelSettings {
-		if strings.HasPrefix(key, keyPrefix) {
-			result[key] = doc.Settings
-			delete(m.e.modelSettings, key)
-		}
-	}
-	return result, nil
 }

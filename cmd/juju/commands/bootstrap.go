@@ -41,6 +41,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -54,7 +55,6 @@ import (
 	"github.com/juju/juju/internal/provider/lxd/lxdnames"
 	"github.com/juju/juju/internal/proxy"
 	"github.com/juju/juju/internal/storage"
-	"github.com/juju/juju/internal/storage/poolmanager"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/osenv"
@@ -886,13 +886,23 @@ to create a new model to deploy %sworkloads.
 
 	// Validate the storage provider config.
 	registry := stateenvirons.NewStorageProviderRegistry(environ)
-	m := poolmanager.MemSettings{
-		Settings: make(map[string]map[string]interface{}),
-	}
-	pm := poolmanager.New(m, registry)
 	for poolName, cfg := range bootstrapCfg.storagePools {
-		poolType, _ := cfg[poolmanager.Type].(string)
-		_, err = pm.Create(poolName, storage.ProviderType(poolType), cfg)
+		poolAttrs := make(storage.Attrs)
+		for k, v := range cfg {
+			poolAttrs[k] = v
+		}
+		poolType, _ := poolAttrs[domainstorage.StorageProviderType].(string)
+		delete(poolAttrs, domainstorage.StoragePoolName)
+		delete(poolAttrs, domainstorage.StorageProviderType)
+		sc, err := storage.NewConfig(poolName, storage.ProviderType(poolType), poolAttrs)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		p, err := registry.StorageProvider(sc.Provider())
+		if err != nil {
+			return errors.Annotatef(err, "invalid storage provider config")
+		}
+		err = p.ValidateConfig(sc)
 		if err != nil {
 			return errors.NewNotValid(err, "invalid storage provider config")
 		}
@@ -1488,11 +1498,11 @@ func (c *bootstrapCommand) bootstrapConfigs(
 	}
 	var storagePools map[string]storage.Attrs
 	if len(storagePoolAttrs) > 0 {
-		poolName, _ := storagePoolAttrs[poolmanager.Name].(string)
+		poolName, _ := storagePoolAttrs[domainstorage.StoragePoolName].(string)
 		if poolName == "" {
 			return bootstrapConfigs{}, errors.NewNotValid(nil, "storage pool requires a name")
 		}
-		poolType, _ := storagePoolAttrs[poolmanager.Type].(string)
+		poolType, _ := storagePoolAttrs[domainstorage.StorageProviderType].(string)
 		if poolType == "" {
 			return bootstrapConfigs{}, errors.NewNotValid(nil, "storage pool requires a type")
 		}

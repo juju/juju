@@ -61,7 +61,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *ManifoldSuite) fakeOpenState(context.Context, coreagent.Config, servicefactory.ControllerServiceFactory) (*state.StatePool, error) {
+func (s *ManifoldSuite) fakeOpenState(context.Context, coreagent.Config, servicefactory.ControllerServiceFactory, servicefactory.ServiceFactoryGetter) (*state.StatePool, error) {
 	s.openStateCalled = true
 	if s.openStateErr != nil {
 		return nil, s.openStateErr
@@ -271,4 +271,5 @@ type dummyWorker struct {
 
 type mockServiceFactory struct {
 	servicefactory.ControllerServiceFactory
+	servicefactory.ServiceFactoryGetter
 }

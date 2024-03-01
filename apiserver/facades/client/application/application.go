@@ -49,7 +49,6 @@ import (
 	environsconfig "github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charmhub"
 	"github.com/juju/juju/internal/storage"
-	"github.com/juju/juju/internal/storage/poolmanager"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -100,7 +99,7 @@ type APIBase struct {
 	// state wherever we pass in a state.Charm currently.
 	stateCharm func(Charm) *state.Charm
 
-	storagePoolManager    poolmanager.PoolManager
+	storagePoolGetter     StoragePoolGetter
 	registry              storage.ProviderRegistry
 	caasBroker            CaasBrokerInterface
 	deployApplicationFunc DeployApplicationFunc
@@ -127,9 +126,9 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 	serviceFactory := ctx.ServiceFactory()
 
 	var (
-		storagePoolManager poolmanager.PoolManager
-		registry           storage.ProviderRegistry
-		caasBroker         caas.Broker
+		storagePoolGetter StoragePoolGetter
+		registry          storage.ProviderRegistry
+		caasBroker        caas.Broker
 	)
 	modelType := model.Type()
 	if modelType == state.ModelTypeCAAS {
@@ -138,7 +137,7 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 			return nil, errors.Annotate(err, "getting caas client")
 		}
 		registry = stateenvirons.NewStorageProviderRegistry(caasBroker)
-		storagePoolManager = poolmanager.New(state.NewStateSettings(ctx.State()), registry)
+		storagePoolGetter = serviceFactory.Storage(registry)
 	}
 
 	resources := ctx.Resources()
@@ -180,7 +179,7 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 		credentialService:  serviceFactory.Credential(),
 		registry:           registry,
 		state:              state,
-		storagePoolManager: storagePoolManager,
+		storagePoolGetter:  storagePoolGetter,
 	}
 	repoDeploy := NewDeployFromRepositoryAPI(state, serviceFactory.Application(), ctx.ObjectStore(), makeDeployFromRepositoryValidator(stdCtx, validatorCfg))
 
@@ -200,7 +199,7 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 		leadershipReader,
 		stateCharm,
 		DeployApplication,
-		storagePoolManager,
+		storagePoolGetter,
 		registry,
 		resources,
 		caasBroker,
@@ -228,7 +227,7 @@ func NewAPIBase(
 	leadershipReader leadership.Reader,
 	stateCharm func(Charm) *state.Charm,
 	deployApplication DeployApplicationFunc,
-	storagePoolManager poolmanager.PoolManager,
+	storagepoolGetter StoragePoolGetter,
 	registry storage.ProviderRegistry,
 	resources facade.Resources,
 	caasBroker CaasBrokerInterface,
@@ -254,7 +253,7 @@ func NewAPIBase(
 		leadershipReader:      leadershipReader,
 		stateCharm:            stateCharm,
 		deployApplicationFunc: deployApplication,
-		storagePoolManager:    storagePoolManager,
+		storagePoolGetter:     storagepoolGetter,
 		registry:              registry,
 		resources:             resources,
 		caasBroker:            caasBroker,
@@ -410,7 +409,7 @@ type caasDeployParams struct {
 func (c caasDeployParams) precheck(
 	ctx context.Context,
 	model Model,
-	storagePoolManager poolmanager.PoolManager,
+	storagePoolGetter StoragePoolGetter,
 	registry storage.ProviderRegistry,
 	caasBroker CaasBrokerInterface,
 ) error {
@@ -446,7 +445,7 @@ func (c caasDeployParams) precheck(
 					"See https://discourse.charmhub.io/t/getting-started/152.",
 			)
 		}
-		sp, err := charmStorageParams("", storageClassName, cfg, "", storagePoolManager, registry)
+		sp, err := charmStorageParams(ctx, "", storageClassName, cfg, "", storagePoolGetter, registry)
 		if err != nil {
 			return errors.Annotatef(err, "getting operator storage params for %q", c.applicationName)
 		}
@@ -465,7 +464,7 @@ func (c caasDeployParams) precheck(
 		if cons.Pool == "" && workloadStorageClass == "" {
 			return errors.Errorf("storage pool for %q must be specified since there's no model default storage class", storageName)
 		}
-		_, err := charmStorageParams("", workloadStorageClass, cfg, cons.Pool, storagePoolManager, registry)
+		_, err := charmStorageParams(ctx, "", workloadStorageClass, cfg, cons.Pool, storagePoolGetter, registry)
 		if err != nil {
 			return errors.Annotatef(err, "getting workload storage params for %q", c.applicationName)
 		}
@@ -522,7 +521,7 @@ func (api *APIBase) deployApplication(
 			placement:       args.Placement,
 			storage:         args.Storage,
 		}
-		if err := caas.precheck(ctx, api.model, api.storagePoolManager, api.registry, api.caasBroker); err != nil {
+		if err := caas.precheck(ctx, api.model, api.storagePoolGetter, api.registry, api.caasBroker); err != nil {
 			return errors.Trace(err)
 		}
 	}

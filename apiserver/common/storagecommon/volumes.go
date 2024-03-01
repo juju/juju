@@ -4,26 +4,34 @@
 package storagecommon
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/core/life"
+	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/storage"
-	"github.com/juju/juju/internal/storage/poolmanager"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
 
+// StoragePoolGetter instances get a storage pool by name.
+type StoragePoolGetter interface {
+	GetStoragePoolByName(ctx context.Context, name string) (*storage.Config, error)
+}
+
 // VolumeParams returns the parameters for creating or destroying
 // the given volume.
 func VolumeParams(
+	ctx context.Context,
 	v state.Volume,
 	storageInstance state.StorageInstance,
 	modelUUID, controllerUUID string,
 	environConfig *config.Config,
-	poolManager poolmanager.PoolManager,
+	storagePoolGetter StoragePoolGetter,
 	registry storage.ProviderRegistry,
 ) (params.VolumeParams, error) {
 
@@ -46,7 +54,7 @@ func VolumeParams(
 		return params.VolumeParams{}, errors.Annotate(err, "computing storage tags")
 	}
 
-	providerType, cfg, err := StoragePoolConfig(pool, poolManager, registry)
+	providerType, cfg, err := StoragePoolConfig(ctx, pool, storagePoolGetter, registry)
 	if err != nil {
 		return params.VolumeParams{}, errors.Trace(err)
 	}
@@ -65,9 +73,9 @@ func VolumeParams(
 // such pool with the specified name, but it identifies a
 // storage provider, then that type will be returned with a
 // nil configuration.
-func StoragePoolConfig(name string, poolManager poolmanager.PoolManager, registry storage.ProviderRegistry) (storage.ProviderType, *storage.Config, error) {
-	pool, err := poolManager.Get(name)
-	if errors.Is(err, errors.NotFound) {
+func StoragePoolConfig(ctx context.Context, name string, storagePoolGetter StoragePoolGetter, registry storage.ProviderRegistry) (storage.ProviderType, *storage.Config, error) {
+	pool, err := storagePoolGetter.GetStoragePoolByName(ctx, name)
+	if errors.Is(err, storageerrors.PoolNotFoundError) {
 		// If not a storage pool, then maybe a provider type.
 		providerType := storage.ProviderType(name)
 		if _, err1 := registry.StorageProvider(providerType); err1 != nil {

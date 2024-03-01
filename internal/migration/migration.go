@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/servicefactory"
+	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/state"
 )
@@ -46,11 +47,14 @@ type LegacyStateExporter interface {
 	ExportPartial(cfg state.ExportConfig, store objectstore.ObjectStore) (description.Model, error)
 }
 
+type storageRegistryGetter func() (storage.ProviderRegistry, error)
+
 // ModelExporter facilitates partial and full export of a model.
 type ModelExporter struct {
 	// TODO(nvinuesa): This is being deprecated, only needed until the
 	// migration to dqlite is complete.
-	legacyStateExporter LegacyStateExporter
+	legacyStateExporter   LegacyStateExporter
+	storageRegistryGetter storageRegistryGetter
 
 	scope modelmigration.Scope
 }
@@ -58,8 +62,15 @@ type ModelExporter struct {
 // NewModelExporter returns a new ModelExporter that encapsulates the
 // legacyStateExporter. The legacyStateExporter is being deprecated, only
 // needed until the migration to dqlite is complete.
-func NewModelExporter(legacyStateExporter LegacyStateExporter, scope modelmigration.Scope) *ModelExporter {
-	return &ModelExporter{legacyStateExporter: legacyStateExporter, scope: scope}
+func NewModelExporter(
+	legacyStateExporter LegacyStateExporter,
+	scope modelmigration.Scope,
+	storageRegistryGetter storageRegistryGetter,
+) *ModelExporter {
+	return &ModelExporter{
+		legacyStateExporter: legacyStateExporter, scope: scope,
+		storageRegistryGetter: storageRegistryGetter,
+	}
 }
 
 // ExportModelPartial partially serializes a model description from the
@@ -87,8 +98,12 @@ func (e *ModelExporter) ExportModel(ctx context.Context, leaders map[string]stri
 
 // Export serializes a model description from the database contents.
 func (e *ModelExporter) Export(ctx context.Context, model description.Model) (description.Model, error) {
+	registry, err := e.storageRegistryGetter()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	coordinator := modelmigration.NewCoordinator()
-	migrations.ExportOperations(coordinator)
+	migrations.ExportOperations(coordinator, registry)
 	if err := coordinator.Perform(ctx, e.scope, model); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -115,6 +130,7 @@ type ModelImporter struct {
 	controllerConfigService    ControllerConfigService
 	serviceFactoryGetter       servicefactory.ServiceFactoryGetter
 	configSchemaSourceProvider ConfigSchemaSourceProvider
+	storageRegistryGetter      storageRegistryGetter
 
 	scope modelmigration.ScopeForModel
 }
@@ -128,6 +144,7 @@ func NewModelImporter(
 	controllerConfigService ControllerConfigService,
 	serviceFactoryGetter servicefactory.ServiceFactoryGetter,
 	configSchemaSourceProvider ConfigSchemaSourceProvider,
+	storageRegistryGetter storageRegistryGetter,
 ) *ModelImporter {
 	return &ModelImporter{
 		legacyStateImporter:        stateImporter,
@@ -135,6 +152,7 @@ func NewModelImporter(
 		controllerConfigService:    controllerConfigService,
 		serviceFactoryGetter:       serviceFactoryGetter,
 		configSchemaSourceProvider: configSchemaSourceProvider,
+		storageRegistryGetter:      storageRegistryGetter,
 	}
 }
 
@@ -161,8 +179,12 @@ func (i *ModelImporter) ImportModel(ctx context.Context, bytes []byte) (*state.M
 		return nil, nil, errors.Trace(err)
 	}
 
+	registry, err := i.storageRegistryGetter()
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
 	coordinator := modelmigration.NewCoordinator()
-	migrations.ImportOperations(coordinator, logger)
+	migrations.ImportOperations(coordinator, logger, registry)
 	if err := coordinator.Perform(ctx, i.scope(model.Tag().Id()), model); err != nil {
 		return nil, nil, errors.Trace(err)
 	}

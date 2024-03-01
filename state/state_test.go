@@ -43,12 +43,11 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/upgrade"
+	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/internal/mongo/mongotest"
 	"github.com/juju/juju/internal/storage"
-	"github.com/juju/juju/internal/storage/poolmanager"
-	"github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/mocks"
@@ -965,9 +964,9 @@ func (s *StateSuite) TestAddMachinePlacementIgnoresModelConstraints(c *gc.C) {
 }
 
 func (s *StateSuite) TestAddMachineWithVolumes(c *gc.C) {
-	pm := poolmanager.New(state.NewStateSettings(s.State), provider.CommonStorageProviders())
-	_, err := pm.Create("loop-pool", provider.LoopProviderType, map[string]interface{}{})
-	c.Assert(err, jc.ErrorIsNil)
+	s.policy.Providers = map[string]domainstorage.StoragePoolDetails{
+		"loop-pool": {Name: "loop-pool", Provider: "loop"},
+	}
 
 	oneJob := []state.MachineJob{state.JobHostUnits}
 	cons := constraints.MustParse("mem=4G")

@@ -10,6 +10,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	domainstorage "github.com/juju/juju/domain/storage"
 	jujustorage "github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/rpc/params"
@@ -40,7 +41,7 @@ func (s *poolCreateSuite) TestCreatePool(c *gc.C) {
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].Error, gc.IsNil)
 
-	pools, err := s.poolManager.List()
+	pools, err := s.storagePoolService.ListStoragePools(context.Background(), domainstorage.StoragePoolFilter{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(pools, gc.HasLen, 1)
 	c.Assert(pools[0], gc.DeepEquals, expected)
@@ -48,8 +49,8 @@ func (s *poolCreateSuite) TestCreatePool(c *gc.C) {
 
 func (s *poolCreateSuite) TestCreatePoolError(c *gc.C) {
 	msg := "as expected"
-	s.baseStorageSuite.poolManager.createPool = func(name string, providerType jujustorage.ProviderType, attrs map[string]interface{}) (*jujustorage.Config, error) {
-		return nil, errors.New(msg)
+	s.baseStorageSuite.storagePoolService.createPool = func(name string, providerType jujustorage.ProviderType, attrs map[string]interface{}) error {
+		return errors.New(msg)
 	}
 
 	args := params.StoragePoolArgs{
