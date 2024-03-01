@@ -23,27 +23,14 @@ import (
 
 type PrecheckerSuite struct {
 	ConnSuite
-	prechecker mockPrechecker
+	prechecker *mockPrechecker
 }
 
 var _ = gc.Suite(&PrecheckerSuite{})
 
-type mockPrechecker struct {
-	precheckInstanceError error
-	precheckInstanceArgs  environs.PrecheckInstanceParams
-}
-
-func (p mockPrechecker) PrecheckInstance(ctx envcontext.ProviderCallContext, args environs.PrecheckInstanceParams) error {
-	p.precheckInstanceArgs = args
-	return p.precheckInstanceError
-}
-
 func (s *PrecheckerSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
-	s.prechecker = mockPrechecker{}
-	s.policy.GetPrechecker = func() (environs.InstancePrechecker, error) {
-		return &s.prechecker, nil
-	}
+	s.prechecker = &mockPrechecker{}
 }
 
 func (s *PrecheckerSuite) TestPrecheckInstance(c *gc.C) {
@@ -53,7 +40,7 @@ func (s *PrecheckerSuite) TestPrecheckInstance(c *gc.C) {
 	// to create an instance.
 	modelCons := constraints.MustParse("mem=4G")
 	placement := ""
-	template, err := s.addOneMachine(c, modelCons, placement)
+	template, err := s.addOneMachine(c, s.prechecker, modelCons, placement)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.prechecker.precheckInstanceArgs.Base.String(), gc.Equals, template.Base.String())
 	c.Assert(s.prechecker.precheckInstanceArgs.Placement, gc.Equals, placement)
@@ -71,7 +58,7 @@ func (s *PrecheckerSuite) TestPrecheckInstanceWithPlacement(c *gc.C) {
 	// attempting to create an instance
 	modelCons := constraints.MustParse("mem=4G")
 	placement := "abc123"
-	template, err := s.addOneMachine(c, modelCons, placement)
+	template, err := s.addOneMachine(c, s.prechecker, modelCons, placement)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.prechecker.precheckInstanceArgs.Base.String(), gc.Equals, template.Base.String())
 	c.Assert(s.prechecker.precheckInstanceArgs.Placement, gc.Equals, placement)
@@ -81,57 +68,8 @@ func (s *PrecheckerSuite) TestPrecheckInstanceWithPlacement(c *gc.C) {
 func (s *PrecheckerSuite) TestPrecheckErrors(c *gc.C) {
 	// Ensure that AddOneMachine fails when PrecheckInstance returns an error.
 	s.prechecker.precheckInstanceError = fmt.Errorf("no instance for you")
-	_, err := s.addOneMachine(c, constraints.Value{}, "placement")
+	_, err := s.addOneMachine(c, s.prechecker, constraints.Value{}, "placement")
 	c.Assert(err, gc.ErrorMatches, ".*no instance for you")
-
-	// If the policy's Prechecker method fails, that will be returned first.
-	s.policy.GetPrechecker = func() (environs.InstancePrechecker, error) {
-		return nil, fmt.Errorf("no prechecker for you")
-	}
-	_, err = s.addOneMachine(c, constraints.Value{}, "placement")
-	c.Assert(err, gc.ErrorMatches, ".*no prechecker for you")
-}
-
-func (s *PrecheckerSuite) TestPrecheckPrecheckerUnimplemented(c *gc.C) {
-	var precheckerErr error
-	s.policy.GetPrechecker = func() (environs.InstancePrechecker, error) {
-		return nil, precheckerErr
-	}
-	_, err := s.addOneMachine(c, constraints.Value{}, "placement")
-	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: policy returned nil prechecker without an error")
-	precheckerErr = errors.NotImplementedf("Prechecker")
-	_, err = s.addOneMachine(c, constraints.Value{}, "placement")
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *PrecheckerSuite) TestPrecheckNoPolicy(c *gc.C) {
-	s.policy.GetPrechecker = func() (environs.InstancePrechecker, error) {
-		c.Errorf("should not have been invoked")
-		return nil, nil
-	}
-	state.SetPolicy(s.State, nil)
-	_, err := s.addOneMachine(c, constraints.Value{}, "placement")
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *PrecheckerSuite) addOneMachine(c *gc.C, modelCons constraints.Value, placement string) (state.MachineTemplate, error) {
-	_, template, err := s.addMachine(c, modelCons, placement)
-	return template, err
-}
-
-func (s *PrecheckerSuite) addMachine(c *gc.C, modelCons constraints.Value, placement string) (*state.Machine, state.MachineTemplate, error) {
-	err := s.State.SetModelConstraints(modelCons)
-	c.Assert(err, jc.ErrorIsNil)
-	oneJob := []state.MachineJob{state.JobHostUnits}
-	extraCons := constraints.MustParse("cores=4")
-	template := state.MachineTemplate{
-		Base:        state.UbuntuBase("20.04"),
-		Constraints: extraCons,
-		Jobs:        oneJob,
-		Placement:   placement,
-	}
-	machine, err := s.State.AddOneMachine(s.prechecker, template)
-	return machine, template, err
 }
 
 func (s *PrecheckerSuite) TestPrecheckInstanceInjectMachine(c *gc.C) {
@@ -279,9 +217,9 @@ func (s *PrecheckerSuite) TestPrecheckAddApplicationNoPlacement(c *gc.C) {
 }
 
 func (s *PrecheckerSuite) TestPrecheckAddApplicationAllMachinePlacement(c *gc.C) {
-	m1, _, err := s.addMachine(c, constraints.MustParse(""), "")
+	m1, _, err := s.addMachine(c, s.prechecker, constraints.MustParse(""), "")
 	c.Assert(err, jc.ErrorIsNil)
-	m2, _, err := s.addMachine(c, constraints.MustParse(""), "")
+	m2, _, err := s.addMachine(c, s.prechecker, constraints.MustParse(""), "")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Make sure the prechecker isn't called.
@@ -305,7 +243,7 @@ func (s *PrecheckerSuite) TestPrecheckAddApplicationAllMachinePlacement(c *gc.C)
 }
 
 func (s *PrecheckerSuite) TestPrecheckAddApplicationMixedPlacement(c *gc.C) {
-	m1, _, err := s.addMachine(c, constraints.MustParse(""), "")
+	m1, _, err := s.addMachine(c, s.prechecker, constraints.MustParse(""), "")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Make sure the prechecker still gets called if there's a machine
@@ -333,4 +271,34 @@ func (s *PrecheckerSuite) TestPrecheckAddApplicationMixedPlacement(c *gc.C) {
 		Placement:   "somewhere",
 		Constraints: constraints.MustParse("arch=amd64"),
 	})
+}
+
+func (s *PrecheckerSuite) addOneMachine(c *gc.C, prechecker environs.InstancePrechecker, modelCons constraints.Value, placement string) (state.MachineTemplate, error) {
+	_, template, err := s.addMachine(c, prechecker, modelCons, placement)
+	return template, err
+}
+
+func (s *PrecheckerSuite) addMachine(c *gc.C, prechecker environs.InstancePrechecker, modelCons constraints.Value, placement string) (*state.Machine, state.MachineTemplate, error) {
+	err := s.State.SetModelConstraints(modelCons)
+	c.Assert(err, jc.ErrorIsNil)
+	oneJob := []state.MachineJob{state.JobHostUnits}
+	extraCons := constraints.MustParse("cores=4")
+	template := state.MachineTemplate{
+		Base:        state.UbuntuBase("20.04"),
+		Constraints: extraCons,
+		Jobs:        oneJob,
+		Placement:   placement,
+	}
+	machine, err := s.State.AddOneMachine(prechecker, template)
+	return machine, template, err
+}
+
+type mockPrechecker struct {
+	precheckInstanceError error
+	precheckInstanceArgs  environs.PrecheckInstanceParams
+}
+
+func (p *mockPrechecker) PrecheckInstance(ctx envcontext.ProviderCallContext, args environs.PrecheckInstanceParams) error {
+	p.precheckInstanceArgs = args
+	return p.precheckInstanceError
 }

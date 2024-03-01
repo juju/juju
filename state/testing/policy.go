@@ -13,25 +13,16 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/domain/credential"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/storage"
 )
 
 type MockPolicy struct {
-	GetPrechecker                 func() (environs.InstancePrechecker, error)
 	GetConfigValidator            func() (config.Validator, error)
 	GetProviderConfigSchemaSource func(cloudName string) (config.ConfigSchemaSource, error)
 	GetConstraintsValidator       func() (constraints.Validator, error)
 	GetStorageProviderRegistry    func() (storage.ProviderRegistry, error)
-}
-
-func (p *MockPolicy) Prechecker() (environs.InstancePrechecker, error) {
-	if p.GetPrechecker != nil {
-		return p.GetPrechecker()
-	}
-	return nil, errors.NotImplementedf("Prechecker")
 }
 
 func (p *MockPolicy) ConfigValidator() (config.Validator, error) {
