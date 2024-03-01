@@ -54,6 +54,7 @@ import (
 	credentialstate "github.com/juju/juju/domain/credential/state"
 	servicefactorytesting "github.com/juju/juju/domain/servicefactory/testing"
 	"github.com/juju/juju/environs"
+	environsconfig "github.com/juju/juju/environs/config"
 	databasetesting "github.com/juju/juju/internal/database/testing"
 	internallease "github.com/juju/juju/internal/lease"
 	"github.com/juju/juju/internal/mongo"
@@ -152,6 +153,10 @@ type ApiServerSuite struct {
 	// InstancePrechecker is used to validate instance creation.
 	// DEPRECATED: This will be removed in the future.
 	InstancePrechecker func(*gc.C, *state.State) environs.InstancePrechecker
+
+	// ConfigSchemaSourceGetter is used to provide the config schema for the model.
+	// DEPRECATED: This will be removed in the future.
+	ConfigSchemaSourceGetter func(*gc.C) environsconfig.ConfigSchemaSourceGetter
 }
 
 type noopRegisterer struct {
@@ -266,6 +271,7 @@ func (s *ApiServerSuite) setupControllerModel(c *gc.C, controllerCfg controller.
 
 	// modelUUID param is not used so can pass in anything.
 	serviceFactory := s.ControllerServiceFactory(c)
+
 	ctrl, err := state.Initialize(state.InitializeParams{
 		Clock: clock.WallClock,
 		// TODO (stickupkid): Remove controller config from the state
@@ -284,7 +290,7 @@ func (s *ApiServerSuite) setupControllerModel(c *gc.C, controllerCfg controller.
 		MongoSession:  session,
 		AdminPassword: AdminSecret,
 		NewPolicy:     stateenvirons.GetNewPolicyFunc(serviceFactory.Cloud(), serviceFactory.Credential()),
-	})
+	}, stateenvirons.ProviderConfigSchemaSource(serviceFactory.Cloud()))
 	c.Assert(err, jc.ErrorIsNil)
 	s.controller = ctrl
 
@@ -378,6 +384,9 @@ func (s *ApiServerSuite) SetUpTest(c *gc.C) {
 
 	s.InstancePrechecker = func(c *gc.C, s *state.State) environs.InstancePrechecker {
 		return state.NoopInstancePrechecker{}
+	}
+	s.ConfigSchemaSourceGetter = func(c *gc.C) environsconfig.ConfigSchemaSourceGetter {
+		return state.NoopConfigSchemaSource
 	}
 
 	if s.Clock == nil {

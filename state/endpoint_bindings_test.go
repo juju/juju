@@ -288,7 +288,7 @@ func (s *bindingsSuite) TestMergeBindings(c *gc.C) {
 
 func (s *bindingsSuite) TestMergeWithModelConfigNonDefaultSpace(c *gc.C) {
 	c.Skip("The default space is always alpha due to scaffolding in service of Dqlite migration.")
-	err := s.Model.UpdateModelConfig(map[string]interface{}{"default-space": s.appsSpace.Name()}, nil)
+	err := s.Model.UpdateModelConfig(state.NoopConfigSchemaSource, map[string]interface{}{"default-space": s.appsSpace.Name()}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	currentMap := map[string]string{

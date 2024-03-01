@@ -80,7 +80,7 @@ func (s *FilesystemIAASModelSuite) TestAddApplicationNoPoolDefaultFilesystem(c *
 	// filesystem.
 	m, err := s.st.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	err = m.UpdateModelConfig(map[string]interface{}{
+	err = m.UpdateModelConfig(state.NoopConfigSchemaSource, map[string]interface{}{
 		"storage-default-filesystem-source": "machinescoped",
 	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -92,7 +92,7 @@ func (s *FilesystemIAASModelSuite) TestAddApplicationNoPoolDefaultBlock(c *gc.C)
 	// block with managed fs on top.
 	m, err := s.st.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	err = m.UpdateModelConfig(map[string]interface{}{
+	err = m.UpdateModelConfig(state.NoopConfigSchemaSource, map[string]interface{}{
 		"storage-default-block-source": "modelscoped-block",
 	}, nil)
 	c.Assert(err, jc.ErrorIsNil)

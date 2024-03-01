@@ -120,7 +120,7 @@ func NewControllerAPI(
 			externalControllerService,
 		),
 		ModelStatusAPI: common.NewModelStatusAPI(
-			common.NewModelManagerBackend(model, pool),
+			common.NewModelManagerBackend(stateenvirons.ProviderConfigSchemaSource(cloudService), model, pool),
 			authorizer,
 			apiUser,
 		),

@@ -356,6 +356,8 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 	}
 	args.ControllerModelConfig = controllerModelCfg
 
+	configSchemaSource := stateenvirons.ProviderConfigSchemaSource(cloudGetter{cloud: &args.ControllerCloud})
+
 	// Initialise state, and store any agent config (e.g. password) changes.
 	var controller *state.Controller
 	err = c.ChangeConfig(func(agentConfig agent.ConfigSetter) error {
@@ -397,6 +399,7 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 					credentialGetter{cred: args.ControllerCloudCredential},
 				)
 			},
+			ConfigSchemaSourceGetter: configSchemaSource,
 		})
 		if err != nil {
 			return errors.Trace(err)
@@ -418,7 +421,7 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	if err = model.AutoConfigureContainerNetworking(env); err != nil {
+	if err = model.AutoConfigureContainerNetworking(env, configSchemaSource); err != nil {
 		if errors.Is(err, errors.NotSupported) {
 			logger.Debugf("Not performing container networking auto-configuration on a non-networking environment")
 		} else {

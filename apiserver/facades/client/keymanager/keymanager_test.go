@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -24,6 +23,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -54,7 +54,7 @@ func (s *keyManagerSuite) setup(c *gc.C) *gomock.Controller {
 		Tag: s.apiUser,
 	}
 
-	s.api = keymanager.NewKeyManagerAPI(s.model, s.authorizer, s.blockChecker, coretesting.ControllerTag, loggo.GetLogger("juju.apiserver.keymanager"))
+	s.api = keymanager.NewKeyManagerAPI(s.model, s.authorizer, s.blockChecker, coretesting.ControllerTag, state.NoopConfigSchemaSource, coretesting.NewCheckLogger(c))
 
 	return ctrl
 }
@@ -123,7 +123,7 @@ func (s *keyManagerSuite) assertAddKeys(c *gc.C) {
 	newAttrs := map[string]interface{}{
 		config.AuthorizedKeysKey: strings.Join([]string{key1, key2, "bad key", newKey}, "\n"),
 	}
-	s.model.EXPECT().UpdateModelConfig(newAttrs, nil)
+	s.model.EXPECT().UpdateModelConfig(gomock.Any(), newAttrs, nil)
 
 	args := params.ModifyUserSSHKeys{
 		User: names.NewUserTag("admin").Name(),
@@ -188,7 +188,7 @@ func (s *keyManagerSuite) TestAddJujuSystemKey(c *gc.C) {
 	newAttrs := map[string]interface{}{
 		config.AuthorizedKeysKey: sshtesting.ValidKeyOne.Key,
 	}
-	s.model.EXPECT().UpdateModelConfig(newAttrs, nil)
+	s.model.EXPECT().UpdateModelConfig(gomock.Any(), newAttrs, nil)
 
 	newKey := sshtesting.ValidKeyThree.Key + " " + config.JujuSystemKey
 	args := params.ModifyUserSSHKeys{
@@ -212,7 +212,7 @@ func (s *keyManagerSuite) assertDeleteKeys(c *gc.C) {
 	newAttrs := map[string]interface{}{
 		config.AuthorizedKeysKey: strings.Join([]string{key1, "bad key"}, "\n"),
 	}
-	s.model.EXPECT().UpdateModelConfig(newAttrs, nil)
+	s.model.EXPECT().UpdateModelConfig(gomock.Any(), newAttrs, nil)
 
 	args := params.ModifyUserSSHKeys{
 		User: names.NewUserTag("admin").String(),
@@ -279,7 +279,7 @@ func (s *keyManagerSuite) TestDeleteJujuSystemKey(c *gc.C) {
 	newAttrs := map[string]interface{}{
 		config.AuthorizedKeysKey: strings.Join([]string{key1, key2, key3}, "\n"),
 	}
-	s.model.EXPECT().UpdateModelConfig(newAttrs, nil)
+	s.model.EXPECT().UpdateModelConfig(gomock.Any(), newAttrs, nil)
 
 	args := params.ModifyUserSSHKeys{
 		User: names.NewUserTag("admin").Name(),
@@ -328,7 +328,7 @@ func (s *keyManagerSuite) assertImportKeys(c *gc.C) {
 			key1, key2, "bad key", key3, keymv[0], keymv[1], keymp[0], key4,
 		}, "\n"),
 	}
-	s.model.EXPECT().UpdateModelConfig(newAttrs, nil)
+	s.model.EXPECT().UpdateModelConfig(gomock.Any(), newAttrs, nil)
 
 	args := params.ModifyUserSSHKeys{
 		User: names.NewUserTag("admin").String(),
@@ -408,7 +408,7 @@ func (s *keyManagerSuite) TestImportJujuSystemKey(c *gc.C) {
 	newAttrs := map[string]interface{}{
 		config.AuthorizedKeysKey: key1,
 	}
-	s.model.EXPECT().UpdateModelConfig(newAttrs, nil)
+	s.model.EXPECT().UpdateModelConfig(gomock.Any(), newAttrs, nil)
 
 	args := params.ModifyUserSSHKeys{
 		User: names.NewUserTag("admin").String(),

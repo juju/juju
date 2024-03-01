@@ -72,10 +72,10 @@ func (mr *MockModelMockRecorder) ModelTag() *gomock.Call {
 }
 
 // UpdateModelConfig mocks base method.
-func (m *MockModel) UpdateModelConfig(arg0 map[string]any, arg1 []string, arg2 ...state.ValidateConfigFunc) error {
+func (m *MockModel) UpdateModelConfig(arg0 config.ConfigSchemaSourceGetter, arg1 map[string]any, arg2 []string, arg3 ...state.ValidateConfigFunc) error {
 	m.ctrl.T.Helper()
-	varargs := []any{arg0, arg1}
-	for _, a := range arg2 {
+	varargs := []any{arg0, arg1, arg2}
+	for _, a := range arg3 {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "UpdateModelConfig", varargs...)
@@ -84,9 +84,9 @@ func (m *MockModel) UpdateModelConfig(arg0 map[string]any, arg1 []string, arg2 .
 }
 
 // UpdateModelConfig indicates an expected call of UpdateModelConfig.
-func (mr *MockModelMockRecorder) UpdateModelConfig(arg0, arg1 any, arg2 ...any) *gomock.Call {
+func (mr *MockModelMockRecorder) UpdateModelConfig(arg0, arg1, arg2 any, arg3 ...any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	varargs := append([]any{arg0, arg1}, arg2...)
+	varargs := append([]any{arg0, arg1, arg2}, arg3...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateModelConfig", reflect.TypeOf((*MockModel)(nil).UpdateModelConfig), varargs...)
 }
 

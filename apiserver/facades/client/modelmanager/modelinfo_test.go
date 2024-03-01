@@ -181,6 +181,7 @@ func (s *modelInfoSuite) SetUpTest(c *gc.C) {
 		&mockModelManagerService{},
 		&mockModelService{},
 		&mockObjectStore{},
+		state.NoopConfigSchemaSource,
 		nil, nil, common.NewBlockChecker(s.st),
 		&s.authorizer, s.st.model,
 	)
@@ -208,6 +209,7 @@ func (s *modelInfoSuite) setAPIUser(c *gc.C, user names.UserTag) {
 		&mockModelManagerService{},
 		&mockModelService{},
 		&mockObjectStore{},
+		state.NoopConfigSchemaSource,
 		nil, nil,
 		common.NewBlockChecker(s.st), s.authorizer, s.st.model,
 	)
@@ -773,7 +775,7 @@ func (st *mockState) ControllerTag() names.ControllerTag {
 	return names.NewControllerTag(st.controllerUUID)
 }
 
-func (st *mockState) ComposeNewModelConfig(modelAttr map[string]interface{}, regionSpec *environscloudspec.CloudRegionSpec) (map[string]interface{}, error) {
+func (st *mockState) ComposeNewModelConfig(_ config.ConfigSchemaSourceGetter, modelAttr map[string]interface{}, regionSpec *environscloudspec.CloudRegionSpec) (map[string]interface{}, error) {
 	st.MethodCall(st, "ComposeNewModelConfig")
 	attr := make(map[string]interface{})
 	for attrName, val := range modelAttr {
@@ -1241,7 +1243,7 @@ func (m *mockModel) LastModelConnection(user names.UserTag) (time.Time, error) {
 	return time.Time{}, m.NextErr()
 }
 
-func (m *mockModel) AutoConfigureContainerNetworking(environ environs.BootstrapEnviron) error {
+func (m *mockModel) AutoConfigureContainerNetworking(environ environs.BootstrapEnviron, _ config.ConfigSchemaSourceGetter) error {
 	m.MethodCall(m, "AutoConfigureContainerNetworking", environ)
 	return m.NextErr()
 }

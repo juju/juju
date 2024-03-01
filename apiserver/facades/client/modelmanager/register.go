@@ -65,23 +65,26 @@ func newFacadeV10(ctx facade.ModelContext) (*ModelManagerAPI, error) {
 		return nil, errors.Trace(err)
 	}
 
+	configSchemaSource := stateenvirons.ProviderConfigSchemaSource(serviceFactory.Cloud())
+
 	controllerConfigGetter := serviceFactory.ControllerConfig()
 
 	urlGetter := common.NewToolsURLGetter(modelUUID, systemState)
 	toolsFinder := common.NewToolsFinder(controllerConfigGetter, configGetter, st, urlGetter, newEnviron, ctx.ControllerObjectStore())
 
 	apiUser, _ := auth.GetAuthTag().(names.UserTag)
-	backend := common.NewUserAwareModelManagerBackend(model, pool, apiUser)
+	backend := common.NewUserAwareModelManagerBackend(configSchemaSource, model, pool, apiUser)
 
 	return NewModelManagerAPI(
 		backend.(StateBackend),
 		ctx.ModelExporter(backend),
-		common.NewModelManagerBackend(ctrlModel, pool),
+		common.NewModelManagerBackend(configSchemaSource, ctrlModel, pool),
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
 		serviceFactory.ModelManager(),
 		serviceFactory.Model(),
 		ctx.ObjectStore(),
+		configSchemaSource,
 		toolsFinder,
 		caas.New,
 		common.NewBlockChecker(backend),

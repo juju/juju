@@ -30,10 +30,6 @@ type NewPolicyFunc func(*State) Policy
 // be ignored. Any other error will cause an error
 // in the use of the policy.
 type Policy interface {
-	// ProviderConfigSchemaSource returns a config.ConfigSchemaSource
-	// for the cloud, or an error.
-	ProviderConfigSchemaSource(cloudName string) (config.ConfigSchemaSource, error)
-
 	// ConfigValidator returns a config.Validator or an error.
 	ConfigValidator() (config.Validator, error)
 
@@ -146,11 +142,4 @@ func (st *State) storageProviderRegistry() (storage.ProviderRegistry, error) {
 		return storage.StaticProviderRegistry{}, nil
 	}
 	return st.policy.StorageProviderRegistry()
-}
-
-func (st *State) environsProviderConfigSchemaSource(cloudName string) (config.ConfigSchemaSource, error) {
-	if st.policy == nil {
-		return nil, errors.NotImplementedf("config.ProviderConfigSchemaSource")
-	}
-	return st.policy.ProviderConfigSchemaSource(cloudName)
 }

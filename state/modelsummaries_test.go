@@ -199,7 +199,7 @@ func (s *ModelSummariesSuite) TestModelsForIgnoresImportingModels(c *gc.C) {
 		"uuid": uuid.MustNewUUID().String(),
 		"type": state.ModelTypeIAAS,
 	})
-	_, stImporting, err := s.Controller.NewModel(state.ModelArgs{
+	_, stImporting, err := s.Controller.NewModel(state.NoopConfigSchemaSource, state.ModelArgs{
 		Type:                    state.ModelTypeIAAS,
 		CloudName:               "dummy",
 		CloudRegion:             "dummy-region",

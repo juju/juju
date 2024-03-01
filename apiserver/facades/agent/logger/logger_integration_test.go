@@ -42,6 +42,7 @@ func (s *LoggerIntegrationSuite) TestWatchLoggingConfig(c *gc.C) {
 
 	model := s.ControllerModel(c)
 	err = model.UpdateModelConfig(
+		s.ConfigSchemaSourceGetter(c),
 		map[string]interface{}{
 			"logging-config": "juju=INFO;test=TRACE",
 		}, nil)

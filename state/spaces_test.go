@@ -823,7 +823,7 @@ func (s *SpacesDiscoverySuite) TestSaveProviderSubnetsOnlyIdempotent(c *gc.C) {
 }
 
 func (s *SpacesDiscoverySuite) TestSaveProviderSubnetsWithFAN(c *gc.C) {
-	err := s.Model.UpdateModelConfig(map[string]interface{}{"fan-config": "10.100.0.0/16=253.0.0.0/8"}, nil)
+	err := s.Model.UpdateModelConfig(state.NoopConfigSchemaSource, map[string]interface{}{"fan-config": "10.100.0.0/16=253.0.0.0/8"}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.State.SaveProviderSubnets(twoSubnets, "")
@@ -840,6 +840,7 @@ func (s *SpacesDiscoverySuite) TestSaveProviderSubnetsIgnoredWithFAN(c *gc.C) {
 	// considered invalid in the future. Here we show that this
 	// configuration is ignored.
 	err := s.Model.UpdateModelConfig(
+		state.NoopConfigSchemaSource,
 		map[string]interface{}{"fan-config": "fe80:dead:beef::/48=fe80:dead:beef::/24"}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 

@@ -1286,7 +1286,7 @@ func (s *withoutControllerSuite) TestSetInstanceInfo(c *gc.C) {
 	})
 	_, err := pm.Create("static-pool", "static", map[string]any{"foo": "bar"})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.ControllerModel(c).UpdateModelConfig(map[string]any{
+	err = s.ControllerModel(c).UpdateModelConfig(s.ConfigSchemaSourceGetter(c), map[string]any{
 		"storage-default-block-source": "static-pool",
 	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1566,7 +1566,7 @@ func (s *withoutControllerSuite) TestContainerConfig(c *gc.C) {
 		"cloudinit-userdata":           validCloudInitUserData,
 		"container-inherit-properties": "ca-certs,apt-primary",
 	}
-	err := s.ControllerModel(c).UpdateModelConfig(attrs, nil)
+	err := s.ControllerModel(c).UpdateModelConfig(s.ConfigSchemaSourceGetter(c), attrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedAPTProxy := proxy.Settings{
 		Http:    "http://proxy.example.com:9000",
@@ -1619,7 +1619,7 @@ func (s *withoutControllerSuite) TestContainerConfigLegacy(c *gc.C) {
 		"cloudinit-userdata":           validCloudInitUserData,
 		"container-inherit-properties": "ca-certs,apt-primary",
 	}
-	err := s.ControllerModel(c).UpdateModelConfig(attrs, nil)
+	err := s.ControllerModel(c).UpdateModelConfig(s.ConfigSchemaSourceGetter(c), attrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedAPTProxy := proxy.Settings{
 		Http:    "http://proxy.example.com:9000",

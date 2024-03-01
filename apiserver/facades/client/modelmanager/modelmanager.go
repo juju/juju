@@ -97,6 +97,7 @@ type ModelManagerAPI struct {
 	cloudService        CloudService
 	credentialService   CredentialService
 	store               objectstore.ObjectStore
+	configSchemaSource  config.ConfigSchemaSourceGetter
 	check               common.BlockCheckerInterface
 	authorizer          facade.Authorizer
 	toolsFinder         common.ToolsFinder
@@ -117,6 +118,7 @@ func NewModelManagerAPI(
 	modelManagerService ModelManagerService,
 	modelService ModelService,
 	store objectstore.ObjectStore,
+	configSchemaSource config.ConfigSchemaSourceGetter,
 	toolsFinder common.ToolsFinder,
 	getBroker newCaasBrokerFunc,
 	blockChecker common.BlockCheckerInterface,
@@ -145,6 +147,7 @@ func NewModelManagerAPI(
 		cloudService:        cloudService,
 		credentialService:   credentialService,
 		modelManagerService: modelManagerService,
+		configSchemaSource:  configSchemaSource,
 		store:               store,
 		getBroker:           getBroker,
 		check:               blockChecker,
@@ -215,7 +218,7 @@ func (m *ModelManagerAPI) newModelConfig(
 	}
 
 	regionSpec := &environscloudspec.CloudRegionSpec{Cloud: cloudSpec.Name, Region: cloudSpec.Region}
-	if joint, err = m.state.ComposeNewModelConfig(joint, regionSpec); err != nil {
+	if joint, err = m.state.ComposeNewModelConfig(m.configSchemaSource, joint, regionSpec); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -540,7 +543,7 @@ func (m *ModelManagerAPI) newModel(
 	}
 	defer st.Close()
 
-	if err = model.AutoConfigureContainerNetworking(env); err != nil {
+	if err = model.AutoConfigureContainerNetworking(env, m.configSchemaSource); err != nil {
 		if errors.Is(err, errors.NotSupported) {
 			logger.Debugf("Not performing container networking autoconfiguration on a non-networking environment")
 		} else {

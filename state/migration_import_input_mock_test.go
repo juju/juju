@@ -13,6 +13,7 @@ import (
 	reflect "reflect"
 
 	description "github.com/juju/description/v5"
+	config "github.com/juju/juju/environs/config"
 	txn "github.com/juju/mgo/v3/txn"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -413,6 +414,20 @@ func (m *MockFirewallRulesInput) EXPECT() *MockFirewallRulesInputMockRecorder {
 	return m.recorder
 }
 
+// ConfigSchemaSourceGetter mocks base method.
+func (m *MockFirewallRulesInput) ConfigSchemaSourceGetter() config.ConfigSchemaSourceGetter {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ConfigSchemaSourceGetter")
+	ret0, _ := ret[0].(config.ConfigSchemaSourceGetter)
+	return ret0
+}
+
+// ConfigSchemaSourceGetter indicates an expected call of ConfigSchemaSourceGetter.
+func (mr *MockFirewallRulesInputMockRecorder) ConfigSchemaSourceGetter() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConfigSchemaSourceGetter", reflect.TypeOf((*MockFirewallRulesInput)(nil).ConfigSchemaSourceGetter))
+}
+
 // FirewallRules mocks base method.
 func (m *MockFirewallRulesInput) FirewallRules() []description.FirewallRule {
 	m.ctrl.T.Helper()
@@ -451,10 +466,10 @@ func (m *MockFirewallRulesOutput) EXPECT() *MockFirewallRulesOutputMockRecorder 
 }
 
 // UpdateModelConfig mocks base method.
-func (m *MockFirewallRulesOutput) UpdateModelConfig(arg0 map[string]any, arg1 []string, arg2 ...ValidateConfigFunc) error {
+func (m *MockFirewallRulesOutput) UpdateModelConfig(arg0 config.ConfigSchemaSourceGetter, arg1 map[string]any, arg2 []string, arg3 ...ValidateConfigFunc) error {
 	m.ctrl.T.Helper()
-	varargs := []any{arg0, arg1}
-	for _, a := range arg2 {
+	varargs := []any{arg0, arg1, arg2}
+	for _, a := range arg3 {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "UpdateModelConfig", varargs...)
@@ -463,8 +478,8 @@ func (m *MockFirewallRulesOutput) UpdateModelConfig(arg0 map[string]any, arg1 []
 }
 
 // UpdateModelConfig indicates an expected call of UpdateModelConfig.
-func (mr *MockFirewallRulesOutputMockRecorder) UpdateModelConfig(arg0, arg1 any, arg2 ...any) *gomock.Call {
+func (mr *MockFirewallRulesOutputMockRecorder) UpdateModelConfig(arg0, arg1, arg2 any, arg3 ...any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	varargs := append([]any{arg0, arg1}, arg2...)
+	varargs := append([]any{arg0, arg1, arg2}, arg3...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateModelConfig", reflect.TypeOf((*MockFirewallRulesOutput)(nil).UpdateModelConfig), varargs...)
 }

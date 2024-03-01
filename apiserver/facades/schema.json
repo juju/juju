@@ -27813,9 +27813,6 @@
         "Description": "ModelUpgraderAPI implements the model upgrader interface and is\nthe concrete implementation of the api end point.",
         "Version": 1,
         "AvailableTo": [
-            "controller-machine-agent",
-            "machine-agent",
-            "unit-agent",
             "controller-user"
         ],
         "Schema": {

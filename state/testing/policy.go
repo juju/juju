@@ -19,10 +19,9 @@ import (
 )
 
 type MockPolicy struct {
-	GetConfigValidator            func() (config.Validator, error)
-	GetProviderConfigSchemaSource func(cloudName string) (config.ConfigSchemaSource, error)
-	GetConstraintsValidator       func() (constraints.Validator, error)
-	GetStorageProviderRegistry    func() (storage.ProviderRegistry, error)
+	GetConfigValidator         func() (config.Validator, error)
+	GetConstraintsValidator    func() (constraints.Validator, error)
+	GetStorageProviderRegistry func() (storage.ProviderRegistry, error)
 }
 
 func (p *MockPolicy) ConfigValidator() (config.Validator, error) {
@@ -44,13 +43,6 @@ func (p *MockPolicy) StorageProviderRegistry() (storage.ProviderRegistry, error)
 		return p.GetStorageProviderRegistry()
 	}
 	return nil, errors.NotImplementedf("StorageProviderRegistry")
-}
-
-func (p *MockPolicy) ProviderConfigSchemaSource(cloudName string) (config.ConfigSchemaSource, error) {
-	if p.GetProviderConfigSchemaSource != nil {
-		return p.GetProviderConfigSchemaSource(cloudName)
-	}
-	return nil, errors.NotImplementedf("ProviderConfigSchemaSource")
 }
 
 type MockConfigSchemaSource struct {

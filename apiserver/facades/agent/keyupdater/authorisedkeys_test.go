@@ -89,7 +89,7 @@ func (s *authorisedKeysSuite) TestWatchAuthorisedKeysNothing(c *gc.C) {
 }
 
 func (s *authorisedKeysSuite) setAuthorizedKeys(c *gc.C, keys string) {
-	err := s.ControllerModel(c).UpdateModelConfig(map[string]interface{}{"authorized-keys": keys}, nil)
+	err := s.ControllerModel(c).UpdateModelConfig(s.ConfigSchemaSourceGetter(c), map[string]interface{}{"authorized-keys": keys}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	modelConfig, err := s.ControllerModel(c).ModelConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)

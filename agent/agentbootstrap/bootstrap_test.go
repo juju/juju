@@ -190,6 +190,7 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 			InstancePrecheckerGetter: func(s *state.State) (environs.InstancePrechecker, error) {
 				return state.NoopInstancePrechecker{}, nil
 			},
+			ConfigSchemaSourceGetter: state.NoopConfigSchemaSource,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -392,6 +393,7 @@ func (s *bootstrapSuite) TestInitializeStateWithStateServingInfoNotAvailable(c *
 			InstancePrecheckerGetter: func(s *state.State) (environs.InstancePrechecker, error) {
 				return state.NoopInstancePrechecker{}, nil
 			},
+			ConfigSchemaSourceGetter: state.NoopConfigSchemaSource,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -470,6 +472,7 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 			InstancePrecheckerGetter: func(s *state.State) (environs.InstancePrechecker, error) {
 				return state.NoopInstancePrechecker{}, nil
 			},
+			ConfigSchemaSourceGetter: state.NoopConfigSchemaSource,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -492,6 +495,7 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 			InstancePrecheckerGetter: func(s *state.State) (environs.InstancePrechecker, error) {
 				return state.NoopInstancePrechecker{}, nil
 			},
+			ConfigSchemaSourceGetter: state.NoopConfigSchemaSource,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)

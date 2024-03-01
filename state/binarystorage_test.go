@@ -83,7 +83,7 @@ func (s *binaryStorageSuite) SetUpTest(c *gc.C) {
 		"uuid": s.modelUUID,
 	})
 	var err error
-	_, s.st, err = s.Controller.NewModel(state.ModelArgs{
+	_, s.st, err = s.Controller.NewModel(state.NoopConfigSchemaSource, state.ModelArgs{
 		Type:                    state.ModelTypeIAAS,
 		CloudName:               "dummy",
 		CloudRegion:             "dummy-region",

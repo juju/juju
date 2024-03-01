@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/envcontext"
+	"github.com/juju/juju/state"
 )
 
 type containerTestNetworkLessEnviron struct {
@@ -45,7 +46,7 @@ func (e *containerTestNetworkedEnviron) SupportsContainerAddresses(ctx envcontex
 var _ environs.NetworkingEnviron = (*containerTestNetworkedEnviron)(nil)
 
 func (s *ContainerNetworkingSuite) TestAutoConfigureContainerNetworkingNetworkless(c *gc.C) {
-	err := s.Model.AutoConfigureContainerNetworking(containerTestNetworkLessEnviron{})
+	err := s.Model.AutoConfigureContainerNetworking(containerTestNetworkLessEnviron{}, state.NoopConfigSchemaSource)
 	c.Assert(err, jc.ErrorIsNil)
 	config, err := s.Model.ModelConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
@@ -55,11 +56,11 @@ func (s *ContainerNetworkingSuite) TestAutoConfigureContainerNetworkingNetworkle
 }
 
 func (s *ContainerNetworkingSuite) TestAutoConfigureContainerNetworkingDoesntChangeDefault(c *gc.C) {
-	err := s.Model.UpdateModelConfig(map[string]interface{}{
+	err := s.Model.UpdateModelConfig(state.NoopConfigSchemaSource, map[string]interface{}{
 		"container-networking-method": "provider",
 	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.Model.AutoConfigureContainerNetworking(containerTestNetworkLessEnviron{})
+	err = s.Model.AutoConfigureContainerNetworking(containerTestNetworkLessEnviron{}, state.NoopConfigSchemaSource)
 	c.Assert(err, jc.ErrorIsNil)
 	config, err := s.Model.ModelConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
@@ -73,12 +74,12 @@ func (s *ContainerNetworkingSuite) TestAutoConfigureContainerNetworkingAlreadyCo
 		stub:         &testing.Stub{},
 		superSubnets: []string{"172.31.0.0/16", "192.168.1.0/24", "10.0.0.0/8"},
 	}
-	err := s.Model.UpdateModelConfig(map[string]interface{}{
+	err := s.Model.UpdateModelConfig(state.NoopConfigSchemaSource, map[string]interface{}{
 		"container-networking-method": "local",
 		"fan-config":                  "1.2.3.4/24=5.6.7.8/16",
 	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.Model.AutoConfigureContainerNetworking(&environ)
+	err = s.Model.AutoConfigureContainerNetworking(&environ, state.NoopConfigSchemaSource)
 	c.Check(err, jc.ErrorIsNil)
 	config, err := s.Model.ModelConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
@@ -91,7 +92,7 @@ func (s *ContainerNetworkingSuite) TestAutoConfigureContainerNetworkingNoSuperSu
 	environ := containerTestNetworkedEnviron{
 		stub: &testing.Stub{},
 	}
-	err := s.Model.AutoConfigureContainerNetworking(&environ)
+	err := s.Model.AutoConfigureContainerNetworking(&environ, state.NoopConfigSchemaSource)
 	c.Check(err, jc.ErrorIsNil)
 	config, err := s.Model.ModelConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
@@ -106,7 +107,7 @@ func (s *ContainerNetworkingSuite) TestAutoConfigureContainerNetworkingSupportsC
 		supportsContainerAddresses: true,
 		superSubnets:               []string{"172.31.0.0/16", "192.168.1.0/24", "10.0.0.0/8"},
 	}
-	err := s.Model.AutoConfigureContainerNetworking(&environ)
+	err := s.Model.AutoConfigureContainerNetworking(&environ, state.NoopConfigSchemaSource)
 	c.Check(err, jc.ErrorIsNil)
 	config, err := s.Model.ModelConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
@@ -121,7 +122,7 @@ func (s *ContainerNetworkingSuite) TestAutoConfigureContainerNetworkingDefault(c
 		supportsContainerAddresses: false,
 		superSubnets:               []string{"172.31.0.0/16", "192.168.1.0/24", "10.0.0.0/8"},
 	}
-	err := s.Model.AutoConfigureContainerNetworking(&environ)
+	err := s.Model.AutoConfigureContainerNetworking(&environ, state.NoopConfigSchemaSource)
 	c.Check(err, jc.ErrorIsNil)
 	config, err := s.Model.ModelConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
@@ -136,7 +137,7 @@ func (s *ContainerNetworkingSuite) TestAutoConfigureContainerNetworkingIgnoresIP
 		supportsContainerAddresses: true,
 		superSubnets:               []string{"172.31.0.0/16", "2000::dead:beef:1/64"},
 	}
-	err := s.Model.AutoConfigureContainerNetworking(&environ)
+	err := s.Model.AutoConfigureContainerNetworking(&environ, state.NoopConfigSchemaSource)
 	c.Check(err, jc.ErrorIsNil)
 	config, err := s.Model.ModelConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)

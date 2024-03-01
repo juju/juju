@@ -511,7 +511,7 @@ func (s *ModelUserSuite) newModelWithOwner(c *gc.C, owner names.UserTag) *state.
 		"name": uuidStr[:8],
 		"uuid": uuidStr,
 	})
-	model, st, err := s.Controller.NewModel(state.ModelArgs{
+	model, st, err := s.Controller.NewModel(state.NoopConfigSchemaSource, state.ModelArgs{
 		Type:                    state.ModelTypeIAAS,
 		CloudName:               "dummy",
 		CloudRegion:             "dummy-region",

@@ -565,7 +565,7 @@ func (s *StorageStateSuite) TestAddApplicationStorageConstraintsValidation(c *gc
 
 func (s *StorageStateSuite) assertAddApplicationStorageConstraintsDefaults(c *gc.C, pool string, cons, expect map[string]state.StorageConstraints) {
 	if pool != "" {
-		err := s.Model.UpdateModelConfig(map[string]interface{}{
+		err := s.Model.UpdateModelConfig(state.NoopConfigSchemaSource, map[string]interface{}{
 			"storage-default-block-source": pool,
 		}, nil)
 		c.Assert(err, jc.ErrorIsNil)
@@ -688,7 +688,7 @@ func (s *StorageStateSuite) TestAddUnit(c *gc.C) {
 }
 
 func (s *StorageStateSuite) assertStorageUnitsAdded(c *gc.C) {
-	err := s.Model.UpdateModelConfig(map[string]interface{}{
+	err := s.Model.UpdateModelConfig(state.NoopConfigSchemaSource, map[string]interface{}{
 		"storage-default-block-source": "loop-pool",
 	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1553,7 +1553,7 @@ func (s *StorageStateSuiteCaas) TestRemoveStoragePool(c *gc.C) {
 func (s *StorageStateSuiteCaas) TestRemoveStoragePoolInUse(c *gc.C) {
 	model, err := s.st.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	err = model.UpdateModelConfig(map[string]interface{}{"operator-storage": "k8s-operator-storage"}, nil)
+	err = model.UpdateModelConfig(state.NoopConfigSchemaSource, map[string]interface{}{"operator-storage": "k8s-operator-storage"}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	poolName := "k8s-operator-storage"
 	_, err = s.pm.Get(poolName)

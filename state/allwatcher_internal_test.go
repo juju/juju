@@ -4,6 +4,7 @@
 package state
 
 import (
+	"context"
 	stdcontext "context"
 	"fmt"
 	"sort"
@@ -31,6 +32,7 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
+	environsconfig "github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/state/watcher"
@@ -65,6 +67,10 @@ type testInstancePrechecker struct{}
 
 func (testInstancePrechecker) PrecheckInstance(envcontext.ProviderCallContext, environs.PrecheckInstanceParams) error {
 	return errors.NotSupportedf("prechecking instances")
+}
+
+func testConfigSchemaSource(ctx context.Context, cloudName string) (environsconfig.ConfigSchemaSource, error) {
+	return nil, errors.NotImplementedf("config schema source")
 }
 
 type allWatcherBaseSuite struct {
@@ -585,7 +591,7 @@ func setModelConfigAttr(c *gc.C, st *State, attr string, val interface{}) {
 	m, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = m.UpdateModelConfig(map[string]interface{}{attr: val}, nil)
+	err = m.UpdateModelConfig(testConfigSchemaSource, map[string]interface{}{attr: val}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

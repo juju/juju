@@ -48,6 +48,7 @@ type StateSuite struct {
 	modelWatcherIdle          chan string
 	modelWatcherMutex         *sync.Mutex
 	InstancePrechecker        func(*gc.C, *state.State) environs.InstancePrechecker
+	ConfigSchemaSourceGetter  func(*gc.C) config.ConfigSchemaSourceGetter
 }
 
 func (s *StateSuite) SetUpSuite(c *gc.C) {
@@ -101,6 +102,9 @@ func (s *StateSuite) SetUpTest(c *gc.C) {
 
 	s.InstancePrechecker = func(c *gc.C, st *state.State) environs.InstancePrechecker {
 		return state.NoopInstancePrechecker{}
+	}
+	s.ConfigSchemaSourceGetter = func(c *gc.C) config.ConfigSchemaSourceGetter {
+		return state.NoopConfigSchemaSource
 	}
 }
 

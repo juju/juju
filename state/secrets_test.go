@@ -662,7 +662,7 @@ func (s *SecretsSuite) newCAASState(c *gc.C) *state.State {
 			},
 		},
 	}
-	_, st, err := s.Controller.NewModel(state.ModelArgs{
+	_, st, err := s.Controller.NewModel(state.NoopConfigSchemaSource, state.ModelArgs{
 		Type:                    state.ModelTypeCAAS,
 		CloudName:               "dummy",
 		CloudRegion:             "dummy-region",

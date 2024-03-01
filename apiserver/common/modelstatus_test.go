@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/storage"
@@ -61,7 +60,7 @@ func (s *modelStatusSuite) SetUpTest(c *gc.C) {
 	}
 
 	s.modelStatusAPI = common.NewModelStatusAPI(
-		common.NewModelManagerBackend(s.Model, s.StatePool),
+		common.NewModelManagerBackend(state.NoopConfigSchemaSource, s.Model, s.StatePool),
 		s.authorizer,
 		s.authorizer.GetAuthTag().(names.UserTag),
 	)
@@ -77,7 +76,7 @@ func (s *modelStatusSuite) TestModelStatusNonAuth(c *gc.C) {
 	}
 
 	api := common.NewModelStatusAPI(
-		common.NewModelManagerBackend(s.Model, s.StatePool),
+		common.NewModelManagerBackend(state.NoopConfigSchemaSource, s.Model, s.StatePool),
 		anAuthoriser,
 		anAuthoriser.GetAuthTag().(names.UserTag),
 	)
@@ -100,7 +99,7 @@ func (s *modelStatusSuite) TestModelStatusOwnerAllowed(c *gc.C) {
 	st := s.Factory.MakeModel(c, &factory.ModelParams{Owner: owner.Tag()})
 	defer st.Close()
 	api := common.NewModelStatusAPI(
-		common.NewModelManagerBackend(s.Model, s.StatePool),
+		common.NewModelManagerBackend(state.NoopConfigSchemaSource, s.Model, s.StatePool),
 		anAuthoriser,
 		anAuthoriser.GetAuthTag().(names.UserTag),
 	)
@@ -305,10 +304,6 @@ func (s *modelStatusSuite) TestModelStatusRunsForAllModels(c *gc.C) {
 
 type statePolicy struct{}
 
-func (statePolicy) Prechecker() (environs.InstancePrechecker, error) {
-	return nil, errors.NotImplementedf("Prechecker")
-}
-
 func (statePolicy) ConfigValidator() (config.Validator, error) {
 	return nil, errors.NotImplementedf("ConfigValidator")
 }
@@ -322,8 +317,4 @@ func (statePolicy) StorageProviderRegistry() (storage.ProviderRegistry, error) {
 		dummystorage.StorageProviders(),
 		provider.CommonStorageProviders(),
 	}, nil
-}
-
-func (statePolicy) ProviderConfigSchemaSource(cloudName string) (config.ConfigSchemaSource, error) {
-	return nil, errors.NotImplementedf("ConfigSchemaSource")
 }

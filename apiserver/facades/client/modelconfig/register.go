@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/state/stateenvirons"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -27,5 +28,8 @@ func newFacadeV3(ctx facade.ModelContext) (*ModelConfigAPIV3, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return NewModelConfigAPI(NewStateBackend(model), auth)
+
+	configSchemaSourceGetter := stateenvirons.ProviderConfigSchemaSource(ctx.ServiceFactory().Cloud())
+
+	return NewModelConfigAPI(NewStateBackend(model, configSchemaSourceGetter), auth)
 }

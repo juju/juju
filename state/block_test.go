@@ -181,7 +181,7 @@ func (s *blockSuite) createTestModel(c *gc.C) (*state.Model, *state.State) {
 		"uuid": uuid.String(),
 	})
 	owner := names.NewUserTag("test@remote")
-	model, st, err := s.Controller.NewModel(state.ModelArgs{
+	model, st, err := s.Controller.NewModel(state.NoopConfigSchemaSource, state.ModelArgs{
 		Type:                    state.ModelTypeIAAS,
 		CloudName:               "dummy",
 		CloudRegion:             "dummy-region",

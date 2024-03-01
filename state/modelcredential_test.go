@@ -161,7 +161,7 @@ func (s *ModelCredentialSuite) addModel(c *gc.C, modelName string, tag names.Clo
 		"name": modelName,
 		"uuid": uuid.String(),
 	})
-	_, st, err := s.Controller.NewModel(state.ModelArgs{
+	_, st, err := s.Controller.NewModel(state.NoopConfigSchemaSource, state.ModelArgs{
 		Type:                    state.ModelTypeIAAS,
 		CloudName:               "dummy",
 		CloudRegion:             "dummy-region",

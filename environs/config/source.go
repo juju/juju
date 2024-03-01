@@ -4,6 +4,8 @@
 package config
 
 import (
+	"context"
+
 	"github.com/juju/schema"
 )
 
@@ -51,6 +53,9 @@ func (c ConfigValues) AllAttrs() map[string]interface{} {
 	}
 	return result
 }
+
+// ConfigSchemaSourceGetter is a type for getting a ConfigSchemaSource.
+type ConfigSchemaSourceGetter func(context.Context, string) (ConfigSchemaSource, error)
 
 // ConfigSchemaSource instances provide information on config attributes
 // and the default attribute values.

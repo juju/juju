@@ -38,6 +38,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/upgrade"
 	"github.com/juju/juju/environs"
+	environsconfig "github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/internal/storage"
@@ -2624,4 +2625,8 @@ type NoopInstancePrechecker struct{}
 
 func (NoopInstancePrechecker) PrecheckInstance(envcontext.ProviderCallContext, environs.PrecheckInstanceParams) error {
 	return errors.NotSupportedf("prechecking instances")
+}
+
+func NoopConfigSchemaSource(ctx context.Context, cloudName string) (environsconfig.ConfigSchemaSource, error) {
+	return nil, errors.NotImplementedf("config schema source")
 }

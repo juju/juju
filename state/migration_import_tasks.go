@@ -48,11 +48,16 @@ type DocModelNamespace interface {
 
 type stateModelNamspaceShim struct {
 	description.Model
-	st *State
+	st                       *State
+	configSchemaSourceGetter config.ConfigSchemaSourceGetter
 }
 
 func (s stateModelNamspaceShim) DocID(localID string) string {
 	return s.st.docID(localID)
+}
+
+func (s stateModelNamspaceShim) ConfigSchemaSourceGetter() config.ConfigSchemaSourceGetter {
+	return s.configSchemaSourceGetter
 }
 
 // stateApplicationOfferDocumentFactoryShim is required to allow the new
@@ -235,12 +240,13 @@ type FirewallRulesDescription interface {
 // FirewallRulesInput describes the input used for migrating firewall rules.
 type FirewallRulesInput interface {
 	FirewallRulesDescription
+	ConfigSchemaSourceGetter() config.ConfigSchemaSourceGetter
 }
 
 // FirewallRulesOutput describes the methods used to set firewall rules
 // on the dest model
 type FirewallRulesOutput interface {
-	UpdateModelConfig(map[string]interface{}, []string, ...ValidateConfigFunc) error
+	UpdateModelConfig(config.ConfigSchemaSourceGetter, map[string]interface{}, []string, ...ValidateConfigFunc) error
 }
 
 // ImportFirewallRules describes a way to import firewallRules from a
@@ -255,18 +261,19 @@ func (rules ImportFirewallRules) Execute(src FirewallRulesInput, dst FirewallRul
 		return nil
 	}
 
+	configSchemaSourceGetter := src.ConfigSchemaSourceGetter()
 	for _, rule := range firewallRules {
 		var err error
 		cidrs := strings.Join(rule.WhitelistCIDRs(), ",")
 		switch firewall.WellKnownServiceType(rule.WellKnownService()) {
 		case firewall.SSHRule:
-			err = dst.UpdateModelConfig(map[string]interface{}{
+			err = dst.UpdateModelConfig(configSchemaSourceGetter, map[string]interface{}{
 				config.SSHAllowKey: cidrs,
 			}, nil)
 		case firewall.JujuApplicationOfferRule:
 			// SAASIngressAllow cannot be empty. If it is, leave as it's default value
 			if cidrs != "" {
-				err = dst.UpdateModelConfig(map[string]interface{}{
+				err = dst.UpdateModelConfig(configSchemaSourceGetter, map[string]interface{}{
 					config.SAASIngressAllowKey: cidrs,
 				}, nil)
 			}

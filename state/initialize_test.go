@@ -102,7 +102,7 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 		CloudName:     "dummy",
 		MongoSession:  s.Session,
 		AdminPassword: "dummy-secret",
-	})
+	}, state.NoopConfigSchemaSource)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctlr, gc.NotNil)
 	st, err := ctlr.SystemState()
@@ -210,7 +210,7 @@ func (s *InitializeSuite) TestInitializeWithControllerInheritedConfig(c *gc.C) {
 		ControllerInheritedConfig: controllerInheritedConfigIn,
 		MongoSession:              s.Session,
 		AdminPassword:             "dummy-secret",
-	})
+	}, state.NoopConfigSchemaSource)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctlr, gc.NotNil)
 	st, err := ctlr.SystemState()
@@ -262,12 +262,12 @@ func (s *InitializeSuite) TestDoubleInitializeConfig(c *gc.C) {
 		MongoSession:  s.Session,
 		AdminPassword: "dummy-secret",
 	}
-	ctlr, err := state.Initialize(args)
+	ctlr, err := state.Initialize(args, state.NoopConfigSchemaSource)
 	c.Assert(err, jc.ErrorIsNil)
 	err = ctlr.Close()
 	c.Check(err, jc.ErrorIsNil)
 
-	ctlr, err = state.Initialize(args)
+	ctlr, err = state.Initialize(args, state.NoopConfigSchemaSource)
 	c.Check(err, gc.ErrorMatches, "already initialized")
 	c.Check(ctlr, gc.IsNil)
 }
@@ -315,11 +315,11 @@ func (s *InitializeSuite) testBadModelConfig(c *gc.C, update map[string]interfac
 		MongoSession:  s.Session,
 		AdminPassword: "dummy-secret",
 	}
-	_, err = state.Initialize(args)
+	_, err = state.Initialize(args, state.NoopConfigSchemaSource)
 	c.Assert(err, gc.ErrorMatches, expect)
 
 	args.ControllerModelArgs.Config = good
-	ctlr, err := state.Initialize(args)
+	ctlr, err := state.Initialize(args, state.NoopConfigSchemaSource)
 	c.Assert(err, jc.ErrorIsNil)
 	sysState, err := ctlr.SystemState()
 	c.Assert(err, jc.ErrorIsNil)
@@ -330,7 +330,7 @@ func (s *InitializeSuite) testBadModelConfig(c *gc.C, update map[string]interfac
 	m, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = m.UpdateModelConfig(update, remove)
+	err = m.UpdateModelConfig(state.NoopConfigSchemaSource, update, remove)
 	c.Assert(err, gc.ErrorMatches, expect)
 
 	// ModelConfig remains inviolate.
@@ -371,7 +371,7 @@ func (s *InitializeSuite) TestCloudConfigWithForbiddenValues(c *gc.C) {
 	for _, badAttrName := range badAttrNames {
 		badAttrs := map[string]interface{}{badAttrName: "foo"}
 		args.ControllerInheritedConfig = badAttrs
-		_, err := state.Initialize(args)
+		_, err := state.Initialize(args, state.NoopConfigSchemaSource)
 		c.Assert(err, gc.ErrorMatches, "local cloud config cannot contain .*")
 	}
 }
@@ -414,7 +414,7 @@ func (s *InitializeSuite) TestInitializeWithStoragePool(c *gc.C) {
 				"foo":  "bar",
 			},
 		},
-	})
+	}, state.NoopConfigSchemaSource)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctlr, gc.NotNil)
 	sysState, err := ctlr.SystemState()

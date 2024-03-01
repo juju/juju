@@ -156,7 +156,12 @@ func NewFacade(ctx facade.ModelContext) (*Client, error) {
 	}
 
 	return NewClient(
-		&stateShim{State: st, model: model, session: nil},
+		&stateShim{
+			State:                    st,
+			model:                    model,
+			session:                  nil,
+			configSchemaSourceGetter: stateenvirons.ProviderConfigSchemaSource(serviceFactory.Cloud()),
+		},
 		&poolShim{pool: ctx.StatePool()},
 		storageAccessor,
 		ctx.ServiceFactory().BlockDevice(),
