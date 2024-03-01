@@ -20,8 +20,11 @@ import (
 	networkstate "github.com/juju/juju/domain/network/state"
 	objectstoreservice "github.com/juju/juju/domain/objectstore/service"
 	objectstorestate "github.com/juju/juju/domain/objectstore/state"
+	storageservice "github.com/juju/juju/domain/storage/service"
+	storagestate "github.com/juju/juju/domain/storage/state"
 	unitservice "github.com/juju/juju/domain/unit/service"
 	unitstate "github.com/juju/juju/domain/unit/state"
+	"github.com/juju/juju/internal/storage"
 )
 
 // ModelFactory provides access to the services required by the apiserver.
@@ -112,5 +115,14 @@ func (s *ModelFactory) Space() *networkservice.SpaceService {
 func (s *ModelFactory) Annotation() *annotationService.Service {
 	return annotationService.NewService(
 		annotationState.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
+	)
+}
+
+// Storage returns the model's storage service.
+func (s *ModelFactory) Storage(registry storage.ProviderRegistry) *storageservice.Service {
+	return storageservice.NewService(
+		storagestate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
+		s.logger.Child("storage"),
+		registry,
 	)
 }
