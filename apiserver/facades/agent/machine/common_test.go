@@ -33,10 +33,10 @@ func (s *commonSuite) SetUpTest(c *gc.C) {
 
 	st := s.ControllerModel(c).State()
 	var err error
-	s.machine0, err = st.AddMachine(state.UbuntuBase("12.10"), state.JobManageModel)
+	s.machine0, err = st.AddMachine(state.NoopInstancePrechecker{}, state.UbuntuBase("12.10"), state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.machine1, err = st.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	s.machine1, err = st.AddMachine(state.NoopInstancePrechecker{}, state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Create a FakeAuthorizer so we can check permissions,

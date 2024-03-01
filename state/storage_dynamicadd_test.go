@@ -30,7 +30,7 @@ func (s *storageAddSuite) setupMultipleStoragesForAdd(c *gc.C) *state.Unit {
 		"multi1to10": makeStorageCons("persistent-block", 0, 3),
 	}
 	charm := s.AddTestingCharm(c, "storage-block2")
-	application, err := s.State.AddApplication(state.AddApplicationArgs{
+	application, err := s.State.AddApplication(defaultInstancePrechecker, state.AddApplicationArgs{
 		Name: "storage-block2", Charm: charm, Storage: storageCons,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
 			OS:      "ubuntu",
@@ -49,7 +49,7 @@ func (s *storageAddSuite) setupMultipleStoragesForAdd(c *gc.C) *state.Unit {
 
 func (s *storageAddSuite) assignUnit(c *gc.C, u *state.Unit) {
 	// Assign unit to machine to get volumes and filesystems
-	err := s.State.AssignUnit(u, state.AssignNew)
+	err := s.State.AssignUnit(defaultInstancePrechecker, u, state.AssignNew)
 	c.Assert(err, jc.ErrorIsNil)
 	machineId, err := u.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
@@ -235,7 +235,7 @@ func (s *storageAddSuite) createAndAssignUnitWithSingleStorage(c *gc.C) names.Un
 	s.assertStorageCount(c, 1)
 
 	// Assign unit to machine to get volumes and filesystems
-	err := s.State.AssignUnit(u, state.AssignNew)
+	err := s.State.AssignUnit(defaultInstancePrechecker, u, state.AssignNew)
 	c.Assert(err, jc.ErrorIsNil)
 
 	volumes, err := s.storageBackend.AllVolumes()
@@ -370,7 +370,7 @@ func (s *storageAddSuite) TestAddStorageFilesystem(c *gc.C) {
 	_, u, _ := s.setupSingleStorage(c, "filesystem", "loop-pool")
 
 	// Assign unit to machine to get volumes and filesystems
-	err := s.State.AssignUnit(u, state.AssignNew)
+	err := s.State.AssignUnit(defaultInstancePrechecker, u, state.AssignNew)
 	c.Assert(err, jc.ErrorIsNil)
 	machineId, err := u.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
@@ -396,7 +396,7 @@ func (s *storageAddSuite) TestAddStorageStatic(c *gc.C) {
 	s.assertStorageCount(c, 1)
 
 	// Assign unit to machine to get volumes and filesystems
-	err := s.State.AssignUnit(u, state.AssignNew)
+	err := s.State.AssignUnit(defaultInstancePrechecker, u, state.AssignNew)
 	c.Assert(err, jc.ErrorIsNil)
 	machineId, err := u.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)

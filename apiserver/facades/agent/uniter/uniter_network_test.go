@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
 	applicationservice "github.com/juju/juju/domain/application/service"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/feature"
 	"github.com/juju/juju/juju/testing"
@@ -84,7 +85,7 @@ func (s *uniterNetworkInfoSuite) SetUpTest(c *gc.C) {
 		}
 	}
 
-	s.machine0 = s.addProvisionedMachineWithDevicesAndAddresses(c, 10)
+	s.machine0 = s.addProvisionedMachineWithDevicesAndAddresses(c, 10, s.InstancePrechecker(c, s.st))
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
@@ -93,7 +94,7 @@ func (s *uniterNetworkInfoSuite) SetUpTest(c *gc.C) {
 		Name: "wordpress-extra-bindings",
 		URL:  "ch:amd64/quantal/wordpress-extra-bindings-4",
 	})
-	s.wordpress, err = s.st.AddApplication(state.AddApplicationArgs{
+	s.wordpress, err = s.st.AddApplication(s.InstancePrechecker(c, s.st), state.AddApplicationArgs{
 		Name:        "wordpress",
 		Charm:       s.wpCharm,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{OS: "ubuntu", Channel: "12.10/stable"}},
@@ -110,7 +111,7 @@ func (s *uniterNetworkInfoSuite) SetUpTest(c *gc.C) {
 		Machine:     s.machine0,
 	})
 
-	s.machine1 = s.addProvisionedMachineWithDevicesAndAddresses(c, 20)
+	s.machine1 = s.addProvisionedMachineWithDevicesAndAddresses(c, 20, s.InstancePrechecker(c, s.st))
 
 	s.mysqlCharm = f.MakeCharm(c, &factory.CharmParams{
 		Name: "mysql",
@@ -140,8 +141,8 @@ func (s *uniterNetworkInfoSuite) SetUpTest(c *gc.C) {
 	s.setupUniterAPIForUnit(c, s.wordpressUnit)
 }
 
-func (s *uniterNetworkInfoSuite) addProvisionedMachineWithDevicesAndAddresses(c *gc.C, addrSuffix int) *state.Machine {
-	machine, err := s.st.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+func (s *uniterNetworkInfoSuite) addProvisionedMachineWithDevicesAndAddresses(c *gc.C, addrSuffix int, prechecker environs.InstancePrechecker) *state.Machine {
+	machine, err := s.st.AddMachine(prechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetInstanceInfo("i-am", "", "fake_nonce", nil, nil, nil, nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)

@@ -9,9 +9,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 
-	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/storage"
@@ -32,9 +30,6 @@ type NewPolicyFunc func(*State) Policy
 // be ignored. Any other error will cause an error
 // in the use of the policy.
 type Policy interface {
-	// Prechecker returns a Prechecker or an error.
-	Prechecker() (environs.InstancePrechecker, error)
-
 	// ProviderConfigSchemaSource returns a config.ConfigSchemaSource
 	// for the cloud, or an error.
 	ProviderConfigSchemaSource(cloudName string) (config.ConfigSchemaSource, error)
@@ -47,40 +42,6 @@ type Policy interface {
 
 	// StorageProviderRegistry returns a storage.ProviderRegistry or an error.
 	StorageProviderRegistry() (storage.ProviderRegistry, error)
-}
-
-// precheckInstance calls the state's assigned policy, if non-nil, to obtain
-// a Prechecker, and calls PrecheckInstance if a non-nil Prechecker is returned.
-func (st *State) precheckInstance(
-	base Base,
-	cons constraints.Value,
-	placement string,
-	volumeAttachments []storage.VolumeAttachmentParams,
-) error {
-	if st.policy == nil {
-		return nil
-	}
-	prechecker, err := st.policy.Prechecker()
-	if errors.Is(err, errors.NotImplemented) {
-		return nil
-	} else if err != nil {
-		return err
-	}
-	if prechecker == nil {
-		return errors.New("policy returned nil prechecker without an error")
-	}
-	mBase, err := corebase.ParseBase(base.OS, base.Channel)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return prechecker.PrecheckInstance(
-		envcontext.WithoutCredentialInvalidator(stdcontext.Background()),
-		environs.PrecheckInstanceParams{
-			Base:              mBase,
-			Constraints:       cons,
-			Placement:         placement,
-			VolumeAttachments: volumeAttachments,
-		})
 }
 
 func (st *State) constraintsValidator() (constraints.Validator, error) {

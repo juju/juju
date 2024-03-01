@@ -52,10 +52,10 @@ func (s *agentSuite) SetUpTest(c *gc.C) {
 
 	st := s.ControllerModel(c).State()
 	var err error
-	s.machine0, err = st.AddMachine(state.UbuntuBase("12.10"), state.JobManageModel)
+	s.machine0, err = st.AddMachine(s.InstancePrechecker(c, st), state.UbuntuBase("12.10"), state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.machine1, err = st.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	s.machine1, err = st.AddMachine(s.InstancePrechecker(c, st), state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	template := state.MachineTemplate{

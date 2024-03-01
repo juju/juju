@@ -388,6 +388,13 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 			BootstrapDqlite: c.DqliteInitializer,
 			Provider:        environs.Provider,
 			Logger:          loggo.GetLogger("juju.agent.bootstrap"),
+			InstancePrecheckerGetter: func(st *state.State) (environs.InstancePrechecker, error) {
+				return stateenvirons.NewInstancePrechecker(
+					st,
+					cloudGetter{cloud: &args.ControllerCloud},
+					credentialGetter{cred: args.ControllerCloudCredential},
+				)
+			},
 		})
 		if err != nil {
 			return errors.Trace(err)

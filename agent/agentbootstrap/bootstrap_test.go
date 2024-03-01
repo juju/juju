@@ -187,6 +187,9 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 				return &envProvider, nil
 			},
 			Logger: testing.NewCheckLogger(c),
+			InstancePrecheckerGetter: func(s *state.State) (environs.InstancePrechecker, error) {
+				return state.NoopInstancePrechecker{}, nil
+			},
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -385,6 +388,9 @@ func (s *bootstrapSuite) TestInitializeStateWithStateServingInfoNotAvailable(c *
 			StorageProviderRegistry:   provider.CommonStorageProviders(),
 			BootstrapDqlite:           bootstrapDqliteWithDummyCloudType,
 			Logger:                    testing.NewCheckLogger(c),
+			InstancePrecheckerGetter: func(s *state.State) (environs.InstancePrechecker, error) {
+				return state.NoopInstancePrechecker{}, nil
+			},
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -460,6 +466,9 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 				return &fakeProvider{}, nil
 			},
 			Logger: testing.NewCheckLogger(c),
+			InstancePrecheckerGetter: func(s *state.State) (environs.InstancePrechecker, error) {
+				return state.NoopInstancePrechecker{}, nil
+			},
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -479,6 +488,9 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 			StorageProviderRegistry:   provider.CommonStorageProviders(),
 			BootstrapDqlite:           database.BootstrapDqlite,
 			Logger:                    testing.NewCheckLogger(c),
+			InstancePrecheckerGetter: func(s *state.State) (environs.InstancePrechecker, error) {
+				return state.NoopInstancePrechecker{}, nil
+			},
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)

@@ -144,7 +144,7 @@ func (s *commonMachineSuite) primeAgent(c *gc.C, jobs ...state.MachineJob) (m *s
 // primeAgentVersion is similar to primeAgent, but permits the
 // caller to specify the version.Binary to prime with.
 func (s *commonMachineSuite) primeAgentVersion(c *gc.C, vers version.Binary, jobs ...state.MachineJob) (m *state.Machine, agentConfig agent.ConfigSetterWriter, tools *tools.Tools) {
-	m, err := s.ControllerModel(c).State().AddMachine(state.UbuntuBase("12.10"), jobs...)
+	m, err := s.ControllerModel(c).State().AddMachine(state.NoopInstancePrechecker{}, state.UbuntuBase("12.10"), jobs...)
 	c.Assert(err, jc.ErrorIsNil)
 	// TODO(wallyworld) - we need the dqlite model database to be available.
 	// s.createMachine(c, m.Id())

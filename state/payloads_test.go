@@ -673,7 +673,7 @@ func addUnit(c *gc.C, s ConnSuite, args unitArgs) *state.Unit {
 
 	// TODO(ericsnow) Explicitly: call unit.AssignToMachine(m)?
 	c.Assert(args.machine, gc.Equals, "0")
-	err = unit.AssignToNewMachine() // machine "0"
+	err = unit.AssignToNewMachine(defaultInstancePrechecker) // machine "0"
 	c.Assert(err, jc.ErrorIsNil)
 
 	return unit

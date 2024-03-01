@@ -235,7 +235,7 @@ func (s *CharmSuite) TestReferenceDyingCharm(c *gc.C) {
 			Channel: "22.04/stable",
 		}},
 	}
-	_, err := s.State.AddApplication(args, mockApplicationSaver{}, state.NewObjectStore(c, s.State.ModelUUID()))
+	_, err := s.State.AddApplication(defaultInstancePrechecker, args, mockApplicationSaver{}, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Check(err, gc.ErrorMatches, `cannot add application "blah": charm: not found or not alive`)
 }
 
@@ -253,7 +253,7 @@ func (s *CharmSuite) TestReferenceDyingCharmRace(c *gc.C) {
 			Channel: "22.04/stable",
 		}},
 	}
-	_, err := s.State.AddApplication(args, mockApplicationSaver{}, state.NewObjectStore(c, s.State.ModelUUID()))
+	_, err := s.State.AddApplication(defaultInstancePrechecker, args, mockApplicationSaver{}, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Check(err, gc.ErrorMatches, `cannot add application "blah": charm: not found or not alive`)
 }
 

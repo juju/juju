@@ -7,7 +7,9 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/stateenvirons"
 )
 
 // This file contains untested shims to let us wrap state in a sensible
@@ -17,7 +19,13 @@ import (
 
 // newAPI provides the required signature for facade registration.
 func newAPI(ctx facade.ModelContext) (*Facade, error) {
-	return NewFacade(backendShim{ctx.State()}, ctx.Resources(), ctx.Auth())
+	st := ctx.State()
+	serviceFactory := ctx.ServiceFactory()
+	prechecker, err := stateenvirons.NewInstancePrechecker(st, serviceFactory.Cloud(), serviceFactory.Credential())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return NewFacade(backendShim{st: st, prechecker: prechecker}, ctx.Resources(), ctx.Auth())
 }
 
 // backendShim wraps a *State to implement Backend without pulling in direct
@@ -28,7 +36,8 @@ func newAPI(ctx facade.ModelContext) (*Facade, error) {
 // ...so long as it stays simple, and the full functionality remains tested
 // elsewhere.
 type backendShim struct {
-	st *state.State
+	st         *state.State
+	prechecker environs.InstancePrechecker
 }
 
 // WatchScaledServices is part of the Backend interface.
@@ -42,5 +51,5 @@ func (shim backendShim) RescaleService(name string) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return service.EnsureMinUnits()
+	return service.EnsureMinUnits(shim.prechecker)
 }

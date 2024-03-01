@@ -41,11 +41,11 @@ func (s *ipAddressesStateSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
 
 	var err error
-	s.machine, err = s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	s.machine, err = s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.otherState = s.NewStateForModelNamed(c, "other-model")
-	s.otherStateMachine, err = s.otherState.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	s.otherStateMachine, err = s.otherState.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Add the few subnets used by the tests into both models.

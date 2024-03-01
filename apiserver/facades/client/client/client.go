@@ -123,9 +123,15 @@ func NewFacade(ctx facade.ModelContext) (*Client, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	serviceFactory := ctx.ServiceFactory()
+
 	configGetter := stateenvirons.EnvironConfigGetter{
-		Model: model, CloudService: ctx.ServiceFactory().Cloud(), CredentialService: ctx.ServiceFactory().Credential()}
-	newEnviron := common.EnvironFuncForModel(model, ctx.ServiceFactory().Cloud(), ctx.ServiceFactory().Credential(), configGetter)
+		Model:             model,
+		CloudService:      serviceFactory.Cloud(),
+		CredentialService: serviceFactory.Credential(),
+	}
+	newEnviron := common.EnvironFuncForModel(model, serviceFactory.Cloud(), serviceFactory.Credential(), configGetter)
 
 	modelUUID := model.UUID()
 
@@ -134,7 +140,7 @@ func NewFacade(ctx facade.ModelContext) (*Client, error) {
 		return nil, errors.Trace(err)
 	}
 
-	controllerConfigGetter := ctx.ServiceFactory().ControllerConfig()
+	controllerConfigGetter := serviceFactory.ControllerConfig()
 
 	urlGetter := common.NewToolsURLGetter(modelUUID, systemState)
 	toolsFinder := common.NewToolsFinder(controllerConfigGetter, configGetter, st, urlGetter, newEnviron, ctx.ControllerObjectStore())
@@ -150,8 +156,8 @@ func NewFacade(ctx facade.ModelContext) (*Client, error) {
 	}
 
 	return NewClient(
-		&stateShim{st, model, nil},
-		&poolShim{ctx.StatePool()},
+		&stateShim{State: st, model: model, session: nil},
+		&poolShim{pool: ctx.StatePool()},
 		storageAccessor,
 		ctx.ServiceFactory().BlockDevice(),
 		resources,

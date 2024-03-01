@@ -50,8 +50,9 @@ func (s *firewallerBaseSuite) setUpTest(c *gc.C) {
 	s.units = nil
 	// Note that the specific machine ids allocated are assumed
 	// to be numerically consecutive from zero.
+	st := s.ControllerModel(c).State()
 	for i := 0; i <= 2; i++ {
-		machine, err := s.ControllerModel(c).State().AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+		machine, err := st.AddMachine(s.InstancePrechecker(c, st), state.UbuntuBase("12.10"), state.JobHostUnits)
 		c.Check(err, jc.ErrorIsNil)
 		s.machines = append(s.machines, machine)
 	}
@@ -75,7 +76,6 @@ func (s *firewallerBaseSuite) setUpTest(c *gc.C) {
 
 	// Create a relation.
 	f.MakeApplication(c, nil)
-	st := s.ControllerModel(c).State()
 	eps, err := st.InferEndpoints("wordpress", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
 

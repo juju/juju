@@ -38,7 +38,7 @@ var _ = gc.Suite(&userAuthenticatorSuite{})
 
 func (s *userAuthenticatorSuite) TestMachineLoginFails(c *gc.C) {
 	// add machine for testing machine agent authentication
-	machine, err := s.ControllerModel(c).State().AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.ControllerModel(c).State().AddMachine(state.NoopInstancePrechecker{}, state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	nonce, err := password.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)

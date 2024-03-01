@@ -49,7 +49,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithStorage(c *gc.C) {
 			{Volume: state.VolumeParams{Size: 2000, Pool: "static-pool"}},
 		},
 	}
-	placementMachine, err := st.AddOneMachine(template)
+	placementMachine, err := st.AddOneMachine(s.InstancePrechecker(c, st), template)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.Entities{Entities: []params.Entity{
@@ -143,7 +143,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoRootDiskVolume(c *gc.C) {
 		Constraints: constraints.MustParse("root-disk-source=static-pool"),
 		Jobs:        []state.MachineJob{state.JobHostUnits},
 	}
-	machine, err := st.AddOneMachine(template)
+	machine, err := st.AddOneMachine(s.InstancePrechecker(c, st), template)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.Entities{Entities: []params.Entity{
@@ -171,7 +171,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithMultiplePositiveSpaceCo
 		Constraints: cons,
 		Placement:   "valid",
 	}
-	placementMachine, err := st.AddOneMachine(template)
+	placementMachine, err := st.AddOneMachine(s.InstancePrechecker(c, st), template)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.Entities{Entities: []params.Entity{
@@ -237,7 +237,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithEndpointBindings(c *gc.
 		VLANTag:           43,
 	})
 
-	wordpressMachine, err := st.AddOneMachine(state.MachineTemplate{
+	wordpressMachine, err := st.AddOneMachine(s.InstancePrechecker(c, st), state.MachineTemplate{
 		Base: state.UbuntuBase("12.10"),
 		Jobs: []state.MachineJob{state.JobHostUnits},
 	})
@@ -321,7 +321,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithEndpointBindingsAndNoAl
 	s.addSpacesAndSubnets(c)
 
 	st := s.ControllerModel(c).State()
-	wordpressMachine, err := st.AddOneMachine(state.MachineTemplate{
+	wordpressMachine, err := st.AddOneMachine(s.InstancePrechecker(c, st), state.MachineTemplate{
 		Base: state.UbuntuBase("12.10"),
 		Jobs: []state.MachineJob{state.JobHostUnits},
 	})
@@ -376,7 +376,7 @@ func (s *withoutControllerSuite) TestConflictingNegativeConstraintWithBindingErr
 	})
 
 	cons := constraints.MustParse("spaces=^space1")
-	wordpressMachine, err := st.AddOneMachine(state.MachineTemplate{
+	wordpressMachine, err := st.AddOneMachine(s.InstancePrechecker(c, st), state.MachineTemplate{
 		Base:        state.UbuntuBase("12.10"),
 		Jobs:        []state.MachineJob{state.JobHostUnits},
 		Constraints: cons,
@@ -452,7 +452,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithUnsuitableSpacesConstra
 		Constraints: consMissingSpace,
 		Placement:   "valid",
 	}}
-	placementMachines, err := st.AddMachines(templates...)
+	placementMachines, err := st.AddMachines(s.InstancePrechecker(c, st), templates...)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(placementMachines, gc.HasLen, 2)
 
@@ -476,7 +476,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithUnsuitableSpacesConstra
 
 func (s *withoutControllerSuite) TestProvisioningInfoWithLXDProfile(c *gc.C) {
 	st := s.ControllerModel(c).State()
-	profileMachine, err := st.AddOneMachine(state.MachineTemplate{
+	profileMachine, err := st.AddOneMachine(s.InstancePrechecker(c, st), state.MachineTemplate{
 		Base: state.UbuntuBase("12.10"),
 		Jobs: []state.MachineJob{state.JobHostUnits},
 	})
@@ -541,7 +541,8 @@ func (s *withoutControllerSuite) TestStorageProviderFallbackToType(c *gc.C) {
 			{Volume: state.VolumeParams{Size: 1000, Pool: "static"}},
 		},
 	}
-	placementMachine, err := s.ControllerModel(c).State().AddOneMachine(template)
+	st := s.ControllerModel(c).State()
+	placementMachine, err := st.AddOneMachine(s.InstancePrechecker(c, st), template)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.Entities{Entities: []params.Entity{
@@ -600,7 +601,7 @@ func (s *withoutControllerSuite) TestStorageProviderVolumes(c *gc.C) {
 			{Volume: state.VolumeParams{Size: 1000, Pool: "modelscoped"}},
 		},
 	}
-	machine, err := st.AddOneMachine(template)
+	machine, err := st.AddOneMachine(s.InstancePrechecker(c, st), template)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Provision just one of the volumes, but neither of the attachments.
@@ -655,7 +656,8 @@ func (s *withoutControllerSuite) TestProviderInfoCloudInitUserData(c *gc.C) {
 		Base: state.UbuntuBase("12.10"),
 		Jobs: []state.MachineJob{state.JobHostUnits},
 	}
-	m, err := s.ControllerModel(c).State().AddOneMachine(template)
+	st := s.ControllerModel(c).State()
+	m, err := st.AddOneMachine(s.InstancePrechecker(c, st), template)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.Entities{Entities: []params.Entity{

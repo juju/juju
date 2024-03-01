@@ -36,7 +36,7 @@ func (s *ApplicationMachinesSuite) SetUpTest(c *gc.C) {
 	s.machines = make([]*state.Machine, 5)
 	for i := range s.machines {
 		var err error
-		s.machines[i], err = s.State.AddOneMachine(state.MachineTemplate{
+		s.machines[i], err = s.State.AddOneMachine(defaultInstancePrechecker, state.MachineTemplate{
 			Base: state.UbuntuBase("12.10"),
 			Jobs: []state.MachineJob{state.JobHostUnits},
 		})

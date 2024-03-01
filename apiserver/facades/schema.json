@@ -5289,7 +5289,10 @@
         "Description": "Facade allows model-manager clients to watch and rescale services.",
         "Version": 1,
         "AvailableTo": [
-            "controller-machine-agent"
+            "controller-machine-agent",
+            "machine-agent",
+            "unit-agent",
+            "model-user"
         ],
         "Schema": {
             "type": "object",

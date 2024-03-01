@@ -379,7 +379,7 @@ func addTestingApplication(c *gc.C, objectStore objectstore.ObjectStore, params 
 			},
 		}
 	}
-	app, err := params.st.AddApplication(AddApplicationArgs{
+	app, err := params.st.AddApplication(testInstancePrechecker{}, AddApplicationArgs{
 		Name:             params.name,
 		Charm:            params.ch,
 		CharmOrigin:      origin,

@@ -17,9 +17,7 @@ import (
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/blockdevice"
-	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
@@ -32,50 +30,31 @@ import (
 type Backend interface {
 	network.SpaceLookup
 
-	AddControllerUser(state.UserAccessSpec) (permission.UserAccess, error)
-	AddMachineInsideMachine(state.MachineTemplate, string, instance.ContainerType) (*state.Machine, error)
-	AddMachineInsideNewMachine(template, parentTemplate state.MachineTemplate, containerType instance.ContainerType) (*state.Machine, error)
-	AddOneMachine(state.MachineTemplate) (*state.Machine, error)
 	AddRelation(...state.Endpoint) (*state.Relation, error)
 	AllApplications() ([]*state.Application, error)
 	AllApplicationOffers() ([]*crossmodel.ApplicationOffer, error)
 	AllRemoteApplications() ([]*state.RemoteApplication, error)
 	AllMachines() ([]*state.Machine, error)
-	AllModelUUIDs() ([]string, error)
 	AllIPAddresses() ([]*state.Address, error)
 	AllLinkLayerDevices() ([]*state.LinkLayerDevice, error)
 	AllRelations() ([]*state.Relation, error)
 	AllSubnets() ([]*state.Subnet, error)
 	Annotations(state.GlobalEntity) (map[string]string, error)
-	APIHostPortsForClients(controller.Config) ([]network.SpaceHostPorts, error)
 	Application(string) (Application, error)
-	Charm(string) (*state.Charm, error)
 	ControllerConfig() (controller.Config, error)
 	ControllerNodes() ([]state.ControllerNode, error)
 	ControllerTag() names.ControllerTag
 	ControllerTimestamp() (*time.Time, error)
-	EndpointsRelation(...state.Endpoint) (*state.Relation, error)
-	FindEntity(names.Tag) (state.Entity, error)
-	InferEndpoints(...string) ([]state.Endpoint, error)
-	IsController() bool
 	HAPrimaryMachine() (names.MachineTag, error)
-	LatestMigration() (state.ModelMigration, error)
 	LatestPlaceholderCharm(*charm.URL) (*state.Charm, error)
 	Machine(string) (*state.Machine, error)
 	Model() (Model, error)
 	ModelConfig() (*config.Config, error)
-	ModelConstraints() (constraints.Value, error)
 	ModelTag() names.ModelTag
 	ModelUUID() string
-	MongoSession() MongoSession
 	RemoteApplication(string) (*state.RemoteApplication, error)
 	RemoteConnectionStatus(string) (*state.RemoteConnectionStatus, error)
-	RemoveUserAccess(names.UserTag, names.Tag) error
-	SetAnnotations(state.GlobalEntity, map[string]string) error
-	SetModelAgentVersion(version.Number, *string, bool, state.Upgrader) error
-	SetModelConstraints(constraints.Value) error
 	Unit(string) (Unit, error)
-	UpdateModelConfig(map[string]interface{}, []string, ...state.ValidateConfigFunc) error
 }
 
 // MongoSession provides a way to get the status for the mongo replicaset.

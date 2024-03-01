@@ -149,7 +149,7 @@ func (p lxdCharmProfiler) LXDProfile() lxdprofile.LXDProfile {
 // and State.APIAddresses methods, which will not bear any relation to
 // the be the addresses used by the controllers.
 func AddControllerMachine(c *gc.C, st *state.State) *state.Machine {
-	machine, err := st.AddMachine(state.UbuntuBase("12.10"), state.JobManageModel)
+	machine, err := st.AddMachine(state.NoopInstancePrechecker{}, state.UbuntuBase("12.10"), state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 	controllerConfig, err := st.ControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)

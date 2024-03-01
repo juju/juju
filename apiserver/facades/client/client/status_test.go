@@ -44,7 +44,8 @@ type statusSuite struct {
 var _ = gc.Suite(&statusSuite{})
 
 func (s *statusSuite) addMachine(c *gc.C) *state.Machine {
-	machine, err := s.ControllerModel(c).State().AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	st := s.ControllerModel(c).State()
+	machine, err := st.AddMachine(s.InstancePrechecker(c, st), state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	return machine
 }
@@ -844,7 +845,8 @@ func (s *statusUpgradeUnitSuite) TearDownTest(c *gc.C) {
 
 // AddMachine adds a new machine to state.
 func (s *statusUpgradeUnitSuite) AddMachine(c *gc.C, machineId string, job state.MachineJob) {
-	m, err := s.ControllerModel(c).State().AddOneMachine(state.MachineTemplate{
+	st := s.ControllerModel(c).State()
+	m, err := st.AddOneMachine(s.InstancePrechecker(c, st), state.MachineTemplate{
 		Base: state.UbuntuBase("12.10"),
 		Jobs: []state.MachineJob{job},
 	})
@@ -880,7 +882,9 @@ func (s *statusUpgradeUnitSuite) AddApplication(c *gc.C, charmName, applicationN
 	ch, ok := s.charms[charmName]
 	c.Assert(ok, jc.IsTrue)
 	revision := ch.Revision()
-	_, err := s.ControllerModel(c).State().AddApplication(state.AddApplicationArgs{
+
+	st := s.ControllerModel(c).State()
+	_, err := st.AddApplication(s.InstancePrechecker(c, st), state.AddApplicationArgs{
 		Name:  applicationName,
 		Charm: ch,
 		CharmOrigin: &state.CharmOrigin{

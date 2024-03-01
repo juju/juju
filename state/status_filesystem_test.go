@@ -23,7 +23,7 @@ var _ = gc.Suite(&FilesystemStatusSuite{})
 func (s *FilesystemStatusSuite) SetUpTest(c *gc.C) {
 	s.StorageStateSuiteBase.SetUpTest(c)
 
-	machine, err := s.State.AddOneMachine(state.MachineTemplate{
+	machine, err := s.State.AddOneMachine(defaultInstancePrechecker, state.MachineTemplate{
 		Base: state.UbuntuBase("12.10"),
 		Jobs: []state.MachineJob{state.JobHostUnits},
 		Filesystems: []state.HostFilesystemParams{{

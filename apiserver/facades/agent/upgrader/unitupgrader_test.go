@@ -49,7 +49,7 @@ func (s *unitUpgraderSuite) SetUpTest(c *gc.C) {
 
 	// Create a machine and unit to work with
 	st := s.ControllerModel(c).State()
-	machine, err := st.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := st.AddMachine(s.InstancePrechecker(c, st), state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	arch := arch.DefaultArchitecture
@@ -69,7 +69,7 @@ func (s *unitUpgraderSuite) SetUpTest(c *gc.C) {
 	s.rawUnit, err = app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	// Assign the unit to the machine.
-	err = s.rawUnit.AssignToNewMachine()
+	err = s.rawUnit.AssignToNewMachine(s.InstancePrechecker(c, st))
 	c.Assert(err, jc.ErrorIsNil)
 	id, err := s.rawUnit.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)

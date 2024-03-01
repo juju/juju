@@ -30,6 +30,8 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/testing"
@@ -59,6 +61,12 @@ var dottedConfig = `
 options:
   key.dotted: {default: My Key, description: Desc, type: string}
 `
+
+type testInstancePrechecker struct{}
+
+func (testInstancePrechecker) PrecheckInstance(envcontext.ProviderCallContext, environs.PrecheckInstanceParams) error {
+	return errors.NotSupportedf("prechecking instances")
+}
 
 type allWatcherBaseSuite struct {
 	internalStateSuite
@@ -115,7 +123,7 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 	})
 
 	now := s.currentTime
-	m, err := st.AddMachine(UbuntuBase("12.10"), JobHostUnits)
+	m, err := st.AddMachine(testInstancePrechecker{}, UbuntuBase("12.10"), JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.Tag(), gc.Equals, names.NewMachineTag("0"))
 	// Ensure there's one and only one controller.
@@ -123,7 +131,7 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 	c.Assert(err, jc.ErrorIsNil)
 	needController := len(controllerIds) == 0
 	if needController {
-		_, _, err = st.EnableHA(1, constraints.Value{}, UbuntuBase("20.04"), []string{m.Id()})
+		_, _, err = st.EnableHA(testInstancePrechecker{}, 1, constraints.Value{}, UbuntuBase("20.04"), []string{m.Id()})
 		c.Assert(err, jc.ErrorIsNil)
 		node, err := st.ControllerNode(m.Id())
 		c.Assert(err, jc.ErrorIsNil)
@@ -269,7 +277,7 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(wu.Tag().String(), gc.Equals, fmt.Sprintf("unit-wordpress-%d", i))
 
-		m, err := st.AddMachine(UbuntuBase("12.10"), JobHostUnits)
+		m, err := st.AddMachine(testInstancePrechecker{}, UbuntuBase("12.10"), JobHostUnits)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(m.Tag().String(), gc.Equals, fmt.Sprintf("machine-%d", i+1))
 
@@ -958,7 +966,7 @@ func (s *allWatcherStateSuite) TestClosingPorts(c *gc.C) {
 	wordpress := AddTestingApplication(c, s.state, s.objectStore, "wordpress", AddTestingCharm(c, s.state, "wordpress"))
 	u, err := wordpress.AddUnit(AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	m, err := s.state.AddMachine(UbuntuBase("12.10"), JobHostUnits)
+	m, err := s.state.AddMachine(testInstancePrechecker{}, UbuntuBase("12.10"), JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = u.AssignToMachine(m)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1604,7 +1612,7 @@ func testChangeAnnotations(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)
 				}}
 		},
 		func(c *gc.C, st *State, objectStore objectstore.ObjectStore) changeTestCase {
-			m, err := st.AddMachine(UbuntuBase("12.10"), JobHostUnits)
+			m, err := st.AddMachine(testInstancePrechecker{}, UbuntuBase("12.10"), JobHostUnits)
 			c.Assert(err, jc.ErrorIsNil)
 			model, err := st.Model()
 			c.Assert(err, jc.ErrorIsNil)
@@ -1636,7 +1644,7 @@ func testChangeAnnotations(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)
 					}}}
 		},
 		func(c *gc.C, st *State, objectStore objectstore.ObjectStore) changeTestCase {
-			m, err := st.AddMachine(UbuntuBase("12.10"), JobHostUnits)
+			m, err := st.AddMachine(testInstancePrechecker{}, UbuntuBase("12.10"), JobHostUnits)
 			c.Assert(err, jc.ErrorIsNil)
 			model, err := st.Model()
 			c.Assert(err, jc.ErrorIsNil)
@@ -1722,7 +1730,7 @@ func testChangeMachines(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)) {
 				}}
 		},
 		func(c *gc.C, st *State, objectStore objectstore.ObjectStore) changeTestCase {
-			m, err := st.AddMachine(UbuntuBase("12.10"), JobHostUnits)
+			m, err := st.AddMachine(testInstancePrechecker{}, UbuntuBase("12.10"), JobHostUnits)
 			c.Assert(err, jc.ErrorIsNil)
 			now := st.clock().Now()
 			sInfo := status.StatusInfo{
@@ -1763,7 +1771,7 @@ func testChangeMachines(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)) {
 					}}}
 		},
 		func(c *gc.C, st *State, objectStore objectstore.ObjectStore) changeTestCase {
-			m, err := st.AddMachine(UbuntuBase("22.04"), JobHostUnits)
+			m, err := st.AddMachine(testInstancePrechecker{}, UbuntuBase("22.04"), JobHostUnits)
 			c.Assert(err, jc.ErrorIsNil)
 			err = m.SetProvisioned("i-0", "", "bootstrap_nonce", nil)
 			c.Assert(err, jc.ErrorIsNil)
@@ -1854,7 +1862,7 @@ func testChangeMachines(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)) {
 					}}}
 		},
 		func(c *gc.C, st *State, objectStore objectstore.ObjectStore) changeTestCase {
-			m, err := st.AddMachine(UbuntuBase("12.10"), JobHostUnits)
+			m, err := st.AddMachine(testInstancePrechecker{}, UbuntuBase("12.10"), JobHostUnits)
 			c.Assert(err, jc.ErrorIsNil)
 			now := st.clock().Now()
 			sInfo := status.StatusInfo{
@@ -1910,7 +1918,7 @@ func testChangeMachines(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)) {
 					}}}
 		},
 		func(c *gc.C, st *State, objectStore objectstore.ObjectStore) changeTestCase {
-			m, err := st.AddMachine(UbuntuBase("12.10"), JobHostUnits)
+			m, err := st.AddMachine(testInstancePrechecker{}, UbuntuBase("12.10"), JobHostUnits)
 			c.Assert(err, jc.ErrorIsNil)
 
 			hc := &instance.HardwareCharacteristics{}
@@ -2489,7 +2497,7 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 			wordpress := AddTestingApplication(c, st, objectStore, "wordpress", AddTestingCharm(c, st, "wordpress"))
 			u, err := wordpress.AddUnit(AddUnitParams{})
 			c.Assert(err, jc.ErrorIsNil)
-			m, err := st.AddMachine(UbuntuBase("12.10"), JobHostUnits)
+			m, err := st.AddMachine(testInstancePrechecker{}, UbuntuBase("12.10"), JobHostUnits)
 			c.Assert(err, jc.ErrorIsNil)
 			err = u.AssignToMachine(m)
 			c.Assert(err, jc.ErrorIsNil)
@@ -2547,7 +2555,7 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 			wordpress := AddTestingApplication(c, st, objectStore, "wordpress", AddTestingCharm(c, st, "wordpress"))
 			u, err := wordpress.AddUnit(AddUnitParams{})
 			c.Assert(err, jc.ErrorIsNil)
-			m, err := st.AddMachine(UbuntuBase("12.10"), JobHostUnits)
+			m, err := st.AddMachine(testInstancePrechecker{}, UbuntuBase("12.10"), JobHostUnits)
 			c.Assert(err, jc.ErrorIsNil)
 			err = u.AssignToMachine(m)
 			c.Assert(err, jc.ErrorIsNil)
@@ -2615,7 +2623,7 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 			wordpress := AddTestingApplication(c, st, objectStore, "wordpress", AddTestingCharm(c, st, "wordpress"))
 			u, err := wordpress.AddUnit(AddUnitParams{})
 			c.Assert(err, jc.ErrorIsNil)
-			m, err := st.AddMachine(UbuntuBase("12.10"), JobHostUnits)
+			m, err := st.AddMachine(testInstancePrechecker{}, UbuntuBase("12.10"), JobHostUnits)
 			c.Assert(err, jc.ErrorIsNil)
 			err = u.AssignToMachine(m)
 			c.Assert(err, jc.ErrorIsNil)
@@ -2657,7 +2665,7 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 			wordpress := AddTestingApplication(c, st, objectStore, "wordpress", AddTestingCharm(c, st, "wordpress"))
 			u, err := wordpress.AddUnit(AddUnitParams{})
 			c.Assert(err, jc.ErrorIsNil)
-			m, err := st.AddMachine(UbuntuBase("12.10"), JobHostUnits)
+			m, err := st.AddMachine(testInstancePrechecker{}, UbuntuBase("12.10"), JobHostUnits)
 			c.Assert(err, jc.ErrorIsNil)
 			err = u.AssignToMachine(m)
 			c.Assert(err, jc.ErrorIsNil)
@@ -2710,7 +2718,7 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 			wordpress := AddTestingApplication(c, st, objectStore, "wordpress", AddTestingCharm(c, st, "wordpress"))
 			u, err := wordpress.AddUnit(AddUnitParams{})
 			c.Assert(err, jc.ErrorIsNil)
-			m, err := st.AddMachine(UbuntuBase("12.10"), JobHostUnits)
+			m, err := st.AddMachine(testInstancePrechecker{}, UbuntuBase("12.10"), JobHostUnits)
 			c.Assert(err, jc.ErrorIsNil)
 			err = u.AssignToMachine(m)
 			c.Assert(err, jc.ErrorIsNil)
@@ -2833,7 +2841,7 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 			wordpress := AddTestingApplication(c, st, objectStore, "wordpress", AddTestingCharm(c, st, "wordpress"))
 			u, err := wordpress.AddUnit(AddUnitParams{})
 			c.Assert(err, jc.ErrorIsNil)
-			err = u.AssignToNewMachine()
+			err = u.AssignToNewMachine(testInstancePrechecker{})
 			c.Assert(err, jc.ErrorIsNil)
 			now := st.clock().Now()
 			sInfo := status.StatusInfo{
@@ -2896,7 +2904,7 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 				Message: "",
 				Since:   &now,
 			}
-			err = u.AssignToNewMachine()
+			err = u.AssignToNewMachine(testInstancePrechecker{})
 			c.Assert(err, jc.ErrorIsNil)
 			err = u.SetAgentStatus(sInfo)
 			c.Assert(err, jc.ErrorIsNil)
@@ -3098,7 +3106,7 @@ func testChangeUnitsNonNilPorts(c *gc.C, owner names.UserTag, controllerConfig c
 		wordpress := AddTestingApplication(c, st, objectStore, "wordpress", AddTestingCharm(c, st, "wordpress"))
 		u, err := wordpress.AddUnit(AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
-		m, err := st.AddMachine(UbuntuBase("12.10"), JobHostUnits)
+		m, err := st.AddMachine(testInstancePrechecker{}, UbuntuBase("12.10"), JobHostUnits)
 		c.Assert(err, jc.ErrorIsNil)
 		if flag&assignUnit != 0 {
 			// Assign the unit.

@@ -36,7 +36,7 @@ func (s *constraintsValidationSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *constraintsValidationSuite) addOneMachine(c *gc.C, cons constraints.Value) (*state.Machine, error) {
-	return s.State.AddOneMachine(state.MachineTemplate{
+	return s.State.AddOneMachine(defaultInstancePrechecker, state.MachineTemplate{
 		Base:        state.UbuntuBase("12.10"),
 		Jobs:        []state.MachineJob{state.JobHostUnits},
 		Constraints: cons,
@@ -284,7 +284,7 @@ func (s *applicationConstraintsSuite) SetUpTest(c *gc.C) {
 
 func (s *applicationConstraintsSuite) TestAddApplicationInvalidConstraints(c *gc.C) {
 	cons := constraints.MustParse("virt-type=blah")
-	_, err := s.State.AddApplication(state.AddApplicationArgs{
+	_, err := s.State.AddApplication(defaultInstancePrechecker, state.AddApplicationArgs{
 		Name: s.applicationName,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
 			OS:      "ubuntu",
@@ -298,7 +298,7 @@ func (s *applicationConstraintsSuite) TestAddApplicationInvalidConstraints(c *gc
 
 func (s *applicationConstraintsSuite) TestAddApplicationValidConstraints(c *gc.C) {
 	cons := constraints.MustParse("virt-type=kvm")
-	application, err := s.State.AddApplication(state.AddApplicationArgs{
+	application, err := s.State.AddApplication(defaultInstancePrechecker, state.AddApplicationArgs{
 		Name: s.applicationName,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
 			OS:      "ubuntu",
@@ -313,7 +313,7 @@ func (s *applicationConstraintsSuite) TestAddApplicationValidConstraints(c *gc.C
 
 func (s *applicationConstraintsSuite) TestConstraintsRetrieval(c *gc.C) {
 	posCons := constraints.MustParse("arch=amd64 spaces=db")
-	application, err := s.State.AddApplication(state.AddApplicationArgs{
+	application, err := s.State.AddApplication(defaultInstancePrechecker, state.AddApplicationArgs{
 		Name: s.applicationName,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
 			OS:      "ubuntu",
@@ -326,7 +326,7 @@ func (s *applicationConstraintsSuite) TestConstraintsRetrieval(c *gc.C) {
 	c.Assert(application, gc.NotNil)
 
 	negCons := constraints.MustParse("arch=amd64 spaces=^db2")
-	negApplication, err := s.State.AddApplication(state.AddApplicationArgs{
+	negApplication, err := s.State.AddApplication(defaultInstancePrechecker, state.AddApplicationArgs{
 		Name: "unimportant",
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
 			OS:      "ubuntu",
@@ -363,7 +363,7 @@ func (s *applicationConstraintsSuite) TestConstraintsRetrieval(c *gc.C) {
 
 func (s *applicationConstraintsSuite) TestConstraintsSpaceNameChangeOps(c *gc.C) {
 	posCons := constraints.MustParse("spaces=db")
-	application, err := s.State.AddApplication(state.AddApplicationArgs{
+	application, err := s.State.AddApplication(defaultInstancePrechecker, state.AddApplicationArgs{
 		Name: s.applicationName,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
 			OS:      "ubuntu",

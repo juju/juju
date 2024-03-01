@@ -96,7 +96,7 @@ func (s *rebootSuite) SetUpTest(c *gc.C) {
 	}
 
 	st := s.ControllerModel(c).State()
-	machine, err := st.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := st.AddMachine(s.InstancePrechecker(c, st), state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	container, err := st.AddMachineInsideMachine(template, machine.Id(), instance.LXD)
