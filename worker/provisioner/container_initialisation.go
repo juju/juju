@@ -37,7 +37,7 @@ type ContainerSetup struct {
 	managerConfig container.ManagerConfig
 
 	credentialAPI workercommon.CredentialAPI
-	getNetConfig  func(network.ConfigSource) ([]params.NetworkConfig, error)
+	getNetConfig  func(network.ConfigSource) (network.InterfaceInfos, error)
 }
 
 // ContainerSetupParams are used to initialise a container setup worker.
@@ -50,7 +50,7 @@ type ContainerSetupParams struct {
 	Config        agent.Config
 	MachineLock   machinelock.Lock
 	CredentialAPI workercommon.CredentialAPI
-	GetNetConfig  func(network.ConfigSource) ([]params.NetworkConfig, error)
+	GetNetConfig  func(network.ConfigSource) (network.InterfaceInfos, error)
 }
 
 // NewContainerSetup returns a ContainerSetup to start the container
@@ -120,7 +120,11 @@ func (cs *ContainerSetup) initContainerDependencies(abort <-chan struct{}, manag
 }
 
 func (cs *ContainerSetup) observeNetwork() ([]params.NetworkConfig, error) {
-	return cs.getNetConfig(network.DefaultConfigSource())
+	interfaceInfos, err := cs.getNetConfig(network.DefaultConfigSource())
+	if err != nil {
+		return nil, err
+	}
+	return params.NetworkConfigFromInterfaceInfo(interfaceInfos), nil
 }
 
 func (cs *ContainerSetup) acquireLock(abort <-chan struct{}, comment string) (func(), error) {

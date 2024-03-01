@@ -11,7 +11,6 @@ import (
 	"github.com/juju/names/v5"
 	"github.com/juju/worker/v3"
 
-	"github.com/juju/juju/api/common"
 	corelife "github.com/juju/juju/core/life"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
@@ -74,7 +73,7 @@ var NewMachiner = func(cfg Config) (worker.Worker, error) {
 	return w, nil
 }
 
-var getObservedNetworkConfig = common.GetObservedNetworkConfig
+var getObservedNetworkConfig = corenetwork.GetObservedNetworkConfig
 
 func (mr *Machiner) SetUp() (watcher.NotifyWatcher, error) {
 	// Find which machine we're responsible for.
@@ -189,12 +188,14 @@ func (mr *Machiner) Handle(_ <-chan struct{}) error {
 
 	life := mr.machine.Life()
 	if life == corelife.Alive {
-		observedConfig, err := getObservedNetworkConfig(corenetwork.DefaultConfigSource())
+		interfaceInfos, err := getObservedNetworkConfig(corenetwork.DefaultConfigSource())
 		if err != nil {
 			return errors.Annotate(err, "cannot discover observed network config")
-		} else if len(observedConfig) == 0 {
+		} else if len(interfaceInfos) == 0 {
 			logger.Warningf("not updating network config: no observed config found to update")
 		}
+
+		observedConfig := params.NetworkConfigFromInterfaceInfo(interfaceInfos)
 		if len(observedConfig) > 0 {
 			if err := mr.machine.SetObservedNetworkConfig(observedConfig); err != nil {
 				return errors.Annotate(err, "cannot update observed network config")
