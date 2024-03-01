@@ -912,7 +912,11 @@ func (s *SecretsManagerSuite) TestGetSecretContentForAppSecretUpdateLabel(c *gc.
 func (s *SecretsManagerSuite) TestGetSecretContentForAppSecretUpdateLabelNotLeader(c *gc.C) {
 	defer s.setup(c).Finish()
 
+	data := map[string]string{"foo": "bar"}
+	val := coresecrets.NewSecretValue(data)
 	uri := coresecrets.NewURI()
+
+	s.expectSecretAccessQuery(1)
 
 	s.secretsState.EXPECT().ListSecrets(state.SecretsFilter{
 		OwnerTags: []names.Tag{
@@ -930,6 +934,15 @@ func (s *SecretsManagerSuite) TestGetSecretContentForAppSecretUpdateLabelNotLead
 	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
 	s.token.EXPECT().Check().Return(leadership.NewNotLeaderError("mariadb/0", "mariadb"))
 
+	s.secretsConsumer.EXPECT().GetSecretConsumer(uri, s.authTag).
+		Return(nil, errors.NotFoundf("secret consumer"))
+	s.secretsState.EXPECT().GetSecret(uri).Return(&coresecrets.SecretMetadata{LatestRevision: 668}, nil)
+	s.secretsConsumer.EXPECT().SaveSecretConsumer(
+		uri, names.NewUnitTag("mariadb/0"), &coresecrets.SecretConsumerMetadata{Label: "foo", LatestRevision: 668, CurrentRevision: 668}).Return(nil)
+	s.secretsState.EXPECT().GetSecretValue(uri, 668).Return(
+		val, nil, nil,
+	)
+
 	results, err := s.facade.GetSecretContentInfo(params.GetSecretContentArgs{
 		Args: []params.GetSecretContentArg{
 			{URI: uri.String(), Label: "foo"},
@@ -938,7 +951,7 @@ func (s *SecretsManagerSuite) TestGetSecretContentForAppSecretUpdateLabelNotLead
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.SecretContentResults{
 		Results: []params.SecretContentResult{{
-			Error: &params.Error{Message: "only unit leaders can update an application owned secret label"},
+			Content: params.SecretContentParams{Data: data},
 		}},
 	})
 }
