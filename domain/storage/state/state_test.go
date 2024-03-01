@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/domain/schema/testing"
 	domainstorage "github.com/juju/juju/domain/storage"
+	storageerrors "github.com/juju/juju/domain/storage/errors"
 )
 
 type storagePoolSuite struct {
@@ -72,7 +73,7 @@ func (s *storagePoolSuite) TestCreateStoragePoolAlreadyExists(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = st.CreateStoragePool(ctx, sp)
-	c.Assert(err, jc.ErrorIs, errors.AlreadyExists)
+	c.Assert(err, jc.ErrorIs, storageerrors.PoolAlreadyExists)
 }
 
 func (s *storagePoolSuite) TestUpdateCloudCredentialMissingName(c *gc.C) {
@@ -83,7 +84,7 @@ func (s *storagePoolSuite) TestUpdateCloudCredentialMissingName(c *gc.C) {
 	}
 	ctx := context.Background()
 	err := st.CreateStoragePool(ctx, sp)
-	c.Assert(errors.Is(err, errors.NotValid), jc.IsTrue)
+	c.Assert(errors.Is(err, storageerrors.MissingPoolNameError), jc.IsTrue)
 }
 
 func (s *storagePoolSuite) TestUpdateCloudCredentialMissingProvider(c *gc.C) {
@@ -94,7 +95,7 @@ func (s *storagePoolSuite) TestUpdateCloudCredentialMissingProvider(c *gc.C) {
 	}
 	ctx := context.Background()
 	err := st.CreateStoragePool(ctx, sp)
-	c.Assert(errors.Is(err, errors.NotValid), jc.IsTrue)
+	c.Assert(errors.Is(err, storageerrors.MissingPoolTypeError), jc.IsTrue)
 }
 
 func (s *storagePoolSuite) TestReplaceStoragePool(c *gc.C) {
@@ -166,7 +167,7 @@ func (s *storagePoolSuite) TestReplaceStoragePoolNotFound(c *gc.C) {
 	}
 	ctx := context.Background()
 	err := st.ReplaceStoragePool(ctx, sp)
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, jc.ErrorIs, storageerrors.PoolNotFoundError)
 }
 
 func (s *storagePoolSuite) TestDeleteStoragePool(c *gc.C) {
@@ -188,7 +189,7 @@ func (s *storagePoolSuite) TestDeleteStoragePool(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = st.GetStoragePoolByName(ctx, "ebs-fast")
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, jc.ErrorIs, storageerrors.PoolNotFoundError)
 }
 
 func (s *storagePoolSuite) TestDeleteStoragePoolNotFound(c *gc.C) {
@@ -196,7 +197,7 @@ func (s *storagePoolSuite) TestDeleteStoragePoolNotFound(c *gc.C) {
 
 	ctx := context.Background()
 	err := st.DeleteStoragePool(ctx, "ebs-fast")
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, jc.ErrorIs, storageerrors.PoolNotFoundError)
 }
 
 func (s *storagePoolSuite) TestListStoragePools(c *gc.C) {

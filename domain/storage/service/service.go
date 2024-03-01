@@ -51,13 +51,6 @@ type PoolAttrs map[string]any
 // CreateStoragePool creates a storage pool, returning an error satisfying [errors.AlreadyExists]
 // if a pool with the same name already exists.
 func (s *Service) CreateStoragePool(ctx context.Context, name string, providerType storage.ProviderType, attrs PoolAttrs) error {
-	if name == "" {
-		return storageerrors.MissingPoolNameError
-	}
-	if providerType == "" {
-		return storageerrors.MissingPoolTypeError
-	}
-
 	err := s.validateConfig(name, providerType, attrs)
 	if err != nil {
 		return errors.Trace(err)
@@ -74,9 +67,19 @@ func (s *Service) CreateStoragePool(ctx context.Context, name string, providerTy
 }
 
 func (s *Service) validateConfig(name string, providerType storage.ProviderType, attrs map[string]interface{}) error {
-	if s.registry == nil {
-		return errors.New("cannot validate storage provider config without a registry")
+	if name == "" {
+		return storageerrors.MissingPoolNameError
 	}
+	if !storage.IsValidPoolName(name) {
+		return fmt.Errorf("pool name %q not valid%w", name, errors.Hide(storageerrors.InvalidPoolNameError))
+	}
+	if providerType == "" {
+		return storageerrors.MissingPoolTypeError
+	}
+	if s.registry == nil {
+		return errors.Errorf("cannot validate storage provider config for %q without a registry", name)
+	}
+
 	cfg, err := storage.NewConfig(name, providerType, attrs)
 	if err != nil {
 		return errors.Trace(err)
@@ -126,7 +129,7 @@ func (s *Service) DeleteStoragePool(ctx context.Context, name string) error {
 }
 
 // ReplaceStoragePool replaces an existing storage pool, returning an error
-// satisfying [errors.NotFound] if a pool with the name does not exist.
+// satisfying [storageerrors.PoolNotFoundError] if a pool with the name does not exist.
 func (s *Service) ReplaceStoragePool(ctx context.Context, name string, providerType storage.ProviderType, attrs PoolAttrs) error {
 	// Use the existing provider type unless explicitly overwritten.
 	if providerType == "" {
@@ -185,7 +188,7 @@ func (a *Service) validatePoolListFilter(filter domainstorage.StoragePoolFilter)
 func (a *Service) validateNameCriteria(names []string) error {
 	for _, n := range names {
 		if !storage.IsValidPoolName(n) {
-			return errors.NotValidf("pool name %q", n)
+			return fmt.Errorf("pool name %q not valid%w", n, errors.Hide(storageerrors.InvalidPoolNameError))
 		}
 	}
 	return nil
@@ -205,8 +208,11 @@ func (s *Service) validateProviderCriteria(providers []string) error {
 }
 
 // GetStoragePoolByName returns the storage pool with the specified name, returning an error
-// satisfying [errors.NotFound] if it doesn't exist.
+// satisfying [storageerrors.PoolNotFoundError] if it doesn't exist.
 func (s *Service) GetStoragePoolByName(ctx context.Context, name string) (*storage.Config, error) {
+	if !storage.IsValidPoolName(name) {
+		return nil, fmt.Errorf("pool name %q not valid%w", name, errors.Hide(storageerrors.InvalidPoolNameError))
+	}
 	sp, err := s.st.GetStoragePoolByName(ctx, name)
 	if err != nil {
 		return nil, errors.Trace(err)

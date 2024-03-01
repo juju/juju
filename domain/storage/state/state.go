@@ -13,6 +13,7 @@ import (
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/domain"
 	domainstorage "github.com/juju/juju/domain/storage"
+	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -31,7 +32,7 @@ func NewState(factory coredatabase.TxnRunnerFactory) *State {
 
 type poolAttributes map[string]string
 
-// CreateStoragePool creates a storage pool, returning an error satisfying [errors.AlreadyExists]
+// CreateStoragePool creates a storage pool, returning an error satisfying [storageerrors.PoolAlreadyExists]
 // if a pool with the same name already exists.
 func (st State) CreateStoragePool(ctx context.Context, pool domainstorage.StoragePoolDetails) error {
 	db, err := st.DB()
@@ -43,6 +44,16 @@ func (st State) CreateStoragePool(ctx context.Context, pool domainstorage.Storag
 	if err != nil {
 		return errors.Trace(domain.CoerceError(err))
 	}
+
+	storagePoolUpserter, err := storagePoolUpserter()
+	if err != nil {
+		return errors.Trace(domain.CoerceError(err))
+	}
+	poolAttributesUpdater, err := poolAttributesUpdater()
+	if err != nil {
+		return errors.Trace(domain.CoerceError(err))
+	}
+
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		dbPool := StoragePool{Name: pool.Name}
 		err := tx.Query(ctx, selectUUIDStmt, dbPool).Get(&dbPool)
@@ -50,37 +61,26 @@ func (st State) CreateStoragePool(ctx context.Context, pool domainstorage.Storag
 			return errors.Trace(domain.CoerceError(err))
 		}
 		if err == nil {
-			return fmt.Errorf("storage pool %q %w", pool.Name, errors.AlreadyExists)
+			return fmt.Errorf("storage pool %q %w", pool.Name, storageerrors.PoolAlreadyExists)
 		}
 		poolUUID := uuid.MustNewUUID().String()
 
-		if err := upsertStoragePool(ctx, tx, poolUUID, pool.Name, pool.Provider); err != nil {
-			return errors.Annotate(domain.CoerceError(err), "creating storage pool")
+		if err := storagePoolUpserter(ctx, tx, poolUUID, pool.Name, pool.Provider); err != nil {
+			return errors.Annotatef(err, "creating storage pool %q", pool.Name)
 		}
 
-		if err := updatePoolAttributes(ctx, tx, poolUUID, pool.Attrs); err != nil {
-			return errors.Annotatef(domain.CoerceError(err), "creating storage pool %s attributes", poolUUID)
+		if err := poolAttributesUpdater(ctx, tx, poolUUID, pool.Attrs); err != nil {
+			return errors.Annotatef(err, "creating storage pool %q attributes", pool.Name)
 		}
 		return nil
 	})
 
-	return errors.Trace(err)
+	return errors.Trace(domain.CoerceError(err))
 }
 
-func upsertStoragePool(ctx context.Context, tx *sqlair.TX, poolUUID string, name string, providerType string) error {
-	if name == "" {
-		return fmt.Errorf("storage pool name cannot be empty%w", errors.Hide(errors.NotValid))
-	}
-	if providerType == "" {
-		return fmt.Errorf("storage pool type cannot be empty%w", errors.Hide(errors.NotValid))
-	}
+type upsertStoragePoolFunc func(ctx context.Context, tx *sqlair.TX, poolUUID string, name string, providerType string) error
 
-	dbPool := StoragePool{
-		ID:           poolUUID,
-		Name:         name,
-		ProviderType: providerType,
-	}
-
+func storagePoolUpserter() (upsertStoragePoolFunc, error) {
 	insertQuery := `
 INSERT INTO storage_pool (uuid, name, type)
 VALUES (
@@ -94,17 +94,34 @@ ON CONFLICT(uuid) DO UPDATE SET name=excluded.name,
 
 	insertStmt, err := sqlair.Prepare(insertQuery, StoragePool{})
 	if err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 
-	err = tx.Query(ctx, insertStmt, dbPool).Run()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return nil
+	return func(ctx context.Context, tx *sqlair.TX, poolUUID string, name string, providerType string) error {
+		if name == "" {
+			return fmt.Errorf("storage pool name cannot be empty%w", errors.Hide(storageerrors.MissingPoolNameError))
+		}
+		if providerType == "" {
+			return fmt.Errorf("storage pool type cannot be empty%w", errors.Hide(storageerrors.MissingPoolTypeError))
+		}
+
+		dbPool := StoragePool{
+			ID:           poolUUID,
+			Name:         name,
+			ProviderType: providerType,
+		}
+
+		err = tx.Query(ctx, insertStmt, dbPool).Run()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		return nil
+	}, nil
 }
 
-func updatePoolAttributes(ctx context.Context, tx *sqlair.TX, storagePoolUUID string, attr domainstorage.Attrs) error {
+type updatePoolAttributesFunc func(ctx context.Context, tx *sqlair.TX, storagePoolUUID string, attr domainstorage.Attrs) error
+
+func poolAttributesUpdater() (updatePoolAttributesFunc, error) {
 	// Delete any keys no longer in the attributes map.
 	// TODO(wallyworld) - use sqlair NOT IN operation
 	deleteQuery := fmt.Sprintf(`
@@ -115,10 +132,7 @@ WHERE        storage_pool_uuid = $M.uuid
 
 	deleteStmt, err := sqlair.Prepare(deleteQuery, sqlair.M{})
 	if err != nil {
-		return errors.Trace(err)
-	}
-	if err := tx.Query(ctx, deleteStmt, sqlair.M{"uuid": storagePoolUUID}).Run(); err != nil {
-		return errors.Trace(domain.CoerceError(err))
+		return nil, errors.Trace(err)
 	}
 
 	insertQuery := `
@@ -133,19 +147,24 @@ ON CONFLICT(storage_pool_uuid, key) DO UPDATE SET key=excluded.key,
 `
 	insertStmt, err := sqlair.Prepare(insertQuery, poolAttribute{})
 	if err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 
-	for key, value := range attr {
-		if err := tx.Query(ctx, insertStmt, poolAttribute{
-			ID:    storagePoolUUID,
-			Key:   key,
-			Value: value,
-		}).Run(); err != nil {
-			return errors.Trace(domain.CoerceError(err))
+	return func(ctx context.Context, tx *sqlair.TX, storagePoolUUID string, attr domainstorage.Attrs) error {
+		if err := tx.Query(ctx, deleteStmt, sqlair.M{"uuid": storagePoolUUID}).Run(); err != nil {
+			return errors.Trace(err)
 		}
-	}
-	return nil
+		for key, value := range attr {
+			if err := tx.Query(ctx, insertStmt, poolAttribute{
+				ID:    storagePoolUUID,
+				Key:   key,
+				Value: value,
+			}).Run(); err != nil {
+				return errors.Trace(err)
+			}
+		}
+		return nil
+	}, nil
 }
 
 // DeleteStoragePool deletes a storage pool, returning an error satisfying
@@ -175,25 +194,26 @@ WHERE  storage_pool.uuid = (select uuid FROM storage_pool WHERE name = $M.name)
 		return errors.Trace(err)
 	}
 
-	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		nameMap := sqlair.M{"name": name}
 		if err := tx.Query(ctx, poolAttributeDeleteStmt, nameMap).Run(); err != nil {
-			return errors.Annotate(domain.CoerceError(err), "deleting storage pool attributes")
+			return errors.Annotate(err, "deleting storage pool attributes")
 		}
 		var outcome = sqlair.Outcome{}
 		err = tx.Query(ctx, poolDeleteStmt, nameMap).Get(&outcome)
 		if err != nil {
-			return errors.Trace(domain.CoerceError(err))
+			return errors.Trace(err)
 		}
 		rowsAffected, err := outcome.Result().RowsAffected()
 		if err != nil {
-			return errors.Annotate(domain.CoerceError(err), "deleting storage pool")
+			return errors.Annotate(err, "deleting storage pool")
 		}
 		if rowsAffected == 0 {
-			return fmt.Errorf("storage pool %q %w", name, errors.NotFound)
+			return fmt.Errorf("storage pool %q not found%w", name, errors.Hide(storageerrors.PoolNotFoundError))
 		}
-		return errors.Annotate(domain.CoerceError(err), "deleting storage pool")
+		return errors.Annotate(err, "deleting storage pool")
 	})
+	return errors.Trace(domain.CoerceError(err))
 }
 
 // ReplaceStoragePool replaces an existing storage pool, returning an error
@@ -208,30 +228,42 @@ func (st State) ReplaceStoragePool(ctx context.Context, pool domainstorage.Stora
 	if err != nil {
 		return errors.Trace(domain.CoerceError(err))
 	}
+
+	storagePoolUpserter, err := storagePoolUpserter()
+	if err != nil {
+		return errors.Trace(domain.CoerceError(err))
+	}
+	poolAttributesUpdater, err := poolAttributesUpdater()
+	if err != nil {
+		return errors.Trace(domain.CoerceError(err))
+	}
+
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		dbPool := StoragePool{Name: pool.Name}
 		err := tx.Query(ctx, selectUUIDStmt, dbPool).Get(&dbPool)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Trace(domain.CoerceError(err))
+			return errors.Trace(err)
 		}
 		if err != nil {
-			return fmt.Errorf("storage pool %q %w", pool.Name, errors.NotFound)
+			return fmt.Errorf("storage pool %q not found%w", pool.Name, errors.Hide(storageerrors.PoolNotFoundError))
 		}
 		poolUUID := dbPool.ID
-		if err := upsertStoragePool(ctx, tx, poolUUID, pool.Name, pool.Provider); err != nil {
-			return errors.Annotate(domain.CoerceError(err), "updating storage pool")
+		if err := storagePoolUpserter(ctx, tx, poolUUID, pool.Name, pool.Provider); err != nil {
+			return errors.Annotate(err, "updating storage pool")
 		}
 
-		if err := updatePoolAttributes(ctx, tx, poolUUID, pool.Attrs); err != nil {
-			return errors.Annotatef(domain.CoerceError(err), "updating storage pool %s attributes", poolUUID)
+		if err := poolAttributesUpdater(ctx, tx, poolUUID, pool.Attrs); err != nil {
+			return errors.Annotatef(err, "updating storage pool %s attributes", poolUUID)
 		}
 		return nil
 	})
 
-	return errors.Trace(err)
+	return errors.Trace(domain.CoerceError(err))
 }
 
-func (st State) loadStoragePools(ctx context.Context, tx *sqlair.TX, filter domainstorage.StoragePoolFilter) ([]domainstorage.StoragePoolDetails, error) {
+type loadStoragePoolsFunc func(ctx context.Context, tx *sqlair.TX) ([]domainstorage.StoragePoolDetails, error)
+
+func (st State) storagePoolsLoader(filter domainstorage.StoragePoolFilter) (loadStoragePoolsFunc, error) {
 	query := `
 SELECT (sp.uuid, sp.name, sp.type) AS (&StoragePool.*),
        (sp_attr.key, sp_attr.value) AS (&poolAttribute.*)
@@ -257,15 +289,17 @@ FROM   storage_pool sp
 		return nil, errors.Trace(err)
 	}
 
-	var (
-		dbRows    StoragePools
-		keyValues []poolAttribute
-	)
-	err = tx.Query(ctx, queryStmt, queryArgs...).GetAll(&dbRows, &keyValues)
-	if err != nil {
-		return nil, errors.Annotate(domain.CoerceError(err), "loading storage pool")
-	}
-	return dbRows.toStoragePools(keyValues)
+	return func(ctx context.Context, tx *sqlair.TX) ([]domainstorage.StoragePoolDetails, error) {
+		var (
+			dbRows    StoragePools
+			keyValues []poolAttribute
+		)
+		err = tx.Query(ctx, queryStmt, queryArgs...).GetAll(&dbRows, &keyValues)
+		if err != nil {
+			return nil, errors.Annotate(err, "loading storage pool")
+		}
+		return dbRows.toStoragePools(keyValues)
+	}, nil
 }
 
 // ListStoragePools returns the storage pools matching the specified filter.
@@ -275,13 +309,18 @@ func (st State) ListStoragePools(ctx context.Context, filter domainstorage.Stora
 		return nil, errors.Trace(err)
 	}
 
+	storagePoolsLoader, err := st.storagePoolsLoader(filter)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	var result []domainstorage.StoragePoolDetails
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
-		result, err = st.loadStoragePools(ctx, tx, filter)
+		result, err = storagePoolsLoader(ctx, tx)
 		return errors.Trace(err)
 	})
-	return result, errors.Trace(err)
+	return result, errors.Trace(domain.CoerceError(err))
 }
 
 func (st State) buildFilter(filter domainstorage.StoragePoolFilter) (string, []any) {
@@ -304,9 +343,16 @@ func (st State) buildFilter(filter domainstorage.StoragePoolFilter) (string, []a
 }
 
 // GetStoragePoolByName returns the storage pool with the specified name, returning an error
-// satisfying [errors.NotFound] if it doesn't exist.
+// satisfying [storageerrors.PoolNotFoundError] if it doesn't exist.
 func (st State) GetStoragePoolByName(ctx context.Context, name string) (domainstorage.StoragePoolDetails, error) {
 	db, err := st.DB()
+	if err != nil {
+		return domainstorage.StoragePoolDetails{}, errors.Trace(err)
+	}
+
+	storagePoolsLoader, err := st.storagePoolsLoader(domainstorage.StoragePoolFilter{
+		Names: []string{name},
+	})
 	if err != nil {
 		return domainstorage.StoragePoolDetails{}, errors.Trace(err)
 	}
@@ -314,19 +360,17 @@ func (st State) GetStoragePoolByName(ctx context.Context, name string) (domainst
 	var storagePools []domainstorage.StoragePoolDetails
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
-		storagePools, err = st.loadStoragePools(ctx, tx, domainstorage.StoragePoolFilter{
-			Names: []string{name},
-		})
+		storagePools, err = storagePoolsLoader(ctx, tx)
 		return errors.Trace(err)
 	})
 	if err != nil {
 		return domainstorage.StoragePoolDetails{}, errors.Trace(err)
 	}
 	if len(storagePools) == 0 {
-		return domainstorage.StoragePoolDetails{}, fmt.Errorf("storage pool %q %w", name, errors.NotFound)
+		return domainstorage.StoragePoolDetails{}, fmt.Errorf("storage pool %q %w", name, storageerrors.PoolNotFoundError)
 	}
 	if len(storagePools) > 1 {
 		return domainstorage.StoragePoolDetails{}, errors.Errorf("expected 1 storage pool, got %d", len(storagePools))
 	}
-	return storagePools[0], errors.Trace(err)
+	return storagePools[0], errors.Trace(domain.CoerceError(err))
 }
