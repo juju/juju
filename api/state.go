@@ -4,187 +4,138 @@
 package api
 
 import (
+	"context"
+	"crypto/tls"
 	"net"
 	"net/url"
-	"os"
-	"runtime/debug"
 	"strconv"
 
-	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
+	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/featureflag"
 	"github.com/juju/names/v5"
-	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api/agent/keyupdater"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/feature"
-	"github.com/juju/juju/rpc"
-	"github.com/juju/juju/rpc/params"
-	jujuversion "github.com/juju/juju/version"
+	jujuproxy "github.com/juju/juju/proxy"
+	"github.com/juju/juju/rpc/jsoncodec"
 )
 
-// Login authenticates as the entity with the given name and password
-// or macaroons. Subsequent requests on the state will act as that entity.
-// This method is usually called automatically by Open. The machine nonce
-// should be empty unless logging in as a machine agent.
-func (st *state) Login(tag names.Tag, password, nonce string, macaroons []macaroon.Slice) error {
-	var result params.LoginResult
-	request := &params.LoginRequest{
-		AuthTag:       tagToString(tag),
-		Credentials:   password,
-		Nonce:         nonce,
-		Macaroons:     macaroons,
-		BakeryVersion: bakery.LatestVersion,
-		CLIArgs:       utils.CommandString(os.Args...),
-		ClientVersion: jujuversion.Current.String(),
-	}
-	// If we are in developer mode, add the stack location as user data to the
-	// login request. This will allow the apiserver to connect connection ids
-	// to the particular place that initiated the connection.
-	if featureflag.Enabled(feature.DeveloperMode) {
-		request.UserData = string(debug.Stack())
-	}
+// state is the internal implementation of the Connection interface.
+type state struct {
+	ctx    context.Context
+	client rpcConnection
+	conn   jsoncodec.JSONConn
+	clock  clock.Clock
 
-	if password == "" {
-		// Add any macaroons from the cookie jar that might work for
-		// authenticating the login request.
-		request.Macaroons = append(request.Macaroons,
-			httpbakery.MacaroonsForURL(st.bakeryClient.Client.Jar, st.cookieURL)...,
-		)
-	}
-	err := st.APICall("Admin", 3, "", "Login", request, &result)
-	if err != nil {
-		if !params.IsRedirect(err) {
-			return errors.Trace(err)
-		}
+	// addr is the address used to connect to the API server.
+	addr string
 
-		if rpcErr, ok := errors.Cause(err).(*rpc.RequestError); ok {
-			var redirInfo params.RedirectErrorInfo
-			err := rpcErr.UnmarshalInfo(&redirInfo)
-			if err == nil && redirInfo.CACert != "" && len(redirInfo.Servers) != 0 {
-				var controllerTag names.ControllerTag
-				if redirInfo.ControllerTag != "" {
-					if controllerTag, err = names.ParseControllerTag(redirInfo.ControllerTag); err != nil {
-						return errors.Trace(err)
-					}
-				}
+	// ipAddr is the IP address used to connect to the API server.
+	ipAddr string
 
-				return &RedirectError{
-					Servers:         params.ToMachineHostsPorts(redirInfo.Servers),
-					CACert:          redirInfo.CACert,
-					ControllerTag:   controllerTag,
-					ControllerAlias: redirInfo.ControllerAlias,
-					FollowRedirect:  false, // user-action required
-				}
-			}
-		}
+	// cookieURL is the URL that HTTP cookies for the API
+	// will be associated with (specifically macaroon auth cookies).
+	cookieURL *url.URL
 
-		// We've been asked to redirect. Find out the redirection info.
-		// If the rpc packet allowed us to return arbitrary information in
-		// an error, we'd probably put this information in the Login response,
-		// but we can't do that currently.
-		var resp params.RedirectInfoResult
-		if err := st.APICall("Admin", 3, "", "RedirectInfo", nil, &resp); err != nil {
-			return errors.Annotatef(err, "cannot get redirect addresses")
-		}
-		return &RedirectError{
-			Servers:        params.ToMachineHostsPorts(resp.Servers),
-			CACert:         resp.CACert,
-			FollowRedirect: true, // JAAS-type redirect
-		}
-	}
-	if result.DischargeRequired != nil || result.BakeryDischargeRequired != nil {
-		// The result contains a discharge-required
-		// macaroon. We discharge it and retry
-		// the login request with the original macaroon
-		// and its discharges.
-		if result.DischargeRequiredReason == "" {
-			result.DischargeRequiredReason = "no reason given for discharge requirement"
-		}
-		// Prefer the newer bakery.v2 macaroon.
-		dcMac := result.BakeryDischargeRequired
-		if dcMac == nil {
-			dcMac, err = bakery.NewLegacyMacaroon(result.DischargeRequired)
-			if err != nil {
-				return errors.Trace(err)
-			}
-		}
-		if err := st.bakeryClient.HandleError(st.ctx, st.cookieURL, &httpbakery.Error{
-			Message: result.DischargeRequiredReason,
-			Code:    httpbakery.ErrDischargeRequired,
-			Info: &httpbakery.ErrorInfo{
-				Macaroon:     dcMac,
-				MacaroonPath: "/",
-			},
-		}); err != nil {
-			cause := errors.Cause(err)
-			if httpbakery.IsInteractionError(cause) {
-				// Just inform the user of the reason for the
-				// failure, e.g. because the username/password
-				// they presented was invalid.
-				err = cause.(*httpbakery.InteractionError).Reason
-			}
-			return errors.Trace(err)
-		}
-		// Add the macaroons that have been saved by HandleError to our login request.
-		request.Macaroons = httpbakery.MacaroonsForURL(st.bakeryClient.Client.Jar, st.cookieURL)
-		result = params.LoginResult{} // zero result
-		err = st.APICall("Admin", 3, "", "Login", request, &result)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if result.DischargeRequired != nil {
-			return errors.Errorf("login with discharged macaroons failed: %s", result.DischargeRequiredReason)
-		}
-	}
+	// modelTag holds the model tag.
+	// It is empty if there is no model tag associated with the connection.
+	modelTag names.ModelTag
 
-	var controllerAccess string
-	var modelAccess string
-	if result.UserInfo != nil {
-		tag, err = names.ParseTag(result.UserInfo.Identity)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		controllerAccess = result.UserInfo.ControllerAccess
-		modelAccess = result.UserInfo.ModelAccess
-	}
-	servers := params.ToMachineHostsPorts(result.Servers)
-	if err = st.setLoginResult(loginResultParams{
-		tag:              tag,
-		modelTag:         result.ModelTag,
-		controllerTag:    result.ControllerTag,
-		servers:          servers,
-		publicDNSName:    result.PublicDNSName,
-		facades:          result.Facades,
-		modelAccess:      modelAccess,
-		controllerAccess: controllerAccess,
-	}); err != nil {
-		return errors.Trace(err)
-	}
-	st.serverVersion, err = version.Parse(result.ServerVersion)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return nil
-}
+	// controllerTag holds the controller's tag once we're connected.
+	controllerTag names.ControllerTag
 
-type loginResultParams struct {
-	tag              names.Tag
-	modelTag         string
-	controllerTag    string
-	modelAccess      string
+	// serverVersion holds the version of the API server that we are
+	// connected to.  It is possible that this version is 0 if the
+	// server does not report this during login.
+	serverVersion version.Number
+
+	// hostPorts is the API server addresses returned from Login,
+	// which the client may cache and use for fail-over.
+	hostPorts []network.MachineHostPorts
+
+	// publicDNSName is the public host name returned from Login
+	// which the client can use to make a connection verified
+	// by an officially signed certificate.
+	publicDNSName string
+
+	// facadeVersions holds the versions of all facades as reported by
+	// Login
+	facadeVersions map[string][]int
+
+	// pingFacadeVersion is the version to use for the pinger. This is lazily
+	// set at initialization to avoid a race in our tests. See
+	// http://pad.lv/1614732 for more details regarding the race.
+	pingerFacadeVersion int
+
+	// authTag holds the authenticated entity's tag after login.
+	authTag names.Tag
+
+	// mpdelAccess holds the access level of the user to the connected model.
+	modelAccess string
+
+	// controllerAccess holds the access level of the user to the connected controller.
 	controllerAccess string
-	servers          []network.MachineHostPorts
-	facades          []params.FacadeVersions
-	publicDNSName    string
+
+	// broken is a channel that gets closed when the connection is
+	// broken.
+	broken chan struct{}
+
+	// closed is a channel that gets closed when State.Close is called.
+	closed chan struct{}
+
+	// loggedIn holds whether the client has successfully logged
+	// in. It's a int32 so that the atomic package can be used to
+	// access it safely.
+	loggedIn int32
+
+	// tag, password, macaroons and nonce hold the cached login
+	// credentials. These are only valid if loggedIn is 1.
+	tag       string
+	password  string
+	macaroons []macaroon.Slice
+	nonce     string
+
+	// serverRootAddress holds the cached API server address and port used
+	// to login.
+	serverRootAddress string
+
+	// serverScheme is the URI scheme of the API Server
+	serverScheme string
+
+	// tlsConfig holds the TLS config appropriate for making SSL
+	// connections to the API endpoints.
+	tlsConfig *tls.Config
+
+	// bakeryClient holds the client that will be used to
+	// authorize macaroon based login requests.
+	bakeryClient *httpbakery.Client
+
+	// proxier is the proxier used for this connection when not nil. If's expected
+	// the proxy has already been started when placing in this var. This struct
+	// will take the responsibility of closing the proxy.
+	proxier jujuproxy.Proxier
 }
 
-func (st *state) setLoginResult(p loginResultParams) error {
+// Login implements the Login method of the Connection interface providing authentication
+// using basic auth or macaroons.
+//
+// TODO (alesstimec, wallyworld): This method should be removed and
+// a login provider should be used instead.
+func (st *state) Login(name names.Tag, password, nonce string, ms []macaroon.Slice) error {
+	lp := NewUserpassLoginProvider(name, password, nonce, ms, st.bakeryClient, st.cookieURL)
+	result, err := lp.Login(context.Background(), st)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return st.setLoginResult(result)
+}
+
+func (st *state) setLoginResult(p *LoginResultParams) error {
 	st.authTag = p.tag
+	st.serverVersion = p.serverVersion
 	var modelTag names.ModelTag
 	if p.modelTag != "" {
 		var err error
