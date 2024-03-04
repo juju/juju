@@ -5,6 +5,7 @@ package controlleragentconfig
 
 import (
 	"context"
+	"io"
 	"net"
 	"net/http"
 	"path"
@@ -34,6 +35,27 @@ func (s *workerSuite) TestStartup(c *gc.C) {
 	defer workertest.DirtyKill(c, w)
 
 	s.ensureStartup(c, states)
+
+	workertest.CleanKill(c, w)
+}
+
+func (s *workerSuite) TestIDRequest(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	w, socket, states := s.newWorker(c)
+	defer workertest.DirtyKill(c, w)
+
+	s.ensureStartup(c, states)
+
+	resp, err := newRequest(c, socket, "/agent-id", http.MethodGet)
+	c.Assert(err, jc.ErrorIsNil)
+	defer func() { _ = resp.Body.Close() }()
+
+	c.Assert(resp.StatusCode, gc.Equals, http.StatusOK)
+
+	content, err := io.ReadAll(resp.Body)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(string(content), gc.Equals, "99")
 
 	workertest.CleanKill(c, w)
 }
@@ -342,6 +364,7 @@ func (s *workerSuite) newWorker(c *gc.C) (*configWorker, string, chan string) {
 	socket := path.Join(tmpDir, "test.socket")
 
 	w, err := newWorker(WorkerConfig{
+		ControllerID:      "99",
 		Logger:            s.logger,
 		Clock:             clock.WallClock,
 		SocketName:        socket,
@@ -370,18 +393,18 @@ func (s *workerSuite) ensureReload(c *gc.C, states chan string) {
 }
 
 func (s *workerSuite) requestReload(c *gc.C, socket string) {
-	resp, err := newRequest(c, socket, "/reload")
+	resp, err := newRequest(c, socket, "/reload", http.MethodPost)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(resp.StatusCode, gc.Equals, http.StatusNoContent)
 }
 
 func (s *workerSuite) ensureReloadRequestRefused(c *gc.C, socket string) {
-	_, err := newRequest(c, socket, "/reload")
+	_, err := newRequest(c, socket, "/reload", http.MethodPost)
 	c.Assert(err, jc.ErrorIs, syscall.ECONNREFUSED)
 }
 
 func (s *workerSuite) ensureEndpointNotFound(c *gc.C, socket, method string) {
-	resp, err := newRequest(c, socket, method)
+	resp, err := newRequest(c, socket, method, http.MethodPost)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(resp.StatusCode, gc.Equals, http.StatusNotFound)
 }
@@ -394,10 +417,10 @@ func ensureDone(c *gc.C, watcher ConfigWatcher) {
 	}
 }
 
-func newRequest(c *gc.C, socket, method string) (*http.Response, error) {
-	serverURL := "http://localhost:8080" + method
+func newRequest(c *gc.C, socket, path, method string) (*http.Response, error) {
+	serverURL := "http://localhost:8080" + path
 	req, err := http.NewRequest(
-		http.MethodPost,
+		method,
 		serverURL,
 		nil,
 	)

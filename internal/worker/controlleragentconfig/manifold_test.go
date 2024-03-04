@@ -5,16 +5,17 @@ package controlleragentconfig
 
 import (
 	"context"
-	"github.com/juju/juju/agent"
-	"github.com/juju/names/v5"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/dependency"
 	dependencytesting "github.com/juju/worker/v4/dependency/testing"
 	"github.com/juju/worker/v4/workertest"
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/agent"
 )
 
 type manifoldSuite struct {

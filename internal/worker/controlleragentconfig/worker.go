@@ -139,7 +139,8 @@ func newWorker(cfg WorkerConfig, internalStates chan string) (*configWorker, err
 func (w *configWorker) registerHandlers(r *mux.Router) {
 	r.HandleFunc("/reload", w.reloadHandler).
 		Methods(http.MethodPost)
-
+	r.HandleFunc("/agent-id", w.idHandler).
+		Methods(http.MethodGet)
 }
 
 // reloadHandler sends a signal to the configWorker when a config reload is
@@ -152,6 +153,17 @@ func (w *configWorker) reloadHandler(resp http.ResponseWriter, req *http.Request
 		resp.WriteHeader(http.StatusInternalServerError)
 	case w.reloadRequested <- struct{}{}:
 		resp.WriteHeader(http.StatusNoContent)
+	}
+}
+
+// idHandler simply returns this agent's ID.
+// It is used by the *unit* to get the *controller's* ID.
+func (w *configWorker) idHandler(resp http.ResponseWriter, req *http.Request) {
+	resp.Header().Set("Content-Type", "application/text")
+
+	_, err := resp.Write([]byte(w.cfg.ControllerID))
+	if err != nil {
+		w.cfg.Logger.Errorf("error writing HTTP response: %v", err)
 	}
 }
 
