@@ -86,7 +86,6 @@ func (s *baseSuite) SetUpTest(c *gc.C) {
 		Charm: s.charm,
 	})
 	s.machine0 = f.MakeMachine(c, &factory.MachineParams{
-		Base: state.UbuntuBase("12.10"),
 		Jobs: []state.MachineJob{state.JobHostUnits, state.JobManageModel},
 	})
 	s.wordpressUnit = f.MakeUnit(c, &factory.UnitParams{
@@ -102,7 +101,6 @@ func (s *baseSuite) SetUpTest(c *gc.C) {
 		Charm: mysqlCharm,
 	})
 	s.machine1 = f.MakeMachine(c, &factory.MachineParams{
-		Base: state.UbuntuBase("12.10"),
 		Jobs: []state.MachineJob{state.JobHostUnits},
 	})
 	s.mysqlUnit = f.MakeUnit(c, &factory.UnitParams{

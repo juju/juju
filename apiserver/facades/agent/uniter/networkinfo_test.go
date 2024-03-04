@@ -774,7 +774,7 @@ func (s *networkInfoSuite) TestMachineNetworkInfos(c *gc.C) {
 
 	st := s.ControllerModel(c).State()
 	machine, err := st.AddOneMachine(s.InstancePrechecker(c, st), state.MachineTemplate{
-		Base: state.UbuntuBase("12.10"),
+		Base: state.UbuntuBase("23.10"),
 		Jobs: []state.MachineJob{state.JobHostUnits},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -846,7 +846,7 @@ func (s *networkInfoSuite) TestMachineNetworkInfosAlphaNoSubnets(c *gc.C) {
 
 	st := s.ControllerModel(c).State()
 	machine, err := st.AddOneMachine(s.InstancePrechecker(c, st), state.MachineTemplate{
-		Base: state.UbuntuBase("12.10"),
+		Base: state.UbuntuBase("23.10"),
 		Jobs: []state.MachineJob{state.JobHostUnits},
 	})
 	c.Assert(err, jc.ErrorIsNil)

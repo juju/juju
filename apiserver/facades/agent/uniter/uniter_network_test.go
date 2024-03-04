@@ -92,12 +92,12 @@ func (s *uniterNetworkInfoSuite) SetUpTest(c *gc.C) {
 
 	s.wpCharm = f.MakeCharm(c, &factory.CharmParams{
 		Name: "wordpress-extra-bindings",
-		URL:  "ch:amd64/quantal/wordpress-extra-bindings-4",
+		URL:  "ch:amd64/wordpress-extra-bindings-4",
 	})
 	s.wordpress, err = s.st.AddApplication(s.InstancePrechecker(c, s.st), state.AddApplicationArgs{
 		Name:        "wordpress",
 		Charm:       s.wpCharm,
-		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{OS: "ubuntu", Channel: "12.10/stable"}},
+		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{OS: "ubuntu", Channel: "23.10/stable"}},
 		EndpointBindings: map[string]string{
 			"db":        "internal",   // relation name
 			"admin-api": "public",     // extra-binding name
@@ -142,7 +142,7 @@ func (s *uniterNetworkInfoSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *uniterNetworkInfoSuite) addProvisionedMachineWithDevicesAndAddresses(c *gc.C, addrSuffix int, prechecker environs.InstancePrechecker) *state.Machine {
-	machine, err := s.st.AddMachine(prechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.st.AddMachine(prechecker, state.UbuntuBase("23.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetInstanceInfo("i-am", "", "fake_nonce", nil, nil, nil, nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)

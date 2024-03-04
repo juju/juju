@@ -110,7 +110,7 @@ func (s *getSuite) TestClientApplicationGetIAASModelSmokeTest(c *gc.C) {
 			}},
 		Constraints: constraints.MustParse("arch=amd64"),
 		Base:        params.Base{Name: "ubuntu", Channel: "12.10/stable"},
-		Channel:     "stable",
+		Channel:     "latest/stable",
 		EndpointBindings: map[string]string{
 			"":                network.AlphaSpaceName,
 			"admin-api":       network.AlphaSpaceName,

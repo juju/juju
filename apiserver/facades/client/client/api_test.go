@@ -182,7 +182,7 @@ var scenarioStatus = &params.FullStatus{
 	},
 	Offers: map[string]params.ApplicationOfferStatus{
 		"hosted-mysql": {
-			CharmURL:        "local:quantal/mysql-1",
+			CharmURL:        "local:mysql-1",
 			ApplicationName: "mysql",
 			OfferName:       "hosted-mysql",
 			Endpoints: map[string]params.RemoteEndpoint{
@@ -197,7 +197,7 @@ var scenarioStatus = &params.FullStatus{
 	},
 	Applications: map[string]params.ApplicationStatus{
 		"logging": {
-			Charm: "local:quantal/logging-1",
+			Charm: "local:logging-1",
 			Base:  params.Base{Name: "ubuntu", Channel: "12.10/stable"},
 			Relations: map[string][]string{
 				"logging-directory": {"wordpress"},
@@ -215,7 +215,7 @@ var scenarioStatus = &params.FullStatus{
 			},
 		},
 		"mysql": {
-			Charm:         "local:quantal/mysql-1",
+			Charm:         "local:mysql-1",
 			Base:          params.Base{Name: "ubuntu", Channel: "12.10/stable"},
 			Relations:     map[string][]string{},
 			SubordinateTo: []string{},
@@ -232,7 +232,7 @@ var scenarioStatus = &params.FullStatus{
 			},
 		},
 		"wordpress": {
-			Charm: "local:quantal/wordpress-3",
+			Charm: "local:wordpress-3",
 			Base:  params.Base{Name: "ubuntu", Channel: "12.10/stable"},
 			Relations: map[string][]string{
 				"logging-dir": {"logging"},
@@ -438,17 +438,17 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 	setDefaultStatus(c, m)
 	add(m)
 
-	ch := f.MakeCharm(c, &factory.CharmParams{Name: "mysql", URL: "local:quantal/mysql-1"})
+	ch := f.MakeCharm(c, &factory.CharmParams{Name: "mysql", URL: "local:mysql-1"})
 	f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "mysql",
 		Charm: ch,
 	})
-	wpch := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress", URL: "local:quantal/wordpress-3"})
+	wpch := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress", URL: "local:wordpress-3"})
 	wordpress := f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "wordpress",
 		Charm: wpch,
 	})
-	loggingch := f.MakeCharm(c, &factory.CharmParams{Name: "logging", URL: "local:quantal/logging-1"})
+	loggingch := f.MakeCharm(c, &factory.CharmParams{Name: "logging", URL: "local:logging-1"})
 	f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "logging",
 		Charm: loggingch,

@@ -119,6 +119,7 @@ type ApplicationParams struct {
 	Name                    string
 	Charm                   *state.Charm
 	CharmOrigin             *state.CharmOrigin
+	Base                    corebase.Base
 	Status                  *status.StatusInfo
 	ApplicationConfig       map[string]interface{}
 	ApplicationConfigFields environschema.Fields
@@ -510,15 +511,16 @@ func (factory *Factory) MakeApplicationReturningPassword(c *gc.C, params *Applic
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	if params.CharmOrigin == nil {
+		base := params.Base
+		if base.Empty() {
+			base = corebase.MustParseBaseFromString("ubuntu@12.10")
+		}
 		curl := charm.MustParseURL(params.Charm.URL())
-		chSeries := curl.Series
-		base, err := corebase.GetBaseFromSeries(chSeries)
-		c.Assert(err, jc.ErrorIsNil)
 		var channel *state.Channel
 		var source string
 		// local charms cannot have a channel
 		if charm.CharmHub.Matches(curl.Schema) {
-			channel = &state.Channel{Risk: "stable"}
+			channel = &state.Channel{Track: "latest", Risk: "stable"}
 			source = "charm-hub"
 		} else if charm.Local.Matches(curl.Schema) {
 			source = "local"

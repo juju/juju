@@ -45,7 +45,6 @@ func (s *uniterGoalStateSuite) SetUpTest(c *gc.C) {
 	defer release()
 
 	s.machine2 = f.MakeMachine(c, &factory.MachineParams{
-		Base: state.UbuntuBase("12.10"),
 		Jobs: []state.MachineJob{state.JobHostUnits},
 	})
 

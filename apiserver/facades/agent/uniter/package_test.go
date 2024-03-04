@@ -99,11 +99,9 @@ func (s *uniterSuiteBase) setupState(c *gc.C) {
 	defer release()
 
 	s.machine0 = f.MakeMachine(c, &factory.MachineParams{
-		Base: state.UbuntuBase("12.10"),
 		Jobs: []state.MachineJob{state.JobHostUnits, state.JobManageModel},
 	})
 	s.machine1 = f.MakeMachine(c, &factory.MachineParams{
-		Base: state.UbuntuBase("12.10"),
 		Jobs: []state.MachineJob{state.JobHostUnits},
 	})
 

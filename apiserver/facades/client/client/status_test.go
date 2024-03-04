@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater"
 	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater/mocks"
 	corearch "github.com/juju/juju/core/arch"
-	"github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/network"
@@ -308,7 +307,7 @@ func (s *statusUnitTestSuite) TestProcessMachinesWithEmbeddedContainers(c *gc.C)
 func (s *statusUnitTestSuite) TestApplicationWithExposedEndpoints(c *gc.C) {
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	release()
-	charm := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress", URL: "ch:amd64/quantal/wordpress"})
+	charm := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress", URL: "ch:amd64/wordpress"})
 	app := f.MakeApplication(c, &factory.ApplicationParams{Charm: charm})
 	err := app.MergeExposeSettings(map[string]state.ExposedEndpoint{
 		"": {
@@ -349,12 +348,10 @@ func defaultCharmOrigin(curlStr string) *state.CharmOrigin {
 		source = corecharm.Local.String()
 	}
 
-	b, _ := base.GetBaseFromSeries(curl.Series)
-
 	platform := &state.Platform{
 		Architecture: corearch.DefaultArchitecture,
-		OS:           b.OS,
-		Channel:      b.Channel.String(),
+		OS:           "ubuntu",
+		Channel:      "12.10",
 	}
 
 	return &state.CharmOrigin{
@@ -373,9 +370,9 @@ func intPtr(i int) *int {
 func (s *statusUnitTestSuite) TestSubordinateUpgradingFrom(c *gc.C) {
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	release()
-	principalCharm := f.MakeCharm(c, &factory.CharmParams{Name: "mysql", URL: "ch:amd64/quantal/mysql"})
-	subordCharm := f.MakeCharm(c, &factory.CharmParams{Name: "logging", URL: "ch:amd64/quantal/logging-1"})
-	subordCharmNew := f.MakeCharm(c, &factory.CharmParams{Name: "logging", URL: "ch:amd64/quantal/logging-2"})
+	principalCharm := f.MakeCharm(c, &factory.CharmParams{Name: "mysql", URL: "ch:amd64/mysql"})
+	subordCharm := f.MakeCharm(c, &factory.CharmParams{Name: "logging", URL: "ch:amd64/logging-1"})
+	subordCharmNew := f.MakeCharm(c, &factory.CharmParams{Name: "logging", URL: "ch:amd64/logging-2"})
 	app := f.MakeApplication(c, &factory.ApplicationParams{
 		Charm: principalCharm,
 		Name:  "principal",
@@ -425,7 +422,7 @@ func (s *statusUnitTestSuite) TestSubordinateUpgradingFrom(c *gc.C) {
 	c.Assert(status, gc.NotNil)
 	unitStatus, ok = status.Applications["principal"].Units["principal/0"].Subordinates["subord/0"]
 	c.Assert(ok, gc.Equals, true)
-	c.Assert(unitStatus.Charm, gc.Equals, "ch:amd64/quantal/logging-1")
+	c.Assert(unitStatus.Charm, gc.Equals, "ch:amd64/logging-1")
 }
 
 func addUnitWithVersion(c *gc.C, application *state.Application, version string) *state.Unit {
