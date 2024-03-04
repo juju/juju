@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/cmd/juju/application/deployer/mocks"
 	"github.com/juju/juju/cmd/modelcmd"
 	corebase "github.com/juju/juju/core/base"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/testcharms"
@@ -83,7 +84,7 @@ func (s *deployerSuite) TestGetDeployerLocalCharm(c *gc.C) {
 	factory := s.newDeployerFactory()
 	deployer, err := factory.GetDeployer(cfg, s.modelConfigGetter, s.resolver)
 	c.Assert(err, jc.ErrorIsNil)
-	ch := charm.MustParseURL("local:jammy/multi-series-1")
+	ch := charm.MustParseURL("local:multi-series-1")
 	c.Assert(deployer.String(), gc.Equals, fmt.Sprintf("deploy local charm: %s", ch.String()))
 }
 
@@ -344,9 +345,11 @@ func (s *deployerSuite) TestMaybeReadLocalCharmErrorWithApplicationName(c *gc.C)
 	defer s.setupMocks(c).Finish()
 	s.expectModelGet(c)
 
+	s.modelCommand.EXPECT().ModelType().Return(model.IAAS, nil).AnyTimes()
+
 	url := "local:meshuggah"
 	s.expectStat(url, errors.NotFoundf("file"))
-	s.charmReader.EXPECT().ReadCharm("meshuggah").Return(s.charm, nil)
+	s.charmReader.EXPECT().NewCharmAtPath(url).Return(s.charm, charm.MustParseURL(url), nil)
 	s.charm.EXPECT().Manifest().Return(nil).AnyTimes()
 	s.charm.EXPECT().Meta().Return(&charm.Meta{Series: []string{"focal"}}).AnyTimes()
 
@@ -367,9 +370,11 @@ func (s *deployerSuite) TestMaybeReadLocalCharmErrorWithoutApplicationName(c *gc
 	defer s.setupMocks(c).Finish()
 	s.expectModelGet(c)
 
+	s.modelCommand.EXPECT().ModelType().Return(model.IAAS, nil).AnyTimes()
+
 	url := "local:meshuggah"
 	s.expectStat(url, errors.NotFoundf("file"))
-	s.charmReader.EXPECT().ReadCharm("meshuggah").Return(s.charm, nil)
+	s.charmReader.EXPECT().NewCharmAtPath(url).Return(s.charm, charm.MustParseURL(url), nil)
 	s.charm.EXPECT().Manifest().Return(nil).AnyTimes()
 	s.charm.EXPECT().Meta().Return(&charm.Meta{Name: "meshuggah", Series: []string{"focal"}}).AnyTimes()
 
@@ -541,7 +546,7 @@ func (s *deployerSuite) expectData() {
 // tests.
 type fsCharmReader struct{}
 
-// ReadCharm attempts to read a charm from a path on the filesystem.
-func (fsCharmReader) ReadCharm(path string) (charm.Charm, error) {
-	return charm.ReadCharm(path)
+// NewCharmAtPath attempts to read a charm from a path on the filesystem.
+func (fsCharmReader) NewCharmAtPath(path string) (charm.Charm, *charm.URL, error) {
+	return corecharm.NewCharmAtPath(path)
 }

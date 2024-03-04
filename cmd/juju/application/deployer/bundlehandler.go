@@ -64,6 +64,7 @@ type bundleDeploySpec struct {
 	bundleResolver       Resolver
 	getConsumeDetailsAPI func(*charm.OfferURL) (ConsumeDetails, error)
 	deployResources      DeployResourcesFunc
+	charmReader          CharmReader
 
 	useExistingMachines bool
 	bundleMachines      map[string]string
@@ -141,6 +142,7 @@ type bundleHandler struct {
 	bundleResolver       Resolver
 	getConsumeDetailsAPI func(*charm.OfferURL) (ConsumeDetails, error)
 	deployResources      DeployResourcesFunc
+	charmReader          CharmReader
 
 	// bundleStorage contains a mapping of application-specific storage
 	// constraints. For each application, the storage constraints in the
@@ -224,6 +226,7 @@ func makeBundleHandler(defaultCharmSchema charm.Schema, bundleData *charm.Bundle
 		bundleResolver:       spec.bundleResolver,
 		getConsumeDetailsAPI: spec.getConsumeDetailsAPI,
 		deployResources:      spec.deployResources,
+		charmReader:          spec.charmReader,
 		bundleStorage:        spec.bundleStorage,
 		bundleDevices:        spec.bundleDevices,
 		ctx:                  spec.ctx,
@@ -597,7 +600,7 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 
 	// First attempt to interpret as a local path.
 	if h.isLocalCharm(chParams.Charm) {
-		return h.addLocalCharm(chParams, base, id)
+		return h.addLocalCharm(chParams, id)
 	}
 
 	// Not a local charm, so grab from the store.
@@ -680,7 +683,7 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 	return nil
 }
 
-func (h *bundleHandler) addLocalCharm(chParams bundlechanges.AddCharmParams, chBase corebase.Base, id string) error {
+func (h *bundleHandler) addLocalCharm(chParams bundlechanges.AddCharmParams, id string) error {
 	// The charm path could contain the local schema prefix. If that's the
 	// case we should remove that before attempting to join with the bundle
 	// directory.
@@ -696,7 +699,7 @@ func (h *bundleHandler) addLocalCharm(chParams bundlechanges.AddCharmParams, chB
 		charmPath = filepath.Join(h.bundleDir, charmPath)
 	}
 
-	ch, curl, err := corecharm.NewCharmAtPathForceBase(charmPath, chBase, h.force)
+	ch, curl, err := h.charmReader.NewCharmAtPath(charmPath)
 	if err != nil {
 		return errors.Annotatef(err, "cannot deploy local charm at %q", charmPath)
 	}

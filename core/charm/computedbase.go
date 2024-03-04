@@ -11,12 +11,9 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 
 	"github.com/juju/juju/core/base"
 )
-
-var logger = loggo.GetLogger("juju.core.charm")
 
 // BaseForCharm takes a requested base and a list of bases supported by a
 // charm and returns the base which is relevant.

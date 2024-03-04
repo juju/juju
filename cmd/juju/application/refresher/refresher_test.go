@@ -257,7 +257,7 @@ func (s *localCharmRefresherSuite) TestRefresh(c *gc.C) {
 	charmAdder.EXPECT().AddLocalCharm(curl, ch, false).Return(curl, nil)
 
 	charmRepo := NewMockCharmRepository(ctrl)
-	charmRepo.EXPECT().NewCharmAtPathForceBase(ref, corebase.MakeDefaultBase("ubuntu", "22.04"), false).Return(ch, curl, nil)
+	charmRepo.EXPECT().NewCharmAtPath(ref).Return(ch, curl, nil)
 
 	cfg := refresherConfigWithOrigin(curl, ref, corecharm.MustParsePlatform("amd64/ubuntu/22.04"))
 
@@ -280,7 +280,7 @@ func (s *localCharmRefresherSuite) TestRefreshBecomesExhausted(c *gc.C) {
 
 	charmAdder := NewMockCharmAdder(ctrl)
 	charmRepo := NewMockCharmRepository(ctrl)
-	charmRepo.EXPECT().NewCharmAtPathForceBase(ref, corebase.MakeDefaultBase("ubuntu", "22.04"), false).Return(nil, nil, os.ErrNotExist)
+	charmRepo.EXPECT().NewCharmAtPath(ref).Return(nil, nil, os.ErrNotExist)
 
 	cfg := refresherConfigWithOrigin(curl, ref, corecharm.MustParsePlatform("amd64/ubuntu/22.04"))
 
@@ -301,7 +301,7 @@ func (s *localCharmRefresherSuite) TestRefreshDoesNotFindLocal(c *gc.C) {
 
 	charmAdder := NewMockCharmAdder(ctrl)
 	charmRepo := NewMockCharmRepository(ctrl)
-	charmRepo.EXPECT().NewCharmAtPathForceBase(ref, corebase.MakeDefaultBase("ubuntu", "22.04"), false).Return(nil, nil, errors.NotFoundf("fail"))
+	charmRepo.EXPECT().NewCharmAtPath(ref).Return(nil, nil, errors.NotFoundf("fail"))
 
 	cfg := refresherConfigWithOrigin(curl, ref, corecharm.MustParsePlatform("amd64/ubuntu/22.04"))
 

@@ -49,7 +49,7 @@ func (s *clientMacaroonSuite) TestAddLocalCharmWithFailedDischarge(c *gc.C) {
 	s.DischargerLogin = func() string { return "" }
 	charmArchive := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
 	curl := charm.MustParseURL(
-		fmt.Sprintf("local:quantal/%s-%d", charmArchive.Meta().Name, charmArchive.Revision()),
+		fmt.Sprintf("local:%s-%d", charmArchive.Meta().Name, charmArchive.Revision()),
 	)
 	savedURL, err := charmClient.AddLocalCharm(curl, charmArchive, false, jujuversion.Current)
 	c.Assert(err, gc.ErrorMatches, `Put https://.+: cannot get discharge from "https://.*": third party refused discharge: cannot discharge: login denied by discharger`)
@@ -61,7 +61,7 @@ func (s *clientMacaroonSuite) TestAddLocalCharmSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	charmArchive := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
 	curl := charm.MustParseURL(
-		fmt.Sprintf("local:quantal/%s-%d", charmArchive.Meta().Name, charmArchive.Revision()),
+		fmt.Sprintf("local:%s-%d", charmArchive.Meta().Name, charmArchive.Revision()),
 	)
 	testcharms.CheckCharmReady(c, charmArchive)
 

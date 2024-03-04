@@ -167,8 +167,9 @@ type ModelCommand interface {
 
 // CharmReader aims to read a charm from the filesystem.
 type CharmReader interface {
-	// ReadCharm reads a given charm from the filesystem.
-	ReadCharm(string) (charm.Charm, error)
+	// NewCharmAtPath returns the charm represented by this path,
+	// and a URL that describes it.
+	NewCharmAtPath(string) (charm.Charm, *charm.URL, error)
 }
 
 // DeployConfigFlag defines methods required for charm config when deploying a charm.
