@@ -235,6 +235,7 @@ func (d *deployBundle) makeBundleDeploySpec(ctx *cmd.Context, apiRoot DeployerAP
 		bundleResolver:       d.resolver,
 		getConsumeDetailsAPI: getConsumeDetails,
 		deployResources:      d.deployResources,
+		charmReader:          d.charmReader,
 		useExistingMachines:  d.useExistingMachines,
 		bundleMachines:       d.bundleMachines,
 		bundleStorage:        d.bundleStorage,

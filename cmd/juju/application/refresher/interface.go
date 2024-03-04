@@ -44,14 +44,9 @@ type CharmResolver interface {
 
 // CharmRepository defines methods for interaction with a charm repo.
 type CharmRepository interface {
-	// NewCharmAtPathForceBase returns the charm represented by this path,
-	// and a URL that describes it. If the base is empty,
-	// the charm's default base is used, if any.
-	// Otherwise, the base is validated against those the
-	// charm declares it supports. If force is true, then any
-	// base validation errors are ignored and the requested
-	// base is used regardless.
-	NewCharmAtPathForceBase(path string, base base.Base, force bool) (charm.Charm, *charm.URL, error)
+	// NewCharmAtPath returns the charm represented by this path,
+	// and a URL that describes it.
+	NewCharmAtPath(path string) (charm.Charm, *charm.URL, error)
 }
 
 // CommandLogger represents a logger which follows the logging

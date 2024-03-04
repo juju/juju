@@ -231,14 +231,8 @@ func (d *factory) localBundleDeployer() (DeployerKind, error) {
 }
 
 func (d *factory) localCharmDeployer(getter ModelConfigGetter) (DeployerKind, error) {
-	// Determine base
-	base, imageStream, baseErr := d.determineBaseForLocalCharm(d.charmOrBundle, getter)
-	if baseErr != nil {
-		return nil, errors.Trace(baseErr)
-	}
-
 	// Charm may have been supplied via a path reference.
-	ch, curl, err := corecharm.NewCharmAtPathForceBase(d.charmOrBundle, base, d.force)
+	ch, curl, err := d.charmReader.NewCharmAtPath(d.charmOrBundle)
 	// We check for several types of known error which indicate
 	// that the supplied reference was indeed a path but there was
 	// an issue reading the charm located there.
@@ -259,6 +253,13 @@ func (d *factory) localCharmDeployer(getter ModelConfigGetter) (DeployerKind, er
 		// we return the error.
 		return nil, errors.Annotatef(err, "attempting to deploy %q", d.charmOrBundle)
 	}
+
+	// Determine base
+	base, imageStream, err := d.determineBaseForLocalCharm(ch, getter)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	return &localCharmDeployerKind{base, imageStream, ch, curl}, nil
 }
 
@@ -277,21 +278,11 @@ func (d *factory) localPreDeployedCharmDeployer(getter ModelConfigGetter) (Deplo
 	return &localPreDeployerKind{userCharmURL: userCharmURL, base: d.base, imageStream: modelCfg.ImageStream()}, nil
 }
 
-func (d *factory) determineBaseForLocalCharm(charmOrBundle string, getter ModelConfigGetter) (corebase.Base, string, error) {
-	// NOTE: Reading the charm here is only meant to aid in inferring the
-	// correct base. If this fails, we simply return with default values
-	// and trust the caller to handle this failure properly (the charm is
-	// read again later).
-	// TODO: A proper refactoring is required for a proper fix
+func (d *factory) determineBaseForLocalCharm(ch charm.Charm, getter ModelConfigGetter) (corebase.Base, string, error) {
 	var (
 		imageStream  string
 		selectedBase corebase.Base
 	)
-	ch, err := d.charmReader.ReadCharm(charmOrBundle)
-	if err != nil {
-		return corebase.Base{}, "", nil
-	}
-
 	modelCfg, err := getModelConfig(getter)
 	if err != nil {
 		return corebase.Base{}, "", errors.Trace(err)

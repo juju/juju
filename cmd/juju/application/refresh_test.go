@@ -83,7 +83,7 @@ var _ = gc.Suite(&RefreshSuite{})
 
 func (s *RefreshSuite) SetUpTest(c *gc.C) {
 	s.BaseRefreshSuite.SetUpSuite(c)
-	s.BaseRefreshSuite.setup(c, charm.MustParseURL("ch:quantal/foo-1"), charm.MustParseURL("ch:quantal/foo-2"))
+	s.BaseRefreshSuite.setup(c, corebase.MustParseBaseFromString("ubuntu@12.10"), charm.MustParseURL("ch:foo-1"), charm.MustParseURL("ch:foo-2"))
 }
 
 func (s *BaseRefreshSuite) SetUpTest(c *gc.C) {
@@ -91,14 +91,12 @@ func (s *BaseRefreshSuite) SetUpTest(c *gc.C) {
 	s.Stub.ResetCalls()
 }
 
-func (s *BaseRefreshSuite) setup(c *gc.C, currentCharmURL, latestCharmURL *charm.URL) {
+func (s *BaseRefreshSuite) setup(c *gc.C, b corebase.Base, currentCharmURL, latestCharmURL *charm.URL) {
 	// Create persistent cookies in a temporary location.
 	cookieFile := filepath.Join(c.MkDir(), "cookies")
 	s.PatchEnvironment("JUJU_COOKIEFILE", cookieFile)
 
-	var err error
-	s.testBase, err = corebase.GetBaseFromSeries(currentCharmURL.Series)
-	c.Assert(err, jc.ErrorIsNil)
+	s.testBase = b
 	s.testPlatform = corecharm.MustParsePlatform(fmt.Sprintf("%s/%s/%s", arch.DefaultArchitecture, s.testBase.OS, s.testBase.Channel))
 
 	s.deployResources = func(
@@ -476,7 +474,7 @@ func (s *RefreshSuite) TestInvalidRevision(c *gc.C) {
 }
 
 func (s *RefreshSuite) TestLocalRevisionUnchanged(c *gc.C) {
-	s.BaseRefreshSuite.setup(c, charm.MustParseURL("ch:bionic/riak"), charm.MustParseURL("ch:bionic/riak"))
+	s.BaseRefreshSuite.setup(c, corebase.MustParseBaseFromString("ubuntu@18.04"), charm.MustParseURL("ch:riak"), charm.MustParseURL("ch:riak"))
 	s.charmAPIClient.charmOrigin = commoncharm.Origin{Base: corebase.MustParseBaseFromString("ubuntu@18.04")}
 
 	path := testcharms.RepoWithSeries("bionic").ClonedDirPath(c.MkDir(), "riak")
@@ -488,7 +486,7 @@ func (s *RefreshSuite) TestLocalRevisionUnchanged(c *gc.C) {
 	s.charmAPIClient.CheckCall(c, 2, "SetCharm", model.GenerationMaster, application.SetCharmConfig{
 		ApplicationName: "riak",
 		CharmID: application.CharmID{
-			URL: "local:bionic/riak-7",
+			URL: "local:riak-7",
 			Origin: commoncharm.Origin{
 				Base:     s.charmAPIClient.charmOrigin.Base,
 				Source:   "local",
@@ -536,7 +534,7 @@ func (s *RefreshSuite) TestUpgradeWithChannelNoNewCharmURL(c *gc.C) {
 	// Test setting a new charm channel, without an actual
 	// charm upgrade needed.
 	s.resolvedChannel = charm.Beta
-	s.resolvedCharmURL = charm.MustParseURL("ch:quantal/foo-1")
+	s.resolvedCharmURL = charm.MustParseURL("ch:foo-1")
 
 	_, err := s.runRefresh(c, "foo", "--channel=beta")
 	c.Assert(err, jc.ErrorIsNil)
@@ -668,7 +666,7 @@ func (s *RefreshSuite) TestUpgradeWithTermsNotSigned(c *gc.C) {
 }
 
 func (s *RefreshSuite) TestRespectsLocalRevisionWhenPossible(c *gc.C) {
-	s.BaseRefreshSuite.setup(c, charm.MustParseURL("ch:bionic/riak"), charm.MustParseURL("ch:bionic/riak"))
+	s.BaseRefreshSuite.setup(c, corebase.MustParseBaseFromString("ubuntu@18.04"), charm.MustParseURL("ch:riak"), charm.MustParseURL("ch:riak"))
 	s.charmAPIClient.charmOrigin = commoncharm.Origin{Base: corebase.MustParseBaseFromString("ubuntu@18.04")}
 
 	myriakPath := testcharms.RepoWithSeries("bionic").ClonedDirPath(c.MkDir(), "riak")
@@ -685,7 +683,7 @@ func (s *RefreshSuite) TestRespectsLocalRevisionWhenPossible(c *gc.C) {
 	s.charmAPIClient.CheckCall(c, 2, "SetCharm", model.GenerationMaster, application.SetCharmConfig{
 		ApplicationName: "riak",
 		CharmID: application.CharmID{
-			URL: "local:bionic/riak-42",
+			URL: "local:riak-42",
 			Origin: commoncharm.Origin{
 				Base:     s.charmAPIClient.charmOrigin.Base,
 				Source:   "local",
@@ -698,7 +696,7 @@ func (s *RefreshSuite) TestRespectsLocalRevisionWhenPossible(c *gc.C) {
 }
 
 func (s *RefreshSuite) TestForcedSeriesUpgrade(c *gc.C) {
-	s.BaseRefreshSuite.setup(c, charm.MustParseURL("ch:bionic/multi-series"), charm.MustParseURL("ch:bionic/multi-series"))
+	s.BaseRefreshSuite.setup(c, corebase.MustParseBaseFromString("ubuntu@18.04"), charm.MustParseURL("ch:multi-series"), charm.MustParseURL("ch:multi-series"))
 	repoPath := testcharms.RepoWithSeries("bionic").ClonedDirPath(c.MkDir(), "multi-series")
 	// Overwrite the metadata.yaml to change the supported series.
 	metadataPath := filepath.Join(repoPath, "metadata.yaml")
@@ -733,7 +731,7 @@ func (s *RefreshSuite) TestForcedSeriesUpgrade(c *gc.C) {
 	s.charmAPIClient.CheckCall(c, 2, "SetCharm", model.GenerationMaster, application.SetCharmConfig{
 		ApplicationName: "multi-series",
 		CharmID: application.CharmID{
-			URL: "local:bionic/multi-series-1",
+			URL: "local:multi-series-1",
 			Origin: commoncharm.Origin{
 				Base:         s.charmAPIClient.charmOrigin.Base,
 				Source:       "local",
@@ -748,7 +746,7 @@ func (s *RefreshSuite) TestForcedSeriesUpgrade(c *gc.C) {
 }
 
 func (s *RefreshSuite) TestForcedUnitsUpgrade(c *gc.C) {
-	s.BaseRefreshSuite.setup(c, charm.MustParseURL("ch:bionic/riak"), charm.MustParseURL("ch:bionic/riak"))
+	s.BaseRefreshSuite.setup(c, corebase.MustParseBaseFromString("ubuntu@18.04"), charm.MustParseURL("ch:riak"), charm.MustParseURL("ch:riak"))
 	s.charmAPIClient.charmOrigin = commoncharm.Origin{Base: corebase.MustParseBaseFromString("ubuntu@18.04")}
 
 	myriakPath := testcharms.RepoWithSeries("bionic").ClonedDirPath(c.MkDir(), "riak")
@@ -760,7 +758,7 @@ func (s *RefreshSuite) TestForcedUnitsUpgrade(c *gc.C) {
 	s.charmAPIClient.CheckCall(c, 2, "SetCharm", model.GenerationMaster, application.SetCharmConfig{
 		ApplicationName: "riak",
 		CharmID: application.CharmID{
-			URL: "local:bionic/riak-7",
+			URL: "local:riak-7",
 			Origin: commoncharm.Origin{
 				Base:     s.charmAPIClient.charmOrigin.Base,
 				Source:   "local",
@@ -790,7 +788,7 @@ func (s *RefreshSuite) TestCharmPathNotFound(c *gc.C) {
 }
 
 func (s *RefreshSuite) TestCharmPathNoRevUpgrade(c *gc.C) {
-	s.BaseRefreshSuite.setup(c, charm.MustParseURL("local:bionic/riak"), charm.MustParseURL("local:bionic/riak"))
+	s.BaseRefreshSuite.setup(c, corebase.MustParseBaseFromString("ubuntu@18.04"), charm.MustParseURL("local:riak"), charm.MustParseURL("local:riak"))
 	s.charmAPIClient.charmOrigin = commoncharm.Origin{Base: corebase.MustParseBaseFromString("ubuntu@18.04")}
 	// Revision 7 is running to start with.
 	myriakPath := testcharms.RepoWithSeries("bionic").ClonedDirPath(c.MkDir(), "riak")
@@ -803,7 +801,7 @@ func (s *RefreshSuite) TestCharmPathNoRevUpgrade(c *gc.C) {
 	s.charmAPIClient.CheckCall(c, 2, "SetCharm", model.GenerationMaster, application.SetCharmConfig{
 		ApplicationName: "riak",
 		CharmID: application.CharmID{
-			URL: "local:bionic/riak-7",
+			URL: "local:riak-7",
 			Origin: commoncharm.Origin{
 				Base:     s.charmAPIClient.charmOrigin.Base,
 				Source:   "local",
@@ -816,7 +814,7 @@ func (s *RefreshSuite) TestCharmPathNoRevUpgrade(c *gc.C) {
 }
 
 func (s *RefreshSuite) TestCharmPathDifferentNameFails(c *gc.C) {
-	s.BaseRefreshSuite.setup(c, charm.MustParseURL("local:bionic/riak"), charm.MustParseURL("local:bionic/riak"))
+	s.BaseRefreshSuite.setup(c, corebase.MustParseBaseFromString("ubuntu@18.04"), charm.MustParseURL("local:riak"), charm.MustParseURL("local:riak"))
 	s.charmAPIClient.charmOrigin = commoncharm.Origin{Base: corebase.MustParseBaseFromString("ubuntu@18.04")}
 	myriakPath := testcharms.RepoWithSeries("bionic").RenamedClonedDirPath(c.MkDir(), "riak", "myriak")
 	metadataPath := filepath.Join(myriakPath, "metadata.yaml")
@@ -836,7 +834,7 @@ func (s *RefreshSuite) TestCharmPathDifferentNameFails(c *gc.C) {
 }
 
 func (s *RefreshSuite) TestForcedLXDProfileUpgrade(c *gc.C) {
-	s.BaseRefreshSuite.setup(c, charm.MustParseURL("ch:bionic/lxd-profile-alt"), charm.MustParseURL("ch:bionic/lxd-profile-alt"))
+	s.BaseRefreshSuite.setup(c, corebase.MustParseBaseFromString("ubuntu@18.04"), charm.MustParseURL("ch:lxd-profile-alt"), charm.MustParseURL("ch:lxd-profile-alt"))
 	repoPath := testcharms.RepoWithSeries("bionic").ClonedDirPath(c.MkDir(), "lxd-profile-alt")
 	// Overwrite the lxd-profile.yaml to change the supported series.
 	lxdProfilePath := filepath.Join(repoPath, "lxd-profile.yaml")
@@ -868,7 +866,7 @@ devices: {}
 	s.charmAPIClient.CheckCall(c, 2, "SetCharm", model.GenerationMaster, application.SetCharmConfig{
 		ApplicationName: "lxd-profile-alt",
 		CharmID: application.CharmID{
-			URL: "local:bionic/lxd-profile-alt-0",
+			URL: "local:lxd-profile-alt-0",
 			Origin: commoncharm.Origin{
 				Base:         s.charmAPIClient.charmOrigin.Base,
 				Source:       "local",
@@ -909,7 +907,7 @@ func (s *RefreshSuite) TestInitWithResources(c *gc.C) {
 }
 
 func (s *RefreshSuite) TestUpgradeSameVersionWithResourceUpload(c *gc.C) {
-	s.resolvedCharmURL = charm.MustParseURL("ch:quantal/foo-1")
+	s.resolvedCharmURL = charm.MustParseURL("ch:foo-1")
 	s.charmClient.charmInfo = &apicommoncharms.CharmInfo{
 		URL: s.resolvedCharmURL.String(),
 		Meta: &charm.Meta{
@@ -960,7 +958,7 @@ var _ = gc.Suite(&RefreshCharmHubSuite{})
 
 func (s *RefreshCharmHubSuite) SetUpTest(c *gc.C) {
 	s.BaseRefreshSuite.SetUpSuite(c)
-	s.BaseRefreshSuite.setup(c, charm.MustParseURL("ch:quantal/foo-1"), charm.MustParseURL("ch:quantal/foo-2"))
+	s.BaseRefreshSuite.setup(c, corebase.MustParseBaseFromString("ubuntu@12.10"), charm.MustParseURL("ch:foo-1"), charm.MustParseURL("ch:foo-2"))
 }
 
 func (s *BaseRefreshSuite) TearDownTest(c *gc.C) {

@@ -94,7 +94,7 @@ func (s *charmHubRepositorySuite) testResolve(c *gc.C, id string) {
 	origin.Platform.OS = "ubuntu"
 	origin.Platform.Channel = "20.04"
 
-	expected := s.expectedCURL(curl, 16, arch.DefaultArchitecture, "focal")
+	expected := s.expectedCURL(curl, 16, arch.DefaultArchitecture)
 
 	c.Assert(obtainedCurl, jc.DeepEquals, expected)
 	c.Assert(obtainedOrigin, jc.DeepEquals, origin)
@@ -153,7 +153,7 @@ func (s *charmHubRepositorySuite) TestResolveWithChannel(c *gc.C) {
 	origin.Platform.OS = "ubuntu"
 	origin.Platform.Channel = "20.04"
 
-	expected := s.expectedCURL(curl, 16, arch.DefaultArchitecture, "focal")
+	expected := s.expectedCURL(curl, 16, arch.DefaultArchitecture)
 
 	c.Assert(obtainedCurl, jc.DeepEquals, expected)
 	c.Assert(obtainedOrigin, jc.DeepEquals, origin)
@@ -185,7 +185,7 @@ func (s *charmHubRepositorySuite) TestResolveWithoutBase(c *gc.C) {
 	}
 	origin.Platform.Architecture = arch.DefaultArchitecture
 
-	expected := s.expectedCURL(curl, 16, arch.DefaultArchitecture, "")
+	expected := s.expectedCURL(curl, 16, arch.DefaultArchitecture)
 
 	c.Assert(obtainedCurl, jc.DeepEquals, expected)
 	c.Assert(obtainedOrigin, jc.DeepEquals, origin)
@@ -222,7 +222,7 @@ func (s *charmHubRepositorySuite) TestResolveForDeployWithRevisionSuccess(c *gc.
 	expectedOrigin.Type = "charm"
 	expectedOrigin.Revision = &revision
 
-	expected := s.expectedCURL(curl, 16, arch.DefaultArchitecture, "focal")
+	expected := s.expectedCURL(curl, 16, arch.DefaultArchitecture)
 
 	c.Assert(obtainedData.URL, jc.DeepEquals, expected)
 	c.Assert(obtainedData.EssentialMetadata.ResolvedOrigin, jc.DeepEquals, expectedOrigin)
@@ -257,7 +257,7 @@ func (s *charmHubRepositorySuite) TestResolveForDeploySuccessChooseBase(c *gc.C)
 	expectedOrigin.Platform.OS = "ubuntu"
 	expectedOrigin.Platform.Channel = "20.04"
 
-	expected := s.expectedCURL(curl, 16, arch.DefaultArchitecture, "focal")
+	expected := s.expectedCURL(curl, 16, arch.DefaultArchitecture)
 
 	c.Assert(obtainedData.URL, jc.DeepEquals, expected)
 	c.Assert(obtainedData.EssentialMetadata.ResolvedOrigin, jc.DeepEquals, expectedOrigin)
@@ -292,7 +292,7 @@ func (s *charmHubRepositorySuite) TestResolveWithBundles(c *gc.C) {
 	}
 	origin.Platform.Architecture = arch.DefaultArchitecture
 
-	expected := s.expectedCURL(curl, 17, arch.DefaultArchitecture, "")
+	expected := s.expectedCURL(curl, 17, arch.DefaultArchitecture)
 
 	c.Assert(obtainedCurl, jc.DeepEquals, expected)
 	c.Assert(obtainedOrigin, jc.DeepEquals, origin)
@@ -327,7 +327,7 @@ func (s *charmHubRepositorySuite) TestResolveInvalidPlatformError(c *gc.C) {
 	origin.Platform.OS = "ubuntu"
 	origin.Platform.Channel = "20.04"
 
-	expected := s.expectedCURL(curl, 16, arch.DefaultArchitecture, "focal")
+	expected := s.expectedCURL(curl, 16, arch.DefaultArchitecture)
 
 	c.Assert(obtainedCurl, jc.DeepEquals, expected)
 	c.Assert(obtainedOrigin, jc.DeepEquals, origin)
@@ -820,8 +820,8 @@ func (s *charmHubRepositorySuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *charmHubRepositorySuite) expectedCURL(curl *charm.URL, revision int, arch string, series string) *charm.URL {
-	return curl.WithRevision(revision).WithArchitecture(arch).WithSeries(series)
+func (s *charmHubRepositorySuite) expectedCURL(curl *charm.URL, revision int, arch string) *charm.URL {
+	return curl.WithRevision(revision).WithArchitecture(arch)
 }
 
 func (s *charmHubRepositorySuite) newClient() *CharmHubRepository {

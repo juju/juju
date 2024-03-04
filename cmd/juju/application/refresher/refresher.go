@@ -165,11 +165,7 @@ func (d *localCharmRefresher) Allowed(_ RefresherConfig) (bool, error) {
 // Refresh a given local charm.
 // Bundles are not supported as there is no physical representation in Juju.
 func (d *localCharmRefresher) Refresh() (*CharmID, error) {
-	deployedBase, err := corebase.ParseBase(d.charmOrigin.Platform.OS, d.charmOrigin.Platform.Channel)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	ch, newURL, err := d.charmRepo.NewCharmAtPathForceBase(d.charmRef, deployedBase, d.forceBase)
+	ch, newURL, err := d.charmRepo.NewCharmAtPath(d.charmRef)
 	if err == nil {
 		newName := ch.Meta().Name
 		if newName != d.charmURL.Name {
@@ -318,8 +314,8 @@ func stdOriginResolver(curl *charm.URL, origin corecharm.Origin, channel charm.C
 
 type defaultCharmRepo struct{}
 
-func (defaultCharmRepo) NewCharmAtPathForceBase(path string, base corebase.Base, force bool) (charm.Charm, *charm.URL, error) {
-	return corecharm.NewCharmAtPathForceBase(path, base, force)
+func (defaultCharmRepo) NewCharmAtPath(path string) (charm.Charm, *charm.URL, error) {
+	return corecharm.NewCharmAtPath(path)
 }
 
 // charmHubOriginResolver attempts to resolve the origin required to resolve
