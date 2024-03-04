@@ -11,6 +11,7 @@ import (
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 
+	"github.com/juju/juju/agent"
 	"github.com/juju/juju/internal/socketlistener"
 )
 
@@ -35,8 +36,9 @@ type Logger interface {
 // ManifoldConfig defines the configuration for the agent controller config
 // manifold.
 type ManifoldConfig struct {
-	Logger Logger
-	Clock  clock.Clock
+	AgentName string
+	Logger    Logger
+	Clock     clock.Clock
 	// SocketName is the socket file descriptor.
 	SocketName string
 	// NewSocketListener is the function that creates a new socket listener.
@@ -45,6 +47,9 @@ type ManifoldConfig struct {
 
 // Validate validates the manifold configuration.
 func (cfg ManifoldConfig) Validate() error {
+	if cfg.AgentName == "" {
+		return errors.NotValidf("empty AgentName")
+	}
 	if cfg.Logger == nil {
 		return errors.NotValidf("nil Logger")
 	}
@@ -63,13 +68,22 @@ func (cfg ManifoldConfig) Validate() error {
 // Manifold returns a dependency manifold that runs the trace worker.
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
+		Inputs: []string{
+			config.AgentName,
+		},
 		Output: configOutput,
 		Start: func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
 			if err := config.Validate(); err != nil {
 				return nil, errors.Trace(err)
 			}
 
+			var thisAgent agent.Agent
+			if err := getter.Get(config.AgentName, &thisAgent); err != nil {
+				return nil, errors.Trace(err)
+			}
+
 			w, err := NewWorker(WorkerConfig{
+				ControllerID:      thisAgent.CurrentConfig().Tag().Id(),
 				Logger:            config.Logger,
 				Clock:             config.Clock,
 				NewSocketListener: config.NewSocketListener,

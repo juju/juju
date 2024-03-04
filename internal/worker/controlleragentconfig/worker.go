@@ -31,6 +31,9 @@ const (
 // WorkerConfig encapsulates the configuration options for the
 // agent controller config worker.
 type WorkerConfig struct {
+	// ControllerID is the ID of this controller.
+	ControllerID string
+	// Logger writes log messages.
 	Logger Logger
 	// Clock is needed for worker.NewRunner.
 	Clock clock.Clock
@@ -136,6 +139,7 @@ func newWorker(cfg WorkerConfig, internalStates chan string) (*configWorker, err
 func (w *configWorker) registerHandlers(r *mux.Router) {
 	r.HandleFunc("/reload", w.reloadHandler).
 		Methods(http.MethodPost)
+
 }
 
 // reloadHandler sends a signal to the configWorker when a config reload is
