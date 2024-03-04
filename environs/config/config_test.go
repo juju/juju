@@ -107,6 +107,13 @@ var configTests = []configTest{
 			"container-image-metadata-url": "container-image-metadata-url-value",
 		}),
 	}, {
+		about:       "Metadata Defaults Disabled",
+		useDefaults: config.UseDefaults,
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
+			"image-metadata-defaults-disabled":           true,
+			"container-image-metadata-defaults-disabled": true,
+		}),
+	}, {
 		about:       "Explicit base",
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
@@ -804,6 +811,13 @@ func (test configTest) check(c *gc.C) {
 		c.Assert(urlPresent, jc.IsFalse)
 	}
 
+	imageMetadataDefaultsDisabled := cfg.ImageMetadataDefaultsDisabled()
+	if v, ok := test.attrs["image-metadata-defaults-disabled"].(bool); ok {
+		c.Assert(imageMetadataDefaultsDisabled, gc.Equals, v)
+	} else {
+		c.Assert(imageMetadataDefaultsDisabled, jc.IsFalse)
+	}
+
 	agentURL, urlPresent := cfg.AgentMetadataURL()
 	expectedToolsURLValue := test.attrs["agent-metadata-url"]
 	if urlPresent {
@@ -840,6 +854,13 @@ func (test configTest) check(c *gc.C) {
 		c.Assert(cfg.ContainerImageStream(), gc.Equals, v)
 	} else {
 		c.Assert(cfg.ContainerImageStream(), gc.Equals, "released")
+	}
+
+	containerImageMetadataDefaultsDisabled := cfg.ContainerImageMetadataDefaultsDisabled()
+	if v, ok := test.attrs["container-image-metadata-defaults-disabled"].(bool); ok {
+		c.Assert(containerImageMetadataDefaultsDisabled, gc.Equals, v)
+	} else {
+		c.Assert(containerImageMetadataDefaultsDisabled, jc.IsFalse)
 	}
 
 	resourceTags, cfgHasResourceTags := cfg.ResourceTags()

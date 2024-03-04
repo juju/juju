@@ -11,11 +11,11 @@ import (
 
 	"github.com/juju/juju/api/agent/provisioner"
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/broker"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/worker/containerbroker"
@@ -154,7 +154,7 @@ func (s *trackerSuite) TestNewTracker(c *gc.C) {
 			AgentConfig:  s.agentConfig,
 			MachineTag:   s.machineTag,
 			MachineLock:  s.machineLock,
-			GetNetConfig: common.GetObservedNetworkConfig,
+			GetNetConfig: network.GetObservedNetworkConfig,
 		},
 		s.expectMachineTag,
 		s.expectMachines,

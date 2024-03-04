@@ -50,7 +50,7 @@ func (s *MachinerSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(machiner.InterfaceAddrs, func() ([]net.Addr, error) {
 		return s.addresses, nil
 	})
-	s.PatchValue(machiner.GetObservedNetworkConfig, func(_ corenetwork.ConfigSource) ([]params.NetworkConfig, error) {
+	s.PatchValue(machiner.GetObservedNetworkConfig, func(_ corenetwork.ConfigSource) (corenetwork.InterfaceInfos, error) {
 		return nil, nil
 	})
 }
@@ -410,8 +410,8 @@ func (s *MachinerSuite) TestMachineAddressesWithClearFlag(c *gc.C) {
 }
 
 func (s *MachinerSuite) TestGetObservedNetworkConfigEmpty(c *gc.C) {
-	s.PatchValue(machiner.GetObservedNetworkConfig, func(source corenetwork.ConfigSource) ([]params.NetworkConfig, error) {
-		return []params.NetworkConfig{}, nil
+	s.PatchValue(machiner.GetObservedNetworkConfig, func(source corenetwork.ConfigSource) (corenetwork.InterfaceInfos, error) {
+		return corenetwork.InterfaceInfos{}, nil
 	})
 
 	mr := s.makeMachiner(c, false)
@@ -429,8 +429,8 @@ func (s *MachinerSuite) TestGetObservedNetworkConfigEmpty(c *gc.C) {
 }
 
 func (s *MachinerSuite) TestSetObservedNetworkConfig(c *gc.C) {
-	s.PatchValue(machiner.GetObservedNetworkConfig, func(source corenetwork.ConfigSource) ([]params.NetworkConfig, error) {
-		return []params.NetworkConfig{{}}, nil
+	s.PatchValue(machiner.GetObservedNetworkConfig, func(source corenetwork.ConfigSource) (corenetwork.InterfaceInfos, error) {
+		return corenetwork.InterfaceInfos{{}}, nil
 	})
 
 	mr := s.makeMachiner(c, false)
@@ -449,7 +449,7 @@ func (s *MachinerSuite) TestSetObservedNetworkConfig(c *gc.C) {
 }
 
 func (s *MachinerSuite) TestAliveErrorGetObservedNetworkConfig(c *gc.C) {
-	s.PatchValue(machiner.GetObservedNetworkConfig, func(source corenetwork.ConfigSource) ([]params.NetworkConfig, error) {
+	s.PatchValue(machiner.GetObservedNetworkConfig, func(source corenetwork.ConfigSource) (corenetwork.InterfaceInfos, error) {
 		return nil, errors.New("no config!")
 	})
 
