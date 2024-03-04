@@ -1,19 +1,25 @@
 // Copyright 2023 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
+// Package controlleragentconfig provides a worker that listens on the "/reload"
+// endpoint of the config change socket and restarts any workers that have
+// requested to watch the config.
 package controlleragentconfig
 
 import (
-	"context"
 	"fmt"
-	"os"
+	"net/http"
 	"sync/atomic"
+	"time"
 
+	"github.com/gorilla/mux"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
 	"gopkg.in/tomb.v2"
+
+	"github.com/juju/juju/internal/socketlistener"
 )
 
 const (
@@ -26,8 +32,12 @@ const (
 // agent controller config worker.
 type WorkerConfig struct {
 	Logger Logger
-	Notify func(context.Context, chan os.Signal)
-	Clock  clock.Clock
+	// Clock is needed for worker.NewRunner.
+	Clock clock.Clock
+	// SocketName is the socket file descriptor.
+	SocketName string
+	// NewSocketListener is the function that creates a new socket listener.
+	NewSocketListener func(socketlistener.Config) (SocketListener, error)
 }
 
 // Validate ensures that the config values are valid.
@@ -35,11 +45,14 @@ func (c *WorkerConfig) Validate() error {
 	if c.Logger == nil {
 		return errors.NotValidf("nil Logger")
 	}
-	if c.Notify == nil {
-		return errors.NotValidf("nil Notify")
-	}
 	if c.Clock == nil {
 		return errors.NotValidf("nil Clock")
+	}
+	if c.SocketName == "" {
+		return errors.NotValidf("empty SocketName")
+	}
+	if c.NewSocketListener == nil {
+		return errors.NotValidf("nil NewSocketListener func")
 	}
 	return nil
 }
@@ -61,14 +74,15 @@ type ConfigWatcher interface {
 }
 
 type configWorker struct {
-	internalStates chan string
-	cfg            WorkerConfig
-	catacomb       catacomb.Catacomb
-	runner         *worker.Runner
-	unique         int64
+	internalStates  chan string
+	catacomb        catacomb.Catacomb
+	runner          *worker.Runner
+	cfg             WorkerConfig
+	reloadRequested chan struct{}
+	unique          int64
 }
 
-// NewWorker creates a new tracer worker.
+// NewWorker creates a new config worker.
 func NewWorker(cfg WorkerConfig) (*configWorker, error) {
 	return newWorker(cfg, nil)
 }
@@ -80,8 +94,9 @@ func newWorker(cfg WorkerConfig, internalStates chan string) (*configWorker, err
 	}
 
 	w := &configWorker{
-		internalStates: internalStates,
-		cfg:            cfg,
+		internalStates:  internalStates,
+		cfg:             cfg,
+		reloadRequested: make(chan struct{}),
 		runner: worker.NewRunner(worker.RunnerParams{
 			Clock: cfg.Clock,
 			IsFatal: func(err error) bool {
@@ -94,17 +109,46 @@ func newWorker(cfg WorkerConfig, internalStates chan string) (*configWorker, err
 		}),
 	}
 
+	sl, err := cfg.NewSocketListener(socketlistener.Config{
+		Logger:           cfg.Logger,
+		SocketName:       cfg.SocketName,
+		RegisterHandlers: w.registerHandlers,
+		ShutdownTimeout:  500 * time.Millisecond,
+	})
+	if err != nil {
+		return nil, errors.Annotate(err, "controller agent config reload socket listener setup:")
+	}
+
 	if err := catacomb.Invoke(catacomb.Plan{
 		Site: &w.catacomb,
 		Work: w.loop,
 		Init: []worker.Worker{
 			w.runner,
+			sl,
 		},
 	}); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	return w, nil
+}
+
+func (w *configWorker) registerHandlers(r *mux.Router) {
+	r.HandleFunc("/reload", w.reloadHandler).
+		Methods(http.MethodPost)
+}
+
+// reloadHandler sends a signal to the configWorker when a config reload is
+// requested.
+func (w *configWorker) reloadHandler(resp http.ResponseWriter, req *http.Request) {
+	select {
+	case <-w.catacomb.Dying():
+		resp.WriteHeader(http.StatusInternalServerError)
+	case <-req.Context().Done():
+		resp.WriteHeader(http.StatusInternalServerError)
+	case w.reloadRequested <- struct{}{}:
+		resp.WriteHeader(http.StatusNoContent)
+	}
 }
 
 // Kill is part of the worker.Worker interface.
@@ -135,11 +179,9 @@ func (w *configWorker) Watcher() (ConfigWatcher, error) {
 	return watcher.(ConfigWatcher), nil
 }
 
+// loop listens for a reload request picked up by the socket listener and
+// restarts all subscribed workers watching the config.
 func (w *configWorker) loop() error {
-	// We must use a buffered channel or risk missing the signal
-	// if we're not ready to receive when the signal is sent.
-	ch := make(chan os.Signal, 1)
-	w.cfg.Notify(w.catacomb.Context(context.Background()), ch)
 
 	// Report the initial started state.
 	w.reportInternalState(stateStarted)
@@ -148,15 +190,16 @@ func (w *configWorker) loop() error {
 		select {
 		case <-w.catacomb.Dying():
 			return w.catacomb.Err()
-		case <-ch:
+		case <-w.reloadRequested:
 			w.reportInternalState(stateReload)
 
-			w.cfg.Logger.Infof("SIGHUP received, reloading config")
+			w.cfg.Logger.Infof("reload config request received, reloading config")
 
 			for _, name := range w.runner.WorkerNames() {
 				runnerWorker, err := w.runner.Worker(name, w.catacomb.Dying())
 				if err != nil {
 					if errors.Is(err, errors.NotFound) {
+
 						w.cfg.Logger.Debugf("worker %q not found, skipping", name)
 						continue
 					}

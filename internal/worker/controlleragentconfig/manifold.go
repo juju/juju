@@ -5,19 +5,29 @@ package controlleragentconfig
 
 import (
 	"context"
-	"os"
-	"os/signal"
-	"syscall"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
+
+	"github.com/juju/juju/internal/socketlistener"
 )
+
+// SocketListener describes a worker that listens on a unix socket.
+type SocketListener interface {
+	worker.Worker
+}
+
+// NewSocketListener returns a new socket listener with the desired config.
+func NewSocketListener(config socketlistener.Config) (SocketListener, error) {
+	return socketlistener.NewSocketListener(config)
+}
 
 // Logger represents the logging methods called.
 type Logger interface {
 	Errorf(message string, args ...any)
+	Warningf(message string, args ...any)
 	Infof(message string, args ...any)
 	Debugf(message string, args ...any)
 }
@@ -27,6 +37,10 @@ type Logger interface {
 type ManifoldConfig struct {
 	Logger Logger
 	Clock  clock.Clock
+	// SocketName is the socket file descriptor.
+	SocketName string
+	// NewSocketListener is the function that creates a new socket listener.
+	NewSocketListener func(socketlistener.Config) (SocketListener, error)
 }
 
 // Validate validates the manifold configuration.
@@ -36,6 +50,12 @@ func (cfg ManifoldConfig) Validate() error {
 	}
 	if cfg.Clock == nil {
 		return errors.NotValidf("nil Clock")
+	}
+	if cfg.SocketName == "" {
+		return errors.NotValidf("empty SocketName")
+	}
+	if cfg.NewSocketListener == nil {
+		return errors.NotValidf("nil NewSocketListener func")
 	}
 	return nil
 }
@@ -50,9 +70,10 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 
 			w, err := NewWorker(WorkerConfig{
-				Logger: config.Logger,
-				Notify: Notify,
-				Clock:  config.Clock,
+				Logger:            config.Logger,
+				Clock:             config.Clock,
+				NewSocketListener: config.NewSocketListener,
+				SocketName:        config.SocketName,
 			})
 			if err != nil {
 				return nil, errors.Trace(err)
@@ -79,13 +100,4 @@ func configOutput(in worker.Worker, out any) error {
 		return errors.Errorf("unsupported output of *ConfigWatcher type, got %T", out)
 	}
 	return nil
-}
-
-// Notify sets up the signal handler for the worker.
-func Notify(ctx context.Context, ch chan os.Signal) {
-	if ctx.Err() != nil {
-		return
-	}
-
-	signal.Notify(ch, syscall.SIGHUP)
 }
