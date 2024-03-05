@@ -41,7 +41,7 @@ func (s *stateSuite) assertSecretBackend(
 ) {
 	db := s.DB()
 	row := db.QueryRow(`
-	SELECT uuid, name, backend_type, token_rotate_interval
+SELECT uuid, name, backend_type, token_rotate_interval
 FROM secret_backend
 WHERE uuid = ?`[1:], expectedSecretBackend.ID)
 	c.Assert(row.Err(), gc.IsNil)
@@ -58,14 +58,20 @@ WHERE uuid = ?`[1:], expectedSecretBackend.ID)
 	}
 	if expectedNextRotationTime != nil {
 		var actualNextRotationTime string
-		row = db.QueryRow(`SELECT next_rotation_time FROM secret_backend_rotation WHERE backend_uuid = ?`, expectedSecretBackend.ID)
+		row = db.QueryRow(`
+SELECT next_rotation_time
+FROM secret_backend_rotation
+WHERE backend_uuid = ?`[1:], expectedSecretBackend.ID)
 		c.Assert(row.Err(), gc.IsNil)
 		err = row.Scan(&actualNextRotationTime)
 		c.Assert(err, gc.IsNil)
 
 		c.Assert(actualNextRotationTime, gc.Equals, expectedNextRotationTime.UTC().Round(time.Second).Format(time.RFC3339))
 	} else {
-		row = db.QueryRow(`SELECT COUNT(*) FROM secret_backend_rotation WHERE backend_uuid = ?`, expectedSecretBackend.ID)
+		row = db.QueryRow(`
+SELECT COUNT(*)
+FROM secret_backend_rotation
+WHERE backend_uuid = ?`[1:], expectedSecretBackend.ID)
 		var count int
 		err = row.Scan(&count)
 		c.Assert(err, gc.IsNil)
@@ -75,9 +81,9 @@ WHERE uuid = ?`[1:], expectedSecretBackend.ID)
 	if len(expectedSecretBackend.Config) > 0 {
 		actual.Config = map[string]interface{}{}
 		rows, err := db.Query(`
-	SELECT name, content
-	FROM secret_backend_config
-	WHERE backend_uuid = ?`[1:], expectedSecretBackend.ID)
+SELECT name, content
+FROM secret_backend_config
+WHERE backend_uuid = ?`[1:], expectedSecretBackend.ID)
 		c.Assert(err, gc.IsNil)
 		c.Assert(rows.Err(), gc.IsNil)
 		defer rows.Close()
@@ -89,7 +95,10 @@ WHERE uuid = ?`[1:], expectedSecretBackend.ID)
 		}
 	} else {
 		var count int
-		row = db.QueryRow(`SELECT COUNT(*) FROM secret_backend_config WHERE backend_uuid = ?`, expectedSecretBackend.ID)
+		row = db.QueryRow(`
+SELECT COUNT(*)
+FROM secret_backend_config
+WHERE backend_uuid = ?`[1:], expectedSecretBackend.ID)
 		err = row.Scan(&count)
 		c.Assert(err, gc.IsNil)
 		c.Assert(count, gc.Equals, 0)
@@ -275,18 +284,27 @@ func (s *stateSuite) TestDeleteSecretBackend(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	db := s.DB()
-	row := db.QueryRow(`SELECT COUNT(*) FROM secret_backend WHERE uuid = ?`, backendID)
+	row := db.QueryRow(`
+SELECT COUNT(*)
+FROM secret_backend
+WHERE uuid = ?`[1:], backendID)
 	var count int
 	err = row.Scan(&count)
 	c.Assert(err, gc.IsNil)
 	c.Assert(count, gc.Equals, 0)
 
-	row = db.QueryRow(`SELECT COUNT(*) FROM secret_backend_config WHERE backend_uuid = ?`, backendID)
+	row = db.QueryRow(`
+SELECT COUNT(*)
+FROM secret_backend_config
+WHERE backend_uuid = ?`[1:], backendID)
 	err = row.Scan(&count)
 	c.Assert(err, gc.IsNil)
 	c.Assert(count, gc.Equals, 0)
 
-	row = db.QueryRow(`SELECT COUNT(*) FROM secret_backend_rotation WHERE backend_uuid = ?`, backendID)
+	row = db.QueryRow(`
+SELECT COUNT(*)
+FROM secret_backend_rotation
+WHERE backend_uuid = ?`[1:], backendID)
 	err = row.Scan(&count)
 	c.Assert(err, gc.IsNil)
 	c.Assert(count, gc.Equals, 0)

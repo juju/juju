@@ -264,8 +264,7 @@ func (s *State) getSecretBackend(
 		defer func() {
 			if err != nil {
 				err = errors.Annotatef(err, "cannot get secret backend %q", identifier)
-			}
-			if backend.ID == "" {
+			} else if backend.ID == "" {
 				err = errors.NotFoundf("secret backend %q", identifier)
 			}
 		}()
@@ -327,8 +326,8 @@ WHERE b.uuid = ?`[1:]
 // SecretBackendRotated updates the next rotation time for the secret backend.
 func (s *State) SecretBackendRotated(ctx context.Context, backendID string, next time.Time) error {
 	if _, err := s.GetSecretBackend(ctx, backendID); err != nil {
-		// Check if the error is `not found` or not here because the
-		// below UPDATE operation can not tell us if the backend exists or not.
+		// Check if the backend exists or not here because the
+		// below UPDATE operation won't tell us.
 		return errors.Trace(err)
 	}
 	db, err := s.DB()
@@ -392,6 +391,7 @@ func (w *secretBackendRotateWatcher) loop() (err error) {
 			w.logger.Warningf("secret backend rotation watcher stopped, err: %v", err)
 		}
 	}()
+	// To allow the initial event to sent.
 	out := w.out
 	var changes []watcher.SecretBackendRotateChange
 	ctx := w.tomb.Context(context.Background())
