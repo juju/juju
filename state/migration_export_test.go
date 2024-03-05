@@ -56,11 +56,6 @@ const (
 	expectedHistoryCount = addedHistoryCount + 1
 )
 
-var testAnnotations = map[string]string{
-	"string":  "value",
-	"another": "one",
-}
-
 type MigrationBaseSuite struct {
 	ConnWithWallClockSuite
 }
@@ -157,11 +152,9 @@ func (s *MigrationExportSuite) checkStatusHistory(c *gc.C, history []description
 }
 
 func (s *MigrationExportSuite) TestModelInfo(c *gc.C) {
-	err := s.Model.SetAnnotations(s.Model, testAnnotations)
-	c.Assert(err, jc.ErrorIsNil)
 	latestTools := version.MustParse("2.0.1")
 	s.setLatestTools(c, latestTools)
-	err = s.State.SetModelConstraints(constraints.MustParse("arch=amd64 mem=8G"))
+	err := s.State.SetModelConstraints(constraints.MustParse("arch=amd64 mem=8G"))
 	c.Assert(err, jc.ErrorIsNil)
 	machineSeq := s.setRandSequenceValue(c, "machine")
 	fooSeq := s.setRandSequenceValue(c, "application-foo")
@@ -192,7 +185,6 @@ func (s *MigrationExportSuite) TestModelInfo(c *gc.C) {
 	c.Assert(modelCfg, jc.DeepEquals, modelAttrs)
 	c.Assert(model.LatestToolsVersion(), gc.Equals, latestTools)
 	c.Assert(model.EnvironVersion(), gc.Equals, environVersion)
-	c.Assert(model.Annotations(), jc.DeepEquals, testAnnotations)
 	constraints := model.Constraints()
 	c.Assert(constraints, gc.NotNil)
 	c.Assert(constraints.Architecture(), gc.Equals, "amd64")
@@ -282,8 +274,6 @@ func (s *MigrationExportSuite) assertMachinesMigrated(c *gc.C, cons constraints.
 	})
 	nested := s.Factory.MakeMachineNested(c, machine1.Id(), nil)
 
-	err := s.Model.SetAnnotations(machine1, testAnnotations)
-	c.Assert(err, jc.ErrorIsNil)
 	s.primeStatusHistory(c, machine1, status.Started, addedHistoryCount)
 
 	model, err := s.State.Export(map[string]string{}, state.NewObjectStore(c, s.State.ModelUUID()))
@@ -295,7 +285,6 @@ func (s *MigrationExportSuite) assertMachinesMigrated(c *gc.C, cons constraints.
 	exported := machines[0]
 	c.Assert(exported.Tag(), gc.Equals, machine1.MachineTag())
 	c.Assert(exported.Base(), gc.Equals, machine1.Base().String())
-	c.Assert(exported.Annotations(), jc.DeepEquals, testAnnotations)
 
 	expCons := exported.Constraints()
 	c.Assert(expCons, gc.NotNil)
@@ -399,8 +388,6 @@ func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, st *state.Stat
 		"leader": "true",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = dbModel.SetAnnotations(application, testAnnotations)
-	c.Assert(err, jc.ErrorIsNil)
 
 	if dbModel.Type() == state.ModelTypeCAAS {
 		_, err = application.AddUnit(state.AddUnitParams{ProviderId: strPtr("provider-id1")})
@@ -440,7 +427,6 @@ func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, st *state.Stat
 	c.Assert(exported.Name(), gc.Equals, application.Name())
 	c.Assert(exported.Tag(), gc.Equals, application.ApplicationTag())
 	c.Assert(exported.Type(), gc.Equals, string(dbModel.Type()))
-	c.Assert(exported.Annotations(), jc.DeepEquals, testAnnotations)
 
 	origin := exported.CharmOrigin()
 	c.Assert(origin.Channel(), gc.Equals, "beta")
@@ -540,8 +526,6 @@ func (s *MigrationExportSuite) TestMalformedApplications(c *gc.C) {
 		"leader": "true",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = dbModel.SetAnnotations(application, testAnnotations)
-	c.Assert(err, jc.ErrorIsNil)
 
 	agentVer, err := version.ParseBinary("2.9.1-ubuntu-amd64")
 	c.Assert(err, jc.ErrorIsNil)
@@ -565,7 +549,6 @@ func (s *MigrationExportSuite) TestMalformedApplications(c *gc.C) {
 	c.Assert(exported.Name(), gc.Equals, application.Name())
 	c.Assert(exported.Tag(), gc.Equals, application.ApplicationTag())
 	c.Assert(exported.Type(), gc.Equals, string(dbModel.Type()))
-	c.Assert(exported.Annotations(), jc.DeepEquals, testAnnotations)
 
 	origin := exported.CharmOrigin()
 	c.Assert(origin.Channel(), gc.Equals, "stable")
@@ -795,8 +778,6 @@ func (s *MigrationExportSuite) assertMigrateUnits(c *gc.C, st *state.State, unit
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
-	err = dbModel.SetAnnotations(unit, testAnnotations)
-	c.Assert(err, jc.ErrorIsNil)
 	s.primeStatusHistory(c, unit, status.Active, addedHistoryCount)
 	s.primeStatusHistory(c, unit.Agent(), status.Idle, addedHistoryCount)
 
@@ -816,7 +797,6 @@ func (s *MigrationExportSuite) assertMigrateUnits(c *gc.C, st *state.State, unit
 	c.Assert(exported.Tag(), gc.Equals, unit.UnitTag())
 	c.Assert(exported.Validate(), jc.ErrorIsNil)
 	c.Assert(exported.WorkloadVersion(), gc.Equals, "steven")
-	c.Assert(exported.Annotations(), jc.DeepEquals, testAnnotations)
 	c.Assert(exported.CharmState(), jc.DeepEquals, map[string]string{"payload": "b4dc0ffee"})
 	c.Assert(exported.RelationState(), jc.DeepEquals, map[int]string{42: "magic"})
 	c.Assert(exported.UniterState(), gc.Equals, "uniter state")

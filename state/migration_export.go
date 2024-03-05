@@ -114,9 +114,6 @@ func (st *State) exportImpl(cfg ExportConfig, leaders map[string]string, store o
 	if err := export.readAllStorageConstraints(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err := export.readAllAnnotations(); err != nil {
-		return nil, errors.Trace(err)
-	}
 	if err := export.readAllConstraints(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -159,7 +156,6 @@ func (st *State) exportImpl(cfg ExportConfig, leaders map[string]string, store o
 		})
 	}
 	modelKey := dbModel.globalKey()
-	export.model.SetAnnotations(export.getAnnotations(modelKey))
 	if err := export.sequences(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -283,7 +279,6 @@ type exporter struct {
 	store   objectstore.ObjectStore
 	logger  loggo.Logger
 
-	annotations             map[string]annotatorDoc
 	constraints             map[string]bson.M
 	modelSettings           map[string]settingsDoc
 	modelStorageConstraints map[string]storageConstraintsDoc
@@ -560,8 +555,6 @@ func (e *exporter) newMachine(exParent description.Machine, machine *Machine, in
 	for _, args := range e.openedPortRangesArgsForMachine(machine.Id(), portsData) {
 		exMachine.AddOpenedPortRange(args)
 	}
-
-	exMachine.SetAnnotations(e.getAnnotations(globalKey))
 
 	constraintsArgs, err := e.constraintsArgs(globalKey)
 	if err != nil {
@@ -907,7 +900,6 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 
 	exApplication.SetStatus(statusArgs)
 	exApplication.SetStatusHistory(e.statusHistoryArgs(globalKey))
-	exApplication.SetAnnotations(e.getAnnotations(globalKey))
 
 	globalAppWorkloadKey := applicationGlobalOperatorKey(appName)
 	operatorStatusArgs, err := e.statusArgs(globalAppWorkloadKey)
@@ -1047,7 +1039,6 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 			}
 			e.statusHistoryArgs(globalCCKey)
 		}
-		exUnit.SetAnnotations(e.getAnnotations(globalKey))
 
 		constraintsArgs, err := e.constraintsArgs(agentKey)
 		if err != nil {
@@ -1951,27 +1942,6 @@ func (e *exporter) readLastConnectionTimes() (map[string]time.Time, error) {
 	return result, nil
 }
 
-func (e *exporter) readAllAnnotations() error {
-	e.annotations = make(map[string]annotatorDoc)
-	if e.cfg.SkipAnnotations {
-		return nil
-	}
-
-	annotations, closer := e.st.db().GetCollection(annotationsC)
-	defer closer()
-
-	var docs []annotatorDoc
-	if err := annotations.Find(nil).All(&docs); err != nil {
-		return errors.Trace(err)
-	}
-	e.logger.Debugf("read %d annotations docs", len(docs))
-
-	for _, doc := range docs {
-		e.annotations[doc.GlobalKey] = doc
-	}
-	return nil
-}
-
 func (e *exporter) readAllConstraints() error {
 	constraintsCollection, closer := e.st.db().GetCollection(constraintsC)
 	defer closer()
@@ -1997,17 +1967,6 @@ func (e *exporter) readAllConstraints() error {
 		e.logger.Debugf("doc[%q] = %#v", id, doc)
 	}
 	return nil
-}
-
-// getAnnotations doesn't really care if there are any there or not
-// for the key, but if they were there, they are removed so we can
-// check at the end of the export for anything we have forgotten.
-func (e *exporter) getAnnotations(key string) map[string]string {
-	result, found := e.annotations[key]
-	if found {
-		delete(e.annotations, key)
-	}
-	return result.Annotations
 }
 
 func (e *exporter) getCharmOrigin(doc applicationDoc, defaultArch string) (description.CharmOriginArgs, error) {
@@ -2275,13 +2234,6 @@ func (e *exporter) checkUnexportedValues() error {
 	}
 
 	var missing []string
-
-	// As annotations are saved into the model, they are removed from the
-	// exporter's map. If there are any left at the end, we are missing
-	// things.
-	for key, doc := range e.annotations {
-		missing = append(missing, fmt.Sprintf("unexported annotations for %s, %s", doc.Tag, key))
-	}
 
 	for key := range e.modelSettings {
 		missing = append(missing, fmt.Sprintf("unexported settings for %s", key))

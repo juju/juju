@@ -817,7 +817,6 @@ func (a *Application) removeOps(asserts bson.D, op *ForcedOperation) ([]txn.Op, 
 	ops = append(ops,
 		removeEndpointBindingsOp(globalKey),
 		removeConstraintsOp(globalKey),
-		annotationRemoveOp(a.st, globalKey),
 		removeLeadershipSettingsOp(name),
 		removeStatusOp(a.st, globalKey),
 		removeStatusOp(a.st, applicationGlobalOperatorKey(name)),
@@ -2957,7 +2956,6 @@ func (a *Application) removeUnitOps(store objectstore.ObjectStore, u *Unit, asse
 		removeUnitStateOp(a.st, u.globalKey()),
 		removeStatusOp(a.st, u.globalCloudContainerKey()),
 		removeConstraintsOp(u.globalAgentKey()),
-		annotationRemoveOp(a.st, u.globalKey()),
 		newCleanupOp(cleanupRemovedUnit, u.doc.Name, op.Force),
 	}
 	ops = append(ops, portsOps...)

@@ -87,8 +87,6 @@ func (d *Delta) UnmarshalJSON(data []byte) error {
 	switch entityKind {
 	case "action":
 		d.Entity = new(ActionInfo)
-	case "annotation":
-		d.Entity = new(AnnotationInfo)
 	case "application":
 		d.Entity = new(ApplicationInfo)
 	case "applicationOffer":
@@ -350,24 +348,6 @@ func (i *RelationInfo) EntityId() EntityId {
 		Kind:      "relation",
 		ModelUUID: i.ModelUUID,
 		Id:        i.Key,
-	}
-}
-
-// AnnotationInfo holds the information about an annotation that is
-// tracked by multiwatcherStore.
-type AnnotationInfo struct {
-	ModelUUID   string            `json:"model-uuid"`
-	Tag         string            `json:"tag"`
-	Annotations map[string]string `json:"annotations"`
-}
-
-// EntityId returns a unique identifier for an annotation across
-// models.
-func (i *AnnotationInfo) EntityId() EntityId {
-	return EntityId{
-		Kind:      "annotation",
-		ModelUUID: i.ModelUUID,
-		Id:        i.Tag,
 	}
 }
 

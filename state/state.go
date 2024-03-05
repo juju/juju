@@ -2572,25 +2572,6 @@ func (st *State) networkEntityGlobalKey(globalKey string, providerId corenetwork
 	return st.docID(globalKey + ":" + string(providerId))
 }
 
-var tagPrefix = map[byte]string{
-	'm': names.MachineTagKind + "-",
-	'a': names.ApplicationTagKind + "-",
-	'u': names.UnitTagKind + "-",
-	'e': names.ModelTagKind + "-",
-	'r': names.RelationTagKind + "-",
-}
-
-func tagForGlobalKey(key string) (string, bool) {
-	if len(key) < 3 || key[1] != '#' {
-		return "", false
-	}
-	p, ok := tagPrefix[key[0]]
-	if !ok {
-		return "", false
-	}
-	return p + key[2:], true
-}
-
 // TagFromDocID tries attempts to extract an entity-identifying tag from a
 // Mongo document ID.
 // For example "c9741ea1-0c2a-444d-82f5-787583a48557:a#mediawiki" would yield

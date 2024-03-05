@@ -328,12 +328,6 @@ func (i *importer) modelExtras() error {
 		}
 	}
 
-	if annotations := i.model.Annotations(); len(annotations) > 0 {
-		if err := i.dbModel.SetAnnotations(i.dbModel, annotations); err != nil {
-			return errors.Trace(err)
-		}
-	}
-
 	blockType := map[string]BlockType{
 		"destroy-model": DestroyBlock,
 		"remove-object": RemoveBlock,
@@ -529,11 +523,6 @@ func (i *importer) machine(m description.Machine) error {
 	}
 
 	machine := newMachine(i.st, mdoc)
-	if annotations := m.Annotations(); len(annotations) > 0 {
-		if err := i.dbModel.SetAnnotations(machine, annotations); err != nil {
-			return errors.Trace(err)
-		}
-	}
 	if err := i.importStatusHistory(machine.globalKey(), m.StatusHistory()); err != nil {
 		return errors.Trace(err)
 	}
@@ -960,11 +949,6 @@ func (i *importer) application(a description.Application, ctrlCfg controller.Con
 		}
 	}
 
-	if annotations := a.Annotations(); len(annotations) > 0 {
-		if err := i.dbModel.SetAnnotations(app, annotations); err != nil {
-			return errors.Trace(err)
-		}
-	}
 	if err := i.importStatusHistory(app.globalKey(), a.StatusHistory()); err != nil {
 		return errors.Trace(err)
 	}
@@ -1220,11 +1204,6 @@ func (i *importer) unit(s description.Application, u description.Unit, ctrlCfg c
 	udoc.DocID = ensureModelUUID(udoc.ModelUUID, udoc.Name)
 
 	unit := newUnit(i.st, model.Type(), udoc)
-	if annotations := u.Annotations(); len(annotations) > 0 {
-		if err := i.dbModel.SetAnnotations(unit, annotations); err != nil {
-			return errors.Trace(err)
-		}
-	}
 	if err := i.importStatusHistory(unit.globalKey(), u.WorkloadStatusHistory()); err != nil {
 		return errors.Trace(err)
 	}

@@ -1191,7 +1191,6 @@ func (m *Machine) removeOps() ([]txn.Op, error) {
 		removeStatusOp(m.st, m.globalInstanceKey()),
 		removeStatusOp(m.st, m.globalModificationKey()),
 		removeConstraintsOp(m.globalKey()),
-		annotationRemoveOp(m.st, m.globalKey()),
 		removeRebootDocOp(m.st, m.globalKey()),
 		removeModelMachineRefOp(m.st, m.Id()),
 		removeSSHHostKeyOp(m.globalKey()),
