@@ -2001,7 +2001,7 @@ func (s *ApplicationSuite) TestAddUnits(c *gc.C) {
 	s.backend.EXPECT().Application("postgresql").AnyTimes().Return(app, nil)
 
 	s.machineService.EXPECT().CreateMachine(gomock.Any(), "99")
-	s.applicationService.EXPECT().CreateApplication(gomock.Any(), "postgresql", applicationservice.AddApplicationParams{}, applicationservice.AddUnitParams{UnitName: &unitName})
+	s.applicationService.EXPECT().AddUnits(gomock.Any(), "postgresql", applicationservice.AddUnitParams{UnitName: &unitName})
 
 	results, err := s.api.AddUnits(context.Background(), params.AddApplicationUnits{
 		ApplicationName: "postgresql",
@@ -2040,7 +2040,7 @@ func (s *ApplicationSuite) TestAddUnitsAttachStorage(c *gc.C) {
 	s.backend.EXPECT().Application("postgresql").AnyTimes().Return(app, nil)
 
 	s.machineService.EXPECT().CreateMachine(gomock.Any(), "99")
-	s.applicationService.EXPECT().CreateApplication(gomock.Any(), "postgresql", applicationservice.AddApplicationParams{}, applicationservice.AddUnitParams{UnitName: &unitName})
+	s.applicationService.EXPECT().AddUnits(gomock.Any(), "postgresql", applicationservice.AddUnitParams{UnitName: &unitName})
 
 	_, err := s.api.AddUnits(context.Background(), params.AddApplicationUnits{
 		ApplicationName: "postgresql",

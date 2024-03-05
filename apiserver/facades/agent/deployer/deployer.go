@@ -29,7 +29,7 @@ type ControllerConfigGetter interface {
 // UnitRemover deletes a unit from the dqlite database.
 // This allows us to initially weave some dqlite support into the cleanup workflow.
 type UnitRemover interface {
-	Delete(context.Context, string) error
+	DeleteUnit(context.Context, string) error
 }
 
 // DeployerAPI provides access to the Deployer API facade.

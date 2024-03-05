@@ -68,8 +68,8 @@ func (s *Service) UpsertCAASUnit(ctx context.Context, name string, unit UpsertCA
 	return errors.Annotatef(err, "saving application %q", name)
 }
 
-// Delete deletes the specified application.
-func (s *Service) Delete(ctx context.Context, name string) error {
+// DeleteApplication deletes the specified application.
+func (s *Service) DeleteApplication(ctx context.Context, name string) error {
 	err := s.st.DeleteApplication(ctx, name)
 	return errors.Annotatef(err, "deleting application %q", name)
 }

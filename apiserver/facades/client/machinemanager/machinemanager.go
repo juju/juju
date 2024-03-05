@@ -71,7 +71,7 @@ type Authorizer interface {
 // MachineService manages machines.
 type MachineService interface {
 	CreateMachine(context.Context, string) error
-	Delete(context.Context, string) error
+	DeleteMachine(context.Context, string) error
 }
 
 // CharmhubClient represents a way for querying the charmhub api for information

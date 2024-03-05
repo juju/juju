@@ -92,16 +92,16 @@ func (mr *MockMachineServiceMockRecorder) CreateMachine(arg0, arg1 any) *gomock.
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateMachine", reflect.TypeOf((*MockMachineService)(nil).CreateMachine), arg0, arg1)
 }
 
-// Delete mocks base method.
-func (m *MockMachineService) Delete(arg0 context.Context, arg1 string) error {
+// DeleteMachine mocks base method.
+func (m *MockMachineService) DeleteMachine(arg0 context.Context, arg1 string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Delete", arg0, arg1)
+	ret := m.ctrl.Call(m, "DeleteMachine", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// Delete indicates an expected call of Delete.
-func (mr *MockMachineServiceMockRecorder) Delete(arg0, arg1 any) *gomock.Call {
+// DeleteMachine indicates an expected call of DeleteMachine.
+func (mr *MockMachineServiceMockRecorder) DeleteMachine(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockMachineService)(nil).Delete), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteMachine", reflect.TypeOf((*MockMachineService)(nil).DeleteMachine), arg0, arg1)
 }

@@ -58,22 +58,22 @@ func (s *serviceSuite) TestUpdateError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `saving application "666": boom`)
 }
 
-func (s *serviceSuite) TestDeleteSuccess(c *gc.C) {
+func (s *serviceSuite) TestDeleteApplicationSuccess(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.state.EXPECT().DeleteApplication(gomock.Any(), "666").Return(nil)
 
-	err := NewService(s.state).Delete(context.Background(), "666")
+	err := NewService(s.state).DeleteApplication(context.Background(), "666")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestDeleteError(c *gc.C) {
+func (s *serviceSuite) TestDeleteApplicationError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	rErr := errors.New("boom")
 	s.state.EXPECT().DeleteApplication(gomock.Any(), "666").Return(rErr)
 
-	err := NewService(s.state).Delete(context.Background(), "666")
+	err := NewService(s.state).DeleteApplication(context.Background(), "666")
 	c.Check(err, jc.ErrorIs, rErr)
 	c.Assert(err, gc.ErrorMatches, `deleting application "666": boom`)
 }

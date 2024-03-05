@@ -330,7 +330,7 @@ type mockMachineRemover struct {
 	stub *testing.Stub
 }
 
-func (m *mockMachineRemover) Delete(_ context.Context, machineId string) error {
+func (m *mockMachineRemover) DeleteMachine(_ context.Context, machineId string) error {
 	m.stub.AddCall("Delete", machineId)
 	return nil
 }

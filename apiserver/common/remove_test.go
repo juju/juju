@@ -131,4 +131,4 @@ type fakeObjectStore struct {
 
 type fakeUnitRemover struct{}
 
-func (fakeUnitRemover) Delete(context.Context, string) error { return nil }
+func (fakeUnitRemover) DeleteUnit(context.Context, string) error { return nil }

@@ -1781,12 +1781,12 @@ func assertUnitInScope(c *gc.C, unit *state.Unit, rel *state.Relation, expected 
 
 type fakeMachineRemover struct{}
 
-func (fakeMachineRemover) Delete(context.Context, string) error { return nil }
+func (fakeMachineRemover) DeleteMachine(context.Context, string) error { return nil }
 
 type fakeUnitRemover struct{}
 
-func (fakeUnitRemover) Delete(context.Context, string) error { return nil }
+func (fakeUnitRemover) DeleteUnit(context.Context, string) error { return nil }
 
 type fakeAppRemover struct{}
 
-func (fakeAppRemover) Delete(context.Context, string) error { return nil }
+func (fakeAppRemover) DeleteApplication(context.Context, string) error { return nil }

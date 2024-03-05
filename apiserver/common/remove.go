@@ -20,7 +20,7 @@ import (
 // UnitRemover deletes a unit from the dqlite database.
 // This allows us to initially weave some dqlite support into the cleanup workflow.
 type UnitRemover interface {
-	Delete(context.Context, string) error
+	DeleteUnit(context.Context, string) error
 }
 
 // Remover implements a common Remove method for use by various facades.
@@ -78,7 +78,7 @@ func (r *Remover) removeEntity(ctx context.Context, tag names.Tag) error {
 	if err != nil || tag.Kind() != names.UnitTagKind {
 		return err
 	}
-	return r.unitRemover.Delete(ctx, tag.Id())
+	return r.unitRemover.DeleteUnit(ctx, tag.Id())
 }
 
 // Remove removes every given entity from state, calling EnsureDead

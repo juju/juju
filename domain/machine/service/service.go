@@ -36,8 +36,8 @@ func (s *Service) CreateMachine(ctx context.Context, machineId string) error {
 	return errors.Annotatef(err, "creating machine %q", machineId)
 }
 
-// Delete deletes the specified machine.
-func (s *Service) Delete(ctx context.Context, machineId string) error {
+// DeleteMachine deletes the specified machine.
+func (s *Service) DeleteMachine(ctx context.Context, machineId string) error {
 	err := s.st.DeleteMachine(ctx, machineId)
 	return errors.Annotatef(err, "deleting machine %q", machineId)
 }
