@@ -49,6 +49,7 @@ CREATE TABLE
         CONSTRAINT fk_secret_backend_config_backend_uuid
             FOREIGN KEY (backend_uuid)
             REFERENCES secret_backend (uuid)
+        ON DELETE CASCADE
     );
 
 CREATE TABLE
@@ -58,6 +59,7 @@ CREATE TABLE
         CONSTRAINT fk_secret_backend_rotation_secret_backend_uuid
             FOREIGN KEY (backend_uuid)
             REFERENCES secret_backend (uuid)
+        ON DELETE CASCADE
     );
 `)
 }
