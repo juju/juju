@@ -454,6 +454,10 @@ const (
 	// snap source, which is the snapstore.
 	// TODO(jujud-controller-snap): change this to "snapstore" once it is implemented.
 	DefaultJujudControllerSnapSource = "legacy"
+
+	// DefaultObjectStoreType is the default type of object store to use for
+	// storing blobs.
+	DefaultObjectStoreType = objectstore.FileBackend
 )
 
 var (
@@ -1469,4 +1473,27 @@ func parseRatio(c Config, name string) (float64, error) {
 	default:
 		return 0, errors.Errorf("unexpected type %T", c[name])
 	}
+}
+
+// HasCompleteS3ControllerConfig returns true if the controller has a complete
+// S3 configuration. This includes an endpoint, static key, and static secret.
+func HasCompleteS3ControllerConfig(cfg Config) error {
+	endpoint := cfg.ObjectStoreS3Endpoint()
+	staticKey := cfg.ObjectStoreS3StaticKey()
+	staticSecret := cfg.ObjectStoreS3StaticSecret()
+	return HasCompleteS3Config(endpoint, staticKey, staticSecret)
+}
+
+// HasCompleteS3Config returns true if the S3 configuration is complete.
+func HasCompleteS3Config(endpoint, staticKey, staticSecret string) error {
+	if endpoint == "" {
+		return errors.New("missing S3 endpoint")
+	}
+	if staticKey == "" {
+		return errors.New("missing S3 static key")
+	}
+	if staticSecret == "" {
+		return errors.New("missing S3 static secret")
+	}
+	return nil
 }

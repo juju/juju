@@ -45,6 +45,14 @@ var (
 )
 
 func (s *clientSuite) SetUpTest(c *gc.C) {
+	// HA Requires S3 to be setup, the default is to use file backed storage.
+	// Forcing this to be s3 here, allows HA to be enabled.
+	s.ControllerConfigAttrs = make(map[string]interface{})
+	s.ControllerConfigAttrs[controller.ObjectStoreType] = objectstore.S3Backend
+	s.ControllerConfigAttrs[controller.ObjectStoreS3Endpoint] = "http://localhost:1234"
+	s.ControllerConfigAttrs[controller.ObjectStoreS3StaticKey] = "deadbeef"
+	s.ControllerConfigAttrs[controller.ObjectStoreS3StaticSecret] = "shhh...."
+
 	s.ApiServerSuite.SetUpTest(c)
 
 	s.authorizer = apiservertesting.FakeAuthorizer{

@@ -18,6 +18,7 @@ import (
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/mongo"
 )
 
@@ -156,6 +157,10 @@ func (c *configFromEnv) OpenTelemetryStackTraces() bool {
 }
 
 func (c *configFromEnv) OpenTelemetrySampleRatio() float64 {
+	panic("not implemented")
+}
+
+func (c *configFromEnv) ObjectStoreType() objectstore.BackendType {
 	panic("not implemented")
 }
 

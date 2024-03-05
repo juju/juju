@@ -6,12 +6,15 @@ package state
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"fmt"
+
+	"github.com/juju/errors"
 
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/objectstore"
+	objectstoreerrors "github.com/juju/juju/domain/objectstore/errors"
+	"github.com/juju/juju/internal/database"
 )
 
 // State implements the domain objectstore state.
@@ -30,7 +33,7 @@ func NewState(factory coredatabase.TxnRunnerFactory) *State {
 func (s *State) GetMetadata(ctx context.Context, path string) (objectstore.Metadata, error) {
 	db, err := s.DB()
 	if err != nil {
-		return objectstore.Metadata{}, err
+		return objectstore.Metadata{}, errors.Trace(err)
 	}
 
 	query := `
@@ -45,7 +48,7 @@ WHERE path = ?`
 		return row.Scan(&metadata.Path, &metadata.UUID, &metadata.Size, &metadata.Hash)
 	})
 	if err != nil {
-		return objectstore.Metadata{}, fmt.Errorf("retrieving metadata %s: %w", path, err)
+		return objectstore.Metadata{}, errors.Annotatef(domain.CoerceError(err), "retrieving metadata %s", path)
 	}
 	return metadata, nil
 }
@@ -90,7 +93,7 @@ LEFT JOIN object_store_metadata m ON p.metadata_uuid = m.uuid`
 func (s *State) PutMetadata(ctx context.Context, metadata objectstore.Metadata) error {
 	db, err := s.DB()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	matadataQuery := `
@@ -105,11 +108,11 @@ SELECT uuid FROM object_store_metadata WHERE hash = ? AND size = ?`
 	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		result, err := tx.ExecContext(ctx, matadataQuery, metadata.UUID, 1, metadata.Hash, metadata.Size)
 		if err != nil {
-			return fmt.Errorf("inserting metadata: %w", err)
+			return errors.Annotatef(err, "inserting metadata")
 		}
 
 		if rows, err := result.RowsAffected(); err != nil {
-			return fmt.Errorf("inserting metadata: %w", err)
+			return errors.Annotatef(err, "inserting metadata")
 		} else if rows != 1 {
 			// If the rows affected is 0, then the metadata already exists.
 			// We need to get the uuid for the metadata, so that we can insert
@@ -117,25 +120,28 @@ SELECT uuid FROM object_store_metadata WHERE hash = ? AND size = ?`
 			row := tx.QueryRowContext(ctx, metadataLookupQuery, metadata.Hash, metadata.Size)
 			if err := row.Scan(&metadata.UUID); err != nil {
 				if errors.Is(err, sql.ErrNoRows) {
-					return objectstore.ErrHashAndSizeAlreadyExists
+					return objectstoreerrors.ErrHashAndSizeAlreadyExists
 				}
-				return fmt.Errorf("inserting metadata: %w", err)
+				return errors.Annotatef(err, "inserting metadata")
 			}
 		}
 
 		result, err = tx.ExecContext(ctx, pathQuery, metadata.Path, metadata.UUID)
 		if err != nil {
-			return fmt.Errorf("inserting metadata path: %w", err)
+			return errors.Annotatef(err, "inserting metadata path")
 		}
 		if rows, err := result.RowsAffected(); err != nil {
-			return fmt.Errorf("inserting metadata path: %w", err)
+			return errors.Annotatef(err, "inserting metadata path")
 		} else if rows != 1 {
 			return fmt.Errorf("metadata path not inserted")
 		}
 		return nil
 	})
 	if err != nil {
-		return fmt.Errorf("adding path %s: %w", metadata.Path, err)
+		if database.IsErrConstraintPrimaryKey(err) {
+			return objectstoreerrors.ErrHashAlreadyExists
+		}
+		return errors.Annotatef(domain.CoerceError(err), "adding path %s", metadata.Path)
 	}
 	return nil
 }
@@ -144,7 +150,7 @@ SELECT uuid FROM object_store_metadata WHERE hash = ? AND size = ?`
 func (s *State) RemoveMetadata(ctx context.Context, path string) error {
 	db, err := s.DB()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	metadataUUIDQuery := `SELECT metadata_uuid FROM object_store_metadata_path WHERE path = ?`
 	pathQuery := `DELETE FROM object_store_metadata_path WHERE path = ?`
@@ -170,7 +176,7 @@ func (s *State) RemoveMetadata(ctx context.Context, path string) error {
 		return nil
 	})
 	if err != nil {
-		return fmt.Errorf("removing path %s: %w", path, err)
+		return errors.Annotatef(domain.CoerceError(err), "removing path %s", path)
 	}
 	return nil
 }

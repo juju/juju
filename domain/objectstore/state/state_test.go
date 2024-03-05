@@ -12,8 +12,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/domain/objectstore"
+	objectstoreerrors "github.com/juju/juju/domain/objectstore/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
-	"github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -81,7 +81,7 @@ func (s *stateSuite) TestPutMetadataConflict(c *gc.C) {
 
 	err = st.PutMetadata(context.Background(), metadata)
 	c.Assert(err, gc.Not(jc.ErrorIsNil))
-	c.Assert(database.IsErrConstraintPrimaryKey(err), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, objectstoreerrors.ErrHashAlreadyExists)
 }
 
 func (s *stateSuite) TestPutMetadataWithSameHashAndSize(c *gc.C) {
@@ -131,7 +131,7 @@ func (s *stateSuite) TestPutMetadataWithSameHashDifferentSize(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = st.PutMetadata(context.Background(), metadata2)
-	c.Assert(err, jc.ErrorIs, objectstore.ErrHashAndSizeAlreadyExists)
+	c.Assert(err, jc.ErrorIs, objectstoreerrors.ErrHashAndSizeAlreadyExists)
 }
 
 func (s *stateSuite) TestPutMetadataMultipleTimes(c *gc.C) {
@@ -270,4 +270,24 @@ func (s *stateSuite) TestRemoveMetadataThenAddAgain(c *gc.C) {
 	received, err := st.GetMetadata(context.Background(), metadata.Path)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(received, gc.DeepEquals, metadata)
+}
+
+func (s *stateSuite) TestListMetadata(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	metadata := objectstore.Metadata{
+		UUID: uuid.MustNewUUID().String(),
+		Hash: "hash",
+		Path: "blah-foo-1",
+		Size: 666,
+	}
+
+	err := st.PutMetadata(context.Background(), metadata)
+	c.Assert(err, jc.ErrorIsNil)
+
+	metadatas, err := st.ListMetadata(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(metadatas, gc.HasLen, 1)
+
+	c.Assert(metadatas[0], gc.DeepEquals, metadata)
 }

@@ -12,6 +12,8 @@ import (
 	"gopkg.in/tomb.v2"
 
 	coreagent "github.com/juju/juju/agent"
+	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/mongo"
 	controllermsg "github.com/juju/juju/internal/pubsub/controller"
 	jworker "github.com/juju/juju/internal/worker"
@@ -31,6 +33,7 @@ type WorkerConfig struct {
 	OpenTelemetryInsecure    bool
 	OpenTelemetryStackTraces bool
 	OpenTelemetrySampleRatio float64
+	ObjectStoreType          objectstore.BackendType
 	Logger                   Logger
 }
 
@@ -61,6 +64,7 @@ type agentConfigUpdater struct {
 	openTelemetryInsecure    bool
 	openTelemetryStackTraces bool
 	openTelemetrySampleRatio float64
+	objectStoreType          objectstore.BackendType
 }
 
 // NewWorker creates a new agent config updater worker.
@@ -81,6 +85,7 @@ func NewWorker(config WorkerConfig) (worker.Worker, error) {
 		openTelemetryInsecure:    config.OpenTelemetryInsecure,
 		openTelemetryStackTraces: config.OpenTelemetryStackTraces,
 		openTelemetrySampleRatio: config.OpenTelemetrySampleRatio,
+		objectStoreType:          config.ObjectStoreType,
 	}
 	w.tomb.Go(func() error {
 		return w.loop(started)
@@ -141,6 +146,9 @@ func (w *agentConfigUpdater) onConfigChanged(topic string, data controllermsg.Co
 	openTelemetrySampleRatio := data.Config.OpenTelemetrySampleRatio()
 	openTelemetrySampleRatioChanged := openTelemetrySampleRatio != w.openTelemetrySampleRatio
 
+	objectStoreType := data.Config.ObjectStoreType()
+	objectStoreTypeChanged := objectStoreType != w.objectStoreType
+
 	changeDetected := mongoProfileChanged ||
 		jujuDBSnapChannelChanged ||
 		queryTracingEnabledChanged ||
@@ -149,7 +157,10 @@ func (w *agentConfigUpdater) onConfigChanged(topic string, data controllermsg.Co
 		openTelemetryEndpointChanged ||
 		openTelemetryInsecureChanged ||
 		openTelemetryStackTracesChanged ||
-		openTelemetrySampleRatioChanged
+		openTelemetrySampleRatioChanged ||
+		objectStoreTypeChanged
+
+	// If any changes are detected, we need to update the agent config.
 	if !changeDetected {
 		// Nothing to do, all good.
 		return
@@ -192,11 +203,23 @@ func (w *agentConfigUpdater) onConfigChanged(topic string, data controllermsg.Co
 			w.config.Logger.Debugf("setting agent config open telemetry sample ratio: %v => %v", w.openTelemetrySampleRatio, openTelemetrySampleRatio)
 			setter.SetOpenTelemetrySampleRatio(openTelemetrySampleRatio)
 		}
+		if objectStoreTypeChanged {
+			w.config.Logger.Debugf("setting agent config object store type: %v => %v", w.objectStoreType, objectStoreType)
+			setter.SetObjectStoreType(objectStoreType)
+		}
 		return nil
 	})
 	if err != nil {
 		w.tomb.Kill(errors.Annotate(err, "failed to update agent config"))
 		return
+	}
+
+	// If the object store type is set to "s3" then state that the associated
+	// config also needs to be set.
+	if objectStoreType == objectstore.S3Backend {
+		if err := controller.HasCompleteS3ControllerConfig(data.Config); err != nil {
+			w.config.Logger.Warningf("object store type is set to s3 but config not set: %v", err)
+		}
 	}
 
 	w.tomb.Kill(jworker.ErrRestartAgent)

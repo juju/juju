@@ -15,8 +15,6 @@ import (
 type BackendType string
 
 const (
-	// StateBackend is the backend type for the state object store.
-	StateBackend BackendType = "state"
 	// FileBackend is the backend type for the file object store.
 	FileBackend BackendType = "file"
 	// S3Backend is the backend type for the s3 object store.
@@ -30,8 +28,6 @@ func (b BackendType) String() string {
 // ParseObjectStoreType parses the given string into a BackendType.
 func ParseObjectStoreType(s string) (BackendType, error) {
 	switch s {
-	case string(StateBackend):
-		return StateBackend, nil
 	case string(FileBackend):
 		return FileBackend, nil
 	case string(S3Backend):

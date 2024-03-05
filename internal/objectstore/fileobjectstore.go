@@ -50,8 +50,8 @@ type fileObjectStore struct {
 
 // NewFileObjectStore returns a new object store worker based on the file
 // storage.
-func NewFileObjectStore(ctx context.Context, cfg FileObjectStoreConfig) (TrackedObjectStore, error) {
-	path := filepath.Join(cfg.RootDir, defaultFileDirectory, cfg.Namespace)
+func NewFileObjectStore(cfg FileObjectStoreConfig) (TrackedObjectStore, error) {
+	path := basePath(cfg.RootDir, cfg.Namespace)
 
 	s := &fileObjectStore{
 		baseObjectStore: baseObjectStore{
@@ -206,14 +206,14 @@ func (t *fileObjectStore) Remove(ctx context.Context, path string) error {
 func (t *fileObjectStore) loop() error {
 	// Ensure the namespace directory exists, along with the tmp directory.
 	if err := t.ensureDirectories(); err != nil {
-		return errors.Trace(err)
+		return errors.Annotatef(err, "ensuring file store directories exist")
 	}
 
 	// Remove any temporary files that may have been left behind. We don't
 	// provide continuation for these operations, so a retry will be required
 	// if the operation fails.
 	if err := t.cleanupTmpFiles(); err != nil {
-		return errors.Trace(err)
+		return errors.Annotatef(err, "cleaning up temp files")
 	}
 
 	ctx, cancel := t.scopedContext()
@@ -451,4 +451,10 @@ func (t *fileObjectStore) deleteObject(ctx context.Context, hash string) error {
 		t.logger.Errorf("failed to remove file %q: %v", filePath, err)
 	}
 	return nil
+}
+
+// basePath returns the base path for the file object store.
+// typically: /var/lib/juju/objectstore/<namespace>
+func basePath(rootDir, namespace string) string {
+	return filepath.Join(rootDir, defaultFileDirectory, namespace)
 }

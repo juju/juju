@@ -332,6 +332,8 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 		agentConfig.SetOpenTelemetryInsecure(args.ControllerConfig.OpenTelemetryInsecure())
 		agentConfig.SetOpenTelemetryStackTraces(args.ControllerConfig.OpenTelemetryStackTraces())
 		agentConfig.SetOpenTelemetrySampleRatio(args.ControllerConfig.OpenTelemetrySampleRatio())
+		agentConfig.SetObjectStoreType(args.ControllerConfig.ObjectStoreType())
+
 		return nil
 	}); err != nil {
 		return fmt.Errorf("cannot write agent config: %v", err)

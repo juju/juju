@@ -117,7 +117,7 @@ var configChecker = schema.FieldMap(schema.Fields{
 	OpenTelemetryInsecure:            DefaultOpenTelemetryInsecure,
 	OpenTelemetryStackTraces:         DefaultOpenTelemetryStackTraces,
 	OpenTelemetrySampleRatio:         fmt.Sprintf("%.02f", DefaultOpenTelemetrySampleRatio),
-	ObjectStoreType:                  schema.Omit,
+	ObjectStoreType:                  DefaultObjectStoreType,
 	ObjectStoreS3Endpoint:            schema.Omit,
 	ObjectStoreS3StaticKey:           schema.Omit,
 	ObjectStoreS3StaticSecret:        schema.Omit,

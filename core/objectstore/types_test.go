@@ -21,8 +21,6 @@ func (s *objectStoreSuite) TestObjectStore(c *gc.C) {
 		value string
 		err   string
 	}{{
-		value: "state",
-	}, {
 		value: "file",
 	}, {
 		value: "s3",

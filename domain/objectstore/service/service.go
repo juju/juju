@@ -7,6 +7,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/juju/errors"
+
 	"github.com/juju/juju/core/changestream"
 	coreobjectstore "github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/watcher"
@@ -53,7 +55,7 @@ func NewService(st State) *Service {
 func (s *Service) GetMetadata(ctx context.Context, path string) (coreobjectstore.Metadata, error) {
 	metadata, err := s.st.GetMetadata(ctx, path)
 	if err != nil {
-		return coreobjectstore.Metadata{}, fmt.Errorf("retrieving metadata %s: %w", path, domain.CoerceError(err))
+		return coreobjectstore.Metadata{}, errors.Annotatef(err, "retrieving metadata %s", path)
 	}
 	return coreobjectstore.Metadata{
 		Path: metadata.Path,
@@ -93,7 +95,7 @@ func (s *Service) PutMetadata(ctx context.Context, metadata coreobjectstore.Meta
 		Size: metadata.Size,
 	})
 	if err != nil {
-		return fmt.Errorf("adding path %s: %w", metadata.Path, err)
+		return errors.Annotatef(err, "adding path %s", metadata.Path)
 	}
 	return nil
 }
@@ -102,7 +104,7 @@ func (s *Service) PutMetadata(ctx context.Context, metadata coreobjectstore.Meta
 func (s *Service) RemoveMetadata(ctx context.Context, path string) error {
 	err := s.st.RemoveMetadata(ctx, path)
 	if err != nil {
-		return fmt.Errorf("removing path %s: %w", path, err)
+		return errors.Annotatef(err, "removing path %s", path)
 	}
 	return nil
 }

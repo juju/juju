@@ -5,6 +5,7 @@ package s3client
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"time"
@@ -17,6 +18,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/aws/smithy-go"
 	"github.com/aws/smithy-go/logging"
+	transporthttp "github.com/aws/smithy-go/transport/http"
 	"github.com/juju/errors"
 )
 
@@ -124,6 +126,27 @@ func NewS3Client(endpoint string, httpClient HTTPClient, credentials Credentials
 		}),
 		logger: logger,
 	}, nil
+}
+
+// ObjectExists checks if an object exists in the object store based on the bucket
+// name and object name.
+// Returns nil if the object exists, or an error if it does not.
+func (c *S3Client) ObjectExists(ctx context.Context, bucketName, objectName string) error {
+	c.logger.Tracef("checking if bucket %s object %s exists in s3 storage", bucketName, objectName)
+
+	_, err := c.client.HeadObject(ctx,
+		&s3.HeadObjectInput{
+			Bucket: aws.String(bucketName),
+			Key:    aws.String(objectName),
+		})
+	if err != nil {
+		if err := handleError(err); err != nil {
+			return errors.Trace(err)
+		}
+		return errors.Annotatef(err, "checking if object %s exists on bucket %s using S3 client", objectName, bucketName)
+	}
+
+	return nil
 }
 
 // GetObject gets an object from the object store based on the bucket name and
@@ -280,18 +303,35 @@ func handleError(err error) error {
 		return nil
 	}
 
+	// Attempt to look up the error code and return a more specific error type.
 	var ae smithy.APIError
 	if errors.As(err, &ae) {
-		if _, ok := notFoundCodes[ae.ErrorCode()]; ok {
+		errorCode := ae.ErrorCode()
+		if _, ok := notFoundCodes[errorCode]; ok {
 			return errors.NewNotFound(err, ae.ErrorMessage())
 		}
-		if _, ok := forbiddenErrorCodes[ae.ErrorCode()]; ok {
+		if _, ok := forbiddenErrorCodes[errorCode]; ok {
 			return errors.NewForbidden(err, ae.ErrorMessage())
 		}
-		if _, ok := alreadyExistCodes[ae.ErrorCode()]; ok {
+		if _, ok := alreadyExistCodes[errorCode]; ok {
 			return errors.NewAlreadyExists(err, ae.ErrorMessage())
 		}
+	}
 
+	// If the error is a transport error, we can extract the HTTP status code
+	// and use it to determine the error type.
+	var oe *smithy.OperationError
+	if errors.As(err, &oe) {
+		var te *transporthttp.ResponseError
+		if errors.As(oe.Err, &te) {
+			statusCode := te.HTTPStatusCode()
+			if statusCode == http.StatusForbidden {
+				return errors.NewForbidden(err, fmt.Sprintf("http status %d", statusCode))
+			}
+			if statusCode == http.StatusNotFound {
+				return errors.NewNotFound(err, fmt.Sprintf("http status %d", statusCode))
+			}
+		}
 	}
 
 	return errors.Trace(err)

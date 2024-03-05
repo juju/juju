@@ -198,6 +198,20 @@ func (mr *MockSessionMockRecorder) ListObjects(arg0, arg1 any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListObjects", reflect.TypeOf((*MockSession)(nil).ListObjects), arg0, arg1)
 }
 
+// ObjectExists mocks base method.
+func (m *MockSession) ObjectExists(arg0 context.Context, arg1, arg2 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ObjectExists", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ObjectExists indicates an expected call of ObjectExists.
+func (mr *MockSessionMockRecorder) ObjectExists(arg0, arg1, arg2 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ObjectExists", reflect.TypeOf((*MockSession)(nil).ObjectExists), arg0, arg1, arg2)
+}
+
 // PutObject mocks base method.
 func (m *MockSession) PutObject(arg0 context.Context, arg1, arg2 string, arg3 io.Reader, arg4 string) error {
 	m.ctrl.T.Helper()

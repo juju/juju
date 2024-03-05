@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	corebase "github.com/juju/juju/core/base"
+	"github.com/juju/juju/core/objectstore"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charmhub"
@@ -75,6 +76,7 @@ func FakeControllerConfig() controller.Config {
 		"audit-log-max-size":        "200M",
 		"audit-log-max-backups":     5,
 		"query-tracing-threshold":   "1s",
+		"object-store-type":         objectstore.FileBackend,
 	}
 }
 

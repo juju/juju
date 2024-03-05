@@ -47,7 +47,7 @@ func (s *serviceSuite) TestGetMetadata(c *gc.C) {
 
 	p, err := NewService(s.state).GetMetadata(context.Background(), path)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(p, gc.DeepEquals, metadata)
+	c.Check(p, gc.DeepEquals, metadata)
 }
 
 func (s *serviceSuite) TestListMetadata(c *gc.C) {
@@ -87,9 +87,9 @@ func (s *serviceSuite) TestPutMetadata(c *gc.C) {
 	}
 
 	s.state.EXPECT().PutMetadata(gomock.Any(), gomock.AssignableToTypeOf(objectstore.Metadata{})).DoAndReturn(func(ctx context.Context, data objectstore.Metadata) error {
-		c.Assert(data.Path, gc.Equals, metadata.Path)
-		c.Assert(data.Size, gc.Equals, metadata.Size)
-		c.Assert(data.Hash, gc.Equals, metadata.Hash)
+		c.Check(data.Path, gc.Equals, metadata.Path)
+		c.Check(data.Size, gc.Equals, metadata.Size)
+		c.Check(data.Hash, gc.Equals, metadata.Hash)
 		return nil
 	})
 

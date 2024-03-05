@@ -4,7 +4,6 @@
 package state
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -1175,7 +1174,7 @@ func (m *Model) AllActionIDsHasActionNotifications() ([]string, error) {
 // NewObjectStore returns an in-memory object store for testing.
 func NewObjectStore(c *gc.C, namespace string) objectstore.ObjectStore {
 	// This will be removed when the worker object store is enabled by default.
-	store, err := internalobjectstore.NewFileObjectStore(context.Background(), internalobjectstore.FileObjectStoreConfig{
+	store, err := internalobjectstore.NewFileObjectStore(internalobjectstore.FileObjectStoreConfig{
 		Namespace:       namespace,
 		RootDir:         c.MkDir(),
 		MetadataService: objectstoretesting.MemoryObjectStore(),

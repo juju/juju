@@ -150,6 +150,10 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			configOpenTelemetrySampleRatio := controllerConfig.OpenTelemetrySampleRatio()
 			openTelemetrySampleRatioChanged := agentsOpenTelemetrySampleRatio != configOpenTelemetrySampleRatio
 
+			agentsObjectStoreType := currentConfig.ObjectStoreType()
+			configObjectStoreType := controllerConfig.ObjectStoreType()
+			objectStoreTypeChanged := agentsObjectStoreType != configObjectStoreType
+
 			info, err := apiState.StateServingInfo(ctx)
 			if err != nil {
 				return nil, errors.Annotate(err, "getting state serving info")
@@ -204,6 +208,10 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 					logger.Debugf("setting open telemetry sample ratio: %f => %f", agentsOpenTelemetrySampleRatio, configOpenTelemetrySampleRatio)
 					config.SetOpenTelemetrySampleRatio(configOpenTelemetrySampleRatio)
 				}
+				if objectStoreTypeChanged {
+					logger.Debugf("setting object store type: %q => %q", agentsObjectStoreType, configObjectStoreType)
+					config.SetObjectStoreType(configObjectStoreType)
+				}
 
 				return nil
 			})
@@ -239,6 +247,9 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			} else if openTelemetrySampleRatioChanged {
 				logger.Infof("restarting agent for new open telemetry sample ratio")
 				return nil, jworker.ErrRestartAgent
+			} else if objectStoreTypeChanged {
+				logger.Infof("restarting agent for new object store type")
+				return nil, jworker.ErrRestartAgent
 			}
 
 			// Only get the hub if we are a controller and we haven't updated
@@ -261,6 +272,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				OpenTelemetryInsecure:    configOpenTelemetryInsecure,
 				OpenTelemetryStackTraces: configOpenTelemetryStackTraces,
 				OpenTelemetrySampleRatio: configOpenTelemetrySampleRatio,
+				ObjectStoreType:          configObjectStoreType,
 				Logger:                   config.Logger,
 			})
 		},

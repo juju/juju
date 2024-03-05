@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/internal/mongo"
 )
@@ -315,6 +316,9 @@ type Config interface {
 	// telemetry collection.
 	OpenTelemetrySampleRatio() float64
 
+	// ObjectStoreType returns the type of object store to use.
+	ObjectStoreType() objectstore.BackendType
+
 	// DqlitePort returns the port that should be used by Dqlite. This should
 	// only be set during testing.
 	DqlitePort() (int, bool)
@@ -390,6 +394,9 @@ type configSetterOnly interface {
 	// SetOpenTelemetrySampleRatio sets the sample ratio to use for open
 	// telemetry collection.
 	SetOpenTelemetrySampleRatio(float64)
+
+	// SetObjectStoreType sets the type of object store to use.
+	SetObjectStoreType(objectstore.BackendType)
 }
 
 // LogFileName returns the filename for the Agent's log file.
@@ -472,6 +479,7 @@ type configInternal struct {
 	openTelemetryInsecure    bool
 	openTelemetryStackTraces bool
 	openTelemetrySampleRatio float64
+	objectStoreType          objectstore.BackendType
 	dqlitePort               int
 }
 
@@ -500,6 +508,7 @@ type AgentConfigParams struct {
 	OpenTelemetryInsecure    bool
 	OpenTelemetryStackTraces bool
 	OpenTelemetrySampleRatio float64
+	ObjectStoreType          objectstore.BackendType
 	DqlitePort               int
 }
 
@@ -571,6 +580,7 @@ func NewAgentConfig(configParams AgentConfigParams) (ConfigSetterWriter, error) 
 		openTelemetryInsecure:    configParams.OpenTelemetryInsecure,
 		openTelemetryStackTraces: configParams.OpenTelemetryStackTraces,
 		openTelemetrySampleRatio: configParams.OpenTelemetrySampleRatio,
+		objectStoreType:          configParams.ObjectStoreType,
 		dqlitePort:               configParams.DqlitePort,
 	}
 	if len(configParams.APIAddresses) > 0 {
@@ -962,6 +972,16 @@ func (c *configInternal) OpenTelemetrySampleRatio() float64 {
 // SetOpenTelemetryStackTraces implements configSetterOnly.
 func (c *configInternal) SetOpenTelemetrySampleRatio(v float64) {
 	c.openTelemetrySampleRatio = v
+}
+
+// ObjectStoreType implements Config.
+func (c *configInternal) ObjectStoreType() objectstore.BackendType {
+	return c.objectStoreType
+}
+
+// SetObjectStoreType implements configSetterOnly.
+func (c *configInternal) SetObjectStoreType(v objectstore.BackendType) {
+	c.objectStoreType = v
 }
 
 var validAddr = regexp.MustCompile("^.+:[0-9]+$")

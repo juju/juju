@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
@@ -784,4 +785,16 @@ func (*suite) TestSetOpenTelemetrySampleRatio(c *gc.C) {
 	conf.SetOpenTelemetrySampleRatio(.42)
 	queryTracingSampleRatio = conf.OpenTelemetrySampleRatio()
 	c.Assert(queryTracingSampleRatio, gc.Equals, .42, gc.Commentf("open telemetry sample ratio setting not updated"))
+}
+
+func (*suite) TestSetObjectStoreType(c *gc.C) {
+	conf, err := agent.NewAgentConfig(attributeParams)
+	c.Assert(err, jc.ErrorIsNil)
+
+	objectStoreType := conf.ObjectStoreType()
+	c.Assert(objectStoreType, gc.Equals, attributeParams.ObjectStoreType)
+
+	conf.SetObjectStoreType("s3")
+	objectStoreType = conf.ObjectStoreType()
+	c.Assert(objectStoreType, gc.Equals, objectstore.S3Backend, gc.Commentf("object store type setting not updated"))
 }

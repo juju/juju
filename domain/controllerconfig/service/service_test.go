@@ -68,6 +68,23 @@ func (s *serviceSuite) TestUpdateControllerValidationNoError(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *serviceSuite) TestUpdateControllerValidationWithMissingConfig(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Ensure that we error out if we've not got enough s3 config to validate
+	// the change.
+
+	cfg, coerced := makeMinimalConfig("s3")
+	_, current := makeMinimalConfig("file")
+
+	s.state.EXPECT().UpdateControllerConfig(gomock.Any(), coerced, nil, gomock.Any()).DoAndReturn(func(ctx context.Context, updateAttrs map[string]string, removeAttrs []string, validateModification ModificationValidatorFunc) error {
+		return validateModification(current)
+	})
+
+	err := NewWatchableService(s.state, s.watcherFactory).UpdateControllerConfig(context.Background(), cfg, nil)
+	c.Assert(err, gc.ErrorMatches, `.*without complete s3 config: missing S3 endpoint`)
+}
+
 func (s *serviceSuite) TestUpdateControllerValidationError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -83,6 +100,27 @@ func (s *serviceSuite) TestUpdateControllerValidationError(c *gc.C) {
 
 	err := NewWatchableService(s.state, s.watcherFactory).UpdateControllerConfig(context.Background(), cfg, nil)
 	c.Assert(err, gc.ErrorMatches, `updating controller config state: can not change "object-store-type" from "s3" to "file"`)
+}
+
+func (s *serviceSuite) TestUpdateControllerValidationIgnored(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Test that not sending anything doesn't cause the validation to error.
+
+	cfg, coerced := makeDefaultConfig("does not matter")
+	_, current := makeDefaultConfig("file")
+
+	// Remove the object-store-type from the current config, and ensure that
+	// we don't error out.
+	delete(cfg, controller.ObjectStoreType)
+	delete(coerced, controller.ObjectStoreType)
+
+	s.state.EXPECT().UpdateControllerConfig(gomock.Any(), coerced, nil, gomock.Any()).DoAndReturn(func(ctx context.Context, updateAttrs map[string]string, removeAttrs []string, validateModification ModificationValidatorFunc) error {
+		return validateModification(current)
+	})
+
+	err := NewWatchableService(s.state, s.watcherFactory).UpdateControllerConfig(context.Background(), cfg, nil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *serviceSuite) TestWatch(c *gc.C) {
@@ -108,6 +146,30 @@ func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
 }
 
 func makeDefaultConfig(objectType string) (controller.Config, map[string]string) {
+	return controller.Config{
+			controller.AuditingEnabled:           true,
+			controller.AuditLogCaptureArgs:       false,
+			controller.AuditLogMaxBackups:        10,
+			controller.PublicDNSAddress:          "controller.test.com:1234",
+			controller.APIPortOpenDelay:          "100ms",
+			controller.ObjectStoreType:           objectType,
+			controller.ObjectStoreS3Endpoint:     "https://s3bucket.com",
+			controller.ObjectStoreS3StaticKey:    "static-key",
+			controller.ObjectStoreS3StaticSecret: "static-secret",
+		}, map[string]string{
+			controller.AuditingEnabled:           "true",
+			controller.AuditLogCaptureArgs:       "false",
+			controller.AuditLogMaxBackups:        "10",
+			controller.PublicDNSAddress:          "controller.test.com:1234",
+			controller.APIPortOpenDelay:          "100ms",
+			controller.ObjectStoreType:           objectType,
+			controller.ObjectStoreS3Endpoint:     "https://s3bucket.com",
+			controller.ObjectStoreS3StaticKey:    "static-key",
+			controller.ObjectStoreS3StaticSecret: "static-secret",
+		}
+}
+
+func makeMinimalConfig(objectType string) (controller.Config, map[string]string) {
 	return controller.Config{
 			controller.AuditingEnabled:     true,
 			controller.AuditLogCaptureArgs: false,

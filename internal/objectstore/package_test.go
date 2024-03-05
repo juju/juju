@@ -9,6 +9,8 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"io"
+	"os"
+	"path/filepath"
 	"strings"
 	stdtesting "testing"
 	"time"
@@ -20,7 +22,7 @@ import (
 	gc "gopkg.in/check.v1"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -package objectstore -destination state_mock_test.go github.com/juju/juju/internal/objectstore Claimer,ClaimExtender
+//go:generate go run go.uber.org/mock/mockgen -package objectstore -destination state_mock_test.go github.com/juju/juju/internal/objectstore Claimer,ClaimExtender,HashFileSystemAccessor
 //go:generate go run go.uber.org/mock/mockgen -package objectstore -destination objectstore_mock_test.go github.com/juju/juju/core/objectstore ObjectStoreMetadata,Session
 //go:generate go run go.uber.org/mock/mockgen -package objectstore -destination clock_mock_test.go github.com/juju/clock Clock
 
@@ -78,4 +80,36 @@ func (s *baseSuite) calculateBase64Hash(c *gc.C, contents string) string {
 	_, err := io.Copy(hasher, strings.NewReader(contents))
 	c.Assert(err, jc.ErrorIsNil)
 	return base64.StdEncoding.EncodeToString(hasher.Sum(nil))
+}
+
+func (s *baseSuite) createFile(c *gc.C, path, name, contents string) (int64, string) {
+	// Ensure the directory exists.
+	err := os.MkdirAll(path, 0755)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Create a file in a temporary directory.
+	dir := c.MkDir()
+
+	f, err := os.Create(filepath.Join(dir, name))
+	c.Assert(err, jc.ErrorIsNil)
+	defer f.Close()
+
+	// Create a hash of the contents when writing the file. The hash will
+	// be used as the file name on disk.
+	hasher := sha512.New384()
+	size, err := io.Copy(f, io.TeeReader(strings.NewReader(contents), hasher))
+	c.Assert(err, jc.ErrorIsNil)
+
+	info, err := f.Stat()
+	c.Assert(err, jc.ErrorIsNil)
+
+	if info.Size() != size {
+		c.Fatalf("file size %d does not match expected size %d", info.Size(), size)
+	}
+
+	hash := hex.EncodeToString(hasher.Sum(nil))
+	err = os.Rename(filepath.Join(dir, name), filepath.Join(path, hash))
+	c.Assert(err, jc.ErrorIsNil)
+
+	return info.Size(), hash
 }

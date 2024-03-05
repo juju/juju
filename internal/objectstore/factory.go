@@ -11,6 +11,7 @@ import (
 	"github.com/juju/loggo/v2"
 	"github.com/juju/worker/v4"
 
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/objectstore"
 )
 
@@ -90,6 +91,13 @@ func WithClock(clock clock.Clock) Option {
 	}
 }
 
+// WithAllowDraining is the option to set the allow draining to use.
+func WithAllowDraining(allowDraining bool) Option {
+	return func(o *options) {
+		o.allowDraining = allowDraining
+	}
+}
+
 type options struct {
 	rootDir         string
 	rootBucket      string
@@ -98,6 +106,7 @@ type options struct {
 	claimer         Claimer
 	logger          Logger
 	clock           clock.Clock
+	allowDraining   bool
 }
 
 func newOptions() *options {
@@ -118,9 +127,10 @@ func ObjectStoreFactory(ctx context.Context, backendType objectstore.BackendType
 	for _, option := range options {
 		option(opts)
 	}
+
 	switch backendType {
 	case objectstore.FileBackend:
-		return NewFileObjectStore(ctx, FileObjectStoreConfig{
+		return NewFileObjectStore(FileObjectStoreConfig{
 			Namespace:       namespace,
 			RootDir:         opts.rootDir,
 			MetadataService: opts.metadataService.ObjectStore(),
@@ -129,7 +139,7 @@ func ObjectStoreFactory(ctx context.Context, backendType objectstore.BackendType
 			Clock:           opts.clock,
 		})
 	case objectstore.S3Backend:
-		return NewS3ObjectStore(ctx, S3ObjectStoreConfig{
+		return NewS3ObjectStore(S3ObjectStoreConfig{
 			RootBucket:      opts.rootBucket,
 			Namespace:       namespace,
 			RootDir:         opts.rootDir,
@@ -138,6 +148,9 @@ func ObjectStoreFactory(ctx context.Context, backendType objectstore.BackendType
 			Claimer:         opts.claimer,
 			Logger:          opts.logger,
 			Clock:           opts.clock,
+			AllowDraining:   opts.allowDraining,
+
+			HashFileSystemAccessor: newHashFileSystemAccessor(namespace, opts.rootDir, opts.logger),
 		})
 	default:
 		return nil, errors.NotValidf("backend type %q", backendType)
@@ -156,5 +169,5 @@ func BackendTypeOrDefault(objectStoreType objectstore.BackendType) objectstore.B
 // DefaultBackendType returns the default backend type for the given object
 // store type or falls back to the default backend type.
 func DefaultBackendType() objectstore.BackendType {
-	return objectstore.FileBackend
+	return controller.DefaultObjectStoreType
 }

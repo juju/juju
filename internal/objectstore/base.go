@@ -231,8 +231,10 @@ func (w *baseObjectStore) cleanupTmpFiles() error {
 			continue
 		}
 
-		if err := os.Remove(filepath.Join(tmpPath, entry.Name())); err != nil {
-			return errors.Trace(err)
+		file := filepath.Join(tmpPath, entry.Name())
+		if err := os.Remove(file); err != nil {
+			w.logger.Infof("failed to remove tmp file %s, will retry later", file)
+			continue
 		}
 	}
 	return nil
